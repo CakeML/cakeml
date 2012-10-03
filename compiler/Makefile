@@ -7,4 +7,4 @@ sed -i 's/(o_f)/($$o_f)/g' $@ &&\
 sed -i 's/DOMSUB/$$\\\\/g' $@ &&\
 sed -i 's/Hol \$$ Lib \$$ //g' $@ &&\
 sed -i '/(\* Syntax \*)/,/(\* Semantics \*)/d' $@ &&\
-sed -i '4 i open alistTheory CexpTypesTheory; val _ = intLib.deprecate_int();' $@
+sed -i '4 i open alistTheory state_transformerTheory CexpTypesTheory; val _ = intLib.deprecate_int();' $@

@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib EmitTeX
-open bytecode_emitTheory
+open bytecode_emitTheory extended_emitTheory basis_emitTheory
 open CexpTypesTheory CompileTheory compileTerminationTheory
 val _ = new_theory "compile_emit"
 
@@ -11,6 +11,7 @@ val _ = Parse.disable_tyabbrev_printing "envE"
 val _ = Parse.disable_tyabbrev_printing "ctenv"
 val _ = Parse.disable_tyabbrev_printing "ecs"
 val _ = Parse.disable_tyabbrev_printing "alist"
+val _ = Parse.hide "toList"
 
 val underscore_rule = Conv.CONV_RULE let
 fun foldthis (tm,(ls,n)) = let
@@ -69,7 +70,6 @@ val defs = map EmitML.DEFN
 , emit_ec_def
 , bind_fv_def
 , num_fold_def
-, e2c_ret_def
 , e2c_bump_def
 , e2c_add_def
 , calculate_ldefs_def
@@ -87,7 +87,7 @@ val defs = map EmitML.DEFN
 , fresh_var_def
 , Cpes_vars_def
 , remove_mat_vp_def
-, remove_mat_var_def
+, underscore_rule remove_mat_var_def
 , underscore_rule exp_to_Cexp_def
 , compile_Cexp_def
 , repl_exp_def
@@ -110,7 +110,7 @@ Cases_on `n` THEN SRW_TAC[][] THEN
 Cases_on `n'` THEN SRW_TAC[][])
 
 val _ = EmitML.eSML "compile" (
-  (EmitML.OPEN ["num","fmap","set","sum","bytecode"])
+  (EmitML.OPEN ["num","fmap","set","sum","bytecode","state_transformer"])
 ::(EmitML.MLSIG "type num = numML.num")
 ::(EmitML.MLSIG "type int = intML.int")
 ::(EmitML.MLSTRUCT "type int = intML.int")

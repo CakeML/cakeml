@@ -133,17 +133,17 @@ val _ = export_rewrites["remove_mat_vp_def"]
 
 val _ = register "remove_mat_var" (
   tprove_no_defn ((remove_mat_var_def,remove_mat_var_ind),
-  WF_REL_TAC `measure (LENGTH o SND o SND)` >> rw[]))
+  WF_REL_TAC `measure (LENGTH o FST o SND)` >> rw[]))
 
 val Cpes_vars_def = save_thm("Cpes_vars_def",Cpes_vars_def)
 
 val (exp_to_Cexp_def,exp_to_Cexp_ind) = register "exp_to_Cexp" (
   tprove_no_defn ((exp_to_Cexp_def,exp_to_Cexp_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
-    | INL (_,e) => exp_size e
-    | INR (INL (_,defs)) => exp1_size defs
-    | INR (INR (INL (_,pes))) => exp4_size pes
-    | INR (INR (INR (_,es))) => exp6_size es)`))
+    | INL (e,_) => exp_size e
+    | INR (INL (defs,_)) => exp1_size defs
+    | INR (INR (INL (pes,_))) => exp4_size pes
+    | INR (INR (INR (es,_))) => exp6_size es)`))
 
 (*
 val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
@@ -156,11 +156,9 @@ val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
 
 val pat_to_Cpat_def = save_thm("pat_to_Cpat_def",pat_to_Cpat_def)
 
-val _ = save_thm("e2c_ret_def",e2c_ret_def)
 val _ = save_thm("e2c_bump_def",e2c_bump_def)
 val _ = save_thm("e2c_add_def",e2c_add_def)
 val _ = save_thm("mk_e2c_state_def",mk_e2c_state_def)
-val _ = export_rewrites["e2c_ret_def"]
 
 val _ = register "calculate_ldefs" (
   tprove_no_defn ((calculate_ldefs_def, calculate_ldefs_ind),

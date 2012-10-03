@@ -44,8 +44,9 @@ val domsub : forall 'a 'b. Pmap.map 'a 'b -> 'a -> Pmap.map 'a 'b
 let inline {hol} domsub = Hol.DOMSUB
 val genlist : forall 'a. (num -> 'a) -> num -> list 'a
 let inline {hol} genlist = Hol.GENLIST
-
 open MiniML
+val return : forall 'a 'b. 'a -> 'b -> 'a * 'b
+let inline {hol} return = Hol.UNIT
 
 (* TODO: Misc. helpers *)
 
@@ -502,60 +503,57 @@ type e2c_state =
    ; e2c_cmap : Pmap.map conN num
    |>
 
-
-let rec e2c_ret s c = (s,c)
 let rec e2c_bump s =
-  (<| s with e2c_next_label = s.e2c_next_label + 1 |>, s.e2c_next_label)
-let rec e2c_add s l b =
-  <| s with e2c_code_env = Pmap.add l b s.e2c_code_env |>
+  (s.e2c_next_label, <| s with e2c_next_label = s.e2c_next_label + 1 |>)
+let rec e2c_add l b s =
+  ((), <| s with e2c_code_env = Pmap.add l b s.e2c_code_env |>)
 
 let rec
-remove_mat_var s v [] = e2c_ret s ( CRaise Bind_error )
+remove_mat_var v [] s = return (CRaise Bind_error) s
 and
-remove_mat_var s v ((p,sk)::pes) =
+remove_mat_var v ((p,sk)::pes) s =
   let fk = fresh_var ({v} union (free_vars Pmap.empty sk) union (Cpat_vars p)) in
-  let (s,n) = e2c_bump s in
-  let (s,pes) = remove_mat_var s v pes in
-  let s = e2c_add s n pes in
-  e2c_ret s ( CLetfun false [fk] [([],n)] (remove_mat_vp fk sk v p) )
+  let (n,s) = e2c_bump s in
+  let (pes,s) = remove_mat_var v pes s in
+  let (_u,s) = e2c_add n pes s in
+  return (CLetfun false [fk] [([],n)] (remove_mat_vp fk sk v p)) s
 
 let Cpes_vars =
   List.fold_left (fun s (p,e) -> s union Cpat_vars p union free_vars Pmap.empty e) {}
 
 let rec
-exp_to_Cexp s (Raise err) = e2c_ret s (CRaise err)
+exp_to_Cexp (Raise err) s = return (CRaise err) s
 and
-exp_to_Cexp s (Lit l) = e2c_ret s (CLit l)
+exp_to_Cexp (Lit l) s = return (CLit l) s
 and
-exp_to_Cexp s (Con cn es) =
-  let (s,es) = exps_to_Cexps s es in
-  e2c_ret s (CCon (Pmap.find cn s.e2c_cmap) es)
+exp_to_Cexp (Con cn es) s =
+  let (es,s) = exps_to_Cexps es s in
+  return (CCon (Pmap.find cn s.e2c_cmap) es) s
 and
-exp_to_Cexp s (Var vn) = e2c_ret s (CVar vn)
+exp_to_Cexp (Var vn) s = return (CVar vn) s
 and
-exp_to_Cexp s (Fun vn e) =
-  let (s,n) = e2c_bump s in
-  let (s,e) = exp_to_Cexp s e in
-  let s = e2c_add s n e in
-  e2c_ret s (CFun [vn] n)
+exp_to_Cexp (Fun vn e) s =
+  let (n,s) = e2c_bump s in
+  let (e,s) = exp_to_Cexp e s in
+  let (_u,s) = e2c_add n e s in
+  return (CFun [vn] n) s
 and
-exp_to_Cexp s (App (Opn opn) e1 e2) =
-  let (s,Ce1) = exp_to_Cexp s e1 in
-  let (s,Ce2) = exp_to_Cexp s e2 in
-  e2c_ret s (
-  CPrim2 (match opn with
+exp_to_Cexp (App (Opn opn) e1 e2) s =
+  let (Ce1,s) = exp_to_Cexp e1 s in
+  let (Ce2,s) = exp_to_Cexp e2 s in
+  return (CPrim2 (match opn with
           | Plus   -> CAdd
           | Minus  -> CSub
           | Times  -> CMul
           | Divide -> CDiv
           | Modulo -> CMod
           end)
-  Ce1 Ce2 )
+  Ce1 Ce2) s
 and
-exp_to_Cexp s (App (Opb opb) e1 e2) =
-  let (s,Ce1) = exp_to_Cexp s e1 in
-  let (s,Ce2) = exp_to_Cexp s e2 in
-  e2c_ret s ( match opb with
+exp_to_Cexp (App (Opb opb) e1 e2) s =
+  let (Ce1,s) = exp_to_Cexp e1 s in
+  let (Ce2,s) = exp_to_Cexp e2 s in
+  return (match opb with
   | Lt -> CPrim2 CLt Ce1 Ce2
   | Leq -> CPrim2 CLt (CPrim2 CSub Ce1 Ce2) (CLit (IntLit i1))
   | opb ->
@@ -566,72 +564,72 @@ exp_to_Cexp s (App (Opb opb) e1 e2) =
         | Gt ->  CPrim2 CLt (CVar x2) (CVar x1)
         | Geq -> CPrim2 CLt (CPrim2 CSub (CVar x2) (CVar x1)) (CLit (IntLit i1))
         end
-  end )
+  end) s
 and
-exp_to_Cexp s (App Equality e1 e2) =
-  let (s,Ce1) = exp_to_Cexp s e1 in
-  let (s,Ce2) = exp_to_Cexp s e2 in
-  e2c_ret s ( CPrim2 CEq Ce1 Ce2 )
+exp_to_Cexp (App Equality e1 e2) s =
+  let (Ce1,s) = exp_to_Cexp e1 s in
+  let (Ce2,s) = exp_to_Cexp e2 s in
+  return (CPrim2 CEq Ce1 Ce2) s
 and
-exp_to_Cexp s (App Opapp e1 e2) =
-  let (s,Ce1) = exp_to_Cexp s e1 in
-  let (s,Ce2) = exp_to_Cexp s e2 in
-  e2c_ret s ( CCall Ce1 [Ce2] )
+exp_to_Cexp (App Opapp e1 e2) s =
+  let (Ce1,s) = exp_to_Cexp e1 s in
+  let (Ce2,s) = exp_to_Cexp e2 s in
+  return (CCall Ce1 [Ce2]) s
 and
-exp_to_Cexp s (Log log e1 e2) =
-  let (s,Ce1) = exp_to_Cexp s e1 in
-  let (s,Ce2) = exp_to_Cexp s e2 in
-  e2c_ret s (match log with
+exp_to_Cexp (Log log e1 e2) s =
+  let (Ce1,s) = exp_to_Cexp e1 s in
+  let (Ce2,s) = exp_to_Cexp e2 s in
+  return (match log with
    | And -> CIf Ce1 Ce2 (CLit (Bool false))
    | Or  -> CIf Ce1 (CLit (Bool true)) Ce2
-   end)
+   end) s
 and
-exp_to_Cexp s (If e1 e2 e3) =
-  let (s,Ce1) = exp_to_Cexp s e1 in
-  let (s,Ce2) = exp_to_Cexp s e2 in
-  let (s,Ce3) = exp_to_Cexp s e3 in
-  e2c_ret s ( CIf Ce1 Ce2 Ce3 )
+exp_to_Cexp (If e1 e2 e3) s =
+  let (Ce1,s) = exp_to_Cexp e1 s in
+  let (Ce2,s) = exp_to_Cexp e2 s in
+  let (Ce3,s) = exp_to_Cexp e3 s in
+  return (CIf Ce1 Ce2 Ce3) s
 and
-exp_to_Cexp s (Mat e pes) =
-  let (s,Ce) = exp_to_Cexp s e in
-  let (s,Cpes) = pes_to_Cpes s pes in
+exp_to_Cexp (Mat e pes) s =
+  let (Ce,s) = exp_to_Cexp e s in
+  let (Cpes,s) = pes_to_Cpes pes s in
   let v = fresh_var (Cpes_vars Cpes) in
-  let (s,Cpes) = remove_mat_var s v Cpes in
-  e2c_ret s ( CLet [v] [Ce] Cpes )
+  let (Cpes,s) = remove_mat_var v Cpes s in
+  return (CLet [v] [Ce] Cpes) s
 and
-exp_to_Cexp s (Let vn e b) =
-  let (s,Ce) = exp_to_Cexp s e in
-  let (s,Cb) = exp_to_Cexp s b in
-  e2c_ret s ( CLet [vn] [Ce] Cb )
+exp_to_Cexp (Let vn e b) s =
+  let (Ce,s) = exp_to_Cexp e s in
+  let (Cb,s) = exp_to_Cexp b s in
+  return (CLet [vn] [Ce] Cb) s
 and
-exp_to_Cexp s (Letrec defs b) =
-  let (s,fns,Cdefs) = defs_to_Cdefs s defs in
-  let (s,Cb) = exp_to_Cexp s b in
-  e2c_ret s ( CLetfun true fns Cdefs Cb )
+exp_to_Cexp (Letrec defs b) s =
+  let ((fns,Cdefs),s) = defs_to_Cdefs defs s in
+  let (Cb,s) = exp_to_Cexp b s in
+  return (CLetfun true fns Cdefs Cb) s
 and
-defs_to_Cdefs s [] = (s,[],[])
+defs_to_Cdefs [] s = return ([],[]) s
 and
-defs_to_Cdefs s ((d,vn,e)::defs) =
-  let (s,n) = e2c_bump s in
-  let (s,Ce) = exp_to_Cexp s e in
-  let s = e2c_add s n Ce in
-  let (s,fns,Cdefs) = defs_to_Cdefs s defs in
-  (s,d::fns,([vn],n)::Cdefs)
+defs_to_Cdefs ((d,vn,e)::defs) s =
+  let (n,s) = e2c_bump s in
+  let (Ce,s) = exp_to_Cexp e s in
+  let (_u,s) = e2c_add n Ce s in
+  let ((fns,Cdefs),s) = defs_to_Cdefs defs s in
+  return (d::fns,([vn],n)::Cdefs) s
 and
-pes_to_Cpes s [] = (s,[])
+pes_to_Cpes [] s = return [] s
 and
-pes_to_Cpes s ((p,e)::pes) =
+pes_to_Cpes ((p,e)::pes) s =
   let (_pvs,Cp) = pat_to_Cpat s.e2c_cmap [] p in
-  let (s,Ce) = exp_to_Cexp s e in
-  let (s,Cpes) = pes_to_Cpes s pes in
-  (s,(Cp,Ce)::Cpes)
+  let (Ce,s) = exp_to_Cexp e s in
+  let (Cpes,s) = pes_to_Cpes pes s in
+  return ((Cp,Ce)::Cpes) s
 and
-exps_to_Cexps s [] = (s,[])
+exps_to_Cexps [] s = return [] s
 and
-exps_to_Cexps s (e::es) =
-  let (s,e) = exp_to_Cexp s e in
-  let (s,es) = exps_to_Cexps s es in
-  (s,e::es)
+exps_to_Cexps (e::es) s =
+  let (e,s) = exp_to_Cexp e s in
+  let (es,s) = exps_to_Cexps es s in
+  return (e::es) s
 
 (* extract syntactic defs, to assist code_env construction *)
 
@@ -1176,7 +1174,7 @@ repl_dec rs (Dtype ((a,ty,cs)::ts)) =
 and
 repl_dec rs (Dletrec defs) =
   let s = mk_e2c_state rs in
-  let (s,fns,Cdefs) = defs_to_Cdefs s defs in
+  let ((fns,Cdefs),s) = defs_to_Cdefs defs s in
   let decl = Some(rs.renv,rs.rsz) in
   compile_Cexp rs decl s (CLetfun true fns Cdefs (CDecl fns))
 and
@@ -1185,14 +1183,14 @@ repl_dec rs (Dlet p e) =
   let Cpes = [(Cp,CDecl pvs)] in
   let vn = fresh_var (Cpes_vars Cpes) in
   let s = mk_e2c_state rs in
-  let (s,Ce) = exp_to_Cexp s e in
-  let (s,Cpes) = remove_mat_var s vn Cpes in
+  let (Ce,s) = exp_to_Cexp e s in
+  let (Cpes,s) = remove_mat_var vn Cpes s in
   let decl = Some(rs.renv,rs.rsz) in
   compile_Cexp rs decl s (CLet [vn] [Ce] Cpes)
 
 let repl_exp rs exp =
   let s = mk_e2c_state rs in
-  let (s,Ce) = exp_to_Cexp s exp in
+  let (Ce,s) = exp_to_Cexp exp s in
   compile_Cexp rs None s Ce
 
 (* Correctness *)

@@ -9,3 +9,4 @@ val FLOOKUP : forall 'a 'b 'c. fmap 'a 'b -> 'a -> 'c
 val DOMSUB : forall 'a 'b. fmap 'a 'b -> 'a -> fmap 'a 'b
 val int_of_num : num -> int
 val GENLIST : forall 'a. (num -> 'a) -> num -> list 'a
+val UNIT : forall 'a 'b. 'a -> 'b -> 'a * 'b
