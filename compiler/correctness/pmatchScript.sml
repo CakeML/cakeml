@@ -1,38 +1,45 @@
-open HolKernel bossLib boolLib boolSimps listTheory pred_setTheory finite_mapTheory alistTheory lcsymtacs
+open HolKernel bossLib boolLib boolSimps pairTheory listTheory pred_setTheory finite_mapTheory alistTheory state_transformerTheory lcsymtacs
 open MiniMLTheory MiniMLTerminationTheory miscTheory miniMLExtraTheory compileTerminationTheory intLangTheory
-val _ = intLib.deprecate_int()
 val _ = new_theory "pmatch"
 val fsd = full_simp_tac std_ss
 
-(* Characterise MAP-like constants *)
+(* new misc lemmas *)
 
-val exps_to_Cexps_MAP = store_thm(
-"exps_to_Cexps_MAP",
-``∀s es. exps_to_Cexps s es = MAP (exp_to_Cexp s) es``,
-gen_tac >> Induct >> rw[exp_to_Cexp_def])
+val remove_mat_var_e2c_cmap = store_thm("remove_mat_var_e2c_cmap",
+  ``∀v pes s. (SND (remove_mat_var v pes s)).e2c_cmap = s.e2c_cmap``,
+  ho_match_mp_tac remove_mat_var_ind >>
+  rw[remove_mat_var_def,UNIT_DEF,BIND_DEF,IGNORE_BIND_DEF,UNCURRY,combinTheory.o_DEF,e2c_add_def,e2c_bump_def] >>
+  rw[])
+val _ = export_rewrites["remove_mat_var_e2c_cmap"]
 
-val pes_to_Cpes_MAP = store_thm(
-"pes_to_Cpes_MAP",
-``∀s pes. pes_to_Cpes s pes = MAP (λ(p,e). let (pvs,Cp) = pat_to_Cpat s [] p in (Cp, exp_to_Cexp s e)) pes``,
-gen_tac >> Induct >- rw[exp_to_Cexp_def] >>
-Cases >> rw[exp_to_Cexp_def])
+val exp_to_Cexp_e2c_cmap = store_thm("exp_to_Cexp_e2c_cmap",
+  ``(∀e s. (SND (exp_to_Cexp e s)).e2c_cmap = s.e2c_cmap) ∧
+    (∀defs s. (SND (defs_to_Cdefs defs s)).e2c_cmap = s.e2c_cmap) ∧
+    (∀pes v s. (SND (pes_to_Cpes pes s)).e2c_cmap = s.e2c_cmap) ∧
+    (∀es s. (SND (exps_to_Cexps es s)).e2c_cmap = s.e2c_cmap)``,
+  ho_match_mp_tac exp_to_Cexp_ind >>
+  rw[exp_to_Cexp_def,UNIT_DEF,BIND_DEF,IGNORE_BIND_DEF,UNCURRY,e2c_bump_def,e2c_add_def,combinTheory.o_DEF] >>
+  rw[] >>
+  METIS_TAC[])
+val _ = export_rewrites["exp_to_Cexp_e2c_cmap"]
 
-val defs_to_Cdefs_MAP = store_thm(
-"defs_to_Cdefs_MAP",
-``∀s defs. defs_to_Cdefs s defs = (MAP FST defs, MAP (λ(d,vn,e). ([vn],INL (exp_to_Cexp s e))) defs)``,
-gen_tac >> Induct >- rw[exp_to_Cexp_def] >>
-qx_gen_tac `d` >> PairCases_on `d` >> rw[exp_to_Cexp_def])
+val v_to_Cv_e2c_cmap = store_thm("v_to_Cv_e2c_cmap",
+  ``(∀v s. (SND (v_to_Cv v s)).e2c_cmap = s.e2c_cmap) ∧
+    (∀vs s. (SND (vs_to_Cvs vs s)).e2c_cmap = s.e2c_cmap) ∧
+    (∀env s. (SND (env_to_Cenv env s)).e2c_cmap = s.e2c_cmap)``,
+  ho_match_mp_tac v_to_Cv_ind >>
+  rw[v_to_Cv_def,UNIT_DEF,BIND_DEF,IGNORE_BIND_DEF,UNCURRY,e2c_add_def,e2c_bump_def] >>
+  rw[])
+val _ = export_rewrites["v_to_Cv_e2c_cmap"]
 
-val vs_to_Cvs_MAP = store_thm(
-"vs_to_Cvs_MAP",
-``∀s vs. vs_to_Cvs s vs = MAP (v_to_Cv s) vs``,
-gen_tac >> Induct >> rw[v_to_Cv_def])
+(* v_to_Cv MAP lemmas *)
 
-val env_to_Cenv_MAP = store_thm(
-"env_to_Cenv_MAP",
-``∀s env. env_to_Cenv s env = MAP (λ(x,v). (x, v_to_Cv s v)) env``,
-gen_tac >> Induct >- rw[exp_to_Cexp_def,v_to_Cv_def] >>
-Cases >> rw[exp_to_Cexp_def,v_to_Cv_def])
+val env_to_Cenv_MAP = store_thm("env_to_Cenv_MAP",
+  ``env_to_Cenv = mapM (λ(x,v). BIND (v_to_Cv v) (λCv. UNIT (x,Cv)))``,
+  fs[Once FUN_EQ_THM] >>
+  Induct >- rw[v_to_Cv_def] >>
+  Cases >> rw[v_to_Cv_def] >>
+  rw[mapM_cons,GSYM BIND_ASSOC,BIND_LEFT_UNIT])
 
 (* fresh_var lemmas *)
 
@@ -67,12 +74,12 @@ PROVE_TAC[fresh_var_not_in,SUBSET_DEF,FINITE_has_fresh_string])
 
 val free_vars_remove_mat_vp = store_thm(
 "free_vars_remove_mat_vp",
-``(∀p fk sk v.
-    (free_vars FEMPTY (remove_mat_vp fk sk v p) DIFF {v;fk} =
-     free_vars FEMPTY sk DIFF Cpat_vars p DIFF {v;fk})) ∧
-  (∀ps fk sk v n.
-   (free_vars FEMPTY (remove_mat_con fk sk v n ps) DIFF {v;fk} =
-    free_vars FEMPTY sk DIFF BIGUNION (IMAGE Cpat_vars (set ps)) DIFF {v;fk}))``,
+``(∀p c fk sk v.
+    (free_vars c (remove_mat_vp c fk sk v p) DIFF {v;fk} =
+     free_vars c sk DIFF Cpat_vars p DIFF {v;fk})) ∧
+  (∀ps c fk sk v n.
+   (free_vars c (remove_mat_con c fk sk v n ps) DIFF {v;fk} =
+    free_vars c sk DIFF BIGUNION (IMAGE Cpat_vars (set ps)) DIFF {v;fk}))``,
 ho_match_mp_tac (TypeBase.induction_of(``:Cpat``)) >>
 strip_tac >- (
   rw[EXTENSION] >> PROVE_TAC[] ) >>
@@ -84,7 +91,7 @@ strip_tac >- (
 strip_tac >- (
   rw[EXTENSION] >> PROVE_TAC[] ) >>
 rw[LET_THM] >>
-qmatch_abbrev_tac `free_vars FEMPTY (remove_mat_vp fk sk0 v0 p) DIFF {v0} UNION {v} DIFF {v; fk} = vs DIFF {v; fk}` >>
+qmatch_abbrev_tac `free_vars c (remove_mat_vp c fk sk0 v0 p) DIFF {v0} UNION {v} DIFF {v; fk} = vs DIFF {v; fk}` >>
 simp_tac std_ss [Once EXTENSION] >>
 qx_gen_tac `x` >>
 fs[] >>
@@ -94,11 +101,11 @@ Cases_on `x=v0` >> fs[] >- (
   unabbrev_all_tac >>
   match_mp_tac fresh_var_not_in_any >>
   fs[SUBSET_DEF] ) >>
-qpat_assum `∀fk sk v. P = Q` (qspecl_then [`fk`,`sk0`,`v0`] mp_tac) >>
+qpat_assum `∀c fk sk v. P = Q` (qspecl_then [`c`,`fk`,`sk0`,`v0`] mp_tac) >>
 simp_tac std_ss [Once EXTENSION] >>
 disch_then (qspec_then `x` mp_tac) >>
 fs[] >> strip_tac >>
-first_x_assum (qspecl_then [`fk`,`sk`,`v`,`n+1`] mp_tac) >>
+first_x_assum (qspecl_then [`c`,`fk`,`sk`,`v`,`n+1`] mp_tac) >>
 simp_tac std_ss [Once EXTENSION] >>
 disch_then (qspec_then `x` mp_tac) >>
 fs[] >> strip_tac >>
@@ -106,10 +113,10 @@ fs[Abbr`vs`] >> PROVE_TAC[])
 
 val free_vars_remove_mat_vp_SUBSET = store_thm(
 "free_vars_remove_mat_vp_SUBSET",
-``(∀p fk sk v. free_vars FEMPTY (remove_mat_vp fk sk v p) ⊆
-  {v;fk} ∪ (free_vars FEMPTY sk DIFF Cpat_vars p)) ∧
-(∀ps fk sk v n. free_vars FEMPTY (remove_mat_con fk sk v n ps) ⊆
-  {v;fk} ∪ (free_vars FEMPTY sk DIFF BIGUNION (IMAGE Cpat_vars (set ps))))``,
+``(∀p c fk sk v. free_vars c (remove_mat_vp c fk sk v p) ⊆
+  {v;fk} ∪ (free_vars c sk DIFF Cpat_vars p)) ∧
+(∀ps c fk sk v n. free_vars c (remove_mat_con c fk sk v n ps) ⊆
+  {v;fk} ∪ (free_vars c sk DIFF BIGUNION (IMAGE Cpat_vars (set ps))))``,
 ho_match_mp_tac (TypeBase.induction_of(``:Cpat``)) >>
 strip_tac >- (
   rw[SUBSET_DEF] >> rw[] ) >>
@@ -274,20 +281,19 @@ val (Cevaluate_match_rules,Cevaluate_match_ind,Cevaluate_match_cases) = Hol_reln
 
 val pmatch_Cpmatch = store_thm("pmatch_Cpmatch",
   ``(∀cenv p v env env'. (pmatch cenv p v env = Match (env' ++ env))
-      ⇒ ∀m. Cpmatch (SND (pat_to_Cpat m [] p)) (v_to_Cv m v)
-              (alist_to_fmap (env_to_Cenv m env'))) ∧
+      ⇒ ∀s. Cpmatch (SND (pat_to_Cpat s.e2c_cmap [] p)) (FST (v_to_Cv v s))
+              (alist_to_fmap (FST (env_to_Cenv env' s)))) ∧
     (∀cenv ps vs env env'. (pmatch_list cenv ps vs env = Match (env' ++ env))
-      ⇒ ∀m. Cpmatch_list (SND (pats_to_Cpats m [] ps)) (vs_to_Cvs m vs)
-              (alist_to_fmap (env_to_Cenv m env')))``,
+      ⇒ ∀s. Cpmatch_list (SND (pats_to_Cpats s.e2c_cmap [] ps)) (FST (vs_to_Cvs vs s))
+              (alist_to_fmap (FST (env_to_Cenv env' s))))``,
   ho_match_mp_tac pmatch_ind >>
   strip_tac >- (
-    rw[pmatch_def,bind_def,
-       pat_to_Cpat_def,Once Cpmatch_cases,
-       env_to_Cenv_MAP,alist_to_fmap_MAP_values,
-       alist_to_fmap_def] >> rw[] ) >>
+    rw[pmatch_def,bind_def,pat_to_Cpat_def,Once Cpmatch_cases,env_to_Cenv_MAP] >>
+    rw[mapM_cons,BIND_LEFT_UNIT,GSYM BIND_ASSOC] >>
+    rw[BIND_DEF,UNIT_DEF,pairTheory.UNCURRY]) >>
   strip_tac >- (
     rw[pat_to_Cpat_def,Once Cpmatch_cases,v_to_Cv_def,
-       pmatch_def,env_to_Cenv_MAP] >> rw[] ) >>
+       pmatch_def,env_to_Cenv_MAP] >> rw[UNIT_DEF] ) >>
   strip_tac >- (
     fs[pmatch_def] >>
     rpt gen_tac >> strip_tac >>
@@ -301,7 +307,9 @@ val pmatch_Cpmatch = store_thm("pmatch_Cpmatch",
     pop_assum mp_tac >> rw[] >>
     rw[pat_to_Cpat_def] >> rw[v_to_Cv_def] >>
     rw[Once Cpmatch_cases] >>
-    first_x_assum (qspec_then `m` mp_tac) >> rw[] ) >>
+    first_x_assum (qspec_then `s` mp_tac) >> rw[] >>
+    rw[BIND_DEF,UNIT_DEF,pairTheory.UNCURRY]) >>
+
   strip_tac >- rw[pmatch_def] >>
   strip_tac >- rw[pmatch_def] >>
   strip_tac >- rw[pmatch_def] >>

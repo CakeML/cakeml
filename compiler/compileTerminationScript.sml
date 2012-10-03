@@ -145,14 +145,12 @@ val (exp_to_Cexp_def,exp_to_Cexp_ind) = register "exp_to_Cexp" (
     | INR (INR (INL pes)) => exp4_size pes
     | INR (INR (INR es)) => exp6_size es)`))
 
-(*
 val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
   tprove_no_defn ((v_to_Cv_def,v_to_Cv_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
-    | INL (_,v) => v_size v
-    | INR (INL (_, vs)) => v3_size vs
-    | INR (INR (_, env)) => v1_size env)`))
-*)
+    | INL v => v_size v
+    | INR (INL vs) => v3_size vs
+    | INR (INR env) => v1_size env)`))
 
 val pat_to_Cpat_def = save_thm("pat_to_Cpat_def",pat_to_Cpat_def)
 

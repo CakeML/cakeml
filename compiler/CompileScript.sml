@@ -1377,33 +1377,44 @@ val _ = Defn.save_defn bv_to_ov_defn;
 
 (* source to intermediate values *)
 
-(*
-let rec
-v_to_Cv s (Litv l) = CLitv l
-and
-v_to_Cv s (Conv cn vs) =
-  CConv (Pmap.find cn s.e2c_cmap) (vs_to_Cvs s vs)
-and
-v_to_Cv s (Closure env vn e) =
-  let Cenv = alist_to_fmap (env_to_Cenv s. env) in
-  let Ce = exp_to_Cexp m e in
-  let a = fresh_var (free_vars Pmap.empty Ce) in
-  CRecClos Cenv [a] [([vn],INL Ce)] a
-and
-v_to_Cv m (Recclosure env defs vn) =
-  let Cenv = alist_to_fmap (env_to_Cenv m env) in
-  let (fns,Cdefs) = defs_to_Cdefs m defs in
-  CRecClos Cenv fns Cdefs vn
-and
-vs_to_Cvs m [] = []
-and
-vs_to_Cvs m (v::vs) = v_to_Cv m v :: vs_to_Cvs m vs
-and
-env_to_Cenv m [] = []
-and
-env_to_Cenv m ((x,v)::env) =
-  (x, v_to_Cv m v)::(env_to_Cenv m env)
-*)
+ val v_to_Cv_defn = Hol_defn "v_to_Cv" `
+
+(v_to_Cv (Litv l) = UNIT (CLitv l))
+/\
+(v_to_Cv (Conv cn vs) = BIND
+  (vs_to_Cvs vs) (\ Cvs . BIND
+  (\ s . UNIT s.e2c_cmap s) (\ cmap . UNIT
+  (CConv (FAPPLY  cmap  cn) Cvs))))
+/\
+(v_to_Cv (Closure env vn e) = BIND
+  (env_to_Cenv env) (\ Cenv . BIND
+  (e2c_bump) (\ n . BIND
+  (exp_to_Cexp e) (\ Ce . IGNORE_BIND
+  (e2c_add n Ce) (BIND
+  (\ s . UNIT s.e2c_code_env s) (\ c .
+  let fn = fresh_var (free_vars c Ce) in UNIT
+  (CRecClos (alist_to_fmap Cenv) [fn] [([vn],n)] fn)))))))
+/\
+(v_to_Cv (Recclosure env defs fn) = BIND
+  (env_to_Cenv env) (\ Cenv . BIND
+  (defs_to_Cdefs defs) (\ (fns,Cdefs) . UNIT
+  (CRecClos (alist_to_fmap Cenv) fns Cdefs fn))))
+/\
+(vs_to_Cvs [] = UNIT [])
+/\
+(vs_to_Cvs (v::vs) = BIND
+  (v_to_Cv v) (\ Cv . BIND
+  (vs_to_Cvs vs) (\ Cvs . UNIT
+  (Cv::Cvs))))
+/\
+(env_to_Cenv [] = UNIT [])
+/\
+(env_to_Cenv ((x,v)::env) = BIND
+  (v_to_Cv v) (\ Cv . BIND
+  (env_to_Cenv env) (\ Cenv . UNIT
+  ((x,Cv)::Cenv))))`;
+
+val _ = Defn.save_defn v_to_Cv_defn;
 
 (* intermediate to target values *)
 
@@ -1485,6 +1496,38 @@ bceqv il c (CRecClos env ns defs n)
 
 
 (* relating source to intermediate language *)
+
+(*
+indreln
+forall m c l.
+true
+==>
+v_Cv m c (Litv l) (CLitv l)
+and
+forall m c cn vs Cvs.
+every2 (v_Cv m c) vs Cvs
+==>
+v_Cv m c (Conv cn vs) (CConv (Pmap.find cn m) Cvs)
+and
+forall m c env vn e fn l.
+env_Cenv m c env Cenv &&
+
+==>
+v_Cv m c (Closure env vn e) (CRecClos Cenv [fn] [([vn],l)] fn)
+and
+==>
+v_Cv m c (Recclosure env defs fn) (CRecClos Cenv fns Cdefs fn)
+and
+forall c env1 env2 ns defs d.
+List.for_all
+  (fun (xs,b) ->
+    (forall v. v IN (cbod_fvs c b \ (Set.from_list ns union
+                                     Set.from_list xs))
+      --> (optrel (syneq c)) (flookup env1 v) (flookup env2 v)))
+  defs
+==>
+v_Cv m c (CRecClos env1 ns defs d) (CRecClos env2 ns defs d)
+*)
 
 (*
 indreln
