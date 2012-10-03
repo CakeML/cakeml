@@ -39,6 +39,8 @@ open BytecodeTheory MiniMLTheory
 (*val genlist : forall 'a. (num -> 'a) -> num -> list 'a*)
 (*open MiniML*)
 (*val return : forall 'a 'b. 'a -> 'b -> 'a * 'b*)
+(*val bind : forall 'a 'b 'c. ('a -> 'b * 'a) -> ('b -> 'a -> 'c * 'a) -> 'a -> 'c * 'a*)
+(*val ubind : forall 'a 'b 'c. ('a -> 'b * 'a) -> ('a -> 'c * 'a) -> 'a -> 'c * 'a*)
 
 (* TODO: Misc. helpers *)
 
@@ -530,14 +532,14 @@ val _ = Defn.save_defn e2c_add_defn;
 
  val remove_mat_var_defn = Hol_defn "remove_mat_var" `
 
-(remove_mat_var v [] s = UNIT (CRaise Bind_error) s)
+(remove_mat_var v [] = UNIT (CRaise Bind_error))
 /\
-(remove_mat_var v ((p,sk)::pes) s =
-  let fk = fresh_var ({v} UNION (free_vars FEMPTY sk) UNION (Cpat_vars p)) in
-  let (n,s) = e2c_bump s in
-  let (pes,s) = remove_mat_var v pes s in
-  let (_u,s) = e2c_add n pes s in
-  UNIT (CLetfun F [fk] [([],n)] (remove_mat_vp fk sk v p)) s)`;
+(remove_mat_var v ((p,sk)::pes) =
+  let fk = fresh_var ({v} UNION (free_vars FEMPTY sk) UNION (Cpat_vars p)) in BIND
+  (e2c_bump) (\ n . BIND
+  (remove_mat_var v pes) (\ pes . IGNORE_BIND
+  (e2c_add n pes)
+  (UNIT (CLetfun F [fk] [([],n)] (remove_mat_vp fk sk v p))))))`;
 
 val _ = Defn.save_defn remove_mat_var_defn;
 
@@ -548,114 +550,117 @@ val _ = Define `
 
  val exp_to_Cexp_defn = Hol_defn "exp_to_Cexp" `
 
-(exp_to_Cexp (Raise err) s = UNIT (CRaise err) s)
+(exp_to_Cexp (Raise err) = UNIT (CRaise err))
 /\
-(exp_to_Cexp (Lit l) s = UNIT (CLit l) s)
+(exp_to_Cexp (Lit l) = UNIT (CLit l))
 /\
-(exp_to_Cexp (Con cn es) s =
-  let (es,s) = exps_to_Cexps es s in
-  UNIT (CCon (FAPPLY  s.e2c_cmap  cn) es) s)
+(exp_to_Cexp (Con cn es) = BIND
+  (exps_to_Cexps es) (\ Ces . BIND
+  (\ s . UNIT s.e2c_cmap s) (\ cmap . UNIT
+  (CCon (FAPPLY  cmap  cn) Ces))))
 /\
-(exp_to_Cexp (Var vn) s = UNIT (CVar vn) s)
+(exp_to_Cexp (Var vn) = UNIT (CVar vn))
 /\
-(exp_to_Cexp (Fun vn e) s =
-  let (n,s) = e2c_bump s in
-  let (e,s) = exp_to_Cexp e s in
-  let (_u,s) = e2c_add n e s in
-  UNIT (CFun [vn] n) s)
+(exp_to_Cexp (Fun vn e) = BIND
+  (e2c_bump) (\ n . BIND
+  (exp_to_Cexp e) (\ e . IGNORE_BIND
+  (e2c_add n e)
+  (UNIT (CFun [vn] n)))))
 /\
-(exp_to_Cexp (App (Opn opn) e1 e2) s =
-  let (Ce1,s) = exp_to_Cexp e1 s in
-  let (Ce2,s) = exp_to_Cexp e2 s in
-  UNIT (CPrim2 ((case opn of
+(exp_to_Cexp (App (Opn opn) e1 e2) = BIND
+  (exp_to_Cexp e1) (\ Ce1 . BIND
+  (exp_to_Cexp e2) (\ Ce2 . UNIT
+  (CPrim2 ((case opn of
             Plus   => CAdd
           | Minus  => CSub
           | Times  => CMul
           | Divide => CDiv
           | Modulo => CMod
           ))
-  Ce1 Ce2) s)
+  Ce1 Ce2))))
 /\
-(exp_to_Cexp (App (Opb opb) e1 e2) s =
-  let (Ce1,s) = exp_to_Cexp e1 s in
-  let (Ce2,s) = exp_to_Cexp e2 s in
-  UNIT ((case opb of
+(exp_to_Cexp (App (Opb opb) e1 e2) = BIND
+  (exp_to_Cexp e1) (\ Ce1 . BIND
+  (exp_to_Cexp e2) (\ Ce2 . BIND
+  (\ s . UNIT s.e2c_code_env s) (\ c . UNIT
+  ((case opb of
     Lt => CPrim2 CLt Ce1 Ce2
   | Leq => CPrim2 CLt (CPrim2 CSub Ce1 Ce2) (CLit (IntLit i1))
   | opb =>
-      let x1 = fresh_var (free_vars s.e2c_code_env Ce2) in
+      let x1 = fresh_var (free_vars c Ce2) in
       let x2 = fresh_var {x1} in
       CLet [x1;x2] [Ce1;Ce2]
         (case opb of
           Gt =>  CPrim2 CLt (CVar x2) (CVar x1)
         | Geq => CPrim2 CLt (CPrim2 CSub (CVar x2) (CVar x1)) (CLit (IntLit i1))
         )
-  )) s)
+  ))))))
 /\
-(exp_to_Cexp (App Equality e1 e2) s =
-  let (Ce1,s) = exp_to_Cexp e1 s in
-  let (Ce2,s) = exp_to_Cexp e2 s in
-  UNIT (CPrim2 CEq Ce1 Ce2) s)
+(exp_to_Cexp (App Equality e1 e2) = BIND
+  (exp_to_Cexp e1) (\ Ce1 . BIND
+  (exp_to_Cexp e2) (\ Ce2 . UNIT
+  (CPrim2 CEq Ce1 Ce2))))
 /\
-(exp_to_Cexp (App Opapp e1 e2) s =
-  let (Ce1,s) = exp_to_Cexp e1 s in
-  let (Ce2,s) = exp_to_Cexp e2 s in
-  UNIT (CCall Ce1 [Ce2]) s)
+(exp_to_Cexp (App Opapp e1 e2) = BIND
+  (exp_to_Cexp e1) (\ Ce1 . BIND
+  (exp_to_Cexp e2) (\ Ce2 . UNIT
+  (CCall Ce1 [Ce2]))))
 /\
-(exp_to_Cexp (Log log e1 e2) s =
-  let (Ce1,s) = exp_to_Cexp e1 s in
-  let (Ce2,s) = exp_to_Cexp e2 s in
-  UNIT ((case log of
+(exp_to_Cexp (Log log e1 e2) = BIND
+  (exp_to_Cexp e1) (\ Ce1 . BIND
+  (exp_to_Cexp e2) (\ Ce2 . UNIT
+  ((case log of
      And => CIf Ce1 Ce2 (CLit (Bool F))
    | Or  => CIf Ce1 (CLit (Bool T)) Ce2
-   )) s)
+   )))))
 /\
-(exp_to_Cexp (If e1 e2 e3) s =
-  let (Ce1,s) = exp_to_Cexp e1 s in
-  let (Ce2,s) = exp_to_Cexp e2 s in
-  let (Ce3,s) = exp_to_Cexp e3 s in
-  UNIT (CIf Ce1 Ce2 Ce3) s)
+(exp_to_Cexp (If e1 e2 e3) = BIND
+  (exp_to_Cexp e1) (\ Ce1 . BIND
+  (exp_to_Cexp e2) (\ Ce2 . BIND
+  (exp_to_Cexp e3) (\ Ce3 . UNIT
+  (CIf Ce1 Ce2 Ce3)))))
 /\
-(exp_to_Cexp (Mat e pes) s =
-  let (Ce,s) = exp_to_Cexp e s in
-  let (Cpes,s) = pes_to_Cpes pes s in
-  let v = fresh_var (Cpes_vars Cpes) in
-  let (Cpes,s) = remove_mat_var v Cpes s in
-  UNIT (CLet [v] [Ce] Cpes) s)
+(exp_to_Cexp (Mat e pes) = BIND
+  (exp_to_Cexp e) (\ Ce . BIND
+  (pes_to_Cpes pes) (\ Cpes .
+  let v = fresh_var (Cpes_vars Cpes) in BIND
+  (remove_mat_var v Cpes) (\ Cpes . UNIT
+  (CLet [v] [Ce] Cpes)))))
 /\
-(exp_to_Cexp (Let vn e b) s =
-  let (Ce,s) = exp_to_Cexp e s in
-  let (Cb,s) = exp_to_Cexp b s in
-  UNIT (CLet [vn] [Ce] Cb) s)
+(exp_to_Cexp (Let vn e b) = BIND
+   (exp_to_Cexp e) (\ Ce . BIND
+   (exp_to_Cexp b) (\ Cb . UNIT
+   (CLet [vn] [Ce] Cb))))
 /\
-(exp_to_Cexp (Letrec defs b) s =
-  let ((fns,Cdefs),s) = defs_to_Cdefs defs s in
-  let (Cb,s) = exp_to_Cexp b s in
-  UNIT (CLetfun T fns Cdefs Cb) s)
+(exp_to_Cexp (Letrec defs b) = BIND
+  (defs_to_Cdefs defs) (\ (fns,Cdefs) . BIND
+  (exp_to_Cexp b) (\ Cb . UNIT
+  (CLetfun T fns Cdefs Cb))))
 /\
-(defs_to_Cdefs [] s = UNIT ([],[]) s)
+(defs_to_Cdefs [] = UNIT ([],[]))
 /\
-(defs_to_Cdefs ((d,vn,e)::defs) s =
-  let (n,s) = e2c_bump s in
-  let (Ce,s) = exp_to_Cexp e s in
-  let (_u,s) = e2c_add n Ce s in
-  let ((fns,Cdefs),s) = defs_to_Cdefs defs s in
-  UNIT (d::fns,([vn],n)::Cdefs) s)
+(defs_to_Cdefs ((d,vn,e)::defs) = BIND
+  (e2c_bump) (\ n . BIND
+  (exp_to_Cexp e) (\ Ce . IGNORE_BIND
+  (e2c_add n Ce) (BIND
+  (defs_to_Cdefs defs) (\ (fns,Cdefs) . UNIT
+  (d::fns,([vn],n)::Cdefs))))))
 /\
-(pes_to_Cpes [] s = UNIT [] s)
+(pes_to_Cpes [] = UNIT [])
 /\
-(pes_to_Cpes ((p,e)::pes) s =
-  let (_pvs,Cp) = pat_to_Cpat s.e2c_cmap [] p in
-  let (Ce,s) = exp_to_Cexp e s in
-  let (Cpes,s) = pes_to_Cpes pes s in
-  UNIT ((Cp,Ce)::Cpes) s)
+(pes_to_Cpes ((p,e)::pes) = BIND
+  (\ s . UNIT s.e2c_cmap s) (\ cmap .
+  let (_pvs,Cp) = pat_to_Cpat cmap [] p in BIND
+  (exp_to_Cexp e) (\ Ce . BIND
+  (pes_to_Cpes pes) (\ Cpes . UNIT
+  ((Cp,Ce)::Cpes)))))
 /\
-(exps_to_Cexps [] s = UNIT [] s)
+(exps_to_Cexps [] = UNIT [])
 /\
-(exps_to_Cexps (e::es) s =
-  let (e,s) = exp_to_Cexp e s in
-  let (es,s) = exps_to_Cexps es s in
-  UNIT (e::es) s)`;
+(exps_to_Cexps (e::es) = BIND
+  (exp_to_Cexp e) (\ e . BIND
+  (exps_to_Cexps es) (\ es . UNIT
+  (e::es))))`;
 
 val _ = Defn.save_defn exp_to_Cexp_defn;
 

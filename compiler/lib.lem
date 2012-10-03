@@ -10,3 +10,5 @@ val DOMSUB : forall 'a 'b. fmap 'a 'b -> 'a -> fmap 'a 'b
 val int_of_num : num -> int
 val GENLIST : forall 'a. (num -> 'a) -> num -> list 'a
 val UNIT : forall 'a 'b. 'a -> 'b -> 'a * 'b
+val BIND : forall 'a 'b 'c. ('a -> 'b * 'a) -> ('b -> 'a -> 'c * 'a) -> 'a -> 'c * 'a
+val IGNORE_BIND : forall 'a 'b 'c. ('a -> 'b * 'a) -> ('a -> 'c * 'a) -> 'a -> 'c * 'a
