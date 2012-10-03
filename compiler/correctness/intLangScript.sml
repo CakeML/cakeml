@@ -627,11 +627,6 @@ val final =
   qmatch_abbrev_tac `Cevaluate env1 ee rr` >>
   final0
 
-val IN_option_rwt2 = store_thm(
-"IN_option_rwt2",
-``x ∈ option_case {} s opt = ∃y. (opt = SOME y) ∧ x ∈ s y``,
-Cases_on `opt` >> rw[])
-
 val Cevaluate_any_env = store_thm(
 "Cevaluate_any_env",
 ``∀c env exp res. Cevaluate c env exp res ⇒
