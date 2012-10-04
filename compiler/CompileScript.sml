@@ -489,24 +489,24 @@ val _ = Defn.save_defn pat_to_Cpat_defn;
 
  val remove_mat_vp_defn = Hol_defn "remove_mat_vp" `
 
-(remove_mat_vp fk sk v (CPvar pv) =
+(remove_mat_vp c fk sk v (CPvar pv) =
   CLet [pv] [CVar v] sk)
 /\
-(remove_mat_vp fk sk v (CPlit l) =
+(remove_mat_vp c fk sk v (CPlit l) =
   CIf (CPrim2 CEq (CVar v) (CLit l))
     sk (CCall (CVar fk) []))
 /\
-(remove_mat_vp fk sk v (CPcon cn ps) =
+(remove_mat_vp c fk sk v (CPcon cn ps) =
   CIf (CTagEq (CVar v) cn)
-    (remove_mat_con fk sk v 0 ps)
+    (remove_mat_con c fk sk v 0 ps)
     (CCall (CVar fk) []))
 /\
-(remove_mat_con fk sk v n [] = sk)
+(remove_mat_con c fk sk v n [] = sk)
 /\
-(remove_mat_con fk sk v n (p::ps) =
-  let v' = fresh_var ({v;fk} UNION (free_vars FEMPTY sk) UNION (Cpat_vars p)) in
+(remove_mat_con c fk sk v n (p::ps) =
+  let v' = fresh_var ({v;fk} UNION (free_vars c sk) UNION (Cpat_vars p)) in
   CLet [v'] [CProj (CVar v) n]
-    (remove_mat_vp fk (remove_mat_con fk sk v (n+1) ps) v' p))`;
+    (remove_mat_vp c fk (remove_mat_con c fk sk v (n+1) ps) v' p))`;
 
 val _ = Defn.save_defn remove_mat_vp_defn;
 
@@ -534,19 +534,21 @@ val _ = Defn.save_defn e2c_add_defn;
 
 (remove_mat_var v [] = UNIT (CRaise Bind_error))
 /\
-(remove_mat_var v ((p,sk)::pes) =
-  let fk = fresh_var ({v} UNION (free_vars FEMPTY sk) UNION (Cpat_vars p)) in BIND
+(remove_mat_var v ((p,sk)::pes) = BIND
+  (\ s . UNIT s.e2c_code_env s) (\ c .
+  let fk = fresh_var ({v} UNION (free_vars c sk) UNION (Cpat_vars p)) in BIND
   (e2c_bump) (\ n . BIND
   (remove_mat_var v pes) (\ pes . IGNORE_BIND
   (e2c_add n pes)
-  (UNIT (CLetfun F [fk] [([],n)] (remove_mat_vp fk sk v p))))))`;
+  (UNIT (CLetfun F [fk] [([],n)] (remove_mat_vp c fk sk v p)))))))`;
 
 val _ = Defn.save_defn remove_mat_var_defn;
 
-val _ = Define `
- Cpes_vars =
-  FOLDL (\ s (p,e) . s UNION Cpat_vars p UNION free_vars FEMPTY e) {}`;
+ val Cpes_vars_defn = Hol_defn "Cpes_vars" `
+ (Cpes_vars c =
+  FOLDL (\ s (p,e) . s UNION Cpat_vars p UNION free_vars c e) {})`;
 
+val _ = Defn.save_defn Cpes_vars_defn;
 
  val exp_to_Cexp_defn = Hol_defn "exp_to_Cexp" `
 
@@ -622,10 +624,11 @@ val _ = Define `
 /\
 (exp_to_Cexp (Mat e pes) = BIND
   (exp_to_Cexp e) (\ Ce . BIND
-  (pes_to_Cpes pes) (\ Cpes .
-  let v = fresh_var (Cpes_vars Cpes) in BIND
+  (pes_to_Cpes pes) (\ Cpes . BIND
+  (\ s . UNIT s.e2c_code_env s) (\ c .
+  let v = fresh_var (Cpes_vars c Cpes) in BIND
   (remove_mat_var v Cpes) (\ Cpes . UNIT
-  (CLet [v] [Ce] Cpes)))))
+  (CLet [v] [Ce] Cpes))))))
 /\
 (exp_to_Cexp (Let vn e b) = BIND
    (exp_to_Cexp e) (\ Ce . BIND
@@ -1291,7 +1294,7 @@ val _ = Define `
 (repl_dec rs (Dlet p e) =
   let (pvs,Cp) = pat_to_Cpat rs.cmap [] p in
   let Cpes = [(Cp,CDecl pvs)] in
-  let vn = fresh_var (Cpes_vars Cpes) in
+  let vn = fresh_var (Cpes_vars FEMPTY Cpes) in
   let s = mk_e2c_state rs in
   let (Ce,s) = exp_to_Cexp e s in
   let (Cpes,s) = remove_mat_var vn Cpes s in

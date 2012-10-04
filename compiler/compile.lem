@@ -481,24 +481,24 @@ pats_to_Cpats m pvs (p::ps) =
   (pvs,Cp::Cps)
 
 let rec
-remove_mat_vp fk sk v (CPvar pv) =
+remove_mat_vp c fk sk v (CPvar pv) =
   CLet [pv] [CVar v] sk
 and
-remove_mat_vp fk sk v (CPlit l) =
+remove_mat_vp c fk sk v (CPlit l) =
   CIf (CPrim2 CEq (CVar v) (CLit l))
     sk (CCall (CVar fk) [])
 and
-remove_mat_vp fk sk v (CPcon cn ps) =
+remove_mat_vp c fk sk v (CPcon cn ps) =
   CIf (CTagEq (CVar v) cn)
-    (remove_mat_con fk sk v 0 ps)
+    (remove_mat_con c fk sk v 0 ps)
     (CCall (CVar fk) [])
 and
-remove_mat_con fk sk v n [] = sk
+remove_mat_con c fk sk v n [] = sk
 and
-remove_mat_con fk sk v n (p::ps) =
-  let v' = fresh_var ({v;fk} union (free_vars Pmap.empty sk) union (Cpat_vars p)) in
+remove_mat_con c fk sk v n (p::ps) =
+  let v' = fresh_var ({v;fk} union (free_vars c sk) union (Cpat_vars p)) in
   CLet [v'] [CProj (CVar v) n]
-    (remove_mat_vp fk (remove_mat_con fk sk v (n+1) ps) v' p)
+    (remove_mat_vp c fk (remove_mat_con c fk sk v (n+1) ps) v' p)
 
 type e2c_state =
   <| e2c_next_label : num
@@ -515,15 +515,16 @@ let rec e2c_add l b s =
 let rec
 remove_mat_var v [] = return (CRaise Bind_error)
 and
-remove_mat_var v ((p,sk)::pes) =
-  let fk = fresh_var ({v} union (free_vars Pmap.empty sk) union (Cpat_vars p)) in bind
+remove_mat_var v ((p,sk)::pes) = bind
+  (fun s -> return s.e2c_code_env s) (fun c ->
+  let fk = fresh_var ({v} union (free_vars c sk) union (Cpat_vars p)) in bind
   (e2c_bump) (fun n -> bind
   (remove_mat_var v pes) (fun pes -> ubind
   (e2c_add n pes)
-  (return (CLetfun false [fk] [([],n)] (remove_mat_vp fk sk v p)))))
+  (return (CLetfun false [fk] [([],n)] (remove_mat_vp c fk sk v p))))))
 
-let Cpes_vars =
-  List.fold_left (fun s (p,e) -> s union Cpat_vars p union free_vars Pmap.empty e) {}
+let rec Cpes_vars c =
+  List.fold_left (fun s (p,e) -> s union Cpat_vars p union free_vars c e) {}
 
 let rec
 exp_to_Cexp (Raise err) = return (CRaise err)
@@ -598,10 +599,11 @@ exp_to_Cexp (If e1 e2 e3) = bind
 and
 exp_to_Cexp (Mat e pes) = bind
   (exp_to_Cexp e) (fun Ce -> bind
-  (pes_to_Cpes pes) (fun Cpes ->
-  let v = fresh_var (Cpes_vars Cpes) in bind
+  (pes_to_Cpes pes) (fun Cpes -> bind
+  (fun s -> return s.e2c_code_env s) (fun c ->
+  let v = fresh_var (Cpes_vars c Cpes) in bind
   (remove_mat_var v Cpes) (fun Cpes -> return
-  (CLet [v] [Ce] Cpes))))
+  (CLet [v] [Ce] Cpes)))))
 and
 exp_to_Cexp (Let vn e b) = bind
    (exp_to_Cexp e) (fun Ce -> bind
@@ -1188,7 +1190,7 @@ and
 repl_dec rs (Dlet p e) =
   let (pvs,Cp) = pat_to_Cpat rs.cmap [] p in
   let Cpes = [(Cp,CDecl pvs)] in
-  let vn = fresh_var (Cpes_vars Cpes) in
+  let vn = fresh_var (Cpes_vars Pmap.empty Cpes) in
   let s = mk_e2c_state rs in
   let (Ce,s) = exp_to_Cexp e s in
   let (Cpes,s) = remove_mat_var vn Cpes s in
