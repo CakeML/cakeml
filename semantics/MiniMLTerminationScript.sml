@@ -49,11 +49,13 @@ val SUM_MAP_v2_size_thm = store_thm(
 Induct >- rw[v_size_def] >>
 Cases >> srw_tac[ARITH_ss][v_size_def])
 
+(*
 val exp_size_positive = store_thm(
 "exp_size_positive",
 ``∀e. 0 < exp_size e``,
 Induct >> srw_tac[ARITH_ss][exp_size_def])
 val _ = export_rewrites["exp_size_positive"];
+*)
 
 fun register name def ind =
   let val _ = save_thm (name ^ "_def", def);
@@ -73,14 +75,14 @@ val _ = export_rewrites["lookup_def"];
 val (pmatch_def, pmatch_ind) =
   tprove_no_defn ((pmatch_def, pmatch_ind),
   wf_rel_tac
-  `inv_image $< (λx. case x of INL (a,p,b,c) => pat_size p | INR (a,ps,b,c) =>
+  `inv_image $< (λx. case x of INL (s,a,p,b,c) => pat_size p | INR (s,a,ps,b,c) =>
   pat1_size ps)`);
 val _ = register "pmatch" pmatch_def pmatch_ind;
 
 val (pmatch'_def, pmatch'_ind) =
   tprove_no_defn ((pmatch'_def, pmatch'_ind),
   wf_rel_tac
-  `inv_image $< (λx. case x of INL (p,b,c) => pat_size p | INR (ps,b,c) =>
+  `inv_image $< (λx. case x of INL (s,p,b,c) => pat_size p | INR (s,ps,b,c) =>
   pat1_size ps)`);
 val _ = register "pmatch'" pmatch'_def pmatch'_ind;
 
