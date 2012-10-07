@@ -55,6 +55,7 @@ let merge e1 e2 = e1 @ e2
 type lit =
   | IntLit of int
   | Bool of bool
+  | Unit
 
 (* Built-in binary operations (including function application) *)
 
@@ -113,6 +114,7 @@ type t =
   | Tnum
   | Tbool
   | Tref of t
+  | Tunit
 
 (* Patterns *)
 type pat =
@@ -149,7 +151,6 @@ type exp =
    * The first varN is the function's name, and the second varN is its
    * parameter *)
   | Letrec of list (varN * varN * exp) * exp
-  | Unit
 
 (* Value forms *)
 type v =
@@ -231,6 +232,7 @@ let lit_same_type l1 l2 =
   match (l1,l2) with
     | (IntLit _, IntLit _) -> true
     | (Bool _, Bool _) -> true
+    | (Unit, Unit) -> true
     | _ -> false
   end
 
@@ -385,7 +387,7 @@ let do_app s env' op v1 v2 =
          * have the same type *)
         Some (s, env', Lit (Bool (v1 = v2)))
     | (Opassign, (Loc lnum), v) ->
-        Some (store_assign lnum v s, env', Unit) 
+        Some (store_assign lnum v s, env', Lit Unit) 
     | _ -> None
   end
 
@@ -1244,6 +1246,13 @@ type_p cenv (Plit (IntLit n)) Tnum []
 
 and
 
+forall cenv.
+true
+==>
+type_p cenv (Plit Unit) Tunit []
+
+and
+
 forall cenv cn ps ts tvs tn ts' tenv.
 List.for_all (check_freevars true []) ts' &&
 List.length ts' = List.length tvs &&
@@ -1282,10 +1291,18 @@ true
 type_e cenv tenv (Lit (Bool b)) Tbool
 
 and
+
 forall cenv tenv n.
 true
 ==>
 type_e cenv tenv (Lit (IntLit n)) Tnum
+
+and
+
+forall cenv tenv.
+true
+==>
+type_e cenv tenv (Lit Unit) Tnum
 
 and
 

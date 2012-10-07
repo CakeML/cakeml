@@ -28,13 +28,4 @@ EQ_TAC >>
 rw [is_sml_infix_def, LET_THM, SUB_def] >>
 fs []);
 
-val is_ocaml_infix_spec = Q.store_thm ("is_ocaml_infix_spec",
-`!s.
-  is_ocaml_infix s =
-  MEM s ["*"; "+"; "-"; "/"; "<"; "<="; "="; ">"; ">="; "mod"]`,
-rw [] >>
-EQ_TAC >>
-rw [is_ocaml_infix_def, LET_THM, SUB_def] >>
-fs []);
-
 val _ = export_theory ();

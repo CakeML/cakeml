@@ -49,13 +49,11 @@ val SUM_MAP_v2_size_thm = store_thm(
 Induct >- rw[v_size_def] >>
 Cases >> srw_tac[ARITH_ss][v_size_def])
 
-(*
 val exp_size_positive = store_thm(
 "exp_size_positive",
 ``∀e. 0 < exp_size e``,
 Induct >> srw_tac[ARITH_ss][exp_size_def])
 val _ = export_rewrites["exp_size_positive"];
-*)
 
 fun register name def ind =
   let val _ = save_thm (name ^ "_def", def);

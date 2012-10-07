@@ -68,7 +68,8 @@ val _ = Define `
 val _ = Hol_datatype `
  lit =
     IntLit of int
-  | Bool of bool`;
+  | Bool of bool
+  | Unit`;
 
 
 (* Built-in binary operations (including function application) *)
@@ -142,7 +143,8 @@ val _ = Hol_datatype `
   | Tfn of t => t
   | Tnum
   | Tbool
-  | Tref of t`;
+  | Tref of t
+  | Tunit`;
 
 
 (* Patterns *)
@@ -184,8 +186,7 @@ val _ = Hol_datatype `
   (* Local definition of (potentially) mutually recursive functions
    * The first varN is the function's name, and the second varN is its
    * parameter *)
-  | Letrec of (varN # varN # exp) list => exp
-  | Unit`;
+  | Letrec of (varN # varN # exp) list => exp`;
 
 
 (* Value forms *)
@@ -283,6 +284,7 @@ val _ = Define `
   (case (l1,l2) of
       (IntLit _, IntLit _) => T
     | (Bool _, Bool _) => T
+    | (Unit, Unit) => T
     | _ => F
   ))`;
 
@@ -461,7 +463,7 @@ val _ = Define `
          * have the same type *)
         SOME (s, env', Lit (Bool (v1 = v2)))
     | (Opassign, (Loc lnum), v) =>
-        SOME (store_assign lnum v s, env', Unit) 
+        SOME (store_assign lnum v s, env', Lit Unit) 
     | _ => NONE
   ))`;
 
@@ -1387,6 +1389,13 @@ type_p cenv (Plit (IntLit n)) Tnum [])
 
 /\
 
+(! cenv.
+T
+==>
+type_p cenv (Plit Unit) Tunit [])
+
+/\
+
 (! cenv cn ps ts tvs tn ts' tenv.
 EVERY (check_freevars T []) ts' /\
 (LENGTH ts' = LENGTH tvs) /\
@@ -1425,10 +1434,18 @@ T
 type_e cenv tenv (Lit (Bool b)) Tbool)
 
 /\
+
 (! cenv tenv n.
 T
 ==>
 type_e cenv tenv (Lit (IntLit n)) Tnum)
+
+/\
+
+(! cenv tenv.
+T
+==>
+type_e cenv tenv (Lit Unit) Tnum)
 
 /\
 

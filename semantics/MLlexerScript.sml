@@ -14,7 +14,8 @@ val string_to_int_def = Define `
 (string_to_int s = &(string_to_num (REVERSE s)))`;
 
 (*
-The standard ML lexer is translated directly from Hamlet, which as this license:
+The standard ML lexer is translated directly from Hamlet, which has this
+license:
 
 Copyright (c) 1999-2007 Andreas Rossberg
 
