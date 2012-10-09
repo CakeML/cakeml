@@ -2,7 +2,7 @@ open preamble;
 open lcsymtacs;
 open lexer_specTheory Print_astTheory;
 
-val _ = new_theory "MLlexer";
+val _ = new_theory "MLlex";
 
 val string_to_num_def = Define `
 (string_to_num "" = 0) ∧
