@@ -326,6 +326,7 @@ rw [SML_lex_spec_def, regexp_matches_def, tok_list_to_string_def,
  metis_tac [space_append_ws, STRCAT_def]]);
 
   
+ (*
 `!toks. 
   EVERY is_MiniML_tok toks ⇒
   ?toks'. 
@@ -348,7 +349,7 @@ rw [] >|
 [rw [correct_lex_def] >>
      qexists_tac `tok_to_lexeme h` >>
      qexists_tac `n` >>
-     qexists_tac `tok_list_to_string (ws_toks ++ toks')` >> 
+     qexists_tac `tok_list_to_string (ws_toks ++ toks)` >> 
      rw [] >|
      [cases_on `h` >>
           fs [is_MiniML_tok_def] >>
