@@ -1,0 +1,14 @@
+# HOL stuff
+*Script
+*Theory.sig
+*Theory.sml
+*.uo
+*.ui
+*.o
+.HOLMK
+
+# HOLHEAP
+miniml-heap
+
+# Translator stuff
+*txt

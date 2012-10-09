@@ -1,0 +1,38 @@
+Directory structure:
+
+- semantics
+    The definition of MiniML, including
+    - its abstract syntax
+    - small step semantics
+    - big step semantics
+    - a type system
+    - a printer for MiniML's AST.
+    The definition is expressed in Lem (http://www.cl.cam.ac.uk/~so294/lem),
+    but might not work on the released version at any given time, so the 
+    generated HOL is also included.
+
+- metatheory
+    Proofs about MiniML, including
+    - type soundness
+    - determinism
+    - equivalence of the big and small step semantics
+
+- translator
+    A proof-producing translator from HOL functions to MiniML
+
+- translator/okasaki-examples
+    15 data structures/algorithms from Chris Okasaki's Purely Functional Data
+    Structures.  The translator is applied to them, and 12 of the 15 are
+    verified.
+
+- translator/other-examples
+    Example applications of the translator to existing examples, including AES,
+    TEA, and RC6 from HOL/examples/Crypto; the probabilistic primality checker
+    from examples/miller; and some examples in auxiliary.
+
+- translator/other-examples/auxiliary
+    A copying GC, 91 function, regular expression matched and SLR parser
+    generator taken from other places, and ollected here for the translator.
+
+- compiler
+    The sketchy beginnings of a verified compiler from MiniML to ???

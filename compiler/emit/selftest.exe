@@ -1,0 +1,7 @@
+#!/bin/sh
+./miniml-heap<<'__end-of-file__'
+val _ = PolyML.Compiler.prompt1:="";
+val _ = PolyML.Compiler.prompt2:="";
+val _ = PolyML.print_depth 0;
+val _ = List.map load ["test_compiler"] handle x => ((case x of Fail s => print (s^"\n") | _ => ()); OS.Process.exit OS.Process.failure);
+__end-of-file__

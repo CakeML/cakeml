@@ -1,0 +1,27 @@
+INCLUDES = .. $(HOLDIR)/src/emit/ML ../bytecode/benchmarking ../../translator ../bytecode
+OPTIONS = QUIT_ON_FAILURE
+
+EXTRA_CLEANS = selftest.exe
+
+selftest.exe: test_compiler.uo compile_emitTheory.uo
+	$(HOLMOSMLC) -o $@ $<
+
+hw_test.exe: hw_test.uo hw_bytecode_emitTheory.uo
+	$(HOLMOSMLC) -o $@ $<
+
+ifdef POLY
+HOLHEAP = miniml-heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+BARE_THYS = ../compileTerminationTheory\
+ ../bytecode/bytecodeEvalTheory\
+ $(HOLDIR)/src/TeX/EmitTeX\
+ $(HOLDIR)/src/emit/basis_emitTheory\
+ ../bytecode/benchmarking/bytecode_testerLib\
+ ../../translator/ml_translatorLib\
+ ../bytecode/hw_bytecodeTheory
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+endif

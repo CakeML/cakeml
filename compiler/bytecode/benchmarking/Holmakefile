@@ -1,0 +1,2 @@
+INCLUDES = $(HOLDIR)/examples/machine-code/instruction-set-models/x86_64/ \
+           $(HOLDIR)/examples/miniML/compiler/bytecode
