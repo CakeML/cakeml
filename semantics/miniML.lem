@@ -1836,7 +1836,7 @@ evaluate_ctxts cenv s ((c,env)::cs) v (Rerr err)
 indreln
 
 forall cenv env e c v bv s1 s2.
-evaluate cenv s1 env e (Rval (s1,v)) &&
+evaluate cenv s1 env e (Rval (s2,v)) &&
 evaluate_ctxts cenv s2 c v bv
 ==>
 evaluate_state (cenv, s1, env, Exp e, c) bv

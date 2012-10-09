@@ -211,7 +211,7 @@ val _ = type_abbrev( "envE" , ``: (varN, v) env``);
 
 (* Stores *)
 (* Keep the next number to allocate, so that we can be deterministic *)
-val _ = type_abbrev( "store" , ``: ( (num|-> v)# num)``);
+val _ = type_abbrev( "store" , ``: ( (num|-> v) # num)``);
 
 (*val empty_store : store*)
 val _ = Define `
@@ -1979,7 +1979,7 @@ evaluate_ctxts cenv s ((c,env)::cs) v (Rerr err))`;
 val _ = Hol_reln `
 
 (! cenv env e c v bv s1 s2.
-evaluate cenv s1 env e (Rval (s1,v)) /\
+evaluate cenv s1 env e (Rval (s2,v)) /\
 evaluate_ctxts cenv s2 c v bv
 ==>
 evaluate_state (cenv, s1, env, Exp e, c) bv)
