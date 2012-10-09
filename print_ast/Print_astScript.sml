@@ -5,9 +5,10 @@ open set_relationTheory sortingTheory stringTheory wordsTheory
 
 val _ = new_theory "Print_ast"
 
-open MiniMLTheory
+open MiniMLTheory TokensTheory
 
 (*open MiniML*)
+(*open Tokens*)
 
 (*val Num : Int.int -> num*)
 
@@ -18,33 +19,6 @@ open MiniMLTheory
 (*val first_ord : string -> num*)
 
 (*val (%) : num -> num -> num*)
-
-val _ = Hol_datatype `
- token =
-  WhitespaceT of num
-| NewlineT 
-| HashT | LparT | RparT | StarT | CommaT | ArrowT | DotsT | ColonT | SealT 
-| SemicolonT | EqualsT | DarrowT | LbrackT | RbrackT | UnderbarT | LbraceT 
-| BarT | RbraceT | AbstypeT | AndT | AndalsoT | AsT | CaseT | DatatypeT | DoT 
-| ElseT | EndT | EqtypeT | ExceptionT | FnT | FunT | FunctorT | HandleT | IfT 
-| InT | IncludeT | InfixT | InfixrT | LetT | LocalT | NonfixT | OfT | OpT 
-| OpenT | OrelseT | RaiseT | RecT | SharingT | SigT | SignatureT | StructT 
-| StructureT | ThenT | TypeT | ValT | WhereT | WhileT | WithT | WithtypeT 
-| ZeroT 
-| DigitT of string
-| NumericT of string
-| IntT of int
-| HexintT of string
-| WordT of string
-| HexwordT of string
-| RealT of string
-| StringT of string
-| CharT of string
-| TyvarT of string
-| AlphaT of string
-| SymbolT of string
-| LongidT of string`;
-
 
  val num_to_string_defn = Hol_defn "num_to_string" `
  (num_to_string n acc =

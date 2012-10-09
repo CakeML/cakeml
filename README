@@ -38,3 +38,6 @@ Directory structure:
 
 - compiler
     The sketchy beginnings of a verified compiler from MiniML to ???
+
+- lexer
+    The start of a verified lexer generator.

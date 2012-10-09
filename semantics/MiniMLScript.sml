@@ -5,6 +5,8 @@ open set_relationTheory sortingTheory stringTheory wordsTheory
 
 val _ = new_theory "MiniML"
 
+open TokensTheory
+
 (* By Scott Owens, University of Cambridge, Copyright 2011, 2012
  *                 University of Kent 2012
  *

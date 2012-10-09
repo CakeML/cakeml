@@ -1,8 +1,10 @@
 open preamble;
 open lcsymtacs;
-open lexer_specTheory Print_astTheory;
+open intLib;
+open lexer_specTheory;
+open TokensTheory
 
-val _ = new_theory "MLlex";
+val _ = new_theory "SMLlex";
 
 val string_to_num_def = Define `
 (string_to_num "" = 0) ∧

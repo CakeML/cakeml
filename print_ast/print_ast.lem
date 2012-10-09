@@ -1,4 +1,5 @@
 open MiniML
+open Tokens
 
 val Num : Int.int -> num
 let inline {hol} Num = Hol.Num
@@ -14,31 +15,6 @@ let inline {hol} first_ord s = Hol.ORD (Hol.SUB (s,0))
 
 val (%) : num -> num -> num
 let inline {hol} (%) = Hol.MOD
-
-type token =
-| WhitespaceT of num
-| NewlineT 
-| HashT | LparT | RparT | StarT | CommaT | ArrowT | DotsT | ColonT | SealT 
-| SemicolonT | EqualsT | DarrowT | LbrackT | RbrackT | UnderbarT | LbraceT 
-| BarT | RbraceT | AbstypeT | AndT | AndalsoT | AsT | CaseT | DatatypeT | DoT 
-| ElseT | EndT | EqtypeT | ExceptionT | FnT | FunT | FunctorT | HandleT | IfT 
-| InT | IncludeT | InfixT | InfixrT | LetT | LocalT | NonfixT | OfT | OpT 
-| OpenT | OrelseT | RaiseT | RecT | SharingT | SigT | SignatureT | StructT 
-| StructureT | ThenT | TypeT | ValT | WhereT | WhileT | WithT | WithtypeT 
-| ZeroT 
-| DigitT of string
-| NumericT of string
-| IntT of int
-| HexintT of string
-| WordT of string
-| HexwordT of string
-| RealT of string
-| StringT of string
-| CharT of string
-| TyvarT of string
-| AlphaT of string
-| SymbolT of string
-| LongidT of string
 
 let rec num_to_string n acc =
   if n = 0 then
