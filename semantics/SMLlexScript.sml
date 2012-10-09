@@ -228,7 +228,7 @@ SML_lex_spec : token lexer_spec =
  (real,                  (\s. RealT s));
  (string,                (\s. StringT s));
  (char,                  (\s. CharT s));
- (tyvar,                 (\s. TyvarT s));
+ (tyvar,                 (\s. TyvarT (TL s)));
  (alphanumid,            (\s. AlphaT s));
  (symbolicid,            (\s. SymbolT s));
  (longid,                (\s. LongidT s))]`;
