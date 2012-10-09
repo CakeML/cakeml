@@ -2073,7 +2073,7 @@ evaluate' s env (Mat e pes) (Rerr err)
 and
 
 forall env n e1 e2 v bv s1 s2.
-evaluate' s1 env e1 (Rval (s1,v)) &&
+evaluate' s1 env e1 (Rval (s2,v)) &&
 evaluate' s2 (bind n v env) e2 bv
 ==>
 evaluate' s1 env (Let n e1 e2) bv
