@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib; val _ = new_theory "ml_translator";
 
 open MiniMLTheory MiniMLTerminationTheory Print_astTerminationTheory
-(* open determTheory; *)
+(* open determTheory;  *)
 open arithmeticTheory listTheory combinTheory pairTheory;
 open integerTheory;
 open lcsymtacs;
