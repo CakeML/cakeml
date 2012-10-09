@@ -703,7 +703,7 @@ type ctenv = Pmap.map string ctbind
 (* helper for reconstructing closure environments *)
 type cebind = CEEnv of string | CERef of num
 
-type ecs = num * list cebind
+type ecs = num * list cebind (* num is the length of the list *)
 
 type compiler_state =
   <| env: ctenv
@@ -757,6 +757,30 @@ emit_ec z s (CEEnv fv) = incsz (compile_varref s (Pmap.find fv s.env))
 and
 emit_ec z s (CERef j) = incsz (emit s [Stack (Load (s.sz - z - j))])
 
+(* calling convention:
+ * before: env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
+ * thus, since env = stack[sz], argk should be CTArg (2 + n - k)
+ * after:  retval,
+ *)
+
+(* closure representation:
+ * Block 0 [CodePtr f; Env]
+ * where Env = Number 0 for empty, or else
+ * Block 0 [v1,...,vk]
+ * with a value for each free variable
+ * (some values may be RefPtrs to other (mutrec) closures)
+ *)
+
+(* closure construction, for a bundle of nz names, nk defs:
+ * - push nz refptrs, then push a dummy value (0)
+ * - push nk CodePtrs, each pointing to a jump to a body
+ * - pop the dummy value (which was necessary for the Calls)
+ * - for each def, load its CodePtr, load its environment, cons them up, and
+     store them where its CodePtr was
+   - for each name, load the refptr and update it with the closure
+   - for each name, store the refptr back where it was
+ *)
+
 let rec
 compile_closures nz s defs =
   let sz0 = s.sz in
@@ -795,73 +819,6 @@ compile_closures nz s defs =
   num_fold
     (fun s -> decsz (emit s [Stack (Store k)]))
          s nz
-
-  (* calling convention:
-   * before: env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
-   * thus, since env = stack[sz], argk should be CTArg (2 + n - k)
-   * after:  retval,
-
-this is out of date:
-       PushInt 0, Ref
-       ...            (* create RefPtrs for recursive closures *)
-       PushInt 0, Ref                       RefPtr 0, ..., RefPtr 0, rest
-       PushInt 0                            0, RefPtr 0, ..., RefPtr 0, rest
-       Call L1                              0, CodePtr f1, RefPtr 0, ..., RefPtr 0, rest
-       ?
-       ...      (* function 1 body *)
-       Pops ?   (* delete local variables and env *)
-       Load 1
-       Store n+2(* replace closure with return pointer *)
-       Pops n+1 (* delete arguments *)
-       Return
-   L1: Call L2                              0, CodePtr f2, CodePtr f1, RefPtrs, rest
-       ?
-       ...      (* function 2 body *)
-       Return
-   L2: Call L3
-       ?
-       ...      (* more function bodies *)
-   ...
-       Return
-   LK: Call L
-       ...
-       Return   (* end of last function *)
-   L:  Pop                                  CodePtr fk, ..., CodePtr f1, RefPtrs, rest
-       Load ?   (* copy code pointer for function 1 *)
-       Load ?   (* copy free mutrec vars for function 1 *)
-       Load ?   (* copy free vars for function 1 *)
-       ...                                  vm1, ..., v1, RefPtr 0, ..., RefPtr 0, CodePtr f1, CodePtr fk, ..., CodePtr f1, RefPtrs, rest
-       Cons 0 (m1 + n1)
-       Cons 0 2                             Block 0 [CodePtr f1; Block 0 Env], CodePtr fk, ..., CodePtr f1, RefPtrs, rest
-       Store ?                              CodePtr fk, ..., CodePtr f2, f1, RefPtrs, rest
-       Load ?   (* copy code pointer for function 2 *)
-       Load ?   (* copy free mutrec vars for function k-1 *)
-       Load ?   (* copy free vars for function k-1 *)
-       ...
-       Cons 0 (m2 + n2)
-       Cons 0 2                             
-       Store ?                              CodePtr fk, ..., CodePtr f3, f2, f1, RefPtrs, rest
-       ...                                  fk, ..., f2, f1, RefPtrs, rest
-       Load ?
-       Load 1                               fk, RefPtr 0, fk, f(k-1), ..., RefPtrs, rest
-       Update                               fk, f(k-1), ..., f1, RefPtrs, rest
-       Load ?
-       Load 2
-       Update
-       ...      (* update RefPtrs with closures *)
-       Store ?  (* pop RefPtrs *)           fk, f(k-1), ..., f1, rest
-       ...
-  *)
-  (*
-   * - push refptrs and leading 0
-   * - for each function (in order), push a Call 0, remember the next label,
-   *   calculate its environment, remember the environment, compile its body in
-   *   that environment
-   * - update Calls
-   * - for each environment emit code to load that
-   *   environment and build the closure
-   * - update refptrs, etc.
-   *)
 
 let rec
 compile s (CDecl vs) =
@@ -1298,8 +1255,6 @@ and
 Cv_to_bv (CLitv (Bool b)) = Number (bool_to_int b)
 and
 Cv_to_bv (CConv n vs) = Block n (Cvs_to_bvs vs)
-and
-Cv_to_bv (CClosure env vs b) = Block 0 [CodePtr ?, ?]
 and
 Cv_to_bv (CRecClos env ns defs n) = Block 0 [CodePtr ?, ?]
 and
