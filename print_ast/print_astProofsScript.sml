@@ -1,6 +1,12 @@
 open preamble;
-open listTheory intLib;
+open listTheory rich_listTheory intLib;
 open Print_astTheory Print_astTerminationTheory SMLlexTheory lexer_specTheory;
+
+
+val splitp_unsplit = Q.prove (
+`!P l l1 l2. FST (SPLITP P l) ++ SND (SPLITP P l) = l`,
+Induct_on `l` >>
+rw [SPLITP]);
 
 val _ = new_theory "print_astProofs"
 
@@ -211,7 +217,7 @@ fs [])
 val add_one_ws = Q.prove (
 `∀toks. ∃n.
   STRING #" " (tok_list_to_string toks) =
-  tok_list_to_string (WhitespaceT n :: toks)`,
+  spaces n (tok_list_to_string toks)`,
 rw [] >>
 qexists_tac `1` >>
 rw [tok_list_to_string_def, tok_to_string_def] >>
@@ -221,7 +227,7 @@ val space_append_ws = Q.prove (
 `!toks s.
   ?n.
     space_append s (tok_list_to_string toks) =
-    s ++ tok_list_to_string (WhitespaceT n :: toks)`,
+    s ++ spaces n (tok_list_to_string toks)`,
 rw [space_append_def, LET_THM] >|
 [all_tac,
  all_tac,
@@ -236,11 +242,11 @@ remove_ws_toks toks =
   FILTER (\tok. (tok ≠ NewlineT) ∧ (!n. tok ≠ WhitespaceT n)) toks`;
 
 val can_lex_one_token = Q.prove (
-`!tok toks. 
+`!tok toks.
   is_MiniML_tok tok ⇒
   ?n ws. 
     lexer_spec_matches_prefix SML_lex_spec n tok (tok_to_lexeme tok) 
-      (tok_list_to_string (WhitespaceT ws::toks)) (tok_list_to_string (tok::toks))`,
+      (spaces ws (tok_list_to_string toks)) (tok_list_to_string (tok::toks))`,
 cases_on `tok` >>
 rw [tok_to_string_def, is_MiniML_tok_def, lexer_spec_matches_prefix_def,
     tok_to_lexeme_def] >|
@@ -290,53 +296,124 @@ rw [SML_lex_spec_def, regexp_matches_def, tok_list_to_string_def,
       metis_tac [spaces_eqns, spaces_append]],
  metis_tac [spaces_eqns],
  metis_tac [spaces_eqns],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws],
  metis_tac [spaces_eqns],
- metis_tac [space_append_ws, STRCAT_def, tok_list_to_string_def, 
-            tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [space_append_ws, STRCAT_def],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
  metis_tac [spaces_eqns],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
- metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
  rw [int_to_string_to_int, decint_regexp] >>
-     metis_tac [space_append_ws, STRCAT_def, tok_list_to_string_def, 
-                tok_to_string_def],
+     metis_tac [space_append_ws, STRCAT_def],
  rw [regexp_matches_def, tyvar_def, letter_def, digit_def] >>
      ASSUME_TAC (Q.SPECL [`toks`, `"'" ++ s`] space_append_ws) >>
      rw [] >>
      fs [] >>
      qexists_tac `n` >>
-     rw [tok_list_to_string_def, tok_to_string_def] >>
+     rw [] >>
      qexists_tac `MAP (\x. [x]) s` >>
      fs [EVERY_MAP, EVERY_EL] >>
      metis_tac [concat_map_string_help],
- metis_tac [space_append_ws, STRCAT_def, tok_list_to_string_def, 
-            tok_to_string_def]]);
+ metis_tac [space_append_ws, STRCAT_def]]);
+
+val is_space_def = Define `
+is_space c = MEM c [#" "; #"\t"; #"\v"; #"\f"; #"\r"]`;
+
+val splitp_spaces_notempty = Q.prove (
+`!n s.  (n ≠ 0) ⇒ (FST (SPLITP (\c. ¬is_space c) (spaces n s)) ≠ "")`,
+cases_on `n` >>
+rw [SPLITP, spaces_eqns, is_space_def]);
+
+val splitp_spaces = Q.prove (
+`!n s. 
+  SPLITP (\c. ¬is_space c) (spaces n s) 
+  =
+  (spaces n (FST (SPLITP (\c. ¬is_space c) s)), SND (SPLITP (\c. ¬is_space c) s))`,
+Induct_on `n` >>
+rw [is_space_def, spaces_eqns,SPLITP] >>
+fs [is_space_def]);
+
+(*
+`!s toks n. 
+  correct_lex SML_lex_spec s toks ⇒
+  ?toks'.
+    correct_lex SML_lex_spec (spaces n s) toks' ∧
+    (remove_ws_toks toks = remove_ws_toks toks')`
+
+STRIP_TAC >>
+completeInduct_on `LENGTH s` >>
+rw [] >>
+cases_on `n = 0` >>
+fs [spaces_eqns] >-
+metis_tac [] >>
+cases_on `STRLEN (SND (SPLITP (λc. ¬is_space c) s)) < STRLEN s` >>
+res_tac >>
+fs [] >|
+[POP_ASSUM (ASSUME_TAC o Q.SPEC `(SND (SPLITP (λc. ¬is_space c) s))`) >>
+     rw [] >>
+
+     all_tac,
+ qexists_tac `WhitespaceT n::toks` >>
+     rw [correct_lex_def, remove_ws_toks_def] >>
+     qexists_tac `spaces n ""` >>
+     qexists_tac `1` >>
+     qexists_tac `s` >>
+     rw [lexer_spec_matches_prefix_def, spaces_not_empty] >>
+     rw [SML_lex_spec_def] >>
+     all_tac]
 
 
-  
- (*
+
+
+
+qexists_tac `WhitespaceT (n + LENGTH (FST (SPLITP (\c. ¬is_space c) s))) :: 
+
+`?s1 s2. (s1,s2) = SPLITP (\c. ¬is_space c) (spaces n s)` 
+              by metis_tac [PAIR] >>
+fs [splitp_spaces] >>
+fs []
+
+`s1 ≠ ""` by metis_tac [splitp_spaces_notempty, FST] >>
+`spaces n s = s1 ++ s2` by metis_tac [splitp_unsplit, FST, SND] >>
+rw [] >>
+`LENGTH s2 < LENGTH s` 
+        by 
+          
+         
+ qexists_tac `WhitespaceT n::toks` >>
+     rw [remove_ws_toks_def, correct_lex_def] >>
+     `n > 0` by DECIDE_TAC >>
+     qexists_tac `spaces n ""` >>
+     qexists_tac `1` >>
+     rw [lexer_spec_matches_prefix_def, spaces_not_empty,
+         SML_lex_spec_def] >>
+     all_tac]
+
+
+
+
+
 `!toks. 
   EVERY is_MiniML_tok toks ⇒
   ?toks'. 
@@ -351,9 +428,16 @@ rw [tok_list_to_string_def, correct_lex_def] >-
 fs [] >>
 `?n ws.
    lexer_spec_matches_prefix SML_lex_spec n h (tok_to_lexeme h)
-            (tok_list_to_string (WhitespaceT ws :: toks))
+            (spaces ws (tok_list_to_string toks))
             (tok_list_to_string (h::toks))`
         by metis_tac [can_lex_one_token] >>
+
+
+
+
+
+
+
 qexists_tac `h::WhitespaceT ws::toks'` >>
 rw [] >|
 [rw [correct_lex_def] >>
@@ -372,6 +456,7 @@ rw [] >|
  cases_on `h` >>
      fs [is_MiniML_tok_def, remove_ws_toks_def]]
   
+
 
 qexists_tac `tok_to_string h ""` >>
 qexists_tac `number` >>
