@@ -209,21 +209,27 @@ cases_on `ss'` >>
 fs [])
 
 val add_one_ws = Q.prove (
-`∀toks. ∃ws_toks.
+`∀toks. ∃n.
   STRING #" " (tok_list_to_string toks) =
-  tok_list_to_string (ws_toks ++ toks)`,
+  tok_list_to_string (WhitespaceT n :: toks)`,
 rw [] >>
-qexists_tac `[WhitespaceT 1]` >>
+qexists_tac `1` >>
 rw [tok_list_to_string_def, tok_to_string_def] >>
 rw [Once spaces_def, spaces_eqns]);
 
 val space_append_ws = Q.prove (
 `!toks s.
-  ?ws_toks.
+  ?n.
     space_append s (tok_list_to_string toks) =
-    s ++ tok_list_to_string (ws_toks ++ toks)`,
-rw [space_append_def, LET_THM] >>
-metis_tac [APPEND, add_one_ws]);
+    s ++ tok_list_to_string (WhitespaceT n :: toks)`,
+rw [space_append_def, LET_THM] >|
+[all_tac,
+ all_tac,
+ all_tac,
+ all_tac,
+ metis_tac [spaces_eqns, add_one_ws]] >>
+rw [tok_list_to_string_def, tok_to_string_def] >>
+metis_tac [spaces_eqns]);
 
 val remove_ws_toks_def = Define `
 remove_ws_toks toks = 
@@ -232,9 +238,9 @@ remove_ws_toks toks =
 val can_lex_one_token = Q.prove (
 `!tok toks. 
   is_MiniML_tok tok ⇒
-  ?n ws_toks. 
+  ?n ws. 
     lexer_spec_matches_prefix SML_lex_spec n tok (tok_to_lexeme tok) 
-      (tok_list_to_string (ws_toks++toks)) (tok_list_to_string (tok::toks))`,
+      (tok_list_to_string (WhitespaceT ws::toks)) (tok_list_to_string (tok::toks))`,
 cases_on `tok` >>
 rw [tok_to_string_def, is_MiniML_tok_def, lexer_spec_matches_prefix_def,
     tok_to_lexeme_def] >|
@@ -272,7 +278,7 @@ rw [tok_to_string_def, is_MiniML_tok_def, lexer_spec_matches_prefix_def,
  qexists_tac `74`] >>
 rw [SML_lex_spec_def, regexp_matches_def, tok_list_to_string_def,
     tok_to_string_def] >|
-[qexists_tac `[]` >>
+[qexists_tac `0` >>
      rw [spaces_len] >|
      [qexists_tac `MAP (\x. [x]) (spaces n "")` >>
           rw [EVERY_MAP] >|
@@ -281,49 +287,53 @@ rw [SML_lex_spec_def, regexp_matches_def, tok_list_to_string_def,
                fs [EVERY_EL] >>
                metis_tac [],
            metis_tac [concat_map_string_help]],
-      metis_tac [spaces_append]],
- metis_tac [APPEND],
- metis_tac [APPEND],
- metis_tac [add_one_ws],
- metis_tac [APPEND],
- metis_tac [space_append_ws, STRCAT_def],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [APPEND],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
+      metis_tac [spaces_eqns, spaces_append]],
+ metis_tac [spaces_eqns],
+ metis_tac [spaces_eqns],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [spaces_eqns],
+ metis_tac [space_append_ws, STRCAT_def, tok_list_to_string_def, 
+            tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [spaces_eqns],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
+ metis_tac [add_one_ws, tok_list_to_string_def, tok_to_string_def],
  rw [int_to_string_to_int, decint_regexp] >>
-     metis_tac [space_append_ws, STRCAT_def],
+     metis_tac [space_append_ws, STRCAT_def, tok_list_to_string_def, 
+                tok_to_string_def],
  rw [regexp_matches_def, tyvar_def, letter_def, digit_def] >>
      ASSUME_TAC (Q.SPECL [`toks`, `"'" ++ s`] space_append_ws) >>
      rw [] >>
      fs [] >>
-     qexists_tac `ws_toks` >>
-     rw [] >>
+     qexists_tac `n` >>
+     rw [tok_list_to_string_def, tok_to_string_def] >>
      qexists_tac `MAP (\x. [x]) s` >>
      fs [EVERY_MAP, EVERY_EL] >>
      metis_tac [concat_map_string_help],
- metis_tac [space_append_ws, STRCAT_def]]);
+ metis_tac [space_append_ws, STRCAT_def, tok_list_to_string_def, 
+            tok_to_string_def]]);
+
 
   
  (*
@@ -339,17 +349,17 @@ rw [tok_list_to_string_def, correct_lex_def] >-
      rw [remove_ws_toks_def, correct_lex_def] >>
      metis_tac [FILTER]) >>
 fs [] >>
-`?n ws_toks.
+`?n ws.
    lexer_spec_matches_prefix SML_lex_spec n h (tok_to_lexeme h)
-            (tok_list_to_string (ws_toks ++ toks))
+            (tok_list_to_string (WhitespaceT ws :: toks))
             (tok_list_to_string (h::toks))`
         by metis_tac [can_lex_one_token] >>
-qexists_tac `h::ws_toks++toks'` >>
+qexists_tac `h::WhitespaceT ws::toks'` >>
 rw [] >|
 [rw [correct_lex_def] >>
      qexists_tac `tok_to_lexeme h` >>
      qexists_tac `n` >>
-     qexists_tac `tok_list_to_string (ws_toks ++ toks)` >> 
+     qexists_tac `tok_list_to_string (WhitespaceT ws :: toks)` >> 
      rw [] >|
      [cases_on `h` >>
           fs [is_MiniML_tok_def] >>
@@ -360,8 +370,7 @@ rw [] >|
       all_tac,
       all_tac],
  cases_on `h` >>
-     fs [is_MiniML_tok_def, remove_ws_toks_def] >>
-     all_tac]
+     fs [is_MiniML_tok_def, remove_ws_toks_def]]
   
 
 qexists_tac `tok_to_string h ""` >>
