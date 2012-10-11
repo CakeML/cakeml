@@ -8,7 +8,32 @@ val splitp_unsplit = Q.prove (
 Induct_on `l` >>
 rw [SPLITP]);
 
+val splitp_fst_every = Q.prove (
+`!P l. EVERY ($~ o P) (FST (SPLITP P l))`,
+Induct_on `l` >>
+rw [SPLITP]);
+
+val concat_append = Q.prove (
+`!x y. CONCAT (x ++ y) = CONCAT x ++ CONCAT y`,
+Induct_on `x` >>
+rw []);
+
 val _ = new_theory "print_astProofs"
+
+val lexer_spec_matches_prefix_alt_def = Define `
+lexer_spec_matches_prefix_alt lexer_spec tok lexeme s_rest s =
+  ∃r f. (MEM (r,f) lexer_spec) ∧
+        (tok = f lexeme) ∧ regexp_matches r lexeme ∧
+        (s = STRCAT lexeme s_rest)`;
+
+val lexer_spec_matches_equiv = Q.prove (
+`!lexer_spec tok lexeme s_rest s.
+  lexer_spec_matches_prefix_alt lexer_spec tok lexeme s_rest s =
+  ?n. lexer_spec_matches_prefix lexer_spec n tok lexeme s_rest s`,
+rw [lexer_spec_matches_prefix_def, lexer_spec_matches_prefix_alt_def] >>
+EQ_TAC >>
+rw [MEM_EL] >>
+metis_tac []);
 
 val tree_to_list_acc = Q.store_thm ("tree_to_list_acc",
 `!st s1 s2. tree_to_list st (s1 ++ s2) = tree_to_list st s1 ++ s2`,
@@ -349,12 +374,47 @@ val splitp_spaces = Q.prove (
 `!n s. 
   SPLITP (\c. ¬is_space c) (spaces n s) 
   =
-  (spaces n (FST (SPLITP (\c. ¬is_space c) s)), SND (SPLITP (\c. ¬is_space c) s))`,
+  (spaces n "" ++ FST (SPLITP (\c. ¬is_space c) s), SND (SPLITP (\c. ¬is_space c) s))`,
 Induct_on `n` >>
 rw [is_space_def, spaces_eqns,SPLITP] >>
 fs [is_space_def]);
 
 (*
+`∀n s toks. 
+  let (s1,s2) = SPLITP (λc. ¬is_space c) (spaces n s) in
+    (s1 ≠ "") ∧
+    correct_lex SML_lex_spec s2 toks
+    ⇒
+    ∃n'. correct_lex SML_lex_spec (spaces n s) (WhitespaceT (STRLEN s1)::toks)`,
+
+rw [correct_lex_def] >>
+qexists_tac `s1` >>
+qexists_tac `1` >>
+qexists_tac `s2` >>
+rw [] >|
+[
+rw [lexer_spec_matches_prefix_def, SML_lex_spec_def, regexp_matches_def] >>
+     fs [splitp_spaces] >>
+     rw [] >|
+     [qexists_tac `MAP (λc. [c]) (spaces n "" ++ FST (SPLITP (λc. ¬is_space c) s))` >>
+          rw [EVERY_MAP] >|
+          [`EVERY (λc. MEM c " ") (spaces n "")` by metis_tac [spaces_has_spaces] >>
+               fs [EVERY_EL],
+           `EVERY ($~ o (\c. ~is_space c)) (FST (SPLITP (\c. ~is_space c) s))`
+                        by metis_tac [splitp_fst_every] >>
+               fs [EVERY_EL, is_space_def],
+           rw [concat_map_string_help, concat_append]],
+      metis_tac [splitp_unsplit, spaces_append, APPEND_ASSOC]],
+ all_tac,
+ all_tac
+ ]
+
+ `lexer_spec_matches_prefix_alt SML_lex_spec tok' lexeme' s_rest' (spaces n s)`
+          by metis_tac [lexer_spec_matches_equiv] >>
+     fs [lexer_spec_matches_prefix_alt_def] >>
+     rw []
+
+
 `!s toks n. 
   correct_lex SML_lex_spec s toks ⇒
   ?toks'.
