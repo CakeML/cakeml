@@ -1,7 +1,7 @@
 open preamble;
 open listTheory rich_listTheory intLib;
 open Print_astTheory Print_astTerminationTheory SMLlexTheory lexer_specTheory;
-
+open regexpTheory;
 
 val splitp_unsplit = Q.prove (
 `!P l l1 l2. FST (SPLITP P l) ++ SND (SPLITP P l) = l`,
@@ -379,7 +379,7 @@ Induct_on `n` >>
 rw [is_space_def, spaces_eqns,SPLITP] >>
 fs [is_space_def]);
 
-(*
+
 `∀n s toks. 
   let (s1,s2) = SPLITP (λc. ¬is_space c) (spaces n s) in
     (s1 ≠ "") ∧
@@ -411,9 +411,15 @@ rw [lexer_spec_matches_prefix_def, SML_lex_spec_def, regexp_matches_def] >>
 
  `lexer_spec_matches_prefix_alt SML_lex_spec tok' lexeme' s_rest' (spaces n s)`
           by metis_tac [lexer_spec_matches_equiv] >>
-     fs [lexer_spec_matches_prefix_alt_def] >>
-     rw []
+     fs [lexer_spec_matches_prefix_alt_def, splitp_spaces] >>
+     rw [] >>
+     `?c lexeme2. lexeme' = c::lexeme2` 
+               by (cases_on `lexeme'` >>
+                   rw [] >>
+                   all_tac) >>
 
+     fs [SML_lex_spec_def] >>
+     rw [] >>
 
 `!s toks n. 
   correct_lex SML_lex_spec s toks ⇒
