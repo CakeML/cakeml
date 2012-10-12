@@ -165,7 +165,4 @@ Induct_on `s` >>
 rw [deriv_matches_def, nullable_thm] >>
 metis_tac [deriv_thm]);
 
-val _ = computeLib.add_persistent_funs 
-            ["regexp_matches_thm", "deriv_matches_def", "deriv_def", "nullable_def"];
-
 val _ = export_theory ();
