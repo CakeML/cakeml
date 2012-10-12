@@ -18,6 +18,18 @@ val concat_append = Q.prove (
 Induct_on `x` >>
 rw []);
 
+val append_length_gt = Q.prove (
+`!s1 s2 s3 s4.
+  (LENGTH s1 > LENGTH s3) ∧ (s1 ++ s2 = s3 ++ s4) ⇒
+  ?c s5. (s1 = s3 ++ c::s5)`,
+Induct_on `s1` >>
+rw [] >>
+cases_on `s3` >>
+full_simp_tac (srw_ss()++ARITH_ss) [] >>
+rw [] >>
+`LENGTH s1 > LENGTH t` by DECIDE_TAC >>
+metis_tac []);
+
 val _ = new_theory "print_astProofs"
 
 val lexer_spec_matches_prefix_alt_def = Define `
@@ -379,7 +391,6 @@ Induct_on `n` >>
 rw [is_space_def, spaces_eqns,SPLITP] >>
 fs [is_space_def]);
 
-
 `∀n s toks. 
   let (s1,s2) = SPLITP (λc. ¬is_space c) (spaces n s) in
     (s1 ≠ "") ∧
@@ -409,17 +420,38 @@ rw [lexer_spec_matches_prefix_def, SML_lex_spec_def, regexp_matches_def] >>
  all_tac
  ]
 
- `lexer_spec_matches_prefix_alt SML_lex_spec tok' lexeme' s_rest' (spaces n s)`
+ CCONTR_TAC >>
+     fs [] >>
+     `lexer_spec_matches_prefix_alt SML_lex_spec tok' lexeme' s_rest' (spaces n s)`
           by metis_tac [lexer_spec_matches_equiv] >>
-     fs [lexer_spec_matches_prefix_alt_def, splitp_spaces] >>
+     fs [lexer_spec_matches_prefix_alt_def] >>
      rw [] >>
-     `?c lexeme2. lexeme' = c::lexeme2` 
+     `LENGTH lexeme' > LENGTH s1` by DECIDE_TAC >>
+     `spaces n s = s1++s2` by metis_tac [FST,SND,splitp_unsplit] >>
+     fs [] >>
+     `?c s3. lexeme' = s1 ++ c::s3` by metis_tac [append_length_gt] >>
+     rw [] >>
+     fs [] >>
+     rw [] >>
+     `EVERY ($~ o (\c. ~is_space c)) s1` by metis_tac [splitp_fst_every, FST] >>
+     cases_on `s1` >>
+     fs [is_space_def] >>
+     rw [] >>
+     fs [SML_lex_spec_def] >>
+     rw [] >>
+     fs [regexp_matches_thm, deriv_matches_def, deriv_def, nullable_def]
+
+
+
+     `?c lexeme2. lexeme' = spaces n "" ++ FST (SPLITP (λc. ¬is_space c) s) ++ lexeme2` 
                by (cases_on `lexeme'` >>
                    rw [] >>
                    all_tac) >>
 
      fs [SML_lex_spec_def] >>
      rw [] >>
+     
+     splitp_fst_every
 
 `!s toks n. 
   correct_lex SML_lex_spec s toks ⇒
