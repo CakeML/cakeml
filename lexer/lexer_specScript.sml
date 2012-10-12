@@ -2,6 +2,7 @@
 open preamble;
 open stringTheory finite_mapTheory;
 open lcsymtacs;
+open regexpTheory;
 
 val strcat_lem = Q.prove (
 `!s1 s2 s3 s4.
@@ -17,38 +18,7 @@ metis_tac []);
 
 val _ = new_theory "lexer_spec";
 
-val _ = Hol_datatype `
-regexp =
-    CharSet of char set
-  | StringLit of string
-  | Cat of regexp => regexp
-  | Star of regexp
-  | Plus of regexp
-  | Or of regexp list
-  | Neg of regexp`;
-
 val _ = type_abbrev ("lexer_spec", ``:(regexp#(string->'a)) list``);
-
-val regexp_matches_def = tDefine "regexp_matches" `
-(regexp_matches (CharSet ns) s =
-  ∃c. c IN ns ∧ (s = [c])) ∧
-(regexp_matches (StringLit s') s =
-  (s = s')) ∧
-(regexp_matches (Cat r1 r2) s =
-  ∃s1 s2. regexp_matches r1 s1 ∧ regexp_matches r2 s2 ∧ (s = s1 ++ s2)) ∧
-(regexp_matches (Star r) s =
-  ∃ss. EVERY (regexp_matches r) ss ∧ (s = FLAT ss)) ∧
-(regexp_matches (Plus r) s =
-  ∃ss. (ss ≠ []) ∧ EVERY (regexp_matches r) ss ∧ (s = FLAT ss)) ∧
-(regexp_matches (Or rs) s =
-  EXISTS (\r. regexp_matches r s) rs) ∧
-(regexp_matches (Neg r) s =
-  ~regexp_matches r s)`
-(WF_REL_TAC `measure (\(x,y). regexp_size x)` >>
-srw_tac [ARITH_ss] [] >>
-Induct_on `rs` >>
-rw [fetch "-" "regexp_size_def"] >>
-full_simp_tac (srw_ss()++ARITH_ss) []);
 
 val lexer_spec_matches_prefix_def = Define `
 lexer_spec_matches_prefix lexer_spec n tok lexeme s_rest s =
