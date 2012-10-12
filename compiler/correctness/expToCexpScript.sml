@@ -3,26 +3,6 @@ open MiniMLTheory MiniMLTerminationTheory miniMLExtraTheory evaluateEquationsThe
 val _ = new_theory "expToCexp"
 val fsd = full_simp_tac std_ss
 
-(* Characterise MAP-like constants *)
-
-val exps_to_Cexps_MAP = store_thm(
-"exps_to_Cexps_MAP",
-``exps_to_Cexps = mapM exp_to_Cexp``,
-fs[Once FUN_EQ_THM] >>
-Induct >> rw[exp_to_Cexp_def,FUN_EQ_THM,mapM_cons])
-
-val pes_to_Cpes_MAP = store_thm(
-"pes_to_Cpes_MAP",
-``pes_to_Cpes = mapM (λ(p,e). BIND (λs. UNIT s.e2c_cmap s) (λcmap. let (pvs,Cp) = pat_to_Cpat cmap [] p in (Cp, exp_to_Cexp s e))``,
-gen_tac >> Induct >- rw[exp_to_Cexp_def] >>
-Cases >> rw[exp_to_Cexp_def])
-
-val defs_to_Cdefs_MAP = store_thm(
-"defs_to_Cdefs_MAP",
-``∀s defs. defs_to_Cdefs s defs = (MAP FST defs, MAP (λ(d,vn,e). ([vn],INL (exp_to_Cexp s e))) defs)``,
-gen_tac >> Induct >- rw[exp_to_Cexp_def] >>
-qx_gen_tac `d` >> PairCases_on `d` >> rw[exp_to_Cexp_def])
-
 (* Nicer induction *)
 
 val exp_to_Cexp_nice_ind = save_thm(

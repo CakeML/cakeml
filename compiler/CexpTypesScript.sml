@@ -23,8 +23,8 @@ val _ = Hol_datatype `
   | CTagEq of Cexp => num
   | CProj of Cexp => num
   | CLet of string list => Cexp list => Cexp
-  | CLetfun of bool => string list => (string list # num) list => Cexp
-  | CFun of string list => num
+  | CLetfun of bool => string list => (string list # (Cexp + num)) list => Cexp
+  | CFun of string list => (Cexp + num)
   | CCall of Cexp => Cexp list
   | CPrim2 of Cprim2 => Cexp => Cexp
   | CIf of Cexp => Cexp => Cexp`;
@@ -37,7 +37,7 @@ val _ = Parse.overload_on("s0_to_num",``STRLEN``)
 val b = ``:string``
 val a = ``:lit +
 num +
-string list # (string list # num) list # string``
+string list # (string list # (Cexp + num)) list # string``
 val Cv0 = ``:(^b,^a) fmaptree``
 val _ = Parse.type_abbrev("Cv0",Cv0)
 val Cvwf_def = new_specification("Cvwf_def",["Cvwf"],
@@ -411,7 +411,7 @@ Cv_Axiom
 |> Q.ISPEC `λl. 1 + lit_size l`
 |> Q.ISPEC `λm (vs : Cv list) (r:num). 1 + m + r`
 |> Q.ISPEC `λ(env:string |-> Cv) xs b (r:num). 1 + r + list_size (list_size char_size) xs + Cexp_size b`
-|> Q.ISPEC `λ(env:string |-> Cv) ns defs n r. 1 + r + list_size (list_size char_size) ns + list_size (pair_size (list_size (list_size char_size)) I) defs + list_size char_size n`
+|> Q.ISPEC `λ(env:string |-> Cv) ns defs n r. 1 + r + list_size (list_size char_size) ns + list_size (pair_size (list_size (list_size char_size)) (sum_size Cexp_size I)) defs + list_size char_size n`
 |> Q.ISPEC `0:num`
 |> Q.ISPEC `λv:Cv (vs : Cv list) (rv:num) rvs. 1 + rv + rvs`
 |> Q.ISPEC `λ(env:string |-> Cv). fmap_size (list_size char_size) I`

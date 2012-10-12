@@ -12,9 +12,23 @@ rw[MEM_MAP,pairTheory.EXISTS_PROD] >> PROVE_TAC[])
 val tac = Induct >- rw[Cexp_size_def,Cpat_size_def,Cv_size_def] >> srw_tac [ARITH_ss][Cexp_size_def,Cpat_size_def,Cv_size_def]
 fun tm t1 t2 =  ``∀ls. ^t1 ls = SUM (MAP ^t2 ls) + LENGTH ls``
 fun size_thm name t1 t2 = store_thm(name,tm t1 t2,tac)
-val Cexp1_size_thm = size_thm "Cexp1_size_thm" ``Cexp1_size`` ``Cexp_size``
+val Cexp1_size_thm = size_thm "Cexp1_size_thm" ``Cexp1_size`` ``Cexp2_size``
+val Cexp4_size_thm = size_thm "Cexp4_size_thm" ``Cexp4_size`` ``Cexp_size``
 val Cpat1_size_thm = size_thm "Cpat1_size_thm" ``Cpat1_size`` ``Cpat_size``
 val Cvs_size_thm = size_thm "Cvs_size_thm" ``Cvs_size`` ``Cv_size``
+
+val SUM_MAP_Cexp2_size_thm = store_thm(
+"SUM_MAP_Cexp2_size_thm",
+``∀env. SUM (MAP Cexp2_size env) =
+  SUM (MAP (list_size (list_size char_size)) (MAP FST env))
++ SUM (MAP Cexp3_size (MAP SND env))
++ LENGTH env``,
+Induct >- rw[Cexp_size_def] >> Cases >>
+srw_tac[ARITH_ss][Cexp_size_def])
+
+val Cexp3_size_thm = store_thm("Cexp3_size_thm",
+  ``∀cb. Cexp3_size cb = 1 + sum_size Cexp_size I cb``,
+  Cases_on `cb` >> rw[Cexp_size_def,basicSizeTheory.sum_size_def])
 
 val list_size_thm = store_thm(
 "list_size_thm",
@@ -52,27 +66,18 @@ val extend_rec_env_def = save_thm("extend_rec_env_def",extend_rec_env_def)
 val syneq_cases = save_thm("syneq_cases",syneq_cases)
 val syneq_ind = save_thm("syneq_ind",syneq_ind)
 
-val free_tac =
+val (free_vars_def, free_vars_ind) = register "free_vars" (
+  tprove_no_defn ((free_vars_def,free_vars_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
     | INL (c,e) => (CARD (FDOM c), Cexp_size e)
-    | INR (c,b) => (CARD (FDOM c), b))` >>
-  srw_tac[ARITH_ss][Cexp1_size_thm] >>
+    | INR (c,b) => (CARD (FDOM c), Cexp3_size b))` >>
+  srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm] >>
   fsrw_tac[][FLOOKUP_DEF]>>
-  rw[list_size_thm] >>
-  Q.ISPEC_THEN `Cexp_size` mp_tac SUM_MAP_MEM_bound >>
-  TRY (Q.PAT_ABBREV_TAC `ff = (X:string list # num -> num)` >>
-    Q.ISPEC_THEN `ff` mp_tac SUM_MAP_MEM_bound )>>
-  rw[] >> res_tac >> fs[] >> srw_tac[ARITH_ss][] >>
-  TRY (Cases_on `CARD (FDOM c)` >> fs[] >> NO_TAC) >>
-  qunabbrev_tac `ff` >> fsrw_tac[ARITH_ss][]
-
-val (free_vars_def, free_vars_ind) = register "free_vars" (
-  tprove_no_defn ((free_vars_def,free_vars_ind), free_tac))
+  MAP_EVERY (fn q => Q.ISPEC_THEN q mp_tac SUM_MAP_MEM_bound)
+  [`Cexp_size`,`Cexp2_size`] >>
+  rw[] >> res_tac >> fs[Cexp_size_def] >> srw_tac[ARITH_ss][] >>
+  Cases_on `CARD (FDOM c)` >> fs[]))
 val _ = export_rewrites["free_vars_def"];
-
-val (free_labs_def, free_labs_ind) = register "free_labs" (
-  tprove_no_defn ((free_labs_def,free_labs_ind), free_tac))
-val _ = export_rewrites["free_labs_def"];
 
 val (no_closures_def, no_closures_ind) = register "no_closures" (
   tprove_no_defn ((no_closures_def, no_closures_ind),
@@ -140,28 +145,24 @@ val Cpes_vars_def = save_thm("Cpes_vars_def",Cpes_vars_def)
 val (exp_to_Cexp_def,exp_to_Cexp_ind) = register "exp_to_Cexp" (
   tprove_no_defn ((exp_to_Cexp_def,exp_to_Cexp_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
-    | INL e => exp_size e
-    | INR (INL defs) => exp1_size defs
-    | INR (INR (INL pes)) => exp4_size pes
-    | INR (INR (INR es)) => exp6_size es)`))
+    | INL (_,e) => exp_size e
+    | INR (INL (_,defs)) => exp1_size defs
+    | INR (INR (INL (_,pes))) => exp4_size pes
+    | INR (INR (INR (_,es))) => exp6_size es)`))
 
 val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
   tprove_no_defn ((v_to_Cv_def,v_to_Cv_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
-    | INL v => v_size v
-    | INR (INL vs) => v3_size vs
-    | INR (INR env) => v1_size env)`))
+    | INL (_,v) => v_size v
+    | INR (INL (_, vs)) => v3_size vs
+    | INR (INR (_, env)) => v1_size env)`))
 
 val pat_to_Cpat_def = save_thm("pat_to_Cpat_def",pat_to_Cpat_def)
-
-val _ = save_thm("e2c_bump_def",e2c_bump_def)
-val _ = save_thm("e2c_add_def",e2c_add_def)
-val _ = save_thm("mk_e2c_state_def",mk_e2c_state_def)
 
 val _ = register "calculate_ldefs" (
   tprove_no_defn ((calculate_ldefs_def, calculate_ldefs_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λ(c,ls,e). (CARD (FDOM c), Cexp_size e))` >>
-  srw_tac[ARITH_ss][Cexp1_size_thm] >> fs[FLOOKUP_DEF] >>
+  srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm] >> fs[FLOOKUP_DEF] >>
   Q.ISPEC_THEN `Cexp_size` mp_tac SUM_MAP_MEM_bound >>
   strip_tac >> res_tac >> fsrw_tac[ARITH_ss][] >>
   Cases_on `CARD (FDOM c)` >> fs[]))
@@ -177,12 +178,13 @@ val (compile_def, compile_ind) = register "compile" (
        | INR (env,z,e,n,s,[])=> (Cexp_size e, 4)
        | INR (env,z,e,n,s,ns)=> (Cexp_size e + (SUM (MAP (list_size char_size) ns)) + LENGTH ns, 2))` >>
   srw_tac[ARITH_ss][] >>
-  srw_tac[ARITH_ss][Cexp1_size_thm,Cexp_size_def,list_size_thm] >>
+  srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm,Cexp_size_def,list_size_thm,SUM_MAP_Cexp2_size_thm] >>
   TRY (Q.ISPEC_THEN `Cexp_size` imp_res_tac SUM_MAP_MEM_bound >> DECIDE_TAC) >>
   TRY (Cases_on `xs` >> srw_tac[ARITH_ss][]) >>
   TRY (Cases_on `ns` >> srw_tac[ARITH_ss][]) >>
   srw_tac[ARITH_ss][list_size_thm]))
 
+val _ = save_thm("label_closures_def",label_closures_def)
 val _ = save_thm("num_fold_def",num_fold_def)
 val _ = save_thm("cce_aux_def",cce_aux_def)
 val _ = save_thm("compile_code_env_def",compile_code_env_def)
