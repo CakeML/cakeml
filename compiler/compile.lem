@@ -628,7 +628,7 @@ and
 label_closures (CLetfun p ns defs e) = bind
   (label_defs [] defs) (fun defs -> bind
   (label_closures e) (fun e -> return
-  (CLetfun p ns defs e)))
+  (CLetfun p ns (List.rev defs) e)))
 and
 label_closures (CFun xs cb) = bind
   (label_defs [] [(xs,cb)]) (fun defs ->
@@ -688,7 +688,7 @@ imm_unlab (CLetfun p ns defs e) = count_unlab defs + imm_unlab e
 and
 imm_unlab (CFun xs cb) = count_unlab [(xs,cb)]
 and
-imm_unlab (CCall e es) = imm_unlab_list es + imm_unlab e
+imm_unlab (CCall e es) = imm_unlab e + imm_unlab_list es
 and
 imm_unlab (CPrim2 op e1 e2) = imm_unlab e1 + imm_unlab e2
 and

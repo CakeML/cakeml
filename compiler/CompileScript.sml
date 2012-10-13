@@ -648,7 +648,7 @@ val _ = Defn.save_defn label_defs_defn;
 (label_closures (CLetfun p ns defs e) = BIND
   (label_defs [] defs) (\ defs . BIND
   (label_closures e) (\ e . UNIT
-  (CLetfun p ns defs e))))
+  (CLetfun p ns (REVERSE defs) e))))
 /\
 (label_closures (CFun xs cb) = BIND
   (label_defs [] [(xs,cb)]) (\ defs .
@@ -714,7 +714,7 @@ val _ = Defn.save_defn count_unlab_defn;
 /\
 (imm_unlab (CFun xs cb) = count_unlab [(xs,cb)])
 /\
-(imm_unlab (CCall e es) = imm_unlab_list es + imm_unlab e)
+(imm_unlab (CCall e es) = imm_unlab e + imm_unlab_list es)
 /\
 (imm_unlab (CPrim2 op e1 e2) = imm_unlab e1 + imm_unlab e2)
 /\

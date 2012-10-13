@@ -420,3 +420,41 @@ val e63 = ``Letrec [("f","x",App Opapp (Var "g") (Var "x"));
                     (App Opapp (Var "f") (Lit (IntLit 42)))``
 val [Number r] = run_exp e63
 val SOME 42 = intML.toInt r;
+
+val d0 = ``Dlet (Pvar "1") (Lit (IntLit 1))``
+val d1 = ``Dletrec [
+("a","b",App Equality (Var "b") (Lit (IntLit 0)));
+("c","d",If (App Opapp (Var "a") (Var "d")) (Lit (Bool T))
+         (App Opapp (Var "g") (App Opapp (Var "i") (Var "d"))));
+("e","f",If (App Opapp (Var "a") (Var "f")) (Lit (Bool F))
+         (App Opapp (Var "c") (App Opapp (Var "i") (Var "f"))));
+("g","h",If (App Opapp (Var "a") (Var "h")) (Lit (Bool F))
+         (App Opapp (Var "e") (App Opapp (Var "i") (Var "h"))));
+("i","j",App (Opn Minus) (Var "j") (Var "1"))]``
+val e64 = ``App Opapp (Var "c") (Lit (IntLit 12))``
+val [Number r,_,_,_,_,_,_] = run_decs_exp([d0,d1],e64)
+val SOME 1 = intML.toInt r;
+val d1 = ``Dletrec [
+("a","b",App Equality (Var "b") (Lit (IntLit 0)));
+("c","d",If (App Opapp (Var "a") (Var "d")) (Lit (Bool T))
+         (App Opapp (Var "g") (App Opapp (Var "i") (Var "d"))));
+("e","f",If (App Opapp (Var "a") (Var "f")) (Lit (Bool F))
+         (App Opapp (Var "c") (App Opapp (Var "i") (Var "f"))));
+("g","h",If (App Opapp (Var "a") (Var "h")) (Lit (Bool F))
+         (App Opapp (Var "e") (App Opapp (Var "i") (Var "h"))));
+("i","j",App (Opn Minus) (Var "j") (Lit (IntLit 1)))]``
+val e65 = ``App Opapp (Var "c") (Lit (IntLit 12))``
+val [Number r,_,_,_,_,_] = run_decs_exp([d1],e65)
+val SOME 1 = intML.toInt r;
+val e66 = ``Letrec [
+("a","b",App Equality (Var "b") (Lit (IntLit 0)));
+("c","d",If (App Opapp (Var "a") (Var "d")) (Lit (Bool T))
+         (App Opapp (Var "g") (App Opapp (Var "i") (Var "d"))));
+("e","f",If (App Opapp (Var "a") (Var "f")) (Lit (Bool F))
+         (App Opapp (Var "c") (App Opapp (Var "i") (Var "f"))));
+("g","h",If (App Opapp (Var "a") (Var "h")) (Lit (Bool F))
+         (App Opapp (Var "e") (App Opapp (Var "i") (Var "h"))));
+("i","j",App (Opn Minus) (Var "j") (Lit (IntLit 1)))]
+(App Opapp (Var "c") (Lit (IntLit 12)))``
+val [Number r] = run_exp e66
+val SOME 1 = intML.toInt r;
