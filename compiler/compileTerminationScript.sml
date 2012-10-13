@@ -184,8 +184,34 @@ val (compile_def, compile_ind) = register "compile" (
   TRY (Cases_on `ns` >> srw_tac[ARITH_ss][]) >>
   srw_tac[ARITH_ss][list_size_thm]))
 
+val _ = register "num_fold" (
+  tprove_no_defn ((num_fold_def,num_fold_ind),
+  WF_REL_TAC `measure (SND o SND)`))
+
+val _ = register "label_defs" (
+  tprove_no_defn ((label_defs_def,label_defs_ind),
+  WF_REL_TAC `measure (LENGTH o SND)` >> rw[]))
+
 val _ = save_thm("label_closures_def",label_closures_def)
-val _ = save_thm("num_fold_def",num_fold_def)
+
+val _ = register "count_unlab" (
+  tprove_no_defn ((count_unlab_def,count_unlab_ind),
+  WF_REL_TAC `measure LENGTH` >> rw[]))
+
+val _ = save_thm("imm_unlab_def",imm_unlab_def)
+
+val _ = register "repeat_label_closures" (
+  tprove_no_defn ((repeat_label_closures_def,repeat_label_closures_ind),
+  WF_REL_TAC `inv_image (prim_rec$<) (λx. case x of
+    | (INL (e,n,ac)) =>  (imm_unlab e)
+    | (INR (n,ac,ls)) => (list_size imm_unlab (MAP SND ls)))` >>
+  srw_tac[ARITH_ss][list_size_thm] >>
+  cheat))
+
+val _ = register "defs_to_ldefs" (
+  tprove_no_defn ((defs_to_ldefs_def,defs_to_ldefs_ind),
+  WF_REL_TAC `measure LENGTH` >> rw[]))
+
 val _ = save_thm("cce_aux_def",cce_aux_def)
 val _ = save_thm("compile_code_env_def",compile_code_env_def)
 val _ = save_thm("compile_closures_def",compile_closures_def)
