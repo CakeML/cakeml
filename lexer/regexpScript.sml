@@ -58,6 +58,9 @@ Induct_on `rs` >>
 rw [regexp_size_def] >>
 full_simp_tac (srw_ss()++ARITH_ss) []);
 
+val regexp_alphabet_def = Define `
+regexp_alphabet r = { c | ∃s. MEM c s ∧ regexp_matches r s }`;
+
 val nullable_def = tDefine "nullable" `
 (nullable (CharSet _) = F) ∧
 (nullable (StringLit "") = T) ∧
@@ -72,7 +75,6 @@ srw_tac [ARITH_ss] [] >>
 Induct_on `rs` >>
 rw [fetch "-" "regexp_size_def"] >>
 full_simp_tac (srw_ss()++ARITH_ss) []);
-
 
 val deriv_def = tDefine "deriv" `
 (deriv c (CharSet cs) =
@@ -159,10 +161,44 @@ rw [] >|
  qexists_tac `(c :: s1) :: ss` >>
      rw []]));
 
-val regexp_matches_thm = Q.store_thm ("regexp_matches_thm",
+val regexp_matches_deriv = Q.store_thm ("regexp_matches_deriv",
 `!r s. regexp_matches r s = deriv_matches r s`,
 Induct_on `s` >>
 rw [deriv_matches_def, nullable_thm] >>
 metis_tac [deriv_thm]);
+
+val regexp_matches_eqns = Q.store_thm ("regexp_matches_eqns",
+`(!s. regexp_matches (CharSet {}) s = F) ∧
+ (!r1 r2 r3 s.
+    regexp_matches (Cat (Cat r1 r2) r3) s = 
+    regexp_matches (Cat r1 (Cat r2 r3)) s) ∧
+ (!s. regexp_matches (Or []) s = F) ∧
+ (!s r. regexp_matches (Or [r]) s = regexp_matches r s) ∧
+ (!r. (!s. regexp_matches r s = F) ⇒
+      (!r' s. regexp_matches (Cat r' r) s = F) ∧
+      (!r' s. regexp_matches (Cat r r') s = F) ∧
+      (!s. regexp_matches (Star r) s = (s = "")) ∧
+      (!s. regexp_matches (Plus r) s = F)) ∧
+ (!r. (!s. regexp_matches r s = (s = "")) ⇒
+      (!r' s. regexp_matches (Cat r' r) s = regexp_matches r' s) ∧
+      (!r' s. regexp_matches (Cat r r') s = regexp_matches r' s) ∧
+      (!s. regexp_matches (Star r) s = (s = "")) ∧
+      (!s. regexp_matches (Plus r) s = (s = "")))`,
+rw [regexp_matches_def] >|
+[metis_tac [APPEND_ASSOC],
+ eq_tac >>
+     rw [] >|
+     [metis_tac [concat_empties, APPEND_NIL, FLAT],
+      qexists_tac `[]` >>
+          rw []], 
+ eq_tac >>
+     rw [] >|
+     [metis_tac [concat_empties, APPEND_NIL, FLAT],
+      qexists_tac `[""]` >>
+          rw []]]);
+
+val deriv_matches_eqns = 
+  save_thm ("deriv_matches_eqns",
+            REWRITE_RULE [regexp_matches_deriv] regexp_matches_eqns);
 
 val _ = export_theory ();

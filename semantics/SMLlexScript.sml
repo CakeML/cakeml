@@ -126,7 +126,7 @@ val longid_def = Define `
 longid = Cat (Plus (Cat alphanumid (StringLit ".")))
              (Or [id; StringLit "="; StringLit "*"])`;
 
-val printable = Define `
+val printable_def = Define `
 printable = CharSet (set
 "!#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]\094_\096abcdefghijklmnopqrstuvwxyz{|}~")`;
 
@@ -153,6 +153,37 @@ string = Cat (StringLit "\"")
 val char_def = Define `
 char = Cat (StringLit "#\"")
            (Cat (Star gap) (Cat stringchar (Cat (Star gap) (StringLit "\""))))`;
+
+val all_SML_regexps = 
+  save_thm ("all_SML_regexps",
+            LIST_CONJ [formatting_def,
+                       letter_def,
+                       symbol_def,
+                       digit_def,
+                       digit_not_zero_def,
+                       hexdigit_def,
+                       posdecint_def,
+                       poshexint_def,
+                       negdecint_def,
+                       neghexint_def,
+                       decint_def,
+                       hexint_def,
+                       decword_def,
+                       hexword_def,
+                       exp_def,
+                       real_def,
+                       numericlab_def,
+                       alphanumid_def,
+                       symbolicid_def,
+                       id_def,
+                       tyvar_def,
+                       longid_def ,
+                       printable_def,
+                       escape_def, 
+                       gap_def, 
+                       stringchar_def,
+                       string_def,
+                       char_def]);
 
 val SML_lex_spec_def = Define `
 SML_lex_spec : token lexer_spec =
