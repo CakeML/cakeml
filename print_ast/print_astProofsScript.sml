@@ -131,7 +131,7 @@ val is_MiniML_tok_def = Define `
 (is_MiniML_tok NewlineT = T) ∧
 (is_MiniML_tok (WhitespaceT n) = n > 0) ∧
 (is_MiniML_tok (IntT i) = T) ∧
-(* TODO: The lazy out on ids for now *)
+(* TODO: The lazy way out on ids for now *)
 (is_MiniML_tok (LongidT id) = 
   regexp_matches longid id) ∧
 (* TODO: I'm concerned that the SML spec allows empty tyvars *)
@@ -509,8 +509,6 @@ rw [] >>
 
 
 
-
-
 `!toks. 
   EVERY is_MiniML_tok toks ⇒
   ?toks'. 
@@ -530,7 +528,7 @@ fs [] >>
         by metis_tac [can_lex_one_token] >>
 
 
-
+lex_init_ws
 
 
 

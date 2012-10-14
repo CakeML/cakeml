@@ -111,6 +111,75 @@ val deriv_matches_def = Define `
 (deriv_matches r "" = nullable r) ∧
 (deriv_matches r (c::s) = deriv_matches (deriv c r) s)`;
 
+val regexp_char_set_def = Define `
+regexp_char_set cs = CharSet cs`;
+
+val regexp_string_lit_def = Define `
+(regexp_string_lit "" = Star (CharSet {})) ∧
+(regexp_string_lit (c::s) = Cat (CharSet {c}) (regexp_string_lit s))`;
+
+val regexp_cat_def = Define `
+regexp_cat r1 r2 =
+  if (r1 = CharSet {}) ∨ (r2 = CharSet {}) then
+    CharSet {}
+  else if r1 = Star (CharSet {}) then
+    r2
+  else if r2 = Star (CharSet {}) then
+    r1
+  else
+    case r1 of
+      | Cat r3 r4 => regexp_cat r3 (Cat r4 r2)
+      | _ => Cat r1 r2`;
+
+val regexp_neg_def = Define `
+(regexp_neg (Neg r) = r) ∧
+(regexp_neg r = (Neg r))`;
+
+val regexp_star_def = Define `
+(regexp_star (Star r) = Star r) ∧
+(regexp_star r = Star r)`;
+
+val regexp_plus_def = Define `
+regexp_plus r = regexp_cat r (regexp_star r)`;
+
+val flatten_or_def = Define `
+(flatten_or [] = []) ∧
+(flatten_or (Or rs::rs') = rs ++ flatten_or rs') ∧
+(flatten_or (r::rs) = r :: flatten_or rs)`;
+
+val regexp_or_def = Define `
+regexp_or rs = 
+  let rs = flatten_or rs in
+    if MEM (Neg (CharSet {})) rs then
+      Neg (CharSet {})
+    else
+      (* TODO: We should sort, remove duplicates, and merge CharSets *)
+      case rs of
+        | [] => CharSet {}
+        | [r] => r
+        | res => Or res`;
+
+val normalize_regexp_def = tDefine "normalize_regexp" `
+(normalize_regexp (CharSet cs) = 
+  regexp_char_set cs) ∧
+(normalize_regexp (StringLit s) = 
+  regexp_string_lit s) ∧
+(normalize_regexp (Cat r1 r2) = 
+  regexp_cat (normalize_regexp r1) (normalize_regexp r2)) ∧
+(normalize_regexp (Star r) =
+  regexp_star (normalize_regexp r)) ∧
+(normalize_regexp (Plus r) =
+  regexp_plus (normalize_regexp r)) ∧
+(normalize_regexp (Or rs) =
+  regexp_or (MAP normalize_regexp rs)) ∧
+(normalize_regexp (Neg r) =
+  regexp_neg (normalize_regexp r))`
+(WF_REL_TAC `measure regexp_size` >>
+srw_tac [ARITH_ss] [] >>
+Induct_on `rs` >>
+rw [regexp_size_def] >>
+full_simp_tac (srw_ss()++ARITH_ss) []);
+
 val nullable_thm = Q.prove (
 `!r. nullable r = regexp_matches r ""`,
 recInduct (fetch "-" "nullable_ind") >>
