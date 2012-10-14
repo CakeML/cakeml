@@ -200,6 +200,38 @@ val _ = register "count_unlab" (
 
 val _ = save_thm("imm_unlab_def",imm_unlab_def)
 
+val list_max_def = Define`
+  list_max = FOLDL MAX 0`;
+
+val mbd_def = tDefine`
+  (mbd c (CDecl _) = 0) ∧
+  (mbd c (CRaise _) = 0) ∧
+  (mbd c (CVar _) = 0) ∧
+  (mbd c (CLit _) = 0) ∧
+  (mbd c (CCon _ es) = list_max (MAP (mbd c) es)) ∧
+  (mbd c (CTagEq e _) = mbd c e) ∧
+  (mbd c (CProj e _) = mbd c e) ∧
+  (mbd c (CLet _ es e) = list_max (MAP (mbd c) (e::es))) ∧
+  (mbd c (CLetfun _ _ defs e) = MAX (mbd_defs c defs) (mbd c e)) ∧
+  (mbd c (CFun xs cb) = mbd_defs c [(xs,cb)]) ∧
+  (mbd c (CCall e es) = list_max (MAP (mbd c) (e::es))) ∧
+  (mbd c (CPrim2 _ e1 e2) = MAX (mbd c e1) (mbd c e2)) ∧
+  (mbd c (CIf e1 e2 e3) = list_max (MAP (mbd c) [e1;e2;e3])) ∧
+  (mbd_defs c [] = 0) ∧
+  (mbd_defs c ((_,INL b)::defs) =
+    MAX (1 + mbd c b) (mbd_defs c defs)) ∧
+  (mbd_defs c ((_,INR l)::defs) =
+    case FLOOKUP c l of
+    | SOME b => MAX (1 + mbd (c \\ l) b) (mbd_defs (c \\ l) defs)
+    | NONE => mbd_defs c defs)`
+  (WF_REL_TAC `inv_image ($< LEX $< LEX $<) (λx. case x of
+    | INL (c,b) => (CARD (FDOM c), 1:num, Cexp_size b)
+    | INR (c,ls) => (CARD (FDOM c), 0, Cexp1_size ls))` >>
+   srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm] >>
+   srw_tac[ARITH_ss][]
+
+open state_transformerTheory
+
 val _ = register "repeat_label_closures" (
   tprove_no_defn ((repeat_label_closures_def,repeat_label_closures_ind),
   WF_REL_TAC `inv_image (prim_rec$<) (λx. case x of
