@@ -24,30 +24,6 @@ val IN_option_rwt2 = store_thm(
 ``x ∈ option_case {} s opt = ∃y. (opt = SOME y) ∧ x ∈ s y``,
 Cases_on `opt` >> rw[])
 
-(* TODO: move to src/monad *)
-(* monad helpers *)
-open HolKernel state_transformerTheory
-
-val sequence_def = Define`
-  sequence = FOLDR (λm ms. BIND m (λx. BIND ms (λxs. UNIT (x::xs)))) (UNIT [])`
-
-val sequence_nil = store_thm("sequence_nil",
-  ``sequence [] = UNIT []``,
-  rw[sequence_def])
-val _ = export_rewrites["sequence_nil"]
-
-val mapM_def = Define`
-  mapM f = sequence o MAP f`
-
-val mapM_nil = store_thm("mapM_nil",
-  ``mapM f [] = UNIT []``,
-  rw[mapM_def])
-val _ = export_rewrites["mapM_nil"]
-
-val mapM_cons = store_thm("mapM_cons",
-  ``mapM f (x::xs) = BIND (f x) (λy. BIND (mapM f xs) (λys. UNIT (y::ys)))``,
-  rw[mapM_def,sequence_def])
-
 (* Re-expressing folds *)
 
 val FOLDL2_FUPDATE_LIST = store_thm(
