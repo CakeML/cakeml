@@ -12,7 +12,6 @@ val _ = Hol_datatype `
   | CPlit of lit
   | CPcon of num => Cpat list`;
 
-
 val _ = Hol_datatype `
  Cexp =
     CDecl of string list
@@ -29,6 +28,8 @@ val _ = Hol_datatype `
   | CPrim2 of Cprim2 => Cexp => Cexp
   | CIf of Cexp => Cexp => Cexp`;
 
+val _ = Parse.type_abbrev("def",``:(string list # (Cexp + num))``)
+
 (* and now the Cv type with its unnecessarily difficult recursion *)
 
 val _ = Parse.overload_on("num_to_s0",``GENLIST (K (CHR 0))``)
@@ -37,7 +38,7 @@ val _ = Parse.overload_on("s0_to_num",``STRLEN``)
 val b = ``:string``
 val a = ``:lit +
 num +
-string list # (string list # (Cexp + num)) list # string``
+string list # def list # string``
 val Cv0 = ``:(^b,^a) fmaptree``
 val _ = Parse.type_abbrev("Cv0",Cv0)
 val Cvwf_def = new_specification("Cvwf_def",["Cvwf"],

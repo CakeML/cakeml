@@ -117,10 +117,12 @@ type Cexp =
   | CPrim2 of Cprim2 * Cexp * Cexp
   | CIf of Cexp * Cexp * Cexp
 
+type def = list string * ((+) Cexp num)
+
 type Cv =
   | CLitv of lit
   | CConv of num * list Cv
-  | CRecClos of Pmap.map string Cv * list string * list (list string * ((+) Cexp num)) * string
+  | CRecClos of Pmap.map string Cv * list string * list def * string
 
 (* Semantics *)
 

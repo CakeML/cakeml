@@ -11,6 +11,7 @@ val _ = Parse.disable_tyabbrev_printing "envE"
 val _ = Parse.disable_tyabbrev_printing "ctenv"
 val _ = Parse.disable_tyabbrev_printing "ecs"
 val _ = Parse.disable_tyabbrev_printing "alist"
+val _ = Parse.disable_tyabbrev_printing "def"
 val _ = Parse.hide "toList"
 
 val underscore_rule = Conv.CONV_RULE let
