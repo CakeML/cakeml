@@ -588,7 +588,7 @@ type label_closures_state =
    |>
 
 let rec
-label_defs ds [] = return ds
+label_defs (ds:list def) ([]:list def) = return ds
 and
 label_defs ds ((xs,INR a)::defs) =
   label_defs ((xs,INR a)::ds) defs

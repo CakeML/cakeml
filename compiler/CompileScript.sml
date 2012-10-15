@@ -603,7 +603,7 @@ val _ = Hol_datatype `
 
  val label_defs_defn = Hol_defn "label_defs" `
 
-(label_defs ds [] = UNIT ds)
+(label_defs (ds: def list) ([]: def list) = UNIT ds)
 /\
 (label_defs ds ((xs,INR a)::defs) =
   label_defs ((xs,INR a)::ds) defs)
