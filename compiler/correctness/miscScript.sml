@@ -383,11 +383,6 @@ val LESS_1 = store_thm(
 DECIDE_TAC)
 val _ = export_rewrites["LESS_1"]
 
-val NOT_ISL_ISR = store_thm("NOT_ISL_ISR",
-  ``~ISL x = ISR x``,
-  Cases_on `x` >> rw[])
-val _ = export_rewrites["NOT_ISL_ISR"]
-
 val IMAGE_EQ_SING = store_thm("IMAGE_EQ_SING",
   ``(IMAGE f s = {z}) <=> (s <> {}) /\ !x. x IN s ==> (f x = z)``,
   EQ_TAC >>

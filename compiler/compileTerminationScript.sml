@@ -285,51 +285,14 @@ val count_unlab_FILTER = store_thm("count_unlab_FILTER",
 
 val bodies_ind = theorem"bodies_ind"
 
-(* TODO: move *)
-
-val SUM_eq_0 = store_thm("SUM_eq_0",
-  ``!ls. (SUM ls = 0) = !x. MEM x ls ==> (x = 0)``,
-  Induct THEN SRW_TAC[][] THEN METIS_TAC[])
-
-val LENGTH_FILTER_eq_0 = store_thm("LENGTH_FILTER_eq_0",
-  ``!P ls. (LENGTH (FILTER P ls) = 0) = !x. MEM x ls ==> ~P x``,
-  GEN_TAC THEN Induct THEN SRW_TAC[][] THEN METIS_TAC[])
-
-val NOT_ISL_ISR = store_thm("NOT_ISL_ISR",
-  ``~ISL x = ISR x``,
-  Cases_on `x` >> rw[])
-
 val imm_bodies_0 = store_thm("imm_bodies_0",
   ``(∀e. (bodies e = 0) = (imm_unlab e = 0)) ∧
     (∀d. (bod1 d = 0) = (ISR (SND d)))``,
   ho_match_mp_tac bodies_ind >>
   rw[imm_unlab_def,imm_unlab_list_SUM] >>
-  fs[SUM_eq_0,MEM_MAP,count_unlab_FILTER,LENGTH_FILTER_eq_0,NOT_ISL_ISR] >>
+  fs[SUM_eq_0,MEM_MAP,count_unlab_FILTER,NULL_FILTER,GSYM NULL_LENGTH] >>
   TRY (metis_tac[]) >>
   Cases_on `cb` >> rw[])
-
-(* TODO: move to src/monad *)
-(* monad helpers *)
-
-val sequence_def = Define`
-  sequence = FOLDR (λm ms. BIND m (λx. BIND ms (λxs. UNIT (x::xs)))) (UNIT [])`
-
-val sequence_nil = store_thm("sequence_nil",
-  ``sequence [] = UNIT []``,
-  rw[sequence_def])
-val _ = export_rewrites["sequence_nil"]
-
-val mapM_def = Define`
-  mapM f = sequence o MAP f`
-
-val mapM_nil = store_thm("mapM_nil",
-  ``mapM f [] = UNIT []``,
-  rw[mapM_def])
-val _ = export_rewrites["mapM_nil"]
-
-val mapM_cons = store_thm("mapM_cons",
-  ``mapM f (x::xs) = BIND (f x) (λy. BIND (mapM f xs) (λys. UNIT (y::ys)))``,
-  rw[mapM_def,sequence_def])
 
 val label_closures_list_mapM = store_thm("label_closures_list_mapM",
   ``label_closures_list = mapM label_closures``,
