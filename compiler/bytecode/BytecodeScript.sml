@@ -14,7 +14,7 @@ val _ = Hol_datatype `
     Pop                     (* pop top of stack *)
   | Pops of num             (* pop n elements under stack top *)
   | Shift of num => num      (* shift top n elements down k places *)
-  | PushInt of int          (* push num onto stack *)
+  | PushInt of int          (* push int onto stack *)
   | Cons of num => num       (* push new cons with tag m and n elements *)
   | Load of num             (* push stack[n+1] *)
   | Store of num            (* pop and store in stack[n+1] *)
@@ -41,6 +41,7 @@ val _ = Hol_datatype `
   | Call of loc             (* call location *)
   | JumpPtr                 (* jump based on code pointer *)
   | CallPtr                 (* call based on code pointer *)
+  | PushPtr of loc          (* push a CodePtr onto stack *)
   | Return                  (* pop return address, jump *)
   | Exception               (* restore stack, jump *)
   | Ref                     (* create a new ref cell *)
@@ -235,6 +236,12 @@ bc_next s (s with<| pc := ptr; stack := x::CodePtr ((bump_pc s).pc)::xs|>))
 /\ (s.stack = CodePtr ptr::xs)
 ==>
 bc_next s (s with<| pc := ptr; stack := xs|>))
+/\
+(! s l n.
+(bc_fetch s = SOME (PushPtr l))
+/\ (bc_find_loc s l = SOME n)
+==>
+bc_next s (s with<| stack := (CodePtr n)::s.stack |>))
 /\
 (! s x n xs.
 (bc_fetch s = SOME Return)
