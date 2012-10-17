@@ -270,4 +270,91 @@ val deriv_matches_eqns =
   save_thm ("deriv_matches_eqns",
             REWRITE_RULE [regexp_matches_deriv] regexp_matches_eqns);
 
+val regexp_matches_ctxt_eqns = Q.store_thm ("regexp_matches_ctxt_eqns",
+`!r1 r2. 
+  (!s. regexp_matches r1 s = regexp_matches r2 s)
+  ⇒
+  (!r s. regexp_matches (Cat r1 r) s = regexp_matches (Cat r2 r) s) ∧
+  (!r s. regexp_matches (Cat r r1) s = regexp_matches (Cat r r2) s) ∧
+  (!s. regexp_matches (Star r1) s = regexp_matches (Star r2) s) ∧
+  (!s. regexp_matches (Plus r1) s = regexp_matches (Plus r2) s) ∧
+  (!s rs1 rs2. regexp_matches (Or (rs1++r1::rs2)) s = 
+               regexp_matches (Or (rs1++r2::rs2)) s) ∧
+  (!s. regexp_matches (Neg r1) s = regexp_matches (Neg r2) s)`,
+rw [regexp_matches_def]);
+
+val deriv_matches_ctxt_eqns = 
+  save_thm ("deriv_matches_ctxt_eqns",
+            REWRITE_RULE [regexp_matches_deriv] regexp_matches_ctxt_eqns);
+
+(* We can use this as a quick regexp matcher in the rewriter, but it doesn't
+ * handle Neg and diverges on (Star r) where (regexp_matches r "") *)
+val regexp_matches_algorithm = Q.store_thm ("regexp_matches_algorithm",
+`(!cs r s. 
+  regexp_matches (Cat (CharSet cs) r) [] = 
+    F) ∧
+ (!cs r c s. 
+   regexp_matches (Cat (CharSet cs) r) (c::s) = 
+     c ∈ cs ∧ regexp_matches r s) ∧
+ (!s' r. 
+   regexp_matches (Cat (StringLit s') r) [] = 
+     (s' = []) ∧ nullable r) ∧
+ (!r c s. 
+   regexp_matches (Cat (StringLit []) r) (c::s) = 
+     regexp_matches r (c::s)) ∧
+ (!c' s' r c s. 
+   regexp_matches (Cat (StringLit (c'::s')) r) (c::s) = 
+     (c = c') ∧ regexp_matches (Cat (StringLit s') r) s) ∧
+ (!r1 r2 r3 s. 
+   regexp_matches (Cat (Cat r1 r2) r3) s = 
+     regexp_matches (Cat r1 (Cat r2 r3)) s) ∧
+ (!r1 r2 s. 
+   regexp_matches (Cat (Star r1) r2) s = 
+     regexp_matches r2 s ∨
+     regexp_matches (Cat r1 (Cat (Star r1) r2)) s) ∧
+ (!r1 r2 s. 
+   regexp_matches (Cat (Plus r1) r2) s = 
+     regexp_matches (Cat r1 (Cat (Star r1) r2)) s) ∧
+ (!rs r s.
+   regexp_matches (Cat (Or rs) r) s =
+     EXISTS (\r'. regexp_matches (Cat r' r) s) rs)`,
+rw [regexp_matches_def] >>
+eq_tac >>
+rw [] >>
+fs [nullable_thm, EVERY_MEM] >-
+metis_tac [APPEND] >-
+metis_tac [APPEND_ASSOC] >-
+metis_tac [APPEND_ASSOC] >|
+[cases_on `ss` >>
+     rw [] >>
+     DISJ2_TAC >>
+     qexists_tac `h` >>
+     qexists_tac `CONCAT t ++ s2` >>
+     rw [] >>
+     fs [] >>
+     metis_tac [],
+ qexists_tac `""` >>
+     qexists_tac `s` >>
+     rw [] >>
+     qexists_tac `[]` >>
+     rw [],
+ qexists_tac `s1 ++ CONCAT ss` >>
+     qexists_tac `s2'` >>
+     rw [] >>
+     metis_tac [FLAT, MEM],
+ cases_on `ss` >>
+     fs [] >>
+     qexists_tac `h` >>
+     qexists_tac `CONCAT t ++ s2` >>
+     rw [] >>
+     metis_tac [FLAT, MEM],
+ qexists_tac `s1 ++ CONCAT ss` >>
+     qexists_tac `s2'` >>
+     rw [] >>
+     metis_tac [FLAT, MEM],
+ fs [EXISTS_MEM] >>
+     metis_tac [],
+ fs [EXISTS_MEM] >>
+     metis_tac []]);
+
 val _ = export_theory ();
