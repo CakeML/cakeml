@@ -1,4 +1,5 @@
-open HolKernel boolLib boolSimps bossLib quantHeuristicsLib pairTheory listTheory finite_mapTheory pred_setTheory state_transformerTheory lcsymtacs
+open HolKernel boolLib boolSimps bossLib quantHeuristicsLib pairTheory listTheory
+open rich_listTheory finite_mapTheory pred_setTheory state_transformerTheory lcsymtacs
 open miscTheory intLangTheory compileTerminationTheory
 val _ = new_theory"labelClosures"
 
@@ -56,6 +57,28 @@ val free_labs_def = tDefine "free_labs"`
   Q.ISPEC_THEN `Cexp_size` imp_res_tac SUM_MAP_MEM_bound >>
   fsrw_tac[ARITH_ss][])
 val _ = export_rewrites["free_labs_def"]
+
+(* bodies in an expression (but not recursively) *)
+val free_bods_def = tDefine "free_bods"`
+  (free_bods (CDecl xs) = []) ∧
+  (free_bods (CRaise er) = []) ∧
+  (free_bods (CVar x) = []) ∧
+  (free_bods (CLit li) = []) ∧
+  (free_bods (CCon cn es) = (FLAT (MAP (free_bods) es))) ∧
+  (free_bods (CTagEq e n) = (free_bods e)) ∧
+  (free_bods (CProj e n) = (free_bods e)) ∧
+  (free_bods (CLet xs es e) = FLAT (MAP free_bods es) ++ free_bods e) ∧
+  (free_bods (CLetfun b ns defs e) = (MAP (OUTL o SND) (FILTER (ISL o SND) defs))++(free_bods e)) ∧
+  (free_bods (CFun xs (INL cb)) = [cb]) ∧
+  (free_bods (CFun xs (INR _)) = []) ∧
+  (free_bods (CCall e es) = FLAT (MAP (free_bods) (e::es))) ∧
+  (free_bods (CPrim2 op e1 e2) = (free_bods e1)++(free_bods e2)) ∧
+  (free_bods (CIf e1 e2 e3) = (free_bods e1)++(free_bods e2)++(free_bods e3))`(
+  WF_REL_TAC `measure Cexp_size` >>
+  srw_tac[ARITH_ss][Cexp4_size_thm] >>
+  Q.ISPEC_THEN `Cexp_size` imp_res_tac SUM_MAP_MEM_bound >>
+  fsrw_tac[ARITH_ss][])
+val _ = export_rewrites["free_bods_def"]
 
 (* replace labels by bodies from code env (but not recursively) *)
 val subst_lab_cb_def = Define`
@@ -120,13 +143,184 @@ val subst_labs_any_env = store_thm("subst_labs_any_env",
     Cases_on `e'1` >> rw[] >>
     rw[FUNION_DEF,DRESTRICT_DEF] >>
     fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FILTER,FORALL_PROD] >>
-    fsrw_tac[QUANT_INST_ss[std_qp]][]
-    >- metis_tac[] >>
-    (* QUANT_INST_ss should have done this *)
-    first_x_assum (qspecl_then [`e'0`,`INR y`] mp_tac) >>
-    rw[])
+    fsrw_tac[QUANT_INST_ss[std_qp]][] >> metis_tac[])
   >- (
     Cases_on `cb` >> fs[FUNION_DEF,DRESTRICT_DEF]))
+
+fun select_fun tm = if P tm then SOME (tm,"lc") else NONE
+
+(* TODO: move *)
+val REVERSE_ZIP = store_thm("REVERSE_ZIP",
+  ``!l1 l2. (LENGTH l1 = LENGTH l2) ==>
+    (REVERSE (ZIP (l1,l2)) = ZIP (REVERSE l1, REVERSE l2))``,
+  Induct THEN SRW_TAC[][LENGTH_NIL_SYM] THEN
+  Cases_on `l2` THEN FULL_SIMP_TAC(srw_ss())[] THEN
+  SRW_TAC[][GSYM ZIP_APPEND])
+
+val LENGTH_o_REVERSE = store_thm("LENGTH_o_REVERSE",
+  ``(LENGTH o REVERSE = LENGTH) /\
+    (LENGTH o REVERSE o f = LENGTH o f)``,
+  SRW_TAC[][FUN_EQ_THM])
+
+val REVERSE_o_REVERSE = store_thm("REVERSE_o_REVERSE",
+  ``(REVERSE o REVERSE o f = f)``,
+  SRW_TAC[][FUN_EQ_THM])
+
+val GENLIST_PLUS_APPEND = store_thm("GENLIST_PLUS_APPEND",
+  ``GENLIST ($+ a) n1 ++ GENLIST ($+ (n1 + a)) n2 = GENLIST ($+ a) (n1 + n2)``,
+  rw[Once arithmeticTheory.ADD_SYM,SimpRHS] >>
+  srw_tac[ARITH_ss][GENLIST_APPEND] >>
+  srw_tac[ETA_ss][arithmeticTheory.ADD_ASSOC])
+
+val label_closures_thm = store_thm("label_closures_thm",
+  ``(∀e s e' s'. (label_closures e s = (e',s')) ⇒
+       (s'.lcode_env = REVERSE (ZIP (GENLIST ($+ s.lnext_label) (LENGTH (free_bods e)), free_bods e)) ++ s.lcode_env) ∧
+       (s'.lnext_label = s.lnext_label + LENGTH (free_bods e))) ∧
+    (∀ds ac s ds' s'. (label_defs ac ds s = (ds',s')) ⇒
+       (s'.lcode_env = REVERSE (
+         ZIP (GENLIST ($+ s.lnext_label) (LENGTH (FILTER (ISL o SND) ds)),
+              MAP (OUTL o SND) (FILTER (ISL o SND) ds)))
+         ++ s.lcode_env) ∧
+       (s'.lnext_label = s.lnext_label + LENGTH (FILTER (ISL o SND) ds))) ∧
+    (∀(d:def). T) ∧ (∀(b:Cexp+num). T) ∧
+    (∀es s es' s'. (label_closures_list es s = (es',s')) ⇒
+       (s'.lcode_env = REVERSE (
+           ZIP (GENLIST ($+ s.lnext_label) (LENGTH (FLAT (MAP free_bods es))),
+                FLAT (MAP free_bods es)))
+        ++ s.lcode_env) ∧
+       (s'.lnext_label = s.lnext_label + LENGTH (FLAT (MAP free_bods es))))``,
+  ho_match_mp_tac(TypeBase.induction_of(``:Cexp``)) >>
+  strip_tac >- rw[label_closures_def,UNIT_DEF,BIND_DEF] >>
+  strip_tac >- rw[label_closures_def,UNIT_DEF,BIND_DEF] >>
+  strip_tac >- rw[label_closures_def,UNIT_DEF,BIND_DEF] >>
+  strip_tac >- rw[label_closures_def,UNIT_DEF,BIND_DEF] >>
+  strip_tac >- (
+    fs[label_closures_def,UNIT_DEF,BIND_DEF] >>
+    rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+    qabbrev_tac`p = mapM label_closures es s` >> PairCases_on `p` >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    first_x_assum (qspecl_then [`s`,`p0`,`p1`] mp_tac) >> rw[] >>
+    srw_tac[ETA_ss][REVERSE_ZIP]) >>
+  strip_tac >- (
+    fs[label_closures_def,UNIT_DEF,BIND_DEF] >>
+    rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+    qabbrev_tac`p = label_closures e s` >> PairCases_on `p` >> fs[] ) >>
+  strip_tac >- (
+    fs[label_closures_def,UNIT_DEF,BIND_DEF] >>
+    rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+    qabbrev_tac`p = label_closures e s` >> PairCases_on `p` >> fs[] ) >>
+  strip_tac >- (
+    fs[label_closures_def,UNIT_DEF,BIND_DEF] >>
+    rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+    qabbrev_tac`p = mapM label_closures es s` >> PairCases_on `p` >> fs[] >>
+    qabbrev_tac`q = label_closures e p1` >> PairCases_on `q` >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    first_x_assum (qspecl_then [`p1`,`q0`,`q1`] mp_tac) >> rw[] >>
+    first_x_assum (qspecl_then [`s`,`p0`,`p1`] mp_tac) >> rw[] >>
+    srw_tac[ARITH_ss,ETA_ss][REVERSE_ZIP,ZIP_APPEND] >>
+    AP_TERM_TAC  >> rw[] >>
+    simp_tac(std_ss)[GSYM REVERSE_APPEND] >>
+    AP_TERM_TAC >> rw[] >>
+    rw[GENLIST_PLUS_APPEND] ) >>
+  strip_tac >- (
+    fs[label_closures_def,UNIT_DEF,BIND_DEF] >>
+    rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+    qabbrev_tac`p = label_defs [] ds s` >> PairCases_on `p` >> fs[] >>
+    qabbrev_tac`q = label_closures e p1` >> PairCases_on `q` >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    first_x_assum (qspecl_then [`p1`,`q0`,`q1`] mp_tac) >> rw[] >>
+    first_x_assum (qspecl_then [`[]`,`s`,`p0`,`p1`] mp_tac) >> rw[] >>
+    srw_tac[ARITH_ss][REVERSE_ZIP,ZIP_APPEND] >>
+    AP_TERM_TAC  >> rw[] >>
+    simp_tac(std_ss)[GSYM REVERSE_APPEND] >>
+    AP_TERM_TAC >> rw[] >>
+    srw_tac[ARITH_ss][GENLIST_PLUS_APPEND] ) >>
+  strip_tac >- (
+    rw[label_closures_def,UNIT_DEF,BIND_DEF] >>
+    Cases_on `b` >> fs[label_defs_def,UNIT_DEF,BIND_DEF,LET_THM] >>
+    rw[] ) >>
+  strip_tac >- (
+    fs[label_closures_def,UNIT_DEF,BIND_DEF] >>
+    rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+    qabbrev_tac`p = label_closures e s` >> PairCases_on `p` >> fs[] >>
+    qabbrev_tac`q = mapM label_closures es p1` >> PairCases_on `q` >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    first_x_assum (qspecl_then [`p1`,`q0`,`q1`] mp_tac) >> rw[] >>
+    first_x_assum (qspecl_then [`s`,`p0`,`p1`] mp_tac) >> rw[] >>
+    srw_tac[ARITH_ss,ETA_ss][REVERSE_ZIP,ZIP_APPEND] >>
+    AP_TERM_TAC  >> rw[] >>
+    simp_tac(std_ss)[GSYM REVERSE_APPEND] >>
+    AP_TERM_TAC >> rw[] >>
+    srw_tac[ARITH_ss][GENLIST_PLUS_APPEND] ) >>
+  strip_tac >- (
+    fs[label_closures_def,UNIT_DEF,BIND_DEF] >>
+    rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+    qabbrev_tac`p = label_closures e s` >> PairCases_on `p` >> fs[] >>
+    qabbrev_tac`q = label_closures e' p1` >> PairCases_on `q` >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    first_x_assum (qspecl_then [`p1`,`q0`,`q1`] mp_tac) >> rw[] >>
+    first_x_assum (qspecl_then [`s`,`p0`,`p1`] mp_tac) >> rw[] >>
+    srw_tac[ARITH_ss,ETA_ss][REVERSE_ZIP,ZIP_APPEND] >>
+    AP_TERM_TAC  >> rw[] >>
+    simp_tac(std_ss)[GSYM REVERSE_APPEND] >>
+    AP_TERM_TAC >> rw[] >>
+    srw_tac[ARITH_ss][GENLIST_PLUS_APPEND] ) >>
+  strip_tac >- (
+    fs[label_closures_def,UNIT_DEF,BIND_DEF] >>
+    rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+    qabbrev_tac`p = label_closures e s` >> PairCases_on `p` >> fs[] >>
+    qabbrev_tac`q = label_closures e' p1` >> PairCases_on `q` >> fs[] >>
+    qabbrev_tac`r = label_closures e'' q1` >> PairCases_on `r` >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    first_x_assum (qspecl_then [`q1`,`r0`,`r1`] mp_tac) >> rw[] >>
+    first_x_assum (qspecl_then [`p1`,`q0`,`q1`] mp_tac) >> rw[] >>
+    first_x_assum (qspecl_then [`s`,`p0`,`p1`] mp_tac) >> rw[] >>
+    srw_tac[ARITH_ss,ETA_ss][REVERSE_ZIP,ZIP_APPEND] >>
+    AP_TERM_TAC  >> rw[] >>
+    simp_tac(std_ss)[GSYM REVERSE_APPEND] >>
+    AP_TERM_TAC >> rw[] >>
+    srw_tac[ARITH_ss][GENLIST_PLUS_APPEND] >>
+    PROVE_TAC[GENLIST_PLUS_APPEND,arithmeticTheory.ADD_ASSOC,arithmeticTheory.ADD_SYM]) >>
+  strip_tac >- rw[label_defs_def,UNIT_DEF] >>
+  strip_tac >- (
+    qx_gen_tac `d` >> PairCases_on `d` >>
+    fs[] >>
+    rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+    Cases_on `d1` >> fs[label_defs_def,UNIT_DEF,BIND_DEF] >>
+    qmatch_assum_abbrev_tac `label_defs aa ds ss = (ds',s')` >>
+    first_x_assum (qspecl_then [`aa`,`ss`,`ds'`,`s'`] mp_tac) >> rw[] >>
+    unabbrev_all_tac >> srw_tac[ARITH_ss][] >>
+    rw[GENLIST_CONS] >>
+    AP_TERM_TAC >> AP_TERM_TAC >>
+    AP_THM_TAC >> AP_TERM_TAC >>
+    AP_THM_TAC >> AP_TERM_TAC >>
+    srw_tac[ARITH_ss][FUN_EQ_THM] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (rw[UNIT_DEF] >> rw[]) >>
+  fs[label_closures_def,BIND_DEF,UNIT_DEF] >>
+  rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+  qabbrev_tac`p = label_closures e s` >> PairCases_on `p` >> fs[] >>
+  qabbrev_tac`q = mapM label_closures es p1` >> PairCases_on `q` >> fs[] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  first_x_assum (qspecl_then [`p1`,`q0`,`q1`] mp_tac) >> rw[] >>
+  first_x_assum (qspecl_then [`s`,`p0`,`p1`] mp_tac) >> rw[] >>
+  srw_tac[ARITH_ss,ETA_ss][REVERSE_ZIP,ZIP_APPEND] >>
+  AP_TERM_TAC  >> rw[] >>
+  simp_tac(std_ss)[GSYM REVERSE_APPEND] >>
+  AP_TERM_TAC >> rw[] >>
+  srw_tac[ARITH_ss][GENLIST_PLUS_APPEND])
+
+val Cevaluate_subst_labs = store_thm("Cevaluate_subst_labs",
+  ``∀c env exp res. Cevaluate c env e res ⇒ Cevaluate c env (subst_labs c e) res``,
+  ho_match_mp_tac Cevaluate_nice_ind >>
+
+val Cevaluate_label_closures = store_thm("Cevaluate_label_closures",
+  ``∀c env exp res. Cevaluate c env exp res ⇒
+      ∀s. Cevaluate c env (FST (label_closures exp s)) res``,
+  ho_match_mp_tac Cevaluate_nice_ind
+
 
 val label_closures_subst_labs = store_thm("label_closures_subst_labs",
   ``(∀e s e' s'. (label_closures e s = (e',s')) ⇒
@@ -152,7 +346,7 @@ val label_closures_subst_labs = store_thm("label_closures_subst_labs",
     qmatch_assum_rename_tac `p1.lcode_env = cp ++ s.lcode_env`[] >>
     qmatch_assum_rename_tac `q1.lcode_env = cq ++ p1.lcode_env`[] >>
     qexists_tac `cq ++ cp` >>
-    srw_tac[ETA_ss][]
+    fsrw_tac[ETA_ss][MAP_EQ_f]
 
 
 define a non-monadic version of (half of) label_closures that just collects the bodies in a list
