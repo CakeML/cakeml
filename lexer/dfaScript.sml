@@ -9,7 +9,7 @@ val _ = new_theory "dfa";
 val dfa_path_def = Define `
 (dfa_path trans start_state end_state [] = (start_state = end_state)) ∧
 (dfa_path trans start_state end_state ((c,state)::path) =
-  case FLOOKUP trans (start_state,c) of
+  case trans (start_state,c) of
     | NONE => F
     | SOME new_state =>
         (new_state = state) ∧ dfa_path trans state end_state path)`;
@@ -22,13 +22,13 @@ val dfa_path_append = Q.store_thm ("dfa_path_append",
   ∃s'. dfa_path trans s1 s' p1 ∧ dfa_path trans s' s2 p2`,
 ho_match_mp_tac dfa_path_ind >>
 rw [dfa_path_def] >>
-cases_on `FLOOKUP trans (s1,c)` >>
+cases_on `trans (s1,c)` >>
 fs [] >>
 metis_tac []);
 
 val dfa_path_extend = Q.store_thm ("dfa_path_extend",
 `!trans s1 s2 p c s3.
-  dfa_path trans s1 s2 p ∧ (FLOOKUP trans (s2,c) = SOME s3)
+  dfa_path trans s1 s2 p ∧ (trans (s2,c) = SOME s3)
   ⇒
   dfa_path trans s1 s3 (p++[(c,s3)])`,
 rw [dfa_path_append] >>
