@@ -403,10 +403,6 @@ qmatch_abbrev_tac `toCv r1 ≠ toCv r2` >>
 unabbrev_all_tac >> fs[])
 val _ = export_rewrites["Cv_distinct"]
 
-(* TODO: move *)
-val fmap_size_def = Define`
-fmap_size kz vz fm = SIGMA (λk. kz k + vz (fm ' k)) (FDOM fm)`
-
 val Cv_size_def =
 Cv_Axiom
 |> Q.ISPEC `λl. 1 + lit_size l`
