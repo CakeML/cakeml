@@ -180,7 +180,7 @@ Induct_on `rs` >>
 rw [regexp_size_def] >>
 full_simp_tac (srw_ss()++ARITH_ss) []);
 
-val nullable_thm = Q.prove (
+val nullable_thm = Q.store_thm ("nullable_thm",
 `!r. nullable r = regexp_matches r ""`,
 recInduct (fetch "-" "nullable_ind") >>
 rw [nullable_def, regexp_matches_def] >|
