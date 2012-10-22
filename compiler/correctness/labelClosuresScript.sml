@@ -138,11 +138,11 @@ val UNION_DIFF_2 = store_thm("UNION_DIFF_2",
 
 val DRESTRICT_FUNION_SAME = store_thm("DRESTRICT_FUNION_SAME",
   ``!fm s. FUNION (DRESTRICT fm s) fm = fm``,
-  SRW_TAC[][GSYM SUBMAP_FUNION_ABSORPTION]
+  SRW_TAC[][GSYM SUBMAP_FUNION_ABSORPTION])
 
 val subst_labs_any_env = store_thm("subst_labs_any_env",
   ``∀c e c'. (DRESTRICT c (set (free_labs e)) = DRESTRICT c' (set (free_labs e))) ⇒
-             (subst_labs c e = subst_labs ((DRESTRICT c (set (free_labs e))) ⊌ c') e)``,
+             (subst_labs c e = subst_labs c' e)``,
   ho_match_mp_tac subst_labs_ind >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
@@ -150,12 +150,6 @@ val subst_labs_any_env = store_thm("subst_labs_any_env",
   strip_tac >- rw[] >>
   strip_tac >- (
     srw_tac[ETA_ss][MAP_EQ_f] >>
-    qmatch_abbrev_tac`subst_labs c0 ee = subst_labs (DRESTRICT c1 s0 ⊌ c1) ee` >>
-    `DRESTRICT c1 s0 ⊌ c1 = c1` by rw[GSYM SUBMAP_FUNION_ABSORPTION] >> rw[] >>
-    unabbrev_all_tac >>
-    pop_assum kall_tac >>
-    `c' = DRESTRICT c' (set (free_labs e)) ⊌ c'` by rw[GSYM SUBMAP_FUNION_ABSORPTION] >>
-    pop_assum SUBST1_TAC >>
     first_x_assum (match_mp_tac o MP_CANON) >> rw[] >>
     match_mp_tac DRESTRICT_SUBSET >>
     qmatch_assum_abbrev_tac`DRESTRICT c s0 = DRESTRICT c' s0` >>
@@ -167,14 +161,6 @@ val subst_labs_any_env = store_thm("subst_labs_any_env",
   strip_tac >- rw[] >>
   strip_tac >- (
     srw_tac[ETA_ss][MAP_EQ_f] >>
-    qmatch_abbrev_tac`subst_labs c0 ee = subst_labs (DRESTRICT c1 s0 ⊌ c1) ee` >>
-    qmatch_abbrev_tac`subst_labs c0 ee = subst_labs c2 ee` >>
-    `c2 = c1` by rw[Abbr`c2`,GSYM SUBMAP_FUNION_ABSORPTION] >>
-    unabbrev_all_tac >>
-    pop_assum SUBST1_TAC >>
-    qmatch_abbrev_tac `subst_labs c ee = subst_labs c' ee` >>
-    `c' = DRESTRICT c' (set (free_labs ee)) ⊌ c'` by rw[GSYM SUBMAP_FUNION_ABSORPTION] >>
-    pop_assum SUBST1_TAC >>
     first_x_assum (match_mp_tac o MP_CANON) >> rw[] >>
     match_mp_tac DRESTRICT_SUBSET >>
     qmatch_assum_abbrev_tac`DRESTRICT c s0 = DRESTRICT c' s0` >>
@@ -193,14 +179,6 @@ val subst_labs_any_env = store_thm("subst_labs_any_env",
       fsrw_tac[DNF_ss,QUANT_INST_ss[std_qp]][Abbr`s`,EXTENSION,MEM_MAP,MEM_FILTER,FLOOKUP_DEF,DRESTRICT_DEF,FUNION_DEF] >>
       rw[] >> (TRY (metis_tac[])) >>
       fsrw_tac[QUANT_INST_ss[std_qp]][GSYM fmap_EQ_THM,MEM_MAP,MEM_FILTER,DRESTRICT_DEF,FUNION_DEF] ) >>
-    qmatch_abbrev_tac`subst_labs c0 ee = subst_labs (DRESTRICT c1 s0 ⊌ c1) ee` >>
-    qmatch_abbrev_tac`subst_labs c0 ee = subst_labs c2 ee` >>
-    `c2 = c1` by rw[Abbr`c2`,GSYM SUBMAP_FUNION_ABSORPTION] >>
-    unabbrev_all_tac >>
-    pop_assum SUBST1_TAC >>
-    qmatch_abbrev_tac `subst_labs c ee = subst_labs c' ee` >>
-    `c' = DRESTRICT c' (set (free_labs ee)) ⊌ c'` by rw[GSYM SUBMAP_FUNION_ABSORPTION] >>
-    pop_assum SUBST1_TAC >>
     first_x_assum (match_mp_tac o MP_CANON) >> rw[] >>
     match_mp_tac DRESTRICT_SUBSET >>
     qmatch_assum_abbrev_tac`DRESTRICT c s0 = DRESTRICT c' s0` >>
@@ -212,14 +190,6 @@ val subst_labs_any_env = store_thm("subst_labs_any_env",
     rw[EXTENSION] >> metis_tac[] ) >>
   strip_tac >- (
     srw_tac[ETA_ss][MAP_EQ_f] >>
-    qmatch_abbrev_tac`subst_labs c0 ee = subst_labs (DRESTRICT c1 s0 ⊌ c1) ee` >>
-    qmatch_abbrev_tac`subst_labs c0 ee = subst_labs c2 ee` >>
-    `c2 = c1` by rw[Abbr`c2`,GSYM SUBMAP_FUNION_ABSORPTION] >>
-    unabbrev_all_tac >>
-    pop_assum SUBST1_TAC >>
-    qmatch_abbrev_tac `subst_labs c ee = subst_labs c' ee` >>
-    `c' = DRESTRICT c' (set (free_labs ee)) ⊌ c'` by rw[GSYM SUBMAP_FUNION_ABSORPTION] >>
-    pop_assum SUBST1_TAC >>
     first_x_assum (match_mp_tac o MP_CANON) >> rw[] >>
     match_mp_tac DRESTRICT_SUBSET >>
     qmatch_assum_abbrev_tac`DRESTRICT c s0 = DRESTRICT c' s0` >>
@@ -229,14 +199,6 @@ val subst_labs_any_env = store_thm("subst_labs_any_env",
     metis_tac[] ) >>
   strip_tac >- (
     srw_tac[ETA_ss][MAP_EQ_f] >>
-    qmatch_abbrev_tac`subst_labs c0 ee = subst_labs (DRESTRICT c1 s0 ⊌ c1) ee` >>
-    qmatch_abbrev_tac`subst_labs c0 ee = subst_labs c2 ee` >>
-    `c2 = c1` by rw[Abbr`c2`,GSYM SUBMAP_FUNION_ABSORPTION] >>
-    unabbrev_all_tac >>
-    pop_assum SUBST1_TAC >>
-    qmatch_abbrev_tac `subst_labs c ee = subst_labs c' ee` >>
-    `c' = DRESTRICT c' (set (free_labs ee)) ⊌ c'` by rw[GSYM SUBMAP_FUNION_ABSORPTION] >>
-    pop_assum SUBST1_TAC >>
     first_x_assum (match_mp_tac o MP_CANON) >> rw[] >>
     match_mp_tac DRESTRICT_SUBSET >>
     qmatch_assum_abbrev_tac`DRESTRICT c s0 = DRESTRICT c' s0` >>
@@ -246,14 +208,6 @@ val subst_labs_any_env = store_thm("subst_labs_any_env",
     metis_tac[] ) >>
   strip_tac >- (
     srw_tac[ETA_ss][MAP_EQ_f] >>
-    qmatch_abbrev_tac`subst_labs c0 ee = subst_labs (DRESTRICT c1 s0 ⊌ c1) ee` >>
-    qmatch_abbrev_tac`subst_labs c0 ee = subst_labs c2 ee` >>
-    `c2 = c1` by rw[Abbr`c2`,GSYM SUBMAP_FUNION_ABSORPTION] >>
-    unabbrev_all_tac >>
-    pop_assum SUBST1_TAC >>
-    qmatch_abbrev_tac `subst_labs c ee = subst_labs c' ee` >>
-    `c' = DRESTRICT c' (set (free_labs ee)) ⊌ c'` by rw[GSYM SUBMAP_FUNION_ABSORPTION] >>
-    pop_assum SUBST1_TAC >>
     first_x_assum (match_mp_tac o MP_CANON) >> rw[] >>
     match_mp_tac DRESTRICT_SUBSET >>
     qmatch_assum_abbrev_tac`DRESTRICT c s0 = DRESTRICT c' s0` >>
@@ -299,14 +253,16 @@ val plus_compose = store_thm("plus_compose",
   SRW_TAC[ARITH_ss][FUN_EQ_THM])
 
 val subst_labs_SUBMAP = store_thm("subst_labs_SUBMAP",
-  ``set (free_labs e) ⊆ FDOM c ∧ c ⊑ c'
-    ⇒ (subst_labs c e = subst_labs c' e)``,
+  ``set (free_labs e) ⊆ FDOM c ∧ c ⊑ c' ⇒ (subst_labs c e = subst_labs c' e)``,
   rw[] >>
-  imp_res_tac subst_labs_any_env >>
-  qsuff_tac `c' = DRESTRICT c (set (free_labs e)) ⊌ c'` >- PROVE_TAC[] >>
-  rw[GSYM SUBMAP_FUNION_ABSORPTION] >>
-  match_mp_tac DRESTRICT_SUBMAP_gen >>
-  first_assum ACCEPT_TAC)
+  match_mp_tac subst_labs_any_env >>
+  rw[DRESTRICT_EQ_DRESTRICT] >- (
+    match_mp_tac DRESTRICT_SUBMAP_gen >>
+    first_assum ACCEPT_TAC )
+  >- (
+    fs[SUBMAP_DEF,DRESTRICT_DEF,SUBSET_DEF] ) >>
+  fs[EXTENSION,SUBSET_DEF,SUBMAP_DEF] >>
+  metis_tac[])
 
 val label_closures_thm = store_thm("label_closures_thm",
   ``(∀e s e' s'. (label_closures e s = (e',s')) ⇒
