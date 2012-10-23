@@ -368,6 +368,31 @@ val lexer_def = tDefine "lexer" `
 
 val lexer_ind = fetch "-" "lexer_ind";
 
+val lexer_no_acc_def = tDefine "lexer_no_acc" `
+(lexer_no_acc (trans,finals,start) "" = SOME []) ∧
+(lexer_no_acc (trans,finals,start) (c::s) =
+  case lexer_get_token trans finals start "" NONE (c::s) of
+     | NONE => NONE
+     | SOME (f,lexeme,s') =>
+         case lexer_no_acc (trans,finals,start) s' of
+            | NONE => NONE
+            | SOME res =>
+                SOME (f (REVERSE lexeme) :: res))`
+(WF_REL_TAC `measure (\(x,y). STRLEN y)` >>
+ rw [] >>
+ `lexer_get_token_invariant trans finals start start "" NONE (STRING c s)`
+           by metis_tac [lexer_get_token_invariant_initial] >>
+ imp_res_tac lexer_get_token_partial_correctness >>
+ fs [] >>
+ `STRLEN (STRING c s) = STRLEN (MAP FST path' ++ p_2)`
+           by metis_tac [lexer_get_token_partial_correctness] >>
+ fs [] >>
+ cases_on `path'` >>
+ fs [dfa_path_def] >>
+ rw [] >>
+ imp_res_tac get_token_size_lem >>
+ fs []);
+
 val dfa_correct_def = Define `
 dfa_correct lexer_spec trans finals start =
   ∀l t.
@@ -607,5 +632,28 @@ val lexer_correct = Q.store_thm ("lexer_correct",
      correct_lex lexer_spec s toks =
      (lexer (trans,finals,start) s [] = SOME toks))`,
 metis_tac [lexer_complete, lexer_partial_correctness, APPEND, REVERSE_DEF]);
+
+val lexer_versions = Q.prove (
+`!trans start finals s acc.
+  lexer (trans,start,finals) s acc = 
+  case lexer_no_acc (trans,start,finals) s of
+     | NONE => NONE
+     | SOME res => SOME (REVERSE acc++res)`,
+HO_MATCH_MP_TAC lexer_ind >>
+rw [lexer_def, lexer_no_acc_def] >>
+rw [] >>
+cases_on `lexer_get_token trans finals start "" NONE (STRING v8 v9)` >>
+rw [] >>
+PairCases_on `x` >>
+fs [] >>
+cases_on `lexer_no_acc (trans,finals,start) x2` >>
+rw []);
+
+val lexer_versions_thm = Q.store_thm ("lexer_versions_thm",
+`!trans start finals s.
+  lexer (trans,start,finals) s [] = lexer_no_acc (trans,start,finals) s`,
+rw [lexer_versions] >>
+cases_on `lexer_no_acc (trans,start,finals) s` >>
+rw []);
 
 val _ = export_theory ();

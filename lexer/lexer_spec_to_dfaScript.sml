@@ -3,9 +3,18 @@ open dfaTheory regexpTheory lexer_runtimeTheory;
 
 val _ = new_theory "lexer_spec_to_dfa"
 
+val is_error_state_def = Define `
+is_error_state lex_spec =
+  EVERY (λ(regexp,action). is_regexp_empty regexp) lex_spec`;
+
 val lex_spec_to_dfa_def = Define `
 lex_spec_to_dfa lex_spec = 
-  ((\(state,c). SOME (MAP (\(regexp,action). (deriv c regexp, action)) state)),
+  ((\(state,c). 
+    let state' = MAP (\(regexp,action). (deriv c regexp, action)) state in
+      if is_error_state state' then
+        NONE
+      else
+        SOME state'),
    lex_spec,
    (\state.
      case FILTER (\(regexp,action). nullable regexp) state of
@@ -17,7 +26,7 @@ val lex_spec_action_lem = Q.prove (
  (FST (lex_spec_to_dfa lex_spec) (start_st,c) = SOME start_st') 
  ⇒
  (SND (EL n start_st) = SND (EL n start_st'))`,
-rw [lex_spec_to_dfa_def] >>
+rw [LET_THM, lex_spec_to_dfa_def] >>
 rw [EL_MAP] >>
 cases_on `EL n start_st` >>
 rw []);
@@ -29,7 +38,7 @@ val lex_spec_trans_lem = Q.prove (
  regexp_matches (FST (EL n start_st')) (MAP FST p)
  ⇒
  regexp_matches (FST (EL n start_st)) (STRING c (MAP FST p))`,
-rw [lex_spec_to_dfa_def] >>
+rw [LET_THM, lex_spec_to_dfa_def] >>
 POP_ASSUM MP_TAC >>
 rw [EL_MAP] >>
 cases_on `EL n start_st` >>
@@ -43,7 +52,7 @@ val lex_spec_trans_lem2 = Q.prove (
  ¬regexp_matches (FST (EL n' start_st')) (MAP FST p)
  ⇒
  ¬regexp_matches (FST (EL n' start_st)) (STRING c (MAP FST p))`,
-rw [lex_spec_to_dfa_def] >>
+rw [LET_THM, lex_spec_to_dfa_def] >>
 POP_ASSUM MP_TAC >>
 rw [EL_MAP] >>
 cases_on `EL n' start_st` >>
@@ -62,7 +71,7 @@ val path_to_spec = Q.prove (
       regexp_matches (FST (EL n start_st)) (MAP FST p) ∧
       (∀n'. n' < n ⇒ ¬regexp_matches (FST (EL n' start_st)) (MAP FST p))`,
 ho_match_mp_tac dfa_path_ind >>
-rw [dfa_path_def] >|
+rw [LET_THM,dfa_path_def] >|
 [fs [lex_spec_to_dfa_def] >>
      cases_on `FILTER (λ(regexp,action). nullable regexp) end_st` >>
      fs [] >>
@@ -90,7 +99,7 @@ rw [dfa_path_def] >|
      fs [] >>
      rw [] >>
      `n < LENGTH start_st` 
-              by (fs [lex_spec_to_dfa_def] >>
+              by (fs [LET_THM,lex_spec_to_dfa_def] >>
                   metis_tac [LENGTH_MAP]) >>
      qexists_tac `n` >>
      rw [] >>
@@ -136,19 +145,26 @@ rw [] >|
                    metis_tac [FST]) >>
      qpat_assum `!n lex_spec. P n lex_spec` 
             (MP_TAC o Q.SPECL [`n`, `THE ((FST (lex_spec_to_dfa lex_spec)) (lex_spec,h))`]) >>
-     rw [lex_spec_to_dfa_def, EL_MAP] >>
+     rw [lex_spec_to_dfa_def, EL_MAP, LET_THM] >>
      cases_on `EL n lex_spec` >>
-     fs [regexp_matches_deriv, deriv_matches_def] >>
-     res_tac >>
-     rw [] >>
-     cases_on `FILTER (λ(regexp,action). nullable regexp) s` >>
-     fs [] >>
-     PairCases_on `h'` >>
-     fs [] >>
-     rw [] >>
-     qexists_tac `(h,MAP (λ(regexp,action). (deriv h regexp,action)) lex_spec)::p` >>
-     qexists_tac `s` >>
-     rw [dfa_path_def]]);
+     fs [regexp_matches_deriv, deriv_matches_def] >|
+     [fs [is_error_state_def, EVERY_MAP] >>
+          fs [EVERY_EL] >>
+          res_tac >>
+          cases_on `EL n lex_spec` >>
+          fs [] >>
+          rw [] >>
+          metis_tac [regexp_matches_deriv, regexp_empty_thm],
+      res_tac >>
+          rw [] >>
+          cases_on `FILTER (λ(regexp,action). nullable regexp) s` >>
+          fs [] >>
+          PairCases_on `h'` >>
+          fs [] >>
+          rw [] >>
+          qexists_tac `(h,MAP (λ(regexp,action). (deriv h regexp,action)) lex_spec)::p` >>
+          qexists_tac `s` >>
+          rw [dfa_path_def]]]);
 
 val lex_spec_to_dfa_correct = Q.store_thm ("lex_spec_to_dfa_correct",
 `!lex_spec.
