@@ -656,4 +656,83 @@ rw [lexer_versions] >>
 cases_on `lexer_no_acc (trans,start,finals) s` >>
 rw []);
 
+val eval_option_case_def = Define `
+(eval_option_case NONE = λf1 f2. f1) ∧
+(eval_option_case (SOME x) = λf1 f2. f2 x)`;
+
+val eval_option_case_thm = Q.store_thm ("eval_option_case_thm",
+`!opt f1 f2. option_case f1 f2 opt = eval_option_case opt f1 f2`,
+rw [] >>
+cases_on `opt` >>
+rw [eval_option_case_def]);
+
+val eval_option_case_cong = Q.store_thm ("eval_option_case_cong",
+`∀M M' u f.
+  (M = M') ∧ ((M' = NONE) ⇒ (u = u')) ∧
+  (∀x. (M' = SOME x) ⇒ (f x = f' x)) ⇒
+  (eval_option_case M u f = eval_option_case M' u' f')`,
+metis_tac [optionTheory.option_case_cong, eval_option_case_thm]);
+
+DefnBase.add_cong eval_option_case_cong;
+
+val eval_let_def = Define `
+eval_let x = \f. f x`;
+
+val eval_let_thm = Q.store_thm ("eval_let_thm",
+`!f x. LET f x = eval_let x f`,
+metis_tac [eval_let_def]);
+
+val lexer_get_token_eval_def = Define `
+(lexer_get_token_eval transition finals cur_state cur_lexeme prev_answer [] =
+      prev_answer) ∧
+(lexer_get_token_eval transition finals cur_state cur_lexeme prev_answer (c::s) =
+     eval_option_case 
+       (transition (cur_state,c))
+       prev_answer
+       (\next_state.
+         lexer_get_token_eval transition finals next_state (c::cur_lexeme)
+           (eval_option_case (finals next_state)
+              prev_answer
+              (\tok. SOME (tok,c::cur_lexeme,s))) s))`;
+
+val lexer_get_token_eval_thm = Q.store_thm ("lexer_get_token_eval_thm",
+`∀transition finals cur_state cur_lexeme prev_answer s.
+ lexer_get_token transition finals cur_state cur_lexeme prev_answer s =
+ lexer_get_token_eval transition finals cur_state cur_lexeme prev_answer s`,
+induct_on `s` >>
+rw [lexer_get_token_def, lexer_get_token_eval_def, eval_option_case_thm]);
+
+val lexer_eval_def = tDefine "lexer_eval" `
+(lexer_eval (trans,finals,start) "" = SOME []) ∧
+(lexer_eval (trans,finals,start) (c::s) =
+  eval_option_case (lexer_get_token_eval trans finals start "" NONE (c::s))
+      NONE
+      (\(f,lexeme,s').
+         eval_option_case (lexer_eval (trans,finals,start) s')
+             NONE
+             (\res. SOME (f (REVERSE lexeme) :: res))))`
+(WF_REL_TAC `measure (\(x,y). STRLEN y)` >>
+ rw [GSYM lexer_get_token_eval_thm] >>
+ `lexer_get_token_invariant trans finals start start "" NONE (STRING c s)`
+           by metis_tac [lexer_get_token_invariant_initial] >>
+ imp_res_tac lexer_get_token_partial_correctness >>
+ fs [] >>
+ cases_on `path'` >>
+ fs [dfa_path_def] >>
+ rw [] >>
+ imp_res_tac get_token_size_lem >>
+ fs [] >>
+ decide_tac);
+
+val lexer_eval_thm = Q.store_thm ("lexer_eval_thm",
+`!trans finals start s.
+  lexer_no_acc (trans,finals,start) s = lexer_eval (trans,finals,start) s`,
+recInduct (fetch "-" "lexer_eval_ind") >>
+rw [lexer_no_acc_def, lexer_eval_def, GSYM eval_option_case_thm,
+    lexer_get_token_eval_thm] >> 
+every_case_tac >>
+rw [] >>
+every_case_tac >>
+fs []);
+
 val _ = export_theory ();

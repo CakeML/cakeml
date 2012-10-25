@@ -284,7 +284,7 @@ full_simp_tac (srw_ss()++ARITH_ss) []);
 
 val smart_deriv_matches_def = Define `
 (smart_deriv_matches r "" = nullable r) ∧
-(smart_deriv_matches r (c::s) = smart_deriv_matches (deriv c r) s)`;
+(smart_deriv_matches r (c::s) = smart_deriv_matches (smart_deriv c r) s)`;
 
 val nullable_thm = Q.store_thm ("nullable_thm",
 `!r. nullable r = regexp_matches r ""`,

@@ -1,7 +1,7 @@
 open preamble;
 open listTheory rich_listTheory intLib;
 open Print_astTheory Print_astTerminationTheory SMLlexTheory lexer_specTheory;
-open regexpTheory;
+open regexpTheory lexer_spec_to_dfaTheory lexer_runtimeTheory;
 
 val splitp_unsplit = Q.prove (
 `!P l l1 l2. FST (SPLITP P l) ++ SND (SPLITP P l) = l`,
@@ -22,6 +22,11 @@ metis_tac []);
 val concat_append = Q.prove (
 `!x y. CONCAT (x ++ y) = CONCAT x ++ CONCAT y`,
 Induct_on `x` >>
+rw []);
+
+val pair_let = Q.prove (
+`!f g. (let (x,y) = g in f x y) = f (FST g) (SND g)`,
+rw [] >>
 rw []);
 
 val _ = new_theory "print_astProofs"
@@ -257,6 +262,42 @@ val remove_ws_toks_def = Define `
 remove_ws_toks toks = 
   FILTER (\tok. (tok ≠ NewlineT) ∧ (!n. tok ≠ WhitespaceT n)) toks`;
 
+  (*
+   
+val lem = 
+METIS_PROVE [lex_spec_to_dfa_correct, lexer_correct, lexer_eval_thm,
+             lexer_versions_thm, APPEND] 
+``!toks'.
+    correct_lex SML_lex_spec (tok_to_string h (tok_list_to_string toks)) toks' =
+    (lexer_eval (lex_spec_transition, lex_spec_finals, SML_lex_spec)
+           (tok_to_string h (tok_list_to_string toks)) = SOME toks')``;
+
+val _ = set_skip the_compset ``eval_option_case`` (SOME 1);
+val _ = set_skip the_compset ``eval_let`` (SOME 1);
+val _ = set_skip the_compset ``COND`` (SOME 1);
+val _ = set_skip the_compset ``$\/`` (SOME 1);
+val _ = set_skip the_compset ``$/\`` (SOME 1);
+val _ = add_funs [IN_LIST_TO_SET]
+
+     
+`!toks. 
+  EVERY is_MiniML_tok toks ⇒
+  ?toks'. 
+    correct_lex SML_lex_spec (tok_list_to_string toks) toks' ∧
+    (remove_ws_toks toks = remove_ws_toks toks')`
+
+Induct >>
+rw [tok_list_to_string_def, correct_lex_def] >-
+(qexists_tac `[]` >>
+     rw [remove_ws_toks_def, correct_lex_def] >>
+     metis_tac [FILTER]) >>
+fs [] >>
+rw [lem] >>
+cases_on `h` >>
+fs [is_MiniML_tok_def, remove_ws_toks_def, tok_to_string_def] >>
+EVAL_TAC
+
+
 val can_lex_one_token = Q.prove (
 `!tok toks.
   is_MiniML_tok tok ⇒
@@ -451,7 +492,99 @@ rw [lexer_spec_matches_prefix_def, SML_lex_spec_def, regexp_matches_def] >>
      cases_on `n` >>
      fs [spaces_eqns, SPLITP, is_space_def]]);
 
+    rw [lex_spec_to_dfa_def] >>
+
+
+rw [SML_lex_spec_def, all_SML_regexps]
+
+
+    val simple = Define `
+simple = [
+(Plus (CharSet (set " \t\011\012\013")),
+                         (\s. WhitespaceT (STRLEN s)));
+    (StringLit "andalso",(λs. AndalsoT));
+    (StringLit "as",(λs. AsT));
+    (StringLit "case",(λs. CaseT))]`;
+
+computeLib.add_funs [IN_LIST_TO_SET]
+
+fun start x = 
+``lexer (FST (lex_spec_to_dfa ^x),
+         SND (SND (lex_spec_to_dfa ^x)),
+         FST (SND (lex_spec_to_dfa ^x)))
+     ("andalso " ++ s) []``
+
+
+val regexp_thms = [lexer_get_token_def, simple, smart_deriv_def];
+val regexp_compset = computeLib.bool_compset ();
+val _ = computeLib.add_thms regexp_thms regexp_compset;
+
+val step1 =
+SIMP_CONV (srw_ss()) [lexer_versions_thm, lexer_no_acc_def]
+
+fun step2 spec regexps =
+CONV_RULE 
+  (RHS_CONV
+    (RAND_CONV 
+      (SIMP_CONV (srw_ss())
+                 [lex_spec_to_dfa_def]
+       THENC
+       (*SIMP_CONV (srw_ss())
+                 [lexer_get_token_def, deriv_def,
+                  LET_THM, is_error_state_def, is_regexp_empty_def,
+                  nullable_def, spec, regexps]*)
+                  (computeLib.CBV_CONV regexp_compset))
+     THENC
+     SIMP_CONV (srw_ss ()) []));
+
      (*
+fun step2 spec regexps =
+CONV_RULE 
+  (RHS_CONV
+    (RAND_CONV 
+      (SIMP_CONV (srw_ss())
+                 [lex_spec_to_dfa_def]
+       THENC
+       SIMP_CONV (srw_ss())
+                 [lexer_get_token_def, smart_deriv_def,
+                  LET_THM, is_error_state_def, regexp_smart_constructors_def,
+                  nullable_def, spec, regexps])
+     THENC
+     SIMP_CONV (srw_ss ()) []));
+     *)
+
+time (step2 simple (METIS_PROVE [] ``T``)) (step1 (start ``simple``))
+
+time (step2 SML_lex_spec_def all_SML_regexps) (step1 (start ``SML_lex_spec``))
+
+computeLib.monitoring := SOME (fn x => same_const ``smart_deriv`` x orelse same_const
+``nullable`` x )
+Feedback.set_trace "simplifier" 0;
+EVAL_TAC
+
+rw [lexer_def]
+
+, lexer_def, lexer_get_token_def, SML_lex_spec_def]
+
+
+
+
+`?n ws.
+   lexer_spec_matches_prefix SML_lex_spec n h (tok_to_lexeme h)
+            (spaces ws (tok_list_to_string toks))
+            (tok_list_to_string (h::toks))`
+        by metis_tac [can_lex_one_token] >>
+
+
+
+SIMP_RULE (srw_ss()) [pair_let] lex_init_ws
+
+
+cases_on `h` >>
+fs [is_MiniML_tok_def]
+
+
+
 `!s toks n. 
   correct_lex SML_lex_spec s toks ⇒
   ?toks'.
@@ -508,27 +641,6 @@ rw [] >>
      all_tac]
 
 
-
-`!toks. 
-  EVERY is_MiniML_tok toks ⇒
-  ?toks'. 
-    correct_lex SML_lex_spec (tok_list_to_string toks) toks' ∧
-    (remove_ws_toks toks = remove_ws_toks toks')`
-
-Induct >>
-rw [tok_list_to_string_def, correct_lex_def] >-
-(qexists_tac `[]` >>
-     rw [remove_ws_toks_def, correct_lex_def] >>
-     metis_tac [FILTER]) >>
-fs [] >>
-`?n ws.
-   lexer_spec_matches_prefix SML_lex_spec n h (tok_to_lexeme h)
-            (spaces ws (tok_list_to_string toks))
-            (tok_list_to_string (h::toks))`
-        by metis_tac [can_lex_one_token] >>
-
-
-lex_init_ws
 
 
 
