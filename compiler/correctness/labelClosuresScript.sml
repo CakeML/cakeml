@@ -37,25 +37,28 @@ fun full_split_pairs_tac P (g as (asl,w)) = let
 fun P tm = mem (fst (strip_comb tm)) [``label_closures``,rator ``mapM label_closures``]
 
 (* labels in an expression (but not recursively) *)
-val free_labs_def = tDefine "free_labs"`
-  (free_labs (CDecl xs) = []) ∧
-  (free_labs (CRaise er) = []) ∧
-  (free_labs (CVar x) = []) ∧
-  (free_labs (CLit li) = []) ∧
-  (free_labs (CCon cn es) = (FLAT (MAP (free_labs) es))) ∧
+val free_labs_def0 = tDefine "free_labs"`
+  (free_labs (CDecl xs) = {}) ∧
+  (free_labs (CRaise er) = {}) ∧
+  (free_labs (CVar x) = {}) ∧
+  (free_labs (CLit li) = {}) ∧
+  (free_labs (CCon cn es) = (BIGUNION (IMAGE (free_labs) (set es)))) ∧
   (free_labs (CTagEq e n) = (free_labs e)) ∧
   (free_labs (CProj e n) = (free_labs e)) ∧
-  (free_labs (CLet xs es e) = FLAT (MAP (free_labs) (e::es))) ∧
-  (free_labs (CLetfun b ns defs e) = (MAP (OUTR o SND) (FILTER (ISR o SND) defs))++(free_labs e)) ∧
-  (free_labs (CFun xs (INL _)) = []) ∧
-  (free_labs (CFun xs (INR l)) = [l]) ∧
-  (free_labs (CCall e es) = FLAT (MAP (free_labs) (e::es))) ∧
-  (free_labs (CPrim2 op e1 e2) = (free_labs e1)++(free_labs e2)) ∧
-  (free_labs (CIf e1 e2 e3) = (free_labs e1)++(free_labs e2)++(free_labs e3))`(
+  (free_labs (CLet xs es e) = BIGUNION (IMAGE (free_labs) (set (e::es)))) ∧
+  (free_labs (CLetfun b ns defs e) = (IMAGE (OUTR o SND) (set (FILTER (ISR o SND) defs)))∪(free_labs e)) ∧
+  (free_labs (CFun xs (INL _)) = {}) ∧
+  (free_labs (CFun xs (INR l)) = {l}) ∧
+  (free_labs (CCall e es) = BIGUNION (IMAGE (free_labs) (set (e::es)))) ∧
+  (free_labs (CPrim2 op e1 e2) = (free_labs e1)∪(free_labs e2)) ∧
+  (free_labs (CIf e1 e2 e3) = (free_labs e1)∪(free_labs e2)∪(free_labs e3))`(
   WF_REL_TAC `measure Cexp_size` >>
   srw_tac[ARITH_ss][Cexp4_size_thm] >>
   Q.ISPEC_THEN `Cexp_size` imp_res_tac SUM_MAP_MEM_bound >>
   fsrw_tac[ARITH_ss][])
+val _ = overload_on("free_labs_defs",``λdefs. IMAGE (OUTR o SND) (set (FILTER (ISR o SND) defs))``)
+val _ = overload_on("free_labs_list",``λes. BIGUNION (IMAGE free_labs (set es))``)
+val free_labs_def = save_thm("free_labs_def",SIMP_RULE(std_ss++ETA_ss)[]free_labs_def0)
 val _ = export_rewrites["free_labs_def"]
 
 (* bodies in an expression (but not recursively) *)
@@ -141,7 +144,7 @@ val DRESTRICT_FUNION_SAME = store_thm("DRESTRICT_FUNION_SAME",
   SRW_TAC[][GSYM SUBMAP_FUNION_ABSORPTION])
 
 val subst_labs_any_env = store_thm("subst_labs_any_env",
-  ``∀c e c'. (DRESTRICT c (set (free_labs e)) = DRESTRICT c' (set (free_labs e))) ⇒
+  ``∀c e c'. (DRESTRICT c (free_labs e) = DRESTRICT c' (free_labs e)) ⇒
              (subst_labs c e = subst_labs c' e)``,
   ho_match_mp_tac subst_labs_ind >>
   strip_tac >- rw[] >>
@@ -223,8 +226,6 @@ val subst_lab_cb_any_env = store_thm("subst_lab_cb_any_env",
   rw[FLOOKUP_DEF,DRESTRICT_DEF,GSYM fmap_EQ_THM,EXTENSION] >>
   metis_tac[])
 
-fun select_fun tm = if P tm then SOME (tm,"lc") else NONE
-
 (* TODO: move *)
 val REVERSE_ZIP = store_thm("REVERSE_ZIP",
   ``!l1 l2. (LENGTH l1 = LENGTH l2) ==>
@@ -278,7 +279,7 @@ val MEM_ZIP_MEM_MAP = store_thm("MEM_ZIP_MEM_MAP",
   PROVE_TAC[])
 
 val subst_labs_SUBMAP = store_thm("subst_labs_SUBMAP",
-  ``set (free_labs e) ⊆ FDOM c ∧ c ⊑ c' ⇒ (subst_labs c e = subst_labs c' e)``,
+  ``(free_labs e) ⊆ FDOM c ∧ c ⊑ c' ⇒ (subst_labs c e = subst_labs c' e)``,
   rw[] >>
   match_mp_tac subst_labs_any_env >>
   rw[DRESTRICT_EQ_DRESTRICT] >- (
@@ -289,16 +290,22 @@ val subst_labs_SUBMAP = store_thm("subst_labs_SUBMAP",
   fs[EXTENSION,SUBSET_DEF,SUBMAP_DEF] >>
   metis_tac[])
 
-val _ = overload_on("free_labs_defs",``λdefs. MAP (OUTR o SND) (FILTER (ISR o SND) defs)``)
 val _ = overload_on("free_bods_defs",``λdefs. MAP (OUTL o SND) (FILTER (ISL o SND) defs)``)
+
+val DISJOINT_GENLIST_PLUS = store_thm("DISJOINT_GENLIST_PLUS",
+  ``DISJOINT x (set (GENLIST ($+ n) (a + b))) ==>
+    DISJOINT x (set (GENLIST ($+ n) a)) /\
+    DISJOINT x (set (GENLIST ($+ (n + a)) b))``,
+  rw[GSYM GENLIST_PLUS_APPEND] >>
+  metis_tac[DISJOINT_SYM,ADD_SYM])
 
 val label_closures_thm = store_thm("label_closures_thm",
   ``(∀e s e' s'. (label_closures e s = (e',s')) ⇒
        let c = REVERSE (ZIP (GENLIST ($+ s.lnext_label) (LENGTH (free_bods e)), free_bods e)) in
        (s'.lcode_env = c ++ s.lcode_env) ∧
        (s'.lnext_label = s.lnext_label + LENGTH (free_bods e)) ∧
-       (set (free_labs e') = set (MAP FST c) ∪ set (free_labs e)) ∧
-       (DISJOINT (set (free_labs e)) (set (MAP FST c))
+       (free_labs e' = set (MAP FST c) ∪ free_labs e) ∧
+       (DISJOINT (free_labs e) (set (MAP FST c))
          ⇒ (subst_labs (alist_to_fmap c) e' = e))) ∧
     (∀ds ac s ac' s'. (label_defs ac ds s = (ac',s')) ⇒
        let c = REVERSE (
@@ -307,8 +314,8 @@ val label_closures_thm = store_thm("label_closures_thm",
        (s'.lcode_env = c ++ s.lcode_env) ∧
        (s'.lnext_label = s.lnext_label + LENGTH (FILTER (ISL o SND) ds)) ∧
        ∃ds'. (ac' = ds'++ac) ∧
-       (set (free_labs_defs ds') = set (MAP FST c) ∪ set (free_labs_defs ds)) ∧
-       (DISJOINT (set (free_labs_defs ds)) (set (MAP FST c)) ⇒
+       (free_labs_defs ds' = set (MAP FST c) ∪ free_labs_defs ds) ∧
+       (DISJOINT (free_labs_defs ds) (set (MAP FST c)) ⇒
         (MAP (λ(xs,cb). (xs,subst_lab_cb (alist_to_fmap c) cb)) (REVERSE ds') = ds))) ∧
     (∀(d:def). T) ∧ (∀(b:Cexp+num). T) ∧
     (∀es s es' s'. (label_closures_list es s = (es',s')) ⇒
@@ -317,8 +324,8 @@ val label_closures_thm = store_thm("label_closures_thm",
                 FLAT (MAP free_bods es))) in
        (s'.lcode_env = c ++ s.lcode_env) ∧
        (s'.lnext_label = s.lnext_label + LENGTH (FLAT (MAP free_bods es))) ∧
-       (set (FLAT (MAP free_labs es')) =  set (MAP FST c) ∪ set (FLAT (MAP free_labs es))) ∧
-       (DISJOINT (set (FLAT (MAP free_labs es))) (set (MAP FST c))
+       (free_labs_list es' =  set (MAP FST c) ∪ free_labs_list es) ∧
+       (DISJOINT (free_labs_list es) (set (MAP FST c))
          ⇒ (MAP (subst_labs (alist_to_fmap c)) es' = es)))``,
   ho_match_mp_tac(TypeBase.induction_of(``:Cexp``)) >>
   strip_tac >- (rw[label_closures_def,UNIT_DEF,BIND_DEF] >> rw[]) >>
@@ -352,7 +359,7 @@ val label_closures_thm = store_thm("label_closures_thm",
     rpt BasicProvers.VAR_EQ_TAC >>
     first_x_assum (qspecl_then [`p1`,`q0`,`q1`] mp_tac) >>
     first_x_assum (qspecl_then [`s`,`p0`,`p1`] mp_tac) >>
-    srw_tac[ARITH_ss,ETA_ss][REVERSE_ZIP,ZIP_APPEND,LET_THM] >>
+    srw_tac[ARITH_ss,ETA_ss,DNF_ss][REVERSE_ZIP,ZIP_APPEND,LET_THM] >>
     TRY (
       AP_TERM_TAC  >> rw[] >>
       simp_tac(std_ss)[GSYM REVERSE_APPEND] >>
@@ -364,9 +371,9 @@ val label_closures_thm = store_thm("label_closures_thm",
       qmatch_abbrev_tac `A = B UNION C` >>
       metis_tac[ADD_SYM,UNION_ASSOC,UNION_COMM] ) >>
     fs[MAP_ZIP] >>
-    qabbrev_tac`les = set (FLAT (MAP free_labs es))` >>
+    qabbrev_tac`les = free_labs_list es` >>
     qabbrev_tac`bes = FLAT (MAP free_bods es)` >>
-    qabbrev_tac`le = set (free_labs e)` >>
+    qabbrev_tac`le = (free_labs e)` >>
     qabbrev_tac`be = (free_bods e)` >>
     TRY (
       qmatch_abbrev_tac `subst_labs c1 q0 = e` >>
@@ -385,7 +392,7 @@ val label_closures_thm = store_thm("label_closures_thm",
       `FDOM c2 = IMAGE ($+ (s.lnext_label + LENGTH bes)) (count (LENGTH be))` by (
         unabbrev_all_tac >>
         srw_tac[ARITH_ss][MAP_ZIP,LIST_TO_SET_GENLIST] ) >>
-      `set (free_labs q0) = FDOM c2 ∪ le` by (
+      `free_labs q0 = FDOM c2 ∪ le` by (
         srw_tac[ARITH_ss][LIST_TO_SET_GENLIST] ) >>
       `FDOM c1 = FDOM c2 ∪ IMAGE ($+ s.lnext_label) (count (LENGTH bes))` by (
         unabbrev_all_tac >>
@@ -407,12 +414,7 @@ val label_closures_thm = store_thm("label_closures_thm",
     TRY (
       qmatch_abbrev_tac `MAP (subst_labs c1) p0 = es` >>
       qmatch_assum_abbrev_tac `P ==> (MAP (subst_labs c2) p0 = es)` >>
-      `P` by (
-        unabbrev_all_tac >>
-        qmatch_abbrev_tac `DISJOINT X Y` >>
-        qpat_assum `DISJOINT X Z` mp_tac >>
-        simp[MAP_ZIP,Abbr`Y`,GSYM GENLIST_PLUS_APPEND] >>
-        rw[DISJOINT_SYM] ) >>
+      `P` by metis_tac[DISJOINT_GENLIST_PLUS] >>
       qunabbrev_tac`P` >>
       qsuff_tac `MAP (subst_labs c1) p0 = MAP (subst_labs c2) p0` >- PROVE_TAC[] >>
       simp[MAP_EQ_f] >> qx_gen_tac `ee` >> strip_tac >>
@@ -422,11 +424,11 @@ val label_closures_thm = store_thm("label_closures_thm",
       `FDOM c2 = IMAGE ($+ s.lnext_label) (count (LENGTH bes))` by (
         unabbrev_all_tac >>
         srw_tac[ARITH_ss][MAP_ZIP,LIST_TO_SET_GENLIST] ) >>
-      `set (FLAT (MAP free_labs p0)) = FDOM c2 ∪ les` by (
+      `free_labs_list p0 = FDOM c2 ∪ les` by (
         rw[LIST_TO_SET_GENLIST] ) >>
-      `set (free_labs ee) ⊆ FDOM c2 ∪ les` by (
+      `free_labs ee ⊆ FDOM c2 ∪ les` by (
         match_mp_tac SUBSET_TRANS >>
-        qexists_tac `set (FLAT (MAP free_labs p0))` >>
+        qexists_tac `free_labs_list p0` >>
         conj_tac >- (
           simp[SUBSET_DEF,MEM_FLAT,MEM_MAP] >>
           PROVE_TAC[] ) >>
@@ -435,7 +437,8 @@ val label_closures_thm = store_thm("label_closures_thm",
         rw[Abbr`c1`] >>
         rw[MAP_ZIP,GSYM REVERSE_APPEND,LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose]) >>
       `DISJOINT les (IMAGE ($+ (s.lnext_label + LENGTH bes)) (count (LENGTH be)))` by (
-        fs[LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose] >> PROVE_TAC[DISJOINT_SYM] ) >>
+        fs[LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose,Abbr`les`] >>
+        PROVE_TAC[DISJOINT_SYM] ) >>
       conj_tac >- (
         rw[] >>
         match_mp_tac EQ_SYM >>
@@ -475,8 +478,8 @@ val label_closures_thm = store_thm("label_closures_thm",
       REWRITE_TAC[GENLIST_PLUS_APPEND] >>
       srw_tac[ARITH_ss][] ) >>
     fs[MAP_ZIP] >>
-    qabbrev_tac`le = set (free_labs e)` >>
-    qabbrev_tac`be = (free_bods e)` >>
+    qabbrev_tac`le = free_labs e` >>
+    qabbrev_tac`be = free_bods e` >>
     qabbrev_tac`lfd = LENGTH (FILTER (ISL o SND) ds)` >>
     TRY (
       qmatch_abbrev_tac `subst_labs c1 q0 = e` >>
@@ -497,7 +500,7 @@ val label_closures_thm = store_thm("label_closures_thm",
       `FDOM c2 = IMAGE ($+ (s.lnext_label + lfd)) (count (LENGTH be))` by (
         unabbrev_all_tac >>
         srw_tac[ARITH_ss][MAP_ZIP,LIST_TO_SET_GENLIST] ) >>
-      `set (free_labs q0) = FDOM c2 ∪ le` by (
+      `(free_labs q0) = FDOM c2 ∪ le` by (
         srw_tac[ARITH_ss][LIST_TO_SET_GENLIST,MAP_ZIP] ) >>
       `FDOM c1 = FDOM c2 ∪ IMAGE ($+ s.lnext_label) (count lfd)` by (
         unabbrev_all_tac >>
@@ -543,7 +546,7 @@ val label_closures_thm = store_thm("label_closures_thm",
       qsuff_tac `y ∉ FDOM f1` >- (
         rw[DRESTRICT_EQ_DRESTRICT_SAME,EXTENSION,FUNION_DEF] >>
         PROVE_TAC[] ) >>
-      `y ∈ set (free_labs_defs p0)` by (
+      `y ∈ (free_labs_defs p0)` by (
         simp[MEM_MAP,MEM_FILTER] >>
         srw_tac[QUANT_INST_ss[std_qp]][] >>
         fs[Abbr`pp`] >> PROVE_TAC[] ) >>
@@ -551,7 +554,7 @@ val label_closures_thm = store_thm("label_closures_thm",
       REWRITE_TAC[IN_UNION] >>
       strip_tac >- (
         fsrw_tac[ARITH_ss][MEM_GENLIST,Abbr`f1`,MAP_ZIP] ) >>
-      qpat_assum `DISJOINT (set (free_labs_defs ds)) (set (MAP FST Y))` mp_tac >>
+      qpat_assum `DISJOINT ((free_labs_defs ds)) (set (MAP FST Y))` mp_tac >>
       REWRITE_TAC[IN_DISJOINT] >>
       REWRITE_TAC[Q.SPEC`LENGTH be`ADD_SYM] >>
       fs[MAP_ZIP,Abbr`f1`,GSYM GENLIST_PLUS_APPEND] >>
@@ -570,7 +573,7 @@ val label_closures_thm = store_thm("label_closures_thm",
     rpt BasicProvers.VAR_EQ_TAC >>
     first_x_assum (qspecl_then [`p1`,`q0`,`q1`] mp_tac) >>
     first_x_assum (qspecl_then [`s`,`p0`,`p1`] mp_tac) >>
-    srw_tac[ARITH_ss,ETA_ss][REVERSE_ZIP,ZIP_APPEND,LET_THM] >>
+    srw_tac[DNF_ss,ARITH_ss,ETA_ss][REVERSE_ZIP,ZIP_APPEND,LET_THM] >>
     TRY (
       AP_TERM_TAC  >> rw[] >>
       simp_tac(std_ss)[GSYM REVERSE_APPEND] >>
@@ -582,9 +585,9 @@ val label_closures_thm = store_thm("label_closures_thm",
       qmatch_abbrev_tac`A = B UNION C` >>
       metis_tac[ADD_SYM,UNION_ASSOC,UNION_COMM] ) >>
     fs[MAP_ZIP] >>
-    qabbrev_tac`les = set (FLAT (MAP free_labs es))` >>
+    qabbrev_tac`les = free_labs_list es` >>
     qabbrev_tac`bes = FLAT (MAP free_bods es)` >>
-    qabbrev_tac`le = set (free_labs e)` >>
+    qabbrev_tac`le = free_labs e` >>
     qabbrev_tac`be = (free_bods e)` >>
     TRY (
       qmatch_abbrev_tac `subst_labs c1 p0 = e` >>
@@ -604,7 +607,7 @@ val label_closures_thm = store_thm("label_closures_thm",
       `FDOM c2 = IMAGE ($+ s.lnext_label) (count (LENGTH be))` by (
         unabbrev_all_tac >>
         srw_tac[ARITH_ss][MAP_ZIP,LIST_TO_SET_GENLIST] ) >>
-      `set (free_labs p0) = FDOM c2 ∪ le` by (
+      `(free_labs p0) = FDOM c2 ∪ le` by (
         srw_tac[ARITH_ss][LIST_TO_SET_GENLIST] ) >>
       `FDOM c1 = FDOM c2 ∪ IMAGE ($+ (s.lnext_label + LENGTH be)) (count (LENGTH bes))` by (
         unabbrev_all_tac >>
@@ -619,7 +622,8 @@ val label_closures_thm = store_thm("label_closures_thm",
       conj_tac >- (
         rw[INTER_UNION,GSYM INTER_OVER_UNION] >>
         fs[DISJOINT_DEF] ) >>
-      rw[Abbr`c1`,Abbr`c2`] >>
+      simp_tac(srw_ss()++DNF_ss)[Abbr`c1`,Abbr`c2`,MAP_ZIP,MEM_GENLIST] >>
+      gen_tac >> strip_tac >>
       CONV_TAC(RAND_CONV(REWRITE_CONV[Once ADD_SYM])) >>
       rw[GSYM GENLIST_PLUS_APPEND] >>
       rw[REVERSE_APPEND] >>
@@ -631,12 +635,8 @@ val label_closures_thm = store_thm("label_closures_thm",
       qmatch_assum_abbrev_tac `P ==> (MAP (subst_labs c2) q0 = es)` >>
       `P` by (
         unabbrev_all_tac >>
-        qmatch_abbrev_tac `DISJOINT X Y` >>
-        qpat_assum `DISJOINT X Z` mp_tac >>
-        simp[MAP_ZIP,Abbr`Y`] >>
-        CONV_TAC(LAND_CONV(REWRITE_CONV[Once ADD_SYM])) >>
-        simp[GSYM GENLIST_PLUS_APPEND] >>
-        rw[DISJOINT_SYM] ) >>
+        fsrw_tac[ARITH_ss][MAP_ZIP] >>
+        metis_tac[DISJOINT_GENLIST_PLUS,DISJOINT_SYM,ADD_SYM] ) >>
       qunabbrev_tac`P` >>
       qsuff_tac `MAP (subst_labs c1) q0 = MAP (subst_labs c2) q0` >- PROVE_TAC[] >>
       simp[MAP_EQ_f] >> qx_gen_tac `ee` >> strip_tac >>
@@ -646,11 +646,11 @@ val label_closures_thm = store_thm("label_closures_thm",
       `FDOM c2 = IMAGE ($+ (s.lnext_label + LENGTH be)) (count (LENGTH bes))` by (
         unabbrev_all_tac >>
         srw_tac[ARITH_ss][MAP_ZIP,LIST_TO_SET_GENLIST] ) >>
-      `set (FLAT (MAP free_labs q0)) = FDOM c2 ∪ les` by (
+      `free_labs_list q0 = FDOM c2 ∪ les` by (
         srw_tac[ARITH_ss][LIST_TO_SET_GENLIST] ) >>
-      `set (free_labs ee) ⊆ FDOM c2 ∪ les` by (
+      `free_labs ee ⊆ FDOM c2 ∪ les` by (
         match_mp_tac SUBSET_TRANS >>
-        qexists_tac `set (FLAT (MAP free_labs q0))` >>
+        qexists_tac `free_labs_list q0` >>
         conj_tac >- (
           simp[SUBSET_DEF,MEM_FLAT,MEM_MAP] >>
           PROVE_TAC[] ) >>
@@ -661,7 +661,7 @@ val label_closures_thm = store_thm("label_closures_thm",
         CONV_TAC(LAND_CONV(REWRITE_CONV[Once ADD_SYM])) >>
         rw[LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose,UNION_COMM] ) >>
       `DISJOINT les (IMAGE ($+ s.lnext_label) (count (LENGTH be)))` by (
-        fsrw_tac[ARITH_ss][MAP_ZIP,LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose] >>
+        fsrw_tac[ARITH_ss][MAP_ZIP,LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose,Abbr`les`] >>
         PROVE_TAC[DISJOINT_SYM] ) >>
       conj_tac >- (
         rw[] >>
@@ -699,8 +699,8 @@ val label_closures_thm = store_thm("label_closures_thm",
     fsrw_tac[ARITH_ss][MAP_ZIP] >>
     qabbrev_tac`be = (free_bods e)` >>
     qabbrev_tac`be' = (free_bods e')` >>
-    qabbrev_tac`le = set (free_labs e)` >>
-    qabbrev_tac`le' = set (free_labs e')` >>
+    qabbrev_tac`le = (free_labs e)` >>
+    qabbrev_tac`le' = (free_labs e')` >>
     TRY (
       qmatch_abbrev_tac `subst_labs c1 p0 = e` >>
       qmatch_assum_abbrev_tac `P ==> (subst_labs c2 p0 = ee)` >>
@@ -716,7 +716,7 @@ val label_closures_thm = store_thm("label_closures_thm",
         rw[Abbr`c2`,MAP_ZIP,LIST_TO_SET_GENLIST] ) >>
       `FDOM c1 = FDOM c2 ∪ IMAGE ($+ (s.lnext_label + LENGTH be)) (count (LENGTH be'))` by (
         rw[Abbr`c1`,MAP_ZIP,LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose,UNION_COMM] ) >>
-      `set (free_labs p0) = FDOM c2 ∪ le` by rw[LIST_TO_SET_GENLIST] >>
+      `(free_labs p0) = FDOM c2 ∪ le` by rw[LIST_TO_SET_GENLIST] >>
       `DISJOINT le (IMAGE ($+ (s.lnext_label + LENGTH be)) (count (LENGTH be')))` by (
         fs[LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose] >>
         PROVE_TAC[DISJOINT_SYM] ) >>
@@ -744,7 +744,7 @@ val label_closures_thm = store_thm("label_closures_thm",
         srw_tac[ARITH_ss][Abbr`c2`,MAP_ZIP,LIST_TO_SET_GENLIST] ) >>
       `FDOM c1 = FDOM c2 ∪ IMAGE ($+ s.lnext_label) (count (LENGTH be))` by (
         rw[Abbr`c1`,MAP_ZIP,LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose,UNION_COMM] ) >>
-      `set (free_labs q0) = FDOM c2 ∪ le'` by srw_tac[ARITH_ss][LIST_TO_SET_GENLIST] >>
+      `(free_labs q0) = FDOM c2 ∪ le'` by srw_tac[ARITH_ss][LIST_TO_SET_GENLIST] >>
       `DISJOINT le' (IMAGE ($+ s.lnext_label) (count (LENGTH be)))` by (
         fs[LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose] >>
         PROVE_TAC[DISJOINT_SYM] ) >>
@@ -778,11 +778,11 @@ val label_closures_thm = store_thm("label_closures_thm",
       qmatch_abbrev_tac`A = B UNION C` >>
       metis_tac[ADD_SYM,UNION_ASSOC,UNION_COMM] ) >>
     fsrw_tac[ARITH_ss][MAP_ZIP] >>
-    qabbrev_tac`le = set (free_labs e)` >>
+    qabbrev_tac`le = (free_labs e)` >>
     qabbrev_tac`be = (free_bods e)` >>
-    qabbrev_tac`le' = set (free_labs e')` >>
+    qabbrev_tac`le' = (free_labs e')` >>
     qabbrev_tac`be' = (free_bods e')` >>
-    qabbrev_tac`le'' = set (free_labs e'')` >>
+    qabbrev_tac`le'' = (free_labs e'')` >>
     qabbrev_tac`be'' = (free_bods e'')` >>
     TRY (
       qmatch_abbrev_tac `subst_labs c1 p0 = e` >>
@@ -799,7 +799,7 @@ val label_closures_thm = store_thm("label_closures_thm",
         rw[Abbr`c2`,MAP_ZIP,LIST_TO_SET_GENLIST] >>
       `FDOM c1 = FDOM c2 ∪ IMAGE ($+ (s.lnext_label + LENGTH be)) (count (LENGTH be' + LENGTH be''))` by (
         srw_tac[ARITH_ss][Abbr`c1`,MAP_ZIP,LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose] ) >>
-      `set (free_labs p0) = FDOM c2 ∪ le` by
+      `(free_labs p0) = FDOM c2 ∪ le` by
         rw[LIST_TO_SET_GENLIST] >>
       `DISJOINT le (IMAGE ($+ (s.lnext_label + LENGTH be)) (count (LENGTH be' + LENGTH be'')))` by (
         fsrw_tac[ARITH_ss][MAP_ZIP,LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose] ) >>
@@ -828,7 +828,7 @@ val label_closures_thm = store_thm("label_closures_thm",
       `FDOM c1 = FDOM c2 ∪ IMAGE ($+ s.lnext_label) (count (LENGTH be)) ∪ IMAGE ($+ (s.lnext_label + LENGTH be + LENGTH be')) (count (LENGTH be''))` by (
         srw_tac[ARITH_ss][Abbr`c1`,MAP_ZIP,LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose] >>
         metis_tac[UNION_COMM,UNION_ASSOC]) >>
-      `set (free_labs q0) = FDOM c2 ∪ le'` by
+      `(free_labs q0) = FDOM c2 ∪ le'` by
         srw_tac[ARITH_ss][LIST_TO_SET_GENLIST] >>
       qmatch_assum_abbrev_tac `FDOM c1 = FDOM c2 ∪ es1 ∪ es2` >>
       `DISJOINT le' (es1 ∪ es2)` by (
@@ -861,7 +861,7 @@ val label_closures_thm = store_thm("label_closures_thm",
       `FDOM c1 = FDOM c2 ∪ IMAGE ($+ s.lnext_label) (count (LENGTH be + LENGTH be'))` by (
         srw_tac[ARITH_ss][Abbr`c1`,MAP_ZIP,LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose] >>
         metis_tac[UNION_COMM,UNION_ASSOC]) >>
-      `set (free_labs r0) = FDOM c2 ∪ le''` by
+      `(free_labs r0) = FDOM c2 ∪ le''` by
         srw_tac[ARITH_ss][LIST_TO_SET_GENLIST] >>
       qmatch_assum_abbrev_tac `FDOM c1 = FDOM c2 ∪ ess` >>
       `DISJOINT le'' ess` by (
@@ -941,7 +941,7 @@ val label_closures_thm = store_thm("label_closures_thm",
       qsuff_tac `y ∉ FDOM f1 ⇒ y ∉ FDOM f3` >- (
         rw[DRESTRICT_EQ_DRESTRICT_SAME,EXTENSION,FUNION_DEF] >>
         PROVE_TAC[] ) >>
-      `y ∈ set (free_labs_defs ds')` by (
+      `y ∈ (free_labs_defs ds')` by (
         simp[MEM_MAP,MEM_FILTER] >>
         srw_tac[QUANT_INST_ss[std_qp]][] >>
         fs[Abbr`xx`] >> PROVE_TAC[] ) >>
@@ -975,19 +975,15 @@ val label_closures_thm = store_thm("label_closures_thm",
     qmatch_abbrev_tac`A = B UNION C` >>
     metis_tac[UNION_ASSOC,UNION_COMM] ) >>
   fsrw_tac[ARITH_ss][MAP_ZIP] >>
-  qabbrev_tac`les = set (FLAT (MAP free_labs es))` >>
+  qabbrev_tac`les = free_labs_list es` >>
   qabbrev_tac`bes = FLAT (MAP free_bods es)` >>
-  qabbrev_tac`le = set (free_labs e)` >>
+  qabbrev_tac`le = (free_labs e)` >>
   qabbrev_tac`be = (free_bods e)` >>
   TRY (
     qmatch_abbrev_tac `subst_labs c1 p0 = e` >>
     qmatch_assum_abbrev_tac `P ==> (subst_labs c2 p0 = e)` >>
     `P` by (
-      qunabbrev_tac`P` >>
-      qmatch_abbrev_tac `DISJOINT X Y` >>
-      qpat_assum `DISJOINT X Z` mp_tac >>
-      REWRITE_TAC[Once ADD_SYM] >>
-      simp[GSYM GENLIST_PLUS_APPEND,DISJOINT_SYM] ) >>
+      metis_tac[DISJOINT_GENLIST_PLUS,ADD_SYM] ) >>
     qunabbrev_tac`P` >>
     qsuff_tac`subst_labs c2 p0 = subst_labs c1 p0` >- PROVE_TAC[] >>
     match_mp_tac subst_labs_any_env >>
@@ -998,19 +994,17 @@ val label_closures_thm = store_thm("label_closures_thm",
       rw[Abbr`c1`] >>
       REWRITE_TAC[Once ADD_SYM] >>
       srw_tac[ARITH_ss][MAP_ZIP,GSYM GENLIST_PLUS_APPEND,LIST_TO_SET_GENLIST] ) >>
-    `set (free_labs p0) = FDOM c2 ∪ le` by
+    `(free_labs p0) = FDOM c2 ∪ le` by
       rw[LIST_TO_SET_GENLIST] >>
     qmatch_assum_abbrev_tac `FDOM c1 = FDOM c2 ∪ ss` >>
     `DISJOINT le ss` by (
-      qpat_assum `DISJOINT le Y` mp_tac >>
-      qpat_assum `DISJOINT le Y` mp_tac >>
-      REWRITE_TAC[Once ADD_SYM] >>
-      simp[GSYM GENLIST_PLUS_APPEND] >>
-      PROVE_TAC[DISJOINT_SYM,ADD_SYM,LIST_TO_SET_GENLIST] ) >>
+      fsrw_tac[DNF_ss][] >>
+      metis_tac[DISJOINT_GENLIST_PLUS,ADD_SYM,DISJOINT_SYM,LIST_TO_SET_GENLIST] ) >>
     conj_tac >- (
       rw[INTER_UNION,GSYM INTER_OVER_UNION] >>
       fs[DISJOINT_DEF] ) >>
-    rw[Abbr`c1`,Abbr`c2`] >>
+    simp_tac(srw_ss()++DNF_ss)[Abbr`c1`,Abbr`c2`,MAP_ZIP,MEM_GENLIST] >>
+    gen_tac >> strip_tac >>
     CONV_TAC(RAND_CONV(REWRITE_CONV[Once ADD_SYM])) >>
     rw[REVERSE_APPEND,GSYM GENLIST_PLUS_APPEND] >>
     rw[GSYM ZIP_APPEND] >>
@@ -1020,11 +1014,7 @@ val label_closures_thm = store_thm("label_closures_thm",
     qmatch_abbrev_tac `MAP f1 q0 = es` >>
     qmatch_assum_abbrev_tac `P ==> (MAP f2 q0 = es)` >>
     `P` by (
-      qunabbrev_tac`P` >>
-      qmatch_abbrev_tac `DISJOINT X Y` >>
-      qpat_assum `DISJOINT X Z` mp_tac >>
-      REWRITE_TAC[Once ADD_SYM] >>
-      simp[GSYM GENLIST_PLUS_APPEND,DISJOINT_SYM] ) >>
+      metis_tac[DISJOINT_GENLIST_PLUS,ADD_SYM] ) >>
     qunabbrev_tac`P` >>
     qsuff_tac `MAP f2 q0 = MAP f1 q0` >- PROVE_TAC[] >>
     simp[MAP_EQ_f] >>
@@ -1040,21 +1030,18 @@ val label_closures_thm = store_thm("label_closures_thm",
       REWRITE_TAC[Once ADD_SYM] >>
       rw[count_add,GSYM IMAGE_COMPOSE,plus_compose] >>
       PROVE_TAC[UNION_COMM] ) >>
-    `set (FLAT (MAP free_labs q0)) = FDOM c2 ∪ les` by
+    `free_labs_list q0 = FDOM c2 ∪ les` by
       srw_tac[ARITH_ss][LIST_TO_SET_GENLIST] >>
-    `set (free_labs ee) ⊆ FDOM c2 ∪ les` by (
+    `(free_labs ee) ⊆ FDOM c2 ∪ les` by (
       match_mp_tac SUBSET_TRANS >>
-      qexists_tac `set (FLAT (MAP free_labs q0))` >>
+      qexists_tac `(free_labs_list q0)` >>
       conj_tac >- (
         rw[SUBSET_DEF,MEM_FLAT,MEM_MAP] >>
         PROVE_TAC[] ) >>
       rw[] ) >>
     `DISJOINT les (IMAGE ($+ s.lnext_label) (count (LENGTH be)))` by (
-      qpat_assum`DISJOINT les Y` mp_tac >>
-      qpat_assum`DISJOINT les Y` mp_tac >>
-      CONV_TAC(LAND_CONV(REWRITE_CONV[Once ADD_SYM])) >>
-      simp[GSYM GENLIST_PLUS_APPEND] >>
-      PROVE_TAC[DISJOINT_SYM,LIST_TO_SET_GENLIST] ) >>
+      rw[Abbr`les`] >>
+      metis_tac[DISJOINT_GENLIST_PLUS,ADD_SYM,DISJOINT_SYM,LIST_TO_SET_GENLIST] ) >>
     conj_tac >- (
       rw[] >>
       match_mp_tac EQ_SYM >>
@@ -1130,11 +1117,40 @@ val free_labs_v_def = tDefine "free_labs_v"`
    match_mp_tac SUM_IMAGE_IN_LE >>
    rw[])
 
-val subst_all_labs_def = Define`
-  subst_all_labs c = WHILE ($~ o DISJOINT (FDOM c) o set o free_labs) (subst_labs c)`
+val fixpoint_def = Define`
+  fixpoint f = OWHILE (λx. f x ≠ x) f`
 
-val subst_all_labs_v_def = Define`
-  subst_all_labs_v c = WHILE ($~ o DISJOINT (FDOM c) o free_labs_v) (subst_labs_v c)`
+val _ = overload_on("subst_all_labs",``λc. fixpoint (subst_labs c)``)
+val _ = overload_on("subst_all_labs_v",``λc. fixpoint (subst_labs_v c)``)
+
+val has_fixpoint_def = Define`
+  has_fixpoint f x = ∃n. f (FUNPOW f n x) = FUNPOW f n x`
+
+val slf = WHILE_INDUCTION
+|> Q.ISPEC`λe. ~DISJOINT (set (free_labs e)) (FDOM (c:num|->Cexp))`
+|> Q.ISPEC`subst_labs c`
+|> Q.ISPEC`measure (λe. CARD ((set (free_labs e)) INTER FDOM (c:num|->Cexp)))`
+|> SIMP_RULE(srw_ss())[]
+
+set_goal([],fst(dest_imp(concl slf)))
+
+val subst_labs_removes_labs = store_thm("subst_labs_removes_labs",
+  fst(dest_imp(concl slf)),
+  qid_spec_tac `c` >>
+  ho_match_mp_tac subst_labs_ind >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    srw_tac[ETA_ss][MAP_MAP_o,combinTheory.o_DEF] >>
+    DB.match[]``CARD (set x)``
+  rw[]
+
+val subst_labs_has_fixpoints = store_thm("subst_labs_has_fixpoints",
+  ``∀c x. has_fixpoint (subst_labs c) x``,
+  gen_tac >>
+  ho_match_mp_tac (WHILE_INDUCTION)
 
 val subst_all_labs_rws = save_thm("subst_all_labs_rws",
   LIST_CONJ (
