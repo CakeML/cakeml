@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps bossLib quantHeuristicsLib pairTheory listTheory alistTheory
+open HolKernel boolLib boolSimps bossLib quantHeuristicsLib pairTheory listTheory alistTheory prim_recTheory whileTheory
 open relationTheory arithmeticTheory rich_listTheory finite_mapTheory pred_setTheory state_transformerTheory lcsymtacs
 open SatisfySimps miscTheory intLangTheory compileTerminationTheory
 val _ = new_theory"labelClosures"
@@ -950,7 +950,7 @@ val label_closures_thm = store_thm("label_closures_thm",
       strip_tac >- (
         fsrw_tac[ARITH_ss][MEM_GENLIST,Abbr`f1`,MAP_ZIP] ) >>
       fs[IN_DISJOINT,MEM_GENLIST,Abbr`f3`] >>
-      metis_tac[prim_recTheory.LESS_0,ADD_0] ) ) ) >>
+      metis_tac[LESS_0,ADD_0] ) ) ) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
@@ -1070,25 +1070,12 @@ val label_closures_thm = store_thm("label_closures_thm",
     rw[GSYM ZIP_APPEND] >>
     rw[FUNION_DEF]))
 
-val subst_labs_free_bods = store_thm("subst_labs_free_bods",
-  ``∀e e'. subst_labs
-  subst_labs_any_env
-  subst_labs_ind
-  ``(∀e s e' s'. (label_closures e s = (e',s')) ⇒
-       ∃c. (s'.lcode_env = c++s.lcode_env) ∧
-         (subst_labs (alist_to_fmap c) e' = e))``,
-  rw[] >>
-  imp_res_tac label_closures_thm >>
-  rw[] >>
-  DB.match [] ``alist_to_fmap (ZIP ls)``
-  DB.find"alist_to_fmap"
-
-val Cevaluate_subst_labs = store_thm("Cevaluate_subst_labs",
-  ``∀c env e res. Cevaluate c env e res ⇒
-     ∀e'. (subst_all_labs c e = subst_all_labs c e') ⇒
-       ∃res'. Cevaluate c env e' res' ∧
-              (map_result (subst_all_labs_v c) res =
-               map_result (subst_all_labs_v c) res')``
+(*
+val label_closures_subst_labs = store_thm("label_closure_subst_labs",
+  ``DISJOINT (set (free_labs e)) (IMAGE ($+ s.lnext_label) (count (LENGTH (free_bods e)))) ∧
+    (label_closures e s = (e',s')) ==>
+    (subst_labs (alist_to_fmap s'.lcode_env) e' = e)``
+*)
 
 (* TODO: move *)
 val o_f_cong = store_thm("o_f_cong",
@@ -1099,25 +1086,6 @@ val o_f_cong = store_thm("o_f_cong",
   SRW_TAC[DNF_ss][GSYM fmap_EQ_THM,FRANGE_DEF])
 val _ = DefnBase.export_cong"o_f_cong"
 
-(*
-val slexp_def = Define`
-  slexp c = EQC (λe1 e2. e1 = subst_labs c e2)`
-
-val (sldef_rules,sldef_ind,sldef_cases) = Hol_reln`
-  (slexp c b1 b2 ∧
-   (b1 = case cb1 of INL b => b | INR l => c ' l) ∧
-   (b2 = case cb2 of INL b => b | INR l => c ' l)
-   ⇒ sldef c (xs,cb1) (xs,cb2))`
-
-val (sleq_rules,sleq_ind,sleq_cases) = Hol_reln`
-  (sleq c (CLitv l) (CLitv l)) ∧
-  (EVERY2 (sleq c) vs1 vs2
-   ⇒ sleq c (CConv cn vs1) (CConv cn vs2)) ∧
-  (fmap_rel (sleq c) env1 env2 ∧
-   LIST_REL (sldef c) defs1 defs2
-   ⇒ sleq c (CRecClos env1 ns defs1 n) (CRecClos env2 ns defs2 n))`
-
-(*
 val subst_labs_v_def = tDefine "subst_labs_v"`
   (subst_labs_v c (CLitv l) = CLitv l) ∧
   (subst_labs_v c (CConv cn vs) = CConv cn (MAP (subst_labs_v c) vs)) ∧
@@ -1141,7 +1109,88 @@ val subst_labs_v_def = tDefine "subst_labs_v"`
    conj_tac >- srw_tac[ARITH_ss][o_f_FAPPLY,Abbr`y`,Abbr`f`] >>
    match_mp_tac SUM_IMAGE_IN_LE >>
    rw[])
-*)
+
+val free_labs_v_def = tDefine "free_labs_v"`
+  (free_labs_v (CLitv l) = {}) ∧
+  (free_labs_v (CConv cn vs) = BIGUNION (IMAGE (free_labs_v) (set vs))) ∧
+  (free_labs_v (CRecClos env ns defs n) = BIGUNION (IMAGE (free_labs_v) (FRANGE env)) ∪ set (free_labs_defs defs))`(
+   WF_REL_TAC `measure (Cv_size)` >>
+   srw_tac[ARITH_ss][Cvs_size_thm] >>
+   Q.ISPEC_THEN`Cv_size`imp_res_tac SUM_MAP_MEM_bound >>
+   srw_tac[ARITH_ss][] >>
+   qmatch_abbrev_tac `(q:num) < x + (y + (w + (z + 1)))` >>
+   qsuff_tac `q ≤ z` >- fsrw_tac[ARITH_ss][] >>
+   unabbrev_all_tac >>
+   rw[fmap_size_def] >>
+   fs[FRANGE_DEF] >> rw[] >>
+   qmatch_abbrev_tac `y <= SIGMA f (FDOM env)` >>
+   match_mp_tac LESS_EQ_TRANS >>
+   qexists_tac `f x` >>
+   conj_tac >- srw_tac[ARITH_ss][o_f_FAPPLY,Abbr`y`,Abbr`f`] >>
+   match_mp_tac SUM_IMAGE_IN_LE >>
+   rw[])
+
+val subst_all_labs_def = Define`
+  subst_all_labs c = WHILE ($~ o DISJOINT (FDOM c) o set o free_labs) (subst_labs c)`
+
+val subst_all_labs_v_def = Define`
+  subst_all_labs_v c = WHILE ($~ o DISJOINT (FDOM c) o free_labs_v) (subst_labs_v c)`
+
+val subst_all_labs_rws = save_thm("subst_all_labs_rws",
+  LIST_CONJ (
+  List.map (fn tm =>
+    subst_all_labs_def |> SPEC_ALL
+    |> REWRITE_RULE[FUN_EQ_THM]
+    |> SPEC tm
+    |> SIMP_RULE(srw_ss())[Once WHILE] )
+  [``CRaise error``
+  ,``CLit l``
+  ,``CVar x``
+  ,``CDecl xs``
+  ]))
+val _ = export_rewrites["subst_all_labs_rws"]
+
+
+val Cevaluate_subst_labs = store_thm("Cevaluate_subst_labs",
+  ``∀c env e res. Cevaluate c env e res ⇒
+     ∀e'. (subst_all_labs c e = subst_all_labs c e') ⇒
+       ∃res'. Cevaluate c env e' res' ∧
+              (map_result (subst_all_labs_v c) res =
+               map_result (subst_all_labs_v c) res')``,
+  ho_match_mp_tac Cevaluate_nice_ind >>
+  strip_tac
+
+
+(*
+val subst_labs_free_bods = store_thm("subst_labs_free_bods",
+  ``∀e e'. subst_labs
+  subst_labs_any_env
+  subst_labs_ind
+  ``(∀e s e' s'. (label_closures e s = (e',s')) ⇒
+       ∃c. (s'.lcode_env = c++s.lcode_env) ∧
+         (subst_labs (alist_to_fmap c) e' = e))``,
+  rw[] >>
+  imp_res_tac label_closures_thm >>
+  rw[] >>
+  DB.match [] ``alist_to_fmap (ZIP ls)``
+  DB.find"alist_to_fmap"
+
+val slexp_def = Define`
+  slexp c = EQC (λe1 e2. e1 = subst_labs c e2)`
+
+val (sldef_rules,sldef_ind,sldef_cases) = Hol_reln`
+  (slexp c b1 b2 ∧
+   (b1 = case cb1 of INL b => b | INR l => c ' l) ∧
+   (b2 = case cb2 of INL b => b | INR l => c ' l)
+   ⇒ sldef c (xs,cb1) (xs,cb2))`
+
+val (sleq_rules,sleq_ind,sleq_cases) = Hol_reln`
+  (sleq c (CLitv l) (CLitv l)) ∧
+  (EVERY2 (sleq c) vs1 vs2
+   ⇒ sleq c (CConv cn vs1) (CConv cn vs2)) ∧
+  (fmap_rel (sleq c) env1 env2 ∧
+   LIST_REL (sldef c) defs1 defs2
+   ⇒ sleq c (CRecClos env1 ns defs1 n) (CRecClos env2 ns defs2 n))`
 
 val slexp_refl = store_thm("slexp_refl",
   ``∀c e. slexp c e e``,
