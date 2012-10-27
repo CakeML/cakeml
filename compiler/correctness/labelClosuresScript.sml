@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib quantHeuristicsLib pairTheory listTheory alistTheory prim_recTheory whileTheory
-open relationTheory arithmeticTheory rich_listTheory finite_mapTheory pred_setTheory state_transformerTheory lcsymtacs
+open Parse relationTheory arithmeticTheory rich_listTheory finite_mapTheory pred_setTheory state_transformerTheory lcsymtacs
 open SatisfySimps miscTheory intLangTheory compileTerminationTheory
 val _ = new_theory"labelClosures"
 
@@ -193,6 +193,29 @@ val subst_lab_cb_any_env = store_thm("subst_lab_cb_any_env",
   Cases_on `cb` >>
   rw[FLOOKUP_DEF,DRESTRICT_DEF,GSYM fmap_EQ_THM,EXTENSION] >>
   metis_tac[])
+
+val subst_labs_subst_labs = store_thm("subst_labs_subst_labs",
+  ``∀c1 c2 e. subst_labs c1 (subst_labs c2 e) = subst_labs (c2 ⊌ c1) e``,
+  qsuff_tac `∀c e c1 c2. (c = c2 ⊌ c1) ⇒ (subst_labs (c2 ⊌ c1) e = subst_labs c1 (subst_labs c2 e))` >- rw[] >>
+  ho_match_mp_tac subst_labs_ind >>
+  srw_tac[ETA_ss][MAP_MAP_o,MAP_EQ_f] >>
+  TRY ( PairCases_on `e'` >> fs[] >> Cases_on `e'1` ) >>
+  TRY ( Cases_on `cb` ) >>
+  rw[FUNION_DEF,FLOOKUP_DEF] >>
+  fs[FUNION_DEF,FLOOKUP_DEF] )
+
+val subst_lab_cb_FEMPTY = store_thm("subst_lab_cb_FEMPTY",
+  ``subst_lab_cb FEMPTY cb = cb``,
+  Cases_on `cb` >> rw[])
+val _ = export_rewrites["subst_lab_cb_FEMPTY"]
+
+val subst_labs_FEMPTY = store_thm("subst_labs_FEMPTY",
+  ``!e. subst_labs FEMPTY e = e``,
+  qsuff_tac `!c e. (c = FEMPTY) ==> (subst_labs c e = e)` >- rw[] >>
+  ho_match_mp_tac subst_labs_ind >>
+  srw_tac[ETA_ss][] >>
+  rw[LIST_EQ_REWRITE] >> fsrw_tac[DNF_ss][MEM_EL,EL_MAP] >>
+  Cases_on `EL x defs` >> rw[])
 
 val subst_labs_SUBMAP = store_thm("subst_labs_SUBMAP",
   ``(free_labs e) ⊆ FDOM c ∧ c ⊑ c' ⇒ (subst_labs c e = subst_labs c' e)``,
@@ -966,11 +989,25 @@ val label_closures_thm = store_thm("label_closures_thm",
     rw[GSYM ZIP_APPEND] >>
     rw[FUNION_DEF]))
 
-(*
 val label_closures_subst_labs = store_thm("label_closure_subst_labs",
-  ``DISJOINT (set (free_labs e)) (IMAGE ($+ s.lnext_label) (count (LENGTH (free_bods e)))) ∧
+  ``DISJOINT (free_labs e) (IMAGE ($+ s.lnext_label) (count (LENGTH (free_bods e)))) ∧
     (label_closures e s = (e',s')) ==>
-    (subst_labs (alist_to_fmap s'.lcode_env) e' = e)``
+    (subst_labs (alist_to_fmap s'.lcode_env) e' = subst_labs (alist_to_fmap s.lcode_env) e)``,
+  rw[] >>
+  imp_res_tac (CONJUNCT1 label_closures_thm) >>
+  pop_assum mp_tac >>
+  fsrw_tac[ARITH_ss][LET_THM,MAP_ZIP,REVERSE_ZIP,LIST_TO_SET_GENLIST] >>
+  rw[] >>
+  metis_tac[subst_labs_subst_labs])
+
+(*
+val repeat_label_closures_subst_labs = store_thm("repeat_label_closures_subst_labs",
+ ``(repeat_label_closures e n ac = (e',n',ac')) ⇒
+   (imm_unlab e' = 0) ∧
+   (subst_labs (alist_to_fmap ac') e' = subst_labs (alist_to_fmap ac) e)``
+
+  repeat_label_closures_def
+  repeat_label_closures_ind
 *)
 
 val subst_labs_v_def = tDefine "subst_labs_v"`
@@ -1000,7 +1037,7 @@ val subst_labs_v_def = tDefine "subst_labs_v"`
 val free_labs_v_def = tDefine "free_labs_v"`
   (free_labs_v (CLitv l) = {}) ∧
   (free_labs_v (CConv cn vs) = BIGUNION (IMAGE (free_labs_v) (set vs))) ∧
-  (free_labs_v (CRecClos env ns defs n) = BIGUNION (IMAGE (free_labs_v) (FRANGE env)) ∪ set (free_labs_defs defs))`(
+  (free_labs_v (CRecClos env ns defs n) = BIGUNION (IMAGE (free_labs_v) (FRANGE env)) ∪ (free_labs_defs defs))`(
    WF_REL_TAC `measure (Cv_size)` >>
    srw_tac[ARITH_ss][Cvs_size_thm] >>
    Q.ISPEC_THEN`Cv_size`imp_res_tac SUM_MAP_MEM_bound >>
@@ -1016,6 +1053,45 @@ val free_labs_v_def = tDefine "free_labs_v"`
    conj_tac >- srw_tac[ARITH_ss][o_f_FAPPLY,Abbr`y`,Abbr`f`] >>
    match_mp_tac SUM_IMAGE_IN_LE >>
    rw[])
+
+val _ = export_rewrites["subst_labs_v_def","free_labs_v_def"]
+
+(*
+val Cevaluate_subst_labs = store_thm("Cevaluate_subst_labs",
+  ``∀c env e res. Cevaluate c env e res ⇒
+       Cevaluate c (subst_labs_v c o_f env) (subst_labs c e) (map_result (subst_labs_v c) res)``,
+  ho_match_mp_tac Cevaluate_nice_ind >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    srw_tac[ETA_ss][Cevaluate_con,Cevaluate_list_with_Cevaluate,Cevaluate_list_with_value,EL_MAP] ) >>
+  strip_tac >- (
+    srw_tac[ETA_ss][Cevaluate_con,Cevaluate_list_with_Cevaluate,Cevaluate_list_with_error] >>
+    qexists_tac `n` >> srw_tac[ARITH_ss][EL_MAP] >> PROVE_TAC[] ) >>
+  strip_tac >- (srw_tac[ETA_ss][Cevaluate_tageq] >> PROVE_TAC[] ) >>
+  strip_tac >- rw[Cevaluate_tageq] >>
+  strip_tac >- (srw_tac[ETA_ss][Cevaluate_proj] >> PROVE_TAC[EL_MAP,LENGTH_MAP] ) >>
+  strip_tac >- rw[Cevaluate_proj] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    srw_tac[ETA_ss][Cevaluate_let_cons] >>
+    PROVE_TAC[FUPDATE_PURGE,o_f_DOMSUB] ) >>
+  strip_tac >- rw[Cevaluate_let_cons] >>
+  strip_tac >- (
+    rw[] >>
+    rw[Once Cevaluate_cases] >- (
+      fsrw_tac[QUANT_INST_ss[std_qp]][MEM_MAP] >>
+      Cases_on `cb` >> fs[] >>
+      Cases_on `FLOOKUP c y` >> fs[] >> PROVE_TAC[] ) >>
+    qmatch_abbrev_tac `Cevaluate c env1 ee rr` >>
+    qmatch_assum_abbrev_tac `Cevaluate c env2 ee rr` >>
+    qsuff_tac `env1 = env2` >- rw[] >>
+    unabbrev_all_tac >>
+    rw[FOLDL2_FUPDATE_LIST_paired] >>
+    rw[MAP2_MAP,FST_triple,MAP_ZIP]
+    label_closures_thm
+    DB.find"FOLDL2_"
 
 val fixpoint_def = Define`
   fixpoint f = OWHILE (λx. f x ≠ x) f`
@@ -1075,6 +1151,7 @@ val Cevaluate_subst_labs = store_thm("Cevaluate_subst_labs",
                map_result (subst_all_labs_v c) res')``,
   ho_match_mp_tac Cevaluate_nice_ind >>
   strip_tac
+*)
 
 
 (*
@@ -1193,12 +1270,11 @@ val Cevaluate_subst_labs = store_thm("Cevaluate_subst_labs",
     srw_tac[DNF_ss][Once Cevaluate_cases,MEM_MAP]
 *)
 
+(*
 val Cevaluate_label_closures = store_thm("Cevaluate_label_closures",
   ``∀c env exp res. Cevaluate c env exp res ⇒
       ∀s. Cevaluate c env (FST (label_closures exp s)) res``,
   ho_match_mp_tac Cevaluate_nice_ind
-
-
 
 define a non-monadic version of (half of) label_closures that just collects the bodies in a list
 and perhaps another function that substitutes bodies for numbers from a given list
@@ -1248,5 +1324,6 @@ val repeat_label_closures_thm1 = store_thm("repeat_label_closures_thm1",
     PairCases_on `p` >> fs[] >>
     qabbrev_tac `q = label_code_env p1.lnext_label ac p1.lcode_env` >>
     PairCases_on `q` >> fs[] >> rw[] >>
+*)
 
 val _ = export_theory()
