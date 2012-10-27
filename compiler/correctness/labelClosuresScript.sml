@@ -111,38 +111,6 @@ val _ = export_rewrites["subst_lab_cb_def","subst_labs_def"]
 
 val subst_labs_ind = theorem"subst_labs_ind"
 
-(* TODO: move?
-         use for Cevaluate_any_env?*)
-val DRESTRICT_FUNION_SUBSET = store_thm("DRESTRICT_FUNION_SUBSET",
-  ``s2 ⊆ s1 ⇒ ∃h. (DRESTRICT f s1 ⊌ g = DRESTRICT f s2 ⊌ h)``,
-  strip_tac >>
-  qexists_tac `DRESTRICT f s1 ⊌ g` >>
-  match_mp_tac EQ_SYM >>
-  REWRITE_TAC[GSYM SUBMAP_FUNION_ABSORPTION] >>
-  rw[SUBMAP_DEF,DRESTRICT_DEF,FUNION_DEF] >>
-  fs[SUBSET_DEF])
-
-val DRESTRICT_SUBSET_SUBMAP_gen = store_thm("DRESTRICT_SUBSET_SUBMAP_gen",
-  ``!f1 f2 s t. DRESTRICT f1 s ⊑ DRESTRICT f2 s ∧ t ⊆ s
-    ==> DRESTRICT f1 t ⊑ DRESTRICT f2 t``,
-  rw[SUBMAP_DEF,DRESTRICT_DEF,SUBSET_DEF])
-
-val SUBSET_DIFF_EMPTY = store_thm("SUBSET_DIFF_EMPTY",
-  ``!s t. (s DIFF t = {}) = (s SUBSET t)``,
-  SRW_TAC[][EXTENSION,SUBSET_DEF] THEN PROVE_TAC[])
-
-val DIFF_INTER_SUBSET = store_thm("DIFF_INTER_SUBSET",
-  ``!r s t. r SUBSET s ==> (r DIFF s INTER t = r DIFF t)``,
-  SRW_TAC[][EXTENSION,SUBSET_DEF] THEN PROVE_TAC[])
-
-val UNION_DIFF_2 = store_thm("UNION_DIFF_2",
-  ``!s t. (s UNION (s DIFF t) = s)``,
-  SRW_TAC[][EXTENSION] THEN PROVE_TAC[])
-
-val DRESTRICT_FUNION_SAME = store_thm("DRESTRICT_FUNION_SAME",
-  ``!fm s. FUNION (DRESTRICT fm s) fm = fm``,
-  SRW_TAC[][GSYM SUBMAP_FUNION_ABSORPTION])
-
 val subst_labs_any_env = store_thm("subst_labs_any_env",
   ``∀c e c'. (DRESTRICT c (free_labs e) = DRESTRICT c' (free_labs e)) ⇒
              (subst_labs c e = subst_labs c' e)``,
@@ -226,58 +194,6 @@ val subst_lab_cb_any_env = store_thm("subst_lab_cb_any_env",
   rw[FLOOKUP_DEF,DRESTRICT_DEF,GSYM fmap_EQ_THM,EXTENSION] >>
   metis_tac[])
 
-(* TODO: move *)
-val REVERSE_ZIP = store_thm("REVERSE_ZIP",
-  ``!l1 l2. (LENGTH l1 = LENGTH l2) ==>
-    (REVERSE (ZIP (l1,l2)) = ZIP (REVERSE l1, REVERSE l2))``,
-  Induct THEN SRW_TAC[][LENGTH_NIL_SYM] THEN
-  Cases_on `l2` THEN FULL_SIMP_TAC(srw_ss())[] THEN
-  SRW_TAC[][GSYM ZIP_APPEND])
-
-val LENGTH_o_REVERSE = store_thm("LENGTH_o_REVERSE",
-  ``(LENGTH o REVERSE = LENGTH) /\
-    (LENGTH o REVERSE o f = LENGTH o f)``,
-  SRW_TAC[][FUN_EQ_THM])
-
-val REVERSE_o_REVERSE = store_thm("REVERSE_o_REVERSE",
-  ``(REVERSE o REVERSE o f = f)``,
-  SRW_TAC[][FUN_EQ_THM])
-
-val GENLIST_PLUS_APPEND = store_thm("GENLIST_PLUS_APPEND",
-  ``GENLIST ($+ a) n1 ++ GENLIST ($+ (n1 + a)) n2 = GENLIST ($+ a) (n1 + n2)``,
-  rw[Once ADD_SYM,SimpRHS] >>
-  srw_tac[ARITH_ss][GENLIST_APPEND] >>
-  srw_tac[ETA_ss][ADD_ASSOC])
-
-val count_add = store_thm("count_add",
-  ``!n m. count (n + m) = count n UNION IMAGE ($+ n) (count m)``,
-  SRW_TAC[ARITH_ss][EXTENSION,EQ_IMP_THM] THEN
-  Cases_on `x < n` THEN SRW_TAC[ARITH_ss][] THEN
-  Q.EXISTS_TAC `x - n` THEN
-  SRW_TAC[ARITH_ss][])
-
-val plus_compose = store_thm("plus_compose",
-  ``!n:num m. $+ n o $+ m = $+ (n + m)``,
-  SRW_TAC[ARITH_ss][FUN_EQ_THM])
-
-val LIST_TO_SET_GENLIST = store_thm("LIST_TO_SET_GENLIST",
-  ``!f n. LIST_TO_SET (GENLIST f n) = IMAGE f (count n)``,
-  SRW_TAC[][EXTENSION,MEM_GENLIST] THEN PROVE_TAC[])
-
-val DRESTRICT_EQ_DRESTRICT_SAME = store_thm("DRESTRICT_EQ_DRESTRICT_SAME",
-  ``(DRESTRICT f1 s = DRESTRICT f2 s) =
-    (s INTER FDOM f1 = s INTER FDOM f2) /\
-    (!x. x IN FDOM f1 /\ x IN s ==> (f1 ' x = f2 ' x))``,
-  SRW_TAC[][DRESTRICT_EQ_DRESTRICT,SUBMAP_DEF,DRESTRICT_DEF,EXTENSION] THEN
-  PROVE_TAC[])
-
-val MEM_ZIP_MEM_MAP = store_thm("MEM_ZIP_MEM_MAP",
-  ``(LENGTH (FST ps) = LENGTH (SND ps)) /\ MEM p (ZIP ps)
-    ==> MEM (FST p) (FST ps) /\ MEM (SND p) (SND ps)``,
-  Cases_on `p` >> Cases_on `ps` >> SRW_TAC[][] >>
-  REV_FULL_SIMP_TAC(srw_ss())[MEM_ZIP,MEM_EL] THEN
-  PROVE_TAC[])
-
 val subst_labs_SUBMAP = store_thm("subst_labs_SUBMAP",
   ``(free_labs e) ⊆ FDOM c ∧ c ⊑ c' ⇒ (subst_labs c e = subst_labs c' e)``,
   rw[] >>
@@ -291,13 +207,6 @@ val subst_labs_SUBMAP = store_thm("subst_labs_SUBMAP",
   metis_tac[])
 
 val _ = overload_on("free_bods_defs",``λdefs. MAP (OUTL o SND) (FILTER (ISL o SND) defs)``)
-
-val DISJOINT_GENLIST_PLUS = store_thm("DISJOINT_GENLIST_PLUS",
-  ``DISJOINT x (set (GENLIST ($+ n) (a + b))) ==>
-    DISJOINT x (set (GENLIST ($+ n) a)) /\
-    DISJOINT x (set (GENLIST ($+ (n + a)) b))``,
-  rw[GSYM GENLIST_PLUS_APPEND] >>
-  metis_tac[DISJOINT_SYM,ADD_SYM])
 
 val label_closures_thm = store_thm("label_closures_thm",
   ``(∀e s e' s'. (label_closures e s = (e',s')) ⇒
@@ -1063,15 +972,6 @@ val label_closures_subst_labs = store_thm("label_closure_subst_labs",
     (label_closures e s = (e',s')) ==>
     (subst_labs (alist_to_fmap s'.lcode_env) e' = e)``
 *)
-
-(* TODO: move *)
-val o_f_cong = store_thm("o_f_cong",
-  ``!f fm f' fm'.
-    (fm = fm') /\
-    (!v. v IN FRANGE fm ==> (f v = f' v))
-    ==> (f o_f fm = f' o_f fm')``,
-  SRW_TAC[DNF_ss][GSYM fmap_EQ_THM,FRANGE_DEF])
-val _ = DefnBase.export_cong"o_f_cong"
 
 val subst_labs_v_def = tDefine "subst_labs_v"`
   (subst_labs_v c (CLitv l) = CLitv l) ∧
