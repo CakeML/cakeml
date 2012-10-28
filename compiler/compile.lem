@@ -877,13 +877,16 @@ compile_closures nz s defs =
   let nk = List.length defs in
   let (s,labs) = get_labels nk s in
   let (s,k,ecs) = List.fold_left
-    (fun (s,k,ecs) (xs,INR l) ->
+    (fun (s,k,ecs) (xs,cb) ->
+      match cb with INL _ -> (s,k,ecs) (* should not happen *)
+      | INR l ->
       let lab = List.nth labs k in
       let s = incsz (
         emit s [Call (Lab lab);
                 Jump (Lab l);
                 Label lab]) in
-      (s,k+1,(Pmap.find l s.ecs)::ecs))
+      (s,k+1,(Pmap.find l s.ecs)::ecs)
+      end)
     (s,0,[]) defs in
   let s = emit s [Stack Pop] in
   let (s,k) = List.fold_left

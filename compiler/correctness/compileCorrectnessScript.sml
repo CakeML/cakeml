@@ -1,7 +1,174 @@
-open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory intLib lcsymtacs
-open miscTheory miniMLExtraTheory compileTerminationTheory intLangTheory bytecodeTerminationTheory evaluateEquationsTheory quantHeuristicsLib
-val _ = intLib.deprecate_int()
+open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory lcsymtacs
+open MiniMLTerminationTheory miniMLExtraTheory miscTheory compileTerminationTheory intLangTheory bytecodeTerminationTheory evaluateEquationsTheory expToCexpTheory quantHeuristicsLib
 val _ = new_theory "compileCorrectness"
+
+val bc_finish_def = Define`
+  bc_finish s1 s2 = bc_next^* s1 s2 ∧ ∀s3. ¬bc_next s2 s3`
+
+val compile_labels_cpam = store_thm("compile_labels_cpam",
+  ``(compile_labels rs ls).cpam = rs.cpam``,
+  rw[compile_labels_def] >> rw[])
+val _ = export_rewrites["compile_labels_cpam"]
+
+val repl_exp_cpam = store_thm("repl_exp_cpam",
+  ``(repl_exp rs exp).cpam = rs.cpam``,
+  rw[repl_exp_def,compile_Cexp_def] >>
+  rw[] >>
+  unabbrev_all_tac >>
+  BasicProvers.EVERY_CASE_TAC >> rw[])
+val _ = export_rewrites["repl_exp_cpam"]
+
+val FOLDL_invariant = store_thm("FOLDL_invariant",
+  ``!P f ls a. (P a) /\ (!x y . MEM y ls /\ P x ==> P (f x y)) ==> P (FOLDL f a ls)``,
+  NTAC 2 GEN_TAC THEN
+  Induct THEN SRW_TAC[][])
+
+val compile_varref_decl = store_thm("compile_varref_decl",
+  ``(compile_varref s x).decl = s.decl``,
+  Cases_on `x` >> rw[])
+val _ = export_rewrites["compile_varref_decl"]
+
+val compile_closures_decl = store_thm("compile_closures_decl",
+  ``(compile_closures n s defs).decl = s.decl``,
+  rw[compile_closures_def] >>
+  `s'.decl = s.decl` by (
+    qunabbrev_tac `s'` >>
+    rpt (pop_assum kall_tac) >>
+    qid_spec_tac `s` >>
+    Induct_on `n` >>
+    rw[Once num_fold_def] ) >>
+  `s''.decl = s'.decl` by
+    rw[Abbr`s''`] >>
+  `s''''.decl = s''.decl` by (
+    qmatch_assum_abbrev_tac `FOLDL f a defs = (s'''',k,ecs)` >>
+    `(($= s''.decl) o compiler_state_decl o FST) (FOLDL f a defs)` by (
+      match_mp_tac FOLDL_invariant >>
+      qunabbrev_tac`a` >> fs[] >>
+      qunabbrev_tac`f` >> fs[FORALL_PROD] >>
+      rw[] >>
+      BasicProvers.EVERY_CASE_TAC >> rw[] >>
+      unabbrev_all_tac >> rw[] ) >>
+    pop_assum mp_tac >> rw[] ) >>
+  `s'''''.decl = s''''.decl` by rw[Abbr`s'''''`] >>
+  `s''''''.decl = s'''''.decl` by (
+    qmatch_assum_abbrev_tac `FOLDL f a ls = (s'''''',x)` >>
+    `(($= s'''''.decl) o compiler_state_decl o FST) (FOLDL f a ls)` by (
+      match_mp_tac FOLDL_invariant >>
+      qunabbrev_tac`a` >> fs[] >>
+      qunabbrev_tac`f` >> fs[FORALL_PROD] >>
+      rw[LET_THM] >>
+      qmatch_abbrev_tac `q.decl = (FOLDL g b l).decl` >>
+      `(($= q.decl) o compiler_state_decl) (FOLDL g b l)` by (
+        match_mp_tac FOLDL_invariant >>
+        qunabbrev_tac`b`>>fs[] >>
+        qunabbrev_tac`g`>>gen_tac>>Cases>>fs[] ) >>
+      pop_assum mp_tac >> rw[Abbr`b`] ) >>
+    pop_assum mp_tac >> rw[] ) >>
+  `s'''''''.decl = s''''''.decl` by (
+    qmatch_assum_abbrev_tac `num_fold f a n = (s''''''',X)` >>
+    `!n a. (FST (num_fold f a n)).decl = (FST a).decl` by (
+      Induct >- rw[Once num_fold_def,Abbr`f`] >>
+      rw[Once num_fold_def] >>
+      rw[Abbr`f`,LET_THM] >>
+      Cases_on `a'` >> rw[] ) >>
+    pop_assum (qspecl_then [`n`,`a`] mp_tac) >>
+    rw[Abbr`a`] ) >>
+  qmatch_abbrev_tac `(num_fold f a n).decl = s.decl` >>
+  `!n b. (num_fold f b n).decl = b.decl` by (
+    Induct >- rw[Once num_fold_def] >>
+    rw[Once num_fold_def] >>
+    rw[Abbr`f`] ) >>
+  pop_assum (qspecl_then [`n`,`a`] mp_tac) >>
+  rw[Abbr`a`] )
+val _ = export_rewrites["compile_closures_decl"]
+
+val compile_decl_NONE = store_thm("compile_decl_NONE",
+  ``(∀s e. (((compile s e).decl = NONE) = (s.decl = NONE))) ∧
+    (∀env sz e n s xs. (((compile_bindings env sz e n s xs).decl = NONE) = (s.decl = NONE)))``,
+  ho_match_mp_tac compile_ind >>
+  rw[compile_def,incsz_def,emit_def]
+  >- (
+    Cases_on `s.decl` >> rw[] >>
+    BasicProvers.EVERY_CASE_TAC >> rw[] >>
+    rw[] )
+  >> TRY (
+    unabbrev_all_tac >>
+    Cases_on `dt` >> fs[] >>
+    NO_TAC ) >>
+  rw[]
+  >- ( qunabbrev_tac`s'''` >> rw[] )
+  >- ( fs[] )
+  >- ( unabbrev_all_tac >> fs[] )
+  >- (
+    unabbrev_all_tac >> rw[] >>
+    BasicProvers.EVERY_CASE_TAC >> rw[] ))
+val _ = export_rewrites["compile_decl_NONE"]
+
+val cce_aux_decl_NONE = store_thm("cce_aux_decl_NONE",
+  ``((cce_aux c s x).decl = NONE) = (s.decl = NONE)``,
+  Cases_on `x` >>
+  rw[cce_aux_def] >>
+  qmatch_assum_abbrev_tac `FOLDL f a r = (s',k)` >>
+  `((λp. ((FST p).decl = NONE) = (s.decl = NONE))) (FOLDL f a r)` by (
+    match_mp_tac FOLDL_invariant >>
+    fs[Abbr`a`] >>
+    Cases >> Cases >>
+    rw[Abbr`f`,LET_THM] >>
+    rw[UNCURRY] ) >>
+  pop_assum mp_tac >> rw[] )
+val _ = export_rewrites["cce_aux_decl_NONE"]
+
+val compile_code_env_decl_NONE = store_thm("compile_code_env_decl_NONE",
+  ``((compile_code_env c s ldefs).decl = NONE) = (s.decl = NONE)``,
+  rw[compile_code_env_def] >>
+  rw[Abbr`s'''`] >>
+  qmatch_abbrev_tac `((FOLDL f x y).decl = NONE) = X` >>
+  `(λa. (a.decl = NONE) = (s.decl = NONE)) (FOLDL f x y)` by (
+    match_mp_tac FOLDL_invariant >>
+    rw[Abbr`X`,Abbr`x`,Abbr`s''`,Abbr`f`] ) >>
+  pop_assum mp_tac >> rw[])
+val _ = export_rewrites["compile_code_env_decl_NONE"]
+
+val calculate_ecs_decl = store_thm("calculate_ecs_decl",
+  ``(calculate_ecs c s ldefs).decl = s.decl``,
+  rw[calculate_ecs_def] >>
+  qmatch_abbrev_tac `(FOLDL f s y).decl = s.decl` >>
+  `(($= s.decl) o compiler_state_decl) (FOLDL f s y)` by (
+    match_mp_tac FOLDL_invariant >>
+    fs[Abbr`f`] >>
+    gen_tac >> Cases >> rw[] >>
+    qmatch_assum_abbrev_tac `FOLDL f (x,0) r = (s',k)` >>
+    `(($= x.decl) o compiler_state_decl o FST) (FOLDL f (x,0) r)` by (
+      match_mp_tac FOLDL_invariant >>
+      fs[] >>
+      Cases >> Cases >> rw[Abbr`f`] >>
+      unabbrev_all_tac >> rw[] ) >>
+    pop_assum mp_tac >> rw[] ) >>
+  pop_assum mp_tac >> rw[] )
+val _ = export_rewrites["calculate_ecs_decl"]
+
+val repl_exp_val = store_thm("repl_exp_val",
+  ``∀cenv exp tenvC t tvs v rs rs' bs bs'.
+      evaluate cenv [] exp (Rval v) ∧
+      (FV exp = {}) ∧
+      (type_v tenvC v t) ∧
+      good_cenv cenv ∧
+      good_cmap cenv rs.cmap ∧
+      (repl_exp rs exp = rs') ∧
+      (bc_finish (bs with <| code := rs'.code ; pc := 0 |>) bs')
+      ⇒
+      ∃bv.
+      (bs'.stack = bv :: bs.stack) ∧
+      (v_to_ov v = bv_to_ov rs.cpam (t_to_nt tvs t) bv)``,
+  rw[repl_exp_def,compile_Cexp_def,LET_THM] >>
+  pop_assum mp_tac >>
+  qabbrev_tac `p = repeat_label_closures (exp_to_Cexp rs.cmap exp) 0 []` >>
+  PairCases_on `p` >> fs[] >>
+  reverse BasicProvers.EVERY_CASE_TAC >- (
+    qmatch_assum_abbrev_tac `(compile ss ee).decl = SOME (q,r)` >>
+    `ss.decl ≠ NONE` by (
+      PROVE_TAC[compile_decl_NONE,optionTheory.NOT_SOME_NONE] ) >>
+    fs[Abbr`ss`] ) >>
 
 val labels_only_def = Define`
   labels_only ls = ∀x. MEM x ls ⇒ case x of
@@ -83,9 +250,6 @@ val labels_only_any_il = store_thm("labels_only_any_il",
   rw[bc_fetch_def] >>
   fs[bc_fetch_aux_el_of_addr,translate_pc_def,bump_pc_def,bc_fetch_def]
   strip_tac
-
-val bc_finish_def = Define`
-  bc_finish s1 s2 = bc_next^* s1 s2 ∧ ∀s3. ¬bc_next s2 s3`
 
 val el_check_def = Define`
   el_check n ls = if n < LENGTH ls then SOME (EL n ls) else NONE`
@@ -209,8 +373,6 @@ type ctbind = CTLet of num | CTArg of num | CTEnv of num | CTRef of num
    CTArg n means stack[sz + n]
    CTEnv n means El n of the environment, which is at stack[sz]
    CTRef n means El n of the environment, but it's a ref pointer *)
-
-val repl_exp_thm1 = store_thm("repl_exp_thm1",
 
 (*
 val Cpat_nice_ind =

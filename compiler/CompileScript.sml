@@ -943,13 +943,16 @@ val _ = Defn.save_defn emit_ec_defn;
   let nk = LENGTH defs in
   let (s,labs) = get_labels nk s in
   let (s,k,ecs) = FOLDL
-    (\ (s,k,ecs) . \x . (case x of (xs,INR l) =>
+    (\ (s,k,ecs) (xs,cb) .
+      (case cb of INL _ => (s,k,ecs) (* should not happen *)
+      | INR l =>
       let lab = EL  k  labs in
       let s = incsz (
         emit s [Call (Lab lab);
                 Jump (Lab l);
                 Label lab]) in
-      (s,k+1,(FAPPLY  s.ecs  l)::ecs)))
+      (s,k+1,(FAPPLY  s.ecs  l)::ecs)
+      ))
     (s,0,[]) defs in
   let s = emit s [Stack Pop] in
   let (s,k) = FOLDL
