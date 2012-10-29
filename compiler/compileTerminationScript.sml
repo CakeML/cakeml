@@ -171,6 +171,8 @@ val (compile_varref_def, compile_varref_ind) = register "compile_varref" (
   tprove_no_defn ((compile_varref_def, compile_varref_ind),
   WF_REL_TAC `measure (λp. case p of (_,CTEnv _) => 0 | (_,CTRef _) => 1)`))
 
+val _ = export_rewrites["compile_varref_def"]
+
 val (compile_def, compile_ind) = register "compile" (
   tprove_no_defn ((compile_def, compile_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
@@ -424,5 +426,17 @@ val (bv_to_ov_def,bv_to_ov_ind) = register "bv_to_ov" (
   rw[bc_value1_size_thm] >>
   Q.ISPEC_THEN `bc_value_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
+
+val _ = save_thm("compile_labels_def",compile_labels_def)
+val _ = save_thm("repl_exp_def",repl_exp_def)
+val _ = save_thm("compile_Cexp_def",compile_Cexp_def)
+val _ = save_thm("emit_def",emit_def)
+val _ = save_thm("incsz_def",incsz_def)
+val _ = save_thm("decsz_def",decsz_def)
+val _ = save_thm("ldt_def",ldt_def)
+val _ = save_thm("sdt_def",sdt_def)
+val _ = save_thm("get_labels_def",get_labels_def)
+val _ = save_thm("emit_ec_def",emit_ec_def)
+val _ = export_rewrites["emit_def","incsz_def","decsz_def","ldt_def","sdt_def","get_labels_def","emit_ec_def"]
 
 val _ = export_theory()

@@ -105,12 +105,6 @@ val lookup_ct_def = Define`
      | _ => NONE))`
 val _ = export_rewrites["lookup_ct_def"]
 
-val emit_def = CompileTheory.emit_def
-val incsz_def = CompileTheory.incsz_def
-val _ = export_rewrites["Compile.emit_def","Compile.incsz_def"]
-val repl_exp_def = CompileTheory.repl_exp_def
-val compile_Cexp_def = CompileTheory.compile_Cexp_def
-
 val add_code_def = Define`
   add_code c (s:bc_state) = s with <| code := s.code ++ c |>`
 
