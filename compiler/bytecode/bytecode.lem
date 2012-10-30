@@ -23,9 +23,9 @@ type
   bc_inst =
     Stack of bc_stack_op
   | Label of num            (* label location *)
-  | Jump of loc             (* jump to location n *)
-  | JumpNil of loc          (* conditional jump to location n *)
-  | Call of loc             (* call location n *)
+  | Jump of loc             (* jump to location *)
+  | JumpNil of loc          (* conditional jump to location *)
+  | Call of loc             (* call location *)
   | JumpPtr                 (* jump based on code pointer *)
   | CallPtr                 (* call based on code pointer *)
   | Return                  (* pop return address, jump *)
