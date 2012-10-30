@@ -12,6 +12,7 @@ val _ = Parse.disable_tyabbrev_printing "ctenv"
 val _ = Parse.disable_tyabbrev_printing "ecs"
 val _ = Parse.disable_tyabbrev_printing "alist"
 val _ = Parse.disable_tyabbrev_printing "def"
+val _ = Parse.disable_tyabbrev_printing "contab"
 val _ = Parse.hide "toList"
 
 val underscore_rule = Conv.CONV_RULE let
@@ -47,7 +48,6 @@ val data = map
   , datatype_cebind
   , datatype_call_context
   , datatype_compiler_state
-  , datatype_nt
   , datatype_repl_state
   ]
 
@@ -87,6 +87,7 @@ val defs = map EmitML.DEFN
 , calculate_labels_def
 , replace_labels_def
 , compile_labels_def
+, cmap_def
 , init_repl_state_def
 , pat_to_Cpat_def
 , fresh_var_def
@@ -96,11 +97,8 @@ val defs = map EmitML.DEFN
 , underscore_rule exp_to_Cexp_def
 , compile_Cexp_def
 , repl_exp_def
-, t_to_nt_def
 , number_constructors_def
-, lookup_conv_ty_def
 , repl_dec_def
-, inst_arg_def
 , v_to_ov_def
 , bv_to_ov_def
 ]

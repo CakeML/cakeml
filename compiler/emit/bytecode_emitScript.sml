@@ -26,7 +26,7 @@ val defs = map EmitML.DEFN [
 optionTheory.OPTION_BIND_def,
 is_Label_def,bc_fetch_aux_def,bc_fetch_def,
 bc_find_loc_aux_def,bc_find_loc_def,
-bump_pc_def,bool_to_int_def,isNumber_def,
+bump_pc_def,bool_to_tag_def,bool_to_val_def,isNumber_def,
 bc_eval_stack_def,bc_eval1_def,bc_eval_def,
 init_bc_state_def]
 

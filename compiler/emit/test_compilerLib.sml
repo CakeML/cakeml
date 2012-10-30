@@ -122,10 +122,12 @@ in (bs,rs) end
 
 val inits = (init_bc_state, init_repl_state)
 
+fun cpam rs = let val (_,(w,_)) = repl_state_contab rs in w end
+
 fun mst_run_decs_exp (ds,e) = let
   val (bs,rs) = prep_decs_exp inits (ds,e)
   val bs = bc_eval bs
-in (repl_state_cpam rs, bc_state_stack bs) end
+in (cpam rs, bc_state_stack bs) end
 
 val run_decs_exp = snd o mst_run_decs_exp
 fun mst_run_exp e = mst_run_decs_exp ([],e)

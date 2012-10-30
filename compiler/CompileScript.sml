@@ -960,7 +960,7 @@ val _ = Defn.save_defn emit_ec_defn;
       let s = incsz (emit s [Stack (Load (nk - k))]) in
       let s = FOLDL (emit_ec sz0) s (REVERSE ec) in
       let s = emit s [Stack (if j = 0 then PushInt i0 else Cons 0 j)] in
-      let s = emit s [Stack (Cons 0 2)] in
+      let s = emit s [Stack (Cons 2 2)] in
       let s = decsz (emit s [Stack (Store (nk - k))]) in
       let s =  s with<| sz := s.sz - j |> in
       (s,k+1))
@@ -1010,7 +1010,7 @@ val _ = Defn.save_defn compile_closures_defn;
   incsz (emit s [Stack (PushInt i)]))
 /\
 (compile s (CLit (Bool b)) =
-  incsz (emit s [Stack (PushInt (bool_to_int b))]))
+  incsz (emit s [Stack (Cons (bool_to_tag b) 0)]))
 /\
 (compile s (CVar vn) = incsz (compile_varref s (FAPPLY  s.env  vn)))
 /\
@@ -1107,7 +1107,7 @@ val _ = Defn.save_defn compile_closures_defn;
   let n0 = EL  0  labs in
   let n1 = EL  1  labs in
   let n2 = EL  2  labs in
-  let s = emit s [(JumpNil (Lab n0)); (Jump (Lab n1)); Label n0] in
+  let s = emit s [(JumpIf (Lab n0)); (Jump (Lab n1)); Label n0] in
   let s = compile (decsz s) e2 in
   let s = emit s [(Jump (Lab n2)); Label n1] in
   let s = compile (decsz s) e3 in
@@ -1203,35 +1203,16 @@ val _ = Defn.save_defn compile_code_env_defn;
 
 (* replace labels in bytecode with addresses *)
 
-(* runtime type information, for repl *)
+val _ = type_abbrev( "contab" , ``: (conN, num) fmap # (num, conN) fmap # num``);
+(*val cmap : contab -> Pmap.map conN num*)
+ val cmap_defn = Hol_defn "cmap" `
+ (cmap (m,_,_) = m)`;
 
-val _ = Hol_datatype `
- nt =
-    NTvar of num
-  | NTapp of nt list => typeN
-  | NTfn
-  | NTnum
-  | NTbool`;
-
-
- val t_to_nt_defn = Hol_defn "t_to_nt" `
-
-(t_to_nt a (Tvar x) = (case find_index x a 0 of SOME n => NTvar n ))
-/\
-(t_to_nt a (Tapp ts tn) = NTapp (MAP (t_to_nt a) ts) tn)
-/\
-(t_to_nt a (Tfn _ _) = NTfn)
-/\
-(t_to_nt a Tnum = NTnum)
-/\
-(t_to_nt a Tbool = NTbool)`;
-
-val _ = Defn.save_defn t_to_nt_defn;
+val _ = Defn.save_defn cmap_defn;
 
 val _ = Hol_datatype `
  repl_state =
-  <| cmap : (conN, num) fmap
-   ; cpam : (typeN, ( (num, (conN # nt list))fmap)) fmap
+  <| contab : contab
    ; code : bc_inst list
    ; renv : ctenv
    ; rsz  : num
@@ -1259,8 +1240,8 @@ val _ = Defn.save_defn calculate_labels_defn;
 (replace_labels m a (Jump (Lab l)::bc) =
   replace_labels m (Jump (Addr (FAPPLY  m  l))::a) bc)
 /\
-(replace_labels m a (JumpNil (Lab l)::bc) =
-  replace_labels m (JumpNil (Addr (FAPPLY  m  l))::a) bc)
+(replace_labels m a (JumpIf (Lab l)::bc) =
+  replace_labels m (JumpIf (Addr (FAPPLY  m  l))::a) bc)
 /\
 (replace_labels m a (Call (Lab l)::bc) =
   replace_labels m (Call (Addr (FAPPLY  m  l))::a) bc)
@@ -1282,8 +1263,7 @@ val _ = Defn.save_defn compile_labels_defn;
 
 val _ = Define `
  init_repl_state =
-  <| cmap := FEMPTY
-   ; cpam := FEMPTY
+  <| contab := (FEMPTY, FEMPTY, 3)
    ; code := []
    ; renv := FEMPTY
    ; rsz  := 0
@@ -1315,12 +1295,10 @@ val _ = Define `
 
  val number_constructors_defn = Hol_defn "number_constructors" `
 
-(number_constructors a (cm,cw) n [] = (cm,cw))
+(number_constructors [] ct = ct)
 /\
-(number_constructors a (cm,cw) n ((c,tys)::cs) =
-  let cm' = FUPDATE  cm ( c, n) in
-  let cw' = FUPDATE  cw ( n, (c, MAP (t_to_nt a) tys)) in
-  number_constructors a (cm',cw') (n+1) cs)`;
+(number_constructors ((c,_)::cs) (m,w,n) =
+  number_constructors cs (FUPDATE  m ( c, n), FUPDATE  w ( n, c), n+1))`;
 
 val _ = Defn.save_defn number_constructors_defn;
 
@@ -1328,27 +1306,28 @@ val _ = Defn.save_defn number_constructors_defn;
 
 (repl_dec rs (Dtype []) =  rs with<| code := [] |>)
 /\
-(repl_dec rs (Dtype ((a,ty,cs)::ts)) =
-  let (cm,cw) = number_constructors a (rs.cmap,FEMPTY) 0 cs in
-  repl_dec ( rs with<| cmap := cm; cpam := FUPDATE  rs.cpam ( ty, cw) |>) (Dtype ts)) (* parens: Lem sucks *)
+(repl_dec rs (Dtype ((_,_,cs)::ts)) =
+  let ct = number_constructors cs rs.contab in
+  repl_dec ( rs with<| contab := ct |>) (Dtype ts)) (* parens: Lem sucks *)
 /\
 (repl_dec rs (Dletrec defs) =
-  let (fns,Cdefs) = defs_to_Cdefs rs.cmap defs in
+  let (fns,Cdefs) = defs_to_Cdefs (cmap rs.contab) defs in
   let decl = SOME(rs.renv,rs.rsz) in
   compile_Cexp rs decl (CLetfun T fns Cdefs (CDecl fns)))
 /\
 (repl_dec rs (Dlet p e) =
-  let (pvs,Cp) = pat_to_Cpat rs.cmap [] p in
+  let m = cmap rs.contab in
+  let (pvs,Cp) = pat_to_Cpat m [] p in
   let Cpes = [(Cp,CDecl pvs)] in
   let vn = fresh_var (Cpes_vars Cpes) in
-  let Ce = exp_to_Cexp rs.cmap e in
+  let Ce = exp_to_Cexp m e in
   let decl = SOME(rs.renv,rs.rsz) in
   compile_Cexp rs decl (CLet [vn] [Ce] (remove_mat_var vn Cpes)))`;
 
 val _ = Defn.save_defn repl_dec_defn;
 
 val _ = Define `
- (repl_exp s exp = compile_Cexp s NONE (exp_to_Cexp s.cmap exp))`;
+ (repl_exp s exp = compile_Cexp s NONE (exp_to_Cexp (cmap s.contab) exp))`;
 
 
 (* Correctness *)
@@ -1384,35 +1363,15 @@ val _ = Defn.save_defn v_to_ov_defn;
 
 val _ = Defn.save_defn Cv_to_ov_defn;
 
-val _ = Define `
- (lookup_conv_ty m ty n = FAPPLY  (FAPPLY  m  ty)  n)`;
-
-
- val inst_arg_defn = Hol_defn "inst_arg" `
-
-(inst_arg tvs (NTvar n) = EL  n  tvs)
-/\
-(inst_arg tvs (NTapp ts tn) = NTapp (MAP (inst_arg tvs) ts) tn)
-/\
-(inst_arg tvs tt = tt)`;
-
-val _ = Defn.save_defn inst_arg_defn;
-
  val bv_to_ov_defn = Hol_defn "bv_to_ov" `
 
-(bv_to_ov m NTnum (Number i) = OLit (IntLit i))
+(bv_to_ov m (Number i) = OLit (IntLit i))
 /\
-(bv_to_ov m NTbool (Number i) = OLit (Bool (num_to_bool (Num i))))
-/\
-(bv_to_ov m (NTapp _ ty) (Number i) =
-  OConv (FST (lookup_conv_ty m ty (Num i))) [])
-/\
-(bv_to_ov m (NTapp tvs ty) (Block n vs) =
-  let (tag, args) = lookup_conv_ty m ty n in
-  let args = MAP (inst_arg tvs) args in
-  OConv tag (MAP2 (\ ty v . bv_to_ov m ty v) args vs)) (* uneta: Hol_defn sucks *)
-/\
-(bv_to_ov m NTfn (Block 0 _) = OFn)`;
+(bv_to_ov m (Block n vs) =
+  if n = 0 then OLit (Bool F) else
+  if n = 1 then OLit (Bool T)  else
+  if n = 2 then OFn               else
+  OConv (FAPPLY  m  n) (MAP (bv_to_ov m) vs))`;
 
 val _ = Defn.save_defn bv_to_ov_defn;
 

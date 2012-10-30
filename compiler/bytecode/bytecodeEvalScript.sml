@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib Parse lcsymtacs
-open BytecodeTheory arithmeticTheory listTheory finite_mapTheory integerTheory
+open bytecodeTerminationTheory arithmeticTheory listTheory finite_mapTheory integerTheory
 val _ = new_theory "bytecodeEval";
 
 val isNumber_def = Define`
@@ -30,11 +30,11 @@ val bc_eval_stack_def = Define`
 ∧ (bc_eval_stack (El k) ((Block tag ys)::xs) =
    if k < LENGTH ys then SOME (EL k ys::xs) else NONE)
 ∧ (bc_eval_stack (TagEq t) ((Block tag ys)::xs) =
-   SOME (Number (bool_to_int (tag = t))::xs))
+   SOME (bool_to_val (tag = t)::xs))
 ∧ (bc_eval_stack Equal (x2::x1::xs) =
-   SOME (Number (bool_to_int (x1 = x2)) :: xs))
+   SOME (bool_to_val (x1 = x2)::xs))
 ∧ (bc_eval_stack Less (Number n :: Number m :: xs) =
-   SOME (Number (bool_to_int (m < n))::xs))
+   SOME (bool_to_val (m < n)::xs))
 ∧ (bc_eval_stack Add (Number n :: Number m :: xs) =
    SOME (Number (m + n)::xs))
 ∧ (bc_eval_stack Sub (Number n :: Number m :: xs) =
@@ -158,10 +158,12 @@ val bc_eval1_def = Define`
   | (Jump l, _) =>
     OPTION_BIND (bc_find_loc s l)
       (λn. SOME (s with pc := n))
-  | (JumpNil l, Number x::xs) =>
+  | (JumpIf l, (Block b [])::xs) =>
     OPTION_BIND (bc_find_loc s l)
       (λn. let s' = s with stack := xs in
-        SOME (if x = 0 then bump_pc s' else s' with pc := n))
+        if b = 0 then SOME (bump_pc s') else
+        if b = 1 then SOME (s' with pc := n) else
+        NONE)
   | (Call l, x::xs) =>
       OPTION_BIND (bc_find_loc s l)
       (λn. SOME (s with <| pc := n; stack := x :: CodePtr ((bump_pc s).pc) :: xs |>))
@@ -201,7 +203,11 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
   Cases_on `h` >> fs[LET_THM] >>
-  rw[bc_next_cases] )
+  qpat_assum `X = SOME s2` mp_tac >>
+  BasicProvers.EVERY_CASE_TAC >> rw[] >>
+  rw[bc_next_cases] >>
+  ((qexists_tac `T` >> rw[] >> NO_TAC) ORELSE
+   (qexists_tac `F` >> rw[] >> NO_TAC)))
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
   rw[bc_next_cases] )
@@ -268,7 +274,11 @@ Cases_on `inst` >> fs[bc_eval_stack_NONE]
   Cases_on `s1.stack` >> fs[LET_THM] >>
   rw[bc_next_cases] >>
   qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `h` >> fs[] )
+  Cases_on `h` >> fs[] >>
+  qmatch_assum_rename_tac `s1.stack = Block x y :: t`[] >>
+  Cases_on `y` >> fs[] >>
+  Cases_on `b` >> fs[] >>
+  Cases_on `x=0` >> fs[])
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
   rw[bc_next_cases] >>

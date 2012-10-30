@@ -41,12 +41,6 @@ val bc_value1_size_thm = store_thm(
 Induct >- rw[BytecodeTheory.bc_value_size_def] >>
 srw_tac [ARITH_ss][BytecodeTheory.bc_value_size_def])
 
-val nt1_size_thm = store_thm(
-"nt1_size_thm",
-``∀ls. nt1_size ls = SUM (MAP nt_size ls) + LENGTH ls``,
-Induct >- rw[nt_size_def] >>
-srw_tac [ARITH_ss][nt_size_def])
-
 (* semantics definitions *)
 
 fun register name (def,ind) = let
@@ -87,13 +81,6 @@ val (no_closures_def, no_closures_ind) = register "no_closures" (
   pop_assum (qspec_then `Cv_size` mp_tac) >>
   srw_tac[ARITH_ss][]))
 val _ = export_rewrites["no_closures_def"];
-
-val (inst_arg_def,inst_arg_ind) = register "inst_arg" (
-  tprove_no_defn ((inst_arg_def,inst_arg_ind),
-  WF_REL_TAC `measure (nt_size o SND)` >>
-  rw[nt1_size_thm] >>
-  Q.ISPEC_THEN `nt_size` imp_res_tac SUM_MAP_MEM_bound >>
-  srw_tac[ARITH_ss][]))
 
 val (Cpat_vars_def,Cpat_vars_ind) = register "Cpat_vars" (
   tprove_no_defn ((Cpat_vars_def,Cpat_vars_ind),
@@ -414,7 +401,7 @@ val _ = save_thm("calculate_ecs_def",calculate_ecs_def)
 
 val (number_constructors_def,number_constructors_ind) = register "number_constructors" (
   tprove_no_defn ((number_constructors_def,number_constructors_ind),
-  WF_REL_TAC `measure (LENGTH o SND o SND o SND)` >> rw[]))
+  WF_REL_TAC `measure (LENGTH o FST)` >> rw[]))
 
 val (repl_dec_def,repl_dec_ind) = register "repl_dec" (
   tprove_no_defn ((repl_dec_def,repl_dec_ind),
@@ -422,7 +409,7 @@ val (repl_dec_def,repl_dec_ind) = register "repl_dec" (
 
 val (bv_to_ov_def,bv_to_ov_ind) = register "bv_to_ov" (
   tprove_no_defn ((bv_to_ov_def,bv_to_ov_ind),
-  WF_REL_TAC `measure (bc_value_size o SND o SND)` >>
+  WF_REL_TAC `measure (bc_value_size o SND)` >>
   rw[bc_value1_size_thm] >>
   Q.ISPEC_THEN `bc_value_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))

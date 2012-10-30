@@ -37,7 +37,7 @@ val _ = Hol_datatype `
     Stack of bc_stack_op
   | Label of num            (* label location *)
   | Jump of loc             (* jump to location *)
-  | JumpNil of loc          (* conditional jump to location *)
+  | JumpIf of loc           (* jump to location iff true *)
   | Call of loc             (* call location *)
   | JumpPtr                 (* jump based on code pointer *)
   | CallPtr                 (* call based on code pointer *)
@@ -52,15 +52,7 @@ val _ = Hol_datatype `
 
 (* move to lem *)
 (*val int_of_num : num -> int*)
-(*val drop : forall 'a. num -> 'a list -> 'a list*)
-
- val bool_to_int_defn = Hol_defn "bool_to_int" `
-
-(bool_to_int T = int_of_num 1)
-/\
-(bool_to_int F = int_of_num 0)`;
-
-val _ = Defn.save_defn bool_to_int_defn;
+(*val drop : forall 'a. num -> list 'a -> list 'a*)
 
 (* the stack is a list of elements of bc_value *)
 
@@ -78,13 +70,25 @@ val _ = Hol_datatype `
   bc_state =
    <| (* main state components *)
       stack : bc_value list;
-      code : bc_inst list ;
-      pc : num ;
-      refs : (num, bc_value) fmap ;
-      exstack : (num # num) list ;
+      code : bc_inst list;
+      pc : num;
+      refs : (num, bc_value) fmap;
+      exstack : (num # num) list;
       (* artificial state components *)
       inst_length : bc_inst -> num
    |>`;
+
+
+ val bool_to_tag_defn = Hol_defn "bool_to_tag" `
+
+(bool_to_tag T = 1)
+/\
+(bool_to_tag F = 0)`;
+
+val _ = Defn.save_defn bool_to_tag_defn;
+
+val _ = Define `
+ (bool_to_val b = Block (bool_to_tag b) [])`;
 
 
 (* fetching the next instruction from the code *)
@@ -169,13 +173,13 @@ bc_stack_op (Store (LENGTH ys)) (y::ys++x::xs) (ys++y::xs))
 bc_stack_op (El k) ((Block tag ys)::xs) (EL  k  ys::xs))
 /\
 (! t tag ys xs. T ==>
-bc_stack_op (TagEq t) ((Block tag ys)::xs) (Number (bool_to_int (tag = t))::xs))
+bc_stack_op (TagEq t) ((Block tag ys)::xs) (bool_to_val (tag = t)::xs))
 /\
 (! x2 x1 xs. T ==>
-bc_stack_op Equal (x2::x1::xs) (Number (bool_to_int (x1 = x2))::xs))
+bc_stack_op Equal (x2::x1::xs) (bool_to_val (x1 = x2)::xs))
 /\
 (! n m xs. T ==>
-bc_stack_op Less (Number n::Number m::xs) (Number (bool_to_int (int_lt m n))::xs))
+bc_stack_op Less (Number n::Number m::xs) (bool_to_val (int_lt m n)::xs))
 /\
 (! n m xs. T ==>
 bc_stack_op Add  (Number n::Number m::xs) (Number (int_add m n)::xs))
@@ -205,13 +209,13 @@ bc_next s (bump_pc s with<| stack := ys|>)) (* parens throughout: lem sucks *)
 ==>
 bc_next s (s with<| pc := n|>))
 /\
-(! s l n x xs s'.
-(bc_fetch s = SOME (JumpNil l))
+(! s l n b xs s'.
+(bc_fetch s = SOME (JumpIf l))
 /\ (bc_find_loc s l = SOME n)
-/\ (s.stack = Number x::xs)
+/\ (s.stack = (bool_to_val b)::xs)
 /\ (s' = (s with<| stack := xs|>))
 ==>
-bc_next s (if x = int_of_num 0 then bump_pc s' else s' with<| pc := n|>))
+bc_next s (if b then s' with<| pc := n|> else bump_pc s'))
 /\
 (! s l n x xs.
 (bc_fetch s = SOME (Call l))

@@ -894,7 +894,7 @@ compile_closures nz s defs =
       let s = incsz (emit s [Stack (Load (nk - k))]) in
       let s = List.fold_left (emit_ec sz0) s (List.rev ec) in
       let s = emit s [Stack (if j = 0 then PushInt i0 else Cons 0 j)] in
-      let s = emit s [Stack (Cons 0 2)] in
+      let s = emit s [Stack (Cons 2 2)] in
       let s = decsz (emit s [Stack (Store (nk - k))]) in
       let s = <| s with sz = s.sz - j |> in
       (s,k+1))
@@ -941,7 +941,7 @@ compile s (CLit (IntLit i)) =
   incsz (emit s [Stack (PushInt i)])
 and
 compile s (CLit (Bool b)) =
-  incsz (emit s [Stack (PushInt (bool_to_int b))])
+  incsz (emit s [Stack (Cons (bool_to_tag b) 0)])
 and
 compile s (CVar vn) = incsz (compile_varref s (Pmap.find vn s.env))
 and
@@ -1038,7 +1038,7 @@ compile s (CIf e1 e2 e3) =
   let n0 = List.nth labs 0 in
   let n1 = List.nth labs 1 in
   let n2 = List.nth labs 2 in
-  let s = emit s [(JumpNil (Lab n0)); (Jump (Lab n1)); Label n0] in
+  let s = emit s [(JumpIf (Lab n0)); (Jump (Lab n1)); Label n0] in
   let s = compile (decsz s) e2 in
   let s = emit s [(Jump (Lab n2)); Label n1] in
   let s = compile (decsz s) e3 in
@@ -1120,29 +1120,12 @@ compile_code_env c s ldefs =
 
 (* replace labels in bytecode with addresses *)
 
-(* runtime type information, for repl *)
-
-type nt =
-  | NTvar of num
-  | NTapp of list nt * typeN
-  | NTfn
-  | NTnum
-  | NTbool
-
-let rec
-t_to_nt a (Tvar x) = match find_index x a 0 with Some n -> NTvar n end
-and
-t_to_nt a (Tapp ts tn) = NTapp (List.map (t_to_nt a) ts) tn
-and
-t_to_nt a (Tfn _ _) = NTfn
-and
-t_to_nt a Tnum = NTnum
-and
-t_to_nt a Tbool = NTbool
+type contab = Pmap.map conN num * Pmap.map num conN * num
+val cmap : contab -> Pmap.map conN num
+let rec cmap (m,_,_) = m
 
 type repl_state =
-  <| cmap : Pmap.map conN num
-   ; cpam : Pmap.map typeN (Pmap.map num (conN * list nt))
+  <| contab : contab
    ; code : list bc_inst
    ; renv : ctenv
    ; rsz  : num
@@ -1165,8 +1148,8 @@ and
 replace_labels m a (Jump (Lab l)::bc) =
   replace_labels m (Jump (Addr (Pmap.find l m))::a) bc
 and
-replace_labels m a (JumpNil (Lab l)::bc) =
-  replace_labels m (JumpNil (Addr (Pmap.find l m))::a) bc
+replace_labels m a (JumpIf (Lab l)::bc) =
+  replace_labels m (JumpIf (Addr (Pmap.find l m))::a) bc
 and
 replace_labels m a (Call (Lab l)::bc) =
   replace_labels m (Call (Addr (Pmap.find l m))::a) bc
@@ -1182,8 +1165,7 @@ compile_labels rs lbc =
 (* repl *)
 
 let init_repl_state =
-  <| cmap = Pmap.empty
-   ; cpam = Pmap.empty
+  <| contab = (Pmap.empty, Pmap.empty, 3)
    ; code = []
    ; renv = Pmap.empty
    ; rsz  = 0
@@ -1211,34 +1193,33 @@ let compile_Cexp rs decl Ce =
   compile_labels rs (List.rev cs.out)
 
 let rec
-number_constructors a (cm,cw) n [] = (cm,cw)
+number_constructors [] ct = ct
 and
-number_constructors a (cm,cw) n ((c,tys)::cs) =
-  let cm' = Pmap.add c n cm in
-  let cw' = Pmap.add n (c, List.map (t_to_nt a) tys) cw in
-  number_constructors a (cm',cw') (n+1) cs
+number_constructors ((c,_)::cs) (m,w,n) =
+  number_constructors cs (Pmap.add c n m, Pmap.add n c w, n+1)
 
 let rec
 repl_dec rs (Dtype []) = <| rs with code = [] |>
 and
-repl_dec rs (Dtype ((a,ty,cs)::ts)) =
-  let (cm,cw) = number_constructors a (rs.cmap,Pmap.empty) 0 cs in
-  repl_dec (<| rs with cmap = cm; cpam = Pmap.add ty cw rs.cpam |>) (Dtype ts) (* parens: Lem sucks *)
+repl_dec rs (Dtype ((_,_,cs)::ts)) =
+  let ct = number_constructors cs rs.contab in
+  repl_dec (<| rs with contab = ct |>) (Dtype ts) (* parens: Lem sucks *)
 and
 repl_dec rs (Dletrec defs) =
-  let (fns,Cdefs) = defs_to_Cdefs rs.cmap defs in
+  let (fns,Cdefs) = defs_to_Cdefs (cmap rs.contab) defs in
   let decl = Some(rs.renv,rs.rsz) in
   compile_Cexp rs decl (CLetfun true fns Cdefs (CDecl fns))
 and
 repl_dec rs (Dlet p e) =
-  let (pvs,Cp) = pat_to_Cpat rs.cmap [] p in
+  let m = cmap rs.contab in
+  let (pvs,Cp) = pat_to_Cpat m [] p in
   let Cpes = [(Cp,CDecl pvs)] in
   let vn = fresh_var (Cpes_vars Cpes) in
-  let Ce = exp_to_Cexp rs.cmap e in
+  let Ce = exp_to_Cexp m e in
   let decl = Some(rs.renv,rs.rsz) in
   compile_Cexp rs decl (CLet [vn] [Ce] (remove_mat_var vn Cpes))
 
-let repl_exp s exp = compile_Cexp s None (exp_to_Cexp s.cmap exp)
+let repl_exp s exp = compile_Cexp s None (exp_to_Cexp (cmap s.contab) exp)
 
 (* Correctness *)
 
@@ -1265,29 +1246,14 @@ Cv_to_ov m (CConv cn vs) = OConv (Pmap.find cn m) (List.map (Cv_to_ov m) vs)
 and
 Cv_to_ov m (CRecClos _ _ _ _) = OFn
 
-let lookup_conv_ty m ty n = Pmap.find n (Pmap.find ty m)
-
 let rec
-inst_arg tvs (NTvar n) = List.nth tvs n
+bv_to_ov m (Number i) = OLit (IntLit i)
 and
-inst_arg tvs (NTapp ts tn) = NTapp (List.map (inst_arg tvs) ts) tn
-and
-inst_arg tvs tt = tt
-
-let rec
-bv_to_ov m NTnum (Number i) = OLit (IntLit i)
-and
-bv_to_ov m NTbool (Number i) = OLit (Bool (num_to_bool (int_to_num i)))
-and
-bv_to_ov m (NTapp _ ty) (Number i) =
-  OConv (fst (lookup_conv_ty m ty (int_to_num i))) []
-and
-bv_to_ov m (NTapp tvs ty) (Block n vs) =
-  let (tag, args) = lookup_conv_ty m ty n in
-  let args = List.map (inst_arg tvs) args in
-  OConv tag (List.map2 (fun ty v -> bv_to_ov m ty v) args vs) (* uneta: Hol_defn sucks *)
-and
-bv_to_ov m NTfn (Block 0 _) = OFn
+bv_to_ov m (Block n vs) =
+  if n = 0 then OLit (Bool false) else
+  if n = 1 then OLit (Bool true)  else
+  if n = 2 then OFn               else
+  OConv (Pmap.find n m) (List.map (bv_to_ov m) vs)
 
 (* source to intermediate values *)
 
