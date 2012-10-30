@@ -262,138 +262,6 @@ val remove_ws_toks_def = Define `
 remove_ws_toks toks = 
   FILTER (\tok. (tok ≠ NewlineT) ∧ (!n. tok ≠ WhitespaceT n)) toks`;
 
-  (*
-   
-val lem = 
-METIS_PROVE [lex_spec_to_dfa_correct, lexer_correct, lexer_eval_thm,
-             lexer_versions_thm, APPEND] 
-``!toks'.
-    correct_lex SML_lex_spec (tok_to_string h (tok_list_to_string toks)) toks' =
-    (lexer_eval (lex_spec_transition, lex_spec_finals, SML_lex_spec)
-           (tok_to_string h (tok_list_to_string toks)) = SOME toks')``;
-
-val _ = set_skip the_compset ``eval_option_case`` (SOME 1);
-val _ = set_skip the_compset ``eval_let`` (SOME 1);
-val _ = set_skip the_compset ``COND`` (SOME 1);
-val _ = set_skip the_compset ``$\/`` (SOME 1);
-val _ = set_skip the_compset ``$/\`` (SOME 1);
-val _ = add_funs [IN_LIST_TO_SET]
-
-     
-`!toks. 
-  EVERY is_MiniML_tok toks ⇒
-  ?toks'. 
-    correct_lex SML_lex_spec (tok_list_to_string toks) toks' ∧
-    (remove_ws_toks toks = remove_ws_toks toks')`
-
-Induct >>
-rw [tok_list_to_string_def, correct_lex_def] >-
-(qexists_tac `[]` >>
-     rw [remove_ws_toks_def, correct_lex_def] >>
-     metis_tac [FILTER]) >>
-fs [] >>
-rw [lem] >>
-cases_on `h` >>
-fs [is_MiniML_tok_def, remove_ws_toks_def, tok_to_string_def] >>
-EVAL_TAC
-
-
-val can_lex_one_token = Q.prove (
-`!tok toks.
-  is_MiniML_tok tok ⇒
-  ?n ws. 
-    lexer_spec_matches_prefix SML_lex_spec n tok (tok_to_lexeme tok) 
-      (spaces ws (tok_list_to_string toks)) (tok_list_to_string (tok::toks))`,
-cases_on `tok` >>
-rw [tok_to_string_def, is_MiniML_tok_def, lexer_spec_matches_prefix_def,
-    tok_to_lexeme_def] >|
-[qexists_tac `1`,
- qexists_tac `0`,
- qexists_tac `3`,
- qexists_tac `4`,
- qexists_tac `5`,
- qexists_tac `6`,
- qexists_tac `7`,
- qexists_tac `11`,
- qexists_tac `12`,
- qexists_tac `13`,
- qexists_tac `18`,
- qexists_tac `21`,
- qexists_tac `22`,
- qexists_tac `24`,
- qexists_tac `25`,
- qexists_tac `27`,
- qexists_tac `28`,
- qexists_tac `31`,
- qexists_tac `35`,
- qexists_tac `36`,
- qexists_tac `40`,
- qexists_tac `43`,
- qexists_tac `44`,
- qexists_tac `46`,
- qexists_tac `48`,
- qexists_tac `54`,
- qexists_tac `55`,
- qexists_tac `56`,
- qexists_tac `59`,
- qexists_tac `64`,
- qexists_tac `71`,
- qexists_tac `74`] >>
-rw [SML_lex_spec_def, regexp_matches_def, tok_list_to_string_def,
-    tok_to_string_def] >|
-[qexists_tac `0` >>
-     rw [spaces_len] >|
-     [qexists_tac `MAP (\x. [x]) (spaces n "")` >>
-          rw [EVERY_MAP] >|
-          [metis_tac [spaces_not_empty],
-           ASSUME_TAC (Q.SPEC `n` spaces_has_spaces) >>
-               fs [EVERY_EL] >>
-               metis_tac [],
-           metis_tac [concat_map_string_help]],
-      metis_tac [spaces_eqns, spaces_append]],
- metis_tac [spaces_eqns],
- metis_tac [spaces_eqns],
- metis_tac [add_one_ws],
- metis_tac [spaces_eqns],
- metis_tac [space_append_ws, STRCAT_def],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [spaces_eqns],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- metis_tac [add_one_ws],
- rw [int_to_string_to_int, decint_regexp] >>
-     metis_tac [space_append_ws, STRCAT_def],
- rw [regexp_matches_def, tyvar_def, letter_def, digit_def] >>
-     ASSUME_TAC (Q.SPECL [`toks`, `"'" ++ s`] space_append_ws) >>
-     rw [] >>
-     fs [] >>
-     qexists_tac `n` >>
-     rw [] >>
-     qexists_tac `MAP (\x. [x]) s` >>
-     fs [EVERY_MAP, EVERY_EL] >>
-     metis_tac [concat_map_string_help],
- metis_tac [space_append_ws, STRCAT_def]]);
-
 val is_space_def = Define `
 is_space c = MEM c [#" "; #"\t"; #"\v"; #"\f"; #"\r"]`;
 
@@ -491,6 +359,244 @@ rw [lexer_spec_matches_prefix_def, SML_lex_spec_def, regexp_matches_def] >>
      rw [] >>
      cases_on `n` >>
      fs [spaces_eqns, SPLITP, is_space_def]]);
+(*
+`!s n toks. 
+  correct_lex SML_lex_spec s toks
+  ⇒
+  ?toks'.
+    (correct_lex SML_lex_spec (spaces n s) toks') ∧
+    (remove_ws_toks toks = remove_ws_toks toks')`,
+
+rw []
+
+val lem = 
+METIS_PROVE [lex_spec_to_dfa_correct, lexer_correct, lexer_eval_thm,
+             lexer_versions_thm, APPEND] 
+``!toks'.
+    correct_lex SML_lex_spec x toks' =
+    (lexer_eval (lex_spec_transition, lex_spec_finals, SML_lex_spec)
+           x = SOME toks')``;
+
+val spaces_1 = Q.prove (
+`!s. STRING #" " s = spaces 1 s`,
+EVAL_TAC >>
+rw []);
+
+local open computeLib in
+val _ = set_skip the_compset ``eval_option_case`` (SOME 1);
+val _ = set_skip the_compset ``eval_let`` (SOME 1);
+val _ = set_skip the_compset ``COND`` (SOME 1);
+val _ = set_skip the_compset ``$\/`` NONE;
+val _ = set_skip the_compset ``$/\`` (SOME 1);
+val _ = add_funs [IN_LIST_TO_SET];
+fun find_app_conv const conv tm =
+  if is_comb tm then
+    if same_const (fst (strip_comb tm)) const then
+      conv tm
+    else
+      NO_CONV tm
+  else 
+    NO_CONV tm;
+val lex_one_tac = 
+CONV_TAC 
+(DEPTH_CONV
+  (find_app_conv
+    ``lexer_eval``
+    (ONCE_REWRITE_CONV [lexer_eval_def]
+     THENC
+     ONCE_DEPTH_CONV (find_app_conv ``lexer_get_token_eval`` EVAL_CONV)
+     THENC
+     SIMP_CONV (srw_ss()) [eval_option_case_def])))
+end;
+
+`∀s toks. 
+  let (s1,s2) = SPLITP (λc. ¬is_space c) s in
+    (s1 ≠ "") ∧
+    correct_lex SML_lex_spec s2 toks
+    ⇒
+    correct_lex SML_lex_spec s (WhitespaceT (STRLEN s1)::toks)`,
+
+induct_on `s` >>
+fs [lem] >>
+rw [] >|
+[lex_one_tac >>
+     fs [SPLITP],
+ cases_on `is_space h` >>
+     fs [SPLITP] >>
+     `?s1'. s1 = h::s1'` by (cases_on `s1` >> rw []) >>
+     rw [] >>
+     cases_on `FST (SPLITP (λc. ¬is_space c) s)` >>
+     rw [] >|
+     [cases_on `s` >>
+          fs [SPLITP] >|
+          [fs [lexer_eval_def] >>
+               rw [] >>
+               fs [is_space_def] >>
+               EVAL_TAC,
+           cases_on `is_space h'` >>
+               fs [is_space_def] >>
+               lex_one_tac >>
+               fs [regexp_smart_constructors_def, CHAR_EQ_THM] >>
+               rw [eval_option_case_def]],
+      cases_on `s` >>
+          fs [SPLITP] >>
+          cases_on `is_space h''` >>
+          fs [] >>
+          rw [] >>
+          fs [LET_DEF, GSYM lem, correct_lex_thm] >>
+          res_tac >>
+          qexists_tac `h::lexeme` >>
+          qexists_tac `n` >>
+          qexists_tac `s_rest` >|
+          [rw [lexer_spec_matches_prefix_def] >>
+               
+
+
+
+        
+
+
+
+
+`!toks. 
+  EVERY is_MiniML_tok toks ⇒
+  ?toks'. 
+    correct_lex SML_lex_spec (tok_list_to_string toks) toks' ∧
+    (remove_ws_toks toks = remove_ws_toks toks')`
+
+Induct >>
+rw [tok_list_to_string_def, correct_lex_def] >-
+(qexists_tac `[]` >>
+     rw [remove_ws_toks_def, correct_lex_def] >>
+     metis_tac [FILTER]) >>
+fs [lem] >>
+cases_on `h` >>
+fs [is_MiniML_tok_def, remove_ws_toks_def, tok_to_string_def] >>
+lex_one_tac >>
+rw [spaces_1]
+
+`?tok toks''. (toks = []) ∨ (toks = tok :: toks'')` 
+         by (cases_on `toks` >> rw []) >>
+fs [tok_list_to_string_def, FILTER_EQ_NIL] >|
+[lex_one_tac >>
+     lex_one_tac >>
+     rw [eval_option_case_def, FILTER_EQ_NIL],
+ rw [] >>
+ cases_on `tok` >>
+ fs [is_MiniML_tok_def, remove_ws_toks_def, tok_to_string_def] >>
+ lex_one_tac
+
+
+ all_tac]
+
+
+(fs [lexer_eval_def, lexer_get_token_eval] >>
+ rw [] >>
+ fs []
+
+
+
+
+SIMP_RULE (srw_ss()) [lem] lex_init_ws
+
+(*
+val can_lex_one_token = Q.prove (
+`!tok toks.
+  is_MiniML_tok tok ⇒
+  ?n ws. 
+    lexer_spec_matches_prefix SML_lex_spec n tok (tok_to_lexeme tok) 
+      (spaces ws (tok_list_to_string toks)) (tok_list_to_string (tok::toks))`,
+cases_on `tok` >>
+rw [tok_to_string_def, is_MiniML_tok_def, lexer_spec_matches_prefix_def,
+    tok_to_lexeme_def] >|
+[qexists_tac `1`,
+ qexists_tac `0`,
+ qexists_tac `3`,
+ qexists_tac `4`,
+ qexists_tac `5`,
+ qexists_tac `6`,
+ qexists_tac `7`,
+ qexists_tac `11`,
+ qexists_tac `12`,
+ qexists_tac `13`,
+ qexists_tac `18`,
+ qexists_tac `21`,
+ qexists_tac `22`,
+ qexists_tac `24`,
+ qexists_tac `25`,
+ qexists_tac `27`,
+ qexists_tac `28`,
+ qexists_tac `31`,
+ qexists_tac `35`,
+ qexists_tac `36`,
+ qexists_tac `40`,
+ qexists_tac `43`,
+ qexists_tac `44`,
+ qexists_tac `46`,
+ qexists_tac `48`,
+ qexists_tac `54`,
+ qexists_tac `55`,
+ qexists_tac `56`,
+ qexists_tac `59`,
+ qexists_tac `64`,
+ qexists_tac `71`,
+ qexists_tac `74`] >>
+rw [SML_lex_spec_def, regexp_matches_def, tok_list_to_string_def,
+    tok_to_string_def] >|
+[qexists_tac `0` >>
+     rw [spaces_len] >|
+     [qexists_tac `MAP (\x. [x]) (spaces n "")` >>
+          rw [EVERY_MAP] >|
+          [metis_tac [spaces_not_empty],
+           ASSUME_TAC (Q.SPEC `n` spaces_has_spaces) >>
+               fs [EVERY_EL] >>
+               metis_tac [],
+           metis_tac [concat_map_string_help]],
+      metis_tac [spaces_eqns, spaces_append]],
+ metis_tac [spaces_eqns],
+ metis_tac [spaces_eqns],
+ metis_tac [add_one_ws],
+ metis_tac [spaces_eqns],
+ metis_tac [space_append_ws, STRCAT_def],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [spaces_eqns],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ metis_tac [add_one_ws],
+ rw [int_to_string_to_int, decint_regexp] >>
+     metis_tac [space_append_ws, STRCAT_def],
+ rw [regexp_matches_def, tyvar_def, letter_def, digit_def] >>
+     ASSUME_TAC (Q.SPECL [`toks`, `"'" ++ s`] space_append_ws) >>
+     rw [] >>
+     fs [] >>
+     qexists_tac `n` >>
+     rw [] >>
+     qexists_tac `MAP (\x. [x]) s` >>
+     fs [EVERY_MAP, EVERY_EL] >>
+     metis_tac [concat_map_string_help],
+ metis_tac [space_append_ws, STRCAT_def]]);
+ *)
+
 
     rw [lex_spec_to_dfa_def] >>
 
