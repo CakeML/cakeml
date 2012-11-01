@@ -241,7 +241,7 @@ bc_next s (s with<| pc := ptr; stack := xs|>))
 (bc_fetch s = SOME (PushPtr l))
 /\ (bc_find_loc s l = SOME n)
 ==>
-bc_next s (s with<| stack := (CodePtr n)::s.stack |>))
+bc_next s (bump_pc s with<| stack := (CodePtr n)::s.stack |>))
 /\
 (! s x n xs.
 (bc_fetch s = SOME Return)

@@ -204,7 +204,7 @@ forall s l n.
 bc_fetch s = Some (PushPtr l)
 && (bc_find_loc s l = Some n)
 ==>
-bc_next s (<|s with stack = (CodePtr n)::s.stack |>)
+bc_next s (<|bump_pc s with stack = (CodePtr n)::s.stack |>)
 and
 forall s x n xs.
 bc_fetch s = Some Return

@@ -173,7 +173,7 @@ val bc_eval1_def = Define`
      SOME (s with <| pc := ptr; stack := xs |>)
   | (PushPtr l, xs) =>
       OPTION_BIND (bc_find_loc s l)
-        (λn. SOME (s with <| stack := CodePtr n::xs |>))
+        (λn. SOME (bump_pc s with <| stack := CodePtr n::xs |>))
   | (Return, x :: CodePtr n :: xs) =>
      SOME (s with <| pc := n; stack := x::xs |>)
   | (Exception, x :: xs) =>
