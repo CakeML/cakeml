@@ -14,7 +14,7 @@ val (m,[v]) = mst_run_exp e4
 val true = (OLit (Bool false)) = (bv_to_ov m v);
 val e5 = ``Fun "x" (Var "x")``
 val (m,[f]) = mst_run_exp e5
-val true = OFn = bv_to_ov m f
+val true = OFn = bv_to_ov m f;
 val e6 = ``Let "x" (Lit (IntLit 1)) (App (Opn Plus) (Var "x") (Var "x"))``
 val [Number i] = run_exp e6
 val SOME 2 = intML.toInt i;
