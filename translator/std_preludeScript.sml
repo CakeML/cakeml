@@ -98,8 +98,20 @@ val res = translate EXISTS_DEF;
 val res = translate GENLIST;
 val res = translate PAD_RIGHT;
 val res = translate PAD_LEFT;
-val res = translate MEM;
-val res = translate ALL_DISTINCT;
+
+val _ = Parse.hide "MEM"
+
+val MEM_def = Define `
+  (MEM x [] = F) /\
+  (MEM x (y::ys) = (x = y) \/ MEM x ys)`;
+
+val res = translate MEM_def;
+
+val MEM_thm = prove(
+  ``!xs (x:'a). IS_EL x xs = MEM x xs``,
+  Induct THEN FULL_SIMP_TAC std_ss [MEM,MEM_def]);
+
+val res = translate (ALL_DISTINCT |> REWRITE_RULE [MEM_thm]);
 val res = translate isPREFIX;
 val res = translate FRONT_DEF;
 val res = translate ZIP;
