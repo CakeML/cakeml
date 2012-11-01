@@ -860,9 +860,8 @@ emit_ec z s (CERef j) = incsz (emit s [Stack (Load (s.sz - z - j))])
  *)
 
 (* closure construction, for a bundle of nz names, nk defs:
- * - push nz refptrs, then push a dummy value (0)
- * - push nk CodePtrs, each pointing to a jump to a body
- * - pop the dummy value (which was necessary for the Calls)
+ * - push nz refptrs
+ * - push nk CodePtrs, each pointing to the appropriate body
  * - for each def, load its CodePtr, load its environment, cons them up, and
      store them where its CodePtr was
    - for each name, load the refptr and update it with the closure
@@ -873,22 +872,15 @@ let rec
 compile_closures nz s defs =
   let sz0 = s.sz in
   let s = num_fold (fun s -> incsz (emit s [Stack (PushInt i0); Ref])) s nz in
-  let s = emit s [Stack (PushInt i0)] in
   let nk = List.length defs in
-  let (s,labs) = get_labels nk s in
   let (s,k,ecs) = List.fold_left
     (fun (s,k,ecs) (xs,cb) ->
       match cb with INL _ -> (s,k,ecs) (* should not happen *)
       | INR l ->
-      let lab = List.nth labs k in
-      let s = incsz (
-        emit s [Call (Lab lab);
-                Jump (Lab l);
-                Label lab]) in
+      let s = incsz (emit s [PushPtr (Lab l)]) in
       (s,k+1,(Pmap.find l s.ecs)::ecs)
       end)
     (s,0,[]) defs in
-  let s = emit s [Stack Pop] in
   let (s,k) = List.fold_left
     (fun (s,k) (j,ec) ->
       let s = incsz (emit s [Stack (Load (nk - k))]) in
@@ -1153,6 +1145,9 @@ replace_labels m a (JumpIf (Lab l)::bc) =
 and
 replace_labels m a (Call (Lab l)::bc) =
   replace_labels m (Call (Addr (Pmap.find l m))::a) bc
+and
+replace_labels m a (PushPtr (Lab l)::bc) =
+  replace_labels m (PushPtr (Addr (Pmap.find l m))::a) bc
 and
 replace_labels m a (i::bc) =
   replace_labels m (i::a) bc

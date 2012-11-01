@@ -925,9 +925,8 @@ val _ = Defn.save_defn emit_ec_defn;
  *)
 
 (* closure construction, for a bundle of nz names, nk defs:
- * - push nz refptrs, then push a dummy value (0)
- * - push nk CodePtrs, each pointing to a jump to a body
- * - pop the dummy value (which was necessary for the Calls)
+ * - push nz refptrs
+ * - push nk CodePtrs, each pointing to the appropriate body
  * - for each def, load its CodePtr, load its environment, cons them up, and
      store them where its CodePtr was
    - for each name, load the refptr and update it with the closure
@@ -939,22 +938,15 @@ val _ = Defn.save_defn emit_ec_defn;
 (compile_closures nz s defs =
   let sz0 = s.sz in
   let s = num_fold (\ s . incsz (emit s [Stack (PushInt i0); Ref])) s nz in
-  let s = emit s [Stack (PushInt i0)] in
   let nk = LENGTH defs in
-  let (s,labs) = get_labels nk s in
   let (s,k,ecs) = FOLDL
     (\ (s,k,ecs) (xs,cb) .
       (case cb of INL _ => (s,k,ecs) (* should not happen *)
       | INR l =>
-      let lab = EL  k  labs in
-      let s = incsz (
-        emit s [Call (Lab lab);
-                Jump (Lab l);
-                Label lab]) in
+      let s = incsz (emit s [PushPtr (Lab l)]) in
       (s,k+1,(FAPPLY  s.ecs  l)::ecs)
       ))
     (s,0,[]) defs in
-  let s = emit s [Stack Pop] in
   let (s,k) = FOLDL
     (\ (s,k) (j,ec) .
       let s = incsz (emit s [Stack (Load (nk - k))]) in
@@ -1245,6 +1237,9 @@ val _ = Defn.save_defn calculate_labels_defn;
 /\
 (replace_labels m a (Call (Lab l)::bc) =
   replace_labels m (Call (Addr (FAPPLY  m  l))::a) bc)
+/\
+(replace_labels m a (PushPtr (Lab l)::bc) =
+  replace_labels m (PushPtr (Addr (FAPPLY  m  l))::a) bc)
 /\
 (replace_labels m a (i::bc) =
   replace_labels m (i::a) bc)`;
