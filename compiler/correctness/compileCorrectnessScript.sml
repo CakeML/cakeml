@@ -1,22 +1,23 @@
 open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory lcsymtacs
 open MiniMLTerminationTheory miniMLExtraTheory miscTheory compileTerminationTheory intLangTheory bytecodeTerminationTheory evaluateEquationsTheory expToCexpTheory quantHeuristicsLib
+val _ = intLib.deprecate_int()
 val _ = new_theory "compileCorrectness"
 
 val bc_finish_def = Define`
   bc_finish s1 s2 = bc_next^* s1 s2 ∧ ∀s3. ¬bc_next s2 s3`
 
-val compile_labels_cpam = store_thm("compile_labels_cpam",
-  ``(compile_labels rs ls).cpam = rs.cpam``,
+val compile_labels_contab = store_thm("compile_labels_contab",
+  ``(compile_labels rs ls).contab = rs.contab``,
   rw[compile_labels_def] >> rw[])
-val _ = export_rewrites["compile_labels_cpam"]
+val _ = export_rewrites["compile_labels_contab"]
 
-val repl_exp_cpam = store_thm("repl_exp_cpam",
-  ``(repl_exp rs exp).cpam = rs.cpam``,
+val repl_exp_contab = store_thm("repl_exp_contab",
+  ``(repl_exp rs exp).contab = rs.contab``,
   rw[repl_exp_def,compile_Cexp_def] >>
   rw[] >>
   unabbrev_all_tac >>
   BasicProvers.EVERY_CASE_TAC >> rw[])
-val _ = export_rewrites["repl_exp_cpam"]
+val _ = export_rewrites["repl_exp_contab"]
 
 val FOLDL_invariant = store_thm("FOLDL_invariant",
   ``!P f ls a. (P a) /\ (!x y . MEM y ls /\ P x ==> P (f x y)) ==> P (FOLDL f a ls)``,
@@ -37,11 +38,9 @@ val compile_closures_decl = store_thm("compile_closures_decl",
     qid_spec_tac `s` >>
     Induct_on `n` >>
     rw[Once num_fold_def] ) >>
-  `s''.decl = s'.decl` by
-    rw[Abbr`s''`] >>
-  `s''''.decl = s''.decl` by (
-    qmatch_assum_abbrev_tac `FOLDL f a defs = (s'''',k,ecs)` >>
-    `(($= s''.decl) o compiler_state_decl o FST) (FOLDL f a defs)` by (
+  `s''.decl = s'.decl` by (
+    qmatch_assum_abbrev_tac `FOLDL f a defs = (s'',k,ecs)` >>
+    `(($= s'.decl) o compiler_state_decl o FST) (FOLDL f a defs)` by (
       match_mp_tac FOLDL_invariant >>
       qunabbrev_tac`a` >> fs[] >>
       qunabbrev_tac`f` >> fs[FORALL_PROD] >>
@@ -49,10 +48,9 @@ val compile_closures_decl = store_thm("compile_closures_decl",
       BasicProvers.EVERY_CASE_TAC >> rw[] >>
       unabbrev_all_tac >> rw[] ) >>
     pop_assum mp_tac >> rw[] ) >>
-  `s'''''.decl = s''''.decl` by rw[Abbr`s'''''`] >>
-  `s''''''.decl = s'''''.decl` by (
-    qmatch_assum_abbrev_tac `FOLDL f a ls = (s'''''',x)` >>
-    `(($= s'''''.decl) o compiler_state_decl o FST) (FOLDL f a ls)` by (
+  `s'''.decl = s''.decl` by (
+    qmatch_assum_abbrev_tac `FOLDL f a ls = (s''',x)` >>
+    `(($= s''.decl) o compiler_state_decl o FST) (FOLDL f a ls)` by (
       match_mp_tac FOLDL_invariant >>
       qunabbrev_tac`a` >> fs[] >>
       qunabbrev_tac`f` >> fs[FORALL_PROD] >>
@@ -64,8 +62,8 @@ val compile_closures_decl = store_thm("compile_closures_decl",
         qunabbrev_tac`g`>>gen_tac>>Cases>>fs[] ) >>
       pop_assum mp_tac >> rw[Abbr`b`] ) >>
     pop_assum mp_tac >> rw[] ) >>
-  `s'''''''.decl = s''''''.decl` by (
-    qmatch_assum_abbrev_tac `num_fold f a n = (s''''''',X)` >>
+  `s''''.decl = s'''.decl` by (
+    qmatch_assum_abbrev_tac `num_fold f a n = (s'''',X)` >>
     `!n a. (FST (num_fold f a n)).decl = (FST a).decl` by (
       Induct >- rw[Once num_fold_def,Abbr`f`] >>
       rw[Once num_fold_def] >>
@@ -147,34 +145,40 @@ val calculate_ecs_decl = store_thm("calculate_ecs_decl",
   pop_assum mp_tac >> rw[] )
 val _ = export_rewrites["calculate_ecs_decl"]
 
+(*
 val repl_exp_val = store_thm("repl_exp_val",
-  ``∀cenv exp tenvC t tvs v rs rs' bs bs'.
-      evaluate cenv [] exp (Rval v) ∧
-      (FV exp = {}) ∧
-      (type_v tenvC v t) ∧
+  ``∀cenv env exp v rs rs' bs bs'.
+      evaluate cenv env exp (Rval v) ∧
+      EVERY closed (MAP SND env) ∧
+      FV exp ⊆ set (MAP FST env) ∧
       good_cenv cenv ∧
-      good_cmap cenv rs.cmap ∧
+      good_cmap cenv (cmap rs.contab) ∧
       (repl_exp rs exp = rs') ∧
       (bc_finish (bs with <| code := rs'.code ; pc := 0 |>) bs')
       ⇒
       ∃bv.
       (bs'.stack = bv :: bs.stack) ∧
-      (v_to_ov v = bv_to_ov rs.cpam (t_to_nt tvs t) bv)``,
+      (v_to_ov v = bv_to_ov (FST(SND(rs.contab))) bv)``,
   rw[repl_exp_def,compile_Cexp_def,LET_THM] >>
   pop_assum mp_tac >>
-  qabbrev_tac `p = repeat_label_closures (exp_to_Cexp rs.cmap exp) 0 []` >>
+  qabbrev_tac `p = repeat_label_closures (exp_to_Cexp (cmap rs.contab) exp) 0 []` >>
   PairCases_on `p` >> fs[] >>
   reverse BasicProvers.EVERY_CASE_TAC >- (
     qmatch_assum_abbrev_tac `(compile ss ee).decl = SOME (q,r)` >>
     `ss.decl ≠ NONE` by (
       PROVE_TAC[compile_decl_NONE,optionTheory.NOT_SOME_NONE] ) >>
     fs[Abbr`ss`] ) >>
+  qspecl_then[`cenv`,`env`,`exp`,`Rval v`] mp_tac exp_to_Cexp_thm1 >> fs[] >>
+  disch_then (qspec_then `cmap rs.contab` mp_tac) >> fsrw_tac[DNF_ss][] >>
+  qx_gen_tac `Cv` >> rw[] >>
+*)
 
 val labels_only_def = Define`
   labels_only ls = ∀x. MEM x ls ⇒ case x of
     | Jump (Addr _) => F
-    | JumpNil (Addr _) => F
+    | JumpIf (Addr _) => F
     | Call (Addr _) => F
+    | PushPtr (Addr _) => F
     | _ => T`;
 
 val el_of_addr_def = Define`
@@ -216,6 +220,7 @@ val with_same_pc = store_thm("with_same_pc",
   rw[DB.fetch"Bytecode""bc_state_component_equality"])
 val _ = export_rewrites["with_same_pc"]
 
+(*
 val bc_next_fetch_only = store_thm("bc_next_fetch_only",
   ``∀r1 r2. bc_next r1 r2 ⇒
       ∀tr s1. (∀pc. bc_fetch (r1 with pc := pc) = OPTION_BIND (tr pc) (λpc. bc_fetch (s1 with pc := pc))) ∧
@@ -250,6 +255,7 @@ val labels_only_any_il = store_thm("labels_only_any_il",
   rw[bc_fetch_def] >>
   fs[bc_fetch_aux_el_of_addr,translate_pc_def,bump_pc_def,bc_fetch_def]
   strip_tac
+*)
 
 val el_check_def = Define`
   el_check n ls = if n < LENGTH ls then SOME (EL n ls) else NONE`
@@ -272,6 +278,7 @@ val _ = export_rewrites["lookup_ct_def"]
 val add_code_def = Define`
   add_code c (s:bc_state) = s with <| code := s.code ++ c |>`
 
+(*
 val bc_fetch_aux_any_inst_length = store_thm("bc_fetch_aux_any_inst_length",
  ``∀c il pc il'. bc_fetch_aux c il' pc =
    OPTION_BIND (el_of_addr il' pc c)
@@ -330,7 +337,9 @@ val bc_fetch_set_pc_el = store_thm("bc_fetch_set_pc_el",
       (bc_fetch (set_pc_el n s) = SOME (EL n s.code))``,
   rw[bc_fetch_def,set_pc_el_def] >>
   metis_tac[bc_fetch_aux_addr_of_el])
+*)
 
+(*
 val compile_thm1 = store_thm("compile_thm1",
   ``∀env exp res. Cevaluate env exp res ⇒
     ∀v cs cs'.
@@ -366,9 +375,10 @@ val compile_thm1 = store_thm("compile_thm1",
         
       rw[bump_pc_def]
       rw[addr_of_el_def]
+*)
 
 (* values in compile-time environment *)
-type ctbind = CTLet of num | CTArg of num | CTEnv of num | CTRef of num
+(* type ctbind = CTLet of num | CTArg of num | CTEnv of num | CTRef of num *)
 (* CTLet n means stack[sz - n]
    CTArg n means stack[sz + n]
    CTEnv n means El n of the environment, which is at stack[sz]
