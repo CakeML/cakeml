@@ -3,6 +3,106 @@ open MiniMLTerminationTheory miniMLExtraTheory miscTheory compileTerminationTheo
 val _ = intLib.deprecate_int()
 val _ = new_theory "compileCorrectness"
 
+val exp_pred_def = tDefine "exp_pred"`
+  (exp_pred (Raise _) = T) ∧
+  (exp_pred (Lit _) = T) ∧
+  (exp_pred (Con _ es) = EVERY exp_pred es) ∧
+  (exp_pred (Var _) = T) ∧
+  (exp_pred (Fun _ _) = F) ∧
+  (exp_pred (App (Opn _) e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
+  (exp_pred (App (Opb Lt) e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
+  (exp_pred (App (Opb Leq) e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
+  (exp_pred (App (Opb _) _ _) = F) ∧
+  (exp_pred (App Equality e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
+  (exp_pred (App Opapp _ _) = F) ∧
+  (exp_pred (Log _ e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
+  (exp_pred (If e1 e2 e3) = exp_pred e1 ∧ exp_pred e2 ∧ exp_pred e3) ∧
+  (exp_pred (Mat _ _) = F) ∧
+  (exp_pred (Let _ _ _) = F) ∧
+  (exp_pred (Letrec _ _) = F)`
+  (WF_REL_TAC `measure exp_size` >>
+   srw_tac[ARITH_ss][exp6_size_thm] >>
+   Q.ISPEC_THEN`exp_size`imp_res_tac SUM_MAP_MEM_bound >>
+   fsrw_tac[ARITH_ss][])
+val _ = export_rewrites["exp_pred_def"]
+
+val Cexp_pred_def = tDefine "Cexp_pred"`
+  (Cexp_pred (CDecl _) = T) ∧
+  (Cexp_pred (CRaise _) = T) ∧
+  (Cexp_pred (CVar _) = T) ∧
+  (Cexp_pred (CLit _) = T) ∧
+  (Cexp_pred (CCon _ es) = EVERY Cexp_pred es) ∧
+  (Cexp_pred (CTagEq e _) = Cexp_pred e) ∧
+  (Cexp_pred (CProj e _) = Cexp_pred e) ∧
+  (Cexp_pred (CLet _ _ _) = F) ∧
+  (Cexp_pred (CLetfun _ _ _ _) = F) ∧
+  (Cexp_pred (CFun _ _) = F) ∧
+  (Cexp_pred (CCall _ _) = F) ∧
+  (Cexp_pred (CPrim2 _ e1 e2) = Cexp_pred e1 ∧ Cexp_pred e2) ∧
+  (Cexp_pred (CIf e1 e2 e3) = Cexp_pred e1 ∧ Cexp_pred e2 ∧ Cexp_pred e3)`
+  (WF_REL_TAC `measure Cexp_size` >>
+   srw_tac[ARITH_ss][Cexp4_size_thm] >>
+   Q.ISPEC_THEN`Cexp_size`imp_res_tac SUM_MAP_MEM_bound >>
+   fsrw_tac[ARITH_ss][])
+val _ = export_rewrites["Cexp_pred_def"]
+val Cexp_pred_ind = theorem"Cexp_pred_ind"
+
+open pmatchTheory labelClosuresTheory
+
+val exp_pred_Cexp_pred = store_thm("exp_pred_Cexp_pred",
+  ``∀m e. exp_pred e ⇒ Cexp_pred (exp_to_Cexp m e)``,
+  ho_match_mp_tac exp_to_Cexp_nice_ind >>
+  rw[exp_to_Cexp_def,LET_THM,exps_to_Cexps_MAP,EVERY_MAP] >>
+  TRY (
+    BasicProvers.EVERY_CASE_TAC >>
+    rw[] >> fs[] ) >>
+  fs[EVERY_MEM,FORALL_PROD] >>
+  Cases_on `pat_to_Cpat m [] p` >> fs[])
+
+val Cexp_pred_free_labs = store_thm("Cexp_pred_free_labs",
+  ``∀e. Cexp_pred e ⇒ (free_labs e = {})``,
+  ho_match_mp_tac Cexp_pred_ind >> rw[IMAGE_EQ_SING] >> fs[EVERY_MEM])
+
+(* TODO: move *)
+val FLAT_EQ_NIL = store_thm("FLAT_EQ_NIL",
+  ``!ls. (FLAT ls = []) = (EVERY ($= []) ls)``,
+  Induct THEN SRW_TAC[][EQ_IMP_THM])
+
+val Cexp_pred_free_bods = store_thm("Cexp_pred_free_bods",
+  ``∀e. Cexp_pred e ⇒ (free_bods e = [])``,
+  ho_match_mp_tac Cexp_pred_ind >> rw[FLAT_EQ_NIL] >> fs[EVERY_MEM,MEM_MAP] >> PROVE_TAC[])
+
+val Cexp_pred_repeat_label_closures = store_thm("Cexp_pred_repeat_label_closures",
+  ``(∀e n ac. Cexp_pred e ⇒ (repeat_label_closures e n ac = (e,n,ac))) ∧
+    (∀n ac ls. EVERY (Cexp_pred o SND) ls ⇒ (label_code_env n ac ls = (n,(REVERSE ls)++ac)))``,
+  ho_match_mp_tac repeat_label_closures_ind >>
+  strip_tac >- (
+    rw[] >>
+    rw[repeat_label_closures_def] >>
+    imp_res_tac (CONJUNCT1 label_closures_thm) >>
+    imp_res_tac Cexp_pred_free_labs >>
+    imp_res_tac Cexp_pred_free_bods >>
+    fs[LET_THM] >>
+    fs[Abbr`s`] ) >>
+  strip_tac >- rw[repeat_label_closures_def] >>
+  rw[repeat_label_closures_def] >> fs[])
+
+val FOLDL_invariant = store_thm("FOLDL_invariant",
+  ``!P f ls a. (P a) /\ (!x y . MEM y ls /\ P x ==> P (f x y)) ==> P (FOLDL f a ls)``,
+  NTAC 2 GEN_TAC THEN
+  Induct THEN SRW_TAC[][])
+
+val Cexp_pred_calculate_ldefs = store_thm("Cexp_pred_calculate_ldefs",
+  ``∀c ls e. Cexp_pred e ⇒ (calculate_ldefs c ls e = ls)``,
+  ho_match_mp_tac calculate_ldefs_ind >>
+  rw[calculate_ldefs_def] >>
+  qmatch_abbrev_tac `FOLDL f ls es = ls` >>
+  qsuff_tac `($= ls) (FOLDL f ls es)` >- rw[] >>
+  ho_match_mp_tac FOLDL_invariant >>
+  rw[Abbr`f`] >> match_mp_tac EQ_SYM >>
+  first_x_assum (match_mp_tac o MP_CANON) >>
+  fs[EVERY_MEM])
+
 val bc_finish_def = Define`
   bc_finish s1 s2 = bc_next^* s1 s2 ∧ ∀s3. ¬bc_next s2 s3`
 
@@ -18,11 +118,6 @@ val repl_exp_contab = store_thm("repl_exp_contab",
   unabbrev_all_tac >>
   BasicProvers.EVERY_CASE_TAC >> rw[])
 val _ = export_rewrites["repl_exp_contab"]
-
-val FOLDL_invariant = store_thm("FOLDL_invariant",
-  ``!P f ls a. (P a) /\ (!x y . MEM y ls /\ P x ==> P (f x y)) ==> P (FOLDL f a ls)``,
-  NTAC 2 GEN_TAC THEN
-  Induct THEN SRW_TAC[][])
 
 val compile_varref_decl = store_thm("compile_varref_decl",
   ``(compile_varref s x).decl = s.decl``,
