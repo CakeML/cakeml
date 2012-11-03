@@ -240,12 +240,69 @@ val calculate_ecs_decl = store_thm("calculate_ecs_decl",
   pop_assum mp_tac >> rw[] )
 val _ = export_rewrites["calculate_ecs_decl"]
 
+val el_check_def = Define`
+  el_check n ls = if n < LENGTH ls then SOME (EL n ls) else NONE`
+val _ = export_rewrites["el_check_def"]
+
+val lookup_ct_def = Define`
+  (lookup_ct sz st rs (CTLet n) = el_check (sz - n) st) ∧
+  (lookup_ct sz st rs (CTArg n) = el_check (sz + n) st) ∧
+  (lookup_ct sz st rs (CTEnv n) =
+   OPTION_BIND (el_check sz st)
+   (λv. case v of Block 2 vs => el_check n vs | _ => NONE)) ∧
+  (lookup_ct sz st rs (CTRef n) =
+   OPTION_BIND (el_check sz st)
+   (λv. case v of Block 2 vs =>
+     OPTION_BIND (el_check n vs)
+     (λv. case v of RefPtr p => FLOOKUP rs p | _ => NONE)
+     | _ => NONE))`
+val _ = export_rewrites["lookup_ct_def"]
+
+val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
+  (Cv_bv pp (CLitv (IntLit a)) (Number a)) ∧
+  (Cv_bv pp (CLitv (Bool b)) (bool_to_val b)) ∧
+  (EVERY2 (Cv_bv pp) vs bvs ⇒ Cv_bv pp (CConv cn vs) (Block cn bvs)) ∧
+  ((pp = (c,l2a,rfs:num |-> bc_value)) ∧
+   (find_index n ns 0 = SOME i) ∧
+   (EL i defs = (xs,INR l)) ∧
+   (FLOOKUP c l = SOME e) ∧
+   (fvs = SET_TO_LIST (free_vars c e)) ∧
+   (benv = if fvs = [] then Number 0 else Block 0 bvs) ∧
+   (LENGTH bvs = LENGTH fvs) ∧
+   (∀i x bv. i < LENGTH fvs ∧ (x = EL i fvs) ∧ (bv = EL i bvs) ⇒
+     if MEM x xs then x ∈ FDOM env (* ∧ Cv_bv pp (env ' x) bv *) else
+     ∃j p. (find_index x ns 0 = SOME j) ∧
+           (bv = RefPtr p) ∧
+           (p ∈ FDOM rfs)
+           (* ∧ Cv_bv pp (CRecClos env ns defs (EL j ns)) (rfs ' p) *) )
+   ⇒ Cv_bv pp (CRecClos env ns defs n) (Block 2 [CodePtr (l2a l); benv]))`
+
+(*
+val Cenv_bs_def = Define`
+  Cenv_bs Cenv renv sz bs =
+    fmap_rel
+      (λCv b. case lookup_ct sz bs.stack bs.refs b of NONE => F
+         | SOME bv => Cv_bv (c,,bs.refs) Cv bv)
+    Cenv renv`
+
+val env_rs_def = Define`
+  env_rs bs env rs =
+    let Cenv = alist_to_fmap (env_to_Cenv (cmap rs.contab) env) in
+    Cenv_bs Cenv rs.renv rs.rsz bs`
+
+          ∀b1. (∀x. x ∈ FDOM env ⇒ ∃v. (lookup_ct cs.sz b1.stack b1.refs (cs.env ' x) = SOME v) ∧
+
+                                       bceqv b1.inst_length b1.code (env ' x) v) ⇒
+*)
+
 (*
 val next_addr_def = Define`
   next_addr bs = FST(SND(calculate_labels bs.inst_length FEMPTY 0 [] bs.code))`
 
 val repl_exp_val = store_thm("repl_exp_val",
   ``∀cenv env exp v rs rs' bc bs bs'.
+      exp_pred exp ∧
+      env_rs env rs ∧
       evaluate cenv env exp (Rval v) ∧
       EVERY closed (MAP SND env) ∧
       FV exp ⊆ set (MAP FST env) ∧
@@ -270,6 +327,14 @@ val repl_exp_val = store_thm("repl_exp_val",
   qspecl_then[`cenv`,`env`,`exp`,`Rval v`] mp_tac exp_to_Cexp_thm1 >> fs[] >>
   disch_then (qspec_then `cmap rs.contab` mp_tac) >> fsrw_tac[DNF_ss][] >>
   qx_gen_tac `Cv` >> rw[] >>
+  qabbrev_tac `Ce = exp_to_Cexp (cmap rs.contab) exp` >>
+  `Cexp_pred Ce` by PROVE_TAC[exp_pred_Cexp_pred] >>
+  `(p0,p1,p2) = (Ce,0,[])` by PROVE_TAC[Cexp_pred_repeat_label_closures] >>
+  fs[] >> rw[] >>
+  `calculate_ldefs FEMPTY [] Ce = []` by PROVE_TAC[Cexp_pred_calculate_ldefs] >>
+  fs[] >>
+  fs[calculate_ecs_def] >>
+  fs[compile_code_env_def,LET_THM] >>
 *)
 
 val labels_only_def = Define`
@@ -355,24 +420,6 @@ val labels_only_any_il = store_thm("labels_only_any_il",
   fs[bc_fetch_aux_el_of_addr,translate_pc_def,bump_pc_def,bc_fetch_def]
   strip_tac
 *)
-
-val el_check_def = Define`
-  el_check n ls = if n < LENGTH ls then SOME (EL n ls) else NONE`
-val _ = export_rewrites["el_check_def"]
-
-val lookup_ct_def = Define`
-  (lookup_ct sz st rs (CTLet n) = el_check (sz - n) st) ∧
-  (lookup_ct sz st rs (CTArg n) = el_check (sz + n) st) ∧
-  (lookup_ct sz st rs (CTEnv n) =
-   OPTION_BIND (el_check sz st)
-   (λv. case v of Block 0 vs => el_check n vs | _ => NONE)) ∧
-  (lookup_ct sz st rs (CTRef n) =
-   OPTION_BIND (el_check sz st)
-   (λv. case v of Block 0 vs =>
-     OPTION_BIND (el_check n vs)
-     (λv. case v of RefPtr p => FLOOKUP rs p | _ => NONE)
-     | _ => NONE))`
-val _ = export_rewrites["lookup_ct_def"]
 
 val add_code_def = Define`
   add_code c (s:bc_state) = s with <| code := s.code ++ c |>`
