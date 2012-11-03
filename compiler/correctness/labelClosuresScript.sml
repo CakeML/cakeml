@@ -216,6 +216,7 @@ val subst_labs_FEMPTY = store_thm("subst_labs_FEMPTY",
   srw_tac[ETA_ss][] >>
   rw[LIST_EQ_REWRITE] >> fsrw_tac[DNF_ss][MEM_EL,EL_MAP] >>
   Cases_on `EL x defs` >> rw[])
+val _ = export_rewrites["subst_labs_FEMPTY"]
 
 val subst_labs_SUBMAP = store_thm("subst_labs_SUBMAP",
   ``(free_labs e) ⊆ FDOM c ∧ c ⊑ c' ⇒ (subst_labs c e = subst_labs c' e)``,
@@ -989,7 +990,7 @@ val label_closures_thm = store_thm("label_closures_thm",
     rw[GSYM ZIP_APPEND] >>
     rw[FUNION_DEF]))
 
-val label_closures_subst_labs = store_thm("label_closure_subst_labs",
+val label_closures_subst_labs = store_thm("label_closures_subst_labs",
   ``DISJOINT (free_labs e) (IMAGE ($+ s.lnext_label) (count (LENGTH (free_bods e)))) ∧
     (label_closures e s = (e',s')) ==>
     (subst_labs (alist_to_fmap s'.lcode_env) e' = subst_labs (alist_to_fmap s.lcode_env) e)``,
