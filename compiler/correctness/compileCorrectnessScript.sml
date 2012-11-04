@@ -103,8 +103,14 @@ val Cexp_pred_calculate_ldefs = store_thm("Cexp_pred_calculate_ldefs",
   first_x_assum (match_mp_tac o MP_CANON) >>
   fs[EVERY_MEM])
 
+val pc_end_def = Define`
+  (pc_end len n [] = (n = 0)) ∧
+  (pc_end len n (x::xs) =
+   if is_Label x then pc_end len n xs
+   else len x < n ∧ pc_end len (n - (len x + 1)) xs)`
+
 val bc_finish_def = Define`
-  bc_finish s1 s2 = bc_next^* s1 s2 ∧ ∀s3. ¬bc_next s2 s3`
+  bc_finish s1 s2 = bc_next^* s1 s2 ∧ pc_end s2.inst_length s2.pc s2.code`
 
 val compile_labels_contab = store_thm("compile_labels_contab",
   ``(compile_labels rs ls).contab = rs.contab``,
