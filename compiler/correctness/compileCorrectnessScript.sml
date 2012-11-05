@@ -1,5 +1,6 @@
 open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory lcsymtacs
 open MiniMLTerminationTheory miniMLExtraTheory miscTheory compileTerminationTheory intLangTheory bytecodeTerminationTheory evaluateEquationsTheory expToCexpTheory quantHeuristicsLib
+open pmatchTheory labelClosuresTheory
 val _ = intLib.deprecate_int()
 val _ = new_theory "compileCorrectness"
 
@@ -46,8 +47,6 @@ val Cexp_pred_def = tDefine "Cexp_pred"`
    fsrw_tac[ARITH_ss][])
 val _ = export_rewrites["Cexp_pred_def"]
 val Cexp_pred_ind = theorem"Cexp_pred_ind"
-
-open pmatchTheory labelClosuresTheory
 
 val exp_pred_Cexp_pred = store_thm("exp_pred_Cexp_pred",
   ``∀m e. exp_pred e ⇒ Cexp_pred (exp_to_Cexp m e)``,
@@ -259,55 +258,71 @@ val lookup_ct_def = Define`
 val _ = export_rewrites["lookup_ct_def"]
 
 val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
-  (Cv_bv pp (CLitv (IntLit a)) (Number a)) ∧
+  (Cv_bv pp (CLitv (IntLit k)) (Number k)) ∧
   (Cv_bv pp (CLitv (Bool b)) (bool_to_val b)) ∧
-  (EVERY2 (Cv_bv pp) vs bvs ⇒ Cv_bv pp (CConv cn vs) (Block cn bvs)) ∧
-  ((pp = (c,l2a,rfs:num |-> bc_value)) ∧
+  (EVERY2 (Cv_bv pp) vs bvs ⇒ Cv_bv pp (CConv cn vs) (Block (cn+3) bvs)) ∧
+  ((pp = (c,l2a,rfs)) ∧
    (find_index n ns 0 = SOME i) ∧
    (EL i defs = (xs,INR l)) ∧
    (FLOOKUP c l = SOME e) ∧
    (fvs = SET_TO_LIST (free_vars c e)) ∧
    (benv = if fvs = [] then Number 0 else Block 0 bvs) ∧
    (LENGTH bvs = LENGTH fvs) ∧
+   (l2a l = SOME a) ∧
    (∀i x bv. i < LENGTH fvs ∧ (x = EL i fvs) ∧ (bv = EL i bvs) ⇒
-     if MEM x xs then x ∈ FDOM env (* ∧ Cv_bv pp (env ' x) bv *) else
+     if MEM x xs then x ∈ FDOM env ∧ Cv_bv pp (env ' x) bv else
      ∃j p. (find_index x ns 0 = SOME j) ∧
            (bv = RefPtr p) ∧
-           (p ∈ FDOM rfs)
-           (* ∧ Cv_bv pp (CRecClos env ns defs (EL j ns)) (rfs ' p) *) )
-   ⇒ Cv_bv pp (CRecClos env ns defs n) (Block 2 [CodePtr (l2a l); benv]))`
+           (p ∈ FDOM rfs) ∧
+           Cv_bv pp (CRecClos env ns defs (EL j ns)) (rfs ' p))
+   ⇒ Cv_bv pp (CRecClos env ns defs n) (Block 2 [CodePtr a; benv]))`
 
-(*
+val Cv_bv_ov = store_thm("Cv_bv_ov",
+  ``∀pp Cv bv. Cv_bv pp Cv bv ⇒
+     ∀m. (Cv_to_ov m Cv = bv_to_ov m bv)``,
+     good_cmap_def
+     good_cenv_def
+  gen_tac >>
+  ho_match_mp_tac Cv_bv_ind >>
+  strip_tac >- rw[bv_to_ov_def] >>
+  strip_tac >- (
+    rw[bv_to_ov_def] >>
+    Cases_on `b` >> fs[] ) >>
+  strip_tac >- (
+    rw[bv_to_ov_def]
+    Cv_to_ov_def
+
+val bc_find_loc_aux_def = BytecodeTheory.bc_find_loc_aux_def
+
 val Cenv_bs_def = Define`
-  Cenv_bs Cenv renv sz bs =
+  Cenv_bs c Cenv (renv:ctenv) sz bs =
     fmap_rel
       (λCv b. case lookup_ct sz bs.stack bs.refs b of NONE => F
-         | SOME bv => Cv_bv (c,,bs.refs) Cv bv)
+         | SOME bv =>
+           Cv_bv
+             (c
+             ,combin$C (bc_find_loc_aux bs.code bs.inst_length) 0
+             ,bs.refs
+             ) Cv bv)
     Cenv renv`
 
 val env_rs_def = Define`
-  env_rs bs env rs =
+  env_rs env bs rs =
     let Cenv = alist_to_fmap (env_to_Cenv (cmap rs.contab) env) in
-    Cenv_bs Cenv rs.renv rs.rsz bs`
+    Cenv_bs c Cenv rs.renv rs.rsz bs`
 
-          ∀b1. (∀x. x ∈ FDOM env ⇒ ∃v. (lookup_ct cs.sz b1.stack b1.refs (cs.env ' x) = SOME v) ∧
-
-                                       bceqv b1.inst_length b1.code (env ' x) v) ⇒
-*)
-
-(*
 val next_addr_def = Define`
   next_addr bs = FST(SND(calculate_labels bs.inst_length FEMPTY 0 [] bs.code))`
 
 val repl_exp_val = store_thm("repl_exp_val",
   ``∀cenv env exp v rs rs' bc bs bs'.
       exp_pred exp ∧
-      env_rs env rs ∧
       evaluate cenv env exp (Rval v) ∧
       EVERY closed (MAP SND env) ∧
       FV exp ⊆ set (MAP FST env) ∧
       good_cenv cenv ∧
       good_cmap cenv (cmap rs.contab) ∧
+      env_rs env bs rs ∧
       (let na = next_addr bs in
        (repl_exp bs.inst_length na rs exp = (rs',bc)) ∧
        (bc_finish (bs with <|code := bs.code++bc; pc := na|>) bs'))
@@ -335,7 +350,6 @@ val repl_exp_val = store_thm("repl_exp_val",
   fs[] >>
   fs[calculate_ecs_def] >>
   fs[compile_code_env_def,LET_THM] >>
-*)
 
 val labels_only_def = Define`
   labels_only ls = ∀x. MEM x ls ⇒ case x of
