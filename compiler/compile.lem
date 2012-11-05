@@ -941,12 +941,12 @@ compile s (CCon n es) =
   let z = s.sz + 1 in
   let (s,dt) = sdt s in
   let s = List.fold_left (fun s e -> compile s e) s es in (* uneta because Hol_defn sucks *)
-  let s = emit (ldt dt s) [Stack (Cons n (List.length es))] in
+  let s = emit (ldt dt s) [Stack (Cons (n+3) (List.length es))] in
   <| s with sz = z |>
 and
 compile s (CTagEq e n) =
   let (s,dt) = sdt s in
-  ldt dt (emit (compile s e) [Stack (TagEq n)])
+  ldt dt (emit (compile s e) [Stack (TagEq (n+3))])
 and
 compile s (CProj e n) =
   let (s,dt) = sdt s in
@@ -1160,7 +1160,7 @@ compile_labels rs lbc =
 (* repl *)
 
 let init_repl_state =
-  <| contab = (Pmap.empty, Pmap.empty, 3)
+  <| contab = (Pmap.empty, Pmap.empty, 0)
    ; code = []
    ; renv = Pmap.empty
    ; rsz  = 0
@@ -1248,7 +1248,7 @@ bv_to_ov m (Block n vs) =
   if n = 0 then OLit (Bool false) else
   if n = 1 then OLit (Bool true)  else
   if n = 2 then OFn               else
-  OConv (Pmap.find n m) (List.map (bv_to_ov m) vs)
+  OConv (Pmap.find (n-3) m) (List.map (bv_to_ov m) vs)
 
 (* source to intermediate values *)
 

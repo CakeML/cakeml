@@ -1010,12 +1010,12 @@ val _ = Defn.save_defn compile_closures_defn;
   let z = s.sz + 1 in
   let (s,dt) = sdt s in
   let s = FOLDL (\ s e . compile s e) s es in (* uneta because Hol_defn sucks *)
-  let s = emit (ldt dt s) [Stack (Cons n (LENGTH es))] in
+  let s = emit (ldt dt s) [Stack (Cons (n+3) (LENGTH es))] in
    s with<| sz := z |>)
 /\
 (compile s (CTagEq e n) =
   let (s,dt) = sdt s in
-  ldt dt (emit (compile s e) [Stack (TagEq n)]))
+  ldt dt (emit (compile s e) [Stack (TagEq (n+3))]))
 /\
 (compile s (CProj e n) =
   let (s,dt) = sdt s in
@@ -1258,7 +1258,7 @@ val _ = Defn.save_defn compile_labels_defn;
 
 val _ = Define `
  init_repl_state =
-  <| contab := (FEMPTY, FEMPTY, 3)
+  <| contab := (FEMPTY, FEMPTY, 0)
    ; code := []
    ; renv := FEMPTY
    ; rsz  := 0
@@ -1366,7 +1366,7 @@ val _ = Defn.save_defn Cv_to_ov_defn;
   if n = 0 then OLit (Bool F) else
   if n = 1 then OLit (Bool T)  else
   if n = 2 then OFn               else
-  OConv (FAPPLY  m  n) (MAP (bv_to_ov m) vs))`;
+  OConv (FAPPLY  m  (n - 3)) (MAP (bv_to_ov m) vs))`;
 
 val _ = Defn.save_defn bv_to_ov_defn;
 
