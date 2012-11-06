@@ -278,19 +278,86 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
    ⇒ Cv_bv pp (CRecClos env ns defs n) (Block 2 [CodePtr a; benv]))`
 
 val Cv_bv_ov = store_thm("Cv_bv_ov",
-  ``∀pp Cv bv. Cv_bv pp Cv bv ⇒
-     ∀m. (Cv_to_ov m Cv = bv_to_ov m bv)``,
-     good_cmap_def
-     good_cenv_def
-  gen_tac >>
+  ``∀m pp Cv bv. Cv_bv pp Cv bv ⇒ (Cv_to_ov m Cv = bv_to_ov m bv)``,
+  ntac 2 gen_tac >>
   ho_match_mp_tac Cv_bv_ind >>
   strip_tac >- rw[bv_to_ov_def] >>
   strip_tac >- (
     rw[bv_to_ov_def] >>
     Cases_on `b` >> fs[] ) >>
   strip_tac >- (
-    rw[bv_to_ov_def]
-    Cv_to_ov_def
+    rw[bv_to_ov_def] >>
+    fsrw_tac[ARITH_ss][] >>
+    rw[MAP_EQ_EVERY2] >>
+    fs[EVERY2_EVERY] ) >>
+  rw[bv_to_ov_def])
+
+(* TODO: move *)
+val fmap_linv_def = Define`
+  fmap_linv f1 f2 = (FDOM f2 = FRANGE f1) /\ (!x. x IN FDOM f1 ==> (FLOOKUP f2 (FAPPLY f1 x) = SOME x))`
+
+val fmap_linv_unique = store_thm("fmap_linv_unique",
+  ``!f f1 f2. fmap_linv f f1 /\ fmap_linv f f2 ==> (f1 = f2)``,
+  SRW_TAC[][fmap_linv_def,GSYM fmap_EQ_THM] THEN
+  FULL_SIMP_TAC(srw_ss())[FRANGE_DEF,FLOOKUP_DEF] THEN
+  PROVE_TAC[])
+
+val INJ_has_fmap_linv = store_thm("INJ_has_fmap_linv",
+  ``INJ (FAPPLY f) (FDOM f) (FRANGE f) ==> ?g. fmap_linv f g``,
+  STRIP_TAC THEN
+  Q.EXISTS_TAC `FUN_FMAP (\x. @y. FLOOKUP f y = SOME x) (FRANGE f)` THEN
+  SRW_TAC[][fmap_linv_def,FLOOKUP_FUN_FMAP,FRANGE_DEF] THEN1 PROVE_TAC[] THEN
+  SELECT_ELIM_TAC THEN
+  FULL_SIMP_TAC (srw_ss()) [INJ_DEF,FRANGE_DEF,FLOOKUP_DEF])
+
+val has_fmap_linv_inj = store_thm("has_fmap_linv_inj",
+  ``(?g. fmap_linv f g) = (INJ (FAPPLY f) (FDOM f) (FRANGE f))``,
+  REVERSE EQ_TAC THEN1 PROVE_TAC[INJ_has_fmap_linv] THEN
+  SRW_TAC[][fmap_linv_def,INJ_DEF,EQ_IMP_THM]
+  THEN1 ( SRW_TAC[][FRANGE_DEF] THEN PROVE_TAC[] )
+  THEN1 ( FULL_SIMP_TAC(srw_ss())[FLOOKUP_DEF] THEN PROVE_TAC[] ))
+
+val fmap_linv_FAPPLY = store_thm("fmap_linv_FAPPLY",
+  ``fmap_linv f g /\ x IN FDOM f ==> (g ' (f ' x) = x)``,
+  SRW_TAC[][fmap_linv_def,FLOOKUP_DEF])
+
+val all_Ccns_def = tDefine "all_Ccns"`
+  (all_Ccns (CLitv _) = {}) ∧
+  (all_Ccns (CConv cn vs) = cn INSERT BIGUNION (IMAGE all_Ccns (set vs))) ∧
+  (all_Ccns (CRecClos env _ _ _) = BIGUNION (IMAGE all_Ccns (FRANGE env)))`
+  (WF_REL_TAC `measure Cv_size` >>
+   srw_tac[ARITH_ss][Cvs_size_thm,fmap_size_def] >>
+   Q.ISPEC_THEN`Cv_size`imp_res_tac SUM_MAP_MEM_bound >>
+   fsrw_tac[ARITH_ss][] >>
+   fs[FRANGE_DEF] >> rw[] >>
+   qmatch_abbrev_tac `q:num < (SUM_IMAGE f s) + r` >>
+   qsuff_tac `q <= SUM_IMAGE f s` >- srw_tac[ARITH_ss][Abbr`r`] >>
+   `f x <= SUM_IMAGE f s` by (
+     match_mp_tac SUM_IMAGE_IN_LE >> rw[Abbr`s`] ) >>
+   qsuff_tac `q <= f x` >- srw_tac[ARITH_ss][] >>
+   unabbrev_all_tac >> rw[])
+val all_Ccns_def = save_thm("all_Ccns_def",SIMP_RULE(srw_ss()++ETA_ss)[]all_Ccns_def)
+val _ = export_rewrites["all_Ccns_def"]
+
+val all_cns_def = tDefine "all_cns"`
+  (all_cns (Litv _) = {}) ∧
+  (all_cns (Conv cn vs) = cn INSERT BIGUNION (IMAGE all_cns (set vs))) ∧
+  (all_cns (Closure env _ _) = BIGUNION (IMAGE all_cns (set (MAP SND env)))) ∧
+  (all_cns (Recclosure env _ _) = BIGUNION (IMAGE all_cns (set (MAP SND env))))`
+  (WF_REL_TAC `measure v_size` >>
+   srw_tac[ARITH_ss][v1_size_thm,v3_size_thm] >>
+   Q.ISPEC_THEN`v_size`imp_res_tac SUM_MAP_MEM_bound >>
+   fsrw_tac[ARITH_ss][SUM_MAP_v2_size_thm])
+val all_cns_def = save_thm("all_cns_def",SIMP_RULE(srw_ss()++ETA_ss)[]all_cns_def)
+val _ = export_rewrites["all_cns_def"]
+
+val v_to_Cv_ov = store_thm("v_to_Cv_ov",
+  ``(∀m v w. (all_cns v ⊆ FDOM m) ∧ fmap_linv m w ==> (Cv_to_ov w (v_to_Cv m v) = v_to_ov v)) ∧
+    (∀m vs w. (BIGUNION (IMAGE all_cns (set vs)) ⊆ FDOM m) ∧ fmap_linv m w ==> (MAP (Cv_to_ov w) (vs_to_Cvs m vs) = MAP v_to_ov vs)) ∧
+    (∀(m:string|->num) (env:envE). T)``,
+  ho_match_mp_tac v_to_Cv_ind >>
+  rw[v_to_Cv_def] >> rw[Cv_to_ov_def] >>
+  srw_tac[ETA_ss][fmap_linv_FAPPLY])
 
 val bc_find_loc_aux_def = BytecodeTheory.bc_find_loc_aux_def
 
