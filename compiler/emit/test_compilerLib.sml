@@ -102,17 +102,22 @@ in case fst(dest_const f) of
 end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
 val term_to_ov = v_to_ov o term_to_v
 
-val add_code = bc_state_code_fupd o C append o repl_state_code
+val add_code = bc_state_code_fupd o C append
+
+fun next_addr bs = let
+  val (_,(n,_)) = calculate_labels
+    (bc_state_inst_length bs) fmapML.FEMPTY numML.ZERO [] (bc_state_code bs)
+in n end
 
 fun prep_decs (bs,rs) [] = (bs,rs)
   | prep_decs (bs,rs) (d::ds) = let
-      val rs = repl_dec rs (term_to_dec d)
-      val bs = add_code rs bs
+      val (rs,c) = repl_dec (bc_state_inst_length bs) (next_addr bs) rs (term_to_dec d)
+      val bs = add_code c bs
     in prep_decs (bs,rs) ds end
 
 fun prep_exp (bs,rs) e = let
-  val rs = repl_exp rs (term_to_exp e)
-  val bs = add_code rs bs
+  val (rs,c) = repl_exp (bc_state_inst_length bs) (next_addr bs) rs (term_to_exp e)
+  val bs = add_code c bs
 in (bs,rs) end
 
 fun prep_decs_exp (bs,rs) (ds,e) = let
