@@ -376,7 +376,101 @@ val Cenv_bs_def = Define`
 val env_rs_def = Define`
   env_rs env bs rs =
     let Cenv = alist_to_fmap (env_to_Cenv (cmap rs.contab) env) in
-    Cenv_bs c Cenv rs.renv rs.rsz bs`
+    ∃c. Cenv_bs c Cenv rs.renv rs.rsz bs`
+
+val el_of_addr_def = Define`
+  (el_of_addr il n [] = NONE) ∧
+  (el_of_addr il n (x::xs) =
+   if is_Label x then OPTION_BIND (el_of_addr il n xs) (λm. SOME (m + 1)) else
+     if n = 0 then SOME (0:num) else
+       if n < il x + 1 then NONE else
+         OPTION_BIND (el_of_addr il (n - (il x + 1)) xs) (λm. SOME (m + 1)))`
+val _ = export_rewrites["el_of_addr_def"]
+
+val bc_fetch_aux_el_of_addr = store_thm("bc_fetch_aux_el_of_addr",
+  ``∀c il pc. bc_fetch_aux c il pc = OPTION_BIND (el_of_addr il pc c) (λn. SOME (EL n c))``,
+  Induct >> rw[] >>
+  Q.PAT_ABBREV_TAC`opt = el_of_addr il pcX c` >>
+  Cases_on `opt` >> fs[] >>
+  rw[GSYM arithmeticTheory.ADD1])
+
+val addr_of_el_def = Define`
+  (addr_of_el il n [] = NONE) ∧
+  (addr_of_el il n (x::xs) =
+   if n = 0 then if is_Label x then NONE else SOME 0 else
+     OPTION_BIND (addr_of_el il (n - 1) xs) (λm. SOME (m + (if is_Label x then 0 else il x + 1))))`
+val _ = export_rewrites["addr_of_el_def"]
+
+val bc_fetch_aux_addr_of_el = store_thm("bc_fetch_aux_addr_of_el",
+  ``∀c il pc n. (addr_of_el il n c = SOME pc) ⇒ (bc_fetch_aux c il pc = SOME (EL n c))``,
+  Induct >> rw[] >>
+  Cases_on `n` >> fs[] >>
+  spose_not_then strip_assume_tac >>
+  DECIDE_TAC)
+
+val bc_fetch_aux_not_label = store_thm("bc_fetch_aux_not_label",
+  ``∀c il pc i. (bc_fetch_aux c il pc = SOME i) ⇒ ¬is_Label i``,
+  Induct >> rw[] >> fs[] >> PROVE_TAC[])
+
+val dest_Label_def = Define`(dest_Label (Label n) = n)`
+val _ = export_rewrites["dest_Label_def"]
+
+val calculate_labels_thm = store_thm("calculate_labels_thm",
+  ``∀il m n bc lbc m' n' bc'.
+      (calculate_labels il m n bc lbc = (m',n',bc')) ∧ ALL_DISTINCT (FILTER is_Label lbc) ⇒
+      (bc' = (REVERSE (FILTER ($~ o is_Label) lbc) ++ bc)) ∧
+      (let ls = MAP dest_Label (FILTER is_Label lbc) in
+        (m' = m |++ ZIP (ls, MAP (THE o combin$C (bc_find_loc_aux lbc il) n) ls))) ∧
+      (n' = n + SUM (MAP (SUC o il) (FILTER ($~ o is_Label) lbc)))``,
+  ho_match_mp_tac calculate_labels_ind >>
+  strip_tac >- (
+    rw[calculate_labels_def,LET_THM,FUPDATE_LIST_THM] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    simp_tac(std_ss)[Once calculate_labels_def] >>
+    rpt gen_tac >> strip_tac >>
+    `ALL_DISTINCT (FILTER is_Label lbc)` by (
+      pop_assum mp_tac >>
+      rpt (pop_assum kall_tac) >>
+      rw[] ) >>
+    res_tac >>
+    full_simp_tac(std_ss)[LET_THM] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    pop_assum kall_tac >> pop_assum mp_tac >>
+    rpt (pop_assum kall_tac) >>
+    rw[FUPDATE_LIST_THM,bc_find_loc_aux_def] >>
+    AP_TERM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >>
+    rw[MAP_EQ_f,MEM_MAP,MEM_FILTER] >>
+    AP_TERM_TAC >>
+    rw[bc_find_loc_aux_def] >>
+    fs[MEM_FILTER] >>
+    Cases_on `y` >> fs[]) >>
+  REPEAT (
+    strip_tac >- (
+      rpt gen_tac >> strip_tac >>
+      simp_tac(std_ss)[Once calculate_labels_def] >>
+      rpt gen_tac >> strip_tac >>
+      `ALL_DISTINCT (FILTER is_Label lbc)` by (
+        pop_assum mp_tac >>
+        rpt (pop_assum kall_tac) >>
+        rw[] ) >>
+      res_tac >>
+      full_simp_tac(std_ss)[LET_THM] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      rpt (pop_assum kall_tac) >>
+      srw_tac[ARITH_ss][] >>
+      AP_TERM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >>
+      rw[MAP_EQ_f,MEM_MAP,MEM_FILTER] >>
+      AP_TERM_TAC >>
+      rw[bc_find_loc_aux_def] )))
+
+val compile_labels_bc_next = store_thm("compile_labels_bc_next",
+  ``∀s1 s2. bc_next s1 s2 ⇒ bc_next
+      (s1 with <| code := compile_labels s1.inst_length 0 s1.code |>)
+      (s2 with <| code := compile_labels s2.inst_length 0 s2.code |>)``,
+  compile_labels_def
+  TypeBase.fields_of``:bc_state``
+  compile
 
 val next_addr_def = Define`
   next_addr bs = FST(SND(calculate_labels bs.inst_length FEMPTY 0 [] bs.code))`
@@ -425,40 +519,6 @@ val labels_only_def = Define`
     | Call (Addr _) => F
     | PushPtr (Addr _) => F
     | _ => T`;
-
-val el_of_addr_def = Define`
-  (el_of_addr il n [] = NONE) ∧
-  (el_of_addr il n (x::xs) =
-   if is_Label x then OPTION_BIND (el_of_addr il n xs) (λm. SOME (m + 1)) else
-     if n = 0 then SOME (0:num) else
-       if n < il x + 1 then NONE else
-         OPTION_BIND (el_of_addr il (n - (il x + 1)) xs) (λm. SOME (m + 1)))`
-val _ = export_rewrites["el_of_addr_def"]
-
-val bc_fetch_aux_el_of_addr = store_thm("bc_fetch_aux_el_of_addr",
-  ``∀c il pc. bc_fetch_aux c il pc = OPTION_BIND (el_of_addr il pc c) (λn. SOME (EL n c))``,
-  Induct >> rw[] >>
-  Q.PAT_ABBREV_TAC`opt = el_of_addr il pcX c` >>
-  Cases_on `opt` >> fs[] >>
-  rw[GSYM arithmeticTheory.ADD1])
-
-val addr_of_el_def = Define`
-  (addr_of_el il n [] = NONE) ∧
-  (addr_of_el il n (x::xs) =
-   if n = 0 then if is_Label x then NONE else SOME 0 else
-     OPTION_BIND (addr_of_el il (n - 1) xs) (λm. SOME (m + (if is_Label x then 0 else il x + 1))))`
-val _ = export_rewrites["addr_of_el_def"]
-
-val bc_fetch_aux_addr_of_el = store_thm("bc_fetch_aux_addr_of_el",
-  ``∀c il pc n. (addr_of_el il n c = SOME pc) ⇒ (bc_fetch_aux c il pc = SOME (EL n c))``,
-  Induct >> rw[] >>
-  Cases_on `n` >> fs[] >>
-  spose_not_then strip_assume_tac >>
-  DECIDE_TAC)
-
-val bc_fetch_aux_not_label = store_thm("bc_fetch_aux_not_label",
-  ``∀c il pc i. (bc_fetch_aux c il pc = SOME i) ⇒ ¬is_Label i``,
-  Induct >> rw[] >> fs[] >> PROVE_TAC[])
 
 val with_same_pc = store_thm("with_same_pc",
   ``x with pc := x.pc = x``,
