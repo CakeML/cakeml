@@ -414,6 +414,14 @@ val (bv_to_ov_def,bv_to_ov_ind) = register "bv_to_ov" (
   Q.ISPEC_THEN `bc_value_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
 
+val _ = register "calculate_labels" (
+  tprove_no_defn ((calculate_labels_def,calculate_labels_ind),
+  WF_REL_TAC `measure (LENGTH o SND o SND o SND o SND)` >> rw[]))
+
+val _ = register "replace_labels" (
+  tprove_no_defn ((replace_labels_def,replace_labels_ind),
+  WF_REL_TAC `measure (LENGTH o SND o SND)` >> rw[]))
+
 val _ = save_thm("compile_labels_def",compile_labels_def)
 val _ = save_thm("repl_exp_def",repl_exp_def)
 val _ = save_thm("compile_Cexp_def",compile_Cexp_def)
