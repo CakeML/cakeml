@@ -112,18 +112,12 @@ val pc_end_def = Define`
 val bc_finish_def = Define`
   bc_finish s1 s2 = bc_next^* s1 s2 ∧ pc_end s2.inst_length s2.pc s2.code`
 
-val compile_labels_contab = store_thm("compile_labels_contab",
-  ``(compile_labels rs ls).contab = rs.contab``,
-  rw[compile_labels_def] >> rw[])
-val _ = export_rewrites["compile_labels_contab"]
-
 val repl_exp_contab = store_thm("repl_exp_contab",
-  ``(repl_exp rs exp).contab = rs.contab``,
-  rw[repl_exp_def,compile_Cexp_def] >>
-  rw[] >>
-  unabbrev_all_tac >>
+  ``(repl_exp il na rs exp = (rs',c)) ==> (rs'.contab = rs.contab)``,
+  rw[repl_exp_def,compile_Cexp_def,LET_THM] >>
+  qabbrev_tac`p=repeat_label_closures (exp_to_Cexp (cmap rs.contab) exp) 0 []` >>
+  PairCases_on`p`>>fs[] >> rw[] >>
   BasicProvers.EVERY_CASE_TAC >> rw[])
-val _ = export_rewrites["repl_exp_contab"]
 
 val compile_varref_decl = store_thm("compile_varref_decl",
   ``(compile_varref s x).decl = s.decl``,
@@ -247,15 +241,19 @@ val calculate_ecs_decl = store_thm("calculate_ecs_decl",
 val _ = export_rewrites["calculate_ecs_decl"]
 
 (*
+val next_addr_def = Define`
+  next_addr bs = FST(SND(calculate_labels bs.inst_length FEMPTY 0 [] bs.code))`
+
 val repl_exp_val = store_thm("repl_exp_val",
-  ``∀cenv env exp v rs rs' bs bs'.
+  ``∀cenv env exp v rs rs' bc bs bs'.
       evaluate cenv env exp (Rval v) ∧
       EVERY closed (MAP SND env) ∧
       FV exp ⊆ set (MAP FST env) ∧
       good_cenv cenv ∧
       good_cmap cenv (cmap rs.contab) ∧
-      (repl_exp rs exp = rs') ∧
-      (bc_finish (bs with <| code := rs'.code ; pc := 0 |>) bs')
+      (let na = next_addr bs in
+       (repl_exp bs.inst_length na rs exp = (rs',bc)) ∧
+       (bc_finish (bs with <|code := bs.code++bc; pc := na|>) bs'))
       ⇒
       ∃bv.
       (bs'.stack = bv :: bs.stack) ∧
