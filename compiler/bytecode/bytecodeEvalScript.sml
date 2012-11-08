@@ -240,13 +240,7 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   rw[bc_next_cases])
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  numLib.LEAST_ELIM_TAC >>
-  rw[] >- (
-    match_mp_tac (
-      SIMP_RULE (srw_ss()) []
-        (INST_TYPE [alpha|->numSyntax.num] pred_setTheory.NOT_IN_FINITE)) >> rw[] ) >>
-  qexists_tac `n` >> rw[] )
+  rw[bc_next_cases] )
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
   qmatch_assum_rename_tac `s1.stack = h::t` [] >>
@@ -260,80 +254,17 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   Cases_on `y` >> fs [] >>
   rw[bc_next_cases] ))
 
-val bc_eval1_NONE = store_thm(
-"bc_eval1_NONE",
-``∀s1 s2. (bc_eval1 s1 = NONE) ⇒ ¬bc_next s1 s2``,
-rw[bc_eval1_def] >- ( rw[bc_next_cases] ) >>
-qmatch_assum_rename_tac `bc_fetch s1 = SOME inst` [] >>
-Cases_on `inst` >> fs[bc_eval_stack_NONE]
->- rw[bc_next_cases]
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  TRY (Cases_on `h`) >> fs[LET_THM] >>
-  rw[bc_next_cases] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `h` >> fs[] >>
-  qmatch_assum_rename_tac `s1.stack = Block x y :: t`[] >>
-  Cases_on `y` >> fs[] >>
-  Cases_on `b` >> fs[] >>
-  Cases_on `x=0` >> fs[])
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `h` >> Cases_on `t` >> fs[] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `h` >> fs[] >>
-  Cases_on `n=ptr` >> fs[] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `h` >> fs[] >>
-  Cases_on `t` >> fs[] )
->- ( rw[bc_next_cases] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `t` >> fs[] >>
-  qmatch_assum_rename_tac `s1.stack = x::y::t` [] >>
-  Cases_on `y` >> fs[] )
->-(
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  Cases_on `s1.exstack` >> fs[LET_THM] >>
-  qmatch_assum_rename_tac `s1.exstack = q::z` [] >>
-  Cases_on `q` >> fs[] >>
-  qmatch_assum_rename_tac `¬(r ≤ LENGTH t)` [] >>
-  Cases_on `r = m` >> fs[] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `h` >> fs[] >>
-  Cases_on `n=ptr` >> fs[] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `t` >> fs[] >>
-  qmatch_assum_rename_tac `s1.stack = x::y::t` [] >>
-  Cases_on `y` >> fs[] >>
-  Cases_on `n = ptr` >> rw[])
-)
+val bc_next_bc_eval1 = store_thm(
+"bc_next_bc_eval1",
+``∀s1 s2. bc_next s1 s2 ⇒ (bc_eval1 s1 = SOME s2)``,
+ho_match_mp_tac bc_next_ind >>
+rw[bc_eval1_def] >>
+fs[bc_eval_stack_thm] >>
+unabbrev_all_tac >> rw[])
+
+val bc_eval1_thm = store_thm("bc_eval1_thm",
+  ``!s1 s2. bc_next s1 s2 = (bc_eval1 s1 = SOME s2)``,
+rw[] >> EQ_TAC >> rw[bc_eval1_SOME,bc_next_bc_eval1])
 
 val bc_eval_exists = prove(
 ``∃bc_eval. ∀s. bc_eval s = case bc_eval1 s of NONE => s | SOME s => bc_eval s``,

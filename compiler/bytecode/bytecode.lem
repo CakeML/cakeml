@@ -42,6 +42,8 @@ val int_of_num : num -> int
 let inline {hol} int_of_num = Hol.int_of_num
 val drop : forall 'a. num -> list 'a -> list 'a
 let inline {hol} drop = Hol.DROP
+val least : (num -> bool) -> num
+let inline {hol} least = Hol.LEAST
 
 (* the stack is a list of elements of bc_value *)
 
@@ -223,7 +225,7 @@ and
 forall s x xs ptr.
 bc_fetch s = Some Ref
 && s.stack = x::xs
-&& not (Pmap.mem ptr s.refs)
+&& (ptr = least (fun ptr -> not (Pmap.mem ptr s.refs)))
 ==>
 bc_next s (<|bump_pc s with stack = (RefPtr ptr)::xs; refs = Pmap.add ptr x s.refs|>)
 and

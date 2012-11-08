@@ -54,6 +54,7 @@ val _ = Hol_datatype `
 (* move to lem *)
 (*val int_of_num : num -> int*)
 (*val drop : forall 'a. num -> list 'a -> list 'a*)
+(*val least : (num -> bool) -> num*)
 
 (* the stack is a list of elements of bc_value *)
 
@@ -260,7 +261,7 @@ bc_next s (s with<| pc := p; stack := x::DROP (LENGTH xs - m) xs|>))
 (! s x xs ptr.
 (bc_fetch s = SOME Ref)
 /\ (s.stack = x::xs)
-/\ ~  ( ptr IN FDOM  s.refs)
+/\ (ptr = $LEAST (\ ptr . ~  ( ptr IN FDOM  s.refs)))
 ==>
 bc_next s (bump_pc s with<| stack := (RefPtr ptr)::xs; refs := FUPDATE  s.refs ( ptr, x)|>))
 /\
