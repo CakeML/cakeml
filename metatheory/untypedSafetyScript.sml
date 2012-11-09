@@ -87,6 +87,13 @@ val untyped_safety_step = Q.prove (
 `∀envC s env ds st.
   (d_step (envC, s, env, ds, st) = Dstuck) = (ds = []) ∧ (st = NONE)`,
 rw [d_step_def, e_step_def, continue_def, push_def, return_def] >>
+cases_on `st` >>
+rw [] >-
+every_case_tac >>
+PairCases_on `x` >> 
+rw [] >>
+cases_on `x5` >>
+rw [] >>
 every_case_tac);
 
 val untyped_safety_thm = Q.prove (
