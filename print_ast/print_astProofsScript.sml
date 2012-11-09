@@ -359,15 +359,6 @@ rw [lexer_spec_matches_prefix_def, SML_lex_spec_def, regexp_matches_def] >>
      rw [] >>
      cases_on `n` >>
      fs [spaces_eqns, SPLITP, is_space_def]]);
-(*
-`!s n toks. 
-  correct_lex SML_lex_spec s toks
-  ⇒
-  ?toks'.
-    (correct_lex SML_lex_spec (spaces n s) toks') ∧
-    (remove_ws_toks toks = remove_ws_toks toks')`,
-
-rw []
 
 val lem = 
 METIS_PROVE [lex_spec_to_dfa_correct, lexer_correct, lexer_eval_thm,
@@ -408,6 +399,71 @@ CONV_TAC
      THENC
      SIMP_CONV (srw_ss()) [eval_option_case_def])))
 end;
+(*
+
+STOP;
+
+`correct_lex SML_lex_spec (STRING #" " s) toks
+⇒
+?n toks'. n > 0 ∧ (toks = WhitespaceT n :: toks')`,
+
+SIMP_TAC (srw_ss()) [lem] >>
+lex_one_tac
+
+
+
+`!s toks. 
+  correct_lex SML_lex_spec s toks
+  ⇒
+  ?toks'.
+    (correct_lex SML_lex_spec (STRING #" " s) toks') ∧
+    (remove_ws_toks toks = remove_ws_toks toks')`,
+
+induct_on `s` >>
+fs [lem] >>
+rw [] >|
+
+[pop_assum mp_tac >>
+     lex_one_tac >>
+     rw [] >>
+     qexists_tac `[WhitespaceT 1]` >>
+     rw [remove_ws_toks_def] >>
+     lex_one_tac >>
+     rw [eval_option_case_def],
+
+ cases_on `(ORD h = 32) ∨ (ORD h = 9) ∨ (ORD h = 11) ∨ (ORD h = 12) ∨ (ORD h = 13)` >>
+     rw [] >>
+     cases_on `h` >>
+     rw [] >>
+     fs [] >>
+     rw [] >>
+     fs [] >>
+     rw []
+
+     pop_assum mp_tac >>
+     lex_one_tac >>
+     rw []
+
+
+
+
+`!s n toks. 
+  correct_lex SML_lex_spec s toks
+  ⇒
+  ?toks'.
+    (correct_lex SML_lex_spec (spaces n s) toks') ∧
+    (remove_ws_toks toks = remove_ws_toks toks')`,
+
+Induct_on `n` >>
+fs [lem, spaces_eqns] >>
+rw [] >>
+cases_on `n` >>
+rw [] >>
+fs [spaces_eqns] >>
+res_tac
+
+lex_one_tac
+
 
 `∀s toks. 
   let (s1,s2) = SPLITP (λc. ¬is_space c) s in
@@ -456,7 +512,7 @@ rw [] >|
         
 
 
-
+(* Overall goal *)
 
 `!toks. 
   EVERY is_MiniML_tok toks ⇒
