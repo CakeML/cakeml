@@ -19,7 +19,7 @@ fs [] >|
      rw []]);
 
 val concat_empties = Q.prove (
-`!ss1 ss2. EVERY (\s. s = "") ss1 ⇒ (CONCAT (ss1 ++ ss2) = CONCAT ss2)`,
+`!ss1. EVERY (\s. s = []) ss1 ⇒ (CONCAT ss1 = [])`,
 Induct_on `ss1` >>
 rw []);
 
@@ -331,7 +331,7 @@ rw [] >|
      rw [] >-
      metis_tac [] >-
      metis_tac [] >>
-     `c::s = CONCAT ([c::s2]++ss3)` by metis_tac [concat_empties, APPEND_ASSOC] >>
+     imp_res_tac concat_empties >>
      fs [],
  qexists_tac `(c :: s1) :: ss` >>
      rw []]));
