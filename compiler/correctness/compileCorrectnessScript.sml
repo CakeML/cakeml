@@ -859,6 +859,53 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
   Cases_on `LENGTH bvs = LENGTH bvs'` >> rw[] >>
   metis_tac[no_closures_Cv_bv_equal] )
 
+val compile_varref_append_out = store_thm("compile_varref_append_out",
+  ``∀cs b. ∃bc. (compile_varref cs b).out = bc ++ cs.out``,
+  ho_match_mp_tac compile_varref_ind >> rw[])
+
+(*
+val compile_append_out = store_thm("compile_append_out",
+  ``(∀cs exp. ∃bc. (compile cs exp).out = bc ++ cs.out) ∧
+    (∀env0 sz1 exp n cs xs. ∃bc. (compile_bindings env0 sz1 exp n cs xs).out = bc ++ cs.out)``,
+  ho_match_mp_tac compile_ind >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    BasicProvers.EVERY_CASE_TAC >- rw[] >>
+    cheat ) >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def,compile_varref_append_out] >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    srw_tac[ETA_ss][] >>
+    FOLDL_invariant
+
+val FOLDL_compile_append_out = store_thm("FOLDL_compile_append_out",
+  ``∃bc. (FOLDL compile cs exps).out = bc ++ cs.out``,
+  Q.ISPECL_THEN[`λx. ∃bc. x.out = bc ++ cs.out`,`compile`,`exps`,`cs`]mp_tac FOLDL_invariant >>
+  rw[] >> pop_assum match_mp_tac >>
+  rw[] >>
+  metis_tac[compile_append_out,APPEND_ASSOC])
+*)
+
+val compile_varref_env_sz = store_thm("compile_varref_env_sz",
+  ``∀cs b. ((compile_varref cs b).env = cs.env) ∧
+           ((compile_varref cs b).sz = cs.sz)``,
+  ho_match_mp_tac compile_varref_ind >> rw[])
+val _ = export_rewrites["compile_varref_env_sz"]
+
+val compile_env_sz = store_thm("compile_env_sz",
+  ``(∀cs exp. ((compile cs exp).env = cs.env) ∧
+              ((compile cs exp).sz = cs.sz)) ∧
+    (∀env0 sz1 exp n cs xs.
+       ((compile_bindings env0 sz1 exp n cs xs).env = cs.env) ∧
+       ((compile_bindings env0 sz1 exp n cs xs).sz = cs.sz))``,
+  ho_match_mp_tac compile_ind >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    BasicProvers.EVERY_CASE_TAC >> rw[]
+
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒
       ∀v bc0 bc0c bc1 bs cs.
@@ -1043,6 +1090,13 @@ val compile_val = store_thm("compile_val",
     rw[DB.fetch"Bytecode""bc_state_component_equality"] ) >>
   strip_tac >- (
     rw[] >>
+    qabbrev_tac `bs0 = bs with pc := next_addr bs.inst_length (bc0 ++ REVERSE (compile cs exp).out)`
+    first_x_assum (qspecl_then [`bc0`,`bc1`,`bs0`,`compile cs exp`] mp_tac)
+    set_trace"goalstack print goal at top"0
+    `∃bc2. (FOLDL compile (compile cs exp) exps).out = bc2 ++ (compile cs exp).out` by (
+      metis_tac[FOLDL_compile_append_out] ) >>
+    fs[REVERSE_APPEND]
+
     cheat ) >>
   strip_tac >- rw[] >>
   rw[] )
