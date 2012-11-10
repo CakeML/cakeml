@@ -80,6 +80,7 @@ val defs = map EmitML.DEFN
 , defs_to_ldefs_def
 , calculate_ldefs_def
 , compile_closures_def
+, compile_decl_def
 , underscore_rule compile_def
 , calculate_ecs_def
 , cce_aux_def

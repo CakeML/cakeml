@@ -971,13 +971,10 @@ val _ = Defn.save_defn emit_ec_defn;
 
 val _ = Defn.save_defn compile_closures_defn;
 
- val compile_defn = Hol_defn "compile" `
+ val compile_decl_defn = Hol_defn "compile_decl" `
 
-(compile s (CDecl vs) =
-  (case s.decl of SOME (env0,sz0) =>
-  let sz1 = s.sz in
-  let k = sz1 - sz0 in
-  let (s,i,env) = FOLDL
+(compile_decl env0 =
+  FOLDL
     (\ (s,i,env) v .
       if  v IN FDOM  env0 then
         ((case FAPPLY  env0  v of
@@ -988,8 +985,17 @@ val _ = Defn.save_defn compile_closures_defn;
       else
         (incsz (compile_varref s (FAPPLY  s.env  v)),
          i+1,
-         FUPDATE  env ( v, (CTLet i))))
-         (s,sz0+1,env0) vs in
+         FUPDATE  env ( v, (CTLet i)))))`;
+
+val _ = Defn.save_defn compile_decl_defn;
+
+ val compile_defn = Hol_defn "compile" `
+
+(compile s (CDecl vs) =
+  (case s.decl of SOME (env0,sz0) =>
+  let sz1 = s.sz in
+  let k = sz1 - sz0 in
+  let (s,i,env) = compile_decl env0 (s,sz0+1,env0) vs in
   let s = emit s [Stack (Shift (i -(sz0+1)) k)] in
    s with<| sz := sz1+1; decl := SOME (env,s.sz - k) |>
   | NONE => emit s [Stack (PushInt i2); Exception] (* should not happen *)

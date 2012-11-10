@@ -904,11 +904,8 @@ compile_closures nz s defs =
          s nz
 
 let rec
-compile s (CDecl vs) =
-  match s.decl with Some (env0,sz0) ->
-  let sz1 = s.sz in
-  let k = sz1 - sz0 in
-  let (s,i,env) = List.fold_left
+compile_decl env0 =
+  List.fold_left
     (fun (s,i,env) v ->
       if Pmap.mem v env0 then
         (match Pmap.find v env0 with
@@ -920,7 +917,13 @@ compile s (CDecl vs) =
         (incsz (compile_varref s (Pmap.find v s.env)),
          i+1,
          Pmap.add v (CTLet i) env))
-         (s,sz0+1,env0) vs in
+
+let rec
+compile s (CDecl vs) =
+  match s.decl with Some (env0,sz0) ->
+  let sz1 = s.sz in
+  let k = sz1 - sz0 in
+  let (s,i,env) = compile_decl env0 (s,sz0+1,env0) vs in
   let s = emit s [Stack (Shift (i-(sz0+1)) k)] in
   <| s with sz = sz1+1; decl = Some (env,s.sz-k) |>
   | None -> emit s [Stack (PushInt i2); Exception] (* should not happen *)
