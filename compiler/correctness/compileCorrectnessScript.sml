@@ -111,9 +111,9 @@ val bc_finish_def = Define`
   bc_finish s1 s2 = bc_next^* s1 s2 ∧ pc_end s2.inst_length s2.pc s2.code`
 
 val repl_exp_contab = store_thm("repl_exp_contab",
-  ``(repl_exp il na rs exp = (rs',c)) ==> (rs'.contab = rs.contab)``,
+  ``(repl_exp rs exp = (rs',c)) ==> (rs'.contab = rs.contab)``,
   rw[repl_exp_def,compile_Cexp_def,LET_THM] >>
-  qabbrev_tac`p=repeat_label_closures (exp_to_Cexp (cmap rs.contab) exp) 0 []` >>
+  qabbrev_tac`p=repeat_label_closures (exp_to_Cexp (cmap rs.contab) exp) rs.rnext_label []` >>
   PairCases_on`p`>>fs[] >> rw[] >>
   BasicProvers.EVERY_CASE_TAC >> rw[])
 
@@ -639,7 +639,7 @@ val bc_next_compile_labels = store_thm("bc_next_compile_labels",
   ``∀s1 s2. bc_next s1 s2 ⇒
       (good_il s1.inst_length ∧
        ALL_DISTINCT (FILTER is_Label s1.code)) ⇒
-      let c = compile_labels s1.inst_length 0 s1.code in
+      let c = compile_labels s1.inst_length s1.code in
       bc_next (s1 with <| code := c |>) (s2 with <| code := c |>)``,
   rw[compile_labels_def,replace_labels_thm] >>
   imp_res_tac calculate_labels_thm >>
