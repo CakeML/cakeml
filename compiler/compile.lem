@@ -1140,8 +1140,8 @@ replace_labels m a (i::bc) =
   replace_labels m (i::a) bc
 
 let rec
-compile_labels il n lbc =
-  let (m,n,bc) = calculate_labels il Pmap.empty n [] lbc in
+compile_labels il lbc =
+  let (m,n,bc) = calculate_labels il Pmap.empty 0 [] lbc in
     replace_labels m [] bc
 
 (* repl *)
@@ -1154,17 +1154,18 @@ type repl_state =
   <| contab : contab
    ; renv : ctenv
    ; rsz  : num
+   ; rnext_label : num
    |>
 
 let init_repl_state =
   <| contab = (Pmap.empty, Pmap.empty, 0)
    ; renv = Pmap.empty
    ; rsz  = 0
+   ; rnext_label = 0
    |>
 
-let compile_Cexp il na rs decl Ce =
-  let s = <| lnext_label = 0; lcode_env = [] |> in
-  let (Ce,n,c) = repeat_label_closures Ce s.lnext_label [] in
+let compile_Cexp rs decl Ce =
+  let (Ce,n,c) = repeat_label_closures Ce rs.rnext_label [] in
   let c = alist_to_fmap c in
   let ldefs = calculate_ldefs c [] Ce in
   let cs = <| env = rs.renv; sz = rs.rsz
@@ -1179,7 +1180,8 @@ let compile_Cexp il na rs decl Ce =
     | None -> rs
     | Some (env,sz) -> <| rs with renv = env ; rsz = sz |>
     end in
-  (rs, compile_labels il na (List.rev cs.out))
+  let rs = <| rs with rnext_label = cs.next_label |> in
+  (rs, List.rev cs.out)
 
 let rec
 number_constructors [] ct = ct
@@ -1188,27 +1190,27 @@ number_constructors ((c,_)::cs) (m,w,n) =
   number_constructors cs (Pmap.add c n m, Pmap.add n c w, n+1)
 
 let rec
-repl_dec il na rs (Dtype []) = (rs,[])
+repl_dec rs (Dtype []) = (rs,[])
 and
-repl_dec il na rs (Dtype ((_,_,cs)::ts)) =
+repl_dec rs (Dtype ((_,_,cs)::ts)) =
   let ct = number_constructors cs rs.contab in
-  repl_dec il na (<| rs with contab = ct |>) (Dtype ts) (* parens: Lem sucks *)
+  repl_dec (<| rs with contab = ct |>) (Dtype ts) (* parens: Lem sucks *)
 and
-repl_dec il na rs (Dletrec defs) =
+repl_dec rs (Dletrec defs) =
   let (fns,Cdefs) = defs_to_Cdefs (cmap rs.contab) defs in
   let decl = Some(rs.renv,rs.rsz) in
-  compile_Cexp il na rs decl (CLetfun true fns Cdefs (CDecl fns))
+  compile_Cexp rs decl (CLetfun true fns Cdefs (CDecl fns))
 and
-repl_dec il na rs (Dlet p e) =
+repl_dec rs (Dlet p e) =
   let m = cmap rs.contab in
   let (pvs,Cp) = pat_to_Cpat m [] p in
   let Cpes = [(Cp,CDecl pvs)] in
   let vn = fresh_var (Cpes_vars Cpes) in
   let Ce = exp_to_Cexp m e in
   let decl = Some(rs.renv,rs.rsz) in
-  compile_Cexp il na rs decl (CLet [vn] [Ce] (remove_mat_var vn Cpes))
+  compile_Cexp rs decl (CLet [vn] [Ce] (remove_mat_var vn Cpes))
 
-let repl_exp il na s exp = compile_Cexp il na s None (exp_to_Cexp (cmap s.contab) exp)
+let repl_exp s exp = compile_Cexp s None (exp_to_Cexp (cmap s.contab) exp)
 
 (* Correctness *)
 

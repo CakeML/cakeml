@@ -405,7 +405,7 @@ val (number_constructors_def,number_constructors_ind) = register "number_constru
 
 val (repl_dec_def,repl_dec_ind) = register "repl_dec" (
   tprove_no_defn ((repl_dec_def,repl_dec_ind),
-  WF_REL_TAC `measure (dec_size o SND o SND o SND)`))
+  WF_REL_TAC `measure (dec_size o SND)`))
 
 val (bv_to_ov_def,bv_to_ov_ind) = register "bv_to_ov" (
   tprove_no_defn ((bv_to_ov_def,bv_to_ov_ind),

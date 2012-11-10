@@ -1230,8 +1230,8 @@ val _ = Defn.save_defn replace_labels_defn;
 
  val compile_labels_defn = Hol_defn "compile_labels" `
 
-(compile_labels il n lbc =
-  let (m,n,bc) = calculate_labels il FEMPTY n [] lbc in
+(compile_labels il lbc =
+  let (m,n,bc) = calculate_labels il FEMPTY 0 [] lbc in
     replace_labels m [] bc)`;
 
 val _ = Defn.save_defn compile_labels_defn;
@@ -1250,6 +1250,7 @@ val _ = Hol_datatype `
   <| contab : contab
    ; renv : ctenv
    ; rsz  : num
+   ; rnext_label : num
    |>`;
 
 
@@ -1258,13 +1259,13 @@ val _ = Define `
   <| contab := (FEMPTY, FEMPTY, 0)
    ; renv := FEMPTY
    ; rsz  := 0
+   ; rnext_label := 0
    |>`;
 
 
 val _ = Define `
- (compile_Cexp il na rs decl Ce =
-  let s = <| lnext_label := 0; lcode_env := [] |> in
-  let (Ce,n,c) = repeat_label_closures Ce s.lnext_label [] in
+ (compile_Cexp rs decl Ce =
+  let (Ce,n,c) = repeat_label_closures Ce rs.rnext_label [] in
   let c = alist_to_fmap c in
   let ldefs = calculate_ldefs c [] Ce in
   let cs = <| env := rs.renv; sz := rs.rsz
@@ -1279,7 +1280,8 @@ val _ = Define `
       NONE => rs
     | SOME (env,sz) =>  rs with<| renv := env ; rsz := sz |>
     ) in
-  (rs, compile_labels il na (REVERSE cs.out)))`;
+  let rs =  rs with<| rnext_label := cs.next_label |> in
+  (rs, REVERSE cs.out))`;
 
 
  val number_constructors_defn = Hol_defn "number_constructors" `
@@ -1293,30 +1295,30 @@ val _ = Defn.save_defn number_constructors_defn;
 
  val repl_dec_defn = Hol_defn "repl_dec" `
 
-(repl_dec il na rs (Dtype []) = (rs,[]))
+(repl_dec rs (Dtype []) = (rs,[]))
 /\
-(repl_dec il na rs (Dtype ((_,_,cs)::ts)) =
+(repl_dec rs (Dtype ((_,_,cs)::ts)) =
   let ct = number_constructors cs rs.contab in
-  repl_dec il na ( rs with<| contab := ct |>) (Dtype ts)) (* parens: Lem sucks *)
+  repl_dec ( rs with<| contab := ct |>) (Dtype ts)) (* parens: Lem sucks *)
 /\
-(repl_dec il na rs (Dletrec defs) =
+(repl_dec rs (Dletrec defs) =
   let (fns,Cdefs) = defs_to_Cdefs (cmap rs.contab) defs in
   let decl = SOME(rs.renv,rs.rsz) in
-  compile_Cexp il na rs decl (CLetfun T fns Cdefs (CDecl fns)))
+  compile_Cexp rs decl (CLetfun T fns Cdefs (CDecl fns)))
 /\
-(repl_dec il na rs (Dlet p e) =
+(repl_dec rs (Dlet p e) =
   let m = cmap rs.contab in
   let (pvs,Cp) = pat_to_Cpat m [] p in
   let Cpes = [(Cp,CDecl pvs)] in
   let vn = fresh_var (Cpes_vars Cpes) in
   let Ce = exp_to_Cexp m e in
   let decl = SOME(rs.renv,rs.rsz) in
-  compile_Cexp il na rs decl (CLet [vn] [Ce] (remove_mat_var vn Cpes)))`;
+  compile_Cexp rs decl (CLet [vn] [Ce] (remove_mat_var vn Cpes)))`;
 
 val _ = Defn.save_defn repl_dec_defn;
 
 val _ = Define `
- (repl_exp il na s exp = compile_Cexp il na s NONE (exp_to_Cexp (cmap s.contab) exp))`;
+ (repl_exp s exp = compile_Cexp s NONE (exp_to_Cexp (cmap s.contab) exp))`;
 
 
 (* Correctness *)
