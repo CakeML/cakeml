@@ -1,4 +1,4 @@
-open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory lcsymtacs quantHeuristicsLib
+open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory lcsymtacs quantHeuristicsLib
 open MiniMLTerminationTheory miniMLExtraTheory miscTheory compileTerminationTheory intLangTheory bytecodeTerminationTheory evaluateEquationsTheory expToCexpTheory pmatchTheory labelClosuresTheory bytecodeEvalTheory
 val _ = intLib.deprecate_int()
 val _ = new_theory "compileCorrectness"
@@ -101,14 +101,10 @@ val Cexp_pred_calculate_ldefs = store_thm("Cexp_pred_calculate_ldefs",
   first_x_assum (match_mp_tac o MP_CANON) >>
   fs[EVERY_MEM])
 
-val pc_end_def = Define`
-  (pc_end len n [] = (n = 0)) ∧
-  (pc_end len n (x::xs) =
-   if is_Label x then pc_end len n xs
-   else len x < n ∧ pc_end len (n - (len x + 1)) xs)`
+val _ = overload_on("next_addr", ``λil ls. SUM (MAP (SUC o il) (FILTER ($~ o is_Label) ls))``)
 
 val bc_finish_def = Define`
-  bc_finish s1 s2 = bc_next^* s1 s2 ∧ pc_end s2.inst_length s2.pc s2.code`
+  bc_finish s1 s2 = bc_next^* s1 s2 ∧ (s2.pc = next_addr s2.inst_length s2.code)`
 
 val repl_exp_contab = store_thm("repl_exp_contab",
   ``(repl_exp rs exp = (rs',c)) ==> (rs'.contab = rs.contab)``,
@@ -358,18 +354,22 @@ val v_to_Cv_ov = store_thm("v_to_Cv_ov",
   rw[v_to_Cv_def] >> rw[Cv_to_ov_def] >>
   srw_tac[ETA_ss][fmap_linv_FAPPLY])
 
+(* TODO: move *)
 val bc_find_loc_aux_def = BytecodeTheory.bc_find_loc_aux_def
+val prim2_to_bc_def = CompileTheory.prim2_to_bc_def
+val _ = export_rewrites["Compile.prim2_to_bc_def"]
+
+val _ = overload_on("mk_pp", ``λc bs.
+  (c
+  ,combin$C (bc_find_loc_aux bs.code bs.inst_length) 0
+  ,bs.refs
+  )``)
 
 val Cenv_bs_def = Define`
   Cenv_bs c Cenv (renv:ctenv) sz bs =
     fmap_rel
       (λCv b. case lookup_ct sz bs.stack bs.refs b of NONE => F
-         | SOME bv =>
-           Cv_bv
-             (c
-             ,combin$C (bc_find_loc_aux bs.code bs.inst_length) 0
-             ,bs.refs
-             ) Cv bv)
+         | SOME bv => Cv_bv (mk_pp c bs) Cv bv)
     Cenv renv`
 
 val env_rs_def = Define`
@@ -697,12 +697,358 @@ val bc_next_compile_labels = store_thm("bc_next_compile_labels",
    |> MP_CANON |> match_mp_tac ) >>
   fs[])
 
-val next_addr_def = Define`
-  next_addr bs = FST(SND(calculate_labels bs.inst_length FEMPTY 0 [] bs.code))`
+val bc_fetch_next_addr = store_thm("bc_fetch_next_addr",
+  ``∀bc0 bs x bc.
+    (bs.code = bc0 ++ (x::bc)) ∧ (¬is_Label x) ∧
+    (bs.pc = next_addr bs.inst_length bc0)
+    ⇒
+    (bc_fetch bs = SOME x)``,
+  Induct >- rw[bc_fetch_def] >>
+  rw[bc_fetch_def] >>
+  fsrw_tac[ARITH_ss][bc_fetch_def,ADD1] >>
+  first_x_assum (qspec_then `bs with <| code := TL bs.code ; pc := next_addr bs.inst_length bc0 |>` mp_tac) >>
+  rw[])
 
-(*
+val compile_varref_thm = store_thm("compile_varref_thm",
+  ``∀bs bc0 bc0c bc1 cs b bv.
+      (bc0c = bc0 ++ REVERSE (compile_varref cs b).out) ∧
+      (bs.code = bc0c ++ bc1) ∧
+      (bs.pc = next_addr bs.inst_length (bc0 ++ REVERSE cs.out)) ∧
+      (lookup_ct cs.sz bs.stack bs.refs b = SOME bv)
+      ⇒
+      bc_next^* bs (bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length bc0c |>)``,
+  ntac 5 gen_tac >> Cases >>
+  rw[bc_finish_def] >>
+  qmatch_assum_abbrev_tac `bs.code = ls0 ++ (x::ls1) ++ bc1` >>
+  `bc_fetch bs = SOME x` by (
+    match_mp_tac bc_fetch_next_addr >>
+    map_every qexists_tac [`ls0`,`ls1++bc1`] >>
+    rw[Abbr`x`] ) >>
+  TRY (
+    qmatch_abbrev_tac `bc_next^* bs bs'` >>
+    `(bc_eval1 bs = SOME bs')` by (
+      rw[bc_eval1_def,Abbr`x`] >>
+      rw[bc_eval_stack_def] >>
+      srw_tac[ARITH_ss][bump_pc_def,SUM_APPEND,FILTER_APPEND,ADD1,Abbr`ls1`,Abbr`bs'`] ) >>
+    qmatch_abbrev_tac `bc_next^* bs bs'` >>
+    metis_tac[bc_eval1_thm,RTC_CASES1] )
+  >- (
+    qmatch_abbrev_tac `bc_next^* bs bs'` >>
+    qpat_assum `X = SOME bv` mp_tac >>
+    BasicProvers.EVERY_CASE_TAC >> rw[] >>
+    rw[RTC_eq_NRC] >>
+    qexists_tac `SUC (SUC ZERO)` >> rw[NRC] >>
+    srw_tac[DNF_ss][ALT_ZERO] >>
+    rw[bc_eval1_thm] >>
+    rw[Once bc_eval1_def,Abbr`x`] >>
+    rw[bc_eval_stack_def] >>
+    qunabbrev_tac`ls1` >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x;y] ++ bc1` >>
+    qmatch_abbrev_tac `bc_eval1 bs0 = SOME bs'` >>
+    `bc_fetch bs0 = SOME y` by (
+      match_mp_tac bc_fetch_next_addr >>
+      map_every qexists_tac [`ls0++[x]`,`bc1`] >>
+      unabbrev_all_tac >> rw[bump_pc_def] >>
+      srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND] ) >>
+    rw[bc_eval1_def,Abbr`y`] >>
+    rw[bc_eval_stack_def,Abbr`bs0`,Abbr`bs'`] >>
+    unabbrev_all_tac >>
+    srw_tac[ARITH_ss][bump_pc_def,FILTER_APPEND,SUM_APPEND,ADD1] )
+  >- (
+    qmatch_abbrev_tac `bc_next^* bs bs'` >>
+    qpat_assum `X = SOME bv` mp_tac >>
+    BasicProvers.EVERY_CASE_TAC >> rw[] >>
+    qpat_assum `X = SOME bv` mp_tac >>
+    BasicProvers.EVERY_CASE_TAC >> rw[] >>
+    srw_tac[DNF_ss][RTC_eq_NRC] >>
+    qexists_tac `SUC (SUC (SUC ZERO))` >> rw[NRC] >>
+    srw_tac[DNF_ss][ALT_ZERO] >>
+    rw[bc_eval1_thm] >>
+    rw[Once bc_eval1_def,Abbr`x`] >>
+    srw_tac[DNF_ss][] >>
+    rw[bc_eval_stack_def] >>
+    Q.PAT_ABBREV_TAC `bs0 = bump_pc bs with stack := st` >>
+    qunabbrev_tac`ls1` >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x;y;z] ++ bc1` >>
+    `bc_fetch bs0 = SOME y` by (
+      match_mp_tac bc_fetch_next_addr >>
+      map_every qexists_tac [`ls0++[x]`,`z::bc1`] >>
+      rw[Abbr`bs0`,Abbr`y`,bump_pc_def] >>
+      srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND,Abbr`x`] ) >>
+    rw[Once bc_eval1_def,Abbr`y`] >>
+    srw_tac[DNF_ss][] >>
+    rw[bc_eval_stack_def,Abbr`bs0`] >>
+    Q.PAT_ABBREV_TAC`bs0 = bump_pc X with stack := Y` >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x;y;z] ++ bc1` >>
+    `bc_fetch bs0 = SOME z` by (
+      match_mp_tac bc_fetch_next_addr >>
+      map_every qexists_tac [`ls0++[x;y]`,`bc1`] >>
+      rw[Abbr`bs0`,bump_pc_def,Abbr`z`] >>
+      srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND,Abbr`y`,Abbr`x`] ) >>
+    rw[bc_eval1_def,Abbr`bs0`,bump_pc_def,Abbr`z`] >>
+    fs[FLOOKUP_DEF] >>
+    unabbrev_all_tac >>
+    srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND,ADD1] ))
+
+val no_closures_Cv_bv_equal = store_thm("no_closures_Cv_bv_equal",
+  ``∀pp cv bv. Cv_bv pp cv bv ⇒
+      ∀cv' bv'. Cv_bv pp cv' bv' ∧ no_closures cv ∧ no_closures cv' ⇒ ((cv = cv') = (bv = bv'))``,
+  gen_tac >> ho_match_mp_tac Cv_bv_ind >> rw[]
+  >- (
+    rw[EQ_IMP_THM] >> rw[] >>
+    fs[Once Cv_bv_cases] )
+  >- (
+    rw[EQ_IMP_THM] >> rw[] >>
+    Cases_on `b` >>
+    fsrw_tac[ARITH_ss][Once Cv_bv_cases] >>
+    Cases_on `b` >> fs[]) >>
+  rw[EQ_IMP_THM] >- (
+    fs[Once (Q.SPECL[`pp`,`CConv cn vs`]Cv_bv_cases)] >>
+    rw[LIST_EQ_REWRITE] >>
+    fs[EVERY2_EVERY] >>
+    qpat_assum`LENGTH X = LENGTH bvs` assume_tac >>
+    fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
+    qpat_assum`LENGTH vs = X` assume_tac >>
+    fsrw_tac[DNF_ss][MEM_EL] >>
+    metis_tac[EL_ZIP] ) >>
+  qpat_assum`Cv_bv X Y Z` mp_tac >>
+  rw[Once Cv_bv_cases] >>
+  fsrw_tac[ARITH_ss][] >>
+  TRY (Cases_on `b` >> fsrw_tac[ARITH_ss][]) >>
+  fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+  rpt (qpat_assum `LENGTH X = Y` mp_tac) >> rpt strip_tac >>
+  fsrw_tac[DNF_ss][MEM_ZIP] >>
+  rw[LIST_EQ_REWRITE] >> fsrw_tac[DNF_ss][MEM_EL] >>
+  metis_tac[])
+
+val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
+  ``∀op v1 v2 v bs bc0 bc1 st bv1 bv2 pp.
+    (bs.code = bc0 ++ [Stack (prim2_to_bc op)] ++ bc1) ∧
+    (bs.pc = next_addr bs.inst_length bc0) ∧
+    (CevalPrim2 op v1 v2 = Rval v) ∧
+    Cv_bv pp v1 bv1 ∧ Cv_bv pp v2 bv2 ∧
+    (bs.stack = bv2::bv1::st)
+    ⇒ ∃bv.
+      Cv_bv pp v bv ∧
+      bc_next bs (bump_pc (bs with <|stack := bv::st|>))``,
+  rw[] >>
+  `bc_fetch bs = SOME (Stack (prim2_to_bc op))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    map_every qexists_tac[`bc0`,`bc1`] >>
+    rw[] ) >>
+  rw[bc_eval1_thm] >>
+  rw[bc_eval1_def] >>
+  srw_tac[DNF_ss][] >>
+  rw[bump_pc_with_stack] >>
+  Cases_on `op` >>
+  Cases_on `v1` >> TRY (Cases_on `l`) >>
+  Cases_on `v2` >> TRY (Cases_on `l`) >>
+  fs[] >> rw[] >> fs[Once Cv_bv_cases] >> rw[] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  rw[bc_eval_stack_def] >> fs[i0_def] >>
+  TRY (Cases_on `b` >> rw[]) >>
+  TRY (Cases_on `b'` >> rw[]) >>
+  srw_tac[ARITH_ss][] >>
+  fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+  Cases_on `m=m'` >> rw[] >>
+  AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >> AP_THM_TAC >>
+  AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >>
+  rw[LIST_EQ_REWRITE] >>
+  rfs[MEM_ZIP] >>
+  fsrw_tac[DNF_ss][MEM_EL] >>
+  Cases_on `LENGTH bvs = LENGTH bvs'` >> rw[] >>
+  metis_tac[no_closures_Cv_bv_equal] )
+
+val compile_val = store_thm("compile_val",
+  ``(∀c env exp res. Cevaluate c env exp res ⇒
+      ∀v bc0 bc0c bc1 bs cs.
+        Cexp_pred exp ∧
+        (res = Rval v) ∧
+        (Cenv_bs c env cs.env cs.sz bs) ∧
+        (bc0c = bc0 ++ (REVERSE (compile cs exp).out)) ∧
+        (bs.code = bc0c ++ bc1) ∧
+        (bs.pc = next_addr bs.inst_length (bc0 ++ REVERSE cs.out))
+        ⇒
+        ∃bv.
+          bc_next^* bs (bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length bc0c |> ) ∧
+          Cv_bv (mk_pp c bs) v bv) ∧
+    (∀c env exps ress. Cevaluate_list c env exps ress ⇒
+      ∀vs bc0 bc0c bc1 bs cs.
+        EVERY Cexp_pred exps ∧
+        (ress = Rval vs) ∧
+        (Cenv_bs c env cs.env cs.sz bs) ∧
+        (bc0c = bc0 ++ (REVERSE (FOLDL compile cs exps).out)) ∧
+        (bs.code = bc0c ++ bc1) ∧
+        (bs.pc = next_addr bs.inst_length (bc0 ++ REVERSE cs.out))
+        ⇒
+        ∃bvs.
+          bc_next^* bs (bs with <| stack := (REVERSE bvs)++bs.stack ; pc := next_addr bs.inst_length bc0c |> ) ∧
+          EVERY2 (Cv_bv (mk_pp c bs)) vs bvs)``,
+  ho_match_mp_tac Cevaluate_strongind >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[compile_def,bc_finish_def,Cenv_bs_def,fmap_rel_def] >>
+    qmatch_assum_rename_tac `n ∈ FDOM env`[] >>
+    first_x_assum (qspec_then `n` mp_tac) >>
+    BasicProvers.EVERY_CASE_TAC >>
+    strip_tac >>
+    qmatch_assum_rename_tac `Cv_bv pp (env ' n) x`["pp"] >>
+    qexists_tac `x` >> rw[] >>
+    imp_res_tac compile_varref_thm >>
+    pop_assum mp_tac >> rw[] ) >>
+  strip_tac >- (
+    ntac 2 gen_tac >>
+    Cases >> rw[compile_def] >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
+    `bc_fetch bs = SOME x` by (
+      match_mp_tac bc_fetch_next_addr >>
+      map_every qexists_tac [`ls0`,`bc1`] >>
+      rw[Abbr`x`] ) >>
+    rw[Once Cv_bv_cases] >>
+    rw[RTC_eq_NRC] >>
+    qexists_tac `SUC 0` >>
+    rw[NRC] >>
+    rw[bc_eval1_thm] >>
+    rw[bc_eval1_def,Abbr`x`] >>
+    rw[bc_eval_stack_def] >>
+    srw_tac[ARITH_ss][bump_pc_def,Abbr`ls0`,FILTER_APPEND,SUM_APPEND,ADD1] ) >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    fsrw_tac[ETA_ss][] >>
+    srw_tac[DNF_ss][Once Cv_bv_cases] >>
+    qabbrev_tac`cs0 = cs with <| tail := TCNonTail; decl := NONE|>` >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
+    first_x_assum (qspecl_then [`bc0`,`[x] ++ bc1`,`bs`,`cs0`] mp_tac) >>
+    fs[Abbr`cs0`] >>
+    disch_then (Q.X_CHOOSE_THEN `bvs` strip_assume_tac) >>
+    qexists_tac `bvs` >> rw[] >>
+    rw[Once RTC_CASES2] >> disj2_tac >>
+    qmatch_assum_abbrev_tac `bc_next^* bs bs0` >>
+    qexists_tac `bs0` >> rw[] >>
+    `bc_fetch bs0 = SOME x` by (
+      match_mp_tac bc_fetch_next_addr >>
+      map_every qexists_tac [`ls0`,`bc1`] >>
+      unabbrev_all_tac >> rw[] ) >>
+    rw[bc_eval1_thm] >>
+    rw[bc_eval1_def,Abbr`x`] >>
+    fs[EVERY2_EVERY,Cevaluate_list_with_Cevaluate,Cevaluate_list_with_EVERY] >>
+    srw_tac[ARITH_ss][bc_eval_stack_def,Abbr`bs0`] >>
+    unabbrev_all_tac >>
+    srw_tac[ARITH_ss][SUM_APPEND,FILTER_APPEND,ADD1,bump_pc_def] >>
+    rw[DB.fetch"Bytecode""bc_state_component_equality"] >>
+    metis_tac[TAKE_LENGTH_APPEND,REVERSE_REVERSE
+             ,DROP_LENGTH_APPEND,LENGTH_REVERSE]) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    srw_tac[DNF_ss][Once Cv_bv_cases] >>
+    qabbrev_tac`cs0 = cs with <| tail := TCNonTail; decl := NONE|>` >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
+    first_x_assum (qspecl_then [`bc0`,`[x] ++ bc1`,`bs`,`cs0`] mp_tac) >>
+    fs[Abbr`cs0`] >>
+    disch_then (Q.X_CHOOSE_THEN `bv` strip_assume_tac) >>
+    rw[Once RTC_CASES2] >> disj2_tac >>
+    qmatch_assum_abbrev_tac `bc_next^* bs bs0` >>
+    qexists_tac `bs0` >> rw[] >>
+    `bc_fetch bs0 = SOME x` by (
+      match_mp_tac bc_fetch_next_addr >>
+      map_every qexists_tac [`ls0`,`bc1`] >>
+      unabbrev_all_tac >> rw[] ) >>
+    rw[bc_eval1_thm] >>
+    rw[bc_eval1_def,Abbr`x`] >>
+    fs[Once Cv_bv_cases] >>
+    rw[bc_eval_stack_def,Abbr`bs0`] >>
+    unabbrev_all_tac >>
+    srw_tac[ARITH_ss][bump_pc_def,SUM_APPEND,FILTER_APPEND,ADD1] >>
+    rw[DB.fetch"Bytecode""bc_state_component_equality"] >>
+    AP_TERM_TAC >> metis_tac[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    qabbrev_tac`cs0 = cs with <| tail := TCNonTail; decl := NONE|>` >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
+    first_x_assum (qspecl_then [`bc0`,`[x] ++ bc1`,`bs`,`cs0`] mp_tac) >>
+    fs[Abbr`cs0`] >>
+    disch_then (Q.X_CHOOSE_THEN `bv` strip_assume_tac) >>
+    fs[Once (Q.SPECL[`pp`,`CConv m vs`]Cv_bv_cases)] >>
+    fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+    qexists_tac `EL n bvs` >>
+    rev_full_simp_tac(srw_ss()++DNF_ss)[MEM_ZIP] >>
+    rw[Once RTC_CASES2] >> disj2_tac >>
+    qmatch_assum_abbrev_tac `bc_next^* bs bs0` >>
+    qexists_tac `bs0` >> rw[] >>
+    `bc_fetch bs0 = SOME x` by (
+      match_mp_tac bc_fetch_next_addr >>
+      map_every qexists_tac [`ls0`,`bc1`] >>
+      unabbrev_all_tac >> rw[] ) >>
+    rw[bc_eval1_thm] >>
+    rw[bc_eval1_def,Abbr`x`] >>
+    rw[bc_eval_stack_def,Abbr`bs0`] >>
+    unabbrev_all_tac >>
+    srw_tac[ARITH_ss][bump_pc_def,SUM_APPEND,FILTER_APPEND,ADD1] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    qabbrev_tac`cs0 = cs with <| tail := TCNonTail; decl := NONE|>` >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
+    first_x_assum (qspecl_then [`bc0`,`[x] ++ bc1`,`bs`,`cs0`] mp_tac) >>
+    fs[Abbr`cs0`] >>
+    disch_then (Q.X_CHOOSE_THEN `bvs` strip_assume_tac) >>
+    fs[EVERY2_EVERY] >>
+    `∃bv0 bv1. bvs = [bv0;bv1]` by (
+      Cases_on `bvs` >> fs[] >>
+      Cases_on `t` >> fs[LENGTH_NIL] ) >> fs[] >> rw[] >>
+    qmatch_assum_abbrev_tac `bc_next^* bs bs0` >>
+    qmatch_assum_abbrev_tac `Cv_bv pp v1 bv0` >>
+    qspecl_then[`p2`,`v1`,`v2`,`v`,`bs0`,`ls0`,`bc1`,`bs.stack`,`bv0`,`bv1`,`pp`]mp_tac prim2_to_bc_thm >>
+    fs[Abbr`bs0`] >>
+    disch_then (Q.X_CHOOSE_THEN`bv`strip_assume_tac) >>
+    qexists_tac `bv` >> rw[] >>
+    rw[Once RTC_CASES2] >> disj2_tac >>
+    qmatch_assum_abbrev_tac `bc_next^* bs bs0` >>
+    qexists_tac `bs0` >> rw[] >>
+    qmatch_assum_abbrev_tac `bc_next bs0 bs1` >>
+    qmatch_abbrev_tac `bc_next bs0 bs11` >>
+    qsuff_tac `bs1 = bs11` >- metis_tac[bc_eval1_thm,optionTheory.SOME_11] >>
+    rw[Abbr`bs1`,Abbr`bs11`] >>
+    qmatch_abbrev_tac `bump_pc bs2 = bs1` >>
+    `bc_fetch bs2 = SOME x` by (
+      match_mp_tac bc_fetch_next_addr >>
+      map_every qexists_tac [`ls0`,`bc1`] >>
+      unabbrev_all_tac >> rw[] ) >>
+    rw[bump_pc_def] >>
+    unabbrev_all_tac >>
+    srw_tac[ARITH_ss][SUM_APPEND,FILTER_APPEND,ADD1] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rpt gen_tac >>
+    rpt strip_tac >>
+    rw[] >> fs[] >>
+    cheat ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[EVERY2_EVERY] >>
+    rw[LENGTH_NIL_SYM] >>
+    rw[RTC_eq_NRC] >>
+    qexists_tac`0` >>rw[] >>
+    rw[DB.fetch"Bytecode""bc_state_component_equality"] ) >>
+  strip_tac >- (
+    rw[] >>
+    cheat ) >>
+  strip_tac >- rw[] >>
+  rw[] )
+
 val repl_exp_val = store_thm("repl_exp_val",
-  ``∀cenv env exp v rs rs' bc bs bs'.
+  ``∀cenv env exp v rs rs' bc0 bc bc1 bs bs'.
       exp_pred exp ∧
       evaluate cenv env exp (Rval v) ∧
       EVERY closed (MAP SND env) ∧
@@ -710,16 +1056,16 @@ val repl_exp_val = store_thm("repl_exp_val",
       good_cenv cenv ∧
       good_cmap cenv (cmap rs.contab) ∧
       env_rs env bs rs ∧
-      (let na = next_addr bs in
-       (repl_exp bs.inst_length na rs exp = (rs',bc)) ∧
-       (bc_finish (bs with <|code := bs.code++bc; pc := na|>) bs'))
+      (repl_exp rs exp = (rs',bc)) ∧
+      (bs.code = bc0 ++ bc ++ bc1) ∧
+      (bs.pc = next_addr bs.inst_length bc0)
       ⇒
       ∃bv.
-      (bs'.stack = bv :: bs.stack) ∧
+      bc_next^* bs (bs with <|pc := next_addr bs.inst_length (bc0 ++ bc);
+                              stack := bv :: bs.stack|>) ∧
       (v_to_ov v = bv_to_ov (FST(SND(rs.contab))) bv)``,
   rw[repl_exp_def,compile_Cexp_def,LET_THM] >>
-  pop_assum mp_tac >>
-  qabbrev_tac `p = repeat_label_closures (exp_to_Cexp (cmap rs.contab) exp) 0 []` >>
+  qabbrev_tac `p = repeat_label_closures (exp_to_Cexp (cmap rs.contab) exp) rs.rnext_label []` >>
   PairCases_on `p` >> fs[] >>
   reverse BasicProvers.EVERY_CASE_TAC >- (
     qmatch_assum_abbrev_tac `(compile ss ee).decl = SOME (q,r)` >>
@@ -731,13 +1077,21 @@ val repl_exp_val = store_thm("repl_exp_val",
   qx_gen_tac `Cv` >> rw[] >>
   qabbrev_tac `Ce = exp_to_Cexp (cmap rs.contab) exp` >>
   `Cexp_pred Ce` by PROVE_TAC[exp_pred_Cexp_pred] >>
-  `(p0,p1,p2) = (Ce,0,[])` by PROVE_TAC[Cexp_pred_repeat_label_closures] >>
+  `(p0,p1,p2) = (Ce,rs.rnext_label,[])` by PROVE_TAC[Cexp_pred_repeat_label_closures] >>
   fs[] >> rw[] >>
   `calculate_ldefs FEMPTY [] Ce = []` by PROVE_TAC[Cexp_pred_calculate_ldefs] >>
   fs[] >>
   fs[calculate_ecs_def] >>
   fs[compile_code_env_def,LET_THM] >>
-*)
+  qmatch_assum_abbrev_tac `Cevaluate Cc Cenv Ce (Rval Cv)` >>
+  Q.PAT_ABBREV_TAC`cs = compiler_state_env_fupd X Y` >>
+
+  qho_match_abbrev_tac `∃bv. bc_next^* bs0 (bs1 bv) ∧ P bv` >>
+  (* deal with code env here *)
+  qspecl_then[`Cc`,`Cenv`,`Ce`,`Rval Cv`]mp_tac (CONJUNCT1 compile_val) >>
+  fs[] >>
+  disch_then (qspecl_then [`bs.code`,`[]`,`bs0`,`cs`] mp_tac) >>
+  rw[Abbr`bs0`]
 
 val with_same_pc = store_thm("with_same_pc",
   ``x with pc := x.pc = x``,
