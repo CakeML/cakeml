@@ -239,7 +239,7 @@ val el_check_def = Define`
 val _ = export_rewrites["el_check_def"]
 
 val lookup_ct_def = Define`
-  (lookup_ct sz st rs (CTLet n) = el_check (sz - n) st) ∧
+  (lookup_ct sz st rs (CTLet n) = if sz < n then NONE else el_check (sz - n) st) ∧
   (lookup_ct sz st rs (CTArg n) = el_check (sz + n) st) ∧
   (lookup_ct sz st rs (CTEnv n) =
    OPTION_BIND (el_check sz st)
@@ -954,6 +954,63 @@ val compile_varref_env_sz = store_thm("compile_varref_env_sz",
   ho_match_mp_tac compile_varref_ind >> rw[])
 val _ = export_rewrites["compile_varref_env_sz"]
 
+val compile_decl_env = store_thm("compile_decl_env",
+  ``∀env0 a vs. (FST (compile_decl env0 a vs)).env = (FST a).env``,
+  rpt gen_tac >>
+  simp[compile_decl_def] >>
+  qmatch_abbrev_tac `((FST (FOLDL f a vs)).env = (FST a).env)` >>
+  `(λx. (FST x).env = (FST a).env) (FOLDL f a vs)` by (
+    match_mp_tac FOLDL_invariant >>
+    rw[] >> rw[Abbr`f`] >>
+    PairCases_on `x` >> fs[] >>
+    rw[] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    rw[] ) >>
+  fs[])
+val _ = export_rewrites["compile_decl_env"]
+
+val compile_decl_sz = store_thm("compile_decl_sz",
+  ``∀env0 a vs. set vs ⊆ FDOM env0 ⇒ ((FST (compile_decl env0 a vs)).sz = (FST a).sz)``,
+  rpt gen_tac >>
+  strip_tac >>
+  simp[compile_decl_def] >>
+  qmatch_abbrev_tac `((FST (FOLDL f a vs)).sz = (FST a).sz)` >>
+  `(λx. (FST x).sz = (FST a).sz) (FOLDL f a vs)` by (
+    match_mp_tac FOLDL_invariant >>
+    rw[] >> rw[Abbr`f`] >>
+    PairCases_on `x` >> fs[] >>
+    rw[] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    rw[] >> fs[SUBSET_DEF] >> metis_tac[]) >>
+  fs[])
+
+val lookup_ct_incsz = store_thm("lookup_ct_incsz",
+  ``(lookup_ct (sz+1) (x::st) refs b =
+     if (b = CTLet (sz+1)) then SOME x else
+     lookup_ct sz st refs b)``,
+  fs[GSYM ADD1] >>
+  Cases_on `b` >> rw[] >>
+  fsrw_tac[ARITH_ss][] >>
+  rw[SUB,GSYM ADD_SUC])
+
+val lookup_ct_imp_incsz = store_thm("lookup_ct_imp_incsz",
+  ``(lookup_ct sz st refs b = SOME v) ⇒
+    (lookup_ct (sz+1) (x::st) refs b = SOME v)``,
+  fs[GSYM ADD1] >>
+  Cases_on `b` >> rw[] >>
+  fsrw_tac[ARITH_ss][] >>
+  rw[SUB,GSYM ADD_SUC])
+
+val Cenv_bs_imp_incsz = store_thm("Cenv_bs_imp_incsz",
+  ``Cenv_bs c env renv rsz bs ∧ (∃s p e. bs' = bs with <| stack := s::bs.stack; pc := p; exstack := e |>) ⇒
+    Cenv_bs c env renv (rsz+1) bs'``,
+  rw[Cenv_bs_def,fmap_rel_def] >>
+  qmatch_assum_rename_tac `z ∈ FDOM env`[] >>
+  first_x_assum (qspec_then `z` mp_tac) >>
+  BasicProvers.CASE_TAC >>
+  imp_res_tac lookup_ct_imp_incsz >>
+  rw[] )
+
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒
       ∀v bc0 bc0c bc1 bs cs.
@@ -965,8 +1022,10 @@ val compile_val = store_thm("compile_val",
         (bs.pc = next_addr bs.inst_length (bc0 ++ REVERSE cs.out))
         ⇒
         ∃bv.
-          bc_next^* bs (bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length bc0c |> ) ∧
-          Cv_bv (mk_pp c bs) v bv) ∧
+          let bs' = bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length bc0c |> in
+          bc_next^* bs bs' ∧
+          Cv_bv (mk_pp c bs) v bv ∧
+          Cenv_bs c env (compile cs exp).env (compile cs exp).sz bs') ∧
     (∀c env exps ress. Cevaluate_list c env exps ress ⇒
       ∀vs bc0 bc0c bc1 bs cs.
         EVERY Cexp_pred exps ∧
@@ -977,29 +1036,41 @@ val compile_val = store_thm("compile_val",
         (bs.pc = next_addr bs.inst_length (bc0 ++ REVERSE cs.out))
         ⇒
         ∃bvs.
-          bc_next^* bs (bs with <| stack := (REVERSE bvs)++bs.stack ; pc := next_addr bs.inst_length bc0c |> ) ∧
-          EVERY2 (Cv_bv (mk_pp c bs)) vs bvs)``,
+          let bs' = bs with <| stack := (REVERSE bvs)++bs.stack ; pc := next_addr bs.inst_length bc0c |> in
+          bc_next^* bs bs' ∧
+          EVERY2 (Cv_bv (mk_pp c bs)) vs bvs ∧
+          Cenv_bs c env (FOLDL compile cs exps).env (FOLDL compile cs exps).sz bs')``,
   ho_match_mp_tac Cevaluate_strongind >>
   strip_tac >- rw[] >>
   strip_tac >- (
     rw[compile_def,bc_finish_def,Cenv_bs_def,fmap_rel_def] >>
     qmatch_assum_rename_tac `n ∈ FDOM env`[] >>
-    first_x_assum (qspec_then `n` mp_tac) >>
+    first_assum (qspec_then `n` mp_tac) >>
     BasicProvers.EVERY_CASE_TAC >>
     strip_tac >>
     qmatch_assum_rename_tac `Cv_bv pp (env ' n) x`["pp"] >>
-    qexists_tac `x` >> rw[] >>
-    imp_res_tac compile_varref_thm >>
-    pop_assum mp_tac >> rw[] ) >>
+    qexists_tac `x` >> rw[] >- (
+      imp_res_tac compile_varref_thm >>
+      pop_assum mp_tac >> rw[] ) >>
+    unabbrev_all_tac >> rw[] >>
+    qmatch_assum_rename_tac `z ∈ FDOM env`[] >>
+    qmatch_abbrev_tac`X` >>
+    first_assum (qspec_then `z` mp_tac) >>
+    BasicProvers.CASE_TAC >>
+    qunabbrev_tac`X` >>
+    imp_res_tac lookup_ct_imp_incsz >>
+    rw[]) >>
   strip_tac >- (
     ntac 2 gen_tac >>
-    Cases >> rw[compile_def] >>
+    Cases >> rw[compile_def,LET_THM] >>
     qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
     `bc_fetch bs = SOME x` by (
       match_mp_tac bc_fetch_next_addr >>
       map_every qexists_tac [`ls0`,`bc1`] >>
-      rw[Abbr`x`] ) >>
-    rw[Once Cv_bv_cases] >>
+      rw[Abbr`x`] ) >> (
+    reverse (rw[Once Cv_bv_cases]) >- (
+      match_mp_tac Cenv_bs_imp_incsz >>
+      rw[DB.fetch"Bytecode""bc_state_component_equality"] )) >>
     rw[RTC_eq_NRC] >>
     qexists_tac `SUC 0` >>
     rw[NRC] >>
@@ -1016,7 +1087,9 @@ val compile_val = store_thm("compile_val",
     first_x_assum (qspecl_then [`bc0`,`[x] ++ bc1`,`bs`,`cs0`] mp_tac) >>
     fs[Abbr`cs0`] >>
     disch_then (Q.X_CHOOSE_THEN `bvs` strip_assume_tac) >>
-    qexists_tac `bvs` >> rw[] >>
+    qexists_tac `bvs` >>
+    reverse (rw[]) >- (
+      cheat ) >>
     rw[Once RTC_CASES2] >> disj2_tac >>
     qmatch_assum_abbrev_tac `bc_next^* bs bs0` >>
     qexists_tac `bs0` >> rw[] >>
@@ -1155,7 +1228,7 @@ val compile_val = store_thm("compile_val",
     Cases_on `b1` >> fs[] >- (
       first_x_assum (qspecl_then [`bc0++REVERSE cs.out++REVERSE bce1`,`REVERSE bce3++[Label (nl+2)]++bc1`,`bs1`,`cs1`] mp_tac) >>
 
-    set_trace"goalstack print goal at top"0
+    set_trace"goalstack print goal at top"1
 
     ) >>
   strip_tac >- rw[] >>
