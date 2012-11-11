@@ -1,4 +1,4 @@
-open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory lcsymtacs quantHeuristicsLib
+open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory lcsymtacs quantHeuristicsLib quantHeuristicsLibAbbrev
 open MiniMLTerminationTheory miniMLExtraTheory miscTheory compileTerminationTheory intLangTheory bytecodeTerminationTheory evaluateEquationsTheory expToCexpTheory pmatchTheory labelClosuresTheory bytecodeEvalTheory
 val _ = intLib.deprecate_int()
 val _ = new_theory "compileCorrectness"
@@ -863,7 +863,26 @@ val compile_varref_append_out = store_thm("compile_varref_append_out",
   ``∀cs b. ∃bc. (compile_varref cs b).out = bc ++ cs.out``,
   ho_match_mp_tac compile_varref_ind >> rw[])
 
-(*
+(* TODO: move *)
+val compile_decl_def = CompileTheory.compile_decl_def
+
+val compile_decl_append_out = store_thm("compile_decl_append_out",
+  ``∀env0 a vs. ∃bc. (FST (compile_decl env0 a vs)).out = bc ++ (FST a).out``,
+  rw[compile_decl_def] >>
+  qho_match_abbrev_tac `∃bc. (FST (FOLDL f a vs)).out = bc ++ (FST a).out` >>
+  qsuff_tac `(λx. ∃bc. (FST x).out = bc ++ (FST a).out) (FOLDL f a vs)` >- rw[] >>
+  match_mp_tac FOLDL_invariant >> rw[] >>
+  PairCases_on `x` >> fs[] >>
+  rw[Abbr`f`] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  rw[] >>
+  metis_tac[compile_varref_append_out,APPEND_ASSOC,CONS_APPEND])
+
+val compile_closures_append_out = store_thm("compile_closures_append_out",
+  ``∀nz s defs. ∃bc. (compile_closures nz s defs).out = bc ++ s.out``,
+  rw[compile_closures_def,LET_THM] >>
+  cheat (* need to split this into separate functions *))
+
 val compile_append_out = store_thm("compile_append_out",
   ``(∀cs exp. ∃bc. (compile cs exp).out = bc ++ cs.out) ∧
     (∀env0 sz1 exp n cs xs. ∃bc. (compile_bindings env0 sz1 exp n cs xs).out = bc ++ cs.out)``,
@@ -871,7 +890,9 @@ val compile_append_out = store_thm("compile_append_out",
   strip_tac >- (
     rw[compile_def,LET_THM] >>
     BasicProvers.EVERY_CASE_TAC >- rw[] >>
-    cheat ) >>
+    Q.PAT_ABBREV_TAC`p = compile_decl X Y Z` >>
+    PairCases_on `p` >> rw[] >>
+    metis_tac[compile_decl_append_out,pairTheory.FST,APPEND_ASSOC,CONS_APPEND]) >>
   strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
@@ -879,7 +900,46 @@ val compile_append_out = store_thm("compile_append_out",
   strip_tac >- (
     rw[compile_def,LET_THM] >>
     srw_tac[ETA_ss][] >>
-    FOLDL_invariant
+    qmatch_abbrev_tac `∃bc. x::(FOLDL compile a es).out = bc ++ cs.out` >>
+    qsuff_tac `∃bc. (FOLDL compile a es).out = bc ++ cs.out` >- (
+      rw[] >> qexists_tac `[x] ++ bc` >> rw[] ) >>
+    Q.ISPECL_THEN[`λx. ∃bc. x.out = bc ++ cs.out`,`compile`,`es`,`a`]mp_tac FOLDL_invariant >>
+    rw[Abbr`a`] >> pop_assum match_mp_tac >>
+    srw_tac[DNF_ss][] >>
+    metis_tac[APPEND_ASSOC] ) >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    srw_tac[ETA_ss][] >>
+    qmatch_abbrev_tac `∃bc. xx++(FOLDL compile a es).out = bc ++ cs.out` >>
+    qsuff_tac `∃b0. (FOLDL compile a es).out = b0 ++ cs.out` >- (
+      rw[] >> qexists_tac `xx ++ b0` >> rw[] ) >>
+    Q.ISPECL_THEN[`λx. ∃bc. x.out = bc ++ cs.out`,`compile`,`es`,`a`]mp_tac FOLDL_invariant >>
+    rw[Abbr`a`] >> pop_assum match_mp_tac >>
+    srw_tac[DNF_ss][] >>
+    metis_tac[APPEND_ASSOC] ) >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    rw[] >>
+    metis_tac[compile_closures_append_out,APPEND_ASSOC] ) >>
+  strip_tac >- rw[compile_def,compile_closures_append_out] >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    srw_tac[ETA_ss][] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    cheat (* more FOLDL_invariant *)) >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    metis_tac[APPEND_ASSOC,CONS_APPEND] ) >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    metis_tac[APPEND_ASSOC,CONS_APPEND] ) >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    BasicProvers.EVERY_CASE_TAC >> rw[] >>
+    metis_tac[APPEND_ASSOC,CONS_APPEND] ) >>
+  rw[compile_def] )
 
 val FOLDL_compile_append_out = store_thm("FOLDL_compile_append_out",
   ``∃bc. (FOLDL compile cs exps).out = bc ++ cs.out``,
@@ -887,24 +947,12 @@ val FOLDL_compile_append_out = store_thm("FOLDL_compile_append_out",
   rw[] >> pop_assum match_mp_tac >>
   rw[] >>
   metis_tac[compile_append_out,APPEND_ASSOC])
-*)
 
 val compile_varref_env_sz = store_thm("compile_varref_env_sz",
   ``∀cs b. ((compile_varref cs b).env = cs.env) ∧
            ((compile_varref cs b).sz = cs.sz)``,
   ho_match_mp_tac compile_varref_ind >> rw[])
 val _ = export_rewrites["compile_varref_env_sz"]
-
-val compile_env_sz = store_thm("compile_env_sz",
-  ``(∀cs exp. ((compile cs exp).env = cs.env) ∧
-              ((compile cs exp).sz = cs.sz)) ∧
-    (∀env0 sz1 exp n cs xs.
-       ((compile_bindings env0 sz1 exp n cs xs).env = cs.env) ∧
-       ((compile_bindings env0 sz1 exp n cs xs).sz = cs.sz))``,
-  ho_match_mp_tac compile_ind >>
-  strip_tac >- (
-    rw[compile_def,LET_THM] >>
-    BasicProvers.EVERY_CASE_TAC >> rw[]
 
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒
@@ -1080,7 +1128,36 @@ val compile_val = store_thm("compile_val",
     rpt gen_tac >>
     rpt strip_tac >>
     rw[] >> fs[] >>
-    cheat ) >>
+    fs[compile_def,LET_THM] >>
+    SIMPLE_QUANT_ABBREV_TAC [select_fun_constant ``compile`` 1 "cs0"] >>
+    SIMPLE_QUANT_ABBREV_TAC [select_fun_constant ``compile`` 1 "cs1"] >>
+    SIMPLE_QUANT_ABBREV_TAC [select_fun_constant ``compile`` 1 "cs2"] >>
+    qabbrev_tac`nl = (compile cs0 exp).next_label` >>
+    `∃bce1 bce2 bce3. ((compile cs0 exp).out = bce1 ++ cs0.out) ∧
+                      ((compile cs1 e2).out = bce2 ++ bce1 ++ cs0.out) ∧
+                      ((compile cs2 e3).out = bce3 ++ bce2 ++ bce1 ++ cs0.out)` by (
+      qspecl_then[`cs0`,`exp`]mp_tac(CONJUNCT1 compile_append_out) >>
+      qspecl_then[`cs1`,`e2`]mp_tac(CONJUNCT1 compile_append_out) >>
+      qspecl_then[`cs2`,`e3`]mp_tac(CONJUNCT1 compile_append_out) >>
+      disch_then(Q.X_CHOOSE_THEN`bce2`strip_assume_tac) >>
+      disch_then(Q.X_CHOOSE_THEN`bce1`strip_assume_tac) >>
+      disch_then(Q.X_CHOOSE_THEN`bce0`strip_assume_tac) >>
+      fs[Abbr`cs1`,Abbr`cs2`] ) >>
+    qpat_assum `∀bc0. P` mp_tac >>
+    fs[] >>
+    first_x_assum (qspecl_then [`bc0`,`REVERSE bce2 ++ REVERSE bce3 ++ [Label (nl+2)] ++ bc1`,`bs`,`cs0`] mp_tac) >>
+    `(cs0.env = cs.env) ∧ (cs0.sz = cs.sz) ∧ (cs0.out = cs.out)` by rw[Abbr`cs0`] >>
+    fs[] >>
+    simp[Once Cv_bv_cases] >>
+    strip_tac >>
+    strip_tac >>
+    qmatch_assum_abbrev_tac `bc_next^* bs bs1` >>
+    Cases_on `b1` >> fs[] >- (
+      first_x_assum (qspecl_then [`bc0++REVERSE cs.out++REVERSE bce1`,`REVERSE bce3++[Label (nl+2)]++bc1`,`bs1`,`cs1`] mp_tac) >>
+
+    set_trace"goalstack print goal at top"0
+
+    ) >>
   strip_tac >- rw[] >>
   strip_tac >- (
     rw[EVERY2_EVERY] >>
