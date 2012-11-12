@@ -1223,15 +1223,15 @@ val compile_val = store_thm("compile_val",
   strip_tac >- (
     rpt gen_tac >>
     rpt strip_tac >>
-    rw[] >> fs[] >>
+    rw[LET_THM] >> fs[] >>
     fs[compile_def,LET_THM] >>
     SIMPLE_QUANT_ABBREV_TAC [select_fun_constant ``compile`` 1 "cs0"] >>
     SIMPLE_QUANT_ABBREV_TAC [select_fun_constant ``compile`` 1 "cs1"] >>
     SIMPLE_QUANT_ABBREV_TAC [select_fun_constant ``compile`` 1 "cs2"] >>
     qabbrev_tac`nl = (compile cs0 exp).next_label` >>
     `∃bce1 bce2 bce3. ((compile cs0 exp).out = bce1 ++ cs0.out) ∧
-                      ((compile cs1 e2).out = bce2 ++ bce1 ++ cs0.out) ∧
-                      ((compile cs2 e3).out = bce3 ++ bce2 ++ bce1 ++ cs0.out)` by (
+                      ((compile cs1 e2).out = bce2 ++ TAKE 3 (cs1.out) ++ (compile cs0 exp).out) ∧
+                      ((compile cs2 e3).out = bce3 ++ TAKE 2 (cs2.out) ++ (compile cs1 e2).out)` by (
       qspecl_then[`cs0`,`exp`]mp_tac(CONJUNCT1 compile_append_out) >>
       qspecl_then[`cs1`,`e2`]mp_tac(CONJUNCT1 compile_append_out) >>
       qspecl_then[`cs2`,`e3`]mp_tac(CONJUNCT1 compile_append_out) >>
@@ -1240,8 +1240,9 @@ val compile_val = store_thm("compile_val",
       disch_then(Q.X_CHOOSE_THEN`bce0`strip_assume_tac) >>
       fs[Abbr`cs1`,Abbr`cs2`] ) >>
     qpat_assum `∀bc0. P` mp_tac >>
-    fs[] >>
-    first_x_assum (qspecl_then [`bc0`,`REVERSE bce2 ++ REVERSE bce3 ++ [Label (nl+2)] ++ bc1`,`bs`,`cs0`] mp_tac) >>
+    full_simp_tac std_ss[GSYM APPEND_ASSOC,REVERSE_APPEND] >>
+    qmatch_assum_abbrev_tac `bs.code = bc0 ++ (REVERSE cs0.out ++ (REVERSE bce1 ++ bce11))` >>
+    first_x_assum (qspecl_then [`bc0`,`bce11`,`bs`,`cs0`] mp_tac) >>
     `(cs0.env = cs.env) ∧ (cs0.sz = cs.sz) ∧ (cs0.out = cs.out)` by rw[Abbr`cs0`] >>
     fs[] >>
     simp[Once Cv_bv_cases] >>
@@ -1249,7 +1250,17 @@ val compile_val = store_thm("compile_val",
     strip_tac >>
     qmatch_assum_abbrev_tac `bc_next^* bs bs1` >>
     Cases_on `b1` >> fs[] >- (
-      this is wrong - cs1 has size decremented preemptively
+      qmatch_assum_abbrev_tac `bs.code = bc10 ++ bce11` >>
+      qabbrev_tac `bs2 = bs1 with <| stack := bs.stack; pc := next_addr bs.inst_length (bc10++(TAKE 2 bce11))|>` >>
+      `bc_next bs1 bs2` by (
+        `bc_fetch bs1 = SOME (JumpIf (Lab nl))`  by (
+          match_mp_tac bc_fetch_next_addr >>
+          map_every qexists_tac[`bc0 ++ REVERSE cs.out ++ REVERSE bce1`,`DROP 1 bce11`] >>
+          unabbrev_all_tac >> rw[REVERSE_APPEND] ) >>
+        rw[bc_eval1_thm] >>
+        rw[bc_eval1_def,Abbr`bs1`,LET_THM] >>
+        rw[bc_find_loc_def]
+
       first_x_assum (qspecl_then [`bc0++REVERSE cs.out++REVERSE bce1`,`REVERSE bce3++[Label (nl+2)]++bc1`,`bs1`,`cs1`] mp_tac) >>
       fs[] >>
       `Cenv_bs c env cs1.env cs1.sz bs1` by (
