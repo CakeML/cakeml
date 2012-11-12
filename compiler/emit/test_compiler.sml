@@ -457,3 +457,13 @@ val e66 = ``Letrec [
 (App Opapp (Var "c") (Lit (IntLit 12)))``
 val (m,[r]) = mst_run_exp e66
 val true = (OLit (Bool true)) = bv_to_ov m r;
+val e67 = ``Let "x" (Lit (Bool T)) (If (Var "x") (Lit (IntLit 1)) (Lit (IntLit 2)))``
+val (m,[r]) = mst_run_exp e67
+val true = (OLit (IntLit (intML.fromInt 1))) = bv_to_ov m r;
+val e68 = ``Letrec [
+  ("not","x",Mat (Var "x")
+               [(Plit (Bool T),Lit(Bool F));
+                (Plit (Bool F),Lit(Bool T))])]
+   (If (Let "x" (Lit (Bool T)) (App Opapp (Var "not") (Var "x"))) (Lit (IntLit 1)) (Lit (IntLit 2)))``
+val (m,[r]) = mst_run_exp e68
+val true = (OLit (IntLit (intML.fromInt 2))) = bv_to_ov m r;
