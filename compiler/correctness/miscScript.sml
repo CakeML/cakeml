@@ -4,6 +4,10 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val ALL_DISTINCT_MAP_INJ = store_thm("ALL_DISTINCT_MAP_INJ",
+  ``!ls f. (!x y. MEM x ls /\ MEM y ls /\ (f x = f y) ==> (x = y)) /\ ALL_DISTINCT ls  ==> ALL_DISTINCT (MAP f ls)``,
+  Induct THEN SRW_TAC[][MEM_MAP] THEN PROVE_TAC[])
+
 val o_f_cong = store_thm("o_f_cong",
   ``!f fm f' fm'.
     (fm = fm') /\
