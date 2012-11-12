@@ -718,7 +718,89 @@ val Cenv_bs_imp_incsz = store_thm("Cenv_bs_imp_incsz",
 
 val bc_state_component_equality = DB.fetch"Bytecode""bc_state_component_equality"
 
-(*
+(* TODO: move *)
+val SUC_LEAST = store_thm("SUC_LEAST",
+  ``!x. P x ==> (SUC ($LEAST P) = LEAST x. 0 < x /\ P (PRE x))``,
+  GEN_TAC THEN STRIP_TAC THEN
+  numLib.LEAST_ELIM_TAC THEN
+  STRIP_TAC THEN1 PROVE_TAC[] THEN
+  numLib.LEAST_ELIM_TAC THEN
+  STRIP_TAC THEN1 (
+    Q.EXISTS_TAC `SUC x` THEN
+    SRW_TAC[][] ) THEN
+  Q.X_GEN_TAC`nn` THEN
+  STRIP_TAC THEN
+  Q.X_GEN_TAC`m` THEN
+  `?n. nn = SUC n` by ( Cases_on `nn` THEN SRW_TAC[][] THEN DECIDE_TAC ) THEN
+  SRW_TAC[][] THEN
+  FULL_SIMP_TAC(srw_ss())[] THEN
+  `~(n < m)` by PROVE_TAC[] THEN
+  `~(SUC m < SUC n)` by (
+    SPOSE_NOT_THEN STRIP_ASSUME_TAC THEN
+    RES_TAC THEN
+    FULL_SIMP_TAC(srw_ss())[] ) THEN
+  DECIDE_TAC)
+
+val ALL_DISTINCT_FILTER_EL_IMP = store_thm("ALL_DISTINCT_FILTER_EL_IMP",
+  ``!P l n1 n2. ALL_DISTINCT (FILTER P l) /\
+    n1 < LENGTH l /\ n2 < LENGTH l /\
+    (P (EL n1 l)) /\ (EL n1 l = EL n2 l) ==> (n1 = n2)``,
+  GEN_TAC THEN Induct THEN1 SRW_TAC[][] THEN
+  SRW_TAC[][] THEN FULL_SIMP_TAC(srw_ss())[MEM_FILTER]
+  THEN1 PROVE_TAC[] THEN
+  Cases_on `n1` THEN Cases_on `n2` THEN
+  FULL_SIMP_TAC(srw_ss())[MEM_EL] THEN
+  PROVE_TAC[] )
+
+val bc_find_loc_aux_thm = store_thm("bc_find_loc_aux_thm",
+  ``∀il ls l n.
+     bc_find_loc_aux ls il l n =
+     if MEM (Label l) ls then
+     SOME (n + SUM (MAP (SUC o il) (FILTER ($~ o is_Label) (TAKE (LEAST m. m < LENGTH ls ∧ (EL m ls = Label l)) ls))))
+     else NONE``,
+  gen_tac >> Induct >- rw[bc_find_loc_aux_def] >>
+  simp[bc_find_loc_aux_def] >>
+  qx_gen_tac `h` >> qx_gen_tac `l` >>
+  Cases_on `h = Label l` >> fs[] >- (
+    qx_gen_tac `n` >>
+    qmatch_abbrev_tac `n = n + m` >>
+    qsuff_tac `m = 0` >- rw[] >>
+    unabbrev_all_tac >>
+    numLib.LEAST_ELIM_TAC >>
+    conj_tac >- (
+      qexists_tac `0` >> rw[] ) >>
+    gen_tac >>
+    strip_tac >>
+    first_x_assum (qspec_then `0` mp_tac) >>
+    srw_tac[ARITH_ss][] ) >>
+  Cases_on `MEM (Label l) ls` >> fs[] >>
+  Q.PAT_ABBREV_TAC`l0 = $LEAST X` >>
+  Q.PAT_ABBREV_TAC`l1 = $LEAST X` >>
+  `(SUC l0) = l1` by (
+    unabbrev_all_tac >>
+    qmatch_abbrev_tac `SUC ($LEAST P) = X` >>
+    `∃n. P n` by (
+      fs[MEM_EL,Abbr`P`] >>
+      PROVE_TAC[] ) >>
+    rw[UNDISCH(Q.SPEC`n`SUC_LEAST)] >>
+    unabbrev_all_tac >>
+    AP_TERM_TAC >>
+    rw[FUN_EQ_THM] >>
+    Cases_on `m` >> rw[] ) >>
+  srw_tac[ARITH_ss][])
+
+val bc_find_loc_aux_ALL_DISTINCT = store_thm("bc_find_loc_aux_ALL_DISTINCT",
+  ``ALL_DISTINCT (FILTER is_Label ls) ∧ (k < LENGTH ls) ∧ (EL k ls = Label l) ==>
+    (bc_find_loc_aux ls il l n = SOME (n + next_addr il (TAKE k ls)))``,
+  rw[bc_find_loc_aux_thm] >- (
+   rw[MEM_EL] >> PROVE_TAC[] ) >>
+  numLib.LEAST_ELIM_TAC >>
+  conj_tac >- PROVE_TAC[] >>
+  qx_gen_tac `j` >> rw[] >>
+  qsuff_tac `k = j` >> rw[] >>
+  match_mp_tac (Q.ISPEC`is_Label`ALL_DISTINCT_FILTER_EL_IMP) >>
+  qexists_tac `ls` >> rw[])
+
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒
       ∀v bc0 bc0c bc1 bs cs.
