@@ -585,7 +585,63 @@ val compile_decl_append_out = store_thm("compile_decl_append_out",
 val compile_closures_append_out = store_thm("compile_closures_append_out",
   ``∀nz s defs. ∃bc. (compile_closures nz s defs).out = bc ++ s.out``,
   rw[compile_closures_def,LET_THM] >>
-  cheat (* need to split this into separate functions *))
+  SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``num_fold``1"f"] >>
+  `∃bc. (num_fold f'' s nz).out = bc ++ s.out` by (
+    qid_spec_tac `s` >>
+    Induct_on `nz` >> rw[Once num_fold_def] >>
+    `∃bc. (f'' s).out = bc ++ s.out` by rw[Abbr`f''`] >>
+    metis_tac[APPEND_ASSOC] ) >>
+  qabbrev_tac`p = (FOLDL push_lab (num_fold f'' s nz,0,[]) defs)` >>
+  `(λx. ∃bc. (FST x).out = bc ++ s.out) p` by (
+    qunabbrev_tac`p` >>
+    match_mp_tac FOLDL_invariant >>
+    fs[] >>
+    qx_gen_tac`x` >> PairCases_on`x` >>
+    qx_gen_tac`y` >> PairCases_on`y` >>
+    Cases_on `y1` >> rw[push_lab_def,LET_THM] >>
+    metis_tac[APPEND_ASSOC,CONS_APPEND] ) >>
+  PairCases_on `p` >> fs[] >>
+  Q.PAT_ABBREV_TAC`q = FOLDL (cons_closure X Y) (p0,1) Z` >>
+  `(λx. ∃bc. (FST x).out = bc ++ s.out) q` by(
+    qunabbrev_tac`q` >>
+    match_mp_tac FOLDL_invariant >>
+    fs[] >>
+    Cases >> Cases >>
+    rw[cons_closure_def,LET_THM] >>
+    Q.PAT_ABBREV_TAC `z = FOLDL (emit_ec s.sz) Y Z` >>
+    `(λx. ∃bc. x.out = bc ++ s.out) z` by (
+      qunabbrev_tac`z` >>
+      match_mp_tac FOLDL_invariant >>
+      fs[] >>
+      gen_tac >>
+      Cases >> rw[] >>
+      metis_tac[compile_varref_append_out,APPEND_ASSOC,CONS_APPEND] ) >>
+    fs[] ) >>
+  fs[] >>
+  PairCases_on `q` >> fs[] >>
+  qabbrev_tac `r = num_fold f (q0,1) nz` >>
+  `∃bc. (FST r).out = bc ++ s.out` by (
+    qunabbrev_tac`r` >>
+    qabbrev_tac`a = (q0,1)` >>
+    `∃bca. (FST a).out = bca ++ s.out` by rw[Abbr`a`] >>
+    pop_assum mp_tac >>
+    qid_spec_tac `a` >>
+    qid_spec_tac `bca` >>
+    qunabbrev_tac`f` >>
+    rpt (pop_assum kall_tac) >>
+    Induct_on `nz` >> rw[] >>
+    rw[Once num_fold_def] >>
+    `∃bc. (FST(update_refptr (LENGTH defs) a)).out = bc ++ s.out` by (
+      Cases_on `a` >> rw[update_refptr_def,LET_THM] >> fs[] ) >>
+    metis_tac[APPEND_ASSOC] ) >>
+  Cases_on`r`>>fs[] >>
+  qunabbrev_tac`f'` >>
+  qmatch_assum_rename_tac`q.out = z ++ s.out`[] >>
+  pop_assum mp_tac >>
+  map_every qid_spec_tac[`z`,`q`,`nz`] >>
+  rpt (pop_assum kall_tac) >>
+  Induct >> rw[] >>
+  rw[Once num_fold_def])
 
 val compile_append_out = store_thm("compile_append_out",
   ``(∀cs exp. ∃bc. (compile cs exp).out = bc ++ cs.out) ∧
@@ -631,8 +687,15 @@ val compile_append_out = store_thm("compile_append_out",
   strip_tac >- (
     rw[compile_def,LET_THM] >>
     srw_tac[ETA_ss][] >>
-    BasicProvers.EVERY_CASE_TAC >>
-    cheat (* more FOLDL_invariant *)) >>
+    BasicProvers.EVERY_CASE_TAC >> rw[] >>
+    fsrw_tac[DNF_ss][] >>
+    qmatch_assum_abbrev_tac`a.out = bc ++ cs.out` >>
+    Q.PAT_ABBREV_TAC`p = FOLDL compile Y Z` >>
+    `(λx. ∃bc. x.out = bc ++ cs.out) p` by (
+      qunabbrev_tac`p` >>
+      match_mp_tac FOLDL_invariant >>
+      fs[] >> rw[] >> metis_tac[APPEND_ASSOC] ) >>
+    fs[] ) >>
   strip_tac >- (
     rw[compile_def,LET_THM] >>
     metis_tac[APPEND_ASSOC,CONS_APPEND] ) >>
