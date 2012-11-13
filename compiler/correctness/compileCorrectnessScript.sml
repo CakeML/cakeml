@@ -863,6 +863,67 @@ val bc_find_loc_aux_ALL_DISTINCT = store_thm("bc_find_loc_aux_ALL_DISTINCT",
   match_mp_tac (Q.ISPEC`is_Label`ALL_DISTINCT_FILTER_EL_IMP) >>
   qexists_tac `ls` >> rw[])
 
+val compile_varref_ALL_DISTINCT_labels = store_thm("compile_varref_ALL_DISTINCT_labels",
+  ``ALL_DISTINCT (FILTER is_Label cs.out) ⇒ ALL_DISTINCT (FILTER is_Label (compile_varref cs b).out)``,
+  Cases_on`b` >> rw[])
+val _ = export_rewrites["compile_varref_ALL_DISTINCT_labels"]
+
+val compile_decl_ALL_DISTINCT_labels = store_thm("compile_decl_ALL_DISTINCT_labels",
+  ``∀env0 a vs. ALL_DISTINCT (FILTER is_Label (FST a).out) ⇒ ALL_DISTINCT (FILTER is_Label (FST (compile_decl env0 a vs)).out)``,
+  rw[compile_decl_def] >>
+  SIMPLE_QUANT_ABBREV_TAC [select_fun_constant``FOLDL`` 1 "f"] >>
+  `(λx. ALL_DISTINCT (FILTER is_Label (FST x).out)) (FOLDL f a vs)` by (
+    match_mp_tac FOLDL_invariant >> fs[] >>
+    qx_gen_tac`x` >> PairCases_on`x` >>
+    rw[Abbr`f`] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    rw[] ) >>
+  fs[])
+
+val compile_ALL_DISTINCT_labels = store_thm("compile_ALL_DISTINCT_labels",
+  ``(∀cs exp. ALL_DISTINCT (FILTER is_Label cs.out) ⇒
+      ALL_DISTINCT (FILTER is_Label (compile cs exp).out)) ∧
+    (∀env0 sz1 exp n cs xs. ALL_DISTINCT (FILTER is_Label cs.out) ⇒
+      ALL_DISTINCT (FILTER is_Label (compile_bindings env0 sz1 exp n cs xs).out))``,
+  ho_match_mp_tac compile_ind >>
+  strip_tac >- (
+    rw[compile_def] >>
+    BasicProvers.EVERY_CASE_TAC >- rw[] >>
+    rw[LET_THM] >>
+    SIMPLE_QUANT_ABBREV_TAC [select_fun_constant``compile_decl``2"a"] >>
+    qmatch_assum_rename_tac`cs.decl = SOME (env0,sz0)`[] >>
+    qspecl_then[`env0`,`a`,`vs`]mp_tac compile_decl_ALL_DISTINCT_labels >>
+    rw[Abbr`a`] >>
+    SIMPLE_QUANT_ABBREV_TAC [select_fun_constant``compile_decl``0"p"] >>
+    PairCases_on `p` >> rw[] >>
+    fs[markerTheory.Abbrev_def] ) >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    srw_tac[ETA_ss][] >>
+    SIMPLE_QUANT_ABBREV_TAC [select_fun_constant``FOLDL``2"a"] >>
+    `(λx. ALL_DISTINCT (FILTER is_Label x.out)) (FOLDL compile a es)` by (
+      match_mp_tac FOLDL_invariant >> rw[Abbr`a`] ) >>
+    fs[] ) >>
+  strip_tac >- (rw[compile_def] >> fs[]) >>
+  strip_tac >- (rw[compile_def] >> fs[]) >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    fsrw_tac[ETA_ss][] >>
+    first_x_assum match_mp_tac >>
+    SIMPLE_QUANT_ABBREV_TAC [select_fun_constant``FOLDL``2"a"] >>
+    `(λx. ALL_DISTINCT (FILTER is_Label x.out)) (FOLDL compile a es)` by (
+      match_mp_tac FOLDL_invariant >> rw[Abbr`a`] ) >>
+    fs[] ) >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    first_x_assum match_mp_tac
+
+
+
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒
       ∀v bc0 bc0c bc1 bs cs.
@@ -871,7 +932,8 @@ val compile_val = store_thm("compile_val",
         (Cenv_bs c env cs.env cs.sz bs) ∧
         (bc0c = bc0 ++ (REVERSE (compile cs exp).out)) ∧
         (bs.code = bc0c ++ bc1) ∧
-        (bs.pc = next_addr bs.inst_length (bc0 ++ REVERSE cs.out))
+        (bs.pc = next_addr bs.inst_length (bc0 ++ REVERSE cs.out)) ∧
+        ALL_DISTINCT (FILTER is_Label (bc0 ++ bc1))
         ⇒
         ∃bv.
           let bs' = bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length bc0c |> in
@@ -887,7 +949,8 @@ val compile_val = store_thm("compile_val",
         (Cenv_bs c env cs.env cs.sz bs) ∧
         (bc0c = bc0 ++ (REVERSE (FOLDL compile cs exps).out)) ∧
         (bs.code = bc0c ++ bc1) ∧
-        (bs.pc = next_addr bs.inst_length (bc0 ++ REVERSE cs.out))
+        (bs.pc = next_addr bs.inst_length (bc0 ++ REVERSE cs.out)) ∧
+        ALL_DISTINCT (FILTER is_Label (bc0 ++ bc1))
         ⇒
         ∃bvs.
           let bs' = bs with <| stack := (REVERSE bvs)++bs.stack ; pc := next_addr bs.inst_length bc0c |> in
