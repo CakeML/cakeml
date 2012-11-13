@@ -132,9 +132,8 @@ val compile_closures_decl = store_thm("compile_closures_decl",
     `(($= s'.decl) o compiler_state_decl o FST) (FOLDL f a defs)` by (
       match_mp_tac FOLDL_invariant >>
       qunabbrev_tac`a` >> fs[] >>
-      qunabbrev_tac`f` >> fs[FORALL_PROD] >>
-      rw[] >>
-      BasicProvers.EVERY_CASE_TAC >> rw[] >>
+      qunabbrev_tac`f` >> fs[FORALL_PROD,push_lab_def] >>
+      ntac 4 gen_tac >> Cases >> rw[push_lab_def] >>
       unabbrev_all_tac >> rw[] ) >>
     pop_assum mp_tac >> rw[] ) >>
   `s'''.decl = s''.decl` by (
@@ -142,7 +141,7 @@ val compile_closures_decl = store_thm("compile_closures_decl",
     `(($= s''.decl) o compiler_state_decl o FST) (FOLDL f a ls)` by (
       match_mp_tac FOLDL_invariant >>
       qunabbrev_tac`a` >> fs[] >>
-      qunabbrev_tac`f` >> fs[FORALL_PROD] >>
+      qunabbrev_tac`f` >> fs[FORALL_PROD,cons_closure_def] >>
       rw[LET_THM] >>
       qmatch_abbrev_tac `q.decl = (FOLDL g b l).decl` >>
       `(($= q.decl) o compiler_state_decl) (FOLDL g b l)` by (
@@ -154,10 +153,10 @@ val compile_closures_decl = store_thm("compile_closures_decl",
   `s''''.decl = s'''.decl` by (
     qmatch_assum_abbrev_tac `num_fold f a n = (s'''',X)` >>
     `!n a. (FST (num_fold f a n)).decl = (FST a).decl` by (
-      Induct >- rw[Once num_fold_def,Abbr`f`] >>
+      Induct >- rw[Once num_fold_def,Abbr`f`,update_refptr_def] >>
       rw[Once num_fold_def] >>
-      rw[Abbr`f`,LET_THM] >>
-      Cases_on `a'` >> rw[] ) >>
+      rw[Abbr`f`] >>
+      Cases_on `a'` >> rw[update_refptr_def,LET_THM] ) >>
     pop_assum (qspecl_then [`n`,`a`] mp_tac) >>
     rw[Abbr`a`] ) >>
   qmatch_abbrev_tac `(num_fold f a n).decl = s.decl` >>

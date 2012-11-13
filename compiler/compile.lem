@@ -869,39 +869,39 @@ emit_ec z s (CERef j) = incsz (emit s [Stack (Load (s.sz - z - j))])
  *)
 
 let rec
+push_lab (s,k,ecs) (xs,INL _) = (s,k,ecs) (* should not happen *)
+and
+push_lab (s,k,ecs) (xs,INR l) =
+  let s = incsz (emit s [PushPtr (Lab l)]) in
+  (s,k+1,(Pmap.find l s.ecs)::ecs)
+
+let rec
+cons_closure sz0 nk (s,k) (j,ec) =
+  let s = incsz (emit s [Stack (Load (nk - k))]) in
+  let s = List.fold_left (emit_ec sz0) s (List.rev ec) in
+  let s = emit s [Stack (if j = 0 then PushInt i0 else Cons 0 j)] in
+  let s = emit s [Stack (Cons 2 2)] in
+  let s = decsz (emit s [Stack (Store (nk - k))]) in
+  let s = <| s with sz = s.sz - j |> in
+  (s,k+1)
+
+let rec
+update_refptr nk (s,k) =
+  let s = emit s [Stack (Load (nk + nk - k))] in
+  let s = emit s [Stack (Load (nk + 1 - k))] in
+  let s = emit s [Update] in
+  (s,k+1)
+
+let rec
 compile_closures nz s defs =
   let sz0 = s.sz in
   let s = num_fold (fun s -> incsz (emit s [Stack (PushInt i0); Ref])) s nz in
   let nk = List.length defs in
-  let (s,k,ecs) = List.fold_left
-    (fun (s,k,ecs) (xs,cb) ->
-      match cb with INL _ -> (s,k,ecs) (* should not happen *)
-      | INR l ->
-      let s = incsz (emit s [PushPtr (Lab l)]) in
-      (s,k+1,(Pmap.find l s.ecs)::ecs)
-      end)
-    (s,0,[]) defs in
-  let (s,k) = List.fold_left
-    (fun (s,k) (j,ec) ->
-      let s = incsz (emit s [Stack (Load (nk - k))]) in
-      let s = List.fold_left (emit_ec sz0) s (List.rev ec) in
-      let s = emit s [Stack (if j = 0 then PushInt i0 else Cons 0 j)] in
-      let s = emit s [Stack (Cons 2 2)] in
-      let s = decsz (emit s [Stack (Store (nk - k))]) in
-      let s = <| s with sz = s.sz - j |> in
-      (s,k+1))
-    (s,1) (List.rev ecs) in
-  let (s,k) = num_fold
-    (fun (s,k) ->
-      let s = emit s [Stack (Load (nk + nk - k))] in
-      let s = emit s [Stack (Load (nk + 1 - k))] in
-      let s = emit s [Update] in
-      (s,k+1))
-    (s,1) nz in
+  let (s,k,ecs) = List.fold_left push_lab (s,0,[]) defs in
+  let (s,k) = List.fold_left (cons_closure sz0 nk) (s,1) (List.rev ecs) in
+  let (s,k) = num_fold (update_refptr nk) (s,1) nz in
   let k = nk - 1 in
-  num_fold
-    (fun s -> decsz (emit s [Stack (Store k)]))
-         s nz
+  num_fold (fun s -> decsz (emit s [Stack (Store k)])) s nz
 
 let rec
 compile_decl env0 =

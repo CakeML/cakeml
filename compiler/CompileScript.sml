@@ -933,41 +933,50 @@ val _ = Defn.save_defn emit_ec_defn;
    - for each name, store the refptr back where it was
  *)
 
+ val push_lab_defn = Hol_defn "push_lab" `
+
+(push_lab (s,k,ecs) (xs,INL _) = (s,k,ecs)) (* should not happen *)
+/\
+(push_lab (s,k,ecs) (xs,INR l) =
+  let s = incsz (emit s [PushPtr (Lab l)]) in
+  (s,k+1,(FAPPLY  s.ecs  l)::ecs))`;
+
+val _ = Defn.save_defn push_lab_defn;
+
+ val cons_closure_defn = Hol_defn "cons_closure" `
+
+(cons_closure sz0 nk (s,k) (j,ec) =
+  let s = incsz (emit s [Stack (Load (nk - k))]) in
+  let s = FOLDL (emit_ec sz0) s (REVERSE ec) in
+  let s = emit s [Stack (if j = 0 then PushInt i0 else Cons 0 j)] in
+  let s = emit s [Stack (Cons 2 2)] in
+  let s = decsz (emit s [Stack (Store (nk - k))]) in
+  let s =  s with<| sz := s.sz - j |> in
+  (s,k+1))`;
+
+val _ = Defn.save_defn cons_closure_defn;
+
+ val update_refptr_defn = Hol_defn "update_refptr" `
+
+(update_refptr nk (s,k) =
+  let s = emit s [Stack (Load (nk + nk - k))] in
+  let s = emit s [Stack (Load (nk + 1 - k))] in
+  let s = emit s [Update] in
+  (s,k+1))`;
+
+val _ = Defn.save_defn update_refptr_defn;
+
  val compile_closures_defn = Hol_defn "compile_closures" `
 
 (compile_closures nz s defs =
   let sz0 = s.sz in
   let s = num_fold (\ s . incsz (emit s [Stack (PushInt i0); Ref])) s nz in
   let nk = LENGTH defs in
-  let (s,k,ecs) = FOLDL
-    (\ (s,k,ecs) (xs,cb) .
-      (case cb of INL _ => (s,k,ecs) (* should not happen *)
-      | INR l =>
-      let s = incsz (emit s [PushPtr (Lab l)]) in
-      (s,k+1,(FAPPLY  s.ecs  l)::ecs)
-      ))
-    (s,0,[]) defs in
-  let (s,k) = FOLDL
-    (\ (s,k) (j,ec) .
-      let s = incsz (emit s [Stack (Load (nk - k))]) in
-      let s = FOLDL (emit_ec sz0) s (REVERSE ec) in
-      let s = emit s [Stack (if j = 0 then PushInt i0 else Cons 0 j)] in
-      let s = emit s [Stack (Cons 2 2)] in
-      let s = decsz (emit s [Stack (Store (nk - k))]) in
-      let s =  s with<| sz := s.sz - j |> in
-      (s,k+1))
-    (s,1) (REVERSE ecs) in
-  let (s,k) = num_fold
-    (\ (s,k) .
-      let s = emit s [Stack (Load (nk + nk - k))] in
-      let s = emit s [Stack (Load (nk + 1 - k))] in
-      let s = emit s [Update] in
-      (s,k+1))
-    (s,1) nz in
+  let (s,k,ecs) = FOLDL push_lab (s,0,[]) defs in
+  let (s,k) = FOLDL (cons_closure sz0 nk) (s,1) (REVERSE ecs) in
+  let (s,k) = num_fold (update_refptr nk) (s,1) nz in
   let k = nk - 1 in
-  num_fold
-    (\ s . decsz (emit s [Stack (Store k)]))
-         s nz)`;
+  num_fold (\ s . decsz (emit s [Stack (Store k)])) s nz)`;
 
 val _ = Defn.save_defn compile_closures_defn;
 

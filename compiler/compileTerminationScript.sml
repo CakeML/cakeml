@@ -396,6 +396,9 @@ val _ = register "defs_to_ldefs" (
 
 val _ = save_thm("cce_aux_def",cce_aux_def)
 val _ = save_thm("compile_code_env_def",compile_code_env_def)
+val _ = save_thm("push_lab_def",push_lab_def)
+val _ = save_thm("cons_closure_def",cons_closure_def)
+val _ = save_thm("update_refptr_def",update_refptr_def)
 val _ = save_thm("compile_closures_def",compile_closures_def)
 val _ = save_thm("calculate_ecs_def",calculate_ecs_def)
 
