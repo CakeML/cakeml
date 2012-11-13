@@ -35,4 +35,7 @@ val bc_find_loc_aux_MEM = store_thm("bc_find_loc_aux_MEM",
   Induct >> rw[bc_find_loc_aux_def] >>
   res_tac)
 
+val dest_Label_def = Define`(dest_Label (Label n) = n)`
+val _ = export_rewrites["dest_Label_def"]
+
 val _ = export_theory()
