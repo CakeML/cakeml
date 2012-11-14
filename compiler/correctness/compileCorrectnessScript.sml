@@ -864,58 +864,55 @@ val bc_find_loc_aux_ALL_DISTINCT = store_thm("bc_find_loc_aux_ALL_DISTINCT",
   match_mp_tac (Q.ISPEC`is_Label`ALL_DISTINCT_FILTER_EL_IMP) >>
   qexists_tac `ls` >> rw[])
 
-val compile_varref_ALL_DISTINCT_labels = store_thm("compile_varref_ALL_DISTINCT_labels",
-  ``ALL_DISTINCT (FILTER is_Label cs.out) ⇒ ALL_DISTINCT (FILTER is_Label (compile_varref cs b).out)``,
+val labels_compile_varref = store_thm("labels_compile_varref",
+  ``FILTER is_Label (compile_varref cs b).out = FILTER is_Label cs.out``,
   Cases_on`b` >> rw[])
-val _ = export_rewrites["compile_varref_ALL_DISTINCT_labels"]
+val _ = export_rewrites["labels_compile_varref"]
 
-val compile_decl_ALL_DISTINCT_labels = store_thm("compile_decl_ALL_DISTINCT_labels",
-  ``∀env0 a vs. ALL_DISTINCT (FILTER is_Label (FST a).out) ⇒ ALL_DISTINCT (FILTER is_Label (FST (compile_decl env0 a vs)).out)``,
+val labels_compile_decl = store_thm("labels_compile_decl",
+  ``∀env0 a vs. FILTER is_Label (FST (compile_decl env0 a vs)).out = FILTER is_Label (FST a).out``,
   rw[compile_decl_def] >>
   SIMPLE_QUANT_ABBREV_TAC [select_fun_constant``FOLDL`` 1 "f"] >>
-  `(λx. ALL_DISTINCT (FILTER is_Label (FST x).out)) (FOLDL f a vs)` by (
-    match_mp_tac FOLDL_invariant >> fs[] >>
-    qx_gen_tac`x` >> PairCases_on`x` >>
-    rw[Abbr`f`] >>
-    BasicProvers.EVERY_CASE_TAC >>
-    rw[] ) >>
-  fs[])
+  qho_match_abbrev_tac`P (FOLDL f a vs)` >>
+  match_mp_tac FOLDL_invariant >> fs[Abbr`P`] >>
+  qx_gen_tac`x` >> PairCases_on`x` >>
+  rw[Abbr`f`] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  rw[])
 
-val compile_closures_ALL_DISTINCT_labels = store_thm("compile_closures_ALL_DISTINCT_labels",
-  ``∀nz s defs. ALL_DISTINCT (FILTER is_Label s.out) ⇒
-      ALL_DISTINCT (FILTER is_Label (compile_closures nz s defs).out)``,
+val labels_compile_closures = store_thm("labels_compile_closures",
+  ``∀nz s defs. FILTER is_Label (compile_closures nz s defs).out = FILTER is_Label s.out``,
   rw[compile_closures_def] >>
-  `ALL_DISTINCT (FILTER is_Label s'.out)` by (
+  `FILTER is_Label s'.out = FILTER is_Label s.out` by (
     qunabbrev_tac`s'` >>
-    qpat_assum `ALL_DISTINCT X` mp_tac >>
     qid_spec_tac `s` >>
     rpt (pop_assum kall_tac) >>
     Induct_on `nz`  >> rw[Once num_fold_def] ) >>
-  `(ALL_DISTINCT o FILTER is_Label o compiler_state_out o FST) (FOLDL push_lab (s',0,[]) defs)` by (
+  qabbrev_tac`ls = FILTER is_Label s.out` >>
+  `($= ls o FILTER is_Label o compiler_state_out o FST) (FOLDL push_lab (s',0,[]) defs)` by (
     match_mp_tac FOLDL_invariant >> fs[] >>
     qx_gen_tac`x` >> PairCases_on`x` >>
     qx_gen_tac`y` >> PairCases_on`y` >>
     Cases_on`y1`>>rw[push_lab_def] >>rw[] >>
     unabbrev_all_tac>>rw[])>>
-  pop_assum mp_tac >> rw[] >>
   qmatch_assum_abbrev_tac `FOLDL X Y Z = (s''',k')` >>
-  `(ALL_DISTINCT o FILTER is_Label o compiler_state_out o FST) (FOLDL X Y Z)` by (
+  `($= ls o FILTER is_Label o compiler_state_out o FST) (FOLDL X Y Z)` by (
     match_mp_tac FOLDL_invariant >> fs[Abbr`Y`] >>
-    Cases >> Cases >> rw[Abbr`X`,cons_closure_def,LET_THM] >>
+    Cases >> Cases >> simp[Abbr`X`,cons_closure_def,LET_THM] >>
+    strip_tac >>
     Q.PAT_ABBREV_TAC`p = FOLDL (emit_ec sz0) X Y` >>
-    `(ALL_DISTINCT o FILTER is_Label o compiler_state_out) p` by (
+    `($= ls o FILTER is_Label o compiler_state_out) p` by (
       qunabbrev_tac`p` >>
       match_mp_tac FOLDL_invariant >>
       fs[] >>
       gen_tac >> Cases >> rw[] ) >>
     fs[] ) >>
-  pop_assum mp_tac >> rw[] >>
   qabbrev_tac`a = (s'''',k'')` >>
   map_every qunabbrev_tac[`X`,`Y`,`Z`] >>
-  `ALL_DISTINCT (FILTER is_Label (FST a).out)` by (
+  `(ls = FILTER is_Label (FST a).out)` by (
     qpat_assum`num_fold X Y Z = a` mp_tac >>
     qabbrev_tac`b = (s''',1)` >>
-    `ALL_DISTINCT (FILTER is_Label (FST b).out)` by rw[Abbr`b`] >>
+    `ls = (FILTER is_Label (FST b).out)` by rfs[Abbr`b`] >>
     pop_assum mp_tac >>
     map_every qid_spec_tac [`a`,`b`,`nz`] >>
     rpt (pop_assum kall_tac) >>
@@ -925,8 +922,8 @@ val compile_closures_ALL_DISTINCT_labels = store_thm("compile_closures_ALL_DISTI
     qexists_tac `update_refptr nk b` >>
     Cases_on `b` >> rw[update_refptr_def] >>
     unabbrev_all_tac >> fs[] ) >>
-  qunabbrev_tac`a` >> fs[] >>
   pop_assum mp_tac >>
+  simp[Abbr`a`] >>
   map_every qid_spec_tac[`s''''`,`nz`] >>
   rpt (pop_assum kall_tac) >>
   Induct >> rw[] >> rw[Once num_fold_def])
@@ -1054,132 +1051,51 @@ val compile_next_label_inc = store_thm("compile_next_label_inc",
     BasicProvers.EVERY_CASE_TAC >> fs[] ) >>
   rw[compile_def])
 
-val compile_varref_next_label = store_thm("compile_varref_next_label",
-  ``∀cs b l. MEM (Label l) (compile_varref cs b).out ⇒ MEM (Label l) cs.out``,
-  gen_tac >> Cases >> rw[])
+val between_def = Define`
+  between x y z = x:num ≤ z ∧ z < y`
 
-val compile_decl_next_label = store_thm("compile_decl_next_label",
-  ``∀env0 a vs l. MEM (Label l) (FST (compile_decl env0 a vs)).out ⇒ MEM (Label l) (FST a).out``,
-  simp[compile_decl_def] >>
-  rpt gen_tac >>
-  SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``FOLDL``1"f"] >>
-  qho_match_abbrev_tac`P (FOLDL f a vs)` >>
-  match_mp_tac FOLDL_invariant >>
-  fs[Abbr`P`] >>
-  qx_gen_tac `x` >> PairCases_on`x` >>
-  gen_tac >> fs[] >> strip_tac >>
-  qspecl_then[`x0`] mp_tac compile_varref_next_label >>
-  rw[Abbr`f`] >>
-  BasicProvers.EVERY_CASE_TAC >> fs[] >>
-  metis_tac[])
-
-val compile_closures_next_label = store_thm("compile_closures_next_label",
-  ``∀nz cs defs l. MEM (Label l) (compile_closures nz cs defs).out ⇒ MEM (Label l) cs.out``,
-  rw[compile_closures_def,LET_THM] >> fs[UNCURRY] >>
-  qmatch_assum_abbrev_tac `MEM L (num_fold f a nz).out` >>
-  `MEM L a.out` by (
-    qpat_assum`MEM L X` mp_tac >>
-    map_every qid_spec_tac[`a`,`nz`] >>
-    Induct >> simp_tac std_ss [Once num_fold_def] >>
-    rw[] >> res_tac >> pop_assum mp_tac >>
-    simp_tac std_ss [Abbr`f`] >>
-    simp[] >> rw[Abbr`L`] ) >>
-  qunabbrev_tac`a` >>
-  qmatch_assum_abbrev_tac `MEM L (FST (num_fold g b nz)).out` >>
-  `MEM L (FST b).out` by (
-    qpat_assum`MEM L X` mp_tac >>
-    map_every qid_spec_tac[`b`,`nz`] >>
-    Induct >> simp_tac std_ss [Once num_fold_def] >>
-    rw[] >> res_tac >> pop_assum mp_tac >>
-    Cases_on `b'` >>
-    simp_tac std_ss [Abbr`g`,update_refptr_def,LET_THM] >>
-    simp[] >> rw[Abbr`L`] ) >>
-  qunabbrev_tac`b` >> fs[] >>
-  qunabbrev_tac`f` >>
-  qunabbrev_tac`g` >>
-  qmatch_assum_abbrev_tac `MEM L (FST (FOLDL f a b)).out` >>
-  `MEM L (FST a).out` by (
-    qpat_assum`MEM L X` mp_tac >>
-    qho_match_abbrev_tac`P (FOLDL f a b)` >>
-    match_mp_tac FOLDL_invariant >>
-    fs[Abbr`P`] >>
-    qx_gen_tac`x`>>PairCases_on`x` >>
-    qx_gen_tac`y`>>PairCases_on`y` >>
-    rw[Abbr`f`,cons_closure_def,LET_THM,Abbr`L`] >>
-    qmatch_assum_abbrev_tac `MEM L (FOLDL f z (REVERSE y1)).out` >>
-    first_x_assum match_mp_tac >>
-    `MEM L z.out` by (
-      qpat_assum `MEM L (FOLDL f z X).out` mp_tac >>
-      qho_match_abbrev_tac`P (FOLDL  f z (REVERSE y1))` >>
-      match_mp_tac FOLDL_invariant >>
-      unabbrev_all_tac >> fs[] >>
-      gen_tac >> Cases >> rw[] >>
-      metis_tac[compile_varref_next_label] ) >>
-    qunabbrev_tac`z` >> fs[Abbr`L`] ) >>
-  qunabbrev_tac`a` >> fs[] >>
-  qunabbrev_tac`b` >>
-  qmatch_assum_abbrev_tac `MEM L (FST (FOLDL push_lab a defs)).out` >>
-  `MEM L (FST a).out` by (
-    qpat_assum`MEM L X` mp_tac >>
-    qho_match_abbrev_tac`P (FOLDL push_lab a defs)` >>
-    match_mp_tac FOLDL_invariant >>
-    qunabbrev_tac`P` >> fs[] >>
-    qx_gen_tac`x`>>PairCases_on`x` >>
-    qx_gen_tac`y`>>PairCases_on`y` >>
-    Cases_on `y1` >> fs[push_lab_def,LET_THM,Abbr`L`] ) >>
-  qunabbrev_tac`a` >>
-  qunabbrev_tac`f` >>
-  fs[] >>
-  qmatch_assum_abbrev_tac `MEM L (num_fold f cs nz).out` >>
-  qpat_assum`MEM L X.out` mp_tac >>
-  map_every qid_spec_tac[`cs`,`nz`] >>
-  Induct >> simp_tac std_ss [Once num_fold_def] >>
-  rw[] >> res_tac >> pop_assum mp_tac >>
-  simp_tac std_ss [Abbr`f`] >>
-  simp[] >> rw[Abbr`L`] )
+val is_Label_rwt = store_thm("is_Label_rwt",
+  ``∀i. is_Label i = ∃l. i = Label l``,
+  Cases >> rw[])
 
 val compile_next_label = store_thm("compile_next_label",
-  ``(∀cs exp l. MEM (Label l) (compile cs exp).out ∧ ¬MEM (Label l) cs.out ⇒
-                cs.next_label ≤ l ∧ l < (compile cs exp).next_label) ∧
-    (∀env0 sz1 exp n cs xs l. MEM (Label l) (compile_bindings env0 sz1 exp n cs xs).out ∧ ¬MEM (Label l) cs.out ⇒
-                cs.next_label ≤ l ∧ l < (compile_bindings env0 sz1 exp n cs xs).next_label)``,
+  ``(∀cs exp l ls. (FILTER is_Label (compile cs exp).out = ls ++ FILTER is_Label cs.out) ⇒
+                    EVERY (between cs.next_label (compile cs exp).next_label) (MAP dest_Label ls)) ∧
+    (∀env0 sz1 exp n cs xs l ls.
+      (FILTER is_Label (compile_bindings env0 sz1 exp n cs xs).out = ls ++ FILTER is_Label cs.out) ⇒
+        EVERY (between cs.next_label (compile_bindings env0 sz1 exp n cs xs).next_label) (MAP dest_Label ls))``,
   ho_match_mp_tac compile_ind >>
   strip_tac >- (
     simp[compile_def,LET_THM] >>
     rpt gen_tac >>
-    BasicProvers.EVERY_CASE_TAC >> fs[] >>
-    fs[UNCURRY] >> strip_tac >>
-    imp_res_tac compile_decl_next_label >>
-    fs[] ) >>
-  strip_tac >- rw[compile_def] >>
-  strip_tac >- rw[compile_def] >>
-  strip_tac >- rw[compile_def] >>
-  strip_tac >- (
-    rw[compile_def] >>
-    imp_res_tac compile_varref_next_label ) >>
+    BasicProvers.EVERY_CASE_TAC >> rw[] >> fs[] >>
+    fs[UNCURRY] >>
+    fs[labels_compile_decl] >> rw[]) >>
+  strip_tac >- (rw[compile_def] >> rw[]) >>
+  strip_tac >- (rw[compile_def] >> rw[]) >>
+  strip_tac >- (rw[compile_def] >> rw[]) >>
+  strip_tac >- (rw[compile_def] >> rw[]) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     fsrw_tac[ETA_ss][compile_def,LET_THM] >>
     Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
-    gen_tac >>
     `(λx. cs.next_label ≤ x.next_label ∧
-          (MEM (Label l) x.out ∧ ¬MEM (Label l) cs.out ⇒
-           cs.next_label ≤ l ∧ l < x.next_label)) (FOLDL compile cs0 es)` by (
-        match_mp_tac FOLDL_invariant >>
-        fs[Abbr`cs0`] >>
-        map_every qx_gen_tac [`cx`,`e`] >>
-        strip_tac >>
-        qspecl_then[`cx`,`e`]mp_tac(CONJUNCT1 compile_append_out) >>
-        strip_tac >> fs[] >>
-        qspecl_then[`cx`,`e`]mp_tac(CONJUNCT1 compile_next_label_inc) >>
-        fsrw_tac[ARITH_ss][] >> strip_tac >>
-        Cases_on `MEM (Label l) cx.out` >- (
-          fs[] >> strip_tac >> fs[] >>
-          srw_tac[ARITH_ss][] ) >>
-      fs[] >> strip_tac >>
-      first_x_assum (qspecl_then [`e`,`cx`] mp_tac) >>
-      fs[] >> disch_then (qspec_then `l` mp_tac) >>
-      fs[] >> srw_tac[ARITH_ss][] ) >>
+          ∃ls. (FILTER is_Label x.out = ls ++ FILTER is_Label cs.out) ∧
+          EVERY (between cs.next_label x.next_label) (MAP dest_Label ls))
+     (FOLDL compile cs0 es)` by (
+      match_mp_tac FOLDL_invariant >>
+      fs[Abbr`cs0`] >>
+      map_every qx_gen_tac [`cx`,`e`] >>
+      rw[] >- metis_tac[LESS_EQ_TRANS,compile_next_label_inc] >>
+      qspecl_then[`cx`,`e`]mp_tac(CONJUNCT1 compile_append_out) >>
+      strip_tac >>
+      first_x_assum(qspecl_then[`e`,`cx`]mp_tac) >>
+      fs[FILTER_APPEND] >>
+      fs[FILTER_EQ_APPEND] >>
+      BasicProvers.VAR_EQ_TAC >>
+      qpat_assum`cx.out = X`assume_tac >>
+      fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,MEM_FILTER,is_Label_rwt,between_def] >>
+      metis_tac[LESS_LESS_EQ_TRANS,LESS_EQ_TRANS,compile_next_label_inc] ) >>
     fs[] ) >>
   strip_tac >- rw[compile_def,LET_THM] >>
   strip_tac >- rw[compile_def,LET_THM] >>
@@ -1187,8 +1103,7 @@ val compile_next_label = store_thm("compile_next_label",
     rpt gen_tac >> strip_tac >>
     fsrw_tac[ETA_ss][compile_def,LET_THM] >>
     Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
-    gen_tac >>
-    cheat ) >>
+    cheat) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     fsrw_tac[ETA_ss][compile_def,LET_THM] >>
@@ -1247,10 +1162,6 @@ val compile_next_label = store_thm("compile_next_label",
   strip_tac >- cheat >>
   strip_tac >- cheat >>
   rw[compile_def] )
-
-val is_Label_rwt = store_thm("is_Label_rwt",
-  ``∀i. is_Label i = ∃l. i = Label l``,
-  Cases >> rw[])
 
 val FILTER_is_Label_compile_closures = store_thm("FILTER_is_Label_compile_closures",
   ``FILTER is_Label (compile_closures n cs defs).out = FILTER is_Label cs.out``,
