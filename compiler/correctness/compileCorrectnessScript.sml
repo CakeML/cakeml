@@ -371,9 +371,9 @@ val Cenv_bs_def = Define`
     Cenv renv`
 
 val env_rs_def = Define`
-  env_rs env bs rs =
+  env_rs env rs c bs =
     let Cenv = alist_to_fmap (env_to_Cenv (cmap rs.contab) env) in
-    ∃c. Cenv_bs c Cenv rs.renv rs.rsz bs`
+    Cenv_bs c Cenv rs.renv rs.rsz bs`
 
 val addr_of_el_def = Define`
   (addr_of_el il n [] = NONE) ∧
@@ -853,8 +853,9 @@ val bc_find_loc_aux_thm = store_thm("bc_find_loc_aux_thm",
   srw_tac[ARITH_ss][])
 
 val bc_find_loc_aux_ALL_DISTINCT = store_thm("bc_find_loc_aux_ALL_DISTINCT",
-  ``ALL_DISTINCT (FILTER is_Label ls) ∧ (k < LENGTH ls) ∧ (EL k ls = Label l) ==>
-    (bc_find_loc_aux ls il l n = SOME (n + next_addr il (TAKE k ls)))``,
+  ``∀ls il l n z k. ALL_DISTINCT (FILTER is_Label ls) ∧ (k < LENGTH ls) ∧ (EL k ls = Label l) ∧
+    (z = n + next_addr il (TAKE k ls)) ⇒
+    (bc_find_loc_aux ls il l n = SOME z)``,
   rw[bc_find_loc_aux_thm] >- (
    rw[MEM_EL] >> PROVE_TAC[] ) >>
   numLib.LEAST_ELIM_TAC >>
@@ -1067,9 +1068,9 @@ val FOLDL_compile_next_label_inc = store_thm("FOLDL_compile_next_label_inc",
   metis_tac[compile_next_label_inc,LESS_EQ_TRANS])
 
 val compile_next_label = store_thm("compile_next_label",
-  ``(∀cs exp l ls. (FILTER is_Label (compile cs exp).out = ls ++ FILTER is_Label cs.out) ⇒
+  ``(∀cs exp ls. (FILTER is_Label (compile cs exp).out = ls ++ FILTER is_Label cs.out) ⇒
                     EVERY (between cs.next_label (compile cs exp).next_label) (MAP dest_Label ls)) ∧
-    (∀env0 sz1 exp n cs xs l ls.
+    (∀env0 sz1 exp n cs xs ls.
       (FILTER is_Label (compile_bindings env0 sz1 exp n cs xs).out = ls ++ FILTER is_Label cs.out) ⇒
         EVERY (between cs.next_label (compile_bindings env0 sz1 exp n cs xs).next_label) (MAP dest_Label ls))``,
   ho_match_mp_tac compile_ind >>
@@ -1577,18 +1578,93 @@ val compile_val = store_thm("compile_val",
   strip_tac >- rw[] >>
   rw[] )
 
+val good_contab_def = Define`
+  good_contab (m,w,n) =
+    fmap_linv m w`
+
+(* TODO: move *)
+val _ = export_rewrites["Compile.cmap_def"]
+
+val evaluate_all_cns = store_thm("evaluate_all_cns",
+  ``∀cenv env exp res. evaluate cenv env exp res ⇒
+      (∀v. MEM v (MAP SND env) ⇒ all_cns v ⊆ set (MAP FST cenv)) ⇒
+      every_result (λv. all_cns v ⊆ set (MAP FST cenv)) res``,
+  ho_match_mp_tac evaluate_nice_ind >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    srw_tac[DNF_ss][MEM_MAP,evaluate_list_with_value] >>
+    fs[MiniMLTheory.do_con_check_def] >>
+    Cases_on `ALOOKUP cenv cn` >> fs[] >>
+    qexists_tac `(cn,x)` >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[] >>
+    srw_tac[DNF_ss][SUBSET_DEF,MEM_MAP] >>
+    fsrw_tac[DNF_ss][MEM_EL,SUBSET_DEF] >>
+    metis_tac[EL_MAP] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fsrw_tac[DNF_ss][MEM_MAP,FORALL_PROD] >>
+    metis_tac[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    srw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rw[] >> first_x_assum match_mp_tac >>
+    cheat ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >> fs[] >>
+    cheat ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >> fs[] >>
+    first_x_assum match_mp_tac >>
+    rw[MiniMLTheory.bind_def] >>
+    metis_tac[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- cheat >>
+  cheat )
+
+(* TODO: move *)
+val syneq_ov = store_thm("syneq_ov",
+  ``∀c v1 v2. syneq c v1 v2 ⇒ ∀m. Cv_to_ov m v1 = Cv_to_ov m v2``,
+  ho_match_mp_tac syneq_ind >>
+  rw[MAP_EQ_EVERY2] >>
+  fs[EVERY2_EVERY] >>
+  qmatch_assum_abbrev_tac`EVERY P l` >>
+  match_mp_tac (MP_CANON MONO_EVERY) >>
+  rw[Abbr`P`,UNCURRY])
+
 val repl_exp_val = store_thm("repl_exp_val",
   ``∀cenv env exp v rs rs' bc0 bc bc1 bs bs'.
       exp_pred exp ∧
       evaluate cenv env exp (Rval v) ∧
       EVERY closed (MAP SND env) ∧
       FV exp ⊆ set (MAP FST env) ∧
+      (∀v. MEM v (MAP SND env) ⇒ all_cns v ⊆ set (MAP FST cenv)) ∧
       good_cenv cenv ∧
       good_cmap cenv (cmap rs.contab) ∧
-      env_rs env bs rs ∧
+      set (MAP FST cenv) ⊆ FDOM (cmap rs.contab) ∧
+      good_contab rs.contab ∧
+      env_rs env rs FEMPTY bs ∧
       (repl_exp rs exp = (rs',bc)) ∧
       (bs.code = bc0 ++ bc ++ bc1) ∧
-      (bs.pc = next_addr bs.inst_length bc0)
+      (bs.pc = next_addr bs.inst_length bc0) ∧
+      ALL_DISTINCT (FILTER is_Label (bc0 ++ bc1)) ∧
+      EVERY (combin$C $< rs.rnext_label o dest_Label) (FILTER is_Label (bc0 ++ bc1))
       ⇒
       ∃bv.
       bc_next^* bs (bs with <|pc := next_addr bs.inst_length (bc0 ++ bc);
@@ -1622,20 +1698,62 @@ val repl_exp_val = store_thm("repl_exp_val",
     qexists_tac `SUC 0` >>
     rw[] >>
     rw[bc_eval1_thm] >>
+    qspecl_then[`cs`,`Ce`]mp_tac(CONJUNCT1 compile_append_out) >> strip_tac >>
+    qspecl_then[`cs`,`Ce`]mp_tac(CONJUNCT1 compile_next_label) >> strip_tac >>
+    qspecl_then[`cs`,`Ce`]mp_tac(CONJUNCT1 compile_ALL_DISTINCT_labels) >> strip_tac >>
     `bc_fetch bs = SOME (Jump (Lab rs.rnext_label))` by (
       match_mp_tac bc_fetch_next_addr >>
       map_every qexists_tac[`bc0`,`TL (REVERSE (compile cs Ce).out) ++ bc1`] >>
-      qspecl_then[`cs`,`Ce`]mp_tac(CONJUNCT1 compile_append_out) >>
-      strip_tac >> fs[Abbr`cs`] ) >>
+      fs[Abbr`cs`] ) >>
     rw[bc_eval1_def] >>
-
-    bc_find_loc_aux_ALL_DISTINCT
-
-  qspecl_then[`Cc`,`Cenv`,`Ce`,`Rval Cv`]mp_tac (CONJUNCT1 compile_val) >>
-  fs[] >>
-  disch_then (qspecl_then [`bc0`,`bc1`,`bs0`,`cs`] mp_tac) >>
-  rw[Abbr`bs0`,LET_THM]
-*)
+    rw[bc_find_loc_def] >>
+    rw[Abbr`bs0`,bc_state_component_equality] >>
+    match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+    rfs[FILTER_APPEND] >>
+    fs[Abbr`cs`,FILTER_APPEND,SUM_APPEND] >>
+    qexists_tac `LENGTH bc0 + 1` >>
+    fs[REVERSE_APPEND] >>
+    simp_tac std_ss [GSYM APPEND_ASSOC] >>
+    simp_tac (std_ss++ARITH_ss) [EL_APPEND2] >>
+    simp_tac pure_ss [ONE,EL] >>
+    EVAL_TAC >>
+    simp[REV_REVERSE_LEM] >>
+    simp_tac (std_ss++ARITH_ss) [TAKE_APPEND2] >>
+    simp[SUM_APPEND,FILTER_APPEND] >>
+    fsrw_tac[][ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt] >>
+    fsrw_tac[QUANT_INST_ss[std_qp]][] >>
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,MEM_MAP] >>
+    fsrw_tac[ARITH_ss][between_def] >>
+    fs[FILTER_REVERSE,ALL_DISTINCT_REVERSE] >>
+    fs[GSYM ADD1,GSYM LESS_EQ] >>
+    metis_tac[prim_recTheory.LESS_REFL,LESS_TRANS] ) >>
+  `∃bv. bc_next^* bs0 (bs1 bv) ∧ P bv` by (
+    qspecl_then[`Cc`,`Cenv`,`Ce`,`Rval Cv`]mp_tac (CONJUNCT1 compile_val) >>
+    fs[] >>
+    disch_then (qspecl_then [`bc0`,`bc1`,`bs0`,`cs`] mp_tac) >>
+    `Cenv_bs Cc Cenv cs.env cs.sz bs0` by (
+      fs[env_rs_def,LET_THM,Cenv_bs_def,Abbr`bs0`,Abbr`Cc`,Abbr`cs`] ) >>
+    rw[Abbr`bs0`,LET_THM,Abbr`bs1`] >>
+    qexists_tac `bv` >> rw[] >>
+    rw[Abbr`P`] >>
+    match_mp_tac EQ_TRANS >>
+    qexists_tac `Cv_to_ov (FST(SND rs.contab)) (v_to_Cv (cmap rs.contab) v)` >>
+    conj_tac >- (
+      match_mp_tac EQ_SYM >>
+      match_mp_tac (CONJUNCT1 v_to_Cv_ov) >>
+      qabbrev_tac`ct=rs.contab` >>
+      PairCases_on`ct` >> fs[good_contab_def] >>
+      qspecl_then[`cenv`,`env`,`exp`,`Rval v`]mp_tac evaluate_all_cns >>
+      fs[good_cmap_def] >>
+      fs[SUBSET_DEF] ) >>
+    match_mp_tac EQ_TRANS >>
+    qexists_tac `Cv_to_ov (FST(SND rs.contab)) Cv` >>
+    conj_tac >- (
+      match_mp_tac syneq_ov >>
+      metis_tac[syneq_sym] ) >>
+    match_mp_tac Cv_bv_ov >>
+    metis_tac[] ) >>
+  metis_tac[RTC_TRANSITIVE,transitive_def])
 
 val with_same_pc = store_thm("with_same_pc",
   ``x with pc := x.pc = x``,
