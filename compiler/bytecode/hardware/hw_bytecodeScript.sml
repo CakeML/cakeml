@@ -211,9 +211,9 @@ val hw_decode_def = Define `
 val hw_encode_def = Define `
   hw_encode instr =
     case instr of
-      hwPushImm imm =>     1w * 64w !! w2w imm
-    | hwShiftAddImm imm => 3w * 64w !! w2w imm
-    | hwLowerEqual imm =>  2w * 64w !! w2w imm
+      hwPushImm imm =>     1w * 64w || w2w imm
+    | hwShiftAddImm imm => 3w * 64w || w2w imm
+    | hwLowerEqual imm =>  2w * 64w || w2w imm
     (* --- *)
     | hwPop => (1w:word8)
     | hwPop1 => 4w
@@ -244,12 +244,12 @@ val hw_encode_def = Define `
 val hw_decode_encode = store_thm("hw_decode_encode",
   ``!x. hw_decode (hw_encode x) = x``,
   Cases THEN EVAL_TAC
-  THEN `((64w:word8) !! w2w (c:6 word)) ' 6 /\ ~(64w:word8 !! w2w (c:6 word)) ' 7 /\
-        ((192w:word8) !! w2w (c:6 word)) ' 6 /\ (192w:word8 !! w2w (c:6 word)) ' 7 /\
-        ~((128w:word8) !! w2w (c:6 word)) ' 6 /\ (128w:word8 !! w2w (c:6 word)) ' 7 /\
-        (w2w ((64w:word8) !! w2w c) = c:6 word) /\
-        (w2w ((128w:word8) !! w2w c) = c:6 word) /\
-        (w2w ((192w:word8) !! w2w c) = c:6 word)` by blastLib.BBLAST_TAC
+  THEN `((64w:word8) || w2w (c:6 word)) ' 6 /\ ~(64w:word8 || w2w (c:6 word)) ' 7 /\
+        ((192w:word8) || w2w (c:6 word)) ' 6 /\ (192w:word8 || w2w (c:6 word)) ' 7 /\
+        ~((128w:word8) || w2w (c:6 word)) ' 6 /\ (128w:word8 || w2w (c:6 word)) ' 7 /\
+        (w2w ((64w:word8) || w2w c) = c:6 word) /\
+        (w2w ((128w:word8) || w2w c) = c:6 word) /\
+        (w2w ((192w:word8) || w2w c) = c:6 word)` by blastLib.BBLAST_TAC
   THEN FULL_SIMP_TAC std_ss []);
 
 val _ = export_theory();
