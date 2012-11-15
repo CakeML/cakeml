@@ -1193,6 +1193,126 @@ val compile_next_label = store_thm("compile_next_label",
   strip_tac >- (
     map_every qx_gen_tac [`cs`,`e1`,`e2`,`e3`] >>
     strip_tac >>
+    simp[compile_def] >>
+    Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
+    Q.PAT_ABBREV_TAC`cs1 = compiler_state_tail_fupd X Y` >>
+    Q.PAT_ABBREV_TAC`cs2 = compiler_state_sz_fupd (K ((compile cs0 e1).sz - 1)) Y` >>
+    Q.PAT_ABBREV_TAC`cs3 = compiler_state_sz_fupd (K ((compile cs2 e2).sz - 1)) Y` >>
+    first_x_assum (qspec_then`FST (sdt cs)`mp_tac) >> simp[] >> strip_tac >>
+    first_x_assum (qspec_then`FST (sdt cs)`mp_tac) >> simp[] >>
+    Q.PAT_ABBREV_TAC`cs4 = compiler_state_sz_fupd X Y` >>
+    `cs4 = cs2` by (
+      unabbrev_all_tac >> rw[] ) >>
+    BasicProvers.VAR_EQ_TAC >>
+    pop_assum kall_tac >>
+    strip_tac >>
+    first_x_assum (qspec_then`FST (sdt cs)`mp_tac) >> simp[] >>
+    Q.PAT_ABBREV_TAC`cs4 = compiler_state_sz_fupd X Y` >>
+    `cs4 = cs3` by (
+      unabbrev_all_tac >> rw[] ) >>
+    BasicProvers.VAR_EQ_TAC >>
+    pop_assum kall_tac >>
+    Q.PAT_ABBREV_TAC`cs4 = compiler_state_sz_fupd X Y` >>
+    `cs4 = cs2` by (
+      unabbrev_all_tac >> rw[] ) >>
+    BasicProvers.VAR_EQ_TAC >>
+    pop_assum kall_tac >>
+    strip_tac >>
+    ntac 3 (pop_assum mp_tac) >>
+    qspecl_then[`cs0`,`e1`]mp_tac(CONJUNCT1 compile_append_out) >>
+    disch_then(Q.X_CHOOSE_THEN`b1`mp_tac) >>
+    simp[FILTER_APPEND] >>
+    ntac 2 strip_tac >>
+    rpt strip_tac >>
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,MEM_FILTER,is_Label_rwt] >>
+    qmatch_assum_abbrev_tac `ll = ls ++ ll2` >>
+    qho_match_abbrev_tac `∀x. MEM x ls ⇒ P x` >>
+    qsuff_tac `∀x. MEM x (TAKE (LENGTH ls) ll) ⇒ P x` >- (
+      rw[TAKE_LENGTH_APPEND] ) >>
+    qx_gen_tac `x` >> strip_tac >>
+    simp_tac std_ss [Abbr`P`] >>
+    pop_assum mp_tac >>
+    `cs0.next_label = cs.next_label` by rw[Abbr`cs0`] >>
+    `cs.next_label ≤ cs1.next_label` by (
+      rw[Abbr`cs1`] >>
+      metis_tac[compile_next_label_inc] ) >>
+    `cs2.next_label = cs1.next_label + 3` by (
+      unabbrev_all_tac >> rw[] ) >>
+    `cs.next_label ≤ (compile cs0 e1).next_label` by (
+      metis_tac[compile_next_label_inc] ) >>
+    `cs3.next_label ≤ (compile cs3 e3).next_label` by (
+      metis_tac[compile_next_label_inc] ) >>
+    `cs2.next_label ≤ cs3.next_label` by (
+      qunabbrev_tac`cs3` >> rw[] >>
+      metis_tac[compile_next_label_inc] ) >>
+    `(compile cs0 e1).next_label = cs1.next_label` by (
+      unabbrev_all_tac >> rw[] ) >>
+    `cs2.next_label ≤ (compile cs2 e2).next_label` by (
+      metis_tac[compile_next_label_inc]) >>
+    `cs0.next_label ≤ (compile cs0 e1).next_label` by (
+      metis_tac[compile_next_label_inc]) >>
+    strip_tac >>
+    `MEM x ll` by (match_mp_tac(MP_CANON MEM_TAKE) >> qexists_tac `LENGTH ls` >> rw[]) >>
+    pop_assum mp_tac >>
+    qabbrev_tac`PP = MEM x (TAKE (LENGTH ls) ll)` >>
+    (* want to not simplify PP, or do something clever with it now ... *)
+    qunabbrev_tac`ll` >>
+    simp_tac std_ss [MEM] >>
+    strip_tac >- (srw_tac[ARITH_ss][between_def]) >>
+    pop_assum mp_tac >>
+    qspecl_then[`cs3`,`e3`]mp_tac(CONJUNCT1 compile_append_out) >>
+    disch_then(Q.X_CHOOSE_THEN`b3`mp_tac) >>
+    strip_tac >>
+    `FILTER is_Label (compile cs3 e3).out =
+     FILTER is_Label b3 ++ [Label (cs1.next_label + 1)] ++
+     FILTER is_Label (compile cs2 e2).out` by (
+       rw[FILTER_APPEND,Abbr`cs3`] ) >>
+    fs[] >>
+    Cases_on `MEM x (FILTER is_Label b3)` >- (
+      fs[] >>
+      fsrw_tac[DNF_ss][MEM_FILTER,is_Label_rwt] >>
+      rw[] >>
+      fsrw_tac[DNF_ss][between_def] >>
+      res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    fs[] >>
+    strip_tac >- (
+      srw_tac[ARITH_ss][between_def] ) >>
+    pop_assum mp_tac >>
+    qspecl_then[`cs2`,`e2`]mp_tac(CONJUNCT1 compile_append_out) >>
+    disch_then(Q.X_CHOOSE_THEN`b2`mp_tac) >>
+    strip_tac >>
+    `FILTER is_Label (compile cs2 e2).out =
+     FILTER is_Label b2 ++ [Label cs1.next_label] ++
+     FILTER is_Label cs1.out` by (
+      `cs1.out = b1 ++ cs0.out` by (
+        qunabbrev_tac`cs1` >> simp[] ) >>
+      pop_assum SUBST1_TAC >>
+      simp[FILTER_APPEND] >>
+      rw[Abbr`cs2`,FILTER_APPEND] ) >>
+    fs[] >>
+    Cases_on `MEM x (FILTER is_Label b2)` >- (
+      fs[] >>
+      fsrw_tac[DNF_ss][MEM_FILTER,is_Label_rwt] >>
+      rw[] >>
+      fsrw_tac[DNF_ss][between_def] >>
+      res_tac >> fsrw_tac[ARITH_ss][] >>
+      `(compile cs2 e2).next_label = cs3.next_label` by (
+        rw[Abbr`cs3`] ) >>
+      DECIDE_TAC ) >>
+    fs[] >>
+    strip_tac >- (
+      srw_tac[ARITH_ss][between_def] ) >>
+    pop_assum mp_tac >>
+    `cs1.out = b1 ++ cs0.out` by rw[Abbr`cs1`] >>
+    pop_assum SUBST1_TAC >>
+    fsrw_tac[DNF_ss][FILTER_APPEND,MEM_FILTER,is_Label_rwt] >>
+
+    Cases_on `MEM x b1` >- (
+      rw[] >>
+      fsrw_tac[DNF_ss][between_def] >>
+      res_tac >> DECIDE_TAC ) >>
+    rw[] >>
+    fsrw_tac[DNF_ss][between_def]
 
     )>>
   strip_tac >- cheat >>
