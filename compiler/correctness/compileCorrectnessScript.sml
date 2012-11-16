@@ -1225,13 +1225,24 @@ val compile_next_label = store_thm("compile_next_label",
     ntac 2 strip_tac >>
     rpt strip_tac >>
     fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,MEM_FILTER,is_Label_rwt] >>
-    qmatch_assum_abbrev_tac `ll = ls ++ ll2` >>
-    qho_match_abbrev_tac `∀x. MEM x ls ⇒ P x` >>
-    qsuff_tac `∀x. MEM x (TAKE (LENGTH ls) ll) ⇒ P x` >- (
-      rw[TAKE_LENGTH_APPEND] ) >>
+    qspecl_then[`cs3`,`e3`]mp_tac(CONJUNCT1 compile_append_out) >>
+    disch_then(Q.X_CHOOSE_THEN`b3`mp_tac) >>
+    strip_tac >>
+    qspecl_then[`cs2`,`e2`]mp_tac(CONJUNCT1 compile_append_out) >>
+    disch_then(Q.X_CHOOSE_THEN`b2`mp_tac) >>
+    strip_tac >>
+    qmatch_assum_abbrev_tac `l1::ll = ls ++ ll2` >>
+    `ls = l1::(FILTER is_Label (b3 ++ HD(cs3.out)::b2 ++ (HD cs2.out)::b1))` by (
+      qunabbrev_tac`ll` >>
+      qpat_assum `l1::l2=ls++ll2` mp_tac >>
+      disch_then (strip_assume_tac o SYM) >>
+      fs[APPEND_EQ_CONS] >>
+      rfs[FILTER_APPEND,Abbr`cs3`,Abbr`cs2`,Abbr`cs0`,Abbr`ll2`] ) >>
     qx_gen_tac `x` >> strip_tac >>
-    simp_tac std_ss [Abbr`P`] >>
     pop_assum mp_tac >>
+    pop_assum SUBST1_TAC >>
+    map_every qunabbrev_tac[`ll2`,`ll`,`l1`] >>
+    qpat_assum `X = ls ++ Y` kall_tac >>
     `cs0.next_label = cs.next_label` by rw[Abbr`cs0`] >>
     `cs.next_label ≤ cs1.next_label` by (
       rw[Abbr`cs1`] >>
@@ -1251,36 +1262,16 @@ val compile_next_label = store_thm("compile_next_label",
       metis_tac[compile_next_label_inc]) >>
     `cs0.next_label ≤ (compile cs0 e1).next_label` by (
       metis_tac[compile_next_label_inc]) >>
-    strip_tac >>
-    `MEM x ll` by (match_mp_tac(MP_CANON MEM_TAKE) >> qexists_tac `LENGTH ls` >> rw[]) >>
-    pop_assum mp_tac >>
-    qabbrev_tac`PP = MEM x (TAKE (LENGTH ls) ll)` >>
-    (* want to not simplify PP, or do something clever with it now ... *)
-    qunabbrev_tac`ll` >>
     simp_tac std_ss [MEM] >>
     strip_tac >- (srw_tac[ARITH_ss][between_def]) >>
     pop_assum mp_tac >>
-    qspecl_then[`cs3`,`e3`]mp_tac(CONJUNCT1 compile_append_out) >>
-    disch_then(Q.X_CHOOSE_THEN`b3`mp_tac) >>
-    strip_tac >>
+    `HD cs3.out = Label ((compile cs0 e1).next_label + 1)` by rw[Abbr`cs3`] >>
+    `HD cs2.out = Label ((compile cs0 e1).next_label)` by rw[Abbr`cs2`] >>
+    simp[FILTER_APPEND] >>
     `FILTER is_Label (compile cs3 e3).out =
      FILTER is_Label b3 ++ [Label (cs1.next_label + 1)] ++
      FILTER is_Label (compile cs2 e2).out` by (
        rw[FILTER_APPEND,Abbr`cs3`] ) >>
-    fs[] >>
-    Cases_on `MEM x (FILTER is_Label b3)` >- (
-      fs[] >>
-      fsrw_tac[DNF_ss][MEM_FILTER,is_Label_rwt] >>
-      rw[] >>
-      fsrw_tac[DNF_ss][between_def] >>
-      res_tac >> fsrw_tac[ARITH_ss][] ) >>
-    fs[] >>
-    strip_tac >- (
-      srw_tac[ARITH_ss][between_def] ) >>
-    pop_assum mp_tac >>
-    qspecl_then[`cs2`,`e2`]mp_tac(CONJUNCT1 compile_append_out) >>
-    disch_then(Q.X_CHOOSE_THEN`b2`mp_tac) >>
-    strip_tac >>
     `FILTER is_Label (compile cs2 e2).out =
      FILTER is_Label b2 ++ [Label cs1.next_label] ++
      FILTER is_Label cs1.out` by (
@@ -1289,6 +1280,20 @@ val compile_next_label = store_thm("compile_next_label",
       pop_assum SUBST1_TAC >>
       simp[FILTER_APPEND] >>
       rw[Abbr`cs2`,FILTER_APPEND] ) >>
+    qpat_assum `X = b3 ++ Y` mp_tac >>
+    qpat_assum `X = b2 ++ Y` mp_tac >>
+    fs[] >>
+    ntac 2 (disch_then kall_tac) >>
+    ntac 4 (pop_assum kall_tac) >>
+    Cases_on `MEM x (FILTER is_Label b3)` >- (
+      fs[] >>
+      fsrw_tac[DNF_ss][MEM_FILTER,is_Label_rwt] >>
+      rw[] >>
+      fsrw_tac[DNF_ss][between_def] >>
+      res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    fs[] >>
+    Cases_on `x = Label (cs1.next_label + 1)` >- (
+      srw_tac[ARITH_ss][between_def] ) >>
     fs[] >>
     Cases_on `MEM x (FILTER is_Label b2)` >- (
       fs[] >>
@@ -1302,20 +1307,12 @@ val compile_next_label = store_thm("compile_next_label",
     fs[] >>
     strip_tac >- (
       srw_tac[ARITH_ss][between_def] ) >>
-    pop_assum mp_tac >>
-    `cs1.out = b1 ++ cs0.out` by rw[Abbr`cs1`] >>
-    pop_assum SUBST1_TAC >>
-    fsrw_tac[DNF_ss][FILTER_APPEND,MEM_FILTER,is_Label_rwt] >>
-
-    Cases_on `MEM x b1` >- (
-      rw[] >>
-      fsrw_tac[DNF_ss][between_def] >>
-      res_tac >> DECIDE_TAC ) >>
-    rw[] >>
-    fsrw_tac[DNF_ss][between_def]
-
-    )>>
-  strip_tac >- cheat >>
+    fsrw_tac[DNF_ss][MEM_FILTER,is_Label_rwt] >> rw[] >>
+    res_tac >>
+    fsrw_tac[ARITH_ss][Abbr`cs1`,between_def] ) >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] ) >>
   rw[compile_def] )
 
 val compile_ALL_DISTINCT_labels = store_thm("compile_ALL_DISTINCT_labels",
