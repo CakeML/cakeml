@@ -1408,8 +1408,46 @@ val compile_ALL_DISTINCT_labels = store_thm("compile_ALL_DISTINCT_labels",
     strip_tac >>
     simp[compile_def,LET_THM] >>
     Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
+    Q.PAT_ABBREV_TAC`cs1 = compiler_state_tail_fupd X Y` >>
+    Q.PAT_ABBREV_TAC`cs2 = compiler_state_sz_fupd (K ((compile cs0 e1).sz - 1)) Y` >>
+    Q.PAT_ABBREV_TAC`cs3 = compiler_state_sz_fupd (K ((compile cs2 e2).sz - 1)) Y` >>
     strip_tac >>
-    qmatch_abbrev_tac`¬MEM (Label n2) ls ∧ ALL_DISTINCT ls` >>
+    first_x_assum (qspec_then`FST (sdt cs)`mp_tac) >> simp[] >> strip_tac >>
+    first_x_assum (qspec_then`FST (sdt cs)`mp_tac) >> simp[] >>
+    Q.PAT_ABBREV_TAC`cs4 = compiler_state_sz_fupd X Y` >>
+    `cs4 = cs2` by (
+      unabbrev_all_tac >> rw[] ) >>
+    BasicProvers.VAR_EQ_TAC >>
+    pop_assum kall_tac >> strip_tac >>
+    first_x_assum (qspec_then`FST (sdt cs)`mp_tac) >> simp[] >>
+    Q.PAT_ABBREV_TAC`cs4 = compiler_state_sz_fupd X Y` >>
+    `cs4 = cs2` by (
+      unabbrev_all_tac >> rw[] ) >>
+    BasicProvers.VAR_EQ_TAC >>
+    pop_assum kall_tac >>
+    Q.PAT_ABBREV_TAC`cs4 = compiler_state_sz_fupd X Y` >>
+    `cs4 = cs3` by (
+      unabbrev_all_tac >> rw[] ) >>
+    BasicProvers.VAR_EQ_TAC >>
+    pop_assum kall_tac >>
+    strip_tac >>
+    qspecl_then[`cs0`,`e1`]mp_tac(CONJUNCT1 compile_append_out) >>
+    disch_then(Q.X_CHOOSE_THEN`b1`mp_tac) >> strip_tac >>
+    qspecl_then[`cs2`,`e2`]mp_tac(CONJUNCT1 compile_append_out) >>
+    disch_then(Q.X_CHOOSE_THEN`b2`mp_tac) >> strip_tac >>
+    qspecl_then[`cs3`,`e3`]mp_tac(CONJUNCT1 compile_append_out) >>
+    disch_then(Q.X_CHOOSE_THEN`b3`mp_tac) >> strip_tac >>
+    qspecl_then[`cs3`,`e3`,`FILTER is_Label b3`]mp_tac(CONJUNCT1 compile_next_label) >>
+    qspecl_then[`cs2`,`e2`,`FILTER is_Label b2`]mp_tac(CONJUNCT1 compile_next_label) >>
+    qspecl_then[`cs0`,`e1`,`FILTER is_Label b1`]mp_tac(CONJUNCT1 compile_next_label) >>
+    `cs0.next_label = cs.next_label` by rw[Abbr`cs0`] >>
+    `cs0.out = cs.out` by rw[Abbr`cs0`] >>
+    simp[FILTER_APPEND] >>
+    ntac 3 strip_tac >>
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,MEM_FILTER,is_Label_rwt,between_def] >>
+    rfs[]
+
+    >>
     cheat ) >>
   strip_tac >- (
     rw[compile_def,LET_THM] >>
@@ -1425,7 +1463,7 @@ val compile_val = store_thm("compile_val",
         (bc0c = bc0 ++ (REVERSE (compile cs exp).out)) ∧
         (bs.code = bc0c ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length (bc0 ++ REVERSE cs.out)) ∧
-        ALL_DISTINCT (FILTER is_Label (bc0 ++ bc1))
+        ALL_DISTINCT (FILTER is_Label (bc0 ++ cs.out ++ bc1))
         ⇒
         ∃bv.
           let bs' = bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length bc0c |> in
@@ -1442,7 +1480,7 @@ val compile_val = store_thm("compile_val",
         (bc0c = bc0 ++ (REVERSE (FOLDL compile cs exps).out)) ∧
         (bs.code = bc0c ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length (bc0 ++ REVERSE cs.out)) ∧
-        ALL_DISTINCT (FILTER is_Label (bc0 ++ bc1))
+        ALL_DISTINCT (FILTER is_Label (bc0 ++ cs.out ++ bc1))
         ⇒
         ∃bvs.
           let bs' = bs with <| stack := (REVERSE bvs)++bs.stack ; pc := next_addr bs.inst_length bc0c |> in
@@ -1497,7 +1535,7 @@ val compile_val = store_thm("compile_val",
     qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
     first_x_assum (qspecl_then [`bc0`,`[x] ++ bc1`,`bs`,`cs0`] mp_tac) >>
     fs[Abbr`cs0`] >>
-    `ALL_DISTINCT (FILTER is_Label (bc0 ++ [x] ++ bc1))` by (
+    `ALL_DISTINCT (FILTER is_Label (bc0 ++ cs.out ++ [x] ++ bc1))` by (
       fs[FILTER_APPEND,Abbr`x`] ) >> fs[] >>
     disch_then (Q.X_CHOOSE_THEN `bvs` strip_assume_tac) >>
     qexists_tac `bvs` >>
@@ -1530,7 +1568,7 @@ val compile_val = store_thm("compile_val",
     qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
     first_x_assum (qspecl_then [`bc0`,`[x] ++ bc1`,`bs`,`cs0`] mp_tac) >>
     fs[Abbr`cs0`] >>
-    `ALL_DISTINCT (FILTER is_Label (bc0 ++ [x] ++ bc1))` by (
+    `ALL_DISTINCT (FILTER is_Label (bc0 ++ cs.out ++ [x] ++ bc1))` by (
       fs[FILTER_APPEND,Abbr`x`] ) >> fs[] >>
     disch_then (Q.X_CHOOSE_THEN `bv` strip_assume_tac) >>
     rfs[] >>
@@ -1560,7 +1598,7 @@ val compile_val = store_thm("compile_val",
     qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
     first_x_assum (qspecl_then [`bc0`,`[x] ++ bc1`,`bs`,`cs0`] mp_tac) >>
     fs[Abbr`cs0`] >>
-    `ALL_DISTINCT (FILTER is_Label (bc0 ++ [x] ++ bc1))` by (
+    `ALL_DISTINCT (FILTER is_Label (bc0 ++ cs.out ++ [x] ++ bc1))` by (
       fs[FILTER_APPEND,Abbr`x`] ) >> fs[] >>
     disch_then (Q.X_CHOOSE_THEN `bv` strip_assume_tac) >>
     fs[Once (Q.SPECL[`pp`,`CConv m vs`]Cv_bv_cases)] >>
@@ -1599,7 +1637,7 @@ val compile_val = store_thm("compile_val",
     qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
     first_x_assum (qspecl_then [`bc0`,`[x] ++ bc1`,`bs`,`cs0`] mp_tac) >>
     fs[Abbr`cs0`] >>
-    `ALL_DISTINCT (FILTER is_Label (bc0 ++ [x] ++ bc1))` by (
+    `ALL_DISTINCT (FILTER is_Label (bc0 ++ cs.out ++ [x] ++ bc1))` by (
       fs[FILTER_APPEND,Abbr`x`] ) >> fs[] >>
     disch_then (Q.X_CHOOSE_THEN `bvs` strip_assume_tac) >>
     fs[EVERY2_EVERY] >>
@@ -1695,6 +1733,21 @@ val compile_val = store_thm("compile_val",
     rw[bc_state_component_equality] ) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
+    rpt gen_tac >> strip_tac >>
+    BasicProvers.VAR_EQ_TAC >>
+    fs[] >>
+    BasicProvers.VAR_EQ_TAC >>
+    qspecl_then[`cs`,`exp`]mp_tac(CONJUNCT1 compile_append_out) >>
+    disch_then(Q.X_CHOOSE_THEN`b2`strip_assume_tac) >>
+    qabbrev_tac`cs0 = compile cs exp` >>
+    qspecl_then[`cs0`,`exps`]mp_tac(FOLDL_compile_append_out) >>
+    disch_then(Q.X_CHOOSE_THEN`b3`strip_assume_tac) >>
+    qabbrev_tac`cs1 = FOLDL compile cs0 exps` >>
+    qspecl_then[`cs`,`exp`]mp_tac(CONJUNCT1 compile_ALL_DISTINCT_labels)
+    first_x_assum(qspecl_then[`bc0`,`bc1`,`bs with pc := next_addr bs.inst_length (bc0 ++ REVERSE cs0.out)`,`cs0`]mp_tac) >>
+    first_x_assum(qspecl_then[`bc0`,`REVERSE b3 ++ bc1`,`bs`,`cs`]mp_tac) >>
+    simp[]
+
     simp[] >> fs[LET_THM] >>
     rpt gen_tac >> strip_tac >>
     (*
