@@ -1445,10 +1445,83 @@ val compile_ALL_DISTINCT_labels = store_thm("compile_ALL_DISTINCT_labels",
     simp[FILTER_APPEND] >>
     ntac 3 strip_tac >>
     fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,MEM_FILTER,is_Label_rwt,between_def] >>
-    rfs[]
-
-    >>
-    cheat ) >>
+    rfs[] >>
+    qspecl_then[`cs0`,`e1`]mp_tac(CONJUNCT1 compile_next_label_inc) >>
+    `cs3.next_label = (compile cs2 e2).next_label` by ( rw[Abbr`cs3`] ) >>
+    qspecl_then[`cs2`,`e2`]mp_tac(CONJUNCT1 compile_next_label_inc) >>
+    `cs2.next_label = (compile cs0 e1).next_label + 3` by ( rw[Abbr`cs2`] ) >>
+    ntac 2 strip_tac >>
+    qabbrev_tac`nl = (compile cs0 e1).next_label` >>
+    Cases_on `MEM (Label (nl + 2)) b3` >- (
+      res_tac >>
+      `nl + 3 ≤ nl + 2` by metis_tac[LESS_EQ_TRANS] >>
+      fsrw_tac[ARITH_ss][] ) >>
+    Cases_on `MEM (Label (nl + 2)) b2` >- (
+      res_tac >>
+      `nl + 3 ≤ nl + 2` by metis_tac[LESS_EQ_TRANS] >>
+      fsrw_tac[ARITH_ss][] ) >>
+    Cases_on `MEM (Label (nl + 2)) b1` >- (
+      res_tac >>
+      fsrw_tac[ARITH_ss][] ) >>
+    Cases_on `MEM (Label (nl + 2)) cs.out` >- (
+      res_tac >>
+      `nl < nl + 2` by srw_tac[ARITH_ss][] >>
+      metis_tac[LESS_LESS_EQ_TRANS,LESS_TRANS,prim_recTheory.LESS_REFL] ) >>
+    fs[] >>
+    conj_asm1_tac >- (
+      IMP_RES_THEN (assume_tac o SIMP_RULE(srw_ss())[]) (METIS_PROVE[]``Abbrev(x=y)==>(x.out = y.out)``) >>
+      qpat_assum `cs3.out = X` SUBST1_TAC >>
+      simp[] ) >>
+    fs[FILTER_APPEND] >>
+    first_x_assum match_mp_tac >>
+    `cs1.next_label = nl` by rw[Abbr`cs1`] >> fs[] >>
+    Cases_on `MEM (Label (nl + 1)) b2` >- (
+      res_tac >>
+      `nl + 3 ≤ nl + 1` by metis_tac[LESS_EQ_TRANS] >>
+      fsrw_tac[ARITH_ss][] ) >>
+    Cases_on `MEM (Label (nl + 1)) b1` >- (
+      res_tac >>
+      fsrw_tac[ARITH_ss][] ) >>
+    Cases_on `MEM (Label (nl + 1)) cs.out` >- (
+      res_tac >>
+      `nl < nl + 1` by srw_tac[ARITH_ss][] >>
+      metis_tac[LESS_LESS_EQ_TRANS,LESS_TRANS,prim_recTheory.LESS_REFL] ) >>
+    fs[] >>
+    Cases_on `MEM (Label (nl + 1)) cs2.out` >- (
+      fs[] >> pop_assum mp_tac >> simp[] >>
+      IMP_RES_THEN (assume_tac o SIMP_RULE(srw_ss())[]) (METIS_PROVE[]``Abbrev(x=y)==>(x.out = y.out)``) >>
+      qpat_assum `cs2.out = X` SUBST1_TAC >>
+      simp[] ) >>
+    fs[] >>
+    `nl + 1 < (compile cs2 e2).next_label` by DECIDE_TAC >> fs[] >>
+    reverse conj_asm2_tac >- (
+      gen_tac >>
+      IMP_RES_THEN (assume_tac o SIMP_RULE(srw_ss())[]) (METIS_PROVE[]``Abbrev(x=y)==>(x.out = y.out)``) >>
+      qpat_assum `cs2.out = X` SUBST1_TAC >>
+      simp[] >>
+      strip_tac >> res_tac >>
+      DECIDE_TAC ) >>
+    first_x_assum match_mp_tac >>
+    Cases_on `MEM (Label nl) b1` >- (
+      res_tac >> fs[] ) >>
+    Cases_on `MEM (Label nl) cs.out` >- (
+      res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    Cases_on `MEM (Label nl) cs1.out` >- (
+      fs[] >> pop_assum mp_tac >> simp[] >>
+      IMP_RES_THEN (assume_tac o SIMP_RULE(srw_ss())[]) (METIS_PROVE[]``Abbrev(x=y)==>(x.out = y.out)``) >>
+      qpat_assum `cs1.out = X` SUBST1_TAC >>
+      simp[] ) >>
+    fs[] >>
+    reverse conj_asm2_tac >- (
+      gen_tac >>
+      IMP_RES_THEN (assume_tac o SIMP_RULE(srw_ss())[]) (METIS_PROVE[]``Abbrev(x=y)==>(x.out = y.out)``) >>
+      qpat_assum `cs1.out = X` SUBST1_TAC >>
+      simp[] >>
+      strip_tac >> res_tac >>
+      DECIDE_TAC ) >>
+    `cs1.out = b1 ++ cs.out` by rw[Abbr`cs1`] >>
+    pop_assum SUBST1_TAC >>
+    simp[FILTER_APPEND] ) >>
   strip_tac >- (
     rw[compile_def,LET_THM] >>
     BasicProvers.EVERY_CASE_TAC >> fs[] ) >>
