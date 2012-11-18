@@ -1527,16 +1527,22 @@ val compile_ALL_DISTINCT_labels = store_thm("compile_ALL_DISTINCT_labels",
     BasicProvers.EVERY_CASE_TAC >> fs[] ) >>
   rw[compile_def] )
 
+val Cenv_bs_pc = store_thm("Cenv_bs_pc",
+  ``Cenv_bs c env env0 sz0 bs ⇒ Cenv_bs c env env0 sz0 (bs with pc := p)``,
+  rw[Cenv_bs_def])
+
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒
-      ∀v bc0 bc0c bc1 bs cs.
+      ∀v bc0 bc00 bc0c bc1 bs cs.
         Cexp_pred exp ∧
         (res = Rval v) ∧
         (Cenv_bs c env cs.env cs.sz bs) ∧
         (bc0c = bc0 ++ (REVERSE (compile cs exp).out)) ∧
         (bs.code = bc0c ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length (bc0 ++ REVERSE cs.out)) ∧
-        ALL_DISTINCT (FILTER is_Label (bc0 ++ cs.out ++ bc1))
+        (bc00 = bc0 ++ cs.out ++ bc1) ∧
+        ALL_DISTINCT (FILTER is_Label bc00) ∧
+        EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc00)
         ⇒
         ∃bv.
           let bs' = bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length bc0c |> in
@@ -1546,14 +1552,16 @@ val compile_val = store_thm("compile_val",
           ((compile cs exp).sz = cs.sz + 1) ∧
           Cenv_bs c env (compile cs exp).env (compile cs exp).sz bs') ∧
     (∀c env exps ress. Cevaluate_list c env exps ress ⇒
-      ∀vs bc0 bc0c bc1 bs cs.
+      ∀vs bc0 bc00 bc0c bc1 bs cs.
         EVERY Cexp_pred exps ∧
         (ress = Rval vs) ∧
         (Cenv_bs c env cs.env cs.sz bs) ∧
         (bc0c = bc0 ++ (REVERSE (FOLDL compile cs exps).out)) ∧
         (bs.code = bc0c ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length (bc0 ++ REVERSE cs.out)) ∧
-        ALL_DISTINCT (FILTER is_Label (bc0 ++ cs.out ++ bc1))
+        (bc00 = bc0 ++ cs.out ++ bc1) ∧
+        ALL_DISTINCT (FILTER is_Label bc00) ∧
+        EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc00)
         ⇒
         ∃bvs.
           let bs' = bs with <| stack := (REVERSE bvs)++bs.stack ; pc := next_addr bs.inst_length bc0c |> in
@@ -1608,8 +1616,9 @@ val compile_val = store_thm("compile_val",
     qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
     first_x_assum (qspecl_then [`bc0`,`[x] ++ bc1`,`bs`,`cs0`] mp_tac) >>
     fs[Abbr`cs0`] >>
-    `ALL_DISTINCT (FILTER is_Label (bc0 ++ cs.out ++ [x] ++ bc1))` by (
-      fs[FILTER_APPEND,Abbr`x`] ) >> fs[] >>
+    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by ( unabbrev_all_tac >> fs[FILTER_APPEND] ) >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >> fs[] >>
     disch_then (Q.X_CHOOSE_THEN `bvs` strip_assume_tac) >>
     qexists_tac `bvs` >>
     reverse (rw[]) >- (
@@ -1641,8 +1650,9 @@ val compile_val = store_thm("compile_val",
     qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
     first_x_assum (qspecl_then [`bc0`,`[x] ++ bc1`,`bs`,`cs0`] mp_tac) >>
     fs[Abbr`cs0`] >>
-    `ALL_DISTINCT (FILTER is_Label (bc0 ++ cs.out ++ [x] ++ bc1))` by (
-      fs[FILTER_APPEND,Abbr`x`] ) >> fs[] >>
+    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by ( unabbrev_all_tac >> fs[FILTER_APPEND] ) >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >> fs[] >>
     disch_then (Q.X_CHOOSE_THEN `bv` strip_assume_tac) >>
     rfs[] >>
     conj_tac >- (
@@ -1671,8 +1681,9 @@ val compile_val = store_thm("compile_val",
     qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
     first_x_assum (qspecl_then [`bc0`,`[x] ++ bc1`,`bs`,`cs0`] mp_tac) >>
     fs[Abbr`cs0`] >>
-    `ALL_DISTINCT (FILTER is_Label (bc0 ++ cs.out ++ [x] ++ bc1))` by (
-      fs[FILTER_APPEND,Abbr`x`] ) >> fs[] >>
+    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by ( unabbrev_all_tac >> fs[FILTER_APPEND] ) >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >> fs[] >>
     disch_then (Q.X_CHOOSE_THEN `bv` strip_assume_tac) >>
     fs[Once (Q.SPECL[`pp`,`CConv m vs`]Cv_bv_cases)] >>
     fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
@@ -1710,8 +1721,9 @@ val compile_val = store_thm("compile_val",
     qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
     first_x_assum (qspecl_then [`bc0`,`[x] ++ bc1`,`bs`,`cs0`] mp_tac) >>
     fs[Abbr`cs0`] >>
-    `ALL_DISTINCT (FILTER is_Label (bc0 ++ cs.out ++ [x] ++ bc1))` by (
-      fs[FILTER_APPEND,Abbr`x`] ) >> fs[] >>
+    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by ( unabbrev_all_tac >> fs[FILTER_APPEND] ) >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >> fs[] >>
     disch_then (Q.X_CHOOSE_THEN `bvs` strip_assume_tac) >>
     fs[EVERY2_EVERY] >>
     `∃bv0 bv1. bvs = [bv0;bv1]` by (
@@ -1749,25 +1761,79 @@ val compile_val = store_thm("compile_val",
     rpt strip_tac >>
     rw[LET_THM] >> fs[] >>
     fs[compile_def,LET_THM] >>
-    SIMPLE_QUANT_ABBREV_TAC [select_fun_constant ``compile`` 1 "cs0"] >>
-    SIMPLE_QUANT_ABBREV_TAC [select_fun_constant ``compile`` 1 "cs1"] >>
-    SIMPLE_QUANT_ABBREV_TAC [select_fun_constant ``compile`` 1 "cs2"] >>
+    Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
+    Q.PAT_ABBREV_TAC`cs1 = compiler_state_tail_fupd X Y` >>
+    Q.PAT_ABBREV_TAC`cs2 = compiler_state_sz_fupd (K ((compile cs0 e1).sz - 1)) Y` >>
+    Q.PAT_ABBREV_TAC`cs3 = compiler_state_sz_fupd (K ((compile cs2 e2).sz - 1)) Y` >>
     qabbrev_tac`nl = (compile cs0 exp).next_label` >>
-    `∃bce1 bce2 bce3. ((compile cs0 exp).out = bce1 ++ cs0.out) ∧
-                      ((compile cs1 e2).out = bce2 ++ TAKE 3 (cs1.out) ++ (compile cs0 exp).out) ∧
-                      ((compile cs2 e3).out = bce3 ++ TAKE 2 (cs2.out) ++ (compile cs1 e2).out)` by (
-      qspecl_then[`cs0`,`exp`]mp_tac(CONJUNCT1 compile_append_out) >>
-      qspecl_then[`cs1`,`e2`]mp_tac(CONJUNCT1 compile_append_out) >>
-      qspecl_then[`cs2`,`e3`]mp_tac(CONJUNCT1 compile_append_out) >>
-      disch_then(Q.X_CHOOSE_THEN`bce2`strip_assume_tac) >>
-      disch_then(Q.X_CHOOSE_THEN`bce1`strip_assume_tac) >>
-      disch_then(Q.X_CHOOSE_THEN`bce0`strip_assume_tac) >>
-      fs[Abbr`cs1`,Abbr`cs2`] ) >>
+    qspecl_then[`cs0`,`exp`]mp_tac(CONJUNCT1 compile_append_out) >>
+    disch_then(Q.X_CHOOSE_THEN`be1`strip_assume_tac) >>
+    qspecl_then[`cs2`,`e2`]mp_tac(CONJUNCT1 compile_append_out) >>
+    disch_then(Q.X_CHOOSE_THEN`be2`strip_assume_tac) >>
+    qspecl_then[`cs3`,`e3`]mp_tac(CONJUNCT1 compile_append_out) >>
+    disch_then(Q.X_CHOOSE_THEN`be3`strip_assume_tac) >>
+    qmatch_assum_abbrev_tac `bs.code = bc0 ++ REVERSE (compile cs3 e3).out ++ [Label nl2] ++ bc1` >>
+    qabbrev_tac`nl1 = nl + 1` >>
+    `bs.code = bc0 ++ REVERSE (compile cs0 exp).out ++ ( [JumpIf (Lab nl);Jump(Lab nl1);Label nl]
+                   ++ REVERSE be2 ++ [Jump(Lab nl2);Label nl1]
+                   ++ REVERSE be3 ++ [Label (nl + 2)] ++ bc1 )` by (
+      rw[] >> rw[Abbr`cs3`] >> rw[Abbr`cs2`] ) >>
+    qmatch_assum_abbrev_tac `bs.code = bc0 ++ REVERSE (compile cs0 exp).out ++ bc11` >>
     qpat_assum `∀bc0. P` mp_tac >>
+    qabbrev_tac `il = bs.inst_length` >>
+    first_x_assum (qspecl_then [`bc0`,`bc11`,`bs with pc := next_addr il (bc0 ++ REVERSE cs0.out)`,`cs0`] mp_tac) >>
+    `(cs0.env = cs.env) ∧ (cs0.sz = cs.sz) ∧ (cs0.out = cs.out) ∧ (cs0.next_label = cs.next_label)` by rw[Abbr`cs0`] >>
+    simp[Cenv_bs_pc] >>
+    qspecl_then[`cs0`,`exp`,`FILTER is_Label be1`]mp_tac(CONJUNCT1 compile_next_label) >>
+    simp[Once FILTER_APPEND] >> strip_tac >>
+    qspecl_then[`cs0`,`exp`]mp_tac(CONJUNCT1 compile_ALL_DISTINCT_labels) >>
+    simp[] >> qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by ( unabbrev_all_tac >> fs[ALL_DISTINCT_APPEND,FILTER_APPEND] ) >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    simp[] >> strip_tac >> >>
+    (*
+    qspecl_then[`cs2`,`e2`]mp_tac(CONJUNCT1 compile_ALL_DISTINCT_labels) >>
+    simp[] >> qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by ( unabbrev_all_tac >> fs[ALL_DISTINCT_APPEND,FILTER_APPEND] ) >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    simp[] >> strip_tac >> >>
+    *)
+    qspecl_then[`cs2`,`e2`,`FILTER is_Label be2`]mp_tac(CONJUNCT1 compile_next_label) >>
+    simp[Once FILTER_APPEND] >> strip_tac >>
+    qspecl_then[`cs3`,`e3`,`FILTER is_Label be3`]mp_tac(CONJUNCT1 compile_next_label) >>
+    simp[Once FILTER_APPEND] >> strip_tac >>
+    fs[EVERY_MEM,MEM_MAP,between_def,MEM_FILTER,is_Label_rwt] >>
+    fsrw_tac[QUANT_INST_ss[empty_qp]][] >>
+    `cs2.next_label = nl + 3` by rw[Abbr`cs2`] >>
+    `cs3.next_label = (compile cs2 e2).next_label` by rw[Abbr`cs3`] >>
+    qspecl_then[`cs2`,`e2`]mp_tac(CONJUNCT1 compile_next_label_inc) >> strip_tac >>
+    Cases_on `MEM (Label nl) be2` >- (
+      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
+    Cases_on `MEM (Label nl) be3` >- (
+      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
+    Cases_on `MEM (Label nl1) be2` >- (
+      qunabbrev_tac`nl1` >>
+      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
+    Cases_on `MEM (Label nl1) be3` >- (
+      qunabbrev_tac`nl1` >>
+      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
+    Cases_on `MEM (Label nl2) be2` >- (
+      qunabbrev_tac`nl2` >>
+      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
+    Cases_on `MEM (Label nl2) be3` >- (
+      qunabbrev_tac`nl2` >>
+      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
+    `ALL_DISTINCT (FILTER is_Label (bc0 ++ cs.out ++ bc11))` by (
+      fs[FILTER_APPEND,Abbr`bc11`] >>
+      fs[ALL_DISTINCT_APPEND,FILTER_APPEND,MEM_FILTER,is_Label_rwt] >>
+      fsrw_tac[QUANT_INST_ss[empty_qp]][] >>
+      simp[Abbr`nl1`,Abbr`nl2`]
+
+    REVERSE_APPEND
+    qmatch_assum_abbrev_tac `bs.code = bc0 ++ (REVERSE cs0.out ++ (REVERSE bce1 ++ bce11))` >>
+
     full_simp_tac std_ss[GSYM APPEND_ASSOC,REVERSE_APPEND] >>
     qmatch_assum_abbrev_tac `bs.code = bc0 ++ (REVERSE cs0.out ++ (REVERSE bce1 ++ bce11))` >>
-    first_x_assum (qspecl_then [`bc0`,`bce11`,`bs`,`cs0`] mp_tac) >>
-    `(cs0.env = cs.env) ∧ (cs0.sz = cs.sz) ∧ (cs0.out = cs.out)` by rw[Abbr`cs0`] >>
     fs[] >>
     (*
     simp[Once Cv_bv_cases] >>
@@ -1791,7 +1857,7 @@ val compile_val = store_thm("compile_val",
       fs[] >>
       `Cenv_bs c env cs1.env cs1.sz bs1` by (
         rw[Abbr`bs1`,Abbr`cs1`]
-    set_trace"goalstack print goal at top"0
+    set_trace"goalstack print goal at top"1
     *)
     cheat
     ) >>
