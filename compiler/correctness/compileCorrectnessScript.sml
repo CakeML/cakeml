@@ -1572,7 +1572,58 @@ val bc_next_append_code = store_thm("bc_next_append_code",
     rw[bc_eval1_def,LET_THM] >>
     rw[bump_pc_with_stack] >>
     rw[bump_pc_def] ) >>
-  strip_tac
+  strip_tac >- (
+    rw[bc_eval1_thm] >>
+    imp_res_tac bc_fetch_append_code >>
+    imp_res_tac bc_find_loc_append_code >>
+    rw[bc_eval1_def,LET_THM] >>
+    rw[bc_state_component_equality] >>
+    rw[bump_pc_def] ) >>
+  strip_tac >- (
+    rw[bc_eval1_thm] >>
+    imp_res_tac bc_fetch_append_code >>
+    imp_res_tac bc_find_loc_append_code >>
+    rw[bc_eval1_def,LET_THM] >>
+    rw[bc_state_component_equality] >>
+    rw[bump_pc_def] ) >>
+  strip_tac >- (
+    rw[bc_eval1_thm] >>
+    imp_res_tac bc_fetch_append_code >>
+    rw[bc_eval1_def,LET_THM] ) >>
+  strip_tac >- (
+    rw[bc_eval1_thm] >>
+    imp_res_tac bc_fetch_append_code >>
+    imp_res_tac bc_find_loc_append_code >>
+    rw[bc_eval1_def,LET_THM] >>
+    rw[bc_state_component_equality] >>
+    rw[bump_pc_def] ) >>
+  strip_tac >- (
+    rw[bc_eval1_thm] >>
+    imp_res_tac bc_fetch_append_code >>
+    imp_res_tac bc_find_loc_append_code >>
+    rw[bc_eval1_def,LET_THM] ) >>
+  strip_tac >- (
+    rw[bc_eval1_thm] >>
+    imp_res_tac bc_fetch_append_code >>
+    imp_res_tac bc_find_loc_append_code >>
+    rw[bc_eval1_def,LET_THM] ) >>
+  strip_tac >- (
+    rw[bc_eval1_thm] >>
+    imp_res_tac bc_fetch_append_code >>
+    imp_res_tac bc_find_loc_append_code >>
+    rw[bc_eval1_def,LET_THM] >>
+    rw[bump_pc_def]) >>
+  strip_tac >- (
+    rw[bc_eval1_thm] >>
+    imp_res_tac bc_fetch_append_code >>
+    imp_res_tac bc_find_loc_append_code >>
+    rw[bc_eval1_def,LET_THM] >>
+    rw[bump_pc_def]) >>
+  rw[bc_eval1_thm] >>
+  imp_res_tac bc_fetch_append_code >>
+  imp_res_tac bc_find_loc_append_code >>
+  rw[bc_eval1_def,LET_THM] >>
+  rw[bump_pc_def])
 
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒
