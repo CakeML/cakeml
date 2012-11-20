@@ -1627,38 +1627,36 @@ val bc_next_append_code = store_thm("bc_next_append_code",
 
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒
-      ∀v bc0 bc00 bc0c bc1 bs cs.
+      ∀v bc0 bc00 bs cs.
         Cexp_pred exp ∧
         (res = Rval v) ∧
-        (Cenv_bs c env cs.env cs.sz bs) ∧
-        (bc0c = bc0 ++ (REVERSE (compile cs exp).out)) ∧
-        (bs.code = bc0c ++ bc1) ∧
+        (bs.code = bc0 ++ (REVERSE (compile cs exp).out)) ∧
         (bs.pc = next_addr bs.inst_length (bc0 ++ REVERSE cs.out)) ∧
-        (bc00 = bc0 ++ cs.out ++ bc1) ∧
+        (bc00 = bc0 ++ cs.out) ∧
+        (Cenv_bs c env cs.env cs.sz (bs with code := bc00)) ∧
         ALL_DISTINCT (FILTER is_Label bc00) ∧
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc00)
         ⇒
         ∃bv.
-          let bs' = bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length bc0c |> in
+          let bs' = bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length bs.code |> in
           bc_next^* bs bs' ∧
           Cv_bv (mk_pp c bs) v bv ∧
           ((compile cs exp).env = cs.env) ∧
           ((compile cs exp).sz = cs.sz + 1) ∧
           Cenv_bs c env (compile cs exp).env (compile cs exp).sz bs') ∧
     (∀c env exps ress. Cevaluate_list c env exps ress ⇒
-      ∀vs bc0 bc00 bc0c bc1 bs cs.
+      ∀vs bc0 bc00 bs cs.
         EVERY Cexp_pred exps ∧
         (ress = Rval vs) ∧
-        (Cenv_bs c env cs.env cs.sz bs) ∧
-        (bc0c = bc0 ++ (REVERSE (FOLDL compile cs exps).out)) ∧
-        (bs.code = bc0c ++ bc1) ∧
+        (bs.code = bc0 ++ (REVERSE (FOLDL compile cs exps).out)) ∧
         (bs.pc = next_addr bs.inst_length (bc0 ++ REVERSE cs.out)) ∧
-        (bc00 = bc0 ++ cs.out ++ bc1) ∧
+        (bc00 = bc0 ++ cs.out) ∧
+        (Cenv_bs c env cs.env cs.sz (bs with code := bc00)) ∧
         ALL_DISTINCT (FILTER is_Label bc00) ∧
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc00)
         ⇒
         ∃bvs.
-          let bs' = bs with <| stack := (REVERSE bvs)++bs.stack ; pc := next_addr bs.inst_length bc0c |> in
+          let bs' = bs with <| stack := (REVERSE bvs)++bs.stack ; pc := next_addr bs.inst_length bs.code |> in
           bc_next^* bs bs' ∧
           EVERY2 (Cv_bv (mk_pp c bs)) vs bvs ∧
           ((FOLDL compile cs exps).env = cs.env) ∧
@@ -1675,7 +1673,11 @@ val compile_val = store_thm("compile_val",
     qmatch_assum_rename_tac `Cv_bv pp (env ' n) x`["pp"] >>
     qexists_tac `x` >> rw[] >- (
       imp_res_tac compile_varref_thm >>
-      pop_assum mp_tac >> rw[] ) >>
+      ntac 2 (pop_assum mp_tac) >>
+      simp_tac (srw_ss()) [] >>
+      metis_tac[])
+    >- (
+      cheat (* need some monotonicity for Cv_bv wrt l2a *)) >>
     unabbrev_all_tac >> rw[] >>
     qmatch_assum_rename_tac `z ∈ FDOM env`[] >>
     qmatch_abbrev_tac`X` >>
@@ -1683,14 +1685,15 @@ val compile_val = store_thm("compile_val",
     BasicProvers.CASE_TAC >>
     qunabbrev_tac`X` >>
     imp_res_tac lookup_ct_imp_incsz >>
-    rw[]) >>
+    rw[] >>
+    cheat) >>
   strip_tac >- (
     ntac 2 gen_tac >>
     Cases >> rw[compile_def,LET_THM] >>
-    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x]` >>
     `bc_fetch bs = SOME x` by (
       match_mp_tac bc_fetch_next_addr >>
-      map_every qexists_tac [`ls0`,`bc1`] >>
+      map_every qexists_tac [`ls0`,`[]`] >>
       rw[Abbr`x`] ) >> (
     reverse (rw[Once Cv_bv_cases]) >- (
       match_mp_tac Cenv_bs_imp_incsz >>
@@ -1707,8 +1710,8 @@ val compile_val = store_thm("compile_val",
     fsrw_tac[ETA_ss][] >>
     srw_tac[DNF_ss][Once Cv_bv_cases] >>
     qabbrev_tac`cs0 = cs with <| tail := TCNonTail; decl := NONE|>` >>
-    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x] ++ bc1` >>
-    first_x_assum (qspecl_then [`bc0`,`[x] ++ bc1`,`bs`,`cs0`] mp_tac) >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x]` >>
+    first_x_assum (qspecl_then [`bc0`,`bs with code := ls0`,`cs0`] mp_tac) >>
     fs[Abbr`cs0`] >>
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by ( unabbrev_all_tac >> fs[FILTER_APPEND] ) >>
@@ -1725,7 +1728,7 @@ val compile_val = store_thm("compile_val",
     qexists_tac `bs0` >> rw[] >>
     `bc_fetch bs0 = SOME x` by (
       match_mp_tac bc_fetch_next_addr >>
-      map_every qexists_tac [`ls0`,`bc1`] >>
+      map_every qexists_tac [`ls0`,`[]`] >>
       unabbrev_all_tac >> rw[] ) >>
     rw[bc_eval1_thm] >>
     rw[bc_eval1_def,Abbr`x`] >>
