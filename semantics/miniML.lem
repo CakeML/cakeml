@@ -29,6 +29,9 @@ let inline {hol} all_distinct = Hol.ALL_DISTINCT
 val rtc : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)
 let inline {hol} rtc = Hol.RTC
 
+val LUPDATE : forall 'a. num -> 'a -> list 'a -> list 'a
+let inline {hol} LUPDATE = Hol.LUPDATE
+
 (* Environments *)
 type env 'a 'b = list ('a*'b)
 
@@ -172,25 +175,25 @@ type envE = env varN v
 
 (* Stores *)
 (* Keep the next number to allocate, so that we can be deterministic *)
-type store = (Pmap.map num v * num)
+type store = list v
 
 val empty_store : store
-let empty_store = (Pmap.empty, (0:num))
+let empty_store = []
 
 val store_lookup : num -> store -> option v
-let store_lookup l (s,n) =
-  if Pmap.mem l s then
-    Some (Pmap.find l s)
+let store_lookup l st =
+  if l < List.length st then
+    Some (List.nth st l)
   else
     None
 
 val store_alloc : v -> store -> store * num
-let store_alloc v (s,(n:num)) =
-  ((Pmap.add n v s, n + 1), n)
+let store_alloc v st =
+  (st @ [v], List.length st)
 
 val store_assign : num -> v -> store -> store
-let store_assign n v (s,n') =
-  (Pmap.add n v s, n')
+let rec store_assign n v st =
+  LUPDATE n v st
 
 (* Declarations *)
 type dec =

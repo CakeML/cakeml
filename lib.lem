@@ -12,3 +12,5 @@ type word32
 type word16
 type word8
 
+val LUPDATE : forall 'a. num -> 'a -> list 'a -> list 'a
+
