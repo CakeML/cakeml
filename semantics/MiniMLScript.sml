@@ -35,7 +35,7 @@ open TokensTheory
 
 (*val rtc : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)*)
 
-(*val LUPDATE : forall 'a. num -> 'a -> list 'a -> list 'a*)
+(*val LUPDATE : forall 'a. 'a -> num -> list 'a -> list 'a*)
 
 (* Environments *)
 val _ = type_abbrev((* ( 'a, 'b) *) "env" , ``: ('a#'b) list``);
@@ -422,9 +422,9 @@ val _ = Define `
 (*val build_rec_env : list (varN * varN * exp) -> envE -> envE*)
  val build_rec_env_defn = Hol_defn "build_rec_env" `
  (build_rec_env funs env =(((
-  FOLDR
-    (\ (f,x,e) env' .((( bind f) ((((Recclosure env) funs) f))) env')))
-    env)
+  FOLDR 
+    (\ (f,x,e) env' .((( bind f) ((((Recclosure env) funs) f))) env'))) 
+    env) 
     funs))`;
 
 val _ = Defn.save_defn build_rec_env_defn;
