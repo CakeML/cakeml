@@ -165,13 +165,15 @@ val _ = Hol_datatype `
 val _ = Hol_datatype `
  error =
     Bind_error
-  | Div_error`;
+  | Div_error
+  | Int_error of int`;
 
 
 (* Expressions *)
 val _ = Hol_datatype `
  exp =
     Raise of error
+  | Handle of exp => varN => exp
   | Lit of lit
   (* Constructor application. *)
   | Con of conN => exp list
@@ -270,7 +272,8 @@ val _ = type_abbrev( "envC" , ``: (conN, (num # conN set)) env``);
      the context *)
 val _ = Hol_datatype `
  ctxt_frame =
-    Capp1 of op => unit => exp
+    Chandle of unit => num => exp
+  | Capp1 of op => unit => exp
   | Capp2 of op => v => unit
   | Clog of log => unit => exp
   | Cif of unit => exp => exp
@@ -2056,78 +2059,101 @@ val _ = Hol_reln `
 (! env l s.
 T
 ==>
-evaluate' s env ((Lit l)) ((Rval (s,(Litv l)))))
+evaluate' s env ((Lit l)) (s,( Rval ((Litv l)))))
 
 /\
 
 (! env err s.
 T
 ==>
-evaluate' s env ((Raise err)) ((Rerr ((Rraise err)))))
+evaluate' s env ((Raise err)) (s,( Rerr ((Rraise err)))))
+
+/\
+
+(! s1 s2 env e1 e2 v var.((((
+evaluate' s1) env) e1) (s2,( Rval v)))
+==>
+evaluate' s1 env ((((Handle e1) var) e2)) (s2,( Rval v)))
+
+/\
+
+(! s1 s2 env e1 e2 n var bv.((((
+evaluate' s1) env) e1) (s2,( Rerr ((Rraise ((Int_error n))))))) /\((((
+evaluate' s2) ((((bind var) ((Litv ((IntLit n))))) env))) e2) bv)
+==>
+evaluate' s1 env ((((Handle e1) var) e2)) bv)
+
+/\
+
+(! s1 s2 env e1 e2 var err.((((
+evaluate' s1) env) e1) (s2,( Rerr err))) /\
+((err = Rtype_error) \/ (err =( Rraise Bind_error)) \/ (err =( Rraise Div_error)))
+==>
+evaluate' s1 env ((((Handle e1) var) e2)) (s2,( Rerr err)))
 
 /\
 
 (! env cn es vs s1 s2.((((
-evaluate_list' s1) env) es) ((Rval (s2,vs))))
+evaluate_list' s1) env) es) (s2,( Rval vs)))
 ==>
-evaluate' s1 env (((Con cn) es)) ((Rval (s2,((Conv cn) vs)))))
+evaluate' s1 env (((Con cn) es)) (s2,( Rval (((Conv cn) vs)))))
 
 /\
 
-(! env cn es err s.((((
-evaluate_list' s) env) es) ((Rerr err)))
+(! env cn es err s s'.((((
+evaluate_list' s) env) es) (s',( Rerr err)))
 ==>
-evaluate' s env (((Con cn) es)) ((Rerr err)))
+evaluate' s env (((Con cn) es)) (s',( Rerr err)))
 
 /\
 
 (! env n v s.
 (((lookup n) env) =( SOME v))
 ==>
-evaluate' s env ((Var n)) ((Rval (s,v))))
+evaluate' s env ((Var n)) (s,( Rval v)))
 
 /\
 
 (! env n s.
 (((lookup n) env) = NONE)
 ==>
-evaluate' s env ((Var n)) ((Rerr Rtype_error)))
+evaluate' s env ((Var n)) (s,( Rerr Rtype_error)))
 
 /\
 
 (! env n e s.
 T
 ==>
-evaluate' s env (((Fun n) e)) ((Rval (s,((( Closure env) n) e)))))
+evaluate' s env (((Fun n) e)) (s,( Rval ((((Closure env) n) e)))))
 
 /\
 
 (! env uop e v v' s1 s2 s3.((((
-evaluate' s1) env) e) ((Rval (s2, v)))) /\
+evaluate' s1) env) e) (s2,( Rval v))) /\
 ((((do_uapp s2) uop) v) =( SOME (s3,v')))
 ==>
-evaluate' s1 env (((Uapp uop) e)) ((Rval (s3,v'))))
+evaluate' s1 env (((Uapp uop) e)) (s3,( Rval v')))
 
 /\
 
 (! env uop e v s1 s2.((((
-evaluate' s1) env) e) ((Rval (s2, v)))) /\
+evaluate' s1) env) e) (s2,( Rval v))) /\
 ((((do_uapp s2) uop) v) = NONE)
 ==>
-evaluate' s1 env (((Uapp uop) e)) ((Rerr Rtype_error)))
+evaluate' s1 env (((Uapp uop) e)) (s2,( Rerr Rtype_error)))
 
 /\
 
-(! env uop e err s.((((
-evaluate' s) env) e) ((Rerr err)))
+(! env uop e err s s'.((((
+evaluate' s) env) e) (s',( Rerr err)))
 ==>
-evaluate' s env (((Uapp uop) e)) ((Rerr err)))
+evaluate' s env (((Uapp uop) e)) (s',( Rerr err)))
 
 /\
 
 (! env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 s4.((((
-evaluate' s1) env) e1) ((Rval (s2,v1)))) /\((((
-evaluate' s2) env) e2) ((Rval (s3,v2)))) /\
+evaluate' s1) env) e1) (s2,( Rval v1))) /\((((
+evaluate' s2) env) e2) (s3,( Rval v2))) /\
 ((((((do_app s3) env) op) v1) v2) =( SOME (s4, env', e3))) /\((((
 evaluate' s4) env') e3) bv)
 ==>
@@ -2136,31 +2162,31 @@ evaluate' s1 env ((((App op) e1) e2)) bv)
 /\
 
 (! env op e1 e2 v1 v2 s1 s2 s3.((((
-evaluate' s1) env) e1) ((Rval (s2,v1)))) /\((((
-evaluate' s2) env) e2) ((Rval (s3,v2)))) /\
+evaluate' s1) env) e1) (s2,( Rval v1))) /\((((
+evaluate' s2) env) e2) (s3,( Rval v2))) /\
 ((((((do_app s3) env) op) v1) v2) = NONE)
 ==>
-evaluate' s1 env ((((App op) e1) e2)) ((Rerr Rtype_error)))
+evaluate' s1 env ((((App op) e1) e2)) (s3,( Rerr Rtype_error)))
 
 /\
 
-(! env op e1 e2 v1 err s1 s2.((((
-evaluate' s1) env) e1) ((Rval (s2,v1)))) /\((((
-evaluate' s2) env) e2) ((Rerr err)))
+(! env op e1 e2 v1 err s1 s2 s3.((((
+evaluate' s1) env) e1) (s2,( Rval v1))) /\((((
+evaluate' s2) env) e2) (s3,( Rerr err)))
 ==>
-evaluate' s1 env ((((App op) e1) e2)) ((Rerr err)))
+evaluate' s1 env ((((App op) e1) e2)) (s3,( Rerr err)))
 
 /\
 
-(! env op e1 e2 err s.((((
-evaluate' s) env) e1) ((Rerr err)))
+(! env op e1 e2 err s s'.((((
+evaluate' s) env) e1) (s',( Rerr err)))
 ==>
-evaluate' s env ((((App op) e1) e2)) ((Rerr err)))
+evaluate' s env ((((App op) e1) e2)) (s',( Rerr err)))
 
 /\
 
 (! env op e1 e2 v e' bv s1 s2.((((
-evaluate' s1) env) e1) ((Rval (s2,v)))) /\
+evaluate' s1) env) e1) (s2,( Rval v))) /\
 ((((do_log op) v) e2) =( SOME e')) /\((((
 evaluate' s2) env) e') bv)
 ==>
@@ -2169,22 +2195,22 @@ evaluate' s1 env ((((Log op) e1) e2)) bv)
 /\
 
 (! env op e1 e2 v s1 s2.((((
-evaluate' s1) env) e1) ((Rval (s2,v)))) /\
+evaluate' s1) env) e1) (s2,( Rval v))) /\
 ((((do_log op) v) e2) = NONE)
 ==>
-evaluate' s1 env ((((Log op) e1) e2)) ((Rerr Rtype_error)))
+evaluate' s1 env ((((Log op) e1) e2)) (s2,( Rerr Rtype_error)))
 
 /\
 
-(! env op e1 e2 err s.((((
-evaluate' s) env) e1) ((Rerr err)))
+(! env op e1 e2 err s s'.((((
+evaluate' s) env) e1) (s',( Rerr err)))
 ==>
-evaluate' s env ((((Log op) e1) e2)) ((Rerr err)))
+evaluate' s env ((((Log op) e1) e2)) (s',( Rerr err)))
 
 /\
 
 (! env e1 e2 e3 v e' bv s1 s2.((((
-evaluate' s1) env) e1) ((Rval (s2,v)))) /\
+evaluate' s1) env) e1) (s2,( Rval v))) /\
 ((((do_if v) e2) e3) =( SOME e')) /\((((
 evaluate' s2) env) e') bv)
 ==>
@@ -2193,48 +2219,48 @@ evaluate' s1 env ((((If e1) e2) e3)) bv)
 /\
 
 (! env e1 e2 e3 v s1 s2.((((
-evaluate' s1) env) e1) ((Rval (s2,v)))) /\
+evaluate' s1) env) e1) (s2,( Rval v))) /\
 ((((do_if v) e2) e3) = NONE)
 ==>
-evaluate' s1 env ((((If e1) e2) e3)) ((Rerr Rtype_error)))
+evaluate' s1 env ((((If e1) e2) e3)) (s2,( Rerr Rtype_error)))
 
 /\
 
 
-(! env e1 e2 e3 err s.((((
-evaluate' s) env) e1) ((Rerr err)))
+(! env e1 e2 e3 err s s'.((((
+evaluate' s) env) e1) (s',( Rerr err)))
 ==>
-evaluate' s env ((((If e1) e2) e3)) ((Rerr err)))
+evaluate' s env ((((If e1) e2) e3)) (s',( Rerr err)))
 
 /\
 
 (! env e pes v bv s1 s2.((((
-evaluate' s1) env) e) ((Rval (s2,v)))) /\(((((
+evaluate' s1) env) e) (s2,( Rval v))) /\(((((
 evaluate_match' s2) env) v) pes) bv)
 ==>
 evaluate' s1 env (((Mat e) pes)) bv)
 
 /\
 
-(! env e pes err s.((((
-evaluate' s) env) e) ((Rerr err)))
+(! env e pes err s s'.((((
+evaluate' s) env) e) (s',( Rerr err)))
 ==>
-evaluate' s env (((Mat e) pes)) ((Rerr err)))
+evaluate' s env (((Mat e) pes)) (s',( Rerr err)))
 
 /\
 
 (! env n e1 e2 v bv s1 s2.((((
-evaluate' s1) env) e1) ((Rval (s2,v)))) /\((((
+evaluate' s1) env) e1) (s2,( Rval v))) /\((((
 evaluate' s2) ((((bind n) v) env))) e2) bv)
 ==>
 evaluate' s1 env ((((Let n) e1) e2)) bv)
 
 /\
 
-(! env n e1 e2 err s.((((
-evaluate' s) env) e1) ((Rerr err)))
+(! env n e1 e2 err s s'.((((
+evaluate' s) env) e1) (s',( Rerr err)))
 ==>
-evaluate' s env ((((Let n) e1) e2)) ((Rerr err)))
+evaluate' s env ((((Let n) e1) e2)) (s',( Rerr err)))
 
 /\
 
@@ -2249,44 +2275,44 @@ evaluate' s env (((Letrec funs) e)) bv)
 (! env funs e s.(
 ~  ((ALL_DISTINCT (((MAP (\ (x,y,z) . x)) funs)))))
 ==>
-evaluate' s env (((Letrec funs) e)) ((Rerr Rtype_error)))
+evaluate' s env (((Letrec funs) e)) (s,( Rerr Rtype_error)))
 
 /\
 
 (! env s.
 T
 ==>
-evaluate_list' s env [] ((Rval (s,[]))))
+evaluate_list' s env [] (s,( Rval [])))
 
 /\
 
 (! env e es v vs s1 s2 s3.((((
-evaluate' s1) env) e) ((Rval (s2,v)))) /\((((
-evaluate_list' s2) env) es) ((Rval (s3,vs))))
+evaluate' s1) env) e) (s2,( Rval v))) /\((((
+evaluate_list' s2) env) es) (s3,( Rval vs)))
 ==>
-evaluate_list' s1 env (e::es) ((Rval (s3,v::vs))))
+evaluate_list' s1 env (e::es) (s3,( Rval (v::vs))))
 
 /\
 
-(! env e es err s.((((
-evaluate' s) env) e) ((Rerr err)))
+(! env e es err s s'.((((
+evaluate' s) env) e) (s',( Rerr err)))
 ==>
-evaluate_list' s env (e::es) ((Rerr err)))
+evaluate_list' s env (e::es) (s',( Rerr err)))
 
 /\
 
-(! env e es v err s1 s2.((((
-evaluate' s1) env) e) ((Rval (s2,v)))) /\((((
-evaluate_list' s2) env) es) ((Rerr err)))
+(! env e es v err s1 s2 s3.((((
+evaluate' s1) env) e) (s2,( Rval v))) /\((((
+evaluate_list' s2) env) es) (s3,( Rerr err)))
 ==>
-evaluate_list' s1 env (e::es) ((Rerr err)))
+evaluate_list' s1 env (e::es) (s3,( Rerr err)))
 
 /\
 
 (! env v s.
 T
 ==>
-evaluate_match' s env v [] ((Rerr ((Rraise Bind_error)))))
+evaluate_match' s env v [] (s,( Rerr ((Rraise Bind_error)))))
 
 /\
 
@@ -2311,14 +2337,14 @@ evaluate_match' s env v ((p,e)::pes) bv)
 (! env v p e pes s.
 (((((pmatch' s) p) v) env) = Match_type_error)
 ==>
-evaluate_match' s env v ((p,e)::pes) ((Rerr Rtype_error)))
+evaluate_match' s env v ((p,e)::pes) (s,( Rerr Rtype_error)))
 
 /\
 
 (! env v p e pes s.(
 ~  ((ALL_DISTINCT (((pat_bindings p) [])))))
 ==>
-evaluate_match' s env v ((p,e)::pes) ((Rerr Rtype_error)))`;
+evaluate_match' s env v ((p,e)::pes) (s,( Rerr Rtype_error)))`;
 
 
 val _ = Hol_reln `
@@ -2331,7 +2357,7 @@ evaluate_decs' cenv s env [] ((Rval (cenv,s,env))))
 /\
 
 (! cenv env p e ds v env' r s1 s2.((((
-evaluate' s1) env) e) ((Rval (s2,v)))) /\(
+evaluate' s1) env) e) (s2,( Rval v))) /\(
 ALL_DISTINCT (((pat_bindings p) []))) /\
 ((((((pmatch cenv) s2) p) v) env) =( Match env')) /\(((((
 evaluate_decs' cenv) s2) env') ds) r)
@@ -2341,7 +2367,7 @@ evaluate_decs' cenv s1 env (((Dlet p) e) :: ds) r)
 /\
 
 (! cenv env p e ds v s1 s2.((((
-evaluate' s1) env) e) ((Rval (s2,v)))) /\(
+evaluate' s1) env) e) (s2,( Rval v))) /\(
 ALL_DISTINCT (((pat_bindings p) []))) /\
 ((((((pmatch cenv) s2) p) v) env) = No_match)
 ==>
@@ -2350,7 +2376,7 @@ evaluate_decs' cenv s1 env (((Dlet p) e) :: ds) ((Rerr ((Rraise Bind_error)))))
 /\
 
 (! cenv env p e ds v s1 s2.((((
-evaluate' s1) env) e) ((Rval (s2,v)))) /\
+evaluate' s1) env) e) (s2,( Rval v))) /\
 ((((((pmatch cenv) s2) p) v) env) = Match_type_error)
 ==>
 evaluate_decs' cenv s1 env (((Dlet p) e) :: ds) ((Rerr (Rtype_error))))
@@ -2358,7 +2384,7 @@ evaluate_decs' cenv s1 env (((Dlet p) e) :: ds) ((Rerr (Rtype_error))))
 /\
 
 (! cenv env p e ds v s1 s2.((((
-evaluate' s1) env) e) ((Rval (s2,v)))) /\(
+evaluate' s1) env) e) (s2,( Rval v))) /\(
 ~  ((ALL_DISTINCT (((pat_bindings p) [])))))
 ==>
 evaluate_decs' cenv s1 env (((Dlet p) e) :: ds) ((Rerr (Rtype_error))))
@@ -2366,7 +2392,7 @@ evaluate_decs' cenv s1 env (((Dlet p) e) :: ds) ((Rerr (Rtype_error))))
 /\
 
 (! cenv env p e ds err s.((((
-evaluate' s) env) e) ((Rerr err)))
+evaluate' s) env) e) (s,( Rerr err)))
 ==>
 evaluate_decs' cenv s env (((Dlet p) e) :: ds) ((Rerr err)))
 
