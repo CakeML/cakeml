@@ -760,7 +760,7 @@ fun define_ref_inv tys = let
     (WF_REL_TAC [QUOTE ("measure (" ^ build_measure tys ^ ")")]
      \\ REPEAT STRIP_TAC
      \\ TRY (Q.PAT_ASSUM `MEM x xs` (fn th =>
-              ASSUME_TAC th THEN Induct_on [ANTIQUOTE (rand (concl th))]))
+              ASSUME_TAC th THEN Induct_on [ANTIQUOTE (rand (rand (concl th)))]))
      \\ FULL_SIMP_TAC std_ss [MEM,FORALL_PROD,size_def] \\ REPEAT STRIP_TAC
      \\ FULL_SIMP_TAC std_ss [] \\ RES_TAC \\ DECIDE_TAC)
 (*
@@ -769,6 +769,7 @@ fun define_ref_inv tys = let
   val inv_def = tDefine name [ANTIQUOTE def_tm] tac
   val inv_def = CONV_RULE (DEPTH_CONV ETA_CONV) inv_def
   val inv_def = REWRITE_RULE [GSYM rw_lemmas] inv_def
+  val _ = save_thm(name ^ "_def",inv_def)
   val ind = fetch "-" (name ^ "_ind") handle HOL_ERR _ => TypeBase.induction_of (hd tys)
 (*
   val CHEAT_TAC = ((fn x => ([],fn _ => mk_thm x)) :tactic)

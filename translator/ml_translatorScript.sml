@@ -564,6 +564,11 @@ val evaluate'_empty_store_lemma = prove(
   \\ FULL_SIMP_TAC std_ss [store_assign_def,empty_store_def,LUPDATE_NIL])
   |> SIMP_RULE std_ss [PULL_EXISTS,AND_IMP_INTRO];
 
+val evaluate'_empty_store_IMP = store_thm("evaluate'_empty_store_IMP",
+  ``evaluate' empty_store env x (Rval (empty_store,y)) ==>
+    !s. evaluate' s env x (Rval (s,y))``,
+  cheat);
+
 val evaluate'_empty_store = store_thm("evaluate'_empty_store",
   ``evaluate' s2 env xs (Rval (empty_store,ys)) =
     evaluate' s2 env xs (Rval (empty_store,ys)) /\ (s2 = empty_store)``,
