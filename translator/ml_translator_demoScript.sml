@@ -42,9 +42,9 @@ val ML_QSORT_CORRECT = store_thm ("ML_QSORT_CORRECT",
       transitive ord /\ total ord
       ==>
       ?l' xs'.
-        evaluate' env
+        evaluate' empty_store env
             (App Opapp (App Opapp (Var "QSORT") (Var "R")) (Var "xs"))
-            (Rval xs') /\
+            (Rval (empty_store,xs')) /\
         (LIST_TYPE a l' xs') /\ PERM l l' /\ SORTED ord l'``,
   REPEAT STRIP_TAC THEN IMP_RES_TAC Eval_QSORT_EXPANDED
   THEN METIS_TAC [sortingTheory.QSORT_PERM,sortingTheory.QSORT_SORTED]);

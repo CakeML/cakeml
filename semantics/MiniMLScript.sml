@@ -197,7 +197,7 @@ val _ = Hol_datatype `
 val _ = Hol_datatype `
  v =
     Litv of lit
-  (* Constructor application. *) 
+  (* Constructor application. *)
   | Conv of conN => v list
   (* Function closures
      The environment is used for the free variables in the function *)
@@ -240,7 +240,7 @@ val _ = Define `
 (*val store_assign : num -> v -> store -> store*)
  val store_assign_defn = Hol_defn "store_assign" `
  (store_assign n v st =(((
-  LUPDATE n) v) st))`;
+  LUPDATE v) n) st))`;
 
 val _ = Defn.save_defn store_assign_defn;
 
@@ -365,13 +365,13 @@ val _ = Defn.save_defn pmatch_defn;
 (pat_bindings (Pvar n) already_bound =
   n::already_bound)
 /\
-(pat_bindings (Plit l) already_bound = 
+(pat_bindings (Plit l) already_bound =
   already_bound)
 /\
 (pat_bindings (Pcon _ ps) already_bound =((
   pats_bindings ps) already_bound))
 /\
-(pat_bindings (Pref p) already_bound =(( 
+(pat_bindings (Pref p) already_bound =((
   pat_bindings p) already_bound))
 /\
 (pats_bindings [] already_bound =
@@ -422,9 +422,9 @@ val _ = Define `
 (*val build_rec_env : list (varN * varN * exp) -> envE -> envE*)
  val build_rec_env_defn = Hol_defn "build_rec_env" `
  (build_rec_env funs env =(((
-  FOLDR 
-    (\ (f,x,e) env' .((( bind f) ((((Recclosure env) funs) f))) env'))) 
-    env) 
+  FOLDR
+    (\ (f,x,e) env' .((( bind f) ((((Recclosure env) funs) f))) env')))
+    env)
     funs))`;
 
 val _ = Defn.save_defn build_rec_env_defn;
@@ -468,7 +468,7 @@ val _ = Define `
          * have the same type *)
         SOME (s, env',( Lit ((Bool (v1 = v2))))))
     | (Opassign, (Loc lnum), v) =>(
-        SOME ((((store_assign lnum) v) s), env',( Lit Unit))) 
+        SOME ((((store_assign lnum) v) s), env',( Lit Unit)))
     | _ => NONE
   ))`;
 
@@ -575,7 +575,7 @@ val _ = Define `
     | (Cuapp uop (), env) :: c =>
        (case((( do_uapp s) uop) v) of
            SOME (s',v') =>((((( return envC) s') env) v') c)
-         | NONE => Etype_error 
+         | NONE => Etype_error
        )
   ))`;
 
@@ -627,7 +627,7 @@ val _ = Define `
                 Estep (envC, s,(( build_rec_env funs) env),( Exp e), c))
           | Uapp uop e =>((((((
               push envC) s) env) e) (((Cuapp uop) ()))) c)
-        ) 
+        )
   ))`;
 
 
@@ -1163,7 +1163,7 @@ val _ = type_abbrev( "tenvC" , ``: (conN, ( tvarN list # t list # typeN)) env``)
 
 (* Type environments *)
 val _ = Hol_datatype `
- tenvE = 
+ tenvE =
     Env_empty
   (* Bind a number of deBruijn type variables *)
   | Tvar_bind of num => tenvE
@@ -1171,14 +1171,14 @@ val _ = Hol_datatype `
   | Var_bind of num => varN => t => tenvE`;
 
 
-(* Increment the deBruijn indices in a type by n levels, skipping all levels 
+(* Increment the deBruijn indices in a type by n levels, skipping all levels
  * less than skip. *)
 (*val deBruijn_inc : num -> num -> t -> t*)
  val deBruijn_inc_defn = Hol_defn "deBruijn_inc" `
 
 (deBruijn_inc skip n (Tvar tv) =( Tvar tv))
 /\
-(deBruijn_inc skip n (Tvar_db m) = 
+(deBruijn_inc skip n (Tvar_db m) =
   if m < skip then(
     Tvar_db m)
   else(
@@ -1186,7 +1186,7 @@ val _ = Hol_datatype `
 /\
 (deBruijn_inc skip n (Tapp ts tn) =(( Tapp (((MAP (((deBruijn_inc skip) n))) ts))) tn))
 /\
-(deBruijn_inc skip n (Tfn t1 t2) =(( 
+(deBruijn_inc skip n (Tfn t1 t2) =((
   Tfn ((((deBruijn_inc skip) n) t1))) ((((deBruijn_inc skip) n) t2))))
 /\
 (deBruijn_inc skip n Tnum = Tnum)
@@ -1204,7 +1204,7 @@ val _ = Defn.save_defn deBruijn_inc_defn;
 /\
 (lookup_var n inc (Tvar_bind levels tenv) =((( lookup_var n) (inc + levels)) tenv))
 /\
-(lookup_var n inc (Var_bind levels n' t tenv) = 
+(lookup_var n inc (Var_bind levels n' t tenv) =
   if n = n' then(
     SOME ((((deBruijn_inc levels) inc) t), levels))
   else(((
@@ -1225,7 +1225,7 @@ val _ = Defn.save_defn lookup_var_defn;
 (* Type a mutually recursive bundle of functions.  Unlike pattern typing, the
  * resulting environment does not extend the input environment, but just
  * represents the functions *)
-(*val type_funs : tenvC -> tenvE -> list (varN * varN * exp) -> 
+(*val type_funs : tenvC -> tenvE -> list (varN * varN * exp) ->
                 list (varN * t) -> bool*)
 
 (* Check a declaration and update the top-level environments *)
@@ -1346,7 +1346,7 @@ val _ = Defn.save_defn type_subst_defn;
     EL  (n - skip))  ts)
   else if( ~  (n < skip)) then(
     Tvar_db (n -( LENGTH ts)))
-  else( 
+  else(
     Tvar_db n))
 /\
 (deBruijn_subst skip ts (Tapp ts' tn) =((
@@ -1363,10 +1363,10 @@ val _ = Defn.save_defn deBruijn_subst_defn;
 
 (*val bind_var_list : num -> list (varN * t) -> tenvE -> tenvE*)
  val bind_var_list_defn = Hol_defn "bind_var_list" `
- 
+
 (bind_var_list levels [] tenv = tenv)
 /\
-(bind_var_list levels ((n,t)::binds) tenv =(((( 
+(bind_var_list levels ((n,t)::binds) tenv =((((
   Var_bind levels) n) t) ((((bind_var_list levels) binds) tenv))))`;
 
 val _ = Defn.save_defn bind_var_list_defn;
@@ -1489,7 +1489,7 @@ type_e cenv tenv (((Fun n) e)) (((Tfn t1) t2)))
 /\
 
 (! cenv tenv uop e t1 t2.((((
-type_e cenv) tenv) e) t1) /\((( 
+type_e cenv) tenv) e) t1) /\(((
 type_uop uop) t1) t2)
 ==>
 type_e cenv tenv (((Uapp uop) e)) t2)
@@ -1549,7 +1549,7 @@ type_funs cenv) ((((bind_var_list 0) tenv') tenv))) funs) tenv') /\((((
 type_e cenv) ((((bind_var_list 0) tenv') tenv))) e) t)
 ==>
 type_e cenv tenv (((Letrec funs) e)) t)
- 
+
 /\
 
 (! cenv tenv.
@@ -1639,7 +1639,7 @@ val _ = type_abbrev( "tenvS" , ``: (num, t) env``);
 (*val type_ctxts : tenvC -> tenvS -> list ctxt -> t -> t -> bool*)
 (*val type_state : tenvC -> state -> t -> bool*)
 
-val _ = Hol_reln `  
+val _ = Hol_reln `
 
 (! cenv senv b.
 T
@@ -1667,7 +1667,7 @@ type_v cenv senv (((Conv cn) vs)) (((Tapp ts') tn)))
 
 (! cenv senv env tenv n e t1 t2.((((
 type_env cenv) senv) env) tenv) /\(((
-check_freevars T) []) t1) /\(((( 
+check_freevars T) []) t1) /\((((
 type_e cenv) (((((Var_bind 0) n) t1) tenv))) e) t2)
 ==>
 type_v cenv senv ((((Closure env) n) e)) (((Tfn t1) t2)))
@@ -2001,7 +2001,7 @@ evaluate_state (cenv, s, env,( Exp e), c) ((Rerr err)))
 (! cenv s env v c bv.(((((
 evaluate_ctxts cenv) s) c) v) bv)
 ==>
-evaluate_state (cenv, s, env,( Val v), c) bv)`; 
+evaluate_state (cenv, s, env,( Val v), c) bv)`;
 
 
 (* ------------------------------------------------------------------------- *)

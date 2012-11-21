@@ -3,7 +3,8 @@ struct
 
 open HolKernel boolLib bossLib;
 
-open MiniMLTheory MiniMLTerminationTheory Print_astTerminationTheory;
+open MiniMLTheory MiniMLTerminationTheory;
+open Print_astTheory Print_astTerminationTheory intLib;
 open ml_translatorTheory;
 open arithmeticTheory listTheory combinTheory pairTheory;
 open integerTheory intLib ml_optimiseTheory;
@@ -357,13 +358,12 @@ val quietDefine = (* quiet version of Define -- by Anthony Fox *)
 local
   fun dec2str sml d = let (* very slow at the moment *)
     val result =
-      (if sml then ``dec_to_sml_string ^d`` else ``dec_to_ocaml_string ^d``)
+      ``dec_to_sml_string ^d``
       |> EVAL |> concl |> rand |> stringSyntax.fromHOLstring
       handle HOL_ERR _ => failwith("\nUnable to print "^(term_to_string d)^"\n\n")
     in result end;
 in
   fun dec2str_sml d = dec2str true d
-  fun dec2str_ocaml d = dec2str false d
 end
 
 
@@ -376,7 +376,7 @@ local
   val print_items = ref ([]:print_item list)
   val prelude_name = ref (NONE: string option);
   fun add_print_item i = (print_items := i :: (!print_items))
-  val files = ["_ml.txt","_ocaml.txt","_hol.txt","_thm.txt","_ast.txt"]
+  val files = ["_ml.txt","_hol.txt","_thm.txt","_ast.txt"]
   fun check_suffix suffix = mem suffix files orelse failwith("bad file suffix")
   fun clear_file suffix = if (!base_filename) = "" then () else let
     val _ = check_suffix suffix
@@ -414,10 +414,6 @@ local
     val _ = print "Printing SML syntax ... "
     val _ = print_prelude_comment "_ml.txt"
     val _ = print_decls_aux ds "_ml.txt" (fn tm => ["\n",print_str (dec2str_sml tm),"\n"])
-    val _ = print "done.\n"
-    val _ = print "Printing Ocaml syntax ... "
-    val _ = print_prelude_comment "_ocaml.txt"
-    val _ = print_decls_aux ds "_ocaml.txt" (fn tm => ["\n",print_str (dec2str_ocaml tm),"\n"])
     val _ = print "done.\n"
     in () end;
   fun print_item (InvDef inv_def) = let
@@ -869,6 +865,7 @@ fun derive_thms_for_type ty = let
   val _ = map (fn (_,inv_def,_) => print_inv_def inv_def) inv_defs
   fun list_mk_type [] ret_ty = ret_ty
     | list_mk_type (x::xs) ret_ty = mk_type("fun",[type_of x,list_mk_type xs ret_ty])
+
   (* prove lemma for case_of *)
   fun prove_case_of_lemma (ty,case_th,inv_lhs,inv_def) = let
     val cases_th = TypeBase.case_def_of ty
@@ -971,7 +968,8 @@ fun derive_thms_for_type ty = let
           \\ Q.EXISTS_TAC `res'` \\ FULL_SIMP_TAC std_ss []
           \\ ASM_SIMP_TAC (srw_ss()) []
           \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
-          \\ Q.EXISTS_TAC `res` \\ FULL_SIMP_TAC std_ss []
+          \\ Q.EXISTS_TAC `res`
+          \\ Q.EXISTS_TAC `empty_store` \\ FULL_SIMP_TAC std_ss []
           \\ NTAC (2 * length ts) (ASM_SIMP_TAC (srw_ss())
                [Once evaluate'_cases,pmatch'_def,bind_def,pat_bindings_def])
     val tac = init_tac THENL (map (fn (n,f,fxs,pxs,tm,exp,xs) => case_tac n) ts)

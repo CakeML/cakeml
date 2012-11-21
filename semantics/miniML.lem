@@ -29,7 +29,7 @@ let inline {hol} all_distinct = Hol.ALL_DISTINCT
 val rtc : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)
 let inline {hol} rtc = Hol.RTC
 
-val LUPDATE : forall 'a. num -> 'a -> list 'a -> list 'a
+val LUPDATE : forall 'a. 'a -> num -> list 'a -> list 'a
 let inline {hol} LUPDATE = Hol.LUPDATE
 
 (* Environments *)
@@ -158,7 +158,7 @@ type exp =
 (* Value forms *)
 type v =
   | Litv of lit
-  (* Constructor application. *) 
+  (* Constructor application. *)
   | Conv of conN * list v
   (* Function closures
      The environment is used for the free variables in the function *)
@@ -193,7 +193,7 @@ let store_alloc v st =
 
 val store_assign : num -> v -> store -> store
 let rec store_assign n v st =
-  LUPDATE n v st
+  LUPDATE v n st
 
 (* Declarations *)
 type dec =
@@ -304,13 +304,13 @@ let rec
 pat_bindings (Pvar n) already_bound =
   n::already_bound
 and
-pat_bindings (Plit l) already_bound = 
+pat_bindings (Plit l) already_bound =
   already_bound
 and
 pat_bindings (Pcon _ ps) already_bound =
   pats_bindings ps already_bound
 and
-pat_bindings (Pref p) already_bound = 
+pat_bindings (Pref p) already_bound =
   pat_bindings p already_bound
 and
 pats_bindings [] already_bound =
@@ -390,7 +390,7 @@ let do_app s env' op v1 v2 =
          * have the same type *)
         Some (s, env', Lit (Bool (v1 = v2)))
     | (Opassign, (Loc lnum), v) ->
-        Some (store_assign lnum v s, env', Lit Unit) 
+        Some (store_assign lnum v s, env', Lit Unit)
     | _ -> None
   end
 
@@ -487,7 +487,7 @@ let continue envC s v cs =
     | (Cuapp uop (), env) :: c ->
        match do_uapp s uop v with
          | Some (s',v') -> return envC s' env v' c
-         | None -> Etype_error 
+         | None -> Etype_error
        end
   end
 
@@ -537,7 +537,7 @@ let e_step (envC, s, env, ev, c) =
                 Estep (envC, s, build_rec_env funs env, Exp e, c)
           | Uapp uop e ->
               push envC s env e (Cuapp uop ()) c
-        end 
+        end
   end
 
 (* Add the given type definition to the given constructor environment *)
@@ -1045,20 +1045,20 @@ evaluate_decs cenv s env (Dtype tds :: ds) (Rerr Rtype_error)
 type tenvC = env conN (list tvarN * list t * typeN)
 
 (* Type environments *)
-type tenvE = 
+type tenvE =
   | Env_empty
   (* Bind a number of deBruijn type variables *)
   | Tvar_bind of num * tenvE
   (* The number is how many deBruijn indices the type scheme binds. *)
   | Var_bind of num * varN * t * tenvE
 
-(* Increment the deBruijn indices in a type by n levels, skipping all levels 
+(* Increment the deBruijn indices in a type by n levels, skipping all levels
  * less than skip. *)
 val deBruijn_inc : num -> num -> t -> t
 let rec
 deBruijn_inc skip n (Tvar tv) = Tvar tv
 and
-deBruijn_inc skip n (Tvar_db m) = 
+deBruijn_inc skip n (Tvar_db m) =
   if m < skip then
     Tvar_db m
   else
@@ -1066,7 +1066,7 @@ deBruijn_inc skip n (Tvar_db m) =
 and
 deBruijn_inc skip n (Tapp ts tn) = Tapp (List.map (deBruijn_inc skip n) ts) tn
 and
-deBruijn_inc skip n (Tfn t1 t2) = 
+deBruijn_inc skip n (Tfn t1 t2) =
   Tfn (deBruijn_inc skip n t1) (deBruijn_inc skip n t2)
 and
 deBruijn_inc skip n Tnum = Tnum
@@ -1081,7 +1081,7 @@ lookup_var n inc Env_empty = None
 and
 lookup_var n inc (Tvar_bind levels tenv) = lookup_var n (inc + levels) tenv
 and
-lookup_var n inc (Var_bind levels n' t tenv) = 
+lookup_var n inc (Var_bind levels n' t tenv) =
   if n = n' then
     Some (deBruijn_inc levels inc t, levels)
   else
@@ -1100,7 +1100,7 @@ val type_es : tenvC -> tenvE -> list exp -> list t -> bool
 (* Type a mutually recursive bundle of functions.  Unlike pattern typing, the
  * resulting environment does not extend the input environment, but just
  * represents the functions *)
-val type_funs : tenvC -> tenvE -> list (varN * varN * exp) -> 
+val type_funs : tenvC -> tenvE -> list (varN * varN * exp) ->
                 list (varN * t) -> bool
 
 (* Check a declaration and update the top-level environments *)
@@ -1206,7 +1206,7 @@ deBruijn_subst skip ts (Tvar_db n) =
     List.nth ts (n - skip)
   else if not (n < skip) then
     Tvar_db (n - List.length ts)
-  else 
+  else
     Tvar_db n
 and
 deBruijn_subst skip ts (Tapp ts' tn) =
@@ -1220,10 +1220,10 @@ and
 deBruijn_subst skip ts Tbool = Tbool
 
 val bind_var_list : num -> list (varN * t) -> tenvE -> tenvE
-let rec 
+let rec
 bind_var_list levels [] tenv = tenv
 and
-bind_var_list levels ((n,t)::binds) tenv = 
+bind_var_list levels ((n,t)::binds) tenv =
   Var_bind levels n t (bind_var_list levels binds tenv)
 
 indreln
@@ -1344,7 +1344,7 @@ type_e cenv tenv (Fun n e) (Tfn t1 t2)
 and
 
 forall cenv tenv uop e t1 t2.
-type_e cenv tenv e t1 && 
+type_e cenv tenv e t1 &&
 type_uop uop t1 t2
 ==>
 type_e cenv tenv (Uapp uop e) t2
@@ -1404,7 +1404,7 @@ type_funs cenv (bind_var_list 0 tenv' tenv) funs tenv' &&
 type_e cenv (bind_var_list 0 tenv' tenv) e t
 ==>
 type_e cenv tenv (Letrec funs e) t
- 
+
 and
 
 forall cenv tenv.
@@ -1494,7 +1494,7 @@ val type_ctxt : tenvC -> tenvS -> tenvE -> ctxt_frame -> t -> t -> bool
 val type_ctxts : tenvC -> tenvS -> list ctxt -> t -> t -> bool
 val type_state : tenvC -> state -> t -> bool
 
-indreln  
+indreln
 
 forall cenv senv b.
 true
@@ -1522,7 +1522,7 @@ and
 
 forall cenv senv env tenv n e t1 t2.
 type_env cenv senv env tenv &&
-check_freevars true [] t1 && 
+check_freevars true [] t1 &&
 type_e cenv (Var_bind 0 n t1 tenv) e t2
 ==>
 type_v cenv senv (Closure env n e) (Tfn t1 t2)
@@ -1856,7 +1856,7 @@ and
 forall cenv s env v c bv.
 evaluate_ctxts cenv s c v bv
 ==>
-evaluate_state (cenv, s, env, Val v, c) bv 
+evaluate_state (cenv, s, env, Val v, c) bv
 
 
 (* ------------------------------------------------------------------------- *)
