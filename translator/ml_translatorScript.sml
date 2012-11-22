@@ -12,12 +12,12 @@ infix \\ val op \\ = op THEN;
 
 val Eval_def = Define `
   Eval env exp P =
-    ?res. evaluate' empty_store env exp (Rval (empty_store,res)) /\ P res`;
+    ?res. evaluate' empty_store env exp (empty_store,Rval res) /\ P res`;
 
 val evaluate_closure_def = Define `
   evaluate_closure input cl output =
     ?env exp. (do_app empty_store ARB Opapp cl input = SOME (empty_store,env,exp)) /\
-              evaluate' empty_store env exp (Rval (empty_store,output))`;
+              evaluate' empty_store env exp (empty_store,Rval (output))`;
 
 val AppReturns_def = Define ` (* think of this as a Hoare triple {P} cl {Q} *)
   AppReturns P cl Q =
@@ -73,8 +73,8 @@ val big_exp_determ' = store_thm("big_exp_determ'",
 val evaluate_cases = evaluate'_cases;
 
 val evaluate_11_Rval = prove(
-  ``evaluate' s env exp (Rval res1) ==>
-    evaluate' s env exp (Rval res2) ==> (res1 = res2)``,
+  ``evaluate' s env exp (s1,Rval res1) ==>
+    evaluate' s env exp (s2,Rval res2) ==> (res1 = res2)``,
   REPEAT STRIP_TAC \\ IMP_RES_TAC big_exp_determ'
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
@@ -230,7 +230,7 @@ val Eval_FUN_FORALL = store_thm("Eval_FUN_FORALL",
     Eval env exp ((FUN_FORALL x. p x) f)``,
   SIMP_TAC std_ss [Eval_def,Arrow_def,Eq_def] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [AppReturns_def,FUN_FORALL]
-  \\ `?res. evaluate' empty_store env exp (Rval (empty_store,res))` by METIS_TAC []
+  \\ `?res. evaluate' empty_store env exp (empty_store,Rval res)` by METIS_TAC []
   \\ Q.EXISTS_TAC `res` \\ FULL_SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC \\ Q.PAT_ASSUM `!x.bbb` (STRIP_ASSUME_TAC o Q.SPEC `y`)
   \\ IMP_RES_TAC evaluate_11_Rval \\ FULL_SIMP_TAC (srw_ss()) []);
@@ -515,7 +515,7 @@ val Decls_Dlet = prove(
   ``!cenv env v e cenv1 env1.
       Decls cenv env [Dlet (Pvar v) e] cenv1 env1 =
       ?x. (cenv1 = cenv) /\ (env1 = bind v x env) /\
-          evaluate' empty_store env e (Rval (empty_store,x))``,
+          evaluate' empty_store env e (empty_store,Rval x)``,
   SIMP_TAC std_ss [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
@@ -533,7 +533,7 @@ val Decls_Dletrec = prove(
   \\ FULL_SIMP_TAC (srw_ss()) [pat_bindings_def,ALL_DISTINCT,MEM,pmatch_def,bind_def]
   \\ METIS_TAC []);
 
-val _ = temp_overload_on("has_emp",``\x. ?v. x = Rval (empty_store,v)``)
+val _ = temp_overload_on("has_emp",``\x. FST x = empty_store``)
 
 val LUPDATE_NIL = prove(
   ``!xs n x. (LUPDATE x n xs = []) = (xs = [])``,
@@ -559,25 +559,45 @@ val evaluate'_empty_store_lemma = prove(
   \\ TRY (Cases_on `v2`) \\ FULL_SIMP_TAC (srw_ss()) []
   \\ TRY (Cases_on `l`) \\ FULL_SIMP_TAC (srw_ss()) []
   \\ SRW_TAC [] []
-  \\ TRY (Cases_on `find_recfun s'' l0` \\ FULL_SIMP_TAC (srw_ss()) [])
+  \\ TRY (Cases_on `find_recfun s''' l0` \\ FULL_SIMP_TAC (srw_ss()) [])
   \\ TRY (Cases_on `x` \\ FULL_SIMP_TAC (srw_ss()) [])
-  \\ FULL_SIMP_TAC std_ss [store_assign_def,empty_store_def,LUPDATE_NIL])
+  \\ FULL_SIMP_TAC std_ss [store_assign_def,empty_store_def,LUPDATE_NIL]
+  \\ CCONTR_TAC
+  \\ Q.PAT_ASSUM `(if bbb then xxx else zz) = SOME yyy` MP_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ SRW_TAC [] [])
   |> SIMP_RULE std_ss [PULL_EXISTS,AND_IMP_INTRO];
 
+val evaluate'_empty_store_IMP_any_store = prove(
+ ``(!s env e r1.
+      evaluate' s env e r1 ==> has_emp r1 /\ (s = empty_store) ==>
+      !t. evaluate' t env e (t,SND r1)) /\
+   (!s env es r1.
+      evaluate_list' s env es r1 ==> has_emp r1 /\ (s = empty_store) ==>
+      !t. evaluate_list' t env es (t,SND r1)) /\
+   (!s env v pes r1.
+      evaluate_match' s env v pes r1 ==> has_emp r1 /\ (s = empty_store) ==>
+      !t. evaluate_match' t env v pes (t,SND r1))``,
+  HO_MATCH_MP_TAC evaluate'_ind \\ SRW_TAC [] []
+  \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
+  \\ FULL_SIMP_TAC std_ss []
+  \\ cheat);
+
 val evaluate'_empty_store_IMP = store_thm("evaluate'_empty_store_IMP",
-  ``evaluate' empty_store env x (Rval (empty_store,y)) ==>
-    !s. evaluate' s env x (Rval (s,y))``,
-  cheat);
+  ``evaluate' empty_store env x (empty_store,Rval y) ==>
+    !s. evaluate' s env x (s,Rval y)``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC evaluate'_empty_store_IMP_any_store
+  \\ FULL_SIMP_TAC std_ss []);
 
 val evaluate'_empty_store = store_thm("evaluate'_empty_store",
-  ``evaluate' s2 env xs (Rval (empty_store,ys)) =
-    evaluate' s2 env xs (Rval (empty_store,ys)) /\ (s2 = empty_store)``,
+  ``evaluate' s2 env xs ((empty_store,Rval ys)) =
+    evaluate' s2 env xs ((empty_store,Rval ys)) /\ (s2 = empty_store)``,
   REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC evaluate'_empty_store_lemma \\ FULL_SIMP_TAC std_ss []);
 
 val evaluate_list'_empty_store = prove(
-  ``evaluate_list' s2 env xs (Rval (empty_store,ys)) ==> (s2 = empty_store)``,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC evaluate'_empty_store_lemma);
+  ``evaluate_list' s2 env xs (empty_store,Rval ys) ==> (s2 = empty_store)``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC evaluate'_empty_store_lemma
+  \\ FULL_SIMP_TAC (srw_ss()) []);
 
 val evaluate_decs'_empty_store_IMP = prove(
   ``!ds1 cenv1 s2 env'.
@@ -586,7 +606,8 @@ val evaluate_decs'_empty_store_IMP = prove(
   Induct \\ ONCE_REWRITE_TAC [evaluate_decs'_cases]
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ Cases \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REPEAT STRIP_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ IMP_RES_TAC evaluate'_empty_store_lemma);
+  \\ IMP_RES_TAC evaluate'_empty_store_lemma
+  \\ FULL_SIMP_TAC (srw_ss()) []);
 
 val evaluate_decs'_empty_store = prove(
   ``evaluate_decs' cenv1 s2 env' ds1 (Rval (cenv3,empty_store,env3)) =
@@ -676,10 +697,10 @@ val IMP_PreImp = store_thm("IMP_PreImp",
   REPEAT Cases \\ EVAL_TAC);
 
 val evaluate_list_SIMP = store_thm("evaluate_list_SIMP",
-  ``(evaluate_list' empty_store env [] (Rval (empty_store,[])) = T) /\
-    (evaluate_list' empty_store env (x::xs) (Rval (empty_store,(y::ys))) =
-     evaluate' empty_store  env x (Rval (empty_store,y)) /\
-     evaluate_list' empty_store env xs (Rval (empty_store,ys)))``,
+  ``(evaluate_list' empty_store env [] (empty_store,Rval ([])) = T) /\
+    (evaluate_list' empty_store env (x::xs) (empty_store,Rval ((y::ys))) =
+     evaluate' empty_store  env x (empty_store,Rval (y)) /\
+     evaluate_list' empty_store env xs (empty_store,Rval (ys)))``,
   REPEAT STRIP_TAC \\ SIMP_TAC std_ss [Once evaluate_cases]
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ METIS_TAC [evaluate_list'_empty_store]);

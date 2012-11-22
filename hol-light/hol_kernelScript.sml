@@ -46,20 +46,20 @@ val _ = Hol_datatype `
      ref [("=", mk_fun_ty aty (mk_fun_ty aty bool_ty))]
 
   let the_axioms = ref ([]:thm list)
+
+  Also to emulate the clash exception we include a clash_var.
 *)
 
 val _ = Hol_datatype `
   hol_refs = <| the_type_constants : (string # num) list ;
                 the_term_constants : (string # hol_type) list ;
-                the_axioms : thm list |>`;
+                the_axioms : thm list ;
+                the_clash_var : term |>`;
 
 (* the state-exception monad *)
 
 val _ = Hol_datatype `
-  hol_exception = HolFail of string | Clash of term`;
-
-val _ = Hol_datatype `
-  hol_result = HolRes of 'a | HolErr of hol_exception`;
+  hol_result = HolRes of 'a | HolErr of string`;
 
 val _ = type_abbrev("M", ``:hol_refs -> 'a hol_result # hol_refs``);
 
@@ -108,10 +108,11 @@ val _ = temp_overload_on ("return", ``ex_return``);
 (* fail, handle and try *)
 
 val failwith_def = Define `
-  ((failwith msg) :'a M) = \state. (HolErr (HolFail msg), state)`;
+  ((failwith msg) :'a M) = \state. (HolErr msg, state)`;
 
 val raise_Clash_def = Define `
-  ((raise_Clash c) :'a M) = \state. (HolErr (Clash c), state)`;
+  ((raise_Clash c) :'a M) = \state. (HolErr "clash",
+                                     state with the_clash_var := c)`;
 
 val _ = Define `
   can f x = (\state. case f x state of
@@ -121,11 +122,11 @@ val _ = Define `
 val _ = Define `
   try f x msg = (\state. case f x state of
                          (HolRes y, state) => (HolRes y, state)
-                       | (HolErr _, state) => (HolErr (HolFail msg), state)): 'a M`;
+                       | (HolErr _, state) => (HolErr msg, state)): 'a M`;
 
 val _ = Define `
   handle_clash x f = (\state. case x state of
-                       | (HolErr (Clash tm), state) => f tm state
+                       | (HolErr _, state) => f (state.the_clash_var) state
                        | other => other): 'a M`;
 
 (* define failing lookup function *)
@@ -676,13 +677,14 @@ val _ = Define `
     | Comb s t => let s' = vsubst_aux ilist s in
                   let t' = vsubst_aux ilist t in
                     Comb s' t'
-    | Abs v s  => let ilist' = FILTER (\(t,x). x <> v) ilist in
+    | Abs v s  => if ~is_var v then tm else
+                  let ilist' = FILTER (\(t,x). x <> v) ilist in
                   if ilist' = [] then tm else
                   let s' = vsubst_aux ilist' s in
                   if s' = s then tm else
                   if EXISTS (\(t,x). vfree_in v t /\ vfree_in x s) ilist'
                   then let v' = variant [s'] v in
-                         Abs v' (vsubst_aux ((v,v)::ilist') s)
+                         Abs v' (vsubst_aux ((v',v)::ilist') s)
                   else Abs v s'`;
 
 val vsubst_def = Define `
@@ -718,6 +720,12 @@ val vsubst_def = Define `
                        let z = Var(fst(dest_var y''),snd(dest_var y)) in
                        inst env tyin (Abs(z,vsubst[z,y] t)) in
       fun tyin -> if tyin = [] then fun tm -> tm else inst [] tyin
+
+  This function is problematic because it passes around terms in
+  exceptions and its termination proof is complicated for the
+  recursive call in the exception handler. This call does not reduce
+  the term size. We put a counter in for the problematic clash case
+  for now...
 *)
 
 val _ = Define `
@@ -726,6 +734,54 @@ val _ = Define `
       Var n ty => let ty' = type_subst tyin ty in
                     if ty' = ty then tm else Var n ty'
     | _        => tm`
+
+val my_term_size_def = Define `
+  (my_term_size (Var _ _) = 1) /\
+  (my_term_size (Const _ _) = 1) /\
+  (my_term_size (Comb s1 s2) = 1 + my_term_size s1 + my_term_size s2) /\
+  (my_term_size (Abs s1 s2) = 1 + my_term_size s1 + my_term_size s2)`;
+
+val my_term_size_variant = prove(
+  ``!avoid t. my_term_size (variant avoid t) = my_term_size t``,
+  HO_MATCH_MP_TAC (fetch"-" "variant_ind") THEN REPEAT STRIP_TAC
+  THEN ONCE_REWRITE_TAC [fetch "-" "variant_def"]
+  THEN Cases_on `t` THEN FULL_SIMP_TAC (srw_ss()) []
+  THEN SRW_TAC [] [] THEN RES_TAC
+  THEN FULL_SIMP_TAC std_ss [my_term_size_def]);
+
+val is_var_variant = prove(
+  ``!avoid t. is_var (variant avoid t) = is_var t``,
+  HO_MATCH_MP_TAC (fetch"-" "variant_ind") THEN REPEAT STRIP_TAC
+  THEN ONCE_REWRITE_TAC [fetch "-" "variant_def"]
+  THEN Cases_on `t` THEN FULL_SIMP_TAC (srw_ss()) []
+  THEN SRW_TAC [] [] THEN RES_TAC
+  THEN FULL_SIMP_TAC (srw_ss()) [my_term_size_def,fetch "-" "is_var_def"]);
+
+val my_term_size_vsubst_aux = prove(
+  ``!t xs. EVERY (\x. is_var (FST x)) xs ==>
+           (my_term_size (vsubst_aux xs t) = my_term_size t)``,
+  Induct THEN1
+   (FULL_SIMP_TAC (srw_ss()) [my_term_size_def,Once (fetch "-" "vsubst_aux_def")]
+    THEN Induct_on `xs` THEN1 (EVAL_TAC THEN SRW_TAC [] [my_term_size_def])
+    THEN ASM_SIMP_TAC (srw_ss()) [EVERY_DEF,Once (fetch "-" "rev_assocd_def")]
+    THEN Cases_on `h` THEN FULL_SIMP_TAC (srw_ss()) []
+    THEN SRW_TAC [] [] THEN Cases_on `q`
+    THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "is_var_def",my_term_size_def])
+  THEN ASM_SIMP_TAC (srw_ss()) [my_term_size_def,
+         Once (fetch "-" "vsubst_aux_def"),LET_DEF]
+  THEN REVERSE (SRW_TAC [] [my_term_size_def,my_term_size_variant])
+  THEN1 (Q.PAT_ASSUM `!bbbb. xx ==> bbb` MATCH_MP_TAC
+         THEN FULL_SIMP_TAC (srw_ss()) [EVERY_MEM,FILTER,MEM_FILTER])
+  THEN Cases_on `is_var t`
+  THEN1 (Q.PAT_ASSUM `!bbbb. xx ==> bbb` MATCH_MP_TAC
+         THEN FULL_SIMP_TAC (srw_ss()) [EVERY_MEM,FILTER,MEM_FILTER,is_var_variant])
+  THEN FULL_SIMP_TAC std_ss [])
+  |> Q.SPECL [`t`,`[(Var v ty,x)]`]
+  |> SIMP_RULE (srw_ss()) [EVERY_DEF,fetch "-" "is_var_def"]
+
+val ZERO_LT_term_size = prove(
+  ``!t. 0 < my_term_size t``,
+  Cases THEN EVAL_TAC THEN DECIDE_TAC);
 
 val _ = tDefine "inst_aux" `
   (inst_aux k (env:(term # term) list) tyin tm) : term M =
@@ -747,17 +803,21 @@ val _ = tDefine "inst_aux" `
                             if (y' = y) /\ (t' = t) then return tm
                                                     else return (Abs y' t') od)
                         (\w'.
-                        if w' <> y' then raise_Clash w' else
-                         do ifrees <- return (MAP (inst_var tyin) (frees t)) ;
-                            y'' <- return (variant ifrees y') ;
-                            v1 <- dest_var y'' ;
+                         if w' <> y' then raise_Clash w' else
+                         let ifrees = (MAP (inst_var tyin) (frees t)) in
+                         let y'' = (variant ifrees y') in
+                         do v1 <- dest_var y'' ;
                             v2 <- dest_var y ;
-                            z <- return (Var (FST v1) (SND v2)) ;
+                            let z = Var (FST v1) (SND v2) in
                             if k = 0 then failwith "too many clashes" else
                               inst_aux (k-1) env tyin (Abs z (vsubst_aux [(z,y)] t)) od)
                     od`
-  (WF_REL_TAC `measure (\(k,env,tyin,tm). k + term_size tm)`
-   THEN REPEAT STRIP_TAC THEN TRY DECIDE_TAC THEN cheat)
+  (WF_REL_TAC `measure (\(k,env,tyin,tm). k + my_term_size tm)`
+   THEN SIMP_TAC (srw_ss()) [my_term_size_def]
+   THEN REPEAT STRIP_TAC
+   THEN FULL_SIMP_TAC std_ss [my_term_size_vsubst_aux]
+   THEN ASSUME_TAC (ZERO_LT_term_size |> Q.SPEC `y`)
+   THEN DECIDE_TAC)
 
 val _ = Define `
   inst tyin tm = if tyin = [] then return tm else inst_aux 1000000000 [] tyin tm`;

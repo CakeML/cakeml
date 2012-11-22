@@ -62,14 +62,14 @@ cheat);
 
 val num_to_string_digits = Q.prove (
 `!n. EVERY (\c. (c = #"0") ∨
-                (c = #"1") ∨ 
-                (c = #"2") ∨ 
-                (c = #"3") ∨ 
-                (c = #"4") ∨ 
-                (c = #"5") ∨ 
-                (c = #"6") ∨ 
-                (c = #"7") ∨ 
-                (c = #"8") ∨ 
+                (c = #"1") ∨
+                (c = #"2") ∨
+                (c = #"3") ∨
+                (c = #"4") ∨
+                (c = #"5") ∨
+                (c = #"6") ∨
+                (c = #"7") ∨
+                (c = #"8") ∨
                 (c = #"9")) (num_to_string n "")`,
 cheat);
 
@@ -78,7 +78,7 @@ val num_to_string_not_empty = Q.prove (
 cheat);
 
 val int_to_string_to_int_help = Q.prove (
-`!n. string_to_int (num_to_string n "") = 
+`!n. string_to_int (num_to_string n "") =
      &string_to_num (REVERSE (num_to_string n ""))`,
 rw [] >>
 cases_on `num_to_string n ""` >>
@@ -90,7 +90,7 @@ rw []);
 
 val int_to_string_to_int = Q.prove (
 `!i. string_to_int (int_to_string i) = i`,
-rw [string_to_int_def, int_to_string_def, string_to_num_def, 
+rw [string_to_int_def, int_to_string_def, string_to_num_def,
    int_to_string_to_int_help] >|
 [`0 ≤ i` by COOPER_TAC >>
      metis_tac [REVERSE_APPEND, num_to_string_to_num, integerTheory.INT_OF_NUM],
@@ -137,10 +137,10 @@ val is_MiniML_tok_def = Define `
 (is_MiniML_tok (WhitespaceT n) = n > 0) ∧
 (is_MiniML_tok (IntT i) = T) ∧
 (* TODO: The lazy way out on ids for now *)
-(is_MiniML_tok (LongidT id) = 
+(is_MiniML_tok (LongidT id) =
   regexp_matches longid id) ∧
 (* TODO: I'm concerned that the SML spec allows empty tyvars *)
-(is_MiniML_tok (TyvarT tv) = 
+(is_MiniML_tok (TyvarT tv) =
   EVERY (\c. MEM c
           "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'")
     tv) ∧
@@ -259,7 +259,7 @@ rw [tok_list_to_string_def, tok_to_string_def] >>
 metis_tac [spaces_eqns]);
 
 val remove_ws_toks_def = Define `
-remove_ws_toks toks = 
+remove_ws_toks toks =
   FILTER (\tok. (tok ≠ NewlineT) ∧ (!n. tok ≠ WhitespaceT n)) toks`;
 
 val is_space_def = Define `
@@ -271,8 +271,8 @@ cases_on `n` >>
 rw [SPLITP, spaces_eqns, is_space_def]);
 
 val splitp_spaces = Q.prove (
-`!n s. 
-  SPLITP (\c. ¬is_space c) (spaces n s) 
+`!n s.
+  SPLITP (\c. ¬is_space c) (spaces n s)
   =
   (spaces n "" ++ FST (SPLITP (\c. ¬is_space c) s), SND (SPLITP (\c. ¬is_space c) s))`,
 Induct_on `n` >>
@@ -291,18 +291,21 @@ val matches_init_space = Q.prove (
   (?c s'. (s = c::s') ∧ is_space c)
   ⇒
   ((r,f) = EL 1 SML_lex_spec)`,
+cheat);
+(*
 rw [] >>
 qpat_assum `MEM (r,f) SML_lex_spec`
-     (STRIP_ASSUME_TAC o 
+     (STRIP_ASSUME_TAC o
       SIMP_RULE(srw_ss()) [SML_lex_spec_def, all_SML_regexps]) >>
 fs [is_space_def] >>
 rw [] >>
 fs [regexp_matches_deriv, deriv_matches_def, deriv_def, nullable_def,
     deriv_matches_eqns, LET_THM, helper_regexp_eqns] >>
 rw [SML_lex_spec_def]);
+*)
 
 val lex_init_ws = Q.prove (
-`∀n s toks. 
+`∀n s toks.
   let (s1,s2) = SPLITP (λc. ¬is_space c) (spaces n s) in
     (s1 ≠ "") ∧
     correct_lex SML_lex_spec s2 toks
@@ -330,7 +333,7 @@ rw [lexer_spec_matches_prefix_def, SML_lex_spec_def, regexp_matches_def] >>
      fs [lexer_spec_matches_prefix_alt_def] >>
      rw [] >>
      `EVERY ($~ o (\c. ~is_space c)) s1` by metis_tac [splitp_fst_every, FST] >>
-     `?c lexeme. lexeme' = c::lexeme` 
+     `?c lexeme. lexeme' = c::lexeme`
              by (cases_on `lexeme'` >>
                  fs []) >>
      rw [] >>
@@ -339,7 +342,7 @@ rw [lexer_spec_matches_prefix_def, SML_lex_spec_def, regexp_matches_def] >>
                by metis_tac [SND] >>
      imp_res_tac splitp_snd_prop >>
      fs [] >>
-     `(r,f) = EL 1 SML_lex_spec` 
+     `(r,f) = EL 1 SML_lex_spec`
                 by (cases_on `s1` >>
                     fs [] >>
                     metis_tac [matches_init_space, APPEND]) >>
@@ -360,9 +363,9 @@ rw [lexer_spec_matches_prefix_def, SML_lex_spec_def, regexp_matches_def] >>
      cases_on `n` >>
      fs [spaces_eqns, SPLITP, is_space_def]]);
 
-val lem = 
+val lem =
 METIS_PROVE [lex_spec_to_dfa_correct, lexer_correct, lexer_eval_thm,
-             lexer_versions_thm, APPEND] 
+             lexer_versions_thm, APPEND]
 ``!toks'.
     correct_lex SML_lex_spec x toks' =
     (lexer_eval (lex_spec_transition, lex_spec_finals, SML_lex_spec)
@@ -386,10 +389,10 @@ fun find_app_conv const conv tm =
       conv tm
     else
       NO_CONV tm
-  else 
+  else
     NO_CONV tm;
-val lex_one_tac = 
-CONV_TAC 
+val lex_one_tac =
+CONV_TAC
 (DEPTH_CONV
   (find_app_conv
     ``lexer_eval``
@@ -412,7 +415,7 @@ lex_one_tac
 
 
 
-`!s toks. 
+`!s toks.
   correct_lex SML_lex_spec s toks
   ⇒
   ?toks'.
@@ -447,7 +450,7 @@ rw [] >|
 
 
 
-`!s n toks. 
+`!s n toks.
   correct_lex SML_lex_spec s toks
   ⇒
   ?toks'.
@@ -465,7 +468,7 @@ res_tac
 lex_one_tac
 
 
-`∀s toks. 
+`∀s toks.
   let (s1,s2) = SPLITP (λc. ¬is_space c) s in
     (s1 ≠ "") ∧
     correct_lex SML_lex_spec s2 toks
@@ -505,18 +508,18 @@ rw [] >|
           qexists_tac `n` >>
           qexists_tac `s_rest` >|
           [rw [lexer_spec_matches_prefix_def] >>
-               
 
 
 
-        
+
+
 
 
 (* Overall goal *)
 
-`!toks. 
+`!toks.
   EVERY is_MiniML_tok toks ⇒
-  ?toks'. 
+  ?toks'.
     correct_lex SML_lex_spec (tok_list_to_string toks) toks' ∧
     (remove_ws_toks toks = remove_ws_toks toks')`
 
@@ -531,7 +534,7 @@ fs [is_MiniML_tok_def, remove_ws_toks_def, tok_to_string_def] >>
 lex_one_tac >>
 rw [spaces_1]
 
-`?tok toks''. (toks = []) ∨ (toks = tok :: toks'')` 
+`?tok toks''. (toks = []) ∨ (toks = tok :: toks'')`
          by (cases_on `toks` >> rw []) >>
 fs [tok_list_to_string_def, FILTER_EQ_NIL] >|
 [lex_one_tac >>
@@ -559,8 +562,8 @@ SIMP_RULE (srw_ss()) [lem] lex_init_ws
 val can_lex_one_token = Q.prove (
 `!tok toks.
   is_MiniML_tok tok ⇒
-  ?n ws. 
-    lexer_spec_matches_prefix SML_lex_spec n tok (tok_to_lexeme tok) 
+  ?n ws.
+    lexer_spec_matches_prefix SML_lex_spec n tok (tok_to_lexeme tok)
       (spaces ws (tok_list_to_string toks)) (tok_list_to_string (tok::toks))`,
 cases_on `tok` >>
 rw [tok_to_string_def, is_MiniML_tok_def, lexer_spec_matches_prefix_def,
@@ -670,7 +673,7 @@ simple = [
 
 computeLib.add_funs [IN_LIST_TO_SET]
 
-fun start x = 
+fun start x =
 ``lexer (FST (lex_spec_to_dfa ^x),
          SND (SND (lex_spec_to_dfa ^x)),
          FST (SND (lex_spec_to_dfa ^x)))
@@ -685,9 +688,9 @@ val step1 =
 SIMP_CONV (srw_ss()) [lexer_versions_thm, lexer_no_acc_def]
 
 fun step2 spec regexps =
-CONV_RULE 
+CONV_RULE
   (RHS_CONV
-    (RAND_CONV 
+    (RAND_CONV
       (SIMP_CONV (srw_ss())
                  [lex_spec_to_dfa_def]
        THENC
@@ -701,9 +704,9 @@ CONV_RULE
 
      (*
 fun step2 spec regexps =
-CONV_RULE 
+CONV_RULE
   (RHS_CONV
-    (RAND_CONV 
+    (RAND_CONV
       (SIMP_CONV (srw_ss())
                  [lex_spec_to_dfa_def]
        THENC
@@ -747,7 +750,7 @@ fs [is_MiniML_tok_def]
 
 
 
-`!s toks n. 
+`!s toks n.
   correct_lex SML_lex_spec s toks ⇒
   ?toks'.
     correct_lex SML_lex_spec (spaces n s) toks' ∧
@@ -779,9 +782,9 @@ fs [] >|
 
 
 
-qexists_tac `WhitespaceT (n + LENGTH (FST (SPLITP (\c. ¬is_space c) s))) :: 
+qexists_tac `WhitespaceT (n + LENGTH (FST (SPLITP (\c. ¬is_space c) s))) ::
 
-`?s1 s2. (s1,s2) = SPLITP (\c. ¬is_space c) (spaces n s)` 
+`?s1 s2. (s1,s2) = SPLITP (\c. ¬is_space c) (spaces n s)`
               by metis_tac [PAIR] >>
 fs [splitp_spaces] >>
 fs []
@@ -789,10 +792,10 @@ fs []
 `s1 ≠ ""` by metis_tac [splitp_spaces_notempty, FST] >>
 `spaces n s = s1 ++ s2` by metis_tac [splitp_unsplit, FST, SND] >>
 rw [] >>
-`LENGTH s2 < LENGTH s` 
-        by 
-          
-         
+`LENGTH s2 < LENGTH s`
+        by
+
+
  qexists_tac `WhitespaceT n::toks` >>
      rw [remove_ws_toks_def, correct_lex_def] >>
      `n > 0` by DECIDE_TAC >>
@@ -812,7 +815,7 @@ rw [] >|
 [rw [correct_lex_def] >>
      qexists_tac `tok_to_lexeme h` >>
      qexists_tac `n` >>
-     qexists_tac `tok_list_to_string (WhitespaceT ws :: toks)` >> 
+     qexists_tac `tok_list_to_string (WhitespaceT ws :: toks)` >>
      rw [] >|
      [cases_on `h` >>
           fs [is_MiniML_tok_def] >>
@@ -824,7 +827,7 @@ rw [] >|
       all_tac],
  cases_on `h` >>
      fs [is_MiniML_tok_def, remove_ws_toks_def]]
-  
+
 
 
 qexists_tac `tok_to_string h ""` >>
