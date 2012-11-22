@@ -1674,6 +1674,98 @@ val RTC_bc_next_append_code = store_thm("RTC_bc_next_append_code",
   imp_res_tac bc_next_append_code >> fs[] >>
   metis_tac[bc_next_preserves_code])
 
+val compile_decl_env = store_thm("compile_decl_env",
+  ``∀env0 a vs. (FST (compile_decl env0 a vs)).env = (FST a).env``,
+  rw[compile_decl_def])
+
+val compile_closures_env = store_thm("compile_closures_env",
+  ``∀nz cs defs. (compile_closures nz cs defs).env = cs.env``,
+  rw[compile_closures_def] >>
+  `s.env = cs.env` by (
+    qunabbrev_tac`s` >>
+    qmatch_abbrev_tac`(num_fold f cs nz).env = cs.env` >>
+    qunabbrev_tac`f` >>
+    rpt (pop_assum kall_tac) >>
+    qid_spec_tac `cs` >>
+    Induct_on `nz` >>
+    rw[Once num_fold_def] ) >>
+  `($= cs.env o compiler_state_env o FST) (FOLDL push_lab (s,0,[]) defs)` by (
+    match_mp_tac FOLDL_invariant >>
+    simp[] >>
+    qx_gen_tac`x`>>PairCases_on`x` >>
+    qx_gen_tac`y`>>PairCases_on`y` >>
+    Cases_on`y1`>>rw[push_lab_def,LET_THM] ) >> rfs[] >>
+  `($= cs.env o compiler_state_env o FST) (FOLDL (cons_closure sz0 nk) (s',1) (REVERSE ecs))` by (
+    match_mp_tac FOLDL_invariant >>
+    simp[] >>
+    Cases >> Cases >>
+    rw[cons_closure_def,LET_THM] >>
+    qmatch_abbrev_tac`x.env = (FOLDL f a ls).env` >>
+    `($= x.env o compiler_state_env) (FOLDL f a ls)`  by (
+      match_mp_tac FOLDL_invariant >>
+      unabbrev_all_tac >> simp[] >>
+      gen_tac >> Cases >> rw[emit_ec_def] ) >>
+    unabbrev_all_tac >> fs[] ) >>
+  rfs[] >>
+  `∀nz a. (FST (num_fold (update_refptr nk) a nz)).env = (FST a).env` by (
+    Induct  >> rw[Once num_fold_def] >>
+    Cases_on `a` >> rw[update_refptr_def,LET_THM] ) >>
+  pop_assum (qspecl_then [`nz`,`s'',1`] mp_tac) >> rw[] >>
+  qmatch_abbrev_tac`(num_fold f a nz).env = s''.env` >>
+  `s''.env = a.env` by rw[Abbr`a`] >> fs[] >>
+  qid_spec_tac`a` >>
+  qunabbrev_tac`f` >>
+  rpt (pop_assum kall_tac) >>
+  Induct_on `nz` >>
+  rw[Once num_fold_def])
+val _ = export_rewrites["compile_closures_env"]
+
+val compile_env = store_thm("compile_env",
+  ``(∀cs exp. (compile cs exp).env = cs.env) ∧
+    (∀env0 sz1 exp n cs xs. (compile_bindings env0 sz1 exp n cs xs).env = env0)``,
+  ho_match_mp_tac compile_ind >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    BasicProvers.EVERY_CASE_TAC >> rw[] >>
+    Q.PAT_ABBREV_TAC`p = compile_decl X Y Z` >>
+    PairCases_on`p` >> rw[] >>
+    metis_tac[compile_decl_env,FST]) >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    srw_tac[ETA_ss][] >>
+    Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
+    qho_match_abbrev_tac`P (FOLDL compile cs0 es)` >>
+    match_mp_tac FOLDL_invariant >>
+    simp[Abbr`P`,Abbr`cs0`] ) >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    fsrw_tac[ETA_ss][] >>
+    Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
+    qho_match_abbrev_tac`P (FOLDL compile cs0 es)` >>
+    match_mp_tac FOLDL_invariant >>
+    simp[Abbr`P`,Abbr`cs0`] ) >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    srw_tac[ETA_ss][] >>
+    Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
+    qho_match_abbrev_tac`P (FOLDL compile (compile cs0 exp) es)` >>
+    match_mp_tac FOLDL_invariant >>
+    simp[Abbr`P`,Abbr`cs0`] ) >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] )
+val _ = export_rewrites["compile_env"]
+
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒
       ∀v bc0 bc00 bs cs.
@@ -1690,7 +1782,6 @@ val compile_val = store_thm("compile_val",
           let bs' = bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length bs.code |> in
           bc_next^* bs bs' ∧
           Cv_bv (mk_pp c bs) v bv ∧
-          ((compile cs exp).env = cs.env) ∧
           ((compile cs exp).sz = cs.sz + 1) ∧
           Cenv_bs c env (compile cs exp).env (compile cs exp).sz bs') ∧
     (∀c env exps ress. Cevaluate_list c env exps ress ⇒
@@ -1708,7 +1799,6 @@ val compile_val = store_thm("compile_val",
           let bs' = bs with <| stack := (REVERSE bvs)++bs.stack ; pc := next_addr bs.inst_length bs.code |> in
           bc_next^* bs bs' ∧
           EVERY2 (Cv_bv (mk_pp c bs)) vs bvs ∧
-          ((FOLDL compile cs exps).env = cs.env) ∧
           ((FOLDL compile cs exps).sz = cs.sz + LENGTH exps) ∧
           Cenv_bs c env (FOLDL compile cs exps).env (FOLDL compile cs exps).sz bs')``,
   ho_match_mp_tac Cevaluate_strongind >>
