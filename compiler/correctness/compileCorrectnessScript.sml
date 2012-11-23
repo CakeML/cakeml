@@ -1770,10 +1770,13 @@ val good_ec_def = Define`
   good_ec (n,ls) = (n = LENGTH ls)`
 
 val good_ecs_def = Define`
-  good_ecs ecs defs = FEVERY (good_ec o SND) ecs ∧ set (MAP (OUTR o SND) (FILTER (ISR o SND) defs)) ⊆ FDOM ecs`
+  good_ecs ecs = FEVERY (good_ec o SND) ecs`
 
 val FOLDL_push_lab_ecs_len = store_thm("FOLDL_push_lab_ecs_len",
-  ``!a defs. EVERY good_ec (SND (SND a)) ∧ good_ecs (FST a).ecs defs ∧ (LENGTH (SND(SND a)) = FST(SND a))
+  ``!a defs. EVERY good_ec (SND (SND a))
+    ∧ good_ecs (FST a).ecs
+    ∧ (LENGTH (SND(SND a)) = FST(SND a))
+    ∧ free_labs_defs defs ⊆ FDOM (FST a).ecs
   ⇒ EVERY good_ec (SND(SND(FOLDL push_lab a defs))) ∧
     ((FST (FOLDL push_lab a defs)).ecs = (FST a).ecs) ∧
     (LENGTH (SND(SND(FOLDL push_lab a defs))) = FST(SND(FOLDL push_lab a defs)))``,
@@ -1783,7 +1786,7 @@ val FOLDL_push_lab_ecs_len = store_thm("FOLDL_push_lab_ecs_len",
   simp[Abbr`P`] >>
   qx_gen_tac`x`>>PairCases_on`x` >>
   qx_gen_tac`y`>>PairCases_on`y` >>
-  Cases_on`y1`>>rw[push_lab_def,LET_THM] >> srw_tac[ARITH_ss][] >>
+  Cases_on`y1`>>rw[push_lab_def,LET_THM] >> srw_tac[ARITH_ss][good_ec_def] >>
   qmatch_abbrev_tac`good_ec p` >> PairCases_on`p` >>
   fsrw_tac[DNF_ss][FEVERY_DEF,EVERY_MEM,MEM_MAP,MEM_FILTER,FORALL_PROD,FRANGE_DEF,SUBSET_DEF,good_ecs_def] >>
   fsrw_tac[QUANT_INST_ss[std_qp]][] >>
@@ -1794,7 +1797,7 @@ val FOLDL_emit_ec_sz = store_thm("FOLDL_emit_ec_sz",
   Induct >- rw[] >> Cases >> rw[] >> srw_tac[ARITH_ss][])
 
 val FOLDL_push_lab_ecs_ISR = store_thm("FOLDL_push_lab_ecs_ISR",
-  ``∀defs a. (FST(SND(FOLDL push_lab a defs))) = FST(SND a) + LENGTH (FILTER (ISR o SND) defs)``,
+  ``∀defs a. (FST(SND(FOLDL push_lab a defs))) = FST(SND a) + LENGTH defs``,
   Induct >- rw[] >>
   qx_gen_tac`x` >> PairCases_on`x` >>
   qx_gen_tac`y` >> PairCases_on`y` >>
@@ -1802,7 +1805,7 @@ val FOLDL_push_lab_ecs_ISR = store_thm("FOLDL_push_lab_ecs_ISR",
   srw_tac[ARITH_ss][])
 
 val compile_closures_sz = store_thm("compile_closures_sz",
-  ``∀nz cs defs. good_ecs cs.ecs defs ⇒ ((compile_closures nz cs defs).sz = cs.sz + LENGTH (FILTER (ISR o SND) defs))``,
+  ``∀nz cs defs. good_ecs cs.ecs ∧ free_labs_defs defs ⊆ FDOM cs.ecs ⇒ ((compile_closures nz cs defs).sz = cs.sz + LENGTH defs)``,
   rw[compile_closures_def] >>
   `(s.sz = sz0 + nz) ∧ (s.ecs = cs.ecs)` by (
     qunabbrev_tac`s` >>
@@ -1865,12 +1868,12 @@ val compile_closures_sz = store_thm("compile_closures_sz",
   srw_tac[ARITH_ss][])
 
 val compile_sz = store_thm("compile_sz",
-  ``(∀cs exp. (compile cs exp).sz = cs.sz + 1) ∧
+  ``(∀cs exp. good_ecs cs.ecs ∧ free_labs exp ⊆ FDOM cs.ecs ⇒ ((compile cs exp).sz = cs.sz + 1)) ∧
     (∀env0 sz1 exp n cs xs. (compile_bindings env0 sz1 exp n cs xs).sz = sz1)``,
   ho_match_mp_tac compile_ind >>
   strip_tac >- (
     rw[compile_def,LET_THM] >>
-    BasicProvers.EVERY_CASE_TAC >- cheat >>
+    BasicProvers.EVERY_CASE_TAC >- rw[] >>
     Q.PAT_ABBREV_TAC`p = compile_decl X Y Z` >>
     PairCases_on`p` >> rw[] ) >>
   strip_tac >- rw[compile_def] >>
@@ -1884,8 +1887,14 @@ val compile_sz = store_thm("compile_sz",
   strip_tac >- rw[compile_def,LET_THM] >>
   strip_tac >- (
     rw[compile_def,LET_THM] >>
-    need invariant relating cs and exp, saying all defs have INRs and satisfy good_ecs
-    compile_closures_sz
+    Q.ISPECL_THEN[`0`,`cs`,`[(xs,cb)]`]mp_tac compile_closures_sz >>
+    Cases_on `cb` >> fs[good_ecs_def] ) >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    srw_tac[ETA_ss][] >> rfs[] >>
+    Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
+    need a FOLDL_invariant that carries more info...
 
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒

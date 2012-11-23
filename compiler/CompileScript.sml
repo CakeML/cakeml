@@ -935,7 +935,7 @@ val _ = Defn.save_defn emit_ec_defn;
 
  val push_lab_defn = Hol_defn "push_lab" `
 
-(push_lab (s,k,ecs) (xs,INL _) = (s,k,ecs)) (* should not happen *)
+(push_lab (s,k,ecs) (xs,INL _) = (incsz s,k+1,(0,[])::ecs)) (* should not happen *)
 /\
 (push_lab (s,k,ecs) (xs,INR l) =
   let s = incsz (emit s [PushPtr (Lab l)]) in
@@ -1007,7 +1007,7 @@ val _ = Defn.save_defn compile_decl_defn;
   let (s,i,env) = compile_decl env0 (s,sz0+1,env0) vs in
   let s = emit s [Stack (Shift (i -(sz0+1)) k)] in
    s with<| sz := sz1+1; decl := SOME (env,s.sz - k) |>
-  | NONE => emit s [Stack (PushInt i2); Exception] (* should not happen *)
+  | NONE => incsz (emit s [Stack (PushInt i2); Exception]) (* should not happen *)
   ))
 /\
 (compile s (CRaise err) =

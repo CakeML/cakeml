@@ -869,7 +869,7 @@ emit_ec z s (CERef j) = incsz (emit s [Stack (Load (s.sz - z - j))])
  *)
 
 let rec
-push_lab (s,k,ecs) (xs,INL _) = (s,k,ecs) (* should not happen *)
+push_lab (s,k,ecs) (xs,INL _) = (incsz s,k+1,(0,[])::ecs) (* should not happen *)
 and
 push_lab (s,k,ecs) (xs,INR l) =
   let s = incsz (emit s [PushPtr (Lab l)]) in
@@ -926,7 +926,7 @@ compile s (CDecl vs) =
   let (s,i,env) = compile_decl env0 (s,sz0+1,env0) vs in
   let s = emit s [Stack (Shift (i-(sz0+1)) k)] in
   <| s with sz = sz1+1; decl = Some (env,s.sz-k) |>
-  | None -> emit s [Stack (PushInt i2); Exception] (* should not happen *)
+  | None -> incsz (emit s [Stack (PushInt i2); Exception]) (* should not happen *)
   end
 and
 compile s (CRaise err) =
