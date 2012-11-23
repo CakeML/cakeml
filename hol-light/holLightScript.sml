@@ -15,6 +15,8 @@ fun tyop_name n = tyop_name_in_map n handle NotFound => {Thy="holLight",Tyop=snd
 fun fix_name "|-" = "proves"
   | fix_name "===" = "equiv"
   | fix_name s = if String.sub(s,0) = #"_" then ("holLight"^s) else s
+val _ = Parse.set_fixity "|-" (Parse.Infixr 30);
+val _ = Parse.set_fixity "===" (Parse.Infixr 50);
 val reader =
 { define_tyop  = define_tyop_in_thy
 , define_const = define_const_in_thy fix_name

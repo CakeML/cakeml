@@ -1,4 +1,3 @@
-
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "hol_kernel";
@@ -147,13 +146,6 @@ val _ = Define `
                    return (h::t) od`
 
 val _ = Define `
-  exists p l =
-    case l of
-      [] => return F
-    | (h::t) => do ok <- p h ;
-                   if ok then return T else exists p t od`
-
-val _ = Define `
   forall p l =
     case l of
       [] => return T
@@ -177,19 +169,6 @@ val _ = Define `
 
 val _ = Define `
   union l1 l2 = itlist insert l1 l2`;
-
-(*
-  let rec exists p l =
-    match l with
-      [] -> false
-    | h::t -> p(h) or exists p t;;
-*)
-
-val _ = Define `
-  exists p l =
-    case l of
-      [] => F
-    | (h::t) => p(h) \/ exists p t`;
 
 (*
   let get_type_arity s = assoc s (!the_type_constants)
@@ -269,14 +248,16 @@ val _ = Define `
 *)
 
 val _ = Define `
-  is_type = can dest_type`;
+  is_type t = case t of Tyapp s ty => T | _ => F`;
 
 (*
   let is_vartype = can dest_vartype
+
+  We optimise this by making it perform the pattern match directly.
 *)
 
 val _ = Define `
-  is_vartype = can dest_vartype`;
+  is_vartype t = case t of Tyvar _ => T | _ => F`;
 
 (*
   let rec tyvars =
@@ -600,10 +581,9 @@ val _ = Define `
   this a non-failing function to make it pure.
 *)
 
-val exists_IMP = prove(
-  ``!xs p. exists p xs ==> ?x. MEM x xs /\ p x``,
-  Induct
-  THEN SIMP_TAC (srw_ss()) [Once (fetch "-" "exists_def")] THEN METIS_TAC []);
+val EXISTS_IMP = prove(
+  ``!xs p. EXISTS p xs ==> ?x. MEM x xs /\ p x``,
+  Induct THEN SIMP_TAC (srw_ss()) [EXISTS_DEF] THEN METIS_TAC []);
 
 val MEM_union = prove(
   ``!y z x. MEM x (union y z) = MEM x y \/ MEM x z``,
@@ -628,10 +608,10 @@ val vfree_in_IMP = prove(
 
 val _ = tDefine "variant" `
   variant avoid v =
-    if ~(exists (vfree_in v) avoid) then v else
+    if EXISTS (vfree_in v) avoid then
     case v of
        Var s ty => variant avoid (Var(s++"'") ty)
-    | _ => v`
+    | _ => v else v`
   (WF_REL_TAC `measure (\(avoid,v).
      let s = \v. case v of Var s ty => LENGTH s + 1 | _ => 0 in
      let n = SUM (MAP s (FLAT (MAP frees avoid))) in
@@ -639,7 +619,7 @@ val _ = tDefine "variant" `
    THEN REPEAT STRIP_TAC
    THEN FULL_SIMP_TAC (srw_ss()) [LET_DEF,LENGTH,LENGTH_APPEND]
    THEN REPEAT STRIP_TAC THEN1 DECIDE_TAC
-   THEN IMP_RES_TAC exists_IMP
+   THEN IMP_RES_TAC EXISTS_IMP
    THEN FULL_SIMP_TAC std_ss [MEM_SPLIT,MAP,MAP_APPEND,
           rich_listTheory.FLAT_APPEND,FLAT,SUM,SUM_APPEND]
    THEN IMP_RES_TAC vfree_in_IMP
@@ -909,7 +889,7 @@ val _ = Define `
     case l1 of
       [] => l2
     | (h::t) => let subun = term_union t l2 in
-                if exists (aconv h) subun then subun else h::subun`;
+                if EXISTS (aconv h) subun then subun else h::subun`;
 
 (*
   let dest_thm (Sequent(asl,c)) = (asl,c)
@@ -980,7 +960,7 @@ val _ = Define `
   ABS v (Sequent asl c) =
     case c of
       Comb (Comb (Const "=" _) l) r =>
-        if exists (vfree_in v) asl
+        if EXISTS (vfree_in v) asl
         then failwith "ABS: variable is free in assumptions"
         else do a1 <- mk_abs(v,l) ;
                 a2 <- mk_abs(v,r) ;
