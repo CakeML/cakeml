@@ -2032,6 +2032,12 @@ val compile_sz = store_thm("compile_sz",
   strip_tac >- rw[compile_def,LET_THM] >>
   rw[compile_def])
 
+(* TODO: MOVE *)
+val TAKE_SUM = store_thm("TAKE_SUM",
+  ``!n m l. n + m <= LENGTH l ==> (TAKE (n + m) l = TAKE n l ++ TAKE m (DROP n l))``,
+  Induct_on `l` THEN SRW_TAC[][] THEN SRW_TAC[][] THEN
+  Cases_on `n` THEN FULL_SIMP_TAC(srw_ss()++ARITH_ss)[ADD1])
+
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒
       ∀v bc0 bc00 bs cs.
@@ -2391,21 +2397,34 @@ val compile_val = store_thm("compile_val",
     qpat_assum `∀bc0. P` mp_tac >>
     qmatch_assum_abbrev_tac `bs.code = ls0 ++ bc1` >>
     first_x_assum (qspecl_then [`bc0`,`bs with code := ls0`,`cs0`] mp_tac) >>
-    `(cs0.env = cs.env) ∧ (cs0.sz = cs.sz) ∧ (cs0.out = cs.out) ∧ (cs0.next_label = cs.next_label)` by rw[Abbr`cs0`] >>
+    `(cs0.env = cs.env) ∧
+     (cs0.sz = cs.sz) ∧
+     (cs0.out = cs.out) ∧
+     (cs0.next_label = cs.next_label) ∧
+     (cs0.ecs = cs.ecs)` by rw[Abbr`cs0`] >>
     simp[] >>
     simp[Once Cv_bv_cases] >>
     strip_tac >>
     qunabbrev_tac`ls0` >>
     qunabbrev_tac`bc1` >>
-    strip_tac >>
-
+    qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
+    `bc_next^* bs (bs1 with code := bs.code)` by (
+      match_mp_tac RTC_bc_next_append_code >>
+      map_every qexists_tac[`bs0`,`bs1`] >>
+      rw[Abbr`bs0`,bc_state_component_equality,Abbr`bs1`] ) >>
+    map_every qunabbrev_tac[`bs0`,`bs1`] >>
     Cases_on `b1` >> fs[] >- (
       `∃bc1. bs.code = bc0 ++ REVERSE (compile cs2 e2).out ++ bc1` by (
         rw[Abbr`cs2`] ) >>
       qmatch_assum_abbrev_tac`bs.code = ls0 ++ bc1` >>
       disch_then(qspecl_then[`bc0`,`bs with <|code := ls0; pc := next_addr il (bc0 ++ REVERSE cs2.out)|>`,`cs2`]mp_tac) >>
-      `(cs2.env = cs.env) ∧ (cs2.sz = cs.sz)` by (
-        rw[Abbr`cs2`,Abbr`cs1`] ) >>
+      `cs1.sz = cs.sz + 1` by (
+        rw[Abbr`cs1`] >>
+        qpat_assum `X = cs.sz` (SUBST1_TAC o SYM) >>
+        match_mp_tac (CONJUNCT1 compile_sz) >>
+        rw[Abbr`cs0`] ) >>
+      `(cs2.env = cs.env) ∧ (cs2.sz = cs.sz) ∧ (cs2.ecs = cs.ecs)` by (
+        rw[Abbr`cs2`] >> fs[Abbr`cs1`] ) >>
       simp[] >> qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
       `P` by (
         map_every qunabbrev_tac [`P`,`Q`,`R`] >>
@@ -2444,14 +2463,86 @@ val compile_val = store_thm("compile_val",
         res_tac >> DECIDE_TAC ) >>
       map_every qunabbrev_tac [`P`,`Q`,`R`] >>
       simp[] >>
-      disch_then(Q.X_CHOOSE_THEN`b2`strip_assume_tac)
+      disch_then(Q.X_CHOOSE_THEN`b2`strip_assume_tac) >>
+      qexists_tac`b2` >>
+      qmatch_assum_abbrev_tac`bc_next^* bs05 bs11` >>
+      qmatch_assum_abbrev_tac`bc_next^* bs bs03` >>
+      `bc_next^* bs03 (bs05 with code := bs.code)` by (
+        rw[RTC_eq_NRC] >>
+        qexists_tac `SUC 0` >>
+        rw[] >>
+        `bc_fetch bs03 = SOME (JumpIf (Lab nl))` by (
+          match_mp_tac bc_fetch_next_addr >>
+          qexists_tac`bc0 ++ REVERSE (be1 ++ cs.out)` >>
+          rw[Abbr`bs03`,Abbr`ls0`] >> rw[Abbr`cs2`] ) >>
+        rw[bc_eval1_thm] >>
+        rw[bc_eval1_def,Abbr`bs03`,LET_THM] >>
+        rw[Abbr`bs05`,bc_state_component_equality] >>
+        rw[bc_find_loc_def] >>
+        `∃bc2. ls0 ++ bc1 = (bc0 ++ REVERSE cs2.out) ++ bc2` by (
+          rw[Abbr`ls0`] ) >>
+        pop_assum SUBST1_TAC >>
+        match_mp_tac bc_find_loc_aux_append_code >>
+        match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+        rw[Abbr`ls0`,REVERSE_APPEND] >>
+        qexists_tac`LENGTH bc0 + LENGTH (be1 ++ cs.out) + 2` >>
+        fsrw_tac[ARITH_ss][] >>
+        conj_tac >- ( srw_tac[ARITH_ss][Abbr`cs2`] ) >>
+        conj_tac >- (
+          REWRITE_TAC[Once ADD_SYM] >>
+          srw_tac[ARITH_ss][GSYM EL_DROP,Abbr`cs2`,REVERSE_APPEND] >>
+          REWRITE_TAC[GSYM APPEND_ASSOC] >>
+          rw[DROP_LENGTH_APPEND] >>
+          REWRITE_TAC[Once ADD_SYM] >>
+          srw_tac[ARITH_ss][GSYM DROP_DROP] >>
+          Q.ISPEC_THEN`cs.out`(SUBST1_TAC o SYM)LENGTH_REVERSE >>
+          REWRITE_TAC[GSYM APPEND_ASSOC] >>
+          REWRITE_TAC[DROP_LENGTH_APPEND] >>
+          srw_tac[ARITH_ss][EL_DROP] >>
+          REWRITE_TAC[Once ADD_SYM] >>
+          srw_tac[ARITH_ss][GSYM EL_DROP] >>
+          Q.ISPEC_THEN`be1`(SUBST1_TAC o SYM)LENGTH_REVERSE >>
+          REWRITE_TAC[GSYM APPEND_ASSOC] >>
+          REWRITE_TAC[DROP_LENGTH_APPEND] >>
+          rw[] ) >>
+        srw_tac[ARITH_ss][FILTER_APPEND,Abbr`cs2`,SUM_APPEND] >>
+        rw[ADD_ASSOC] >>
+        srw_tac[ARITH_ss][Once TAKE_SUM] >>
+        qabbrev_tac`n = LENGTH bc0 + (LENGTH be1 + LENGTH cs.out)` >>
+        qabbrev_tac`ls = bc0 ++ REVERSE (be1 ++ cs.out)` >>
+        `n = LENGTH ls` by (
+          unabbrev_all_tac >> rw[REVERSE_APPEND] ) >>
+        pop_assum SUBST1_TAC >>
+        REWRITE_TAC[GSYM APPEND_ASSOC] >>
+        REWRITE_TAC[TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND] >>
+        rw[FILTER_APPEND,SUM_APPEND] >>
+        srw_tac[ARITH_ss][Abbr`ls`,FILTER_APPEND,SUM_APPEND] ) >>
+      `bc_next^* (bs05 with code := bs.code) (bs11 with code := bs.code)` by (
+        match_mp_tac RTC_bc_next_append_code >>
+        map_every qexists_tac[`bs05`,`bs11`] >>
+        rw[bc_state_component_equality,Abbr`bs05`,Abbr`bs11`] ) >>
+      qabbrev_tac`bs12 = bs11 with code := bs.code` >>
+      conj_tac >- (
+        qmatch_abbrev_tac`bc_next^* bs bs13` >>
+        qunabbrev_tac`ls0` >>
+        `bc_fetch bs12 = SOME (Jump (Lab nl2))` by (
+          match_mp_tac bc_fetch_next_addr >>
+          simp_tac(srw_ss())[Abbr`bs12`] >>
+          qmatch_assum_abbrev_tac`bs.code = X ++ [Jump (Lab nl2);Y] ++ A ++ Z` >>
+          qexists_tac `X` >>
+          qpat_assum `bs.code = X ++ B ++ A ++ Z` SUBST1_TAC >>
+          rw[Abbr`bs11`,Abbr`X`,Abbr`cs2`,REVERSE_APPEND] >>
+          rpt AP_TERM_TAC >> rw[] ) >>
+        `bc_next bs12 bs13` by (
+          rw[bc_eval1_thm] >>
+          qpat_assum`bs.code = X ++ Y ++ bc1`kall_tac >>
+          rw[bc_eval1_def,Abbr`bs13`,Abbr`bs12`,Abbr`bs11`] >>
+          rw[bc_state_component_equality] >>
+          rw[bc_find_loc_def] >>
+          rw[REVERSE_APPEND,Abbr`cs3`,Abbr`cs2`] >>
+          match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
 
-      map_every
-        simp_tac(std_ss++DNF_ss)[]
-
-        compile_next_label
-
-        simp[Abbr`cs2`,FILTER_APPEND]
+          prove ALL_DISTINCT (FILTER is_Label bs.code) earlier
 
     qspecl_then[`cs0`,`exp`,`FILTER is_Label be1`]mp_tac(CONJUNCT1 compile_next_label) >>
     simp[Once FILTER_APPEND] >> strip_tac >>
