@@ -1867,6 +1867,92 @@ val compile_closures_sz = store_thm("compile_closures_sz",
     srw_tac[ARITH_ss][] ) >>
   srw_tac[ARITH_ss][])
 
+val FOLDL_invariant_rest = store_thm("FOLDL_invariant_rest",
+  ``∀P f ls a. P ls a ∧ (∀x n. n < LENGTH ls ∧ P (DROP n ls) x ⇒ P (DROP (SUC n) ls) (f x (EL n ls))) ⇒ P [] (FOLDL f a ls)``,
+  ntac 2 gen_tac >>
+  Induct >> rw[] >>
+  first_x_assum match_mp_tac >>
+  conj_tac >- (
+    first_x_assum (qspecl_then[`a`,`0`] mp_tac) >> rw[] ) >>
+  rw[] >> first_x_assum (qspecl_then[`x`,`SUC n`] mp_tac) >> rw[])
+
+val compile_varref_ecs = store_thm("compile_varref_ecs",
+  ``∀cs b. (compile_varref cs b).ecs = cs.ecs``,
+  gen_tac >> Cases >> rw[])
+val _ = export_rewrites["compile_varref_ecs"]
+
+val compile_closures_ecs = store_thm("compile_closures_ecs",
+  ``∀nz cs defs. (compile_closures nz cs defs).ecs = cs.ecs``,
+  rw[compile_closures_def] >>
+  `s.ecs = cs.ecs` by (
+    qunabbrev_tac`s` >>
+    qmatch_abbrev_tac`(num_fold f cs nz).ecs = cs.ecs` >>
+    qunabbrev_tac`f` >>
+    rpt (pop_assum kall_tac) >>
+    qid_spec_tac `cs` >>
+    Induct_on `nz` >>
+    rw[Once num_fold_def] ) >>
+  `($= cs.ecs o compiler_state_ecs o FST) (FOLDL push_lab (s,0,[]) defs)` by (
+    match_mp_tac FOLDL_invariant >>
+    simp[] >>
+    qx_gen_tac`x`>>PairCases_on`x` >>
+    qx_gen_tac`y`>>PairCases_on`y` >>
+    Cases_on`y1`>>rw[push_lab_def,LET_THM] ) >> rfs[] >>
+  `($= cs.ecs o compiler_state_ecs o FST) (FOLDL (cons_closure sz0 nk) (s',1) (REVERSE ecs))` by (
+    match_mp_tac FOLDL_invariant >>
+    simp[] >>
+    Cases >> Cases >>
+    rw[cons_closure_def,LET_THM] >>
+    qmatch_abbrev_tac`x.ecs = (FOLDL f a ls).ecs` >>
+    `($= x.ecs o compiler_state_ecs) (FOLDL f a ls)`  by (
+      match_mp_tac FOLDL_invariant >>
+      unabbrev_all_tac >> simp[] >>
+      gen_tac >> Cases >> rw[emit_ec_def] ) >>
+    unabbrev_all_tac >> fs[] ) >>
+  rfs[] >>
+  `∀nz a. (FST (num_fold (update_refptr nk) a nz)).ecs = (FST a).ecs` by (
+    Induct  >> rw[Once num_fold_def] >>
+    Cases_on `a` >> rw[update_refptr_def,LET_THM] ) >>
+  pop_assum (qspecl_then [`nz`,`s'',1`] mp_tac) >> rw[] >>
+  qmatch_abbrev_tac`(num_fold f a nz).ecs = s''.ecs` >>
+  `s''.ecs = a.ecs` by rw[Abbr`a`] >> fs[] >>
+  qid_spec_tac`a` >>
+  qunabbrev_tac`f` >>
+  rpt (pop_assum kall_tac) >>
+  Induct_on `nz` >>
+  rw[Once num_fold_def])
+val _ = export_rewrites["compile_closures_ecs"]
+
+val compile_decl_ecs = store_thm("compile_decl_ecs",
+  ``∀ecs0 a vs. (FST (compile_decl ecs0 a vs)).ecs = (FST a).ecs``,
+  rpt gen_tac >>
+  simp[compile_decl_def] >>
+  qmatch_abbrev_tac `((FST (FOLDL f a vs)).ecs = (FST a).ecs)` >>
+  `(λx. (FST x).ecs = (FST a).ecs) (FOLDL f a vs)` by (
+    match_mp_tac FOLDL_invariant >>
+    rw[] >> rw[Abbr`f`] >>
+    PairCases_on `x` >> fs[] >>
+    rw[] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    rw[] ) >>
+  fs[])
+val _ = export_rewrites["compile_decl_ecs"]
+
+val compile_ecs = store_thm("compile_ecs",
+  ``(∀cs exp. (compile cs exp).ecs = cs.ecs) ∧
+    (∀env0 sz1 exp n cs xs. (compile_bindings env0 sz1 exp n cs xs).ecs = cs.ecs)``,
+  ho_match_mp_tac compile_ind >>
+  rw[compile_def,LET_THM] >>
+  TRY (BasicProvers.EVERY_CASE_TAC) >>
+  fsrw_tac[ETA_ss][UNCURRY] >>
+  Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
+  qmatch_abbrev_tac `(FOLDL compile a ls).ecs = a0.ecs` >>
+  `($= a0.ecs o compiler_state_ecs) (FOLDL compile a ls)` by (
+    match_mp_tac FOLDL_invariant >>
+    unabbrev_all_tac >> simp[] ) >>
+  fs[])
+val _ = export_rewrites["compile_ecs"]
+
 val compile_sz = store_thm("compile_sz",
   ``(∀cs exp. good_ecs cs.ecs ∧ free_labs exp ⊆ FDOM cs.ecs ⇒ ((compile cs exp).sz = cs.sz + 1)) ∧
     (∀env0 sz1 exp n cs xs. (compile_bindings env0 sz1 exp n cs xs).sz = sz1)``,
@@ -1894,7 +1980,33 @@ val compile_sz = store_thm("compile_sz",
     BasicProvers.EVERY_CASE_TAC >>
     srw_tac[ETA_ss][] >> rfs[] >>
     Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
-    need a FOLDL_invariant that carries more info...
+    `(λls a. (a.ecs = cs.ecs) ∧ (a.sz = cs.sz + 1 + LENGTH es - LENGTH ls)) ([]:Cexp list) (FOLDL compile (compile cs0 exp) es)` by (
+      match_mp_tac FOLDL_invariant_rest >>
+      fsrw_tac[ARITH_ss,DNF_ss][MEM_EL,Abbr`cs0`] >>
+      srw_tac[ARITH_ss][] >> res_tac >>
+      first_x_assum (qspec_then `x` mp_tac) >>
+      srw_tac[ARITH_ss][] >>
+      qmatch_assum_rename_tac`m < LENGTH es`[]>>
+      `x.sz = SUC m + cs.sz` by DECIDE_TAC >>
+      first_x_assum (qspecl_then [`x`,`m`] mp_tac) >>
+      srw_tac[ARITH_ss][] >>
+      pop_assum match_mp_tac >>
+      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
+      metis_tac[] ) >>
+    fs[] ) >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- (
+    map_every qx_gen_tac[`cs`,`e1`,`e2`,`e3`] >>
+    rpt strip_tac >>
+    rw[compile_def,LET_THM] >>
+    Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
+    Q.PAT_ABBREV_TAC`cs1 = compiler_state_tail_fupd X Y` >>
+    Q.PAT_ABBREV_TAC`cs2 = compiler_state_sz_fupd (K ((compile cs0 e1).sz - 1)) Y` >>
+    Q.PAT_ABBREV_TAC`cs3 = compiler_state_sz_fupd (K ((compile cs2 e2).sz - 1)) Y` >>
+    `(compile cs0 e1).sz = cs0.sz + 1` by (
+      first_x_assum (match_mp_tac o MP_CANON) >>
+      rw[Abbr`cs0`] >> fs[] ) >>
+    
 
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒
@@ -2471,6 +2583,7 @@ val compile_val = store_thm("compile_val",
     cheat ) >>
   strip_tac >- rw[] >>
   rw[] )
+
 
 val good_contab_def = Define`
   good_contab (m,w,n) =
