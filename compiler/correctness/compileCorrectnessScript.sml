@@ -1953,6 +1953,8 @@ val compile_ecs = store_thm("compile_ecs",
   fs[])
 val _ = export_rewrites["compile_ecs"]
 
+val compiler_state_component_equality = DB.fetch"Compile""compiler_state_component_equality"
+
 val compile_sz = store_thm("compile_sz",
   ``(∀cs exp. good_ecs cs.ecs ∧ free_labs exp ⊆ FDOM cs.ecs ⇒ ((compile cs exp).sz = cs.sz + 1)) ∧
     (∀env0 sz1 exp n cs xs. (compile_bindings env0 sz1 exp n cs xs).sz = sz1)``,
@@ -2006,7 +2008,29 @@ val compile_sz = store_thm("compile_sz",
     `(compile cs0 e1).sz = cs0.sz + 1` by (
       first_x_assum (match_mp_tac o MP_CANON) >>
       rw[Abbr`cs0`] >> fs[] ) >>
-    
+    `cs1.ecs = cs.ecs` by rw[Abbr`cs1`,Abbr`cs0`] >>
+    `cs1.sz = cs.sz + 1` by rw[Abbr`cs1`,Abbr`cs0`] >>
+    `(compile cs2 e2).sz = cs.sz + 1` by (
+      first_x_assum (qspecl_then[`FST(sdt cs)`,`SND(sdt cs)`,`ldt (SND(sdt cs)) (compile cs0 e1)`]mp_tac) >>
+      `free_labs e2 ⊆ FDOM cs.ecs` by fs[] >>
+      asm_simp_tac(srw_ss()++ARITH_ss)[] >>
+      disch_then(SUBST1_TAC o SYM) >>
+      AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >>
+      rw[Abbr`cs2`,compiler_state_component_equality,Abbr`cs0`,Abbr`cs1`] ) >>
+    first_x_assum (qspec_then `cs0` kall_tac) >>
+    first_x_assum (qspec_then `cs2` kall_tac) >>
+    first_x_assum (qspec_then `FST (sdt cs)` mp_tac) >>
+    `free_labs e3 ⊆ FDOM cs.ecs` by fs[] >>
+    simp[] >>
+    qmatch_abbrev_tac `((compile cs4 e3).sz = (compile cs5 e2).sz - 1 + 1) ⇒ X` >>
+    `cs5 = cs2` by (
+      rw[Abbr`cs5`,Abbr`cs2`,compiler_state_component_equality,Abbr`cs0`,Abbr`cs1`] ) >>
+    fs[] >>
+    `cs4 = cs3` by (
+      rw[Abbr`cs4`,Abbr`cs3`,compiler_state_component_equality,Abbr`cs1`] ) >>
+    fs[] ) >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  rw[compile_def])
 
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒
