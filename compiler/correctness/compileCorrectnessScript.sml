@@ -2413,6 +2413,121 @@ val compile_val = store_thm("compile_val",
       map_every qexists_tac[`bs0`,`bs1`] >>
       rw[Abbr`bs0`,bc_state_component_equality,Abbr`bs1`] ) >>
     map_every qunabbrev_tac[`bs0`,`bs1`] >>
+    `ALL_DISTINCT (FILTER is_Label bs.code)` by (
+      ntac 8 (pop_assum kall_tac) >>
+      rpt (qpat_assum `Cexp_pred X` kall_tac) >>
+      rpt (qpat_assum `free_labs X ⊆ Y` kall_tac) >>
+      qunabbrev_tac`il` >>
+      pop_assum kall_tac >>
+      map_every qunabbrev_tac[`nl1`,`nl2`] >>
+      rpt (qpat_assum `Cevaluate X Y Z A` kall_tac) >>
+      qpat_assum `bs.pc = X` kall_tac >>
+      qpat_assum `Cenv_bs X Y Z A B` kall_tac >>
+      fs[FILTER_APPEND,FILTER_REVERSE,EVERY_REVERSE] >>
+      `cs0.next_label = cs.next_label` by rw[Abbr`cs0`] >>
+      `cs0.out = cs.out` by rw[Abbr`cs0`] >>
+      qspecl_then[`cs0`,`exp`,`FILTER is_Label be1`]mp_tac(CONJUNCT1 compile_next_label) >>
+      simp[Once FILTER_APPEND] >> strip_tac >>
+      qspecl_then[`cs0`,`exp`]mp_tac(CONJUNCT1 compile_ALL_DISTINCT_labels) >>
+      simp[] >> qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+      `P` by ( unabbrev_all_tac >> fs[ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE] ) >>
+      map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+      simp[] >> strip_tac >>
+      `cs2.next_label = nl + 3` by rw[Abbr`cs2`] >>
+      `cs3.next_label = (compile cs2 e2).next_label` by rw[Abbr`cs3`] >>
+      qspecl_then[`cs2`,`e2`]mp_tac(CONJUNCT1 compile_ALL_DISTINCT_labels) >>
+      qspecl_then[`cs2`,`e2`,`FILTER is_Label be2`]mp_tac(CONJUNCT1 compile_next_label) >>
+      simp[Once FILTER_APPEND] >> strip_tac >>
+      qspecl_then[`cs3`,`e3`,`FILTER is_Label be3`]mp_tac(CONJUNCT1 compile_next_label) >>
+      simp[Once FILTER_APPEND] >> strip_tac >>
+      fs[EVERY_MEM,MEM_MAP,between_def,MEM_FILTER,is_Label_rwt] >>
+      fsrw_tac[QUANT_INST_ss[empty_qp]][] >>
+      qspecl_then[`cs2`,`e2`]mp_tac(CONJUNCT1 compile_next_label_inc) >> strip_tac >>
+      Cases_on `MEM (Label nl) be2` >- (
+        res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
+      Cases_on `MEM (Label nl) be3` >- (
+        res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
+      Cases_on `MEM (Label (nl + 1)) be2` >- (
+        res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
+      Cases_on `MEM (Label (nl + 1)) be3` >- (
+        res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
+      Cases_on `MEM (Label (nl + 2)) be2` >- (
+        res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
+      Cases_on `MEM (Label (nl + 2)) be3` >- (
+        res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
+      qspecl_then[`cs0`,`exp`]mp_tac(CONJUNCT1 compile_next_label_inc) >> strip_tac >>
+      rfs[] >>
+      Cases_on `MEM (Label nl) be1` >- (
+        map_every qunabbrev_tac[`nl`] >>
+        res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
+      Cases_on `MEM (Label (nl + 1)) be1` >- (
+        qunabbrev_tac`nl` >>
+        res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
+      Cases_on `MEM (Label (nl + 2)) be1` >- (
+        qunabbrev_tac`nl` >>
+        res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
+      Cases_on `MEM (Label nl) cs.out` >- (
+        qunabbrev_tac`nl` >>
+        res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC  ) >>
+      Cases_on `MEM (Label (nl + 1)) cs.out` >- (
+        qunabbrev_tac`nl` >>
+        res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC  ) >>
+      simp[] >> qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+      `P` by (
+        qunabbrev_tac`P` >>
+        fs[Abbr`cs2`,FILTER_APPEND,MEM_FILTER,ALL_DISTINCT_APPEND,is_Label_rwt] >>
+        gen_tac >>
+        Cases_on `MEM (Label l) be1` >- (
+          res_tac >> fs[] >> DECIDE_TAC ) >>
+        fs[] >> rw[] >>
+        res_tac >>
+        TRY (qunabbrev_tac`nl`) >>
+        DECIDE_TAC ) >> qunabbrev_tac`P` >> fs[] >>
+      map_every qunabbrev_tac[`Q`,`R`] >> strip_tac >>
+      qspecl_then[`cs3`,`e3`]mp_tac(CONJUNCT1 compile_ALL_DISTINCT_labels) >>
+      simp[] >> qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+      `P` by (
+        qunabbrev_tac`P` >>
+        fs[Abbr`cs3`,FILTER_APPEND,MEM_FILTER] >>
+        conj_tac >- rw[Abbr`cs2`] >>
+        conj_tac >- DECIDE_TAC >>
+        simp[EVERY_MEM,MEM_FILTER,is_Label_rwt] >>
+        simp_tac (pure_ss++QUANT_INST_ss[empty_qp]) [] >>
+        simp[] >>
+        qunabbrev_tac`R` >>
+        qabbrev_tac`nl22 = (compile cs2 e2).next_label` >>
+        `nl + 3 ≤ nl22` by DECIDE_TAC >>
+        qunabbrev_tac`cs2` >> simp[] >> fs[] >>
+        metis_tac[LESS_LESS_EQ_TRANS] ) >>
+      map_every qunabbrev_tac[`P`,`Q`,`R`] >> fs[] >>
+      strip_tac >>
+      fs[ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE,FILTER_APPEND,MEM_FILTER,is_Label_rwt,EVERY_MEM] >>
+      fsrw_tac[QUANT_INST_ss[empty_qp]][] >>
+      qmatch_abbrev_tac`P` >> rw[] >> qunabbrev_tac`P` >>
+      simp_tac(srw_ss()++DNF_ss)[GSYM CONJ_ASSOC] >>
+      conj_tac >- (
+        fs[Abbr`cs3`] >>
+        gen_tac >> strip_tac >>
+        res_tac >>
+        conj_tac >- DECIDE_TAC >>
+        conj_tac >- (
+          spose_not_then strip_assume_tac >>
+          res_tac >> DECIDE_TAC )
+        fs[Abbr`cs2`] >>
+        conj_tac >- DECIDE_TAC >>
+        spose_not_then strip_assume_tac >>
+        res_tac >> DECIDE_TAC ) >>
+      conj_tac >- (
+        rpt strip_tac >>
+        res_tac >> DECIDE_TAC ) >>
+      conj_tac >- (
+        fs[Abbr`cs3`] >>
+        rw[Abbr`cs2`] >>
+        spose_not_then strip_assume_tac >>
+        res_tac >> DECIDE_TAC ) >>
+      rw[Abbr`cs3`,Abbr`cs2`] >>
+      spose_not_then strip_assume_tac >>
+      res_tac >> DECIDE_TAC ) >>
     Cases_on `b1` >> fs[] >- (
       `∃bc1. bs.code = bc0 ++ REVERSE (compile cs2 e2).out ++ bc1` by (
         rw[Abbr`cs2`] ) >>
@@ -2536,140 +2651,45 @@ val compile_val = store_thm("compile_val",
         `bc_next bs12 bs13` by (
           rw[bc_eval1_thm] >>
           qpat_assum`bs.code = X ++ Y ++ bc1`kall_tac >>
+          qmatch_assum_abbrev_tac`bs.code = bsc` >>
           rw[bc_eval1_def,Abbr`bs13`,Abbr`bs12`,Abbr`bs11`] >>
           rw[bc_state_component_equality] >>
           rw[bc_find_loc_def] >>
-          rw[REVERSE_APPEND,Abbr`cs3`,Abbr`cs2`] >>
           match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+          rw[] >>
+          pop_assum mp_tac >>
+          qabbrev_tac`ls = bc0 ++ REVERSE (be3 ++ cs3.out)`
+          strip_tac >>
+          `bs.code = (ls ++ [Label nl2])` by (
+            qunabbrev_tac`ls` >> pop_assum mp_tac >> simp[markerTheory.Abbrev_def] ) >>
+          qexists_tac `LENGTH ls` >>
+          rw[EL_LENGTH_APPEND,TAKE_LENGTH_APPEND] >>
+          rw[FILTER_APPEND] ) >>
+        metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] ) >>
+      conj_tac >- (
+        qmatch_assum_abbrev_tac `Cv_bv pp v b2` >>
+        match_mp_tac Cv_bv_l2a_mono >>
+        qexists_tac `pp` >>
+        rw[Abbr`pp`,Abbr`ls0`,REVERSE_APPEND,Abbr`cs3`] >>
+        match_mp_tac bc_find_loc_aux_append_code >>
+        match_mp_tac bc_find_loc_aux_append_code >>
+        match_mp_tac bc_find_loc_aux_append_code >>
+        match_mp_tac bc_find_loc_aux_append_code >>
+        rw[] ) >>
+      qspecl_then[`cs2`,`e2`]mp_tac(CONJUNCT1 compile_sz) >>
+      simp[] >> strip_tac >>
+      `cs3.sz = cs.sz` by rw[Abbr`cs3`] >>
+      `cs3.ecs = cs.ecs` by rw[Abbr`cs3`] >>
+      qspecl_then[`cs3`,`e3`]mp_tac(CONJUNCT1 compile_sz) >>
+      simp[] >> strip_tac >> fs[] >>
+      match_mp_tac Cenv_bs_append_code >>
+      Q.PAT_ABBREV_TAC`pc = next_addr il X` >>
+      qexists_tac `bs11 with pc := pc` >> rw[Cenv_bs_pc] >>
+      rw[Abbr`bs11`,Abbr`ls0`] >>
+      rw[bc_state_component_equality] >>
+      rw[Abbr`cs3`,REVERSE_APPEND] ) >>
 
-          prove ALL_DISTINCT (FILTER is_Label bs.code) earlier
-
-    qspecl_then[`cs0`,`exp`,`FILTER is_Label be1`]mp_tac(CONJUNCT1 compile_next_label) >>
-    simp[Once FILTER_APPEND] >> strip_tac >>
-    qspecl_then[`cs0`,`exp`]mp_tac(CONJUNCT1 compile_ALL_DISTINCT_labels) >>
-    simp[] >> qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
-    `P` by ( unabbrev_all_tac >> fs[ALL_DISTINCT_APPEND,FILTER_APPEND] ) >>
-    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
-    simp[] >> strip_tac >>
-    qspecl_then[`cs2`,`e2`]mp_tac(CONJUNCT1 compile_ALL_DISTINCT_labels) >>
-    `cs2.next_label = nl + 3` by rw[Abbr`cs2`] >>
-    `cs3.next_label = (compile cs2 e2).next_label` by rw[Abbr`cs3`] >>
-    qspecl_then[`cs2`,`e2`,`FILTER is_Label be2`]mp_tac(CONJUNCT1 compile_next_label) >>
-    simp[Once FILTER_APPEND] >> strip_tac >>
-    qspecl_then[`cs3`,`e3`,`FILTER is_Label be3`]mp_tac(CONJUNCT1 compile_next_label) >>
-    simp[Once FILTER_APPEND] >> strip_tac >>
-    fs[EVERY_MEM,MEM_MAP,between_def,MEM_FILTER,is_Label_rwt] >>
-    fsrw_tac[QUANT_INST_ss[empty_qp]][] >>
-    qspecl_then[`cs2`,`e2`]mp_tac(CONJUNCT1 compile_next_label_inc) >> strip_tac >>
-    Cases_on `MEM (Label nl) be2` >- (
-      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
-    Cases_on `MEM (Label nl) be3` >- (
-      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
-    Cases_on `MEM (Label nl1) be2` >- (
-      qunabbrev_tac`nl1` >>
-      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
-    Cases_on `MEM (Label nl1) be3` >- (
-      qunabbrev_tac`nl1` >>
-      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
-    Cases_on `MEM (Label nl2) be2` >- (
-      qunabbrev_tac`nl2` >>
-      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
-    Cases_on `MEM (Label nl2) be3` >- (
-      qunabbrev_tac`nl2` >>
-      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
-    qspecl_then[`cs0`,`exp`]mp_tac(CONJUNCT1 compile_next_label_inc) >> strip_tac >>
-    Cases_on `MEM (Label nl) bc1` >- (
-      qunabbrev_tac`nl` >>
-      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
-    Cases_on `MEM (Label nl1) bc1` >- (
-      map_every qunabbrev_tac[`nl`,`nl1`] >>
-      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
-    Cases_on `MEM (Label nl2) bc1` >- (
-      map_every qunabbrev_tac[`nl`,`nl2`] >>
-      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
-    Cases_on `MEM (Label nl) be1` >- (
-      map_every qunabbrev_tac[`nl`] >>
-      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
-    Cases_on `MEM (Label nl1) be1` >- (
-      map_every qunabbrev_tac[`nl`,`nl1`] >>
-      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
-    Cases_on `MEM (Label nl2) be1` >- (
-      map_every qunabbrev_tac[`nl`,`nl2`] >>
-      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC ) >>
-    Cases_on `MEM (Label nl) cs.out` >- (
-      qunabbrev_tac`nl` >>
-      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC  ) >>
-    Cases_on `MEM (Label nl1) cs.out` >- (
-      map_every qunabbrev_tac[`nl`,`nl1`] >>
-      res_tac >> qsuff_tac `F` >> rw[] >> DECIDE_TAC  ) >>
-    simp[] >> qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
-    `P` by (
-      qunabbrev_tac`P` >>
-      fs[Abbr`cs2`,FILTER_APPEND,MEM_FILTER,ALL_DISTINCT_APPEND,is_Label_rwt] >>
-      gen_tac >>
-      Cases_on `MEM (Label l) be1` >- (
-        res_tac >> fs[] >> DECIDE_TAC ) >>
-      fs[] >> rw[] >>
-      res_tac >>
-      TRY (qunabbrev_tac`nl`) >>
-      DECIDE_TAC ) >> qunabbrev_tac`P` >> fs[] >>
-    map_every qunabbrev_tac[`Q`,`R`] >> strip_tac >>
-    qspecl_then[`cs3`,`e3`]mp_tac(CONJUNCT1 compile_ALL_DISTINCT_labels) >>
-    simp[] >> qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
-    `P` by (
-      qunabbrev_tac`P` >>
-      fs[Abbr`cs3`,FILTER_APPEND,MEM_FILTER] >>
-      conj_tac >- rw[Abbr`cs2`,Abbr`nl1`] >>
-      conj_tac >- ( qunabbrev_tac`nl1` >> DECIDE_TAC ) >>
-      simp[EVERY_MEM,MEM_FILTER,is_Label_rwt] >>
-      simp_tac (pure_ss++QUANT_INST_ss[empty_qp]) [] >>
-      simp[] >>
-      qunabbrev_tac`R` >>
-      qabbrev_tac`nl22 = (compile cs2 e2).next_label` >>
-      `nl + 3 ≤ nl22` by DECIDE_TAC >>
-      qunabbrev_tac`cs2` >> simp[] >> fs[] >>
-      metis_tac[LESS_LESS_EQ_TRANS] ) >>
-    map_every qunabbrev_tac[`P`,`Q`,`R`] >> fs[] >>
-    strip_tac
-
-
-
-    `ALL_DISTINCT (FILTER is_Label (bc0 ++ cs.out ++ bc11))` by (
-      fs[FILTER_APPEND,Abbr`bc11`] >>
-      fs[ALL_DISTINCT_APPEND,FILTER_APPEND,MEM_FILTER,is_Label_rwt] >>
-      fsrw_tac[QUANT_INST_ss[empty_qp]][] >>
-      simp[Abbr`nl1`,Abbr`nl2`]
-
-    REVERSE_APPEND
-    qmatch_assum_abbrev_tac `bs.code = bc0 ++ (REVERSE cs0.out ++ (REVERSE bce1 ++ bce11))` >>
-
-    full_simp_tac std_ss[GSYM APPEND_ASSOC,REVERSE_APPEND] >>
-    qmatch_assum_abbrev_tac `bs.code = bc0 ++ (REVERSE cs0.out ++ (REVERSE bce1 ++ bce11))` >>
-    fs[] >>
-    (*
-    simp[Once Cv_bv_cases] >>
-    `ALL_DISTINCT (FILTER is_Label (bc0 ++ bce11))` by (
-      fs[FILTER_APPEND,Abbr`bce11`]
-    strip_tac >>
-    strip_tac >>
-    qmatch_assum_abbrev_tac `bc_next^* bs bs1` >>
-    Cases_on `b1` >> fs[] >- (
-      qmatch_assum_abbrev_tac `bs.code = bc10 ++ bce11` >>
-      qabbrev_tac `bs2 = bs1 with <| stack := bs.stack; pc := next_addr bs.inst_length (bc10++(TAKE 2 bce11))|>` >>
-      `bc_next bs1 bs2` by (
-        `bc_fetch bs1 = SOME (JumpIf (Lab nl))`  by (
-          match_mp_tac bc_fetch_next_addr >>
-          map_every qexists_tac[`bc0 ++ REVERSE cs.out ++ REVERSE bce1`,`DROP 1 bce11`] >>
-          unabbrev_all_tac >> rw[REVERSE_APPEND] ) >>
-        rw[bc_eval1_thm] >>
-        rw[bc_eval1_def,Abbr`bs1`,LET_THM] >>
-        rw[bc_find_loc_def]
-      first_x_assum (qspecl_then [`bc0++REVERSE cs.out++REVERSE bce1`,`REVERSE bce3++[Label (nl+2)]++bc1`,`bs1`,`cs1`] mp_tac) >>
-      fs[] >>
-      `Cenv_bs c env cs1.env cs1.sz bs1` by (
-        rw[Abbr`bs1`,Abbr`cs1`]
-    set_trace"goalstack print goal at top"0
-    *)
+    (* set_trace"goalstack print goal at top"0 *)
     cheat
     ) >>
   strip_tac >- rw[] >>
