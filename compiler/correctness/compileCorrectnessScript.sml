@@ -2911,7 +2911,7 @@ val good_contab_def = Define`
 (* TODO: move *)
 val _ = export_rewrites["Compile.cmap_def"]
 
-open MiniMLTheory
+open MiniMLTheory MiniMLTerminationTheory
 
 val build_rec_env_MAP = store_thm("build_rec_env_MAP",
   ``build_rec_env funs env = MAP (λ(f,x,e). (f, Recclosure env funs f)) funs ++ env``,
@@ -2939,6 +2939,21 @@ val do_app_all_cns = store_thm("do_app_all_cns",
   fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
   metis_tac[])
 
+val pmatch_all_cns = store_thm("pmatch_all_cns",
+  ``(∀cenv p v env env'. (pmatch cenv p v env = Match env') ⇒
+    BIGUNION (IMAGE all_cns (set (MAP SND env'))) ⊆
+    all_cns v ∪ BIGUNION (IMAGE all_cns (set (MAP SND env)))) ∧
+    (∀cenv ps vs env env'. (pmatch_list cenv ps vs env = Match env') ⇒
+    BIGUNION (IMAGE all_cns (set (MAP SND env'))) ⊆
+    BIGUNION (IMAGE all_cns (set vs)) ∪
+    BIGUNION (IMAGE all_cns (set (MAP SND env))))``,
+  ho_match_mp_tac pmatch_ind >>
+  rw[pmatch_def,bind_def] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  rfs[] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF] >>
+  metis_tac[])
+
 val evaluate_all_cns = store_thm("evaluate_all_cns",
   ``(∀cenv env exp res. evaluate cenv env exp res ⇒
        (∀v. MEM v (MAP SND env) ⇒ all_cns v ⊆ set (MAP FST cenv)) ⇒
@@ -2947,8 +2962,9 @@ val evaluate_all_cns = store_thm("evaluate_all_cns",
        (∀v. MEM v (MAP SND env) ⇒ all_cns v ⊆ set (MAP FST cenv)) ⇒
        every_result (EVERY (λv. all_cns v ⊆ set (MAP FST cenv))) ress) ∧
     (∀cenv env v pes res. evaluate_match cenv env v pes res ⇒
-      (∀v. MEM v (MAP SND env) ⇒ all_cns v ⊆ set (MAP FST cenv)) ⇒
-      every_result (λv. all_cns v ⊆ set (MAP FST cenv)) res)``,
+      (∀v. MEM v (MAP SND env) ⇒ all_cns v ⊆ set (MAP FST cenv)) ∧
+      all_cns v ⊆ set (MAP FST cenv) ⇒
+      every_result (λw. all_cns w ⊆ set (MAP FST cenv)) res)``,
   ho_match_mp_tac evaluate_ind >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
@@ -3008,10 +3024,9 @@ val evaluate_all_cns = store_thm("evaluate_all_cns",
   strip_tac >- rw[] >>
   strip_tac >- (
     rw[] >> first_x_assum match_mp_tac >>
-    fs[Once pmatch_nil] >>
-    Cases_on `pmatch cenv p v []` >> fs[] >>
-    rw[] >> fs[] >>
-    cheat ) >>
+    imp_res_tac pmatch_all_cns >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    metis_tac[]) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[])
