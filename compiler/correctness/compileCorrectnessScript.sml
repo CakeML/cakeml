@@ -3027,7 +3027,7 @@ val syneq_ov = store_thm("syneq_ov",
   rw[Abbr`P`,UNCURRY])
 
 val repl_exp_val = store_thm("repl_exp_val",
-  ``∀cenv env exp v rs rs' bc0 bc bc1 bs bs'.
+  ``∀cenv env exp v rs rs' bc0 bc bs bs'.
       exp_pred exp ∧
       evaluate cenv env exp (Rval v) ∧
       EVERY closed (MAP SND env) ∧
@@ -3037,12 +3037,12 @@ val repl_exp_val = store_thm("repl_exp_val",
       good_cmap cenv (cmap rs.contab) ∧
       set (MAP FST cenv) ⊆ FDOM (cmap rs.contab) ∧
       good_contab rs.contab ∧
-      env_rs env rs FEMPTY bs ∧
+      env_rs env rs FEMPTY (bs with code := bc0) ∧
       (repl_exp rs exp = (rs',bc)) ∧
-      (bs.code = bc0 ++ bc ++ bc1) ∧
+      (bs.code = bc0 ++ bc) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
-      ALL_DISTINCT (FILTER is_Label (bc0 ++ bc1)) ∧
-      EVERY (combin$C $< rs.rnext_label o dest_Label) (FILTER is_Label (bc0 ++ bc1))
+      ALL_DISTINCT (FILTER is_Label bc0) ∧
+      EVERY (combin$C $< rs.rnext_label o dest_Label) (FILTER is_Label bc0)
       ⇒
       ∃bv.
       bc_next^* bs (bs with <|pc := next_addr bs.inst_length (bc0 ++ bc);
@@ -3081,7 +3081,7 @@ val repl_exp_val = store_thm("repl_exp_val",
     qspecl_then[`cs`,`Ce`]mp_tac(CONJUNCT1 compile_ALL_DISTINCT_labels) >> strip_tac >>
     `bc_fetch bs = SOME (Jump (Lab rs.rnext_label))` by (
       match_mp_tac bc_fetch_next_addr >>
-      map_every qexists_tac[`bc0`,`TL (REVERSE (compile cs Ce).out) ++ bc1`] >>
+      map_every qexists_tac[`bc0`,`TL (REVERSE (compile cs Ce).out)`] >>
       fs[Abbr`cs`] ) >>
     rw[bc_eval1_def] >>
     rw[bc_find_loc_def] >>
@@ -3108,12 +3108,27 @@ val repl_exp_val = store_thm("repl_exp_val",
   `∃bv. bc_next^* bs0 (bs1 bv) ∧ P bv` by (
     qspecl_then[`Cc`,`Cenv`,`Ce`,`Rval Cv`]mp_tac (CONJUNCT1 compile_val) >>
     fs[] >>
-    disch_then (qspecl_then [`bc0`,`bc1`,`bs0`,`cs`] mp_tac) >>
-    `Cenv_bs Cc Cenv cs.env cs.sz bs0` by (
-      fs[env_rs_def,LET_THM,Cenv_bs_def,Abbr`bs0`,Abbr`Cc`,Abbr`cs`] ) >>
+    disch_then (qspecl_then [`bc0`,`bs0`,`cs`] mp_tac) >>
+    `cs.ecs = FEMPTY` by rw[Abbr`cs`] >> simp[good_ecs_def] >>
+    qunabbrev_tac`P` >>
+    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by (
+      map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+      simp[Abbr`bs0`] >>
+      simp[Cexp_pred_free_labs] >>
+      fs[env_rs_def,LET_THM] >>
+      conj_tac >- (
+        match_mp_tac Cenv_bs_append_code >>
+        Q.PAT_ABBREV_TAC`pc = next_addr X Y` >>
+        qexists_tac `bs with <| pc := pc; code := bc0|>` >>
+        rw[Abbr`cs`,bc_state_component_equality,Cenv_bs_pc] ) >>
+      fs[Abbr`cs`,FILTER_APPEND,ALL_DISTINCT_APPEND,EVERY_MEM,MEM_FILTER,is_Label_rwt] >>
+      fsrw_tac[QUANT_INST_ss[empty_qp]][] >>
+      conj_tac >- (spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC) >>
+      rw[] >> res_tac >> DECIDE_TAC ) >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >> fs[] >>
     rw[Abbr`bs0`,LET_THM,Abbr`bs1`] >>
     qexists_tac `bv` >> rw[] >>
-    rw[Abbr`P`] >>
     match_mp_tac EQ_TRANS >>
     qexists_tac `Cv_to_ov (FST(SND rs.contab)) (v_to_Cv (cmap rs.contab) v)` >>
     conj_tac >- (
@@ -3121,7 +3136,7 @@ val repl_exp_val = store_thm("repl_exp_val",
       match_mp_tac (CONJUNCT1 v_to_Cv_ov) >>
       qabbrev_tac`ct=rs.contab` >>
       PairCases_on`ct` >> fs[good_contab_def] >>
-      qspecl_then[`cenv`,`env`,`exp`,`Rval v`]mp_tac evaluate_all_cns >>
+      qspecl_then[`cenv`,`env`,`exp`,`Rval v`]mp_tac (CONJUNCT1 evaluate_all_cns) >>
       fs[good_cmap_def] >>
       fs[SUBSET_DEF] ) >>
     match_mp_tac EQ_TRANS >>
