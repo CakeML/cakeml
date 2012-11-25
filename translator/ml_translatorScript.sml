@@ -34,6 +34,8 @@ val Eq_def = Define `
   Eq (abs:'a->v->bool) x =
     (\y v. (x = y) /\ abs y v)`;
 
+val And_def = Define `And a P x v = P x /\ a (x:'a) (v:v)`;
+
 val INT_def = Define `
   INT i = \v. (v = Litv (IntLit i))`;
 
@@ -107,6 +109,24 @@ val Eval_Fun_Eq = store_thm("Eval_Fun_Eq",
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ASM_SIMP_TAC (srw_ss()) [AppReturns_def,evaluate_closure_def,
        do_app_def,bind_def,Eq_def]);
+
+val And_IMP_Eq = store_thm("And_IMP_Eq",
+  ``Eval env exp ((And a P --> b) f) ==>
+    (P x ==> Eval env exp ((Eq a x --> b) f))``,
+  FULL_SIMP_TAC std_ss [Eval_def,Arrow_def,AppReturns_def,And_def,Eq_def]
+  \\ METIS_TAC []);
+
+val Eq_IMP_And = store_thm("Eq_IMP_And",
+  ``(!x. P x ==> Eval env (Fun name exp) ((Eq a x --> b) f)) ==>
+    Eval env (Fun name exp) ((And a P --> b) f)``,
+  FULL_SIMP_TAC std_ss [Eval_def,Arrow_def,AppReturns_def,And_def,Eq_def]
+  \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []);
+
+val Eval_Fun_And = store_thm("Eval_Fun_And",
+  ``(!v x. P x ==> a x v ==> Eval ((name,v)::env) body (b (f x))) ==>
+    Eval env (Fun name body) ((And a P --> b) f)``,
+  FULL_SIMP_TAC std_ss [GSYM And_def,AND_IMP_INTRO]
+  \\ REPEAT STRIP_TAC \\ MATCH_MP_TAC Eval_Fun \\ ASM_SIMP_TAC std_ss []);
 
 val Eval_Let = store_thm("Eval_Let",
   ``Eval env exp (a res) /\

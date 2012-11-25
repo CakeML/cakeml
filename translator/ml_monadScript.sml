@@ -5,6 +5,7 @@ val _ = new_theory "ml_monad";
 
 open ml_translatorTheory;
 open ml_translatorLib;
+
 open hol_kernelTheory;
 open stringTheory;
 open MiniMLTheory;
@@ -133,7 +134,6 @@ val EvalM_bind = store_thm("EvalM_bind",
     THEN1 (ONCE_REWRITE_TAC [evaluate'_cases] \\ FULL_SIMP_TAC (srw_ss()) [])
     \\ FULL_SIMP_TAC (srw_ss()) [ex_bind_def]));
 
-
 (* some pure functions *)
 
 val res = translate MEMBER_def;
@@ -142,7 +142,6 @@ val res = translate listTheory.EXISTS_DEF;
 val res = translate listTheory.FILTER;
 val res = translate listTheory.APPEND;
 val res = translate listTheory.MAP;
-
 val res = translate (subset_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate (subtract_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate (insert_def |> REWRITE_RULE [MEMBER_INTRO]);
@@ -152,12 +151,12 @@ val res = translate mk_vartype_def;
 val res = translate is_type_def;
 val res = translate is_vartype_def;
 val res = translate rev_assocd_def;
-(* val res = translate hol_kernelTheory.type_subst_def_def; *)
+val res = translate hol_kernelTheory.type_subst_def;
 val res = translate aty_def;
 val res = translate bty_def;
 val res = translate alphavars_def;
-(* val res = translate raconv_def; *)
-(* val res = translate aconv_def; *)
+val res = translate raconv_def;
+val res = translate aconv_def;
 val res = translate is_var_def;
 val res = translate is_const_def;
 val res = translate is_abs_def;
@@ -168,14 +167,14 @@ val res = translate combinTheory.o_DEF;
 val res = translate fressl_def;
 val res = translate (freesin_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate vfree_in_def;
-(* val res = translate tyvars_def_def; *)
-(* val res = translate type_vars_in_term_def; *)
+val res = translate tyvars_def;
+val res = translate type_vars_in_term_def;
 val res = translate variant_def;
-(* val res = translate vsubst_aux_def; *)
-(* val res = translate inst_var_def; *)
+val res = translate vsubst_aux_def;
+val res = translate inst_var_def;
 val res = translate is_eq_def;
-(* val res = translate term_remove_def; *)
-(* val res = translate term_union_def; *)
+val res = translate term_remove_def;
+val res = translate term_union_def;
 val res = translate dest_thm_def;
 val res = translate hyp_def;
 val res = translate concl_def;

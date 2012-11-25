@@ -264,16 +264,14 @@ val _ = Define `
       function
           (Tyapp(_,args)) -> itlist (union o tyvars) args []
         | (Tyvar v as tv) -> [tv]
+
+  Hmm, this HOL definition ought to be improved.
 *)
 
-val _ = tDefine "tyvars_def" `
-  (tyvars (Tyapp _ args) = FLAT (MAP tyvars args)) /\
+val _ = Define `
+  (tyvars (Tyapp p []) = []) /\
+  (tyvars (Tyapp p (x::xs)) = union (tyvars x) (tyvars (Tyapp p xs))) /\
   (tyvars tv = [tv])`
- (WF_REL_TAC `measure hol_type_size` THEN Induct_on `args`
-  THEN FULL_SIMP_TAC (srw_ss()) [hol_type_size_def]
-  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC
-  THEN REPEAT (POP_ASSUM (MP_TAC o SPEC_ALL)) THEN REPEAT STRIP_TAC
-  THEN DECIDE_TAC)
 
 (*
   let rec type_subst i ty =
@@ -290,7 +288,7 @@ val _ = Define `
       [] => d
     | ((x,y)::l) => if y = a then x else rev_assocd a l d`
 
-val _ = tDefine "type_subst_def" `
+val _ = tDefine "type_subst" `
   type_subst i ty =
     case ty of
       Tyapp tycon args =>
@@ -395,9 +393,9 @@ val _ = Define `
     | (Const _ _, Const _ _) => (tm1 = tm2)
     | (Comb s1 t1, Comb s2 t2) => raconv env s1 s2 /\ raconv env t1 t2
     | (Abs v1 t1, Abs v2 t2) =>
-        case (v1,v2) of
+       (case (v1,v2) of
           (Var n1 ty1, Var n2 ty2) => (ty1 = ty2) \/ raconv ((v1,v2)::env) t1 t2
-        | _ => F
+        | _ => F)
     | _ => F`;
 
 val _ = Define `
@@ -423,7 +421,7 @@ val _ = Define `mk_var(v,ty) = Var v ty`;
 
 (*
   let mk_const(name,theta) =
-    let uty = try get_const_type name with Failure _ ->
+    let uty = try get<_const_type name with Failure _ ->
       failwith "mk_const: not a constant name" in
     Const(name,type_subst theta uty)
 *)
