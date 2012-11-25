@@ -2940,20 +2940,26 @@ val do_app_all_cns = store_thm("do_app_all_cns",
   metis_tac[])
 
 val evaluate_all_cns = store_thm("evaluate_all_cns",
-  ``∀cenv env exp res. evaluate cenv env exp res ⇒
+  ``(∀cenv env exp res. evaluate cenv env exp res ⇒
+       (∀v. MEM v (MAP SND env) ⇒ all_cns v ⊆ set (MAP FST cenv)) ⇒
+       every_result (λv. all_cns v ⊆ set (MAP FST cenv)) res) ∧
+    (∀cenv env exps ress. evaluate_list cenv env exps ress ⇒
+       (∀v. MEM v (MAP SND env) ⇒ all_cns v ⊆ set (MAP FST cenv)) ⇒
+       every_result (EVERY (λv. all_cns v ⊆ set (MAP FST cenv))) ress) ∧
+    (∀cenv env v pes res. evaluate_match cenv env v pes res ⇒
       (∀v. MEM v (MAP SND env) ⇒ all_cns v ⊆ set (MAP FST cenv)) ⇒
-      every_result (λv. all_cns v ⊆ set (MAP FST cenv)) res``,
-  ho_match_mp_tac evaluate_nice_ind >>
+      every_result (λv. all_cns v ⊆ set (MAP FST cenv)) res)``,
+  ho_match_mp_tac evaluate_ind >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- (
-    srw_tac[DNF_ss][MEM_MAP,evaluate_list_with_value] >>
+    srw_tac[DNF_ss][MEM_MAP] >>
     fs[do_con_check_def] >>
     Cases_on `ALOOKUP cenv cn` >> fs[] >>
     qexists_tac `(cn,x)` >>
     imp_res_tac ALOOKUP_MEM >>
     fs[] >>
-    srw_tac[DNF_ss][SUBSET_DEF,MEM_MAP] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EVERY_MEM] >>
     fsrw_tac[DNF_ss][MEM_EL,SUBSET_DEF] >>
     metis_tac[EL_MAP] ) >>
   strip_tac >- rw[] >>
@@ -2969,7 +2975,7 @@ val evaluate_all_cns = store_thm("evaluate_all_cns",
     metis_tac[] ) >>
   strip_tac >- (
     rw[] >> first_x_assum match_mp_tac >> fs[] >>
-    qspecl_then[`cenv`,`env`,`op`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_all_cns
+    qspecl_then[`cenv`,`env`,`op`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_all_cns >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[]) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
@@ -2980,18 +2986,35 @@ val evaluate_all_cns = store_thm("evaluate_all_cns",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
-  strip_tac >- (
-    rw[] >> fs[] >>
-    cheat ) >>
+  strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- (
     rw[] >> fs[] >>
     first_x_assum match_mp_tac >>
-    rw[bind_def] >>
-    metis_tac[] ) >>
+    rw[bind_def] >> rw[]) >>
   strip_tac >- rw[] >>
-  strip_tac >- cheat >>
-  cheat )
+  strip_tac >- (
+    rw[] >> fs[] >>
+    first_x_assum match_mp_tac >>
+    rw[build_rec_env_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+    fsrw_tac[DNF_ss][MEM_MAP] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+    metis_tac[]) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >> first_x_assum match_mp_tac >>
+    fs[Once pmatch_nil] >>
+    Cases_on `pmatch cenv p v []` >> fs[] >>
+    rw[] >> fs[] >>
+    cheat ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[])
 
 (* TODO: move *)
 val syneq_ov = store_thm("syneq_ov",
