@@ -75,13 +75,11 @@ val _ = register_type ``:thm``;
 
 val HOL_STORE_def = Define `
   HOL_STORE s refs =
-    3 <= LENGTH s /\
+    4 <= LENGTH s /\
     (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) NUM)) refs.the_type_constants (EL 0 s) /\
     (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE)) refs.the_term_constants (EL 1 s) /\
-    (LIST_TYPE THM_TYPE refs.the_axioms) (EL 2 s)`;
-
-val HOL_STORE_OK_def = Define `
-  HOL_STORE_OK s = ?refs. HOL_STORE s refs`
+    (LIST_TYPE THM_TYPE refs.the_axioms) (EL 2 s) /\
+    (TERM_TYPE refs.the_clash_var) (EL 3 s)`;
 
 val EvalM_def = Define `
   EvalM env exp P <=>
@@ -112,7 +110,7 @@ val EvalM_bind = store_thm("EvalM_bind",
     (!x v. b x v ==> EvalM ((name,v)::env) e2 (HOL_MONAD a ((f x):'a M))) ==>
     EvalM env (Let name e1 e2) (HOL_MONAD a (ex_bind x f))``,
   SIMP_TAC std_ss [EvalM_def,HOL_MONAD_def,ex_return_def] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [HOL_STORE_OK_def,PULL_EXISTS] \\ RES_TAC
+  \\ FULL_SIMP_TAC std_ss [PULL_EXISTS] \\ RES_TAC
   \\ Cases_on `x refs` \\ Cases_on `q`
   \\ Cases_on `res` \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
    (Cases_on `r'` \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
@@ -134,6 +132,53 @@ val EvalM_bind = store_thm("EvalM_bind",
     \\ Q.EXISTS_TAC `(q,Rerr state1)` \\ STRIP_TAC
     THEN1 (ONCE_REWRITE_TAC [evaluate'_cases] \\ FULL_SIMP_TAC (srw_ss()) [])
     \\ FULL_SIMP_TAC (srw_ss()) [ex_bind_def]));
+
+
+(* some pure functions *)
+
+val res = translate MEMBER_def;
+val res = translate listTheory.EVERY_DEF;
+val res = translate listTheory.EXISTS_DEF;
+val res = translate listTheory.FILTER;
+val res = translate listTheory.APPEND;
+val res = translate listTheory.MAP;
+
+val res = translate (subset_def |> REWRITE_RULE [MEMBER_INTRO]);
+val res = translate (subtract_def |> REWRITE_RULE [MEMBER_INTRO]);
+val res = translate (insert_def |> REWRITE_RULE [MEMBER_INTRO]);
+val res = translate itlist_def;
+val res = translate union_def;
+val res = translate mk_vartype_def;
+val res = translate is_type_def;
+val res = translate is_vartype_def;
+val res = translate rev_assocd_def;
+(* val res = translate hol_kernelTheory.type_subst_def_def; *)
+val res = translate aty_def;
+val res = translate bty_def;
+val res = translate alphavars_def;
+(* val res = translate raconv_def; *)
+(* val res = translate aconv_def; *)
+val res = translate is_var_def;
+val res = translate is_const_def;
+val res = translate is_abs_def;
+val res = translate is_comb_def;
+val res = translate mk_var_def;
+val res = translate frees_def;
+val res = translate combinTheory.o_DEF;
+val res = translate fressl_def;
+val res = translate (freesin_def |> REWRITE_RULE [MEMBER_INTRO]);
+val res = translate vfree_in_def;
+(* val res = translate tyvars_def_def; *)
+(* val res = translate type_vars_in_term_def; *)
+val res = translate variant_def;
+(* val res = translate vsubst_aux_def; *)
+(* val res = translate inst_var_def; *)
+val res = translate is_eq_def;
+(* val res = translate term_remove_def; *)
+(* val res = translate term_union_def; *)
+val res = translate dest_thm_def;
+val res = translate hyp_def;
+val res = translate concl_def;
 
 val _ = export_theory();
 

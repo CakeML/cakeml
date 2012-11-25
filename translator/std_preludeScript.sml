@@ -288,12 +288,9 @@ val IS_SOME_OWHILE_THM = prove(
   THEN ASM_SIMP_TAC std_ss [] THEN REPEAT STRIP_TAC
   THEN IMP_RES_TAC LESS_LEAST THEN FULL_SIMP_TAC std_ss []);
 
-
-
-
 val evaluate_closure_INTRO = prove(
   ``(?env' e3. (do_app empty_store env Opapp v2 v3 = SOME (empty_store,env',e3)) /\
-               evaluate' empty_store env' e3 (Rval (empty_store,v2'))) =
+               evaluate' empty_store env' e3 (empty_store,Rval (v2'))) =
     evaluate_closure v3 v2 v2'``,
   SIMP_TAC (srw_ss()) [evaluate_closure_def,do_app_def]);
 
