@@ -2911,6 +2911,34 @@ val good_contab_def = Define`
 (* TODO: move *)
 val _ = export_rewrites["Compile.cmap_def"]
 
+open MiniMLTheory
+
+val build_rec_env_MAP = store_thm("build_rec_env_MAP",
+  ``build_rec_env funs env = MAP (λ(f,x,e). (f, Recclosure env funs f)) funs ++ env``,
+  rw[build_rec_env_def] >>
+  qho_match_abbrev_tac `FOLDR (f env funs) env funs = MAP (g env funs) funs ++ env` >>
+  qsuff_tac `∀funs env env0 funs0. FOLDR (f env0 funs0) env funs = MAP (g env0 funs0) funs ++ env` >- rw[]  >>
+  unabbrev_all_tac >> simp[] >>
+  Induct >> rw[bind_def] >>
+  PairCases_on`h` >> rw[])
+
+val do_app_all_cns = store_thm("do_app_all_cns",
+  ``∀(cenv:envC) env op v1 v2 env' exp.
+      all_cns v1 ⊆ set (MAP FST cenv) ∧ all_cns v2 ⊆ set (MAP FST cenv) ∧
+      BIGUNION (IMAGE all_cns (set (MAP SND env))) ⊆ set (MAP FST cenv) ∧
+      (do_app env op v1 v2 = SOME (env',exp))
+      ⇒
+      BIGUNION (IMAGE all_cns (set (MAP SND env'))) ⊆ set (MAP FST cenv)``,
+  ntac 2 gen_tac >> Cases >>
+  Cases >> TRY (Cases_on`l`) >>
+  Cases >> TRY (Cases_on`l`) >>
+  rw[do_app_def] >> rw[] >>
+  fs[bind_def] >>
+  BasicProvers.EVERY_CASE_TAC >> rw[] >> rw[] >>
+  rw[build_rec_env_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+  metis_tac[])
+
 val evaluate_all_cns = store_thm("evaluate_all_cns",
   ``∀cenv env exp res. evaluate cenv env exp res ⇒
       (∀v. MEM v (MAP SND env) ⇒ all_cns v ⊆ set (MAP FST cenv)) ⇒
@@ -2920,7 +2948,7 @@ val evaluate_all_cns = store_thm("evaluate_all_cns",
   strip_tac >- rw[] >>
   strip_tac >- (
     srw_tac[DNF_ss][MEM_MAP,evaluate_list_with_value] >>
-    fs[MiniMLTheory.do_con_check_def] >>
+    fs[do_con_check_def] >>
     Cases_on `ALOOKUP cenv cn` >> fs[] >>
     qexists_tac `(cn,x)` >>
     imp_res_tac ALOOKUP_MEM >>
@@ -2940,8 +2968,9 @@ val evaluate_all_cns = store_thm("evaluate_all_cns",
     srw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
     metis_tac[] ) >>
   strip_tac >- (
-    rw[] >> first_x_assum match_mp_tac >>
-    cheat ) >>
+    rw[] >> first_x_assum match_mp_tac >> fs[] >>
+    qspecl_then[`cenv`,`env`,`op`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_all_cns
+    fsrw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[]) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
@@ -2958,7 +2987,7 @@ val evaluate_all_cns = store_thm("evaluate_all_cns",
   strip_tac >- (
     rw[] >> fs[] >>
     first_x_assum match_mp_tac >>
-    rw[MiniMLTheory.bind_def] >>
+    rw[bind_def] >>
     metis_tac[] ) >>
   strip_tac >- rw[] >>
   strip_tac >- cheat >>
