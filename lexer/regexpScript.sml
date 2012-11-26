@@ -332,7 +332,7 @@ rw [] >|
      metis_tac [] >-
      metis_tac [] >>
      imp_res_tac concat_empties >>
-     fs [] >> cheat,
+     fs [],
  qexists_tac `(c :: s1) :: ss` >>
      rw []]));
 
@@ -561,8 +561,6 @@ fs [is_normalized_def, EVERY_MEM]);
 
 val norm_or = Q.prove (
 `!rs. EVERY is_normalized rs ⇒ is_normalized (build_or rs)`,
-cheat);
-(*
 rw [build_or_def, is_normalized_def] >>
 cases_on `MEM (Neg (CharSet ∅)) rs'` >>
 rw [is_normalized_def] >>
@@ -594,7 +592,7 @@ rw [] >|
      fs [],
  metis_tac [MEM, EVERY_MEM, MEM_FILTER, FILTER],
  `MEM r (FILTER (λr. r ≠ CharSet ∅) (flatten_or rs))` by metis_tac [MEM] >>
-     fs [MEM_FILTER]]);*)
+     fs [MEM_FILTER]]);
 
 val normalize_thm = Q.store_thm ("normalize_thm",
 `!r. is_normalized (normalize r)`,
