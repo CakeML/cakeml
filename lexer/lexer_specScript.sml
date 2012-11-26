@@ -89,8 +89,6 @@ val correct_lex_thm = Q.store_thm ("correct_lex_thm",
      (* Ensure the earliest match of equal length *)
      (∀tok'.
         ¬lexer_spec_matches_prefix_alt (TAKE n lexer_spec) tok' lexeme s_rest s))`,
-cheat);
-(*
 rw [] >>
 rw [Once correct_lex_def] >>
 eq_tac >>
@@ -133,7 +131,6 @@ rw [lexer_spec_matches_prefix_alt_def, lexer_spec_matches_prefix_def] >|
           fs [MEM_EL] >>
           rw [] >>
           metis_tac [EL_TAKE, LENGTH_TAKE]]]);
-*)
 
 val correct_lex_determ = Q.store_thm ("correct_lex_determ",
 `!lexer_spec s toks toks'.
