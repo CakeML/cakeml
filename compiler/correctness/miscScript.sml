@@ -4,6 +4,93 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val FOLDL_invariant = store_thm("FOLDL_invariant",
+  ``!P f ls a. (P a) /\ (!x y . MEM y ls /\ P x ==> P (f x y)) ==> P (FOLDL f a ls)``,
+  NTAC 2 GEN_TAC THEN
+  Induct THEN SRW_TAC[][])
+
+val FOLDL_invariant_rest = store_thm("FOLDL_invariant_rest",
+  ``∀P f ls a. P ls a ∧ (∀x n. n < LENGTH ls ∧ P (DROP n ls) x ⇒ P (DROP (SUC n) ls) (f x (EL n ls))) ⇒ P [] (FOLDL f a ls)``,
+  ntac 2 gen_tac >>
+  Induct >> rw[] >>
+  first_x_assum match_mp_tac >>
+  conj_tac >- (
+    first_x_assum (qspecl_then[`a`,`0`] mp_tac) >> rw[] ) >>
+  rw[] >> first_x_assum (qspecl_then[`x`,`SUC n`] mp_tac) >> rw[])
+
+val between_def = Define`
+  between x y z = x:num ≤ z ∧ z < y`
+
+val TAKE_SUM = store_thm("TAKE_SUM",
+  ``!n m l. n + m <= LENGTH l ==> (TAKE (n + m) l = TAKE n l ++ TAKE m (DROP n l))``,
+  Induct_on `l` THEN SRW_TAC[][] THEN SRW_TAC[][] THEN
+  Cases_on `n` THEN FULL_SIMP_TAC(srw_ss()++ARITH_ss)[ADD1])
+
+val ALL_DISTINCT_FILTER_EL_IMP = store_thm("ALL_DISTINCT_FILTER_EL_IMP",
+  ``!P l n1 n2. ALL_DISTINCT (FILTER P l) /\
+    n1 < LENGTH l /\ n2 < LENGTH l /\
+    (P (EL n1 l)) /\ (EL n1 l = EL n2 l) ==> (n1 = n2)``,
+  GEN_TAC THEN Induct THEN1 SRW_TAC[][] THEN
+  SRW_TAC[][] THEN FULL_SIMP_TAC(srw_ss())[MEM_FILTER]
+  THEN1 PROVE_TAC[] THEN
+  Cases_on `n1` THEN Cases_on `n2` THEN
+  FULL_SIMP_TAC(srw_ss())[MEM_EL] THEN
+  PROVE_TAC[] )
+
+val SUC_LEAST = store_thm("SUC_LEAST",
+  ``!x. P x ==> (SUC ($LEAST P) = LEAST x. 0 < x /\ P (PRE x))``,
+  GEN_TAC THEN STRIP_TAC THEN
+  numLib.LEAST_ELIM_TAC THEN
+  STRIP_TAC THEN1 PROVE_TAC[] THEN
+  numLib.LEAST_ELIM_TAC THEN
+  STRIP_TAC THEN1 (
+    Q.EXISTS_TAC `SUC x` THEN
+    SRW_TAC[][] ) THEN
+  Q.X_GEN_TAC`nn` THEN
+  STRIP_TAC THEN
+  Q.X_GEN_TAC`m` THEN
+  `?n. nn = SUC n` by ( Cases_on `nn` THEN SRW_TAC[][] THEN DECIDE_TAC ) THEN
+  SRW_TAC[][] THEN
+  FULL_SIMP_TAC(srw_ss())[] THEN
+  `~(n < m)` by PROVE_TAC[] THEN
+  `~(SUC m < SUC n)` by (
+    SPOSE_NOT_THEN STRIP_ASSUME_TAC THEN
+    RES_TAC THEN
+    FULL_SIMP_TAC(srw_ss())[] ) THEN
+  DECIDE_TAC)
+
+val fmap_linv_def = Define`
+  fmap_linv f1 f2 = (FDOM f2 = FRANGE f1) /\ (!x. x IN FDOM f1 ==> (FLOOKUP f2 (FAPPLY f1 x) = SOME x))`
+
+val fmap_linv_unique = store_thm("fmap_linv_unique",
+  ``!f f1 f2. fmap_linv f f1 /\ fmap_linv f f2 ==> (f1 = f2)``,
+  SRW_TAC[][fmap_linv_def,GSYM fmap_EQ_THM] THEN
+  FULL_SIMP_TAC(srw_ss())[FRANGE_DEF,FLOOKUP_DEF] THEN
+  PROVE_TAC[])
+
+val INJ_has_fmap_linv = store_thm("INJ_has_fmap_linv",
+  ``INJ (FAPPLY f) (FDOM f) (FRANGE f) ==> ?g. fmap_linv f g``,
+  STRIP_TAC THEN
+  Q.EXISTS_TAC `FUN_FMAP (\x. @y. FLOOKUP f y = SOME x) (FRANGE f)` THEN
+  SRW_TAC[][fmap_linv_def,FLOOKUP_FUN_FMAP,FRANGE_DEF] THEN1 PROVE_TAC[] THEN
+  SELECT_ELIM_TAC THEN
+  FULL_SIMP_TAC (srw_ss()) [INJ_DEF,FRANGE_DEF,FLOOKUP_DEF])
+
+val has_fmap_linv_inj = store_thm("has_fmap_linv_inj",
+  ``(?g. fmap_linv f g) = (INJ (FAPPLY f) (FDOM f) (FRANGE f))``,
+  Tactical.REVERSE EQ_TAC THEN1 PROVE_TAC[INJ_has_fmap_linv] THEN
+  SRW_TAC[][fmap_linv_def,INJ_DEF,EQ_IMP_THM]
+  THEN1 ( SRW_TAC[][FRANGE_DEF] THEN PROVE_TAC[] )
+  THEN1 ( FULL_SIMP_TAC(srw_ss())[FLOOKUP_DEF] THEN PROVE_TAC[] ))
+
+val fmap_linv_FAPPLY = store_thm("fmap_linv_FAPPLY",
+  ``fmap_linv f g /\ x IN FDOM f ==> (g ' (f ' x) = x)``,
+  SRW_TAC[][fmap_linv_def,FLOOKUP_DEF])
+
+val FLAT_EQ_NIL = store_thm("FLAT_EQ_NIL",
+  ``!ls. (FLAT ls = []) = (EVERY ($= []) ls)``,
+  Induct THEN SRW_TAC[][EQ_IMP_THM])
+
 val ALL_DISTINCT_MAP_INJ = store_thm("ALL_DISTINCT_MAP_INJ",
   ``!ls f. (!x y. MEM x ls /\ MEM y ls /\ (f x = f y) ==> (x = y)) /\ ALL_DISTINCT ls  ==> ALL_DISTINCT (MAP f ls)``,
   Induct THEN SRW_TAC[][MEM_MAP] THEN PROVE_TAC[])

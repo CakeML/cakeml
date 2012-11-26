@@ -1,4 +1,4 @@
-open HolKernel bossLib boolLib boolSimps listTheory pred_setTheory finite_mapTheory SatisfySimps lcsymtacs
+open HolKernel bossLib boolLib boolSimps pairTheory listTheory pred_setTheory finite_mapTheory SatisfySimps lcsymtacs
 open MiniMLTheory miscTheory miniMLExtraTheory compileTerminationTheory
 val _ = new_theory "intLang"
 
@@ -248,6 +248,15 @@ result_rel_sym
 |> Q.GEN`R`
 |> Q.ISPEC`syneq c`
 |> SIMP_RULE std_ss[syneq_sym])
+
+val syneq_ov = store_thm("syneq_ov",
+  ``∀c v1 v2. syneq c v1 v2 ⇒ ∀m. Cv_to_ov m v1 = Cv_to_ov m v2``,
+  ho_match_mp_tac syneq_ind >>
+  rw[MAP_EQ_EVERY2] >>
+  fs[EVERY2_EVERY] >>
+  qmatch_assum_abbrev_tac`EVERY P l` >>
+  match_mp_tac (MP_CANON MONO_EVERY) >>
+  rw[Abbr`P`,UNCURRY])
 
 (* Misc. int lang lemmas *)
 
