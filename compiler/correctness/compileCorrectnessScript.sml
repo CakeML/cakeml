@@ -2688,4 +2688,45 @@ val repl_exp_val = store_thm("repl_exp_val",
     metis_tac[] ) >>
   metis_tac[RTC_TRANSITIVE,transitive_def])
 
+(* parse : string -> (dec * string) option *)
+
+val parse_def = Define`
+  parse s = ARB`
+
+open whileTheory
+
+val _ = Hol_datatype`
+  swhile_result = Terminate of 'a | Diverge`
+
+val _ = Hol_datatype`
+  swhile_step_result = Success of 'a | Fail of 'b`
+
+val SWHILE_def = Define`
+  SWHILE f x = case OWHILE (ISL o f) (OUTL o f) x of NONE => Diverge | SOME y => Terminate (OUTR (f y))`
+
+val SWHILE_thm = store_thm("SWHILE_thm",
+  ``SWHILE f x = case f x of INL x => SWHILE f x | INR y => Terminate y``,
+  rw[SWHILE_def] >> Cases_on `f x` >> rw[Once OWHILE_THM])
+
+val repl_def = Define`
+  repl s = SWHILE
+   (λ(rs,bs,inp:string,out:string).
+     let inp = read_space inp in
+     if inp = "" then INR (Success out) else
+     case parse inp of NONE => INR (Fail "parse error") |
+     SOME (dec,inp) =>
+       (* typecheck? *)
+       let (rs',bc) = repl_dec rs dec in
+       let bs' = bs with <|code := bs.code ++ bc;
+                           pc := next_addr bs.inst_length bs.code|> in
+       case SWHILE (λbs.
+         if bs.pc = next_addr bs.inst_length (bs.code ++ bc) then INR (Success bs)
+         else case bc_eval1 bs of NONE => INR (Fail "runtime error") | SOME bs => INL bs)
+         bs'
+       of | Diverge => INR (Fail "divergence")
+          | Terminate bs'' =>
+       let vals = extract_bindings rs' bs'' in
+       INL (rs',bs'',inp,(STRCAT out (vals_to_string rs' vals))))
+  (init_rs,init_bs,s,"")`
+
 val _ = export_theory ()
