@@ -11,12 +11,12 @@ open TokensTheory
  *                 University of Kent 2012
  *
  * MiniML is my idea of a simple ML-like language that is convenient to program
- * in.  It has no handled exceptions, no modules, no type abbreviations, or
- * records.  It does have mutually recursive datatypes (at the top-level only)
- * and functions, as well as higher-order functions.  It also supports pattern
- * matching for nested patterns (which can fail due to non-exhaustive patterns).
- * Polymorphism is limited to top-level definitions.  Only booleans and number
- * types are built-in.  Syntactic sugar is generally omitted.
+ * in.  It has no modules, no type abbreviations, or records.  It does have
+ * mutually recursive datatypes (at the top-level only) and functions, as well
+ * as higher-order functions.  It also supports pattern matching for nested
+ * patterns (which can fail due to non-exhaustive patterns).  Polymorphism is
+ * limited to top-level definitions.  Only booleans and integer types are
+ * built-in.  Syntactic sugar is generally omitted.
  *
  * In some ways it makes more sense to write these kind of semantics in Ott (to
  * get a presentation that looks like ML concrete-syntax-wise, and that has the
@@ -35,6 +35,7 @@ open TokensTheory
 
 (*val rtc : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)*)
 
+(* Change the nth element in the list to 'a *)
 (*val LUPDATE : forall 'a. 'a -> num -> list 'a -> list 'a*)
 
 (* Environments *)
@@ -67,6 +68,10 @@ val _ = Define `
 val _ = Define `
  (merge e1 e2 = e1 ++ e2)`;
 
+
+(* ------------------------------------------------------------------------ *) 
+(*   The Abstract Syntax                                                    *)
+(* ------------------------------------------------------------------------ *) 
 
 (* Literal constants *)
 val _ = Hol_datatype `
@@ -104,6 +109,7 @@ val _ = Define `
 ))`;
 
 
+(* Opapp is function application *)
 val _ = Hol_datatype `
  op =
     Opn of opn
@@ -161,7 +167,8 @@ val _ = Hol_datatype `
   | Pref of pat`;
 
 
-(* Runtime errors *)
+(* Runtime errors.  Temporary: later on we want to move to SML-style declared
+ * exception constructors *)
 val _ = Hol_datatype `
  error =
     Bind_error
@@ -172,7 +179,9 @@ val _ = Hol_datatype `
 (* Expressions *)
 val _ = Hol_datatype `
  exp =
+  (* Temporary: later on we want Raise of exp *)
     Raise of error
+  (* Temporary: later on we want Handle of exp * list (pat * exp) *)
   | Handle of exp => varN => exp
   | Lit of lit
   (* Constructor application. *)
@@ -195,6 +204,26 @@ val _ = Hol_datatype `
   | Letrec of (varN # varN # exp) list => exp`;
 
 
+(* Declarations *)
+val _ = Hol_datatype `
+ dec =
+  (* Top-level bindings
+     The pattern allows several names to be bound at once *)
+    Dlet of pat => exp
+  (* Mutually recursive function definition *)
+  | Dletrec of (varN # varN # exp) list
+  (* Type definition
+     Defines several types, each of which has several named variants, which can
+     in turn have several arguments *)
+  | Dtype of ( tvarN list # typeN # (conN # t list) list) list`;
+
+
+val _ = type_abbrev( "decs" , ``: dec list``);
+
+(* ------------------------------------------------------------------------ *) 
+(*   The Semantics                                                          *)
+(* ------------------------------------------------------------------------ *) 
+
 (* Value forms *)
 val _ = Hol_datatype `
  v =
@@ -216,7 +245,7 @@ val _ = Hol_datatype `
 val _ = type_abbrev( "envE" , ``: (varN, v) env``);
 
 (* Stores *)
-(* Keep the next number to allocate, so that we can be deterministic *)
+(* The nth item in the list is the value at location n *)
 val _ = type_abbrev( "store" , ``: v list``);
 
 (*val empty_store : store*)
@@ -246,29 +275,13 @@ val _ = Define `
 
 val _ = Defn.save_defn store_assign_defn;
 
-(* Declarations *)
-val _ = Hol_datatype `
- dec =
-  (* Top-level bindings
-     The pattern allows several names to be bound at once *)
-    Dlet of pat => exp
-  (* Mutually recursive function definition *)
-  | Dletrec of (varN # varN # exp) list
-  (* Type definition
-     Defines several types, each of which has several named variants, which can
-     in turn have several arguments *)
-  | Dtype of ( tvarN list # typeN # (conN # t list) list) list`;
-
-
-val _ = type_abbrev( "decs" , ``: dec list``);
-
 (* Maps each constructor to its arity and the set of all constructors of that
  * type *)
 val _ = type_abbrev( "envC" , ``: (conN, (num # conN set)) env``);
 
 (* Evaluation contexts
  * The hole is denoted by the unit type
- * The env argument contins bindings for the free variables of expressions in
+ * The env argument contains bindings for the free variables of expressions in
      the context *)
 val _ = Hol_datatype `
  ctxt_frame =
@@ -387,6 +400,7 @@ val _ = Defn.save_defn pat_bindings_defn;
 
 (* State for CEK-style expression evaluation
  * - constructor data
+ * - the store
  * - the environment for the free variables of the current expression
  * - the current expression to evaluate, or a value if finished
  * - the context stack (continuation) of what to do once the current expression
@@ -1155,7 +1169,7 @@ evaluate_decs cenv s1 env (((Dlet p) e) :: ds) (s2,( Rerr ((Rraise Bind_error)))
 evaluate cenv) s1) env) e) (s2,( Rval v))) /\
 ((((((pmatch cenv) s2) p) v) env) = Match_type_error)
 ==>
-evaluate_decs cenv s1 env (((Dlet p) e) :: ds) (s2,( Rerr (Rtype_error))))
+evaluate_decs cenv s1 env (((Dlet p) e) :: ds) (s2,( Rerr Rtype_error)))
 
 /\
 
@@ -1163,7 +1177,7 @@ evaluate_decs cenv s1 env (((Dlet p) e) :: ds) (s2,( Rerr (Rtype_error))))
 evaluate cenv) s1) env) e) (s2,( Rval v))) /\(
 ~  ((ALL_DISTINCT (((pat_bindings p) [])))))
 ==>
-evaluate_decs cenv s1 env (((Dlet p) e) :: ds) (s2,( Rerr (Rtype_error))))
+evaluate_decs cenv s1 env (((Dlet p) e) :: ds) (s2,( Rerr Rtype_error)))
 
 /\
 
@@ -1202,7 +1216,10 @@ evaluate_decs cenv s env ((Dtype tds) :: ds) r)
 ==>
 evaluate_decs cenv s env ((Dtype tds) :: ds) (s,( Rerr Rtype_error)))`;
 
-(* ------------------------ Type system --------------------------------- *)
+(* ------------------------------------------------------------------------ *) 
+(*   The Type System                                                        *)
+(* ------------------------------------------------------------------------ *) 
+
 
 (* constructor type environments: each constructor has a type
  * forall tyvars. t list -> (tyvars) typeN *)
@@ -1667,8 +1684,11 @@ type_ds (((merge ((REVERSE cenv'))) cenv))) tenv') ds) cenv'') tenv'')
 ==>
 type_ds cenv tenv (d::ds) (((merge cenv') cenv'')) tenv'')`;
 
-(* --------- Auxiliary definitions used in the type soundness proofs -------- *)
+(* ------------------------------------------------------------------------ *) 
+(*   Auxiliary definitions used in the proofs                               *)
+(* ------------------------------------------------------------------------ *) 
 
+(* Store typing *)
 val _ = type_abbrev( "tenvS" , ``: (num, t) env``);
 
 (* A value has a type *)
@@ -2061,7 +2081,9 @@ evaluate_ctxts cenv) s) c) ((Rval v))) bv)
 evaluate_state (cenv, s, env,( Val v), c) bv)`;
 
 
-(* ------------------------------------------------------------------------- *)
+(* ------------------------------------------------------------------------ *) 
+(*   Alternate big-step semantics                                           *)
+(* ------------------------------------------------------------------------ *) 
 
 (* A version of the big-step expression semantics that doesn't use the
  * constructor environment to know if a value is ok or not.  Is equivalent to
