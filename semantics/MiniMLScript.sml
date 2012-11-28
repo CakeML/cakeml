@@ -2445,10 +2445,10 @@ evaluate_decs' cenv s1 env (((Dlet p) e) :: ds) (s2,( Rerr (Rtype_error))))
 
 /\
 
-(! cenv env p e ds err s.((((
-evaluate' s) env) e) (s,( Rerr err)))
+(! cenv env p e ds err s s'.((((
+evaluate' s) env) e) (s',( Rerr err)))
 ==>
-evaluate_decs' cenv s env (((Dlet p) e) :: ds) (s,( Rerr err)))
+evaluate_decs' cenv s env (((Dlet p) e) :: ds) (s',( Rerr err)))
 
 /\
 

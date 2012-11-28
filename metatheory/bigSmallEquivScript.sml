@@ -973,11 +973,6 @@ rw [] >>
 metis_tac [lift_small_exp_to_dec_one_step, transitive_def, transitive_RTC,
            RTC_SINGLE]);
 
-val d_state_to_store_thm = Q.prove (
-`(d_state_to_store s (SOME (v1,v3,s',v7,v9,v10)) = s') ∧
- (d_state_to_store s NONE = s)`,
-rw [d_state_to_store_def]);
-
 val big_dec_to_small_dec = Q.prove (
 `!cenv s env ds r.
   evaluate_decs cenv s env ds r ⇒ d_small_eval cenv s env ds NONE r`,
