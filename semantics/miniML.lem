@@ -664,6 +664,13 @@ let e_diverges cenv s env e =
     exists cenv'' s'' env'' e'' c''.
       e_step_reln (cenv',s',env', e',c') (cenv'',s'',env'',e'',c'')
 
+val d_state_to_store : store -> option (pat*state) -> store
+let d_state_to_store s c =
+  match c with
+    | None -> s
+    | Some (_, (_,s',_,_,_)) -> s'
+  end
+
 let d_step_reln st st' =
   (d_step st = Dstep st')
 
@@ -672,14 +679,16 @@ d_small_eval cenv s env ds c (s', Rval (cenv',env')) =
   (rtc d_step_reln) (cenv,s,env,ds,c) (cenv',s',env',[],None)
 and
 d_small_eval cenv s env ds c (s', Rerr Rtype_error) =
-  exists cenv' env' ds' c'.
-    (rtc d_step_reln) (cenv,s,env,ds,c) (cenv',s',env',ds',c') &&
-    (d_step (cenv',s',env',ds',c') = Dtype_error)
+  exists cenv' s'' env' ds' c'.
+    (s' = d_state_to_store s'' c') &&
+    (rtc d_step_reln) (cenv,s,env,ds,c) (cenv',s'',env',ds',c') &&
+    (d_step (cenv',s'',env',ds',c') = Dtype_error)
 and
 d_small_eval cenv s env ds c (s', Rerr (Rraise err)) =
-  exists cenv' env' ds' c'.
-    (rtc d_step_reln) (cenv,s,env,ds,c) (cenv',s',env',ds',c') &&
-    (d_step (cenv',s',env',ds',c') = Draise err)
+  exists cenv' s'' env' ds' c'.
+    (s' = d_state_to_store s'' c') &&
+    (rtc d_step_reln) (cenv,s,env,ds,c) (cenv',s'',env',ds',c') &&
+    (d_step (cenv',s'',env',ds',c') = Draise err)
 
 val diverges : envC -> store -> envE -> list dec -> bool
 let diverges cenv s env ds =

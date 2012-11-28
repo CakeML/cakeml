@@ -774,6 +774,15 @@ val _ = Define `
       e_step_reln (cenv',s',env', e',c')) (cenv'',s'',env'',e'',c''))))`;
 
 
+(*val d_state_to_store : store -> option (pat*state) -> store*)
+val _ = Define `
+ (d_state_to_store s c =
+  (case c of
+      NONE => s
+    | SOME (_, (_,s',_,_,_)) => s'
+  ))`;
+
+
 val _ = Define `
  (d_step_reln st st' =
   ((d_step st) =( Dstep st')))`;
@@ -785,14 +794,16 @@ val _ = Define `
   ((RTC d_step_reln)) (cenv,s,env,ds,c)) (cenv',s',env',[],NONE)))
 /\
 (d_small_eval cenv s env ds c (s', Rerr Rtype_error) =
-  ? cenv' env' ds' c'.((
-    ((RTC d_step_reln)) (cenv,s,env,ds,c)) (cenv',s',env',ds',c')) /\
-    ((d_step (cenv',s',env',ds',c')) = Dtype_error))
+  ? cenv' s'' env' ds' c'.
+    (s' =(( d_state_to_store s'') c')) /\((
+    ((RTC d_step_reln)) (cenv,s,env,ds,c)) (cenv',s'',env',ds',c')) /\
+    ((d_step (cenv',s'',env',ds',c')) = Dtype_error))
 /\
 (d_small_eval cenv s env ds c (s', Rerr (Rraise err)) =
-  ? cenv' env' ds' c'.((
-    ((RTC d_step_reln)) (cenv,s,env,ds,c)) (cenv',s',env',ds',c')) /\
-    ((d_step (cenv',s',env',ds',c')) =( Draise err)))`;
+  ? cenv' s'' env' ds' c'.
+    (s' =(( d_state_to_store s'') c')) /\((
+    ((RTC d_step_reln)) (cenv,s,env,ds,c)) (cenv',s'',env',ds',c')) /\
+    ((d_step (cenv',s'',env',ds',c')) =( Draise err)))`;
 
 val _ = Defn.save_defn d_small_eval_defn;
 

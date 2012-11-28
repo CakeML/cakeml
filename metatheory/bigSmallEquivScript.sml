@@ -973,6 +973,11 @@ rw [] >>
 metis_tac [lift_small_exp_to_dec_one_step, transitive_def, transitive_RTC,
            RTC_SINGLE]);
 
+val d_state_to_store_thm = Q.prove (
+`(d_state_to_store s (SOME (v1,v3,s',v7,v9,v10)) = s') ∧
+ (d_state_to_store s NONE = s)`,
+rw [d_state_to_store_def]);
+
 val big_dec_to_small_dec = Q.prove (
 `!cenv s env ds r.
   evaluate_decs cenv s env ds r ⇒ d_small_eval cenv s env ds NONE r`,
@@ -1019,7 +1024,7 @@ rw [d_small_eval_def] >|
                   by metis_tac [lift_small_exp_to_dec] >>
      `d_step (cenv,empty_store,env,ds,SOME (p,(cenv,s2,env',Val v,[]))) = Draise Bind_error`
                by rw [d_step_reln_def, d_step_def] >>
-     metis_tac [RTC_SINGLE, transitive_RTC, transitive_def],
+     metis_tac [RTC_SINGLE, transitive_RTC, transitive_def, d_state_to_store_thm],
  `d_step_reln (cenv,s,env,Dlet p e::ds,NONE)
               (cenv,empty_store,env,ds,SOME(p,cenv,s,env,Exp e,[]))`
                 by (rw [d_step_reln_def, d_step_def]) >>
@@ -1030,7 +1035,7 @@ rw [d_small_eval_def] >|
                   by metis_tac [lift_small_exp_to_dec] >>
      `d_step (cenv,empty_store,env,ds,SOME (p,(cenv,s2,env',Val v,[]))) = Dtype_error`
                by rw [d_step_reln_def, d_step_def] >>
-     metis_tac [RTC_SINGLE, transitive_RTC, transitive_def],
+     metis_tac [RTC_SINGLE, transitive_RTC, transitive_def, d_state_to_store_thm],
  `d_step_reln (cenv,s,env,Dlet p e::ds,NONE)
               (cenv,empty_store,env,ds,SOME(p,cenv,s,env,Exp e,[]))`
                 by (rw [d_step_reln_def, d_step_def]) >>
@@ -1044,7 +1049,7 @@ rw [d_small_eval_def] >|
                      every_case_tac >>
                      fs [] >>
                      fs [e_step_def, continue_def]) >>
-     metis_tac [RTC_SINGLE, transitive_RTC, transitive_def],
+     metis_tac [RTC_SINGLE, transitive_RTC, transitive_def, d_state_to_store_thm],
  cases_on `err` >>
      fs [d_small_eval_def] >>
      `d_step_reln (cenv,s,env,Dlet p e::ds,NONE)
@@ -1060,7 +1065,7 @@ rw [d_small_eval_def] >|
                      every_case_tac >>
                      fs [] >>
                      fs [e_step_def, continue_def]) >>
-          metis_tac [RTC_SINGLE, transitive_RTC, transitive_def],
+          metis_tac [RTC_SINGLE, transitive_RTC, transitive_def, d_state_to_store_thm],
       `d_step_reln^* (cenv,empty_store,env,ds,SOME (p,(cenv,s,env,Exp e,[])))
                      (cenv,empty_store,env,ds,SOME (p,(cenv,s',env',Exp (Raise e'),[])))`
                    by metis_tac [lift_small_exp_to_dec] >>
@@ -1069,7 +1074,7 @@ rw [d_small_eval_def] >|
                      every_case_tac >>
                      fs [] >>
                      fs [e_step_def, continue_def]) >>
-          metis_tac [RTC_SINGLE, transitive_RTC, transitive_def]],
+          metis_tac [RTC_SINGLE, transitive_RTC, transitive_def, d_state_to_store_thm]],
  cases_on `r` >>
      cases_on `r'` >|
      [`?cenv2 env2. a = (cenv2,env2)`
@@ -1079,10 +1084,10 @@ rw [d_small_eval_def] >|
      `d_step_reln (cenv,s,env,Dletrec funs::ds,NONE)
                   (cenv,s,build_rec_env funs env, ds, NONE)`
                by rw [d_step_reln_def, d_step_def] >>
-     metis_tac [RTC_SINGLE, transitive_RTC, transitive_def],
+     metis_tac [RTC_SINGLE, transitive_RTC, transitive_def, d_state_to_store_thm],
  `d_step (cenv,s,env,Dletrec funs::ds,NONE) = Dtype_error`
         by rw [d_step_def] >>
-     metis_tac [RTC_REFL, transitive_RTC, transitive_def],
+     metis_tac [RTC_REFL, transitive_RTC, transitive_def, d_state_to_store_thm],
  cases_on `r` >>
      cases_on `r'` >|
      [`?cenv2 env2. a = (cenv2,env2)`
@@ -1095,7 +1100,7 @@ rw [d_small_eval_def] >|
      metis_tac [merge_def,RTC_SINGLE, transitive_RTC, transitive_def],
  `d_step (cenv,s,env,Dtype tds::ds,NONE) = Dtype_error`
                by rw [d_step_def] >>
-     metis_tac [RTC_REFL, transitive_RTC, transitive_def]]);
+     metis_tac [RTC_REFL, transitive_RTC, transitive_def, d_state_to_store_thm]]);
 
 val (evaluate_d_state_rules, evaluate_d_state_ind, evaluate_d_state_cases) = Hol_reln `
 (!cenv s env ds r.
@@ -1170,33 +1175,31 @@ val one_step_backward_dec_type_error = Q.prove (
 `!cenv s env ds c.
   (d_step (cenv,s,env,ds,c) = Dtype_error)
   ⇒
-  evaluate_d_state (cenv,s,env,ds,c) (s, Rerr Rtype_error)`,
-  cheat
-(*rw [d_step_def] >>
+  evaluate_d_state (cenv,s,env,ds,c) (d_state_to_store s c, Rerr Rtype_error)`,
+rw [d_step_def] >>
 cases_on `c` >>
 fs [] >>
 every_case_tac >>
 fs [] >>
 rw [evaluate_d_state_cases] >-
-rw [Once evaluate_decs_cases] >-
-rw [Once evaluate_decs_cases] >>
+rw [Once evaluate_decs_cases, d_state_to_store_thm] >-
+rw [Once evaluate_decs_cases, d_state_to_store_thm] >>
 metis_tac [one_step_backward_type_error, evaluate_state_no_ctxt,
-evaluate_state_val_no_ctxt]*));
+           d_state_to_store_thm, evaluate_state_val_no_ctxt]);
 
 val one_step_backward_dec_error = Q.prove (
 `!cenv s env ds c err.
   (d_step (cenv,s,env,ds,c) = Draise err)
   ⇒
-  evaluate_d_state (cenv,s,env,ds,c) (s, Rerr (Rraise err))`,
-  cheat
-(*rw [d_step_def] >>
+  evaluate_d_state (cenv,s,env,ds,c) (d_state_to_store s c, Rerr (Rraise err))`,
+rw [d_step_def] >>
 cases_on `c` >>
 fs [] >>
 every_case_tac >>
 fs [] >>
 rw [evaluate_d_state_cases, evaluate_state_no_ctxt, evaluate_raise] >>
 rw [Once evaluate_decs_cases] >>
-metis_tac [evaluate_state_val_no_ctxt]*));
+metis_tac [evaluate_state_val_no_ctxt, d_state_to_store_thm]);
 
 val small_dec_to_big_dec = Q.prove (
 `!st st'. d_step_reln^* st st' ⇒
@@ -1236,6 +1239,7 @@ EQ_TAC >>
 rw [] >>
 metis_tac [small_dec_to_big_dec, big_dec_to_small_dec, evaluate_d_state_val,
            d_small_eval_def, one_step_backward_dec_type_error,
-           evaluate_d_state_no_ctxt, one_step_backward_dec_error]);
+           evaluate_d_state_no_ctxt, one_step_backward_dec_error,
+           d_state_to_store_thm]);
 
 val _ = export_theory ();
