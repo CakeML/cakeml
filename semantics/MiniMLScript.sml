@@ -785,12 +785,12 @@ val _ = Define `
   ((RTC d_step_reln)) (cenv,s,env,ds,c)) (cenv',s',env',[],NONE)))
 /\
 (d_small_eval cenv s env ds c (s', Rerr Rtype_error) =
-  ? cenv' s' env' ds' c'.((
+  ? cenv' env' ds' c'.((
     ((RTC d_step_reln)) (cenv,s,env,ds,c)) (cenv',s',env',ds',c')) /\
     ((d_step (cenv',s',env',ds',c')) = Dtype_error))
 /\
 (d_small_eval cenv s env ds c (s', Rerr (Rraise err)) =
-  ? cenv' s' env' ds' c'.((
+  ? cenv' env' ds' c'.((
     ((RTC d_step_reln)) (cenv,s,env,ds,c)) (cenv',s',env',ds',c')) /\
     ((d_step (cenv',s',env',ds',c')) =( Draise err)))`;
 
@@ -1159,7 +1159,7 @@ evaluate_decs cenv s1 env (((Dlet p) e) :: ds) (s2,( Rerr (Rtype_error))))
 (! cenv env p e ds err s s'.(((((
 evaluate cenv) s) env) e) (s',( Rerr err)))
 ==>
-evaluate_decs cenv s env (((Dlet p) e) :: ds) (s,( Rerr err)))
+evaluate_decs cenv s env (((Dlet p) e) :: ds) (s',( Rerr err)))
 
 /\
 
@@ -1873,10 +1873,17 @@ type_d_state tenvC (envC, s, env, ds,( SOME (p, (envC,s',env',e,c)))) tenvC' ten
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 
 (*val evaluate_ctxt : envC -> store -> envE -> ctxt_frame -> v -> store * result v -> bool*)
-(*val evaluate_ctxts : envC -> store -> list ctxt -> v -> store * result v -> bool*)
+(*val evaluate_ctxts : envC -> store -> list ctxt -> result v -> store * result v -> bool*)
 (*val evaluate_state : state -> store * result v -> bool*)
 
 val _ = Hol_reln `
+
+(! cenv s env v1 e2 var.
+T
+==>
+evaluate_ctxt cenv s env ((((Chandle ()) var) e2)) v1 (s,( Rval v1)))
+
+/\
 
 (! cenv env op e2 v1 v2 env' e3 bv s1 s2 s3.(((((
 evaluate cenv) s1) env) e2) (s2,( Rval v2))) /\
@@ -1920,7 +1927,7 @@ evaluate_ctxt cenv s env ((((Capp2 op) v1) ())) v2 (s,( Rerr Rtype_error)))
 (! cenv env uop v v' s1 s2.
 ((((do_uapp s1) uop) v) =( SOME (s2,v')))
 ==>
-evaluate_ctxt cenv s1 env (((Cuapp uop) ())) v (s2,( Rval v)))
+evaluate_ctxt cenv s1 env (((Cuapp uop) ())) v (s2,( Rval v')))
 
 /\
 
@@ -1997,45 +2004,48 @@ evaluate_ctxt cenv s env (((((Ccon cn) vs) ()) es)) v (s',( Rerr err)))`;
 
 val _ = Hol_reln `
 
-(! cenv v s.
+(! cenv res s.
 T
 ==>
-evaluate_ctxts cenv s [] v (s,( Rval v)))
+evaluate_ctxts cenv s [] res (s, res))
 
 /\
 
-(! cenv c cs env v v' bv s1 s2.((((((
-evaluate_ctxt cenv) s1) env) c) v) (s2,( Rval v'))) /\(((((
-evaluate_ctxts cenv) s2) cs) v') bv)
+(! cenv c cs env v res bv s1 s2.((((((
+evaluate_ctxt cenv) s1) env) c) v) (s2, res)) /\(((((
+evaluate_ctxts cenv) s2) cs) res) bv)
 ==>
-evaluate_ctxts cenv s1 ((c,env)::cs) v bv)
+evaluate_ctxts cenv s1 ((c,env)::cs) ((Rval v)) bv)
 
 /\
 
-(! cenv c cs v env err s s'.((((((
-evaluate_ctxt cenv) s) env) c) v) (s',( Rerr err)))
+(! cenv c cs env err s bv.(((((
+evaluate_ctxts cenv) s) cs) ((Rerr err))) bv) /\
+((! i e'. c <>((( Chandle ()) i) e')) \/
+ (! i. err <>( Rraise ((Int_error i)))))
 ==>
-evaluate_ctxts cenv s ((c,env)::cs) v (s',( Rerr err)))`;
+evaluate_ctxts cenv s ((c,env)::cs) ((Rerr err)) bv)
+
+/\
+
+(! cenv cs env s s' var res1 res2 i e'.(((((
+evaluate cenv) s) ((((bind var) ((Litv ((IntLit i))))) env))) e') (s', res1)) /\(((((
+evaluate_ctxts cenv) s') cs) res1) res2)
+==>
+evaluate_ctxts cenv s (((((Chandle ()) var) e'),env)::cs) ((Rerr ((Rraise ((Int_error i)))))) res2)`;
 
 val _ = Hol_reln `
 
-(! cenv env e c v bv s1 s2.(((((
-evaluate cenv) s1) env) e) (s2,( Rval v))) /\(((((
-evaluate_ctxts cenv) s2) c) v) bv)
+(! cenv env e c res bv s1 s2.(((((
+evaluate cenv) s1) env) e) (s2, res)) /\(((((
+evaluate_ctxts cenv) s2) c) res) bv)
 ==>
 evaluate_state (cenv, s1, env,( Exp e), c) bv)
 
 /\
 
-(! cenv env e c err s s'.(((((
-evaluate cenv) s) env) e) (s',( Rerr err)))
-==>
-evaluate_state (cenv, s, env,( Exp e), c) (s',( Rerr err)))
-
-/\
-
 (! cenv s env v c bv.(((((
-evaluate_ctxts cenv) s) c) v) bv)
+evaluate_ctxts cenv) s) c) ((Rval v))) bv)
 ==>
 evaluate_state (cenv, s, env,( Val v), c) bv)`;
 
