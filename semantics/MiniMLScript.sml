@@ -1525,6 +1525,14 @@ type_e cenv tenv ((Raise err)) t)
 
 /\
 
+(! cenv tenv e1 var e2 t.((((
+type_e cenv) tenv) e1) t) /\((((
+type_e cenv) (((((Var_bind 0) var) Tnum) tenv))) e2) t)
+==>
+type_e cenv tenv ((((Handle e1) var) e2)) t)
+
+/\
+
 (! cenv tenv cn es tvs tn ts' ts.((
 EVERY (((check_freevars T) []))) ts') /\
 ((LENGTH tvs) =( LENGTH ts')) /\((((

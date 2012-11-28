@@ -120,7 +120,7 @@ type t =
   | Tvar_db of num
   | Tapp of list t * typeN
   | Tfn of t * t
-  | Tnum
+  | Tint
   | Tbool
   | Tref of t
   | Tunit
@@ -1131,7 +1131,7 @@ and
 deBruijn_inc skip n (Tfn t1 t2) =
   Tfn (deBruijn_inc skip n t1) (deBruijn_inc skip n t2)
 and
-deBruijn_inc skip n Tnum = Tnum
+deBruijn_inc skip n Tint = Tint
 and
 deBruijn_inc skip n Tbool = Tbool
 
@@ -1175,8 +1175,8 @@ val type_op : op -> t -> t -> t -> bool
 let type_op op t1 t2 t3 =
   match (op,t1,t2) with
     | (Opapp, Tfn t2' t3', _) -> (t2 = t2') && (t3 = t3')
-    | (Opn _, Tnum, Tnum) -> (t3 = Tnum)
-    | (Opb _, Tnum, Tnum) -> (t3 = Tbool)
+    | (Opn _, Tint, Tint) -> (t3 = Tint)
+    | (Opb _, Tint, Tint) -> (t3 = Tbool)
     | (Equality, t1, t2) -> (t1 = t2) && (t3 = Tbool)
     | _ -> false
   end
@@ -1203,7 +1203,7 @@ and
 check_freevars dbok tvs (Tfn t1 t2) =
   check_freevars dbok tvs t1 && check_freevars dbok tvs t2
 and
-check_freevars dbok tvs Tnum = true
+check_freevars dbok tvs Tint = true
 and
 check_freevars dbok tvs Tbool = true
 and
@@ -1252,7 +1252,7 @@ and
 type_subst s (Tfn t1 t2) =
   Tfn (type_subst s t1) (type_subst s t2)
 and
-type_subst s Tnum = Tnum
+type_subst s Tint = Tint
 and
 type_subst s Tbool = Tbool
 and
@@ -1277,7 +1277,7 @@ and
 deBruijn_subst skip ts (Tfn t1 t2) =
   Tfn (deBruijn_subst skip ts t1) (deBruijn_subst skip ts t2)
 and
-deBruijn_subst skip ts Tnum = Tnum
+deBruijn_subst skip ts Tint = Tint
 and
 deBruijn_subst skip ts Tbool = Tbool
 
@@ -1307,7 +1307,7 @@ and
 forall cenv n.
 true
 ==>
-type_p cenv (Plit (IntLit n)) Tnum []
+type_p cenv (Plit (IntLit n)) Tint []
 
 and
 
@@ -1335,7 +1335,7 @@ type_p cenv (Pref p) (Tref t) tenv
 
 and
 
-forall cenv .
+forall cenv.
 true
 ==>
 type_ps cenv [] [] []
@@ -1360,14 +1360,14 @@ and
 forall cenv tenv n.
 true
 ==>
-type_e cenv tenv (Lit (IntLit n)) Tnum
+type_e cenv tenv (Lit (IntLit n)) Tint
 
 and
 
 forall cenv tenv.
 true
 ==>
-type_e cenv tenv (Lit Unit) Tnum
+type_e cenv tenv (Lit Unit) Tint
 
 and
 
@@ -1375,6 +1375,14 @@ forall cenv tenv err t.
 true
 ==>
 type_e cenv tenv (Raise err) t
+
+and
+
+forall cenv tenv e1 var e2 t.
+type_e cenv tenv e1 t &&
+type_e cenv (Var_bind 0 var Tint tenv) e2 t
+==>
+type_e cenv tenv (Handle e1 var e2) t
 
 and
 
@@ -1571,7 +1579,7 @@ and
 forall cenv senv n.
 true
 ==>
-type_v cenv senv (Litv (IntLit n)) Tnum
+type_v cenv senv (Litv (IntLit n)) Tint
 
 and
 
