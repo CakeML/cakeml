@@ -151,7 +151,7 @@ val _ = Hol_datatype `
   | Tvar_db of num
   | Tapp of t list => typeN
   | Tfn of t => t
-  | Tnum
+  | Tint
   | Tbool
   | Tref of t
   | Tunit`;
@@ -1253,7 +1253,7 @@ val _ = Hol_datatype `
 (deBruijn_inc skip n (Tfn t1 t2) =((
   Tfn ((((deBruijn_inc skip) n) t1))) ((((deBruijn_inc skip) n) t2))))
 /\
-(deBruijn_inc skip n Tnum = Tnum)
+(deBruijn_inc skip n Tint = Tint)
 /\
 (deBruijn_inc skip n Tbool = Tbool)`;
 
@@ -1303,8 +1303,8 @@ val _ = Define `
  (type_op op t1 t2 t3 =
   (case (op,t1,t2) of
       (Opapp, Tfn t2' t3', _) => (t2 = t2') /\ (t3 = t3')
-    | (Opn _, Tnum, Tnum) => (t3 = Tnum)
-    | (Opb _, Tnum, Tnum) => (t3 = Tbool)
+    | (Opn _, Tint, Tint) => (t3 = Tint)
+    | (Opb _, Tint, Tint) => (t3 = Tbool)
     | (Equality, t1, t2) => (t1 = t2) /\ (t3 = Tbool)
     | _ => F
   ))`;
@@ -1335,7 +1335,7 @@ val _ = Define `
 (check_freevars dbok tvs (Tfn t1 t2) =(((
   check_freevars dbok) tvs) t1) /\((( check_freevars dbok) tvs) t2))
 /\
-(check_freevars dbok tvs Tnum = T)
+(check_freevars dbok tvs Tint = T)
 /\
 (check_freevars dbok tvs Tbool = T)
 /\
@@ -1391,7 +1391,7 @@ val _ = Define `
 (type_subst s (Tfn t1 t2) =((
   Tfn (((type_subst s) t1))) (((type_subst s) t2))))
 /\
-(type_subst s Tnum = Tnum)
+(type_subst s Tint = Tint)
 /\
 (type_subst s Tbool = Tbool)
 /\
@@ -1419,7 +1419,7 @@ val _ = Defn.save_defn type_subst_defn;
 (deBruijn_subst skip ts (Tfn t1 t2) =((
   Tfn ((((deBruijn_subst skip) ts) t1))) ((((deBruijn_subst skip) ts) t2))))
 /\
-(deBruijn_subst skip ts Tnum = Tnum)
+(deBruijn_subst skip ts Tint = Tint)
 /\
 (deBruijn_subst skip ts Tbool = Tbool)`;
 
@@ -1454,7 +1454,7 @@ type_p cenv ((Plit ((Bool b)))) Tbool [])
 (! cenv n.
 T
 ==>
-type_p cenv ((Plit ((IntLit n)))) Tnum [])
+type_p cenv ((Plit ((IntLit n)))) Tint [])
 
 /\
 
@@ -1482,7 +1482,7 @@ type_p cenv ((Pref p)) ((Tref t)) tenv)
 
 /\
 
-(! cenv .
+(! cenv.
 T
 ==>
 type_ps cenv [] [] [])
@@ -1507,14 +1507,14 @@ type_e cenv tenv ((Lit ((Bool b)))) Tbool)
 (! cenv tenv n.
 T
 ==>
-type_e cenv tenv ((Lit ((IntLit n)))) Tnum)
+type_e cenv tenv ((Lit ((IntLit n)))) Tint)
 
 /\
 
 (! cenv tenv.
 T
 ==>
-type_e cenv tenv ((Lit Unit)) Tnum)
+type_e cenv tenv ((Lit Unit)) Tint)
 
 /\
 
@@ -1527,7 +1527,7 @@ type_e cenv tenv ((Raise err)) t)
 
 (! cenv tenv e1 var e2 t.((((
 type_e cenv) tenv) e1) t) /\((((
-type_e cenv) (((((Var_bind 0) var) Tnum) tenv))) e2) t)
+type_e cenv) (((((Var_bind 0) var) Tint) tenv))) e2) t)
 ==>
 type_e cenv tenv ((((Handle e1) var) e2)) t)
 
@@ -1726,7 +1726,7 @@ type_v cenv senv ((Litv ((Bool b)))) Tbool)
 (! cenv senv n.
 T
 ==>
-type_v cenv senv ((Litv ((IntLit n)))) Tnum)
+type_v cenv senv ((Litv ((IntLit n)))) Tint)
 
 /\
 
