@@ -589,18 +589,15 @@ val evaluate'_empty_store_lemma = prove(
 
 val evaluate'_empty_store_IMP_any_store = prove(
  ``(!s env e r1.
-      evaluate' s env e r1 ==> has_emp r1 /\ (s = empty_store) ==>
+      evaluate' s env e r1 ==> has_emp r1 ==>
       !t. evaluate' t env e (t,SND r1)) /\
    (!s env es r1.
-      evaluate_list' s env es r1 ==> has_emp r1 /\ (s = empty_store) ==>
+      evaluate_list' s env es r1 ==> has_emp r1 ==>
       !t. evaluate_list' t env es (t,SND r1)) /\
    (!s env v pes r1.
-      evaluate_match' s env v pes r1 ==> has_emp r1 /\ (s = empty_store) ==>
+      evaluate_match' s env v pes r1 ==> has_emp r1 ==>
       !t. evaluate_match' t env v pes (t,SND r1))``,
-  HO_MATCH_MP_TAC evaluate'_ind \\ SRW_TAC [] []
-  \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ FULL_SIMP_TAC std_ss []
-  \\ cheat);
+  cheat);
 
 val evaluate'_empty_store_IMP = store_thm("evaluate'_empty_store_IMP",
   ``evaluate' empty_store env x (empty_store,Rval y) ==>

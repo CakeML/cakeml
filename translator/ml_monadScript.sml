@@ -77,7 +77,33 @@ val hol_type_ind = store_thm("hol_type_ind",
   \\ REPEAT STRIP_TAC \\ Q.PAT_ASSUM `!x.bbb` MATCH_MP_TAC
   \\ EVAL_TAC \\ IMP_RES_TAC MEM_hol_type_size \\ DECIDE_TAC);
 
+val LIST_TYPE_def = fetch "-" "LIST_TYPE_def"
 val HOL_TYPE_TYPE_def = fetch "-" "HOL_TYPE_TYPE_def"
+
+val LIST_TYPE_NO_CLOSURES = prove(
+  ``!xs v.
+      (!x v. MEM x xs /\ p x v ==> no_closures v) /\
+      LIST_TYPE p xs v ==> no_closures v``,
+  Induct \\ FULL_SIMP_TAC std_ss [LIST_TYPE_def]
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [no_closures_def,EVERY_DEF,MEM]
+  \\ METIS_TAC []);
+
+val LIST_TYPE_11 = prove(
+  ``!P ts v1 us v2.
+      (!x1.
+       MEM x1 ts ==>
+        !v1 x2 v2.
+          P x1 v1 /\ P x2 v2 ==>
+          ((v1 = v2) <=> (x1 = x2))) /\
+    LIST_TYPE P ts v1 /\ LIST_TYPE P us v2 ==>
+    ((v1 = v2) = (ts = us))``,
+  STRIP_TAC \\ Induct \\ Cases_on `us` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ SIMP_TAC (srw_ss()) [LIST_TYPE_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [PULL_EXISTS] \\ METIS_TAC []);
+
+val CHAR_IMP_no_closures = prove(
+  ``CHAR x v ==> no_closures v``,
+  SIMP_TAC std_ss [CHAR_def,NUM_def,INT_def,no_closures_def]);
 
 val EqualityType_HOL_TYPE = prove(
   ``EqualityType HOL_TYPE_TYPE``,
@@ -86,9 +112,18 @@ val EqualityType_HOL_TYPE = prove(
     \\ FULL_SIMP_TAC std_ss [HOL_TYPE_TYPE_def]
     \\ REPEAT STRIP_TAC
     \\ FULL_SIMP_TAC std_ss [no_closures_def,EVERY_DEF]
-    \\ cheat)
-  \\ HO_MATCH_MP_TAC hol_type_ind \\ REPEAT STRIP_TAC \\ Cases_on `x2`
-  \\ FULL_SIMP_TAC (srw_ss()) [HOL_TYPE_TYPE_def] \\ cheat)
+    \\ IMP_RES_TAC (LIST_TYPE_NO_CLOSURES |> GEN_ALL)
+    \\ METIS_TAC [CHAR_IMP_no_closures])
+  \\ HO_MATCH_MP_TAC hol_type_ind \\ REVERSE (REPEAT STRIP_TAC)
+  \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [HOL_TYPE_TYPE_def]
+  THEN1 (MATCH_MP_TAC (LIST_TYPE_11 |> Q.ISPEC `CHAR`)
+         \\ FULL_SIMP_TAC (srw_ss()) [CHAR_def,INT_def,NUM_def,ORD_11])
+  \\ `(v2_1 = v2_1') = (s = s')` by ALL_TAC
+  THEN1 (MATCH_MP_TAC (LIST_TYPE_11 |> Q.ISPEC `CHAR`)
+         \\ FULL_SIMP_TAC (srw_ss()) [CHAR_def,INT_def,NUM_def,ORD_11])
+  \\ FULL_SIMP_TAC std_ss [] \\ Cases_on `s = s'`
+  \\ FULL_SIMP_TAC std_ss []
+  \\ IMP_RES_TAC LIST_TYPE_11 \\ METIS_TAC [])
   |> store_eq_thm;
 
 val _ = register_type ``:term``;
