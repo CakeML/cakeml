@@ -1694,6 +1694,103 @@ val compile_sz = store_thm("compile_sz",
   strip_tac >- rw[compile_def,LET_THM] >>
   rw[compile_def])
 
+val compile_varref_tail = store_thm("compile_varref_tail",
+  ``∀s r. (compile_varref s r).tail = s.tail``,
+  gen_tac >> Cases >> rw[])
+val _ = export_rewrites["compile_varref_tail"]
+
+val compile_decl_tail = store_thm("compile_decl_tail",
+  ``∀env a vs. (FST (compile_decl env a vs)).tail = (FST a).tail``,
+  rw[compile_decl_def] >>
+  qho_match_abbrev_tac`(FST(FOLDL f a vs)).tail = (FST a).tail` >>
+  qho_match_abbrev_tac`P (FOLDL f a vs)` >>
+  match_mp_tac FOLDL_invariant >>
+  unabbrev_all_tac >> simp[] >>
+  qx_gen_tac`x`>>PairCases_on`x`>>
+  qx_gen_tac`y`>>rw[]>>
+  BasicProvers.EVERY_CASE_TAC>>fs[])
+val _ = export_rewrites["compile_decl_tail"]
+
+val compile_closures_tail = store_thm("compile_closures_tail",
+  ``(compile_closures n s defs).tail = s.tail``,
+  rw[compile_closures_def] >>
+  `s'.tail = s.tail` by (
+    qunabbrev_tac`s'` >>
+    rpt (pop_assum kall_tac) >>
+    qid_spec_tac`s` >>
+    Induct_on `n` >>
+    rw[Once num_fold_def] ) >>
+  `($= s'.tail o compiler_state_tail o FST) (FOLDL push_lab (s',0,[]) defs)` by
+  (
+    match_mp_tac FOLDL_invariant >> simp[] >>
+    qx_gen_tac`x`>>PairCases_on`x` >>
+    qx_gen_tac`y`>>PairCases_on`y` >>
+    Cases_on`y1`>>rw[push_lab_def,LET_THM] ) >>
+  `($= s''.tail o compiler_state_tail o FST) (FOLDL (cons_closure sz0 nk) (s'',1) (REVERSE ecs))` by (
+    match_mp_tac FOLDL_invariant >> simp[] >>
+    qx_gen_tac`x`>>PairCases_on`x` >>
+    qx_gen_tac`y`>>PairCases_on`y` >>
+    rw[LET_THM,cons_closure_def] >>
+    qho_match_abbrev_tac`x0.tail = (FOLDL (emit_ec sz0) a b).tail` >>
+    qho_match_abbrev_tac`P (FOLDL (emit_ec sz0) a b)` >>
+    match_mp_tac FOLDL_invariant >>
+    unabbrev_all_tac >> simp[] >>
+    gen_tac >> Cases >> rw[emit_ec_def] ) >>
+  qmatch_assum_abbrev_tac`X = (s'''',k'')` >>
+  `(FST X).tail = s'''.tail` by (
+    qunabbrev_tac`X` >>
+    rpt (pop_assum kall_tac) >>
+    qabbrev_tac`a = (s''',1)` >>
+    qmatch_abbrev_tac`X = s'''.tail` >>
+    qsuff_tac`X = (FST a).tail` >- rw[Abbr`a`] >>
+    qunabbrev_tac`X` >>
+    rpt (pop_assum kall_tac) >>
+    qid_spec_tac`a` >>
+    Induct_on`n` >>
+    rw[Once num_fold_def] >>
+    Cases_on `a` >> rw[update_refptr_def,LET_THM] ) >>
+  qunabbrev_tac`X` >> fs[] >> rfs[] >>
+  qmatch_abbrev_tac`(num_fold f a n).tail = b.tail` >>
+  `b.tail = a.tail` by rw[Abbr`a`,Abbr`b`] >>
+  pop_assum SUBST1_TAC >>
+  qunabbrev_tac`f` >>
+  rpt (pop_assum kall_tac) >>
+  qid_spec_tac`a` >>
+  Induct_on`n` >>
+  rw[Once num_fold_def])
+val _ = export_rewrites["compile_closures_tail"]
+
+val compile_tail = store_thm("compile_tail",
+  ``(∀s e. (compile s e).tail = s.tail) ∧
+    (∀env sz e n s xs.
+      (compile_bindings env sz e n s xs).tail =
+       case 
+      s.tail)``,
+  ho_match_mp_tac compile_ind >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    fs[UNCURRY]) >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    fs[]
+    ???? ) >>
+  rw[compile_def])
+
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒
       ∀v bc0 bc00 bs cs.
@@ -2042,6 +2139,8 @@ val compile_val = store_thm("compile_val",
       imp_res_tac Cenv_bs_pc >> fs[] ) >>
     map_every qunabbrev_tac[`P`,`Q`,`R`] >> fs[] >>
     disch_then(Q.X_CHOOSE_THEN`bv`strip_assume_tac) >>
+    first_x_assum (qspecl_then [`bc0`,
+
     cheat ) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
