@@ -268,10 +268,13 @@ val _ = Define `
   (st ++ [v],( LENGTH st)))`;
 
 
-(*val store_assign : num -> v -> store -> store*)
+(*val store_assign : num -> v -> store -> option store*)
  val store_assign_defn = Hol_defn "store_assign" `
- (store_assign n v st =(((
-  LUPDATE v) n) st))`;
+ (store_assign n v st =
+  if n <( LENGTH st) then(
+    SOME ((((LUPDATE v) n) st)))
+  else
+    NONE)`;
 
 val _ = Defn.save_defn store_assign_defn;
 
@@ -484,8 +487,11 @@ val _ = Define `
         (* TODO: Check for closures in v1 and v2, and possibly check that they
          * have the same type *)
         SOME (s, env',( Lit ((Bool (v1 = v2))))))
-    | (Opassign, (Loc lnum), v) =>(
-        SOME ((((store_assign lnum) v) s), env',( Lit Unit)))
+    | (Opassign, (Loc lnum), v) =>
+        (case((( store_assign lnum) v) s) of
+          SOME st =>( SOME (st, env',( Lit Unit)))
+        | NONE => NONE
+        )
     | _ => NONE
   ))`;
 
@@ -1761,7 +1767,7 @@ type_v cenv senv ((((Recclosure env) funs) n)) t)
 (! cenv senv n t.
 (((lookup n) senv) =( SOME t))
 ==>
-type_v cenv senv ((Loc n)) t)
+type_v cenv senv ((Loc n)) ((Tref t)))
 
 /\
 

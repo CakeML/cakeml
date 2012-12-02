@@ -1,5 +1,5 @@
 open preamble MiniMLTheory MiniMLTerminationTheory;
-open typeSubstitutionTheory;
+(*open typeSubstitutionTheory;*)
 
 val _ = new_theory "typeSound";
 
@@ -27,8 +27,8 @@ val consistent_con_env2_def = Define `
 
 (* Everything in the type environment is also in the execution environment *)
 val type_lookup_lem = Q.prove (
-`∀tenvC env tenv v s t' idx.
-  type_env tenvC env tenv ∧
+`∀tenvC env tenvs tenv v s t' idx.
+  type_env tenvC tenvs env tenv ∧
   (lookup_var s idx tenv = SOME t')
   ⇒
   (∃v'. lookup s env = SOME v')`,
@@ -67,8 +67,8 @@ rw [] >>
 metis_tac []);
 
 val type_vs_length_lem = Q.prove (
-`∀tenvC vs ts.
-  type_vs tenvC vs ts ⇒ (LENGTH vs = LENGTH ts)`,
+`∀tenvC tenvs vs ts.
+  type_vs tenvC tenvs vs ts ⇒ (LENGTH vs = LENGTH ts)`,
 induct_on `vs` >>
 rw [Once type_v_cases] >>
 rw [] >>
@@ -84,10 +84,10 @@ metis_tac []);
 
 (* Typing lists of values from the end *)
 val type_vs_end_lem = Q.prove (
-`∀tenvC vs ts v t.
-  type_vs tenvC (vs++[v]) (ts++[t]) =
-  type_v tenvC v t ∧
-  type_vs tenvC vs ts`,
+`∀tenvC vs ts v t tenvs.
+  type_vs tenvC tenvs (vs++[v]) (ts++[t]) =
+  type_v tenvC tenvs v t ∧
+  type_vs tenvC tenvs vs ts`,
 induct_on `vs` >>
 rw [] >>
 cases_on `ts` >>
@@ -121,12 +121,30 @@ rw [] >|
      pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once type_v_cases]) >>
      fs []]);
 
+(* Recursive functions have function type *)
+val type_funs_Tfn = Q.store_thm ("type_funs_Tfn",
+`∀tenvC tenv funs tenv' tvs t n.
+  type_funs tenvC tenv funs tenv' ∧
+  (lookup n tenv' = SOME t)
+  ⇒
+  ∃t1 t2. (t = Tfn t1 t2) ∧ check_freevars T [] (Tfn t1 t2)`,
+induct_on `funs` >>
+rw [] >>
+qpat_assum `type_funs tenvC tenv funspat tenv'`
+      (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
+rw [] >>
+fs [lookup_def, emp_def, bind_def] >>
+cases_on `fn = n` >>
+fs [deBruijn_subst_def] >>
+metis_tac []);
+
 (* Classifying values of basic types *)
 val canonical_values_thm = Q.prove (
-`∀tenvC v t1 t2.
-  (type_v tenvC v Tnum ⇒ (∃n. v = Litv (IntLit n))) ∧
-  (type_v tenvC v Tbool ⇒ (∃n. v = Litv (Bool n))) ∧
-  (type_v tenvC v (Tfn t1 t2) ⇒
+`∀tenvC tenvs v t1 t2.
+  (type_v tenvC tenvs v (Tref t1) ⇒ (∃n. v = Loc n)) ∧
+  (type_v tenvC tenvs v Tint ⇒ (∃n. v = Litv (IntLit n))) ∧
+  (type_v tenvC tenvs v Tbool ⇒ (∃n. v = Litv (Bool n))) ∧
+  (type_v tenvC tenvs v (Tfn t1 t2) ⇒
     (∃env n e. v = Closure env n e) ∨
     (∃env funs n. v = Recclosure env funs n))`,
 rw [] >>
@@ -138,22 +156,22 @@ metis_tac [type_funs_Tfn, t_distinct]);
 (* Well-typed pattern matches either match or not, but don't raise type errors
 * *)
 val pmatch_type_progress = Q.prove (
-`(∀envC p v env t tenv.
+`(∀envC st p v env t tenv tenvs.
   consistent_con_env envC tenvC ∧
   consistent_con_env2 envC tenvC ∧
   type_p tenvC p t tenv ∧
-  type_v tenvC v t
+  type_v tenvC tenvs v t
   ⇒
-  (pmatch envC p v env = No_match) ∨
-  (∃env'. pmatch envC p v env = Match env')) ∧
- (∀envC ps vs env ts tenv.
+  (pmatch envC st p v env = No_match) ∨
+  (∃env'. pmatch envC st p v env = Match env')) ∧
+ (∀envC st ps vs env ts tenv tenvs.
   consistent_con_env envC tenvC ∧
   consistent_con_env2 envC tenvC ∧
   type_ps tenvC ps ts tenv ∧
-  type_vs tenvC vs ts
+  type_vs tenvC tenvs vs ts
   ⇒
-  (pmatch_list envC ps vs env = No_match) ∨
-  (∃env'. pmatch_list envC ps vs env = Match env'))`,
+  (pmatch_list envC st ps vs env = No_match) ∨
+  (∃env'. pmatch_list envC st ps vs env = Match env'))`,
 HO_MATCH_MP_TAC pmatch_ind >>
 rw [] >>
 rw [pmatch_def] >>
@@ -175,6 +193,7 @@ fs [lit_same_type_def] >|
      fs [] >>
      rw [] >>
      metis_tac [type_ps_length_lem, type_vs_length_lem, LENGTH_MAP],
+ cheat,
  fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
      rw [] >>
      fs [],
@@ -196,9 +215,33 @@ fs [lit_same_type_def] >|
      rw [] >>
      fs [deBruijn_subst_def] >>
      metis_tac [type_funs_Tfn, t_distinct],
+ fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
+     rw [] >>
+     fs [deBruijn_subst_def] >>
+     metis_tac [type_funs_Tfn, t_distinct],
+ fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
+     rw [] >>
+     fs [deBruijn_subst_def] >>
+     metis_tac [type_funs_Tfn, t_distinct],
+ fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
+     rw [] >>
+     fs [deBruijn_subst_def] >>
+     metis_tac [type_funs_Tfn, t_distinct],
+ fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
+     rw [] >>
+     fs [deBruijn_subst_def] >>
+     metis_tac [type_funs_Tfn, t_distinct],
+ fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
+     rw [] >>
+     fs [deBruijn_subst_def] >>
+     metis_tac [type_funs_Tfn, t_distinct],
+ fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
+     rw [] >>
+     fs [deBruijn_subst_def] >>
+     metis_tac [type_funs_Tfn, t_distinct],
  qpat_assum `type_ps tenvC (p::ps) ts tenv`
          (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_p_cases]) >>
-     qpat_assum `type_vs tenvC (v::vs) ts`
+     qpat_assum `type_vs tenvC tenvs (v::vs) ts`
          (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
      fs [] >>
      rw [] >>
@@ -266,11 +309,12 @@ rw [MEM_MAP] >|
      metis_tac [type_funs_lookup, optionTheory.NOT_SOME_NONE],
  metis_tac []]);
 
+(*
 val type_op_cases = Q.prove (
 `!op t1 t2 t3.
   type_op op t1 t2 t3 =
-  ((∃op'. op = Opn op') ∧ (t1 = Tnum) ∧ (t2 = Tnum) ∧ (t3 = Tnum)) ∨
-  ((∃op'. op = Opb op') ∧ (t1 = Tnum) ∧ (t2 = Tnum) ∧ (t3 = Tbool)) ∨
+  ((∃op'. op = Opn op') ∧ (t1 = Tint) ∧ (t2 = Tint) ∧ (t3 = Tint)) ∨
+  ((∃op'. op = Opb op') ∧ (t1 = Tint) ∧ (t2 = Tint) ∧ (t3 = Tbool)) ∨
   ((op = Opapp) ∧ (t1 = Tfn t2 t3)) ∨
   ((op = Equality) ∧ (t1 = t2) ∧ (t3 = Tbool))`,
 rw [type_op_def] >>
@@ -386,7 +430,7 @@ rw [] >|
          imp_res_tac type_es_length_lem >>
          imp_res_tac type_vs_length_lem >>
          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def]]]);
-
+         *)
          (*
 val deBruijn_subst_check_freevars = Q.prove (
 `!tvs t.
@@ -546,8 +590,8 @@ metis_tac [type_recfun_env_help]);
      *)
 
 val type_v_lit = Q.prove (
-`(!tenvC n t. type_v tenvC (Litv (IntLit n)) t = (t = Tnum)) ∧
- (!tenvC b t. type_v tenvC (Litv (Bool b)) t = (t = Tbool))`,
+`(!tenvC tenvs n t. type_v tenvC tenvs (Litv (IntLit n)) t = (t = Tint)) ∧
+ (!tenvC tenvs b t. type_v tenvC tenvs (Litv (Bool b)) t = (t = Tbool))`,
 rw [Once type_v_cases] >>
 rw [Once type_v_cases]);
 
@@ -613,7 +657,7 @@ fs [] >>
 metis_tac [type_v_type_subst, type_v_deBruijn_subst2,
            check_freevars_deBruijn_subst]);
            *)
-
+(*
 (* If a step can be taken from a well-typed state, the resulting state has the
 * same type *)
 val exp_type_preservation = Q.prove (
@@ -952,7 +996,7 @@ fs [Once DISJOINT_SYM, DISJOINT_INSERT] >>
 `q ≠ x` by metis_tac [lookup_in] >>
 fs [disjoint_env_def] >>
 metis_tac [DISJOINT_SYM]);
-
+*)
 (*
 val tenvC_pat_weakening = Q.prove (
 `(!tenvC (tenvE:(varN,(tvarN list # t)) env) p t tenvE'. type_p tenvC tenvE p t tenvE' ⇒
@@ -1713,7 +1757,7 @@ qexists_tac `tenvC2'` >>
 fs [merge_def] >>
 rw [REVERSE_APPEND]);
 *)
-
+(*
 val type_soundness = Q.store_thm ("type_soundness",
 `!tenvC tenvE ds tenvC' tenvE' envC envE.
   tenvC_ok tenvC ∧
@@ -1743,5 +1787,5 @@ rw [] >>
      rw [d_small_eval_def] >>
      metis_tac []]*)
      cheat);
-
+     *)
 val _ = export_theory ();

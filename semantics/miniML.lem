@@ -220,9 +220,12 @@ val store_alloc : v -> store -> store * num
 let store_alloc v st =
   (st @ [v], List.length st)
 
-val store_assign : num -> v -> store -> store
+val store_assign : num -> v -> store -> option store
 let rec store_assign n v st =
-  LUPDATE v n st
+  if n < List.length st then
+    Some (LUPDATE v n st)
+  else
+    None
 
 (* Maps each constructor to its arity and the set of all constructors of that
  * type *)
@@ -407,7 +410,10 @@ let do_app s env' op v1 v2 =
          * have the same type *)
         Some (s, env', Lit (Bool (v1 = v2)))
     | (Opassign, (Loc lnum), v) ->
-        Some (store_assign lnum v s, env', Lit Unit)
+        match store_assign lnum v s with
+        | Some st -> Some (st, env', Lit Unit)
+        | None -> None
+        end
     | _ -> None
   end
 
@@ -1614,7 +1620,7 @@ and
 forall cenv senv n t.
 (lookup n senv = Some t)
 ==>
-type_v cenv senv (Loc n) t
+type_v cenv senv (Loc n) (Tref t)
 
 and
 

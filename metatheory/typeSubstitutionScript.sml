@@ -6,6 +6,7 @@ open preamble MiniMLTheory MiniMLTerminationTheory;
 
 val _ = new_theory "typeSubstitution";
 
+(*
 val deBruijn_subst_env_def = Define `
 (deBruijn_subst_env depth (ts:t list) Env_empty = Env_empty) ∧
 (deBruijn_subst_env depth (ts:t list) (Tvar_bind levels tenv) =
@@ -25,23 +26,6 @@ val deBruijn_subst_env_def = Define `
 
 
 
-
-(* Recursive functions have function type *)
-val type_funs_Tfn = Q.store_thm ("type_funs_Tfn",
-`∀tenvC tenv funs tenv' tvs t n.
-  type_funs tenvC tenv funs tenv' ∧
-  (lookup n tenv' = SOME t)
-  ⇒
-  ∃t1 t2. (t = Tfn t1 t2) ∧ check_freevars T [] (Tfn t1 t2)`,
-induct_on `funs` >>
-rw [] >>
-qpat_assum `type_funs tenvC tenv funspat tenv'`
-      (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
-rw [] >>
-fs [lookup_def, emp_def, bind_def] >>
-cases_on `fn = n` >>
-fs [deBruijn_subst_def] >>
-metis_tac []);
 
 val lookup_notin = Q.store_thm ("lookup_notin",
 `!x e. (lookup x e = NONE) ⇒ ~MEM x (MAP FST e)`,
@@ -243,7 +227,7 @@ ho_match_mp_tac t_induction >>
 rw [deBruijn_subst_def, deBruijn_inc_def] >>
 full_simp_tac (srw_ss() ++ ARITH_ss) [MAP_MAP_o, combinTheory.o_DEF]);
 
-
+*)
 (*
 STOP;
 
