@@ -244,8 +244,8 @@ in
   fun string_tl s = s |> explode |> tl |> implode
   fun type2t ty =
     if ty = ``:bool`` then ``Tbool`` else
-    if ty = ``:int`` then ``Tnum`` else
-    if ty = ``:num`` then ``Tnum`` else
+    if ty = ``:int`` then ``Tint`` else
+    if ty = ``:num`` then ``Tint`` else
     if can dest_vartype ty then
       mk_comb(``Tvar``,stringSyntax.fromMLstring (string_tl (dest_vartype ty)))
     else let

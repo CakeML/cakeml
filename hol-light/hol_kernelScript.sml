@@ -264,14 +264,16 @@ val _ = Define `
       function
           (Tyapp(_,args)) -> itlist (union o tyvars) args []
         | (Tyvar v as tv) -> [tv]
-
-  Hmm, this HOL definition ought to be improved.
 *)
 
-val _ = Define `
-  (tyvars (Tyapp p []) = []) /\
-  (tyvars (Tyapp p (x::xs)) = union (tyvars x) (tyvars (Tyapp p xs))) /\
+val _ = tDefine "tyvars" `
+  (tyvars (Tyapp _ args) = itlist union (MAP tyvars args) []) /\
   (tyvars tv = [tv])`
+ (WF_REL_TAC `measure (hol_type_size)` THEN Induct_on `args`
+  THEN FULL_SIMP_TAC (srw_ss()) [hol_type_size_def]
+  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC
+  THEN REPEAT (POP_ASSUM (MP_TAC o SPEC_ALL)) THEN REPEAT STRIP_TAC
+  THEN DECIDE_TAC);
 
 (*
   let rec type_subst i ty =
@@ -1184,6 +1186,12 @@ val _ = Define `
        eq2 <- mk_eq(y2,r) ;
        eq3 <- mk_eq(y3,eq2) ;
        return (Sequent [] eq1, Sequent [] eq3) od od od`
+
+(*
+  - make type_of pure
+  - remove forall --- can be made much faster with explicit pattern matching
+  - refactor INST and INST_TYPE
+*)
 
 val _ = export_theory();
 

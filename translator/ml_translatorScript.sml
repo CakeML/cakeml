@@ -74,7 +74,7 @@ val big_exp_determ' = store_thm("big_exp_determ'",
 
 val evaluate_cases = evaluate'_cases;
 
-val evaluate_11_Rval = prove(
+val evaluate_11_Rval = store_thm("evaluate_11_Rval",
   ``evaluate' s env exp (s1,Rval res1) ==>
     evaluate' s env exp (s2,Rval res2) ==> (res1 = res2)``,
   REPEAT STRIP_TAC \\ IMP_RES_TAC big_exp_determ'
@@ -518,7 +518,7 @@ val Eval_Equality = store_thm("Eval_Equality",
 
 val Decls_def = Define `
   Decls cenv1 env1 ds cenv2 env2 =
-    evaluate_decs' cenv1 empty_store env1 ds (Rval (cenv2,empty_store,env2))`;
+    evaluate_decs' cenv1 empty_store env1 ds (empty_store,Rval (cenv2,env2))`;
 
 val DeclAssum_def = Define `
   DeclAssum ds env = ?cenv1 env1 cenv2. Decls cenv1 env1 ds cenv2 env`;
@@ -621,7 +621,7 @@ val evaluate_list'_empty_store = prove(
 
 val evaluate_decs'_empty_store_IMP = prove(
   ``!ds1 cenv1 s2 env'.
-      evaluate_decs' cenv1 s2 env' ds1 (Rval (cenv3,empty_store,env3)) ==>
+      evaluate_decs' cenv1 s2 env' ds1 (empty_store,Rval (cenv3,env3)) ==>
       (s2 = empty_store)``,
   Induct \\ ONCE_REWRITE_TAC [evaluate_decs'_cases]
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ Cases \\ FULL_SIMP_TAC (srw_ss()) []
@@ -630,8 +630,8 @@ val evaluate_decs'_empty_store_IMP = prove(
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
 val evaluate_decs'_empty_store = prove(
-  ``evaluate_decs' cenv1 s2 env' ds1 (Rval (cenv3,empty_store,env3)) =
-    evaluate_decs' cenv1 s2 env' ds1 (Rval (cenv3,empty_store,env3)) /\
+  ``evaluate_decs' cenv1 s2 env' ds1 (empty_store,Rval (cenv3,env3)) =
+    evaluate_decs' cenv1 s2 env' ds1 (empty_store,Rval (cenv3,env3)) /\
     (s2 = empty_store)``,
   METIS_TAC [evaluate_decs'_empty_store_IMP]);
 
