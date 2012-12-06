@@ -1760,12 +1760,15 @@ val compile_closures_tail = store_thm("compile_closures_tail",
   rw[Once num_fold_def])
 val _ = export_rewrites["compile_closures_tail"]
 
+(*
 val compile_tail = store_thm("compile_tail",
+  (* this is not true *)
   ``(∀s e. (compile s e).tail = s.tail) ∧
     (∀env sz e n s xs.
       (compile_bindings env sz e n s xs).tail =
-       case 
-      s.tail)``,
+       case s.tail of
+       | TCNonTail => TCNonTail
+       | TCTail j k => TCTail j (k + n + LENGTH xs))``,
   ho_match_mp_tac compile_ind >>
   strip_tac >- (
     rw[compile_def,LET_THM] >>
@@ -1778,8 +1781,12 @@ val compile_tail = store_thm("compile_tail",
   strip_tac >- rw[compile_def,LET_THM] >>
   strip_tac >- rw[compile_def,LET_THM] >>
   strip_tac >- rw[compile_def,LET_THM] >>
-  strip_tac >- rw[compile_def,LET_THM] >>
-  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    BasicProvers.EVERY_CASE_TAC ) >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    BasicProvers.EVERY_CASE_TAC ) >>
   strip_tac >- rw[compile_def,LET_THM] >>
   strip_tac >- rw[compile_def,LET_THM] >>
   strip_tac >- rw[compile_def,LET_THM] >>
@@ -1787,9 +1794,20 @@ val compile_tail = store_thm("compile_tail",
   strip_tac >- (
     rw[compile_def,LET_THM] >>
     BasicProvers.EVERY_CASE_TAC >>
-    fs[]
-    ???? ) >>
-  rw[compile_def])
+    fs[] ) >>
+  rw[compile_def] >>
+  BasicProvers.EVERY_CASE_TAC
+  )
+  compile_def
+*)
+
+(*
+val compile_bindings_change_n = store_thm("compile_bindings_change_n",
+  ``∀xs env0 sz1 exp n cs.
+       (compile_bindings env0 sz1 exp n cs xs).out = (compile_bindings env0 sz1 exp 0 cs xs).out``,
+  Induct >> rw[compile_def,LET_THM]
+  compile_sz
+*)
 
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒
