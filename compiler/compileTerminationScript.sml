@@ -235,7 +235,7 @@ val bodies_def = tDefine "bodies"`
   (bodies (CCon _ es) = SUM (MAP bodies es)) ∧
   (bodies (CTagEq e _) = bodies e) ∧
   (bodies (CProj e _) = bodies e) ∧
-  (bodies (CLet _ es e) = SUM (MAP bodies (e::es))) ∧
+  (bodies (CLet _ e b) = bodies e + bodies b) ∧
   (bodies (CLetfun _ _ defs e) = SUM (MAP bod1 defs) + (bodies e)) ∧
   (bodies (CFun xs cb) = bod1 (xs,cb)) ∧
   (bodies (CCall e es) = SUM (MAP bodies (e::es))) ∧
@@ -308,13 +308,13 @@ val label_closures_bodies = store_thm("label_closures_bodies",
   >- ( Cases_on `label_closures e s` >> fs[] >> rw[] )
   >- ( Cases_on `label_closures e s` >> fs[] >> rw[] )
   >- (
-    qabbrev_tac `p = mapM label_closures es s` >>
-    PairCases_on `p` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    fs[UNCURRY] >> rw[] >>
-    first_x_assum (qspecl_then [`s`,`p0`,`p1`] mp_tac) >> rw[] >>
-    qabbrev_tac `q = label_closures e p1` >>
-    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`p1`,`q0`,`q1`] mp_tac) >> rw[] >>
+    qabbrev_tac `q = label_closures e s` >>
+    PairCases_on`q`>>fs[] >>
+    qabbrev_tac `p = label_closures e' q1` >>
+    PairCases_on`p`>>fs[] >>
+    first_x_assum (qspecl_then[`q1`,`p0`,`p1`]mp_tac) >>
+    first_x_assum (qspecl_then[`s`,`q0`,`q1`]mp_tac) >>
+    rw[] >> fs[] >>
     srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
   >- (
     qabbrev_tac `p = label_defs [] ds s` >>

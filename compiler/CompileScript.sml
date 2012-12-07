@@ -134,9 +134,8 @@ val _ = Defn.save_defn Cpat_vars_defn;
 /\
 (free_vars c (CProj e _) = free_vars c e)
 /\
-(free_vars c (CLet xs es e) =
-  FOLDL (\ s e . s UNION free_vars c e)
-  (free_vars c e DIFF LIST_TO_SET xs) es)
+(free_vars c (CLet x e eb) =
+  free_vars c e UNION (free_vars c eb DIFF {x}))
 /\
 (free_vars c (CLetfun T ns defs e) =
   FOLDL (\ s (vs,b) .
@@ -275,21 +274,16 @@ Cevaluate c env e (Rerr err)
 Cevaluate c env (CProj e n) (Rerr err))
 
 /\
-(! c env b r.
-Cevaluate c env b r
-==>
-Cevaluate c env (CLet [] [] b) r)
-/\
-(! c env n ns e es b v r.
+(! c env n e b v r.
 Cevaluate c env e (Rval v) /\
-Cevaluate c (FUPDATE  env ( n, v)) (CLet ns es b) r
+Cevaluate c (FUPDATE  env ( n, v)) b r
 ==>
-Cevaluate c env (CLet (n::ns) (e::es) b) r)
+Cevaluate c env (CLet n e b) r)
 /\
-(! c env n ns e es b err.
+(! c env n e b err.
 Cevaluate c env e (Rerr err)
 ==>
-Cevaluate c env (CLet (n::ns) (e::es) b) (Rerr err))
+Cevaluate c env (CLet n e b) (Rerr err))
 
 /\
 (! c env ns defs b r.
@@ -452,7 +446,7 @@ val _ = Defn.save_defn pat_to_Cpat_defn;
  val remove_mat_vp_defn = Hol_defn "remove_mat_vp" `
 
 (remove_mat_vp fk sk v (CPvar pv) =
-  CLet [pv] [CVar v] sk)
+  CLet pv (CVar v) sk)
 /\
 (remove_mat_vp fk sk v (CPlit l) =
   CIf (CPrim2 CEq (CVar v) (CLit l))
@@ -467,7 +461,7 @@ val _ = Defn.save_defn pat_to_Cpat_defn;
 /\
 (remove_mat_con fk sk v n (p::ps) =
   let v' = fresh_var ({v;fk} UNION (free_vars FEMPTY sk) UNION (Cpat_vars p)) in
-  CLet [v'] [CProj (CVar v) n]
+  CLet v' (CProj (CVar v) n)
     (remove_mat_vp fk (remove_mat_con fk sk v (n+1) ps) v' p))`;
 
 val _ = Defn.save_defn remove_mat_vp_defn;
@@ -523,11 +517,12 @@ val _ = Define `
   | opb =>
       let x1 = fresh_var (free_vars FEMPTY Ce2) in
       let x2 = fresh_var {x1} in
-      CLet [x1;x2] [Ce1;Ce2]
-        (case opb of
-          Gt =>  CPrim2 CLt (CVar x2) (CVar x1)
-        | Geq => CPrim2 CLt (CPrim2 CSub (CVar x2) (CVar x1)) (CLit (IntLit i1))
-        )
+      CLet x1 Ce1 (
+        CLet x2 Ce2 (
+          (case opb of
+            Gt =>  CPrim2 CLt (CVar x2) (CVar x1)
+          | Geq => CPrim2 CLt (CPrim2 CSub (CVar x2) (CVar x1)) (CLit (IntLit i1))
+          )))
   ))
 /\
 (exp_to_Cexp m (App Equality e1 e2) =
@@ -558,12 +553,12 @@ val _ = Define `
   let Cpes = pes_to_Cpes m pes in
   let v = fresh_var (Cpes_vars Cpes) in
   let Ce = exp_to_Cexp m e in
-  CLet [v] [Ce] (remove_mat_var v Cpes))
+  CLet v Ce (remove_mat_var v Cpes))
 /\
 (exp_to_Cexp m (Let vn e b) =
   let Ce = exp_to_Cexp m e in
   let Cb = exp_to_Cexp m b in
-  CLet [vn] [Ce] Cb)
+  CLet vn Ce Cb)
 /\
 (exp_to_Cexp m (Letrec defs b) =
   let (fns,Cdefs) = defs_to_Cdefs m defs in
@@ -640,10 +635,10 @@ val _ = Defn.save_defn label_defs_defn;
   (label_closures e) (\ e . UNIT
   (CProj e n)))
 /\
-(label_closures (CLet xs es e) = BIND
-  (label_closures_list es) (\ es . BIND
-  (label_closures e) (\ e . UNIT
-  (CLet xs es e))))
+(label_closures (CLet x e b) = BIND
+  (label_closures e) (\ e . BIND
+  (label_closures b) (\ b . UNIT
+  (CLet x e b))))
 /\
 (label_closures (CLetfun p ns defs e) = BIND
   (label_defs [] defs) (\ defs . BIND
@@ -708,7 +703,7 @@ val _ = Defn.save_defn count_unlab_defn;
 /\
 (imm_unlab (CProj e n) = imm_unlab e)
 /\
-(imm_unlab (CLet xs es e) = imm_unlab_list es + imm_unlab e)
+(imm_unlab (CLet x e b) = imm_unlab e + imm_unlab b)
 /\
 (imm_unlab (CLetfun p ns defs e) = count_unlab defs + imm_unlab e)
 /\
@@ -772,8 +767,8 @@ val _ = Defn.save_defn defs_to_ldefs_defn; (* should not happen *)
 /\
 (calculate_ldefs c ls (CProj e _) = calculate_ldefs c ls e)
 /\
-(calculate_ldefs c ls (CLet _ es e) =
-  FOLDL (\ ls e . calculate_ldefs c ls e) (calculate_ldefs c ls e) es)
+(calculate_ldefs c ls (CLet _ e b) =
+  calculate_ldefs c (calculate_ldefs c ls b) e)
 /\
 (calculate_ldefs c ls (CLetfun p ns defs e) =
   FOLDL
@@ -1036,11 +1031,11 @@ val _ = Defn.save_defn compile_decl_defn;
   let (s,dt) = sdt s in
   ldt dt (emit (compile s e) [Stack (El n)]))
 /\
-(compile s (CLet xs es e) =
+(compile s (CLet x e eb) =
   let z = s.sz + 1 in
   let (s,dt) = sdt s in
-  let s = FOLDL (\ s e . compile s e) s es in (* uneta because Hol_defn sucks *)
-  compile_bindings s.env z e 0 (ldt dt s) xs)
+  let s = compile s e in
+  compile_bindings s.env z eb 0 (ldt dt s) [x])
 /\
 (compile s (CLetfun recp ns defs e) =
   let z = s.sz + 1 in
@@ -1328,7 +1323,7 @@ val _ = Defn.save_defn number_constructors_defn;
   let vn = fresh_var (Cpes_vars Cpes) in
   let Ce = exp_to_Cexp m e in
   let decl = SOME(rs.renv,rs.rsz) in
-  compile_Cexp rs decl (CLet [vn] [Ce] (remove_mat_var vn Cpes)))`;
+  compile_Cexp rs decl (CLet vn Ce (remove_mat_var vn Cpes)))`;
 
 val _ = Defn.save_defn repl_dec_defn;
 

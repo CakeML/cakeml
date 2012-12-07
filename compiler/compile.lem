@@ -110,7 +110,7 @@ type Cexp =
   | CCon of num * list Cexp
   | CTagEq of Cexp * num
   | CProj of Cexp * num
-  | CLet of list string * list Cexp * Cexp
+  | CLet of string * Cexp * Cexp
   | CLetfun of bool * list string * list (list string * ((+) Cexp num)) * Cexp
   | CFun of list string * ((+) Cexp num)
   | CCall of Cexp * list Cexp
@@ -149,9 +149,8 @@ free_vars c (CTagEq e _) = free_vars c e
 and
 free_vars c (CProj e _) = free_vars c e
 and
-free_vars c (CLet xs es e) =
-  List.fold_left (fun s e -> s union free_vars c e)
-  (free_vars c e \ Set.from_list xs) es
+free_vars c (CLet x e eb) =
+  free_vars c e union (free_vars c eb \ {x})
 and
 free_vars c (CLetfun true ns defs e) =
   List.fold_left (fun s (vs,b) ->
@@ -277,21 +276,16 @@ Cevaluate c env e (Rerr err)
 Cevaluate c env (CProj e n) (Rerr err)
 
 and
-forall c env b r.
-Cevaluate c env b r
-==>
-Cevaluate c env (CLet [] [] b) r
-and
-forall c env n ns e es b v r.
+forall c env n e b v r.
 Cevaluate c env e (Rval v) &&
-Cevaluate c (Pmap.add n v env) (CLet ns es b) r
+Cevaluate c (Pmap.add n v env) b r
 ==>
-Cevaluate c env (CLet (n::ns) (e::es) b) r
+Cevaluate c env (CLet n e b) r
 and
-forall c env n ns e es b err.
+forall c env n e b err.
 Cevaluate c env e (Rerr err)
 ==>
-Cevaluate c env (CLet (n::ns) (e::es) b) (Rerr err)
+Cevaluate c env (CLet n e b) (Rerr err)
 
 and
 forall c env ns defs b r.
@@ -450,7 +444,7 @@ pats_to_Cpats m pvs (p::ps) =
 
 let rec
 remove_mat_vp fk sk v (CPvar pv) =
-  CLet [pv] [CVar v] sk
+  CLet pv (CVar v) sk
 and
 remove_mat_vp fk sk v (CPlit l) =
   CIf (CPrim2 CEq (CVar v) (CLit l))
@@ -465,7 +459,7 @@ remove_mat_con fk sk v n [] = sk
 and
 remove_mat_con fk sk v n (p::ps) =
   let v' = fresh_var ({v;fk} union (free_vars Pmap.empty sk) union (Cpat_vars p)) in
-  CLet [v'] [CProj (CVar v) n]
+  CLet v' (CProj (CVar v) n)
     (remove_mat_vp fk (remove_mat_con fk sk v (n+1) ps) v' p)
 
 let rec
@@ -513,11 +507,12 @@ exp_to_Cexp m (App (Opb opb) e1 e2) =
   | opb ->
       let x1 = fresh_var (free_vars Pmap.empty Ce2) in
       let x2 = fresh_var {x1} in
-      CLet [x1;x2] [Ce1;Ce2]
-        match opb with
-        | Gt ->  CPrim2 CLt (CVar x2) (CVar x1)
-        | Geq -> CPrim2 CLt (CPrim2 CSub (CVar x2) (CVar x1)) (CLit (IntLit i1))
-        end
+      CLet x1 Ce1 (
+        CLet x2 Ce2 (
+          match opb with
+          | Gt ->  CPrim2 CLt (CVar x2) (CVar x1)
+          | Geq -> CPrim2 CLt (CPrim2 CSub (CVar x2) (CVar x1)) (CLit (IntLit i1))
+          end))
   end
 and
 exp_to_Cexp m (App Equality e1 e2) =
@@ -548,12 +543,12 @@ exp_to_Cexp m (Mat e pes) =
   let Cpes = pes_to_Cpes m pes in
   let v = fresh_var (Cpes_vars Cpes) in
   let Ce = exp_to_Cexp m e in
-  CLet [v] [Ce] (remove_mat_var v Cpes)
+  CLet v Ce (remove_mat_var v Cpes)
 and
 exp_to_Cexp m (Let vn e b) =
   let Ce = exp_to_Cexp m e in
   let Cb = exp_to_Cexp m b in
-  CLet [vn] [Ce] Cb
+  CLet vn Ce Cb
 and
 exp_to_Cexp m (Letrec defs b) =
   let (fns,Cdefs) = defs_to_Cdefs m defs in
@@ -622,10 +617,10 @@ label_closures (CProj e n) = bind
   (label_closures e) (fun e -> return
   (CProj e n))
 and
-label_closures (CLet xs es e) = bind
-  (label_closures_list es) (fun es -> bind
-  (label_closures e) (fun e -> return
-  (CLet xs es e)))
+label_closures (CLet x e b) = bind
+  (label_closures e) (fun e -> bind
+  (label_closures b) (fun b -> return
+  (CLet x e b)))
 and
 label_closures (CLetfun p ns defs e) = bind
   (label_defs [] defs) (fun defs -> bind
@@ -684,7 +679,7 @@ imm_unlab (CTagEq e n) = imm_unlab e
 and
 imm_unlab (CProj e n) = imm_unlab e
 and
-imm_unlab (CLet xs es e) = imm_unlab_list es + imm_unlab e
+imm_unlab (CLet x e b) = imm_unlab e + imm_unlab b
 and
 imm_unlab (CLetfun p ns defs e) = count_unlab defs + imm_unlab e
 and
@@ -739,8 +734,8 @@ calculate_ldefs c ls (CTagEq e _) = calculate_ldefs c ls e
 and
 calculate_ldefs c ls (CProj e _) = calculate_ldefs c ls e
 and
-calculate_ldefs c ls (CLet _ es e) =
-  List.fold_left (fun ls e -> calculate_ldefs c ls e) (calculate_ldefs c ls e) es
+calculate_ldefs c ls (CLet _ e b) =
+  calculate_ldefs c (calculate_ldefs c ls b) e
 and
 calculate_ldefs c ls (CLetfun p ns defs e) =
   List.fold_left
@@ -955,11 +950,11 @@ compile s (CProj e n) =
   let (s,dt) = sdt s in
   ldt dt (emit (compile s e) [Stack (El n)])
 and
-compile s (CLet xs es e) =
+compile s (CLet x e eb) =
   let z = s.sz + 1 in
   let (s,dt) = sdt s in
-  let s = List.fold_left (fun s e -> compile s e) s es in (* uneta because Hol_defn sucks *)
-  compile_bindings s.env z e 0 (ldt dt s) xs
+  let s = compile s e in
+  compile_bindings s.env z eb 0 (ldt dt s) [x]
 and
 compile s (CLetfun recp ns defs e) =
   let z = s.sz + 1 in
@@ -1211,7 +1206,7 @@ repl_dec rs (Dlet p e) =
   let vn = fresh_var (Cpes_vars Cpes) in
   let Ce = exp_to_Cexp m e in
   let decl = Some(rs.renv,rs.rsz) in
-  compile_Cexp rs decl (CLet [vn] [Ce] (remove_mat_var vn Cpes))
+  compile_Cexp rs decl (CLet vn Ce (remove_mat_var vn Cpes))
 
 let repl_exp s exp = compile_Cexp s None (exp_to_Cexp (cmap s.contab) exp)
 
