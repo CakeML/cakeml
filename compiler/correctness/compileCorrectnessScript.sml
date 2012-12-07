@@ -1781,6 +1781,24 @@ val compile_tail = store_thm("compile_tail",
   compile_def
 *)
 
+val Cenv_bs_FUPDATE = store_thm("Cenv_bs_FUPDATE",
+  ``∀c env env0 sz0 bs n v bv bs'.
+    Cenv_bs c env env0 sz0 bs ∧
+    Cv_bv (mk_pp c bs') v bv ∧
+    (bs' = bs with stack := bv::bs.stack)
+    ⇒
+    Cenv_bs c (env |+ (n,v)) (env0 |+ (n,CTLet (sz0 + 1))) (sz0 + 1) bs'``,
+  rw[Cenv_bs_def] >>
+  fs[fmap_rel_def] >>
+  qx_gen_tac`x` >>
+  Cases_on`x=n`>>fs[] >>
+  strip_tac >>
+  rw[FAPPLY_FUPDATE_THM] >>
+  first_x_assum (qspec_then `x` mp_tac) >> rw[] >>
+  Cases_on `lookup_ct sz0 bs.stack bs.refs (env0 ' x)` >> fs[] >>
+  imp_res_tac lookup_ct_imp_incsz >>
+  pop_assum (qspec_then`bv`mp_tac) >> rw[])
+
 val compile_val = store_thm("compile_val",
   ``(∀c env exp res. Cevaluate c env exp res ⇒
       ∀v bc0 bc00 bs cs.
@@ -2037,12 +2055,26 @@ val compile_val = store_thm("compile_val",
     rw[compile_def,LET_THM] >>
     qabbrev_tac`cs0 = cs with <| tail := TCNonTail; decl := NONE|>` >>
     rfs[] >>
-    qabbrev_tac`cs00 = cs with <| tail := cs.tail; decl := cs.decl |>` >>
-    `cs00 = cs` by rw[compiler_state_component_equality,Abbr`cs00`] >> rw[] >>
-    pop_assum kall_tac >>
-    qmatch_assum_abbrev_tac`bs.code = bc0 ++ REVERSE cs1.out` >>
-    first_x_assum (qspecl_then[`bc0`,`bs with code := bc0 ++ REVERSE (compile cs exp).out`,`cs`]mp_tac) >> fs[] >>
+    qmatch_assum_abbrev_tac`bs.code = bc0 ++ REVERSE cs2.out` >>
+    `(cs0.out = cs.out) ∧ (cs0.env = cs.env) ∧ (cs0.ecs = cs.ecs) ∧ (cs0.sz = cs.sz)
+      ∧ (cs0.next_label = cs.next_label)` by rw[Abbr`cs0`] >>
+    POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC) >>
+    first_x_assum (qspecl_then[`bc0`,`bs with code := bc0 ++ REVERSE (compile cs0 exp).out`,`cs0`]mp_tac) >> fs[] >>
     disch_then(Q.X_CHOOSE_THEN`bv`strip_assume_tac) >>
+    qabbrev_tac `cs1 = compile cs0 exp` >>
+    Cases_on `cs.tail` >> fs[] >- (
+      qpat_assum `Abbrev (cs2 = X)` mp_tac >>
+      Q.PAT_ABBREV_TAC`cs3 = compiler_state_env_fupd X Y` >>
+      strip_tac >>
+      qabbrev_tac `il = bs.inst_length` >>
+      first_x_assum(qspecl_then[`bc0`,`bs with <| code := bc0 ++ REVERSE (compile cs3 exp').out;
+        pc := next_addr il (bc0 ++ REVERSE cs3.out)|>`,`cs3`]mp_tac) >>
+      `(cs3.env = cs.env |+ (n,CTLet(cs.sz + 1))) ∧ (cs3.ecs = cs.ecs) ∧ (cs3.sz = cs.sz + 1)` by (
+        rw[Abbr`cs3`,Abbr`cs1`] >>
+        qspecl_then[`cs0`,`exp`]mp_tac(CONJUNCT1 compile_sz) >>
+        rw[Abbr`cs0`] ) >>
+      simp[] >>
+
     qexists_tac`bv` >>
     qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
     `∃ls. cs1.out = ls ++ (compile cs exp).out` by (
