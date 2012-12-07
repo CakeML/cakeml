@@ -95,14 +95,15 @@ rw[] >- (
   fsrw_tac[DNF_ss][MEM_MAP,EVERY_MEM] >>
   PROVE_TAC[] )
 >- (
-  fs[] >>
   BasicProvers.EVERY_CASE_TAC >> rw[] >>
   srw_tac[DNF_ss][Once EXTENSION] >>
-  PROVE_TAC[] )
+  metis_tac[NOT_fresh_var,FINITE_FV])
 >- (
   BasicProvers.EVERY_CASE_TAC >> rw[] )
 >- (
-  qmatch_abbrev_tac `free_vars FEMPTY (remove_mat_var v pe) DIFF x ∪ y = z` >>
+  Q.PAT_ABBREV_TAC`v = fresh_var X` >>
+  Q.PAT_ABBREV_TAC`pe = MAP (X:(pat#exp)->(Cpat#Cexp)) pes` >>
+  qabbrev_tac`y = FV e` >>
   qspecl_then [`v`,`pe`] mp_tac free_vars_remove_mat_var >>
   asm_simp_tac std_ss [EXTENSION,IN_DIFF,IN_SING,IN_UNION] >>
   strip_tac >>
@@ -113,8 +114,6 @@ rw[] >- (
   Cases_on `u=v` >> fsd[] >- (
     qunabbrev_tac`v` >>
     match_mp_tac fresh_var_not_in_any >>
-    qunabbrev_tac`x` >>
-    qunabbrev_tac`z` >>
     pop_assum kall_tac >>
     ntac 2 (pop_assum kall_tac) >>
     fsrw_tac[DNF_ss][SUBSET_DEF,pairTheory.FORALL_PROD,
@@ -130,8 +129,6 @@ rw[] >- (
     rw[] >> PROVE_TAC[] ) >>
   fsrw_tac[DNF_ss][pairTheory.EXISTS_PROD] >>
   fsrw_tac[DNF_ss][Abbr`pe`,MEM_MAP,pairTheory.EXISTS_PROD] >>
-  qunabbrev_tac`x` >>
-  qunabbrev_tac`z` >>
   fsrw_tac[DNF_ss][pairTheory.UNCURRY] >>
   rw[Once CONJ_ASSOC] >>
   qho_match_abbrev_tac `
@@ -140,12 +137,7 @@ rw[] >- (
   (qsuff_tac `∀p1 p2. MEM (p1,p2) pes ⇒ (A p1 p2 = B p1 p2)` >- PROVE_TAC[]) >>
   srw_tac[DNF_ss][Abbr`A`,Abbr`B`] >>
   first_x_assum (qspecl_then [`p1`,`p2`] mp_tac) >>
-  rw[] >>
-  qabbrev_tac `q = pat_to_Cpat s [] p1` >>
-  PairCases_on `q` >> fs[] >>
-  PROVE_TAC[Cpat_vars_pat_to_Cpat])
->- (
-  rw[EXTENSION] >> PROVE_TAC[] )
+  rw[])
 >- (
   fs[FOLDL_UNION_BIGUNION_paired] >>
   qmatch_abbrev_tac `X ∪ Y = Z ∪ A` >>

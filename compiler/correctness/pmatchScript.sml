@@ -83,7 +83,8 @@ strip_tac >- (
 strip_tac >- (
   rw[EXTENSION] >> PROVE_TAC[] ) >>
 rw[LET_THM] >>
-qmatch_abbrev_tac `free_vars FEMPTY (remove_mat_vp fk sk0 v0 p) DIFF {v0} UNION {v} DIFF {v; fk} = vs DIFF {v; fk}` >>
+Q.PAT_ABBREV_TAC`sk0 = remove_mat_con fk sk v (n + 1) ps` >>
+Q.PAT_ABBREV_TAC`v0 = fresh_var X` >>
 simp_tac std_ss [Once EXTENSION] >>
 qx_gen_tac `x` >>
 fs[] >>
@@ -91,6 +92,7 @@ Cases_on `x=v` >> fs[] >>
 Cases_on `x=fk` >> fs[] >>
 Cases_on `x=v0` >> fs[] >- (
   unabbrev_all_tac >>
+  disj1_tac >>
   match_mp_tac fresh_var_not_in_any >>
   fs[SUBSET_DEF] ) >>
 qpat_assum `∀fk sk v. P = Q` (qspecl_then [`fk`,`sk0`,`v0`] mp_tac) >>
@@ -101,7 +103,7 @@ first_x_assum (qspecl_then [`fk`,`sk`,`v`,`n+1`] mp_tac) >>
 simp_tac std_ss [Once EXTENSION] >>
 disch_then (qspec_then `x` mp_tac) >>
 fs[] >> strip_tac >>
-fs[Abbr`vs`] >> PROVE_TAC[])
+fs[] >> PROVE_TAC[])
 
 val free_vars_remove_mat_vp_SUBSET = store_thm(
 "free_vars_remove_mat_vp_SUBSET",

@@ -68,11 +68,6 @@ val Cevaluate_var = store_thm(
 ``∀c env vn res. Cevaluate c env (CVar vn) res = (vn ∈ FDOM env ∧ (res = Rval (env ' vn)))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
-val Cevaluate_let_nil = store_thm(
-"Cevaluate_let_nil",
-``∀c env exp res. Cevaluate c env (CLet [] [] exp) res = (Cevaluate c env exp res)``,
-rw[Once Cevaluate_cases])
-
 val Cevaluate_fun = store_thm(
 "Cevaluate_fun",
 ``∀c env ns b res. Cevaluate c env (CFun ns b) res =
@@ -80,7 +75,7 @@ val Cevaluate_fun = store_thm(
   (res = Rval (CRecClos env [fresh_var (cbod_fvs c b)] [(ns,b)] (fresh_var (cbod_fvs c b))))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
-val _ = export_rewrites["Cevaluate_raise","Cevaluate_lit","Cevaluate_var","Cevaluate_let_nil","Cevaluate_fun"]
+val _ = export_rewrites["Cevaluate_raise","Cevaluate_lit","Cevaluate_var","Cevaluate_fun"]
 
 val Cevaluate_con = store_thm(
 "Cevaluate_con",
@@ -96,11 +91,11 @@ val Cevaluate_tageq = store_thm(
   (∃err. Cevaluate c env exp (Rerr err) ∧ (res = Rerr err))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
-val Cevaluate_let_cons = store_thm(
-"Cevaluate_let_cons",
-``∀c env n e ns es b res. Cevaluate c env (CLet (n::ns) (e::es) b) res =
+val Cevaluate_let = store_thm(
+"Cevaluate_let",
+``∀c env n e b res. Cevaluate c env (CLet n e b) res =
 (∃v. Cevaluate c env e (Rval v) ∧
-     Cevaluate c (env |+ (n,v)) (CLet ns es b) res) ∨
+     Cevaluate c (env |+ (n,v)) b res) ∨
 (∃err. Cevaluate c env e (Rerr err) ∧ (res = Rerr err))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
@@ -518,13 +513,16 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
     rw[] >> fs[] >>
     fsrw_tac[DNF_ss][Q.SPECL[`c`,`CConv m vs`] Cclosed_cases,EVERY_MEM,MEM_EL] ) >>
   strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >>
+    first_x_assum match_mp_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,IN_FRANGE,DOMSUB_FAPPLY_THM] >>
+    metis_tac[] ) >>
   strip_tac >- (
     rw[FOLDL_UNION_BIGUNION] >>
     first_x_assum match_mp_tac >>
     fsrw_tac[DNF_ss][SUBSET_DEF,FRANGE_DEF,DOMSUB_FAPPLY_THM] >>
     PROVE_TAC[] ) >>
-  strip_tac >- rw[] >>
   strip_tac >- (
     rw[FOLDL_UNION_BIGUNION_paired] >>
     qpat_assum `LENGTH ns = X` assume_tac >>
@@ -730,9 +728,8 @@ strip_tac >- (
   pop_assum mp_tac >> fs[LENGTH_ZIP,EL_ZIP] >>
   PROVE_TAC[]) >>
 strip_tac >- rw[Cevaluate_proj,result_rel_def] >>
-strip_tac >- rw[] >>
 strip_tac >- (
-  fs[Cevaluate_let_cons,FOLDL_UNION_BIGUNION,
+  fs[Cevaluate_let,FOLDL_UNION_BIGUNION,
      DRESTRICT_DEF,FUNION_DEF] >>
   rpt gen_tac >>
   strip_tac >> strip_tac >>
@@ -756,10 +753,9 @@ strip_tac >- (
   qexists_tac `v2` >>
   simp_tac(srw_ss())[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
   conj_tac >- final0 >>
-  `∀x. x ∈ free_vars c b ∧ ¬MEM x ns ⇒ (x = n) ∨ x ∈ FDOM env` by (
+  qmatch_assum_rename_tac`Cevaluate c (env |+ (n,v)) b res`[] >>
+  `∀x. x ∈ free_vars c b ⇒ (x = n) ∨ x ∈ FDOM env` by (
     PROVE_TAC[] ) >> fs[] >>
-  `∀x x'. x ∈ free_vars c x' ∧ MEM x' es ⇒ (x = n) ∨ x ∈ FDOM env` by (
-    PROVE_TAC[] ) >> fsrw_tac[SATISFY_ss][] >>
   first_x_assum (qspecl_then [`env' |+ (n,v2)`, `env1 |+ (n,v2)`] mp_tac) >>
   asm_simp_tac bool_ss [fmap_rel_FUPDATE_same,syneq_refl] >>
   `every_result (Cclosed c) rr` by (
@@ -791,10 +787,10 @@ strip_tac >- (
   qunabbrev_tac `env1` >>
   Q.PAT_ABBREV_TAC `env1 = X |+ (n,v2)` >>
   qunabbrev_tac `env0` >>
-  qmatch_assum_abbrev_tac `Cevaluate c (env0 ⊌ env1) (CLet ns es b) r` >>
+  qmatch_assum_abbrev_tac `Cevaluate c (env0 ⊌ env1) b r` >>
   final0 ) >>
 strip_tac >- (
-  rw[Cevaluate_let_cons,FOLDL_UNION_BIGUNION] >>
+  rw[Cevaluate_let,FOLDL_UNION_BIGUNION] >>
   disj2_tac >> fs[] >>
   first_x_assum (qspec_then `env'` mp_tac) >> rw[] >>
   qmatch_abbrev_tac `Cevaluate c env1 ee rr` >>
@@ -1551,12 +1547,11 @@ val Cevaluate_determ = store_thm("Cevaluate_determ",
   strip_tac >- (
     rw[Cevaluate_proj] >>
     res_tac >> fs[]) >>
-  strip_tac >- rw[] >>
   strip_tac >- (
-    rw[Cevaluate_let_cons] >>
+    rw[Cevaluate_let] >>
     res_tac >> fs[]) >>
   strip_tac >- (
-    rw[Cevaluate_let_cons] >>
+    rw[Cevaluate_let] >>
     res_tac >> fs[]) >>
   strip_tac >- (
     rw[] >>
