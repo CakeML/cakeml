@@ -97,6 +97,8 @@ val repl_exp_val = store_thm("repl_exp_val",
       simp[Abbr`bs0`] >>
       simp[Cexp_pred_free_labs] >>
       fs[env_rs_def,LET_THM] >>
+      conj_tac >- rw[Abbr`cs`] >>
+      conj_tac >- rw[Abbr`cs`] >>
       conj_tac >- (
         match_mp_tac Cenv_bs_append_code >>
         Q.PAT_ABBREV_TAC`pc = next_addr X Y` >>
