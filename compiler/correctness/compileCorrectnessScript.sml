@@ -2131,76 +2131,54 @@ val compile_val = store_thm("compile_val",
       fsrw_tac[DNF_ss][MEM_FILTER,is_Label_rwt,EVERY_MEM,between_def,MEM_MAP] >>
       rw[] >> res_tac >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
     map_every qunabbrev_tac[`P`,`Q`,`R`] >> fs[] >>
+    qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
     disch_then(Q.X_CHOOSE_THEN`bv'`strip_assume_tac) >>
     qexists_tac`bv'` >>
-
-    qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
-    `∃ls. cs1.out = ls ++ (compile cs exp).out` by (
-      rw[Abbr`cs1`] >>
-      BasicProvers.EVERY_CASE_TAC >> rw[] >>
-      qexists_tac`[]` >> rw[] >>
-      AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >>
-      rw[compiler_state_component_equality] ) >>
-    `bc_next^* (bs0 with code := bs.code) (bs1 with code := bs.code)` by (
+    qmatch_assum_abbrev_tac`bc_next^* bs2 bs3` >>
+    `bc_next^* bs (bs1 with code := bs.code)` by (
       match_mp_tac RTC_bc_next_append_code >>
       map_every qexists_tac[`bs0`,`bs1`] >>
-      rw[Abbr`bs0`,Abbr`bs1`] >>
-      rw[bc_state_component_equality] ) >>
-    `bs0 with code := bs.code = bs` by (
-      rw[Abbr`bs0`,bc_state_component_equality] ) >> fs[] >>
+      rw[Abbr`bs1`,Abbr`bs0`,bc_state_component_equality] >>
+      rw[Abbr`cs2`] >>
+      qspecl_then[`cs3`,`exp'`]mp_tac(CONJUNCT1 compile_append_out) >>
+      rw[] >> fs[] ) >>
+    `bc_next^* (bs2 with code := bs.code) (bs3 with code := bs.code)` by (
+      match_mp_tac RTC_bc_next_append_code >>
+      map_every qexists_tac[`bs2`,`bs3`] >>
+      rw[Abbr`bs2`,Abbr`bs3`,bc_state_component_equality] ) >>
+    `bs1 with code := bs.code = bs2 with code := bs.code` by (
+      rw[Abbr`bs2`,Abbr`bs1`,bc_state_component_equality] ) >>
     conj_tac >- (
-      qmatch_abbrev_tac `bc_next^* bs bs2` >>
-      qsuff_tac `bc_next^* (bs1 with code := bs.code) bs2` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
-      rw[bc_eval1_thm] >>
-      qmatch_abbrev_tac `bc_next^* bs3 bs2` >>
-      Cases_on `bs3 = bs2` >- rw[] >>
-      rw[RTC_eq_NRC] >>
-      qexists_tac `SUC 0` >> rw[] >>
-      `cs.tail = TCNonTail` by (
-        Cases_on `cs.tail` >> fs[] >>
-        `cs1 = compile cs exp` by (
-          rw[Abbr`cs1`] >>
-          AP_THM_TAC >> AP_TERM_TAC >>
-          rw[compiler_state_component_equality] ) >>
-        fs[Abbr`bs3`,Abbr`bs2`,bc_state_component_equality,Abbr`bs0`,Abbr`bs1`] >>
-        rw[] >> rfs[]) >>
-      fs[] >>
-      `cs.decl = NONE` by (
-        Cases_on `cs.decl` >> rw[] >>
-        qunabbrev_tac`cs1` >>
-        fs[Abbr`bs3`,Abbr`bs2`,Abbr`bs0`,Abbr`bs1`,bc_state_component_equality] >>
-        rw[] >> rfs[]) >>
-      fs[] >>
-      `ls = [Stack (Pops 0)]` by ( fs[Abbr`cs1`] ) >> rw[] >>
-      `bc_fetch bs3 = SOME (Stack (Pops 0))` by (
-        match_mp_tac bc_fetch_next_addr >>
-        rw[Abbr`bs3`,Abbr`bs1`,Abbr`cs1`] >>
-        CONV_TAC SWAP_EXISTS_CONV >>
-        qexists_tac`[]` >> rw[] ) >>
-      rw[bc_eval1_thm] >>
-      rw[bc_eval1_def] >>
-      rw[bump_pc_def] >>
-      rw[Abbr`bs3`,Abbr`bs1`] >>
-      rw[bc_eval_stack_def] >>
-      rw[Abbr`bs2`] >>
-      rw[bc_state_component_equality] >>
-      rw[Abbr`cs1`,FILTER_APPEND,SUM_APPEND] >>
-      srw_tac[ARITH_ss][] ) >>
+      qmatch_abbrev_tac`bc_next^* bs bs4` >>
+      `bc_next (bs3 with code := bs.code) bs4` by (
+        rw[bc_eval1_thm] >>
+        `bc_fetch (bs3 with code := bs.code) = SOME (Stack (Pops 1))` by (
+          match_mp_tac bc_fetch_next_addr >>
+          qunabbrev_tac`bs4` >>
+          rw[Abbr`bs3`] >>
+          qexists_tac`bc0 ++ REVERSE cs2.out`>>rw[] ) >>
+        rfs[] >>
+        rw[bc_eval1_def] >>
+        rw[bump_pc_def] >>
+        srw_tac[ARITH_ss][bc_eval_stack_def,Abbr`bs3`] >>
+        rw[Abbr`bs4`,bc_state_component_equality] >>
+        srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND] ) >>
+      metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] ) >>
     conj_tac >- (
       match_mp_tac Cv_bv_l2a_mono >>
-      qmatch_assum_abbrev_tac`Cv_bv pp v bv` >>
-      qexists_tac `pp` >>
+      qmatch_assum_abbrev_tac`Cv_bv pp v' bv'` >>
+      qexists_tac`pp` >>
       rw[Abbr`pp`] >>
-      rw[REVERSE_APPEND] >>
-      match_mp_tac bc_find_loc_aux_append_code >>
-      rw[] ) >>
-    qspecl_then[`cs`,`exp`]mp_tac(CONJUNCT1 compile_sz) >>
-    rw[] >> fs[] >>
+      match_mp_tac bc_find_loc_aux_append_code >> rw[] ) >>
+    match_mp_tac Cenv_bs_imp_incsz >>
+    qexists_tac`bs` >>
+    rw[bc_state_component_equality] >>
     match_mp_tac Cenv_bs_append_code >>
-    Q.PAT_ABBREV_TAC`pc = next_addr X Y` >>
-    qexists_tac `bs1 with pc := pc` >>
-    rw[Cenv_bs_pc] >>
-    rw[Abbr`bs1`,bc_state_component_equality] ) >>
+    qmatch_assum_abbrev_tac`Cenv_bs c env cs.env cs.sz bs00` >>
+    qexists_tac`bs00` >> rw[Abbr`bs00`,bc_state_component_equality] >>
+    rw[Abbr`cs2`] >>
+    qspecl_then[`cs3`,`exp'`]mp_tac(CONJUNCT1 compile_append_out) >>
+    rw[] >> fs[] ) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
