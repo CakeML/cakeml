@@ -376,13 +376,14 @@ val set_the_axioms_thm = prove(
   \\ `!x. evaluate' s env exp x = (x = (s,Rval res))` by
        METIS_TAC [big_exp_determ']
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ SIMP_TAC (srw_ss()) [Once do_app_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
-  \\ Q.LIST_EXISTS_TAC [`store_assign 2 res s`,`Rval (Litv Unit)`,
+  \\ `2 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
+  \\ ASM_SIMP_TAC (srw_ss()) [store_assign_def]
+  \\ Q.LIST_EXISTS_TAC [`LUPDATE res 2 s`,`Rval (Litv Unit)`,
        `refs with the_axioms := x`] \\ FULL_SIMP_TAC std_ss []
+  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
   \\ REVERSE STRIP_TAC THEN1
-   (FULL_SIMP_TAC std_ss [HOL_STORE_def,store_assign_def,EL_LUPDATE]
-    \\ FULL_SIMP_TAC (srw_ss()) [HOL_STORE_def,store_assign_def,EL_LUPDATE]
-    \\ SRW_TAC [] [] \\ `F` by DECIDE_TAC)
+   (FULL_SIMP_TAC std_ss [HOL_STORE_def,EL_LUPDATE]
+    \\ FULL_SIMP_TAC (srw_ss()) [HOL_STORE_def,EL_LUPDATE])
   \\ FULL_SIMP_TAC (srw_ss()) [HOL_MONAD_def,set_the_axioms_def]
   \\ EVAL_TAC);
 
