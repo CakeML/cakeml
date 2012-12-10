@@ -581,6 +581,7 @@ val evaluate'_empty_store_lemma = prove(
   \\ SRW_TAC [] []
   \\ TRY (Cases_on `find_recfun s''' l0` \\ FULL_SIMP_TAC (srw_ss()) [])
   \\ TRY (Cases_on `x` \\ FULL_SIMP_TAC (srw_ss()) [])
+  \\ TRY (Cases_on `n < LENGTH s3` \\ FULL_SIMP_TAC (srw_ss()) [])
   \\ FULL_SIMP_TAC std_ss [store_assign_def,empty_store_def,LUPDATE_NIL]
   \\ CCONTR_TAC
   \\ Q.PAT_ASSUM `(if bbb then xxx else zz) = SOME yyy` MP_TAC \\ FULL_SIMP_TAC std_ss []
