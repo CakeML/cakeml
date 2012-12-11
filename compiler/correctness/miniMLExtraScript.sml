@@ -23,7 +23,8 @@ val _ = export_rewrites["find_recfun_ALOOKUP"]
 val pat_vars_def = tDefine "pat_vars"`
 (pat_vars (Pvar v) = {v}) ∧
 (pat_vars (Plit l) = {}) ∧
-(pat_vars (Pcon c ps) = BIGUNION (IMAGE pat_vars (set ps)))`(
+(pat_vars (Pcon c ps) = BIGUNION (IMAGE pat_vars (set ps))) ∧
+(pat_vars (Pref p) = pat_vars p)`(
 WF_REL_TAC `measure pat_size` >>
 srw_tac[ARITH_ss][pat1_size_thm] >>
 Q.ISPEC_THEN `pat_size` imp_res_tac SUM_MAP_MEM_bound >>
@@ -38,10 +39,12 @@ val _ = export_rewrites["FINITE_pat_vars"]
 
 val FV_def = tDefine "FV"`
 (FV (Raise _) = {}) ∧
+(FV (Handle e1 x e2) = FV e1 ∪ (FV e2 DIFF {x})) ∧
 (FV (Lit _) = {}) ∧
 (FV (Con _ ls) = BIGUNION (IMAGE FV (set ls))) ∧
 (FV (Var x) = {x}) ∧
 (FV (Fun x e) = FV e DIFF {x}) ∧
+(FV (Uapp _ e) = FV e) ∧
 (FV (App _ e1 e2) = FV e1 ∪ FV e2) ∧
 (FV (Log _ e1 e2) = FV e1 ∪ FV e2) ∧
 (FV (If e1 e2 e3) = FV e1 ∪ FV e2 ∪ FV e3) ∧
@@ -67,20 +70,31 @@ val (evaluate_list_with_rules,evaluate_list_with_ind,evaluate_list_with_cases) =
 evaluate_rules |> SIMP_RULE (srw_ss()) [] |> concl |>
 strip_conj |>
 Lib.filter (fn tm => tm |> strip_forall |> snd |> strip_imp |> snd |> strip_comb |> fst |> same_const ``evaluate_list``) |>
-let val t1 = ``evaluate cenv env``
-    val t2 = ``evaluate_list cenv env``
+let val t1 = ``combin$C (evaluate cenv) env``
+    val t2 = ``combin$C (evaluate_list cenv) env``
     val tP = type_of t1
+    val s = ``s:store`` val s1 = ``s1:store``
+    val s' = ``s':store`` val s2 = ``s2:store``
     val P = mk_var ("P",tP)
     val ew = mk_comb(mk_var("evaluate_list_with",tP --> type_of t2),P)
+    val t1s1 = ``evaluate cenv s1 env``
+    val t2s1 = ``evaluate_list cenv s1 env``
+    val t2s2 = ``evaluate_list cenv s2 env``
+    val Ps1 = mk_comb(P,s1)
+    val ews1 = mk_comb(ew,s1)
+    val ews2 = mk_comb(ew,s2)
 in List.map (fn tm => tm |> strip_forall |> snd |>
-                   subst [t1|->P, t2|->ew])
+                   subst [s|->s1] |>
+                   subst [s'|->s2] |>
+                   subst [t1s1|->Ps1, t2s1|->ews1, t2s2|->ews2])
 end |> list_mk_conj)]
 
 val evaluate_list_with_evaluate = store_thm(
 "evaluate_list_with_evaluate",
-``∀cenv env. evaluate_list cenv env = evaluate_list_with (evaluate cenv env)``,
-ntac 2 gen_tac >>
+``∀cenv s env. evaluate_list cenv s env = evaluate_list_with (combin$C (evaluate cenv) env) s``,
+gen_tac >> CONV_TAC SWAP_FORALL_CONV >> gen_tac >>
 simp_tac std_ss [Once FUN_EQ_THM] >>
+CONV_TAC SWAP_FORALL_CONV >>
 Induct >>
 rw[FUN_EQ_THM] >-
   rw[Once evaluate_cases,Once evaluate_list_with_cases] >>
@@ -92,121 +106,154 @@ val (evaluate_match_with_rules,evaluate_match_with_ind,evaluate_match_with_cases
   (* evaluate_rules |> SIMP_RULE (srw_ss()) [] |> concl |> strip_conj |>
      Lib.filter (fn tm => tm |> strip_forall |> snd |> strip_imp |> snd |>
      strip_comb |> fst |> same_const ``evaluate_match``) *)
-   `(evaluate_match_with P cenv env v [] (Rerr (Rraise Bind_error))) ∧
+   `(evaluate_match_with P cenv s env v [] (s,Rerr (Rraise Bind_error))) ∧
     (ALL_DISTINCT (pat_bindings p []) ∧
-     (pmatch cenv p v env = Match env') ∧ P cenv env' e bv ⇒
-     evaluate_match_with P cenv env v ((p,e)::pes) bv) ∧
+     (pmatch cenv s p v env = Match env') ∧ P cenv s env' e bv ⇒
+     evaluate_match_with P cenv s env v ((p,e)::pes) bv) ∧
     (ALL_DISTINCT (pat_bindings p []) ∧
-     (pmatch cenv p v env = No_match) ∧
-     evaluate_match_with P cenv env v pes bv ⇒
-     evaluate_match_with P cenv env v ((p,e)::pes) bv) ∧
-    ((pmatch cenv p v env = Match_type_error) ⇒
-     evaluate_match_with P cenv env v ((p,e)::pes) (Rerr Rtype_error)) ∧
+     (pmatch cenv s p v env = No_match) ∧
+     evaluate_match_with P cenv s env v pes bv ⇒
+     evaluate_match_with P cenv s env v ((p,e)::pes) bv) ∧
+    ((pmatch cenv s p v env = Match_type_error) ⇒
+     evaluate_match_with P cenv s env v ((p,e)::pes) (s,Rerr Rtype_error)) ∧
     (¬ALL_DISTINCT (pat_bindings p []) ⇒
-     evaluate_match_with P cenv env v ((p,e)::pes) (Rerr Rtype_error))`
+     evaluate_match_with P cenv s env v ((p,e)::pes) (s,Rerr Rtype_error))`
 
 val evaluate_match_with_evaluate = store_thm(
 "evaluate_match_with_evaluate",
 ``evaluate_match = evaluate_match_with evaluate``,
 simp_tac std_ss [FUN_EQ_THM] >>
-ntac 3 gen_tac >>
+ntac 4 gen_tac >>
 Induct >-
   rw[Once evaluate_cases,Once evaluate_match_with_cases] >>
 rw[Once evaluate_cases] >>
 rw[Once evaluate_match_with_cases,SimpRHS] >>
 PROVE_TAC[])
 
-val evaluate_nice_ind = save_thm(
-"evaluate_nice_ind",
-evaluate_ind
-|> Q.SPECL [`P`,`λcenv env. evaluate_list_with (P cenv env)`,`evaluate_match_with P`] |> SIMP_RULE (srw_ss()) []
-|> UNDISCH_ALL
-|> CONJUNCTS
-|> List.hd
-|> DISCH_ALL
-|> Q.GEN `P`
-|> SIMP_RULE (srw_ss()) [])
-
-val evaluate_nice_strongind = save_thm(
-"evaluate_nice_strongind",
-evaluate_strongind
-|> Q.SPECL [`P`,`λcenv env. evaluate_list_with (P cenv env)`,`evaluate_match_with P`] |> SIMP_RULE (srw_ss()) []
-|> UNDISCH_ALL
-|> CONJUNCTS
-|> List.hd
-|> DISCH_ALL
-|> Q.GEN `P`
-|> SIMP_RULE (srw_ss()) [evaluate_list_with_evaluate])
-
 val evaluate_list_with_nil = store_thm(
 "evaluate_list_with_nil",
-``∀f res. evaluate_list_with f [] res = (res = Rval [])``,
+``∀f res. evaluate_list_with f s [] res = (res = (s,Rval []))``,
 rw[Once evaluate_list_with_cases])
 val _ = export_rewrites["evaluate_list_with_nil"];
 
 val evaluate_list_with_cons = store_thm(
 "evaluate_list_with_cons",
-``∀f e es res. evaluate_list_with f (e::es) res =
-  (∃v vs. f e (Rval v) ∧ evaluate_list_with f es (Rval vs) ∧ (res = Rval (v::vs))) ∨
-  (∃v err. f e (Rval v) ∧ evaluate_list_with f es (Rerr err) ∧ (res = Rerr err)) ∨
-  (∃err. f e (Rerr err) ∧ (res = Rerr err))``,
+``∀f s e es res. evaluate_list_with f s (e::es) res =
+  (∃s' s'' v vs. f s e (s',Rval v) ∧ evaluate_list_with f s' es (s'',Rval vs) ∧ (res = (s'',Rval (v::vs)))) ∨
+  (∃s' s'' v err. f s e (s',Rval v) ∧ evaluate_list_with f s' es (s'',Rerr err) ∧ (res = (s'',Rerr err))) ∨
+  (∃s' err. f s e (s',Rerr err) ∧ (res = (s',Rerr err)))``,
 rw[Once evaluate_list_with_cases] >> PROVE_TAC[])
+
+val evaluate_nice_ind = save_thm(
+"evaluate_nice_ind",
+evaluate_ind
+|> Q.SPECL [`P`,`λcenv s env. evaluate_list_with (P cenv env) s`,`evaluate_match_with P`] |> SIMP_RULE (srw_ss()) []
+|> UNDISCH_ALL
+|> CONJUNCTS
+|> List.hd
+|> DISCH_ALL
+|> Q.GEN `P`
+|> SIMP_RULE (srw_ss()) [evaluate_match_with_rules])
+
+val evaluate_nice_strongind = save_thm(
+"evaluate_nice_strongind",
+evaluate_strongind
+|> Q.SPECL [`P`,`λcenv s env. evaluate_list_with (P cenv env) s`,`evaluate_match_with P`] |> SIMP_RULE (srw_ss()) []
+|> UNDISCH_ALL
+|> CONJUNCTS
+|> List.hd
+|> DISCH_ALL
+|> Q.GEN `P`
+|> SIMP_RULE (srw_ss()) [evaluate_list_with_evaluate,evaluate_match_with_rules])
 
 val evaluate_list_with_error = store_thm(
 "evaluate_list_with_error",
-``!P ls err. evaluate_list_with P ls (Rerr err) =
-             (∃n. n < LENGTH ls ∧ P (EL n ls) (Rerr err) ∧
-               !m. m < n ⇒ ∃v. P (EL m ls) (Rval v))``,
-gen_tac >> Induct >- rw[evaluate_list_with_nil] >>
+``!P ls s s' err. evaluate_list_with P s ls (s',Rerr err) =
+      ∃l. LENGTH l < LENGTH ls ∧
+          (∀m. m < LENGTH l ⇒ ∃v. P (EL m (s::l)) (EL m ls) (EL m l, Rval v)) ∧
+          P (LAST (s::l)) (EL (LENGTH l) ls) (s',Rerr err)``,
+gen_tac >> Induct >- (
+  rw[evaluate_list_with_nil] >>
+  Cases_on `l` >> rw[] ) >>
 rw[EQ_IMP_THM,evaluate_list_with_cons] >- (
-  qexists_tac `SUC n` >>
+  qmatch_assum_rename_tac `P s h (s0,Rval v)`[] >>
+  qexists_tac `s0::l` >> simp[] >>
   rw[] >>
-  Cases_on `m` >> rw[] >- (
-    qexists_tac `v` >> rw[] ) >>
-  fs[] )
+  Cases_on `m` >> rw[] >>
+  fsrw_tac[ARITH_ss][] >>
+  qexists_tac `v` >> rw[] )
 >- (
-  qexists_tac `0` >>
-  rw[] ) >>
-Cases_on `n` >> fs[] >>
+  qexists_tac `[]` >>
+  srw_tac[ARITH_ss][] ) >>
+Cases_on `l` >> fs[] >>
 disj1_tac >>
 first_assum (qspec_then `0` mp_tac) >>
 simp_tac(srw_ss())[] >>
-rw[] >> qexists_tac `v` >> rw[] >>
-qmatch_assum_rename_tac `n < LENGTH ls` [] >>
-qexists_tac `n` >> rw[] >>
+rw[] >>
+qmatch_assum_rename_tac`P s h (h',Rval v)`[] >>
+qexists_tac`h'` >>
+qexists_tac `v` >> rw[] >>
+qmatch_assum_rename_tac `LENGTH t < LENGTH ls` [] >>
+qexists_tac `t` >> rw[] >>
 first_x_assum (qspec_then `SUC m` mp_tac) >>
 rw[])
 
 val evaluate_list_with_value = store_thm(
 "evaluate_list_with_value",
-``!P ls vs. evaluate_list_with P ls (Rval vs) = (LENGTH ls = LENGTH vs) ∧ ∀n. n < LENGTH ls ⇒ P (EL n ls) (Rval (EL n vs))``,
-gen_tac >> Induct >- rw[evaluate_list_with_nil,LENGTH_NIL_SYM] >>
-gen_tac >> Cases >> rw[evaluate_list_with_cons,EQ_IMP_THM] >- (
-  Cases_on `n` >> fs[] )
+``!P ls s s' vs. evaluate_list_with P s ls (s',Rval vs) =
+  (LENGTH vs = LENGTH ls) ∧
+  ∃l. (LENGTH l = LENGTH ls) ∧ (LAST (s::l) = s') ∧
+  ∀n. n < LENGTH ls ⇒ P (EL n (s::l)) (EL n ls) (EL n l, Rval (EL n vs))``,
+gen_tac >> Induct >- (
+  rw[evaluate_list_with_nil,LENGTH_NIL] >>
+  PROVE_TAC[] ) >>
+ntac 3 gen_tac >>
+Cases >> rw[evaluate_list_with_cons,EQ_IMP_THM] >- fs[]
 >- (
-  first_x_assum (qspec_then `0` mp_tac) >>
-  rw[] ) >>
-first_x_assum (qspec_then `SUC n` mp_tac) >>
+  qmatch_assum_rename_tac`P s h (s0,Rval v)`[] >>
+  qexists_tac`s0::l`>>rw[] >>
+  Cases_on`n`>>rw[] >>
+  first_x_assum match_mp_tac >>
+  fs[]) >>
+qexists_tac`HD l` >>
+first_assum (qspec_then `0` mp_tac) >> simp_tac(srw_ss())[] >> rw[] >>
+qexists_tac `TL l` >>
+Cases_on`l`>>fs[] >> rw[] >>
+first_x_assum(qspec_then`SUC n`mp_tac) >>
 rw[])
 
 val evaluate_list_with_EVERY = store_thm(
 "evaluate_list_with_EVERY",
-``∀P es vs. evaluate_list_with P es (Rval vs) = (LENGTH es = LENGTH vs) ∧ EVERY (UNCURRY P) (ZIP (es,MAP Rval vs))``,
+``∀P es s s' vs. evaluate_list_with P s es (s',Rval vs) =
+  (LENGTH vs = LENGTH es) ∧
+  ∃l. (LENGTH l = SUC (LENGTH es)) ∧ (HD l = s) ∧ (LAST l = s') ∧
+  EVERY (UNCURRY (UNCURRY P)) (ZIP (ZIP (FRONT l,es), ZIP (TL l,MAP Rval vs)))``,
 gen_tac >> Induct >- (
-  rw[evaluate_list_with_nil,LENGTH_NIL_SYM,EQ_IMP_THM] ) >>
-rw[evaluate_list_with_cons,EQ_IMP_THM] >> rw[] >>
-Cases_on `vs` >> fs[])
+  rw[evaluate_list_with_nil,EQ_IMP_THM,LENGTH_NIL] >-
+    (qexists_tac`[s]` >> rw[]) >>
+  Cases_on`l`>>fs[]>>
+  Cases_on`t`>>fs[]) >>
+rw[evaluate_list_with_cons,EQ_IMP_THM] >> rw[] >- (
+  qexists_tac`s::l` >>
+  Cases_on`l`>>fs[] ) >>
+Cases_on `vs` >> fs[] >>
+Cases_on`l`>>fs[] >>
+Cases_on`t'`>>fs[] >>
+qexists_tac`h'''` >> rw[] >>
+qexists_tac`h'''::t''`>>fs[])
 
 val do_prim_app_FV = store_thm(
 "do_prim_app_FV",
-``∀env op v1 v2 env' exp.
+``∀s env op v1 v2 s' env' exp.
   (op ≠ Opapp) ∧
-  (do_app env op v1 v2 = SOME (env',exp)) ⇒
+  (do_app s env op v1 v2 = SOME (s',env',exp)) ⇒
   (FV exp = {})``,
-gen_tac >> Cases >>
+ntac 2 gen_tac >> Cases >>
 Cases >> TRY (Cases_on `l`) >>
 Cases >> TRY (Cases_on `l`) >>
-rw[do_app_def] >> rw[])
+rw[do_app_def] >> rw[] >>
+fs[store_assign_def] >>
+pop_assum mp_tac >> rw[] >> fs[])
 
 val do_log_FV = store_thm(
 "do_log_FV",
