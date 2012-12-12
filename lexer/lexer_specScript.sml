@@ -1,7 +1,8 @@
 (* The specification of a lexer in terms of regular expressions *)
 open preamble;
-open stringTheory finite_mapTheory;
+open stringTheory finite_mapTheory rich_listTheory;
 open lcsymtacs;
+open regexpTheory;
 
 val strcat_lem = Q.prove (
 `!s1 s2 s3 s4.
@@ -15,40 +16,21 @@ Cases_on `s3` >>
 fs [] >>
 metis_tac []);
 
+val append_length_gt = Q.prove (
+`!s1 s2 s3 s4.
+  (LENGTH s1 > LENGTH s3) ∧ (s1 ++ s2 = s3 ++ s4) ⇒
+  ?c s5. (s1 = s3 ++ c::s5)`,
+Induct_on `s1` >>
+rw [] >>
+cases_on `s3` >>
+full_simp_tac (srw_ss()++ARITH_ss) [] >>
+rw [] >>
+`LENGTH s1 > LENGTH t` by DECIDE_TAC >>
+metis_tac []);
+
 val _ = new_theory "lexer_spec";
 
-val _ = Hol_datatype `
-regexp =
-    CharSet of char set
-  | StringLit of string
-  | Cat of regexp => regexp
-  | Star of regexp
-  | Plus of regexp
-  | Or of regexp list
-  | Neg of regexp`;
-
 val _ = type_abbrev ("lexer_spec", ``:(regexp#(string->'a)) list``);
-
-val regexp_matches_def = tDefine "regexp_matches" `
-(regexp_matches (CharSet ns) s =
-  ∃c. c IN ns ∧ (s = [c])) ∧
-(regexp_matches (StringLit s') s =
-  (s = s')) ∧
-(regexp_matches (Cat r1 r2) s =
-  ∃s1 s2. regexp_matches r1 s1 ∧ regexp_matches r2 s2 ∧ (s = s1 ++ s2)) ∧
-(regexp_matches (Star r) s =
-  ∃ss. EVERY (regexp_matches r) ss ∧ (s = FLAT ss)) ∧
-(regexp_matches (Plus r) s =
-  ∃ss. (ss ≠ []) ∧ EVERY (regexp_matches r) ss ∧ (s = FLAT ss)) ∧
-(regexp_matches (Or rs) s =
-  EXISTS (\r. regexp_matches r s) rs) ∧
-(regexp_matches (Neg r) s =
-  ~regexp_matches r s)`
-(WF_REL_TAC `measure (\(x,y). regexp_size x)` >>
-srw_tac [ARITH_ss] [] >>
-Induct_on `rs` >>
-rw [fetch "-" "regexp_size_def"] >>
-full_simp_tac (srw_ss()++ARITH_ss) []);
 
 val lexer_spec_matches_prefix_def = Define `
 lexer_spec_matches_prefix lexer_spec n tok lexeme s_rest s =
@@ -75,6 +57,80 @@ val correct_lex_def = Define `
         lexer_spec_matches_prefix lexer_spec n' tok' lexeme' s_rest' s ⇒
         (LENGTH lexeme' ≠ LENGTH lexeme) ∨
         (n ≤ n')))`;
+
+val lexer_spec_matches_prefix_alt_def = Define `
+lexer_spec_matches_prefix_alt lexer_spec tok lexeme s_rest s =
+  ∃r f. (MEM (r,f) lexer_spec) ∧
+        (tok = f lexeme) ∧ regexp_matches r lexeme ∧
+        (s = lexeme ++ s_rest)`;
+
+val lexer_spec_matches_equiv = Q.store_thm ("lexer_spec_matches_equiv",
+`!lexer_spec tok lexeme s_rest s.
+  lexer_spec_matches_prefix_alt lexer_spec tok lexeme s_rest s =
+  ?n. lexer_spec_matches_prefix lexer_spec n tok lexeme s_rest s`,
+rw [lexer_spec_matches_prefix_def, lexer_spec_matches_prefix_alt_def] >>
+EQ_TAC >>
+rw [MEM_EL] >>
+metis_tac []);
+
+val correct_lex_thm = Q.store_thm ("correct_lex_thm",
+`!lexer_spec s tok toks.
+ (correct_lex lexer_spec s [] = (s = [])) ∧
+ (correct_lex lexer_spec s (tok::toks) =
+   ∃lexeme n s_rest.
+     (lexeme ≠ []) ∧
+     lexer_spec_matches_prefix lexer_spec n tok lexeme s_rest s ∧
+     correct_lex lexer_spec s_rest toks ∧
+     (* Ensure a longest match  *)
+     (∀tok' lexeme' s_rest'.
+        (lexeme' ≠ "") ∧
+        (s_rest = lexeme'++s_rest') ⇒
+        ¬lexer_spec_matches_prefix_alt lexer_spec tok' (lexeme++lexeme') s_rest' s) ∧
+     (* Ensure the earliest match of equal length *)
+     (∀tok'.
+        ¬lexer_spec_matches_prefix_alt (TAKE n lexer_spec) tok' lexeme s_rest s))`,
+rw [] >>
+rw [Once correct_lex_def] >>
+eq_tac >>
+rw [lexer_spec_matches_prefix_alt_def, lexer_spec_matches_prefix_def] >|
+[qexists_tac `lexeme` >>
+     qexists_tac `n` >>
+     qexists_tac `s_rest` >>
+     rw [] >>
+     CCONTR_TAC  >>
+     fs [MEM_EL] >>
+     rw [] >|
+     [`STRLEN (STRCAT lexeme lexeme') ≤ STRLEN lexeme`
+                    by metis_tac [] >>
+          fs [] >>
+          `STRLEN lexeme' = 0` by DECIDE_TAC >>
+          cases_on `lexeme'` >>
+          fs [],
+      `n ≤ LENGTH lexer_spec` by DECIDE_TAC >>
+          fs [LENGTH_TAKE] >>
+          `(r',f') = EL n' lexer_spec` by metis_tac [EL_TAKE, LENGTH_TAKE] >>
+          `n' < LENGTH lexer_spec` by DECIDE_TAC >>
+          `n ≤ n'` by metis_tac [LENGTH_TAKE] >>
+          DECIDE_TAC],
+ qexists_tac `lexeme` >>
+     qexists_tac `n` >>
+     qexists_tac `s_rest` >>
+     rw [] >>
+     CCONTR_TAC >>
+     fs [] >|
+     [`STRLEN lexeme' > STRLEN lexeme` by DECIDE_TAC >>
+          `?c lexeme''. lexeme' = lexeme++c::lexeme''`
+                   by metis_tac [append_length_gt] >>
+          fs [MEM_EL] >>
+          rw [] >>
+          `c::lexeme'' ≠ ""` by rw [] >>
+          metis_tac [APPEND, APPEND_ASSOC],
+      `lexeme = lexeme'` by metis_tac [strcat_lem] >>
+         `n' < n ∧ n' ≤ LENGTH lexer_spec ∧ n ≤ LENGTH lexer_spec`
+                      by DECIDE_TAC >>
+          fs [MEM_EL] >>
+          rw [] >>
+          metis_tac [EL_TAKE, LENGTH_TAKE]]]);
 
 val correct_lex_determ = Q.store_thm ("correct_lex_determ",
 `!lexer_spec s toks toks'.

@@ -1,8 +1,10 @@
 open preamble;
 open lcsymtacs;
-open lexer_specTheory Print_astTheory;
+open intLib;
+open lexer_specTheory;
+open TokensTheory
 
-val _ = new_theory "MLlexer";
+val _ = new_theory "SMLlex";
 
 val string_to_num_def = Define `
 (string_to_num "" = 0) ∧
@@ -14,7 +16,8 @@ val string_to_int_def = Define `
 (string_to_int s = &(string_to_num (REVERSE s)))`;
 
 (*
-The standard ML lexer is translated directly from Hamlet, which as this license:
+The standard ML lexer is translated directly from Hamlet, which has this
+license:
 
 Copyright (c) 1999-2007 Andreas Rossberg
 
@@ -123,7 +126,7 @@ val longid_def = Define `
 longid = Cat (Plus (Cat alphanumid (StringLit ".")))
              (Or [id; StringLit "="; StringLit "*"])`;
 
-val printable = Define `
+val printable_def = Define `
 printable = CharSet (set
 "!#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]\094_\096abcdefghijklmnopqrstuvwxyz{|}~")`;
 
@@ -150,6 +153,37 @@ string = Cat (StringLit "\"")
 val char_def = Define `
 char = Cat (StringLit "#\"")
            (Cat (Star gap) (Cat stringchar (Cat (Star gap) (StringLit "\""))))`;
+
+val all_SML_regexps = 
+  save_thm ("all_SML_regexps",
+            LIST_CONJ [formatting_def,
+                       letter_def,
+                       symbol_def,
+                       digit_def,
+                       digit_not_zero_def,
+                       hexdigit_def,
+                       posdecint_def,
+                       poshexint_def,
+                       negdecint_def,
+                       neghexint_def,
+                       decint_def,
+                       hexint_def,
+                       decword_def,
+                       hexword_def,
+                       exp_def,
+                       real_def,
+                       numericlab_def,
+                       alphanumid_def,
+                       symbolicid_def,
+                       id_def,
+                       tyvar_def,
+                       longid_def ,
+                       printable_def,
+                       escape_def, 
+                       gap_def, 
+                       stringchar_def,
+                       string_def,
+                       char_def]);
 
 val SML_lex_spec_def = Define `
 SML_lex_spec : token lexer_spec =
@@ -225,7 +259,7 @@ SML_lex_spec : token lexer_spec =
  (real,                  (\s. RealT s));
  (string,                (\s. StringT s));
  (char,                  (\s. CharT s));
- (tyvar,                 (\s. TyvarT s));
+ (tyvar,                 (\s. TyvarT (TL s)));
  (alphanumid,            (\s. AlphaT s));
  (symbolicid,            (\s. SymbolT s));
  (longid,                (\s. LongidT s))]`;

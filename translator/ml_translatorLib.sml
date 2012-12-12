@@ -3,7 +3,8 @@ struct
 
 open HolKernel boolLib bossLib;
 
-open MiniMLTheory MiniMLTerminationTheory Print_astTerminationTheory;
+open MiniMLTheory MiniMLTerminationTheory;
+open Print_astTheory Print_astTerminationTheory intLib;
 open ml_translatorTheory;
 open arithmeticTheory listTheory combinTheory pairTheory;
 open integerTheory intLib ml_optimiseTheory;
@@ -243,8 +244,8 @@ in
   fun string_tl s = s |> explode |> tl |> implode
   fun type2t ty =
     if ty = ``:bool`` then ``Tbool`` else
-    if ty = ``:int`` then ``Tnum`` else
-    if ty = ``:num`` then ``Tnum`` else
+    if ty = ``:int`` then ``Tint`` else
+    if ty = ``:num`` then ``Tint`` else
     if can dest_vartype ty then
       mk_comb(``Tvar``,stringSyntax.fromMLstring (string_tl (dest_vartype ty)))
     else let
@@ -357,13 +358,12 @@ val quietDefine = (* quiet version of Define -- by Anthony Fox *)
 local
   fun dec2str sml d = let (* very slow at the moment *)
     val result =
-      (if sml then ``dec_to_sml_string ^d`` else ``dec_to_ocaml_string ^d``)
+      ``dec_to_sml_string ^d``
       |> EVAL |> concl |> rand |> stringSyntax.fromHOLstring
       handle HOL_ERR _ => failwith("\nUnable to print "^(term_to_string d)^"\n\n")
     in result end;
 in
   fun dec2str_sml d = dec2str true d
-  fun dec2str_ocaml d = dec2str false d
 end
 
 
@@ -376,7 +376,7 @@ local
   val print_items = ref ([]:print_item list)
   val prelude_name = ref (NONE: string option);
   fun add_print_item i = (print_items := i :: (!print_items))
-  val files = ["_ml.txt","_ocaml.txt","_hol.txt","_thm.txt","_ast.txt"]
+  val files = ["_ml.txt","_hol.txt","_thm.txt","_ast.txt"]
   fun check_suffix suffix = mem suffix files orelse failwith("bad file suffix")
   fun clear_file suffix = if (!base_filename) = "" then () else let
     val _ = check_suffix suffix
@@ -414,10 +414,6 @@ local
     val _ = print "Printing SML syntax ... "
     val _ = print_prelude_comment "_ml.txt"
     val _ = print_decls_aux ds "_ml.txt" (fn tm => ["\n",print_str (dec2str_sml tm),"\n"])
-    val _ = print "done.\n"
-    val _ = print "Printing Ocaml syntax ... "
-    val _ = print_prelude_comment "_ocaml.txt"
-    val _ = print_decls_aux ds "_ocaml.txt" (fn tm => ["\n",print_str (dec2str_ocaml tm),"\n"])
     val _ = print "done.\n"
     in () end;
   fun print_item (InvDef inv_def) = let
@@ -764,7 +760,7 @@ fun define_ref_inv tys = let
     (WF_REL_TAC [QUOTE ("measure (" ^ build_measure tys ^ ")")]
      \\ REPEAT STRIP_TAC
      \\ TRY (Q.PAT_ASSUM `MEM x xs` (fn th =>
-              ASSUME_TAC th THEN Induct_on [ANTIQUOTE (rand (concl th))]))
+              ASSUME_TAC th THEN Induct_on [ANTIQUOTE (rand (rand (concl th)))]))
      \\ FULL_SIMP_TAC std_ss [MEM,FORALL_PROD,size_def] \\ REPEAT STRIP_TAC
      \\ FULL_SIMP_TAC std_ss [] \\ RES_TAC \\ DECIDE_TAC)
 (*
@@ -773,6 +769,7 @@ fun define_ref_inv tys = let
   val inv_def = tDefine name [ANTIQUOTE def_tm] tac
   val inv_def = CONV_RULE (DEPTH_CONV ETA_CONV) inv_def
   val inv_def = REWRITE_RULE [GSYM rw_lemmas] inv_def
+  val _ = save_thm(name ^ "_def",inv_def)
   val ind = fetch "-" (name ^ "_ind") handle HOL_ERR _ => TypeBase.induction_of (hd tys)
 (*
   val CHEAT_TAC = ((fn x => ([],fn _ => mk_thm x)) :tactic)
@@ -869,6 +866,7 @@ fun derive_thms_for_type ty = let
   val _ = map (fn (_,inv_def,_) => print_inv_def inv_def) inv_defs
   fun list_mk_type [] ret_ty = ret_ty
     | list_mk_type (x::xs) ret_ty = mk_type("fun",[type_of x,list_mk_type xs ret_ty])
+
   (* prove lemma for case_of *)
   fun prove_case_of_lemma (ty,case_th,inv_lhs,inv_def) = let
     val cases_th = TypeBase.case_def_of ty
@@ -971,7 +969,8 @@ fun derive_thms_for_type ty = let
           \\ Q.EXISTS_TAC `res'` \\ FULL_SIMP_TAC std_ss []
           \\ ASM_SIMP_TAC (srw_ss()) []
           \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
-          \\ Q.EXISTS_TAC `res` \\ FULL_SIMP_TAC std_ss []
+          \\ Q.EXISTS_TAC `res`
+          \\ Q.EXISTS_TAC `empty_store` \\ FULL_SIMP_TAC std_ss []
           \\ NTAC (2 * length ts) (ASM_SIMP_TAC (srw_ss())
                [Once evaluate'_cases,pmatch'_def,bind_def,pat_bindings_def])
     val tac = init_tac THENL (map (fn (n,f,fxs,pxs,tm,exp,xs) => case_tac n) ts)
@@ -1547,6 +1546,16 @@ fun rm_fix res = let
   val tm2 = QCONV (REWRITE_CONV [lemma]) res |> concl |> dest_eq |> snd
   in tm2 end
 
+val MAP_pattern = ``MAP (f:'a->'b)``
+
+(*
+val tm = rhs
+
+val tm = ``MAP (\v3. type_subst v6 v3) args``
+val tm = ``MAP (\v3. type_subst v6 v3)``
+
+*)
+
 fun hol2deep tm =
   (* variables *)
   if is_var tm then let
@@ -1606,7 +1615,7 @@ fun hol2deep tm =
     val (p,x1,x2,lemma) = dest_builtin_binop tm
     val th1 = hol2deep x1
     val th2 = hol2deep x2
-    val result = MATCH_MP (MATCH_MP lemma th1) th2 |> UNDISCH_ALL
+    val result = MATCH_MP (MATCH_MP lemma th1) (UNDISCH_ALL th2) |> UNDISCH_ALL
     in check_inv "binop" tm result end else
   (* boolean not *)
   if can (match_term ``~(b:bool)``) tm then let
@@ -1654,6 +1663,28 @@ fun hol2deep tm =
     val th2 = INST [v|->z] th2
     val result = MATCH_MP Eval_Let (CONJ th1 th2)
     in check_inv "let" tm result end else
+  (* special pattern *) let
+    val _ = match_term MAP_pattern tm
+    val (m,f) = dest_comb tm
+    val th_m = hol2deep ``MAP:('a->'b) -> 'a list -> 'b list``
+    val (v,x) = dest_abs f
+    val th_f = hol2deep x
+    val th_f = apply_Eval_Fun v th_f true
+    val thi = th_f |> DISCH_ALL |> RW [AND_IMP_INTRO] |> GEN v
+    val thi = HO_MATCH_MP Eq_IMP_And thi
+    val thi = MATCH_MP (MATCH_MP Eval_Arrow th_m) thi
+    val list_type_def = fetch "-" "LIST_TYPE_def"
+    val LIST_TYPE_And = prove(
+     ``LIST_TYPE (And a P) = And (LIST_TYPE a) (EVERY (P:'a->bool))``,
+     SIMP_TAC std_ss [FUN_EQ_THM,And_def] \\ Induct
+     \\ FULL_SIMP_TAC std_ss [MEM,list_type_def]
+     \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
+     \\ FULL_SIMP_TAC (srw_ss()) [And_def])
+    val thi = RW [LIST_TYPE_And] thi
+    val thi = MATCH_MP And_IMP_Eq thi |> SIMP_RULE std_ss [EVERY_MEM]
+    val thi = thi |> CONV_RULE ((RATOR_CONV o RAND_CONV) (REWR_CONV (GSYM PRECONDITION_def)))
+    val result = thi |> UNDISCH_ALL
+    in check_inv "map" tm result end handle HOL_ERR _ =>
   (* normal function applications *)
   if is_comb tm then let
     val (f,x) = dest_comb tm
@@ -1898,6 +1929,7 @@ fun translate def = let
       \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
       \\ REPEAT STRIP_TAC
       \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
+      \\ FULL_SIMP_TAC std_ss [pair_case_def]
       \\ METIS_TAC []);
     val th = UNDISCH lemma |> SPECL (rev rev_params)
     val th = RW [PreImp_def] th |> UNDISCH_ALL

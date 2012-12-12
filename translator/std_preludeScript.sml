@@ -98,20 +98,8 @@ val res = translate EXISTS_DEF;
 val res = translate GENLIST;
 val res = translate PAD_RIGHT;
 val res = translate PAD_LEFT;
-
-val _ = Parse.hide "MEM"
-
-val MEM_def = Define `
-  (MEM x [] = F) /\
-  (MEM x (y::ys) = (x = y) \/ MEM x ys)`;
-
-val res = translate MEM_def;
-
-val MEM_thm = prove(
-  ``!xs (x:'a). IS_EL x xs = MEM x xs``,
-  Induct THEN FULL_SIMP_TAC std_ss [MEM,MEM_def]);
-
-val res = translate (ALL_DISTINCT |> REWRITE_RULE [MEM_thm]);
+val res = translate MEMBER_def;
+val res = translate (ALL_DISTINCT |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate isPREFIX;
 val res = translate FRONT_DEF;
 val res = translate ZIP;
@@ -301,8 +289,9 @@ val IS_SOME_OWHILE_THM = prove(
   THEN IMP_RES_TAC LESS_LEAST THEN FULL_SIMP_TAC std_ss []);
 
 val evaluate_closure_INTRO = prove(
-  ``(?env' e3. (do_app env Opapp v2 v3 = SOME (env',e3)) /\
-               evaluate' env' e3 (Rval v2')) = evaluate_closure v3 v2 v2'``,
+  ``(?env' e3. (do_app empty_store env Opapp v2 v3 = SOME (empty_store,env',e3)) /\
+               evaluate' empty_store env' e3 (empty_store,Rval (v2'))) =
+    evaluate_closure v3 v2 v2'``,
   SIMP_TAC (srw_ss()) [evaluate_closure_def,do_app_def]);
 
 val EXISTS_SWAP = METIS_PROVE [] ``(?x y. P x y) ==> (?y x. P x y)``
@@ -371,6 +360,8 @@ val tac =
   THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
   THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
   THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
+  THEN ONCE_REWRITE_TAC [evaluate'_empty_store] THEN FULL_SIMP_TAC std_ss []
+  THEN ONCE_REWRITE_TAC [evaluate'_empty_store] THEN FULL_SIMP_TAC std_ss []
   THEN FULL_SIMP_TAC std_ss [evaluate_closure_INTRO]
   THEN FULL_SIMP_TAC std_ss [PULL_EXISTS,PULL_FORALL]
   THEN HO_MATCH_MP_TAC EXISTS_SWAP

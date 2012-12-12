@@ -1,0 +1,2 @@
+INCLUDES=.. ../lexer ../semantics
+OPTIONS = QUIT_ON_FAILURE
