@@ -19,14 +19,15 @@ rw [Once evaluate_cases]);
 val evaluate_var = store_thm(
 "evaluate_var",
 ``∀cenv s env n r. evaluate cenv s env (Var n) r =
-  (∃v. (lookup n env = SOME v) ∧ (r = (s, Rval v))) ∨
-  ((lookup n env = NONE) ∧ (r = (s, Rerr Rtype_error)))``,
+  (∃v topt. (db_lookup n env = SOME (v, topt)) ∧ (r = (s, Rval v))) ∨
+  ((db_lookup n env = NONE) ∧ (r = (s, Rerr Rtype_error)))``,
 rw [Once evaluate_cases] >>
 metis_tac [])
 
 val evaluate_fun = store_thm(
 "evaluate_fun",
-``∀cenv s env n e r. evaluate cenv s env (Fun n e) r = (r = (s, Rval (Closure env n e)))``,
+``∀cenv s env n topt e r. 
+  evaluate cenv s env (Fun n topt e) r = (r = (s, Rval (Closure env n topt e)))``,
 rw [Once evaluate_cases])
 
 val _ = export_rewrites["evaluate_raise","evaluate_lit","evaluate_fun"];
@@ -76,7 +77,8 @@ rw [Once evaluate'_cases])
 
 val evaluate'_fun = store_thm(
 "evaluate'_fun",
-``∀s env n e r. evaluate' s env (Fun n e) r = (r = (s, Rval (Closure env n e)))``,
+``∀s env n topt e r. 
+  evaluate' s env (Fun n topt e) r = (r = (s, Rval (Closure env n topt e)))``,
 rw [Once evaluate'_cases])
 
 val _ = export_rewrites["evaluate'_raise","evaluate'_lit","evaluate'_fun"]
@@ -92,8 +94,8 @@ metis_tac [])
 val evaluate'_var = store_thm(
 "evaluate'_var",
 ``∀s env n r. evaluate' s env (Var n) r =
-  (∃v. (lookup n env = SOME v) ∧ (r = (s, Rval v)) ∨
-  ((lookup n env = NONE) ∧ (r = (s, Rerr Rtype_error))))``,
+  (∃v topt. (db_lookup n env = SOME (v,topt)) ∧ (r = (s, Rval v)) ∨
+  ((db_lookup n env = NONE) ∧ (r = (s, Rerr Rtype_error))))``,
 rw [Once evaluate'_cases] >>
 metis_tac [])
 

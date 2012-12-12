@@ -222,14 +222,14 @@ val small_eval_match = Q.prove (
 small_eval_step_tac);
 
 val small_eval_let = Q.prove (
-`!cenv s env n e1 e2 c r.
-  small_eval cenv s env (Let n e1 e2) c r =
-  small_eval cenv s env e1 ((Clet n () e2,env)::c) r`,
+`!cenv s env n topt e1 e2 c r.
+  small_eval cenv s env (Let n topt e1 e2) c r =
+  small_eval cenv s env e1 ((Clet n topt () e2,env)::c) r`,
 small_eval_step_tac);
 
 val small_eval_letrec = Q.prove (
 `!cenv s env funs e1 c r.
-  ALL_DISTINCT (MAP (λ(x,y,z). x) funs) ⇒
+  ALL_DISTINCT (MAP (λ(x,topt1,y,topt2,z). x) funs) ⇒
   (small_eval cenv s env (Letrec funs e1) c r =
    small_eval cenv s (build_rec_env funs env) e1 c r)`,
 small_eval_step_tac);
@@ -482,7 +482,7 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
      `e_step_reln^* (cenv,s,env,Exp e,[(Chandle () var e',env)]) (cenv,s',env',Exp (Raise (Int_error n)),[(Chandle () var e',env)])`
                  by metis_tac [APPEND,e_step_add_ctxt] >>
      `e_step_reln (cenv,s',env',Exp (Raise (Int_error n)),[(Chandle () var e',env)]) 
-                  (cenv,s',(bind var (Litv (IntLit n)) env),Exp e',[])`
+                  (cenv,s',(db_bind var (Litv (IntLit n), SOME Tint) env),Exp e',[])`
                  by (rw [e_step_reln_def, e_step_def, continue_def, return_def]) >>
      metis_tac [RTC_SINGLE, small_eval_prefix],
  fs [small_eval_def] >>
@@ -681,15 +681,15 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
                  rw []) >>
      fs [],
  fs [small_eval_def] >>
-     `e_step_reln^* (cenv,s,env,Exp e,[(Clet n () e',env)])
-                    (cenv,s',env',Val v,[(Clet n () e',env)])`
+     `e_step_reln^* (cenv,s,env,Exp e,[(Clet n topt () e',env)])
+                    (cenv,s',env',Val v,[(Clet n topt () e',env)])`
              by metis_tac [e_step_add_ctxt, APPEND] >>
-     `e_step_reln (cenv,s',env',Val v,[(Clet n () e',env)])
-                  (cenv,s',bind n v env,Exp e',[])`
+     `e_step_reln (cenv,s',env',Val v,[(Clet n topt () e',env)])
+                  (cenv,s',db_bind n (v,topt) env,Exp e',[])`
              by rw [e_step_def, e_step_reln_def, continue_def, push_def] >>
-     metis_tac [transitive_RTC, RTC_SINGLE, transitive_def,
-                small_eval_prefix],
- `small_eval cenv s env e ([] ++ [(Clet n () e2,env)]) (s', Rerr err)`
+     match_mp_tac small_eval_prefix >>
+     metis_tac [transitive_RTC, RTC_SINGLE, transitive_def],
+ `small_eval cenv s env e ([] ++ [(Clet n topt () e2,env)]) (s', Rerr err)`
              by (match_mp_tac small_eval_err_add_ctxt >>
                  rw []) >>
      fs [],
@@ -730,7 +730,7 @@ val evaluate_ctxts_cons = Q.prove (
   (?var e' s2 env v' res2 v i.
      (res1 = Rerr (Rraise (Int_error i))) ∧
      (f = (Chandle () var e',env)) ∧
-     evaluate cenv s1 (bind var (Litv (IntLit i)) env) e' (s2, res2) ∧
+     evaluate cenv s1 (db_bind var (Litv (IntLit i), SOME Tint) env) e' (s2, res2) ∧
      evaluate_ctxts cenv s2 cs res2 bv)`,
 rw [] >>
 rw [Once evaluate_ctxts_cases] >>

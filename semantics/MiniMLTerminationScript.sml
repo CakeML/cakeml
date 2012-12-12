@@ -9,10 +9,14 @@ val tac = Induct >- rw[exp_size_def,pat_size_def,v_size_def] >> srw_tac [ARITH_s
 fun tm t1 t2 =  ``∀ls. ^t1 ls = SUM (MAP ^t2 ls) + LENGTH ls``
 fun size_thm name t1 t2 = store_thm(name,tm t1 t2,tac)
 val exp1_size_thm = size_thm "exp1_size_thm" ``exp1_size`` ``exp2_size``
+(*
 val exp4_size_thm = size_thm "exp4_size_thm" ``exp4_size`` ``exp5_size``
 val exp6_size_thm = size_thm "exp6_size_thm" ``exp6_size`` ``exp_size``
+*)
 val pat1_size_thm = size_thm "pat1_size_thm" ``pat1_size`` ``pat_size``
+(*
 val v1_size_thm = size_thm "v1_size_thm" ``v1_size`` ``v2_size``
+*)
 val v3_size_thm = size_thm "v3_size_thm" ``v3_size`` ``v_size``
 
 val SUM_MAP_exp2_size_thm = store_thm(
@@ -25,6 +29,7 @@ qx_gen_tac `p` >>
 PairCases_on `p` >>
 srw_tac[ARITH_ss][exp_size_def])
 
+(*
 val SUM_MAP_exp3_size_thm = store_thm(
 "SUM_MAP_exp3_size_thm",
 ``∀ls. SUM (MAP exp3_size ls) = SUM (MAP (list_size char_size) (MAP FST ls)) +
@@ -32,7 +37,9 @@ val SUM_MAP_exp3_size_thm = store_thm(
                                 LENGTH ls``,
 Induct >- rw[exp_size_def] >>
 Cases >> srw_tac[ARITH_ss][exp_size_def])
+*)
 
+(*
 val SUM_MAP_exp5_size_thm = store_thm(
 "SUM_MAP_exp5_size_thm",
 ``∀ls. SUM (MAP exp5_size ls) = SUM (MAP pat_size (MAP FST ls)) +
@@ -40,7 +47,9 @@ val SUM_MAP_exp5_size_thm = store_thm(
                                 LENGTH ls``,
 Induct >- rw[exp_size_def] >>
 Cases >> srw_tac[ARITH_ss][exp_size_def])
+*)
 
+(*
 val SUM_MAP_v2_size_thm = store_thm(
 "SUM_MAP_v2_size_thm",
 ``∀env. SUM (MAP v2_size env) = SUM (MAP (list_size char_size) (MAP FST env)) +
@@ -48,6 +57,7 @@ val SUM_MAP_v2_size_thm = store_thm(
                                 LENGTH env``,
 Induct >- rw[v_size_def] >>
 Cases >> srw_tac[ARITH_ss][v_size_def])
+*)
 
 val exp_size_positive = store_thm(
 "exp_size_positive",
@@ -124,6 +134,7 @@ res_tac >>
 decide_tac);
 val _ = register "check_freevars" check_freevars_def check_freevars_ind;
 
+(*
 val (deBruijn_inc_def,deBruijn_inc_ind) =
   tprove_no_defn ((deBruijn_inc_def,deBruijn_inc_ind),
 wf_rel_tac `measure (t_size o SND o SND)` >>
@@ -133,6 +144,7 @@ srw_tac [ARITH_ss] [t_size_def] >>
 res_tac >>
 decide_tac);
 val _ = register "deBruijn_inc" deBruijn_inc_def deBruijn_inc_ind;
+*)
 
 val (bind_var_list_def,bind_var_list_ind) =
   tprove_no_defn ((bind_var_list_def,bind_var_list_ind),
