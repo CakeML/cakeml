@@ -628,9 +628,9 @@ val evaluate_closed = store_thm(
    every_result (EVERY closed) (SND ress)) ∧
   (∀cenv s env v pes res.
    evaluate_match cenv s env v pes res ⇒
-   BIGUNION (IMAGE (FV o SND) (set pes)) ⊆ set (MAP FST env) ∧
+   BIGUNION (IMAGE (λ(p,e). FV e DIFF pat_vars p) (set pes)) ⊆ set (MAP FST env) ∧
    EVERY closed (MAP SND env) ∧
-   EVERY closed s
+   EVERY closed s ∧ closed v
    ⇒
    EVERY closed (FST res) ∧
    every_result closed (SND res))``,
@@ -678,61 +678,41 @@ strip_tac (* If *) >- (
   PROVE_TAC[do_if_FV,SUBSET_DEF,IN_UNION]) >>
 strip_tac (* If *) >- rw[] >>
 strip_tac (* If *) >- rw[] >>
-strip_tac (* Mat *) >- (
+strip_tac (* Mat *) >- rw[] >>
+strip_tac (* Mat *) >- rw[] >>
+strip_tac (* Let *) >- (
+  rpt gen_tac >> ntac 2 strip_tac >>
+  fs[] >> rfs[bind_def] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD] >>
+  PROVE_TAC[] ) >>
+strip_tac (* Let *) >- rw[] >>
+strip_tac (* Letrec *) >- (
+  rpt gen_tac >> ntac 2 strip_tac >>
+  first_x_assum match_mp_tac >>
+  fs[FST_triple] >> rfs[] >>
+  conj_tac >- (
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+    PROVE_TAC[] ) >>
+  match_mp_tac build_rec_env_closed >> fs[] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_EL] >>
+  metis_tac[]) >>
+strip_tac (* Letrec *) >- rw[] >>
+strip_tac (* [] *) >- rw[] >>
+strip_tac (* :: *) >- rw[] >>
+strip_tac (* :: *) >- rw[] >>
+strip_tac (* :: *) >- rw[] >>
+strip_tac (* [] *) >- rw[] >>
+strip_tac (* Match *) >- (
   rpt gen_tac >> ntac 2 strip_tac >>
   fs[] >> rfs[] >>
-
-  fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD] >>
-  PROVE_TAC[]
-
-  gen_tac >>
-  CONV_TAC (RESORT_FORALL_CONV
-    (uncurry cons o pluck (equal "pes" o fst o dest_var))) >>
-  Induct >- rw[Once evaluate_match_with_cases] >>
-  rpt gen_tac >>
-  strip_tac >>
-  pop_assum mp_tac >>
-  rw[Once evaluate_match_with_cases] >> rw[] >- (
-    fs[] >>
-    first_x_assum match_mp_tac >>
-    imp_res_tac (CONJUNCT1 pmatch_closed) >>
-    fs[] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF] >>
-    PROVE_TAC[] ) >>
-  first_x_assum (match_mp_tac o MP_CANON) >>
-  rw[] >>
-  map_every qexists_tac[`env`,`exp`,`v`] >>
-  fs[] ) >>
-strip_tac >- rw[] >>
-strip_tac >- (
-  rw[bind_def] >>
-  fs[] >>
-  fsrw_tac[DNF_ss][SUBSET_DEF] >>
-  PROVE_TAC[]) >>
-strip_tac >- rw[] >>
-strip_tac >- (
-  rw[] >>
-  fs[LIST_TO_SET_MAP] >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,pairTheory.EXISTS_PROD] >>
   first_x_assum match_mp_tac >>
-  conj_tac >- PROVE_TAC[] >>
-  match_mp_tac build_rec_env_closed >>
-  fs[LIST_TO_SET_MAP] >>
-  fsrw_tac[DNF_ss][MEM_EL,SUBSET_DEF,FST_triple] >>
-  metis_tac[pairTheory.FST,pairTheory.PAIR_EQ,pairTheory.pair_CASES]) >>
-strip_tac >- rw[] >>
-strip_tac >- rw[] >>
-strip_tac >- rw[evaluate_list_with_cons] >>
-strip_tac >- rw[evaluate_list_with_cons] >>
-strip_tac >- rw[evaluate_list_with_cons] >>
-strip_tac >- rw[Once evaluate_match_with_cases] >>
-strip_tac >- rw[Once evaluate_match_with_cases] >>
-strip_tac >- (
-  rw[] >> rw[Once evaluate_match_with_cases] ) >>
-strip_tac >- (
-  rw[] >> rw[Once evaluate_match_with_cases] ) >>
-strip_tac >- (
-  rw[] >> rw[Once evaluate_match_with_cases] ))
+  MP_TAC(SPEC_ALL(CONJUNCT1 pmatch_closed)) >>
+  fs[] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,EXTENSION] >>
+  metis_tac[]) >>
+strip_tac (* Match *) >- rw[] >>
+strip_tac (* Match *) >- rw[] >>
+rw[])
 
 (* TODO: move? *)
 val result_rel_def = Define`
