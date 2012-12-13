@@ -284,11 +284,10 @@ val _ = tDefine "tyvars" `
       | _ -> rev_assocd ty i ty
 *)
 
+
 val _ = Define `
-  rev_assocd a l d =
-    case l of
-      [] => d
-    | ((x,y)::l) => if y = a then x else rev_assocd a l d`
+  (rev_assocd a [] d = d) /\
+  (rev_assocd a ((x,y)::l) d = if y = a then x else rev_assocd a l d)`;
 
 val _ = tDefine "type_subst" `
   type_subst i ty =
@@ -460,7 +459,7 @@ val _ = Define `
     do tyf <- type_of f ;
        tya <- type_of a ;
        case tyf of
-         Tyapp "fun" [ty;_] => if ty = tya then return (Comb f a) else
+         Tyapp "fun" [ty;_] => if tya = ty then return (Comb f a) else
                                  failwith "mk_comb: types do not agree"
        | _ => failwith "mk_comb: types do not agree"
     od`;
@@ -743,8 +742,9 @@ val my_term_size_vsubst_aux = prove(
   Induct THEN1
    (FULL_SIMP_TAC (srw_ss()) [my_term_size_def,Once (fetch "-" "vsubst_aux_def")]
     THEN Induct_on `xs` THEN1 (EVAL_TAC THEN SRW_TAC [] [my_term_size_def])
+    THEN Cases_on `h'`
     THEN ASM_SIMP_TAC (srw_ss()) [EVERY_DEF,Once (fetch "-" "rev_assocd_def")]
-    THEN Cases_on `h` THEN FULL_SIMP_TAC (srw_ss()) []
+    THEN FULL_SIMP_TAC (srw_ss()) []
     THEN SRW_TAC [] [] THEN Cases_on `q`
     THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "is_var_def",my_term_size_def])
   THEN ASM_SIMP_TAC (srw_ss()) [my_term_size_def,
@@ -1194,4 +1194,3 @@ val _ = Define `
 *)
 
 val _ = export_theory();
-

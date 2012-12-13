@@ -2,6 +2,8 @@
 start_logging ();;
 logfile "model-syntax";;
 
+let x name th = export_thm (DISCH (mk_var(name,`:bool`)) th);;
+
 new_type_abbrev("char",`:num`);; (* TODO: use OpenTheory chars? *)
 new_type_abbrev("string",`:char list`);;
 
@@ -30,10 +32,10 @@ let domain = define
 let codomain = define
   `codomain (Fun s t) = t`;;
 
-export_thm type_DISTINCT;;
-export_thm type_INJ;;
-export_thm domain;;
-export_thm codomain;;
+x "type_DISTINCT" type_DISTINCT;;
+x "type_INJ" type_INJ;;
+x "domain" domain;;
+x "codomain" codomain;;
 
 (* ------------------------------------------------------------------------- *)
 (* HOL terms.                                                                *)
@@ -50,8 +52,8 @@ let term_DISTINCT = distinctness "term";;
 
 let term_INJ = injectivity "term";;
 
-export_thm term_DISTINCT;;
-export_thm term_INJ;;
+x "term_DISTINCT" term_DISTINCT;;
+x "term_INJ" term_INJ;;
 
 (* ------------------------------------------------------------------------- *)
 (* Typing judgements.                                                        *)
@@ -68,9 +70,9 @@ let has_type_RULES,has_type_INDUCT,has_type_CASES = new_inductive_definition
                   ==> (Comb s t) has_type rty) /\
    (!n dty t rty. t has_type rty ==> (Abs n dty t) has_type (Fun dty rty))`;;
 
-export_thm has_type_RULES;;
-export_thm has_type_INDUCT;;
-export_thm has_type_CASES;;
+x "has_type_RULES" has_type_RULES;;
+x "has_type_INDUCT" has_type_INDUCT;;
+x "has_type_CASES" has_type_CASES;;
 
 let welltyped = new_definition
   `welltyped tm <=> ?ty. tm has_type ty`;;
@@ -107,9 +109,9 @@ let WELLTYPED_CLAUSES = prove
   REWRITE_TAC[term_INJ; term_DISTINCT] THEN
   MESON_TAC[WELLTYPED; WELLTYPED_LEMMA]);;
 
-export_thm typeof;;
-export_thm WELLTYPED;;
-export_thm WELLTYPED_CLAUSES;;
+x "typeof" typeof;;
+x "WELLTYPED" WELLTYPED;;
+x "WELLTYPED_CLAUSES" WELLTYPED_CLAUSES;;
 
 (* ------------------------------------------------------------------------- *)
 (* Since equations are important, a bit of derived syntax.                   *)
@@ -137,8 +139,8 @@ let EQUATION_HAS_TYPE_BOOL = prove
   REWRITE_TAC[term_DISTINCT; term_INJ; type_INJ] THEN
   MESON_TAC[WELLTYPED; WELLTYPED_LEMMA]);;
 
-export_thm equation;;
-export_thm EQUATION_HAS_TYPE_BOOL;;
+x "equation" equation;;
+x "EQUATION_HAS_TYPE_BOOL" EQUATION_HAS_TYPE_BOOL;;
 
 (* ------------------------------------------------------------------------- *)
 (* Alpha-conversion.                                                         *)
@@ -150,7 +152,7 @@ let ALPHAVARS = new_recursive_definition list_RECURSION
         (tmp = tp) \/
         ~(FST tp = FST tmp) /\ ~(SND tp = SND tmp) /\ ALPHAVARS oenv tmp)`;;
 
-export_thm ALPHAVARS;;
+x "ALPHAVARS" ALPHAVARS;;
 
 let RACONV_RULES,RACONV_INDUCT,RACONV_CASES = new_inductive_definition
  `(!env x1 ty1 x2 ty2.
@@ -213,8 +215,8 @@ let RACONV = prove
 let ACONV = new_definition
  `ACONV t1 t2 <=> RACONV [] (t1,t2)`;;
 
-export_thm RACONV;;
-export_thm ACONV;;
+x "RACONV" RACONV;;
+x "ACONV" ACONV;;
 
 (* ------------------------------------------------------------------------- *)
 (* Reflexivity.                                                              *)
@@ -288,7 +290,7 @@ let TERM_UNION = new_recursive_definition list_RECURSION
         let subun = TERM_UNION t l2 in
         if EX (ACONV h) subun then subun else CONS h subun)`;;
 
-export_thm TERM_UNION;;
+x "TERM_UNION" TERM_UNION;;
 
 let TERM_UNION_NONEW = prove
  (`!l1 l2 x. MEM x (TERM_UNION l1 l2) ==> MEM x l1 \/ MEM x l2`,
@@ -325,7 +327,7 @@ let VFREE_IN = new_recursive_definition term_RECURSION
    (VFREE_IN v (Comb s t) <=> VFREE_IN v s \/ VFREE_IN v t) /\
    (VFREE_IN v (Abs x ty t) <=> ~(Var x ty = v) /\ VFREE_IN v t)`;;
 
-export_thm VFREE_IN;;
+x "VFREE_IN" VFREE_IN;;
 
 let VFREE_IN_RACONV = prove
  (`!env p. RACONV env p
@@ -363,7 +365,7 @@ let REV_ASSOCD = prove(
         if y = a then x else REV_ASSOCD a t d)`,
   REWRITE_TAC[REV_ASSOCD_DEF]);;
 
-export_thm REV_ASSOCD;;
+x "REV_ASSOCD" REV_ASSOCD;;
 
 (* ------------------------------------------------------------------------- *)
 (* Substition of types in types.                                             *)
@@ -397,7 +399,7 @@ let TYPE_SUBST_EXISTS = prove
 
 let TYPE_SUBST = new_specification ["TYPE_SUBST"] TYPE_SUBST_EXISTS;;
 
-export_thm TYPE_SUBST;;
+x "TYPE_SUBST" TYPE_SUBST;;
 
 (* ------------------------------------------------------------------------- *)
 (* Variant function.                                                         *)
@@ -474,8 +476,8 @@ let VARIANT_THM = prove
  (`!t x ty. ~VFREE_IN (Var (VARIANT t x ty) ty) t`,
   MESON_TAC [VARIANT;VARIANT_PRIMES]);;
 
-export_thm VARIANT_PRIMES;;
-export_thm VARIANT;;
+x "VARIANT_PRIMES" VARIANT_PRIMES;;
+x "VARIANT" VARIANT;;
 
 (* ------------------------------------------------------------------------- *)
 (* Term substitution.                                                        *)
@@ -496,7 +498,7 @@ let VSUBST = new_recursive_definition term_RECURSION
              Abs z ty (VSUBST ilist'' t)
         else Abs x ty t')`;;
 
-export_thm VSUBST;;
+x "VSUBST" VSUBST;;
 
 (* ------------------------------------------------------------------------- *)
 (* Preservation of type.                                                     *)
@@ -645,10 +647,10 @@ let RESULT = define
 let CLASH = define
  `CLASH(Clash t) = t`;;
 
-export_thm IS_RESULT;;
-export_thm IS_CLASH;;
-export_thm RESULT;;
-export_thm CLASH;;
+x "IS_RESULT" IS_RESULT;;
+x "IS_CLASH" IS_CLASH;;
+x "RESULT" RESULT;;
+x "CLASH" CLASH;;
 
 (* ------------------------------------------------------------------------- *)
 (* We want induction/recursion on term size next.                            *)
@@ -757,7 +759,7 @@ let INST_CORE_EXISTS = prove
 
 let INST_CORE = new_specification ["INST_CORE"] INST_CORE_EXISTS;;
 
-export_thm INST_CORE;;
+x "INST_CORE" INST_CORE;;
 
 (* ------------------------------------------------------------------------- *)
 (* And the overall function.                                                 *)
@@ -766,7 +768,7 @@ export_thm INST_CORE;;
 let INST_DEF = new_definition
  `INST tyin tm = RESULT(INST_CORE [] tyin tm)`;;
 
-export_thm INST_DEF;;
+x "INST_DEF" INST_DEF;;
 
 (* ------------------------------------------------------------------------- *)
 (* Various misc lemmas.                                                      *)
@@ -787,7 +789,7 @@ let letlemma = prove
 let tyvars = define
  `tyvars (t:term) = ([]:string list)`;; (* FIXME *)
 
-export_thm tyvars;;
+x "tyvars" tyvars;;
 
 (* ------------------------------------------------------------------------- *)
 (* Constant and type definitions. A context is a list of definitions.        *)
@@ -801,8 +803,8 @@ let def_DISTINCT = distinctness "def";;
 
 let def_INJ = injectivity "def";;
 
-export_thm def_DISTINCT;;
-export_thm def_INJ;;
+x "def_DISTINCT" def_DISTINCT;;
+x "def_INJ" def_INJ;;
 
 (* ------------------------------------------------------------------------- *)
 (* Types must have defined Tyapps and correct arity.                         *)
@@ -825,11 +827,11 @@ let type_ok_RULES,type_ok_INDUCT,type_ok_CASES = new_inductive_definition
                  MEM (n,LENGTH tys) (types ctxt) ==>
                  type_ok ctxt (Tyapp n tys))`;;
 
-export_thm types_aux;;
-export_thm types;;
-export_thm type_ok_RULES;;
-export_thm type_ok_INDUCT;;
-export_thm type_ok_CASES;;
+x "types_aux" types_aux;;
+x "types" types;;
+x "type_ok_RULES" type_ok_RULES;;
+x "type_ok_INDUCT" type_ok_INDUCT;;
+x "type_ok_CASES" type_ok_CASES;;
 
 (* ------------------------------------------------------------------------- *)
 (* Terms must only contain defined constants and types.                      *)
@@ -855,9 +857,9 @@ let term_ok = new_recursive_definition term_RECURSION
   (term_ok ctxt (Comb x y) <=> (term_ok ctxt x /\ term_ok ctxt y)) /\
   (term_ok ctxt (Abs s ty x) <=> (type_ok ctxt ty /\ term_ok ctxt x))`;;
 
-export_thm consts_aux;;
-export_thm consts;;
-export_thm term_ok;;
+x "consts_aux" consts_aux;;
+x "consts" consts;;
+x "term_ok" term_ok;;
 
 (* ------------------------------------------------------------------------- *)
 (* A context is well-formed if all definitions are allowed in that order.    *)
@@ -871,8 +873,8 @@ let context_ok = new_recursive_definition list_RECURSION
  `(context_ok [] = T) /\
   (context_ok (CONS def ctxt) = (def_ok def ctxt /\ context_ok ctxt))`;;
 
-export_thm def_ok;;
-export_thm context_ok;;
+x "def_ok" def_ok;;
+x "context_ok" context_ok;;
 
 (* ------------------------------------------------------------------------- *)
 (* Put everything together into a deductive system.                          *)
@@ -906,9 +908,9 @@ let proves_RULES,proves_INDUCT,proves_CASES = new_inductive_definition
       (!s s'. MEM (s',s) ilist ==> ?x ty. (s = Var x ty) /\ s' has_type ty) /\
       asl |- p ==> MAP (VSUBST ilist) asl |- VSUBST ilist p)`;;
 
-export_thm proves_RULES;;
-export_thm proves_INDUCT;;
-export_thm proves_CASES;;
+x "proves_RULES" proves_RULES;;
+x "proves_INDUCT" proves_INDUCT;;
+x "proves_CASES" proves_CASES;;
 
 logfile_end ();;
 stop_logging ();;
