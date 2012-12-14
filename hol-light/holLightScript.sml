@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib Opentheory arithmeticTheory;
 val _ = new_theory"holLight"
 val BIT0_def = bossLib.Define`
-  (BIT0 0 = 0) ∧
+  (BIT0 0 = 0) /\
   (BIT0 (SUC n) = SUC (SUC (BIT0 n)))`
 val member_def = bossLib.Define`
   member x y = MEM x y`
