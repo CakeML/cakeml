@@ -164,8 +164,8 @@ val _ = Hol_datatype `
 
 val _ = Hol_datatype `
  uop =
-    Ref
-  | Deref`;
+    Opref
+  | Opderef`;
 
 
 (* Built-in logical operations *)
@@ -580,7 +580,7 @@ val _ = Define `
 val _ = Define `
  (do_uapp s uop v =
   (case uop of
-      Deref =>
+      Opderef =>
         (case v of
             Loc n =>
               (case(( store_lookup n) s) of
@@ -589,7 +589,7 @@ val _ = Define `
               )
           | _ => NONE
         )
-    | Ref =>
+    | Opref =>
         let (s',n) =(( store_alloc v) s) in(
           SOME (s',( Loc n)))
   ))`;
@@ -1343,8 +1343,8 @@ val _ = Define `
 val _ = Define `
  (type_uop uop t1 t2 =
   (case (uop,t1) of
-      (Ref, _) => t2 =( Tref t1)
-    | (Deref, Tref t1') => t2 = t1'
+      (Opref, _) => t2 =( Tref t1)
+    | (Opderef, Tref t1') => t2 = t1'
     | _ => F
   ))`;
 

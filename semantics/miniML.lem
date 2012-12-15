@@ -125,8 +125,8 @@ type op =
   | Opassign
 
 type uop =
-  | Ref
-  | Deref
+  | Opref
+  | Opderef
 
 (* Built-in logical operations *)
 type log =
@@ -482,7 +482,7 @@ let do_con_check envC n l =
 val do_uapp : store -> uop -> v -> option (store * v)
 let do_uapp s uop v =
   match uop with
-    | Deref ->
+    | Opderef ->
         match v with
           | Loc n ->
               match store_lookup n s with
@@ -491,7 +491,7 @@ let do_uapp s uop v =
               end
           | _ -> None
         end
-    | Ref ->
+    | Opref ->
         let (s',n) = store_alloc v s in
           Some (s', Loc n)
   end
@@ -1209,8 +1209,8 @@ let type_op op t1 t2 t3 =
 val type_uop : uop -> t -> t -> bool
 let type_uop uop t1 t2 =
   match (uop,t1) with
-    | (Ref, _) -> t2 = Tref t1
-    | (Deref, Tref t1') -> t2 = t1'
+    | (Opref, _) -> t2 = Tref t1
+    | (Opderef, Tref t1') -> t2 = t1'
     | _ -> false
   end
 
