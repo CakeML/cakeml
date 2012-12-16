@@ -350,7 +350,7 @@ val EvalM_failwith = store_thm("EvalM_failwith",
 
 val get_the_axioms_thm = prove(
   ``(lookup "the_axioms" env = SOME (Loc 2)) ==>
-    EvalM env (Uapp Deref (Var "the_axioms"))
+    EvalM env (Uapp Opderef (Var "the_axioms"))
       (HOL_MONAD (LIST_TYPE THM_TYPE) get_the_axioms)``,
   SIMP_TAC std_ss [EvalM_def]
   \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
