@@ -5,10 +5,10 @@ open bigSmallEquivTheory determTheory untypedSafetyTheory;
 val _ = new_theory "bigBigEquiv"
 
 val pmatch_pmatch' = Q.prove (
-`(!envc s p v env. (pmatch envc s p v env ≠ Match_type_error) ⇒
-   (pmatch envc s p v env = pmatch' s p v env)) ∧
- (!envc s ps vs env. (pmatch_list envc s ps vs env ≠ Match_type_error) ⇒
-   (pmatch_list envc s ps vs env = pmatch_list' s ps vs env))`,
+`(!tvs envc s p v env. (pmatch tvs envc s p v env ≠ Match_type_error) ⇒
+   (pmatch tvs envc s p v env = pmatch' tvs s p v env)) ∧
+ (!tvs envc s ps vs env. (pmatch_list tvs envc s ps vs env ≠ Match_type_error) ⇒
+   (pmatch_list tvs envc s ps vs env = pmatch_list' tvs s ps vs env))`,
 HO_MATCH_MP_TAC pmatch_ind >>
 rw [pmatch_def, pmatch'_def] >|
 [Cases_on `lookup n envc` >>
