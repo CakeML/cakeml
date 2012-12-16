@@ -87,7 +87,7 @@ end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
 fun term_to_t tm = let
   val (f,xs) = strip_comb tm
 in case fst(dest_const f) of
-    "Tnum" => Tnum
+    "Tint" => Tint
   | "Tvar" => let val [x1] = xs in Tvar (fromHOLstring x1) end
   | "Tapp" => let val [x1,x2] = xs in Tapp (dest_list term_to_t x1, fromHOLstring x2) end
   | s => raise Fail s

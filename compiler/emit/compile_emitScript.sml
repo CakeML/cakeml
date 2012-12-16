@@ -8,6 +8,7 @@ val _ = Parse.temp_type_abbrev("string",``:char list``)
 val _ = Parse.temp_type_abbrev("op_",``:op``) (* EmitML should do this *)
 val _ = Parse.disable_tyabbrev_printing "tvarN"
 val _ = Parse.disable_tyabbrev_printing "envE"
+val _ = Parse.disable_tyabbrev_printing "store"
 val _ = Parse.disable_tyabbrev_printing "ctenv"
 val _ = Parse.disable_tyabbrev_printing "ecs"
 val _ = Parse.disable_tyabbrev_printing "alist"
@@ -33,6 +34,7 @@ val data = map
   , MiniMLTheory.datatype_opb
   , MiniMLTheory.datatype_opn
   , MiniMLTheory.datatype_op
+  , MiniMLTheory.datatype_uop
   , MiniMLTheory.datatype_log
   , MiniMLTheory.datatype_pat
   , MiniMLTheory.datatype_exp
