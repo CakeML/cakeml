@@ -62,37 +62,6 @@ let bind n v e = (n,v)::e
 val merge : forall 'a 'b. env 'a 'b -> env 'a 'b -> env 'a 'b
 let merge e1 e2 = e1 @ e2
 
-(* Environments that bind de Bruijn type variables *)
-type db_env 'a 'b = 
-  | Empty
-  (* Binds several de Bruijn type variables *)
-  | Bind_tvar of num * db_env 'a 'b
-  | Bind_name of 'a * 'b * db_env 'a 'b
-
-val db_emp : forall 'a 'b. db_env 'a 'b
-let db_emp = Empty
-
-val db_lookup : forall 'a 'b. 'a -> db_env 'a 'b -> option 'b
-let rec
-db_lookup n Empty = None
-and
-db_lookup n (Bind_tvar _ e) = db_lookup n e
-and
-db_lookup n (Bind_name n' v e) =
-  if n' = n then
-    Some v
-  else
-    db_lookup n e
-
-val db_bind : forall 'a 'b. 'a -> 'b -> db_env 'a 'b -> db_env 'a 'b
-let db_bind n v e = Bind_name n v e
-
-val db_merge : forall 'a 'b. db_env 'a 'b -> db_env 'a 'b -> db_env 'a 'b
-let rec db_merge Empty e2 = e2
-and db_merge (Bind_tvar n e1) e2 = Bind_tvar n (db_merge e1 e2)
-and db_merge (Bind_name b v e1) e2 = Bind_name b v (db_merge e1 e2)
-
-
 (* ------------------------------------------------------------------------ *) 
 (*   The Abstract Syntax                                                    *)
 (* ------------------------------------------------------------------------ *) 
@@ -1319,11 +1288,6 @@ evaluate_decs cenv s env (Dtype tds :: ds) (s, Rerr Rtype_error)
  * forall tyvars. t list -> (tyvars) typeN *)
 type tenvC = env conN (list tvarN * list t * typeN)
 
-(* Type environments *)
-(* The number is how many de Bruijn type variables the typescheme binds *)
-type tenvE = db_env varN (num * t)
-
-               (*
 (* Increment the deBruijn indices in a type by n levels, skipping all levels
  * less than skip. *)
 val deBruijn_inc : num -> num -> t -> t
@@ -1344,7 +1308,33 @@ and
 deBruijn_inc skip n Tint = Tint
 and
 deBruijn_inc skip n Tbool = Tbool
-                *)
+and
+deBruijn_inc skip n (Tref t) = Tref (deBruijn_inc skip n t)
+and
+deBruijn_inc skip n Tunit = Tunit
+
+(* Type environments *)
+type tenvE =
+  | Empty
+  (* Binds several de Bruijn type variables *)
+  | Bind_tvar of num * tenvE
+  (* The number is how many de Bruijn type variables the typescheme binds *)
+  | Bind_name of varN * num * t * tenvE
+
+val lookup_tenv : varN -> num -> tenvE -> option (num * t) 
+let rec
+lookup_tenv n inc Empty = None
+and
+lookup_tenv n inc (Bind_tvar tvs e) = lookup_tenv n (inc + tvs) e
+and
+lookup_tenv n inc (Bind_name n' tvs t e) =
+  if n' = n then
+    Some (tvs, deBruijn_inc tvs inc t)
+  else
+    lookup_tenv n inc e
+
+val bind_tenv : varN -> num -> t -> tenvE -> tenvE
+let bind_tenv n tvs t e = Bind_name n tvs t e
 
 (* A pattern matches values of a certain type and extends the type environment
  * with the pattern's binders. *)
@@ -1375,6 +1365,7 @@ let type_op op t1 t2 t3 =
     | (Opn _, Tint, Tint) -> (t3 = Tint)
     | (Opb _, Tint, Tint) -> (t3 = Tbool)
     | (Equality, t1, t2) -> (t1 = t2) && (t3 = Tbool)
+    | (Opassign, Tref t1, t2) -> (t1 = t2) && (t3 = Tunit)
     | _ -> false
   end
 
@@ -1403,6 +1394,10 @@ and
 check_freevars dbok tvs Tint = true
 and
 check_freevars dbok tvs Tbool = true
+and
+check_freevars dbok tvs Tunit = true
+and
+check_freevars dbok tvs (Tref t) = check_freevars dbok tvs t
 and
 check_freevars dbok tvs (Tvar_db _) = dbok
 
@@ -1453,14 +1448,18 @@ type_subst s Tint = Tint
 and
 type_subst s Tbool = Tbool
 and
+type_subst s Tunit = Tunit
+and
+type_subst s (Tref t) = Tref (type_subst s t)
+and
 type_subst s (Tvar_db n) = Tvar_db n
 
 val bind_var_list : num -> list (varN * t) -> tenvE -> tenvE
 let rec
-bind_var_list levels [] tenv = tenv
+bind_var_list tvs [] tenv = tenv
 and
-bind_var_list levels ((n,t)::binds) tenv =
-  db_bind n (levels, t) (bind_var_list levels binds tenv)
+bind_var_list tvs ((n,t)::binds) tenv =
+  bind_tenv n tvs t (bind_var_list tvs binds tenv)
 
 indreln
 
@@ -1541,7 +1540,7 @@ and
 forall cenv tenv.
 true
 ==>
-type_e cenv tenv (Lit Unit) Tint
+type_e cenv tenv (Lit Unit) Tunit
 
 and
 
@@ -1554,7 +1553,7 @@ and
 
 forall cenv tenv e1 var e2 t.
 type_e cenv tenv e1 t &&
-type_e cenv (db_bind var (0,Tint) tenv) e2 t
+type_e cenv (bind_tenv var 0 Tint tenv) e2 t
 ==>
 type_e cenv tenv (Handle e1 var e2) t
 
@@ -1573,7 +1572,7 @@ and
 forall cenv tenv n t targs tvs.
 (tvs = List.length targs) &&
 List.for_all (check_freevars true []) targs &&
-(db_lookup n tenv = Some (tvs,t))
+(lookup_tenv n 0 tenv = Some (tvs,t))
 ==>
 type_e cenv tenv (Var n (Some targs)) (deBruijn_subst 0 targs t)
 
@@ -1581,7 +1580,7 @@ and
 
 forall cenv tenv n e t1 t2.
 check_freevars true [] t1 &&
-type_e cenv (db_bind n (0,t1) tenv) e t2
+type_e cenv (bind_tenv n  0 t1  tenv) e t2
 ==>
 type_e cenv tenv (Fun n (Some t1) e) (Tfn t1 t2)
 
@@ -1635,7 +1634,7 @@ and
 forall cenv tenv n e1 e2 t1 t2 tvs.
 type_e cenv tenv e1 t1 &&
 check_freevars true [] t1 &&
-type_e cenv (db_bind n (tvs,t1) tenv) e2 t2
+type_e cenv (bind_tenv n  tvs t1  tenv) e2 t2
 ==>
 type_e cenv tenv (Let (Some tvs) n (Some t1) e1 e2) t2
 
@@ -1673,7 +1672,7 @@ and
 
 forall cenv env fn n e funs env' t1 t2.
 check_freevars true [] (Tfn t1 t2) &&
-type_e cenv (db_bind n (0,t1) env) e t2 &&
+type_e cenv (bind_tenv n  0 t1  env) e t2 &&
 type_funs cenv env funs env' &&
 lookup fn env' = None
 ==>
@@ -1755,6 +1754,13 @@ type_v cenv senv (Litv (IntLit n)) Tint
 
 and
 
+forall cenv senv.
+true
+==>
+type_v cenv senv (Litv Unit) Tunit
+
+and
+
 forall cenv senv cn vs tvs tn ts' ts.
 List.for_all (check_freevars true []) ts' &&
 List.length tvs = List.length ts' &&
@@ -1768,7 +1774,7 @@ and
 forall cenv senv env tenv n e t1 t2.
 type_env cenv senv env tenv &&
 check_freevars true [] t1 &&
-type_e cenv (db_bind n (0,t1) tenv) e t2
+type_e cenv (bind_tenv n  0 t1  tenv) e t2
 ==>
 type_v cenv senv (Closure env n (Some t1) e) (Tfn t1 t2)
 
@@ -1808,7 +1814,7 @@ and
 forall cenv senv.
 true
 ==>
-type_env cenv senv emp db_emp
+type_env cenv senv emp Empty
 
 and
 
@@ -1817,9 +1823,16 @@ type_v cenv senv v t &&
 check_freevars true [] t &&
 type_env cenv senv env tenv
 ==>
-type_env cenv senv (bind n (v,Some (tvs,t)) env) (db_bind n (tvs,t) tenv)
+type_env cenv senv (bind n (v,Some (tvs,t)) env) (bind_tenv n  tvs t  tenv)
 
 indreln
+
+forall cenv senv tenv x e t.
+type_e cenv (bind_tenv x 0 Tint tenv) e t
+==>
+type_ctxt cenv senv tenv (Chandle () x e) t t
+
+and
 
 forall cenv senv tenv e op t1 t2 t3.
 type_e cenv tenv e t2 &&
@@ -1864,7 +1877,7 @@ and
 
 forall cenv senv tenv e t1 t2 n tvs.
 check_freevars true [] t1 &&
-type_e cenv (db_bind n (tvs,t1) tenv) e t2
+type_e cenv (bind_tenv n  tvs t1  tenv) e t2
 ==>
 type_ctxt cenv senv tenv (Clet (Some tvs) n (Some t1) () e) t1 t2
 

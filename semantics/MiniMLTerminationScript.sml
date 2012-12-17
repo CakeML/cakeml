@@ -134,7 +134,6 @@ res_tac >>
 decide_tac);
 val _ = register "check_freevars" check_freevars_def check_freevars_ind;
 
-(*
 val (deBruijn_inc_def,deBruijn_inc_ind) =
   tprove_no_defn ((deBruijn_inc_def,deBruijn_inc_ind),
 wf_rel_tac `measure (t_size o SND o SND)` >>
@@ -144,7 +143,6 @@ srw_tac [ARITH_ss] [t_size_def] >>
 res_tac >>
 decide_tac);
 val _ = register "deBruijn_inc" deBruijn_inc_def deBruijn_inc_ind;
-*)
 
 val (bind_var_list_def,bind_var_list_ind) =
   tprove_no_defn ((bind_var_list_def,bind_var_list_ind),

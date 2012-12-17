@@ -78,49 +78,6 @@ val _ = Define `
  (merge e1 e2 = e1 ++ e2)`;
 
 
-(* Environments that bind de Bruijn type variables *)
-val _ = Hol_datatype `
-(* ( 'a, 'b) *) db_env = 
-    Empty
-  (* Binds several de Bruijn type variables *)
-  | Bind_tvar of num => (*('a, 'b)*) db_env
-  | Bind_name of 'a => 'b => (*('a, 'b)*) db_env`;
-
-
-(*val db_emp : forall 'a 'b. db_env 'a 'b*)
-val _ = Define `
- db_emp = Empty`;
-
-
-(*val db_lookup : forall 'a 'b. 'a -> db_env 'a 'b -> option 'b*)
- val db_lookup_defn = Hol_defn "db_lookup" `
-
-(db_lookup n Empty = NONE)
-/\
-(db_lookup n (Bind_tvar _ e) =(( db_lookup n) e))
-/\
-(db_lookup n (Bind_name n' v e) =
-  if n' = n then(
-    SOME v)
-  else((
-    db_lookup n) e))`;
-
-val _ = Defn.save_defn db_lookup_defn;
-
-(*val db_bind : forall 'a 'b. 'a -> 'b -> db_env 'a 'b -> db_env 'a 'b*)
-val _ = Define `
- (db_bind n v e =((( Bind_name n) v) e))`;
-
-
-(*val db_merge : forall 'a 'b. db_env 'a 'b -> db_env 'a 'b -> db_env 'a 'b*)
- val db_merge_defn = Hol_defn "db_merge" `
- (db_merge Empty e2 = e2)
-/\ (db_merge (Bind_tvar n e1) e2 =(( Bind_tvar n) (((db_merge e1) e2))))
-/\ (db_merge (Bind_name b v e1) e2 =((( Bind_name b) v) (((db_merge e1) e2))))`;
-
-val _ = Defn.save_defn db_merge_defn;
-
-
 (* ------------------------------------------------------------------------ *) 
 (*   The Abstract Syntax                                                    *)
 (* ------------------------------------------------------------------------ *) 
@@ -1471,32 +1428,63 @@ evaluate_decs cenv s env ((Dtype tds) :: ds) (s,( Rerr Rtype_error)))`;
  * forall tyvars. t list -> (tyvars) typeN *)
 val _ = type_abbrev( "tenvC" , ``: (conN, ( tvarN list # t list # typeN)) env``);
 
-(* Type environments *)
-(* The number is how many de Bruijn type variables the typescheme binds *)
-val _ = type_abbrev( "tenvE" , ``: (varN, (num # t)) db_env``);
-
-               (*
 (* Increment the deBruijn indices in a type by n levels, skipping all levels
  * less than skip. *)
-val deBruijn_inc : num -> num -> t -> t
-let rec
-deBruijn_inc skip n (Tvar tv) = Tvar tv
-and
-deBruijn_inc skip n (Tvar_db m) =
-  if m < skip then
-    Tvar_db m
-  else
-    Tvar_db (m + n)
-and
-deBruijn_inc skip n (Tapp ts tn) = Tapp (List.map (deBruijn_inc skip n) ts) tn
-and
-deBruijn_inc skip n (Tfn t1 t2) =
-  Tfn (deBruijn_inc skip n t1) (deBruijn_inc skip n t2)
-and
-deBruijn_inc skip n Tint = Tint
-and
-deBruijn_inc skip n Tbool = Tbool
-                *)
+(*val deBruijn_inc : num -> num -> t -> t*)
+ val deBruijn_inc_defn = Hol_defn "deBruijn_inc" `
+
+(deBruijn_inc skip n (Tvar tv) =( Tvar tv))
+/\
+(deBruijn_inc skip n (Tvar_db m) =
+  if m < skip then(
+    Tvar_db m)
+  else(
+    Tvar_db (m + n)))
+/\
+(deBruijn_inc skip n (Tapp ts tn) =(( Tapp (((MAP (((deBruijn_inc skip) n))) ts))) tn))
+/\
+(deBruijn_inc skip n (Tfn t1 t2) =((
+  Tfn ((((deBruijn_inc skip) n) t1))) ((((deBruijn_inc skip) n) t2))))
+/\
+(deBruijn_inc skip n Tint = Tint)
+/\
+(deBruijn_inc skip n Tbool = Tbool)
+/\
+(deBruijn_inc skip n (Tref t) =( Tref ((((deBruijn_inc skip) n) t))))
+/\
+(deBruijn_inc skip n Tunit = Tunit)`;
+
+val _ = Defn.save_defn deBruijn_inc_defn;
+
+(* Type environments *)
+val _ = Hol_datatype `
+ tenvE =
+    Empty
+  (* Binds several de Bruijn type variables *)
+  | Bind_tvar of num => tenvE
+  (* The number is how many de Bruijn type variables the typescheme binds *)
+  | Bind_name of varN => num => t => tenvE`;
+
+
+(*val lookup_tenv : varN -> num -> tenvE -> option (num * t)*) 
+ val lookup_tenv_defn = Hol_defn "lookup_tenv" `
+
+(lookup_tenv n inc Empty = NONE)
+/\
+(lookup_tenv n inc (Bind_tvar tvs e) =((( lookup_tenv n) (inc + tvs)) e))
+/\
+(lookup_tenv n inc (Bind_name n' tvs t e) =
+  if n' = n then(
+    SOME (tvs,((( deBruijn_inc tvs) inc) t)))
+  else(((
+    lookup_tenv n) inc) e))`;
+
+val _ = Defn.save_defn lookup_tenv_defn;
+
+(*val bind_tenv : varN -> num -> t -> tenvE -> tenvE*)
+val _ = Define `
+ (bind_tenv n tvs t e =(((( Bind_name n) tvs) t) e))`;
+
 
 (* A pattern matches values of a certain type and extends the type environment
  * with the pattern's binders. *)
@@ -1528,6 +1516,7 @@ val _ = Define `
     | (Opn _, Tint, Tint) => (t3 = Tint)
     | (Opb _, Tint, Tint) => (t3 = Tbool)
     | (Equality, t1, t2) => (t1 = t2) /\ (t3 = Tbool)
+    | (Opassign, Tref t1, t2) => (t1 = t2) /\ (t3 = Tunit)
     | _ => F
   ))`;
 
@@ -1560,6 +1549,10 @@ val _ = Define `
 (check_freevars dbok tvs Tint = T)
 /\
 (check_freevars dbok tvs Tbool = T)
+/\
+(check_freevars dbok tvs Tunit = T)
+/\
+(check_freevars dbok tvs (Tref t) =((( check_freevars dbok) tvs) t))
 /\
 (check_freevars dbok tvs (Tvar_db _) = dbok)`;
 
@@ -1617,6 +1610,10 @@ val _ = Define `
 /\
 (type_subst s Tbool = Tbool)
 /\
+(type_subst s Tunit = Tunit)
+/\
+(type_subst s (Tref t) =( Tref (((type_subst s) t))))
+/\
 (type_subst s (Tvar_db n) =( Tvar_db n))`;
 
 val _ = Defn.save_defn type_subst_defn;
@@ -1624,10 +1621,10 @@ val _ = Defn.save_defn type_subst_defn;
 (*val bind_var_list : num -> list (varN * t) -> tenvE -> tenvE*)
  val bind_var_list_defn = Hol_defn "bind_var_list" `
 
-(bind_var_list levels [] tenv = tenv)
+(bind_var_list tvs [] tenv = tenv)
 /\
-(bind_var_list levels ((n,t)::binds) tenv =(((
-  db_bind n) (levels, t)) ((((bind_var_list levels) binds) tenv))))`;
+(bind_var_list tvs ((n,t)::binds) tenv =((((
+  bind_tenv n) tvs) t) ((((bind_var_list tvs) binds) tenv))))`;
 
 val _ = Defn.save_defn bind_var_list_defn;
 
@@ -1710,7 +1707,7 @@ type_e cenv tenv ((Lit ((IntLit n)))) Tint)
 (! cenv tenv.
 T
 ==>
-type_e cenv tenv ((Lit Unit)) Tint)
+type_e cenv tenv ((Lit Unit)) Tunit)
 
 /\
 
@@ -1723,7 +1720,7 @@ type_e cenv tenv ((Raise err)) t)
 
 (! cenv tenv e1 var e2 t.((((
 type_e cenv) tenv) e1) t) /\((((
-type_e cenv) ((((db_bind var) (0,Tint)) tenv))) e2) t)
+type_e cenv) (((((bind_tenv var) 0) Tint) tenv))) e2) t)
 ==>
 type_e cenv tenv ((((Handle e1) var) e2)) t)
 
@@ -1742,7 +1739,7 @@ type_e cenv tenv (((Con cn) es)) (((Tapp ts') tn)))
 (! cenv tenv n t targs tvs.
 (tvs =( LENGTH targs)) /\((
 EVERY (((check_freevars T) []))) targs) /\
-(((db_lookup n) tenv) =( SOME (tvs,t)))
+((((lookup_tenv n) 0) tenv) =( SOME (tvs,t)))
 ==>
 type_e cenv tenv (((Var n) ((SOME targs)))) ((((deBruijn_subst 0) targs) t)))
 
@@ -1750,7 +1747,7 @@ type_e cenv tenv (((Var n) ((SOME targs)))) ((((deBruijn_subst 0) targs) t)))
 
 (! cenv tenv n e t1 t2.(((
 check_freevars T) []) t1) /\((((
-type_e cenv) ((((db_bind n) (0,t1)) tenv))) e) t2)
+type_e cenv) (((((bind_tenv n)  0) t1)  tenv))) e) t2)
 ==>
 type_e cenv tenv ((((Fun n) ((SOME t1))) e)) (((Tfn t1) t2)))
 
@@ -1804,7 +1801,7 @@ type_e cenv tenv (((Mat e) pes)) t2)
 (! cenv tenv n e1 e2 t1 t2 tvs.((((
 type_e cenv) tenv) e1) t1) /\(((
 check_freevars T) []) t1) /\((((
-type_e cenv) ((((db_bind n) (tvs,t1)) tenv))) e2) t2)
+type_e cenv) (((((bind_tenv n)  tvs) t1)  tenv))) e2) t2)
 ==>
 type_e cenv tenv ((((((Let ((SOME tvs))) n) ((SOME t1))) e1) e2)) t2)
 
@@ -1842,7 +1839,7 @@ type_funs cenv env [] [])
 
 (! cenv env fn n e funs env' t1 t2.(((
 check_freevars T) []) (((Tfn t1) t2))) /\((((
-type_e cenv) ((((db_bind n) (0,t1)) env))) e) t2) /\((((
+type_e cenv) (((((bind_tenv n)  0) t1)  env))) e) t2) /\((((
 type_funs cenv) env) funs) env') /\
 (((lookup fn) env') = NONE)
 ==>
@@ -1924,6 +1921,13 @@ type_v cenv senv ((Litv ((IntLit n)))) Tint)
 
 /\
 
+(! cenv senv.
+T
+==>
+type_v cenv senv ((Litv Unit)) Tunit)
+
+/\
+
 (! cenv senv cn vs tvs tn ts' ts.((
 EVERY (((check_freevars T) []))) ts') /\
 ((LENGTH tvs) =( LENGTH ts')) /\((((
@@ -1937,7 +1941,7 @@ type_v cenv senv (((Conv cn) vs)) (((Tapp ts') tn)))
 (! cenv senv env tenv n e t1 t2.((((
 type_env cenv) senv) env) tenv) /\(((
 check_freevars T) []) t1) /\((((
-type_e cenv) ((((db_bind n) (0,t1)) tenv))) e) t2)
+type_e cenv) (((((bind_tenv n)  0) t1)  tenv))) e) t2)
 ==>
 type_v cenv senv (((((Closure env) n) ((SOME t1))) e)) (((Tfn t1) t2)))
 
@@ -1977,7 +1981,7 @@ type_vs cenv senv (v::vs) (t::ts))
 (! cenv senv.
 T
 ==>
-type_env cenv senv emp db_emp)
+type_env cenv senv emp Empty)
 
 /\
 
@@ -1986,9 +1990,16 @@ type_v cenv) senv) v) t) /\(((
 check_freevars T) []) t) /\((((
 type_env cenv) senv) env) tenv)
 ==>
-type_env cenv senv ((((bind n) (v,(SOME (tvs,t)))) env)) ((((db_bind n) (tvs,t)) tenv)))`;
+type_env cenv senv ((((bind n) (v,(SOME (tvs,t)))) env)) (((((bind_tenv n)  tvs) t)  tenv)))`;
 
 val _ = Hol_reln `
+
+(! cenv senv tenv x e t.((((
+type_e cenv) (((((bind_tenv x) 0) Tint) tenv))) e) t)
+==>
+type_ctxt cenv senv tenv ((((Chandle ()) x) e)) t t)
+
+/\
 
 (! cenv senv tenv e op t1 t2 t3.((((
 type_e cenv) tenv) e) t2) /\((((
@@ -2033,7 +2044,7 @@ type_ctxt cenv senv tenv (((Cmat ()) pes)) t1 t2)
 
 (! cenv senv tenv e t1 t2 n tvs.(((
 check_freevars T) []) t1) /\((((
-type_e cenv) ((((db_bind n) (tvs,t1)) tenv))) e) t2)
+type_e cenv) (((((bind_tenv n)  tvs) t1)  tenv))) e) t2)
 ==>
 type_ctxt cenv senv tenv ((((((Clet ((SOME tvs))) n) ((SOME t1))) ()) e)) t1 t2)
 
