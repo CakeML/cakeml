@@ -3,14 +3,16 @@ val _ = new_theory"CexpTypes"
 
 (* applicative primitives with bytecode counterparts *)
 val _ = Hol_datatype `
+ Cprim1 = CRef | CDer`;
+val _ = Hol_datatype `
  Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq`;
-
 
 val _ = Hol_datatype `
  Cpat =
     CPvar of string
   | CPlit of lit
-  | CPcon of num => Cpat list`;
+  | CPcon of num => Cpat list
+  | CPref of Cpat`;
 
 val _ = Hol_datatype `
  Cexp =
@@ -25,6 +27,7 @@ val _ = Hol_datatype `
   | CLetfun of bool => string list => (string list # (Cexp + num)) list => Cexp
   | CFun of string list => (Cexp + num)
   | CCall of Cexp => Cexp list
+  | CPrim1 of Cprim1 => Cexp
   | CPrim2 of Cprim2 => Cexp => Cexp
   | CIf of Cexp => Cexp => Cexp`;
 

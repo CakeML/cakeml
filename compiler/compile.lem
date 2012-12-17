@@ -95,12 +95,14 @@ num_to_bool 1 = true
 type (+) 'a 'b = INL of 'a | INR of 'b (* TODO: move to lem *)
 
 (* applicative primitives with bytecode counterparts *)
+type Cprim1 = CRef | CDer
 type Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq
 
 type Cpat =
   | CPvar of string
   | CPlit of lit
   | CPcon of num * list Cpat
+  | CPref of Cpat
 
 type Cexp =
   | CDecl of list string
@@ -114,6 +116,7 @@ type Cexp =
   | CLetfun of bool * list string * list (list string * ((+) Cexp num)) * Cexp
   | CFun of list string * ((+) Cexp num)
   | CCall of Cexp * list Cexp
+  | CPrim1 of Cprim1 * Cexp
   | CPrim2 of Cprim2 * Cexp * Cexp
   | CIf of Cexp * Cexp * Cexp
 
@@ -123,6 +126,7 @@ type Cv =
   | CLitv of lit
   | CConv of num * list Cv
   | CRecClos of Pmap.map string Cv * list string * list def * string
+  | CLoc of num
 
 (* Semantics *)
 
@@ -132,6 +136,8 @@ and
 Cpat_vars (CPlit _) = {}
 and
 Cpat_vars (CPcon _ ps) = List.fold_left (fun s p -> s union Cpat_vars p) {} ps
+and
+Cpat_vars (CPref p) = Cpat_vars p
 
 let rec
 free_vars _ (CDecl xs) = Set.from_list xs
@@ -435,6 +441,10 @@ pat_to_Cpat m pvs (Pcon cn ps) =
   let (pvs,Cps) = pats_to_Cpats m pvs ps in
   (pvs,CPcon (Pmap.find cn m) Cps)
 and
+pat_to_Cpat m pvs (Pref p) =
+  let (pvs,Cp) = pat_to_Cpat m pvs p in
+  (pvs,CPref Cp)
+and
 pats_to_Cpats m pvs [] = (pvs,[])
 and
 pats_to_Cpats m pvs (p::ps) =
@@ -454,6 +464,11 @@ remove_mat_vp fk sk v (CPcon cn ps) =
   CIf (CTagEq (CVar v) cn)
     (remove_mat_con fk sk v 0 ps)
     (CCall (CVar fk) [])
+and
+remove_mat_vp fk sk v (CPref p) =
+  let v' = fresh_var ({v;fk} union (free_vars Pmap.empty sk) union (Cpat_vars p)) in
+  CLet v' (CPrim1 CRef (CVar v))
+    (remove_mat_vp fk sk v' p)
 and
 remove_mat_con fk sk v n [] = sk
 and
@@ -637,6 +652,10 @@ label_closures (CCall e es) = bind
   (label_closures_list es) (fun es -> return
   (CCall e es)))
 and
+label_closures (CPrim1 uop e) = bind
+  (label_closures e) (fun e -> return
+    (CPrim1 uop e))
+and
 label_closures (CPrim2 op e1 e2) = bind
   (label_closures e1) (fun e1 -> bind
   (label_closures e2) (fun e2 -> return
@@ -688,6 +707,8 @@ and
 imm_unlab (CCall e es) = imm_unlab e + imm_unlab_list es
 and
 imm_unlab (CPrim2 op e1 e2) = imm_unlab e1 + imm_unlab e2
+and
+imm_unlab (CPrim1 uop e) = imm_unlab e
 and
 imm_unlab (CIf e1 e2 e3) = imm_unlab e1 + imm_unlab e2 + imm_unlab e3
 and
