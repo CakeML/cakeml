@@ -454,14 +454,13 @@ val _ = Define `
 
 
 (*val store_assign : num -> v -> store -> option store*)
- val store_assign_defn = Hol_defn "store_assign" `
+val _ = Define `
  (store_assign n v st =
   if n <( LENGTH st) then(
     SOME ((((LUPDATE v) n) st)))
   else
     NONE)`;
 
-val _ = Defn.save_defn store_assign_defn;
 
 (* Maps each constructor to its arity and the set of all constructors of that
  * type *)
@@ -1899,6 +1898,9 @@ val _ = type_abbrev( "tenvS" , ``: (num, t) env``);
  * all) *)
 (*val type_env : tenvC -> tenvS -> envE -> tenvE -> bool*)
 
+(* The type of the store *)
+(*val type_s : tenvC -> tenvS -> store -> bool*)
+
 (* An evaluation context has the second type when its hole is filled with a
  * value of the first type. *)
 (*val type_ctxt : tenvC -> tenvS -> tenvE -> ctxt_frame -> t -> t -> bool*)
@@ -1992,12 +1994,26 @@ type_env cenv) senv) env) tenv)
 ==>
 type_env cenv senv ((((bind n) (v,(SOME (tvs,t)))) env)) (((((bind_tenv n)  tvs) t)  tenv)))`;
 
+val _ = Define `
+ (type_s cenv senv s =
+  ! l. 
+    ((? t.(( lookup l) senv) =( SOME t)) = (? v.(( store_lookup l) s) =( SOME v))) /\
+    (! t v. ((((lookup l) senv) =( SOME t)) /\ (((store_lookup l) s) =( SOME v))) ==>(((( type_v cenv) senv) v) t)))`;
+
+
 val _ = Hol_reln `
 
 (! cenv senv tenv x e t.((((
 type_e cenv) (((((bind_tenv x) 0) Tint) tenv))) e) t)
 ==>
 type_ctxt cenv senv tenv ((((Chandle ()) x) e)) t t)
+
+/\
+
+(! cenv senv tenv uop t1 t2.(((
+type_uop uop) t1) t2)
+==>
+type_ctxt cenv senv tenv (((Cuapp uop) ())) t1 t2)
 
 /\
 
@@ -2081,7 +2097,8 @@ val _ = Hol_reln `
 
 (! tenvC senv envC s env e c t1 t2 tenv.(((((
 type_ctxts tenvC) senv) c) t1) t2) /\((((
-type_env tenvC) senv) env) tenv) /\((((
+type_env tenvC) senv) env) tenv) /\(((
+type_s tenvC) senv) s) /\((((
 type_e tenvC) tenv) e) t1)
 ==>
 type_state tenvC (envC, s, env,( Exp e), c) t2)
@@ -2090,7 +2107,8 @@ type_state tenvC (envC, s, env,( Exp e), c) t2)
 
 (! tenvC senv envC s env v c t1 t2 tenv.(((((
 type_ctxts tenvC) senv) c) t1) t2) /\((((
-type_env tenvC) senv) env) tenv) /\((((
+type_env tenvC) senv) env) tenv) /\(((
+type_s tenvC) senv) s) /\((((
 type_v tenvC) senv) v) t1)
 ==>
 type_state tenvC (envC, s, env,( Val v), c) t2)`;
@@ -2098,7 +2116,8 @@ type_state tenvC (envC, s, env,( Val v), c) t2)`;
 val _ = Hol_reln `
 
 (! tenvC senv envC s env ds tenvC' tenv tenv'.((((
-type_env tenvC) senv) env) tenv) /\(((((
+type_env tenvC) senv) env) tenv) /\(((
+type_s tenvC) senv) s) /\(((((
 type_ds tenvC) tenv) ds) tenvC') tenv')
 ==>
 type_d_state tenvC (envC, s, env, ds, NONE) tenvC' tenv')

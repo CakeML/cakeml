@@ -386,7 +386,7 @@ let store_alloc v st =
   (st @ [v], List.length st)
 
 val store_assign : num -> v -> store -> option store
-let rec store_assign n v st =
+let store_assign n v st =
   if n < List.length st then
     Some (LUPDATE v n st)
   else
@@ -1732,6 +1732,9 @@ val type_v : tenvC -> tenvS -> v -> t -> bool
  * all) *)
 val type_env : tenvC -> tenvS -> envE -> tenvE -> bool
 
+(* The type of the store *)
+val type_s : tenvC -> tenvS -> store -> bool
+
 (* An evaluation context has the second type when its hole is filled with a
  * value of the first type. *)
 val type_ctxt : tenvC -> tenvS -> tenvE -> ctxt_frame -> t -> t -> bool
@@ -1825,12 +1828,24 @@ type_env cenv senv env tenv
 ==>
 type_env cenv senv (bind n (v,Some (tvs,t)) env) (bind_tenv n  tvs t  tenv)
 
+let type_s cenv senv s =
+  forall l. 
+    ((exists t. lookup l senv = Some t) = (exists v. store_lookup l s = Some v)) &&
+    forall t v. ((lookup l senv = Some t) && (store_lookup l s = Some v)) --> type_v cenv senv v t
+
 indreln
 
 forall cenv senv tenv x e t.
 type_e cenv (bind_tenv x 0 Tint tenv) e t
 ==>
 type_ctxt cenv senv tenv (Chandle () x e) t t
+
+and
+
+forall cenv senv tenv uop t1 t2.
+type_uop uop t1 t2
+==>
+type_ctxt cenv senv tenv (Cuapp uop ()) t1 t2
 
 and
 
@@ -1915,6 +1930,7 @@ indreln
 forall tenvC senv envC s env e c t1 t2 tenv.
 type_ctxts tenvC senv c t1 t2 &&
 type_env tenvC senv env tenv &&
+type_s tenvC senv s &&
 type_e tenvC tenv e t1
 ==>
 type_state tenvC (envC, s, env, Exp e, c) t2
@@ -1924,6 +1940,7 @@ and
 forall tenvC senv envC s env v c t1 t2 tenv.
 type_ctxts tenvC senv c t1 t2 &&
 type_env tenvC senv env tenv &&
+type_s tenvC senv s &&
 type_v tenvC senv v t1
 ==>
 type_state tenvC (envC, s, env, Val v, c) t2
@@ -1932,6 +1949,7 @@ indreln
 
 forall tenvC senv envC s env ds tenvC' tenv tenv'.
 type_env tenvC senv env tenv &&
+type_s tenvC senv s &&
 type_ds tenvC tenv ds tenvC' tenv'
 ==>
 type_d_state tenvC (envC, s, env, ds, None) tenvC' tenv'
