@@ -661,7 +661,7 @@ val eval_option_case_def = Define `
 (eval_option_case (SOME x) = λf1 f2. f2 x)`;
 
 val eval_option_case_thm = Q.store_thm ("eval_option_case_thm",
-`!opt f1 f2. option_case f1 f2 opt = eval_option_case opt f1 f2`,
+`!opt f1 f2. option_CASE opt f1 f2 = eval_option_case opt f1 f2`,
 rw [] >>
 cases_on `opt` >>
 rw [eval_option_case_def]);
