@@ -18,9 +18,9 @@ rw [Once evaluate_cases]);
 
 val evaluate_var = store_thm(
 "evaluate_var",
-``∀cenv s env n r. evaluate cenv s env (Var n) r =
-  (∃v topt. (db_lookup n env = SOME (v, topt)) ∧ (r = (s, Rval v))) ∨
-  ((db_lookup n env = NONE) ∧ (r = (s, Rerr Rtype_error)))``,
+``∀cenv s env n r targs. evaluate cenv s env (Var n targs) r =
+  (∃v topt. (lookup n env = SOME (v, topt)) ∧ (r = (s, Rval (do_tapp topt targs v)))) ∨
+  ((lookup n env = NONE) ∧ (r = (s, Rerr Rtype_error)))``,
 rw [Once evaluate_cases] >>
 metis_tac [])
 
@@ -93,9 +93,9 @@ metis_tac [])
 
 val evaluate'_var = store_thm(
 "evaluate'_var",
-``∀s env n r. evaluate' s env (Var n) r =
-  (∃v topt. (db_lookup n env = SOME (v,topt)) ∧ (r = (s, Rval v)) ∨
-  ((db_lookup n env = NONE) ∧ (r = (s, Rerr Rtype_error))))``,
+``∀s env n r targs. evaluate' s env (Var n targs) r =
+  (∃v topt. (lookup n env = SOME (v,topt)) ∧ (r = (s, Rval (do_tapp topt targs v))) ∨
+  ((lookup n env = NONE) ∧ (r = (s, Rerr Rtype_error))))``,
 rw [Once evaluate'_cases] >>
 metis_tac [])
 
@@ -150,7 +150,7 @@ rw[Once evaluate'_cases] >>
 metis_tac [])
 
 val d_state_to_store_thm = Q.store_thm ("d_state_to_store_thm",
-`(d_state_to_store s (SOME (v1,v3,s',v7,v9,v10)) = s') ∧
+`(d_state_to_store s (SOME (v0,v1,v3,s',v7,v9,v10)) = s') ∧
  (d_state_to_store s NONE = s)`,
 rw [d_state_to_store_def]);
 

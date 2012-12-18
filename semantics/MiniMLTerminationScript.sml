@@ -16,8 +16,8 @@ val exp6_size_thm = size_thm "exp6_size_thm" ``exp6_size`` ``exp_size``
 val pat1_size_thm = size_thm "pat1_size_thm" ``pat1_size`` ``pat_size``
 (*
 val v1_size_thm = size_thm "v1_size_thm" ``v1_size`` ``v2_size``
-*)
 val v3_size_thm = size_thm "v3_size_thm" ``v3_size`` ``v_size``
+*)
 
 val SUM_MAP_exp2_size_thm = store_thm(
 "SUM_MAP_exp2_size_thm",
@@ -83,14 +83,14 @@ val _ = export_rewrites["lookup_def"];
 val (pmatch_def, pmatch_ind) =
   tprove_no_defn ((pmatch_def, pmatch_ind),
   wf_rel_tac
-  `inv_image $< (λx. case x of INL (s,a,p,b,c) => pat_size p | INR (s,a,ps,b,c) =>
+  `inv_image $< (λx. case x of INL (tvs,s,a,p,b,c) => pat_size p | INR (tvs,s,a,ps,b,c) =>
   pat1_size ps)`);
 val _ = register "pmatch" pmatch_def pmatch_ind;
 
 val (pmatch'_def, pmatch'_ind) =
   tprove_no_defn ((pmatch'_def, pmatch'_ind),
   wf_rel_tac
-  `inv_image $< (λx. case x of INL (s,p,b,c) => pat_size p | INR (s,ps,b,c) =>
+  `inv_image $< (λx. case x of INL (tvs,s,p,b,c) => pat_size p | INR (tvs,s,ps,b,c) =>
   pat1_size ps)`);
 val _ = register "pmatch'" pmatch'_def pmatch'_ind;
 
@@ -134,7 +134,6 @@ res_tac >>
 decide_tac);
 val _ = register "check_freevars" check_freevars_def check_freevars_ind;
 
-(*
 val (deBruijn_inc_def,deBruijn_inc_ind) =
   tprove_no_defn ((deBruijn_inc_def,deBruijn_inc_ind),
 wf_rel_tac `measure (t_size o SND o SND)` >>
@@ -144,7 +143,6 @@ srw_tac [ARITH_ss] [t_size_def] >>
 res_tac >>
 decide_tac);
 val _ = register "deBruijn_inc" deBruijn_inc_def deBruijn_inc_ind;
-*)
 
 val (bind_var_list_def,bind_var_list_ind) =
   tprove_no_defn ((bind_var_list_def,bind_var_list_ind),

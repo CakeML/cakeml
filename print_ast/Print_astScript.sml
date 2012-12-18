@@ -281,7 +281,7 @@ val _ = Define `
   (((join_trees ((L CommaT))) (((MAP ((exp_to_tok_tree indent))) es))))) (((N   
   ((L RparT)))  ((L RparT))))))))))))
 /\
-(exp_to_tok_tree indent (Var v) =(
+(exp_to_tok_tree indent (Var v _) =(
   var_to_tok_tree v))
 /\
 (exp_to_tok_tree indent (Fun v _ e) =(( N 
@@ -388,7 +388,7 @@ val _ = Define `
                (((MAP ((pat_exp_to_tok_tree ((inc_indent indent))))) pes)))))  
   ((L RparT))))))))))))))))
 /\
-(exp_to_tok_tree indent (Let v _ e1 e2) =(( N 
+(exp_to_tok_tree indent (Let _ v _ e1 e2) =(( N 
   ((newline indent))) (((N  
   ((L LetT))) (((N   ((L ValT))) (((N   
   ((var_to_tok_tree v))) (((N   
@@ -399,7 +399,7 @@ val _ = Define `
   (((exp_to_tok_tree ((inc_indent indent))) e2))) (((N   
   ((newline indent)))  ((L EndT))))))))))))))))))))))
 /\
-(exp_to_tok_tree indent (Letrec funs e) =(( N 
+(exp_to_tok_tree indent (Letrec _ funs e) =(( N 
   ((newline indent))) (((N  
   ((L LetT))) (((N   ((L FunT))) (((N   
   (((join_trees ((( N ((newline indent)))  ((L AndT))))) 
@@ -475,14 +475,14 @@ val _ = Define `
 
  val dec_to_tok_tree_defn = Hol_defn "dec_to_tok_tree" `
  
-(dec_to_tok_tree indent (Dlet p e) =(( N 
+(dec_to_tok_tree indent (Dlet tvs p e) =(( N 
   ((L ValT))) (((N  
   ((pat_to_tok_tree p))) (((N   
   ((L EqualsT))) (((N  
   (((exp_to_tok_tree ((inc_indent indent))) e))) 
   ((L SemicolonT))))))))))
 /\
-(dec_to_tok_tree indent (Dletrec funs) =(( N 
+(dec_to_tok_tree indent (Dletrec tvs funs) =(( N 
   ((L FunT))) (((N   
   (((join_trees ((( N ((newline indent)))  ((L AndT))))) 
              (((MAP ((fun_to_tok_tree indent))) funs))))) 

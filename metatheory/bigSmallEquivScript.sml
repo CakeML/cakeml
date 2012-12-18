@@ -222,16 +222,16 @@ val small_eval_match = Q.prove (
 small_eval_step_tac);
 
 val small_eval_let = Q.prove (
-`!cenv s env n topt e1 e2 c r.
-  small_eval cenv s env (Let n topt e1 e2) c r =
-  small_eval cenv s env e1 ((Clet n topt () e2,env)::c) r`,
+`!cenv s env n topt e1 e2 c r tvs.
+  small_eval cenv s env (Let n tvs topt e1 e2) c r =
+  small_eval cenv s env e1 ((Clet n tvs topt () e2,env)::c) r`,
 small_eval_step_tac);
 
 val small_eval_letrec = Q.prove (
-`!cenv s env funs e1 c r.
+`!cenv s env funs e1 c r tvs.
   ALL_DISTINCT (MAP (λ(x,topt1,y,topt2,z). x) funs) ⇒
-  (small_eval cenv s env (Letrec funs e1) c r =
-   small_eval cenv s (build_rec_env funs env) e1 c r)`,
+  (small_eval cenv s env (Letrec tvs funs e1) c r =
+   small_eval cenv s (build_rec_env tvs funs env) e1 c r)`,
 small_eval_step_tac);
 
 val (small_eval_list_rules, small_eval_list_ind, small_eval_list_cases) = Hol_reln `
@@ -374,13 +374,13 @@ val (small_eval_match_rules, small_eval_match_ind, small_eval_match_cases) = Hol
 (!cenv s env v. small_eval_match cenv s env v [] (s, Rerr (Rraise Bind_error))) ∧
 (!cenv s env p e pes r env' v.
   ALL_DISTINCT (pat_bindings p []) ∧
-  (pmatch cenv s p v env = Match env') ∧
+  (pmatch (SOME 0) cenv s p v env = Match env') ∧
   small_eval cenv s env' e [] r
   ⇒
   small_eval_match cenv s env v ((p,e)::pes) r) ∧
 (!cenv s env e p pes r v.
   ALL_DISTINCT (pat_bindings p []) ∧
-  (pmatch cenv s p v env = No_match) ∧
+  (pmatch (SOME 0) cenv s p v env = No_match) ∧
   small_eval_match cenv s env v pes r
   ⇒
   small_eval_match cenv s env v ((p,e)::pes) r) ∧
@@ -389,7 +389,7 @@ val (small_eval_match_rules, small_eval_match_ind, small_eval_match_cases) = Hol
   ⇒
   small_eval_match cenv s env v ((p,e)::pes) (s, Rerr (Rtype_error))) ∧
 (!cenv s env p e pes v.
-  (pmatch cenv s p v env = Match_type_error)
+  (pmatch (SOME 0) cenv s p v env = Match_type_error)
   ⇒
   small_eval_match cenv s env v ((p,e)::pes) (s, Rerr (Rtype_error)))`;
 
@@ -482,7 +482,7 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
      `e_step_reln^* (cenv,s,env,Exp e,[(Chandle () var e',env)]) (cenv,s',env',Exp (Raise (Int_error n)),[(Chandle () var e',env)])`
                  by metis_tac [APPEND,e_step_add_ctxt] >>
      `e_step_reln (cenv,s',env',Exp (Raise (Int_error n)),[(Chandle () var e',env)]) 
-                  (cenv,s',(db_bind var (Litv (IntLit n), SOME Tint) env),Exp e',[])`
+                  (cenv,s',(bind var (Litv (IntLit n), SOME (0,Tint)) env),Exp e',[])`
                  by (rw [e_step_reln_def, e_step_def, continue_def, return_def]) >>
      metis_tac [RTC_SINGLE, small_eval_prefix],
  fs [small_eval_def] >>
@@ -550,7 +550,7 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
      rw [Once RTC_CASES1, e_step_reln_def, return_def, e_step_def],
  rw [small_eval_def, e_step_def] >>
      qexists_tac `env` >>
-     qexists_tac `Exp (Var n)` >>
+     qexists_tac `Exp (Var n tparams_opt)` >>
      rw [] >>
      metis_tac [RTC_REFL],
  rw [small_eval_def] >>
@@ -681,21 +681,21 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
                  rw []) >>
      fs [],
  fs [small_eval_def] >>
-     `e_step_reln^* (cenv,s,env,Exp e,[(Clet n topt () e',env)])
-                    (cenv,s',env',Val v,[(Clet n topt () e',env)])`
+     `e_step_reln^* (cenv,s,env,Exp e,[(Clet tvs n topt () e',env)])
+                    (cenv,s',env',Val v,[(Clet tvs n topt () e',env)])`
              by metis_tac [e_step_add_ctxt, APPEND] >>
-     `e_step_reln (cenv,s',env',Val v,[(Clet n topt () e',env)])
-                  (cenv,s',db_bind n (v,topt) env,Exp e',[])`
+     `e_step_reln (cenv,s',env',Val v,[(Clet tvs n topt () e',env)])
+                  (cenv,s',bind n (v,add_tvs tvs topt) env,Exp e',[])`
              by rw [e_step_def, e_step_reln_def, continue_def, push_def] >>
      match_mp_tac small_eval_prefix >>
      metis_tac [transitive_RTC, RTC_SINGLE, transitive_def],
- `small_eval cenv s env e ([] ++ [(Clet n topt () e2,env)]) (s', Rerr err)`
+ `small_eval cenv s env e ([] ++ [(Clet tvs n topt () e2,env)]) (s', Rerr err)`
              by (match_mp_tac small_eval_err_add_ctxt >>
                  rw []) >>
      fs [],
  rw [small_eval_def] >>
      qexists_tac `env` >>
-     qexists_tac `Exp (Letrec funs e)` >>
+     qexists_tac `Exp (Letrec tvs funs e)` >>
      qexists_tac `[]` >>
      rw [RTC_REFL, e_step_def],
  fs [small_eval_def] >>
@@ -730,7 +730,7 @@ val evaluate_ctxts_cons = Q.prove (
   (?var e' s2 env v' res2 v i.
      (res1 = Rerr (Rraise (Int_error i))) ∧
      (f = (Chandle () var e',env)) ∧
-     evaluate cenv s1 (db_bind var (Litv (IntLit i), SOME Tint) env) e' (s2, res2) ∧
+     evaluate cenv s1 (bind var (Litv (IntLit i), SOME (0,Tint)) env) e' (s2, res2) ∧
      evaluate_ctxts cenv s2 cs res2 bv)`,
 rw [] >>
 rw [Once evaluate_ctxts_cases] >>
@@ -950,11 +950,11 @@ metis_tac [small_exp_to_big_exp, big_exp_to_small_exp,
            one_step_backward_type_error, evaluate_state_val_no_ctxt]);
 
 val lift_small_exp_to_dec_one_step = Q.prove (
-`!cenv s env e c cenv' s' env' e' c' cenv'' s'' env'' ds p.
+`!cenv s env e c cenv' s' env' e' c' cenv'' s'' env'' ds p tvs.
   e_step_reln (cenv,s,env,e,c) (cenv',s',env',e',c')
   ⇒
-  d_step_reln (cenv'',s'',env'',ds,SOME (p,(cenv,s,env,e,c)))
-              (cenv'',empty_store,env'',ds,SOME (p,(cenv',s',env',e',c')))`,
+  d_step_reln (cenv'',s'',env'',ds,SOME (tvs,p,(cenv,s,env,e,c)))
+              (cenv'',empty_store,env'',ds,SOME (tvs,p,(cenv',s',env',e',c')))`,
 rw [e_step_reln_def, d_step_reln_def, d_step_def] >>
 every_case_tac >>
 fs [e_step_def, continue_def, push_def, return_def] >>
@@ -962,8 +962,8 @@ rw []);
 
 val lift_small_exp_to_dec = Q.prove (
 `!st st'. e_step_reln^* st st' ⇒
-   !p cenv'' env'' ds.
-     d_step_reln^* (cenv'',empty_store,env'',ds,SOME (p,st)) (cenv'',empty_store,env'',ds,SOME (p,st'))`,
+   !p cenv'' env'' ds tvs.
+     d_step_reln^* (cenv'',empty_store,env'',ds,SOME (tvs,p,st)) (cenv'',empty_store,env'',ds,SOME (tvs,p,st'))`,
 HO_MATCH_MP_TAC RTC_INDUCT >>
 rw [] >>
 PairCases_on `st` >>
@@ -983,63 +983,63 @@ rw [d_small_eval_def] >|
      [`?cenv2 s2 env2. a = (cenv2,env2)`
                 by (PairCases_on `a` >> rw []) >>
           fs [d_small_eval_def] >>
-          `d_step_reln (cenv,s,env,Dlet p e::ds,NONE)
-                       (cenv,empty_store,env,ds,SOME(p,cenv,s,env,Exp e,[]))`
+          `d_step_reln (cenv,s,env,Dlet tvs p e::ds,NONE)
+                       (cenv,empty_store,env,ds,SOME(tvs,p,cenv,s,env,Exp e,[]))`
                 by (rw [d_step_reln_def, d_step_def]) >>
           imp_res_tac big_exp_to_small_exp >>
           fs [small_eval_def] >>
-          `d_step_reln^* (cenv,empty_store,env,ds,SOME (p,(cenv,s,env,Exp e,[])))
-                         (cenv,empty_store,env,ds,SOME (p,(cenv,s',env'',Val v,[])))`
+          `d_step_reln^* (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s,env,Exp e,[])))
+                         (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s',env'',Val v,[])))`
                        by metis_tac [lift_small_exp_to_dec] >>
-          `d_step_reln (cenv,empty_store,env,ds,SOME (p,(cenv,s',env'',Val v,[])))
+          `d_step_reln (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s',env'',Val v,[])))
                        (cenv,s',env',ds,NONE)`
                 by rw [d_step_reln_def, d_step_def] >>
           metis_tac [RTC_SINGLE, transitive_RTC, transitive_def],
       cases_on `e'` >>
           fs [d_small_eval_def] >>
-          `d_step_reln (cenv,s,env,Dlet p e::ds,NONE)
-                       (cenv,empty_store,env,ds,SOME(p,cenv,s,env,Exp e,[]))`
+          `d_step_reln (cenv,s,env,Dlet tvs p e::ds,NONE)
+                       (cenv,empty_store,env,ds,SOME(tvs,p,cenv,s,env,Exp e,[]))`
                 by (rw [d_step_reln_def, d_step_def]) >>
           imp_res_tac big_exp_to_small_exp >>
           fs [small_eval_def] >>
-          `d_step_reln^* (cenv,empty_store,env,ds,SOME (p,(cenv,s,env,Exp e,[])))
-                         (cenv,empty_store,env,ds,SOME (p,(cenv,s',env''',Val v,[])))`
+          `d_step_reln^* (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s,env,Exp e,[])))
+                         (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s',env''',Val v,[])))`
                        by metis_tac [lift_small_exp_to_dec] >>
-          `d_step_reln (cenv,empty_store,env,ds,SOME (p,(cenv,s',env''',Val v,[])))
+          `d_step_reln (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s',env''',Val v,[])))
                        (cenv,s',env',ds,NONE)`
                 by rw [d_step_reln_def, d_step_def] >>
           metis_tac [RTC_SINGLE, transitive_RTC, transitive_def]],
- `d_step_reln (cenv,s,env,Dlet p e::ds,NONE)
-              (cenv,empty_store,env,ds,SOME(p,cenv,s,env,Exp e,[]))`
+ `d_step_reln (cenv,s,env,Dlet tvs p e::ds,NONE)
+              (cenv,empty_store,env,ds,SOME(tvs,p,cenv,s,env,Exp e,[]))`
                 by (rw [d_step_reln_def, d_step_def]) >>
      imp_res_tac big_exp_to_small_exp >>
      fs [small_eval_def] >>
-     `d_step_reln^* (cenv,empty_store,env,ds,SOME (p,(cenv,s,env,Exp e,[])))
-                    (cenv,empty_store,env,ds,SOME (p,(cenv,s2,env',Val v,[])))`
+     `d_step_reln^* (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s,env,Exp e,[])))
+                    (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s2,env',Val v,[])))`
                   by metis_tac [lift_small_exp_to_dec] >>
-     `d_step (cenv,empty_store,env,ds,SOME (p,(cenv,s2,env',Val v,[]))) = Draise Bind_error`
+     `d_step (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s2,env',Val v,[]))) = Draise Bind_error`
                by rw [d_step_reln_def, d_step_def] >>
      metis_tac [RTC_SINGLE, transitive_RTC, transitive_def, d_state_to_store_thm],
- `d_step_reln (cenv,s,env,Dlet p e::ds,NONE)
-              (cenv,empty_store,env,ds,SOME(p,cenv,s,env,Exp e,[]))`
+ `d_step_reln (cenv,s,env,Dlet tvs p e::ds,NONE)
+              (cenv,empty_store,env,ds,SOME(tvs,p,cenv,s,env,Exp e,[]))`
                 by (rw [d_step_reln_def, d_step_def]) >>
      imp_res_tac big_exp_to_small_exp >>
      fs [small_eval_def] >>
-     `d_step_reln^* (cenv,empty_store,env,ds,SOME (p,(cenv,s,env,Exp e,[])))
-                    (cenv,empty_store,env,ds,SOME (p,(cenv,s2,env',Val v,[])))`
+     `d_step_reln^* (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s,env,Exp e,[])))
+                    (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s2,env',Val v,[])))`
                   by metis_tac [lift_small_exp_to_dec] >>
-     `d_step (cenv,empty_store,env,ds,SOME (p,(cenv,s2,env',Val v,[]))) = Dtype_error`
+     `d_step (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s2,env',Val v,[]))) = Dtype_error`
                by rw [d_step_reln_def, d_step_def] >>
      metis_tac [RTC_SINGLE, transitive_RTC, transitive_def, d_state_to_store_thm],
- `d_step_reln (cenv,s,env,Dlet p e::ds,NONE)
-              (cenv,empty_store,env,ds,SOME(p,cenv,s,env,Exp e,[]))`
+ `d_step_reln (cenv,s,env,Dlet tvs p e::ds,NONE)
+              (cenv,empty_store,env,ds,SOME(tvs,p,cenv,s,env,Exp e,[]))`
                 by (rw [d_step_reln_def, d_step_def]) >>
      imp_res_tac big_exp_to_small_exp >>
      fs [small_eval_def] >>
-     `d_step_reln^* (cenv,empty_store,env,ds,SOME (p,(cenv,s,env,Exp e,[])))
-                    (cenv,empty_store,env,ds,SOME (p,(cenv,s2,env',Val v,[])))`
+     `d_step_reln^* (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s,env,Exp e,[])))
+                    (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s2,env',Val v,[])))`
                    by metis_tac [lift_small_exp_to_dec] >>
-     `d_step (cenv,empty_store,env,ds,SOME (p,(cenv,s2,env',Val v,[]))) = Dtype_error`
+     `d_step (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s2,env',Val v,[]))) = Dtype_error`
                  by (rw [d_step_def] >>
                      every_case_tac >>
                      fs [] >>
@@ -1047,24 +1047,24 @@ rw [d_small_eval_def] >|
      metis_tac [RTC_SINGLE, transitive_RTC, transitive_def, d_state_to_store_thm],
  cases_on `err` >>
      fs [d_small_eval_def] >>
-     `d_step_reln (cenv,s,env,Dlet p e::ds,NONE)
-                  (cenv,empty_store,env,ds,SOME(p,cenv,s,env,Exp e,[]))`
+     `d_step_reln (cenv,s,env,Dlet tvs p e::ds,NONE)
+                  (cenv,empty_store,env,ds,SOME(tvs,p,cenv,s,env,Exp e,[]))`
                 by (rw [d_step_reln_def, d_step_def]) >>
      imp_res_tac big_exp_to_small_exp >>
      fs [small_eval_def] >|
-     [`d_step_reln^* (cenv,empty_store,env,ds,SOME (p,(cenv,s,env,Exp e,[])))
-                     (cenv,empty_store,env,ds,SOME (p,(cenv,s',env', e',c')))`
+     [`d_step_reln^* (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s,env,Exp e,[])))
+                     (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s',env', e',c')))`
                    by metis_tac [lift_small_exp_to_dec] >>
-          `d_step (cenv,empty_store,env,ds,SOME (p,(cenv,s',env', e',c'))) = Dtype_error`
+          `d_step (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s',env', e',c'))) = Dtype_error`
                  by (rw [d_step_def] >>
                      every_case_tac >>
                      fs [] >>
                      fs [e_step_def, continue_def]) >>
           metis_tac [RTC_SINGLE, transitive_RTC, transitive_def, d_state_to_store_thm],
-      `d_step_reln^* (cenv,empty_store,env,ds,SOME (p,(cenv,s,env,Exp e,[])))
-                     (cenv,empty_store,env,ds,SOME (p,(cenv,s',env',Exp (Raise e'),[])))`
+      `d_step_reln^* (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s,env,Exp e,[])))
+                     (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s',env',Exp (Raise e'),[])))`
                    by metis_tac [lift_small_exp_to_dec] >>
-          `d_step (cenv,empty_store,env,ds,SOME (p,(cenv,s',env',Exp (Raise e'),[]))) = Draise e'`
+          `d_step (cenv,empty_store,env,ds,SOME (tvs,p,(cenv,s',env',Exp (Raise e'),[]))) = Draise e'`
                  by (rw [d_step_def] >>
                      every_case_tac >>
                      fs [] >>
@@ -1076,11 +1076,11 @@ rw [d_small_eval_def] >|
                 by (PairCases_on `a` >> rw []),
       cases_on `e`] >>
      fs [d_small_eval_def] >>
-     `d_step_reln (cenv,s,env,Dletrec funs::ds,NONE)
-                  (cenv,s,build_rec_env funs env, ds, NONE)`
+     `d_step_reln (cenv,s,env,Dletrec tvs funs::ds,NONE)
+                  (cenv,s,build_rec_env tvs funs env, ds, NONE)`
                by rw [d_step_reln_def, d_step_def] >>
      metis_tac [RTC_SINGLE, transitive_RTC, transitive_def, d_state_to_store_thm],
- `d_step (cenv,s,env,Dletrec funs::ds,NONE) = Dtype_error`
+ `d_step (cenv,s,env,Dletrec tvs funs::ds,NONE) = Dtype_error`
         by rw [d_step_def] >>
      metis_tac [RTC_REFL, transitive_RTC, transitive_def, d_state_to_store_thm],
  cases_on `r` >>
@@ -1097,40 +1097,41 @@ rw [d_small_eval_def] >|
                by rw [d_step_def] >>
      metis_tac [RTC_REFL, transitive_RTC, transitive_def, d_state_to_store_thm]]);
 
+(* TODO: Think about moving this definition to miniML.lem *) 
 val (evaluate_d_state_rules, evaluate_d_state_ind, evaluate_d_state_cases) = Hol_reln `
 (!cenv s env ds r.
    evaluate_decs cenv s env ds r
    ⇒
    evaluate_d_state (cenv,s,env,ds,NONE) r) ∧
 
-(∀cenv s1 env p e ds v env' r cenv' s2 c env'' s_emp.
+(∀cenv s1 env p e ds v env' r cenv' s2 c env'' s_emp tvs.
    evaluate_state (cenv',s1,env',e,c) (s2, Rval v) ∧ ALL_DISTINCT (pat_bindings p []) ∧
-   (pmatch cenv s2 p v env = Match env'') ∧
+   (pmatch tvs cenv s2 p v env = Match env'') ∧
    evaluate_decs cenv s2 env'' ds r ⇒
-   evaluate_d_state (cenv,s_emp,env,ds,SOME (p,(cenv',s1,env',e,c))) r) ∧
+   evaluate_d_state (cenv,s_emp,env,ds,SOME (tvs,p,(cenv',s1,env',e,c))) r) ∧
 
-(∀cenv s1 env p e ds v cenv' c s2 env' s_emp.
+(∀cenv s1 env p e ds v cenv' c s2 env' s_emp tvs.
    evaluate_state (cenv',s1,env',e,c) (s2, Rval v) ∧ ALL_DISTINCT (pat_bindings p []) ∧
-   (pmatch cenv s2 p v env = No_match) ⇒
-   evaluate_d_state (cenv,s_emp,env,ds,SOME (p,(cenv',s1,env',e,c))) (s2, Rerr (Rraise Bind_error))) ∧
+   (pmatch tvs cenv s2 p v env = No_match) ⇒
+   evaluate_d_state (cenv,s_emp,env,ds,SOME (tvs,p,(cenv',s1,env',e,c))) (s2, Rerr (Rraise Bind_error))) ∧
 
-(∀cenv s1 env p e ds v cenv' c s2 env' s_emp.
+(∀cenv s1 env p e ds v cenv' c s2 env' s_emp tvs.
    evaluate_state (cenv',s1,env',e,c) (s2, Rval v) ∧
-   (pmatch cenv s2 p v env = Match_type_error) ⇒
-   evaluate_d_state (cenv,s_emp,env,ds,SOME (p,(cenv',s1,env',e,c))) (s2, Rerr Rtype_error)) ∧
+   (pmatch tvs cenv s2 p v env = Match_type_error) ⇒
+   evaluate_d_state (cenv,s_emp,env,ds,SOME (tvs,p,(cenv',s1,env',e,c))) (s2, Rerr Rtype_error)) ∧
 
-(∀cenv s1 env p e ds v cenv' c s2 env' s_emp.
+(∀cenv s1 env p e ds v cenv' c s2 env' s_emp tvs.
    evaluate_state (cenv',s1,env',e,c) (s2, Rval v) ∧ ¬ALL_DISTINCT (pat_bindings p []) ⇒
-   evaluate_d_state (cenv,s_emp,env,ds,SOME (p,(cenv',s1,env',e,c))) (s2, Rerr Rtype_error)) ∧
+   evaluate_d_state (cenv,s_emp,env,ds,SOME (tvs,p,(cenv',s1,env',e,c))) (s2, Rerr Rtype_error)) ∧
 
-(∀cenv s env p e ds err cenv' c env' s_emp s'.
+(∀cenv s env p e ds err cenv' c env' s_emp s' tvs.
    evaluate_state (cenv',s,env',e,c)  (s', Rerr err) ⇒
-   evaluate_d_state (cenv,s_emp,env,ds,SOME (p,(cenv',s,env',e,c))) (s', Rerr err)) ∧
+   evaluate_d_state (cenv,s_emp,env,ds,SOME (tvs,p,(cenv',s,env',e,c))) (s', Rerr err)) ∧
 
-(!cenv s env ds p cenv' env' e c err s_emp s'.
+(!cenv s env ds p cenv' env' e c err s_emp s' tvs.
   evaluate_state (cenv',s,env',e,c) (s', Rerr err)
   ⇒
-  evaluate_d_state (cenv,s_emp,env,ds,SOME (p,(cenv',s,env',e,c))) (s', Rerr err))`;
+  evaluate_d_state (cenv,s_emp,env,ds,SOME (tvs,p,(cenv',s,env',e,c))) (s', Rerr err))`;
 
 val one_step_backward_dec = Q.prove (
 `!cenv s env ds c cenv' s' env' ds' c' r.
