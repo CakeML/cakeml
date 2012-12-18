@@ -1,4 +1,5 @@
 open HolKernel Parse boolLib bossLib Opentheory arithmeticTheory rich_listTheory;
+open stringTheory;
 val _ = new_theory"model_syntax"
 val BIT0_def = Define `
   (BIT0 0 = 0) /\
@@ -29,8 +30,12 @@ val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="pred_set",Name="UNIV"},
 val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="pred_set",Name="DIFF"},name=(["Set"],"difference")};
 val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="bool",Name="IN"},name=(["Set"],"member")};
 
-fun const_name n = const_name_in_map n handle NotFound => {Thy="model_syntax",Name=snd n}
-fun tyop_name n = tyop_name_in_map n handle NotFound => {Thy="model_syntax",Tyop=snd n}
+fun const_name n =
+  if mem (snd n) ["ORD","CHR"] then {Thy="string",Name=snd n}
+  else const_name_in_map n handle NotFound => {Thy="model_syntax",Name=snd n}
+fun tyop_name n =
+  if snd n = "char" then {Thy="string",Tyop=snd n}
+  else tyop_name_in_map n handle NotFound => {Thy="model_syntax",Tyop=snd n}
 fun fix_name "|-" = "proves"
   | fix_name "===" = "equiv"
   | fix_name s = if String.sub(s,0) = #"_" then ("model_syntax"^s) else s

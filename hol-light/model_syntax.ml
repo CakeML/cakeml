@@ -1,11 +1,22 @@
 
+(* ------------------------------------------------------------------------- *)
+(* Definition of char type                                                   *)
+(* ------------------------------------------------------------------------- *)
+
+let (CHR,ORD) =
+  let char_lemma = prove(`(\n:num. n < 256) 0`,SIMP_TAC [ARITH_LT]) in
+    new_basic_type_definition "char" ("CHR","ORD") char_lemma;;
+
+new_type_abbrev("string",`:char list`);;
+
+(* ------------------------------------------------------------------------- *)
+(* Start logging proofs for export to Opentheory (then import to HOL4)       *)
+(* ------------------------------------------------------------------------- *)
+
 start_logging ();;
 logfile "model-syntax";;
 
 let x name th = export_thm (DISCH (mk_var(name,`:bool`)) th);;
-
-new_type_abbrev("char",`:num`);;
-new_type_abbrev("string",`:char list`);;
 
 (* ========================================================================= *)
 (* Syntactic definitions for "core HOL", including provability.              *)
@@ -437,7 +448,7 @@ let VFREE_IN_FINITE_ALT = prove
   ASM_REWRITE_TAC[] THEN ASM_MESON_TAC []);;
 
 let PRIME_CHAR = define
- `PRIME_CHAR = 39`;;
+ `PRIME_CHAR = CHR 39`;;
 
 let APPEND_CANCEL = prove
  (`!x y z. (APPEND x y = APPEND x z) = (y = z)`,
@@ -857,13 +868,14 @@ let string_lt = new_recursive_definition list_RECURSION
  `(string_lt [] t = ~((t:string) = [])) /\
   (string_lt (CONS x s) t =
      if t = [] then F else
-     if x = HD t then string_lt s (TL t) else x < HD t)`;;
+     if x = HD t then string_lt s (TL t) else ORD x < ORD (HD t))`;;
 
 let string_lt = prove
  (`(string_lt [] [] = F) /\
    (string_lt [] (CONS y t) = T) /\
    (string_lt (CONS x s) [] = F) /\
-   (string_lt (CONS x s) (CONS y t) = if x = y then string_lt s t else x < y)`,
+   (string_lt (CONS x s) (CONS y t) =
+      if x = y then string_lt s t else ORD x < ORD y)`,
   SIMP_TAC [string_lt;NOT_CONS_NIL;HD;TL]);;
 
 let INORDER_INSERT = define
@@ -883,7 +895,8 @@ x "STRING_SORT" STRING_SORT;;
 (* ------------------------------------------------------------------------- *)
 
 let def_INDUCT,def_RECURSION = define_type
-  "def = Constdef string term
+  "def = Axiomdef term
+       | Constdef string term
        | Typedef string term string string";; (* tyname, P, absname, repname *)
 
 let def_DISTINCT = distinctness "def";;
@@ -898,7 +911,8 @@ x "def_INJ" def_INJ;;
 (* ------------------------------------------------------------------------- *)
 
 let types_aux = new_recursive_definition def_RECURSION
- `(types_aux (Constdef s t) = []) /\
+ `(types_aux (Axiomdef t) = []) /\
+  (types_aux (Constdef s t) = []) /\
   (types_aux (Typedef tyname t a r) = [(tyname,LENGTH (tvars t))])`;;
 
 let types = define
@@ -925,7 +939,8 @@ x "type_ok_CASES" type_ok_CASES;;
 (* ------------------------------------------------------------------------- *)
 
 let consts_aux = new_recursive_definition def_RECURSION
- `(consts_aux (Constdef s t) = [(s,typeof t)]) /\
+ `(consts_aux (Axiomdef t) = []) /\
+  (consts_aux (Constdef s t) = [(s,typeof t)]) /\
   (consts_aux (Typedef tyname t a r) =
      let rep_type = domain (typeof t) in
      let abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t))) in
@@ -952,14 +967,28 @@ x "term_ok" term_ok;;
 (* A context is well-formed if all definitions are allowed in that order.    *)
 (* ------------------------------------------------------------------------- *)
 
+let reserved_type_names = define
+ `reserved_type_names = [[CHR 98; CHR 111; CHR 111; CHR 108];
+                         [CHR 105; CHR 110; CHR 100];
+                         [CHR 102; CHR 117; CHR 110]]`;;
+
+let reserved_const_names = define
+ `reserved_const_names = [[CHR 61]; [CHR 64]]`;;
+
 let def_ok = new_recursive_definition def_RECURSION
- `(def_ok (Constdef s t) (ctxt:(def)list) <=>
-     ~(MEM s (MAP FST (consts ctxt))) /\ CLOSED t /\
+ `(def_ok (Axiomdef t) (ctxt:(def)list) <=>
+     t has_type Bool /\ welltyped t /\ term_ok ctxt t) /\
+  (def_ok (Constdef s t) (ctxt:(def)list) <=>
+     CLOSED t /\ welltyped t /\ term_ok ctxt t /\
+     ~(MEM s (MAP FST (consts ctxt))) /\
+     ~(MEM s reserved_const_names) /\
      !v. MEM v (tvars t) ==> MEM v (tyvars (typeof t))) /\
   (def_ok (Typedef tyname t a r) ctxt <=>
-     ~(MEM tyname (MAP FST (types ctxt))) /\ CLOSED t /\
-     ~(MEM a (MAP FST (consts ctxt))) /\
-     ~(MEM r (MAP FST (consts ctxt))) /\
+     CLOSED t /\ welltyped t /\ term_ok ctxt t /\
+     ~(MEM tyname (MAP FST (types ctxt))) /\
+     ~(MEM tyname reserved_type_names) /\
+     ~(MEM a (MAP FST (consts ctxt))) /\ ~(MEM a reserved_const_names) /\
+     ~(MEM r (MAP FST (consts ctxt))) /\ ~(MEM r reserved_const_names) /\
      ?ty. (typeof t = Fun ty Bool) /\
           !v. MEM v (tvars t) ==> MEM v (tyvars ty))`;;
 
@@ -970,6 +999,8 @@ let context_ok = new_recursive_definition list_RECURSION
 let welltyped_in = define
  `welltyped_in t ctxt <=> welltyped t /\ term_ok ctxt t /\ context_ok ctxt`;;
 
+x "reserved_type_names" reserved_type_names;;
+x "reserved_const_names" reserved_const_names;;
 x "def_ok" def_ok;;
 x "context_ok" context_ok;;
 x "welltyped_in" welltyped_in;;
@@ -1019,6 +1050,9 @@ let proves_RULES,proves_INDUCT,proves_CASES = new_inductive_definition
   (!asl p d ctxt.
       asl, ctxt |- p /\ def_ok d ctxt
       ==> asl, (CONS d ctxt) |- p) /\
+  (!t ctxt.
+      context_ok ctxt /\ MEM (Axiomdef t) ctxt
+      ==> [], ctxt |- t) /\
   (!n t ctxt.
       context_ok ctxt /\ MEM (Constdef n t) ctxt
       ==> [], ctxt |- Const n (typeof t) === t) /\

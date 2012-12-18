@@ -37,6 +37,16 @@ val _ = Hol_datatype `
   thm = Sequent of term list => term`;
 
 (*
+  For purposes of stating our final soundness theorem, we also keep
+  track of what defeinitions have happened.
+*)
+
+val _ = Hol_datatype `
+  def = Axiomdef of term
+      | Constdef of string => term
+      | Typedef of string => term => string => string`;
+
+(*
   We define a record that holds the state, i.e.
 
   let the_type_constants = ref ["bool",0; "fun",2]
@@ -53,6 +63,7 @@ val _ = Hol_datatype `
   hol_refs = <| the_type_constants : (string # num) list ;
                 the_term_constants : (string # hol_type) list ;
                 the_axioms : thm list ;
+                the_definitions : def list ;
                 the_clash_var : term |>`;
 
 (* the state-exception monad *)
@@ -73,17 +84,24 @@ val get_the_term_constants_def = Define `
 val get_the_axioms_def = Define `
   get_the_axioms = (\state. (HolRes (state.the_axioms),state))`;
 
+val get_the_definitions_def = Define `
+  get_the_definitions = (\state. (HolRes (state.the_definitions),state))`;
+
 val set_the_type_constants_def = Define `
   set_the_type_constants x =
-    (\state. (HolRes (), (state with the_type_constants := x))):unit M`
+    (\state. (HolRes (), (state with the_type_constants := x))):unit M`;
 
 val set_the_term_constants_def = Define `
   set_the_term_constants x =
-    (\state. (HolRes (), (state with the_term_constants := x))):unit M`
+    (\state. (HolRes (), (state with the_term_constants := x))):unit M`;
 
 val set_the_axioms_def = Define `
   set_the_axioms x =
-    (\state. (HolRes (), (state with the_axioms := x))):unit M`
+    (\state. (HolRes (), (state with the_axioms := x))):unit M`;
+
+val set_the_definitions_def = Define `
+  set_the_definitions x =
+    (\state. (HolRes (), (state with the_definitions := x))):unit M`;
 
 (* composition and return *)
 
@@ -1065,6 +1083,10 @@ val _ = Define `axioms = get_the_axioms`;
     else failwith "new_axiom: Not a proposition"
 *)
 
+val add_def = Define `
+  add_def d = do defs <- get_the_definitions ;
+                 set_the_definitions (d::defs) od`;
+
 val new_axiom_def = Define `
   new_axiom tm =
     do ty <- type_of tm ;
@@ -1072,7 +1094,8 @@ val new_axiom_def = Define `
        if FST x = "bool" then
          do th <- return (Sequent [] tm) ;
             ax <- get_the_axioms ;
-            set_the_axioms (th :: ax) od
+            set_the_axioms (th :: ax) ;
+            add_def (Axiomdef tm) od
        else
          failwith "new_axiom: Not a proposition"
     od`;
@@ -1098,6 +1121,7 @@ val _ = Define `
        then failwith "new_definition: Type variables not reflected in constant"
        else do
          new_constant(cname,ty) ;
+         add_def (Constdef cname tm) ;
          c <- mk_const(cname,[]) ;
          eq <- mk_eq(c,r) ;
          return (Sequent [] eq)
@@ -1167,6 +1191,7 @@ val _ = Define `
     let tyvars = QSORT hol_type_less_eq (type_vars_in_term P) in
     do try new_type (tyname,LENGTH tyvars)
                          "new_basic_type_definition: Type already defined" ;
+       add_def (Typedef tyname P absname repname) ;
        aty <- mk_type(tyname,tyvars) ;
        rty <- type_of x ;
        ty <- mk_fun_ty rty aty ;

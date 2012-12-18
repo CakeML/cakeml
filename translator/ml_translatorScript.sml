@@ -117,8 +117,8 @@ val And_IMP_Eq = store_thm("And_IMP_Eq",
   \\ METIS_TAC []);
 
 val Eq_IMP_And = store_thm("Eq_IMP_And",
-  ``(!x. P x ==> Eval env (Fun name exp) ((Eq a x --> b) f)) ==>
-    Eval env (Fun name exp) ((And a P --> b) f)``,
+  ``(!x. P x ==> Eval env (Fun name NONE exp) ((Eq a x --> b) f)) ==>
+    Eval env (Fun name NONE exp) ((And a P --> b) f)``,
   FULL_SIMP_TAC std_ss [Eval_def,Arrow_def,AppReturns_def,And_def,Eq_def]
   \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []);
 
@@ -763,4 +763,3 @@ val MEMBER_INTRO = store_thm("MEMBER_INTRO",
   FULL_SIMP_TAC std_ss [FUN_EQ_THM,MEM_EQ_MEMBER]);
 
 val _ = export_theory();
-
