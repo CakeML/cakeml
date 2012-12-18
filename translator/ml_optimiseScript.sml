@@ -29,12 +29,12 @@ infix \\ val op \\ = op THEN;
 (* first an optimisation combinator: BOTTOM_UP_OPT *)
 
 val MEM_exp_size1 = prove(
-  ``!xs a. MEM a xs ==> exp_size a <= exp6_size xs``,
+  ``!xs a. MEM a xs ==> exp_size a <= exp8_size xs``,
   Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC);
 
 val MEM_exp_size2 = prove(
-  ``!ys p x. MEM (p,x) ys ==> exp_size x < exp4_size ys``,
+  ``!ys p x. MEM (p,x) ys ==> exp_size x < exp6_size ys``,
   Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def] THEN Cases
   THEN FULL_SIMP_TAC std_ss [exp_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC);
@@ -42,17 +42,17 @@ val MEM_exp_size2 = prove(
 val BOTTOM_UP_OPT_def = tDefine "BOTTOM_UP_OPT" `
   (BOTTOM_UP_OPT f (Lit v) = f (Lit v)) /\
   (BOTTOM_UP_OPT f (Raise ex) = f (Raise ex)) /\
-  (BOTTOM_UP_OPT f (Var name) = f (Var name)) /\
+  (BOTTOM_UP_OPT f (Var name t) = f (Var name t)) /\
   (BOTTOM_UP_OPT f (Con tag xs) = f (Con tag (MAP (BOTTOM_UP_OPT f) xs))) /\
-  (BOTTOM_UP_OPT f (Fun name x) = f (Fun name x)) /\
+  (BOTTOM_UP_OPT f (Fun name ty x) = f (Fun name ty x)) /\
   (BOTTOM_UP_OPT f (Uapp uop x2) = f (Uapp uop (BOTTOM_UP_OPT f x2))) /\
   (BOTTOM_UP_OPT f (App op x1 x2) = f (App op (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2))) /\
   (BOTTOM_UP_OPT f (Log l x1 x2) = f (Log l (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2))) /\
   (BOTTOM_UP_OPT f (If x1 x2 x3) = f (If (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2) (BOTTOM_UP_OPT f x3))) /\
   (BOTTOM_UP_OPT f (Mat x ys) = f (Mat (BOTTOM_UP_OPT f x) (MAP (\(p,x). (p,BOTTOM_UP_OPT f x)) ys))) /\
-  (BOTTOM_UP_OPT f (Let name x1 x2) = f (Let name (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2))) /\
+  (BOTTOM_UP_OPT f (Let n name tt x1 x2) = f (Let n name tt (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2))) /\
   (BOTTOM_UP_OPT f (Handle x1 name x2) = Handle x1 name x2) /\
-  (BOTTOM_UP_OPT f (Letrec z1 z2) = f (Letrec z1 z2))`
+  (BOTTOM_UP_OPT f (Letrec d z1 z2) = f (Letrec d z1 z2))`
  (WF_REL_TAC `measure (exp_size o SND)` THEN REPEAT STRIP_TAC
   THEN IMP_RES_TAC MEM_exp_size1 THEN IMP_RES_TAC MEM_exp_size2 THEN DECIDE_TAC)
 
@@ -141,7 +141,7 @@ val BOTTOM_UP_OPT_THM = prove(
 
 val abs2let_def = Define `
   abs2let x =
-     case x of (App Opapp (Fun v exp) y) => Let v y exp
+     case x of (App Opapp (Fun v tt exp) y) => Let NONE v tt y exp
              | rest => rest`;
 
 val abs2let_thm = prove(
@@ -153,7 +153,7 @@ val abs2let_thm = prove(
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases,do_app_def]
   \\ REPEAT STRIP_TAC \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
   \\ Q.LIST_EXISTS_TAC [`v2`,`s3`] \\ FULL_SIMP_TAC std_ss []
-  \\ Q.PAT_ASSUM `evaluate' s env (Fun s' e') ((s2,Rval v1))` MP_TAC
+  \\ Q.PAT_ASSUM `evaluate' s env (Fun s' o'' e') ((s2,Rval v1))` MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases,do_app_def]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []);
 
@@ -703,4 +703,3 @@ val Eval_OPTIMISE = store_thm("Eval_OPTIMISE",
 
 
 val _ = export_theory();
-
