@@ -415,7 +415,18 @@ rw [] >|
      fs [] >>
      rw [] >>
      fs [do_app_def, do_if_def, do_log_def] >|
-     [cheat,
+     [rw [do_uapp_def] >>
+          every_case_tac >>
+          rw [store_alloc_def] >>
+          fs [Once type_v_cases] >>
+          rw [] >>
+          fs [type_uop_def] >>
+          every_case_tac >>
+          fs [type_s_def] >>
+          rw [] >>
+          imp_res_tac type_funs_Tfn >>
+          fs [] >>
+          metis_tac [optionTheory.NOT_SOME_NONE],
       every_case_tac >>
           fs [],
       every_case_tac >>
@@ -526,56 +537,64 @@ rw [pmatch_def] >|
      metis_tac []]);
      *)
 
-     (*
 val build_rec_env_help_lem = Q.prove (
 `∀funs env funs'.
-FOLDR (λ(f,x,e) env'. bind f (Recclosure env funs' f) env') env funs =
-merge (MAP (λ(fn,n,e). (fn, (Recclosure env funs' fn))) funs) env`,
+FOLDR (λx. case x of (f,topt1,x,topt2,e) => λenv'. bind f (Recclosure env funs' f, add_tvs tvs topt1) env') env funs =
+merge (MAP (λ(fn,n,e). (fn, (Recclosure env funs' fn, add_tvs tvs n))) funs) env`,
 Induct >>
 rw [merge_def, bind_def] >>
-cases_on `h` >>
-cases_on `r` >>
+PairCases_on `h` >>
 rw []);
-*)
-(*
+
 (* Alternate definition for build_rec_env *)
 val build_rec_env_lem = Q.prove (
 `∀funs funs' env.
-  build_rec_env funs env =
-  merge (MAP (λ(fn,n,e). (fn, (Recclosure env funs fn))) funs) env`,
+  build_rec_env tvs funs env =
+  merge (MAP (λ(fn,n,e). (fn, (Recclosure env funs fn, add_tvs tvs n))) funs) env`,
 rw [build_rec_env_def, build_rec_env_help_lem]);
-*)
 
-(* TODO
+val type_env2_def = Define `
+(type_env2 tenvC tenvS tvs [] [] = T) ∧
+(type_env2 tenvC tenvS tvs ((x,(v,SOME (tvs',t')))::env) ((x',t) ::tenv) = 
+  check_freevars T [] t ∧ (x = x') ∧ (t = t') ∧ (tvs = tvs') ∧ type_v tenvC tenvS v t ∧ type_env2 tenvC tenvS tvs env tenv) ∧
+(type_env2 tenvC tenvS tvs _ _ = F)`;
+
 val type_env_merge_lem = Q.prove (
-`∀tenvC env env' tenv tenv' tvs.
-  type_env tenvC env' tenv' ∧ type_env tenvC env tenv
+`∀tenvC env env' tenv tenv' tvs tenvs.
+  type_env2 tenvC tenvs tvs env' tenv' ∧ type_env tenvC tenvs env tenv
   ⇒
-  type_env tenvC (merge env' env) (bind_var_list_subst tvs tenv' tenv)`,
+  type_env tenvC tenvs (merge env' env) (bind_var_list tvs tenv' tenv)`,
 Induct_on `tenv'` >>
 rw [merge_def] >>
-cases_on `tenv'`>>
-fs [] >>
-rw [Once type_v_cases] >|
-[qpat_assum `type_env tenvC [] (h::t)`
-         (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
-     fs [bind_def],
- qpat_assum `type_env tenvC (h::env') []`
-         (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
-     fs [bind_def],
- qpat_assum `type_env tenvC (h::env') (h'::t)`
-         (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
-     fs [bind_def, merge_def] >>
+cases_on `env'` >>
+rw [bind_var_list_def] >>
+fs [type_env2_def] >|
+[PairCases_on `h` >>
+     fs [] >>
+     cases_on `h2` >>
+     fs [type_env2_def] >>
+     PairCases_on `x` >>
+     fs [type_env2_def],
+ PairCases_on `h` >>
+     rw [bind_var_list_def] >>
+     PairCases_on `h'` >>
+     fs [] >>
+     cases_on `h'2` >>
+     fs [type_env2_def] >>
+     PairCases_on `x` >>
+     fs [type_env2_def] >>
      rw [] >>
-     metis_tac []]);
+     rw [Once type_v_cases, bind_def, emp_def, bind_tenv_def] >>
+     metis_tac [merge_def]]);
 
 val type_recfun_lookup = Q.prove (
-`∀fn funs n e tenvC tenv tenv' tvs t1 t2.
-  (find_recfun fn funs = SOME (n,e)) ∧
+`∀fn funs n e tenvC tenv tenv' tvs t1 t2 topt.
+  (find_recfun fn funs = SOME (n,topt,e)) ∧
   type_funs tenvC tenv funs tenv' ∧
-  (lookup fn tenv' = SOME (tvs, Tfn t1 t2))
+  (lookup fn tenv' = SOME (Tfn t1 t2))
   ⇒
-  type_e tenvC (bind n ([], t1) tenv) e t2`,
+  type_e tenvC (bind_tenv n 0 t1 tenv) e t2 ∧
+  (?t3. topt = SOME t3)`,
 induct_on `funs` >>
 rw [Once find_recfun_def] >>
 qpat_assum `type_funs tenvC tenv (h::funs) tenv'`
@@ -588,37 +607,36 @@ rw [] >>
 metis_tac []);
 
 val type_recfun_env_help = Q.prove (
-`∀fn funs funs' tenvC tenv tenv' tenv0 env.
+`∀fn funs funs' tenvC tenv tenv' tenv0 env tenvS tvs.
   (!fn t. (lookup fn tenv = SOME t) ⇒ (lookup fn tenv' = SOME t)) ∧
-  type_env tenvC env tenv0 ∧
-  type_funs tenvC (merge tenv' tenv0) funs' tenv' ∧
-  type_funs tenvC (merge tenv' tenv0) funs tenv
+  type_env tenvC tenvS env tenv0 ∧
+  type_funs tenvC (bind_var_list 0 tenv' tenv0) funs' tenv' ∧
+  type_funs tenvC (bind_var_list 0 tenv' tenv0) funs tenv
   ⇒
-  type_env tenvC (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn)) funs) tenv`,
+  type_env2 tenvC tenvS tvs (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn, add_tvs (SOME tvs) n)) funs) tenv`,
 induct_on `funs` >>
 rw [] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once type_e_cases]) >>
 fs [emp_def] >>
-rw [bind_def, Once type_v_cases] >>
-`type_env tenvC (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn)) funs) env'`
+rw [bind_def, Once type_v_cases, type_env2_def] >>
+`type_env2 tenvC tenvS tvs (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn, add_tvs (SOME tvs) n)) funs) env'`
               by metis_tac [optionTheory.NOT_SOME_NONE, lookup_def, bind_def] >>
+rw [type_env2_def, add_tvs_def] >>
+fs [add_tvs_def] >>
+rw [Once type_v_cases] >>
+`lookup fn tenv' = SOME (Tfn t1 t2)` by metis_tac [lookup_def, bind_def] >>
+qexists_tac `tenv0` >>
 rw [] >>
-`type_v tenvC (Recclosure env funs' fn) (Tfn t1 t2)`
-         by (rw [Once type_v_cases] >>
-                 metis_tac [lookup_def, bind_def]) >>
-imp_res_tac type_v_deBruijn_subst1 >>
-qexists_tac `t'` >>
-rw [] >>
-metis_tac [deBruijn_subst_check_freevars]);
+qexists_tac `tenv'` >>
+rw []);
 
 val type_recfun_env = Q.prove (
-`∀fn funs tenvC tenv tenv0 env.
-  type_env tenvC env tenv0 ∧
-  type_funs tenvC (merge tenv tenv0) funs tenv
+`∀fn funs tenvC senv tvs tenv tenv0 env.
+  type_env tenvC senv env tenv0 ∧
+  type_funs tenvC (bind_var_list 0 tenv tenv0) funs tenv
   ⇒
-  type_env tenvC (MAP (λ(fn,n,e). (fn,Recclosure env funs fn)) funs) tenv`,
+  type_env2 tenvC senv tvs (MAP (λ(fn,n,e). (fn,Recclosure env funs fn, add_tvs (SOME tvs) n)) funs) tenv`,
 metis_tac [type_recfun_env_help]);
-     *)
 
      (*
 val type_v_lit = Q.prove (
@@ -791,8 +809,19 @@ fs [e_step_def] >|
       pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
           fs [type_uop_def] >>
           every_case_tac >>
-          rw [Once type_ctxts_cases, type_ctxt_cases, type_uop_def] >>
-          cheat,
+          rw [Once type_ctxts_cases, type_ctxt_cases, type_uop_def] >|
+          [metis_tac [],
+           metis_tac [],
+           metis_tac [],
+           metis_tac [],
+           metis_tac [],
+           metis_tac [],
+           metis_tac [],
+           qexists_tac `senv` >>
+               qexists_tac `Tref t'` >>
+               rw [] >>
+               metis_tac [],
+           metis_tac []],
       pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
           rw [Once type_ctxts_cases, type_ctxt_cases] >>
           metis_tac [],
@@ -818,15 +847,14 @@ fs [e_step_def] >|
           qpat_assum `type_e tenvC tenv epat t1`
            (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
           fs [] >>
-          cheat (*TODO
           rw [build_rec_env_lem] >>
+          qexists_tac `senv` >>
           qexists_tac `t1` >>
-          qexists_tac `bind_var_list_subst tvs tenv' tenv` >>
+          qexists_tac `bind_var_list tvs tenv' tenv` >>
           rw [] >>
           match_mp_tac type_env_merge_lem >>
           rw [] >>
-          match_mp_tac type_recfun_env >>
-          metis_tac []*)],
+          metis_tac [type_recfun_env]],
  fs [continue_def, push_def] >>
      cases_on `c` >>
      fs [] >>
@@ -842,7 +870,7 @@ fs [e_step_def] >|
      fs [type_ctxt_cases] >>
      rw [] >>
      fs [] >|
-     [cheat,
+     [metis_tac [],
       rw [Once type_ctxts_cases, type_ctxt_cases] >>
           metis_tac [],
       fs [do_app_def] >>
@@ -890,22 +918,15 @@ fs [e_step_def] >|
                     fs [] >>
                     rw [] >>
                     fs [type_op_cases] >>
-                    rw [add_tvs_def] >>
-                    cheat (* TODO
-                    qexists_tac `t2` >>
-                    rw [build_rec_env_lem] >>
+                    rw [] >>
                     imp_res_tac type_recfun_lookup >>
-                    qexists_tac `bind q ([],t1) (merge tenv''' tenv'')` >>
-                    rw [bind_def, Once type_v_cases] >>
-                    imp_res_tac type_v_deBruijn_subst1 >>
-                    qexists_tac `t'` >>
-                    rw [] >|
-                    [`check_freevars T [] (Tfn (deBruijn_subst [] t') t2)`
-                                by metis_tac [type_funs_Tfn] >>
-                         fs [check_freevars_def] >>
-                         metis_tac [deBruijn_subst_check_freevars],
-                     metis_tac [type_env_merge_lem, type_recfun_env,
-                                type_funs_Tfn, t_11, check_freevars_def]]*)],
+                    rw [add_tvs_def] >>
+                    qexists_tac `senv` >>
+                    qexists_tac `t2` >>
+                    qexists_tac `bind_tenv q' 0 t1 (bind_var_list 0 tenv''' tenv'')` >>
+                    rw [add_tvs_def] >>
+                    rw [Once type_v_cases, bind_def, bind_tenv_def] >>
+                    cheat],
            every_case_tac >>
                fs [] >>
                rw [] >>
@@ -984,8 +1005,30 @@ fs [e_step_def] >|
           rw [] >>
           qexists_tac `ts1++[t''']` >>
           rw [] >>
-          metis_tac [type_vs_end_lem]],
-      cheat]);
+          metis_tac [type_vs_end_lem],
+      cases_on `u` >>
+          fs [type_uop_def, do_uapp_def, store_alloc_def, LET_THM] >>
+          rw [] >|
+          [rw [Once (hd (CONJUNCTS type_v_cases))] >>
+               qexists_tac `bind (LENGTH s) t1 senv` >>
+               qexists_tac `Tref t1` >>
+               qexists_tac `tenv'` >>
+               rw [] >|
+               [cheat,
+                cheat,
+                cheat,
+                rw [lookup_def, bind_def]],
+           cases_on `t1` >>
+               fs [] >>
+               cases_on `v` >>
+               fs [store_lookup_def] >>
+               cases_on `n < LENGTH s` >>
+               fs [] >>
+               rw [] >>
+               Q.PAT_ASSUM `type_v a1 b2 c3 d4`
+                     (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+               fs [type_s_def, store_lookup_def] >>
+               metis_tac []]]]);
 
 val e_step_ctor_env_same = Q.prove (
 `!cenv s env e c cenv' s' env' e' c'.

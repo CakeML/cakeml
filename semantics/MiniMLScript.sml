@@ -1800,14 +1800,14 @@ type_e cenv tenv (((Mat e) pes)) t2)
 (! cenv tenv n e1 e2 t1 t2 tvs.((((
 type_e cenv) tenv) e1) t1) /\(((
 check_freevars T) []) t1) /\((((
-type_e cenv) (((((bind_tenv n)  tvs) t1)  tenv))) e2) t2)
+type_e cenv) (((((bind_tenv n) tvs) t1) tenv))) e2) t2)
 ==>
 type_e cenv tenv ((((((Let ((SOME tvs))) n) ((SOME t1))) e1) e2)) t2)
 
 /\
 
 (! cenv tenv funs e t tenv' tvs.((((
-type_funs cenv) ((((bind_var_list tvs) tenv') tenv))) funs) tenv') /\((((
+type_funs cenv) ((((bind_var_list 0) tenv') tenv))) funs) tenv') /\((((
 type_e cenv) ((((bind_var_list tvs) tenv') tenv))) e) t)
 ==>
 type_e cenv tenv ((((Letrec ((SOME tvs))) funs) e)) t)
