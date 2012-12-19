@@ -179,8 +179,8 @@ val EvalM_return = store_thm("EvalM_return",
 
 val EvalM_bind = store_thm("EvalM_bind",
   ``EvalM env e1 (HOL_MONAD b (x:'b M)) /\
-    (!x v. b x v ==> EvalM ((name,v)::env) e2 (HOL_MONAD a ((f x):'a M))) ==>
-    EvalM env (Let name e1 e2) (HOL_MONAD a (ex_bind x f))``,
+    (!x v. b x v ==> EvalM ((name,v,NONE)::env) e2 (HOL_MONAD a ((f x):'a M))) ==>
+    EvalM env (Let NONE name NONE e1 e2) (HOL_MONAD a (ex_bind x f))``,
   SIMP_TAC std_ss [EvalM_def,HOL_MONAD_def,ex_return_def] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [PULL_EXISTS] \\ RES_TAC
   \\ Cases_on `x refs` \\ Cases_on `q`
@@ -195,7 +195,8 @@ val EvalM_bind = store_thm("EvalM_bind",
     \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC THEN1
      (ONCE_REWRITE_TAC [evaluate'_cases]
       \\ FULL_SIMP_TAC (srw_ss()) [] \\ DISJ1_TAC
-      \\ Q.LIST_EXISTS_TAC [`state1`,`q`] \\ ASM_SIMP_TAC std_ss [bind_def])
+      \\ Q.LIST_EXISTS_TAC [`state1`,`q`]
+      \\ ASM_SIMP_TAC std_ss [bind_def,add_tvs_def])
     \\ FULL_SIMP_TAC (srw_ss()) [ex_bind_def])
   THEN1
    (FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
@@ -262,23 +263,23 @@ val EvalM_ArrowM = store_thm("Evalm_ArrowM",
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_def] \\ METIS_TAC []);
 
 val EvalM_Fun = store_thm("EvalM_Fun",
-  ``(!v x. a x v ==> EvalM ((name,v)::env) body (b (f x))) ==>
-    EvalM env (Fun name body) ((PURE a -M-> b) f)``,
+  ``(!v x. a x v ==> EvalM ((name,v,NONE)::env) body (b (f x))) ==>
+    EvalM env (Fun name NONE body) ((PURE a -M-> b) f)``,
   SIMP_TAC std_ss [EvalM_def,ArrowM_def,ArrowP_def,PURE_def]
   \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC (srw_ss()) [PULL_EXISTS,PULL_FORALL]
-  \\ SIMP_TAC (srw_ss()) [any_evaluate_closure_def,do_app_def,bind_def]
+  \\ SIMP_TAC (srw_ss()) [any_evaluate_closure_def,do_app_def,bind_def,add_tvs_def]
   \\ METIS_TAC []);
 
 val Eval_Fun_Eq = store_thm("Eval_Fun_Eq",
-  ``(!v. a x v ==> EvalM ((name,v)::env) body (b (f x))) ==>
-    EvalM env (Fun name body) ((PURE (Eq a x) -M-> b) f)``,
+  ``(!v. a x v ==> EvalM ((name,v,NONE)::env) body (b (f x))) ==>
+    EvalM env (Fun name NONE body) ((PURE (Eq a x) -M-> b) f)``,
   SIMP_TAC std_ss [EvalM_def,ArrowM_def,ArrowP_def,PURE_def,Eq_def]
   \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC (srw_ss()) [PULL_EXISTS,PULL_FORALL]
-  \\ SIMP_TAC (srw_ss()) [any_evaluate_closure_def,do_app_def,bind_def]
+  \\ SIMP_TAC (srw_ss()) [any_evaluate_closure_def,do_app_def,bind_def,add_tvs_def]
   \\ METIS_TAC []);
 
 (* Eq simps *)
@@ -349,8 +350,8 @@ val EvalM_failwith = store_thm("EvalM_failwith",
 (* read and update refs *)
 
 val get_the_axioms_thm = prove(
-  ``(lookup "the_axioms" env = SOME (Loc 2)) ==>
-    EvalM env (Uapp Deref (Var "the_axioms"))
+  ``(lookup "the_axioms" env = SOME (Loc 2,NONE)) ==>
+    EvalM env (Uapp Opderef (Var "the_axioms" NONE))
       (HOL_MONAD (LIST_TYPE THM_TYPE) get_the_axioms)``,
   SIMP_TAC std_ss [EvalM_def]
   \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
@@ -361,12 +362,12 @@ val get_the_axioms_thm = prove(
   \\ FULL_SIMP_TAC std_ss []
   \\ Q.LIST_EXISTS_TAC [`s`,`Rval (EL 2 s)`,`refs`]
   \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC (srw_ss()) [HOL_MONAD_def,get_the_axioms_def]);
+  \\ FULL_SIMP_TAC (srw_ss()) [HOL_MONAD_def,get_the_axioms_def,do_tapp_def]);
 
 val set_the_axioms_thm = prove(
   ``Eval env exp (LIST_TYPE THM_TYPE x) ==>
-    (lookup "the_axioms" env = SOME (Loc 2)) ==>
-    EvalM env (App Opassign (Var "the_axioms") exp)
+    (lookup "the_axioms" env = SOME (Loc 2,NONE)) ==>
+    EvalM env (App Opassign (Var "the_axioms" NONE) exp)
       ((HOL_MONAD U_TYPE) (set_the_axioms x))``,
   SIMP_TAC std_ss [EvalM_def]
   \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
@@ -375,7 +376,7 @@ val set_the_axioms_thm = prove(
   \\ `evaluate' s env exp (s,Rval res)` by METIS_TAC [evaluate'_empty_store_IMP]
   \\ `!x. evaluate' s env exp x = (x = (s,Rval res))` by
        METIS_TAC [big_exp_determ']
-  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SIMP_TAC (srw_ss()) [Once do_app_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SIMP_TAC (srw_ss()) [Once do_app_def,do_tapp_def]
   \\ `2 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
   \\ ASM_SIMP_TAC (srw_ss()) [store_assign_def]
   \\ Q.LIST_EXISTS_TAC [`LUPDATE res 2 s`,`Rval (Litv Unit)`,
@@ -433,4 +434,3 @@ val res = translate hyp_def;
 val res = translate concl_def;
 
 val _ = export_theory();
-
