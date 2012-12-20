@@ -149,11 +149,10 @@ val _ = Define `
 (* define failing lookup function *)
 
 val _ = Define `
-  (assoc s [] = failwith "no in list") /\
-  (assoc s ((x:'a,y:'b)::xs) =
-     if s = x then
-       do return y od
-     else assoc s xs)`;
+  assoc s l =
+    case l of
+      [] => failwith "not in list"
+    | ((x:'a,y:'b)::xs) => if s = x then do return y od else assoc s xs`;
 
 val _ = Define `
   map f l =
@@ -285,8 +284,9 @@ val _ = Define `
 *)
 
 val _ = tDefine "tyvars" `
-  (tyvars (Tyapp _ args) = itlist union (MAP tyvars args) []) /\
-  (tyvars tv = [tv])`
+  tyvars x =
+    case x of (Tyapp _ args) => itlist union (MAP tyvars args) []
+            | (Tyvar tv) => [tv]`
  (WF_REL_TAC `measure (hol_type_size)` THEN Induct_on `args`
   THEN FULL_SIMP_TAC (srw_ss()) [hol_type_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC
@@ -304,8 +304,10 @@ val _ = tDefine "tyvars" `
 
 
 val _ = Define `
-  (rev_assocd a [] d = d) /\
-  (rev_assocd a ((x,y)::l) d = if y = a then x else rev_assocd a l d)`;
+  rev_assocd a l d =
+    case l of
+      [] => d
+    | ((x,y)::l) => if y = a then x else rev_assocd a l d`;
 
 val _ = tDefine "type_subst" `
   type_subst i ty =
@@ -1151,33 +1153,6 @@ val _ = Define `
     Sequent([],mk_eq(mk_comb(P,r),mk_eq(mk_comb(rep,mk_comb(abs,r)),r)))
 *)
 
-val hol_type1_size_APPEND = prove(
-  ``!xs ys. hol_type1_size (xs ++ ys) = hol_type1_size xs + hol_type1_size ys``,
-  Induct THEN FULL_SIMP_TAC (srw_ss()) [hol_type_size_def]
-  THEN DECIDE_TAC);
-
-val _ = tDefine "hol_types_less_eq" `
-  hol_types_less_eq ts1 ts2 =
-    case (ts1,ts2) of
-      (h1::t1,h2::t2) =>
-        case (h1,h2) of
-          (Tyvar a, Tyvar b) => a <= b
-        | (Tyvar _, Tyapp _ _) => T
-        | (Tyapp _ _, Tyvar _) => F
-        | (Tyapp x1 args1, Tyapp x2 args2) =>
-             if x1 <> x2 then x1 <= x2 else
-             let l1 = LENGTH args1 in
-             let l2 = LENGTH args2 in
-             if l1 <> l2 then l1 <= l2 else
-               hol_types_less_eq (args1 ++ t1) (args2 ++ t2)
-    | _ => T`
-  (WF_REL_TAC `measure (hol_type1_size o FST)`
-   THEN FULL_SIMP_TAC std_ss [hol_type1_size_APPEND]
-   THEN REPEAT STRIP_TAC THEN DECIDE_TAC)
-
-val _ = Define `
-  hol_type_less_eq ty1 ty2 = hol_types_less_eq [ty1] [ty2]`
-
 val _ = Define `
   new_basic_type_definition tyname (absname,repname) (Sequent asl c) =
     do ok1 <- can get_const_type absname ;
@@ -1188,7 +1163,7 @@ val _ = Define `
     do (P,x) <- try dest_comb c "new_basic_type_definition: Not a combination" ;
     if ~(freesin [] P) then
       failwith "new_basic_type_definition: Predicate is not closed" else
-    let tyvars = QSORT hol_type_less_eq (type_vars_in_term P) in
+    let tyvars = MAP Tyvar (QSORT string_le (type_vars_in_term P)) in
     do try new_type (tyname,LENGTH tyvars)
                          "new_basic_type_definition: Type already defined" ;
        add_def (Typedef tyname P absname repname) ;
