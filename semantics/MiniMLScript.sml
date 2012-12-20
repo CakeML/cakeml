@@ -1685,7 +1685,7 @@ type_ps cenv [] [] [])
 type_p cenv) p) t) tenv) /\((((
 type_ps cenv) ps) ts) tenv')
 ==>
-type_ps cenv (p::ps) (t::ts) (tenv++tenv'))`;
+type_ps cenv (p::ps) (t::ts) (tenv'++tenv))`;
 
 val _ = Hol_reln `
 
