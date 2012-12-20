@@ -1461,6 +1461,19 @@ and
 bind_var_list tvs ((n,t)::binds) tenv =
   bind_tenv n tvs t (bind_var_list tvs binds tenv)
 
+(* For the value restriction on let-based polymorphism *)
+val is_value : exp -> bool
+let rec 
+is_value (Lit _) = true
+and
+is_value (Con _ es) = List.for_all is_value es
+and
+is_value (Var _ _) = true
+and
+is_value (Fun _ _ _) = true
+and
+is_value _ = false
+
 indreln
 
 forall cenv n t.
@@ -1632,7 +1645,8 @@ type_e cenv tenv (Mat e pes) t2
 and
 
 forall cenv tenv n e1 e2 t1 t2 tvs.
-type_e cenv tenv e1 t1 &&
+is_value e1 &&
+type_e cenv (Bind_tvar tvs tenv) e1 t1 &&
 check_freevars true [] t1 &&
 type_e cenv (bind_tenv n tvs t1 tenv) e2 t2
 ==>
@@ -1640,8 +1654,17 @@ type_e cenv tenv (Let (Some tvs) n (Some t1) e1 e2) t2
 
 and
 
+forall cenv tenv n e1 e2 t1 t2.
+type_e cenv tenv e1 t1 &&
+check_freevars true [] t1 &&
+type_e cenv (bind_tenv n 0 t1 tenv) e2 t2
+==>
+type_e cenv tenv (Let (Some 0) n (Some t1) e1 e2) t2
+
+and
+
 forall cenv tenv funs e t tenv' tvs.
-type_funs cenv (bind_var_list 0 tenv' tenv) funs tenv' &&
+type_funs cenv (bind_var_list 0 tenv' (Bind_tvar tvs tenv)) funs tenv' &&
 type_e cenv (bind_var_list tvs tenv' tenv) e t
 ==>
 type_e cenv tenv (Letrec (Some tvs) funs e) t
@@ -1672,7 +1695,7 @@ and
 
 forall cenv env fn n e funs env' t1 t2.
 check_freevars true [] (Tfn t1 t2) &&
-type_e cenv (bind_tenv n  0 t1  env) e t2 &&
+type_e cenv (bind_tenv n 0 t1 env) e t2 &&
 type_funs cenv env funs env' &&
 lookup fn env' = None
 ==>
@@ -1681,11 +1704,21 @@ type_funs cenv env ((fn, Some (Tfn t1 t2), n, Some t1, e)::funs) ((fn, Tfn t1 t2
 indreln
 
 forall tvs cenv tenv p e t tenv'.
+is_value e &&
 all_distinct (pat_bindings p []) &&
 type_p cenv p t tenv' &&
 type_e cenv (Bind_tvar tvs tenv) e t
 ==>
 type_d cenv tenv (Dlet (Some tvs) p e) emp (bind_var_list tvs tenv' tenv)
+
+and
+
+forall cenv tenv p e t tenv'.
+all_distinct (pat_bindings p []) &&
+type_p cenv p t tenv' &&
+type_e cenv tenv e t
+==>
+type_d cenv tenv (Dlet (Some 0) p e) emp (bind_var_list 0 tenv' tenv)
 
 and
 
@@ -1777,7 +1810,7 @@ and
 forall cenv senv env tenv n e t1 t2.
 type_env cenv senv env tenv &&
 check_freevars true [] t1 &&
-type_e cenv (bind_tenv n  0 t1  tenv) e t2
+type_e cenv (bind_tenv n 0 t1 tenv) e t2
 ==>
 type_v cenv senv (Closure env n (Some t1) e) (Tfn t1 t2)
 
@@ -1826,7 +1859,7 @@ type_v cenv senv v t &&
 check_freevars true [] t &&
 type_env cenv senv env tenv
 ==>
-type_env cenv senv (bind n (v,Some (tvs,t)) env) (bind_tenv n  tvs t  tenv)
+type_env cenv senv (bind n (v,Some (tvs,t)) env) (bind_tenv n tvs t tenv)
 
 let type_s cenv senv s =
   forall l. 
@@ -1892,7 +1925,7 @@ and
 
 forall cenv senv tenv e t1 t2 n tvs.
 check_freevars true [] t1 &&
-type_e cenv (bind_tenv n  tvs t1  tenv) e t2
+type_e cenv (bind_tenv n tvs t1 tenv) e t2
 ==>
 type_ctxt cenv senv tenv (Clet (Some tvs) n (Some t1) () e) t1 t2
 
