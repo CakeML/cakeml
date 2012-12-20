@@ -128,6 +128,7 @@ val EqualityType_HOL_TYPE = prove(
 
 val _ = register_type ``:term``;
 val _ = register_type ``:thm``;
+val _ = register_type ``:def``;
 
 (*
   fetch "-" "PAIR_TYPE_def";
@@ -346,6 +347,31 @@ val EvalM_failwith = store_thm("EvalM_failwith",
   ``!x a. EvalM env (Raise (Int_error 0)) (HOL_MONAD a (failwith x))``,
   SIMP_TAC (srw_ss()) [Eval_def,EvalM_def,HOL_MONAD_def,failwith_def]
   \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) [] );
+
+(* if *)
+
+val EvalM_If = store_thm("EvalM_If",
+  ``(a1 ==> Eval env x1 (BOOL b1)) /\
+    (a2 ==> EvalM env x2 (a b2)) /\
+    (a3 ==> EvalM env x3 (a b3)) ==>
+    (a1 /\ (CONTAINER b1 ==> a2) /\ (~CONTAINER b1 ==> a3) ==>
+     EvalM env (If x1 x2 x3) (a (if b1 then b2 else b3)))``,
+  SIMP_TAC std_ss [EvalM_def,NUM_def,BOOL_def] \\ SIMP_TAC std_ss [CONTAINER_def]
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
+  \\ Cases_on `b1` \\ FULL_SIMP_TAC std_ss [] \\ RES_TAC
+  THEN1
+   (Q.LIST_EXISTS_TAC [`s2`,`res`,`refs2`] \\ ASM_SIMP_TAC std_ss []
+    \\ DISJ1_TAC
+    \\ Q.EXISTS_TAC `Litv (Bool T)` \\ ASM_SIMP_TAC (srw_ss()) [do_if_def]
+    \\ Q.EXISTS_TAC `s` \\ FULL_SIMP_TAC std_ss []
+    \\ FULL_SIMP_TAC std_ss [Eval_def,evaluate'_empty_store_IMP])
+  THEN1
+   (Q.LIST_EXISTS_TAC [`s2`,`res`,`refs2`] \\ ASM_SIMP_TAC std_ss []
+    \\ DISJ1_TAC
+    \\ Q.EXISTS_TAC `Litv (Bool F)` \\ ASM_SIMP_TAC (srw_ss()) [do_if_def]
+    \\ Q.EXISTS_TAC `s` \\ FULL_SIMP_TAC std_ss []
+    \\ FULL_SIMP_TAC std_ss [Eval_def,evaluate'_empty_store_IMP]));
 
 (* read and update refs *)
 
