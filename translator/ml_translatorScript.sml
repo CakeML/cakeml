@@ -729,18 +729,18 @@ val UNCURRY1 = prove(
   \\ Cases \\ FULL_SIMP_TAC std_ss [FUN_EQ_THM,pair_case_def]);
 
 val UNCURRY2 = prove(
-  ``!x y f. pair_case f x y = pair_case (\z1 z2. f z1 z2 y) x``,
+  ``!x y f. pair_CASE x f y  = pair_CASE x (\z1 z2. f z1 z2 y)``,
   Cases \\ EVAL_TAC \\ SIMP_TAC std_ss []);
 
 val UNCURRY3 = prove(
-  ``pair_case f (x,y) = f x y``,
+  ``pair_CASE (x,y) f = f x y``,
   EVAL_TAC) |> GEN_ALL;
 
 val UNCURRY_SIMP = save_thm("UNCURRY_SIMP",
   LIST_CONJ [UNCURRY1,UNCURRY2,UNCURRY3]);
 
 val num_case_thm = store_thm("num_case_thm",
-  ``num_case = \b f n. if n = 0 then b else f (n-1)``,
+  ``num_CASE = \n b f. if n = 0 then b else f (n-1)``,
   SIMP_TAC std_ss [FUN_EQ_THM,num_case_def] \\ Cases_on `n`
   \\ EVAL_TAC \\ SIMP_TAC std_ss []);
 
