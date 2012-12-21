@@ -211,7 +211,7 @@ Cases_on `opt` >> rw[EQ_IMP_THM])
 
 val IN_option_rwt2 = store_thm(
 "IN_option_rwt2",
-``x ∈ option_case {} s opt = ∃y. (opt = SOME y) ∧ x ∈ s y``,
+``x ∈ option_CASE opt {} s = ∃y. (opt = SOME y) ∧ x ∈ s y``,
 Cases_on `opt` >> rw[])
 
 (* Re-expressing folds *)
