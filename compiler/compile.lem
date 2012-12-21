@@ -175,6 +175,8 @@ free_vars c (CCall e es) =
   List.fold_left (fun s e -> s union free_vars c e)
   (free_vars c e) es
 and
+free_vars c (CPrim1 _ e) = free_vars c e
+and
 free_vars c (CPrim2 _ e1 e2) = free_vars c e1 union free_vars c e2
 and
 free_vars c (CIf e1 e2 e3) = free_vars c e1 union free_vars c e2 union free_vars c e3

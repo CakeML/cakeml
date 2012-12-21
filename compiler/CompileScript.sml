@@ -156,6 +156,8 @@ val _ = Defn.save_defn Cpat_vars_defn;
   FOLDL (\ s e . s UNION(( free_vars c) e)))
   (((free_vars c) e))) es))
 /\
+(free_vars c (CPrim1 _ e) =(( free_vars c) e))
+/\
 (free_vars c (CPrim2 _ e1 e2) =(( free_vars c) e1) UNION(( free_vars c) e2))
 /\
 (free_vars c (CIf e1 e2 e3) =(( free_vars c) e1) UNION(( free_vars c) e2) UNION(( free_vars c) e3))
