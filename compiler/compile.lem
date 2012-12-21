@@ -427,6 +427,11 @@ List.for_all
   defs
 ==>
 syneq c (CRecClos env1 ns defs d) (CRecClos env2 ns defs d)
+and
+forall c n.
+true
+==>
+syneq c (CLoc n) (CLoc n)
 
 (* Compiler *)
 
@@ -1285,6 +1290,8 @@ v_to_Cv m (Recclosure env defs vn) =
   let Cenv = alist_to_fmap (env_to_Cenv m env) in
   let (fns,Cdefs) = defs_to_Cdefs m defs in
   CRecClos Cenv fns Cdefs vn
+and
+v_to_Cv m (Loc n) = CLoc n
 and
 vs_to_Cvs m [] = []
 and

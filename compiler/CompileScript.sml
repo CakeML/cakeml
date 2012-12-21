@@ -420,7 +420,12 @@ EVERY
       ==>(( ((OPTREL ((syneq c)))) (((FLOOKUP env1) v))) (((FLOOKUP env2) v))))))
   defs)
 ==>
-syneq c (((((CRecClos env1) ns) defs) d)) (((((CRecClos env2) ns) defs) d)))`;
+syneq c (((((CRecClos env1) ns) defs) d)) (((((CRecClos env2) ns) defs) d)))
+/\
+(! c n.
+T
+==>
+syneq c ((CLoc n)) ((CLoc n)))`;
 
 (* Compiler *)
 
@@ -1417,6 +1422,8 @@ val _ = Defn.save_defn bv_to_ov_defn;
   let Cenv =( alist_to_fmap (((env_to_Cenv m) env))) in
   let (fns,Cdefs) =(( defs_to_Cdefs m) defs) in((((
   CRecClos Cenv) fns) Cdefs) vn))
+/\
+(v_to_Cv m (Loc n) =( CLoc n))
 /\
 (vs_to_Cvs m [] = [])
 /\

@@ -449,8 +449,7 @@ strip_tac >- (
 strip_tac >- (
   rpt gen_tac >> strip_tac >>
   Cases >> Cases >> TRY (Cases_on `l`) >> rw[] ) >>
-rpt gen_tac >> strip_tac >>
-Cases >> Cases >> TRY (Cases_on `l`) >> rw[] )
+ntac 3 gen_tac >> Cases >> TRY (Cases_on `l`) >> rw[] )
 
 val doPrim2_syneq = store_thm(
 "doPrim2_syneq",
@@ -473,7 +472,8 @@ val (Cclosed_rules,Cclosed_ind,Cclosed_cases) = Hol_reln`
  (∀i xs cb. i < LENGTH ns ∧ (EL i defs = (xs,cb)) ⇒
     cbod_fvs c cb ⊆ FDOM env ∪ set ns ∪ set xs ∧
     (∀l. (cb = INR l) ⇒ l ∈ FDOM c))
-  ⇒ Cclosed c (CRecClos env ns defs n))`
+  ⇒ Cclosed c (CRecClos env ns defs n)) ∧
+(Cclosed c (CLoc m))`
 
 val doPrim2_closed = store_thm(
 "doPrim2_closed",
