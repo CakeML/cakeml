@@ -544,7 +544,7 @@ val Decls_Dtype = prove(
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []);
 
-val Decls_Dlet = prove(
+val Decls_Dlet = store_thm("Decls_Dlet",
   ``!cenv env v e cenv1 env1.
       Decls cenv env [Dlet NONE (Pvar v NONE) e] cenv1 env1 =
       ?x. (cenv1 = cenv) /\ (env1 = bind v (x,NONE) env) /\
@@ -556,7 +556,7 @@ val Decls_Dlet = prove(
        pmatch_def,bind_def,add_tvs_def]
   \\ METIS_TAC []);
 
-val Decls_Dletrec = prove(
+val Decls_Dletrec = store_thm("Decls_Dletrec",
   ``!cenv env funs cenv1 env1.
       Decls cenv env [Dletrec NONE funs] cenv1 env1 =
       ALL_DISTINCT (MAP (\(x,y,z,t,y). x) funs) /\
@@ -648,7 +648,7 @@ val evaluate_decs'_empty_store = prove(
     (s2 = empty_store)``,
   METIS_TAC [evaluate_decs'_empty_store_IMP]);
 
-val Decls_APPEND = prove(
+val Decls_APPEND = store_thm("Decls_APPEND",
   ``!cenv1 cenv3 ds1 ds2 env1 env3.
       Decls cenv1 env1 (ds1 ++ ds2) cenv3 env3 =
       ?cenv2 env2. Decls cenv1 env1 ds1 cenv2 env2 /\
