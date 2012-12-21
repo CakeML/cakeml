@@ -42,6 +42,7 @@ val data = map
   , MiniMLTheory.datatype_t
   , MiniMLTheory.datatype_dec
   , datatype_ov
+  , datatype_Cprim1
   , datatype_Cprim2
   , datatype_Cpat
   , datatype_Cexp
