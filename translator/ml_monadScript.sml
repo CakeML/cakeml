@@ -145,11 +145,12 @@ val U_TYPE_def = Define `
 
 val HOL_STORE_def = Define `
   HOL_STORE s refs =
-    4 <= LENGTH s /\
+    5 <= LENGTH s /\
     (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) NUM)) refs.the_type_constants (EL 0 s) /\
     (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE)) refs.the_term_constants (EL 1 s) /\
     (LIST_TYPE THM_TYPE refs.the_axioms) (EL 2 s) /\
-    (TERM_TYPE refs.the_clash_var) (EL 3 s)`;
+    (LIST_TYPE DEF_TYPE refs.the_definitions) (EL 3 s) /\
+    (TERM_TYPE refs.the_clash_var) (EL 4 s)`;
 
 val EvalM_def = Define `
   EvalM env exp P <=>
@@ -422,33 +423,36 @@ fun read_tac n =
   \\ Q.LIST_EXISTS_TAC [`s`,`Rval (EL ^n s)`,`refs`]
   \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC (srw_ss()) [HOL_MONAD_def,get_the_type_constants_def,
-        get_the_term_constants_def,get_the_axioms_def,do_tapp_def,EL];
+        get_the_term_constants_def,get_the_axioms_def,
+        get_the_definitions_def,do_tapp_def,EL];
 
-val get_type_constants_thm = prove(
+val get_type_constants_thm = store_thm("get_type_constants_thm",
   ``(lookup "the_type_constants" env = SOME (Loc 0,NONE)) ==>
     EvalM env (Uapp Opderef (Var "the_type_constants" NONE))
       (HOL_MONAD (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) NUM))
                  get_the_type_constants)``,
   read_tac ``0:num``);
 
-val get_term_constants_thm = prove(
+val get_term_constants_thm = store_thm("get_term_constants_thm",
   ``(lookup "the_term_constants" env = SOME (Loc 1,NONE)) ==>
     EvalM env (Uapp Opderef (Var "the_term_constants" NONE))
       (HOL_MONAD (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE))
                  get_the_term_constants)``,
   read_tac ``1:num``);
 
-val get_the_axioms_thm = prove(
+val get_the_axioms_thm = store_thm("get_the_axioms_thm",
   ``(lookup "the_axioms" env = SOME (Loc 2,NONE)) ==>
     EvalM env (Uapp Opderef (Var "the_axioms" NONE))
       (HOL_MONAD (LIST_TYPE THM_TYPE) get_the_axioms)``,
   read_tac ``2:num``);
 
-val set_the_axioms_thm = prove(
-  ``Eval env exp (LIST_TYPE THM_TYPE x) ==>
-    (lookup "the_axioms" env = SOME (Loc 2,NONE)) ==>
-    EvalM env (App Opassign (Var "the_axioms" NONE) exp)
-      ((HOL_MONAD U_TYPE) (set_the_axioms x))``,
+val get_the_definitions_thm = store_thm("get_the_definitions_thm",
+  ``(lookup "the_definitions" env = SOME (Loc 3,NONE)) ==>
+    EvalM env (Uapp Opderef (Var "the_definitions" NONE))
+      (HOL_MONAD (LIST_TYPE DEF_TYPE) get_the_definitions)``,
+  read_tac ``3:num``);
+
+fun update_tac r q =
   SIMP_TAC std_ss [EvalM_def]
   \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
@@ -457,16 +461,49 @@ val set_the_axioms_thm = prove(
   \\ `!x. evaluate' s env exp x = (x = (s,Rval res))` by
        METIS_TAC [big_exp_determ']
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ SIMP_TAC (srw_ss()) [Once do_app_def,do_tapp_def]
+  \\ `0 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
+  \\ `1 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
   \\ `2 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
+  \\ `3 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
+  \\ `4 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
   \\ ASM_SIMP_TAC (srw_ss()) [store_assign_def]
-  \\ Q.LIST_EXISTS_TAC [`LUPDATE res 2 s`,`Rval (Litv Unit)`,
-       `refs with the_axioms := x`] \\ FULL_SIMP_TAC std_ss []
+  \\ Q.LIST_EXISTS_TAC [r,`Rval (Litv Unit)`,q]
+  \\ FULL_SIMP_TAC std_ss []
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
   \\ REVERSE STRIP_TAC THEN1
    (FULL_SIMP_TAC std_ss [HOL_STORE_def,EL_LUPDATE]
     \\ FULL_SIMP_TAC (srw_ss()) [HOL_STORE_def,EL_LUPDATE])
-  \\ FULL_SIMP_TAC (srw_ss()) [HOL_MONAD_def,set_the_axioms_def]
-  \\ EVAL_TAC);
+  \\ FULL_SIMP_TAC (srw_ss()) [HOL_MONAD_def,set_the_type_constants_def,
+        set_the_term_constants_def,set_the_axioms_def,
+        set_the_definitions_def] \\ EVAL_TAC;
+
+val set_the_type_constants_thm = store_thm("set_the_type_constants_thm",
+  ``Eval env exp (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) NUM) x) ==>
+    (lookup "the_type_constants" env = SOME (Loc 0,NONE)) ==>
+    EvalM env (App Opassign (Var "the_type_constants" NONE) exp)
+      ((HOL_MONAD U_TYPE) (set_the_type_constants x))``,
+  update_tac `LUPDATE res 0 s` `refs with the_type_constants := x`);
+
+val set_the_term_constants_thm = store_thm("set_the_term_constants_thm",
+  ``Eval env exp (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE) x) ==>
+    (lookup "the_term_constants" env = SOME (Loc 1,NONE)) ==>
+    EvalM env (App Opassign (Var "the_term_constants" NONE) exp)
+      ((HOL_MONAD U_TYPE) (set_the_term_constants x))``,
+  update_tac `LUPDATE res 1 s` `refs with the_term_constants := x`);
+
+val set_the_axioms_thm = store_thm("set_the_axioms_thm",
+  ``Eval env exp (LIST_TYPE THM_TYPE x) ==>
+    (lookup "the_axioms" env = SOME (Loc 2,NONE)) ==>
+    EvalM env (App Opassign (Var "the_axioms" NONE) exp)
+      ((HOL_MONAD U_TYPE) (set_the_axioms x))``,
+  update_tac `LUPDATE res 2 s` `refs with the_axioms := x`);
+
+val set_the_definitions_thm = store_thm("set_the_definitions_thm",
+  ``Eval env exp (LIST_TYPE DEF_TYPE x) ==>
+    (lookup "the_definitions" env = SOME (Loc 3,NONE)) ==>
+    EvalM env (App Opassign (Var "the_definitions" NONE) exp)
+      ((HOL_MONAD U_TYPE) (set_the_definitions x))``,
+  update_tac `LUPDATE res 3 s` `refs with the_definitions := x`);
 
 (* declarations *)
 

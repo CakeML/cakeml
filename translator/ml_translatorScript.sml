@@ -534,7 +534,7 @@ val Decls_def = Define `
     evaluate_decs' cenv1 empty_store env1 ds (empty_store,Rval (cenv2,env2))`;
 
 val DeclAssum_def = Define `
-  DeclAssum ds env = ?cenv1 env1 cenv2. Decls cenv1 env1 ds cenv2 env`;
+  DeclAssum ds env = ?cenv2. Decls [] [] ds cenv2 env`;
 
 val Decls_Dtype = prove(
   ``!cenv env tds cenv1 env1.
