@@ -1,4 +1,4 @@
-open HolKernel bossLib boolLib boolSimps pairTheory listTheory pred_setTheory finite_mapTheory SatisfySimps lcsymtacs
+open HolKernel bossLib boolLib boolSimps pairTheory listTheory pred_setTheory finite_mapTheory SatisfySimps quantHeuristicsLib lcsymtacs
 open MiniMLTheory miscTheory miniMLExtraTheory compileTerminationTheory
 val _ = new_theory "intLang"
 
@@ -714,158 +714,145 @@ val final =
 
 val Cevaluate_any_env = store_thm(
 "Cevaluate_any_env",
-``∀c env exp res. Cevaluate c env exp res ⇒
-  free_vars c exp ⊆ FDOM env ∧ (∀v. v ∈ FRANGE env ⇒ Cclosed c v) ⇒
-    ∀env'. fmap_rel (syneq c) env env' ∧ (∀v. v ∈ FRANGE env' ⇒ Cclosed c v) ⇒
+``(∀c s env exp res. Cevaluate c s env exp res ⇒
+   free_vars c exp ⊆ FDOM env ∧
+   (∀v. v ∈ FRANGE env ⇒ Cclosed c v) ∧
+   (∀v. v ∈ FRANGE s ⇒ Cclosed c v)
+   ⇒
+     ∀s' env'. fmap_rel (syneq c) env env' ∧ (∀v. v ∈ FRANGE env' ⇒ Cclosed c v) ∧
+               fmap_rel (syneq c) s s' ∧ (∀v. v ∈ FRANGE s' ⇒ Cclosed c v) ⇒
+       ∀env''. (∀v. v ∈ FRANGE env'' ⇒ Cclosed c v) ⇒
+         ∃res'. Cevaluate c s' ((DRESTRICT env' (free_vars c exp)) ⊌ env'') exp res' ∧
+                fmap_rel (syneq c) (FST res) (FST res') ∧
+                (result_rel (syneq c)) (SND res) (SND res')) ∧
+  (∀c s env exps ress. Cevaluate_list c s env exps ress ⇒
+   BIGUNION (IMAGE (free_vars c) (set exps)) ⊆ FDOM env ∧
+   (∀v. v ∈ FRANGE env ⇒ Cclosed c v) ∧
+   (∀v. v ∈ FRANGE s ⇒ Cclosed c v)
+   ⇒
+    ∀s' env'. fmap_rel (syneq c) env env' ∧ (∀v. v ∈ FRANGE env' ⇒ Cclosed c v) ∧
+              fmap_rel (syneq c) s s' ∧ (∀v. v ∈ FRANGE s' ⇒ Cclosed c v) ⇒
       ∀env''. (∀v. v ∈ FRANGE env'' ⇒ Cclosed c v) ⇒
-        ∃res'. Cevaluate c ((DRESTRICT env' (free_vars c exp)) ⊌ env'') exp res' ∧
-               (result_rel (syneq c)) res res'``,
-ho_match_mp_tac Cevaluate_nice_strongind >>
+        ∃ress'. Cevaluate_list c s' ((DRESTRICT env' (BIGUNION (IMAGE (free_vars c) (set exps)))) ⊌ env'') exps ress' ∧
+                fmap_rel (syneq c) (FST ress) (FST ress') ∧
+                (result_rel (EVERY2 (syneq c))) (SND ress) (SND ress'))``,
+ho_match_mp_tac Cevaluate_strongind >>
 strip_tac >- rw[] >>
 strip_tac >- rw[DRESTRICT_DEF,FUNION_DEF,fmap_rel_def] >>
 strip_tac >- rw[] >>
 strip_tac >- (
-  rw[Cevaluate_con,Cevaluate_list_with_Cevaluate,
-     Cevaluate_list_with_value,FOLDL_UNION_BIGUNION] >>
-  fsrw_tac[DNF_ss,SATISFY_ss][SUBSET_DEF,MEM_EL,result_rel_def] >>
-  rw[exists_list_GENLIST] >>
-  rw[syneq_cases,EVERY2_EVERY,EVERY_MEM] >>
-  rw[pairTheory.FORALL_PROD] >>
-  srw_tac[DNF_ss][MEM_ZIP] >>
-  rw[GSYM FORALL_AND_THM] >>
-  rw[GSYM SKOLEM_THM] >>
-  Q.PAT_ABBREV_TAC `env1 = X ⊌ env''` >>
-  first_x_assum (qspecl_then [`n`,`env'`,`env1`] mp_tac) >>
-  `∀v. v ∈ FRANGE env1 ⇒ Cclosed c v` by (
-    unabbrev_all_tac >>
-    fsrw_tac[DNF_ss][FRANGE_DEF,DRESTRICT_DEF,FUNION_DEF] >>
-    METIS_TAC[] ) >>
-  fs[] >>
-  Cases_on `n < LENGTH vs` >> fs[] >>
-  disch_then (Q.X_CHOOSE_THEN `v` strip_assume_tac) >>
-  qexists_tac `v` >>
-  qmatch_assum_abbrev_tac `Cevaluate c (env0 ⊌ env1) ee rr` >>
-  final0) >>
+  rw[Cevaluate_con,FOLDL_UNION_BIGUNION] >>
+  fsrw_tac[DNF_ss,ETA_ss][] >>
+  rw[Once syneq_cases] >>
+  full_simp_tac(pure_ss++(QUANT_INST_ss[pair_default_qp]))[] >>
+  metis_tac[]) >>
 strip_tac >- (
-  map_every qx_gen_tac [`c`,`env`,`m`] >>
-  rw[Cevaluate_con,Cevaluate_list_with_Cevaluate,
-     Cevaluate_list_with_error,FOLDL_UNION_BIGUNION] >>
-  qmatch_assum_rename_tac `Cevaluate c env (EL z es) (Rerr err)`[] >>
-  qpat_assum `z < LENGTH es` mp_tac >>
-  qmatch_assum_rename_tac `n < LENGTH es`[] >>
-  strip_tac >>
-  qpat_assum `n < LENGTH es` assume_tac >>
-  fsrw_tac[DNF_ss,SATISFY_ss][SUBSET_DEF,MEM_EL,result_rel_def] >>
-  qexists_tac `n` >> fs[] >>
-  first_x_assum (qspec_then `env'` mp_tac) >> fs[] >>
-  strip_tac >> conj_tac  >- (
-    qmatch_abbrev_tac `Cevaluate c env1 ee rr` >>
-    `∀v. v ∈ FRANGE env1 ⇒ Cclosed c v` by (
-      unabbrev_all_tac >>
-      fsrw_tac[DNF_ss][FRANGE_DEF,DRESTRICT_DEF,FUNION_DEF] >>
-      metis_tac[] ) >>
-    first_x_assum (qspec_then `env1` mp_tac) >> fs[] >>
-    qmatch_abbrev_tac `Cevaluate c (env0 ⊌ env1) ee rr ⇒ Cevaluate c env1 ee rr` >>
-    strip_tac >>
-    final0 ) >>
-  qx_gen_tac `m` >> strip_tac >>
-  first_x_assum (qspec_then `m` mp_tac) >>
-  `m < LENGTH es` by srw_tac[ARITH_ss][] >>
-  fsrw_tac[DNF_ss,SATISFY_ss][SUBSET_DEF,MEM_EL] >>
-  rw[] >>
-  Q.PAT_ABBREV_TAC `env1 = X ⊌ env''` >>
-  first_x_assum (qspecl_then [`env'`,`env1`] mp_tac) >>
-  rw[] >>
-  `∀v. v ∈ FRANGE env1 ⇒ Cclosed c v` by (
-    unabbrev_all_tac >>
-    fsrw_tac[DNF_ss][FRANGE_DEF,DRESTRICT_DEF,FUNION_DEF] >>
-    metis_tac[] ) >>
-  fs[] >>
-  qmatch_assum_abbrev_tac `Cevaluate c (env0 ⊌ env1) ee rr` >>
-  qmatch_assum_rename_tac `syneq c v v2`[] >>
-  qexists_tac `v2` >> final0) >>
+  rw[Cevaluate_con,FOLDL_UNION_BIGUNION] >>
+  fsrw_tac[DNF_ss,ETA_ss][] >>
+  full_simp_tac(pure_ss++(QUANT_INST_ss[pair_default_qp]))[] >>
+  fs[]) >>
 strip_tac >- (
   rw[Cevaluate_tageq] >>
   fsrw_tac[DNF_ss][result_rel_def] >>
-  qexists_tac `m` >> fs[] >>
-  fsrw_tac[DNF_ss][syneq_cases] >>
-  PROVE_TAC[]) >>
-strip_tac >- rw[Cevaluate_tageq,result_rel_def] >>
+  CONV_TAC SWAP_EXISTS_CONV >>
+  qexists_tac `m` >> fs[Once syneq_cases] >>
+  full_simp_tac(pure_ss++(QUANT_INST_ss[pair_default_qp]))[] >>
+  fs[] >> metis_tac[]) >>
+strip_tac >- (
+  rw[Cevaluate_tageq,result_rel_def] >>
+  full_simp_tac(pure_ss++(QUANT_INST_ss[pair_default_qp]))[] >>
+  fsrw_tac[DNF_ss][] ) >>
 strip_tac >- (
   rw[Cevaluate_proj] >>
   fsrw_tac[DNF_ss][result_rel_def] >>
-  qmatch_abbrev_tac `X` >>
-  qpat_assum `∀env' env''. Y` mp_tac >>
-  rw[syneq_cases] >> unabbrev_all_tac >>
-  qexists_tac `m` >>
-  pop_assum (qspec_then `env'` mp_tac) >> rw[] >>
-  fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,MEM_EL,SKOLEM_THM] >>
-  pop_assum (qspec_then `env''` mp_tac) >> rw[] >>
-  pop_assum mp_tac >> fs[LENGTH_ZIP,EL_ZIP] >>
-  PROVE_TAC[]) >>
-strip_tac >- rw[Cevaluate_proj,result_rel_def] >>
+  full_simp_tac(pure_ss++(QUANT_INST_ss[pair_default_qp]))[] >>
+  fs[Q.SPECL[`c`,`CConv m vs`]syneq_cases] >>
+  first_x_assum (qspecl_then[`s''`,`env'`,`env''`]mp_tac) >>
+  fsrw_tac[DNF_ss][] >>
+  qx_gen_tac`s1` >>
+  qx_gen_tac`vs1` >>
+  strip_tac >>
+  map_every qexists_tac [`s1`,`m`,`vs1`] >>
+  fs[EVERY2_EVERY] >>
+  pop_assum mp_tac >>
+  srw_tac[DNF_ss][EVERY_MEM,MEM_ZIP,FORALL_PROD]) >>
+strip_tac >- (
+  rw[Cevaluate_proj,result_rel_def] >>
+  full_simp_tac(pure_ss++(QUANT_INST_ss[pair_default_qp]))[] >>
+  rw[] ) >>
 strip_tac >- (
   fs[Cevaluate_let,FOLDL_UNION_BIGUNION,
      DRESTRICT_DEF,FUNION_DEF] >>
   rpt gen_tac >>
   strip_tac >> strip_tac >>
   fsrw_tac[DNF_ss,SATISFY_ss][SUBSET_DEF] >>
+  qx_gen_tac `s''` >>
   qx_gen_tac `env'` >>
   qx_gen_tac `env''` >>
   strip_tac >>
   strip_tac >>
   disj1_tac >>
   Q.PAT_ABBREV_TAC `env1 = X ⊌ env''` >>
-  qpat_assum `∀env' env''. P ⇒ Q ⇒ ∃v'. X ∧ syneq c v v'`
-    (qspecl_then [`env'`,`env1`] mp_tac) >>
+  POP_ASSUM_LIST (map_every ASSUME_TAC) >>
+  first_x_assum (qspecl_then [`s''`,`env'`,`env1`] mp_tac) >>
   `∀v. v ∈ FRANGE env1 ⇒ Cclosed c v` by (
     unabbrev_all_tac >>
-    fsrw_tac[DNF_ss][FRANGE_DEF,FUNION_DEF,DRESTRICT_DEF] >>
-    metis_tac[]) >>
+    match_mp_tac IN_FRANGE_FUNION_suff >> simp[] >>
+    match_mp_tac IN_FRANGE_DRESTRICT_suff >> simp[]) >>
   rw[] >>
-  rw[Once SWAP_EXISTS_THM] >>
-  qmatch_assum_abbrev_tac `Cevaluate c (env0 ⊌ env1) ee rr` >>
+  qmatch_assum_abbrev_tac `Cevaluate c s'' (env0 ⊌ env1) ee rr` >>
   qmatch_assum_rename_tac `syneq c v v2`[] >>
+  CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
   qexists_tac `v2` >>
+  PairCases_on`rr`>>fs[] >>rw[] >>
+  qexists_tac `rr0` >>
   simp_tac(srw_ss())[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
   conj_tac >- final0 >>
-  qmatch_assum_rename_tac`Cevaluate c (env |+ (n,v)) b res`[] >>
+  qmatch_assum_rename_tac`Cevaluate c s' (env |+ (n,v)) b res`[] >>
   `∀x. x ∈ free_vars c b ⇒ (x = n) ∨ x ∈ FDOM env` by (
     PROVE_TAC[] ) >> fs[] >>
-  first_x_assum (qspecl_then [`env' |+ (n,v2)`, `env1 |+ (n,v2)`] mp_tac) >>
+  first_x_assum (qspecl_then [`rr0`,`env' |+ (n,v2)`, `env1 |+ (n,v2)`] mp_tac) >>
   asm_simp_tac bool_ss [fmap_rel_FUPDATE_same,syneq_refl] >>
-  `every_result (Cclosed c) rr` by (
-    match_mp_tac (MP_CANON Cevaluate_closed) >>
-    qexists_tac `env0 ⊌ env1` >>
-    qexists_tac `ee` >> fs[] >>
-    unabbrev_all_tac >>
-    fs[DRESTRICT_DEF] >>
-    conj_tac >- (
-      fsrw_tac[][SUBSET_DEF,fmap_rel_def] ) >>
-    fsrw_tac[DNF_ss][FRANGE_DEF,DRESTRICT_DEF,FUNION_DEF] >>
-    metis_tac[] ) >>
+  `Cclosed c v2 ∧ (∀v. v ∈ FRANGE rr0 ⇒ Cclosed c v)` by (
+    qspecl_then[`c`,`s''`,`env0⊌env1`,`ee`,`(rr0,Rval v2)`]mp_tac(CONJUNCT1 Cevaluate_closed) >>
+    fs[Abbr`ee`] >>
+    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by (
+      unabbrev_all_tac >>
+      fsrw_tac[][SUBSET_DEF,fmap_rel_def,FDOM_DRESTRICT] >>
+      match_mp_tac IN_FRANGE_FUNION_suff >>
+      conj_tac >- (
+        match_mp_tac IN_FRANGE_DRESTRICT_suff >> rw[] ) >>
+      match_mp_tac IN_FRANGE_FUNION_suff >> fs[] >>
+      match_mp_tac IN_FRANGE_DRESTRICT_suff >> rw[] ) >>
+    rw[Abbr`Q`,Abbr`R`] ) >>
   `∀v. v ∈ FRANGE (env' |+ (n,v2)) ⇒ Cclosed c v` by (
-    fsrw_tac[DNF_ss][FRANGE_DEF,DOMSUB_FAPPLY_THM] >>
-    fs[Abbr`rr`] ) >>
+    match_mp_tac IN_FRANGE_FUPDATE_suff >> rw[]) >>
   `∀v. v ∈ FRANGE (env1 |+ (n,v2)) ⇒ Cclosed c v` by (
-    fsrw_tac[DNF_ss][FRANGE_DEF,DOMSUB_FAPPLY_THM] >>
-    fs[Abbr`rr`] ) >>
+    match_mp_tac IN_FRANGE_FUPDATE_suff >> rw[]) >>
   `∀v. v ∈ FRANGE (env \\ n) ⇒ Cclosed c v` by (
     match_mp_tac IN_FRANGE_DOMSUB_suff >> fs[] ) >>
-  `every_result (Cclosed c) (Rval v)` by (
-    match_mp_tac (MP_CANON Cevaluate_closed) >>
-    PROVE_TAC[SUBSET_DEF] ) >>
-  `Cclosed c v` by fs[] >>
+  `Cclosed c v ∧ (∀v. v ∈ FRANGE s' ⇒ Cclosed c v)` by (
+    qspecl_then[`c`,`s`,`env`,`ee`,`(s',Rval v)`]mp_tac(CONJUNCT1 Cevaluate_closed) >>
+    fs[Abbr`ee`] >>
+    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by (
+      unabbrev_all_tac >>
+      fsrw_tac[][SUBSET_DEF,fmap_rel_def,FDOM_DRESTRICT] ) >>
+    rw[Abbr`Q`,Abbr`R`] ) >>
   asm_simp_tac bool_ss [] >>
   strip_tac >>
-  qmatch_assum_rename_tac `result_rel (syneq c) res r`[] >>
-  qexists_tac `r` >> asm_simp_tac(srw_ss())[] >>
+  PairCases_on`res` >> PairCases_on`res''` >> full_simp_tac std_ss [] >>
+  qmatch_assum_rename_tac `result_rel (syneq c) res1 r1`[] >>
+  qmatch_assum_rename_tac `fmap_rel (syneq c) res0 r0`[] >>
+  qexists_tac `(r0,r1)` >> asm_simp_tac(srw_ss())[] >>
   qunabbrev_tac `env1` >>
   Q.PAT_ABBREV_TAC `env1 = X |+ (n,v2)` >>
   qunabbrev_tac `env0` >>
-  qmatch_assum_abbrev_tac `Cevaluate c (env0 ⊌ env1) b r` >>
+  qmatch_assum_abbrev_tac `Cevaluate c rr0 (env0 ⊌ env1) b (r0,r1)` >>
   final0 ) >>
 strip_tac >- (
+
   rw[Cevaluate_let,FOLDL_UNION_BIGUNION] >>
   disj2_tac >> fs[] >>
   first_x_assum (qspec_then `env'` mp_tac) >> rw[] >>
