@@ -150,5 +150,14 @@ wf_rel_tac `measure (LENGTH o FST o SND)` >>
 srw_tac [] []);
 val _ = register "bind_var_list" bind_var_list_def bind_var_list_ind;
 
+val (is_value_def,is_value_ind) =
+  tprove_no_defn ((is_value_def,is_value_ind),
+wf_rel_tac `measure exp_size` >>
+srw_tac [] [] >>
+induct_on `es` >>
+srw_tac [] [exp_size_def] >>
+res_tac >>
+decide_tac);
+val _ = register "is_value" is_value_def is_value_ind;
 
 val _ = export_theory ();
