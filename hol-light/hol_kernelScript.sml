@@ -1187,10 +1187,4 @@ val _ = Define `
        eq3 <- mk_eq(y3,eq2) ;
        return (Sequent [] eq1, Sequent [] eq3) od od od`
 
-(*
-  - make type_of pure
-  - remove forall --- can be made much faster with explicit pattern matching
-  - refactor INST and INST_TYPE
-*)
-
 val _ = export_theory();
