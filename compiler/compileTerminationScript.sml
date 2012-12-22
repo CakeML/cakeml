@@ -116,7 +116,8 @@ val _ = save_thm ("doPrim2_def", doPrim2_def);
 val _ = export_rewrites["doPrim2_def"];
 
 val _ = save_thm ("CevalPrim2_def", CevalPrim2_def);
-val _ = export_rewrites["CevalPrim2_def"];
+val _ = save_thm ("CevalPrim1_def", CevalPrim1_def);
+val _ = export_rewrites["CevalPrim2_def","CevalPrim1_def"];
 
 (* compiler definitions *)
 
