@@ -499,7 +499,7 @@ val _ = Defn.save_defn pat_to_Cpat_defn;
 /\
 (remove_mat_vp fk sk v (CPref p) =
   let v' =( fresh_var ({v;fk} UNION (((free_vars FEMPTY) sk)) UNION ((Cpat_vars p)))) in(((
-  CLet v') (((CPrim1 CRef) ((CVar v)))))
+  CLet v') (((CPrim1 CDer) ((CVar v)))))
     (((((remove_mat_vp fk) sk) v') p))))
 /\
 (remove_mat_con fk sk v n [] = sk)
