@@ -2,68 +2,6 @@ open HolKernel bossLib boolLib boolSimps pairTheory listTheory pred_setTheory fi
 open MiniMLTheory miscTheory miniMLExtraTheory compileTerminationTheory
 val _ = new_theory "intLang"
 
-(* Cevaluate nicer induction *)
-
-val _ = type_abbrev("Cstore",``:num |-> Cv``)
-
-val (Cevaluate_list_with_rules,Cevaluate_list_with_ind,Cevaluate_list_with_cases) = Hol_reln [ANTIQUOTE(
-Cevaluate_rules |> SIMP_RULE (srw_ss()) [] |> concl |>
-strip_conj |>
-Lib.filter (fn tm => tm |> strip_forall |> snd |> strip_imp |> snd |> strip_comb |> fst |> same_const ``Cevaluate_list``) |>
-let val t1 = ``combin$C (Cevaluate c) env``
-    val t2 = ``combin$C (Cevaluate_list c) env``
-    val tP = type_of t1
-    val s = ``s:Cstore`` val s1 = ``s1:Cstore``
-    val s' = ``s':Cstore`` val s2 = ``s2:Cstore``
-    val P = mk_var ("P",tP)
-    val ew = mk_comb(mk_var("Cevaluate_list_with",tP --> type_of t2),P)
-    val t1s1 = ``Cevaluate c s1 env``
-    val t2s1 = ``Cevaluate_list c s1 env``
-    val t2s2 = ``Cevaluate_list c s2 env``
-    val Ps1 = mk_comb(P,s1)
-    val ews1 = mk_comb(ew,s1)
-    val ews2 = mk_comb(ew,s2)
-in List.map (fn tm => tm |> strip_forall |> snd |>
-                   subst [s|->s1] |>
-                   subst [s'|->s2] |>
-                   subst [t1s1|->Ps1, t2s1|->ews1, t2s2|->ews2])
-end |> list_mk_conj)]
-
-val Cevaluate_list_with_Cevaluate = store_thm(
-"Cevaluate_list_with_Cevaluate",
-``∀c s env. Cevaluate_list c s env = Cevaluate_list_with (combin$C (Cevaluate c) env) s``,
-gen_tac >> CONV_TAC SWAP_FORALL_CONV >> gen_tac >>
-simp_tac std_ss [Once FUN_EQ_THM] >>
-CONV_TAC SWAP_FORALL_CONV >>
-Induct >>
-rw[FUN_EQ_THM] >-
-  rw[Once Cevaluate_cases,Once Cevaluate_list_with_cases] >>
-rw[Once Cevaluate_cases] >>
-rw[Once Cevaluate_list_with_cases,SimpRHS] >>
-PROVE_TAC[])
-
-val Cevaluate_nice_ind = save_thm(
-"Cevaluate_nice_ind",
-Cevaluate_ind
-|> Q.SPECL [`P`,`λc s env. Cevaluate_list_with (combin$C (P c) env) s`] |> SIMP_RULE (srw_ss()) []
-|> UNDISCH_ALL
-|> CONJUNCTS
-|> List.hd
-|> DISCH_ALL
-|> Q.GEN `P`
-|> SIMP_RULE (srw_ss()) [])
-
-val Cevaluate_nice_strongind = save_thm(
-"Cevaluate_nice_strongind",
-Cevaluate_strongind
-|> Q.SPECL [`P`,`λc s env. Cevaluate_list_with (combin$C (P c) env) s`] |> SIMP_RULE (srw_ss()) []
-|> UNDISCH_ALL
-|> CONJUNCTS
-|> List.hd
-|> DISCH_ALL
-|> Q.GEN `P`
-|> SIMP_RULE (srw_ss()) [Cevaluate_list_with_Cevaluate])
-
 (* Cevaluate functional equations *)
 
 val Cevaluate_raise = store_thm(
@@ -118,100 +56,6 @@ val Cevaluate_proj = store_thm(
   (∃s' m vs. Cevaluate c s env exp (s', Rval (CConv m vs)) ∧ (n < LENGTH vs) ∧ (res = (s', Rval (EL n vs)))) ∨
   (∃s' err. Cevaluate c s env exp (s', Rerr err) ∧ (res = (s', Rerr err)))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
-
-val Cevaluate_list_with_nil = store_thm(
-"Cevaluate_list_with_nil",
-``∀f s res. Cevaluate_list_with f s [] res = (res = (s, Rval []))``,
-rw[Once Cevaluate_list_with_cases])
-val _ = export_rewrites["Cevaluate_list_with_nil"];
-
-val Cevaluate_list_with_cons = store_thm(
-"Cevaluate_list_with_cons",
-``∀f s e es res. Cevaluate_list_with f s (e::es) res =
-  (∃s' v s'' vs. f s e (s', Rval v) ∧ Cevaluate_list_with f s' es (s'', Rval vs) ∧ (res = (s'', Rval (v::vs)))) ∨
-  (∃s' v s'' err. f s e (s', Rval v) ∧ Cevaluate_list_with f s' es (s'', Rerr err) ∧ (res = (s'', Rerr err))) ∨
-  (∃s' err. f s e (s', Rerr err) ∧ (res = (s', Rerr err)))``,
-rw[Once Cevaluate_list_with_cases] >> PROVE_TAC[])
-
-val Cevaluate_list_with_error = store_thm(
-"Cevaluate_list_with_error",
-``!P ls s s' err. Cevaluate_list_with P s ls (s', Rerr err) =
-    ∃l. LENGTH l < LENGTH ls ∧
-        (∀m. m < LENGTH l ⇒ ∃v. P (EL m (s::l)) (EL m ls) (EL m l, Rval v)) ∧
-        P (LAST (s::l)) (EL (LENGTH l) ls) (s',Rerr err)``,
-gen_tac >> Induct >- rw[Cevaluate_list_with_nil] >>
-rw[EQ_IMP_THM,Cevaluate_list_with_cons] >- (
-  qmatch_assum_rename_tac `P s h (s0,Rval v)`[] >>
-  qexists_tac `s0::l` >> simp[] >>
-  rw[] >>
-  Cases_on `m` >> rw[] >>
-  fsrw_tac[ARITH_ss][] >>
-  qexists_tac `v` >> rw[] )
->- (
-  qexists_tac `[]` >>
-  rw[] ) >>
-Cases_on `l` >> fs[] >>
-disj1_tac >>
-first_assum (qspec_then `0` mp_tac) >>
-simp_tac(srw_ss())[] >>
-rw[] >>
-qmatch_assum_rename_tac`P s h (h',Rval v)`[] >>
-qexists_tac`h'` >>
-qexists_tac `v` >> rw[] >>
-qmatch_assum_rename_tac `LENGTH t < LENGTH ls` [] >>
-qexists_tac `t` >> rw[] >>
-first_x_assum (qspec_then `SUC m` mp_tac) >>
-rw[])
-
-val Cevaluate_list_with_value = store_thm(
-"Cevaluate_list_with_value",
-``!P ls s s' vs. Cevaluate_list_with P s ls (s', Rval vs) = (LENGTH ls = LENGTH vs) ∧
-  ∃l. (LENGTH l = LENGTH ls) ∧ (LAST (s::l) = s') ∧
-  ∀n. n < LENGTH ls ⇒ P (EL n (s::l)) (EL n ls) (EL n l, Rval (EL n vs))``,
-gen_tac >> Induct >- (
-  rw[Cevaluate_list_with_nil,LENGTH_NIL,LENGTH_NIL_SYM] >>
-  PROVE_TAC[] ) >>
-ntac 3 gen_tac >>
-Cases >> rw[Cevaluate_list_with_cons,EQ_IMP_THM] >- fs[]
->- (
-  qmatch_assum_rename_tac`P s h (s0,Rval v)`[] >>
-  qexists_tac`s0::l`>>rw[] >>
-  Cases_on`n`>>rw[] >>
-  first_x_assum match_mp_tac >>
-  fs[]) >>
-qexists_tac`HD l` >>
-first_assum (qspec_then `0` mp_tac) >> simp_tac(srw_ss())[] >> rw[] >>
-qexists_tac `TL l` >>
-Cases_on`l`>>fs[] >> rw[] >>
-first_x_assum(qspec_then`SUC n`mp_tac) >>
-rw[])
-
-val Cevaluate_list_with_mono = store_thm(
-"Cevaluate_list_with_mono",
-``∀P Q s es res. Cevaluate_list_with P s es res ⇒ (∀s' e r. MEM e es ∧ P s' e r ⇒ Q s' e r) ⇒ Cevaluate_list_with Q s es res``,
-ntac 2 strip_tac >>
-ho_match_mp_tac Cevaluate_list_with_ind >>
-rw[Cevaluate_list_with_cons] >> PROVE_TAC[])
-
-val Cevaluate_list_with_EVERY = store_thm(
-"Cevaluate_list_with_EVERY",
-``∀P es s s' vs. Cevaluate_list_with P s es (s',Rval vs) =
-  (LENGTH es = LENGTH vs) ∧
-  ∃l. (LENGTH l = SUC (LENGTH es)) ∧ (HD l = s) ∧ (LAST l = s') ∧
-  EVERY (UNCURRY (UNCURRY P)) (ZIP (ZIP (FRONT l,es),ZIP (TL l,MAP Rval vs)))``,
-gen_tac >> Induct >- (
-  rw[Cevaluate_list_with_nil,LENGTH_NIL,LENGTH_NIL_SYM,EQ_IMP_THM] >-
-    (qexists_tac`[s]` >> rw[]) >>
-  Cases_on`l`>>fs[]>>
-  Cases_on`t`>>fs[]) >>
-rw[Cevaluate_list_with_cons,EQ_IMP_THM] >> rw[] >- (
-  qexists_tac`s::l` >>
-  Cases_on`l`>>fs[] ) >>
-Cases_on `vs` >> fs[] >>
-Cases_on`l`>>fs[] >>
-Cases_on`t'`>>fs[] >>
-qexists_tac`h'''` >> rw[] >>
-qexists_tac`h'''::t''`>>fs[])
 
 (* syneq equivalence relation lemmas *)
 
@@ -664,7 +508,7 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
       fsrw_tac[DNF_ss][MEM_MAP] >>
       fs[Q.SPECL[`c`,`CRecClos env' ns' defs n`]Cclosed_cases] >>
       rw[MEM_EL] >> PROVE_TAC[] ) >>
-    fs[Cevaluate_list_with_EVERY] >>
+    fs[] >>
     qpat_assum `LENGTH es = X` assume_tac >>
     fs[EVERY_MEM,pairTheory.FORALL_PROD,MEM_ZIP]) >>
   strip_tac >- (
@@ -1596,6 +1440,7 @@ simp[] >>
   rw[] ) >>
 simp[] >> metis_tac[])
 
+(*
 val Cevaluate_free_vars_env = save_thm(
 "Cevaluate_free_vars_env",
 Cevaluate_any_env
@@ -1692,6 +1537,7 @@ val Cevaluate_any_syneq_env = store_thm("Cevaluate_any_syneq_env",
    qspecl_then[`c`,`env'`,`exp`,`res'`] mp_tac Cevaluate_any_super_env >>
    rw[] >>
    metis_tac[result_rel_syneq_trans])
+*)
 
 (* Cevaluate deterministic *)
 
