@@ -536,7 +536,7 @@ val Decls_def = Define `
 val DeclAssum_def = Define `
   DeclAssum ds env = ?s2 cenv2. Decls [] empty_store [] ds cenv2 s2 env`;
 
-val Decls_Dtype = prove(
+val Decls_Dtype = store_thm("Decls_Dtype",
   ``!cenv s env tds cenv1 s1 env1.
       Decls cenv s env [Dtype tds] cenv1 s1 env1 =
       check_dup_ctors tds cenv /\ (cenv1 = merge (build_tdefs tds) cenv) /\ (env1 = env) /\ (s1 = s)``,
@@ -634,15 +634,19 @@ val do_app_lemma = prove(
 
 val pmatch'_lemma = prove(
   ``(!t (s:store) p v env x.
-      (pmatch' t empty_store p v env = x) ==>
+      (pmatch' t empty_store p v env = x) /\ x <> Match_type_error ==>
       !s. (pmatch' t s p v env = x)) /\
     (!t (s:store) p vs env x.
-      (pmatch_list' t empty_store p vs env = x) ==>
+      (pmatch_list' t empty_store p vs env = x) /\ x <> Match_type_error ==>
       !s. (pmatch_list' t s p vs env = x))``,
   HO_MATCH_MP_TAC pmatch'_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [pmatch'_def]
   \\ FULL_SIMP_TAC std_ss [store_lookup_def,empty_store_def,LENGTH]
-  \\ cheat);
+  THEN1 (METIS_TAC [])
+  \\ Cases_on `pmatch' t [] p v env`
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Q.PAT_ASSUM `No_match = x` (ASSUME_TAC o GSYM)
+  \\ FULL_SIMP_TAC (srw_ss()) []);
 
 val evaluate'_empty_store_IMP_any_store = prove(
  ``(!s env e r1.
@@ -740,6 +744,18 @@ val Decls_APPEND = store_thm("Decls_APPEND",
   \\ SIMP_TAC (srw_ss()) [Once evaluate_decs'_cases]
   \\ FULL_SIMP_TAC std_ss [PULL_EXISTS]
   \\ METIS_TAC []);
+
+val Decls_CONS = save_thm("Decls_CONS",
+  ``Decls cenv1 s1 env1 ([d] ++ ds) cenv2 s2 env2``
+  |> REWRITE_CONV [Decls_APPEND]
+  |> REWRITE_RULE [APPEND]);
+
+val Decls_NIL = store_thm("Decls_NIL",
+  ``Decls cenv1 s1 env1 [] cenv2 s2 env2 =
+      (env2 = env1) /\ (s2 = s1) /\ (cenv2 = cenv1)``,
+  SIMP_TAC std_ss [Decls_def]
+  \\ SIMP_TAC (srw_ss()) [Once evaluate_decs'_cases]
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ SIMP_TAC std_ss []);
 
 val DeclAssum_Dtype = store_thm("DeclAssum_Dtype",
   ``(!env. DeclAssum ds env ==> Eval env (Var n NONE) P) ==>

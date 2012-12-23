@@ -21,7 +21,7 @@ val _ = translation_extends "ml_monad";
 
 fun dest_monad_type ty = type_subst (match_type ``:'a M`` ty) ``:'a``;
 
-(*  *)
+(* ---- *)
 
 fun get_m_type_inv ty =
   ``HOL_MONAD ^(get_type_inv (dest_monad_type ty))`` handle HOL_ERR _ =>
@@ -474,7 +474,7 @@ fun m2deep tm =
 
 TODO:
  - support subroutine calls
- - attempt to do very basic appraoch to state
+ - attempt to do very basic approach to state
  - support try, handle_Clash, raise_Clash
 
 *)
@@ -627,5 +627,41 @@ fun m_translate def = let
     val _ = print_type (type_of tm)
     val _ = print "\n\n"
     in raise UnableToTranslate tm end;
+
+
+(*
+
+val lemma =
+  hol2deep ``[("bool",0); ("fun",2:num)]``
+  |> DISCH_ALL |> SIMP_RULE std_ss [] |> GEN_ALL
+
+val th = prove(
+  ``(!env. Eval env exp res) ==>
+    DeclAssum (SNOC ^dec ml_monad_decls) env ==>
+    Eval env (Var n NONE) ($= (Loc 0))``,
+  FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,empty_store_def]
+  \\ SIMP_TAC std_ss [ml_monad_decls]
+  \\ NTAC 6 (ONCE_REWRITE_TAC [Decls_CONS]
+             \\ SIMP_TAC std_ss [Decls_Dtype,Decls_Dlet,Decls_NIL])
+  \\ SIMP_TAC std_ss [PULL_EXISTS]
+  \\ REPEAT STRIP_TAC
+  \\ REPEAT (Q.PAT_ASSUM `check_dup_ctors xx yy` (K ALL_TAC))
+  \\ SIMP_TAC std_ss [Eval_def]
+  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
+  \\ SIMP_TAC (srw_ss()) [Once lookup_def,bind_def,do_tapp_def]
+  \\ POP_ASSUM MP_TAC
+  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases,do_uapp_def]
+  \\ SIMP_TAC std_ss [LET_DEF,store_alloc_def,PULL_EXISTS]
+  \\ REPEAT STRIP_TAC
+  \\ Q.PAT_ASSUM `!env. bbb` (ASSUME_TAC o Q.SPEC `[]`)
+  \\ FULL_SIMP_TAC std_ss [Eval_def,empty_store_def]
+  \\ IMP_RES_TAC big_exp_determ'
+  \\ FULL_SIMP_TAC std_ss [LENGTH])
+  |> (fn th => MATCH_MP th lemma)
+  |> Q.INST [`n`|->`"the_type_constants"`] |> UNDISCH;
+
+val _ = store_cert th TRUTH
+
+*)
 
 end

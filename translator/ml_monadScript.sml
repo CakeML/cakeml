@@ -53,10 +53,12 @@ val Eval_CHAR_LT = prove(
   |> MATCH_MP (MATCH_MP Eval_WEAKEN (hol2deep ``\m n. m < n:num``))
   |> store_eval_thm;
 
+(*
 val res = translate string_lt_def;
 val res = translate string_le_def;
 val res = translate string_gt_def;
 val res = translate string_ge_def;
+*)
 
 (* construct type refinement invariants *)
 
@@ -564,6 +566,7 @@ val M_DeclAssum_Dletrec_INTRO = store_thm("M_DeclAssum_Dletrec_INTRO",
 
 (* some pure functions *)
 
+(*
 val res = translate listTheory.MAP;
 val res = translate MEMBER_def;
 val res = translate listTheory.EVERY_DEF;
@@ -606,5 +609,6 @@ val res = translate term_union_def;
 val res = translate dest_thm_def;
 val res = translate hyp_def;
 val res = translate concl_def;
+*)
 
 val _ = export_theory();
