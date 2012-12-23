@@ -639,9 +639,9 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
          (FLOOKUP env x = SOME v) ∧ fk ∈ FDOM env ∧ x ∉ Cpat_vars p ∧
          Cclosed FEMPTY v ∧ (∀v. v ∈ FRANGE env ⇒ Cclosed FEMPTY v) ∧
          free_vars FEMPTY e ⊆ Cpat_vars p ∪ FDOM env ∧
-         Cevaluate FEMPTY (menv ⊌ env) e r0
-       ⇒ ∃r. Cevaluate FEMPTY env (remove_mat_vp fk e x p) r ∧
-             result_rel (syneq FEMPTY) r r0) ∧
+         Cevaluate FEMPTY s (menv ⊌ env) e r0
+       ⇒ ∃r. Cevaluate FEMPTY s env (remove_mat_vp fk e x p) r ∧
+             result_rel (syneq FEMPTY) (SND r) (SND r0)) ∧
     (∀ps vs menv. Cpmatch_list s ps vs menv ⇒
        ∀env x c vs0 ps0 menv0 fk e r0.
          (FLOOKUP env x = SOME (CConv c (vs0++vs))) ∧
@@ -650,9 +650,9 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
          EVERY (Cclosed FEMPTY) (vs0++vs) ∧ (∀v. v ∈ FRANGE env ⇒ Cclosed FEMPTY v) ∧
          free_vars FEMPTY e ⊆ BIGUNION (IMAGE Cpat_vars (set (ps0++ps))) ∪ FDOM env ∧
          Cpmatch_list s ps0 vs0 menv0 ∧
-         Cevaluate FEMPTY (menv ⊌ menv0 ⊌ env) e r0
-       ⇒ ∃r. Cevaluate FEMPTY (menv0 ⊌ env) (remove_mat_con fk e x (LENGTH ps0) ps) r ∧
-             result_rel (syneq FEMPTY) r r0)``,
+         Cevaluate FEMPTY s (menv ⊌ menv0 ⊌ env) e r0
+       ⇒ ∃r. Cevaluate FEMPTY s (menv0 ⊌ env) (remove_mat_con fk e x (LENGTH ps0) ps) r ∧
+             result_rel (syneq FEMPTY) (SND r) (SND r0))``,
   ho_match_mp_tac Cpmatch_strongind >>
   strip_tac >- (
     rw[remove_mat_var_def] >>
@@ -666,17 +666,24 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
     rw[Once Cevaluate_cases] >>
     srw_tac[DNF_ss][] >>
     disj1_tac >>
-    CONV_TAC SWAP_EXISTS_CONV >> qexists_tac `T` >>
+    CONV_TAC (RESORT_EXISTS_CONV List.rev) >> qexists_tac `T` >>
     fs[FUNION_FEMPTY_1] >>
     rw[Once Cevaluate_cases] >>
-    rw[Cevaluate_list_with_Cevaluate,Cevaluate_list_with_cons] >>
+    rw[Once Cevaluate_cases] >>
+    rw[Once Cevaluate_cases] >>
+    rw[Once Cevaluate_cases] >>
     PROVE_TAC[result_rel_refl,syneq_refl]) >>
   strip_tac >- (
-
     rw[remove_mat_vp_def,LET_THM] >>
     rw[Once Cevaluate_cases] >>
     srw_tac[DNF_ss][] >>
-    rw[Once Cevaluate_cases] >>
+    disj1_tac >>
+    rw[Once Cevaluate_cases,LET_THM] >>
+    fs[FLOOKUP_DEF] >> rw[] >>
+    Q.PAT_ABBREV_TAC`v = fresh_var X` >>
+    first_x_assum (qspecl_then[`env`,`v`,`fk`,`e`,`r0`]mp_tac) >>
+    hb
+
     rw[Once Cevaluate_cases] >>
     fs[FLOOKUP_DEF] >>
     rw[Once Cevaluate_cases] >>
