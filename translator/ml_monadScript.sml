@@ -290,6 +290,41 @@ val Eval_IMP_PURE = store_thm("Eval_IMP_PURE",
   \\ REPEAT STRIP_TAC \\ Q.EXISTS_TAC `res`
   \\ ASM_SIMP_TAC std_ss [evaluate'_empty_store_IMP]);
 
+val HOL_TYPE_TYPE_EXISTS = prove(
+  ``?ty v. HOL_TYPE_TYPE ty v``,
+  Q.EXISTS_TAC `Tyvar []`
+  \\ SIMP_TAC std_ss [fetch "-" "HOL_TYPE_TYPE_def",fetch "-" "LIST_TYPE_def"]);
+
+val TERM_TYPE_EXISTS = prove(
+  ``?tm v. TERM_TYPE tm v``,
+  STRIP_ASSUME_TAC HOL_TYPE_TYPE_EXISTS
+  \\ Q.EXISTS_TAC `Var [] ty`
+  \\ SIMP_TAC std_ss [fetch "-" "TERM_TYPE_def",fetch "-" "LIST_TYPE_def"]
+  \\ Q.EXISTS_TAC `v` \\ FULL_SIMP_TAC std_ss []);
+
+val HOL_STORE_EXISTS = prove(
+  ``?s refs. HOL_STORE s refs``,
+  SIMP_TAC std_ss [HOL_STORE_def]
+  \\ STRIP_ASSUME_TAC TERM_TYPE_EXISTS
+  \\ Q.EXISTS_TAC `[Conv "Nil" [];Conv "Nil" [];Conv "Nil" [];
+                    Conv "Nil" [];v]`
+  \\ FULL_SIMP_TAC (srw_ss()) [LENGTH,EL,HD,TL]
+  \\ Q.EXISTS_TAC `<| the_axioms := []; the_type_constants := [] ;
+                      the_term_constants := []; the_definitions := [];
+                      the_clash_var := tm |>`
+  \\ FULL_SIMP_TAC (srw_ss()) [fetch "-" "LIST_TYPE_def"]);
+
+val EvalM_PURE_EQ = store_thm("EvalM_PURE_EQ",
+  ``EvalM env (Fun n t exp) (PURE P x) = Eval env (Fun n t exp) (P x)``,
+  REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC std_ss [Eval_IMP_PURE]
+  \\ FULL_SIMP_TAC std_ss [Eval_def,EvalM_def,PURE_def,PULL_EXISTS]
+  \\ STRIP_ASSUME_TAC HOL_STORE_EXISTS \\ RES_TAC
+  \\ Q.EXISTS_TAC `v` \\ FULL_SIMP_TAC std_ss []
+  \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
+  \\ ONCE_REWRITE_TAC [evaluate'_cases]
+  \\ SIMP_TAC (srw_ss()) []);
+
 val EvalM_Var_SIMP = store_thm("EvalM_Var_SIMP",
   ``EvalM ((n,v,x)::env) (Var t y) p =
     if n = t then EvalM ((n,v,x)::env) (Var t y) p else EvalM env (Var t y) p``,
@@ -508,16 +543,10 @@ val set_the_definitions_thm = store_thm("set_the_definitions_thm",
 (* declarations *)
 
 val M_DeclAssum_Dlet_INTRO = store_thm("M_DeclAssum_Dlet_INTRO",
-  ``(!env. DeclAssum ds env ==> EvalM env exp (PURE P x)) ==>
-    (!v env. DeclAssum (SNOC (Dlet NONE (Pvar v NONE) exp) ds) env ==>
+  ``(!env. DeclAssum ds env ==> EvalM env (Fun n tt exp) (PURE P x)) ==>
+    (!v env. DeclAssum (SNOC (Dlet NONE (Pvar v NONE) (Fun n tt exp)) ds) env ==>
              EvalM env (Var v NONE) (PURE P x))``,
-  FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dlet,
-    PULL_EXISTS,bind_def,Eval_Var_SIMP]
-  \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ FULL_SIMP_TAC std_ss [EvalM_def,PURE_def,PULL_EXISTS]
-  \\ REPEAT STRIP_TAC \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases,do_tapp_def]
-  \\ RES_TAC \\ IMP_RES_TAC evaluate'_empty_store_IMP
-  \\ METIS_TAC [evaluate_11_Rval,PAIR_EQ]);
+  METIS_TAC [DeclAssum_Dlet_INTRO,EvalM_PURE_EQ,Eval_IMP_PURE]);
 
 val M_DeclAssum_Dletrec_INTRO = store_thm("M_DeclAssum_Dletrec_INTRO",
   ``(!env1 env.
