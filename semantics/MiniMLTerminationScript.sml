@@ -160,4 +160,58 @@ res_tac >>
 decide_tac);
 val _ = register "is_value" is_value_def is_value_ind;
 
+val (deBruijn_subst_p_def,deBruijn_subst_p_ind) =
+  tprove_no_defn ((deBruijn_subst_p_def,deBruijn_subst_p_ind),
+wf_rel_tac `measure (pat_size o SND o SND)` >>
+srw_tac [] [] >>
+induct_on `ps` >>
+srw_tac [] [pat_size_def] >>
+res_tac >>
+decide_tac);
+val _ = register "deBruijn_subst_p" deBruijn_subst_p_def deBruijn_subst_p_ind;
+
+val (deBruijn_subst_e_def,deBruijn_subst_e_ind) =
+  tprove_no_defn ((deBruijn_subst_e_def,deBruijn_subst_e_ind),
+wf_rel_tac `measure (exp_size o SND o SND)` >>
+srw_tac [] [] >|
+[decide_tac,
+ decide_tac,
+ decide_tac,
+ decide_tac,
+ induct_on `funs` >>
+     srw_tac [] [exp_size_def] >>
+     srw_tac [] [exp_size_def] >>
+     res_tac >>
+     decide_tac,
+ induct_on `pes` >>
+     srw_tac [] [exp_size_def] >>
+     srw_tac [] [exp_size_def] >>
+     res_tac >>
+     decide_tac,
+ decide_tac,
+ decide_tac,
+ decide_tac,
+ decide_tac,
+ decide_tac,
+ decide_tac,
+ decide_tac,
+ induct_on `es` >>
+     srw_tac [] [exp_size_def] >>
+     res_tac >>
+     decide_tac,
+ decide_tac,
+ decide_tac,
+ decide_tac]);
+val _ = register "deBruijn_subst_e" deBruijn_subst_e_def deBruijn_subst_e_ind;
+
+val (deBruijn_subst_v_def,deBruijn_subst_v_ind) =
+  tprove_no_defn ((deBruijn_subst_v_def,deBruijn_subst_v_ind),
+wf_rel_tac `measure (v_size o SND)` >>
+srw_tac [] [] >>
+induct_on `vs` >>
+srw_tac [] [v_size_def] >>
+res_tac >>
+decide_tac);
+val _ = register "deBruijn_subst_v" deBruijn_subst_v_def deBruijn_subst_v_ind;
+
 val _ = export_theory ();
