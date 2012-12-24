@@ -1440,6 +1440,29 @@ simp[] >>
   rw[] ) >>
 simp[] >> metis_tac[])
 
+val Cevaluate_FUPDATE = store_thm(
+"Cevaluate_FUPDATE",
+``∀c s env exp res k v. Cevaluate c s env exp res ∧
+ (free_vars c exp ⊆ FDOM env) ∧
+ (∀v. v ∈ FRANGE env ⇒ Cclosed c v) ∧
+ (∀v. v ∈ FRANGE s ⇒ Cclosed c v) ∧
+ k ∉ free_vars c exp ∧ Cclosed c v
+ ⇒ ∃res'. Cevaluate c s (env |+ (k,v)) exp res' ∧
+   fmap_rel (syneq c) (FST res) (FST res') ∧
+   result_rel (syneq c) (SND res) (SND res')``,
+rw[] >>
+`∀w. w ∈ FRANGE (env |+ (k,v)) ⇒ Cclosed c w` by (
+  fsrw_tac[DNF_ss][FRANGE_DEF,DOMSUB_FAPPLY_THM] ) >>
+qsuff_tac `(env |+ (k,v) = (DRESTRICT env (free_vars c exp)) ⊌ (env |+ (k,v)))`
+>- (
+  disch_then SUBST1_TAC >>
+  match_mp_tac (MP_CANON (CONJUNCT1 Cevaluate_any_env)) >>
+  map_every qexists_tac[`s`,`env`] >>
+  rw[] ) >>
+rw[GSYM SUBMAP_FUNION_ABSORPTION] >>
+rw[SUBMAP_DEF,FUNION_DEF,FUN_FMAP_DEF,DRESTRICT_DEF,FAPPLY_FUPDATE_THM] >>
+fs[SUBSET_DEF] >> rw[] >> fs[])
+
 (*
 val Cevaluate_free_vars_env = save_thm(
 "Cevaluate_free_vars_env",
@@ -1455,22 +1478,6 @@ Cevaluate_any_env
 |> DISCH_ALL
 |> Q.GEN `res` |> Q.GEN `exp` |> Q.GEN `env` |> Q.GEN `c`
 |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC])
-
-val Cevaluate_FUPDATE = store_thm(
-"Cevaluate_FUPDATE",
-``∀c env exp res k v. Cevaluate c env exp res ∧
- (free_vars c exp ⊆ FDOM env) ∧
- (∀v. v ∈ FRANGE env ⇒ Cclosed c v) ∧
- k ∉ free_vars c exp ∧ Cclosed c v
- ⇒ ∃res'. Cevaluate c (env |+ (k,v)) exp res' ∧ result_rel (syneq c) res res'``,
-rw[] >>
-`∀w. w ∈ FRANGE (env |+ (k,v)) ⇒ Cclosed c w` by (
-  fsrw_tac[DNF_ss][FRANGE_DEF,DOMSUB_FAPPLY_THM] ) >>
-qsuff_tac `(env |+ (k,v) = (DRESTRICT env (free_vars c exp)) ⊌ (env |+ (k,v)))`
-  >- metis_tac[Cevaluate_any_env,fmap_rel_refl,syneq_refl] >>
-rw[GSYM SUBMAP_FUNION_ABSORPTION] >>
-rw[SUBMAP_DEF,FUNION_DEF,FUN_FMAP_DEF,DRESTRICT_DEF,FAPPLY_FUPDATE_THM] >>
-fs[SUBSET_DEF] >> rw[] >> fs[])
 
 val Cevaluate_FUPDATE_Rerr = save_thm(
 "Cevaluate_FUPDATE_Rerr",
