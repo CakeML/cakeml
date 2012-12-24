@@ -1,5 +1,4 @@
 open preamble MiniMLTheory MiniMLTerminationTheory;
-(*open typeSubstitutionTheory;*)
 
 val _ = new_theory "typeSound";
 
@@ -1664,7 +1663,8 @@ rw [e_diverges_def, METIS_PROVE [] ``x ∨ y = ~x ⇒ y``, d_step_reln_def] >>
              qexists_tac `tenvE` >>
              qexists_tac `0` >>
              rw [] >>
-             metis_tac [bind_tvar_def, context_invariant_rules, type_ctxts_rules]) >>
+             metis_tac [bind_tvar_def, context_invariant_rules,
+                        type_ctxts_rules, type_v_freevars, type_e_freevars]) >>
 imp_res_tac exp_type_soundness_help >>
 fs [] >>
 rw [] >>
