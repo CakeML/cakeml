@@ -20,6 +20,8 @@ sig
     val store_eval_thm : thm -> thm
     val store_eq_thm   : thm -> thm
     val register_type  : hol_type -> unit
+    val store_cert     : thm -> thm -> thm
+    val get_DeclAssum  : unit -> term
 
     (* loading / storing state of translator *)
 

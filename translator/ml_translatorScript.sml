@@ -704,6 +704,11 @@ val evaluate'_empty_store_IMP = store_thm("evaluate'_empty_store_IMP",
   REPEAT STRIP_TAC \\ IMP_RES_TAC evaluate'_empty_store_IMP_any_store
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
+val evaluate'_empty_store_EQ = store_thm("evaluate'_empty_store_EQ",
+  ``evaluate' empty_store env x (empty_store,Rval y) =
+    !s. evaluate' s env x (s,Rval y)``,
+  METIS_TAC [evaluate'_empty_store_IMP]);
+
 val evaluate'_empty_store = store_thm("evaluate'_empty_store",
   ``evaluate' s2 env xs ((empty_store,Rval ys)) =
     evaluate' s2 env xs ((empty_store,Rval ys)) /\ (s2 = empty_store)``,

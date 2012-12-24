@@ -444,104 +444,6 @@ val EvalM_If = store_thm("EvalM_If",
     \\ Q.EXISTS_TAC `s` \\ FULL_SIMP_TAC std_ss []
     \\ FULL_SIMP_TAC std_ss [Eval_def,evaluate'_empty_store_IMP]));
 
-(* read and update refs *)
-
-fun read_tac n =
-  SIMP_TAC std_ss [EvalM_def]
-  \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ SIMP_TAC (srw_ss()) [do_uapp_def,store_lookup_def]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [HOL_STORE_def]
-  \\ `0 < LENGTH s` by DECIDE_TAC
-  \\ `1 < LENGTH s` by DECIDE_TAC
-  \\ `2 < LENGTH s` by DECIDE_TAC
-  \\ `3 < LENGTH s` by DECIDE_TAC
-  \\ FULL_SIMP_TAC std_ss []
-  \\ Q.LIST_EXISTS_TAC [`s`,`Rval (EL ^n s)`,`refs`]
-  \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC (srw_ss()) [HOL_MONAD_def,get_the_type_constants_def,
-        get_the_term_constants_def,get_the_axioms_def,
-        get_the_definitions_def,do_tapp_def,EL];
-
-val get_type_constants_thm = store_thm("get_type_constants_thm",
-  ``(lookup "the_type_constants" env = SOME (Loc 0,NONE)) ==>
-    EvalM env (Uapp Opderef (Var "the_type_constants" NONE))
-      (HOL_MONAD (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) NUM))
-                 get_the_type_constants)``,
-  read_tac ``0:num``);
-
-val get_term_constants_thm = store_thm("get_term_constants_thm",
-  ``(lookup "the_term_constants" env = SOME (Loc 1,NONE)) ==>
-    EvalM env (Uapp Opderef (Var "the_term_constants" NONE))
-      (HOL_MONAD (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE))
-                 get_the_term_constants)``,
-  read_tac ``1:num``);
-
-val get_the_axioms_thm = store_thm("get_the_axioms_thm",
-  ``(lookup "the_axioms" env = SOME (Loc 2,NONE)) ==>
-    EvalM env (Uapp Opderef (Var "the_axioms" NONE))
-      (HOL_MONAD (LIST_TYPE THM_TYPE) get_the_axioms)``,
-  read_tac ``2:num``);
-
-val get_the_definitions_thm = store_thm("get_the_definitions_thm",
-  ``(lookup "the_definitions" env = SOME (Loc 3,NONE)) ==>
-    EvalM env (Uapp Opderef (Var "the_definitions" NONE))
-      (HOL_MONAD (LIST_TYPE DEF_TYPE) get_the_definitions)``,
-  read_tac ``3:num``);
-
-fun update_tac r q =
-  SIMP_TAC std_ss [EvalM_def]
-  \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
-  \\ SIMP_TAC std_ss [Eval_def] \\ REPEAT STRIP_TAC
-  \\ `evaluate' s env exp (s,Rval res)` by METIS_TAC [evaluate'_empty_store_IMP]
-  \\ `!x. evaluate' s env exp x = (x = (s,Rval res))` by
-       METIS_TAC [big_exp_determ']
-  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SIMP_TAC (srw_ss()) [Once do_app_def,do_tapp_def]
-  \\ `0 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
-  \\ `1 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
-  \\ `2 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
-  \\ `3 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
-  \\ `4 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
-  \\ ASM_SIMP_TAC (srw_ss()) [store_assign_def]
-  \\ Q.LIST_EXISTS_TAC [r,`Rval (Litv Unit)`,q]
-  \\ FULL_SIMP_TAC std_ss []
-  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
-  \\ REVERSE STRIP_TAC THEN1
-   (FULL_SIMP_TAC std_ss [HOL_STORE_def,EL_LUPDATE]
-    \\ FULL_SIMP_TAC (srw_ss()) [HOL_STORE_def,EL_LUPDATE])
-  \\ FULL_SIMP_TAC (srw_ss()) [HOL_MONAD_def,set_the_type_constants_def,
-        set_the_term_constants_def,set_the_axioms_def,
-        set_the_definitions_def] \\ EVAL_TAC;
-
-val set_the_type_constants_thm = store_thm("set_the_type_constants_thm",
-  ``Eval env exp (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) NUM) x) ==>
-    (lookup "the_type_constants" env = SOME (Loc 0,NONE)) ==>
-    EvalM env (App Opassign (Var "the_type_constants" NONE) exp)
-      ((HOL_MONAD U_TYPE) (set_the_type_constants x))``,
-  update_tac `LUPDATE res 0 s` `refs with the_type_constants := x`);
-
-val set_the_term_constants_thm = store_thm("set_the_term_constants_thm",
-  ``Eval env exp (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE) x) ==>
-    (lookup "the_term_constants" env = SOME (Loc 1,NONE)) ==>
-    EvalM env (App Opassign (Var "the_term_constants" NONE) exp)
-      ((HOL_MONAD U_TYPE) (set_the_term_constants x))``,
-  update_tac `LUPDATE res 1 s` `refs with the_term_constants := x`);
-
-val set_the_axioms_thm = store_thm("set_the_axioms_thm",
-  ``Eval env exp (LIST_TYPE THM_TYPE x) ==>
-    (lookup "the_axioms" env = SOME (Loc 2,NONE)) ==>
-    EvalM env (App Opassign (Var "the_axioms" NONE) exp)
-      ((HOL_MONAD U_TYPE) (set_the_axioms x))``,
-  update_tac `LUPDATE res 2 s` `refs with the_axioms := x`);
-
-val set_the_definitions_thm = store_thm("set_the_definitions_thm",
-  ``Eval env exp (LIST_TYPE DEF_TYPE x) ==>
-    (lookup "the_definitions" env = SOME (Loc 3,NONE)) ==>
-    EvalM env (App Opassign (Var "the_definitions" NONE) exp)
-      ((HOL_MONAD U_TYPE) (set_the_definitions x))``,
-  update_tac `LUPDATE res 3 s` `refs with the_definitions := x`);
-
 (* declarations *)
 
 val M_DeclAssum_Dlet_INTRO = store_thm("M_DeclAssum_Dlet_INTRO",
@@ -609,6 +511,380 @@ val res = translate term_union_def;
 val res = translate dest_thm_def;
 val res = translate hyp_def;
 val res = translate concl_def;
+*)
+
+(* fastish evaluation *)
+
+val evaluate'_SIMP =
+  [``evaluate' a0 a1 (Letrec o' l e) a3``,
+   ``evaluate' a0 a1 (Let o0 s o' e e0) a3``,
+   ``evaluate' a0 a1 (Mat e l) a3``,
+   ``evaluate' a0 a1 (If e e0 e1) a3``,
+   ``evaluate' a0 a1 (Log l e e0) a3``,
+   ``evaluate' a0 a1 (App o' e e0) a3``,
+   ``evaluate' a0 a1 (Uapp u e) a3``,
+   ``evaluate' a0 a1 (Fun s o' e) a3``,
+   ``evaluate' a0 a1 (Var s o') a3``,
+   ``evaluate' a0 a1 (Con s l) a3``,
+   ``evaluate' a0 a1 (Lit l) a3``,
+   ``evaluate' a0 a1 (Handle e s e0) a3``,
+   ``evaluate' a0 a1 (Raise e) a3``,
+   ``evaluate_list' a0 a1 [] a3``,
+   ``evaluate_list' a0 a1 (h::t) a3``]
+  |> map (SIMP_CONV (srw_ss()) [Once evaluate'_cases])
+  |> LIST_CONJ;
+
+(* ref 1 *)
+
+val lemma =
+  hol2deep ``[]:string list``
+  |> DISCH_ALL |> SIMP_RULE std_ss []
+val exp = lemma |> concl |> rator |> rand
+val dec = ``Dlet NONE (Pvar n NONE) (Uapp Opref ^exp)``
+
+val tm = get_DeclAssum () |> rator |> rand;
+val tm_eval = tm |> REWRITE_CONV (map (fetch "-") ["ml_monad_decls_5",
+                                                   "ml_monad_decls_4",
+                                                   "ml_monad_decls_3",
+                                                   "ml_monad_decls_2",
+                                                   "ml_monad_decls_1",
+                                                   "ml_monad_decls_0"] @
+                                  [APPEND,SNOC_APPEND])
+
+val the_type_constants_def = Define `
+  the_type_constants = Loc 0`;
+
+val th = prove(
+  ``DeclAssum (SNOC ^dec ^tm) env ==>
+    Eval env (Var n NONE) ($= the_type_constants)``,
+  FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,empty_store_def]
+  \\ SIMP_TAC std_ss [tm_eval,the_type_constants_def]
+  \\ NTAC 10 (ONCE_REWRITE_TAC [Decls_CONS]
+              \\ SIMP_TAC std_ss [Decls_Dtype,Decls_Dlet,Decls_NIL])
+  \\ SIMP_TAC (srw_ss()) [evaluate'_SIMP,PULL_EXISTS,do_uapp_def,
+       LET_DEF,store_alloc_def] \\ REPEAT STRIP_TAC
+  \\ REPEAT (Q.PAT_ASSUM `check_dup_ctors xx yy` (K ALL_TAC))
+  \\ SIMP_TAC std_ss [bind_def,Eval_def,empty_store_def]
+  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
+  \\ SIMP_TAC (srw_ss()) [Once lookup_def,bind_def,do_tapp_def])
+  |> Q.INST [`n`|->`"the_type_constants"`] |> UNDISCH;
+
+val th = store_cert th TRUTH
+
+(* ref 2 *)
+
+val lemma =
+  hol2deep ``[]:(string # hol_type) list``
+  |> DISCH_ALL |> SIMP_RULE std_ss []
+val exp = lemma |> concl |> rator |> rand
+val dec = ``Dlet NONE (Pvar n NONE) (Uapp Opref ^exp)``
+
+val tm = get_DeclAssum () |> rator |> rand;
+val tm_eval = tm |> REWRITE_CONV (map (fetch "-") ["ml_monad_decls_6",
+                                                   "ml_monad_decls_5",
+                                                   "ml_monad_decls_4",
+                                                   "ml_monad_decls_3",
+                                                   "ml_monad_decls_2",
+                                                   "ml_monad_decls_1",
+                                                   "ml_monad_decls_0"] @
+                                  [APPEND,SNOC_APPEND])
+
+val the_term_constants_def = Define `
+  the_term_constants = Loc 1`;
+
+val th = prove(
+  ``DeclAssum (SNOC ^dec ^tm) env ==>
+    Eval env (Var n NONE) ($= the_term_constants)``,
+  FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,empty_store_def]
+  \\ SIMP_TAC std_ss [tm_eval,the_term_constants_def]
+  \\ NTAC 10 (ONCE_REWRITE_TAC [Decls_CONS]
+              \\ SIMP_TAC std_ss [Decls_Dtype,Decls_Dlet,Decls_NIL])
+  \\ SIMP_TAC (srw_ss()) [evaluate'_SIMP,PULL_EXISTS,do_uapp_def,
+       LET_DEF,store_alloc_def] \\ REPEAT STRIP_TAC
+  \\ REPEAT (Q.PAT_ASSUM `check_dup_ctors xx yy` (K ALL_TAC))
+  \\ SIMP_TAC std_ss [bind_def,Eval_def,empty_store_def]
+  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
+  \\ SIMP_TAC (srw_ss()) [Once lookup_def,bind_def,do_tapp_def])
+  |> Q.INST [`n`|->`"the_term_constants"`] |> UNDISCH;
+
+val th = store_cert th TRUTH
+
+(* ref 3 *)
+
+val lemma =
+  hol2deep ``[]:thm list``
+  |> DISCH_ALL |> SIMP_RULE std_ss []
+val exp = lemma |> concl |> rator |> rand
+val dec = ``Dlet NONE (Pvar n NONE) (Uapp Opref ^exp)``
+
+val tm = get_DeclAssum () |> rator |> rand;
+val tm_eval = tm |> REWRITE_CONV (map (fetch "-") ["ml_monad_decls_7",
+                                                   "ml_monad_decls_6",
+                                                   "ml_monad_decls_5",
+                                                   "ml_monad_decls_4",
+                                                   "ml_monad_decls_3",
+                                                   "ml_monad_decls_2",
+                                                   "ml_monad_decls_1",
+                                                   "ml_monad_decls_0"] @
+                                  [APPEND,SNOC_APPEND])
+
+val the_axioms_def = Define `
+  the_axioms = Loc 2`;
+
+val th = prove(
+  ``DeclAssum (SNOC ^dec ^tm) env ==>
+    Eval env (Var n NONE) ($= the_axioms)``,
+  FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,empty_store_def]
+  \\ SIMP_TAC std_ss [tm_eval,the_axioms_def]
+  \\ NTAC 10 (ONCE_REWRITE_TAC [Decls_CONS]
+              \\ SIMP_TAC std_ss [Decls_Dtype,Decls_Dlet,Decls_NIL])
+  \\ SIMP_TAC (srw_ss()) [evaluate'_SIMP,PULL_EXISTS,do_uapp_def,
+       LET_DEF,store_alloc_def] \\ REPEAT STRIP_TAC
+  \\ REPEAT (Q.PAT_ASSUM `check_dup_ctors xx yy` (K ALL_TAC))
+  \\ SIMP_TAC std_ss [bind_def,Eval_def,empty_store_def]
+  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
+  \\ SIMP_TAC (srw_ss()) [Once lookup_def,bind_def,do_tapp_def])
+  |> Q.INST [`n`|->`"the_axioms"`] |> UNDISCH;
+
+val th = store_cert th TRUTH
+
+(* ref 4 *)
+
+val lemma =
+  hol2deep ``[]:def list``
+  |> DISCH_ALL |> SIMP_RULE std_ss []
+val exp = lemma |> concl |> rator |> rand
+val dec = ``Dlet NONE (Pvar n NONE) (Uapp Opref ^exp)``
+
+val tm = get_DeclAssum () |> rator |> rand;
+val tm_eval = tm |> REWRITE_CONV (map (fetch "-") ["ml_monad_decls_8",
+                                                   "ml_monad_decls_7",
+                                                   "ml_monad_decls_6",
+                                                   "ml_monad_decls_5",
+                                                   "ml_monad_decls_4",
+                                                   "ml_monad_decls_3",
+                                                   "ml_monad_decls_2",
+                                                   "ml_monad_decls_1",
+                                                   "ml_monad_decls_0"] @
+                                  [APPEND,SNOC_APPEND])
+
+val the_definitions_def = Define `
+  the_definitions = Loc 3`;
+
+val th = prove(
+  ``DeclAssum (SNOC ^dec ^tm) env ==>
+    Eval env (Var n NONE) ($= the_definitions)``,
+  FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,empty_store_def]
+  \\ SIMP_TAC std_ss [tm_eval,the_definitions_def]
+  \\ NTAC 10 (ONCE_REWRITE_TAC [Decls_CONS]
+              \\ SIMP_TAC std_ss [Decls_Dtype,Decls_Dlet,Decls_NIL])
+  \\ SIMP_TAC (srw_ss()) [evaluate'_SIMP,PULL_EXISTS,do_uapp_def,
+       LET_DEF,store_alloc_def] \\ REPEAT STRIP_TAC
+  \\ REPEAT (Q.PAT_ASSUM `check_dup_ctors xx yy` (K ALL_TAC))
+  \\ SIMP_TAC std_ss [bind_def,Eval_def,empty_store_def]
+  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
+  \\ SIMP_TAC (srw_ss()) [Once lookup_def,bind_def,do_tapp_def])
+  |> Q.INST [`n`|->`"the_definitions"`] |> UNDISCH;
+
+val th = store_cert th TRUTH
+
+(* ref 5 *)
+
+val lemma =
+  hol2deep ``Var "a" (Tyvar "a")``
+  |> DISCH_ALL |> SIMP_RULE std_ss []
+val exp = lemma |> concl |> rator |> rand
+val dec = ``Dlet NONE (Pvar n NONE) (Uapp Opref ^exp)``
+
+val tm = get_DeclAssum () |> rator |> rand;
+val tm_eval = tm |> REWRITE_CONV (map (fetch "-") ["ml_monad_decls_9",
+                                                   "ml_monad_decls_8",
+                                                   "ml_monad_decls_7",
+                                                   "ml_monad_decls_6",
+                                                   "ml_monad_decls_5",
+                                                   "ml_monad_decls_4",
+                                                   "ml_monad_decls_3",
+                                                   "ml_monad_decls_2",
+                                                   "ml_monad_decls_1",
+                                                   "ml_monad_decls_0"] @
+                                  [APPEND,SNOC_APPEND])
+
+val the_clash_var_def = Define `
+  the_clash_var = Loc 4`;
+
+val th = prove(
+  ``DeclAssum (SNOC ^dec ^tm) env ==>
+    Eval env (Var n NONE) ($= the_clash_var)``,
+  FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,empty_store_def]
+  \\ SIMP_TAC std_ss [tm_eval,the_clash_var_def]
+  \\ NTAC 10 (ONCE_REWRITE_TAC [Decls_CONS]
+              \\ SIMP_TAC std_ss [Decls_Dtype,Decls_Dlet,Decls_NIL])
+  \\ SIMP_TAC (srw_ss()) [evaluate'_SIMP,PULL_EXISTS,do_uapp_def,
+       LET_DEF,store_alloc_def] \\ REPEAT STRIP_TAC
+  \\ REPEAT (Q.PAT_ASSUM `check_dup_ctors xx yy` (K ALL_TAC))
+  \\ SIMP_TAC std_ss [bind_def,Eval_def,empty_store_def]
+  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
+  \\ SIMP_TAC (srw_ss()) [Once lookup_def,bind_def,do_tapp_def])
+  |> Q.INST [`n`|->`"the_clash_var"`] |> UNDISCH;
+
+val th = store_cert th TRUTH
+
+
+(* read and update refs *)
+
+fun read_tac n =
+  SIMP_TAC std_ss [Eval_def]
+  \\ ONCE_REWRITE_TAC [evaluate'_cases]
+  \\ SIMP_TAC (srw_ss()) [do_tapp_def,option_CASE_LEMMA2]
+  \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
+  \\ SIMP_TAC std_ss [EvalM_def]
+  \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
+  \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
+  \\ FULL_SIMP_TAC std_ss [the_type_constants_def,
+       the_term_constants_def,the_axioms_def,the_definitions_def,
+       the_clash_var_def]
+  \\ SIMP_TAC (srw_ss()) [do_uapp_def,store_lookup_def,do_tapp_def,
+        option_CASE_LEMMA2]
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [HOL_STORE_def]
+  \\ `0 < LENGTH s` by DECIDE_TAC
+  \\ `1 < LENGTH s` by DECIDE_TAC
+  \\ `2 < LENGTH s` by DECIDE_TAC
+  \\ `3 < LENGTH s` by DECIDE_TAC
+  \\ `4 < LENGTH s` by DECIDE_TAC
+  \\ FULL_SIMP_TAC std_ss []
+  \\ Q.LIST_EXISTS_TAC [`s`,`Rval (EL ^n s)`,`refs`]
+  \\ FULL_SIMP_TAC std_ss []
+  \\ FULL_SIMP_TAC (srw_ss()) [HOL_MONAD_def,get_the_type_constants_def,
+        get_the_term_constants_def,get_the_axioms_def,get_the_clash_var_def,
+        get_the_definitions_def,do_tapp_def,EL];
+
+val get_type_constants_thm = store_thm("get_type_constants_thm",
+  ``Eval env (Var "the_type_constants" NONE) ($= the_type_constants) ==>
+    EvalM env (Uapp Opderef (Var "the_type_constants" NONE))
+      (HOL_MONAD (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) NUM))
+                 get_the_type_constants)``,
+  read_tac ``0:num``);
+
+val get_term_constants_thm = store_thm("get_term_constants_thm",
+  ``Eval env (Var "the_term_constants" NONE) ($= the_term_constants) ==>
+    EvalM env (Uapp Opderef (Var "the_term_constants" NONE))
+      (HOL_MONAD (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE))
+                 get_the_term_constants)``,
+  read_tac ``1:num``);
+
+val get_the_axioms_thm = store_thm("get_the_axioms_thm",
+  ``Eval env (Var "the_axioms" NONE) ($= the_axioms) ==>
+    EvalM env (Uapp Opderef (Var "the_axioms" NONE))
+      (HOL_MONAD (LIST_TYPE THM_TYPE) get_the_axioms)``,
+  read_tac ``2:num``);
+
+val get_the_definitions_thm = store_thm("get_the_definitions_thm",
+  ``Eval env (Var "the_definitions" NONE) ($= the_definitions) ==>
+    EvalM env (Uapp Opderef (Var "the_definitions" NONE))
+      (HOL_MONAD (LIST_TYPE DEF_TYPE) get_the_definitions)``,
+  read_tac ``3:num``);
+
+val get_the_clash_var_thm = store_thm("get_the_clash_var_thm",
+  ``Eval env (Var "the_clash_var" NONE) ($= the_clash_var) ==>
+    EvalM env (Uapp Opderef (Var "the_clash_var" NONE))
+      (HOL_MONAD TERM_TYPE get_the_clash_var)``,
+  read_tac ``4:num``);
+
+fun update_tac r q =
+  SIMP_TAC std_ss [Once Eval_def]
+  \\ ONCE_REWRITE_TAC [evaluate'_cases]
+  \\ SIMP_TAC (srw_ss()) [do_tapp_def,option_CASE_LEMMA2]
+  \\ STRIP_TAC \\ POP_ASSUM MP_TAC
+  \\ SIMP_TAC std_ss [EvalM_def]
+  \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
+  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
+  \\ SIMP_TAC std_ss [Eval_def] \\ REPEAT STRIP_TAC
+  \\ `evaluate' s env exp (s,Rval res)` by METIS_TAC [evaluate'_empty_store_IMP]
+  \\ `!x. evaluate' s env exp x = (x = (s,Rval res))` by
+       METIS_TAC [big_exp_determ']
+  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SIMP_TAC (srw_ss()) [Once do_app_def,do_tapp_def]
+  \\ FULL_SIMP_TAC std_ss [option_CASE_LEMMA2]
+  \\ FULL_SIMP_TAC std_ss [the_type_constants_def,
+       the_term_constants_def,the_axioms_def,the_definitions_def,
+       the_clash_var_def]
+  \\ `0 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
+  \\ `1 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
+  \\ `2 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
+  \\ `3 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
+  \\ `4 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
+  \\ ASM_SIMP_TAC (srw_ss()) [store_assign_def]
+  \\ Q.LIST_EXISTS_TAC [r,`Rval (Litv Unit)`,q]
+  \\ FULL_SIMP_TAC std_ss []
+  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
+  \\ REVERSE STRIP_TAC THEN1
+   (FULL_SIMP_TAC std_ss [HOL_STORE_def,EL_LUPDATE]
+    \\ FULL_SIMP_TAC (srw_ss()) [HOL_STORE_def,EL_LUPDATE])
+  \\ FULL_SIMP_TAC (srw_ss()) [HOL_MONAD_def,set_the_type_constants_def,
+        set_the_term_constants_def,set_the_axioms_def,set_the_clash_var_def,
+        set_the_definitions_def] \\ EVAL_TAC;
+
+val set_the_type_constants_thm = store_thm("set_the_type_constants_thm",
+  ``Eval env (Var "the_type_constants" NONE) ($= the_type_constants) ==>
+    Eval env exp (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) NUM) x) ==>
+    EvalM env (App Opassign (Var "the_type_constants" NONE) exp)
+      ((HOL_MONAD U_TYPE) (set_the_type_constants x))``,
+  update_tac `LUPDATE res 0 s` `refs with the_type_constants := x`);
+
+val set_the_term_constants_thm = store_thm("set_the_term_constants_thm",
+  ``Eval env (Var "the_term_constants" NONE) ($= the_term_constants) ==>
+    Eval env exp (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE) x) ==>
+    EvalM env (App Opassign (Var "the_term_constants" NONE) exp)
+      ((HOL_MONAD U_TYPE) (set_the_term_constants x))``,
+  update_tac `LUPDATE res 1 s` `refs with the_term_constants := x`);
+
+val set_the_axioms_thm = store_thm("set_the_axioms_thm",
+  ``Eval env (Var "the_axioms" NONE) ($= the_axioms) ==>
+    Eval env exp (LIST_TYPE THM_TYPE x) ==>
+    EvalM env (App Opassign (Var "the_axioms" NONE) exp)
+      ((HOL_MONAD U_TYPE) (set_the_axioms x))``,
+  update_tac `LUPDATE res 2 s` `refs with the_axioms := x`);
+
+val set_the_definitions_thm = store_thm("set_the_definitions_thm",
+  ``Eval env (Var "the_definitions" NONE) ($= the_definitions) ==>
+    Eval env exp (LIST_TYPE DEF_TYPE x) ==>
+    EvalM env (App Opassign (Var "the_definitions" NONE) exp)
+      ((HOL_MONAD U_TYPE) (set_the_definitions x))``,
+  update_tac `LUPDATE res 3 s` `refs with the_definitions := x`);
+
+val set_the_clash_var_thm = store_thm("set_the_clash_var_thm",
+  ``Eval env (Var "the_clash_var" NONE) ($= the_clash_var) ==>
+    Eval env exp (TERM_TYPE x) ==>
+    EvalM env (App Opassign (Var "the_clash_var" NONE) exp)
+      ((HOL_MONAD U_TYPE) (set_the_clash_var x))``,
+  update_tac `LUPDATE res 4 s` `refs with the_clash_var := x`);
+
+
+(*
+
+val lemma =
+  hol2deep ``[("bool",0); ("fun",2:num)]``
+  |> DISCH_ALL |> SIMP_RULE std_ss []
+val exp = lemma |> concl |> rator |> rand
+
+val _ = temp_overload_on("type_init",exp)
+
+val l = METIS_PROVE [] ``(?x. P x /\ Q x) ==> ?x. P x``
+
+val l1 = lemma |> SIMP_RULE std_ss [Eval_def] |> HO_MATCH_MP l
+               |> Q.INST [`env`|->`[]`]
+
+val type_init_v_def = new_specification("type_init_v",["type_init_v"],l1);
+
+val evaluate'_empty_env = prove(
+  ``evaluate' empty_store [] exp (empty_store,Rval res) =
+    !env. evaluate' empty_store env exp (empty_store,Rval res)``,
+  cheat);
+
+  type_init_v_def
+  |> ONCE_REWRITE_RULE [evaluate'_empty_env]
+  |> ONCE_REWRITE_RULE [evaluate'_empty_store_EQ]
+  |> SPEC_ALL |> MATCH_MP (big_exp_determ' |> CONJUNCT1 |> GSYM)
+
 *)
 
 val _ = export_theory();

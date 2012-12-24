@@ -87,6 +87,9 @@ val get_the_axioms_def = Define `
 val get_the_definitions_def = Define `
   get_the_definitions = (\state. (HolRes (state.the_definitions),state))`;
 
+val get_the_clash_var_def = Define `
+  get_the_clash_var = (\state. (HolRes (state.the_clash_var),state))`;
+
 val set_the_type_constants_def = Define `
   set_the_type_constants x =
     (\state. (HolRes (), (state with the_type_constants := x))):unit M`;
@@ -102,6 +105,10 @@ val set_the_axioms_def = Define `
 val set_the_definitions_def = Define `
   set_the_definitions x =
     (\state. (HolRes (), (state with the_definitions := x))):unit M`;
+
+val set_the_clash_var_def = Define `
+  set_the_clash_var x =
+    (\state. (HolRes (), (state with the_clash_var := x))):unit M`;
 
 (* composition and return *)
 
