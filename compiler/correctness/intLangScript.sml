@@ -129,6 +129,23 @@ result_rel_sym
 |> Q.ISPEC`syneq c`
 |> SIMP_RULE std_ss[syneq_sym])
 
+val fmap_rel_syneq_trans = save_thm(
+"fmap_rel_syneq_trans",
+fmap_rel_trans
+|> Q.GEN`R`
+|> Q.ISPEC`syneq c`
+|> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
+|> UNDISCH
+|> PROVE_HYP (SIMP_RULE (std_ss++DNF_ss) [](Q.SPEC`c`syneq_trans))
+|> SIMP_RULE std_ss [AND_IMP_INTRO])
+
+val fmap_rel_syneq_sym = save_thm(
+"fmap_rel_syneq_sym",
+fmap_rel_sym
+|> Q.GEN`R`
+|> Q.ISPEC`syneq c`
+|> SIMP_RULE std_ss[syneq_sym])
+
 val syneq_ov = store_thm("syneq_ov",
   ``∀c v1 v2. syneq c v1 v2 ⇒ ∀m. Cv_to_ov m v1 = Cv_to_ov m v2``,
   ho_match_mp_tac syneq_ind >>

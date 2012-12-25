@@ -4,6 +4,17 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val fmap_rel_trans = store_thm("fmap_rel_trans",
+  ``(!x y z. R x y /\ R y z ==> R x z) ==>
+    !x y z. fmap_rel R x y /\ fmap_rel R y z ==>
+              fmap_rel R x z``,
+  SRW_TAC[][fmap_rel_def] THEN METIS_TAC[])
+
+val fmap_rel_sym = store_thm("fmap_rel_sym",
+  ``(!x y. R x y ==> R y x) ==>
+    !x y. fmap_rel R x y ==> fmap_rel R y x``,
+  SRW_TAC[][fmap_rel_def])
+
 val FOLDL_invariant = store_thm("FOLDL_invariant",
   ``!P f ls a. (P a) /\ (!x y . MEM y ls /\ P x ==> P (f x y)) ==> P (FOLDL f a ls)``,
   NTAC 2 GEN_TAC THEN
