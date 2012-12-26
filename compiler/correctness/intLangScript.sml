@@ -1480,47 +1480,46 @@ rw[GSYM SUBMAP_FUNION_ABSORPTION] >>
 rw[SUBMAP_DEF,FUNION_DEF,FUN_FMAP_DEF,DRESTRICT_DEF,FAPPLY_FUPDATE_THM] >>
 fs[SUBSET_DEF] >> rw[] >> fs[])
 
-(*
 val Cevaluate_free_vars_env = save_thm(
 "Cevaluate_free_vars_env",
 Cevaluate_any_env
+|> CONJUNCT1
 |> SPEC_ALL
 |> SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]
 |> UNDISCH_ALL
-|> Q.SPEC `env`
+|> Q.SPECL [`s`,`env`]
 |> SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]
 |> UNDISCH_ALL
 |> Q.SPEC `FEMPTY`
 |> SIMP_RULE (srw_ss()) [FUNION_FEMPTY_2]
 |> DISCH_ALL
-|> Q.GEN `res` |> Q.GEN `exp` |> Q.GEN `env` |> Q.GEN `c`
+|> Q.GENL [`res`,`exp`,`env`,`s`,`c`]
 |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC])
-
-val Cevaluate_FUPDATE_Rerr = save_thm(
-"Cevaluate_FUPDATE_Rerr",
-Cevaluate_FUPDATE
-|> Q.SPECL[`c`,`env`,`exp`,`Rerr err`]
-|> SIMP_RULE (srw_ss()) []
-|> Q.GEN`err` |> Q.GEN`exp` |> Q.GEN`env`)
 
 val Cevaluate_super_env = store_thm(
 "Cevaluate_super_env",
-``∀s c env exp res. Cevaluate c (DRESTRICT env (free_vars c exp)) exp res ∧ free_vars c exp ⊆ s
-  ∧ free_vars c exp ⊆ FDOM env ∧ (∀v. v ∈ FRANGE (DRESTRICT env s) ⇒ Cclosed c v)
-  ⇒ ∃res'. Cevaluate c (DRESTRICT env s) exp res' ∧ result_rel (syneq c) res res'``,
+``∀ss c s env exp res.
+  Cevaluate c s (DRESTRICT env (free_vars c exp)) exp res ∧
+  free_vars c exp ⊆ ss ∧
+  free_vars c exp ⊆ FDOM env ∧
+  (∀v. v ∈ FRANGE (DRESTRICT env ss) ⇒ Cclosed c v) ∧
+  (∀v. v ∈ FRANGE s ⇒ Cclosed c v)
+  ⇒ ∃res'. Cevaluate c s (DRESTRICT env ss) exp res' ∧
+           fmap_rel (syneq c) (FST res) (FST res') ∧
+           result_rel (syneq c) (SND res) (SND res')``,
 rw[] >>
-qmatch_assum_abbrev_tac `Cevaluate c e1 exp res` >>
-qspecl_then [`c`,`e1`,`exp`,`res`] mp_tac Cevaluate_any_env >> rw[] >>
+qmatch_assum_abbrev_tac `Cevaluate c s e1 exp res` >>
+qspecl_then[`c`,`s`,`e1`,`exp`,`res`]mp_tac(CONJUNCT1 Cevaluate_any_env) >> rw[] >>
 `free_vars c exp ⊆ FDOM e1` by ( fs[Abbr`e1`,DRESTRICT_DEF] ) >>
 `∀v. v ∈ FRANGE e1 ⇒ Cclosed c v` by (
   fsrw_tac[DNF_ss][Abbr`e1`,FRANGE_DEF,DRESTRICT_DEF,SUBSET_DEF] ) >>
-fs[] >>
-first_x_assum (qspec_then `e1` mp_tac) >> rw[] >>
-first_x_assum (qspec_then `DRESTRICT env s` mp_tac) >>
+fs[] >> rfs[] >>
+first_x_assum (qspecl_then [`s`,`e1`] mp_tac) >> rw[] >>
+first_x_assum (qspec_then `DRESTRICT env ss` mp_tac) >>
 fs[] >> rw[] >>
 unabbrev_all_tac >>
-qmatch_abbrev_tac `∃res'. Cevaluate c env1 exp res' ∧ result_rel (syneq c) res res'` >>
-qmatch_assum_abbrev_tac `Cevaluate c (env0 ⊌ env1) exp res'` >>
+Q.PAT_ABBREV_TAC`env1 = DRESTRICT env ss` >>
+qmatch_assum_abbrev_tac `Cevaluate c s (env0 ⊌ env1) exp res'` >>
 qsuff_tac `env1 = env0 ⊌ env1` >- metis_tac[] >>
 rw[GSYM SUBMAP_FUNION_ABSORPTION] >>
 fsrw_tac[][Abbr`env0`,Abbr`env1`,SUBMAP_DEF,SUBSET_DEF,DRESTRICT_DEF] >> rw[])
@@ -1528,11 +1527,20 @@ fsrw_tac[][Abbr`env0`,Abbr`env1`,SUBMAP_DEF,SUBSET_DEF,DRESTRICT_DEF] >> rw[])
 val Cevaluate_any_super_env = save_thm(
 "Cevaluate_any_super_env",
 Cevaluate_super_env
-|> Q.SPECL[`FDOM (env:string|->Cv)`,`c`,`env:string|->Cv`]
+|> Q.SPECL[`FDOM (env:string|->Cv)`,`c`,`s`,`env:string|->Cv`]
 |> SIMP_RULE(srw_ss())[DRESTRICT_FDOM,GSYM AND_IMP_INTRO]
 |> SPEC_ALL |> UNDISCH_ALL |> DISCH_ALL
-|> Q.GEN`res` |> Q.GEN`exp` |> Q.GEN`env` |> Q.GEN `c`
+|> Q.GENL[`res`,`exp`,`env`,`s`,`c`]
 |> SIMP_RULE(srw_ss())[AND_IMP_INTRO])
+
+(*
+val Cevaluate_FUPDATE_Rerr = save_thm(
+"Cevaluate_FUPDATE_Rerr",
+Cevaluate_FUPDATE
+|> Q.SPECL[`c`,`env`,`exp`,`Rerr err`]
+|> SIMP_RULE (srw_ss()) []
+|> Q.GEN`err` |> Q.GEN`exp` |> Q.GEN`env`)
+
 
 val Cevaluate_syneq_env = save_thm(
 "Cevaluate_syneq_env",
