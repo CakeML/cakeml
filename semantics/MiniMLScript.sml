@@ -283,6 +283,34 @@ val _ = Hol_datatype `
 
 (* Type substitution *)
 
+(* Increment the deBruijn indices in a type by n levels, skipping all levels
+ * less than skip. *)
+(*val deBruijn_inc : num -> num -> t -> t*)
+ val deBruijn_inc_defn = Hol_defn "deBruijn_inc" `
+
+(deBruijn_inc skip n (Tvar tv) =( Tvar tv))
+/\
+(deBruijn_inc skip n (Tvar_db m) =
+  if m < skip then(
+    Tvar_db m)
+  else(
+    Tvar_db (m + n)))
+/\
+(deBruijn_inc skip n (Tapp ts tn) =(( Tapp (((MAP (((deBruijn_inc skip) n))) ts))) tn))
+/\
+(deBruijn_inc skip n (Tfn t1 t2) =((
+  Tfn ((((deBruijn_inc skip) n) t1))) ((((deBruijn_inc skip) n) t2))))
+/\
+(deBruijn_inc skip n Tint = Tint)
+/\
+(deBruijn_inc skip n Tbool = Tbool)
+/\
+(deBruijn_inc skip n (Tref t) =( Tref ((((deBruijn_inc skip) n) t))))
+/\
+(deBruijn_inc skip n Tunit = Tunit)`;
+
+val _ = Defn.save_defn deBruijn_inc_defn;
+
 (* skip the lowest given indices and replace the next (LENGTH ts) with the given types and reduce all the higher ones *)
 (*val deBruijn_subst : num -> list t -> t -> t*)
  val deBruijn_subst_defn = Hol_defn "deBruijn_subst" `
@@ -365,21 +393,23 @@ val _ = Defn.save_defn deBruijn_subst_p_defn;
       (((MAP (\ (p,e) . ((((deBruijn_subst_p skip) ts) p),((( deBruijn_subst_e skip) ts) e)))) pes))))
 /\
 (deBruijn_subst_e skip ts (Let tvs x topt e1 e2) =
-  let skip' = (case tvs of   NONE => skip | SOME x => skip + x ) in(((((
+  let skip' = (case tvs of   NONE => skip | SOME x => x + skip ) in
+  let ts' = (case tvs of   NONE => ts | SOME tvs =>(( MAP (((deBruijn_inc 0) tvs))) ts) ) in(((((
     Let tvs) x) 
-      (((option_map (((deBruijn_subst skip') ts))) topt)))
-      ((((deBruijn_subst_e skip') ts) e1)))
+      (((option_map (((deBruijn_subst skip') ts'))) topt)))
+      ((((deBruijn_subst_e skip') ts') e1)))
       ((((deBruijn_subst_e skip) ts) e2))))
 /\
 (deBruijn_subst_e skip ts (Letrec tvs funs e) =
-  let skip' = (case tvs of   NONE => skip | SOME x => skip + x ) in(((
+  let skip' = (case tvs of   NONE => skip | SOME x => x + skip ) in
+  let ts' = (case tvs of   NONE => ts | SOME tvs =>(( MAP (((deBruijn_inc 0) tvs))) ts) ) in(((
     Letrec tvs) 
       (((MAP (\ (f,topt1,x,topt2,e) . 
                    (f,((
-                    option_map (((deBruijn_subst skip') ts))) topt1),
+                    option_map (((deBruijn_subst skip') ts'))) topt1),
                     x,((
-                    option_map (((deBruijn_subst skip') ts))) topt2),
-                    ((((deBruijn_subst_e skip') ts) e)))))
+                    option_map (((deBruijn_subst skip') ts'))) topt2),
+                    ((((deBruijn_subst_e skip') ts') e)))))
          funs))) 
       ((((deBruijn_subst_e skip) ts) e))))`;
 
@@ -1426,34 +1456,6 @@ evaluate_decs cenv s env ((Dtype tds) :: ds) (s,( Rerr Rtype_error)))`;
 (* constructor type environments: each constructor has a type
  * forall tyvars. t list -> (tyvars) typeN *)
 val _ = type_abbrev( "tenvC" , ``: (conN, ( tvarN list # t list # typeN)) env``);
-
-(* Increment the deBruijn indices in a type by n levels, skipping all levels
- * less than skip. *)
-(*val deBruijn_inc : num -> num -> t -> t*)
- val deBruijn_inc_defn = Hol_defn "deBruijn_inc" `
-
-(deBruijn_inc skip n (Tvar tv) =( Tvar tv))
-/\
-(deBruijn_inc skip n (Tvar_db m) =
-  if m < skip then(
-    Tvar_db m)
-  else(
-    Tvar_db (m + n)))
-/\
-(deBruijn_inc skip n (Tapp ts tn) =(( Tapp (((MAP (((deBruijn_inc skip) n))) ts))) tn))
-/\
-(deBruijn_inc skip n (Tfn t1 t2) =((
-  Tfn ((((deBruijn_inc skip) n) t1))) ((((deBruijn_inc skip) n) t2))))
-/\
-(deBruijn_inc skip n Tint = Tint)
-/\
-(deBruijn_inc skip n Tbool = Tbool)
-/\
-(deBruijn_inc skip n (Tref t) =( Tref ((((deBruijn_inc skip) n) t))))
-/\
-(deBruijn_inc skip n Tunit = Tunit)`;
-
-val _ = Defn.save_defn deBruijn_inc_defn;
 
 (* Type environments *)
 val _ = Hol_datatype `

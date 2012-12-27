@@ -667,13 +667,6 @@ val type_subst_lem1 = Q.prove (
 metis_tac [check_freevars_subst_inc, arithmeticTheory.ADD,
             arithmeticTheory.ADD_COMM]);
 
-val type_subst_lem2 = Q.prove (
-`∀skip tvs t. check_freevars skip [] t ⇒ (deBruijn_inc skip tvs t = t)`,
-ho_match_mp_tac deBruijn_inc_ind >>
-rw [deBruijn_inc_def, check_freevars_def] >>
-induct_on `ts` >>
-rw []);
-
 val type_subst_lem3 = Q.prove (
 `!skip targs t tvs.
   (skip = 0) ∧
@@ -685,13 +678,6 @@ ho_match_mp_tac deBruijn_subst_ind >>
 rw [check_freevars_def, deBruijn_subst_def, EVERY_MAP] >>
 fs [EVERY_MEM, MEM_EL] >>
 metis_tac []);
-
-val type_subst_lem4 = Q.prove (
-`∀skip tvs t. check_freevars 0 [] t ⇒ (deBruijn_subst skip tvs t = t)`,
-ho_match_mp_tac deBruijn_subst_ind >>
-rw [deBruijn_subst_def, check_freevars_def] >>
-induct_on `ts'` >>
-rw []);
 
 (*
 val type_e_subst = Q.prove (
@@ -715,8 +701,8 @@ pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
 rw [deBruijn_inc_def, deBruijn_subst_def, option_map_def] >>
 rw [deBruijn_inc_def, deBruijn_subst_def, option_map_def] >>
 fs [check_freevars_def] >>
-rw [type_subst_lem2, deBruijn_subst_check_freevars, type_subst_lem3,
-    type_subst_lem4] >|
+rw [nil_deBruijn_inc, deBruijn_subst_check_freevars, type_subst_lem3,
+    nil_deBruijn_subst] >|
 [rw [EVERY_MAP] >>
      fs [EVERY_MEM] >>
      rw [] >>
