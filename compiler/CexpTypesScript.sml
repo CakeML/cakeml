@@ -5,7 +5,7 @@ val _ = new_theory"CexpTypes"
 val _ = Hol_datatype `
  Cprim1 = CRef | CDer`;
 val _ = Hol_datatype `
- Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq`;
+ Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq | CUpd`;
 
 val _ = Hol_datatype `
  Cpat =
@@ -18,6 +18,7 @@ val _ = Hol_datatype `
  Cexp =
     CDecl of string list
   | CRaise of error
+  | CHandle of Cexp => string => Cexp
   | CVar of string
   | CLit of lit
   | CCon of num => Cexp list

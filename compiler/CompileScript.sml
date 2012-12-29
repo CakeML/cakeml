@@ -248,6 +248,24 @@ T
 Cevaluate c s env ((CRaise error)) (s,( Rerr ((Rraise error)))))
 
 /\
+(! c s1 env e1 x e2 s2 v.(((((
+Cevaluate c) s1) env) e1) (s2,( Rval v)))
+==>
+Cevaluate c s1 env ((((CHandle e1) x) e2)) (s2,( Rval v)))
+/\
+(! c s1 env e1 x e2 s2 n res.(((((
+Cevaluate c) s1) env) e1) (s2,( Rerr ((Rraise ((Int_error n))))))) /\(((((
+Cevaluate c) s2) (((FUPDATE  env) ( x, ((CLitv ((IntLit n)))))))) e2) res)
+==>
+Cevaluate c s1 env ((((CHandle e1) x) e2)) res)
+/\
+(! c s1 env e1 x e2 s2 err.(((((
+Cevaluate c) s1) env) e1) (s2,( Rerr err))) /\
+(! n.( ~  (err =( Rraise ((Int_error n))))))
+==>
+Cevaluate c s1 env ((((CHandle e1) x) e2)) (s2,( Rerr err)))
+
+/\
 (! c s env n.
  n IN( FDOM  env)
 ==>
@@ -529,6 +547,9 @@ val _ = Define `
 
  val exp_to_Cexp_defn = Hol_defn "exp_to_Cexp" `
 
+(exp_to_Cexp m (Handle e x b) =(((
+  CHandle (((exp_to_Cexp m) e))) x) (((exp_to_Cexp m) b))))
+/\
 (exp_to_Cexp m (Raise err) =( CRaise err))
 /\
 (exp_to_Cexp m (Lit l) =( CLit l))
@@ -579,6 +600,18 @@ val _ = Define `
   let Ce1 =(( exp_to_Cexp m) e1) in
   let Ce2 =(( exp_to_Cexp m) e2) in((
   CCall Ce1) [Ce2]))
+/\
+(exp_to_Cexp m (App Opassign e1 e2) =
+  let Ce1 =(( exp_to_Cexp m) e1) in
+  let Ce2 =(( exp_to_Cexp m) e2) in(((
+  CPrim2 CUpd) Ce1) Ce2))
+/\
+(exp_to_Cexp m (Uapp uop e) =
+  let Ce =(( exp_to_Cexp m) e) in((
+  CPrim1 ((case uop of
+            Opref   => CRef
+          | Opderef => CDer
+          ))) Ce))
 /\
 (exp_to_Cexp m (Log log e1 e2) =
   let Ce1 =(( exp_to_Cexp m) e1) in
@@ -665,6 +698,11 @@ val _ = Defn.save_defn label_defs_defn;
 /\
 (label_closures (CRaise err) =( UNIT ((CRaise err))))
 /\
+(label_closures (CHandle e1 x e2) =(( BIND
+  ((label_closures e1))) (\ e1 .(( BIND
+  ((label_closures e2))) (\ e2 .( UNIT
+  ((((CHandle e1) x) e2))))))))
+/\
 (label_closures (CVar x) =( UNIT ((CVar x))))
 /\
 (label_closures (CLit l) =( UNIT ((CLit l))))
@@ -742,6 +780,8 @@ val _ = Defn.save_defn count_unlab_defn;
 (imm_unlab (CDecl xs) = 0)
 /\
 (imm_unlab (CRaise err) = 0)
+/\
+(imm_unlab (CHandle e1 x e2) =( imm_unlab e1) +( imm_unlab e2))
 /\
 (imm_unlab (CVar x) = 0)
 /\

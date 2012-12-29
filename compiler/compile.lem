@@ -96,7 +96,7 @@ type (+) 'a 'b = INL of 'a | INR of 'b (* TODO: move to lem *)
 
 (* applicative primitives with bytecode counterparts *)
 type Cprim1 = CRef | CDer
-type Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq
+type Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq | CUpd
 
 type Cpat =
   | CPvar of string
@@ -107,6 +107,7 @@ type Cpat =
 type Cexp =
   | CDecl of list string
   | CRaise of error
+  | CHandle of Cexp * string * Cexp
   | CVar of string
   | CLit of lit
   | CCon of num * list Cexp
@@ -249,6 +250,24 @@ forall c s env error.
 true
 ==>
 Cevaluate c s env (CRaise error) (s, Rerr (Rraise error))
+
+and
+forall c s1 env e1 x e2 s2 v.
+Cevaluate c s1 env e1 (s2, Rval v)
+==>
+Cevaluate c s1 env (CHandle e1 x e2) (s2, Rval v)
+and
+forall c s1 env e1 x e2 s2 n res.
+Cevaluate c s1 env e1 (s2, Rerr (Rraise (Int_error n))) &&
+Cevaluate c s2 (Pmap.add x (CLitv (IntLit n)) env) e2 res
+==>
+Cevaluate c s1 env (CHandle e1 x e2) res
+and
+forall c s1 env e1 x e2 s2 err.
+Cevaluate c s1 env e1 (s2, Rerr err) &&
+(forall n. not (err = Rraise (Int_error n)))
+==>
+Cevaluate c s1 env (CHandle e1 x e2) (s2, Rerr err)
 
 and
 forall c s env n.
@@ -520,6 +539,9 @@ let Cpes_vars =
   List.fold_left (fun s (p,e) -> s union Cpat_vars p union free_vars Pmap.empty e) {}
 
 let rec
+exp_to_Cexp m (Handle e x b) =
+  CHandle (exp_to_Cexp m e) x (exp_to_Cexp m b)
+and
 exp_to_Cexp m (Raise err) = CRaise err
 and
 exp_to_Cexp m (Lit l) = CLit l
@@ -570,6 +592,18 @@ exp_to_Cexp m (App Opapp e1 e2) =
   let Ce1 = exp_to_Cexp m e1 in
   let Ce2 = exp_to_Cexp m e2 in
   CCall Ce1 [Ce2]
+and
+exp_to_Cexp m (App Opassign e1 e2) =
+  let Ce1 = exp_to_Cexp m e1 in
+  let Ce2 = exp_to_Cexp m e2 in
+  CPrim2 CUpd Ce1 Ce2
+and
+exp_to_Cexp m (Uapp uop e) =
+  let Ce = exp_to_Cexp m e in
+  CPrim1 (match uop with
+          | Opref   -> CRef
+          | Opderef -> CDer
+          end) Ce
 and
 exp_to_Cexp m (Log log e1 e2) =
   let Ce1 = exp_to_Cexp m e1 in
@@ -647,6 +681,11 @@ label_closures (CDecl xs) = return (CDecl xs)
 and
 label_closures (CRaise err) = return (CRaise err)
 and
+label_closures (CHandle e1 x e2) = bind
+  (label_closures e1) (fun e1 -> bind
+  (label_closures e2) (fun e2 -> return
+  (CHandle e1 x e2)))
+and
 label_closures (CVar x) = return (CVar x)
 and
 label_closures (CLit l) = return (CLit l)
@@ -718,6 +757,8 @@ let rec
 imm_unlab (CDecl xs) = 0
 and
 imm_unlab (CRaise err) = 0
+and
+imm_unlab (CHandle e1 x e2) = imm_unlab e1 + imm_unlab e2
 and
 imm_unlab (CVar x) = 0
 and

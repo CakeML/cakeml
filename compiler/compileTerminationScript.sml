@@ -231,6 +231,7 @@ val mbd_def = tDefine "mbd"`
 val bodies_def = tDefine "bodies"`
   (bodies (CDecl _) = 0) ∧
   (bodies (CRaise _) = 0) ∧
+  (bodies (CHandle e1 _ e2) = bodies e1 + bodies e2) ∧
   (bodies (CVar _) = 0) ∧
   (bodies (CLit _) = 0) ∧
   (bodies (CCon _ es) = SUM (MAP bodies es)) ∧
@@ -304,6 +305,15 @@ val label_closures_bodies = store_thm("label_closures_bodies",
                      (SUM (MAP bodies es) = list_size (bodies o SND) c))``,
   ho_match_mp_tac (TypeBase.induction_of``:Cexp``) >>
   srw_tac[DNF_ss][label_closures_def,list_size_thm,SUM_eq_0,MEM_MAP,LENGTH_NIL,UNIT_DEF,BIND_DEF]
+  >- (
+    qabbrev_tac `q = label_closures e s` >>
+    PairCases_on`q`>>fs[] >>
+    qabbrev_tac `p = label_closures e' q1` >>
+    PairCases_on`p`>>fs[] >>
+    first_x_assum (qspecl_then[`q1`,`p0`,`p1`]mp_tac) >>
+    first_x_assum (qspecl_then[`s`,`q0`,`q1`]mp_tac) >>
+    rw[] >> fs[] >>
+    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
   >- (
     Cases_on `mapM label_closures es s` >> fs[] >> rw[] >>
     metis_tac[] )
