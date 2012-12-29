@@ -30,8 +30,10 @@ fun get_m_type_inv ty =
 fun get_arrow_type_inv ty =
   if can dest_monad_type ty then get_m_type_inv ty else let
     val (ty1,ty2) = dest_fun_type ty
+    val i1 = get_arrow_type_inv ty1 handle HOL_ERR _ =>
+             ``PURE ^(get_type_inv ty1)``
     val i2 = get_arrow_type_inv ty2
-    in ``PURE ^(get_type_inv ty1) -M-> ^i2`` end
+    in ``^i1 -M-> ^i2`` end
 
 fun smart_get_type_inv ty =
   if not (can dest_monad_type ty) andalso
@@ -237,6 +239,7 @@ fun inst_case_thm_for tm = let
   in th end;
 
 (*
+val tm = y
 val tm = (!last_fail)
 val tm = rhs
 *)
@@ -379,6 +382,10 @@ val tm = x1
 
 val tm = z
 val tm = rhs
+
+val tm = ``get_the_type_constants``
+
+val tm = ``assoc (x:num) l`` |> repeat rator
 *)
 
 
@@ -391,6 +398,26 @@ fun var_hol2deep tm =
     val result = ASSUME (mk_comb(``Eval env (Var ^str NONE)``,mk_comb(inv,tm)))
     in check_inv "var" tm result end
   else hol2deep tm
+
+val read_refs =
+  [(``get_the_type_constants``,``the_type_constants``,get_the_type_constants_thm),
+   (``get_the_term_constants``,``the_term_constants``,get_the_term_constants_thm),
+   (``get_the_axioms``,``the_axioms``,get_the_axioms_thm),
+   (``get_the_definitions``,``the_definitions``,get_the_definitions_thm),
+   (``get_the_clash_var``,``the_clash_var``,get_the_clash_var_thm)]
+
+val write_refs =
+  [(``set_the_type_constants x``,``the_type_constants``,set_the_type_constants_thm),
+   (``set_the_term_constants x``,``the_term_constants``,set_the_term_constants_thm),
+   (``set_the_axioms x``,``the_axioms``,set_the_axioms_thm),
+   (``set_the_definitions x``,``the_definitions``,set_the_definitions_thm),
+   (``set_the_clash_var x``,``the_clash_var``,set_the_clash_var_thm)]
+
+(*
+val tm = x2
+val tm = x1
+val tm = z
+*)
 
 fun m2deep tm =
   (* variable *)
@@ -424,8 +451,64 @@ fun m2deep tm =
     val th2 = th2 |> GEN (rand vs) |> FORCE_GEN (rand (rator vs))
     val result = MATCH_MP EvalM_bind (CONJ th1 th2)
     in check_inv "bind" tm result end else
+  (* otherwise *)
+  if can (match_term ``(x:'a M) otherwise (y:'a M)``) tm then let
+    val x = tm |> rator |> rand
+    val y = tm |> rand
+    val th1 = m2deep x
+    val th2 = m2deep y
+    val th2 = th2 |> DISCH_ALL |> Q.INST [`env`|->`(("v",i)::env)`]
+                  |> REWRITE_RULE [Eval_Var_SIMP2,lookup_def]
+                  |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
+                  |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
+                  |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
+                  |> REWRITE_RULE []
+                  |> UNDISCH_ALL |> Q.GEN `i`
+    val lemma = Q.SPEC `"v"` EvalM_otherwise
+    val result = MATCH_MP (MATCH_MP lemma th1) th2
+    in check_inv "otherwise" tm result end else
+  (* try *)
+  if can (match_term ``try (f:'a->'b M) x msg``) tm then let
+    val lemma = tm |> SIMP_CONV (srw_ss()) [try_def]
+    val th = m2deep (lemma |> concl |> rand)
+    val result = th |> RW [GSYM lemma]
+    in check_inv "try" tm result end else
+  (* IGNORE_BIND *)
+  if can (match_term ``IGNORE_BIND (f:'a -> 'b # 'a) (g:'a -> 'c # 'a)``) tm then let
+    val lemma = tm |> SIMP_CONV std_ss [state_transformerTheory.IGNORE_BIND_DEF]
+    val th = m2deep (lemma |> concl |> rand)
+    val result = th |> RW [GSYM lemma]
+    in check_inv "IGNORE_BIND" tm result end else
+  (* abs *)
+  if is_abs tm then let
+    val (v,x) = dest_abs tm
+    val thx = m2deep x
+    val result = apply_EvalM_Fun v thx false
+    in check_inv "abs" tm result end else
+  (* let expressions *)
+  if can dest_let tm andalso is_abs (fst (dest_let tm)) then let
+    val (x,y) = dest_let tm
+    val (v,x) = dest_abs x
+    val th1 = hol2deep y
+    val th2 = m2deep x
+    val th2 = inst_EvalM_env v th2
+    val th2 = th2 |> GEN ``v:v``
+    val z = th1 |> concl |> rand |> rand
+    val th2 = INST [v|->z] th2
+    val result = MATCH_MP EvalM_Let (CONJ th1 th2)
+    in check_inv "let" tm result end else
   (* data-type pattern-matching *)
   inst_case_thm tm m2deep handle HOL_ERR _ =>
+  (* previously translated term *)
+  if can lookup_cert tm then let
+    val th = lookup_cert tm
+    val inv = smart_get_type_inv (type_of tm)
+    val target = mk_comb(inv,tm)
+    val (ss,ii) = match_term (th |> concl |> rand) target
+    val result = INST ss (INST_TYPE ii th)
+                 |> MATCH_MP Eval_IMP_PURE
+                 |> REWRITE_RULE [GSYM ArrowM_def]
+    in check_inv "lookup_cert" tm result end else
   (* if *)
   if can (match_term ``if b then x:'a M else y:'a M``) tm then let
     val (t,x1,x2) = dest_cond tm
@@ -435,6 +518,17 @@ fun m2deep tm =
     val th = MATCH_MP EvalM_If (LIST_CONJ [D th0, D th1, D th2])
     val result = UNDISCH th
     in check_inv "if" tm result end else
+  (* ref: get_the_(...) *)
+   if can (first (fn (t,_,_) => t = tm)) read_refs then let
+    val (_,t,th) = first (fn (t,_,_) => t = tm) read_refs
+    val result = MATCH_MP th (lookup_cert t)
+    in check_inv "get" tm result end else
+  (* ref: set_the_(...) *)
+   if can (first (fn (t,_,_) => can (match_term t) tm)) write_refs then let
+    val (_,t,th) = (first (fn (t,_,_) => can (match_term t) tm)) write_refs
+    val result = MATCH_MP th (lookup_cert t)
+    val result = MATCH_MP result (hol2deep (tm |> rand))
+    in check_inv "set" tm result end else
   (* recursive pattern *)
   if can_match_rec_pattern tm then let
     fun dest_args tm = rand tm :: dest_args (rator tm) handle HOL_ERR _ => []
@@ -463,68 +557,63 @@ fun m2deep tm =
   if is_comb tm then let
     val (f,x) = dest_comb tm
     val thf = m2deep f
-    val thx = hol2deep x |> MATCH_MP Eval_IMP_PURE
-    val result = MATCH_MP (MATCH_MP EvalM_ArrowM thf) thx
+    val result = hol2deep x |> MATCH_MP Eval_IMP_PURE
+                            |> MATCH_MP (MATCH_MP EvalM_ArrowM thf)
+                 handle e =>
+                 m2deep x |> MATCH_MP (MATCH_MP EvalM_ArrowM thf)
     in check_inv "comb" tm result end else
   failwith ("cannot translate: " ^ term_to_string tm)
 
 
-
 (*
 
-TODO:
- - support subroutine calls
- - attempt to do very basic approach to state
- - support try, handle_Clash, raise_Clash
+val def = assoc_def  (* rec *) |> m_translate
+val def = map_def    (* rec *) |> m_translate
+val def = forall_def (* rec *) |> m_translate
+val def = dest_type_def |> m_translate
+val def = dest_vartype_def |> m_translate
+val def = dest_var_def |> m_translate
+val def = dest_const_def |> m_translate
+val def = dest_comb_def |> m_translate
+val def = dest_abs_def |> m_translate
+val def = rator_def |> m_translate
+val def = rand_def |> m_translate
+val def = dest_eq_def |> m_translate
+val def = mk_abs_def |> m_translate
+val def = get_type_arity_def |> m_translate
+val def = mk_type_def |> m_translate
+val def = mk_fun_ty_def |> m_translate
+val def = type_of_def |> m_translate
+val def = get_const_type_def |> m_translate
+val def = mk_comb_def |> m_translate
+val def = can_def |> m_translate
+val def = mk_const_def |> m_translate
+val def = new_constant_def |> m_translate
+val def = new_type_def |> m_translate
+val def = EQ_MP_def |> m_translate
+val def = ASSUME_def |> m_translate
+val def = add_def_def |> m_translate
+val def = new_axiom_def |> m_translate
+val def = vsubst_def |> m_translate
+val def = inst_aux_def (* rec *) |> m_translate
+val def = inst_def |> m_translate
+val def = mk_eq_def |> m_translate
+val def = REFL_def |> m_translate
+val def = TRANS_def |> m_translate
+val def = MK_COMB_def |> m_translate
+val def = ABS_def |> m_translate
+val def = BETA_def |> m_translate
+val def = DEDUCT_ANTISYM_RULE_def |> m_translate
+val def = new_basic_definition_def |> m_translate
+val def = (INST_TYPE_def |> SIMP_RULE std_ss [LET_DEF]) |> m_translate
+val def = (INST_def |> SIMP_RULE std_ss [LET_DEF]) |> m_translate
 
-*)
+val MAP_Tyvar_lemma = prove(
+  ``MAP Tyvar = MAP (\x. Tyvar x)``,
+  AP_TERM_TAC \\ SIMP_TAC std_ss [FUN_EQ_THM]);
 
-(* Done: 13 *)
+val def = new_basic_type_definition_def |> RW1 [MAP_Tyvar_lemma] |> m_translate
 
-val def = assoc_def  (* rec *)
-val def = map_def    (* rec *)
-val def = forall_def (* rec *)
-val def = dest_type_def
-val def = dest_vartype_def
-val def = dest_var_def
-val def = dest_const_def
-val def = dest_comb_def
-val def = dest_abs_def
-val def = rator_def
-val def = rand_def
-val def = dest_eq_def
-val def = mk_abs_def
-
-(* Left: 28 *)
-
-(*
-val def = get_type_arity_def
-val def = mk_type_def
-val def = mk_fun_ty_def
-val def = type_of_def
-val def = get_const_type_def
-val def = new_constant_def
-val def = mk_const_def
-val def = mk_comb_def
-val def = mk_eq_def
-val def = vsubst_def
-val def = inst_aux_def (* rec *)
-val def = inst_def
-val def = REFL_def
-val def = TRANS_def
-val def = MK_COMB_def
-val def = ABS_def
-val def = BETA_def
-val def = ASSUME_def
-val def = bool_ty_def
-val def = EQ_MP_def
-val def = DEDUCT_ANTISYM_RULE_def
-val def = INST_TYPE_def
-val def = INST_def
-val def = add_def_def
-val def = new_axiom_def
-val def = new_basic_definition_def
-val def = new_basic_type_definition_def
 *)
 
 fun m_translate def = let
@@ -616,6 +705,7 @@ fun m_translate def = let
                 |> MATCH_MP M_DeclAssum_Dlet_INTRO
                 |> SPEC fname_str |> Q.SPEC `env` |> UNDISCH_ALL
   val th = RW [GSYM ArrowM_def] th
+  val th = MATCH_MP EvalM_ArrowM_IMP th
   (* store certificate for later use *)
   val pre = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
   val th = store_cert th pre |> Q.SPEC `env` |> UNDISCH_ALL
@@ -627,41 +717,5 @@ fun m_translate def = let
     val _ = print_type (type_of tm)
     val _ = print "\n\n"
     in raise UnableToTranslate tm end;
-
-
-(*
-
-val lemma =
-  hol2deep ``[("bool",0); ("fun",2:num)]``
-  |> DISCH_ALL |> SIMP_RULE std_ss [] |> GEN_ALL
-
-val th = prove(
-  ``(!env. Eval env exp res) ==>
-    DeclAssum (SNOC ^dec ml_monad_decls) env ==>
-    Eval env (Var n NONE) ($= (Loc 0))``,
-  FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,empty_store_def]
-  \\ SIMP_TAC std_ss [ml_monad_decls]
-  \\ NTAC 6 (ONCE_REWRITE_TAC [Decls_CONS]
-             \\ SIMP_TAC std_ss [Decls_Dtype,Decls_Dlet,Decls_NIL])
-  \\ SIMP_TAC std_ss [PULL_EXISTS]
-  \\ REPEAT STRIP_TAC
-  \\ REPEAT (Q.PAT_ASSUM `check_dup_ctors xx yy` (K ALL_TAC))
-  \\ SIMP_TAC std_ss [Eval_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
-  \\ SIMP_TAC (srw_ss()) [Once lookup_def,bind_def,do_tapp_def]
-  \\ POP_ASSUM MP_TAC
-  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases,do_uapp_def]
-  \\ SIMP_TAC std_ss [LET_DEF,store_alloc_def,PULL_EXISTS]
-  \\ REPEAT STRIP_TAC
-  \\ Q.PAT_ASSUM `!env. bbb` (ASSUME_TAC o Q.SPEC `[]`)
-  \\ FULL_SIMP_TAC std_ss [Eval_def,empty_store_def]
-  \\ IMP_RES_TAC big_exp_determ'
-  \\ FULL_SIMP_TAC std_ss [LENGTH])
-  |> (fn th => MATCH_MP th lemma)
-  |> Q.INST [`n`|->`"the_type_constants"`] |> UNDISCH;
-
-val _ = store_cert th TRUTH
-
-*)
 
 end

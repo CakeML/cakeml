@@ -279,6 +279,7 @@ in
     if can dest_fun_type ty then let
       val (t1,t2) = dest_fun_type ty
       in ``Arrow (^(get_type_inv t1)) (^(get_type_inv t2))`` end else
+    if ty = ``:unit`` then ``U_TYPE`` else
     if ty = ``:bool`` then ``BOOL`` else
     if ty = ``:num`` then ``NUM`` else
     if ty = ``:int`` then ``INT`` else
@@ -1559,7 +1560,7 @@ val MAP_pattern = ``MAP (f:'a->'b)``
 (*
 val tm = rhs
 
-val tm = ``MAP (\v3. type_subst v6 v3) args``
+val tm = ``MAP (\v3. type_subst v6 v3) args`` |> rator
 val tm = ``v:num``
 
 *)

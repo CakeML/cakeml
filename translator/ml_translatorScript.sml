@@ -36,6 +36,9 @@ val Eq_def = Define `
 
 val And_def = Define `And a P x v = P x /\ a (x:'a) (v:v)`;
 
+val U_TYPE_def = Define `
+  U_TYPE (u:unit) v = (v = Litv Unit)`;
+
 val INT_def = Define `
   INT i = \v. (v = Litv (IntLit i))`;
 

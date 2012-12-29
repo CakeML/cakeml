@@ -127,31 +127,37 @@ val ex_return_def = Define `
 open monadsyntax;
 
 val _ = temp_overload_on ("monad_bind", ``ex_bind``);
+val _ = temp_overload_on ("monad_unitbind", ``\x y. ex_bind x (\z. y)``);
+val _ = temp_overload_on ("monad_ignore_bind", ``\x y. ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``ex_return``);
 
-(* fail, handle and try *)
+(* failwith and otherwise *)
 
 val failwith_def = Define `
   ((failwith msg) :'a M) = \state. (HolErr msg, state)`;
 
-val raise_Clash_def = Define `
-  ((raise_Clash c) :'a M) = \state. (HolErr "clash",
-                                     state with the_clash_var := c)`;
+val otherwise_def = Define `
+  otherwise x y = \state.
+    case (x state) of
+      (HolRes y, state) => (HolRes y, state)
+    | (HolErr e, state) => y state`;
+
+val _ = add_infix("otherwise",400,HOLgrammars.RIGHT)
+
+(* others *)
 
 val _ = Define `
-  can f x = (\state. case f x state of
-                       (HolRes _, state) => (HolRes T, state)
-                     | (HolErr _, staet) => (HolRes F, state)): bool M`
+  can f x = do f x ; return T od
+            otherwise return F`;
 
 val _ = Define `
-  try f x msg = (\state. case f x state of
-                         (HolRes y, state) => (HolRes y, state)
-                       | (HolErr _, state) => (HolErr msg, state)): 'a M`;
+  try f x msg = f x otherwise failwith msg`;
 
-val _ = Define `
-  handle_clash x f = (\state. case x state of
-                       | (HolErr _, state) => f (state.the_clash_var) state
-                       | other => other): 'a M`;
+val raise_clash_def = Define `
+  ((raise_clash c) :'a M) = do set_the_clash_var c ; failwith "clash" od`;
+
+val handle_clash_def = Define `
+  handle_clash x f = x otherwise do v <- get_the_clash_var ; f v od`;
 
 (* define failing lookup function *)
 
@@ -336,10 +342,10 @@ val _ = tDefine "type_subst" `
   let bty = mk_vartype "B";;
 *)
 
-val _ = Define `bool_ty = mk_type("bool",[])`;
+val _ = temp_overload_on("bool_ty",``mk_type("bool",[])``);
 val _ = Define `mk_fun_ty ty1 ty2 = mk_type("fun",[ty1; ty2])`;
-val _ = Define `aty = mk_vartype "A"`;
-val _ = Define `bty = mk_vartype "B"`;
+val _ = temp_overload_on("aty",``mk_vartype "A"``);
+val _ = temp_overload_on("bty",``mk_vartype "B"``);
 
 (*
   let get_const_type s = assoc s (!the_term_constants)
@@ -742,7 +748,7 @@ val _ = Define `
     | _        => tm`
 
 val my_term_size_def = Define `
-  (my_term_size (Var _ _) = 1) /\
+  (my_term_size (Var _ _) = 1:num) /\
   (my_term_size (Const _ _) = 1) /\
   (my_term_size (Comb s1 s2) = 1 + my_term_size s1 + my_term_size s2) /\
   (my_term_size (Abs s1 s2) = 1 + my_term_size s1 + my_term_size s2)`;
@@ -790,13 +796,13 @@ val ZERO_LT_term_size = prove(
   ``!t. 0 < my_term_size t``,
   Cases THEN EVAL_TAC THEN DECIDE_TAC);
 
-val _ = tDefine "inst_aux" `
+val inst_aux_def = tDefine "inst_aux" `
   (inst_aux k (env:(term # term) list) tyin tm) : term M =
     case tm of
       Var n ty   => let ty' = type_subst tyin ty in
                     let tm' = if ty' = ty then tm else Var n ty' in
                     if rev_assocd tm' env tm = tm then return tm'
-                    else failwith "clash"
+                    else raise_clash tm'
     | Const c ty => let ty' = type_subst tyin ty in
                     if ty' = ty then return tm else return (Const c ty')
     | Comb f x   => do f' <- inst_aux k env tyin f ;
@@ -810,13 +816,13 @@ val _ = tDefine "inst_aux" `
                             if (y' = y) /\ (t' = t) then return tm
                                                     else return (Abs y' t') od)
                         (\w'.
-                         if w' <> y' then raise_Clash w' else
+                         if w' <> y' then failwith "clash" else
                          let ifrees = (MAP (inst_var tyin) (frees t)) in
                          let y'' = (variant ifrees y') in
                          do v1 <- dest_var y'' ;
                             v2 <- dest_var y ;
                             let z = Var (FST v1) (SND v2) in
-                            if k = 0 then failwith "too many clashes" else
+                            if k = 0:num then failwith "too many clashes" else
                               inst_aux (k-1) env tyin (Abs z (vsubst_aux [(z,y)] t)) od)
                     od`
   (WF_REL_TAC `measure (\(k,env,tyin,tm). k + my_term_size tm)`
@@ -824,7 +830,9 @@ val _ = tDefine "inst_aux" `
    THEN REPEAT STRIP_TAC
    THEN FULL_SIMP_TAC std_ss [my_term_size_vsubst_aux]
    THEN ASSUME_TAC (ZERO_LT_term_size |> Q.SPEC `y`)
-   THEN DECIDE_TAC)
+   THEN DECIDE_TAC) |> SIMP_RULE std_ss [handle_clash_def,raise_clash_def]
+
+val _ = save_thm("inst_aux_def",inst_aux_def);
 
 val _ = Define `
   inst tyin tm = if tyin = [] then return tm else inst_aux 1000000000 [] tyin tm`;
