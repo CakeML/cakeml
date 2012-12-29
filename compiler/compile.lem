@@ -145,6 +145,8 @@ free_vars _ (CDecl xs) = Set.from_list xs
 and
 free_vars _ (CRaise _) = {}
 and
+free_vars c (CHandle e1 _ e2) = free_vars c e1 union free_vars c e2
+and
 free_vars _ (CVar n) = {n}
 and
 free_vars _ (CLit _) = {}
@@ -199,11 +201,11 @@ and
 no_closures (CRecClos _ _ _ _) = false
 
 let rec
-doPrim2 b ty op (CLitv (IntLit x)) (CLitv (IntLit y)) =
-  if b && y = i0 then (Rerr (Rraise Div_error))
-  else Rval (CLitv (ty (op x y)))
+doPrim2 b ty op s (CLitv (IntLit x)) (CLitv (IntLit y)) =
+  if b && y = i0 then (s, Rerr (Rraise Div_error))
+  else (s, Rval (CLitv (ty (op x y))))
 and
-doPrim2 b ty op _ _ = Rerr Rtype_error
+doPrim2 b ty op s _ _ = (s, Rerr Rtype_error)
 
 let rec
 CevalPrim2 CAdd = doPrim2 false IntLit Int.(+)
@@ -218,10 +220,16 @@ CevalPrim2 CMod = doPrim2 true IntLit Int.(%)
 and
 CevalPrim2 CLt = doPrim2 false Bool Int.(<)
 and
-CevalPrim2 CEq = fun v1 v2 ->
+CevalPrim2 CEq = fun s v1 v2 ->
   if no_closures v1 && no_closures v2
-  then Rval (CLitv (Bool (v1 = v2)))
-  else Rerr Rtype_error
+  then (s, Rval (CLitv (Bool (v1 = v2))))
+  else (s, Rerr Rtype_error)
+and
+CevalPrim2 CUpd = fun s v1 v2 ->
+  match v1 with
+  | CLoc n -> (Pmap.add n v2 s, Rval (CLitv Unit))
+  | _ -> (s, Rerr Rtype_error)
+  end
 
 let rec
 CevalPrim1 CRef s v =
@@ -406,7 +414,7 @@ and
 forall c s env p2 e1 e2 s' v1 v2.
 Cevaluate_list c s env [e1;e2] (s', Rval [v1;v2])
 ==>
-Cevaluate c s env (CPrim2 p2 e1 e2) (s', CevalPrim2 p2 v1 v2)
+Cevaluate c s env (CPrim2 p2 e1 e2) (CevalPrim2 p2 s' v1 v2)
 and
 forall c s env p2 e1 e2 s' err.
 Cevaluate_list c s env [e1;e2] (s', Rerr err)

@@ -125,6 +125,8 @@ val _ = Defn.save_defn Cpat_vars_defn;
 /\
 (free_vars _ (CRaise _) = {})
 /\
+(free_vars c (CHandle e1 _ e2) =(( free_vars c) e1) UNION(( free_vars c) e2))
+/\
 (free_vars _ (CVar n) = {n})
 /\
 (free_vars _ (CLit _) = {})
@@ -185,11 +187,11 @@ val _ = Defn.save_defn no_closures_defn;
 
  val doPrim2_defn = Hol_defn "doPrim2" `
 
-(doPrim2 b ty op (CLitv (IntLit x)) (CLitv (IntLit y)) =
-  if b /\ (y = i0) then ((Rerr ((Rraise Div_error))))
-  else( Rval ((CLitv ((ty (((op x) y))))))))
+(doPrim2 b ty op s (CLitv (IntLit x)) (CLitv (IntLit y)) =
+  if b /\ (y = i0) then (s,( Rerr ((Rraise Div_error))))
+  else (s,( Rval ((CLitv ((ty (((op x) y)))))))))
 /\
-(doPrim2 b ty op _ _ =( Rerr Rtype_error))`;
+(doPrim2 b ty op s _ _ = (s,( Rerr Rtype_error)))`;
 
 val _ = Defn.save_defn doPrim2_defn;
 
@@ -207,10 +209,16 @@ val _ = Defn.save_defn doPrim2_defn;
 /\
 (CevalPrim2 CLt =((( doPrim2 F) Bool) int_lt))
 /\
-(CevalPrim2 CEq = \ v1 v2 .
+(CevalPrim2 CEq = \ s v1 v2 .
   if( no_closures v1) /\( no_closures v2)
-  then( Rval ((CLitv ((Bool (v1 = v2))))))
-  else( Rerr Rtype_error))`;
+  then (s,( Rval ((CLitv ((Bool (v1 = v2)))))))
+  else (s,( Rerr Rtype_error)))
+/\
+(CevalPrim2 CUpd = \ s v1 v2 .
+  (case v1 of
+    CLoc n => (((FUPDATE  s) ( n, v2)),( Rval ((CLitv Unit))))
+  | _ => (s,( Rerr Rtype_error))
+  ))`;
 
 val _ = Defn.save_defn CevalPrim2_defn;
 
@@ -402,7 +410,7 @@ Cevaluate c s env (((CPrim1 uop) e)) (s',( Rerr err)))
 (! c s env p2 e1 e2 s' v1 v2.(((((
 Cevaluate_list c) s) env) [e1;e2]) (s',( Rval [v1;v2])))
 ==>
-Cevaluate c s env ((((CPrim2 p2) e1) e2)) (s',((( CevalPrim2 p2) v1) v2)))
+Cevaluate c s env ((((CPrim2 p2) e1) e2)) (((((CevalPrim2 p2) s') v1) v2)))
 /\
 (! c s env p2 e1 e2 s' err.(((((
 Cevaluate_list c) s) env) [e1;e2]) (s',( Rerr err)))
