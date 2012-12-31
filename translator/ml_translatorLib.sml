@@ -1875,7 +1875,7 @@ fun extract_precondition th pre_var is_rec =
 (* main translation routines *)
 
 (*
-val def = vsubst_aux_def
+val def = LENGTH;
 val def = HD; translate def;
 *)
 
@@ -1958,7 +1958,7 @@ fun translate def = let
              th |> DISCH (first (can (find_term (fn tm => tm = ``Recclosure``))) (hyp th))
                 |> Q.INST [`cl_env`|->`env`,`env`|->`env1`] |> DISCH (get_DeclAssum ())
                 |> Q.GEN `env` |> Q.GEN `env1`
-                |> REWRITE_RULE [Eval_Var_EQ,AND_IMP_INTRO]
+                |> REWRITE_RULE [AND_IMP_INTRO]
                 |> MATCH_MP DeclAssum_Dletrec_INTRO |> Q.SPEC `env` |> UNDISCH_ALL
            else
              th |> DISCH (get_DeclAssum ()) |> Q.GEN `env`

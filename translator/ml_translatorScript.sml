@@ -140,15 +140,6 @@ val Eval_Let = store_thm("Eval_Let",
   \\ RES_TAC \\ Q.EXISTS_TAC `res''` \\ FULL_SIMP_TAC std_ss [LET_DEF,bind_def]
   \\ Q.LIST_EXISTS_TAC [`res'`,`empty_store`] \\ FULL_SIMP_TAC std_ss [add_tvs_def]);
 
-(*
-val Eval_Var = store_thm("Eval_Var",
-  ``!name x. Eval env (Var name NONE) (\v. v = x) =
-             (lookup name env = SOME (x,NONE))``,
-  SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def,do_tapp_def]
-  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss []);
-*)
-
 val Eval_Var_SWAP_ENV = store_thm("Eval_Var_SWAP_ENV",
   ``!env1.
       Eval env1 (Var name NONE) P /\ (lookup name env = lookup name env1) ==>
@@ -156,10 +147,17 @@ val Eval_Var_SWAP_ENV = store_thm("Eval_Var_SWAP_ENV",
   SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def]
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def]);
 
-val Eval_Var_EQ = store_thm("Eval_Var_EQ",
-  ``Eval env (Var name NONE) ($= x) = (lookup name env = SOME (x,NONE))``,
-  SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def,do_tapp_def]
-  \\ cheat);
+val LOOKUP_VAR_def = Define `
+  LOOKUP_VAR name env x t = (lookup name env = SOME (x,t))`;
+
+val LOOKUP_VAR_THM = store_thm("LOOKUP_VAR_THM",
+  ``LOOKUP_VAR name env x NONE ==> Eval env (Var name NONE) ($= x)``,
+  SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def,do_tapp_def,LOOKUP_VAR_def]);
+
+val LOOKUP_VAR_SIMP = store_thm("LOOKUP_VAR_SIMP",
+  ``LOOKUP_VAR name ((x,v,NONE)::env) y NONE =
+    if x = name then (v = y) else LOOKUP_VAR name env y NONE``,
+  SIMP_TAC std_ss [LOOKUP_VAR_def,lookup_def] \\ SRW_TAC [] []);
 
 val Eval_Val_INT = store_thm("Eval_Val_INT",
   ``!n. Eval env (Lit (IntLit n)) (INT n)``,
@@ -302,30 +300,33 @@ val FUN_EXISTS_Eq = prove(
 val FUN_QUANT_SIMP = save_thm("FUN_QUANT_SIMP",
   LIST_CONJ [FUN_EXISTS_Eq,FUN_FORALL_PUSH1,FUN_FORALL_PUSH2]);
 
+val do_tapp_lemma = prove(
+  ``!x. (do_tapp x NONE v = v)``,
+  Cases \\ SRW_TAC [] [do_tapp_def] \\ Cases_on `x'` \\ SRW_TAC [] []);
+
 val Eval_Recclosure = store_thm("Eval_Recclosure",
   ``(!v. a n v ==>
   Eval ((name,v,NONE)::(fname,Recclosure env2 [(fname,NONE,name,NONE,body)] fname,NONE)::env2) body (b (f n))) ==>
-    Eval env (Var fname NONE) ($= (Recclosure env2 [(fname,NONE,name,NONE,body)] fname)) ==>
+    LOOKUP_VAR fname env (Recclosure env2 [(fname,NONE,name,NONE,body)] fname) NONE ==>
     Eval env (Var fname NONE) ((Eq a n --> b) f)``,
-  FULL_SIMP_TAC std_ss [Eval_def,Arrow_def] \\ REPEAT STRIP_TAC
-  \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_cases]
+  NTAC 2 STRIP_TAC \\ IMP_RES_TAC LOOKUP_VAR_THM
+  \\ POP_ASSUM MP_TAC \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM MP_TAC
+  \\ FULL_SIMP_TAC std_ss [Eval_def,Arrow_def] \\ REPEAT STRIP_TAC
+  \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate'_cases]
   \\ FULL_SIMP_TAC (srw_ss()) [AppReturns_def,Eq_def,
-       do_app_def,evaluate_closure_def]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ Q.PAT_ASSUM `Recclosure env2 [(fname,NONE,name,NONE,body)] fname = xxx`
-       (MP_TAC o GSYM) \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
+       do_app_def,evaluate_closure_def,do_tapp_lemma]
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []
   \\ SIMP_TAC (srw_ss()) [Once find_recfun_def,Eval_def]
   \\ FULL_SIMP_TAC (srw_ss()) [bind_def,build_rec_env_def,FOLDR,add_tvs_def]);
 
 val SafeVar_def = Define `SafeVar = Var`;
 
 val Eval_Eq_Recclosure = store_thm("Eval_Eq_Recclosure",
-  ``Eval env (Var name NONE) ($= (Recclosure x1 x2 x3)) ==>
+  ``LOOKUP_VAR name env (Recclosure x1 x2 x3) NONE ==>
     (P f (Recclosure x1 x2 x3) =
      Eval env (Var name NONE) (P f))``,
-  SIMP_TAC std_ss [Eval_Var_SIMP,Eval_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
+  SIMP_TAC std_ss [Eval_Var_SIMP,Eval_def,LOOKUP_VAR_def]
+  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases,do_tapp_lemma]
   \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [] \\ METIS_TAC []);
 
@@ -825,16 +826,19 @@ val DeclAssum_Dlet_INTRO = store_thm("DeclAssum_Dlet_INTRO",
 
 val DeclAssum_Dletrec_INTRO = store_thm("DeclAssum_Dletrec_INTRO",
   ``(!env1 env.
-      DeclAssum ds env /\ (lookup v env1 = SOME (Recclosure env [(v,NONE,xs,NONE,f)] v,NONE)) ==>
+      DeclAssum ds env /\
+      LOOKUP_VAR v env1 (Recclosure env [(v,NONE,xs,NONE,f)] v) NONE ==>
       Eval env1 (Var v NONE) P) ==>
     !env. DeclAssum (SNOC (Dletrec NONE [(v,NONE,xs,NONE,f)]) ds) env ==>
           Eval env (Var v NONE) P``,
   FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dletrec,
-    MAP,ALL_DISTINCT,MEM,PULL_EXISTS,build_rec_env_def,FOLDR,bind_def,Eval_Var_SIMP]
+    MAP,ALL_DISTINCT,MEM,PULL_EXISTS,build_rec_env_def,FOLDR,bind_def,
+    Eval_Var_SIMP,LOOKUP_VAR_SIMP]
   \\ SIMP_TAC std_ss [Eval_def] \\ ONCE_REWRITE_TAC [evaluate'_cases]
   \\ SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
   \\ Q.PAT_ASSUM `!env1.bbb` (MP_TAC o Q.SPEC `bind v (Recclosure env2 [(v,NONE,xs,NONE,f)] v,NONE) env`)
-  \\ FULL_SIMP_TAC (srw_ss()) [lookup_def,bind_def,add_tvs_def] \\ METIS_TAC []);
+  \\ FULL_SIMP_TAC (srw_ss()) [LOOKUP_VAR_SIMP,lookup_def,bind_def,add_tvs_def]
+  \\ METIS_TAC []);
 
 (* a few misc. lemmas that help the automation *)
 

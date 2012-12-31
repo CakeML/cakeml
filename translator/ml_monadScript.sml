@@ -347,9 +347,11 @@ val option_CASE_LEMMA2 = prove(
 val EvalM_Recclosure = store_thm("EvalM_Recclosure",
   ``(!v. a n v ==>
   EvalM ((name,v,NONE)::(fname,Recclosure env2 [(fname,NONE,name,NONE,body)] fname,NONE)::env2) body (b (f n))) ==>
-    Eval env (Var fname NONE) ($= (Recclosure env2 [(fname,NONE,name,NONE,body)] fname)) ==>
+    LOOKUP_VAR fname env (Recclosure env2 [(fname,NONE,name,NONE,body)] fname) NONE ==>
     EvalM env (Var fname NONE) ((PURE (Eq a n) -M-> b) f)``,
-  FULL_SIMP_TAC std_ss [Eval_def,Arrow_def,EvalM_def,ArrowM_def,PURE_def,
+  NTAC 2 STRIP_TAC \\ IMP_RES_TAC LOOKUP_VAR_THM
+  \\ POP_ASSUM MP_TAC \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM MP_TAC
+  \\ FULL_SIMP_TAC std_ss [Eval_def,Arrow_def,EvalM_def,ArrowM_def,PURE_def,
     PULL_EXISTS,ArrowP_def] \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate'_cases]
   \\ FULL_SIMP_TAC (srw_ss()) [AppReturns_def,Eq_def,
@@ -361,10 +363,10 @@ val EvalM_Recclosure = store_thm("EvalM_Recclosure",
 
 val IND_HELP = store_thm("IND_HELP",
   ``!env cl.
-      Eval env (Var x NONE) ($= cl) /\
+      LOOKUP_VAR x env cl NONE /\
       EvalM env (Var x NONE) ((b1 -M-> b2) f) ==>
       EvalM ((x,cl,z)::cl_env) (Var x NONE) ((b1 -M-> b2) f)``,
-  SIMP_TAC std_ss [EvalM_def,Eval_def,ArrowM_def,PURE_def,PULL_EXISTS]
+  SIMP_TAC std_ss [EvalM_def,Eval_def,ArrowM_def,PURE_def,PULL_EXISTS,LOOKUP_VAR_def]
   \\ ONCE_REWRITE_TAC [evaluate'_cases]
   \\ SIMP_TAC (srw_ss()) [do_tapp_def,option_CASE_LEMMA2]
   \\ REPEAT STRIP_TAC \\ RES_TAC
@@ -512,17 +514,20 @@ val M_DeclAssum_Dlet_INTRO = store_thm("M_DeclAssum_Dlet_INTRO",
 
 val M_DeclAssum_Dletrec_INTRO = store_thm("M_DeclAssum_Dletrec_INTRO",
   ``(!env1 env.
-      DeclAssum ds env /\ (lookup v env1 = SOME (Recclosure env [(v,NONE,xs,NONE,f)] v,NONE)) ==>
+      DeclAssum ds env /\
+      LOOKUP_VAR v env1 (Recclosure env [(v,NONE,xs,NONE,f)] v) NONE ==>
       EvalM env1 (Var v NONE) (PURE P x)) ==>
     !env. DeclAssum (SNOC (Dletrec NONE [(v,NONE,xs,NONE,f)]) ds) env ==>
           EvalM env (Var v NONE) (PURE P x)``,
   FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dletrec,
-    MAP,ALL_DISTINCT,MEM,PULL_EXISTS,build_rec_env_def,FOLDR,bind_def,Eval_Var_SIMP]
+    MAP,ALL_DISTINCT,MEM,PULL_EXISTS,build_rec_env_def,FOLDR,bind_def,
+    Eval_Var_SIMP,LOOKUP_VAR_SIMP]
   \\ FULL_SIMP_TAC std_ss [EvalM_def,PURE_def,PULL_EXISTS]
   \\ ONCE_REWRITE_TAC [evaluate'_cases]
   \\ SIMP_TAC (srw_ss()) [do_tapp_def,add_tvs_def] \\ REPEAT STRIP_TAC
   \\ Q.PAT_ASSUM `!env1.bbb` (MP_TAC o Q.SPEC `bind v (Recclosure env2 [(v,NONE,xs,NONE,f)] v,NONE) env`)
-  \\ FULL_SIMP_TAC (srw_ss()) [lookup_def,bind_def,add_tvs_def] \\ METIS_TAC []);
+  \\ FULL_SIMP_TAC (srw_ss()) [LOOKUP_VAR_SIMP,lookup_def,bind_def,add_tvs_def]
+  \\ METIS_TAC []);
 
 (* fastish evaluation *)
 
@@ -868,34 +873,5 @@ val set_the_clash_var_thm = store_thm("set_the_clash_var_thm",
     EvalM env (App Opassign (Var "the_clash_var" NONE) exp)
       ((HOL_MONAD U_TYPE) (set_the_clash_var x))``,
   update_tac `LUPDATE res 4 s` `refs with the_clash_var := x`);
-
-
-(*
-
-val lemma =
-  hol2deep ``[("bool",0); ("fun",2:num)]``
-  |> DISCH_ALL |> SIMP_RULE std_ss []
-val exp = lemma |> concl |> rator |> rand
-
-val _ = temp_overload_on("type_init",exp)
-
-val l = METIS_PROVE [] ``(?x. P x /\ Q x) ==> ?x. P x``
-
-val l1 = lemma |> SIMP_RULE std_ss [Eval_def] |> HO_MATCH_MP l
-               |> Q.INST [`env`|->`[]`]
-
-val type_init_v_def = new_specification("type_init_v",["type_init_v"],l1);
-
-val evaluate'_empty_env = prove(
-  ``evaluate' empty_store [] exp (empty_store,Rval res) =
-    !env. evaluate' empty_store env exp (empty_store,Rval res)``,
-  cheat);
-
-  type_init_v_def
-  |> ONCE_REWRITE_RULE [evaluate'_empty_env]
-  |> ONCE_REWRITE_RULE [evaluate'_empty_store_EQ]
-  |> SPEC_ALL |> MATCH_MP (big_exp_determ' |> CONJUNCT1 |> GSYM)
-
-*)
 
 val _ = export_theory();
