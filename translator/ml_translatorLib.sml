@@ -1,4 +1,4 @@
-structure ml_translatorLib :> ml_translatorLib =
+structure ml_translatorLib (* :> ml_translatorLib *) =
 struct
 
 open HolKernel boolLib bossLib;
@@ -1682,7 +1682,9 @@ fun hol2deep tm =
     val thi = th_f |> DISCH_ALL |> RW [AND_IMP_INTRO] |> GEN v
     val thi = HO_MATCH_MP Eq_IMP_And thi
     val thi = MATCH_MP (MATCH_MP Eval_Arrow th_m) thi
-    val list_type_def = fetch "-" "LIST_TYPE_def"
+    val list_type_def = LIST_CONJ [
+      EVAL ``LIST_TYPE (a:('a -> v -> bool)) [] v``,
+      EVAL ``LIST_TYPE (a:('a -> v -> bool)) (x::xs) v``]
     val LIST_TYPE_And = prove(
      ``LIST_TYPE (And a P) = And (LIST_TYPE a) (EVERY (P:'a->bool))``,
      SIMP_TAC std_ss [FUN_EQ_THM,And_def] \\ Induct
