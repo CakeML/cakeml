@@ -145,7 +145,7 @@ free_vars _ (CDecl xs) = Set.from_list xs
 and
 free_vars _ (CRaise _) = {}
 and
-free_vars c (CHandle e1 _ e2) = free_vars c e1 union free_vars c e2
+free_vars c (CHandle e1 x e2) = free_vars c e1 union (free_vars c e2 \ {x})
 and
 free_vars _ (CVar n) = {n}
 and

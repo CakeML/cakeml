@@ -482,9 +482,11 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
       rw[] >>
       qpat_assum`∀x. P ⇒ Q x ⇒ R x`(match_mp_tac o MP_CANON) >>
       fsrw_tac[DNF_ss][SUBSET_DEF] >>
+      conj_tac >- metis_tac[] >>
       match_mp_tac IN_FRANGE_DOMSUB_suff >> rw[] ) >>
     first_x_assum match_mp_tac >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    conj_tac >- metis_tac[] >>
     match_mp_tac IN_FRANGE_DOMSUB_suff >> rw[] ) >>
   strip_tac >- rw[] >>
   strip_tac >- (
@@ -650,6 +652,13 @@ val DOMSUB_SUBMAP = store_thm("DOMSUB_SUBMAP",
   SRW_TAC[][SUBMAP_DEF,DOMSUB_FAPPLY_THM] THEN
   SRW_TAC[][] THEN METIS_TAC[])
 
+val DRESTRICT_DOMSUB = store_thm("DRESTRICT_DOMSUB",
+  ``!f s k. DRESTRICT f s \\ k = DRESTRICT f (s DELETE k)``,
+  SRW_TAC[][GSYM fmap_EQ_THM,FDOM_DRESTRICT] THEN1 (
+    SRW_TAC[][EXTENSION] THEN METIS_TAC[] ) THEN
+  SRW_TAC[][DOMSUB_FAPPLY_THM] THEN
+  SRW_TAC[][DRESTRICT_DEF])
+
 val Cevaluate_any_env = store_thm(
 "Cevaluate_any_env",
 ``(∀c s env exp res. Cevaluate c s env exp res ⇒
@@ -739,6 +748,7 @@ strip_tac >- (
   `P` by (
     map_every qunabbrev_tac[`P`,`Q`,`R`] >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    conj_tac >- metis_tac[] >>
     match_mp_tac IN_FRANGE_DOMSUB_suff >>
     rw[] ) >>
   simp[] >>
@@ -777,26 +787,25 @@ strip_tac >- (
   `env3 = env2 |+ (x,ln)` by (
     qunabbrev_tac`env3` >>
     Q.PAT_ABBREV_TAC`env3 = DRESTRICT env0 Y` >>
-    `env3 ⊑ env2` by (
+    simp[GSYM SUBMAP_FUNION_ABSORPTION] >>
+    `env3 \\ x ⊑ env2` by (
       qpat_assum`env1 = env2`(SUBST1_TAC o SYM) >>
       unabbrev_all_tac >>
       rpt (pop_assum kall_tac) >>
       match_mp_tac SUBMAP_FUNION >>
       disj1_tac >>
+      simp[DRESTRICT_DOMSUB] >>
       match_mp_tac DRESTRICT_SUBSET_SUBMAP >>
-      rw[] ) >>
+      srw_tac[DNF_ss][SUBSET_DEF]) >>
     rw[GSYM SUBMAP_FUNION_ABSORPTION] >- (
       match_mp_tac SUBMAP_mono_FUPDATE >>
-      rw[Once (GSYM SUBMAP_DOMSUB_gen)] >>
-      match_mp_tac SUBMAP_TRANS >>
-      qexists_tac`env3` >>
-      rw[SUBMAP_DOMSUB] ) >>
+      fs[Once SUBMAP_DOMSUB_gen]) >>
     match_mp_tac SUBMAP_TRANS >>
-    qexists_tac `env1 \\ x` >>
+    qexists_tac `env3 |+ (x,ln)` >>
     conj_tac >- (
-      match_mp_tac DOMSUB_SUBMAP >>
-      rw[Abbr`env3`,FDOM_DRESTRICT] ) >>
-    rw[Once SUBMAP_DOMSUB_gen]) >>
+      simp[Abbr`env3`,FDOM_DRESTRICT] ) >>
+    match_mp_tac SUBMAP_mono_FUPDATE >>
+    fs[Once SUBMAP_DOMSUB_gen]) >>
   PROVE_TAC[] ) >>
 strip_tac >- (
   rpt strip_tac >>

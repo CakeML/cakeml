@@ -125,7 +125,7 @@ val _ = Defn.save_defn Cpat_vars_defn;
 /\
 (free_vars _ (CRaise _) = {})
 /\
-(free_vars c (CHandle e1 _ e2) =(( free_vars c) e1) UNION(( free_vars c) e2))
+(free_vars c (CHandle e1 x e2) =(( free_vars c) e1) UNION (((free_vars c) e2) DIFF {x}))
 /\
 (free_vars _ (CVar n) = {n})
 /\
