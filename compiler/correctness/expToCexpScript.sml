@@ -24,7 +24,7 @@ exp_to_Cexp_ind
 
 val do_Opapp_SOME_CRecClos = store_thm(
 "do_Opapp_SOME_CRecClos",
-``(do_app env Opapp v1 v2 = SOME (env',exp'')) ∧
+``(do_app s env Opapp v1 v2 = SOME (s',env',exp'')) ∧
   syneq c (v_to_Cv m v1) w1 ⇒
   ∃env'' ns' defs n.
     (w1 = CRecClos env'' ns' defs n)``,
@@ -56,6 +56,11 @@ rw[FOLDL_UNION_BIGUNION,IMAGE_BIGUNION] >- (
   pop_assum mp_tac >>
   rw[MEM_ZIP] >>
   rw[Once EXTENSION,MEM_EL] >>
+  PROVE_TAC[] )
+>- (
+  qabbrev_tac `q = pat_to_Cpat s pvs p` >>
+  PairCases_on `q` >>
+  fs[] >>
   PROVE_TAC[] )
 >- (
   qabbrev_tac `q = pats_to_Cpats s pvs ps` >>
@@ -155,11 +160,8 @@ rw[] >- (
   qabbrev_tac `q = pat_to_Cpat s [] p` >>
   PairCases_on`q`>>fs[] )
 >- (
-  qmatch_assum_rename_tac `MEM d defs`[] >>
-  PairCases_on `d` >> fs[] >>
   qabbrev_tac `q = pat_to_Cpat s [] p` >>
-  PairCases_on `q` >> fs[pairTheory.FORALL_PROD] >>
-  PROVE_TAC[]))
+  PairCases_on`q`>>fs[] ))
 val _ = export_rewrites["free_vars_exp_to_Cexp"];
 
 (* closed lemmas *)
@@ -198,12 +200,19 @@ val v_to_Cv_inj_rwt = store_thm(
 probably not true until equality is corrected in the source language *)
 
 val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
-  ``∀cenv env exp res. evaluate cenv env exp res ⇒
-    (EVERY closed (MAP SND env)) ∧ (FV exp ⊆ set (MAP FST env)) ∧
-    good_cenv cenv ∧ (res ≠ Rerr Rtype_error) ⇒
+  ``∀cenv s env exp res. evaluate cenv s env exp res ⇒
+    (EVERY closed s) ∧
+    (EVERY closed (MAP SND env)) ∧
+    (FV exp ⊆ set (MAP FST env)) ∧
+    good_cenv cenv ∧ (SND res ≠ Rerr Rtype_error) ⇒
     ∀m. good_cmap cenv m ⇒
-      ∃Cres. Cevaluate FEMPTY (alist_to_fmap (env_to_Cenv m env)) (exp_to_Cexp m exp) Cres ∧
-             result_rel (syneq FEMPTY) (map_result (v_to_Cv m) res) Cres``,
+      ∃Cres.
+        Cevaluate FEMPTY
+          (store_to_Cstore m s)
+          (alist_to_fmap (env_to_Cenv m env))
+          (exp_to_Cexp m exp) Cres ∧
+        fmap_rel (syneq FEMPTY) (store_to_Cstore m (FST res)) (FST Cres) ∧
+        result_rel (syneq FEMPTY) (map_result (v_to_Cv m) (SND res)) (SND Cres)``,
   ho_match_mp_tac evaluate_nice_strongind >>
   strip_tac >- rw[exp_to_Cexp_def,v_to_Cv_def] >>
   strip_tac >- rw[exp_to_Cexp_def] >>
