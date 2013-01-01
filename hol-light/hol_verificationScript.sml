@@ -118,10 +118,112 @@ val Select_type = prove(
   \\ FULL_SIMP_TAC std_ss [hol_tm_def,EVAL ``"@" = "="``] \\ METIS_TAC []);
 
 (* ------------------------------------------------------------------------- *)
-(* State invariant                                                           *)
+(* State invariant - types/terms/axioms can be extracted from ctxt           *)
 (* ------------------------------------------------------------------------- *)
 
+val STATE_def = Define `
+  STATE state ctxt =
+    (ctxt = hol_ctxt state.the_definitions) /\ context_ok ctxt /\
+    (types ctxt = state.the_type_constants) /\
+    (consts ctxt = MAP (\(name,ty). (name, hol_ty ty)) state.the_term_constants)`
 
+(* ------------------------------------------------------------------------- *)
+(* Verification                                                              *)
+(* ------------------------------------------------------------------------- *)
+
+val CORRECT_def = Define `
+  CORRECT f P =
+    !s ctxt. STATE s ctxt ==>
+             (SND (f s) = s) /\
+             !x. (FST (f s) = HolRes x) ==> P s.the_definitions x`;
+
+val CORRECT_return = store_thm("CORRECT_return",
+  ``(CORRECT (ex_return x) P = !s ctxt. STATE s ctxt ==> P s.the_definitions x) /\
+    (CORRECT (failwith msg) P = T)``,
+  SIMP_TAC (srw_ss()) [CORRECT_def,ex_return_def,failwith_def]);
+
+val CORRECT_bind = prove(
+  ``!P Q f g.
+      CORRECT f (\ctxt x. Q ctxt x /\ CORRECT (g x) P) ==>
+      CORRECT (ex_bind f g) P``,
+  SIMP_TAC std_ss [CORRECT_def,ex_bind_def]
+  \\ REPEAT STRIP_TAC THEN1
+   (Cases_on `f s` \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ METIS_TAC [FST,SND])
+  \\ Cases_on `f s` \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ RES_TAC
+  \\ NTAC 5 (POP_ASSUM MP_TAC)
+  \\ SIMP_TAC (srw_ss()) []
+  \\ METIS_TAC []);
+
+val _ = export_rewrites ["CORRECT_return","hol_ty_def","hol_tm_def"];
+
+(*
+
+val SND_ex_bind = prove(
+  ``(SND (f s) = s) /\ (!x. SND (g x s) = s) ==>
+    (SND (ex_bind f g s) = s)``,
+  SIMP_TAC std_ss [ex_bind_def]
+  \\ Cases_on `f s` \\ Cases_on `q` \\ SRW_TAC [] []);
+
+val SND_otherwise = prove(
+  ``(SND (f s) = s) /\ (SND (g s) = s) ==>
+    (SND ((f otherwise g) s) = s)``,
+  SIMP_TAC std_ss [otherwise_def]
+  \\ Cases_on `f s` \\ Cases_on `q` \\ SRW_TAC [] []);
+
+val SND_dest_type = prove(
+  ``!ty s. SND (dest_type ty s) = s``,
+  Cases \\ SIMP_TAC (srw_ss()) [dest_type_def,failwith_def,ex_return_def]);
+
+val SND_assoc = prove(
+  ``!y x s. SND (assoc x y s) = s``,
+  Induct \\ SIMP_TAC (srw_ss()) [Once assoc_def,failwith_def]
+  \\ SRW_TAC [] [] \\ Cases_on `h` \\ SRW_TAC [] [ex_return_def]);
+
+val SND_get_type_arity = prove(
+  ``SND (get_type_arity x s) = s``,
+  SIMP_TAC std_ss [get_type_arity_def]
+  \\ MATCH_MP_TAC SND_ex_bind
+  \\ SIMP_TAC std_ss [get_the_type_constants_def,SND_assoc]);
+
+val SND_mk_type = prove(
+  ``!y. SND (mk_type y s) = s``,
+  Cases \\ FULL_SIMP_TAC std_ss [mk_type_def,try_def]
+  \\ MATCH_MP_TAC SND_ex_bind \\ SIMP_TAC std_ss []
+  \\ REPEAT STRIP_TAC
+  \\ SRW_TAC [] [ex_return_def,failwith_def]
+  \\ MATCH_MP_TAC SND_otherwise
+  \\ FULL_SIMP_TAC std_ss [failwith_def,SND_get_type_arity]);
+
+val SND_mk_fun_ty = prove(
+  ``SND (mk_fun_ty h x s) = s``,
+  SIMP_TAC (srw_ss()) [mk_fun_ty_def,SND_mk_type]);
+
+val SND_type_of = prove(
+  ``!t s. SND (type_of t s) = s``,
+  HO_MATCH_MP_TAC type_of_ind \\ Cases
+  \\ REPEAT STRIP_TAC \\ SIMP_TAC std_ss [Once type_of_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [ex_return_def] THEN1
+   (MATCH_MP_TAC SND_ex_bind \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+    \\ MATCH_MP_TAC SND_ex_bind
+    \\ FULL_SIMP_TAC std_ss [SND_dest_type] \\ REPEAT STRIP_TAC
+    \\ Cases_on `x` \\ Cases_on `r`
+    \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
+    \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def])
+  THEN1
+   (Cases_on `t'` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
+    \\ MATCH_MP_TAC SND_ex_bind \\ FULL_SIMP_TAC std_ss [SND_mk_fun_ty]));
+
+
+  (FUN_REL TERM_REL TYPE_REL) type_of typeof
+
+  ``(type_of t s = (HolRes ty,s')) /\ TERM s.the_definitions t ==>
+    (typeof (hol_tm t) = hol_ty ty) /\ TYPE s.the_definitions ty``
+
+
+
+*)
 
 (*
 
@@ -133,6 +235,10 @@ mk_const_def
 mk_comb_def
 type_of_def
 typeof
+mk_fun_ty_def
+mk_type_def
+get_type_arity_def
+get_the_type_constants_def
 proves_RULES
 
 *)

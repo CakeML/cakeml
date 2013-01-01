@@ -1169,7 +1169,8 @@ val _ = Define `
 *)
 
 val _ = Define `
-  new_basic_type_definition tyname (absname,repname) (Sequent asl c) =
+  new_basic_type_definition tyname absname repname thm =
+    case thm of (Sequent asl c) =>
     do ok1 <- can get_const_type absname ;
        ok2 <- can get_const_type repname ;
     if ok1 \/ ok2 then failwith "new_basic_type_definition: Constant(s) already in use" else
