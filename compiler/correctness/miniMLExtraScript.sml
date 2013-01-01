@@ -166,6 +166,18 @@ evaluate_strongind
 |> Q.GEN `P`
 |> SIMP_RULE (srw_ss()) [evaluate_list_with_evaluate,evaluate_match_with_rules])
 
+val evaluate_nicematch_strongind = save_thm(
+"evaluate_nicematch_strongind",
+evaluate_strongind
+|> Q.SPECL [`P0`,`P1`,`evaluate_match_with P0`] |> SIMP_RULE (srw_ss()) []
+|> UNDISCH_ALL
+|> CONJUNCTS
+|> C (curry List.take) 2
+|> LIST_CONJ
+|> DISCH_ALL
+|> Q.GENL [`P1`,`P0`]
+|> SIMP_RULE (srw_ss()) [evaluate_match_with_rules])
+
 val evaluate_list_with_error = store_thm(
 "evaluate_list_with_error",
 ``!P ls s s' err. evaluate_list_with P s ls (s',Rerr err) =

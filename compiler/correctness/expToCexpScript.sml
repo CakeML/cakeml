@@ -232,20 +232,33 @@ val FRANGE_store_to_Cstore = store_thm("FRANGE_store_to_Cstore",
   rw[FAPPLY_store_to_Cstore])
 
 val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
-  ``∀cenv s env exp res. evaluate cenv s env exp res ⇒
-    (EVERY closed s) ∧
-    (EVERY closed (MAP SND env)) ∧
-    (FV exp ⊆ set (MAP FST env)) ∧
-    good_cenv cenv ∧ (SND res ≠ Rerr Rtype_error) ⇒
-    ∀m. good_cmap cenv m ⇒
-      ∃Cres.
-        Cevaluate FEMPTY
-          (store_to_Cstore m s)
-          (alist_to_fmap (env_to_Cenv m env))
-          (exp_to_Cexp m exp) Cres ∧
-        fmap_rel (syneq FEMPTY) (store_to_Cstore m (FST res)) (FST Cres) ∧
-        result_rel (syneq FEMPTY) (map_result (v_to_Cv m) (SND res)) (SND Cres)``,
-  ho_match_mp_tac evaluate_nice_strongind >>
+  ``(∀cenv s env exp res. evaluate cenv s env exp res ⇒
+     (EVERY closed s) ∧
+     (EVERY closed (MAP SND env)) ∧
+     (FV exp ⊆ set (MAP FST env)) ∧
+     good_cenv cenv ∧ (SND res ≠ Rerr Rtype_error) ⇒
+     ∀m. good_cmap cenv m ⇒
+       ∃Cres.
+         Cevaluate FEMPTY
+           (store_to_Cstore m s)
+           (alist_to_fmap (env_to_Cenv m env))
+           (exp_to_Cexp m exp) Cres ∧
+         fmap_rel (syneq FEMPTY) (store_to_Cstore m (FST res)) (FST Cres) ∧
+         result_rel (syneq FEMPTY) (map_result (v_to_Cv m) (SND res)) (SND Cres)) ∧
+    (∀cenv s env exps res. evaluate_list cenv s env exps res ⇒
+     (EVERY closed s) ∧
+     (EVERY closed (MAP SND env)) ∧
+     (BIGUNION (IMAGE FV (set exps)) ⊆ set (MAP FST env)) ∧
+     good_cenv cenv ∧ (SND res ≠ Rerr Rtype_error) ⇒
+     ∀m. good_cmap cenv m ⇒
+       ∃Cres.
+         Cevaluate_list FEMPTY
+           (store_to_Cstore m s)
+           (alist_to_fmap (env_to_Cenv m env))
+           (MAP (exp_to_Cexp m) exps) Cres ∧
+         fmap_rel (syneq FEMPTY) (store_to_Cstore m (FST res)) (FST Cres) ∧
+         result_rel (EVERY2 (syneq FEMPTY)) (map_result (MAP (v_to_Cv m)) (SND res)) (SND Cres))``,
+  ho_match_mp_tac evaluate_nicematch_strongind >>
   strip_tac >- rw[exp_to_Cexp_def,v_to_Cv_def] >>
   strip_tac >- rw[exp_to_Cexp_def] >>
   strip_tac >- (
@@ -343,42 +356,21 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     Cases_on`err`>>fs[]>>
     Cases_on`e`>>fs[markerTheory.Abbrev_def] ) >>
   strip_tac >- (
-
     rw[exp_to_Cexp_def,v_to_Cv_def,
        exps_to_Cexps_MAP,vs_to_Cvs_MAP,
-       evaluate_list_with_value,Cevaluate_con] >>
+       Cevaluate_con] >>
     rw[syneq_cases] >>
     fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,pairTheory.FORALL_PROD] >>
-    first_x_assum (qspec_then `m` strip_assume_tac o CONV_RULE SWAP_FORALL_CONV) >>
-    `∀n. n < LENGTH es ⇒ FV (EL n es) ⊆ set (MAP FST env)` by (
-      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
-      PROVE_TAC[] ) >>
-    qpat_assum `good_cmap cenv m` assume_tac >>
-    fs[] >>
-    fs[Once (GSYM RIGHT_EXISTS_IMP_THM),SKOLEM_THM] >>
-    qexists_tac `GENLIST f (LENGTH vs)` >>
-    fsrw_tac[DNF_ss][MEM_ZIP,EL_MAP,EL_GENLIST,MAP_GENLIST,EL_MAP]) >>
+    fsrw_tac[ETA_ss][] >>
+    first_x_assum (qspec_then `m` mp_tac) >>
+    rw[EXISTS_PROD]) >>
   strip_tac >- rw[] >>
   strip_tac >- (
     rw[exp_to_Cexp_def,v_to_Cv_def,
-       exps_to_Cexps_MAP,
-       evaluate_list_with_error,Cevaluate_con,
-       Cevaluate_list_with_Cevaluate,Cevaluate_list_with_error] >>
-    fs[] >>
-    `∀n. n < LENGTH es ⇒ FV (EL n es) ⊆ set (MAP FST env)` by (
-      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
-      PROVE_TAC[] ) >>
-    rpt (qpat_assum `X < LENGTH es` mp_tac) >> rw[] >>
-    fsrw_tac[ARITH_ss][] >>
-    first_x_assum (qspec_then `m` strip_assume_tac) >>
-    qpat_assum `good_cmap cenv m` assume_tac >> fs[] >>
-    qmatch_assum_rename_tac `Cevaluate FEMPTY Cenv (exp_to_Cexp m (EL k es)) (Rerr err)`["Cenv"] >>
-    qexists_tac `k` >> fs[EL_MAP] >>
-    qx_gen_tac `z` >> strip_tac >>
-    qpat_assum `∀m. m < k ⇒ P` (qspec_then `z` mp_tac) >> rw[] >>
-    first_x_assum (qspec_then `m` strip_assume_tac) >>
-    fsrw_tac[ARITH_ss][EL_MAP] >>
-    PROVE_TAC[] ) >>
+       exps_to_Cexps_MAP,Cevaluate_con] >>
+    fsrw_tac[ETA_ss][] >>
+    first_x_assum (qspec_then `m` mp_tac) >>
+    rw[EXISTS_PROD]) >>
   strip_tac >- (
     fs[exp_to_Cexp_def,MEM_MAP,pairTheory.EXISTS_PROD,env_to_Cenv_MAP] >>
     rpt gen_tac >> rpt (disch_then strip_assume_tac) >> qx_gen_tac `m` >>
@@ -393,6 +385,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     srw_tac[DNF_ss][Once syneq_cases] >>
     rw[FINITE_has_fresh_string,fresh_var_not_in]) >>
   strip_tac >- (
+
     ntac 2 gen_tac >>
     Cases >> fs[exp_to_Cexp_def] >>
     qx_gen_tac `e1` >>
