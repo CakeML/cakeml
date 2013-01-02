@@ -385,7 +385,58 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     srw_tac[DNF_ss][Once syneq_cases] >>
     rw[FINITE_has_fresh_string,fresh_var_not_in]) >>
   strip_tac >- (
-
+    rw[exp_to_Cexp_def,LET_THM] >> fs[] >>
+    rw[Once Cevaluate_cases] >>
+    fsrw_tac[DNF_ss][EXISTS_PROD] >>
+    first_x_assum(qspec_then`m`mp_tac)>>simp[]>>
+    disch_then(Q.X_CHOOSE_THEN`s0`mp_tac)>>
+    disch_then(Q.X_CHOOSE_THEN`v0`strip_assume_tac)>>
+    CONV_TAC SWAP_EXISTS_CONV >>qexists_tac`s0`>>
+    CONV_TAC SWAP_EXISTS_CONV >>qexists_tac`v0`>>
+    simp[] >>
+    fs[do_uapp_def,LET_THM,store_alloc_def] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    fs[v_to_Cv_def,LET_THM] >- (
+      BasicProvers.VAR_EQ_TAC >>
+      BasicProvers.VAR_EQ_TAC >>
+      fs[v_to_Cv_def] >>
+      simp[Once syneq_cases] >>
+      fs[fmap_rel_def] >>
+      reverse conj_asm2_tac >- (
+        numLib.LEAST_ELIM_TAC >>
+        qabbrev_tac`n = LENGTH s2` >>
+        conj_tac >- (
+          qexists_tac`SUC n` >>
+          srw_tac[ARITH_ss][] ) >>
+        qx_gen_tac`a` >>
+        srw_tac[ARITH_ss][] >>
+        Cases_on`n < a` >- (res_tac >> fs[]) >>
+        DECIDE_TAC ) >>
+      fs[] >>
+      conj_tac >- (
+        srw_tac[ARITH_ss][EXTENSION] ) >>
+      simp[FAPPLY_store_to_Cstore,FAPPLY_FUPDATE_THM] >>
+      fs[FAPPLY_store_to_Cstore] >>
+      qx_gen_tac`x` >>
+      Cases_on`x < LENGTH s2` >- (
+        srw_tac[ARITH_ss][] >>
+        rw[rich_listTheory.EL_APPEND1] ) >>
+      strip_tac >>
+      `x = LENGTH s2` by DECIDE_TAC >>
+      fs[] >>
+      simp[rich_listTheory.EL_LENGTH_APPEND] ) >>
+    fs[Q.SPECL[`FEMPTY`,`CLoc n`]syneq_cases]
+    rpt BasicProvers.VAR_EQ_TAC >>
+    fs[fmap_rel_def,store_lookup_def] >>
+    simp[FLOOKUP_DEF] >>
+    BasicProvers.VAR_EQ_TAC >>
+    fs[FAPPLY_store_to_Cstore] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def,LET_THM,EXISTS_PROD] >>
+    rw[Once Cevaluate_cases] >>
+    fsrw_tac[DNF_ss][] ) >>
+  strip_tac >- (
     ntac 2 gen_tac >>
     Cases >> fs[exp_to_Cexp_def] >>
     qx_gen_tac `e1` >>
@@ -394,16 +445,27 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       rw[Once Cevaluate_cases] >>
       fsrw_tac[DNF_ss][] >>
       disj1_tac >>
-      rw[Cevaluate_list_with_Cevaluate] >>
-      rw[Cevaluate_list_with_cons] >>
+      rw[Once(CONJUNCT2 Cevaluate_cases)] >> fsrw_tac[DNF_ss][] >>
+      rw[Once(CONJUNCT2 Cevaluate_cases)] >> fsrw_tac[DNF_ss][] >>
+      rw[Once(CONJUNCT2 Cevaluate_cases)] >> fsrw_tac[DNF_ss][] >>
       rpt (first_x_assum (qspec_then `m` mp_tac)) >>
       rw[] >>
       qmatch_assum_rename_tac `syneq FEMPTY (v_to_Cv m v1) w1`[] >>
+      qspecl_then[`cenv`,`s`,`env`,`e1`,`(s',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+      simp[] >> strip_tac >> fs[] >>
       qmatch_assum_rename_tac `syneq FEMPTY (v_to_Cv m v2) w2`[] >>
+      qmatch_assum_rename_tac`SND r1 = Rval w1`[] >>
+      qmatch_assum_rename_tac`SND r2 = Rval w2`[] >>
+
+      Cevaluate_any_syneq_store
+
+      qexists_tac`FST` >>
       qexists_tac `w1` >>
       qexists_tac `w2` >>
-      fs[] >>
-      qmatch_assum_rename_tac `do_app env (Opn opn) v1 v2 = SOME (env',exp'')` [] >>
+      qexists_tac`store_to_Cstore m s'` >>
+      Cases_on`r1`>>Cases_on`r2`>>
+      fs[] >> rpt BasicProvers.VAR_EQ_TAC >> fs[]
+      qmatch_assum_rename_tac `do_app s3 env (Opn opn) v1 v2 = SOME (s4,env',exp'')` [] >>
       Cases_on `opn` >>
       Cases_on `v1` >> Cases_on `l` >> fs[MiniMLTheory.do_app_def] >>
       Cases_on `v2` >> Cases_on `l` >> fs[] >> rw[] >>
