@@ -231,6 +231,20 @@ val FRANGE_store_to_Cstore = store_thm("FRANGE_store_to_Cstore",
   qexists_tac`SUC k` >>
   rw[FAPPLY_store_to_Cstore])
 
+val do_app_Opn_SOME = store_thm("do_app_Opn_SOME",
+  ``(do_app s env (Opn opn) v1 v2 = SOME (s',env',exp')) =
+    ((s' = s) ∧ (env' = env) ∧
+     ∃n1 n2. (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
+      (exp' =
+       if (n2 = 0) ∧ ((opn = Divide) ∨ (opn = Modulo)) then
+         Raise Div_error
+       else Lit (IntLit (opn_lookup opn n1 n2))))``,
+  Cases_on`opn`>>
+  Cases_on`v1`>>TRY(Cases_on`l`)>>
+  Cases_on`v2`>>TRY(Cases_on`l`)>>
+  rw[do_app_def,opn_lookup_def] >>
+  rw[EQ_IMP_THM])
+
 val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   ``(∀cenv s env exp res. evaluate cenv s env exp res ⇒
      (EVERY closed s) ∧
@@ -425,7 +439,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       `x = LENGTH s2` by DECIDE_TAC >>
       fs[] >>
       simp[rich_listTheory.EL_LENGTH_APPEND] ) >>
-    fs[Q.SPECL[`FEMPTY`,`CLoc n`]syneq_cases]
+    fs[Q.SPECL[`FEMPTY`,`CLoc n`]syneq_cases] >>
     rpt BasicProvers.VAR_EQ_TAC >>
     fs[fmap_rel_def,store_lookup_def] >>
     simp[FLOOKUP_DEF] >>
@@ -456,22 +470,74 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       qmatch_assum_rename_tac `syneq FEMPTY (v_to_Cv m v2) w2`[] >>
       qmatch_assum_rename_tac`SND r1 = Rval w1`[] >>
       qmatch_assum_rename_tac`SND r2 = Rval w2`[] >>
-
-      Cevaluate_any_syneq_store
-
-      qexists_tac`FST` >>
-      qexists_tac `w1` >>
-      qexists_tac `w2` >>
-      qexists_tac`store_to_Cstore m s'` >>
-      Cases_on`r1`>>Cases_on`r2`>>
-      fs[] >> rpt BasicProvers.VAR_EQ_TAC >> fs[]
+      qmatch_assum_abbrev_tac`Cevaluate FEMPTY sa enva e1a r1` >>
+      qmatch_assum_abbrev_tac`Cevaluate FEMPTY sb enva e2a r2` >>
+      qspecl_then[`FEMPTY`,`sb`,`FST r1`,`enva`,`e2a`,`r2`]mp_tac Cevaluate_any_syneq_store >>
+      `∀v. v ∈ FRANGE enva ⇒ Cclosed FEMPTY v` by (
+        unabbrev_all_tac >>
+        match_mp_tac IN_FRANGE_alist_to_fmap_suff >>
+        simp[env_to_Cenv_MAP,MAP_MAP_o,combinTheory.o_DEF,MEM_MAP,EXISTS_PROD] >>
+        srw_tac[DNF_ss][] >>
+        match_mp_tac (CONJUNCT1 v_to_Cv_closed) >>
+        fs[EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD] >>
+        metis_tac[] ) >>
+      `free_vars FEMPTY e2a ⊆ FDOM enva` by (
+        unabbrev_all_tac >>
+        fsrw_tac[DNF_ss][SUBSET_DEF] >>
+        simp[env_to_Cenv_MAP,MAP_MAP_o,combinTheory.o_DEF,FST_pair,LAMBDA_PROD]) >>
+      qspecl_then[`FEMPTY`,`sb`,`enva`,`e2a`,`r2`]mp_tac(CONJUNCT1 Cevaluate_closed) >>
+      `∀v. v ∈ FRANGE sb ⇒ Cclosed FEMPTY v` by (
+        unabbrev_all_tac >>
+        simp[FRANGE_store_to_Cstore,MEM_MAP] >>
+        fsrw_tac[DNF_ss][EVERY_MEM] >> rw[] >>
+        match_mp_tac (CONJUNCT1 v_to_Cv_closed) >>
+        rw[] ) >>
+      qspecl_then[`FEMPTY`,`sa`,`enva`,`e1a`,`r1`]mp_tac(CONJUNCT1 Cevaluate_closed) >>
+      `free_vars FEMPTY e1a ⊆ FDOM enva` by (
+        unabbrev_all_tac >>
+        fsrw_tac[DNF_ss][SUBSET_DEF] >>
+        simp[env_to_Cenv_MAP,MAP_MAP_o,combinTheory.o_DEF,FST_pair,LAMBDA_PROD])>>
+      `∀v. v ∈ FRANGE sa ⇒ Cclosed FEMPTY v` by (
+        unabbrev_all_tac >>
+        simp[FRANGE_store_to_Cstore,MEM_MAP] >>
+        fsrw_tac[DNF_ss][EVERY_MEM] >> rw[] >>
+        match_mp_tac (CONJUNCT1 v_to_Cv_closed) >>
+        rw[] ) >>
+      simp[] >> strip_tac >> strip_tac >>
+      disch_then(Q.X_CHOOSE_THEN`r3`strip_assume_tac) >>
+      qmatch_assum_rename_tac`syneq FEMPTY w2 w3`[] >>
       qmatch_assum_rename_tac `do_app s3 env (Opn opn) v1 v2 = SOME (s4,env',exp'')` [] >>
-      Cases_on `opn` >>
-      Cases_on `v1` >> Cases_on `l` >> fs[MiniMLTheory.do_app_def] >>
-      Cases_on `v2` >> Cases_on `l` >> fs[] >> rw[] >>
-      fs[CevalPrim2_def,doPrim2_def,exp_to_Cexp_def,MiniMLTheory.opn_lookup_def,i0_def,v_to_Cv_def] >>
-      rw[] >> fs[v_to_Cv_def,Q.SPECL[`FEMPTY`,`CLitv (IntLit x)`]syneq_cases,i0_def] >>
-      rw[] >> fs[] >> rw[] >> fs[] >> rw[v_to_Cv_def])
+      qspecl_then[`cenv`,`s'`,`env`,`e2`,`(s3,Rval v2)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+      simp[] >> strip_tac >>
+      qspecl_then[`s3`,`s4`,`env`,`Opn opn`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
+      simp[] >> strip_tac >> fs[] >>
+      fs[do_app_Opn_SOME] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      qexists_tac`FST r3` >>
+      qexists_tac `w1` >>
+      qexists_tac `w3` >>
+      qexists_tac`FST r1` >>
+      PairCases_on`r1`>>PairCases_on`r3`>>
+      fs[] >> rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+      PairCases_on`res`>>fs[] >>
+      PairCases_on`Cres`>>fs[] >>
+      PairCases_on`r2`>>fs[] >>
+      fs[v_to_Cv_def,Q.SPECL[`FEMPTY`,`CLitv (IntLit x)`]syneq_cases,i0_def] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      fs[v_to_Cv_def,Q.SPECL[`FEMPTY`,`CLitv (IntLit x)`]syneq_cases,i0_def] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      rpt(qpat_assum`T`kall_tac) >>
+      `res0 = s3` by (
+        qpat_assum`evaluate cenv s3 env X Y`mp_tac >>
+        BasicProvers.CASE_TAC >>
+        simp[Once evaluate_cases] ) >>
+      BasicProvers.VAR_EQ_TAC >>
+      qabbrev_tac`sc = store_to_Cstore m res0` >>
+      `fmap_rel (syneq FEMPTY) sc r30` by
+        metis_tac[fmap_rel_syneq_trans] >>
+      Cases_on`opn`>>fs[]>>
+      fs[v_to_Cv_def,opn_lookup_def,i0_def] >>
+      Cases_on`n2=0`>>fs[v_to_Cv_def] )
     >- (
       qmatch_assum_rename_tac `do_app env (Opb opb) v1 v2 = SOME (env',exp'')` [] >>
       fs[] >>
