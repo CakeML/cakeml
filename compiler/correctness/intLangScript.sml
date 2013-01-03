@@ -1804,14 +1804,12 @@ Cevaluate_any_env
 |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 |> Q.GENL[`res`,`exp`,`env'`,`env`,`s`,`c`])
 
-(*
 val Cevaluate_FUPDATE_Rerr = save_thm(
 "Cevaluate_FUPDATE_Rerr",
 Cevaluate_FUPDATE
-|> Q.SPECL[`c`,`env`,`exp`,`Rerr err`]
-|> SIMP_RULE (srw_ss()) []
-|> Q.GEN`err` |> Q.GEN`exp` |> Q.GEN`env`)
-*)
+|> Q.SPECL[`c`,`s`,`env`,`exp`,`(s',Rerr err)`]
+|> SIMP_RULE (srw_ss()) [EXISTS_PROD]
+|> Q.GENL[`err`,`s'`,`exp`,`env`,`s`,`c`])
 
 (* Cevaluate deterministic *)
 
