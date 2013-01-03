@@ -1789,6 +1789,20 @@ Cevaluate_any_env
 |> SIMP_RULE(srw_ss())[AND_IMP_INTRO]
 |> Q.GENL[`res`,`exp`,`env`,`s'`,`s`,`c`])
 
+val Cevaluate_any_syneq_env = save_thm(
+"Cevaluate_any_syneq_env",
+Cevaluate_any_env
+|> CONJUNCT1
+|> SPEC_ALL
+|> UNDISCH_ALL
+|> Q.SPECL[`s`,`env'`]
+|> UNDISCH_ALL
+|> Q.SPEC`env'`
+|> DISCH_ALL
+|> SIMP_RULE (srw_ss()) [DRESTRICT_FUNION_SAME]
+|> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+|> Q.GENL[`res`,`exp`,`env'`,`env`,`s`,`c`])
+
 (*
 val Cevaluate_FUPDATE_Rerr = save_thm(
 "Cevaluate_FUPDATE_Rerr",
@@ -1796,35 +1810,6 @@ Cevaluate_FUPDATE
 |> Q.SPECL[`c`,`env`,`exp`,`Rerr err`]
 |> SIMP_RULE (srw_ss()) []
 |> Q.GEN`err` |> Q.GEN`exp` |> Q.GEN`env`)
-
-
-val Cevaluate_syneq_env = save_thm(
-"Cevaluate_syneq_env",
-Cevaluate_any_env
-|> SPEC_ALL
-|> UNDISCH_ALL
-|> SPEC_ALL
-|> UNDISCH_ALL
-|> Q.SPEC`FEMPTY`
-|> SIMP_RULE (srw_ss()) [FUNION_FEMPTY_2]
-|> DISCH_ALL
-|> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
-|> Q.GEN`res` |> Q.GEN`exp` |> Q.GEN`env` |> Q.GEN`env'` |> Q.GEN`c`)
-
-val Cevaluate_any_syneq_env = store_thm("Cevaluate_any_syneq_env",
-  ``∀env' env exp res.
-     Cevaluate c env exp res ∧ fmap_rel (syneq c) env env' ∧
-     (∀v. v ∈ FRANGE env' ⇒ Cclosed c v) ∧
-     free_vars c exp ⊆ FDOM env ∧
-     free_vars c exp ⊆ FDOM env' ∧
-     (∀v. v ∈ FRANGE env ⇒ Cclosed c v) ⇒
-     ∃res'. Cevaluate c env' exp res' ∧ result_rel (syneq c) res res'``,
-   rw[] >>
-   qspecl_then[`c`,`env'`,`env`,`exp`,`res`] mp_tac Cevaluate_syneq_env >>
-   rw[] >>
-   qspecl_then[`c`,`env'`,`exp`,`res'`] mp_tac Cevaluate_any_super_env >>
-   rw[] >>
-   metis_tac[result_rel_syneq_trans])
 *)
 
 (* Cevaluate deterministic *)
