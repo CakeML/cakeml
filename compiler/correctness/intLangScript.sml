@@ -382,7 +382,8 @@ val CevalPrim2_syneq_store = store_thm("CevalPrim2_syneq_store",
   Cases >> TRY (Cases_on`l`) >>
   Cases >> TRY (Cases_on`l`) >>
   rw[] >> fs[fmap_rel_def] >>
-  rw[FAPPLY_FUPDATE_THM])
+  rw[FAPPLY_FUPDATE_THM] >>
+  PROVE_TAC[])
 
 val doPrim2_syneq = store_thm(
 "doPrim2_syneq",

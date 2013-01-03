@@ -216,7 +216,9 @@ val _ = Defn.save_defn doPrim2_defn;
 /\
 (CevalPrim2 CUpd = \ s v1 v2 .
   (case v1 of
-    CLoc n => (((FUPDATE  s) ( n, v2)),( Rval ((CLitv Unit))))
+    CLoc n => if  n IN( FDOM  s)
+    then (((FUPDATE  s) ( n, v2)),( Rval ((CLitv Unit))))
+    else (s,( Rerr Rtype_error))
   | _ => (s,( Rerr Rtype_error))
   ))`;
 
