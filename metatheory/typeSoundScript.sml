@@ -679,11 +679,25 @@ rw [check_freevars_def, deBruijn_subst_def, EVERY_MAP] >>
 fs [EVERY_MEM, MEM_EL] >>
 metis_tac []);
 
-(*
-val type_e_subst = Q.prove (
-`!tenvC tenv e t. type_e tenvC tenv e t ⇒
-  type_e tenvC 
-  *)
+val type_e_subst_lem = Q.prove (
+`(∀tenvC tenvE e t targs tvs targs'.
+  type_e tenvC (bind_tenv x 0 t1 (bind_tvar (LENGTH targs) tenvE)) e t ∧
+  (num_tvs tenvE = 0) ∧ 
+  tenvC_ok tenvC ∧ 
+  tenv_ok (bind_tvar (LENGTH targs) tenvE) ∧
+  EVERY (check_freevars tvs []) targs ∧
+  check_freevars (LENGTH targs) [] t1
+  ⇒
+  type_e tenvC (bind_tenv x 0 (deBruijn_subst 0 targs t1) (bind_tvar tvs tenvE)) (deBruijn_subst_e 0 targs e) (deBruijn_subst 0 targs t))`,
+rw [bind_tenv_def] >>
+match_mp_tac ((SIMP_RULE (srw_ss()) [bind_tenv_def, num_tvs_def, deBruijn_subst_tenvE_def, db_merge_def, deBruijn_inc0] o
+               Q.SPECL [`tenvC`, `e`, `t`, `bind_tenv x 0 t1 Empty`] o
+               SIMP_RULE (srw_ss()) [GSYM RIGHT_FORALL_IMP_THM, AND_IMP_INTRO] o
+               hd o
+               CONJUNCTS)
+              type_e_subst) >>
+rw [tenv_ok_def, bind_tvar_def, num_tvs_def] >>
+metis_tac []);
 
 val type_subst = Q.prove (
 `∀targs v tenvC senv tvs t.
@@ -708,7 +722,11 @@ rw [nil_deBruijn_inc, deBruijn_subst_check_freevars, type_subst_lem3,
      rw [] >>
      metis_tac [type_subst_lem1, EVERY_MEM],
  cheat,
- cheat,
+ qexists_tac `tenv` >>
+     rw [] >>
+     match_mp_tac type_e_subst_lem >>
+     rw [tenv_ok_def, bind_tvar_def] >>
+     metis_tac [type_v_freevars],
  cheat]);
 
 (* They value of a binding in the execution environment has the type given by
