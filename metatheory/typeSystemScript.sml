@@ -145,7 +145,7 @@ rw [check_freevars_def, type_subst_def, EVERY_MAP] >|
           fs [EVERY_MEM]],
  fs [EVERY_MEM]]);
 
-val check_freevars_subst_list = Q.prove (
+val check_freevars_subst_list = Q.store_thm ("check_freevars_subst_list",
 `!dbmax tvs tvs' ts ts'.
   (LENGTH tvs = LENGTH ts) ∧
   EVERY (check_freevars dbmax tvs) ts' ∧
@@ -215,7 +215,7 @@ rw [num_tvs_def, bind_var_list_def] >>
 PairCases_on `h` >>
 rw [bind_var_list_def, bind_tenv_def, num_tvs_def]);
 
-val type_freevars_lem3 = Q.prove (
+val tenv_ok_bind_var_list = Q.store_thm ("tenv_ok_bind_var_list",
 `!funs tenvC env tenvE tvs env'.
   type_funs tenvC (bind_var_list 0 env' tenvE) funs env ∧
   tenv_ok tenvE
@@ -302,7 +302,7 @@ rw [check_freevars_def, bind_tenv_def, num_tvs_def, type_uop_def, type_op_def,
      qpat_assum `!x. P x` (ASSUME_TAC o Q.SPEC `(FST h, SND h)`) >>
      fs [] >>
      metis_tac [type_p_freevars, type_freevars_lem5],
- metis_tac [type_freevars_lem3, num_tvs_bind_var_list],
+ metis_tac [tenv_ok_bind_var_list, num_tvs_bind_var_list],
  metis_tac [type_freevars_lem4, num_tvs_bind_var_list, bind_tvar_def]]);
 
 (* Recursive functions have function type *)
@@ -534,7 +534,7 @@ rw [deBruijn_subst_def, deBruijn_inc_def, type_subst_def, check_freevars_def] >|
      fs [EVERY_MEM] >>
      metis_tac []]);
 
-val type_subst_deBruijn_subst_list = Q.prove (
+val type_subst_deBruijn_subst_list = Q.store_thm ("type_subst_deBruijn_subst_list",
 `!t tvs tvs' ts ts' ts'' inc.
   (LENGTH tvs = LENGTH ts) ∧
   EVERY (check_freevars 0 tvs) ts'' ⇒
@@ -543,6 +543,38 @@ val type_subst_deBruijn_subst_list = Q.prove (
 induct_on `ts''` >>
 rw [] >>
 metis_tac [type_subst_deBruijn_subst_single]);
+
+val type_subst_deBruijn_inc_single = Q.prove (
+`!s t ts tvs inc sk.
+  (LENGTH tvs = LENGTH ts) ∧
+  (s = (ZIP (tvs,ts))) ∧
+  check_freevars 0 tvs t ⇒
+  (deBruijn_inc sk inc (type_subst s t) =
+   type_subst (ZIP (tvs, MAP (\t. deBruijn_inc sk inc t) ts)) t)`,
+recInduct type_subst_ind >>
+rw [deBruijn_inc_def, type_subst_def, check_freevars_def] >|
+[every_case_tac >>
+     rw [deBruijn_inc_def] >|
+     [imp_res_tac MAP_ZIP >>
+          fs [lookup_notin],
+      metis_tac [lookup_zip_map, optionTheory.OPTION_MAP_DEF, optionTheory.NOT_SOME_NONE],
+      `lookup tv (ZIP (tvs, MAP (λt. deBruijn_inc sk inc t) ts)) =
+       OPTION_MAP (λt. deBruijn_inc sk inc t) (SOME x)`
+                     by metis_tac [lookup_zip_map] >>
+          fs []],
+ rw [rich_listTheory.MAP_EQ_f, MAP_MAP_o] >>
+     fs [EVERY_MEM] >>
+     metis_tac []]);
+
+val type_subst_deBruijn_inc_list = Q.store_thm ("type_subst_deBruijn_inc_list",
+`!ts' ts tvs inc sk.
+  (LENGTH tvs = LENGTH ts) ∧
+  EVERY (check_freevars 0 tvs) ts' ⇒
+  (MAP (deBruijn_inc sk inc) (MAP (type_subst (ZIP (tvs,ts))) ts') =
+   MAP (type_subst (ZIP (tvs, MAP (\t. deBruijn_inc sk inc t) ts))) ts')`,
+induct_on `ts'` >>
+rw [] >>
+metis_tac [type_subst_deBruijn_inc_single]);
 
 val lookup_tenv_subst_none = Q.prove (
 `!n inc e.
@@ -813,7 +845,7 @@ ho_match_mp_tac pat_induction >>
 rw [pat_bindings_def, deBruijn_subst_p_def] >>
 metis_tac []);
 
-val deBruijn_subst_E_bind_var_list = Q.prove (
+val deBruijn_subst_E_bind_var_list = Q.store_thm ("deBruijn_subst_E_bind_var_list",
 `!tenv1 tenv2 tvs. 
   deBruijn_subst_tenvE targs (bind_var_list tvs tenv1 tenv2) 
   =
@@ -825,7 +857,7 @@ rw [bind_var_list_def] >>
 PairCases_on `h` >>
 rw [bind_var_list_def, deBruijn_subst_tenvE_def, bind_tenv_def, num_tvs_bind_var_list]);
 
-val db_merge_bind_var_list = Q.prove (
+val db_merge_bind_var_list = Q.store_thm ("db_merge_bind_var_list",
 `!tenv1 tenv2 tenv3 tvs.
   db_merge (bind_var_list tvs tenv1 tenv2) tenv3
   =
@@ -1120,7 +1152,7 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
           fs [] >>
           rw [] >>
           pop_assum match_mp_tac >>
-          match_mp_tac type_freevars_lem3 >>
+          match_mp_tac tenv_ok_bind_var_list >>
           rw [bind_tvar_rewrites] >>
           metis_tac [],
       qpat_assum `∀tenvE1' targs' tvs''.

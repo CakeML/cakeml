@@ -699,16 +699,42 @@ match_mp_tac ((SIMP_RULE (srw_ss()) [bind_tenv_def, num_tvs_def, deBruijn_subst_
 rw [tenv_ok_def, bind_tvar_def, num_tvs_def] >>
 metis_tac []);
 
+val type_funs_subst_lem = 
+(Q.GEN `tenvE2` o
+ SIMP_RULE (srw_ss()) [bind_tenv_def, num_tvs_def, deBruijn_subst_tenvE_def,
+                       db_merge_def, deBruijn_inc0, num_tvs_bind_var_list,
+                       db_merge_bind_var_list, option_map_def,
+                       deBruijn_subst_E_bind_var_list] o
+ Q.SPECL [`tenvC`, `e`, `t`, `bind_var_list 0 tenv' Empty`] o
+ SIMP_RULE (srw_ss()) [GSYM RIGHT_FORALL_IMP_THM, AND_IMP_INTRO] o
+ hd o
+ tl o
+ tl o
+ CONJUNCTS)
+type_e_subst;
+
 val type_subst = Q.prove (
-`∀targs v tenvC senv tvs t.
-  tenvC_ok tenvC ∧
-  EVERY (check_freevars tvs []) targs ∧
-  check_freevars (LENGTH targs) [] t ∧
-  type_v (LENGTH targs) tenvC senv v t
-  ⇒
-  type_v tvs tenvC senv (deBruijn_subst_v targs v)
-         (deBruijn_subst 0 targs (deBruijn_inc (LENGTH targs) tvs t))`,
-ho_match_mp_tac deBruijn_subst_v_ind >>
+`(!tvs tenvC senv v t. type_v tvs tenvC senv v t ⇒
+    ∀targs tvs'.
+      (tvs = LENGTH targs) ∧
+      tenvC_ok tenvC ∧
+      EVERY (check_freevars tvs' []) targs ∧
+      check_freevars (LENGTH targs) [] t
+      ⇒
+      type_v tvs' tenvC senv (deBruijn_subst_v targs v)
+             (deBruijn_subst 0 targs (deBruijn_inc (LENGTH targs) tvs' t))) ∧
+(!tvs tenvC senv vs ts. type_vs tvs tenvC senv vs ts ⇒
+   ∀targs tvs'.
+     (tvs = LENGTH targs) ∧
+     tenvC_ok tenvC ∧
+     EVERY (check_freevars tvs' []) targs ∧
+     EVERY (check_freevars (LENGTH targs) []) ts
+     ⇒
+     type_vs tvs' tenvC senv (MAP (deBruijn_subst_v targs) vs)
+             (MAP (deBruijn_subst 0 targs) (MAP (deBruijn_inc (LENGTH targs) tvs') ts))) ∧
+(!tenvC senv env tenv. type_env tenvC senv env tenv ⇒ 
+    type_env tenvC senv env tenv)`,
+ho_match_mp_tac type_v_strongind >>
 rw [deBruijn_subst_v_def] >>
 rw [Once type_v_cases] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
@@ -721,13 +747,44 @@ rw [nil_deBruijn_inc, deBruijn_subst_check_freevars, type_subst_lem3,
      fs [EVERY_MEM] >>
      rw [] >>
      metis_tac [type_subst_lem1, EVERY_MEM],
- cheat,
+ `EVERY (check_freevars 0 tvs') ts` by metis_tac [tenvC_ok_lookup, EVERY_MEM] >>
+     `EVERY (check_freevars (LENGTH targs) tvs') ts`
+           by (`LENGTH targs ≥ 0` by decide_tac >>
+               metis_tac [EVERY_MEM, check_freevars_add]) >>
+     `type_vs tvs'' tenvC senv (MAP (deBruijn_subst_v targs) vs)
+              (MAP (deBruijn_subst 0 targs)
+                 (MAP (deBruijn_inc (LENGTH targs) tvs'')
+                    (MAP (type_subst (ZIP (tvs',ts'))) ts)))`
+            by metis_tac [check_freevars_subst_list] >>
+     pop_assum mp_tac >>
+     rw [type_subst_deBruijn_subst_list, type_subst_deBruijn_inc_list] >>
+     metis_tac [],
  qexists_tac `tenv` >>
      rw [] >>
      match_mp_tac type_e_subst_lem >>
      rw [tenv_ok_def, bind_tvar_def] >>
      metis_tac [type_v_freevars],
- cheat]);
+ qexists_tac `tenv` >>
+     qexists_tac `MAP (λ(x,t). (x,deBruijn_subst 0 targs t)) tenv'` >>
+     rw [] >|
+     [match_mp_tac type_funs_subst_lem >>
+          rw [] >-
+          metis_tac [type_v_freevars] >>
+          match_mp_tac tenv_ok_bind_var_list >>
+          metis_tac [tenv_ok_bind_var_list, type_v_freevars, bind_tvar_rewrites],
+      qpat_assum `type_funs w x y z` (fn x => ALL_TAC) >>
+          induct_on `tenv'` >>
+          fs [lookup_def] >>
+          rw [] >>
+          PairCases_on `h` >>
+          fs [] >>
+          rw [] >>
+          metis_tac []],
+ fs [bind_def, bind_tenv_def] >>
+     metis_tac [type_v_rules],
+ fs [bind_def, bind_tenv_def] >>
+     rw [Once type_v_cases] >>
+     rw [bind_def, bind_tenv_def]]);
 
 (* They value of a binding in the execution environment has the type given by
  * the type environment. *)
