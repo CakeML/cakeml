@@ -527,7 +527,7 @@ val evaluate_match_with_matchres = store_thm("evaluate_match_with_matchres",
   ``∀pes r. evaluate_match_with P cenv s env v pes r ⇒
             (SND r ≠ Rerr Rtype_error) ⇒
             ((SND r = Rerr (Rraise Bind_error)) ∧
-             evaluate_match_with (matchres env) cenv s env v pes r) ∨
+             evaluate_match_with (matchres env) cenv s env v pes (FST r, Rerr (Rraise Bind_error))) ∨
             ∃s' menv mr. evaluate_match_with (matchres env) cenv s env v pes (s', Rval (menv,mr)) ∧
                       P cenv s (menv++env) mr r``,
   ho_match_mp_tac evaluate_match_with_ind >>
@@ -1388,17 +1388,23 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
             fmap_rel_syneq_trans,fmap_rel_syneq_sym,PAIR_EQ])
 
 val Cpmatch_syneq = store_thm("Cpmatch_syneq",
-  ``(∀p v env. Cpmatch s p v env ⇒ ∀c w. syneq c v w ⇒
-      ∃env'. Cpmatch s p w env' ∧ fmap_rel (syneq c) env env') ∧
-    (∀ps vs env. Cpmatch_list s ps vs env ⇒ ∀c ws. EVERY2 (syneq c) vs ws ⇒
-      ∃env'. Cpmatch_list s ps ws env' ∧ fmap_rel (syneq c) env env')``,
+  ``(∀p v env. Cpmatch s p v env ⇒
+      ∀c s' w. syneq c v w ∧ fmap_rel (syneq c) s s' ⇒
+      ∃env'. Cpmatch s' p w env' ∧ fmap_rel (syneq c) env env') ∧
+    (∀ps vs env. Cpmatch_list s ps vs env ⇒
+      ∀c s' ws. EVERY2 (syneq c) vs ws ∧ fmap_rel (syneq c) s s' ⇒
+      ∃env'. Cpmatch_list s' ps ws env' ∧ fmap_rel (syneq c) env env')``,
   ho_match_mp_tac Cpmatch_ind >>
   strip_tac >- rw[Once Cpmatch_cases,fmap_rel_def] >>
   strip_tac >- rw[Once Cpmatch_cases,Once syneq_cases] >>
   strip_tac >- (
     rw[] >>
     rw[Once Cpmatch_cases] >>
-    Cases_on`w`>>fs[Once (Q.SPECL[`c`,`CLoc n`]syneq_cases)]) >>
+    Cases_on`w`>>fs[Once (Q.SPECL[`c`,`CLoc n`]syneq_cases)] >>
+    fsrw_tac[DNF_ss][] >> rw[] >>
+    `∃w. (FLOOKUP s' n = SOME w) ∧ syneq c v w` by (
+      fs[fmap_rel_def,FLOOKUP_DEF] >> rw[]) >>
+    fs[]) >>
   strip_tac >- (
     rw[Once syneq_cases] >>
     res_tac >>
@@ -1412,8 +1418,12 @@ val Cpmatch_syneq = store_thm("Cpmatch_syneq",
   metis_tac[fmap_rel_FUNION_rels])
 
 val Cpnomatch_syneq = store_thm("Cpnomatch_syneq",
-  ``(∀p v. Cpnomatch s p v ⇒ ∀c w. syneq c v w ⇒ Cpnomatch s p w) ∧
-    (∀ps vs. Cpnomatch_list s ps vs ⇒ ∀c ws. EVERY2 (syneq c) vs ws ⇒ Cpnomatch_list s ps ws)``,
+  ``(∀p v. Cpnomatch s p v ⇒
+      ∀c s' w. syneq c v w ∧ fmap_rel (syneq c) s s' ⇒
+        Cpnomatch s' p w) ∧
+    (∀ps vs. Cpnomatch_list s ps vs ⇒
+      ∀c s' ws. EVERY2 (syneq c) vs ws ∧ fmap_rel (syneq c) s s' ⇒
+        Cpnomatch_list s' ps ws)``,
   ho_match_mp_tac Cpnomatch_ind >>
   rw[] >>
   TRY (
@@ -1423,6 +1433,10 @@ val Cpnomatch_syneq = store_thm("Cpnomatch_syneq",
   TRY (
     fs[Once(Q.SPECL[`c`,`CLoc n`]syneq_cases)]>>
     rw[Once Cpnomatch_cases] >>
+    `∃w. (FLOOKUP s' n = SOME w) ∧ syneq c v w` by (
+      fs[fmap_rel_def,FLOOKUP_DEF] >> rw[] ) >>
+    fs[] >> first_x_assum match_mp_tac >>
+    qexists_tac`c` >> rw[] >>
     NO_TAC) >>
   Cases_on `ws` >> fs[] >>
   rw[Once Cpnomatch_cases] >>
@@ -1431,7 +1445,8 @@ val Cpnomatch_syneq = store_thm("Cpnomatch_syneq",
 
 val Cevaluate_match_syneq = store_thm("Cevaluate_match_syneq",
   ``∀pes env r. Cevaluate_match s v pes env r ⇒
-      ∀c w. syneq c v w ⇒ ∃env'. Cevaluate_match s w pes env' r ∧ fmap_rel (syneq c) env env'``,
+      ∀c s' w. syneq c v w ∧ fmap_rel (syneq c) s s' ⇒
+        ∃env'. Cevaluate_match s' w pes env' r ∧ fmap_rel (syneq c) env env'``,
   ho_match_mp_tac Cevaluate_match_ind >>
   strip_tac >- rw[Once Cevaluate_match_cases] >>
   strip_tac >- (
