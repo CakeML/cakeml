@@ -528,7 +528,7 @@ val evaluate_match_with_matchres = store_thm("evaluate_match_with_matchres",
             (SND r ≠ Rerr Rtype_error) ⇒
             ((SND r = Rerr (Rraise Bind_error)) ∧
              evaluate_match_with (matchres env) cenv s env v pes (FST r, Rerr (Rraise Bind_error))) ∨
-            ∃s' menv mr. evaluate_match_with (matchres env) cenv s env v pes (s', Rval (menv,mr)) ∧
+            ∃menv mr. evaluate_match_with (matchres env) cenv s env v pes (FST r, Rval (menv,mr)) ∧
                       P cenv s (menv++env) mr r``,
   ho_match_mp_tac evaluate_match_with_ind >>
   strip_tac >- rw[Once evaluate_match_with_cases] >>
