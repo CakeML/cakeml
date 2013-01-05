@@ -498,16 +498,16 @@ val pmatch_Cpnomatch = store_thm("pmatch_Cpnomatch",
   rw[pmatch_def])
 
 val matchres_def = Define`
-  matchres env cenv s env' e r = ∃s' env''. (env' = env'' ++ env) ∧ (r = (s', Rval (env'',e)))`
+  matchres env cenv s env' e r = ∃env''. (env' = env'' ++ env) ∧ (r = (s, Rval (env'',e)))`
 
 val evaluate_match_with_Cevaluate_match = store_thm("evaluate_match_with_Cevaluate_match",
   ``∀pes r. evaluate_match_with (matchres env) cenv s env v pes r ⇒
-      ∀s' m. good_cenv cenv ∧ good_cmap cenv m ⇒
-        ((r = (s', Rerr (Rraise Bind_error)))
+      ∀m. good_cenv cenv ∧ good_cmap cenv m ⇒
+        ((r = (s, Rerr (Rraise Bind_error)))
             ⇒ Cevaluate_match (store_to_Cstore m s) (v_to_Cv m v)
                 (MAP (λ(p,e). (SND (pat_to_Cpat m [] p),e)) pes)
                 FEMPTY NONE) ∧
-        ∀s' env' e. (r = (s', Rval (env',e)))
+        ∀env' e. (r = (s, Rval (env',e)))
           ⇒ Cevaluate_match (store_to_Cstore m s) (v_to_Cv m v)
               (MAP (λ(p,e). (SND (pat_to_Cpat m [] p),e)) pes)
               (alist_to_fmap (env_to_Cenv m env')) (SOME e)``,
@@ -527,8 +527,9 @@ val evaluate_match_with_matchres = store_thm("evaluate_match_with_matchres",
   ``∀pes r. evaluate_match_with P cenv s env v pes r ⇒
             (SND r ≠ Rerr Rtype_error) ⇒
             ((SND r = Rerr (Rraise Bind_error)) ∧
-             evaluate_match_with (matchres env) cenv s env v pes (FST r, Rerr (Rraise Bind_error))) ∨
-            ∃menv mr. evaluate_match_with (matchres env) cenv s env v pes (FST r, Rval (menv,mr)) ∧
+             evaluate_match_with (matchres env) cenv s env v pes (s, Rerr (Rraise Bind_error)) ∧
+             (FST r = s)) ∨
+            ∃menv mr. evaluate_match_with (matchres env) cenv s env v pes (s, Rval (menv,mr)) ∧
                       P cenv s (menv++env) mr r``,
   ho_match_mp_tac evaluate_match_with_ind >>
   strip_tac >- rw[Once evaluate_match_with_cases] >>
