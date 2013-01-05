@@ -1893,7 +1893,7 @@ val _ = Hol_reln `
 (! tvs cenv tenv p e t tenv'.(
 is_value e) /\(
 ALL_DISTINCT (((pat_bindings p) []))) /\(((((
-type_p ((num_tvs tenv))) cenv) p) t) tenv') /\((((
+type_p tvs) cenv) p) t) tenv') /\((((
 type_e cenv) (((bind_tvar tvs) tenv))) e) t)
 ==>
 type_d cenv tenv ((((Dlet ((SOME tvs))) p) e)) emp ((((bind_var_list tvs) tenv') tenv)))
@@ -1902,7 +1902,7 @@ type_d cenv tenv ((((Dlet ((SOME tvs))) p) e)) emp ((((bind_var_list tvs) tenv')
 
 (! cenv tenv p e t tenv'.(
 ALL_DISTINCT (((pat_bindings p) []))) /\(((((
-type_p ((num_tvs tenv))) cenv) p) t) tenv') /\((((
+type_p 0) cenv) p) t) tenv') /\((((
 type_e cenv) tenv) e) t)
 ==>
 type_d cenv tenv ((((Dlet ((SOME 0))) p) e)) emp ((((bind_var_list 0) tenv') tenv)))
@@ -2265,14 +2265,14 @@ type_d_state tenvC (envC, s, env, ds, NONE) tenvC' tenv')
 
 /\
 
-(! tenvC senv envC s env ds tenvC' tenv tenv' p s' env' e c t tenv''.((((
+(! tenvC senv envC s env ds tenvC' tenv tenv' p s' env' e c t tenv'' tvs.((((
 type_env tenvC) senv) env) tenv) /\(((
 type_state tenvC) (envC,s',env',e,c)) t) /\(
 ALL_DISTINCT (((pat_bindings p) []))) /\(((((
-type_p ((num_tvs tenv))) tenvC) p) t) tenv') /\(((((
-type_ds tenvC) ((((bind_var_list 0) tenv') tenv))) ds) tenvC') tenv'')
+type_p tvs) tenvC) p) t) tenv') /\(((((
+type_ds tenvC) ((((bind_var_list tvs) tenv') tenv))) ds) tenvC') tenv'')
 ==>
-type_d_state tenvC (envC, s, env, ds,( SOME (p, (envC,s',env',e,c)))) tenvC' tenv'')`;
+type_d_state tenvC (envC, s, env, ds,( SOME ((SOME tvs), p, (envC,s',env',e,c)))) tenvC' tenv'')`;
 
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 

@@ -56,6 +56,17 @@ val tenv_ok_def = Define `
 val tenvC_ok_def = Define `
 tenvC_ok tenvC = EVERY (\(cn,tvs,ts,tn). EVERY (check_freevars 0 tvs) ts) tenvC`;
 
+val get_first_tenv_def = Define `
+  (get_first_tenv ds NONE =
+     case ds of
+        (Dtype tds::ds) => tds
+      | _ => []) ∧
+  (get_first_tenv _ _ = [])`;
+
+val disjoint_env_def = Define `
+  disjoint_env e1 e2 =
+    DISJOINT (set (MAP FST e1)) (set (MAP FST e2))`;
+
 val tenvC_ok_lookup = Q.store_thm ("tenvC_ok_lookup",
 `!tenvC cn tvs ts tn.
   tenvC_ok tenvC ∧ (lookup cn tenvC = SOME (tvs,ts,tn))
@@ -76,8 +87,8 @@ val consistent_con_env_thm = Q.store_thm ("consistent_con_env_thm",
 `∀envC tenvC.
   consistent_con_env envC tenvC 
   ⇒
-  (lookup cn tenvC = SOME (tvs, ts, tn)) ⇒ 
-     (∃ns. (lookup cn envC = SOME (LENGTH ts, ns)) ∧ cn IN ns) 
+  ((lookup cn tenvC = SOME (tvs, ts, tn)) ⇒ 
+     (∃ns. (lookup cn envC = SOME (LENGTH ts, ns)) ∧ cn IN ns))
   ∧
   ((lookup cn tenvC = NONE) ⇒ (lookup cn envC = NONE))`,
 recInduct (fetch "-" "consistent_con_env_ind") >>
@@ -109,6 +120,29 @@ fs [lookup_def] >>
 every_case_tac >>
 fs [] >>
 metis_tac []);
+
+val lookup_in2 = Q.store_thm ("lookup_in2",
+`!x e v. (lookup x e = SOME v) ⇒ MEM x (MAP FST e)`,
+induct_on `e` >>
+rw [lookup_def] >>
+cases_on `h` >>
+fs [lookup_def] >>
+every_case_tac >>
+fs [] >>
+metis_tac []);
+
+val lookup_disjoint = Q.store_thm ("lookup_disjoint",
+`!x v e e'. (lookup x e = SOME v) ∧ disjoint_env e e' ⇒
+  (lookup x (merge e' e) = SOME v)`,
+induct_on `e'` >>
+rw [disjoint_env_def, merge_def, lookup_def] >>
+cases_on `h` >>
+fs [merge_def, lookup_def] >>
+fs [Once DISJOINT_SYM, DISJOINT_INSERT] >>
+`q ≠ x` by metis_tac [lookup_in2] >>
+fs [disjoint_env_def] >>
+metis_tac [DISJOINT_SYM]);
+
 
 val lookup_notin = Q.store_thm ("lookup_notin",
 `!x e. (lookup x e = NONE) = ~MEM x (MAP FST e)`,
@@ -1208,6 +1242,410 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
      rw [] >>
      fs [] >>
      metis_tac [mem_lem]]);
+
+val tenvC_pat_weakening = Q.store_thm ("tenvC_pat_weakening",
+`(!tvs tenvC p t tenv. type_p tvs tenvC p t tenv ⇒
+    !tenvC'. disjoint_env tenvC tenvC' ⇒
+             type_p tvs (merge tenvC' tenvC) p t tenv) ∧
+ (!tvs tenvC ps ts tenv. type_ps tvs tenvC ps ts tenv ⇒
+    !tenvC'. disjoint_env tenvC tenvC' ⇒
+             type_ps tvs (merge tenvC' tenvC) ps ts tenv)`,
+ho_match_mp_tac type_p_ind >>
+rw [] >>
+rw [Once type_p_cases] >>
+metis_tac [lookup_disjoint]);
+
+val tenvC_weakening = Q.store_thm ("tenvC_weakening",
+`(!tenvC tenv e t. type_e tenvC tenv e t ⇒
+    !tenvC'. disjoint_env tenvC tenvC' ⇒ type_e (merge tenvC' tenvC) tenv e t) ∧
+ (!tenvC tenv es ts. type_es tenvC tenv es ts ⇒
+    !tenvC'. disjoint_env tenvC tenvC' ⇒ type_es (merge tenvC' tenvC) tenv es ts) ∧
+ (!tenvC tenv funs tenv'. type_funs tenvC tenv funs tenv' ⇒
+    !tenvC'. disjoint_env tenvC tenvC' ⇒ type_funs (merge tenvC' tenvC) tenv funs tenv')`,
+ho_match_mp_tac type_e_ind >>
+rw [] >>
+rw [Once type_e_cases] >>
+fs [RES_FORALL, FORALL_PROD] >>
+metis_tac [lookup_disjoint, tenvC_pat_weakening]);
+
+
+val check_ctor_tenv_dups_helper1 = Q.prove (
+`∀tenvC l y z.
+  (!x. MEM x l ⇒ (λ(n,ts). lookup n tenvC = NONE) x)
+  ⇒
+  DISJOINT (set (MAP (λx. FST ((λ(cn,ts). (cn,y,ts,z)) x)) l))
+           (set (MAP FST tenvC))`,
+induct_on `l` >>
+rw [] >>
+cases_on `h` >>
+fs [] >>
+`(λ(n,ts). lookup n tenvC = NONE) (q,r)` by metis_tac [] >>
+fs [] >>
+metis_tac [lookup_notin]);
+
+val check_ctor_tenv_dups_helper2 = Q.prove (
+`!tds tenvC.
+  (∀((tvs,tn,condefs)::set tds) ((n,ts)::set condefs). lookup n tenvC = NONE) ⇒
+    disjoint_env tenvC (build_ctor_tenv tds)`,
+induct_on `tds` >>
+rw [build_ctor_tenv_def, disjoint_env_def] >|
+[fs [RES_FORALL] >>
+     cases_on `h` >>
+     fs [] >>
+     cases_on `r` >>
+     fs [] >>
+     `(λ(tvs,tn,condefs).
+         ∀x. MEM x condefs ⇒ (λ(n,ts). lookup n tenvC = NONE) x) (q,q',r')`
+                by metis_tac [] >>
+     fs [MAP_MAP_o, combinTheory.o_DEF] >>
+     metis_tac [check_ctor_tenv_dups_helper1],
+ fs [RES_FORALL] >>
+     `disjoint_env tenvC (build_ctor_tenv tds)` by metis_tac [] >>
+     fs [disjoint_env_def, build_ctor_tenv_def] >>
+     metis_tac [DISJOINT_SYM]]);
+
+val check_ctor_tenv_dups = Q.store_thm ("check_ctor_tenv_dups",
+`!tenvC tds.
+  check_ctor_tenv tenvC tds ⇒ disjoint_env tenvC (build_ctor_tenv tds)`,
+rw [check_ctor_tenv_def, check_dup_ctors_def] >>
+metis_tac [check_ctor_tenv_dups_helper2]);
+
+val disjoint_env_rev = Q.store_thm ("disjoint_env_rev",
+`!tenvC tenvC'. disjoint_env tenvC tenvC' ⇒ disjoint_env tenvC (REVERSE tenvC')`,
+induct_on `tenvC'` >>
+rw [disjoint_env_def] >>
+fs [Once DISJOINT_SYM] >>
+metis_tac [disjoint_env_def, DISJOINT_SYM]);
+
+val consistent_con_append = Q.prove (
+`!envC tenvC.
+  consistent_con_env envC tenvC ⇒
+    ∀envC' tenvC'.
+      consistent_con_env envC' tenvC'
+      ⇒
+      consistent_con_env (envC++envC') (tenvC++tenvC')`,
+ho_match_mp_tac (fetch "-" "consistent_con_env_ind") >>
+rw [consistent_con_env_def] >>
+rw []);
+
+val consistent_con_env_rev = Q.prove (
+`!envC tenvC.
+  consistent_con_env envC tenvC ⇒
+  consistent_con_env (REVERSE envC) (REVERSE tenvC)`,
+ho_match_mp_tac (fetch "-" "consistent_con_env_ind") >>
+rw [consistent_con_env_def] >>
+`consistent_con_env [(cn,LENGTH ts,ns)] [(cn,tvs,ts,tn)]`
+              by rw [consistent_con_env_def] >>
+metis_tac [consistent_con_append]);
+
+val extend_consistent_con = Q.store_thm ("extend_consistent_con",
+`!envC tenvC tds.
+  consistent_con_env envC tenvC
+  ⇒
+  consistent_con_env (build_tdefs tds ++ envC)
+                     (REVERSE (build_ctor_tenv tds) ++ tenvC)`,
+induct_on `tds` >>
+rw [build_tdefs_def, build_ctor_tenv_def] >>
+cases_on `h` >>
+cases_on `r` >>
+fs [] >>
+`!x. (!cn ts. MEM (cn,ts) r' ⇒ MEM (cn,ts) x) ⇒
+  consistent_con_env
+  (MAP (λ(conN,ts). (conN,LENGTH ts,{cn | (cn,ts) | MEM (cn,ts) x})) r')
+  (MAP (λ(cn,ts). (cn,q,ts,q')) r')`
+            by (Induct_on `r'` >>
+                rw [consistent_con_env_def] >>
+                cases_on `h` >>
+                cases_on `r` >>
+                fs [] >>
+                rw [consistent_con_env_def, GSPECIFICATION] >|
+                [qexists_tac `(q'',[])` >>
+                     rw [],
+                 qexists_tac `(q'',h::t)` >>
+                     rw []]) >>
+fs [build_ctor_tenv_def, build_tdefs_def] >>
+metis_tac [consistent_con_append, APPEND_ASSOC, consistent_con_env_rev,
+           REVERSE_APPEND]);
+
+val check_dup_ctors_disj = Q.store_thm ("check_dup_ctors_disj",
+`!tenvC tds.
+  check_dup_ctors tds tenvC ⇒ disjoint_env tenvC (build_ctor_tenv tds)`,
+rw [check_dup_ctors_def] >>
+metis_tac [check_ctor_tenv_dups_helper2]);
+
+val consistent_con_env_destruct_help = Q.prove (
+`!l x y q q' l'.
+  consistent_con_env
+    (MAP (λ(conN,ts). (conN,LENGTH ts,{cn | (cn,ts) | MEM (cn,ts) l'})) l ++ x)
+    (MAP (\(cn,ts). (cn,q,ts,q')) l ++ y)
+  ⇒
+  consistent_con_env x y`,
+induct_on `l` >>
+rw [] >>
+cases_on `h` >>
+fs [consistent_con_env_def] >>
+metis_tac []);
+
+val lookup_append = Q.store_thm ("lookup_append",
+`!x e1 e2.
+  lookup x (e1++e2) =
+     case lookup x e1 of
+        | NONE => lookup x e2
+        | SOME v => SOME v`,
+induct_on `e1` >>
+rw [lookup_def] >>
+every_case_tac >>
+PairCases_on `h` >>
+fs [lookup_def] >>
+rw [] >>
+fs []);
+
+val lookup_append_none = Q.store_thm ("lookup_append_none",
+`!x e1 e2. 
+  (lookup x (e1++e2) = NONE) = (lookup x e1 = NONE) ∧ (lookup x e2 = NONE)`,
+rw [lookup_append] >>
+eq_tac >>
+rw [] >>
+cases_on `lookup x e1` >>
+rw [] >>
+fs []);
+
+val lookup_reverse_none = Q.store_thm ("lookup_reverse_none",
+`!x tenvC.
+  (lookup x (REVERSE tenvC) = NONE) = (lookup x tenvC = NONE)`,
+induct_on `tenvC` >>
+rw [] >>
+cases_on `h` >>
+rw [lookup_def,lookup_append_none]);
+
+val lookup_none_lem = Q.prove (
+`!x h0 h1 h2 h3.
+  (lookup x (MAP (λ(cn,ts). (cn,h0,ts,h1)) h2) = NONE)
+  = 
+  (lookup x (MAP (λ(conN,ts). (conN,LENGTH ts,{cn | (cn,ts) | MEM (cn,ts) h3})) h2) = NONE)`,
+induct_on `h2` >>
+rw [lookup_def] >>
+PairCases_on `h` >>
+rw [lookup_def]);
+  
+
+val lookup_none = Q.store_thm ("lookup_none",
+`!tds tenvC envC x.
+  !x. (lookup x (build_ctor_tenv tds) = NONE) =
+      (lookup x (build_tdefs tds) = NONE)`,
+Induct >>
+rw [] >-
+fs [build_ctor_tenv_def, build_tdefs_def, lookup_def] >>
+rw [build_ctor_tenv_def, build_tdefs_def, lookup_def] >>
+PairCases_on `h` >>
+rw [lookup_append_none, REVERSE_APPEND, lookup_reverse_none] >>
+eq_tac >>
+rw [] >|
+[metis_tac [lookup_none_lem],
+ metis_tac [build_ctor_tenv_def, build_tdefs_def, lookup_reverse_none],
+ metis_tac [lookup_none_lem],
+ metis_tac [build_ctor_tenv_def, build_tdefs_def, lookup_reverse_none]]);
+
+val build_ctor_tenv_empty = Q.store_thm ("build_ctor_tenv_empty",
+`build_ctor_tenv [] = []`,
+rw [build_ctor_tenv_def]);
+
+val build_ctor_tenv_cons = Q.prove (
+`∀tvs tn ctors tds.
+  build_ctor_tenv ((tvs,tn,ctors)::tds) =
+    MAP (λ(cn,ts). (cn,tvs,ts,tn)) ctors ++ build_ctor_tenv tds`,
+rw [build_ctor_tenv_def]);
+
+val lemma = Q.prove (
+`!f a b c. (\(x,y,z). f x y z) (a,b,c) = f a b c`,
+rw []);
+
+val every_conj_tup3 = Q.prove (
+`!P Q l.
+  EVERY (\(x,y,z). P x y z ∧ Q x y z) l =
+  EVERY (\(x,y,z). P x y z) l ∧
+  EVERY (\(x,y,z). Q x y z) l`,
+induct_on `l` >>
+rw [] >>
+cases_on `h` >>
+cases_on `r` >>
+rw [] >>
+metis_tac []);
+
+val check_ctor_tenv_different_types = Q.store_thm ("check_ctor_tenv_different_types",
+`!tenvC tds.
+  EVERY
+    (λ(tvs,tn,ctors).
+       EVERY (λx. case x of (v,v2,v4,tn') => tn ≠ tn') tenvC) tds ∧
+  (lookup n1 tenvC = SOME (tvs1,ts1,tn1)) ∧
+  (lookup n2 (REVERSE (build_ctor_tenv tds)) = SOME (tvs2,ts2,tn2))
+  ⇒
+  (tn1 ≠ tn2)`,
+induct_on `tenvC` >>
+rw [build_ctor_tenv_empty,lookup_def] >>
+cases_on `h` >>
+fs [lookup_def] >>
+every_case_tac >>
+fs [] >>
+rw [] >|
+[induct_on `tds` >>
+     fs [lookup_def,build_ctor_tenv_empty]  >>
+     rw [] >>
+     cases_on `h` >>
+     cases_on `r'` >>
+     fs [build_ctor_tenv_cons, lookup_append, REVERSE_APPEND] >>
+     every_case_tac >>
+     fs [] >>
+     induct_on `r''` >>
+     fs [lookup_def] >>
+     rw [] >>
+     cases_on `h` >>
+     fs [lookup_def] >>
+     every_case_tac >>
+     fs [] >>
+     fs [lookup_append] >>
+     every_case_tac >>
+     fs [lookup_def],
+ fs [every_conj_tup3] >>
+     metis_tac []]);
+
+val build_tdefs_cons = Q.prove (
+`!tvs tn ctors tds.
+  build_tdefs ((tvs,tn,ctors)::tds) =
+    build_tdefs tds ++
+    REVERSE (MAP (\(conN,ts). (conN, LENGTH ts, {cn | (cn,ts) | MEM (cn,ts) ctors}))
+        ctors)`,
+rw [build_tdefs_def]);
+
+val check_dup_ctors_cons = Q.prove (
+`!tvs ts ctors tds tenvC.
+  check_dup_ctors ((tvs,ts,ctors)::tds) tenvC
+  ⇒
+  check_dup_ctors tds tenvC`,
+induct_on `tds` >>
+rw [check_dup_ctors_def, LET_THM, RES_FORALL] >-
+metis_tac [] >-
+metis_tac [] >>
+cases_on `h` >>
+fs [] >>
+pop_assum MP_TAC >>
+pop_assum (fn _ => all_tac) >>
+induct_on `ctors` >>
+rw [] >>
+cases_on `h` >>
+fs []);
+
+val check_ctor_tenv_cons = Q.prove (
+`!tvs ts ctors tds tenvC.
+  check_ctor_tenv tenvC ((tvs,ts,ctors)::tds) ⇒
+  check_ctor_tenv tenvC tds`,
+rw [check_ctor_tenv_def] >>
+metis_tac [check_dup_ctors_cons]);
+
+val lookup_type = Q.prove (
+`!x ctors tn tvs ts tn' tvs'.
+  (lookup x (MAP (λ(cn,ts). (cn,tvs,ts,tn)) ctors) = SOME (tvs',ts,tn'))
+  ⇒
+  (tn = tn')`,
+induct_on `ctors` >>
+rw [lookup_def] >>
+cases_on `h` >>
+fs [lookup_def] >>
+every_case_tac >>
+fs [] >>
+rw [] >>
+metis_tac []);
+
+val lookup_same_ctor_type_help = Q.prove (
+`!tds.
+  (lookup n2 (REVERSE (build_ctor_tenv tds)) = SOME (tvs2,ts2,tn))
+  ⇒
+  MEM tn (MAP (λx. case x of (v,tn,v3) => tn) tds)`,
+Induct >>
+rw [lookup_def,build_ctor_tenv_empty] >>
+cases_on `h` >>
+cases_on `r` >>
+fs [build_ctor_tenv_cons, REVERSE_APPEND] >>
+induct_on `r'` >>
+rw [] >>
+cases_on `h` >>
+fs [lookup_def] >>
+every_case_tac >>
+fs [] >>
+fs [lookup_append] >>
+every_case_tac >>
+fs [lookup_def]);
+
+val lookup_same_ctor_type_help2 = Q.prove (
+`!ctors n1 ns1 r'.
+  (lookup n1
+    (MAP (λ(conN,ts). (conN,LENGTH ts,{cn | (cn,ts) | MEM (cn,ts) r'})) ctors) =
+   SOME (l1,ns1))
+  ⇒
+  (ns1 = {cn | (cn,ts) | MEM (cn,ts) r'})`,
+Induct >>
+rw [lookup_def] >>
+cases_on `h` >>
+fs [lookup_def] >>
+every_case_tac >>
+fs [] >>
+rw [] >>
+metis_tac []);
+
+val lookup_same_ctor_type = Q.store_thm ("lookup_same_ctor_type",
+`!tds.
+  check_ctor_tenv tenvC tds ∧
+  (lookup n1 (REVERSE (build_ctor_tenv tds)) = SOME (tvs1,ts1,tn)) ∧
+  (lookup n2 (REVERSE (build_ctor_tenv tds)) = SOME (tvs2,ts2,tn)) ∧
+  (lookup n1 (build_tdefs tds) = SOME (l1,ns1)) ∧
+  (lookup n2 (build_tdefs tds) = SOME (l2,ns2))
+  ⇒
+  (ns1 = ns2)`,
+Induct >>
+rw [] >-
+fs [build_tdefs_def, lookup_def] >>
+PairCases_on `h` >>
+fs [build_ctor_tenv_cons,build_tdefs_cons, lookup_append,
+    REVERSE_APPEND] >>
+`check_ctor_tenv tenvC tds` by metis_tac [check_ctor_tenv_cons] >>
+every_case_tac >>
+fs [lookup_reverse_none, lookup_none] >>
+rw [] >|
+[metis_tac [lookup_same_ctor_type_help2, rich_listTheory.MAP_REVERSE],
+ metis_tac [lookup_same_ctor_type_help2, rich_listTheory.MAP_REVERSE],
+ metis_tac [lookup_same_ctor_type_help2, rich_listTheory.MAP_REVERSE],
+ metis_tac [lookup_same_ctor_type_help2, rich_listTheory.MAP_REVERSE],
+ `h1 = tn` by metis_tac [lookup_type, rich_listTheory.MAP_REVERSE] >>
+     rw [] >>
+     fs [check_ctor_tenv_def] >>
+     metis_tac [lookup_same_ctor_type_help],
+ metis_tac [lookup_none, optionTheory.NOT_SOME_NONE, lookup_reverse_none],
+ `h1 = tn` by metis_tac [lookup_type, rich_listTheory.MAP_REVERSE] >>
+     rw [] >>
+     fs [check_ctor_tenv_def] >>
+     metis_tac [lookup_same_ctor_type_help],
+ metis_tac [lookup_none, optionTheory.NOT_SOME_NONE, lookup_reverse_none]]);
+
+val extend_consistent_con2 = Q.store_thm ("extend_consistent_con2",
+`!envC tenvC tds.
+  check_ctor_tenv tenvC tds ∧
+  consistent_con_env2 envC tenvC ⇒
+  consistent_con_env2 (build_tdefs tds ++ envC) (REVERSE (build_ctor_tenv tds) ++ tenvC)`,
+rw [consistent_con_env2_def, lookup_append] >>
+every_case_tac >>
+fs [lookup_none, lookup_reverse_none] >-
+metis_tac [] >>
+imp_res_tac check_dup_ctors_disj >|
+[metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none],
+ metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none],
+ metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none],
+ metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none, 
+            check_ctor_tenv_different_types, check_ctor_tenv_def],
+ metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none],
+ metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none, 
+            check_ctor_tenv_different_types, check_ctor_tenv_def],
+ metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none],
+ metis_tac [lookup_same_ctor_type]]);
 
 val _ = export_theory ();
 
