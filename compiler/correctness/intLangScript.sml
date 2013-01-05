@@ -1804,6 +1804,20 @@ Cevaluate_any_env
 |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 |> Q.GENL[`res`,`exp`,`env'`,`env`,`s`,`c`])
 
+val Cevaluate_any_syneq_any = save_thm(
+"Cevaluate_any_syneq_any",
+Cevaluate_any_env
+|> CONJUNCT1
+|> SPEC_ALL
+|> UNDISCH_ALL
+|> Q.SPECL[`s'`,`env'`]
+|> UNDISCH_ALL
+|> Q.SPEC`env'`
+|> DISCH_ALL
+|> SIMP_RULE (srw_ss()) [DRESTRICT_FUNION_SAME]
+|> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+|> Q.GENL[`res`,`exp`,`env'`,`env`,`s'`,`s`,`c`])
+
 val Cevaluate_FUPDATE_Rerr = save_thm(
 "Cevaluate_FUPDATE_Rerr",
 Cevaluate_FUPDATE
