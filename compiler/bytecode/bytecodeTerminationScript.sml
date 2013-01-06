@@ -14,7 +14,13 @@ val _ = save_thm("bc_stack_op_cases",bc_stack_op_cases);
 val _ = save_thm("bc_stack_op_ind",bc_stack_op_ind);
 val _ = save_thm("bool_to_tag_def",bool_to_tag_def);
 val _ = save_thm("bool_to_val_def",bool_to_val_def);
+val _ = save_thm("unit_tag_def",unit_tag_def);
+val _ = save_thm("unit_val_def",unit_val_def);
+val _ = save_thm("closure_tag_def",closure_tag_def);
+val _ = save_thm("block_tag_def",block_tag_def);
 val _ = save_thm("is_Label_def",is_Label_def);
-val _ = export_rewrites["is_Label_def","bool_to_tag_def","bool_to_val_def"];
+val _ = export_rewrites["is_Label_def","bool_to_tag_def","bool_to_val_def",
+                        "unit_tag_def","unit_val_def","closure_tag_def",
+                        "block_tag_def"];
 
 val _ = export_theory()

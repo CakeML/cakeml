@@ -5,14 +5,17 @@ val _ = new_theory "compileCorrectness"
 
 val exp_pred_def = tDefine "exp_pred"`
   (exp_pred (Raise _) = T) ∧
+  (exp_pred (Handle _ _ _) = F) ∧
   (exp_pred (Lit _) = T) ∧
   (exp_pred (Con _ es) = EVERY exp_pred es) ∧
   (exp_pred (Var _) = T) ∧
   (exp_pred (Fun _ _) = F) ∧
+  (exp_pred (Uapp _ _) = F) ∧
   (exp_pred (App (Opn _) e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (App (Opb _) e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (App Equality e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (App Opapp _ _) = F) ∧
+  (exp_pred (App Opassign _ _) = F) ∧
   (exp_pred (Log _ e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (If e1 e2 e3) = exp_pred e1 ∧ exp_pred e2 ∧ exp_pred e3) ∧
   (exp_pred (Mat _ _) = F) ∧
@@ -27,6 +30,7 @@ val _ = export_rewrites["exp_pred_def"]
 val Cexp_pred_def = tDefine "Cexp_pred"`
   (Cexp_pred (CDecl _) = T) ∧
   (Cexp_pred (CRaise _) = T) ∧
+  (Cexp_pred (CHandle _ _ _) = F) ∧
   (Cexp_pred (CVar _) = T) ∧
   (Cexp_pred (CLit _) = T) ∧
   (Cexp_pred (CCon _ es) = EVERY Cexp_pred es) ∧
@@ -36,6 +40,7 @@ val Cexp_pred_def = tDefine "Cexp_pred"`
   (Cexp_pred (CLetfun _ _ _ _) = F) ∧
   (Cexp_pred (CFun _ _) = F) ∧
   (Cexp_pred (CCall _ _) = F) ∧
+  (Cexp_pred (CPrim1 _ _) = F) ∧
   (Cexp_pred (CPrim2 _ e1 e2) = Cexp_pred e1 ∧ Cexp_pred e2) ∧
   (Cexp_pred (CIf e1 e2 e3) = Cexp_pred e1 ∧ Cexp_pred e2 ∧ Cexp_pred e3)`
   (WF_REL_TAC `measure Cexp_size` >>
@@ -237,7 +242,9 @@ val _ = export_rewrites["lookup_ct_def"]
 val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   (Cv_bv pp (CLitv (IntLit k)) (Number k)) ∧
   (Cv_bv pp (CLitv (Bool b)) (bool_to_val b)) ∧
-  (EVERY2 (Cv_bv pp) vs bvs ⇒ Cv_bv pp (CConv cn vs) (Block (cn+3) bvs)) ∧
+  (Cv_bv pp (CLitv Unit) unit_val) ∧
+  (Cv_bv pp (CLoc m) (RefPtr m)) ∧
+  (EVERY2 (Cv_bv pp) vs bvs ⇒ Cv_bv pp (CConv cn vs) (Block (cn+block_tag) bvs)) ∧
   ((pp = (c,l2a,rfs)) ∧
    (find_index n ns 0 = SOME i) ∧
    (EL i defs = (xs,INR l)) ∧
@@ -252,7 +259,7 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
            (bv = RefPtr p) ∧
            (p ∈ FDOM rfs) ∧
            Cv_bv pp (CRecClos env ns defs (EL j ns)) (rfs ' p))
-   ⇒ Cv_bv pp (CRecClos env ns defs n) (Block 2 [CodePtr a; benv]))`
+   ⇒ Cv_bv pp (CRecClos env ns defs n) (Block closure_tag [CodePtr a; benv]))`
 
 val Cv_bv_ov = store_thm("Cv_bv_ov",
   ``∀m pp Cv bv. Cv_bv pp Cv bv ⇒ (Cv_to_ov m Cv = bv_to_ov m bv)``,
@@ -262,6 +269,8 @@ val Cv_bv_ov = store_thm("Cv_bv_ov",
   strip_tac >- (
     rw[bv_to_ov_def] >>
     Cases_on `b` >> fs[] ) >>
+  strip_tac >- rw[bv_to_ov_def] >>
+  strip_tac >- rw[bv_to_ov_def] >>
   strip_tac >- (
     rw[bv_to_ov_def] >>
     fsrw_tac[ARITH_ss][] >>
@@ -386,7 +395,15 @@ val no_closures_Cv_bv_equal = store_thm("no_closures_Cv_bv_equal",
     rw[EQ_IMP_THM] >> rw[] >>
     Cases_on `b` >>
     fsrw_tac[ARITH_ss][Once Cv_bv_cases] >>
-    Cases_on `b` >> fs[]) >>
+    Cases_on `b` >> fs[])
+  >- (
+    rw[EQ_IMP_THM] >>
+    fs[Once Cv_bv_cases] >>
+    fsrw_tac[ARITH_ss][] >>
+    Cases_on`b` >> fs[] )
+  >- (
+    rw[EQ_IMP_THM] >>
+    fs[Once Cv_bv_cases] ) >>
   rw[EQ_IMP_THM] >- (
     fs[Once (Q.SPECL[`pp`,`CConv cn vs`]Cv_bv_cases)] >>
     rw[LIST_EQ_REWRITE] >>
