@@ -1788,9 +1788,9 @@ val type_s : tenvC -> tenvS -> store -> bool
  * This is only used for constructor contexts, because the value restriction 
  * ensures that no other contexts can be created under a let binding. *)
 val type_ctxt : num -> tenvC -> tenvS -> tenvE -> ctxt_frame -> t -> t -> bool
-val type_ctxts : tenvC -> tenvS -> list ctxt -> t -> t -> bool
-val type_state : tenvC -> state -> t -> bool
-val context_invariant : list ctxt -> num -> bool
+val type_ctxts : num -> tenvC -> tenvS -> list ctxt -> t -> t -> bool
+val type_state : num -> tenvC -> state -> t -> bool
+val context_invariant : num -> list ctxt -> num -> bool
 
 indreln
 
@@ -1887,73 +1887,73 @@ let type_s cenv senv s =
 indreln 
 
 forall n.
-(n=0)
+true
 ==>
-context_invariant [] n
+context_invariant n [] n
 
 and
 
-forall c x e env.
-context_invariant c 0
+forall dec_tvs c x e env.
+context_invariant dec_tvs c 0
 ==>
-context_invariant ((Chandle () x e,env) :: c) 0
+context_invariant dec_tvs ((Chandle () x e,env) :: c) 0
 
 and
 
-forall c op e env.
-context_invariant c 0
+forall dec_tvs c op e env.
+context_invariant dec_tvs c 0
 ==>
-context_invariant ((Capp1 op () e,env) :: c) 0
+context_invariant dec_tvs ((Capp1 op () e,env) :: c) 0
 
 and
 
-forall c op v env.
-context_invariant c 0
+forall dec_tvs c op v env.
+context_invariant dec_tvs c 0
 ==>
-context_invariant ((Capp2 op v (),env) :: c) 0
+context_invariant dec_tvs ((Capp2 op v (),env) :: c) 0
 
 and
 
-forall c l e env.
-context_invariant c 0
+forall dec_tvs c l e env.
+context_invariant dec_tvs c 0
 ==>
-context_invariant ((Clog l () e,env) :: c) 0
+context_invariant dec_tvs ((Clog l () e,env) :: c) 0
 
 and
 
-forall c e1 e2 env.
-context_invariant c 0
+forall dec_tvs c e1 e2 env.
+context_invariant dec_tvs c 0
 ==>
-context_invariant ((Cif () e1 e2,env) :: c) 0
+context_invariant dec_tvs ((Cif () e1 e2,env) :: c) 0
 
 and
 
-forall c pes env.
-context_invariant c 0
+forall dec_tvs c pes env.
+context_invariant dec_tvs c 0
 ==>
-context_invariant ((Cmat () pes,env) :: c) 0
+context_invariant dec_tvs ((Cmat () pes,env) :: c) 0
 
 and
 
-forall c tvs x topt e env.
-context_invariant c 0
+forall dec_tvs c tvs x topt e env.
+context_invariant dec_tvs c 0
 ==>
-context_invariant ((Clet (Some tvs) x topt () e,env) :: c) tvs
+context_invariant dec_tvs ((Clet (Some tvs) x topt () e,env) :: c) tvs
 
 and
 
-forall c cn vs es tvs env.
-context_invariant c tvs &&
+forall dec_tvs c cn vs es tvs env.
+context_invariant dec_tvs c tvs &&
 (tvs <> 0 --> List.for_all is_value es)
 ==>
-context_invariant ((Ccon cn vs () es,env) :: c) tvs
+context_invariant dec_tvs ((Ccon cn vs () es,env) :: c) tvs
 
 and
 
-forall c op env.
-context_invariant c 0
+forall dec_tvs c op env.
+context_invariant dec_tvs c 0
 ==>
-context_invariant ((Cuapp op (),env) :: c) 0
+context_invariant dec_tvs ((Cuapp op (),env) :: c) 0
 
 indreln
 
@@ -2040,43 +2040,43 @@ type_ctxt tvs cenv senv tenv (Ccon cn vs () es) (type_subst (List.combine tvs' t
 
 indreln
 
-forall tenvC senv t.
-check_freevars 0 [] t
+forall dec_tvs tenvC senv t.
+check_freevars dec_tvs [] t
 ==>
-type_ctxts tenvC senv [] t t
+type_ctxts dec_tvs tenvC senv [] t t
 
 and
 
-forall tenvC senv c env cs tenv t1 t2 t3 tvs.
+forall dec_tvs tenvC senv c env cs tenv t1 t2 t3 tvs.
 type_env tenvC senv env tenv &&
-context_invariant ((c,env)::cs) tvs &&
+context_invariant dec_tvs ((c,env)::cs) tvs &&
 type_ctxt tvs tenvC senv tenv c t1 t2 &&
-type_ctxts tenvC senv cs t2 t3
+type_ctxts dec_tvs tenvC senv cs t2 t3
 ==>
-type_ctxts tenvC senv ((c,env)::cs) t1 t3
+type_ctxts dec_tvs tenvC senv ((c,env)::cs) t1 t3
 
 indreln
 
-forall tenvC senv envC s env e c t1 t2 tenv tvs.
-type_ctxts tenvC senv c t1 t2 &&
+forall dec_tvs tenvC senv envC s env e c t1 t2 tenv tvs.
+type_ctxts dec_tvs tenvC senv c t1 t2 &&
 type_env tenvC senv env tenv &&
 type_s tenvC senv s &&
-context_invariant c tvs &&
+context_invariant dec_tvs c tvs &&
 type_e tenvC (bind_tvar tvs tenv) e t1 &&
 ((tvs <> 0) --> is_value e)
 ==>
-type_state tenvC (envC, s, env, Exp e, c) t2
+type_state dec_tvs tenvC (envC, s, env, Exp e, c) t2
 
 and
 
-forall tenvC senv envC s env v c t1 t2 tenv tvs.
-type_ctxts tenvC senv c t1 t2 &&
+forall dec_tvs tenvC senv envC s env v c t1 t2 tenv tvs.
+type_ctxts dec_tvs tenvC senv c t1 t2 &&
 type_env tenvC senv env tenv &&
 type_s tenvC senv s &&
-context_invariant c tvs &&
+context_invariant dec_tvs c tvs &&
 type_v tvs tenvC senv v t1
 ==>
-type_state tenvC (envC, s, env, Val v, c) t2
+type_state dec_tvs tenvC (envC, s, env, Val v, c) t2
 
 indreln
 
@@ -2091,9 +2091,10 @@ and
 
 forall tenvC senv envC s env ds tenvC' tenv tenv' p s' env' e c t tenv'' tvs.
 type_env tenvC senv env tenv &&
-type_state tenvC (envC,s',env',e,c) t &&
+type_state tvs tenvC (envC,s',env',e,c) t &&
 all_distinct (pat_bindings p []) &&
 type_p tvs tenvC p t tenv' &&
+type_s tenvC senv s' &&
 type_ds tenvC (bind_var_list tvs tenv' tenv) ds tenvC' tenv''
 ==>
 type_d_state tenvC (envC, s, env, ds, Some (Some tvs, p, (envC,s',env',e,c))) tenvC' tenv''
