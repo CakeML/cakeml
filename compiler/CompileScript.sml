@@ -1060,7 +1060,7 @@ val _ = Defn.save_defn push_lab_defn;
   let s =( incsz (((emit s) [(Stack ((Load (nk - k))))]))) in
   let s =((( FOLDL ((emit_ec sz0))) s) ((REVERSE ec))) in
   let s =(( emit s) [(Stack (if j = 0 then( PushInt i0) else(( Cons 0) j)))]) in
-  let s =(( emit s) [(Stack (((Cons 2) 2)))]) in
+  let s =(( emit s) [(Stack (((Cons closure_tag) 2)))]) in
   let s =( decsz (((emit s) [(Stack ((Store (nk - k))))]))) in
   let s =  s with<| sz := s.sz - j |> in
   (s,k+1))`;
@@ -1134,18 +1134,21 @@ val _ = Defn.save_defn compile_decl_defn;
 (compile s (CLit (Bool b)) =(
   incsz (((emit s) [(Stack (((Cons ((bool_to_tag b))) 0)))]))))
 /\
+(compile s (CLit Unit) =(
+  incsz (((emit s) [(Stack (((Cons unit_tag) 0)))]))))
+/\
 (compile s (CVar vn) =( incsz (((compile_varref s) (((FAPPLY  s.env)  vn))))))
 /\
 (compile s (CCon n es) =
   let z = s.sz + 1 in
   let (s,dt) =( sdt s) in
   let s =((( FOLDL (\ s e .(( compile s) e))) s) es) in (* uneta because Hol_defn sucks *)
-  let s =(( emit (((ldt dt) s))) [(Stack (((Cons (n+3)) ((LENGTH es)))))]) in
+  let s =(( emit (((ldt dt) s))) [(Stack (((Cons (n+block_tag)) ((LENGTH es)))))]) in
    s with<| sz := z |>)
 /\
 (compile s (CTagEq e n) =
   let (s,dt) =( sdt s) in((
-  ldt dt) (((emit (((compile s) e))) [(Stack ((TagEq (n+3))))]))))
+  ldt dt) (((emit (((compile s) e))) [(Stack ((TagEq (n+block_tag))))]))))
 /\
 (compile s (CProj e n) =
   let (s,dt) =( sdt s) in((
@@ -1495,10 +1498,11 @@ val _ = Defn.save_defn Cv_to_ov_defn;
 (bv_to_ov m (Number i) =( OLit ((IntLit i))))
 /\
 (bv_to_ov m (Block n vs) =
-  if n = 0 then( OLit ((Bool F))) else
-  if n = 1 then( OLit ((Bool T)))  else
-  if n = 2 then OFn               else((
-  OConv (((FAPPLY  m)  (n - 3)))) (((MAP ((bv_to_ov m))) vs))))`;
+  if n = ((bool_to_tag F)) then( OLit ((Bool F))) else
+  if n = ((bool_to_tag T)) then( OLit ((Bool T))) else
+  if n = unit_tag then( OLit Unit) else
+  if n = closure_tag then OFn else((
+  OConv (((FAPPLY  m)  (n - block_tag)))) (((MAP ((bv_to_ov m))) vs))))`;
 
 val _ = Defn.save_defn bv_to_ov_defn;
 

@@ -26,12 +26,13 @@ val defs = map EmitML.DEFN [
 optionTheory.OPTION_BIND_def,
 is_Label_def,bc_fetch_aux_def,bc_fetch_def,
 bc_find_loc_aux_def,bc_find_loc_def,
-bump_pc_def,bool_to_tag_def,bool_to_val_def,isNumber_def,
+bump_pc_def,bool_to_tag_def,unit_tag_def,closure_tag_def,block_tag_def,
+bool_to_val_def,unit_val_def,isNumber_def,
 bc_eval_stack_def,bc_eval1_def,bc_eval_def,
 init_bc_state_def]
 
 val _ = EmitML.eSML "bytecode" (
-  (EmitML.OPEN ["num","int","fmap"])
+  (EmitML.OPEN ["int","fmap"])
 ::(EmitML.MLSIG "type num = numML.num")
 ::(EmitML.MLSIG "type int = intML.int")
 ::(EmitML.MLSIG "type ('a,'b) fmap = ('a,'b) fmapML.fmap")

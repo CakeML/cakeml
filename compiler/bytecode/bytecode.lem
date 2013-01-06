@@ -67,11 +67,16 @@ type
    |>
 
 let rec
-bool_to_tag true = 1
-and
 bool_to_tag false = 0
+and
+bool_to_tag true = 1
+
+let unit_tag = 2
+let closure_tag = 3
+let block_tag = 4
 
 let bool_to_val b = Block (bool_to_tag b) []
+let unit_val = Block unit_tag []
 
 (* fetching the next instruction from the code *)
 
