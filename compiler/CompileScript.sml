@@ -1468,7 +1468,8 @@ val _ = Hol_datatype `
  ov =
     OLit of lit
   | OConv of conN => ov list
-  | OFn`;
+  | OFn
+  | OLoc of num`;
 
 
  val v_to_ov_defn = Hol_defn "v_to_ov" `
@@ -1479,7 +1480,9 @@ val _ = Hol_datatype `
 /\
 (v_to_ov (Closure _ _ _) = OFn)
 /\
-(v_to_ov (Recclosure _ _ _) = OFn)`;
+(v_to_ov (Recclosure _ _ _) = OFn)
+/\
+(v_to_ov (Loc n) =( OLoc n))`;
 
 val _ = Defn.save_defn v_to_ov_defn;
 
@@ -1489,7 +1492,9 @@ val _ = Defn.save_defn v_to_ov_defn;
 /\
 (Cv_to_ov m (CConv cn vs) =(( OConv (((FAPPLY  m)  cn))) (((MAP ((Cv_to_ov m))) vs))))
 /\
-(Cv_to_ov m (CRecClos _ _ _ _) = OFn)`;
+(Cv_to_ov m (CRecClos _ _ _ _) = OFn)
+/\
+(Cv_to_ov m (CLoc n) =( OLoc n))`;
 
 val _ = Defn.save_defn Cv_to_ov_defn;
 
@@ -1502,7 +1507,9 @@ val _ = Defn.save_defn Cv_to_ov_defn;
   if n = ((bool_to_tag T)) then( OLit ((Bool T))) else
   if n = unit_tag then( OLit Unit) else
   if n = closure_tag then OFn else((
-  OConv (((FAPPLY  m)  (n - block_tag)))) (((MAP ((bv_to_ov m))) vs))))`;
+  OConv (((FAPPLY  m)  (n - block_tag)))) (((MAP ((bv_to_ov m))) vs))))
+/\
+(bv_to_ov m (RefPtr n) =( OLoc n))`;
 
 val _ = Defn.save_defn bv_to_ov_defn;
 

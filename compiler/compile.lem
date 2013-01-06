@@ -1343,6 +1343,7 @@ type ov =
   | OLit of lit
   | OConv of conN * list ov
   | OFn
+  | OLoc of num
 
 let rec
 v_to_ov (Litv l) = OLit l
@@ -1352,6 +1353,8 @@ and
 v_to_ov (Closure _ _ _) = OFn
 and
 v_to_ov (Recclosure _ _ _) = OFn
+and
+v_to_ov (Loc n) = OLoc n
 
 let rec
 Cv_to_ov m (CLitv l) = OLit l
@@ -1359,6 +1362,8 @@ and
 Cv_to_ov m (CConv cn vs) = OConv (Pmap.find cn m) (List.map (Cv_to_ov m) vs)
 and
 Cv_to_ov m (CRecClos _ _ _ _) = OFn
+and
+Cv_to_ov m (CLoc n) = OLoc n
 
 let rec
 bv_to_ov m (Number i) = OLit (IntLit i)
@@ -1369,6 +1374,8 @@ bv_to_ov m (Block n vs) =
   if n = unit_tag then OLit Unit else
   if n = closure_tag then OFn else
   OConv (Pmap.find (n-block_tag) m) (List.map (bv_to_ov m) vs)
+and
+bv_to_ov m (RefPtr n) = OLoc n
 
 (* source to intermediate values *)
 
