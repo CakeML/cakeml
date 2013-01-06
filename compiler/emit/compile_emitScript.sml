@@ -70,6 +70,7 @@ val defs = map EmitML.DEFN
 , sdt_def
 , ldt_def
 , decsz_def
+, prim1_to_bc_def
 , prim2_to_bc_def
 , find_index_def
 , emit_ec_def

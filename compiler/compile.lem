@@ -1,3 +1,4 @@
+(* TODO: compile Raise and Handle properly; requires changes to bytecode *)
 (* TODO: simple type system and checker *)
 (* TODO: map_Cexp? *)
 (* TODO: use Pmap.peek instead of mem when it becomes available *)
@@ -82,6 +83,8 @@ let rec
 error_to_int Bind_error = i0
 and
 error_to_int Div_error = i1
+and
+error_to_int (Int_error n) = Int.(+) i2 n
 
 let rec
 num_to_bool 0 = false
@@ -904,19 +907,26 @@ type compiler_state =
    |>
 
 let rec
-prim2_to_bc CAdd = Add
+prim1_to_bc CRef = Ref
 and
-prim2_to_bc CSub = Sub
+prim1_to_bc CDer = Deref
+
+let rec
+prim2_to_bc CAdd = Stack Add
 and
-prim2_to_bc CMul = Mult
+prim2_to_bc CSub = Stack Sub
 and
-prim2_to_bc CDiv = Div
+prim2_to_bc CMul = Stack Mult
 and
-prim2_to_bc CMod = Mod
+prim2_to_bc CDiv = Stack Div
 and
-prim2_to_bc CLt = Less
+prim2_to_bc CMod = Stack Mod
 and
-prim2_to_bc CEq = Equal
+prim2_to_bc CLt = Stack Less
+and
+prim2_to_bc CEq = Stack Equal
+and
+prim2_to_bc CUpd = Update
 
 let emit = List.fold_left (fun s i -> <| s with out = i :: s.out |>)
 
@@ -1030,6 +1040,10 @@ and
 compile s (CRaise err) =
   incsz (emit s [Stack (PushInt (error_to_int err)); Exception])
 and
+compile s (CHandle e1 x e2) =
+  let (s,dt) = sdt s in
+  ldt dt (compile s e1)
+and
 compile s (CLit (IntLit i)) =
   incsz (emit s [Stack (PushInt i)])
 and
@@ -1118,11 +1132,16 @@ compile s (CCall e es) =
   end in
   ldt dt <| s with sz = s.sz - n |>
 and
+compile s (CPrim1 uop e) =
+  let (s,dt) = sdt s in
+  let s = compile s e in
+  ldt dt (emit s [prim1_to_bc uop])
+and
 compile s (CPrim2 op e1 e2) =
   let (s,dt) = sdt s in
   let s = compile s e1 in
   let s = compile s e2 in (* TODO: need to detect div by zero *)
-  decsz (ldt dt (emit s [Stack (prim2_to_bc op)]))
+  decsz (ldt dt (emit s [prim2_to_bc op]))
 and
 compile s (CIf e1 e2 e3) =
   let (s,dt) = sdt s in

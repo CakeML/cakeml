@@ -8,6 +8,7 @@ val _ = new_theory "Compile"
 
 open BytecodeTheory MiniMLTheory
 
+(* TODO: compile Raise and Handle properly; requires changes to bytecode *)
 (* TODO: simple type system and checker *)
 (* TODO: map_Cexp? *)
 (* TODO: use Pmap.peek instead of mem when it becomes available *)
@@ -92,7 +93,9 @@ val _ = Define `
 
 (error_to_int Bind_error = i0)
 /\
-(error_to_int Div_error = i1)`;
+(error_to_int Div_error = i1)
+/\
+(error_to_int (Int_error n) =(( int_add i2) n))`;
 
 val _ = Defn.save_defn error_to_int_defn;
 
@@ -946,21 +949,31 @@ val _ = Hol_datatype `
 
 
 
+ val prim1_to_bc_defn = Hol_defn "prim1_to_bc" `
+
+(prim1_to_bc CRef = Ref)
+/\
+(prim1_to_bc CDer = Deref)`;
+
+val _ = Defn.save_defn prim1_to_bc_defn;
+
  val prim2_to_bc_defn = Hol_defn "prim2_to_bc" `
 
-(prim2_to_bc CAdd = Add)
+(prim2_to_bc CAdd =( Stack Add))
 /\
-(prim2_to_bc CSub = Sub)
+(prim2_to_bc CSub =( Stack Sub))
 /\
-(prim2_to_bc CMul = Mult)
+(prim2_to_bc CMul =( Stack Mult))
 /\
-(prim2_to_bc CDiv = Div)
+(prim2_to_bc CDiv =( Stack Div))
 /\
-(prim2_to_bc CMod = Mod)
+(prim2_to_bc CMod =( Stack Mod))
 /\
-(prim2_to_bc CLt = Less)
+(prim2_to_bc CLt =( Stack Less))
 /\
-(prim2_to_bc CEq = Equal)`;
+(prim2_to_bc CEq =( Stack Equal))
+/\
+(prim2_to_bc CUpd = Update)`;
 
 val _ = Defn.save_defn prim2_to_bc_defn;
 
@@ -1111,6 +1124,10 @@ val _ = Defn.save_defn compile_decl_defn;
 (compile s (CRaise err) =(
   incsz (((emit s) [(Stack ((PushInt ((error_to_int err))))); Exception]))))
 /\
+(compile s (CHandle e1 x e2) =
+  let (s,dt) =( sdt s) in((
+  ldt dt) (((compile s) e1))))
+/\
 (compile s (CLit (IntLit i)) =(
   incsz (((emit s) [(Stack ((PushInt i)))]))))
 /\
@@ -1199,11 +1216,16 @@ val _ = Defn.save_defn compile_decl_defn;
   ) in((
   ldt dt)  s with<| sz := s.sz - n |>))
 /\
+(compile s (CPrim1 uop e) =
+  let (s,dt) =( sdt s) in
+  let s =(( compile s) e) in((
+  ldt dt) (((emit s) [(prim1_to_bc uop)]))))
+/\
 (compile s (CPrim2 op e1 e2) =
   let (s,dt) =( sdt s) in
   let s =(( compile s) e1) in
   let s =(( compile s) e2) in( (* TODO: need to detect div by zero *)
-  decsz (((ldt dt) (((emit s) [(Stack ((prim2_to_bc op)))]))))))
+  decsz (((ldt dt) (((emit s) [(prim2_to_bc op)]))))))
 /\
 (compile s (CIf e1 e2 e3) =
   let (s,dt) =( sdt s) in
