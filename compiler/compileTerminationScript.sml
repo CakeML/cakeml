@@ -116,8 +116,9 @@ val _ = save_thm ("doPrim2_def", doPrim2_def);
 val _ = export_rewrites["doPrim2_def"];
 
 val _ = save_thm ("CevalPrim2_def", CevalPrim2_def);
+val _ = save_thm ("CevalUpd_def", CevalUpd_def);
 val _ = save_thm ("CevalPrim1_def", CevalPrim1_def);
-val _ = export_rewrites["CevalPrim2_def","CevalPrim1_def"];
+val _ = export_rewrites["CevalPrim2_def","CevalUpd_def","CevalPrim1_def"];
 
 (* compiler definitions *)
 
@@ -243,6 +244,7 @@ val bodies_def = tDefine "bodies"`
   (bodies (CCall e es) = SUM (MAP bodies (e::es))) ∧
   (bodies (CPrim1 _ e) = bodies e) ∧
   (bodies (CPrim2 _ e1 e2) = bodies e1 + bodies e2) ∧
+  (bodies (CUpd e1 e2) = bodies e1 + bodies e2) ∧
   (bodies (CIf e1 e2 e3) = SUM (MAP bodies [e1;e2;e3])) ∧
   (bod1 (_,INL b) = (1 + bodies b)) ∧
   (bod1 (_,INR l) = 0)`
@@ -354,6 +356,16 @@ val label_closures_bodies = store_thm("label_closures_bodies",
     PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
     first_x_assum (qspecl_then [`s`,`q0`,`q1`] mp_tac) >>
     fs[UNCURRY] >> rw[] )
+  >- (
+    qabbrev_tac `q = label_closures e s` >>
+    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+    first_x_assum (qspec_then `q1` mp_tac) >>
+    first_x_assum (qspecl_then [`s`,`q0`,`q1`] mp_tac) >>
+    fs[UNCURRY] >> rw[] >>
+    qabbrev_tac `p = label_closures e' q1` >>
+    PairCases_on `p` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+    first_x_assum (qspecl_then [`p0`,`p1`] mp_tac) >> rw[] >>
+    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
   >- (
     qabbrev_tac `q = label_closures e s` >>
     PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>

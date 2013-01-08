@@ -645,7 +645,6 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         qx_gen_tac`w3` >>
         strip_tac >>
         qexists_tac`sf`>>
-        qexists_tac`sf`>>
         qexists_tac `w1` >>
         qexists_tac `w3` >>
         qexists_tac`sd`>>
@@ -703,14 +702,13 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         qexists_tac`w2`>>
         qexists_tac`w1`>>
         qspecl_then[`FEMPTY`,`sb`,`sd`,`enva`,`e2a`,`(se,Rval w2)`]mp_tac(Cevaluate_any_syneq_store) >>
-        fsrw_tac[DNF_ss][EXISTS_PROD] >>
+        fsrw_tac[DNF_ss][EXISTS_PROD,Abbr`w2`,Abbr`w1`] >>
         qx_gen_tac`sf` >>
         qx_gen_tac`w3` >>
         strip_tac >>
-        qexists_tac`sf`>>
-        map_every qunabbrev_tac[`w1`,`w2`]>>
         fs[Q.SPECL[`FEMPTY`,`CLitv l`]syneq_cases] >>
         `fmap_rel (syneq FEMPTY) sc sf` by PROVE_TAC[fmap_rel_syneq_trans] >>
+        qexists_tac`sf`>>
         rw[CompileTheory.i1_def] >>
         ARITH_TAC )
       >- (

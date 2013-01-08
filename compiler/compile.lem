@@ -97,9 +97,9 @@ num_to_bool 1 = true
 (* (real definitions in CexpTypesTheory) *)
 type (+) 'a 'b = INL of 'a | INR of 'b (* TODO: move to lem *)
 
-(* applicative primitives with bytecode counterparts *)
+(* pure applicative primitives with bytecode counterparts *)
 type Cprim1 = CRef | CDer
-type Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq | CUpd
+type Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq
 
 type Cpat =
   | CPvar of string
@@ -122,6 +122,7 @@ type Cexp =
   | CCall of Cexp * list Cexp
   | CPrim1 of Cprim1 * Cexp
   | CPrim2 of Cprim2 * Cexp * Cexp
+  | CUpd of Cexp * Cexp
   | CIf of Cexp * Cexp * Cexp
 
 type def = list string * ((+) Cexp num)
@@ -185,6 +186,8 @@ free_vars c (CPrim1 _ e) = free_vars c e
 and
 free_vars c (CPrim2 _ e1 e2) = free_vars c e1 union free_vars c e2
 and
+free_vars c (CUpd e1 e2) = free_vars c e1 union free_vars c e2
+and
 free_vars c (CIf e1 e2 e3) = free_vars c e1 union free_vars c e2 union free_vars c e3
 and
 cbod_fvs c (INL e) = free_vars c e
@@ -204,11 +207,11 @@ and
 no_closures (CRecClos _ _ _ _) = false
 
 let rec
-doPrim2 b ty op s (CLitv (IntLit x)) (CLitv (IntLit y)) =
-  if b && y = i0 then (s, Rerr (Rraise Div_error))
-  else (s, Rval (CLitv (ty (op x y))))
+doPrim2 b ty op (CLitv (IntLit x)) (CLitv (IntLit y)) =
+  if b && y = i0 then Rerr (Rraise Div_error)
+  else Rval (CLitv (ty (op x y)))
 and
-doPrim2 b ty op s _ _ = (s, Rerr Rtype_error)
+doPrim2 b ty op _ _ = Rerr Rtype_error
 
 let rec
 CevalPrim2 CAdd = doPrim2 false IntLit Int.(+)
@@ -223,18 +226,18 @@ CevalPrim2 CMod = doPrim2 true IntLit Int.(%)
 and
 CevalPrim2 CLt = doPrim2 false Bool Int.(<)
 and
-CevalPrim2 CEq = fun s v1 v2 ->
+CevalPrim2 CEq = fun v1 v2 ->
   if no_closures v1 && no_closures v2
-  then (s, Rval (CLitv (Bool (v1 = v2))))
+  then Rval (CLitv (Bool (v1 = v2)))
+  else Rerr Rtype_error
+
+let rec
+CevalUpd s (CLoc n) (v:Cv) =
+  if Pmap.mem n s
+  then (Pmap.add n v s, Rval (CLitv Unit))
   else (s, Rerr Rtype_error)
 and
-CevalPrim2 CUpd = fun s v1 v2 ->
-  match v1 with
-  | CLoc n -> if Pmap.mem n s
-    then (Pmap.add n v2 s, Rval (CLitv Unit))
-    else (s, Rerr Rtype_error)
-  | _ -> (s, Rerr Rtype_error)
-  end
+CevalUpd s _ _ = (s, Rerr Rtype_error)
 
 let rec
 CevalPrim1 CRef s v =
@@ -419,12 +422,23 @@ and
 forall c s env p2 e1 e2 s' v1 v2.
 Cevaluate_list c s env [e1;e2] (s', Rval [v1;v2])
 ==>
-Cevaluate c s env (CPrim2 p2 e1 e2) (CevalPrim2 p2 s' v1 v2)
+Cevaluate c s env (CPrim2 p2 e1 e2) (s', CevalPrim2 p2 v1 v2)
 and
 forall c s env p2 e1 e2 s' err.
 Cevaluate_list c s env [e1;e2] (s', Rerr err)
 ==>
 Cevaluate c s env (CPrim2 p2 e1 e2) (s', Rerr err)
+
+and
+forall c s env e1 e2 s' v1 v2.
+Cevaluate_list c s env [e1;e2] (s', Rval [v1;v2])
+==>
+Cevaluate c s env (CUpd e1 e2) (CevalUpd s' v1 v2)
+and
+forall c s env e1 e2 s' err.
+Cevaluate_list c s env [e1;e2] (s', Rerr err)
+==>
+Cevaluate c s env (CUpd e1 e2) (s', Rerr err)
 
 and
 forall c s env e1 e2 e3 s' b1 r.
@@ -609,7 +623,7 @@ and
 exp_to_Cexp m (App Opassign e1 e2) =
   let Ce1 = exp_to_Cexp m e1 in
   let Ce2 = exp_to_Cexp m e2 in
-  CPrim2 CUpd Ce1 Ce2
+  CUpd Ce1 Ce2
 and
 exp_to_Cexp m (Uapp uop e) =
   let Ce = exp_to_Cexp m e in
@@ -744,6 +758,11 @@ label_closures (CPrim2 op e1 e2) = bind
   (label_closures e2) (fun e2 -> return
   (CPrim2 op e1 e2)))
 and
+label_closures (CUpd e1 e2) = bind
+  (label_closures e1) (fun e1 -> bind
+  (label_closures e2) (fun e2 -> return
+  (CUpd e1 e2)))
+and
 label_closures (CIf e1 e2 e3) = bind
   (label_closures e1) (fun e1 -> bind
   (label_closures e2) (fun e2 -> bind
@@ -792,6 +811,8 @@ and
 imm_unlab (CCall e es) = imm_unlab e + imm_unlab_list es
 and
 imm_unlab (CPrim2 op e1 e2) = imm_unlab e1 + imm_unlab e2
+and
+imm_unlab (CUpd e1 e2) = imm_unlab e1 + imm_unlab e2
 and
 imm_unlab (CPrim1 uop e) = imm_unlab e
 and
@@ -871,6 +892,9 @@ and
 calculate_ldefs c ls (CPrim2 _ e1 e2) =
   calculate_ldefs c (calculate_ldefs c ls e1) e2
 and
+calculate_ldefs c ls (CUpd e1 e2) =
+  calculate_ldefs c (calculate_ldefs c ls e1) e2
+and
 calculate_ldefs c ls (CIf e1 e2 e3) =
   calculate_ldefs c (calculate_ldefs c (calculate_ldefs c ls e1) e2) e3
 
@@ -912,21 +936,19 @@ and
 prim1_to_bc CDer = Deref
 
 let rec
-prim2_to_bc CAdd = [Stack Add]
+prim2_to_bc CAdd = Add
 and
-prim2_to_bc CSub = [Stack Sub]
+prim2_to_bc CSub = Sub
 and
-prim2_to_bc CMul = [Stack Mult]
+prim2_to_bc CMul = Mult
 and
-prim2_to_bc CDiv = [Stack Div]
+prim2_to_bc CDiv = Div
 and
-prim2_to_bc CMod = [Stack Mod]
+prim2_to_bc CMod = Mod
 and
-prim2_to_bc CLt = [Stack Less]
+prim2_to_bc CLt = Less
 and
-prim2_to_bc CEq = [Stack Equal]
-and
-prim2_to_bc CUpd = [Update; Stack (Cons unit_tag 0)]
+prim2_to_bc CEq = Equal
 
 let emit = List.fold_left (fun s i -> <| s with out = i :: s.out |>)
 
@@ -1144,7 +1166,13 @@ compile s (CPrim2 op e1 e2) =
   let (s,dt) = sdt s in
   let s = compile s e1 in
   let s = compile s e2 in (* TODO: need to detect div by zero *)
-  decsz (ldt dt (emit s (prim2_to_bc op)))
+  decsz (ldt dt (emit s [Stack (prim2_to_bc op)]))
+and
+compile s (CUpd e1 e2) =
+  let (s,dt) = sdt s in
+  let s = compile s e1 in
+  let s = compile s e2 in
+  decsz (ldt dt (emit s [Update; Stack (Cons unit_tag 0)]))
 and
 compile s (CIf e1 e2 e3) =
   let (s,dt) = sdt s in

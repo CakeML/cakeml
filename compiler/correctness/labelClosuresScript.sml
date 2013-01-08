@@ -53,6 +53,7 @@ val free_labs_def0 = tDefine "free_labs"`
   (free_labs (CCall e es) = BIGUNION (IMAGE (free_labs) (set (e::es)))) ∧
   (free_labs (CPrim1 _ e) = free_labs e) ∧
   (free_labs (CPrim2 op e1 e2) = (free_labs e1)∪(free_labs e2)) ∧
+  (free_labs (CUpd e1 e2) = (free_labs e1)∪(free_labs e2)) ∧
   (free_labs (CIf e1 e2 e3) = (free_labs e1)∪(free_labs e2)∪(free_labs e3))`(
   WF_REL_TAC `measure Cexp_size` >>
   srw_tac[ARITH_ss][Cexp4_size_thm] >>
@@ -80,6 +81,7 @@ val free_bods_def = tDefine "free_bods"`
   (free_bods (CCall e es) = FLAT (MAP (free_bods) (e::es))) ∧
   (free_bods (CPrim1 _ e) = free_bods e) ∧
   (free_bods (CPrim2 op e1 e2) = (free_bods e1)++(free_bods e2)) ∧
+  (free_bods (CUpd e1 e2) = (free_bods e1)++(free_bods e2)) ∧
   (free_bods (CIf e1 e2 e3) = (free_bods e1)++(free_bods e2)++(free_bods e3))`(
   WF_REL_TAC `measure Cexp_size` >>
   srw_tac[ARITH_ss][Cexp4_size_thm] >>
@@ -108,6 +110,7 @@ val subst_labs_def = tDefine "subst_labs"`
   (subst_labs c (CCall e es) = CCall (subst_labs c e) (MAP (subst_labs c) es)) ∧
   (subst_labs c (CPrim1 uop e) = CPrim1 uop (subst_labs c e)) ∧
   (subst_labs c (CPrim2 op e1 e2) = CPrim2 op (subst_labs c e1) (subst_labs c e2)) ∧
+  (subst_labs c (CUpd e1 e2) = CUpd (subst_labs c e1) (subst_labs c e2)) ∧
   (subst_labs c (CIf e1 e2 e3) = CIf (subst_labs c e1)(subst_labs c e2)(subst_labs c e3))`(
   WF_REL_TAC `measure (Cexp_size o SND)` >>
   srw_tac[ARITH_ss][Cexp4_size_thm] >>
@@ -171,6 +174,15 @@ val subst_labs_any_env = store_thm("subst_labs_any_env",
   strip_tac >- (
     Cases_on `cb` >> rw[FLOOKUP_DEF,DRESTRICT_DEF,FUNION_DEF,GSYM fmap_EQ_THM] >>
     rw[EXTENSION] >> metis_tac[] ) >>
+  strip_tac >- (
+    srw_tac[ETA_ss][MAP_EQ_f] >>
+    first_x_assum (match_mp_tac o MP_CANON) >> rw[] >>
+    match_mp_tac DRESTRICT_SUBSET >>
+    qmatch_assum_abbrev_tac`DRESTRICT c s0 = DRESTRICT c' s0` >>
+    qexists_tac `s0` >> rw[] >>
+    unabbrev_all_tac >>
+    srw_tac[DNF_ss][SUBSET_DEF,MEM_FLAT,MEM_MAP] >>
+    metis_tac[] ) >>
   strip_tac >- (
     srw_tac[ETA_ss][MAP_EQ_f] >>
     first_x_assum (match_mp_tac o MP_CANON) >> rw[] >>
@@ -708,6 +720,84 @@ val label_closures_thm = store_thm("label_closures_thm",
     qabbrev_tac`p = label_closures e s` >> PairCases_on `p` >> fs[] >>
     rpt BasicProvers.VAR_EQ_TAC >>
     first_x_assum (qspecl_then [`s`,`p0`,`p1`] mp_tac) >> rw[]) >>
+  strip_tac >- (
+    fs[label_closures_def,UNIT_DEF,BIND_DEF] >>
+    rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+    qabbrev_tac`p = label_closures e s` >> PairCases_on `p` >> fs[] >>
+    qabbrev_tac`q = label_closures e' p1` >> PairCases_on `q` >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    first_x_assum (qspecl_then [`p1`,`q0`,`q1`] mp_tac) >>
+    first_x_assum (qspecl_then [`s`,`p0`,`p1`] mp_tac) >>
+    srw_tac[ARITH_ss,ETA_ss][REVERSE_ZIP,ZIP_APPEND,LET_THM] >>
+    TRY (
+      AP_TERM_TAC  >> rw[] >>
+      simp_tac(std_ss)[GSYM REVERSE_APPEND] >>
+      AP_TERM_TAC >> rw[] >>
+      srw_tac[ARITH_ss][GENLIST_PLUS_APPEND] ) >>
+    TRY (
+      simp[MAP_ZIP,GSYM GENLIST_PLUS_APPEND] >>
+      qmatch_abbrev_tac `A = B UNION C` >>
+      metis_tac[ADD_SYM,UNION_ASSOC,UNION_COMM] ) >>
+    fsrw_tac[ARITH_ss][MAP_ZIP] >>
+    qabbrev_tac`be = (free_bods e)` >>
+    qabbrev_tac`be' = (free_bods e')` >>
+    qabbrev_tac`le = (free_labs e)` >>
+    qabbrev_tac`le' = (free_labs e')` >>
+    TRY (
+      qmatch_abbrev_tac `subst_labs c1 p0 = e` >>
+      qmatch_assum_abbrev_tac `P ==> (subst_labs c2 p0 = ee)` >>
+      `P` by (
+        qunabbrev_tac`P` >>
+        fs[GSYM GENLIST_PLUS_APPEND] >>
+        PROVE_TAC[DISJOINT_SYM] ) >>
+      qunabbrev_tac`P` >>
+      qsuff_tac `subst_labs c2 p0 = subst_labs c1 p0` >- PROVE_TAC[] >>
+      match_mp_tac subst_labs_any_env >>
+      REWRITE_TAC[DRESTRICT_EQ_DRESTRICT_SAME] >>
+      `FDOM c2 = IMAGE ($+ s.lnext_label) (count (LENGTH be))` by (
+        rw[Abbr`c2`,MAP_ZIP,LIST_TO_SET_GENLIST] ) >>
+      `FDOM c1 = FDOM c2 ∪ IMAGE ($+ (s.lnext_label + LENGTH be)) (count (LENGTH be'))` by (
+        rw[Abbr`c1`,MAP_ZIP,LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose,UNION_COMM] ) >>
+      `(free_labs p0) = FDOM c2 ∪ le` by rw[LIST_TO_SET_GENLIST] >>
+      `DISJOINT le (IMAGE ($+ (s.lnext_label + LENGTH be)) (count (LENGTH be')))` by (
+        fs[LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose] >>
+        PROVE_TAC[DISJOINT_SYM] ) >>
+      conj_tac >- (
+        rw[INTER_UNION,GSYM INTER_OVER_UNION] >>
+        fs[DISJOINT_DEF] ) >>
+      rw[Abbr`c1`,Abbr`c2`] >>
+      rw[GSYM GENLIST_PLUS_APPEND] >>
+      rw[REVERSE_APPEND] >>
+      rw[GSYM ZIP_APPEND] >>
+      rw[FUNION_DEF,MAP_ZIP,MEM_GENLIST] >>
+      fsrw_tac[ARITH_ss][] ) >>
+    TRY (
+      qmatch_abbrev_tac `subst_labs c1 q0 = e'` >>
+      qmatch_assum_abbrev_tac `P ==> (subst_labs c2 q0 = e')` >>
+      `P` by (
+        qunabbrev_tac`P` >>
+        fs[GSYM GENLIST_PLUS_APPEND] >>
+        PROVE_TAC[DISJOINT_SYM] ) >>
+      qunabbrev_tac`P` >>
+      qsuff_tac `subst_labs c2 q0 = subst_labs c1 q0` >- PROVE_TAC[] >>
+      match_mp_tac subst_labs_any_env >>
+      REWRITE_TAC[DRESTRICT_EQ_DRESTRICT_SAME] >>
+      `FDOM c2 = IMAGE ($+ (s.lnext_label + LENGTH be)) (count (LENGTH be'))` by (
+        srw_tac[ARITH_ss][Abbr`c2`,MAP_ZIP,LIST_TO_SET_GENLIST] ) >>
+      `FDOM c1 = FDOM c2 ∪ IMAGE ($+ s.lnext_label) (count (LENGTH be))` by (
+        rw[Abbr`c1`,MAP_ZIP,LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose,UNION_COMM] ) >>
+      `(free_labs q0) = FDOM c2 ∪ le'` by srw_tac[ARITH_ss][LIST_TO_SET_GENLIST] >>
+      `DISJOINT le' (IMAGE ($+ s.lnext_label) (count (LENGTH be)))` by (
+        fs[LIST_TO_SET_GENLIST,count_add,GSYM IMAGE_COMPOSE,plus_compose] >>
+        PROVE_TAC[DISJOINT_SYM] ) >>
+      conj_tac >- (
+        rw[INTER_UNION,GSYM INTER_OVER_UNION] >>
+        fs[DISJOINT_DEF] ) >>
+      rw[Abbr`c1`,Abbr`c2`] >>
+      rw[GSYM GENLIST_PLUS_APPEND] >>
+      rw[REVERSE_APPEND] >>
+      rw[GSYM ZIP_APPEND] >>
+      rw[FUNION_DEF,MAP_ZIP,MEM_GENLIST] )) >>
   strip_tac >- (
     fs[label_closures_def,UNIT_DEF,BIND_DEF] >>
     rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>

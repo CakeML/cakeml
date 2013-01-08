@@ -5,7 +5,7 @@ val _ = new_theory"CexpTypes"
 val _ = Hol_datatype `
  Cprim1 = CRef | CDer`;
 val _ = Hol_datatype `
- Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq | CUpd`;
+ Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq`;
 
 val _ = Hol_datatype `
  Cpat =
@@ -30,6 +30,7 @@ val _ = Hol_datatype `
   | CCall of Cexp => Cexp list
   | CPrim1 of Cprim1 => Cexp
   | CPrim2 of Cprim2 => Cexp => Cexp
+  | CUpd of Cexp => Cexp
   | CIf of Cexp => Cexp => Cexp`;
 
 val _ = Parse.type_abbrev("def",``:(string list # (Cexp + num))``)

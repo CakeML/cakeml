@@ -42,6 +42,7 @@ val Cexp_pred_def = tDefine "Cexp_pred"`
   (Cexp_pred (CCall _ _) = F) ∧
   (Cexp_pred (CPrim1 _ _) = F) ∧
   (Cexp_pred (CPrim2 _ e1 e2) = Cexp_pred e1 ∧ Cexp_pred e2) ∧
+  (Cexp_pred (CUpd _ _) = F) ∧
   (Cexp_pred (CIf e1 e2 e3) = Cexp_pred e1 ∧ Cexp_pred e2 ∧ Cexp_pred e3)`
   (WF_REL_TAC `measure Cexp_size` >>
    srw_tac[ARITH_ss][Cexp4_size_thm] >>

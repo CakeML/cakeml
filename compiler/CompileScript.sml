@@ -165,6 +165,8 @@ val _ = Defn.save_defn Cpat_vars_defn;
 /\
 (free_vars c (CPrim2 _ e1 e2) =(( free_vars c) e1) UNION(( free_vars c) e2))
 /\
+(free_vars c (CUpd e1 e2) =(( free_vars c) e1) UNION(( free_vars c) e2))
+/\
 (free_vars c (CIf e1 e2 e3) =(( free_vars c) e1) UNION(( free_vars c) e2) UNION(( free_vars c) e3))
 /\
 (cbod_fvs c (INL e) =(( free_vars c) e))
@@ -190,11 +192,11 @@ val _ = Defn.save_defn no_closures_defn;
 
  val doPrim2_defn = Hol_defn "doPrim2" `
 
-(doPrim2 b ty op s (CLitv (IntLit x)) (CLitv (IntLit y)) =
-  if b /\ (y = i0) then (s,( Rerr ((Rraise Div_error))))
-  else (s,( Rval ((CLitv ((ty (((op x) y)))))))))
+(doPrim2 b ty op (CLitv (IntLit x)) (CLitv (IntLit y)) =
+  if b /\ (y = i0) then( Rerr ((Rraise Div_error)))
+  else( Rval ((CLitv ((ty (((op x) y))))))))
 /\
-(doPrim2 b ty op s _ _ = (s,( Rerr Rtype_error)))`;
+(doPrim2 b ty op _ _ =( Rerr Rtype_error))`;
 
 val _ = Defn.save_defn doPrim2_defn;
 
@@ -212,20 +214,23 @@ val _ = Defn.save_defn doPrim2_defn;
 /\
 (CevalPrim2 CLt =((( doPrim2 F) Bool) int_lt))
 /\
-(CevalPrim2 CEq = \ s v1 v2 .
+(CevalPrim2 CEq = \ v1 v2 .
   if( no_closures v1) /\( no_closures v2)
-  then (s,( Rval ((CLitv ((Bool (v1 = v2)))))))
-  else (s,( Rerr Rtype_error)))
-/\
-(CevalPrim2 CUpd = \ s v1 v2 .
-  (case v1 of
-    CLoc n => if  n IN( FDOM  s)
-    then (((FUPDATE  s) ( n, v2)),( Rval ((CLitv Unit))))
-    else (s,( Rerr Rtype_error))
-  | _ => (s,( Rerr Rtype_error))
-  ))`;
+  then( Rval ((CLitv ((Bool (v1 = v2))))))
+  else( Rerr Rtype_error))`;
 
 val _ = Defn.save_defn CevalPrim2_defn;
+
+ val CevalUpd_defn = Hol_defn "CevalUpd" `
+
+(CevalUpd s (CLoc n) (v:Cv) =
+  if  n IN( FDOM  s)
+  then (((FUPDATE  s) ( n, v)),( Rval ((CLitv Unit))))
+  else (s,( Rerr Rtype_error)))
+/\
+(CevalUpd s _ _ = (s,( Rerr Rtype_error)))`;
+
+val _ = Defn.save_defn CevalUpd_defn;
 
  val CevalPrim1_defn = Hol_defn "CevalPrim1" `
 
@@ -415,12 +420,23 @@ Cevaluate c s env (((CPrim1 uop) e)) (s',( Rerr err)))
 (! c s env p2 e1 e2 s' v1 v2.(((((
 Cevaluate_list c) s) env) [e1;e2]) (s',( Rval [v1;v2])))
 ==>
-Cevaluate c s env ((((CPrim2 p2) e1) e2)) (((((CevalPrim2 p2) s') v1) v2)))
+Cevaluate c s env ((((CPrim2 p2) e1) e2)) (s',((( CevalPrim2 p2) v1) v2)))
 /\
 (! c s env p2 e1 e2 s' err.(((((
 Cevaluate_list c) s) env) [e1;e2]) (s',( Rerr err)))
 ==>
 Cevaluate c s env ((((CPrim2 p2) e1) e2)) (s',( Rerr err)))
+
+/\
+(! c s env e1 e2 s' v1 v2.(((((
+Cevaluate_list c) s) env) [e1;e2]) (s',( Rval [v1;v2])))
+==>
+Cevaluate c s env (((CUpd e1) e2)) ((((CevalUpd s') v1) v2)))
+/\
+(! c s env e1 e2 s' err.(((((
+Cevaluate_list c) s) env) [e1;e2]) (s',( Rerr err)))
+==>
+Cevaluate c s env (((CUpd e1) e2)) (s',( Rerr err)))
 
 /\
 (! c s env e1 e2 e3 s' b1 r.(((((
@@ -616,8 +632,8 @@ val _ = Define `
 /\
 (exp_to_Cexp m (App Opassign e1 e2) =
   let Ce1 =(( exp_to_Cexp m) e1) in
-  let Ce2 =(( exp_to_Cexp m) e2) in(((
-  CPrim2 CUpd) Ce1) Ce2))
+  let Ce2 =(( exp_to_Cexp m) e2) in((
+  CUpd Ce1) Ce2))
 /\
 (exp_to_Cexp m (Uapp uop e) =
   let Ce =(( exp_to_Cexp m) e) in((
@@ -761,6 +777,11 @@ val _ = Defn.save_defn label_defs_defn;
   ((label_closures e2))) (\ e2 .( UNIT
   ((((CPrim2 op) e1) e2))))))))
 /\
+(label_closures (CUpd e1 e2) =(( BIND
+  ((label_closures e1))) (\ e1 .(( BIND
+  ((label_closures e2))) (\ e2 .( UNIT
+  (((CUpd e1) e2))))))))
+/\
 (label_closures (CIf e1 e2 e3) =(( BIND
   ((label_closures e1))) (\ e1 .(( BIND
   ((label_closures e2))) (\ e2 .(( BIND
@@ -815,6 +836,8 @@ val _ = Defn.save_defn count_unlab_defn;
 (imm_unlab (CCall e es) =( imm_unlab e) +( imm_unlab_list es))
 /\
 (imm_unlab (CPrim2 op e1 e2) =( imm_unlab e1) +( imm_unlab e2))
+/\
+(imm_unlab (CUpd e1 e2) =( imm_unlab e1) +( imm_unlab e2))
 /\
 (imm_unlab (CPrim1 uop e) =( imm_unlab e))
 /\
@@ -903,6 +926,9 @@ val _ = Defn.save_defn defs_to_ldefs_defn; (* should not happen *)
 (calculate_ldefs c ls (CPrim2 _ e1 e2) =(((
   calculate_ldefs c) ((((calculate_ldefs c) ls) e1))) e2))
 /\
+(calculate_ldefs c ls (CUpd e1 e2) =(((
+  calculate_ldefs c) ((((calculate_ldefs c) ls) e1))) e2))
+/\
 (calculate_ldefs c ls (CIf e1 e2 e3) =(((
   calculate_ldefs c) ((((calculate_ldefs c) ((((calculate_ldefs c) ls) e1))) e2))) e3))`;
 
@@ -959,21 +985,19 @@ val _ = Defn.save_defn prim1_to_bc_defn;
 
  val prim2_to_bc_defn = Hol_defn "prim2_to_bc" `
 
-(prim2_to_bc CAdd = [(Stack Add)])
+(prim2_to_bc CAdd = Add)
 /\
-(prim2_to_bc CSub = [(Stack Sub)])
+(prim2_to_bc CSub = Sub)
 /\
-(prim2_to_bc CMul = [(Stack Mult)])
+(prim2_to_bc CMul = Mult)
 /\
-(prim2_to_bc CDiv = [(Stack Div)])
+(prim2_to_bc CDiv = Div)
 /\
-(prim2_to_bc CMod = [(Stack Mod)])
+(prim2_to_bc CMod = Mod)
 /\
-(prim2_to_bc CLt = [(Stack Less)])
+(prim2_to_bc CLt = Less)
 /\
-(prim2_to_bc CEq = [(Stack Equal)])
-/\
-(prim2_to_bc CUpd = [Update;( Stack (((Cons unit_tag) 0)))])`;
+(prim2_to_bc CEq = Equal)`;
 
 val _ = Defn.save_defn prim2_to_bc_defn;
 
@@ -1228,7 +1252,13 @@ val _ = Defn.save_defn compile_decl_defn;
   let (s,dt) =( sdt s) in
   let s =(( compile s) e1) in
   let s =(( compile s) e2) in( (* TODO: need to detect div by zero *)
-  decsz (((ldt dt) (((emit s) ((prim2_to_bc op))))))))
+  decsz (((ldt dt) (((emit s) [(Stack ((prim2_to_bc op)))]))))))
+/\
+(compile s (CUpd e1 e2) =
+  let (s,dt) =( sdt s) in
+  let s =(( compile s) e1) in
+  let s =(( compile s) e2) in(
+  decsz (((ldt dt) (((emit s) [Update;( Stack (((Cons unit_tag) 0)))]))))))
 /\
 (compile s (CIf e1 e2 e3) =
   let (s,dt) =( sdt s) in
