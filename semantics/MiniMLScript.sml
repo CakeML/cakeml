@@ -1963,7 +1963,7 @@ val _ = type_abbrev( "tenvS" , ``: (num, t) env``);
  * ensures that no other contexts can be created under a let binding. *)
 (*val type_ctxt : num -> tenvC -> tenvS -> tenvE -> ctxt_frame -> t -> t -> bool*)
 (*val type_ctxts : num -> tenvC -> tenvS -> list ctxt -> t -> t -> bool*)
-(*val type_state : num -> tenvC -> state -> t -> bool*)
+(*val type_state : num -> tenvC -> tenvS -> state -> t -> bool*)
 (*val context_invariant : num -> list ctxt -> num -> bool*)
 
 val _ = Hol_reln `
@@ -2241,7 +2241,7 @@ context_invariant dec_tvs) c) tvs) /\((((
 type_e tenvC) (((bind_tvar tvs) tenv))) e) t1) /\
 ((tvs <> 0) ==>( is_value e))
 ==>
-type_state dec_tvs tenvC (envC, s, env,( Exp e), c) t2)
+type_state dec_tvs tenvC senv (envC, s, env,( Exp e), c) t2)
 
 /\
 
@@ -2252,7 +2252,7 @@ type_s tenvC) senv) s) /\(((
 context_invariant dec_tvs) c) tvs) /\(((((
 type_v tvs) tenvC) senv) v) t1)
 ==>
-type_state dec_tvs tenvC (envC, s, env,( Val v), c) t2)`;
+type_state dec_tvs tenvC senv (envC, s, env,( Val v), c) t2)`;
 
 val _ = Hol_reln `
 
@@ -2266,8 +2266,8 @@ type_d_state tenvC (envC, s, env, ds, NONE) tenvC' tenv')
 /\
 
 (! tenvC senv envC s env ds tenvC' tenv tenv' p s' env' e c t tenv'' tvs.((((
-type_env tenvC) senv) env) tenv) /\((((
-type_state tvs) tenvC) (envC,s',env',e,c)) t) /\(
+type_env tenvC) senv) env) tenv) /\(((((
+type_state tvs) tenvC) senv) (envC,s',env',e,c)) t) /\(
 ALL_DISTINCT (((pat_bindings p) []))) /\(((((
 type_p tvs) tenvC) p) t) tenv') /\(((
 type_s tenvC) senv) s') /\(((((

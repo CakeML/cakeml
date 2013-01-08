@@ -806,37 +806,6 @@ rw [] >>
 full_simp_tac (srw_ss()++ARITH_ss) [EL_MAP, deBruijn_subst_def, check_freevars_def] >>
 metis_tac [subst_inc_cancel, LENGTH_MAP]);
 
-(*
-val deBruijn_subst_order = Q.prove (
-`!sk ts' t.
-  deBruijn_subst 0 (MAP (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) ts')) ts) (deBruijn_subst (LENGTH ts + sk) ts' t)
-  =
-  deBruijn_subst sk (MAP (deBruijn_inc 0 sk) ts') (deBruijn_subst 0 ts t)`,
-
-ho_match_mp_tac deBruijn_subst_ind >>
-rw [deBruijn_subst_def] >>
-rw [] >>
-full_simp_tac (srw_ss() ++ ARITH_ss) [EL_MAP]
-
-decide_tac
-*)
-
-(*
-∃tenv'.
-  type_env tenvC senv env tenv' ∧
-  type_e tenvC
-    (bind_tenv x 0 (deBruijn_subst 0 targs t1) (bind_tvar tvs tenv'))
-    (deBruijn_subst_e 0 targs e) (deBruijn_subst 0 targs t2)
-------------------------------------
-  0.  tenvC_ok tenvC
-  1.  EVERY (check_freevars tvs []) targs
-  2.  check_freevars (LENGTH targs) [] t2
-  3.  type_env tenvC senv env tenv
-  4.  check_freevars (LENGTH targs) [] t1
-  5.  type_e tenvC (bind_tenv x 0 t1 (bind_tvar (LENGTH targs) tenv)) e
-        t2
-        *)
-
 val type_p_subst = Q.store_thm ("type_p_subst",
 `(!n tenvC p t tenv. type_p n tenvC p t tenv ⇒
     !targs' inc tvs targs.
@@ -1646,6 +1615,82 @@ imp_res_tac check_dup_ctors_disj >|
             check_ctor_tenv_different_types, check_ctor_tenv_def],
  metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none],
  metis_tac [lookup_same_ctor_type]]);
+
+val type_e_tvs_weaken_help = Q.prove (
+`!(x:num) y z. x + y ≥ x`,
+rw [] >>
+decide_tac);
+
+val type_p_tvs_weaken = Q.prove (
+`(!tvs tenvC p t tenv. type_p tvs tenvC p t tenv ⇒
+    !tvs'. type_p (tvs + tvs') tenvC p t tenv) ∧
+ (!tvs tenvC ps ts tenv. type_ps tvs tenvC ps ts tenv ⇒
+    !tvs'. type_ps (tvs + tvs') tenvC ps ts tenv)`,
+ho_match_mp_tac type_p_ind >>
+rw [] >>
+ONCE_REWRITE_TAC [type_p_cases] >>
+rw [] >>
+metis_tac [type_e_tvs_weaken_help, check_freevars_add, EVERY_MEM]);
+
+val type_e_tvs_weaken = Q.store_thm ("type_e_tvs_weaken",
+`(!tenvC tenvE e t. type_e tenvC tenvE e t ⇒
+    !tenvE1 tenvE2 tvs.
+      tenv_ok tenvE2 ∧
+      (num_tvs tenvE2 = 0) ∧
+      (tenvE = db_merge tenvE1 (bind_tvar 0 tenvE2))
+      ⇒
+      type_e tenvC (db_merge tenvE1 (bind_tvar tvs tenvE2)) e t) ∧
+ (!tenvC tenvE es ts. type_es tenvC tenvE es ts ⇒
+    !tenvE1 tenvE2 tvs.
+      tenv_ok tenvE2 ∧
+      (num_tvs tenvE2 = 0) ∧
+      (tenvE = db_merge tenvE1 (bind_tvar 0 tenvE2))
+      ⇒
+    type_es tenvC (db_merge tenvE1 (bind_tvar tvs tenvE2)) es ts) ∧
+ (!tenvC tenvE funs env. type_funs tenvC tenvE funs env ⇒
+    !tenvE1 tenvE2 tvs.
+      tenv_ok tenvE2 ∧
+      (num_tvs tenvE2 = 0) ∧
+      (tenvE = db_merge tenvE1 (bind_tvar 0 tenvE2))
+      ⇒
+      type_funs tenvC (db_merge tenvE1 (bind_tvar tvs tenvE2)) funs env)`,
+ho_match_mp_tac type_e_strongind >>
+rw [] >>
+ONCE_REWRITE_TAC [type_e_cases] >>
+rw [] >>
+fs [num_tvs_db_merge, bind_tvar_rewrites] >|
+[metis_tac [type_e_tvs_weaken_help, check_freevars_add],
+ metis_tac [db_merge_def, bind_tenv_def],
+ metis_tac [type_e_tvs_weaken_help, check_freevars_add, EVERY_MEM],
+ qexists_tac `t` >>
+     rw [] >-
+     metis_tac [type_e_tvs_weaken_help, check_freevars_add, EVERY_MEM] >>
+     fs [lookup_tenv_db_merge] >>
+     every_case_tac >>
+     fs [bind_tvar_rewrites] >>
+     induct_on `tenvE2` >>
+     rw [lookup_tenv_def, num_tvs_def] >>
+     fs [tenv_ok_def] >>
+     rw [nil_deBruijn_inc],
+ metis_tac [type_e_tvs_weaken_help, check_freevars_add, EVERY_MEM],
+ metis_tac [db_merge_def, bind_tenv_def],
+ metis_tac [db_merge_def, bind_tenv_def],
+ metis_tac [db_merge_def, bind_tenv_def],
+ fs [RES_FORALL] >>
+     rw [] >>
+     qexists_tac `t` >>
+     rw [] >>
+     PairCases_on `x` >>
+     fs [] >>
+     rw [] >>
+     RES_TAC >>
+     fs [] >>
+     metis_tac [type_p_tvs_weaken, db_merge_bind_var_list],
+ metis_tac [db_merge_def, bind_tenv_def, bind_tvar_def],
+ metis_tac [db_merge_def, bind_tenv_def],
+ metis_tac [db_merge_def, bind_tenv_def, bind_tvar_def, db_merge_bind_var_list],
+ metis_tac [type_e_tvs_weaken_help, check_freevars_add, EVERY_MEM],
+ metis_tac [db_merge_def, bind_tenv_def]]);
 
 val _ = export_theory ();
 
