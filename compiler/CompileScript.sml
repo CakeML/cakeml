@@ -959,21 +959,21 @@ val _ = Defn.save_defn prim1_to_bc_defn;
 
  val prim2_to_bc_defn = Hol_defn "prim2_to_bc" `
 
-(prim2_to_bc CAdd =( Stack Add))
+(prim2_to_bc CAdd = [(Stack Add)])
 /\
-(prim2_to_bc CSub =( Stack Sub))
+(prim2_to_bc CSub = [(Stack Sub)])
 /\
-(prim2_to_bc CMul =( Stack Mult))
+(prim2_to_bc CMul = [(Stack Mult)])
 /\
-(prim2_to_bc CDiv =( Stack Div))
+(prim2_to_bc CDiv = [(Stack Div)])
 /\
-(prim2_to_bc CMod =( Stack Mod))
+(prim2_to_bc CMod = [(Stack Mod)])
 /\
-(prim2_to_bc CLt =( Stack Less))
+(prim2_to_bc CLt = [(Stack Less)])
 /\
-(prim2_to_bc CEq =( Stack Equal))
+(prim2_to_bc CEq = [(Stack Equal)])
 /\
-(prim2_to_bc CUpd = Update)`;
+(prim2_to_bc CUpd = [Update;( Stack (((Cons unit_tag) 0)))])`;
 
 val _ = Defn.save_defn prim2_to_bc_defn;
 
@@ -1228,7 +1228,7 @@ val _ = Defn.save_defn compile_decl_defn;
   let (s,dt) =( sdt s) in
   let s =(( compile s) e1) in
   let s =(( compile s) e2) in( (* TODO: need to detect div by zero *)
-  decsz (((ldt dt) (((emit s) [(prim2_to_bc op)]))))))
+  decsz (((ldt dt) (((emit s) ((prim2_to_bc op))))))))
 /\
 (compile s (CIf e1 e2 e3) =
   let (s,dt) =( sdt s) in
