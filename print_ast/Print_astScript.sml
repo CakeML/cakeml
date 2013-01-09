@@ -5,7 +5,7 @@ open set_relationTheory sortingTheory stringTheory wordsTheory
 
 val _ = new_theory "Print_ast"
 
-open MiniMLTheory TokensTheory
+open AstTheory MiniMLTheory TokensTheory
 
 (*open MiniML*)
 (*open Tokens*)
