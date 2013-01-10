@@ -466,7 +466,10 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
     (bs.pc = next_addr bs.inst_length bc0) ∧
     (CevalPrim2 op v1 v2 = Rval v) ∧
     Cv_bv pp v1 bv1 ∧ Cv_bv pp v2 bv2 ∧
-    (bs.stack = bv2::bv1::st)
+    (bs.stack = bv2::bv1::st) ∧
+    all_Clocs v1 ⊆ FDOM (FST pp) ∧
+    all_Clocs v2 ⊆ FDOM (FST pp) ∧
+    INJ (FAPPLY (FST pp)) (FDOM (FST pp)) (FRANGE (FST pp))
     ⇒ ∃bv.
       Cv_bv pp v bv ∧
       bc_next bs (bump_pc (bs with <|stack := bv::st|>))``,
@@ -489,6 +492,11 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
   TRY (Cases_on `b'` >> rw[]) >>
   srw_tac[ARITH_ss][] >>
   fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+  TRY (
+    fsrw_tac[DNF_ss][INJ_DEF] >>
+    AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >> AP_THM_TAC >>
+    AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >>
+    metis_tac[] ) >>
   Cases_on `m=m'` >> rw[] >>
   AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >> AP_THM_TAC >>
   AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >>
@@ -496,7 +504,8 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
   rfs[MEM_ZIP] >>
   fsrw_tac[DNF_ss][MEM_EL] >>
   Cases_on `LENGTH bvs = LENGTH bvs'` >> rw[] >>
-  metis_tac[no_closures_Cv_bv_equal] )
+  fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
+  metis_tac[SIMP_RULE(srw_ss()++DNF_ss)[SUBSET_DEF]no_closures_Cv_bv_equal] )
 
 val compile_varref_append_out = store_thm("compile_varref_append_out",
   ``∀cs b. ∃bc. (compile_varref cs b).out = bc ++ cs.out``,
@@ -588,6 +597,8 @@ val compile_append_out = store_thm("compile_append_out",
   strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def,compile_varref_append_out] >>
   strip_tac >- (
     rw[compile_def,LET_THM] >>
@@ -629,9 +640,16 @@ val compile_append_out = store_thm("compile_append_out",
     metis_tac[APPEND_ASSOC,CONS_APPEND] ) >>
   strip_tac >- (
     rw[compile_def,LET_THM] >>
+    metis_tac[APPEND_ASSOC,CONS_APPEND] ) >>
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
     BasicProvers.EVERY_CASE_TAC >> rw[] >>
     metis_tac[APPEND_ASSOC,CONS_APPEND] ) >>
-  rw[compile_def] )
+  strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    BasicProvers.EVERY_CASE_TAC >> rw[] >>
+    metis_tac[APPEND_ASSOC,CONS_APPEND] ) >>
+  rw[compile_def])
 
 val FOLDL_compile_append_out = store_thm("FOLDL_compile_append_out",
   ``∀cs exps. ∃bc. (FOLDL compile cs exps).out = bc ++ cs.out``,
@@ -695,10 +713,10 @@ val lookup_ct_imp_incsz = store_thm("lookup_ct_imp_incsz",
   rw[SUB,GSYM ADD_SUC])
 
 val Cenv_bs_imp_incsz = store_thm("Cenv_bs_imp_incsz",
-  ``∀c env renv rsz bs bs'.
-    Cenv_bs c env renv rsz bs ∧ (∃s p e. bs' = bs with <| stack := s::bs.stack; pc := p; exstack := e |>) ⇒
-    Cenv_bs c env renv (rsz+1) bs'``,
-  rw[Cenv_bs_def,fmap_rel_def] >>
+  ``∀c sm s env renv rsz bs bs'.
+    Cenv_bs c sm s env renv rsz bs ∧ (∃v p e. bs' = bs with <| stack := v::bs.stack; pc := p; exstack := e |>) ⇒
+    Cenv_bs c sm s env renv (rsz+1) bs'``,
+  rw[Cenv_bs_def,fmap_rel_def,s_refs_def,FDOM_DRESTRICT] >> rw[] >>
   qmatch_assum_rename_tac `z ∈ FDOM env`[] >>
   first_x_assum (qspec_then `z` mp_tac) >>
   BasicProvers.CASE_TAC >>
@@ -850,6 +868,8 @@ val compile_next_label_inc = store_thm("compile_next_label_inc",
     rw[UNCURRY] >>
     BasicProvers.EVERY_CASE_TAC >> rw[] ) >>
   strip_tac >- rw[compile_def] >>
+  strip_tac >- ( rw[compile_def] >> rw[] ) >>
+  strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
@@ -882,6 +902,10 @@ val compile_next_label_inc = store_thm("compile_next_label_inc",
   strip_tac >- (
     srw_tac[ARITH_ss][compile_def,LET_THM] ) >>
   strip_tac >- (
+    srw_tac[ARITH_ss][compile_def,LET_THM] ) >>
+  strip_tac >- (
+    srw_tac[ARITH_ss][compile_def,LET_THM] ) >>
+  strip_tac >- (
     rw[compile_def,LET_THM] >>
     BasicProvers.EVERY_CASE_TAC >> fs[] ) >>
   rw[compile_def])
@@ -906,6 +930,8 @@ val compile_next_label = store_thm("compile_next_label",
     BasicProvers.EVERY_CASE_TAC >> rw[] >> fs[] >>
     fs[UNCURRY] >>
     fs[labels_compile_decl] >> rw[]) >>
+  strip_tac >- (rw[compile_def] >> rw[]) >>
+  strip_tac >- (rw[compile_def,LET_THM]) >>
   strip_tac >- (rw[compile_def] >> rw[]) >>
   strip_tac >- (rw[compile_def] >> rw[]) >>
   strip_tac >- (rw[compile_def] >> rw[]) >>
@@ -998,7 +1024,26 @@ val compile_next_label = store_thm("compile_next_label",
       metis_tac[LESS_LESS_EQ_TRANS,LESS_EQ_TRANS,compile_next_label_inc] ) >>
     rfs[] ) >>
   strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    Cases_on`uop`>>fs[] ) >>
+  strip_tac >- (
     ntac 2 gen_tac >> map_every qx_gen_tac [`e1`,`e2`] >> strip_tac >>
+    fsrw_tac[][compile_def,LET_THM] >>
+    Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
+    qspecl_then[`compile cs0 e1`,`e2`]mp_tac(CONJUNCT1 compile_append_out) >>
+    disch_then (Q.X_CHOOSE_THEN`bc2` strip_assume_tac) >>
+    qspecl_then[`cs0`,`e1`]mp_tac(CONJUNCT1 compile_append_out) >>
+    disch_then (Q.X_CHOOSE_THEN`bc1` strip_assume_tac) >>
+    `cs0.out = cs.out` by rw[Abbr`cs0`] >>
+    qspecl_then[`cs0`,`e1`]mp_tac(CONJUNCT1 compile_next_label_inc) >>
+    strip_tac >>
+    qspecl_then[`compile cs0 e1`,`e2`]mp_tac(CONJUNCT1 compile_next_label_inc) >>
+    strip_tac >>
+    `cs0.next_label = cs.next_label`by rw[Abbr`cs0`] >>
+    fsrw_tac[ARITH_ss,DNF_ss][FILTER_APPEND,EVERY_MEM,MEM_MAP,MEM_FILTER,is_Label_rwt,between_def] >>
+    metis_tac[LESS_EQ_TRANS,LESS_LESS_EQ_TRANS] ) >>
+  strip_tac >- (
+    gen_tac >> map_every qx_gen_tac [`e1`,`e2`] >> strip_tac >>
     fsrw_tac[][compile_def,LET_THM] >>
     Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
     qspecl_then[`compile cs0 e1`,`e2`]mp_tac(CONJUNCT1 compile_append_out) >>
@@ -1149,6 +1194,8 @@ val compile_ALL_DISTINCT_labels = store_thm("compile_ALL_DISTINCT_labels",
     BasicProvers.EVERY_CASE_TAC >- rw[] >>
     rw[LET_THM] >> rw[UNCURRY,labels_compile_decl] ) >>
   strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
@@ -1209,7 +1256,25 @@ val compile_ALL_DISTINCT_labels = store_thm("compile_ALL_DISTINCT_labels",
       metis_tac[compile_next_label_inc,LESS_LESS_EQ_TRANS] ) >>
     fs[] ) >>
   strip_tac >- (
+    rw[compile_def,LET_THM] >>
+    Cases_on`uop`>>fs[]) >>
+  strip_tac >- (
     map_every qx_gen_tac[`cs`,`op`,`e1`,`e2`] >>
+    strip_tac >>
+    rw[compile_def,LET_THM] >>
+    Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
+    fs[] >>
+    first_x_assum match_mp_tac >>
+    `cs0.out = cs.out` by rw[Abbr`cs0`] >>
+    `cs0.next_label = cs.next_label` by rw[Abbr`cs0`] >>
+    fs[] >>
+    qspecl_then[`cs0`,`e1`]mp_tac(CONJUNCT1 compile_append_out) >> strip_tac >>
+    qspecl_then[`cs0`,`e1`]mp_tac(CONJUNCT1 compile_next_label) >> strip_tac >>
+    rfs[FILTER_APPEND] >>
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,MEM_MAP,between_def] >>
+    metis_tac[compile_next_label_inc,LESS_LESS_EQ_TRANS] ) >>
+  strip_tac >- (
+    map_every qx_gen_tac[`cs`,`e1`,`e2`] >>
     strip_tac >>
     rw[compile_def,LET_THM] >>
     Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
@@ -1347,19 +1412,25 @@ val compile_ALL_DISTINCT_labels = store_thm("compile_ALL_DISTINCT_labels",
     BasicProvers.EVERY_CASE_TAC >> fs[] ) >>
   rw[compile_def] )
 
+val s_refs_pc = store_thm("s_refs_pc",
+  ``s_refs c sm s bs ⇒ s_refs c sm s (bs with pc := p)``,
+  rw[s_refs_def])
+
 val Cenv_bs_pc = store_thm("Cenv_bs_pc",
-  ``Cenv_bs c env env0 sz0 bs ⇒ Cenv_bs c env env0 sz0 (bs with pc := p)``,
-  rw[Cenv_bs_def])
+  ``Cenv_bs c sm s env env0 sz0 bs ⇒ Cenv_bs c sm s env env0 sz0 (bs with pc := p)``,
+  rw[Cenv_bs_def,s_refs_pc])
 
 val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
   ``∀pp pp' l2a Cv bv. Cv_bv pp Cv bv ∧
-    (∀x y. (FST(SND pp) x = SOME y) ⇒ (l2a x = SOME y))
-    ∧ (pp' = (FST pp, l2a, SND(SND pp)))
+    (∀x y. (FST(SND (SND pp)) x = SOME y) ⇒ (l2a x = SOME y))
+    ∧ (pp' = (FST pp, FST(SND pp), l2a, SND(SND(SND pp))))
     ⇒ Cv_bv pp' Cv bv``,
   simp[GSYM AND_IMP_INTRO] >>
   ntac 2 gen_tac >>
   PairCases_on `pp` >> simp[] >>
   ho_match_mp_tac Cv_bv_ind >>
+  strip_tac >- rw[Once Cv_bv_cases] >>
+  strip_tac >- rw[Once Cv_bv_cases] >>
   strip_tac >- rw[Once Cv_bv_cases] >>
   strip_tac >- rw[Once Cv_bv_cases] >>
   strip_tac >- (
@@ -1370,13 +1441,14 @@ val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
   fs[] >> rw[Once Cv_bv_cases] )
 
 val Cenv_bs_append_code = store_thm("Cenv_bs_append_code",
-  ``∀c env env0 sz0 bs bs' ls.
-    Cenv_bs c env env0 sz0 bs ∧ (bs' = (bs with code := bs.code ++ ls)) ⇒ Cenv_bs c env env0 sz0 bs'``,
-  rw[Cenv_bs_def,fmap_rel_def] >>
+  ``∀c sm s env env0 sz0 bs bs' ls.
+    Cenv_bs c sm s env env0 sz0 bs ∧ (bs' = (bs with code := bs.code ++ ls)) ⇒
+    Cenv_bs c sm s env env0 sz0 bs'``,
+  rw[Cenv_bs_def,fmap_rel_def,s_refs_def] >>
   res_tac >>
-  BasicProvers.CASE_TAC >> fs[] >>
+  TRY ( BasicProvers.CASE_TAC >> fs[] ) >>
   match_mp_tac Cv_bv_l2a_mono >>
-  qexists_tac `mk_pp c bs` >>
+  qexists_tac `mk_pp sm c bs` >>
   rw[] >> metis_tac[bc_find_loc_aux_append_code])
 
 val compile_decl_env = store_thm("compile_decl_env",
@@ -1436,6 +1508,8 @@ val compile_env = store_thm("compile_env",
     PairCases_on`p` >> rw[] >>
     metis_tac[compile_decl_env,FST]) >>
   strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
@@ -1465,6 +1539,8 @@ val compile_env = store_thm("compile_env",
     qho_match_abbrev_tac`P (FOLDL compile (compile cs0 exp) es)` >>
     match_mp_tac FOLDL_invariant >>
     simp[Abbr`P`,Abbr`cs0`] ) >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
   strip_tac >- rw[compile_def,LET_THM] >>
   strip_tac >- rw[compile_def,LET_THM] >>
   strip_tac >- rw[compile_def,LET_THM] >>
@@ -1661,6 +1737,8 @@ val compile_sz = store_thm("compile_sz",
     Q.PAT_ABBREV_TAC`p = compile_decl X Y Z` >>
     PairCases_on`p` >> rw[] ) >>
   strip_tac >- rw[compile_def] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
@@ -1692,6 +1770,8 @@ val compile_sz = store_thm("compile_sz",
       fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
       metis_tac[] ) >>
     fs[] ) >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
   strip_tac >- rw[compile_def,LET_THM] >>
   strip_tac >- (
     map_every qx_gen_tac[`cs`,`e1`,`e2`,`e3`] >>
@@ -1856,6 +1936,10 @@ val compile_nontail = store_thm("compile_nontail",
   strip_tac >- rw[compile_def,LET_THM] >>
   strip_tac >- rw[compile_def,LET_THM] >>
   strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
+  strip_tac >- rw[compile_def,LET_THM] >>
   strip_tac >- (
     rw[compile_def,LET_THM] >>
     BasicProvers.EVERY_CASE_TAC >> fs[] ) >>
@@ -1880,10 +1964,10 @@ val Cenv_bs_FUPDATE = store_thm("Cenv_bs_FUPDATE",
   pop_assum (qspec_then`bv`mp_tac) >> rw[])
 
 val compile_val = store_thm("compile_val",
-  ``(∀c env exp res. Cevaluate c env exp res ⇒
-      ∀v bc0 bc00 bs cs.
+  ``(∀c s env exp res. Cevaluate c s env exp res ⇒
+      ∀s' v bc0 bc00 bs cs.
         Cexp_pred exp ∧
-        (res = Rval v) ∧
+        (res = (s, Rval v)) ∧
         good_ecs cs.ecs ∧
         free_labs exp ⊆ FDOM cs.ecs ∧
         (cs.tail = TCNonTail) ∧
@@ -1900,10 +1984,10 @@ val compile_val = store_thm("compile_val",
           bc_next^* bs bs' ∧
           Cv_bv (mk_pp c bs) v bv ∧
           Cenv_bs c env (compile cs exp).env (compile cs exp).sz bs') ∧
-    (∀c env exps ress. Cevaluate_list c env exps ress ⇒
-      ∀vs bc0 bc00 bs cs.
+    (∀c s env exps ress. Cevaluate_list c s env exps ress ⇒
+      ∀s' vs bc0 bc00 bs cs.
         EVERY Cexp_pred exps ∧
-        (ress = Rval vs) ∧
+        (ress = (s', Rval vs)) ∧
         good_ecs cs.ecs ∧
         free_labs_list exps ⊆ FDOM cs.ecs ∧
         (cs.tail = TCNonTail) ∧
