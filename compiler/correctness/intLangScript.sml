@@ -147,7 +147,7 @@ fmap_rel_sym
 |> SIMP_RULE std_ss[syneq_sym])
 
 val syneq_ov = store_thm("syneq_ov",
-  ``∀c v1 v2. syneq c v1 v2 ⇒ ∀m. Cv_to_ov m v1 = Cv_to_ov m v2``,
+  ``∀c v1 v2. syneq c v1 v2 ⇒ ∀m s. Cv_to_ov m s v1 = Cv_to_ov m s v2``,
   ho_match_mp_tac syneq_ind >>
   rw[MAP_EQ_EVERY2] >>
   fs[EVERY2_EVERY] >>

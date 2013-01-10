@@ -93,7 +93,7 @@ val _ = export_rewrites["Cpat_vars_def"]
 
 val (Cv_to_ov_def,Cv_to_ov_ind) = register "Cv_to_ov" (
   tprove_no_defn ((Cv_to_ov_def,Cv_to_ov_ind),
-  WF_REL_TAC `measure (Cv_size o SND)` >>
+  WF_REL_TAC `measure (Cv_size o SND o SND)` >>
   rw[Cvs_size_thm] >>
   Q.ISPEC_THEN `Cv_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
@@ -101,7 +101,7 @@ val _ = export_rewrites["Cv_to_ov_def"];
 
 val (v_to_ov_def,v_to_ov_ind) = register "v_to_ov" (
   tprove_no_defn ((v_to_ov_def,v_to_ov_ind),
-  WF_REL_TAC `measure v_size` >>
+  WF_REL_TAC `measure (v_size o SND)` >>
   rw[v3_size_thm] >>
   Q.ISPEC_THEN `v_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))

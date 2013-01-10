@@ -1500,31 +1500,31 @@ val _ = Hol_datatype `
   | OConv of conN => ov list
   | OFn
   | OLoc of num`;
-
+ (* machine, not semantic, address *)
 
  val v_to_ov_defn = Hol_defn "v_to_ov" `
 
-(v_to_ov (Litv l) =( OLit l))
+(v_to_ov s (Litv l) =( OLit l))
 /\
-(v_to_ov (Conv cn vs) =(( OConv cn) (((MAP v_to_ov) vs))))
+(v_to_ov s (Conv cn vs) =(( OConv cn) (((MAP ((v_to_ov s))) vs))))
 /\
-(v_to_ov (Closure _ _ _) = OFn)
+(v_to_ov s (Closure _ _ _) = OFn)
 /\
-(v_to_ov (Recclosure _ _ _) = OFn)
+(v_to_ov s (Recclosure _ _ _) = OFn)
 /\
-(v_to_ov (Loc n) =( OLoc n))`;
+(v_to_ov s (Loc n) =( OLoc (((FAPPLY  s)  n))))`;
 
 val _ = Defn.save_defn v_to_ov_defn;
 
  val Cv_to_ov_defn = Hol_defn "Cv_to_ov" `
 
-(Cv_to_ov m (CLitv l) =( OLit l))
+(Cv_to_ov m s (CLitv l) =( OLit l))
 /\
-(Cv_to_ov m (CConv cn vs) =(( OConv (((FAPPLY  m)  cn))) (((MAP ((Cv_to_ov m))) vs))))
+(Cv_to_ov m s (CConv cn vs) =(( OConv (((FAPPLY  m)  cn))) (((MAP (((Cv_to_ov m) s))) vs))))
 /\
-(Cv_to_ov m (CRecClos _ _ _ _) = OFn)
+(Cv_to_ov m s (CRecClos _ _ _ _) = OFn)
 /\
-(Cv_to_ov m (CLoc n) =( OLoc n))`;
+(Cv_to_ov m s (CLoc n) =( OLoc (((FAPPLY  s)  n))))`;
 
 val _ = Defn.save_defn Cv_to_ov_defn;
 

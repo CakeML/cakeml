@@ -244,9 +244,9 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   (Cv_bv pp (CLitv (IntLit k)) (Number k)) ∧
   (Cv_bv pp (CLitv (Bool b)) (bool_to_val b)) ∧
   (Cv_bv pp (CLitv Unit) unit_val) ∧
-  (Cv_bv pp (CLoc m) (RefPtr m)) ∧
+  (Cv_bv pp (CLoc m) (RefPtr (FAPPLY (FST pp) m))) ∧
   (EVERY2 (Cv_bv pp) vs bvs ⇒ Cv_bv pp (CConv cn vs) (Block (cn+block_tag) bvs)) ∧
-  ((pp = (c,l2a,rfs)) ∧
+  ((pp = (s,c,l2a,rfs)) ∧
    (find_index n ns 0 = SOME i) ∧
    (EL i defs = (xs,INR l)) ∧
    (FLOOKUP c l = SOME e) ∧
@@ -263,7 +263,7 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
    ⇒ Cv_bv pp (CRecClos env ns defs n) (Block closure_tag [CodePtr a; benv]))`
 
 val Cv_bv_ov = store_thm("Cv_bv_ov",
-  ``∀m pp Cv bv. Cv_bv pp Cv bv ⇒ (Cv_to_ov m Cv = bv_to_ov m bv)``,
+  ``∀m pp Cv bv. Cv_bv pp Cv bv ⇒ ∀s. (FST pp = s) ⇒ (Cv_to_ov m s Cv = bv_to_ov m bv)``,
   ntac 2 gen_tac >>
   ho_match_mp_tac Cv_bv_ind >>
   strip_tac >- rw[bv_to_ov_def] >>
@@ -280,30 +280,36 @@ val Cv_bv_ov = store_thm("Cv_bv_ov",
   rw[bv_to_ov_def])
 
 val v_to_Cv_ov = store_thm("v_to_Cv_ov",
-  ``(∀m v w. (all_cns v ⊆ FDOM m) ∧ fmap_linv m w ==> (Cv_to_ov w (v_to_Cv m v) = v_to_ov v)) ∧
-    (∀m vs w. (BIGUNION (IMAGE all_cns (set vs)) ⊆ FDOM m) ∧ fmap_linv m w ==> (MAP (Cv_to_ov w) (vs_to_Cvs m vs) = MAP v_to_ov vs)) ∧
+  ``(∀m v w s. (all_cns v ⊆ FDOM m) ∧ fmap_linv m w ==> (Cv_to_ov w s (v_to_Cv m v) = v_to_ov s v)) ∧
+    (∀m vs w s. (BIGUNION (IMAGE all_cns (set vs)) ⊆ FDOM m) ∧ fmap_linv m w ==> (MAP (Cv_to_ov w s) (vs_to_Cvs m vs) = MAP (v_to_ov s) vs)) ∧
     (∀(m:string|->num) (env:envE). T)``,
   ho_match_mp_tac v_to_Cv_ind >>
   rw[v_to_Cv_def] >> rw[Cv_to_ov_def] >>
   srw_tac[ETA_ss][fmap_linv_FAPPLY])
 
-val _ = Parse.overload_on("mk_pp", ``λc bs.
-  (c
+val _ = Parse.overload_on("mk_pp", ``λs c bs.
+  (s
+  ,c
   ,combin$C (bc_find_loc_aux bs.code bs.inst_length) 0
   ,bs.refs
   )``)
 
+val s_refs_def = Define`
+  s_refs c sm s bs =
+  fmap_rel (Cv_bv (mk_pp sm c bs)) s (DRESTRICT bs.refs (FRANGE sm))`
+
 val Cenv_bs_def = Define`
-  Cenv_bs c Cenv (renv:ctenv) sz bs =
-    fmap_rel
-      (λCv b. case lookup_ct sz bs.stack bs.refs b of NONE => F
-         | SOME bv => Cv_bv (mk_pp c bs) Cv bv)
-    Cenv renv`
+  Cenv_bs c sm s Cenv (renv:ctenv) sz bs =
+    (fmap_rel
+       (λCv b. case lookup_ct sz bs.stack bs.refs b of NONE => F
+             | SOME bv => Cv_bv (mk_pp sm c bs) Cv bv)
+     Cenv renv) ∧
+    s_refs c sm s bs`
 
 val env_rs_def = Define`
-  env_rs env rs c bs =
+  env_rs env rs c sm s bs =
     let Cenv = alist_to_fmap (env_to_Cenv (cmap rs.contab) env) in
-    Cenv_bs c Cenv rs.renv rs.rsz bs`
+    Cenv_bs c sm s Cenv rs.renv rs.rsz bs`
 
 val compile_varref_thm = store_thm("compile_varref_thm",
   ``∀bs bc0 bc0c bc1 cs b bv.
@@ -385,9 +391,36 @@ val compile_varref_thm = store_thm("compile_varref_thm",
     unabbrev_all_tac >>
     srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND,ADD1] ))
 
+(* TODO: move *)
+val all_Clocs_def = tDefine "all_Clocs"`
+  (all_Clocs (CLitv _) = {}) ∧
+  (all_Clocs (CConv _ vs) = BIGUNION (IMAGE all_Clocs (set vs))) ∧
+  (all_Clocs (CRecClos env _ _ _) = BIGUNION (IMAGE all_Clocs (FRANGE env))) ∧
+  (all_Clocs (CLoc n) = {n})`
+  (WF_REL_TAC`measure Cv_size` >>
+   srw_tac[ARITH_ss][fmap_size_def,FRANGE_DEF,Cvs_size_thm] >>
+   Q.ISPEC_THEN`Cv_size`imp_res_tac SUM_MAP_MEM_bound >>
+   fsrw_tac[ARITH_ss][] >>
+   qmatch_abbrev_tac `(q:num) < a + (y + (w + (z + 1)))` >>
+   qsuff_tac `q ≤ a` >- fsrw_tac[ARITH_ss][] >>
+   unabbrev_all_tac >>
+   qmatch_abbrev_tac `y <= SIGMA f (FDOM env)` >>
+   match_mp_tac LESS_EQ_TRANS >>
+   qexists_tac `f x` >>
+   conj_tac >- srw_tac[ARITH_ss][o_f_FAPPLY,Abbr`y`,Abbr`f`] >>
+   match_mp_tac SUM_IMAGE_IN_LE >>
+   rw[])
+val _ = export_rewrites["all_Clocs_def"]
+
 val no_closures_Cv_bv_equal = store_thm("no_closures_Cv_bv_equal",
   ``∀pp cv bv. Cv_bv pp cv bv ⇒
-      ∀cv' bv'. Cv_bv pp cv' bv' ∧ no_closures cv ∧ no_closures cv' ⇒ ((cv = cv') = (bv = bv'))``,
+      ∀cv' bv'. Cv_bv pp cv' bv' ∧
+        no_closures cv ∧
+        no_closures cv' ∧
+        all_Clocs cv ⊆ FDOM (FST pp) ∧
+        all_Clocs cv' ⊆ FDOM (FST pp) ∧
+        INJ (FAPPLY (FST pp)) (FDOM (FST pp)) (FRANGE (FST pp))
+        ⇒ ((cv = cv') = (bv = bv'))``,
   gen_tac >> ho_match_mp_tac Cv_bv_ind >> rw[]
   >- (
     rw[EQ_IMP_THM] >> rw[] >>
@@ -401,10 +434,11 @@ val no_closures_Cv_bv_equal = store_thm("no_closures_Cv_bv_equal",
     rw[EQ_IMP_THM] >>
     fs[Once Cv_bv_cases] >>
     fsrw_tac[ARITH_ss][] >>
-    Cases_on`b` >> fs[] )
+    Cases_on`b` >> fsrw_tac[ARITH_ss][] )
   >- (
     rw[EQ_IMP_THM] >>
-    fs[Once Cv_bv_cases] ) >>
+    fs[Once Cv_bv_cases] >> rw[] >>
+    fs[INJ_DEF]) >>
   rw[EQ_IMP_THM] >- (
     fs[Once (Q.SPECL[`pp`,`CConv cn vs`]Cv_bv_cases)] >>
     rw[LIST_EQ_REWRITE] >>
@@ -413,6 +447,7 @@ val no_closures_Cv_bv_equal = store_thm("no_closures_Cv_bv_equal",
     fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
     qpat_assum`LENGTH vs = X` assume_tac >>
     fsrw_tac[DNF_ss][MEM_EL] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
     metis_tac[EL_ZIP] ) >>
   qpat_assum`Cv_bv X Y Z` mp_tac >>
   rw[Once Cv_bv_cases] >>
@@ -422,6 +457,7 @@ val no_closures_Cv_bv_equal = store_thm("no_closures_Cv_bv_equal",
   rpt (qpat_assum `LENGTH X = Y` mp_tac) >> rpt strip_tac >>
   fsrw_tac[DNF_ss][MEM_ZIP] >>
   rw[LIST_EQ_REWRITE] >> fsrw_tac[DNF_ss][MEM_EL] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
   metis_tac[])
 
 val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
