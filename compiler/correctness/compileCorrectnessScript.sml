@@ -231,10 +231,10 @@ val lookup_ct_def = Define`
   (lookup_ct sz st rs (CTArg n) = el_check (sz + n) st) ∧
   (lookup_ct sz st rs (CTEnv n) =
    OPTION_BIND (el_check sz st)
-   (λv. case v of Block 2 vs => el_check n vs | _ => NONE)) ∧
+   (λv. case v of Block 0 vs => el_check n vs | _ => NONE)) ∧
   (lookup_ct sz st rs (CTRef n) =
    OPTION_BIND (el_check sz st)
-   (λv. case v of Block 2 vs =>
+   (λv. case v of Block 0 vs =>
      OPTION_BIND (el_check n vs)
      (λv. case v of RefPtr p => FLOOKUP rs p | _ => NONE)
      | _ => NONE))`
