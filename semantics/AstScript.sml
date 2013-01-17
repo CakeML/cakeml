@@ -3,6 +3,8 @@ open bossLib Theory Parse res_quanTheory
 open finite_mapTheory listTheory pairTheory pred_setTheory integerTheory
 open set_relationTheory sortingTheory stringTheory wordsTheory
 
+val _ = numLib.prefer_num();
+
 val _ = new_theory "Ast"
 
 open MiniMLTheory TokensTheory
@@ -17,6 +19,7 @@ val _ = Hol_datatype `
     Ast_Pvar of varN
   | Ast_Plit of lit
   | Ast_Pcon of conN => ast_pat list
+  | Ast_Ptup of ast_pat list
   | Ast_Pref of ast_pat`;
 
 
@@ -34,6 +37,7 @@ val _ = Hol_datatype `
   | Ast_Lit of lit
   | Ast_Var of varN
   | Ast_Fun of varN => ast_exp
+  | Ast_Tup of ast_exp list
   | Ast_App of ast_exp => ast_exp
   | Ast_Log of log => ast_exp => ast_exp
   | Ast_If of ast_exp => ast_exp => ast_exp

@@ -7,6 +7,7 @@ type ast_pat =
   | Ast_Pvar of varN
   | Ast_Plit of lit
   | Ast_Pcon of conN * list ast_pat
+  | Ast_Ptup of list ast_pat
   | Ast_Pref of ast_pat
 
 type error =
@@ -20,6 +21,7 @@ type ast_exp =
   | Ast_Lit of lit
   | Ast_Var of varN
   | Ast_Fun of varN * ast_exp
+  | Ast_Tup of list ast_exp
   | Ast_App of ast_exp * ast_exp
   | Ast_Log of log * ast_exp * ast_exp
   | Ast_If of ast_exp * ast_exp * ast_exp

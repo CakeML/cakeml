@@ -428,7 +428,7 @@ rw [MEM_MAP] >|
 
 val build_rec_env_help_lem = Q.prove (
 `∀funs env funs' tvs.
-FOLDR (λx. case x of (f,topt1,x,topt2,e) => λenv'. bind f (Recclosure env funs' f, add_tvs tvs topt1) env') env funs =
+FOLDR (λ(f,topt1,x,topt2,e) env'. bind f (Recclosure env funs' f, add_tvs tvs topt1) env') env funs =
 merge (MAP (λ(fn,n,e). (fn, (Recclosure env funs' fn, add_tvs tvs n))) funs) env`,
 Induct >>
 rw [merge_def, bind_def] >>
@@ -1237,7 +1237,6 @@ rw [Once type_e_cases] >>
 fs [RES_FORALL, FORALL_PROD] >>
 metis_tac [lookup_disjoint, tenvC_pat_weakening]);
 
-
 val check_ctor_tenv_dups_helper1 = Q.prove (
 `∀tenvC l y z.
   (!x. MEM x l ⇒ (λ(n,ts). lookup n tenvC = NONE) x)
@@ -1277,7 +1276,7 @@ val check_ctor_tenv_dups = Q.store_thm ("check_ctor_tenv_dups",
 `!tenvC tds.
   check_ctor_tenv tenvC tds ⇒ disjoint_env tenvC (build_ctor_tenv tds)`,
 rw [check_ctor_tenv_def, check_dup_ctors_def] >>
-metis_tac [check_ctor_tenv_dups_helper2]);
+metis_tac [check_ctor_tenv_dups_helper2, RES_FORALL]);
 
 val disjoint_env_rev = Q.store_thm ("disjoint_env_rev",
 `!tenvC tenvC'. disjoint_env tenvC tenvC' ⇒ disjoint_env tenvC (REVERSE tenvC')`,

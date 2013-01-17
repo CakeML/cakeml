@@ -3,6 +3,8 @@ open bossLib Theory Parse res_quanTheory
 open finite_mapTheory listTheory pairTheory pred_setTheory integerTheory
 open set_relationTheory sortingTheory stringTheory wordsTheory
 
+val _ = numLib.prefer_num();
+
 val _ = new_theory "Tokens"
 
 val _ = Hol_datatype `
