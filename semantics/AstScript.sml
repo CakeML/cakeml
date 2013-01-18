@@ -60,8 +60,8 @@ val _ = Hol_datatype `
   | Ast_Fun of varN => ast_exp
     (* e e *)
   | Ast_App of ast_exp => ast_exp
-    (* e && e *)
-    (* e || e *)
+    (* e andalso e *)
+    (* e orelse e *)
   | Ast_Log of log => ast_exp => ast_exp
     (* if e then e else e *)
   | Ast_If of ast_exp => ast_exp => ast_exp
