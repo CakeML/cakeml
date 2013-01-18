@@ -60,73 +60,73 @@ val hol_tm_def = Define `
   (hol_tm (Abs (Var v ty) x) = Abs v (hol_ty ty) (hol_tm x)) /\
   (hol_tm _ = impossible_term)`;
 
-val hol_ctxt_def = Define `
-  (hol_ctxt [] = []) /\
-  (hol_ctxt (Axiomdef tm::ctxt) =
-    (Axiomdef (hol_tm tm)) :: hol_ctxt ctxt) /\
-  (hol_ctxt (Constdef n tm::ctxt) =
-    (Constdef n (hol_tm tm)) :: hol_ctxt ctxt) /\
-  (hol_ctxt (Typedef s1 tm s2 s3 :: ctxt) =
-    (Typedef s1 (hol_tm tm) s2 s3) :: hol_ctxt ctxt)`;
+val hol_defs_def = Define `
+  (hol_defs [] = []) /\
+  (hol_defs (Axiomdef tm::defs) =
+    (Axiomdef (hol_tm tm)) :: hol_defs defs) /\
+  (hol_defs (Constdef n tm::defs) =
+    (Constdef n (hol_tm tm)) :: hol_defs defs) /\
+  (hol_defs (Typedef s1 tm s2 s3 :: defs) =
+    (Typedef s1 (hol_tm tm) s2 s3) :: hol_defs defs)`;
 
 (* ------------------------------------------------------------------------- *)
 (* type_ok, term_ok, context_ok and |- for implementation types.             *)
 (* ------------------------------------------------------------------------- *)
 
 val TYPE_def = Define `
-  TYPE ctxt ty = type_ok (hol_ctxt ctxt) (hol_ty ty)`;
+  TYPE defs ty = type_ok (hol_defs defs) (hol_ty ty)`;
 
 val TERM_def = Define `
-  TERM ctxt tm = welltyped_in (hol_tm tm) (hol_ctxt ctxt)`;
+  TERM defs tm = welltyped_in (hol_tm tm) (hol_defs defs)`;
 
 val CONTEXT_def = Define `
-  CONTEXT ctxt = context_ok (hol_ctxt ctxt)`;
+  CONTEXT defs = context_ok (hol_defs defs)`;
 
 val THM_def = Define `
-  THM ctxt (Sequent asl c) = ((MAP hol_tm asl, hol_ctxt ctxt) |- hol_tm c)`;
+  THM defs (Sequent asl c) = ((hol_defs defs, MAP hol_tm asl) |- hol_tm c)`;
 
 (* ------------------------------------------------------------------------- *)
 (* Certain terms cannot occur                                                *)
 (* ------------------------------------------------------------------------- *)
 
 val NOT_EQ_CONST = prove(
-  ``!ctxt x. context_ok (hol_ctxt ctxt) ==>
-             ~MEM ("=",x) (consts (hol_ctxt ctxt))``,
-  Induct \\ FULL_SIMP_TAC std_ss [consts,MAP,FLAT,MEM,hol_ctxt_def]
-  \\ Cases \\ FULL_SIMP_TAC std_ss [consts,MAP,FLAT,MEM,hol_ctxt_def]
+  ``!defs x. context_ok (hol_defs defs) ==>
+             ~MEM ("=",x) (consts (hol_defs defs))``,
+  Induct \\ FULL_SIMP_TAC std_ss [consts,MAP,FLAT,MEM,hol_defs_def]
+  \\ Cases \\ FULL_SIMP_TAC std_ss [consts,MAP,FLAT,MEM,hol_defs_def]
   \\ FULL_SIMP_TAC std_ss [consts_aux,APPEND,MEM,context_ok,def_ok]
   \\ FULL_SIMP_TAC std_ss [reserved_const_names,MEM]);
 
 val impossible_term_thm = prove(
-  ``TERM ctxt tm ==> hol_tm tm <> impossible_term ``,
+  ``TERM defs tm ==> hol_tm tm <> impossible_term ``,
   SIMP_TAC std_ss [TERM_def,welltyped_in] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [term_ok] \\ IMP_RES_TAC NOT_EQ_CONST);
 
 val Abs_Var = prove(
-  ``TERM ctxt (Abs v tm) ==> ?s ty. v = Var s ty``,
+  ``TERM defs (Abs v tm) ==> ?s ty. v = Var s ty``,
   REPEAT STRIP_TAC \\ IMP_RES_TAC impossible_term_thm
   \\ Cases_on `v` \\ FULL_SIMP_TAC (srw_ss()) [hol_tm_def]);
 
 val Equal_type = prove(
-  ``TERM ctxt (Const "=" ty) ==> ?a. ty = fun a (fun a bool_ty)``,
+  ``TERM defs (Const "=" ty) ==> ?a. ty = fun a (fun a bool_ty)``,
   REPEAT STRIP_TAC \\ IMP_RES_TAC impossible_term_thm
   \\ FULL_SIMP_TAC std_ss [hol_tm_def] \\ METIS_TAC []);
 
 val Select_type = prove(
-  ``TERM ctxt (Const "@" ty) ==> ?a. ty = fun (fun a bool_ty) a``,
+  ``TERM defs (Const "@" ty) ==> ?a. ty = fun (fun a bool_ty) a``,
   REPEAT STRIP_TAC \\ IMP_RES_TAC impossible_term_thm
   \\ FULL_SIMP_TAC std_ss [hol_tm_def,EVAL ``"@" = "="``] \\ METIS_TAC []);
 
 (* ------------------------------------------------------------------------- *)
-(* State invariant - types/terms/axioms can be extracted from ctxt           *)
+(* State invariant - types/terms/axioms can be extracted from defs           *)
 (* ------------------------------------------------------------------------- *)
 
 val STATE_def = Define `
-  STATE state ctxt =
-    (ctxt = hol_ctxt state.the_definitions) /\ context_ok ctxt /\
-    (state.the_type_constants = types ctxt ++ [("bool",0);("ind",0);("fun",2)]) /\
+  STATE state defs =
+    (defs = hol_defs state.the_definitions) /\ context_ok defs /\
+    (state.the_type_constants = types defs ++ [("bool",0);("ind",0);("fun",2)]) /\
     ALL_DISTINCT (MAP FST state.the_type_constants) /\
-    (consts ctxt = MAP (\(name,ty). (name, hol_ty ty)) state.the_term_constants)`
+    (consts defs = MAP (\(name,ty). (name, hol_ty ty)) state.the_term_constants)`
 
 (* ------------------------------------------------------------------------- *)
 (* Verification of type functions                                            *)
@@ -164,7 +164,7 @@ val mk_vartype_thm = store_thm("mk_vartype_thm",
 
 val mk_type_thm = store_thm("mk_type_thm",
   ``!tyop args s z s'.
-      STATE s ctxt /\ EVERY (TYPE s.the_definitions) args /\
+      STATE s defs /\ EVERY (TYPE s.the_definitions) args /\
       (mk_type (tyop,args) s = (z,s')) ==> (s' = s) /\
       !i. (z = HolRes i) ==> TYPE s.the_definitions i /\
                              (i = Tyapp tyop args)``,
@@ -186,7 +186,7 @@ val mk_type_thm = store_thm("mk_type_thm",
 
 val dest_type_thm = store_thm("dest_type_thm",
   ``!ty s z s'.
-      STATE s ctxt /\
+      STATE s defs /\
       (dest_type ty s = (z,s')) /\ TYPE s.the_definitions ty ==> (s' = s) /\
       !i. (z = HolRes i) ==> ?n tys. (ty = Tyapp n tys) /\ (i = (n,tys)) /\
                                      EVERY (TYPE s.the_definitions) tys``,
@@ -316,7 +316,7 @@ val type_subst_thm = store_thm("type_subst",
 
 val mk_fun_ty_thm = store_thm("mk_fun_ty_thm",
   ``!ty1 ty2 s z s'.
-      STATE s ctxt /\ EVERY (TYPE s.the_definitions) [ty1;ty2] /\
+      STATE s defs /\ EVERY (TYPE s.the_definitions) [ty1;ty2] /\
       (mk_fun_ty ty1 ty2 s = (z,s')) ==> (s' = s) /\
       !i. (z = HolRes i) ==> (i = Tyapp "fun" [ty1;ty2]) /\
                              TYPE s.the_definitions i``,

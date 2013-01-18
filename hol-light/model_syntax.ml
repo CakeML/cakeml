@@ -916,17 +916,17 @@ let types_aux = new_recursive_definition def_RECURSION
   (types_aux (Typedef tyname t a r) = [(tyname,LENGTH (tvars t))])`;;
 
 let types = define
- `types ctxt = concat (MAP types_aux ctxt)`;;
+ `types defs = concat (MAP types_aux defs)`;;
 
 let type_ok_RULES,type_ok_INDUCT,type_ok_CASES = new_inductive_definition
-  `(!n ctxt. type_ok ctxt (Tyvar n)) /\
-   (!ctxt. type_ok ctxt Bool) /\
-   (!ctxt. type_ok ctxt Ind) /\
-   (!ty1 ty2 ctxt. type_ok ctxt ty1 /\ type_ok ctxt ty2 ==>
-                   type_ok ctxt (Fun ty1 ty2)) /\
-   (!n tys ctxt. (!ty. MEM ty tys ==> type_ok ctxt ty) /\
-                 MEM (n,LENGTH tys) (types ctxt) ==>
-                 type_ok ctxt (Tyapp n tys))`;;
+  `(!n defs. type_ok defs (Tyvar n)) /\
+   (!defs. type_ok defs Bool) /\
+   (!defs. type_ok defs Ind) /\
+   (!ty1 ty2 defs. type_ok defs ty1 /\ type_ok defs ty2 ==>
+                   type_ok defs (Fun ty1 ty2)) /\
+   (!n tys defs. (!ty. MEM ty tys ==> type_ok defs ty) /\
+                 MEM (n,LENGTH tys) (types defs) ==>
+                 type_ok defs (Tyapp n tys))`;;
 
 x "types_aux" types_aux;;
 x "types" types;;
@@ -948,16 +948,16 @@ let consts_aux = new_recursive_definition def_RECURSION
         (r,Fun abs_type rep_type)])`;;
 
 let consts = define
- `consts ctxt = concat (MAP consts_aux ctxt)`;;
+ `consts defs = concat (MAP consts_aux defs)`;;
 
 let term_ok = new_recursive_definition term_RECURSION
- `(term_ok ctxt (Var s ty) <=> type_ok ctxt ty) /\
-  (term_ok ctxt (Const s ty) <=> (type_ok ctxt ty /\
-     (?ty2 i. MEM (s,ty2) (consts ctxt) /\ (TYPE_SUBST i ty2 = ty)))) /\
-  (term_ok ctxt (Equal ty) <=> type_ok ctxt ty) /\
-  (term_ok ctxt (Select ty) <=> type_ok ctxt ty) /\
-  (term_ok ctxt (Comb x y) <=> (term_ok ctxt x /\ term_ok ctxt y)) /\
-  (term_ok ctxt (Abs s ty x) <=> (type_ok ctxt ty /\ term_ok ctxt x))`;;
+ `(term_ok defs (Var s ty) <=> type_ok defs ty) /\
+  (term_ok defs (Const s ty) <=> (type_ok defs ty /\
+     (?ty2 i. MEM (s,ty2) (consts defs) /\ (TYPE_SUBST i ty2 = ty)))) /\
+  (term_ok defs (Equal ty) <=> type_ok defs ty) /\
+  (term_ok defs (Select ty) <=> type_ok defs ty) /\
+  (term_ok defs (Comb x y) <=> (term_ok defs x /\ term_ok defs y)) /\
+  (term_ok defs (Abs s ty x) <=> (type_ok defs ty /\ term_ok defs x))`;;
 
 x "consts_aux" consts_aux;;
 x "consts" consts;;
@@ -976,28 +976,28 @@ let reserved_const_names = define
  `reserved_const_names = [[CHR 61]; [CHR 64]]`;;
 
 let def_ok = new_recursive_definition def_RECURSION
- `(def_ok (Axiomdef t) (ctxt:(def)list) <=>
-     t has_type Bool /\ welltyped t /\ term_ok ctxt t) /\
-  (def_ok (Constdef s t) (ctxt:(def)list) <=>
-     CLOSED t /\ welltyped t /\ term_ok ctxt t /\
-     ~(MEM s (MAP FST (consts ctxt))) /\
+ `(def_ok (Axiomdef t) (defs:(def)list) <=>
+     t has_type Bool /\ welltyped t /\ term_ok defs t) /\
+  (def_ok (Constdef s t) (defs:(def)list) <=>
+     CLOSED t /\ welltyped t /\ term_ok defs t /\
+     ~(MEM s (MAP FST (consts defs))) /\
      ~(MEM s reserved_const_names) /\
      !v. MEM v (tvars t) ==> MEM v (tyvars (typeof t))) /\
-  (def_ok (Typedef tyname t a r) ctxt <=>
-     CLOSED t /\ welltyped t /\ term_ok ctxt t /\
-     ~(MEM tyname (MAP FST (types ctxt))) /\
+  (def_ok (Typedef tyname t a r) defs <=>
+     CLOSED t /\ welltyped t /\ term_ok defs t /\
+     ~(MEM tyname (MAP FST (types defs))) /\
      ~(MEM tyname reserved_type_names) /\
-     ~(MEM a (MAP FST (consts ctxt))) /\ ~(MEM a reserved_const_names) /\
-     ~(MEM r (MAP FST (consts ctxt))) /\ ~(MEM r reserved_const_names) /\
+     ~(MEM a (MAP FST (consts defs))) /\ ~(MEM a reserved_const_names) /\
+     ~(MEM r (MAP FST (consts defs))) /\ ~(MEM r reserved_const_names) /\
      ?ty. (typeof t = Fun ty Bool) /\
           !v. MEM v (tvars t) ==> MEM v (tyvars ty))`;;
 
 let context_ok = new_recursive_definition list_RECURSION
  `(context_ok [] = T) /\
-  (context_ok (CONS def ctxt) <=> (def_ok def ctxt /\ context_ok ctxt))`;;
+  (context_ok (CONS def defs) <=> (def_ok def defs /\ context_ok defs))`;;
 
 let welltyped_in = define
- `welltyped_in t ctxt <=> welltyped t /\ term_ok ctxt t /\ context_ok ctxt`;;
+ `welltyped_in t defs <=> welltyped t /\ term_ok defs t /\ context_ok defs`;;
 
 x "reserved_type_names" reserved_type_names;;
 x "reserved_const_names" reserved_const_names;;
@@ -1012,62 +1012,62 @@ x "welltyped_in" welltyped_in;;
 parse_as_infix("|-",(11,"right"));;
 
 let proves_RULES,proves_INDUCT,proves_CASES = new_inductive_definition
- `(!t ctxt.
-        welltyped_in t ctxt
-        ==> [], ctxt |- t === t) /\
-  (!asl1 asl2 l m1 m2 r ctxt.
-        asl1, ctxt |- l === m1 /\ asl2, ctxt |- m2 === r /\ ACONV m1 m2
-        ==> TERM_UNION asl1 asl2,ctxt |- l === r) /\
-  (!asl1 l1 r1 asl2 l2 r2 ctxt.
-        asl1, ctxt |- l1 === r1 /\
-        asl2, ctxt |- l2 === r2 /\ welltyped(Comb l1 l2)
-        ==> TERM_UNION asl1 asl2, ctxt |- Comb l1 l2 === Comb r1 r2) /\
-  (!asl x ty l r ctxt.
-        ~(EX (VFREE_IN (Var x ty)) asl) /\ asl, ctxt |- l === r
-        ==> asl, ctxt |- (Abs x ty l) === (Abs x ty r)) /\
-  (!x ty t ctxt.
-        welltyped_in t ctxt
-        ==> [], ctxt |- Comb (Abs x ty t) (Var x ty) === t) /\
-  (!p ctxt.
-        p has_type Bool /\ welltyped_in p ctxt
-        ==> [p], ctxt |- p) /\
-  (!asl1 asl2 p q p' ctxt.
-        asl1, ctxt |- p === q /\ asl2, ctxt |- p' /\ ACONV p p'
-        ==> TERM_UNION asl1 asl2, ctxt |- q) /\
-  (!asl1 asl2 c1 c2 ctxt.
-        asl1, ctxt |- c1 /\ asl2, ctxt |- c2
-        ==> TERM_UNION (FILTER((~) o ACONV c2) asl1)
-                       (FILTER((~) o ACONV c1) asl2), ctxt
+ `(!t defs.
+        welltyped_in t defs
+        ==> defs, [] |- t === t) /\
+  (!asl1 asl2 l m1 m2 r defs.
+        defs, asl1 |- l === m1 /\ defs, asl2 |- m2 === r /\ ACONV m1 m2
+        ==> defs, TERM_UNION asl1 asl2 |- l === r) /\
+  (!asl1 l1 r1 asl2 l2 r2 defs.
+        defs, asl1 |- l1 === r1 /\
+        defs, asl2 |- l2 === r2 /\ welltyped(Comb l1 l2)
+        ==> defs, TERM_UNION asl1 asl2 |- Comb l1 l2 === Comb r1 r2) /\
+  (!asl x ty l r defs.
+        ~(EX (VFREE_IN (Var x ty)) asl) /\ defs, asl |- l === r
+        ==> defs, asl |- (Abs x ty l) === (Abs x ty r)) /\
+  (!x ty t defs.
+        welltyped_in t defs
+        ==> defs, [] |- Comb (Abs x ty t) (Var x ty) === t) /\
+  (!p defs.
+        p has_type Bool /\ welltyped_in p defs
+        ==> defs, [p] |- p) /\
+  (!asl1 asl2 p q p' defs.
+        defs, asl1 |- p === q /\ defs, asl2 |- p' /\ ACONV p p'
+        ==> defs, TERM_UNION asl1 asl2 |- q) /\
+  (!asl1 asl2 c1 c2 defs.
+        defs, asl1 |- c1 /\ defs, asl2 |- c2
+        ==> defs, TERM_UNION (FILTER((~) o ACONV c2) asl1)
+                             (FILTER((~) o ACONV c1) asl2)
                |- c1 === c2) /\
-  (!tyin asl p ctxt.
-        asl, ctxt |- p
-        ==> MAP (INST tyin) asl, ctxt |- INST tyin p) /\
-  (!ilist asl p ctxt.
+  (!tyin asl p defs.
+        defs, asl |- p
+        ==> defs, MAP (INST tyin) asl |- INST tyin p) /\
+  (!ilist asl p defs.
       (!s s'. MEM (s',s) ilist ==> ?x ty. (s = Var x ty) /\ s' has_type ty /\
-                                          welltyped_in s' ctxt) /\
-      asl, ctxt |- p
-      ==> MAP (VSUBST ilist) asl, ctxt |- VSUBST ilist p) /\
-  (!asl p d ctxt.
-      asl, ctxt |- p /\ def_ok d ctxt
-      ==> asl, (CONS d ctxt) |- p) /\
-  (!t ctxt.
-      context_ok ctxt /\ MEM (Axiomdef t) ctxt
-      ==> [], ctxt |- t) /\
-  (!n t ctxt.
-      context_ok ctxt /\ MEM (Constdef n t) ctxt
-      ==> [], ctxt |- Const n (typeof t) === t) /\
-  (!tyname t a r ctxt x rep_type abs_type.
-      context_ok ctxt /\ MEM (Typedef tyname t a r) ctxt /\
+                                          welltyped_in s' defs) /\
+      defs, asl |- p
+      ==> defs, MAP (VSUBST ilist) asl |- VSUBST ilist p) /\
+  (!asl p d defs.
+      defs, asl |- p /\ def_ok d defs
+      ==> (CONS d defs), asl |- p) /\
+  (!t defs.
+      context_ok defs /\ MEM (Axiomdef t) defs
+      ==> defs, [] |- t) /\
+  (!n t defs.
+      context_ok defs /\ MEM (Constdef n t) defs
+      ==> defs, [] |- Const n (typeof t) === t) /\
+  (!tyname t a r defs x rep_type abs_type.
+      context_ok defs /\ MEM (Typedef tyname t a r) defs /\
       (rep_type = domain (typeof t)) /\
       (abs_type = Tyapp tyname (MAP Tyvar (tvars t)))
-      ==> [], ctxt |- Comb (Const a (Fun rep_type abs_type))
+      ==> defs, [] |- Comb (Const a (Fun rep_type abs_type))
                            (Comb (Const r (Fun abs_type rep_type))
                                  (Var x abs_type)) === Var x abs_type) /\
-  (!tyname t a r ctxt x rep_type abs_type.
-      context_ok ctxt /\ MEM (Typedef tyname t a r) ctxt /\
+  (!tyname t a r defs x rep_type abs_type.
+      context_ok defs /\ MEM (Typedef tyname t a r) defs /\
       (rep_type = domain (typeof t)) /\
       (abs_type = Tyapp tyname (MAP Tyvar (tvars t)))
-      ==> [], ctxt |- Comb t (Var x rep_type) ===
+      ==> defs, [] |- Comb t (Var x rep_type) ===
                       Comb (Const r (Fun abs_type rep_type))
                            (Comb (Const a (Fun rep_type abs_type))
                                  (Var x rep_type)) === Var x rep_type)`;;

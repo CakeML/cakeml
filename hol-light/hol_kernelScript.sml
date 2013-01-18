@@ -455,7 +455,7 @@ val _ = Define `mk_var(v,ty) = Var v ty`;
 
 (*
   let mk_const(name,theta) =
-    let uty = try get<_const_type name with Failure _ ->
+    let uty = try get_const_type name with Failure _ ->
       failwith "mk_const: not a constant name" in
     Const(name,type_subst theta uty)
 *)
