@@ -12,15 +12,24 @@ open MiniMLTheory TokensTheory
 (* An AST that can be the result of parsing, and then elaborated into the type
  * annotated AST in miniML.lem.  We are assuming that constructors start with
  * capital letters, and non-constructors start with lower case (as in OCaml) so
- * that the parser can determine what is a constructor application. *)
+ * that the parser can determine what is a constructor application.  Example
+ * syntax in comments before each node. *)
 
 (*open MiniML*)
 
 val _ = Hol_datatype `
  ast_pat =
+    (* x *)
     Ast_Pvar of varN
+    (* 1 *)
+    (* true *)
+    (* () *)
   | Ast_Plit of lit
+    (* C(x,y) *)
+    (* D *)
+    (* E x *)
   | Ast_Pcon of conN => ast_pat list
+    (* ref x *)
   | Ast_Pref of ast_pat`;
 
 
@@ -33,33 +42,61 @@ val _ = Hol_datatype `
 
 val _ = Hol_datatype `
  ast_exp =
+    (* raise 4 *)
     Ast_Raise of error
+    (* e handle x => e *)
   | Ast_Handle of ast_exp => varN => ast_exp
+    (* 1 *)
+    (* true *)
+    (* () *)
   | Ast_Lit of lit
+    (* x *)
   | Ast_Var of varN
+    (* C(x,y) *)
+    (* D *)
+    (* E x *)
   | Ast_Con of conN => ast_exp list
+    (* fn x => e *)
   | Ast_Fun of varN => ast_exp
+    (* e e *)
   | Ast_App of ast_exp => ast_exp
+    (* e && e *)
+    (* e || e *)
   | Ast_Log of log => ast_exp => ast_exp
+    (* if e then e else e *)
   | Ast_If of ast_exp => ast_exp => ast_exp
+    (* case e of C(x,y) => x | D y => y *)
   | Ast_Mat of ast_exp => (ast_pat # ast_exp) list
+    (* let val x = e in e end *)
   | Ast_Let of varN => ast_exp => ast_exp
+    (* let fun f x = e and g y = e in e end *) 
   | Ast_Letrec of (varN # varN # ast_exp) list => ast_exp`;
 
 
 val _ = Hol_datatype `
- ast_src_t =
-    Ast_src_Tvar of tvarN
-  | Ast_src_Tapp of ast_src_t list => typeN
-  | Ast_src_Tfn of ast_src_t => ast_src_t`;
+ ast_t =
+    (* 'a *)
+    Ast_Tvar of tvarN
+    (* t *)
+    (* num t *)
+    (* (num,bool) t *)
+  | Ast_Tapp of ast_t list => typeN
+    (* t -> t *)
+  | Ast_Tfn of ast_t => ast_t`;
 
 
-val _ = type_abbrev( "ast_type_def" , ``: ( tvarN list # typeN # (conN # ast_src_t list) list) list``);
+(* type t = C of t1 * t2 | D of t2  * t3
+ * and 'a u = E of 'a
+ * and ('a,'b) v = F of 'b u | G of 'a u *)
+val _ = type_abbrev( "ast_type_def" , ``: ( tvarN list # typeN # (conN # ast_t list) list) list``);
 
 val _ = Hol_datatype `
  ast_dec =
+    (* val (C(x,y)) = C(1,2) *) 
     Ast_Dlet of ast_pat => ast_exp
+    (* fun f x = e and g y = f *) 
   | Ast_Dletrec of (varN # varN # exp) list
+    (* see above *)
   | Ast_Dtype of type_def`;
 
 
@@ -67,7 +104,7 @@ val _ = type_abbrev( "ast_decs" , ``: ast_dec list``);
 
 val _ = Hol_datatype `
  ast_spec =
-    Ast_Sval of ast_src_t
+    Ast_Sval of ast_t
   | Ast_Stype of ast_type_def
   | Ast_Stype_opq of typeN`;
 
