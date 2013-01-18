@@ -10,7 +10,9 @@ val _ = new_theory "Ast"
 open MiniMLTheory TokensTheory
 
 (* An AST that can be the result of parsing, and then elaborated into the type
- * annotated AST in miniML.lem *)
+ * annotated AST in miniML.lem.  We are assuming that constructors start with
+ * capital letters, and non-constructors start with lower case (as in OCaml) so
+ * that the parser can determine what is a constructor application. *)
 
 (*open MiniML*)
 
@@ -19,7 +21,6 @@ val _ = Hol_datatype `
     Ast_Pvar of varN
   | Ast_Plit of lit
   | Ast_Pcon of conN => ast_pat list
-  | Ast_Ptup of ast_pat list
   | Ast_Pref of ast_pat`;
 
 
@@ -36,8 +37,8 @@ val _ = Hol_datatype `
   | Ast_Handle of ast_exp => varN => ast_exp
   | Ast_Lit of lit
   | Ast_Var of varN
+  | Ast_Con of conN => ast_exp list
   | Ast_Fun of varN => ast_exp
-  | Ast_Tup of ast_exp list
   | Ast_App of ast_exp => ast_exp
   | Ast_Log of log => ast_exp => ast_exp
   | Ast_If of ast_exp => ast_exp => ast_exp
