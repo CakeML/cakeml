@@ -2743,7 +2743,6 @@ val compile_val = store_thm("compile_val",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- (
-
     rpt gen_tac >>
     rpt strip_tac >>
     rw[LET_THM] >> fs[] >>
@@ -2779,12 +2778,15 @@ val compile_val = store_thm("compile_val",
     qabbrev_tac `il = bs.inst_length` >>
     qpat_assum `∀bc0. P` mp_tac >>
     qmatch_assum_abbrev_tac `bs.code = ls0 ++ bc1` >>
-    first_x_assum (qspecl_then [`bc0`,`bs with code := ls0`,`cs`] mp_tac) >>
+    first_x_assum (qspecl_then [`sm`,`bc0`,`bs with code := ls0`,`cs`] mp_tac) >>
     simp[] >>
     simp[Once Cv_bv_cases] >>
     strip_tac >>
     qunabbrev_tac`ls0` >>
     qunabbrev_tac`bc1` >>
+    `FDOM s ⊆ FDOM s' ∧
+     FDOM s' ⊆ FDOM s'' ∧
+     FDOM s' ⊆ FDOM sm` by metis_tac[SUBSET_TRANS,Cevaluate_store_SUBSET,FST] >> fs[] >>
     qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
     `bc_next^* bs (bs1 with code := bs.code)` by (
       match_mp_tac RTC_bc_next_append_code >>
@@ -2801,7 +2803,7 @@ val compile_val = store_thm("compile_val",
       map_every qunabbrev_tac[`nl1`,`nl2`] >>
       rpt (qpat_assum `Cevaluate X Y Z A` kall_tac) >>
       qpat_assum `bs.pc = X` kall_tac >>
-      qpat_assum `Cenv_bs X Y Z A B` kall_tac >>
+      qpat_assum `Cenv_bs c sm X Y Z A B` kall_tac >>
       fs[FILTER_APPEND,FILTER_REVERSE,EVERY_REVERSE] >>
       qspecl_then[`cs`,`exp`,`FILTER is_Label be1`]mp_tac(CONJUNCT1 compile_next_label) >>
       simp[Once FILTER_APPEND] >> strip_tac >>
@@ -2882,63 +2884,52 @@ val compile_val = store_thm("compile_val",
       fsrw_tac[QUANT_INST_ss[empty_qp]][] >>
       qmatch_abbrev_tac`P` >> rw[] >> qunabbrev_tac`P` >>
       simp_tac(srw_ss()++DNF_ss)[GSYM CONJ_ASSOC] >>
-      conj_tac >- (
-        fs[Abbr`cs3`] >>
-        gen_tac >> strip_tac >>
-        res_tac >>
-        conj_tac >- DECIDE_TAC >>
-        conj_tac >- (
-          spose_not_then strip_assume_tac >>
-          res_tac >> DECIDE_TAC ) >>
-        fs[Abbr`cs2`] >>
-        conj_tac >- DECIDE_TAC >>
-        spose_not_then strip_assume_tac >>
-        res_tac >> DECIDE_TAC ) >>
-      conj_tac >- (
-        rpt strip_tac >>
-        res_tac >> DECIDE_TAC ) >>
-      conj_tac >- (
-        fs[Abbr`cs3`] >>
-        rw[Abbr`cs2`] >>
-        spose_not_then strip_assume_tac >>
-        res_tac >> DECIDE_TAC ) >>
-      conj_tac >- (
-        rw[Abbr`cs3`,Abbr`cs2`] >>
-        spose_not_then strip_assume_tac >>
-        res_tac >> DECIDE_TAC ) >>
-      conj_tac >- (
-        rw[Abbr`cs3`,Abbr`cs2`] >>
-        spose_not_then strip_assume_tac >>
-        res_tac >> DECIDE_TAC ) >>
+      fs[Abbr`cs3`,Abbr`cs2`] >>
       rw[] >>
       res_tac >>
-      DECIDE_TAC ) >>
+      spose_not_then strip_assume_tac >>
+      res_tac >> DECIDE_TAC) >>
     `cs1.sz = cs.sz + 1` by (
       rw[Abbr`cs1`] >>
       match_mp_tac (CONJUNCT1 compile_sz) >>
       rw[] ) >>
     `(cs2.env = cs.env) ∧ (cs2.sz = cs.sz) ∧ (cs2.ecs = cs.ecs)` by (
       rw[Abbr`cs2`] >> fs[Abbr`cs1`] ) >>
+    `BIGUNION (IMAGE all_Clocs (FRANGE env)) ⊆ FDOM s'` by PROVE_TAC[SUBSET_TRANS] >>
+    `BIGUNION (IMAGE all_Clocs (FRANGE s')) ⊆ FDOM s'` by PROVE_TAC[Cevaluate_Clocs,FST] >>
+    fs[] >>
     Cases_on `b1` >> fs[] >- (
       `∃bc1. bs.code = bc0 ++ REVERSE (compile cs2 e2).out ++ bc1` by (
         rw[Abbr`cs2`] ) >>
       qmatch_assum_abbrev_tac`bs.code = ls0 ++ bc1` >>
-      disch_then(qspecl_then[`bc0`,`bs with <|code := ls0; pc := next_addr il (bc0 ++ REVERSE cs2.out)|>`,`cs2`]mp_tac) >>
+      disch_then(qspecl_then[`sm`,`bc0`,`bs with <|code := ls0; pc := next_addr il (bc0 ++ REVERSE cs2.out)|>`,`cs2`]mp_tac) >>
       simp[] >> qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
       `P` by (
         map_every qunabbrev_tac [`P`,`Q`,`R`] >>
         conj_tac >- rw[Abbr`cs2`,Abbr`cs1`] >>
         conj_tac >- rw[Abbr`cs2`,Abbr`cs1`] >>
         conj_tac >- (
-          qmatch_assum_abbrev_tac `Cenv_bs c env cs.env cs.sz bs0` >>
+          qmatch_assum_abbrev_tac `Cenv_bs c sm s env cs.env cs.sz bs0` >>
+          qmatch_assum_abbrev_tac `Cenv_bs c sm s' env cs.env szz bs1` >>
+          `∃ls. bc0 ++ REVERSE cs2.out = bs1.code ++ ls` by (
+            rw[Abbr`cs2`,Abbr`bs1`,Abbr`bs0`] ) >>
           Q.PAT_ABBREV_TAC`p = next_addr X Y` >>
-          `Cenv_bs c env cs.env cs.sz (bs0 with pc := p)` by simp[Cenv_bs_pc] >>
-          `∃ls. bc0 ++ REVERSE cs2.out = bs0.code ++ ls` by (
-            rw[Abbr`cs2`,Abbr`bs0`] ) >>
+          `Cenv_bs c sm s env cs.env cs.sz (bs0 with pc := p)` by simp[Cenv_bs_pc] >>
+          `∃ls2. bs1.code = bs0.code ++ ls2` by (
+            rw[Abbr`bs1`,Abbr`bs0`] ) >>
+          `Cenv_bs c sm s env cs.env cs.sz (bs0 with <| pc := p; code := bs1.code |>)` by (
+            match_mp_tac Cenv_bs_append_code >>
+            qexists_tac `bs0 with pc := p` >>
+            qexists_tac `ls2` >>
+            rw[] ) >>
           match_mp_tac Cenv_bs_append_code >>
-          qexists_tac `bs0 with pc := p` >>
+          qexists_tac `bs0 with <| pc := p; code := bs1.code |>` >>
           qexists_tac `ls` >>
-          rw[Abbr`bs0`] ) >>
+          rw[Abbr`bs0`] >>
+          match_mp_tac Cenv_bs_change_store >>
+          qexists_tac `s` >> rfs[] >>
+          fs[Cenv_bs_def,s_refs_def,Abbr`bs1`] >> rw[] >>
+          rfs[REVERSE_APPEND]) >>
         qspecl_then[`cs`,`exp`]mp_tac(CONJUNCT1 compile_ALL_DISTINCT_labels) >>
         qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
         `P` by (
@@ -3082,7 +3073,7 @@ val compile_val = store_thm("compile_val",
       qspecl_then[`cs2`,`e2`]mp_tac(CONJUNCT1 compile_sz) >>
       rw[] ) >>
     qmatch_assum_abbrev_tac`bs.code = ls0 ++ [Label (nl + 2)]` >>
-    disch_then(qspecl_then[`bc0`,`bs with <|code:=ls0; pc := next_addr il (bc0 ++ REVERSE cs3.out)|>`,`cs3`]mp_tac) >>
+    disch_then(qspecl_then[`sm`,`bc0`,`bs with <|code:=ls0; pc := next_addr il (bc0 ++ REVERSE cs3.out)|>`,`cs3`]mp_tac) >>
     simp[] >> qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
       map_every qunabbrev_tac[`P`,`Q`,`R`] >>
@@ -3091,11 +3082,21 @@ val compile_val = store_thm("compile_val",
       conj_tac >- (
         rw[Abbr`cs3`,compile_decl_NONE,Abbr`cs2`,Abbr`cs1`] ) >>
       conj_tac >- (
+        qmatch_assum_abbrev_tac `Cenv_bs c sm s env cs.env cs.sz bs0` >>
+        qmatch_assum_abbrev_tac `Cenv_bs c sm s' env cs.env szz bs1` >>
+        `Cenv_bs c sm s env cs.env cs.sz (bs0 with code := bs1.code)` by (
+          match_mp_tac Cenv_bs_append_code >>
+          qexists_tac`bs0` >>
+          rw[bc_state_component_equality,Abbr`bs0`,Abbr`bs1`] ) >>
+        `Cenv_bs c sm s' env cs.env cs.sz (bs0 with code := bs1.code)` by (
+          match_mp_tac Cenv_bs_change_store >>
+          qexists_tac`s` >> rw[] >>
+          fs[Cenv_bs_def,s_refs_def,Abbr`bs1`] >>
+          rfs[REVERSE_APPEND,Abbr`bs0`] ) >>
         match_mp_tac Cenv_bs_append_code >>
-        qmatch_assum_abbrev_tac `Cenv_bs c env cs.env cs.sz bs0` >>
-        qexists_tac `bs0 with pc := next_addr il (bc0 ++ REVERSE cs3.out)` >>
+        qexists_tac `(bs0 with code := bs1.code) with pc := next_addr il (bc0 ++ REVERSE cs3.out)` >>
         rw[Cenv_bs_pc] >>
-        rw[Abbr`bs0`,bc_state_component_equality] >>
+        rw[Abbr`bs0`,Abbr`bs1`,bc_state_component_equality] >>
         rw[Abbr`cs3`,Abbr`cs2`] ) >>
       qmatch_abbrev_tac`ALL_DISTINCT (FILTER is_Label ls)` >>
       `∃ls1. bs.code = ls ++ ls1` by (
@@ -3208,8 +3209,8 @@ val compile_val = store_thm("compile_val",
     rw[EVERY2_EVERY] >>
     rw[RTC_eq_NRC] >>
     TRY (qexists_tac`0` >>rw[]) >>
-    TRY (qmatch_abbrev_tac `Cenv_bs A B C D E` >>
-         qmatch_assum_abbrev_tac `Cenv_bs A B C D E'` >>
+    TRY (qmatch_abbrev_tac `Cenv_bs X Y A B C D E` >>
+         qmatch_assum_abbrev_tac `Cenv_bs X Y A B C D E'` >>
          match_mp_tac Cenv_bs_append_code >>
          qexists_tac `E'` >>
          unabbrev_all_tac >> rw[] ) >>
