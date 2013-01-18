@@ -119,14 +119,6 @@ val check_freevars_ex_def = tDefine "check_freevars_ex" `
   do () <- check_freevars_ex dbmax tvs t1;
      () <- check_freevars_ex dbmax tvs t2
   od) ∧
-(check_freevars_ex dbmax tvs Tint = 
-  return ()) ∧
-(check_freevars_ex dbmax tvs Tbool = 
-  return ()) ∧
-(check_freevars_ex dbmax tvs Tunit = 
-  return ()) ∧
-(check_freevars_ex dbmax tvs (Tref t) = 
-  check_freevars_ex dbmax tvs t) ∧
 (check_freevars_ex dbmax tvs (Tvar_db n) = 
   if n < dbmax then
     return ()
@@ -134,13 +126,13 @@ val check_freevars_ex_def = tDefine "check_freevars_ex" `
     failwith "Free type variable")`
 (WF_REL_TAC `measure (t_size o SND o SND)` >>
  rw [] >|
- [induct_on `ts` >>
+ [decide_tac,
+  decide_tac,
+  induct_on `ts` >>
       fs [] >>
       rw [t_size_def] >>
       res_tac >>
-      decide_tac,
-  decide_tac,
-  decide_tac]);
+      decide_tac]);
 
 val check_p_def = tDefine "check_p" `
 (check_p tvs cenv (Pvar n topt) =
@@ -167,7 +159,7 @@ val check_p_def = tDefine "check_p" `
      else if ¬(ts'' = MAP (type_subst (ZIP(tvs',ts'))) ts) then
        failwith "Type mismatch"
      else
-       return (Tapp ts' tn, tenv)
+       return (Tapp ts' (TC_name tn), tenv)
      od) ∧
 (check_p tvs cenv (Pref p) =
   do (t,tenv) <- check_p tvs cenv p;
@@ -190,7 +182,7 @@ val check_uop_def = Define `
   return (Tref t1)) ∧
 (check_uop Opderef t1 =
   case t1 of
-     | Tref t1' => return t1'
+     | Tapp [t1'] TC_ref => return t1'
      | _ => failwith "Dereferencing a non-reference type")`;
 
 val check_op_def = Define `
@@ -219,7 +211,7 @@ val check_op_def = Define `
     failwith "Type mismatch") ∧
 (check_op Opassign t1 t2 =
   case t1 of
-     | Tref t1' =>
+     | Tapp [t1'] TC_ref =>
          if (t1' = t2) then
            return Tunit
          else
@@ -258,7 +250,7 @@ val check_e_def = tDefine "check_e" `
      else if ¬(ts'' = MAP (type_subst (ZIP(tvs,ts'))) ts) then
        failwith "Type mismatch"
      else
-       return (Tapp ts' tn)
+       return (Tapp ts' (TC_name tn))
   od) ∧
 (check_e cenv tenv (Var n targs_opt) =
   case targs_opt of
@@ -519,7 +511,11 @@ rw [] >|
      metis_tac [] >>
      qexists_tac `t1` >>
      cases_on `t1` >>
-     fs [check_uop_def, failwith_def, ex_return_def],
+     fs [check_uop_def, failwith_def, ex_return_def] >>
+     cases_on `l` >>
+     fs [] >>
+     every_case_tac >>
+     fs [],
  cases_on `op` >>
      fs [check_op_def, type_op_def, ex_return_def] >|
      [qexists_tac `t1` >>

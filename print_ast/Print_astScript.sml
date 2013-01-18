@@ -424,6 +424,22 @@ val _ = Define `
 
 val _ = Defn.save_defn exp_to_tok_tree_defn;
 
+ val tc_to_tok_tree_defn = Hol_defn "tc_to_tok_tree" `
+
+(tc_to_tok_tree TC_int =
+  L (LongidT "int"))
+/\
+(tc_to_tok_tree TC_bool =
+  L (LongidT "bool"))
+/\
+(tc_to_tok_tree TC_unit =
+  L (LongidT "unit"))
+/\
+(tc_to_tok_tree TC_ref =
+  L (LongidT "ref"))`;
+
+val _ = Defn.save_defn tc_to_tok_tree_defn;
+
  val type_to_tok_tree_defn = Hol_defn "type_to_tok_tree" `
 
 (type_to_tok_tree (Tvar tn) =
@@ -431,21 +447,15 @@ val _ = Defn.save_defn exp_to_tok_tree_defn;
 /\
 (type_to_tok_tree (Tapp ts tn) =
   if ts = [] then
-    L (LongidT tn)
+    (tc_to_tok_tree tn)
   else N 
     (L LparT) (N  
     (join_trees (L CommaT) (MAP type_to_tok_tree ts)) (N   (L RparT)  
-    (L (LongidT tn)))))
+    (tc_to_tok_tree tn))))
 /\
 (type_to_tok_tree (Tfn t1 t2) = N 
   (L LparT) (N   (type_to_tok_tree t1) (N   (L ArrowT) (N   (type_to_tok_tree t2)  
-  (L RparT)))))
-/\
-(type_to_tok_tree Tint =
-  L (LongidT "int"))
-/\
-(type_to_tok_tree Tbool =
-  L (LongidT "bool"))`;
+  (L RparT)))))`;
 
 val _ = Defn.save_defn type_to_tok_tree_defn;
 

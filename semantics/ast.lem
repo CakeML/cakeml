@@ -2,7 +2,14 @@
  * annotated AST in miniML.lem.  We are assuming that constructors start with
  * capital letters, and non-constructors start with lower case (as in OCaml) so
  * that the parser can determine what is a constructor application.  Example
- * syntax in comments before each node. *)
+ * syntax in comments before each node.
+ * 
+ * Also, an elaboration from this syntax to the AST in miniML.lem.  The only
+ * job of the elaboration is to spot variables and types that are bound to ML
+ * primitives.  The elaboration isn't particularly sophisticated: primitives
+ * are always turned into functions, and we don't look for places where the
+ * primitive is already applied, so 1 + 2 becomes (fun x y -> x + y) 1 2 
+ *)
 
 open MiniML
 
@@ -19,11 +26,6 @@ type ast_pat =
   | Ast_Pcon of conN * list ast_pat
     (* ref x *)
   | Ast_Pref of ast_pat
-
-type error =
-  | Bind_error
-  | Div_error
-  | Int_error of int
 
 type ast_exp =
     (* raise 4 *)
@@ -75,9 +77,9 @@ type ast_dec =
     (* val (C(x,y)) = C(1,2) *) 
   | Ast_Dlet of ast_pat * ast_exp
     (* fun f x = e and g y = f *) 
-  | Ast_Dletrec of list (varN * varN * exp)
+  | Ast_Dletrec of list (varN * varN * ast_exp)
     (* see above *)
-  | Ast_Dtype of type_def
+  | Ast_Dtype of ast_type_def
 
 type ast_decs = list ast_dec
 
@@ -93,3 +95,169 @@ type ast_top =
   | Ast_Tdec of dec
 
 type ast_prog = list ast_top
+
+
+val elab_p : ast_pat -> pat
+let rec
+elab_p (Ast_Pvar n) = Pvar n None
+and
+elab_p (Ast_Plit l) = Plit l
+and
+elab_p (Ast_Pcon cn ps) = Pcon cn (elab_ps ps)
+and
+elab_p (Ast_Pref p) = Pref (elab_p p)
+and
+elab_ps [] = []
+and
+elab_ps (p::ps) = elab_p p :: elab_ps ps
+
+type ops =
+  | Is_uop of uop
+  | Is_op of op
+  | Isnt
+
+val get_op : varN -> ops
+let get_op n =
+  match n with
+    | "+" ->
+      Is_op (Opn Plus)
+    | "-" ->
+      Is_op (Opn Minus)
+    | "*" ->
+      Is_op (Opn Times)
+    | "div" ->
+      Is_op (Opn Divide)
+    | "mod" ->
+      Is_op (Opn Modulo)
+    | "<" ->
+      Is_op (Opb Lt)
+    | ">" ->
+      Is_op (Opb Gt)
+    | "<=" ->
+      Is_op (Opb Leq)
+    | ">=" ->
+      Is_op (Opb Geq)
+    | "=" ->
+      Is_op Equality
+    | ":=" ->
+      Is_op Opassign
+    | "!" ->
+      Is_uop Opderef
+    | "ref" ->
+      Is_uop Opref
+    | _ ->
+      Isnt
+  end
+
+val elab_t : list varN -> ast_t -> t
+val elab_e : list varN -> ast_exp -> exp
+val elab_funs : list varN -> list (varN * varN * ast_exp) -> 
+                list (varN * option t * varN * option t * exp)
+val elab_dec : list typeN -> list varN -> ast_dec -> list typeN * list varN * dec
+val elab_decs : list typeN -> list varN -> list ast_dec -> list typeN * list varN * list dec 
+
+let rec
+elab_e bound (Ast_Raise err) =
+  Raise err
+and
+elab_e bound (Ast_Handle e1 x e2) =
+  Handle (elab_e bound e1) x (elab_e (x::bound) e2)
+and
+elab_e bound (Ast_Lit l) =
+  Lit l
+and elab_e bound (Ast_Var n) =
+  if List.mem n bound then
+    Var n None
+  else
+    match get_op n with
+      | Isnt -> Var n None
+      | Is_op op ->
+          Fun "x" None (Fun "y" None (App op (Var "x" None) (Var "y" None)))
+      | Is_uop uop ->
+          Fun "x" None (Uapp uop (Var "x" None))
+    end
+and 
+elab_e bound (Ast_Con cn es) =
+  Con cn (List.map (elab_e bound) es)
+and
+elab_e bound (Ast_Fun n e) =
+  Fun n None (elab_e (n::bound) e)
+and
+elab_e bound (Ast_App e1 e2) =
+  App Opapp (elab_e bound e1) (elab_e bound e2)
+and
+elab_e bound (Ast_Log log e1 e2) =
+  Log log (elab_e bound e1) (elab_e bound e2)
+and
+elab_e bound (Ast_If e1 e2 e3) =
+  If (elab_e bound e1) (elab_e bound e2) (elab_e bound e3)
+and
+elab_e bound (Ast_Mat e pes) =
+  Mat (elab_e bound e) 
+      (List.map (fun (p,e) -> 
+                   let p' = elab_p p in
+                     (p', elab_e (pat_bindings p' bound) e))
+                pes) 
+and
+elab_e bound (Ast_Let x e1 e2) =
+  Let None x None (elab_e bound e1) (elab_e (x::bound) e2)
+and
+elab_e bound (Ast_Letrec funs e) =
+  Letrec None (elab_funs ((List.map (fun (n1,n2,e) -> n1) funs) @ bound) funs) 
+              (elab_e bound e)
+and
+elab_funs bound [] =
+  []
+and
+elab_funs bound ((n1,n2,e)::funs) =
+  (n1,None,n2,None,elab_e (n2::bound) e) :: elab_funs bound funs
+
+let rec get_prim_type tn =
+  match tn with
+    | "int" -> Some TC_int
+    | "bool" -> Some TC_bool
+    | "unit" -> Some TC_unit
+    | "ref" -> Some TC_ref
+    | _ -> None
+  end
+
+let rec
+elab_t type_bound (Ast_Tvar n) = Tvar n
+and
+elab_t type_bound (Ast_Tfn t1 t2) =
+  Tfn (elab_t type_bound t1) (elab_t type_bound t2)
+and
+elab_t type_bound (Ast_Tapp ts tn) =
+  let ts' = List.map (elab_t type_bound) ts in
+    if List.mem tn type_bound then
+      Tapp ts' (TC_name tn)
+    else 
+      match get_prim_type tn with
+        | None -> Tapp ts' (TC_name tn)
+        | Some tc -> Tapp ts' tc
+      end
+
+let rec
+elab_dec type_bound bound (Ast_Dlet p e) =
+  let p' = elab_p p in
+    (type_bound, pat_bindings p' bound, Dlet None p' (elab_e bound e))
+and
+elab_dec type_bound bound (Ast_Dletrec funs) =
+  let bound' = (List.map (fun (n1,n2,e) -> n1) funs) @ bound in
+    (type_bound, bound', Dletrec None (elab_funs bound' funs))
+and
+elab_dec type_bound bound (Ast_Dtype t) = 
+  let type_bound' = List.map (fun (tvs,tn,ctors) -> tn) t @ type_bound in
+  (type_bound',
+   bound, 
+   Dtype (List.map (fun (tvs,tn,ctors) -> 
+                     (tvs, tn, List.map (fun (cn,t) -> (cn, List.map (elab_t type_bound) t)) ctors))
+                   t))
+
+let rec
+elab_decs type_bound bound [] = (type_bound, bound, [])
+and
+elab_decs type_bound bound (d::ds) = 
+  let (type_bound', bound', d') = elab_dec type_bound bound d in
+  let (type_bound'', bound'', ds') = elab_decs type_bound' bound' ds in
+    (type_bound'', bound'', d'::ds')

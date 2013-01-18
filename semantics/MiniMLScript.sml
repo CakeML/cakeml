@@ -158,16 +158,34 @@ val _ = type_abbrev( "mvarN" , ``: string``);
  * 0-ary type applications represent unparameterised types (e.g., num or string)
  *)
 val _ = Hol_datatype `
+ tc0 = 
+    TC_name of typeN
+  | TC_int
+  | TC_bool
+  | TC_unit
+  | TC_ref`;
+
+
+val _ = Hol_datatype `
  t =
     Tvar of tvarN
   (* DeBruin indexed type variables. *)
   | Tvar_db of num
-  | Tapp of t list => typeN
-  | Tfn of t => t
-  | Tint
-  | Tbool
-  | Tref of t
-  | Tunit`;
+  | Tapp of t list =>tc0
+  | Tfn of t => t`;
+
+
+val _ = Define `
+ Tint = Tapp [] TC_int`;
+
+val _ = Define `
+ Tunit = Tapp [] TC_unit`;
+
+val _ = Define `
+ Tbool = Tapp [] TC_bool`;
+
+val _ = Define `
+ (Tref t = Tapp [t] TC_ref)`;
 
 
 (* Patterns *)
@@ -301,15 +319,7 @@ val _ = Hol_datatype `
 (deBruijn_inc skip n (Tapp ts tn) = Tapp (MAP (deBruijn_inc skip n) ts) tn)
 /\
 (deBruijn_inc skip n (Tfn t1 t2) =
-  Tfn (deBruijn_inc skip n t1) (deBruijn_inc skip n t2))
-/\
-(deBruijn_inc skip n Tint = Tint)
-/\
-(deBruijn_inc skip n Tbool = Tbool)
-/\
-(deBruijn_inc skip n (Tref t) = Tref (deBruijn_inc skip n t))
-/\
-(deBruijn_inc skip n Tunit = Tunit)`;
+  Tfn (deBruijn_inc skip n t1) (deBruijn_inc skip n t2))`;
 
 val _ = Defn.save_defn deBruijn_inc_defn;
 
@@ -331,15 +341,7 @@ val _ = Defn.save_defn deBruijn_inc_defn;
   Tapp (MAP (deBruijn_subst skip ts) ts') tn)
 /\
 (deBruijn_subst skip ts (Tfn t1 t2) =
-  Tfn (deBruijn_subst skip ts t1) (deBruijn_subst skip ts t2))
-/\
-(deBruijn_subst skip ts Tint = Tint)
-/\
-(deBruijn_subst skip ts Tbool = Tbool)
-/\
-(deBruijn_subst skip ts Tunit = Tunit)
-/\
-(deBruijn_subst skip ts (Tref t) = Tref (deBruijn_subst skip ts t))`;
+  Tfn (deBruijn_subst skip ts t1) (deBruijn_subst skip ts t2))`;
 
 val _ = Defn.save_defn deBruijn_subst_defn;
 
@@ -1532,10 +1534,10 @@ val _ = Define `
  (type_op op t1 t2 t3 =
   (case (op,t1,t2) of
       (Opapp, Tfn t2' t3', _) => (t2 = t2') /\ (t3 = t3')
-    | (Opn _, Tint, Tint) => (t3 = Tint)
-    | (Opb _, Tint, Tint) => (t3 = Tbool)
+    | (Opn _, Tapp [] TC_int, Tapp [] TC_int) => (t3 = Tint)
+    | (Opb _, Tapp [] TC_int, Tapp [] TC_int) => (t3 = Tbool)
     | (Equality, t1, t2) => (t1 = t2) /\ (t3 = Tbool)
-    | (Opassign, Tref t1, t2) => (t1 = t2) /\ (t3 = Tunit)
+    | (Opassign, Tapp [t1] TC_ref, t2) => (t1 = t2) /\ (t3 = Tunit)
     | _ => F
   ))`;
 
@@ -1546,7 +1548,7 @@ val _ = Define `
  (type_uop uop t1 t2 =
   (case (uop,t1) of
       (Opref, _) => t2 = Tref t1
-    | (Opderef, Tref t1') => t2 = t1'
+    | (Opderef, Tapp [t1'] TC_ref) => t2 = t1'
     | _ => F
   ))`;
 
@@ -1565,14 +1567,6 @@ val _ = Define `
 /\
 (check_freevars dbmax tvs (Tfn t1 t2) =
   check_freevars dbmax tvs t1 /\ check_freevars dbmax tvs t2)
-/\
-(check_freevars dbmax tvs Tint = T)
-/\
-(check_freevars dbmax tvs Tbool = T)
-/\
-(check_freevars dbmax tvs Tunit = T)
-/\
-(check_freevars dbmax tvs (Tref t) = check_freevars dbmax tvs t)
 /\
 (check_freevars dbmax tvs (Tvar_db n) = n < dbmax)`;
 
@@ -1625,14 +1619,6 @@ val _ = Define `
 /\
 (type_subst s (Tfn t1 t2) =
   Tfn (type_subst s t1) (type_subst s t2))
-/\
-(type_subst s Tint = Tint)
-/\
-(type_subst s Tbool = Tbool)
-/\
-(type_subst s Tunit = Tunit)
-/\
-(type_subst s (Tref t) = Tref (type_subst s t))
 /\
 (type_subst s (Tvar_db n) = Tvar_db n)`;
 
@@ -1700,7 +1686,7 @@ EVERY (check_freevars tvs []) ts' /\
 type_ps tvs cenv ps (MAP (type_subst (ZIP ( tvs', ts'))) ts) tenv /\
 (lookup cn cenv = SOME (tvs', ts, tn))
 ==>
-type_p tvs cenv (Pcon cn ps) (Tapp ts' tn) tenv)
+type_p tvs cenv (Pcon cn ps) (Tapp ts' (TC_name tn)) tenv)
 
 /\
 
@@ -1768,7 +1754,7 @@ EVERY (check_freevars (num_tvs tenv) []) ts' /\
 type_es cenv tenv es (MAP (type_subst (ZIP ( tvs, ts'))) ts) /\
 (lookup cn cenv = SOME (tvs, ts, tn))
 ==>
-type_e cenv tenv (Con cn es) (Tapp ts' tn))
+type_e cenv tenv (Con cn es) (Tapp ts' (TC_name tn)))
 
 /\
 
@@ -1997,7 +1983,7 @@ EVERY (check_freevars tvs []) ts' /\
 type_vs tvs cenv senv vs (MAP (type_subst (ZIP ( tvs', ts'))) ts) /\
 (lookup cn cenv = SOME (tvs', ts, tn))
 ==>
-type_v tvs cenv senv (Conv cn vs) (Tapp ts' tn))
+type_v tvs cenv senv (Conv cn vs) (Tapp ts' (TC_name tn)))
 
 /\
 
@@ -2214,7 +2200,7 @@ type_es cenv (bind_tvar tvs tenv) es (MAP (type_subst (ZIP ( tvs', ts'))) ts2) /
 (lookup cn cenv = SOME (tvs', ts1++([t]++ts2), tn))
 ==>
 type_ctxt tvs cenv senv tenv (Ccon cn vs ()  es) (type_subst (ZIP ( tvs', ts')) t)
-          (Tapp ts' tn))`;
+          (Tapp ts' (TC_name tn)))`;
 
 val _ = Hol_reln `
 

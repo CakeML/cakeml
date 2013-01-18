@@ -123,16 +123,24 @@ type mvarN = string
 (* Types
  * 0-ary type applications represent unparameterised types (e.g., num or string)
  *)
+type tc = 
+  | TC_name of typeN
+  | TC_int
+  | TC_bool
+  | TC_unit
+  | TC_ref
+
 type t =
   | Tvar of tvarN
   (* DeBruin indexed type variables. *)
   | Tvar_db of num
-  | Tapp of list t * typeN
+  | Tapp of list t * tc
   | Tfn of t * t
-  | Tint
-  | Tbool
-  | Tref of t
-  | Tunit
+
+let Tint = Tapp [] TC_int
+let Tunit = Tapp [] TC_unit
+let Tbool = Tapp [] TC_bool
+let Tref t = Tapp [t] TC_ref
 
 (* Patterns *)
 type pat =
@@ -251,14 +259,6 @@ deBruijn_inc skip n (Tapp ts tn) = Tapp (List.map (deBruijn_inc skip n) ts) tn
 and
 deBruijn_inc skip n (Tfn t1 t2) =
   Tfn (deBruijn_inc skip n t1) (deBruijn_inc skip n t2)
-and
-deBruijn_inc skip n Tint = Tint
-and
-deBruijn_inc skip n Tbool = Tbool
-and
-deBruijn_inc skip n (Tref t) = Tref (deBruijn_inc skip n t)
-and
-deBruijn_inc skip n Tunit = Tunit
 
 (* skip the lowest given indices and replace the next (LENGTH ts) with the given types and reduce all the higher ones *)
 val deBruijn_subst : num -> list t -> t -> t
@@ -278,14 +278,6 @@ deBruijn_subst skip ts (Tapp ts' tn) =
 and
 deBruijn_subst skip ts (Tfn t1 t2) =
   Tfn (deBruijn_subst skip ts t1) (deBruijn_subst skip ts t2)
-and
-deBruijn_subst skip ts Tint = Tint
-and
-deBruijn_subst skip ts Tbool = Tbool
-and
-deBruijn_subst skip ts Tunit = Tunit
-and
-deBruijn_subst skip ts (Tref t) = Tref (deBruijn_subst skip ts t)
 
 val deBruijn_subst_p : num -> list t -> pat -> pat
 let rec
@@ -1375,10 +1367,10 @@ val type_op : op -> t -> t -> t -> bool
 let type_op op t1 t2 t3 =
   match (op,t1,t2) with
     | (Opapp, Tfn t2' t3', _) -> (t2 = t2') && (t3 = t3')
-    | (Opn _, Tint, Tint) -> (t3 = Tint)
-    | (Opb _, Tint, Tint) -> (t3 = Tbool)
+    | (Opn _, Tapp [] TC_int, Tapp [] TC_int) -> (t3 = Tint)
+    | (Opb _, Tapp [] TC_int, Tapp [] TC_int) -> (t3 = Tbool)
     | (Equality, t1, t2) -> (t1 = t2) && (t3 = Tbool)
-    | (Opassign, Tref t1, t2) -> (t1 = t2) && (t3 = Tunit)
+    | (Opassign, Tapp [t1] TC_ref, t2) -> (t1 = t2) && (t3 = Tunit)
     | _ -> false
   end
 
@@ -1387,7 +1379,7 @@ val type_uop : uop -> t -> t -> bool
 let type_uop uop t1 t2 =
   match (uop,t1) with
     | (Opref, _) -> t2 = Tref t1
-    | (Opderef, Tref t1') -> t2 = t1'
+    | (Opderef, Tapp [t1'] TC_ref) -> t2 = t1'
     | _ -> false
   end
 
@@ -1404,14 +1396,6 @@ check_freevars dbmax tvs (Tapp ts tn) =
 and
 check_freevars dbmax tvs (Tfn t1 t2) =
   check_freevars dbmax tvs t1 && check_freevars dbmax tvs t2
-and
-check_freevars dbmax tvs Tint = true
-and
-check_freevars dbmax tvs Tbool = true
-and
-check_freevars dbmax tvs Tunit = true
-and
-check_freevars dbmax tvs (Tref t) = check_freevars dbmax tvs t
 and
 check_freevars dbmax tvs (Tvar_db n) = n < dbmax
 
@@ -1457,14 +1441,6 @@ type_subst s (Tapp ts tn) =
 and
 type_subst s (Tfn t1 t2) =
   Tfn (type_subst s t1) (type_subst s t2)
-and
-type_subst s Tint = Tint
-and
-type_subst s Tbool = Tbool
-and
-type_subst s Tunit = Tunit
-and
-type_subst s (Tref t) = Tref (type_subst s t)
 and
 type_subst s (Tvar_db n) = Tvar_db n
 
@@ -1524,7 +1500,7 @@ List.length ts' = List.length tvs' &&
 type_ps tvs cenv ps (List.map (type_subst (List.combine tvs' ts')) ts) tenv &&
 lookup cn cenv = Some (tvs', ts, tn)
 ==>
-type_p tvs cenv (Pcon cn ps) (Tapp ts' tn) tenv
+type_p tvs cenv (Pcon cn ps) (Tapp ts' (TC_name tn)) tenv
 
 and
 
@@ -1592,7 +1568,7 @@ List.length tvs = List.length ts' &&
 type_es cenv tenv es (List.map (type_subst (List.combine tvs ts')) ts) &&
 lookup cn cenv = Some (tvs, ts, tn)
 ==>
-type_e cenv tenv (Con cn es) (Tapp ts' tn)
+type_e cenv tenv (Con cn es) (Tapp ts' (TC_name tn))
 
 and
 
@@ -1821,7 +1797,7 @@ List.length tvs' = List.length ts' &&
 type_vs tvs cenv senv vs (List.map (type_subst (List.combine tvs' ts')) ts) &&
 lookup cn cenv = Some (tvs', ts, tn)
 ==>
-type_v tvs cenv senv (Conv cn vs) (Tapp ts' tn)
+type_v tvs cenv senv (Conv cn vs) (Tapp ts' (TC_name tn))
 
 and
 
@@ -2036,7 +2012,7 @@ type_es cenv (bind_tvar tvs tenv) es (List.map (type_subst (List.combine tvs' ts
 lookup cn cenv = Some (tvs', ts1@[t]@ts2, tn)
 ==>
 type_ctxt tvs cenv senv tenv (Ccon cn vs () es) (type_subst (List.combine tvs' ts') t)
-          (Tapp ts' tn)
+          (Tapp ts' (TC_name tn))
 
 indreln
 

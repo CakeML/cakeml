@@ -179,6 +179,51 @@ rw [check_freevars_def, type_subst_def, EVERY_MAP] >|
           fs [EVERY_MEM]],
  fs [EVERY_MEM]]);
 
+val type_uop_cases = Q.store_thm ("type_uop_cases",
+`∀uop t1 t2.
+  type_uop uop t1 t2 =
+  ((uop = Opref) ∧ (t2 = Tref t1)) ∨
+  ((uop = Opderef) ∧ (t1 = Tref t2))`,
+rw [type_uop_def, Tint_def, Tbool_def, Tunit_def, Tref_def] >>
+cases_on `uop` >>
+rw [] >>
+cases_on `t1` >>
+rw [] >>
+cases_on `l` >>
+rw [] >>
+cases_on `t'` >>
+rw [] >>
+cases_on `t` >>
+rw [] >>
+metis_tac []);
+
+val type_op_cases = Q.store_thm ("type_op_cases",
+`!op t1 t2 t3.
+  type_op op t1 t2 t3 =
+  ((∃op'. op = Opn op') ∧ (t1 = Tint) ∧ (t2 = Tint) ∧ (t3 = Tint)) ∨
+  ((∃op'. op = Opb op') ∧ (t1 = Tint) ∧ (t2 = Tint) ∧ (t3 = Tbool)) ∨
+  ((op = Opapp) ∧ (t1 = Tfn t2 t3)) ∨
+  ((op = Equality) ∧ (t1 = t2) ∧ (t3 = Tbool)) ∨
+  ((op = Opassign) ∧ (t1 = Tref t2) ∧ (t3 = Tunit))`,
+rw [type_op_def, Tint_def, Tbool_def, Tunit_def, Tref_def] >>
+cases_on `op` >>
+rw [] >>
+cases_on `t1` >>
+rw [] >|
+[all_tac,
+ all_tac,
+ metis_tac [],
+ all_tac] >>
+cases_on `l` >>
+rw [] >>
+cases_on `t` >>
+rw [] >>
+TRY (cases_on `t'`) >>
+rw [] >>
+cases_on `t2` >>
+rw [] >>
+every_case_tac);
+
 val check_freevars_subst_list = Q.store_thm ("check_freevars_subst_list",
 `!dbmax tvs tvs' ts ts'.
   (LENGTH tvs = LENGTH ts) ∧
@@ -299,7 +344,7 @@ val type_p_freevars = Q.store_thm ("type_p_freevars",
    EVERY (check_freevars tvs []) ts ∧
    EVERY (check_freevars tvs []) (MAP SND env'))`,
 ho_match_mp_tac type_p_ind >>
-rw [check_freevars_def, bind_tenv_def,
+rw [check_freevars_def, bind_tenv_def, Tbool_def, Tint_def, Tunit_def, Tref_def,
     tenv_ok_def, bind_tvar_def, bind_var_list_def] >>
 metis_tac []);
 
@@ -317,20 +362,12 @@ val type_e_freevars = Q.store_thm ("type_e_freevars",
    tenv_ok tenvE ⇒
    EVERY (check_freevars (num_tvs tenvE) []) (MAP SND env))`,
 ho_match_mp_tac type_e_strongind >>
-rw [check_freevars_def, bind_tenv_def, num_tvs_def, type_uop_def, type_op_def,
-    tenv_ok_def, bind_tvar_def, bind_var_list_def] >|
+rw [check_freevars_def, bind_tenv_def, num_tvs_def, type_uop_cases, type_op_cases,
+    tenv_ok_def, bind_tvar_def, bind_var_list_def, Tbool_def, Tint_def,
+    Tunit_def, Tref_def] >>
+fs [check_freevars_def] >|
 [metis_tac [deBruijn_subst_check_freevars],
  metis_tac [type_e_freevars_lem2, arithmeticTheory.ADD],
- cases_on `uop` >>
-     fs [check_freevars_def] >>
-     cases_on `t` >>
-     fs [check_freevars_def],
- cases_on `op` >>
-     fs [check_freevars_def] >>
-     cases_on `t` >>
-     fs [check_freevars_def] >>
-     cases_on `t'` >>
-     fs [check_freevars_def],
  cases_on `pes` >>
      fs [RES_FORALL, num_tvs_bind_var_list] >>
      qpat_assum `!x. P x` (ASSUME_TAC o Q.SPEC `(FST h, SND h)`) >>
@@ -441,23 +478,6 @@ val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
   build_rec_env tvs funs env =
   merge (MAP (λ(fn,n,e). (fn, (Recclosure env funs fn, add_tvs tvs n))) funs) env`,
 rw [build_rec_env_def, build_rec_env_help_lem]);
-
-val type_op_cases = Q.store_thm ("type_op_cases",
-`!op t1 t2 t3.
-  type_op op t1 t2 t3 =
-  ((∃op'. op = Opn op') ∧ (t1 = Tint) ∧ (t2 = Tint) ∧ (t3 = Tint)) ∨
-  ((∃op'. op = Opb op') ∧ (t1 = Tint) ∧ (t2 = Tint) ∧ (t3 = Tbool)) ∨
-  ((op = Opapp) ∧ (t1 = Tfn t2 t3)) ∨
-  ((op = Equality) ∧ (t1 = t2) ∧ (t3 = Tbool)) ∨
-  ((op = Opassign) ∧ (t1 = Tref t2) ∧ (t3 = Tunit))`,
-rw [type_op_def] >>
-cases_on `op` >>
-rw [] >>
-cases_on `t1` >>
-rw [] >>
-every_case_tac >>
-fs [] >>
-metis_tac []);
 
 val deBruijn_subst_tenvE_def = Define `
 (deBruijn_subst_tenvE targs Empty = Empty) ∧
@@ -832,7 +852,8 @@ val type_p_subst = Q.store_thm ("type_p_subst",
 ho_match_mp_tac type_p_strongind >>
 rw [] >>
 ONCE_REWRITE_TAC [type_p_cases] >>
-rw [deBruijn_subst_p_def, deBruijn_subst_def, option_map_eqns] >|
+rw [deBruijn_subst_p_def, deBruijn_subst_def, option_map_eqns, Tint_def,
+    Tbool_def, Tunit_def, Tref_def] >|
 [metis_tac [check_freevars_lem],
  rw [EVERY_MAP] >>
      fs [EVERY_MEM] >>
@@ -933,7 +954,8 @@ rw [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
     num_tvs_db_merge, num_tvs_deBruijn_subst_tenvE] >>
 fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def, 
     bind_tvar_rewrites, bind_tenv_def, num_tvs_def, option_map_eqns,
-    num_tvs_db_merge, num_tvs_deBruijn_subst_tenvE, tenv_ok_def] >>
+    num_tvs_db_merge, num_tvs_deBruijn_subst_tenvE, tenv_ok_def,
+    Tbool_def, Tint_def, Tunit_def, Tref_def] >>
 `tenv_ok tenvE2` by metis_tac [tenv_ok_db_merge, bind_tvar_def, tenv_ok_def] >|
 [metis_tac [check_freevars_lem],
  qpat_assum `!tenvE1' targs' tvs'. P tenvE1' targs' tvs' ⇒
@@ -947,7 +969,7 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
         (MP_TAC o Q.SPECL [`Bind_name var 0 Tint tenvE1`,
                            `targs`,
                            `tvs`]) >>
-     rw [db_merge_def] >>
+     rw [db_merge_def, Tint_def] >>
      fs [EVERY_MAP, EVERY_MEM, deBruijn_subst_tenvE_def, num_tvs_def,
          check_freevars_def, db_merge_def, deBruijn_subst_def],
  fs [EVERY_MAP, EVERY_MEM] >>
@@ -984,48 +1006,13 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
  qpat_assum `!tenvE1' targs' tvs'. P tenvE1' targs' tvs'` 
            (ASSUME_TAC o Q.SPEC `Bind_name n 0 t1 tenvE1`) >>
      fs [num_tvs_def, deBruijn_subst_tenvE_def, db_merge_def],
- cases_on `uop` >>
-     fs [type_uop_def] >>
+ fs [type_uop_cases] >>
+     rw [deBruijn_subst_def, Tref_def] >>
+     fs [deBruijn_subst_def, Tref_def],
+ fs [type_op_cases] >>
      rw [] >>
-     fs [] >>
-     rw [deBruijn_subst_def] >>
-     cases_on `t` >>
-     fs [] >>
-     rw [] >>
-     qexists_tac `deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) (Tref t')` >>
-     fs [deBruijn_subst_def],
- cases_on `op` >>
-     fs [type_op_def] >|
-     [cases_on `t` >>
-          fs [] >>
-          cases_on `t'` >>
-          fs [] >>
-          qexists_tac `Tint` >>
-          qexists_tac `Tint` >>
-          fs [deBruijn_subst_def] >>
-          rw [] >>
-          metis_tac [],
-      cases_on `t` >>
-          fs [] >>
-          cases_on `t'` >>
-          fs [] >>
-          qexists_tac `Tint` >>
-          qexists_tac `Tint` >>
-          fs [deBruijn_subst_def] >>
-          rw [] >>
-          metis_tac [],
-      fs [deBruijn_subst_def] >>
-          qexists_tac `deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) t'` >>
-          rw [],
-      cases_on `t` >>
-          fs [] >>
-          qexists_tac `deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) (Tfn t''' t0)` >>
-          fs [deBruijn_subst_def],
-      cases_on `t` >>
-          fs [] >>
-          qexists_tac `deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) (Tref t')` >>
-          qexists_tac `deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) t'` >>
-          rw [deBruijn_subst_def]],
+     fs [Tint_def, Tunit_def, Tbool_def, Tref_def, deBruijn_subst_def] >>
+     metis_tac [],
  fs [RES_FORALL] >>
      qexists_tac `deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) t` >>
      rw [] >>
