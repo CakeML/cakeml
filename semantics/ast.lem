@@ -1,0 +1,57 @@
+(* An AST that can be the result of parsing, and then elaborated into the type
+ * annotated AST in miniML.lem *)
+
+open MiniML
+
+type ast_pat =
+  | Ast_Pvar of varN
+  | Ast_Plit of lit
+  | Ast_Pcon of conN * list ast_pat
+  | Ast_Ptup of list ast_pat
+  | Ast_Pref of ast_pat
+
+type error =
+  | Bind_error
+  | Div_error
+  | Int_error of int
+
+type ast_exp =
+  | Ast_Raise of error
+  | Ast_Handle of ast_exp * varN * ast_exp
+  | Ast_Lit of lit
+  | Ast_Var of varN
+  | Ast_Fun of varN * ast_exp
+  | Ast_Tup of list ast_exp
+  | Ast_App of ast_exp * ast_exp
+  | Ast_Log of log * ast_exp * ast_exp
+  | Ast_If of ast_exp * ast_exp * ast_exp
+  | Ast_Mat of ast_exp * list (ast_pat * ast_exp)
+  | Ast_Let of varN * ast_exp * ast_exp
+  | Ast_Letrec of list (varN * varN * ast_exp) * ast_exp
+
+type ast_src_t =
+  | Ast_src_Tvar of tvarN
+  | Ast_src_Tapp of list ast_src_t * typeN
+  | Ast_src_Tfn of ast_src_t * ast_src_t
+
+type ast_type_def = list (list tvarN * typeN * list (conN * list ast_src_t))
+
+type ast_dec =
+  | Ast_Dlet of ast_pat * ast_exp
+  | Ast_Dletrec of list (varN * varN * exp)
+  | Ast_Dtype of type_def
+
+type ast_decs = list ast_dec
+
+type ast_spec =
+  | Ast_Sval of ast_src_t
+  | Ast_Stype of ast_type_def
+  | Ast_Stype_opq of typeN
+
+type ast_specs = list ast_spec
+
+type ast_top =
+  | Ast_Tmodule of mvarN * ast_specs * ast_decs
+  | Ast_Tdec of dec
+
+type ast_prog = list ast_top

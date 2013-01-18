@@ -254,8 +254,8 @@ and
 exp_to_tok_tree indent (Uapp uop e) =
   let s = 
     match uop with
-      | Ref -> "ref"
-      | Deref -> "!"
+      | Opref -> "ref"
+      | Opderef -> "!"
     end
   in
     L LparT ^^
@@ -394,7 +394,7 @@ type_to_tok_tree (Tfn t1 t2) =
   L LparT ^^ type_to_tok_tree t1 ^^ L ArrowT ^^ type_to_tok_tree t2 ^^ 
   L RparT
 and
-type_to_tok_tree Tnum =
+type_to_tok_tree Tint =
   L (LongidT "int")
 and
 type_to_tok_tree Tbool =

@@ -562,7 +562,7 @@ let return envC s env v c = Estep (envC, s, env, Val v, c)
 val build_rec_env : option num -> list (varN * option t * varN * option t * exp) -> envE -> envE
 let build_rec_env tvs funs env =
   List.fold_right
-    (fun (f,topt,x,_,e) env' -> bind f (Recclosure env funs f, add_tvs tvs topt) env')
+    (fun (f,topt,x,topt',e) env' -> bind f (Recclosure env funs f, add_tvs tvs topt) env')
     funs
     env
 
