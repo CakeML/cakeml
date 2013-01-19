@@ -7,47 +7,6 @@ val good_contab_def = Define`
   good_contab (m,w,n) =
     fmap_linv m w`
 
-(* TODO: move *)
-val all_locs_def = tDefine "all_locs"`
-  (all_locs (Litv _) = {}) ∧
-  (all_locs (Conv _ vs) = BIGUNION (IMAGE all_locs (set vs))) ∧
-  (all_locs (Closure env _ _) = BIGUNION (IMAGE all_locs (FRANGE (alist_to_fmap env)))) ∧
-  (all_locs (Recclosure env _ _) = BIGUNION (IMAGE all_locs (FRANGE (alist_to_fmap env)))) ∧
-  (all_locs (Loc n) = {n})`
-(WF_REL_TAC`measure v_size`>>
- srw_tac[ARITH_ss][v1_size_thm,v3_size_thm,SUM_MAP_v2_size_thm] >>
- Q.ISPEC_THEN`v_size`imp_res_tac SUM_MAP_MEM_bound >>
- srw_tac[ARITH_ss][] >>
- pop_assum mp_tac >>
- qid_spec_tac `a` >>
- ho_match_mp_tac IN_FRANGE_alist_to_fmap_suff >>
- rw[] >>
- Q.ISPEC_THEN`v_size`imp_res_tac SUM_MAP_MEM_bound >>
- srw_tac[ARITH_ss][])
-val _ = export_rewrites["all_locs_def"]
-
-(* TODO: move *)
-val IMAGE_FRANGE = store_thm("IMAGE_FRANGE",
-  ``!f fm. IMAGE f (FRANGE fm) = FRANGE (f o_f fm)``,
-  SRW_TAC[][EXTENSION] THEN
-  EQ_TAC THEN1 PROVE_TAC[o_f_FRANGE] THEN
-  SRW_TAC[][IN_FRANGE] THEN
-  SRW_TAC[][o_f_FAPPLY] THEN
-  PROVE_TAC[])
-
-val all_Clocs_v_to_Cv = store_thm("all_Clocs_v_to_Cv",
-  ``(∀m v. all_Clocs (v_to_Cv m v) = all_locs v) ∧
-    (∀m vs. MAP all_Clocs (vs_to_Cvs m vs) = MAP all_locs vs) ∧
-    (∀m env:envE. all_Clocs o_f (alist_to_fmap (env_to_Cenv m env)) =
-                  all_locs o_f (alist_to_fmap env))``,
-  ho_match_mp_tac v_to_Cv_ind >>
-  srw_tac[ETA_ss][v_to_Cv_def,LET_THM,defs_to_Cdefs_MAP]
-  >- simp[GSYM LIST_TO_SET_MAP]
-  >- simp[IMAGE_FRANGE]
-  >- simp[IMAGE_FRANGE] >>
-  AP_THM_TAC >> AP_TERM_TAC >>
-  PROVE_TAC[o_f_DOMSUB])
-
 val repl_exp_val = store_thm("repl_exp_val",
   ``∀cenv s env exp s' v sm rs rs' bc0 bc bs bs'.
       exp_pred exp ∧

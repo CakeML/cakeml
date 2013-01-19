@@ -946,4 +946,22 @@ val evaluate_all_cns = store_thm("evaluate_all_cns",
   strip_tac >- rw[] >>
   strip_tac >- rw[])
 
+val all_locs_def = tDefine "all_locs"`
+  (all_locs (Litv _) = {}) ∧
+  (all_locs (Conv _ vs) = BIGUNION (IMAGE all_locs (set vs))) ∧
+  (all_locs (Closure env _ _) = BIGUNION (IMAGE all_locs (FRANGE (alist_to_fmap env)))) ∧
+  (all_locs (Recclosure env _ _) = BIGUNION (IMAGE all_locs (FRANGE (alist_to_fmap env)))) ∧
+  (all_locs (Loc n) = {n})`
+(WF_REL_TAC`measure v_size`>>
+ srw_tac[ARITH_ss][v1_size_thm,v3_size_thm,SUM_MAP_v2_size_thm] >>
+ Q.ISPEC_THEN`v_size`imp_res_tac SUM_MAP_MEM_bound >>
+ srw_tac[ARITH_ss][] >>
+ pop_assum mp_tac >>
+ qid_spec_tac `a` >>
+ ho_match_mp_tac IN_FRANGE_alist_to_fmap_suff >>
+ rw[] >>
+ Q.ISPEC_THEN`v_size`imp_res_tac SUM_MAP_MEM_bound >>
+ srw_tac[ARITH_ss][])
+val _ = export_rewrites["all_locs_def"]
+
 val _ = export_theory()

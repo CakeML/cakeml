@@ -4,6 +4,34 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val IMAGE_FRANGE = store_thm("IMAGE_FRANGE",
+  ``!f fm. IMAGE f (FRANGE fm) = FRANGE (f o_f fm)``,
+  SRW_TAC[][EXTENSION] THEN
+  EQ_TAC THEN1 PROVE_TAC[o_f_FRANGE] THEN
+  SRW_TAC[][FRANGE_DEF] THEN
+  SRW_TAC[][o_f_FAPPLY] THEN
+  PROVE_TAC[])
+
+val SUBMAP_mono_FUPDATE = store_thm("SUBMAP_mono_FUPDATE",
+  ``!f g x y. f \\ x SUBMAP g \\ x ==> f |+ (x,y) SUBMAP g |+ (x,y)``,
+  SRW_TAC[][SUBMAP_FUPDATE])
+
+val SUBMAP_DOMSUB_gen = store_thm("SUBMAP_DOMSUB_gen",
+  ``!f g k. f \\ k SUBMAP g = f \\ k SUBMAP g \\ k``,
+  SRW_TAC[][SUBMAP_DEF,EQ_IMP_THM,DOMSUB_FAPPLY_THM])
+
+val DOMSUB_SUBMAP = store_thm("DOMSUB_SUBMAP",
+  ``!f g x. f SUBMAP g /\ x NOTIN FDOM f ==> f SUBMAP g \\ x``,
+  SRW_TAC[][SUBMAP_DEF,DOMSUB_FAPPLY_THM] THEN
+  SRW_TAC[][] THEN METIS_TAC[])
+
+val DRESTRICT_DOMSUB = store_thm("DRESTRICT_DOMSUB",
+  ``!f s k. DRESTRICT f s \\ k = DRESTRICT f (s DELETE k)``,
+  SRW_TAC[][GSYM fmap_EQ_THM,FDOM_DRESTRICT] THEN1 (
+    SRW_TAC[][EXTENSION] THEN METIS_TAC[] ) THEN
+  SRW_TAC[][DOMSUB_FAPPLY_THM] THEN
+  SRW_TAC[][DRESTRICT_DEF])
+
 val fmap_rel_trans = store_thm("fmap_rel_trans",
   ``(!x y z. R x y /\ R y z ==> R x z) ==>
     !x y z. fmap_rel R x y /\ fmap_rel R y z ==>

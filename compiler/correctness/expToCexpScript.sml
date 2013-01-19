@@ -36,6 +36,19 @@ val env_to_Cenv_APPEND = store_thm("env_to_Cenv_APPEND",
   rw[env_to_Cenv_MAP])
 val _ = export_rewrites["env_to_Cenv_APPEND"]
 
+val all_Clocs_v_to_Cv = store_thm("all_Clocs_v_to_Cv",
+  ``(∀m v. all_Clocs (v_to_Cv m v) = all_locs v) ∧
+    (∀m vs. MAP all_Clocs (vs_to_Cvs m vs) = MAP all_locs vs) ∧
+    (∀m env:envE. all_Clocs o_f (alist_to_fmap (env_to_Cenv m env)) =
+                  all_locs o_f (alist_to_fmap env))``,
+  ho_match_mp_tac v_to_Cv_ind >>
+  srw_tac[ETA_ss][v_to_Cv_def,LET_THM,defs_to_Cdefs_MAP]
+  >- simp[GSYM LIST_TO_SET_MAP]
+  >- simp[IMAGE_FRANGE]
+  >- simp[IMAGE_FRANGE] >>
+  AP_THM_TAC >> AP_TERM_TAC >>
+  PROVE_TAC[o_f_DOMSUB])
+
 (* free vars lemmas *)
 
 val Cpat_vars_pat_to_Cpat = store_thm(
@@ -191,15 +204,8 @@ pop_assum mp_tac >>
 rw[FRANGE_DEF,DOMSUB_FAPPLY_THM] >>
 rw[] >> PROVE_TAC[])
 
-(* correctness *)
+(* store_to_Cstore lemmas *)
 
-(*
-val v_to_Cv_inj_rwt = store_thm(
-"v_to_Cv_inj_rwt",
-``∀s v1 v2. (v_to_Cv s v1 = v_to_Cv s v2) = (v1 = v2)``,
-probably not true until equality is corrected in the source language *)
-
-(* TODO move *)
 val FDOM_store_to_Cstore = store_thm("FDOM_store_to_Cstore",
   ``∀f m. FDOM (store_to_Cstore m f) = count (LENGTH f)``,
   rw[store_to_fmap_def])
@@ -230,6 +236,8 @@ val FRANGE_store_to_Cstore = store_thm("FRANGE_store_to_Cstore",
   rfs[FAPPLY_store_to_Cstore] >>
   qexists_tac`SUC k` >>
   rw[FAPPLY_store_to_Cstore])
+
+(* do_app SOME lemmas *)
 
 val do_app_Opn_SOME = store_thm("do_app_Opn_SOME",
   ``(do_app s env (Opn opn) v1 v2 = SOME (s',env',exp')) =
@@ -269,6 +277,14 @@ val do_app_Opapp_SOME = store_thm("do_app_Opapp_SOME",
   Cases_on`v1`>>rw[do_app_def] >- rw[EQ_IMP_THM] >>
   BasicProvers.EVERY_CASE_TAC >>
   rw[EQ_IMP_THM])
+
+(* correctness *)
+
+(*
+val v_to_Cv_inj_rwt = store_thm(
+"v_to_Cv_inj_rwt",
+``∀s v1 v2. (v_to_Cv s v1 = v_to_Cv s v2) = (v1 = v2)``,
+probably not true until equality is corrected in the source language *)
 
 val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   ``(∀cenv s env exp res. evaluate cenv s env exp res ⇒

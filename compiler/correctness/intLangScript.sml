@@ -1,4 +1,4 @@
-open HolKernel bossLib boolLib boolSimps pairTheory listTheory pred_setTheory finite_mapTheory SatisfySimps quantHeuristicsLib lcsymtacs
+open HolKernel bossLib boolLib boolSimps pairTheory listTheory pred_setTheory finite_mapTheory SatisfySimps arithmeticTheory quantHeuristicsLib lcsymtacs
 open MiniMLTheory miscTheory miniMLExtraTheory compileTerminationTheory
 val _ = new_theory "intLang"
 
@@ -164,6 +164,14 @@ val good_cmap_def = Define`
       MEM (c2,(n2,s)) cenv ∧
       (FAPPLY m c1 = FAPPLY m c2) ⇒ (c1 = c2)`
 
+val Cevaluate_list_LENGTH = store_thm("Cevaluate_list_LENGTH",
+  ``∀exps c s env s' vs. Cevaluate_list c s env exps (s', Rval vs) ⇒ (LENGTH vs = LENGTH exps)``,
+  Induct >> rw[LENGTH_NIL] >> pop_assum mp_tac >>
+  rw[Once Cevaluate_cases] >>
+  fsrw_tac[DNF_ss][] >>
+  first_x_assum match_mp_tac >>
+  srw_tac[SATISFY_ss][])
+
 val FINITE_Cpat_vars = store_thm(
 "FINITE_Cpat_vars",
 ``∀p. FINITE (Cpat_vars p)``,
@@ -297,6 +305,194 @@ rw[FUNION_DEF,FDOM_FUPDATE_LIST,MAP_ZIP,MAP_MAP_o,MEM_MAP] >>
 match_mp_tac EQ_SYM >>
 match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM_matchable >>
 srw_tac[DNF_ss][MAP_MAP_o,MEM_MAP])
+
+val Cevaluate_store_SUBSET = store_thm("Cevaluate_store_SUBSET",
+  ``(∀c s env exp res. Cevaluate c s env exp res ⇒ FDOM s ⊆ FDOM (FST res)) ∧
+    (∀c s env exps res. Cevaluate_list c s env exps res ⇒ FDOM s ⊆ FDOM (FST res))``,
+  ho_match_mp_tac Cevaluate_ind >> rw[] >>
+  TRY (PROVE_TAC [SUBSET_TRANS]) >- (
+    Cases_on`uop`>>rw[]>>rw[] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    Cases_on`v`>>rw[] ) >>
+  Cases_on`v1`>>rw[] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF])
+
+val all_Clocs_def = tDefine "all_Clocs"`
+  (all_Clocs (CLitv _) = {}) ∧
+  (all_Clocs (CConv _ vs) = BIGUNION (IMAGE all_Clocs (set vs))) ∧
+  (all_Clocs (CRecClos env _ _ _) = BIGUNION (IMAGE all_Clocs (FRANGE env))) ∧
+  (all_Clocs (CLoc n) = {n})`
+  (WF_REL_TAC`measure Cv_size` >>
+   srw_tac[ARITH_ss][fmap_size_def,FRANGE_DEF,Cvs_size_thm] >>
+   Q.ISPEC_THEN`Cv_size`imp_res_tac SUM_MAP_MEM_bound >>
+   fsrw_tac[ARITH_ss][] >>
+   qmatch_abbrev_tac `(q:num) < a + (y + (w + (z + 1)))` >>
+   qsuff_tac `q ≤ a` >- fsrw_tac[ARITH_ss][] >>
+   unabbrev_all_tac >>
+   qmatch_abbrev_tac `y <= SIGMA f (FDOM env)` >>
+   match_mp_tac LESS_EQ_TRANS >>
+   qexists_tac `f x` >>
+   conj_tac >- srw_tac[ARITH_ss][o_f_FAPPLY,Abbr`y`,Abbr`f`] >>
+   match_mp_tac SUM_IMAGE_IN_LE >>
+   rw[])
+val _ = export_rewrites["all_Clocs_def"]
+
+val CevalPrim2_Clocs = store_thm("CevaluatePrim2_Clocs",
+  ``∀p2 v1 v2 v. (CevalPrim2 p2 v1 v2 = Rval v) ⇒ (all_Clocs v = {})``,
+  Cases >> fs[] >> Cases >> fs[] >>
+  TRY (Cases_on`l` >> fs[] >> Cases >> fs[] >> Cases_on `l` >> fs[] >> rw[] >> rw[]) >>
+  rw[] >> rw[])
+
+val Cevaluate_Clocs = store_thm("Cevaluate_Clocs",
+  ``(∀c s env exp res. Cevaluate c s env exp res ⇒
+     BIGUNION (IMAGE all_Clocs (FRANGE env)) ⊆ FDOM s ∧
+     BIGUNION (IMAGE all_Clocs (FRANGE s)) ⊆ FDOM s
+     ⇒
+     BIGUNION (IMAGE all_Clocs (FRANGE (FST res))) ⊆ FDOM (FST res) ∧
+     ∀v. (SND res = Rval v) ⇒ all_Clocs v ⊆ FDOM (FST res)) ∧
+    (∀c s env exps res. Cevaluate_list c s env exps res ⇒
+     BIGUNION (IMAGE all_Clocs (FRANGE env)) ⊆ FDOM s ∧
+     BIGUNION (IMAGE all_Clocs (FRANGE s)) ⊆ FDOM s
+     ⇒
+     BIGUNION (IMAGE all_Clocs (FRANGE (FST res))) ⊆ FDOM (FST res) ∧
+     ∀vs. (SND res = Rval vs) ⇒ BIGUNION (IMAGE all_Clocs (set vs)) ⊆ FDOM (FST res))``,
+  ho_match_mp_tac Cevaluate_strongind >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rpt gen_tac >> strip_tac >>
+    fs[] >> rfs[] >>
+    first_x_assum match_mp_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,IN_FRANGE,DOMSUB_FAPPLY_THM] >>
+    metis_tac[Cevaluate_store_SUBSET,SUBSET_DEF,FST] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >>
+    fsrw_tac[DNF_ss][IN_FRANGE,SUBSET_DEF] >>
+    PROVE_TAC[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- srw_tac[ETA_ss][] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    srw_tac[ETA_ss][] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
+    PROVE_TAC[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >> strip_tac >>
+    fs[] >> rfs[] >>
+    first_x_assum match_mp_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,IN_FRANGE,DOMSUB_FAPPLY_THM] >>
+    metis_tac[Cevaluate_store_SUBSET,SUBSET_DEF,FST] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    fs[] >> rfs[] >>
+    first_x_assum match_mp_tac >>
+    rfs[FOLDL2_FUPDATE_LIST_paired,MAP2_MAP,FST_triple,MAP_ZIP] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    map_every qx_gen_tac [`x`,`y`] >>
+    strip_tac >>
+    qpat_assum `x ∈ Y` mp_tac >>
+    pop_assum mp_tac >>
+    qid_spec_tac`y` >>
+    ho_match_mp_tac IN_FRANGE_FUPDATE_LIST_suff >>
+    fs[MAP_ZIP,AND_IMP_INTRO] >>
+    conj_tac >- PROVE_TAC[] >>
+    fsrw_tac[DNF_ss][MEM_MAP,FORALL_PROD] >>
+    PROVE_TAC[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    fs[] >> rfs[] >>
+    first_x_assum match_mp_tac >>
+    rfs[FOLDL_FUPDATE_LIST] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    map_every qx_gen_tac [`x`,`y`] >>
+    strip_tac >>
+    qpat_assum `x ∈ Y` mp_tac >>
+    pop_assum mp_tac >>
+    qid_spec_tac`y` >>
+    ho_match_mp_tac IN_FRANGE_FUPDATE_LIST_suff >>
+    fs[MAP_ZIP,AND_IMP_INTRO] >>
+    conj_tac >- PROVE_TAC[] >>
+    fsrw_tac[DNF_ss][MEM_MAP,FORALL_PROD] >>
+    PROVE_TAC[] ) >>
+  strip_tac >- srw_tac[ETA_ss][] >>
+  strip_tac >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    fs[] >> rfs[] >>
+    first_x_assum match_mp_tac >>
+    simp[extend_rec_env_def,FOLDL2_FUPDATE_LIST,FOLDL_FUPDATE_LIST,MAP2_MAP,FST_pair,SND_pair,MAP_ZIP] >>
+    imp_res_tac Cevaluate_store_SUBSET >> fs[] >>
+    fsrw_tac[ETA_ss][] >>
+    reverse conj_tac >- PROVE_TAC[SUBSET_TRANS] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    map_every qx_gen_tac [`x`,`y`] >>
+    strip_tac >>
+    qpat_assum `x ∈ Y` mp_tac >>
+    pop_assum mp_tac >>
+    qid_spec_tac`y` >>
+    ho_match_mp_tac IN_FRANGE_FUPDATE_LIST_suff >>
+    simp[MAP_ZIP] >>
+    reverse conj_tac >- PROVE_TAC[SUBSET_TRANS] >>
+    ho_match_mp_tac IN_FRANGE_FUPDATE_LIST_suff >>
+    fsrw_tac[DNF_ss][MAP_MAP_o,combinTheory.o_DEF,MEM_MAP,EXISTS_PROD] >>
+    PROVE_TAC[] ) >>
+  strip_tac >- (
+    rw[] >> fs[] >> rfs[] >>
+    first_x_assum match_mp_tac >>
+    metis_tac[Cevaluate_store_SUBSET,SUBSET_TRANS,FST] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    Cases_on`uop`>>fs[LET_THM] >- (
+      fsrw_tac[DNF_ss][SUBSET_DEF] >>
+      map_every qx_gen_tac [`x`,`y`] >>
+      strip_tac >>
+      qpat_assum `x ∈ Y` mp_tac >>
+      pop_assum mp_tac >>
+      qid_spec_tac`y` >>
+      ho_match_mp_tac IN_FRANGE_DOMSUB_suff >>
+      PROVE_TAC[] ) >>
+    Cases_on`v`>>fs[] >>
+    BasicProvers.CASE_TAC >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,IN_FRANGE,FLOOKUP_DEF] >>
+    PROVE_TAC[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >> imp_res_tac CevalPrim2_Clocs >> rw[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    ntac 6 gen_tac >>
+    Cases >> fs[] >>
+    gen_tac >> ntac 2 strip_tac >>
+    fs[] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    map_every qx_gen_tac [`x`,`y`] >>
+    strip_tac >>
+    qpat_assum `x ∈ Y` mp_tac >>
+    pop_assum mp_tac >>
+    qid_spec_tac`y` >>
+    ho_match_mp_tac IN_FRANGE_DOMSUB_suff >>
+    PROVE_TAC[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    fs[] >> rfs[] >>
+    first_x_assum match_mp_tac >>
+    metis_tac[SUBSET_TRANS,Cevaluate_store_SUBSET,FST]) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rpt gen_tac >> ntac 2 strip_tac >>
+    fs[] >> rfs[] >>
+    metis_tac[SUBSET_TRANS,Cevaluate_store_SUBSET,FST]) >>
+  strip_tac >- rw[] >>
+  rw[] >> fs[] >> rfs[] >>
+  metis_tac[SUBSET_TRANS,Cevaluate_store_SUBSET,FST])
 
 (* simple cases of syneq preservation *)
 
@@ -625,27 +821,6 @@ val final0 =
   rw[Abbr`env0`,Abbr`env1`,SUBMAP_DEF,DRESTRICT_DEF,FUNION_DEF,FUN_FMAP_DEF,pairTheory.UNCURRY,FAPPLY_FUPDATE_THM] >>
   fsrw_tac[boolSimps.DNF_ss,SATISFY_ss][FUN_FMAP_DEF,pairTheory.UNCURRY,MEM_EL,fmap_rel_def] >>
   metis_tac[]
-
-(* TODO: move? *)
-val SUBMAP_mono_FUPDATE = store_thm("SUBMAP_mono_FUPDATE",
-  ``!f g x y. f \\ x SUBMAP g \\ x ==> f |+ (x,y) SUBMAP g |+ (x,y)``,
-  SRW_TAC[][SUBMAP_FUPDATE])
-
-val SUBMAP_DOMSUB_gen = store_thm("SUBMAP_DOMSUB_gen",
-  ``!f g k. f \\ k SUBMAP g = f \\ k SUBMAP g \\ k``,
-  SRW_TAC[][SUBMAP_DEF,EQ_IMP_THM,DOMSUB_FAPPLY_THM])
-
-val DOMSUB_SUBMAP = store_thm("DOMSUB_SUBMAP",
-  ``!f g x. f SUBMAP g /\ x NOTIN FDOM f ==> f SUBMAP g \\ x``,
-  SRW_TAC[][SUBMAP_DEF,DOMSUB_FAPPLY_THM] THEN
-  SRW_TAC[][] THEN METIS_TAC[])
-
-val DRESTRICT_DOMSUB = store_thm("DRESTRICT_DOMSUB",
-  ``!f s k. DRESTRICT f s \\ k = DRESTRICT f (s DELETE k)``,
-  SRW_TAC[][GSYM fmap_EQ_THM,FDOM_DRESTRICT] THEN1 (
-    SRW_TAC[][EXTENSION] THEN METIS_TAC[] ) THEN
-  SRW_TAC[][DOMSUB_FAPPLY_THM] THEN
-  SRW_TAC[][DRESTRICT_DEF])
 
 val Cevaluate_any_env = store_thm(
 "Cevaluate_any_env",
