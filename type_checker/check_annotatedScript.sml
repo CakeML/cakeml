@@ -517,30 +517,41 @@ rw [] >|
      every_case_tac >>
      fs [],
  cases_on `op` >>
-     fs [check_op_def, type_op_def, ex_return_def] >|
+     fs [Tint_def, Tref_def, check_op_def, type_op_def, ex_return_def] >|
      [qexists_tac `t1` >>
-          cases_on `t1` >>
           fs [check_op_def, failwith_def] >>
           qexists_tac `t2` >>
-          cases_on `t2` >>
-          fs [check_op_def, failwith_def, ex_return_def],
+          fs [check_op_def, failwith_def, ex_return_def] >>
+          cases_on `(t1 = Tapp [] TC_int) ∧ (t2 = Tapp [] TC_int)` >>
+          fs [] >>
+          fs [] >>
+          rw [],
       qexists_tac `t1` >>
-          cases_on `t1` >>
           fs [check_op_def, failwith_def] >>
           qexists_tac `t2` >>
-          cases_on `t2` >>
-          fs [check_op_def, failwith_def, ex_return_def],
+          fs [check_op_def, failwith_def, ex_return_def] >>
+          cases_on `(t1 = Tapp [] TC_int) ∧ (t2 = Tapp [] TC_int)` >>
+          fs [] >>
+          fs [] >>
+          rw [],
       every_case_tac >>
           fs [failwith_def] >>
           metis_tac [],
       qexists_tac `t1` >>
-          cases_on `t1` >>
           fs [check_op_def, failwith_def] >>
+          cases_on `t1` >>
+          fs [failwith_def, ex_return_def] >>
           every_case_tac >>
-          fs [failwith_def, ex_return_def],
+          fs [],
       qexists_tac `t1` >>
           cases_on `t1` >>
           fs [check_op_def, failwith_def] >>
+          cases_on `l` >>
+          fs [] >>
+          cases_on `t''` >>
+          fs [] >>
+          cases_on `t'` >>
+          fs [] >>
           every_case_tac >>
           fs [failwith_def, ex_return_def]],
  every_case_tac >>

@@ -317,6 +317,62 @@ cases_on `e` >>
 cases_on `c` >>
 rw [final_state_def]);
 
+val do_app_cases = Q.prove (
+`!s env op v1 v2 s' env' v3.
+  (do_app s env op v1 v2 = SOME (s',env',v3))
+  =
+  (?op' n1 n2. 
+    (op = Opn op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
+    ((((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧ 
+     (s' = s) ∧ (env' = env) ∧ (v3 = Raise Div_error) ∨
+     ~(((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧
+     (s' = s) ∧ (env' = env) ∧ (v3 = Lit (IntLit (opn_lookup op' n1 n2))))) ∨
+  (?op' n1 n2.
+    (op = Opb op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
+    (s = s') ∧ (env = env') ∧ (v3 = Lit (Bool (opb_lookup op' n1 n2)))) ∨
+  ((op = Equality) ∧ (s = s') ∧ (env = env') ∧ (v3 = Lit (Bool (v1 = v2)))) ∨
+  (∃env'' n topt e.
+    (op = Opapp) ∧ (v1 = Closure env'' n topt e) ∧
+    (s' = s) ∧ (env' = bind n (v2, add_tvs (SOME 0) topt) env'') ∧ (v3 = e)) ∨
+  (?env'' funs n' n'' topt e.
+    (op = Opapp) ∧ (v1 = Recclosure env'' funs n') ∧
+    (find_recfun n' funs = SOME (n'',topt,e)) ∧
+    (s = s') ∧ (env' = bind n'' (v2, add_tvs (SOME 0) topt) (build_rec_env (SOME 0) funs env'')) ∧ (v3 = e)) ∨
+  (?lnum.
+    (op = Opassign) ∧ (v1 = Loc lnum) ∧ (store_assign lnum v2 s = SOME s') ∧
+    (env' = env) ∧ (v3 = Lit Unit))`,
+rw [do_app_def] >>
+cases_on `op` >>
+rw [] >|
+[cases_on `v1` >>
+     rw [] >>
+     cases_on `v2` >>
+     rw [] >>
+     cases_on `l` >> 
+     rw [] >>
+     cases_on `l'` >> 
+     rw [] >>
+     metis_tac [],
+ cases_on `v1` >>
+     rw [] >>
+     cases_on `v2` >>
+     rw [] >>
+     cases_on `l` >> 
+     rw [] >>
+     cases_on `l'` >> 
+     rw [] >>
+     metis_tac [],
+ metis_tac [],
+ cases_on `v1` >>
+     rw [] >-
+     metis_tac [] >>
+     every_case_tac >>
+     metis_tac [],
+ cases_on `v1` >>
+     rw [] >>
+     every_case_tac >>
+     metis_tac []]);
+
 (* A well-typed expression state is either a value with no continuation, or it
 * can step to another state, or it steps to a BindError. *)
 val exp_type_progress = Q.prove (
@@ -1048,85 +1104,94 @@ fs [e_step_def] >|
           ONCE_REWRITE_TAC [context_invariant_cases] >>
           rw [bind_tvar_def] >>
           metis_tac [type_v_freevars, type_e_freevars, type_ctxts_freevars],
-     (* fs [do_app_def] >>
-          cases_on `o'` >>
-          fs [] >|
-          [every_case_tac >>
-               fs [] >>
-               rw [] >>
-               fs [hd (CONJUNCTS type_v_cases)] >>
-               rw [] >>
-               fs [type_op_cases] >>
-               rw [Once type_e_cases] >>
-               metis_tac [check_freevars_def],
-           every_case_tac >>
-               fs [] >>
-               rw [] >>
-               fs [hd (CONJUNCTS type_v_cases)] >>
-               rw [] >>
-               fs [type_op_cases] >>
+      fs [do_app_cases] >>
+          rw [] >>
+          fs [type_op_cases] >>
+          rw [] >|
+          [fs [Tint_def, hd (CONJUNCTS type_v_cases)] >>
                rw [] >>
                rw [Once type_e_cases] >>
-               metis_tac [check_freevars_def],
-           every_case_tac >>
-               fs [] >>
+               qexists_tac `tenvS` >>
                rw [] >>
-               fs [hd (CONJUNCTS type_v_cases)] >>
-               rw [] >>
-               fs [type_op_cases] >>
+               qexists_tac `Tapp [] TC_int` >>
+               rw [check_freevars_def] >>
+               metis_tac [],
+           fs [Tint_def, hd (CONJUNCTS type_v_cases)] >>
                rw [] >>
                rw [Once type_e_cases] >>
-               metis_tac [check_freevars_def],
-           every_case_tac >>
-               fs [] >>
-               rw [] >|
-               [qpat_assum `type_v a tenvC senv (Closure l s' o' e) t1'`
+               qexists_tac `tenvS` >>
+               rw [] >>
+               qexists_tac `Tapp [] TC_int` >>
+               rw [check_freevars_def] >>
+               metis_tac [],
+           fs [Tint_def, hd (CONJUNCTS type_v_cases)] >>
+               rw [] >>
+               rw [Once type_e_cases] >>
+               qexists_tac `tenvS` >>
+               rw [] >>
+               fs [Tint_def] >>
+               metis_tac [],
+           fs [Tint_def, hd (CONJUNCTS type_v_cases)] >>
+               rw [] >>
+               rw [Once type_e_cases] >>
+               qexists_tac `tenvS` >>
+               rw [] >>
+               fs [Tint_def] >>
+               metis_tac [],
+           fs [Tint_def, hd (CONJUNCTS type_v_cases)] >>
+               rw [] >>
+               rw [Once type_e_cases] >>
+               qexists_tac `tenvS` >>
+               rw [] >>
+               fs [Tint_def] >>
+               metis_tac [],
+           fs [Tint_def, hd (CONJUNCTS type_v_cases)] >>
+               rw [] >>
+               rw [Once type_e_cases] >>
+               qexists_tac `tenvS` >>
+               rw [] >>
+               fs [Tint_def] >>
+               metis_tac [],
+           qpat_assum `type_v a tenvC senv (Closure l s' o' e) t1'`
                      (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
-                    fs [] >>
-                    rw [] >>
-                    fs [type_op_cases] >>
-                    rw [] >>
-                    rw [Once type_v_cases, add_tvs_def] >>
-                    fs [bind_tvar_def] >>
-                    metis_tac [],
-                qpat_assum `type_v a tenvC senv (Recclosure l l0 s') t1'`
-                     (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
-                    fs [] >>
-                    rw [] >>
-                    fs [type_op_cases] >>
-                    rw [] >>
-                    imp_res_tac type_recfun_lookup >>
-                    rw [add_tvs_def] >>
-                    qexists_tac `tenvS` >>
-                    rw [] >>
-                    qexists_tac `t2` >>
-                    qexists_tac `bind_tenv q' 0 t1 (bind_var_list 0 tenv''' (bind_tvar 0 tenv''))` >>
-                    rw [add_tvs_def] >>
-                    rw [Once type_v_cases, bind_def, bind_tenv_def] >>
-                    fs [check_freevars_def] >>
-                    rw [build_rec_env_merge] >>
-                    fs [bind_tvar_def] >>
-                    qexists_tac `0` >>
-                    rw [] >>
-                    fs [bind_tenv_def] >>
-                    metis_tac [bind_tvar_def, type_recfun_env, type_env_merge]],
-           every_case_tac >>
                fs [] >>
+               rw [] >>
+               rw [Once type_v_cases, add_tvs_def] >>
+               fs [bind_tvar_def] >>
+               metis_tac [],
+           qpat_assum `type_v a tenvC senv (Recclosure l l0 s') t1'`
+                (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+               fs [] >>
+               rw [] >>
+               imp_res_tac type_recfun_lookup >>
+               rw [add_tvs_def] >>
+               qexists_tac `tenvS` >>
+               rw [] >>
+               qexists_tac `t2` >>
+               qexists_tac `bind_tenv n'' 0 t1 (bind_var_list 0 tenv''' (bind_tvar 0 tenv''))` >>
+               rw [add_tvs_def] >>
+               rw [Once type_v_cases, bind_def, bind_tenv_def] >>
+               fs [check_freevars_def] >>
+               rw [build_rec_env_merge] >>
+               fs [bind_tvar_def] >>
+               qexists_tac `0` >>
+               rw [] >>
+               fs [bind_tenv_def] >>
+               metis_tac [bind_tvar_def, type_recfun_env, type_env_merge],
+           fs [] >>
                rw [Once type_e_cases] >>
                qpat_assum `type_v x0 x1 x2 x3 x4` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
-               fs [type_op_cases] >>
                rw [] >>
                fs [store_assign_def, type_s_def, store_lookup_def] >>
                rw [EL_LUPDATE] >>
                qexists_tac `tenvS` >>
+               fs [Tref_def] >> 
                rw [] >>
                qexists_tac `tenv'` >>
                rw [] >>
                qexists_tac `0` >>
                rw [] >>
                metis_tac [check_freevars_def]],
-               *)
-      cheat,
       fs [do_log_def] >>
            every_case_tac >>
            fs [] >>
