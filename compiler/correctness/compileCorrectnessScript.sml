@@ -2064,7 +2064,7 @@ val Cevaluate_list_LENGTH = store_thm("Cevaluate_list_LENGTH",
   first_x_assum match_mp_tac >>
   srw_tac[SATISFY_ss][])
 
-val _ = overload_on("good_sm",``λsm. INJ (FAPPLY sm) (FDOM sm) (FRANGE sm)``)
+val _ = Parse.overload_on("good_sm",``λsm. INJ (FAPPLY sm) (FDOM sm) (FRANGE sm)``)
 
 (* TODO: move *)
 val Cevaluate_store_SUBSET = store_thm("Cevaluate_store_SUBSET",
@@ -3224,12 +3224,16 @@ val compile_val = store_thm("compile_val",
     qabbrev_tac`cs0 = compile cs exp` >>
     qspecl_then[`cs0`,`exps`]mp_tac(FOLDL_compile_append_out) >>
     disch_then(Q.X_CHOOSE_THEN`bes`strip_assume_tac) >>
-    first_x_assum(qspecl_then[`v`,`bc0`,`bc0 ++ REVERSE cs.out`,`bs with <|code:=bc0 ++ REVERSE cs0.out|>`,`cs`]mp_tac) >>
+    first_x_assum(qspecl_then[`sm`,`s'`,`v`,`bc0`,`bc0 ++ REVERSE cs.out`,`bs with <|code:=bc0 ++ REVERSE cs0.out|>`,`cs`]mp_tac) >>
+    fs[] >>
+    `FDOM s ⊆ FDOM s' ∧
+     FDOM s' ⊆ FDOM s'' ∧
+     FDOM s' ⊆ FDOM sm` by PROVE_TAC[SUBSET_TRANS,Cevaluate_store_SUBSET,FST] >>
     fs[] >>
     disch_then(Q.X_CHOOSE_THEN`bv`(strip_assume_tac o SIMP_RULE(srw_ss())[LET_THM])) >>
     qabbrev_tac`il = bs.inst_length` >>
     qabbrev_tac`bc00 = bc0 ++ REVERSE cs0.out` >>
-    first_x_assum(qspecl_then[`bc0`,
+    first_x_assum(qspecl_then[`sm`,`bc0`,
       `bs with <|code:=bc0 ++ REVERSE (FOLDL compile cs0 exps).out;pc := next_addr il bc00;stack:=bv::bs.stack|>`,
       `cs0`]mp_tac) >>
     fs[] >>
@@ -3244,6 +3248,8 @@ val compile_val = store_thm("compile_val",
       map_every qunabbrev_tac[`P`,`Q`,`R`] >>
       fs[Abbr`cs0`,Abbr`bc00`] >>
       fs[REVERSE_APPEND,compile_nontail] >>
+      conj_tac >- PROVE_TAC[SUBSET_TRANS] >>
+      conj_tac >- PROVE_TAC[Cevaluate_Clocs,FST] >>
       conj_tac >- (
         fs[FILTER_APPEND] >>
         simp[Once ALL_DISTINCT_APPEND] >>
@@ -3281,10 +3287,11 @@ val compile_val = store_thm("compile_val",
       qexists_tac `pp` >> rw[Abbr`pp`] >>
       match_mp_tac bc_find_loc_aux_append_code >>
       rw[] ) >>
-    qmatch_abbrev_tac `Cenv_bs c env env0 sz0 bs2` >>
+    qmatch_abbrev_tac `Cenv_bs c sm s2 env env0 sz0 bs2` >>
     `bs2 = bs11` by (
       rw[Abbr`bs2`,Abbr`bs11`,bc_state_component_equality,REVERSE_APPEND] ) >>
-    rw[] ) >>
+    rw[] >>
+    fs[Abbr`cs0`]) >>
   strip_tac >- rw[] >>
   rw[] )
 
