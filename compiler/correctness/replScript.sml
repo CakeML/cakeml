@@ -1,23 +1,69 @@
-open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory pred_setTheory relationTheory arithmeticTheory whileTheory quantHeuristicsLib lcsymtacs
-open miniMLExtraTheory miscTheory intLangTheory expToCexpTheory compileTerminationTheory compileCorrectnessTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory
+open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory pred_setTheory relationTheory arithmeticTheory whileTheory pairTheory quantHeuristicsLib lcsymtacs
+open miniMLExtraTheory miscTheory intLangTheory expToCexpTheory compileTerminationTheory compileCorrectnessTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory pmatchTheory 
+open MiniMLTerminationTheory finite_mapTheory
 val _ = new_theory"repl"
 
 val good_contab_def = Define`
   good_contab (m,w,n) =
     fmap_linv m w`
 
+(* TODO: move *)
+val all_locs_def = tDefine "all_locs"`
+  (all_locs (Litv _) = {}) ∧
+  (all_locs (Conv _ vs) = BIGUNION (IMAGE all_locs (set vs))) ∧
+  (all_locs (Closure env _ _) = BIGUNION (IMAGE all_locs (FRANGE (alist_to_fmap env)))) ∧
+  (all_locs (Recclosure env _ _) = BIGUNION (IMAGE all_locs (FRANGE (alist_to_fmap env)))) ∧
+  (all_locs (Loc n) = {n})`
+(WF_REL_TAC`measure v_size`>>
+ srw_tac[ARITH_ss][v1_size_thm,v3_size_thm,SUM_MAP_v2_size_thm] >>
+ Q.ISPEC_THEN`v_size`imp_res_tac SUM_MAP_MEM_bound >>
+ srw_tac[ARITH_ss][] >>
+ pop_assum mp_tac >>
+ qid_spec_tac `a` >>
+ ho_match_mp_tac IN_FRANGE_alist_to_fmap_suff >>
+ rw[] >>
+ Q.ISPEC_THEN`v_size`imp_res_tac SUM_MAP_MEM_bound >>
+ srw_tac[ARITH_ss][])
+val _ = export_rewrites["all_locs_def"]
+
+(* TODO: move *)
+val IMAGE_FRANGE = store_thm("IMAGE_FRANGE",
+  ``!f fm. IMAGE f (FRANGE fm) = FRANGE (f o_f fm)``,
+  SRW_TAC[][EXTENSION] THEN
+  EQ_TAC THEN1 PROVE_TAC[o_f_FRANGE] THEN
+  SRW_TAC[][IN_FRANGE] THEN
+  SRW_TAC[][o_f_FAPPLY] THEN
+  PROVE_TAC[])
+
+val all_Clocs_v_to_Cv = store_thm("all_Clocs_v_to_Cv",
+  ``(∀m v. all_Clocs (v_to_Cv m v) = all_locs v) ∧
+    (∀m vs. MAP all_Clocs (vs_to_Cvs m vs) = MAP all_locs vs) ∧
+    (∀m env:envE. all_Clocs o_f (alist_to_fmap (env_to_Cenv m env)) =
+                  all_locs o_f (alist_to_fmap env))``,
+  ho_match_mp_tac v_to_Cv_ind >>
+  srw_tac[ETA_ss][v_to_Cv_def,LET_THM,defs_to_Cdefs_MAP]
+  >- simp[GSYM LIST_TO_SET_MAP]
+  >- simp[IMAGE_FRANGE]
+  >- simp[IMAGE_FRANGE] >>
+  AP_THM_TAC >> AP_TERM_TAC >>
+  PROVE_TAC[o_f_DOMSUB])
+
 val repl_exp_val = store_thm("repl_exp_val",
-  ``∀cenv env exp v rs rs' bc0 bc bs bs'.
+  ``∀cenv s env exp s' v sm rs rs' bc0 bc bs bs'.
       exp_pred exp ∧
-      evaluate cenv env exp (Rval v) ∧
+      evaluate cenv s env exp (s', Rval v) ∧
+      EVERY closed s ∧
       EVERY closed (MAP SND env) ∧
       FV exp ⊆ set (MAP FST env) ∧
-      (∀v. MEM v (MAP SND env) ⇒ all_cns v ⊆ set (MAP FST cenv)) ∧
+      (∀v. MEM v (MAP SND env) ⇒ all_cns v ⊆ set (MAP FST cenv) ∧ all_locs v ⊆ count (LENGTH s)) ∧
+      (∀v. MEM v s ⇒ all_cns v ⊆ set (MAP FST cenv) ∧ all_locs v ⊆ count (LENGTH s)) ∧
+      count (LENGTH s') ⊆ FDOM sm ∧
+      good_sm sm ∧
       good_cenv cenv ∧
       good_cmap cenv (cmap rs.contab) ∧
       set (MAP FST cenv) ⊆ FDOM (cmap rs.contab) ∧
       good_contab rs.contab ∧
-      env_rs env rs FEMPTY (bs with code := bc0) ∧
+      env_rs env rs FEMPTY sm (store_to_Cstore (cmap rs.contab) s) (bs with code := bc0) ∧
       (repl_exp rs exp = (rs',bc)) ∧
       (bs.code = bc0 ++ bc) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
@@ -27,7 +73,7 @@ val repl_exp_val = store_thm("repl_exp_val",
       ∃bv.
       bc_next^* bs (bs with <|pc := next_addr bs.inst_length (bc0 ++ bc);
                               stack := bv :: bs.stack|>) ∧
-      (v_to_ov v = bv_to_ov (FST(SND(rs.contab))) bv)``,
+      (v_to_ov sm v = bv_to_ov (FST(SND(rs.contab))) bv)``,
   rw[repl_exp_def,compile_Cexp_def,LET_THM] >>
   qabbrev_tac `p = repeat_label_closures (exp_to_Cexp (cmap rs.contab) exp) rs.rnext_label []` >>
   PairCases_on `p` >> fs[] >>
@@ -36,9 +82,10 @@ val repl_exp_val = store_thm("repl_exp_val",
     `ss.decl ≠ NONE` by (
       PROVE_TAC[compile_decl_NONE,optionTheory.NOT_SOME_NONE] ) >>
     fs[Abbr`ss`] ) >>
-  qspecl_then[`cenv`,`env`,`exp`,`Rval v`] mp_tac exp_to_Cexp_thm1 >> fs[] >>
+  qspecl_then[`cenv`,`s`,`env`,`exp`,`(s',Rval v)`] mp_tac (CONJUNCT1 exp_to_Cexp_thm1) >> fs[] >>
   disch_then (qspec_then `cmap rs.contab` mp_tac) >> fsrw_tac[DNF_ss][] >>
-  qx_gen_tac `Cv` >> rw[] >>
+  simp[FORALL_PROD] >>
+  map_every qx_gen_tac [`Cs'`,`Cv`] >> rw[] >>
   qabbrev_tac `Ce = exp_to_Cexp (cmap rs.contab) exp` >>
   `Cexp_pred Ce` by PROVE_TAC[exp_pred_Cexp_pred] >>
   `(p0,p1,p2) = (Ce,rs.rnext_label,[])` by PROVE_TAC[Cexp_pred_repeat_label_closures] >>
@@ -47,7 +94,7 @@ val repl_exp_val = store_thm("repl_exp_val",
   fs[] >>
   fs[calculate_ecs_def] >>
   fs[compile_code_env_def,LET_THM] >>
-  qmatch_assum_abbrev_tac `Cevaluate Cc Cenv Ce (Rval Cv)` >>
+  qmatch_assum_abbrev_tac `Cevaluate Cc Cs Cenv Ce (Cs', Rval Cv)` >>
   Q.PAT_ABBREV_TAC`cs = compiler_state_env_fupd X Y` >>
   qho_match_abbrev_tac `∃bv. bc_next^* bs (bs1 bv) ∧ P bv` >>
   qabbrev_tac`bs0 = bs with pc := next_addr bs.inst_length (bc0 ++ (REVERSE cs.out))` >>
@@ -86,9 +133,9 @@ val repl_exp_val = store_thm("repl_exp_val",
     fs[GSYM ADD1,GSYM LESS_EQ] >>
     metis_tac[prim_recTheory.LESS_REFL,LESS_TRANS] ) >>
   `∃bv. bc_next^* bs0 (bs1 bv) ∧ P bv` by (
-    qspecl_then[`Cc`,`Cenv`,`Ce`,`Rval Cv`]mp_tac (CONJUNCT1 compile_val) >>
+    qspecl_then[`Cc`,`Cs`,`Cenv`,`Ce`,`Cs', Rval Cv`]mp_tac (CONJUNCT1 compile_val) >>
     fs[] >>
-    disch_then (qspecl_then [`bc0`,`bs0`,`cs`] mp_tac) >>
+    disch_then (qspecl_then [`sm`,`bc0`,`bs0`,`cs`] mp_tac) >>
     `cs.ecs = FEMPTY` by rw[Abbr`cs`] >> simp[good_ecs_def] >>
     qunabbrev_tac`P` >>
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
@@ -97,6 +144,16 @@ val repl_exp_val = store_thm("repl_exp_val",
       simp[Abbr`bs0`] >>
       simp[Cexp_pred_free_labs] >>
       fs[env_rs_def,LET_THM] >>
+      conj_tac >- (
+        fsrw_tac[DNF_ss][Abbr`Cenv`,SUBSET_DEF,Abbr`Cs`] >>
+        gen_tac >> simp[Once CONJ_COMM] >> simp[GSYM AND_IMP_INTRO] >>
+        ho_match_mp_tac IN_FRANGE_alist_to_fmap_suff >>
+        fsrw_tac[DNF_ss][env_to_Cenv_MAP,MAP_MAP_o,combinTheory.o_DEF,MEM_MAP,FORALL_PROD,all_Clocs_v_to_Cv] >>
+        PROVE_TAC[] ) >>
+      conj_tac >- (
+        fsrw_tac[DNF_ss][Abbr`Cs`,SUBSET_DEF,FRANGE_store_to_Cstore,MEM_MAP,all_Clocs_v_to_Cv] >>
+        PROVE_TAC[] ) >>
+      conj_tac >- fs[fmap_rel_def] >>
       conj_tac >- rw[Abbr`cs`] >>
       conj_tac >- rw[Abbr`cs`] >>
       conj_tac >- (
@@ -112,22 +169,23 @@ val repl_exp_val = store_thm("repl_exp_val",
     rw[Abbr`bs0`,LET_THM,Abbr`bs1`] >>
     qexists_tac `bv` >> rw[] >>
     match_mp_tac EQ_TRANS >>
-    qexists_tac `Cv_to_ov (FST(SND rs.contab)) (v_to_Cv (cmap rs.contab) v)` >>
+    qexists_tac `Cv_to_ov (FST(SND rs.contab)) sm (v_to_Cv (cmap rs.contab) v)` >>
     conj_tac >- (
       match_mp_tac EQ_SYM >>
       match_mp_tac (CONJUNCT1 v_to_Cv_ov) >>
       qabbrev_tac`ct=rs.contab` >>
       PairCases_on`ct` >> fs[good_contab_def] >>
-      qspecl_then[`cenv`,`env`,`exp`,`Rval v`]mp_tac (CONJUNCT1 evaluate_all_cns) >>
+      qspecl_then[`cenv`,`s`,`env`,`exp`,`s',Rval v`]mp_tac (CONJUNCT1 evaluate_all_cns) >>
       fs[good_cmap_def] >>
-      fs[SUBSET_DEF] ) >>
+      fs[SUBSET_DEF] >>
+      metis_tac[] ) >>
     match_mp_tac EQ_TRANS >>
-    qexists_tac `Cv_to_ov (FST(SND rs.contab)) Cv` >>
+    qexists_tac `Cv_to_ov (FST(SND rs.contab)) sm Cv` >>
     conj_tac >- (
       match_mp_tac syneq_ov >>
       metis_tac[syneq_sym] ) >>
-    match_mp_tac Cv_bv_ov >>
-    metis_tac[] ) >>
+    match_mp_tac (MP_CANON Cv_bv_ov) >>
+    metis_tac[FST] ) >>
   metis_tac[RTC_TRANSITIVE,transitive_def])
 
 (* must read an expression followed by all space until the start of another
