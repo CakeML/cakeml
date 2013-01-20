@@ -1,14 +1,14 @@
 open preamble MiniMLTheory MiniMLTerminationTheory;
 open bigSmallEquivTheory determTheory untypedSafetyTheory;
-(* open typeSoundTheory; *)
+open typeSoundTheory;
 
 val _ = new_theory "bigBigEquiv"
 
 val pmatch_pmatch' = Q.prove (
-`(!envc s p v env. (pmatch envc s p v env ≠ Match_type_error) ⇒
-   (pmatch envc s p v env = pmatch' s p v env)) ∧
- (!envc s ps vs env. (pmatch_list envc s ps vs env ≠ Match_type_error) ⇒
-   (pmatch_list envc s ps vs env = pmatch_list' s ps vs env))`,
+`(!tvs envc s p v env. (pmatch tvs envc s p v env ≠ Match_type_error) ⇒
+   (pmatch tvs envc s p v env = pmatch' tvs s p v env)) ∧
+ (!tvs envc s ps vs env. (pmatch_list tvs envc s ps vs env ≠ Match_type_error) ⇒
+   (pmatch_list tvs envc s ps vs env = pmatch_list' tvs s ps vs env))`,
 HO_MATCH_MP_TAC pmatch_ind >>
 rw [pmatch_def, pmatch'_def] >|
 [Cases_on `lookup n envc` >>
@@ -67,19 +67,18 @@ fs [] >>
 pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once evaluate_cases]) >>
 metis_tac [pmatch_pmatch', match_result_distinct]);
 
-(* TODO: fix this once the type system is working again *)
 val type_no_error = Q.prove (
 `!tenvC senv tenv e t envC s env r.
   tenvC_ok tenvC ∧
   consistent_con_env envC tenvC ∧
   consistent_con_env2 envC tenvC ∧
   type_env tenvC senv env tenv ∧
+  type_s tenvC senv s ∧
   type_e tenvC tenv e t
   ⇒
   (!s'. ¬evaluate envC s env e (s', Rerr Rtype_error))`,
 rw [GSYM small_big_exp_equiv] >>
-cheat
-(*metis_tac [untyped_safety_exp, small_exp_determ, exp_type_soundness]*));
+metis_tac [untyped_safety_exp, small_exp_determ, exp_type_soundness, PAIR_EQ]);
 
 val evaluate_evaluate'_thm = Q.store_thm ("evaluate_evaluate'_thm",
 `!tenvC envC tenv e t cenv env r.
@@ -87,6 +86,7 @@ val evaluate_evaluate'_thm = Q.store_thm ("evaluate_evaluate'_thm",
   consistent_con_env envC tenvC ∧
   consistent_con_env2 envC tenvC ∧
   type_env tenvC senv env tenv ∧
+  type_s tenvC senv s ∧
   type_e tenvC tenv e t
   ⇒
   (evaluate' s env e r = evaluate envC s env e r)`,
@@ -124,12 +124,12 @@ val type_no_error_dec = Q.prove (
   consistent_con_env envC tenvC ∧
   consistent_con_env2 envC tenvC ∧
   type_env tenvC senv env tenv ∧
+  type_s tenvC senv s ∧
   type_ds tenvC tenv ds tenvC' tenvE'
   ⇒
   (!s'. ¬evaluate_decs envC s env ds (s', Rerr Rtype_error))`,
 rw [GSYM small_big_equiv] >>
-cheat
-(*metis_tac [untyped_safety, small_determ, type_soundness]*));
+metis_tac [untyped_safety, small_determ, type_soundness, PAIR_EQ]);
 
 val evaluate_dec_evaluate_dec'_thm = Q.store_thm ("evaluate_dec_evaluate_dec'_thm",
 `!tenvC envC tenv ds t cenv env r tenvC' tenvE' s senv.
@@ -137,6 +137,7 @@ val evaluate_dec_evaluate_dec'_thm = Q.store_thm ("evaluate_dec_evaluate_dec'_th
   consistent_con_env envC tenvC ∧
   consistent_con_env2 envC tenvC ∧
   type_env tenvC senv env tenv ∧
+  type_s tenvC senv s ∧
   type_ds tenvC tenv ds tenvC' tenvE'
   ⇒
   (evaluate_decs' envC s env ds r = evaluate_decs envC s env ds r)`,

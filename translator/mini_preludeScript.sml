@@ -21,4 +21,3 @@ val TL_side_def = prove(
   |> update_precondition;
 
 val _ = export_theory();
-

@@ -199,7 +199,7 @@ let var_to_tok_tree v =
     L (LongidT v)
 
 let rec
-pat_to_tok_tree (Pvar v) = var_to_tok_tree v
+pat_to_tok_tree (Pvar v _) = var_to_tok_tree v
 and
 pat_to_tok_tree (Plit l) = lit_to_tok_tree l
 and
@@ -239,10 +239,10 @@ exp_to_tok_tree indent (Con c es) =
   join_trees (L CommaT) (List.map (exp_to_tok_tree indent) es) ^^ 
   L RparT ^^ L RparT
 and
-exp_to_tok_tree indent (Var v) =
+exp_to_tok_tree indent (Var v _) =
   var_to_tok_tree v
 and
-exp_to_tok_tree indent (Fun v e) =
+exp_to_tok_tree indent (Fun v _ e) =
   newline indent ^^
   L LparT ^^
   L FnT ^^
@@ -254,8 +254,8 @@ and
 exp_to_tok_tree indent (Uapp uop e) =
   let s = 
     match uop with
-      | Ref -> "ref"
-      | Deref -> "!"
+      | Opref -> "ref"
+      | Opderef -> "!"
     end
   in
     L LparT ^^
@@ -346,7 +346,7 @@ exp_to_tok_tree indent (Mat e pes) =
                (List.map (pat_exp_to_tok_tree (inc_indent indent)) pes) ^^ 
   L RparT
 and
-exp_to_tok_tree indent (Let v e1 e2) =
+exp_to_tok_tree indent (Let _ v _ e1 e2) =
   newline indent ^^
   L LetT ^^ L ValT ^^ 
   var_to_tok_tree v ^^ 
@@ -357,7 +357,7 @@ exp_to_tok_tree indent (Let v e1 e2) =
   exp_to_tok_tree (inc_indent indent) e2 ^^ 
   newline indent ^^ L EndT
 and
-exp_to_tok_tree indent (Letrec funs e) =
+exp_to_tok_tree indent (Letrec _ funs e) =
   newline indent ^^
   L LetT ^^ L FunT ^^ 
   join_trees (newline indent ^^ L AndT) 
@@ -372,11 +372,24 @@ pat_exp_to_tok_tree indent (p,e) =
   L DarrowT ^^
   exp_to_tok_tree (inc_indent (inc_indent indent)) e
 and
-fun_to_tok_tree indent (v1,v2,e) =
+fun_to_tok_tree indent (v1,_,v2,_,e) =
   var_to_tok_tree v1 ^^
   var_to_tok_tree v2 ^^ 
   L EqualsT ^^
   exp_to_tok_tree (inc_indent indent) e
+
+let rec
+tc_to_tok_tree TC_int =
+  L (LongidT "int")
+and
+tc_to_tok_tree TC_bool =
+  L (LongidT "bool")
+and
+tc_to_tok_tree TC_unit =
+  L (LongidT "unit")
+and
+tc_to_tok_tree TC_ref =
+  L (LongidT "ref")
 
 let rec
 type_to_tok_tree (Tvar tn) =
@@ -384,21 +397,15 @@ type_to_tok_tree (Tvar tn) =
 and
 type_to_tok_tree (Tapp ts tn) =
   if ts = [] then
-    L (LongidT tn)
+    (tc_to_tok_tree tn)
   else
     L LparT ^^
     join_trees (L CommaT) (List.map type_to_tok_tree ts) ^^ L RparT ^^ 
-    L (LongidT tn)
+    (tc_to_tok_tree tn)
 and
 type_to_tok_tree (Tfn t1 t2) =
   L LparT ^^ type_to_tok_tree t1 ^^ L ArrowT ^^ type_to_tok_tree t2 ^^ 
   L RparT
-and
-type_to_tok_tree Tnum =
-  L (LongidT "int")
-and
-type_to_tok_tree Tbool =
-  L (LongidT "bool")
 
 let variant_to_tok_tree (c,ts) =
   if ts = [] then
@@ -423,14 +430,14 @@ let typedef_to_tok_tree indent (tvs, name, variants) =
                (List.map variant_to_tok_tree variants)
 
 let rec 
-dec_to_tok_tree indent (Dlet p e) =
+dec_to_tok_tree indent (Dlet tvs p e) =
   L ValT ^^
   pat_to_tok_tree p ^^ 
   L EqualsT ^^
   exp_to_tok_tree (inc_indent indent) e ^^
   L SemicolonT
 and
-dec_to_tok_tree indent (Dletrec funs) =
+dec_to_tok_tree indent (Dletrec tvs funs) =
   L FunT ^^ 
   join_trees (newline indent ^^ L AndT) 
              (List.map (fun_to_tok_tree indent) funs) ^^

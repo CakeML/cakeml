@@ -13,7 +13,6 @@ fun register name def ind =
     ()
   end
 
-
 val (num_to_string_def, num_to_string_ind) =
   tprove_no_defn ((num_to_string_def, num_to_string_ind),
   wf_rel_tac `measure (\(x,y).x)` >>
@@ -37,7 +36,7 @@ val (pat_to_tok_tree_def, pat_to_tok_tree_ind) =
   wf_rel_tac `measure (\x. pat_size x)` >>
   rw [] >|
   [decide_tac,
-   induct_on `v7` >>
+   induct_on `v8` >>
        rw [] >>
        fs [pat_size_def] >>
        decide_tac]);
@@ -47,12 +46,12 @@ val (exp_to_tok_tree_def, exp_to_tok_tree_ind) =
   tprove_no_defn ((exp_to_tok_tree_def, exp_to_tok_tree_ind),
   wf_rel_tac `measure (\x. case x of INL (_,e) => exp_size e
                                    | INR (INL (_,p,e)) => exp_size e + 1
-                                   | INR (INR (_,v1,v2,e)) => exp_size e + 1)` >>
+                                   | INR (INR (_,v1,topt1,v2,topt2,e)) => exp_size e + 1)` >>
   rw [] >>
   TRY (induct_on `funs`) >>
   TRY (induct_on `pes`) >>
   TRY (induct_on `es`) >>
-  TRY (induct_on `v39`) >>
+  TRY (induct_on `v50`) >>
   rw [exp_size_def] >>
   fs [exp_size_def] >>
   rw [exp_size_def] >>

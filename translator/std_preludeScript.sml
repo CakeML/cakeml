@@ -296,6 +296,8 @@ val evaluate_closure_INTRO = prove(
 
 val EXISTS_SWAP = METIS_PROVE [] ``(?x y. P x y) ==> (?y x. P x y)``
 
+val _ = augment_srw_ss [rewrites [add_tvs_def,do_tapp_def]];
+
 val tac =
   REPEAT STRIP_TAC
   THEN FULL_SIMP_TAC std_ss [PRECONDITION_def,IS_SOME_OWHILE_THM,Eval_def]
@@ -377,29 +379,29 @@ val tac =
 
 val Eval_OWHILE = prove(
   ``PRECONDITION (IS_SOME (OWHILE g f x)) ==>
-    Eval env (Letrec
-          [("owhile","g",
-            Fun "f"
-              (Fun "x"
-                 (If (App Opapp (Var "g") (Var "x"))
+    Eval env (Letrec NONE
+          [("owhile",NONE,"g",NONE,
+            Fun "f" NONE
+              (Fun "x" NONE
+                 (If (App Opapp (Var "g" NONE) (Var "x" NONE))
                     (App Opapp
-                       (App Opapp (App Opapp (Var "owhile") (Var "g"))
-                          (Var "f")) (App Opapp (Var "f") (Var "x")))
-                    (Con "Some" [Var "x"]))))] (Var "owhile"))
+                       (App Opapp (App Opapp (Var "owhile" NONE) (Var "g" NONE))
+                          (Var "f" NONE)) (App Opapp (Var "f" NONE) (Var "x" NONE)))
+                    (Con "Some" [Var "x" NONE]))))] (Var "owhile" NONE))
       ((Eq (a --> BOOL) g --> Eq (a --> a) f --> Eq a x --> OPTION_TYPE a) OWHILE)``,
   tac) |> UNDISCH_ALL |> store_eval_thm;
 
 val Eval_WHILE = prove(
   ``PRECONDITION (IS_SOME (OWHILE g f x)) ==>
-    Eval env (Letrec
-          [("w","g",
-            Fun "f"
-              (Fun "x"
-                 (If (App Opapp (Var "g") (Var "x"))
+    Eval env (Letrec NONE
+          [("w",NONE,"g",NONE,
+            Fun "f" NONE
+              (Fun "x" NONE
+                 (If (App Opapp (Var "g" NONE) (Var "x" NONE))
                     (App Opapp
-                       (App Opapp (App Opapp (Var "w") (Var "g"))
-                          (Var "f")) (App Opapp (Var "f") (Var "x")))
-                    (Var "x"))))] (Var "w"))
+                       (App Opapp (App Opapp (Var "w" NONE) (Var "g" NONE))
+                          (Var "f" NONE)) (App Opapp (Var "f" NONE) (Var "x" NONE)))
+                    (Var "x" NONE))))] (Var "w" NONE))
       ((Eq (a --> BOOL) g --> Eq (a --> a) f --> Eq a x --> a) WHILE)``,
   tac) |> UNDISCH_ALL |> store_eval_thm;
 
@@ -423,4 +425,3 @@ val LEAST_side_thm = prove(
   |> update_precondition;
 
 val _ = export_theory();
-
