@@ -102,7 +102,7 @@ val _ = export_rewrites["Cv_to_ov_def"];
 val (v_to_ov_def,v_to_ov_ind) = register "v_to_ov" (
   tprove_no_defn ((v_to_ov_def,v_to_ov_ind),
   WF_REL_TAC `measure (v_size o SND)` >>
-  rw[v3_size_thm] >>
+  rw[v4_size_thm] >>
   Q.ISPEC_THEN `v_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
 val _ = export_rewrites["v_to_ov_def"];
@@ -136,14 +136,14 @@ val (exp_to_Cexp_def,exp_to_Cexp_ind) = register "exp_to_Cexp" (
   WF_REL_TAC `inv_image $< (λx. case x of
     | INL (_,e) => exp_size e
     | INR (INL (_,defs)) => exp1_size defs
-    | INR (INR (INL (_,pes))) => exp4_size pes
-    | INR (INR (INR (_,es))) => exp6_size es)`))
+    | INR (INR (INL (_,pes))) => exp6_size pes
+    | INR (INR (INR (_,es))) => exp8_size es)`))
 
 val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
   tprove_no_defn ((v_to_Cv_def,v_to_Cv_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
     | INL (_,v) => v_size v
-    | INR (INL (_, vs)) => v3_size vs
+    | INR (INL (_, vs)) => v4_size vs
     | INR (INR (_, env)) => v1_size env)`))
 
 val pat_to_Cpat_def = save_thm("pat_to_Cpat_def",pat_to_Cpat_def)
