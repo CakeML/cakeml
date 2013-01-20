@@ -510,7 +510,7 @@ syneq c (CLoc n) (CLoc n)
 (* remove pattern-matching using continuations *)
 
 let rec
-pat_to_Cpat m pvs (Pvar vn) = (vn::pvs, CPvar vn)
+pat_to_Cpat m pvs (Pvar vn _) = (vn::pvs, CPvar vn)
 and
 pat_to_Cpat m pvs (Plit l) = (pvs, CPlit l)
 and
@@ -576,9 +576,9 @@ and
 exp_to_Cexp m (Con cn es) =
   CCon (Pmap.find cn m) (exps_to_Cexps m es)
 and
-exp_to_Cexp m (Var vn) = CVar vn
+exp_to_Cexp m (Var vn _) = CVar vn
 and
-exp_to_Cexp m (Fun vn e) =
+exp_to_Cexp m (Fun vn _ e) =
   CFun [vn] (INL (exp_to_Cexp m e))
 and
 exp_to_Cexp m (App (Opn opn) e1 e2) =
@@ -652,19 +652,19 @@ exp_to_Cexp m (Mat e pes) =
   let Ce = exp_to_Cexp m e in
   CLet v Ce (remove_mat_var v Cpes)
 and
-exp_to_Cexp m (Let vn e b) =
+exp_to_Cexp m (Let _ vn _ e b) =
   let Ce = exp_to_Cexp m e in
   let Cb = exp_to_Cexp m b in
   CLet vn Ce Cb
 and
-exp_to_Cexp m (Letrec defs b) =
+exp_to_Cexp m (Letrec _ defs b) =
   let (fns,Cdefs) = defs_to_Cdefs m defs in
   let Cb = exp_to_Cexp m b in
   CLetfun true fns Cdefs Cb
 and
 defs_to_Cdefs m [] = ([],[])
 and
-defs_to_Cdefs m ((d,vn,e)::defs) =
+defs_to_Cdefs m ((d,_,vn,_,e)::defs) =
   let Ce = exp_to_Cexp m e in
   let (fns,Cdefs) = defs_to_Cdefs m defs in
   (d::fns,([vn],INL Ce)::Cdefs)
@@ -1347,12 +1347,12 @@ repl_dec rs (Dtype ((_,_,cs)::ts)) =
   let ct = number_constructors cs rs.contab in
   repl_dec (<| rs with contab = ct |>) (Dtype ts) (* parens: Lem sucks *)
 and
-repl_dec rs (Dletrec defs) =
+repl_dec rs (Dletrec _ defs) =
   let (fns,Cdefs) = defs_to_Cdefs (cmap rs.contab) defs in
   let decl = Some(rs.renv,rs.rsz) in
   compile_Cexp rs decl (CLetfun true fns Cdefs (CDecl fns))
 and
-repl_dec rs (Dlet p e) =
+repl_dec rs (Dlet _ p e) =
   let m = cmap rs.contab in
   let (pvs,Cp) = pat_to_Cpat m [] p in
   let Cpes = [(Cp,CDecl pvs)] in
@@ -1378,7 +1378,7 @@ v_to_ov s (Litv l) = OLit l
 and
 v_to_ov s (Conv cn vs) = OConv cn (List.map (v_to_ov s) vs)
 and
-v_to_ov s (Closure _ _ _) = OFn
+v_to_ov s (Closure _ _ _ _) = OFn
 and
 v_to_ov s (Recclosure _ _ _) = OFn
 and
@@ -1413,7 +1413,7 @@ and
 v_to_Cv m (Conv cn vs) =
   CConv (Pmap.find cn m) (vs_to_Cvs m vs)
 and
-v_to_Cv m (Closure env vn e) =
+v_to_Cv m (Closure env vn _ e) =
   let Cenv = alist_to_fmap (env_to_Cenv m env) in
   let Ce = exp_to_Cexp m e in
   let a = fresh_var (free_vars Pmap.empty Ce) in
@@ -1432,7 +1432,7 @@ vs_to_Cvs m (v::vs) = v_to_Cv m v :: vs_to_Cvs m vs
 and
 env_to_Cenv m [] = []
 and
-env_to_Cenv m ((x,v)::env) =
+env_to_Cenv m ((x,(v,_))::env) =
   (x, v_to_Cv m v)::(env_to_Cenv m env)
 
 (* intermediate to target values *)

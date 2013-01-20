@@ -509,7 +509,7 @@ syneq c ((CLoc n)) ((CLoc n)))`;
 
  val pat_to_Cpat_defn = Hol_defn "pat_to_Cpat" `
 
-(pat_to_Cpat m pvs (Pvar vn) = (vn::pvs,( CPvar vn)))
+(pat_to_Cpat m pvs (Pvar vn _) = (vn::pvs,( CPvar vn)))
 /\
 (pat_to_Cpat m pvs (Plit l) = (pvs,( CPlit l)))
 /\
@@ -586,9 +586,9 @@ val _ = Define `
 (exp_to_Cexp m (Con cn es) =((
   CCon (((FAPPLY  m)  cn))) (((exps_to_Cexps m) es))))
 /\
-(exp_to_Cexp m (Var vn) =( CVar vn))
+(exp_to_Cexp m (Var vn _) =( CVar vn))
 /\
-(exp_to_Cexp m (Fun vn e) =((
+(exp_to_Cexp m (Fun vn _ e) =((
   CFun [vn]) ((INL (((exp_to_Cexp m) e))))))
 /\
 (exp_to_Cexp m (App (Opn opn) e1 e2) =
@@ -662,19 +662,19 @@ val _ = Define `
   let Ce =(( exp_to_Cexp m) e) in(((
   CLet v) Ce) (((remove_mat_var v) Cpes))))
 /\
-(exp_to_Cexp m (Let vn e b) =
+(exp_to_Cexp m (Let _ vn _ e b) =
   let Ce =(( exp_to_Cexp m) e) in
   let Cb =(( exp_to_Cexp m) b) in(((
   CLet vn) Ce) Cb))
 /\
-(exp_to_Cexp m (Letrec defs b) =
+(exp_to_Cexp m (Letrec _ defs b) =
   let (fns,Cdefs) =(( defs_to_Cdefs m) defs) in
   let Cb =(( exp_to_Cexp m) b) in((((
   CLetfun T) fns) Cdefs) Cb))
 /\
 (defs_to_Cdefs m [] = ([],[]))
 /\
-(defs_to_Cdefs m ((d,vn,e)::defs) =
+(defs_to_Cdefs m ((d,_,vn,_,e)::defs) =
   let Ce =(( exp_to_Cexp m) e) in
   let (fns,Cdefs) =(( defs_to_Cdefs m) defs) in
   (d::fns,([vn],(INL Ce))::Cdefs))
@@ -1470,12 +1470,12 @@ val _ = Defn.save_defn number_constructors_defn;
   let ct =(( number_constructors cs) rs.contab) in((
   repl_dec ( rs with<| contab := ct |>)) ((Dtype ts)))) (* parens: Lem sucks *)
 /\
-(repl_dec rs (Dletrec defs) =
+(repl_dec rs (Dletrec _ defs) =
   let (fns,Cdefs) =(( defs_to_Cdefs ((cmap rs.contab))) defs) in
   let decl =( SOME(rs.renv,rs.rsz)) in(((
   compile_Cexp rs) decl) (((((CLetfun T) fns) Cdefs) ((CDecl fns))))))
 /\
-(repl_dec rs (Dlet p e) =
+(repl_dec rs (Dlet _ p e) =
   let m =( cmap rs.contab) in
   let (pvs,Cp) =((( pat_to_Cpat m) []) p) in
   let Cpes = [(Cp,(CDecl pvs))] in
@@ -1508,7 +1508,7 @@ val _ = Hol_datatype `
 /\
 (v_to_ov s (Conv cn vs) =(( OConv cn) (((MAP ((v_to_ov s))) vs))))
 /\
-(v_to_ov s (Closure _ _ _) = OFn)
+(v_to_ov s (Closure _ _ _ _) = OFn)
 /\
 (v_to_ov s (Recclosure _ _ _) = OFn)
 /\
@@ -1552,7 +1552,7 @@ val _ = Defn.save_defn bv_to_ov_defn;
 (v_to_Cv m (Conv cn vs) =((
   CConv (((FAPPLY  m)  cn))) (((vs_to_Cvs m) vs))))
 /\
-(v_to_Cv m (Closure env vn e) =
+(v_to_Cv m (Closure env vn _ e) =
   let Cenv =( alist_to_fmap (((env_to_Cenv m) env))) in
   let Ce =(( exp_to_Cexp m) e) in
   let a =( fresh_var (((free_vars FEMPTY) Ce))) in((((
@@ -1571,7 +1571,7 @@ val _ = Defn.save_defn bv_to_ov_defn;
 /\
 (env_to_Cenv m [] = [])
 /\
-(env_to_Cenv m ((x,v)::env) =
+(env_to_Cenv m ((x,(v,_))::env) =
   (x,(( v_to_Cv m) v))::(((env_to_Cenv m) env)))`;
 
 val _ = Defn.save_defn v_to_Cv_defn;
