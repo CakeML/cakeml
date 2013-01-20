@@ -14,7 +14,7 @@ val exp_pred_def = tDefine "exp_pred"`
   (exp_pred (App (Opn _) e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (App (Opb _) e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (App Equality e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
-  (exp_pred (App Opapp _ _) = F) ∧
+  (exp_pred (App Opapp e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (App Opassign _ _) = F) ∧
   (exp_pred (Log _ e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (If e1 e2 e3) = exp_pred e1 ∧ exp_pred e2 ∧ exp_pred e3) ∧
@@ -39,7 +39,7 @@ val Cexp_pred_def = tDefine "Cexp_pred"`
   (Cexp_pred (CLet _ e0 e) = Cexp_pred e0 ∧ Cexp_pred e) ∧
   (Cexp_pred (CLetfun _ _ _ _) = F) ∧
   (Cexp_pred (CFun _ _) = F) ∧
-  (Cexp_pred (CCall _ _) = F) ∧
+  (Cexp_pred (CCall e es) = Cexp_pred e ∧ EVERY Cexp_pred es) ∧
   (Cexp_pred (CPrim1 _ _) = F) ∧
   (Cexp_pred (CPrim2 _ e1 e2) = Cexp_pred e1 ∧ Cexp_pred e2) ∧
   (Cexp_pred (CUpd _ _) = F) ∧
@@ -2036,6 +2036,29 @@ val Cenv_bs_change_store = store_thm("Cenv_bs_change_store",
     Cenv_bs c sm s' env renv rsz bs``,
   rw[Cenv_bs_def])
 
+val compile_labels_lemma = store_thm("compile_labels_lemma",
+  ``∀cs exp bc0 cs1.
+    (cs1 = compile cs exp) ∧
+    ALL_DISTINCT (FILTER is_Label (bc0 ++ REVERSE cs.out)) ∧
+    EVERY (combin$C $< cs.next_label o dest_Label)
+      (FILTER is_Label (bc0 ++ REVERSE cs.out))
+    ⇒
+    ALL_DISTINCT (FILTER is_Label (bc0 ++ REVERSE cs1.out)) ∧
+    EVERY (combin$C $< cs1.next_label o dest_Label)
+      (FILTER is_Label (bc0 ++ REVERSE cs1.out))``,
+  rpt gen_tac >> strip_tac >>
+  qspecl_then[`cs`,`exp`]strip_assume_tac(CONJUNCT1 compile_next_label_inc) >>
+  qspecl_then[`cs`,`exp`]mp_tac(CONJUNCT1 compile_append_out) >>
+  disch_then(Q.X_CHOOSE_THEN`bc`strip_assume_tac) >>
+  qspecl_then[`cs`,`exp`,`FILTER is_Label bc`]strip_assume_tac(CONJUNCT1 compile_next_label) >> rfs[] >>
+  qspecl_then[`cs`,`exp`]mp_tac(CONJUNCT1 compile_ALL_DISTINCT_labels) >>
+  fsrw_tac[DNF_ss][FILTER_APPEND,EVERY_MEM,MEM_FILTER,is_Label_rwt,
+                   ALL_DISTINCT_APPEND,FILTER_REVERSE,ALL_DISTINCT_REVERSE,
+                   MEM_MAP,between_def] >>
+  rw[] >>
+  spose_not_then strip_assume_tac >>
+  res_tac >> DECIDE_TAC)
+
 val compile_val = store_thm("compile_val",
   ``(∀c s env exp res. Cevaluate c s env exp res ⇒
       ∀sm s' v bc0 bc00 bs cs.
@@ -2449,7 +2472,45 @@ val compile_val = store_thm("compile_val",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
+  strip_tac >- (
+    simp[compile_def,LET_THM] >>
+    rpt gen_tac >> strip_tac >>
+    simp_tac(srw_ss()++ETA_ss)[] >>
+    rpt gen_tac >> strip_tac >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    rfs[] >> fs[] >>
+    POP_ASSUM_LIST(map_every assume_tac) >>
+    Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
+    first_x_assum(qspecl_then[`sm`,`bc0`,`bs with code := bc0 ++ REVERSE (compile cs0 exp).out`,`cs0`]mp_tac) >>
+    `FDOM s ⊆ FDOM s' ∧ FDOM s' ⊆ FDOM s'' ∧ FDOM s'' ⊆ FDOM s'''` by PROVE_TAC[Cevaluate_store_SUBSET,FST] >>
+    `FDOM s' ⊆ FDOM sm` by PROVE_TAC[SUBSET_TRANS] >>
+    simp[Abbr`cs0`] >>
+    disch_then(Q.X_CHOOSE_THEN`bf`strip_assume_tac) >>
+    Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
+    qabbrev_tac`cs1 = compile cs0 exp` >>
+    qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
+    first_x_assum(qspecl_then[`sm`,`bc0`,`bs1 with code := bc0 ++ REVERSE (FOLDL compile cs1 exps).out`,`cs1`]mp_tac) >>
+    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by (
+      map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+      conj_tac >- simp[Abbr`cs1`,Abbr`cs0`] >>
+      conj_tac >- simp[Abbr`cs1`,Abbr`cs0`] >>
+      conj_tac >- PROVE_TAC[SUBSET_TRANS] >>
+      conj_tac >- PROVE_TAC[Cevaluate_Clocs,FST] >>
+      conj_tac >- simp[] >>
+      conj_tac >- PROVE_TAC[SUBSET_TRANS] >>
+      conj_tac >- simp[Abbr`cs1`,Abbr`cs0`,compile_nontail] >>
+      conj_tac >- simp[Abbr`cs1`,Abbr`cs0`] >>
+      conj_tac >- simp[] >>
+      conj_tac >- simp[Abbr`bs1`] >>
+      conj_tac >- simp[Abbr`cs1`,Abbr`cs0`,Abbr`bs1`] >>
+      match_mp_tac compile_labels_lemma >>
+      map_every qexists_tac[`cs0`,`exp`] >>
+      rw[Abbr`cs1`,Abbr`cs0`] ) >>
+    simp[] >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    disch_then(Q.X_CHOOSE_THEN`bvs`strip_assume_tac) >>
+
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
