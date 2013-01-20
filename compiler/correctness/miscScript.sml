@@ -288,6 +288,15 @@ Q.X_GEN_TAC `p` THEN
 PairCases_on `p` THEN
 SRW_TAC[][])
 
+val FOLDR_CONS_5tup = store_thm(
+"FOLDR_CONS_5tup",
+``!f ls a. FOLDR (\(c,d,x,y,z) w. f c d x y z :: w) a ls = (MAP (\(c,d,x,y,z). f c d x y z) ls)++a``,
+GEN_TAC THEN
+Induct THEN1 SRW_TAC[][] THEN
+Q.X_GEN_TAC `p` THEN
+PairCases_on `p` THEN
+SRW_TAC[][])
+
 val FOLDR_transitive_property = store_thm(
 "FOLDR_transitive_property",
 ``!P ls f a. P [] a /\ (!n a. n < LENGTH ls /\ P (DROP (SUC n) ls) a ==> P (DROP n ls) (f (EL n ls) a)) ==> P ls (FOLDR f a ls)``,
@@ -306,6 +315,11 @@ SRW_TAC[][])
 val FST_triple = store_thm(
 "FST_triple",
 ``(λ(n,ns,b). n) = FST``,
+rw[FUN_EQ_THM,pairTheory.UNCURRY])
+
+val FST_5tup = store_thm(
+"FST_5tup",
+``(λ(n,ns,b,x,y). n) = FST``,
 rw[FUN_EQ_THM,pairTheory.UNCURRY])
 
 val SND_triple = store_thm(
