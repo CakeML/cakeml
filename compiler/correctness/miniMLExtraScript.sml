@@ -395,24 +395,6 @@ val _ = IndDefLib.export_mono"OPTION_EVERY_mono"
 val store_to_fmap_def = Define`
   store_to_fmap s = FUN_FMAP (combin$C EL s) (count (LENGTH s))`
 
-val locs_def = tDefine "locs"`
-  (locs (Litv _) = {}) ∧
-  (locs (Conv cn vs) = BIGUNION (IMAGE locs (set vs))) ∧
-  (locs (Closure env _ _) = BIGUNION (IMAGE locs (set (MAP SND env)))) ∧
-  (locs (Recclosure env _ _) = BIGUNION (IMAGE locs (set (MAP SND env)))) ∧
-  (locs (Loc n) = {n})`
-(WF_REL_TAC`measure v_size` >>
- srw_tac[ARITH_ss][v1_size_thm,SUM_MAP_v2_size_thm,v3_size_thm] >>
- Q.ISPEC_THEN`v_size`imp_res_tac(SUM_MAP_MEM_bound) >>
- fsrw_tac[ARITH_ss][])
-
-val reachable_def = tDefine "reachable"`
-  reachable s n = n INSERT case FLOOKUP s n of NONE => {}
-  | SOME v => BIGUNION (IMAGE (reachable (s \\ n)) (locs v))`
-(WF_REL_TAC`measure (CARD o FDOM o FST)` >>
- srw_tac[ARITH_ss][FLOOKUP_DEF] >>
- Cases_on`CARD (FDOM s)`>>fs[])
-
 val (closed_rules,closed_ind,closed_cases) = Hol_reln`
 (closed (Litv l)) ∧
 (EVERY closed vs ⇒ closed (Conv cn vs)) ∧
@@ -963,5 +945,12 @@ val all_locs_def = tDefine "all_locs"`
  Q.ISPEC_THEN`v_size`imp_res_tac SUM_MAP_MEM_bound >>
  srw_tac[ARITH_ss][])
 val _ = export_rewrites["all_locs_def"]
+
+val reachable_def = tDefine "reachable"`
+  reachable s n = n INSERT case FLOOKUP s n of NONE => {}
+  | SOME v => BIGUNION (IMAGE (reachable (s \\ n)) (all_locs v))`
+(WF_REL_TAC`measure (CARD o FDOM o FST)` >>
+ srw_tac[ARITH_ss][FLOOKUP_DEF] >>
+ Cases_on`CARD (FDOM s)`>>fs[])
 
 val _ = export_theory()
