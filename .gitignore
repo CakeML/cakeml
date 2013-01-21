@@ -12,3 +12,6 @@ miniml-heap
 
 # Translator stuff
 *txt
+
+# Emacs backup files
+*~
