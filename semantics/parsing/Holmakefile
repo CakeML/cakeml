@@ -1,0 +1,2 @@
+INCLUDES = $(HOLDIR)/examples/parsing ../
+OPTIONS = QUIT_ON_FAILURE
