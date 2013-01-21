@@ -43,3 +43,38 @@ PE ::= Pattern "=>" E                  // (Pattern, E)
 Pattern ::= E
   // operators must be constructors and variables used linearly.
   // constructors are Pvar, Plit and Pcon
+
+Type ::=
+       DType                          // DType
+     | DType "->" Type                // Ast_Tfn DType Type
+
+DType ::=
+        TyVar                          // Ast_Tvar
+      | DType TyOp                     // Ast_Tapp [DType] TyOp
+      | "(" TypeList ")" Tyop          // Ast_Tapp TypeList TyOp
+      | "(" Type ")"                   // Type
+
+TypeList ::=
+           Type                        // [Type]
+         | Type "," TypeList           // Type::TypeList
+
+TypeDec ::=
+          "type" DtypeDeclList         // DtypeDeclList
+
+DtypeDecls ::=
+      DtypeDecl                        // [DtypeDecl]
+    | DtypeDecl "and" DtypeDecls       // DtypeDecl :: DtypeDecls
+
+DtypeDecl ::= TypeName "=" DtypeCons
+
+TypeName ::= TyOp
+           | TyVar TyOp
+           | "(" TyVarList ")" TyOp
+
+TyVarList ::= TyVar | TyVar "," TyVarList
+
+DtypeCons ::= V "of" Type
+
+Decl ::= "val" Pattern "=" E
+       | "fun" FDecls
+       | TypeDec
