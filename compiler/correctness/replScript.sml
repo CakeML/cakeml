@@ -12,9 +12,9 @@ val repl_exp_val = store_thm("repl_exp_val",
       exp_pred exp ∧
       evaluate cenv s env exp (s', Rval v) ∧
       EVERY closed s ∧
-      EVERY closed (MAP SND env) ∧
+      EVERY closed (MAP (FST o SND) env) ∧
       FV exp ⊆ set (MAP FST env) ∧
-      (∀v. MEM v (MAP SND env) ⇒ all_cns v ⊆ set (MAP FST cenv) ∧ all_locs v ⊆ count (LENGTH s)) ∧
+      (∀v. v ∈ env_range env ⇒ all_cns v ⊆ set (MAP FST cenv) ∧ all_locs v ⊆ count (LENGTH s)) ∧
       (∀v. MEM v s ⇒ all_cns v ⊆ set (MAP FST cenv) ∧ all_locs v ⊆ count (LENGTH s)) ∧
       count (LENGTH s') ⊆ FDOM sm ∧
       good_sm sm ∧
@@ -106,8 +106,10 @@ val repl_exp_val = store_thm("repl_exp_val",
       conj_tac >- (
         fsrw_tac[DNF_ss][Abbr`Cenv`,SUBSET_DEF,Abbr`Cs`] >>
         gen_tac >> simp[Once CONJ_COMM] >> simp[GSYM AND_IMP_INTRO] >>
-        ho_match_mp_tac IN_FRANGE_alist_to_fmap_suff >>
-        fsrw_tac[DNF_ss][env_to_Cenv_MAP,MAP_MAP_o,combinTheory.o_DEF,MEM_MAP,FORALL_PROD,all_Clocs_v_to_Cv] >>
+        simp[env_to_Cenv_MAP] >>
+        simp[SIMP_RULE(srw_ss())[UNCURRY,LAMBDA_PROD](Q.ISPEC`v_to_Cv (cmap rs.contab) o FST`alist_to_fmap_MAP_values)] >>
+        ho_match_mp_tac IN_FRANGE_o_f_suff >>
+        simp[all_Clocs_v_to_Cv] >>
         PROVE_TAC[] ) >>
       conj_tac >- (
         fsrw_tac[DNF_ss][Abbr`Cs`,SUBSET_DEF,FRANGE_store_to_Cstore,MEM_MAP,all_Clocs_v_to_Cv] >>

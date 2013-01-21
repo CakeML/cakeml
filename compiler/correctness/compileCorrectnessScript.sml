@@ -8,8 +8,8 @@ val exp_pred_def = tDefine "exp_pred"`
   (exp_pred (Handle _ _ _) = F) ∧
   (exp_pred (Lit _) = T) ∧
   (exp_pred (Con _ es) = EVERY exp_pred es) ∧
-  (exp_pred (Var _) = T) ∧
-  (exp_pred (Fun _ _) = F) ∧
+  (exp_pred (Var _ _) = T) ∧
+  (exp_pred (Fun _ _ _) = F) ∧
   (exp_pred (Uapp _ _) = F) ∧
   (exp_pred (App (Opn _) e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (App (Opb _) e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
@@ -19,10 +19,10 @@ val exp_pred_def = tDefine "exp_pred"`
   (exp_pred (Log _ e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (If e1 e2 e3) = exp_pred e1 ∧ exp_pred e2 ∧ exp_pred e3) ∧
   (exp_pred (Mat _ _) = F) ∧
-  (exp_pred (Let _ e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
-  (exp_pred (Letrec _ _) = F)`
+  (exp_pred (Let _ _ _ e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
+  (exp_pred (Letrec _ _ _) = F)`
   (WF_REL_TAC `measure exp_size` >>
-   srw_tac[ARITH_ss][exp6_size_thm] >>
+   srw_tac[ARITH_ss][exp8_size_thm] >>
    Q.ISPEC_THEN`exp_size`imp_res_tac SUM_MAP_MEM_bound >>
    fsrw_tac[ARITH_ss][])
 val _ = export_rewrites["exp_pred_def"]
