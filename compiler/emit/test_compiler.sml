@@ -2,7 +2,7 @@ open test_compilerLib
 val e1 = ``Lit (IntLit 42)``
 val (m,[r as Number i]) = mst_run_exp e1
 val SOME 42 = intML.toInt i;
-val true = (OLit (IntLit (intML.fromInt 42))) = (bv_to_ov m NTnum r)
+val true = (OLit (IntLit (intML.fromInt 42))) = (bv_to_ov m r)
 val e2 = ``If (Lit (Bool T)) (Lit (IntLit 1)) (Lit (IntLit 2))``
 val [Number i] = run_exp e2
 val SOME 1 = intML.toInt i;
@@ -10,11 +10,11 @@ val e3 = ``If (Lit (Bool F)) (Lit (IntLit 1)) (Lit (IntLit 2))``
 val [Number i] = run_exp e3
 val SOME 2 = intML.toInt i;
 val e4 = ``App Equality (Lit (IntLit 1)) (Lit (IntLit 2))``
-val [Number i] = run_exp e4
-val SOME 0 = intML.toInt i;
+val (m,[v]) = mst_run_exp e4
+val true = (OLit (Bool false)) = (bv_to_ov m v);
 val e5 = ``Fun "x" (Var "x")``
 val (m,[f]) = mst_run_exp e5
-val true = OFn = bv_to_ov m NTfn f
+val true = OFn = bv_to_ov m f;
 val e6 = ``Let "x" (Lit (IntLit 1)) (App (Opn Plus) (Var "x") (Var "x"))``
 val [Number i] = run_exp e6
 val SOME 2 = intML.toInt i;
@@ -29,15 +29,15 @@ Let "0?" (Fun "x" (App Equality (Var "x") (Lit (IntLit 0))))
   (Let "x" (Lit (IntLit 1))
     (Let "x" (App (Opn Minus) (Var "x") (Var "x"))
       (App Opapp (Var "0?") (Var "x"))))``
-val [Number i] = run_exp e8
-val SOME 1 = intML.toInt i;
+val (m,[v]) = mst_run_exp e8
+val true = (OLit (Bool true)) = (bv_to_ov m v);
 val e9 = ``
 Let "1?" (Fun "x" (App Equality (Var "x") (Lit (IntLit 1))))
   (Let "x" (Lit (IntLit 1))
     (Let "x" (App (Opn Minus) (Var "x") (Var "x"))
       (App Opapp (Var "1?") (Var "x"))))``
-val [Number i] = run_exp e9
-val SOME 0 = intML.toInt i;
+val (m,[v]) = mst_run_exp e9
+val true = (OLit (Bool false)) = (bv_to_ov m v);
 val e10 = ``
 Let "x" (Lit (IntLit 3))
 (If (App (Opb Gt) (Var "x") (App (Opn Plus) (Var "x") (Var "x")))
@@ -53,13 +53,13 @@ val SOME 3 = intML.toInt i;
 val e12 = ``
 Let "lt2" (Fun "x" (App (Opb Lt) (Var "x") (Lit (IntLit 2))))
   (App Opapp (Var "lt2") (Lit (IntLit 3)))``
-val [Number i] = run_exp e12
-val SOME 0 = intML.toInt i;
+val (m,[v]) = mst_run_exp e12
+val true = (OLit (Bool false)) = (bv_to_ov m v);
 val e13 = ``
 Let "lq2" (Fun "x" (App (Opb Leq) (Var "x") (Lit (IntLit 2))))
   (App Opapp (Var "lq2") (Lit (IntLit 0)))``
-val [Number i] = run_exp e13
-val SOME 1 = intML.toInt i;
+val (m,[v]) = mst_run_exp e13
+val true = (OLit (Bool true)) = (bv_to_ov m v);
 val e14 = ``
 Let "x" (Lit (IntLit 0))
   (Let "y" (App (Opn Plus) (Var "x") (Lit (IntLit 2)))
@@ -74,52 +74,52 @@ Let "x" (Lit (Bool T))
     [(Plit (Bool F), (Lit (IntLit 1)));
      (Pvar "y", (Var "y"))])
   (Var "x"))``
-val [Number i] = run_exp e15
-val SOME 1 = intML.toInt i;
+val (m,[v]) = mst_run_exp e15
+val true = (OLit (Bool true)) = (bv_to_ov m v);
 val e16 = ``App Equality (Let "x" (Lit (Bool T)) (Var "x")) (Lit (Bool F))``
-val [Number i] = run_exp e16
-val SOME 0 = intML.toInt i;
+val (m,[v]) = mst_run_exp e16
+val true = (OLit (Bool false)) = (bv_to_ov m v);
 val e17 = ``App Equality
   (Let "f" (Fun "_" (Lit (Bool T))) (App Opapp (Var "f") (Lit (Bool T))))
   (Lit (Bool F))``
-val [Number i] = run_exp e17
-val SOME 0 = intML.toInt i;
+val (m,[v]) = mst_run_exp e17
+val true = (OLit (Bool false)) = (bv_to_ov m v);
 val e18 = ``
 Let "x" (Lit (Bool T))
   (App Equality
     (Let "f" (Fun "_" (Var "x")) (App Opapp (Var "f") (Var "x")))
     (Var "x"))``
-val [Number i] = run_exp e18
-val SOME 1 = intML.toInt i;
+val (m,[v]) = mst_run_exp e18
+val true = (OLit (Bool true)) = (bv_to_ov m v);
 val e19 = ``
 Let "x" (Lit (Bool T))
   (App Opapp (Fun "_" (Var "x")) (Lit (Bool F)))``
-val [Number i] = run_exp e19
-val SOME 1 = intML.toInt i;
+val (m,[v]) = mst_run_exp e19
+val true = (OLit (Bool true)) = (bv_to_ov m v);
 val e20 = ``
 Let "f" (Fun "_" (Lit (Bool T)))
 (App Equality
   (App Opapp (Var "f") (Lit (Bool T)))
   (Lit (Bool F)))``
-val [Number i] = run_exp e20
-val SOME 0 = intML.toInt i;
+val (m,[v]) = mst_run_exp e20
+val true = (OLit (Bool false)) = (bv_to_ov m v);
 val e21 = ``Let "x" (Lit (Bool T))
 (App Equality
   (Let "f" (Fun "_" (Var "x"))
     (App Opapp (Var "f") (Var "x")))
   (Var "x"))``
-val [Number i] = run_exp e21
-val SOME 1 = intML.toInt i;
+val (m,[v]) = mst_run_exp e21
+val true = (OLit (Bool true)) = (bv_to_ov m v);
 val listd = ``
 Dtype
   [(["'a"],"list",
     [("Cons",[Tvar "'a"; Tapp [Tvar "'a"] "list"]); ("Nil",[])])]
 ``
 val e22 = ``Con "Cons" [Lit (Bool T); Con "Nil" []]``
-val [Block (t1,[Number i,Block (t2,[])])] = run_decs_exp ([listd],e22)
-val SOME 0 = numML.toInt t1
-val SOME 1 = intML.toInt i
-val SOME 1 = numML.toInt t2;
+val (m,[Block (t1,[v,Block (t2,[])])]) = mst_run_decs_exp ([listd],e22)
+val true = valOf(numML.toInt t1) > 2;
+val true = valOf(numML.toInt t2) > valOf(numML.toInt t1);
+val true = (OLit (Bool true)) = (bv_to_ov m v);
 val e23 = ``Mat (Con "Cons" [Lit (IntLit 2);
                  Con "Cons" [Lit (IntLit 3);
                  Con "Nil" []]])
@@ -131,8 +131,8 @@ val [Number i] = run_decs_exp ([listd],e23)
 val SOME 2 = intML.toInt i;
 val e24 = ``Mat (Con "Nil" [])
             [(Pcon "Nil" [], Lit (Bool F))]``
-val [Number i] = run_decs_exp([listd],e24)
-val SOME 0 = intML.toInt i;
+val (m,[v]) = mst_run_decs_exp([listd],e24)
+val true = (OLit (Bool false)) = (bv_to_ov m v);
 val e25 = ``Mat (Con "Cons" [Lit (IntLit 2);
                  Con "Nil" []])
             [(Pcon "Cons" [Pvar "x"; Pvar "xs"],
@@ -216,28 +216,28 @@ val _ = finalise_translation()
 val ds = dest_list I (get_decls())
 val e33 = ``App Opapp (Var "APPEND") (Con "Nil" [])``
 val (m,st) = mst_run_decs_exp (ds,e33)
-val tm = bv_to_ov m NTfn (hd st)
+val tm = bv_to_ov m (hd st)
 val true = tm = OFn;
 val e34 = ``App Opapp (App Opapp (Var "APPEND") (Con "Nil" []))
                       (Con "Nil" [])``
 val (m,st) = mst_run_decs_exp (ds,e34)
 val [r,cl] = st
-val tm = bv_to_ov m (NTapp ([NTnum],"list")) r
+val tm = bv_to_ov m r
 val true = tm = OConv ("Nil",[])
-val tm = bv_to_ov m NTfn cl
+val tm = bv_to_ov m cl
 val true = tm = OFn;
 fun h t = hd(tl(snd(strip_comb(concl t))))
 val t = hol2deep ``[1;2;3]++[4;5;6:num]``
 val e30 = h t
 val (m,st) = mst_run_decs_exp (ds,e30)
 val [res,cl] = st
-val tm = bv_to_ov m (NTapp ([NTnum],"list")) res
+val tm = bv_to_ov m res
 val true = tm = term_to_ov (hol2val ``[1;2;3;4;5;6:num]``);
 val t = hol2deep ``[]++[4:num]``
 val e32 = h t
 val (m,st) = mst_run_decs_exp (ds,e32)
 val [res,cl] = st
-val tm = bv_to_ov m (NTapp ([NTnum],"list")) res
+val tm = bv_to_ov m res
 val true = tm = OConv ("Cons",[OLit (IntLit (intML.fromInt 4)), OConv ("Nil",[])]);
 val _ = reset_translation()
 val _ = translate sortingTheory.PART_DEF
@@ -250,7 +250,7 @@ val t = hol2deep ``QSORT (λx y. x ≤ y) [9;8;7;6;2;3;4;5:num]``
 val e31 = h t;
 val (m,st) = mst_run_decs_exp (ds,e31)
 val [res,clQSORT,clPARTITION,clPART,clAPPEND] = st
-val tm = bv_to_ov m (NTapp([NTnum],"list")) res
+val tm = bv_to_ov m res
 val true = tm = term_to_ov(hol2val ``[2;3;4;5;6;7;8;9:num]``);
 val d = ``
 Dlet (Pvar "add1")
@@ -258,7 +258,7 @@ Dlet (Pvar "add1")
 val e40 = ``App Opapp (Var "add1") (Lit (IntLit 1))``
 val (m,st) = mst_run_decs_exp ([d],e40)
 val [res,add1] = st
-val true = bv_to_ov m NTnum res = term_to_ov(hol2val ``2:int``);
+val true = bv_to_ov m res = term_to_ov(hol2val ``2:int``);
 val e43 = ``Letrec [("o","n",
   If (App Equality (Var "n") (Lit (IntLit 0)))
      (Var "n")
@@ -397,8 +397,8 @@ val e60 = ``Let "i" (Lit (IntLit 10))
          (App Opapp (Var "f1") (App Opapp (Var "s") (Var "i"))));
 ("s","k",App (Opn Minus) (Var "k") (Var "1"))]
   (App Opapp (Var "f0") (Var "i"))))``
-val [Number r] = run_exp e60
-val SOME 0 = intML.toInt r;
+val (m,[r]) = mst_run_exp e60
+val true = (OLit (Bool false)) = bv_to_ov m r;
 val d0 = ``Dlet (Pvar "1") (Lit (IntLit 1))``
 val d1 = ``Dletrec [
 ("z","j",App Equality (Var "j") (Lit (IntLit 0)));
@@ -410,8 +410,8 @@ val d1 = ``Dletrec [
          (App Opapp (Var "f1") (App Opapp (Var "s") (Var "i"))));
 ("s","k",App (Opn Minus) (Var "k") (Var "1"))]``
 val e61 = ``App Opapp (Var "f0") (Lit (IntLit 12))``
-val [Number r,_,_,_,_,_,_] = run_decs_exp([d0,d1],e61)
-val SOME 1 = intML.toInt r;
+val (m,[r,_,_,_,_,_,_]) = mst_run_decs_exp([d0,d1],e61)
+val true = (OLit (Bool true)) = bv_to_ov m r;
 val e62 = ``Letrec ["f","x",Var "x"] (App Opapp (Var "f") (Lit (IntLit 42)))``
 val [Number r] = run_exp e62
 val SOME 42 = intML.toInt r;
@@ -420,3 +420,50 @@ val e63 = ``Letrec [("f","x",App Opapp (Var "g") (Var "x"));
                     (App Opapp (Var "f") (Lit (IntLit 42)))``
 val [Number r] = run_exp e63
 val SOME 42 = intML.toInt r;
+val d0 = ``Dlet (Pvar "1") (Lit (IntLit 1))``
+val d1 = ``Dletrec [
+("a","b",App Equality (Var "b") (Lit (IntLit 0)));
+("c","d",If (App Opapp (Var "a") (Var "d")) (Lit (Bool T))
+         (App Opapp (Var "g") (App Opapp (Var "i") (Var "d"))));
+("e","f",If (App Opapp (Var "a") (Var "f")) (Lit (Bool F))
+         (App Opapp (Var "c") (App Opapp (Var "i") (Var "f"))));
+("g","h",If (App Opapp (Var "a") (Var "h")) (Lit (Bool F))
+         (App Opapp (Var "e") (App Opapp (Var "i") (Var "h"))));
+("i","j",App (Opn Minus) (Var "j") (Var "1"))]``
+val e64 = ``App Opapp (Var "c") (Lit (IntLit 12))``
+val (m,[r,_,_,_,_,_,_]) = mst_run_decs_exp([d0,d1],e64)
+val true = (OLit (Bool true)) = bv_to_ov m r;
+val d1 = ``Dletrec [
+("a","b",App Equality (Var "b") (Lit (IntLit 0)));
+("c","d",If (App Opapp (Var "a") (Var "d")) (Lit (Bool T))
+         (App Opapp (Var "g") (App Opapp (Var "i") (Var "d"))));
+("e","f",If (App Opapp (Var "a") (Var "f")) (Lit (Bool F))
+         (App Opapp (Var "c") (App Opapp (Var "i") (Var "f"))));
+("g","h",If (App Opapp (Var "a") (Var "h")) (Lit (Bool F))
+         (App Opapp (Var "e") (App Opapp (Var "i") (Var "h"))));
+("i","j",App (Opn Minus) (Var "j") (Lit (IntLit 1)))]``
+val e65 = ``App Opapp (Var "c") (Lit (IntLit 12))``
+val (m,[r,_,_,_,_,_]) = mst_run_decs_exp([d1],e65)
+val true = (OLit (Bool true)) = bv_to_ov m r;
+val e66 = ``Letrec [
+("a","b",App Equality (Var "b") (Lit (IntLit 0)));
+("c","d",If (App Opapp (Var "a") (Var "d")) (Lit (Bool T))
+         (App Opapp (Var "g") (App Opapp (Var "i") (Var "d"))));
+("e","f",If (App Opapp (Var "a") (Var "f")) (Lit (Bool F))
+         (App Opapp (Var "c") (App Opapp (Var "i") (Var "f"))));
+("g","h",If (App Opapp (Var "a") (Var "h")) (Lit (Bool F))
+         (App Opapp (Var "e") (App Opapp (Var "i") (Var "h"))));
+("i","j",App (Opn Minus) (Var "j") (Lit (IntLit 1)))]
+(App Opapp (Var "c") (Lit (IntLit 12)))``
+val (m,[r]) = mst_run_exp e66
+val true = (OLit (Bool true)) = bv_to_ov m r;
+val e67 = ``Let "x" (Lit (Bool T)) (If (Var "x") (Lit (IntLit 1)) (Lit (IntLit 2)))``
+val (m,[r]) = mst_run_exp e67
+val true = (OLit (IntLit (intML.fromInt 1))) = bv_to_ov m r;
+val e68 = ``Letrec [
+  ("not","x",Mat (Var "x")
+               [(Plit (Bool T),Lit(Bool F));
+                (Plit (Bool F),Lit(Bool T))])]
+   (If (Let "x" (Lit (Bool T)) (App Opapp (Var "not") (Var "x"))) (Lit (IntLit 1)) (Lit (IntLit 2)))``
+val (m,[r]) = mst_run_exp e68
+val true = (OLit (IntLit (intML.fromInt 2))) = bv_to_ov m r;

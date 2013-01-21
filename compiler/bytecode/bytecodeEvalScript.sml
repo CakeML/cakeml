@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib Parse lcsymtacs
-open BytecodeTheory arithmeticTheory listTheory finite_mapTheory integerTheory
+open bytecodeTerminationTheory arithmeticTheory listTheory finite_mapTheory integerTheory
 val _ = new_theory "bytecodeEval";
 
 val isNumber_def = Define`
@@ -30,11 +30,11 @@ val bc_eval_stack_def = Define`
 ∧ (bc_eval_stack (El k) ((Block tag ys)::xs) =
    if k < LENGTH ys then SOME (EL k ys::xs) else NONE)
 ∧ (bc_eval_stack (TagEq t) ((Block tag ys)::xs) =
-   SOME (Number (bool_to_int (tag = t))::xs))
+   SOME (bool_to_val (tag = t)::xs))
 ∧ (bc_eval_stack Equal (x2::x1::xs) =
-   SOME (Number (bool_to_int (x1 = x2)) :: xs))
+   SOME (bool_to_val (x1 = x2)::xs))
 ∧ (bc_eval_stack Less (Number n :: Number m :: xs) =
-   SOME (Number (bool_to_int (m < n))::xs))
+   SOME (bool_to_val (m < n)::xs))
 ∧ (bc_eval_stack Add (Number n :: Number m :: xs) =
    SOME (Number (m + n)::xs))
 ∧ (bc_eval_stack Sub (Number n :: Number m :: xs) =
@@ -158,10 +158,12 @@ val bc_eval1_def = Define`
   | (Jump l, _) =>
     OPTION_BIND (bc_find_loc s l)
       (λn. SOME (s with pc := n))
-  | (JumpNil l, Number x::xs) =>
+  | (JumpIf l, (Block b [])::xs) =>
     OPTION_BIND (bc_find_loc s l)
       (λn. let s' = s with stack := xs in
-        SOME (if x = 0 then bump_pc s' else s' with pc := n))
+        if b = 0 then SOME (bump_pc s') else
+        if b = 1 then SOME (s' with pc := n) else
+        NONE)
   | (Call l, x::xs) =>
       OPTION_BIND (bc_find_loc s l)
       (λn. SOME (s with <| pc := n; stack := x :: CodePtr ((bump_pc s).pc) :: xs |>))
@@ -169,6 +171,9 @@ val bc_eval1_def = Define`
       SOME (s with <| pc := ptr; stack := x :: CodePtr ((bump_pc s).pc) :: xs |>)
   | (JumpPtr, CodePtr ptr::xs) =>
      SOME (s with <| pc := ptr; stack := xs |>)
+  | (PushPtr l, xs) =>
+      OPTION_BIND (bc_find_loc s l)
+        (λn. SOME (bump_pc s with <| stack := CodePtr n::xs |>))
   | (Return, x :: CodePtr n :: xs) =>
      SOME (s with <| pc := n; stack := x::xs |>)
   | (Exception, x :: xs) =>
@@ -201,7 +206,11 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
   Cases_on `h` >> fs[LET_THM] >>
-  rw[bc_next_cases] )
+  qpat_assum `X = SOME s2` mp_tac >>
+  BasicProvers.EVERY_CASE_TAC >> rw[] >>
+  rw[bc_next_cases] >>
+  ((qexists_tac `T` >> rw[] >> NO_TAC) ORELSE
+   (qexists_tac `F` >> rw[] >> NO_TAC)))
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
   rw[bc_next_cases] )
@@ -215,6 +224,7 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   qmatch_assum_rename_tac `s1.stack = h::t` [] >>
   Cases_on `h` >> Cases_on `t` >> fs[] >>
   rw[bc_next_cases] )
+>- ( rw[bc_next_rules] )
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
   qmatch_assum_rename_tac `s1.stack = h::t` [] >>
@@ -230,13 +240,7 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   rw[bc_next_cases])
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  numLib.LEAST_ELIM_TAC >>
-  rw[] >- (
-    match_mp_tac (
-      SIMP_RULE (srw_ss()) []
-        (INST_TYPE [alpha|->numSyntax.num] pred_setTheory.NOT_IN_FINITE)) >> rw[] ) >>
-  qexists_tac `n` >> rw[] )
+  rw[bc_next_cases] )
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
   qmatch_assum_rename_tac `s1.stack = h::t` [] >>
@@ -250,75 +254,17 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   Cases_on `y` >> fs [] >>
   rw[bc_next_cases] ))
 
-val bc_eval1_NONE = store_thm(
-"bc_eval1_NONE",
-``∀s1 s2. (bc_eval1 s1 = NONE) ⇒ ¬bc_next s1 s2``,
-rw[bc_eval1_def] >- ( rw[bc_next_cases] ) >>
-qmatch_assum_rename_tac `bc_fetch s1 = SOME inst` [] >>
-Cases_on `inst` >> fs[bc_eval_stack_NONE]
->- rw[bc_next_cases]
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  TRY (Cases_on `h`) >> fs[LET_THM] >>
-  rw[bc_next_cases] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `h` >> fs[] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `h` >> Cases_on `t` >> fs[] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `h` >> fs[] >>
-  Cases_on `n=ptr` >> fs[] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `h` >> fs[] >>
-  Cases_on `t` >> fs[] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `t` >> fs[] >>
-  qmatch_assum_rename_tac `s1.stack = x::y::t` [] >>
-  Cases_on `y` >> fs[] )
->-(
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  Cases_on `s1.exstack` >> fs[LET_THM] >>
-  qmatch_assum_rename_tac `s1.exstack = q::z` [] >>
-  Cases_on `q` >> fs[] >>
-  qmatch_assum_rename_tac `¬(r ≤ LENGTH t)` [] >>
-  Cases_on `r = m` >> fs[] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `h` >> fs[] >>
-  Cases_on `n=ptr` >> fs[] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `t` >> fs[] >>
-  qmatch_assum_rename_tac `s1.stack = x::y::t` [] >>
-  Cases_on `y` >> fs[] >>
-  Cases_on `n = ptr` >> rw[])
-)
+val bc_next_bc_eval1 = store_thm(
+"bc_next_bc_eval1",
+``∀s1 s2. bc_next s1 s2 ⇒ (bc_eval1 s1 = SOME s2)``,
+ho_match_mp_tac bc_next_ind >>
+rw[bc_eval1_def] >>
+fs[bc_eval_stack_thm] >>
+unabbrev_all_tac >> rw[])
+
+val bc_eval1_thm = store_thm("bc_eval1_thm",
+  ``!s1 s2. bc_next s1 s2 = (bc_eval1 s1 = SOME s2)``,
+rw[] >> EQ_TAC >> rw[bc_eval1_SOME,bc_next_bc_eval1])
 
 val bc_eval_exists = prove(
 ``∃bc_eval. ∀s. bc_eval s = case bc_eval1 s of NONE => s | SOME s => bc_eval s``,

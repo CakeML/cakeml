@@ -5,7 +5,7 @@ type
     Pop                     (* pop top of stack *)
   | Pops of num             (* pop n elements under stack top *)
   | Shift of num * num      (* shift top n elements down k places *)
-  | PushInt of int          (* push num onto stack *)
+  | PushInt of int          (* push int onto stack *)
   | Cons of num * num       (* push new cons with tag m and n elements *)
   | Load of num             (* push stack[n+1] *)
   | Store of num            (* pop and store in stack[n+1] *)
@@ -23,11 +23,12 @@ type
   bc_inst =
     Stack of bc_stack_op
   | Label of num            (* label location *)
-  | Jump of loc             (* jump to location n *)
-  | JumpNil of loc          (* conditional jump to location n *)
-  | Call of loc             (* call location n *)
+  | Jump of loc             (* jump to location *)
+  | JumpIf of loc           (* jump to location iff true *)
+  | Call of loc             (* call location *)
   | JumpPtr                 (* jump based on code pointer *)
   | CallPtr                 (* call based on code pointer *)
+  | PushPtr of loc          (* push a CodePtr onto stack *)
   | Return                  (* pop return address, jump *)
   | Exception               (* restore stack, jump *)
   | Ref                     (* create a new ref cell *)
@@ -41,11 +42,8 @@ val int_of_num : num -> int
 let inline {hol} int_of_num = Hol.int_of_num
 val drop : forall 'a. num -> list 'a -> list 'a
 let inline {hol} drop = Hol.DROP
-
-let rec
-bool_to_int true = int_of_num 1
-and
-bool_to_int false = int_of_num 0
+val least : (num -> bool) -> num
+let inline {hol} least = Hol.LEAST
 
 (* the stack is a list of elements of bc_value *)
 
@@ -67,6 +65,18 @@ type
       (* artificial state components *)
       inst_length : bc_inst -> num
    |>
+
+let rec
+bool_to_tag false = 0
+and
+bool_to_tag true = 1
+
+let unit_tag = 2
+let closure_tag = 3
+let block_tag = 4
+
+let bool_to_val b = Block (bool_to_tag b) []
+let unit_val = Block unit_tag []
 
 (* fetching the next instruction from the code *)
 
@@ -134,13 +144,13 @@ forall k tag ys xs. k < List.length ys ==>
 bc_stack_op (El k) ((Block tag ys)::xs) (List.nth ys k::xs)
 and
 forall t tag ys xs. true ==>
-bc_stack_op (TagEq t) ((Block tag ys)::xs) (Number (bool_to_int (tag = t))::xs)
+bc_stack_op (TagEq t) ((Block tag ys)::xs) (bool_to_val (tag = t)::xs)
 and
 forall x2 x1 xs. true ==>
-bc_stack_op Equal (x2::x1::xs) (Number (bool_to_int (x1 = x2))::xs)
+bc_stack_op Equal (x2::x1::xs) (bool_to_val (x1 = x2)::xs)
 and
 forall n m xs. true ==>
-bc_stack_op Less (Number n::Number m::xs) (Number (bool_to_int (Int.(<) m n))::xs)
+bc_stack_op Less (Number n::Number m::xs) (bool_to_val (Int.(<) m n)::xs)
 and
 forall n m xs. true ==>
 bc_stack_op Add  (Number n::Number m::xs) (Number (Int.(+) m n)::xs)
@@ -170,13 +180,13 @@ forall s l n.
 ==>
 bc_next s (<|s with pc = n|>)
 and
-forall s l n x xs s'.
-bc_fetch s = Some (JumpNil l)
+forall s l n b xs s'.
+bc_fetch s = Some (JumpIf l)
 && (bc_find_loc s l = Some n)
-&& s.stack = Number x::xs
+&& s.stack = (bool_to_val b)::xs
 && s' = (<|s with stack = xs|>)
 ==>
-bc_next s (if x = int_of_num 0 then bump_pc s' else <|s' with pc = n|>)
+bc_next s (if b then <|s' with pc = n|> else bump_pc s')
 and
 forall s l n x xs.
 bc_fetch s = Some (Call l)
@@ -197,6 +207,12 @@ bc_fetch s = Some JumpPtr
 ==>
 bc_next s (<|s with pc = ptr; stack = xs|>)
 and
+forall s l n.
+bc_fetch s = Some (PushPtr l)
+&& (bc_find_loc s l = Some n)
+==>
+bc_next s (<|bump_pc s with stack = (CodePtr n)::s.stack |>)
+and
 forall s x n xs.
 bc_fetch s = Some Return
 && s.stack = x::CodePtr n::xs
@@ -214,7 +230,7 @@ and
 forall s x xs ptr.
 bc_fetch s = Some Ref
 && s.stack = x::xs
-&& not (Pmap.mem ptr s.refs)
+&& (ptr = least (fun ptr -> not (Pmap.mem ptr s.refs)))
 ==>
 bc_next s (<|bump_pc s with stack = (RefPtr ptr)::xs; refs = Pmap.add ptr x s.refs|>)
 and

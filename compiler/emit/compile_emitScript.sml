@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib EmitTeX
-open bytecode_emitTheory
+open bytecode_emitTheory extended_emitTheory basis_emitTheory
 open CexpTypesTheory CompileTheory compileTerminationTheory
 val _ = new_theory "compile_emit"
 
@@ -8,9 +8,13 @@ val _ = Parse.temp_type_abbrev("string",``:char list``)
 val _ = Parse.temp_type_abbrev("op_",``:op``) (* EmitML should do this *)
 val _ = Parse.disable_tyabbrev_printing "tvarN"
 val _ = Parse.disable_tyabbrev_printing "envE"
+val _ = Parse.disable_tyabbrev_printing "store"
 val _ = Parse.disable_tyabbrev_printing "ctenv"
 val _ = Parse.disable_tyabbrev_printing "ecs"
 val _ = Parse.disable_tyabbrev_printing "alist"
+val _ = Parse.disable_tyabbrev_printing "def"
+val _ = Parse.disable_tyabbrev_printing "contab"
+val _ = Parse.hide "toList"
 
 val underscore_rule = Conv.CONV_RULE let
 fun foldthis (tm,(ls,n)) = let
@@ -30,6 +34,7 @@ val data = map
   , MiniMLTheory.datatype_opb
   , MiniMLTheory.datatype_opn
   , MiniMLTheory.datatype_op
+  , MiniMLTheory.datatype_uop
   , MiniMLTheory.datatype_log
   , MiniMLTheory.datatype_pat
   , MiniMLTheory.datatype_exp
@@ -37,20 +42,21 @@ val data = map
   , MiniMLTheory.datatype_t
   , MiniMLTheory.datatype_dec
   , datatype_ov
+  , datatype_Cprim1
   , datatype_Cprim2
   , datatype_Cpat
   , datatype_Cexp
+  , datatype_label_closures_state
   , datatype_ctbind
   , datatype_cebind
   , datatype_call_context
-  , datatype_e2c_state
   , datatype_compiler_state
-  , datatype_nt
   , datatype_repl_state
   ]
 
 val defs = map EmitML.DEFN
 [ mk_thm([],``ITSET f s a = FOLDR f a (toList s)``)
+, alistTheory.alist_to_fmap_def
 , incsz_def
 , Cpat_vars_def
 , free_vars_def
@@ -64,17 +70,24 @@ val defs = map EmitML.DEFN
 , sdt_def
 , ldt_def
 , decsz_def
+, prim1_to_bc_def
 , prim2_to_bc_def
 , find_index_def
 , emit_ec_def
 , bind_fv_def
 , num_fold_def
-, e2c_ret_def
-, e2c_bump_def
-, e2c_add_def
+, label_defs_def
+, label_closures_def
+, count_unlab_def
+, imm_unlab_def
+, repeat_label_closures_def
+, defs_to_ldefs_def
 , calculate_ldefs_def
-, mk_e2c_state_def
+, push_lab_def
+, cons_closure_def
+, update_refptr_def
 , compile_closures_def
+, compile_decl_def
 , underscore_rule compile_def
 , calculate_ecs_def
 , cce_aux_def
@@ -82,20 +95,18 @@ val defs = map EmitML.DEFN
 , calculate_labels_def
 , replace_labels_def
 , compile_labels_def
+, cmap_def
 , init_repl_state_def
 , pat_to_Cpat_def
 , fresh_var_def
 , Cpes_vars_def
 , remove_mat_vp_def
-, remove_mat_var_def
+, underscore_rule remove_mat_var_def
 , underscore_rule exp_to_Cexp_def
 , compile_Cexp_def
 , repl_exp_def
-, t_to_nt_def
 , number_constructors_def
-, lookup_conv_ty_def
 , repl_dec_def
-, inst_arg_def
 , v_to_ov_def
 , bv_to_ov_def
 ]
@@ -110,7 +121,7 @@ Cases_on `n` THEN SRW_TAC[][] THEN
 Cases_on `n'` THEN SRW_TAC[][])
 
 val _ = EmitML.eSML "compile" (
-  (EmitML.OPEN ["num","fmap","set","sum","bytecode"])
+  (EmitML.OPEN ["num","fmap","set","sum","bytecode","state_transformer"])
 ::(EmitML.MLSIG "type num = numML.num")
 ::(EmitML.MLSIG "type int = intML.int")
 ::(EmitML.MLSTRUCT "type int = intML.int")

@@ -3,31 +3,37 @@ val _ = new_theory"CexpTypes"
 
 (* applicative primitives with bytecode counterparts *)
 val _ = Hol_datatype `
+ Cprim1 = CRef | CDer`;
+val _ = Hol_datatype `
  Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq`;
-
 
 val _ = Hol_datatype `
  Cpat =
     CPvar of string
   | CPlit of lit
-  | CPcon of num => Cpat list`;
-
+  | CPcon of num => Cpat list
+  | CPref of Cpat`;
 
 val _ = Hol_datatype `
  Cexp =
     CDecl of string list
   | CRaise of error
+  | CHandle of Cexp => string => Cexp
   | CVar of string
   | CLit of lit
   | CCon of num => Cexp list
   | CTagEq of Cexp => num
   | CProj of Cexp => num
-  | CLet of string list => Cexp list => Cexp
-  | CLetfun of bool => string list => (string list # num) list => Cexp
-  | CFun of string list => num
+  | CLet of string => Cexp => Cexp
+  | CLetfun of bool => string list => (string list # (Cexp + num)) list => Cexp
+  | CFun of string list => (Cexp + num)
   | CCall of Cexp => Cexp list
+  | CPrim1 of Cprim1 => Cexp
   | CPrim2 of Cprim2 => Cexp => Cexp
+  | CUpd of Cexp => Cexp
   | CIf of Cexp => Cexp => Cexp`;
+
+val _ = Parse.type_abbrev("def",``:(string list # (Cexp + num))``)
 
 (* and now the Cv type with its unnecessarily difficult recursion *)
 
@@ -37,7 +43,8 @@ val _ = Parse.overload_on("s0_to_num",``STRLEN``)
 val b = ``:string``
 val a = ``:lit +
 num +
-string list # (string list # num) list # string``
+string list # def list # string +
+num``
 val Cv0 = ``:(^b,^a) fmaptree``
 val _ = Parse.type_abbrev("Cv0",Cv0)
 val Cvwf_def = new_specification("Cvwf_def",["Cvwf"],
@@ -47,7 +54,8 @@ fmtree_Axiom
 case i of
   | (INL l) => (fm = FEMPTY)
   | (INR (INL n)) => ∃vs. (fm = FUN_FMAP (combin$C EL vs o s0_to_num) (IMAGE num_to_s0 (count (LENGTH vs))))
-  | (INR (INR (ns,defs,d))) => T`)
+  | (INR (INR (INL (ns,defs,d)))) => T
+  | (INR (INR (INR n))) => (fm = FEMPTY)`)
 val Cvs_exist = new_type_definition("Cv",
 prove(
 ``∃v. Cvwf v``,
@@ -65,8 +73,10 @@ val CConv_def = Define`
             (fromCv o_f FUN_FMAP (combin$C EL vs o s0_to_num) (IMAGE num_to_s0 (count (LENGTH vs)))))`
 val CRecClos_def = Define`
   CRecClos env ns defs d = toCv
-    (FTNode (INR (INR (ns,defs,d)))
+    (FTNode (INR (INR (INL (ns,defs,d))))
             (fromCv o_f env))`
+val CLoc_def = Define`
+  CLoc n = toCv (FTNode (INR (INR (INR n))) FEMPTY)`
 
 val num_to_s0_inj = store_thm(
 "num_to_s0_inj",
@@ -81,7 +91,8 @@ val toCv_thm = store_thm(
   (toCv (FTNode i fm) = case i of
    | INL l => CLitv l
    | INR (INL n) => CConv n (MAP toCv (GENLIST (FAPPLY fm o num_to_s0) (CARD (FDOM fm))))
-   | INR (INR (ns,defs,n)) => CRecClos (toCv o_f fm) ns defs n)``,
+   | INR (INR (INL (ns,defs,n))) => CRecClos (toCv o_f fm) ns defs n
+   | INR (INR (INR n)) => CLoc n)``,
 rw[Cvwf_def] >>
 BasicProvers.EVERY_CASE_TAC >- (
   rw[CLitv_def] )
@@ -107,18 +118,19 @@ BasicProvers.EVERY_CASE_TAC >- (
   qexists_tac `num_to_s0 x` >>
   rw[FUN_FMAP_DEF] >>
   PROVE_TAC[])
->>
-rw[CRecClos_def] >>
-AP_TERM_TAC >>
-AP_TERM_TAC >>
-ONCE_REWRITE_TAC[GSYM fmap_EQ_THM] >>
-rw[] >>
-match_mp_tac EQ_SYM >>
-rw[GSYM (CONJUNCT2 Cv_bij_thm)] >>
-first_x_assum match_mp_tac >>
-rw[FRANGE_DEF] >>
-qexists_tac `x` >>
-rw[] )
+>- (
+  rw[CRecClos_def] >>
+  AP_TERM_TAC >>
+  AP_TERM_TAC >>
+  ONCE_REWRITE_TAC[GSYM fmap_EQ_THM] >>
+  rw[] >>
+  match_mp_tac EQ_SYM >>
+  rw[GSYM (CONJUNCT2 Cv_bij_thm)] >>
+  first_x_assum match_mp_tac >>
+  rw[FRANGE_DEF] >>
+  qexists_tac `x` >>
+  rw[] )
+>- rw[CLoc_def])
 
 val Cvwf_all_Cv = store_thm(
 "Cvwf_all_Cv",
@@ -128,7 +140,8 @@ metis_tac[Cv_bij_thm])
 val Cvwf_thm = LIST_CONJ [
   SIMP_RULE (srw_ss())[](Q.SPEC`INL l`Cvwf_def),
   SIMP_RULE (srw_ss())[](Q.SPEC`INR (INL n)`Cvwf_def),
-  SIMP_RULE (srw_ss())[](Q.SPEC`INR (INR (ns,defs,n))`Cvwf_def)
+  SIMP_RULE (srw_ss())[](Q.SPEC`INR (INR (INL (ns,defs,n)))`Cvwf_def),
+  SIMP_RULE (srw_ss())[](Q.SPEC`INR (INR (INR n))`Cvwf_def)
 ]
 
 val Cv_induction = store_thm(
@@ -138,6 +151,7 @@ val Cv_induction = store_thm(
 (∀vs. P2 vs ⇒ ∀n. P0 (CConv n vs)) ∧
 (∀env. P1 env ⇒ ∀ns defs d. P0 (CRecClos env ns defs d)) ∧
 (∀env. (∀v. v ∈ FRANGE env ⇒ P0 v) ⇒ P1 env) ∧
+(∀n. P0 (CLoc n)) ∧
 (P2 []) ∧
 (∀v vs. P0 v ∧ P2 vs ⇒ P2 (v::vs))
 ⇒
@@ -153,6 +167,7 @@ ho_match_mp_tac ft_ind >>
 rpt strip_tac >>
 rw[toCv_thm] >>
 BasicProvers.EVERY_CASE_TAC >- rw[] >>
+TRY (rw[] >> NO_TAC) >>
 first_x_assum match_mp_tac >- (
   `∀vs. EVERY P0 vs ⇒ P2 vs` by (Induct >> rw[]) >>
   pop_assum match_mp_tac >>
@@ -238,7 +253,8 @@ val Cvwf_constructors = store_thm(
 "Cvwf_constructors",
 ``(Cvwf ^(rand(rhs(concl(SPEC_ALL CLitv_def))))) ∧
   (Cvwf ^(rand(rhs(concl(SPEC_ALL CConv_def))))) ∧
-  (Cvwf ^(rand(rhs(concl(SPEC_ALL CRecClos_def)))))``,
+  (Cvwf ^(rand(rhs(concl(SPEC_ALL CRecClos_def))))) ∧
+  (Cvwf ^(rand(rhs(concl(SPEC_ALL CLoc_def)))))``,
 rw[Cvwf_def,FRANGE_DEF] >>
 rw[o_f_FAPPLY] >>
 qexists_tac `MAP fromCv vs` >>
@@ -254,28 +270,30 @@ val fromCv_thm = store_thm(
 "fromCv_thm",``
 (fromCv (CLitv l) = ^(rand(rhs(concl(SPEC_ALL CLitv_def))))) ∧
 (fromCv (CConv n vs) = ^(rand(rhs(concl(SPEC_ALL CConv_def))))) ∧
-(fromCv (CRecClos env ns defs d) = ^(rand(rhs(concl(SPEC_ALL CRecClos_def)))))``,
-rw[CLitv_def, CConv_def,  CRecClos_def,
+(fromCv (CRecClos env ns defs d) = ^(rand(rhs(concl(SPEC_ALL CRecClos_def))))) ∧
+(fromCv (CLoc n) = ^(rand(rhs(concl(SPEC_ALL CLoc_def)))))``,
+rw[CLitv_def, CConv_def,  CRecClos_def, CLoc_def,
    GSYM (CONJUNCT2 Cv_bij_thm)])
 
 val Cv_Axiom = store_thm(
 "Cv_Axiom",
-``∀f0 f1 f2 f3 f4 f5 f6.
+``∀f0 f1 f2 f3 f4 f5 f6 f7.
 ∃fn0 fn1 fn2.
 (∀l. fn0 (CLitv l) = f0 l) ∧
 (∀m vs. fn0 (CConv m vs) = f1 m vs (fn1 vs)) ∧
 (∀env ns defs d. fn0 (CRecClos env ns defs d) = f3 env ns defs d (fn2 env)) ∧
-(fn1 [] = f4) ∧
-(∀v vs. fn1 (v::vs) = f5 v vs (fn0 v) (fn1 vs)) ∧
-(∀env. fn2 env = f6 env (fn0 o_f env))``,
+(∀n. fn0 (CLoc n) = f4 n) ∧
+(fn1 [] = f5) ∧
+(∀v vs. fn1 (v::vs) = f6 v vs (fn0 v) (fn1 vs)) ∧
+(∀env. fn2 env = f7 env (fn0 o_f env))``,
 rw[] >>
 qho_match_abbrev_tac `∃fn0. P fn0` >>
 qsuff_tac `∃fn0. P (fn0 o fromCv)` >- PROVE_TAC[] >>
 qunabbrev_tac `P` >>
 fs[fromCv_thm] >>
 qho_match_abbrev_tac `∃fn0 fn1 fn2. P fn0 fn1 fn2` >>
-qsuff_tac `∃fn1 fn0. P fn0 (λvs. fn1 vs (MAP (fn0 o fromCv) vs)) (λenv. f6 env (fn0 o fromCv o_f env))` >- PROVE_TAC[] >>
-Q.ISPECL_THEN [`λr0:α list. f4`,`λv vs r r0. f5 v vs (HD r0) (r (TL r0))`] strip_assume_tac listTheory.list_Axiom >>
+qsuff_tac `∃fn1 fn0. P fn0 (λvs. fn1 vs (MAP (fn0 o fromCv) vs)) (λenv. f7 env (fn0 o fromCv o_f env))` >- PROVE_TAC[] >>
+Q.ISPECL_THEN [`λr0:α list. f5`,`λv vs r r0. f6 v vs (HD r0) (r (TL r0))`] strip_assume_tac listTheory.list_Axiom >>
 qexists_tac `fn` >>
 qunabbrev_tac `P` >>
 fs[] >>
@@ -287,9 +305,10 @@ qexists_tac `fmtreerec
       let vs =
         (MAP toCv (GENLIST (FAPPLY fm o num_to_s0) (CARD (FDOM fm))))
       in f1 m vs (fn vs (GENLIST (FAPPLY res o num_to_s0) (CARD (FDOM res))))
-    | (INR (INR (ns,defs,d))) =>
+    | (INR (INR (INL (ns,defs,d)))) =>
       let env = toCv o_f fm in
-      f3 env ns defs d (f6 env res))` >>
+      f3 env ns defs d (f7 env res)
+    | (INR (INR (INR n))) => f4 n)` >>
 rw[fmtreerec_thm,LET_THM] >>
 rw[listTheory.MAP_GENLIST] >>
 qmatch_abbrev_tac `f1 m vs' (fn vs' gl) = f1 m vs (fn vs ml)` >>
@@ -328,7 +347,8 @@ val Cv_11 = store_thm(
   (CConv m1 vs1 = CConv m2 vs2) = ((m1 = m2) ∧ (vs1 = vs2))) ∧
 (∀env1 ns1 defs1 n1 env2 ns2 defs2 n2.
   (CRecClos env1 ns1 defs1 n1 = CRecClos env2 ns2 defs2 n2) =
-  ((env1 = env2) ∧ (ns1 = ns2) ∧ (defs1 = defs2) ∧ (n1 = n2)))``,
+  ((env1 = env2) ∧ (ns1 = ns2) ∧ (defs1 = defs2) ∧ (n1 = n2))) ∧
+(∀n1 n2. (CLoc n1 = CLoc n2) = (n1 = n2))``,
 conj_tac >- (
   rw[CLitv_def] >>
   reverse EQ_TAC >- rw[] >>
@@ -356,16 +376,26 @@ conj_tac >- (
     rw[] >> PROVE_TAC[] ) >>
   rw[FUN_FMAP_DEF] >>
   PROVE_TAC[Cv_bij_thm] ) >>
-rw[CRecClos_def] >>
-reverse EQ_TAC >- rw[] >>
-strip_tac >>
-qmatch_assum_abbrev_tac `toCv r1 = toCv r2` >>
-`Cvwf r1 ∧ Cvwf r2` by rw[Abbr`r1`,Abbr`r2`] >>
-`r1 = r2` by PROVE_TAC[Cv_bij_thm] >>
-unabbrev_all_tac >>
-fsrw_tac[boolSimps.DNF_ss][GSYM fmap_EQ_THM] >>
-pop_assum mp_tac >> rw[] >>
-PROVE_TAC[Cv_bij_thm] )
+conj_tac >- (
+  rw[CRecClos_def] >>
+  reverse EQ_TAC >- rw[] >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac `toCv r1 = toCv r2` >>
+  `Cvwf r1 ∧ Cvwf r2` by rw[Abbr`r1`,Abbr`r2`] >>
+  `r1 = r2` by PROVE_TAC[Cv_bij_thm] >>
+  unabbrev_all_tac >>
+  fsrw_tac[boolSimps.DNF_ss][GSYM fmap_EQ_THM] >>
+  pop_assum mp_tac >> rw[] >>
+  PROVE_TAC[Cv_bij_thm] ) >> (
+  rw[CLoc_def] >>
+  reverse EQ_TAC >- rw[] >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac `toCv r1 = toCv r2` >>
+  `Cvwf r1 ∧ Cvwf r2` by (
+    rw[Abbr`r1`,Abbr`r2`] ) >>
+  `r1 = r2` by PROVE_TAC[Cv_bij_thm] >>
+  unabbrev_all_tac >>
+  fs[] ))
 val _ = export_rewrites["Cv_11"]
 
 val Cv_nice_ind = save_thm(
@@ -383,7 +413,8 @@ val Cv_nchotomy = store_thm(
 ``∀Cv.
   (∃l. Cv = CLitv l) ∨
   (∃m vs. Cv = CConv m vs) ∨
-  (∃env ns defs n. Cv = CRecClos env ns defs n)``,
+  (∃env ns defs n. Cv = CRecClos env ns defs n) ∨
+  (∃n. Cv = CLoc n)``,
 ho_match_mp_tac Cv_nice_ind >> rw[])
 
 val Cv_case_cong = save_thm(
@@ -395,23 +426,23 @@ val Cv_distinct = store_thm(
 "Cv_distinct",
 ``(∀l m vs. CLitv l ≠ CConv m vs) ∧
   (∀l env ns defs n. CLitv l ≠ CRecClos env ns defs n) ∧
-  (∀m vs env ns defs n. CConv m vs ≠ CRecClos env ns defs n)``,
-rw[CLitv_def,CConv_def,CRecClos_def] >>
+  (∀l n. CLitv l ≠ CLoc n) ∧
+  (∀m vs env ns defs n. CConv m vs ≠ CRecClos env ns defs n) ∧
+  (∀m vs n. CConv m vs ≠ CLoc n) ∧
+  (∀env ns defs n m. CRecClos env ns defs n ≠ CLoc m)``,
+rw[CLitv_def,CConv_def,CRecClos_def,CLoc_def] >>
 qmatch_abbrev_tac `toCv r1 ≠ toCv r2` >>
 (qsuff_tac `Cvwf r1 ∧ Cvwf r2 ∧ r1 ≠ r2` >- PROVE_TAC[Cv_bij_thm]) >>
 unabbrev_all_tac >> fs[])
 val _ = export_rewrites["Cv_distinct"]
-
-(* TODO: move *)
-val fmap_size_def = Define`
-fmap_size kz vz fm = SIGMA (λk. kz k + vz (fm ' k)) (FDOM fm)`
 
 val Cv_size_def =
 Cv_Axiom
 |> Q.ISPEC `λl. 1 + lit_size l`
 |> Q.ISPEC `λm (vs : Cv list) (r:num). 1 + m + r`
 |> Q.ISPEC `λ(env:string |-> Cv) xs b (r:num). 1 + r + list_size (list_size char_size) xs + Cexp_size b`
-|> Q.ISPEC `λ(env:string |-> Cv) ns defs n r. 1 + r + list_size (list_size char_size) ns + list_size (pair_size (list_size (list_size char_size)) I) defs + list_size char_size n`
+|> Q.ISPEC `λ(env:string |-> Cv) ns defs n r. 1 + r + list_size (list_size char_size) ns + list_size (pair_size (list_size (list_size char_size)) (sum_size Cexp_size I)) defs + list_size char_size n`
+|> Q.ISPEC `λn:num. 1 + n`
 |> Q.ISPEC `0:num`
 |> Q.ISPEC `λv:Cv (vs : Cv list) (rv:num) rvs. 1 + rv + rvs`
 |> Q.ISPEC `λ(env:string |-> Cv). fmap_size (list_size char_size) I`

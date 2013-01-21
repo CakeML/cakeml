@@ -1,2 +1,1 @@
-INCLUDES = $(HOLDIR)/examples/machine-code/instruction-set-models/x86_64/ \
-           ..
+INCLUDES = .. $(HOLDIR)/examples/machine-code/instruction-set-models/x86_64/

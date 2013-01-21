@@ -87,7 +87,7 @@ end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
 fun term_to_t tm = let
   val (f,xs) = strip_comb tm
 in case fst(dest_const f) of
-    "Tnum" => Tnum
+    "Tint" => Tint
   | "Tvar" => let val [x1] = xs in Tvar (fromHOLstring x1) end
   | "Tapp" => let val [x1,x2] = xs in Tapp (dest_list term_to_t x1, fromHOLstring x2) end
   | s => raise Fail s
@@ -102,17 +102,19 @@ in case fst(dest_const f) of
 end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
 val term_to_ov = v_to_ov o term_to_v
 
-val add_code = bc_state_code_fupd o C append o repl_state_code
+fun add_code c bs = bc_state_code_fupd
+  (compile_labels (bc_state_inst_length bs) o (C append c))
+  bs
 
 fun prep_decs (bs,rs) [] = (bs,rs)
   | prep_decs (bs,rs) (d::ds) = let
-      val rs = repl_dec rs (term_to_dec d)
-      val bs = add_code rs bs
+      val (rs,c) = repl_dec rs (term_to_dec d)
+      val bs = add_code c bs
     in prep_decs (bs,rs) ds end
 
 fun prep_exp (bs,rs) e = let
-  val rs = repl_exp rs (term_to_exp e)
-  val bs = add_code rs bs
+  val (rs,c) = repl_exp rs (term_to_exp e)
+  val bs = add_code c bs
 in (bs,rs) end
 
 fun prep_decs_exp (bs,rs) (ds,e) = let
@@ -122,10 +124,12 @@ in (bs,rs) end
 
 val inits = (init_bc_state, init_repl_state)
 
+fun cpam rs = let val (_,(w,_)) = repl_state_contab rs in w end
+
 fun mst_run_decs_exp (ds,e) = let
   val (bs,rs) = prep_decs_exp inits (ds,e)
   val bs = bc_eval bs
-in (repl_state_cpam rs, bc_state_stack bs) end
+in (cpam rs, bc_state_stack bs) end
 
 val run_decs_exp = snd o mst_run_decs_exp
 fun mst_run_exp e = mst_run_decs_exp ([],e)

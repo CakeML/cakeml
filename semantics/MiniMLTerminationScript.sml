@@ -65,6 +65,14 @@ val SUM_MAP_v2_size_thm = store_thm(
 Induct >- rw[v_size_def] >>
 Cases >> srw_tac[ARITH_ss][v_size_def])
 
+val SUM_MAP_v3_size_thm = store_thm(
+"SUM_MAP_v3_size_thm",
+``∀env. SUM (MAP v3_size env) = SUM (MAP v_size (MAP FST env)) +
+                                SUM (MAP (option_size (pair_size (λx. x) t_size)) (MAP SND env)) +
+                                LENGTH env``,
+Induct >- rw[v_size_def] >>
+Cases >> srw_tac[ARITH_ss][v_size_def])
+
 val exp_size_positive = store_thm(
 "exp_size_positive",
 ``∀e. 0 < exp_size e``,
