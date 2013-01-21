@@ -15,15 +15,16 @@ LogicalOp ::= "andalso"     // And
 Literal ::= IntegerLiteral    // IntLit i
          |  "true"            // Bool T
          |  "false"           // Bool F
+         |  "()"              // Unit
 
 E ::=
-    "(" E ")
+    "(" E ")"
   | "fn" V "=>" E                      // Fun V E
   | "raise" Error                      // Raise Bind_error
   | Literal                            // IntLit i
   | E E                                // App Opapp E1 E2
   | E InfixOp E                        // App InfixOp E1 E2
-  | Log LogicalOp E E                  // Log LogicalOp E1 E2
+  | E LogicalOp E                      // Log LogicalOp E1 E2
   | "if" E "then" E "else" E           // If E1 E2 E3
   | "case" E "of" PEs                  // Mat E PEs
   | "let" "val" V "=" E "in" E "end"   // Let V E1 E2
@@ -59,7 +60,7 @@ TypeList ::=
          | Type "," TypeList           // Type::TypeList
 
 TypeDec ::=
-          "type" DtypeDeclList         // DtypeDeclList
+          "datatype" DtypeDecls        // DtypeDeclList
 
 DtypeDecls ::=
       DtypeDecl                        // [DtypeDecl]
@@ -73,8 +74,12 @@ TypeName ::= TyOp
 
 TyVarList ::= TyVar | TyVar "," TyVarList
 
-DtypeCons ::= V "of" Type
+DtypeCons ::= V "of" StarTypes
+
+StarTypes ::=
+            | DType
+            | DType "*" StarTypes 
 
 Decl ::= "val" Pattern "=" E
-       | "fun" FDecls
+       | "fun" AndFDecls
        | TypeDec
