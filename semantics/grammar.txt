@@ -1,0 +1,45 @@
+V ::= "op" ID | ID
+
+InfixOp ::= "*" | "+" | "-" | "/" | "::" | ":=" | "<" | "<="
+         |  "<>" | "=" | ">" | ">=" | "@" | "before" | "div"
+         | "mod" | "o"
+// some of these are boolean (Opb), some numeric (Opn)
+
+
+Error ::= "Bind"            // Bind_error
+       | "Div"              // Div_error
+
+LogicalOp ::= "andalso"     // And
+           |  "orelse"      // Or
+
+Literal ::= IntegerLiteral    // IntLit i
+         |  "true"            // Bool T
+         |  "false"           // Bool F
+
+E ::=
+    "(" E ")
+  | "fn" V "=>" E                      // Fun V E
+  | "raise" Error                      // Raise Bind_error
+  | Literal                            // IntLit i
+  | E E                                // App Opapp E1 E2
+  | E InfixOp E                        // App InfixOp E1 E2
+  | Log LogicalOp E E                  // Log LogicalOp E1 E2
+  | "if" E "then" E "else" E           // If E1 E2 E3
+  | "case" E "of" PEs                  // Mat E PEs
+  | "let" "val" V "=" E "in" E "end"   // Let V E1 E2
+  | "let" "fun" AndFDecls "in" E "end" // Letrec AndFDecls E
+
+FDecl ::= V V "=" E                    // (V,V,E)
+                                       // second V is parameter
+
+AndFDecls ::= FDecl                    // ([FDecl])
+           |  FDecl "and" AndFDecls    // FDecl :: AndFDecls
+
+PEs ::= PE                             // ([PE])
+     |  PE "|" PEs                     // PE::PEs
+
+PE ::= Pattern "=>" E                  // (Pattern, E)
+
+Pattern ::= E
+  // operators must be constructors and variables used linearly.
+  // constructors are Pvar, Plit and Pcon
