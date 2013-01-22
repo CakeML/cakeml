@@ -320,8 +320,8 @@ val _ = Define `
   (exp_to_tok_tree indent e2)  
   (L RparT)))))
 /\
-(exp_to_tok_tree indent (App (Opn (o0)) e1 e2) =
-  let s = (case (o0) of
+(exp_to_tok_tree indent (App (Opn o0) e1 e2) =
+  let s = (case o0 of
       Plus => "+"
     | Minus => "-"
     | Times => "*"
@@ -445,13 +445,13 @@ val _ = Defn.save_defn tc_to_tok_tree_defn;
 (type_to_tok_tree (Tvar tn) =
   L (TyvarT tn))
 /\
-(type_to_tok_tree (Tapp ts tn) =
+(type_to_tok_tree (Tapp ts tc0) =
   if ts = [] then
-    (tc_to_tok_tree tn)
+    (tc_to_tok_tree tc0)
   else N 
     (L LparT) (N  
     (join_trees (L CommaT) (MAP type_to_tok_tree ts)) (N   (L RparT)  
-    (tc_to_tok_tree tn))))
+    (tc_to_tok_tree tc0))))
 /\
 (type_to_tok_tree (Tfn t1 t2) = N 
   (L LparT) (N   (type_to_tok_tree t1) (N   (L ArrowT) (N   (type_to_tok_tree t2)  

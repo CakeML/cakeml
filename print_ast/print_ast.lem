@@ -395,13 +395,13 @@ let rec
 type_to_tok_tree (Tvar tn) =
   L (TyvarT tn)
 and
-type_to_tok_tree (Tapp ts tn) =
+type_to_tok_tree (Tapp ts tc) =
   if ts = [] then
-    (tc_to_tok_tree tn)
+    (tc_to_tok_tree tc)
   else
     L LparT ^^
     join_trees (L CommaT) (List.map type_to_tok_tree ts) ^^ L RparT ^^ 
-    (tc_to_tok_tree tn)
+    (tc_to_tok_tree tc)
 and
 type_to_tok_tree (Tfn t1 t2) =
   L LparT ^^ type_to_tok_tree t1 ^^ L ArrowT ^^ type_to_tok_tree t2 ^^ 

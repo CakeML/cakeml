@@ -5,9 +5,9 @@ open typeSoundTheory;
 val _ = new_theory "bigBigEquiv"
 
 val pmatch_pmatch' = Q.prove (
-`(!tvs envc s p v env. (pmatch tvs envc s p v env ≠ Match_type_error) ⇒
+`(!tvs envc (s:'a store) p v env. (pmatch tvs envc s p v env ≠ Match_type_error) ⇒
    (pmatch tvs envc s p v env = pmatch' tvs s p v env)) ∧
- (!tvs envc s ps vs env. (pmatch_list tvs envc s ps vs env ≠ Match_type_error) ⇒
+ (!tvs envc (s:'a store) ps vs env. (pmatch_list tvs envc s ps vs env ≠ Match_type_error) ⇒
    (pmatch_list tvs envc s ps vs env = pmatch_list' tvs s ps vs env))`,
 HO_MATCH_MP_TAC pmatch_ind >>
 rw [pmatch_def, pmatch'_def] >|

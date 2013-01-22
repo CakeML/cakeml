@@ -16,10 +16,10 @@ open MiniMLTheory TokensTheory
  * syntax in comments before each node.
  * 
  * Also, an elaboration from this syntax to the AST in miniML.lem.  The only
- * job of the elaboration is to spot variables that are bound to ML primitives.
- * The elaboration isn't particularly sophisticated: primitives are always
- * turned into functions, and we don't look for places where the primitive is
- * already applied, so 1 + 2 becomes (fun x y -> x + y) 1 2 
+ * job of the elaboration is to spot variables and types that are bound to ML
+ * primitives.  The elaboration isn't particularly sophisticated: primitives
+ * are always turned into functions, and we don't look for places where the
+ * primitive is already applied, so 1 + 2 becomes (fun x y -> x + y) 1 2 
  *)
 
 (*open MiniML*)
@@ -114,13 +114,13 @@ val _ = type_abbrev( "ast_specs" , ``: ast_spec list``);
 val _ = Hol_datatype `
  ast_top =
     Ast_Tmodule of mvarN => ast_specs => ast_decs
-  | Ast_Tdec of dec`;
+  | Ast_Tdec of ast_dec`;
 
 
 val _ = type_abbrev( "ast_prog" , ``: ast_top list``);
 
 
-(*val elab_p : ast_pat -> pat*)
+(*val elab_p : ast_pat -> pat unit*) 
  val elab_p_defn = Hol_defn "elab_p" `
 
 (elab_p (Ast_Pvar n) = Pvar n NONE)
@@ -180,11 +180,11 @@ val _ = Define `
 
 
 (*val elab_t : list varN -> ast_t -> t*)
-(*val elab_e : list varN -> ast_exp -> exp*)
+(*val elab_e : list varN -> ast_exp -> exp unit*)
 (*val elab_funs : list varN -> list (varN * varN * ast_exp) -> 
-                list (varN *option t * varN *option t * exp)*)
-(*val elab_dec : list typeN -> list varN -> ast_dec -> list typeN * list varN * dec*)
-(*val elab_decs : list typeN -> list varN -> list ast_dec -> list typeN * list varN * list dec*) 
+                list (varN *option unit * varN *option unit * exp unit)*)
+(*val elab_dec : list typeN -> list varN -> ast_dec -> list typeN * list varN * dec unit*)
+(*val elab_decs : list typeN -> list varN -> list ast_dec -> list typeN * list varN * list (dec unit)*)
 
  val elab_e_defn = Hol_defn "elab_e" `
 
