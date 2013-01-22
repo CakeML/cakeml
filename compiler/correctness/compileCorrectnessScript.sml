@@ -2063,7 +2063,7 @@ val good_code_env_def = Define`
   good_code_env sm c =
   FEVERY (λ(l,e).
     Cexp_pred e ∧
-    ∀s env s' v ns defs n bc0 renv sz bs benv xs vs args st.
+    ∀s env s' v ns defs n bc0 bs benv xs vs args st.
       Cevaluate c s (extend_rec_env env env ns defs xs vs) e (s', Rval v) ∧
       (EL (THE (find_index n ns 0)) defs = (xs, INR l)) ∧
       (LENGTH xs = LENGTH vs) ∧
@@ -2072,13 +2072,15 @@ val good_code_env_def = Define`
       (bs.pc = next_addr bs.inst_length bc0) ∧
       Cv_bv (mk_pp sm c bs) (CRecClos env ns defs n) (Block closure_tag [CodePtr l; benv]) ∧
       (* EVERY2 (Cv_bv (mk_pp sm c bs)) vs args ∧ implied by Cenv_bs? *)
-      Cenv_bs c sm s (extend_rec_env env env ns defs xs vs) renv sz bs
+      (* Cenv_bs c sm s (extend_rec_env env env ns defs xs vs) renv sz bs *)
+      s_refs c sm s bs
       ⇒
-      ∃bv renv' sz'. (* what should renv and sz be? *)
-      let bs' = bs with <| stack := bv::st; pc := next_addr bs.inst_length bs.code |> in
+      ∃bv rfs.
+      let bs' = bs with <| stack := bv::st; pc := next_addr bs.inst_length bs.code; refs := rfs |> in
        bc_next^* bs bs' ∧
        Cv_bv (mk_pp sm c bs) v bv ∧
-       Cenv_bs c sm s' env renv' sz' bs'
+       s_refs c sm s' bs'
+       (* Cenv_bs c sm s' env renv' sz' bs' *)
    ) c`
 
 val compile_val = store_thm("compile_val",
@@ -2102,10 +2104,10 @@ val compile_val = store_thm("compile_val",
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc00)
         ⇒
         ∃bv.
-          let bs' = bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length bs.code |> in
+          let bs' = bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length bs.code |> in (* TODO: allow refs to change *)
           bc_next^* bs bs' ∧
           Cv_bv (mk_pp sm c bs) v bv ∧
-          Cenv_bs c sm s' env (compile cs exp).env (compile cs exp).sz bs') ∧
+          Cenv_bs c sm s' env (compile cs exp).env (compile cs exp).sz bs') ∧ (* TODO: simplify these! we know what (compile cs exp).sz is! *)
     (∀c s env exps ress. Cevaluate_list c s env exps ress ⇒
       ∀sm s' vs bc0 bc00 bs cs.
         EVERY Cexp_pred exps ∧
@@ -2517,15 +2519,14 @@ val compile_val = store_thm("compile_val",
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
       map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+      simp[] >>
       conj_tac >- simp[Abbr`cs1`,Abbr`cs0`] >>
       conj_tac >- simp[Abbr`cs1`,Abbr`cs0`] >>
       conj_tac >- PROVE_TAC[SUBSET_TRANS] >>
       conj_tac >- PROVE_TAC[Cevaluate_Clocs,FST] >>
-      conj_tac >- simp[] >>
       conj_tac >- PROVE_TAC[SUBSET_TRANS] >>
       conj_tac >- simp[Abbr`cs1`,Abbr`cs0`,compile_nontail] >>
       conj_tac >- simp[Abbr`cs1`,Abbr`cs0`] >>
-      conj_tac >- simp[] >>
       conj_tac >- simp[Abbr`bs1`] >>
       conj_tac >- simp[Abbr`cs1`,Abbr`cs0`,Abbr`bs1`] >>
       match_mp_tac compile_labels_lemma >>
@@ -2536,6 +2537,7 @@ val compile_val = store_thm("compile_val",
     disch_then(Q.X_CHOOSE_THEN`bvs`strip_assume_tac) >>
     qmatch_assum_abbrev_tac`bc_next^* bs2 bs3` >>
     qunabbrev_tac`bs3` >>
+
     qpat_assum`Cv_bv PP (CRecClos env' ns' defs n) bf`mp_tac>>
     simp[Once Cv_bv_cases] >>
     strip_tac >> fs[] >>
