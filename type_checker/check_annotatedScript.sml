@@ -172,7 +172,8 @@ val check_p_def = tDefine "check_p" `
      (ts, tenv') <- check_ps tvs cenv ps; 
      return (t::ts, tenv'++tenv)
   od)`
-(WF_REL_TAC `measure (\x. case x of INL (_,_,p) => pat_size p | INR (_,_,ps) => pat1_size ps)` >>
+(WF_REL_TAC `measure (\x. case x of INL (_,_,p) => pat_size (\x.0) p 
+                                  | INR (_,_,ps) => pat1_size (\x.0) ps)` >>
  rw []);
 
 val check_p_ind = fetch "-" "check_p_ind"
@@ -392,10 +393,10 @@ val check_e_def = tDefine "check_e" `
        check_pes cenv tenv pes t1 t2
   od)`
 (WF_REL_TAC `measure (\x. case x of 
-                             | INL (_,_,e) => exp_size e
-                             | INR (INL (_,_,es)) => exp8_size es
-                             | INR (INR (INL (_,_,funs))) => exp1_size funs
-                             | INR (INR (INR (_,_,pes,_,_))) => exp6_size pes)` >>
+                             | INL (_,_,e) => exp_size (\x.0) e
+                             | INR (INL (_,_,es)) => exp8_size (\x.0) es
+                             | INR (INR (INL (_,_,funs))) => exp1_size (\x.0) funs
+                             | INR (INR (INR (_,_,pes,_,_))) => exp5_size (\x.0) pes)` >>
  srw_tac [ARITH_ss] []);
 
 val check_e_ind = fetch "-" "check_e_ind";
