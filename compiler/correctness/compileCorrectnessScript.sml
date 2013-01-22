@@ -2059,10 +2059,33 @@ val compile_labels_lemma = store_thm("compile_labels_lemma",
   spose_not_then strip_assume_tac >>
   res_tac >> DECIDE_TAC)
 
+val good_code_env_def = Define`
+  good_code_env sm c =
+  FEVERY (λ(l,e).
+    Cexp_pred e ∧
+    ∀s env s' v ns defs n bc0 renv sz bs benv xs vs args st.
+      Cevaluate c s (extend_rec_env env env ns defs xs vs) e (s', Rval v) ∧
+      (EL (THE (find_index n ns 0)) defs = (xs, INR l)) ∧
+      (LENGTH xs = LENGTH vs) ∧
+      (bs.code = bc0 ++ [CallPtr]) ∧
+      (bs.stack = CodePtr l::benv::args ++ Block closure_tag [CodePtr l; benv]::st) ∧
+      (bs.pc = next_addr bs.inst_length bc0) ∧
+      Cv_bv (mk_pp sm c bs) (CRecClos env ns defs n) (Block closure_tag [CodePtr l; benv]) ∧
+      (* EVERY2 (Cv_bv (mk_pp sm c bs)) vs args ∧ implied by Cenv_bs? *)
+      Cenv_bs c sm s (extend_rec_env env env ns defs xs vs) renv sz bs
+      ⇒
+      ∃bv renv' sz'. (* what should renv and sz be? *)
+      let bs' = bs with <| stack := bv::st; pc := next_addr bs.inst_length bs.code |> in
+       bc_next^* bs bs' ∧
+       Cv_bv (mk_pp sm c bs) v bv ∧
+       Cenv_bs c sm s' env renv' sz' bs'
+   ) c`
+
 val compile_val = store_thm("compile_val",
   ``(∀c s env exp res. Cevaluate c s env exp res ⇒
       ∀sm s' v bc0 bc00 bs cs.
         Cexp_pred exp ∧
+        good_code_env sm c ∧
         (res = (s', Rval v)) ∧
         good_ecs cs.ecs ∧
         free_labs exp ⊆ FDOM cs.ecs ∧
@@ -2086,6 +2109,7 @@ val compile_val = store_thm("compile_val",
     (∀c s env exps ress. Cevaluate_list c s env exps ress ⇒
       ∀sm s' vs bc0 bc00 bs cs.
         EVERY Cexp_pred exps ∧
+        good_code_env sm c ∧
         (ress = (s', Rval vs)) ∧
         good_ecs cs.ecs ∧
         free_labs_list exps ⊆ FDOM cs.ecs ∧
@@ -2510,6 +2534,13 @@ val compile_val = store_thm("compile_val",
     simp[] >>
     map_every qunabbrev_tac[`P`,`Q`,`R`] >>
     disch_then(Q.X_CHOOSE_THEN`bvs`strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`bc_next^* bs2 bs3` >>
+    qunabbrev_tac`bs3` >>
+    qpat_assum`Cv_bv PP (CRecClos env' ns' defs n) bf`mp_tac>>
+    simp[Once Cv_bv_cases] >>
+    strip_tac >> fs[] >>
+
+    qspecl_then[`sm`,`
 
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
