@@ -103,6 +103,7 @@ val repl_exp_val = store_thm("repl_exp_val",
       simp[Abbr`bs0`] >>
       simp[Cexp_pred_free_labs] >>
       fs[env_rs_def,LET_THM] >>
+      conj_tac >- rw[Abbr`Cc`,good_code_env_def,FEVERY_FEMPTY] >>
       conj_tac >- (
         fsrw_tac[DNF_ss][Abbr`Cenv`,SUBSET_DEF,Abbr`Cs`] >>
         gen_tac >> simp[Once CONJ_COMM] >> simp[GSYM AND_IMP_INTRO] >>
