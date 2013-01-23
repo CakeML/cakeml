@@ -45,6 +45,7 @@ let codomain = define
 
 x "type_DISTINCT" type_DISTINCT;;
 x "type_INJ" type_INJ;;
+x "type_INDUCT" type_INDUCT;;
 x "domain" domain;;
 x "codomain" codomain;;
 
@@ -65,6 +66,7 @@ let term_INJ = injectivity "term";;
 
 x "term_DISTINCT" term_DISTINCT;;
 x "term_INJ" term_INJ;;
+x "term_INDUCT" term_INDUCT;;
 
 (* ------------------------------------------------------------------------- *)
 (* Typing judgements.                                                        *)
@@ -905,6 +907,7 @@ let def_INJ = injectivity "def";;
 
 x "def_DISTINCT" def_DISTINCT;;
 x "def_INJ" def_INJ;;
+x "def_INDUCT" def_INDUCT;;
 
 (* ------------------------------------------------------------------------- *)
 (* Types must have defined Tyapps and correct arity.                         *)

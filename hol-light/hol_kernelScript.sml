@@ -421,14 +421,14 @@ val _ = Define `
 
 val _ = Define `
   raconv env tm1 tm2 =
-    ((tm1 = tm2) /\ (env = [])) \/
     case (tm1,tm2) of
       (Var _ _, Var _ _) => alphavars env tm1 tm2
     | (Const _ _, Const _ _) => (tm1 = tm2)
     | (Comb s1 t1, Comb s2 t2) => raconv env s1 s2 /\ raconv env t1 t2
     | (Abs v1 t1, Abs v2 t2) =>
        (case (v1,v2) of
-          (Var n1 ty1, Var n2 ty2) => (ty1 = ty2) \/ raconv ((v1,v2)::env) t1 t2
+          (Var n1 ty1, Var n2 ty2) => (ty1 = ty2) /\
+                                      raconv ((v1,v2)::env) t1 t2
         | _ => F)
     | _ => F`;
 
@@ -1025,7 +1025,7 @@ val _ = Define `
 *)
 
 val _ = Define `
-  ASSUME tm ty =
+  ASSUME tm =
     do ty <- type_of tm ;
        bty <- bool_ty ;
        if ty = bty then return (Sequent [tm] tm)
