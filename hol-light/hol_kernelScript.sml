@@ -24,17 +24,17 @@ val hol_type_size_def = fetch "-" "hol_type_size_def"
 *)
 
 val _ = Hol_datatype `
-  term = Var of string => hol_type
-       | Const of string => hol_type
-       | Comb of term => term
-       | Abs of term => term`;
+  hol_term = Var of string => hol_type
+           | Const of string => hol_type
+           | Comb of hol_term => hol_term
+           | Abs of hol_term => hol_term`;
 
 (*
   type thm = Sequent of (term list * term)
 *)
 
 val _ = Hol_datatype `
-  thm = Sequent of term list => term`;
+  thm = Sequent of hol_term list => hol_term`;
 
 (*
   For purposes of stating our final soundness theorem, we also keep
@@ -42,9 +42,9 @@ val _ = Hol_datatype `
 *)
 
 val _ = Hol_datatype `
-  def = Axiomdef of term
-      | Constdef of string => term
-      | Typedef of string => term => string => string`;
+  def = Axiomdef of hol_term
+      | Constdef of string => hol_term
+      | Typedef of string => hol_term => string => string`;
 
 (*
   We define a record that holds the state, i.e.
@@ -64,7 +64,7 @@ val _ = Hol_datatype `
                 the_term_constants : (string # hol_type) list ;
                 the_axioms : thm list ;
                 the_definitions : def list ;
-                the_clash_var : term |>`;
+                the_clash_var : hol_term |>`;
 
 (* the state-exception monad *)
 
@@ -630,7 +630,7 @@ val MEM_subtract = prove(
   FULL_SIMP_TAC std_ss [fetch "-" "subtract_def",MEM_FILTER] THEN METIS_TAC []);
 
 val vfree_in_IMP = prove(
-  ``!(t:term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)``,
+  ``!(t:hol_term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)``,
   HO_MATCH_MP_TAC (SIMP_RULE std_ss [] (fetch "-" "vfree_in_ind"))
   THEN REPEAT STRIP_TAC THEN Cases_on `x` THEN POP_ASSUM MP_TAC
   THEN ONCE_REWRITE_TAC [fetch "-" "vfree_in_def",fetch "-" "frees_def"]
@@ -797,7 +797,7 @@ val ZERO_LT_term_size = prove(
   Cases THEN EVAL_TAC THEN DECIDE_TAC);
 
 val inst_aux_def = tDefine "inst_aux" `
-  (inst_aux k (env:(term # term) list) tyin tm) : term M =
+  (inst_aux k (env:(hol_term # hol_term) list) tyin tm) : hol_term M =
     case tm of
       Var n ty   => let ty' = type_subst tyin ty in
                     let tm' = if ty' = ty then tm else Var n ty' in
@@ -809,7 +809,7 @@ val inst_aux_def = tDefine "inst_aux" `
                        x' <- inst_aux k env tyin x ;
                        if (f = f') /\ (x = x') then return tm
                                                else return (Comb f' x') od
-    | Abs y t    => do (y':term) <- inst_aux k [] tyin y ;
+    | Abs y t    => do (y':hol_term) <- inst_aux k [] tyin y ;
                        env' <- return ((y,y')::env) ;
                        handle_clash
                         (do t' <- inst_aux k env' tyin t ;
@@ -1107,12 +1107,13 @@ val add_def = Define `
 val new_axiom_def = Define `
   new_axiom tm =
     do ty <- type_of tm ;
-       x <- dest_type ty ;
-       if FST x = "bool" then
+       bty <- bool_ty ;
+       if ty = bty then
          do th <- return (Sequent [] tm) ;
             ax <- get_the_axioms ;
             set_the_axioms (th :: ax) ;
-            add_def (Axiomdef tm) od
+            add_def (Axiomdef tm) ;
+            return th od
        else
          failwith "new_axiom: Not a proposition"
     od`;

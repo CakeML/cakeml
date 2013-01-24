@@ -1026,10 +1026,11 @@ let proves_RULES,proves_INDUCT,proves_CASES = new_inductive_definition
         defs, asl2 |- l2 === r2 /\ welltyped(Comb l1 l2)
         ==> defs, TERM_UNION asl1 asl2 |- Comb l1 l2 === Comb r1 r2) /\
   (!asl x ty l r defs.
-        ~(EX (VFREE_IN (Var x ty)) asl) /\ defs, asl |- l === r
+        ~(EX (VFREE_IN (Var x ty)) asl) /\ type_ok defs ty /\
+        defs, asl |- l === r
         ==> defs, asl |- (Abs x ty l) === (Abs x ty r)) /\
   (!x ty t defs.
-        welltyped_in t defs
+        welltyped_in t defs /\ type_ok defs ty
         ==> defs, [] |- Comb (Abs x ty t) (Var x ty) === t) /\
   (!p defs.
         p has_type Bool /\ welltyped_in p defs
@@ -1062,14 +1063,14 @@ let proves_RULES,proves_INDUCT,proves_CASES = new_inductive_definition
   (!tyname t a r defs x rep_type abs_type.
       context_ok defs /\ MEM (Typedef tyname t a r) defs /\
       (rep_type = domain (typeof t)) /\
-      (abs_type = Tyapp tyname (MAP Tyvar (tvars t)))
+      (abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t))))
       ==> defs, [] |- Comb (Const a (Fun rep_type abs_type))
                            (Comb (Const r (Fun abs_type rep_type))
                                  (Var x abs_type)) === Var x abs_type) /\
   (!tyname t a r defs x rep_type abs_type.
       context_ok defs /\ MEM (Typedef tyname t a r) defs /\
       (rep_type = domain (typeof t)) /\
-      (abs_type = Tyapp tyname (MAP Tyvar (tvars t)))
+      (abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t))))
       ==> defs, [] |- Comb t (Var x rep_type) ===
                       Comb (Const r (Fun abs_type rep_type))
                            (Comb (Const a (Fun rep_type abs_type))
