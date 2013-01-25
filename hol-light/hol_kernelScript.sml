@@ -693,7 +693,8 @@ val _ = Define `
                   let ilist' = FILTER (\(t,x). x <> v) ilist in
                   if ilist' = [] then tm else
                   let s' = vsubst_aux ilist' s in
-                  if s' = s then tm else
+                  (* if s' = s then tm else --- commented out becuase it doesn't
+                                             seem to fit Harrison's formalisation *)
                   if EXISTS (\(t,x). vfree_in v t /\ vfree_in x s) ilist'
                   then let v' = variant [s'] v in
                          Abs v' (vsubst_aux ((v',v)::ilist') s)

@@ -124,6 +124,7 @@ let WELLTYPED_CLAUSES = prove
 
 x "typeof" typeof;;
 x "WELLTYPED" WELLTYPED;;
+x "WELLTYPED_LEMMA" WELLTYPED_LEMMA;;
 x "WELLTYPED_CLAUSES" WELLTYPED_CLAUSES;;
 
 (* ------------------------------------------------------------------------- *)
@@ -583,6 +584,7 @@ let VSUBST_WELLTYPED = prove
         ==> welltyped (VSUBST ilist tm)`,
   MESON_TAC[VSUBST_HAS_TYPE; welltyped]);;
 
+x "VSUBST_HAS_TYPE" VSUBST_HAS_TYPE;;
 x "VSUBST_WELLTYPED" VSUBST_WELLTYPED;;
 
 (* ------------------------------------------------------------------------- *)
@@ -641,6 +643,8 @@ let VFREE_IN_VSUBST = prove
   ONCE_REWRITE_TAC[COND_RAND] THEN REWRITE_TAC[ALL] THEN
   CONV_TAC(ONCE_DEPTH_CONV GEN_BETA_CONV) THEN MESON_TAC[]);;
 
+x "VFREE_IN_VSUBST" VFREE_IN_VSUBST;;
+
 (* ------------------------------------------------------------------------- *)
 (* Sum type to model exception-raising.                                      *)
 (* ------------------------------------------------------------------------- *)
@@ -651,6 +655,10 @@ let result_INDUCT,result_RECURSION = define_type
 let result_INJ = injectivity "result";;
 
 let result_DISTINCT = distinctness "result";;
+
+x "result_INJ" result_INJ;;
+x "result_INDUCT" result_INDUCT;;
+x "result_DISTINCT" result_DISTINCT;;
 
 (* ------------------------------------------------------------------------- *)
 (* Discriminators and extractors. (Nicer to pattern-match...)                *)
@@ -715,6 +723,10 @@ let sizeof_positive = prove(
   REWRITE_TAC[sizeof;ARITH] THEN
   REWRITE_TAC[LT_NZ] THEN
   REWRITE_TAC[ONE;TWO;ADD;NOT_SUC]);;
+
+x "sizeof" sizeof;;
+x "SIZEOF_VSUBST" SIZEOF_VSUBST;;
+x "sizeof_positive" sizeof_positive;;
 
 (* ------------------------------------------------------------------------- *)
 (* Prove existence of INST_CORE.                                             *)
