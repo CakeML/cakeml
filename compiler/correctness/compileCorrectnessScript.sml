@@ -2197,11 +2197,14 @@ val compile_val = store_thm("compile_val",
         ALL_DISTINCT (FILTER is_Label bc00) ∧
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc00)
         ⇒
-        ∃bvs rfs.
-          let bs' = bs with <| stack := (REVERSE bvs)++bs.stack ; pc := next_addr bs.inst_length bs.code; refs := rfs |> in
+        ∃bvs pc st rfs.
+        (pc (LENGTH vs) = next_addr bs.inst_length bs.code) ∧
+        (st (LENGTH vs) = s') ∧ (LENGTH bvs = LENGTH vs) ∧
+        ∀n. n < LENGTH vs ⇒
+          let bs' = bs with <| stack := (REVERSE (TAKE (SUC n) bvs))++bs.stack ; pc := pc n; refs := rfs n |> in
           bc_next^* bs bs' ∧
-          EVERY2 (Cv_bv (mk_pp sm c bs')) vs bvs ∧
-          Cenv_bs c sm s' env cs.env (cs.sz+LENGTH exps) bs')``,
+          EVERY2 (Cv_bv (mk_pp sm c bs')) (TAKE (SUC n) vs) (TAKE (SUC n) bvs) ∧
+          Cenv_bs c sm (st n) env cs.env (cs.sz+n) bs')``,
   ho_match_mp_tac Cevaluate_strongind >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
