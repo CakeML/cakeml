@@ -259,6 +259,7 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
      ∃j p. (find_index x ns 0 = SOME j) ∧
            (bv = RefPtr p) ∧
            (p ∈ FDOM rfs) ∧
+           (p ∉ FRANGE s) ∧
            Cv_bv pp (CRecClos env ns defs (EL j ns)) (rfs ' p))
    ⇒ Cv_bv pp (CRecClos env ns defs n) (Block closure_tag [CodePtr a; benv]))`
 
@@ -296,13 +297,14 @@ val _ = Parse.overload_on("mk_pp", ``λs c bs.
 
 val s_refs_def = Define`
   s_refs c sm s bs =
-  fmap_rel (Cv_bv (mk_pp sm c bs)) s (DRESTRICT bs.refs (FRANGE sm))`
+  fmap_rel (Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c bs)) s
+  (DRESTRICT bs.refs (FRANGE (DRESTRICT sm (FDOM s))))`
 
 val Cenv_bs_def = Define`
   Cenv_bs c sm s Cenv (renv:ctenv) sz bs =
     (fmap_rel
        (λCv b. case lookup_ct sz bs.stack bs.refs b of NONE => F
-             | SOME bv => Cv_bv (mk_pp sm c bs) Cv bv)
+             | SOME bv => Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c bs) Cv bv)
      Cenv renv) ∧
     s_refs c sm s bs`
 
@@ -1470,7 +1472,7 @@ val s_refs_append_code = store_thm("s_refs_append_code",
   rw[s_refs_def,fmap_rel_def] >>
   res_tac >>
   match_mp_tac Cv_bv_l2a_mono >>
-  qexists_tac `mk_pp sm c bs` >>
+  qexists_tac `mk_pp (DRESTRICT sm (FDOM s)) c bs` >>
   rw[] >> metis_tac[bc_find_loc_aux_append_code])
 
 val Cenv_bs_append_code = store_thm("Cenv_bs_append_code",
@@ -1482,7 +1484,7 @@ val Cenv_bs_append_code = store_thm("Cenv_bs_append_code",
   res_tac >>
   BasicProvers.CASE_TAC >> fs[] >>
   match_mp_tac Cv_bv_l2a_mono >>
-  qexists_tac `mk_pp sm c bs` >>
+  qexists_tac `mk_pp (DRESTRICT sm (FDOM s)) c bs` >>
   rw[] >> metis_tac[bc_find_loc_aux_append_code])
 
 val compile_decl_env = store_thm("compile_decl_env",
@@ -1996,7 +1998,7 @@ val compile_nontail = store_thm("compile_nontail",
 val Cenv_bs_FUPDATE = store_thm("Cenv_bs_FUPDATE",
   ``∀c sm s env env0 sz0 bs n v bv bs'.
     Cenv_bs c sm s env env0 sz0 bs ∧
-    Cv_bv (mk_pp sm c bs') v bv ∧
+    Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c bs') v bv ∧
     (bs' = bs with stack := bv::bs.stack)
     ⇒
     Cenv_bs c sm s (env |+ (n,v)) (env0 |+ (n,CTLet (sz0 + 1))) (sz0 + 1) bs'``,
@@ -2060,12 +2062,14 @@ val Cenv_bs_DOMSUB = store_thm("Cenv_bs_DOMSUB",
   fs[IN_FRANGE] >> PROVE_TAC[])
 *)
 
+(*
 val Cenv_bs_change_store = store_thm("Cenv_bs_change_store",
   ``∀c sm s env renv rsz bs s'.
     Cenv_bs c sm s env renv rsz bs ∧
     s_refs c sm s' bs ⇒
     Cenv_bs c sm s' env renv rsz bs``,
   rw[Cenv_bs_def])
+*)
 
 val compile_labels_lemma = store_thm("compile_labels_lemma",
   ``∀cs exp bc0 cs1 cls1.
@@ -2102,7 +2106,7 @@ val good_code_env_def = Define`
       (bs.code = bc0 ++ [CallPtr]) ∧
       (bs.stack = CodePtr l::benv::args ++ Block closure_tag [CodePtr l; benv]::st) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
-      Cv_bv (mk_pp sm c bs) (CRecClos env ns defs n) (Block closure_tag [CodePtr l; benv]) ∧
+      Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c bs) (CRecClos env ns defs n) (Block closure_tag [CodePtr l; benv]) ∧
       (* EVERY2 (Cv_bv (mk_pp sm c bs)) vs args ∧ implied by Cenv_bs? *)
       (* Cenv_bs c sm s (extend_rec_env env env ns defs xs vs) renv sz bs *)
       s_refs c sm s bs
@@ -2110,7 +2114,7 @@ val good_code_env_def = Define`
       ∃bv rfs.
       let bs' = bs with <| stack := bv::st; pc := next_addr bs.inst_length bs.code; refs := rfs |> in
        bc_next^* bs bs' ∧
-       Cv_bv (mk_pp sm c bs) v bv ∧
+       Cv_bv (mk_pp (DRESTRICT sm (FDOM s')) c bs) v bv ∧
        s_refs c sm s' bs'
        (* Cenv_bs c sm s' env renv' sz' bs' *)
    ) c`
@@ -2151,6 +2155,23 @@ val binders_def = tDefine "binders"`
  Cases_on`b`>>fsrw_tac[ARITH_ss][Cexp3_size_thm,basicSizeTheory.sum_size_def])
 val _ = export_rewrites["binders_def"]
 
+val Cv_bv_refs = store_thm("Cv_bv_refs",
+  ``∀pp v bv. Cv_bv pp v bv ⇒
+   ∀s c l2a rfs pp' rfs'.
+     (pp = (s,c,l2a,rfs)) ∧
+     (pp' = (s,c,l2a,rfs')) ∧
+     (∀p. p ∉ FRANGE s ⇒ (FLOOKUP rfs p = FLOOKUP rfs' p))
+     ⇒
+    Cv_bv pp' v bv``,
+  gen_tac >>
+  ho_match_mp_tac Cv_bv_ind >>
+  rw[] >> rw[Once Cv_bv_cases,LENGTH_NIL] >- (
+    fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] ) >>
+  res_tac >> rw[] >> fs[] >>
+  res_tac >> pop_assum mp_tac >>
+  simp_tac(srw_ss())[FLOOKUP_DEF] >>
+  rw[])
+
 val compile_val = store_thm("compile_val",
   ``(∀c s env exp res. Cevaluate c s env exp res ⇒
       ∀sm s' v bc0 bc00 bs cs.
@@ -2175,7 +2196,7 @@ val compile_val = store_thm("compile_val",
         ∃bv rfs.
           let bs' = bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length bs.code; refs := rfs |> in
           bc_next^* bs bs' ∧
-          Cv_bv (mk_pp sm c bs') v bv ∧
+          Cv_bv (mk_pp (DRESTRICT sm (FDOM s')) c bs') v bv ∧
           Cenv_bs c sm s' env cs.env (cs.sz+1) bs') ∧
     (∀c s env exps ress. Cevaluate_list c s env exps ress ⇒
       ∀sm s' vs bc0 bc00 bs cs.
@@ -2197,15 +2218,21 @@ val compile_val = store_thm("compile_val",
         ALL_DISTINCT (FILTER is_Label bc00) ∧
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc00)
         ⇒
+        ∃bvs rfs.
+          let bs' = bs with <| stack := (REVERSE bvs)++bs.stack ; pc := next_addr bs.inst_length bs.code; refs := rfs |> in
+          bc_next^* bs bs' ∧
+          EVERY2 (Cv_bv (mk_pp (DRESTRICT sm (FDOM s')) c bs')) vs bvs ∧
+          Cenv_bs c sm s' env cs.env (cs.sz+(LENGTH vs)) bs')
+        (*
         ∃bvs pc st rfs.
-        (pc 0 = bs.pc) ∧ (st 0 = s) ∧
+        (pc 0 = bs.pc) ∧ (st 0 = s) ∧ (rfs 0 = bs.refs) ∧
         (pc (LENGTH vs) = next_addr bs.inst_length bs.code) ∧
         (st (LENGTH vs) = s') ∧ (LENGTH bvs = LENGTH vs) ∧
         ∀n. n ≤ LENGTH vs ⇒
           let bs' = bs with <| stack := (REVERSE (TAKE n bvs))++bs.stack ; pc := pc n; refs := rfs n |> in
           bc_next^* bs bs' ∧
           EVERY2 (Cv_bv (mk_pp sm c bs')) (TAKE n vs) (TAKE n bvs) ∧
-          Cenv_bs c sm (st n) env cs.env (cs.sz+n) bs')``,
+          Cenv_bs c sm (st n) env cs.env (cs.sz+n) bs') *)``,
   ho_match_mp_tac Cevaluate_strongind >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
@@ -2281,12 +2308,18 @@ val compile_val = store_thm("compile_val",
     qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x]` >>
     first_x_assum (qspecl_then [`sm`,`bc0`,`bs with code := ls0`,`cs0`] mp_tac) >>
     fs[Abbr`cs0`] >>
+    (*
     disch_then (qx_choosel_then [`bvs`,`pc`,`st`,`rfs`] strip_assume_tac) >>
     map_every qexists_tac [`rfs (LENGTH vs)`,`bvs`] >>
-    pop_assum (qspec_then`LENGTH vs`mp_tac)>>
+    *)
+    disch_then (qx_choosel_then [`bvs`,`rfs`] strip_assume_tac) >>
+    map_every qexists_tac [`rfs`,`bvs`] >>
+    (*
+    pop_assum (qspecl_then[`LENGTH vs`,`LENGTH vs`]mp_tac)>>
+    *)
     reverse (rw[]) >- (
       rfs[FOLDL_compile_sz] >>
-      qabbrev_tac`s' = st (LENGTH vs)` >>
+      (* qabbrev_tac`s' = st (LENGTH vs)` >> *)
       qmatch_assum_abbrev_tac`Cenv_bs c sm s' env cs.env sz1 bs1` >>
       `Cenv_bs c sm s' env cs.env cs.sz (bs1 with stack := bs.stack)` by (
         match_mp_tac Cenv_bs_pops >>
@@ -2294,8 +2327,8 @@ val compile_val = store_thm("compile_val",
         imp_res_tac Cevaluate_list_LENGTH >>
         fs[] >>
         simp[bc_state_component_equality,Abbr`bs1`] >>
-        `LENGTH exps = LENGTH bvs` by rw[] >> fs[] >>
-        PROVE_TAC[Cenv_bs_CTLet_bound] ) >>
+        `LENGTH exps = LENGTH bvs` by fs[EVERY2_EVERY] >> fs[] >>
+        PROVE_TAC[Cenv_bs_CTLet_bound,ADD_SYM] ) >>
       match_mp_tac Cenv_bs_append_code >>
       qmatch_assum_abbrev_tac `Cenv_bs c sm s' env cs.env cs.sz bs0` >>
       rw[bc_state_component_equality] >>
@@ -2647,8 +2680,11 @@ val compile_val = store_thm("compile_val",
     qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x]` >>
     first_x_assum (qspecl_then [`sm`,`bc0`,`bs with code := ls0`,`cs0`] mp_tac) >>
     fs[Abbr`cs0`] >>
+    (*
     disch_then (qx_choosel_then [`bvs`,`pc`,`st`,`rfs`] strip_assume_tac) >>
-    pop_assum (qspec_then `2` mp_tac) >> rw[] >>
+    pop_assum (qspecl_then [`2`,`2`] mp_tac) >> rw[] >>
+    *)
+    disch_then (qx_choosel_then [`bvs`,`rfs`] strip_assume_tac) >>
     fs[EVERY2_EVERY] >>
     `∃bv0 bv1. bvs = [bv0;bv1]` by (
       Cases_on `bvs` >> fs[] >>
@@ -2669,7 +2705,10 @@ val compile_val = store_thm("compile_val",
     imp_res_tac (CONJUNCT2 Cevaluate_Clocs) >> fs[] >>
     `all_Clocs v1 ⊆ FDOM sm ∧ all_Clocs v2 ⊆ FDOM sm` by PROVE_TAC[SUBSET_TRANS] >> fs[] >>
     disch_then (Q.X_CHOOSE_THEN`bv`strip_assume_tac) >>
+    (*
     map_every qexists_tac [`bv`,`rfs 2`] >> fs[] >>
+    *)
+    map_every qexists_tac [`bv`,`rfs`] >> fs[] >>
     conj_tac >- (
       qmatch_assum_abbrev_tac`bc_next^* bs0 bs00` >>
       `bc_next^* bs (bs00 with code := bs.code)` by (
@@ -3176,7 +3215,10 @@ val compile_val = store_thm("compile_val",
   strip_tac >- (
     simp[] >>
     rw[EVERY2_EVERY] >>
+    (*
     map_every qexists_tac [`[]`,`K bs.pc`,`K s`,`K bs.refs`] >>
+    *)
+    qexists_tac`bs.refs` >>
     rw[RTC_eq_NRC] >>
     TRY (qexists_tac`0` >>rw[]) >>
     TRY (qmatch_abbrev_tac `Cenv_bs X Y A B C D E` >>
@@ -3224,14 +3266,18 @@ val compile_val = store_thm("compile_val",
       match_mp_tac compile_labels_lemma >> fs[] >>
       PROVE_TAC[]) >>
     map_every qunabbrev_tac[`P`,`Q`,`R`] >> fs[] >>
+    (*
     disch_then(qx_choosel_then[`bvs`,`pc`,`st`,`rf`](strip_assume_tac o SIMP_RULE(srw_ss())[LET_THM])) >>
+    *)
+    disch_then(qx_choosel_then[`bvs`,`rf`](strip_assume_tac o SIMP_RULE(srw_ss())[LET_THM])) >>
+    (*
     map_every qexists_tac[`bv::bvs`,
-      `λn. if n = (SUC (LENGTH vs)) then next_addr il bs.code else
-           if n = 0 then next_addr il (bc0 ++ REVERSE cs.out) else pc n`,
+      `λn. case n of 0 => bs.pc | SUC n => pc n`,
       `λn. case n of 0 => s | SUC n => st n`,
-      `λn. if n = 0 then bs.refs else rf n`] >>
+      `λn. case n of 0 => bs.refs | SUC n => rf n`] >>
     qpat_assum`X = vs'`(assume_tac o SYM) >>
     simp[] >> fs[REVERSE_APPEND] >>
+    CONV_TAC SWAP_FORALL_CONV >>
     Cases >- (
       simp[] >>
       conj_tac >- (
@@ -3241,9 +3287,11 @@ val compile_val = store_thm("compile_val",
       match_mp_tac Cenv_bs_append_code >>
       qexists_tac `bs with code := bc0 ++ REVERSE cs.out` >>
       rw[bc_state_component_equality] ) >>
-    simp[] >> strip_tac >>
-    qmatch_assum_rename_tac`m ≤ LENGTH vs`[] >>
-
+    simp[] >>
+    qx_gen_tac `m` >>
+    strip_tac >>
+    *)
+    map_every qexists_tac[`bv::bvs`,`rf`] >>
     qmatch_assum_abbrev_tac`bc_next^* bs05 bs11` >>
     `bs05 = bs1 with code := bs.code` by (
       rw[Abbr`bs05`,Abbr`bs1`,bc_state_component_equality,Abbr`bc00`] ) >>
