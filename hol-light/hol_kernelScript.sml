@@ -733,12 +733,6 @@ val vsubst_def = Define `
                        let z = Var(fst(dest_var y''),snd(dest_var y)) in
                        inst env tyin (Abs(z,vsubst[z,y] t)) in
       fun tyin -> if tyin = [] then fun tm -> tm else inst [] tyin
-
-  This function is problematic because it passes around terms in
-  exceptions and its termination proof is complicated for the
-  recursive call in the exception handler. This call does not reduce
-  the term size. We put a counter in for the problematic clash case
-  for now...
 *)
 
 val _ = Define `
@@ -798,7 +792,7 @@ val ZERO_LT_term_size = prove(
   Cases THEN EVAL_TAC THEN DECIDE_TAC);
 
 val inst_aux_def = tDefine "inst_aux" `
-  (inst_aux k (env:(hol_term # hol_term) list) tyin tm) : hol_term M =
+  (inst_aux (env:(hol_term # hol_term) list) tyin tm) : hol_term M =
     case tm of
       Var n ty   => let ty' = type_subst tyin ty in
                     let tm' = if ty' = ty then tm else Var n ty' in
@@ -806,27 +800,27 @@ val inst_aux_def = tDefine "inst_aux" `
                     else raise_clash tm'
     | Const c ty => let ty' = type_subst tyin ty in
                     if ty' = ty then return tm else return (Const c ty')
-    | Comb f x   => do f' <- inst_aux k env tyin f ;
-                       x' <- inst_aux k env tyin x ;
+    | Comb f x   => do f' <- inst_aux env tyin f ;
+                       x' <- inst_aux env tyin x ;
                        if (f = f') /\ (x = x') then return tm
                                                else return (Comb f' x') od
-    | Abs y t    => do (y':hol_term) <- inst_aux k [] tyin y ;
+    | Abs y t    => do (y':hol_term) <- inst_aux [] tyin y ;
                        env' <- return ((y,y')::env) ;
                        handle_clash
-                        (do t' <- inst_aux k env' tyin t ;
-                            if (y' = y) /\ (t' = t) then return tm
-                                                    else return (Abs y' t') od)
+                        (do t' <- inst_aux env' tyin t ;
+                            return (Abs y' t') od)
                         (\w'.
                          if w' <> y' then failwith "clash" else
                          let ifrees = (MAP (inst_var tyin) (frees t)) in
-                         let y'' = (variant ifrees y') in
-                         do v1 <- dest_var y'' ;
-                            v2 <- dest_var y ;
-                            let z = Var (FST v1) (SND v2) in
-                            if k = 0:num then failwith "too many clashes" else
-                              inst_aux (k-1) env tyin (Abs z (vsubst_aux [(z,y)] t)) od)
+                         let y' = (variant ifrees y') in
+                         do (v1,ty) <- dest_var y' ;
+                            (v2,ty) <- dest_var y ;
+                            (y':hol_term) <- inst_aux [] tyin y ;
+                            env' <- return ((y,y')::env) ;
+                            t' <- inst_aux env' tyin (vsubst_aux [(Var v1 ty,y)] t) ;
+                            return (Abs y' t') od)
                     od`
-  (WF_REL_TAC `measure (\(k,env,tyin,tm). k + my_term_size tm)`
+  (WF_REL_TAC `measure (\(env,tyin,tm). my_term_size tm)`
    THEN SIMP_TAC (srw_ss()) [my_term_size_def]
    THEN REPEAT STRIP_TAC
    THEN FULL_SIMP_TAC std_ss [my_term_size_vsubst_aux]
@@ -836,7 +830,7 @@ val inst_aux_def = tDefine "inst_aux" `
 val _ = save_thm("inst_aux_def",inst_aux_def);
 
 val _ = Define `
-  inst tyin tm = if tyin = [] then return tm else inst_aux 1000000000 [] tyin tm`;
+  inst tyin tm = if tyin = [] then return tm else inst_aux [] tyin tm`;
 
 (*
   let rator tm =
