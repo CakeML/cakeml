@@ -257,7 +257,7 @@ rw [option_map_def, FMAP2_FMAP2, decode_left_inverse, FMAP2_id, encode_vwalk] >>
 cheat);
 
 val wfs_unify = Q.prove (
-`!s t1 t2 s'. (unify s t1 t2 = SOME s') ⇒ wfs s'`,
+`!s t1 t2 s'. wfs s ∧ (unify s t1 t2 = SOME s') ⇒ wfs s'`,
 cheat);
 
 val ts_unify_thm = Q.prove (
