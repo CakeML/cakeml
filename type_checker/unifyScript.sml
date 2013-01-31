@@ -234,7 +234,6 @@ val ts_unify_def = Define `
    | SOME s' => ts_unify s' ts1 ts2) ∧
 (ts_unify s _ _ = NONE)`;
 
-
 val encode_unify = Q.prove (
 `!s t1 t2 s' t1' t2'.
   (s = (FMAP_MAP2 (λ(n,t). encode_infer_t t) s')) ∧
@@ -258,7 +257,7 @@ cheat);
 
 val wfs_unify = Q.prove (
 `!s t1 t2 s'. wfs s ∧ (unify s t1 t2 = SOME s') ⇒ wfs s'`,
-cheat);
+metis_tac [unify_unifier]);
 
 val ts_unify_thm = Q.prove (
 `!s l1 l2.
