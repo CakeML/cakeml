@@ -23,6 +23,15 @@ val option_bind_thm = Q.prove (
 cases_on `x` >>
 rw [OPTION_BIND_def]);
 
+val FMAP2_FUN_FMAP = Q.prove (
+`!s. FINITE s ⇒ ∀f g.
+  FMAP_MAP2 (λ(n,t). f t) (FUN_FMAP (λv. g v) s) =
+  FUN_FMAP (λv. f (g v)) s`,
+ho_match_mp_tac FINITE_INDUCT >>
+rw [FMAP_MAP2_FEMPTY, FMAP_MAP2_FUPDATE] >>
+`FINITE (e INSERT s) ∧ e ∈ (e INSERT s)` by rw [] >>
+rw [FUN_FMAP_DEF, GSYM fmap_EQ_THM, FMAP_MAP2_THM]);
+
 val _ = new_theory "unify";
 
 val _ = Hol_datatype `
@@ -292,7 +301,7 @@ rw [ts_unify_def, encode_infer_t_def] >>
                  (rw [t_wfs_def] >>
                   metis_tac [wfs_unify]) >>
           rw [FMAP2_FMAP2, FMAP2_id, decode_left_inverse]]]);
-(*
+
 val t_unify_eqn = Q.store_thm ("t_unify_eqn",
 `(!t1 t2 s.
   t_wfs s ⇒
@@ -317,7 +326,6 @@ val t_unify_eqn = Q.store_thm ("t_unify_eqn",
         else
           NONE
     | _ => NONE))`,
-
 rw [t_unify_def] >>
 `wfs (FMAP_MAP2 (\(n,t). encode_infer_t t) s)` by metis_tac [t_wfs_def] >>
 rw [Once unify_def, t_walk_def] >>
@@ -365,20 +373,146 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_def, decode_left_inverse,
                fs [] >>
                metis_tac []) >>
     rw [FMAP2_FMAP2, FMAP2_id, decode_left_inverse],
- all_tac,
- all_tac,
- all_tac,
- all_tac,
- all_tac]
+ cases_on `t_vwalk s n` >>
+     rw [encode_infer_t_def] >>
+     rw [Once unify_def] >>
+     rw [Once unify_def] >>
+     rw [ts_unify_thm, option_map_def, FMAP2_FMAP2, decode_left_inverse,
+         FMAP2_id, FMAP_MAP2_FUPDATE, decode_infer_t_def, t_ext_s_check_eqn, option_map_def] >>
+     rw [Once oc_walking, encode_infer_t_def, t_oc_def, option_bind_thm] >>
+     cases_on `unify (FMAP_MAP2 (λ(n,t). encode_infer_t t) s) (encode_infer_t i) (encode_infer_t i')` >>
+     fs [] >>
+     cases_on `unify x (encode_infer_t i0) (encode_infer_t i0')` >>
+     fs [] >>
+     `?x'. x = FMAP_MAP2 (λ(n,t). encode_infer_t t) x'`
+           by (imp_res_tac encode_unify >>
+               fs [option_map_def] >>
+               cases_on `t_unify s i i'` >>
+               fs [] >>
+               metis_tac []) >>
+    rw [FMAP2_FMAP2, FMAP2_id, decode_left_inverse],
+ cases_on `t_vwalk s n` >>
+     rw [encode_infer_t_def] >>
+     rw [Once unify_def] >>
+     rw [FMAP_MAP2_FUPDATE, FMAP2_FMAP2, FMAP2_id, decode_left_inverse,
+         decode_infer_t_def, t_ext_s_check_eqn] >>
+     rw [Once oc_walking, encode_infer_t_def, t_oc_def, option_bind_thm],
+ cases_on `t_vwalk s n` >>
+     rw [encode_infer_t_def] >>
+     rw [Once unify_def] >>
+     rw [Once unify_def] >>
+     rw [Once unify_def] >>
+     rw [FMAP_MAP2_FUPDATE, FMAP2_FMAP2, FMAP2_id, decode_left_inverse,
+         decode_infer_t_def, t_ext_s_check_eqn] >>
+     rw [ts_unify_thm, Once oc_walking, encode_infer_t_def, t_oc_def, option_bind_thm, 
+         option_map_def],
+ cases_on `t_vwalk s n` >>
+     rw [encode_infer_t_def] >>
+     rw [Once unify_def] >>
+     rw [Once unify_def] >>
+     rw [FMAP_MAP2_FUPDATE, FMAP2_FMAP2, FMAP2_id, decode_left_inverse,
+         decode_infer_t_def, t_ext_s_check_eqn] >>
+     rw [ts_unify_thm, Once oc_walking, encode_infer_t_def, t_oc_def, option_bind_thm, 
+         option_map_def] >>
+     cases_on `unify (FMAP_MAP2 (λ(n,t). encode_infer_t t) s) (encode_infer_t i') (encode_infer_t i)` >>
+     fs [] >>
+     cases_on `unify x (encode_infer_t i0') (encode_infer_t i0)` >>
+     fs [] >>
+     `?x'. x = FMAP_MAP2 (λ(n,t). encode_infer_t t) x'`
+           by (imp_res_tac encode_unify >>
+               fs [option_map_def] >>
+               cases_on `t_unify s i' i` >>
+               fs [] >>
+               metis_tac []) >>
+    rw [FMAP2_FMAP2, FMAP2_id, decode_left_inverse],
+ cases_on `t_vwalk s n` >>
+     rw [encode_infer_t_def] >>
+     cases_on `t_vwalk s n'` >>
+     rw [encode_infer_t_def] >>
+     rw [Once unify_def] >>
+     rw [Once unify_def] >>
+     rw [FMAP_MAP2_FUPDATE, FMAP2_FMAP2, FMAP2_id, decode_left_inverse,
+         decode_infer_t_def, t_ext_s_check_eqn] >>
+     rw [ts_unify_thm, Once oc_walking, encode_infer_t_def, t_oc_def, option_bind_thm, 
+         option_map_def] >|
+     [rw [Once unify_def],
+      rw [Once unify_def],
+      cases_on `unify (FMAP_MAP2 (λ(n,t). encode_infer_t t) s) (encode_infer_t i) (encode_infer_t i')` >>
+          fs [] >>
+          cases_on `unify x (encode_infer_t i0) (encode_infer_t i0')` >>
+          fs [] >>
+          `?x'. x = FMAP_MAP2 (λ(n,t). encode_infer_t t) x'`
+                by (imp_res_tac encode_unify >>
+                    fs [option_map_def] >>
+                    cases_on `t_unify s i i'` >>
+                    fs [] >>
+                    metis_tac []) >>
+         rw [FMAP2_FMAP2, FMAP2_id, decode_left_inverse]]]);
 
- *) 
-
-val apply_subst_t = Define `
+val apply_subst_t_def = Define `
 apply_subst_t s t = decode_infer_t (subst_APPLY (FMAP_MAP2 (\(n,t). encode_infer_t t) s) (encode_infer_t t))`;
+
+val apply_subst_t_eqn = Q.store_thm ("apply_subst_eqn",
+`(!s n.
+  apply_subst_t s (Infer_Tuvar n) =
+   case FLOOKUP s n of
+     | NONE => Infer_Tuvar n
+     | SOME t => t) ∧
+ (!s t1 t2.
+  apply_subst_t s (Infer_Tfn t1 t2) =
+    Infer_Tfn (apply_subst_t s t1) (apply_subst_t s t2)) ∧
+ (!s ts tc.
+  apply_subst_t s (Infer_Tapp ts tc) =
+    Infer_Tapp (MAP (apply_subst_t s) ts) tc) ∧
+ (!s n.
+  apply_subst_t s (Infer_Tvar_db n) = 
+    Infer_Tvar_db n)`, 
+rw [apply_subst_t_def, encode_infer_t_def, FLOOKUP_FMAP2,
+    decode_infer_t_def, option_map_def] >>
+every_case_tac >>
+rw [decode_left_inverse, decode_infer_t_def] >>
+induct_on `ts` >>
+rw [apply_subst_t_def, encode_infer_t_def, decode_infer_t_def]);
+
+val t_walkstar_def = Define `
+t_walkstar s t = 
+  decode_infer_t (walkstar (FMAP_MAP2 (\(n,t). encode_infer_t t) s) (encode_infer_t t))`;
+
+val ts_walkstar_thm = Q.prove (
+`!l s.
+  t_wfs s ⇒
+  (decode_infer_ts (FMAP_MAP2 (λ(n,t). encode_infer_t t) s ◁ encode_infer_ts l) = 
+   MAP (t_walkstar s) l)`,
+induct_on `l` >>
+rw [t_wfs_def, encode_infer_t_def, Once walkstar_def, decode_infer_t_def] >>
+rw [t_walkstar_def]);
+
+val t_walkstar_eqn = Q.store_thm ("t_walkstar_eqn",
+`!s. t_wfs s ⇒
+  !t.
+    t_walkstar s t =
+    case t_walk s t of
+      | Infer_Tuvar v => Infer_Tuvar v
+      | Infer_Tfn t1 t2 => Infer_Tfn (t_walkstar s t1) (t_walkstar s t2)
+      | Infer_Tapp ts tc0 => Infer_Tapp (MAP (t_walkstar s) ts) tc0
+      | Infer_Tvar_db n => Infer_Tvar_db n`,
+rw [t_walkstar_def] >>
+`wfs (FMAP_MAP2 (\(n,t). encode_infer_t t) s)` by fs [t_wfs_def] >>
+rw [Once walkstar_def, t_walk_def] >>
+cases_on `t` >>
+rw [encode_infer_t_def, decode_infer_t_def, decode_left_inverse, encode_vwalk] >|
+[rw [ts_walkstar_thm],
+ cases_on `t_vwalk s n` >>
+     rw [encode_infer_t_def, decode_infer_t_def, ts_walkstar_thm]]);
 
 val t_collapse_def = Define `
 t_collapse s = 
   FMAP_MAP2 (\(n,t). decode_infer_t t)
     (collapse ((FMAP_MAP2 (\(n,t). encode_infer_t t)) s))`;
+
+val t_collapse_eqn = Q.store_thm ("t_collapse_eqn",
+`!s. t_collapse s = FUN_FMAP (\v. t_walkstar s (Infer_Tuvar v)) (FDOM s)`,
+rw [collapse_def, t_collapse_def, t_walkstar_def, encode_infer_t_def, walkstar_def] >>
+rw [FMAP_MAP2_THM, FMAP2_FUN_FMAP]);
 
 val _ = export_theory ();
