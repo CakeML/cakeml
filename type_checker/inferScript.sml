@@ -103,13 +103,13 @@ get_subst =
 val apply_subst_def = Define `
 apply_subst t =
   \st.
-    let sub = collapse st.subst in
+    let sub = t_collapse st.subst in
       (Success (apply_subst_t sub t), st with <|subst := sub |>)`;
 
 val apply_subst_list_def = Define `
 apply_subst_list ts =
   \st.
-    let sub = collapse st.subst in
+    let sub = t_collapse st.subst in
       (Success (MAP (apply_subst_t sub) ts), st with <|subst := sub |>)`;
 
 (* Generalise the unification variables greater than m, starting at deBruijn index n.
@@ -445,7 +445,7 @@ infer_and_annotate_e cenv env e =
     case (infer_e cenv env e) init_st of
       | (Failure x, st) => Failure x
       | (Success (e',t), st) =>
-          let sub = collapse st.subst in
+          let sub = t_collapse st.subst in
             Success (apply_subst_e sub e', apply_subst_t sub t)`;
 
 val _ = export_theory ();
