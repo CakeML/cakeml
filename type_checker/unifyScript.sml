@@ -243,26 +243,198 @@ val ts_unify_def = Define `
    | SOME s' => ts_unify s' ts1 ts2) ∧
 (ts_unify s _ _ = NONE)`;
 
-val encode_unify = Q.prove (
+val FMAP_MAP2_o_f = store_thm("FMAP_MAP2_o_f",
+  ``FMAP_MAP2 (λ(x,y). f y) = $o_f f``,
+  rw[FUN_EQ_THM,GSYM fmap_EQ_THM,FMAP_MAP2_THM])
+
+val encode_walk = prove(
+  ``∀s. t_wfs s ⇒
+      ∀t. walk (encode_infer_t o_f s) (encode_infer_t t) = encode_infer_t (t_walk s t)``,
+  rw[walk_def] >>
+  imp_res_tac encode_vwalk >>
+  fs[FMAP_MAP2_o_f] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  rw[t_walk_def,FMAP_MAP2_o_f,decode_left_inverse] >>
+  metis_tac[decode_left_inverse])
+
+val encode_pair_cases = prove(
+  ``(∀t t1 t2.
+    (encode_infer_t t = Pair t1 t2) ⇒
+      ((t1 = Const Tfn_tag) ∧
+       (∃ta td. t2 = Pair (encode_infer_t ta) (encode_infer_t td))) ∨
+      ((t1 = Const Tapp_tag) ∧
+       (∃tc ts. t2 = Pair (Const (TC_tag tc)) (encode_infer_ts ts))))``,
+  Cases >> rw[encode_infer_t_def] >>
+  PROVE_TAC[])
+
+(* TODO: move to examples/unification *)
+val unify_same_lemma = prove(
+  ``∀s t1 t2. wfs s ∧ (t1 = t2) ⇒ (unify s t1 t2 = SOME s)``,
+  ho_match_mp_tac unify_ind >> rw[] >>
+  pop_assum mp_tac >>
+  simp_tac std_ss [Once unify_def] >>
+  Cases_on `walk s t1` >> rw[])
+val unify_same = store_thm("unify_same",
+ ``∀s. wfs s ⇒ ∀t. unify s t t = SOME s``,
+ PROVE_TAC[unify_same_lemma])
+val _ = export_rewrites["unify_same"]
+
+val option_map_OPTION_MAP = store_thm("option_map_OPTION_MAP",
+  ``option_map = OPTION_MAP``,
+  simp[FUN_EQ_THM] >>
+  gen_tac >> Cases >>
+  rw[option_map_def])
+
+val encode_unify_lemma = Q.prove (
 `!s t1 t2 s' t1' t2'.
   (s = (FMAP_MAP2 (λ(n,t). encode_infer_t t) s')) ∧
-  (t1 = encode_infer_t t1') ∧ 
-  (t2 = encode_infer_t t2') ∧ 
+  (((t1 = encode_infer_t t1') ∧ (t2 = encode_infer_t t2')) ∨
+   (∃c. (t1 = Const c) ∧ (t2 = Const c) ∧ (t1' = t2')) ∨
+   (∃t1a t1d t2a t2d.
+     (t1 = Pair (encode_infer_t t1a) (encode_infer_t t1d)) ∧
+     (t2 = Pair (encode_infer_t t2a) (encode_infer_t t2d)) ∧
+     (t1' = Infer_Tfn t1a t1d) ∧
+     (t2' = Infer_Tfn t2a t2d)) ∨
+   (∃c ts1 ts2.
+     (t1 = Pair (Const c) (encode_infer_ts ts1)) ∧
+     (t2 = Pair (Const c) (encode_infer_ts ts2)) ∧
+     (t1' = Infer_Tapp ts1 ARB) ∧
+     (t2' = Infer_Tapp ts2 ARB)) ∨
+   (∃ts1 ts2.
+      (t1 = encode_infer_ts ts1) ∧
+      (t2 = encode_infer_ts ts2) ∧
+      (t1' = Infer_Tapp ts1 ARB) ∧
+      (t2' = Infer_Tapp ts2 ARB))) ∧
   t_wfs s' ⇒
   (unify s t1 t2
    =
    option_map (FMAP_MAP2 (λ(n,t). encode_infer_t t)) (t_unify s' t1' t2'))`,
 ho_match_mp_tac unify_ind >>
+simp[FMAP_MAP2_o_f] >>
 rw [t_unify_def] >>
-cases_on `unify (FMAP_MAP2 (λ(n,t). encode_infer_t t) s') (encode_infer_t t1') (encode_infer_t t2')` >>
-rw [option_map_def, FMAP2_FMAP2, decode_left_inverse, FMAP2_id] >>
-cases_on `t1'` >>
-cases_on `t2'` >>
-fs [walk_def, encode_infer_t_def] >>
-`wfs (FMAP_MAP2 (λ(n,t). encode_infer_t t) s')` by metis_tac [t_wfs_def] >>
-fs [Once unify_def] >>
-rw [option_map_def, FMAP2_FMAP2, decode_left_inverse, FMAP2_id, encode_vwalk] >>
-cheat);
+fs[t_wfs_def,FMAP_MAP2_o_f] >>
+qmatch_assum_abbrev_tac `wfs es` >>
+TRY(simp[option_map_def] >>
+  rw[GSYM fmap_EQ_THM,Abbr`es`,decode_left_inverse] >>
+  NO_TAC) >>
+TRY(simp[encode_infer_t_def] >>
+  simp[Once unify_def,SimpRHS] >>
+  rw[option_map_def] >>
+  BasicProvers.CASE_TAC >>
+  pop_assum mp_tac >>
+  simp[Once unify_def] >>
+  rw[] >>
+  first_x_assum(qspecl_then[`s'`,`t1a`,`t2a`]mp_tac) >>
+  rw[option_map_def] >> fs[] >>
+  `wfs sx` by (PROVE_TAC[unify_unifier]) >>
+  qabbrev_tac`dx = decode_infer_t o_f sx` >>
+  first_x_assum(qspecl_then[`dx`,`t1d`,`t2d`]mp_tac) >>
+  `sx = encode_infer_t o_f dx` by rw[Abbr`dx`] >>
+  pop_assum (SUBST1_TAC o  SYM) >>
+  simp[] >>
+  rw[option_map_def] >>
+  NO_TAC ) >>
+TRY(simp[encode_infer_t_def] >>
+  simp[Once unify_def,SimpRHS] >>
+  simp[Once unify_def,SimpRHS] >>
+  rw[option_map_def] >>
+  BasicProvers.CASE_TAC >>
+  pop_assum mp_tac >>
+  Cases_on `ts1` >> Cases_on `ts2` >> simp[encode_infer_t_def,Once unify_def] >- (
+    rw[] >>
+    rw[Abbr`es`,GSYM fmap_EQ_THM,decode_left_inverse] ) >>
+  rw[] >>
+  fs[encode_infer_t_def] >>
+  first_x_assum(qspecl_then[`s'`,`h`,`h'`]mp_tac) >>
+  simp[option_map_def] >>
+  rw[] >>
+  `wfs sx` by (PROVE_TAC[unify_unifier]) >>
+  qabbrev_tac`dx = decode_infer_t o_f sx` >>
+  `sx = encode_infer_t o_f dx` by rw[Abbr`dx`] >>
+  first_x_assum(qspecl_then[`dx`,`Infer_Tapp t ARB`,`Infer_Tapp t' ARB`]mp_tac) >>
+  pop_assum (SUBST1_TAC o  SYM) >>
+  simp[] >>
+  simp[encode_infer_t_def] >>
+  simp[Once unify_def] >>
+  simp[Once unify_def] >>
+  rw[option_map_def] >>
+  NO_TAC ) >>
+TRY(simp[encode_infer_t_def] >>
+  simp[Once unify_def] >>
+  simp[Once unify_def,SimpRHS] >>
+  simp[Once unify_def,SimpRHS] >>
+  rw[option_map_def] >>
+  BasicProvers.CASE_TAC >>
+  first_x_assum(qspecl_then[`s'`,`h`,`h'`]kall_tac) >>
+  first_x_assum(qspecl_then[`s'`,`Infer_Tapp ts1 ARB`,`Infer_Tapp ts2 ARB`]mp_tac) >>
+  simp[encode_infer_t_def] >>
+  simp[Once unify_def] >>
+  simp[Once unify_def] >>
+  rw[option_map_def] >>
+  NO_TAC ) >>
+qmatch_abbrev_tac `unify es e1 e2 = X` >>
+qunabbrev_tac`X`>>
+Cases_on `unify es e1 e2` >>
+rw[option_map_def] >>
+qsuff_tac `∃s. x = encode_infer_t o_f s` >- (
+  rw[] >> rw[GSYM fmap_EQ_THM,decode_left_inverse] ) >>
+pop_assum mp_tac >>
+simp[Once unify_def] >>
+Cases_on `walk es e1` >> fs[] >>
+Cases_on `walk es e2` >> fs[] >>
+TRY (
+  strip_tac >> fs[] >>
+  qmatch_assum_rename_tac`walk es e1 = Pair t1a t1d`[] >>
+  qmatch_assum_rename_tac`walk es e2 = Pair t2a t2d`[] >>
+  `Pair t1a t1d = encode_infer_t (t_walk s' t1')` by metis_tac[encode_walk,t_wfs_def,FMAP_MAP2_o_f] >>
+  `Pair t2a t2d = encode_infer_t (t_walk s' t2')` by metis_tac[encode_walk,t_wfs_def,FMAP_MAP2_o_f] >>
+  `wfs sx` by metis_tac[unify_unifier] >>
+  `∀c1 c2. (((t1a = Const c1) ∧ (t2a = Const c2)) ∨
+            ((t1d = Const c1) ∧ (t2d = Const c2)))
+    ⇒ (c1 = c2)` by (
+    rpt gen_tac >> strip_tac >>
+    qpat_assum `unify X Y Z = SOME A` mp_tac >>
+    qpat_assum `unify X Y Z = SOME A` mp_tac >>
+    asm_simp_tac std_ss [Once unify_def] >>
+    strip_tac >>
+    asm_simp_tac std_ss [Once unify_def] >>
+    pop_assum mp_tac >>
+    simp[] ) >>
+  qspecl_then[`t_walk s' t1'`,`t1a`,`t1d`]mp_tac encode_pair_cases >>
+  qspecl_then[`t_walk s' t2'`,`t2a`,`t2d`]mp_tac encode_pair_cases >>
+  simp[] >>
+  strip_tac >> strip_tac >> fs[] >- (
+    rfs[] >> rw[] >>
+    rpt (qpat_assum `Pair X Y = Z` (assume_tac o SYM)) >>
+    first_x_assum (qspecl_then[`s'`,`ARB`,`ARB`]kall_tac) >>
+    first_x_assum (qspecl_then[`s'`,`Infer_Tfn ta' td'`,`Infer_Tfn ta td`]mp_tac) >>
+    simp[option_map_def,encode_infer_t_def] >>
+    simp[Once unify_def] >>
+    metis_tac[o_f_o_f] ) >>
+  rfs[] >> rw[] >>
+  rpt (qpat_assum `Pair X Y = Z` (assume_tac o SYM)) >>
+  qpat_assum`unify es X Y = Z`mp_tac >>
+  simp[Once unify_def] >>
+  simp[Once unify_def] >>
+  rw[] >>
+  first_x_assum (qspecl_then[`s'`,`Infer_Tapp ts' ARB`,`Infer_Tapp ts ARB`]mp_tac) >>
+  simp[encode_infer_t_def] >>
+  simp[Once unify_def] >>
+  simp[Once unify_def] >>
+  simp[Once unify_def] >>
+  rw[option_map_def] >>
+  metis_tac[o_f_o_f] ) >>
+metis_tac[o_f_FUPDATE,o_f_DOMSUB,FUPDATE_PURGE,encode_walk,t_wfs_def,FMAP_MAP2_o_f])
+
+val encode_unify = Q.prove (
+`!s t1 t2 s' t1' t2'.
+  (s = (FMAP_MAP2 (λ(n,t). encode_infer_t t) s')) ∧
+  (t1 = encode_infer_t t1') ∧ (t2 = encode_infer_t t2') ∧
+  t_wfs s' ⇒
+  (unify s t1 t2
+   =
+   option_map (FMAP_MAP2 (λ(n,t). encode_infer_t t)) (t_unify s' t1' t2'))`,
+metis_tac[encode_unify_lemma])
 
 val wfs_unify = Q.prove (
 `!s t1 t2 s'. wfs s ∧ (unify s t1 t2 = SOME s') ⇒ wfs s'`,
