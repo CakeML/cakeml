@@ -516,8 +516,6 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_def, decode_left_inverse,
      fs [] >>
      rw [t_walk_def, encode_infer_t_def, decode_infer_t_def],
  rw [Once unify_def] >>
-     rw [Once unify_def] >>
-     rw [Once unify_def] >>
      rw [ts_unify_thm, option_map_def],
  rw [Once unify_def] >>
      rw [Once unify_def] >>
@@ -526,14 +524,12 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_def, decode_left_inverse,
  cases_on `t_vwalk s n` >>
      rw [encode_infer_t_def] >>
      rw [Once unify_def] >>
-     rw [Once unify_def] >>
-     rw [Once unify_def] >>
      rw [ts_unify_thm, option_map_def, FMAP2_FMAP2, decode_left_inverse,
          FMAP2_id, FMAP_MAP2_FUPDATE, decode_infer_t_def, t_ext_s_check_eqn, option_map_def] >>
-     rw [Once oc_walking, encode_infer_t_def, t_oc_def],
+     rw [Once oc_walking, encode_infer_t_def, t_oc_def] >>
+     rw [Once unify_def],
  rw [Once unify_def],
  rw [Once unify_def] >>
-     rw [Once unify_def] >>
      cases_on `unify (FMAP_MAP2 (λ(n,t). encode_infer_t t) s) (encode_infer_t i) (encode_infer_t i')` >>
      fs [] >>
      cases_on `unify x (encode_infer_t i0) (encode_infer_t i0')` >>
@@ -547,7 +543,6 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_def, decode_left_inverse,
     rw [FMAP2_FMAP2, FMAP2_id, decode_left_inverse],
  cases_on `t_vwalk s n` >>
      rw [encode_infer_t_def] >>
-     rw [Once unify_def] >>
      rw [Once unify_def] >>
      rw [ts_unify_thm, option_map_def, FMAP2_FMAP2, decode_left_inverse,
          FMAP2_id, FMAP_MAP2_FUPDATE, decode_infer_t_def, t_ext_s_check_eqn, option_map_def] >>
@@ -572,15 +567,13 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_def, decode_left_inverse,
  cases_on `t_vwalk s n` >>
      rw [encode_infer_t_def] >>
      rw [Once unify_def] >>
-     rw [Once unify_def] >>
-     rw [Once unify_def] >>
      rw [FMAP_MAP2_FUPDATE, FMAP2_FMAP2, FMAP2_id, decode_left_inverse,
          decode_infer_t_def, t_ext_s_check_eqn] >>
      rw [ts_unify_thm, Once oc_walking, encode_infer_t_def, t_oc_def, option_bind_thm, 
-         option_map_def],
+         option_map_def] >>
+     rw [Once unify_def],
  cases_on `t_vwalk s n` >>
      rw [encode_infer_t_def] >>
-     rw [Once unify_def] >>
      rw [Once unify_def] >>
      rw [FMAP_MAP2_FUPDATE, FMAP2_FMAP2, FMAP2_id, decode_left_inverse,
          decode_infer_t_def, t_ext_s_check_eqn] >>
@@ -602,13 +595,11 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_def, decode_left_inverse,
      cases_on `t_vwalk s n'` >>
      rw [encode_infer_t_def] >>
      rw [Once unify_def] >>
-     rw [Once unify_def] >>
      rw [FMAP_MAP2_FUPDATE, FMAP2_FMAP2, FMAP2_id, decode_left_inverse,
          decode_infer_t_def, t_ext_s_check_eqn] >>
      rw [ts_unify_thm, Once oc_walking, encode_infer_t_def, t_oc_def, option_bind_thm, 
          option_map_def] >|
      [rw [Once unify_def],
-      rw [Once unify_def],
       cases_on `unify (FMAP_MAP2 (λ(n,t). encode_infer_t t) s) (encode_infer_t i) (encode_infer_t i')` >>
           fs [] >>
           cases_on `unify x (encode_infer_t i0) (encode_infer_t i0')` >>
