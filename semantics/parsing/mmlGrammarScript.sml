@@ -54,6 +54,14 @@ val Eapp_rules_def = Define`
     [NN nEbase]
   }`
 
+val MultOps_rules_def = Define`
+  MultOps_rules = mkRules nMultOps {
+    [TK (AlphaT "div")];
+    [TK (AlphaT "mod")];
+    [TK (SymbolT "*")];
+    [TK (SymbolT "/")]
+  }`;
+
 (* various left associative binary operators *)
 val Emult_rules_def = Define`
   Emult_rules = binop_rule nEapp nEmult nMultOps
@@ -90,6 +98,25 @@ val _ = overload_on ("monad_bind", ``OPTION_BIND``)
 
 val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def"]
 
+val ptree_Op_def = Define`
+  ptree_Op (Lf _) = NONE ∧
+  ptree_Op (Nd nt subs) =
+    case nt of
+      mkNT nMultOps =>
+        (case subs of
+           [Lf (TK (SymbolT "*"))] => SOME "*"
+         | [Lf (TK (SymbolT "/"))] => SOME "/"
+         | [Lf (TK (AlphaT "mod"))] => SOME "mod"
+         | [Lf (TK (AlphaT "div"))] => SOME "div"
+         | _ => NONE)
+    | mkNT nAddOps =>
+        (case subs of
+           [Lf (TK (SymbolT "+"))] => SOME "+"
+         | [Lf (TK (SymbolT "-"))] => SOME "-"
+         | _ => NONE)
+    | _ => NONE
+`;
+
 val ptree_Expr_def = Define`
   ptree_Expr (Lf _) = NONE ∧
   ptree_Expr (Nd nt subs) =
@@ -108,7 +135,51 @@ val ptree_Expr_def = Define`
           od
         | [t] => ptree_Expr t
         | _ => NONE)
+   | mkNT nEmult =>
+       (case subs of
+          [t1; opt; t2] => do (* s will be *, /, div, or mod *)
+            a1 <- ptree_Expr t1;
+            a_op <- ptree_Op opt;
+            a2 <- ptree_Expr t2;
+            SOME(Ast_App (Ast_App (Ast_Var a_op) a1) a2)
+          od
+        | [t] => ptree_Expr t
+        | _ => NONE)
    | _ => NONE
 `;
+
+val ast = ``Nd (mkNT nEmult) [
+              Nd (mkNT nEmult) [
+                Nd (mkNT nEmult) [
+                  Nd (mkNT nEapp) [Nd (mkNT nEbase) [Lf (TK (IntT 3))]]
+                ];
+                Nd (mkNT nMultOps) [Lf (TK (SymbolT "*"))];
+                Nd (mkNT nEapp) [Nd (mkNT nEbase) [Lf (TK (IntT 4))]]
+              ];
+              Nd (mkNT nMultOps) [Lf (TK (SymbolT "*"))];
+              Nd (mkNT nEapp) [Nd (mkNT nEbase) [Lf (TK (IntT 5))]]
+            ]``
+
+val parse_result = EVAL ``ptree_Expr ^ast``;
+
+(* would use EVAL for this too, but it fails to turn (∃i. F) into F, and can't
+   be primed with that as a rewrite rule.
+
+   Nor does
+
+     val _ = computeLib.add_conv (existential, 1, REWR_CONV EXISTS_SIMP)
+
+   work (can't see why)
+*)
+val check_results =
+    time (SIMP_CONV (srw_ss())
+              [valid_ptree_def, Eapp_rules_def, Ebase_rules_def,
+               MultOps_rules_def, Emult_rules_def, mkRules_def,
+               binop_rule_def, DISJ_IMP_THM, FORALL_AND_THM])
+   ``valid_ptree <| rules := Eapp_rules ∪ Ebase_rules ∪ MultOps_rules ∪
+                             Emult_rules; start := mkNT nEmult |> ^ast``
+
+val _ = if aconv (rhs (concl check_results)) T then print "valid_ptree: OK\n"
+        else raise Fail "valid_ptree: failed"
 
 val _ = export_theory()
