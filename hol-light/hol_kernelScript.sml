@@ -735,13 +735,6 @@ val vsubst_def = Define `
       fun tyin -> if tyin = [] then fun tm -> tm else inst [] tyin
 *)
 
-val _ = Define `
-  inst_var tyin tm =
-    case tm of
-      Var n ty => let ty' = type_subst tyin ty in
-                    if ty' = ty then tm else Var n ty'
-    | _        => tm`
-
 val my_term_size_def = Define `
   (my_term_size (Var _ _) = 1:num) /\
   (my_term_size (Const _ _) = 1) /\
@@ -777,13 +770,12 @@ val my_term_size_vsubst_aux = prove(
     THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "is_var_def",my_term_size_def])
   THEN ASM_SIMP_TAC (srw_ss()) [my_term_size_def,
          Once (fetch "-" "vsubst_aux_def"),LET_DEF]
-  THEN REVERSE (SRW_TAC [] [my_term_size_def,my_term_size_variant])
+  THEN REVERSE (SRW_TAC [] [my_term_size_def])
   THEN1 (Q.PAT_ASSUM `!bbbb. xx ==> bbb` MATCH_MP_TAC
          THEN FULL_SIMP_TAC (srw_ss()) [EVERY_MEM,FILTER,MEM_FILTER])
-  THEN Cases_on `is_var t`
-  THEN1 (Q.PAT_ASSUM `!bbbb. xx ==> bbb` MATCH_MP_TAC
-         THEN FULL_SIMP_TAC (srw_ss()) [EVERY_MEM,FILTER,MEM_FILTER,is_var_variant])
-  THEN FULL_SIMP_TAC std_ss [])
+  THEN Cases_on `is_var t` THEN FULL_SIMP_TAC std_ss [my_term_size_variant]
+  THEN Q.PAT_ASSUM `!bbbb. xx ==> bbb` MATCH_MP_TAC
+  THEN FULL_SIMP_TAC (srw_ss()) [EVERY_MEM,FILTER,MEM_FILTER,is_var_variant])
   |> Q.SPECL [`t`,`[(Var v ty,x)]`]
   |> SIMP_RULE (srw_ss()) [EVERY_DEF,fetch "-" "is_var_def"]
 
@@ -811,20 +803,18 @@ val inst_aux_def = tDefine "inst_aux" `
                             return (Abs y' t') od)
                         (\w'.
                          if w' <> y' then failwith "clash" else
-                         let ifrees = (MAP (inst_var tyin) (frees t)) in
-                         let y' = (variant ifrees y') in
-                         do (v1,ty) <- dest_var y' ;
+                         do temp <- inst_aux [] tyin t ;
+                            y' <- return (variant (frees temp) y') ;
+                            (v1,ty') <- dest_var y' ;
                             (v2,ty) <- dest_var y ;
-                            (y':hol_term) <- inst_aux [] tyin y ;
-                            env' <- return ((y,y')::env) ;
-                            t' <- inst_aux env' tyin (vsubst_aux [(Var v1 ty,y)] t) ;
+                            t' <- inst_aux ((Var v1 ty,Var v1 ty')::env) tyin
+                                    (vsubst_aux [(Var v1 ty,y)] t) ;
                             return (Abs y' t') od)
                     od`
   (WF_REL_TAC `measure (\(env,tyin,tm). my_term_size tm)`
    THEN SIMP_TAC (srw_ss()) [my_term_size_def]
    THEN REPEAT STRIP_TAC
    THEN FULL_SIMP_TAC std_ss [my_term_size_vsubst_aux]
-   THEN ASSUME_TAC (ZERO_LT_term_size |> Q.SPEC `y`)
    THEN DECIDE_TAC) |> SIMP_RULE std_ss [handle_clash_def,raise_clash_def]
 
 val _ = save_thm("inst_aux_def",inst_aux_def);
