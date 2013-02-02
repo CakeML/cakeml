@@ -1250,7 +1250,9 @@ val mk_abs_thm = store_thm("mk_abs_thm",
 val mk_comb_thm = prove(
   ``TERM defs f /\ TERM defs a /\ STATE s defs /\
     (mk_comb(f,a)s = (res,s1)) ==>
-    (s1 = s) /\ !t. (res = HolRes t) ==> TERM defs t /\ (t = Comb f a)``,
+    (s1 = s) /\
+    (!t. (res = HolErr t) ==> !ty. term_type f <> fun (term_type a) ty) /\
+    !t. (res = HolRes t) ==> TERM defs t /\ (t = Comb f a)``,
   SIMP_TAC std_ss [mk_comb_def,ex_bind_def] \\ STRIP_TAC
   \\ MP_TAC (type_of_thm |> SIMP_RULE std_ss [] |> Q.SPEC `f`)
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []
@@ -3104,11 +3106,23 @@ val domain_type_def = Define `
 
 val term_type_SIMP = prove(
   ``(domain_type (fun t1 t2) = t2) /\
-    (term_type (Comb x y) = domain_type (term_type x))``,
+    (term_type (Comb x y) = domain_type (term_type x)) /\
+    (term_type (Var name ty) = ty) /\
+    (term_type (Const name ty) = ty)``,
   SIMP_TAC (srw_ss()) [domain_type_def,Once term_type_def]
   \\ ONCE_REWRITE_TAC [term_type_def]
   \\ SIMP_TAC (srw_ss()) [] \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC (srw_ss()) [Once term_type_def]);
+
+val TERM_Comb = prove(
+  ``TERM defs (Comb f a) =
+    TERM defs f /\ TERM defs a /\
+    ?ty. hol_ty (term_type f) = Fun (hol_ty (term_type a)) ty``,
+  REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
+  \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
+  \\ IMP_RES_TAC term_type
+  \\ FULL_SIMP_TAC std_ss [TERM_def,welltyped_in,WELLTYPED_CLAUSES,
+       hol_tm_def,type_INJ,term_ok]);
 
 val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   ``THM defs th /\ STATE s defs ==>
@@ -3117,7 +3131,6 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
     | (HolRes (th1,th2), s') => (?d. def_ok (hol_def d) (hol_defs defs) /\
                                      THM (d::defs) th1 /\ THM (d::defs) th2 /\
                                      STATE s' (d::defs))``,
-
   Cases_on `th` \\ SIMP_TAC (srw_ss())
      [new_basic_type_definition_def,Once ex_bind_def,ex_return_def,failwith_def,
       can_def |> SIMP_RULE std_ss [otherwise_def,ex_bind_def,ex_return_def]]
@@ -3157,7 +3170,8 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   \\ NTAC 1 (SIMP_TAC (srw_ss()) [Once ex_bind_def,ex_return_def])
   \\ Q.ABBREV_TAC `s2 = (s with
            <|the_type_constants :=
-               (tyname,LENGTH (STRING_SORT (tvars (hol_tm P))))::s.the_type_constants;
+               (tyname,LENGTH (STRING_SORT
+                   (tvars (hol_tm P))))::s.the_type_constants;
              the_definitions :=
                Typedef tyname P absname repname::s.the_definitions|>)`
   \\ `get_type_arity "fun" s2 = (HolRes 2, s2)` by ALL_TAC THEN1
@@ -3294,6 +3308,7 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
          hol_tm_def,domain]
     \\ FULL_SIMP_TAC std_ss [MAP_MAP_o,o_DEF,hol_ty_def]
     \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ SIMP_TAC std_ss [])
+  \\ Q.ABBREV_TAC `dd = Typedef tyname P absname repname`
   \\ Q.ABBREV_TAC `abs = (Const absname
             (fun (term_type x)
                (Tyapp tyname (MAP Tyvar (STRING_SORT (tvars (hol_tm P)))))))`
@@ -3311,13 +3326,50 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
         (Q.UNABBREV_TAC `rep` \\ SIMP_TAC (srw_ss()) [Once term_type_def])
   \\ `term_type aa = aaty` by ALL_TAC THEN1
         (Q.UNABBREV_TAC `aa` \\ SIMP_TAC (srw_ss()) [Once term_type_def])
+  \\ `term_type P = fun (term_type x) bool_ty` by ALL_TAC THEN1
+   (FULL_SIMP_TAC std_ss [THM_def] \\ IMP_RES_TAC THM_LEMMA
+    \\ IMP_RES_TAC term_type
+    \\ FULL_SIMP_TAC std_ss [welltyped_in,hol_tm_def,WELLTYPED]
+    \\ Q.PAT_ASSUM `has_type (Comb (hol_tm P) (hol_tm x)) Bool` MP_TAC
+    \\ SIMP_TAC std_ss [Once has_type_CASES,term_DISTINCT,term_INJ]
+    \\ REPEAT STRIP_TAC
+    \\ IMP_RES_TAC WELLTYPED_LEMMA
+    \\ FULL_SIMP_TAC std_ss []
+    \\ `TYPE defs (fun (term_type x) bool_ty)` by ALL_TAC THEN1
+     (FULL_SIMP_TAC (srw_ss()) [TYPE_def,hol_ty_def,type_ok_Fun,type_ok_Bool]
+      \\ METIS_TAC [])
+    \\ MP_TAC (GSYM TYPE_11 |> Q.SPECL [`term_type P`,`fun (term_type x) bool_ty`])
+    \\ FULL_SIMP_TAC (srw_ss()) [hol_ty_def])
+  \\ `TERM (dd::defs) abs /\ TERM (dd::defs) rep /\ TERM (dd::defs) aa` by ALL_TAC
+  THEN1
+   (Q.UNABBREV_TAC `rep` \\ Q.UNABBREV_TAC `abs` \\ Q.UNABBREV_TAC `aa`
+    \\ Q.UNABBREV_TAC `dd` \\ Q.UNABBREV_TAC `aaty`
+    \\ IMP_RES_TAC term_type
+    \\ FULL_SIMP_TAC (srw_ss()) [TERM_def,TYPE_def,welltyped_in,hol_tm_def,
+          WELLTYPED_CLAUSES,term_ok,hol_ty_def,type_ok_Fun,hol_defs_def,
+          context_ok,hol_def_def,HD,consts,consts_aux,MAP,FLAT,APPEND]
+    \\ MATCH_MP_TAC (METIS_PROVE [] ``(b1 ==> b2/\b3) /\ b1 ==> (b1/\b3) /\ b2``)
+    \\ STRIP_TAC THEN1
+     (FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
+      \\ FULL_SIMP_TAC std_ss [domain,MAP_MAP_o,o_DEF,hol_ty_def]
+      \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+      \\ METIS_TAC [TYPE_SUBST_EMPTY])
+    \\ REPEAT STRIP_TAC THEN1
+     (Q.PAT_ASSUM `hol_ty (term_type x) = typeof (hol_tm x)` (ASSUME_TAC o GSYM)
+      \\ FULL_SIMP_TAC std_ss [GSYM hol_defs_def,GSYM TYPE_def]
+      \\ MATCH_MP_TAC TYPE_CONS \\ FULL_SIMP_TAC std_ss [])
+    \\ SIMP_TAC std_ss [Once type_ok_CASES,type_INJ,type_DISTINCT]
+    \\ SIMP_TAC (srw_ss()) [types,types_aux,APPEND,MAP,FLAT,
+         LENGTH_STRING_SORT,ALL_DISTINCT_tvars,MAP_MAP_o,hol_ty_def,o_DEF]
+    \\ SIMP_TAC std_ss [MEM_MAP,PULL_EXISTS]
+    \\ SIMP_TAC std_ss [Once type_ok_CASES,type_INJ,type_DISTINCT])
   \\ STRIP_TAC
   \\ MP_TAC (mk_eq_thm |> Q.GENL [`s'`,`res`] |> Q.INST
-      [`s`|->`s4`,`x`|->`Comb abs (Comb rep aa)`,`y`|->`aa`])
+      [`s`|->`s4`,`x`|->`Comb abs (Comb rep aa)`,`y`|->`aa`,`defs`|->`dd::defs`])
   \\ Cases_on `mk_eq (Comb abs (Comb rep aa),aa) s4` \\ FULL_SIMP_TAC std_ss []
   \\ MATCH_MP_TAC (METIS_PROVE [] ``b /\ (b1 /\ b ==> b2) ==> ((b ==> b1) ==> b2)``)
   \\ STRIP_TAC THEN1
-    (IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss [] THEN1 cheat)
+    (FULL_SIMP_TAC (srw_ss()) [TERM_Comb,term_type_SIMP,hol_ty_def,type_INJ])
   \\ STRIP_TAC \\ REVERSE (Cases_on `q`) THEN1
    (FULL_SIMP_TAC (srw_ss()) [term_type_SIMP]
     \\ Q.PAT_ASSUM `xx <> (yy:hol_type)` MP_TAC
@@ -3325,52 +3377,75 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC (srw_ss()) [Once ex_bind_def]
   \\ MP_TAC (mk_comb_thm |> Q.GENL [`s1`,`res`] |> Q.INST
-      [`s`|->`s4`,`f`|->`abs`,`a`|->`Var "r" (term_type x)`])
+      [`s`|->`s4`,`f`|->`abs`,`a`|->`Var "r" (term_type x)`,`defs`|->`dd::defs`])
   \\ Cases_on `mk_comb (abs,Var "r" (term_type x)) s4` \\ FULL_SIMP_TAC std_ss []
   \\ MATCH_MP_TAC (METIS_PROVE [] ``b /\ (b1 /\ b ==> b2) ==> ((b ==> b1) ==> b2)``)
-  \\ STRIP_TAC THEN1 cheat
-  \\ STRIP_TAC \\ REVERSE (Cases_on `q`)
-  THEN1 cheat
+  \\ STRIP_TAC THEN1
+   (MATCH_MP_TAC (TERM_Var |> GEN_ALL) \\ Q.EXISTS_TAC `s4`
+    \\ FULL_SIMP_TAC std_ss []
+    \\ IMP_RES_TAC term_type
+    \\ MATCH_MP_TAC TYPE_CONS \\ FULL_SIMP_TAC std_ss [])
+  \\ STRIP_TAC \\ REVERSE (Cases_on `q`) THEN1
+   (FULL_SIMP_TAC (srw_ss()) [term_type_SIMP]
+    \\ Q.PAT_ASSUM `xx <> (yy:hol_type)` MP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [term_type_SIMP])
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ FULL_SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC (srw_ss()) [Once ex_bind_def]
   \\ MP_TAC (mk_comb_thm |> Q.GENL [`s1`,`res`] |> Q.INST
-      [`s`|->`s4`,`f`|->`rep`,`a`|->`Comb abs (Var "r" (term_type x))`])
+      [`s`|->`s4`,`f`|->`rep`,`a`|->`Comb abs (Var "r" (term_type x))`,
+       `defs`|->`dd::defs`])
   \\ Cases_on `mk_comb (rep,Comb abs (Var "r" (term_type x))) s4`
   \\ FULL_SIMP_TAC std_ss []
-  \\ MATCH_MP_TAC (METIS_PROVE [] ``b /\ (b1 /\ b ==> b2) ==> ((b ==> b1) ==> b2)``)
-  \\ STRIP_TAC THEN1 cheat
-  \\ STRIP_TAC \\ REVERSE (Cases_on `q`)
-  THEN1 cheat
+  \\ STRIP_TAC \\ REVERSE (Cases_on `q`) THEN1
+   (FULL_SIMP_TAC (srw_ss()) [term_type_SIMP]
+    \\ Q.PAT_ASSUM `xx <> (yy:hol_type)` MP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [term_type_SIMP])
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ FULL_SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC (srw_ss()) [Once ex_bind_def]
   \\ MP_TAC (mk_comb_thm |> Q.GENL [`s1`,`res`] |> Q.INST
-      [`s`|->`s4`,`f`|->`P`,`a`|->`Var "r" (term_type x)`])
+      [`s`|->`s4`,`f`|->`P`,`a`|->`Var "r" (term_type x)`,`defs`|->`dd::defs`])
   \\ Cases_on `mk_comb (P,Var "r" (term_type x)) s4`
   \\ FULL_SIMP_TAC std_ss []
-  \\ STRIP_TAC \\ REVERSE (Cases_on `q`)
-  THEN1 cheat
+  \\ MATCH_MP_TAC (METIS_PROVE [] ``b /\ (b1 /\ b ==> b2) ==> ((b ==> b1) ==> b2)``)
+  \\ STRIP_TAC THEN1 (IMP_RES_TAC TERM_CONS_EXTEND)
+  \\ STRIP_TAC \\ REVERSE (Cases_on `q`) THEN1
+   (FULL_SIMP_TAC (srw_ss()) [term_type_SIMP]
+    \\ Q.PAT_ASSUM `!P. xx <> (yy:hol_type)` MP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [term_type_SIMP])
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ FULL_SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC (srw_ss()) [Once ex_bind_def]
   \\ MP_TAC (mk_eq_thm |> Q.GENL [`s'`,`res`] |> Q.INST
       [`s`|->`s4`,`x`|->`Comb rep (Comb abs (Var "r" (term_type x)))`,
-       `y`|->`Var "r" (term_type x)`])
+       `y`|->`Var "r" (term_type x)`,`defs`|->`dd::defs`])
   \\ Cases_on `(mk_eq
        (Comb rep (Comb abs (Var "r" (term_type x))),
         Var "r" (term_type x)) s4)` \\ FULL_SIMP_TAC std_ss []
-  \\ STRIP_TAC \\ REVERSE (Cases_on `q`)
-  THEN1 cheat
+  \\ STRIP_TAC \\ REVERSE (Cases_on `q`) THEN1
+   (FULL_SIMP_TAC (srw_ss()) [term_type_SIMP]
+    \\ Q.PAT_ASSUM `xx <> (yy:hol_type)` MP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [term_type_SIMP])
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Q.PAT_ABBREV_TAC `(rhs:hol_term) = Comb
           (Comb (Const "=" tyy) xx) yy`
   \\ FULL_SIMP_TAC (srw_ss()) [Once ex_bind_def]
   \\ MP_TAC (mk_eq_thm |> Q.GENL [`s'`,`res`] |> Q.INST
-      [`s`|->`s4`,`x`|->`Comb P (Var "r" (term_type x))`,`y`|->`rhs`])
+      [`s`|->`s4`,`x`|->`Comb P (Var "r" (term_type x))`,
+       `y`|->`rhs`,`defs`|->`dd::defs`])
   \\ Cases_on `mk_eq (Comb P (Var "r" (term_type x)),rhs) s4`
   \\ FULL_SIMP_TAC std_ss []
   \\ MATCH_MP_TAC (METIS_PROVE [] ``b /\ (b1 /\ b ==> b2) ==> ((b ==> b1) ==> b2)``)
-  \\ STRIP_TAC THEN1 cheat
-  \\ STRIP_TAC \\ REVERSE (Cases_on `q`)
-  THEN1 cheat
+  \\ STRIP_TAC THEN1
+   (Q.UNABBREV_TAC `rhs`
+    \\ FULL_SIMP_TAC (srw_ss()) [term_type_SIMP,TERM_Comb,hol_ty_def,type_INJ]
+    \\ IMP_RES_TAC term_type
+    \\ FULL_SIMP_TAC (srw_ss()) [term_type_SIMP,TERM_Comb,hol_ty_def,type_INJ]
+    \\ FULL_SIMP_TAC (srw_ss()) [TERM_def,TYPE_def,hol_tm_def,
+         welltyped_in,hol_ty_def,domain,term_ok,WELLTYPED_CLAUSES])
+  \\ STRIP_TAC \\ REVERSE (Cases_on `q`) THEN1
+   (Q.UNABBREV_TAC `rhs`
+    \\ FULL_SIMP_TAC (srw_ss()) [term_type_SIMP]
+    \\ Q.PAT_ASSUM `xx <> (yy:hol_type)` MP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [term_type_SIMP])
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Q.EXISTS_TAC `Typedef tyname P absname repname`
   \\ FULL_SIMP_TAC std_ss [] \\ SIMP_TAC std_ss [THM_def,MAP]
@@ -3381,13 +3456,27 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
     \\ FULL_SIMP_TAC (srw_ss()) [hol_tm_def,hol_ty_def,domain,equation,
          typeof,codomain,term_INJ,hol_defs_def,context_ok,hol_def_def,HD]
     \\ Q.LIST_EXISTS_TAC [`tyname`,`hol_tm P`,`absname`,`repname`]
-    \\ FULL_SIMP_TAC std_ss [] \\ cheat)
+    \\ Q.UNABBREV_TAC `dd` \\ Q.UNABBREV_TAC `aa` \\ Q.UNABBREV_TAC `aaty`
+    \\ Q.UNABBREV_TAC `abs` \\ Q.UNABBREV_TAC `rep`
+    \\ FULL_SIMP_TAC (srw_ss()) [THM_def,MAP,hol_defs_def,term_type_SIMP,
+         hol_tm_def,term_INJ,hol_ty_def,MAP_MAP_o,o_DEF,hol_ty_def,type_INJ]
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ SIMP_TAC std_ss []
+    \\ IMP_RES_TAC (GSYM term_type)
+    \\ ASM_SIMP_TAC (srw_ss()) [hol_ty_def,domain]
+    \\ Q.EXISTS_TAC `(hol_tm x)` \\ FULL_SIMP_TAC std_ss [])
   THEN1
    (SIMP_TAC (srw_ss()) [Once proves_CASES,term_INJ,type_INJ,term_DISTINCT]
     \\ NTAC 12 DISJ2_TAC \\ DISJ2_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [hol_tm_def,hol_ty_def,domain,equation,
          typeof,codomain,term_INJ,hol_defs_def,context_ok,hol_def_def,HD]
     \\ Q.LIST_EXISTS_TAC [`tyname`,`absname`,`repname`]
-    \\ FULL_SIMP_TAC std_ss [] \\ cheat));
+    \\ Q.UNABBREV_TAC `dd` \\ Q.UNABBREV_TAC `aa` \\ Q.UNABBREV_TAC `aaty`
+    \\ Q.UNABBREV_TAC `abs` \\ Q.UNABBREV_TAC `rep` \\ Q.UNABBREV_TAC `rhs`
+    \\ FULL_SIMP_TAC (srw_ss()) [THM_def,MAP,hol_defs_def,term_type_SIMP,
+         hol_tm_def,term_INJ,hol_ty_def,MAP_MAP_o,o_DEF,hol_ty_def,type_INJ]
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ SIMP_TAC std_ss []
+    \\ IMP_RES_TAC (GSYM term_type)
+    \\ ASM_SIMP_TAC (srw_ss()) [hol_ty_def,domain,codomain]
+    \\ Q.EXISTS_TAC `(hol_tm x)` \\ FULL_SIMP_TAC std_ss []));
 
 val _ = export_theory();
