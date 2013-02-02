@@ -6,13 +6,13 @@ val _ = new_theory "mmlGrammar"
 
 val _ = Hol_datatype`
   MMLnonT = nV |
-    nEbase | nEapp | nEmult | nEadd | nEcons | nErel | nEcomp | nEbefore |
-    nElogic | nE | nError | nLogicalOp | nLiteral | nFDecl
-    | nAndFDecls | nPEs | nPE
-    | nPattern | nType | nDType | nTypeList | nTypeDec | nDtypeDecls
-    | nDtypeDecl | nTypeName | nTyVarList | nDconstructor | nDtypeCons
-    | nStarTypes | nDecl
-    | nMultOps | nAddOps | nConsOps | nRelOps | nCompOps | nBeforeOps
+    nEbase | nEapp | nEmult | nEadd | nErel | nEcomp | nEbefore
+  | nElogic | nE | nError | nLogicalOp | nLiteral | nFDecl
+  | nAndFDecls | nPEs | nPE
+  | nPattern | nType | nDType | nTypeList | nTypeDec | nDtypeDecls
+  | nDtypeDecl | nTypeName | nTyVarList | nDconstructor | nDtypeCons
+  | nStarTypes | nDecl
+  | nMultOps | nAddOps | nRelOps | nCompOps | nBeforeOps
 `;
 
 val _ = type_abbrev("NT", ``:MMLnonT inf``)
@@ -70,7 +70,7 @@ val Eadd_rules_def = Define`
   Eadd_rules = binop_rule nEmult nEadd nAddOps
 `;
 val Erel_rules_def = Define`
-  Erel_rules = binop_rule nEcons nErel nConsOps
+  Erel_rules = binop_rule nEadd nErel nRelOps
 `;
 val Ecomp_rules_def = Define`
   Ecomp_rules = binop_rule nErel nEcomp nCompOps
@@ -78,14 +78,6 @@ val Ecomp_rules_def = Define`
 val Ebefore_rules_def = Define`
   Ebefore_rules = binop_rule nEcomp nEbefore nBeforeOps
 `;
-
-(* right associative list ops fit into the middle of the above *)
-val Econs_rules_def = Define`
-  Econs_rules = mkRules nEcons {
-    [NN nEadd; NN nConsOps; NN nEcons]; [NN nEadd]
-  }
-`;
-
 
 (* ----------------------------------------------------------------------
     Parse trees to abstract syntax
