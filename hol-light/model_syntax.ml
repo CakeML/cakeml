@@ -820,281 +820,6 @@ let letlemma = prove
   REWRITE_TAC[LET_DEF; LET_END_DEF]);;
 
 (* ------------------------------------------------------------------------- *)
-(* Function for collecting type variables.                                   *)
-(* ------------------------------------------------------------------------- *)
-
-let ITLIST = new_recursive_definition list_RECURSION
- `(ITLIST f [] b = b) /\
-  (ITLIST f (CONS x xs) b = f x (ITLIST f xs b))`;;
-
-let STRING_INSERT = define
- `STRING_INSERT (x:string) xs = if MEM x xs then xs else CONS x xs`;;
-
-let STRING_UNION = define
- `STRING_UNION xs ys = ITLIST STRING_INSERT xs ys`;;
-
-x "ITLIST" ITLIST;;
-x "STRING_INSERT" STRING_INSERT;;
-x "STRING_UNION" STRING_UNION;;
-
-let TYVARS_LEMMA =
-  (SIMP_RULE [] o
-   ISPEC `\(a0:type) (a1:(type)list) x1 x2. STRING_UNION x1 x2` o
-   ISPEC `[]:(string)list` o
-   ISPEC `\(a0:type) (a1:type) x1 x2. STRING_UNION x1 x2` o
-   ISPEC `([]:(string)list)` o
-   ISPEC `([]:(string)list)` o
-   ISPEC `\(s:string) (x:(type)list) ts. (ts:(string)list)` o
-   ISPEC `\v:string. [v]`)
-  type_RECURSION;;
-
-let TYVARS_EXISTS = prove
- (`?TYVARS.
-    !v tys ty1 ty2.
-     (TYVARS (Tyvar v) = [v]) /\
-     (TYVARS (Tyapp v tys) = ITLIST (STRING_UNION o TYVARS) tys []) /\
-     (TYVARS Bool = []) /\
-     (TYVARS Ind = []) /\
-     (TYVARS (Fun ty1 ty2) = STRING_UNION (TYVARS ty1) (TYVARS ty2))`,
-  STRIP_ASSUME_TAC TYVARS_LEMMA THEN
-  EXISTS_TAC `fn1:type->(string)list` THEN
-  ASM_REWRITE_TAC [] THEN
-  MATCH_MP_TAC list_INDUCT THEN
-  ASM_SIMP_TAC [ITLIST;o_DEF]);;
-
-let tyvars = new_specification ["tyvars"] TYVARS_EXISTS;;
-
-let tvars = new_recursive_definition term_RECURSION
- `(tvars (Var n ty) = tyvars ty) /\
-  (tvars (Const n ty) = tyvars ty) /\
-  (tvars (Equal ty) = tyvars ty) /\
-  (tvars (Select ty) = tyvars ty) /\
-  (tvars (Comb s t) = STRING_UNION (tvars s) (tvars t)) /\
-  (tvars (Abs n ty t) = STRING_UNION (tyvars ty) (tvars t))`;;
-
-x "tyvars" tyvars;;
-x "tvars" tvars;;
-
-(* ------------------------------------------------------------------------- *)
-(* Sorting strings.                                                          *)
-(* ------------------------------------------------------------------------- *)
-
-let string_lt = new_recursive_definition list_RECURSION
- `(string_lt [] t = ~((t:string) = [])) /\
-  (string_lt (CONS x s) t =
-     if t = [] then F else
-     if x = HD t then string_lt s (TL t) else ORD x < ORD (HD t))`;;
-
-let string_lt = prove
- (`(string_lt [] [] = F) /\
-   (string_lt [] (CONS y t) = T) /\
-   (string_lt (CONS x s) [] = F) /\
-   (string_lt (CONS x s) (CONS y t) =
-      if x = y then string_lt s t else ORD x < ORD y)`,
-  SIMP_TAC [string_lt;NOT_CONS_NIL;HD;TL]);;
-
-let INORDER_INSERT = define
- `INORDER_INSERT x xs =
-    APPEND (FILTER (\y. string_lt y x) xs)
-   (APPEND [x] (FILTER (\y. string_lt x y) xs))`;;
-
-let STRING_SORT = define `
-  STRING_SORT xs = ITLIST INORDER_INSERT xs []`;;
-
-x "string_lt" string_lt;;
-x "INORDER_INSERT" INORDER_INSERT;;
-x "STRING_SORT" STRING_SORT;;
-
-(* ------------------------------------------------------------------------- *)
-(* Constant and type definitions. A context is a list of definitions.        *)
-(* ------------------------------------------------------------------------- *)
-
-let def_INDUCT,def_RECURSION = define_type
-  "def = Axiomdef term
-       | Constdef string term
-       | Typedef string term string string";; (* tyname, P, absname, repname *)
-
-let def_DISTINCT = distinctness "def";;
-
-let def_INJ = injectivity "def";;
-
-x "def_DISTINCT" def_DISTINCT;;
-x "def_INJ" def_INJ;;
-x "def_INDUCT" def_INDUCT;;
-
-(* ------------------------------------------------------------------------- *)
-(* Types must have defined Tyapps and correct arity.                         *)
-(* ------------------------------------------------------------------------- *)
-
-let types_aux = new_recursive_definition def_RECURSION
- `(types_aux (Axiomdef t) = []) /\
-  (types_aux (Constdef s t) = []) /\
-  (types_aux (Typedef tyname t a r) = [(tyname,LENGTH (tvars t))])`;;
-
-let types = define
- `types defs = concat (MAP types_aux defs)`;;
-
-let type_ok_RULES,type_ok_INDUCT,type_ok_CASES = new_inductive_definition
-  `(!n defs. type_ok defs (Tyvar n)) /\
-   (!defs. type_ok defs Bool) /\
-   (!defs. type_ok defs Ind) /\
-   (!ty1 ty2 defs. type_ok defs ty1 /\ type_ok defs ty2 ==>
-                   type_ok defs (Fun ty1 ty2)) /\
-   (!n tys defs. (!ty. MEM ty tys ==> type_ok defs ty) /\
-                 MEM (n,LENGTH tys) (types defs) ==>
-                 type_ok defs (Tyapp n tys))`;;
-
-x "types_aux" types_aux;;
-x "types" types;;
-x "type_ok_RULES" type_ok_RULES;;
-x "type_ok_INDUCT" type_ok_INDUCT;;
-x "type_ok_CASES" type_ok_CASES;;
-
-(* ------------------------------------------------------------------------- *)
-(* Terms must only contain defined constants and types.                      *)
-(* ------------------------------------------------------------------------- *)
-
-let consts_aux = new_recursive_definition def_RECURSION
- `(consts_aux (Axiomdef t) = []) /\
-  (consts_aux (Constdef s t) = [(s,typeof t)]) /\
-  (consts_aux (Typedef tyname t a r) =
-     let rep_type = domain (typeof t) in
-     let abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t))) in
-       [(a,Fun rep_type abs_type);
-        (r,Fun abs_type rep_type)])`;;
-
-let consts = define
- `consts defs = concat (MAP consts_aux defs)`;;
-
-let term_ok = new_recursive_definition term_RECURSION
- `(term_ok defs (Var s ty) <=> type_ok defs ty) /\
-  (term_ok defs (Const s ty) <=> (type_ok defs ty /\
-     (?ty2 i. MEM (s,ty2) (consts defs) /\ (TYPE_SUBST i ty2 = ty)))) /\
-  (term_ok defs (Equal ty) <=> type_ok defs ty) /\
-  (term_ok defs (Select ty) <=> type_ok defs ty) /\
-  (term_ok defs (Comb x y) <=> (term_ok defs x /\ term_ok defs y)) /\
-  (term_ok defs (Abs s ty x) <=> (type_ok defs ty /\ term_ok defs x))`;;
-
-x "consts_aux" consts_aux;;
-x "consts" consts;;
-x "term_ok" term_ok;;
-
-(* ------------------------------------------------------------------------- *)
-(* A context is well-formed if all definitions are allowed in that order.    *)
-(* ------------------------------------------------------------------------- *)
-
-let reserved_type_names = define
- `reserved_type_names = [[CHR 98; CHR 111; CHR 111; CHR 108];
-                         [CHR 105; CHR 110; CHR 100];
-                         [CHR 102; CHR 117; CHR 110]]`;;
-
-let reserved_const_names = define
- `reserved_const_names = [[CHR 61]; [CHR 64]]`;;
-
-let def_ok = new_recursive_definition def_RECURSION
- `(def_ok (Axiomdef t) (defs:(def)list) <=>
-     t has_type Bool /\ welltyped t /\ term_ok defs t) /\
-  (def_ok (Constdef s t) (defs:(def)list) <=>
-     CLOSED t /\ welltyped t /\ term_ok defs t /\
-     ~(MEM s (MAP FST (consts defs))) /\
-     ~(MEM s reserved_const_names) /\
-     !v. MEM v (tvars t) ==> MEM v (tyvars (typeof t))) /\
-  (def_ok (Typedef tyname t a r) defs <=>
-     CLOSED t /\ welltyped t /\ term_ok defs t /\
-     ~(MEM tyname (MAP FST (types defs))) /\
-     ~(MEM tyname reserved_type_names) /\
-     ~(MEM a (MAP FST (consts defs))) /\ ~(MEM a reserved_const_names) /\
-     ~(MEM r (MAP FST (consts defs))) /\ ~(MEM r reserved_const_names) /\
-     ?ty. (typeof t = Fun ty Bool) /\
-          !v. MEM v (tvars t) ==> MEM v (tyvars ty))`;;
-
-let context_ok = new_recursive_definition list_RECURSION
- `(context_ok [] = T) /\
-  (context_ok (CONS def defs) <=> (def_ok def defs /\ context_ok defs))`;;
-
-let welltyped_in = define
- `welltyped_in t defs <=> welltyped t /\ term_ok defs t /\ context_ok defs`;;
-
-x "reserved_type_names" reserved_type_names;;
-x "reserved_const_names" reserved_const_names;;
-x "def_ok" def_ok;;
-x "context_ok" context_ok;;
-x "welltyped_in" welltyped_in;;
-
-(* ------------------------------------------------------------------------- *)
-(* Put everything together into a deductive system.                          *)
-(* ------------------------------------------------------------------------- *)
-
-parse_as_infix("|-",(11,"right"));;
-
-let proves_RULES,proves_INDUCT,proves_CASES = new_inductive_definition
- `(!t defs.
-        welltyped_in t defs
-        ==> defs, [] |- t === t) /\
-  (!asl1 asl2 l m1 m2 r defs.
-        defs, asl1 |- l === m1 /\ defs, asl2 |- m2 === r /\ ACONV m1 m2
-        ==> defs, TERM_UNION asl1 asl2 |- l === r) /\
-  (!asl1 l1 r1 asl2 l2 r2 defs.
-        defs, asl1 |- l1 === r1 /\
-        defs, asl2 |- l2 === r2 /\ welltyped(Comb l1 l2)
-        ==> defs, TERM_UNION asl1 asl2 |- Comb l1 l2 === Comb r1 r2) /\
-  (!asl x ty l r defs.
-        ~(EX (VFREE_IN (Var x ty)) asl) /\ type_ok defs ty /\
-        defs, asl |- l === r
-        ==> defs, asl |- (Abs x ty l) === (Abs x ty r)) /\
-  (!x ty t defs.
-        welltyped_in t defs /\ type_ok defs ty
-        ==> defs, [] |- Comb (Abs x ty t) (Var x ty) === t) /\
-  (!p defs.
-        p has_type Bool /\ welltyped_in p defs
-        ==> defs, [p] |- p) /\
-  (!asl1 asl2 p q p' defs.
-        defs, asl1 |- p === q /\ defs, asl2 |- p' /\ ACONV p p'
-        ==> defs, TERM_UNION asl1 asl2 |- q) /\
-  (!asl1 asl2 c1 c2 defs.
-        defs, asl1 |- c1 /\ defs, asl2 |- c2
-        ==> defs, TERM_UNION (FILTER((~) o ACONV c2) asl1)
-                             (FILTER((~) o ACONV c1) asl2)
-               |- c1 === c2) /\
-  (!tyin asl p defs.
-        (!s s'. MEM (s',s) tyin ==> type_ok defs s') /\
-        defs, asl |- p
-        ==> defs, MAP (INST tyin) asl |- INST tyin p) /\
-  (!ilist asl p defs.
-        (!s s'. MEM (s',s) ilist ==> ?x ty. (s = Var x ty) /\ s' has_type ty /\
-                                            welltyped_in s' defs) /\
-        defs, asl |- p
-        ==> defs, MAP (VSUBST ilist) asl |- VSUBST ilist p) /\
-  (!asl p d defs.
-        defs, asl |- p /\ def_ok d defs
-        ==> (CONS d defs), asl |- p) /\
-  (!t defs.
-        context_ok defs /\ MEM (Axiomdef t) defs
-        ==> defs, [] |- t) /\
-  (!n t defs.
-        context_ok defs /\ MEM (Constdef n t) defs
-        ==> defs, [] |- Const n (typeof t) === t) /\
-  (!tyname t a r defs x rep_type abs_type.
-        context_ok defs /\ MEM (Typedef tyname t a r) defs /\
-        (rep_type = domain (typeof t)) /\
-        (abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t))))
-        ==> defs, [] |- Comb (Const a (Fun rep_type abs_type))
-                             (Comb (Const r (Fun abs_type rep_type))
-                                   (Var x abs_type)) === Var x abs_type) /\
-  (!tyname t a r defs x rep_type abs_type.
-        context_ok defs /\ MEM (Typedef tyname t a r) defs /\
-        (rep_type = domain (typeof t)) /\
-        (abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t))))
-        ==> defs, [] |- Comb t (Var x rep_type) ===
-                        Comb (Const r (Fun abs_type rep_type))
-                             (Comb (Const a (Fun rep_type abs_type))
-                                   (Var x rep_type)) === Var x rep_type)`;;
-
-x "proves_RULES" proves_RULES;;
-x "proves_INDUCT" proves_INDUCT;;
-x "proves_CASES" proves_CASES;;
-
-(* ------------------------------------------------------------------------- *)
 (* Define INST_CORE_ALT                                                      *)
 (* ------------------------------------------------------------------------- *)
 
@@ -1443,6 +1168,272 @@ let INST_CORE_HAS_TYPE = prove(
   EXPAND_TAC "env''" THEN REWRITE_TAC[REV_ASSOCD] THEN ASM_MESON_TAC[]);;
 
 x "INST_CORE_HAS_TYPE" INST_CORE_HAS_TYPE;;
+
+(* ------------------------------------------------------------------------- *)
+(* Function for collecting type variables.                                   *)
+(* ------------------------------------------------------------------------- *)
+
+let ITLIST = new_recursive_definition list_RECURSION
+ `(ITLIST f [] b = b) /\
+  (ITLIST f (CONS x xs) b = f x (ITLIST f xs b))`;;
+
+let STRING_INSERT = define
+ `STRING_INSERT (x:string) xs = if MEM x xs then xs else CONS x xs`;;
+
+let STRING_UNION = define
+ `STRING_UNION xs ys = ITLIST STRING_INSERT xs ys`;;
+
+x "ITLIST" ITLIST;;
+x "STRING_INSERT" STRING_INSERT;;
+x "STRING_UNION" STRING_UNION;;
+
+let TYVARS_LEMMA =
+  (SIMP_RULE [] o
+   ISPEC `\(a0:type) (a1:(type)list) x1 x2. STRING_UNION x1 x2` o
+   ISPEC `[]:(string)list` o
+   ISPEC `\(a0:type) (a1:type) x1 x2. STRING_UNION x1 x2` o
+   ISPEC `([]:(string)list)` o
+   ISPEC `([]:(string)list)` o
+   ISPEC `\(s:string) (x:(type)list) ts. (ts:(string)list)` o
+   ISPEC `\v:string. [v]`)
+  type_RECURSION;;
+
+let TYVARS_EXISTS = prove
+ (`?TYVARS.
+    !v tys ty1 ty2.
+     (TYVARS (Tyvar v) = [v]) /\
+     (TYVARS (Tyapp v tys) = ITLIST (STRING_UNION o TYVARS) tys []) /\
+     (TYVARS Bool = []) /\
+     (TYVARS Ind = []) /\
+     (TYVARS (Fun ty1 ty2) = STRING_UNION (TYVARS ty1) (TYVARS ty2))`,
+  STRIP_ASSUME_TAC TYVARS_LEMMA THEN
+  EXISTS_TAC `fn1:type->(string)list` THEN
+  ASM_REWRITE_TAC [] THEN
+  MATCH_MP_TAC list_INDUCT THEN
+  ASM_SIMP_TAC [ITLIST;o_DEF]);;
+
+let tyvars = new_specification ["tyvars"] TYVARS_EXISTS;;
+
+let tvars = new_recursive_definition term_RECURSION
+ `(tvars (Var n ty) = tyvars ty) /\
+  (tvars (Const n ty) = tyvars ty) /\
+  (tvars (Equal ty) = tyvars ty) /\
+  (tvars (Select ty) = tyvars ty) /\
+  (tvars (Comb s t) = STRING_UNION (tvars s) (tvars t)) /\
+  (tvars (Abs n ty t) = STRING_UNION (tyvars ty) (tvars t))`;;
+
+x "tyvars" tyvars;;
+x "tvars" tvars;;
+
+(* ------------------------------------------------------------------------- *)
+(* Sorting strings.                                                          *)
+(* ------------------------------------------------------------------------- *)
+
+let string_lt = new_recursive_definition list_RECURSION
+ `(string_lt [] t = ~((t:string) = [])) /\
+  (string_lt (CONS x s) t =
+     if t = [] then F else
+     if x = HD t then string_lt s (TL t) else ORD x < ORD (HD t))`;;
+
+let string_lt = prove
+ (`(string_lt [] [] = F) /\
+   (string_lt [] (CONS y t) = T) /\
+   (string_lt (CONS x s) [] = F) /\
+   (string_lt (CONS x s) (CONS y t) =
+      if x = y then string_lt s t else ORD x < ORD y)`,
+  SIMP_TAC [string_lt;NOT_CONS_NIL;HD;TL]);;
+
+let INORDER_INSERT = define
+ `INORDER_INSERT x xs =
+    APPEND (FILTER (\y. string_lt y x) xs)
+   (APPEND [x] (FILTER (\y. string_lt x y) xs))`;;
+
+let STRING_SORT = define `
+  STRING_SORT xs = ITLIST INORDER_INSERT xs []`;;
+
+x "string_lt" string_lt;;
+x "INORDER_INSERT" INORDER_INSERT;;
+x "STRING_SORT" STRING_SORT;;
+
+(* ------------------------------------------------------------------------- *)
+(* Constant and type definitions. A context is a list of definitions.        *)
+(* ------------------------------------------------------------------------- *)
+
+let def_INDUCT,def_RECURSION = define_type
+  "def = Axiomdef term
+       | Constdef string term
+       | Typedef string term string string";; (* tyname, P, absname, repname *)
+
+let def_DISTINCT = distinctness "def";;
+
+let def_INJ = injectivity "def";;
+
+x "def_DISTINCT" def_DISTINCT;;
+x "def_INJ" def_INJ;;
+x "def_INDUCT" def_INDUCT;;
+
+(* ------------------------------------------------------------------------- *)
+(* Types must have defined Tyapps and correct arity.                         *)
+(* ------------------------------------------------------------------------- *)
+
+let types_aux = new_recursive_definition def_RECURSION
+ `(types_aux (Axiomdef t) = []) /\
+  (types_aux (Constdef s t) = []) /\
+  (types_aux (Typedef tyname t a r) = [(tyname,LENGTH (tvars t))])`;;
+
+let types = define
+ `types defs = concat (MAP types_aux defs)`;;
+
+let type_ok_RULES,type_ok_INDUCT,type_ok_CASES = new_inductive_definition
+  `(!n defs. type_ok defs (Tyvar n)) /\
+   (!defs. type_ok defs Bool) /\
+   (!defs. type_ok defs Ind) /\
+   (!ty1 ty2 defs. type_ok defs ty1 /\ type_ok defs ty2 ==>
+                   type_ok defs (Fun ty1 ty2)) /\
+   (!n tys defs. (!ty. MEM ty tys ==> type_ok defs ty) /\
+                 MEM (n,LENGTH tys) (types defs) ==>
+                 type_ok defs (Tyapp n tys))`;;
+
+x "types_aux" types_aux;;
+x "types" types;;
+x "type_ok_RULES" type_ok_RULES;;
+x "type_ok_INDUCT" type_ok_INDUCT;;
+x "type_ok_CASES" type_ok_CASES;;
+
+(* ------------------------------------------------------------------------- *)
+(* Terms must only contain defined constants and types.                      *)
+(* ------------------------------------------------------------------------- *)
+
+let consts_aux = new_recursive_definition def_RECURSION
+ `(consts_aux (Axiomdef t) = []) /\
+  (consts_aux (Constdef s t) = [(s,typeof t)]) /\
+  (consts_aux (Typedef tyname t a r) =
+     let rep_type = domain (typeof t) in
+     let abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t))) in
+       [(a,Fun rep_type abs_type);
+        (r,Fun abs_type rep_type)])`;;
+
+let consts = define
+ `consts defs = concat (MAP consts_aux defs)`;;
+
+let term_ok = new_recursive_definition term_RECURSION
+ `(term_ok defs (Var s ty) <=> type_ok defs ty) /\
+  (term_ok defs (Const s ty) <=> (type_ok defs ty /\
+     (?ty2 i. MEM (s,ty2) (consts defs) /\ (TYPE_SUBST i ty2 = ty)))) /\
+  (term_ok defs (Equal ty) <=> type_ok defs ty) /\
+  (term_ok defs (Select ty) <=> type_ok defs ty) /\
+  (term_ok defs (Comb x y) <=> (term_ok defs x /\ term_ok defs y)) /\
+  (term_ok defs (Abs s ty x) <=> (type_ok defs ty /\ term_ok defs x))`;;
+
+x "consts_aux" consts_aux;;
+x "consts" consts;;
+x "term_ok" term_ok;;
+
+(* ------------------------------------------------------------------------- *)
+(* A context is well-formed if all definitions are allowed in that order.    *)
+(* ------------------------------------------------------------------------- *)
+
+let def_ok = new_recursive_definition def_RECURSION
+ `(def_ok (Axiomdef t) (defs:(def)list) <=>
+     t has_type Bool /\ welltyped t /\ term_ok defs t) /\
+  (def_ok (Constdef s t) (defs:(def)list) <=>
+     CLOSED t /\ welltyped t /\ term_ok defs t /\
+     ~(MEM s (MAP FST (consts defs))) /\ ~(s = [CHR 61]) /\
+     !v. MEM v (tvars t) ==> MEM v (tyvars (typeof t))) /\
+  (def_ok (Typedef tyname t a r) defs <=>
+     CLOSED t /\ welltyped t /\ term_ok defs t /\
+     ~(MEM tyname (MAP FST (types defs))) /\
+     ~(MEM a (MAP FST (consts defs))) /\ ~(a = [CHR 61]) /\
+     ~(MEM r (MAP FST (consts defs))) /\ ~(r = [CHR 61]) /\
+     ?ty. (typeof t = Fun ty Bool))`;;
+
+let context_ok = new_recursive_definition list_RECURSION
+ `(context_ok [] = T) /\
+  (context_ok (CONS def defs) <=> (def_ok def defs /\ context_ok defs))`;;
+
+let welltyped_in = define
+ `welltyped_in t defs <=> welltyped t /\ term_ok defs t /\ context_ok defs`;;
+
+x "def_ok" def_ok;;
+x "context_ok" context_ok;;
+x "welltyped_in" welltyped_in;;
+
+(* ------------------------------------------------------------------------- *)
+(* Put everything together into a deductive system.                          *)
+(* ------------------------------------------------------------------------- *)
+
+parse_as_infix("|-",(11,"right"));;
+
+let proves_RULES,proves_INDUCT,proves_CASES = new_inductive_definition
+ `(!t defs.
+        welltyped_in t defs
+        ==> defs, [] |- t === t) /\
+  (!asl1 asl2 l m1 m2 r defs.
+        defs, asl1 |- l === m1 /\ defs, asl2 |- m2 === r /\ ACONV m1 m2
+        ==> defs, TERM_UNION asl1 asl2 |- l === r) /\
+  (!asl1 l1 r1 asl2 l2 r2 defs.
+        defs, asl1 |- l1 === r1 /\
+        defs, asl2 |- l2 === r2 /\ welltyped(Comb l1 l2)
+        ==> defs, TERM_UNION asl1 asl2 |- Comb l1 l2 === Comb r1 r2) /\
+  (!asl x ty l r defs.
+        ~(EX (VFREE_IN (Var x ty)) asl) /\ type_ok defs ty /\
+        defs, asl |- l === r
+        ==> defs, asl |- (Abs x ty l) === (Abs x ty r)) /\
+  (!x ty t defs.
+        welltyped_in t defs /\ type_ok defs ty
+        ==> defs, [] |- Comb (Abs x ty t) (Var x ty) === t) /\
+  (!p defs.
+        p has_type Bool /\ welltyped_in p defs
+        ==> defs, [p] |- p) /\
+  (!asl1 asl2 p q p' defs.
+        defs, asl1 |- p === q /\ defs, asl2 |- p' /\ ACONV p p'
+        ==> defs, TERM_UNION asl1 asl2 |- q) /\
+  (!asl1 asl2 c1 c2 defs.
+        defs, asl1 |- c1 /\ defs, asl2 |- c2
+        ==> defs, TERM_UNION (FILTER((~) o ACONV c2) asl1)
+                             (FILTER((~) o ACONV c1) asl2)
+               |- c1 === c2) /\
+  (!tyin asl p defs.
+        (!s s'. MEM (s',s) tyin ==> type_ok defs s') /\
+        defs, asl |- p
+        ==> defs, MAP (INST tyin) asl |- INST tyin p) /\
+  (!ilist asl p defs.
+        (!s s'. MEM (s',s) ilist ==> ?x ty. (s = Var x ty) /\ s' has_type ty /\
+                                            welltyped_in s' defs) /\
+        defs, asl |- p
+        ==> defs, MAP (VSUBST ilist) asl |- VSUBST ilist p) /\
+  (!asl p d defs.
+        defs, asl |- p /\ def_ok d defs
+        ==> (CONS d defs), asl |- p) /\
+  (!t defs.
+        context_ok defs /\ MEM (Axiomdef t) defs
+        ==> defs, [] |- t) /\
+  (!n t defs.
+        context_ok defs /\ MEM (Constdef n t) defs
+        ==> defs, [] |- Const n (typeof t) === t) /\
+  (!tyname t a r defs x rep_type abs_type y d.
+        (d = Typedef tyname t a r) /\
+        (rep_type = domain (typeof t)) /\
+        (abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t)))) /\
+        context_ok (CONS d defs) /\ defs, [] |- Comb t y
+        ==> (CONS d defs), []
+             |- Comb (Const a (Fun rep_type abs_type))
+                     (Comb (Const r (Fun abs_type rep_type))
+                           (Var x abs_type)) === Var x abs_type) /\
+  (!tyname t a r defs x rep_type abs_type y d.
+        (d = Typedef tyname t a r) /\
+        (rep_type = domain (typeof t)) /\
+        (abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t)))) /\
+        context_ok (CONS d defs) /\ defs, [] |- Comb t y
+        ==> (CONS d defs), []
+             |- Comb t (Var x rep_type) ===
+                Comb (Const r (Fun abs_type rep_type))
+                     (Comb (Const a (Fun rep_type abs_type))
+                           (Var x rep_type)) === Var x rep_type)`;;
+
+x "proves_RULES" proves_RULES;;
+x "proves_INDUCT" proves_INDUCT;;
+x "proves_CASES" proves_CASES;;
 
 logfile_end ();;
 stop_logging ();;

@@ -1154,29 +1154,30 @@ val _ = Define `
     Sequent([],mk_eq(mk_comb(P,r),mk_eq(mk_comb(rep,mk_comb(abs,r)),r)))
 *)
 
-val _ = Define `
+val new_basic_type_definition_def = Define `
   new_basic_type_definition tyname absname repname thm =
     case thm of (Sequent asl c) =>
     do ok1 <- can get_const_type absname ;
        ok2 <- can get_const_type repname ;
     if ok1 \/ ok2 then failwith "new_basic_type_definition: Constant(s) already in use" else
+    if absname = repname then failwith "new_basic_type_definition: Constants must be distinct" else
     if ~(asl = []) then
       failwith "new_basic_type_definition: Assumptions in theorem" else
     do (P,x) <- try dest_comb c "new_basic_type_definition: Not a combination" ;
     if ~(freesin [] P) then
       failwith "new_basic_type_definition: Predicate is not closed" else
     let tyvars = MAP Tyvar (QSORT string_le (type_vars_in_term P)) in
-    do try new_type (tyname,LENGTH tyvars)
+    do rty <- type_of x ;
+       y <- try new_type (tyname,LENGTH tyvars)
                          "new_basic_type_definition: Type already defined" ;
-       add_def (Typedef tyname P absname repname) ;
+       y <- add_def (Typedef tyname P absname repname) ;
        aty <- mk_type(tyname,tyvars) ;
-       rty <- type_of x ;
-       ty <- mk_fun_ty rty aty ;
-       new_constant(absname,ty) ;
-       abs <- mk_const(absname,[]) ;
        ty <- mk_fun_ty aty rty ;
-       new_constant(repname,ty) ;
+       y <- new_constant(repname,ty) ;
        rep <- mk_const(repname,[]) ;
+       ty <- mk_fun_ty rty aty ;
+       y <- new_constant(absname,ty) ;
+       abs <- mk_const(absname,[]) ;
        a <- return (mk_var("a",aty)) ;
        r <- return (mk_var("r",rty)) ;
        x1 <- mk_comb(rep,a) ;
