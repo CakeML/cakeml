@@ -156,19 +156,20 @@ val parse_result = EVAL ``ptree_Expr ^ast``;
 (* would use EVAL for this too, but it fails to turn (∃i. F) into F, and can't
    be primed with that as a rewrite rule.
 
-   Nor does
+   And if you do
 
-     val _ = computeLib.add_conv (existential, 1, REWR_CONV EXISTS_SIMP)
+     val _ = computeLib.add_conv (existential, 1, REWR_CONV EXISTS_SIMP) computeLib.the_compset
+     val _ = computeLib.set_skip computeLib.the_compset ``COND`` (SOME 1)
 
-   work (can't see why)
+   you get a situation wherein EVAL isn't idempotent.  Yikes.
 *)
 val check_results =
     time (SIMP_CONV (srw_ss())
               [valid_ptree_def, Eapp_rules_def, Ebase_rules_def,
                MultOps_rules_def, Emult_rules_def, mkRules_def,
                binop_rule_def, DISJ_IMP_THM, FORALL_AND_THM])
-   ``valid_ptree <| rules := Eapp_rules ∪ Ebase_rules ∪ MultOps_rules ∪
-                             Emult_rules; start := mkNT nEmult |> ^ast``
+ ``valid_ptree <| rules := Eapp_rules ∪ Ebase_rules ∪ MultOps_rules ∪
+                           Emult_rules; start := mkNT nEmult |> ^ast``
 
 val _ = if aconv (rhs (concl check_results)) T then print "valid_ptree: OK\n"
         else raise Fail "valid_ptree: failed"
