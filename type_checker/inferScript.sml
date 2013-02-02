@@ -115,10 +115,6 @@ apply_subst_list ts =
 (* Generalise the unification variables greater than m, starting at deBruijn index n.
  * Return how many were generalised and the generalised type *)
 val generalise_def = Define `
-(generalise m n (Infer_Tfn t1 t2) =
-  let (num_gen, t1') = generalise m n t1 in
-  let (num_gen', t2') = generalise m (n+num_gen) t2 in
-    (num_gen + num_gen', Infer_Tfn t1' t2')) ∧
 (generalise m n (Infer_Tapp ts tc) =
   let (num_gen, ts') = generalise_list m n ts in
     (num_gen, Infer_Tapp ts' tc)) ∧
@@ -141,9 +137,7 @@ val infer_type_subst_def = tDefine "infer_type_subst" `
 (infer_type_subst s (Tvar_db n) =
   Infer_Tvar_db n) ∧
 (infer_type_subst s (Tapp ts tn) =
-  Infer_Tapp (MAP (infer_type_subst s) ts) tn) ∧
-(infer_type_subst s (Tfn t1 t2) =
-  Infer_Tfn (infer_type_subst s t1) (infer_type_subst s t2))`
+  Infer_Tapp (MAP (infer_type_subst s) ts) tn)`
 (WF_REL_TAC `measure (t_size o SND)` >>
  rw [] >>
  TRY (induct_on `ts`) >>
@@ -156,8 +150,6 @@ val infer_deBruijn_subst_def = tDefine "infer_deBruijn_subst" `
   EL n s) ∧
 (infer_deBruijn_subst s (Infer_Tapp ts tn) =
   Infer_Tapp (MAP (infer_deBruijn_subst s) ts) tn) ∧
-(infer_deBruijn_subst s (Infer_Tfn t1 t2) =
-  Infer_Tfn (infer_deBruijn_subst s t1) (infer_deBruijn_subst s t2)) ∧
 (infer_deBruijn_subst s (Infer_Tuvar n) =
   Infer_Tuvar n)`
 (WF_REL_TAC `measure (infer_t_size o SND)` >>
@@ -231,7 +223,7 @@ constrain_op op t1 t2 =
        od
    | Opapp =>
        do uvar <- fresh_uvar;
-          () <- add_constraint t1 (Infer_Tfn t2 uvar);
+          () <- add_constraint t1 (Infer_Tapp [t2;uvar] TC_fn);
           return uvar
        od
    | Opassign =>
@@ -271,7 +263,7 @@ val infer_e_def = tDefine "infer_e" `
 (infer_e cenv env (Fun x topt e) =
   do t1 <- fresh_uvar;
      (e', t2) <- infer_e cenv (bind x (0,t1) env) e;
-     return (Fun x (SOME t1) e', Infer_Tfn t1 t2)
+     return (Fun x (SOME t1) e', Infer_Tapp [t1;t2] TC_fn)
   od) ∧
 (infer_e cenv env (Uapp uop e) =
   do (e',t) <- infer_e cenv env e;
@@ -356,7 +348,7 @@ val infer_e_def = tDefine "infer_e" `
   do uvar <- fresh_uvar;
      (e',t) <- infer_e cenv (bind x (0,uvar) env) e;
      funs' <- infer_funs cenv env funs;
-     return ((f, SOME (Infer_Tfn uvar t), x, SOME uvar, e') :: funs')
+     return ((f, SOME (Infer_Tapp [uvar;t] TC_fn), x, SOME uvar, e') :: funs')
   od)`
 (WF_REL_TAC `measure (\x. case x of | INL (_,_,e) => exp_size (\x.0) e
                                     | INR (INL (_,_,es)) => exp8_size (\x.0) es

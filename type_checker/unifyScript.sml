@@ -19,7 +19,6 @@ val _ = Hol_datatype `
 infer_t = 
     Infer_Tvar_db of num
   | Infer_Tapp of infer_t list => tc0
-  | Infer_Tfn of infer_t => infer_t
   | Infer_Tuvar of num`;
 
 val infer_t_size_def = fetch "-" "infer_t_size_def";
@@ -29,15 +28,12 @@ val _ = Hol_datatype `
 atom = 
     TC_tag of tc0
   | DB_tag of num
-  | Tfn_tag
   | Tapp_tag
   | Null_tag`;
 
 val encode_infer_t_def = Define `
 (encode_infer_t (Infer_Tvar_db n) =
   Const (DB_tag n)) ∧
-(encode_infer_t (Infer_Tfn t1 t2) =
-  Pair (Const Tfn_tag) (Pair (encode_infer_t t1) (encode_infer_t t2))) ∧
 (encode_infer_t (Infer_Tapp ts tc) =
   Pair (Const Tapp_tag) (Pair (Const (TC_tag tc)) (encode_infer_ts ts))) ∧
 (encode_infer_t (Infer_Tuvar n) =
@@ -52,8 +48,6 @@ val decode_infer_t_def = Define `
   Infer_Tuvar n) ∧
 (decode_infer_t (Const (DB_tag n)) =
   Infer_Tvar_db n) ∧
-(decode_infer_t (Pair (Const Tfn_tag) (Pair s1 s2)) =
-  Infer_Tfn (decode_infer_t s1) (decode_infer_t s2)) ∧
 (decode_infer_t (Pair (Const Tapp_tag) (Pair (Const (TC_tag tc)) s)) =
   Infer_Tapp (decode_infer_ts s) tc) ∧
 (decode_infer_ts (Const Null_tag) =
@@ -103,7 +97,6 @@ val t_vwalk_eqn = Q.store_thm ("t_vwalk_eqn",
     case FLOOKUP s v of
       | NONE => Infer_Tuvar v
       | SOME (Infer_Tuvar u) => t_vwalk s u
-      | SOME (Infer_Tfn t1 t2) => Infer_Tfn t1 t2
       | SOME (Infer_Tapp ts tc') => Infer_Tapp ts tc'
       | SOME (Infer_Tvar_db n) => Infer_Tvar_db n)`,
 rw [t_vwalk_def] >>
@@ -125,7 +118,6 @@ t_walk s t = decode_infer_t (walk (encode_infer_t o_f s) (encode_infer_t t))`;
 
 val t_walk_eqn = Q.store_thm ("t_walk_eqn",
 `(!s v. t_walk s (Infer_Tuvar v) = t_vwalk s v) ∧
- (!s t1 t2. t_walk s (Infer_Tfn t1 t2) = Infer_Tfn t1 t2) ∧
  (!s ts tc. t_walk s (Infer_Tapp ts tc) = Infer_Tapp ts tc) ∧
  (!s n. t_walk s (Infer_Tvar_db n) = Infer_Tvar_db n)`,
 rw [t_walk_def, walk_def, t_vwalk_def, encode_infer_t_def,
@@ -191,7 +183,6 @@ val t_oc_eqn = Q.store_thm ("t_oc_eqn",
   !t v. t_oc s t v =
     case t_walk s t of
       | Infer_Tuvar u => v = u
-      | Infer_Tfn t1 t2 => t_oc s t1 v ∨ t_oc s t2 v
       | Infer_Tapp ts tc' => EXISTS (\t. t_oc s t v) ts
       | Infer_Tvar_db n => F`,
 rw [t_oc_def] >>
@@ -243,8 +234,6 @@ val encode_walk = prove(
 val encode_pair_cases = prove(
   ``(∀t t1 t2.
     (encode_infer_t t = Pair t1 t2) ⇒
-      ((t1 = Const Tfn_tag) ∧
-       (∃ta td. t2 = Pair (encode_infer_t ta) (encode_infer_t td))) ∨
       ((t1 = Const Tapp_tag) ∧
        (∃tc ts. t2 = Pair (Const (TC_tag tc)) (encode_infer_ts ts))))``,
   Cases >> rw[encode_infer_t_def] >>
@@ -273,11 +262,6 @@ val encode_unify_lemma = Q.prove (
   (s = (encode_infer_t o_f s')) ∧
   (((t1 = encode_infer_t t1') ∧ (t2 = encode_infer_t t2')) ∨
    (∃c. (t1 = Const c) ∧ (t2 = Const c) ∧ (t1' = t2')) ∨
-   (∃t1a t1d t2a t2d.
-     (t1 = Pair (encode_infer_t t1a) (encode_infer_t t1d)) ∧
-     (t2 = Pair (encode_infer_t t2a) (encode_infer_t t2d)) ∧
-     (t1' = Infer_Tfn t1a t1d) ∧
-     (t2' = Infer_Tfn t2a t2d)) ∨
    (∃c ts1 ts2.
      (t1 = Pair (Const c) (encode_infer_ts ts1)) ∧
      (t2 = Pair (Const c) (encode_infer_ts ts2)) ∧
@@ -300,6 +284,7 @@ qmatch_assum_abbrev_tac `wfs es` >>
 TRY(simp[option_map_def] >>
   rw[GSYM fmap_EQ_THM,Abbr`es`,decode_left_inverse] >>
   NO_TAC) >>
+  (*
 TRY(simp[encode_infer_t_def] >>
   simp[Once unify_def,SimpRHS] >>
   rw[option_map_def] >>
@@ -317,6 +302,7 @@ TRY(simp[encode_infer_t_def] >>
   simp[] >>
   rw[option_map_def] >>
   NO_TAC ) >>
+  *)
 TRY(simp[encode_infer_t_def] >>
   simp[Once unify_def,SimpRHS] >>
   simp[Once unify_def,SimpRHS] >>
@@ -386,14 +372,14 @@ TRY (
   qspecl_then[`t_walk s' t1'`,`t1a`,`t1d`]mp_tac encode_pair_cases >>
   qspecl_then[`t_walk s' t2'`,`t2a`,`t2d`]mp_tac encode_pair_cases >>
   simp[] >>
-  strip_tac >> strip_tac >> fs[] >- (
+  strip_tac >> strip_tac >> fs[] (*>- (
     rfs[] >> rw[] >>
     rpt (qpat_assum `Pair X Y = Z` (assume_tac o SYM)) >>
     first_x_assum (qspecl_then[`s'`,`ARB`,`ARB`]kall_tac) >>
     first_x_assum (qspecl_then[`s'`,`Infer_Tfn ta' td'`,`Infer_Tfn ta td`]mp_tac) >>
     simp[option_map_def,encode_infer_t_def] >>
     simp[Once unify_def] >>
-    metis_tac[o_f_o_f] ) >>
+    metis_tac[o_f_o_f] )*) >>
   rfs[] >> rw[] >>
   rpt (qpat_assum `Pair X Y = Z` (assume_tac o SYM)) >>
   qpat_assum`unify es X Y = Z`mp_tac >>
@@ -466,10 +452,6 @@ val t_unify_eqn = Q.store_thm ("t_unify_eqn",
         SOME (if v1 = v2 then s else s |+ (v1,Infer_Tuvar v2))
     | (Infer_Tuvar v1, t2) => t_ext_s_check s v1 t2
     | (t1, Infer_Tuvar v2) => t_ext_s_check s v2 t1
-    | (Infer_Tfn t1a t1b, Infer_Tfn t2a t2b) =>
-        (case t_unify s t1a t2a of
-          | NONE => NONE
-          | SOME sx => t_unify sx t1b t2b)
     | (Infer_Tapp ts1 tc1, Infer_Tapp ts2 tc2) =>
         if tc1 = tc2 then
           ts_unify s ts1 ts2
@@ -504,7 +486,6 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_def, decode_left_inverse,
  rw [Once unify_def] >>
      rw [Once unify_def] >>
      rw [Once unify_def],
- rw [Once unify_def],
  cases_on `t_vwalk s n` >>
      rw [encode_infer_t_def] >>
      rw [Once unify_def] >>
@@ -512,44 +493,6 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_def, decode_left_inverse,
          I_o_f, o_f_FUPDATE, decode_infer_t_def, t_ext_s_check_eqn, option_map_def] >>
      rw [Once oc_walking, encode_infer_t_def, t_oc_def] >>
      rw [Once unify_def] >>
-     metis_tac [FUPDATE_PURGE],
- rw [Once unify_def],
- rw [Once unify_def] >>
-     cases_on `unify (encode_infer_t o_f s) (encode_infer_t i) (encode_infer_t i')` >>
-     fs [] >>
-     cases_on `unify x (encode_infer_t i0) (encode_infer_t i0')` >>
-     fs [] >>
-     `?x'. x = encode_infer_t o_f x'`
-           by (imp_res_tac encode_unify >>
-               fs [option_map_def] >>
-               cases_on `t_unify s i i'` >>
-               fs [] >>
-               metis_tac []) >>
-    rw [I_o_f, decode_left_inverse_I],
- cases_on `t_vwalk s n` >>
-     rw [encode_infer_t_def] >>
-     rw [Once unify_def] >>
-     rw [ts_unify_thm, option_map_def, decode_left_inverse_I, decode_left_inverse,
-         I_o_f, o_f_FUPDATE, decode_infer_t_def, t_ext_s_check_eqn, option_map_def] >>
-     rw [Once oc_walking, encode_infer_t_def, t_oc_def, option_bind_thm] >|
-     [cases_on `unify (encode_infer_t o_f s) (encode_infer_t i) (encode_infer_t i')` >>
-          fs [] >>
-          cases_on `unify x (encode_infer_t i0) (encode_infer_t i0')` >>
-          fs [] >>
-          `?x'. x = encode_infer_t o_f x'`
-                by (imp_res_tac encode_unify >>
-                    fs [option_map_def] >>
-                     cases_on `t_unify s i i'` >>
-                     fs [] >>
-                     metis_tac []) >>
-          rw [I_o_f, decode_left_inverse_I],
-      metis_tac [FUPDATE_PURGE]],
- cases_on `t_vwalk s n` >>
-     rw [encode_infer_t_def] >>
-     rw [Once unify_def] >>
-     rw [o_f_FUPDATE, I_o_f, decode_left_inverse_I, decode_left_inverse,
-         decode_infer_t_def, t_ext_s_check_eqn] >>
-     rw [Once oc_walking, encode_infer_t_def, t_oc_def, option_bind_thm] >>
      metis_tac [FUPDATE_PURGE],
  cases_on `t_vwalk s n` >>
      rw [encode_infer_t_def] >>
@@ -566,19 +509,9 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_def, decode_left_inverse,
      rw [o_f_FUPDATE, I_o_f, decode_left_inverse_I, decode_left_inverse,
          decode_infer_t_def, t_ext_s_check_eqn] >>
      rw [ts_unify_thm, Once oc_walking, encode_infer_t_def, t_oc_def, option_bind_thm, 
-         option_map_def] >|
-     [cases_on `unify (encode_infer_t o_f s) (encode_infer_t i') (encode_infer_t i)` >>
-          fs [] >>
-          cases_on `unify x (encode_infer_t i0') (encode_infer_t i0)` >>
-          fs [] >>
-          `?x'. x = encode_infer_t o_f x'`
-                by (imp_res_tac encode_unify >>
-                    fs [option_map_def] >>
-                    cases_on `t_unify s i' i` >>
-                    fs [] >>
-                    metis_tac []) >>
-         rw [I_o_f, decode_left_inverse_I],
-     metis_tac [FUPDATE_PURGE]],
+         option_map_def] >>
+     rw [Once unify_def] >>
+     metis_tac [FUPDATE_PURGE],
  cases_on `t_vwalk s n` >>
      rw [encode_infer_t_def] >>
      cases_on `t_vwalk s n'` >>
@@ -591,19 +524,6 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_def, decode_left_inverse,
      [metis_tac [FUPDATE_PURGE],
       rw [Once unify_def],
       metis_tac [FUPDATE_PURGE],
-      cases_on `unify (encode_infer_t o_f s) (encode_infer_t i) (encode_infer_t i')` >>
-          fs [] >>
-          cases_on `unify x (encode_infer_t i0) (encode_infer_t i0')` >>
-          fs [] >>
-          `?x'. x = encode_infer_t o_f x'`
-                by (imp_res_tac encode_unify >>
-                    fs [option_map_def] >>
-                    cases_on `t_unify s i i'` >>
-                    fs [] >>
-                    metis_tac []) >>
-          rw [I_o_f, decode_left_inverse_I],
-      metis_tac [FUPDATE_PURGE], 
-      metis_tac [FUPDATE_PURGE], 
       metis_tac [FUPDATE_PURGE], 
       metis_tac [FUPDATE_PURGE], 
       metis_tac [FUPDATE_PURGE]]]);
@@ -617,9 +537,6 @@ val apply_subst_t_eqn = Q.store_thm ("apply_subst_eqn",
    case FLOOKUP s n of
      | NONE => Infer_Tuvar n
      | SOME t => t) ∧
- (!s t1 t2.
-  apply_subst_t s (Infer_Tfn t1 t2) =
-    Infer_Tfn (apply_subst_t s t1) (apply_subst_t s t2)) ∧
  (!s ts tc.
   apply_subst_t s (Infer_Tapp ts tc) =
     Infer_Tapp (MAP (apply_subst_t s) ts) tc) ∧
@@ -652,7 +569,6 @@ val t_walkstar_eqn = Q.store_thm ("t_walkstar_eqn",
     t_walkstar s t =
     case t_walk s t of
       | Infer_Tuvar v => Infer_Tuvar v
-      | Infer_Tfn t1 t2 => Infer_Tfn (t_walkstar s t1) (t_walkstar s t2)
       | Infer_Tapp ts tc0 => Infer_Tapp (MAP (t_walkstar s) ts) tc0
       | Infer_Tvar_db n => Infer_Tvar_db n`,
 rw [t_walkstar_def] >>

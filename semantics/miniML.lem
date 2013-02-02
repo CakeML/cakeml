@@ -129,18 +129,19 @@ type tc =
   | TC_bool
   | TC_unit
   | TC_ref
+  | TC_fn
 
 type t =
   | Tvar of tvarN
   (* DeBruin indexed type variables. *)
   | Tvar_db of num
   | Tapp of list t * tc
-  | Tfn of t * t
 
 let Tint = Tapp [] TC_int
 let Tunit = Tapp [] TC_unit
 let Tbool = Tapp [] TC_bool
 let Tref t = Tapp [t] TC_ref
+let Tfn t1 t2 = Tapp [t1;t2] TC_fn
 
 (* Patterns *)
 type pat 'a =
@@ -256,9 +257,6 @@ deBruijn_inc skip n (Tvar_db m) =
     Tvar_db (m + n)
 and
 deBruijn_inc skip n (Tapp ts tn) = Tapp (List.map (deBruijn_inc skip n) ts) tn
-and
-deBruijn_inc skip n (Tfn t1 t2) =
-  Tfn (deBruijn_inc skip n t1) (deBruijn_inc skip n t2)
 
 (* skip the lowest given indices and replace the next (LENGTH ts) with the given types and reduce all the higher ones *)
 val deBruijn_subst : num -> list t -> t -> t
@@ -275,9 +273,6 @@ deBruijn_subst skip ts (Tvar_db n) =
 and
 deBruijn_subst skip ts (Tapp ts' tn) =
   Tapp (List.map (deBruijn_subst skip ts) ts') tn
-and
-deBruijn_subst skip ts (Tfn t1 t2) =
-  Tfn (deBruijn_subst skip ts t1) (deBruijn_subst skip ts t2)
 
 val deBruijn_subst_p : num -> list t -> pat t -> pat t 
 let rec
@@ -1366,7 +1361,7 @@ val type_ds : tenvC -> tenvE -> list (dec t) -> tenvC -> tenvE -> bool
 val type_op : op -> t -> t -> t -> bool
 let type_op op t1 t2 t3 =
   match (op,t1,t2) with
-    | (Opapp, Tfn t2' t3', _) -> (t2 = t2') && (t3 = t3')
+    | (Opapp, Tapp [t2'; t3'] TC_fn, _) -> (t2 = t2') && (t3 = t3')
     | (Opn _, Tapp [] TC_int, Tapp [] TC_int) -> (t3 = Tint)
     | (Opb _, Tapp [] TC_int, Tapp [] TC_int) -> (t3 = Tbool)
     | (Equality, t1, t2) -> (t1 = t2) && (t3 = Tbool)
@@ -1393,9 +1388,6 @@ check_freevars dbmax tvs (Tvar tv) =
 and
 check_freevars dbmax tvs (Tapp ts tn) =
   List.for_all (check_freevars dbmax tvs) ts
-and
-check_freevars dbmax tvs (Tfn t1 t2) =
-  check_freevars dbmax tvs t1 && check_freevars dbmax tvs t2
 and
 check_freevars dbmax tvs (Tvar_db n) = n < dbmax
 
@@ -1438,9 +1430,6 @@ type_subst s (Tvar tv) =
 and
 type_subst s (Tapp ts tn) =
   Tapp (List.map (type_subst s) ts) tn
-and
-type_subst s (Tfn t1 t2) =
-  Tfn (type_subst s t1) (type_subst s t2)
 and
 type_subst s (Tvar_db n) = Tvar_db n
 

@@ -115,24 +115,18 @@ val check_freevars_ex_def = tDefine "check_freevars_ex" `
     failwith ("Free type variable: " ++ tv)) ∧
 (check_freevars_ex dbmax tvs (Tapp ts tn) =
   iter_ex (check_freevars_ex dbmax tvs) ts) ∧
-(check_freevars_ex dbmax tvs (Tfn t1 t2) =
-  do () <- check_freevars_ex dbmax tvs t1;
-     () <- check_freevars_ex dbmax tvs t2
-  od) ∧
 (check_freevars_ex dbmax tvs (Tvar_db n) = 
   if n < dbmax then
     return ()
   else
     failwith "Free type variable")`
 (WF_REL_TAC `measure (t_size o SND o SND)` >>
- rw [] >|
- [decide_tac,
-  decide_tac,
-  induct_on `ts` >>
-      fs [] >>
-      rw [t_size_def] >>
-      res_tac >>
-      decide_tac]);
+ rw [] >>
+ induct_on `ts` >>
+ fs [] >>
+ rw [t_size_def] >>
+ res_tac >>
+ decide_tac);
 
 val check_p_def = tDefine "check_p" `
 (check_p tvs cenv (Pvar n topt) =
@@ -189,7 +183,7 @@ val check_uop_def = Define `
 val check_op_def = Define `
 (check_op Opapp t1 t2 =
   case t1 of
-     | Tfn t2' t3' => 
+     | Tapp [t2';t3'] TC_fn => 
          if t2 = t2' then
            return t3'
          else
@@ -364,7 +358,7 @@ val check_e_def = tDefine "check_e" `
   return []) ∧
 (check_funs cenv tenv ((fn, topt1, n, topt2, e)::funs) =
   case topt1 of
-     | SOME (Tfn t1 t2) => 
+     | SOME (Tapp [t1;t2] TC_fn) => 
          (case topt2 of
             | NONE => failwith "Missing type annotation"
             | SOME t1' =>
@@ -431,14 +425,9 @@ val check_freevars_ex_correct = Q.prove (
 ho_match_mp_tac check_freevars_ind >>
 rw [check_freevars_def, check_freevars_ex_def, failwith_def, ex_return_def] >>
 TRY (cases_on `u`) >>
-rw [iter_ex_correct, ex_bind_def] >|
-[eq_tac >>
-     rw [EVERY_MEM],
- every_case_tac >>
-     rw [] >>
-     TRY (cases_on `a`) >>
-     fs [] >>
-     metis_tac []]);
+rw [iter_ex_correct, ex_bind_def] >>
+eq_tac >>
+rw [EVERY_MEM]);
 
 val check_p_sound = Q.store_thm ("check_p_sound",
 `(!tvs cenv p t tenv.
@@ -592,6 +581,7 @@ rw [] >|
      fs [check_freevars_ex_correct, monad_bind_success] >>
      every_case_tac >>
      fs [check_freevars_ex_correct, monad_bind_success] >>
+     fs [Tfn_def] >>
      metis_tac [],
  rw [RES_FORALL],
  PairCases_on `r'` >>

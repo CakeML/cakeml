@@ -117,25 +117,21 @@ val _ = register "find_recfun" find_recfun_def find_recfun_ind;
 val (type_subst_def, type_subst_ind) =
   tprove_no_defn ((type_subst_def, type_subst_ind),
   WF_REL_TAC `measure (λ(x,y). t_size y)` >>
-  rw [] >|
-  [decide_tac,
-   decide_tac,
-   induct_on `ts` >>
-       rw [t_size_def] >>
-       res_tac >>
-       decide_tac]);
+  rw [] >>
+  induct_on `ts` >>
+  rw [t_size_def] >>
+  res_tac >>
+  decide_tac);
 val _ = register "type_subst" type_subst_def type_subst_ind;
 
 val (deBruijn_subst_def, deBruijn_subst_ind) =
   tprove_no_defn ((deBruijn_subst_def, deBruijn_subst_ind),
   WF_REL_TAC `measure (λ(_,x,y). t_size y)` >>
-  rw [] >|
-  [decide_tac,
-   decide_tac,
-   induct_on `ts'` >>
-       rw [t_size_def] >>
-       res_tac >>
-       decide_tac]);
+  rw [] >>
+  induct_on `ts'` >>
+  rw [t_size_def] >>
+  res_tac >>
+  decide_tac);
 val _ = register "deBruijn_subst" deBruijn_subst_def deBruijn_subst_ind;
 
 val (check_freevars_def,check_freevars_ind) =

@@ -65,7 +65,7 @@ val _ = Define `
     s1 (STRCAT   " "  s2))`;
 
 
- val tok_to_string_defn = Hol_defn "tok_to_string" `
+ val tok_to_string_def = Define `
 
 (tok_to_string NewlineT s = STRCAT  "\n"  s)
 /\
@@ -139,7 +139,6 @@ val _ = Define `
 /\
 (tok_to_string WithT s = STRCAT  "with "  s)`;
 
-val _ = Defn.save_defn tok_to_string_defn;
 
  val tok_list_to_string_defn = Hol_defn "tok_list_to_string" `
  
@@ -214,7 +213,7 @@ val _ = Define `
 
 val _ = Defn.save_defn join_trees_defn;
 
- val lit_to_tok_tree_defn = Hol_defn "lit_to_tok_tree" `
+ val lit_to_tok_tree_def = Define `
 
 (lit_to_tok_tree (Bool T) = L (LongidT "true"))
 /\
@@ -224,7 +223,6 @@ val _ = Defn.save_defn join_trees_defn;
 /\
 (lit_to_tok_tree Unit = N (L LparT) (L RparT))`;
 
-val _ = Defn.save_defn lit_to_tok_tree_defn;
 
 val _ = Define `
  (var_to_tok_tree v =
@@ -424,7 +422,7 @@ val _ = Define `
 
 val _ = Defn.save_defn exp_to_tok_tree_defn;
 
- val tc_to_tok_tree_defn = Hol_defn "tc_to_tok_tree" `
+ val tc_to_tok_tree_def = Define `
 
 (tc_to_tok_tree TC_int =
   L (LongidT "int"))
@@ -438,12 +436,15 @@ val _ = Defn.save_defn exp_to_tok_tree_defn;
 (tc_to_tok_tree TC_ref =
   L (LongidT "ref"))`;
 
-val _ = Defn.save_defn tc_to_tok_tree_defn;
 
  val type_to_tok_tree_defn = Hol_defn "type_to_tok_tree" `
 
 (type_to_tok_tree (Tvar tn) =
   L (TyvarT tn))
+/\
+(type_to_tok_tree (Tapp [t1;t2] TC_fn) = N 
+  (L LparT) (N   (type_to_tok_tree t1) (N   (L ArrowT) (N   (type_to_tok_tree t2)  
+  (L RparT)))))
 /\
 (type_to_tok_tree (Tapp ts tc0) =
   if ts = [] then
@@ -451,11 +452,7 @@ val _ = Defn.save_defn tc_to_tok_tree_defn;
   else N 
     (L LparT) (N  
     (join_trees (L CommaT) (MAP type_to_tok_tree ts)) (N   (L RparT)  
-    (tc_to_tok_tree tc0))))
-/\
-(type_to_tok_tree (Tfn t1 t2) = N 
-  (L LparT) (N   (type_to_tok_tree t1) (N   (L ArrowT) (N   (type_to_tok_tree t2)  
-  (L RparT)))))`;
+    (tc_to_tok_tree tc0))))`;
 
 val _ = Defn.save_defn type_to_tok_tree_defn;
 
@@ -485,7 +482,7 @@ val _ = Define `
                (MAP variant_to_tok_tree variants)))))`;
 
 
- val dec_to_tok_tree_defn = Hol_defn "dec_to_tok_tree" `
+ val dec_to_tok_tree_def = Define `
  
 (dec_to_tok_tree indent (Dlet tvs p e) = N 
   (L ValT) (N  
@@ -506,7 +503,6 @@ val _ = Define `
              (MAP (typedef_to_tok_tree indent) types)) 
   (L SemicolonT)))`;
 
-val _ = Defn.save_defn dec_to_tok_tree_defn;
 
 val _ = Define `
  (dec_to_sml_string d = 
