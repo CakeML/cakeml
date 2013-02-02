@@ -2095,30 +2095,6 @@ val compile_labels_lemma = store_thm("compile_labels_lemma",
   spose_not_then strip_assume_tac >>
   res_tac >> DECIDE_TAC)
 
-val good_code_env_def = Define`
-  good_code_env sm c =
-  FEVERY (λ(l,e).
-    Cexp_pred e ∧
-    ∀s env s' v ns defs n bc0 bs benv xs vs args st.
-      Cevaluate c s (extend_rec_env env env ns defs xs vs) e (s', Rval v) ∧
-      (EL (THE (find_index n ns 0)) defs = (xs, INR l)) ∧
-      (LENGTH xs = LENGTH vs) ∧
-      (bs.code = bc0 ++ [CallPtr]) ∧
-      (bs.stack = CodePtr l::benv::args ++ Block closure_tag [CodePtr l; benv]::st) ∧
-      (bs.pc = next_addr bs.inst_length bc0) ∧
-      Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c bs) (CRecClos env ns defs n) (Block closure_tag [CodePtr l; benv]) ∧
-      (* EVERY2 (Cv_bv (mk_pp sm c bs)) vs args ∧ implied by Cenv_bs? *)
-      (* Cenv_bs c sm s (extend_rec_env env env ns defs xs vs) renv sz bs *)
-      s_refs c sm s bs
-      ⇒
-      ∃bv rfs.
-      let bs' = bs with <| stack := bv::st; pc := next_addr bs.inst_length bs.code; refs := rfs |> in
-       bc_next^* bs bs' ∧
-       Cv_bv (mk_pp (DRESTRICT sm (FDOM s')) c bs) v bv ∧
-       s_refs c sm s' bs'
-       (* Cenv_bs c sm s' env renv' sz' bs' *)
-   ) c`
-
 fun qx_choosel_then [] ttac = ttac
   | qx_choosel_then (q::qs) ttac = Q.X_CHOOSE_THEN q (qx_choosel_then qs ttac)
 
@@ -2191,6 +2167,31 @@ val good_sm_DRESTRICT = store_thm("good_sm_DRESTRICT",
   rw[INJ_DEF,IN_FRANGE,DRESTRICT_DEF] >>
   metis_tac[])
 
+val good_code_env_def = Define`
+  good_code_env sm c =
+  FEVERY (λ(l,e).
+    Cexp_pred e ∧
+    ∀s env s' v ns defs xs vs n bc0 bs benv args st.
+      Cevaluate c s (extend_rec_env env env ns defs xs vs) e (s', Rval v) ∧
+      (EL (THE (find_index n ns 0)) defs = (xs, INR l)) ∧
+      (LENGTH xs = LENGTH vs) ∧
+      (bs.code = bc0 ++ [CallPtr]) ∧
+      (bs.stack = CodePtr l::benv::args ++ Block closure_tag [CodePtr l; benv]::st) ∧
+      (bs.pc = next_addr bs.inst_length bc0) ∧
+      Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c bs) (CRecClos env ns defs n) (Block closure_tag [CodePtr l; benv]) ∧
+      (* EVERY2 (Cv_bv (mk_pp sm c bs)) vs args ∧ implied by Cenv_bs? *)
+      (* Cenv_bs c sm s (extend_rec_env env env ns defs xs vs) renv sz bs *)
+      s_refs c sm s bs
+      ⇒
+      ∃bv rfs.
+      let bs' = bs with <| stack := bv::st; pc := next_addr bs.inst_length bs.code; refs := rfs |> in
+       bc_next^* bs bs' ∧
+       Cv_bv (mk_pp (DRESTRICT sm (FDOM s')) c bs) v bv ∧
+       s_refs c sm s' bs' ∧
+       DRESTRICT bs.refs (COMPL (FRANGE (DRESTRICT sm (FDOM s)))) ⊑ DRESTRICT rfs (COMPL (FRANGE (DRESTRICT sm (FDOM s'))))
+       (* Cenv_bs c sm s' env renv' sz' bs' *)
+   ) c`
+
 val compile_val = store_thm("compile_val",
   ``(∀c s env exp res. Cevaluate c s env exp res ⇒
       ∀sm s' v bc0 bc00 bs cs.
@@ -2243,17 +2244,7 @@ val compile_val = store_thm("compile_val",
           bc_next^* bs bs' ∧
           EVERY2 (Cv_bv (mk_pp (DRESTRICT sm (FDOM s')) c bs')) vs bvs ∧
           Cenv_bs c sm s' env cs.env (cs.sz+(LENGTH vs)) bs' ∧
-          DRESTRICT bs.refs (COMPL (FRANGE (DRESTRICT sm (FDOM s)))) ⊑ DRESTRICT rfs (COMPL (FRANGE (DRESTRICT sm (FDOM s')))))
-        (*
-        ∃bvs pc st rfs.
-        (pc 0 = bs.pc) ∧ (st 0 = s) ∧ (rfs 0 = bs.refs) ∧
-        (pc (LENGTH vs) = next_addr bs.inst_length bs.code) ∧
-        (st (LENGTH vs) = s') ∧ (LENGTH bvs = LENGTH vs) ∧
-        ∀n. n ≤ LENGTH vs ⇒
-          let bs' = bs with <| stack := (REVERSE (TAKE n bvs))++bs.stack ; pc := pc n; refs := rfs n |> in
-          bc_next^* bs bs' ∧
-          EVERY2 (Cv_bv (mk_pp sm c bs')) (TAKE n vs) (TAKE n bvs) ∧
-          Cenv_bs c sm (st n) env cs.env (cs.sz+n) bs') *)``,
+          DRESTRICT bs.refs (COMPL (FRANGE (DRESTRICT sm (FDOM s)))) ⊑ DRESTRICT rfs (COMPL (FRANGE (DRESTRICT sm (FDOM s')))))``,
   ho_match_mp_tac Cevaluate_strongind >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
@@ -2647,7 +2638,7 @@ val compile_val = store_thm("compile_val",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- (
-    cheat >>
+
     simp[compile_def,LET_THM] >>
     rpt gen_tac >> strip_tac >>
     simp_tac(srw_ss()++ETA_ss)[] >>
@@ -2660,7 +2651,8 @@ val compile_val = store_thm("compile_val",
     `FDOM s ⊆ FDOM s' ∧ FDOM s' ⊆ FDOM s'' ∧ FDOM s'' ⊆ FDOM s'''` by PROVE_TAC[Cevaluate_store_SUBSET,FST] >>
     `FDOM s' ⊆ FDOM sm` by PROVE_TAC[SUBSET_TRANS] >>
     simp[Abbr`cs0`] >>
-    disch_then(Q.X_CHOOSE_THEN`bf`strip_assume_tac) >>
+    fs[ALL_DISTINCT_APPEND] >>
+    disch_then(qx_choosel_then[`bf`,`rf`]strip_assume_tac) >>
     Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
     qabbrev_tac`cs1 = compile cs0 exp` >>
     qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
@@ -2677,19 +2669,34 @@ val compile_val = store_thm("compile_val",
       conj_tac >- simp[Abbr`cs1`,Abbr`cs0`,compile_nontail] >>
       conj_tac >- simp[Abbr`cs1`,Abbr`cs0`] >>
       conj_tac >- simp[Abbr`bs1`] >>
-      conj_tac >- simp[Abbr`cs1`,Abbr`cs0`,Abbr`bs1`] >>
+      conj_tac >- (
+        `cs0.ecs = cs.ecs` by rw[Abbr`cs0`] >>
+        `cs1.sz = cs0.sz + 1` by metis_tac[compile_sz] >>
+        simp[Abbr`cs1`,Abbr`bs1`,Abbr`cs0`] ) >>
       match_mp_tac compile_labels_lemma >>
       map_every qexists_tac[`cs0`,`exp`] >>
       rw[Abbr`cs1`,Abbr`cs0`] ) >>
     simp[] >>
     map_every qunabbrev_tac[`P`,`Q`,`R`] >>
-    disch_then(Q.X_CHOOSE_THEN`bvs`strip_assume_tac) >>
+    disch_then(qx_choosel_then[`bvs`,`rfs`]strip_assume_tac) >>
     qmatch_assum_abbrev_tac`bc_next^* bs2 bs3` >>
-    qunabbrev_tac`bs3` (*
+    qunabbrev_tac`bs3` >>
+    first_x_assum (qspecl_then[`X`,`Y`]kall_tac) >>
+    fs[] >> rw[] >>
 
+    want to prove that Cv_bv s'' CRecClos bf too
+    Cv_bv_SUBMAP
     qpat_assum`Cv_bv PP (CRecClos env' ns' defs n) bf`mp_tac>>
     simp[Once Cv_bv_cases] >>
-    strip_tac >> fs[] >>
+    disch_then(qx_choosel_then[`a`,`bve`,`b`,`l`]strip_assume_tac) >>
+    fs[] >> rw[] >>
+    fs[good_code_env_def,FEVERY_DEF] >>
+    qpat_assum`∀x. x ∈ FDOM c ⇒ P`(qspec_then`l`mp_tac) >>
+    fs[FLOOKUP_DEF] >> strip_tac >>
+    Q.PAT_ABBREV_TAC`bc00 = X ++ [Stack (El 0)]` >>
+    first_x_assum (qspecl_then[`s''`,`env'`,`s'''`,`v`,`ns'`,`defs`,`ns`,`vs`,`n`,`bc00`] mp_tac) >>
+
+
 
     qspecl_then[`sm`,`
     *)) >>
