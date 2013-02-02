@@ -24,8 +24,7 @@ val _ = overload_on ("TK", ``TOK : token -> (token,MMLnonT)symbol``)
 val V_rules_def = Define`
   V_rules =
    {(mkNT nV, [TK (AlphaT s)]) | T } ∪
-   {(mkNT nV, [TK (SymbolT s)]) | T } ∪
-   {(mkNT nV, [TK OpT; TK (SymbolT s)]) | T }`
+   {(mkNT nV, [TK (SymbolT s)]) | T }`
 
 val mkRules_def = Define`
   mkRules n rset = IMAGE (\r. (mkNT n, r)) rset
