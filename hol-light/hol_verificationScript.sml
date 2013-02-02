@@ -3099,6 +3099,17 @@ val LENTH_STRING_SORT = prove(
   ``(LENGTH (STRING_SORT (tvars tm)) = LENGTH (tvars tm))``,
   METIS_TAC [LENGTH_STRING_SORT,ALL_DISTINCT_tvars]);
 
+val domain_type_def = Define `
+  domain_type ty = term_type (Comb (Var "a" ty) ARB)`
+
+val term_type_SIMP = prove(
+  ``(domain_type (fun t1 t2) = t2) /\
+    (term_type (Comb x y) = domain_type (term_type x))``,
+  SIMP_TAC (srw_ss()) [domain_type_def,Once term_type_def]
+  \\ ONCE_REWRITE_TAC [term_type_def]
+  \\ SIMP_TAC (srw_ss()) [] \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
+  \\ SIMP_TAC (srw_ss()) [Once term_type_def]);
+
 val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   ``THM defs th /\ STATE s defs ==>
     case new_basic_type_definition tyname absname repname th s of
@@ -3292,14 +3303,25 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   \\ Q.ABBREV_TAC
        `(aa:hol_term) = Var "a" (Tyapp tyname
           (MAP Tyvar (STRING_SORT (tvars (hol_tm P)))))`
+  \\ Q.ABBREV_TAC `(aaty:hol_type) =
+        Tyapp tyname (MAP Tyvar (STRING_SORT (tvars (hol_tm P))))`
+  \\ `term_type abs = (fun (term_type x) aaty)` by ALL_TAC THEN1
+        (Q.UNABBREV_TAC `abs` \\ SIMP_TAC (srw_ss()) [Once term_type_def])
+  \\ `term_type rep = (fun aaty (term_type x))` by ALL_TAC THEN1
+        (Q.UNABBREV_TAC `rep` \\ SIMP_TAC (srw_ss()) [Once term_type_def])
+  \\ `term_type aa = aaty` by ALL_TAC THEN1
+        (Q.UNABBREV_TAC `aa` \\ SIMP_TAC (srw_ss()) [Once term_type_def])
   \\ STRIP_TAC
   \\ MP_TAC (mk_eq_thm |> Q.GENL [`s'`,`res`] |> Q.INST
       [`s`|->`s4`,`x`|->`Comb abs (Comb rep aa)`,`y`|->`aa`])
   \\ Cases_on `mk_eq (Comb abs (Comb rep aa),aa) s4` \\ FULL_SIMP_TAC std_ss []
   \\ MATCH_MP_TAC (METIS_PROVE [] ``b /\ (b1 /\ b ==> b2) ==> ((b ==> b1) ==> b2)``)
-  \\ STRIP_TAC THEN1 cheat
-  \\ STRIP_TAC \\ REVERSE (Cases_on `q`)
-  THEN1 cheat
+  \\ STRIP_TAC THEN1
+    (IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss [] THEN1 cheat)
+  \\ STRIP_TAC \\ REVERSE (Cases_on `q`) THEN1
+   (FULL_SIMP_TAC (srw_ss()) [term_type_SIMP]
+    \\ Q.PAT_ASSUM `xx <> (yy:hol_type)` MP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [term_type_SIMP])
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC (srw_ss()) [Once ex_bind_def]
   \\ MP_TAC (mk_comb_thm |> Q.GENL [`s1`,`res`] |> Q.INST
