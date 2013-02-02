@@ -1124,7 +1124,7 @@ val _ = Define `
        then failwith "new_definition: Type variables not reflected in constant"
        else do
          new_constant(cname,ty) ;
-         add_def (Constdef cname tm) ;
+         add_def (Constdef cname r) ;
          c <- mk_const(cname,[]) ;
          eq <- mk_eq(c,r) ;
          return (Sequent [] eq)
