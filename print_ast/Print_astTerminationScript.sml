@@ -63,11 +63,11 @@ val (type_to_tok_tree_def, type_to_tok_tree_ind) =
   tprove_no_defn ((type_to_tok_tree_def, type_to_tok_tree_ind),
   wf_rel_tac `measure t_size` >>
   srw_tac [ARITH_ss] [] >>
-  cases_on `ts` >>
-  fs [] >>
-  induct_on `t` >>
+  srw_tac [ARITH_ss] [] >>
+  induct_on `v14` >>
   rw [] >>
   fs [t_size_def] >>
+  res_tac >>
   decide_tac);
 
 val _ = register "type_to_tok_tree" type_to_tok_tree_def type_to_tok_tree_ind;

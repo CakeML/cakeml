@@ -163,7 +163,8 @@ val _ = Hol_datatype `
   | TC_int
   | TC_bool
   | TC_unit
-  | TC_ref`;
+  | TC_ref
+  | TC_fn`;
 
 
 val _ = Hol_datatype `
@@ -171,8 +172,7 @@ val _ = Hol_datatype `
     Tvar of tvarN
   (* DeBruin indexed type variables. *)
   | Tvar_db of num
-  | Tapp of t list =>tc0
-  | Tfn of t => t`;
+  | Tapp of t list =>tc0`;
 
 
 val _ = Define `
@@ -186,6 +186,9 @@ val _ = Define `
 
 val _ = Define `
  (Tref t = Tapp [t] TC_ref)`;
+
+val _ = Define `
+ (Tfn t1 t2 = Tapp [t1;t2] TC_fn)`;
 
 
 (* Patterns *)
@@ -316,10 +319,7 @@ val _ = Hol_datatype `
   else
     Tvar_db (m + n))
 /\
-(deBruijn_inc skip n (Tapp ts tn) = Tapp (MAP (deBruijn_inc skip n) ts) tn)
-/\
-(deBruijn_inc skip n (Tfn t1 t2) =
-  Tfn (deBruijn_inc skip n t1) (deBruijn_inc skip n t2))`;
+(deBruijn_inc skip n (Tapp ts tn) = Tapp (MAP (deBruijn_inc skip n) ts) tn)`;
 
 val _ = Defn.save_defn deBruijn_inc_defn;
 
@@ -338,10 +338,7 @@ val _ = Defn.save_defn deBruijn_inc_defn;
     Tvar_db n)
 /\
 (deBruijn_subst skip ts (Tapp ts' tn) =
-  Tapp (MAP (deBruijn_subst skip ts) ts') tn)
-/\
-(deBruijn_subst skip ts (Tfn t1 t2) =
-  Tfn (deBruijn_subst skip ts t1) (deBruijn_subst skip ts t2))`;
+  Tapp (MAP (deBruijn_subst skip ts) ts') tn)`;
 
 val _ = Defn.save_defn deBruijn_subst_defn;
 
@@ -999,7 +996,7 @@ val _ = Define `
   (e_step st1 = Estep st2))`;
 
 
- val small_eval_defn = Hol_defn "small_eval" `
+ val small_eval_def = Define `
 
 (small_eval cenv s env e c (s', Rval v) =
   ? env'. (RTC e_step_reln) (cenv,s,env,Exp e,c) (cenv,s',env',Val v,[]))
@@ -1012,7 +1009,6 @@ val _ = Define `
     (RTC e_step_reln) (cenv,s,env,Exp e,c) (cenv,s',env',e',c') /\
     (e_step (cenv,s',env',e',c') = Etype_error))`;
 
-val _ = Defn.save_defn small_eval_defn;
 
 (*val e_diverges : envC -> store t -> envE t -> exp t -> bool*)
 val _ = Define `
@@ -1038,7 +1034,7 @@ val _ = Define `
   (d_step st = Dstep st'))`;
 
 
- val d_small_eval_defn = Hol_defn "d_small_eval" `
+ val d_small_eval_def = Define `
 
 (d_small_eval cenv s env ds c (s', Rval (cenv',env')) =
   (RTC d_step_reln) (cenv,s,env,ds,c) (cenv',s',env',[],NONE))
@@ -1055,7 +1051,6 @@ val _ = Define `
     (RTC d_step_reln) (cenv,s,env,ds,c) (cenv',s'',env',ds',c') /\
     (d_step (cenv',s'',env',ds',c') = Draise err))`;
 
-val _ = Defn.save_defn d_small_eval_defn;
 
 (*val diverges : envC -> store t -> envE t -> list (dec t) -> bool*)
 val _ = Define `
@@ -1533,7 +1528,7 @@ val _ = Defn.save_defn num_tvs_defn;
 val _ = Define `
  (type_op op t1 t2 t3 =
   (case (op,t1,t2) of
-      (Opapp, Tfn t2' t3', _) => (t2 = t2') /\ (t3 = t3')
+      (Opapp, Tapp [t2'; t3'] TC_fn, _) => (t2 = t2') /\ (t3 = t3')
     | (Opn _, Tapp [] TC_int, Tapp [] TC_int) => (t3 = Tint)
     | (Opb _, Tapp [] TC_int, Tapp [] TC_int) => (t3 = Tbool)
     | (Equality, t1, t2) => (t1 = t2) /\ (t3 = Tbool)
@@ -1564,9 +1559,6 @@ val _ = Define `
 /\
 (check_freevars dbmax tvs (Tapp ts tn) =
   EVERY (check_freevars dbmax tvs) ts)
-/\
-(check_freevars dbmax tvs (Tfn t1 t2) =
-  check_freevars dbmax tvs t1 /\ check_freevars dbmax tvs t2)
 /\
 (check_freevars dbmax tvs (Tvar_db n) = n < dbmax)`;
 
@@ -1616,9 +1608,6 @@ val _ = Define `
 /\
 (type_subst s (Tapp ts tn) =
   Tapp (MAP (type_subst s) ts) tn)
-/\
-(type_subst s (Tfn t1 t2) =
-  Tfn (type_subst s t1) (type_subst s t2))
 /\
 (type_subst s (Tvar_db n) = Tvar_db n)`;
 

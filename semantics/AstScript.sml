@@ -245,7 +245,7 @@ val _ = Define `
 
 val _ = Defn.save_defn elab_e_defn;
 
- val get_prim_type_defn = Hol_defn "get_prim_type" `
+ val get_prim_type_def = Define `
  (get_prim_type tn =
   (case tn of
       "int" => SOME TC_int
@@ -255,7 +255,6 @@ val _ = Defn.save_defn elab_e_defn;
     | _ => NONE
   ))`;
 
-val _ = Defn.save_defn get_prim_type_defn;
 
  val elab_t_defn = Hol_defn "elab_t" `
 
@@ -276,7 +275,7 @@ val _ = Defn.save_defn get_prim_type_defn;
 
 val _ = Defn.save_defn elab_t_defn;
 
- val elab_dec_defn = Hol_defn "elab_dec" `
+ val elab_dec_def = Define `
 
 (elab_dec type_bound bound (Ast_Dlet p e) =
   let p' = elab_p p in
@@ -294,7 +293,6 @@ val _ = Defn.save_defn elab_t_defn;
                      (tvs, tn, MAP (\ (cn,t) . (cn, MAP (elab_t type_bound) t)) ctors))
                    t)))`;
 
-val _ = Defn.save_defn elab_dec_defn;
 
  val elab_decs_defn = Hol_defn "elab_decs" `
 
