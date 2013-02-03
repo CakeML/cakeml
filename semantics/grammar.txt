@@ -52,30 +52,25 @@ Ecomp ::=
 Ebefore ::=
   Ebefore BeforeOp Ecomp | Ecomp
 
+Etyped ::=
+  Ebefore
+| Ebefore ":" Type
+
 (* logical connectives *)
-Elogic ::=
-  Elogic "andalso" Ebefore
-| Elogic "orelse" Ebefore
-| Ebefore
+ElogicAND ::=
+  ElogicAND "andalso" Etyped
+| Etyped
+
+ElogicOR ::=
+| ElogicOR "orelse" ElogicAND
+| ElogicAND
 
 E ::=
    "if" E "then" E "else" E
  | "case" E "of" PEs
  | "fn" V "=>" E
  | "raise" E
- | Elogic
-
-
-E ::=
-    "(" E ")"
-  | "fn" V "=>" E                      // Fun V E
-  | "raise" Error                      // Raise Bind_error
-  | Literal                            // IntLit i
-  | E E                                // App Opapp E1 E2
-  | E InfixOp E                        // App InfixOp E1 E2
-  | E LogicalOp E                      // Log LogicalOp E1 E2
-  | "if" E "then" E "else" E           // If E1 E2 E3
-  | "case" E "of" PEs                  // Mat E PEs
+ | ElogicOR
 
 Fdecl ::= V V "=" E                    // (V,V,E)
                                        // second V is parameter
