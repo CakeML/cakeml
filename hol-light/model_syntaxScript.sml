@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib Opentheory arithmeticTheory rich_listTheory
 open stringTheory;
 val _ = new_theory"model_syntax"
 val BIT0_def = Define `
-  (BIT0 0 = 0) /\
+  (BIT0 0 = 0:num) /\
   (BIT0 (SUC n) = SUC (SUC (BIT0 n)))`
 val member_def = Define`member x y = MEM x y`
 val replicate_def = Define `replicate x n = REPLICATE n x`;
@@ -82,7 +82,7 @@ val _ = store(
   ``BIT0 0 = 0``,
   SIMP_TAC bool_ss [BIT1,BIT0_def,ADD_CLAUSES]);
 val _ = store(
-  ``!n. 0 + n = n``,
+  ``!n. 0 + n = n:num``,
   SIMP_TAC bool_ss [BIT1,BIT0_def,ADD_CLAUSES]);
 val _ = store(
   ``!n. BIT1 n = SUC (BIT0 n)``,
@@ -94,10 +94,10 @@ val _ = store(
   ``!m n. m <= SUC n <=> (m = SUC n) \/ m <= n``,
   DECIDE_TAC);
 val _ = store(
-  ``!m n. SUC m <= n <=> m < n``,
+  ``!m n. SUC m <= n <=> m < n:num``,
   DECIDE_TAC);
 val _ = store(
-  ``!m n p. m * n < m * p <=> m <> 0 /\ n < p``,
+  ``!m n p. m * n < m * p <=> m <> 0 /\ n < p:num``,
   Cases THEN SIMP_TAC std_ss [] THEN DECIDE_TAC);
 val _ = store(
   ``!n. EVEN (SUC n) <=> ~EVEN n``,
@@ -106,16 +106,16 @@ val _ = store(
   ``!m n. m <= n /\ n <= m <=> (m = n:num)``,
   DECIDE_TAC);
 val _ = store(
-  ``!m n. ~(m <= n /\ n < m)``,
+  ``!m n. ~(m <= n /\ n < m:num)``,
   DECIDE_TAC);
 val _ = store(
-  ``!m n. m ** SUC n = m * m ** n``,
+  ``!m n. m ** SUC n = (m * m ** n):num``,
   FULL_SIMP_TAC std_ss [EXP]);
 val _ = store(
   ``!m. m ** 0 = BIT1 0``,
   ONCE_REWRITE_TAC [EXP,BIT1_0] THEN SIMP_TAC std_ss []);
 val _ = store(
-  ``!m n. (m ** n = 0) <=> (m = 0) /\ n <> 0``,
+  ``!m n. (m ** n = 0) <=> (m = 0:num) /\ n <> 0:num``,
   SIMP_TAC std_ss [EXP_EQ_0] THEN DECIDE_TAC);
 val _ = store(
   ``!p. (!x. ?!y. p x y) <=> ?f. !x y. p x y <=> (f x = y)``,
@@ -202,15 +202,15 @@ val _ = store(``!m a b. (!y. measure m y a ==> measure m y b) <=> m a <= m b``,
   THEN REWRITE_TAC [GSYM NOT_LESS] THEN CCONTR_TAC
   THEN FULL_SIMP_TAC bool_ss [] THEN RES_TAC
   THEN FULL_SIMP_TAC bool_ss [prim_recTheory.LESS_REFL]);
-val _ = store(``!m n. n < m + n <=> 0 < m``,
+val _ = store(``!m n. n < m + n <=> 0 < m:num``,
   DECIDE_TAC);
 val _ = store(``!p l x. member x (FILTER p l) <=> member x l /\ p x``,
   SIMP_TAC (srw_ss()) [member_def,listTheory.MEM_FILTER] THEN METIS_TAC []);
-val _ = store(``!m n. n <= m + n``,
+val _ = store(``!m n. n <= m + n:num``,
   DECIDE_TAC);
-val _ = store(``!n. 0 < n <=> n <> 0``,
+val _ = store(``!n. 0 < n <=> n <> 0:num``,
   DECIDE_TAC);
-val _ = store(``!m n. m < m + n <=> 0 < n``,
+val _ = store(``!m n. m < m + n <=> 0 < n:num``,
   DECIDE_TAC);
 val _ = store(``($o :('b -> 'c) -> ('a -> 'b) -> 'a -> 'c) =
                 (\(f :'b -> 'c) (g :'a -> 'b) (x :'a). f (g x))``,

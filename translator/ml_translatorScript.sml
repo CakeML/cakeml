@@ -10,9 +10,11 @@ infix \\ val op \\ = op THEN;
 
 (* Definitions *)
 
+val _ = type_abbrev("tv",``:t v``);
+
 val Eval_def = Define `
   Eval env exp P =
-    ?res. evaluate' empty_store env exp (empty_store,Rval res) /\ P res`;
+    ?res. evaluate' empty_store env exp (empty_store,Rval res) /\ P (res:tv)`;
 
 val evaluate_closure_def = Define `
   evaluate_closure input cl output =
@@ -31,22 +33,22 @@ val _ = add_infix("-->",400,HOLgrammars.RIGHT)
 val _ = overload_on ("-->",``Arrow``)
 
 val Eq_def = Define `
-  Eq (abs:'a->v->bool) x =
+  Eq (abs:'a->tv->bool) x =
     (\y v. (x = y) /\ abs y v)`;
 
-val And_def = Define `And a P x v = P x /\ a (x:'a) (v:v)`;
+val And_def = Define `And a P x v = P x /\ a (x:'a) (v:tv)`;
 
 val U_TYPE_def = Define `
-  U_TYPE (u:unit) v = (v = Litv Unit)`;
+  U_TYPE (u:unit) (v:tv) = (v = Litv Unit)`;
 
 val INT_def = Define `
-  INT i = \v. (v = Litv (IntLit i))`;
+  INT i = \v:tv. (v = Litv (IntLit i))`;
 
 val NUM_def = Define `
   NUM n = INT (& n)`;
 
 val BOOL_def = Define `
-  BOOL b = \v. (v = Litv (Bool b))`;
+  BOOL b = \v:tv. (v = Litv (Bool b))`;
 
 val CONTAINER_def = Define `CONTAINER x = x`;
 
@@ -98,7 +100,7 @@ val Eval_Arrow = store_thm("Eval_Arrow",
   \\ METIS_TAC []);
 
 val Eval_Fun = store_thm("Eval_Fun",
-  ``(!v x. a x v ==> Eval ((name,v,NONE)::env) body (b (f x))) ==>
+  ``(!v x. a x v ==> Eval ((name,v,NONE)::env) body (b ((f:'a->'b) x))) ==>
     Eval env (Fun name NONE body) ((a --> b) f)``,
   SIMP_TAC std_ss [Eval_def,Arrow_def] \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
@@ -248,10 +250,10 @@ val Eval_Eq = store_thm("Eval_Eq",
   SIMP_TAC std_ss [Eval_def,Eq_def]);
 
 val FUN_FORALL = new_binder_definition("FUN_FORALL",
-  ``($FUN_FORALL) = \(abs:'a->'b->v->bool) a v. !y. abs y a v``);
+  ``($FUN_FORALL) = \(abs:'a->'b->tv->bool) a v. !y. abs y a v``);
 
 val FUN_EXISTS = new_binder_definition("FUN_EXISTS",
-  ``($FUN_EXISTS) = \(abs:'a->'b->v->bool) a v. ?y. abs y a v``);
+  ``($FUN_EXISTS) = \(abs:'a->'b->tv->bool) a v. ?y. abs y a v``);
 
 val Eval_FUN_FORALL = store_thm("Eval_FUN_FORALL",
   ``(!x. Eval env exp ((p x) f)) ==>
@@ -448,7 +450,7 @@ val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th0,th1]))
 val code =
   ``Let NONE "k" NONE (App (Opn Minus) x1 x2)
       (If (App (Opb Lt) (Var "k" NONE) (Lit (IntLit 0)))
-          (Lit (IntLit 0)) (Var "k" NONE))``
+          (Lit (IntLit 0)) (Var "k" NONE)): t exp``
 
 in
 
@@ -503,13 +505,13 @@ val no_closures_def = tDefine "no_closures" `
   (no_closures (Litv l) = T) /\
   (no_closures (Conv name vs) = EVERY no_closures vs) /\
   (no_closures _ = F)`
- (WF_REL_TAC `measure v_size` \\ REPEAT STRIP_TAC
+ (WF_REL_TAC `measure (v_size (\x.0))` \\ REPEAT STRIP_TAC
   \\ Induct_on `vs` \\ FULL_SIMP_TAC (srw_ss()) [MEM]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) [MEM,v_size_def]
   \\ DECIDE_TAC)
 
 val EqualityType_def = Define `
-  EqualityType (abs:'a->v->bool) =
+  EqualityType (abs:'a->tv->bool) =
     (!x1 v1. abs x1 v1 ==> no_closures v1) /\
     (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> ((v1 = v2) = (x1 = x2)))`;
 
@@ -609,7 +611,7 @@ val evaluate'_empty_store_lemma = prove(
   |> SIMP_RULE std_ss [PULL_EXISTS,AND_IMP_INTRO];
 
 val _ = temp_overload_on("has_emp_no_fail",
-  ``\x. (FST x = empty_store:store) /\
+  ``\x. (FST x = empty_store:t store) /\
         ~(SND x = (Rerr Rtype_error):'a result) /\
         ~(SND x = (Rerr (Rraise Bind_error)):'a result)``)
 
@@ -637,10 +639,10 @@ val do_app_lemma = prove(
   \\ FULL_SIMP_TAC (srw_ss()) [empty_store_def]);
 
 val pmatch'_lemma = prove(
-  ``(!t (s:store) p v env x.
+  ``(!t (s:'a store) (p:'a pat) v env x.
       (pmatch' t empty_store p v env = x) /\ x <> Match_type_error ==>
       !s. (pmatch' t s p v env = x)) /\
-    (!t (s:store) p vs env x.
+    (!t (s:'a store) (p:'a pat list) vs env x.
       (pmatch_list' t empty_store p vs env = x) /\ x <> Match_type_error ==>
       !s. (pmatch_list' t s p vs env = x))``,
   HO_MATCH_MP_TAC pmatch'_ind \\ REPEAT STRIP_TAC
@@ -781,10 +783,10 @@ val DeclAssum_Dlet = store_thm("DeclAssum_Dlet",
   \\ METIS_TAC []);
 
 val DeclAssum_Dletrec_LEMMA = prove(
-  ``!funs.
+  ``!funs:(mvarN, t option # mvarN # t option # t exp) env.
       ~MEM n (MAP FST funs) ==>
       (lookup n (FOLDR (\x. case x of (f,t,x,tt,e) => \env'. bind f (Recclosure env2 ff f,NONE) env') env2 funs) =
-       lookup n env2)``,
+       lookup n (env2:t envE))``,
   Induct
   \\ FULL_SIMP_TAC (srw_ss()) [FOLDR,FORALL_PROD,lookup_def,bind_def,MEM,MAP]);
 
@@ -810,7 +812,12 @@ val DeclAssum_Dletrec = store_thm("DeclAssum_Dletrec",
   \\ Q.EXISTS_TAC `env2` \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC std_ss [build_rec_env_def,add_tvs_def]
   \\ IMP_RES_TAC DeclAssum_Dletrec_LEMMA
-  \\ FULL_SIMP_TAC std_ss [option_CASE_LEMMA]);
+  \\ FULL_SIMP_TAC std_ss [option_CASE_LEMMA]
+  \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
+  \\ POP_ASSUM (ASSUME_TAC o GSYM o Q.SPECL [`funs`,`env2`])
+  \\ FULL_SIMP_TAC std_ss [] \\ AP_TERM_TAC
+  \\ AP_THM_TAC \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [FUN_EQ_THM,FORALL_PROD]);
 
 val DeclAssum_Dlet_INTRO = store_thm("DeclAssum_Dlet_INTRO",
   ``(!env. DeclAssum ds env ==> Eval env exp P) ==>

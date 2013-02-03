@@ -238,7 +238,7 @@ val PTREE_TYPE_def = fetch "-" "PTREE_TYPE_def";
 val FMAP_TYPE_def = Define `
   FMAP_TYPE a f = \v. ?p. PTREE_TYPE a p v /\ FMAP_EQ_PTREE f p`;
 
-val _ = add_type_inv ``FMAP_TYPE (a:'a -> v -> bool)`` ``:'a ptree``;
+val _ = add_type_inv ``FMAP_TYPE (a:'a -> tv -> bool)`` ``:'a ptree``;
 
 val res = translate BRANCHING_BIT_def;
 val PEEK_eval = translate PEEK_def;

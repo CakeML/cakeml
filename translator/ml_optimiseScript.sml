@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib; val _ = new_theory "ml_optimise";
 
-open MiniMLTheory MiniMLTerminationTheory (* determTheory *);
+open MiniMLTheory MiniMLTerminationTheory;
 open arithmeticTheory listTheory combinTheory pairTheory;
 open integerTheory ml_translatorTheory;
 
@@ -29,12 +29,12 @@ infix \\ val op \\ = op THEN;
 (* first an optimisation combinator: BOTTOM_UP_OPT *)
 
 val MEM_exp_size1 = prove(
-  ``!xs a. MEM a xs ==> exp_size a <= exp8_size xs``,
+  ``!xs a. MEM a xs ==> exp_size (\x.0) a <= exp8_size (\x.0) xs``,
   Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC);
 
 val MEM_exp_size2 = prove(
-  ``!ys p x. MEM (p,x) ys ==> exp_size x < exp6_size ys``,
+  ``!ys p x. MEM (p,x) ys ==> exp_size (\x.0) x < exp5_size (\x.0) ys``,
   Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def] THEN Cases
   THEN FULL_SIMP_TAC std_ss [exp_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC);
@@ -53,7 +53,7 @@ val BOTTOM_UP_OPT_def = tDefine "BOTTOM_UP_OPT" `
   (BOTTOM_UP_OPT f (Let n name tt x1 x2) = f (Let n name tt (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2))) /\
   (BOTTOM_UP_OPT f (Handle x1 name x2) = Handle x1 name x2) /\
   (BOTTOM_UP_OPT f (Letrec d z1 z2) = f (Letrec d z1 z2))`
- (WF_REL_TAC `measure (exp_size o SND)` THEN REPEAT STRIP_TAC
+ (WF_REL_TAC `measure (exp_size (\x.0) o SND)` THEN REPEAT STRIP_TAC
   THEN IMP_RES_TAC MEM_exp_size1 THEN IMP_RES_TAC MEM_exp_size2 THEN DECIDE_TAC)
 
 val two_assums = METIS_PROVE [] ``(b ==> c) = (b ==> c /\ b)``;

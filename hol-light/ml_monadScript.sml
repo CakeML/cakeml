@@ -128,7 +128,7 @@ val EqualityType_HOL_TYPE = prove(
   \\ IMP_RES_TAC LIST_TYPE_11 \\ METIS_TAC [])
   |> store_eq_thm;
 
-val _ = register_type ``:term``;
+val _ = register_type ``:hol_term``;
 val _ = register_type ``:thm``;
 val _ = register_type ``:def``;
 
@@ -136,7 +136,7 @@ val _ = register_type ``:def``;
   fetch "-" "PAIR_TYPE_def";
   fetch "-" "LIST_TYPE_def";
   fetch "-" "HOL_TYPE_TYPE_def";
-  fetch "-" "TERM_TYPE_def";
+  fetch "-" "HOL_TERM_TYPE_def";
   fetch "-" "THM_TYPE_def";
 *)
 
@@ -149,7 +149,7 @@ val HOL_STORE_def = Define `
     (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE)) refs.the_term_constants (EL 1 s) /\
     (LIST_TYPE THM_TYPE refs.the_axioms) (EL 2 s) /\
     (LIST_TYPE DEF_TYPE refs.the_definitions) (EL 3 s) /\
-    (TERM_TYPE refs.the_clash_var) (EL 4 s)`;
+    (HOL_TERM_TYPE refs.the_clash_var) (EL 4 s)`;
 
 val EvalM_def = Define `
   EvalM env exp P <=>
@@ -160,8 +160,8 @@ val EvalM_def = Define `
 (* refinement invariant for ``:'a M`` *)
 
 val HOL_MONAD_def = Define `
-  HOL_MONAD (a:'a->v->bool) (x:'a M) (state1:hol_refs,s1:store)
-                                     (state2:hol_refs,s2:store,res) =
+  HOL_MONAD (a:'a->tv->bool) (x:'a M) (state1:hol_refs,s1:t store)
+                                     (state2:hol_refs,s2:t store,res) =
     case (x state1, res) of
       ((HolRes y, state), Rval v) => (state = state2) /\ a y v
     | ((HolErr e, state), Rerr (Rraise (Int_error _))) => (state = state2)
@@ -217,15 +217,15 @@ val any_evaluate_closure_def = Define `
        (do_app s1 ARB Opapp cl input = SOME (s1,env,exp)) /\
        evaluate' s1 env exp (s2,output)`
 
-val _ = type_abbrev("H",``:'a -> hol_refs # store ->
-                                 hol_refs # store # v result -> bool``);
+val _ = type_abbrev("H",``:'a -> hol_refs # t store ->
+                                 hol_refs # t store # tv result -> bool``);
 
 val PURE_def = Define `
-  PURE a x (refs1:hol_refs,s1:store) (refs2,s2,res) =
-    ?v:v. (res = Rval v) /\ (refs1 = refs2) /\ (s1 = s2) /\ a x v`;
+  PURE a x (refs1:hol_refs,s1:t store) (refs2,s2,res) =
+    ?v:tv. (res = Rval v) /\ (refs1 = refs2) /\ (s1 = s2) /\ a x v`;
 
 val ArrowP_def = Define `
-  (ArrowP : 'a H -> 'b H -> ('a -> 'b) -> v -> bool) a b f c =
+  (ArrowP : 'a H -> 'b H -> ('a -> 'b) -> tv -> bool) a b f c =
      !x refs1 s1 refs2 s2 res.
        a x (refs1,s1) (refs2,s2,res) /\ HOL_STORE s1 refs1 ==>
        (refs2 = refs1) /\ (s2 = s1) /\
@@ -294,17 +294,17 @@ val HOL_TYPE_TYPE_EXISTS = prove(
   Q.EXISTS_TAC `Tyvar []`
   \\ SIMP_TAC std_ss [fetch "-" "HOL_TYPE_TYPE_def",fetch "-" "LIST_TYPE_def"]);
 
-val TERM_TYPE_EXISTS = prove(
-  ``?tm v. TERM_TYPE tm v``,
+val HOL_TERM_TYPE_EXISTS = prove(
+  ``?tm v. HOL_TERM_TYPE tm v``,
   STRIP_ASSUME_TAC HOL_TYPE_TYPE_EXISTS
   \\ Q.EXISTS_TAC `Var [] ty`
-  \\ SIMP_TAC std_ss [fetch "-" "TERM_TYPE_def",fetch "-" "LIST_TYPE_def"]
+  \\ SIMP_TAC std_ss [fetch "-" "HOL_TERM_TYPE_def",fetch "-" "LIST_TYPE_def"]
   \\ Q.EXISTS_TAC `v` \\ FULL_SIMP_TAC std_ss []);
 
 val HOL_STORE_EXISTS = prove(
   ``?s refs. HOL_STORE s refs``,
   SIMP_TAC std_ss [HOL_STORE_def]
-  \\ STRIP_ASSUME_TAC TERM_TYPE_EXISTS
+  \\ STRIP_ASSUME_TAC HOL_TERM_TYPE_EXISTS
   \\ Q.EXISTS_TAC `[Conv "Nil" [];Conv "Nil" [];Conv "Nil" [];
                     Conv "Nil" [];v]`
   \\ FULL_SIMP_TAC (srw_ss()) [LENGTH,EL,HD,TL]
@@ -529,7 +529,7 @@ val M_DeclAssum_Dletrec_INTRO = store_thm("M_DeclAssum_Dletrec_INTRO",
   \\ FULL_SIMP_TAC (srw_ss()) [LOOKUP_VAR_SIMP,lookup_def,bind_def,add_tvs_def]
   \\ METIS_TAC []);
 
-(* fastish evaluation *)
+(* fast-ish evaluation *)
 
 val evaluate'_SIMP =
   [``evaluate' a0 a1 (Letrec o' l e) a3``,
@@ -556,7 +556,7 @@ val lemma =
   hol2deep ``[]:string list``
   |> DISCH_ALL |> SIMP_RULE std_ss []
 val exp = lemma |> concl |> rator |> rand
-val dec = ``Dlet NONE (Pvar n NONE) (Uapp Opref ^exp)``
+val dec = ``(Dlet NONE (Pvar n NONE) (Uapp Opref ^exp)) : t dec``
 
 val tm = get_DeclAssum () |> rator |> rand;
 val tm_eval = tm |> REWRITE_CONV (map (fetch "-") ["ml_monad_decls_5",
@@ -593,7 +593,7 @@ val lemma =
   hol2deep ``[]:(string # hol_type) list``
   |> DISCH_ALL |> SIMP_RULE std_ss []
 val exp = lemma |> concl |> rator |> rand
-val dec = ``Dlet NONE (Pvar n NONE) (Uapp Opref ^exp)``
+val dec = ``(Dlet NONE (Pvar n NONE) (Uapp Opref ^exp)) : t dec``
 
 val tm = get_DeclAssum () |> rator |> rand;
 val tm_eval = tm |> REWRITE_CONV (map (fetch "-") ["ml_monad_decls_6",
@@ -631,7 +631,7 @@ val lemma =
   hol2deep ``[]:thm list``
   |> DISCH_ALL |> SIMP_RULE std_ss []
 val exp = lemma |> concl |> rator |> rand
-val dec = ``Dlet NONE (Pvar n NONE) (Uapp Opref ^exp)``
+val dec = ``(Dlet NONE (Pvar n NONE) (Uapp Opref ^exp)) : t dec``
 
 val tm = get_DeclAssum () |> rator |> rand;
 val tm_eval = tm |> REWRITE_CONV (map (fetch "-") ["ml_monad_decls_7",
@@ -670,7 +670,7 @@ val lemma =
   hol2deep ``[]:def list``
   |> DISCH_ALL |> SIMP_RULE std_ss []
 val exp = lemma |> concl |> rator |> rand
-val dec = ``Dlet NONE (Pvar n NONE) (Uapp Opref ^exp)``
+val dec = ``(Dlet NONE (Pvar n NONE) (Uapp Opref ^exp)) : t dec``
 
 val tm = get_DeclAssum () |> rator |> rand;
 val tm_eval = tm |> REWRITE_CONV (map (fetch "-") ["ml_monad_decls_8",
@@ -710,7 +710,7 @@ val lemma =
   hol2deep ``Var "a" (Tyvar "a")``
   |> DISCH_ALL |> SIMP_RULE std_ss []
 val exp = lemma |> concl |> rator |> rand
-val dec = ``Dlet NONE (Pvar n NONE) (Uapp Opref ^exp)``
+val dec = ``(Dlet NONE (Pvar n NONE) (Uapp Opref ^exp)) : t dec``
 
 val tm = get_DeclAssum () |> rator |> rand;
 val tm_eval = tm |> REWRITE_CONV (map (fetch "-") ["ml_monad_decls_9",
@@ -803,7 +803,7 @@ val get_the_definitions_thm = store_thm("get_the_definitions_thm",
 val get_the_clash_var_thm = store_thm("get_the_clash_var_thm",
   ``Eval env (Var "the_clash_var" NONE) ($= the_clash_var) ==>
     EvalM env (Uapp Opderef (Var "the_clash_var" NONE))
-      (HOL_MONAD TERM_TYPE get_the_clash_var)``,
+      (HOL_MONAD HOL_TERM_TYPE get_the_clash_var)``,
   read_tac ``4:num``);
 
 fun update_tac r q =
@@ -869,7 +869,7 @@ val set_the_definitions_thm = store_thm("set_the_definitions_thm",
 
 val set_the_clash_var_thm = store_thm("set_the_clash_var_thm",
   ``Eval env (Var "the_clash_var" NONE) ($= the_clash_var) ==>
-    Eval env exp (TERM_TYPE x) ==>
+    Eval env exp (HOL_TERM_TYPE x) ==>
     EvalM env (App Opassign (Var "the_clash_var" NONE) exp)
       ((HOL_MONAD U_TYPE) (set_the_clash_var x))``,
   update_tac `LUPDATE res 4 s` `refs with the_clash_var := x`);
