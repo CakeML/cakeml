@@ -17,20 +17,62 @@ Literal ::= IntegerLiteral    // IntLit i
          |  "false"           // Bool F
          |  "()"              // Unit
 
-E ::=
-    "(" E ")"
-  | "fn" V "=>" E                      // Fun V E
-  | "raise" Error                      // Raise Bind_error
-  | Literal                            // IntLit i
-  | E E                                // App Opapp E1 E2
-  | E InfixOp E                        // App InfixOp E1 E2
-  | E LogicalOp E                      // Log LogicalOp E1 E2
-  | "if" E "then" E "else" E           // If E1 E2 E3
-  | "case" E "of" PEs                  // Mat E PEs
-  | "let" "val" V "=" E "in" E "end"   // Let V E1 E2
-  | "let" "fun" AndFDecls "in" E "end" // Letrec AndFDecls E
+(* See http://www.mlton.org/OperatorPrecedence *)
+Ebase ::=
+   "(" E ")"
+ | V
+ | Literal
+ | "let" "val" V "=" E "in" E "end"   // Let V E1 E2
+ | "let" "fun" AndFDecls "in" E "end" // Letrec AndFDecls E
 
-FDecl ::= V V "=" E                    // (V,V,E)
+Eapp ::=
+  Eapp Ebase | Ebase
+
+(* level 7 *)
+Emult ::=
+  Emult MultOp Ebase | Ebase
+
+(* level 6 *)
+Eadd ::=
+  Eadd AddOp Emult | Emult
+
+(* level 5 - note, right associative *)
+Econs ::=
+  Eadd ConsOp Econs | Eadd
+
+(* level 4 *)
+Erel ::=
+  Erel RelOp Econs | Econs
+
+(* level 3 *)
+Ecomp ::=
+  Ecomp CompOp Erel | Erel
+
+(* level 0 *)
+Ebefore ::=
+  Ebefore BeforeOp Ecomp | Ecomp
+
+Etyped ::=
+  Ebefore
+| Ebefore ":" Type
+
+(* logical connectives *)
+ElogicAND ::=
+  ElogicAND "andalso" Etyped
+| Etyped
+
+ElogicOR ::=
+| ElogicOR "orelse" ElogicAND
+| ElogicAND
+
+E ::=
+   "if" E "then" E "else" E
+ | "case" E "of" PEs
+ | "fn" V "=>" E
+ | "raise" E
+ | ElogicOR
+
+Fdecl ::= V V "=" E                    // (V,V,E)
                                        // second V is parameter
 
 AndFDecls ::= FDecl                    // ([FDecl])
@@ -82,7 +124,7 @@ DtypeCons ::= Dconstructor
 
 StarTypes ::=
             | DType
-            | DType "*" StarTypes 
+            | DType "*" StarTypes
 
 Decl ::= "val" Pattern "=" E
        | "fun" AndFDecls

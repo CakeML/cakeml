@@ -96,6 +96,9 @@ rw [lexer_spec_matches_prefix_alt_def, lexer_spec_matches_prefix_def] >|
 [qexists_tac `lexeme` >>
      qexists_tac `n` >>
      qexists_tac `s_rest` >>
+     simp[] >>
+     conj_tac >| [map_every qx_gen_tac [`tok`, `lexeme'`, `s_rest'`],
+                  map_every qx_gen_tac [`r'`, `f'`]] >>
      rw [] >>
      CCONTR_TAC  >>
      fs [MEM_EL] >>
@@ -115,6 +118,9 @@ rw [lexer_spec_matches_prefix_alt_def, lexer_spec_matches_prefix_def] >|
  qexists_tac `lexeme` >>
      qexists_tac `n` >>
      qexists_tac `s_rest` >>
+     simp[] >>
+     conj_tac >>
+     map_every qx_gen_tac [`n'`, `tok`, `lexeme'`, `s_rest'`] >>
      rw [] >>
      CCONTR_TAC >>
      fs [] >|

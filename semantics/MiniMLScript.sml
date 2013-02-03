@@ -163,7 +163,8 @@ val _ = Hol_datatype `
   | TC_int
   | TC_bool
   | TC_unit
-  | TC_ref`;
+  | TC_ref
+  | TC_fn`;
 
 
 val _ = Hol_datatype `
@@ -171,8 +172,7 @@ val _ = Hol_datatype `
     Tvar of tvarN
   (* DeBruin indexed type variables. *)
   | Tvar_db of num
-  | Tapp of t list =>tc0
-  | Tfn of t => t`;
+  | Tapp of t list =>tc0`;
 
 
 val _ = Define `
@@ -187,15 +187,18 @@ val _ = Define `
 val _ = Define `
  (Tref t = Tapp [t] TC_ref)`;
 
+val _ = Define `
+ (Tfn t1 t2 = Tapp [t1;t2] TC_fn)`;
+
 
 (* Patterns *)
 val _ = Hol_datatype `
  pat =
   (* We optionally type annotate all binders *)
-    Pvar of varN => t option
+    Pvar of varN => 'a option
   | Plit of lit
   (* Constructor applications. *)
-  | Pcon of conN => pat list
+  | Pcon of conN => (pat) list
   | Pref of pat`;
 
 
@@ -209,21 +212,21 @@ val _ = Hol_datatype `
 
 
 (* Expressions *)
-(* We optionally type annotate all binders *)
+(* We optionally type annotate all binders with a value of type 'a *)
 val _ = Hol_datatype `
  exp =
   (* Temporary: later on we want Raise of exp *)
     Raise of error
-  (* Temporary: later on we want Handle of exp * list (pat * exp) *)
+  (* Temporary: later on we want Handle of exp * list (pat 'a * exp) *)
   (* We don't type annotate this binder because it must be an int *)
   | Handle of exp => varN => exp
   | Lit of lit
   (* Constructor application. *)
-  | Con of conN => exp list
+  | Con of conN => (exp) list
   (* The optional type list is the type application in the case that the
    * variable references a polymorphic binding. *)
-  | Var of varN => ( t list)option
-  | Fun of varN => t option => exp
+  | Var of varN => ( 'a list)option
+  | Fun of varN => 'a option => exp
   (* Application of a unary operator *)
   | Uapp of uop => exp
   (* Application of an operator (including function application) *)
@@ -232,14 +235,14 @@ val _ = Hol_datatype `
   | Log of log => exp => exp
   | If of exp => exp => exp
   (* Pattern matching *)
-  | Mat of exp => (pat # exp) list
+  | Mat of exp => ( 'a pat # exp) list
   (* The number is how many type variables are bound. *)
-  | Let of num option => varN => t option => exp => exp
+  | Let of num option => varN => 'a option => exp => exp
   (* Local definition of (potentially) mutually recursive functions
    * The first varN is the function's name, and the second varN is its
    * parameter.
    * The number is how many type variables are bound. *)
-  | Letrec of num option => (varN # t option # varN # t option # exp) list => exp`;
+  | Letrec of num option => (varN # 'a option # varN # 'a option # exp) list => exp`;
 
 
 val _ = type_abbrev( "type_def" , ``: ( tvarN list # typeN # (conN # t list) list) list``);
@@ -250,17 +253,17 @@ val _ = Hol_datatype `
   (* Top-level bindings
    * The number is how many type variables are bound.
    * The pattern allows several names to be bound at once *)
-    Dlet of num option => pat => exp
+    Dlet of num option => 'a pat => 'a exp
   (* Mutually recursive function definition
    * The number is how many type variables are bound. *)
-  | Dletrec of num option => (varN # t option # varN # t option # exp) list
+  | Dletrec of num option => (varN # 'a option # varN # 'a option # 'a exp) list
   (* Type definition
      Defines several types, each of which has several named variants, which can
      in turn have several arguments *)
   | Dtype of type_def`;
 
 
-val _ = type_abbrev( "decs" , ``: dec list``);
+val _ = type_abbrev((*  'a *) "decs" , ``: ( 'a dec) list``);
 
 val _ = Hol_datatype `
  spec =
@@ -273,11 +276,11 @@ val _ = type_abbrev( "specs" , ``: spec list``);
 
 val _ = Hol_datatype `
  top =
-    Tmodule of mvarN => specs => decs
-  | Tdec of dec`;
+    Tmodule of mvarN => specs => 'a decs
+  | Tdec of 'a dec`;
 
 
-val _ = type_abbrev( "prog" , ``: top list``);
+val _ = type_abbrev((*  'a *) "prog" , ``: ( 'a top) list``);
 
 (* ------------------------------------------------------------------------ *) 
 (*   The Semantics                                                          *)
@@ -288,15 +291,15 @@ val _ = Hol_datatype `
  v =
     Litv of lit
   (* Constructor application. *)
-  | Conv of conN => v list
+  | Conv of conN => (v) list
   (* Function closures
      The environment is used for the free variables in the function *)
-  | Closure of (varN, (v # (num # t)option)) env => varN => t option => exp
+  | Closure of (varN, (v # (num # 'a)option)) env => varN => 'a option => 'a exp
   (* Function closure for recursive functions
    * See Closure and Letrec above
    * The last variable name indicates which function from the mutually
    * recursive bundle this closure value represents *)
-  | Recclosure of (varN, (v # (num # t)option)) env => (varN # t option # varN # t option # exp) list => varN
+  | Recclosure of (varN, (v # (num # 'a)option)) env => (varN # 'a option # varN # 'a option # 'a exp) list => varN
   | Loc of num`;
 
 
@@ -316,10 +319,7 @@ val _ = Hol_datatype `
   else
     Tvar_db (m + n))
 /\
-(deBruijn_inc skip n (Tapp ts tn) = Tapp (MAP (deBruijn_inc skip n) ts) tn)
-/\
-(deBruijn_inc skip n (Tfn t1 t2) =
-  Tfn (deBruijn_inc skip n t1) (deBruijn_inc skip n t2))`;
+(deBruijn_inc skip n (Tapp ts tn) = Tapp (MAP (deBruijn_inc skip n) ts) tn)`;
 
 val _ = Defn.save_defn deBruijn_inc_defn;
 
@@ -338,14 +338,11 @@ val _ = Defn.save_defn deBruijn_inc_defn;
     Tvar_db n)
 /\
 (deBruijn_subst skip ts (Tapp ts' tn) =
-  Tapp (MAP (deBruijn_subst skip ts) ts') tn)
-/\
-(deBruijn_subst skip ts (Tfn t1 t2) =
-  Tfn (deBruijn_subst skip ts t1) (deBruijn_subst skip ts t2))`;
+  Tapp (MAP (deBruijn_subst skip ts) ts') tn)`;
 
 val _ = Defn.save_defn deBruijn_subst_defn;
 
-(*val deBruijn_subst_p : num -> list t -> pat -> pat*)
+(*val deBruijn_subst_p : num -> list t -> pat t -> pat t*) 
  val deBruijn_subst_p_defn = Hol_defn "deBruijn_subst_p" `
 
 (deBruijn_subst_p skip ts (Pvar x topt) =
@@ -361,7 +358,7 @@ val _ = Defn.save_defn deBruijn_subst_defn;
 
 val _ = Defn.save_defn deBruijn_subst_p_defn;
 
-(*val deBruijn_subst_e : num -> list t -> exp -> exp*)
+(*val deBruijn_subst_e : num -> list t -> exp t -> exp t*) 
  val deBruijn_subst_e_defn = Hol_defn "deBruijn_subst_e" `
 
 (deBruijn_subst_e skip ts (Raise err) = Raise err)
@@ -419,7 +416,7 @@ val _ = Defn.save_defn deBruijn_subst_p_defn;
 
 val _ = Defn.save_defn deBruijn_subst_e_defn;
 
-(*val deBruijn_subst_v : list t -> v -> v*)
+(*val deBruijn_subst_v : list t -> v t -> v t*)
  val deBruijn_subst_v_defn = Hol_defn "deBruijn_subst_v" `
 
 (deBruijn_subst_v ts (Litv lit) = Litv lit)
@@ -448,9 +445,9 @@ val _ = Defn.save_defn deBruijn_subst_v_defn;
 (* Environments *)
 (* The optional type scheme annotation's type variable binding scopes over the
  * value too *)
-val _ = type_abbrev( "envE" , ``: (varN, (v # (num # t)option)) env``);
+val _ = type_abbrev((*  'a *) "envE" , ``: (varN, ( 'a v # (num # 'a)option)) env``);
 
-(*val add_tvs :option num ->option t ->option (num * t)*)
+(*val add_tvs : forall 'a.option num ->option 'a ->option (num * 'a)*)
 val _ = Define `
  (add_tvs tvsopt topt =
   (case topt of
@@ -465,14 +462,14 @@ val _ = Define `
 
 (* Stores *)
 (* The nth item in the list is the value at location n *)
-val _ = type_abbrev( "store" , ``: v list``);
+val _ = type_abbrev((*  'a *) "store" , ``: ( 'a v) list``);
 
-(*val empty_store : store*)
+(*val empty_store : forall 'a. store 'a*)
 val _ = Define `
  empty_store = []`;
 
 
-(*val store_lookup : num -> store ->option v*)
+(*val store_lookup : forall 'a. num -> store 'a ->option (v 'a)*)
 val _ = Define `
  (store_lookup l st =
   if l < LENGTH st then
@@ -481,13 +478,13 @@ val _ = Define `
     NONE)`;
 
 
-(*val store_alloc : v -> store -> store * num*)
+(*val store_alloc : forall 'a. v 'a -> store 'a -> store 'a * num*)
 val _ = Define `
  (store_alloc v st =
   (st ++ [v], LENGTH st))`;
 
 
-(*val store_assign : num -> v -> store ->option store*)
+(*val store_assign : forall 'a. num -> v 'a -> store 'a ->option (store 'a)*)
 val _ = Define `
  (store_assign n v st =
   if n < LENGTH st then
@@ -506,19 +503,19 @@ val _ = type_abbrev( "envC" , ``: (conN, (num # conN set)) env``);
      the context *)
 val _ = Hol_datatype `
  ctxt_frame =
-    Chandle of unit => varN => exp
-  | Capp1 of op => unit => exp
-  | Capp2 of op => v => unit
-  | Clog of log => unit => exp
-  | Cif of unit => exp => exp
-  | Cmat of unit => (pat # exp) list
-  | Clet of num option => varN => t option => unit => exp
+    Chandle of unit => varN => 'a exp
+  | Capp1 of op => unit => 'a exp
+  | Capp2 of op => 'a v => unit
+  | Clog of log => unit => 'a exp
+  | Cif of unit => 'a exp => 'a exp
+  | Cmat of unit => ( 'a pat # 'a exp) list
+  | Clet of num option => varN => 'a option => unit => 'a exp
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
-  | Ccon of conN => v list => unit => exp list
+  | Ccon of conN => ( 'a v) list => unit => ( 'a exp) list
   | Cuapp of uop => unit`;
 
-val _ = type_abbrev( "ctxt" , ``: ctxt_frame # envE``);
+val _ = type_abbrev((*  'a *) "ctxt" , ``: 'a ctxt_frame # 'a envE``);
 
 (*val lit_same_type : lit -> lit -> bool*)
 val _ = Define `
@@ -535,7 +532,7 @@ val _ = Hol_datatype `
  match_result =
     No_match
   | Match_type_error
-  | Match of envE`;
+  | Match of 'a envE`;
 
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
@@ -546,7 +543,7 @@ val _ = Hol_datatype `
  * number of arguments, and constructors in corresponding positions in the
  * pattern and value come from the same type.  Match_type_error is returned
  * when one of these conditions is violated *)
-(*val pmatch :option num -> envC -> store -> pat -> v -> envE -> match_result*)
+(*val pmatch : forall 'a.option num -> envC -> store 'a -> pat 'a -> v 'a -> envE 'a -> match_result 'a*)
  val pmatch_defn = Hol_defn "pmatch" `
 
 (pmatch tvs envC s (Pvar n topt) v' env = Match (bind n (v', add_tvs tvs topt) env))
@@ -595,7 +592,7 @@ val _ = Hol_datatype `
 val _ = Defn.save_defn pmatch_defn;
 
 (* Accumulates the bindings of a patterns *)
-(*val pat_bindings : pat -> list varN -> list varN*)
+(*val pat_bindings : forall 'a. pat 'a -> list varN -> list varN*)
  val pat_bindings_defn = Hol_defn "pat_bindings" `
 
 (pat_bindings (Pvar n topt) already_bound =
@@ -627,15 +624,15 @@ val _ = Defn.save_defn pat_bindings_defn;
  *   is finished.  Each entry has an environment for it's free variables *)
 val _ = Hol_datatype `
  exp_or_val =
-    Exp of exp
-  | Val of v`;
+    Exp of 'a exp
+  | Val of 'a v`;
 
 
-val _ = type_abbrev( "state" , ``: envC # store # envE # exp_or_val # ctxt list``);
+val _ = type_abbrev((*  'a *) "state" , ``: envC # 'a store # 'a envE # 'a exp_or_val # ( 'a ctxt) list``);
 
 val _ = Hol_datatype `
  e_step_result =
-    Estep of state
+    Estep of 'a state
   | Etype_error
   | Estuck`;
 
@@ -645,18 +642,18 @@ val _ = Hol_datatype `
  * push individual frames onto the context stack instead of finding a redex in a
  * single step *)
 
-(*val push : envC -> store -> envE -> exp -> ctxt_frame -> list ctxt -> e_step_result*)
+(*val push : forall 'a. envC -> store 'a -> envE 'a -> exp 'a -> ctxt_frame 'a -> list (ctxt 'a) -> e_step_result 'a*)
 val _ = Define `
  (push envC s env e c' cs = Estep (envC, s, env, Exp e, (c',env)::cs))`;
 
 
-(*val return : envC -> store -> envE -> v -> list ctxt -> e_step_result*)
+(*val return : forall 'a. envC -> store 'a -> envE 'a -> v 'a -> list (ctxt 'a) -> e_step_result 'a*)
 val _ = Define `
  (return envC s env v c = Estep (envC, s, env, Val v, c))`;
 
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
-(*val build_rec_env :option num -> list (varN *option t * varN *option t * exp) -> envE -> envE*)
+(*val build_rec_env : forall 'a.option num -> list (varN *option 'a * varN *option 'a * exp 'a) -> envE 'a-> envE 'a*)
 val _ = Define `
  (build_rec_env tvs funs env =
   FOLDR 
@@ -666,7 +663,7 @@ val _ = Define `
 
 
 (* Lookup in the list of mutually recursive functions *)
-(*val find_recfun : varN -> list (varN *option t * varN *option t * exp) ->option (varN *option t * exp)*)
+(*val find_recfun : forall 'a. varN -> list (varN *option 'a * varN *option 'a * exp 'a) ->option (varN *option 'a * exp 'a)*)
  val find_recfun_defn = Hol_defn "find_recfun" `
  (find_recfun n funs =
   (case funs of
@@ -681,7 +678,7 @@ val _ = Define `
 val _ = Defn.save_defn find_recfun_defn;
 
 (* Do an application *)
-(*val do_app : store -> envE -> op -> v -> v ->option (store * envE * exp)*)
+(*val do_app : forall 'a. store 'a -> envE 'a -> op -> v 'a -> v 'a ->option (store 'a * envE 'a * exp 'a)*)
 val _ = Define `
  (do_app s env' op v1 v2 =
   (case (op, v1, v2) of
@@ -713,7 +710,7 @@ val _ = Define `
 
 
 (* Do a logical operation *)
-(*val do_log : log -> v -> exp ->option exp*)
+(*val do_log : forall 'a. log -> v 'a -> exp 'a ->option (exp 'a)*)
 val _ = Define `
  (do_log l v e =
   (case (l, v) of
@@ -725,7 +722,7 @@ val _ = Define `
 
 
 (* Do an if-then-else *)
-(*val do_if : v -> exp -> exp ->option exp*)
+(*val do_if : forall 'a. v 'a -> exp 'a -> exp 'a ->option (exp 'a)*)
 val _ = Define `
  (do_if v e1 e2 =
   if v = Litv (Bool T) then
@@ -746,7 +743,7 @@ val _ = Define `
   ))`;
 
 
-(*val do_uapp : store -> uop -> v ->option (store * v)*)
+(*val do_uapp : forall 'a. store 'a -> uop -> v 'a ->option (store 'a * v 'a)*)
 val _ = Define `
  (do_uapp s uop v =
   (case uop of
@@ -766,7 +763,7 @@ val _ = Define `
 
 
 (* apply a context to a value *)
-(*val continue : envC -> store -> v -> list ctxt -> e_step_result*)
+(*val continue : forall 'a. envC -> store 'a -> v 'a -> list (ctxt 'a) -> e_step_result 'a*)
 val _ = Define `
  (continue envC s v cs =
   (case cs of
@@ -821,7 +818,7 @@ val _ = Define `
   ))`;
 
 
-(*val do_tapp :option (num * t) ->option (list t) -> v -> v*)
+(*val do_tapp :option (num * t) ->option (list t) -> v t -> v t*)
 val _ = Define `
  (do_tapp tscheme_opt targs_opt v =
   (case (tscheme_opt, targs_opt) of
@@ -840,7 +837,7 @@ val _ = Define `
  * if given to a primitive.  Returns Bind_error when no pattern in a match
  * matches the value.  Otherwise it returns the next state *)
 
-(*val e_step : state -> e_step_result*)
+(*val e_step : state t -> e_step_result t*)
 val _ = Define `
  (e_step (envC, s, env, ev, c) =
   (case ev of
@@ -925,17 +922,17 @@ val _ = Define `
  * - values bound be previous definitions
  * - remaining definitions
  * - current state for evaluating the current definition *)
-val _ = type_abbrev( "d_state" , ``: envC # store # envE # decs # ( num option # pat # state)option``);
+val _ = type_abbrev((*  'a *) "d_state" , ``: envC # 'a store # 'a envE # 'a decs # ( num option # 'a pat # 'a state)option``);
 
 val _ = Hol_datatype `
  d_step_result =
-    Dstep of d_state
+    Dstep of 'a d_state
   | Draise of error
   | Dtype_error
   | Dstuck`;
 
 
-(*val d_step : d_state -> d_step_result*)
+(*val d_step : d_state t -> d_step_result t*)
 val _ = Define `
  (d_step (envC, s, env, ds, st) =
   (case st of
@@ -984,22 +981,22 @@ val _ = Hol_datatype `
 
 
 val _ = Hol_datatype `
-(*  'a *) result =
+ result =
     Rval of 'a
   | Rerr of error_result`;
 
 
-(*val e_step_reln : state -> state -> bool*)
-(*val small_eval : envC -> store -> envE -> exp -> list ctxt -> store * result v -> bool*)
-(*val d_step_reln : d_state -> d_state -> bool*)
-(*val d_small_eval : envC -> store -> envE -> list dec ->option (option num * pat * state) -> store * result (envC * envE) -> bool*)
+(*val e_step_reln : state t -> state t -> bool*)
+(*val small_eval : envC -> store t -> envE t -> exp t -> list (ctxt t) -> store t * result (v t) -> bool*)
+(*val d_step_reln : d_state t -> d_state t -> bool*)
+(*val d_small_eval : envC -> store t -> envE t -> list (dec t) ->option (option num * pat t * state t) -> store t * result (envC * envE t) -> bool*)
 
 val _ = Define `
  (e_step_reln st1 st2 =
   (e_step st1 = Estep st2))`;
 
 
- val small_eval_defn = Hol_defn "small_eval" `
+ val small_eval_def = Define `
 
 (small_eval cenv s env e c (s', Rval v) =
   ? env'. (RTC e_step_reln) (cenv,s,env,Exp e,c) (cenv,s',env',Val v,[]))
@@ -1012,9 +1009,8 @@ val _ = Define `
     (RTC e_step_reln) (cenv,s,env,Exp e,c) (cenv,s',env',e',c') /\
     (e_step (cenv,s',env',e',c') = Etype_error))`;
 
-val _ = Defn.save_defn small_eval_defn;
 
-(*val e_diverges : envC -> store -> envE -> exp -> bool*)
+(*val e_diverges : envC -> store t -> envE t -> exp t -> bool*)
 val _ = Define `
  (e_diverges cenv s env e =
   ! cenv' s' env' e' c'.
@@ -1024,7 +1020,7 @@ val _ = Define `
       e_step_reln (cenv',s',env', e',c') (cenv'',s'',env'',e'',c'')))`;
 
 
-(*val d_state_to_store : store ->option (option num * pat * state) -> store*)
+(*val d_state_to_store : store t ->option (option num * pat t * state t) -> store t*)
 val _ = Define `
  (d_state_to_store s c =
   (case c of
@@ -1038,7 +1034,7 @@ val _ = Define `
   (d_step st = Dstep st'))`;
 
 
- val d_small_eval_defn = Hol_defn "d_small_eval" `
+ val d_small_eval_def = Define `
 
 (d_small_eval cenv s env ds c (s', Rval (cenv',env')) =
   (RTC d_step_reln) (cenv,s,env,ds,c) (cenv',s',env',[],NONE))
@@ -1055,9 +1051,8 @@ val _ = Define `
     (RTC d_step_reln) (cenv,s,env,ds,c) (cenv',s'',env',ds',c') /\
     (d_step (cenv',s'',env',ds',c') = Draise err))`;
 
-val _ = Defn.save_defn d_small_eval_defn;
 
-(*val diverges : envC -> store -> envE -> list dec -> bool*)
+(*val diverges : envC -> store t -> envE t -> list (dec t) -> bool*)
 val _ = Define `
  (diverges cenv s env ds =
   ! cenv' s' env' ds' c'.
@@ -1068,10 +1063,10 @@ val _ = Define `
 
 
 (* ------------------------ Big step semantics -------------------------- *)
-(*val evaluate : envC -> store -> envE -> exp -> store * result v -> bool*)
-(*val evaluate_list : envC -> store -> envE -> list exp -> store * result (list v) -> bool*)
-(*val evaluate_match : envC -> store -> envE -> v -> list (pat * exp) -> store * result v -> bool*)
-(*val evaluate_decs : envC -> store -> envE -> list dec -> store * result (envC * envE) -> bool*)
+(*val evaluate : envC -> store t -> envE t -> exp t -> store t * result (v t) -> bool*)
+(*val evaluate_list : envC -> store t -> envE t -> list (exp t) -> store t * result (list (v t)) -> bool*)
+(*val evaluate_match : envC -> store t -> envE t -> v t -> list (pat t * exp t) -> store t * result (v t) -> bool*)
+(*val evaluate_decs : envC -> store t -> envE t -> list (dec t) -> store t * result (envC * envE t) -> bool*)
 
 val _ = Hol_reln `
 
@@ -1509,31 +1504,31 @@ val _ = Defn.save_defn num_tvs_defn;
 (* A pattern matches values of a certain type and extends the type environment
  * with the pattern's binders. The number is the maximum deBruijn type variable
  * allowed. *)
-(*val type_p : num -> tenvC -> pat -> t -> list (varN * t) -> bool*)
+(*val type_p : num -> tenvC -> pat t -> t -> list (varN * t) -> bool*)
 
 (* An expression has a type *)
-(*val type_e : tenvC -> tenvE -> exp -> t -> bool*)
+(*val type_e : tenvC -> tenvE -> exp t -> t -> bool*)
 
 (* A list of expressions has a list of types *)
-(*val type_es : tenvC -> tenvE -> list exp -> list t -> bool*)
+(*val type_es : tenvC -> tenvE -> list (exp t) -> list t -> bool*)
 
 (* Type a mutually recursive bundle of functions.  Unlike pattern typing, the
  * resulting environment does not extend the input environment, but just
  * represents the functions *)
-(*val type_funs : tenvC -> tenvE -> list (varN *option t * varN *option t * exp) ->
+(*val type_funs : tenvC -> tenvE -> list (varN *option t * varN *option t * exp t) ->
                 list (varN * t) -> bool*)
 
 (* Check a declaration and update the top-level environments *)
-(*val type_d : tenvC -> tenvE -> dec -> tenvC -> tenvE -> bool*)
+(*val type_d : tenvC -> tenvE -> dec t -> tenvC -> tenvE -> bool*)
 
-(*val type_ds : tenvC -> tenvE -> list dec -> tenvC -> tenvE -> bool*)
+(*val type_ds : tenvC -> tenvE -> list (dec t) -> tenvC -> tenvE -> bool*)
 
 (* Check that the operator can have type (t1 -> t2 -> t3) *)
 (*val type_op : op -> t -> t -> t -> bool*)
 val _ = Define `
  (type_op op t1 t2 t3 =
   (case (op,t1,t2) of
-      (Opapp, Tfn t2' t3', _) => (t2 = t2') /\ (t3 = t3')
+      (Opapp, Tapp [t2'; t3'] TC_fn, _) => (t2 = t2') /\ (t3 = t3')
     | (Opn _, Tapp [] TC_int, Tapp [] TC_int) => (t3 = Tint)
     | (Opb _, Tapp [] TC_int, Tapp [] TC_int) => (t3 = Tbool)
     | (Equality, t1, t2) => (t1 = t2) /\ (t3 = Tbool)
@@ -1564,9 +1559,6 @@ val _ = Define `
 /\
 (check_freevars dbmax tvs (Tapp ts tn) =
   EVERY (check_freevars dbmax tvs) ts)
-/\
-(check_freevars dbmax tvs (Tfn t1 t2) =
-  check_freevars dbmax tvs t1 /\ check_freevars dbmax tvs t2)
 /\
 (check_freevars dbmax tvs (Tvar_db n) = n < dbmax)`;
 
@@ -1617,9 +1609,6 @@ val _ = Define `
 (type_subst s (Tapp ts tn) =
   Tapp (MAP (type_subst s) ts) tn)
 /\
-(type_subst s (Tfn t1 t2) =
-  Tfn (type_subst s t1) (type_subst s t2))
-/\
 (type_subst s (Tvar_db n) = Tvar_db n)`;
 
 val _ = Defn.save_defn type_subst_defn;
@@ -1635,7 +1624,7 @@ val _ = Defn.save_defn type_subst_defn;
 val _ = Defn.save_defn bind_var_list_defn;
 
 (* For the value restriction on let-based polymorphism *)
-(*val is_value : exp -> bool*)
+(*val is_value : forall 'a. exp 'a -> bool*)
  val is_value_defn = Hol_defn "is_value" `
  
 (is_value (Lit _) = T)
@@ -1933,26 +1922,26 @@ val _ = type_abbrev( "tenvS" , ``: (num, t) env``);
 
 (* A value has a type *)
 (* The number is how many deBruijn type variables are bound in the context. *)
-(*val type_v : num -> tenvC -> tenvS -> v -> t -> bool*)
+(*val type_v : num -> tenvC -> tenvS -> v t -> t -> bool*)
 
 (* A value environment has a corresponding type environment.  Since all of the
  * entries in the environment are values, and values have no free variables,
  * each entry in the environment can be typed in the empty environment (if at
  * all) *)
-(*val type_env : tenvC -> tenvS -> envE -> tenvE -> bool*)
+(*val type_env : tenvC -> tenvS -> envE t -> tenvE -> bool*)
 
 (* The type of the store *)
-(*val type_s : tenvC -> tenvS -> store -> bool*)
+(*val type_s : tenvC -> tenvS -> store t -> bool*)
 
 (* An evaluation context has the second type when its hole is filled with a
  * value of the first type. *)
 (* The number is how many deBruijn type variables are bound in the context.
  * This is only used for constructor contexts, because the value restriction 
  * ensures that no other contexts can be created under a let binding. *)
-(*val type_ctxt : num -> tenvC -> tenvS -> tenvE -> ctxt_frame -> t -> t -> bool*)
-(*val type_ctxts : num -> tenvC -> tenvS -> list ctxt -> t -> t -> bool*)
-(*val type_state : num -> tenvC -> tenvS -> state -> t -> bool*)
-(*val context_invariant : num -> list ctxt -> num -> bool*)
+(*val type_ctxt : num -> tenvC -> tenvS -> tenvE -> ctxt_frame t -> t -> t -> bool*)
+(*val type_ctxts : num -> tenvC -> tenvS -> list (ctxt t) -> t -> t -> bool*)
+(*val type_state : num -> tenvC -> tenvS -> state t -> t -> bool*)
+(*val context_invariant : num -> list (ctxt t) -> num -> bool*)
 
 val _ = Hol_reln `
 
@@ -2265,9 +2254,9 @@ type_d_state tenvC (envC, s, env, ds, SOME (SOME tvs, p, (envC,s',env',e,c))) te
 
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 
-(*val evaluate_ctxt : envC -> store -> envE -> ctxt_frame -> v -> store * result v -> bool*)
-(*val evaluate_ctxts : envC -> store -> list ctxt -> result v -> store * result v -> bool*)
-(*val evaluate_state : state -> store * result v -> bool*)
+(*val evaluate_ctxt : envC -> store t -> envE t -> ctxt_frame t -> v t -> store t * result (v t) -> bool*)
+(*val evaluate_ctxts : envC -> store t -> list (ctxt t) -> result (v t) -> store t * result (v t) -> bool*)
+(*val evaluate_state : state t -> store t * result (v t) -> bool*)
 
 val _ = Hol_reln `
 
@@ -2451,7 +2440,7 @@ evaluate_state (cenv, s, env, Val v, c) bv)`;
  * constructor environment to know if a value is ok or not.  Is equivalent to
  * the normal one for well-typed programs. *)
 
-(*val pmatch' :option num -> store -> pat -> v -> envE -> match_result*)
+(*val pmatch' : forall 'a.option num -> store 'a -> pat 'a -> v 'a -> envE 'a -> match_result 'a*)
  val pmatch'_defn = Hol_defn "pmatch'" `
 
 (pmatch' tvs s (Pvar n topt) v' env = Match (bind n (v', add_tvs tvs topt) env))

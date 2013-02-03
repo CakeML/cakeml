@@ -24,17 +24,17 @@ val hol_type_size_def = fetch "-" "hol_type_size_def"
 *)
 
 val _ = Hol_datatype `
-  term = Var of string => hol_type
-       | Const of string => hol_type
-       | Comb of term => term
-       | Abs of term => term`;
+  hol_term = Var of string => hol_type
+           | Const of string => hol_type
+           | Comb of hol_term => hol_term
+           | Abs of hol_term => hol_term`;
 
 (*
   type thm = Sequent of (term list * term)
 *)
 
 val _ = Hol_datatype `
-  thm = Sequent of term list => term`;
+  thm = Sequent of hol_term list => hol_term`;
 
 (*
   For purposes of stating our final soundness theorem, we also keep
@@ -42,9 +42,9 @@ val _ = Hol_datatype `
 *)
 
 val _ = Hol_datatype `
-  def = Axiomdef of term
-      | Constdef of string => term
-      | Typedef of string => term => string => string`;
+  def = Axiomdef of hol_term
+      | Constdef of string => hol_term
+      | Typedef of string => hol_term => string => string`;
 
 (*
   We define a record that holds the state, i.e.
@@ -64,7 +64,7 @@ val _ = Hol_datatype `
                 the_term_constants : (string # hol_type) list ;
                 the_axioms : thm list ;
                 the_definitions : def list ;
-                the_clash_var : term |>`;
+                the_clash_var : hol_term |>`;
 
 (* the state-exception monad *)
 
@@ -421,14 +421,14 @@ val _ = Define `
 
 val _ = Define `
   raconv env tm1 tm2 =
-    ((tm1 = tm2) /\ (env = [])) \/
     case (tm1,tm2) of
       (Var _ _, Var _ _) => alphavars env tm1 tm2
     | (Const _ _, Const _ _) => (tm1 = tm2)
     | (Comb s1 t1, Comb s2 t2) => raconv env s1 s2 /\ raconv env t1 t2
     | (Abs v1 t1, Abs v2 t2) =>
        (case (v1,v2) of
-          (Var n1 ty1, Var n2 ty2) => (ty1 = ty2) \/ raconv ((v1,v2)::env) t1 t2
+          (Var n1 ty1, Var n2 ty2) => (ty1 = ty2) /\
+                                      raconv ((v1,v2)::env) t1 t2
         | _ => F)
     | _ => F`;
 
@@ -630,7 +630,7 @@ val MEM_subtract = prove(
   FULL_SIMP_TAC std_ss [fetch "-" "subtract_def",MEM_FILTER] THEN METIS_TAC []);
 
 val vfree_in_IMP = prove(
-  ``!(t:term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)``,
+  ``!(t:hol_term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)``,
   HO_MATCH_MP_TAC (SIMP_RULE std_ss [] (fetch "-" "vfree_in_ind"))
   THEN REPEAT STRIP_TAC THEN Cases_on `x` THEN POP_ASSUM MP_TAC
   THEN ONCE_REWRITE_TAC [fetch "-" "vfree_in_def",fetch "-" "frees_def"]
@@ -693,7 +693,8 @@ val _ = Define `
                   let ilist' = FILTER (\(t,x). x <> v) ilist in
                   if ilist' = [] then tm else
                   let s' = vsubst_aux ilist' s in
-                  if s' = s then tm else
+                  (* if s' = s then tm else --- commented out becuase it doesn't
+                                             seem to fit Harrison's formalisation *)
                   if EXISTS (\(t,x). vfree_in v t /\ vfree_in x s) ilist'
                   then let v' = variant [s'] v in
                          Abs v' (vsubst_aux ((v',v)::ilist') s)
@@ -732,20 +733,7 @@ val vsubst_def = Define `
                        let z = Var(fst(dest_var y''),snd(dest_var y)) in
                        inst env tyin (Abs(z,vsubst[z,y] t)) in
       fun tyin -> if tyin = [] then fun tm -> tm else inst [] tyin
-
-  This function is problematic because it passes around terms in
-  exceptions and its termination proof is complicated for the
-  recursive call in the exception handler. This call does not reduce
-  the term size. We put a counter in for the problematic clash case
-  for now...
 *)
-
-val _ = Define `
-  inst_var tyin tm =
-    case tm of
-      Var n ty => let ty' = type_subst tyin ty in
-                    if ty' = ty then tm else Var n ty'
-    | _        => tm`
 
 val my_term_size_def = Define `
   (my_term_size (Var _ _) = 1:num) /\
@@ -782,13 +770,12 @@ val my_term_size_vsubst_aux = prove(
     THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "is_var_def",my_term_size_def])
   THEN ASM_SIMP_TAC (srw_ss()) [my_term_size_def,
          Once (fetch "-" "vsubst_aux_def"),LET_DEF]
-  THEN REVERSE (SRW_TAC [] [my_term_size_def,my_term_size_variant])
+  THEN REVERSE (SRW_TAC [] [my_term_size_def])
   THEN1 (Q.PAT_ASSUM `!bbbb. xx ==> bbb` MATCH_MP_TAC
          THEN FULL_SIMP_TAC (srw_ss()) [EVERY_MEM,FILTER,MEM_FILTER])
-  THEN Cases_on `is_var t`
-  THEN1 (Q.PAT_ASSUM `!bbbb. xx ==> bbb` MATCH_MP_TAC
-         THEN FULL_SIMP_TAC (srw_ss()) [EVERY_MEM,FILTER,MEM_FILTER,is_var_variant])
-  THEN FULL_SIMP_TAC std_ss [])
+  THEN Cases_on `is_var t` THEN FULL_SIMP_TAC std_ss [my_term_size_variant]
+  THEN Q.PAT_ASSUM `!bbbb. xx ==> bbb` MATCH_MP_TAC
+  THEN FULL_SIMP_TAC (srw_ss()) [EVERY_MEM,FILTER,MEM_FILTER,is_var_variant])
   |> Q.SPECL [`t`,`[(Var v ty,x)]`]
   |> SIMP_RULE (srw_ss()) [EVERY_DEF,fetch "-" "is_var_def"]
 
@@ -797,7 +784,7 @@ val ZERO_LT_term_size = prove(
   Cases THEN EVAL_TAC THEN DECIDE_TAC);
 
 val inst_aux_def = tDefine "inst_aux" `
-  (inst_aux k (env:(term # term) list) tyin tm) : term M =
+  (inst_aux (env:(hol_term # hol_term) list) tyin tm) : hol_term M =
     case tm of
       Var n ty   => let ty' = type_subst tyin ty in
                     let tm' = if ty' = ty then tm else Var n ty' in
@@ -805,37 +792,35 @@ val inst_aux_def = tDefine "inst_aux" `
                     else raise_clash tm'
     | Const c ty => let ty' = type_subst tyin ty in
                     if ty' = ty then return tm else return (Const c ty')
-    | Comb f x   => do f' <- inst_aux k env tyin f ;
-                       x' <- inst_aux k env tyin x ;
+    | Comb f x   => do f' <- inst_aux env tyin f ;
+                       x' <- inst_aux env tyin x ;
                        if (f = f') /\ (x = x') then return tm
                                                else return (Comb f' x') od
-    | Abs y t    => do (y':term) <- inst_aux k [] tyin y ;
+    | Abs y t    => do (y':hol_term) <- inst_aux [] tyin y ;
                        env' <- return ((y,y')::env) ;
                        handle_clash
-                        (do t' <- inst_aux k env' tyin t ;
-                            if (y' = y) /\ (t' = t) then return tm
-                                                    else return (Abs y' t') od)
+                        (do t' <- inst_aux env' tyin t ;
+                            return (Abs y' t') od)
                         (\w'.
                          if w' <> y' then failwith "clash" else
-                         let ifrees = (MAP (inst_var tyin) (frees t)) in
-                         let y'' = (variant ifrees y') in
-                         do v1 <- dest_var y'' ;
-                            v2 <- dest_var y ;
-                            let z = Var (FST v1) (SND v2) in
-                            if k = 0:num then failwith "too many clashes" else
-                              inst_aux (k-1) env tyin (Abs z (vsubst_aux [(z,y)] t)) od)
+                         do temp <- inst_aux [] tyin t ;
+                            y' <- return (variant (frees temp) y') ;
+                            (v1,ty') <- dest_var y' ;
+                            (v2,ty) <- dest_var y ;
+                            t' <- inst_aux ((Var v1 ty,Var v1 ty')::env) tyin
+                                    (vsubst_aux [(Var v1 ty,y)] t) ;
+                            return (Abs y' t') od)
                     od`
-  (WF_REL_TAC `measure (\(k,env,tyin,tm). k + my_term_size tm)`
+  (WF_REL_TAC `measure (\(env,tyin,tm). my_term_size tm)`
    THEN SIMP_TAC (srw_ss()) [my_term_size_def]
    THEN REPEAT STRIP_TAC
    THEN FULL_SIMP_TAC std_ss [my_term_size_vsubst_aux]
-   THEN ASSUME_TAC (ZERO_LT_term_size |> Q.SPEC `y`)
    THEN DECIDE_TAC) |> SIMP_RULE std_ss [handle_clash_def,raise_clash_def]
 
 val _ = save_thm("inst_aux_def",inst_aux_def);
 
 val _ = Define `
-  inst tyin tm = if tyin = [] then return tm else inst_aux 1000000000 [] tyin tm`;
+  inst tyin tm = if tyin = [] then return tm else inst_aux [] tyin tm`;
 
 (*
   let rator tm =
@@ -1025,7 +1010,7 @@ val _ = Define `
 *)
 
 val _ = Define `
-  ASSUME tm ty =
+  ASSUME tm =
     do ty <- type_of tm ;
        bty <- bool_ty ;
        if ty = bty then return (Sequent [tm] tm)
@@ -1107,12 +1092,13 @@ val add_def = Define `
 val new_axiom_def = Define `
   new_axiom tm =
     do ty <- type_of tm ;
-       x <- dest_type ty ;
-       if FST x = "bool" then
+       bty <- bool_ty ;
+       if ty = bty then
          do th <- return (Sequent [] tm) ;
             ax <- get_the_axioms ;
             set_the_axioms (th :: ax) ;
-            add_def (Axiomdef tm) od
+            add_def (Axiomdef tm) ;
+            return th od
        else
          failwith "new_axiom: Not a proposition"
     od`;
@@ -1138,7 +1124,7 @@ val _ = Define `
        then failwith "new_definition: Type variables not reflected in constant"
        else do
          new_constant(cname,ty) ;
-         add_def (Constdef cname tm) ;
+         add_def (Constdef cname r) ;
          c <- mk_const(cname,[]) ;
          eq <- mk_eq(c,r) ;
          return (Sequent [] eq)
@@ -1168,29 +1154,30 @@ val _ = Define `
     Sequent([],mk_eq(mk_comb(P,r),mk_eq(mk_comb(rep,mk_comb(abs,r)),r)))
 *)
 
-val _ = Define `
+val new_basic_type_definition_def = Define `
   new_basic_type_definition tyname absname repname thm =
     case thm of (Sequent asl c) =>
     do ok1 <- can get_const_type absname ;
        ok2 <- can get_const_type repname ;
     if ok1 \/ ok2 then failwith "new_basic_type_definition: Constant(s) already in use" else
+    if absname = repname then failwith "new_basic_type_definition: Constants must be distinct" else
     if ~(asl = []) then
       failwith "new_basic_type_definition: Assumptions in theorem" else
     do (P,x) <- try dest_comb c "new_basic_type_definition: Not a combination" ;
     if ~(freesin [] P) then
       failwith "new_basic_type_definition: Predicate is not closed" else
     let tyvars = MAP Tyvar (QSORT string_le (type_vars_in_term P)) in
-    do try new_type (tyname,LENGTH tyvars)
+    do rty <- type_of x ;
+       y <- try new_type (tyname,LENGTH tyvars)
                          "new_basic_type_definition: Type already defined" ;
-       add_def (Typedef tyname P absname repname) ;
+       y <- add_def (Typedef tyname P absname repname) ;
        aty <- mk_type(tyname,tyvars) ;
-       rty <- type_of x ;
-       ty <- mk_fun_ty rty aty ;
-       new_constant(absname,ty) ;
-       abs <- mk_const(absname,[]) ;
        ty <- mk_fun_ty aty rty ;
-       new_constant(repname,ty) ;
+       y <- new_constant(repname,ty) ;
        rep <- mk_const(repname,[]) ;
+       ty <- mk_fun_ty rty aty ;
+       y <- new_constant(absname,ty) ;
+       abs <- mk_const(absname,[]) ;
        a <- return (mk_var("a",aty)) ;
        r <- return (mk_var("r",rty)) ;
        x1 <- mk_comb(rep,a) ;

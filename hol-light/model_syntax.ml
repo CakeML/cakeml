@@ -45,6 +45,7 @@ let codomain = define
 
 x "type_DISTINCT" type_DISTINCT;;
 x "type_INJ" type_INJ;;
+x "type_INDUCT" type_INDUCT;;
 x "domain" domain;;
 x "codomain" codomain;;
 
@@ -65,6 +66,7 @@ let term_INJ = injectivity "term";;
 
 x "term_DISTINCT" term_DISTINCT;;
 x "term_INJ" term_INJ;;
+x "term_INDUCT" term_INDUCT;;
 
 (* ------------------------------------------------------------------------- *)
 (* Typing judgements.                                                        *)
@@ -120,8 +122,10 @@ let WELLTYPED_CLAUSES = prove
   REWRITE_TAC[term_INJ; term_DISTINCT] THEN
   MESON_TAC[WELLTYPED; WELLTYPED_LEMMA]);;
 
+x "welltyped" welltyped;;
 x "typeof" typeof;;
 x "WELLTYPED" WELLTYPED;;
+x "WELLTYPED_LEMMA" WELLTYPED_LEMMA;;
 x "WELLTYPED_CLAUSES" WELLTYPED_CLAUSES;;
 
 (* ------------------------------------------------------------------------- *)
@@ -581,6 +585,7 @@ let VSUBST_WELLTYPED = prove
         ==> welltyped (VSUBST ilist tm)`,
   MESON_TAC[VSUBST_HAS_TYPE; welltyped]);;
 
+x "VSUBST_HAS_TYPE" VSUBST_HAS_TYPE;;
 x "VSUBST_WELLTYPED" VSUBST_WELLTYPED;;
 
 (* ------------------------------------------------------------------------- *)
@@ -639,6 +644,8 @@ let VFREE_IN_VSUBST = prove
   ONCE_REWRITE_TAC[COND_RAND] THEN REWRITE_TAC[ALL] THEN
   CONV_TAC(ONCE_DEPTH_CONV GEN_BETA_CONV) THEN MESON_TAC[]);;
 
+x "VFREE_IN_VSUBST" VFREE_IN_VSUBST;;
+
 (* ------------------------------------------------------------------------- *)
 (* Sum type to model exception-raising.                                      *)
 (* ------------------------------------------------------------------------- *)
@@ -649,6 +656,10 @@ let result_INDUCT,result_RECURSION = define_type
 let result_INJ = injectivity "result";;
 
 let result_DISTINCT = distinctness "result";;
+
+x "result_INJ" result_INJ;;
+x "result_INDUCT" result_INDUCT;;
+x "result_DISTINCT" result_DISTINCT;;
 
 (* ------------------------------------------------------------------------- *)
 (* Discriminators and extractors. (Nicer to pattern-match...)                *)
@@ -713,6 +724,10 @@ let sizeof_positive = prove(
   REWRITE_TAC[sizeof;ARITH] THEN
   REWRITE_TAC[LT_NZ] THEN
   REWRITE_TAC[ONE;TWO;ADD;NOT_SUC]);;
+
+x "sizeof" sizeof;;
+x "SIZEOF_VSUBST" SIZEOF_VSUBST;;
+x "sizeof_positive" sizeof_positive;;
 
 (* ------------------------------------------------------------------------- *)
 (* Prove existence of INST_CORE.                                             *)
@@ -803,6 +818,356 @@ let NOT_IS_RESULT = prove
 let letlemma = prove
  (`(let x = t in P x) = P t`,
   REWRITE_TAC[LET_DEF; LET_END_DEF]);;
+
+(* ------------------------------------------------------------------------- *)
+(* Define INST_CORE_ALT                                                      *)
+(* ------------------------------------------------------------------------- *)
+
+let INST_ALT_EXISTS = prove(
+ `?INST_ALT.
+  (!env tyin x ty.
+        INST_ALT env tyin (Var x ty) =
+          let tm = Var x ty
+          and tm' = Var x (TYPE_SUBST tyin ty) in
+         if REV_ASSOCD tm' env tm = tm then Result tm' else Clash tm') /\
+  (!env tyin x ty.
+        INST_ALT env tyin (Const x ty) =
+          Result(Const x (TYPE_SUBST tyin ty))) /\
+  (!env tyin ty.
+        INST_ALT env tyin (Equal ty) = Result(Equal(TYPE_SUBST tyin ty))) /\
+  (!env tyin ty.
+        INST_ALT env tyin (Select ty) = Result(Select(TYPE_SUBST tyin ty))) /\
+  (!env tyin s t.
+        INST_ALT env tyin (Comb s t) =
+            let sres = INST_ALT env tyin s in
+            if IS_CLASH sres then sres else
+            let tres = INST_ALT env tyin t in
+            if IS_CLASH tres then tres else
+            let s' = RESULT sres and t' = RESULT tres in
+            Result (Comb s' t')) /\
+  (!env tyin x ty t.
+        INST_ALT env tyin (Abs x ty t) =
+            let ty' = TYPE_SUBST tyin ty in
+            let env' = CONS (Var x ty,Var x ty') env in
+            let tres = INST_ALT env' tyin t in
+            if IS_RESULT tres then Result(Abs x ty' (RESULT tres)) else
+            let w = CLASH tres in
+            if ~(w = Var x ty') then tres else
+            let x' = VARIANT (RESULT(INST_ALT [] tyin t)) x ty' in
+            let t' = VSUBST [Var x' ty,Var x ty] t in
+            let ty' = TYPE_SUBST tyin ty in
+            let env' = CONS (Var x' ty,Var x' ty') env in
+            let tres = INST_ALT env' tyin t' in
+            if IS_RESULT tres then Result(Abs x' ty' (RESULT tres)) else
+                                   tres)`,
+  W(fun (asl,w) -> MATCH_MP_TAC(DISCH_ALL
+   (pure_prove_recursive_function_exists w))) THEN
+  EXISTS_TAC `MEASURE(\(env:(term#term)list,tyin:(type#type)list,t).
+                        sizeof t)` THEN
+  REWRITE_TAC[WF_MEASURE; MEASURE_LE; MEASURE] THEN
+  SIMP_TAC[MEM; PAIR_EQ; term_INJ; RIGHT_EXISTS_AND_THM; LEFT_EXISTS_AND_THM;
+             GSYM EXISTS_REFL; SIZEOF_VSUBST; LE_REFL; sizeof;
+                        LE_ADD; LE_ADDR; LT_ADD; LT_ADDR] THEN
+  REPEAT STRIP_TAC THEN
+  REWRITE_TAC[TWO;LT_NZ;NOT_SUC] THENL
+  [MATCH_MP_TAC LE_TRANS THEN EXISTS_TAC `1 + sizeof s`
+  ;MATCH_MP_TAC LT_TRANS THEN EXISTS_TAC `1 + sizeof t`
+  ;MATCH_MP_TAC LE_TRANS THEN EXISTS_TAC `1 + sizeof t`
+  ;MATCH_MP_TAC LT_TRANS THEN EXISTS_TAC `1 + sizeof t`
+  ;MATCH_MP_TAC LT_TRANS THEN EXISTS_TAC `1 + sizeof s`
+  ;MATCH_MP_TAC LT_TRANS THEN EXISTS_TAC `1 + sizeof s`
+  ] THEN
+  REWRITE_TAC[ADD_ASSOC;LT_ADD;LE_ADD;sizeof_positive] THEN
+  REWRITE_TAC[LE_ADDR;LT_ADDR] THEN
+  REWRITE_TAC[ONE;LT_NZ;NOT_SUC] THEN
+  REWRITE_TAC[GSYM ADD_ASSOC] THEN
+  CONV_TAC(RAND_CONV(RAND_CONV(fun tm ->
+      SPECL [rand(rator tm);rand tm] ADD_SYM))) THEN
+    REWRITE_TAC[ADD_ASSOC;LT_ADD;LE_ADD;sizeof_positive]);;
+
+let INST_ALT = new_specification ["INST_ALT"] INST_ALT_EXISTS;;
+
+x "INST_ALT" INST_ALT;;
+
+(* ------------------------------------------------------------------------- *)
+(* Property of INST_CORE                                                     *)
+(* ------------------------------------------------------------------------- *)
+
+let arith_lemma1 = prove(
+  `s < 1 + s + t /\ t < 1 + s + t`,
+  MESON_TAC [ADD_SYM;ADD_CLAUSES;ADD1;LT_EXISTS]);;
+
+let arith_lemma2 = prove(
+  `t < 2 + t`,
+  SIMP_TAC [LT_EXISTS] THEN EXISTS_TAC `(SUC 0):num` THEN
+     REWRITE_TAC [BIT1_THM;BIT0_THM;ADD_CLAUSES]);;
+
+let INST_CORE_HAS_TYPE = prove(
+  `!n tm env tyin.
+        welltyped tm /\ (sizeof tm = n) /\
+        (!s s'. MEM (s,s') env
+                ==> ?x ty. (s = Var x ty) /\
+                           (s' = Var x (TYPE_SUBST tyin ty)))
+        ==> (?x ty. (INST_CORE env tyin tm =
+                     Clash(Var x (TYPE_SUBST tyin ty))) /\
+                    (INST_ALT env tyin tm =
+                     Clash(Var x (TYPE_SUBST tyin ty))) /\
+                    VFREE_IN (Var x ty) tm /\
+                    ~(REV_ASSOCD (Var x (TYPE_SUBST tyin ty))
+                                 env (Var x ty) = Var x ty)) \/
+            (!x ty. VFREE_IN (Var x ty) tm
+                    ==> (REV_ASSOCD (Var x (TYPE_SUBST tyin ty))
+                                 env (Var x ty) = Var x ty)) /\
+            (?tm'. (INST_CORE env tyin tm = Result tm') /\
+                   (INST_ALT env tyin tm = Result tm') /\
+                   tm' has_type (TYPE_SUBST tyin (typeof tm)) /\
+                   (!u uty. VFREE_IN (Var u uty) tm' <=>
+                                ?oty. VFREE_IN (Var u oty) tm /\
+                                      (uty = TYPE_SUBST tyin oty)))`,
+  MATCH_MP_TAC num_WF THEN GEN_TAC THEN DISCH_TAC THEN
+  MATCH_MP_TAC term_INDUCT THEN
+  ONCE_REWRITE_TAC[INST_CORE; SIMP_RULE [letlemma] INST_ALT] THEN REWRITE_TAC[] THEN
+  REPEAT CONJ_TAC THENL
+   [POP_ASSUM(K ALL_TAC) THEN
+    REWRITE_TAC[REV_ASSOCD; LET_DEF; LET_END_DEF] THEN
+    REPEAT GEN_TAC THEN COND_CASES_TAC THEN
+    ASM_REWRITE_TAC[result_DISTINCT; result_INJ; UNWIND_THM1] THEN
+    REWRITE_TAC[typeof; has_type_RULES] THEN
+    CONV_TAC(ONCE_DEPTH_CONV GEN_BETA_CONV) THEN
+    REWRITE_TAC[RESULT; VFREE_IN; term_INJ] THEN ASM_MESON_TAC[];
+    POP_ASSUM(K ALL_TAC) THEN
+    REWRITE_TAC[TYPE_SUBST; RESULT; VFREE_IN; term_DISTINCT] THEN
+    ASM_REWRITE_TAC[result_DISTINCT; result_INJ; UNWIND_THM1] THEN
+    REWRITE_TAC[typeof; has_type_RULES; TYPE_SUBST; VFREE_IN] THEN
+    REWRITE_TAC[TYPE_SUBST; term_DISTINCT];
+    POP_ASSUM(K ALL_TAC) THEN
+    REWRITE_TAC[TYPE_SUBST; RESULT; VFREE_IN; term_DISTINCT] THEN
+    ASM_REWRITE_TAC[result_DISTINCT; result_INJ; UNWIND_THM1] THEN
+    REWRITE_TAC[typeof; has_type_RULES; TYPE_SUBST; VFREE_IN] THEN
+    REWRITE_TAC[TYPE_SUBST; term_DISTINCT];
+    POP_ASSUM(K ALL_TAC) THEN
+    REWRITE_TAC[TYPE_SUBST; RESULT; VFREE_IN; term_DISTINCT] THEN
+    ASM_REWRITE_TAC[result_DISTINCT; result_INJ; UNWIND_THM1] THEN
+    REWRITE_TAC[typeof; has_type_RULES; TYPE_SUBST; VFREE_IN] THEN
+    REWRITE_TAC[TYPE_SUBST; term_DISTINCT];
+    MAP_EVERY X_GEN_TAC [`s:term`; `t:term`] THEN DISCH_THEN(K ALL_TAC) THEN
+    POP_ASSUM MP_TAC THEN ASM_CASES_TAC `n = sizeof(Comb s t)` THEN
+    ASM_REWRITE_TAC[] THEN
+    DISCH_THEN(fun th -> MP_TAC(SPEC `sizeof t` th) THEN
+                         MP_TAC(SPEC `sizeof s` th)) THEN
+    REWRITE_TAC[sizeof; arith_lemma1] THEN
+    DISCH_THEN(fun th -> DISCH_THEN(MP_TAC o SPEC `t:term`) THEN
+                         MP_TAC(SPEC `s:term` th)) THEN
+    REWRITE_TAC[IMP_IMP; AND_FORALL_THM; WELLTYPED_CLAUSES] THEN
+    REPEAT(MATCH_MP_TAC MONO_FORALL THEN GEN_TAC) THEN
+    DISCH_THEN(fun th -> STRIP_TAC THEN MP_TAC th) THEN ASM_REWRITE_TAC[] THEN
+    GEN_REWRITE_TAC I [IMP_CONJ] THEN
+    DISCH_THEN(DISJ_CASES_THEN MP_TAC) THENL
+     [DISCH_THEN(fun th -> DISCH_THEN(K ALL_TAC) THEN MP_TAC th) THEN
+      DISCH_THEN(fun th -> DISJ1_TAC THEN MP_TAC th) THEN
+      REPEAT(MATCH_MP_TAC MONO_EXISTS THEN GEN_TAC) THEN
+      STRIP_TAC THEN ASM_REWRITE_TAC[LET_DEF; LET_END_DEF; IS_CLASH; VFREE_IN];
+      ALL_TAC] THEN
+    REWRITE_TAC[TYPE_SUBST] THEN
+    DISCH_THEN(CONJUNCTS_THEN2 ASSUME_TAC MP_TAC) THEN
+    DISCH_THEN(X_CHOOSE_THEN `s':term` STRIP_ASSUME_TAC) THEN
+    DISCH_THEN(DISJ_CASES_THEN MP_TAC) THENL
+     [DISCH_THEN(fun th -> DISJ1_TAC THEN MP_TAC th) THEN
+      REPEAT(MATCH_MP_TAC MONO_EXISTS THEN GEN_TAC) THEN
+      STRIP_TAC THEN ASM_REWRITE_TAC[LET_DEF; LET_END_DEF; IS_CLASH; VFREE_IN];
+      ALL_TAC] THEN
+    DISCH_THEN(CONJUNCTS_THEN2 ASSUME_TAC MP_TAC) THEN
+    DISCH_THEN(X_CHOOSE_THEN `t':term` STRIP_ASSUME_TAC) THEN
+    DISJ2_TAC THEN CONJ_TAC THENL
+     [REWRITE_TAC[VFREE_IN] THEN ASM_MESON_TAC[]; ALL_TAC] THEN
+    EXISTS_TAC `Comb s' t'` THEN
+    ASM_SIMP_TAC[LET_DEF; LET_END_DEF; IS_CLASH; RESULT] THEN
+    ASM_REWRITE_TAC[VFREE_IN] THEN
+    ASM_REWRITE_TAC[typeof] THEN ONCE_REWRITE_TAC[has_type_CASES] THEN
+    REWRITE_TAC[term_DISTINCT; term_INJ; codomain] THEN ASM_MESON_TAC[];
+    ALL_TAC] THEN
+  MAP_EVERY X_GEN_TAC [`x:string`; `ty:type`; `t:term`] THEN
+  DISCH_THEN(K ALL_TAC) THEN POP_ASSUM MP_TAC THEN
+  ASM_CASES_TAC `n = sizeof (Abs x ty t)` THEN ASM_REWRITE_TAC[] THEN
+  POP_ASSUM(K ALL_TAC) THEN DISCH_TAC THEN REPEAT GEN_TAC THEN
+  REWRITE_TAC[WELLTYPED_CLAUSES] THEN STRIP_TAC THEN REPEAT LET_TAC THEN
+  FIRST_ASSUM(MP_TAC o SPEC `sizeof t`) THEN
+  REWRITE_TAC[sizeof; arith_lemma2] THEN
+  DISCH_THEN(MP_TAC o SPECL
+   [`t:term`; `env':(term#term)list`; `tyin:(type#type)list`]) THEN
+  ASM_REWRITE_TAC[] THEN
+  ANTS_TAC THENL
+   [EXPAND_TAC "env'" THEN (* EXPAND_TAC "env''" THEN *)
+    REWRITE_TAC[MEM; PAIR_EQ] THEN ASM_MESON_TAC[];
+    ALL_TAC] THEN
+  DISCH_THEN(DISJ_CASES_THEN MP_TAC) THENL
+   [ALL_TAC;
+    FIRST_X_ASSUM(K ALL_TAC o SPEC `0`) THEN
+    DISCH_THEN(CONJUNCTS_THEN2 ASSUME_TAC MP_TAC) THEN
+    DISCH_THEN(X_CHOOSE_THEN `t':term` STRIP_ASSUME_TAC) THEN
+    DISJ2_TAC THEN ASM_REWRITE_TAC[IS_RESULT] THEN CONJ_TAC THENL
+     [FIRST_X_ASSUM(fun th ->
+       MP_TAC th THEN MATCH_MP_TAC MONO_FORALL THEN
+       GEN_TAC THEN MATCH_MP_TAC MONO_FORALL THEN GEN_TAC THEN
+       DISCH_THEN(MP_TAC o check (is_imp o concl))) THEN
+       EXPAND_TAC "env'" THEN
+      REWRITE_TAC[VFREE_IN; REV_ASSOCD; term_INJ] THEN
+      COND_CASES_TAC THEN ASM_REWRITE_TAC[term_INJ] THEN MESON_TAC[];
+      ALL_TAC] THEN
+    REWRITE_TAC[result_INJ; UNWIND_THM1; RESULT] THEN
+    MATCH_MP_TAC(TAUT `a /\ b ==> b /\ a`) THEN
+    CONJ_TAC THENL
+     [ASM_REWRITE_TAC[VFREE_IN; term_INJ] THEN
+      MAP_EVERY X_GEN_TAC [`u:string`; `uty:type`] THEN
+      ASM_CASES_TAC `u:string = x` THEN ASM_REWRITE_TAC[] THEN
+      UNDISCH_THEN `u:string = x` SUBST_ALL_TAC THEN
+      REWRITE_TAC[RIGHT_AND_EXISTS_THM] THEN
+      AP_TERM_TAC THEN GEN_REWRITE_TAC I [FUN_EQ_THM] THEN
+      X_GEN_TAC `oty:type` THEN REWRITE_TAC[] THEN
+      ASM_CASES_TAC `uty = TYPE_SUBST tyin oty` THEN ASM_REWRITE_TAC[] THEN
+      ASM_CASES_TAC `VFREE_IN (Var x oty) t` THEN ASM_REWRITE_TAC[] THEN
+      EQ_TAC THENL [ASM_MESON_TAC[]; ALL_TAC] THEN
+      REWRITE_TAC[CONTRAPOS_THM] THEN DISCH_THEN(ASSUME_TAC o SYM) THEN
+      FIRST_X_ASSUM(fun th ->
+       MP_TAC(SPECL [`x:string`; `oty:type`] th) THEN
+       ANTS_TAC THENL [ASM_REWRITE_TAC[] THEN NO_TAC; ALL_TAC]) THEN
+      EXPAND_TAC "env'" THEN REWRITE_TAC[REV_ASSOCD] THEN
+      ASM_MESON_TAC[term_INJ];
+      REWRITE_TAC[typeof; TYPE_SUBST] THEN ASM_REWRITE_TAC[] THEN
+      ASM_MESON_TAC[has_type_RULES]]] THEN
+  ABBREV_TAC `tres1 = INST_ALT env' tyin t` THEN
+  DISCH_THEN(X_CHOOSE_THEN `z:string` (X_CHOOSE_THEN `zty:type`
+   (CONJUNCTS_THEN2 SUBST_ALL_TAC
+   (CONJUNCTS_THEN2 SUBST_ALL_TAC MP_TAC)))) THEN
+  EXPAND_TAC "w" THEN REWRITE_TAC[CLASH; IS_RESULT; term_INJ] THEN
+  COND_CASES_TAC THEN ASM_REWRITE_TAC[] THENL
+   [FIRST_X_ASSUM(K ALL_TAC o SPEC `0`) THEN
+    DISCH_THEN(fun th ->
+      DISJ1_TAC THEN REWRITE_TAC[result_INJ] THEN
+      MAP_EVERY EXISTS_TAC [`z:string`; `zty:type`] THEN
+      MP_TAC th) THEN
+    ASM_REWRITE_TAC[VFREE_IN; term_INJ] THEN
+    EXPAND_TAC "env'" THEN ASM_REWRITE_TAC[REV_ASSOCD; term_INJ] THEN
+    ASM_MESON_TAC[];
+    ALL_TAC] THEN
+  FIRST_X_ASSUM(CONJUNCTS_THEN2 SUBST_ALL_TAC ASSUME_TAC) THEN STRIP_TAC THEN
+  ONCE_REWRITE_TAC[INST_CORE] THEN ASM_REWRITE_TAC[] THEN
+  ONCE_REWRITE_TAC[letlemma] THEN
+  ABBREV_TAC `env'' = CONS (Var x' ty,Var x' ty') env` THEN
+  ONCE_REWRITE_TAC[letlemma] THEN
+  ABBREV_TAC
+   `ures = INST_CORE env'' tyin (VSUBST[Var x' ty,Var x ty] t)` THEN
+  ABBREV_TAC
+   `ures' = INST_ALT env'' tyin (VSUBST[Var x' ty,Var x ty] t)` THEN
+  ONCE_REWRITE_TAC[letlemma] THEN
+  FIRST_X_ASSUM(MP_TAC o SPEC `sizeof t`) THEN
+  REWRITE_TAC[sizeof; arith_lemma2] THEN
+  DISCH_THEN(fun th ->
+    MP_TAC(SPECL [`VSUBST [Var x' ty,Var x ty] t`;
+                  `env'':(term#term)list`; `tyin:(type#type)list`] th) THEN
+    MP_TAC(SPECL [`t:term`; `[]:(term#term)list`; `tyin:(type#type)list`]
+       th)) THEN
+  REWRITE_TAC[MEM; REV_ASSOCD] THEN ASM_REWRITE_TAC[] THEN
+  DISCH_THEN(X_CHOOSE_THEN `t':term` MP_TAC) THEN STRIP_TAC THEN
+  UNDISCH_TAC `VARIANT (RESULT (INST_CORE [] tyin t)) x ty' = x'` THEN
+  ASM_REWRITE_TAC[RESULT] THEN DISCH_TAC THEN
+  MP_TAC(SPECL [`t':term`; `x:string`; `ty':type`] VARIANT_THM) THEN
+  ASM_REWRITE_TAC[] THEN
+  GEN_REWRITE_TAC (LAND_CONV o TOP_DEPTH_CONV)
+   [NOT_EXISTS_THM; TAUT `~(a /\ b) <=> a ==> ~b`] THEN DISCH_TAC THEN
+  ANTS_TAC THENL
+   [ASM_REWRITE_TAC[] THEN CONJ_TAC THENL
+     [MATCH_MP_TAC VSUBST_WELLTYPED THEN ASM_REWRITE_TAC[MEM; PAIR_EQ] THEN
+      ASM_MESON_TAC[has_type_RULES];
+      ALL_TAC] THEN
+    CONJ_TAC THENL
+     [MATCH_MP_TAC SIZEOF_VSUBST THEN
+      ASM_REWRITE_TAC[MEM; PAIR_EQ] THEN ASM_MESON_TAC[has_type_RULES];
+      ALL_TAC] THEN
+    EXPAND_TAC "env''" THEN REWRITE_TAC[MEM; PAIR_EQ] THEN
+    ASM_MESON_TAC[];
+    ALL_TAC] THEN
+  DISCH_THEN(DISJ_CASES_THEN MP_TAC) THENL
+   [DISCH_THEN(fun th -> DISJ1_TAC THEN MP_TAC th) THEN
+    MATCH_MP_TAC MONO_EXISTS THEN X_GEN_TAC `v:string` THEN
+    MATCH_MP_TAC MONO_EXISTS THEN X_GEN_TAC `vty:type` THEN
+    ASM_REWRITE_TAC[] THEN
+    DISCH_THEN (CONJUNCTS_THEN2 SUBST_ALL_TAC
+               (CONJUNCTS_THEN2 SUBST_ALL_TAC MP_TAC)) THEN
+    ASM_REWRITE_TAC[IS_RESULT; CLASH] THEN
+    ONCE_REWRITE_TAC[letlemma] THEN
+    COND_CASES_TAC THEN ASM_REWRITE_TAC[] THENL
+     [REWRITE_TAC[VFREE_IN_VSUBST] THEN EXPAND_TAC "env''" THEN
+      REWRITE_TAC[REV_ASSOCD] THEN ASM_REWRITE_TAC[] THEN
+      DISCH_THEN(CONJUNCTS_THEN2 MP_TAC ASSUME_TAC) THEN
+      ASM_REWRITE_TAC[] THEN REWRITE_TAC[term_INJ] THEN
+      DISCH_THEN(REPEAT_TCL CHOOSE_THEN MP_TAC) THEN
+      COND_CASES_TAC THEN ASM_REWRITE_TAC[VFREE_IN; term_INJ] THEN
+      ASM_MESON_TAC[];
+      ALL_TAC] THEN
+    FIRST_X_ASSUM(MP_TAC o GEN_REWRITE_RULE I [term_INJ]) THEN
+    DISCH_THEN(CONJUNCTS_THEN2 SUBST_ALL_TAC ASSUME_TAC) THEN
+    MATCH_MP_TAC(TAUT `~p ==> p ==> q`) THEN
+    EXPAND_TAC "env''" THEN REWRITE_TAC[REV_ASSOCD] THEN
+    ASM_CASES_TAC `vty:type = ty` THEN ASM_REWRITE_TAC[] THEN
+    DISCH_THEN(MP_TAC o CONJUNCT1) THEN
+    REWRITE_TAC[VFREE_IN_VSUBST; NOT_EXISTS_THM; REV_ASSOCD] THEN
+    ONCE_REWRITE_TAC[COND_RAND] THEN REWRITE_TAC[VFREE_IN; term_INJ] THEN
+    MAP_EVERY X_GEN_TAC [`k:string`; `kty:type`] THEN
+    MP_TAC(SPECL [`t':term`; `x:string`; `ty':type`] VARIANT_THM) THEN
+    ASM_REWRITE_TAC[] THEN ASM_MESON_TAC[];
+    ALL_TAC] THEN
+  ASM_REWRITE_TAC[] THEN DISCH_THEN(CONJUNCTS_THEN2 ASSUME_TAC MP_TAC) THEN
+  DISCH_THEN(X_CHOOSE_THEN `t'':term` STRIP_ASSUME_TAC) THEN
+  ASM_REWRITE_TAC[IS_RESULT; result_INJ; UNWIND_THM1; result_DISTINCT] THEN
+  REWRITE_TAC[RESULT] THEN
+  MATCH_MP_TAC(TAUT `b /\ (b ==> c /\ a) ==> a /\ b /\ c`) THEN
+  CONJ_TAC THENL
+   [ASM_REWRITE_TAC[typeof; TYPE_SUBST] THEN
+    MATCH_MP_TAC(last(CONJUNCTS has_type_RULES)) THEN
+    SUBGOAL_THEN `(VSUBST [Var x' ty,Var x ty] t) has_type (typeof t)`
+      (fun th -> ASM_MESON_TAC[th; WELLTYPED_LEMMA]) THEN
+    MATCH_MP_TAC VSUBST_HAS_TYPE THEN ASM_REWRITE_TAC[GSYM WELLTYPED] THEN
+    REWRITE_TAC[MEM; PAIR_EQ] THEN MESON_TAC[has_type_RULES];
+    ALL_TAC] THEN
+  DISCH_TAC THEN MATCH_MP_TAC(TAUT `a /\ (a ==> b) ==> a /\ b`) THEN
+  CONJ_TAC THENL
+   [ASM_REWRITE_TAC[VFREE_IN] THEN
+    MAP_EVERY X_GEN_TAC [`k:string`; `kty:type`]  THEN
+    ASM_REWRITE_TAC[VFREE_IN_VSUBST; REV_ASSOCD] THEN
+    ONCE_REWRITE_TAC[COND_RAND] THEN REWRITE_TAC[VFREE_IN; term_INJ] THEN
+    SIMP_TAC[] THEN
+    REWRITE_TAC[TAUT `x /\ (if p then a /\ b else c /\ b) <=>
+                      b /\ x /\ (if p then a else c)`] THEN
+    REWRITE_TAC[UNWIND_THM2] THEN
+    REWRITE_TAC[TAUT `x /\ (if p /\ q then a else b) <=>
+                      p /\ q /\ a /\ x \/ b /\ ~(p /\ q) /\ x`] THEN
+    REWRITE_TAC[EXISTS_OR_THM; UNWIND_THM1; UNWIND_THM2] THEN
+    ASM_MESON_TAC[];
+    ALL_TAC] THEN
+  DISCH_TAC THEN
+  MAP_EVERY X_GEN_TAC [`k:string`; `kty:type`] THEN
+  REWRITE_TAC[VFREE_IN] THEN STRIP_TAC THEN
+  UNDISCH_TAC `!x'' ty'.
+         VFREE_IN (Var x'' ty') (VSUBST [Var x' ty,Var x ty] t)
+         ==> (REV_ASSOCD (Var x'' (TYPE_SUBST tyin ty')) env''
+                         (Var x'' ty') = Var x'' ty')` THEN
+  DISCH_THEN(MP_TAC o SPECL [`k:string`; `kty:type`]) THEN
+  REWRITE_TAC[VFREE_IN_VSUBST; REV_ASSOCD] THEN
+  ONCE_REWRITE_TAC[COND_RAND] THEN REWRITE_TAC[VFREE_IN] THEN
+  REWRITE_TAC[VFREE_IN; term_INJ] THEN
+  SIMP_TAC[] THEN
+  REWRITE_TAC[TAUT `x /\ (if p then a /\ b else c /\ b) <=>
+                    b /\ x /\ (if p then a else c)`] THEN
+  REWRITE_TAC[UNWIND_THM2] THEN
+  REWRITE_TAC[TAUT `x /\ (if p /\ q then a else b) <=>
+                    p /\ q /\ a /\ x \/ b /\ ~(p /\ q) /\ x`] THEN
+  REWRITE_TAC[EXISTS_OR_THM; UNWIND_THM1; UNWIND_THM2] THEN
+  UNDISCH_TAC `~(Var x ty = Var k kty)` THEN
+  REWRITE_TAC[term_INJ] THEN DISCH_TAC THEN ASM_REWRITE_TAC[] THEN
+  EXPAND_TAC "env''" THEN REWRITE_TAC[REV_ASSOCD] THEN ASM_MESON_TAC[]);;
+
+x "INST_CORE_HAS_TYPE" INST_CORE_HAS_TYPE;;
 
 (* ------------------------------------------------------------------------- *)
 (* Function for collecting type variables.                                   *)
@@ -905,6 +1270,7 @@ let def_INJ = injectivity "def";;
 
 x "def_DISTINCT" def_DISTINCT;;
 x "def_INJ" def_INJ;;
+x "def_INDUCT" def_INDUCT;;
 
 (* ------------------------------------------------------------------------- *)
 (* Types must have defined Tyapps and correct arity.                         *)
@@ -967,30 +1333,19 @@ x "term_ok" term_ok;;
 (* A context is well-formed if all definitions are allowed in that order.    *)
 (* ------------------------------------------------------------------------- *)
 
-let reserved_type_names = define
- `reserved_type_names = [[CHR 98; CHR 111; CHR 111; CHR 108];
-                         [CHR 105; CHR 110; CHR 100];
-                         [CHR 102; CHR 117; CHR 110]]`;;
-
-let reserved_const_names = define
- `reserved_const_names = [[CHR 61]; [CHR 64]]`;;
-
 let def_ok = new_recursive_definition def_RECURSION
  `(def_ok (Axiomdef t) (defs:(def)list) <=>
      t has_type Bool /\ welltyped t /\ term_ok defs t) /\
   (def_ok (Constdef s t) (defs:(def)list) <=>
      CLOSED t /\ welltyped t /\ term_ok defs t /\
-     ~(MEM s (MAP FST (consts defs))) /\
-     ~(MEM s reserved_const_names) /\
+     ~(MEM s (MAP FST (consts defs))) /\ ~(s = [CHR 61]) /\
      !v. MEM v (tvars t) ==> MEM v (tyvars (typeof t))) /\
   (def_ok (Typedef tyname t a r) defs <=>
      CLOSED t /\ welltyped t /\ term_ok defs t /\
      ~(MEM tyname (MAP FST (types defs))) /\
-     ~(MEM tyname reserved_type_names) /\
-     ~(MEM a (MAP FST (consts defs))) /\ ~(MEM a reserved_const_names) /\
-     ~(MEM r (MAP FST (consts defs))) /\ ~(MEM r reserved_const_names) /\
-     ?ty. (typeof t = Fun ty Bool) /\
-          !v. MEM v (tvars t) ==> MEM v (tyvars ty))`;;
+     ~(MEM a (MAP FST (consts defs))) /\ ~(a = [CHR 61]) /\
+     ~(MEM r (MAP FST (consts defs))) /\ ~(r = [CHR 61]) /\
+     ?ty. (typeof t = Fun ty Bool))`;;
 
 let context_ok = new_recursive_definition list_RECURSION
  `(context_ok [] = T) /\
@@ -999,8 +1354,6 @@ let context_ok = new_recursive_definition list_RECURSION
 let welltyped_in = define
  `welltyped_in t defs <=> welltyped t /\ term_ok defs t /\ context_ok defs`;;
 
-x "reserved_type_names" reserved_type_names;;
-x "reserved_const_names" reserved_const_names;;
 x "def_ok" def_ok;;
 x "context_ok" context_ok;;
 x "welltyped_in" welltyped_in;;
@@ -1023,10 +1376,11 @@ let proves_RULES,proves_INDUCT,proves_CASES = new_inductive_definition
         defs, asl2 |- l2 === r2 /\ welltyped(Comb l1 l2)
         ==> defs, TERM_UNION asl1 asl2 |- Comb l1 l2 === Comb r1 r2) /\
   (!asl x ty l r defs.
-        ~(EX (VFREE_IN (Var x ty)) asl) /\ defs, asl |- l === r
+        ~(EX (VFREE_IN (Var x ty)) asl) /\ type_ok defs ty /\
+        defs, asl |- l === r
         ==> defs, asl |- (Abs x ty l) === (Abs x ty r)) /\
   (!x ty t defs.
-        welltyped_in t defs
+        welltyped_in t defs /\ type_ok defs ty
         ==> defs, [] |- Comb (Abs x ty t) (Var x ty) === t) /\
   (!p defs.
         p has_type Bool /\ welltyped_in p defs
@@ -1040,37 +1394,42 @@ let proves_RULES,proves_INDUCT,proves_CASES = new_inductive_definition
                              (FILTER((~) o ACONV c1) asl2)
                |- c1 === c2) /\
   (!tyin asl p defs.
+        (!s s'. MEM (s',s) tyin ==> type_ok defs s') /\
         defs, asl |- p
         ==> defs, MAP (INST tyin) asl |- INST tyin p) /\
   (!ilist asl p defs.
-      (!s s'. MEM (s',s) ilist ==> ?x ty. (s = Var x ty) /\ s' has_type ty /\
-                                          welltyped_in s' defs) /\
-      defs, asl |- p
-      ==> defs, MAP (VSUBST ilist) asl |- VSUBST ilist p) /\
+        (!s s'. MEM (s',s) ilist ==> ?x ty. (s = Var x ty) /\ s' has_type ty /\
+                                            welltyped_in s' defs) /\
+        defs, asl |- p
+        ==> defs, MAP (VSUBST ilist) asl |- VSUBST ilist p) /\
   (!asl p d defs.
-      defs, asl |- p /\ def_ok d defs
-      ==> (CONS d defs), asl |- p) /\
+        defs, asl |- p /\ def_ok d defs
+        ==> (CONS d defs), asl |- p) /\
   (!t defs.
-      context_ok defs /\ MEM (Axiomdef t) defs
-      ==> defs, [] |- t) /\
+        context_ok defs /\ MEM (Axiomdef t) defs
+        ==> defs, [] |- t) /\
   (!n t defs.
-      context_ok defs /\ MEM (Constdef n t) defs
-      ==> defs, [] |- Const n (typeof t) === t) /\
-  (!tyname t a r defs x rep_type abs_type.
-      context_ok defs /\ MEM (Typedef tyname t a r) defs /\
-      (rep_type = domain (typeof t)) /\
-      (abs_type = Tyapp tyname (MAP Tyvar (tvars t)))
-      ==> defs, [] |- Comb (Const a (Fun rep_type abs_type))
-                           (Comb (Const r (Fun abs_type rep_type))
-                                 (Var x abs_type)) === Var x abs_type) /\
-  (!tyname t a r defs x rep_type abs_type.
-      context_ok defs /\ MEM (Typedef tyname t a r) defs /\
-      (rep_type = domain (typeof t)) /\
-      (abs_type = Tyapp tyname (MAP Tyvar (tvars t)))
-      ==> defs, [] |- Comb t (Var x rep_type) ===
-                      Comb (Const r (Fun abs_type rep_type))
-                           (Comb (Const a (Fun rep_type abs_type))
-                                 (Var x rep_type)) === Var x rep_type)`;;
+        context_ok defs /\ MEM (Constdef n t) defs
+        ==> defs, [] |- Const n (typeof t) === t) /\
+  (!tyname t a r defs x rep_type abs_type y d.
+        (d = Typedef tyname t a r) /\
+        (rep_type = domain (typeof t)) /\
+        (abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t)))) /\
+        context_ok (CONS d defs) /\ defs, [] |- Comb t y
+        ==> (CONS d defs), []
+             |- Comb (Const a (Fun rep_type abs_type))
+                     (Comb (Const r (Fun abs_type rep_type))
+                           (Var x abs_type)) === Var x abs_type) /\
+  (!tyname t a r defs x rep_type abs_type y d.
+        (d = Typedef tyname t a r) /\
+        (rep_type = domain (typeof t)) /\
+        (abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t)))) /\
+        context_ok (CONS d defs) /\ defs, [] |- Comb t y
+        ==> (CONS d defs), []
+             |- Comb t (Var x rep_type) ===
+                Comb (Const r (Fun abs_type rep_type))
+                     (Comb (Const a (Fun rep_type abs_type))
+                           (Var x rep_type)) === Var x rep_type)`;;
 
 x "proves_RULES" proves_RULES;;
 x "proves_INDUCT" proves_INDUCT;;

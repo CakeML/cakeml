@@ -1,4 +1,4 @@
-INCLUDES = ../semantics ../print_ast ../hol-light
+INCLUDES = ../semantics ../print_ast
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

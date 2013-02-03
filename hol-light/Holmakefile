@@ -1,0 +1,16 @@
+INCLUDES = ../translator ../semantics ../print_ast
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = miniml-heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+BARE_THYS = ../semantics/MiniMLTheory \
+            ../semantics/MiniMLTerminationTheory \
+            ../print_ast/Print_astTheory \
+            ../print_ast/Print_astTerminationTheory
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+endif

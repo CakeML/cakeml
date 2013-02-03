@@ -496,7 +496,7 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
      `e_step_reln (cenv,s2,env',Exp (Raise Bind_error),[(Chandle () var e2,env)]) (cenv,s2,env',Exp (Raise Bind_error),[])`
                  by (rw [e_step_reln_def, e_step_def, continue_def, return_def]) >>
      metis_tac [transitive_def, transitive_RTC, RTC_SINGLE],
-  fs [small_eval_def] >>
+ fs [small_eval_def] >>
      `e_step_reln^* (cenv,s,env,Exp e,[(Chandle () var e2,env)]) (cenv,s2,env',Exp (Raise Div_error),[(Chandle () var e2,env)])` 
                 by metis_tac [APPEND,e_step_add_ctxt] >>
      `e_step_reln (cenv,s2,env',Exp (Raise Div_error),[(Chandle () var e2,env)]) (cenv,s2,env',Exp (Raise Div_error),[])`
@@ -511,13 +511,13 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
           metis_tac [RTC_REFL],
       fs [Once small_eval_list_cases] >>
           rw [small_eval_def] >>
-          `SUC (LENGTH t) = LENGTH ([]:v list) + 1 + LENGTH t` by
+          `SUC (LENGTH t) = LENGTH ([]:t v list) + 1 + LENGTH t` by
                   (fs [] >>
                    DECIDE_TAC) >>
-          `do_con_check cenv cn (LENGTH ([]:v list) + 1 + LENGTH vs')`
+          `do_con_check cenv cn (LENGTH ([]:t v list) + 1 + LENGTH vs')`
                       by metis_tac [small_eval_list_length] >>
           `e_step_reln^* (cenv,s,env,Exp h,[(Ccon cn [] () t,env)])
-                         (cenv,s',env,Val (Conv cn (REVERSE ([]:v list)++[v]++vs')),[])`
+                         (cenv,s',env,Val (Conv cn (REVERSE ([]:t v list)++[v]++vs')),[])`
                     by metis_tac [small_eval_list_step] >>
           fs [] >>
           metis_tac []],
@@ -535,13 +535,13 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
                 by (match_mp_tac e_step_raise >>
                     rw []) >>
           metis_tac [APPEND,e_step_add_ctxt, transitive_RTC, transitive_def],
-      `LENGTH ([]:v list) + 1 + LENGTH t = SUC (LENGTH t)` by
+      `LENGTH ([]:t v list) + 1 + LENGTH t = SUC (LENGTH t)` by
                  (fs [] >>
                   DECIDE_TAC) >>
           metis_tac [small_eval_list_err],
       metis_tac [APPEND, e_step_add_ctxt, transitive_RTC,
                  transitive_def, e_single_error_add_ctxt],
-      `LENGTH ([]:v list) + 1 + LENGTH t = SUC (LENGTH t)` by
+      `LENGTH ([]:t v list) + 1 + LENGTH t = SUC (LENGTH t)` by
                  (fs [] >>
                   DECIDE_TAC) >>
           metis_tac [small_eval_list_terr]],

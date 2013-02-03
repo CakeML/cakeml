@@ -92,12 +92,12 @@ type ast_specs = list ast_spec
 
 type ast_top =
   | Ast_Tmodule of mvarN * ast_specs * ast_decs
-  | Ast_Tdec of dec
+  | Ast_Tdec of ast_dec
 
 type ast_prog = list ast_top
 
 
-val elab_p : ast_pat -> pat
+val elab_p : ast_pat -> pat unit 
 let rec
 elab_p (Ast_Pvar n) = Pvar n None
 and
@@ -150,11 +150,11 @@ let get_op n =
   end
 
 val elab_t : list varN -> ast_t -> t
-val elab_e : list varN -> ast_exp -> exp
+val elab_e : list varN -> ast_exp -> exp unit
 val elab_funs : list varN -> list (varN * varN * ast_exp) -> 
-                list (varN * option t * varN * option t * exp)
-val elab_dec : list typeN -> list varN -> ast_dec -> list typeN * list varN * dec
-val elab_decs : list typeN -> list varN -> list ast_dec -> list typeN * list varN * list dec 
+                list (varN * option unit * varN * option unit * exp unit)
+val elab_dec : list typeN -> list varN -> ast_dec -> list typeN * list varN * dec unit
+val elab_decs : list typeN -> list varN -> list ast_dec -> list typeN * list varN * list (dec unit)
 
 let rec
 elab_e bound (Ast_Raise err) =
