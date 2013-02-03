@@ -215,6 +215,18 @@ val _ = store(``!m n. m < m + n <=> 0 < n:num``,
 val _ = store(``($o :('b -> 'c) -> ('a -> 'b) -> 'a -> 'c) =
                 (\(f :'b -> 'c) (g :'a -> 'b) (x :'a). f (g x))``,
   SIMP_TAC (srw_ss()) [FUN_EQ_THM]);
+val _ = store(``!(p :'a -> bool). FILTER p ([] :'a list) = ([] :'a list)``,
+  SIMP_TAC std_ss [FILTER]);;
+val _ = store(``!(p :'a -> bool) (h :'a) (t :'a list).
+  FILTER p (h::t) = if p h then h::FILTER p t else FILTER p t``,
+  SIMP_TAC std_ss [FILTER]);
+val _ = store(``!(p :'a -> bool) (l :'a list).
+  ~EXISTS p l <=> EVERY (\(x :'a). ~p x) l``,
+  SIMP_TAC std_ss [listTheory.EXISTS_MEM,listTheory.EVERY_MEM] THEN METIS_TAC []);
+val _ = store(``!(m :num) (n :num). m < n <=> ?(d :num). n = m + SUC d``,
+  SIMP_TAC std_ss [LESS_EQ,LESS_EQ_EXISTS,ADD_CLAUSES]);
+val _ = store(``!(m :num). SUC m = m + BIT1 (0 :num)``,
+  SIMP_TAC std_ss [BIT1_0,ADD1]);
 
 val thms = Net.listItems (read_article "model_syntax.art" reader) handle e => Raise e
 
@@ -227,5 +239,10 @@ val _ = map (fn th => let
               |> ONCE_REWRITE_RULE [BIT_SIMP]
               |> SIMP_RULE std_ss [TWICE_ZERO]
   in save_thm(name,th) end) thms
+
+fun has_cheat th = tag th |> Tag.dest_tag |> fst
+                          |> filter (fn x => not (x = "DISK_THM"))
+                          |> length |> (fn l => l <> 0)
+val _ = not (exists has_cheat thms) orelse failwith("cheat remains!")
 
 val _ = export_theory()

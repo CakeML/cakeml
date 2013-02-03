@@ -775,8 +775,7 @@ fun define_ref_inv tys = let
   val _ = save_thm(name ^ "_def",inv_def)
   val ind = fetch "-" (name ^ "_ind") handle HOL_ERR _ => TypeBase.induction_of (hd tys)
 (*
-  val CHEAT_TAC = ((fn x => ([],fn _ => mk_thm x)) :tactic)
-  val inv_def = tDefine name [ANTIQUOTE def_tm] CHEAT_TAC
+  val inv_def = tDefine name [ANTIQUOTE def_tm] ALL_TAC
 *)
   fun has_arg_with_type ty line =
     ((line |> SPEC_ALL |> concl |> dest_eq |> fst |> rator |> rand |> type_of) = ty)
@@ -1532,11 +1531,13 @@ end
 fun check_inv name tm result = let
   val tm2 = result |> concl |> rand |> rand
   in if aconv tm2 tm then result else let
+    val _ = (show_types_verbosely := true)
     val _ = print ("\n\nhol2deep failed at '" ^ name ^ "'\n\ntarget:\n\n")
     val _ = print_term tm
     val _ = print "\n\nbut derived:\n\n"
     val _ = print_term tm2
     val _ = print "\n\n\n"
+    val _ = (show_types_verbosely := false)
     in failwith("checkinv") end end
 
 fun MY_MATCH_MP th1 th2 = let
@@ -1553,7 +1554,7 @@ fun force_remove_fix thx = let
   in thx end;
 
 fun rm_fix res = let
-  val lemma = mk_thm([],``Eq b x = b``)
+  val lemma = mk_thm([],``!b x. Eq b x = (b:'a->tv->bool)``)
   val tm2 = QCONV (REWRITE_CONV [lemma]) res |> concl |> dest_eq |> snd
   in tm2 end
 
@@ -1563,8 +1564,7 @@ val MAP_pattern = ``MAP (f:'a->'b)``
 val tm = rhs
 
 val tm = ``MAP (\v3. type_subst v6 v3) args`` |> rator
-val tm = ``v:num``
-
+val tm = ``THE : 'c option -> 'c``
 *)
 
 fun hol2deep tm =
@@ -1785,10 +1785,10 @@ fun extract_precondition th pre_var is_rec =
   fun replace_any_match pat tm = let
     val xs = find_terms (can (match_term pat)) tm
     in subst (map (fn x => x |-> T) xs) tm end
-  val rw1 = mk_thm([],``PRECONDITION b = T``)
+  val rw1 = ASSUME ``!b. PRECONDITION b = T``
   val tm1 = QCONV (REWRITE_CONV [rw1]) tm |> concl |> rand
   val pat = Eval_def |> SPEC_ALL |> concl |> dest_eq |> fst
-  val rw2 = mk_thm([],pat)
+  val rw2 = ASSUME (list_mk_forall(free_vars pat,pat))
   val tm2 = QCONV (REWRITE_CONV [rw2,PreImp_def]) tm |> concl |> rand
   (* check whether the precondition is T *)
   val (no_pre,th5) = let
@@ -1878,7 +1878,7 @@ fun extract_precondition th pre_var is_rec =
 
 (*
 val def = LENGTH;
-val def = HD; translate def;
+val def = optionTheory.THE_DEF; translate def;
 *)
 
 fun translate def = let
