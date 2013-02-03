@@ -11,7 +11,7 @@ val _ = Hol_datatype`
   | nAndFDecls | nPEs | nPE
   | nPattern | nType | nDType | nTypeList | nTypeDec | nDtypeDecls
   | nDtypeDecl | nTypeName | nTyVarList | nDconstructor | nDtypeCons
-  | nStarTypes | nDecl
+  | nStarTypes | nDecl | nTyOp
   | nMultOps | nAddOps | nRelOps | nCompOps | nBeforeOps
 `;
 
@@ -21,14 +21,91 @@ val _ = overload_on("mkNT", ``INL : MMLnonT -> NT``)
 val _ = overload_on ("NN", ``\nt. NT (mkNT nt)``)
 val _ = overload_on ("TK", ``TOK : token -> (token,MMLnonT)symbol``)
 
+val mkRules_def = Define`
+  mkRules n rset = IMAGE (\r. (mkNT n, r)) rset
+`
+
+val _ = type_abbrev("mlptree", ``:(token, MMLnonT) parsetree``)
+
+open monadsyntax
+val _ = overload_on ("monad_bind", ``OPTION_BIND``)
+
+val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def"]
+
+(* ----------------------------------------------------------------------
+    Rules for mini ML types
+   ---------------------------------------------------------------------- *)
+
+
+val TyOp_rules_def = Define`
+  TyOp_rules = {(mkNT nTyOp, [TK (AlphaT s)]) | T} ∪
+                 {(mkNT nTyOp, [TK (SymbolT s)]) | T}
+`;
+
+val TypeList_rules_def = Define`
+  TypeList_rules = mkRules nTypeList {
+    [NN nType];
+    [NN nType; TK CommaT; NN nTypeList]
+  }`
+
+val DType_rules_def = Define`
+  DType_rules = mkRules nDType
+    ({[TK (TyvarT s)] | T} ∪
+     {[NN nDType; NN nTyOp];
+      [TK LparT; NN nTypeList; TK RparT; NN nTyOp];
+      [TK LparT; NN nType; TK RparT]})
+`;
+
+val Type_rules_def = Define`
+  Type_rules = mkRules nType {
+    [NN nDType];
+    [NN nDType; TK ArrowT; NN nType]
+  }
+`;
+
+val ptree_Tyop_def = Define`
+  ptree_Tyop ptree =
+    case ptree of
+      Lf _ => NONE
+    | Nd (mkNT nTyOp) [Lf (TK (AlphaT s))] => SOME s
+    | Nd (mkNT nTyOp) [Lf (TK (SymbolT s))] => SOME s
+    | _ => NONE
+`;
+
+val ptree_Type_def = Define`
+  ptree_Type ptree =
+    case ptree of
+      Nd nt args =>
+      (case nt of
+         mkNT nType => (case args of
+                         [dt] => ptree_Type dt
+                       | [dt;Lf(TK ArrowT);rt] => do
+                           dty <- ptree_Type dt;
+                           rty <- ptree_Type rt;
+                           SOME(Ast_Tfn dty rty)
+                         od
+                       | _ => NONE)
+       | mkNT nDType => (case args of
+                           [Lf (TK (TyvarT s))] => SOME (Ast_Tvar s)
+                         | [dt; opn] => do
+                             dty <- ptree_Type dt;
+                             opname <- ptree_Tyop opn;
+                             SOME(Ast_Tapp [dty] opname)
+                           od
+                         | _ => NONE)
+       | _ => NONE)
+    | _ => NONE
+`;
+
+(* ----------------------------------------------------------------------
+    Expressions etc
+   ---------------------------------------------------------------------- *)
+
+
 val V_rules_def = Define`
   V_rules =
    {(mkNT nV, [TK (AlphaT s)]) | s ∉ {"before"; "div"; "mod" } ∪
    {(mkNT nV, [TK (SymbolT s)]) | s ∉ {"+"; "*"; "-"; "/" }}`
-
-val mkRules_def = Define`
-  mkRules n rset = IMAGE (\r. (mkNT n, r)) rset
-`
 
 val Ebase_rules_def = Define`
   Ebase_rules =
@@ -81,13 +158,6 @@ val Ebefore_rules_def = Define`
 (* ----------------------------------------------------------------------
     Parse trees to abstract syntax
    ---------------------------------------------------------------------- *)
-
-val _ = type_abbrev("mlptree", ``:(token, MMLnonT) parsetree``)
-
-open monadsyntax
-val _ = overload_on ("monad_bind", ``OPTION_BIND``)
-
-val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def"]
 
 val ptree_Op_def = Define`
   ptree_Op (Lf _) = NONE ∧
