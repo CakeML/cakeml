@@ -183,8 +183,8 @@ val cce_aux_decl_NONE = store_thm("cce_aux_decl_NONE",
   ``((cce_aux c s x).decl = NONE) = (s.decl = NONE)``,
   Cases_on `x` >>
   rw[cce_aux_def] >>
-  qmatch_assum_abbrev_tac `FOLDL f a r = (s',k)` >>
-  `((λp. ((FST p).decl = NONE) = (s.decl = NONE))) (FOLDL f a r)` by (
+  qmatch_abbrev_tac `((FOLDL f a r).decl = NONE) = (s.decl = NONE)` >>
+  `((λp. (p.decl = NONE) = (s.decl = NONE))) (FOLDL f a r)` by (
     match_mp_tac FOLDL_invariant >>
     fs[Abbr`a`] >>
     Cases >> Cases >>

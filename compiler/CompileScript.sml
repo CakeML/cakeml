@@ -1330,9 +1330,9 @@ val _ = Defn.save_defn calculate_ecs_defn;
 
  val cce_aux_defn = Hol_defn "cce_aux" `
 
-(cce_aux c s (ns,defs) =
-  let (s,k) =((( FOLDL
-    (\ (s,k) (xs,l) .
+(cce_aux c s (ns,defs) =(((
+  FOLDL
+    (\ s (xs,l) .
       let (env,az) =(( FAPPLY  s.env_azs)  l) in
       let s =(( emit s) [(Label l)]) in
       let s' =  s with<| env := env; sz := 0; tail :=(( TCTail az) 0) |> in
@@ -1343,10 +1343,8 @@ val _ = Defn.save_defn calculate_ecs_defn;
                         Stack ((Store (az+2))));(
                         Stack ((Pops (az+1))));
                         Return]) in
-      let s =  s' with<| env := s.env; sz := s.sz; tail := s.tail |> in
-      (s,k+1)))
-    (s,0)) defs) in
-  s)`;
+       s' with<| env := s.env; sz := s.sz; tail := s.tail |>))
+    s) defs))`;
 
 val _ = Defn.save_defn cce_aux_defn;
 

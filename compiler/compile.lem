@@ -1236,8 +1236,8 @@ calculate_ecs c =
 
 let rec
 cce_aux c s (ns,defs) =
-  let (s,k) = List.fold_left
-    (fun (s,k) (xs,l) ->
+  List.fold_left
+    (fun s (xs,l) ->
       let (env,az) = Pmap.find l s.env_azs in
       let s = emit s [Label l] in
       let s' = <| s with env = env; sz = 0; tail = TCTail az 0 |> in
@@ -1248,10 +1248,8 @@ cce_aux c s (ns,defs) =
                         Stack (Store (az+2));
                         Stack (Pops (az+1));
                         Return] in
-      let s = <| s' with env = s.env; sz = s.sz; tail = s.tail |> in
-      (s,k+1))
-    (s,0) defs in
-  s
+      <| s' with env = s.env; sz = s.sz; tail = s.tail |>)
+    s defs
 
 let rec
 compile_code_env c s ldefs =
