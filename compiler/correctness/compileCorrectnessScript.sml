@@ -21,9 +21,9 @@ val exp_pred_def = tDefine "exp_pred"`
   (exp_pred (Mat _ _) = F) ∧
   (exp_pred (Let _ _ _ e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (Letrec _ _ _) = F)`
-  (WF_REL_TAC `measure exp_size` >>
+  (WF_REL_TAC `measure (exp_size ARB)` >>
    srw_tac[ARITH_ss][exp8_size_thm] >>
-   Q.ISPEC_THEN`exp_size`imp_res_tac SUM_MAP_MEM_bound >>
+   Q.ISPEC_THEN`exp_size ARB`imp_res_tac SUM_MAP_MEM_bound >>
    fsrw_tac[ARITH_ss][])
 val _ = export_rewrites["exp_pred_def"]
 
@@ -281,9 +281,9 @@ val Cv_bv_ov = store_thm("Cv_bv_ov",
   rw[bv_to_ov_def])
 
 val v_to_Cv_ov = store_thm("v_to_Cv_ov",
-  ``(∀m v w s. (all_cns v ⊆ FDOM m) ∧ fmap_linv m w ==> (Cv_to_ov w s (v_to_Cv m v) = v_to_ov s v)) ∧
-    (∀m vs w s. (BIGUNION (IMAGE all_cns (set vs)) ⊆ FDOM m) ∧ fmap_linv m w ==> (MAP (Cv_to_ov w s) (vs_to_Cvs m vs) = MAP (v_to_ov s) vs)) ∧
-    (∀(m:string|->num) (env:envE). T)``,
+  ``(∀m (v:α v) w s. (all_cns v ⊆ FDOM m) ∧ fmap_linv m w ==> (Cv_to_ov w s (v_to_Cv m v) = v_to_ov s v)) ∧
+    (∀m (vs:α v list) w s. (BIGUNION (IMAGE all_cns (set vs)) ⊆ FDOM m) ∧ fmap_linv m w ==> (MAP (Cv_to_ov w s) (vs_to_Cvs m vs) = MAP (v_to_ov s) vs)) ∧
+    (∀(m:string|->num) (env:α envE). T)``,
   ho_match_mp_tac v_to_Cv_ind >>
   rw[v_to_Cv_def] >> rw[Cv_to_ov_def] >>
   srw_tac[ETA_ss][fmap_linv_FAPPLY])
@@ -2224,6 +2224,7 @@ val code_for_push_def = Define`
       Cenv_bs c sm s' env renv (rsz + 1) bs' ∧
       DRESTRICT bs.refs (COMPL (FRANGE (DRESTRICT sm (FDOM s)))) ⊑ DRESTRICT rf (COMPL (FRANGE (DRESTRICT sm (FDOM s'))))`
 
+(*
 val code_for_return_def = Define`
   code_for_return code c s env s' v =
     ∀sm bs bc0 bc1 benv renv rsz.
@@ -2231,6 +2232,7 @@ val code_for_return_def = Define`
       (bs.code = bc0 ++ code ++ bc1) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       (bs.stack = benv::CodePtr ret::args++st) ∧
+*)
 
 val compile_val = store_thm("compile_val",
   ``(∀c s env exp res. Cevaluate c s env exp res ⇒
@@ -2679,6 +2681,7 @@ val compile_val = store_thm("compile_val",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- (
+    cheat >>
 
     simp[compile_def,LET_THM] >>
     rpt gen_tac >> strip_tac >>
@@ -2730,7 +2733,7 @@ val compile_val = store_thm("compile_val",
     map_every qunabbrev_tac[`P`,`Q`,`R`] >>
     disch_then(qx_choosel_then[`bvs`,`rfs`]strip_assume_tac) >>
     qmatch_assum_abbrev_tac`bc_next^* bs2 bs3` >>
-    qunabbrev_tac`bs3` >>
+    qunabbrev_tac`bs3` (* >>
 
     first_x_assum (qspecl_then[`X`,`Y`]kall_tac) >>
     fs[] >> rw[] >>
