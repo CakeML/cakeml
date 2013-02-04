@@ -26,6 +26,20 @@ val isInt_def = Define`
   isInt _ = F
 `;
 
+val isAlphaT_def = Define`
+  isAlphaT (AlphaT s) = T ∧
+  isAlphaT _ = F
+`;
+
+val isSymbolT_def = Define`isSymbolT (SymbolT s) = T ∧ isSymbolT _ = F`
+val isAlphaSym_def = Define`
+  isAlphaSym (AlphaT _) = T ∧
+  isAlphaSym (SymbolT _) = T ∧
+  isAlphaSym _ = F
+`;
+
+val isTyvarT_def = Define`isTyvarT (TyvarT _) = T ∧ isTyvarT _ = F`
+
 val sumID_def = Define`
   sumID (INL x) = x ∧
   sumID (INR y) = y
@@ -37,6 +51,10 @@ val mk_linfix_def = Define`
     mk_linfix tgt (Nd tgt [acc; opt; t]) rest
 `;
 
+val mk_rinfix_def = Define`
+  mk_rinfix tgt [t] = Nd tgt [t] ∧
+  mk_rinfix tgt (t::opt::rest) = Nd tgt [t; opt; mk_rinfix tgt rest]`;
+
 val peg_linfix_def = Define`
   peg_linfix tgtnt rptnt opnt =
     seq (nt rptnt I) (rpt (seq (nt opnt I) (nt rptnt I) (++)) FLAT)
@@ -44,6 +62,159 @@ val peg_linfix_def = Define`
 `;
 
 val mktokLf_def = Define`mktokLf t = [Lf (TK t)]`
+
+(* ----------------------------------------------------------------------
+    PEG for types
+   ---------------------------------------------------------------------- *)
+
+val peg_Type_def = Define`
+  peg_Type = seq (nt (mkNT nDType) I)
+                 (choice (seq (tok ((=) ArrowT) mktokLf)
+                              (nt (mkNT nType) I)
+                              (++))
+                         (empty [])
+                         sumID)
+                 (λa b. case b of
+                          [] => [Nd (mkNT nType) a]
+                        | _ => [Nd (mkNT nType) [HD a; HD b; HD (TL b)]])
+`;
+
+val peg_TyOp_def = Define`
+  peg_TyOp = tok isAlphaSym (λt. [Nd (mkNT nTyOp) [Lf (TK t)]])`
+
+val splitAt_def = Define`
+  splitAt x [] = ([], []) ∧
+  splitAt x (h::t) = if x = h then ([], h::t)
+                     else let (pfx,s) = splitAt x t
+                          in
+                            (h::pfx,s)
+`
+
+val calcTyOp_def = Define`
+  calcTyOp a b =
+    case b of
+      [Lf (TK RparT)] => [Nd (mkNT nDType) [Lf (TK LparT); HD a; HD b]]
+    | Lf (TK RparT)::ops => FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
+                                  [Lf (TK LparT); Nd (mkNT nTypeList) a; HD b]
+                                  ops
+    | _ => let (tylist, paren_ops) = splitAt (Lf (TK RparT)) b
+           in
+             let tylist_n = mk_rinfix (mkNT nTypeList) (HD a :: tylist)
+             in
+               FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
+                     [Lf (TK LparT); tylist_n; Lf (TK RparT)]
+                     (TL paren_ops)
+`;
+
+val peg_DType_def = Define`
+  (* TyvarT | TyOp | "(" Type ( ")" TyOp* | ("," Type)* ")" TyOp TyOp* ) *)
+  peg_DType =
+    choice
+      (seq (tok isTyvarT (λx. [Nd (mkNT nDType) (mktokLf x)]))
+           (rpt (nt (mkNT nTyOp) I) FLAT)
+           (λa ops. FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
+                          a ops))
+      (choice
+        (seq (nt (mkNT nTyOp) (λx. [Nd (mkNT nDType) x]))
+             (rpt (nt (mkNT nTyOp) I) FLAT)
+             (λa ops. FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
+                            a ops))
+        (seq (tok ((=) LparT) mktokLf)
+             (seq (nt (mkNT nType) I)
+                  (choice
+                     (* ")" TyOp* *)
+                     (seq (tok ((=) RparT) mktokLf)
+                          (rpt (nt (mkNT nTyOp) I) FLAT)
+                          (++))
+                     (* ("," Type)* ")" TyOp TyOp* *)
+                     (seq (rpt (seq (tok ((=) CommaT) mktokLf)
+                                    (nt (mkNT nType) I)
+                                    (++))
+                               FLAT)
+                          (seq (tok ((=) RparT) mktokLf)
+                               (seq (nt (mkNT nTyOp) I)
+                                    (rpt (nt (mkNT nTyOp) I) FLAT)
+                                    (++))
+                               (++))
+                          (++))
+                     sumID)
+                  calcTyOp)
+             (λa b. b))
+        sumID)
+      sumID
+`;
+
+
+val mmltyG_def = Define`
+  mmltyG = <| start := nt (mkNT nType) I;
+              rules := FEMPTY |++ [(mkNT nType, peg_Type);
+                                   (mkNT nDType, peg_DType);
+                                   (mkNT nTyOp, peg_TyOp)] |>`;
+
+val result_t = ``Result``
+fun tytest s t = let
+  val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
+  val _ = print ("Evaluating "^s^"\n")
+  val evalth = time EVAL
+                    ``peg_exec mmltyG (nt (mkNT nType) I) ^t [] done failed``
+  val r = rhs (concl evalth)
+in
+  if same_const (rator r) result_t then
+    if optionSyntax.is_some (rand r) then let
+      val pair = rand (rand r)
+      val remaining_input = pair |> rator |> rand
+      val res = pair |> rand |> rator |> rand
+    in
+      if listSyntax.is_nil remaining_input then let
+        val _ = print ("EVAL to: "^term_to_string res^"\n")
+        val fringe_th = EVAL ``ptree_fringe ^res``
+        val fringe_t = rhs (concl fringe_th)
+        val _ = print ("fringe = "^term_to_string fringe_t^"\n")
+      in
+        if aconv fringe_t ttoks then let
+          val ptree_res = time EVAL ``ptree_Type ^res``
+        in
+          print ("ptree_Type to "^term_to_string (rhs (concl ptree_res))^"\n")
+        end
+        else print ("Fringe not preserved! ("^term_to_string ttoks^")\n")
+      end
+      else (print "REMAINING INPUT\n";
+            print ("EVAL to: "^term_to_string pair^"\n"))
+    end
+    else print ("FAILED: "^term_to_string r^"\n")
+  else print ("NO RESULT: "^term_to_string r^"\n")
+end
+
+val _ = tytest "'a" ``[TyvarT "'a"]``
+val _ = tytest "'a -> bool" ``[TyvarT "'a"; ArrowT; AlphaT "bool"]``
+val _ = tytest "'a -> bool -> foo"
+                     ``[TyvarT "'a"; ArrowT; AlphaT "bool"; ArrowT;
+                        AlphaT "foo"]``
+val _ = tytest "('a)" ``[LparT; TyvarT "'a"; RparT]``
+val _ = tytest "('a)list" ``[LparT; TyvarT "'a"; RparT; AlphaT "list"]``
+val _ = tytest "('a->bool)list"
+               ``[LparT; TyvarT "'a"; ArrowT; AlphaT "bool"; RparT;
+                  AlphaT "list"]``
+val _ = tytest "'a->bool list"
+               ``[TyvarT "'a"; ArrowT; AlphaT "bool"; AlphaT "list"]``
+val _ = tytest "('a->bool)->bool"
+                     ``[LparT; TyvarT "'a"; ArrowT; AlphaT "bool"; RparT;
+                        ArrowT; AlphaT "bool"]``
+val _ = tytest "('a,foo)bar"
+                     ``[LparT; TyvarT "'a";CommaT;AlphaT"foo";
+                        RparT;AlphaT"bar"]``
+val _ = tytest "('a) list list" ``[LparT; TyvarT "'a"; RparT; AlphaT"list";
+                                   AlphaT"list"]``
+val _ = tytest "('a,'b) foo list"
+               ``[LparT; TyvarT "'a"; CommaT; TyvarT"'b"; RparT; AlphaT"foo";
+                  AlphaT"list"]``
+val _ = tytest "'a list" ``[TyvarT "'a"; AlphaT "list"]``
+val _ = tytest "'a list list" ``[TyvarT "'a"; AlphaT "list"; AlphaT "list"]``
+val _ = tytest "bool list list" ``[AlphaT "bool"; AlphaT "list"; AlphaT "list"]``
+val _ = tytest "('a,bool list)++"
+               ``[LparT; TyvarT "'a"; CommaT; AlphaT "bool"; AlphaT "list";
+                  RparT; SymbolT"++"]``
+
 
 val peg_multops_def = Define`
   peg_multops = choice (tok ((=) (SymbolT "*")) mktokLf)

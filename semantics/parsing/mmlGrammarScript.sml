@@ -27,8 +27,23 @@ val mkRules_def = Define`
 
 val _ = type_abbrev("mlptree", ``:(token, MMLnonT) parsetree``)
 
-open monadsyntax
+open monadsyntax lcsymtacs
 val _ = overload_on ("monad_bind", ``OPTION_BIND``)
+
+val mmap_def = Define`
+  (mmap f [] = SOME []) /\
+  (mmap f (h::t) = do
+     v <- f h;
+     vs <- mmap f t;
+     SOME(v::vs)
+   od)`
+
+val mmap_CONG = store_thm(
+  "mmap_CONG",
+  ``∀l1 l2 f f'.
+      l1 = l2 ∧ (∀x. MEM x l2 ⇒ f x = f' x) ⇒ mmap f l1 = mmap f l2``,
+  Induct >> rw[]);
+val _ = DefnBase.export_cong "mmap_CONG"
 
 val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def"]
 
@@ -51,7 +66,8 @@ val TypeList_rules_def = Define`
 val DType_rules_def = Define`
   DType_rules = mkRules nDType
     ({[TK (TyvarT s)] | T} ∪
-     {[NN nDType; NN nTyOp];
+     {[NN nTyOp];
+      [NN nDType; NN nTyOp];
       [TK LparT; NN nTypeList; TK RparT; NN nTyOp];
       [TK LparT; NN nType; TK RparT]})
 `;
@@ -73,7 +89,7 @@ val ptree_Tyop_def = Define`
 `;
 
 val ptree_Type_def = Define`
-  ptree_Type ptree =
+  (ptree_Type ptree : ast_t option =
     case ptree of
       Nd nt args =>
       (case nt of
@@ -87,14 +103,41 @@ val ptree_Type_def = Define`
                        | _ => NONE)
        | mkNT nDType => (case args of
                            [Lf (TK (TyvarT s))] => SOME (Ast_Tvar s)
+                         | [opn] => do
+                             opname <- ptree_Tyop opn;
+                             SOME(Ast_Tapp [] opname)
+                           od
                          | [dt; opn] => do
                              dty <- ptree_Type dt;
                              opname <- ptree_Tyop opn;
                              SOME(Ast_Tapp [dty] opname)
                            od
+                         | [Lf (TK LparT); t; Lf (TK RparT)] => ptree_Type t
+                         | [Lf (TK LparT); tl; Lf (TK RparT); opn] => do
+                             tylist <- ptree_Typelist tl;
+                             opname <- ptree_Tyop opn;
+                             SOME(Ast_Tapp tylist opname)
+                           od
                          | _ => NONE)
        | _ => NONE)
-    | _ => NONE
+    | _ => NONE) ∧
+  (ptree_Typelist ptree : ast_t list option =
+     case ptree of
+       Lf _ => NONE
+     | Nd nt args =>
+       (case nt of
+          mkNT nTypeList => (case args of
+                               [dt] => do
+                                  ty <- ptree_Type dt;
+                                  SOME[ty]
+                               od
+                             | [dt; Lf (TK CommaT); tl'] => do
+                                 ty <- ptree_Type dt;
+                                 tylist <- ptree_Typelist tl';
+                                 SOME(ty::tylist)
+                               od
+                             | _ => NONE)
+         | _ => NONE))
 `;
 
 (* ----------------------------------------------------------------------
@@ -104,7 +147,7 @@ val ptree_Type_def = Define`
 
 val V_rules_def = Define`
   V_rules =
-   {(mkNT nV, [TK (AlphaT s)]) | s ∉ {"before"; "div"; "mod" } ∪
+   {(mkNT nV, [TK (AlphaT s)]) | s ∉ {"before"; "div"; "mod" }} ∪
    {(mkNT nV, [TK (SymbolT s)]) | s ∉ {"+"; "*"; "-"; "/" }}`
 
 val Ebase_rules_def = Define`
