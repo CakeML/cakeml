@@ -145,75 +145,11 @@ val peg_DType_def = Define`
 `;
 
 
-val mmltyG_def = Define`
-  mmltyG = <| start := nt (mkNT nType) I;
-              rules := FEMPTY |++ [(mkNT nType, peg_Type);
-                                   (mkNT nDType, peg_DType);
-                                   (mkNT nTyOp, peg_TyOp)] |>`;
-
-val result_t = ``Result``
-fun tytest s t = let
-  val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
-  val _ = print ("Evaluating "^s^"\n")
-  val evalth = time EVAL
-                    ``peg_exec mmltyG (nt (mkNT nType) I) ^t [] done failed``
-  val r = rhs (concl evalth)
-in
-  if same_const (rator r) result_t then
-    if optionSyntax.is_some (rand r) then let
-      val pair = rand (rand r)
-      val remaining_input = pair |> rator |> rand
-      val res = pair |> rand |> rator |> rand
-    in
-      if listSyntax.is_nil remaining_input then let
-        val _ = print ("EVAL to: "^term_to_string res^"\n")
-        val fringe_th = EVAL ``ptree_fringe ^res``
-        val fringe_t = rhs (concl fringe_th)
-        val _ = print ("fringe = "^term_to_string fringe_t^"\n")
-      in
-        if aconv fringe_t ttoks then let
-          val ptree_res = time EVAL ``ptree_Type ^res``
-        in
-          print ("ptree_Type to "^term_to_string (rhs (concl ptree_res))^"\n")
-        end
-        else print ("Fringe not preserved! ("^term_to_string ttoks^")\n")
-      end
-      else (print "REMAINING INPUT\n";
-            print ("EVAL to: "^term_to_string pair^"\n"))
-    end
-    else print ("FAILED: "^term_to_string r^"\n")
-  else print ("NO RESULT: "^term_to_string r^"\n")
-end
-
-val _ = tytest "'a" ``[TyvarT "'a"]``
-val _ = tytest "'a -> bool" ``[TyvarT "'a"; ArrowT; AlphaT "bool"]``
-val _ = tytest "'a -> bool -> foo"
-                     ``[TyvarT "'a"; ArrowT; AlphaT "bool"; ArrowT;
-                        AlphaT "foo"]``
-val _ = tytest "('a)" ``[LparT; TyvarT "'a"; RparT]``
-val _ = tytest "('a)list" ``[LparT; TyvarT "'a"; RparT; AlphaT "list"]``
-val _ = tytest "('a->bool)list"
-               ``[LparT; TyvarT "'a"; ArrowT; AlphaT "bool"; RparT;
-                  AlphaT "list"]``
-val _ = tytest "'a->bool list"
-               ``[TyvarT "'a"; ArrowT; AlphaT "bool"; AlphaT "list"]``
-val _ = tytest "('a->bool)->bool"
-                     ``[LparT; TyvarT "'a"; ArrowT; AlphaT "bool"; RparT;
-                        ArrowT; AlphaT "bool"]``
-val _ = tytest "('a,foo)bar"
-                     ``[LparT; TyvarT "'a";CommaT;AlphaT"foo";
-                        RparT;AlphaT"bar"]``
-val _ = tytest "('a) list list" ``[LparT; TyvarT "'a"; RparT; AlphaT"list";
-                                   AlphaT"list"]``
-val _ = tytest "('a,'b) foo list"
-               ``[LparT; TyvarT "'a"; CommaT; TyvarT"'b"; RparT; AlphaT"foo";
-                  AlphaT"list"]``
-val _ = tytest "'a list" ``[TyvarT "'a"; AlphaT "list"]``
-val _ = tytest "'a list list" ``[TyvarT "'a"; AlphaT "list"; AlphaT "list"]``
-val _ = tytest "bool list list" ``[AlphaT "bool"; AlphaT "list"; AlphaT "list"]``
-val _ = tytest "('a,bool list)++"
-               ``[LparT; TyvarT "'a"; CommaT; AlphaT "bool"; AlphaT "list";
-                  RparT; SymbolT"++"]``
+val mmltyPEG_def = Define`
+  mmltyPEG = <| start := nt (mkNT nType) I;
+                rules := FEMPTY |++ [(mkNT nType, peg_Type);
+                                     (mkNT nDType, peg_DType);
+                                     (mkNT nTyOp, peg_TyOp)] |>`;
 
 
 val peg_multops_def = Define`

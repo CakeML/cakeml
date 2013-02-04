@@ -266,6 +266,13 @@ val ast = ``Nd (mkNT nEmult) [
 
 val parse_result = EVAL ``ptree_Expr ^ast``;
 
+val mmlGrammar_def = Define`
+  mmlGrammar = <| rules := Eapp_rules ∪ Ebase_rules ∪ MultOps_rules ∪
+                           Emult_rules ∪ TyOp_rules ∪ TypeList_rules ∪
+                           DType_rules ∪ Type_rules;
+                  start := mkNT nEmult |>
+`
+
 (* would use EVAL for this too, but it fails to turn (∃i. F) into F, and can't
    be primed with that as a rewrite rule.
 
