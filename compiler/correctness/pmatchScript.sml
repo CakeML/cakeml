@@ -165,9 +165,9 @@ metis_tac[])
 
 val pat_to_Cpat_empty_pvs = store_thm(
 "pat_to_Cpat_empty_pvs",
-``(∀p m pvs. pat_to_Cpat m pvs p = (FST (pat_to_Cpat m [] p) ++ pvs, SND (pat_to_Cpat m [] p))) ∧
-  (∀ps m pvs. pats_to_Cpats m pvs ps = ((FLAT (MAP (FST o pat_to_Cpat m []) ps))++pvs, MAP (SND o pat_to_Cpat m []) ps))``,
-ho_match_mp_tac (TypeBase.induction_of``:pat``) >>
+``(∀(p:α pat) m pvs. pat_to_Cpat m pvs p = (FST (pat_to_Cpat m [] p) ++ pvs, SND (pat_to_Cpat m [] p))) ∧
+  (∀(ps:α pat list) m pvs. pats_to_Cpats m pvs ps = ((FLAT (MAP (FST o pat_to_Cpat m []) ps))++pvs, MAP (SND o pat_to_Cpat m []) ps))``,
+ho_match_mp_tac (TypeBase.induction_of``:α pat``) >>
 strip_tac >- rw[pat_to_Cpat_def] >>
 strip_tac >- rw[pat_to_Cpat_def] >>
 strip_tac >- rw[pat_to_Cpat_def] >>
@@ -342,10 +342,10 @@ val (Cevaluate_match_rules,Cevaluate_match_ind,Cevaluate_match_cases) = Hol_reln
 val _ = Parse.overload_on("store_to_Cstore",``λm s. v_to_Cv m o_f store_to_fmap s``)
 
 val pmatch_Cpmatch = store_thm("pmatch_Cpmatch",
-  ``(∀tvs cenv s p v env env'. (pmatch tvs cenv s p v env = Match (env' ++ env))
+  ``(∀tvs cenv (s:α store) p v env env'. (pmatch tvs cenv s p v env = Match (env' ++ env))
       ⇒ ∀m. Cpmatch (v_to_Cv m o_f store_to_fmap s) (SND (pat_to_Cpat m [] p)) (v_to_Cv m v)
               (alist_to_fmap (env_to_Cenv m env'))) ∧
-    (∀tvs cenv s ps vs env env'. (pmatch_list tvs cenv s ps vs env = Match (env' ++ env))
+    (∀tvs cenv (s:α store) ps vs env env'. (pmatch_list tvs cenv s ps vs env = Match (env' ++ env))
       ⇒ ∀m. Cpmatch_list (v_to_Cv m o_f store_to_fmap s) (SND (pats_to_Cpats m [] ps)) (vs_to_Cvs m vs)
               (alist_to_fmap (env_to_Cenv m env')))``,
   ho_match_mp_tac pmatch_ind >>
@@ -423,10 +423,10 @@ val pmatch_Cpmatch = store_thm("pmatch_Cpmatch",
   rw[pmatch_def])
 
 val pmatch_Cpnomatch = store_thm("pmatch_Cpnomatch",
-  ``(∀tvs cenv s p v env. good_cenv cenv ∧ (pmatch tvs cenv s p v env = No_match)
+  ``(∀tvs cenv (s:α store) p v env. good_cenv cenv ∧ (pmatch tvs cenv s p v env = No_match)
       ⇒ ∀m. good_cmap cenv m ⇒
             Cpnomatch (store_to_Cstore m s) (SND (pat_to_Cpat m [] p)) (v_to_Cv m v)) ∧
-    (∀tvs cenv s ps vs env env'. good_cenv cenv ∧ (pmatch_list tvs cenv s ps vs env = No_match) ∧ (LENGTH ps = LENGTH vs)
+    (∀tvs cenv (s:α store) ps vs env env'. good_cenv cenv ∧ (pmatch_list tvs cenv s ps vs env = No_match) ∧ (LENGTH ps = LENGTH vs)
       ⇒ ∀m. good_cmap cenv m ⇒
             Cpnomatch_list (store_to_Cstore m s) (SND (pats_to_Cpats m [] ps)) (vs_to_Cvs m vs))``,
   ho_match_mp_tac pmatch_ind >>

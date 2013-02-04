@@ -9,12 +9,14 @@ val _ = Parse.temp_type_abbrev("op_",``:op``) (* EmitML should do this *)
 val _ = Parse.disable_tyabbrev_printing "tvarN"
 val _ = Parse.disable_tyabbrev_printing "envE"
 val _ = Parse.disable_tyabbrev_printing "store"
+val _ = Parse.disable_tyabbrev_printing "type_def"
 val _ = Parse.disable_tyabbrev_printing "ctenv"
 val _ = Parse.disable_tyabbrev_printing "ecs"
 val _ = Parse.disable_tyabbrev_printing "alist"
 val _ = Parse.disable_tyabbrev_printing "def"
 val _ = Parse.disable_tyabbrev_printing "contab"
 val _ = Parse.hide "toList"
+val _ = Feedback.set_trace "Greek tyvars" 0 (* EmitML should do this *)
 
 val underscore_rule = Conv.CONV_RULE let
 fun foldthis (tm,(ls,n)) = let
@@ -39,6 +41,7 @@ val data = map
   , MiniMLTheory.datatype_pat
   , MiniMLTheory.datatype_exp
   , MiniMLTheory.datatype_v
+  , MiniMLTheory.datatype_tc0
   , MiniMLTheory.datatype_t
   , MiniMLTheory.datatype_dec
   , datatype_ov

@@ -16,6 +16,7 @@ fun bc_eval_limit l s = let
 fun dest_list f = map f o (fst o listSyntax.dest_list)
 fun dest_pair f1 f2 = (f1 ## f2) o pairSyntax.dest_pair
 fun term_to_int tm = intML.fromString((Parse.term_to_string tm)^"i")
+fun term_to_num tm = numML.fromString(Parse.term_to_string tm)
 fun term_to_bool tm = tm = boolSyntax.T
 fun term_to_lit tm = let
   val (f,x) = dest_comb tm
@@ -52,7 +53,7 @@ handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
 fun term_to_pat tm = let
   val (f,xs) = strip_comb tm
 in case fst(dest_const f) of
-    "Pvar" => let val [x1] = xs in Pvar (fromHOLstring x1) end
+    "Pvar" => let val [x1,x2] = xs in Pvar (fromHOLstring x1,NONE) end
   | "Plit" => let val [x1] = xs in Plit (term_to_lit x1) end
   | "Pcon" => let val [x1,x2] = xs in Pcon (fromHOLstring x1, dest_list term_to_pat x2) end
   | s => raise Fail s
@@ -65,7 +66,7 @@ fun term_to_v tm = let
   val (f,xs) = strip_comb tm
 in case fst(dest_const f) of
     "Litv" => let val [x1] = xs in Litv (term_to_lit x1) end
-  | "Closure" => let val [x1,x2,x3] = xs in Closure (dest_list (dest_pair fromHOLstring term_to_v) x1,fromHOLstring x2,term_to_exp x3) end
+  | "Closure" => let val [x1,x2,x3,x4] = xs in Closure (dest_list (dest_pair fromHOLstring (dest_pair term_to_v (K NONE))) x1,fromHOLstring x2,NONE,term_to_exp x4) end
   | "Conv" => let val [x1,x2] = xs in Conv (fromHOLstring x1,dest_list term_to_v x2) end
   | s => raise Fail s
 end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
@@ -75,32 +76,42 @@ in case fst(dest_const f) of
     "Lit" => let val [x1] = xs in Lit (term_to_lit x1) end
   | "If"  => let val [x1,x2,x3] = xs in If (term_to_exp x1, term_to_exp x2, term_to_exp x3) end
   | "App" => let val [x1,x2,x3] = xs in App (term_to_op_ x1, term_to_exp x2, term_to_exp x3) end
-  | "Fun" => let val [x1,x2] = xs in Fun (fromHOLstring x1, term_to_exp x2) end
-  | "Var" => let val [x1] = xs in Var (fromHOLstring x1) end
-  | "Let" => let val [x1,x2,x3] = xs in Let (fromHOLstring x1,term_to_exp x2,term_to_exp x3) end
+  | "Fun" => let val [x1,x2,x3] = xs in Fun (fromHOLstring x1, NONE, term_to_exp x3) end
+  | "Var" => let val [x1,x2] = xs in Var (fromHOLstring x1,NONE) end
+  | "Let" => let val [x1,x2,x3,x4,x5] = xs in Let (NONE,fromHOLstring x2,NONE,term_to_exp x4,term_to_exp x5) end
   | "Mat" => let val [x1,x2] = xs in Mat (term_to_exp x1,dest_list (dest_pair term_to_pat term_to_exp) x2) end
   | "Con" => let val [x1,x2] = xs in Con (fromHOLstring x1,dest_list term_to_exp x2) end
-  | "Letrec" => let val [x1,x2] = xs in Letrec (dest_list (dest_pair fromHOLstring (dest_pair fromHOLstring term_to_exp)) x1,term_to_exp x2) end
-  | "Raise" => let val [x1] = xs in Raise (term_to_error x1) end
+  | "Letrec" => let val [x1,x2,x3] = xs in Letrec (NONE,dest_list (dest_pair fromHOLstring (dest_pair (K NONE) (dest_pair fromHOLstring (dest_pair (K NONE) term_to_exp)))) x2,term_to_exp x3) end
+  | "Raise" => let val [x1] = xs in compileML.Raise (term_to_error x1) end
   | s => raise Fail s
+end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
+fun term_to_tc tm = let
+  val (f,xs) = strip_comb tm
+in case fst(dest_const f) of
+    "TC_name" => let val [x1] = xs in TC_name (fromHOLstring x1) end
+  | "TC_int" => TC_int
+  | "TC_bool" => TC_bool
+  | "TC_unit" => TC_unit
+  | "TC_ref" => TC_ref
+  | "TC_fn" => TC_fn
 end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
 fun term_to_t tm = let
   val (f,xs) = strip_comb tm
 in case fst(dest_const f) of
-    "Tint" => Tint
-  | "Tvar" => let val [x1] = xs in Tvar (fromHOLstring x1) end
-  | "Tapp" => let val [x1,x2] = xs in Tapp (dest_list term_to_t x1, fromHOLstring x2) end
+    "Tvar" => let val [x1] = xs in Tvar (fromHOLstring x1) end
+  | "Tvar_db" => let val [x1] = xs in Tvar_db (term_to_num x1) end
+  | "Tapp" => let val [x1,x2] = xs in Tapp (dest_list term_to_t x1, term_to_tc x2) end
   | s => raise Fail s
 end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
 fun term_to_dec tm = let
   val (f,xs) = strip_comb tm
 in case fst(dest_const f) of
-    "Dlet" => let val [x1,x2] = xs in Dlet (term_to_pat x1, term_to_exp x2) end
+    "Dlet" => let val [x1,x2,x3] = xs in Dlet (NONE,term_to_pat x2, term_to_exp x3) end
   | "Dtype" => let val [x1] = xs in Dtype (dest_list (dest_pair (dest_list fromHOLstring) (dest_pair fromHOLstring (dest_list (dest_pair fromHOLstring (dest_list term_to_t))))) x1) end
-  | "Dletrec" => let val [x1] = xs in Dletrec (dest_list (dest_pair fromHOLstring (dest_pair fromHOLstring term_to_exp)) x1) end
+  | "Dletrec" => let val [x1,x2] = xs in Dletrec (NONE,dest_list (dest_pair fromHOLstring (dest_pair (K NONE) (dest_pair fromHOLstring (dest_pair (K NONE) term_to_exp)))) x2) end
   | s => raise Fail s
 end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
-val term_to_ov = v_to_ov o term_to_v
+val term_to_ov = v_to_ov fmapML.FEMPTY o term_to_v
 
 fun add_code c bs = bc_state_code_fupd
   (compile_labels (bc_state_inst_length bs) o (C append c))

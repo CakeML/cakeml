@@ -29,10 +29,10 @@ val repl_exp_val = store_thm("repl_exp_val",
       ALL_DISTINCT (FILTER is_Label bc0) ∧
       EVERY (combin$C $< rs.rnext_label o dest_Label) (FILTER is_Label bc0)
       ⇒
-      ∃bv.
+      ∃bv rfs.
       bc_next^* bs (bs with <|pc := next_addr bs.inst_length (bc0 ++ bc);
-                              stack := bv :: bs.stack|>) ∧
-      (v_to_ov sm v = bv_to_ov (FST(SND(rs.contab))) bv)``,
+                              stack := bv :: bs.stack; refs := rfs|>) ∧
+      (v_to_ov (DRESTRICT sm (count (LENGTH s'))) v = bv_to_ov (FST(SND(rs.contab))) bv)``,
   rw[repl_exp_def,compile_Cexp_def,LET_THM] >>
   qabbrev_tac `p = repeat_label_closures (exp_to_Cexp (cmap rs.contab) exp) rs.rnext_label []` >>
   PairCases_on `p` >> fs[] >>
@@ -55,7 +55,7 @@ val repl_exp_val = store_thm("repl_exp_val",
   fs[compile_code_env_def,LET_THM] >>
   qmatch_assum_abbrev_tac `Cevaluate Cc Cs Cenv Ce (Cs', Rval Cv)` >>
   Q.PAT_ABBREV_TAC`cs = compiler_state_env_fupd X Y` >>
-  qho_match_abbrev_tac `∃bv. bc_next^* bs (bs1 bv) ∧ P bv` >>
+  qho_match_abbrev_tac `∃bv rfs. bc_next^* bs (bs1 bv rfs) ∧ P bv rfs` >>
   qabbrev_tac`bs0 = bs with pc := next_addr bs.inst_length (bc0 ++ (REVERSE cs.out))` >>
   `bc_next^* bs bs0` by (
     rw[RTC_eq_NRC] >>
@@ -91,18 +91,17 @@ val repl_exp_val = store_thm("repl_exp_val",
     fs[FILTER_REVERSE,ALL_DISTINCT_REVERSE] >>
     fs[GSYM ADD1,GSYM LESS_EQ] >>
     metis_tac[prim_recTheory.LESS_REFL,LESS_TRANS] ) >>
-  `∃bv. bc_next^* bs0 (bs1 bv) ∧ P bv` by (
+  `∃bv rfs. bc_next^* bs0 (bs1 bv rfs) ∧ P bv rfs` by (
     qspecl_then[`Cc`,`Cs`,`Cenv`,`Ce`,`Cs', Rval Cv`]mp_tac (CONJUNCT1 compile_val) >>
     fs[] >>
-    disch_then (qspecl_then [`sm`,`bc0`,`bs0`,`cs`] mp_tac) >>
-    `cs.ecs = FEMPTY` by rw[Abbr`cs`] >> simp[good_ecs_def] >>
+    disch_then (qspec_then`sm` mp_tac) >>
     qunabbrev_tac`P` >>
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
       map_every qunabbrev_tac[`P`,`Q`,`R`] >>
-      simp[Abbr`bs0`] >>
-      simp[Cexp_pred_free_labs] >>
-      fs[env_rs_def,LET_THM] >>
+      simp[] >>
+      conj_tac >- cheat >> (* need to assume source language has distinct binders and show that exp_to_Cexp preserves that *)
+      conj_tac >- cheat >> (* need to assume source language has distinct binders and show that exp_to_Cexp preserves that *)
       conj_tac >- (
         fsrw_tac[DNF_ss][Abbr`Cenv`,SUBSET_DEF,Abbr`Cs`] >>
         gen_tac >> simp[Once CONJ_COMM] >> simp[GSYM AND_IMP_INTRO] >>
@@ -114,7 +113,17 @@ val repl_exp_val = store_thm("repl_exp_val",
       conj_tac >- (
         fsrw_tac[DNF_ss][Abbr`Cs`,SUBSET_DEF,FRANGE_store_to_Cstore,MEM_MAP,all_Clocs_v_to_Cv] >>
         PROVE_TAC[] ) >>
-      conj_tac >- fs[fmap_rel_def] >>
+      fs[fmap_rel_def] ) >>
+    simp[] >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    disch_then (qspecl_then [`bc0`,`bs0`,`cs`] mp_tac) >>
+    `cs.ecs = FEMPTY` by rw[Abbr`cs`] >> simp[good_ecs_def] >>
+    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by (
+      map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+      simp[Abbr`bs0`] >>
+      simp[Cexp_pred_free_labs] >>
+      fs[env_rs_def,LET_THM] >>
       conj_tac >- rw[Abbr`cs`] >>
       conj_tac >- rw[Abbr`cs`] >>
       conj_tac >- (
@@ -128,9 +137,10 @@ val repl_exp_val = store_thm("repl_exp_val",
       rw[] >> res_tac >> DECIDE_TAC ) >>
     map_every qunabbrev_tac[`P`,`Q`,`R`] >> fs[] >>
     rw[Abbr`bs0`,LET_THM,Abbr`bs1`] >>
-    qexists_tac `bv` >> rw[] >>
+    map_every qexists_tac [`bv`,`rfs`] >> rw[] >>
     match_mp_tac EQ_TRANS >>
-    qexists_tac `Cv_to_ov (FST(SND rs.contab)) sm (v_to_Cv (cmap rs.contab) v)` >>
+    qexists_tac `Cv_to_ov (FST(SND rs.contab)) (DRESTRICT sm (FDOM Cs')) (v_to_Cv (cmap rs.contab) v)` >>
+    `count (LENGTH s') = FDOM Cs'` by fs[fmap_rel_def] >> fs[] >>
     conj_tac >- (
       match_mp_tac EQ_SYM >>
       match_mp_tac (CONJUNCT1 v_to_Cv_ov) >>
@@ -141,7 +151,7 @@ val repl_exp_val = store_thm("repl_exp_val",
       fs[SUBSET_DEF] >>
       metis_tac[] ) >>
     match_mp_tac EQ_TRANS >>
-    qexists_tac `Cv_to_ov (FST(SND rs.contab)) sm Cv` >>
+    qexists_tac `Cv_to_ov (FST(SND rs.contab)) (DRESTRICT sm (FDOM Cs')) Cv` >>
     conj_tac >- (
       match_mp_tac syneq_ov >>
       metis_tac[syneq_sym] ) >>
@@ -152,7 +162,7 @@ val repl_exp_val = store_thm("repl_exp_val",
 (* must read an expression followed by all space until the start of another
    expression (or end of string) *)
 val parse_def = Define`
-  (parse : string -> (exp # string) option) s = ARB`
+  (parse : string -> (t exp # string) option) s = ARB`
 
 val _ = Hol_datatype`
   swhile_result = Terminate of 'a | Diverge`
