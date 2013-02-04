@@ -37,9 +37,9 @@ val env_to_Cenv_APPEND = store_thm("env_to_Cenv_APPEND",
 val _ = export_rewrites["env_to_Cenv_APPEND"]
 
 val all_Clocs_v_to_Cv = store_thm("all_Clocs_v_to_Cv",
-  ``(∀m v. all_Clocs (v_to_Cv m v) = all_locs v) ∧
-    (∀m vs. MAP all_Clocs (vs_to_Cvs m vs) = MAP all_locs vs) ∧
-    (∀m env:envE. all_Clocs o_f (alist_to_fmap (env_to_Cenv m env)) =
+  ``(∀m (v:α v). all_Clocs (v_to_Cv m v) = all_locs v) ∧
+    (∀m (vs:α v list). MAP all_Clocs (vs_to_Cvs m vs) = MAP all_locs vs) ∧
+    (∀m env: α envE. all_Clocs o_f (alist_to_fmap (env_to_Cenv m env)) =
                   all_locs o FST o_f (alist_to_fmap env))``,
   ho_match_mp_tac v_to_Cv_ind >>
   srw_tac[ETA_ss][v_to_Cv_def,LET_THM,defs_to_Cdefs_MAP]
@@ -53,11 +53,11 @@ val all_Clocs_v_to_Cv = store_thm("all_Clocs_v_to_Cv",
 
 val Cpat_vars_pat_to_Cpat = store_thm(
 "Cpat_vars_pat_to_Cpat",
-``(∀p s pvs pvs' Cp. (pat_to_Cpat s pvs p = (pvs',Cp))
+``(∀(p:α pat) s pvs pvs' Cp. (pat_to_Cpat s pvs p = (pvs',Cp))
   ⇒ (Cpat_vars Cp = pat_vars p)) ∧
-  (∀ps s pvs pvs' Cps. (pats_to_Cpats s pvs ps = (pvs',Cps))
+  (∀(ps:α pat list) s pvs pvs' Cps. (pats_to_Cpats s pvs ps = (pvs',Cps))
   ⇒ (MAP Cpat_vars Cps = MAP pat_vars ps))``,
-ho_match_mp_tac (TypeBase.induction_of ``:pat``) >>
+ho_match_mp_tac (TypeBase.induction_of ``:α pat``) >>
 rw[pat_to_Cpat_def,LET_THM,pairTheory.UNCURRY] >>
 rw[FOLDL_UNION_BIGUNION,IMAGE_BIGUNION] >- (
   qabbrev_tac `q = pats_to_Cpats s' pvs ps` >>
@@ -120,7 +120,7 @@ rw[] >- (
   BasicProvers.EVERY_CASE_TAC >> rw[] )
 >- (
   Q.PAT_ABBREV_TAC`v = fresh_var X` >>
-  Q.PAT_ABBREV_TAC`pe = MAP (X:(pat#exp)->(Cpat#Cexp)) pes` >>
+  Q.PAT_ABBREV_TAC`pe = MAP (X:(α pat#α exp)->(Cpat#Cexp)) pes` >>
   qabbrev_tac`y = FV e` >>
   qspecl_then [`v`,`pe`] mp_tac free_vars_remove_mat_var >>
   asm_simp_tac std_ss [EXTENSION,IN_DIFF,IN_SING,IN_UNION] >>
@@ -181,9 +181,9 @@ val _ = export_rewrites["free_vars_exp_to_Cexp"];
 
 val v_to_Cv_closed = store_thm(
 "v_to_Cv_closed",
-``(∀m v. closed v ⇒ Cclosed FEMPTY (v_to_Cv m v)) ∧
-  (∀m vs. EVERY closed vs ⇒ EVERY (Cclosed FEMPTY) (vs_to_Cvs m vs)) ∧
-  (∀m env. EVERY closed (MAP (FST o SND) env) ⇒ FEVERY ((Cclosed FEMPTY) o SND) (alist_to_fmap (env_to_Cenv m env)))``,
+``(∀m (v:α v). closed v ⇒ Cclosed FEMPTY (v_to_Cv m v)) ∧
+  (∀m (vs:α v list). EVERY closed vs ⇒ EVERY (Cclosed FEMPTY) (vs_to_Cvs m vs)) ∧
+  (∀m (env:α envE). EVERY closed (MAP (FST o SND) env) ⇒ FEVERY ((Cclosed FEMPTY) o SND) (alist_to_fmap (env_to_Cenv m env)))``,
 ho_match_mp_tac v_to_Cv_ind >>
 rw[v_to_Cv_def] >> rw[Cclosed_rules]
 >- (
@@ -293,7 +293,7 @@ probably not true until equality is corrected in the source language *)
 val pat_to_Cpat_deBruijn_subst_p = store_thm("pat_to_Cpat_deBruijn_subst_p",
   ``(∀p n x m ls. pat_to_Cpat m ls (deBruijn_subst_p n x p) = pat_to_Cpat m ls p) ∧
     (∀ps n x m ls. pats_to_Cpats m ls (MAP (deBruijn_subst_p n x) ps) = pats_to_Cpats m ls ps)``,
-  ho_match_mp_tac (TypeBase.induction_of``:pat``) >>
+  ho_match_mp_tac (TypeBase.induction_of``:t pat``) >>
   srw_tac[ETA_ss][deBruijn_subst_p_def,pat_to_Cpat_def])
 val _ = export_rewrites["pat_to_Cpat_deBruijn_subst_p"]
 
@@ -602,7 +602,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       qmatch_assum_rename_tac `do_app s3 env (Opn opn) v1 v2 = SOME (s4,env',exp'')` [] >>
       qspecl_then[`cenv`,`s'`,`env`,`e2`,`(s3,Rval v2)`]mp_tac(CONJUNCT1 evaluate_closed) >>
       simp[] >> strip_tac >>
-      qspecl_then[`s3`,`s4`,`env`,`Opn opn`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
+      Q.ISPECL_THEN[`s3`,`s4`,`env`,`Opn opn`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
       simp[] >> strip_tac >> fs[] >>
       fs[do_app_Opn_SOME] >>
       rpt BasicProvers.VAR_EQ_TAC >>
@@ -641,7 +641,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       qspecl_then[`cenv`,`s1`,`env`,`e2`,`(s2,Rval v2)`]mp_tac(CONJUNCT1 evaluate_closed) >>
       simp[] >> strip_tac >>
       fs[] >>
-      qspecl_then[`s2`,`s4`,`env`,`Opb opb`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
+      Q.ISPECL_THEN[`s2`,`s4`,`env`,`Opb opb`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
       simp[] >> strip_tac >>
       fs[] >>
       rpt (first_x_assum (qspec_then `m` mp_tac)) >> rw[] >>
@@ -832,7 +832,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       simp[]>>strip_tac >>
       qspecl_then[`cenv`,`s'`,`env`,`e2`,`(s3,Rval v2)`]mp_tac(CONJUNCT1 evaluate_closed) >>
       simp[]>>strip_tac >>
-      qspecl_then[`s3`,`s''`,`env`,`Equality`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
+      Q.ISPECL_THEN[`s3`,`s''`,`env`,`Equality`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
       simp[]>>strip_tac>>
       fs[] >>
       rpt (first_x_assum (qspec_then `m` mp_tac)) >>
@@ -904,7 +904,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       simp[] >> strip_tac >>
       qspecl_then[`cenv`,`s'`,`env`,`e2`,`(s3,Rval v2)`]mp_tac(CONJUNCT1 evaluate_closed) >>
       simp[] >> strip_tac >>
-      qspecl_then[`s3`,`s''`,`env`,`Opapp`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
+      Q.ISPECL_THEN[`s3`,`s''`,`env`,`Opapp`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
       simp[] >> strip_tac >>
       fs[] >>
       rpt (first_x_assum (qspec_then `m` mp_tac)) >>

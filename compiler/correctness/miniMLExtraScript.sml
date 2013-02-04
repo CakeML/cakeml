@@ -22,9 +22,9 @@ val pat_vars_def = tDefine "pat_vars"`
 (pat_vars (Plit l) = {}) ∧
 (pat_vars (Pcon c ps) = BIGUNION (IMAGE pat_vars (set ps))) ∧
 (pat_vars (Pref p) = pat_vars p)`(
-WF_REL_TAC `measure pat_size` >>
+WF_REL_TAC `measure (pat_size ARB)` >>
 srw_tac[ARITH_ss][pat1_size_thm] >>
-Q.ISPEC_THEN `pat_size` imp_res_tac SUM_MAP_MEM_bound >>
+Q.ISPEC_THEN `pat_size ARB` imp_res_tac SUM_MAP_MEM_bound >>
 srw_tac[ARITH_ss][])
 val _ = export_rewrites["pat_vars_def"]
 
@@ -48,10 +48,10 @@ val FV_def = tDefine "FV"`
 (FV (Mat e pes) = FV e ∪ BIGUNION (IMAGE (λ(p,e). FV e DIFF pat_vars p) (set pes))) ∧
 (FV (Let _ x _ e b) = FV e ∪ (FV b DIFF {x})) ∧
 (FV (Letrec _ defs b) = BIGUNION (IMAGE (λ(y,_0,x,_1,e). FV e DIFF ({x} ∪ (IMAGE FST (set defs)))) (set defs)) ∪ (FV b DIFF (IMAGE FST (set defs))))`
-(WF_REL_TAC `measure exp_size` >>
-srw_tac[ARITH_ss][exp1_size_thm,exp6_size_thm,exp8_size_thm,
+(WF_REL_TAC `measure (exp_size ARB)` >>
+srw_tac[ARITH_ss][exp1_size_thm,exp5_size_thm,exp8_size_thm,
                   SUM_MAP_exp7_size_thm,SUM_MAP_exp2_size_thm,
-                  SUM_MAP_exp3_size_thm,SUM_MAP_exp4_size_thm,SUM_MAP_exp5_size_thm] >>
+                  SUM_MAP_exp3_size_thm,SUM_MAP_exp4_size_thm,SUM_MAP_exp6_size_thm] >>
 TRY (
   qmatch_assum_rename_tac`MEM (a,z,c,d,e) defs`[]>>
   `MEM e (MAP SND (MAP SND (MAP SND (MAP SND defs))))`by
@@ -60,7 +60,7 @@ TRY (
   qmatch_assum_rename_tac`MEM (p,z) pes`[]>>
   `MEM z (MAP SND pes)`by srw_tac[SATISFY_ss][MEM_MAP,EXISTS_PROD] ) >>
 map_every (fn q => Q.ISPEC_THEN q imp_res_tac SUM_MAP_MEM_bound)
-  [`exp2_size`,`exp5_size`,`exp_size`] >>
+  [`exp2_size ARB`,`exp5_size ARB`,`exp_size ARB`] >>
 fsrw_tac[ARITH_ss][exp_size_def])
 val _ = export_rewrites["FV_def"]
 
@@ -72,6 +72,7 @@ rw[pairTheory.EXISTS_PROD] >>
 fsrw_tac[SATISFY_ss][])
 val _ = export_rewrites["FINITE_FV"]
 
+(*
 val (evaluate_list_with_rules,evaluate_list_with_ind,evaluate_list_with_cases) = Hol_reln [ANTIQUOTE(
 evaluate_rules |> SIMP_RULE (srw_ss()) [] |> concl |>
 strip_conj |>
@@ -107,6 +108,7 @@ rw[FUN_EQ_THM] >-
 rw[Once evaluate_cases] >>
 rw[Once evaluate_list_with_cases,SimpRHS] >>
 PROVE_TAC[])
+*)
 
 val (evaluate_match_with_rules,evaluate_match_with_ind,evaluate_match_with_cases) = Hol_reln
   (* evaluate_rules |> SIMP_RULE (srw_ss()) [] |> concl |> strip_conj |>
@@ -136,6 +138,7 @@ rw[Once evaluate_cases] >>
 rw[Once evaluate_match_with_cases,SimpRHS] >>
 PROVE_TAC[])
 
+(*
 val evaluate_list_with_nil = store_thm(
 "evaluate_list_with_nil",
 ``∀f res. evaluate_list_with f s [] res = (res = (s,Rval []))``,
@@ -171,6 +174,7 @@ evaluate_strongind
 |> DISCH_ALL
 |> Q.GEN `P`
 |> SIMP_RULE (srw_ss()) [evaluate_list_with_evaluate,evaluate_match_with_rules])
+*)
 
 val evaluate_nicematch_strongind = save_thm(
 "evaluate_nicematch_strongind",
@@ -184,6 +188,7 @@ evaluate_strongind
 |> Q.GENL [`P1`,`P0`]
 |> SIMP_RULE (srw_ss()) [evaluate_match_with_rules])
 
+(*
 val evaluate_list_with_error = store_thm(
 "evaluate_list_with_error",
 ``!P ls s s' err. evaluate_list_with P s ls (s',Rerr err) =
@@ -259,6 +264,7 @@ Cases_on`l`>>fs[] >>
 Cases_on`t'`>>fs[] >>
 qexists_tac`h'''` >> rw[] >>
 qexists_tac`h'''::t''`>>fs[])
+*)
 
 val do_prim_app_FV = store_thm(
 "do_prim_app_FV",
@@ -310,9 +316,9 @@ val _ = export_rewrites["map_match_def"]
 val pmatch_APPEND = store_thm(
 "pmatch_APPEND",
 ``(∀tvs cenv s p v env n.
-    (pmatch tvs cenv s p v env =
+    (pmatch tvs cenv (s:α store) p v env =
      map_match (combin$C APPEND (DROP n env)) (pmatch tvs cenv s p v (TAKE n env)))) ∧
-  (∀tvs cenv s ps vs env n.
+  (∀tvs cenv (s:α store) ps vs env n.
     (pmatch_list tvs cenv s ps vs env =
      map_match (combin$C APPEND (DROP n env)) (pmatch_list tvs cenv s ps vs (TAKE n env))))``,
 ho_match_mp_tac pmatch_ind >>
@@ -534,13 +540,13 @@ ntac 3 gen_tac >> Cases
   PROVE_TAC[MEM_LUPDATE,closed_lit,closed_conv,EVERY_MEM,closed_loc]))
 
 val pmatch_closed = store_thm("pmatch_closed",
-  ``(∀no cenv s p v env env'.
+  ``(∀no cenv (s:α store) p v env env'.
       EVERY closed (MAP (FST o SND) env) ∧ closed v ∧
       EVERY closed s ∧
       (pmatch no cenv s p v env = Match env') ⇒
       EVERY closed (MAP (FST o SND) env') ∧
       (set (MAP FST env') = pat_vars p ∪ set (MAP FST env))) ∧
-    (∀no cenv s ps vs env env'.
+    (∀no cenv (s:α store) ps vs env env'.
       EVERY closed (MAP (FST o SND) env) ∧ EVERY closed vs ∧
       EVERY closed s ∧
       (pmatch_list no cenv s ps vs env = Match env') ⇒
@@ -781,7 +787,7 @@ strip_tac (* Match *) >- (
   rpt gen_tac >> ntac 2 strip_tac >>
   fs[] >> rfs[] >>
   first_x_assum match_mp_tac >>
-  MP_TAC(SPEC_ALL(Q.SPEC`SOME 0`(CONJUNCT1 pmatch_closed))) >>
+  MP_TAC(SPEC_ALL(Q.SPEC`SOME 0`(INST_TYPE[alpha|->``:t``](CONJUNCT1 pmatch_closed)))) >>
   fs[] >>
   fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,EXTENSION] >>
   metis_tac[]) >>
@@ -851,10 +857,10 @@ val all_cns_def = tDefine "all_cns"`
   (all_cns (Closure env _ _ _) = BIGUNION (IMAGE all_cns (IMAGE FST (FRANGE (alist_to_fmap env))))) ∧
   (all_cns (Recclosure env _ _) = BIGUNION (IMAGE all_cns (IMAGE FST (FRANGE (alist_to_fmap env))))) ∧
   (all_cns (Loc _) = {})`
-  (WF_REL_TAC `measure v_size` >>
+  (WF_REL_TAC `measure (v_size ARB)` >>
    srw_tac[ARITH_ss][v1_size_thm,v4_size_thm,SUM_MAP_v2_size_thm,SUM_MAP_v3_size_thm] >>
    TRY (
-     Q.ISPEC_THEN`v_size`imp_res_tac SUM_MAP_MEM_bound >>
+     Q.ISPEC_THEN`v_size ARB`imp_res_tac SUM_MAP_MEM_bound >>
      fsrw_tac[ARITH_ss][] >> NO_TAC ) >>
    pop_assum mp_tac >>
    qid_spec_tac`x` >>
@@ -862,7 +868,7 @@ val all_cns_def = tDefine "all_cns"`
    gen_tac >> PairCases_on`x` >>
    strip_tac >>
    `MEM x0 (MAP FST (MAP SND env))`by(fs[MEM_MAP,EXISTS_PROD]>>PROVE_TAC[]) >>
-   Q.ISPEC_THEN`v_size`imp_res_tac SUM_MAP_MEM_bound >>
+   Q.ISPEC_THEN`v_size ARB`imp_res_tac SUM_MAP_MEM_bound >>
    fsrw_tac[ARITH_ss][])
 val all_cns_def = save_thm("all_cns_def",SIMP_RULE(srw_ss()++ETA_ss)[]all_cns_def)
 val _ = export_rewrites["all_cns_def"]
@@ -872,7 +878,7 @@ val IN_FRANGE_o_f_suff = store_thm("IN_FRANGE_o_f_suff",
   ``(∀v. v ∈ FRANGE fm ⇒ P (f v)) ⇒ ∀v. v ∈ FRANGE (f o_f fm) ⇒ P v``,
   rw[IN_FRANGE] >> rw[] >> first_x_assum match_mp_tac >> PROVE_TAC[])
 
-val _ = Parse.overload_on("env_range",``λenv:envE. IMAGE FST (FRANGE (alist_to_fmap env))``)
+val _ = Parse.overload_on("env_range",``λenv:α envE. IMAGE FST (FRANGE (alist_to_fmap env))``)
 
 val do_app_all_cns = store_thm("do_app_all_cns",
   ``∀cns s env op v1 v2 s' env' exp.
@@ -917,12 +923,12 @@ val do_app_all_cns = store_thm("do_app_all_cns",
   metis_tac[o_f_FRANGE,combinTheory.o_DEF])))
 
 val pmatch_all_cns = store_thm("pmatch_all_cns",
-  ``(∀tvs cenv s p v env env'. (pmatch tvs cenv s p v env = Match env') ⇒
+  ``(∀tvs cenv (s:α store) p v env env'. (pmatch tvs cenv s p v env = Match env') ⇒
     BIGUNION (IMAGE all_cns (IMAGE FST (FRANGE (alist_to_fmap env')))) ⊆
     all_cns v ∪
     BIGUNION (IMAGE all_cns (IMAGE FST (FRANGE (alist_to_fmap env)))) ∪
     BIGUNION (IMAGE all_cns (set s))) ∧
-    (∀tvs cenv s ps vs env env'. (pmatch_list tvs cenv s ps vs env = Match env') ⇒
+    (∀tvs cenv (s:α store) ps vs env env'. (pmatch_list tvs cenv s ps vs env = Match env') ⇒
     BIGUNION (IMAGE all_cns (IMAGE FST (FRANGE (alist_to_fmap env')))) ⊆
     BIGUNION (IMAGE all_cns (set vs)) ∪
     BIGUNION (IMAGE all_cns (IMAGE FST (FRANGE (alist_to_fmap env)))) ∪
@@ -1020,7 +1026,7 @@ val evaluate_all_cns = store_thm("evaluate_all_cns",
   strip_tac (* Uapp *) >- (
     rpt gen_tac >> ntac 2 strip_tac >> fs[] >>
     qmatch_assum_rename_tac`do_uapp s0 uop v = SOME (s',v')`[] >>
-    qspecl_then[`set (MAP FST cenv)`,`s0`,`uop`,`v`,`s'`,`v'`]mp_tac(do_uapp_all_cns) >>
+    Q.ISPECL_THEN[`set (MAP FST cenv)`,`s0`,`uop`,`v`,`s'`,`v'`]mp_tac(do_uapp_all_cns) >>
     simp[BIGUNION_IMAGE_set_SUBSET] >> metis_tac[]) >>
   strip_tac >- ( rpt gen_tac >> ntac 2 strip_tac >> fs[] >> PROVE_TAC[] ) >>
   strip_tac >- rw[] >>
@@ -1029,7 +1035,7 @@ val evaluate_all_cns = store_thm("evaluate_all_cns",
     first_x_assum match_mp_tac >> fs[] >>
     fsrw_tac[DNF_ss][] >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
-    qspecl_then[`set (MAP FST cenv)`,`s3`,`env`,`op`,`v1`,`v2`,`s''`,`env'`,`exp''`]
+    Q.ISPECL_THEN[`set (MAP FST cenv)`,`s3`,`env`,`op`,`v1`,`v2`,`s''`,`env'`,`exp''`]
       (mp_tac o SIMP_RULE(srw_ss()++DNF_ss)[SUBSET_DEF]) do_app_all_cns >>
     metis_tac[]) >>
   strip_tac >- ( rw[] >> metis_tac[] ) >>
@@ -1082,9 +1088,9 @@ val all_locs_def = tDefine "all_locs"`
   (all_locs (Closure env _ _ _) = BIGUNION (IMAGE all_locs (env_range env))) ∧
   (all_locs (Recclosure env _ _) = BIGUNION (IMAGE all_locs (env_range env))) ∧
   (all_locs (Loc n) = {n})`
-(WF_REL_TAC`measure v_size`>>
+(WF_REL_TAC`measure (v_size ARB)`>>
  srw_tac[ARITH_ss][v1_size_thm,v4_size_thm,SUM_MAP_v2_size_thm,SUM_MAP_v3_size_thm] >>
- Q.ISPEC_THEN`v_size`imp_res_tac SUM_MAP_MEM_bound >>
+ Q.ISPEC_THEN`v_size ARB`imp_res_tac SUM_MAP_MEM_bound >>
  srw_tac[ARITH_ss][] >>
  pop_assum mp_tac >>
  qid_spec_tac `x` >>
@@ -1093,7 +1099,7 @@ val all_locs_def = tDefine "all_locs"`
  PairCases_on`x` >>
  strip_tac >>
  `MEM x0 (MAP FST (MAP SND env))` by (fs[MEM_MAP,EXISTS_PROD]>>PROVE_TAC[]) >>
- Q.ISPEC_THEN`v_size`imp_res_tac SUM_MAP_MEM_bound >>
+ Q.ISPEC_THEN`v_size ARB`imp_res_tac SUM_MAP_MEM_bound >>
  srw_tac[ARITH_ss][])
 val _ = export_rewrites["all_locs_def"]
 
