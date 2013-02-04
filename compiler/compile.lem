@@ -1242,7 +1242,8 @@ cce_aux c s (ns,defs) =
       let s = emit s [Label l] in
       let s' = <| s with env = env; sz = 0; tail = TCTail az 0 |> in
       let s' = compile s' (Pmap.find l c) in
-      let n = match s'.tail with TCNonTail -> 1 | TCTail j k -> k+1 end in
+      let n = match s'.tail with TCTail j k -> k+1
+              | _ -> 0 (* should not happen *) end in
       let s' = emit s' [Stack (Pops n);
                         Stack (Load 1);
                         Stack (Store (az+2));
