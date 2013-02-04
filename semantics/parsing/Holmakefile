@@ -1,2 +1,14 @@
 INCLUDES = $(HOLDIR)/examples/parsing ../
 OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = parsing-heap
+EXTRA_CLEANS = parsing-heap
+
+BARE_THYS = ../TokensTheory ../AstTheory
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -o $@ $(BARE_THYS)
+
+endif
