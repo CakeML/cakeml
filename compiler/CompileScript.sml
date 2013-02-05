@@ -38,6 +38,9 @@ open BytecodeTheory MiniMLTheory
 (*val flookup : forall 'a 'b 'c. Pmap.map 'a 'b -> 'a -> 'c*)
 (*val domsub : forall 'a 'b. Pmap.map 'a 'b -> 'a -> Pmap.map 'a 'b*)
 (*val genlist : forall 'a. (num -> 'a) -> num -> list 'a*)
+(*val o_f : forall 'a 'b 'c. ('a -> 'b) -> Pmap.map 'c 'a -> Pmap.map 'c 'b*)
+(*val o : forall 'a 'b 'c. ('a -> 'b) -> ('c -> 'a) -> ('c -> 'b)*)
+(*val (SND o SND o SND o SND) : forall 'a 'b 'c 'd 'e. 'a * 'b * 'c * 'd * 'e -> 'e*)
 (*open MiniML*)
 (*val return : forall 'a 'b. 'a -> 'b -> 'a * 'b*)
 (*val bind : forall 'a 'b 'c. ('a -> 'b * 'a) -> ('b -> 'a -> 'c * 'a) -> 'a -> 'c * 'a*)
@@ -259,6 +262,12 @@ val _ = Define `
     ns)  vs))`;
 
 
+val _ = type_abbrev( "code_env" , ``: (num, ( (string, Cv)fmap # string list # def list # string # Cexp)) fmap``);
+
+val _ = Define `
+ stripc =( ($o_f) (SND o SND o SND o SND))`;
+
+
 val _ = Hol_reln `
 (! c s env error.
 T
@@ -349,8 +358,8 @@ ALL_DISTINCT ns) /\
 Cevaluate c) s)
   (((((FOLDL2 
     (\ env' n (xs,cb) .((
-      FUPDATE  env') ( n, (((((CRecClos env) [(fresh_var (((cbod_fvs c) cb)))]) [(xs,cb)])
-                               ((fresh_var (((cbod_fvs c) cb)))))))))) 
+      FUPDATE  env') ( n, (((((CRecClos env) [(fresh_var (((cbod_fvs ((stripc c))) cb)))]) [(xs,cb)])
+                               ((fresh_var (((cbod_fvs ((stripc c))) cb)))))))))) 
     env)  ns)  defs)))
   b) r)
 ==>
@@ -375,8 +384,8 @@ Cevaluate c s env (((((CLetfun T) ns) defs) b)) r)
 (! l. (cb =( INR l)) ==>  l IN( FDOM  c))
 ==>
 Cevaluate c s env (((CFun xs) cb))
-  (s,( Rval (((((CRecClos env) [(fresh_var (((cbod_fvs c) cb)))]) [(xs,cb)])
-                         ((fresh_var (((cbod_fvs c) cb)))))))))
+  (s,( Rval (((((CRecClos env) [(fresh_var (((cbod_fvs ((stripc c))) cb)))]) [(xs,cb)])
+                         ((fresh_var (((cbod_fvs ((stripc c))) cb)))))))))
 
 /\
 (! c s env e es s' env' ns' defs n i ns cb b s'' vs r.(((((
@@ -386,9 +395,9 @@ ALL_DISTINCT ns') /\(((((
 Cevaluate_list c) s') env) es) (s'',( Rval vs))) /\
 ((((find_index n) ns') 0) =( SOME i)) /\
 (((EL  i)  defs) = (ns,cb)) /\
-(b = (case cb of INL b => b | INR l =>(( FAPPLY  c)  l) )) /\
 ((LENGTH ns) =( LENGTH vs)) /\(
-ALL_DISTINCT ns) /\(((((
+ALL_DISTINCT ns) /\
+((env',ns',defs,n,b) = (case cb of INL b => (env',ns',defs,n,b) | INR l =>(( FAPPLY  c)  l) )) /\(((((
 Cevaluate c) s'') (((((((extend_rec_env env') env') ns') defs) ns) vs))) b) r)
 ==>
 Cevaluate c s env (((CCall e) es)) r)
@@ -1317,7 +1326,7 @@ val _ = Defn.save_defn bind_fv_defn;
         (\ (s,k) (xs,l) .
           let az =( LENGTH xs) in
           let (n,env,(ecl,ec)) =(((
-            ITSET (((((bind_fv ns) xs) az) k))) (((free_vars c) (((FAPPLY  c)  l))))) (0,FEMPTY,(0,[]))) in
+            ITSET (((((bind_fv ns) xs) az) k))) (((cbod_fvs c) ((INR l))))) (0,FEMPTY,(0,[]))) in
           let s =  s with<|
                      env_azs :=(( FUPDATE  s.env_azs) ( l, (env,az)))
                    ; ecs :=(( FUPDATE  s.ecs) ( l, (ecl,ec)))
@@ -1337,7 +1346,8 @@ val _ = Defn.save_defn calculate_ecs_defn;
       let s =(( emit s) [(Label l)]) in
       let s' =  s with<| env := env; sz := 0; tail :=(( TCTail az) 0) |> in
       let s' =(( compile s') (((FAPPLY  c)  l))) in
-      let n = (case s'.tail of TCNonTail => 1 | TCTail j k => k+1 ) in
+      let n = (case s'.tail of TCTail j k => k+1
+              | _ => 0 (* should not happen *) ) in
       let s' =(( emit s') [(Stack ((Pops n)));(
                         Stack ((Load 1)));(
                         Stack ((Store (az+2))));(

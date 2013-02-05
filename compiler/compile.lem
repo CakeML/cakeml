@@ -45,6 +45,12 @@ val domsub : forall 'a 'b. Pmap.map 'a 'b -> 'a -> Pmap.map 'a 'b
 let inline {hol} domsub = Hol.DOMSUB
 val genlist : forall 'a. (num -> 'a) -> num -> list 'a
 let inline {hol} genlist = Hol.GENLIST
+val o_f : forall 'a 'b 'c. ('a -> 'b) -> Pmap.map 'c 'a -> Pmap.map 'c 'b
+val o : forall 'a 'b 'c. ('a -> 'b) -> ('c -> 'a) -> ('c -> 'b)
+val fifth : forall 'a 'b 'c 'd 'e. 'a * 'b * 'c * 'd * 'e -> 'e
+let inline {hol} fifth = Hol.fifth
+let inline {hol} o_f = Hol.o_f
+let inline {hol} o = Hol.o
 open MiniML
 val return : forall 'a 'b. 'a -> 'b -> 'a * 'b
 let inline {hol} return = Hol.UNIT
@@ -261,6 +267,10 @@ let extend_rec_env cenv env rs defs ns vs =
         rs)
     ns vs
 
+type code_env = Pmap.map num (Pmap.map string Cv * list string * list def * string * Cexp)
+
+let stripc = o_f fifth
+
 indreln
 forall c s env error.
 true
@@ -351,8 +361,8 @@ all_distinct ns &&
 Cevaluate c s
   (fold_left2
     (fun env' n (xs,cb) ->
-      Pmap.add n (CRecClos env [fresh_var (cbod_fvs c cb)] [(xs,cb)]
-                               (fresh_var (cbod_fvs c cb))) env')
+      Pmap.add n (CRecClos env [fresh_var (cbod_fvs (stripc c) cb)] [(xs,cb)]
+                               (fresh_var (cbod_fvs (stripc c) cb))) env')
     env ns defs)
   b r
 ==>
@@ -377,8 +387,8 @@ forall c s env xs cb.
 (forall l. cb = INR l --> Pmap.mem l c)
 ==>
 Cevaluate c s env (CFun xs cb)
-  (s, Rval (CRecClos env [fresh_var (cbod_fvs c cb)] [(xs,cb)]
-                         (fresh_var (cbod_fvs c cb))))
+  (s, Rval (CRecClos env [fresh_var (cbod_fvs (stripc c) cb)] [(xs,cb)]
+                         (fresh_var (cbod_fvs (stripc c) cb))))
 
 and
 forall c s env e es s' env' ns' defs n i ns cb b s'' vs r.
@@ -388,9 +398,9 @@ all_distinct ns' &&
 Cevaluate_list c s' env es (s'', Rval vs) &&
 find_index n ns' 0 = Some i &&
 List.nth defs i = (ns,cb) &&
-b = match cb with INL b -> b | INR l -> Pmap.find l c end &&
 List.length ns = List.length vs &&
 all_distinct ns &&
+(env',ns',defs,n,b) = match cb with INL b -> (env',ns',defs,n,b) | INR l -> Pmap.find l c end &&
 Cevaluate c s'' (extend_rec_env env' env' ns' defs ns vs) b r
 ==>
 Cevaluate c s env (CCall e es) r
@@ -1225,7 +1235,7 @@ calculate_ecs c =
         (fun (s,k) (xs,l) ->
           let az = List.length xs in
           let (n,env,(ecl,ec)) =
-            Set.fold (bind_fv ns xs az k) (free_vars c (Pmap.find l c)) (0,Pmap.empty,(0,[])) in
+            Set.fold (bind_fv ns xs az k) (cbod_fvs c (INR l)) (0,Pmap.empty,(0,[])) in
           let s = <| s with
                      env_azs = Pmap.add l (env,az) s.env_azs
                    ; ecs = Pmap.add l (ecl,ec) s.ecs
