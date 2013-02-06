@@ -260,217 +260,219 @@ val _ = Define `
 
 
 val _ = Hol_reln `
-(! c s env error.
+(! c d s env error.
 T
 ==>
-Cevaluate c s env ((CRaise error)) (s,( Rerr ((Rraise error)))))
+Cevaluate c d s env ((CRaise error)) (s,( Rerr ((Rraise error)))))
 
 /\
-(! c s1 env e1 x e2 s2 v.(((((
-Cevaluate c) s1) env) e1) (s2,( Rval v)))
+(! c d s1 env e1 x e2 s2 v.((((((
+Cevaluate c) d) s1) env) e1) (s2,( Rval v)))
 ==>
-Cevaluate c s1 env ((((CHandle e1) x) e2)) (s2,( Rval v)))
+Cevaluate c d s1 env ((((CHandle e1) x) e2)) (s2,( Rval v)))
 /\
-(! c s1 env e1 x e2 s2 n res.(((((
-Cevaluate c) s1) env) e1) (s2,( Rerr ((Rraise ((Int_error n))))))) /\(((((
-Cevaluate c) s2) (((FUPDATE  env) ( x, ((CLitv ((IntLit n)))))))) e2) res)
+(! c d s1 env e1 x e2 s2 n res.((((((
+Cevaluate c) d) s1) env) e1) (s2,( Rerr ((Rraise ((Int_error n))))))) /\((((((
+Cevaluate c) d) s2) (((FUPDATE  env) ( x, ((CLitv ((IntLit n)))))))) e2) res)
 ==>
-Cevaluate c s1 env ((((CHandle e1) x) e2)) res)
+Cevaluate c d s1 env ((((CHandle e1) x) e2)) res)
 /\
-(! c s1 env e1 x e2 s2 err.(((((
-Cevaluate c) s1) env) e1) (s2,( Rerr err))) /\
+(! c d s1 env e1 x e2 s2 err.((((((
+Cevaluate c) d) s1) env) e1) (s2,( Rerr err))) /\
 (! n.( ~  (err =( Rraise ((Int_error n))))))
 ==>
-Cevaluate c s1 env ((((CHandle e1) x) e2)) (s2,( Rerr err)))
+Cevaluate c d s1 env ((((CHandle e1) x) e2)) (s2,( Rerr err)))
 
 /\
-(! c s env n.
+(! c d s env n.
  n IN( FDOM  env)
 ==>
-Cevaluate c s env ((CVar n)) (s,( Rval (((FAPPLY  env)  n)))))
+Cevaluate c d s env ((CVar n)) (s,( Rval (((FAPPLY  env)  n)))))
 
 /\
-(! c s env l.
+(! c d s env l.
 T
 ==>
-Cevaluate c s env ((CLit l)) (s,( Rval ((CLitv l)))))
+Cevaluate c d s env ((CLit l)) (s,( Rval ((CLitv l)))))
 
 /\
-(! c s env n es s' vs.(((((
-Cevaluate_list c) s) env) es) (s',( Rval vs)))
+(! c d s env n es s' vs.((((((
+Cevaluate_list c) d) s) env) es) (s',( Rval vs)))
 ==>
-Cevaluate c s env (((CCon n) es)) (s',( Rval (((CConv n) vs)))))
+Cevaluate c d s env (((CCon n) es)) (s',( Rval (((CConv n) vs)))))
 /\
-(! c s env n es s' err.(((((
-Cevaluate_list c) s) env) es) (s',( Rerr err)))
+(! c d s env n es s' err.((((((
+Cevaluate_list c) d) s) env) es) (s',( Rerr err)))
 ==>
-Cevaluate c s env (((CCon n) es)) (s',( Rerr err)))
+Cevaluate c d s env (((CCon n) es)) (s',( Rerr err)))
 
 /\
-(! c s env e n m s' vs.(((((
-Cevaluate c) s) env) e) (s',( Rval (((CConv m) vs)))))
+(! c d s env e n m s' vs.((((((
+Cevaluate c) d) s) env) e) (s',( Rval (((CConv m) vs)))))
 ==>
-Cevaluate c s env (((CTagEq e) n)) (s',( Rval ((CLitv ((Bool (n = m))))))))
+Cevaluate c d s env (((CTagEq e) n)) (s',( Rval ((CLitv ((Bool (n = m))))))))
 /\
-(! c s env e n s' err.(((((
-Cevaluate c) s) env) e) (s',( Rerr err)))
+(! c d s env e n s' err.((((((
+Cevaluate c) d) s) env) e) (s',( Rerr err)))
 ==>
-Cevaluate c s env (((CTagEq e) n)) (s',( Rerr err)))
+Cevaluate c d s env (((CTagEq e) n)) (s',( Rerr err)))
 
 /\
-(! c s env e n m s' vs.(((((
-Cevaluate c) s) env) e) (s',( Rval (((CConv m) vs))))) /\
+(! c d s env e n m s' vs.((((((
+Cevaluate c) d) s) env) e) (s',( Rval (((CConv m) vs))))) /\
 n <( LENGTH vs)
 ==>
-Cevaluate c s env (((CProj e) n)) (s',( Rval (((EL  n)  vs)))))
+Cevaluate c d s env (((CProj e) n)) (s',( Rval (((EL  n)  vs)))))
 /\
-(! c s env e n s' err.(((((
-Cevaluate c) s) env) e) (s',( Rerr err)))
+(! c d s env e n s' err.((((((
+Cevaluate c) d) s) env) e) (s',( Rerr err)))
 ==>
-Cevaluate c s env (((CProj e) n)) (s',( Rerr err)))
+Cevaluate c d s env (((CProj e) n)) (s',( Rerr err)))
 
 /\
-(! c s env n e b s' v r.(((((
-Cevaluate c) s) env) e) (s',( Rval v))) /\(((((
-Cevaluate c) s') (((FUPDATE  env) ( n, v)))) b) r)
+(! c d s env n e b s' v r.((((((
+Cevaluate c) d) s) env) e) (s',( Rval v))) /\((((((
+Cevaluate c) d) s') (((FUPDATE  env) ( n, v)))) b) r)
 ==>
-Cevaluate c s env ((((CLet n) e) b)) r)
+Cevaluate c d s env ((((CLet n) e) b)) r)
 /\
-(! c s env n e b s' err.(((((
-Cevaluate c) s) env) e) (s',( Rerr err)))
+(! c d s env n e b s' err.((((((
+Cevaluate c) d) s) env) e) (s',( Rerr err)))
 ==>
-Cevaluate c s env ((((CLet n) e) b)) (s',( Rerr err)))
+Cevaluate c d s env ((((CLet n) e) b)) (s',( Rerr err)))
 
 /\
-(! c s env ns defs b r.
+(! c d s env ns defs b r.
 ((LENGTH ns) =( LENGTH defs)) /\(
 ALL_DISTINCT ns) /\
-(! xs l.(( MEM (xs,(INR l))) defs) ==>  l IN( FDOM  c)) /\(((((
-Cevaluate c) s)
+(! xs l.(( MEM (xs,(INR l))) defs) ==>
+   l IN( FDOM  c) /\ (((FLOOKUP d) l) =( SOME ([],xs)))) /\((((((
+Cevaluate c) d) s)
   (((((FOLDL2 
     (\ env' n (xs,cb) .((
       FUPDATE  env') ( n, (((((CRecClos env) []) [(xs,cb)]) "")))))) 
     env)  ns)  defs)))
   b) r)
 ==>
-Cevaluate c s env (((((CLetfun F) ns) defs) b)) r)
+Cevaluate c d s env (((((CLetfun F) ns) defs) b)) r)
 
 /\
-(! c s env ns defs b r.
+(! c d s env ns defs b r.
 ((LENGTH ns) =( LENGTH defs)) /\(
 ALL_DISTINCT ns) /\
-(! xs l.(( MEM (xs,(INR l))) defs) ==>  l IN( FDOM  c)) /\(((((
-Cevaluate c) s)
+(! xs l.(( MEM (xs,(INR l))) defs) ==>
+   l IN( FDOM  c) /\ (((FLOOKUP d) l) =( SOME (ns,xs)))) /\((((((
+Cevaluate c) d) s)
   ((((FOLDL
      (\ env' n .((
        FUPDATE  env') ( n, (((((CRecClos env) ns) defs) n))))))
      env) ns)))
   b) r)
 ==>
-Cevaluate c s env (((((CLetfun T) ns) defs) b)) r)
+Cevaluate c d s env (((((CLetfun T) ns) defs) b)) r)
 
 /\
-(! c s env xs cb.
-(! l. (cb =( INR l)) ==>  l IN( FDOM  c))
+(! c d s env xs cb.
+(! l. (cb =( INR l)) ==>  l IN( FDOM  c) /\ (((FLOOKUP d) l) =( SOME ([],xs))))
 ==>
-Cevaluate c s env (((CFun xs) cb))
-  (s,( Rval (((((CRecClos env) []) [(xs,cb)]) "")))))
+Cevaluate c d s env (((CFun xs) cb)) (s,( Rval (((((CRecClos env) []) [(xs,cb)]) "")))))
 
 /\
-(! c s env e es s' env' ns' defs n i ns cb b s'' vs r.(((((
-Cevaluate c) s) env) e) (s',( Rval (((((CRecClos env') ns') defs) n))))) /\
+(! c d s env e es s' env' ns' defs n i ns cb b s'' vs r.((((((
+Cevaluate c) d) s) env) e) (s',( Rval (((((CRecClos env') ns') defs) n))))) /\
 (if ns' = [] then (defs = [(ns,cb)]) /\ (i = 0) else
  ((LENGTH ns') =( LENGTH defs)) /\(
  ALL_DISTINCT ns') /\
  ((((find_index n) ns') 0) =( SOME i))) /\
-(((EL  i)  defs) = (ns,cb)) /\(((((
-Cevaluate_list c) s') env) es) (s'',( Rval vs))) /\
-(b = (case cb of INL b => b | INR l =>(( FAPPLY  c)  l) )) /\
+(((EL  i)  defs) = (ns,cb)) /\((((((
+Cevaluate_list c) d) s') env) es) (s'',( Rval vs))) /\
+((b,(ns,ns')) = (case cb of INL b => (b,(ns,ns'))
+                           | INR l => (((FAPPLY  c)  l),((FAPPLY  d)  l)) )) /\
 ((LENGTH ns) =( LENGTH vs)) /\(
-ALL_DISTINCT ns) /\(((((
-Cevaluate c) s'') (((((((extend_rec_env env') env') ns') defs) ns) vs))) b) r)
+ALL_DISTINCT ns) /\((((((
+Cevaluate c) d) s'') (((((((extend_rec_env env') env') ns') defs) ns) vs))) b) r)
 ==>
-Cevaluate c s env (((CCall e) es)) r)
+Cevaluate c d s env (((CCall e) es)) r)
 /\
-(! c s env e s' v es s'' err.(((((
-Cevaluate c) s) env) e) (s',( Rval v))) /\(((((
-Cevaluate_list c) s') env) es) (s'',( Rerr err)))
+(! c d s env e s' v es s'' err.((((((
+Cevaluate c) d) s) env) e) (s',( Rval v))) /\((((((
+Cevaluate_list c) d) s') env) es) (s'',( Rerr err)))
 ==>
-Cevaluate c s env (((CCall e) es)) (s'',( Rerr err)))
+Cevaluate c d s env (((CCall e) es)) (s'',( Rerr err)))
 
 /\
-(! c s env e es s' err.(((((
-Cevaluate c) s) env) e) (s',( Rerr err)))
+(! c d s env e es s' err.((((((
+Cevaluate c) d) s) env) e) (s',( Rerr err)))
 ==>
-Cevaluate c s env (((CCall e) es)) (s',( Rerr err)))
+Cevaluate c d s env (((CCall e) es)) (s',( Rerr err)))
 
 /\
-(! c s env uop e s' v.(((((
-Cevaluate c) s) env) e) (s',( Rval v)))
+(! c d s env uop e s' v.((((((
+Cevaluate c) d) s) env) e) (s',( Rval v)))
 ==>
-Cevaluate c s env (((CPrim1 uop) e)) ((((CevalPrim1 uop) s') v)))
+Cevaluate c d s env (((CPrim1 uop) e)) ((((CevalPrim1 uop) s') v)))
 /\
-(! c s env uop e s' err.(((((
-Cevaluate c) s) env) e) (s',( Rerr err)))
+(! c d s env uop e s' err.((((((
+Cevaluate c) d) s) env) e) (s',( Rerr err)))
 ==>
-Cevaluate c s env (((CPrim1 uop) e)) (s',( Rerr err)))
+Cevaluate c d s env (((CPrim1 uop) e)) (s',( Rerr err)))
 
 /\
-(! c s env p2 e1 e2 s' v1 v2.(((((
-Cevaluate_list c) s) env) [e1;e2]) (s',( Rval [v1;v2])))
+(! c d s env p2 e1 e2 s' v1 v2.((((((
+Cevaluate_list c) d) s) env) [e1;e2]) (s',( Rval [v1;v2])))
 ==>
-Cevaluate c s env ((((CPrim2 p2) e1) e2)) (s',((( CevalPrim2 p2) v1) v2)))
+Cevaluate c d s env ((((CPrim2 p2) e1) e2)) (s',((( CevalPrim2 p2) v1) v2)))
 /\
-(! c s env p2 e1 e2 s' err.(((((
-Cevaluate_list c) s) env) [e1;e2]) (s',( Rerr err)))
+(! c d s env p2 e1 e2 s' err.((((((
+Cevaluate_list c) d) s) env) [e1;e2]) (s',( Rerr err)))
 ==>
-Cevaluate c s env ((((CPrim2 p2) e1) e2)) (s',( Rerr err)))
+Cevaluate c d s env ((((CPrim2 p2) e1) e2)) (s',( Rerr err)))
 
 /\
-(! c s env e1 e2 s' v1 v2.(((((
-Cevaluate_list c) s) env) [e1;e2]) (s',( Rval [v1;v2])))
+(! c d s env e1 e2 s' v1 v2.((((((
+Cevaluate_list c) d) s) env) [e1;e2]) (s',( Rval [v1;v2])))
 ==>
-Cevaluate c s env (((CUpd e1) e2)) ((((CevalUpd s') v1) v2)))
+Cevaluate c d s env (((CUpd e1) e2)) ((((CevalUpd s') v1) v2)))
 /\
-(! c s env e1 e2 s' err.(((((
-Cevaluate_list c) s) env) [e1;e2]) (s',( Rerr err)))
+(! c d s env e1 e2 s' err.((((((
+Cevaluate_list c) d) s) env) [e1;e2]) (s',( Rerr err)))
 ==>
-Cevaluate c s env (((CUpd e1) e2)) (s',( Rerr err)))
+Cevaluate c d s env (((CUpd e1) e2)) (s',( Rerr err)))
 
 /\
-(! c s env e1 e2 e3 s' b1 r.(((((
-Cevaluate c) s) env) e1) (s',( Rval ((CLitv ((Bool b1))))))) /\(((((
-Cevaluate c) s') env) (if b1 then e2 else e3)) r)
+(! c d s env e1 e2 e3 s' b1 r.((((((
+Cevaluate c) d) s) env) e1) (s',( Rval ((CLitv ((Bool b1))))))) /\((((((
+Cevaluate c) d) s') env) (if b1 then e2 else e3)) r)
 ==>
-Cevaluate c s env ((((CIf e1) e2) e3)) r)
+Cevaluate c d s env ((((CIf e1) e2) e3)) r)
 /\
-(! c s env e1 e2 e3 s' err.(((((
-Cevaluate c) s) env) e1) (s',( Rerr err)))
+(! c d s env e1 e2 e3 s' err.((((((
+Cevaluate c) d) s) env) e1) (s',( Rerr err)))
 ==>
-Cevaluate c s env ((((CIf e1) e2) e3)) (s',( Rerr err)))
+Cevaluate c d s env ((((CIf e1) e2) e3)) (s',( Rerr err)))
 
 /\
-(! c s env.
+(! c d s env.
 T
 ==>
-Cevaluate_list c s env [] (s,( Rval [])))
+Cevaluate_list c d s env [] (s,( Rval [])))
 /\
-(! c s env e es s' v s'' vs.(((((
-Cevaluate c) s) env) e) (s',( Rval v))) /\(((((
-Cevaluate_list c) s') env) es) (s'',( Rval vs)))
+(! c d s env e es s' v s'' vs.((((((
+Cevaluate c) d) s) env) e) (s',( Rval v))) /\((((((
+Cevaluate_list c) d) s') env) es) (s'',( Rval vs)))
 ==>
-Cevaluate_list c s env (e::es) (s'',( Rval (v::vs))))
+Cevaluate_list c d s env (e::es) (s'',( Rval (v::vs))))
 /\
-(! c s env e es s' err.(((((
-Cevaluate c) s) env) e) (s',( Rerr err)))
+(! c d s env e es s' err.((((((
+Cevaluate c) d) s) env) e) (s',( Rerr err)))
 ==>
-Cevaluate_list c s env (e::es) (s',( Rerr err)))
+Cevaluate_list c d s env (e::es) (s',( Rerr err)))
 /\
-(! c s env e es s' v s'' err.(((((
-Cevaluate c) s) env) e) (s',( Rval v))) /\(((((
-Cevaluate_list c) s') env) es) (s'',( Rerr err)))
+(! c d s env e es s' v s'' err.((((((
+Cevaluate c) d) s) env) e) (s',( Rval v))) /\((((((
+Cevaluate_list c) d) s') env) es) (s'',( Rerr err)))
 ==>
-Cevaluate_list c s env (e::es) (s'',( Rerr err)))`;
+Cevaluate_list c d s env (e::es) (s'',( Rerr err)))`;
 
 (* equivalence relations on intermediate language *)
 
