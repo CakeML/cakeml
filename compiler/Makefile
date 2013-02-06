@@ -4,7 +4,6 @@ sed -i '/datatype/N;/sum = INL/d' $@ &&\
 sed -i 's/Pmap \$$ map/fmap/g' $@ &&\
 sed -i 's/LEAST/$$LEAST/g' $@ &&\
 sed -i 's/(o_f)/($$o_f)/g' $@ &&\
-sed -i 's/fifth/(SND o SND o SND o SND)/g' $@ &&\
 sed -i 's/DOMSUB/$$\\\\/g' $@ &&\
 sed -i 's/Hol \$$ Lib \$$ //g' $@ &&\
 sed -i '/(\* Syntax \*)/,/(\* Semantics \*)/d' $@ &&\

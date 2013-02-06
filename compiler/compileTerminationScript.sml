@@ -468,7 +468,6 @@ val _ = save_thm("prim1_to_bc_def",prim1_to_bc_def)
 val _ = save_thm("prim2_to_bc_def",prim2_to_bc_def)
 val _ = save_thm("compile_decl_def",compile_decl_def)
 val _ = save_thm("cmap_def",cmap_def)
-val _ = save_thm("stripc_def",stripc_def)
-val _ = export_rewrites["emit_def","incsz_def","decsz_def","ldt_def","sdt_def","get_labels_def","emit_ec_def","prim1_to_bc_def","prim2_to_bc_def","cmap_def","stripc_def"]
+val _ = export_rewrites["emit_def","incsz_def","decsz_def","ldt_def","sdt_def","get_labels_def","emit_ec_def","prim1_to_bc_def","prim2_to_bc_def","cmap_def"]
 
 val _ = export_theory()
