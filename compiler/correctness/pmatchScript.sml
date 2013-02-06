@@ -1267,7 +1267,6 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
                 fmap_rel_syneq_trans,fmap_rel_syneq_sym,
                          pair_CASES,PAIR_EQ,FST,SND] >>
     unabbrev_all_tac >>
-    Q.PAT_ABBREV_TAC`fv = fresh_var (free_vars FEMPTY X)` >>
     Q.PAT_ABBREV_TAC`fk = fresh_var (a ∪ b)` >>
     Cases_on `fk ∈ FDOM menv` >>
     rw[FUNION_FUPDATE_2] >-
@@ -1312,8 +1311,7 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
   `Cclosed FEMPTY cl` by (
     unabbrev_all_tac >>
     rw[Once Cclosed_cases] >>
-    qmatch_abbrev_tac `a ⊆ b ∪ c` >>
-    qsuff_tac `a ⊆ b` >- rw[SUBSET_DEF] >>
+    qmatch_abbrev_tac `a ⊆ b` >>
     qsuff_tac `a DIFF {x} ⊆ b DIFF {x}` >- (
       unabbrev_all_tac >>
       rw[SUBSET_DEF] >>
@@ -1350,13 +1348,9 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
   ntac 5 (pop_assum kall_tac) >>
   rw[Once Cevaluate_cases,Abbr`env1`,Abbr`cl`] >>
   srw_tac[DNF_ss][] >>
+  simp_tac std_ss [Once Cevaluate_cases] >>
   rw[Once Cevaluate_cases,SimpR``$\/``] >>
-  rw[Once Cevaluate_cases] >>
-  rw[] >>
-  rw[find_index_def] >>
   rw[extend_rec_env_def] >>
-  Q.PAT_ABBREV_TAC`fv = fresh_var X` >>
-  Q.PAT_ABBREV_TAC`cl = CRecClos env X Y Z` >>
   first_x_assum (qspecl_then [`env`,`x`] mp_tac) >>
   fs[] >>
   qmatch_abbrev_tac `(P ⇒ Q) ⇒ R` >>
@@ -1364,26 +1358,7 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
   pop_assum mp_tac >> simp_tac std_ss [] >>
   disch_then kall_tac >> qunabbrev_tac`P` >>
   qunabbrev_tac`Q` >> qunabbrev_tac`R` >>
-  `∀r2. Cevaluate FEMPTY s env (remove_mat_var x pes) r2 ⇒
-   ∃r3. Cevaluate FEMPTY s (env |+ (fv,cl)) (remove_mat_var x pes) r3 ∧
-        fmap_rel (syneq FEMPTY) (FST r2) (FST r3) ∧
-        result_rel (syneq FEMPTY) (SND r2) (SND r3)` by (
-    rw[] >>
-    qspecl_then [`FEMPTY`,`s`,`env`,`remove_mat_var x pes`,`r2`,`fv`,`cl`] mp_tac Cevaluate_FUPDATE >>
-    fs[] >>
-    `free_vars FEMPTY (remove_mat_var x pes) ⊆ FDOM env` by (
-      qspecl_then [`x`,`pes`] mp_tac free_vars_remove_mat_var >>
-      simp_tac(srw_ss()++DNF_ss)[Once EXTENSION,EXISTS_PROD] >>
-      fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD] >>
-      fs[FLOOKUP_DEF] >>
-      metis_tac[] ) >>
-    fs[] >>
-    metis_tac[fresh_var_not_in,FINITE_has_fresh_string,FINITE_free_vars]) >>
-  Cases_on `mr` >> fs[] >- (
-    strip_tac >> res_tac >>
-    Cases_on`r`>>Cases_on`r3`>>fs[]>>rw[]>>
-    fs[result_rel_def]>>rw[]>>
-    metis_tac[fmap_rel_syneq_trans,fmap_rel_syneq_sym]) >>
+  Cases_on `mr` >> fs[EXISTS_PROD] >>
   Cases_on`r0`>>
   fsrw_tac[DNF_ss][EXISTS_PROD,FORALL_PROD] >>
   metis_tac[result_rel_syneq_trans,result_rel_syneq_sym,

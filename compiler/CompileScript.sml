@@ -379,11 +379,12 @@ Cevaluate c s env (((CFun xs) cb))
 /\
 (! c s env e es s' env' ns' defs n i ns cb b s'' vs r.(((((
 Cevaluate c) s) env) e) (s',( Rval (((((CRecClos env') ns') defs) n))))) /\
-((LENGTH ns') =( LENGTH defs)) /\(
-ALL_DISTINCT ns') /\(((((
+(if ns' = [] then (defs = [(ns,cb)]) /\ (i = 0) else
+ ((LENGTH ns') =( LENGTH defs)) /\(
+ ALL_DISTINCT ns') /\
+ ((((find_index n) ns') 0) =( SOME i))) /\
+(((EL  i)  defs) = (ns,cb)) /\(((((
 Cevaluate_list c) s') env) es) (s'',( Rval vs))) /\
-((((find_index n) ns') 0) =( SOME i)) /\
-(((EL  i)  defs) = (ns,cb)) /\
 (b = (case cb of INL b => b | INR l =>(( FAPPLY  c)  l) )) /\
 ((LENGTH ns) =( LENGTH vs)) /\(
 ALL_DISTINCT ns) /\(((((

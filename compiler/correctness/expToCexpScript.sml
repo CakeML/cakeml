@@ -193,7 +193,8 @@ rw[v_to_Cv_def] >> rw[Cclosed_rules]
 >- (
   fs[Once closed_cases] >>
   fs[defs_to_Cdefs_MAP] >> rw[] >>
-  rw[Once Cclosed_cases,Abbr`Cenv`,env_to_Cenv_MAP] >>
+  rw[Once Cclosed_cases,Abbr`Cenv`,env_to_Cenv_MAP] >- (
+    Cases_on `defs` >> fs[] ) >>
   pop_assum mp_tac >> rw[EL_MAP] >>
   qabbrev_tac `p = EL i defs` >>
   PairCases_on `p` >> fs[] >> rw[] >>
@@ -959,15 +960,9 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       rw[] >>
       fs[Q.SPECL[`FEMPTY`,`CRecClos env1 ns' defs n`]Cclosed_cases] >>
       fs[MEM_EL] >> rw[] >>
-      qabbrev_tac `p = EL n' defs` >>
-      PairCases_on `p` >>
-      pop_assum (mp_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >>
-      rw[] >>
       fs[do_app_Opapp_SOME] >- (
         rw[] >> fs[v_to_Cv_def,LET_THM] >>
         fs[Q.SPECL[`c`,`CRecClos env1 ns' defs zz`]syneq_cases] >>
-        rw[] >> fs[] >>
-        rw[] >> fs[] >>
         rw[] >> fs[] >>
         Q.PAT_ABBREV_TAC`env2 = X:string|->Cv` >>
         qmatch_assum_abbrev_tac`Cevaluate FEMPTY sc env3 e3a (sg,r)` >>
@@ -1024,7 +1019,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
             PROVE_TAC[syneq_trans]) >>
           rw[Abbr`env2`,extend_rec_env_def] >>
           simp[FAPPLY_FUPDATE_THM] >>
-          Cases_on`n=x` >- (
+          Cases_on`n'=x` >- (
             rw[] >> PROVE_TAC[syneq_trans] ) >>
           simp[] >>
           rw[] >- (
@@ -1045,7 +1040,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
           unabbrev_all_tac >>
           simp[extend_rec_env_def] >>
           fsrw_tac[DNF_ss][] >>
-          match_mp_tac IN_FRANGE_DOMSUB_suff >>
+          match_mp_tac IN_FRANGE_DOMSUB_suff >> simp[] >>
           match_mp_tac IN_FRANGE_FUPDATE_suff >> simp[] >>
           rw[Once Cclosed_cases] ) >>
         qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
@@ -1069,7 +1064,8 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       rw[] >>
       fs[v_to_Cv_def,LET_THM,defs_to_Cdefs_MAP] >>
       fs[Q.SPECL[`c`,`CRecClos env1 ns' defs X`]syneq_cases] >>
-      rw[] >> fs[] >> rw[] >>
+      rw[] >> fs[] >> rw[] >> rfs[] >> rw[] >>
+      PairCases_on`z`>>fs[]>>rw[]>>
       qpat_assum `X < LENGTH Y` assume_tac >>
       fs[EL_MAP] >>
       qmatch_assum_rename_tac `ALL_DISTINCT (MAP FST ns)`[] >>
@@ -1077,21 +1073,18 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       PairCases_on `q` >>
       pop_assum (mp_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >> rw[] >>
       fs[] >> rw[] >>
-      Cases_on `ALOOKUP ns q0` >> fs[] >>
-      qmatch_assum_rename_tac `ALOOKUP ns q0 = SOME p`[] >>
-      PairCases_on `p` >> fs[] >> rw[] >>
       `ALOOKUP ns q0 = SOME (q1,q2,q3,q4)` by (
         match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
         rw[MEM_EL] >> PROVE_TAC[] ) >>
       fs[] >> rw[] >>
       qmatch_assum_abbrev_tac`Cevaluate FEMPTY sc env3 ee r` >>
       qmatch_assum_rename_tac`Abbrev(r=(sg,w4))`[]>>
+      qmatch_assum_rename_tac`EL n' ns = (q0,q1,q2,q3,q4)`[]>>
       Q.PAT_ABBREV_TAC`env2 = X:string|->Cv` >>
       qmatch_assum_abbrev_tac `result_rel (syneq FEMPTY) rr w4` >>
       fs[Q.SPEC`Recclosure l ns q0`closed_cases] >>
-      qmatch_assum_rename_tac`EL n' ns = (q0,p0,p1,p2,p3)`[] >>
       `free_vars FEMPTY ee ⊆ FDOM env2` by (
-        first_x_assum (qspecl_then [`n'`,`[p1]`,`INL ee`] mp_tac) >>
+        first_x_assum (qspecl_then [`n'`,`[q2]`,`INL ee`] mp_tac) >>
         unabbrev_all_tac >> fs[] >>
         rw[EL_MAP] ) >>
       qspecl_then[`FEMPTY`,`sd`,`enva`,`e2a`,`(sf,Rval w3)`]mp_tac(CONJUNCT1 Cevaluate_closed) >>
@@ -1164,7 +1157,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
           rw[Abbr`env2`] >>
           rw[extend_rec_env_def] >>
           PROVE_TAC[syneq_trans]) >>
-        Cases_on `p1=x`>>fs[] >- (
+        Cases_on `q2=x`>>fs[] >- (
           rw[] >>
           rw[Abbr`env2`,extend_rec_env_def] >>
           PROVE_TAC[syneq_trans]) >>
