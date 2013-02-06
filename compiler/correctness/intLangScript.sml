@@ -23,7 +23,7 @@ val Cevaluate_fun = store_thm(
 "Cevaluate_fun",
 ``∀c s env ns b res. Cevaluate c s env (CFun ns b) res =
   (∀l. (b = INR l) ⇒ l ∈ FDOM c) ∧
-  (res = (s, Rval (CRecClos env [fresh_var (cbod_fvs c b)] [(ns,b)] (fresh_var (cbod_fvs c b)))))``,
+  (res = (s, Rval (CRecClos env [] [(ns,b)] "")))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
 val _ = export_rewrites["Cevaluate_raise","Cevaluate_lit","Cevaluate_var","Cevaluate_fun"]
@@ -581,12 +581,17 @@ val (Cclosed_rules,Cclosed_ind,Cclosed_cases) = Hol_reln`
 (Cclosed c (CLitv l)) ∧
 (EVERY (Cclosed c) vs ⇒ Cclosed c (CConv cn vs)) ∧
 ((∀v. v ∈ FRANGE env ⇒ Cclosed c v) ∧
- (LENGTH ns = LENGTH defs) ∧
- ALL_DISTINCT ns ∧
- MEM n ns ∧
- (∀i xs cb. i < LENGTH ns ∧ (EL i defs = (xs,cb)) ⇒
-    cbod_fvs c cb ⊆ FDOM env ∪ set ns ∪ set xs ∧
-    (∀l. (cb = INR l) ⇒ l ∈ FDOM c))
+ ((ns = []) ⇒
+  ∃xs cb. (defs = [(xs,cb)]) ∧
+    cbod_fvs c cb ⊆ FDOM env ∪ set xs ∧
+    (∀l. (cb = INR l) ⇒ l ∈ FDOM c)) ∧
+ ((ns ≠ []) ⇒
+  (LENGTH ns = LENGTH defs) ∧
+  ALL_DISTINCT ns ∧
+  MEM n ns ∧
+  (∀i xs cb. i < LENGTH ns ∧ (EL i defs = (xs,cb)) ⇒
+     cbod_fvs c cb ⊆ FDOM env ∪ set ns ∪ set xs ∧
+     (∀l. (cb = INR l) ⇒ l ∈ FDOM c)))
   ⇒ Cclosed c (CRecClos env ns defs n)) ∧
 (Cclosed c (CLoc m))`
 
@@ -704,6 +709,7 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
     fs[MEM_MAP,pairTheory.EXISTS_PROD] >>
     fsrw_tac[DNF_ss][MEM_ZIP,MEM_EL] >>
     rw[Once Cclosed_cases] >>
+    pop_assum (assume_tac o SYM) >> fs[] >> rw[] >>
     TRY (first_x_assum match_mp_tac >> PROVE_TAC[]) >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
     qx_gen_tac `x` >>
@@ -728,7 +734,7 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
       qexists_tac `n` >> fs[LENGTH_ZIP,EL_MAP,EL_ZIP] >>
       fs[EL_ALL_DISTINCT_EL_EQ] >>
       rw[Once Cclosed_cases,MEM_EL] >>
-      fsrw_tac[DNF_ss][SUBSET_DEF,FRANGE_DEF,EL_ALL_DISTINCT_EL_EQ]
+      fsrw_tac[DNF_ss][SUBSET_DEF,FRANGE_DEF,EL_ALL_DISTINCT_EL_EQ,LENGTH_NIL_SYM]
       >- PROVE_TAC[] >- PROVE_TAC[] >>
       TRY (first_x_assum match_mp_tac >> PROVE_TAC[]) >>
       qmatch_assum_rename_tac `EL i defs = (xs,b)`[] >>
@@ -751,6 +757,7 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
     conj_tac >- (
       rw[] >>
       fs[Q.SPECL[`c`,`CRecClos env' ns' defs n`]Cclosed_cases] >>
+      Cases_on`ns'=[]`>>fs[find_index_def] >>
       first_x_assum (qspec_then `i` mp_tac) >> rw[] >>
       Cases_on `cb` >> fs[] >>
       imp_res_tac find_index_LESS_LENGTH >> pop_assum mp_tac >>
@@ -1177,6 +1184,7 @@ strip_tac >- (
     ho_match_mp_tac IN_FRANGE_FUPDATE_LIST_suff >>
     srw_tac[][MAP_ZIP,LENGTH_ZIP,MEM_MAP,MEM_ZIP] >>
     rw[EL_MAP,EL_ZIP] >> rw[pairTheory.UNCURRY] >>
+    Cases_on`EL n defs` >>
     rw[Once Cclosed_cases,SUBSET_DEF] >>
     TRY (first_x_assum match_mp_tac >> fsrw_tac[DNF_ss][MEM_EL] >> PROVE_TAC[]) >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
@@ -1429,6 +1437,7 @@ strip_tac >- (
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
     first_x_assum (qspecl_then [`i`,`ns`,`cb`] mp_tac) >>
     rw[] >> fs[EVERY_MEM] >>
+    Cases_on`ns' = []`>>fs[find_index_def] >>
     `MEM (ns,cb) defs` by (rw[MEM_EL] >> qexists_tac `i` >> rw[] >> PROVE_TAC[] ) >>
     fsrw_tac[DNF_ss][optionTheory.OPTREL_def,FLOOKUP_DEF,FORALL_PROD] >>
     first_x_assum (qspecl_then [`ns`,`cb`] mp_tac) >> rw[] >>
@@ -1485,6 +1494,7 @@ strip_tac >- (
       first_x_assum (qspecl_then [`ns`,`cb`] mp_tac) >> fs[] >>
       first_x_assum (qspecl_then [`i`,`ns`,`cb`] mp_tac) >> fs[] >>
       Cases_on `cb` >> fs[] >- PROVE_TAC[] >>
+      Cases_on `ns' = []` >> fs[find_index_def] >>
       rw[FLOOKUP_DEF] >> fs[] >>
       fsrw_tac[DNF_ss][SUBSET_DEF] >>
       first_x_assum (qspecl_then [`i`,`ns`,`y`] mp_tac) >> fs[] >>
@@ -1518,6 +1528,7 @@ strip_tac >- (
     Cases_on `MEM x ns` >> fs[] >>
     Cases_on `MEM x ns'` >> fs[] >>
     Cases_on `x ∈ FDOM env2'` >> fs[] >>
+    Cases_on `ns' = []` >> fs[find_index_def] >>
     first_x_assum (qspecl_then [`i`,`ns`,`cb`] mp_tac) >>
     first_x_assum (qspecl_then [`i`,`ns`,`cb`] mp_tac) >>
     fs[] >>

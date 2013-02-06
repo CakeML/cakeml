@@ -351,8 +351,7 @@ all_distinct ns &&
 Cevaluate c s
   (fold_left2
     (fun env' n (xs,cb) ->
-      Pmap.add n (CRecClos env [fresh_var (cbod_fvs c cb)] [(xs,cb)]
-                               (fresh_var (cbod_fvs c cb))) env')
+      Pmap.add n (CRecClos env [] [(xs,cb)] "") env')
     env ns defs)
   b r
 ==>
@@ -377,8 +376,7 @@ forall c s env xs cb.
 (forall l. cb = INR l --> Pmap.mem l c)
 ==>
 Cevaluate c s env (CFun xs cb)
-  (s, Rval (CRecClos env [fresh_var (cbod_fvs c cb)] [(xs,cb)]
-                         (fresh_var (cbod_fvs c cb))))
+  (s, Rval (CRecClos env [] [(xs,cb)] ""))
 
 and
 forall c s env e es s' env' ns' defs n i ns cb b s'' vs r.
@@ -1415,8 +1413,7 @@ and
 v_to_Cv m (Closure env vn _ e) =
   let Cenv = alist_to_fmap (env_to_Cenv m env) in
   let Ce = exp_to_Cexp m e in
-  let a = fresh_var (free_vars Pmap.empty Ce) in
-  CRecClos Cenv [a] [([vn],INL Ce)] a
+  CRecClos Cenv [] [([vn],INL Ce)] ""
 and
 v_to_Cv m (Recclosure env defs vn) =
   let Cenv = alist_to_fmap (env_to_Cenv m env) in

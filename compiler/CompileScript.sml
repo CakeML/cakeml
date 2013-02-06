@@ -349,8 +349,7 @@ ALL_DISTINCT ns) /\
 Cevaluate c) s)
   (((((FOLDL2 
     (\ env' n (xs,cb) .((
-      FUPDATE  env') ( n, (((((CRecClos env) [(fresh_var (((cbod_fvs c) cb)))]) [(xs,cb)])
-                               ((fresh_var (((cbod_fvs c) cb)))))))))) 
+      FUPDATE  env') ( n, (((((CRecClos env) []) [(xs,cb)]) "")))))) 
     env)  ns)  defs)))
   b) r)
 ==>
@@ -375,8 +374,7 @@ Cevaluate c s env (((((CLetfun T) ns) defs) b)) r)
 (! l. (cb =( INR l)) ==>  l IN( FDOM  c))
 ==>
 Cevaluate c s env (((CFun xs) cb))
-  (s,( Rval (((((CRecClos env) [(fresh_var (((cbod_fvs c) cb)))]) [(xs,cb)])
-                         ((fresh_var (((cbod_fvs c) cb)))))))))
+  (s,( Rval (((((CRecClos env) []) [(xs,cb)]) "")))))
 
 /\
 (! c s env e es s' env' ns' defs n i ns cb b s'' vs r.(((((
@@ -1337,7 +1335,8 @@ val _ = Defn.save_defn calculate_ecs_defn;
       let s =(( emit s) [(Label l)]) in
       let s' =  s with<| env := env; sz := 0; tail :=(( TCTail az) 0) |> in
       let s' =(( compile s') (((FAPPLY  c)  l))) in
-      let n = (case s'.tail of TCNonTail => 1 | TCTail j k => k+1 ) in
+      let n = (case s'.tail of TCTail j k => k+1
+              | _ => 0 (* should not happen *) ) in
       let s' =(( emit s') [(Stack ((Pops n)));(
                         Stack ((Load 1)));(
                         Stack ((Store (az+2))));(
@@ -1552,9 +1551,8 @@ val _ = Defn.save_defn bv_to_ov_defn;
 /\
 (v_to_Cv m (Closure env vn _ e) =
   let Cenv =( alist_to_fmap (((env_to_Cenv m) env))) in
-  let Ce =(( exp_to_Cexp m) e) in
-  let a =( fresh_var (((free_vars FEMPTY) Ce))) in((((
-  CRecClos Cenv) [a]) [([vn],(INL Ce))]) a))
+  let Ce =(( exp_to_Cexp m) e) in((((
+  CRecClos Cenv) []) [([vn],(INL Ce))]) ""))
 /\
 (v_to_Cv m (Recclosure env defs vn) =
   let Cenv =( alist_to_fmap (((env_to_Cenv m) env))) in
