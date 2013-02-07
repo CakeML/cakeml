@@ -53,7 +53,7 @@ val repl_exp_val = store_thm("repl_exp_val",
   fs[] >>
   fs[calculate_ecs_def] >>
   fs[compile_code_env_def,LET_THM] >>
-  qmatch_assum_abbrev_tac `Cevaluate Cc Cs Cenv Ce (Cs', Rval Cv)` >>
+  qmatch_assum_abbrev_tac `Cevaluate Cc Cd Cs Cenv Ce (Cs', Rval Cv)` >>
   Q.PAT_ABBREV_TAC`cs = compiler_state_env_fupd X Y` >>
   qho_match_abbrev_tac `∃bv rfs. bc_next^* bs (bs1 bv rfs) ∧ P bv rfs` >>
   qabbrev_tac`bs0 = bs with pc := next_addr bs.inst_length (bc0 ++ (REVERSE cs.out))` >>
@@ -92,7 +92,7 @@ val repl_exp_val = store_thm("repl_exp_val",
     fs[GSYM ADD1,GSYM LESS_EQ] >>
     metis_tac[prim_recTheory.LESS_REFL,LESS_TRANS] ) >>
   `∃bv rfs. bc_next^* bs0 (bs1 bv rfs) ∧ P bv rfs` by (
-    qspecl_then[`Cc`,`Cs`,`Cenv`,`Ce`,`Cs', Rval Cv`]mp_tac (CONJUNCT1 compile_val) >>
+    qspecl_then[`Cc`,`Cd`,`Cs`,`Cenv`,`Ce`,`Cs', Rval Cv`]mp_tac (CONJUNCT1 compile_val) >>
     fs[] >>
     disch_then (qspec_then`sm` mp_tac) >>
     qunabbrev_tac`P` >>

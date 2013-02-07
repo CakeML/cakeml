@@ -2233,7 +2233,7 @@ val code_for_return_def = Define`
 *)
 
 val compile_val = store_thm("compile_val",
-  ``(∀c s env exp res. Cevaluate c s env exp res ⇒
+  ``(∀c d s env exp res. Cevaluate c d s env exp res ⇒
       ∀sm s' v.
         Cexp_pred exp ∧
         DISJOINT (set (binders exp)) (FDOM env) ∧ ALL_DISTINCT (binders exp) ∧
@@ -2258,7 +2258,7 @@ val compile_val = store_thm("compile_val",
           Cv_bv (mk_pp (DRESTRICT sm (FDOM s')) c bs') v bv ∧
           Cenv_bs c sm s' env cs.env (cs.sz+1) bs' ∧
           DRESTRICT bs.refs (COMPL (FRANGE (DRESTRICT sm (FDOM s)))) ⊑ DRESTRICT rfs (COMPL (FRANGE (DRESTRICT sm (FDOM s')))))) ∧
-    (∀c s env exps ress. Cevaluate_list c s env exps ress ⇒
+    (∀c d s env exps ress. Cevaluate_list c d s env exps ress ⇒
       ∀sm s' vs.
         EVERY Cexp_pred exps ∧
         DISJOINT (set (FLAT (MAP binders exps))) (FDOM env) ∧ ALL_DISTINCT (FLAT (MAP binders exps)) ∧
@@ -2327,7 +2327,7 @@ val compile_val = store_thm("compile_val",
     rw[bc_state_component_equality] >>
     metis_tac[compile_varref_append_out,REVERSE_APPEND] ) >>
   strip_tac >- (
-    ntac 3 gen_tac >>
+    ntac 4 gen_tac >>
     Cases >> rw[compile_def,LET_THM] >>
     qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x]` >>
     `bc_fetch bs = SOME x` by (
