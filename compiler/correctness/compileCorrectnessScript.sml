@@ -2195,16 +2195,17 @@ val good_code_env_def = Define`
 *)
 val _ = Parse.overload_on("retbc",``λn az. [Stack (Pops n); Stack (Load 1); Stack (Store (az + 2)); Stack (Pops (az + 1)); Return]``)
 
-(*
 val good_code_env_def = Define`
-  good_code_env c bs = FEVERY (λ(l,e).
+  good_code_env c d bs = FEVERY (λ(l,e).
     Cexp_pred e ∧
-    ∃cs bc0 bc1.
-    need semantic code env (c) to store env and az... so closures only need to store the label? 
-      (cs.env = env) ∧ (cs.sz = 0) ∧ (cs.tail = TCTail az 0) ∧
-      (n = case (compile cs e).tail of TCTail j k => k + 1) ∧
-      (bs.code = bc0 ++ Label l :: (compile cs e).out ++ (retbc n az) ++ bc1)
-*)
+    ∃cs ns xs k bc0 bc1.
+      (FLOOKUP d l = SOME (ns,xs,k)) ∧
+      (cs.env = FST(SND(ITSET (bind_fv ns xs (LENGTH xs) k) (free_vars c e) (0,FEMPTY,0,[])))) ∧
+      (cs.sz = 0) ∧
+      (cs.tail = TCTail (LENGTH xs) 0) ∧
+      (bs.code = bc0 ++ Label l :: (compile cs e).out ++
+        (retbc (case (compile cs e).tail of TCTail j k => k + 1) (LENGTH xs)) ++ bc1)
+    ) c`
 
 val code_for_push_def = Define`
   code_for_push code c s env s' v =

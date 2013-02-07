@@ -2045,7 +2045,12 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     rw[FUPDATE_LIST_ALL_DISTINCT_REVERSE] >>
     rw[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
     fs[FST_5tup] >>
-    METIS_TAC[] ) >>
+    qmatch_assum_rename_tac `Cevaluate FEMPTY FEMPTY X Y Z (p1,p2)`["X","Y","Z"] >>
+    map_every qexists_tac[`p1`,`p2`] >>
+    reverse conj_tac >- METIS_TAC[] >>
+    reverse conj_tac >- METIS_TAC[] >>
+    spose_not_then strip_assume_tac >>
+    pop_assum mp_tac >> rw[EL_MAP,UNCURRY]) >>
   strip_tac >- rw[] >>
   strip_tac >- (
     rw[] >>
