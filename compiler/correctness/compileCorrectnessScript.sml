@@ -2196,16 +2196,22 @@ val good_code_env_def = Define`
 val _ = Parse.overload_on("retbc",``λn az. [Stack (Pops n); Stack (Load 1); Stack (Store (az + 2)); Stack (Pops (az + 1)); Return]``)
 
 val good_code_env_def = Define`
-  good_code_env c d bs = FEVERY (λ(l,e).
+  good_code_env c d code = FEVERY (λ(l,e).
     Cexp_pred e ∧
     ∃cs ns xs k bc0 bc1.
       (FLOOKUP d l = SOME (ns,xs,k)) ∧
       (cs.env = FST(SND(ITSET (bind_fv ns xs (LENGTH xs) k) (free_vars c e) (0,FEMPTY,0,[])))) ∧
       (cs.sz = 0) ∧
       (cs.tail = TCTail (LENGTH xs) 0) ∧
-      (bs.code = bc0 ++ Label l :: (compile cs e).out ++
+      (code = bc0 ++ Label l :: (compile cs e).out ++
         (retbc (case (compile cs e).tail of TCTail j k => k + 1) (LENGTH xs)) ++ bc1)
     ) c`
+
+val good_code_env_append = store_thm("good_code_env_append",
+ ``∀c d code ls. good_code_env c d code ⇒ good_code_env c d (code ++ ls)``,
+ rw[good_code_env_def,FEVERY_DEF] >>
+ res_tac >> rw[] >> metis_tac[APPEND_ASSOC])
+val _ = export_rewrites["good_code_env_append"]
 
 val code_for_push_def = Define`
   code_for_push code c s env s' v =
@@ -2243,6 +2249,7 @@ val compile_val = store_thm("compile_val",
         (res = (s', Rval v)) ∧
         good_sm sm ∧ FDOM s' ⊆ FDOM sm ⇒
       (∀bc0 bc00 bs cs.
+        good_code_env c d bc00 ∧
         good_ecs cs.ecs ∧ free_labs exp ⊆ FDOM cs.ecs ∧
         (cs.tail = TCNonTail) ∧
         (cs.decl = NONE) ∧
@@ -2268,6 +2275,7 @@ val compile_val = store_thm("compile_val",
         (ress = (s', Rval vs)) ∧
         good_sm sm ∧ FDOM s' ⊆ FDOM sm ⇒
       (∀bc0 bc00 bs cs.
+        good_code_env c d bc00 ∧
         good_ecs cs.ecs ∧ free_labs_list exps ⊆ FDOM cs.ecs ∧
         (cs.tail = TCNonTail) ∧
         (cs.decl = NONE) ∧
@@ -2586,6 +2594,9 @@ val compile_val = store_thm("compile_val",
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
       map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+      conj_tac >- (
+        rw[Abbr`cs1`] >>
+        metis_tac[good_code_env_append,compile_append_out,REVERSE_APPEND,APPEND_ASSOC] ) >>
       conj_tac >- (
         fs[REVERSE_APPEND] >>
         match_mp_tac Cenv_bs_FUPDATE >>
@@ -3009,6 +3020,7 @@ val compile_val = store_thm("compile_val",
       simp[] >> qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
       `P` by (
         map_every qunabbrev_tac [`P`,`Q`,`R`] >>
+        conj_tac >- rw[Abbr`cs2`,REVERSE_APPEND] >>
         conj_tac >- rw[Abbr`cs2`,Abbr`cs1`] >>
         conj_tac >- rw[Abbr`cs2`,Abbr`cs1`] >>
         conj_tac >- (
@@ -3173,6 +3185,9 @@ val compile_val = store_thm("compile_val",
     simp[] >> qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
       map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+      conj_tac >- (
+        rw[Abbr`cs3`,REVERSE_APPEND,Abbr`cs2`] >>
+        metis_tac[good_code_env_append,APPEND_ASSOC] ) >>
       conj_tac >- (
         rw[Abbr`cs3`,compile_nontail,Abbr`cs2`,Abbr`cs1`] ) >>
       conj_tac >- (
