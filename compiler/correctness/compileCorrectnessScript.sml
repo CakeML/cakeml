@@ -2214,30 +2214,33 @@ val good_code_env_append = store_thm("good_code_env_append",
 val _ = export_rewrites["good_code_env_append"]
 
 val code_for_push_def = Define`
-  code_for_push code c s env s' v =
-    ∀sm bs bc0 renv rsz.
-      good_sm sm ∧ FDOM s' ⊆ FDOM sm ∧
+  code_for_push sm acc nl renv rsz code c d s env s' vs =
+    ∀bs bc0 renv rsz.
+      good_code_env c d bc0 ∧
       (bs.code = bc0 ++ code) ∧
-      (bs.pc = next_addr bs.inst_length bc0) ∧
-      Cenv_bs c sm s env renv rsz (bs with code := bc0) ∧
-      ALL_DISTINCT (FILTER is_Label bc0)
+      (bs.pc = next_addr bs.inst_length (bc0 ++ acc)) ∧
+      Cenv_bs c sm s env renv rsz (bs with code := (bc0 ++ acc)) ∧
+      ALL_DISTINCT (FILTER is_Label (bc0 ++ acc)) ∧
+      EVERY (combin$C $< nl o dest_Label) (FILTER is_Label (bc0 ++ acc))
       ⇒
-      ∃bv rf.
-      let bs' = bs with <| stack := bv::bs.stack; pc := next_addr bs.inst_length bs.code; refs := rf |> in
+      ∃bvs rf.
+      let bs' = bs with <| stack := (REVERSE bvs)++bs.stack; pc := next_addr bs.inst_length bs.code; refs := rf |> in
       bc_next^* bs bs' ∧
-      Cv_bv (mk_pp (DRESTRICT sm (FDOM s')) c bs') v bv ∧
-      Cenv_bs c sm s' env renv (rsz + 1) bs' ∧
+      EVERY2 (Cv_bv (mk_pp (DRESTRICT sm (FDOM s')) c bs')) vs bvs ∧
+      Cenv_bs c sm s' env renv (rsz+(LENGTH vs)) bs' ∧
       DRESTRICT bs.refs (COMPL (FRANGE (DRESTRICT sm (FDOM s)))) ⊑ DRESTRICT rf (COMPL (FRANGE (DRESTRICT sm (FDOM s'))))`
 
-(*
 val code_for_return_def = Define`
-  code_for_return code c s env s' v =
-    ∀sm bs bc0 bc1 benv renv rsz.
-      good_sm sm ∧ FDOM s' ⊆ FDOM sm ∧
+  code_for_return sm code c d s env s' v =
+    ∀bs bc0 bc1 benv ret args st.
       (bs.code = bc0 ++ code ++ bc1) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
-      (bs.stack = benv::CodePtr ret::args++st) ∧
-*)
+      (bs.stack = benv::CodePtr ret::args++st)
+      ⇒
+      ∃bv rf.
+      let bs' = bs with <| stack := bv::st; pc := ret; refs := rf |> in
+      bc_next^* bs bs' ∧
+      Cv_bv (mk_pp (DRESTRICT sm (FDOM s')) c bs') v bv`
 
 val compile_val = store_thm("compile_val",
   ``(∀c d s env exp res. Cevaluate c d s env exp res ⇒
@@ -2248,24 +2251,10 @@ val compile_val = store_thm("compile_val",
         BIGUNION (IMAGE all_Clocs (FRANGE s)) ⊆ FDOM s ∧
         (res = (s', Rval v)) ∧
         good_sm sm ∧ FDOM s' ⊆ FDOM sm ⇒
-      (∀bc0 bc00 bs cs.
-        good_code_env c d bc00 ∧
+      (∀cs.
         good_ecs cs.ecs ∧ free_labs exp ⊆ FDOM cs.ecs ∧
-        (cs.tail = TCNonTail) ∧
-        (cs.decl = NONE) ∧
-        (bs.code = bc0 ++ (REVERSE (compile cs exp).out)) ∧
-        (bc00 = bc0 ++ REVERSE cs.out) ∧
-        (bs.pc = next_addr bs.inst_length bc00) ∧
-        (Cenv_bs c sm s env cs.env cs.sz (bs with code := bc00)) ∧
-        ALL_DISTINCT (FILTER is_Label bc00) ∧
-        EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc00)
-        ⇒
-        ∃bv rfs.
-          let bs' = bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length bs.code; refs := rfs |> in
-          bc_next^* bs bs' ∧
-          Cv_bv (mk_pp (DRESTRICT sm (FDOM s')) c bs') v bv ∧
-          Cenv_bs c sm s' env cs.env (cs.sz+1) bs' ∧
-          DRESTRICT bs.refs (COMPL (FRANGE (DRESTRICT sm (FDOM s)))) ⊑ DRESTRICT rfs (COMPL (FRANGE (DRESTRICT sm (FDOM s')))))) ∧
+        (cs.tail = TCNonTail) ∧ (cs.decl = NONE) ⇒
+        code_for_push sm (REVERSE cs.out) cs.next_label cs.env cs.sz (REVERSE (compile cs exp).out) c d s env s' [v])) ∧
     (∀c d s env exps ress. Cevaluate_list c d s env exps ress ⇒
       ∀sm s' vs.
         EVERY Cexp_pred exps ∧
@@ -2274,24 +2263,10 @@ val compile_val = store_thm("compile_val",
         BIGUNION (IMAGE all_Clocs (FRANGE s)) ⊆ FDOM s ∧
         (ress = (s', Rval vs)) ∧
         good_sm sm ∧ FDOM s' ⊆ FDOM sm ⇒
-      (∀bc0 bc00 bs cs.
-        good_code_env c d bc00 ∧
+      (∀cs.
         good_ecs cs.ecs ∧ free_labs_list exps ⊆ FDOM cs.ecs ∧
-        (cs.tail = TCNonTail) ∧
-        (cs.decl = NONE) ∧
-        (bs.code = bc0 ++ (REVERSE (FOLDL compile cs exps).out)) ∧
-        (bc00 = bc0 ++ REVERSE cs.out) ∧
-        (bs.pc = next_addr bs.inst_length bc00) ∧
-        (Cenv_bs c sm s env cs.env cs.sz (bs with code := bc00)) ∧
-        ALL_DISTINCT (FILTER is_Label bc00) ∧
-        EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc00)
-        ⇒
-        ∃bvs rfs.
-          let bs' = bs with <| stack := (REVERSE bvs)++bs.stack ; pc := next_addr bs.inst_length bs.code; refs := rfs |> in
-          bc_next^* bs bs' ∧
-          EVERY2 (Cv_bv (mk_pp (DRESTRICT sm (FDOM s')) c bs')) vs bvs ∧
-          Cenv_bs c sm s' env cs.env (cs.sz+(LENGTH vs)) bs' ∧
-          DRESTRICT bs.refs (COMPL (FRANGE (DRESTRICT sm (FDOM s)))) ⊑ DRESTRICT rfs (COMPL (FRANGE (DRESTRICT sm (FDOM s'))))))``,
+        (cs.tail = TCNonTail) ∧ (cs.decl = NONE) ⇒
+        code_for_push sm (REVERSE cs.out) cs.next_label cs.env cs.sz (REVERSE (FOLDL compile cs exps).out) c d s env s' vs))``,
   ho_match_mp_tac Cevaluate_strongind >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
@@ -2595,9 +2570,6 @@ val compile_val = store_thm("compile_val",
     `P` by (
       map_every qunabbrev_tac[`P`,`Q`,`R`] >>
       conj_tac >- (
-        rw[Abbr`cs1`] >>
-        metis_tac[good_code_env_append,compile_append_out,REVERSE_APPEND,APPEND_ASSOC] ) >>
-      conj_tac >- (
         fs[REVERSE_APPEND] >>
         match_mp_tac Cenv_bs_FUPDATE >>
         qabbrev_tac`cc = bc0 ++ REVERSE cs1.out` >>
@@ -2691,7 +2663,7 @@ val compile_val = store_thm("compile_val",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- (
-    cheat >>
+    cheat
 
     simp[compile_def,LET_THM] >>
     rpt gen_tac >> strip_tac >>
@@ -3020,7 +2992,6 @@ val compile_val = store_thm("compile_val",
       simp[] >> qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
       `P` by (
         map_every qunabbrev_tac [`P`,`Q`,`R`] >>
-        conj_tac >- rw[Abbr`cs2`,REVERSE_APPEND] >>
         conj_tac >- rw[Abbr`cs2`,Abbr`cs1`] >>
         conj_tac >- rw[Abbr`cs2`,Abbr`cs1`] >>
         conj_tac >- (
@@ -3185,9 +3156,6 @@ val compile_val = store_thm("compile_val",
     simp[] >> qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
       map_every qunabbrev_tac[`P`,`Q`,`R`] >>
-      conj_tac >- (
-        rw[Abbr`cs3`,REVERSE_APPEND,Abbr`cs2`] >>
-        metis_tac[good_code_env_append,APPEND_ASSOC] ) >>
       conj_tac >- (
         rw[Abbr`cs3`,compile_nontail,Abbr`cs2`,Abbr`cs1`] ) >>
       conj_tac >- (
