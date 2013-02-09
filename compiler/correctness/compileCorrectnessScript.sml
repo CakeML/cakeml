@@ -2260,6 +2260,68 @@ val EVERY2_THM = store_thm("EVERY2_THM",
   Cases THEN SRW_TAC[][EVERY2_EVERY])
 val _ = export_rewrites["EVERY2_THM"]
 
+val retbc_thm = store_thm("retbc_thm",
+  ``∀bs bc0 bc1 bv vs benv ret args x st.
+    (bs.stack = bv::vs++benv::CodePtr ret::args++x::st) ∧
+    (bs.code = bc0 ++ retbc (LENGTH vs + 1) (LENGTH args) ++ bc1) ∧
+    (bs.pc = next_addr bs.inst_length bc0)
+    ⇒ bc_next^* bs (bs with <| stack := bv::st; pc := ret |>)``,
+  rw[] >>
+  qspecl_then[`bc0`,`bs`]mp_tac bc_fetch_next_addr >> simp[] >>
+  rw[Once RTC_CASES1] >> disj2_tac >>
+  rw[bc_eval1_thm] >>
+  rw[bc_eval1_def] >>
+  rw[bc_eval_stack_def] >>
+  srw_tac[ARITH_ss][] >>
+  rw[bump_pc_def] >>
+  REWRITE_TAC[Once ADD_SYM] >>
+  simp[GSYM DROP_DROP] >>
+  REWRITE_TAC[GSYM APPEND_ASSOC] >>
+  rw[DROP_LENGTH_APPEND] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  qspecl_then[`bc0++(TAKE 1 (retbc (LENGTH vs + 1) (LENGTH args)))`,`bs1`]mp_tac bc_fetch_next_addr >>
+  simp[Abbr`bs1`,FILTER_APPEND,SUM_APPEND] >>
+  rw[Once RTC_CASES1] >> disj2_tac >>
+  rw[bc_eval1_thm] >>
+  rw[bc_eval1_def] >>
+  rw[bc_eval_stack_def] >>
+  srw_tac[ARITH_ss][] >>
+  rw[bump_pc_def] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  qspecl_then[`bc0++(TAKE 2 (retbc (LENGTH vs + 1) (LENGTH args)))`,`bs1`]mp_tac bc_fetch_next_addr >>
+  simp[Abbr`bs1`,FILTER_APPEND,SUM_APPEND] >>
+  rw[Once RTC_CASES1] >> disj2_tac >>
+  rw[bc_eval1_thm] >>
+  rw[bc_eval1_def] >>
+  simp_tac std_ss [bc_eval_stack_def] >>
+  `LENGTH args + 2 + 1 = SUC(SUC(1 + LENGTH args))` by srw_tac[ARITH_ss][ADD1] >>
+  pop_assum SUBST1_TAC >> simp_tac std_ss [DROP] >>
+  `LENGTH args + 2 = SUC(SUC(LENGTH args))` by srw_tac[ARITH_ss][ADD1] >>
+  pop_assum SUBST1_TAC >> simp_tac std_ss [TAKE] >>
+  REWRITE_TAC[GSYM APPEND_ASSOC] >>
+  REWRITE_TAC[TAKE_LENGTH_APPEND] >>
+  simp[GSYM DROP_DROP] >>
+  REWRITE_TAC[GSYM APPEND_ASSOC] >>
+  REWRITE_TAC[DROP_LENGTH_APPEND] >>
+  rw[bump_pc_def] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  qspecl_then[`bc0++(TAKE 3 (retbc (LENGTH vs + 1) (LENGTH args)))`,`bs1`]mp_tac bc_fetch_next_addr >>
+  simp[Abbr`bs1`,FILTER_APPEND,SUM_APPEND] >>
+  rw[Once RTC_CASES1] >> disj2_tac >>
+  rw[bc_eval1_thm] >>
+  rw[bc_eval1_def] >>
+  rw[bc_eval_stack_def] >>
+  srw_tac[ARITH_ss][] >>
+  rw[bump_pc_def] >>
+  REWRITE_TAC[GSYM APPEND_ASSOC] >>
+  REWRITE_TAC[DROP_LENGTH_APPEND] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  qspecl_then[`bc0++(TAKE 4 (retbc (LENGTH vs + 1) (LENGTH args)))`,`bs1`]mp_tac bc_fetch_next_addr >>
+  simp[Abbr`bs1`,FILTER_APPEND,SUM_APPEND] >>
+  rw[Once RTC_CASES1] >> disj2_tac >>
+  rw[bc_eval1_thm] >>
+  rw[bc_eval1_def])
+
 val compile_val = store_thm("compile_val",
   ``(∀c d s env exp res. Cevaluate c d s env exp res ⇒
       ∀sm s' v.
@@ -2274,8 +2336,9 @@ val compile_val = store_thm("compile_val",
         (cs.tail = TCNonTail) ∧ (cs.decl = NONE) ⇒
         code_for_push sm (REVERSE cs.out) cs.next_label cs.env cs.sz (REVERSE (compile cs exp).out) c d s env s' [v]) ∧
       (∀cs az.
-        (cs.tail = TCTail az 0) ∧ (cs.sz = 0) ∧ (cs.decl = NONE) ⇒
-        code_for_return sm (REVERSE cs.out) cs.env az (REVERSE (compile cs exp).out) c d s env s' v)) ∧
+        (cs.tail = TCTail az 0) ∧ (cs.sz = 0) ∧ (cs.decl = NONE) ∧ (free_vars c exp ⊆ FDOM cs.env) ⇒
+        let cs1 = compile cs exp in let n = case cs1.tail of TCTail j k => k+1 in
+        code_for_return sm (REVERSE cs.out) cs.env az ((REVERSE cs1.out)++(retbc n az)) c d s env s' v)) ∧
     (∀c d s env exps ress. Cevaluate_list c d s env exps ress ⇒
       ∀sm s' vs.
         EVERY Cexp_pred exps ∧
@@ -2333,8 +2396,20 @@ val compile_val = store_thm("compile_val",
       qexists_tac` bs with code := bc0 ++ REVERSE cs.out` >>
       rw[bc_state_component_equality] >>
       metis_tac[compile_varref_append_out,REVERSE_APPEND] ) >>
-    rw[compile_def,code_for_return_def]
-    compile_varref_thm
+    rw[compile_def,code_for_return_def,LET_THM,Cenv_bs_def,fmap_rel_def,FDOM_DRESTRICT] >>
+    first_x_assum(qspec_then`n`mp_tac) >> simp[] >>
+    Q.PAT_ABBREV_TAC`B = lookup_ct 0 X Y Z` >>
+    Cases_on`B`>>simp[]>>pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >>
+    strip_tac >>
+    qmatch_assum_rename_tac `Cv_bv pp (env ' n) bv`["pp","env"] >>
+    map_every qexists_tac [`bv`,`bs.refs`] >>
+    simp[] >> rfs[DRESTRICT_DEF] >>
+    qspecl_then[`bs`,`bc0`]mp_tac compile_varref_thm >> simp[] >>
+    disch_then(qspecl_then[`retbc 1 (LENGTH args) ++ bc1`,`cs`,`cs.env ' n`]mp_tac) >> simp[] >>
+    strip_tac >>
+
+    lookup_ct_def
+ >>   fs[Cenv_bs_def]
 
     what happens if you replace TCNonTail with TCTail 0 0?
 
