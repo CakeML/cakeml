@@ -337,7 +337,7 @@ val do_app_cases = Q.prove (
   (?env'' funs n' n'' topt e.
     (op = Opapp) ∧ (v1 = Recclosure env'' funs n') ∧
     (find_recfun n' funs = SOME (n'',topt,e)) ∧
-    (s = s') ∧ (env' = bind n'' (v2, add_tvs (SOME 0) topt) (build_rec_env (SOME 0) funs env'')) ∧ (v3 = e)) ∨
+    (s = s') ∧ (env' = bind n'' (v2, add_tvs (SOME 0) topt) (build_rec_env (SOME 0) funs env'' env'')) ∧ (v3 = e)) ∨
   (?lnum.
     (op = Opassign) ∧ (v1 = Loc lnum) ∧ (store_assign lnum v2 s = SOME s') ∧
     (env' = env) ∧ (v3 = Lit Unit))`,
@@ -1369,7 +1369,7 @@ val exp_type_soundness = Q.store_thm ("exp_type_soundness",
   ⇒
   e_diverges envC s envE e ∨
   ?s' r. (r ≠ Rerr Rtype_error) ∧ small_eval envC s envE e [] (s',r)`,
-rw [e_diverges_def, METIS_PROVE [] ``x ∨ y = ~x ⇒ y``, d_step_reln_def] >>
+rw [e_diverges_def, METIS_PROVE [] ``x ∨ y = ~x ⇒ y``] >>
 `type_state 0 tenvC tenvS (envC,s,envE,Exp e,[]) t`
          by (rw [type_state_cases] >>
              qexists_tac `t` >>
@@ -1445,103 +1445,6 @@ val type_env_weak = Q.prove (
   type_env tenvC (bind l t tenvS) envE tenv`,
 metis_tac [type_v_store_weak2]);
 
-val TAC =
-PairCases_on `p'` >>
-rw [] >>
-fs [merge_def, emp_def, get_first_tenv_def, build_ctor_tenv_def] >>
-`?senv'. type_state tvs tenvC senv' (p'0,p'1,p'2,p'3,p'4) t ∧ (p'0 = envC) ∧
- ((senv' = senv) ∨ (?loc typ. (lookup loc senv = NONE) ∧ (senv' = bind loc typ senv)))`
-          by metis_tac [exp_type_preservation,e_step_ctor_env_same] >>
-rw [] >|
-[`type_s tenvC senv p'1` 
-         by (fs [type_state_cases] >>
-             metis_tac []) >>
-     metis_tac [],
- `type_s tenvC (bind loc typ senv) p'1`
-         by (fs [type_state_cases] >>
-             metis_tac []) >>
-     metis_tac [type_env_weak]];
-
-val type_preservation = Q.prove (
-`!tenvC envS envC envE ds c envC' envS' envE' ds' c' tenvE tenvC' st' tenvC''.
-  tenvC_ok tenvC ∧
-  (tenvC'' = build_ctor_tenv (get_first_tenv ds c)) ∧
-  type_d_state tenvC (envC,envS,envE,ds,c) (merge tenvC'' tenvC') tenvE ∧
-  (d_step (envC,envS,envE,ds,c) = Dstep (envC',envS',envE',ds',c'))
-  ⇒
-  type_d_state (merge (REVERSE tenvC'') tenvC) (envC',envS',envE',ds',c') tenvC' tenvE`,
-rw [type_d_state_cases] >>
-fs [d_step_def] >|
-[every_case_tac >>
-     fs [] >>
-     rw [] >|
-     [pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_ds_cases]) >>
-          rw [type_state_cases, Once type_ctxts_cases, type_ctxt_cases] >>
-          fs [build_ctor_tenv_def,get_first_tenv_def, merge_def, emp_def,
-              type_d_cases] >>
-          rw [Once context_invariant_cases] >>
-          qexists_tac `senv` >>
-          qexists_tac `tenv` >>
-          qexists_tac `tenv''` >>
-          qexists_tac `t` >>
-          rw [] >>
-          metis_tac [REVERSE_DEF,APPEND, type_p_freevars, bind_tvar_def],
-      qpat_assum `type_ds a b c d e`
-                 (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_ds_cases]) >>
-          fs [type_d_cases] >>
-          rw [build_rec_env_merge] >>
-          fs [build_ctor_tenv_def, get_first_tenv_def, merge_def, emp_def] >>
-          metis_tac [merge_def, type_recfun_env, type_env_merge_lem1],
-      qpat_assum `type_ds a b c d e`
-                 (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_ds_cases]) >>
-          fs [type_d_cases, get_first_tenv_def, merge_def] >>
-          qexists_tac `senv` >>
-          qexists_tac `tenv` >>
-          rw [] >>
-          fs [type_s_def] >>
-          metis_tac [tenvC_weakeningv, merge_def, check_ctor_tenv_dups,
-                     disjoint_env_rev]],
- qpat_assum `ALL_DISTINCT (pat_bindings p [])` ASSUME_TAC >>
-     fs [] >>
-     every_case_tac >>
-     fs [] >>
-     rw [] >|
-     [TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      fs [type_state_cases, Once type_ctxts_cases, merge_def,emp_def,
-          get_first_tenv_def, build_ctor_tenv_def] >>
-          fs [type_state_cases, Once type_ctxts_cases, merge_def,emp_def,
-              get_first_tenv_def, build_ctor_tenv_def] >>
-          fs [Once context_invariant_cases] >>
-          metis_tac [pmatch_type_preservation, type_env_weak],
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC,
-      TAC]]);
-
-val def_final_state_def = Define `
-  def_final_state (envC,envS,envE,ds,c) = (c = NONE) ∧ (ds = [])`;
-
 val consistent_cenv_no_dups = Q.prove (
 `!l envC tenvC.
   consistent_con_env envC tenvC ∧
@@ -1578,213 +1481,6 @@ rw [] >|
      fs [] >>
      metis_tac [consistent_con_env_thm]]);
 
-val type_progress = Q.prove (
-`!tenvC envC envS envE ds c tenvC' tenvE.
-  type_d_state tenvC (envC,envS,envE,ds,c) tenvC' tenvE ∧
-  consistent_con_env envC tenvC ∧
-  consistent_con_env2 envC tenvC ∧
-  ~def_final_state (envC,envS,envE,ds,c)
-  ⇒
-  (?envC' envS' envE' ds' c'. d_step (envC,envS,envE,ds,c) = Dstep (envC',envS',envE',ds',c'))
-  ∨
-  (?err. d_step (envC,envS,envE,ds,c) = Draise err)`,
-rw [type_d_state_cases, d_step_def, def_final_state_def] >>
-rw [] >|
-[every_case_tac >>
-     fs [] >|
-     [fs [Once type_ds_cases, type_d_cases] >>
-          metis_tac [type_funs_distinct],
-      fs [Once type_ds_cases, type_d_cases, check_ctor_tenv_def] >>
-          metis_tac [consistent_cenv_no_dups]],
- every_case_tac >>
-     fs [] >|
-     [metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      fs [type_state_cases, Once type_ctxts_cases] >>
-          fs [type_state_cases, Once type_ctxts_cases] >>
-          metis_tac [pmatch_type_progress, match_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct]],
- every_case_tac >>
-     fs [] >|
-     [metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      fs [type_state_cases, Once type_ctxts_cases] >>
-          fs [type_state_cases, Once type_ctxts_cases] >>
-          metis_tac [pmatch_type_progress, match_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct],
-      metis_tac [exp_type_progress, final_state_def, e_step_result_distinct]]]);
-
-val consistent_con_preservation = Q.prove (
-`!tenvC envS envC envE ds c envC' envS' envE' ds' c' tenvE tenvC' st' tds.
-  (tds = get_first_tenv ds c) ∧
-  check_ctor_tenv tenvC tds ∧
-  consistent_con_env envC tenvC ∧
-  consistent_con_env2 envC tenvC ∧
-  (d_step (envC,envS,envE,ds,c) = Dstep (envC',envS',envE',ds',c'))
-  ⇒
-  consistent_con_env envC' (merge (REVERSE (build_ctor_tenv tds)) tenvC) ∧
-  consistent_con_env2 envC' (merge (REVERSE (build_ctor_tenv tds)) tenvC)`,
-rw [d_step_def] >>
-cases_on `c` >>
-fs [] >|
-[cases_on `ds` >>
-     fs [] >>
-     cases_on `h` >>
-     fs [] >>
-     fs [get_first_tenv_def, merge_def, build_ctor_tenv_empty] >>
-     full_case_tac >>
-     fs [] >>
-     metis_tac [extend_consistent_con],
- PairCases_on `x` >>
-     fs [] >>
-     cases_on `x5` >>
-     fs [] >|
-     [cases_on `e` >>
-          fs [] >>
-          full_case_tac >>
-          fs [get_first_tenv_def, merge_def, build_ctor_tenv_empty] >>
-          full_case_tac >>
-          fs [],
-      cases_on `x6` >>
-          fs [get_first_tenv_def, merge_def, build_ctor_tenv_empty] >>
-          full_case_tac >>
-          fs [] >>
-          full_case_tac >>
-          fs []],
- cases_on `ds` >>
-     fs [] >>
-     cases_on `h` >>
-     fs [] >>
-     fs [get_first_tenv_def, merge_def, build_ctor_tenv_empty] >>
-     full_case_tac >>
-     fs [] >>
-     metis_tac [extend_consistent_con2],
- PairCases_on `x` >>
-     fs [] >>
-     cases_on `x5` >>
-     fs [] >|
-     [cases_on `e` >>
-          fs [] >>
-          full_case_tac >>
-          fs [get_first_tenv_def, merge_def, build_ctor_tenv_empty] >>
-          full_case_tac >>
-          fs [],
-      cases_on `x6` >>
-          fs [get_first_tenv_def, merge_def, build_ctor_tenv_empty] >>
-          full_case_tac >>
-          fs [] >>
-          full_case_tac >>
-          fs []]]); 
-
-val check_ctor_tenv_of_first_tenv = Q.prove (
-`type_d_state tenvC (envC,envS,envE,ds,c) tenvC' tenvE
- ⇒
- check_ctor_tenv tenvC (get_first_tenv ds c)`,
-rw [type_d_state_cases] >>
-rw [get_first_tenv_def] >|
-[fs [Once type_ds_cases] >-
-     rw [check_ctor_tenv_def, check_dup_ctors_def, RES_FORALL, LET_THM] >>
-     fs [type_d_cases] >>
-     rw [check_ctor_tenv_def, check_dup_ctors_def, RES_FORALL, LET_THM],
- rw [check_ctor_tenv_def, check_dup_ctors_def, RES_FORALL, LET_THM]]);
-
 val check_ctor_tenvC_ok = Q.prove (
 `!tenvC c. check_ctor_tenv tenvC c ⇒ tenvC_ok (build_ctor_tenv c)`,
 induct_on `c` >>
@@ -1813,57 +1509,126 @@ fs [check_ctor_tenv_def, EVERY_MAP] >|
      res_tac >>
      fs []]);
 
-val type_soundness_help = Q.prove (
-`!st1 st2. d_step_reln^* st1 st2 ⇒
-  ∀tenvC tenvC' tenvE envC s envE ds c envC' s' envE' ds' c'.
-    (st1 = (envC,s,envE,ds,c)) ∧
-    (st2 = (envC',s'envE',ds',c')) ∧
-    tenvC_ok tenvC ∧
-    consistent_con_env envC tenvC ∧
-    consistent_con_env2 envC tenvC ∧
-    type_d_state tenvC st1 tenvC' tenvE
-    ⇒
-    ?tenvC1 tenvC2.
-      (tenvC' = merge tenvC1 tenvC2) ∧
-      tenvC_ok (merge (REVERSE tenvC1) tenvC) ∧
-      consistent_con_env envC' (merge (REVERSE tenvC1) tenvC) ∧
-      consistent_con_env2 envC' (merge (REVERSE tenvC1) tenvC) ∧
-      type_d_state (merge (REVERSE tenvC1) tenvC) st2 tenvC2 tenvE`,
-ho_match_mp_tac RTC_INDUCT >>
-rw [] >-
-(rw [merge_def] >>
-     metis_tac [APPEND, REVERSE_DEF]) >>
-fs [d_step_reln_def] >>
-`?envC' s' envE' ds' c'. st1' = (envC',s',envE',ds',c')`
-        by (PairCases_on `st1'` >>
-            metis_tac []) >>
+val consistent_con_preservation = Q.prove (
+`!tenvC tds envC.
+  check_ctor_tenv tenvC tds ∧
+  consistent_con_env envC tenvC ∧
+  consistent_con_env2 envC tenvC
+  ⇒
+  consistent_con_env (merge (build_tdefs tds) envC) (merge (REVERSE (build_ctor_tenv tds)) tenvC) ∧
+  consistent_con_env2 (merge (build_tdefs tds) envC) (merge (REVERSE (build_ctor_tenv tds)) tenvC)`,
+metis_tac [merge_def,extend_consistent_con, extend_consistent_con2]);
+
+(*
+val tenvC_weakening_diverge = Q.prove (
+`!envC st envE d tdecs.
+  d_diverges (build_tdefs tdecs ++ envC) st envE d ⇒ d_diverges envC st envE d`,
+rw [d_diverges_def] >>
+cases_on `d` >>
+fs [e_diverges_def] >>
 rw [] >>
-`?tenvC2. tenvC' = merge (build_ctor_tenv (get_first_tenv ds c)) tenvC2`
-         by (cases_on `ds` >>
-             fs [get_first_tenv_def,merge_def,get_first_tenv_def,
-                 build_ctor_tenv_def, type_d_state_cases] >>
-             cases_on `h` >>
-             fs [Once type_ds_cases, Once type_d_cases, build_ctor_tenv_def] >>
-             rw [] >>
-             metis_tac [merge_def]) >>
-`type_d_state (merge (REVERSE (build_ctor_tenv (get_first_tenv ds c))) tenvC)
-              (envC'',s',envE',ds'',c'') tenvC2 tenvE`
-         by metis_tac [type_preservation] >>
-`consistent_con_env envC''
-        (merge (REVERSE (build_ctor_tenv (get_first_tenv ds c))) tenvC) ∧
- consistent_con_env2 envC''
-        (merge (REVERSE (build_ctor_tenv (get_first_tenv ds c))) tenvC)`
-          by metis_tac [check_ctor_tenv_of_first_tenv,
-                        consistent_con_preservation] >>
-`tenvC_ok (merge (REVERSE (build_ctor_tenv (get_first_tenv ds c))) tenvC)`
-          by (fs [tenvC_ok_def, merge_def, rich_listTheory.ALL_EL_REVERSE] >>
-              metis_tac [check_ctor_tenvC_ok, tenvC_ok_def,
-                         check_ctor_tenv_of_first_tenv]) >>
-res_tac >>
-qexists_tac `merge (build_ctor_tenv (get_first_tenv ds c)) tenvC1` >>
-qexists_tac `tenvC2'` >>
-fs [merge_def] >>
-rw [REVERSE_APPEND]);
+cheat);
+
+val every_mono_neg = Q.prove (
+`!l. (∀x. Q x ⇒ P x) ⇒ EVERY (\x. ~P x) l ⇒ EVERY (\x. ~Q x) l`,
+induct_on `l` >>
+rw [] >>
+metis_tac []);
+*)
+
+val pmatch_append = Q.prove (
+`(!tvs envC (st : 'a store) p v env env' env''.
+    (pmatch tvs envC st p v env = Match env') ⇒
+    (pmatch tvs envC st p v (env++env'') = Match (env'++env''))) ∧
+ (!tvs envC (st : 'a store) ps v env env' env''.
+    (pmatch_list tvs envC st ps v env = Match env') ⇒
+    (pmatch_list tvs envC st ps v (env++env'') = Match (env'++env'')))`,
+ho_match_mp_tac pmatch_ind >>
+rw [pmatch_def, bind_def] >>
+every_case_tac >>
+fs [] >>
+metis_tac []);
+
+val type_soundness_help = Q.prove (
+`!tenvC tenvE ds tenvC' tenvE'.
+  type_ds tenvC tenvE ds tenvC' tenvE' ⇒
+  ∀tenvS envC s envE.
+  tenvC_ok tenvC ∧
+  consistent_con_env envC tenvC ∧
+  consistent_con_env2 envC tenvC ∧
+  type_env tenvC tenvS envE tenvE ∧
+  type_s tenvC tenvS s
+  ⇒
+  diverges envC s envE ds ∨
+  ?s' r. (r ≠ Rerr Rtype_error) ∧ evaluate_decs envC s envE ds (s', r)`,
+ho_match_mp_tac type_ds_ind >>
+rw [METIS_PROVE [] ``x ∨ y = ~x ⇒ y``] >>
+rw [Once evaluate_decs_cases] >>
+fs [type_d_cases] >>
+rw [] >>
+pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once diverges_cases]) >>
+fs [d_diverges_def, merge_def, REVERSE_DEF, emp_def, evaluate_dec_cases] >|
+[cheat,
+(*
+ `∃s2 r. r ≠ Rerr Rtype_error ∧ small_eval envC s envE e [] (s2,r)` 
+             by metis_tac [exp_type_soundness] >>
+     cases_on `r` >>
+     fs [] >|
+     [cases_on `?new_env. pmatch (SOME 0) envC s2 p a [] = Match new_env` >>
+          fs [] >>
+          `~diverges ([]++envC) s2 (new_env++envE) ds` by metis_tac [] >>
+          fs [] >>
+          `pmatch (SOME 0) envC s2 p a ([]++envE) = Match (new_env++envE)`
+                    by metis_tac [pmatch_append] 
+          fs []
+          `type_env tenvC tenvS (merge new_env envE) (bind_var_list 0 tenv' tenvE)`
+                  by (match_mp_tac (hd (CONJUNCTS pmatch_type_preservation)))
+                  
+                      MAP_EVERY qexists_tac [`SOME 0`, `envC`, `s2`, `p`, `a`, `envE`, `t`] >> rw [merge_def]
+                  metis_tac [merge_def]
+          res_tac
+          *)
+ cheat,
+ metis_tac [type_funs_distinct],
+ imp_res_tac type_recfun_env >>
+     imp_res_tac type_env_merge_lem1 >>
+     `type_env tenvC tenvS (build_rec_env (SOME tvs) funs envE [] ++ envE) (bind_var_list tvs tenv' tenvE)`
+          by fs [build_rec_env_merge, merge_def, emp_def] >>
+     res_tac >>
+     qexists_tac `s'` >>
+     qexists_tac `combine_dec_result [] (build_rec_env (SOME tvs) funs envE []) r` >>
+     rw [] >|
+     [rw [combine_dec_result_def] >>
+          cases_on `r` >>
+          rw [] >>
+          cases_on `a` >>
+          rw [],
+      metis_tac [type_funs_distinct]],
+ metis_tac [consistent_cenv_no_dups, check_ctor_tenv_def],
+ imp_res_tac consistent_con_preservation >>
+     `tenvC_ok (REVERSE (build_ctor_tenv tdecs) ++ tenvC)`
+            by (rw [tenvC_ok_def, rich_listTheory.EVERY_REVERSE] >>
+                metis_tac [tenvC_ok_def, check_ctor_tenvC_ok]) >>
+     `type_env (merge (REVERSE (build_ctor_tenv tdecs)) tenvC) tenvS envE tenvE`
+             by metis_tac [check_ctor_tenv_dups, tenvC_weakeningv, disjoint_env_rev] >>
+     `type_s (REVERSE (build_ctor_tenv tdecs) ++ tenvC) tenvS s`
+             by (fs [type_s_def] >>
+                 rw [] >> metis_tac [check_ctor_tenv_dups, tenvC_weakeningv, disjoint_env_rev, merge_def]) >>
+     fs [merge_def] >>
+     res_tac >>
+     qexists_tac `s'` >>
+     qexists_tac `combine_dec_result (build_tdefs tdecs) emp r` >>
+     rw [] >|
+     [rw [combine_dec_result_def, emp_def] >>
+          cases_on `r` >>
+          rw [] >>
+          cases_on `a` >>
+          rw [],
+      disj2_tac >>
+          qexists_tac `r` >>
+          rw [emp_def] >>
+          rw [] >>
+          metis_tac [consistent_cenv_no_dups, check_ctor_tenv_def]]]);
 
 val type_soundness = Q.store_thm ("type_soundness",
 `!tenvC tenvS tenvE ds tenvC' tenvE' envC s envE.
@@ -1875,26 +1640,7 @@ val type_soundness = Q.store_thm ("type_soundness",
   type_ds tenvC tenvE ds tenvC' tenvE'
   ⇒
   diverges envC s envE ds ∨
-  ?s' r. (r ≠ Rerr Rtype_error) ∧ d_small_eval envC s envE ds NONE (s', r)`,
-rw [diverges_def, METIS_PROVE [] ``x ∨ y = ~x ⇒ y``, d_step_reln_def] >>
-`type_d_state tenvC (envC,s,envE,ds,NONE) tenvC' tenvE'`
-         by (rw [type_d_state_cases] >>
-             metis_tac []) >>
-imp_res_tac type_soundness_help >>
-fs [] >>
-rw [] >>
-`def_final_state (cenv',s',env',ds',c') ∨
- ?err. d_step (cenv',s',env',ds',c') = Draise err`
-           by metis_tac [type_progress] >|
-[fs [def_final_state_def] >>
-     rw [] >>
-     qexists_tac `s'` >>
-     qexists_tac `Rval (cenv',env')` >>
-     rw [d_small_eval_def] >>
-     metis_tac [],
- qexists_tac `d_state_to_store s' c'` >>
-     qexists_tac `Rerr (Rraise err)` >>
-     rw [d_small_eval_def] >>
-     metis_tac []]);
+  ?s' r. (r ≠ Rerr Rtype_error) ∧ evaluate_decs envC s envE ds (s', r)`,
+metis_tac [type_soundness_help]);
 
 val _ = export_theory ();

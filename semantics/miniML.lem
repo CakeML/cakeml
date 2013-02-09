@@ -1,5 +1,5 @@
 (* By Scott Owens, University of Cambridge, Copyright 2011, 2012
- *                 University of Kent 2012
+ *                 University of Kent 2012, 2013
  *
  * MiniML is a simple ML-like language. It has no type abbreviations, or
  * records, and only simple top-level modules.  It has mutually recursive
@@ -546,12 +546,12 @@ val return : forall 'a. envC -> store 'a -> envE 'a -> v 'a -> list (ctxt 'a) ->
 let return envC s env v c = Estep (envC, s, env, Val v, c)
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
-val build_rec_env : forall 'a. option num -> list (varN * option 'a * varN * option 'a * exp 'a) -> envE 'a-> envE 'a
-let build_rec_env tvs funs env =
+val build_rec_env : forall 'a. option num -> list (varN * option 'a * varN * option 'a * exp 'a) -> envE 'a -> envE 'a -> envE 'a
+let build_rec_env tvs funs cl_env add_to_env =
   List.fold_right
-    (fun (f,topt,x,topt',e) env' -> bind f (Recclosure env funs f, add_tvs tvs topt) env')
+    (fun (f,topt,x,topt',e) env' -> bind f (Recclosure cl_env funs f, add_tvs tvs topt) env')
     funs
-    env
+    add_to_env
 
 (* Lookup in the list of mutually recursive functions *)
 val find_recfun : forall 'a. varN -> list (varN * option 'a * varN * option 'a * exp 'a) -> option (varN * option 'a * exp 'a)
@@ -573,7 +573,7 @@ let do_app s env' op v1 v2 =
         Some (s, bind n (v, add_tvs (Some 0) topt) env, e)
     | (Opapp, Recclosure env funs n, v) ->
         match find_recfun n funs with
-          | Some (n,topt,e) -> Some (s, bind n (v, add_tvs (Some 0) topt) (build_rec_env (Some 0) funs env), e)
+          | Some (n,topt,e) -> Some (s, bind n (v, add_tvs (Some 0) topt) (build_rec_env (Some 0) funs env env), e)
           | None -> None
         end
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) ->
@@ -757,83 +757,10 @@ let e_step (envC, s, env, ev, c) =
               if not (all_distinct (List.map (fun (x,a,y,b,z) -> x) funs)) then
                 Etype_error
               else
-                Estep (envC, s, build_rec_env tvs funs env, Exp e, c)
+                Estep (envC, s, build_rec_env tvs funs env env, Exp e, c)
           | Uapp uop e ->
               push envC s env e (Cuapp uop ()) c
         end
-  end
-
-(* Add the given type definition to the given constructor environment *)
-val build_tdefs : list (list tvarN * typeN * list (conN * list t)) -> envC
-let build_tdefs tds =
-  List.rev (List.flatten
-    (List.map
-      (fun (tvs, tn, condefs) ->
-         List.map
-           (fun (conN, ts) ->
-              (conN, (List.length ts,
-                         {cn | forall ((cn,ts) MEM condefs) | true})))
-           condefs)
-      tds))
-
-(* Checks that no constructor is defined twice *)
-val check_dup_ctors :
-    forall 'a. list (list tvarN * typeN * list (conN * list t)) -> env conN 'a -> bool
-let check_dup_ctors tds envC =
-  (forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs).
-   lookup n envC = None) &&
-  all_distinct
-    [ n | forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs) | true ]
-
-(* Whole program state
- * - constructor data
- * - values bound be previous definitions
- * - remaining definitions
- * - current state for evaluating the current definition *)
-type d_state 'a = envC * store 'a * envE 'a * decs 'a * option (option num * pat 'a * state 'a)
-
-type d_step_result 'a =
-  | Dstep of d_state 'a
-  | Draise of error
-  | Dtype_error
-  | Dstuck
-
-val d_step : d_state t -> d_step_result t
-let d_step (envC, s, env, ds, st) =
-  match st with
-    | Some (tvs, p, (envC', s', env', Val v, [])) ->
-        if all_distinct (pat_bindings p []) then
-          match pmatch tvs envC s' p v env with
-            | Match env' -> Dstep (envC, s', env', ds, None)
-            | No_match -> Draise Bind_error
-            | Match_type_error -> Dtype_error
-          end
-        else
-          Dtype_error
-    | Some (tvs, p, (envC, s', env', Exp (Raise err), [])) ->
-        Draise err
-    | Some (tvs, p, (envC', s', env', e, c)) ->
-        match e_step (envC', s', env', e, c) with
-          | Estep st -> Dstep (envC, empty_store, env, ds, Some (tvs, p, st))
-          | Etype_error -> Dtype_error
-          | Estuck -> Dstuck
-        end
-    | None ->
-        match ds with
-          | [] -> Dstuck
-          | (Dlet tvs p e) :: ds ->
-              Dstep (envC, empty_store, env, ds, Some (tvs, p, (envC, s, env, Exp e, [])))
-          | (Dletrec tvs funs) :: ds ->
-              if not (all_distinct (List.map (fun (x,a,y,b,z) -> x) funs)) then
-                Dtype_error
-              else
-                Dstep (envC, s, build_rec_env tvs funs env, ds, None)
-          | (Dtype tds) :: ds ->
-              if check_dup_ctors tds envC then
-                Dstep (merge (build_tdefs tds) envC, s, env, ds, None)
-              else
-                Dtype_error
-      end
   end
 
 (* Define a semantic function using the steps *)
@@ -848,8 +775,6 @@ type result 'a =
 
 val e_step_reln : state t -> state t -> bool
 val small_eval : envC -> store t -> envE t -> exp t -> list (ctxt t) -> store t * result (v t) -> bool
-val d_step_reln : d_state t -> d_state t -> bool
-val d_small_eval : envC -> store t -> envE t -> list (dec t) -> option (option num * pat t * state t) -> store t * result (envC * envE t) -> bool
 
 let e_step_reln st1 st2 =
   (e_step st1 = Estep st2)
@@ -874,45 +799,37 @@ let e_diverges cenv s env e =
     exists cenv'' s'' env'' e'' c''.
       e_step_reln (cenv',s',env', e',c') (cenv'',s'',env'',e'',c'')
 
-val d_state_to_store : store t -> option (option num * pat t * state t) -> store t
-let d_state_to_store s c =
-  match c with
-    | None -> s
-    | Some (_, _, (_,s',_,_,_)) -> s'
-  end
+(* Semantic helpers for definitions *)
 
-let d_step_reln st st' =
-  (d_step st = Dstep st')
+(* Add the given type definition to the given constructor environment *)
+val build_tdefs : list (list tvarN * typeN * list (conN * list t)) -> envC
+let build_tdefs tds =
+  List.rev (List.flatten
+    (List.map
+      (fun (tvs, tn, condefs) ->
+         List.map
+           (fun (conN, ts) ->
+              (conN, (List.length ts,
+                         {cn | forall ((cn,ts) MEM condefs) | true})))
+           condefs)
+      tds))
 
-let rec
-d_small_eval cenv s env ds c (s', Rval (cenv',env')) =
-  (rtc d_step_reln) (cenv,s,env,ds,c) (cenv',s',env',[],None)
-and
-d_small_eval cenv s env ds c (s', Rerr Rtype_error) =
-  exists cenv' s'' env' ds' c'.
-    (s' = d_state_to_store s'' c') &&
-    (rtc d_step_reln) (cenv,s,env,ds,c) (cenv',s'',env',ds',c') &&
-    (d_step (cenv',s'',env',ds',c') = Dtype_error)
-and
-d_small_eval cenv s env ds c (s', Rerr (Rraise err)) =
-  exists cenv' s'' env' ds' c'.
-    (s' = d_state_to_store s'' c') &&
-    (rtc d_step_reln) (cenv,s,env,ds,c) (cenv',s'',env',ds',c') &&
-    (d_step (cenv',s'',env',ds',c') = Draise err)
-
-val diverges : envC -> store t -> envE t -> list (dec t) -> bool
-let diverges cenv s env ds =
-  forall cenv' s' env' ds' c'.
-    (rtc d_step_reln) (cenv,s,env,ds,None) (cenv',s',env',ds',c')
-    -->
-    exists cenv'' s'' env'' ds'' c''.
-      d_step_reln (cenv',s',env',ds',c') (cenv'',s'',env'',ds'',c'')
+(* Checks that no constructor is defined twice *)
+val check_dup_ctors :
+    forall 'a. list (list tvarN * typeN * list (conN * list t)) -> env conN 'a -> bool
+let check_dup_ctors tds envC =
+  (forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs).
+   lookup n envC = None) &&
+  all_distinct
+    [ n | forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs) | true ]
 
 (* ------------------------ Big step semantics -------------------------- *)
 val evaluate : envC -> store t -> envE t -> exp t -> store t * result (v t) -> bool
 val evaluate_list : envC -> store t -> envE t -> list (exp t) -> store t * result (list (v t)) -> bool
 val evaluate_match : envC -> store t -> envE t -> v t -> list (pat t * exp t) -> store t * result (v t) -> bool
+val evaluate_dec : envC -> store t -> envE t -> dec t -> store t * result (envC * envE t) -> bool
 val evaluate_decs : envC -> store t -> envE t -> list (dec t) -> store t * result (envC * envE t) -> bool
+val evaluate_top : envC -> store t -> envE t -> prog t -> store t * result (envC * envE t) -> bool
 
 indreln
 
@@ -1134,7 +1051,7 @@ and
 
 forall cenv env funs e bv s tvs.
 all_distinct (List.map (fun (x,a,y,b,z) -> x) funs) &&
-evaluate cenv s (build_rec_env tvs funs env) e bv
+evaluate cenv s (build_rec_env tvs funs env env) e bv
 ==>
 evaluate cenv s env (Letrec tvs funs e) bv
 
@@ -1216,82 +1133,157 @@ evaluate_match cenv s env v ((p,e)::pes) (s, Rerr Rtype_error)
 
 indreln
 
-forall cenv env s.
-true
-==>
-evaluate_decs cenv s env [] (s, Rval (cenv,env))
-
-and
-
-forall cenv env p e ds v env' r s1 s2 tvs.
-evaluate cenv s1 env e (s2, Rval v) &&
+forall cenv env p e v env' s1 s2 tvs.
+small_eval cenv s1 env e [] (s2, Rval v) &&
 all_distinct (pat_bindings p []) &&
-(pmatch tvs cenv s2 p v env = Match env') &&
-evaluate_decs cenv s2 env' ds r
+(pmatch tvs cenv s2 p v emp = Match env')
 ==>
-evaluate_decs cenv s1 env (Dlet tvs p e :: ds) r
+evaluate_dec cenv s1 env (Dlet tvs p e) (s2, Rval (emp, env'))
 
 and
 
-forall cenv env p e ds v s1 s2 tvs.
-evaluate cenv s1 env e (s2, Rval v) &&
+forall cenv env p e v s1 s2 tvs.
+small_eval cenv s1 env e [] (s2, Rval v) &&
 all_distinct (pat_bindings p []) &&
-(pmatch tvs cenv s2 p v env = No_match)
+(pmatch tvs cenv s2 p v emp = No_match)
 ==>
-evaluate_decs cenv s1 env (Dlet tvs p e :: ds) (s2, Rerr (Rraise Bind_error))
+evaluate_dec cenv s1 env (Dlet tvs p e) (s2, Rerr (Rraise Bind_error))
 
 and
 
-forall cenv env p e ds v s1 s2 tvs.
-evaluate cenv s1 env e (s2, Rval v) &&
-(pmatch tvs cenv s2 p v env = Match_type_error)
+forall cenv env p e v s1 s2 tvs.
+small_eval cenv s1 env e [] (s2, Rval v) &&
+(pmatch tvs cenv s2 p v emp = Match_type_error)
 ==>
-evaluate_decs cenv s1 env (Dlet tvs p e :: ds) (s2, Rerr Rtype_error)
+evaluate_dec cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error)
 
 and
 
-forall cenv env p e ds v s1 s2 tvs.
-evaluate cenv s1 env e (s2, Rval v) &&
+forall cenv env p e v s1 s2 tvs.
+small_eval cenv s1 env e [] (s2, Rval v) &&
 not (all_distinct (pat_bindings p []))
 ==>
-evaluate_decs cenv s1 env (Dlet tvs p e :: ds) (s2, Rerr Rtype_error)
+evaluate_dec cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error)
 
 and
 
-forall cenv env p e ds err s s' tvs.
-evaluate cenv s env e (s', Rerr err)
+forall cenv env p e err s s' tvs.
+small_eval cenv s env e [] (s', Rerr err)
 ==>
-evaluate_decs cenv s env (Dlet tvs p e :: ds) (s', Rerr err)
+evaluate_dec cenv s env (Dlet tvs p e) (s', Rerr err)
 
 and
 
-forall cenv env funs ds r s tvs.
-all_distinct (List.map (fun (x,topt1,y,topt2,z) -> x) funs) &&
-evaluate_decs cenv s (build_rec_env tvs funs env) ds r
+forall cenv env funs s tvs.
+all_distinct (List.map (fun (x,topt1,y,topt2,z) -> x) funs)
 ==>
-evaluate_decs cenv s env (Dletrec tvs funs :: ds) r
+evaluate_dec cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env tvs funs env emp))
 
 and
 
-forall cenv env funs ds s tvs.
+forall cenv env funs s tvs.
 not (all_distinct (List.map (fun (x,topt1,y,topt2,z) -> x) funs))
 ==>
-evaluate_decs cenv s env (Dletrec tvs funs :: ds) (s, Rerr Rtype_error)
+evaluate_dec cenv s env (Dletrec tvs funs) (s, Rerr Rtype_error)
 
 and
 
-forall cenv env tds ds r s.
-check_dup_ctors tds cenv &&
-evaluate_decs (merge (build_tdefs tds) cenv) s env ds r
+forall cenv env tds s.
+check_dup_ctors tds cenv
 ==>
-evaluate_decs cenv s env (Dtype tds :: ds) r
+evaluate_dec cenv s env (Dtype tds) (s, Rval (build_tdefs tds, emp))
 
 and
 
-forall cenv env tds ds s.
+forall cenv env tds s.
 not (check_dup_ctors tds cenv)
 ==>
-evaluate_decs cenv s env (Dtype tds :: ds) (s, Rerr Rtype_error)
+evaluate_dec cenv s env (Dtype tds) (s, Rerr Rtype_error)
+
+val combine_dec_result : forall 'a 'b 'c 'd. env 'a 'b -> env 'c 'd -> result (env 'a 'b * env 'c 'd) -> result (env 'a 'b * env 'c 'd)
+let combine_dec_result envC env r =
+  match r with
+    | Rerr e -> Rerr e
+    | Rval (envC',env') -> Rval (merge envC' envC, merge env' env)
+  end
+
+indreln
+
+forall cenv s env.
+true
+==>
+evaluate_decs cenv s env [] (s, Rval (emp, emp))
+
+and
+
+forall cenv s1 s2 env d ds e.
+evaluate_dec cenv s1 env d (s2, Rerr e)
+==>
+evaluate_decs cenv s1 env (d::ds) (s2, Rerr e)
+
+and
+
+forall cenv s1 s2 s3 env d ds new_tds new_env r.
+evaluate_dec cenv s1 env d (s2, Rval (new_tds,new_env)) &&
+evaluate_decs (merge new_tds cenv) s2 (merge new_env env) ds (s3, r)
+==>
+evaluate_decs cenv s1 env (d::ds) (s3, combine_dec_result new_tds new_env r)
+
+indreln
+
+forall cenv s env.
+true
+==>
+evaluate_top cenv s env [] (s, Rval (emp, emp))
+
+and
+
+forall cenv s1 s2 env d ds e.
+evaluate_dec cenv s1 env d (s2, Rerr e)
+==>
+evaluate_top cenv s1 env (Tdec d::ds) (s2, Rerr e)
+
+and
+
+forall cenv s1 s2 s3 env d ds new_tds new_env r.
+evaluate_dec cenv s1 env d (s2, Rval (new_tds,new_env)) &&
+evaluate_top (merge new_tds cenv) s2 (merge new_env env) ds (s3, r)
+==>
+evaluate_top cenv s1 env (Tdec d::ds) (s3, combine_dec_result new_tds new_env r)
+
+val d_diverges : envC -> store t -> envE t -> dec t -> bool
+val diverges : envC -> store t -> envE t -> decs t -> bool
+val prog_diverges : envC -> store t -> envE t -> prog t -> bool
+
+let d_diverges envC st env d =
+  match d with
+    | Dlet tvs p e -> e_diverges envC st env e
+    | Dletrec tvs funs -> false
+    | Dtype tds -> false
+  end
+
+indreln
+
+forall envC st env d ds.
+d_diverges envC st env d
+==>
+diverges envC st env (d::ds) 
+
+and
+
+forall envC s1 s2 env d ds new_tds new_env.
+evaluate_dec envC s1 env d (s2, Rval (new_tds, new_env)) &&
+diverges (merge new_tds envC) s2 (merge new_env env) ds
+==>
+diverges envC s1 env (d::ds) 
+
+let rec prog_diverges envC st env top =
+  match top with
+    | [] -> false
+    | Tdec d::ds -> d_diverges envC st env d || prog_diverges envC st env ds
+    (* TODO *)
+    | Tmodule x y z :: ds -> true
+  end
 
 (* ------------------------------------------------------------------------ *) 
 (*   The Type System                                                        *)
@@ -2043,27 +2035,6 @@ type_v tvs tenvC senv v t1
 ==>
 type_state dec_tvs tenvC senv (envC, s, env, Val v, c) t2
 
-indreln
-
-forall tenvC senv envC s env ds tenvC' tenv tenv'.
-type_env tenvC senv env tenv &&
-type_s tenvC senv s &&
-type_ds tenvC tenv ds tenvC' tenv'
-==>
-type_d_state tenvC (envC, s, env, ds, None) tenvC' tenv'
-
-and
-
-forall tenvC senv envC s env ds tenvC' tenv tenv' p s' env' e c t tenv'' tvs.
-type_env tenvC senv env tenv &&
-type_state tvs tenvC senv (envC,s',env',e,c) t &&
-all_distinct (pat_bindings p []) &&
-type_p tvs tenvC p t tenv' &&
-type_s tenvC senv s' &&
-type_ds tenvC (bind_var_list tvs tenv' tenv) ds tenvC' tenv''
-==>
-type_d_state tenvC (envC, s, env, ds, Some (Some tvs, p, (envC,s',env',e,c))) tenvC' tenv''
-
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 
 val evaluate_ctxt : envC -> store t -> envE t -> ctxt_frame t -> v t -> store t * result (v t) -> bool
@@ -2502,7 +2473,7 @@ and
 
 forall env funs e bv s tvs.
 all_distinct (List.map (fun (x,topt1,y,topt2,z) -> x) funs) &&
-evaluate' s (build_rec_env tvs funs env) e bv
+evaluate' s (build_rec_env tvs funs env env) e bv
 ==>
 evaluate' s env (Letrec tvs funs e) bv
 
@@ -2637,7 +2608,7 @@ and
 
 forall cenv env funs ds r s tvs.
 all_distinct (List.map (fun (x,topt1,y,topt2,z) -> x) funs) &&
-evaluate_decs' cenv s (build_rec_env tvs funs env) ds r
+evaluate_decs' cenv s (build_rec_env tvs funs env env) ds r
 ==>
 evaluate_decs' cenv s env (Dletrec tvs funs :: ds) r
 

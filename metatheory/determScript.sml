@@ -70,14 +70,11 @@ rw [] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once evaluate_decs_cases]) >>
 fs [] >>
 rw [] >>
-fs [] >>
-res_tac >>
+fs [evaluate_dec_cases] >>
+rw [] >>
 fs [] >>
 rw [] >>
-res_tac >>
-fs [] >>
-rw [] >>
-metis_tac [big_exp_determ, result_11, result_distinct,PAIR_EQ,
+metis_tac [big_exp_determ, small_big_exp_equiv, result_11, result_distinct,PAIR_EQ,
            match_result_11, match_result_distinct, optionTheory.SOME_11]);
 
 (* ---------------------- Small step determinacy ------------------------- *)
@@ -88,13 +85,6 @@ val small_exp_determ = Q.store_thm ("small_exp_determ",
   ⇒
   (r1 = r2)`,
 metis_tac [big_exp_determ, small_big_exp_equiv]);
-
-val small_determ = Q.store_thm ("small_determ",
-`!cenv s env ds r1 r2.
-  d_small_eval cenv s env ds NONE r1 ∧ d_small_eval cenv s env ds NONE r2
-  ⇒
-  (r1 = r2)`,
-metis_tac [big_determ, small_big_equiv]);
 
 val _ = export_theory ();
 

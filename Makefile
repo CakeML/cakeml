@@ -12,3 +12,4 @@ test:
 	cd compiler/emit; Holmake && ./selftest.exe
 	cd compiler/correctness; Holmake
 	cd hol-light; Holmake
+	cd type_check; Holmake

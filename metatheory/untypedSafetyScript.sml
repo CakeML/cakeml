@@ -1,5 +1,5 @@
 open preamble;
-open MiniMLTheory MiniMLTerminationTheory evaluateEquationsTheory;
+open MiniMLTheory MiniMLTerminationTheory evaluateEquationsTheory determTheory;
 
 val _ = new_theory "untypedSafety";
 
@@ -82,56 +82,34 @@ val untyped_safety_exp = Q.store_thm ("untyped_safety_exp",
 `!cenv s env e. (?r. small_eval cenv s env e [] r) = ¬e_diverges cenv s env e`,
 metis_tac [small_exp_safety2, small_exp_safety1]);
 
-val untyped_safety_step = Q.prove (
-`∀envC s env ds st.
-  (d_step (envC, s, env, ds, st) = Dstuck) = (ds = []) ∧ (st = NONE)`,
-rw [d_step_def, e_step_def, continue_def, push_def, return_def] >>
-cases_on `st` >>
-rw [] >-
-every_case_tac >>
-PairCases_on `x` >> 
-rw [] >>
-cases_on `x5` >>
-rw [] >>
-every_case_tac);
-
-val untyped_safety_thm = Q.prove (
-`!cenv s env ds.
-  diverges cenv s env ds ∨ ?r. d_small_eval cenv s env ds NONE r`,
-rw [diverges_def, METIS_PROVE [] ``x ∨ y = ~x ⇒ y``, d_step_reln_def] >>
-cases_on `d_step (cenv',s',env',ds',c')` >>
-fs [untyped_safety_step] >|
-[PairCases_on `p` >> 
-     fs [],
- qexists_tac `(d_state_to_store s' c', Rerr (Rraise e))` >>
-     rw [d_small_eval_def] >>
-     metis_tac [d_state_to_store_thm],
- qexists_tac `(d_state_to_store s' c', Rerr Rtype_error)` >>
-     rw [d_small_eval_def] >>
-     metis_tac [d_state_to_store_thm],
- qexists_tac `(d_state_to_store s' c', Rval (cenv',env'))` >>
-     rw [d_small_eval_def] >>
-     metis_tac [d_state_to_store_thm]]);
-
-val untyped_safety_thm2 = Q.prove (
-`!cenv s env ds r.
-  ¬(diverges cenv s env ds ∧ ?r. d_small_eval cenv s env ds NONE r)`,
-rw [diverges_def, METIS_PROVE [] ``~x ∨ ~y = y ⇒ ~x``] >>
-cases_on `r` >>
-cases_on `r'` >|
-[all_tac, cases_on `e`] >>
-fs [d_small_eval_def, d_step_reln_def] >|
-[PairCases_on `a` >>
-     fs [d_small_eval_def, d_step_reln_def] >>
-     `∀cenv'' s'' env'' ds'' c''.
-         d_step (a0,q,a1,[],NONE) ≠ Dstep (cenv'',s'',env'',ds'',c'')`
-              by rw [d_step_def] >>
-     metis_tac [],
- metis_tac [d_step_result_distinct],
- metis_tac [d_step_result_distinct]]);
-
 val untyped_safety = Q.store_thm ("untyped_safety",
-`!cenv s env ds. (?r. d_small_eval cenv s env ds NONE r) = ~diverges cenv s env ds`,
-metis_tac [untyped_safety_thm2, untyped_safety_thm]);
+`!cenv s env ds. (?r. evaluate_decs cenv s env ds r) = ~diverges cenv s env ds`,
+induct_on `ds` >>
+rw [] >-
+rw [Once evaluate_decs_cases, Once diverges_cases] >>
+rw [Once evaluate_decs_cases, Once diverges_cases] >>
+cases_on `h` >>
+rw [evaluate_dec_cases, d_diverges_def] >>
+eq_tac >>
+rw [] >>
+rw [] >>
+CCONTR_TAC >> 
+fs [] >>
+imp_res_tac small_exp_determ >>
+fs [] >>
+rw [] >>
+pop_assum mp_tac >>
+rw [GSYM untyped_safety_exp] >|
+[metis_tac [],
+ metis_tac [],
+ metis_tac [],
+ metis_tac [],
+ metis_tac [],
+ metis_tac [],
+ cheat,
+ metis_tac [],
+ cheat,
+ metis_tac [],
+ cheat]);
 
 val _ = export_theory ();

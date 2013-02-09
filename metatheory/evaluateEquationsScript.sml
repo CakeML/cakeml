@@ -149,9 +149,4 @@ val evaluate'_log = store_thm(
 rw[Once evaluate'_cases] >>
 metis_tac [])
 
-val d_state_to_store_thm = Q.store_thm ("d_state_to_store_thm",
-`(d_state_to_store s (SOME (v0,v1,v3,s',v7,v9,v10)) = s') ∧
- (d_state_to_store s NONE = s)`,
-rw [d_state_to_store_def]);
-
 val _ = export_theory ()
