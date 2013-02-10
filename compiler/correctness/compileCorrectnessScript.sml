@@ -2260,12 +2260,18 @@ val EVERY2_THM = store_thm("EVERY2_THM",
   Cases THEN SRW_TAC[][EVERY2_EVERY])
 val _ = export_rewrites["EVERY2_THM"]
 
+val with_same_refs = store_thm("with_same_refs",
+  ``(x with refs := x.refs) = x``,
+  rw[bc_state_component_equality])
+val _ = export_rewrites["with_same_refs"]
+
 val retbc_thm = store_thm("retbc_thm",
-  ``∀bs bc0 bc1 bv vs benv ret args x st.
+  ``∀bs bc0 bc1 bv vs benv ret args x st bs'.
     (bs.stack = bv::vs++benv::CodePtr ret::args++x::st) ∧
     (bs.code = bc0 ++ retbc (LENGTH vs + 1) (LENGTH args) ++ bc1) ∧
-    (bs.pc = next_addr bs.inst_length bc0)
-    ⇒ bc_next^* bs (bs with <| stack := bv::st; pc := ret |>)``,
+    (bs.pc = next_addr bs.inst_length bc0) ∧
+    (bs' = bs with <| stack := bv::st; pc := ret |>)
+    ⇒ bc_next^* bs bs'``,
   rw[] >>
   qspecl_then[`bc0`,`bs`]mp_tac bc_fetch_next_addr >> simp[] >>
   rw[Once RTC_CASES1] >> disj2_tac >>
@@ -2407,39 +2413,61 @@ val compile_val = store_thm("compile_val",
     qspecl_then[`bs`,`bc0`]mp_tac compile_varref_thm >> simp[] >>
     disch_then(qspecl_then[`retbc 1 (LENGTH args) ++ bc1`,`cs`,`cs.env ' n`]mp_tac) >> simp[] >>
     strip_tac >>
-
-    lookup_ct_def
- >>   fs[Cenv_bs_def]
-
-    what happens if you replace TCNonTail with TCTail 0 0?
-
-    FDOM_extend_rec_env
-
+    conj_tac >- (
+      match_mp_tac (SIMP_RULE std_ss[transitive_def]RTC_TRANSITIVE) >>
+      qmatch_assum_abbrev_tac `bc_next^* bs bs1` >>
+      qexists_tac `bs1` >> simp[Abbr`bs1`] >>
+      match_mp_tac retbc_thm >>
+      simp[bc_state_component_equality] >>
+      CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`bc1` >>
+      CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`[]` >>
+      simp[] ) >>
+    match_mp_tac s_refs_stack >>
+    match_mp_tac s_refs_pc >>
+    rw[] ) >>
   strip_tac >- (
     ntac 4 gen_tac >>
-    Cases >> rw[code_for_push_def,compile_def,LET_THM] >>
-    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x]` >>
-    `bc_fetch bs = SOME x` by (
+    Cases >> rw[code_for_push_def,code_for_return_def,compile_def,LET_THM] >>
+    qabbrev_tac`ls0 = bc0 ++ REVERSE cs.out` >>
+    `bc_fetch bs = SOME (HD (DROP (LENGTH ls0) bs.code))` by (
       match_mp_tac bc_fetch_next_addr >>
-      map_every qexists_tac [`ls0`,`[]`] >>
-      rw[Abbr`x`] ) >> (
+      qexists_tac `ls0` >>
+      rw[DROP_LENGTH_APPEND] >>
+      REWRITE_TAC[GSYM APPEND_ASSOC] >>
+      rw[DROP_LENGTH_APPEND]) >>
+    qpat_assum`bs.code = X`(assume_tac o REWRITE_RULE[GSYM APPEND_ASSOC]) >>
+    full_simp_tac std_ss [DROP_LENGTH_APPEND] >> fs[] >> (
     rw[Once Cv_bv_cases] >>
     qexists_tac` bs.refs` >> reverse (rw[]) >- (
+      ( fs[Cenv_bs_def,s_refs_stack,s_refs_pc] >>
+        NO_TAC ) ORELSE (
       match_mp_tac (SPEC_ALL Cenv_bs_imp_incsz) >>
       rw[bc_state_component_equality] >>
       match_mp_tac Cenv_bs_append_code >>
       qmatch_assum_abbrev_tac `Cenv_bs c sm s env cs.env cs.sz bs0` >>
       qexists_tac `bs0` >>
-      rw[Abbr`bs0`,bc_state_component_equality])) >>
+      rw[Abbr`bs0`,bc_state_component_equality]))) >> (
+    ( rw[Once RTC_CASES1] >> disj2_tac >>
+      rw[bc_eval1_thm] >>
+      rw[bc_eval1_def] >>
+      rw[bc_eval_stack_def] >>
+      rw[bump_pc_def] >>
+      match_mp_tac retbc_thm >>
+      rw[bc_state_component_equality] >>
+      CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+      map_every qexists_tac [`REVERSE args`,`benv`,`[]`,`bc1`] >>
+      srw_tac[ARITH_ss][SUM_APPEND,FILTER_APPEND,ADD1] >>
+      NO_TAC ) ORELSE (
     rw[RTC_eq_NRC] >>
     qexists_tac `SUC 0` >>
     rw[NRC] >>
     rw[bc_eval1_thm] >>
-    rw[bc_eval1_def,Abbr`x`] >>
+    rw[bc_eval1_def] >>
     rw[bc_eval_stack_def] >>
     srw_tac[ARITH_ss][bump_pc_def,Abbr`ls0`,FILTER_APPEND,SUM_APPEND,ADD1] >>
-    rw[bc_state_component_equality]) >>
+    rw[bc_state_component_equality]))) >>
   strip_tac >- (
+
     rw[compile_def,LET_THM] >>
     fsrw_tac[ETA_ss][] >>
     first_x_assum (qspec_then`sm`mp_tac) >> simp[] >>
