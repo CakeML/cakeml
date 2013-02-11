@@ -106,7 +106,36 @@ rw [GSYM untyped_safety_exp] >|
  metis_tac [],
  metis_tac [],
  metis_tac [],
- cheat,
+ fs [GSYM untyped_safety_exp] >>
+     PairCases_on `r` >>
+     fs [] >>
+     cases_on `r1` >>
+     fs [] >|
+     [cases_on `ALL_DISTINCT (pat_bindings p [])` >>
+          fs [] >|
+          [cases_on `pmatch o' cenv r0 p a emp` >>
+               fs [] >|
+               [qexists_tac `(r0, Rerr (Rraise Bind_error))` >>
+                    rw [] >>
+                    metis_tac [],
+                qexists_tac `(r0, Rerr Rtype_error)` >>
+                    rw [] >>
+                    metis_tac [],
+                qpat_assum `!s2. P s2` (ASSUME_TAC o Q.SPECL [`r0`, `emp`, `l`]) >>
+                    fs [merge_def, emp_def] >-
+                    metis_tac [] >>
+                    `?r. evaluate_decs cenv r0 (l ++ env) ds r` by metis_tac [] >>
+                    PairCases_on `r` >>
+                    metis_tac [APPEND]],
+           qexists_tac `r0` >>
+               qexists_tac `Rtype_error` >>
+               rw [] >>
+               disj1_tac >>
+               qexists_tac `a` >>
+               rw [] >>
+               cheat],
+      qexists_tac `(r0,Rerr e')` >>
+          rw []],
  metis_tac [],
  cheat,
  metis_tac [],
