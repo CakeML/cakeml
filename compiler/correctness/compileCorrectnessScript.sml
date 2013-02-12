@@ -2200,10 +2200,16 @@ val good_code_env_def = Define`
 val _ = Parse.overload_on("retbc",``λn az. [Stack (Pops n); Stack (Load 1); Stack (Store (az + 2)); Stack (Pops (az + 1)); Return]``)
 
 val good_code_env_def = Define`
-  good_code_env c d code = FEVERY (λ(l,e).
+  good_code_env nl c d code = FEVERY (λ(l,e).
     Cexp_pred e ∧
-    ∃cs ns xs k bc0 bc1.
-      (FLOOKUP d l = SOME (ns,xs,k)) ∧
+    ALL_DISTINCT (binders e) ∧
+    ∃cs env ns xs k bc0 bc1.
+      (FLOOKUP d l = SOME (env,ns,xs,k)) ∧
+      DISJOINT (binders e) (FDOM env ∪ set ns ∪ set xs) ∧
+      good_ecs cs.ecs ∧ free_labs e ⊆ FDOM cs.ecs ∧
+      ALL_DISTINCT (FILTER is_Label cs.out) ∧
+      EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label cs.out) ∧
+      cs.next_label ≤ nl ∧
       (cs.env = FST(SND(ITSET (bind_fv ns xs (LENGTH xs) k) (free_vars c e) (0,FEMPTY,0,[])))) ∧
       (cs.sz = 0) ∧
       (cs.tail = TCTail (LENGTH xs) 0) ∧
@@ -2372,7 +2378,7 @@ val compile_val = store_thm("compile_val",
         (res = (s', Rval v)) ∧
         good_sm sm ∧ FDOM s' ⊆ FDOM sm ∧
         good_ecs cs.ecs ∧ free_labs exp ⊆ FDOM cs.ecs ∧
-        (bce ++ bcr = bs.code) ∧ good_code_env c d bce ∧
+        (bce ++ bcr = bs.code) ∧ good_code_env cs.next_label c d bce ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length (bc0 ++ (REVERSE cs.out))) ∧
         (free_vars c exp ⊆ FDOM cs.env) ∧
@@ -2403,7 +2409,7 @@ val compile_val = store_thm("compile_val",
         (ress = (s', Rval vs)) ∧
         good_sm sm ∧ FDOM s' ⊆ FDOM sm ∧
         good_ecs cs.ecs ∧ free_labs_list exps ⊆ FDOM cs.ecs ∧
-        (bce ++ bcr = bs.code) ∧ good_code_env c d bce ∧
+        (bce ++ bcr = bs.code) ∧ good_code_env cs.next_label c d bce ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length (bc0 ++ (REVERSE cs.out))) ∧
         (BIGUNION (IMAGE (free_vars c) (set exps)) ⊆ FDOM cs.env) ∧
