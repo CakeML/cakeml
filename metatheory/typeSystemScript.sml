@@ -24,7 +24,7 @@ val option_map_eqns = Q.prove (
  (!f x. option_map f (SOME x) = SOME (f x))`,
 rw [option_map_def]);
 
-(* TODO: Move these four definitions to miniML.lem? *)
+(* TODO: Move these six definitions to miniML.lem? *)
 (* Check that the dynamic and static constructor environments are consistent *)
 val consistent_con_env_def = Define `
   (consistent_con_env [] [] = T) ∧
@@ -55,6 +55,19 @@ val tenv_ok_def = Define `
 
 val tenvC_ok_def = Define `
 tenvC_ok tenvC = EVERY (\(cn,tvs,ts,tn). EVERY (check_freevars 0 tvs) ts) tenvC`;
+
+val tenvM_ok_def = Define `
+tenvM_ok tenvM = EVERY (\(mn,(tenvC,tenv)). tenvC_ok tenvC ∧ tenv_ok tenv ∧ (num_tvs tenv = 0)) tenvM`;
+
+val consistent_mod_env_def = Define `
+(consistent_mod_env tenvS [] [] = T) ∧
+(consistent_mod_env tenvS ((mn,(cenv,env))::menv) ((mn',(tenvC,tenv))::tenvM) =
+  (mn = mn') ∧
+  consistent_con_env cenv tenvC ∧
+  consistent_con_env2 cenv tenvC ∧
+  type_env tenvM tenvC tenvS env tenv ∧
+  consistent_mod_env tenvS menv tenvM) ∧
+(consistent_mod_env tenvS _ _ = F)`;
 
 val get_first_tenv_def = Define `
   (get_first_tenv ds NONE =
@@ -296,6 +309,39 @@ induct_on `tenvE` >>
 rw [check_freevars_def, num_tvs_def, lookup_tenv_def, tenv_ok_def] >>
 metis_tac [deBruijn_subst_check_freevars, arithmeticTheory.ADD_ASSOC,
            check_freevars_subst_inc]);
+
+val tenvM_ok_lookup = Q.prove (
+`!n tenvM tenvC tenv.
+  tenvM_ok tenvM ∧
+  (lookup n tenvM = SOME (tenvC, tenv)) ⇒
+  tenvC_ok tenvC ∧ tenv_ok tenv ∧ (num_tvs tenv = 0)`,
+induct_on `tenvM` >>
+rw [lookup_def, tenvM_ok_def] >>
+PairCases_on `h` >>
+fs [lookup_def] >>
+every_case_tac >>
+fs [] >>
+metis_tac [tenvM_ok_def]);
+
+(*
+val type_e_freevars_lem3 = Q.prove (
+`!tenvM tenv targs n t.
+  EVERY (check_freevars (num_tvs tenv) []) targs ∧
+  (t_lookup_var_id n tenvM tenv = SOME (LENGTH targs,t)) ∧
+  tenvM_ok tenvM ∧
+  tenv_ok tenv
+  ⇒ 
+  check_freevars (num_tvs tenv) [] (deBruijn_subst 0 targs t)`,
+cases_on `n` >>
+rw [t_lookup_var_id_def] >-
+metis_tac [type_e_freevars_lem2, arithmeticTheory.ADD] >>
+every_case_tac >>
+fs [] >>
+imp_res_tac tenvM_ok_lookup >>
+`num_tvs tenv ≥ 0` by decide_tac >>
+`check_freevars 0 [] (deBruijn_subst 0 targs t)` 
+       by metis_tac [type_e_freevars_lem2, arithmeticTheory.ADD]
+*)
 
 val num_tvs_bind_var_list = Q.store_thm ("num_tvs_bind_var_list",
 `!tvs env tenvE. num_tvs (bind_var_list tvs env tenvE) = num_tvs tenvE`,
