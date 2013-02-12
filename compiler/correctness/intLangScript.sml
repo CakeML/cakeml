@@ -22,7 +22,7 @@ rw[Once Cevaluate_cases] >> PROVE_TAC[])
 val Cevaluate_fun = store_thm(
 "Cevaluate_fun",
 ``∀c d s env ns b res. Cevaluate c d s env (CFun ns b) res =
-  (∀l. (b = INR l) ⇒ l ∈ FDOM c ∧ (FLOOKUP d l = SOME ([],ns,0))) ∧
+  (∀l. (b = INR l) ⇒ l ∈ FDOM c ∧ (FLOOKUP d l = SOME (env,[],ns,0))) ∧
   (res = (s, Rval (CRecClos env [] [(ns,b)] "")))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 

@@ -348,7 +348,7 @@ forall c d s env ns defs b r.
 List.length ns = List.length defs &&
 all_distinct ns &&
 (forall xs l. List.mem (xs,INR l) defs -->
-  Pmap.mem l c && flookup d l = Some ([],xs,0)) &&
+  Pmap.mem l c && flookup d l = Some (env,[],xs,0)) &&
 Cevaluate c d s
   (fold_left2
     (fun env' n (xs,cb) ->
@@ -363,7 +363,7 @@ forall c d s env ns defs b r.
 List.length ns = List.length defs &&
 all_distinct ns &&
 (forall xs l k. k < List.length defs && List.nth defs k = (xs,INR l) -->
-  Pmap.mem l c && flookup d l = Some (ns,xs,k)) &&
+  Pmap.mem l c && flookup d l = Some (env,ns,xs,k)) &&
 Cevaluate c d s
   (List.fold_left
      (fun env' n ->
@@ -375,7 +375,7 @@ Cevaluate c d s env (CLetfun true ns defs b) r
 
 and
 forall c d s env xs cb.
-(forall l. cb = INR l --> Pmap.mem l c && flookup d l = Some ([],xs,0))
+(forall l. cb = INR l --> Pmap.mem l c && flookup d l = Some (env,[],xs,0))
 ==>
 Cevaluate c d s env (CFun xs cb) (s, Rval (CRecClos env [] [(xs,cb)] ""))
 
@@ -388,8 +388,8 @@ Cevaluate c d s env e (s', Rval (CRecClos env' ns' defs n)) &&
  find_index n ns' 0 = Some i) &&
 List.nth defs i = (ns,cb) &&
 Cevaluate_list c d s' env es (s'', Rval vs) &&
-(b,(ns,ns',i)) = match cb with INL b -> (b,(ns,ns',i))
-                             | INR l -> (Pmap.find l c,Pmap.find l d) end &&
+(b,(env',ns,ns',i)) = match cb with INL b -> (b,(env',ns,ns',i))
+                                  | INR l -> (Pmap.find l c,Pmap.find l d) end &&
 List.length ns = List.length vs &&
 all_distinct ns &&
 Cevaluate c d s'' (extend_rec_env env' env' ns' defs ns vs) b r
