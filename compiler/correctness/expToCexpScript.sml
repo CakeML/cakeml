@@ -952,10 +952,12 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       map_every qx_gen_tac[`sf`,`w3`] >>
       strip_tac >>
       CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
-      map_every qexists_tac[`w3`,`sf`] >>
+      qexists_tac`w3` >>
+      CONV_TAC SWAP_EXISTS_CONV >>
+      qexists_tac`sf` >>
       `∃env1 ns' defs n. w1 = CRecClos env1 ns' defs n` by (
         imp_res_tac do_Opapp_SOME_CRecClos >> rw[] ) >>
-      CONV_TAC (RESORT_EXISTS_CONV (fn ls => List.drop(ls,4)@List.take(ls,4))) >>
+      CONV_TAC (RESORT_EXISTS_CONV (fn ls => List.drop(ls,5)@List.take(ls,5))) >>
       map_every qexists_tac[`n`,`defs`,`ns'`,`env1`,`sd`] >>
       rw[] >>
       fs[Q.SPECL[`FEMPTY`,`CRecClos env1 ns' defs n`]Cclosed_cases] >>
