@@ -2205,7 +2205,7 @@ val good_code_env_def = Define`
     ALL_DISTINCT (binders e) ∧
     ∃cs vs ns xs k bc0 bc1.
       (FLOOKUP d l = SOME (vs,ns,xs,k)) ∧
-      DISJOINT (binders e) (vs ∪ set ns ∪ set xs) ∧
+      DISJOINT (set (binders e)) (vs ∪ set ns ∪ set xs) ∧
       good_ecs cs.ecs ∧ free_labs e ⊆ FDOM cs.ecs ∧
       ALL_DISTINCT (FILTER is_Label cs.out) ∧
       EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label cs.out) ∧
@@ -2218,10 +2218,17 @@ val good_code_env_def = Define`
     ) c`
 
 val good_code_env_append = store_thm("good_code_env_append",
- ``∀c d code ls. good_code_env c d code ⇒ good_code_env c d (code ++ ls)``,
+ ``∀nl c d code ls. good_code_env nl c d code ⇒ good_code_env nl c d (code ++ ls)``,
  rw[good_code_env_def,FEVERY_DEF] >>
  res_tac >> rw[] >> metis_tac[APPEND_ASSOC])
 val _ = export_rewrites["good_code_env_append"]
+
+val good_code_env_next_label = store_thm("good_code_env_next_label",
+  ``∀nl1 nl2 c d code ls. good_code_env nl1 c d code ∧ nl1 ≤ nl2 ⇒ good_code_env nl2 c d code``,
+  rw[good_code_env_def,FEVERY_DEF] >>
+  res_tac >> rw[] >>
+  qexists_tac`cs` >> rw[] >>
+  srw_tac[ARITH_ss][] >> metis_tac[])
 
 val retbc_thm = store_thm("retbc_thm",
   ``∀bs bc0 bc1 bv vs benv ret args x st bs'.
@@ -2842,6 +2849,11 @@ val compile_val = store_thm("compile_val",
       conj_tac >- PROVE_TAC[SUBSET_TRANS] >>
       conj_tac >- metis_tac[Cevaluate_Clocs,FST] >>
       conj_tac >- PROVE_TAC[SUBSET_TRANS] >>
+      conj_tac >- (match_mp_tac good_code_env_next_label >>
+                   Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
+                   qexists_tac`cs0.next_label` >>
+                   rw[compile_next_label_inc] >>
+                   rw[Abbr`cs0`] ) >>
       match_mp_tac compile_labels_lemma >>
       map_every qexists_tac [`FST(sdt cs)`,`exp`,`bc0`] >>
       rw[] ) >>
@@ -2875,7 +2887,17 @@ val compile_val = store_thm("compile_val",
       disch_then(qx_choosel_then[`a`,`bve`,`b`,`i'`,`l`,`xs`]strip_assume_tac) >>
       `i' = i` by ( Cases_on`ns' = []` >> fs[] ) >> rw[] >>
       fs[] >> rw[] >> fs[] >> rw[] >>
-      good_code_env_def
+      qpat_assum`good_code_env X c d bce`(mp_tac o Q.SPEC`l` o SIMP_RULE(srw_ss())[good_code_env_def,FEVERY_DEF]) >>
+      fs[FLOOKUP_DEF] >>
+      simp_tac(srw_ss()++DNF_ss)[] >>
+      qpat_assum`X = d ' l`(assume_tac o SYM) >>
+      simp[] >>
+      map_every qx_gen_tac [`csc`,`cb0`,`cb1`] >>
+      strip_tac >> fs[] >>
+      first_x_assum (qspecl_then[`sm`,`csc`]mp_tac) >>
+
+      might want to push through the setup code first, so we know what bs to start in
+
 
     (* >>
 
