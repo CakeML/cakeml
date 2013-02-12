@@ -2203,9 +2203,9 @@ val good_code_env_def = Define`
   good_code_env nl c d code = FEVERY (λ(l,e).
     Cexp_pred e ∧
     ALL_DISTINCT (binders e) ∧
-    ∃cs env ns xs k bc0 bc1.
-      (FLOOKUP d l = SOME (env,ns,xs,k)) ∧
-      DISJOINT (binders e) (FDOM env ∪ set ns ∪ set xs) ∧
+    ∃cs vs ns xs k bc0 bc1.
+      (FLOOKUP d l = SOME (vs,ns,xs,k)) ∧
+      DISJOINT (binders e) (vs ∪ set ns ∪ set xs) ∧
       good_ecs cs.ecs ∧ free_labs e ⊆ FDOM cs.ecs ∧
       ALL_DISTINCT (FILTER is_Label cs.out) ∧
       EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label cs.out) ∧
