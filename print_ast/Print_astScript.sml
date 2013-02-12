@@ -232,16 +232,26 @@ val _ = Define `
     L (LongidT v))`;
 
 
+val _ = Define `
+ (id_to_tok_tree v =
+  (case v of
+      Short v =>
+        L (LongidT v)
+    | Long m v =>
+        L (LongidT ( STRCAT m (STRCAT   "."  v)))
+  ))`;
+
+
  val pat_to_tok_tree_defn = Hol_defn "pat_to_tok_tree" `
 
 (pat_to_tok_tree (Pvar v _) = var_to_tok_tree v)
 /\
 (pat_to_tok_tree (Plit l) = lit_to_tok_tree l)
 /\
-(pat_to_tok_tree (Pcon c []) = var_to_tok_tree c)
+(pat_to_tok_tree (Pcon c []) = id_to_tok_tree c)
 /\
 (pat_to_tok_tree (Pcon c ps) = N 
-  (L LparT) (N   (var_to_tok_tree c) (N   
+  (L LparT) (N   (id_to_tok_tree c) (N   
     (L LparT) (N   (join_trees (L CommaT) (MAP pat_to_tok_tree ps)) (N  
     (L RparT)  (L RparT))))))
 /\
@@ -272,17 +282,17 @@ val _ = Define `
   lit_to_tok_tree l)
 /\
 (exp_to_tok_tree indent (Con c []) =
-  var_to_tok_tree c)
+  id_to_tok_tree c)
 /\
 (exp_to_tok_tree indent (Con c es) = N 
   (L LparT) (N  
-  (var_to_tok_tree c) (N   
+  (id_to_tok_tree c) (N   
   (L LparT) (N  
   (join_trees (L CommaT) (MAP (exp_to_tok_tree indent) es)) (N   
   (L RparT)  (L RparT))))))
 /\
 (exp_to_tok_tree indent (Var v _) =
-  var_to_tok_tree v)
+  id_to_tok_tree v)
 /\
 (exp_to_tok_tree indent (Fun v _ e) = N 
   (newline indent) (N  

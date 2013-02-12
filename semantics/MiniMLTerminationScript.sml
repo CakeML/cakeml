@@ -97,16 +97,18 @@ val _ = export_rewrites["lookup_def"];
 val (pmatch_def, pmatch_ind) =
   tprove_no_defn ((pmatch_def, pmatch_ind),
   wf_rel_tac
-  `inv_image $< (λx. case x of INL (tvs,s,a,p,b,c) => pat_size (\x.0) p 
-                             | INR (tvs,s,a,ps,b,c) => pat1_size (\x.0) ps)`);
+  `inv_image $< (λx. case x of INL (tvs,_,s,a,p,b,c) => pat_size (\x.0) p 
+                             | INR (tvs,_,s,a,ps,b,c) => pat1_size (\x.0) ps)`);
 val _ = register "pmatch" pmatch_def pmatch_ind;
 
+(*
 val (pmatch'_def, pmatch'_ind) =
   tprove_no_defn ((pmatch'_def, pmatch'_ind),
   wf_rel_tac
   `inv_image $< (λx. case x of INL (tvs,s,p,b,c) => pat_size (\x.0) p 
                              | INR (tvs,s,ps,b,c) => pat1_size (\x.0) ps)`);
 val _ = register "pmatch'" pmatch'_def pmatch'_ind;
+*)
 
 val (find_recfun_def, find_recfun_ind) =
   tprove_no_defn ((find_recfun_def, find_recfun_ind),
@@ -204,11 +206,11 @@ srw_tac [] [] >|
  decide_tac,
  decide_tac,
  decide_tac,
- decide_tac,
  induct_on `es` >>
      srw_tac [] [exp_size_def] >>
      res_tac >>
      decide_tac,
+ decide_tac,
  decide_tac,
  decide_tac,
  decide_tac]);

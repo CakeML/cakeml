@@ -567,7 +567,7 @@ val Decls_Dletrec = store_thm("Decls_Dletrec",
   ``!cenv s env funs cenv1 s1 env1.
       Decls cenv s env [Dletrec NONE funs] cenv1 s1 env1 =
       ALL_DISTINCT (MAP (\(x,y,z,t,y). x) funs) /\
-      (cenv1 = cenv) /\ (env1 = build_rec_env NONE funs env) /\ (s1 = s)``,
+      (cenv1 = cenv) /\ (env1 = build_rec_env NONE funs env env) /\ (s1 = s)``,
   SIMP_TAC std_ss [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []

@@ -198,15 +198,23 @@ let var_to_tok_tree v =
   else
     L (LongidT v)
 
+let id_to_tok_tree v =
+  match v with
+    | Short v ->
+        L (LongidT v)
+    | Long m v ->
+        L (LongidT (m ^ "." ^ v))
+  end
+
 let rec
 pat_to_tok_tree (Pvar v _) = var_to_tok_tree v
 and
 pat_to_tok_tree (Plit l) = lit_to_tok_tree l
 and
-pat_to_tok_tree (Pcon c []) = var_to_tok_tree c
+pat_to_tok_tree (Pcon c []) = id_to_tok_tree c
 and
 pat_to_tok_tree (Pcon c ps) =
-  L LparT ^^ var_to_tok_tree c ^^ 
+  L LparT ^^ id_to_tok_tree c ^^ 
     L LparT ^^ join_trees (L CommaT) (List.map pat_to_tok_tree ps) ^^
     L RparT ^^ L RparT
 and
@@ -230,17 +238,17 @@ exp_to_tok_tree indent (Lit l) =
   lit_to_tok_tree l
 and
 exp_to_tok_tree indent (Con c []) =
-  var_to_tok_tree c
+  id_to_tok_tree c
 and
 exp_to_tok_tree indent (Con c es) =
   L LparT ^^
-  var_to_tok_tree c ^^ 
+  id_to_tok_tree c ^^ 
   L LparT ^^
   join_trees (L CommaT) (List.map (exp_to_tok_tree indent) es) ^^ 
   L RparT ^^ L RparT
 and
 exp_to_tok_tree indent (Var v _) =
-  var_to_tok_tree v
+  id_to_tok_tree v
 and
 exp_to_tok_tree indent (Fun v _ e) =
   newline indent ^^

@@ -23,7 +23,7 @@ type ast_pat =
     (* C(x,y) *)
     (* D *)
     (* E x *)
-  | Ast_Pcon of conN * list ast_pat
+  | Ast_Pcon of id conN * list ast_pat
     (* ref x *)
   | Ast_Pref of ast_pat
 
@@ -37,11 +37,11 @@ type ast_exp =
     (* () *)
   | Ast_Lit of lit
     (* x *)
-  | Ast_Var of varN
+  | Ast_Var of id varN
     (* C(x,y) *)
     (* D *)
     (* E x *)
-  | Ast_Con of conN * list ast_exp
+  | Ast_Con of id conN * list ast_exp
     (* fn x => e *)
   | Ast_Fun of varN * ast_exp
     (* e e *)
@@ -64,7 +64,7 @@ type ast_t =
     (* t *)
     (* num t *)
     (* (num,bool) t *)
-  | Ast_Tapp of list ast_t * typeN
+  | Ast_Tapp of list ast_t * id typeN
     (* t -> t *)
   | Ast_Tfn of ast_t * ast_t
 
@@ -165,16 +165,18 @@ elab_e bound (Ast_Handle e1 x e2) =
 and
 elab_e bound (Ast_Lit l) =
   Lit l
-and elab_e bound (Ast_Var n) =
+and elab_e bound (Ast_Var (Long m n)) =
+  Var (Long m n) None
+and elab_e bound (Ast_Var (Short n)) =
   if List.mem n bound then
-    Var n None
+    Var (Short n) None
   else
     match get_op n with
-      | Isnt -> Var n None
+      | Isnt -> Var (Short n) None
       | Is_op op ->
-          Fun "x" None (Fun "y" None (App op (Var "x" None) (Var "y" None)))
+          Fun "x" None (Fun "y" None (App op (Var (Short "x") None) (Var (Short "y") None)))
       | Is_uop uop ->
-          Fun "x" None (Uapp uop (Var "x" None))
+          Fun "x" None (Uapp uop (Var (Short "x") None))
     end
 and 
 elab_e bound (Ast_Con cn es) =
@@ -227,13 +229,17 @@ and
 elab_t type_bound (Ast_Tfn t1 t2) =
   Tfn (elab_t type_bound t1) (elab_t type_bound t2)
 and
-elab_t type_bound (Ast_Tapp ts tn) =
+elab_t type_bound (Ast_Tapp ts (Long m tn)) =
+  let ts' = List.map (elab_t type_bound) ts in
+    Tapp ts' (TC_name (Long m tn))
+and
+elab_t type_bound (Ast_Tapp ts (Short tn)) =
   let ts' = List.map (elab_t type_bound) ts in
     if List.mem tn type_bound then
-      Tapp ts' (TC_name tn)
+      Tapp ts' (TC_name (Short tn))
     else 
       match get_prim_type tn with
-        | None -> Tapp ts' (TC_name tn)
+        | None -> Tapp ts' (TC_name (Short tn))
         | Some tc -> Tapp ts' tc
       end
 

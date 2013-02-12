@@ -5,17 +5,17 @@ val _ = new_theory "determ";
 (* ------------------------- Big step determinacy ----------------------- *)
 
 val big_exp_determ = Q.store_thm ("big_exp_determ",
-`(∀cenv s env e r1.
-   evaluate cenv s env e r1 ⇒
-   ∀r2. evaluate cenv s env e r2 ⇒
+`(∀menv cenv s env e r1.
+   evaluate menv cenv s env e r1 ⇒
+   ∀r2. evaluate menv cenv s env e r2 ⇒
    (r1 = r2)) ∧
- (∀cenv s env es r1.
-   evaluate_list cenv s env es r1 ⇒
-   ∀r2. evaluate_list cenv s env es r2 ⇒
+ (∀menv cenv s env es r1.
+   evaluate_list menv cenv s env es r1 ⇒
+   ∀r2. evaluate_list menv cenv s env es r2 ⇒
    (r1 = r2)) ∧
- (∀cenv s env v pes r1.
-   evaluate_match cenv s env v pes r1 ⇒
-   ∀r2. evaluate_match cenv s env v pes r2 ⇒
+ (∀menv cenv s env v pes r1.
+   evaluate_match menv cenv s env v pes r1 ⇒
+   ∀r2. evaluate_match menv cenv s env v pes r2 ⇒
    (r1 = r2))`,
 HO_MATCH_MP_TAC evaluate_ind >>
 rw [] >>
@@ -31,6 +31,7 @@ fs [] >>
 rw [] >> 
 metis_tac []);
 
+(*
 val big_exp_determ' = Q.store_thm ("big_exp_determ'",
 `(∀s env e r1.
    evaluate' s env e r1 ⇒
@@ -57,12 +58,13 @@ res_tac >>
 fs [] >>
 rw [] >>
 metis_tac []);
+*)
 
 val big_determ = Q.store_thm ("big_determ",
-`!cenv s env ds r1.
-  evaluate_decs cenv s env ds r1 ⇒
+`!menv cenv s env ds r1.
+  evaluate_decs menv cenv s env ds r1 ⇒
   !r2.
-    evaluate_decs cenv s env ds r2
+    evaluate_decs menv cenv s env ds r2
     ⇒
     (r1 = r2)`,
 HO_MATCH_MP_TAC evaluate_decs_ind >>
@@ -80,8 +82,8 @@ metis_tac [big_exp_determ, small_big_exp_equiv, result_11, result_distinct,PAIR_
 (* ---------------------- Small step determinacy ------------------------- *)
 
 val small_exp_determ = Q.store_thm ("small_exp_determ",
-`!cenv s env e r1 r2.
-  small_eval cenv s env e [] r1 ∧ small_eval cenv s env e [] r2
+`!menv cenv s env e r1 r2.
+  small_eval menv cenv s env e [] r1 ∧ small_eval menv cenv s env e [] r2
   ⇒
   (r1 = r2)`,
 metis_tac [big_exp_determ, small_big_exp_equiv]);

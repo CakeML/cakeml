@@ -35,7 +35,7 @@ val _ = Hol_datatype `
     (* C(x,y) *)
     (* D *)
     (* E x *)
-  | Ast_Pcon of conN => ast_pat list
+  | Ast_Pcon of conN id => ast_pat list
     (* ref x *)
   | Ast_Pref of ast_pat`;
 
@@ -51,11 +51,11 @@ val _ = Hol_datatype `
     (* () *)
   | Ast_Lit of lit
     (* x *)
-  | Ast_Var of varN
+  | Ast_Var of varN id
     (* C(x,y) *)
     (* D *)
     (* E x *)
-  | Ast_Con of conN => ast_exp list
+  | Ast_Con of conN id => ast_exp list
     (* fn x => e *)
   | Ast_Fun of varN => ast_exp
     (* e e *)
@@ -80,7 +80,7 @@ val _ = Hol_datatype `
     (* t *)
     (* num t *)
     (* (num,bool) t *)
-  | Ast_Tapp of ast_t list => typeN
+  | Ast_Tapp of ast_t list => typeN id
     (* t -> t *)
   | Ast_Tfn of ast_t => ast_t`;
 
@@ -196,16 +196,18 @@ val _ = Define `
 /\
 (elab_e bound (Ast_Lit l) =
   Lit l)
-/\ (elab_e bound (Ast_Var n) =
+/\ (elab_e bound (Ast_Var (Long m n)) =
+  Var (Long m n) NONE)
+/\ (elab_e bound (Ast_Var (Short n)) =
   if MEM n bound then
-    Var n NONE
+    Var (Short n) NONE
   else
     (case get_op n of
-        Isnt => Var n NONE
+        Isnt => Var (Short n) NONE
       | Is_op op =>
-          Fun "x" NONE (Fun "y" NONE (App op (Var "x" NONE) (Var "y" NONE)))
+          Fun "x" NONE (Fun "y" NONE (App op (Var (Short "x") NONE) (Var (Short "y") NONE)))
       | Is_uop uop =>
-          Fun "x" NONE (Uapp uop (Var "x" NONE))
+          Fun "x" NONE (Uapp uop (Var (Short "x") NONE))
     ))
 /\ 
 (elab_e bound (Ast_Con cn es) =
@@ -263,13 +265,17 @@ val _ = Defn.save_defn elab_e_defn;
 (elab_t type_bound (Ast_Tfn t1 t2) =
   Tfn (elab_t type_bound t1) (elab_t type_bound t2))
 /\
-(elab_t type_bound (Ast_Tapp ts tn) =
+(elab_t type_bound (Ast_Tapp ts (Long m tn)) =
+  let ts' = MAP (elab_t type_bound) ts in
+    Tapp ts' (TC_name (Long m tn)))
+/\
+(elab_t type_bound (Ast_Tapp ts (Short tn)) =
   let ts' = MAP (elab_t type_bound) ts in
     if MEM tn type_bound then
-      Tapp ts' (TC_name tn)
+      Tapp ts' (TC_name (Short tn))
     else 
       (case get_prim_type tn of
-          NONE => Tapp ts' (TC_name tn)
+          NONE => Tapp ts' (TC_name (Short tn))
         | SOME tc0 => Tapp ts' tc0
       ))`;
 

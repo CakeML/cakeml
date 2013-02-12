@@ -8,26 +8,26 @@ val _ = new_theory "untypedSafety";
  * gives a result, and it can't do both. *)
 
 val untyped_safety_exp_step = Q.prove (
-`∀envC s env e c.
-  (e_step (envC, s, env, e, c) = Estuck) =
+`∀menv cenv s env e c.
+  (e_step (menv,cenv, s, env, e, c) = Estuck) =
   (c = []) ∧ ((?v. e = Val v) ∨ (?err. e = Exp (Raise err)))`,
 rw [e_step_def, continue_def, push_def, return_def] >>
 every_case_tac);
 
 val e_step_cenv_same = Q.store_thm("e_step_cenv_same",
-`!envC s env e c envC' s' env' e' c'.
-  (e_step (envC, s, env, e, c) = Estep (envC', s', env', e', c')) ⇒
-  (envC = envC')`,
+`!menv cenv s env e c menv' cenv' s' env' e' c'.
+  (e_step (menv,cenv, s, env, e, c) = Estep (menv',cenv', s', env', e', c')) ⇒
+  (cenv = cenv') ∧ (menv = menv')`,
 rw [e_step_def, continue_def, push_def, return_def] >>
 every_case_tac >>
 fs []);
 
 val e_step_rtc_cenv_same_lem = Q.prove (
 `!s s'. e_step_reln^* s s' ⇒
-  !envC store env e c envC' store' env' e' c'.
-  (s = (envC, store, env, e, c)) ∧
-  (s' = (envC', store', env', e', c')) ⇒
-  (envC = envC')`,
+  !menv cenv store env e c menv' cenv' store' env' e' c'.
+  (s = (menv,cenv, store, env, e, c)) ∧
+  (s' = (menv',cenv', store', env', e', c')) ⇒
+  (cenv = cenv') ∧ (menv = menv')`,
 HO_MATCH_MP_TAC RTC_INDUCT >>
 rw [] >>
 PairCases_on `s'` >>
@@ -35,37 +35,37 @@ fs [e_step_reln_def] >>
 metis_tac [e_step_cenv_same]);
 
 val e_step_rtc_cenv_same = Q.store_thm("e_step_rtc_cenv_same",
-`!envC s env e c envC' s' env' e' c'.
-  e_step_reln^* (envC, s, env, e, c) (envC', s', env', e', c')
+`!menv cenv s env e c menv' cenv' s' env' e' c'.
+  e_step_reln^* (menv,cenv, s, env, e, c) (menv',cenv', s', env', e', c')
   ⇒
-  (envC = envC')`,
+  (cenv = cenv') ∧ (menv = menv')`,
 metis_tac [e_step_rtc_cenv_same_lem]);
 
 val small_exp_safety1 = Q.prove (
-`!cenv s env e r.
-  ¬(e_diverges cenv s env e ∧ ?r. small_eval cenv s env e [] r)`,
+`!menv cenv s env e r.
+  ¬(e_diverges menv cenv s env e ∧ ?r. small_eval menv cenv s env e [] r)`,
 rw [e_diverges_def, METIS_PROVE [] ``~x ∨ ~y = y ⇒ ~x``] >>
 cases_on `r` >>
 cases_on `r'` >>
 (TRY (Cases_on `e'`)) >>
 fs [small_eval_def, e_step_reln_def] >|
-[`∀cenv'' s'' env'' e'' c''.
-       e_step (cenv,q,env',Val a,[]) ≠ Estep (cenv'',s'',env'',e'',c'')`
+[`∀menv'' cenv'' s'' env'' e'' c''.
+       e_step (menv,cenv,q,env',Val a,[]) ≠ Estep (menv'',cenv'',s'',env'',e'',c'')`
             by rw [e_step_def, continue_def] >>
      metis_tac [],
  metis_tac [e_step_result_distinct],
- `∀cenv'' s'' env'' e''' c''.
-    e_step (cenv,q,env',Exp (Raise e''),[]) ≠ Estep (cenv'',s'',env'',e''',c'')`
+ `∀menv'' cenv'' s'' env'' e''' c''.
+    e_step (menv,cenv,q,env',Exp (Raise e''),[]) ≠ Estep (menv'',cenv'',s'',env'',e''',c'')`
          by rw [e_step_def, continue_def] >>
      metis_tac []]);
 
 val small_exp_safety2 = Q.prove (
-`!cenv s env e.
-  e_diverges cenv s env e ∨ ?r. small_eval cenv s env e [] r`,
+`!menv cenv s env e.
+  e_diverges menv cenv s env e ∨ ?r. small_eval menv cenv s env e [] r`,
 rw [e_diverges_def, METIS_PROVE [] ``x ∨ y = ~x ⇒ y``, e_step_reln_def] >>
-cases_on `e_step (cenv',s',env',e',c')` >>
+cases_on `e_step (menv',cenv',s',env',e',c')` >>
 fs [untyped_safety_exp_step] >>
-`cenv = cenv'` by metis_tac [e_step_rtc_cenv_same] >|
+`(cenv = cenv') ∧ (menv = menv')` by metis_tac [e_step_rtc_cenv_same] >|
 [PairCases_on `p` >>
      fs [],
  qexists_tac `(s', Rerr Rtype_error)` >>
@@ -79,11 +79,11 @@ fs [untyped_safety_exp_step] >>
      metis_tac []]);
 
 val untyped_safety_exp = Q.store_thm ("untyped_safety_exp",
-`!cenv s env e. (?r. small_eval cenv s env e [] r) = ¬e_diverges cenv s env e`,
+`!menv cenv s env e. (?r. small_eval menv cenv s env e [] r) = ¬e_diverges menv cenv s env e`,
 metis_tac [small_exp_safety2, small_exp_safety1]);
 
 val untyped_safety = Q.store_thm ("untyped_safety",
-`!cenv s env ds. (?r. evaluate_decs cenv s env ds r) = ~diverges cenv s env ds`,
+`!menv cenv s env ds. (?r. evaluate_decs menv cenv s env ds r) = ~diverges menv cenv s env ds`,
 induct_on `ds` >>
 rw [] >-
 rw [Once evaluate_decs_cases, Once diverges_cases] >>
@@ -113,7 +113,7 @@ rw [GSYM untyped_safety_exp] >|
      fs [] >|
      [cases_on `ALL_DISTINCT (pat_bindings p [])` >>
           fs [] >|
-          [cases_on `pmatch o' cenv r0 p a emp` >>
+          [cases_on `pmatch o' menv cenv r0 p a emp` >>
                fs [] >|
                [qexists_tac `(r0, Rerr (Rraise Bind_error))` >>
                     rw [] >>
@@ -124,21 +124,18 @@ rw [GSYM untyped_safety_exp] >|
                 qpat_assum `!s2. P s2` (ASSUME_TAC o Q.SPECL [`r0`, `emp`, `l`]) >>
                     fs [merge_def, emp_def] >-
                     metis_tac [] >>
-                    `?r. evaluate_decs cenv r0 (l ++ env) ds r` by metis_tac [] >>
+                    `?r. evaluate_decs menv cenv r0 (l ++ env) ds r` by metis_tac [] >>
                     PairCases_on `r` >>
                     metis_tac [APPEND]],
            qexists_tac `r0` >>
                qexists_tac `Rtype_error` >>
                rw [] >>
-               disj1_tac >>
-               qexists_tac `a` >>
-               rw [] >>
-               cheat],
+               metis_tac []],
       qexists_tac `(r0,Rerr e')` >>
           rw []],
  metis_tac [],
- cheat,
+ metis_tac [pair_CASES],
  metis_tac [],
- cheat]);
+ metis_tac [pair_CASES]]);
 
 val _ = export_theory ();
