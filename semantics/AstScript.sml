@@ -113,7 +113,7 @@ val _ = type_abbrev( "ast_specs" , ``: ast_spec list``);
 
 val _ = Hol_datatype `
  ast_top =
-    Ast_Tmodule of mvarN => ast_specs => ast_decs
+    Ast_Tmodule of modN => ast_specs => ast_decs
   | Ast_Tdec of ast_dec`;
 
 

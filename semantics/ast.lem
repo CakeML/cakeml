@@ -91,7 +91,7 @@ type ast_spec =
 type ast_specs = list ast_spec
 
 type ast_top =
-  | Ast_Tmodule of mvarN * ast_specs * ast_decs
+  | Ast_Tmodule of modN * ast_specs * ast_decs
   | Ast_Tdec of ast_dec
 
 type ast_prog = list ast_top

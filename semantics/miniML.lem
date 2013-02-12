@@ -110,11 +110,11 @@ type log =
   | Or
 
 (* Module names *)
-type mvarN = string
+type modN = string
 (* Identifiers *)
 type id 'a =
   | Short of 'a
-  | Long of mvarN * 'a
+  | Long of modN * 'a
 (* Variable names *)
 type varN = string
 (* Constructor names (from datatype definitions) *)
@@ -221,7 +221,7 @@ type spec =
 type specs = list spec
 
 type top 'a =
-  | Tmodule of mvarN * specs * decs 'a
+  | Tmodule of modN * specs * decs 'a
   | Tdec of dec 'a
 
 type prog 'a = list (top 'a)
@@ -388,10 +388,10 @@ type envC = env conN (num * set conN)
 type envE 'a = env varN (v 'a * option (num * 'a))
 
 (* The bindings of a module *)
-type envM 'a = env mvarN (envC * envE 'a)
+type envM 'a = env modN (envC * envE 'a)
 
 val lookup_var_id : forall 'a. id varN -> envM 'a -> envE 'a -> option (v 'a * option (num * 'a))
-let rec lookup_var_id id envM envE =
+let lookup_var_id id envM envE =
   match id with
     | Short x -> lookup x envE
     | Long x y ->
@@ -402,7 +402,7 @@ let rec lookup_var_id id envM envE =
   end
 
 val lookup_con_id : forall 'a. id conN -> envM 'a -> envC -> option (num * set conN)
-let rec lookup_con_id id envM envE =
+let lookup_con_id id envM envE =
   match id with
     | Short x -> lookup x envE
     | Long x y ->
@@ -1355,6 +1355,8 @@ type tenvE =
   (* The number is how many de Bruijn type variables the typescheme binds *)
   | Bind_name of varN * num * t * tenvE
 
+type tenvM = env modN (tenvC * tenvE)
+
 let bind_tvar tvs tenv = if tvs = 0 then tenv else Bind_tvar tvs tenv
 
 val lookup_tenv : varN -> num -> tenvE -> option (num * t) 
@@ -1372,6 +1374,28 @@ lookup_tenv n inc (Bind_name n' tvs t e) =
 val bind_tenv : varN -> num -> t -> tenvE -> tenvE
 let bind_tenv n tvs t e = Bind_name n tvs t e
 
+val t_lookup_var_id : id varN -> tenvM -> tenvE -> option (num * t)
+let t_lookup_var_id id tenvM tenvE =
+  match id with
+    | Short x -> lookup_tenv x 0 tenvE
+    | Long x y ->
+        match lookup x tenvM with
+          | None -> None
+          | Some (_, tenvE') -> lookup_tenv y 0 tenvE'
+        end
+  end
+
+val t_lookup_con_id : id varN -> tenvM -> tenvC -> option (list tvarN * list t * typeN)
+let t_lookup_con_id id tenvM tenvC =
+  match id with
+    | Short x -> lookup x tenvC
+    | Long x y ->
+        match lookup x tenvM with
+          | None -> None
+          | Some (tenvC', _) -> lookup y tenvC'
+        end
+  end
+
 val num_tvs : tenvE -> num
 let rec 
 num_tvs Empty = 0
@@ -1383,24 +1407,24 @@ num_tvs (Bind_name n tvs t e) = num_tvs e
 (* A pattern matches values of a certain type and extends the type environment
  * with the pattern's binders. The number is the maximum deBruijn type variable
  * allowed. *)
-val type_p : num -> tenvC -> pat t -> t -> list (varN * t) -> bool
+val type_p : num -> tenvM -> tenvC -> pat t -> t -> list (varN * t) -> bool
 
 (* An expression has a type *)
-val type_e : tenvC -> tenvE -> exp t -> t -> bool
+val type_e : tenvM -> tenvC -> tenvE -> exp t -> t -> bool
 
 (* A list of expressions has a list of types *)
-val type_es : tenvC -> tenvE -> list (exp t) -> list t -> bool
+val type_es : tenvM -> tenvC -> tenvE -> list (exp t) -> list t -> bool
 
 (* Type a mutually recursive bundle of functions.  Unlike pattern typing, the
  * resulting environment does not extend the input environment, but just
  * represents the functions *)
-val type_funs : tenvC -> tenvE -> list (varN * option t * varN * option t * exp t) ->
+val type_funs : tenvM -> tenvC -> tenvE -> list (varN * option t * varN * option t * exp t) ->
                 list (varN * t) -> bool
 
 (* Check a declaration and update the top-level environments *)
-val type_d : tenvC -> tenvE -> dec t -> tenvC -> tenvE -> bool
+val type_d : tenvM -> tenvC -> tenvE -> dec t -> tenvC -> tenvE -> bool
 
-val type_ds : tenvC -> tenvE -> list (dec t) -> tenvC -> tenvE -> bool
+val type_ds : tenvM -> tenvC -> tenvE -> list (dec t) -> tenvC -> tenvE -> bool
 
 (* Check that the operator can have type (t1 -> t2 -> t3) *)
 val type_op : op -> t -> t -> t -> bool
@@ -1500,280 +1524,279 @@ is_value _ = false
 
 indreln
 
-forall tvs cenv n t.
+forall tvs menv cenv n t.
 check_freevars tvs [] t
 ==>
-type_p tvs cenv (Pvar n (Some t)) t [(n,t)]
+type_p tvs menv cenv (Pvar n (Some t)) t [(n,t)]
 
 and
 
-forall tvs cenv b.
+forall tvs menv cenv b.
 true
 ==>
-type_p tvs cenv (Plit (Bool b)) Tbool []
+type_p tvs menv cenv (Plit (Bool b)) Tbool []
 
 and
 
-forall tvs cenv n.
+forall tvs menv cenv n.
 true
 ==>
-type_p tvs cenv (Plit (IntLit n)) Tint []
+type_p tvs menv cenv (Plit (IntLit n)) Tint []
 
 and
 
-forall tvs cenv.
+forall tvs menv cenv.
 true
 ==>
-type_p tvs cenv (Plit Unit) Tunit []
+type_p tvs menv cenv (Plit Unit) Tunit []
 
 and
 
-(* TODO: Allow module references *)
-forall tvs cenv cn ps ts tvs' tn ts' tenv.
+(* TODO: allow module-qualified type names *)
+forall tvs menv cenv cn ps ts tvs' tn ts' tenv.
 List.for_all (check_freevars tvs []) ts' &&
 List.length ts' = List.length tvs' &&
-type_ps tvs cenv ps (List.map (type_subst (List.combine tvs' ts')) ts) tenv &&
-lookup cn cenv = Some (tvs', ts, tn)
+type_ps tvs menv cenv ps (List.map (type_subst (List.combine tvs' ts')) ts) tenv &&
+t_lookup_con_id cn menv cenv = Some (tvs', ts, tn)
 ==>
-type_p tvs cenv (Pcon (Short cn) ps) (Tapp ts' (TC_name (Short tn))) tenv
+type_p tvs menv cenv (Pcon cn ps) (Tapp ts' (TC_name (Short tn))) tenv
 
 and
 
-forall tvs cenv p t tenv.
-type_p tvs cenv p t tenv
+forall tvs menv cenv p t tenv.
+type_p tvs menv cenv p t tenv
 ==>
-type_p tvs cenv (Pref p) (Tref t) tenv
+type_p tvs menv cenv (Pref p) (Tref t) tenv
 
 and
 
-forall tvs cenv.
+forall tvs menv cenv.
 true
 ==>
-type_ps tvs cenv [] [] []
+type_ps tvs menv cenv [] [] []
 
 and
 
-forall tvs cenv p ps t ts tenv tenv'.
-type_p tvs cenv p t tenv &&
-type_ps tvs cenv ps ts tenv'
+forall tvs menv cenv p ps t ts tenv tenv'.
+type_p tvs menv cenv p t tenv &&
+type_ps tvs menv cenv ps ts tenv'
 ==>
-type_ps tvs cenv (p::ps) (t::ts) (tenv'@tenv)
+type_ps tvs menv cenv (p::ps) (t::ts) (tenv'@tenv)
 
 indreln
 
-forall cenv tenv b.
+forall menv cenv tenv b.
 true
 ==>
-type_e cenv tenv (Lit (Bool b)) Tbool
+type_e menv cenv tenv (Lit (Bool b)) Tbool
 
 and
 
-forall cenv tenv n.
+forall menv cenv tenv n.
 true
 ==>
-type_e cenv tenv (Lit (IntLit n)) Tint
+type_e menv cenv tenv (Lit (IntLit n)) Tint
 
 and
 
-forall cenv tenv.
+forall menv cenv tenv.
 true
 ==>
-type_e cenv tenv (Lit Unit) Tunit
+type_e menv cenv tenv (Lit Unit) Tunit
 
 and
 
-forall cenv tenv err t.
+forall menv cenv tenv err t.
 check_freevars (num_tvs tenv) [] t
 ==>
-type_e cenv tenv (Raise err) t
+type_e menv cenv tenv (Raise err) t
 
 and
 
-forall cenv tenv e1 var e2 t.
-type_e cenv tenv e1 t &&
-type_e cenv (bind_tenv var 0 Tint tenv) e2 t
+forall menv cenv tenv e1 var e2 t.
+type_e menv cenv tenv e1 t &&
+type_e menv cenv (bind_tenv var 0 Tint tenv) e2 t
 ==>
-type_e cenv tenv (Handle e1 var e2) t
+type_e menv cenv tenv (Handle e1 var e2) t
 
 and
 
-(* TODO: allow module references *)
-forall cenv tenv cn es tvs tn ts' ts.
+(* TODO: allow module-qualified type names *)
+forall menv cenv tenv cn es tvs tn ts' ts.
 List.for_all (check_freevars (num_tvs tenv) []) ts' &&
 List.length tvs = List.length ts' &&
-type_es cenv tenv es (List.map (type_subst (List.combine tvs ts')) ts) &&
-lookup cn cenv = Some (tvs, ts, tn)
+type_es menv cenv tenv es (List.map (type_subst (List.combine tvs ts')) ts) &&
+t_lookup_con_id cn menv cenv = Some (tvs, ts, tn)
 ==>
-type_e cenv tenv (Con (Short cn) es) (Tapp ts' (TC_name (Short tn)))
+type_e menv cenv tenv (Con cn es) (Tapp ts' (TC_name (Short tn)))
 
 and
 
-(* TODO: allow module references *)
-forall cenv tenv n t targs tvs.
+forall menv cenv tenv n t targs tvs.
 (tvs = List.length targs) &&
 List.for_all (check_freevars (num_tvs tenv) []) targs &&
-(lookup_tenv n 0 tenv = Some (tvs,t))
+(t_lookup_var_id n menv tenv = Some (tvs,t))
 ==>
-type_e cenv tenv (Var (Short n) (Some targs)) (deBruijn_subst 0 targs t)
+type_e menv cenv tenv (Var n (Some targs)) (deBruijn_subst 0 targs t)
 
 and
 
-forall cenv tenv n e t1 t2.
+forall menv cenv tenv n e t1 t2.
 check_freevars (num_tvs tenv) [] t1 &&
-type_e cenv (bind_tenv n 0 t1 tenv) e t2
+type_e menv cenv (bind_tenv n 0 t1 tenv) e t2
 ==>
-type_e cenv tenv (Fun n (Some t1) e) (Tfn t1 t2)
+type_e menv cenv tenv (Fun n (Some t1) e) (Tfn t1 t2)
 
 and
 
-forall cenv tenv uop e t1 t2.
-type_e cenv tenv e t1 &&
+forall menv cenv tenv uop e t1 t2.
+type_e menv cenv tenv e t1 &&
 type_uop uop t1 t2
 ==>
-type_e cenv tenv (Uapp uop e) t2
+type_e menv cenv tenv (Uapp uop e) t2
 
 and
 
-forall cenv tenv op e1 e2 t1 t2 t3.
-type_e cenv tenv e1 t1 &&
-type_e cenv tenv e2 t2 &&
+forall menv cenv tenv op e1 e2 t1 t2 t3.
+type_e menv cenv tenv e1 t1 &&
+type_e menv cenv tenv e2 t2 &&
 type_op op t1 t2 t3
 ==>
-type_e cenv tenv (App op e1 e2) t3
+type_e menv cenv tenv (App op e1 e2) t3
 
 and
 
-forall cenv tenv l e1 e2.
-type_e cenv tenv e1 Tbool &&
-type_e cenv tenv e2 Tbool
+forall menv cenv tenv l e1 e2.
+type_e menv cenv tenv e1 Tbool &&
+type_e menv cenv tenv e2 Tbool
 ==>
-type_e cenv tenv (Log l e1 e2) Tbool
+type_e menv cenv tenv (Log l e1 e2) Tbool
 
 and
 
-forall cenv tenv e1 e2 e3 t.
-type_e cenv tenv e1 Tbool &&
-type_e cenv tenv e2 t &&
-type_e cenv tenv e3 t
+forall menv cenv tenv e1 e2 e3 t.
+type_e menv cenv tenv e1 Tbool &&
+type_e menv cenv tenv e2 t &&
+type_e menv cenv tenv e3 t
 ==>
-type_e cenv tenv (If e1 e2 e3) t
+type_e menv cenv tenv (If e1 e2 e3) t
 
 and
 
-forall cenv tenv e pes t1 t2.
-type_e cenv tenv e t1 &&
+forall menv cenv tenv e pes t1 t2.
+type_e menv cenv tenv e t1 &&
 (pes <> []) &&
 (forall ((p,e) MEM pes) . exists tenv'.
    all_distinct (pat_bindings p []) &&
-   type_p (num_tvs tenv) cenv p t1 tenv' &&
-   type_e cenv (bind_var_list 0 tenv' tenv) e t2)
+   type_p (num_tvs tenv) menv cenv p t1 tenv' &&
+   type_e menv cenv (bind_var_list 0 tenv' tenv) e t2)
 ==>
-type_e cenv tenv (Mat e pes) t2
+type_e menv cenv tenv (Mat e pes) t2
 
 and
 
-forall cenv tenv n e1 e2 t1 t2 tvs.
+forall menv cenv tenv n e1 e2 t1 t2 tvs.
 is_value e1 &&
-type_e cenv (bind_tvar tvs tenv) e1 t1 &&
-type_e cenv (bind_tenv n tvs t1 tenv) e2 t2
+type_e menv cenv (bind_tvar tvs tenv) e1 t1 &&
+type_e menv cenv (bind_tenv n tvs t1 tenv) e2 t2
 ==>
-type_e cenv tenv (Let (Some tvs) n (Some t1) e1 e2) t2
+type_e menv cenv tenv (Let (Some tvs) n (Some t1) e1 e2) t2
 
 and
 
-forall cenv tenv n e1 e2 t1 t2.
-type_e cenv tenv e1 t1 &&
-type_e cenv (bind_tenv n 0 t1 tenv) e2 t2
+forall menv cenv tenv n e1 e2 t1 t2.
+type_e menv cenv tenv e1 t1 &&
+type_e menv cenv (bind_tenv n 0 t1 tenv) e2 t2
 ==>
-type_e cenv tenv (Let (Some 0) n (Some t1) e1 e2) t2
+type_e menv cenv tenv (Let (Some 0) n (Some t1) e1 e2) t2
 
 and
 
-forall cenv tenv funs e t tenv' tvs.
-type_funs cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
-type_e cenv (bind_var_list tvs tenv' tenv) e t
+forall menv cenv tenv funs e t tenv' tvs.
+type_funs menv cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
+type_e menv cenv (bind_var_list tvs tenv' tenv) e t
 ==>
-type_e cenv tenv (Letrec (Some tvs) funs e) t
+type_e menv cenv tenv (Letrec (Some tvs) funs e) t
 
 and
 
-forall cenv tenv.
+forall menv cenv tenv.
 true
 ==>
-type_es cenv tenv [] []
+type_es menv cenv tenv [] []
 
 and
 
-forall cenv tenv e es t ts.
-type_e cenv tenv e t &&
-type_es cenv tenv es ts
+forall menv cenv tenv e es t ts.
+type_e menv cenv tenv e t &&
+type_es menv cenv tenv es ts
 ==>
-type_es cenv tenv (e::es) (t::ts)
+type_es menv cenv tenv (e::es) (t::ts)
 
 and
 
-forall cenv env.
+forall menv cenv env.
 true
 ==>
-type_funs cenv env [] []
+type_funs menv cenv env [] []
 
 and
 
-forall cenv env fn n e funs env' t1 t2.
+forall menv cenv env fn n e funs env' t1 t2.
 check_freevars (num_tvs env) [] (Tfn t1 t2) &&
-type_e cenv (bind_tenv n 0 t1 env) e t2 &&
-type_funs cenv env funs env' &&
+type_e menv cenv (bind_tenv n 0 t1 env) e t2 &&
+type_funs menv cenv env funs env' &&
 lookup fn env' = None
 ==>
-type_funs cenv env ((fn, Some (Tfn t1 t2), n, Some t1, e)::funs) ((fn, Tfn t1 t2)::env')
+type_funs menv cenv env ((fn, Some (Tfn t1 t2), n, Some t1, e)::funs) ((fn, Tfn t1 t2)::env')
 
 indreln
 
-forall tvs cenv tenv p e t tenv'.
+forall tvs menv cenv tenv p e t tenv'.
 is_value e &&
 all_distinct (pat_bindings p []) &&
-type_p tvs cenv p t tenv' &&
-type_e cenv (bind_tvar tvs tenv) e t
+type_p tvs menv cenv p t tenv' &&
+type_e menv cenv (bind_tvar tvs tenv) e t
 ==>
-type_d cenv tenv (Dlet (Some tvs) p e) emp (bind_var_list tvs tenv' tenv)
+type_d menv cenv tenv (Dlet (Some tvs) p e) emp (bind_var_list tvs tenv' tenv)
 
 and
 
-forall cenv tenv p e t tenv'.
+forall menv cenv tenv p e t tenv'.
 all_distinct (pat_bindings p []) &&
-type_p 0 cenv p t tenv' &&
-type_e cenv tenv e t
+type_p 0 menv cenv p t tenv' &&
+type_e menv cenv tenv e t
 ==>
-type_d cenv tenv (Dlet (Some 0) p e) emp (bind_var_list 0 tenv' tenv)
+type_d menv cenv tenv (Dlet (Some 0) p e) emp (bind_var_list 0 tenv' tenv)
 
 and
 
-forall cenv tenv funs tenv' tvs.
-type_funs cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv'
+forall menv cenv tenv funs tenv' tvs.
+type_funs menv cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv'
 ==>
-type_d cenv tenv (Dletrec (Some tvs) funs) emp (bind_var_list tvs tenv' tenv)
+type_d menv cenv tenv (Dletrec (Some tvs) funs) emp (bind_var_list tvs tenv' tenv)
 
 and
 
-forall cenv tenv tdecs.
+forall menv cenv tenv tdecs.
 check_ctor_tenv cenv tdecs
 ==>
-type_d cenv tenv (Dtype tdecs) (build_ctor_tenv tdecs) tenv
+type_d menv cenv tenv (Dtype tdecs) (build_ctor_tenv tdecs) tenv
 
 indreln
 
-forall cenv tenv.
+forall menv cenv tenv.
 true
 ==>
-type_ds cenv tenv [] emp tenv
+type_ds menv cenv tenv [] emp tenv
 
 and
 
-forall cenv tenv d ds cenv' tenv' cenv'' tenv''.
-type_d cenv tenv d cenv' tenv' &&
-type_ds (merge (List.rev cenv') cenv) tenv' ds cenv'' tenv''
+forall menv cenv tenv d ds cenv' tenv' cenv'' tenv''.
+type_d menv cenv tenv d cenv' tenv' &&
+type_ds menv (merge (List.rev cenv') cenv) tenv' ds cenv'' tenv''
 ==>
-type_ds cenv tenv (d::ds) (merge cenv' cenv'') tenv''
+type_ds menv cenv tenv (d::ds) (merge cenv' cenv'') tenv''
 
 (* ------------------------------------------------------------------------ *) 
 (*   Auxiliary definitions used in the proofs                               *)
@@ -1784,119 +1807,119 @@ type tenvS = env num t
 
 (* A value has a type *)
 (* The number is how many deBruijn type variables are bound in the context. *)
-val type_v : num -> tenvC -> tenvS -> v t -> t -> bool
+val type_v : num -> tenvM -> tenvC -> tenvS -> v t -> t -> bool
 
 (* A value environment has a corresponding type environment.  Since all of the
  * entries in the environment are values, and values have no free variables,
  * each entry in the environment can be typed in the empty environment (if at
  * all) *)
-val type_env : tenvC -> tenvS -> envE t -> tenvE -> bool
+val type_env : tenvM -> tenvC -> tenvS -> envE t -> tenvE -> bool
 
 (* The type of the store *)
-val type_s : tenvC -> tenvS -> store t -> bool
+val type_s : tenvM -> tenvC -> tenvS -> store t -> bool
 
 (* An evaluation context has the second type when its hole is filled with a
  * value of the first type. *)
 (* The number is how many deBruijn type variables are bound in the context.
  * This is only used for constructor contexts, because the value restriction 
  * ensures that no other contexts can be created under a let binding. *)
-val type_ctxt : num -> tenvC -> tenvS -> tenvE -> ctxt_frame t -> t -> t -> bool
-val type_ctxts : num -> tenvC -> tenvS -> list (ctxt t) -> t -> t -> bool
-val type_state : num -> tenvC -> tenvS -> state t -> t -> bool
+val type_ctxt : num -> tenvM -> tenvC -> tenvS -> tenvE -> ctxt_frame t -> t -> t -> bool
+val type_ctxts : num -> tenvM -> tenvC -> tenvS -> list (ctxt t) -> t -> t -> bool
+val type_state : num -> tenvM -> tenvC -> tenvS -> state t -> t -> bool
 val context_invariant : num -> list (ctxt t) -> num -> bool
 
 indreln
 
-forall tvs cenv senv b.
+forall tvs menv cenv senv b.
 true
 ==>
-type_v tvs cenv senv (Litv (Bool b)) Tbool
+type_v tvs menv cenv senv (Litv (Bool b)) Tbool
 
 and
 
-forall tvs cenv senv n.
+forall tvs menv cenv senv n.
 true
 ==>
-type_v tvs cenv senv (Litv (IntLit n)) Tint
+type_v tvs menv cenv senv (Litv (IntLit n)) Tint
 
 and
 
-forall tvs cenv senv.
+forall tvs menv cenv senv.
 true
 ==>
-type_v tvs cenv senv (Litv Unit) Tunit
+type_v tvs menv cenv senv (Litv Unit) Tunit
 
 and
 
-(* TODO: allow module references *)
-forall tvs cenv senv cn vs tvs' tn ts' ts.
+(* TODO: allow module-qualified type names *)
+forall tvs menv cenv senv cn vs tvs' tn ts' ts.
 List.for_all (check_freevars tvs []) ts' &&
 List.length tvs' = List.length ts' &&
-type_vs tvs cenv senv vs (List.map (type_subst (List.combine tvs' ts')) ts) &&
-lookup cn cenv = Some (tvs', ts, tn)
+type_vs tvs menv cenv senv vs (List.map (type_subst (List.combine tvs' ts')) ts) &&
+t_lookup_con_id cn menv cenv = Some (tvs', ts, tn)
 ==>
-type_v tvs cenv senv (Conv (Short cn) vs) (Tapp ts' (TC_name (Short tn)))
+type_v tvs menv cenv senv (Conv cn vs) (Tapp ts' (TC_name (Short tn)))
 
 and
 
-forall tvs cenv senv env tenv n e t1 t2.
-type_env cenv senv env tenv &&
+forall tvs menv cenv senv env tenv n e t1 t2.
+type_env menv cenv senv env tenv &&
 check_freevars tvs [] t1 &&
-type_e cenv (bind_tenv n 0 t1 (bind_tvar tvs tenv)) e t2
+type_e menv cenv (bind_tenv n 0 t1 (bind_tvar tvs tenv)) e t2
 ==>
-type_v tvs cenv senv (Closure env n (Some t1) e) (Tfn t1 t2)
+type_v tvs menv cenv senv (Closure env n (Some t1) e) (Tfn t1 t2)
 
 and
 
-forall tvs cenv senv env funs n t tenv tenv'.
-type_env cenv senv env tenv &&
-type_funs cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
+forall tvs menv cenv senv env funs n t tenv tenv'.
+type_env menv cenv senv env tenv &&
+type_funs menv cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
 lookup n tenv' = Some t
 ==>
-type_v tvs cenv senv (Recclosure env funs n) t
+type_v tvs menv cenv senv (Recclosure env funs n) t
 
 and
 
-forall tvs cenv senv n t.
+forall tvs menv cenv senv n t.
 check_freevars 0 [] t &&
 (lookup n senv = Some t)
 ==>
-type_v tvs cenv senv (Loc n) (Tref t)
+type_v tvs menv cenv senv (Loc n) (Tref t)
 
 and
 
-forall tvs cenv senv.
+forall tvs menv cenv senv.
 true
 ==>
-type_vs tvs cenv senv [] []
+type_vs tvs menv cenv senv [] []
 
 and
 
-forall tvs cenv senv v vs t ts.
-type_v tvs cenv senv v t &&
-type_vs tvs cenv senv vs ts
+forall tvs menv cenv senv v vs t ts.
+type_v tvs menv cenv senv v t &&
+type_vs tvs menv cenv senv vs ts
 ==>
-type_vs tvs cenv senv (v::vs) (t::ts)
+type_vs tvs menv cenv senv (v::vs) (t::ts)
 
 and
 
-forall cenv senv.
+forall menv cenv senv.
 true
 ==>
-type_env cenv senv emp Empty
+type_env menv cenv senv emp Empty
 
 and
 
-forall cenv senv n v env t tenv tvs.
-type_v tvs cenv senv v t &&
-type_env cenv senv env tenv
+forall menv cenv senv n v env t tenv tvs.
+type_v tvs menv cenv senv v t &&
+type_env menv cenv senv env tenv
 ==>
-type_env cenv senv (bind n (v,Some (tvs,t)) env) (bind_tenv n tvs t tenv)
+type_env menv cenv senv (bind n (v,Some (tvs,t)) env) (bind_tenv n tvs t tenv)
 
-let type_s cenv senv s =
+let type_s menv cenv senv s =
   forall l. 
     ((exists t. lookup l senv = Some t) = (exists v. store_lookup l s = Some v)) &&
-    forall t v. ((lookup l senv = Some t) && (store_lookup l s = Some v)) --> type_v 0 cenv senv v t
+    forall t v. ((lookup l senv = Some t) && (store_lookup l s = Some v)) --> type_v 0 menv cenv senv v t
 
 indreln 
 
@@ -1971,129 +1994,129 @@ context_invariant dec_tvs ((Cuapp op (),env) :: c) 0
 
 indreln
 
-forall tvs cenv senv tenv x e t.
-type_e cenv (bind_tenv x 0 Tint tenv) e t
+forall tvs menv cenv senv tenv x e t.
+type_e menv cenv (bind_tenv x 0 Tint tenv) e t
 ==>
-type_ctxt tvs cenv senv tenv (Chandle () x e) t t
+type_ctxt tvs menv cenv senv tenv (Chandle () x e) t t
 
 and
 
-forall tvs cenv senv tenv uop t1 t2.
+forall tvs menv cenv senv tenv uop t1 t2.
 check_freevars tvs [] t1 &&
 check_freevars tvs [] t2 &&
 type_uop uop t1 t2
 ==>
-type_ctxt tvs cenv senv tenv (Cuapp uop ()) t1 t2
+type_ctxt tvs menv cenv senv tenv (Cuapp uop ()) t1 t2
 
 and
 
-forall tvs cenv senv tenv e op t1 t2 t3.
+forall tvs menv cenv senv tenv e op t1 t2 t3.
 check_freevars tvs [] t1 &&
 check_freevars tvs [] t3 &&
-type_e cenv tenv e t2 &&
+type_e menv cenv tenv e t2 &&
 type_op op t1 t2 t3
 ==>
-type_ctxt tvs cenv senv tenv (Capp1 op () e) t1 t3
+type_ctxt tvs menv cenv senv tenv (Capp1 op () e) t1 t3
 
 and
 
-forall tvs cenv senv tenv op v t1 t2 t3.
+forall tvs menv cenv senv tenv op v t1 t2 t3.
 check_freevars tvs [] t2 &&
 check_freevars tvs [] t3 &&
-type_v 0 cenv senv v t1 &&
+type_v 0 menv cenv senv v t1 &&
 type_op op t1 t2 t3
 ==>
-type_ctxt tvs cenv senv tenv (Capp2 op v ()) t2 t3
+type_ctxt tvs menv cenv senv tenv (Capp2 op v ()) t2 t3
 
 and
 
-forall tvs cenv senv tenv op e.
-type_e cenv tenv e Tbool
+forall tvs menv cenv senv tenv op e.
+type_e menv cenv tenv e Tbool
 ==>
-type_ctxt tvs cenv senv tenv (Clog op () e) Tbool Tbool
+type_ctxt tvs menv cenv senv tenv (Clog op () e) Tbool Tbool
 
 and
 
-forall tvs cenv senv tenv e1 e2 t.
-type_e cenv tenv e1 t &&
-type_e cenv tenv e2 t
+forall tvs menv cenv senv tenv e1 e2 t.
+type_e menv cenv tenv e1 t &&
+type_e menv cenv tenv e2 t
 ==>
-type_ctxt tvs cenv senv tenv (Cif () e1 e2) Tbool t
+type_ctxt tvs menv cenv senv tenv (Cif () e1 e2) Tbool t
 
 and
 
-forall tvs cenv senv tenv t1 t2 pes.
+forall tvs menv cenv senv tenv t1 t2 pes.
 ((pes = []) --> (check_freevars tvs [] t1 && check_freevars 0 [] t2)) &&
 (forall ((p,e) MEM pes) . exists tenv'.
    all_distinct (pat_bindings p []) &&
-   type_p tvs cenv p t1 tenv' &&
-   type_e cenv (bind_var_list 0 tenv' tenv) e t2)
+   type_p tvs menv cenv p t1 tenv' &&
+   type_e menv cenv (bind_var_list 0 tenv' tenv) e t2)
 ==>
-type_ctxt tvs cenv senv tenv (Cmat () pes) t1 t2
+type_ctxt tvs menv cenv senv tenv (Cmat () pes) t1 t2
 
 and
 
-forall tvs cenv senv tenv e t1 t2 n tvs'.
+forall tvs menv cenv senv tenv e t1 t2 n tvs'.
 check_freevars tvs [] t1 &&
-type_e cenv (bind_tenv n tvs' t1 tenv) e t2
+type_e menv cenv (bind_tenv n tvs' t1 tenv) e t2
 ==>
-type_ctxt tvs cenv senv tenv (Clet (Some tvs') n (Some t1) () e) t1 t2
+type_ctxt tvs menv cenv senv tenv (Clet (Some tvs') n (Some t1) () e) t1 t2
 
 and
 
-(* TODO: allow module references *)
-forall tvs cenv senv tenv cn vs es ts1 ts2 t tn ts' tvs'.
+(* TODO: allow module-qualified type names *)
+forall tvs menv cenv senv tenv cn vs es ts1 ts2 t tn ts' tvs'.
 List.for_all (check_freevars tvs []) ts' &&
 List.length tvs' = List.length ts' &&
-type_vs tvs cenv senv (List.rev vs)
+type_vs tvs menv cenv senv (List.rev vs)
         (List.map (type_subst (List.combine tvs' ts')) ts1) &&
-type_es cenv (bind_tvar tvs tenv) es (List.map (type_subst (List.combine tvs' ts')) ts2) &&
-lookup cn cenv = Some (tvs', ts1@[t]@ts2, tn)
+type_es menv cenv (bind_tvar tvs tenv) es (List.map (type_subst (List.combine tvs' ts')) ts2) &&
+t_lookup_con_id cn menv cenv = Some (tvs', ts1@[t]@ts2, tn)
 ==>
-type_ctxt tvs cenv senv tenv (Ccon (Short cn) vs () es) (type_subst (List.combine tvs' ts') t)
+type_ctxt tvs menv cenv senv tenv (Ccon cn vs () es) (type_subst (List.combine tvs' ts') t)
           (Tapp ts' (TC_name (Short tn)))
 
 indreln
 
-forall dec_tvs tenvC senv t.
+forall dec_tvs tenvM tenvC senv t.
 check_freevars dec_tvs [] t
 ==>
-type_ctxts dec_tvs tenvC senv [] t t
+type_ctxts dec_tvs tenvM tenvC senv [] t t
 
 and
 
-forall dec_tvs tenvC senv c env cs tenv t1 t2 t3 tvs.
-type_env tenvC senv env tenv &&
+forall dec_tvs tenvM tenvC senv c env cs tenv t1 t2 t3 tvs.
+type_env tenvM tenvC senv env tenv &&
 context_invariant dec_tvs ((c,env)::cs) tvs &&
-type_ctxt tvs tenvC senv tenv c t1 t2 &&
-type_ctxts dec_tvs tenvC senv cs t2 t3
+type_ctxt tvs tenvM tenvC senv tenv c t1 t2 &&
+type_ctxts dec_tvs tenvM tenvC senv cs t2 t3
 ==>
-type_ctxts dec_tvs tenvC senv ((c,env)::cs) t1 t3
+type_ctxts dec_tvs tenvM tenvC senv ((c,env)::cs) t1 t3
 
 indreln
 
 (* TODO: check envM *)
-forall dec_tvs tenvC senv envM envC s env e c t1 t2 tenv tvs.
-type_ctxts dec_tvs tenvC senv c t1 t2 &&
-type_env tenvC senv env tenv &&
-type_s tenvC senv s &&
+forall dec_tvs tenvM tenvC senv envM envC s env e c t1 t2 tenv tvs.
+type_ctxts dec_tvs tenvM tenvC senv c t1 t2 &&
+type_env tenvM tenvC senv env tenv &&
+type_s tenvM tenvC senv s &&
 context_invariant dec_tvs c tvs &&
-type_e tenvC (bind_tvar tvs tenv) e t1 &&
+type_e tenvM tenvC (bind_tvar tvs tenv) e t1 &&
 ((tvs <> 0) --> is_value e)
 ==>
-type_state dec_tvs tenvC senv (envM,envC, s, env, Exp e, c) t2
+type_state dec_tvs tenvM tenvC senv (envM,envC, s, env, Exp e, c) t2
 
 and
 
 (* TODO: check envM *)
-forall dec_tvs tenvC senv envM envC s env v c t1 t2 tenv tvs.
-type_ctxts dec_tvs tenvC senv c t1 t2 &&
-type_env tenvC senv env tenv &&
-type_s tenvC senv s &&
+forall dec_tvs tenvM tenvC senv envM envC s env v c t1 t2 tenv tvs.
+type_ctxts dec_tvs tenvM tenvC senv c t1 t2 &&
+type_env tenvM tenvC senv env tenv &&
+type_s tenvM tenvC senv s &&
 context_invariant dec_tvs c tvs &&
-type_v tvs tenvC senv v t1
+type_v tvs tenvM tenvC senv v t1
 ==>
-type_state dec_tvs tenvC senv (envM, envC, s, env, Val v, c) t2
+type_state dec_tvs tenvM tenvC senv (envM, envC, s, env, Val v, c) t2
 
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 
