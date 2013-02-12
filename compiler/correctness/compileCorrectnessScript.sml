@@ -2849,6 +2849,27 @@ val compile_val = store_thm("compile_val",
     disch_then(qx_choosel_then[`bvs`,`rfs`]strip_assume_tac) >>
     conj_tac >- (
       srw_tac[DNF_ss][code_for_push_def,LET_THM] >>
+      qmatch_assum_abbrev_tac`Cv_bv (ps',c,l2a,rf) cl bf` >>
+      `Cv_bv (DRESTRICT sm (FDOM s''), c, l2a, rfs) cl bf` by (
+        match_mp_tac (MP_CANON Cv_bv_refs) >> simp[] >>
+        qexists_tac`rf` >>
+        conj_tac >- (
+          match_mp_tac (MP_CANON Cv_bv_SUBMAP) >> simp[] >>
+          qexists_tac`ps'` >>
+          rw[Abbr`ps'`] >- (
+            match_mp_tac DRESTRICT_SUBSET_SUBMAP >> rw[] ) >>
+          fs[SUBMAP_DEF,FDOM_DRESTRICT] ) >>
+        qx_gen_tac `p` >> strip_tac >>
+        `p ∉ FRANGE (DRESTRICT sm (FDOM s'))` by (
+          fs[IN_FRANGE,DRESTRICT_DEF,SUBSET_DEF] >>
+          metis_tac[] ) >>
+        fs[SUBMAP_DEF,FDOM_DRESTRICT,FLOOKUP_DEF,DRESTRICT_DEF,Abbr`ps'`] ) >>
+      pop_assum mp_tac >>
+      simp[Abbr`cl`,Once Cv_bv_cases] >>
+      disch_then(qx_choosel_then[`a`,`bve`,`b`,`i'`,`l`,`xs`]strip_assume_tac) >>
+      `i' = i` by ( Cases_on`ns' = []` >> fs[] ) >> rw[] >>
+      fs[] >> rw[] >> fs[] >> rw[] >>
+      good_code_env_def
 
     (* >>
 
@@ -2857,9 +2878,6 @@ val compile_val = store_thm("compile_val",
 
     want to prove that Cv_bv s'' CRecClos bf too
     Cv_bv_SUBMAP
-    qpat_assum`Cv_bv PP (CRecClos env' ns' defs n) bf`mp_tac>>
-    simp[Once Cv_bv_cases] >>
-    disch_then(qx_choosel_then[`a`,`bve`,`b`,`l`]strip_assume_tac) >>
     fs[] >> rw[] >>
     fs[good_code_env_def,FEVERY_DEF] >>
     qpat_assum`∀x. x ∈ FDOM c ⇒ P`(qspec_then`l`mp_tac) >>
