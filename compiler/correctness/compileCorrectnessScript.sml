@@ -2803,59 +2803,51 @@ val compile_val = store_thm("compile_val",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- (
-    cheat
-
-    simp[compile_def,LET_THM] >>
+    simp[compile_def,FOLDL_UNION_BIGUNION] >>
     rpt gen_tac >> strip_tac >>
     simp_tac(srw_ss()++ETA_ss)[] >>
     rpt gen_tac >> strip_tac >>
-    rpt gen_tac >> strip_tac >>
-    rpt BasicProvers.VAR_EQ_TAC >>
     rfs[] >> fs[] >>
-    POP_ASSUM_LIST(map_every assume_tac) >>
+    BasicProvers.VAR_EQ_TAC >>
     Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
-    first_x_assum(qspec_then`sm`mp_tac) >>
+    POP_ASSUM_LIST(map_every assume_tac) >>
+    first_x_assum(qspecl_then[`sm`,`cs`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE (compile cs0 exp).out`]mp_tac) >>
     `FDOM s ⊆ FDOM s' ∧ FDOM s' ⊆ FDOM s'' ∧ FDOM s'' ⊆ FDOM s'''` by PROVE_TAC[Cevaluate_store_SUBSET,FST] >>
     `FDOM s' ⊆ FDOM sm` by PROVE_TAC[SUBSET_TRANS] >>
     fs[ALL_DISTINCT_APPEND] >>
-    disch_then(qspecl_then[`bc0`,`bs with code := bc0 ++ REVERSE (compile cs0 exp).out`,`cs0`]mp_tac) >>
-    simp[Abbr`cs0`] >>
-    disch_then(qx_choosel_then[`bf`,`rf`]strip_assume_tac) >>
-    Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
-    qabbrev_tac`cs1 = compile cs0 exp` >>
+    qabbrev_tac`cs1 = FOLDL compile (compile cs0 exp) exps` >>
+    `∃bcs. cs1.out = bcs ++ (compile cs0 exp).out` by (
+      qunabbrev_tac`cs1` >>
+      MATCH_ACCEPT_TAC FOLDL_compile_append_out ) >>
+    reverse (Cases_on `∃bc10. code = REVERSE (compile cs0 exp).out ++ REVERSE bcs ++ bc10`) >- (
+      fs[] >> rw[] >> fs[] ) >> fs[] >>
+    disch_then(mp_tac o SIMP_RULE(srw_ss()++DNF_ss)[code_for_push_def,LET_THM] o CONJUNCT1) >>
+    disch_then(qx_choosel_then[`rf`,`bf`]strip_assume_tac) >>
     qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
-    first_x_assum(qspec_then`sm`mp_tac) >>
+    first_x_assum(qspecl_then[`sm`,`compile cs0 exp`,`bs1 with code := bs.code`,`bce`,`bcr`,`bc0`]mp_tac) >>
+    simp[Abbr`bs1`] >>
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
       map_every qunabbrev_tac[`P`,`Q`,`R`] >>
-      simp[] >>
+      simp[Abbr`cs0`,compile_sz] >>
       conj_tac >- PROVE_TAC[SUBSET_TRANS] >>
-      conj_tac >- PROVE_TAC[Cevaluate_Clocs,FST] >>
-      PROVE_TAC[SUBSET_TRANS] ) >>
-    simp[] >>
-    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
-    disch_then(qspecl_then[`bc0`,`bs1 with code := bc0 ++ REVERSE (FOLDL compile cs1 exps).out`,`cs1`]mp_tac) >>
-    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
-    `P` by (
-      map_every qunabbrev_tac[`P`,`Q`,`R`] >>
-      simp[] >>
-      conj_tac >- simp[Abbr`cs1`,Abbr`cs0`] >>
-      conj_tac >- simp[Abbr`cs1`,Abbr`cs0`] >>
-      conj_tac >- simp[Abbr`cs1`,Abbr`cs0`,compile_nontail] >>
-      conj_tac >- simp[Abbr`cs1`,Abbr`cs0`] >>
-      conj_tac >- simp[Abbr`bs1`] >>
-      conj_tac >- (
-        `cs0.ecs = cs.ecs` by rw[Abbr`cs0`] >>
-        `cs1.sz = cs0.sz + 1` by metis_tac[compile_sz] >>
-        simp[Abbr`cs1`,Abbr`bs1`,Abbr`cs0`] ) >>
+      conj_tac >- metis_tac[Cevaluate_Clocs,FST] >>
+      conj_tac >- PROVE_TAC[SUBSET_TRANS] >>
       match_mp_tac compile_labels_lemma >>
-      map_every qexists_tac[`cs0`,`exp`] >>
-      rw[Abbr`cs1`,Abbr`cs0`] ) >>
+      map_every qexists_tac [`FST(sdt cs)`,`exp`,`bc0`] >>
+      rw[] ) >>
     simp[] >>
     map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by ( rw[Abbr`cs0`,Abbr`P`,compile_nontail] ) >>
+    simp[] >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    disch_then(mp_tac o SIMP_RULE(srw_ss()++DNF_ss)[code_for_push_def,LET_THM]) >>
     disch_then(qx_choosel_then[`bvs`,`rfs`]strip_assume_tac) >>
-    qmatch_assum_abbrev_tac`bc_next^* bs2 bs3` >>
-    qunabbrev_tac`bs3` (* >>
+    conj_tac >- (
+      srw_tac[DNF_ss][code_for_push_def,LET_THM] >>
+
+    (* >>
 
     first_x_assum (qspecl_then[`X`,`Y`]kall_tac) >>
     fs[] >> rw[] >>
