@@ -247,7 +247,7 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   ((FLOOKUP (FST pp) m = SOME p) ⇒ Cv_bv pp (CLoc m) (RefPtr p)) ∧
   (EVERY2 (Cv_bv pp) vs bvs ⇒ Cv_bv pp (CConv cn vs) (Block (cn+block_tag) bvs)) ∧
   ((pp = (s,c,l2a,rfs)) ∧
-   (find_index n ns 0 = SOME i) ∧
+   (if ns = [] then i = 0 else find_index n ns 0 = SOME i) ∧
    (EL i defs = (xs,INR l)) ∧
    (FLOOKUP c l = SOME e) ∧
    (fvs = SET_TO_LIST (free_vars c e)) ∧
@@ -1463,8 +1463,10 @@ val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
     rw[] >>
     rw[Once Cv_bv_cases] >>
     fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] ) >>
-  rw[] >- ( rw[Once Cv_bv_cases,LENGTH_NIL] ) >>
-  fs[] >> rw[Once Cv_bv_cases] )
+  simp[] >> rpt gen_tac >> strip_tac >> strip_tac >>
+  simp[Once Cv_bv_cases] >>
+  map_every qexists_tac[`bvs`,`e`,`i`] >> simp[] >>
+  fs[])
 
 val s_refs_append_code = store_thm("s_refs_append_code",
   ``∀c sm s bs bs' ls.
@@ -2147,7 +2149,7 @@ val Cv_bv_refs = store_thm("Cv_bv_refs",
   res_tac >> rw[] >> fs[] >>
   res_tac >> pop_assum mp_tac >>
   simp_tac(srw_ss())[FLOOKUP_DEF] >>
-  rw[])
+  rw[LENGTH_NIL] >> fs[FLOOKUP_DEF])
 
 val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
   ``∀pp v bv. Cv_bv pp v bv ⇒
@@ -2160,8 +2162,9 @@ val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
         Cv_bv pp' v bv``,
   gen_tac >> ho_match_mp_tac Cv_bv_ind >>
   rw[] >> rw[Once Cv_bv_cases,LENGTH_NIL] >>
-  fs[FLOOKUP_DEF,SUBMAP_DEF,EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
-  res_tac >> rw[] >> fs[])
+  fs[FLOOKUP_DEF,SUBMAP_DEF,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,LENGTH_NIL] >>
+  TRY (gen_tac >> strip_tac) >> res_tac >>
+  rw[] >> fs[])
 
 val good_sm_DRESTRICT = store_thm("good_sm_DRESTRICT",
   ``good_sm sm ⇒ good_sm (DRESTRICT sm s)``,
