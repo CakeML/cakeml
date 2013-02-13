@@ -2321,6 +2321,10 @@ val with_same_code = store_thm("with_same_code",
   rw[bc_state_component_equality])
 val _ = export_rewrites["with_same_code"]
 
+val bc_fetch_with_stack = store_thm("bc_fetch_with_stack",
+  ``bc_fetch (s with stack := st) = bc_fetch s``,
+  rw[bc_fetch_def])
+
 val option_case_NONE_F = store_thm("option_case_NONE_F",
   ``(case X of NONE => F | SOME x => P x) = (∃x. (X = SOME x) ∧ P x)``,
   Cases_on`X`>>rw[])
@@ -2887,6 +2891,101 @@ val compile_val = store_thm("compile_val",
       disch_then(qx_choosel_then[`a`,`bve`,`b`,`i'`,`l`,`xs`]strip_assume_tac) >>
       `i' = i` by ( Cases_on`ns' = []` >> fs[] ) >> rw[] >>
       fs[] >> rw[] >> fs[] >> rw[] >>
+      qho_match_abbrev_tac`∃rf bv. bc_next^* bs1 (bs2 rf bv) ∧ P rf bv` >>
+      qmatch_assum_abbrev_tac`bc_next^* bs0 bs3` >>
+      `bc_next^* bs1 (bs3 with code := bs1.code)` by (
+        match_mp_tac RTC_bc_next_append_code >>
+        map_every qexists_tac [`bs0`,`bs3`] >>
+        rw[bc_state_component_equality,Abbr`bs0`,Abbr`bs3`,Abbr`bs1`] ) >>
+      pop_assum mp_tac >>
+      qmatch_assum_abbrev_tac`bc_next^* bs4 bs5` >>
+      `bc_next^* (bs3 with code := bs1.code) (bs5 with code := bs1.code)` by (
+        match_mp_tac RTC_bc_next_append_code >>
+        map_every qexists_tac [`bs4`,`bs5`] >>
+        rw[bc_state_component_equality,Abbr`bs3`,Abbr`bs4`,Abbr`bs1`,Abbr`bs5`] ) >>
+      pop_assum mp_tac >>
+      qsuff_tac `∃rf bv. bc_next^* (bs5 with code := bs1.code) (bs2 rf bv) ∧ P rf bv` >-
+        metis_tac[RTC_TRANSITIVE,transitive_def] >>
+      map_every qunabbrev_tac[`bs3`,`bs4`] >>
+      `bc_fetch (bs5 with code := bs1.code) = SOME (Stack (Load (LENGTH exps)))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        rw[Abbr`bs5`,Abbr`bs1`,REVERSE_APPEND] >>
+        qexists_tac`bc0 ++ REVERSE (compile cs0 exp).out ++ REVERSE bcs` >>
+        rw[] ) >>
+      simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj2_tac >>
+      rw[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def] >>
+      `LENGTH exps = LENGTH bvs` by (fs[EVERY2_EVERY] >> metis_tac[Cevaluate_list_LENGTH] ) >>
+      simp[Abbr`bs5`] >>
+      Q.PAT_ABBREV_TAC`l2 = Block 3 X::Y` >>
+      Q.ISPECL_THEN[`l2`,`REVERSE bvs`]mp_tac EL_LENGTH_APPEND >>
+      simp[Abbr`l2`] >> disch_then kall_tac >>
+      simp[bump_pc_with_stack] >> fs[bc_fetch_with_stack] >>
+      simp[bump_pc_def] >>
+      qpat_assum`bc_fetch X = Y` kall_tac >>
+      qunabbrev_tac`bs1` >> simp[] >>
+      qho_match_abbrev_tac`∃rf bv. bc_next^* bs1 (bs2 rf bv) ∧ P rf bv` >>
+      `bc_fetch bs1 = SOME (Stack (El 1))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        rw[Abbr`bs1`] >>
+        Q.PAT_ABBREV_TAC`ls = bc0 ++ X ++ Y` >>
+        qexists_tac`ls ++ [Stack (Load (LENGTH bvs))]` >>
+        rw[Abbr`ls`,REVERSE_APPEND,FILTER_APPEND,SUM_APPEND,ADD1] ) >>
+      simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj2_tac >>
+      rw[bc_eval1_thm,bc_eval1_def] >>
+      simp[Abbr`bs1`,bc_eval_stack_def] >>
+      Q.PAT_ABBREV_TAC`benv = if X then Number 0 else Y` >>
+      fs[bump_pc_with_stack,bc_fetch_with_stack] >>
+      simp[bump_pc_def] >>
+      qpat_assum`bc_fetch X = Y` kall_tac >>
+      qho_match_abbrev_tac`∃rf bv. bc_next^* bs1 (bs2 rf bv) ∧ P rf bv` >>
+      `bc_fetch bs1 = SOME (Stack (Load (SUC(LENGTH bvs))))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        rw[Abbr`bs1`] >>
+        Q.PAT_ABBREV_TAC`ls = bc0 ++ X ++ Y` >>
+        Q.PAT_ABBREV_TAC`l2:bc_inst list = X::Y` >>
+        qexists_tac`ls ++ TAKE 2 l2` >>
+        srw_tac[ARITH_ss][Abbr`ls`,Abbr`l2`,REVERSE_APPEND,FILTER_APPEND,SUM_APPEND,ADD1] ) >>
+      simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj2_tac >>
+      rw[bc_eval1_thm,bc_eval1_def] >>
+      simp[Abbr`bs1`,bc_eval_stack_def] >>
+      Q.PAT_ABBREV_TAC`l2 = [Block 3 X]` >>
+      Q.ISPECL_THEN[`l2 ++ bs.stack`,`REVERSE bvs`]mp_tac EL_LENGTH_APPEND >>
+      simp[Abbr`l2`] >> disch_then kall_tac >>
+      fs[bc_fetch_with_stack,bump_pc_with_stack] >>
+      rw[bump_pc_def] >>
+      qho_match_abbrev_tac`∃rf bv. bc_next^* bs1 (bs2 rf bv) ∧ P rf bv` >>
+      `bc_fetch bs1 = SOME (Stack (El 0))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        rw[Abbr`bs1`] >>
+        Q.PAT_ABBREV_TAC`ls = bc0 ++ X ++ Y` >>
+        Q.PAT_ABBREV_TAC`l2:bc_inst list = X::Y` >>
+        qexists_tac`ls ++ TAKE 3 l2` >>
+        srw_tac[ARITH_ss][Abbr`ls`,Abbr`l2`,REVERSE_APPEND,FILTER_APPEND,SUM_APPEND,ADD1] ) >>
+      simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj2_tac >>
+      rw[bc_eval1_thm,bc_eval1_def] >>
+      simp[Abbr`bs1`,bc_eval_stack_def] >>
+      fs[bc_fetch_with_stack,bump_pc_with_stack] >>
+      fsrw_tac[ARITH_ss][] >>
+      rw[bump_pc_def] >>
+      qho_match_abbrev_tac`∃rf bv. bc_next^* bs1 (bs2 rf bv) ∧ P rf bv` >>
+      `bc_fetch bs1 = SOME CallPtr` by (
+        match_mp_tac bc_fetch_next_addr >>
+        rw[Abbr`bs1`] >>
+        Q.PAT_ABBREV_TAC`ls = bc0 ++ X ++ Y` >>
+        Q.PAT_ABBREV_TAC`l2:bc_inst list = X::Y` >>
+        qexists_tac`ls ++ TAKE 4 l2` >>
+        srw_tac[ARITH_ss][Abbr`ls`,Abbr`l2`,REVERSE_APPEND,FILTER_APPEND,SUM_APPEND,ADD1] ) >>
+      simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj2_tac >>
+      rw[bc_eval1_thm,bc_eval1_def] >>
+      simp[Abbr`bs1`] >>
+      fs[bc_fetch_with_stack,bump_pc_with_stack] >>
+      fsrw_tac[ARITH_ss][] >>
+      rw[bump_pc_def] >>
+      qpat_assum`bc_fetch X = Y` kall_tac >>
+      qpat_assum`bc_fetch X = Y` kall_tac >>
+      qpat_assum`bc_fetch X = Y` kall_tac >>
+      Q.PAT_ABBREV_TAC`ret = x + 1` >>
+      qho_match_abbrev_tac`∃rf bv. bc_next^* bs1 (bs2 rf bv) ∧ P rf bv` >>
       qpat_assum`good_code_env X c d bce`(mp_tac o Q.SPEC`l` o SIMP_RULE(srw_ss())[good_code_env_def,FEVERY_DEF]) >>
       fs[FLOOKUP_DEF] >>
       simp_tac(srw_ss()++DNF_ss)[] >>
@@ -2894,10 +2993,9 @@ val compile_val = store_thm("compile_val",
       simp[] >>
       map_every qx_gen_tac [`csc`,`cb0`,`cb1`] >>
       strip_tac >> fs[] >>
-      first_x_assum (qspecl_then[`sm`,`csc`]mp_tac) >>
+      first_x_assum (qspecl_then[`sm`,`csc`,`bs1`,`bce`]mp_tac) >>
 
-      might want to push through the setup code first, so we know what bs to start in
-
+      set_trace "goalstack print goal at top" 0
 
     (* >>
 
