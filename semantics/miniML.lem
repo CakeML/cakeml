@@ -379,9 +379,8 @@ deBruijn_subst_v ts (Loc l) = Loc l
 
 (* Environments *)
 
-(* Maps each constructor to its arity and the set of all constructors of that
- * type *)
-type envC = env conN (num * set conN)
+(* Maps each constructor to its arity and which type it is from *)
+type envC = env conN (num * id typeN)
 
 (* The optional type scheme annotation's type variable binding scopes over the
  * value too *)
@@ -401,7 +400,7 @@ let lookup_var_id id envM envE =
         end
   end
 
-val lookup_con_id : forall 'a. id conN -> envM 'a -> envC -> option (num * set conN)
+val lookup_con_id : forall 'a. id conN -> envM 'a -> envC -> option (num * id typeN)
 let lookup_con_id id envM envE =
   match id with
     | Short x -> lookup x envE
@@ -509,9 +508,8 @@ pmatch tvs envM envC s (Plit l) (Litv l') env =
 and
 pmatch tvs envM envC s (Pcon n ps) (Conv n' vs) env =
   match (lookup_con_id n envM envC, lookup_con_id n' envM envC) with
-    | (Some (l, ns), Some (l', ns')) ->
-        if same_module n n' && id_to_name n IN ns' && id_to_name n' IN ns && (List.length ps = l) && (List.length vs = l')
-        then
+    | (Some (l, t), Some (l', t')) ->
+        if t = t' && (List.length ps = l) && (List.length vs = l') then
           if n = n' then
             pmatch_list tvs envM envC s ps vs env
           else
@@ -854,8 +852,7 @@ let build_tdefs tds =
       (fun (tvs, tn, condefs) ->
          List.map
            (fun (conN, ts) ->
-              (conN, (List.length ts,
-                         {cn | forall ((cn,ts) MEM condefs) | true})))
+              (conN, (List.length ts, Short tn)))
            condefs)
       tds))
 
@@ -1345,7 +1342,7 @@ let rec prog_diverges envM envC st env top =
 
 (* constructor type environments: each constructor has a type
  * forall tyvars. t list -> (tyvars) typeN *)
-type tenvC = env conN (list tvarN * list t * typeN)
+type tenvC = env conN (list tvarN * list t * id typeN)
 
 (* Type environments *)
 type tenvE =
@@ -1385,7 +1382,7 @@ let t_lookup_var_id id tenvM tenvE =
         end
   end
 
-val t_lookup_con_id : id varN -> tenvM -> tenvC -> option (list tvarN * list t * typeN)
+val t_lookup_con_id : id varN -> tenvM -> tenvC -> option (list tvarN * list t * id typeN)
 let t_lookup_con_id id tenvM tenvC =
   match id with
     | Short x -> lookup x tenvC
@@ -1477,7 +1474,8 @@ let check_ctor_tenv tenvC tds =
   all_distinct (List.map (fun (_,tn,_) -> tn) tds) &&
   List.for_all
     (fun (tvs,tn,ctors) ->
-       List.for_all (fun (_,(_,_,tn')) -> tn <> tn') tenvC)
+       (* Add module path properly *)
+       List.for_all (fun (_,(_,_,tn')) -> Short tn <> tn') tenvC)
     tds
 
 val build_ctor_tenv : list (list tvarN * typeN * list (conN * list t)) -> tenvC
@@ -1485,7 +1483,8 @@ let build_ctor_tenv tds =
   List.flatten
     (List.map
        (fun (tvs,tn,ctors) ->
-          List.map (fun (cn,ts) -> (cn,(tvs,ts,tn))) ctors)
+	  (* Add module path properly *)
+          List.map (fun (cn,ts) -> (cn,(tvs,ts, Short tn))) ctors)
        tds)
 
 (* Simultaneous substitution of types for type variables in a type *)
@@ -1552,14 +1551,13 @@ type_p tvs menv cenv (Plit Unit) Tunit []
 
 and
 
-(* TODO: allow module-qualified type names *)
 forall tvs menv cenv cn ps ts tvs' tn ts' tenv.
 List.for_all (check_freevars tvs []) ts' &&
 List.length ts' = List.length tvs' &&
 type_ps tvs menv cenv ps (List.map (type_subst (List.combine tvs' ts')) ts) tenv &&
 t_lookup_con_id cn menv cenv = Some (tvs', ts, tn)
 ==>
-type_p tvs menv cenv (Pcon cn ps) (Tapp ts' (TC_name (Short tn))) tenv
+type_p tvs menv cenv (Pcon cn ps) (Tapp ts' (TC_name tn)) tenv
 
 and
 
@@ -1621,14 +1619,13 @@ type_e menv cenv tenv (Handle e1 var e2) t
 
 and
 
-(* TODO: allow module-qualified type names *)
 forall menv cenv tenv cn es tvs tn ts' ts.
 List.for_all (check_freevars (num_tvs tenv) []) ts' &&
 List.length tvs = List.length ts' &&
 type_es menv cenv tenv es (List.map (type_subst (List.combine tvs ts')) ts) &&
 t_lookup_con_id cn menv cenv = Some (tvs, ts, tn)
 ==>
-type_e menv cenv tenv (Con cn es) (Tapp ts' (TC_name (Short tn)))
+type_e menv cenv tenv (Con cn es) (Tapp ts' (TC_name tn))
 
 and
 
@@ -1851,14 +1848,13 @@ type_v tvs menv cenv senv (Litv Unit) Tunit
 
 and
 
-(* TODO: allow module-qualified type names *)
 forall tvs menv cenv senv cn vs tvs' tn ts' ts.
 List.for_all (check_freevars tvs []) ts' &&
 List.length tvs' = List.length ts' &&
 type_vs tvs menv cenv senv vs (List.map (type_subst (List.combine tvs' ts')) ts) &&
 t_lookup_con_id cn menv cenv = Some (tvs', ts, tn)
 ==>
-type_v tvs menv cenv senv (Conv cn vs) (Tapp ts' (TC_name (Short tn)))
+type_v tvs menv cenv senv (Conv cn vs) (Tapp ts' (TC_name tn))
 
 and
 
@@ -2064,7 +2060,6 @@ type_ctxt tvs menv cenv senv tenv (Clet (Some tvs') n (Some t1) () e) t1 t2
 
 and
 
-(* TODO: allow module-qualified type names *)
 forall tvs menv cenv senv tenv cn vs es ts1 ts2 t tn ts' tvs'.
 List.for_all (check_freevars tvs []) ts' &&
 List.length tvs' = List.length ts' &&
@@ -2074,7 +2069,7 @@ type_es menv cenv (bind_tvar tvs tenv) es (List.map (type_subst (List.combine tv
 t_lookup_con_id cn menv cenv = Some (tvs', ts1@[t]@ts2, tn)
 ==>
 type_ctxt tvs menv cenv senv tenv (Ccon cn vs () es) (type_subst (List.combine tvs' ts') t)
-          (Tapp ts' (TC_name (Short tn)))
+          (Tapp ts' (TC_name tn))
 
 indreln
 

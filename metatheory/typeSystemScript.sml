@@ -28,13 +28,14 @@ rw [option_map_def]);
 (* Check that the dynamic and static constructor environments are consistent *)
 val consistent_con_env_def = Define `
   (consistent_con_env [] [] = T) ∧
-  (consistent_con_env ((cn, (n, ns))::envC) ((cn', (tvs, ts, tn))::tenvC) =
+  (consistent_con_env ((cn, (n, tn'))::envC) ((cn', (tvs, ts, tn))::tenvC) =
     (cn = cn') ∧
+    (tn = tn') ∧
     (LENGTH ts = n) ∧
-    cn IN ns ∧
     consistent_con_env envC tenvC) ∧
   (consistent_con_env _ _ = F)`;
 
+  (*
 (* Check that two constructors of the same type have the same set of all
  * constructors for that type *)
 val consistent_con_env2_def = Define `
@@ -46,6 +47,7 @@ val consistent_con_env2_def = Define `
        (lookup n2 envC = SOME (l2,ns2))
        ⇒
        (ns1 = ns2))`;
+       *)
 
 val tenv_ok_def = Define `
 (tenv_ok Empty = T) ∧
@@ -64,7 +66,7 @@ val consistent_mod_env_def = Define `
 (consistent_mod_env tenvS ((mn,(cenv,env))::menv) ((mn',(tenvC,tenv))::tenvM) =
   (mn = mn') ∧
   consistent_con_env cenv tenvC ∧
-  consistent_con_env2 cenv tenvC ∧
+  (*consistent_con_env2 cenv tenvC ∧*)
   type_env tenvM tenvC tenvS env tenv ∧
   consistent_mod_env tenvS menv tenvM) ∧
 (consistent_mod_env tenvS _ _ = F)`;
@@ -119,7 +121,7 @@ val consistent_con_env_thm = Q.store_thm ("consistent_con_env_thm",
   consistent_con_env cenv tenvC 
   ⇒
   ((lookup cn tenvC = SOME (tvs, ts, tn)) ⇒ 
-     (∃ns. (lookup cn cenv = SOME (LENGTH ts, ns)) ∧ cn IN ns))
+     (∃ns. (lookup cn cenv = SOME (LENGTH ts, tn))))
   ∧
   ((lookup cn tenvC = NONE) ⇒ (lookup cn cenv = NONE))`,
 recInduct (fetch "-" "consistent_con_env_ind") >>
@@ -132,14 +134,41 @@ val consistent_mod_env_thm = Q.store_thm ("consistent_mod_env_thm",
   consistent_mod_env tenvS menv tenvM 
   ⇒
   ((t_lookup_con_id cn tenvM tenvC = SOME (tvs, ts, tn)) ⇒ 
-     (∃ns. (lookup_con_id cn menv cenv = SOME (LENGTH ts, ns)) ∧ id_to_name cn IN ns))
+     (∃ns. (lookup_con_id cn menv cenv = SOME (LENGTH ts, tn))))
   ∧
-  ((t_lookup_con_id cn tenvM tenvC = NONE) ⇒ (t_lookup_con_id cn menv cenv = NONE))`,
+  ((t_lookup_con_id cn tenvM tenvC = NONE) ⇒ (lookup_con_id cn menv cenv = NONE))`,
 recInduct (fetch "-" "consistent_mod_env_ind") >>
 cases_on `cn` >>
 rw [id_to_name_def, lookup_con_id_def, t_lookup_con_id_def, consistent_mod_env_def] >>
 rw [] >>
 metis_tac [consistent_con_env_thm]);
+
+(*
+val consistent_mod_env2_thm = Q.store_thm ("consistent_mod_env2_thm",
+`∀tenvS menv tenvM cenv tenvC.
+  consistent_con_env2 cenv tenvC ∧
+  consistent_mod_env tenvS menv tenvM 
+  ⇒
+  ∀n1 n2 tvs1 tvs2 ts1 ts2 tn ns1 ns2 l1 l2.
+    (t_lookup_con_id n1 tenvM tenvC = SOME (tvs1,ts1,tn)) ∧
+    (t_lookup_con_id n2 tenvM tenvC = SOME (tvs2,ts2,tn)) ∧
+    (lookup_con_id n1 menv cenv = SOME (l1,ns1)) ∧
+    (lookup_con_id n2 menv cenv = SOME (l2,ns2)) ⇒
+    (ns1 = ns2)`,
+
+rw [] >>
+cases_on `n1` >>
+cases_on `n2` >>
+fs [t_lookup_con_id_def, lookup_con_id_def] >|
+[fs [consistent_con_env2_def] >>
+     metis_tac [],
+ every_case_tac >>
+     fs []
+
+
+);
+
+*)
 
 val type_es_length = Q.store_thm ("type_es_length",
 `∀tenvM tenvC tenv es ts.
@@ -1139,7 +1168,17 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
                fs [EVERY_MAP, EVERY_MEM] >>
                rw [] >>
                metis_tac [type_e_subst_lem3, EVERY_MEM, type_e_subst_lem7]],
-      cheat],
+      cases_on `lookup s tenvM` >>
+          fs [] >>
+          PairCases_on `x` >>
+          fs [] >>
+          rw [] >|
+          [match_mp_tac (hd (CONJUNCTS type_e_subst_lem2)) >>
+               rw [] >>
+               metis_tac [tenvM_ok_lookup, type_e_subst_lem6, arithmeticTheory.ADD, arithmeticTheory.ADD_0],
+           fs [EVERY_MAP, EVERY_MEM] >>
+               rw [] >>
+               metis_tac [type_e_subst_lem3, EVERY_MEM]]],
  qpat_assum `!tenvE1' targs' tvs'. P tenvE1' targs' tvs'` 
            (ASSUME_TAC o Q.SPEC `Bind_name n 0 t1 tenvE1`) >>
      fs [num_tvs_def, deBruijn_subst_tenvE_def, db_merge_def] >>
@@ -1426,7 +1465,7 @@ val consistent_con_env_rev = Q.prove (
   consistent_con_env (REVERSE envC) (REVERSE tenvC)`,
 ho_match_mp_tac (fetch "-" "consistent_con_env_ind") >>
 rw [consistent_con_env_def] >>
-`consistent_con_env [(cn,LENGTH ts,ns)] [(cn,tvs,ts,tn)]`
+`consistent_con_env [(cn,LENGTH ts,tn)] [(cn,tvs,ts,tn)]`
               by rw [consistent_con_env_def] >>
 metis_tac [consistent_con_append]);
 
@@ -1443,18 +1482,14 @@ cases_on `r` >>
 fs [] >>
 `!x. (!cn ts. MEM (cn,ts) r' ⇒ MEM (cn,ts) x) ⇒
   consistent_con_env
-  (MAP (λ(conN,ts). (conN,LENGTH ts,{cn | (cn,ts) | MEM (cn,ts) x})) r')
-  (MAP (λ(cn,ts). (cn,q,ts,q')) r')`
+  (MAP (λ(conN,ts). (conN,LENGTH ts,Short q')) r')
+  (MAP (λ(cn,ts). (cn,q,ts,Short q')) r')`
             by (Induct_on `r'` >>
                 rw [consistent_con_env_def] >>
-                cases_on `h` >>
-                cases_on `r` >>
+                PairCases_on `h` >>
                 fs [] >>
-                rw [consistent_con_env_def, GSPECIFICATION] >|
-                [qexists_tac `(q'',[])` >>
-                     rw [],
-                 qexists_tac `(q'',h::t)` >>
-                     rw []]) >>
+                rw [consistent_con_env_def] >>
+                metis_tac []) >>
 fs [build_ctor_tenv_def, build_tdefs_def] >>
 metis_tac [consistent_con_append, APPEND_ASSOC, consistent_con_env_rev,
            REVERSE_APPEND]);
@@ -1514,12 +1549,11 @@ val lookup_none_lem = Q.prove (
 `!x h0 h1 h2 h3.
   (lookup x (MAP (λ(cn,ts). (cn,h0,ts,h1)) h2) = NONE)
   = 
-  (lookup x (MAP (λ(conN,ts). (conN,LENGTH ts,{cn | (cn,ts) | MEM (cn,ts) h3})) h2) = NONE)`,
+  (lookup x (MAP (λ(conN,ts). (conN,LENGTH ts,h3)) h2) = NONE)`,
 induct_on `h2` >>
 rw [lookup_def] >>
 PairCases_on `h` >>
 rw [lookup_def]);
-  
 
 val lookup_none = Q.store_thm ("lookup_none",
 `!tds tenvC envC x.
@@ -1545,7 +1579,7 @@ rw [build_ctor_tenv_def]);
 val build_ctor_tenv_cons = Q.prove (
 `∀tvs tn ctors tds.
   build_ctor_tenv ((tvs,tn,ctors)::tds) =
-    MAP (λ(cn,ts). (cn,tvs,ts,tn)) ctors ++ build_ctor_tenv tds`,
+    MAP (λ(cn,ts). (cn,tvs,ts,Short tn)) ctors ++ build_ctor_tenv tds`,
 rw [build_ctor_tenv_def]);
 
 val lemma = Q.prove (
@@ -1564,11 +1598,12 @@ cases_on `r` >>
 rw [] >>
 metis_tac []);
 
+(*
 val check_ctor_tenv_different_types = Q.store_thm ("check_ctor_tenv_different_types",
 `!tenvC tds.
   EVERY
     (λ(tvs,tn,ctors).
-       EVERY (λx. case x of (v,v2,v4,tn') => tn ≠ tn') tenvC) tds ∧
+       EVERY (λx. case x of (v,v2,v4,Short tn') => tn ≠ tn') tenvC) tds ∧
   (lookup n1 tenvC = SOME (tvs1,ts1,tn1)) ∧
   (lookup n2 (REVERSE (build_ctor_tenv tds)) = SOME (tvs2,ts2,tn2))
   ⇒
@@ -1600,12 +1635,13 @@ rw [] >|
      fs [lookup_def],
  fs [every_conj_tup3] >>
      metis_tac []]);
+     *)
 
 val build_tdefs_cons = Q.prove (
 `!tvs tn ctors tds.
   build_tdefs ((tvs,tn,ctors)::tds) =
     build_tdefs tds ++
-    REVERSE (MAP (\(conN,ts). (conN, LENGTH ts, {cn | (cn,ts) | MEM (cn,ts) ctors}))
+    REVERSE (MAP (\(conN,ts). (conN, LENGTH ts, Short tn))
         ctors)`,
 rw [build_tdefs_def]);
 
@@ -1648,6 +1684,7 @@ fs [] >>
 rw [] >>
 metis_tac []);
 
+(*
 val lookup_same_ctor_type_help = Q.prove (
 `!tds.
   (lookup n2 (REVERSE (build_ctor_tenv tds)) = SOME (tvs2,ts2,tn))
@@ -1717,7 +1754,9 @@ rw [] >|
      fs [check_ctor_tenv_def] >>
      metis_tac [lookup_same_ctor_type_help],
  metis_tac [lookup_none, optionTheory.NOT_SOME_NONE, lookup_reverse_none]]);
+ *)
 
+ (*
 val extend_consistent_con2 = Q.store_thm ("extend_consistent_con2",
 `!envC tenvC tds.
   check_ctor_tenv tenvC tds ∧
@@ -1738,6 +1777,7 @@ imp_res_tac check_dup_ctors_disj >|
             check_ctor_tenv_different_types, check_ctor_tenv_def],
  metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none],
  metis_tac [lookup_same_ctor_type]]);
+ *)
 
 val type_e_tvs_weaken_help = Q.prove (
 `!(x:num) y z. x + y ≥ x`,

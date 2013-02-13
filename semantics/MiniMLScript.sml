@@ -460,9 +460,8 @@ val _ = Defn.save_defn deBruijn_subst_v_defn;
 
 (* Environments *)
 
-(* Maps each constructor to its arity and the set of all constructors of that
- * type *)
-val _ = type_abbrev( "envC" , ``: (conN, (num # conN set)) env``);
+(* Maps each constructor to its arity and which type it is from *)
+val _ = type_abbrev( "envC" , ``: (conN, (num # typeN id)) env``);
 
 (* The optional type scheme annotation's type variable binding scopes over the
  * value too *)
@@ -484,7 +483,7 @@ val _ = Define `
   ))`;
 
 
-(*val lookup_con_id : forall 'a. id conN -> envM 'a -> envC ->option (num * set conN)*)
+(*val lookup_con_id : forall 'a. id conN -> envM 'a -> envC ->option (num * id typeN)*)
 val _ = Define `
  (lookup_con_id id envM envE =
   (case id of
@@ -613,9 +612,8 @@ val _ = Define `
 /\
 (pmatch tvs envM envC s (Pcon n ps) (Conv n' vs) env =
   (case (lookup_con_id n envM envC, lookup_con_id n' envM envC) of
-      (SOME (l, ns), SOME (l', ns')) =>
-        if same_module n n' /\ id_to_name n IN ns' /\ id_to_name n' IN ns /\ (LENGTH ps = l) /\ (LENGTH vs = l')
-        then
+      (SOME (l, t), SOME (l', t')) =>
+        if (t = t') /\ (LENGTH ps = l) /\ (LENGTH vs = l') then
           if n = n' then
             pmatch_list tvs envM envC s ps vs env
           else
@@ -1003,8 +1001,7 @@ val _ = Define `
       (\ (tvs, tn, condefs) .
          MAP
            (\ (conN, ts) .
-              (conN, (LENGTH ts,
-                         {cn | cn,ts | ( MEM(cn,ts) condefs) /\ T})))
+              (conN, (LENGTH ts, Short tn)))
            condefs)
       tds)))`;
 
@@ -1504,7 +1501,7 @@ val _ = Defn.save_defn prog_diverges_defn;
 
 (* constructor type environments: each constructor has a type
  * forall tyvars. t list -> (tyvars) typeN *)
-val _ = type_abbrev( "tenvC" , ``: (conN, ( tvarN list # t list # typeN)) env``);
+val _ = type_abbrev( "tenvC" , ``: (conN, ( tvarN list # t list # typeN id)) env``);
 
 (* Type environments *)
 val _ = Hol_datatype `
@@ -1555,7 +1552,7 @@ val _ = Define `
   ))`;
 
 
-(*val t_lookup_con_id : id varN -> tenvM -> tenvC ->option (list tvarN * list t * typeN)*)
+(*val t_lookup_con_id : id varN -> tenvM -> tenvC ->option (list tvarN * list t * id typeN)*)
 val _ = Define `
  (t_lookup_con_id id tenvM tenvC =
   (case id of
@@ -1660,7 +1657,8 @@ val _ = Define `
   ALL_DISTINCT (MAP (\p . (case (p ) of  ( (_,tn,_) ) => tn )) tds) /\
   EVERY
     (\ (tvs,tn,ctors) .
-       EVERY (\p . (case (p ) of  ( (_,(_,_,tn')) ) => tn <> tn' )) tenvC)
+       (* Add module path properly *)
+       EVERY (\p . (case (p ) of  ( (_,(_,_,tn')) ) => Short tn <> tn' )) tenvC)
     tds)`;
 
 
@@ -1670,7 +1668,8 @@ val _ = Define `
   FLAT
     (MAP
        (\ (tvs,tn,ctors) .
-          MAP (\ (cn,ts) . (cn,(tvs,ts,tn))) ctors)
+	  (* Add module path properly *)
+          MAP (\ (cn,ts) . (cn,(tvs,ts, Short tn))) ctors)
        tds))`;
 
 
@@ -1747,14 +1746,13 @@ type_p tvs menv cenv (Plit Unit) Tunit [])
 
 /\
 
-(* TODO: allow module-qualified type names *)
 (! tvs menv cenv cn ps ts tvs' tn ts' tenv.
 EVERY (check_freevars tvs []) ts' /\
 (LENGTH ts' = LENGTH tvs') /\
 type_ps tvs menv cenv ps (MAP (type_subst (ZIP ( tvs', ts'))) ts) tenv /\
 (t_lookup_con_id cn menv cenv = SOME (tvs', ts, tn))
 ==>
-type_p tvs menv cenv (Pcon cn ps) (Tapp ts' (TC_name (Short tn))) tenv)
+type_p tvs menv cenv (Pcon cn ps) (Tapp ts' (TC_name tn)) tenv)
 
 /\
 
@@ -1816,14 +1814,13 @@ type_e menv cenv tenv (Handle e1 var e2) t)
 
 /\
 
-(* TODO: allow module-qualified type names *)
 (! menv cenv tenv cn es tvs tn ts' ts.
 EVERY (check_freevars (num_tvs tenv) []) ts' /\
 (LENGTH tvs = LENGTH ts') /\
 type_es menv cenv tenv es (MAP (type_subst (ZIP ( tvs, ts'))) ts) /\
 (t_lookup_con_id cn menv cenv = SOME (tvs, ts, tn))
 ==>
-type_e menv cenv tenv (Con cn es) (Tapp ts' (TC_name (Short tn))))
+type_e menv cenv tenv (Con cn es) (Tapp ts' (TC_name tn)))
 
 /\
 
@@ -2046,14 +2043,13 @@ type_v tvs menv cenv senv (Litv Unit) Tunit)
 
 /\
 
-(* TODO: allow module-qualified type names *)
 (! tvs menv cenv senv cn vs tvs' tn ts' ts.
 EVERY (check_freevars tvs []) ts' /\
 (LENGTH tvs' = LENGTH ts') /\
 type_vs tvs menv cenv senv vs (MAP (type_subst (ZIP ( tvs', ts'))) ts) /\
 (t_lookup_con_id cn menv cenv = SOME (tvs', ts, tn))
 ==>
-type_v tvs menv cenv senv (Conv cn vs) (Tapp ts' (TC_name (Short tn))))
+type_v tvs menv cenv senv (Conv cn vs) (Tapp ts' (TC_name tn)))
 
 /\
 
@@ -2261,7 +2257,6 @@ type_ctxt tvs menv cenv senv tenv (Clet (SOME tvs') n (SOME t1) ()  e) t1 t2)
 
 /\
 
-(* TODO: allow module-qualified type names *)
 (! tvs menv cenv senv tenv cn vs es ts1 ts2 t tn ts' tvs'.
 EVERY (check_freevars tvs []) ts' /\
 (LENGTH tvs' = LENGTH ts') /\
@@ -2271,7 +2266,7 @@ type_es menv cenv (bind_tvar tvs tenv) es (MAP (type_subst (ZIP ( tvs', ts'))) t
 (t_lookup_con_id cn menv cenv = SOME (tvs', ts1++([t]++ts2), tn))
 ==>
 type_ctxt tvs menv cenv senv tenv (Ccon cn vs ()  es) (type_subst (ZIP ( tvs', ts')) t)
-          (Tapp ts' (TC_name (Short tn))))`;
+          (Tapp ts' (TC_name tn)))`;
 
 val _ = Hol_reln `
 
