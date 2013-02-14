@@ -226,13 +226,6 @@ type top 'a =
 
 type prog 'a = list (top 'a)
 
-val id_to_name : forall 'a. id 'a -> 'a
-let id_to_name id =
-  match id with
-    | Short x -> x
-    | Long _ x -> x
-  end
-
 
 (* ------------------------------------------------------------------------ *) 
 (*   The Semantics                                                          *)
@@ -479,12 +472,6 @@ type match_result 'a =
   | No_match
   | Match_type_error
   | Match of envE 'a
-
-let same_module id1 id2 =
-  match (id1,id2) with
-    | (Short x, Short y) -> true
-    | (Long x y, Long x' y') -> x = x'
-  end
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
  * environment with the pattern variables bound to the corresponding sub-terms

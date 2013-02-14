@@ -48,13 +48,14 @@ val tenvM_ok_def = Define `
 tenvM_ok tenvM = EVERY (\(mn,(tenvC,tenv)). tenvC_ok tenvC ∧ tenv_ok tenv ∧ (num_tvs tenv = 0)) tenvM`;
 
 val consistent_mod_env_def = Define `
-(consistent_mod_env tenvS [] [] = T) ∧
-(consistent_mod_env tenvS ((mn,(cenv,env))::menv) ((mn',(tenvC,tenv))::tenvM) =
+(consistent_mod_env tenvS tenvC' [] [] = T) ∧
+(consistent_mod_env tenvS tenvC' ((mn,(cenv,env))::menv) ((mn',(tenvC,tenv))::tenvM) =
   (mn = mn') ∧
+  ¬(MEM mn (MAP FST tenvM)) ∧
   consistent_con_env cenv tenvC ∧
-  type_env tenvM tenvC tenvS env tenv ∧
-  consistent_mod_env tenvS menv tenvM) ∧
-(consistent_mod_env tenvS _ _ = F)`;
+  type_env ((mn',(tenvC,Empty))::tenvM) tenvC' tenvS env tenv ∧
+  consistent_mod_env tenvS tenvC' menv tenvM) ∧
+(consistent_mod_env tenvS tenvC' _ _ = F)`;
 
 val disjoint_env_def = Define `
   disjoint_env e1 e2 =
@@ -114,9 +115,9 @@ rw [lookup_def, consistent_con_env_def] >>
 rw []);
 
 val consistent_mod_env_thm = Q.store_thm ("consistent_mod_env_thm",
-`∀tenvS menv tenvM cenv tenvC.
+`∀tenvS tenvC menv tenvM cenv.
   consistent_con_env cenv tenvC ∧
-  consistent_mod_env tenvS menv tenvM 
+  consistent_mod_env tenvS tenvC menv tenvM 
   ⇒
   ((t_lookup_con_id cn tenvM tenvC = SOME (tvs, ts, tn)) ⇒ 
      (∃ns. (lookup_con_id cn menv cenv = SOME (LENGTH ts, tn))))
@@ -124,7 +125,7 @@ val consistent_mod_env_thm = Q.store_thm ("consistent_mod_env_thm",
   ((t_lookup_con_id cn tenvM tenvC = NONE) ⇒ (lookup_con_id cn menv cenv = NONE))`,
 recInduct (fetch "-" "consistent_mod_env_ind") >>
 cases_on `cn` >>
-rw [id_to_name_def, lookup_con_id_def, t_lookup_con_id_def, consistent_mod_env_def] >>
+rw [lookup_con_id_def, t_lookup_con_id_def, consistent_mod_env_def] >>
 rw [] >>
 metis_tac [consistent_con_env_thm]);
 
@@ -1721,5 +1722,116 @@ fs [num_tvs_db_merge, bind_tvar_rewrites] >|
      metis_tac [type_e_tvs_weaken_help, check_freevars_add, EVERY_MEM,
                 db_merge_def, bind_tenv_def]]);
 
+val type_p_tenv_weak1 = Q.store_thm ("type_p_tenvM_weak1",
+`(!tvs tenvM tenvC p t tenv. type_p tvs tenvM tenvC p t tenv ⇒
+    ∀mn tenvC' tenv' tenvM'. (tenvM = (mn,(tenvC',Empty))::tenvM') ⇒
+       type_p tvs ((mn,(tenvC',tenv'))::tenvM') tenvC p t tenv) ∧
+ (!tvs tenvM tenvC ps ts tenv. type_ps tvs tenvM tenvC ps ts tenv ⇒
+    ∀mn tenvC' tenv' tenvM'. (tenvM = (mn,(tenvC',Empty))::tenvM') ⇒
+       type_ps tvs ((mn,(tenvC',tenv'))::tenvM') tenvC ps ts tenv)`,
+ho_match_mp_tac type_p_ind >>
+rw [] >>
+ONCE_REWRITE_TAC [type_p_cases] >>
+rw [] >|
+[cases_on `cn` >>
+     fs [t_lookup_con_id_def] >>
+     cases_on `mn = s` >>
+     fs [],
+ metis_tac [],
+ metis_tac []]);
+
+val type_e_tenvM_weak1 = Q.store_thm ("type_e_tenvM_weak1",
+`(!tenvM tenvC tenv e t. type_e tenvM tenvC tenv e t ⇒
+    ∀mn tenvC' tenv' tenvM'. (tenvM = (mn,(tenvC',Empty))::tenvM') ⇒
+      type_e ((mn,(tenvC',tenv'))::tenvM') tenvC tenv e t) ∧
+ (!tenvM tenvC tenv es ts. type_es tenvM tenvC tenv es ts ⇒
+    ∀mn tenvC' tenv' tenvM'. (tenvM = (mn,(tenvC',Empty))::tenvM') ⇒
+      type_es ((mn,(tenvC',tenv'))::tenvM') tenvC tenv es ts) ∧
+ (!tenvM tenvC tenv funs tenv''. type_funs tenvM tenvC tenv funs tenv'' ⇒
+    ∀mn tenvC' tenv' tenvM'. (tenvM = (mn,(tenvC',Empty))::tenvM') ⇒
+      type_funs ((mn,(tenvC',tenv'))::tenvM') tenvC tenv funs tenv'')`,
+ho_match_mp_tac type_e_ind >>
+rw [] >>
+ONCE_REWRITE_TAC [type_e_cases] >>
+rw [] >|
+[cases_on `cn` >>
+     fs [t_lookup_con_id_def] >>
+     cases_on `mn = s` >>
+     fs [],
+ cases_on `n` >>
+     fs [t_lookup_var_id_def] >>
+     cases_on `mn = s` >>
+     fs [lookup_tenv_def],
+ metis_tac [],
+ metis_tac [],
+ metis_tac [],
+ fs [RES_FORALL] >>
+     qexists_tac `t` >>
+     rw [] >>
+     res_tac >>
+     PairCases_on `x` >>
+     fs [] >>
+     metis_tac [type_p_tenv_weak1],
+ metis_tac [],
+ metis_tac []]);
+
+val type_p_tenv_weak2 = Q.store_thm ("type_p_tenvM_weak2",
+`(!tvs (tenvM:tenvM) tenvC p t tenv. type_p tvs tenvM tenvC p t tenv ⇒
+    ∀mn tenvC' tenv'. ~MEM mn (MAP FST tenvM) ⇒
+       type_p tvs ((mn,(tenvC',tenv'))::tenvM) tenvC p t tenv) ∧
+ (!tvs (tenvM:tenvM) tenvC ps ts tenv. type_ps tvs tenvM tenvC ps ts tenv ⇒
+    ∀mn tenvC' tenv'. ~MEM mn (MAP FST tenvM) ⇒
+       type_ps tvs ((mn,(tenvC',tenv'))::tenvM) tenvC ps ts tenv)`,
+ho_match_mp_tac type_p_ind >>
+rw [] >>
+ONCE_REWRITE_TAC [type_p_cases] >>
+rw [] >|
+[cases_on `cn` >>
+     fs [t_lookup_con_id_def] >>
+     cases_on `mn = s` >>
+     fs [] >>
+     cases_on `lookup s tenvM` >>
+     fs [] >>
+     PairCases_on `x` >>
+     fs [] >>
+     metis_tac [lookup_notin, optionTheory.NOT_SOME_NONE],
+ metis_tac [],
+ metis_tac []]);
+
+val type_e_tenvM_weak2 = Q.store_thm ("type_e_tenvM_weak2",
+`(!tenvM tenvC tenv e t. type_e tenvM tenvC tenv e t ⇒
+    ∀mn tenvC' tenv'. ~MEM mn (MAP FST tenvM) ⇒
+      type_e ((mn,(tenvC',tenv'))::tenvM) tenvC tenv e t) ∧
+ (!tenvM tenvC tenv es ts. type_es tenvM tenvC tenv es ts ⇒
+    ∀mn tenvC' tenv'. ~MEM mn (MAP FST tenvM) ⇒
+      type_es ((mn,(tenvC',tenv'))::tenvM) tenvC tenv es ts) ∧
+ (!tenvM tenvC tenv funs tenv''. type_funs tenvM tenvC tenv funs tenv'' ⇒
+    ∀mn tenvC' tenv'. ~MEM mn (MAP FST tenvM) ⇒
+      type_funs ((mn,(tenvC',tenv'))::tenvM) tenvC tenv funs tenv'')`,
+ho_match_mp_tac type_e_ind >>
+rw [] >>
+ONCE_REWRITE_TAC [type_e_cases] >>
+rw [] >|
+[cases_on `cn` >>
+     fs [t_lookup_con_id_def] >>
+     cases_on `mn = s` >>
+     fs [GSYM lookup_notin],
+ cases_on `n` >>
+     fs [t_lookup_var_id_def] >>
+     cases_on `mn = s` >>
+     fs [lookup_tenv_def, GSYM lookup_notin],
+ metis_tac [],
+ metis_tac [],
+ metis_tac [],
+ fs [RES_FORALL] >>
+     qexists_tac `t` >>
+     rw [] >>
+     res_tac >>
+     PairCases_on `x` >>
+     fs [] >>
+     metis_tac [type_p_tenv_weak2],
+ metis_tac [],
+ metis_tac []]);
+ 
 val _ = export_theory ();
 

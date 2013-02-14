@@ -288,15 +288,6 @@ val _ = Hol_datatype `
 
 val _ = type_abbrev((*  'a *) "prog" , ``: ( 'a top) list``);
 
-(*val id_to_name : forall 'a. id 'a -> 'a*)
-val _ = Define `
- (id_to_name id =
-  (case id of
-      Short x => x
-    | Long _ x => x
-  ))`;
-
-
 
 (* ------------------------------------------------------------------------ *) 
 (*   The Semantics                                                          *)
@@ -579,14 +570,6 @@ val _ = Hol_datatype `
     No_match
   | Match_type_error
   | Match of 'a envE`;
-
-
-val _ = Define `
- (same_module id1 id2 =
-  (case (id1,id2) of
-      (Short x, Short y) => T
-    | (Long x y, Long x' y') => x = x'
-  ))`;
 
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
