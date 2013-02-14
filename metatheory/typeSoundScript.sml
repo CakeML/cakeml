@@ -115,25 +115,39 @@ fs [lookup_tenv_def] >>
 `!x y. x + SUC y = (x + 1) + y` by decide_tac >>
 metis_tac []);
 
-(*
 val type_lookup_id = Q.prove (
-`∀tenvS menv tenvM cenv tenv tenvC.
-  type_env tenvM tenvC tenvS env tenv ∧
+`∀tenvS menv tenvM tenvM' cenv tenv tenvC.
+  type_env tenvM' tenvC tenvS env tenv ∧
   consistent_mod_env tenvS menv tenvM 
   ⇒
-  ((t_lookup_var_id n tenvM tenv = SOME (tvs, t)) ⇒ 
-     (∃v annot. (lookup_var_id n menv env = SOME (v, annot)))) ∧
-  ((t_lookup_var_id n tenvM tenv = NONE) ⇒ (lookup_var_id n menv cenv = NONE))`,
+  ((t_lookup_var_id n tenvM (bind_tvar tvs tenv) = SOME (tvs', t)) ⇒ 
+     (∃v annot. (lookup_var_id n menv env = SOME (v, annot))))`,
 recInduct consistent_mod_env_ind >>
 cases_on `n` >>
 rw [lookup_var_id_def, t_lookup_var_id_def, consistent_mod_env_def] >>
 rw [] >>
-
-metis_tac [type_lookup, bind_tvar_rewrites]
-
-);
-*)
-
+imp_res_tac type_lookup >|
+[Cases_on `v'` >>
+     fs [],
+ Cases_on `v'` >>
+     fs [],
+ cases_on `lookup mn tenvM` >>
+     fs [] >|
+     [imp_res_tac type_lookup_lem >>
+          cases_on `v'` >>
+          fs [],
+      PairCases_on `x` >>
+          fs [] >>
+          imp_res_tac type_lookup_lem >>
+          cases_on `v'` >>
+          fs []],
+ cases_on `lookup s tenvM` >>
+     fs [] >>
+     cases_on `lookup s menv` >>
+     fs [] >>
+     PairCases_on `x` >>
+     fs [] >>
+     metis_tac []]);
 
 val type_vs_length_lem = Q.prove (
 `∀tvs tenvM tenvC tenvS vs ts.
@@ -442,12 +456,9 @@ rw [] >|
           rw [] >>
           fs [] >>
           metis_tac [type_es_length, LENGTH_MAP],
-      cheat >>
-          imp_res_tac type_lookup >>
+      imp_res_tac type_lookup_id >>
           fs [] >>
-          rw [] >>
-          PairCases_on `v'` >>
-          rw [lookup_var_id_def],
+          rw [],
       metis_tac [type_funs_distinct]],
  rw [continue_def] >>
      fs [Once type_ctxts_cases, type_ctxt_cases, return_def, push_def] >>
@@ -501,20 +512,18 @@ rw [] >|
            (∃env. pmatch (SOME 0) menv cenv st q v env' = Match env)` by
                       metis_tac [pmatch_type_progress] >>
           fs [],
-      cheat >>
-         every_case_tac >>
-         fs [] >>
-         imp_res_tac consistent_con_env_thm >>
-         imp_res_tac type_es_length >>
-         imp_res_tac type_vs_length_lem >>
-         full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_con_id_def],
-      cheat >>
-         every_case_tac >>
-         fs [] >>
-         imp_res_tac consistent_con_env_thm >>
-         imp_res_tac type_es_length >>
-         imp_res_tac type_vs_length_lem >>
-         full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_con_id_def]]]);
+      every_case_tac >>
+          fs [] >>
+          imp_res_tac consistent_mod_env_thm >>
+          imp_res_tac type_es_length >>
+          imp_res_tac type_vs_length_lem >>
+          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_con_id_def],
+      every_case_tac >>
+          fs [] >>
+          imp_res_tac consistent_mod_env_thm >>
+          imp_res_tac type_es_length >>
+          imp_res_tac type_vs_length_lem >>
+          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_con_id_def]]]);
 
 val type_v_tvs_weaken_help = Q.prove (
 `!(n:num). n ≥ 0`,
@@ -887,6 +896,44 @@ metis_tac [lookup_tenv_def] >>
 rw [do_tapp_def] >>
 metis_tac [type_v_freevars, type_subst, bind_tvar_def]);
 
+val type_lookup_lem4 = Q.prove (
+`!tvs l tenv n t.
+  tenv_ok tenv ∧
+  (num_tvs tenv = 0) ∧
+  (lookup_tenv n 0 tenv = SOME (l,t))
+  ⇒
+  (lookup_tenv n tvs tenv = SOME (l,t))`,
+induct_on `tenv` >>
+rw [lookup_tenv_def, num_tvs_def, tenv_ok_def] >-
+metis_tac [] >>
+fs [] >>
+metis_tac [nil_deBruijn_inc]);
+
+val type_lookup_lem3 = Q.prove (
+`∀tenvM tenvC menv env tenv tvs tenvS v x t targs tparams idx.
+  tenvM_ok tenvM ∧
+  tenvC_ok tenvC ∧
+  type_env tenvM tenvC tenvS env tenv ∧
+  EVERY (check_freevars tvs []) targs ∧
+  (t_lookup_var_id x tenvM (bind_tvar tvs tenv) = SOME (LENGTH targs, t)) ∧
+  (lookup_var_id x menv env = SOME (v,tparams))
+  ⇒
+  type_v tvs tenvM tenvC tenvS (do_tapp tparams (SOME targs) v) (deBruijn_subst 0 targs t)`,
+cases_on `x` >>
+rw [] >>
+fs [lookup_var_id_def, t_lookup_var_id_def] >-
+metis_tac [type_lookup_lem2] >>
+every_case_tac >>
+fs [] >>
+match_mp_tac type_lookup_lem2 >>
+rw [] >>
+qexists_tac `r` >>
+qexists_tac `r'` >>
+qexists_tac `a` >>
+rw [bind_tvar_rewrites] >|
+[cheat,
+ metis_tac [tenvM_ok_lookup, type_lookup_lem4]]);
+
 val type_raise_eqn = Q.prove (
 `!tenvM tenvC tenv r t. 
   type_e tenvM tenvC tenv (Raise r) t = check_freevars (num_tvs tenv) [] t`,
@@ -1049,9 +1096,7 @@ fs [e_step_def] >|
                    by (fs [bind_tvar_def] >>
                        cases_on `tvs` >>
                        fs [num_tvs_def]) >>
-          fs [lookup_var_id_def] >>
-          cheat >>
-          metis_tac [type_lookup_lem2],
+          metis_tac [type_lookup_lem3],
       fs [return_def] >>
           rw [] >>
           qpat_assum `type_e tenvM tenvC tenv (Fun s'' o' e'') t1`
@@ -1437,6 +1482,38 @@ rw [e_step_reln_def] >|
      full_case_tac >>
      metis_tac [optionTheory.NOT_SOME_NONE]]);
 
+val type_env_store_weak_extension = Q.prove (
+`(!tvs tenvM tenvC tenvS v t.
+   type_v tvs tenvM tenvC tenvS v t ⇒ 
+   !tenvS'. store_type_extension tenvS tenvS' ⇒ type_v tvs tenvM tenvC tenvS' v t) ∧
+ (!tvs tenvM tenvC tenvS vs ts.
+   type_vs tvs tenvM tenvC tenvS vs ts ⇒ 
+   !tenvS'. store_type_extension tenvS tenvS' ⇒ type_vs tvs tenvM tenvC tenvS' vs ts) ∧
+ (!tenvM tenvC tenvS env tenv.
+   type_env tenvM tenvC tenvS env tenv ⇒ 
+   !tenvS'. store_type_extension tenvS tenvS' ⇒ type_env tenvM tenvC tenvS' env tenv)`,
+ho_match_mp_tac type_v_ind >>
+rw [] >>
+rw [Once type_v_cases] >|
+[metis_tac [],
+ metis_tac [],
+ fs [store_type_extension_def] >>
+     rw [merge_def] >>
+     fs [lookup_append] >>
+     full_case_tac >>
+     metis_tac [optionTheory.NOT_SOME_NONE],
+ metis_tac []]);
+
+val consistent_mod_store_weak = Q.prove (
+`!tenvS menv tenvM tenvS'.
+  consistent_mod_env tenvS menv tenvM ∧
+  store_type_extension tenvS tenvS'
+  ⇒
+  consistent_mod_env tenvS' menv tenvM`,
+ho_match_mp_tac consistent_mod_env_ind >>
+rw [consistent_mod_env_def] >>
+metis_tac [type_env_store_weak_extension]);
+
 val exp_type_soundness = Q.store_thm ("exp_type_soundness",
 `!tenvM tenvC tenvS tenv st e t menv cenv env tvs.
   tenvM_ok tenvM ∧
@@ -1472,7 +1549,7 @@ imp_res_tac exp_type_soundness_help >>
 fs [] >>
 rw [] >>
 fs [e_step_reln_def] >>
-`consistent_mod_env tenvS' menv tenvM` by cheat >>
+`consistent_mod_env tenvS' menv tenvM` by metis_tac [consistent_mod_store_weak] >>
 `final_state (menv,cenv,s',env',e',c')`
            by (metis_tac [exp_type_progress]) >>
 Cases_on `e'` >>
@@ -1594,28 +1671,6 @@ every_case_tac >>
 fs [] >>
 metis_tac []);
 
-val type_env_store_weak_extension = Q.prove (
-`(!tvs tenvM tenvC tenvS v t.
-   type_v tvs tenvM tenvC tenvS v t ⇒ 
-   !tenvS'. store_type_extension tenvS tenvS' ⇒ type_v tvs tenvM tenvC tenvS' v t) ∧
- (!tvs tenvM tenvC tenvS vs ts.
-   type_vs tvs tenvM tenvC tenvS vs ts ⇒ 
-   !tenvS'. store_type_extension tenvS tenvS' ⇒ type_vs tvs tenvM tenvC tenvS' vs ts) ∧
- (!tenvM tenvC tenvS env tenv.
-   type_env tenvM tenvC tenvS env tenv ⇒ 
-   !tenvS'. store_type_extension tenvS tenvS' ⇒ type_env tenvM tenvC tenvS' env tenv)`,
-ho_match_mp_tac type_v_ind >>
-rw [] >>
-rw [Once type_v_cases] >|
-[metis_tac [],
- metis_tac [],
- fs [store_type_extension_def] >>
-     rw [merge_def] >>
-     fs [lookup_append] >>
-     full_case_tac >>
-     metis_tac [optionTheory.NOT_SOME_NONE],
- metis_tac []]);
-
 val tenvC_ok_pres = Q.prove (
 `!tenvM tenvC tenv d tenvC' tenv'.
   type_d tenvM tenvC tenv d tenvC' tenv' ∧
@@ -1641,6 +1696,7 @@ val dec_type_soundness = Q.prove (
   ?st' r tenvS'. 
      (r ≠ Rerr Rtype_error) ∧ 
      evaluate_dec menv cenv st env d (st', r) ∧
+     store_type_extension tenvS tenvS' ∧
      (!menv' cenv' env'. 
          (r = Rval (cenv',env')) ⇒
          consistent_con_env (cenv' ++ cenv) (REVERSE tenvC' ++ tenvC) ∧
@@ -1657,7 +1713,7 @@ fs [d_diverges_def, merge_def, REVERSE_DEF, emp_def, evaluate_dec_cases] >|
                          by metis_tac [exp_type_soundness] >>
      cases_on `r` >>
      fs [] >>
-     `consistent_mod_env tenvS' menv tenvM` by cheat >|
+     `consistent_mod_env tenvS' menv tenvM` by metis_tac [consistent_mod_store_weak] >|
      [`(pmatch (SOME tvs) menv cenv st2 p a [] = No_match) ∨
        (?new_env. pmatch (SOME tvs) menv cenv st2 p a [] = Match new_env)`
                  by (metis_tac [pmatch_type_progress]) >|
@@ -1676,7 +1732,9 @@ fs [d_diverges_def, merge_def, REVERSE_DEF, emp_def, evaluate_dec_cases] >|
                metis_tac []],
       qexists_tac `st2` >>
           qexists_tac `Rerr e'` >>
-          rw []],
+          rw [] >>
+          qexists_tac `tenvS` >>
+          rw [store_type_extension_def, merge_def]],
  `∃st2 r tenvS'. r ≠ Rerr Rtype_error ∧ small_eval menv cenv st env e [] (st2,r) ∧
                 type_s tenvM tenvC tenvS' st2 ∧ 
                 store_type_extension tenvS tenvS' ∧
@@ -1684,7 +1742,7 @@ fs [d_diverges_def, merge_def, REVERSE_DEF, emp_def, evaluate_dec_cases] >|
                          by metis_tac [exp_type_soundness, bind_tvar_def] >>
      cases_on `r` >>
      fs [] >>
-     `consistent_mod_env tenvS' menv tenvM` by cheat >|
+     `consistent_mod_env tenvS' menv tenvM` by metis_tac [consistent_mod_store_weak] >|
      [`(pmatch (SOME 0) menv cenv st2 p a [] = No_match) ∨
        (?new_env. pmatch (SOME 0) menv cenv st2 p a [] = Match new_env)`
                  by (metis_tac [pmatch_type_progress]) >|
@@ -1703,7 +1761,9 @@ fs [d_diverges_def, merge_def, REVERSE_DEF, emp_def, evaluate_dec_cases] >|
                metis_tac []],
       qexists_tac `st2` >>
           qexists_tac `Rerr e'` >>
-          rw []],
+          rw [] >>
+          qexists_tac `tenvS` >>
+          rw [store_type_extension_def, merge_def]],
  imp_res_tac type_recfun_env >>
      imp_res_tac type_env_merge_lem1 >>
      qexists_tac `st` >>
@@ -1712,7 +1772,8 @@ fs [d_diverges_def, merge_def, REVERSE_DEF, emp_def, evaluate_dec_cases] >|
      qexists_tac `tenvS` >>
      rw [] >-
      metis_tac [type_funs_distinct] >>
-     fs [build_rec_env_merge, merge_def, emp_def],
+     fs [build_rec_env_merge, merge_def, emp_def] >>
+     rw [store_type_extension_def, merge_def],
  qexists_tac `st` >>
      qexists_tac `Rval (build_tdefs tdecs,[])` >>
      rw [] >>
@@ -1724,7 +1785,7 @@ fs [d_diverges_def, merge_def, REVERSE_DEF, emp_def, evaluate_dec_cases] >|
      `type_s tenvM (REVERSE (build_ctor_tenv tdecs) ++ tenvC) tenvS st`
              by (fs [type_s_def] >>
                  rw [] >> metis_tac [check_ctor_tenv_dups, tenvC_weakeningv, disjoint_env_rev, merge_def]) >>
-     fs [merge_def] >>
+     fs [merge_def, store_type_extension_def] >>
      metis_tac [consistent_cenv_no_dups, check_ctor_tenv_def]]);
 
 val type_soundness_help = Q.prove (
@@ -1748,6 +1809,7 @@ pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once diverges_cases]) >>
 fs [merge_def, REVERSE_DEF, emp_def] >>
 `?r st' tenvS'. 
    (r ≠ Rerr Rtype_error) ∧ 
+   store_type_extension tenvS tenvS' ∧
    evaluate_dec menv cenv st env d (st',r) ∧
    ∀cenv'' env''.
      (r = Rval (cenv'',env'')) ⇒
@@ -1761,7 +1823,7 @@ fs [] >|
      rw [] >>
      `¬diverges menv (q ++ cenv) st' (r ++ env) ds` by metis_tac [] >>
      imp_res_tac tenvC_ok_pres >>
-     `consistent_mod_env tenvS' menv tenvM` by cheat >>
+     `consistent_mod_env tenvS' menv tenvM` by metis_tac [consistent_mod_store_weak] >>
      res_tac >>
      qexists_tac `st''` >>
      qexists_tac `combine_dec_result q r r'` >>
