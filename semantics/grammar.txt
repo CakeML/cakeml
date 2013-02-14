@@ -114,10 +114,10 @@ TypeName ::= TyOp
            | TyVar TyOp
            | "(" TyVarList ")" TyOp
 
-TyVarList ::= TyVar | TyVar "," TyVarList
+TyVarList ::= TyVar | TyVarList "," TyVar
 
-Dconstructor ::= V "of" StarTypesP
-               | V
+Dconstructor ::= ConstructorName "of" StarTypesP
+               | ConstructorName
 
 DtypeCons ::= Dconstructor
             | Dconstructor "|" DtypeCons
@@ -126,7 +126,7 @@ StarTypesP ::= "(" StarTypes ")" | StarTypes
 
 StarTypes ::=
             | DType
-            | DType "*" StarTypes
+            | StarTypes "*" DType
 
 Decl ::= "val" Pattern "=" E
        | "fun" AndFDecls
