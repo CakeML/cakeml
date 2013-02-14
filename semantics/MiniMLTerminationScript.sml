@@ -101,14 +101,12 @@ val (pmatch_def, pmatch_ind) =
                              | INR (tvs,_,s,a,ps,b,c) => pat1_size (\x.0) ps)`);
 val _ = register "pmatch" pmatch_def pmatch_ind;
 
-(*
 val (pmatch'_def, pmatch'_ind) =
   tprove_no_defn ((pmatch'_def, pmatch'_ind),
   wf_rel_tac
   `inv_image $< (λx. case x of INL (tvs,s,p,b,c) => pat_size (\x.0) p 
                              | INR (tvs,s,ps,b,c) => pat1_size (\x.0) ps)`);
 val _ = register "pmatch'" pmatch'_def pmatch'_ind;
-*)
 
 val (find_recfun_def, find_recfun_ind) =
   tprove_no_defn ((find_recfun_def, find_recfun_ind),

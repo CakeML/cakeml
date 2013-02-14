@@ -4,30 +4,72 @@ open typeSoundTheory;
 
 val _ = new_theory "bigBigEquiv"
 
+val no_mod_vars_def = tDefine "no_mod_vars" `
+(no_mod_vars (Raise _) = T) ∧
+(no_mod_vars (Handle e1 _ e2) = no_mod_vars e1 ∧ no_mod_vars e2) ∧
+(no_mod_vars (Lit _) = T) ∧
+(no_mod_vars (Con cn es) = EVERY no_mod_vars es) ∧
+(no_mod_vars (Var (Short _) _) = T) ∧
+(no_mod_vars (Var (Long _ _) _) = F) ∧
+(no_mod_vars (Fun _ _ e) = no_mod_vars e) ∧
+(no_mod_vars (Uapp _ e) = no_mod_vars e) ∧
+(no_mod_vars (App _ e1 e2) = no_mod_vars e1 ∧ no_mod_vars e2) ∧
+(no_mod_vars (Log _ e1 e2) = no_mod_vars e1 ∧ no_mod_vars e2) ∧
+(no_mod_vars (If e1 e2 e3) = no_mod_vars e1 ∧ no_mod_vars e2 ∧ no_mod_vars e3) ∧
+(no_mod_vars (Mat e pes) = no_mod_vars e ∧ EVERY no_mod_vars (MAP SND pes)) ∧
+(no_mod_vars (Let _ _ _ e1 e2) = no_mod_vars e1 ∧ no_mod_vars e2) ∧
+(no_mod_vars (Letrec _ funs e) = EVERY (\(a,b,c,d,e). no_mod_vars e) funs)`
+(WF_REL_TAC `measure (exp_size (\x.0))` >>
+rw [] >>
+TRY (induct_on `pes`) >>
+TRY (induct_on `funs`) >>
+TRY (induct_on `es`) >>
+rw [] >>
+fs [] >>
+res_tac >>
+TRY (PairCases_on `h`) >>
+fs [exp_size_def] >>
+decide_tac);
+
+val v_no_mod_vars_def = tDefine "v_no_mod_vars" `
+(v_no_mod_vars (Litv _) = T) ∧
+(v_no_mod_vars (Conv _ vs) = EVERY v_no_mod_vars vs) ∧
+(v_no_mod_vars (Closure env _ _ e) = EVERY (\(a,b,c). v_no_mod_vars b) env ∧ no_mod_vars e) ∧
+(v_no_mod_vars (Recclosure env funs _) = 
+  EVERY (\(a,b,c). v_no_mod_vars b) env ∧ EVERY (\(a,b,c,d,e). no_mod_vars e) funs) ∧
+(v_no_mod_vars (Loc _) = T)`
+(WF_REL_TAC `measure (v_size (\x.0))` >>
+ rw [] >>
+ TRY (induct_on `env`) >>
+ TRY (induct_on `vs`) >>
+ rw [] >>
+ fs [v_size_def] >>
+ decide_tac);
+
 val pmatch_pmatch' = Q.prove (
-`(!tvs envc (s:'a store) p v env. (pmatch tvs envc s p v env ≠ Match_type_error) ⇒
-   (pmatch tvs envc s p v env = pmatch' tvs s p v env)) ∧
- (!tvs envc (s:'a store) ps vs env. (pmatch_list tvs envc s ps vs env ≠ Match_type_error) ⇒
-   (pmatch_list tvs envc s ps vs env = pmatch_list' tvs s ps vs env))`,
+`(!tvs (menv : 'a envM) cenv (s:'a store) p v env. (pmatch tvs menv cenv s p v env ≠ Match_type_error) ⇒
+   (pmatch tvs menv cenv s p v env = pmatch' tvs s p v env)) ∧
+ (!tvs (menv : 'a envM) cenv (s:'a store) ps vs env. (pmatch_list tvs menv cenv s ps vs env ≠ Match_type_error) ⇒
+   (pmatch_list tvs menv cenv s ps vs env = pmatch_list' tvs s ps vs env))`,
 HO_MATCH_MP_TAC pmatch_ind >>
 rw [pmatch_def, pmatch'_def] >|
-[Cases_on `lookup n envc` >>
+[Cases_on `lookup_con_id n menv cenv` >>
      fs [] >>
      Cases_on `x` >>
      fs [] >>
      rw [] >>
      metis_tac [],
- Cases_on `lookup n envc` >>
+ Cases_on `lookup_con_id n menv cenv` >>
      fs [] >>
      Cases_on `x` >>
      fs [] >>
      rw [] >>
      metis_tac [],
- Cases_on `lookup n envc` >>
+ Cases_on `lookup_con_id n menv cenv` >>
      fs [] >>
      Cases_on `x` >>
      fs [] >>
-     Cases_on `lookup n' envc` >>
+     Cases_on `lookup_con_id n' menv cenv` >>
      fs [] >>
      Cases_on `x` >>
      fs [] >>
@@ -38,34 +80,36 @@ rw [pmatch_def, pmatch'_def] >|
  every_case_tac >>
      fs []]);
 
+(*
 val evaluate_to_evaluate' = Q.prove (
-`(!envc s env e r. evaluate envc s env e r ⇒
-   (!s'. r ≠ (s', Rerr Rtype_error)) ⇒ evaluate' s env e r) ∧
- (!envc s env es r. evaluate_list envc s env es r ⇒
-   (!s'. r ≠ (s', Rerr Rtype_error)) ⇒ evaluate_list' s env es r) ∧
- (!envc s env v p r. evaluate_match envc s env v p r ⇒
-   (!s'. r ≠ (s', Rerr Rtype_error)) ⇒ evaluate_match' s env v p r)`,
+`(!(menv : t envM) cenv s env e r. evaluate menv cenv s env e r ⇒
+   EVERY (\(a,b,c). v_no_mod_vars b) env ∧ no_mod_vars e ∧ (!s'. r ≠ (s', Rerr Rtype_error)) ⇒ evaluate' s env e r) ∧
+ (!(menv : t envM) cenv s env es r. evaluate_list menv cenv s env es r ⇒
+   EVERY (\(a,b,c). v_no_mod_vars b) env ∧ EVERY no_mod_vars es ∧ (!s'. r ≠ (s', Rerr Rtype_error)) ⇒ evaluate_list' s env es r) ∧
+ (!(menv : t envM) cenv s env v p r. evaluate_match menv cenv s env v p r ⇒
+   EVERY (\(a,b,c). v_no_mod_vars b) env ∧ v_no_mod_vars v ∧ (!s'. r ≠ (s', Rerr Rtype_error)) ⇒ evaluate_match' s env v p r)`,
 ho_match_mp_tac evaluate_ind >>
-rw [] >>
+rw [no_mod_vars_def] >>
 SIMP_TAC (srw_ss()) [Once evaluate'_cases] >>
 fs [] >>
-metis_tac [pmatch_pmatch', match_result_distinct]);
+e(metis_tac [pmatch_pmatch', match_result_distinct]);
 
 val evaluate'_to_evaluate = Q.prove (
 `(!s env e r. evaluate' s env e r ⇒
-   !envc. (!s'. ¬evaluate envc s env e (s', Rerr Rtype_error)) ⇒ evaluate envc s env e r) ∧
+   !menv cenv. (!s'. ¬evaluate menv cenv s env e (s', Rerr Rtype_error)) ⇒
+   evaluate menv cenv s env e r) ∧
  (!s env es r. evaluate_list' s env es r ⇒
-   !envc. (!s'. ¬evaluate_list envc s env es (s', Rerr Rtype_error)) ⇒
-   evaluate_list envc s env es r) ∧
+   !menv cenv. (!s'. ¬evaluate_list menv cenv s env es (s', Rerr Rtype_error)) ⇒
+   evaluate_list menv cenv s env es r) ∧
  (!s env v p r. evaluate_match' s env v p r ⇒
-   !envc. (!s'. ¬evaluate_match envc s env v p (s', Rerr Rtype_error)) ⇒
-   evaluate_match envc s env v p r)`,
+   !menv cenv. (!s'. ¬evaluate_match menv cenv s env v p (s', Rerr Rtype_error)) ⇒
+   evaluate_match menv cenv s env v p r)`,
 ho_match_mp_tac evaluate'_ind >>
 rw [] >>
 SIMP_TAC (srw_ss()) [Once evaluate_cases] >>
 fs [] >>
 pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once evaluate_cases]) >>
-metis_tac [pmatch_pmatch', match_result_distinct]);
+e(metis_tac [pmatch_pmatch', match_result_distinct]);
 
 val type_no_error = Q.prove (
 `!tenvC senv tenv e t envC s env r.
@@ -143,5 +187,5 @@ val evaluate_dec_evaluate_dec'_thm = Q.store_thm ("evaluate_dec_evaluate_dec'_th
   (evaluate_decs' envC s env ds r = evaluate_decs envC s env ds r)`,
 metis_tac [type_no_error_dec, evaluate_decs'_to_evaluate_decs,
            evaluate_decs_to_evaluate_decs']);
-
+           *)
 val _ = export_theory ()

@@ -2473,346 +2473,350 @@ evaluate_ctxts menv cenv s c (Rval v) bv
 evaluate_state (menv, cenv, s, env, Val v, c) bv)`;
 
 
-(*
 (* ------------------------------------------------------------------------ *) 
 (*   Alternate big-step semantics                                           *)
 (* ------------------------------------------------------------------------ *) 
 
 (* A version of the big-step expression semantics that doesn't use the
- * constructor environment to know if a value is ok or not.  Is equivalent to
- * the normal one for well-typed programs. *)
+ * constructor environment to know if a value is ok or not.  It also has no
+ * module environment. Is equivalent to the normal one for well-typed programs
+ * that don't contain module references. *)
 
-val pmatch' : forall 'a. option num -> store 'a -> pat 'a -> v 'a -> envE 'a -> match_result 'a
-let rec
-pmatch' tvs s (Pvar n topt) v' env = Match (bind n (v', add_tvs tvs topt) env)
-and
-pmatch' tvs s (Plit l) (Litv l') env =
+(*val pmatch' : forall 'a.option num -> store 'a -> pat 'a -> v 'a -> envE 'a -> match_result 'a*)
+ val pmatch'_defn = Hol_defn "pmatch'" `
+
+(pmatch' tvs s (Pvar n topt) v' env = Match (bind n (v', add_tvs tvs topt) env))
+/\
+(pmatch' tvs s (Plit l) (Litv l') env =
   if l = l' then
     Match env
   else if lit_same_type l l' then
     No_match
   else
-    Match_type_error
-and
-pmatch' tvs s (Pcon n ps) (Conv n' vs) env =
-  if List.length ps = List.length vs && n = n' then
+    Match_type_error)
+/\
+(pmatch' tvs s (Pcon cn ps) (Conv cn' vs) env =
+  if (LENGTH ps = LENGTH vs) /\ (cn = cn') then
     pmatch_list' tvs s ps vs env
   else
-    No_match
-and
-pmatch' tvs s (Pref p) (Loc lnum) env =
-  match store_lookup lnum s with
-    | Some v -> pmatch' tvs s p v env
-    | None -> Match_type_error
-  end
-and
-pmatch' tvs _ _ _ env = Match_type_error
-and
-pmatch_list' tvs s [] [] env = Match env
-and
-pmatch_list' tvs s (p::ps) (v::vs) env =
-  match pmatch' tvs s p v env with
-    | No_match -> No_match
-    | Match_type_error -> Match_type_error
-    | Match env' -> pmatch_list' tvs s ps vs env'
-  end
-and
-pmatch_list' tvs _ _ _ env = Match_type_error
+    No_match)
+/\
+(pmatch' tvs s (Pref p) (Loc lnum) env =
+  (case store_lookup lnum s of
+      SOME v => pmatch' tvs s p v env
+    | NONE => Match_type_error
+  ))
+/\
+(pmatch' tvs _ _ _ env = Match_type_error)
+/\
+(pmatch_list' tvs s [] [] env = Match env)
+/\
+(pmatch_list' tvs s (p::ps) (v::vs) env =
+  (case pmatch' tvs s p v env of
+      No_match => No_match
+    | Match_type_error => Match_type_error
+    | Match env' => pmatch_list' tvs s ps vs env'
+  ))
+/\
+(pmatch_list' tvs _ _ _ env = Match_type_error)`;
+
+val _ = Defn.save_defn pmatch'_defn;
 
 
-indreln
+val _ = Hol_reln `
 
-forall env l s.
-true
+(! env l s.
+T
 ==>
-evaluate' s env (Lit l) (s, Rval (Litv l))
+evaluate' s env (Lit l) (s, Rval (Litv l)))
 
-and
+/\
 
-forall env err s.
-true
+(! env err s.
+T
 ==>
-evaluate' s env (Raise err) (s, Rerr (Rraise err))
+evaluate' s env (Raise err) (s, Rerr (Rraise err)))
 
-and
+/\
 
-forall s1 s2 env e1 e2 v var.
+(! s1 s2 env e1 e2 v var.
 evaluate' s1 env e1 (s2, Rval v)
 ==>
-evaluate' s1 env (Handle e1 var e2) (s2, Rval v)
+evaluate' s1 env (Handle e1 var e2) (s2, Rval v))
 
-and
+/\
 
-forall s1 s2 env e1 e2 n var bv.
-evaluate' s1 env e1 (s2, Rerr (Rraise (Int_error n))) &&
-evaluate' s2 (bind var (Litv (IntLit n), Some (0,Tint)) env) e2 bv
+(! s1 s2 env e1 e2 n var bv.
+evaluate' s1 env e1 (s2, Rerr (Rraise (Int_error n))) /\
+evaluate' s2 (bind var (Litv (IntLit n), SOME (0,Tint)) env) e2 bv
 ==>
-evaluate' s1 env (Handle e1 var e2) bv
+evaluate' s1 env (Handle e1 var e2) bv)
 
-and
+/\
 
-forall s1 s2 env e1 e2 var err.
-evaluate' s1 env e1 (s2, Rerr err) &&
-(err = Rtype_error || err = Rraise Bind_error || err = Rraise Div_error)
+(! s1 s2 env e1 e2 var err.
+evaluate' s1 env e1 (s2, Rerr err) /\
+((err = Rtype_error) \/ (err = Rraise Bind_error) \/ (err = Rraise Div_error))
 ==>
-evaluate' s1 env (Handle e1 var e2) (s2, Rerr err)
+evaluate' s1 env (Handle e1 var e2) (s2, Rerr err))
 
-and
+/\
 
-forall env cn es vs s1 s2.
+(! env cn es vs s1 s2.
 evaluate_list' s1 env es (s2, Rval vs)
 ==>
-evaluate' s1 env (Con cn es) (s2, Rval (Conv cn vs))
+evaluate' s1 env (Con cn es) (s2, Rval (Conv cn vs)))
 
-and
+/\
 
-forall env cn es err s s'.
+(! env cn es err s s'.
 evaluate_list' s env es (s', Rerr err)
 ==>
-evaluate' s env (Con cn es) (s', Rerr err)
+evaluate' s env (Con cn es) (s', Rerr err))
 
-and
+/\
 
-forall env n v s targs_opt type_scheme_opt.
-(lookup n env = Some (v,type_scheme_opt))
+(! env n v s targs_opt type_scheme_opt.
+(lookup n env = SOME (v,type_scheme_opt))
 ==>
-evaluate' s env (Var n targs_opt) (s, Rval (do_tapp type_scheme_opt targs_opt v))
+evaluate' s env (Var (Short n) targs_opt) (s, Rval (do_tapp type_scheme_opt targs_opt v)))
 
-and
+/\
 
-forall env n s targs_opt.
-(lookup n env = None)
+(! env n s targs_opt.
+(lookup n env = NONE)
 ==>
-evaluate' s env (Var n targs_opt) (s, Rerr Rtype_error)
+evaluate' s env (Var (Short n) targs_opt) (s, Rerr Rtype_error))
 
-and
+/\
 
-forall env n e s topt.
-true
+(! env n e s topt.
+T
 ==>
-evaluate' s env (Fun n topt e) (s, Rval (Closure env n topt e))
+evaluate' s env (Fun n topt e) (s, Rval (Closure env n topt e)))
 
-and
+/\
 
-forall env uop e v v' s1 s2 s3.
-evaluate' s1 env e (s2, Rval v) &&
-do_uapp s2 uop v = Some (s3,v')
+(! env uop e v v' s1 s2 s3.
+evaluate' s1 env e (s2, Rval v) /\
+(do_uapp s2 uop v = SOME (s3,v'))
 ==>
-evaluate' s1 env (Uapp uop e) (s3, Rval v')
+evaluate' s1 env (Uapp uop e) (s3, Rval v'))
 
-and
+/\
 
-forall env uop e v s1 s2.
-evaluate' s1 env e (s2, Rval v) &&
-do_uapp s2 uop v = None
+(! env uop e v s1 s2.
+evaluate' s1 env e (s2, Rval v) /\
+(do_uapp s2 uop v = NONE)
 ==>
-evaluate' s1 env (Uapp uop e) (s2, Rerr Rtype_error)
+evaluate' s1 env (Uapp uop e) (s2, Rerr Rtype_error))
 
-and
+/\
 
-forall env uop e err s s'.
+(! env uop e err s s'.
 evaluate' s env e (s', Rerr err)
 ==>
-evaluate' s env (Uapp uop e) (s', Rerr err)
+evaluate' s env (Uapp uop e) (s', Rerr err))
 
-and
+/\
 
-forall env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 s4.
-evaluate' s1 env e1 (s2, Rval v1) &&
-evaluate' s2 env e2 (s3, Rval v2) &&
-do_app s3 env op v1 v2 = Some (s4, env', e3) &&
+(! env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 s4.
+evaluate' s1 env e1 (s2, Rval v1) /\
+evaluate' s2 env e2 (s3, Rval v2) /\
+(do_app s3 env op v1 v2 = SOME (s4, env', e3)) /\
 evaluate' s4 env' e3 bv
 ==>
-evaluate' s1 env (App op e1 e2) bv
+evaluate' s1 env (App op e1 e2) bv)
 
-and
+/\
 
-forall env op e1 e2 v1 v2 s1 s2 s3.
-evaluate' s1 env e1 (s2, Rval v1) &&
-evaluate' s2 env e2 (s3, Rval v2) &&
-do_app s3 env op v1 v2 = None
+(! env op e1 e2 v1 v2 s1 s2 s3.
+evaluate' s1 env e1 (s2, Rval v1) /\
+evaluate' s2 env e2 (s3, Rval v2) /\
+(do_app s3 env op v1 v2 = NONE)
 ==>
-evaluate' s1 env (App op e1 e2) (s3, Rerr Rtype_error)
+evaluate' s1 env (App op e1 e2) (s3, Rerr Rtype_error))
 
-and
+/\
 
-forall env op e1 e2 v1 err s1 s2 s3.
-evaluate' s1 env e1 (s2, Rval v1) &&
+(! env op e1 e2 v1 err s1 s2 s3.
+evaluate' s1 env e1 (s2, Rval v1) /\
 evaluate' s2 env e2 (s3, Rerr err)
 ==>
-evaluate' s1 env (App op e1 e2) (s3, Rerr err)
+evaluate' s1 env (App op e1 e2) (s3, Rerr err))
 
-and
+/\
 
-forall env op e1 e2 err s s'.
+(! env op e1 e2 err s s'.
 evaluate' s env e1 (s', Rerr err)
 ==>
-evaluate' s env (App op e1 e2) (s', Rerr err)
+evaluate' s env (App op e1 e2) (s', Rerr err))
 
-and
+/\
 
-forall env op e1 e2 v e' bv s1 s2.
-evaluate' s1 env e1 (s2, Rval v) &&
-do_log op v e2 = Some e' &&
+(! env op e1 e2 v e' bv s1 s2.
+evaluate' s1 env e1 (s2, Rval v) /\
+(do_log op v e2 = SOME e') /\
 evaluate' s2 env e' bv
 ==>
-evaluate' s1 env (Log op e1 e2) bv
+evaluate' s1 env (Log op e1 e2) bv)
 
-and
+/\
 
-forall env op e1 e2 v s1 s2.
-evaluate' s1 env e1 (s2, Rval v) &&
-do_log op v e2 = None
+(! env op e1 e2 v s1 s2.
+evaluate' s1 env e1 (s2, Rval v) /\
+(do_log op v e2 = NONE)
 ==>
-evaluate' s1 env (Log op e1 e2) (s2, Rerr Rtype_error)
+evaluate' s1 env (Log op e1 e2) (s2, Rerr Rtype_error))
 
-and
+/\
 
-forall env op e1 e2 err s s'.
+(! env op e1 e2 err s s'.
 evaluate' s env e1 (s', Rerr err)
 ==>
-evaluate' s env (Log op e1 e2) (s', Rerr err)
+evaluate' s env (Log op e1 e2) (s', Rerr err))
 
-and
+/\
 
-forall env e1 e2 e3 v e' bv s1 s2.
-evaluate' s1 env e1 (s2, Rval v) &&
-do_if v e2 e3 = Some e' &&
+(! env e1 e2 e3 v e' bv s1 s2.
+evaluate' s1 env e1 (s2, Rval v) /\
+(do_if v e2 e3 = SOME e') /\
 evaluate' s2 env e' bv
 ==>
-evaluate' s1 env (If e1 e2 e3) bv
+evaluate' s1 env (If e1 e2 e3) bv)
 
-and
+/\
 
-forall env e1 e2 e3 v s1 s2.
-evaluate' s1 env e1 (s2, Rval v) &&
-do_if v e2 e3 = None
+(! env e1 e2 e3 v s1 s2.
+evaluate' s1 env e1 (s2, Rval v) /\
+(do_if v e2 e3 = NONE)
 ==>
-evaluate' s1 env (If e1 e2 e3) (s2, Rerr Rtype_error)
+evaluate' s1 env (If e1 e2 e3) (s2, Rerr Rtype_error))
 
-and
+/\
 
 
-forall env e1 e2 e3 err s s'.
+(! env e1 e2 e3 err s s'.
 evaluate' s env e1 (s', Rerr err)
 ==>
-evaluate' s env (If e1 e2 e3) (s', Rerr err)
+evaluate' s env (If e1 e2 e3) (s', Rerr err))
 
-and
+/\
 
-forall env e pes v bv s1 s2.
-evaluate' s1 env e (s2, Rval v) &&
+(! env e pes v bv s1 s2.
+evaluate' s1 env e (s2, Rval v) /\
 evaluate_match' s2 env v pes bv
 ==>
-evaluate' s1 env (Mat e pes) bv
+evaluate' s1 env (Mat e pes) bv)
 
-and
+/\
 
-forall env e pes err s s'.
+(! env e pes err s s'.
 evaluate' s env e (s', Rerr err)
 ==>
-evaluate' s env (Mat e pes) (s', Rerr err)
+evaluate' s env (Mat e pes) (s', Rerr err))
 
-and
+/\
 
-forall env n e1 e2 v bv s1 s2 topt tvs.
-evaluate' s1 env e1 (s2, Rval v) &&
+(! env n e1 e2 v bv s1 s2 topt tvs.
+evaluate' s1 env e1 (s2, Rval v) /\
 evaluate' s2 (bind n (v,add_tvs tvs topt) env) e2 bv
 ==>
-evaluate' s1 env (Let tvs n topt e1 e2) bv
+evaluate' s1 env (Let tvs n topt e1 e2) bv)
 
-and
+/\
 
-forall env n e1 e2 err s s' topt tvs.
+(! env n e1 e2 err s s' topt tvs.
 evaluate' s env e1 (s', Rerr err)
 ==>
-evaluate' s env (Let tvs n topt e1 e2) (s', Rerr err)
+evaluate' s env (Let tvs n topt e1 e2) (s', Rerr err))
 
-and
+/\
 
-forall env funs e bv s tvs.
-all_distinct (List.map (fun (x,topt1,y,topt2,z) -> x) funs) &&
+(! env funs e bv s tvs.
+ALL_DISTINCT (MAP (\ (x,topt1,y,topt2,z) . x) funs) /\
 evaluate' s (build_rec_env tvs funs env env) e bv
 ==>
-evaluate' s env (Letrec tvs funs e) bv
+evaluate' s env (Letrec tvs funs e) bv)
 
-and
+/\
 
-forall env funs e s tvs.
-not (all_distinct (List.map (fun (x,topt1,y,topt2,z) -> x) funs))
+(! env funs e s tvs.
+~  (ALL_DISTINCT (MAP (\ (x,topt1,y,topt2,z) . x) funs))
 ==>
-evaluate' s env (Letrec tvs funs e) (s, Rerr Rtype_error)
+evaluate' s env (Letrec tvs funs e) (s, Rerr Rtype_error))
 
-and
+/\
 
-forall env s.
-true
+(! env s.
+T
 ==>
-evaluate_list' s env [] (s, Rval [])
+evaluate_list' s env [] (s, Rval []))
 
-and
+/\
 
-forall env e es v vs s1 s2 s3.
-evaluate' s1 env e (s2, Rval v) &&
+(! env e es v vs s1 s2 s3.
+evaluate' s1 env e (s2, Rval v) /\
 evaluate_list' s2 env es (s3, Rval vs)
 ==>
-evaluate_list' s1 env (e::es) (s3, Rval (v::vs))
+evaluate_list' s1 env (e::es) (s3, Rval (v::vs)))
 
-and
+/\
 
-forall env e es err s s'.
+(! env e es err s s'.
 evaluate' s env e (s', Rerr err)
 ==>
-evaluate_list' s env (e::es) (s', Rerr err)
+evaluate_list' s env (e::es) (s', Rerr err))
 
-and
+/\
 
-forall env e es v err s1 s2 s3.
-evaluate' s1 env e (s2, Rval v) &&
+(! env e es v err s1 s2 s3.
+evaluate' s1 env e (s2, Rval v) /\
 evaluate_list' s2 env es (s3, Rerr err)
 ==>
-evaluate_list' s1 env (e::es) (s3, Rerr err)
+evaluate_list' s1 env (e::es) (s3, Rerr err))
 
-and
+/\
 
-forall env v s.
-true
+(! env v s.
+T
 ==>
-evaluate_match' s env v [] (s, Rerr (Rraise Bind_error))
+evaluate_match' s env v [] (s, Rerr (Rraise Bind_error)))
 
-and
+/\
 
-forall env v p e pes env' bv s.
-all_distinct (pat_bindings p []) &&
-(pmatch' (Some 0) s p v env = Match env') &&
+(! env v p e pes env' bv s.
+ALL_DISTINCT (pat_bindings p []) /\
+(pmatch' (SOME 0) s p v env = Match env') /\
 evaluate' s env' e bv
 ==>
-evaluate_match' s env v ((p,e)::pes) bv
+evaluate_match' s env v ((p,e)::pes) bv)
 
-and
+/\
 
-forall env v p e pes bv s.
-all_distinct (pat_bindings p []) &&
-(pmatch' (Some 0) s p v env = No_match) &&
+(! env v p e pes bv s.
+ALL_DISTINCT (pat_bindings p []) /\
+(pmatch' (SOME 0) s p v env = No_match) /\
 evaluate_match' s env v pes bv
 ==>
-evaluate_match' s env v ((p,e)::pes) bv
+evaluate_match' s env v ((p,e)::pes) bv)
 
-and
+/\
 
-forall env v p e pes s.
-(pmatch' (Some 0) s p v env = Match_type_error)
+(! env v p e pes s.
+(pmatch' (SOME 0) s p v env = Match_type_error)
 ==>
-evaluate_match' s env v ((p,e)::pes) (s, Rerr Rtype_error)
+evaluate_match' s env v ((p,e)::pes) (s, Rerr Rtype_error))
 
-and
+/\
 
-forall env v p e pes s.
-not (all_distinct (pat_bindings p []))
+(! env v p e pes s.
+~  (ALL_DISTINCT (pat_bindings p []))
 ==>
-evaluate_match' s env v ((p,e)::pes) (s, Rerr Rtype_error)
+evaluate_match' s env v ((p,e)::pes) (s, Rerr Rtype_error))`;
 
 
+(*
 indreln
 
 forall cenv env s.
