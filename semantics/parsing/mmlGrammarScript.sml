@@ -5,7 +5,7 @@ open TokensTheory AstTheory grammarTheory
 val _ = new_theory "mmlGrammar"
 
 val _ = Hol_datatype`
-  MMLnonT = nV |
+  MMLnonT = nV | nConstructorName |
     nEbase | nEapp | nEmult | nEadd | nErel | nEcomp | nEbefore
   | nElogic | nE | nError | nLogicalOp | nLiteral | nFDecl
   | nAndFDecls | nPEs | nPE
@@ -147,14 +147,25 @@ val ptree_Type_def = Define`
 
 val V_rules_def = Define`
   V_rules =
-   {(mkNT nV, [TK (AlphaT s)]) | s ∉ {"before"; "div"; "mod" }} ∪
+   {(mkNT nV, [TK (AlphaT s)]) | s ∉ {"before"; "div"; "mod" } ∧
+                                 s ≠ "" ∧ ¬isUpper (HD s)} ∪
    {(mkNT nV, [TK (SymbolT s)]) | s ∉ {"+"; "*"; "-"; "/" }}`
+
+(* constructors are distinguished from normal constants and
+   variables because they have to have their names
+   capitalised. *)
+val ConstructorName_rules_def = Define`
+  ConstructorName_rules = {
+       (mkNT nConstructorName, [TK (AlphaT s)])
+     | s ≠ "" ∧ isUpper (HD s)
+  }`;
 
 val Ebase_rules_def = Define`
   Ebase_rules =
     mkRules nEbase
       ({[TK LparT; NN nE; TK RparT];
         [NN nV];
+        [NN nConstructorName];
         [TK LetT; TK ValT; NN nV; TK EqualsT; NN nE; TK InT;
          NN nE; TK EndT];
         [TK LetT; TK FunT; NN nAndFDecls; TK InT; NN nE; TK EndT]} ∪
