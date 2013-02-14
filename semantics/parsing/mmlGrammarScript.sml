@@ -11,7 +11,7 @@ val _ = Hol_datatype`
   | nAndFDecls | nPEs | nPE
   | nPattern | nType | nDType | nTypeList | nTypeDec | nDtypeDecls
   | nDtypeDecl | nTypeName | nTyVarList | nDconstructor | nDtypeCons
-  | nStarTypes | nDecl | nTyOp
+  | nStarTypes | nStarTypesP | nDecl | nTyOp
   | nMultOps | nAddOps | nRelOps | nCompOps | nBeforeOps
 `;
 
@@ -77,6 +77,50 @@ val Type_rules_def = Define`
     [NN nDType];
     [NN nDType; TK ArrowT; NN nType]
   }
+`;
+
+val binop_rule_def = Define`
+  binop_rule tight loose opn = mkRules loose {
+    [NN loose; opn; tight];
+    [tight]
+  }`
+
+val StarTypes_rules_def = Define`
+  StarTypes_rules =
+    binop_rule (NN nDType) nStarTypes (TK StarT) ∪
+    mkRules nStarTypesP {
+      [TK LparT; NN nStarTypes; TK RparT];
+      [NN nStarTypes]
+    }
+`;
+
+val TypeName_rules_def = Define`
+  TypeName_rules =
+    mkRules nTypeName {
+      [NN nTyOp];
+      [TK LparT; NN nTyVarList; TK RparT; NN nTyOp]
+    } ∪
+    { (mkNT nTypeName, [TK (TyvarT s); NN nTyOp]) | s ≠ ""} ∪
+    { (mkNT nTyVarList, [TK (TyvarT s)]) | s ≠ "" } ∪
+    { (mkNT nTyVarList,
+       [NN nTyVarList; TK CommaT; TK (TyvarT s)]) | s ≠ "" }
+`;
+
+val Dconstructor_rules_def = Define`
+  Dconstructor_rules = mkRules nDconstructor {
+    [NN nConstructorName; TK OfT; NN nStarTypesP];
+    [NN nConstructorName]
+  }`;
+
+val DtypeCons_rules_def = Define`
+  DtypeCons_rules = binop_rule (NN nDconstructor) nDtypeCons (TK BarT)
+`;
+
+val DtypeDecls_rules_def = Define`
+  DtypeDecl_rules =
+   mkRules nDtypeDecl {[NN nTypeName; TK EqualsT; NN nDtypeCons]} ∪
+   binop_rule (NN nDtypeDecl) nDtypeDecls (TK AndT) ∪
+   mkRules nTypeDec {[TK DatatypeT; NN nDtypeDecls]}
 `;
 
 val ptree_Tyop_def = Define`
@@ -172,12 +216,6 @@ val Ebase_rules_def = Define`
       { [TK (IntT i)] | T })
 `
 
-val binop_rule_def = Define`
-  binop_rule tight loose opn = mkRules loose {
-    [NN loose; NN opn; NN tight];
-    [NN tight]
-  }`
-
 val Eapp_rules_def = Define`
   Eapp_rules = mkRules nEapp {
     [NN nEapp; NN nEbase];
@@ -194,19 +232,19 @@ val MultOps_rules_def = Define`
 
 (* various left associative binary operators *)
 val Emult_rules_def = Define`
-  Emult_rules = binop_rule nEapp nEmult nMultOps
+  Emult_rules = binop_rule nEapp nEmult (NN nMultOps)
 `;
 val Eadd_rules_def = Define`
-  Eadd_rules = binop_rule nEmult nEadd nAddOps
+  Eadd_rules = binop_rule nEmult nEadd (NN nAddOps)
 `;
 val Erel_rules_def = Define`
-  Erel_rules = binop_rule nEadd nErel nRelOps
+  Erel_rules = binop_rule nEadd nErel (NN nRelOps)
 `;
 val Ecomp_rules_def = Define`
-  Ecomp_rules = binop_rule nErel nEcomp nCompOps
+  Ecomp_rules = binop_rule nErel nEcomp (NN nCompOps)
 `;
 val Ebefore_rules_def = Define`
-  Ebefore_rules = binop_rule nEcomp nEbefore nBeforeOps
+  Ebefore_rules = binop_rule nEcomp nEbefore (NN nBeforeOps)
 `;
 
 (* ----------------------------------------------------------------------
