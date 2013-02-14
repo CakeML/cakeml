@@ -2200,7 +2200,7 @@ val good_code_env_def = Define`
 val _ = Parse.overload_on("retbc",``λn az. [Stack (Pops n); Stack (Load 1); Stack (Store (az + 2)); Stack (Pops (az + 1)); Return]``)
 
 val good_code_env_def = Define`
-  good_code_env nl c d code = FEVERY (λ(l,e).
+  good_code_env c d code = FEVERY (λ(l,e).
     Cexp_pred e ∧
     ALL_DISTINCT (binders e) ∧
     ∃cs vs ns xs k bc0 bc1.
@@ -2209,7 +2209,6 @@ val good_code_env_def = Define`
       good_ecs cs.ecs ∧ free_labs e ⊆ FDOM cs.ecs ∧
       ALL_DISTINCT (FILTER is_Label cs.out) ∧
       EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label cs.out) ∧
-      cs.next_label ≤ nl ∧
       (cs.env = FST(SND(ITSET (bind_fv ns xs (LENGTH xs) k) (free_vars c e) (0,FEMPTY,0,[])))) ∧
       (cs.sz = 0) ∧
       (cs.tail = TCTail (LENGTH xs) 0) ∧
@@ -2218,17 +2217,10 @@ val good_code_env_def = Define`
     ) c`
 
 val good_code_env_append = store_thm("good_code_env_append",
- ``∀nl c d code ls. good_code_env nl c d code ⇒ good_code_env nl c d (code ++ ls)``,
+ ``∀c d code ls. good_code_env c d code ⇒ good_code_env c d (code ++ ls)``,
  rw[good_code_env_def,FEVERY_DEF] >>
  res_tac >> rw[] >> metis_tac[APPEND_ASSOC])
 val _ = export_rewrites["good_code_env_append"]
-
-val good_code_env_next_label = store_thm("good_code_env_next_label",
-  ``∀nl1 nl2 c d code ls. good_code_env nl1 c d code ∧ nl1 ≤ nl2 ⇒ good_code_env nl2 c d code``,
-  rw[good_code_env_def,FEVERY_DEF] >>
-  res_tac >> rw[] >>
-  qexists_tac`cs` >> rw[] >>
-  srw_tac[ARITH_ss][] >> metis_tac[])
 
 val retbc_thm = store_thm("retbc_thm",
   ``∀bs bc0 bc1 bv vs benv ret args x st bs'.
@@ -2389,7 +2381,7 @@ val compile_val = store_thm("compile_val",
         (res = (s', Rval v)) ∧
         good_sm sm ∧ FDOM s' ⊆ FDOM sm ∧
         good_ecs cs.ecs ∧ free_labs exp ⊆ FDOM cs.ecs ∧
-        (bce ++ bcr = bs.code) ∧ good_code_env cs.next_label c d bce ∧
+        (bce ++ bcr = bs.code) ∧ good_code_env c d bce ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length (bc0 ++ (REVERSE cs.out))) ∧
         (free_vars c exp ⊆ FDOM cs.env) ∧
@@ -2420,7 +2412,7 @@ val compile_val = store_thm("compile_val",
         (ress = (s', Rval vs)) ∧
         good_sm sm ∧ FDOM s' ⊆ FDOM sm ∧
         good_ecs cs.ecs ∧ free_labs_list exps ⊆ FDOM cs.ecs ∧
-        (bce ++ bcr = bs.code) ∧ good_code_env cs.next_label c d bce ∧
+        (bce ++ bcr = bs.code) ∧ good_code_env c d bce ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length (bc0 ++ (REVERSE cs.out))) ∧
         (BIGUNION (IMAGE (free_vars c) (set exps)) ⊆ FDOM cs.env) ∧
@@ -2833,11 +2825,6 @@ val compile_val = store_thm("compile_val",
       conj_tac >- PROVE_TAC[SUBSET_TRANS] >>
       conj_tac >- metis_tac[Cevaluate_Clocs,FST] >>
       conj_tac >- PROVE_TAC[SUBSET_TRANS] >>
-      conj_tac >- (match_mp_tac good_code_env_next_label >>
-                   Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
-                   qexists_tac`cs0.next_label` >>
-                   rw[compile_next_label_inc] >>
-                   rw[Abbr`cs0`] ) >>
       match_mp_tac compile_labels_lemma >>
       map_every qexists_tac [`FST(sdt cs)`,`exp`,`bc0`] >>
       rw[] ) >>
@@ -2954,7 +2941,7 @@ val compile_val = store_thm("compile_val",
       qpat_assum`bc_fetch X = Y` kall_tac >>
       Q.PAT_ABBREV_TAC`ret = x + 1` >>
       qho_match_abbrev_tac`∃rf bv. bc_next^* bs1 (bs2 rf bv) ∧ P rf bv` >>
-      qpat_assum`good_code_env X c d bce`(mp_tac o Q.SPEC`l` o SIMP_RULE(srw_ss())[good_code_env_def,FEVERY_DEF]) >>
+      qpat_assum`good_code_env c d bce`(mp_tac o Q.SPEC`l` o SIMP_RULE(srw_ss())[good_code_env_def,FEVERY_DEF]) >>
       fs[FLOOKUP_DEF] >>
       simp_tac(srw_ss()++DNF_ss)[] >>
       qpat_assum`X = d ' l`(assume_tac o SYM) >>
