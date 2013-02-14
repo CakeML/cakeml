@@ -29,6 +29,7 @@ val _ = type_abbrev("mlptree", ``:(token, MMLnonT) parsetree``)
 
 open monadsyntax lcsymtacs
 val _ = overload_on ("monad_bind", ``OPTION_BIND``)
+val _ = overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
 
 val mmap_def = Define`
   (mmap f [] = SOME []) /\
@@ -184,6 +185,83 @@ val ptree_Type_def = Define`
          | _ => NONE))
 `;
 
+val destTyvar_def = Define`
+  (destTyvar (Lf (TK (TyvarT s))) = SOME s) ∧
+  (destTyvar _ = NONE)
+`;
+
+val ptree_TyVarList_def = Define`
+  ptree_TyVarList ptree : tvarN list option =
+    case ptree of
+      Lf _ => NONE
+    | Nd nt args =>
+      if nt = mkNT nTyVarList then
+        (case args of
+           [sym] => do tvnm <- destTyvar sym ; SOME [tvnm] od
+         | [pt0; comma; sym] =>
+              if comma = Lf (TK CommaT) then do
+                   pfx <- ptree_TyVarList pt0;
+                   tvnm <- destTyvar sym;
+                   SOME(pfx ++ [tvnm])
+                od
+              else NONE)
+      else NONE
+`;
+
+val ptree_TypeName_def = Define`
+  ptree_TypeName ptree : (tvarN list # typeN) option =
+    case ptree of
+      Lf _ => NONE
+    | Nd nt args =>
+      if nt = mkNT nTypeName then
+        case args of
+          [opt] => do opn <- ptree_Tyop opt ; SOME([], opn) od
+        | [sym; opt] => do tyvn <- destTyvar sym ;
+                           opn <- ptree_Tyop opt ;
+                           SOME ([tyvn], opn)
+                        od
+        | [lp; tyvl; rp; opt] =>
+          if lp = Lf (TK LparT) ∧ rp = Lf (TK RparT) then do
+              tyvnms <- ptree_TyVarList tyvl;
+              opn <- ptree_Tyop opt;
+              SOME(tyvnms, opn)
+            od
+          else NONE
+        | _ => NONE
+      else NONE
+`;
+
+val assert_def = Define`assert b = if b then SOME() else NONE`
+
+val ptree_StarTypes_def = Define`
+  ptree_StarTypes ptree : ast_t list option =
+    case ptree of
+      Lf _ => NONE
+    | Nd nt args =>
+      if nt = mkNT nStarTypes then
+        case args of
+          [pt] => do ty <- ptree_Type pt ; SOME [ty] od
+        | [pt1; star; pt2] => do
+            (pfx : ast_t list) <- ptree_StarTypes pt1;
+            assert(star = Lf (TK StarT));
+            ty <- ptree_Type pt2;
+            SOME(list$APPEND pfx [ty: ast_t])
+          od
+        | _ => NONE
+      else NONE`;
+
+(*val ptree_TypeDec_def = Define`
+  ptree_TypeDec ptree : ast_type_def option =
+    case ptree of
+      Lf _ => NONE
+    | Nd nt args =>
+      (case nt of
+         mkNT nTypeDec => (case args of
+                             [Lf (TK DatatypeT); pt0] => ptree_DtypeDecls pt0
+                           | _ => NONE)
+       | _ => NONE)
+`*)
+
 (* ----------------------------------------------------------------------
     Expressions etc
    ---------------------------------------------------------------------- *)
@@ -232,19 +310,19 @@ val MultOps_rules_def = Define`
 
 (* various left associative binary operators *)
 val Emult_rules_def = Define`
-  Emult_rules = binop_rule nEapp nEmult (NN nMultOps)
+  Emult_rules = binop_rule (NN nEapp) nEmult (NN nMultOps)
 `;
 val Eadd_rules_def = Define`
-  Eadd_rules = binop_rule nEmult nEadd (NN nAddOps)
+  Eadd_rules = binop_rule (NN nEmult) nEadd (NN nAddOps)
 `;
 val Erel_rules_def = Define`
-  Erel_rules = binop_rule nEadd nErel (NN nRelOps)
+  Erel_rules = binop_rule (NN nEadd) nErel (NN nRelOps)
 `;
 val Ecomp_rules_def = Define`
-  Ecomp_rules = binop_rule nErel nEcomp (NN nCompOps)
+  Ecomp_rules = binop_rule (NN nErel) nEcomp (NN nCompOps)
 `;
 val Ebefore_rules_def = Define`
-  Ebefore_rules = binop_rule nEcomp nEbefore (NN nBeforeOps)
+  Ebefore_rules = binop_rule (NN nEcomp) nEbefore (NN nBeforeOps)
 `;
 
 (* ----------------------------------------------------------------------
