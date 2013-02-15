@@ -839,6 +839,7 @@ let build_tdefs tds =
       (fun (tvs, tn, condefs) ->
          List.map
            (fun (conN, ts) ->
+              (* TODO: whatch out for Short here *)
               (conN, (List.length ts, Short tn)))
            condefs)
       tds))
@@ -1461,7 +1462,7 @@ let check_ctor_tenv tenvC tds =
   all_distinct (List.map (fun (_,tn,_) -> tn) tds) &&
   List.for_all
     (fun (tvs,tn,ctors) ->
-       (* Add module path properly *)
+       (* TODO: Add module path properly *)
        List.for_all (fun (_,(_,_,tn')) -> Short tn <> tn') tenvC)
     tds
 
@@ -1470,7 +1471,7 @@ let build_ctor_tenv tds =
   List.flatten
     (List.map
        (fun (tvs,tn,ctors) ->
-	  (* Add module path properly *)
+	  (* TODO: Add module path properly *)
           List.map (fun (cn,ts) -> (cn,(tvs,ts, Short tn))) ctors)
        tds)
 
