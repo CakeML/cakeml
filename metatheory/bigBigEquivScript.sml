@@ -80,7 +80,39 @@ rw [pmatch_def, pmatch'_def] >|
  every_case_tac >>
      fs []]);
 
+val evaluate'_to_evaluate = Q.prove (
+`(!s env e r. evaluate' s env e r ⇒
+   !menv (cenv : envC). (!s'. ¬evaluate menv cenv s env e (s', Rerr Rtype_error)) ⇒
+   evaluate menv cenv s env e r) ∧
+ (!s env es r. evaluate_list' s env es r ⇒
+   !menv (cenv : envC). (!s'. ¬evaluate_list menv cenv s env es (s', Rerr Rtype_error)) ⇒
+   evaluate_list menv cenv s env es r) ∧
+ (!s env v p r. evaluate_match' s env v p r ⇒
+   !menv (cenv : envC). (!s'. ¬evaluate_match menv cenv s env v p (s', Rerr Rtype_error)) ⇒
+   evaluate_match menv cenv s env v p r)`,
+ho_match_mp_tac evaluate'_ind >>
+rw [] >>
+SIMP_TAC (srw_ss()) [Once evaluate_cases] >>
+fs [] >>
+pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once evaluate_cases]) >>
+fs [lookup_var_id_def] >>
+metis_tac [pmatch_pmatch', match_result_distinct]);
+
 (*
+val evaluate'_no_mod = Q.prove (
+`(!s env e r. evaluate' s env e r ⇒
+   EVERY (\(a,b,c). v_no_mod_vars b) env ∧ no_mod_vars e ⇒ 
+   !s v. (r = (s, Rval v)) ⇒ v_no_mod_vars v) ∧
+ (!s env es r. evaluate_list' s env es r ⇒
+   EVERY (\(a,b,c). v_no_mod_vars b) env ∧ EVERY no_mod_vars es ⇒ 
+   !s vs. (r = (s, Rval vs)) ⇒  EVERY v_no_mod_vars vs) ∧
+ (!s env v p r. evaluate_match' s env v p r ⇒
+   EVERY (\(a,b,c). v_no_mod_vars b) env ∧ v_no_mod_vars v ⇒ 
+   !s v. (r = (s, Rval v)) ⇒ v_no_mod_vars v)`,
+ho_match_mp_tac evaluate'_ind >>
+rw [v_no_mod_vars_def, no_mod_vars_def, bind_def] >>
+fs [do_app_def, do_uapp_def, do_if_def, do_log_def, do_tapp_def] >>
+
 val evaluate_to_evaluate' = Q.prove (
 `(!(menv : t envM) cenv s env e r. evaluate menv cenv s env e r ⇒
    EVERY (\(a,b,c). v_no_mod_vars b) env ∧ no_mod_vars e ∧ (!s'. r ≠ (s', Rerr Rtype_error)) ⇒ evaluate' s env e r) ∧
@@ -88,54 +120,41 @@ val evaluate_to_evaluate' = Q.prove (
    EVERY (\(a,b,c). v_no_mod_vars b) env ∧ EVERY no_mod_vars es ∧ (!s'. r ≠ (s', Rerr Rtype_error)) ⇒ evaluate_list' s env es r) ∧
  (!(menv : t envM) cenv s env v p r. evaluate_match menv cenv s env v p r ⇒
    EVERY (\(a,b,c). v_no_mod_vars b) env ∧ v_no_mod_vars v ∧ (!s'. r ≠ (s', Rerr Rtype_error)) ⇒ evaluate_match' s env v p r)`,
-ho_match_mp_tac evaluate_ind >>
-rw [no_mod_vars_def] >>
-SIMP_TAC (srw_ss()) [Once evaluate'_cases] >>
-fs [] >>
-e(metis_tac [pmatch_pmatch', match_result_distinct]);
 
-val evaluate'_to_evaluate = Q.prove (
-`(!s env e r. evaluate' s env e r ⇒
-   !menv cenv. (!s'. ¬evaluate menv cenv s env e (s', Rerr Rtype_error)) ⇒
-   evaluate menv cenv s env e r) ∧
- (!s env es r. evaluate_list' s env es r ⇒
-   !menv cenv. (!s'. ¬evaluate_list menv cenv s env es (s', Rerr Rtype_error)) ⇒
-   evaluate_list menv cenv s env es r) ∧
- (!s env v p r. evaluate_match' s env v p r ⇒
-   !menv cenv. (!s'. ¬evaluate_match menv cenv s env v p (s', Rerr Rtype_error)) ⇒
-   evaluate_match menv cenv s env v p r)`,
-ho_match_mp_tac evaluate'_ind >>
-rw [] >>
-SIMP_TAC (srw_ss()) [Once evaluate_cases] >>
-fs [] >>
-pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once evaluate_cases]) >>
-e(metis_tac [pmatch_pmatch', match_result_distinct]);
+ho_match_mp_tac evaluate_ind >>
+rw [no_mod_vars_def, v_no_mod_vars_def] >>
+SIMP_TAC (srw_ss()) [Once evaluate'_cases] >>
+fs [bind_def, v_no_mod_vars_def] >>
+e(metis_tac [pmatch_pmatch', match_result_distinct, evaluate'_no_mod]);
+
+*)
 
 val type_no_error = Q.prove (
-`!tenvC senv tenv e t envC s env r.
+`∀tenvM tenvC tenvS tenv st e t menv cenv env tvs.
+  tenvM_ok tenvM ∧ 
   tenvC_ok tenvC ∧
-  consistent_con_env envC tenvC ∧
-  consistent_con_env2 envC tenvC ∧
-  type_env tenvC senv env tenv ∧
-  type_s tenvC senv s ∧
-  type_e tenvC tenv e t
-  ⇒
-  (!s'. ¬evaluate envC s env e (s', Rerr Rtype_error))`,
+  consistent_mod_env tenvS tenvC menv tenvM ∧
+  consistent_con_env cenv tenvC ∧
+  type_env tenvM tenvC tenvS env tenv ∧ 
+  type_s tenvM tenvC tenvS st ∧
+  type_e tenvM tenvC tenv e t ⇒
+  (!st'. ¬evaluate menv cenv st env e (st', Rerr Rtype_error))`,
 rw [GSYM small_big_exp_equiv] >>
-metis_tac [untyped_safety_exp, small_exp_determ, exp_type_soundness, PAIR_EQ]);
+metis_tac [bind_tvar_def, untyped_safety_exp, small_exp_determ, exp_type_soundness, PAIR_EQ]);
 
 val evaluate_evaluate'_thm = Q.store_thm ("evaluate_evaluate'_thm",
-`!tenvC envC tenv e t cenv env r.
+`∀tenvM tenvC tenvS tenv st e t menv cenv env tvs r.
+  tenvM_ok tenvM ∧ 
   tenvC_ok tenvC ∧
-  consistent_con_env envC tenvC ∧
-  consistent_con_env2 envC tenvC ∧
-  type_env tenvC senv env tenv ∧
-  type_s tenvC senv s ∧
-  type_e tenvC tenv e t
-  ⇒
-  (evaluate' s env e r = evaluate envC s env e r)`,
-metis_tac [type_no_error, evaluate'_to_evaluate, evaluate_to_evaluate']);
+  consistent_mod_env tenvS tenvC menv tenvM ∧
+  consistent_con_env cenv tenvC ∧
+  type_env tenvM tenvC tenvS env tenv ∧ 
+  type_s tenvM tenvC tenvS st ∧
+  type_e tenvM tenvC tenv e t ⇒
+  (evaluate' st env e r ⇒ evaluate menv cenv st env e r)`,
+metis_tac [type_no_error, evaluate'_to_evaluate]);
 
+(*
 val evaluate_decs_to_evaluate_decs' = Q.prove (
 `!cenv s env ds r.
   evaluate_decs cenv s env ds r ⇒

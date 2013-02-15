@@ -144,8 +144,8 @@ val Eval_Let = store_thm("Eval_Let",
 
 val Eval_Var_SWAP_ENV = store_thm("Eval_Var_SWAP_ENV",
   ``!env1.
-      Eval env1 (Var name NONE) P /\ (lookup name env = lookup name env1) ==>
-      Eval env (Var name NONE) P``,
+      Eval env1 (Var (Short name) NONE) P /\ (lookup name env = lookup name env1) ==>
+      Eval env (Var (Short name) NONE) P``,
   SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def]
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def]);
 
@@ -153,7 +153,7 @@ val LOOKUP_VAR_def = Define `
   LOOKUP_VAR name env x t = (lookup name env = SOME (x,t))`;
 
 val LOOKUP_VAR_THM = store_thm("LOOKUP_VAR_THM",
-  ``LOOKUP_VAR name env x NONE ==> Eval env (Var name NONE) ($= x)``,
+  ``LOOKUP_VAR name env x NONE ==> Eval env (Var (Short name) NONE) ($= x)``,
   SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def,do_tapp_def,LOOKUP_VAR_def]);
 
 val LOOKUP_VAR_SIMP = store_thm("LOOKUP_VAR_SIMP",
@@ -239,8 +239,8 @@ val Eval_Implies = store_thm("Eval_Implies",
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []);
 
 val Eval_Var_SIMP = store_thm("Eval_Var_SIMP",
-  ``Eval ((x,v,NONE)::env) (Var y NONE) p =
-      if x = y then p v else Eval env (Var y NONE) p``,
+  ``Eval ((x,v,NONE)::env) (Var (Short y) NONE) p =
+      if x = y then p v else Eval env (Var (Short y) NONE) p``,
   SIMP_TAC (srw_ss()) [Eval_def,Once evaluate_cases,lookup_def]
   \\ SRW_TAC [] [] \\ SIMP_TAC (srw_ss()) [Eval_def,Once evaluate_cases,
        lookup_def,do_tapp_def]);
@@ -310,7 +310,7 @@ val Eval_Recclosure = store_thm("Eval_Recclosure",
   ``(!v. a n v ==>
   Eval ((name,v,NONE)::(fname,Recclosure env2 [(fname,NONE,name,NONE,body)] fname,NONE)::env2) body (b (f n))) ==>
     LOOKUP_VAR fname env (Recclosure env2 [(fname,NONE,name,NONE,body)] fname) NONE ==>
-    Eval env (Var fname NONE) ((Eq a n --> b) f)``,
+    Eval env (Var (Short fname) NONE) ((Eq a n --> b) f)``,
   NTAC 2 STRIP_TAC \\ IMP_RES_TAC LOOKUP_VAR_THM
   \\ POP_ASSUM MP_TAC \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM MP_TAC
   \\ FULL_SIMP_TAC std_ss [Eval_def,Arrow_def] \\ REPEAT STRIP_TAC
@@ -326,7 +326,7 @@ val SafeVar_def = Define `SafeVar = Var`;
 val Eval_Eq_Recclosure = store_thm("Eval_Eq_Recclosure",
   ``LOOKUP_VAR name env (Recclosure x1 x2 x3) NONE ==>
     (P f (Recclosure x1 x2 x3) =
-     Eval env (Var name NONE) (P f))``,
+     Eval env (Var (Short name) NONE) (P f))``,
   SIMP_TAC std_ss [Eval_Var_SIMP,Eval_def,LOOKUP_VAR_def]
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases,do_tapp_lemma]
   \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
@@ -442,15 +442,15 @@ val Eval_NUM_MULT =
 local
 
 val th0 = Q.SPEC `0` Eval_Val_INT
-val th1 = ASSUME ``Eval env (Var "k" NONE) (INT k)``
+val th1 = ASSUME ``Eval env (Var (Short "k") NONE) (INT k)``
 val th2 = Eval_INT_LESS  |> Q.SPECL [`k`,`0`]
           |> (fn th => MATCH_MP th th1) |> (fn th => MATCH_MP th th0)
 val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th0,th1]))
          |> REWRITE_RULE [CONTAINER_def]
 val code =
   ``Let NONE "k" NONE (App (Opn Minus) x1 x2)
-      (If (App (Opb Lt) (Var "k" NONE) (Lit (IntLit 0)))
-          (Lit (IntLit 0)) (Var "k" NONE)): t exp``
+      (If (App (Opb Lt) (Var (Short "k") NONE) (Lit (IntLit 0)))
+          (Lit (IntLit 0)) (Var (Short "k") NONE)): t exp``
 
 in
 
