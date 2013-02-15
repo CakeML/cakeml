@@ -707,6 +707,9 @@ val compile_closures_append_out = store_thm("compile_closures_append_out",
 val compile_append_out = store_thm("compile_append_out",
   ``(∀cs exp. ∃bc. ((compile cs exp).out = bc ++ cs.out) ∧
                    ALL_DISTINCT (FILTER is_Label bc) ∧
+
+                   want compile_next_label_inc included too?
+
                    EVERY (between cs.next_label (compile cs exp).next_label) (MAP dest_Label (FILTER is_Label bc))) ∧
     (∀env0 sz1 exp n cs xs. ∃bc. ((compile_bindings env0 sz1 exp n cs xs).out = bc ++ cs.out) ∧
                    ALL_DISTINCT (FILTER is_Label bc) ∧
@@ -731,13 +734,22 @@ val compile_append_out = store_thm("compile_append_out",
   strip_tac >- (
     rw[compile_def,LET_THM] >>
     srw_tac[ETA_ss][] >>
-
-    qmatch_abbrev_tac `∃bc. x::(FOLDL compile a es).out = bc ++ cs.out` >>
-    qsuff_tac `∃bc. (FOLDL compile a es).out = bc ++ cs.out` >- (
-      rw[] >> qexists_tac `[x] ++ bc` >> rw[] ) >>
-    Q.ISPECL_THEN[`λx. ∃bc. x.out = bc ++ cs.out`,`compile`,`es`,`a`]mp_tac FOLDL_invariant >>
-    rw[Abbr`a`] >> pop_assum match_mp_tac >>
-    srw_tac[DNF_ss][] >>
+    Q.PAT_ABBREV_TAC`a = compiler_state_tail_fupd X Y` >>
+    qho_match_abbrev_tac `∃bc. (x::(FOLDL compile a es).out = bc ++ cs.out) ∧ P bc` >>
+    qsuff_tac `∃bc. ((FOLDL compile a es).out = bc ++ cs.out) ∧ P bc` >- (
+      rw[Abbr`P`] >> qexists_tac`x::bc` >> rw[Abbr`x`] ) >>
+    qunabbrev_tac`P` >> simp[Abbr`x`] >>
+    qho_match_abbrev_tac`P (FOLDL compile a es)` >>
+    match_mp_tac FOLDL_invariant >>
+    conj_tac >- rw[Abbr`a`,Abbr`P`] >>
+    map_every qx_gen_tac[`x`,`e`] >> rw[Abbr`P`] >>
+    first_x_assum (qspecl_then[`e`,`x`]mp_tac) >>
+    simp[] >> disch_then(Q.X_CHOOSE_THEN`be`strip_assume_tac) >>
+    simp[ALL_DISTINCT_APPEND,FILTER_APPEND,MEM_FILTER] >>
+    fsrw_tac[DNF_ss][EVERY_MEM,between_def,MEM_MAP,MEM_FILTER,is_Label_rwt] >>
+    qspecl_then[`x`,`e`]strip_assume_tac(CONJUNCT1 compile_next_label_inc) >>
+    rw[] >> spose_not_then strip_assume_tac >> res_tac >>
+    DECIDE_TAC
     metis_tac[APPEND_ASSOC] ) >>
   strip_tac >- rw[compile_def] >>
   strip_tac >- rw[compile_def] >>
