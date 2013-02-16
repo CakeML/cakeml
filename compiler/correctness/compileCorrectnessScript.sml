@@ -247,8 +247,10 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   ((FLOOKUP (FST pp) m = SOME p) ⇒ Cv_bv pp (CLoc m) (RefPtr p)) ∧
   (EVERY2 (Cv_bv pp) vs bvs ⇒ Cv_bv pp (CConv cn vs) (Block (cn+block_tag) bvs)) ∧
   ((pp = (s,c,l2a,rfs)) ∧
-   (if ns = [] then i = 0 else find_index n ns 0 = SOME i) ∧
-   (EL i defs = (xs,INR l)) ∧
+   (if ns = [] then (i = 0) ∧ (defs = [(xs,INR l)]) else
+    (find_index n ns 0 = SOME i) ∧
+    (LENGTH defs = LENGTH ns) ∧
+    (EL i defs = (xs,INR l))) ∧
    (FLOOKUP c l = SOME e) ∧
    (fvs = SET_TO_LIST (free_vars c e)) ∧
    (benv = if fvs = [] then Number 0 else Block 0 bvs) ∧
@@ -1022,7 +1024,7 @@ val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
   simp[] >> rpt gen_tac >> strip_tac >> strip_tac >>
   simp[Once Cv_bv_cases] >>
   map_every qexists_tac[`bvs`,`e`,`i`] >> simp[] >>
-  fs[])
+  BasicProvers.EVERY_CASE_TAC >> rw[] >> fs[])
 
 val s_refs_append_code = store_thm("s_refs_append_code",
   ``∀c sm s bs bs' ls.
@@ -1840,6 +1842,33 @@ val compile_labels_lemma = store_thm("compile_labels_lemma",
   rw[FILTER_REVERSE,ALL_DISTINCT_REVERSE] >>
   spose_not_then strip_assume_tac >>
   res_tac >> DECIDE_TAC)
+
+val syneq_Cv_bv = store_thm("syneq_Cv_bv",
+  ``∀c v1 v2. syneq c v1 v2 ⇒ ∀pp bv. (FST(SND pp) = c) ∧ Cv_bv pp v1 bv ⇒ Cv_bv pp v2 bv``,
+  ho_match_mp_tac syneq_ind >>
+  strip_tac >- (
+    simp[Once Cv_bv_cases] >>
+    simp[Once Cv_bv_cases] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    simp[Once Cv_bv_cases] >>
+    simp[Once Cv_bv_cases] >>
+    rw[] >>
+    fs[EVERY2_EVERY,EVERY_MEM,UNCURRY] >>
+    rpt(qpat_assum`LENGTH X = Y`mp_tac) >>
+    ntac 2 strip_tac >>
+    fsrw_tac[DNF_ss][MEM_ZIP] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    simp[Once Cv_bv_cases] >>
+    simp[Once Cv_bv_cases,SimpR``$==>``] >>
+    simp[] >> rw[] >>
+    map_every qexists_tac[`bvs`,`e`,`i`,`l`,`xs`] >>
+    fs[EVERY_MEM,Once FORALL_PROD] >>
+    qx_gen_tac`z` >> strip_tac >>
+    first_x_assum(qspec_then`z`mp_tac) >>
+    simp[] >> strip_tac >>
+    Q.PAT_ABBREV_TAC`v:string = EL z Y` >>
 
 val compile_val = store_thm("compile_val",
   ``(∀c d s env exp res. Cevaluate c d s env exp res ⇒
