@@ -1560,7 +1560,20 @@ strip_tac >- (
   disch_then (Q.X_CHOOSE_THEN `rr` strip_assume_tac) >>
   qmatch_assum_abbrev_tac `Cevaluate c d s4 (env0 ⊌ env1) ee rrr` >>
   qsuff_tac `env0 ⊌ env1 = env1` >- (
-    Cases_on`cb`>>fs[] >> metis_tac[SND] ) >>
+    Cases_on`cb`>>fs[FLOOKUP_DEF] >> rw[] >> fs[]
+    >- metis_tac[SND]
+    >- (
+      qpat_assum `X = d ' y` (assume_tac o SYM) >>
+      rw[] >> fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD,MEM_EL] >>
+      first_x_assum (qspecl_then[`ns`,`INR y`,`i`]mp_tac) >>
+      rw[FLOOKUP_DEF,optionTheory.OPTREL_def] >>
+      REWRITE_TAC[GSYM CONJ_ASSOC] >>
+      simp[RIGHT_EXISTS_AND_THM] >>
+      conj_tac >- (
+        simp[EXTENSION,MEM_EL] >>
+        METIS_TAC[SND] ) >>
+      metis_tac[SND] ) >>
+    METIS_TAC[SND]) >>
   rw[GSYM SUBMAP_FUNION_ABSORPTION] >>
   qunabbrev_tac `env0` >>
   qunabbrev_tac `env1` >>
