@@ -246,7 +246,7 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   (Cv_bv pp (CLitv Unit) unit_val) ∧
   ((FLOOKUP (FST pp) m = SOME p) ⇒ Cv_bv pp (CLoc m) (RefPtr p)) ∧
   (EVERY2 (Cv_bv pp) vs bvs ⇒ Cv_bv pp (CConv cn vs) (Block (cn+block_tag) bvs)) ∧
-  ((pp = (s,c,l2a,rfs)) ∧
+  ((pp = (s,c,l2a,cls)) ∧
    (if ns = [] then defs = [(xs,INR l)] else
     (LENGTH defs = LENGTH ns) ∧
     (find_index n ns 0 = SOME i) ∧
@@ -262,9 +262,7 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
        x ∈ FDOM env ∧ Cv_bv pp (env ' x) bv
      else ∃j p. (find_index x ns 0 = SOME j) ∧
        (bv = RefPtr p) ∧
-       (p ∈ FDOM rfs) ∧
-       (p ∉ FRANGE s) ∧
-       Cv_bv pp (CRecClos env ns defs (EL j ns)) (rfs ' p))
+       (FLOOKUP cls p = SOME (env,ns,defs,j)))
    ⇒ Cv_bv pp (CRecClos env ns defs n) (Block closure_tag [CodePtr a; benv]))`
 
 val Cv_bv_ov = store_thm("Cv_bv_ov",
@@ -292,30 +290,39 @@ val v_to_Cv_ov = store_thm("v_to_Cv_ov",
   rw[v_to_Cv_def] >> rw[Cv_to_ov_def] >>
   srw_tac[ETA_ss][fmap_linv_FAPPLY])
 
-val _ = Parse.overload_on("mk_pp", ``λs c bs.
+val _ = Parse.overload_on("mk_pp", ``λs c bs cls.
   (s
   ,c
   ,combin$C (bc_find_loc_aux bs.code bs.inst_length) 0
-  ,bs.refs
+  ,cls
   )``)
 
+val good_cls_def = Define`
+  good_cls c sm s bs cls =
+    FEVERY (λ(p,(env,ns,defs,j)).
+      p ∈ FDOM bs.refs ∧
+      p ∉ FRANGE sm ∧
+      j < LENGTH ns ∧
+      Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c bs cls) (CRecClos env ns defs (EL j ns)) (bs.refs ' p))
+    cls`
+
 val s_refs_def = Define`
-  s_refs c sm s bs =
-  fmap_rel (Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c bs)) s
+  s_refs c sm s bs cls =
+  fmap_rel (Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c bs cls)) s
   (DRESTRICT bs.refs (FRANGE (DRESTRICT sm (FDOM s))))`
 
 val Cenv_bs_def = Define`
-  Cenv_bs c sm s Cenv (renv:ctenv) sz bs =
+  Cenv_bs c sm s Cenv (renv:ctenv) sz bs cls =
     (fmap_rel
        (λCv b. case lookup_ct sz bs.stack bs.refs b of NONE => F
-             | SOME bv => Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c bs) Cv bv)
+             | SOME bv => Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c bs cls) Cv bv)
      Cenv renv) ∧
-    s_refs c sm s bs`
+    s_refs c sm s bs cls`
 
 val env_rs_def = Define`
-  env_rs env rs c sm s bs =
+  env_rs env rs c sm s bs cls =
     let Cenv = alist_to_fmap (env_to_Cenv (cmap rs.contab) env) in
-    Cenv_bs c sm s Cenv rs.renv rs.rsz bs`
+    Cenv_bs c sm s Cenv rs.renv rs.rsz bs cls`
 
 (* TODO: move *)
 val SWAP_REVERSE = store_thm("SWAP_REVERSE",
