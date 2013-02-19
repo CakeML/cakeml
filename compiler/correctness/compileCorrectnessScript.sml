@@ -1888,6 +1888,8 @@ val find_index_MEM = store_thm("find_index_MEM",
   ``∀ls x n. ¬MEM x ls = (find_index x ls n = NONE)``,
   Induct >> rw[find_index_def])
 
+val bind_fv_def = CompileTheory.bind_fv_def
+
 val fmap_rel_OPTREL_FLOOKUP = store_thm("fmap_rel_OPTREL_FLOOKUP",
   ``fmap_rel R f1 f2 = ∀k. OPTREL R (FLOOKUP f1 k) (FLOOKUP f2 k)``,
   rw[fmap_rel_def,optionTheory.OPTREL_def,FLOOKUP_DEF,EXTENSION] >>
@@ -1964,6 +1966,18 @@ val syneq_Cv_bv = store_thm("syneq_Cv_bv",
     rw[DRESTRICT_DEF,MEM_EL] >>
     metis_tac[free_vars_DOMSUB,SUBSET_DEF,IN_UNION]) >>
   simp[Once Cv_bv_cases] >> rw[])
+
+val FDOM_bind_fv = store_thm("FDOM_bind_fv",
+  ``∀fvs acc. FINITE fvs ⇒ (FDOM (FST (SND (ITSET (bind_fv xs ns az i) fvs acc))) = FDOM (FST(SND acc)) ∪ fvs)``,
+  Q.ISPEC_THEN`bind_fv xs ns az i`ho_match_mp_tac(Q.GEN`f`ITSET_IND) >> rw[] >>
+  simp[Once ITSET_def] >> rw[] >>
+  PairCases_on`acc` >>
+  simp[bind_fv_def] >>
+  BasicProvers.EVERY_CASE_TAC >> rw[] >>
+  simp[EXTENSION,REST_DEF] >>
+  metis_tac[CHOICE_DEF])
+
+fun filter_asms P = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC o List.rev o List.filter P)
 
 val compile_val = store_thm("compile_val",
   ``(∀c d s env exp res. Cevaluate c d s env exp res ⇒
@@ -2575,7 +2589,62 @@ val compile_val = store_thm("compile_val",
       qmatch_abbrev_tac`(X ⇒ Q) ⇒ R` >>
       `X` by (
         map_every qunabbrev_tac[`X`,`P`,`Q`,`R`] >>
-        simp[]
+        simp[FDOM_bind_fv] >>
+        conj_tac >- (
+          unabbrev_all_tac >>
+          fs[FLOOKUP_DEF] >> rfs[] >>
+          fs[DISJOINT_DEF,EXTENSION] >> rw[] >>
+          ntac 8 (pop_assum kall_tac) >>
+          ntac 3 (pop_assum (qspec_then`x`mp_tac)) >>
+          Cases_on `x ∈ free_vars c (c ' l)` >> fs[] >>
+          Cases_on `x ∈ set (binders (c ' l))` >> fs[] >>
+          qspecl_then[`c`,`c ' l`,`l`]mp_tac(CONJUNCT1 free_vars_DOMSUB) >>
+          simp[SUBSET_DEF] >>
+          disch_then(qspec_then`x`strip_assume_tac) >> rfs[] >>
+          Cases_on`MEM x ns`>>fs[]>>
+          Cases_on`MEM x ns'`>>fs[]>>
+          qpat_assum`∀z. z < LENGTH X ⇒ Y`mp_tac >>
+          Q.PAT_ABBREV_TAC`fvs = SET_TO_LIST (free_vars X Y)` >>
+          Q.PAT_ABBREV_TAC`evs = FILTER X fvs` >>
+          `MEM x evs` by (
+            Q.ISPECL_THEN[`ns'`,`x`,`0`]mp_tac find_index_MEM >>
+            simp[Abbr`evs`,MEM_FILTER] >>
+            simp[Abbr`fvs`] ) >>
+          pop_assum(mp_tac o SIMP_RULE std_ss [MEM_EL]) >>
+          disch_then(Q.X_CHOOSE_THEN`z` strip_assume_tac) >>
+          disch_then(qspec_then`z`mp_tac) >> simp[] >>
+          Q.ISPECL_THEN[`ns'`,`x`,`0`]mp_tac find_index_MEM >>
+          simp[] ) >>
+        conj_tac >- (
+          qspecl_then[`c`,`d`,`s`,`env`,`exp`,`(s',Rval (CRecClos env' ns' defs n))`]mp_tac (CONJUNCT1 Cevaluate_Clocs) >>
+          simp[] >> strip_tac >>
+          match_mp_tac SUBSET_TRANS >>
+          qexists_tac `FDOM s'` >> simp[] >> rw[] >>
+          pop_assum mp_tac >>
+
+          need to say stuff about the Clocs in vs too
+
+          qpat_assum `LENGTH ns = LENGTH vs` mp_tac >>
+          rpt (pop_assum kall_tac) >>
+          srw_tac[DNF_ss][extend_rec_env_def,SUBSET_DEF,FOLDL2_FUPDATE_LIST,FOLDL_FUPDATE_LIST,MAP2_MAP,FST_pair,SND_pair,MAP_ZIP] >>
+          pop_assum mp_tac >>
+          first_x_assum match_mp_tac >>
+          qmatch_assum_rename_tac`x ∈ all_Clocs y`[] >>
+          qexists_tac`y` >> simp[] >>
+          pop_assum mp_tac >>
+          qid_spec_tac`y` >>
+          ho_match_mp_tac IN_FRANGE_FUPDATE_LIST_suff >>
+          srw_tac[DNF_ss][MAP_ZIP]
+
+          DB.find"FRANGE_FUPDATE"
+          IN_FRANGE_FUPDATE_LIST
+
+          `LENGTH x
+
+          filter_asms ((can (find_term (equal ``CRecClos``))) o concl)
+          FRANGE_extend_rec_env
+          extend_rec_env_def
+
 
       set_trace "goalstack print goal at top" 0
 
