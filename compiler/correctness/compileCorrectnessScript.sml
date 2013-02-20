@@ -1684,15 +1684,15 @@ val good_code_env_def = Define`
 val _ = Parse.overload_on("retbc",``λn az. [Stack (Pops n); Stack (Load 1); Stack (Store (az + 2)); Stack (Pops (az + 1)); Return]``)
 
 val good_code_env_def = Define`
-  good_code_env c d code = FEVERY (λ(l,e).
+  good_code_env c d code =
+  ALL_DISTINCT (FILTER is_Label code) ∧
+  FEVERY (λ(l,e).
     Cexp_pred e ∧
     ALL_DISTINCT (binders e) ∧
     ∃cs vs ns xs k bc0 cc bc1.
       (FLOOKUP d l = SOME (vs,ns,xs,k)) ∧
       DISJOINT (set (binders e)) (vs ∪ set ns ∪ set xs) ∧
       good_ecs cs.ecs ∧ free_labs e ⊆ FDOM cs.ecs ∧
-      ALL_DISTINCT (FILTER is_Label cs.out) ∧
-      EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label cs.out) ∧
       (cs.env = FST(SND(ITSET (bind_fv ns xs (LENGTH xs) k) (free_vars c e) (0,FEMPTY,0,[])))) ∧
       (cs.sz = 0) ∧
       (cs.tail = TCTail (LENGTH xs) 0) ∧
@@ -1701,11 +1701,13 @@ val good_code_env_def = Define`
         (retbc (case (compile cs e).tail of TCTail j k => k + 1) (LENGTH xs)) ++ bc1)
     ) c`
 
+(*
 val good_code_env_append = store_thm("good_code_env_append",
  ``∀c d code ls. good_code_env c d code ⇒ good_code_env c d (code ++ ls)``,
  rw[good_code_env_def,FEVERY_DEF] >>
  res_tac >> rw[] >> metis_tac[APPEND_ASSOC])
 val _ = export_rewrites["good_code_env_append"]
+*)
 
 val retbc_thm = store_thm("retbc_thm",
   ``∀bs bc0 bc1 bv vs benv ret args x st bs'.
@@ -2574,7 +2576,7 @@ val compile_val = store_thm("compile_val",
       qpat_assum`bc_fetch X = Y` kall_tac >>
       Q.PAT_ABBREV_TAC`ret = x + 1` >>
       qho_match_abbrev_tac`∃rf bv. bc_next^* bs1 (bs2 rf bv) ∧ P rf bv` >>
-      qpat_assum`good_code_env c d bce`(fn th => mp_tac(Q.SPEC`l`(SIMP_RULE(srw_ss())[good_code_env_def,FEVERY_DEF]th)) >> assume_tac th) >>
+      qpat_assum`good_code_env c d bce`(fn th => mp_tac((uncurry CONJ)((I##Q.SPEC`l`)(CONJ_PAIR(SIMP_RULE(srw_ss())[good_code_env_def,FEVERY_DEF]th)))) >> assume_tac th) >>
       fs[FLOOKUP_DEF] >>
       `(ns,cb) = (xs, INR l)` by (
         Cases_on`ns'=[]`>>fs[] ) >> fs[] >>
@@ -2594,7 +2596,7 @@ val compile_val = store_thm("compile_val",
           unabbrev_all_tac >>
           fs[FLOOKUP_DEF] >> rfs[] >>
           fs[DISJOINT_DEF,EXTENSION] >> rw[] >>
-          ntac 8 (pop_assum kall_tac) >>
+          ntac 6 (pop_assum kall_tac) >>
           ntac 3 (pop_assum (qspec_then`x`mp_tac)) >>
           Cases_on `x ∈ free_vars c (c ' l)` >> fs[] >>
           Cases_on `x ∈ set (binders (c ' l))` >> fs[] >>
@@ -2617,31 +2619,43 @@ val compile_val = store_thm("compile_val",
           simp[] ) >>
         conj_tac >- (
           qspecl_then[`c`,`d`,`s`,`env`,`exp`,`(s',Rval (CRecClos env' ns' defs n))`]mp_tac (CONJUNCT1 Cevaluate_Clocs) >>
-          simp[] >> strip_tac >>
-          match_mp_tac SUBSET_TRANS >>
-          qexists_tac `FDOM s'` >> simp[] >> rw[] >>
-          pop_assum mp_tac >>
-
-          need to say stuff about the Clocs in vs too
-
+          qspecl_then[`c`,`d`,`s'`,`env`,`exps`,`(s'',Rval vs)`]mp_tac (CONJUNCT2 Cevaluate_Clocs) >>
+          simp[] >>
           qpat_assum `LENGTH ns = LENGTH vs` mp_tac >>
+          qpat_assum `FDOM s' ⊆ FDOM s''` mp_tac >>
           rpt (pop_assum kall_tac) >>
-          srw_tac[DNF_ss][extend_rec_env_def,SUBSET_DEF,FOLDL2_FUPDATE_LIST,FOLDL_FUPDATE_LIST,MAP2_MAP,FST_pair,SND_pair,MAP_ZIP] >>
-          pop_assum mp_tac >>
-          first_x_assum match_mp_tac >>
-          qmatch_assum_rename_tac`x ∈ all_Clocs y`[] >>
-          qexists_tac`y` >> simp[] >>
-          pop_assum mp_tac >>
-          qid_spec_tac`y` >>
+          fsrw_tac[DNF_ss][extend_rec_env_def,SUBSET_DEF,FOLDL2_FUPDATE_LIST,FOLDL_FUPDATE_LIST,MAP2_MAP,FST_pair,SND_pair,MAP_ZIP] >>
+          qx_gen_tac `x` >>
+          simp[FORALL_AND_THM,RIGHT_FORALL_IMP_THM] >>
+          ntac 4 strip_tac >>
+          simp[Once CONJ_COMM] >> simp[GSYM AND_IMP_INTRO] >>
           ho_match_mp_tac IN_FRANGE_FUPDATE_LIST_suff >>
-          srw_tac[DNF_ss][MAP_ZIP]
+          reverse conj_tac >-
+            (srw_tac[DNF_ss][MAP_ZIP] >> PROVE_TAC[]) >>
+          ho_match_mp_tac IN_FRANGE_FUPDATE_LIST_suff >>
+          srw_tac[DNF_ss][MAP_MAP_o,combinTheory.o_DEF,MEM_MAP] >>
+          PROVE_TAC[] ) >>
+        conj_tac >- metis_tac[Cevaluate_Clocs,FST] >>
+        conj_tac >- fs[good_cls_def,Abbr`bs1`] >>
+        conj_tac >- simp[Abbr`bs1`] >>
+        conj_tac >- simp[Abbr`bs1`] >>
+        conj_tac >- (
+          fs[Abbr`bs1`,Abbr`l2a`] >>
+          qspecl_then[`bce`,`bs.inst_length`,`l`,`0`]mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+          simp[] >>
+          disch_then(qspec_then`LENGTH cb0`mp_tac) >>
+          srw_tac[ARITH_ss][] >>
+          pop_assum mp_tac >>
+          REWRITE_TAC[GSYM APPEND_ASSOC] >>
+          rw[EL_LENGTH_APPEND,TAKE_LENGTH_APPEND] >>
+          simp[FILTER_APPEND] ) >>
+        conj_tac
 
-          DB.find"FRANGE_FUPDATE"
-          IN_FRANGE_FUPDATE_LIST
-
+          good_code_env_def
+          filter_asms ((can (find_term (equal ``cc:bc_inst list``))) o concl)
+          filter_asms ((can (find_term (fn t => case total dest_const t of SOME ("ALL_DISTINCT",x) => true | _ => false))) o concl)
           `LENGTH x
 
-          filter_asms ((can (find_term (equal ``CRecClos``))) o concl)
           FRANGE_extend_rec_env
           extend_rec_env_def
 
