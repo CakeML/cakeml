@@ -454,6 +454,7 @@ val _ = register "replace_labels" (
   tprove_no_defn ((replace_labels_def,replace_labels_ind),
   WF_REL_TAC `measure (LENGTH o SND o SND)` >> rw[]))
 
+val _ = save_thm("bind_fv_def",bind_fv_def)
 val _ = save_thm("compile_labels_def",compile_labels_def)
 val _ = save_thm("repl_exp_def",repl_exp_def)
 val _ = save_thm("compile_Cexp_def",compile_Cexp_def)
