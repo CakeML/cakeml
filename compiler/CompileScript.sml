@@ -1298,14 +1298,14 @@ val _ = Defn.save_defn compile_defn;
 
  val bind_fv_defn = Hol_defn "bind_fv" `
 
-(bind_fv ns xs az k fv (n,env,(ecl,ec)) =
+(bind_fv ns xs az k fv (env,(ecl,ec)) =
   (case((( find_index fv) xs) 1) of
-    SOME j => (n,(( FUPDATE  env) ( fv, ((CTArg (2 + az - j))))), (ecl,ec))
+    SOME j => (((FUPDATE  env) ( fv, ((CTArg (2 + az - j))))), (ecl,ec))
   | NONE => (case((( find_index fv) ns) 0) of
-      NONE => (n+1,(( FUPDATE  env) ( fv, ((CTEnv n)))), (ecl+1,(CEEnv fv)::ec))
+      NONE => (((FUPDATE  env) ( fv, ((CTEnv ecl)))), (ecl+1,(CEEnv fv)::ec))
     | SOME j => if j = k
-                then (n,(( FUPDATE  env) ( fv, ((CTArg (2 + az))))), (ecl,ec))
-                else (n+1,(( FUPDATE  env) ( fv, ((CTRef n)))), (ecl+1,((CERef (j+1)))::ec))
+                then (((FUPDATE  env) ( fv, ((CTArg (2 + az))))), (ecl,ec))
+                else (((FUPDATE  env) ( fv, ((CTRef ecl)))), (ecl+1,((CERef (j+1)))::ec))
     )
   ))`;
 
@@ -1319,8 +1319,8 @@ val _ = Defn.save_defn bind_fv_defn;
       let (s,k) =((( FOLDL
         (\ (s,k) (xs,l) .
           let az =( LENGTH xs) in
-          let (n,env,(ecl,ec)) =(((
-            ITSET (((((bind_fv ns) xs) az) k))) (((free_vars c) (((FAPPLY  c)  l))))) (0,FEMPTY,(0,[]))) in
+          let (env,(ecl,ec)) =(((
+            ITSET (((((bind_fv ns) xs) az) k))) (((free_vars c) (((FAPPLY  c)  l))))) (FEMPTY,(0,[]))) in
           let s =  s with<|
                      env_azs :=(( FUPDATE  s.env_azs) ( l, (env,az)))
                    ; ecs :=(( FUPDATE  s.ecs) ( l, (ecl,ec)))

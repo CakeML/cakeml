@@ -1210,14 +1210,14 @@ compile_bindings env0 sz1 e n s (x::xs) =
 (* code env to bytecode *)
 
 let rec
-bind_fv ns xs az k fv (n,env,(ecl,ec)) =
+bind_fv ns xs az k fv (env,(ecl,ec)) =
   match find_index fv xs 1 with
-  | Some j -> (n, Pmap.add fv (CTArg (2 + az - j)) env, (ecl,ec))
+  | Some j -> (Pmap.add fv (CTArg (2 + az - j)) env, (ecl,ec))
   | None -> match find_index fv ns 0 with
-    | None -> (n+1, Pmap.add fv (CTEnv n) env, (ecl+1,CEEnv fv::ec))
+    | None -> (Pmap.add fv (CTEnv ecl) env, (ecl+1,CEEnv fv::ec))
     | Some j -> if j = k
-                then (n, Pmap.add fv (CTArg (2 + az)) env, (ecl,ec))
-                else (n+1, Pmap.add fv (CTRef n) env, (ecl+1,(CERef (j+1))::ec))
+                then (Pmap.add fv (CTArg (2 + az)) env, (ecl,ec))
+                else (Pmap.add fv (CTRef ecl) env, (ecl+1,(CERef (j+1))::ec))
     end
   end
 
@@ -1228,8 +1228,8 @@ calculate_ecs c =
       let (s,k) = List.fold_left
         (fun (s,k) (xs,l) ->
           let az = List.length xs in
-          let (n,env,(ecl,ec)) =
-            Set.fold (bind_fv ns xs az k) (free_vars c (Pmap.find l c)) (0,Pmap.empty,(0,[])) in
+          let (env,(ecl,ec)) =
+            Set.fold (bind_fv ns xs az k) (free_vars c (Pmap.find l c)) (Pmap.empty,(0,[])) in
           let s = <| s with
                      env_azs = Pmap.add l (env,az) s.env_azs
                    ; ecs = Pmap.add l (ecl,ec) s.ecs
