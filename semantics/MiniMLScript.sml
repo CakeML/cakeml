@@ -160,6 +160,15 @@ val _ = type_abbrev( "typeN" , ``: string``);
 (* Type variable names *)
 val _ = type_abbrev( "tvarN" , ``: string``);
 
+(*val mk_id : forall 'a.option modN -> 'a -> id 'a*)
+val _ = Define `
+ (mk_id mn_opt n =
+  (case mn_opt of
+      NONE => Short n
+    | SOME mn => Long mn n
+  ))`;
+
+
 (* Types
  * 0-ary type applications represent unparameterised types (e.g., num or string)
  *)
@@ -282,7 +291,7 @@ val _ = type_abbrev( "specs" , ``: spec list``);
 
 val _ = Hol_datatype `
  top =
-    Tmodule of modN => specs => 'a decs
+    Tmod of modN => specs => 'a decs
   | Tdec of 'a dec`;
 
 
@@ -474,7 +483,7 @@ val _ = Define `
   ))`;
 
 
-(*val lookup_con_id : forall 'a. id conN -> envM 'a -> envC ->option (num * id typeN)*)
+(*val lookup_con_id : forall 'a 'b. id conN -> env modN (env conN 'a * 'b) -> env conN 'a ->option 'a*)
 val _ = Define `
  (lookup_con_id id envM envE =
   (case id of
@@ -973,39 +982,12 @@ val _ = Define `
       e_step_reln (menv',cenv',s',env', e',c') (menv'',cenv'',s'',env'',e'',c'')))`;
 
 
-(* Semantic helpers for definitions *)
-
-(* Add the given type definition to the given constructor environment *)
-(*val build_tdefs : list (list tvarN * typeN * list (conN * list t)) -> envC*)
-val _ = Define `
- (build_tdefs tds =
-  REVERSE (FLAT
-    (MAP
-      (\ (tvs, tn, condefs) .
-         MAP
-           (\ (conN, ts) .
-              (conN, (LENGTH ts, Short tn)))
-           condefs)
-      tds)))`;
-
-
-(* Checks that no constructor is defined twice *)
-(*val check_dup_ctors :
-    forall 'a. list (list tvarN * typeN * list (conN * list t)) -> env conN 'a -> bool*)
-val _ = Define `
- (check_dup_ctors tds envC =
-  (! ((tvs, tn, condefs) :: LIST_TO_SET tds) ((n, ts) :: LIST_TO_SET condefs).
-   lookup n envC = NONE) /\
-  ALL_DISTINCT
-    (let x2 = [] in FOLDR  (\(tvs, tn, condefs) x2 . FOLDR  (\(n, ts) x2 . if T then n:: x2 else x2)  x2  condefs)  x2  tds))`;
-
-
 (* ------------------------ Big step semantics -------------------------- *)
 (*val evaluate : envM t -> envC -> store t -> envE t -> exp t -> store t * result (v t) -> bool*)
 (*val evaluate_list : envM t -> envC -> store t -> envE t -> list (exp t) -> store t * result (list (v t)) -> bool*)
 (*val evaluate_match : envM t -> envC -> store t -> envE t -> v t -> list (pat t * exp t) -> store t * result (v t) -> bool*)
-(*val evaluate_dec : envM t -> envC -> store t -> envE t -> dec t -> store t * result (envC * envE t) -> bool*)
-(*val evaluate_decs : envM t -> envC -> store t -> envE t -> list (dec t) -> store t * result (envC * envE t) -> bool*)
+(*val evaluate_dec :option modN -> envM t -> envC -> store t -> envE t -> dec t -> store t * result (envC * envE t) -> bool*)
+(*val evaluate_decs :option modN -> envM t -> envC -> store t -> envE t -> list (dec t) -> store t * result (envC * envE t) -> bool*)
 (*val evaluate_top : envM t -> envC -> store t -> envE t -> prog t -> store t * result (envC * envE t) -> bool*)
 
 val _ = Hol_reln `
@@ -1308,74 +1290,102 @@ evaluate_match menv cenv s env v ((p,e)::pes) (s, Rerr Rtype_error))
 ==>
 evaluate_match menv cenv s env v ((p,e)::pes) (s, Rerr Rtype_error))`;
 
+(* Semantic helpers for definitions *)
+
+(* Add the given type definition to the given constructor environment *)
+(*val build_tdefs : list (list tvarN * typeN * list (conN * list t)) -> envC*)
+val _ = Define `
+ (build_tdefs tds =
+  REVERSE (FLAT
+    (MAP
+      (\ (tvs, tn, condefs) .
+         MAP
+           (\ (conN, ts) .
+              (* TODO: whatch out for Short here *)
+              (conN, (LENGTH ts, Short tn)))
+           condefs)
+      tds)))`;
+
+
+(* Checks that no constructor is defined twice *)
+(*val check_dup_ctors :
+    forall 'a 'b.option modN -> env modN (env conN 'a * 'b) -> env conN 'a -> list (list tvarN * typeN * list (conN * list t)) -> bool*)
+val _ = Define `
+ (check_dup_ctors mn_opt menv cenv tds =
+  (! ((tvs, tn, condefs) :: LIST_TO_SET tds) ((n, ts) :: LIST_TO_SET condefs).
+     lookup_con_id (mk_id mn_opt n) menv cenv = NONE)
+  /\
+  ALL_DISTINCT (let x2 = [] in FOLDR  (\(tvs, tn, condefs) x2 . FOLDR  (\(n, ts) x2 . if T then n:: x2 else x2)  x2  condefs)  x2  tds))`;
+
+
 val _ = Hol_reln `
 
-(! menv cenv env p e v env' s1 s2 tvs.
+(! mn menv cenv env p e v env' s1 s2 tvs.
 small_eval menv cenv s1 env e [] (s2, Rval v) /\
 ALL_DISTINCT (pat_bindings p []) /\
 (pmatch tvs menv cenv s2 p v emp = Match env')
 ==>
-evaluate_dec menv cenv s1 env (Dlet tvs p e) (s2, Rval (emp, env')))
+evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rval (emp, env')))
 
 /\
 
-(! menv cenv env p e v s1 s2 tvs.
+(! mn menv cenv env p e v s1 s2 tvs.
 small_eval menv cenv s1 env e [] (s2, Rval v) /\
 ALL_DISTINCT (pat_bindings p []) /\
 (pmatch tvs menv cenv s2 p v emp = No_match)
 ==>
-evaluate_dec menv cenv s1 env (Dlet tvs p e) (s2, Rerr (Rraise Bind_error)))
+evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr (Rraise Bind_error)))
 
 /\
 
-(! menv cenv env p e v s1 s2 tvs.
+(! mn menv cenv env p e v s1 s2 tvs.
 small_eval menv cenv s1 env e [] (s2, Rval v) /\
 (pmatch tvs menv cenv s2 p v emp = Match_type_error)
 ==>
-evaluate_dec menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error))
+evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error))
 
 /\
 
-(! menv cenv env p e v s1 s2 tvs.
+(! mn menv cenv env p e v s1 s2 tvs.
 small_eval menv cenv s1 env e [] (s2, Rval v) /\
 ~  (ALL_DISTINCT (pat_bindings p []))
 ==>
-evaluate_dec menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error))
+evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error))
 
 /\
 
-(! menv cenv env p e err s s' tvs.
+(! mn menv cenv env p e err s s' tvs.
 small_eval menv cenv s env e [] (s', Rerr err)
 ==>
-evaluate_dec menv cenv s env (Dlet tvs p e) (s', Rerr err))
+evaluate_dec mn menv cenv s env (Dlet tvs p e) (s', Rerr err))
 
 /\
 
-(! menv cenv env funs s tvs.
+(! mn menv cenv env funs s tvs.
 ALL_DISTINCT (MAP (\ (x,topt1,y,topt2,z) . x) funs)
 ==>
-evaluate_dec menv cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env tvs funs env emp)))
+evaluate_dec mn menv cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env tvs funs env emp)))
 
 /\
 
-(! menv cenv env funs s tvs.
+(! mn menv cenv env funs s tvs.
 ~  (ALL_DISTINCT (MAP (\ (x,topt1,y,topt2,z) . x) funs))
 ==>
-evaluate_dec menv cenv s env (Dletrec tvs funs) (s, Rerr Rtype_error))
+evaluate_dec mn menv cenv s env (Dletrec tvs funs) (s, Rerr Rtype_error))
 
 /\
 
-(! menv cenv env tds s.
-check_dup_ctors tds cenv
+(! mn menv cenv env tds s.
+check_dup_ctors mn menv cenv tds
 ==>
-evaluate_dec menv cenv s env (Dtype tds) (s, Rval (build_tdefs tds, emp)))
+evaluate_dec mn menv cenv s env (Dtype tds) (s, Rval (build_tdefs tds, emp)))
 
 /\
 
-(! menv cenv env tds s.
-~  (check_dup_ctors tds cenv)
+(! mn menv cenv env tds s.
+~  (check_dup_ctors mn menv cenv tds)
 ==>
-evaluate_dec menv cenv s env (Dtype tds) (s, Rerr Rtype_error))`;
+evaluate_dec mn menv cenv s env (Dtype tds) (s, Rerr Rtype_error))`;
 
 (*val combine_dec_result : forall 'a 'b 'c 'd. env 'a 'b -> env 'c 'd -> result (env 'a 'b * env 'c 'd) -> result (env 'a 'b * env 'c 'd)*)
 val _ = Define `
@@ -1388,33 +1398,34 @@ val _ = Define `
 
 val _ = Hol_reln `
 
-(! menv cenv s env.
+(! mn menv cenv s env.
 T
 ==>
-evaluate_decs menv cenv s env [] (s, Rval (emp, emp)))
+evaluate_decs mn menv cenv s env [] (s, Rval (emp, emp)))
 
 /\
 
-(! menv cenv s1 s2 env d ds e.
-evaluate_dec menv cenv s1 env d (s2, Rerr e)
+(! mn menv cenv s1 s2 env d ds e.
+evaluate_dec mn menv cenv s1 env d (s2, Rerr e)
 ==>
-evaluate_decs menv cenv s1 env (d::ds) (s2, Rerr e))
+evaluate_decs mn menv cenv s1 env (d::ds) (s2, Rerr e))
 
 /\
 
-(! menv cenv s1 s2 s3 env d ds new_tds new_env r.
-evaluate_dec menv cenv s1 env d (s2, Rval (new_tds,new_env)) /\
-evaluate_decs menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, r)
+(! mn menv cenv s1 s2 s3 env d ds new_tds new_env r.
+evaluate_dec mn menv cenv s1 env d (s2, Rval (new_tds,new_env)) /\
+(* TODO: Sometimes the ctors need to go in the menv *)
+evaluate_decs mn menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, r)
 ==>
-evaluate_decs menv cenv s1 env (d::ds) (s3, combine_dec_result new_tds new_env r))`;
+evaluate_decs mn menv cenv s1 env (d::ds) (s3, combine_dec_result new_tds new_env r))`;
 
 
 val _ = Hol_reln `
 
-(! menv cenv s1 env decs s2 r.
-evaluate_decs menv cenv s1 env decs (s2,r)
+(! mn menv cenv s1 env decs s2 r.
+evaluate_decs (SOME mn) menv cenv s1 env decs (s2,r)
 ==>
-evaluate_mod menv cenv s1 env decs (s2,r))`;
+evaluate_mod mn menv cenv s1 env decs (s2,r))`;
 
 val _ = Hol_reln `
 
@@ -1426,17 +1437,35 @@ evaluate_top menv cenv s env [] (s, Rval (emp, emp)))
 /\
 
 (! menv cenv s1 s2 env d ds e.
-evaluate_dec menv cenv s1 env d (s2, Rerr e)
+evaluate_dec NONE menv cenv s1 env d (s2, Rerr e)
 ==>
 evaluate_top menv cenv s1 env (Tdec d::ds) (s2, Rerr e))
 
 /\
 
 (! menv cenv s1 s2 s3 env d ds new_tds new_env r.
-evaluate_dec menv cenv s1 env d (s2, Rval (new_tds,new_env)) /\
+evaluate_dec NONE menv cenv s1 env d (s2, Rval (new_tds,new_env)) /\
 evaluate_top menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, r)
 ==>
-evaluate_top menv cenv s1 env (Tdec d::ds) (s3, combine_dec_result new_tds new_env r))`;
+evaluate_top menv cenv s1 env (Tdec d::ds) (s3, combine_dec_result new_tds new_env r))
+
+/\
+
+(! menv cenv s1 s2 env mn specs ds1 ds2 e.
+evaluate_decs (SOME mn) menv cenv s1 env ds1 (s2, Rerr e)
+==>
+evaluate_top menv cenv s1 env (Tmod mn specs ds1::ds2) (s2, Rerr e))
+
+/\
+
+(! menv cenv s1 s2 s3 env ds1 ds2 mn specs new_tds new_env r.
+evaluate_decs (SOME mn) menv cenv s1 env ds1 (s2, Rval (new_tds,new_env)) /\
+evaluate_top menv (merge new_tds cenv) s2 (merge new_env env) ds2 (s3, r)
+==>
+evaluate_top menv cenv s1 env (Tmod mn specs ds1::ds2) (s3, combine_dec_result new_tds new_env r))`;
+
+
+
 
 (*val d_diverges : envM t -> envC -> store t -> envE t -> dec t -> bool*)
 (*val diverges : envM t -> envC -> store t -> envE t -> decs t -> bool*)
@@ -1461,7 +1490,8 @@ diverges envM envC st env (d::ds))
 /\
 
 (! envM envC s1 s2 env d ds new_tds new_env.
-evaluate_dec envM envC s1 env d (s2, Rval (new_tds, new_env)) /\
+(* TODO: Module stuff *)
+evaluate_dec NONE envM envC s1 env d (s2, Rval (new_tds, new_env)) /\
 diverges envM (merge new_tds envC) s2 (merge new_env env) ds
 ==>
 diverges envM envC s1 env (d::ds))`; 
@@ -1472,7 +1502,7 @@ diverges envM envC s1 env (d::ds))`;
       [] => F
     | Tdec d::ds => d_diverges envM envC st env d \/ prog_diverges envM envC st env ds
     (* TODO *)
-    | Tmodule x y z :: ds => T
+    | Tmod x y z :: ds => T
   ))`;
 
 val _ = Defn.save_defn prog_diverges_defn;
@@ -1531,19 +1561,6 @@ val _ = Define `
         (case lookup x tenvM of
             NONE => NONE
           | SOME (_, tenvE') => lookup_tenv y 0 tenvE'
-        )
-  ))`;
-
-
-(*val t_lookup_con_id : id varN -> tenvM -> tenvC ->option (list tvarN * list t * id typeN)*)
-val _ = Define `
- (t_lookup_con_id id tenvM tenvC =
-  (case id of
-      Short x => lookup x tenvC
-    | Long x y =>
-        (case lookup x tenvM of
-            NONE => NONE
-          | SOME (tenvC', _) => lookup y tenvC'
         )
   ))`;
 
@@ -1625,11 +1642,10 @@ val _ = Defn.save_defn check_freevars_defn;
 (* Check that a type definition defines no already defined (or duplicate)
  * constructors or types, and that the free type variables of each constructor
  * argument type are included in the type's type parameters. *)
-(*val check_ctor_tenv :
-  tenvC -> list (list tvarN * typeN * list (conN * list t)) -> bool*)
+(*val check_ctor_tenv :option modN -> tenvM -> tenvC -> list (list tvarN * typeN * list (conN * list t)) -> bool*)
 val _ = Define `
- (check_ctor_tenv tenvC tds =
-  check_dup_ctors tds tenvC /\
+ (check_ctor_tenv mn tenvM tenvC tds =
+  check_dup_ctors mn tenvM tenvC tds /\
   EVERY
     (\ (tvs,tn,ctors) .
        ALL_DISTINCT tvs /\
@@ -1640,7 +1656,7 @@ val _ = Define `
   ALL_DISTINCT (MAP (\p . (case (p ) of  ( (_,tn,_) ) => tn )) tds) /\
   EVERY
     (\ (tvs,tn,ctors) .
-       (* Add module path properly *)
+       (* TODO: Add module path properly *)
        EVERY (\p . (case (p ) of  ( (_,(_,_,tn')) ) => Short tn <> tn' )) tenvC)
     tds)`;
 
@@ -1651,7 +1667,7 @@ val _ = Define `
   FLAT
     (MAP
        (\ (tvs,tn,ctors) .
-	  (* Add module path properly *)
+	  (* TODO: Add module path properly *)
           MAP (\ (cn,ts) . (cn,(tvs,ts, Short tn))) ctors)
        tds))`;
 
@@ -1733,7 +1749,7 @@ type_p tvs menv cenv (Plit Unit) Tunit [])
 EVERY (check_freevars tvs []) ts' /\
 (LENGTH ts' = LENGTH tvs') /\
 type_ps tvs menv cenv ps (MAP (type_subst (ZIP ( tvs', ts'))) ts) tenv /\
-(t_lookup_con_id cn menv cenv = SOME (tvs', ts, tn))
+(lookup_con_id cn menv cenv = SOME (tvs', ts, tn))
 ==>
 type_p tvs menv cenv (Pcon cn ps) (Tapp ts' (TC_name tn)) tenv)
 
@@ -1801,7 +1817,7 @@ type_e menv cenv tenv (Handle e1 var e2) t)
 EVERY (check_freevars (num_tvs tenv) []) ts' /\
 (LENGTH tvs = LENGTH ts') /\
 type_es menv cenv tenv es (MAP (type_subst (ZIP ( tvs, ts'))) ts) /\
-(t_lookup_con_id cn menv cenv = SOME (tvs, ts, tn))
+(lookup_con_id cn menv cenv = SOME (tvs, ts, tn))
 ==>
 type_e menv cenv tenv (Con cn es) (Tapp ts' (TC_name tn)))
 
@@ -1954,7 +1970,8 @@ type_d menv cenv tenv (Dletrec (SOME tvs) funs) emp (bind_var_list tvs tenv' ten
 /\
 
 (! menv cenv tenv tdecs.
-check_ctor_tenv cenv tdecs
+(* TODO: module stuff *)
+check_ctor_tenv NONE menv cenv tdecs
 ==>
 type_d menv cenv tenv (Dtype tdecs) (build_ctor_tenv tdecs) tenv)`;
 
@@ -2030,7 +2047,7 @@ type_v tvs menv cenv senv (Litv Unit) Tunit)
 EVERY (check_freevars tvs []) ts' /\
 (LENGTH tvs' = LENGTH ts') /\
 type_vs tvs menv cenv senv vs (MAP (type_subst (ZIP ( tvs', ts'))) ts) /\
-(t_lookup_con_id cn menv cenv = SOME (tvs', ts, tn))
+(lookup_con_id cn menv cenv = SOME (tvs', ts, tn))
 ==>
 type_v tvs menv cenv senv (Conv cn vs) (Tapp ts' (TC_name tn)))
 
@@ -2246,7 +2263,7 @@ EVERY (check_freevars tvs []) ts' /\
 type_vs tvs menv cenv senv (REVERSE vs)
         (MAP (type_subst (ZIP ( tvs', ts'))) ts1) /\
 type_es menv cenv (bind_tvar tvs tenv) es (MAP (type_subst (ZIP ( tvs', ts'))) ts2) /\
-(t_lookup_con_id cn menv cenv = SOME (tvs', ts1++([t]++ts2), tn))
+(lookup_con_id cn menv cenv = SOME (tvs', ts1++([t]++ts2), tn))
 ==>
 type_ctxt tvs menv cenv senv tenv (Ccon cn vs ()  es) (type_subst (ZIP ( tvs', ts')) t)
           (Tapp ts' (TC_name tn)))`;
