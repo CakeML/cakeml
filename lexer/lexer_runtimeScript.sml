@@ -353,11 +353,11 @@ val lexer_def = tDefine "lexer" `
         lexer (trans,finals,start) s' (f (REVERSE lexeme)::acc))`
 (WF_REL_TAC `measure (\(x,y,z). STRLEN y)` >>
  rw [] >>
- `lexer_get_token_invariant trans finals start start "" NONE (STRING v8 v9)`
+ `lexer_get_token_invariant trans finals start start "" NONE (STRING v6 v7)`
            by metis_tac [lexer_get_token_invariant_initial] >>
  imp_res_tac lexer_get_token_partial_correctness >>
  fs [] >>
- `STRLEN (STRING v8 v9) = STRLEN (MAP FST path' ++ p_2)`
+ `STRLEN (STRING v6 v7) = STRLEN (MAP FST path' ++ p_2)`
            by metis_tac [lexer_get_token_partial_correctness] >>
  fs [] >>
  cases_on `path'` >>
@@ -472,7 +472,7 @@ imp_res_tac lexer_get_token_partial_correctness >>
  dfa_path trans start state path ∧
  (REVERSE q' = MAP FST path) ∧
  (finals state = SOME q) ∧
- (STRCAT (REVERSE q') r' = STRCAT (REVERSE "") (STRING v8 v9)) ∧
+ (STRCAT (REVERSE q') r' = STRCAT (REVERSE "") (STRING v6 v7)) ∧
  (∀path_extension state'.
     dfa_path trans state state' path_extension ∧
     (∃s''. STRCAT (MAP FST path_extension) s'' = r') ⇒
@@ -642,7 +642,7 @@ val lexer_versions = Q.prove (
 HO_MATCH_MP_TAC lexer_ind >>
 rw [lexer_def, lexer_no_acc_def] >>
 rw [] >>
-cases_on `lexer_get_token trans finals start "" NONE (STRING v8 v9)` >>
+cases_on `lexer_get_token trans finals start "" NONE (STRING v6 v7)` >>
 rw [] >>
 PairCases_on `x` >>
 fs [] >>
