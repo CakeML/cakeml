@@ -1293,16 +1293,15 @@ evaluate_match menv cenv s env v ((p,e)::pes) (s, Rerr Rtype_error))`;
 (* Semantic helpers for definitions *)
 
 (* Add the given type definition to the given constructor environment *)
-(*val build_tdefs : list (list tvarN * typeN * list (conN * list t)) -> envC*)
+(*val build_tdefs :option modN -> list (list tvarN * typeN * list (conN * list t)) -> envC*)
 val _ = Define `
- (build_tdefs tds =
+ (build_tdefs mn tds =
   REVERSE (FLAT
     (MAP
       (\ (tvs, tn, condefs) .
          MAP
            (\ (conN, ts) .
-              (* TODO: whatch out for Short here *)
-              (conN, (LENGTH ts, Short tn)))
+              (conN, (LENGTH ts, mk_id mn tn)))
            condefs)
       tds)))`;
 
@@ -1378,7 +1377,7 @@ evaluate_dec mn menv cenv s env (Dletrec tvs funs) (s, Rerr Rtype_error))
 (! mn menv cenv env tds s.
 check_dup_ctors mn menv cenv tds
 ==>
-evaluate_dec mn menv cenv s env (Dtype tds) (s, Rval (build_tdefs tds, emp)))
+evaluate_dec mn menv cenv s env (Dtype tds) (s, Rval (build_tdefs mn tds, emp)))
 
 /\
 
@@ -1393,6 +1392,18 @@ val _ = Define `
   (case r of
       Rerr e => Rerr e
     | Rval (envC',env') => Rval (merge envC' envC, merge env' env)
+  ))`;
+
+
+(*val add_ctors :option modN -> envM t -> envC -> envC -> envM t * envC*)
+val _ = Define `
+ (add_ctors mn_opt menv cenv cenv' =
+  (case mn_opt of
+      NONE => (menv, merge cenv' cenv)
+    | SOME mn => (case lookup mn menv of
+                     NONE => (bind mn (cenv',emp) menv, cenv)
+                   | SOME (cenv'',env) => (bind mn (merge cenv' cenv'', env) menv, cenv)
+                 )
   ))`;
 
 
@@ -1412,10 +1423,10 @@ evaluate_decs mn menv cenv s1 env (d::ds) (s2, Rerr e))
 
 /\
 
-(! mn menv cenv s1 s2 s3 env d ds new_tds new_env r.
+(! mn menv cenv s1 s2 s3 env d ds new_tds new_env r menv' cenv'.
 evaluate_dec mn menv cenv s1 env d (s2, Rval (new_tds,new_env)) /\
-(* TODO: Sometimes the ctors need to go in the menv *)
-evaluate_decs mn menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, r)
+((menv',cenv') = add_ctors mn menv cenv new_tds) /\
+evaluate_decs mn menv' cenv' s2 (merge new_env env) ds (s3, r)
 ==>
 evaluate_decs mn menv cenv s1 env (d::ds) (s3, combine_dec_result new_tds new_env r))`;
 
