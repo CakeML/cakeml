@@ -61,10 +61,10 @@ metis_tac []);
 *)
 
 val big_determ = Q.store_thm ("big_determ",
-`!menv cenv s env ds r1.
-  evaluate_decs menv cenv s env ds r1 ⇒
+`!mn menv cenv s env ds r1.
+  evaluate_decs mn menv cenv s env ds r1 ⇒
   !r2.
-    evaluate_decs menv cenv s env ds r2
+    evaluate_decs mn menv cenv s env ds r2
     ⇒
     (r1 = r2)`,
 HO_MATCH_MP_TAC evaluate_decs_ind >>

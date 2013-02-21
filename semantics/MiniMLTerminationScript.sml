@@ -97,8 +97,8 @@ val _ = export_rewrites["lookup_def"];
 val (pmatch_def, pmatch_ind) =
   tprove_no_defn ((pmatch_def, pmatch_ind),
   wf_rel_tac
-  `inv_image $< (λx. case x of INL (tvs,_,s,a,p,b,c) => pat_size (\x.0) p 
-                             | INR (tvs,_,s,a,ps,b,c) => pat1_size (\x.0) ps)`);
+  `inv_image $< (λx. case x of INL (tvs,s,a,p,b,c) => pat_size (\x.0) p 
+                             | INR (tvs,s,a,ps,b,c) => pat1_size (\x.0) ps)`);
 val _ = register "pmatch" pmatch_def pmatch_ind;
 
 val (pmatch'_def, pmatch'_ind) =
@@ -153,6 +153,13 @@ srw_tac [ARITH_ss] [t_size_def] >>
 res_tac >>
 decide_tac);
 val _ = register "deBruijn_inc" deBruijn_inc_def deBruijn_inc_ind;
+
+val (bind_var_list2_def,bind_var_list2_ind) =
+  tprove_no_defn ((bind_var_list2_def,bind_var_list2_ind),
+wf_rel_tac `measure (LENGTH o FST)` >>
+srw_tac [] []);
+val _ = register "bind_var_list2" bind_var_list2_def bind_var_list2_ind;
+
 
 val (bind_var_list_def,bind_var_list_ind) =
   tprove_no_defn ((bind_var_list_def,bind_var_list_ind),

@@ -36,7 +36,7 @@ val evaluate_con = Q.store_thm(
 "evaluate_con",
 `!menv cenv env cn es r s1.
   (evaluate menv cenv s1 env (Con cn es) r =
-   if do_con_check menv cenv cn (LENGTH es) then
+   if do_con_check cenv cn (LENGTH es) then
      (∃err s2. evaluate_list menv cenv s1 env es (s2, Rerr err) ∧
             (r = (s2, Rerr err))) ∨
      (∃vs s2. evaluate_list menv cenv s1 env es (s2, Rval vs) ∧
@@ -66,6 +66,7 @@ rw[Once evaluate_cases] >>
 metis_tac [])
 
 (*
+(* TODO: Fix when evaluate' is back *)
 val evaluate'_raise = store_thm(
 "evaluate'_raise",
 ``∀env s err r. evaluate' s env (Raise err) r = (r = (s, Rerr (Rraise err)))``,

@@ -380,34 +380,23 @@ deBruijn_subst_v ts (Loc l) = Loc l
 (* Environments *)
 
 (* Maps each constructor to its arity and which type it is from *)
-type envC = env conN (num * id typeN)
+type envC = env (id conN) (num * id typeN)
 
 (* The optional type scheme annotation's type variable binding scopes over the
  * value too *)
 type envE 'a = env varN (v 'a * option (num * 'a))
 
 (* The bindings of a module *)
-type envM 'a = env modN (envC * envE 'a)
+type envM 'a = env modN (envE 'a)
 
 val lookup_var_id : forall 'a. id varN -> envM 'a -> envE 'a -> option (v 'a * option (num * 'a))
-let lookup_var_id id envM envE =
+let lookup_var_id id menv envE =
   match id with
     | Short x -> lookup x envE
     | Long x y ->
-        match lookup x envM with
+        match lookup x menv with
           | None -> None
-          | Some (_, env) -> lookup y env
-        end
-  end
-
-val lookup_con_id : forall 'a 'b. id conN -> env modN (env conN 'a * 'b) -> env conN 'a -> option 'a
-let lookup_con_id id envM envE =
-  match id with
-    | Short x -> lookup x envE
-    | Long x y ->
-        match lookup x envM with
-          | None -> None
-          | Some (env, _) -> lookup y env
+          | Some env -> lookup y env
         end
   end
 
@@ -488,11 +477,11 @@ type match_result 'a =
  * number of arguments, and constructors in corresponding positions in the
  * pattern and value come from the same type.  Match_type_error is returned
  * when one of these conditions is violated *)
-val pmatch : forall 'a. option num -> envM 'a -> envC -> store 'a -> pat 'a -> v 'a -> envE 'a -> match_result 'a
+val pmatch : forall 'a. option num -> envC -> store 'a -> pat 'a -> v 'a -> envE 'a -> match_result 'a
 let rec
-pmatch tvs envM envC s (Pvar x topt) v' env = Match (bind x (v', add_tvs tvs topt) env)
+pmatch tvs envC s (Pvar x topt) v' env = Match (bind x (v', add_tvs tvs topt) env)
 and
-pmatch tvs envM envC s (Plit l) (Litv l') env =
+pmatch tvs envC s (Plit l) (Litv l') env =
   if l = l' then
     Match env
   else if lit_same_type l l' then
@@ -500,12 +489,12 @@ pmatch tvs envM envC s (Plit l) (Litv l') env =
   else
     Match_type_error
 and
-pmatch tvs envM envC s (Pcon n ps) (Conv n' vs) env =
-  match (lookup_con_id n envM envC, lookup_con_id n' envM envC) with
+pmatch tvs envC s (Pcon n ps) (Conv n' vs) env =
+  match (lookup n envC, lookup n' envC) with
     | (Some (l, t), Some (l', t')) ->
         if t = t' && (List.length ps = l) && (List.length vs = l') then
           if n = n' then
-            pmatch_list tvs envM envC s ps vs env
+            pmatch_list tvs envC s ps vs env
           else
             No_match
         else
@@ -513,24 +502,24 @@ pmatch tvs envM envC s (Pcon n ps) (Conv n' vs) env =
     | (_, _) -> Match_type_error
   end
 and
-pmatch tvs envM envC s (Pref p) (Loc lnum) env =
+pmatch tvs envC s (Pref p) (Loc lnum) env =
   match store_lookup lnum s with
-    | Some v -> pmatch tvs envM envC s p v env
+    | Some v -> pmatch tvs envC s p v env
     | None -> Match_type_error
   end
 and
-pmatch tvs envM envC _ _ _ env = Match_type_error
+pmatch tvs envC _ _ _ env = Match_type_error
 and
-pmatch_list tvs envM envC s [] [] env = Match env
+pmatch_list tvs envC s [] [] env = Match env
 and
-pmatch_list tvs envM envC s (p::ps) (v::vs) env =
-  match pmatch tvs envM envC s p v env with
+pmatch_list tvs envC s (p::ps) (v::vs) env =
+  match pmatch tvs envC s p v env with
     | No_match -> No_match
     | Match_type_error -> Match_type_error
-    | Match env' -> pmatch_list tvs envM envC s ps vs env'
+    | Match env' -> pmatch_list tvs envC s ps vs env'
   end
 and
-pmatch_list tvs envM envC s _ _ env = Match_type_error
+pmatch_list tvs envC s _ _ env = Match_type_error
 
 (* Accumulates the bindings of a patterns *)
 val pat_bindings : forall 'a. pat 'a -> list varN -> list varN
@@ -653,9 +642,9 @@ let do_if v e1 e2 =
     None
 
 (* Check that a constructor is properly applied *)
-val do_con_check : forall 'a. envM 'a -> envC -> id conN -> num -> bool
-let do_con_check envM envC n l =
-  match lookup_con_id n envM envC with
+val do_con_check : envC -> id conN -> num -> bool
+let do_con_check cenv n l =
+  match lookup n cenv with
     | None -> false
     | Some (l',ns) -> l = l'
   end
@@ -705,7 +694,7 @@ let continue envM envC s v cs =
         Estep (envM, envC, s, env, Exp (Raise Bind_error), c)
     | (Cmat () ((p,e)::pes), env) :: c ->
         if all_distinct (pat_bindings p []) then
-          match pmatch (Some 0) envM envC s p v env with
+          match pmatch (Some 0) envC s p v env with
             | Match_type_error -> Etype_error
             | No_match -> Estep (envM, envC, s, env, Val v, (Cmat () pes,env)::c)
             | Match env' -> Estep (envM, envC, s, env', Exp e, c)
@@ -715,12 +704,12 @@ let continue envM envC s v cs =
     | (Clet tvs n topt () e, env) :: c ->
         Estep (envM, envC, s, bind n (v, add_tvs tvs topt) env, Exp e, c)
     | (Ccon n vs () [], env) :: c ->
-        if do_con_check envM envC n (List.length vs + 1) then
+        if do_con_check envC n (List.length vs + 1) then
           return envM envC s env (Conv n (List.rev (v::vs))) c
         else
           Etype_error
     | (Ccon n vs () (e::es), env) :: c ->
-        if do_con_check envM envC n (List.length vs + 1 + 1 + List.length es) then
+        if do_con_check envC n (List.length vs + 1 + 1 + List.length es) then
           push envM envC s env e (Ccon n (v::vs) () es) c
         else
           Etype_error
@@ -770,7 +759,7 @@ let e_step (envM, envC, s, env, ev, c) =
           | Handle e n e' ->
               push envM envC s env e (Chandle () n e') c
           | Con n es ->
-              if do_con_check envM envC n (List.length es) then
+              if do_con_check envC n (List.length es) then
                 match es with
                   | [] -> return envM envC s env (Conv n []) c
                   | e::es ->
@@ -842,7 +831,7 @@ val evaluate_list : envM t -> envC -> store t -> envE t -> list (exp t) -> store
 val evaluate_match : envM t -> envC -> store t -> envE t -> v t -> list (pat t * exp t) -> store t * result (v t) -> bool
 val evaluate_dec : option modN -> envM t -> envC -> store t -> envE t -> dec t -> store t * result (envC * envE t) -> bool
 val evaluate_decs : option modN -> envM t -> envC -> store t -> envE t -> list (dec t) -> store t * result (envC * envE t) -> bool
-val evaluate_top : envM t -> envC -> store t -> envE t -> prog t -> store t * result (envC * envE t) -> bool
+val evaluate_prog : envM t -> envC -> store t -> envE t -> prog t -> store t * result (envM t * envC * envE t) -> bool
 
 indreln
 
@@ -884,7 +873,7 @@ evaluate menv cenv s1 env (Handle e1 var e2) (s2, Rerr err)
 and
 
 forall menv cenv env cn es vs s s'.
-do_con_check menv cenv cn (List.length es) &&
+do_con_check cenv cn (List.length es) &&
 evaluate_list menv cenv s env es (s', Rval vs)
 ==>
 evaluate menv cenv s env (Con cn es) (s', Rval (Conv cn vs))
@@ -892,14 +881,14 @@ evaluate menv cenv s env (Con cn es) (s', Rval (Conv cn vs))
 and
 
 forall menv cenv env cn es s.
-not (do_con_check menv cenv cn (List.length es))
+not (do_con_check cenv cn (List.length es))
 ==>
 evaluate menv cenv s env (Con cn es) (s, Rerr Rtype_error)
 
 and
 
 forall menv cenv env cn es err s s'.
-do_con_check menv cenv cn (List.length es) &&
+do_con_check cenv cn (List.length es) &&
 evaluate_list menv cenv s env es (s', Rerr err)
 ==>
 evaluate menv cenv s env (Con cn es) (s', Rerr err)
@@ -1116,7 +1105,7 @@ and
 
 forall menv cenv env v p e pes env' bv s.
 all_distinct (pat_bindings p []) &&
-(pmatch (Some 0) menv cenv s p v env = Match env') &&
+(pmatch (Some 0) cenv s p v env = Match env') &&
 evaluate menv cenv s env' e bv
 ==>
 evaluate_match menv cenv s env v ((p,e)::pes) bv
@@ -1125,7 +1114,7 @@ and
 
 forall menv cenv env v p e pes bv s.
 all_distinct (pat_bindings p []) &&
-(pmatch (Some 0) menv cenv s p v env = No_match) &&
+(pmatch (Some 0) cenv s p v env = No_match) &&
 evaluate_match menv cenv s env v pes bv
 ==>
 evaluate_match menv cenv s env v ((p,e)::pes) bv
@@ -1133,7 +1122,7 @@ evaluate_match menv cenv s env v ((p,e)::pes) bv
 and
 
 forall menv cenv env v p e pes s.
-(pmatch (Some 0) menv cenv s p v env = Match_type_error)
+(pmatch (Some 0) cenv s p v env = Match_type_error)
 ==>
 evaluate_match menv cenv s env v ((p,e)::pes) (s, Rerr Rtype_error)
 
@@ -1154,16 +1143,16 @@ let build_tdefs mn tds =
       (fun (tvs, tn, condefs) ->
          List.map
            (fun (conN, ts) ->
-              (conN, (List.length ts, mk_id mn tn)))
+              (mk_id mn conN, (List.length ts, mk_id mn tn)))
            condefs)
       tds))
 
 (* Checks that no constructor is defined twice *)
 val check_dup_ctors :
-    forall 'a 'b. option modN -> env modN (env conN 'a * 'b) -> env conN 'a -> list (list tvarN * typeN * list (conN * list t)) -> bool
-let check_dup_ctors mn_opt menv cenv tds =
+    forall 'a. option modN -> env (id conN) 'a -> list (list tvarN * typeN * list (conN * list t)) -> bool
+let check_dup_ctors mn_opt cenv tds =
   (forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs).
-     lookup_con_id (mk_id mn_opt n) menv cenv = None)
+     lookup (mk_id mn_opt n) cenv = None)
   &&
   all_distinct [ n | forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs) | true ]
 
@@ -1172,7 +1161,7 @@ indreln
 forall mn menv cenv env p e v env' s1 s2 tvs.
 small_eval menv cenv s1 env e [] (s2, Rval v) &&
 all_distinct (pat_bindings p []) &&
-(pmatch tvs menv cenv s2 p v emp = Match env')
+(pmatch tvs cenv s2 p v emp = Match env')
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rval (emp, env'))
 
@@ -1181,7 +1170,7 @@ and
 forall mn menv cenv env p e v s1 s2 tvs.
 small_eval menv cenv s1 env e [] (s2, Rval v) &&
 all_distinct (pat_bindings p []) &&
-(pmatch tvs menv cenv s2 p v emp = No_match)
+(pmatch tvs cenv s2 p v emp = No_match)
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr (Rraise Bind_error))
 
@@ -1189,7 +1178,7 @@ and
 
 forall mn menv cenv env p e v s1 s2 tvs.
 small_eval menv cenv s1 env e [] (s2, Rval v) &&
-(pmatch tvs menv cenv s2 p v emp = Match_type_error)
+(pmatch tvs cenv s2 p v emp = Match_type_error)
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error)
 
@@ -1225,32 +1214,22 @@ evaluate_dec mn menv cenv s env (Dletrec tvs funs) (s, Rerr Rtype_error)
 and
 
 forall mn menv cenv env tds s.
-check_dup_ctors mn menv cenv tds
+check_dup_ctors mn cenv tds
 ==>
 evaluate_dec mn menv cenv s env (Dtype tds) (s, Rval (build_tdefs mn tds, emp))
 
 and
 
 forall mn menv cenv env tds s.
-not (check_dup_ctors mn menv cenv tds)
+not (check_dup_ctors mn cenv tds)
 ==>
 evaluate_dec mn menv cenv s env (Dtype tds) (s, Rerr Rtype_error)
 
 val combine_dec_result : forall 'a 'b 'c 'd. env 'a 'b -> env 'c 'd -> result (env 'a 'b * env 'c 'd) -> result (env 'a 'b * env 'c 'd)
-let combine_dec_result envC env r =
+let combine_dec_result cenv env r =
   match r with
     | Rerr e -> Rerr e
-    | Rval (envC',env') -> Rval (merge envC' envC, merge env' env)
-  end
-
-val add_ctors : option modN -> envM t -> envC -> envC -> envM t * envC
-let add_ctors mn_opt menv cenv cenv' =
-  match mn_opt with
-    | None -> (menv, merge cenv' cenv)
-    | Some mn -> match lookup mn menv with
-                   | None -> (bind mn (cenv',emp) menv, cenv)
-                   | Some (cenv'',env) -> (bind mn (merge cenv' cenv'', env) menv, cenv)
-                 end
+    | Rval (cenv',env') -> Rval (merge cenv' cenv, merge env' env)
   end
 
 indreln
@@ -1269,95 +1248,106 @@ evaluate_decs mn menv cenv s1 env (d::ds) (s2, Rerr e)
 
 and
 
-forall mn menv cenv s1 s2 s3 env d ds new_tds new_env r menv' cenv'.
+forall mn menv cenv s1 s2 s3 env d ds new_tds new_env r.
 evaluate_dec mn menv cenv s1 env d (s2, Rval (new_tds,new_env)) &&
-((menv',cenv') = add_ctors mn menv cenv new_tds) &&
-evaluate_decs mn menv' cenv' s2 (merge new_env env) ds (s3, r)
+evaluate_decs mn menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, r)
 ==>
 evaluate_decs mn menv cenv s1 env (d::ds) (s3, combine_dec_result new_tds new_env r)
 
-
-indreln
-
-forall mn menv cenv s1 env decs s2 r.
-evaluate_decs (Some mn) menv cenv s1 env decs (s2,r)
-==>
-evaluate_mod mn menv cenv s1 env decs (s2,r)
+val combine_mod_result : forall 'a 'b 'c 'd 'e 'f. env 'a 'b -> env 'c 'd -> env 'e 'f -> result (env 'a 'b * env 'c 'd * env 'e 'f) -> result (env 'a 'b * env 'c 'd * env 'e 'f)
+let combine_mod_result menv cenv env r =
+  match r with
+    | Rerr e -> Rerr e
+    | Rval (menv',cenv',env') -> Rval (merge menv' menv, merge cenv' cenv, merge env' env)
+  end
 
 indreln
 
 forall menv cenv s env.
 true
 ==>
-evaluate_top menv cenv s env [] (s, Rval (emp, emp))
+evaluate_prog menv cenv s env [] (s, Rval (emp, emp, emp))
+
+and
+
+forall menv cenv s1 s2 s3 env d ds new_tds new_env r.
+evaluate_dec None menv cenv s1 env d (s2, Rval (new_tds,new_env)) &&
+evaluate_prog menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, r)
+==>
+evaluate_prog menv cenv s1 env (Tdec d::ds) (s3, combine_mod_result emp new_tds new_env r)
 
 and
 
 forall menv cenv s1 s2 env d ds e.
 evaluate_dec None menv cenv s1 env d (s2, Rerr e)
 ==>
-evaluate_top menv cenv s1 env (Tdec d::ds) (s2, Rerr e)
+evaluate_prog menv cenv s1 env (Tdec d::ds) (s2, Rerr e)
 
 and
 
-forall menv cenv s1 s2 s3 env d ds new_tds new_env r.
-evaluate_dec None menv cenv s1 env d (s2, Rval (new_tds,new_env)) &&
-evaluate_top menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, r)
+forall menv cenv s1 s2 s3 env ds1 ds2 mn specs new_tds new_env r.
+evaluate_decs (Some mn) menv cenv s1 env ds1 (s2, Rval (new_tds,new_env)) &&
+evaluate_prog (bind mn new_env menv) (merge new_tds cenv) s2 env ds2 (s3, r)
 ==>
-evaluate_top menv cenv s1 env (Tdec d::ds) (s3, combine_dec_result new_tds new_env r)
+evaluate_prog menv cenv s1 env (Tmod mn specs ds1::ds2) (s3, combine_mod_result [(mn,new_env)] new_tds emp r)
 
 and
 
 forall menv cenv s1 s2 env mn specs ds1 ds2 e.
 evaluate_decs (Some mn) menv cenv s1 env ds1 (s2, Rerr e)
 ==>
-evaluate_top menv cenv s1 env (Tmod mn specs ds1::ds2) (s2, Rerr e)
-
-and
-
-forall menv cenv s1 s2 s3 env ds1 ds2 mn specs new_tds new_env r.
-evaluate_decs (Some mn) menv cenv s1 env ds1 (s2, Rval (new_tds,new_env)) &&
-evaluate_top menv (merge new_tds cenv) s2 (merge new_env env) ds2 (s3, r)
-==>
-evaluate_top menv cenv s1 env (Tmod mn specs ds1::ds2) (s3, combine_dec_result new_tds new_env r)
+evaluate_prog menv cenv s1 env (Tmod mn specs ds1::ds2) (s2, Rerr e)
 
 
-
-
-val d_diverges : envM t -> envC -> store t -> envE t -> dec t -> bool
-val diverges : envM t -> envC -> store t -> envE t -> decs t -> bool
+val dec_diverges : envM t -> envC -> store t -> envE t -> dec t -> bool
+val decs_diverges : option modN -> envM t -> envC -> store t -> envE t -> decs t -> bool
 val prog_diverges : envM t -> envC -> store t -> envE t -> prog t -> bool
 
-let d_diverges envM envC st env d =
+let dec_diverges menv cenv st env d =
   match d with
-    | Dlet tvs p e -> e_diverges envM envC st env e
+    | Dlet tvs p e -> e_diverges menv cenv st env e
     | Dletrec tvs funs -> false
     | Dtype tds -> false
   end
 
 indreln
 
-forall envM envC st env d ds.
-d_diverges envM envC st env d
+forall mn menv cenv st env d ds.
+dec_diverges menv cenv st env d
 ==>
-diverges envM envC st env (d::ds) 
+decs_diverges mn menv cenv st env (d::ds) 
 
 and
 
-forall envM envC s1 s2 env d ds new_tds new_env.
-(* TODO: Module stuff *)
-evaluate_dec None envM envC s1 env d (s2, Rval (new_tds, new_env)) &&
-diverges envM (merge new_tds envC) s2 (merge new_env env) ds
+forall mn menv cenv s1 s2 env d ds new_tds new_env.
+evaluate_dec mn menv cenv s1 env d (s2, Rval (new_tds, new_env)) &&
+decs_diverges mn menv (merge new_tds cenv) s2 (merge new_env env) ds
 ==>
-diverges envM envC s1 env (d::ds) 
+decs_diverges mn menv cenv s1 env (d::ds)
 
-let rec prog_diverges envM envC st env top =
-  match top with
-    | [] -> false
-    | Tdec d::ds -> d_diverges envM envC st env d || prog_diverges envM envC st env ds
-    (* TODO *)
-    | Tmod x y z :: ds -> true
-  end
+indreln
+
+forall menv cenv st env d ds.
+dec_diverges menv cenv st env d
+==>
+prog_diverges menv cenv st env (Tdec d::ds)
+
+and
+
+forall menv cenv s1 s2 env d ds new_tds new_env.
+evaluate_dec None menv cenv s1 env d (s2, Rval (new_tds, new_env)) &&
+prog_diverges menv (merge new_tds cenv) s2 (merge new_env env) ds
+==>
+prog_diverges menv cenv s1 env (Tdec d::ds) 
+
+and
+
+forall menv cenv s1 s2 env ds1 ds2 mn specs new_tds new_env.
+evaluate_decs (Some mn) menv cenv s1 env ds1 (s2, Rval (new_tds,new_env)) &&
+prog_diverges (bind mn new_env menv) (merge new_tds cenv) s2 env ds2
+==>
+prog_diverges menv cenv s1 env (Tmod mn specs ds1::ds2)
+
 
 (* ------------------------------------------------------------------------ *) 
 (*   The Type System                                                        *)
@@ -1366,7 +1356,7 @@ let rec prog_diverges envM envC st env top =
 
 (* constructor type environments: each constructor has a type
  * forall tyvars. t list -> (tyvars) typeN *)
-type tenvC = env conN (list tvarN * list t * id typeN)
+type tenvC = env (id conN) (list tvarN * list t * id typeN)
 
 (* Type environments *)
 type tenvE =
@@ -1376,7 +1366,7 @@ type tenvE =
   (* The number is how many de Bruijn type variables the typescheme binds *)
   | Bind_name of varN * num * t * tenvE
 
-type tenvM = env modN (tenvC * tenvE)
+type tenvM = env modN (env varN (num * t))
 
 let bind_tvar tvs tenv = if tvs = 0 then tenv else Bind_tvar tvs tenv
 
@@ -1402,7 +1392,7 @@ let t_lookup_var_id id tenvM tenvE =
     | Long x y ->
         match lookup x tenvM with
           | None -> None
-          | Some (_, tenvE') -> lookup_tenv y 0 tenvE'
+          | Some tenvE' -> lookup y tenvE'
         end
   end
 
@@ -1417,7 +1407,7 @@ num_tvs (Bind_name n tvs t e) = num_tvs e
 (* A pattern matches values of a certain type and extends the type environment
  * with the pattern's binders. The number is the maximum deBruijn type variable
  * allowed. *)
-val type_p : num -> tenvM -> tenvC -> pat t -> t -> list (varN * t) -> bool
+val type_p : num -> tenvC -> pat t -> t -> list (varN * t) -> bool
 
 (* An expression has a type *)
 val type_e : tenvM -> tenvC -> tenvE -> exp t -> t -> bool
@@ -1432,9 +1422,11 @@ val type_funs : tenvM -> tenvC -> tenvE -> list (varN * option t * varN * option
                 list (varN * t) -> bool
 
 (* Check a declaration and update the top-level environments *)
-val type_d : tenvM -> tenvC -> tenvE -> dec t -> tenvC -> tenvE -> bool
+val type_d : option modN -> tenvM -> tenvC -> tenvE -> dec t -> tenvC -> env varN (num * t) -> bool
 
-val type_ds : tenvM -> tenvC -> tenvE -> list (dec t) -> tenvC -> tenvE -> bool
+val type_ds : option modN -> tenvM -> tenvC -> tenvE -> list (dec t) -> tenvC -> env varN (num * t) -> bool
+
+val type_prog : tenvM -> tenvC -> tenvE -> list (top t) -> tenvM -> tenvC -> env varN (num * t) -> bool
 
 (* Check that the operator can have type (t1 -> t2 -> t3) *)
 val type_op : op -> t -> t -> t -> bool
@@ -1474,9 +1466,9 @@ check_freevars dbmax tvs (Tvar_db n) = n < dbmax
  * constructors or types, and that the free type variables of each constructor
  * argument type are included in the type's type parameters. *)
 val check_ctor_tenv :
-   option modN -> tenvM -> tenvC -> list (list tvarN * typeN * list (conN * list t)) -> bool
-let check_ctor_tenv mn tenvM tenvC tds =
-  check_dup_ctors mn tenvM tenvC tds &&
+   option modN -> tenvC -> list (list tvarN * typeN * list (conN * list t)) -> bool
+let check_ctor_tenv mn tenvC tds =
+  check_dup_ctors mn tenvC tds &&
   List.for_all
     (fun (tvs,tn,ctors) ->
        all_distinct tvs &&
@@ -1487,17 +1479,15 @@ let check_ctor_tenv mn tenvM tenvC tds =
   all_distinct (List.map (fun (_,tn,_) -> tn) tds) &&
   List.for_all
     (fun (tvs,tn,ctors) ->
-       (* TODO: Add module path properly *)
-       List.for_all (fun (_,(_,_,tn')) -> Short tn <> tn') tenvC)
+       List.for_all (fun (_,(_,_,tn')) -> mk_id mn tn <> tn') tenvC)
     tds
 
-val build_ctor_tenv : list (list tvarN * typeN * list (conN * list t)) -> tenvC
-let build_ctor_tenv tds =
+val build_ctor_tenv : option modN -> list (list tvarN * typeN * list (conN * list t)) -> tenvC
+let build_ctor_tenv mn tds =
   List.flatten
     (List.map
        (fun (tvs,tn,ctors) ->
-	  (* TODO: Add module path properly *)
-          List.map (fun (cn,ts) -> (cn,(tvs,ts, Short tn))) ctors)
+          List.map (fun (cn,ts) -> (mk_id mn cn,(tvs,ts, mk_id mn tn))) ctors)
        tds)
 
 (* Simultaneous substitution of types for type variables in a type *)
@@ -1521,6 +1511,14 @@ and
 bind_var_list tvs ((n,t)::binds) tenv =
   bind_tenv n tvs t (bind_var_list tvs binds tenv)
 
+val bind_var_list2 : env varN (num * t) -> tenvE -> tenvE
+let rec
+bind_var_list2 [] tenv = tenv
+and
+bind_var_list2 ((n,(tvs,t))::binds) tenv =
+  bind_tenv n tvs t (bind_var_list2 binds tenv)
+
+
 (* For the value restriction on let-based polymorphism *)
 val is_value : forall 'a. exp 'a -> bool
 let rec 
@@ -1536,63 +1534,63 @@ is_value _ = false
 
 indreln
 
-forall tvs menv cenv n t.
+forall tvs cenv n t.
 check_freevars tvs [] t
 ==>
-type_p tvs menv cenv (Pvar n (Some t)) t [(n,t)]
+type_p tvs cenv (Pvar n (Some t)) t [(n,t)]
 
 and
 
-forall tvs menv cenv b.
+forall tvs cenv b.
 true
 ==>
-type_p tvs menv cenv (Plit (Bool b)) Tbool []
+type_p tvs cenv (Plit (Bool b)) Tbool []
 
 and
 
-forall tvs menv cenv n.
+forall tvs cenv n.
 true
 ==>
-type_p tvs menv cenv (Plit (IntLit n)) Tint []
+type_p tvs cenv (Plit (IntLit n)) Tint []
 
 and
 
-forall tvs menv cenv.
+forall tvs cenv.
 true
 ==>
-type_p tvs menv cenv (Plit Unit) Tunit []
+type_p tvs cenv (Plit Unit) Tunit []
 
 and
 
-forall tvs menv cenv cn ps ts tvs' tn ts' tenv.
+forall tvs cenv cn ps ts tvs' tn ts' tenv.
 List.for_all (check_freevars tvs []) ts' &&
 List.length ts' = List.length tvs' &&
-type_ps tvs menv cenv ps (List.map (type_subst (List.combine tvs' ts')) ts) tenv &&
-lookup_con_id cn menv cenv = Some (tvs', ts, tn)
+type_ps tvs cenv ps (List.map (type_subst (List.combine tvs' ts')) ts) tenv &&
+lookup cn cenv = Some (tvs', ts, tn)
 ==>
-type_p tvs menv cenv (Pcon cn ps) (Tapp ts' (TC_name tn)) tenv
+type_p tvs cenv (Pcon cn ps) (Tapp ts' (TC_name tn)) tenv
 
 and
 
-forall tvs menv cenv p t tenv.
-type_p tvs menv cenv p t tenv
+forall tvs cenv p t tenv.
+type_p tvs cenv p t tenv
 ==>
-type_p tvs menv cenv (Pref p) (Tref t) tenv
+type_p tvs cenv (Pref p) (Tref t) tenv
 
 and
 
-forall tvs menv cenv.
+forall tvs cenv.
 true
 ==>
-type_ps tvs menv cenv [] [] []
+type_ps tvs cenv [] [] []
 
 and
 
-forall tvs menv cenv p ps t ts tenv tenv'.
-type_p tvs menv cenv p t tenv &&
-type_ps tvs menv cenv ps ts tenv'
+forall tvs cenv p ps t ts tenv tenv'.
+type_p tvs cenv p t tenv &&
+type_ps tvs cenv ps ts tenv'
 ==>
-type_ps tvs menv cenv (p::ps) (t::ts) (tenv'@tenv)
+type_ps tvs cenv (p::ps) (t::ts) (tenv'@tenv)
 
 indreln
 
@@ -1636,7 +1634,7 @@ forall menv cenv tenv cn es tvs tn ts' ts.
 List.for_all (check_freevars (num_tvs tenv) []) ts' &&
 List.length tvs = List.length ts' &&
 type_es menv cenv tenv es (List.map (type_subst (List.combine tvs ts')) ts) &&
-lookup_con_id cn menv cenv = Some (tvs, ts, tn)
+lookup cn cenv = Some (tvs, ts, tn)
 ==>
 type_e menv cenv tenv (Con cn es) (Tapp ts' (TC_name tn))
 
@@ -1698,7 +1696,7 @@ type_e menv cenv tenv e t1 &&
 (pes <> []) &&
 (forall ((p,e) MEM pes) . exists tenv'.
    all_distinct (pat_bindings p []) &&
-   type_p (num_tvs tenv) menv cenv p t1 tenv' &&
+   type_p (num_tvs tenv) cenv p t1 tenv' &&
    type_e menv cenv (bind_var_list 0 tenv' tenv) e t2)
 ==>
 type_e menv cenv tenv (Mat e pes) t2
@@ -1760,54 +1758,80 @@ lookup fn env' = None
 ==>
 type_funs menv cenv env ((fn, Some (Tfn t1 t2), n, Some t1, e)::funs) ((fn, Tfn t1 t2)::env')
 
+val tenv_add_tvs : num -> env varN t -> env varN (num * t)
+let tenv_add_tvs tvs tenv =
+  List.map (fun (n,t) -> (n,(tvs,t))) tenv
+
 indreln
 
-forall tvs menv cenv tenv p e t tenv'.
+forall tvs mn menv cenv tenv p e t tenv'.
 is_value e &&
 all_distinct (pat_bindings p []) &&
-type_p tvs menv cenv p t tenv' &&
+type_p tvs cenv p t tenv' &&
 type_e menv cenv (bind_tvar tvs tenv) e t
 ==>
-type_d menv cenv tenv (Dlet (Some tvs) p e) emp (bind_var_list tvs tenv' tenv)
+type_d mn menv cenv tenv (Dlet (Some tvs) p e) emp (tenv_add_tvs tvs tenv')
 
 and
 
-forall menv cenv tenv p e t tenv'.
+forall mn menv cenv tenv p e t tenv'.
 all_distinct (pat_bindings p []) &&
-type_p 0 menv cenv p t tenv' &&
+type_p 0 cenv p t tenv' &&
 type_e menv cenv tenv e t
 ==>
-type_d menv cenv tenv (Dlet (Some 0) p e) emp (bind_var_list 0 tenv' tenv)
+type_d mn menv cenv tenv (Dlet (Some 0) p e) emp (tenv_add_tvs 0 tenv')
 
 and
 
-forall menv cenv tenv funs tenv' tvs.
+forall mn menv cenv tenv funs tenv' tvs.
 type_funs menv cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv'
 ==>
-type_d menv cenv tenv (Dletrec (Some tvs) funs) emp (bind_var_list tvs tenv' tenv)
+type_d mn menv cenv tenv (Dletrec (Some tvs) funs) emp (tenv_add_tvs tvs tenv')
 
 and
 
-forall menv cenv tenv tdecs.
-(* TODO: module stuff *)
-check_ctor_tenv None menv cenv tdecs
+forall mn menv cenv tenv tdecs.
+check_ctor_tenv mn cenv tdecs
 ==>
-type_d menv cenv tenv (Dtype tdecs) (build_ctor_tenv tdecs) tenv
+type_d mn menv cenv tenv (Dtype tdecs) (build_ctor_tenv mn tdecs) emp
+
+indreln
+
+forall mn menv cenv tenv.
+true
+==>
+type_ds mn menv cenv tenv [] emp emp
+
+and
+
+forall mn menv cenv tenv d ds cenv' tenv' cenv'' tenv''.
+type_d mn menv cenv tenv d cenv' tenv' &&
+type_ds mn menv (merge (List.rev cenv') cenv) (bind_var_list2 tenv' tenv) ds cenv'' tenv''
+==>
+type_ds mn menv cenv tenv (d::ds) (merge cenv'' cenv') (merge tenv'' tenv')
 
 indreln
 
 forall menv cenv tenv.
 true
 ==>
-type_ds menv cenv tenv [] emp tenv
+type_prog menv cenv tenv [] emp emp emp
 
 and
 
-forall menv cenv tenv d ds cenv' tenv' cenv'' tenv''.
-type_d menv cenv tenv d cenv' tenv' &&
-type_ds menv (merge (List.rev cenv') cenv) tenv' ds cenv'' tenv''
+forall menv cenv tenv d ds cenv' tenv' menv'' cenv'' tenv''.
+type_d None menv cenv tenv d cenv' tenv' &&
+type_prog menv (merge (List.rev cenv') cenv) (bind_var_list2 tenv' tenv) ds menv'' cenv'' tenv''
 ==>
-type_ds menv cenv tenv (d::ds) (merge cenv' cenv'') tenv''
+type_prog menv cenv tenv (Tdec d :: ds) menv'' (merge cenv'' cenv') (merge tenv'' tenv')
+
+and
+
+forall menv cenv tenv mn spec ds1 ds2 cenv' menv'' tenv' cenv'' tenv''.
+type_ds (Some mn) menv cenv tenv ds1 cenv' tenv' &&
+type_prog (bind mn tenv' menv) (merge (List.rev cenv') cenv) tenv ds2 menv'' cenv'' tenv''
+==>
+type_prog menv cenv tenv (Tmod mn spec ds1 :: ds2) (merge menv'' [(mn,tenv')]) (merge cenv'' cenv') tenv''
 
 (* ------------------------------------------------------------------------ *) 
 (*   Auxiliary definitions used in the proofs                               *)
@@ -1866,7 +1890,7 @@ forall tvs menv cenv senv cn vs tvs' tn ts' ts.
 List.for_all (check_freevars tvs []) ts' &&
 List.length tvs' = List.length ts' &&
 type_vs tvs menv cenv senv vs (List.map (type_subst (List.combine tvs' ts')) ts) &&
-lookup_con_id cn menv cenv = Some (tvs', ts, tn)
+lookup cn cenv = Some (tvs', ts, tn)
 ==>
 type_v tvs menv cenv senv (Conv cn vs) (Tapp ts' (TC_name tn))
 
@@ -2059,7 +2083,7 @@ forall tvs menv cenv senv tenv t1 t2 pes.
 ((pes = []) --> (check_freevars tvs [] t1 && check_freevars 0 [] t2)) &&
 (forall ((p,e) MEM pes) . exists tenv'.
    all_distinct (pat_bindings p []) &&
-   type_p tvs menv cenv p t1 tenv' &&
+   type_p tvs cenv p t1 tenv' &&
    type_e menv cenv (bind_var_list 0 tenv' tenv) e t2)
 ==>
 type_ctxt tvs menv cenv senv tenv (Cmat () pes) t1 t2
@@ -2080,7 +2104,7 @@ List.length tvs' = List.length ts' &&
 type_vs tvs menv cenv senv (List.rev vs)
         (List.map (type_subst (List.combine tvs' ts')) ts1) &&
 type_es menv cenv (bind_tvar tvs tenv) es (List.map (type_subst (List.combine tvs' ts')) ts2) &&
-lookup_con_id cn menv cenv = Some (tvs', ts1@[t]@ts2, tn)
+lookup cn cenv = Some (tvs', ts1@[t]@ts2, tn)
 ==>
 type_ctxt tvs menv cenv senv tenv (Ccon cn vs () es) (type_subst (List.combine tvs' ts') t)
           (Tapp ts' (TC_name tn))
@@ -2239,7 +2263,7 @@ evaluate_ctxt menv cenv s env (Clet tvs n topt () e2) v bv
 and
 
 forall menv cenv env cn es vs v vs' s1 s2.
-do_con_check menv cenv cn (List.length vs + List.length es + 1) &&
+do_con_check cenv cn (List.length vs + List.length es + 1) &&
 evaluate_list menv cenv s1 env es (s2, Rval vs')
 ==>
 evaluate_ctxt menv cenv s1 env (Ccon cn vs () es) v (s2, Rval (Conv cn (List.rev vs @ [v] @ vs')))
@@ -2247,14 +2271,14 @@ evaluate_ctxt menv cenv s1 env (Ccon cn vs () es) v (s2, Rval (Conv cn (List.rev
 and
 
 forall menv cenv env cn es vs v s.
-not (do_con_check menv cenv cn (List.length vs + List.length es + 1))
+not (do_con_check cenv cn (List.length vs + List.length es + 1))
 ==>
 evaluate_ctxt menv cenv s env (Ccon cn vs () es) v (s, Rerr Rtype_error)
 
 and
 
 forall menv cenv env cn es vs v err s s'.
-do_con_check menv cenv cn (List.length vs + List.length es + 1) &&
+do_con_check cenv cn (List.length vs + List.length es + 1) &&
 evaluate_list menv cenv s env es (s', Rerr err)
 ==>
 evaluate_ctxt menv cenv s env (Ccon cn vs () es) v (s', Rerr err)
