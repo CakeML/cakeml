@@ -2029,9 +2029,9 @@ val bind_fv_thm = store_thm("bind_fv_thm",
      let ecs = MAP (λx. (x, case find_index x ns 0 of NONE => CEEnv x | SOME j => CERef (j + 1))) envs in
      let args = FILTER (λx. MEM x xs) fvl in
      let ls1 = ZIP (args, MAP (λfv. CTArg (2 + az - (THE (find_index fv xs 1)))) args) in
-     let ls2 = GENLIST (λn. (FST(EL n ecs), CTEnv (ecl + n))) (LENGTH ecs) in
+     let ls2 = GENLIST (λn. (FST(EL n ecs), (case SND(EL n ecs) of CEEnv _ => CTEnv | CERef _ => CTRef) (ecl + n))) (LENGTH ecs) in
      let env0 = env |++ ls1 |++ ls2 in
-     (if EL i ns ∈ fvs then env0 |+ (EL i ns, CTArg (2 + az)) else env0
+     (if EL i ns ∈ fvs ∧ EL i ns ∉ set xs then env0 |+ (EL i ns, CTArg (2 + az)) else env0
      ,ecl + LENGTH ecs
      ,(REVERSE (MAP SND ecs))++ec
      ))``,
@@ -2127,8 +2127,7 @@ val bind_fv_thm = store_thm("bind_fv_thm",
     rw[] >>
     Q.ISPECL_THEN[`xs`,`CHOICE fvs`,`1`](strip_assume_tac o SYM) find_index_MEM >>
     Q.ISPECL_THEN[`xs`,`CHOICE fvs`,`0`](strip_assume_tac o SYM) find_index_MEM >>
-    `EL i ns ∈ REST fvs = EL i ns ∈ fvs` by (
-      rw[REST_DEF,EQ_IMP_THM] >>
+    `EL i ns ≠ CHOICE fvs` by (
       `x < LENGTH ns ∧ (EL x ns = CHOICE fvs)` by (
         Q.ISPECL_THEN[`ns`,`CHOICE fvs`,`0`]mp_tac find_index_LEAST_EL >>
         rw[MEM_EL] >- (
@@ -2142,7 +2141,8 @@ val bind_fv_thm = store_thm("bind_fv_thm",
         metis_tac[] ) >>
       fs[EL_ALL_DISTINCT_EL_EQ] >>
       metis_tac[] ) >>
-    fs[]
+    `EL i ns ∈ REST fvs = EL i ns ∈ fvs` by (
+      fs[REST_DEF] ) >>
     reverse conj_asm2_tac >- (
       conj_tac >- (
         simp[Abbr`ecs`,Abbr`ecs'`,Abbr`envs`,Abbr`envs'`,Abbr`fvl`,Abbr`fvl'`] >>
@@ -2153,16 +2153,15 @@ val bind_fv_thm = store_thm("bind_fv_thm",
       simp[Abbr`ecs'`,Abbr`ecs`,Abbr`envs'`,Abbr`envs`,Abbr`fvl`,Abbr`fvl'`] >>
       rfs[] ) >>
     rfs[] >>
-    qsuff_tac `env0 = env0'` >- rw[] >>
     `ecs = (CHOICE fvs, CERef (x+1))::ecs'` by (
       match_mp_tac LIST_EQ_MAP_PAIR >>
       conj_tac >- (
         simp[Abbr`ecs`,Abbr`ecs'`,MAP_MAP_o,combinTheory.o_DEF,Abbr`envs`,Abbr`envs'`,Abbr`fvl`,Abbr`fvl'`] ) >>
       match_mp_tac (fst(EQ_IMP_RULE(SPEC_ALL REVERSE_INV))) >>
       asm_simp_tac std_ss [MAP,REVERSE_DEF] ) >>
+    qsuff_tac `env0 = env0'` >- rw[] >>
     simp[Abbr`env0`,Abbr`env0'`,Abbr`ls1`,Abbr`ls1'`,Abbr`ls2`,Abbr`ls2'`] >>
     simp[GENLIST_CONS,combinTheory.o_DEF,ADD1,FUPDATE_LIST_THM] >>
-
     AP_THM_TAC >> AP_TERM_TAC >>
     simp[Abbr`args'`,Abbr`args`,Abbr`fvl`,Abbr`fvl'`] >>
     qmatch_abbrev_tac`(env |++ ls) |+ p = env |+ p |++ ls2` >>
@@ -2171,7 +2170,7 @@ val bind_fv_thm = store_thm("bind_fv_thm",
       qsuff_tac `∃P. MAP FST (p::ls) = FILTER P (SET_TO_LIST fvs)`
         >- metis_tac[FILTER_ALL_DISTINCT,ALL_DISTINCT_SET_TO_LIST] >>
       simp[Once SET_TO_LIST_THM] >>
-      rw[Abbr`p`,Abbr`ls`,MAP_ZIP] >>
+      rw[Abbr`p`,Abbr`ls`,MAP_ZIP,Abbr`ls2`] >>
       qexists_tac`λx. MEM x xs ∨ (x = CHOICE fvs)` >> rw[] >>
       simp[FILTER_EQ] >>
       simp[REST_DEF] ) >>
@@ -2179,57 +2178,30 @@ val bind_fv_thm = store_thm("bind_fv_thm",
     disch_then (match_mp_tac o GSYM) >>
     map_every qexists_tac [`ls`,`[]`] >>
     rw[] ) >>
-
-      find_index_MEM
-      spose_not_then strip_assume_tac >> fs[] >>
-      simp[] >>
-      metis_tac[MEM_EL] ) >>
-
-    `EL i ns = CHOICE fvs` by (
-      Q.ISPECL_THEN[`ns`,`CHOICE fvs`,`0`]mp_tac find_index_LEAST_EL >>
-      simp[MEM_EL] >>
-      rw[] >>
-      numLib.LEAST_ELIM_TAC >>
-      rw[] >> metis_tac[] ) >>
-    fs[REST_DEF,CHOICE_DEF] >>
-    reverse conj_asm2_tac >- (
-      simp[Abbr`ecs`,Abbr`ecs'`,Abbr`envs`,Abbr`envs'`,Abbr`fvl`,Abbr`fvl'`] ) >>
-    `ecs' = ecs` by (
-      match_mp_tac LIST_EQ_MAP_PAIR >>
-      conj_tac >- (
-        simp[Abbr`ecs`,Abbr`ecs'`,MAP_MAP_o,combinTheory.o_DEF,Abbr`envs`,Abbr`envs'`,Abbr`fvl`,Abbr`fvl'`] ) >>
-      rw[]) >>
-    simp[Abbr`env0`,Abbr`env0'`,Abbr`ls1`,Abbr`ls2`,Abbr`ls1'`,Abbr`ls2'`,Abbr`args`,Abbr`args'`,Abbr`fvl`,Abbr`fvl'`] >>
-    REWRITE_TAC[GSYM FUPDATE_LIST_APPEND] >>
-    qmatch_abbrev_tac`env |+ p |++ ls = (env |++ ls) |+ p` >>
-    Q.ISPECL_THEN[`p::ls`,`ls++[p]`,`env`]mp_tac FUPDATE_LIST_ALL_DISTINCT_PERM >>
-    `ALL_DISTINCT (MAP FST (p::ls))` by (
-      fs[GSYM REST_DEF] >> rfs[Abbr`p`] >>
-      `MAP FST ls = FILTER (λx. MEM x xs) (SET_TO_LIST (REST fvs)) ++ FILTER (λx. ¬MEM x xs ∧ find_index x ns 0 ≠ SOME i) (SET_TO_LIST (REST fvs))` by (
-        rw[Abbr`ls`,MAP_ZIP,MAP_GENLIST,combinTheory.o_DEF,Abbr`envs`,Abbr`envs'`] >>
-        rw[LIST_EQ_REWRITE,Abbr`ecs`,EL_MAP] ) >>
-      fs[Abbr`envs`,Abbr`envs'`,MEM_FILTER] >>
-      simp[ALL_DISTINCT_APPEND,MEM_FILTER] >>
-      metis_tac[FILTER_ALL_DISTINCT,ALL_DISTINCT_SET_TO_LIST,FINITE_REST] ) >>
-    simp[sortingTheory.PERM_CONS_EQ_APPEND,FUPDATE_LIST_THM,FUPDATE_LIST_APPEND] >>
-    disch_then match_mp_tac >>
-    map_every qexists_tac [`ls`,`[]`] >>
-
-
-        
-          DB.find"PART"
-          sortingTheory.PERM_MEM_EQ
-        simp[Once SET_TO_LIST_THM] >>
-        rw[Abbr`p`,Abbr`ls`,MAP_ZIP] >>
-        qexists_tac`λx. MEM x xs ∨ (x = CHOICE fvs)` >> rw[] >>
-        simp[FILTER_EQ] >>
-        simp[REST_DEF] ) >>
-
-      FUPDATE_LIST_THM
-        strip_tac
-        DB.find"find_index"
-        find_index_def
-
+  asm_simp_tac std_ss [Once SET_TO_LIST_THM,SimpRHS] >>
+  rw[] >>
+  Q.ISPECL_THEN[`xs`,`CHOICE fvs`,`1`](strip_assume_tac o SYM) find_index_MEM >>
+  Q.ISPECL_THEN[`xs`,`CHOICE fvs`,`0`](strip_assume_tac o SYM) find_index_MEM >>
+  rfs[] >>
+  reverse conj_asm2_tac >- (
+    simp[Abbr`ecs'`,Abbr`ecs`,Abbr`envs'`,Abbr`envs`,Abbr`fvl`,Abbr`fvl'`]) >>
+  `EL i ns ∉ set xs ⇒ (EL i ns ≠ CHOICE fvs)` by (
+    strip_tac >>
+    spose_not_then strip_assume_tac >> fs[] ) >>
+  qsuff_tac `env0 = env0'` >- (
+    rw[] >> fs[REST_DEF] ) >>
+  `ecs = ecs'` by (
+    match_mp_tac LIST_EQ_MAP_PAIR >>
+    conj_tac >- (
+      simp[Abbr`ecs`,Abbr`ecs'`,MAP_MAP_o,combinTheory.o_DEF,Abbr`envs`,Abbr`envs'`,Abbr`fvl`,Abbr`fvl'`] ) >>
+    rw[] ) >>
+  simp_tac std_ss [Abbr`env0`,Abbr`env0'`,Abbr`ls1`,Abbr`ls1'`,Abbr`ls2`,Abbr`ls2'`] >>
+  pop_assum SUBST1_TAC >>
+  simp[] >>
+  simp[GENLIST_CONS,combinTheory.o_DEF,ADD1,FUPDATE_LIST_THM] >>
+  AP_THM_TAC >> AP_TERM_TAC >>
+  simp[Abbr`args'`,Abbr`args`,Abbr`fvl`,Abbr`fvl'`] >>
+  simp[FUPDATE_LIST_THM] )
 
 fun filter_asms P = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC o List.rev o List.filter P)
 
