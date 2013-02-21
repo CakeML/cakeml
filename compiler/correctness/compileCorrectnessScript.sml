@@ -1690,7 +1690,7 @@ val good_code_env_def = Define`
     Cexp_pred e ∧
     ALL_DISTINCT (binders e) ∧
     ∃cs vs ns xs k bc0 cc bc1.
-      (FLOOKUP d l = SOME (vs,ns,xs,k)) ∧
+      (FLOOKUP d l = SOME (vs,xs,ns,k)) ∧
       DISJOINT (set (binders e)) (vs ∪ set ns ∪ set xs) ∧
       good_ecs cs.ecs ∧ free_labs e ⊆ FDOM cs.ecs ∧
       (cs.env = FST(ITSET (bind_fv ns xs (LENGTH xs) k) (free_vars c e) (FEMPTY,0,[]))) ∧
@@ -2022,7 +2022,7 @@ val syneq_Cv_bv = store_thm("syneq_Cv_bv",
   simp[Once Cv_bv_cases] >> rw[])
 
 val bind_fv_thm = store_thm("bind_fv_thm",
-  ``∀fvs acc env ecl ec. FINITE fvs ∧ (acc = (env,ecl,ec)) ∧ i < LENGTH ns ∧ ALL_DISTINCT ns ⇒
+  ``∀ns xs az i fvs acc env ecl ec. FINITE fvs ∧ (acc = (env,ecl,ec)) ∧ (ns ≠ [] ⇒ i < LENGTH ns) ∧ ALL_DISTINCT ns ⇒
     (ITSET (bind_fv ns xs az i) fvs acc =
      let fvl = SET_TO_LIST fvs in
      let envs = FILTER (λx. ¬MEM x xs ∧ ∀j. (find_index x ns 0 = SOME j) ⇒ j ≠ i) fvl in
@@ -2031,10 +2031,11 @@ val bind_fv_thm = store_thm("bind_fv_thm",
      let ls1 = ZIP (args, MAP (λfv. CTArg (2 + az - (THE (find_index fv xs 1)))) args) in
      let ls2 = GENLIST (λn. (FST(EL n ecs), (case SND(EL n ecs) of CEEnv _ => CTEnv | CERef _ => CTRef) (ecl + n))) (LENGTH ecs) in
      let env0 = env |++ ls1 |++ ls2 in
-     (if EL i ns ∈ fvs ∧ EL i ns ∉ set xs then env0 |+ (EL i ns, CTArg (2 + az)) else env0
+     (if ns ≠ [] ∧ EL i ns ∈ fvs ∧ EL i ns ∉ set xs then env0 |+ (EL i ns, CTArg (2 + az)) else env0
      ,ecl + LENGTH ecs
      ,(REVERSE (MAP SND ecs))++ec
      ))``,
+  ntac 4 gen_tac >>
   Q.ISPEC_THEN`bind_fv ns xs az i`ho_match_mp_tac(Q.GEN`f`ITSET_IND) >>
   rpt gen_tac >> strip_tac >>
   rpt gen_tac >> strip_tac >> fs[] >>
@@ -2058,12 +2059,12 @@ val bind_fv_thm = store_thm("bind_fv_thm",
         simp[Abbr`ecs'`,Abbr`ecs`,Abbr`envs'`,Abbr`envs`,Abbr`fvl`,Abbr`fvl'`] >>
         rfs[] ) >>
       rfs[] >>
-      `EL i ns ∈ REST fvs = EL i ns ∈ fvs` by (
+      `ns ≠ [] ⇒ (EL i ns ∈ REST fvs = EL i ns ∈ fvs)` by (
         rw[REST_DEF,EQ_IMP_THM] >>
         spose_not_then strip_assume_tac >> fs[] >>
         metis_tac[MEM_EL] ) >>
       fs[] >>
-      qsuff_tac `env0 = env0'` >- rw[] >>
+      qsuff_tac `env0 = env0'` >- (rw[] >> fs[]) >>
       `ecs = (CHOICE fvs, CEEnv (CHOICE fvs))::ecs'` by (
         match_mp_tac LIST_EQ_MAP_PAIR >>
         conj_tac >- (
@@ -2093,6 +2094,7 @@ val bind_fv_thm = store_thm("bind_fv_thm",
       rw[] >>
       Q.ISPECL_THEN[`xs`,`CHOICE fvs`,`1`](strip_assume_tac o SYM) find_index_MEM >>
       Q.ISPECL_THEN[`xs`,`CHOICE fvs`,`0`](strip_assume_tac o SYM) find_index_MEM >>
+      `ns ≠ []` by (Cases_on`ns`>>fs[find_index_def]) >> fs[] >>
       `EL i ns = CHOICE fvs` by (
         Q.ISPECL_THEN[`ns`,`CHOICE fvs`,`0`]mp_tac find_index_LEAST_EL >>
         simp[MEM_EL] >>
@@ -2127,6 +2129,7 @@ val bind_fv_thm = store_thm("bind_fv_thm",
     rw[] >>
     Q.ISPECL_THEN[`xs`,`CHOICE fvs`,`1`](strip_assume_tac o SYM) find_index_MEM >>
     Q.ISPECL_THEN[`xs`,`CHOICE fvs`,`0`](strip_assume_tac o SYM) find_index_MEM >>
+    `ns ≠ []` by (Cases_on`ns`>>fs[find_index_def]) >> fs[] >>
     `EL i ns ≠ CHOICE fvs` by (
       `x < LENGTH ns ∧ (EL x ns = CHOICE fvs)` by (
         Q.ISPECL_THEN[`ns`,`CHOICE fvs`,`0`]mp_tac find_index_LEAST_EL >>
@@ -2185,7 +2188,7 @@ val bind_fv_thm = store_thm("bind_fv_thm",
   rfs[] >>
   reverse conj_asm2_tac >- (
     simp[Abbr`ecs'`,Abbr`ecs`,Abbr`envs'`,Abbr`envs`,Abbr`fvl`,Abbr`fvl'`]) >>
-  `EL i ns ∉ set xs ⇒ (EL i ns ≠ CHOICE fvs)` by (
+  `ns ≠ [] ⇒ (EL i ns ∉ set xs ⇒ (EL i ns ≠ CHOICE fvs))` by (
     strip_tac >>
     spose_not_then strip_assume_tac >> fs[] ) >>
   qsuff_tac `env0 = env0'` >- (
@@ -2202,6 +2205,46 @@ val bind_fv_thm = store_thm("bind_fv_thm",
   AP_THM_TAC >> AP_TERM_TAC >>
   simp[Abbr`args'`,Abbr`args`,Abbr`fvl`,Abbr`fvl'`] >>
   simp[FUPDATE_LIST_THM] )
+
+(* TODO: move*)
+val IMAGE_EL_count_LENGTH = store_thm("IMAGE_EL_count_LENGTH",
+  ``∀f ls. IMAGE (λn. f (EL n ls)) (count (LENGTH ls)) = IMAGE f (set ls)``,
+  rw[EXTENSION,MEM_EL] >> PROVE_TAC[])
+
+val find_index_ALL_DISTINCT_EL_eq = store_thm("find_index_ALL_DISTINCT_EL_eq",
+  ``∀ls. ALL_DISTINCT ls ⇒ ∀x m i. (find_index x ls m = SOME i) =
+      ∃j. (i = m + j) ∧ j < LENGTH ls ∧ (x = EL j ls)``,
+  rw[EQ_IMP_THM] >- (
+    imp_res_tac find_index_LESS_LENGTH >>
+    fs[find_index_LEAST_EL] >> srw_tac[ARITH_ss][] >>
+    numLib.LEAST_ELIM_TAC >>
+    conj_tac >- PROVE_TAC[MEM_EL] >>
+    fs[EL_ALL_DISTINCT_EL_EQ] ) >>
+  PROVE_TAC[find_index_ALL_DISTINCT_EL])
+
+val FDOM_bind_fv = store_thm("FDOM_bind_fv",
+  ``∀ns xs az i fvs env ecl ec.
+      FINITE fvs ∧ (ns ≠ [] ⇒ i < LENGTH ns) ∧ ALL_DISTINCT ns ⇒
+      (FDOM (FST(ITSET (bind_fv ns xs az i) fvs (env,ecl,ec))) = FDOM env ∪ fvs)``,
+  rpt gen_tac >> strip_tac >>
+  qspecl_then[`ns`,`xs`,`az`,`i`,`fvs`,`(env,ecl,ec)`]mp_tac bind_fv_thm >>
+  rw[] >>
+  rw[Abbr`env0`,FDOM_FUPDATE_LIST,Abbr`ls1`,MAP_ZIP,Abbr`ls2`] >>
+  rw[MAP_GENLIST,combinTheory.o_DEF,LIST_TO_SET_GENLIST,IMAGE_EL_count_LENGTH] >>
+  rw[EXTENSION,Abbr`args`,MEM_FILTER,Abbr`fvl`,Abbr`ecs`,EXISTS_PROD,MEM_MAP,Abbr`envs`] >>
+  rw[EQ_IMP_THM] >> fs[] >>
+  Cases_on`MEM x xs`>>fs[] >>
+  fs[find_index_ALL_DISTINCT_EL_eq] >>
+  metis_tac[])
+
+val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
+  ``∀c sm cls s env ns xs az i fvs acc sz bs
+     env0 defs vs benv ret bvs st.
+    (env = DRESTRICT (extend_rec_env env0 env0 ns defs xs vs) fvs) ∧
+    (bs.stack = benv::CodePtr ret::bvs++st) ∧
+    good benv according to Cv_bv (abstract that out)
+
+    ⇒ Cenv_bs c sm cls s env (FST (ITSET (bind_fv ns xs az i) fvs acc)) sz bs``
 
 fun filter_asms P = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC o List.rev o List.filter P)
 
@@ -2815,12 +2858,15 @@ val compile_val = store_thm("compile_val",
       qmatch_abbrev_tac`(X ⇒ Q) ⇒ R` >>
       `X` by (
         map_every qunabbrev_tac[`X`,`P`,`Q`,`R`] >>
+        `(ns' ≠ [] ⇒ i < LENGTH ns') ∧ ALL_DISTINCT ns'` by (
+          Cases_on`ns'=[]`>>fs[] >>
+          imp_res_tac find_index_LESS_LENGTH >> fs[] ) >>
         simp[FDOM_bind_fv] >>
         conj_tac >- (
           unabbrev_all_tac >>
           fs[FLOOKUP_DEF] >> rfs[] >>
           fs[DISJOINT_DEF,EXTENSION] >> rw[] >>
-          ntac 6 (pop_assum kall_tac) >>
+          ntac 8 (pop_assum kall_tac) >>
           ntac 3 (pop_assum (qspec_then`x`mp_tac)) >>
           Cases_on `x ∈ free_vars c (c ' l)` >> fs[] >>
           Cases_on `x ∈ set (binders (c ' l))` >> fs[] >>
@@ -2874,17 +2920,17 @@ val compile_val = store_thm("compile_val",
           rw[EL_LENGTH_APPEND,TAKE_LENGTH_APPEND] >>
           simp[FILTER_APPEND] ) >>
         conj_tac >- (
+
+          qspecl_then[`ns'`,`xs`,`LENGTH vs`,`i`,`free_vars c b`,`(FEMPTY,0,[])`]mp_tac bind_fv_thm >>
           simp[FDOM_bind_fv]
 
           good_code_env_def
-          filter_asms ((can (find_term (equal ``cc:bc_inst list``))) o concl)
+          filter_asms ((can (find_term (equal ``bve:bc_value list``))) o concl)
           filter_asms ((can (find_term (fn t => case total dest_const t of SOME ("ALL_DISTINCT",x) => true | _ => false))) o concl)
           `LENGTH x
 
           FRANGE_extend_rec_env
           extend_rec_env_def
-
-
       set_trace "goalstack print goal at top" 0
 
     (* >>
