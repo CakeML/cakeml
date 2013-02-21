@@ -1919,6 +1919,31 @@ val FUPDATE_LIST_ALL_DISTINCT_PERM = store_thm("FUPDATE_LIST_ALL_DISTINCT_PERM",
   imp_res_tac FUPDATE_FUPDATE_LIST_COMMUTES >>
   rw[FUPDATE_LIST_THM])
 
+val find_index_LEAST_EL = store_thm("find_index_LEAST_EL",
+  ``∀ls x n. find_index x ls n = if MEM x ls then SOME (n + (LEAST n. x = EL n ls)) else NONE``,
+  Induct >- rw[find_index_def] >>
+  simp[find_index_def] >>
+  rpt gen_tac >>
+  Cases_on`h=x`>>fs[] >- (
+    numLib.LEAST_ELIM_TAC >>
+    conj_tac >- (qexists_tac`0` >> rw[]) >>
+    Cases >> rw[] >>
+    first_x_assum (qspec_then`0`mp_tac) >> rw[] ) >>
+  rw[] >>
+  numLib.LEAST_ELIM_TAC >>
+  conj_tac >- metis_tac[MEM_EL,MEM] >>
+  rw[] >>
+  Cases_on`n`>>fs[ADD1] >>
+  numLib.LEAST_ELIM_TAC >>
+  conj_tac >- metis_tac[] >>
+  rw[] >>
+  qmatch_rename_tac`m = n`[] >>
+  Cases_on`m < n` >- (res_tac >> fs[]) >>
+  Cases_on`n < m` >- (
+    `n + 1 < m + 1` by DECIDE_TAC >>
+    res_tac >> fs[GSYM ADD1] ) >>
+  DECIDE_TAC )
+
 val fmap_rel_OPTREL_FLOOKUP = store_thm("fmap_rel_OPTREL_FLOOKUP",
   ``fmap_rel R f1 f2 = ∀k. OPTREL R (FLOOKUP f1 k) (FLOOKUP f2 k)``,
   rw[fmap_rel_def,optionTheory.OPTREL_def,FLOOKUP_DEF,EXTENSION] >>
@@ -1997,8 +2022,8 @@ val syneq_Cv_bv = store_thm("syneq_Cv_bv",
   simp[Once Cv_bv_cases] >> rw[])
 
 val bind_fv_thm = store_thm("bind_fv_thm",
-  ``∀fvs acc env ecl ec. FINITE fvs ∧ (acc = (env,ecl,ec)) ∧ i < LENGTH ns ⇒
-    (ITSET (bind_fv xs ns az i) fvs acc =
+  ``∀fvs acc env ecl ec. FINITE fvs ∧ (acc = (env,ecl,ec)) ∧ i < LENGTH ns ∧ ALL_DISTINCT ns ⇒
+    (ITSET (bind_fv ns xs az i) fvs acc =
      let fvl = SET_TO_LIST fvs in
      let envs = FILTER (λx. ¬MEM x xs ∧ ∀j. (find_index x ns 0 = SOME j) ⇒ j ≠ i) fvl in
      let ecs = MAP (λx. (x, case find_index x ns 0 of NONE => CEEnv x | SOME j => CERef (j + 1))) envs in
@@ -2010,17 +2035,17 @@ val bind_fv_thm = store_thm("bind_fv_thm",
      ,ecl + LENGTH ecs
      ,(REVERSE (MAP SND ecs))++ec
      ))``,
-  Q.ISPEC_THEN`bind_fv xs ns az i`ho_match_mp_tac(Q.GEN`f`ITSET_IND) >>
+  Q.ISPEC_THEN`bind_fv ns xs az i`ho_match_mp_tac(Q.GEN`f`ITSET_IND) >>
   rpt gen_tac >> strip_tac >>
   rpt gen_tac >> strip_tac >> fs[] >>
   asm_simp_tac std_ss [Once ITSET_def] >>
   Cases_on`fvs = {}` >- rw[LET_THM,FUPDATE_LIST_THM] >>
   fs[bind_fv_def] >>
-  Cases_on`find_index (CHOICE fvs) ns 1` >> fs[] >- (
-    Cases_on`find_index (CHOICE fvs) xs 0` >> fs[] >- (
+  Cases_on`find_index (CHOICE fvs) xs 1` >> fs[] >- (
+    Cases_on`find_index (CHOICE fvs) ns 0` >> fs[] >- (
       asm_simp_tac std_ss [Once SET_TO_LIST_THM,SimpRHS] >>
       rw[] >>
-      Q.ISPECL_THEN[`ns`,`CHOICE fvs`,`1`](strip_assume_tac o SYM) find_index_MEM >>
+      Q.ISPECL_THEN[`xs`,`CHOICE fvs`,`1`](strip_assume_tac o SYM) find_index_MEM >>
       Q.ISPECL_THEN[`xs`,`CHOICE fvs`,`0`](strip_assume_tac o SYM) find_index_MEM >>
       Q.ISPECL_THEN[`ns`,`CHOICE fvs`,`0`](strip_assume_tac o SYM) find_index_MEM >>
       reverse conj_asm2_tac >- (
@@ -2063,7 +2088,148 @@ val bind_fv_thm = store_thm("bind_fv_thm",
       disch_then (match_mp_tac o GSYM) >>
       map_every qexists_tac [`ls`,`[]`] >>
       rw[] ) >>
+    Cases_on `x = i` >> fs[] >- (
+      asm_simp_tac std_ss [Once SET_TO_LIST_THM,SimpRHS] >>
+      rw[] >>
+      Q.ISPECL_THEN[`xs`,`CHOICE fvs`,`1`](strip_assume_tac o SYM) find_index_MEM >>
+      Q.ISPECL_THEN[`xs`,`CHOICE fvs`,`0`](strip_assume_tac o SYM) find_index_MEM >>
+      `EL i ns = CHOICE fvs` by (
+        Q.ISPECL_THEN[`ns`,`CHOICE fvs`,`0`]mp_tac find_index_LEAST_EL >>
+        simp[MEM_EL] >>
+        rw[] >>
+        numLib.LEAST_ELIM_TAC >>
+        rw[] >> metis_tac[] ) >>
+      fs[REST_DEF,CHOICE_DEF] >>
+      reverse conj_asm2_tac >- (
+        simp[Abbr`ecs`,Abbr`ecs'`,Abbr`envs`,Abbr`envs'`,Abbr`fvl`,Abbr`fvl'`] ) >>
+      `ecs' = ecs` by (
+        match_mp_tac LIST_EQ_MAP_PAIR >>
+        conj_tac >- (
+          simp[Abbr`ecs`,Abbr`ecs'`,MAP_MAP_o,combinTheory.o_DEF,Abbr`envs`,Abbr`envs'`,Abbr`fvl`,Abbr`fvl'`] ) >>
+        rw[]) >>
+      simp[Abbr`env0`,Abbr`env0'`,Abbr`ls1`,Abbr`ls2`,Abbr`ls1'`,Abbr`ls2'`,Abbr`args`,Abbr`args'`,Abbr`fvl`,Abbr`fvl'`] >>
+      REWRITE_TAC[GSYM FUPDATE_LIST_APPEND] >>
+      qmatch_abbrev_tac`env |+ p |++ ls = (env |++ ls) |+ p` >>
+      Q.ISPECL_THEN[`p::ls`,`ls++[p]`,`env`]mp_tac FUPDATE_LIST_ALL_DISTINCT_PERM >>
+      `ALL_DISTINCT (MAP FST (p::ls))` by (
+        fs[GSYM REST_DEF] >> rfs[Abbr`p`] >>
+        `MAP FST ls = FILTER (λx. MEM x xs) (SET_TO_LIST (REST fvs)) ++ FILTER (λx. ¬MEM x xs ∧ find_index x ns 0 ≠ SOME i) (SET_TO_LIST (REST fvs))` by (
+          rw[Abbr`ls`,MAP_ZIP,MAP_GENLIST,combinTheory.o_DEF,Abbr`envs`,Abbr`envs'`] >>
+          rw[LIST_EQ_REWRITE,Abbr`ecs`,EL_MAP] ) >>
+        fs[Abbr`envs`,Abbr`envs'`,MEM_FILTER] >>
+        simp[ALL_DISTINCT_APPEND,MEM_FILTER] >>
+        metis_tac[FILTER_ALL_DISTINCT,ALL_DISTINCT_SET_TO_LIST,FINITE_REST] ) >>
+      simp[sortingTheory.PERM_CONS_EQ_APPEND,FUPDATE_LIST_THM,FUPDATE_LIST_APPEND] >>
+      disch_then match_mp_tac >>
+      map_every qexists_tac [`ls`,`[]`] >>
+      rw[] ) >>
     asm_simp_tac std_ss [Once SET_TO_LIST_THM,SimpRHS] >>
+    rw[] >>
+    Q.ISPECL_THEN[`xs`,`CHOICE fvs`,`1`](strip_assume_tac o SYM) find_index_MEM >>
+    Q.ISPECL_THEN[`xs`,`CHOICE fvs`,`0`](strip_assume_tac o SYM) find_index_MEM >>
+    `EL i ns ∈ REST fvs = EL i ns ∈ fvs` by (
+      rw[REST_DEF,EQ_IMP_THM] >>
+      `x < LENGTH ns ∧ (EL x ns = CHOICE fvs)` by (
+        Q.ISPECL_THEN[`ns`,`CHOICE fvs`,`0`]mp_tac find_index_LEAST_EL >>
+        rw[MEM_EL] >- (
+          numLib.LEAST_ELIM_TAC >>
+          conj_tac >- metis_tac[] >>
+          rw[] >>
+          qmatch_rename_tac`m < LENGTH ns`[] >>
+          Cases_on`n < m`>>res_tac>>fs[]>>
+          DECIDE_TAC ) >>
+        numLib.LEAST_ELIM_TAC >>
+        metis_tac[] ) >>
+      fs[EL_ALL_DISTINCT_EL_EQ] >>
+      metis_tac[] ) >>
+    fs[]
+    reverse conj_asm2_tac >- (
+      conj_tac >- (
+        simp[Abbr`ecs`,Abbr`ecs'`,Abbr`envs`,Abbr`envs'`,Abbr`fvl`,Abbr`fvl'`] >>
+        srw_tac[ARITH_ss][ADD1] >>
+        rw[] >> fs[] >> rfs[] ) >>
+      REWRITE_TAC[Once(GSYM REVERSE_DEF)] >>
+      REWRITE_TAC[REVERSE_INV] >>
+      simp[Abbr`ecs'`,Abbr`ecs`,Abbr`envs'`,Abbr`envs`,Abbr`fvl`,Abbr`fvl'`] >>
+      rfs[] ) >>
+    rfs[] >>
+    qsuff_tac `env0 = env0'` >- rw[] >>
+    `ecs = (CHOICE fvs, CERef (x+1))::ecs'` by (
+      match_mp_tac LIST_EQ_MAP_PAIR >>
+      conj_tac >- (
+        simp[Abbr`ecs`,Abbr`ecs'`,MAP_MAP_o,combinTheory.o_DEF,Abbr`envs`,Abbr`envs'`,Abbr`fvl`,Abbr`fvl'`] ) >>
+      match_mp_tac (fst(EQ_IMP_RULE(SPEC_ALL REVERSE_INV))) >>
+      asm_simp_tac std_ss [MAP,REVERSE_DEF] ) >>
+    simp[Abbr`env0`,Abbr`env0'`,Abbr`ls1`,Abbr`ls1'`,Abbr`ls2`,Abbr`ls2'`] >>
+    simp[GENLIST_CONS,combinTheory.o_DEF,ADD1,FUPDATE_LIST_THM] >>
+
+    AP_THM_TAC >> AP_TERM_TAC >>
+    simp[Abbr`args'`,Abbr`args`,Abbr`fvl`,Abbr`fvl'`] >>
+    qmatch_abbrev_tac`(env |++ ls) |+ p = env |+ p |++ ls2` >>
+    Q.ISPECL_THEN[`p::ls`,`ls++[p]`,`env`]mp_tac FUPDATE_LIST_ALL_DISTINCT_PERM >>
+    `ALL_DISTINCT (MAP FST (p::ls))` by (
+      qsuff_tac `∃P. MAP FST (p::ls) = FILTER P (SET_TO_LIST fvs)`
+        >- metis_tac[FILTER_ALL_DISTINCT,ALL_DISTINCT_SET_TO_LIST] >>
+      simp[Once SET_TO_LIST_THM] >>
+      rw[Abbr`p`,Abbr`ls`,MAP_ZIP] >>
+      qexists_tac`λx. MEM x xs ∨ (x = CHOICE fvs)` >> rw[] >>
+      simp[FILTER_EQ] >>
+      simp[REST_DEF] ) >>
+    simp[sortingTheory.PERM_CONS_EQ_APPEND,FUPDATE_LIST_THM,FUPDATE_LIST_APPEND] >>
+    disch_then (match_mp_tac o GSYM) >>
+    map_every qexists_tac [`ls`,`[]`] >>
+    rw[] ) >>
+
+      find_index_MEM
+      spose_not_then strip_assume_tac >> fs[] >>
+      simp[] >>
+      metis_tac[MEM_EL] ) >>
+
+    `EL i ns = CHOICE fvs` by (
+      Q.ISPECL_THEN[`ns`,`CHOICE fvs`,`0`]mp_tac find_index_LEAST_EL >>
+      simp[MEM_EL] >>
+      rw[] >>
+      numLib.LEAST_ELIM_TAC >>
+      rw[] >> metis_tac[] ) >>
+    fs[REST_DEF,CHOICE_DEF] >>
+    reverse conj_asm2_tac >- (
+      simp[Abbr`ecs`,Abbr`ecs'`,Abbr`envs`,Abbr`envs'`,Abbr`fvl`,Abbr`fvl'`] ) >>
+    `ecs' = ecs` by (
+      match_mp_tac LIST_EQ_MAP_PAIR >>
+      conj_tac >- (
+        simp[Abbr`ecs`,Abbr`ecs'`,MAP_MAP_o,combinTheory.o_DEF,Abbr`envs`,Abbr`envs'`,Abbr`fvl`,Abbr`fvl'`] ) >>
+      rw[]) >>
+    simp[Abbr`env0`,Abbr`env0'`,Abbr`ls1`,Abbr`ls2`,Abbr`ls1'`,Abbr`ls2'`,Abbr`args`,Abbr`args'`,Abbr`fvl`,Abbr`fvl'`] >>
+    REWRITE_TAC[GSYM FUPDATE_LIST_APPEND] >>
+    qmatch_abbrev_tac`env |+ p |++ ls = (env |++ ls) |+ p` >>
+    Q.ISPECL_THEN[`p::ls`,`ls++[p]`,`env`]mp_tac FUPDATE_LIST_ALL_DISTINCT_PERM >>
+    `ALL_DISTINCT (MAP FST (p::ls))` by (
+      fs[GSYM REST_DEF] >> rfs[Abbr`p`] >>
+      `MAP FST ls = FILTER (λx. MEM x xs) (SET_TO_LIST (REST fvs)) ++ FILTER (λx. ¬MEM x xs ∧ find_index x ns 0 ≠ SOME i) (SET_TO_LIST (REST fvs))` by (
+        rw[Abbr`ls`,MAP_ZIP,MAP_GENLIST,combinTheory.o_DEF,Abbr`envs`,Abbr`envs'`] >>
+        rw[LIST_EQ_REWRITE,Abbr`ecs`,EL_MAP] ) >>
+      fs[Abbr`envs`,Abbr`envs'`,MEM_FILTER] >>
+      simp[ALL_DISTINCT_APPEND,MEM_FILTER] >>
+      metis_tac[FILTER_ALL_DISTINCT,ALL_DISTINCT_SET_TO_LIST,FINITE_REST] ) >>
+    simp[sortingTheory.PERM_CONS_EQ_APPEND,FUPDATE_LIST_THM,FUPDATE_LIST_APPEND] >>
+    disch_then match_mp_tac >>
+    map_every qexists_tac [`ls`,`[]`] >>
+
+
+        
+          DB.find"PART"
+          sortingTheory.PERM_MEM_EQ
+        simp[Once SET_TO_LIST_THM] >>
+        rw[Abbr`p`,Abbr`ls`,MAP_ZIP] >>
+        qexists_tac`λx. MEM x xs ∨ (x = CHOICE fvs)` >> rw[] >>
+        simp[FILTER_EQ] >>
+        simp[REST_DEF] ) >>
+
+      FUPDATE_LIST_THM
+        strip_tac
+        DB.find"find_index"
+        find_index_def
+
 
 fun filter_asms P = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC o List.rev o List.filter P)
 
