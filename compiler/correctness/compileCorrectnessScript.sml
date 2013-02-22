@@ -240,6 +240,23 @@ val lookup_ct_def = Define`
      | _ => NONE))`
 val _ = export_rewrites["lookup_ct_def"]
 
+val benv_bvs_def = Define`
+  benv_bvs pp benv fvs xs env defs ns i =
+  let c = FST(SND pp) in
+  let evs = FILTER (λv. v ∉ set xs ∧ (∀j. (find_index v ns 0 = SOME j) ⇒ j ≠ i)) (SET_TO_LIST fvs) in
+  ∃bvs.
+  (benv = if evs = [] then Number 0 else Block 0 bvs) ∧
+  (LENGTH bvs = LENGTH evs) ∧
+  (∀i x bv. i < LENGTH evs ∧ (x = EL i evs) ∧ (bv = EL i bvs) ⇒
+    if find_index x ns 0 = NONE then
+      x ∈ FDOM env ∧ Cv_bv pp (env ' x) bv
+    else ∃j p jxs jl je jenv. (find_index x ns 0 = SOME j) ∧
+      (bv = RefPtr p) ∧
+      (EL j defs = (jxs,INR jl)) ∧
+      (FLOOKUP c jl = SOME je) ∧
+      (FLOOKUP (SND(SND(SND pp))) p = SOME (jenv,ns,defs,j)) ∧
+      fmap_rel (syneq c) jenv (DRESTRICT env (free_vars c je DIFF set jxs DIFF set ns)))`
+
 val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   (Cv_bv pp (CLitv (IntLit k)) (Number k)) ∧
   (Cv_bv pp (CLitv (Bool b)) (bool_to_val b)) ∧
@@ -251,21 +268,9 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
     (LENGTH defs = LENGTH ns) ∧
     (find_index n ns 0 = SOME i) ∧
     (EL i defs = (xs,INR l))) ∧
-   (FLOOKUP c l = SOME e) ∧
-   (evs = FILTER (λv. v ∉ set xs ∧ ((find_index v ns 0 = SOME j) ⇒ j ≠ i))
-          (SET_TO_LIST (free_vars c e))) ∧
-   (benv = if evs = [] then Number 0 else Block 0 bvs) ∧
-   (LENGTH bvs = LENGTH evs) ∧
    (l2a l = SOME a) ∧
-   (∀i x bv. i < LENGTH evs ∧ (x = EL i evs) ∧ (bv = EL i bvs) ⇒
-     if find_index x ns 0 = NONE then
-       x ∈ FDOM env ∧ Cv_bv pp (env ' x) bv
-     else ∃j p jxs jl je jenv. (find_index x ns 0 = SOME j) ∧
-       (bv = RefPtr p) ∧
-       (EL j defs = (jxs,INR jl)) ∧
-       (FLOOKUP c jl = SOME je) ∧
-       (FLOOKUP cls p = SOME (jenv,ns,defs,j)) ∧
-       fmap_rel (syneq c) jenv (DRESTRICT env (free_vars c je DIFF set jxs DIFF set ns)))
+   (FLOOKUP c l = SOME e) ∧
+   benv_bvs pp benv (free_vars c e) env defs ns i
    ⇒ Cv_bv pp (CRecClos env ns defs n) (Block closure_tag [CodePtr a; benv]))`
 
 val Cv_bv_ov = store_thm("Cv_bv_ov",
@@ -2222,6 +2227,15 @@ val find_index_ALL_DISTINCT_EL_eq = store_thm("find_index_ALL_DISTINCT_EL_eq",
     fs[EL_ALL_DISTINCT_EL_EQ] ) >>
   PROVE_TAC[find_index_ALL_DISTINCT_EL])
 
+val ALL_DISTINCT_MEM_ZIP_MAP = store_thm("ALL_DISTINCT_MEM_ZIP_MAP",
+  ``!f x ls. ALL_DISTINCT ls ==> (MEM x (ZIP (ls, MAP f ls)) = MEM (FST x) ls /\ (SND x = f (FST x)))``,
+  GEN_TAC THEN Cases THEN
+  SRW_TAC[][MEM_ZIP,FORALL_PROD] THEN
+  SRW_TAC[][EQ_IMP_THM] THEN
+  SRW_TAC[][EL_MAP,MEM_EL] THEN
+  FULL_SIMP_TAC (srw_ss()) [EL_ALL_DISTINCT_EL_EQ,MEM_EL] THEN
+  METIS_TAC[EL_MAP])
+
 val FDOM_bind_fv = store_thm("FDOM_bind_fv",
   ``∀ns xs az i fvs env ecl ec.
       FINITE fvs ∧ (ns ≠ [] ⇒ i < LENGTH ns) ∧ ALL_DISTINCT ns ⇒
@@ -2238,13 +2252,79 @@ val FDOM_bind_fv = store_thm("FDOM_bind_fv",
   metis_tac[])
 
 val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
-  ``∀c sm cls s env ns xs az i fvs acc sz bs
-     env0 defs vs benv ret bvs st.
-    (env = DRESTRICT (extend_rec_env env0 env0 ns defs xs vs) fvs) ∧
-    (bs.stack = benv::CodePtr ret::bvs++st) ∧
-    good benv according to Cv_bv (abstract that out)
-
-    ⇒ Cenv_bs c sm cls s env (FST (ITSET (bind_fv ns xs az i) fvs acc)) sz bs``
+  ``∀c sm cls s env ns xs az i fvs bs
+     cenv defs vs benv ret bvs st pp.
+    (env = DRESTRICT (extend_rec_env cenv cenv ns defs xs vs) fvs) ∧
+    (bs.stack = benv::CodePtr ret::(REVERSE bvs)++st) ∧
+    (pp = mk_pp (DRESTRICT sm (FDOM s)) c bs cls) ∧
+    benv_bvs pp benv fvs xs cenv defs ns i ∧
+    s_refs c sm cls s bs ∧
+    FINITE fvs ∧
+    ALL_DISTINCT ns ∧
+    ALL_DISTINCT xs ∧
+    (ns ≠ [] ⇒ i < LENGTH ns) ∧
+    (LENGTH xs = LENGTH vs) ∧
+    EVERY2 (Cv_bv pp) vs bvs ∧
+    fvs ⊆ FDOM cenv ∪ set ns ∪ set xs ∧
+    (az = LENGTH vs)
+    ⇒ Cenv_bs c sm cls s env (FST (ITSET (bind_fv ns xs az i) fvs (FEMPTY,0,[]))) 0 bs``,
+  rw[Cenv_bs_def] >>
+  simp[fmap_rel_def] >>
+  conj_asm1_tac >- (
+    rw[FDOM_bind_fv,FDOM_extend_rec_env,FDOM_DRESTRICT] >>
+    rw[INTER_COMM] >>
+    rw[GSYM SUBSET_INTER_ABSORPTION] ) >>
+  rfs[FDOM_bind_fv] >> pop_assum (assume_tac o SYM) >>
+  qspecl_then[`ns`,`xs`,`LENGTH vs`,`i`,`fvs`,`(FEMPTY,0,[])`]mp_tac bind_fv_thm >>
+  rw[] >> simp[] >>
+  Cases_on `MEM x args` >- (
+    `MEM x xs` by (
+      fs[Abbr`args`,Abbr`fvl`,MEM_FILTER] ) >>
+    `∃n. (find_index x xs 1 = SOME (n + 1)) ∧ (EL n xs = x)` by (
+      simp[find_index_LEAST_EL] >>
+      numLib.LEAST_ELIM_TAC >>
+      fs[MEM_EL] >> PROVE_TAC[]) >>
+    Q.PAT_ABBREV_TAC`env1 = if X then Y else env0` >>
+    qho_match_abbrev_tac`P (env1 ' x)` >>
+    qsuff_tac`P (env0 ' x)` >- (
+      rw[Abbr`env1`,Abbr`P`,FAPPLY_FUPDATE_THM] >>
+      rw[] >> fs[] ) >>
+    `env0 ' x = (FEMPTY |++ ls1) ' x` by (
+      simp[Abbr`env0`] >>
+      match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM_matchable >>
+      simp_tac std_ss [Abbr`ls2`,MAP_GENLIST,LIST_TO_SET_GENLIST,combinTheory.o_DEF,IMAGE_EL_count_LENGTH]>>
+      simp[Abbr`ecs`,FORALL_PROD,Abbr`envs`,Abbr`fvl`,MEM_MAP,MEM_FILTER] ) >>
+    pop_assum SUBST1_TAC >>
+    match_mp_tac FUPDATE_LIST_ALL_DISTINCT_APPLY_MEM >>
+    simp[RIGHT_EXISTS_AND_THM] >>
+    conj_tac >- rw[Abbr`ls1`,FILTER_ALL_DISTINCT,ALL_DISTINCT_SET_TO_LIST,Abbr`fvl`,MAP_ZIP,Abbr`args`] >>
+    simp[Abbr`ls1`,MAP_ZIP,Abbr`args`] >>
+    Q.PAT_ABBREV_TAC`ls = FILTER X fvl` >>
+    `ALL_DISTINCT ls` by rw[Abbr`ls`,FILTER_ALL_DISTINCT,Abbr`fvl`,ALL_DISTINCT_SET_TO_LIST] >>
+    simp[ALL_DISTINCT_MEM_ZIP_MAP,Abbr`P`] >>
+    fsrw_tac[ARITH_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+    rfs[MEM_ZIP] >> fsrw_tac[DNF_ss][] >>
+    simp[DRESTRICT_DEF] >>
+    simp[extend_rec_env_def,FOLDL2_FUPDATE_LIST,MAP2_MAP,FST_pair,MAP_ZIP,SND_pair] >>
+    Q.PAT_ABBREV_TAC`env2 = FOLDL X cenv ns` >>
+    qho_match_abbrev_tac`P ((env2 |++ ZIP (xs,vs)) ' x)` >>
+    match_mp_tac FUPDATE_LIST_ALL_DISTINCT_APPLY_MEM >>
+    simp[MAP_ZIP] >>
+    simp[MEM_ZIP] >>
+    fsrw_tac[DNF_ss][Abbr`P`] >>
+    qexists_tac`n`>>simp[]>>
+    imp_res_tac find_index_LESS_LENGTH >> rfs[] >>
+    Q.PAT_ABBREV_TAC`bv = EL X (benv::Y)` >>
+    qsuff_tac`bv = EL n bvs` >- rw[] >>
+    rw[Abbr`bv`] >>
+    pop_assum mp_tac >>
+    rpt (pop_assum kall_tac) >>
+    simp[EL_CONS] >>
+    srw_tac[ARITH_ss][PRE_SUB1] >>
+    `(LENGTH bvs - n) = SUC (LENGTH bvs - n - 1)` by DECIDE_TAC >>
+    pop_assum SUBST1_TAC >> simp[] >>
+    simp[EL_APPEND1] >>
+    simp[EL_REVERSE,GSYM ADD1] ) >>
 
 fun filter_asms P = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC o List.rev o List.filter P)
 
