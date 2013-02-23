@@ -2257,6 +2257,10 @@ val LENGTH_FILTER_LEQ_MONO = store_thm("LENGTH_FILTER_LEQ_MONO",
   fsrw_tac[ARITH_ss][] >>
   PROVE_TAC[])
 
+val FLOOKUP_DRESTRICT = store_thm("FLOOKUP_DRESTRICT",
+  ``!fm s k. FLOOKUP (DRESTRICT fm s) k = if k IN s then FLOOKUP fm k else NONE``,
+  SRW_TAC[][FLOOKUP_DEF,DRESTRICT_DEF] THEN FULL_SIMP_TAC std_ss [])
+
 val find_index_ALL_DISTINCT_EL_eq = store_thm("find_index_ALL_DISTINCT_EL_eq",
   ``∀ls. ALL_DISTINCT ls ⇒ ∀x m i. (find_index x ls m = SOME i) =
       ∃j. (i = m + j) ∧ j < LENGTH ls ∧ (x = EL j ls)``,
@@ -2299,6 +2303,7 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
     (bs.stack = benv::CodePtr ret::(REVERSE bvs)++(Block closure_tag [CodePtr a;benv])::st) ∧
     (pp = mk_pp (DRESTRICT sm (FDOM s)) c bs cls) ∧
     (fvs = free_vars c e) ∧
+    good_cls c sm s bs cls ∧
     benv_bvs pp benv fvs xs cenv defs ns i ∧
     s_refs c sm cls s bs ∧
     ALL_DISTINCT ns ∧
@@ -2411,11 +2416,14 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
       metis_tac[find_index_MEM,optionTheory.NOT_SOME_NONE,optionTheory.option_CASES] ) >>
     `MEM (x, CERef (jx + 1)) ecs` by (
       simp[Abbr`ecs`,MEM_MAP,Abbr`envs`,MEM_FILTER,Abbr`fvl`] ) >>
-    `∃n. (env0 ' x = CTRef n) ∧ n < LENGTH ecs ∧ (EL n ecs = (x, CERef (jx + 1)))` by (
+    `∃n. (env0 ' x = CTRef n) ∧ n < LENGTH ecs ∧ (EL n ecs = (x, CERef (jx + 1))) ∧ (find_index (EL n envs) ns 0 = SOME jx)` by (
       fs[MEM_EL] >>
       qmatch_assum_rename_tac`m < LENGTH ecs`[] >>
-      qexists_tac`m`>>rw[] >>
+      qexists_tac`m`>>simp[] >>
       simp[Abbr`env0`] >>
+      reverse conj_tac >- (
+        fs[Abbr`ecs`] >> rfs[EL_MAP] >>
+        Cases_on`find_index (EL m envs) ns 0` >> fs[] ) >>
       qabbrev_tac`fm = FEMPTY |++ ls1` >>
       qho_match_abbrev_tac`P ((fm |++ ls2) ' (EL n ns))` >>
       match_mp_tac FUPDATE_LIST_ALL_DISTINCT_APPLY_MEM >>
@@ -2425,7 +2433,40 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
       qexists_tac`m` >>
       qpat_assum`X = EL m ecs`(assume_tac o SYM) >>
       simp[] ) >>
-    simp[]
+    qpat_assum`benv_bvs pp benv fvs xs cenv defs ns i`mp_tac >>
+    `envs ≠ []` by (
+      simp[Abbr`envs`,FILTER_EQ_NIL,combinTheory.o_DEF,EXISTS_MEM,Abbr`fvl`] >>
+      PROVE_TAC[] ) >>
+    simp[CONJUNCT2(SPEC_ALL Cv_bv_cases)] >>
+    disch_then(Q.X_CHOOSE_THEN`nvs`strip_assume_tac) >>
+    simp[] >>
+    `LENGTH ecs = LENGTH envs` by rw[Abbr`ecs`] >> fs[] >>
+    first_x_assum(qspec_then`n`mp_tac) >>
+    simp[] >>
+    disch_then(qx_choosel_then[`p`,`jxs`,`jl`,`je`,`jenv`]strip_assume_tac) >>
+    qpat_assum`good_cls c sm s bs cls`(mp_tac o SIMP_RULE(srw_ss())[good_cls_def,FEVERY_DEF]) >>
+    disch_then(qspec_then`p`mp_tac) >>
+    fs[FLOOKUP_DEF] >>
+    simp[DRESTRICT_DEF,extend_rec_env_def,FOLDL_FUPDATE_LIST,FOLDL2_FUPDATE_LIST,MAP2_MAP,MAP_ZIP,FST_pair,SND_pair] >>
+    strip_tac >>
+    Q.PAT_ABBREV_TAC`env1 = cenv |++ X` >>
+    `(env1 |++ ZIP (xs,vs)) ' x = CRecClos cenv ns defs (EL jx ns)` by (
+      match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM_matchable >>
+      simp[MAP_ZIP,Abbr`env1`] >>
+      ho_match_mp_tac FUPDATE_LIST_ALL_DISTINCT_APPLY_MEM >>
+      simp[MAP_MAP_o,combinTheory.o_DEF,MEM_MAP] >>
+      imp_res_tac find_index_ALL_DISTINCT_EL_eq >>
+      simp[]) >>
+    simp[] >>
+    match_mp_tac (MP_CANON syneq_Cv_bv) >> simp[] >>
+    qexists_tac`CRecClos jenv ns defs (EL jx ns)` >> simp[] >>
+
+    simp[syneq_cases] >>
+    fs[fmap_rel_OPTREL_FLOOKUP,EVERY_MEM,FORALL_PROD] >>
+    rpt gen_tac >> strip_tac >>
+    qx_gen_tac`v` >> strip_tac >>
+    first_x_assum(qspec_then`v`mp_tac) >>
+    rw[FLOOKUP_DRESTRICT] >>
 
 fun filter_asms P = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC o List.rev o List.filter P)
 
