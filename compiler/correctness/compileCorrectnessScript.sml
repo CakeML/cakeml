@@ -2246,6 +2246,17 @@ val IMAGE_EL_count_LENGTH = store_thm("IMAGE_EL_count_LENGTH",
   ``∀f ls. IMAGE (λn. f (EL n ls)) (count (LENGTH ls)) = IMAGE f (set ls)``,
   rw[EXTENSION,MEM_EL] >> PROVE_TAC[])
 
+val GENLIST_EL_MAP = store_thm("GENLIST_EL_MAP",
+  ``!f ls. GENLIST (λn. f (EL n ls)) (LENGTH ls) = MAP f ls``,
+  gen_tac >> Induct >> rw[GENLIST_CONS,combinTheory.o_DEF])
+
+val LENGTH_FILTER_LEQ_MONO = store_thm("LENGTH_FILTER_LEQ_MONO",
+  ``!P Q. (!x. P x ==> Q x) ==> !ls. (LENGTH (FILTER P ls) <= LENGTH (FILTER Q ls))``,
+  rpt gen_tac >> strip_tac >>
+  Induct >> rw[] >>
+  fsrw_tac[ARITH_ss][] >>
+  PROVE_TAC[])
+
 val find_index_ALL_DISTINCT_EL_eq = store_thm("find_index_ALL_DISTINCT_EL_eq",
   ``∀ls. ALL_DISTINCT ls ⇒ ∀x m i. (find_index x ls m = SOME i) =
       ∃j. (i = m + j) ∧ j < LENGTH ls ∧ (x = EL j ls)``,
@@ -2283,16 +2294,19 @@ val FDOM_bind_fv = store_thm("FDOM_bind_fv",
 
 val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
   ``∀c sm cls s env ns xs az i fvs bs
-     cenv defs vs benv ret bvs st pp.
+     cenv defs e l vs a benv ret bvs st pp.
     (env = DRESTRICT (extend_rec_env cenv cenv ns defs xs vs) fvs) ∧
-    (bs.stack = benv::CodePtr ret::(REVERSE bvs)++st) ∧
+    (bs.stack = benv::CodePtr ret::(REVERSE bvs)++(Block closure_tag [CodePtr a;benv])::st) ∧
     (pp = mk_pp (DRESTRICT sm (FDOM s)) c bs cls) ∧
+    (fvs = free_vars c e) ∧
     benv_bvs pp benv fvs xs cenv defs ns i ∧
     s_refs c sm cls s bs ∧
-    FINITE fvs ∧
     ALL_DISTINCT ns ∧
     ALL_DISTINCT xs ∧
-    (ns ≠ [] ⇒ i < LENGTH ns) ∧
+    (ns ≠ [] ⇒ i < LENGTH ns ∧ (LENGTH ns = LENGTH defs) ∧ (EL i defs = (xs,INR l))) ∧
+    ((ns = []) ⇒ (defs = [(xs,INR l)])) ∧
+    (FLOOKUP c l = SOME e) ∧
+    (bc_find_loc_aux bs.code bs.inst_length l 0 = SOME a) ∧
     (LENGTH xs = LENGTH vs) ∧
     EVERY2 (Cv_bv pp) vs bvs ∧
     fvs ⊆ FDOM cenv ∪ set ns ∪ set xs ∧
@@ -2305,6 +2319,8 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
     rw[INTER_COMM] >>
     rw[GSYM SUBSET_INTER_ABSORPTION] ) >>
   rfs[FDOM_bind_fv] >> pop_assum (assume_tac o SYM) >>
+  qabbrev_tac `fvs = free_vars c e` >>
+  `FINITE fvs` by rw[Abbr`fvs`] >>
   qspecl_then[`ns`,`xs`,`LENGTH vs`,`i`,`fvs`,`(FEMPTY,0,[])`]mp_tac bind_fv_thm >>
   rw[] >> simp[] >>
   Cases_on `MEM x args` >- (
@@ -2355,6 +2371,61 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
     pop_assum SUBST1_TAC >> simp[] >>
     simp[EL_APPEND1] >>
     simp[EL_REVERSE,GSYM ADD1] ) >>
+  `¬MEM x xs` by (
+    rfs[Abbr`args`,MEM_FILTER,Abbr`fvl`,MEM_SET_TO_LIST] ) >>
+  Cases_on `find_index x ns 0 = SOME i` >- (
+    `x = EL i ns` by (
+      imp_res_tac find_index_ALL_DISTINCT_EL_eq >> fs[] ) >>
+    `ns ≠ []` by (Cases_on `ns` >> fs[find_index_def]) >>
+    `LENGTH bvs = LENGTH vs` by fs[EVERY2_EVERY] >>
+    fsrw_tac[ARITH_ss][ADD1] >>
+    `MEM (EL i ns) ns` by (rw[MEM_EL] >> PROVE_TAC[]) >>
+    simp[DRESTRICT_DEF] >>
+    simp[extend_rec_env_def,FOLDL_FUPDATE_LIST,FOLDL2_FUPDATE_LIST,MAP2_MAP,FST_pair,SND_pair,MAP_ZIP] >>
+    Q.PAT_ABBREV_TAC`env1 = cenv |++ X` >>
+    `(env1 |++ ZIP (xs,vs)) ' (EL i ns) = CRecClos cenv ns defs (EL i ns)` by (
+      match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM_matchable >>
+      simp[MAP_ZIP,Abbr`env1`] >>
+      ho_match_mp_tac FUPDATE_LIST_ALL_DISTINCT_APPLY_MEM >>
+      simp[MAP_MAP_o,combinTheory.o_DEF,MEM_MAP] ) >>
+    pop_assum SUBST1_TAC >>
+    `LENGTH vs + 2 = SUC(SUC(LENGTH(REVERSE bvs)))` by srw_tac[ARITH_ss][ADD1] >>
+    pop_assum SUBST1_TAC >>
+    REWRITE_TAC[EL,TL] >>
+    REWRITE_TAC[GSYM APPEND_ASSOC] >>
+    simp_tac std_ss [EL_LENGTH_APPEND,NULL,GSYM CONS_APPEND,HD] >>
+    simp[Once Cv_bv_cases] ) >>
+  Cases_on `MEM x ns` >- (
+    `ns ≠ []` by (Cases_on `ns` >> fs[]) >> fs[] >>
+    Cases_on `x = EL i ns` >- (
+      fs[] >>
+      `i < LENGTH ns` by rw[] >>
+      imp_res_tac find_index_ALL_DISTINCT_EL >>
+      fs[] ) >>
+    Q.PAT_ABBREV_TAC`env1 = if X then Y else env0` >>
+    qho_match_abbrev_tac`P (env1 ' x)` >>
+    qsuff_tac`P (env0 ' x)` >- (
+      rw[Abbr`env1`,Abbr`P`,FAPPLY_FUPDATE_THM] ) >>
+    simp[Abbr`env1`,Abbr`P`] >>
+    `∃jx. find_index x ns 0 = SOME jx` by (
+      metis_tac[find_index_MEM,optionTheory.NOT_SOME_NONE,optionTheory.option_CASES] ) >>
+    `MEM (x, CERef (jx + 1)) ecs` by (
+      simp[Abbr`ecs`,MEM_MAP,Abbr`envs`,MEM_FILTER,Abbr`fvl`] ) >>
+    `∃n. (env0 ' x = CTRef n) ∧ n < LENGTH ecs ∧ (EL n ecs = (x, CERef (jx + 1)))` by (
+      fs[MEM_EL] >>
+      qmatch_assum_rename_tac`m < LENGTH ecs`[] >>
+      qexists_tac`m`>>rw[] >>
+      simp[Abbr`env0`] >>
+      qabbrev_tac`fm = FEMPTY |++ ls1` >>
+      qho_match_abbrev_tac`P ((fm |++ ls2) ' (EL n ns))` >>
+      match_mp_tac FUPDATE_LIST_ALL_DISTINCT_APPLY_MEM >>
+      simp_tac std_ss [Abbr`ls2`,GENLIST_EL_MAP,MAP_GENLIST,combinTheory.o_DEF,LIST_TO_SET_GENLIST,IMAGE_EL_count_LENGTH,Abbr`P`] >>
+      conj_tac >- rw[FILTER_ALL_DISTINCT,Abbr`fvl`,ALL_DISTINCT_SET_TO_LIST,Abbr`ecs`,MAP_MAP_o,combinTheory.o_DEF,Abbr`envs`] >>
+      simp[] >>
+      qexists_tac`m` >>
+      qpat_assum`X = EL m ecs`(assume_tac o SYM) >>
+      simp[] ) >>
+    simp[]
 
 fun filter_asms P = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC o List.rev o List.filter P)
 
