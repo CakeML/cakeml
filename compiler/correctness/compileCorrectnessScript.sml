@@ -240,23 +240,6 @@ val lookup_ct_def = Define`
      | _ => NONE))`
 val _ = export_rewrites["lookup_ct_def"]
 
-val benv_bvs_def = Define`
-  benv_bvs pp benv fvs xs env defs ns i =
-  let c = FST(SND pp) in
-  let evs = FILTER (λv. v ∉ set xs ∧ (∀j. (find_index v ns 0 = SOME j) ⇒ j ≠ i)) (SET_TO_LIST fvs) in
-  ∃bvs.
-  (benv = if evs = [] then Number 0 else Block 0 bvs) ∧
-  (LENGTH bvs = LENGTH evs) ∧
-  (∀i x bv. i < LENGTH evs ∧ (x = EL i evs) ∧ (bv = EL i bvs) ⇒
-    if find_index x ns 0 = NONE then
-      x ∈ FDOM env ∧ Cv_bv pp (env ' x) bv
-    else ∃j p jxs jl je jenv. (find_index x ns 0 = SOME j) ∧
-      (bv = RefPtr p) ∧
-      (EL j defs = (jxs,INR jl)) ∧
-      (FLOOKUP c jl = SOME je) ∧
-      (FLOOKUP (SND(SND(SND pp))) p = SOME (jenv,ns,defs,j)) ∧
-      fmap_rel (syneq c) jenv (DRESTRICT env (free_vars c je DIFF set jxs DIFF set ns)))`
-
 val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   (Cv_bv pp (CLitv (IntLit k)) (Number k)) ∧
   (Cv_bv pp (CLitv (Bool b)) (bool_to_val b)) ∧
@@ -270,13 +253,38 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
     (EL i defs = (xs,INR l))) ∧
    (l2a l = SOME a) ∧
    (FLOOKUP c l = SOME e) ∧
-   benv_bvs pp benv (free_vars c e) env defs ns i
-   ⇒ Cv_bv pp (CRecClos env ns defs n) (Block closure_tag [CodePtr a; benv]))`
+   benv_bvs pp benv (free_vars c e) xs env defs ns i
+   ⇒ Cv_bv pp (CRecClos env ns defs n) (Block closure_tag [CodePtr a; benv])) ∧
+  ((pp = (s,c,l2a,cls)) ∧
+   (evs = FILTER (λv. v ∉ set xs ∧ (∀j. (find_index v ns 0 = SOME j) ⇒ j ≠ i)) (SET_TO_LIST fvs)) ∧
+   (benv = if evs = [] then Number 0 else Block 0 bvs) ∧
+   (LENGTH bvs = LENGTH evs) ∧
+   (∀i x bv. i < LENGTH evs ∧ (x = EL i evs) ∧ (bv = EL i bvs) ⇒
+     if find_index x ns 0 = NONE then
+       x ∈ FDOM env ∧ Cv_bv pp (env ' x) bv
+     else ∃j p jxs jl je jenv. (find_index x ns 0 = SOME j) ∧
+       (bv = RefPtr p) ∧
+       (EL j defs = (jxs,INR jl)) ∧
+       (FLOOKUP c jl = SOME je) ∧
+       (FLOOKUP (SND(SND(SND pp))) p = SOME (jenv,ns,defs,j)) ∧
+       fmap_rel (syneq c) jenv (DRESTRICT env (free_vars c je DIFF set jxs DIFF set ns)))
+   ⇒ benv_bvs pp benv fvs xs env defs ns i)`
+
+val Cv_bv_only_ind =
+  Cv_bv_ind
+|> SPEC_ALL
+|> UNDISCH
+|> CONJUNCT1
+|> DISCH_ALL
+|> Q.GEN`benv_bvs'`
+|> Q.SPEC`K(K(K(K(K(K(K T))))))`
+|> SIMP_RULE std_ss []
+|> GEN_ALL
 
 val Cv_bv_ov = store_thm("Cv_bv_ov",
   ``∀m pp Cv bv. Cv_bv pp Cv bv ⇒ ∀s. (FST pp = s) ⇒ (Cv_to_ov m s Cv = bv_to_ov m bv)``,
   ntac 2 gen_tac >>
-  ho_match_mp_tac Cv_bv_ind >>
+  ho_match_mp_tac Cv_bv_only_ind >>
   strip_tac >- rw[bv_to_ov_def] >>
   strip_tac >- (
     rw[bv_to_ov_def] >>
@@ -428,7 +436,7 @@ val no_closures_Cv_bv_equal = store_thm("no_closures_Cv_bv_equal",
         all_Clocs cv' ⊆ FDOM (FST pp) ∧
         INJ (FAPPLY (FST pp)) (FDOM (FST pp)) (FRANGE (FST pp))
         ⇒ ((cv = cv') = (bv = bv'))``,
-  gen_tac >> ho_match_mp_tac Cv_bv_ind >> rw[]
+  gen_tac >> ho_match_mp_tac Cv_bv_only_ind >> rw[]
   >- (
     rw[EQ_IMP_THM] >> rw[] >>
     fs[Once Cv_bv_cases] )
@@ -447,7 +455,7 @@ val no_closures_Cv_bv_equal = store_thm("no_closures_Cv_bv_equal",
     fs[Once Cv_bv_cases,FLOOKUP_DEF] >> rw[] >>
     fs[INJ_DEF]) >>
   rw[EQ_IMP_THM] >- (
-    fs[Once (Q.SPECL[`pp`,`CConv cn vs`]Cv_bv_cases)] >>
+    fs[Once (Q.SPEC`CConv cn vs`(CONJUNCT1 (SPEC_ALL Cv_bv_cases)))] >>
     rw[LIST_EQ_REWRITE] >>
     fs[EVERY2_EVERY] >>
     qpat_assum`LENGTH X = LENGTH bvs` assume_tac >>
@@ -1022,12 +1030,17 @@ val Cenv_bs_with_pc = store_thm("Cenv_bs_with_pc",
   rw[Cenv_bs_def,s_refs_with_pc])
 
 val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
-  ``∀pp pp' l2a Cv bv. Cv_bv pp Cv bv ∧
-    (∀x y. (FST(SND (SND pp)) x = SOME y) ⇒ (l2a x = SOME y))
-    ∧ (pp' = (FST pp, FST(SND pp), l2a, SND(SND(SND pp))))
-    ⇒ Cv_bv pp' Cv bv``,
-  simp[GSYM AND_IMP_INTRO] >>
-  ntac 2 gen_tac >>
+  ``∀pp.
+    (∀Cv bv. Cv_bv pp Cv bv ⇒ ∀pp' l2a.
+     (∀x y. (FST(SND (SND pp)) x = SOME y) ⇒ (l2a x = SOME y))
+     ∧ (pp' = (FST pp, FST(SND pp), l2a, SND(SND(SND pp))))
+     ⇒ Cv_bv pp' Cv bv) ∧
+    (∀benv fs xs env defs ns i.
+     benv_bvs pp benv fs xs env defs ns i ⇒ ∀pp' l2a.
+     (∀x y. (FST(SND (SND pp)) x = SOME y) ⇒ (l2a x = SOME y))
+     ∧ (pp' = (FST pp, FST(SND pp), l2a, SND(SND(SND pp))))
+     ⇒ benv_bvs pp' benv fs xs env defs ns i)``,
+  gen_tac >>
   PairCases_on `pp` >> simp[] >>
   ho_match_mp_tac Cv_bv_ind >>
   strip_tac >- rw[Once Cv_bv_cases] >>
@@ -1038,10 +1051,17 @@ val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
     rw[] >>
     rw[Once Cv_bv_cases] >>
     fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] ) >>
-  simp[] >> rpt gen_tac >> strip_tac >> strip_tac >>
-  simp[Once Cv_bv_cases] >>
-  map_every qexists_tac[`bvs`,`e`,`i`,`j`,`l`,`xs`] >> simp[] >>
-  gen_tac >> strip_tac >> res_tac >> rw[] >> fs[])
+  strip_tac >- (
+    simp[] >> rpt gen_tac >> strip_tac >> strip_tac >>
+    simp[Once Cv_bv_cases] >>
+    strip_tac >>
+    map_every qexists_tac[`e`,`i`,`l`,`xs`] >> simp[] ) >>
+  rpt gen_tac >> strip_tac >>
+  rw[Once Cv_bv_cases] >>
+  fs[LENGTH_NIL] >>
+  res_tac >> rw[] >> fs[])
+
+val Cv_bv_l2a_mono_mp = MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_l2a_mono)))
 
 val s_refs_append_code = store_thm("s_refs_append_code",
   ``∀c sm cls s bs bs' ls.
@@ -1049,7 +1069,7 @@ val s_refs_append_code = store_thm("s_refs_append_code",
     ⇒ s_refs c sm cls s bs'``,
   rw[s_refs_def,fmap_rel_def] >>
   res_tac >>
-  match_mp_tac Cv_bv_l2a_mono >>
+  match_mp_tac Cv_bv_l2a_mono_mp >>
   qexists_tac `mk_pp (DRESTRICT sm (FDOM s)) c bs cls` >>
   rw[] >> metis_tac[bc_find_loc_aux_append_code])
 
@@ -1061,7 +1081,7 @@ val Cenv_bs_append_code = store_thm("Cenv_bs_append_code",
   fs[Cenv_bs_def,fmap_rel_def,s_refs_def] >> rw[] >>
   res_tac >>
   BasicProvers.CASE_TAC >> fs[] >>
-  match_mp_tac Cv_bv_l2a_mono >>
+  match_mp_tac Cv_bv_l2a_mono_mp >>
   qexists_tac `mk_pp (DRESTRICT sm (FDOM s)) c bs cls` >>
   rw[] >> metis_tac[bc_find_loc_aux_append_code])
 
@@ -1525,7 +1545,6 @@ val Cenv_bs_shadow = store_thm("Cenv_bs_shadow",
     fs[] >> rw[] >> fsrw_tac[ARITH_ss][] >>
     Cv_bv_l2a_mono
     Cv_bv_rules
-
     let val x = ref 0 in
       let val x = ref 1 in
         x := 2
@@ -1546,7 +1565,6 @@ val Cenv_bs_DOMSUB = store_thm("Cenv_bs_DOMSUB",
   fs[Cenv_bs_def,s_refs_def,fmap_rel_def] >>
   qx_gen_tac`x` >> strip_tac >>
   fs[lookup_ct_incsz,FAPPLY_FUPDATE_THM]
-
   first_x_assum (qspec_then`x` mp_tac) >>
   rw[lookup_ct_incsz,FAPPLY_FUPDATE_THM] >>
   fs[IN_FRANGE] >> PROVE_TAC[])
@@ -1629,14 +1647,23 @@ val Cv_bv_refs = store_thm("Cv_bv_refs",
 *)
 
 val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
-  ``∀pp v bv. Cv_bv pp v bv ⇒
+  ``∀pp.
+    (∀v bv. Cv_bv pp v bv ⇒
       ∀s c l2a rfs pp' s'.
         (pp = (s,c,l2a,rfs)) ∧
         (pp' = (s',c,l2a,rfs)) ∧
         (s ⊑ s') ∧
         (∀p. p ∈ FDOM rfs ∧ p ∉ FRANGE s ⇒ p ∉ FRANGE s')
         ⇒
-        Cv_bv pp' v bv``,
+        Cv_bv pp' v bv) ∧
+    (∀benv fvs xs env defs ns i. benv_bvs pp benv fvs xs env defs ns i ⇒
+      ∀s c l2a rfs pp' s'.
+        (pp = (s,c,l2a,rfs)) ∧
+        (pp' = (s',c,l2a,rfs)) ∧
+        (s ⊑ s') ∧
+        (∀p. p ∈ FDOM rfs ∧ p ∉ FRANGE s ⇒ p ∉ FRANGE s')
+        ⇒
+        benv_bvs pp' benv fvs xs env defs ns i)``,
   gen_tac >> ho_match_mp_tac Cv_bv_ind >>
   strip_tac >- rw[Once Cv_bv_cases,LENGTH_NIL] >>
   strip_tac >- rw[Once Cv_bv_cases,LENGTH_NIL] >>
@@ -1645,15 +1672,14 @@ val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
     fs[FLOOKUP_DEF,SUBMAP_DEF,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,LENGTH_NIL] ) >>
   strip_tac >- ( rw[] >> rw[Once Cv_bv_cases,LENGTH_NIL] >>
     fs[FLOOKUP_DEF,SUBMAP_DEF,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,LENGTH_NIL] ) >>
+  strip_tac >- ( rw[] >> simp[Once Cv_bv_cases] ) >>
   rpt gen_tac >> strip_tac >> fs[] >>
   simp[Once Cv_bv_cases] >>
   gen_tac >> strip_tac >>
-  map_every qexists_tac[`bvs`,`e`,`i`,`j`,`l`,`xs`] >>
-  Q.PAT_ABBREV_TAC`fvs = SET_TO_LIST (free_vars c e)` >>
+  qexists_tac`bvs`>>fs[]>>
   rpt BasicProvers.VAR_EQ_TAC >>
-  Q.PAT_ABBREV_TAC`evs = FILTER X fvs` >>
-  simp[] >> qx_gen_tac`i'` >> strip_tac >>
-  qpat_assum`∀i. i < LENGTH evs ⇒ P`(qspec_then`i'`mp_tac) >> rw[] >> rw[])
+  Q.PAT_ABBREV_TAC`evs = FILTER X (SET_TO_LIST fvs)` >>
+  fs[] >> metis_tac[])
 
 val good_sm_DRESTRICT = store_thm("good_sm_DRESTRICT",
   ``good_sm sm ⇒ good_sm (DRESTRICT sm s)``,
@@ -1974,10 +2000,14 @@ val syneq_Cv_bv = store_thm("syneq_Cv_bv",
     simp[Once Cv_bv_cases] >>
     simp[Once Cv_bv_cases,SimpR``$==>``] >>
     simp[] >> rw[] >>
-    map_every qexists_tac[`bvs`,`e`,`i`,`j`,`l`,`xs`] >>
+    map_every qexists_tac[`e`,`i`,`l`,`xs`] >>
     fs[EVERY_MEM,Once FORALL_PROD] >>
+    pop_assum mp_tac >>
+    simp[Once Cv_bv_cases] >>
+    simp[Once Cv_bv_cases,SimpR``$==>``] >>
     Q.PAT_ABBREV_TAC`fvs = SET_TO_LIST (free_vars c' e)` >>
     Q.PAT_ABBREV_TAC`evs = FILTER X fvs` >>
+    strip_tac >> qexists_tac`bvs` >> fs[] >>
     qx_gen_tac`z` >> strip_tac >>
     first_x_assum(qspec_then`z`mp_tac) >>
     simp[] >> strip_tac >>
