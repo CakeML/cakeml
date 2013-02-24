@@ -240,6 +240,9 @@ val lookup_ct_def = Define`
      | _ => NONE))`
 val _ = export_rewrites["lookup_ct_def"]
 
+val _ = Parse.overload_on("bundle_fvs", ``λc ns defs.
+  BIGUNION (IMAGE (λ(xs,cb). cbod_fvs c cb DIFF set xs DIFF set ns) (set defs))``)
+
 val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   (Cv_bv pp (CLitv (IntLit k)) (Number k)) ∧
   (Cv_bv pp (CLitv (Bool b)) (bool_to_val b)) ∧
@@ -262,12 +265,10 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
    (∀i x bv. i < LENGTH evs ∧ (x = EL i evs) ∧ (bv = EL i bvs) ⇒
      if find_index x ns 0 = NONE then
        x ∈ FDOM env ∧ Cv_bv pp (env ' x) bv
-     else ∃j p jxs jl je jenv. (find_index x ns 0 = SOME j) ∧
+     else ∃j p jenv. (find_index x ns 0 = SOME j) ∧
        (bv = RefPtr p) ∧
-       (EL j defs = (jxs,INR jl)) ∧
-       (FLOOKUP c jl = SOME je) ∧
        (FLOOKUP (SND(SND(SND pp))) p = SOME (jenv,ns,defs,j)) ∧
-       fmap_rel (syneq c) jenv (DRESTRICT env (free_vars c je DIFF set jxs DIFF set ns)))
+       fmap_rel (syneq c) jenv (DRESTRICT env (bundle_fvs c ns defs)))
    ⇒ benv_bvs pp benv fvs xs env defs ns i)`
 
 val Cv_bv_only_ind =
@@ -1921,6 +1922,10 @@ val find_index_MEM = store_thm("find_index_MEM",
   ``∀ls x n. ¬MEM x ls = (find_index x ls n = NONE)``,
   Induct >> rw[find_index_def])
 
+val FLOOKUP_DRESTRICT = store_thm("FLOOKUP_DRESTRICT",
+  ``!fm s k. FLOOKUP (DRESTRICT fm s) k = if k IN s then FLOOKUP fm k else NONE``,
+  SRW_TAC[][FLOOKUP_DEF,DRESTRICT_DEF] THEN FULL_SIMP_TAC std_ss [])
+
 val CARD_REST = store_thm("CARD_REST",
   ``!s. FINITE s /\ s <> {} ==> (CARD (REST s) = CARD s - 1)``,
   SRW_TAC[][] THEN
@@ -2039,21 +2044,12 @@ val syneq_Cv_bv = store_thm("syneq_Cv_bv",
     simp[fmap_rel_OPTREL_FLOOKUP] >>
     fsrw_tac[DNF_ss][MEM_EL,Abbr`ev`,fmap_rel_def,FDOM_DRESTRICT] >>
     qx_gen_tac`k` >>
-    first_x_assum(qspecl_then[`jxs`,`INR jl`,`k`,`x`]mp_tac) >>
     Cases_on`ns=[]`>>fs[find_index_def] >>
-    imp_res_tac find_index_LESS_LENGTH >> fs[] >>
-    qpat_assum`X = FDOM jenv`(assume_tac o SYM) >>
-    fs[FLOOKUP_DEF,optionTheory.OPTREL_def,FDOM_DRESTRICT] >>
-    rw[MEM_EL] >>
-    qmatch_abbrev_tac`A ∨ B` >>
-    Cases_on`A`>>fs[Abbr`B`] >>
-    `k ∈ FDOM env1 ∧ k ∈ FDOM env2` by (
-      pop_assum(strip_assume_tac o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >> fs[] >>
-      metis_tac[free_vars_DOMSUB,SUBSET_DEF,IN_UNION] ) >> fs[] >>
-    ntac 2 (pop_assum mp_tac) >>
-    pop_assum(strip_assume_tac o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >> fs[] >>
-    rw[DRESTRICT_DEF,MEM_EL] >>
-    metis_tac[free_vars_DOMSUB,SUBSET_DEF,IN_UNION]) >>
+    srw_tac[DNF_ss][FLOOKUP_DRESTRICT,EXISTS_PROD] >> fs[optionTheory.OPTREL_def] >>
+    fs[MEM_EL] >>
+    qmatch_assum_rename_tac`(p1,p2) = EL n defs`[] >>
+    first_x_assum(qspecl_then[`p1`,`p2`,`k`,`n`]mp_tac) >>
+    rfs[] >> rw[] >> fs[]) >>
   simp[Once Cv_bv_cases] >> rw[])
 
 val bind_fv_thm = store_thm("bind_fv_thm",
@@ -2257,10 +2253,6 @@ val LENGTH_FILTER_LEQ_MONO = store_thm("LENGTH_FILTER_LEQ_MONO",
   fsrw_tac[ARITH_ss][] >>
   PROVE_TAC[])
 
-val FLOOKUP_DRESTRICT = store_thm("FLOOKUP_DRESTRICT",
-  ``!fm s k. FLOOKUP (DRESTRICT fm s) k = if k IN s then FLOOKUP fm k else NONE``,
-  SRW_TAC[][FLOOKUP_DEF,DRESTRICT_DEF] THEN FULL_SIMP_TAC std_ss [])
-
 val find_index_ALL_DISTINCT_EL_eq = store_thm("find_index_ALL_DISTINCT_EL_eq",
   ``∀ls. ALL_DISTINCT ls ⇒ ∀x m i. (find_index x ls m = SOME i) =
       ∃j. (i = m + j) ∧ j < LENGTH ls ∧ (x = EL j ls)``,
@@ -2443,7 +2435,7 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
     `LENGTH ecs = LENGTH envs` by rw[Abbr`ecs`] >> fs[] >>
     first_x_assum(qspec_then`n`mp_tac) >>
     simp[] >>
-    disch_then(qx_choosel_then[`p`,`jxs`,`jl`,`je`,`jenv`]strip_assume_tac) >>
+    disch_then(qx_choosel_then[`p`,`jenv`]strip_assume_tac) >>
     qpat_assum`good_cls c sm s bs cls`(mp_tac o SIMP_RULE(srw_ss())[good_cls_def,FEVERY_DEF]) >>
     disch_then(qspec_then`p`mp_tac) >>
     fs[FLOOKUP_DEF] >>
@@ -2460,13 +2452,69 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
     simp[] >>
     match_mp_tac (MP_CANON syneq_Cv_bv) >> simp[] >>
     qexists_tac`CRecClos jenv ns defs (EL jx ns)` >> simp[] >>
-
     simp[syneq_cases] >>
     fs[fmap_rel_OPTREL_FLOOKUP,EVERY_MEM,FORALL_PROD] >>
     rpt gen_tac >> strip_tac >>
     qx_gen_tac`v` >> strip_tac >>
     first_x_assum(qspec_then`v`mp_tac) >>
     rw[FLOOKUP_DRESTRICT] >>
+    fsrw_tac[DNF_ss][EXISTS_PROD,FORALL_PROD] >>
+    metis_tac[IN_DIFF] ) >>
+  `x ∈ set envs` by (
+    rw[MEM_FILTER,Abbr`envs`,Abbr`fvl`] ) >>
+  `ns ≠ [] ⇒ (MEM (EL i ns) ns)` by (
+    strip_tac >> fs[] >> rw[MEM_EL] >> PROVE_TAC[] ) >>
+  Q.PAT_ABBREV_TAC`env1 = if X then Y else env0` >>
+  qho_match_abbrev_tac`P (env1 ' x)` >>
+  qsuff_tac`P (env0 ' x)` >- (
+    rw[Abbr`env1`,Abbr`P`,FAPPLY_FUPDATE_THM] >>
+    rw[] >> fs[]) >>
+  simp[Abbr`env1`,Abbr`P`] >>
+  `find_index x ns 0 = NONE` by (
+    Q.ISPECL_THEN[`ns`,`x`,`0`]mp_tac find_index_MEM >> rw[] ) >>
+  `MEM (x, CEEnv x) ecs` by (
+    simp[Abbr`ecs`,MEM_MAP] ) >>
+  `∃n. (env0 ' x = CTEnv n) ∧ n < LENGTH ecs ∧ (EL n ecs = (x, CEEnv x)) ∧ (find_index (EL n envs) ns 0 = NONE) ∧ (x = EL n envs)` by (
+    fs[MEM_EL] >>
+    qmatch_assum_rename_tac`(x,CEEnv x) = EL m ecs`[] >>
+    `m = n` by (
+      fs[Abbr`ecs`] >> rfs[EL_MAP] >>
+      qsuff_tac `ALL_DISTINCT envs` >-
+        (fs[EL_ALL_DISTINCT_EL_EQ] >> PROVE_TAC[])>>
+      simp[Abbr`envs`,FILTER_ALL_DISTINCT,Abbr`fvl`,ALL_DISTINCT_SET_TO_LIST] ) >>
+    qexists_tac`n`>>simp[]>>
+    rfs[Abbr`env0`] >>
+    qabbrev_tac`fm = FEMPTY |++ ls1` >>
+    qho_match_abbrev_tac`P ((fm |++ ls2) ' (EL n envs))` >>
+    match_mp_tac FUPDATE_LIST_ALL_DISTINCT_APPLY_MEM >>
+    simp_tac std_ss [Abbr`ls2`,GENLIST_EL_MAP,MAP_GENLIST,combinTheory.o_DEF,LIST_TO_SET_GENLIST,IMAGE_EL_count_LENGTH,Abbr`P`] >>
+    conj_tac >- rw[FILTER_ALL_DISTINCT,Abbr`fvl`,ALL_DISTINCT_SET_TO_LIST,Abbr`ecs`,MAP_MAP_o,combinTheory.o_DEF,Abbr`envs`] >>
+    simp[] >>
+    qpat_assum`X = EL m ecs`(assume_tac o SYM) >>
+    qexists_tac`m`>>simp[]) >>
+  simp[] >>
+  qpat_assum`benv_bvs pp benv fvs xs cenv defs ns i`mp_tac >>
+  `envs ≠ []` by (
+    simp[Abbr`envs`,FILTER_EQ_NIL,combinTheory.o_DEF,EXISTS_MEM,Abbr`fvl`] >>
+    PROVE_TAC[] ) >>
+  simp[CONJUNCT2(SPEC_ALL Cv_bv_cases)] >>
+  disch_then(Q.X_CHOOSE_THEN`nvs`strip_assume_tac) >>
+  simp[] >>
+  `LENGTH ecs = LENGTH envs` by rw[Abbr`ecs`] >> fs[] >>
+  first_x_assum(qspec_then`n`mp_tac) >> simp[] >> rw[] >>
+  simp[DRESTRICT_DEF,extend_rec_env_def,FOLDL_FUPDATE_LIST,FOLDL2_FUPDATE_LIST,MAP2_MAP,MAP_ZIP,FST_pair,SND_pair] >>
+  `EL n envs ∈ FDOM cenv` by (
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    metis_tac[] ) >>
+  rw[] >>
+  Q.PAT_ABBREV_TAC`env1 = cenv |++ X` >>
+  `(env1 |++ ZIP (xs,vs)) ' (EL n envs) = cenv ' (EL n envs)` by (
+    match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM_matchable >>
+    simp[MAP_ZIP,Abbr`env1`] >>
+    match_mp_tac EQ_SYM >>
+    match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM_matchable >>
+    simp[MAP_MAP_o,combinTheory.o_DEF,MEM_MAP,FORALL_PROD] ) >>
+  rw[])
 
 fun filter_asms P = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC o List.rev o List.filter P)
 
