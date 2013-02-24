@@ -90,9 +90,9 @@ rw[syneq_cases] >- (
   pop_assum mp_tac >>
   fs[MEM_ZIP] >>
   PROVE_TAC[] )
->- (
+>>
   fs[EVERY_MEM,pairTheory.FORALL_PROD,optionTheory.OPTREL_def] >>
-  PROVE_TAC[] ))
+  metis_tac[] )
 
 val syneq_trans = store_thm(
 "syneq_trans",
@@ -106,6 +106,29 @@ rw[syneq_cases] >- (
   fs[MEM_ZIP,pairTheory.FORALL_PROD] >>
   PROVE_TAC[] )
 >- (
+  Cases_on`defs`>>fs[]>>
+  Cases_on`t`>>fs[]>>
+  Cases_on`h`>>fs[]>>
+  fs[optionTheory.OPTREL_def,EVERY_MEM,
+     pairTheory.FORALL_PROD] >>
+  reverse(Cases_on`q=xs`)>>fs[]>-metis_tac[]>>
+  reverse(Cases_on`r=b`)>>fs[]>-metis_tac[]>>
+  reverse(Cases_on`xs=xs'`)>>fs[]>-metis_tac[]>>
+  reverse(Cases_on`b=b'`)>>fs[]>-metis_tac[]>>
+  srw_tac[DNF_ss][]>>
+  map_every qexists_tac[`q`,`b`]>>rw[]>>
+  metis_tac[optionTheory.option_CASES,
+            optionTheory.NOT_SOME_NONE,
+            optionTheory.SOME_11] )
+>- (
+  Cases_on`find_index d ns 0`>>fs[]>>
+  Cases_on`EL x defs`>>fs[]>>
+  reverse(Cases_on`q=xs`)>>fs[]>-metis_tac[]>>
+  reverse(Cases_on`r=b`)>>fs[]>-metis_tac[]>>
+  reverse(Cases_on`xs=xs'`)>>fs[]>-metis_tac[]>>
+  reverse(Cases_on`b=b'`)>>fs[]>-metis_tac[]>>
+  srw_tac[DNF_ss][]>>
+  map_every qexists_tac[`q`,`b`]>>rw[]>>
   fs[optionTheory.OPTREL_def,EVERY_MEM,
      pairTheory.FORALL_PROD] >>
   metis_tac[optionTheory.option_CASES,
@@ -1165,11 +1188,15 @@ strip_tac >- (
     qx_gen_tac `n` >> strip_tac >>
     rw[pairTheory.UNCURRY] >>
     rw[syneq_cases,EVERY_MEM,pairTheory.FORALL_PROD] >>
-    fs[fmap_rel_def,optionTheory.OPTREL_def,FLOOKUP_DEF] >>
+    Cases_on`ns=[]`>-(fs[LENGTH_NIL_SYM]>>rfs[]) >>fs[] >>
+    `∃xs b. EL n defs = (xs,b)`by (Cases_on`EL n defs`>>fs[]>>metis_tac[])>>
+    map_every qexists_tac [`xs`,`b`] >> fs[] >>
+    qx_gen_tac`v` >> strip_tac >>
     `v ∈ FDOM env` by (
       fsrw_tac[DNF_ss][SUBSET_DEF,pairTheory.FORALL_PROD,MEM_EL] >>
       fsrw_tac[DNF_ss][pairTheory.UNCURRY,MEM_EL] >>
       metis_tac[pairTheory.FST,pairTheory.SND] ) >> fs[] >>
+    fs[fmap_rel_def,optionTheory.OPTREL_def,FLOOKUP_DEF] >>
     qmatch_abbrev_tac `(v ∈ FDOM (DRESTRICT env0 ss) ∨ v ∈ FDOM env2) ∧ syneq c (env ' v) (env1 ' v)` >>
     `v ∈ ss` by (
       srw_tac[DNF_ss][Abbr`ss`,pairTheory.EXISTS_PROD] >>
@@ -1286,12 +1313,15 @@ strip_tac >- (
     fs[LIST_REL_EL_EQN,EL_MAP,EL_ZIP] >>
     qx_gen_tac `n` >> strip_tac >>
     rw[pairTheory.UNCURRY] >>
-    rw[syneq_cases,EVERY_MEM,pairTheory.FORALL_PROD] >>
-    fs[fmap_rel_def,optionTheory.OPTREL_def,FLOOKUP_DEF] >>
+    Cases_on`ns=[]`>-(fs[LENGTH_NIL_SYM]>>rfs[]) >>fs[] >>
+    `∃xs b. EL n defs = (xs,b)`by (Cases_on`EL n defs`>>fs[]>>metis_tac[])>>
+    map_every qexists_tac [`xs`,`b`] >> fs[] >>
+    qx_gen_tac`v` >> strip_tac >>
     `v ∈ FDOM env` by (
       fsrw_tac[DNF_ss][SUBSET_DEF,pairTheory.FORALL_PROD,MEM_EL] >>
       fsrw_tac[DNF_ss][pairTheory.UNCURRY,MEM_EL] >>
       metis_tac[pairTheory.FST,pairTheory.SND] ) >> fs[] >>
+    fs[fmap_rel_def,optionTheory.OPTREL_def,FLOOKUP_DEF] >>
     qmatch_abbrev_tac `(v ∈ FDOM (DRESTRICT env0 ss) ∨ v ∈ FDOM env2) ∧ syneq c (env ' v) (env1 ' v)` >>
     `v ∈ ss` by (
       srw_tac[DNF_ss][Abbr`ss`,pairTheory.EXISTS_PROD] >>
@@ -1375,6 +1405,7 @@ strip_tac >- (
     metis_tac[] ) >>
   rw[syneq_cases,FLOOKUP_DEF] >>
   rw[DRESTRICT_DEF,optionTheory.OPTREL_def] >>
+  map_every qexists_tac[`xs`,`cb`] >> rw[] >>
   `v ∈ FDOM env` by fs[SUBSET_DEF] >> fs[] >>
   fs[fmap_rel_def] >>
   rw[DRESTRICT_DEF,FUNION_DEF] ) >>
@@ -1483,7 +1514,7 @@ strip_tac >- (
     rw[] >> fs[EVERY_MEM] >>
     `MEM (ns,cb) defs` by (rw[MEM_EL] >> qexists_tac `i` >> rw[] >> PROVE_TAC[] ) >>
     fsrw_tac[DNF_ss][optionTheory.OPTREL_def,FLOOKUP_DEF,FORALL_PROD] >>
-    first_x_assum (qspecl_then [`ns`,`cb`] mp_tac) >> rw[] >>
+    first_x_assum (qspecl_then [`i`,`ns`,`cb`] mp_tac) >> rw[] >>
     pop_assum (qspec_then `x` mp_tac) >> rw[] >>
     Cases_on`ns'=[]`>>fs[]>>
     TRY(qunabbrev_tac`exp'`) >> Cases_on `cb` >> fs[] >>
@@ -1537,9 +1568,11 @@ strip_tac >- (
       fs[FLOOKUP_DEF,optionTheory.OPTREL_def] >>
       `MEM (ns,cb) defs` by (rw[MEM_EL] >> qexists_tac `i` >> rw[] >> PROVE_TAC[] ) >>
       fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD] >>
-      first_x_assum (qspecl_then [`ns`,`cb`] mp_tac) >> fs[] >>
       first_x_assum (qspecl_then [`i`,`ns`,`cb`] mp_tac) >> fs[] >>
-      Cases_on `cb` >> fs[] >- metis_tac[] >>
+      first_x_assum (qspecl_then [`i`,`ns`,`cb`] mp_tac) >> fs[] >>
+
+      Cases_on `cb` >> fs[] >- (Cases_on`ns' = []` >> fs[] >> metis_tac[]) >>
+
       Cases_on `ns' = []` >> fs[] >>
       rw[FLOOKUP_DEF] >> fs[] >>
       `x ∈ free_vars (c \\ y) (c ' y)` by
