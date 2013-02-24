@@ -489,13 +489,13 @@ EVERY2 ((syneq c))) vs1) vs2)
 ==>
 syneq c (((CConv cn) vs1)) (((CConv cn) vs2)))
 /\
-(! c env1 env2 ns defs d.((
-EVERY
-  (\ (xs,b) .
-    (! v. v IN (((cbod_fvs c) b) DIFF ((LIST_TO_SET ns) UNION(
-                                     LIST_TO_SET xs)))
-      ==>(( ((OPTREL ((syneq c)))) (((FLOOKUP env1) v))) (((FLOOKUP env2) v))))))
-  defs)
+(! c env1 env2 ns defs d xs b.
+((if ns = [] then defs = [(xs,b)] else
+  ? i. ((((find_index d) ns) 0) =( SOME i)) /\ (((EL  i)  defs) = (xs,b)))
+ ==>
+ (! v. v IN (((cbod_fvs c) b) DIFF ((LIST_TO_SET ns) UNION(
+                                  LIST_TO_SET xs)))
+   ==>(( ((OPTREL ((syneq c)))) (((FLOOKUP env1) v))) (((FLOOKUP env2) v)))))
 ==>
 syneq c (((((CRecClos env1) ns) defs) d)) (((((CRecClos env2) ns) defs) d)))
 /\

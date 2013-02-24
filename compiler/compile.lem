@@ -492,13 +492,13 @@ every2 (syneq c) vs1 vs2
 ==>
 syneq c (CConv cn vs1) (CConv cn vs2)
 and
-forall c env1 env2 ns defs d.
-List.for_all
-  (fun (xs,b) ->
-    (forall v. v IN (cbod_fvs c b \ (Set.from_list ns union
-                                     Set.from_list xs))
-      --> (optrel (syneq c)) (flookup env1 v) (flookup env2 v)))
-  defs
+forall c env1 env2 ns defs d xs b.
+((if ns = [] then defs = [(xs,b)] else
+  exists i. find_index d ns 0 = Some i && List.nth defs i = (xs,b))
+ -->
+ (forall v. v IN (cbod_fvs c b \ (Set.from_list ns union
+                                  Set.from_list xs))
+   --> (optrel (syneq c)) (flookup env1 v) (flookup env2 v)))
 ==>
 syneq c (CRecClos env1 ns defs d) (CRecClos env2 ns defs d)
 and
