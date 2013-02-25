@@ -1338,7 +1338,7 @@ val _ = Defn.save_defn calculate_ecs_defn;
     (\ s (xs,l) .
       let (env,az) =(( FAPPLY  s.env_azs)  l) in
       let s =(( emit s) [(Label l)]) in
-      let s' =  s with<| env := env; sz := 0; tail :=(( TCTail az) 0) |> in
+      let s' =  s with<| env := env; sz := 0; tail :=(( TCTail az) 0); decl := NONE |> in
       let s' =(( compile s') (((FAPPLY  c)  l))) in
       let n = (case s'.tail of TCTail j k => k+1
               | _ => 0 (* should not happen *) ) in
@@ -1347,7 +1347,7 @@ val _ = Defn.save_defn calculate_ecs_defn;
                         Stack ((Store (az+2))));(
                         Stack ((Pops (az+1))));
                         Return]) in
-       s' with<| env := s.env; sz := s.sz; tail := s.tail |>))
+       s' with<| env := s.env; sz := s.sz; tail := s.tail ; decl := s.decl |>))
     s) defs))`;
 
 val _ = Defn.save_defn cce_aux_defn;

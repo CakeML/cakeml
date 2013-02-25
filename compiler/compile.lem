@@ -1244,7 +1244,7 @@ cce_aux c s (ns,defs) =
     (fun s (xs,l) ->
       let (env,az) = Pmap.find l s.env_azs in
       let s = emit s [Label l] in
-      let s' = <| s with env = env; sz = 0; tail = TCTail az 0 |> in
+      let s' = <| s with env = env; sz = 0; tail = TCTail az 0; decl = None |> in
       let s' = compile s' (Pmap.find l c) in
       let n = match s'.tail with TCTail j k -> k+1
               | _ -> 0 (* should not happen *) end in
@@ -1253,7 +1253,7 @@ cce_aux c s (ns,defs) =
                         Stack (Store (az+2));
                         Stack (Pops (az+1));
                         Return] in
-      <| s' with env = s.env; sz = s.sz; tail = s.tail |>)
+      <| s' with env = s.env; sz = s.sz; tail = s.tail ; decl = s.decl |>)
     s defs
 
 let rec
