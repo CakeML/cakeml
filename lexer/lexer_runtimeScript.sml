@@ -352,12 +352,13 @@ val lexer_def = tDefine "lexer" `
     | SOME (f,lexeme,s') =>
         lexer (trans,finals,start) s' (f (REVERSE lexeme)::acc))`
 (WF_REL_TAC `measure (\(x,y,z). STRLEN y)` >>
+ map_every qx_gen_tac [`v7`, `v6`] >>
  rw [] >>
- `lexer_get_token_invariant trans finals start start "" NONE (STRING v8 v9)`
+ `lexer_get_token_invariant trans finals start start "" NONE (STRING v6 v7)`
            by metis_tac [lexer_get_token_invariant_initial] >>
  imp_res_tac lexer_get_token_partial_correctness >>
  fs [] >>
- `STRLEN (STRING v8 v9) = STRLEN (MAP FST path' ++ p_2)`
+ `STRLEN (STRING v6 v7) = STRLEN (MAP FST path' ++ p_2)`
            by metis_tac [lexer_get_token_partial_correctness] >>
  fs [] >>
  cases_on `path'` >>
@@ -457,8 +458,9 @@ val lexer_partial_correctness = Q.prove (
   ⇒
   correct_lex lexer_spec s toks`,
 recInduct lexer_ind >>
-rw [lexer_def] >-
-rw [correct_lex_def] >>
+conj_tac >- (rw [lexer_def] >> rw [correct_lex_def]) >>
+map_every qx_gen_tac [`trans`, `finals`, `start`, `v8`, `v9`, `acc`] >>
+rw[lexer_def] >>
 every_case_tac >>
 fs [] >>
 imp_res_tac lexer_acc_thm >>
@@ -635,11 +637,13 @@ metis_tac [lexer_complete, lexer_partial_correctness, APPEND, REVERSE_DEF]);
 
 val lexer_versions = Q.prove (
 `!trans start finals s acc.
-  lexer (trans,start,finals) s acc = 
+  lexer (trans,start,finals) s acc =
   case lexer_no_acc (trans,start,finals) s of
      | NONE => NONE
      | SOME res => SOME (REVERSE acc++res)`,
 HO_MATCH_MP_TAC lexer_ind >>
+conj_tac >- rw [lexer_def, lexer_no_acc_def] >>
+map_every qx_gen_tac [`trans`, `finals`, `start`, `v8`, `v9`, `acc`] >>
 rw [lexer_def, lexer_no_acc_def] >>
 rw [] >>
 cases_on `lexer_get_token trans finals start "" NONE (STRING v8 v9)` >>
@@ -686,7 +690,7 @@ val lexer_get_token_eval_def = Define `
 (lexer_get_token_eval transition finals cur_state cur_lexeme prev_answer [] =
       prev_answer) ∧
 (lexer_get_token_eval transition finals cur_state cur_lexeme prev_answer (c::s) =
-     eval_option_case 
+     eval_option_case
        (transition (cur_state,c))
        prev_answer
        (\next_state.
@@ -729,7 +733,7 @@ val lexer_eval_thm = Q.store_thm ("lexer_eval_thm",
   lexer_no_acc (trans,finals,start) s = lexer_eval (trans,finals,start) s`,
 recInduct (fetch "-" "lexer_eval_ind") >>
 rw [lexer_no_acc_def, lexer_eval_def, GSYM eval_option_case_thm,
-    lexer_get_token_eval_thm] >> 
+    lexer_get_token_eval_thm] >>
 every_case_tac >>
 rw [] >>
 every_case_tac >>
