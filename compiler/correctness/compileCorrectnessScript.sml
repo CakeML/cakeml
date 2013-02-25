@@ -1571,15 +1571,6 @@ val Cenv_bs_DOMSUB = store_thm("Cenv_bs_DOMSUB",
   fs[IN_FRANGE] >> PROVE_TAC[])
 *)
 
-(*
-val Cenv_bs_change_store = store_thm("Cenv_bs_change_store",
-  ``∀c sm s env renv rsz bs s'.
-    Cenv_bs c sm s env renv rsz bs ∧
-    s_refs c sm s' bs ⇒
-    Cenv_bs c sm s' env renv rsz bs``,
-  rw[Cenv_bs_def])
-*)
-
 fun qx_choosel_then [] ttac = ttac
   | qx_choosel_then (q::qs) ttac = Q.X_CHOOSE_THEN q (qx_choosel_then qs ttac)
 
@@ -1682,6 +1673,34 @@ val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
   Q.PAT_ABBREV_TAC`evs = FILTER X (SET_TO_LIST fvs)` >>
   fs[] >> metis_tac[])
 
+val Cenv_bs_change_store = store_thm("Cenv_bs_change_store",
+  ``∀c sm cls s env renv rsz bs s'.
+    Cenv_bs c sm cls s env renv rsz bs ∧
+    s_refs c sm cls s' bs ∧
+    FDOM s ⊆ FDOM s' ∧
+    (∀p. p ∈ FDOM cls ∧ p ∉ FRANGE (DRESTRICT sm (FDOM s)) ⇒ p ∉ FRANGE (DRESTRICT sm (FDOM s')))
+    ⇒
+    Cenv_bs c sm cls s' env renv rsz bs``,
+  rw[Cenv_bs_def,fmap_rel_def] >>
+  first_x_assum(qspec_then`x`mp_tac) >> rw[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  match_mp_tac (MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_SUBMAP)))) >>
+  simp[] >>
+  qexists_tac`DRESTRICT sm (FDOM s)` >>
+  fs[SUBMAP_DEF,SUBSET_DEF,DRESTRICT_DEF])
+
+val Cenv_bs_change_refs = store_thm("Cenv_bs_change_refs",
+  ``∀c sm cls s env renv rsz bs bs' rfs'.
+    Cenv_bs c sm cls s env renv rsz bs ∧
+    (bs' = bs with refs := rfs') ∧
+    s_refs c sm cls s bs' ∧
+    all block 0s inside (EL sz st) have refptrs outside the range of sm ∧
+    rfs' extends rfs on things outside the range of sm
+    ⇒
+    Cenv_bs c sm cls s env renv rsz bs'``,
+  rw[Cenv_bs_def,fmap_rel_def] >>
+  lookup_ct_def
+
 val good_sm_DRESTRICT = store_thm("good_sm_DRESTRICT",
   ``good_sm sm ⇒ good_sm (DRESTRICT sm s)``,
   rw[INJ_DEF,IN_FRANGE,DRESTRICT_DEF] >>
@@ -1728,6 +1747,7 @@ val good_code_env_def = Define`
       (cs.env = FST(ITSET (bind_fv ns xs (LENGTH xs) k) (free_vars c e) (FEMPTY,0,[]))) ∧
       (cs.sz = 0) ∧
       (cs.tail = TCTail (LENGTH xs) 0) ∧
+      (cs.decl = NONE) ∧
       ((compile cs e).out = cc ++ cs.out) ∧
       EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧ l < cs.next_label ∧
       (code = bc0 ++ Label l :: (REVERSE cc) ++
@@ -3150,7 +3170,7 @@ val compile_val = store_thm("compile_val",
           unabbrev_all_tac >>
           fs[FLOOKUP_DEF] >> rfs[] >>
           fs[DISJOINT_DEF,EXTENSION] >> rw[] >>
-          ntac 10 (pop_assum kall_tac) >>
+          ntac 11 (pop_assum kall_tac) >>
           ntac 3 (pop_assum (qspec_then`x`mp_tac)) >>
           Cases_on `x ∈ free_vars c (c ' l)` >> fs[] >>
           Cases_on `x ∈ set (binders (c ' l))` >> fs[] >>
@@ -3225,8 +3245,39 @@ val compile_val = store_thm("compile_val",
       disch_then(qspec_then`LENGTH vs`mp_tac o CONJUNCT2) >>
       Q.PAT_ABBREV_TAC`csc' = compiler_state_tail_fupd X Y` >>
       `csc' = csc` by (
-        simp[Abbr`csc'`,compiler_state_component_equality]
+        simp[Abbr`csc'`,compiler_state_component_equality] ) >>
+      simp[] >>
+      simp_tac (srw_ss()++DNF_ss) [] >>
+      simp[Abbr`bs1`] >>
+      disch_then(mp_tac o CONV_RULE (RESORT_FORALL_CONV List.rev)) >>
+      disch_then(qspecl_then[`bs.stack`,`Block 3 [CodePtr a; bve]`,`bvs`,`vs`,`xs`,`defs`,`ns'`,`env'`]mp_tac) >>
+      ntac 3 (pop_assum kall_tac) >>
+      simp[Abbr`bcl`] >>
+      `LENGTH bvs = LENGTH vs` by fs[EVERY2_EVERY] >>
+      simp[code_for_return_def,Abbr`R`] >>
+      disch_then(qx_choosel_then[`bvr`,`rfr`]strip_assume_tac) >>
+      map_every qexists_tac [`rfr`,`bvr`] >>
+      simp[Abbr`bs2`] >>
+      Q.PAT_ABBREV_TAC`ret' = next_addr X Y` >>
+      `ret' = ret` by (
+        map_every qunabbrev_tac[`ret`,`ret'`] >>
+        srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND,ADD1] ) >>
+      rw[] >>
+      simp[Abbr`P`] >>
+      reverse conj_tac >- PROVE_TAC[SUBMAP_TRANS] >>
+      match_mp_tac Cenv_bs_imp_incsz >>
+      qmatch_assum_abbrev_tac`Cenv_bs c sm cls s cenv cs.env cs.sz bs0` >>
+      qexists_tac`bs0 with refs := rfr` >>
+      simp[Abbr`bs0`,bc_state_component_equality] >>
 
+      Cenv_bs_def
+      Cenv_bs_change_store
+      simp[Cenv_bs_def] >>
+
+
+
+
+      filter_asms (can (find_term (equal ``Cenv_bs``)) o concl)
       set_trace "goalstack print goal at top" 0
 
     (* >>
