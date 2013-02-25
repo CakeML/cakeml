@@ -182,7 +182,7 @@ val _ = Define `
 (*val elab_t : list varN -> ast_t -> t*)
 (*val elab_e : list varN -> ast_exp -> exp unit*)
 (*val elab_funs : list varN -> list (varN * varN * ast_exp) -> 
-                list (varN *option unit * varN *option unit * exp unit)*)
+                list (varN * option unit * varN * option unit * exp unit)*)
 (*val elab_dec : list typeN -> list varN -> ast_dec -> list typeN * list varN * dec unit*)
 (*val elab_decs : list typeN -> list varN -> list ast_dec -> list typeN * list varN * list (dec unit)*)
 
@@ -192,7 +192,7 @@ val _ = Define `
   Raise err)
 /\
 (elab_e bound (Ast_Handle e1 x e2) =
-  Handle (elab_e bound e1) x (elab_e (x::bound) e2))
+  Handle (elab_e bound e1) x (elab_e (x ::bound) e2))
 /\
 (elab_e bound (Ast_Lit l) =
   Lit l)
@@ -211,10 +211,10 @@ val _ = Define `
     ))
 /\ 
 (elab_e bound (Ast_Con cn es) =
-  Con cn (MAP (elab_e bound) es))
+  Con cn ( MAP (elab_e bound) es))
 /\
 (elab_e bound (Ast_Fun n e) =
-  Fun n NONE (elab_e (n::bound) e))
+  Fun n NONE (elab_e (n ::bound) e))
 /\
 (elab_e bound (Ast_App e1 e2) =
   App Opapp (elab_e bound e1) (elab_e bound e2))
@@ -227,23 +227,23 @@ val _ = Define `
 /\
 (elab_e bound (Ast_Mat e pes) =
   Mat (elab_e bound e) 
-      (MAP (\ (p,e) . 
+      ( MAP (\ (p,e) . 
                    let p' = elab_p p in
                      (p', elab_e (pat_bindings p' bound) e))
                 pes)) 
 /\
 (elab_e bound (Ast_Let x e1 e2) =
-  Let NONE x NONE (elab_e bound e1) (elab_e (x::bound) e2))
+  Let NONE x NONE (elab_e bound e1) (elab_e (x ::bound) e2))
 /\
 (elab_e bound (Ast_Letrec funs e) =
-  Letrec NONE (elab_funs ((MAP (\ (n1,n2,e) . n1) funs) ++ bound) funs) 
+  Letrec NONE (elab_funs (( MAP (\ (n1,n2,e) . n1) funs) ++ bound) funs) 
               (elab_e bound e))
 /\
 (elab_funs bound [] =
   [])
 /\
 (elab_funs bound ((n1,n2,e)::funs) =
-  (n1,NONE,n2,NONE,elab_e (n2::bound) e) :: elab_funs bound funs)`;
+  (n1,NONE,n2,NONE,elab_e (n2 ::bound) e) :: elab_funs bound funs)`;
 
 val _ = Defn.save_defn elab_e_defn;
 
@@ -288,14 +288,14 @@ val _ = Defn.save_defn elab_t_defn;
     (type_bound, pat_bindings p' bound, Dlet NONE p' (elab_e bound e)))
 /\
 (elab_dec type_bound bound (Ast_Dletrec funs) =
-  let bound' = (MAP (\ (n1,n2,e) . n1) funs) ++ bound in
+  let bound' = ( MAP (\ (n1,n2,e) . n1) funs) ++ bound in
     (type_bound, bound', Dletrec NONE (elab_funs bound' funs)))
 /\
 (elab_dec type_bound bound (Ast_Dtype t) = 
   let type_bound' = MAP (\ (tvs,tn,ctors) . tn) t ++ type_bound in
   (type_bound',
    bound, 
-   Dtype (MAP (\ (tvs,tn,ctors) . 
+   Dtype ( MAP (\ (tvs,tn,ctors) . 
                      (tvs, tn, MAP (\ (cn,t) . (cn, MAP (elab_t type_bound) t)) ctors))
                    t)))`;
 
@@ -307,7 +307,7 @@ val _ = Defn.save_defn elab_t_defn;
 (elab_decs type_bound bound (d::ds) = 
   let (type_bound', bound', d') = elab_dec type_bound bound d in
   let (type_bound'', bound'', ds') = elab_decs type_bound' bound' ds in
-    (type_bound'', bound'', d'::ds'))`;
+    (type_bound'', bound'', d' ::ds'))`;
 
 val _ = Defn.save_defn elab_decs_defn;
 val _ = export_theory()

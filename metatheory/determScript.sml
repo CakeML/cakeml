@@ -60,7 +60,18 @@ rw [] >>
 metis_tac []);
 *)
 
-val big_determ = Q.store_thm ("big_determ",
+val dec_determ = Q.store_thm ("dec_determ",
+`!mn menv cenv s env d r1.
+  evaluate_dec mn menv cenv s env d r1 ⇒
+  !r2.
+    evaluate_dec mn menv cenv s env d r2
+    ⇒
+    (r1 = r2)`,
+rw [evaluate_dec_cases] >>
+metis_tac [big_exp_determ, small_big_exp_equiv, result_11, result_distinct,PAIR_EQ,
+           match_result_11, match_result_distinct, optionTheory.SOME_11]);
+
+val decs_determ = Q.store_thm ("decs_determ",
 `!mn menv cenv s env ds r1.
   evaluate_decs mn menv cenv s env ds r1 ⇒
   !r2.
@@ -72,12 +83,24 @@ rw [] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once evaluate_decs_cases]) >>
 fs [] >>
 rw [] >>
-fs [evaluate_dec_cases] >>
+metis_tac [dec_determ, result_11, result_distinct,PAIR_EQ,
+           match_result_11, match_result_distinct, optionTheory.SOME_11]);
+
+val prog_determ = Q.store_thm ("prog_determ",
+`!menv cenv s env ds r1.
+  evaluate_prog menv cenv s env ds r1 ⇒
+  !r2.
+    evaluate_prog menv cenv s env ds r2
+    ⇒
+    (r1 = r2)`,
+HO_MATCH_MP_TAC evaluate_prog_ind >>
 rw [] >>
+pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once evaluate_prog_cases]) >>
 fs [] >>
 rw [] >>
-metis_tac [big_exp_determ, small_big_exp_equiv, result_11, result_distinct,PAIR_EQ,
-           match_result_11, match_result_distinct, optionTheory.SOME_11]);
+metis_tac [dec_determ, result_11, result_distinct,PAIR_EQ,
+           match_result_11, match_result_distinct, optionTheory.SOME_11,
+           decs_determ]);
 
 (* ---------------------- Small step determinacy ------------------------- *)
 

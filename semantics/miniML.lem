@@ -1342,6 +1342,13 @@ prog_diverges menv cenv s1 env (Tdec d::ds)
 
 and
 
+forall menv cenv s1 env ds1 ds2 mn specs.
+decs_diverges (Some mn) menv cenv s1 env ds1
+==>
+prog_diverges menv cenv s1 env (Tmod mn specs ds1::ds2)
+
+and
+
 forall menv cenv s1 s2 env ds1 ds2 mn specs new_tds new_env.
 evaluate_decs (Some mn) menv cenv s1 env ds1 (s2, Rval (new_tds,new_env)) &&
 prog_diverges (bind mn new_env menv) (merge new_tds cenv) s2 env ds2
