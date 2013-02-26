@@ -1281,13 +1281,13 @@ evaluate_match menv cenv s env v ((p,e) ::pes) (s, Rerr Rtype_error))`;
 (* Add the given type definition to the given constructor environment *)
 (*val build_tdefs : option modN -> list (list tvarN * typeN * list (conN * list t)) -> envC*)
 val _ = Define `
- (build_tdefs mn tds = REVERSE ( FLAT
+ (build_tdefs mn tds = FLAT
     ( MAP
       (\ (tvs, tn, condefs) . MAP
            (\ (conN, ts) .
               (mk_id mn conN, ( LENGTH ts, mk_id mn tn)))
            condefs)
-      tds)))`;
+      tds))`;
 
 
 (* Checks that no constructor is defined twice *)
@@ -1984,7 +1984,7 @@ type_ds mn menv cenv tenv [] emp emp)
 
 (! mn menv cenv tenv d ds cenv' tenv' cenv'' tenv''.
 type_d mn menv cenv tenv d cenv' tenv' /\
-type_ds mn menv (merge ( REVERSE cenv') cenv) (bind_var_list2 tenv' tenv) ds cenv'' tenv''
+type_ds mn menv (merge cenv' cenv) (bind_var_list2 tenv' tenv) ds cenv'' tenv''
 ==>
 type_ds mn menv cenv tenv (d ::ds) (merge cenv'' cenv') (merge tenv'' tenv'))`;
 
@@ -1999,7 +1999,7 @@ type_prog menv cenv tenv [] emp emp emp)
 
 (! menv cenv tenv d ds cenv' tenv' menv'' cenv'' tenv''.
 type_d NONE menv cenv tenv d cenv' tenv' /\
-type_prog menv (merge ( REVERSE cenv') cenv) (bind_var_list2 tenv' tenv) ds menv'' cenv'' tenv''
+type_prog menv (merge cenv' cenv) (bind_var_list2 tenv' tenv) ds menv'' cenv'' tenv''
 ==>
 type_prog menv cenv tenv (Tdec d :: ds) menv'' (merge cenv'' cenv') (merge tenv'' tenv'))
 
@@ -2007,7 +2007,7 @@ type_prog menv cenv tenv (Tdec d :: ds) menv'' (merge cenv'' cenv') (merge tenv'
 
 (! menv cenv tenv mn spec ds1 ds2 cenv' menv'' tenv' cenv'' tenv''.
 type_ds (SOME mn) menv cenv tenv ds1 cenv' tenv' /\
-type_prog (bind mn tenv' menv) (merge ( REVERSE cenv') cenv) tenv ds2 menv'' cenv'' tenv''
+type_prog (bind mn tenv' menv) (merge cenv' cenv) tenv ds2 menv'' cenv'' tenv''
 ==>
 type_prog menv cenv tenv (Tmod mn spec ds1 :: ds2) (merge menv'' [(mn,tenv')]) (merge cenv'' cenv') tenv'')`;
 
