@@ -227,16 +227,16 @@ val el_check_def = Define`
 val _ = export_rewrites["el_check_def"]
 
 val lookup_ct_def = Define`
-  (lookup_ct sz st rs (CTLet n) = if sz < n then NONE else el_check (sz - n) st) ∧
-  (lookup_ct sz st rs (CTArg n) = el_check (sz + n) st) ∧
-  (lookup_ct sz st rs (CTEnv n) =
+  (lookup_ct cl sz st rs (CTLet n) = if sz < n then NONE else el_check (sz - n) st) ∧
+  (lookup_ct cl sz st rs (CTArg n) = el_check (sz + n) st) ∧
+  (lookup_ct cl sz st rs (CTEnv n) =
    OPTION_BIND (el_check sz st)
    (λv. case v of Block 0 vs => el_check n vs | _ => NONE)) ∧
-  (lookup_ct sz st rs (CTRef n) =
+  (lookup_ct cl sz st rs (CTRef n) =
    OPTION_BIND (el_check sz st)
    (λv. case v of Block 0 vs =>
      OPTION_BIND (el_check n vs)
-     (λv. case v of RefPtr p => FLOOKUP rs p | _ => NONE)
+     (λv. case v of RefPtr p => if p ∈ cl then FLOOKUP rs p else NONE | _ => NONE)
      | _ => NONE))`
 val _ = export_rewrites["lookup_ct_def"]
 
@@ -267,7 +267,7 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
        x ∈ FDOM env ∧ Cv_bv pp (env ' x) bv
      else ∃j p jenv. (find_index x ns 0 = SOME j) ∧
        (bv = RefPtr p) ∧
-       (FLOOKUP (SND(SND(SND pp))) p = SOME (jenv,ns,defs,j)) ∧
+       (FLOOKUP cls p = SOME (jenv,ns,defs,j)) ∧
        fmap_rel (syneq c) jenv (DRESTRICT env (bundle_fvs c ns defs)))
    ⇒ benv_bvs pp benv fvs xs env defs ns i)`
 
@@ -331,7 +331,7 @@ val s_refs_def = Define`
 val Cenv_bs_def = Define`
   Cenv_bs c sm cls s Cenv (renv:ctenv) sz bs =
     (fmap_rel
-       (λCv b. case lookup_ct sz bs.stack bs.refs b of NONE => F
+       (λCv b. case lookup_ct (FDOM cls) sz bs.stack bs.refs b of NONE => F
              | SOME bv => Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c bs cls) Cv bv)
      Cenv renv) ∧
     s_refs c sm cls s bs`
@@ -347,11 +347,11 @@ val SWAP_REVERSE = store_thm("SWAP_REVERSE",
   SRW_TAC[][EQ_IMP_THM])
 
 val compile_varref_thm = store_thm("compile_varref_thm",
-  ``∀bs bc0 code bc1 cs b bv bs'.
+  ``∀bs bc0 code bc1 cs b bv bs' cls.
       ((compile_varref cs b).out = REVERSE code ++ cs.out) ∧
       (bs.code = bc0 ++ code ++ bc1) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
-      (lookup_ct cs.sz bs.stack bs.refs b = SOME bv) ∧
+      (lookup_ct cls cs.sz bs.stack bs.refs b = SOME bv) ∧
       (bs' = bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length (bc0 ++ code)|>)
       ⇒
       bc_next^* bs bs'``,
@@ -951,17 +951,17 @@ val FOLDL_compile_append_out = store_thm("FOLDL_compile_append_out",
   rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC)
 
 val lookup_ct_incsz = store_thm("lookup_ct_incsz",
-  ``(lookup_ct (sz+1) (x::st) refs b =
+  ``(lookup_ct cls (sz+1) (x::st) refs b =
      if (b = CTLet (sz+1)) then SOME x else
-     lookup_ct sz st refs b)``,
+     lookup_ct cls sz st refs b)``,
   fs[GSYM ADD1] >>
   Cases_on `b` >> rw[] >>
   fsrw_tac[ARITH_ss][] >>
   rw[SUB,GSYM ADD_SUC])
 
 val lookup_ct_imp_incsz = store_thm("lookup_ct_imp_incsz",
-  ``(lookup_ct sz st refs b = SOME v) ⇒
-    (lookup_ct (sz+1) (x::st) refs b = SOME v)``,
+  ``(lookup_ct cls sz st refs b = SOME v) ⇒
+    (lookup_ct cls (sz+1) (x::st) refs b = SOME v)``,
   fs[GSYM ADD1] >>
   Cases_on `b` >> rw[] >>
   fsrw_tac[ARITH_ss][] >>
@@ -1524,7 +1524,7 @@ val Cenv_bs_FUPDATE = store_thm("Cenv_bs_FUPDATE",
     strip_tac >>
     rw[FAPPLY_FUPDATE_THM] >>
     first_x_assum (qspec_then `x` mp_tac) >> rw[] >>
-    Cases_on `lookup_ct sz0 bs.stack bs.refs (env0 ' x)` >> fs[] >>
+    Cases_on `lookup_ct (FDOM cls) sz0 bs.stack bs.refs (env0 ' x)` >> fs[] >>
     imp_res_tac lookup_ct_imp_incsz >>
     pop_assum (qspec_then`bv`mp_tac) >> rw[]) >>
   metis_tac[])
@@ -1679,13 +1679,14 @@ val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
   fs[] >> metis_tac[])
 
 val lookup_ct_change_refs = store_thm("lookup_ct_change_refs",
-  ``∀sz st rf rf' ct.
+  ``∀cl sz st rf rf' ct.
     (∀n vs p. (ct = CTRef n) ∧ sz < LENGTH st ∧ (EL sz st = Block 0 vs) ∧ n < LENGTH vs ∧ (EL n vs = RefPtr p) ⇒ (FLOOKUP rf' p = FLOOKUP rf p))
-    ⇒ (lookup_ct sz st rf' ct = lookup_ct sz st rf ct)``,
+    ⇒ (lookup_ct cl sz st rf' ct = lookup_ct cl sz st rf ct)``,
   rw[LET_THM] >>
   Cases_on`ct`>>fs[] >> rw[] >>
   Cases_on`EL sz st`>>fs[] >>
   rw[]>>fs[]>>
+  BasicProvers.CASE_TAC>>fs[]>>
   BasicProvers.CASE_TAC>>fs[]>>
   BasicProvers.CASE_TAC>>fs[])
 
@@ -1696,36 +1697,33 @@ val Cenv_bs_change_store = store_thm("Cenv_bs_change_store",
     (bs' = bs with refs := rfs') ∧
     DRESTRICT bs.refs (COMPL (FRANGE (DRESTRICT sm (FDOM s)))) ⊑ DRESTRICT rfs' (COMPL (FRANGE (DRESTRICT sm (FDOM s')))) ∧
     FDOM s ⊆ FDOM s' ∧
-    (∀p. p ∈ FDOM cls ∧ p ∉ FRANGE (DRESTRICT sm (FDOM s)) ⇒ p ∉ FRANGE (DRESTRICT sm (FDOM s')))
+    FDOM cls ⊆ FDOM bs.refs ∩ COMPL (FRANGE sm)
     ⇒
     Cenv_bs c sm cls s' env renv rsz bs'``,
   rw[Cenv_bs_def,fmap_rel_def] >>
   first_x_assum(qspec_then`x`mp_tac) >> rw[] >>
-  qspecl_then[`rsz`,`bs.stack`,`bs.refs`,`rfs'`,`renv ' x`]mp_tac lookup_ct_change_refs >>
+  qspecl_then[`FDOM cls`,`rsz`,`bs.stack`,`bs.refs`,`rfs'`,`renv ' x`]mp_tac lookup_ct_change_refs >>
   Cases_on`∃n. renv ' x = CTRef n` >- (
-    fs[] >> fs[] >>
-    Cases_on`rsz < LENGTH bs.stack`>>fs[] >>
+    fs[] >> rw[] >> fs[] >> fs[] >>
     Cases_on`EL rsz bs.stack`>>fs[] >>
     qmatch_assum_rename_tac`EL rsz bs.stack = Block m vs`[] >>
     Cases_on`m`>>fs[]>>
     Cases_on`n < LENGTH vs`>>fs[] >>
     Cases_on`EL n vs`>>fs[] >>
     qmatch_assum_rename_tac`EL n vs = RefPtr p`[] >>
-    fs[FLOOKUP_DEF] >>
-    Cases_on`p ∈ COMPL (FRANGE (DRESTRICT sm (FDOM s)))` >- (
-      fs[SUBMAP_DEF,DRESTRICT_DEF] >>
-      rw[] >> res_tac >> rfs[] >> fs[] >>
-      fs[s_refs_def,fmap_rel_def,EXTENSION,FDOM_DRESTRICT] >>
-      Cases_on`p ∈ FDOM bs.refs`>>fs[]>>rw[] >>
-
-    first_x_assum(qspecl_then[`n`,`p`]mp_tac) >>
-    reverse(fs[IN_FRANGE,FLOOKUP_DEF] >> rw[] >> fs[]) >-
-      PROVE_TAC[] >>
+    Cases_on`p ∈ FDOM cls`>>fs[]>>
+    fs[SUBMAP_DEF,DRESTRICT_DEF,FLOOKUP_DEF] >>
+    Cases_on`p ∈ FDOM bs.refs`>>fs[] >>
+    fs[SUBSET_DEF] >>
+    `p ∉ FRANGE (DRESTRICT sm (FDOM s))` by (
+      fs[IN_FRANGE,DRESTRICT_DEF] >>
+      metis_tac[] ) >>
+    fs[] >>
     match_mp_tac (MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_SUBMAP)))) >>
     simp[] >>
     qexists_tac`DRESTRICT sm (FDOM s)` >>
     fs[SUBMAP_DEF,SUBSET_DEF,DRESTRICT_DEF,IN_FRANGE] >>
-    PROVE_TAC[]) >>
+    metis_tac[]) >>
   fs[] >> rw[] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   match_mp_tac (MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_SUBMAP)))) >>
@@ -3316,52 +3314,13 @@ val compile_val = store_thm("compile_val",
       simp[] >>
       fs[s_refs_def,Abbr`l2a`] >>
       simp[Abbr`bs0`,bc_state_component_equality] >>
-      `FDOM s ⊆ FDOM s'''` by metis_tac[SUBSET_TRANS] >>
-      `DRESTRICT bs.refs (COMPL (FRANGE (DRESTRICT sm (FDOM s)))) ⊑
-       DRESTRICT rfr (COMPL (FRANGE (DRESTRICT sm (FDOM s'''))))` by metis_tac[SUBMAP_TRANS] >>
-      simp[] >>
-      fsrw_tac[][SUBMAP_DEF,FDOM_DRESTRICT] >>
-      `FDOM cls ⊆ FDOM bs.refs` by fs[good_cls_def,SUBSET_DEF,FEVERY_DEF,UNCURRY] >>
-      fs[SUBSET_DEF] >>
-      map_every qx_gen_tac[`m`,`ws`,`p`] >> strip_tac >>
-      qpat_assum`Cenv_bs c sm cls s cenv X Y Z` mp_tac >>
-      simp[Cenv_bs_def,fmap_rel_def] >>
-      strip_tac >> fs[IN_FRANGE] >>
-      first_x_assum(qspec_then`k`mp_tac) >>
-      simp[] >>
-      Cases_on`FLOOKUP bs.refs p`>>simp[] >>
-      strip_tac >>
-      fs[DRESTRICT_DEF,FLOOKUP_DEF] >>
-      first_x_assum(qspec_then`p`mp_tac) >>
-      first_x_assum(qspec_then`p`mp_tac) >>
-      simp_tac std_ss []
-      simp[]
+      conj_tac >- metis_tac[SUBMAP_TRANS] >>
+      conj_tac >- metis_tac[SUBSET_TRANS] >>
+      fs[good_cls_def,SUBSET_DEF,FEVERY_DEF,UNCURRY] )
 
-      good_cls_def
-      Cenv_bs_def
+    set_trace "goalstack print goal at top" 0
 
-      filter_asms (can (find_term (equal ``cs.env``)) o concl)
-      filter_asms (can (find_term (equal (SOME "sm") o Option.map fst o total dest_var)) o concl)
-      set_trace "goalstack print goal at top" 0
-
-    (* >>
-
-    first_x_assum (qspecl_then[`X`,`Y`]kall_tac) >>
-    fs[] >> rw[] >>
-
-    want to prove that Cv_bv s'' CRecClos bf too
-    Cv_bv_SUBMAP
-    fs[] >> rw[] >>
-    fs[good_code_env_def,FEVERY_DEF] >>
-    qpat_assum`∀x. x ∈ FDOM c ⇒ P`(qspec_then`l`mp_tac) >>
-    fs[FLOOKUP_DEF] >> strip_tac >>
-    Q.PAT_ABBREV_TAC`bc00 = X ++ [Stack (El 0)]` >>
-    first_x_assum (qspecl_then[`s''`,`env'`,`s'''`,`v`,`ns'`,`defs`,`ns`,`vs`,`n`,`bc00`] mp_tac) >>
-
-
-
-    qspecl_then[`sm`,`
-    *)) >>
+    ) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
