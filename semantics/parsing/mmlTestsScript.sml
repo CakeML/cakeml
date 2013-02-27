@@ -55,14 +55,10 @@ in
         if aconv fringe_t ttoks then let
           val ptree_res = time EVAL ``ptree_Type ^res``
           val _ = diag ("ptree_Type to ", rhs (concl ptree_res))
-          val valid_t = ``valid_ptree mmlGrammar ^res``
+          val valid_t = ``valid_ptree mmlG ^res``
           val vth = SIMP_CONV (srw_ss())
-                              [grammarTheory.valid_ptree_def, mmlGrammar_def,
-                               Eapp_rules_def, Ebase_rules_def,
-                               MultOps_rules_def, Emult_rules_def, mkRules_def,
-                               Type_rules_def, TyOp_rules_def, DType_rules_def,
-                               TypeList_rules_def,
-                               binop_rule_def, DISJ_IMP_THM, FORALL_AND_THM]
+                              [grammarTheory.valid_ptree_def, mmlG_def,
+                               DISJ_IMP_THM, FORALL_AND_THM]
                               valid_t
           val vres = rhs (concl vth)
         in

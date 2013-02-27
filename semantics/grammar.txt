@@ -26,7 +26,11 @@ Ebase ::=
  | "let" "fun" AndFDecls "in" E "end" // Letrec AndFDecls E
 
 Eapp ::=
-  Eapp Ebase | Ebase
+  Eapp Ebase | Ebase | ConstructorName Etuple
+
+Etuple ::= "(" Elist2 ")"
+Elist2 ::= Elist1 "," E
+Elist1 ::= E | Elist1 "," E
 
 (* level 7 *)
 Emult ::=
