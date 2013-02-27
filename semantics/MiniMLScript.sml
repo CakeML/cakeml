@@ -1429,7 +1429,7 @@ evaluate_prog menv cenv s1 env (Tdec d ::ds) (s2, Rerr e))
 
 /\
 
-(! menv cenv s1 s2 s3 env ds1 ds2 mn specs new_tds new_env r.
+(! menv cenv s1 s2 s3 env ds1 ds2 mn specs new_tds new_env r. ~  ( MEM mn ( MAP FST menv)) /\
 evaluate_decs (SOME mn) menv cenv s1 env ds1 (s2, Rval (new_tds,new_env)) /\
 evaluate_prog (bind mn new_env menv) (merge new_tds cenv) s2 env ds2 (s3, r)
 ==>
@@ -1437,10 +1437,16 @@ evaluate_prog menv cenv s1 env (Tmod mn specs ds1 ::ds2) (s3, combine_mod_result
 
 /\
 
-(! menv cenv s1 s2 env mn specs ds1 ds2 e.
+(! menv cenv s1 s2 env mn specs ds1 ds2 e. ~  ( MEM mn ( MAP FST menv)) /\
 evaluate_decs (SOME mn) menv cenv s1 env ds1 (s2, Rerr e)
 ==>
-evaluate_prog menv cenv s1 env (Tmod mn specs ds1 ::ds2) (s2, Rerr e))`;
+evaluate_prog menv cenv s1 env (Tmod mn specs ds1 ::ds2) (s2, Rerr e))
+
+/\
+
+(! menv cenv s env mn specs ds1 ds2. MEM mn ( MAP FST menv)
+==>
+evaluate_prog menv cenv s env (Tmod mn specs ds1 ::ds2) (s, Rerr Rtype_error))`;
 
 
 (*val dec_diverges : envM t -> envC -> store t -> envE t -> dec t -> bool*)
@@ -1488,14 +1494,14 @@ prog_diverges menv cenv s1 env (Tdec d ::ds))
 
 /\
 
-(! menv cenv s1 env ds1 ds2 mn specs.
+(! menv cenv s1 env ds1 ds2 mn specs. ~  ( MEM mn ( MAP FST menv)) /\
 decs_diverges (SOME mn) menv cenv s1 env ds1
 ==>
 prog_diverges menv cenv s1 env (Tmod mn specs ds1 ::ds2))
 
 /\
 
-(! menv cenv s1 s2 env ds1 ds2 mn specs new_tds new_env.
+(! menv cenv s1 s2 env ds1 ds2 mn specs new_tds new_env. ~  ( MEM mn ( MAP FST menv)) /\
 evaluate_decs (SOME mn) menv cenv s1 env ds1 (s2, Rval (new_tds,new_env)) /\
 prog_diverges (bind mn new_env menv) (merge new_tds cenv) s2 env ds2
 ==>
@@ -2005,7 +2011,7 @@ type_prog menv cenv tenv (Tdec d :: ds) menv'' (merge cenv'' cenv') (merge tenv'
 
 /\
 
-(! menv cenv tenv mn spec ds1 ds2 cenv' menv'' tenv' cenv'' tenv''.
+(! menv cenv tenv mn spec ds1 ds2 cenv' menv'' tenv' cenv'' tenv''. ~  ( MEM mn ( MAP FST menv)) /\
 type_ds (SOME mn) menv cenv tenv ds1 cenv' tenv' /\
 type_prog (bind mn tenv' menv) (merge cenv' cenv) tenv ds2 menv'' cenv'' tenv''
 ==>

@@ -400,7 +400,7 @@ rw [check_freevars_def, bind_tenv_def, bind_var_list_def, tenv_ok_def] >>
 fs [check_freevars_def, num_tvs_bind_var_list] >>
 metis_tac []);
 
-val type_freevars_lem4 = Q.prove (
+val tenv_ok_bind_var_list_tvs = Q.store_thm ("tenv_ok_bind_var_list_tvs",
 `!funs tenvM tenvC env tenvE tvs env'.
   type_funs tenvM tenvC (bind_var_list 0 env' (bind_tvar tvs tenvE)) funs env ∧
   tenv_ok tenvE
@@ -469,7 +469,7 @@ fs [check_freevars_def] >|
      fs [] >>
      metis_tac [type_p_freevars, type_freevars_lem5],
  metis_tac [tenv_ok_bind_var_list, num_tvs_bind_var_list],
- metis_tac [type_freevars_lem4, num_tvs_bind_var_list, bind_tvar_def]]);
+ metis_tac [tenv_ok_bind_var_list_tvs, num_tvs_bind_var_list, bind_tvar_def]]);
 
 (* Recursive functions have function type *)
 val type_funs_Tfn = Q.store_thm ("type_funs_Tfn",
@@ -1271,7 +1271,7 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
           fs [] >>
           rw [] >>
           pop_assum match_mp_tac >>
-          match_mp_tac type_freevars_lem4 >>
+          match_mp_tac tenv_ok_bind_var_list_tvs >>
           metis_tac []],
  fs [check_freevars_def] >>
      qpat_assum `∀tenvE1' targs' tvs'.
@@ -1661,6 +1661,17 @@ rw [] >|
      metis_tac [],
  metis_tac [],
  metis_tac []]);
+
+val type_p_bvl = Q.store_thm ("type_p_bvl",
+`(!tvs tenvC p t tenv. type_p tvs tenvC p t tenv ⇒
+  !tenv'. tenv_ok tenv' ⇒ tenv_ok (bind_var_list tvs tenv tenv')) ∧
+ (!tvs tenvC ps ts tenv. type_ps tvs tenvC ps ts tenv ⇒
+  !tenv'. tenv_ok tenv' ⇒ tenv_ok (bind_var_list tvs tenv tenv'))`,
+ho_match_mp_tac type_p_ind >>
+rw [bind_var_list_def, tenv_ok_def, bind_tenv_def, num_tvs_def,
+    bind_var_list_append] >>
+`tvs + num_tvs tenv' ≥ tvs` by decide_tac >>
+metis_tac [check_freevars_add]);
 
 val _ = export_theory ();
 
