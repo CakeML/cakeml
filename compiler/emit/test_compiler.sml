@@ -467,3 +467,20 @@ val e68 = ``Letrec NONE [
    (If (Let NONE "x" NONE (Lit (Bool T)) (App Opapp (Var "not" NONE) (Var "x" NONE))) (Lit (IntLit 1)) (Lit (IntLit 2)))``
 val (m,[r]) = mst_run_exp e68
 val true = (OLit (IntLit (intML.fromInt 2))) = bv_to_ov m r;
+val e69 = ``Let NONE "f" NONE
+  (Fun "x" NONE
+    (If (Lit (Bool F))
+        (Let NONE "y" NONE (Lit (IntLit 1))
+          (Var "y" NONE))
+        (App Opapp (Fun "z" NONE (Var "z" NONE)) (Lit (IntLit 2)))))
+  (App Opapp (Var "f" NONE) (Lit (IntLit 0)))``
+val (m,[r]) = mst_run_exp e69
+val true = (OLit (IntLit (intML.fromInt 2))) = bv_to_ov m r;
+val e70 = ``Let NONE "f" NONE
+  (Fun "x" NONE
+    (If (Lit (Bool F))
+        (Lit (IntLit 1))
+        (App Opapp (Fun "z" NONE (Var "z" NONE)) (Lit (IntLit 2)))))
+  (App Opapp (Var "f" NONE) (Lit (IntLit 0)))``
+val (m,[r]) = mst_run_exp e70
+val true = (OLit (IntLit (intML.fromInt 2))) = bv_to_ov m r;
