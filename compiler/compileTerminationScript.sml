@@ -461,14 +461,14 @@ val _ = save_thm("compile_Cexp_def",compile_Cexp_def)
 val _ = save_thm("emit_def",emit_def)
 val _ = save_thm("incsz_def",incsz_def)
 val _ = save_thm("decsz_def",decsz_def)
-val _ = save_thm("ldt_def",ldt_def)
 val _ = save_thm("sdt_def",sdt_def)
+val _ = save_thm("pushret_def",pushret_def)
 val _ = save_thm("get_labels_def",get_labels_def)
 val _ = save_thm("emit_ec_def",emit_ec_def)
 val _ = save_thm("prim1_to_bc_def",prim1_to_bc_def)
 val _ = save_thm("prim2_to_bc_def",prim2_to_bc_def)
 val _ = save_thm("compile_decl_def",compile_decl_def)
 val _ = save_thm("cmap_def",cmap_def)
-val _ = export_rewrites["emit_def","incsz_def","decsz_def","ldt_def","sdt_def","get_labels_def","emit_ec_def","prim1_to_bc_def","prim2_to_bc_def","cmap_def"]
+val _ = export_rewrites["emit_def","incsz_def","decsz_def","sdt_def","get_labels_def","emit_ec_def","prim1_to_bc_def","prim2_to_bc_def","cmap_def"]
 
 val _ = export_theory()

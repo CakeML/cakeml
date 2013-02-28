@@ -71,7 +71,7 @@ val defs = map EmitML.DEFN
 , get_labels_def
 , compile_varref_def
 , sdt_def
-, ldt_def
+, pushret_def
 , decsz_def
 , prim1_to_bc_def
 , prim2_to_bc_def

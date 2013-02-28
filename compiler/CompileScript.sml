@@ -950,11 +950,14 @@ val _ = Hol_datatype `
    CTEnv n means El n of the environment, which is at stack[sz]
    CTRef n means El n of the environment, but it's a ref pointer *)
 
+val _ = type_abbrev( "ctenv" , ``: (string, ctbind) fmap``);
+
 val _ = Hol_datatype `
  call_context = TCNonTail | TCTail of num => num`;
 
-
-val _ = type_abbrev( "ctenv" , ``: (string, ctbind) fmap``);
+(* TCTail j k = in tail position,
+   * the called function has j arguments, and
+   * k let variables have been bound *)
 
 (* helper for reconstructing closure environments *)
 val _ = Hol_datatype `
@@ -965,15 +968,14 @@ val _ = type_abbrev( "ecs" , ``: num # cebind list``); (* num is the length of t
 
 val _ = Hol_datatype `
  compiler_state =
-  <| env: ctenv
-   ; sz: num
-   ; ecs: (num, ecs) fmap
-   ; env_azs: (num, (ctenv # num)) fmap
-   ; out: bc_inst list (* reversed code *)
-   ; next_label: num
-   ; tail: call_context
-   (* not modified on return: *)
-   ; decl: (ctenv # num)option
+  <| env: ctenv                          (* retained *)
+   ; sz: num                             (* retained *)
+   ; ecs: (num, ecs) fmap               (* retained *)
+   ; env_azs: (num, (ctenv # num)) fmap (* retained *)
+   ; out: bc_inst list                   (* prepended *)
+   ; next_label: num                     (* increased *)
+   ; tail: call_context                  (* trashed, but retains TCNonTail *)
+   ; decl: (ctenv # num)option          (* updated/trashed, retains None *)
    |>`;
 
 
@@ -1034,10 +1036,7 @@ val _ = Define `
  (decsz s =  s with<| sz := s.sz - 1 |>)`;
 
 val _ = Define `
- (sdt s = ( s with<| decl := NONE; tail := TCNonTail |>, (s.decl,s.tail)))`;
-
-val _ = Define `
- (ldt (d,t) s =  s with<| decl := d; tail := t |>)`;
+ (sdt s =  s with<| decl := NONE; tail := TCNonTail |>)`;
 
 
  val emit_ec_defn = Hol_defn "emit_ec" `
@@ -1088,7 +1087,7 @@ val _ = Defn.save_defn push_lab_defn;
   let s =((( FOLDL ((emit_ec sz0))) s) ((REVERSE ec))) in
   let s =(( emit s) [(Stack (if j = 0 then( PushInt i0) else(( Cons 0) j)))]) in
   let s =(( emit s) [(Stack (((Cons closure_tag) 2)))]) in
-  let s =( decsz (((emit s) [(Stack ((Store (nk - k))))]))) in
+  let s =(( emit s) [(Stack ((Store (nk - k))))]) in
   let s =  s with<| sz := s.sz - j |> in
   (s,k+1))`;
 
@@ -1136,70 +1135,79 @@ val _ = Defn.save_defn compile_closures_defn;
 
 val _ = Defn.save_defn compile_decl_defn;
 
+ val pushret_defn = Hol_defn "pushret" `
+ (pushret s =
+  (case s.tail of
+    TCNonTail => s
+  | TCTail j k =>((
+     (* val, vk, ..., v1, env, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c; env], *)
+      emit s) [(Stack ((Pops (k+1))));(
+     (* val, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c; env], *)
+              Stack ((Load 1)));(
+     (* CodePtr ret, val, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c; env], *)
+              Stack ((Store (j+2))));(
+     (* val, CodePtr ret, argj, ..., arg1, CodePtr ret, *)
+              Stack ((Pops (j+1))));
+     (* val, CodePtr ret, *)
+              Return])
+  ))`;
+
+val _ = Defn.save_defn pushret_defn;
+
  val compile_defn = Hol_defn "compile" `
 
 (compile s (CDecl vs) =
   (case s.decl of SOME (env0,sz0) =>
-  let sz1 = s.sz in
-  let k = sz1 - sz0 in
+  let k = s.sz - sz0 in
   let (s,i,env) =((( compile_decl env0) (s,sz0+1,env0)) vs) in
   let s =(( emit s) [(Stack (((Shift (i -(sz0+1))) k)))]) in
-   s with<| sz := sz1+1; decl :=( SOME (env,s.sz - k)) |>
-  | NONE =>( incsz (((emit s) [(Stack ((PushInt i2))); Exception]))) (* should not happen *)
+   s with<| decl :=( SOME (env,s.sz - k)) |>
+  | NONE =>(( emit s) [(Stack ((PushInt i2))); Exception]) (* should not happen *)
   ))
 /\
 (compile s (CRaise err) =(
-  incsz (((emit s) [(Stack ((PushInt ((error_to_int err))))); Exception]))))
+  pushret (((emit s) [(Stack ((PushInt ((error_to_int err))))); Exception]))))
 /\
-(compile s (CHandle e1 x e2) =
-  let (s,dt) =( sdt s) in((
-  ldt dt) (((compile s) e1))))
+(compile s (CHandle e1 x e2) =(( compile s) e1))
 /\
 (compile s (CLit (IntLit i)) =(
-  incsz (((emit s) [(Stack ((PushInt i)))]))))
+  pushret (((emit s) [(Stack ((PushInt i)))]))))
 /\
 (compile s (CLit (Bool b)) =(
-  incsz (((emit s) [(Stack (((Cons ((bool_to_tag b))) 0)))]))))
+  pushret (((emit s) [(Stack (((Cons ((bool_to_tag b))) 0)))]))))
 /\
 (compile s (CLit Unit) =(
-  incsz (((emit s) [(Stack (((Cons unit_tag) 0)))]))))
+  pushret (((emit s) [(Stack (((Cons unit_tag) 0)))]))))
 /\
-(compile s (CVar vn) =( incsz (((compile_varref s) (((FAPPLY  s.env)  vn))))))
+(compile s (CVar vn) =( pushret (((compile_varref s) (((FAPPLY  s.env)  vn))))))
 /\
 (compile s (CCon n es) =
-  let z = s.sz + 1 in
-  let (s,dt) =( sdt s) in
-  let s =((( FOLDL (\ s e .(( compile s) e))) s) es) in (* uneta because Hol_defn sucks *)
-  let s =(( emit (((ldt dt) s))) [(Stack (((Cons (n+block_tag)) ((LENGTH es)))))]) in
-   s with<| sz := z |>)
+  let z = s.sz in
+  let s =((( FOLDL (\ s e .(( compile ((incsz s))) e))) ((sdt s))) es) in (* uneta because Hol_defn sucks *)
+  let s =(( emit s) [(Stack (((Cons (n+block_tag)) ((LENGTH es)))))]) in(
+  pushret  s with<| sz := z |>))
 /\
-(compile s (CTagEq e n) =
-  let (s,dt) =( sdt s) in((
-  ldt dt) (((emit (((compile s) e))) [(Stack ((TagEq (n+block_tag))))]))))
+(compile s (CTagEq e n) =(
+  pushret (((emit (((compile ((sdt s))) e))) [(Stack ((TagEq (n+block_tag))))]))))
 /\
-(compile s (CProj e n) =
-  let (s,dt) =( sdt s) in((
-  ldt dt) (((emit (((compile s) e))) [(Stack ((El n)))]))))
+(compile s (CProj e n) =(
+  pushret (((emit (((compile ((sdt s))) e))) [(Stack ((El n)))]))))
 /\
 (compile s (CLet x e eb) =
-  let z = s.sz + 1 in
-  let (s,dt) =( sdt s) in
-  let s =(( compile s) e) in
-  ((((( compile_bindings eb) z) 0) (((ldt dt) s))) [x]) with<| env := s.env ; sz := z |>)
+  ((((( compile_bindings eb) s.sz) 0) (((compile ((sdt s))) e))) [x]) with<| env := s.env ; sz := s.sz |>)
 /\
 (compile s (CLetfun recp ns defs e) =
-  let z = s.sz + 1 in
   let s =((( compile_closures (if recp then( LENGTH ns) else 0)) s) defs) in
-  ((((( compile_bindings e) z) 0) s) ns) with<| env := s.env ; sz := z |>)
+  ((((( compile_bindings e) s.sz) 0) s) ns) with<| env := s.env ; sz := s.sz |>)
 /\
-(compile s (CFun xs cb) =(((
-  compile_closures 0) s) [(xs,cb)]))
+(compile s (CFun xs cb) =(
+  pushret ((decsz ((((compile_closures 0) s) [(xs,cb)]))))))
 /\
 (compile s (CCall e es) =
   let n =( LENGTH es) in
-  let (s,(d,t)) =( sdt s) in
-  let s =(( compile s) e) in
-  let s =((( FOLDL (\ s e .(( compile s) e))) s) es) in (* uneta because Hol_defn sucks *)
+  let t = s.tail in
+  let z = s.sz in
+  let s =((( FOLDL (\ s e .(( compile ((incsz s))) e))) ((sdt s))) (e::es)) in (* uneta because Hol_defn sucks *)
   let s = (case t of
     TCNonTail =>
     (* argn, ..., arg2, arg1, Block 0 [CodePtr c; env], *)
@@ -1224,40 +1232,34 @@ val _ = Defn.save_defn compile_decl_defn;
      * vk, ..., v1, env1, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c1; env1], *)
     let s =(( emit s) [(Stack (((Shift (1+1+1+n+1)) (k+1+1+j+1))))]) in((
     emit s) [JumpPtr])
-  ) in((
-  ldt (d,t))  s with<| sz := s.sz - n |>))
+  ) in
+   s with<| sz := z |>)
 /\
-(compile s (CPrim1 uop e) =
-  let (s,dt) =( sdt s) in
-  let s =(( compile s) e) in((
-  ldt dt) (((emit s) [(prim1_to_bc uop)]))))
+(compile s (CPrim1 uop e) =(
+  pushret (((emit (((compile ((sdt s))) e))) [(prim1_to_bc uop)]))))
 /\
-(compile s (CPrim2 op e1 e2) =
-  let (s,dt) =( sdt s) in
-  let s =(( compile s) e1) in
-  let s =(( compile s) e2) in( (* TODO: need to detect div by zero *)
-  decsz (((ldt dt) (((emit s) [(Stack ((prim2_to_bc op)))]))))))
+(compile s (CPrim2 op e1 e2) =( (* TODO: need to detect div by zero? *)
+  pushret ((decsz (((emit (((compile ((incsz (((compile ((sdt s))) e1))))) e2))) [(Stack ((prim2_to_bc op)))]))))))
 /\
-(compile s (CUpd e1 e2) =
-  let (s,dt) =( sdt s) in
-  let s =(( compile s) e1) in
-  let s =(( compile s) e2) in(
-  decsz (((ldt dt) (((emit s) [Update;( Stack (((Cons unit_tag) 0)))]))))))
+(compile s (CUpd e1 e2) =(
+  pushret ((decsz (((emit (((compile ((incsz (((compile ((sdt s))) e1))))) e2))) [Update;( Stack (((Cons unit_tag) 0)))]))))))
 /\
 (compile s (CIf e1 e2 e3) =
-  let (s,dt) =( sdt s) in
-  let s =(( ldt dt) (((compile s) e1))) in
+  let d = s.decl in
+  let t = s.tail in
+  let s = (( compile ((sdt s))) e1) with<| tail := t ; decl := d |> in
   let (s,labs) =(( get_labels 3) s) in
   let n0 =(( EL  0)  labs) in
   let n1 =(( EL  1)  labs) in
   let n2 =(( EL  2)  labs) in
   let s =(( emit s) [((JumpIf ((Lab n0)))); ((Jump ((Lab n1))));( Label n0)]) in
-  let s =(( compile ((decsz s))) e2) in
-  let s =(( emit s) [((Jump ((Lab n2))));( Label n1)]) in
-  let s =(( compile ((decsz (* (ldt dt s) *) s))) e3) in((
-  emit (* (ldt dt s) *) s) [(Label n2)]))
+  let s =(( compile ((incsz s))) e2) in
+  let s = if t = TCNonTail then(( emit s) [(Jump ((Lab n2)))]) else s in
+  let s =(( emit s) [(Label n1)]) in
+  let s =(( compile s) e3) in(
+  decsz (if t = TCNonTail then(( emit s) [(Label n2)]) else s)))
 /\
-(compile_bindings e z n s [] =
+(compile_bindings e sz0 n s [] =
   (case s.tail of
     TCTail j k =>(( compile ( s with<| tail :=(( TCTail j) (k+n)) |>)) e)
   | TCNonTail => (case s.decl of
@@ -1266,10 +1268,10 @@ val _ = Defn.save_defn compile_decl_defn;
     )
   ))
 /\
-(compile_bindings e z n s (x::xs) =(((((
-  compile_bindings e) z)
+(compile_bindings e sz0 n s (x::xs) =(((((
+  compile_bindings e) sz0)
     (n+1)) (* parentheses below because Lem sucks *)
-    ( s with<| env :=(( FUPDATE  s.env) ( x, ((CTLet (z + n))))) |>))
+    ( s with<| env :=(( FUPDATE  s.env) ( x, ((CTLet (sz0+(n+1)))))) |>))
     xs))`;
 
 val _ = Defn.save_defn compile_defn;
@@ -1317,17 +1319,10 @@ val _ = Defn.save_defn calculate_ecs_defn;
   FOLDL
     (\ s (xs,l) .
       let (env,az) =(( FAPPLY  s.env_azs)  l) in
-      let s =(( emit s) [(Label l)]) in
-      let s' =  s with<| env := env; sz := 0; tail :=(( TCTail az) 0); decl := NONE |> in
-      let s' =(( compile s') (((FAPPLY  c)  l))) in
-      let n = (case s'.tail of TCTail j k => k+1
-              | _ => 0 (* should not happen *) ) in
-      let s' =(( emit s') [(Stack ((Pops n)));(
-                        Stack ((Load 1)));(
-                        Stack ((Store (az+2))));(
-                        Stack ((Pops (az+1))));
-                        Return]) in
-       s' with<| env := s.env; sz := s.sz; tail := s.tail ; decl := s.decl |>))
+      let s =(( emit s) [(Label l)]) in((
+      compile
+        ( s with<| env := env; sz := 0; tail :=(( TCTail az) 0); decl := NONE |>)) (* parens: Lem sucks *)
+        (((FAPPLY  c)  l)))))
     s) defs))`;
 
 val _ = Defn.save_defn cce_aux_defn;

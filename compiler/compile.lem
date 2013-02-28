@@ -915,10 +915,10 @@ type ctbind = CTLet of num | CTArg of num | CTEnv of num | CTRef of num
 
 type ctenv = Pmap.map string ctbind
 
-type call_context = TCNonTail | TCTail of num * env * num
-(* TCTail j env0 k = in tail position,
+type call_context = TCNonTail | TCTail of num * num
+(* TCTail j k = in tail position,
    * the called function has j arguments, and
-   * k let variables have been bound after env0 *)
+   * k let variables have been bound *)
 
 (* helper for reconstructing closure environments *)
 type cebind = CEEnv of string | CERef of num
@@ -926,15 +926,14 @@ type cebind = CEEnv of string | CERef of num
 type ecs = num * list cebind (* num is the length of the list *)
 
 type compiler_state =
-  <| env: ctenv
-   ; sz: num
-   ; ecs: Pmap.map num ecs
-   ; env_azs: Pmap.map num (ctenv * num)
-   ; out: list bc_inst (* reversed code *)
-   ; next_label: num
-   ; tail: call_context
-   (* not modified on return: *)
-   ; decl: option (ctenv * num)
+  <| env: ctenv                          (* retained *)
+   ; sz: num                             (* retained *)
+   ; ecs: Pmap.map num ecs               (* retained *)
+   ; env_azs: Pmap.map num (ctenv * num) (* retained *)
+   ; out: list bc_inst                   (* prepended *)
+   ; next_label: num                     (* increased *)
+   ; tail: call_context                  (* trashed, but retains TCNonTail *)
+   ; decl: option (ctenv * num)          (* updated/trashed, retains None *)
    |>
 
 let rec
@@ -974,8 +973,7 @@ compile_varref s (CTRef n) = emit (compile_varref s (CTEnv n)) [Deref]
 
 let incsz s = <| s with sz = s.sz + 1 |>
 let decsz s = <| s with sz = s.sz - 1 |>
-let sdt s = (<| s with decl = None; tail = TCNonTail |>, (s.decl,s.tail))
-let ldt (d,t) s = <| s with decl = d; tail = t |>
+let sdt s = <| s with decl = None; tail = TCNonTail |>
 
 let rec
 emit_ec z s (CEEnv fv) = incsz (compile_varref s (Pmap.find fv s.env))
@@ -1018,7 +1016,7 @@ cons_closure sz0 nk (s,k) (j,ec) =
   let s = List.fold_left (emit_ec sz0) s (List.rev ec) in
   let s = emit s [Stack (if j = 0 then PushInt i0 else Cons 0 j)] in
   let s = emit s [Stack (Cons closure_tag 2)] in
-  let s = decsz (emit s [Stack (Store (nk - k))]) in
+  let s = emit s [Stack (Store (nk - k))] in
   let s = <| s with sz = s.sz - j |> in
   (s,k+1)
 
@@ -1055,76 +1053,75 @@ compile_decl env0 =
          i+1,
          Pmap.add v (CTLet i) env))
 
-let rec endlet s =
+let rec pushret s =
   match s.tail with
   | TCNonTail -> s
-  | TCTail j env0 k ->
-      if k = 0 then s else
-      emit <| s with env = env0 ; sz = sz - k ; tail = TCTail j env0 0 |>
-          [Stack (Pops k)]
+  | TCTail j k ->
+     (* val, vk, ..., v1, env, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c; env], *)
+      emit s [Stack (Pops (k+1));
+     (* val, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c; env], *)
+              Stack (Load 1);
+     (* CodePtr ret, val, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c; env], *)
+              Stack (Store (j+2));
+     (* val, CodePtr ret, argj, ..., arg1, CodePtr ret, *)
+              Stack (Pops (j+1));
+     (* val, CodePtr ret, *)
+              Return]
   end
 
 let rec
 compile s (CDecl vs) =
   match s.decl with Some (env0,sz0) ->
-  let sz1 = s.sz in
-  let k = sz1 - sz0 in
+  let k = s.sz - sz0 in
   let (s,i,env) = compile_decl env0 (s,sz0+1,env0) vs in
   let s = emit s [Stack (Shift (i-(sz0+1)) k)] in
-  <| s with sz = sz1+1; decl = Some (env,s.sz-k) |>
-  | None -> incsz (emit s [Stack (PushInt i2); Exception]) (* should not happen *)
+  <| s with decl = Some (env,s.sz-k) |>
+  | None -> emit s [Stack (PushInt i2); Exception] (* should not happen *)
   end
 and
 compile s (CRaise err) =
-  endlet (incsz (emit s [Stack (PushInt (error_to_int err)); Exception]))
+  pushret (emit s [Stack (PushInt (error_to_int err)); Exception])
 and
 compile s (CHandle e1 x e2) = compile s e1
 and
 compile s (CLit (IntLit i)) =
-  endlet (incsz (emit s [Stack (PushInt i)]))
+  pushret (emit s [Stack (PushInt i)])
 and
 compile s (CLit (Bool b)) =
-  endlet (incsz (emit s [Stack (Cons (bool_to_tag b) 0)]))
+  pushret (emit s [Stack (Cons (bool_to_tag b) 0)])
 and
 compile s (CLit Unit) =
-  endlet (incsz (emit s [Stack (Cons unit_tag 0)]))
+  pushret (emit s [Stack (Cons unit_tag 0)])
 and
-compile s (CVar vn) = endlet (incsz (compile_varref s (Pmap.find vn s.env)))
+compile s (CVar vn) = pushret (compile_varref s (Pmap.find vn s.env))
 and
 compile s (CCon n es) =
-  let z = s.sz + 1 in
-  let (s,dt) = sdt s in
-  let s = List.fold_left (fun s e -> compile s e) s es in (* uneta because Hol_defn sucks *)
-  let s = emit (ldt dt s) [Stack (Cons (n+block_tag) (List.length es))] in
-  endlet <| s with sz = z |>
+  let z = s.sz in
+  let s = List.fold_left (fun s e -> compile (incsz s) e) (sdt s) es in (* uneta because Hol_defn sucks *)
+  let s = emit s [Stack (Cons (n+block_tag) (List.length es))] in
+  pushret <| s with sz = z |>
 and
 compile s (CTagEq e n) =
-  let (s,dt) = sdt s in
-  endlet (ldt dt (emit (compile s e) [Stack (TagEq (n+block_tag))]))
+  pushret (emit (compile (sdt s) e) [Stack (TagEq (n+block_tag))])
 and
 compile s (CProj e n) =
-  let (s,dt) = sdt s in
-  endlet (ldt dt (emit (compile s e) [Stack (El n)]))
+  pushret (emit (compile (sdt s) e) [Stack (El n)])
 and
 compile s (CLet x e eb) =
-  let z = s.sz + 1 in
-  let (s,dt) = sdt s in
-  let s = compile s e in
-  endlet (compile_bindings eb s.env z 0 (ldt dt s) [x])
+  <| compile_bindings eb s.sz 0 (compile (sdt s) e) [x] with env = s.env ; sz = s.sz |>
 and
 compile s (CLetfun recp ns defs e) =
-  let z = s.sz + 1 in
   let s = compile_closures (if recp then List.length ns else 0) s defs in
-  endlet (compile_bindings e s.env z 0 s ns)
+  <| compile_bindings e s.sz 0 s ns with env = s.env ; sz = s.sz |>
 and
 compile s (CFun xs cb) =
-  endlet (compile_closures 0 s [(xs,cb)])
+  pushret (decsz (compile_closures 0 s [(xs,cb)]))
 and
 compile s (CCall e es) =
   let n = List.length es in
-  let (s,(d,t)) = sdt s in
-  let s = compile s e in
-  let s = List.fold_left (fun s e -> compile s e) s es in (* uneta because Hol_defn sucks *)
+  let t = s.tail in
+  let z = s.sz in
+  let s = List.fold_left (fun s e -> compile (incsz s) e) (sdt s) (e::es) in (* uneta because Hol_defn sucks *)
   let s = match t with
   | TCNonTail ->
     (* argn, ..., arg2, arg1, Block 0 [CodePtr c; env], *)
@@ -1135,7 +1132,7 @@ compile s (CCall e es) =
     emit s [CallPtr]
     (* before: env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env], *)
     (* after:  retval, *)
-  | TCTail j env0 k ->
+  | TCTail j k ->
     (* argn, ..., arg1, Block 0 [CodePtr c; env],
      * vk, ..., v1, env1, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c1; env1], *)
     let s = emit s [Stack (Load (n+1+k+1))] in
@@ -1150,39 +1147,33 @@ compile s (CCall e es) =
     let s = emit s [Stack (Shift (1+1+1+n+1) (k+1+1+j+1))] in
     emit s [JumpPtr]
   end in
-  ldt (d,t) <| s with sz = s.sz - n |>
+  <| s with sz = z |>
 and
 compile s (CPrim1 uop e) =
-  let (s,dt) = sdt s in
-  let s = compile s e in
-  ldt dt (emit s [prim1_to_bc uop])
+  pushret (emit (compile (sdt s) e) [prim1_to_bc uop])
 and
-compile s (CPrim2 op e1 e2) =
-  let (s,dt) = sdt s in
-  let s = compile s e1 in
-  let s = compile s e2 in (* TODO: need to detect div by zero *)
-  decsz (ldt dt (emit s [Stack (prim2_to_bc op)]))
+compile s (CPrim2 op e1 e2) = (* TODO: need to detect div by zero? *)
+  pushret (decsz (emit (compile (incsz (compile (sdt s) e1)) e2) [Stack (prim2_to_bc op)]))
 and
 compile s (CUpd e1 e2) =
-  let (s,dt) = sdt s in
-  let s = compile s e1 in
-  let s = compile s e2 in
-  decsz (ldt dt (emit s [Update; Stack (Cons unit_tag 0)]))
+  pushret (decsz (emit (compile (incsz (compile (sdt s) e1)) e2) [Update; Stack (Cons unit_tag 0)]))
 and
 compile s (CIf e1 e2 e3) =
-  let (s,dt) = sdt s in
-  let s = ldt dt (compile s e1) in
+  let d = s.decl in
+  let t = s.tail in
+  let s = <| compile (sdt s) e1 with tail = t ; decl = d |> in
   let (s,labs) = get_labels 3 s in
   let n0 = List.nth labs 0 in
   let n1 = List.nth labs 1 in
   let n2 = List.nth labs 2 in
   let s = emit s [(JumpIf (Lab n0)); (Jump (Lab n1)); Label n0] in
-  let s = compile (decsz s) e2 in
-  let s = emit s [(Jump (Lab n2)); Label n1] in
-  let s = compile (decsz s) e3 in
-  emit s [Label n2]
+  let s = compile (incsz s) e2 in
+  let s = if t = TCNonTail then emit s [Jump (Lab n2)] else s in
+  let s = emit s [Label n1] in
+  let s = compile s e3 in
+  decsz (if t = TCNonTail then emit s [Label n2] else s)
 and
-compile_bindings e z n s [] =
+compile_bindings e sz0 n s [] =
   match s.tail with
   | TCTail j k -> compile (<| s with tail = TCTail j (k+n) |>) e
   | TCNonTail -> match s.decl with
@@ -1191,10 +1182,10 @@ compile_bindings e z n s [] =
     end
   end
 and
-compile_bindings e z n s (x::xs) =
-  compile_bindings e z
+compile_bindings e sz0 n s (x::xs) =
+  compile_bindings e sz0
     (n+1) (* parentheses below because Lem sucks *)
-    (<| s with env = Pmap.add x (CTLet (z + n)) s.env |>)
+    (<| s with env = Pmap.add x (CTLet (sz0+(n+1))) s.env |>)
     xs
 
 (* code env to bytecode *)
@@ -1234,16 +1225,9 @@ cce_aux c s (ns,defs) =
     (fun s (xs,l) ->
       let (env,az) = Pmap.find l s.env_azs in
       let s = emit s [Label l] in
-      let s' = <| s with env = env; sz = 0; tail = TCTail az 0; decl = None |> in
-      let s' = compile s' (Pmap.find l c) in
-      let n = match s'.tail with TCTail j k -> k+1
-              | _ -> 0 (* should not happen *) end in
-      let s' = emit s' [Stack (Pops n);
-                        Stack (Load 1);
-                        Stack (Store (az+2));
-                        Stack (Pops (az+1));
-                        Return] in
-      <| s' with env = s.env; sz = s.sz; tail = s.tail ; decl = s.decl |>)
+      compile
+        (<| s with env = env; sz = 0; tail = TCTail az 0; decl = None |>) (* parens: Lem sucks *)
+        (Pmap.find l c))
     s defs
 
 let rec
