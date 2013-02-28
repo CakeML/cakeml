@@ -1184,13 +1184,13 @@ val _ = Defn.save_defn compile_decl_defn;
 (compile s (CLet x e eb) =
   let z = s.sz + 1 in
   let (s,dt) =( sdt s) in
-  let s =(( compile s) e) in((((((
-  compile_bindings s.env) z) eb) 0) (((ldt dt) s))) [x]))
+  let s =(( compile s) e) in
+  ((((( compile_bindings eb) z) 0) (((ldt dt) s))) [x]) with<| env := s.env ; sz := z |>)
 /\
 (compile s (CLetfun recp ns defs e) =
   let z = s.sz + 1 in
-  let s =((( compile_closures (if recp then( LENGTH ns) else 0)) s) defs) in((((((
-  compile_bindings s.env) z) e) 0) s) ns))
+  let s =((( compile_closures (if recp then( LENGTH ns) else 0)) s) defs) in
+  ((((( compile_bindings e) z) 0) s) ns) with<| env := s.env ; sz := z |>)
 /\
 (compile s (CFun xs cb) =(((
   compile_closures 0) s) [(xs,cb)]))
@@ -1257,21 +1257,19 @@ val _ = Defn.save_defn compile_decl_defn;
   let s =(( compile ((decsz (* (ldt dt s) *) s))) e3) in((
   emit (* (ldt dt s) *) s) [(Label n2)]))
 /\
-(compile_bindings env0 sz1 e n s [] =
-  let t1 = s.tail in
-  let s = (case t1 of
+(compile_bindings e z n s [] =
+  (case s.tail of
     TCTail j k =>(( compile ( s with<| tail :=(( TCTail j) (k+n)) |>)) e)
   | TCNonTail => (case s.decl of
       NONE =>(( emit (((compile s) e))) [(Stack ((Pops n)))])
     | SOME _ =>(( compile s) e)
     )
-  ) in
-   s with<| env := env0 ; sz := sz1 (* ; tail = t1 *)|>)
+  ))
 /\
-(compile_bindings env0 sz1 e n s (x::xs) =((((((
-  compile_bindings env0) sz1) e)
+(compile_bindings e z n s (x::xs) =(((((
+  compile_bindings e) z)
     (n+1)) (* parentheses below because Lem sucks *)
-    ( s with<| env :=(( FUPDATE  s.env) ( x, ((CTLet (sz1 + n))))) |>))
+    ( s with<| env :=(( FUPDATE  s.env) ( x, ((CTLet (z + n))))) |>))
     xs))`;
 
 val _ = Defn.save_defn compile_defn;
