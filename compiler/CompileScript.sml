@@ -1197,12 +1197,11 @@ val _ = Defn.save_defn compile_decl_defn;
 /\
 (compile s (CCall e es) =
   let n =( LENGTH es) in
-  let t = s.tail in
-  let (s,dt) =( sdt s) in
+  let (s,(d,t)) =( sdt s) in
+  let s =(( compile s) e) in
+  let s =((( FOLDL (\ s e .(( compile s) e))) s) es) in (* uneta because Hol_defn sucks *)
   let s = (case t of
     TCNonTail =>
-    let s =(( compile s) e) in
-    let s =((( FOLDL (\ s e .(( compile s) e))) s) es) in (* uneta because Hol_defn sucks *)
     (* argn, ..., arg2, arg1, Block 0 [CodePtr c; env], *)
     let s =(( emit s) [(Stack ((Load n)));( Stack ((El 1)))]) in
     (* env, argn, ..., arg1, Block 0 [CodePtr c; env], *)
@@ -1211,25 +1210,7 @@ val _ = Defn.save_defn compile_decl_defn;
     emit s) [CallPtr])
     (* before: env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env], *)
     (* after:  retval, *)
-(* does it make sense to distinguish this case?
-  | TCTop sz0 ->
-    let k = match s.decl with None -> s.sz - sz0 | Some _ -> 0 end in
-    let n1 = 1+1+n+1 in
-    let (i,s) = pad k n1 s in
-    let s = compile s e in
-    let s = List.fold_left (fun s e -> compile s e) s es in (* uneta because Hol_defn sucks *)
-    (* argn, ..., arg1, Block 0 [CodePtr c; env], 0i, ..., 01, vk, ..., v1, *)
-    let s = emit s [Stack (Load n); Stack (El 1)] in
-    (* env, argn, ..., arg1, Block 0 [CodePtr c; env], 0i, ..., 01, vk, ..., v1, *)
-    let s = emit s [Stack (Load (n+1)); Stack (El 0)] in
-    (* CodePtr c, env, argn, ..., arg1, Block 0 [CodePtr c; env], 0i, ..., 01, vk, ..., v1, *)
-    let s = mv (k+i) n1 s in
-    (* CodePtr c, env, argn, ..., arg1, Block 0 [CodePtr c; env], *)
-    emit s [CallPtr]
-*)
   | TCTail j k =>
-    let s =(( compile s) e) in
-    let s =((( FOLDL (\ s e .(( compile s) e))) s) es) in (* uneta because Hol_defn sucks *)
     (* argn, ..., arg1, Block 0 [CodePtr c; env],
      * vk, ..., v1, env1, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c1; env1], *)
     let s =(( emit s) [(Stack ((Load (n+1+k+1))))]) in
@@ -1244,7 +1225,7 @@ val _ = Defn.save_defn compile_decl_defn;
     let s =(( emit s) [(Stack (((Shift (1+1+1+n+1)) (k+1+1+j+1))))]) in((
     emit s) [JumpPtr])
   ) in((
-  ldt dt)  s with<| sz := s.sz - n |>))
+  ldt (d,t))  s with<| sz := s.sz - n |>))
 /\
 (compile s (CPrim1 uop e) =
   let (s,dt) =( sdt s) in
@@ -1273,18 +1254,19 @@ val _ = Defn.save_defn compile_decl_defn;
   let s =(( emit s) [((JumpIf ((Lab n0)))); ((Jump ((Lab n1))));( Label n0)]) in
   let s =(( compile ((decsz s))) e2) in
   let s =(( emit s) [((Jump ((Lab n2))));( Label n1)]) in
-  let s =(( compile ((decsz s))) e3) in((
-  emit s) [(Label n2)]))
+  let s =(( compile ((decsz (* (ldt dt s) *) s))) e3) in((
+  emit (* (ldt dt s) *) s) [(Label n2)]))
 /\
 (compile_bindings env0 sz1 e n s [] =
-  let s = (case s.tail of
+  let t1 = s.tail in
+  let s = (case t1 of
     TCTail j k =>(( compile ( s with<| tail :=(( TCTail j) (k+n)) |>)) e)
   | TCNonTail => (case s.decl of
       NONE =>(( emit (((compile s) e))) [(Stack ((Pops n)))])
     | SOME _ =>(( compile s) e)
     )
   ) in
-   s with<| env := env0 ; sz := sz1 |>)
+   s with<| env := env0 ; sz := sz1 (* ; tail = t1 *)|>)
 /\
 (compile_bindings env0 sz1 e n s (x::xs) =((((((
   compile_bindings env0) sz1) e)

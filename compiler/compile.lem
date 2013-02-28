@@ -1112,12 +1112,11 @@ compile s (CFun xs cb) =
 and
 compile s (CCall e es) =
   let n = List.length es in
-  let t = s.tail in
-  let (s,dt) = sdt s in
+  let (s,(d,t)) = sdt s in
+  let s = compile s e in
+  let s = List.fold_left (fun s e -> compile s e) s es in (* uneta because Hol_defn sucks *)
   let s = match t with
   | TCNonTail ->
-    let s = compile s e in
-    let s = List.fold_left (fun s e -> compile s e) s es in (* uneta because Hol_defn sucks *)
     (* argn, ..., arg2, arg1, Block 0 [CodePtr c; env], *)
     let s = emit s [Stack (Load n); Stack (El 1)] in
     (* env, argn, ..., arg1, Block 0 [CodePtr c; env], *)
@@ -1126,25 +1125,7 @@ compile s (CCall e es) =
     emit s [CallPtr]
     (* before: env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env], *)
     (* after:  retval, *)
-(* does it make sense to distinguish this case?
-  | TCTop sz0 ->
-    let k = match s.decl with None -> s.sz - sz0 | Some _ -> 0 end in
-    let n1 = 1+1+n+1 in
-    let (i,s) = pad k n1 s in
-    let s = compile s e in
-    let s = List.fold_left (fun s e -> compile s e) s es in (* uneta because Hol_defn sucks *)
-    (* argn, ..., arg1, Block 0 [CodePtr c; env], 0i, ..., 01, vk, ..., v1, *)
-    let s = emit s [Stack (Load n); Stack (El 1)] in
-    (* env, argn, ..., arg1, Block 0 [CodePtr c; env], 0i, ..., 01, vk, ..., v1, *)
-    let s = emit s [Stack (Load (n+1)); Stack (El 0)] in
-    (* CodePtr c, env, argn, ..., arg1, Block 0 [CodePtr c; env], 0i, ..., 01, vk, ..., v1, *)
-    let s = mv (k+i) n1 s in
-    (* CodePtr c, env, argn, ..., arg1, Block 0 [CodePtr c; env], *)
-    emit s [CallPtr]
-*)
   | TCTail j k ->
-    let s = compile s e in
-    let s = List.fold_left (fun s e -> compile s e) s es in (* uneta because Hol_defn sucks *)
     (* argn, ..., arg1, Block 0 [CodePtr c; env],
      * vk, ..., v1, env1, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c1; env1], *)
     let s = emit s [Stack (Load (n+1+k+1))] in
@@ -1159,7 +1140,7 @@ compile s (CCall e es) =
     let s = emit s [Stack (Shift (1+1+1+n+1) (k+1+1+j+1))] in
     emit s [JumpPtr]
   end in
-  ldt dt <| s with sz = s.sz - n |>
+  ldt (d,t) <| s with sz = s.sz - n |>
 and
 compile s (CPrim1 uop e) =
   let (s,dt) = sdt s in
@@ -1188,18 +1169,19 @@ compile s (CIf e1 e2 e3) =
   let s = emit s [(JumpIf (Lab n0)); (Jump (Lab n1)); Label n0] in
   let s = compile (decsz s) e2 in
   let s = emit s [(Jump (Lab n2)); Label n1] in
-  let s = compile (decsz s) e3 in
-  emit s [Label n2]
+  let s = compile (decsz (* (ldt dt s) *) s) e3 in
+  emit (* (ldt dt s) *) s [Label n2]
 and
 compile_bindings env0 sz1 e n s [] =
-  let s = match s.tail with
+  let t1 = s.tail in
+  let s = match t1 with
   | TCTail j k -> compile (<| s with tail = TCTail j (k+n) |>) e
   | TCNonTail -> match s.decl with
     | None -> emit (compile s e) [Stack (Pops n)]
     | Some _ -> compile s e
     end
   end in
-  <| s with env = env0 ; sz = sz1 |>
+  <| s with env = env0 ; sz = sz1 (* ; tail = t1 *)|>
 and
 compile_bindings env0 sz1 e n s (x::xs) =
   compile_bindings env0 sz1 e
