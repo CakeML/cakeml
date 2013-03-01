@@ -1097,7 +1097,7 @@ compile s (CVar vn) = pushret (compile_varref s (Pmap.find vn s.env))
 and
 compile s (CCon n es) =
   let z = s.sz in
-  let s = List.fold_left (fun s e -> compile (incsz s) e) (sdt s) es in (* uneta because Hol_defn sucks *)
+  let s = List.fold_left (fun s e -> incsz (compile s e)) (sdt s) es in (* uneta because Hol_defn sucks *)
   let s = emit s [Stack (Cons (n+block_tag) (List.length es))] in
   pushret <| s with sz = z |>
 and
@@ -1111,8 +1111,9 @@ compile s (CLet x e eb) =
   <| compile_bindings eb s.sz 0 (compile (sdt s) e) [x] with env = s.env ; sz = s.sz |>
 and
 compile s (CLetfun recp ns defs e) =
+  let z = s.sz in
   let s = compile_closures (if recp then List.length ns else 0) s defs in
-  <| compile_bindings e s.sz 0 s ns with env = s.env ; sz = s.sz |>
+  <| compile_bindings e z 0 s ns with env = s.env ; sz = z |>
 and
 compile s (CFun xs cb) =
   pushret (decsz (compile_closures 0 s [(xs,cb)]))
@@ -1121,7 +1122,7 @@ compile s (CCall e es) =
   let n = List.length es in
   let t = s.tail in
   let z = s.sz in
-  let s = List.fold_left (fun s e -> compile (incsz s) e) (sdt s) (e::es) in (* uneta because Hol_defn sucks *)
+  let s = List.fold_left (fun s e -> incsz (compile s e)) (sdt s) (e::es) in (* uneta because Hol_defn sucks *)
   let s = match t with
   | TCNonTail ->
     (* argn, ..., arg2, arg1, Block 0 [CodePtr c; env], *)
@@ -1161,13 +1162,13 @@ and
 compile s (CIf e1 e2 e3) =
   let d = s.decl in
   let t = s.tail in
-  let s = <| compile (sdt s) e1 with tail = t ; decl = d |> in
+  let s = incsz <| compile (sdt s) e1 with tail = t ; decl = d |> in
   let (s,labs) = get_labels 3 s in
   let n0 = List.nth labs 0 in
   let n1 = List.nth labs 1 in
   let n2 = List.nth labs 2 in
   let s = emit s [(JumpIf (Lab n0)); (Jump (Lab n1)); Label n0] in
-  let s = compile (incsz s) e2 in
+  let s = compile s e2 in
   let s = if t = TCNonTail then emit s [Jump (Lab n2)] else s in
   let s = emit s [Label n1] in
   let s = compile s e3 in
@@ -1184,8 +1185,8 @@ compile_bindings e sz0 n s [] =
 and
 compile_bindings e sz0 n s (x::xs) =
   compile_bindings e sz0
-    (n+1) (* parentheses below because Lem sucks *)
-    (<| s with env = Pmap.add x (CTLet (sz0+(n+1))) s.env |>)
+    (n+1)
+    (incsz <| s with env = Pmap.add x (CTLet (sz0+(n+1))) s.env |>)
     xs
 
 (* code env to bytecode *)

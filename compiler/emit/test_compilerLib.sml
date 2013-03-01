@@ -155,7 +155,8 @@ val print_bc_stack_op = let fun
 | f (PushInt n) = "PushInt "^(Int.toString(valOf(intML.toInt n)))
 | f Equal = "Equal"
 | f (Cons (n,m)) = "Cons "^(numML.toString n)^" "^(numML.toString m)
-| f (Store n) = "Store  "^(numML.toString n)
+| f (Store n) = "Store "^(numML.toString n)
+| f Sub = "Sub"
 | f x = (PolyML.print x; raise Match)
 in f end
 val print_bc_inst = let fun

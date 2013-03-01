@@ -1183,7 +1183,7 @@ val _ = Defn.save_defn pushret_defn;
 /\
 (compile s (CCon n es) =
   let z = s.sz in
-  let s =((( FOLDL (\ s e .(( compile ((incsz s))) e))) ((sdt s))) es) in (* uneta because Hol_defn sucks *)
+  let s =((( FOLDL (\ s e .( incsz (((compile s) e))))) ((sdt s))) es) in (* uneta because Hol_defn sucks *)
   let s =(( emit s) [(Stack (((Cons (n+block_tag)) ((LENGTH es)))))]) in(
   pushret  s with<| sz := z |>))
 /\
@@ -1197,8 +1197,9 @@ val _ = Defn.save_defn pushret_defn;
   ((((( compile_bindings eb) s.sz) 0) (((compile ((sdt s))) e))) [x]) with<| env := s.env ; sz := s.sz |>)
 /\
 (compile s (CLetfun recp ns defs e) =
+  let z = s.sz in
   let s =((( compile_closures (if recp then( LENGTH ns) else 0)) s) defs) in
-  ((((( compile_bindings e) s.sz) 0) s) ns) with<| env := s.env ; sz := s.sz |>)
+  ((((( compile_bindings e) z) 0) s) ns) with<| env := s.env ; sz := z |>)
 /\
 (compile s (CFun xs cb) =(
   pushret ((decsz ((((compile_closures 0) s) [(xs,cb)]))))))
@@ -1207,7 +1208,7 @@ val _ = Defn.save_defn pushret_defn;
   let n =( LENGTH es) in
   let t = s.tail in
   let z = s.sz in
-  let s =((( FOLDL (\ s e .(( compile ((incsz s))) e))) ((sdt s))) (e::es)) in (* uneta because Hol_defn sucks *)
+  let s =((( FOLDL (\ s e .( incsz (((compile s) e))))) ((sdt s))) (e::es)) in (* uneta because Hol_defn sucks *)
   let s = (case t of
     TCNonTail =>
     (* argn, ..., arg2, arg1, Block 0 [CodePtr c; env], *)
@@ -1247,13 +1248,13 @@ val _ = Defn.save_defn pushret_defn;
 (compile s (CIf e1 e2 e3) =
   let d = s.decl in
   let t = s.tail in
-  let s = (( compile ((sdt s))) e1) with<| tail := t ; decl := d |> in
+  let s =( incsz (( compile ((sdt s))) e1) with<| tail := t ; decl := d |>) in
   let (s,labs) =(( get_labels 3) s) in
   let n0 =(( EL  0)  labs) in
   let n1 =(( EL  1)  labs) in
   let n2 =(( EL  2)  labs) in
   let s =(( emit s) [((JumpIf ((Lab n0)))); ((Jump ((Lab n1))));( Label n0)]) in
-  let s =(( compile ((incsz s))) e2) in
+  let s =(( compile s) e2) in
   let s = if t = TCNonTail then(( emit s) [(Jump ((Lab n2)))]) else s in
   let s =(( emit s) [(Label n1)]) in
   let s =(( compile s) e3) in(
@@ -1270,8 +1271,8 @@ val _ = Defn.save_defn pushret_defn;
 /\
 (compile_bindings e sz0 n s (x::xs) =(((((
   compile_bindings e) sz0)
-    (n+1)) (* parentheses below because Lem sucks *)
-    ( s with<| env :=(( FUPDATE  s.env) ( x, ((CTLet (sz0+(n+1)))))) |>))
+    (n+1))
+    ((incsz  s with<| env :=(( FUPDATE  s.env) ( x, ((CTLet (sz0+(n+1)))))) |>)))
     xs))`;
 
 val _ = Defn.save_defn compile_defn;
