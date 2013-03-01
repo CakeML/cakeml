@@ -1305,7 +1305,7 @@ val _ = Define `
 val _ = Hol_reln `
 
 (! mn menv cenv env p e v env' s1 s2 tvs.
-small_eval menv cenv s1 env e [] (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
+evaluate menv cenv s1 env e (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
 (pmatch tvs cenv s2 p v emp = Match env')
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rval (emp, env')))
@@ -1313,7 +1313,7 @@ evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rval (emp, env')))
 /\
 
 (! mn menv cenv env p e v s1 s2 tvs.
-small_eval menv cenv s1 env e [] (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
+evaluate menv cenv s1 env e (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
 (pmatch tvs cenv s2 p v emp = No_match)
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr (Rraise Bind_error)))
@@ -1321,7 +1321,7 @@ evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr (Rraise Bind_error)))
 /\
 
 (! mn menv cenv env p e v s1 s2 tvs.
-small_eval menv cenv s1 env e [] (s2, Rval v) /\
+evaluate menv cenv s1 env e (s2, Rval v) /\
 (pmatch tvs cenv s2 p v emp = Match_type_error)
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error))
@@ -1329,14 +1329,14 @@ evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error))
 /\
 
 (! mn menv cenv env p e v s1 s2 tvs.
-small_eval menv cenv s1 env e [] (s2, Rval v) /\ ~  ( ALL_DISTINCT (pat_bindings p []))
+evaluate menv cenv s1 env e (s2, Rval v) /\ ~  ( ALL_DISTINCT (pat_bindings p []))
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error))
 
 /\
 
 (! mn menv cenv env p e err s s' tvs.
-small_eval menv cenv s env e [] (s', Rerr err)
+evaluate menv cenv s env e (s', Rerr err)
 ==>
 evaluate_dec mn menv cenv s env (Dlet tvs p e) (s', Rerr err))
 
@@ -2312,7 +2312,6 @@ type_ctxts dec_tvs tenvM tenvC senv ((c,env) ::cs) t1 t3)`;
 
 val _ = Hol_reln `
 
-(* TODO: check envM *)
 (! dec_tvs tenvM tenvC senv envM envC s env e c t1 t2 tenv tvs.
 type_ctxts dec_tvs tenvM tenvC senv c t1 t2 /\
 type_env tenvM tenvC senv env tenv /\
@@ -2325,7 +2324,6 @@ type_state dec_tvs tenvM tenvC senv (envM,envC, s, env, Exp e, c) t2)
 
 /\
 
-(* TODO: check envM *)
 (! dec_tvs tenvM tenvC senv envM envC s env v c t1 t2 tenv tvs.
 type_ctxts dec_tvs tenvM tenvC senv c t1 t2 /\
 type_env tenvM tenvC senv env tenv /\
@@ -2864,87 +2862,133 @@ evaluate_match' s env v ((p,e) ::pes) (s, Rerr Rtype_error))
 ==>
 evaluate_match' s env v ((p,e) ::pes) (s, Rerr Rtype_error))`;
 
+val _ = Hol_reln `
 
-(*
-indreln
-
-forall cenv env s.
-true
+(! mn menv cenv env p e v env' s1 s2 tvs.
+evaluate' s1 env e (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
+(pmatch' tvs s2 p v emp = Match env')
 ==>
-evaluate_decs' cenv s env [] (s, Rval (cenv,env))
+evaluate_dec' mn menv cenv s1 env (Dlet tvs p e) (s2, Rval (emp, env')))
 
-and
+/\
 
-forall cenv env p e ds v env' r s1 s2 tvs.
-evaluate' s1 env e (s2, Rval v) &&
-all_distinct (pat_bindings p []) &&
-(* TODO: Should be pmatch' ? *)
-(pmatch tvs cenv s2 p v env = Match env') &&
-evaluate_decs' cenv s2 env' ds r
+(! mn menv cenv env p e v s1 s2 tvs.
+evaluate' s1 env e (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
+(pmatch' tvs s2 p v emp = No_match)
 ==>
-evaluate_decs' cenv s1 env (Dlet tvs p e :: ds) r
+evaluate_dec' mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr (Rraise Bind_error)))
 
-and
+/\
 
-forall cenv env p e ds v s1 s2 tvs.
-evaluate' s1 env e (s2, Rval v) &&
-all_distinct (pat_bindings p []) &&
-(pmatch tvs cenv s2 p v env = No_match)
+(! mn menv cenv env p e v s1 s2 tvs.
+evaluate' s1 env e (s2, Rval v) /\
+(pmatch' tvs s2 p v emp = Match_type_error)
 ==>
-evaluate_decs' cenv s1 env (Dlet tvs p e :: ds) (s2, Rerr (Rraise Bind_error))
+evaluate_dec' mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error))
 
-and
+/\
 
-forall cenv env p e ds v s1 s2 tvs.
-evaluate' s1 env e (s2, Rval v) &&
-(pmatch tvs cenv s2 p v env = Match_type_error)
+(! mn menv cenv env p e v s1 s2 tvs.
+evaluate' s1 env e (s2, Rval v) /\ ~  ( ALL_DISTINCT (pat_bindings p []))
 ==>
-evaluate_decs' cenv s1 env (Dlet tvs p e :: ds) (s2, Rerr (Rtype_error))
+evaluate_dec' mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error))
 
-and
+/\
 
-forall cenv env p e ds v s1 s2 tvs.
-evaluate' s1 env e (s2, Rval v) &&
-not (all_distinct (pat_bindings p []))
-==>
-evaluate_decs' cenv s1 env (Dlet tvs p e :: ds) (s2, Rerr (Rtype_error))
-
-and
-
-forall cenv env p e ds err s s' tvs.
+(! mn menv cenv env p e err s s' tvs.
 evaluate' s env e (s', Rerr err)
 ==>
-evaluate_decs' cenv s env (Dlet tvs p e :: ds) (s', Rerr err)
+evaluate_dec' mn menv cenv s env (Dlet tvs p e) (s', Rerr err))
 
-and
+/\
 
-forall cenv env funs ds r s tvs.
-all_distinct (List.map (fun (x,topt1,y,topt2,z) -> x) funs) &&
-evaluate_decs' cenv s (build_rec_env tvs funs env env) ds r
+(! mn menv cenv env funs s tvs. ALL_DISTINCT ( MAP (\ (x,topt1,y,topt2,z) . x) funs)
 ==>
-evaluate_decs' cenv s env (Dletrec tvs funs :: ds) r
+evaluate_dec' mn menv cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env tvs funs env emp)))
 
-and
+/\
 
-forall cenv env funs ds s tvs.
-not (all_distinct (List.map (fun (x,topt1,y,topt2,z) -> x) funs))
+(! mn menv cenv env funs s tvs. ~  ( ALL_DISTINCT ( MAP (\ (x,topt1,y,topt2,z) . x) funs))
 ==>
-evaluate_decs' cenv s env (Dletrec tvs funs :: ds) (s, Rerr Rtype_error)
+evaluate_dec' mn menv cenv s env (Dletrec tvs funs) (s, Rerr Rtype_error))
 
-and
+/\
 
-forall cenv env tds ds r s.
-check_dup_ctors tds cenv &&
-evaluate_decs' (merge (build_tdefs tds) cenv) s env ds r
+(! mn menv cenv env tds s.
+check_dup_ctors mn cenv tds
 ==>
-evaluate_decs' cenv s env (Dtype tds :: ds) r
+evaluate_dec' mn menv cenv s env (Dtype tds) (s, Rval (build_tdefs mn tds, emp)))
 
-and
+/\
 
-forall cenv env tds ds s.
-not (check_dup_ctors tds cenv)
+(! mn menv cenv env tds s. ~  (check_dup_ctors mn cenv tds)
 ==>
-evaluate_decs' cenv s env (Dtype tds :: ds) (s, Rerr Rtype_error)
-*)
+evaluate_dec' mn menv cenv s env (Dtype tds) (s, Rerr Rtype_error))`;
+
+val _ = Hol_reln `
+
+(! mn menv cenv s env.
+T
+==>
+evaluate_decs' mn menv cenv s env [] (s, Rval (emp, emp)))
+
+/\
+
+(! mn menv cenv s1 s2 env d ds e.
+evaluate_dec' mn menv cenv s1 env d (s2, Rerr e)
+==>
+evaluate_decs' mn menv cenv s1 env (d ::ds) (s2, Rerr e))
+
+/\
+
+(! mn menv cenv s1 s2 s3 env d ds new_tds new_env r.
+evaluate_dec' mn menv cenv s1 env d (s2, Rval (new_tds,new_env)) /\
+evaluate_decs' mn menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, r)
+==>
+evaluate_decs' mn menv cenv s1 env (d ::ds) (s3, combine_dec_result new_tds new_env r))`;
+
+val _ = Hol_reln `
+
+(! menv cenv s env.
+T
+==>
+evaluate_prog' menv cenv s env [] (s, Rval (emp, emp, emp)))
+
+/\
+
+(! menv cenv s1 s2 s3 env d ds new_tds new_env r.
+evaluate_dec' NONE menv cenv s1 env d (s2, Rval (new_tds,new_env)) /\
+evaluate_prog' menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, r)
+==>
+evaluate_prog' menv cenv s1 env (Tdec d ::ds) (s3, combine_mod_result emp new_tds new_env r))
+
+/\
+
+(! menv cenv s1 s2 env d ds e.
+evaluate_dec' NONE menv cenv s1 env d (s2, Rerr e)
+==>
+evaluate_prog' menv cenv s1 env (Tdec d ::ds) (s2, Rerr e))
+
+/\
+
+(! menv cenv s1 s2 s3 env ds1 ds2 mn specs new_tds new_env r. ~  ( MEM mn ( MAP FST menv)) /\
+evaluate_decs' (SOME mn) menv cenv s1 env ds1 (s2, Rval (new_tds,new_env)) /\
+evaluate_prog' (bind mn new_env menv) (merge new_tds cenv) s2 env ds2 (s3, r)
+==>
+evaluate_prog' menv cenv s1 env (Tmod mn specs ds1 ::ds2) (s3, combine_mod_result [(mn,new_env)] new_tds emp r))
+
+/\
+
+(! menv cenv s1 s2 env mn specs ds1 ds2 e. ~  ( MEM mn ( MAP FST menv)) /\
+evaluate_decs' (SOME mn) menv cenv s1 env ds1 (s2, Rerr e)
+==>
+evaluate_prog' menv cenv s1 env (Tmod mn specs ds1 ::ds2) (s2, Rerr e))
+
+/\
+
+(! menv cenv s env mn specs ds1 ds2. MEM mn ( MAP FST menv)
+==>
+evaluate_prog' menv cenv s env (Tmod mn specs ds1 ::ds2) (s, Rerr Rtype_error))`;
+
 val _ = export_theory()
 

@@ -1,5 +1,5 @@
 open preamble;
-open MiniMLTheory MiniMLTerminationTheory evaluateEquationsTheory determTheory;
+open MiniMLTheory MiniMLTerminationTheory evaluateEquationsTheory determTheory bigSmallEquivTheory;
 
 val _ = new_theory "untypedSafety";
 
@@ -86,7 +86,7 @@ val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
 `!mn menv cenv s env d. (∃r. evaluate_dec mn menv cenv s env d r) = ~dec_diverges menv cenv s env d`,
 rw [Once evaluate_dec_cases, dec_diverges_def] >>
 cases_on `d` >>
-rw [] >|
+rw [GSYM small_big_exp_equiv] >|
 [eq_tac >>
      rw [GSYM untyped_safety_exp] >-
      metis_tac [] >-

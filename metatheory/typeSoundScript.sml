@@ -1,4 +1,4 @@
-open preamble MiniMLTheory MiniMLTerminationTheory typeSystemTheory;
+open preamble MiniMLTheory MiniMLTerminationTheory typeSystemTheory bigSmallEquivTheory;
 
 val _ = new_theory "typeSound";
 
@@ -1751,7 +1751,7 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
 rw [METIS_PROVE [] ``x ∨ y = ~x ⇒ y``] >>
 fs [type_d_cases] >>
 rw [] >>
-fs [dec_diverges_def, merge_def, emp_def, evaluate_dec_cases] >|
+fs [dec_diverges_def, merge_def, emp_def, evaluate_dec_cases, GSYM small_big_exp_equiv] >|
 [`∃st2 r tenvS'. r ≠ Rerr Rtype_error ∧ small_eval menv cenv st env e [] (st2,r) ∧
                 type_s tenvM tenvC tenvS' st2 ∧ 
                 store_type_extension tenvS tenvS' ∧
