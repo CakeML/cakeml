@@ -619,25 +619,36 @@ val compile_append_out = store_thm("compile_append_out",
     rw[] >> fs[GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
     fs[FILTER_APPEND]) >>
   strip_tac >- (
-
-    rw[compile_def,LET_THM] >>
+    rw[compile_def,LET_THM,UNCURRY] >>
     srw_tac[ETA_ss][] >>
-    Q.PAT_ABBREV_TAC`a = compiler_state_tail_fupd X Y` >>
-    qho_match_abbrev_tac `∃bc. (x::(FOLDL compile a es).out = bc ++ cs.out) ∧ P bc` >>
-    qsuff_tac `∃bc. ((FOLDL compile a es).out = bc ++ cs.out) ∧ P bc` >- (
-      rw[Abbr`P`] >> qexists_tac`x::bc` >> rw[Abbr`x`] ) >>
+    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
+    qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
+    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``FOLDL``1"f"] >>
+    qho_match_abbrev_tac `∃bcs. (bc ++ [x] ++ (FST (FOLDL f a es)).out = bcs ++ cs.out) ∧ P bcs` >>
+    qsuff_tac `∃bc. ((FST (FOLDL f a es)).out = bc ++ cs.out) ∧ P bc` >- (
+      rw[Abbr`P`] >> qexists_tac`bc++[x]++bc'` >> rw[Abbr`x`] >>
+      fs[GSYM FILTER_EQ_NIL,combinTheory.o_DEF,FILTER_APPEND]) >>
     qunabbrev_tac`P` >> simp[Abbr`x`] >>
-    qho_match_abbrev_tac`P (FOLDL compile a es)` >>
+    qho_match_abbrev_tac`P (FOLDL f a es)` >>
     match_mp_tac FOLDL_invariant >>
     conj_tac >- rw[Abbr`a`,Abbr`P`] >>
     map_every qx_gen_tac[`x`,`e`] >> rw[Abbr`P`] >>
-    first_x_assum (qspecl_then[`e`,`x`]mp_tac) >>
+    PairCases_on`x` >> simp[Abbr`f`] >>
+    first_x_assum (qspecl_then[`e`,`x1`,`x0`]mp_tac) >>
     simp[] >> disch_then(Q.X_CHOOSE_THEN`be`strip_assume_tac) >>
     simp[ALL_DISTINCT_APPEND,FILTER_APPEND,MEM_FILTER] >>
-    fsrw_tac[DNF_ss][EVERY_MEM,between_def,MEM_MAP,MEM_FILTER,is_Label_rwt] >>
+    fsrw_tac[DNF_ss][EVERY_MEM,between_def,MEM_MAP,MEM_FILTER,is_Label_rwt,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC) >>
-  strip_tac >- rw[compile_def] >>
-  strip_tac >- rw[compile_def] >>
+  strip_tac >- (
+    rw[compile_def] >>
+    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
+    qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
+    fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] ) >>
+  strip_tac >- (
+    rw[compile_def] >>
+    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
+    qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
+    fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] ) >>
   strip_tac >- (
     rw[compile_def,LET_THM] >>
     BasicProvers.EVERY_CASE_TAC >>
@@ -646,80 +657,56 @@ val compile_append_out = store_thm("compile_append_out",
   strip_tac >- (
     simp[compile_def,LET_THM] >>
     rpt strip_tac >> fs[] >>
-    Q.ISPECL_THEN[`if recp then LENGTH xs else 0`,`cs`,`defs`]strip_assume_tac compile_closures_append_out >>
+    Q.ISPECL_THEN[`d`,`env`,`sz`,`if recp then LENGTH xs else 0`,`cs`,`defs`]strip_assume_tac compile_closures_append_out >>
     fs[FILTER_APPEND,ALL_DISTINCT_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF]) >>
   strip_tac >- (
     rw[compile_def] >>
-    Q.ISPECL_THEN[`0`,`cs`,`[(xs,cb)]`]strip_assume_tac compile_closures_append_out >>
-    fs[GSYM FILTER_EQ_NIL,combinTheory.o_DEF] ) >>
+    Q.ISPECL_THEN[`d`,`env`,`sz`,`0`,`cs`,`[(xs,cb)]`]strip_assume_tac compile_closures_append_out >>
+    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
+    qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
+    fs[GSYM FILTER_EQ_NIL,combinTheory.o_DEF,FILTER_APPEND] ) >>
   strip_tac >- (
-    rw[compile_def,LET_THM] >>
-    fsrw_tac[ETA_ss][] >>
-    Q.PAT_ABBREV_TAC`a = compiler_state_tail_fupd X Y` >>
+    rw[compile_def,LET_THM,UNCURRY] >>
+    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``FOLDL``1"f"] >>
+    Q.PAT_ABBREV_TAC`p = FOLDL f Y Z` >>
     BasicProvers.EVERY_CASE_TAC >> rw[] >> fsrw_tac[DNF_ss][] >> (
-    qmatch_assum_abbrev_tac`b.out = bc ++ cs.out` >>
-    Q.PAT_ABBREV_TAC`p = FOLDL compile Y Z` >>
     qho_match_abbrev_tac`∃bc. (X = bc ++ cs.out) ∧ P bc` >>
-    qsuff_tac`∃bc. (p.out = bc ++ cs.out) ∧ P bc` >- (
-      rw[Abbr`X`,Abbr`P`] >> fs[] ) >>
-    simp[Abbr`P`] >>
+    qsuff_tac`∃bc. ((FST p).out = bc ++ cs.out) ∧ P bc` >- (
+      PairCases_on`p` >> rw[Abbr`X`,Abbr`P`] >> fs[] ) >>
+    simp[Abbr`P`,Abbr`X`] >>
     qho_match_abbrev_tac`P p` >>
     qunabbrev_tac`p` >>
     match_mp_tac FOLDL_invariant >>
     conj_tac >- rw[Abbr`P`] >>
-    map_every qx_gen_tac[`x`,`e`] >> strip_tac >>
-    first_x_assum(qspecl_then[`e`,`x`]mp_tac) >>
-    pop_assum mp_tac >>
-    fs[Abbr`P`] >>
-    disch_then(Q.X_CHOOSE_THEN`bc1`strip_assume_tac) >>
-    disch_then(Q.X_CHOOSE_THEN`bc2`strip_assume_tac) >>
+    map_every qx_gen_tac[`a`,`j`] >> strip_tac >>
+    PairCases_on`a` >>
+    fs[Abbr`P`,Abbr`f`] >>
+    first_x_assum(qspecl_then[`j`,`a1`,`a0`]mp_tac) >> rw[] >> fs[] >>
     fsrw_tac[DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,EVERY_MEM,MEM_MAP,between_def] >>
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC)) >>
   strip_tac >- (
-    rw[compile_def,LET_THM] >> fs[]) >>
+    rw[compile_def,LET_THM] >> fs[] >>
+    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
+    qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
+    fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] ) >>
   strip_tac >- (
-    rw[compile_def,LET_THM] >>
+    rw[compile_def,LET_THM] >> fs[] >>
+    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
+    qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
+    fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
     fsrw_tac[DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,EVERY_MEM,between_def,MEM_MAP] >>
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC) >>
   strip_tac >- (
-    rw[compile_def,LET_THM] >>
+    rw[compile_def,LET_THM] >> fs[] >>
+    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
+    qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
+    fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
     fsrw_tac[DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,EVERY_MEM,between_def,MEM_MAP] >>
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC) >>
   strip_tac >- (
-    map_every qx_gen_tac [`cs`,`e1`,`e2`,`e3`] >>
-    strip_tac >>
-    simp[compile_def] >>
-    Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
-    Q.PAT_ABBREV_TAC`cs1 = compiler_state_tail_fupd X Y` >>
-    Q.PAT_ABBREV_TAC`cs2 = compiler_state_sz_fupd (K ((compile cs0 e1).sz - 1)) Y` >>
-    Q.PAT_ABBREV_TAC`cs3 = compiler_state_sz_fupd (K ((compile cs2 e2).sz - 1)) Y` >>
-    first_x_assum (qspec_then`FST (sdt cs)`mp_tac) >> simp[] >> strip_tac >>
-    first_x_assum (qspec_then`FST (sdt cs)`mp_tac) >> simp[] >>
-    Q.PAT_ABBREV_TAC`cs4 = compiler_state_sz_fupd X Y` >>
-    `cs4 = cs2` by (
-      unabbrev_all_tac >> rw[] ) >>
-    BasicProvers.VAR_EQ_TAC >>
-    pop_assum kall_tac >>
-    disch_then(Q.X_CHOOSE_THEN`bc2`strip_assume_tac) >>
-    first_x_assum (qspec_then`FST (sdt cs)`mp_tac) >> simp[] >>
-    Q.PAT_ABBREV_TAC`cs4 = compiler_state_sz_fupd X Y` >>
-    `cs4 = cs3` by (
-      unabbrev_all_tac >> rfs[] >> rw[] ) >>
-    BasicProvers.VAR_EQ_TAC >>
-    pop_assum kall_tac >>
-    Q.PAT_ABBREV_TAC`cs4 = compiler_state_sz_fupd X Y` >>
-    `cs4 = cs2` by (
-      unabbrev_all_tac >> rw[] ) >>
-    BasicProvers.VAR_EQ_TAC >>
-    pop_assum kall_tac >>
-    disch_then(Q.X_CHOOSE_THEN`bc3`strip_assume_tac) >>
-    `cs1.out = bc ++ cs.out` by (
-      rw[Abbr`cs1`,Abbr`cs0`] ) >>
-    simp[] >>
-    conj_tac >- (fs[Abbr`cs1`,Abbr`cs0`] >> DECIDE_TAC ) >>
+    ntac 2 gen_tac >> Cases >> simp[compile_def] >> rw[] >> fs[] >>
     fsrw_tac[DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,EVERY_MEM,MEM_MAP,between_def] >>
-    rw[] >> spose_not_then strip_assume_tac >> res_tac >>
-    unabbrev_all_tac >> fs[] >> DECIDE_TAC) >>
+    rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC) >>
   strip_tac >- (
     rw[compile_def,LET_THM] >>
     BasicProvers.EVERY_CASE_TAC >> rw[] >>
@@ -727,19 +714,23 @@ val compile_append_out = store_thm("compile_append_out",
   rw[compile_def])
 
 val FOLDL_compile_append_out = store_thm("FOLDL_compile_append_out",
-  ``∀cs exps. ∃bc. ((FOLDL compile cs exps).out = bc ++ cs.out) ∧
-                   cs.next_label ≤ (FOLDL compile cs exps).next_label ∧
-                   ALL_DISTINCT (FILTER is_Label bc) ∧
-                   EVERY (between cs.next_label (FOLDL compile cs exps).next_label)
-                     (MAP dest_Label (FILTER is_Label bc))``,
-  rpt gen_tac >>
-  qho_match_abbrev_tac`P (FOLDL compile cs exps)` >>
+  ``∀d env t sz cs exps.
+      let x = FST(FOLDL (λ(s,sz) e. (compile d env t sz s e,sz+1)) (cs,sz) exps) in
+      ∃bc. (x.out = bc ++ cs.out) ∧
+            cs.next_label ≤ x.next_label ∧
+            ALL_DISTINCT (FILTER is_Label bc) ∧
+            EVERY (between cs.next_label x.next_label)
+            (MAP dest_Label (FILTER is_Label bc))``,
+  rpt gen_tac >> simp[] >>
+  SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``FOLDL``1"f"] >>
+  qho_match_abbrev_tac`P (FOLDL f (cs,sz) exps)` >>
   match_mp_tac FOLDL_invariant >>
   conj_tac >- rw[Abbr`P`] >>
   map_every qx_gen_tac [`x`,`e`] >>
-  qspecl_then[`x`,`e`]strip_assume_tac(CONJUNCT1 compile_append_out) >>
+  qspecl_then[`d`,`env`,`t`,`SND x`,`FST x`,`e`]strip_assume_tac(CONJUNCT1 compile_append_out) >>
   rw[Abbr`P`] >>
-  fsrw_tac[DNF_ss,ARITH_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,EVERY_MEM,between_def,MEM_MAP] >>
+  Cases_on`x` >>
+  fsrw_tac[DNF_ss,ARITH_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,EVERY_MEM,between_def,MEM_MAP,Abbr`f`] >>
   rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC)
 
 val lookup_ct_incsz = store_thm("lookup_ct_incsz",
@@ -1203,8 +1194,8 @@ val code_for_push_return = store_thm("code_for_push_return",
     qexists_tac`REVERSE args`>>fs[])
 
 val compile_labels_lemma = store_thm("compile_labels_lemma",
-  ``∀cs exp bc0 cs1 cls1 code.
-    (cs1 = compile cs exp) ∧
+  ``∀d env t sz cs exp bc0 cs1 cls1 code.
+    (cs1 = compile d env t sz cs exp) ∧
     (cs1.out = REVERSE code ++ cs.out) ∧
     (cls1 = bc0 ++ code) ∧
     ALL_DISTINCT (FILTER is_Label bc0) ∧
@@ -1215,7 +1206,7 @@ val compile_labels_lemma = store_thm("compile_labels_lemma",
     EVERY (combin$C $< cs1.next_label o dest_Label)
       (FILTER is_Label cls1)``,
   rpt gen_tac >> strip_tac >>
-  qspecl_then[`cs`,`exp`]mp_tac(CONJUNCT1 compile_append_out) >>
+  qspecl_then[`d`,`env`,`t`,`sz`,`cs`,`exp`]mp_tac(CONJUNCT1 compile_append_out) >>
   disch_then(Q.X_CHOOSE_THEN`bc`strip_assume_tac) >>
   rpt BasicProvers.VAR_EQ_TAC >>
   fsrw_tac[DNF_ss][FILTER_APPEND,EVERY_MEM,MEM_FILTER,is_Label_rwt,
