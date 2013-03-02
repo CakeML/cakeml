@@ -21,11 +21,11 @@ end
 val _ = computeLib.add_thms distinct_ths computeLib.the_compset
 
 val result_t = ``Result``
-fun tytest s t = let
+fun parsetest nt sem s t = let
   val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
   val _ = print ("Evaluating "^s^"\n")
   val evalth = time EVAL
-                    ``peg_exec mmltyPEG (nt (mkNT nType) I) ^t [] done failed``
+                    ``peg_exec mmltyPEG (nt (mkNT ^nt) I) ^t [] done failed``
   val r = rhs (concl evalth)
   fun diag(s,t) = let
     fun pp pps (s,t) =
@@ -54,7 +54,8 @@ in
       in
         if aconv fringe_t ttoks then let
           val ptree_res = time EVAL ``ptree_Type ^res``
-          val _ = diag ("ptree_Type to ", rhs (concl ptree_res))
+          val _ = diag ("Semantics ("^term_to_string sem^") to ",
+                        rhs (concl ptree_res))
           val valid_t = ``valid_ptree mmlG ^res``
           val vth = SIMP_CONV (srw_ss())
                               [grammarTheory.valid_ptree_def, mmlG_def,
@@ -72,6 +73,7 @@ in
     else die ("FAILED:", r)
   else die ("NO RESULT:", r)
 end
+val tytest = parsetest ``nType`` ``ptree_Type``
 
 val _ = tytest "'a" ``[TyvarT "'a"]``
 val _ = tytest "'a -> bool" ``[TyvarT "'a"; ArrowT; AlphaT "bool"]``
@@ -102,5 +104,14 @@ val _ = tytest "bool list list" ``[AlphaT "bool"; AlphaT "list"; AlphaT "list"]`
 val _ = tytest "('a,bool list)++"
                ``[LparT; TyvarT "'a"; CommaT; AlphaT "bool"; AlphaT "list";
                   RparT; SymbolT"++"]``
+val _ = parsetest ``nStarTypesP`` ``T`` "'a * bool"
+                  ``[TyvarT "'a"; StarT; AlphaT "bool"]``
+val _ = parsetest ``nStarTypesP`` ``T`` "('a * bool)"
+                  ``[LparT; TyvarT "'a"; StarT; AlphaT "bool"; RparT]``
+val _ = parsetest ``nStarTypesP`` ``T`` "('a * bool * (bool -> bool))"
+                  ``[LparT; TyvarT "'a"; StarT; AlphaT "bool"; StarT;
+                     LparT; AlphaT "bool"; ArrowT; AlphaT "bool"; RparT;
+                     RparT]``
+
 
 val _ = export_theory()
