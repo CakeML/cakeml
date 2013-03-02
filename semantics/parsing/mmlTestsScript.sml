@@ -116,6 +116,14 @@ val _ = parsetest ``nStarTypesP`` ``ptree_StarTypes T``
                   ``[LparT; TyvarT "'a"; StarT; AlphaT "bool"; StarT;
                      LparT; AlphaT "bool"; ArrowT; AlphaT "bool"; RparT;
                      RparT]``
+val _ = parsetest ``nTypeName`` ``ptree_TypeName`` "bool" ``[AlphaT "bool"]``
+val _ = parsetest ``nTypeName`` ``ptree_TypeName``
+                  "'a list"
+                  ``[TyvarT "'a"; AlphaT "list"]``
+val _ = parsetest ``nTypeName`` ``ptree_TypeName``
+                  "('a,'b) foo"
+                  ``[LparT; TyvarT "'a"; CommaT; TyvarT "'b"; RparT;
+                     AlphaT "foo"]``
 
 
 val _ = export_theory()

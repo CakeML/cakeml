@@ -56,8 +56,8 @@ val mk_rinfix_def = Define`
   mk_rinfix tgt (t::opt::rest) = Nd tgt [t; opt; mk_rinfix tgt rest]`;
 
 val peg_linfix_def = Define`
-  peg_linfix tgtnt rptnt opsym =
-    seq (nt rptnt I) (rpt (seq opsym (nt rptnt I) (++)) FLAT)
+  peg_linfix tgtnt rptsym opsym =
+    seq rptsym (rpt (seq opsym rptsym (++)) FLAT)
         (λa b. [mk_linfix tgtnt (Nd tgtnt [HD a]) b])
 `;
 
@@ -145,7 +145,8 @@ val peg_DType_def = Define`
 `;
 
 val peg_StarTypes_def = Define`
-  peg_StarTypes = peg_linfix (mkNT nStarTypes) (mkNT nDType)
+  peg_StarTypes = peg_linfix (mkNT nStarTypes)
+                             (nt (mkNT nDType) I)
                              (tok ((=) StarT) mktokLf)
 `;
 
@@ -158,13 +159,30 @@ val peg_StarTypesP_def = Define`
            (λx. [Nd (mkNT nStarTypesP) (sumID x)])
 `;
 
+val peg_TypeName_def = Define`
+  peg_TypeName =
+    choice (nt (mkNT nTyOp) I)
+           (choice
+              (seq (tok ((=) LparT) mktokLf)
+                   (seq (peg_linfix (mkNT nTyVarList)
+                                    (tok isTyvarT mktokLf)
+                                    (tok ((=) CommaT) mktokLf))
+                        (seq (tok ((=) RparT) mktokLf) (nt (mkNT nTyOp) I) (++))
+                        (++))
+                   (++))
+              (seq (tok isTyvarT mktokLf) (nt (mkNT nTyOp) I) (++))
+              sumID)
+           (λs. [Nd (mkNT nTypeName) (sumID s)])
+`;
+
 val mmltyPEG_def = Define`
   mmltyPEG = <| start := nt (mkNT nStarTypesP) I;
                 rules := FEMPTY |++ [(mkNT nType, peg_Type);
                                      (mkNT nDType, peg_DType);
                                      (mkNT nTyOp, peg_TyOp);
                                      (mkNT nStarTypes, peg_StarTypes);
-                                     (mkNT nStarTypesP, peg_StarTypesP)] |>`;
+                                     (mkNT nStarTypesP, peg_StarTypesP);
+                                     (mkNT nTypeName, peg_TypeName)] |>`;
 
 
 val peg_multops_def = Define`
