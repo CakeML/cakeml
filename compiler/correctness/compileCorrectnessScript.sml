@@ -563,6 +563,7 @@ val compile_closures_append_out = store_thm("compile_closures_append_out",
 val _ = Parse.overload_on("retbc",``λj k. [Stack (Pops (k + 1)); Stack (Load 1); Stack (Store (j + 2)); Stack (Pops (j + 1)); Return]``)
 val _ = Parse.overload_on("jmpbc",``λn j k. [Stack (Load (n + k + 2)); Stack (Load (n + 1)); Stack (El 1); Stack (Load (n + 2)); Stack (El 0);
                                              Stack (Shift (n + 4) (k + j + 3)); JumpPtr]``)
+val _ = Parse.overload_on("callbc",``λn. [Stack (Load n); Stack (El 1); Stack (Load (n + 1)); Stack (El 0); CallPtr]``)
 
 val pushret_append_out = store_thm("pushret_append_out",
   ``∀t s. ∃bc. ((pushret t s).out = bc ++ s.out) ∧ EVERY ($~ o is_Label) bc ∧
@@ -1245,7 +1246,15 @@ val code_for_push_return = store_thm("code_for_push_return",
     qexists_tac`bc0 ++ code` >> fs[Abbr`bs1`] >>
     qexists_tac`blvs`>>fs[]>>
     qexists_tac`args`>>fs[])
+
 (*
+val code_for_push_jump = store_thm("code_for_push_jump",
+  ``∀sm cls bs bce bc0 code s s' c env v renv rsz bc1 args args1 bs' blvs benv st cl cl1 ret.
+    code_for_push sm cls bs bce bc0 (code ++ (callbc n)) s s' c env [v] renv rsz ∧
+    (bs.code = bc0 ++ code ++ (jmpbc n (LENGTH args) (LENGTH blvs)) ++ bc1) ∧
+    (bs.stack = blvs++benv::CodePtr ret::args++cl::st)
+    ⇒
+    code_for_return sm cls bs bce st ret v s s' c``,
     qspecl_then[`bs0`,`bs1`,`jmpbc (LENGTH args1) (LENGTH args) (LENGTH blvs) ++ bc1`]mp_tac (SIMP_RULE(srw_ss())[]RTC_bc_next_append_code) >>
     rw[] >>
     match_mp_tac (SIMP_RULE std_ss [transitive_def] RTC_TRANSITIVE) >>
@@ -1901,7 +1910,7 @@ val Cv_bv_not_env = store_thm("Cv_bv_not_env",
 
 val compile_val = store_thm("compile_val",
   ``(∀c d s env exp res. Cevaluate c d s env exp res ⇒
-      ∀sm cls s' v cs cd cenv t sz bs bce bcr bc0 code bc1.
+      ∀sm cls s' v cs cd cenv t sz bs bce bcr bc0 code.
         Cexp_pred exp ∧
         DISJOINT (set (binders exp)) (FDOM cenv) ∧ ALL_DISTINCT (binders exp) ∧
         BIGUNION (IMAGE all_Clocs (FRANGE env)) ⊆ FDOM s ∧
@@ -1911,45 +1920,31 @@ val compile_val = store_thm("compile_val",
         good_cls c sm s (bs with code := bce) cls ∧
         good_ecs cd.ecs ∧ free_labs exp ⊆ FDOM cd.ecs ∧
         (bce ++ bcr = bs.code) ∧ good_code_env c d bce ∧
-        (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         (free_vars c exp ⊆ FDOM cenv) ∧
         Cenv_bs c sm cls s (DRESTRICT env (FDOM cenv)) cenv sz (bs with code := bce) ∧
         ALL_DISTINCT (FILTER is_Label bc0) ∧
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0)
         ⇒
-      (((compile cd cenv (TCNonTail F) sz cs exp).out = REVERSE code ++ cs.out) ⇒
+      (∀code bc1.
+        ((compile cd cenv (TCNonTail F) sz cs exp).out = REVERSE code ++ cs.out) ∧
+        (bs.code = bc0 ++ code ++ bc1)
+       ⇒
        code_for_push sm cls bs bce bc0 code s s' c (DRESTRICT env (FDOM cenv)) [v] cenv sz) ∧
-      (∀bc11 az lz k.
-        ((compile cd cenv (TCTail az lz) sz cs exp).out = REVERSE (code ++ retbc az (lz+k)) ++ cs.out) ∧
-        (bc1 = (retbc az (lz+k)) ++ bc11)
+      (∀code bc1 az lz.
+        ((compile cd cenv (TCTail az lz) sz cs exp).out = REVERSE code ++ cs.out) ∧
+        (bs.code = bc0 ++ code ++ bc1)
         ⇒
-        ∀env0 ns defs xs vs elvs klvs blvs benv ret args cl st.
-        (az = LENGTH args) ∧ (lz = LENGTH klvs) ∧ (k = LENGTH elvs) ∧
-        DISJOINT (set (binders exp)) (set (MAP FST klvs)) ∧
-        ALL_DISTINCT (MAP FST klvs) ∧
-        (env = extend_rec_env env0 env0 ns defs xs vs |++ klvs) ∧
-        EVERY2 (Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c (bs with code := bce) cls)) vs args ∧
-        EVERY2 (Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c (bs with code := bce) cls)) (MAP SND klvs) blvs ∧
-        (bs.stack = elvs++blvs++benv::CodePtr ret::(REVERSE args)++cl::st)
-        ⇒
-        code_for_return sm cls bs bce st ret v s s' c)) ∧
-(*
-      (∀bc11 az lz n k.
-        ((compile cd cenv (TCTail az lz) sz cs exp).out = REVERSE (code ++ jmpbc n az (lz+k)) ++ cs.out) ∧
-        (bc1 = (jmpbc n az (lz+k)) ++ bc11)
-        ⇒
-        ∀.
+        ∀env0 ns defs xs vs klvs blvs benv ret args cl st.
         (az = LENGTH args) ∧ (lz = LENGTH klvs) ∧
+        DISJOINT (set (binders exp)) (set (MAP FST klvs)) ∧
         ALL_DISTINCT (MAP FST klvs) ∧
         (env = extend_rec_env env0 env0 ns defs xs vs |++ klvs) ∧
         EVERY2 (Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c (bs with code := bce) cls)) vs args ∧
         EVERY2 (Cv_bv (mk_pp (DRESTRICT sm (FDOM s)) c (bs with code := bce) cls)) (MAP SND klvs) blvs ∧
         (bs.stack = blvs++benv::CodePtr ret::(REVERSE args)++cl::st)
         ⇒
-
-        ) ∧
-*)
+        code_for_return sm cls bs bce st ret v s s' c)) ∧
     (∀c d s env exps ress. Cevaluate_list c d s env exps ress ⇒
       ∀sm cls s' vs cs cd cenv t sz bs bce bcr bc0 code bc1.
         EVERY Cexp_pred exps ∧
@@ -1979,6 +1974,7 @@ val compile_val = store_thm("compile_val",
     ntac 4 gen_tac >> qx_gen_tac`n` >> strip_tac >> simp[] >>
     rpt gen_tac >> strip_tac >> simp[compile_def,pushret_def] >>
     conj_asm1_tac >- (
+      ntac 2 gen_tac >>
       fs[code_for_push_def,Cenv_bs_def,fmap_rel_def,FDOM_DRESTRICT] >>
       first_assum (qspec_then `n` mp_tac) >>
       REWRITE_TAC[Once option_case_NONE_F] >> simp[] >>
@@ -2004,15 +2000,18 @@ val compile_val = store_thm("compile_val",
       fs[good_cls_def] ) >>
     rw[] >> fs[] >>
     match_mp_tac code_for_push_return >>
-    qmatch_assum_abbrev_tac `code_for_push sm cls bs bce bc0 code s s c renv v cenv rsz` >>
-    simp[] >>
-    map_every qexists_tac [`bc0`,`code`,`renv`,`cenv`,`rsz`] >>
+    qspecl_then[`sz`,`cs`,`cenv ' n`]strip_assume_tac compile_varref_append_out >> fs[] >>
+    first_x_assum(qspec_then`REVERSE bc`mp_tac) >> simp[] >>
+    fs[Once SWAP_REVERSE] >> strip_tac >>
+    qmatch_assum_abbrev_tac `code_for_push sm cls bs bce bc0 ccode s s c renv v cenv rsz` >>
+    map_every qexists_tac [`bc0`,`ccode`,`renv`,`cenv`,`rsz`] >>
     simp[] >>
     qexists_tac `REVERSE args` >> fsrw_tac[ARITH_ss][EVERY2_EVERY]) >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
     conj_asm1_tac >- (
+      ntac 2 gen_tac >>
       Cases_on`l`>>rw[compile_def,LET_THM,code_for_push_def,pushret_def]>>
       qpat_assum`X = REVERSE code`(assume_tac o SIMP_RULE std_ss [Once SWAP_REVERSE]) >> fs[] >>
       qmatch_assum_abbrev_tac `code = [x]` >>
@@ -2033,15 +2032,15 @@ val compile_val = store_thm("compile_val",
       rw[bc_eval1_def,Abbr`x`] >>
       rw[bc_eval_stack_def] >>
       srw_tac[ARITH_ss][bump_pc_def,FILTER_APPEND,SUM_APPEND,ADD1])) >>
-    ntac 4 gen_tac >>
-    qmatch_assum_abbrev_tac`(X = Y) ⇒ P` >>
-    strip_tac >>
-    `(X = Y)` by (
-      Cases_on`l`>>fs[compile_def,pushret_def]) >>
-    fs[Abbr`X`,Abbr`Y`,Abbr`P`] >> rw[] >>
+    ntac 4 gen_tac >> strip_tac >>
+    qspecl_then[`cd`,`cenv`,`TCNonTail F`,`sz`,`cs`,`(CLit l)`]strip_assume_tac(CONJUNCT1 compile_append_out) >> fs[] >>
+    fs[Once SWAP_REVERSE] >>
+    `∃bc2. code ++ bc1 = REVERSE bc ++ (retbc az lz) ++ bc2` by (
+      Cases_on`l`>>fs[compile_def,pushret_def] >> rw[] >> fs[Once SWAP_REVERSE]) >>
+    fs[] >> rpt gen_tac >> strip_tac >>
     match_mp_tac code_for_push_return >> simp[] >>
-    qmatch_assum_abbrev_tac`code_for_push sm cls bs bce bc0 code s s c renv v cenv rsz` >>
-    map_every qexists_tac [`bc0`,`code`,`renv`,`cenv`,`rsz`] >> rw[] >>
+    qmatch_assum_abbrev_tac`code_for_push sm cls bs bce bc0 ccode s s c renv v cenv rsz` >>
+    map_every qexists_tac [`bc0`,`ccode`,`renv`,`cenv`,`rsz`] >> rw[] >>
     qexists_tac`REVERSE args`>>fsrw_tac[ARITH_ss][EVERY2_EVERY]) >>
   strip_tac >- (
     fsrw_tac[ETA_ss][FOLDL_UNION_BIGUNION] >>
@@ -2449,7 +2448,6 @@ val compile_val = store_thm("compile_val",
     rpt gen_tac >> strip_tac >>
     rfs[] >> fs[] >>
     BasicProvers.VAR_EQ_TAC >>
-    Q.PAT_ABBREV_TAC`cs0 = compiler_state_tail_fupd X Y` >>
     POP_ASSUM_LIST(map_every assume_tac) >>
     qspecl_then[`cs0`,`exp`](Q.X_CHOOSE_THEN`cx`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
     `cs0.out = cs.out` by rw[Abbr`cs0`] >> fs[] >>
