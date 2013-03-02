@@ -1,4 +1,4 @@
-INCLUDES = ../semantics ../print_ast
+INCLUDES = ../semantics ../print_ast ../metatheory
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

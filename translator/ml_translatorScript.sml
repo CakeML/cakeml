@@ -536,42 +536,47 @@ val Eval_Equality = store_thm("Eval_Equality",
 (* evaluation of declarations *)
 
 val Decls_def = Define `
-  Decls cenv1 s1 env1 ds cenv2 s2 env2 =
-    evaluate_decs' cenv1 s1 env1 ds (s2,Rval (cenv2,env2))`;
+  Decls mn (menv1 : t envM) cenv1 s1 env1 ds cenv2 s2 env2 =
+    evaluate_decs' mn menv1 cenv1 s1 env1 ds (s2,Rval (cenv2,env2))`;
 
 val DeclAssum_def = Define `
-  DeclAssum ds env = ?s2 cenv2. Decls [] empty_store [] ds cenv2 s2 env`;
+  DeclAssum ds env = ?s2 cenv2. Decls NONE [] [] empty_store [] ds cenv2 s2 env`;
 
 val Decls_Dtype = store_thm("Decls_Dtype",
-  ``!cenv s env tds cenv1 s1 env1.
-      Decls cenv s env [Dtype tds] cenv1 s1 env1 =
-      check_dup_ctors tds cenv /\ (cenv1 = merge (build_tdefs tds) cenv) /\ (env1 = env) /\ (s1 = s)``,
+  ``!mn menv cenv s env tds cenv1 s1 env1.
+      Decls mn menv cenv s env [Dtype tds] cenv1 s1 env1 =
+      check_dup_ctors mn cenv tds /\ (cenv1 = build_tdefs mn tds) /\ (env1 = emp) /\ (s1 = s)``,
   SIMP_TAC std_ss [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
+  \\ SIMP_TAC (srw_ss()) [evaluate_dec'_cases, combine_dec_result_def,
+                          merge_def, emp_def]
   \\ METIS_TAC []);
 
 val Decls_Dlet = store_thm("Decls_Dlet",
-  ``!cenv s env v e cenv1 s1 env1.
-      Decls cenv s env [Dlet NONE (Pvar v NONE) e] cenv1 s1 env1 =
-      ?x. (cenv1 = cenv) /\ (env1 = bind v (x,NONE) env) /\
+  ``!mn menv cenv s env v e cenv1 s1 env1.
+      Decls mn menv cenv s env [Dlet NONE (Pvar v NONE) e] cenv1 s1 env1 =
+      ?x. (cenv1 = emp) /\ (env1 = bind v (x,NONE) emp) /\
            evaluate' s env e (s1,Rval x)``,
   SIMP_TAC std_ss [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC (srw_ss()) [pat_bindings_def,ALL_DISTINCT,MEM,
-       pmatch_def,bind_def,add_tvs_def]
+       pmatch'_def,bind_def,add_tvs_def, evaluate_dec'_cases,
+       combine_dec_result_def, emp_def, merge_def]
   \\ METIS_TAC []);
 
 val Decls_Dletrec = store_thm("Decls_Dletrec",
-  ``!cenv s env funs cenv1 s1 env1.
-      Decls cenv s env [Dletrec NONE funs] cenv1 s1 env1 =
+  ``!mn menv cenv s env funs cenv1 s1 env1.
+      Decls mn menv cenv s env [Dletrec NONE funs] cenv1 s1 env1 =
       ALL_DISTINCT (MAP (\(x,y,z,t,y). x) funs) /\
-      (cenv1 = cenv) /\ (env1 = build_rec_env NONE funs env env) /\ (s1 = s)``,
+      (cenv1 = emp) /\ (env1 = build_rec_env NONE funs env emp) /\ (s1 = s)``,
   SIMP_TAC std_ss [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ FULL_SIMP_TAC (srw_ss()) [pat_bindings_def,ALL_DISTINCT,MEM,pmatch_def,bind_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [pat_bindings_def,ALL_DISTINCT,MEM,pmatch_def,bind_def,
+                               merge_def, emp_def, evaluate_dec'_cases,
+                               combine_dec_result_def]
   \\ METIS_TAC []);
 
 val _ = temp_overload_on("has_emp",``\x. FST x = empty_store``)
@@ -726,13 +731,14 @@ val evaluate_list'_empty_store = prove(
   REPEAT STRIP_TAC \\ IMP_RES_TAC evaluate'_empty_store_lemma
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
+(* 
 val evaluate_decs'_empty_store_IMP = prove(
-  ``!ds1 cenv1 s2 env'.
-      evaluate_decs' cenv1 s2 env' ds1 (empty_store,Rval (cenv3,env3)) ==>
+  ``!ds1 mn menv cenv1 s2 env'.
+      evaluate_decs' mn menv cenv1 s2 env' ds1 (empty_store,Rval (cenv3,env3)) ==>
       (s2 = empty_store)``,
   Induct \\ ONCE_REWRITE_TAC [evaluate_decs'_cases]
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ Cases \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ REPEAT STRIP_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ REPEAT STRIP_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss [evaluate_dec'_cases]
   \\ IMP_RES_TAC evaluate'_empty_store_lemma
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
@@ -741,29 +747,73 @@ val evaluate_decs'_empty_store = prove(
     evaluate_decs' cenv1 s2 env' ds1 (empty_store,Rval (cenv3,env3)) /\
     (s2 = empty_store)``,
   METIS_TAC [evaluate_decs'_empty_store_IMP]);
+  *)
+
+val combine_dec_result_rval = Q.prove (
+`!new_tds new_env cenv env.
+  combine_dec_result new_tds new_env (Rval (cenv, env)) =
+  Rval (merge cenv new_tds, merge env new_env)`,
+rw [combine_dec_result_def]);
+
+val combine_dec_result_rerr = Q.prove (
+`!new_tds new_env err.
+  combine_dec_result new_tds new_env (Rerr err) =
+  Rerr err`,
+rw [combine_dec_result_def]);
 
 val Decls_APPEND = store_thm("Decls_APPEND",
-  ``!s1 s2 cenv1 cenv3 ds1 ds2 env1 env3.
-      Decls cenv1 s1 env1 (ds1 ++ ds2) cenv3 s3 env3 =
-      ?cenv2 s2 env2. Decls cenv1 s1 env1 ds1 cenv2 s2 env2 /\
-                      Decls cenv2 s2 env2 ds2 cenv3 s3 env3``,
+  ``!s1 s3 mn menv cenv1 cenv4 ds1 ds2 env1 env4.
+      Decls mn menv cenv1 s1 env1 (ds1 ++ ds2) cenv4 s3 env4 =
+      ?cenv2 s2 env2 cenv3 env3. 
+                      (cenv4 = merge cenv3 cenv2) ∧
+                      (env4 = merge env3 env2) ∧
+                      Decls mn menv cenv1 s1 env1 ds1 cenv2 s2 env2 /\
+                      Decls mn menv (merge cenv2 cenv1) s2 (merge env2 env1) ds2 cenv3 s3 env3``,
   Induct_on `ds1` \\ FULL_SIMP_TAC std_ss [APPEND,Decls_def]
-  THEN1 (ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) [])
-  \\ Cases_on `h` \\ SIMP_TAC (srw_ss()) [Once evaluate_decs'_cases]
+  THEN1 (ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) [merge_def, emp_def])
+  \\ SIMP_TAC (srw_ss()) [Once evaluate_decs'_cases]
   \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC (srw_ss()) [Once evaluate_decs'_cases]
   \\ FULL_SIMP_TAC std_ss [PULL_EXISTS]
-  \\ METIS_TAC []);
+  \\ rw []
+  \\ eq_tac >|
+  [rw [] >>
+       Cases_on `r` >>
+       fs [combine_dec_result_rval, combine_dec_result_rerr] >>
+       Cases_on `a` >>
+       fs [combine_dec_result_rval, combine_dec_result_rerr] >>
+       qexists_tac `s2'` >>
+       qexists_tac `new_tds` >>
+       qexists_tac `new_env` >>
+       qexists_tac `Rval (merge cenv3 q,merge env3 r)` >>
+       rw [combine_dec_result_rval, merge_def] >>
+       metis_tac [merge_def],
+   rw [] >>
+       Cases_on `r` >>
+       fs [combine_dec_result_rval, combine_dec_result_rerr] >>
+       Cases_on `a` >>
+       fs [combine_dec_result_rval, combine_dec_result_rerr] >>
+       res_tac >>
+       qexists_tac `cenv2++new_tds` >>
+       qexists_tac `s2'` >>
+       qexists_tac `env2++new_env` >>
+       qexists_tac `cenv3` >>
+       qexists_tac `env3` >>
+       qexists_tac `s2` >>
+       qexists_tac `new_tds` >>
+       qexists_tac `new_env` >>
+       qexists_tac `Rval (cenv2,env2)` >>
+       metis_tac [APPEND_ASSOC, combine_dec_result_rval, merge_def]]);
 
 val Decls_CONS = save_thm("Decls_CONS",
-  ``Decls cenv1 s1 env1 ([d] ++ ds) cenv2 s2 env2``
+  ``Decls mn menv cenv1 s1 env1 ([d] ++ ds) cenv2 s2 env2``
   |> REWRITE_CONV [Decls_APPEND]
   |> REWRITE_RULE [APPEND]);
 
 val Decls_NIL = store_thm("Decls_NIL",
-  ``Decls cenv1 s1 env1 [] cenv2 s2 env2 =
-      (env2 = env1) /\ (s2 = s1) /\ (cenv2 = cenv1)``,
+  ``Decls mn menv cenv1 s1 env1 [] cenv2 s2 env2 =
+      (env2 = emp) /\ (s2 = s1) /\ (cenv2 = emp)``,
   SIMP_TAC std_ss [Decls_def]
   \\ SIMP_TAC (srw_ss()) [Once evaluate_decs'_cases]
   \\ REPEAT STRIP_TAC \\ EQ_TAC \\ SIMP_TAC std_ss []);
@@ -771,24 +821,28 @@ val Decls_NIL = store_thm("Decls_NIL",
 val DeclAssum_Dtype = store_thm("DeclAssum_Dtype",
   ``(!env. DeclAssum ds env ==> Eval env (Var n NONE) P) ==>
     !tds. (!env. DeclAssum (SNOC (Dtype tds) ds) env ==> Eval env (Var n NONE) P)``,
-  SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dtype]
+  rw [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dtype, merge_def, emp_def]
   \\ METIS_TAC []);
 
 val DeclAssum_Dlet = store_thm("DeclAssum_Dlet",
   ``!ds n P.
-      (!env. DeclAssum ds env ==> Eval env (Var n NONE) P) ==>
-      !v e. ~(v = n) ==> (!env. DeclAssum (SNOC (Dlet NONE (Pvar v NONE) e) ds) env ==> Eval env (Var n NONE) P)``,
+      (!env. DeclAssum ds env ==> Eval env (Var (Short n) NONE) P) ==>
+      !v e. ~(v = n) ==> (!env. DeclAssum (SNOC (Dlet NONE (Pvar v NONE) e) ds) env ==> Eval env (Var (Short n) NONE) P)``,
   SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dlet]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [bind_def,Eval_Var_SIMP]
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [APPEND,bind_def,Eval_Var_SIMP, merge_def, emp_def] >>
+  rw []
   \\ METIS_TAC []);
 
 val DeclAssum_Dletrec_LEMMA = prove(
-  ``!funs:(mvarN, t option # mvarN # t option # t exp) env.
+  ``!funs:(varN, t option # varN # t option # t exp) env.
       ~MEM n (MAP FST funs) ==>
-      (lookup n (FOLDR (\x. case x of (f,t,x,tt,e) => \env'. bind f (Recclosure env2 ff f,NONE) env') env2 funs) =
+      (lookup n (MAP (λ(fn,n,e). (fn,Recclosure env2 funs' fn,add_tvs NONE n)) funs ++ env2) =
        lookup n (env2:t envE))``,
   Induct
-  \\ FULL_SIMP_TAC (srw_ss()) [FOLDR,FORALL_PROD,lookup_def,bind_def,MEM,MAP]);
+  \\ rw []
+  \\ FULL_SIMP_TAC (srw_ss()) [FOLDR,FORALL_PROD,lookup_def,bind_def,MEM,MAP] >>
+  PairCases_on `h` >>
+  fs []);
 
 val PULL_EXISTS = save_thm("PULL_EXISTS",
   METIS_PROVE [] ``(((?x. P x) ==> Q) = !x. P x ==> Q) /\
@@ -801,43 +855,34 @@ val option_CASE_LEMMA = prove(
 
 val DeclAssum_Dletrec = store_thm("DeclAssum_Dletrec",
   ``!ds n P.
-      (!env. DeclAssum ds env ==> Eval env (Var n NONE) P) ==>
+      (!env. DeclAssum ds env ==> Eval env (Var (Short n) NONE) P) ==>
       !funs. ~(MEM n (MAP FST funs)) ==>
              (!env. DeclAssum (SNOC (Dletrec NONE funs) ds) env ==>
-                    Eval env (Var n NONE) P)``,
+                    Eval env (Var (Short n) NONE) P)``,
   SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dletrec]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [bind_def,Eval_Var_SIMP]
   \\ FULL_SIMP_TAC std_ss [PULL_EXISTS] \\ RES_TAC
   \\ MATCH_MP_TAC Eval_Var_SWAP_ENV
-  \\ Q.EXISTS_TAC `env2` \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC std_ss [build_rec_env_def,add_tvs_def]
-  \\ IMP_RES_TAC DeclAssum_Dletrec_LEMMA
-  \\ FULL_SIMP_TAC std_ss [option_CASE_LEMMA]
-  \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
-  \\ POP_ASSUM (ASSUME_TAC o GSYM o Q.SPECL [`funs`,`env2`])
-  \\ FULL_SIMP_TAC std_ss [] \\ AP_TERM_TAC
-  \\ AP_THM_TAC \\ AP_THM_TAC \\ AP_TERM_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [FUN_EQ_THM,FORALL_PROD]);
+  \\ Q.EXISTS_TAC `env2` \\ FULL_SIMP_TAC std_ss [] >>
+  fs [typeSystemTheory.build_rec_env_merge, merge_def, emp_def] >>
+  metis_tac [DeclAssum_Dletrec_LEMMA]);
 
 val DeclAssum_Dlet_INTRO = store_thm("DeclAssum_Dlet_INTRO",
   ``(!env. DeclAssum ds env ==> Eval env exp P) ==>
     (!v env. DeclAssum (SNOC (Dlet NONE (Pvar v NONE) exp) ds) env ==>
-             Eval env (Var v NONE) P)``,
-  FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dlet,
-    PULL_EXISTS,bind_def,Eval_Var_SIMP]
+             Eval env (Var (Short v) NONE) P)``,
+  rw [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dlet,
+      PULL_EXISTS,bind_def,Eval_Var_SIMP, merge_def, emp_def]
   \\ FULL_SIMP_TAC std_ss [Eval_def] \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ IMP_RES_TAC evaluate'_empty_store_IMP
-  \\ Q.MATCH_ASSUM_RENAME_TAC `evaluate' s3 env2 exp (s4,Rval x)` []
-  \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `s3`)
-  \\ IMP_RES_TAC big_exp_determ' \\ FULL_SIMP_TAC (srw_ss()) []);
+  \\ metis_tac [big_exp_determ', PAIR_EQ, result_11, evaluate'_empty_store_IMP])
 
 val DeclAssum_Dletrec_INTRO = store_thm("DeclAssum_Dletrec_INTRO",
   ``(!env1 env.
       DeclAssum ds env /\
       LOOKUP_VAR v env1 (Recclosure env [(v,NONE,xs,NONE,f)] v) NONE ==>
-      Eval env1 (Var v NONE) P) ==>
+      Eval env1 (Var (Short v) NONE) P) ==>
     !env. DeclAssum (SNOC (Dletrec NONE [(v,NONE,xs,NONE,f)]) ds) env ==>
-          Eval env (Var v NONE) P``,
+          Eval env (Var (Short v) NONE) P``,
   FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dletrec,
     MAP,ALL_DISTINCT,MEM,PULL_EXISTS,build_rec_env_def,FOLDR,bind_def,
     Eval_Var_SIMP,LOOKUP_VAR_SIMP]
@@ -845,6 +890,7 @@ val DeclAssum_Dletrec_INTRO = store_thm("DeclAssum_Dletrec_INTRO",
   \\ SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
   \\ Q.PAT_ASSUM `!env1.bbb` (MP_TAC o Q.SPEC `bind v (Recclosure env2 [(v,NONE,xs,NONE,f)] v,NONE) env`)
   \\ FULL_SIMP_TAC (srw_ss()) [LOOKUP_VAR_SIMP,lookup_def,bind_def,add_tvs_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [merge_def]
   \\ METIS_TAC []);
 
 (* a few misc. lemmas that help the automation *)
