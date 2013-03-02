@@ -155,6 +155,7 @@ val print_bc_stack_op = let fun
 | f (PushInt n) = "PushInt "^(Int.toString(valOf(intML.toInt n)))
 | f Equal = "Equal"
 | f (Cons (n,m)) = "Cons "^(numML.toString n)^" "^(numML.toString m)
+| f (Shift (n,m)) = "Shift "^(numML.toString n)^" "^(numML.toString m)
 | f (Store n) = "Store "^(numML.toString n)
 | f Sub = "Sub"
 | f x = (PolyML.print x; raise Match)
@@ -162,8 +163,12 @@ in f end
 val print_bc_inst = let fun
   f (Stack sop) = "Stack "^(print_bc_stack_op sop)
 | f CallPtr = "CallPtr"
+| f JumpPtr = "JumpPtr"
 | f Return = "Return"
 | f Exception = "Exception"
+| f Deref = "Deref"
+| f Ref = "Ref"
+| f Update = "Update"
 | f (Jump n) = "Jump "^(loc_to_string n)
 | f (JumpIf n) = "JumpIf "^(loc_to_string n)
 | f (PushPtr n) = "PushPtr "^(loc_to_string n)
@@ -172,12 +177,13 @@ in f end
 fun
   print_bv (Block (t,vs)) = "Block "^(numML.toString t)^" ["^(print_bvs vs)
 | print_bv (CodePtr n) = "CodePtr "^(numML.toString n)
+| print_bv (RefPtr n) = "RefPtr "^(numML.toString n)
 | print_bv (Number n) = "Number "^(Int.toString (valOf (intML.toInt n)))
-| print_bv x = (PolyML.print x; raise Match)
 and print_bvs [] = "]" | print_bvs [bv] = (print_bv bv)^"]" | print_bvs (bv::bvs) = (print_bv bv)^", "^(print_bvs bvs)
 fun print_bs bs =
 (("stack", map print_bv (bc_state_stack bs)),
  ("pc", numML.toString(bc_state_pc bs)),
- ("code", rev(snd(foldl (fn (i,(n,ls)) => (n+1,((Int.toString n)^": "^print_bc_inst i)::ls)) (0,[]) (bc_state_code bs)))))
+ ("code", rev(snd(foldl (fn (i,(n,ls)) => (n+1,((Int.toString n)^": "^print_bc_inst i)::ls)) (0,[]) (bc_state_code bs)))),
+ ("refs", let val f = bc_state_refs bs in map (fn k => (numML.toString k,print_bv(fmapML.FAPPLY f k))) (sort (numML.<) (mk_set (setML.toList (fmapML.FDOM f)))) end))
 
 end
