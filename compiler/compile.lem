@@ -1190,17 +1190,17 @@ compile d env t sz s (CIf e1 e2 e3) =
 and
 compile_bindings d env t sz e n s [] =
   match t with
-  | TCTail j k -> compile d env (TCTail j (k+n)) sz s e
+  | TCTail j k -> compile d env (TCTail j (k+n)) (sz+n) s e
   | TCNonTail false ->
-    emit (compile d env t sz s e) [Stack (Pops n)]
+    emit (compile d env t (sz+n) s e) [Stack (Pops n)]
   | TCNonTail true ->
-    compile d env t sz s e
+    compile d env t (sz+n) s e
   end
 and
 compile_bindings d env t sz e n s (x::xs) =
   compile_bindings d
   (Pmap.add x (CTLet (sz+(n+1))) env)
-  t (sz+1) e (n+1) s xs
+  t sz e (n+1) s xs
 
 (* code env to bytecode *)
 

@@ -1273,17 +1273,17 @@ val _ = Defn.save_defn pushret_defn;
 /\
 (compile_bindings d env t sz e n s [] =
   (case t of
-    TCTail j k =>(((((( compile d) env) (((TCTail j) (k+n)))) sz) s) e)
+    TCTail j k =>(((((( compile d) env) (((TCTail j) (k+n)))) (sz+n)) s) e)
   | TCNonTail F =>((
-    emit (((((((compile d) env) t) sz) s) e))) [(Stack ((Pops n)))])
+    emit (((((((compile d) env) t) (sz+n)) s) e))) [(Stack ((Pops n)))])
   | TCNonTail T =>((((((
-    compile d) env) t) sz) s) e)
+    compile d) env) t) (sz+n)) s) e)
   ))
 /\
 (compile_bindings d env t sz e n s (x::xs) =((((((((
   compile_bindings d)
   (((FUPDATE  env) ( x, ((CTLet (sz+(n+1))))))))
-  t) (sz+1)) e) (n+1)) s) xs))`;
+  t) sz) e) (n+1)) s) xs))`;
 
 val _ = Defn.save_defn compile_defn;
 
