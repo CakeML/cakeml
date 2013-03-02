@@ -158,16 +158,16 @@ val _ = register "calculate_ldefs" (
 
 val (compile_varref_def, compile_varref_ind) = register "compile_varref" (
   tprove_no_defn ((compile_varref_def, compile_varref_ind),
-  WF_REL_TAC `measure (λp. case p of (_,CTEnv _) => 0 | (_,CTRef _) => 1)`))
+  WF_REL_TAC `measure (λp. case p of (_,_,CTEnv _) => 0 | (_,_,CTRef _) => 1)`))
 
 val _ = export_rewrites["compile_varref_def"]
 
 val (compile_def, compile_ind) = register "compile" (
   tprove_no_defn ((compile_def, compile_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
-       | INL (s,e)                 => (Cexp_size e, 3:num)
-       | INR (e,z,n,s,[])=> (Cexp_size e, 4)
-       | INR (e,z,n,s,ns)=> (Cexp_size e + (SUM (MAP (list_size char_size) ns)) + LENGTH ns, 2))` >>
+       | INL (d,env,t,sz,s,e) => (Cexp_size e, 3:num)
+       | INR (d,env,t,sz,e,n,s,[])=> (Cexp_size e, 4)
+       | INR (d,env,t,sz,e,n,s,ns)=> (Cexp_size e + (SUM (MAP (list_size char_size) ns)) + LENGTH ns, 2))` >>
   srw_tac[ARITH_ss][] >>
   srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm,Cexp_size_def,list_size_thm,SUM_MAP_Cexp2_size_thm] >>
   TRY (Q.ISPEC_THEN `Cexp_size` imp_res_tac SUM_MAP_MEM_bound >> DECIDE_TAC) >>
@@ -459,9 +459,6 @@ val _ = save_thm("compile_labels_def",compile_labels_def)
 val _ = save_thm("repl_exp_def",repl_exp_def)
 val _ = save_thm("compile_Cexp_def",compile_Cexp_def)
 val _ = save_thm("emit_def",emit_def)
-val _ = save_thm("incsz_def",incsz_def)
-val _ = save_thm("decsz_def",decsz_def)
-val _ = save_thm("sdt_def",sdt_def)
 val _ = save_thm("pushret_def",pushret_def)
 val _ = save_thm("get_labels_def",get_labels_def)
 val _ = save_thm("emit_ec_def",emit_ec_def)
@@ -469,6 +466,6 @@ val _ = save_thm("prim1_to_bc_def",prim1_to_bc_def)
 val _ = save_thm("prim2_to_bc_def",prim2_to_bc_def)
 val _ = save_thm("compile_decl_def",compile_decl_def)
 val _ = save_thm("cmap_def",cmap_def)
-val _ = export_rewrites["emit_def","incsz_def","decsz_def","sdt_def","get_labels_def","emit_ec_def","prim1_to_bc_def","prim2_to_bc_def","cmap_def"]
+val _ = export_rewrites["emit_def","get_labels_def","emit_ec_def","prim1_to_bc_def","prim2_to_bc_def","cmap_def"]
 
 val _ = export_theory()

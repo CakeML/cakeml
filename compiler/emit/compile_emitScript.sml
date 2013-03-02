@@ -53,14 +53,14 @@ val data = map
   , datatype_ctbind
   , datatype_cebind
   , datatype_call_context
-  , datatype_compiler_state
+  , datatype_closure_data
+  , datatype_compiler_result
   , datatype_repl_state
   ]
 
 val defs = map EmitML.DEFN
 [ mk_thm([],``ITSET f s a = FOLDR f a (toList s)``)
 , alistTheory.alist_to_fmap_def
-, incsz_def
 , Cpat_vars_def
 , free_vars_def
 , emit_def
@@ -70,9 +70,7 @@ val defs = map EmitML.DEFN
 , error_to_int_def
 , get_labels_def
 , compile_varref_def
-, sdt_def
 , pushret_def
-, decsz_def
 , prim1_to_bc_def
 , prim2_to_bc_def
 , find_index_def
@@ -89,7 +87,7 @@ val defs = map EmitML.DEFN
 , push_lab_def
 , cons_closure_def
 , update_refptr_def
-, compile_closures_def
+, underscore_rule compile_closures_def
 , compile_decl_def
 , underscore_rule compile_def
 , calculate_ecs_def
