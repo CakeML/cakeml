@@ -1086,12 +1086,13 @@ pushret (TCTail j k) s =
 
 let rec
 compile _ env t sz s (CDecl vs) =
+  match t with TCNonTail true ->
   match s.decl with (env0,sz0) ->
   let k = sz - sz0 in
   let (s,sz,i,env) = (compile_decl env) env0 (s,sz,sz0+1,env0) vs in
   let s = emit s [Stack (Shift (i-(sz0+1)) k)] in
   <| s with decl = (env,sz-k) |>
-  end
+  end | _ -> pushret t (emit s [Stack (PushInt i2); Exception]) (* should not happen *) end
 and
 compile _ _ t _ s (CRaise err) =
   pushret t (emit s [Stack (PushInt (error_to_int err)); Exception])
@@ -1110,8 +1111,7 @@ and
 compile _ env t sz s (CVar vn) = pushret t (compile_varref sz s (Pmap.find vn env))
 and
 compile d env t sz s (CCon n es) =
-  let (s,_z) = List.fold_left (fun (s,sz) e -> (compile d env (TCNonTail false) sz s e,sz+1)) (s,sz) es in
-  pushret t (emit s [Stack (Cons (n+block_tag) (List.length es))])
+  pushret t (emit (compile_nts d env sz s es) [Stack (Cons (n+block_tag) (List.length es))])
 and
 compile d env t sz s (CTagEq e n) =
   pushret t (emit (compile d env (TCNonTail false) sz s e) [Stack (TagEq (n+block_tag))])
@@ -1131,7 +1131,7 @@ compile d env t sz s (CFun xs cb) =
 and
 compile d env t sz s (CCall e es) =
   let n = List.length es in
-  let (s,_z) = List.fold_left (fun (s,sz) e -> (compile d env (TCNonTail false) sz s e,sz+1)) (s,sz) (e::es) in
+  let s = compile_nts d env sz s (e::es) in
   match t with
   | TCNonTail _ ->
     (* argn, ..., arg2, arg1, Block 0 [CodePtr c; env], *)
@@ -1162,10 +1162,10 @@ compile d env t sz s (CPrim1 uop e) =
   pushret t (emit (compile d env (TCNonTail false) sz s e) [prim1_to_bc uop])
 and
 compile d env t sz s (CPrim2 op e1 e2) = (* TODO: need to detect div by zero? *)
-  pushret t (emit (compile d env (TCNonTail false) (sz+1) (compile d env (TCNonTail false) sz s e1) e2) [Stack (prim2_to_bc op)])
+  pushret t (emit (compile_nts d env sz s [e1;e2]) [Stack (prim2_to_bc op)])
 and
 compile d env t sz s (CUpd e1 e2) =
-  pushret t (emit (compile d env (TCNonTail false) (sz+1) (compile d env (TCNonTail false) sz s e1) e2) [Update; Stack (Cons unit_tag 0)])
+  pushret t (emit (compile_nts d env sz s [e1;e2]) [Update; Stack (Cons unit_tag 0)])
 and
 compile d env t sz s (CIf e1 e2 e3) =
   let s = compile d env (TCNonTail false) sz s e1 in
@@ -1201,6 +1201,11 @@ compile_bindings d env t sz e n s (x::xs) =
   compile_bindings d
   (Pmap.add x (CTLet (sz+(n+1))) env)
   t sz e (n+1) s xs
+and
+compile_nts d env sz s [] = s
+and
+compile_nts d env sz s (e::es) =
+  compile_nts d env (sz+1) (compile d env (TCNonTail false) sz s e) es
 
 (* code env to bytecode *)
 

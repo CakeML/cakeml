@@ -1169,12 +1169,13 @@ val _ = Defn.save_defn pushret_defn;
  val compile_defn = Hol_defn "compile" `
 
 (compile _ env t sz s (CDecl vs) =
+  (case t of TCNonTail T =>
   (case s.decl of (env0,sz0) =>
   let k = sz - sz0 in
   let (s,sz,i,env) =((( ((compile_decl env)) env0) (s,sz,sz0+1,env0)) vs) in
   let s =(( emit s) [(Stack (((Shift (i -(sz0+1))) k)))]) in
    s with<| decl := (env,sz - k) |>
-  ))
+  ) | _ =>(( pushret t) (((emit s) [(Stack ((PushInt i2))); Exception]))) (* should not happen *) ))
 /\
 (compile _ _ t _ s (CRaise err) =((
   pushret t) (((emit s) [(Stack ((PushInt ((error_to_int err))))); Exception]))))
@@ -1192,9 +1193,8 @@ val _ = Defn.save_defn pushret_defn;
 /\
 (compile _ env t sz s (CVar vn) =(( pushret t) ((((compile_varref sz) s) (((FAPPLY  env)  vn))))))
 /\
-(compile d env t sz s (CCon n es) =
-  let (s,_z) =((( FOLDL (\ (s,sz) e . (((((((compile d) env) ((TCNonTail F))) sz) s) e),sz+1))) (s,sz)) es) in((
-  pushret t) (((emit s) [(Stack (((Cons (n+block_tag)) ((LENGTH es)))))]))))
+(compile d env t sz s (CCon n es) =((
+  pushret t) (((emit ((((((compile_nts d) env) sz) s) es))) [(Stack (((Cons (n+block_tag)) ((LENGTH es)))))]))))
 /\
 (compile d env t sz s (CTagEq e n) =((
   pushret t) (((emit (((((((compile d) env) ((TCNonTail F))) sz) s) e))) [(Stack ((TagEq (n+block_tag))))]))))
@@ -1214,7 +1214,7 @@ val _ = Defn.save_defn pushret_defn;
 /\
 (compile d env t sz s (CCall e es) =
   let n =( LENGTH es) in
-  let (s,_z) =((( FOLDL (\ (s,sz) e . (((((((compile d) env) ((TCNonTail F))) sz) s) e),sz+1))) (s,sz)) (e::es)) in
+  let s =((((( compile_nts d) env) sz) s) (e::es)) in
   (case t of
     TCNonTail _ =>
     (* argn, ..., arg2, arg1, Block 0 [CodePtr c; env], *)
@@ -1245,10 +1245,10 @@ val _ = Defn.save_defn pushret_defn;
   pushret t) (((emit (((((((compile d) env) ((TCNonTail F))) sz) s) e))) [(prim1_to_bc uop)]))))
 /\
 (compile d env t sz s (CPrim2 op e1 e2) =(( (* TODO: need to detect div by zero? *)
-  pushret t) (((emit (((((((compile d) env) ((TCNonTail F))) (sz+1)) (((((((compile d) env) ((TCNonTail F))) sz) s) e1))) e2))) [(Stack ((prim2_to_bc op)))]))))
+  pushret t) (((emit ((((((compile_nts d) env) sz) s) [e1;e2]))) [(Stack ((prim2_to_bc op)))]))))
 /\
 (compile d env t sz s (CUpd e1 e2) =((
-  pushret t) (((emit (((((((compile d) env) ((TCNonTail F))) (sz+1)) (((((((compile d) env) ((TCNonTail F))) sz) s) e1))) e2))) [Update;( Stack (((Cons unit_tag) 0)))]))))
+  pushret t) (((emit ((((((compile_nts d) env) sz) s) [e1;e2]))) [Update;( Stack (((Cons unit_tag) 0)))]))))
 /\
 (compile d env t sz s (CIf e1 e2 e3) =
   let s =(((((( compile d) env) ((TCNonTail F))) sz) s) e1) in
@@ -1283,7 +1283,12 @@ val _ = Defn.save_defn pushret_defn;
 (compile_bindings d env t sz e n s (x::xs) =((((((((
   compile_bindings d)
   (((FUPDATE  env) ( x, ((CTLet (sz+(n+1))))))))
-  t) sz) e) (n+1)) s) xs))`;
+  t) sz) e) (n+1)) s) xs))
+/\
+(compile_nts d env sz s [] = s)
+/\
+(compile_nts d env sz s (e::es) =(((((
+  compile_nts d) env) (sz+1)) (((((((compile d) env) ((TCNonTail F))) sz) s) e))) es))`;
 
 val _ = Defn.save_defn compile_defn;
 
