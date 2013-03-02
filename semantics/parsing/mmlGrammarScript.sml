@@ -24,7 +24,8 @@ val mmap_CONG = store_thm(
   Induct >> rw[]);
 val _ = DefnBase.export_cong "mmap_CONG"
 
-val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def"]
+val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
+                                        "option.OPTION_IGNORE_BIND_def"]
 
 (* ----------------------------------------------------------------------
     Define the Mini ML CFG
@@ -223,21 +224,29 @@ val ptree_TypeName_def = Define`
 val assert_def = Define`assert b = if b then SOME() else NONE`
 
 val ptree_StarTypes_def = Define`
-  ptree_StarTypes ptree : ast_t list option =
-    case ptree of
-      Lf _ => NONE
-    | Nd nt args =>
-      if nt = mkNT nStarTypes then
-        case args of
-          [pt] => do ty <- ptree_Type pt ; SOME [ty] od
-        | [pt1; star; pt2] => do
-            (pfx : ast_t list) <- ptree_StarTypes pt1;
-            assert(star = Lf (TK StarT));
-            ty <- ptree_Type pt2;
-            SOME(list$APPEND pfx [ty: ast_t])
-          od
-        | _ => NONE
-      else NONE`;
+  ptree_StarTypes p pt : ast_t list option =
+    case pt of
+        Lf _ => NONE
+      | Nd nt args =>
+        if p ∧ (nt = mkNT nStarTypesP) then
+          case args of
+              [pt0] => ptree_StarTypes F pt0
+            | [lp; pt0; rp] => do assert (lp = Lf (TK LparT)) ;
+                                  assert (rp = Lf (TK RparT)) ;
+                                  ptree_StarTypes F pt0
+                               od
+            | _ => NONE
+        else if ¬p ∧ (nt = mkNT nStarTypes) then
+          case args of
+              [pt0] => do ty <- ptree_Type pt0; SOME([ty]) od
+            | [pt1; star; pt2] => do
+                 assert(star = Lf (TK StarT));
+                 pfx <- ptree_StarTypes F pt1;
+                 ty <- ptree_Type pt2;
+                 SOME(list$APPEND pfx [ty: ast_t])
+              od
+        else NONE
+`;
 
 (*val ptree_TypeDec_def = Define`
   ptree_TypeDec ptree : ast_type_def option =

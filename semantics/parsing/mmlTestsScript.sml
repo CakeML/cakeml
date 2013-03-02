@@ -53,9 +53,11 @@ in
         val _ = diag ("fringe = ", fringe_t)
       in
         if aconv fringe_t ttoks then let
-          val ptree_res = time EVAL ``ptree_Type ^res``
-          val _ = diag ("Semantics ("^term_to_string sem^") to ",
-                        rhs (concl ptree_res))
+          val ptree_res =
+              case Lib.total mk_comb(sem,res) of
+                  NONE => optionSyntax.mk_none bool
+                | SOME t => rhs (concl (time EVAL t))
+          val _ = diag ("Semantics ("^term_to_string sem^") to ", ptree_res)
           val valid_t = ``valid_ptree mmlG ^res``
           val vth = SIMP_CONV (srw_ss())
                               [grammarTheory.valid_ptree_def, mmlG_def,
@@ -104,11 +106,13 @@ val _ = tytest "bool list list" ``[AlphaT "bool"; AlphaT "list"; AlphaT "list"]`
 val _ = tytest "('a,bool list)++"
                ``[LparT; TyvarT "'a"; CommaT; AlphaT "bool"; AlphaT "list";
                   RparT; SymbolT"++"]``
-val _ = parsetest ``nStarTypesP`` ``T`` "'a * bool"
+val _ = parsetest ``nStarTypes`` ``ptree_StarTypes F`` "'a" ``[TyvarT "'a"]``;
+val _ = parsetest ``nStarTypesP`` ``ptree_StarTypes T`` "'a * bool"
                   ``[TyvarT "'a"; StarT; AlphaT "bool"]``
-val _ = parsetest ``nStarTypesP`` ``T`` "('a * bool)"
+val _ = parsetest ``nStarTypesP`` ``ptree_StarTypes T`` "('a * bool)"
                   ``[LparT; TyvarT "'a"; StarT; AlphaT "bool"; RparT]``
-val _ = parsetest ``nStarTypesP`` ``T`` "('a * bool * (bool -> bool))"
+val _ = parsetest ``nStarTypesP`` ``ptree_StarTypes T``
+                  "('a * bool * (bool -> bool))"
                   ``[LparT; TyvarT "'a"; StarT; AlphaT "bool"; StarT;
                      LparT; AlphaT "bool"; ArrowT; AlphaT "bool"; RparT;
                      RparT]``

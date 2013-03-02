@@ -158,7 +158,6 @@ val peg_StarTypesP_def = Define`
            (λx. [Nd (mkNT nStarTypesP) (sumID x)])
 `;
 
-
 val mmltyPEG_def = Define`
   mmltyPEG = <| start := nt (mkNT nStarTypesP) I;
                 rules := FEMPTY |++ [(mkNT nType, peg_Type);
