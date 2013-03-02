@@ -85,7 +85,7 @@ val defs = map EmitML.DEFN
 , defs_to_ldefs_def
 , calculate_ldefs_def
 , push_lab_def
-, cons_closure_def
+, underscore_rule cons_closure_def
 , update_refptr_def
 , underscore_rule compile_closures_def
 , compile_decl_def

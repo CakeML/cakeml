@@ -1034,14 +1034,6 @@ val _ = Defn.save_defn get_labels_defn;
 
 val _ = Defn.save_defn compile_varref_defn;
 
- val emit_ec_defn = Hol_defn "emit_ec" `
-
-(emit_ec env z (sz,s) (CEEnv fv) = (sz+1,(((compile_varref sz) s) (((FAPPLY  env)  fv)))))
-/\
-(emit_ec env z (sz,s) (CERef j) = (sz+1,((emit s) [(Stack ((Load (sz - z - j))))])))`;
-
-val _ = Defn.save_defn emit_ec_defn;
-
 (* calling convention:
  * before: env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
  * thus, since env = stack[sz], argk should be CTArg (2 + n - k)
@@ -1049,9 +1041,9 @@ val _ = Defn.save_defn emit_ec_defn;
  *)
 
 (* closure representation:
- * Block 0 [CodePtr f; Env]
+ * Block 3 [CodePtr f; Env]
  * where Env = Number 0 for empty, or else
- * Block 0 [v1,...,vk]
+ * Block 3 [v1,...,vk]
  * with a value for each free variable
  * (some values may be RefPtrs to other (mutrec) closures)
  *)
@@ -1065,6 +1057,16 @@ val _ = Defn.save_defn emit_ec_defn;
    - for each name, store the refptr back where it was
  *)
 
+ val emit_ec_defn = Hol_defn "emit_ec" `
+
+(emit_ec env z (sz,s) (CEEnv fv) = (sz+1,(((compile_varref sz) s) (((FAPPLY  env)  fv)))))
+/\
+(* sz                                                                                         z *)
+(* e, ..., e, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0,   *)
+(emit_ec env z (sz,s) (CERef j) = (sz+1,((emit s) [(Stack ((Load (sz - z - j))))])))`;
+
+val _ = Defn.save_defn emit_ec_defn;
+
  val push_lab_defn = Hol_defn "push_lab" `
 
 (push_lab d (s,ecs) (xs,INL _) = (s,(0,[])::ecs)) (* should not happen *)
@@ -1076,22 +1078,34 @@ val _ = Defn.save_defn push_lab_defn;
 
  val cons_closure_defn = Hol_defn "cons_closure" `
 
-(cons_closure env0 sz0 nk (s,sz,k) (j,ec) =
+(cons_closure env0 sz0 sz1 nk (s,k) (j,ec) =
+  (* sz1                                                                  sz0 *)
+  (* CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0,     *)
   let s =(( emit s) [(Stack ((Load (nk - k))))]) in
-  let (sz,s) =((( FOLDL (((emit_ec env0) sz0))) (sz,s)) ((REVERSE ec))) in
+  (* CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
+  let (_z,s) =((( FOLDL (((emit_ec env0) sz0))) (sz1+1,s)) ((REVERSE ec))) in
+  (* e_kj, ..., e_k1, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
   let s =(( emit s) [(Stack (if j = 0 then( PushInt i0) else(( Cons 0) j)))]) in
+  (* env_k, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
   let s =(( emit s) [(Stack (((Cons closure_tag) 2)))]) in
+  (* cl_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
   let s =(( emit s) [(Stack ((Store (nk - k))))]) in
-  (s,sz,k+1))`;
+  (* CodePtr nk, ..., cl_k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
+  (s,k+1))`;
 
 val _ = Defn.save_defn cons_closure_defn;
 
  val update_refptr_defn = Hol_defn "update_refptr" `
 
 (update_refptr nk (s,k) =
+  (* nk = nz *)
+  (* cl_nk, ..., cl_1, RefPtr_nz 0, ..., RefPtr_k 0, ..., RefPtr_1 cl_1, *)
   let s =(( emit s) [(Stack ((Load (nk + nk - k))))]) in
-  let s =(( emit s) [(Stack ((Load (nk + 1 - k))))]) in
+  (* RefPtr_k 0, cl_nk, ..., cl_1, RefPtr_nz 0, ..., RefPtr_k 0, ..., RefPtr_1 cl_1, *)
+  let s =(( emit s) [(Stack ((Load (1 + nk - k))))]) in
+  (* cl_k, RefPtr_k 0, cl_nk, ..., cl_1, RefPtr_nz 0, ..., RefPtr_k 0, ..., RefPtr_1 cl_1, *)
   let s =(( emit s) [Update]) in
+  (* cl_nk, ..., cl_1, RefPtr_nz 0, ..., RefPtr_k cl_k, ..., RefPtr_1 cl_1, *)
   (s,k+1))`;
 
 val _ = Defn.save_defn update_refptr_defn;
@@ -1100,14 +1114,19 @@ val _ = Defn.save_defn update_refptr_defn;
 
 (compile_closures d env sz nz s defs =
   let s =((( num_fold (\ s .(( emit s) [(Stack ((PushInt i0))); Ref]))) s) nz) in
+  (* RefPtr_nz 0, ..., RefPtr_2 0, RefPtr_1 0, *)
   let nk =( LENGTH defs) in
   let (s,ecs) =((( FOLDL ((push_lab d))) (s,[])) defs) in
-  let (s,_z,_k) =((( FOLDL ((((cons_closure env) sz) nk))) (s,sz+nz+nk,1)) ((REVERSE ecs))) in
+  (* CodePtr nk, ..., CodePtr 2, CodePtr 1, RefPtr_nz 0, ..., RefPtr_1 0, *)
+  let (s,_k) =((( FOLDL (((((cons_closure env) sz) (sz+nz+nk)) nk))) (s,1)) ((REVERSE ecs))) in
+  (* Block 3 [CodePtr nk, env_nk], ..., Block 3 [CodePtr 1, env_1], RefPtr_nz 0, ..., RefPtr_1 0, *)
   let (s,_k) =((( num_fold ((update_refptr nk))) (s,1)) nz) in
+  (* cl_nk, ..., cl_1, RefPtr_nz cl_nz, ..., RefPtr_1 cl_1, *)
   let k = nk - 1 in(((
   num_fold (\ s .(( emit s) [(Stack ((Store k)))]))) s) nz))`;
 
 val _ = Defn.save_defn compile_closures_defn;
+  (* cl_nk, ..., cl_1, *)
 
  val compile_decl_defn = Hol_defn "compile_decl" `
 
