@@ -162,9 +162,9 @@ val abs2let_thm = prove(
 
 val let_id_def = Define `
   (let_id (Let NONE v NONE x y) =
-     if (y = Var v NONE) then x else Let NONE v NONE x y) /\
+     if (y = Var (Short v) NONE) then x else Let NONE v NONE x y) /\
   (let_id (Let (SOME i) v (SOME t) x y) =
-     if (y = Var v (SOME [t])) /\ (i = 0) then x else Let (SOME i) v (SOME t) x y) /\
+     if (y = Var (Short v) (SOME [t])) /\ (i = 0) then x else Let (SOME i) v (SOME t) x y) /\
   (let_id rest = rest)`;
 
 val let_id_thm = prove(
