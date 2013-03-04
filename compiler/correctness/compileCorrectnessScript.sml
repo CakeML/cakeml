@@ -9,7 +9,7 @@ val exp_pred_def = tDefine "exp_pred"`
   (exp_pred (Lit _) = T) ∧
   (exp_pred (Con _ es) = EVERY exp_pred es) ∧
   (exp_pred (Var _ _) = T) ∧
-  (exp_pred (Fun _ _ _) = F) ∧
+  (exp_pred (Fun _ _ e) = exp_pred e) ∧
   (exp_pred (Uapp _ _) = F) ∧
   (exp_pred (App (Opn _) e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (App (Opb _) e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
@@ -38,7 +38,8 @@ val Cexp_pred_def = tDefine "Cexp_pred"`
   (Cexp_pred (CProj e _) = Cexp_pred e) ∧
   (Cexp_pred (CLet _ e0 e) = Cexp_pred e0 ∧ Cexp_pred e) ∧
   (Cexp_pred (CLetfun _ _ _ _) = F) ∧
-  (Cexp_pred (CFun _ _) = F) ∧
+  (Cexp_pred (CFun _ (INL e)) = Cexp_pred e) ∧
+  (Cexp_pred (CFun _ _) = T) ∧
   (Cexp_pred (CCall e es) = Cexp_pred e ∧ EVERY Cexp_pred es) ∧
   (Cexp_pred (CPrim1 _ _) = F) ∧
   (Cexp_pred (CPrim2 _ e1 e2) = Cexp_pred e1 ∧ Cexp_pred e2) ∧
@@ -60,40 +61,6 @@ val exp_pred_Cexp_pred = store_thm("exp_pred_Cexp_pred",
     rw[] >> fs[] ) >>
   fs[EVERY_MEM,FORALL_PROD] >>
   Cases_on `pat_to_Cpat m [] p` >> fs[])
-
-val Cexp_pred_free_labs = store_thm("Cexp_pred_free_labs",
-  ``∀e. Cexp_pred e ⇒ (free_labs e = {})``,
-  ho_match_mp_tac Cexp_pred_ind >> rw[IMAGE_EQ_SING] >> fs[EVERY_MEM])
-
-val Cexp_pred_free_bods = store_thm("Cexp_pred_free_bods",
-  ``∀e. Cexp_pred e ⇒ (free_bods e = [])``,
-  ho_match_mp_tac Cexp_pred_ind >> rw[FLAT_EQ_NIL] >> fs[EVERY_MEM,MEM_MAP] >> PROVE_TAC[])
-
-val Cexp_pred_repeat_label_closures = store_thm("Cexp_pred_repeat_label_closures",
-  ``(∀e n ac. Cexp_pred e ⇒ (repeat_label_closures e n ac = (e,n,ac))) ∧
-    (∀n ac ls. EVERY (Cexp_pred o SND) ls ⇒ (label_code_env n ac ls = (n,(REVERSE ls)++ac)))``,
-  ho_match_mp_tac repeat_label_closures_ind >>
-  strip_tac >- (
-    rw[] >>
-    rw[repeat_label_closures_def] >>
-    imp_res_tac (CONJUNCT1 label_closures_thm) >>
-    imp_res_tac Cexp_pred_free_labs >>
-    imp_res_tac Cexp_pred_free_bods >>
-    fs[LET_THM] >>
-    fs[Abbr`s`] ) >>
-  strip_tac >- rw[repeat_label_closures_def] >>
-  rw[repeat_label_closures_def] >> fs[])
-
-val Cexp_pred_calculate_ldefs = store_thm("Cexp_pred_calculate_ldefs",
-  ``∀c ls e. Cexp_pred e ⇒ (calculate_ldefs c ls e = ls)``,
-  ho_match_mp_tac calculate_ldefs_ind >>
-  rw[calculate_ldefs_def] >> (
-  qmatch_abbrev_tac `FOLDL f ls es = ls` >>
-  qsuff_tac `($= ls) (FOLDL f ls es)` >- rw[] >>
-  ho_match_mp_tac FOLDL_invariant >>
-  rw[Abbr`f`] >> match_mp_tac EQ_SYM >>
-  first_x_assum (match_mp_tac o MP_CANON) >>
-  fs[EVERY_MEM]))
 
 val repl_exp_contab = store_thm("repl_exp_contab",
   ``(repl_exp rs exp = (rs',c)) ==> (rs'.contab = rs.contab)``,
