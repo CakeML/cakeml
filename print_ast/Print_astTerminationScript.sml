@@ -52,6 +52,7 @@ val (exp_to_tok_tree_def, exp_to_tok_tree_ind) =
   TRY (induct_on `pes`) >>
   TRY (induct_on `es`) >>
   TRY (induct_on `v50`) >>
+  TRY (induct_on `v51`) >>
   rw [exp_size_def] >>
   fs [exp_size_def] >>
   rw [exp_size_def] >>
@@ -64,7 +65,12 @@ val (type_to_tok_tree_def, type_to_tok_tree_ind) =
   wf_rel_tac `measure t_size` >>
   srw_tac [ARITH_ss] [] >>
   srw_tac [ARITH_ss] [] >>
-  induct_on `v14` >>
+  TRY (induct_on `ts`) >>
+  TRY (induct_on `v16`) >>
+  rw [] >>
+  fs [t_size_def] >>
+  TRY (cases_on `ts`) >>
+  TRY (cases_on `v16`) >>
   rw [] >>
   fs [t_size_def] >>
   res_tac >>
