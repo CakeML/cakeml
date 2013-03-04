@@ -221,11 +221,6 @@ val env_rs_def = Define`
     let Cenv = alist_to_fmap (env_to_Cenv (cmap rs.contab) env) in
     Cenv_bs c sm cls s Cenv rs.renv rs.rsz bs`
 
-(* TODO: move *)
-val SWAP_REVERSE = store_thm("SWAP_REVERSE",
-  ``!l1 l2. (l1 = REVERSE l2) = (l2 = REVERSE l1)``,
-  SRW_TAC[][EQ_IMP_THM])
-
 val compile_varref_thm = store_thm("compile_varref_thm",
   ``∀bs bc0 code bc1 sz cs b bv bs' cls.
       ((compile_varref sz cs b).out = REVERSE code ++ cs.out) ∧
@@ -1168,24 +1163,6 @@ val jmpbc_thm = store_thm("jmpbc_thm",
   REWRITE_TAC[GSYM CONS_APPEND,GSYM APPEND_ASSOC] >>
   rw[])
 
-(* TODO: move *)
-val EVERY2_THM = store_thm("EVERY2_THM",
-  ``(!P ys. EVERY2 P [] ys = (ys = [])) /\
-    (!P yys x xs. EVERY2 P (x::xs) yys = ?y ys. (yys = y::ys) /\ (P x y) /\ (EVERY2 P xs ys)) /\
-    (!P xs. EVERY2 P xs [] = (xs = [])) /\
-    (!P xxs y ys. EVERY2 P xxs (y::ys) = ?x xs. (xxs = x::xs) /\ (P x y) /\ (EVERY2 P xs ys))``,
-  REPEAT CONJ_TAC THEN GEN_TAC THEN TRY (
-    SRW_TAC[][EVERY2_EVERY,LENGTH_NIL] THEN
-    SRW_TAC[][EQ_IMP_THM] THEN NO_TAC ) THEN
-  Cases THEN SRW_TAC[][EVERY2_EVERY])
-val _ = export_rewrites["EVERY2_THM"]
-
-val REVERSE_INV = store_thm("REVERSE_INV",
-  ``!l1 l2. (REVERSE l1 = REVERSE l2) = (l1 = l2)``,
-  Induct THEN SRW_TAC[][] THEN
-  Cases_on`l2` THEN SRW_TAC[][EQ_IMP_THM])
-val _ = export_rewrites["REVERSE_INV"]
-
 val with_same_refs = store_thm("with_same_refs",
   ``(x with refs := x.refs) = x``,
   rw[bc_state_component_equality])
@@ -1294,39 +1271,6 @@ val find_index_MEM = store_thm("find_index_MEM",
   ``∀ls x n. ¬MEM x ls = (find_index x ls n = NONE)``,
   Induct >> rw[find_index_def])
 
-val FLOOKUP_DRESTRICT = store_thm("FLOOKUP_DRESTRICT",
-  ``!fm s k. FLOOKUP (DRESTRICT fm s) k = if k IN s then FLOOKUP fm k else NONE``,
-  SRW_TAC[][FLOOKUP_DEF,DRESTRICT_DEF] THEN FULL_SIMP_TAC std_ss [])
-
-val CARD_REST = store_thm("CARD_REST",
-  ``!s. FINITE s /\ s <> {} ==> (CARD (REST s) = CARD s - 1)``,
-  SRW_TAC[][] THEN
-  IMP_RES_TAC CHOICE_INSERT_REST THEN
-  POP_ASSUM (fn th => CONV_TAC (RAND_CONV (REWRITE_CONV [Once(SYM th)]))) THEN
-  Q.SPEC_THEN`REST s`MP_TAC CARD_INSERT THEN SRW_TAC[][] THEN
-  FULL_SIMP_TAC(srw_ss())[REST_DEF])
-
-val LIST_EQ_MAP_PAIR = store_thm("LIST_EQ_MAP_PAIR",
-  ``!l1 l2. (MAP FST l1 = MAP FST l2) /\ (MAP SND l1 = MAP SND l2) ==> (l1 = l2)``,
-  SRW_TAC[][MAP_EQ_EVERY2,EVERY2_EVERY,EVERY_MEM,LIST_EQ_REWRITE,FORALL_PROD] THEN
-  REV_FULL_SIMP_TAC (srw_ss()++DNF_ss) [MEM_ZIP] THEN
-  METIS_TAC[pair_CASES,PAIR_EQ])
-
-val FUPDATE_LIST_ALL_DISTINCT_PERM = store_thm("FUPDATE_LIST_ALL_DISTINCT_PERM",
-  ``!ls ls' fm. ALL_DISTINCT (MAP FST ls) /\ PERM ls ls' ==> (fm |++ ls = fm |++ ls')``,
-  Induct >> rw[] >>
-  fs[sortingTheory.PERM_CONS_EQ_APPEND] >>
-  rw[FUPDATE_LIST_THM] >>
-  PairCases_on`h` >> fs[] >>
-  imp_res_tac FUPDATE_FUPDATE_LIST_COMMUTES >>
-  match_mp_tac EQ_TRANS >>
-  qexists_tac `(fm |++ (M ++ N)) |+ (h0,h1)` >>
-  conj_tac >- metis_tac[sortingTheory.ALL_DISTINCT_PERM,sortingTheory.PERM_MAP] >>
-  rw[FUPDATE_LIST_APPEND] >>
-  `h0 ∉ set (MAP FST N)` by metis_tac[sortingTheory.PERM_MEM_EQ,MEM_MAP,MEM_APPEND] >>
-  imp_res_tac FUPDATE_FUPDATE_LIST_COMMUTES >>
-  rw[FUPDATE_LIST_THM])
-
 val find_index_LEAST_EL = store_thm("find_index_LEAST_EL",
   ``∀ls x n. find_index x ls n = if MEM x ls then SOME (n + (LEAST n. x = EL n ls)) else NONE``,
   Induct >- rw[find_index_def] >>
@@ -1351,6 +1295,17 @@ val find_index_LEAST_EL = store_thm("find_index_LEAST_EL",
     `n + 1 < m + 1` by DECIDE_TAC >>
     res_tac >> fs[GSYM ADD1] ) >>
   DECIDE_TAC )
+
+val find_index_ALL_DISTINCT_EL_eq = store_thm("find_index_ALL_DISTINCT_EL_eq",
+  ``∀ls. ALL_DISTINCT ls ⇒ ∀x m i. (find_index x ls m = SOME i) =
+      ∃j. (i = m + j) ∧ j < LENGTH ls ∧ (x = EL j ls)``,
+  rw[EQ_IMP_THM] >- (
+    imp_res_tac find_index_LESS_LENGTH >>
+    fs[find_index_LEAST_EL] >> srw_tac[ARITH_ss][] >>
+    numLib.LEAST_ELIM_TAC >>
+    conj_tac >- PROVE_TAC[MEM_EL] >>
+    fs[EL_ALL_DISTINCT_EL_EQ] ) >>
+  PROVE_TAC[find_index_ALL_DISTINCT_EL])
 
 val fmap_rel_OPTREL_FLOOKUP = store_thm("fmap_rel_OPTREL_FLOOKUP",
   ``fmap_rel R f1 f2 = ∀k. OPTREL R (FLOOKUP f1 k) (FLOOKUP f2 k)``,
@@ -1608,42 +1563,6 @@ val bind_fv_thm = store_thm("bind_fv_thm",
   AP_THM_TAC >> AP_TERM_TAC >>
   simp[Abbr`args'`,Abbr`args`,Abbr`fvl`,Abbr`fvl'`] >>
   simp[FUPDATE_LIST_THM] )
-
-(* TODO: move*)
-val IMAGE_EL_count_LENGTH = store_thm("IMAGE_EL_count_LENGTH",
-  ``∀f ls. IMAGE (λn. f (EL n ls)) (count (LENGTH ls)) = IMAGE f (set ls)``,
-  rw[EXTENSION,MEM_EL] >> PROVE_TAC[])
-
-val GENLIST_EL_MAP = store_thm("GENLIST_EL_MAP",
-  ``!f ls. GENLIST (λn. f (EL n ls)) (LENGTH ls) = MAP f ls``,
-  gen_tac >> Induct >> rw[GENLIST_CONS,combinTheory.o_DEF])
-
-val LENGTH_FILTER_LEQ_MONO = store_thm("LENGTH_FILTER_LEQ_MONO",
-  ``!P Q. (!x. P x ==> Q x) ==> !ls. (LENGTH (FILTER P ls) <= LENGTH (FILTER Q ls))``,
-  rpt gen_tac >> strip_tac >>
-  Induct >> rw[] >>
-  fsrw_tac[ARITH_ss][] >>
-  PROVE_TAC[])
-
-val find_index_ALL_DISTINCT_EL_eq = store_thm("find_index_ALL_DISTINCT_EL_eq",
-  ``∀ls. ALL_DISTINCT ls ⇒ ∀x m i. (find_index x ls m = SOME i) =
-      ∃j. (i = m + j) ∧ j < LENGTH ls ∧ (x = EL j ls)``,
-  rw[EQ_IMP_THM] >- (
-    imp_res_tac find_index_LESS_LENGTH >>
-    fs[find_index_LEAST_EL] >> srw_tac[ARITH_ss][] >>
-    numLib.LEAST_ELIM_TAC >>
-    conj_tac >- PROVE_TAC[MEM_EL] >>
-    fs[EL_ALL_DISTINCT_EL_EQ] ) >>
-  PROVE_TAC[find_index_ALL_DISTINCT_EL])
-
-val ALL_DISTINCT_MEM_ZIP_MAP = store_thm("ALL_DISTINCT_MEM_ZIP_MAP",
-  ``!f x ls. ALL_DISTINCT ls ==> (MEM x (ZIP (ls, MAP f ls)) = MEM (FST x) ls /\ (SND x = f (FST x)))``,
-  GEN_TAC THEN Cases THEN
-  SRW_TAC[][MEM_ZIP,FORALL_PROD] THEN
-  SRW_TAC[][EQ_IMP_THM] THEN
-  SRW_TAC[][EL_MAP,MEM_EL] THEN
-  FULL_SIMP_TAC (srw_ss()) [EL_ALL_DISTINCT_EL_EQ,MEM_EL] THEN
-  METIS_TAC[EL_MAP])
 
 val FDOM_bind_fv = store_thm("FDOM_bind_fv",
   ``∀ns xs az i fvs env ecl ec.

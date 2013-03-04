@@ -1724,9 +1724,6 @@ strip_tac >- (
   first_x_assum (qspecl_then [`s2`,`env2`,`env3`] mp_tac) >>
   fs[DRESTRICT_IS_FEMPTY,FUNION_FEMPTY_1] >> rw[] >>
   fs[EVERY2_EVERY] >>
-  Cases_on`v'`>>fs[] >>
-  qmatch_assum_rename_tac`LENGTH t = 1`[] >>
-  Cases_on`t`>>fs[] >> fs[LENGTH_NIL] >> rw[] >>
   qmatch_assum_rename_tac `syneq c v1 w1`[] >>
   qmatch_assum_rename_tac `syneq c v2 w2`[] >>
   Cases_on`ress'`>>fs[]>>rw[] >>
@@ -1764,9 +1761,6 @@ strip_tac >- (
   first_x_assum (qspecl_then [`s2`,`env2`,`env3`] mp_tac) >>
   fs[DRESTRICT_IS_FEMPTY,FUNION_FEMPTY_1] >> rw[] >>
   fs[EVERY2_EVERY] >>
-  Cases_on`v'`>>fs[] >>
-  qmatch_assum_rename_tac`LENGTH t = 1`[] >>
-  Cases_on`t`>>fs[] >> fs[LENGTH_NIL] >> rw[] >>
   qmatch_assum_rename_tac `syneq c v1 w1`[] >>
   qmatch_assum_rename_tac `syneq c v2 w2`[] >>
   Cases_on`ress'`>>fs[]>>rw[] >>

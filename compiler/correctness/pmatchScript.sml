@@ -1389,7 +1389,6 @@ val Cpmatch_syneq = store_thm("Cpmatch_syneq",
   strip_tac >- rw[Once Cpmatch_cases] >>
   rw[] >>
   rw[Once Cpmatch_cases] >>
-  Cases_on `ws` >> fs[] >>
   res_tac >>
   srw_tac[DNF_ss][] >>
   metis_tac[fmap_rel_FUNION_rels])
@@ -1415,7 +1414,6 @@ val Cpnomatch_syneq = store_thm("Cpnomatch_syneq",
     fs[] >> first_x_assum match_mp_tac >>
     qexists_tac`c` >> rw[] >>
     NO_TAC) >>
-  Cases_on `ws` >> fs[] >>
   rw[Once Cpnomatch_cases] >>
   fs[EVERY2_EVERY] >>
   metis_tac[Cpmatch_syneq])
