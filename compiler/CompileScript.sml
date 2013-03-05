@@ -1137,7 +1137,7 @@ val _ = Defn.save_defn compile_closures_defn;
         ((case(( FAPPLY  env0)  v) of
            CTLet x =>(( emit ((((compile_varref sz) s) (((FAPPLY  env1)  v)))))
                            [(Stack ((Store (sz - x))))])
-         | _ =>(( emit s) [(Stack ((PushInt i2))); Exception]) (* should not happen *)
+         | _ =>(( emit s) [(Stack ((PushInt i2))); PopExc]) (* should not happen *)
          ), sz, i, env)
       else
         ((((compile_varref sz) s) (((FAPPLY  env1)  v))),
@@ -1175,10 +1175,10 @@ val _ = Defn.save_defn pushret_defn;
   let (s,sz,i,env) =((( ((compile_decl env)) env0) (s,sz,sz0+1,env0)) vs) in
   let s =(( emit s) [(Stack (((Shift (i -(sz0+1))) k)))]) in
    s with<| decl := (env,sz - k) |>
-  ) | _ =>(( pushret t) (((emit s) [(Stack ((PushInt i2))); Exception]))) (* should not happen *) ))
+  ) | _ =>(( pushret t) (((emit s) [(Stack ((PushInt i2))); PopExc]))) (* should not happen *) ))
 /\
 (compile _ _ t _ s (CRaise err) =((
-  pushret t) (((emit s) [(Stack ((PushInt ((error_to_int err))))); Exception]))))
+  pushret t) (((emit s) [(Stack ((PushInt ((error_to_int err))))); PopExc]))))
 /\
 (compile d env t sz s (CHandle e1 x e2) =(((((( compile d) env) t) sz) s) e1))
 /\

@@ -208,7 +208,7 @@ val init_bc_state_def =  Define`
     code := [];
     pc := 0;
     refs := FEMPTY;
-    exstack := [];
+    handler := 0;
     inst_length := ARB |>`
 
 val repl_def = Define`

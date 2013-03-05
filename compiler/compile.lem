@@ -1060,7 +1060,7 @@ compile_decl env1 env0 =
         (match Pmap.find v env0 with
          | CTLet x -> emit (compile_varref sz s (Pmap.find v env1))
                            [Stack (Store (sz - x))]
-         | _ -> emit s [Stack (PushInt i2); Exception] (* should not happen *)
+         | _ -> emit s [Stack (PushInt i2); PopExc] (* should not happen *)
          end, sz, i, env)
       else
         (compile_varref sz s (Pmap.find v env1),
@@ -1092,10 +1092,10 @@ compile _ env t sz s (CDecl vs) =
   let (s,sz,i,env) = (compile_decl env) env0 (s,sz,sz0+1,env0) vs in
   let s = emit s [Stack (Shift (i-(sz0+1)) k)] in
   <| s with decl = (env,sz-k) |>
-  end | _ -> pushret t (emit s [Stack (PushInt i2); Exception]) (* should not happen *) end
+  end | _ -> pushret t (emit s [Stack (PushInt i2); PopExc]) (* should not happen *) end
 and
 compile _ _ t _ s (CRaise err) =
-  pushret t (emit s [Stack (PushInt (error_to_int err)); Exception])
+  pushret t (emit s [Stack (PushInt (error_to_int err)); PopExc])
 and
 compile d env t sz s (CHandle e1 x e2) = compile d env t sz s e1
 and

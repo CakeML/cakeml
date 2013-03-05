@@ -726,7 +726,7 @@ val lookup_ct_imp_incsz = store_thm("lookup_ct_imp_incsz",
 val Cenv_bs_imp_incsz = store_thm("Cenv_bs_imp_incsz",
   ``∀c sm cls s env renv rsz bs bs'.
     Cenv_bs c sm cls s env renv rsz bs ∧
-    (∃v p e. (bs' = bs with <| stack := v::bs.stack; pc := p; exstack := e |>))
+    (∃v p e. (bs' = bs with <| stack := v::bs.stack; pc := p; handler := e |>))
     ⇒
     Cenv_bs c sm cls s env renv (rsz+1) bs'``,
   rw[Cenv_bs_def,fmap_rel_def,s_refs_def,FDOM_DRESTRICT] >> rw[] >> fs[] >- (
@@ -741,7 +741,7 @@ val Cenv_bs_imp_decsz = store_thm("Cenv_bs_imp_decsz",
   ``∀c sm cls s env renv rsz bs bs'.
     Cenv_bs c sm cls s env renv (rsz+1) bs ∧
       (CTLet (rsz+1) ∉ FRANGE renv) ∧
-      (∃v p e. bs = bs' with <| stack := v::bs'.stack; pc := p; exstack := e |>) ⇒
+      (∃v p e. bs = bs' with <| stack := v::bs'.stack; pc := p; handler := e |>) ⇒
     Cenv_bs c sm cls s env renv rsz bs'``,
   rw[Cenv_bs_def,fmap_rel_def,s_refs_def,FDOM_DRESTRICT] >> fs[] >- (
     qmatch_assum_rename_tac `z ∈ FDOM env`[] >>
@@ -764,7 +764,7 @@ val Cenv_bs_CTLet_bound = store_thm("Cenv_bs_CTLet_bound",
 val Cenv_bs_pops = store_thm("Cenv_bs_pops",
   ``∀vs c sm cls s env renv rsz bs bs'. Cenv_bs c sm cls s env renv (rsz + LENGTH vs) bs ∧
     (∀n. CTLet n ∈ FRANGE renv ⇒ n ≤ rsz) ∧
-    (∃p e. bs = bs' with <| stack := vs ++ bs'.stack; pc := p; exstack := e|>)
+    (∃p e. bs = bs' with <| stack := vs ++ bs'.stack; pc := p; handler := e|>)
     ⇒ Cenv_bs c sm cls s env renv rsz bs'``,
   Induct >> rw[] >- ( fs[Cenv_bs_def,s_refs_def] >> fs[]) >>
   first_x_assum match_mp_tac >>
