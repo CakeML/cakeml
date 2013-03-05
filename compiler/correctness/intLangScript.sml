@@ -341,7 +341,7 @@ val CevalPrim2_Clocs = store_thm("CevaluatePrim2_Clocs",
   ``∀p2 v1 v2 v. (CevalPrim2 p2 v1 v2 = Rval v) ⇒ (all_Clocs v = {})``,
   Cases >> fs[] >> Cases >> fs[] >>
   TRY (Cases_on`l` >> fs[] >> Cases >> fs[] >> Cases_on `l` >> fs[] >> rw[] >> rw[]) >>
-  rw[] >> rw[])
+  Cases >> fs[] >> rw[] >> rw[])
 
 val Cevaluate_Clocs = store_thm("Cevaluate_Clocs",
   ``(∀c d s env exp res. Cevaluate c d s env exp res ⇒
