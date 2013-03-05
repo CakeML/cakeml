@@ -127,7 +127,7 @@ val _ = type_abbrev( "ast_specs" , ``: ast_spec list``);
 
 val _ = Hol_datatype `
  ast_top =
-    Ast_Tmod of modN => ast_specs => ast_decs
+    Ast_Tmod of modN => ast_specs option => ast_decs
   | Ast_Tdec of ast_dec`;
 
 
@@ -365,7 +365,7 @@ val _ = Defn.save_defn elab_spec_defn;
 (elab_prog type_bound ctors bound (Ast_Tmod mn spec ds::prog) =
   let ds' = elab_decs (SOME mn) type_bound ctors bound ds in
   let prog' = elab_prog type_bound ctors bound prog in
-    Tmod mn (elab_spec type_bound spec) ds' ::prog')`;
+    Tmod mn (option_map (elab_spec type_bound) spec) ds' ::prog')`;
 
 val _ = Defn.save_defn elab_prog_defn;
 val _ = export_theory()

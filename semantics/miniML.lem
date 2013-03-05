@@ -228,7 +228,7 @@ type spec =
 type specs = list spec
 
 type top 'a =
-  | Tmod of modN * specs * decs 'a
+  | Tmod of modN * option specs * decs 'a
   | Tdec of dec 'a
 
 type prog 'a = list (top 'a)
@@ -1828,6 +1828,45 @@ type_ds mn menv (merge cenv' cenv) (bind_var_list2 tenv' tenv) ds cenv'' tenv''
 ==>
 type_ds mn menv cenv tenv (d::ds) (merge cenv'' cenv') (merge tenv'' tenv')
 
+val check_signature : option modN -> tenvC -> env varN (num * t) -> option specs -> tenvC -> env varN (num * t) -> bool
+
+indreln
+
+forall mn cenv tenv.
+true
+==>
+check_signature mn cenv tenv None cenv tenv
+
+and
+
+forall mn cenv tenv.
+true
+==>
+check_signature mn cenv tenv (Some []) emp emp
+
+and
+
+forall mn cenv tenv x t specs tvs t' cenv' tenv'.
+(lookup x tenv = Some (tvs,t')) &&
+check_signature mn cenv tenv (Some specs) cenv' tenv' 
+==>
+check_signature mn cenv tenv (Some (Sval x t :: specs)) cenv' (bind x (tvs, t) tenv') 
+
+and
+
+forall mn cenv tenv td specs cenv' tenv'.
+check_signature mn cenv tenv (Some specs) cenv' tenv'
+==>
+check_signature mn cenv tenv (Some (Stype td :: specs)) (merge (build_ctor_tenv mn td) cenv') tenv'
+
+and
+
+forall mn cenv tenv tn specs cenv' tenv'.
+check_signature mn cenv tenv (Some specs) cenv' tenv'
+==>
+check_signature mn cenv tenv (Some (Stype_opq tn :: specs)) cenv' tenv'
+
+
 indreln
 
 forall menv cenv tenv.
@@ -1845,12 +1884,13 @@ type_prog menv cenv tenv (Tdec d :: ds) menv'' (merge cenv'' cenv') (merge tenv'
 
 and
 
-forall menv cenv tenv mn spec ds1 ds2 cenv' menv'' tenv' cenv'' tenv''.
+forall menv cenv tenv mn spec ds1 ds2 cenv' menv'' tenv' cenv'' tenv'' cenv''' tenv'''.
 not (List.mem mn (List.map fst menv)) &&
 type_ds (Some mn) menv cenv tenv ds1 cenv' tenv' &&
-type_prog (bind mn tenv' menv) (merge cenv' cenv) tenv ds2 menv'' cenv'' tenv''
+check_signature (Some mn) cenv' tenv' spec cenv'' tenv'' &&
+type_prog (bind mn tenv'' menv) (merge cenv'' cenv) tenv ds2 menv'' cenv''' tenv'''
 ==>
-type_prog menv cenv tenv (Tmod mn spec ds1 :: ds2) (merge menv'' [(mn,tenv')]) (merge cenv'' cenv') tenv''
+type_prog menv cenv tenv (Tmod mn spec ds1 :: ds2) (merge menv'' [(mn,tenv'')]) (merge cenv''' cenv'') tenv'''
 
 (* ------------------------------------------------------------------------ *) 
 (*   Auxiliary definitions used in the proofs                               *)

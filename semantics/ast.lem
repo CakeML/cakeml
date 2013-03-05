@@ -105,7 +105,7 @@ type ast_spec =
 type ast_specs = list ast_spec
 
 type ast_top =
-  | Ast_Tmod of modN * ast_specs * ast_decs
+  | Ast_Tmod of modN * option ast_specs * ast_decs
   | Ast_Tdec of ast_dec
 
 type ast_prog = list ast_top
@@ -311,4 +311,4 @@ and
 elab_prog type_bound ctors bound (Ast_Tmod mn spec ds::prog) =
   let ds' = elab_decs (Some mn) type_bound ctors bound ds in
   let prog' = elab_prog type_bound ctors bound prog in
-    Tmod mn (elab_spec type_bound spec) ds'::prog'
+    Tmod mn (option_map (elab_spec type_bound) spec) ds'::prog'
