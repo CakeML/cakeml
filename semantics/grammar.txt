@@ -116,11 +116,13 @@ TypeName ::= TyOp
 
 TyVarList ::= TyVar | TyVar "," TyVarList
 
-Dconstructor ::= V "of" StarTypes
+Dconstructor ::= V "of" StarTypesP
                | V
 
 DtypeCons ::= Dconstructor
             | Dconstructor "|" DtypeCons
+
+StarTypesP ::= "(" StarTypes ")" | StarTypes
 
 StarTypes ::=
             | DType
