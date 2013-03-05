@@ -43,7 +43,8 @@ val _ = Hol_datatype `
   | CallPtr                 (* call based on code pointer *)
   | PushPtr of loc          (* push a CodePtr onto stack *)
   | Return                  (* pop return address, jump *)
-  | Exception               (* restore stack, jump *)
+  | PushExc                 (* push exception handler *)
+  | PopExc                  (* pop exception handler *)
   | Ref                     (* create a new ref cell *)
   | Deref                   (* dereference a ref cell *)
   | Update`;
@@ -64,8 +65,9 @@ val _ = Hol_datatype `
     Number of int                  (* integer *)
   | Block of num => bc_value list   (* cons block: tag and payload *)
   | CodePtr of num                 (* code pointer *)
-  | RefPtr of num`;
-                  (* pointer to ref cell *)
+  | RefPtr of num                  (* pointer to ref cell *)
+  | StackPtr of num`;
+                (* pointer into stack *)
 
 val _ = Hol_datatype `
 
@@ -75,7 +77,7 @@ val _ = Hol_datatype `
       code : bc_inst list;
       pc : num;
       refs : (num, bc_value) fmap;
-      exstack : (num # num) list;
+      handler : num;
       (* artificial state components *)
       inst_length : bc_inst -> num
    |>`;
@@ -264,13 +266,18 @@ bc_next s ((bump_pc s) with<| stack := ((CodePtr n))::s.stack |>))
 ==>
 bc_next s (s with<| pc := n; stack := x::xs|>))
 /\
-(! s p m es x xs.
-((bc_fetch s) =( SOME Exception))
-/\ (s.stack = x::xs)
-/\ (s.exstack = (p,m)::es)
-/\ m <=( LENGTH xs)
+(! s.
+((bc_fetch s) =( SOME PushExc)) (* parens: Lem sucks *)
 ==>
-bc_next s (s with<| pc := p; stack := x::((DROP ((LENGTH xs) - m)) xs)|>))
+bc_next s (s with<| handler :=( LENGTH s.stack) ;
+                    stack := ((StackPtr s.handler))::s.stack|>))
+/\
+(! s sp x l1 l2.
+((bc_fetch s) =( SOME PopExc)) /\
+(s.stack = x::l1 ++( StackPtr sp)::l2) /\
+((LENGTH l2) = s.handler)
+==>
+bc_next s (s with<| handler := sp; stack := x::l2|>))
 /\
 (! s x xs ptr.
 ((bc_fetch s) =( SOME Ref))
