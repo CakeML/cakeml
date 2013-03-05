@@ -282,7 +282,7 @@ val _ = type_abbrev((*  'a *) "decs" , ``: ( 'a dec) list``);
 
 val _ = Hol_datatype `
  spec =
-    Sval of t
+    Sval of varN => t
   | Stype of type_def
   | Stype_opq of typeN`;
 
