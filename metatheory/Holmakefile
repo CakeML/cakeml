@@ -6,9 +6,7 @@ HOLHEAP = miniml-heap1
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = ../semantics/MiniMLTheory \
-            ../semantics/MiniMLTerminationTheory \
-            ../print_ast/Print_astTheory \
-            ../print_ast/Print_astTerminationTheory
+            ../semantics/MiniMLTerminationTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

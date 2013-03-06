@@ -247,7 +247,7 @@ exp_to_tok_tree indent (Con c es) =
   join_trees (L CommaT) (List.map (exp_to_tok_tree indent) es) ^^ 
   L RparT ^^ L RparT
 and
-exp_to_tok_tree indent (Var vid _) =
+exp_to_tok_tree indent (Var vid) =
   id_to_tok_tree vid
 and
 exp_to_tok_tree indent (Fun v _ e) =

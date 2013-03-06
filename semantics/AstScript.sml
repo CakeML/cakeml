@@ -208,15 +208,15 @@ val _ = Define `
 (elab_e ctors bound (Ast_Lit l) =
   Lit l)
 /\ (elab_e ctors bound (Ast_Var (Long m n)) =
-  Var (Long m n) NONE)
+  Var (Long m n))
 /\ (elab_e ctors bound (Ast_Var (Short n)) =
   (case lookup n bound of
-      NONE => Var (Short n) NONE
-    | SOME Is_local => Var (Short n) NONE
+      NONE => Var (Short n)
+    | SOME Is_local => Var (Short n)
     | SOME (Is_op op) =>
-        Fun "x" NONE (Fun "y" NONE (App op (Var (Short "x") NONE) (Var (Short "y") NONE)))
+        Fun "x" NONE (Fun "y" NONE (App op (Var (Short "x")) (Var (Short "y"))))
     | SOME (Is_uop uop) =>
-        Fun "x" NONE (Uapp uop (Var (Short "x") NONE))
+        Fun "x" NONE (Uapp uop (Var (Short "x")))
   ))
 /\ 
 (elab_e ctors bound (Ast_Con (Long mn cn) es) =

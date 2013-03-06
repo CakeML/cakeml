@@ -173,15 +173,15 @@ and
 elab_e ctors bound (Ast_Lit l) =
   Lit l
 and elab_e ctors bound (Ast_Var (Long m n)) =
-  Var (Long m n) None
+  Var (Long m n)
 and elab_e ctors bound (Ast_Var (Short n)) =
   match lookup n bound with
-    | None -> Var (Short n) None
-    | Some Is_local -> Var (Short n) None
+    | None -> Var (Short n)
+    | Some Is_local -> Var (Short n)
     | Some (Is_op op) ->
-        Fun "x" None (Fun "y" None (App op (Var (Short "x") None) (Var (Short "y") None)))
+        Fun "x" None (Fun "y" None (App op (Var (Short "x")) (Var (Short "y"))))
     | Some (Is_uop uop) ->
-        Fun "x" None (Uapp uop (Var (Short "x") None))
+        Fun "x" None (Uapp uop (Var (Short "x")))
   end
 and 
 elab_e ctors bound (Ast_Con (Long mn cn) es) =

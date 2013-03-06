@@ -376,13 +376,13 @@ val (small_eval_match_rules, small_eval_match_ind, small_eval_match_cases) = Hol
 (!menv cenv s env v. small_eval_match menv cenv s env v [] (s, Rerr (Rraise Bind_error))) ∧
 (!menv cenv s env p e pes r env' v.
   ALL_DISTINCT (pat_bindings p []) ∧
-  (pmatch (SOME 0) cenv s p v env = Match env') ∧
+  (pmatch (SOME (0:num)) cenv s p v env = Match env') ∧
   small_eval menv cenv s env' e [] r
   ⇒
   small_eval_match menv cenv s env v ((p,e)::pes) r) ∧
 (!menv cenv s env e p pes r v.
   ALL_DISTINCT (pat_bindings p []) ∧
-  (pmatch (SOME 0) cenv s p v env = No_match) ∧
+  (pmatch (SOME (0:num)) cenv s p v env = No_match) ∧
   small_eval_match menv cenv s env v pes r
   ⇒
   small_eval_match menv cenv s env v ((p,e)::pes) r) ∧
@@ -391,7 +391,7 @@ val (small_eval_match_rules, small_eval_match_ind, small_eval_match_cases) = Hol
   ⇒
   small_eval_match menv cenv s env v ((p,e)::pes) (s, Rerr (Rtype_error))) ∧
 (!menv cenv s env p e pes v.
-  (pmatch (SOME 0) cenv s p v env = Match_type_error)
+  (pmatch (SOME (0:num)) cenv s p v env = Match_type_error)
   ⇒
   small_eval_match menv cenv s env v ((p,e)::pes) (s, Rerr (Rtype_error)))`;
 
@@ -458,13 +458,13 @@ rw [alt_small_eval_def] >|
      rw [e_step_def, continue_def]]);
 
 val big_exp_to_small_exp = Q.prove (
-`(∀menv cenv s env e r.
+`(∀(menv : 'a envM) cenv s env e r.
    evaluate menv cenv s env e r ⇒
    small_eval menv cenv s env e [] r) ∧
- (∀menv cenv s env es r.
+ (∀(menv : 'a envM) cenv s env es r.
    evaluate_list menv cenv s env es r ⇒
    small_eval_list menv cenv s env es r) ∧
- (∀menv cenv s env v pes r.
+ (∀(menv : 'a envM) cenv s env v pes r.
    evaluate_match menv cenv s env v pes r ⇒
    small_eval_match menv cenv s env v pes r)`,
 HO_MATCH_MP_TAC evaluate_ind >>
@@ -484,7 +484,7 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
      `e_step_reln^* (menv,cenv,s,env,Exp e,[(Chandle () var e',env)]) (menv,cenv,s',env',Exp (Raise (Int_error n)),[(Chandle () var e',env)])`
                  by metis_tac [APPEND,e_step_add_ctxt] >>
      `e_step_reln (menv,cenv,s',env',Exp (Raise (Int_error n)),[(Chandle () var e',env)]) 
-                  (menv,cenv,s',(bind var (Litv (IntLit n), SOME (0,Tint)) env),Exp e',[])`
+                  (menv,cenv,s',(bind var (Litv (IntLit n)) env),Exp e',[])`
                  by (rw [e_step_reln_def, e_step_def, continue_def, return_def]) >>
      metis_tac [RTC_SINGLE, small_eval_prefix],
  fs [small_eval_def] >>
@@ -513,13 +513,13 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
           metis_tac [RTC_REFL],
       fs [Once small_eval_list_cases] >>
           rw [small_eval_def] >>
-          `SUC (LENGTH t) = LENGTH ([]:t v list) + 1 + LENGTH t` by
+          `SUC (LENGTH t) = LENGTH ([]:'a v list) + 1 + LENGTH t` by
                   (fs [] >>
                    DECIDE_TAC) >>
-          `do_con_check cenv cn (LENGTH ([]:t v list) + 1 + LENGTH vs')`
+          `do_con_check cenv cn (LENGTH ([]:'a v list) + 1 + LENGTH vs')`
                       by metis_tac [small_eval_list_length] >>
           `e_step_reln^* (menv,cenv,s,env,Exp h,[(Ccon cn [] () t,env)])
-                         (menv,cenv,s',env,Val (Conv cn (REVERSE ([]:t v list)++[v]++vs')),[])`
+                         (menv,cenv,s',env,Val (Conv cn (REVERSE ([]:'a v list)++[v]++vs')),[])`
                     by metis_tac [small_eval_list_step] >>
           fs [] >>
           metis_tac []],
@@ -537,13 +537,13 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
                 by (match_mp_tac e_step_raise >>
                     rw []) >>
           metis_tac [APPEND,e_step_add_ctxt, transitive_RTC, transitive_def],
-      `LENGTH ([]:t v list) + 1 + LENGTH t = SUC (LENGTH t)` by
+      `LENGTH ([]:'a v list) + 1 + LENGTH t = SUC (LENGTH t)` by
                  (fs [] >>
                   DECIDE_TAC) >>
           metis_tac [small_eval_list_err],
       metis_tac [APPEND, e_step_add_ctxt, transitive_RTC,
                  transitive_def, e_single_error_add_ctxt],
-      `LENGTH ([]:t v list) + 1 + LENGTH t = SUC (LENGTH t)` by
+      `LENGTH ([]:'a v list) + 1 + LENGTH t = SUC (LENGTH t)` by
                  (fs [] >>
                   DECIDE_TAC) >>
           metis_tac [small_eval_list_terr]],
@@ -552,7 +552,7 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
      rw [Once RTC_CASES1, e_step_reln_def, return_def, e_step_def],
  rw [small_eval_def, e_step_def] >>
      qexists_tac `env` >>
-     qexists_tac `Exp (Var n tparams_opt)` >>
+     qexists_tac `Exp (Var n)` >>
      rw [] >>
      metis_tac [RTC_REFL],
  rw [small_eval_def] >>
@@ -687,7 +687,7 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
                     (menv,cenv,s',env',Val v,[(Clet tvs n topt () e',env)])`
              by metis_tac [e_step_add_ctxt, APPEND] >>
      `e_step_reln (menv,cenv,s',env',Val v,[(Clet tvs n topt () e',env)])
-                  (menv,cenv,s',bind n (v,add_tvs tvs topt) env,Exp e',[])`
+                  (menv,cenv,s',bind n v env,Exp e',[])`
              by rw [e_step_def, e_step_reln_def, continue_def, push_def] >>
      match_mp_tac small_eval_prefix >>
      metis_tac [transitive_RTC, RTC_SINGLE, transitive_def],
@@ -732,7 +732,7 @@ val evaluate_ctxts_cons = Q.prove (
   (?var e' s2 env v' res2 v i.
      (res1 = Rerr (Rraise (Int_error i))) ∧
      (f = (Chandle () var e',env)) ∧
-     evaluate menv cenv s1 (bind var (Litv (IntLit i), SOME (0,Tint)) env) e' (s2, res2) ∧
+     evaluate menv cenv s1 (bind var (Litv (IntLit i)) env) e' (s2, res2) ∧
      evaluate_ctxts menv cenv s2 cs res2 bv)`,
 rw [] >>
 rw [Once evaluate_ctxts_cases] >>

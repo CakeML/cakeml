@@ -13,7 +13,7 @@ val exp5_size_thm = size_thm "exp5_size_thm" ``exp5_size`` ``exp7_size``
 val exp8_size_thm = size_thm "exp8_size_thm" ``exp8_size`` ``exp_size``
 val pat1_size_thm = size_thm "pat1_size_thm" ``pat1_size`` ``pat_size``
 val v1_size_thm = size_thm "v1_size_thm" ``v1_size`` ``v2_size``
-val v4_size_thm = size_thm "v4_size_thm" ``v4_size`` ``v_size``
+val v3_size_thm = size_thm "v3_size_thm" ``v3_size`` ``v_size``
 
 val SUM_MAP_exp2_size_thm = store_thm(
 "SUM_MAP_exp2_size_thm",
@@ -57,6 +57,7 @@ val SUM_MAP_exp7_size_thm = store_thm(
 Induct >- rw[exp_size_def] >>
 Cases >> srw_tac[ARITH_ss][exp_size_def])
 
+(*
 val SUM_MAP_v2_size_thm = store_thm(
 "SUM_MAP_v2_size_thm",
 ``∀env f. SUM (MAP (v2_size f) env) = SUM (MAP (list_size char_size) (MAP FST env)) +
@@ -72,6 +73,7 @@ val SUM_MAP_v3_size_thm = store_thm(
                                       LENGTH env``,
 Induct >- rw[v_size_def] >>
 Cases >> srw_tac[ARITH_ss][v_size_def])
+*)
 
 val exp_size_positive = store_thm(
 "exp_size_positive",

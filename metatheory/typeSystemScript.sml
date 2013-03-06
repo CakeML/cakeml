@@ -560,8 +560,8 @@ rw [MEM_MAP] >|
 
 val build_rec_env_help_lem = Q.prove (
 `∀funs env funs' tvs.
-FOLDR (λ(f,topt1,x,topt2,e) env'. bind f (Recclosure env funs' f, add_tvs tvs topt1) env') env' funs =
-merge (MAP (λ(fn,n,e). (fn, (Recclosure env funs' fn, add_tvs tvs n))) funs) env'`,
+FOLDR (λ(f,topt1,x,topt2,e) env'. bind f (Recclosure env funs' f) env') env' funs =
+merge (MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs) env'`,
 Induct >>
 rw [merge_def, bind_def] >>
 PairCases_on `h` >>
@@ -571,7 +571,7 @@ rw []);
 val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
 `∀funs funs' env env' tvs.
   build_rec_env tvs funs env env' =
-  merge (MAP (λ(fn,n,e). (fn, (Recclosure env funs fn, add_tvs tvs n))) funs) env'`,
+  merge (MAP (λ(fn,n,e). (fn, Recclosure env funs fn)) funs) env'`,
 rw [build_rec_env_def, build_rec_env_help_lem]);
 
 val deBruijn_subst_tenvE_def = Define `
@@ -1083,7 +1083,9 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
                fs [] >>
                rw [] >>
                imp_res_tac type_e_subst_lem1 >>
-               fs [nil_deBruijn_inc] >-
+               fs [nil_deBruijn_inc] >>
+               qexists_tac `targs` >>
+               rw [] >-
                metis_tac [type_e_subst_lem2] >>
                fs [EVERY_MAP, EVERY_MEM] >>
                rw [] >>

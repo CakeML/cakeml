@@ -293,7 +293,7 @@ val _ = Define `
   join_trees (L CommaT) ( MAP (exp_to_tok_tree indent) es)) (N   
   (L RparT)  (L RparT))))))
 /\
-(exp_to_tok_tree indent (Var vid _) =
+(exp_to_tok_tree indent (Var vid) =
   id_to_tok_tree vid)
 /\
 (exp_to_tok_tree indent (Fun v _ e) = N

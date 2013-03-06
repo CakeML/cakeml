@@ -2028,7 +2028,7 @@ rw [tenvM_ok_def, bind_def]);
 
 val prog_type_soundness = Q.store_thm ("prog_type_soundness",
 `!tenvM tenvC tenv prog tenvM' tenvC' tenv'.
-  type_prog tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
+  type_prog' tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
   ∀tenvS menv cenv env st.
   tenvM_ok tenvM ∧
   tenvC_ok tenvC ∧
@@ -2049,7 +2049,7 @@ val prog_type_soundness = Q.store_thm ("prog_type_soundness",
          disjoint_env tenvC tenvC' ∧
          type_s (tenvM'++tenvM) (tenvC' ++ tenvC) tenvS' st' ∧
          type_env (tenvM'++tenvM) (tenvC' ++ tenvC) tenvS' (env' ++ env) (bind_var_list2 tenv' tenv))`,
-ho_match_mp_tac type_prog_ind >>
+ho_match_mp_tac type_prog'_ind >>
 rw [METIS_PROVE [] ``x ∨ y = ~x ⇒ y``] >>
 rw [Once evaluate_prog_cases, bind_var_list2_def, emp_def] >>
 rw [] >>
@@ -2175,5 +2175,42 @@ fs [merge_def, emp_def] >|
                     metis_tac [APPEND_ASSOC,APPEND],
                 fs [merge_def, bind_def] >>
                     metis_tac [APPEND_ASSOC,APPEND]]]]]);
+
+val type_d_weak = Q.prove (
+`!mn tenvM tenvC tenv d tenvC' tenv'.
+  type_d mn tenvM tenvC tenv d tenvC' tenv' ⇒
+  !tenvM'' tenvC''. sub_menv tenvM'' tenvM ∧ sub_cenv tenvC'' tenvC ⇒ 
+  type_d mn tenvM'' tenvC'' tenv d tenvC' tenv'`,
+rw [type_d_cases]
+
+
+
+val type_prog'_weak = Q.prove (
+`!tenvM tenvC tenv prog tenvM' tenvC' tenv'.
+type_prog' tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
+!tenvM'' tenvC''. sub_menv tenvM'' tenvM ∧ sub_cenv tenvC'' tenvC ⇒ 
+  type_prog' tenvM'' tenvC'' tenv prog tenvM' tenvC' tenv'`,
+
+ho_match_mp_tac type_prog'_ind >>
+rw [] >>
+rw [Once type_prog'_cases] >>
+
+
+
+val type_prog_type_prog' = Q.prove (
+`!tenvM tenvC tenv prog tenvM' tenvC' tenv'.
+  type_prog tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
+  ?tenvM'' tenvC'' tenv''. type_prog' tenvM tenvC tenv prog tenvM'' tenvC'' tenv''`,
+
+ho_match_mp_tac type_prog_ind >>
+rw [] >>
+rw [Once type_prog'_cases] >-
+metis_tac [] >>
+fs [check_signature_cases] >-
+metis_tac [] >>
+rw [] >>
+MAP_EVERY qexists_tac [`tenv'''`, `cenv'`, `tenvM''`, `tenv'`, `tenvC''`] >>
+rw []
+
 
 val _ = export_theory ();
