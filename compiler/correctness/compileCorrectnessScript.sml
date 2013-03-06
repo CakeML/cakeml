@@ -388,6 +388,54 @@ val compile_decl_next_label_inc = store_thm("compile_decl_next_label_inc",
   rw[])
 val _ = export_rewrites["compile_decl_next_label_inc"]
 
+val FOLDL_push_lab_thm = store_thm("FOLDL_push_lab_thm",
+ ``∀defs d s ls code s' ls'.
+   (FOLDL (push_lab d) (s,ls) defs = (s',ls'))
+   ⇒
+   ∃code.
+   (s'.out = REVERSE code ++ s.out) ∧
+   EVERY ($~ o is_Label) code ∧
+   (s'.next_label = s.next_label) ∧
+   ∀bs bc0 bc1 addrs.
+     (bs.code = bc0 ++ code ++ bc1) ∧
+     (bs.pc = next_addr bs.inst_length bc0) ∧
+     EVERY (ISR o SND) defs ∧
+     EVERY (IS_SOME o bc_find_loc bs o Lab o OUTR o SND) defs
+     ⇒
+     (ls' = (REVERSE (MAP (FAPPLY d.ecs o OUTR o SND) defs)) ++ ls) ∧
+     bc_next^* bs (bs with <| stack :=  (REVERSE (MAP (CodePtr o THE o bc_find_loc bs o Lab o OUTR o SND) defs))++bs.stack
+                            ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
+  Induct >- (
+    rw[Once SWAP_REVERSE] >>
+    pop_assum(assume_tac o SYM) >> fs[] ) >>
+  qx_gen_tac`cb` >>
+  PairCases_on`cb` >>
+  Cases_on`cb1` >> rw[push_lab_def] >>
+  fs[] >- metis_tac[] >>
+  qmatch_assum_abbrev_tac`FOLDL (push_lab d) (ss,lss) defs = (s',ls')` >>
+  first_x_assum(qspecl_then[`d`,`ss`,`lss`,`s'`,`ls'`]mp_tac) >> simp[] >>
+  strip_tac >> fs[Abbr`ss`,Once SWAP_REVERSE,Abbr`lss`] >>
+  rpt gen_tac >> strip_tac >>
+  `bc_fetch bs = SOME (PushPtr (Lab y))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0`>>rw[] ) >>
+  simp[Once RTC_CASES1] >>
+  fsrw_tac[DNF_ss][] >> disj2_tac >>
+  rw[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+  Cases_on`bc_find_loc bs (Lab y)`>>fs[] >>
+  qmatch_abbrev_tac`P ∧ bc_next^* bs1 bs2` >>
+  first_x_assum(qspecl_then[`bs1`,`bc0 ++ [PushPtr (Lab y)]`,`bc1`]mp_tac) >>
+  simp[Abbr`bs1`,Abbr`P`] >>
+
+  fs[EVERY_MEM,bc_find_loc_def,Abbr`bs2`] >>
+  rfs[FILTER_APPEND,SUM_APPEND,ADD1] >> fsrw_tac[ARITH_ss][] >>
+  rw[]
+  qmatch_abbrev_tac`bc_next^* bs1 bs2 ⇒ bc_next^* bs1' bs2'` >>
+  `(bs1' = bs1) ∧ (bs2' = bs2)` by (
+    unabbrev_all_tac >>
+    rw[bc_state_component_equality,MAP_EQ_f,bc_find_loc_def] ) >>
+  rw[])
+
 val compile_closures_next_label_inc = store_thm("compile_closures_next_label_inc",
   ``∀d env sz nz cs defs. (compile_closures d env sz nz cs defs).next_label = cs.next_label``,
   rw[compile_closures_def] >>
@@ -1140,6 +1188,16 @@ val with_same_code = store_thm("with_same_code",
   rw[bc_state_component_equality])
 val _ = export_rewrites["with_same_code"]
 
+val with_same_pc = store_thm("with_same_pc",
+  ``(x with pc := x.pc) = x``,
+  rw[bc_state_component_equality])
+val _ = export_rewrites["with_same_pc"]
+
+val with_same_stack = store_thm("with_same_stack",
+  ``(x with stack := x.stack) = x``,
+  rw[bc_state_component_equality])
+val _ = export_rewrites["with_same_stack"]
+
 val bc_fetch_with_stack = store_thm("bc_fetch_with_stack",
   ``bc_fetch (s with stack := st) = bc_fetch s``,
   rw[bc_fetch_def])
@@ -1190,23 +1248,6 @@ val code_for_push_return = store_thm("code_for_push_return",
     qexists_tac`bc0 ++ code` >> fs[Abbr`bs1`] >>
     qexists_tac`blvs`>>fs[]>>
     qexists_tac`args`>>fs[])
-
-(*
-val code_for_push_jump = store_thm("code_for_push_jump",
-  ``∀sm cls bs bce bc0 code s s' c env v renv rsz bc1 args args1 bs' blvs benv st cl cl1 ret.
-    code_for_push sm cls bs bce bc0 (code ++ (callbc n)) s s' c env [v] renv rsz ∧
-    (bs.code = bc0 ++ code ++ (jmpbc n (LENGTH args) (LENGTH blvs)) ++ bc1) ∧
-    (bs.stack = blvs++benv::CodePtr ret::args++cl::st)
-    ⇒
-    code_for_return sm cls bs bce st ret v s s' c``,
-    qspecl_then[`bs0`,`bs1`,`jmpbc (LENGTH args1) (LENGTH args) (LENGTH blvs) ++ bc1`]mp_tac (SIMP_RULE(srw_ss())[]RTC_bc_next_append_code) >>
-    rw[] >>
-    match_mp_tac (SIMP_RULE std_ss [transitive_def] RTC_TRANSITIVE) >>
-    first_assum (exists_tac o rand o concl) >> fs[Abbr`bs0`] >>
-    qpat_assum`bs.code = X`(assume_tac o SYM)>>fs[]>>
-     ((bs.code = bc0 ++ code ++ jmpbc (LENGTH args1) (LENGTH args) (LENGTH blvs) ++ bc1) ∧
-      (bs.stack = args1 ++ cl1::blvs++benv::CodePtr ret::args++cl::st)))
-*)
 
 val compile_labels_lemma = store_thm("compile_labels_lemma",
   ``∀d env t sz cs exp bc0 cs1 cls1 code.
