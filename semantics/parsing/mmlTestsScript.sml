@@ -140,7 +140,8 @@ val _ = parsetest ``nDconstructor`` ``ptree_Dconstructor`` "Cname"
 val _ = parsetest ``nDconstructor`` ``ptree_Dconstructor``
                   "Cname of bool * 'a"
                   ``[AlphaT "Cname"; OfT; AlphaT "bool"; StarT; TyvarT "'a"]``
-val _ = parsetest ``nDtypeDecl`` T "'a foo = C of 'a | D of bool | E"
+val _ = parsetest ``nDtypeDecl`` ``ptree_DtypeDecl``
+                  "'a foo = C of 'a | D of bool | E"
                   ``[TyvarT "'a"; AlphaT "foo"; EqualsT;
                      AlphaT "C"; OfT; TyvarT "'a"; BarT;
                      AlphaT "D"; OfT; AlphaT "bool"; BarT; AlphaT "E"]``

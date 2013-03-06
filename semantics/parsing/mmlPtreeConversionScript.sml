@@ -230,6 +230,23 @@ val ptree_DtypeCons_def = Define`
         else NONE
 `
 
+val ptree_DtypeDecl_def = Define`
+  ptree_DtypeDecl (pt : mlptree) =
+    case pt of
+        Lf _ => NONE
+      | Nd nt args =>
+        if nt = mkNT nDtypeDecl then
+          case args of
+              [tynm_pt; eqt; dtc_pt] => do
+                assert(eqt = Lf (TK EqualsT));
+                tynm <- ptree_TypeName tynm_pt;
+                dtc <- ptree_DtypeCons dtc_pt;
+                SOME(FST tynm,SND tynm,dtc)
+              od
+            | _ => NONE
+        else NONE
+`;
+
 (*val ptree_TypeDec_def = Define`
   ptree_TypeDec ptree : ast_type_def option =
     case ptree of
