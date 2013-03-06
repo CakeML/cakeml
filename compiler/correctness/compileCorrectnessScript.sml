@@ -1074,6 +1074,7 @@ val good_code_env_def = Define`
   FEVERY (λ(l,e).
     Cexp_pred e ∧
     ALL_DISTINCT (binders e) ∧
+    (free_bods e = []) ∧
     ∃cd cenv cs vs ns xs k bc0 cc bc1.
       (FLOOKUP d l = SOME (vs,xs,ns,k)) ∧
       DISJOINT (set (binders e)) (vs ∪ set ns ∪ set xs) ∧
@@ -1866,6 +1867,7 @@ val compile_val = store_thm("compile_val",
         DISJOINT (set (binders exp)) (FDOM cenv) ∧ ALL_DISTINCT (binders exp) ∧
         BIGUNION (IMAGE all_Clocs (FRANGE env)) ⊆ FDOM s ∧
         BIGUNION (IMAGE all_Clocs (FRANGE s)) ⊆ FDOM s ∧
+        (free_bods exp = []) ∧
         (res = (s', Rval v)) ∧
         good_sm sm ∧ FDOM s' ⊆ FDOM sm ∧
         good_cls c sm s (bs with code := bce) cls ∧
@@ -1902,6 +1904,7 @@ val compile_val = store_thm("compile_val",
         DISJOINT (set (FLAT (MAP binders exps))) (FDOM cenv) ∧ ALL_DISTINCT (FLAT (MAP binders exps)) ∧
         BIGUNION (IMAGE all_Clocs (FRANGE env)) ⊆ FDOM s ∧
         BIGUNION (IMAGE all_Clocs (FRANGE s)) ⊆ FDOM s ∧
+        (FLAT (MAP free_bods exps) = []) ∧
         (ress = (s', Rval vs)) ∧
         good_sm sm ∧ FDOM s' ⊆ FDOM sm ∧
         good_cls c sm s (bs with code := bce) cls ∧
@@ -2396,7 +2399,27 @@ val compile_val = store_thm("compile_val",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rpt gen_tac >>
+    Cases_on`cb`>>fs[] >>
+    strip_tac >>
+    simp[compile_def,pushret_def] >>
+    conj_asm1_tac >- (
+      simp[code_for_push_def] >>
+      Q.ISPECL_THEN[`cd`,`cenv`,`sz`,`0`,`cs`,`[(xs,INR y)]:def list`]strip_assume_tac compile_closures_append_out >>
+      fs[Once SWAP_REVERSE] >>
+      fsrw_tac[DNF_ss][] >> rw[] >>
+
+      cheat ) >>
+    Q.ISPECL_THEN[`cd`,`cenv`,`sz`,`0`,`cs`,`[(xs,INR y)]:def list`]strip_assume_tac compile_closures_append_out >>
+    fs[Once SWAP_REVERSE] >>
+    rpt gen_tac >> strip_tac >> fs[] >> rw[] >>
+    match_mp_tac code_for_push_return >>
+    qmatch_assum_abbrev_tac`code_for_push sm cls bs bce bc0 code s s c ee vv cenv sz` >>
+    map_every qexists_tac [`bc0`,`code`,`ee`,`cenv`,`sz`] >>
+    simp[] >>
+    qexists_tac`REVERSE args`>>fs[EVERY2_EVERY]) >>
   strip_tac >- (
     simp[] >> rpt gen_tac >> strip_tac >>
     rpt gen_tac >>
