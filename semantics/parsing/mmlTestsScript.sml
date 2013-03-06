@@ -20,6 +20,15 @@ end
 
 val _ = computeLib.add_thms distinct_ths computeLib.the_compset
 
+val _ =
+  TypeBase.axiom_of ``:token``
+            |> concl |> strip_forall |> #2
+            |> dest_exists |> #2
+            |> strip_conj
+            |> map (fn t => t |> strip_forall |> #2 |> lhs |> rand)
+            |> map (fn t => SPEC t destAlphaT_def |> SIMP_RULE (srw_ss()) [])
+            |> C computeLib.add_thms computeLib.the_compset
+
 val result_t = ``Result``
 fun parsetest nt sem s t = let
   val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
@@ -61,7 +70,8 @@ in
           val valid_t = ``valid_ptree mmlG ^res``
           val vth = SIMP_CONV (srw_ss())
                               [grammarTheory.valid_ptree_def, mmlG_def,
-                               DISJ_IMP_THM, FORALL_AND_THM]
+                               DISJ_IMP_THM, FORALL_AND_THM,
+                               stringTheory.isUpper_def]
                               valid_t
           val vres = rhs (concl vth)
         in
@@ -124,6 +134,20 @@ val _ = parsetest ``nTypeName`` ``ptree_TypeName``
                   "('a,'b) foo"
                   ``[LparT; TyvarT "'a"; CommaT; TyvarT "'b"; RparT;
                      AlphaT "foo"]``
+val _ = parsetest ``nConstructorName`` T "Cname" ``[AlphaT "Cname"]``
+val _ = parsetest ``nDconstructor`` T "Cname" ``[AlphaT "Cname"]``
+val _ = parsetest ``nDconstructor`` T "Cname of bool * 'a"
+                  ``[AlphaT "Cname"; OfT; AlphaT "bool"; StarT; TyvarT "'a"]``
+val _ = parsetest ``nDtypeDecl`` T "'a foo = C of 'a | D of bool | E"
+                  ``[TyvarT "'a"; AlphaT "foo"; EqualsT;
+                     AlphaT "C"; OfT; TyvarT "'a"; BarT;
+                     AlphaT "D"; OfT; AlphaT "bool"; BarT; AlphaT "E"]``
+val _ = parsetest ``nTypeDec`` T "datatype 'a foo = C of 'a | D of bool | E and bar = F | G"
+                  ``[DatatypeT; TyvarT "'a"; AlphaT "foo"; EqualsT;
+                     AlphaT "C"; OfT; TyvarT "'a"; BarT;
+                     AlphaT "D"; OfT; AlphaT "bool"; BarT; AlphaT "E"; AndT;
+                     AlphaT "bar"; EqualsT; AlphaT "F"; BarT; AlphaT "G"]``
+
 
 
 val _ = export_theory()

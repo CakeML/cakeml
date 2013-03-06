@@ -31,6 +31,8 @@ val isAlphaT_def = Define`
   isAlphaT _ = F
 `;
 
+val destAlphaT_def = zDefine`destAlphaT t = some s. t = AlphaT s`
+
 val isSymbolT_def = Define`isSymbolT (SymbolT s) = T ∧ isSymbolT _ = F`
 val isAlphaSym_def = Define`
   isAlphaSym (AlphaT _) = T ∧
@@ -175,14 +177,60 @@ val peg_TypeName_def = Define`
            (λs. [Nd (mkNT nTypeName) (sumID s)])
 `;
 
+local open monadsyntax in end
+val peg_ConstructorName_def = Define`
+  peg_ConstructorName =
+    tok (λt. do s <- destAlphaT t ;
+                assert (s ≠ "" ∧ isUpper (HD s))
+             od = SOME ())
+        (λt. [Nd (mkNT nConstructorName) (mktokLf t)])
+`;
+
+(* Dconstructor ::= ConstructorName "of" StarTypesP | ConstructorName; *)
+val peg_Dconstructor_def = Define`
+  peg_Dconstructor =
+    seq (nt (mkNT nConstructorName) I)
+        (choice (seq (tok ((=) OfT) mktokLf) (nt (mkNT nStarTypesP) I) (++))
+                (empty [])
+                sumID)
+        (λl1 l2. [Nd (mkNT nDconstructor) (l1 ++ l2)])
+`;
+
+
+(* DtypeDecl ::= TypeName "=" DtypeCons ; *)
+val peg_DtypeDecl_def = Define`
+  peg_DtypeDecl =
+    seq (nt (mkNT nTypeName) I)
+        (seq (tok ((=) EqualsT) mktokLf)
+             (*  DtypeCons ::= Dconstructor | DtypeCons "|" Dconstructor; *)
+             (peg_linfix (mkNT nDtypeCons) (nt (mkNT nDconstructor) I)
+                         (tok ((=) BarT) mktokLf))
+             (++))
+        (λl1 l2. [Nd (mkNT nDtypeDecl) (l1 ++ l2)])
+`;
+
+val peg_TypeDec_def = Define`
+  peg_TypeDec =
+    seq (tok ((=) DatatypeT) mktokLf)
+        (peg_linfix (mkNT nDtypeDecls) (nt (mkNT nDtypeDecl) I)
+                    (tok ((=) AndT) mktokLf))
+        (λl1 l2. [Nd (mkNT nTypeDec) (l1 ++ l2)])
+`;
+
 val mmltyPEG_def = Define`
   mmltyPEG = <| start := nt (mkNT nStarTypesP) I;
-                rules := FEMPTY |++ [(mkNT nType, peg_Type);
-                                     (mkNT nDType, peg_DType);
-                                     (mkNT nTyOp, peg_TyOp);
-                                     (mkNT nStarTypes, peg_StarTypes);
-                                     (mkNT nStarTypesP, peg_StarTypesP);
-                                     (mkNT nTypeName, peg_TypeName)] |>`;
+                rules :=
+                FEMPTY |++ [(mkNT nType, peg_Type);
+                            (mkNT nDType, peg_DType);
+                            (mkNT nTyOp, peg_TyOp);
+                            (mkNT nStarTypes, peg_StarTypes);
+                            (mkNT nStarTypesP, peg_StarTypesP);
+                            (mkNT nTypeName, peg_TypeName);
+                            (mkNT nTypeDec, peg_TypeDec);
+                            (mkNT nDtypeDecl, peg_DtypeDecl);
+                            (mkNT nDconstructor, peg_Dconstructor);
+                            (mkNT nConstructorName, peg_ConstructorName)
+                           ] |>`;
 
 
 val peg_multops_def = Define`
