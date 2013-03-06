@@ -31,8 +31,6 @@ val isAlphaT_def = Define`
   isAlphaT _ = F
 `;
 
-val destAlphaT_def = zDefine`destAlphaT t = some s. t = AlphaT s`
-
 val isSymbolT_def = Define`isSymbolT (SymbolT s) = T ∧ isSymbolT _ = F`
 val isAlphaSym_def = Define`
   isAlphaSym (AlphaT _) = T ∧
@@ -255,7 +253,8 @@ val mmlG_def = Define`
   mmlG = <|
     start := nt (mkNT nEmult) I;
     rules := FEMPTY |++
-             [(mkNT nEmult, peg_linfix (mkNT nEmult) (mkNT nEapp)
+             [(mkNT nEmult, peg_linfix (mkNT nEmult)
+                                       (nt (mkNT nEapp) I)
                                        (nt (mkNT nMultOps) I));
               (mkNT nEapp, peg_Eapp);
               (mkNT nMultOps, peg_multops);

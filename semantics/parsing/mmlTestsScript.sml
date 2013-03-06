@@ -135,8 +135,10 @@ val _ = parsetest ``nTypeName`` ``ptree_TypeName``
                   ``[LparT; TyvarT "'a"; CommaT; TyvarT "'b"; RparT;
                      AlphaT "foo"]``
 val _ = parsetest ``nConstructorName`` T "Cname" ``[AlphaT "Cname"]``
-val _ = parsetest ``nDconstructor`` T "Cname" ``[AlphaT "Cname"]``
-val _ = parsetest ``nDconstructor`` T "Cname of bool * 'a"
+val _ = parsetest ``nDconstructor`` ``ptree_Dconstructor`` "Cname"
+                  ``[AlphaT "Cname"]``
+val _ = parsetest ``nDconstructor`` ``ptree_Dconstructor``
+                  "Cname of bool * 'a"
                   ``[AlphaT "Cname"; OfT; AlphaT "bool"; StarT; TyvarT "'a"]``
 val _ = parsetest ``nDtypeDecl`` T "'a foo = C of 'a | D of bool | E"
                   ``[TyvarT "'a"; AlphaT "foo"; EqualsT;

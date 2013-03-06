@@ -178,6 +178,11 @@ val destTyvar_def = Define`
   (destTyvar (Lf (TK (TyvarT s))) = SOME s) ∧
   (destTyvar _ = NONE)
 `;
+val destLf_def = Define`
+  (destLf (Lf x) = SOME x) ∧ (destLf _ = NONE)
+`;
+val destTOK_def = Define`(destTOK (TOK t) = SOME t) ∧ (destTOK _ = NONE)`;
+val destAlphaT_def = zDefine`destAlphaT t = some s. t = AlphaT s`
 
 val ptree_TyVarList_def = Define`
   ptree_TyVarList ptree : tvarN list option =
@@ -245,6 +250,34 @@ val ptree_StarTypes_def = Define`
                  ty <- ptree_Type pt2;
                  SOME(list$APPEND pfx [ty: ast_t])
               od
+        else NONE
+`;
+
+val ptree_Dconstructor_def = Define`
+  ptree_Dconstructor ast =
+    case ast of
+        Lf x => NONE
+      | Nd nt args =>
+        if nt = mkNT nDconstructor then
+          case args of
+              [] => NONE
+            | Nd nt subargs::t =>
+              if nt = mkNT nConstructorName then
+                do
+                  sym <- destLf (HD subargs);
+                  tk <- destTOK sym;
+                  cname <- destAlphaT tk;
+                  types <- case t of
+                               [] => SOME []
+                             | [oft; startys] =>
+                               if oft = Lf (TK OfT) then
+                                 ptree_StarTypes T startys
+                               else NONE
+                             | _ => NONE;
+                  SOME(cname, types)
+                od
+              else NONE
+            | _ :: t => NONE
         else NONE
 `;
 
