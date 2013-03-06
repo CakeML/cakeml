@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib
 
-open mmlPEGTheory mmlGrammarTheory grammarTheory
+open mmlPEGTheory mmlGrammarTheory mmlPtreeConversionTheory grammarTheory
 
 val _ = new_theory "mmlTests"
 
