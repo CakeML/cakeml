@@ -388,15 +388,35 @@ val compile_decl_next_label_inc = store_thm("compile_decl_next_label_inc",
   rw[])
 val _ = export_rewrites["compile_decl_next_label_inc"]
 
+val with_same_refs = store_thm("with_same_refs",
+  ``(x with refs := x.refs) = x``,
+  rw[bc_state_component_equality])
+val _ = export_rewrites["with_same_refs"]
+
+val with_same_code = store_thm("with_same_code",
+  ``(x with code := x.code) = x``,
+  rw[bc_state_component_equality])
+val _ = export_rewrites["with_same_code"]
+
+val with_same_pc = store_thm("with_same_pc",
+  ``(x with pc := x.pc) = x``,
+  rw[bc_state_component_equality])
+val _ = export_rewrites["with_same_pc"]
+
+val with_same_stack = store_thm("with_same_stack",
+  ``(x with stack := x.stack) = x``,
+  rw[bc_state_component_equality])
+val _ = export_rewrites["with_same_stack"]
+
 val FOLDL_push_lab_thm = store_thm("FOLDL_push_lab_thm",
- ``∀defs d s ls code s' ls'.
+ ``∀defs d s ls s' ls'.
    (FOLDL (push_lab d) (s,ls) defs = (s',ls'))
    ⇒
    ∃code.
    (s'.out = REVERSE code ++ s.out) ∧
    EVERY ($~ o is_Label) code ∧
    (s'.next_label = s.next_label) ∧
-   ∀bs bc0 bc1 addrs.
+   ∀bs bc0 bc1.
      (bs.code = bc0 ++ code ++ bc1) ∧
      (bs.pc = next_addr bs.inst_length bc0) ∧
      EVERY (ISR o SND) defs ∧
@@ -420,21 +440,49 @@ val FOLDL_push_lab_thm = store_thm("FOLDL_push_lab_thm",
     match_mp_tac bc_fetch_next_addr >>
     qexists_tac`bc0`>>rw[] ) >>
   simp[Once RTC_CASES1] >>
-  fsrw_tac[DNF_ss][] >> disj2_tac >>
+  simp_tac (srw_ss()++DNF_ss)[] >> disj2_tac >>
   rw[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
   Cases_on`bc_find_loc bs (Lab y)`>>fs[] >>
   qmatch_abbrev_tac`P ∧ bc_next^* bs1 bs2` >>
   first_x_assum(qspecl_then[`bs1`,`bc0 ++ [PushPtr (Lab y)]`,`bc1`]mp_tac) >>
-  simp[Abbr`bs1`,Abbr`P`] >>
-
-  fs[EVERY_MEM,bc_find_loc_def,Abbr`bs2`] >>
-  rfs[FILTER_APPEND,SUM_APPEND,ADD1] >> fsrw_tac[ARITH_ss][] >>
-  rw[]
-  qmatch_abbrev_tac`bc_next^* bs1 bs2 ⇒ bc_next^* bs1' bs2'` >>
-  `(bs1' = bs1) ∧ (bs2' = bs2)` by (
+  qmatch_abbrev_tac`(X ⇒ Y) ⇒ Z` >>
+  `X` by (
     unabbrev_all_tac >>
-    rw[bc_state_component_equality,MAP_EQ_f,bc_find_loc_def] ) >>
+    simp[FILTER_APPEND,SUM_APPEND,ADD1] >>
+    rfs[EVERY_MEM,bc_find_loc_def] ) >>
+  simp[Abbr`Y`,Abbr`Z`,Abbr`P`] >> strip_tac >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1 bs2'` >>
+  `bs2' = bs2` by (
+    unabbrev_all_tac >>
+    srw_tac[ARITH_ss][bc_state_component_equality,MAP_EQ_f,bc_find_loc_def,FILTER_APPEND,SUM_APPEND,ADD1] ) >>
   rw[])
+
+(*
+val FOLDL_emit_ec_thm = store_thm("FOLDL_emit_ec_thm",
+  ``∀ec env0 sz0 sz1 s z' s'.
+     ((FOLDL (emit_ec env0 sz0) (sz1,s) ec = (s',z'))
+     ⇒
+     ∃code.
+     (s'.out = REVERSE code ++ s.out) ∧
+     EVERY ($~ o is_Label) code ∧
+     (s'.next_label = s.next_label) ∧
+     ∀bs bc0 bc1.
+       (bs.code = bc0 ++ code ++ bc1) ∧
+       (bs.pc = next_addr bs.inst_length bc0)
+       ⇒
+       let bvs = MAP (λx. case x of CEEnv fv => THE (lookup_ct cls sz1 bs.stack bs.refs (env ' fv))
+                                  | CERef j => EL (sz0 - j) bs.stack)
+                 ec in
+       bc_next^* bs (bs with <| stack := bvs++bs.stack
+                              ; pc := next_addr bs.inst_length (bc0 ++ code) |>)
+
+
+val FOLDL_cons_closure_thm = store_thm("FOLDL_cons_closure_thm",
+  ``∀ecs env sz0 sz nk s k s' k'.
+      (FOLDL (cons_closure env sz0 sz nk) (s,k) ecs = (s',k'))
+      ⇒
+*)
+
 
 val compile_closures_next_label_inc = store_thm("compile_closures_next_label_inc",
   ``∀d env sz nz cs defs. (compile_closures d env sz nz cs defs).next_label = cs.next_label``,
@@ -474,13 +522,10 @@ val compile_closures_next_label_inc = store_thm("compile_closures_next_label_inc
     rw[] >>
     Cases_on `a` >> rw[update_refptr_def,LET_THM] ) >>
   unabbrev_all_tac >> fs[] >>
-  qmatch_assum_abbrev_tac `FOLDL X Y defs = Z` >>
-  `($= cs.next_label o compiler_result_next_label o FST) (FOLDL X Y defs)` by (
-    match_mp_tac FOLDL_invariant >>
-    unabbrev_all_tac >> fs[] >>
-    qx_gen_tac`x`>>PairCases_on`x` >>
-    qx_gen_tac`y`>>PairCases_on`y` >>
-    Cases_on `y1` >> rw[push_lab_def,LET_THM] ) >>
+  `cs.next_label = s'''.next_label` by (
+    qmatch_assum_abbrev_tac`FOLDL (push_lab d) (s,[]) defs = X` >>
+    Q.ISPECL_THEN[`defs`,`d`,`s`,`[]:(num#cebind list)list`]mp_tac FOLDL_push_lab_thm >>
+    simp[Abbr`X`] >> rw[] >> rw[]) >>
   unabbrev_all_tac >>
   pop_assum mp_tac >> rw[] >>
   map_every qid_spec_tac[`s'''`,`nz`] >>
@@ -1177,26 +1222,6 @@ val jmpbc_thm = store_thm("jmpbc_thm",
   rw[bc_eval1_def,Abbr`bs2`] >>
   REWRITE_TAC[GSYM CONS_APPEND,GSYM APPEND_ASSOC] >>
   rw[])
-
-val with_same_refs = store_thm("with_same_refs",
-  ``(x with refs := x.refs) = x``,
-  rw[bc_state_component_equality])
-val _ = export_rewrites["with_same_refs"]
-
-val with_same_code = store_thm("with_same_code",
-  ``(x with code := x.code) = x``,
-  rw[bc_state_component_equality])
-val _ = export_rewrites["with_same_code"]
-
-val with_same_pc = store_thm("with_same_pc",
-  ``(x with pc := x.pc) = x``,
-  rw[bc_state_component_equality])
-val _ = export_rewrites["with_same_pc"]
-
-val with_same_stack = store_thm("with_same_stack",
-  ``(x with stack := x.stack) = x``,
-  rw[bc_state_component_equality])
-val _ = export_rewrites["with_same_stack"]
 
 val bc_fetch_with_stack = store_thm("bc_fetch_with_stack",
   ``bc_fetch (s with stack := st) = bc_fetch s``,
