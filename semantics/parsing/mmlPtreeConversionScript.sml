@@ -209,6 +209,27 @@ val ptree_Dconstructor_def = Define`
         else NONE
 `;
 
+val ptree_DtypeCons_def = Define`
+  ptree_DtypeCons (pt : mlptree) : (string # ast_t list) list option =
+    case pt of
+        Lf _ => NONE
+      | Nd nt args =>
+        if nt = mkNT nDtypeCons then
+          case args of
+              [pt] => do
+                 c <- ptree_Dconstructor pt;
+                 SOME([c])
+              od
+            | [tyc; bar : mlptree; pt] => do
+                assert(bar = Lf (TK BarT));
+                cs <- ptree_DtypeCons tyc;
+                c <- ptree_Dconstructor pt;
+                SOME(cs ++ [c])
+              od
+            | _ => NONE
+        else NONE
+`
+
 (*val ptree_TypeDec_def = Define`
   ptree_TypeDec ptree : ast_type_def option =
     case ptree of
