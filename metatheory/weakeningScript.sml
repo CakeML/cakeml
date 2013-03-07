@@ -96,35 +96,24 @@ rw [COUNT_LIST_def, check_freevars_def, EVERY_MAP] >>
 fs [check_freevars_def]);
 
 val weak_tenvM_lookup = Q.prove (
-`!n tenvM tenvM' tenv tenv' tvs t.
+`!mn tenvM tenvM' tenv tenv' tvs t.
+  tenvM_ok tenvM ∧
   weakM tenvM' tenvM ∧
-  weak_tenvE tenv' tenv ∧
-  check_freevars tvs [] t ∧
-  (t_lookup_var_id n tenvM tenv = SOME (tvs,t))
+  (lookup mn tenvM = SOME tenv)
   ⇒
-  ?tvs' t' subst.
-    (t_lookup_var_id n tenvM' tenv' = SOME (tvs',t')) ∧
-    (LENGTH subst = tvs') ∧
-    EVERY (check_freevars tvs []) subst ∧
-    (deBruijn_subst 0 subst t' = t)`,
-rw [t_lookup_var_id_def] >>
-cases_on `n` >>
-fs [weak_tenvE_def] >|
-[qexists_tac `t` >>
-     qexists_tac `MAP Tvar_db (COUNT_LIST tvs)` >>
-     rw [EVERY_MAP, LENGTH_COUNT_LIST] >>
-     metis_tac [weak_tenvM_lookup_lem, deBruijn_subst_id],
- induct_on `tenvM` >>
-     fs [weakM_def] >>
-     rw [] >>
-     PairCases_on `h` >>
-     fs [] >>
-     cases_on `h0 = s` >>
-     fs [] >>
-     rw [] >>
-     cases_on `lookup h0 tenvM'` >>
-     fs [] >>
-     metis_tac [weakE_lookup]]);
+  ?tenv'.
+    (lookup mn tenvM' = SOME tenv') ∧
+    weakE tenv' tenv`,
+induct_on `tenvM` >>
+fs [weakM_def] >>
+rw [] >>
+PairCases_on `h` >>
+fs [] >>
+cases_on `h0 = mn` >>
+fs [] >>
+rw [] >>
+cases_on `lookup h0 tenvM'` >>
+fs [EVERY_MEM, tenvM_ok_def]);
 
 val type_p_weakening = Q.store_thm ("type_p_weakening",
 `(!tvs tenvC p t tenv. type_p tvs tenvC p t tenv ⇒
@@ -167,7 +156,23 @@ rw [Once type_e_cases] >|
      metis_tac [weak_tenvE_bind], 
  fs [EVERY_MEM] >>
      metis_tac [weak_tenvC_lookup, weak_tenvE_freevars],
- metis_tac [weak_tenvM_lookup, type_e_freevars_t_lookup_var_id]
+ `(?vn. n = Short vn) ∨ (?mn vn. n = Long mn vn)` by (cases_on `n` >> rw []) >>
+     rw [] >>
+     fs [t_lookup_var_id_def] >|
+     [fs [weak_tenvE_def] >>
+          metis_tac [check_freevars_add, EVERY_MEM],
+      cases_on `lookup mn tenvM` >>
+          fs [] >>
+          imp_res_tac weak_tenvM_lookup >>
+          fs [] >>
+          rw [] >>
+          fs [] >>
+          rw [] >>
+          imp_res_tac weakE_lookup >>
+          fs [] >>
+          rw [] >>
+type_e_subst_lem2
+
  
  cheat,
  metis_tac [weak_tenvE_bind, weak_tenvE_freevars],

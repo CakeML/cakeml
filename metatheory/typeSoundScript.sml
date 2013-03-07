@@ -115,13 +115,6 @@ fs [lookup_tenv_def] >>
 `!x y. x + SUC y = (x + 1) + y` by decide_tac >>
 metis_tac []);
 
-val bvl2_lookup = Q.prove (
-`!n tenv. lookup n tenv = lookup_tenv n 0 (bind_var_list2 tenv Empty)`,
-ho_match_mp_tac lookup_ind >>
-rw [lookup_def, bind_var_list2_def, lookup_tenv_def] >>
-cases_on `n''` >>
-rw [bind_var_list2_def, lookup_tenv_def, bind_tenv_def, deBruijn_inc0]);
-
 val type_lookup_id = Q.prove (
 `∀tenvS tenvC menv tenvM tenvM' cenv tenv.
   type_env tenvM' tenvC tenvS env tenv ∧
@@ -1986,16 +1979,6 @@ val tenvC_ok_pres2 = Q.prove (
 ho_match_mp_tac type_ds_ind >>
 rw [emp_def, merge_def] >>
 metis_tac [tenvC_ok_pres]);
-
-val tenv_ok_bvl2 = Q.prove (
-`!tenv tenv'. 
-  tenv_ok (bind_var_list2 tenv Empty) ∧ tenv_ok tenv'
-  ⇒
-  tenv_ok (bind_var_list2 tenv tenv')`,
-ho_match_mp_tac bind_var_list2_ind >>
-rw [bind_var_list2_def, tenv_ok_def, bind_tenv_def, num_tvs_bvl2, num_tvs_def] >>
-`tvs + num_tvs tenv' ≥ tvs` by decide_tac >>
-metis_tac [check_freevars_add]);
 
 val type_s_weak = Q.prove (
 `!tenvM tenvC tenvS st.

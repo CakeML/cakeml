@@ -379,22 +379,6 @@ fs [] >>
 imp_res_tac tenvM_ok_lookup >>
 metis_tac [type_e_freevars_lem3,type_e_freevars_lem2,arithmeticTheory.ADD]);
 
-(* TODO
-
-val type_e_freevars_t_lookup_var_id = Q.store_thm ("type_e_freevars_t_lookup_var_id",
-`!tenvM tenv tvs n t.
-  (t_lookup_var_id n tenvM tenv = SOME (tvs,t)) ∧
-  tenvM_ok tenvM ∧
-  tenv_ok tenv
-  ⇒ 
-  check_freevars tvs [] t`,
-rw [t_lookup_var_id_def] >>
-every_case_tac >>
-fs [] >>
-imp_res_tac tenvM_ok_lookup >>
-metis_tac [type_e_freevars_lem3,type_e_freevars_lem2,arithmeticTheory.ADD]);
-*)
-
 val num_tvs_bind_var_list = Q.store_thm ("num_tvs_bind_var_list",
 `!tvs env tenvE. num_tvs (bind_var_list tvs env tenvE) = num_tvs tenvE`,
 induct_on `env` >>
@@ -871,7 +855,7 @@ rw [] >>
 full_simp_tac (srw_ss()++ARITH_ss) [EL_MAP] >>
 metis_tac [type_e_subst_lem4]);
 
-val type_e_subst_lem6 = Q.prove (
+val lookup_tenv_freevars = Q.prove (
 `!e n inc t tvs.
   tenv_ok e ∧
   (lookup_tenv n inc e = SOME (tvs, t))
@@ -924,12 +908,12 @@ rw [] >>
 full_simp_tac (srw_ss()++ARITH_ss) [EL_MAP, deBruijn_subst_def, check_freevars_def] >>
 metis_tac [subst_inc_cancel, LENGTH_MAP]);
 
-val type_e_subst_lem9 = Q.prove (
-`!n tenv targs t.
+val lookup_freevars = Q.prove (
+`!n tenv tvs t.
   tenv_ok (bind_var_list2 tenv Empty) ∧
-  (lookup n tenv = SOME (LENGTH targs, t))
+  (lookup n tenv = SOME (tvs, t))
   ⇒
-  check_freevars (LENGTH targs) [] t`,
+  check_freevars tvs [] t`,
 induct_on `tenv` >>
 rw [lookup_def] >>
 PairCases_on `h` >>
@@ -1086,7 +1070,7 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
  metis_tac [type_subst_deBruijn_subst_list, lookup_con_ok],
  cases_on `n` >>
      fs [t_lookup_var_id_def] >|
-     [imp_res_tac type_e_subst_lem6 >>
+     [imp_res_tac lookup_tenv_freevars >>
           fs [lookup_tenv_db_merge] >>
           cases_on `lookup_tenv a 0 tenvE1` >>
           fs [lookup_tenv_def, bind_tvar_rewrites, num_tvs_deBruijn_subst_tenvE] >>
@@ -1123,7 +1107,7 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
           rw [] >|
           [match_mp_tac (hd (CONJUNCTS type_e_subst_lem2)) >>
                rw [] >>
-               metis_tac [tenvM_ok_lookup, type_e_subst_lem9, arithmeticTheory.ADD, arithmeticTheory.ADD_0],
+               metis_tac [tenvM_ok_lookup, lookup_freevars, arithmeticTheory.ADD, arithmeticTheory.ADD_0],
            fs [EVERY_MAP, EVERY_MEM] >>
                rw [] >>
                metis_tac [type_e_subst_lem3, EVERY_MEM]]],
@@ -1704,6 +1688,53 @@ Induct >>
 rw [deBruijn_subst_def, LENGTH_COUNT_LIST, EL_MAP, EL_COUNT_LIST,
     check_freevars_def] >>
 metis_tac []);
+
+val freevars_t_lookup_tenv = Q.store_thm ("freevars_lookup_tenv",
+`!n inc tenv tvs t.
+  (lookup_tenv n inc tenv = SOME (tvs,t)) ∧
+  tenv_ok tenv
+  ⇒ 
+  check_freevars (inc + num_tvs tenv + tvs) [] t`,
+induct_on `tenv` >>
+rw [lookup_tenv_def, tenv_ok_def, num_tvs_def] >>
+res_tac >>
+full_simp_tac (srw_ss()++ARITH_ss) [] >>
+metis_tac [check_freevars_deBruijn_inc]);
+
+val tenv_ok_bvl2 = Q.store_thm ("tenv_ok_bvl2",
+`!tenv tenv'. 
+  tenv_ok (bind_var_list2 tenv Empty) ∧ tenv_ok tenv'
+  ⇒
+  tenv_ok (bind_var_list2 tenv tenv')`,
+ho_match_mp_tac bind_var_list2_ind >>
+rw [bind_var_list2_def, tenv_ok_def, bind_tenv_def, num_tvs_bvl2, num_tvs_def] >>
+`tvs + num_tvs tenv' ≥ tvs` by decide_tac >>
+metis_tac [check_freevars_add]);
+
+val bvl2_lookup = Q.store_thm ("bvl2_lookup",
+`!n tenv. lookup n tenv = lookup_tenv n 0 (bind_var_list2 tenv Empty)`,
+ho_match_mp_tac lookup_ind >>
+rw [lookup_def, bind_var_list2_def, lookup_tenv_def] >>
+cases_on `n''` >>
+rw [bind_var_list2_def, lookup_tenv_def, bind_tenv_def, deBruijn_inc0]);
+
+
+val freevars_t_lookup_var_id = Q.store_thm ("freevars_t_lookup_var_id",
+`!tenvM tenv tvs n t.
+  (t_lookup_var_id n tenvM tenv = SOME (tvs,t)) ∧
+  tenvM_ok tenvM ∧
+  tenv_ok tenv
+  ⇒ 
+  check_freevars (num_tvs tenv + tvs) [] t`,
+rw [t_lookup_var_id_def] >>
+every_case_tac >>
+fs [] >|
+[imp_res_tac lookup_tenv_freevars >>
+     full_simp_tac (srw_ss()++ARITH_ss) [],
+ imp_res_tac tenvM_ok_lookup >>
+     imp_res_tac lookup_freevars >>
+     `num_tvs tenv + tvs ≥ tvs` by decide_tac >>
+     metis_tac [check_freevars_add]]);
 
 val _ = export_theory ();
 
