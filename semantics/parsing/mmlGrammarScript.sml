@@ -2,14 +2,78 @@ open HolKernel Parse boolLib bossLib
 
 open TokensTheory AstTheory grammarTheory
 
+open lcsymtacs grammarLib monadsyntax
+
 val _ = new_theory "mmlGrammar"
 
+(* ----------------------------------------------------------------------
+    We'll be using the option monad quite a bit in what follows
+   ---------------------------------------------------------------------- *)
+
+val _ = overload_on ("monad_bind", ``OPTION_BIND``)
+val _ = overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
+
+val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
+                                        "option.OPTION_IGNORE_BIND_def"]
+
+val assert_def = Define`assert b = if b then SOME() else NONE`
+
+val mmap_def = Define`
+  (mmap f [] = SOME []) /\
+  (mmap f (h::t) = do
+     v <- f h;
+     vs <- mmap f t;
+     SOME(v::vs)
+   od)`
+
+val mmap_CONG = store_thm(
+  "mmap_CONG",
+  ``∀l1 l2 f f'.
+      l1 = l2 ∧ (∀x. MEM x l2 ⇒ f x = f' x) ⇒ mmap f l1 = mmap f l2``,
+  Induct >> rw[]);
+val _ = DefnBase.export_cong "mmap_CONG"
+
+
+(* ----------------------------------------------------------------------
+    Utility functions over tokens
+   ---------------------------------------------------------------------- *)
+
+val isInt_def = Define`
+  isInt (IntT i) = T ∧
+  isInt _ = F
+`;
+
+val isAlphaT_def = Define`
+  isAlphaT (AlphaT s) = T ∧
+  isAlphaT _ = F
+`;
+
+val isSymbolT_def = Define`isSymbolT (SymbolT s) = T ∧ isSymbolT _ = F`
+val isAlphaSym_def = Define`
+  isAlphaSym (AlphaT _) = T ∧
+  isAlphaSym (SymbolT _) = T ∧
+  isAlphaSym _ = F
+`;
+
+val isTyvarT_def = Define`isTyvarT (TyvarT _) = T ∧ isTyvarT _ = F`
+
+val destTyvarPT_def = Define`
+  (destTyvarPT (Lf (TOK (TyvarT s))) = SOME s) ∧
+  (destTyvarPT _ = NONE)
+`;
+val destLf_def = Define`
+  (destLf (Lf x) = SOME x) ∧ (destLf _ = NONE)
+`;
+val destTOK_def = Define`(destTOK (TOK t) = SOME t) ∧ (destTOK _ = NONE)`;
+val destAlphaT_def = Define`
+  (destAlphaT (AlphaT s) = SOME s) ∧
+  (destAlphaT _ = NONE)
+`;
 
 (* ----------------------------------------------------------------------
     Define the Mini ML CFG
    ---------------------------------------------------------------------- *)
 
-open grammarLib
 val tokmap0 =
     List.foldl (fn ((s,t), acc) => Binarymap.insert(acc,s,t))
                (Binarymap.mkDict String.compare)

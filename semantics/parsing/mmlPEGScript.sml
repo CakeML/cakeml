@@ -1,8 +1,12 @@
 open HolKernel Parse boolLib bossLib
 
-open mmlGrammarTheory pegexecTheory mmlPtreeConversionTheory
+open mmlGrammarTheory pegexecTheory
+
+local open monadsyntax in end
 
 val _ = new_theory "mmlPEG"
+
+
 
 val distinct_ths = let
   val ntlist = TypeBase.constructors_of ``:MMLnonT``
@@ -20,25 +24,6 @@ end
 
 
 val _ = computeLib.add_thms distinct_ths computeLib.the_compset
-
-val isInt_def = Define`
-  isInt (IntT i) = T ∧
-  isInt _ = F
-`;
-
-val isAlphaT_def = Define`
-  isAlphaT (AlphaT s) = T ∧
-  isAlphaT _ = F
-`;
-
-val isSymbolT_def = Define`isSymbolT (SymbolT s) = T ∧ isSymbolT _ = F`
-val isAlphaSym_def = Define`
-  isAlphaSym (AlphaT _) = T ∧
-  isAlphaSym (SymbolT _) = T ∧
-  isAlphaSym _ = F
-`;
-
-val isTyvarT_def = Define`isTyvarT (TyvarT _) = T ∧ isTyvarT _ = F`
 
 val sumID_def = Define`
   sumID (INL x) = x ∧
@@ -175,7 +160,6 @@ val peg_TypeName_def = Define`
            (λs. [Nd (mkNT nTypeName) (sumID s)])
 `;
 
-local open monadsyntax in end
 val peg_ConstructorName_def = Define`
   peg_ConstructorName =
     tok (λt. do s <- destAlphaT t ;

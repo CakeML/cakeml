@@ -20,15 +20,6 @@ end
 
 val _ = computeLib.add_thms distinct_ths computeLib.the_compset
 
-val _ =
-  TypeBase.axiom_of ``:token``
-            |> concl |> strip_forall |> #2
-            |> dest_exists |> #2
-            |> strip_conj
-            |> map (fn t => t |> strip_forall |> #2 |> lhs |> rand)
-            |> map (fn t => SPEC t destAlphaT_def |> SIMP_RULE (srw_ss()) [])
-            |> C computeLib.add_thms computeLib.the_compset
-
 val result_t = ``Result``
 fun parsetest nt sem s t = let
   val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
