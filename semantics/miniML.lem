@@ -1845,7 +1845,10 @@ let weakE tenv_impl tenv_spec =
       match lookup x tenv_impl with
         | None -> false
         | Some (tvs_impl, t_impl) ->
-            exists subst. deBruijn_subst 0 subst t_impl = t_spec
+            exists subst. 
+              List.length subst = tvs_impl &&
+              List.for_all (check_freevars tvs_spec []) subst &&
+              deBruijn_subst 0 subst t_impl = t_spec
       end)
    tenv_spec
 

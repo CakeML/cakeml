@@ -87,9 +87,12 @@ metis_tac []);
 
 val _ = DefnBase.add_cong map_ex_cong;
 
+val id_to_string_def = Define `
+(id_to_string (Short x) = x) ∧
+(id_to_string (Long x y) = x ++ "." ++ y)`;
 
 val lookup_ex_def = Define `
-(lookup_ex x [] = failwith ("failed lookup: " ++ x)) ∧
+(lookup_ex x [] = failwith ("failed lookup: " ++ id_to_string x)) ∧
 (lookup_ex x ((y,v)::e) =
   if x = y then
     return v

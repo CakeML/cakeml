@@ -1,4 +1,5 @@
 open preamble;
+open rich_listTheory;
 open MiniMLTheory MiniMLTerminationTheory typeSystemTheory;
 
 val _ = new_theory "weakening";
@@ -68,16 +69,62 @@ fs [] >>
 PairCases_on `x` >>
 fs []);
 
-(*
-val weak_tenvM_lookup = Q.prove (
-`!n tenvM tenvM' tenv tenv'.
-  weak_tenvM tenvM' tenvM ∧
-  weak_tenvE tenv' tenv ∧
-  (t_lookup_var_id n tenvM tenv = SOME (LENGTH targs,t))
+val weakE_lookup = Q.prove (
+`!n env env' tvs t.
+  weakE env' env ∧
+  (lookup n env = SOME (tvs, t))
   ⇒
-  (t_lookup_var_id n tenvM' tenv' = SOME (LENGTH targs,t))`,
-  *)
+  ?tvs' t' subst. 
+    (lookup n env' = SOME (tvs', t')) ∧
+    (LENGTH subst = tvs') ∧
+    EVERY (check_freevars tvs []) subst ∧
+    (deBruijn_subst 0 subst t' = t)`,
+ho_match_mp_tac lookup_ind >>
+rw [weakE_def] >>
+fs [] >>
+cases_on `lookup n env'` >>
+fs [] >>
+cases_on `x` >>
+fs [] >>
+metis_tac []);
 
+val weak_tenvM_lookup_lem = Q.prove (
+`!tvs.
+  EVERY (λx. check_freevars tvs [] (Tvar_db x)) (COUNT_LIST tvs)`,
+Induct >>
+rw [COUNT_LIST_def, check_freevars_def, EVERY_MAP] >>
+fs [check_freevars_def]);
+
+val weak_tenvM_lookup = Q.prove (
+`!n tenvM tenvM' tenv tenv' tvs t.
+  weakM tenvM' tenvM ∧
+  weak_tenvE tenv' tenv ∧
+  check_freevars tvs [] t ∧
+  (t_lookup_var_id n tenvM tenv = SOME (tvs,t))
+  ⇒
+  ?tvs' t' subst.
+    (t_lookup_var_id n tenvM' tenv' = SOME (tvs',t')) ∧
+    (LENGTH subst = tvs') ∧
+    EVERY (check_freevars tvs []) subst ∧
+    (deBruijn_subst 0 subst t' = t)`,
+rw [t_lookup_var_id_def] >>
+cases_on `n` >>
+fs [weak_tenvE_def] >|
+[qexists_tac `t` >>
+     qexists_tac `MAP Tvar_db (COUNT_LIST tvs)` >>
+     rw [EVERY_MAP, LENGTH_COUNT_LIST] >>
+     metis_tac [weak_tenvM_lookup_lem, deBruijn_subst_id],
+ induct_on `tenvM` >>
+     fs [weakM_def] >>
+     rw [] >>
+     PairCases_on `h` >>
+     fs [] >>
+     cases_on `h0 = s` >>
+     fs [] >>
+     rw [] >>
+     cases_on `lookup h0 tenvM'` >>
+     fs [] >>
+     metis_tac [weakE_lookup]]);
 
 val type_p_weakening = Q.store_thm ("type_p_weakening",
 `(!tvs tenvC p t tenv. type_p tvs tenvC p t tenv ⇒
@@ -93,13 +140,21 @@ metis_tac [check_freevars_add, EVERY_MEM, weak_tenvC_lookup]);
 
 val type_e_weakening = Q.store_thm ("type_e_weakening",
 `(!tenvM tenvC tenv e t. type_e tenvM tenvC tenv e t ⇒
-    ∀tenvM' tenvC' tenv'. weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weak_tenvE tenv' tenv ⇒
+    ∀tenvM' tenvC' tenv'. 
+      tenvM_ok tenvM ∧ tenv_ok tenv ∧ 
+      weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weak_tenvE tenv' tenv ⇒
       type_e tenvM' tenvC' tenv' e t) ∧
  (!tenvM tenvC tenv es ts. type_es tenvM tenvC tenv es ts ⇒
-    ∀tenvM' tenvC' tenv'. weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weak_tenvE tenv' tenv ⇒
+    ∀tenvM' tenvC' tenv'. 
+      tenvM_ok tenvM ∧ tenv_ok tenv ∧ 
+      weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weak_tenvE tenv' tenv ⇒
+      weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weak_tenvE tenv' tenv ⇒
       type_es tenvM' tenvC' tenv' es ts) ∧
  (!tenvM tenvC tenv funs tenv''. type_funs tenvM tenvC tenv funs tenv'' ⇒
-    ∀tenvM' tenvC' tenv'. weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weak_tenvE tenv' tenv ⇒
+    ∀tenvM' tenvC' tenv'. 
+      tenvM_ok tenvM ∧ tenv_ok tenv ∧ 
+      weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weak_tenvE tenv' tenv ⇒
+      weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weak_tenvE tenv' tenv ⇒
       type_funs tenvM' tenvC' tenv' funs tenv'')`,
 
 ho_match_mp_tac type_e_ind >>
@@ -107,9 +162,13 @@ rw [] >>
 rw [Once type_e_cases] >|
 
 [metis_tac [weak_tenvE_freevars],
- metis_tac [weak_tenvE_bind], 
+ `tenv_ok (bind_tenv var 0 Tint tenv)` 
+          by rw [tenv_ok_def, bind_tenv_def, check_freevars_def, Tint_def] >>
+     metis_tac [weak_tenvE_bind], 
  fs [EVERY_MEM] >>
      metis_tac [weak_tenvC_lookup, weak_tenvE_freevars],
+ metis_tac [weak_tenvM_lookup, type_e_freevars_t_lookup_var_id]
+ 
  cheat,
  metis_tac [weak_tenvE_bind, weak_tenvE_freevars],
  metis_tac [],

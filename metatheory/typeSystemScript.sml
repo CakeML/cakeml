@@ -1,5 +1,5 @@
 (* Theorems about type_e, type_es, and type_funs *)
-open preamble MiniMLTheory MiniMLTerminationTheory;
+open preamble MiniMLTheory MiniMLTerminationTheory rich_listTheory;
 
 val _ = new_theory "typeSystem";
 
@@ -378,6 +378,22 @@ every_case_tac >>
 fs [] >>
 imp_res_tac tenvM_ok_lookup >>
 metis_tac [type_e_freevars_lem3,type_e_freevars_lem2,arithmeticTheory.ADD]);
+
+(* TODO
+
+val type_e_freevars_t_lookup_var_id = Q.store_thm ("type_e_freevars_t_lookup_var_id",
+`!tenvM tenv tvs n t.
+  (t_lookup_var_id n tenvM tenv = SOME (tvs,t)) ∧
+  tenvM_ok tenvM ∧
+  tenv_ok tenv
+  ⇒ 
+  check_freevars tvs [] t`,
+rw [t_lookup_var_id_def] >>
+every_case_tac >>
+fs [] >>
+imp_res_tac tenvM_ok_lookup >>
+metis_tac [type_e_freevars_lem3,type_e_freevars_lem2,arithmeticTheory.ADD]);
+*)
 
 val num_tvs_bind_var_list = Q.store_thm ("num_tvs_bind_var_list",
 `!tvs env tenvE. num_tvs (bind_var_list tvs env tenvE) = num_tvs tenvE`,
@@ -1084,22 +1100,26 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
                rw [] >>
                imp_res_tac type_e_subst_lem1 >>
                fs [nil_deBruijn_inc] >>
-               qexists_tac `targs` >>
+               qexists_tac `(MAP (deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs')) targs)` >>
                rw [] >-
                metis_tac [type_e_subst_lem2] >>
-               fs [EVERY_MAP, EVERY_MEM] >>
+               fs [EVERY_MAP, EVERY_MEM, MEM_MAP] >>
                rw [] >>
                metis_tac [type_e_subst_lem3, EVERY_MEM],
            imp_res_tac lookup_tenv_deBruijn_subst_tenvE >>
-               pop_assum (ASSUME_TAC o Q.SPEC `targs'`) >>
                fs [] >>
                rw [] >>
                fs [nil_deBruijn_subst, num_tvs_db_merge, bind_tvar_rewrites] >>
                fs [EVERY_MAP, EVERY_MEM] >>
                rw [] >>
+               qexists_tac `(MAP (deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs')) targs)`  >>
+               rw [] >>
+               fs [MEM_MAP] >>
                metis_tac [type_e_subst_lem3, EVERY_MEM, type_e_subst_lem7]],
       cases_on `lookup s tenvM` >>
           fs [] >>
+          rw [] >>
+          qexists_tac `MAP (deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs')) targs` >>
           rw [] >|
           [match_mp_tac (hd (CONJUNCTS type_e_subst_lem2)) >>
                rw [] >>
@@ -1570,6 +1590,7 @@ ONCE_REWRITE_TAC [type_p_cases] >>
 rw [] >>
 metis_tac [type_e_tvs_weaken_help, check_freevars_add, EVERY_MEM]);
 
+(*
 val type_e_tvs_weaken = Q.store_thm ("type_e_tvs_weaken",
 `(!tenvM tenvC tenvE e t. type_e tenvM tenvC tenvE e t ⇒
     !tenvE1 tenvE2 tvs.
@@ -1663,6 +1684,7 @@ rw [] >|
      metis_tac [],
  metis_tac [],
  metis_tac []]);
+                *)
 
 val type_p_bvl = Q.store_thm ("type_p_bvl",
 `(!tvs tenvC p t tenv. type_p tvs tenvC p t tenv ⇒
@@ -1674,6 +1696,14 @@ rw [bind_var_list_def, tenv_ok_def, bind_tenv_def, num_tvs_def,
     bind_var_list_append] >>
 `tvs + num_tvs tenv' ≥ tvs` by decide_tac >>
 metis_tac [check_freevars_add]);
+
+val deBruijn_subst_id = Q.store_thm ("deBruijn_subst_id",
+`(!t n. check_freevars n [] t ⇒ (deBruijn_subst 0 (MAP Tvar_db (COUNT_LIST n)) t = t)) ∧
+ (!ts n. EVERY (check_freevars n []) ts ⇒ (MAP (deBruijn_subst 0 (MAP Tvar_db (COUNT_LIST n))) ts = ts))`,
+Induct >>
+rw [deBruijn_subst_def, LENGTH_COUNT_LIST, EL_MAP, EL_COUNT_LIST,
+    check_freevars_def] >>
+metis_tac []);
 
 val _ = export_theory ();
 

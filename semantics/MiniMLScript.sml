@@ -2006,7 +2006,9 @@ val _ = Define `
       (case lookup x tenv_impl of
           NONE => F
         | SOME (tvs_impl, t_impl) =>
-            ? subst. deBruijn_subst 0 subst t_impl = t_spec
+            ? subst. ( LENGTH subst = tvs_impl) /\ EVERY (check_freevars tvs_spec []) subst /\
+              (
+              deBruijn_subst 0 subst t_impl = t_spec)
       ))
    tenv_spec)`;
 
