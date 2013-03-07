@@ -799,6 +799,71 @@ val FOLDL_cons_closure_thm = store_thm("FOLDL_cons_closure_thm",
     lrw[GSYM ZIP_APPEND] ) >>
   rw[])
 
+val num_fold_make_ref_thm = store_thm("num_fold_make_ref_thm",
+  ``∀x nz s.
+    let s' = num_fold (λs. s with out := Ref::Stack (PushInt x)::s.out) s nz in
+    ∃code.
+    (s'.out = REVERSE code ++ s.out) ∧
+    EVERY ($~ o is_Label) code ∧
+    (s'.next_label = s.next_label) ∧
+    ∀bs bc0 bc1.
+    (bs.code = bc0 ++ code ++ bc1) ∧
+    (bs.pc = next_addr bs.inst_length bc0)
+    ⇒
+    ∃ps.
+    bc_next^* bs
+    (bs with <| stack := MAP RefPtr ps ++ bs.stack
+              ; refs := bs.refs |++ REVERSE (MAP (λp. (p,Number x)) ps)
+              ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
+  gen_tac >> Induct >- (
+    rw[Once num_fold_def,Once SWAP_REVERSE] >> rw[] >>
+    qexists_tac`[]` >> rw[FUPDATE_LIST_THM] >>
+    rpt (pop_assum (mp_tac o SYM)) >> rw[] ) >>
+  simp[Once num_fold_def] >> gen_tac >>
+  Q.PAT_ABBREV_TAC`s' = s with out := X` >>
+  first_x_assum(qspec_then`s'`mp_tac) >>
+  simp[] >> rw[] >>
+  fs[Abbr`s'`,Once SWAP_REVERSE] >>
+  rw[] >>
+  simp[Once RTC_CASES1] >>
+  fsrw_tac[DNF_ss][] >> disj2_tac >>
+  `bc_fetch bs = SOME (Stack (PushInt x))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0`>>rw[] ) >>
+  rw[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
+  simp[Once RTC_CASES1] >>
+  fsrw_tac[DNF_ss][] >> disj2_tac >>
+  qho_match_abbrev_tac`∃ps u. bc_next bs1 u ∧ P ps u` >>
+  `bc_fetch bs1 = SOME Ref` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0++[Stack (PushInt x)]`>>rw[Abbr`bs1`] >>
+    simp[SUM_APPEND,FILTER_APPEND]) >>
+  rw[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def,Abbr`bs1`,LET_THM,Abbr`P`] >>
+  qho_match_abbrev_tac`∃ps. bc_next^* bs1 (bs2 ps)` >>
+  first_x_assum(qspecl_then[`bs1`,`bc0 ++ [Stack (PushInt x);Ref]`,`bc1`]mp_tac) >>
+  simp[Abbr`bs1`,SUM_APPEND,FILTER_APPEND] >>
+  disch_then(Q.X_CHOOSE_THEN`ps`strip_assume_tac) >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1 bs3` >>
+  `bs3 = bs2 (ps ++ [LEAST n. n ∉ FDOM bs.refs])` by (
+    simp[Abbr`bs3`,Abbr`bs2`,bc_state_component_equality,FILTER_APPEND,SUM_APPEND] >>
+    simp[REVERSE_APPEND,FUPDATE_LIST_THM] ) >>
+  metis_tac[])
+
+val num_fold_update_refptr_thm = store_thm("num_fold_update_refptr_thm",
+  ``let (s',k') = num_fold (update_refptr nk) (s,k) nz in
+    ∃code.
+    (s'.out = REVERSE code ++ s.out) ∧
+    EVERY ($~ o is_Label) code ∧
+    (s'.next_label = s.next_label) ∧
+    ∀bs bc0 bc1.
+    (bs.code = bc0 ++ code ++ bc1) ∧
+    (bs.pc = next_addr bs.inst_length bc0)
+    ⇒
+    bc_next^* bs
+    (bs with <| stack :=
+              ; refs :=
+              ; pc := next_addr bs.inst_length (bc0 ++ code)|>)``
+
 val compile_closures_thm = store_thm("compile_closures_thm",
   ``∀d env sz nz s defs.
     let s' = compile_closures d env sz nz s defs in
@@ -816,8 +881,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
         let bvs = MAP (λ(xs,cb). Block closure_tag
           [CodePtr (OUTR cb)
           ; let (j,ec) = d.ecs ' (OUTR cb) in
-            if j = 0 then Number 0
-            else Block 0 (REVERSE (MAP ARB ec))
+            Block 0 (REVERSE (MAP ARB ec))
           ]) defs in
         bc_next^* bs
         (bs with <| stack := bvs++bs.stack
@@ -825,9 +889,21 @@ val compile_closures_thm = store_thm("compile_closures_thm",
                   ; refs := bs.refs |++ rfs
                   |>)``,
   rw[compile_closures_def] >>
+
   qspecl_then[`defs`,`d`,`s'`,`[]`,`s''`,`ecs`]mp_tac FOLDL_push_lab_thm >>
   simp[] >> disch_then(Q.X_CHOOSE_THEN`bpl`strip_assume_tac) >>
-  qspecl_then[`
+  qspecl_then[`REVERSE ecs`,`env`,`sz`,`sz + nz + nk`,`nk`,`s''`,`1`]mp_tac FOLDL_cons_closure_thm >>
+  simp[] >> disch_then(Q.X_CHOOSE_THEN`bcc`strip_assume_tac) >>
+  `s''''' = (s'''' with out := GENLIST (K (Stack (Store k))) nz ++ s''''.out)` by (
+    unabbrev_all_tac >>
+    rpt (pop_assum kall_tac) >>
+    qid_spec_tac`s''''` >>
+    Induct_on`nz` >- (
+      rw[Once num_fold_def] >>
+      rw[CompileTheory.compiler_result_component_equality] ) >>
+    rw[Once num_fold_def] >>
+    rw[CompileTheory.compiler_result_component_equality,GENLIST] ) >>
+  simp[]
 
 set_trace"goalstack print goal at top"0
 
