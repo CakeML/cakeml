@@ -145,7 +145,8 @@ val _ = parsetest ``nDtypeDecl`` ``ptree_DtypeDecl``
                   ``[TyvarT "'a"; AlphaT "foo"; EqualsT;
                      AlphaT "C"; OfT; TyvarT "'a"; BarT;
                      AlphaT "D"; OfT; AlphaT "bool"; BarT; AlphaT "E"]``
-val _ = parsetest ``nTypeDec`` T "datatype 'a foo = C of 'a | D of bool | E and bar = F | G"
+val _ = parsetest ``nTypeDec`` ``ptree_TypeDec``
+                  "datatype 'a foo = C of 'a | D of bool | E and bar = F | G"
                   ``[DatatypeT; TyvarT "'a"; AlphaT "foo"; EqualsT;
                      AlphaT "C"; OfT; TyvarT "'a"; BarT;
                      AlphaT "D"; OfT; AlphaT "bool"; BarT; AlphaT "E"; AndT;

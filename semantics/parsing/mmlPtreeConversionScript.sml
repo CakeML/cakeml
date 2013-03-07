@@ -225,17 +225,19 @@ val ptree_DtypeDecl_def = Define`
         else NONE
 `;
 
-(*val ptree_TypeDec_def = Define`
+val ptree_TypeDec_def = Define`
   ptree_TypeDec ptree : ast_type_def option =
     case ptree of
       Lf _ => NONE
     | Nd nt args =>
-      (case nt of
-         mkNT nTypeDec => (case args of
-                             [Lf (TK DatatypeT); pt0] => ptree_DtypeDecls pt0
-                           | _ => NONE)
-       | _ => NONE)
-`*)
+      if nt = mkNT nTypeDec then
+        case args of
+            [datatype_pt; pt] => do
+              assert(datatype_pt = Lf (TK DatatypeT));
+              ptree_linfix nDtypeDecls AndT ptree_DtypeDecl pt
+            od
+          | _ => NONE
+      else NONE`;
 
 val ptree_Op_def = Define`
   ptree_Op (Lf _) = NONE ∧
