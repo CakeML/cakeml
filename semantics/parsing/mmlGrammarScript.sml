@@ -41,15 +41,24 @@ val tokmap0 =
     List.foldl (fn ((s,t), acc) => Binarymap.insert(acc,s,t))
                (Binarymap.mkDict String.compare)
                [("(", ``LparT``), (")", ``RparT``), (",", ``CommaT``),
-                ("->", ``ArrowT``), ("*", ``StarT``),
-                ("|", ``BarT``), ("=", ``EqualsT``),
+                ("->", ``ArrowT``), ("=>", ``DarrowT``),
+                ("*", ``StarT``),
+                ("|", ``BarT``), ("=", ``EqualsT``), (":", ``ColonT``),
                 ("and", ``AndT``),
+                ("andalso", ``AndalsoT``),
+                ("case", ``CaseT``),
                 ("datatype", ``DatatypeT``),
+                ("else", ``ElseT``),
                 ("end", ``EndT``),
+                ("fn", ``FnT``),
                 ("fun", ``FunT``),
+                ("if", ``IfT``),
                 ("in", ``InT``),
                 ("let", ``LetT``),
                 ("of", ``OfT``),
+                ("orelse", ``OrelseT``),
+                ("raise", ``RaiseT``),
+                ("then", ``ThenT``),
                 ("val", ``ValT``)]
 fun tokmap s =
     case Binarymap.peek(tokmap0, s) of
@@ -104,6 +113,23 @@ val mmlG_def = mk_grammar_def ginfo
  Erel ::= Eadd RelOps Eadd | Eadd;
  Ecomp ::= Ecomp CompOps Erel | Erel;
  Ebefore ::= Ebefore BeforeOps Ecomp | Ecomp;
+ Etyped ::= Ebefore | Ebefore ":" Type;
+ ElogicAND ::= ElogicAND "andalso" Etyped | Etyped;
+ ElogicOR ::= ElogicOR "orelse" ElogicAND | ElogicAND;
+ E ::= "if" E "then" E "else" E | "case" E "of" PEs | "fn" V "=>" E | "raise" E
+    |  ElogicOR;
+
+ (* function and value declarations *)
+ FDecl ::= V V "=" E ;
+ AndFDecls ::= FDecl | AndFDecls "and" FDecl;
+ Decl ::= "val" Pattern "=" E | "fun" AndFDecls | TypeDec;
+
+ (* patterns *)
+ Pbase ::= V | ConstructorName | <IntT> | "(" Pattern ")";
+ Pattern ::= ConstructorName Ptuple | ConstructorName Pbase;
+ Ptuple ::= "(" PatternList1 ")";
+ PatternList1 ::= Pattern | PatternList1 "," Pattern;
+ PEs ::= Pattern "=>" E | PEs "|" Pattern "=>" E;
 `;
 
 val _ = type_abbrev("NT", ``:MMLnonT inf``)
