@@ -103,11 +103,10 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
     (EL i defs = (xs,INR l))) ∧
    (l2a l = SOME a) ∧
    (FLOOKUP c l = SOME e) ∧
-   benv_bvs pp benv (free_vars c e) xs env defs ns i
-   ⇒ Cv_bv pp (CRecClos env ns defs n) (Block closure_tag [CodePtr a; benv])) ∧
+   benv_bvs pp bvs (free_vars c e) xs env defs ns i
+   ⇒ Cv_bv pp (CRecClos env ns defs n) (Block closure_tag [CodePtr a; Block 0 bvs])) ∧
   ((pp = (s,c,l2a,cls)) ∧
    (evs = FILTER (λv. v ∉ set xs ∧ (∀j. (find_index v ns 0 = SOME j) ⇒ j ≠ i)) (SET_TO_LIST fvs)) ∧
-   (benv = if evs = [] then Number 0 else Block 0 bvs) ∧
    (LENGTH bvs = LENGTH evs) ∧
    (∀i x bv. i < LENGTH evs ∧ (x = EL i evs) ∧ (bv = EL i bvs) ⇒
      if find_index x ns 0 = NONE then
@@ -116,7 +115,7 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
        (bv = RefPtr p) ∧
        (FLOOKUP cls p = SOME (jenv,ns,defs,j)) ∧
        fmap_rel (syneq c) jenv (DRESTRICT env (bundle_fvs c ns defs)))
-   ⇒ benv_bvs pp benv fvs xs env defs ns i)`
+   ⇒ benv_bvs pp bvs fvs xs env defs ns i)`
 
 val Cv_bv_only_ind =
   Cv_bv_ind
@@ -623,14 +622,13 @@ val cons_closure_thm = store_thm("cons_closure_thm",
         0 < k ∧ k < nk ∧
         (LENGTH fs = k - 1) ∧
         (LENGTH ptrs = nk - k + 1) ∧
-        (LENGTH ec = j) ∧
         (LENGTH bs.stack = sz) ∧
+        (LENGTH ec = j) ∧
         sz0 + nk ≤ LENGTH st ∧
         EVERY (IS_SOME o bv_from_ec cls sz0 (LENGTH st) st bs.refs env0) ec
         ⇒
         bc_next^* bs (bs with <| stack := (TAKE (nk - k) ptrs)++
                                           Block closure_tag [LAST ptrs;
-                                          if j = 0 then Number 0 else
                                           Block 0 (REVERSE (MAP (THE o (bv_from_ec cls sz0 (LENGTH st) st bs.refs env0)) ec))]::fs++st
                                ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
   simp[cons_closure_def,UNCURRY] >> rpt gen_tac >>
@@ -668,7 +666,7 @@ val cons_closure_thm = store_thm("cons_closure_thm",
   qunabbrev_tac`bs1` >>
   qpat_assum`bc_fetch bs = X`kall_tac >>
   qpat_assum`bs.code = X`mp_tac >>
-  Q.PAT_ABBREV_TAC`x = if j = 0 then X else Cons 0 j` >>
+  Q.PAT_ABBREV_TAC`x = Cons 0 j` >>
   strip_tac >>
   `bc_fetch bs3 = SOME (Stack x)` by (
     match_mp_tac bc_fetch_next_addr >>
@@ -681,7 +679,7 @@ val cons_closure_thm = store_thm("cons_closure_thm",
   qpat_assum`Abbrev (bs3 = X)`mp_tac >>
   Q.PAT_ABBREV_TAC`evs:bc_value list = MAP f (REVERSE ec)` >>
   strip_tac >>
-  qabbrev_tac`env = if j = 0 then Number i0 else Block 0 evs` >>
+  qabbrev_tac`env = Block 0 evs` >>
   qexists_tac`env::bv::ptrs++fs++st` >>
   conj_tac >- (
     srw_tac[ARITH_ss][Abbr`x`,Abbr`env`,bc_eval_stack_def,Abbr`bs3`,LENGTH_NIL,Abbr`evs`,ADD1] >>
@@ -776,7 +774,6 @@ val compile_closures_thm = store_thm("compile_closures_thm",
   qspecl_then[`defs`,`d`,`s'`,`[]`,`s''`,`ecs`]mp_tac FOLDL_push_lab_thm >>
   simp[] >> disch_then(Q.X_CHOOSE_THEN`bpl`strip_assume_tac) >>
   qspecl_then[`
-
 
 set_trace"goalstack print goal at top"0
 
@@ -1274,7 +1271,6 @@ val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
   rpt gen_tac >> strip_tac >> fs[] >>
   simp[Once Cv_bv_cases] >>
   gen_tac >> strip_tac >>
-  qexists_tac`bvs`>>fs[]>>
   rpt BasicProvers.VAR_EQ_TAC >>
   Q.PAT_ABBREV_TAC`evs = FILTER X (SET_TO_LIST fvs)` >>
   fs[] >> metis_tac[])
@@ -1642,7 +1638,7 @@ val syneq_Cv_bv = store_thm("syneq_Cv_bv",
     simp[Once Cv_bv_cases,SimpR``$==>``] >>
     Q.PAT_ABBREV_TAC`fvs = SET_TO_LIST (free_vars c' e)` >>
     Q.PAT_ABBREV_TAC`evs = FILTER X fvs` >>
-    strip_tac >> qexists_tac`bvs` >> fs[] >>
+    strip_tac >> fs[] >>
     qx_gen_tac`z` >> strip_tac >>
     first_x_assum(qspec_then`z`mp_tac) >>
     simp[] >> strip_tac >>
@@ -1884,13 +1880,14 @@ val FDOM_bind_fv = store_thm("FDOM_bind_fv",
 
 val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
   ``∀c sm cls s env ns xs az i fvs bs
-     cenv defs e l vs a benv ret bvs st pp.
+     cenv defs e l vs a benv bve ret bvs st pp.
     (env = DRESTRICT (extend_rec_env cenv cenv ns defs xs vs) fvs) ∧
     (bs.stack = benv::CodePtr ret::(REVERSE bvs)++(Block closure_tag [CodePtr a;benv])::st) ∧
     (pp = mk_pp (DRESTRICT sm (FDOM s)) c bs cls) ∧
+    (benv = Block 0 bve) ∧
     (fvs = free_vars c e) ∧
     good_cls c sm s bs cls ∧
-    benv_bvs pp benv fvs xs cenv defs ns i ∧
+    benv_bvs pp bve fvs xs cenv defs ns i ∧
     s_refs c sm cls s bs ∧
     ALL_DISTINCT ns ∧
     ALL_DISTINCT xs ∧
@@ -1951,7 +1948,7 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
     fsrw_tac[DNF_ss][Abbr`P`] >>
     qexists_tac`n`>>simp[]>>
     imp_res_tac find_index_LESS_LENGTH >> rfs[] >>
-    Q.PAT_ABBREV_TAC`bv = EL X (benv::Y)` >>
+    Q.PAT_ABBREV_TAC`bv = EL X (Block 0 bve::Y)` >>
     qsuff_tac`bv = EL n bvs` >- rw[] >>
     rw[Abbr`bv`] >>
     pop_assum mp_tac >>
@@ -2019,12 +2016,12 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
       qexists_tac`m` >>
       qpat_assum`X = EL m ecs`(assume_tac o SYM) >>
       simp[] ) >>
-    qpat_assum`benv_bvs pp benv fvs xs cenv defs ns i`mp_tac >>
+    qpat_assum`benv_bvs pp bvs fvs xs cenv defs ns i`mp_tac >>
     `envs ≠ []` by (
       simp[Abbr`envs`,FILTER_EQ_NIL,combinTheory.o_DEF,EXISTS_MEM,Abbr`fvl`] >>
       PROVE_TAC[] ) >>
     simp[CONJUNCT2(SPEC_ALL Cv_bv_cases)] >>
-    disch_then(Q.X_CHOOSE_THEN`nvs`strip_assume_tac) >>
+    disch_then strip_assume_tac >>
     simp[] >>
     `LENGTH ecs = LENGTH envs` by rw[Abbr`ecs`] >> fs[] >>
     first_x_assum(qspec_then`n`mp_tac) >>
@@ -2092,7 +2089,7 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
     simp[Abbr`envs`,FILTER_EQ_NIL,combinTheory.o_DEF,EXISTS_MEM,Abbr`fvl`] >>
     PROVE_TAC[] ) >>
   simp[CONJUNCT2(SPEC_ALL Cv_bv_cases)] >>
-  disch_then(Q.X_CHOOSE_THEN`nvs`strip_assume_tac) >>
+  disch_then(strip_assume_tac) >>
   simp[] >>
   `LENGTH ecs = LENGTH envs` by rw[Abbr`ecs`] >> fs[] >>
   first_x_assum(qspec_then`n`mp_tac) >> simp[] >> rw[] >>
@@ -2926,7 +2923,7 @@ val compile_val = store_thm("compile_val",
       disch_then(mp_tac o CONV_RULE (RESORT_FORALL_CONV List.rev)) >>
       simp[LENGTH_NIL_SYM,FUPDATE_LIST_THM] >>
       simp_tac(srw_ss())[Abbr`bs1`]>>
-      disch_then(qspecl_then[`bs.stack`,`Block 3 [CodePtr a; bve]`,`bvs`,`vs`,`xs`,`defs`,`ns'`,`env'`]mp_tac) >>
+      disch_then(qspecl_then[`bs.stack`,`Block 3 [CodePtr a; Block 0 bve]`,`bvs`,`vs`,`xs`,`defs`,`ns'`,`env'`]mp_tac) >>
       pop_assum kall_tac >>
       `LENGTH bvs = LENGTH vs` by fs[EVERY2_EVERY] >>
       `∃bc10. bs.code = cb0 ++ [Label l] ++ REVERSE cc ++ bc10` by (
@@ -3093,7 +3090,7 @@ val compile_val = store_thm("compile_val",
     simp[Abbr`bs1`] >>
     disch_then(mp_tac o CONV_RULE (RESORT_FORALL_CONV List.rev)) >>
     simp[LENGTH_NIL_SYM,FUPDATE_LIST_THM] >>
-    disch_then(qspecl_then[`st`,`Block 3 [CodePtr a; bve]`,`bvs`,`vs`,`xs`,`defs`,`ns'`,`env'`,`cb1 ++ bcr`]mp_tac) >>
+    disch_then(qspecl_then[`st`,`Block 3 [CodePtr a; Block 0 bve]`,`bvs`,`vs`,`xs`,`defs`,`ns'`,`env'`,`cb1 ++ bcr`]mp_tac) >>
     simp[] >> pop_assum kall_tac >>
     `LENGTH bvs = LENGTH vs` by fs[EVERY2_EVERY] >>
     simp[code_for_return_def,Abbr`R`] >>

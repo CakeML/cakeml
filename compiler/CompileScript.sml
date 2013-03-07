@@ -1085,7 +1085,7 @@ val _ = Defn.save_defn push_lab_defn;
   (* CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
   let (_z,s) =((( FOLDL (((emit_ec env0) sz0))) (sz1+1,s)) ((REVERSE ec))) in
   (* e_kj, ..., e_k1, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
-  let s =(( emit s) [(Stack (if j = 0 then( PushInt i0) else(( Cons 0) j)))]) in
+  let s =(( emit s) [(Stack (((Cons 0) j)))]) in
   (* env_k, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
   let s =(( emit s) [(Stack (((Cons closure_tag) 2)))]) in
   (* cl_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
