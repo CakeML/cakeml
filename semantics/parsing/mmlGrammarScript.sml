@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib
 
-open TokensTheory AstTheory grammarTheory
+open TokensTheory mmlTokenUtilsTheory AstTheory grammarTheory
 
 open lcsymtacs grammarLib monadsyntax
 
@@ -32,43 +32,6 @@ val mmap_CONG = store_thm(
       l1 = l2 ∧ (∀x. MEM x l2 ⇒ f x = f' x) ⇒ mmap f l1 = mmap f l2``,
   Induct >> rw[]);
 val _ = DefnBase.export_cong "mmap_CONG"
-
-
-(* ----------------------------------------------------------------------
-    Utility functions over tokens
-   ---------------------------------------------------------------------- *)
-
-val isInt_def = Define`
-  isInt (IntT i) = T ∧
-  isInt _ = F
-`;
-
-val isAlphaT_def = Define`
-  isAlphaT (AlphaT s) = T ∧
-  isAlphaT _ = F
-`;
-
-val isSymbolT_def = Define`isSymbolT (SymbolT s) = T ∧ isSymbolT _ = F`
-val isAlphaSym_def = Define`
-  isAlphaSym (AlphaT _) = T ∧
-  isAlphaSym (SymbolT _) = T ∧
-  isAlphaSym _ = F
-`;
-
-val isTyvarT_def = Define`isTyvarT (TyvarT _) = T ∧ isTyvarT _ = F`
-
-val destTyvarPT_def = Define`
-  (destTyvarPT (Lf (TOK (TyvarT s))) = SOME s) ∧
-  (destTyvarPT _ = NONE)
-`;
-val destLf_def = Define`
-  (destLf (Lf x) = SOME x) ∧ (destLf _ = NONE)
-`;
-val destTOK_def = Define`(destTOK (TOK t) = SOME t) ∧ (destTOK _ = NONE)`;
-val destAlphaT_def = Define`
-  (destAlphaT (AlphaT s) = SOME s) ∧
-  (destAlphaT _ = NONE)
-`;
 
 (* ----------------------------------------------------------------------
     Define the Mini ML CFG
