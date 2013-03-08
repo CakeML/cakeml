@@ -43,4 +43,9 @@ val destAlphaT_def = Define`
   (destAlphaT _ = NONE)
 `;
 
+val destSymbolT_def = Define`
+  (destSymbolT (SymbolT s) = SOME s) ∧
+  (destSymbolT _ = NONE)
+`;
+
 val _ = export_theory()
