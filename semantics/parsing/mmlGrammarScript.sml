@@ -92,7 +92,8 @@ val mmlG_def = mk_grammar_def ginfo
  ConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``);
  V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o" } ∧ s ≠ "" ∧
                        ¬isUpper (HD s)}``)
-    |  ^(``{SymbolT s | s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="}}``);
+    |  ^(``{SymbolT s |
+            s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"}}``);
  Ebase ::= "(" E ")" | V | ConstructorName | <IntT>
         |  "let" "val" V "=" E "in" E "end"
         |  "let" "fun" AndFDecls "in" E "end";
@@ -103,7 +104,7 @@ val mmlG_def = mk_grammar_def ginfo
         | ConstructorName Etuple;
 
  (* expressions - binary operators *)
- MultOps ::= ^(``{AlphaT "div";AlphaT "mod";SymbolT "*";SymbolT "/"}``);
+ MultOps ::= ^(``{AlphaT "div"; AlphaT "mod"; StarT; SymbolT "/"}``);
  AddOps ::= ^(``{SymbolT "+"; SymbolT "-"}``);
  RelOps ::= ^(``{SymbolT s | s ∈ {"<"; ">"; "<="; ">="; "<>"}}``) | EqualsT;
  CompOps ::= ^(``{AlphaT "o"}``);
@@ -145,10 +146,10 @@ val ast = ``Nd (mkNT nEmult) [
                 Nd (mkNT nEmult) [
                   Nd (mkNT nEapp) [Nd (mkNT nEbase) [Lf (TK (IntT 3))]]
                 ];
-                Nd (mkNT nMultOps) [Lf (TK (SymbolT "*"))];
+                Nd (mkNT nMultOps) [Lf (TK StarT)];
                 Nd (mkNT nEapp) [Nd (mkNT nEbase) [Lf (TK (IntT 4))]]
               ];
-              Nd (mkNT nMultOps) [Lf (TK (SymbolT "*"))];
+              Nd (mkNT nMultOps) [Lf (TK (SymbolT "/"))];
               Nd (mkNT nEapp) [Nd (mkNT nEbase) [Lf (TK (IntT 5))]]
             ]``
 
