@@ -811,6 +811,8 @@ val num_fold_make_ref_thm = store_thm("num_fold_make_ref_thm",
     (bs.pc = next_addr bs.inst_length bc0)
     ⇒
     ∃ps.
+    ALL_DISTINCT ps ∧
+    (∀p. p ∈ set ps ⇒ p ∉ FDOM bs.refs) ∧
     bc_next^* bs
     (bs with <| stack := MAP RefPtr ps ++ bs.stack
               ; refs := bs.refs |++ REVERSE (MAP (λp. (p,Number x)) ps)
@@ -833,36 +835,94 @@ val num_fold_make_ref_thm = store_thm("num_fold_make_ref_thm",
   rw[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
   simp[Once RTC_CASES1] >>
   fsrw_tac[DNF_ss][] >> disj2_tac >>
-  qho_match_abbrev_tac`∃ps u. bc_next bs1 u ∧ P ps u` >>
+  REWRITE_TAC[CONJ_ASSOC] >>
+  qho_match_abbrev_tac`∃ps u. (P0 ps ∧ bc_next bs1 u) ∧ P ps u` >>
   `bc_fetch bs1 = SOME Ref` by (
     match_mp_tac bc_fetch_next_addr >>
     qexists_tac`bc0++[Stack (PushInt x)]`>>rw[Abbr`bs1`] >>
     simp[SUM_APPEND,FILTER_APPEND]) >>
   rw[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def,Abbr`bs1`,LET_THM,Abbr`P`] >>
-  qho_match_abbrev_tac`∃ps. bc_next^* bs1 (bs2 ps)` >>
+  qho_match_abbrev_tac`∃ps. P0 ps ∧ bc_next^* bs1 (bs2 ps)` >>
   first_x_assum(qspecl_then[`bs1`,`bc0 ++ [Stack (PushInt x);Ref]`,`bc1`]mp_tac) >>
   simp[Abbr`bs1`,SUM_APPEND,FILTER_APPEND] >>
   disch_then(Q.X_CHOOSE_THEN`ps`strip_assume_tac) >>
   qmatch_assum_abbrev_tac`bc_next^* bs1 bs3` >>
-  `bs3 = bs2 (ps ++ [LEAST n. n ∉ FDOM bs.refs])` by (
-    simp[Abbr`bs3`,Abbr`bs2`,bc_state_component_equality,FILTER_APPEND,SUM_APPEND] >>
+  qabbrev_tac`pps = ps ++ [LEAST n. n ∉ FDOM bs.refs]` >>
+  qexists_tac`pps` >>
+  `bs3 = bs2 pps` by (
+    simp[Abbr`bs3`,Abbr`bs2`,bc_state_component_equality,FILTER_APPEND,SUM_APPEND,Abbr`pps`] >>
     simp[REVERSE_APPEND,FUPDATE_LIST_THM] ) >>
-  metis_tac[])
+  fs[Abbr`P0`] >>
+  simp[Abbr`pps`,ALL_DISTINCT_APPEND] >> rw[] >> fs[] >>
+  numLib.LEAST_ELIM_TAC >> simp[] >>
+  metis_tac[NOT_IN_FINITE,FDOM_FINITE,INFINITE_NUM_UNIV])
 
 val num_fold_update_refptr_thm = store_thm("num_fold_update_refptr_thm",
-  ``let (s',k') = num_fold (update_refptr nk) (s,k) nz in
+  ``∀nz nk s k.
+    let (s',k') = num_fold (update_refptr nk) (s,k) nz in
     ∃code.
     (s'.out = REVERSE code ++ s.out) ∧
     EVERY ($~ o is_Label) code ∧
     (s'.next_label = s.next_label) ∧
-    ∀bs bc0 bc1.
+    (k' = k + nz) ∧
+    ∀bs bc0 bc1 vs rs st.
     (bs.code = bc0 ++ code ++ bc1) ∧
-    (bs.pc = next_addr bs.inst_length bc0)
+    (bs.pc = next_addr bs.inst_length bc0) ∧
+    (bs.stack = vs ++ (MAP RefPtr rs) ++ st) ∧
+    (∀r. MEM r rs ⇒ r ∈ FDOM bs.refs) ∧
+    (LENGTH rs = nk) ∧ (LENGTH vs = nk) ∧
+    0 < k ∧ (nz + k - 1 = nk) ∧ k < nk
     ⇒
     bc_next^* bs
-    (bs with <| stack :=
-              ; refs :=
-              ; pc := next_addr bs.inst_length (bc0 ++ code)|>)``
+    (bs with <| refs := bs.refs |++ MAP2 $, rs vs
+              ; pc := next_addr bs.inst_length (bc0 ++ code)|>)``,
+  Induct >- (
+    rw[Once num_fold_def,Once SWAP_REVERSE,LENGTH_NIL,FUPDATE_LIST_THM] >>
+    rw[] >> Cases_on`k`>>fsrw_tac[ARITH_ss][] ) >>
+  rw[Once num_fold_def,update_refptr_def] >>
+  first_x_assum(qspecl_then[`nk`,`s'''`,`k+1`]mp_tac) >>
+  simp[] >> unabbrev_all_tac >> simp[] >>
+  disch_then strip_assume_tac >>
+  simp[Once SWAP_REVERSE] >>
+  ntac 3 strip_tac >>
+  map_every qx_gen_tac[`vvs`,`rrs`] >> rpt strip_tac >>
+  qmatch_assum_abbrev_tac`bs.code = bc0 ++ ls ++ code ++ bc1` >>
+  `∃v vs r rs. (vvs = v::vs) ∧ (rrs = r::rs)` by (
+    Cases_on`vvs`>>fsrw_tac[ARITH_ss][] >>
+    Cases_on`rrs`>>fsrw_tac[ARITH_ss][]) >>
+  qpat_assum`X = (s'''',k')`kall_tac >>
+  simp[Once RTC_CASES1] >> disj2_tac >>
+  qmatch_assum_abbrev_tac`Abbrev (ls = [x1;x2;x3])` >>
+  `bc_fetch bs = SOME x1` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0`>>rw[Abbr`x1`,Abbr`ls`] ) >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`x1`,bc_eval_stack_def,ADD1] >>
+  fsrw_tac[ARITH_ss][ADD1] >>
+  lrw[bump_pc_def,EL_CONS,EL_APPEND1,PRE_SUB1,EL_APPEND2] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  simp[Once RTC_CASES1] >> disj2_tac >>
+  `bc_fetch bs1 = SOME x2` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0 ++ [HD ls]` >>
+    lrw[Abbr`bs1`,Abbr`ls`,Abbr`x2`,SUM_APPEND,FILTER_APPEND] ) >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`x2`,bc_eval_stack_def] >>
+  simp[Abbr`bs1`,bump_pc_def] >>
+  lrw[EL_CONS,PRE_SUB1,EL_APPEND1] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  simp[Once RTC_CASES1] >> disj2_tac >>
+  `bc_fetch bs1 = SOME x3` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0 ++ [HD ls; HD(TL ls)]` >>
+    lrw[Abbr`bs1`,Abbr`ls`,Abbr`x3`,SUM_APPEND,FILTER_APPEND] ) >>
+  simp[bc_eval1_thm,bc_eval1_def,Abbr`x3`,bc_eval_stack_def] >>
+  simp[Abbr`bs1`,bump_pc_def,EL_MAP] >>
+  conj_tac >- (
+    qmatch_abbrev_tac`EL n rs ∈ d` >>
+    first_x_assum match_mp_tac
+    simp[MEM_EL] >> disj2_tac >>
+    qexists_tac`n` >>
+    simp[Abbr`n`] ) >>
+  simp[Once RTC_CASES1] >> disj1_tac >>
 
 val compile_closures_thm = store_thm("compile_closures_thm",
   ``∀d env sz nz s defs.
@@ -889,11 +949,15 @@ val compile_closures_thm = store_thm("compile_closures_thm",
                   ; refs := bs.refs |++ rfs
                   |>)``,
   rw[compile_closures_def] >>
-
+  qspecl_then[`i0`,`nz`,`s`]mp_tac num_fold_make_ref_thm >>
+  simp[] >> disch_then(Q.X_CHOOSE_THEN`bmr`strip_assume_tac) >>
+  qpat_assum`Abbrev (s' = X)`kall_tac >>
   qspecl_then[`defs`,`d`,`s'`,`[]`,`s''`,`ecs`]mp_tac FOLDL_push_lab_thm >>
   simp[] >> disch_then(Q.X_CHOOSE_THEN`bpl`strip_assume_tac) >>
+  qpat_assum`FOLDL (push_lab d) X Y = Z`kall_tac >>
   qspecl_then[`REVERSE ecs`,`env`,`sz`,`sz + nz + nk`,`nk`,`s''`,`1`]mp_tac FOLDL_cons_closure_thm >>
   simp[] >> disch_then(Q.X_CHOOSE_THEN`bcc`strip_assume_tac) >>
+  qpat_assum`FOLDL X Y (REVERSE ecs) = Z`kall_tac >>
   `s''''' = (s'''' with out := GENLIST (K (Stack (Store k))) nz ++ s''''.out)` by (
     unabbrev_all_tac >>
     rpt (pop_assum kall_tac) >>
