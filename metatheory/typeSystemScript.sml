@@ -386,7 +386,7 @@ rw [num_tvs_def, bind_var_list_def] >>
 PairCases_on `h` >>
 rw [bind_var_list_def, bind_tenv_def, num_tvs_def]);
 
-val tenv_ok_bind_var_list = Q.store_thm ("tenv_ok_bind_var_list",
+val tenv_ok_bind_var_list_funs = Q.store_thm ("tenv_ok_bind_var_list_funs",
 `!funs tenvM tenvC env tenvE tvs env'.
   type_funs tenvM tenvC (bind_var_list 0 env' tenvE) funs env ∧
   tenv_ok tenvE
@@ -415,7 +415,7 @@ cases_on `tvs = 0` >>
 fs [check_freevars_def, num_tvs_bind_var_list, bind_tvar_def, num_tvs_def] >>
 metis_tac []);
 
-val type_freevars_lem5 = Q.prove (
+val tenv_ok_bind_var_list = Q.store_thm ("tenv_ok_bind_var_list",
 `!tenvE env.
   tenv_ok tenvE ∧ EVERY (check_freevars (num_tvs tenvE) []) (MAP SND env)
   ⇒
@@ -467,8 +467,8 @@ fs [check_freevars_def] >|
      fs [RES_FORALL, num_tvs_bind_var_list] >>
      qpat_assum `!x. P x` (ASSUME_TAC o Q.SPEC `(FST h, SND h)`) >>
      fs [] >>
-     metis_tac [type_p_freevars, type_freevars_lem5],
- metis_tac [tenv_ok_bind_var_list, num_tvs_bind_var_list],
+     metis_tac [type_p_freevars, tenv_ok_bind_var_list],
+ metis_tac [tenv_ok_bind_var_list_funs, num_tvs_bind_var_list],
  metis_tac [tenv_ok_bind_var_list_tvs, num_tvs_bind_var_list, bind_tvar_def]]);
 
 (* Recursive functions have function type *)
@@ -794,7 +794,7 @@ rw [lookup_tenv_def, num_tvs_def, tenv_ok_def] >|
      metis_tac [nil_deBruijn_inc],
  metis_tac [arithmeticTheory.ADD, arithmeticTheory.ADD_COMM]]);
 
-val type_e_subst_lem2 = Q.prove (
+val deBruijn_subst2 = Q.store_thm ("deBruijn_subst2",
 `(!t sk targs targs' tvs'.
   check_freevars (LENGTH targs) [] t ⇒
   (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs') (deBruijn_subst 0 targs t) =
@@ -1086,7 +1086,7 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
                fs [nil_deBruijn_inc] >>
                qexists_tac `(MAP (deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs')) targs)` >>
                rw [] >-
-               metis_tac [type_e_subst_lem2] >>
+               metis_tac [deBruijn_subst2] >>
                fs [EVERY_MAP, EVERY_MEM, MEM_MAP] >>
                rw [] >>
                metis_tac [type_e_subst_lem3, EVERY_MEM],
@@ -1105,7 +1105,7 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
           rw [] >>
           qexists_tac `MAP (deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs')) targs` >>
           rw [] >|
-          [match_mp_tac (hd (CONJUNCTS type_e_subst_lem2)) >>
+          [match_mp_tac (hd (CONJUNCTS deBruijn_subst2)) >>
                rw [] >>
                metis_tac [tenvM_ok_lookup, lookup_freevars, arithmeticTheory.ADD, arithmeticTheory.ADD_0],
            fs [EVERY_MAP, EVERY_MEM] >>
@@ -1141,7 +1141,7 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
                                       db_merge_bind_var_list] o
                 Q.SPECL [`bind_var_list 0 tenv' tenvE1`, `targs`, `tvs`]) >>
      rw [] >>
-     match_mp_tac type_freevars_lem5 >>
+     match_mp_tac tenv_ok_bind_var_list >>
      rw [num_tvs_db_merge, bind_tvar_rewrites] >>
      metis_tac [type_p_freevars],
  disj1_tac >>
@@ -1251,7 +1251,7 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
           fs [] >>
           rw [] >>
           pop_assum match_mp_tac >>
-          match_mp_tac tenv_ok_bind_var_list >>
+          match_mp_tac tenv_ok_bind_var_list_funs >>
           rw [bind_tvar_rewrites] >>
           metis_tac [],
       qpat_assum `∀tenvE1' targs' tvs''.

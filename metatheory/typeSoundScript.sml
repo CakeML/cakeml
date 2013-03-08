@@ -843,8 +843,8 @@ rw [nil_deBruijn_inc, deBruijn_subst_check_freevars, type_subst_lem3,
      [match_mp_tac type_funs_subst_lem >>
           rw [] >-
           metis_tac [type_v_freevars] >>
-          match_mp_tac tenv_ok_bind_var_list >>
-          metis_tac [tenv_ok_bind_var_list, type_v_freevars, bind_tvar_rewrites],
+          match_mp_tac tenv_ok_bind_var_list_funs >>
+          metis_tac [tenv_ok_bind_var_list_funs, type_v_freevars, bind_tvar_rewrites],
       qpat_assum `type_funs w0 w x y z` (fn x => ALL_TAC) >>
           induct_on `tenv'` >>
           fs [lookup_def] >>

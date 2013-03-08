@@ -171,12 +171,20 @@ rw [Once type_e_cases] >|
           imp_res_tac weakE_lookup >>
           fs [] >>
           rw [] >>
-type_e_subst_lem2
-
- 
- cheat,
+          qexists_tac `MAP (deBruijn_subst 0 targs) subst'` >>
+          rw [EVERY_MAP] >>
+          `check_freevars (LENGTH subst') [] t'` by cheat >-
+          metis_tac [deBruijn_subst2, deBruijn_inc0] >>
+          `EVERY (check_freevars (num_tvs tenv') []) targs` 
+                    by metis_tac [EVERY_MEM, weak_tenvE_freevars] >>
+          rw [EVERY_MEM] >>
+          match_mp_tac deBruijn_subst_check_freevars2 >>
+          rw [] >>
+          metis_tac [EVERY_MEM]],
+ `tenv_ok (bind_tenv n 0 t1 tenv)`
+          by rw [tenv_ok_def, bind_tenv_def, check_freevars_def] >>
+     metis_tac [weak_tenvE_freevars, weak_tenvE_bind],
  metis_tac [weak_tenvE_bind, weak_tenvE_freevars],
- metis_tac [],
  metis_tac [],
  fs [RES_FORALL] >>
      qexists_tac `t` >>
@@ -185,7 +193,11 @@ type_e_subst_lem2
      fs [] >>
      res_tac >>
      fs [] >>
+     `tenv_ok (bind_var_list 0 tenv'' tenv)` 
+             by metis_tac [type_p_freevars, tenv_ok_bind_var_list] >>
      metis_tac [type_p_weakening, weak_tenvE_def, weak_tenvE_bind_var_list],
+
+
  metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar],
  metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar],
  metis_tac [weak_tenvE_bind_var_list, weak_tenvE_bind_tvar]
