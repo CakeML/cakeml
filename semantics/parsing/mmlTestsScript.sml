@@ -25,7 +25,7 @@ fun parsetest nt sem s t = let
   val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
   val _ = print ("Evaluating "^s^"\n")
   val evalth = time EVAL
-                    ``peg_exec mmltyPEG (nt (mkNT ^nt) I) ^t [] done failed``
+                    ``peg_exec mmlPEG (nt (mkNT ^nt) I) ^t [] done failed``
   val r = rhs (concl evalth)
   fun diag(s,t) = let
     fun pp pps (s,t) =
@@ -142,6 +142,12 @@ val _ = parsetest ``nTypeDec`` ``ptree_TypeDec``
                      AlphaT "C"; OfT; TyvarT "'a"; BarT;
                      AlphaT "D"; OfT; AlphaT "bool"; BarT; AlphaT "E"; AndT;
                      AlphaT "bar"; EqualsT; AlphaT "F"; BarT; AlphaT "G"]``
+
+(* expressions *)
+val _ = parsetest ``nEbase`` T "x" ``[AlphaT "x"]``
+val _ = parsetest ``nEmult`` T
+                  "f x * 3"
+                  ``[AlphaT "f"; AlphaT "x"; StarT; IntT 3]``
 
 
 

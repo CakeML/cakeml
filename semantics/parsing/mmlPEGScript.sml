@@ -213,30 +213,38 @@ val peg_TypeDec_def = Define`
         (λl1 l2. [Nd (mkNT nTypeDec) (l1 ++ l2)])
 `;
 
-val mmltyPEG_def = Define`
-  mmltyPEG = <| start := nt (mkNT nStarTypesP) I;
-                rules :=
-                FEMPTY |++ [(mkNT nType, peg_Type);
-                            (mkNT nDType, peg_DType);
-                            (mkNT nTyOp, peg_TyOp);
-                            (mkNT nStarTypes, peg_StarTypes);
-                            (mkNT nStarTypesP, peg_StarTypesP);
-                            (mkNT nTypeName, peg_TypeName);
-                            (mkNT nTypeDec, peg_TypeDec);
-                            (mkNT nDtypeDecl, peg_DtypeDecl);
-                            (mkNT nDconstructor, peg_Dconstructor);
-                            (mkNT nConstructorName, peg_ConstructorName)
-                           ] |>`;
-
+(* expressions *)
+val peg_V_def = Define`
+  peg_V =
+   choice (tok (λt.
+                  do s <- destAlphaT t;
+                     assert(s ∉ {"before"; "div"; "mod"; "o"} ∧ s ≠ "" ∧
+                            ¬isUpper (HD s))
+                  od = SOME ())
+               mktokLf)
+          (tok (λt.
+                  do s <- destSymbolT t;
+                     assert(s ∉ {"+"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"})
+                  od = SOME ())
+               mktokLf)
+          (bindNT nV o sumID)
+`
 
 val peg_multops_def = Define`
-  peg_multops = choice (tok ((=) (SymbolT "*")) mktokLf)
+  peg_multops = choice (tok ((=) StarT) mktokLf)
                        (tok ((=) (SymbolT "/")) mktokLf)
-                       (λa. [Nd (mkNT nMultOps) [HD (sumID a)]])
+                       (bindNT nMultOps o  sumID)
 `;
 
 val peg_Ebase_def = Define`
-  peg_Ebase = tok isInt (λt. [Nd (mkNT nEbase) [Lf (TK t)]])
+  peg_Ebase =
+    choicel [tok isInt (bindNT nEbase o mktokLf);
+             nt (mkNT nV) (bindNT nEbase);
+             nt (mkNT nConstructorName) (bindNT nEbase);
+             seql [tok ((=) LparT) mktokLf;
+                   nt (mkNT nE) I; tok ((=) RparT) mktokLf]
+                  (bindNT nEbase)
+            ]
 `;
 
 val peg_Eapp_def = Define`
@@ -247,20 +255,32 @@ val peg_Eapp_def = Define`
                                b])
 `;
 
-val mmlG_def = Define`
-  mmlG = <|
+val mmlPEG_def = Define`
+  mmlPEG = <|
     start := nt (mkNT nEmult) I;
     rules := FEMPTY |++
-             [(mkNT nEmult, peg_linfix (mkNT nEmult)
+             [(mkNT nV, peg_V);
+              (mkNT nEmult, peg_linfix (mkNT nEmult)
                                        (nt (mkNT nEapp) I)
                                        (nt (mkNT nMultOps) I));
               (mkNT nEapp, peg_Eapp);
               (mkNT nMultOps, peg_multops);
-              (mkNT nEbase, peg_Ebase)] |>
+              (mkNT nEbase, peg_Ebase);
+              (mkNT nType, peg_Type);
+              (mkNT nDType, peg_DType);
+              (mkNT nTyOp, peg_TyOp);
+              (mkNT nStarTypes, peg_StarTypes);
+              (mkNT nStarTypesP, peg_StarTypesP);
+              (mkNT nTypeName, peg_TypeName);
+              (mkNT nTypeDec, peg_TypeDec);
+              (mkNT nDtypeDecl, peg_DtypeDecl);
+              (mkNT nDconstructor, peg_Dconstructor);
+              (mkNT nConstructorName, peg_ConstructorName)
+             ] |>
 `;
 
 
-val test1 = EVAL ``peg_exec mmlG (nt (mkNT nEmult) I) [IntT 3; SymbolT "*"; IntT 4; SymbolT "/"; IntT (-2)] [] done failed``
+val test1 = EVAL ``peg_exec mmlPEG (nt (mkNT nEmult) I) [IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2)] [] done failed``
 
 
 val _ = export_theory()
