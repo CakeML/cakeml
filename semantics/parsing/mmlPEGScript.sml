@@ -47,6 +47,20 @@ val peg_linfix_def = Define`
 `;
 
 val mktokLf_def = Define`mktokLf t = [Lf (TK t)]`
+val bindNT_def = Define`
+  bindNT ntnm l = [Nd (mkNT ntnm) l]
+`
+
+val choicel_def = Define`
+  choicel [] = not (empty ARB) ARB ∧
+  choicel (h::t) = choice h (choicel t) sumID
+`;
+
+val seql_def = Define`
+  seql l f = seq (FOLDR (\p acc. seq p acc (++)) (empty []) l)
+                 (empty [])
+                 (λl1 l2. f l1)
+`;
 
 (* ----------------------------------------------------------------------
     PEG for types
@@ -141,7 +155,7 @@ val peg_StarTypesP_def = Define`
                 (seq (nt (mkNT nStarTypes) I) (tok ((=) RparT) mktokLf) (++))
                 (++))
            (nt (mkNT nStarTypes) I)
-           (λx. [Nd (mkNT nStarTypesP) (sumID x)])
+           (bindNT nStarTypesP o sumID)
 `;
 
 val peg_TypeName_def = Define`
@@ -157,7 +171,7 @@ val peg_TypeName_def = Define`
                    (++))
               (seq (tok isTyvarT mktokLf) (nt (mkNT nTyOp) I) (++))
               sumID)
-           (λs. [Nd (mkNT nTypeName) (sumID s)])
+           (bindNT nTypeName o sumID)
 `;
 
 val peg_ConstructorName_def = Define`
@@ -165,7 +179,7 @@ val peg_ConstructorName_def = Define`
     tok (λt. do s <- destAlphaT t ;
                 assert (s ≠ "" ∧ isUpper (HD s))
              od = SOME ())
-        (λt. [Nd (mkNT nConstructorName) (mktokLf t)])
+        (bindNT nConstructorName o mktokLf)
 `;
 
 (* Dconstructor ::= ConstructorName "of" StarTypesP | ConstructorName; *)
@@ -175,7 +189,7 @@ val peg_Dconstructor_def = Define`
         (choice (seq (tok ((=) OfT) mktokLf) (nt (mkNT nStarTypesP) I) (++))
                 (empty [])
                 sumID)
-        (λl1 l2. [Nd (mkNT nDconstructor) (l1 ++ l2)])
+        (λl1 l2. bindNT nDconstructor (l1 ++ l2))
 `;
 
 
@@ -188,7 +202,7 @@ val peg_DtypeDecl_def = Define`
              (peg_linfix (mkNT nDtypeCons) (nt (mkNT nDconstructor) I)
                          (tok ((=) BarT) mktokLf))
              (++))
-        (λl1 l2. [Nd (mkNT nDtypeDecl) (l1 ++ l2)])
+        (λl1 l2. bindNT nDtypeDecl (l1 ++ l2))
 `;
 
 val peg_TypeDec_def = Define`
