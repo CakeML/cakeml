@@ -51,17 +51,21 @@ val bindNT_def = Define`
   bindNT ntnm l = [Nd (mkNT ntnm) l]
 `
 
+val pegf_def = Define`pegf sym f = seq sym (empty []) (λl1 l2. f l1)`
+
 val choicel_def = Define`
   choicel [] = not (empty ARB) ARB ∧
   choicel (h::t) = choice h (choicel t) sumID
 `;
 
 val seql_def = Define`
-  seql l f = seq (FOLDR (\p acc. seq p acc (++)) (empty []) l)
-                 (empty [])
-                 (λl1 l2. f l1)
+  seql l f = pegf (FOLDR (\p acc. seq p acc (++)) (empty []) l) f
 `;
 
+val peg_nonfix_def = Define`
+  peg_nonfix tgtnt argsym opsym =
+    seql [argsym; choicel [seq opsym argsym (++); empty []]] (bindNT tgtnt)
+`
 (* ----------------------------------------------------------------------
     PEG for types
    ---------------------------------------------------------------------- *)
@@ -230,9 +234,23 @@ val peg_V_def = Define`
 `
 
 val peg_multops_def = Define`
-  peg_multops = choice (tok ((=) StarT) mktokLf)
-                       (tok ((=) (SymbolT "/")) mktokLf)
-                       (bindNT nMultOps o  sumID)
+  peg_multops = pegf (choicel (MAP (λt. tok ((=) t) mktokLf)
+                                   [StarT; SymbolT "/"; AlphaT "mod";
+                                    AlphaT "div"]))
+                     (bindNT nMultOps)
+`;
+
+val peg_addops_def = Define`
+  peg_addops = pegf (choicel [tok ((=) (SymbolT "+")) mktokLf;
+                              tok ((=) (SymbolT "-")) mktokLf])
+                    (bindNT nAddOps)
+`;
+
+val peg_relops_def = Define`
+  peg_relops = pegf (choicel (tok ((=) EqualsT) mktokLf ::
+                              MAP (λs. tok ((=) (SymbolT s)) mktokLf)
+                                  ["<"; ">"; "<="; ">="; "<>"]))
+                    (bindNT nRelOps)
 `;
 
 val peg_Ebase_def = Define`
@@ -256,14 +274,20 @@ val peg_Eapp_def = Define`
 
 val mmlPEG_def = Define`
   mmlPEG = <|
-    start := nt (mkNT nEmult) I;
+    start := nt (mkNT nDecl) I;
     rules := FEMPTY |++
              [(mkNT nV, peg_V);
               (mkNT nEmult, peg_linfix (mkNT nEmult)
                                        (nt (mkNT nEapp) I)
                                        (nt (mkNT nMultOps) I));
+              (mkNT nEadd, peg_linfix (mkNT nEadd) (nt (mkNT nEmult) I)
+                                      (nt (mkNT nAddOps) I));
+              (mkNT nErel, peg_nonfix nErel (nt (mkNT nEadd) I)
+                                      (nt (mkNT nRelOps) I));
               (mkNT nEapp, peg_Eapp);
               (mkNT nMultOps, peg_multops);
+              (mkNT nAddOps, peg_addops);
+              (mkNT nRelOps, peg_relops);
               (mkNT nEbase, peg_Ebase);
               (mkNT nType, peg_Type);
               (mkNT nDType, peg_DType);
@@ -279,7 +303,7 @@ val mmlPEG_def = Define`
 `;
 
 
-val test1 = EVAL ``peg_exec mmlPEG (nt (mkNT nEmult) I) [IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2)] [] done failed``
+val test1 = time EVAL ``peg_exec mmlPEG (nt (mkNT nErel) I) [IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] [] done failed``
 
 
 val _ = export_theory()

@@ -148,6 +148,8 @@ val _ = parsetest ``nEbase`` T "x" ``[AlphaT "x"]``
 val _ = parsetest ``nEmult`` T
                   "f x * 3"
                   ``[AlphaT "f"; AlphaT "x"; StarT; IntT 3]``
+val _ = parsetest ``nErel`` T "x <> true"
+                  ``[AlphaT "x"; SymbolT "<>"; AlphaT "true"]``
 
 
 
