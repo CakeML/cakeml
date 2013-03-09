@@ -613,6 +613,40 @@ val TAKE_PRE_LENGTH = store_thm("TAKE_PRE_LENGTH",
   Induct THEN SRW_TAC[][LENGTH_NIL] THEN
   FULL_SIMP_TAC(srw_ss())[FRONT_DEF,PRE_SUB1])
 
+val DROP_LENGTH_NIL_rwt = store_thm("DROP_LENGTH_NIL_rwt",
+  ``!l m. (m = LENGTH l) ==> (DROP m l = [])``,
+  lrw[DROP_LENGTH_NIL])
+
+val DROP_EL_CONS = store_thm("DROP_EL_CONS",
+  ``!ls n. n < LENGTH ls ==> (DROP n ls = EL n ls :: DROP (n + 1) ls)``,
+  Induct >> lrw[EL_CONS,PRE_SUB1])
+
+val TAKE_EL_SNOC = store_thm("TAKE_EL_SNOC",
+  ``!ls n. n < LENGTH ls ==> (TAKE (n + 1) ls = SNOC (EL n ls) (TAKE n ls))``,
+  HO_MATCH_MP_TAC SNOC_INDUCT >>
+  CONJ_TAC THEN1 SRW_TAC[][] THEN
+  REPEAT STRIP_TAC THEN
+  Cases_on`n = LENGTH ls` THEN1 (
+    lrw[EL_LENGTH_SNOC,TAKE_SNOC,TAKE_APPEND1,EL_APPEND1,EL_APPEND2,TAKE_APPEND2] ) THEN
+  `n < LENGTH ls` by fsrw_tac[ARITH_ss][ADD1] THEN
+  lrw[TAKE_SNOC,TAKE_APPEND1,EL_APPEND1])
+
+val ZIP_DROP = store_thm("ZIP_DROP",
+  ``!a b n. n <= LENGTH a /\ (LENGTH a = LENGTH b) ==>
+      (ZIP (DROP n a,DROP n b) = DROP n (ZIP (a,b)))``,
+  Induct THEN SRW_TAC[][LENGTH_NIL_SYM,ADD1] THEN
+  Cases_on`b` THEN FULL_SIMP_TAC(srw_ss())[] THEN
+  FIRST_X_ASSUM MATCH_MP_TAC THEN
+  FULL_SIMP_TAC(srw_ss()++ARITH_ss)[])
+
+val REVERSE_DROP = store_thm("REVERSE_DROP",
+  ``!ls n. n <= LENGTH ls ==> (REVERSE (DROP n ls) = REVERSE (LASTN (LENGTH ls - n) ls))``,
+  HO_MATCH_MP_TAC SNOC_INDUCT THEN
+  SRW_TAC[][LASTN] THEN
+  Cases_on`n = SUC (LENGTH ls)` THEN1 (
+    lrw[DROP_LENGTH_NIL_rwt,ADD1,LASTN] ) THEN
+  lrw[DROP_APPEND1,LASTN_APPEND1])
+
 val cons_closure_thm = store_thm("cons_closure_thm",
   ``∀env0 sz0 sz nk s k j ec.
       let (s',k') = (cons_closure env0 sz0 sz nk) (s,k) (j,ec) in
@@ -869,12 +903,12 @@ val num_fold_update_refptr_thm = store_thm("num_fold_update_refptr_thm",
     (bs.code = bc0 ++ code ++ bc1) ∧
     (bs.pc = next_addr bs.inst_length bc0) ∧
     (bs.stack = vs ++ (MAP RefPtr rs) ++ st) ∧
-    (∀r. MEM r rs ⇒ r ∈ FDOM bs.refs) ∧
+    (∀r. MEM r rs ⇒ r ∈ FDOM bs.refs) ∧ ALL_DISTINCT rs ∧
     (LENGTH rs = nk) ∧ (LENGTH vs = nk) ∧
-    0 < k ∧ (nz + k - 1 = nk)
+    0 < k ∧ (nz + k-1 = nk)
     ⇒
     bc_next^* bs
-    (bs with <| refs := bs.refs |++ MAP2 $, (TAKE nz (REVERSE rs)) (TAKE nz (REVERSE vs))
+    (bs with <| refs := bs.refs |++ ZIP (TAKE nz rs,TAKE nz vs)
               ; pc := next_addr bs.inst_length (bc0 ++ code)|>)``,
   Induct >- (
     rw[Once num_fold_def,Once SWAP_REVERSE,LENGTH_NIL,FUPDATE_LIST_THM] >>
@@ -888,9 +922,6 @@ val num_fold_update_refptr_thm = store_thm("num_fold_update_refptr_thm",
   ntac 3 strip_tac >>
   map_every qx_gen_tac[`vvs`,`rrs`] >> rpt strip_tac >>
   qmatch_assum_abbrev_tac`bs.code = bc0 ++ ls ++ code ++ bc1` >>
-  `∃v vs r rs. (vvs = v::vs) ∧ (rrs = r::rs)` by (
-    Q.ISPEC_THEN`vvs`FULL_STRUCT_CASES_TAC list_CASES >> fsrw_tac[ARITH_ss][] >>
-    Q.ISPEC_THEN`rrs`FULL_STRUCT_CASES_TAC list_CASES >> fsrw_tac[ARITH_ss][]) >>
   qpat_assum`X = (s'''',k')`kall_tac >>
   simp[Once RTC_CASES1] >> disj2_tac >>
   qmatch_assum_abbrev_tac`Abbrev (ls = [x1;x2;x3])` >>
@@ -919,73 +950,28 @@ val num_fold_update_refptr_thm = store_thm("num_fold_update_refptr_thm",
   simp[bc_eval1_thm,bc_eval1_def,Abbr`x3`,bc_eval_stack_def,Abbr`bs1`,bump_pc_def] >>
   fsrw_tac[DNF_ss,ARITH_ss][] >>
   qpat_assum `bc_fetch X = Y` kall_tac >>
-  `LENGTH vs ≤ 2 * (k + nz) - (k + 1)` by DECIDE_TAC >>
-  REWRITE_TAC[Once(GSYM APPEND_ASSOC)] >>
-  simp[EL_APPEND2] >>
-  REWRITE_TAC[Once(GSYM MAP)] >>
   simp[EL_MAP] >>
   conj_asm1_tac >- (
-    qmatch_abbrev_tac`EL n (r::rs) ∈ d` >>
-    Cases_on`n = 0` >- rw[] >>
-    simp[EL_CONS] >>
     first_x_assum match_mp_tac >>
     simp[MEM_EL] >>
-    qexists_tac`PRE n`>>
-    fsrw_tac[ARITH_ss][PRE_SUB1,Abbr`n`]) >>
+    qexists_tac`nz` >>
+    simp[] ) >>
   qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
-  first_x_assum(qspecl_then[`bs1`,`bc0 ++ ls`,`bc1`,`v::vs`,`r::rs`,`st`]mp_tac) >>
+  first_x_assum(qspecl_then[`bs1`,`bc0 ++ ls`,`bc1`,`vvs`,`rrs`,`st`]mp_tac) >>
   simp[Abbr`bs1`,Abbr`ls`,FILTER_APPEND,SUM_APPEND,ADD1] >>
-  fsrw_tac[DNF_ss][] >>
   qmatch_abbrev_tac`bc_next^* bs3 bs4 ⇒ bc_next^* bs3 bs2` >>
   `bs4 = bs2` by (
     unabbrev_all_tac >>
     simp[bc_state_component_equality,FILTER_APPEND,SUM_APPEND] >>
-    simp[GSYM FUPDATE_LIST_THM] >>
-    fsrw_tac[ARITH_ss][LEFT_ADD_DISTRIB] >>
-    AP_TERM_TAC >>
-
-    reverse (lrw[MAP2_MAP,LEFT_ADD_DISTRIB]) >- (
-      ... ) >>
-    `k = 1` by DECIDE_TAC >>
-    fsrw_tac[ARITH_ss][] >> rw[]
-
-    lrw[LIST_EQ_REWRITE,EL_MAP,UNCURRY,EL_ZIP] >>
-    `REVERSE rs ++ [r] = REVERSE (r::rs)` by rw[] >>
-    `REVERSE vs ++ [v] = REVERSE (v::vs)` by rw[] >>
-    ntac 2 (pop_assum SUBST1_TAC) >>
-    `nz + 1 ≤ LENGTH (r::rs)` by fsrw_tac[ARITH_ss][] >>
-    `nz + 1 ≤ LENGTH (v::vs)` by fsrw_tac[ARITH_ss][] >>
-    `nz ≤ LENGTH (r::rs)` by fsrw_tac[ARITH_ss][] >>
-    `nz ≤ LENGTH (v::vs)` by fsrw_tac[ARITH_ss][] >>
-    asm_simp_tac std_ss [TAKE_REVERSE] >>
-    Cases_on`nz`>>fs[LASTN]
-
-    `0 < nz` by DECIDE_TAC
-    EL_CONS
-    DB.find"LASTN"
-    LASTN
-    REVERSE_LASTN
-    LASTN_CONS
-
-    fsrw_tac[ARITH_ss][LASTN_CONS]
-    lrw[TAKE_REVERSE, LASTN_CONS]
-    REWRITE_TAC[Once(GSYM REVERSE_DEF),SimpRHS]
-    DB.match [] ``REVERSE x ++ [y]``
-    REVERSE
-    TAKE
-
-    lrw[TAKE_APPEND1,TAKE_APPEND2]
-      lrw[EL_MAP,EL_CONS]
-      ZIP_DROP
-      MAP_ZIP
-    DB.match [] ``UNCURRY $,``
-    lrw[LEFT_ADD_DISTIB]
-    DB.match [] ``x * (a + b)``
-    DROP_CONS
-
-
-  simp[Once RTC_CASES1] >> disj1_tac >>
-  simp[bc_state_component_equality,Abbr`bs2`,SUM_APPEND,FILTER_APPEND,ADD1]
+    Q.PAT_ABBREV_TAC`kvl = ZIP (TAKE nz rrs,TAKE nz vvs)` >>
+    `EL nz rrs ∉ set (MAP FST kvl)` by (
+      fs[EL_ALL_DISTINCT_EL_EQ,Abbr`kvl`,MAP_ZIP,MEM_EL] >>
+      spose_not_then strip_assume_tac >>
+      pop_assum mp_tac >>
+      lrw[EL_TAKE] ) >>
+    simp[FUPDATE_FUPDATE_LIST_COMMUTES] >>
+    lrw[TAKE_EL_SNOC,ZIP_SNOC,SNOC_APPEND,FUPDATE_LIST_APPEND,GSYM ZIP_APPEND,FUPDATE_LIST_THM] ) >>
+  rw[])
 
 val compile_closures_thm = store_thm("compile_closures_thm",
   ``∀d env sz nz s defs.
