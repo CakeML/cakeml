@@ -272,7 +272,7 @@ val peg_Eapp_def = Define`
                                b])
 `;
 
-val mmlPEG_def = Define`
+val mmlPEG_def = zDefine`
   mmlPEG = <|
     start := nt (mkNT nDecl) I;
     rules := FEMPTY |++
@@ -302,6 +302,21 @@ val mmlPEG_def = Define`
              ] |>
 `;
 
+val rules = SIMP_CONV (srw_ss()) [mmlPEG_def] ``mmlPEG.rules``
+val spec0 =
+    peg_nt_thm |> Q.GEN `G`  |> Q.ISPEC `mmlPEG`
+               |> SIMP_RULE (srw_ss()) [rules, finite_mapTheory.FUPDATE_LIST]
+               |> Q.GEN `n`
+
+val mkNT = ``mkNT``
+
+val mmlPEG_exec_thm = save_thm(
+  "mmlPEG_exec_thm",
+  TypeBase.constructors_of ``:MMLnonT``
+    |> map (fn t => ISPEC (mk_comb(mkNT, t)) spec0)
+    |> map (SIMP_RULE (srw_ss()) [finite_mapTheory.FAPPLY_FUPDATE_THM])
+    |> LIST_CONJ)
+val _ = computeLib.add_persistent_funs ["mmlPEG_exec_thm"]
 
 val test1 = time EVAL ``peg_exec mmlPEG (nt (mkNT nErel) I) [IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] [] done failed``
 
