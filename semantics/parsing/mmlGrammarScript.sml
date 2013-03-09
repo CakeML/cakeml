@@ -46,6 +46,7 @@ val tokmap0 =
                 ("|", ``BarT``), ("=", ``EqualsT``), (":", ``ColonT``),
                 ("and", ``AndT``),
                 ("andalso", ``AndalsoT``),
+                ("before", ``AlphaT "before"``),
                 ("case", ``CaseT``),
                 ("datatype", ``DatatypeT``),
                 ("else", ``ElseT``),
@@ -56,6 +57,7 @@ val tokmap0 =
                 ("if", ``IfT``),
                 ("in", ``InT``),
                 ("let", ``LetT``),
+                ("o", ``AlphaT "o"``),
                 ("of", ``OfT``),
                 ("orelse", ``OrelseT``),
                 ("raise", ``RaiseT``),
@@ -110,13 +112,11 @@ val mmlG_def = mk_grammar_def ginfo
  MultOps ::= ^(``{AlphaT "div"; AlphaT "mod"; StarT; SymbolT "/"}``);
  AddOps ::= ^(``{SymbolT "+"; SymbolT "-"}``);
  RelOps ::= ^(``{SymbolT s | s ∈ {"<"; ">"; "<="; ">="; "<>"}}``) | EqualsT;
- CompOps ::= ^(``{AlphaT "o"}``);
- BeforeOps ::= ^(``{AlphaT "before"}``);
  Emult ::= Emult MultOps Eapp | Eapp;
  Eadd ::= Eadd AddOps Emult | Emult;
  Erel ::= Eadd RelOps Eadd | Eadd;
- Ecomp ::= Ecomp CompOps Erel | Erel;
- Ebefore ::= Ebefore BeforeOps Ecomp | Ecomp;
+ Ecomp ::= Ecomp "o" Erel | Erel;
+ Ebefore ::= Ebefore "before" Ecomp | Ecomp;
  Etyped ::= Ebefore | Ebefore ":" Type;
  ElogicAND ::= ElogicAND "andalso" Etyped | Etyped;
  ElogicOR ::= ElogicOR "orelse" ElogicAND | ElogicAND;
