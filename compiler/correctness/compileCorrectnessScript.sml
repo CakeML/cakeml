@@ -874,7 +874,7 @@ val num_fold_update_refptr_thm = store_thm("num_fold_update_refptr_thm",
     0 < k ∧ (nz + k - 1 = nk)
     ⇒
     bc_next^* bs
-    (bs with <| refs := bs.refs |++ MAP2 $, (TAKE (nk + 1 - k) (REVERSE rs)) (TAKE (nk + 1 - k) (REVERSE vs))
+    (bs with <| refs := bs.refs |++ MAP2 $, (TAKE nz (REVERSE rs)) (TAKE nz (REVERSE vs))
               ; pc := next_addr bs.inst_length (bc0 ++ code)|>)``,
   Induct >- (
     rw[Once num_fold_def,Once SWAP_REVERSE,LENGTH_NIL,FUPDATE_LIST_THM] >>
@@ -889,8 +889,8 @@ val num_fold_update_refptr_thm = store_thm("num_fold_update_refptr_thm",
   map_every qx_gen_tac[`vvs`,`rrs`] >> rpt strip_tac >>
   qmatch_assum_abbrev_tac`bs.code = bc0 ++ ls ++ code ++ bc1` >>
   `∃v vs r rs. (vvs = v::vs) ∧ (rrs = r::rs)` by (
-    Cases_on`vvs`>>fsrw_tac[ARITH_ss][] >>
-    Cases_on`rrs`>>fsrw_tac[ARITH_ss][]) >>
+    Q.ISPEC_THEN`vvs`FULL_STRUCT_CASES_TAC list_CASES >> fsrw_tac[ARITH_ss][] >>
+    Q.ISPEC_THEN`rrs`FULL_STRUCT_CASES_TAC list_CASES >> fsrw_tac[ARITH_ss][]) >>
   qpat_assum`X = (s'''',k')`kall_tac >>
   simp[Once RTC_CASES1] >> disj2_tac >>
   qmatch_assum_abbrev_tac`Abbrev (ls = [x1;x2;x3])` >>
@@ -926,12 +926,12 @@ val num_fold_update_refptr_thm = store_thm("num_fold_update_refptr_thm",
   simp[EL_MAP] >>
   conj_asm1_tac >- (
     qmatch_abbrev_tac`EL n (r::rs) ∈ d` >>
-    Cases_on`n=0`>>fs[] >>
+    Cases_on`n = 0` >- rw[] >>
     simp[EL_CONS] >>
     first_x_assum match_mp_tac >>
     simp[MEM_EL] >>
-    qexists_tac`PRE n` >>
-    simp[Abbr`n`] ) >>
+    qexists_tac`PRE n`>>
+    fsrw_tac[ARITH_ss][PRE_SUB1,Abbr`n`]) >>
   qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
   first_x_assum(qspecl_then[`bs1`,`bc0 ++ ls`,`bc1`,`v::vs`,`r::rs`,`st`]mp_tac) >>
   simp[Abbr`bs1`,Abbr`ls`,FILTER_APPEND,SUM_APPEND,ADD1] >>
@@ -941,8 +941,9 @@ val num_fold_update_refptr_thm = store_thm("num_fold_update_refptr_thm",
     unabbrev_all_tac >>
     simp[bc_state_component_equality,FILTER_APPEND,SUM_APPEND] >>
     simp[GSYM FUPDATE_LIST_THM] >>
-
+    fsrw_tac[ARITH_ss][LEFT_ADD_DISTRIB] >>
     AP_TERM_TAC >>
+
     reverse (lrw[MAP2_MAP,LEFT_ADD_DISTRIB]) >- (
       ... ) >>
     `k = 1` by DECIDE_TAC >>
