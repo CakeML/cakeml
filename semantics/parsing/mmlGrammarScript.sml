@@ -50,6 +50,7 @@ val tokmap0 =
                 ("datatype", ``DatatypeT``),
                 ("else", ``ElseT``),
                 ("end", ``EndT``),
+                ("false", ``AlphaT "false"``),
                 ("fn", ``FnT``),
                 ("fun", ``FunT``),
                 ("if", ``IfT``),
@@ -59,6 +60,7 @@ val tokmap0 =
                 ("orelse", ``OrelseT``),
                 ("raise", ``RaiseT``),
                 ("then", ``ThenT``),
+                ("true", ``AlphaT "true"``),
                 ("val", ``ValT``)]
 fun tokmap s =
     case Binarymap.peek(tokmap0, s) of
@@ -89,9 +91,10 @@ val mmlG_def = mk_grammar_def ginfo
  TypeDec ::= "datatype" DtypeDecls;
 
  (* expressions - base cases and function applications *)
- ConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``);
- V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o" } ∧ s ≠ "" ∧
-                       ¬isUpper (HD s)}``)
+ ConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``)
+                  | "true" | "false";
+ V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false" } ∧
+                       s ≠ "" ∧ ¬isUpper (HD s)}``)
     |  ^(``{SymbolT s |
             s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"}}``);
  Ebase ::= "(" E ")" | V | ConstructorName | <IntT>
