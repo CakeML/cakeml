@@ -973,6 +973,53 @@ val num_fold_update_refptr_thm = store_thm("num_fold_update_refptr_thm",
     lrw[TAKE_EL_SNOC,ZIP_SNOC,SNOC_APPEND,FUPDATE_LIST_APPEND,GSYM ZIP_APPEND,FUPDATE_LIST_THM] ) >>
   rw[])
 
+val num_fold_store_thm = store_thm("store_thm",
+  ``∀nz k s. let s' = num_fold (λs. s with out := Stack (Store k)::s.out) s nz in
+    ∃code.
+      (s'.out = REVERSE code ++ s.out) ∧
+      (s'.next_label = s.next_label) ∧
+      EVERY ($~ o is_Label) code ∧
+      ∀bs bc0 bc1 vs ws st.
+      (bs.code = bc0 ++ code ++ bc1) ∧
+      (bs.pc = next_addr bs.inst_length bc0) ∧
+      (bs.stack = vs ++ ws ++ st) ∧
+      (LENGTH vs = k + 1) ∧ nz ≤ k+1 ∧ nz ≤ LENGTH ws
+      ⇒
+      bc_next^* bs
+      (bs with <| stack := (DROP nz vs) ++ (TAKE nz vs) ++ (DROP nz ws) ++ st
+                ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
+  Induct >- (
+    rw[Once num_fold_def,Once SWAP_REVERSE] >>
+    lrw[] >>
+    metis_tac[RTC_CASES1,with_same_stack,with_same_pc] ) >>
+  simp[Once num_fold_def] >> rw[] >>
+  Q.PAT_ABBREV_TAC`s' = s with out := Y` >>
+  first_x_assum(qspecl_then[`k`,`s'`]mp_tac) >>
+  simp[] >>
+  disch_then strip_assume_tac >>
+  simp[Abbr`s'`,Once SWAP_REVERSE] >>
+  rpt strip_tac >>
+  `bc_fetch bs = SOME (Stack (Store k))`  by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0` >> rw[] ) >>
+  rw[Once RTC_CASES1] >> disj2_tac >>
+  rw[bc_eval1_thm,bc_eval1_def] >>
+  Cases_on`vs`>>fs[] >>
+  simp[bc_eval_stack_def,bump_pc_def,ADD1] >>
+  lrw[TAKE_APPEND1,DROP_APPEND1,DROP_APPEND2,ADD1] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  fsrw_tac[ARITH_ss][ADD1] >>
+  qmatch_assum_rename_tac`bs.stack = (v::(vs ++ ws ++ st))`[] >>
+  rfs[] >>
+  first_x_assum(qspecl_then[`bs1`,`bc0++[Stack (Store k)]`,`bc1`,`(TAKE k vs)++[v]`,`(DROP 1 ws)`,`st`]mp_tac) >>
+  simp[Abbr`bs1`,SUM_APPEND,FILTER_APPEND] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs4 ⇒ bc_next^* bs1 bs2` >>
+  `bs4 = bs2` by (
+    unabbrev_all_tac >>
+    simp[bc_state_component_equality,SUM_APPEND,FILTER_APPEND] >>
+    lrw[TAKE_TAKE,TAKE_APPEND1,DROP_DROP,DROP_APPEND1] ) >>
+  rw[])
+
 val compile_closures_thm = store_thm("compile_closures_thm",
   ``∀d env sz nz s defs.
     let s' = compile_closures d env sz nz s defs in
@@ -1007,16 +1054,12 @@ val compile_closures_thm = store_thm("compile_closures_thm",
   qspecl_then[`REVERSE ecs`,`env`,`sz`,`sz + nz + nk`,`nk`,`s''`,`1`]mp_tac FOLDL_cons_closure_thm >>
   simp[] >> disch_then(Q.X_CHOOSE_THEN`bcc`strip_assume_tac) >>
   qpat_assum`FOLDL X Y (REVERSE ecs) = Z`kall_tac >>
-  `s''''' = (s'''' with out := GENLIST (K (Stack (Store k))) nz ++ s''''.out)` by (
-    unabbrev_all_tac >>
-    rpt (pop_assum kall_tac) >>
-    qid_spec_tac`s''''` >>
-    Induct_on`nz` >- (
-      rw[Once num_fold_def] >>
-      rw[CompileTheory.compiler_result_component_equality] ) >>
-    rw[Once num_fold_def] >>
-    rw[CompileTheory.compiler_result_component_equality,GENLIST] ) >>
-  simp[]
+  qspecl_then[`nz`,`nk`,`s'''`,`1`]mp_tac num_fold_update_refptr_thm >>
+  simp[] >> disch_then(Q.X_CHOOSE_THEN`bur`strip_assume_tac) >>
+  qspecl_then[`nz`,`k`,`s''''`]mp_tac num_fold_store_thm >>
+  simp[] >> disch_then(Q.X_CHOOSE_THEN`bsr`strip_assume_tac) >>
+  simp[Once SWAP_REVERSE] >>
+  rpt strip_tac >>
 
 set_trace"goalstack print goal at top"0
 
