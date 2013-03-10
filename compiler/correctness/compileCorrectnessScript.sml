@@ -408,7 +408,9 @@ val with_same_stack = store_thm("with_same_stack",
 val _ = export_rewrites["with_same_stack"]
 
 val good_ec_def = Define`
-  good_ec (n,ls) = (n = LENGTH ls)`
+  good_ec (n,ls) =
+  (n = LENGTH ls) ∧
+  (∀j. MEM (CERef j) ls ⇒ 0 < j)`
 
 val good_ecs_def = Define`
   good_ecs ecs = FEVERY (good_ec o SND) ecs`
@@ -492,6 +494,18 @@ val lookup_ct_imp_incsz_many = store_thm("lookup_ct_imp_incsz_many",
   first_x_assum (match_mp_tac o MP_CANON) >>
   qexists_tac`sz` >>
   fsrw_tac[ARITH_ss][])
+
+val lookup_ct_change_refs = store_thm("lookup_ct_change_refs",
+  ``∀cl sz st rf rf' ct.
+    (∀n vs p. (ct = CTRef n) ∧ sz < LENGTH st ∧ (EL sz st = Block 0 vs) ∧ n < LENGTH vs ∧ (EL n vs = RefPtr p) ⇒ (FLOOKUP rf' p = FLOOKUP rf p))
+    ⇒ (lookup_ct cl sz st rf' ct = lookup_ct cl sz st rf ct)``,
+  rw[LET_THM] >>
+  Cases_on`ct`>>fs[] >> rw[] >>
+  Cases_on`EL sz st`>>fs[] >>
+  rw[]>>fs[]>>
+  BasicProvers.CASE_TAC>>fs[]>>
+  BasicProvers.CASE_TAC>>fs[]>>
+  BasicProvers.CASE_TAC>>fs[])
 
 val bv_from_ec_def = Define`
   (bv_from_ec cls sz0 sz1 st rf env (CEEnv fv) =
@@ -664,7 +678,6 @@ val cons_closure_thm = store_thm("cons_closure_thm",
         (LENGTH ptrs = nk - k + 1) ∧
         (LENGTH bs.stack = sz) ∧
         (LENGTH ec = j) ∧
-        sz0 + nk ≤ LENGTH st ∧
         EVERY (IS_SOME o bv_from_ec cls sz0 (LENGTH st) st bs.refs env0) ec
         ⇒
         bc_next^* bs (bs with <| stack := FRONT ptrs++
@@ -775,7 +788,6 @@ val FOLDL_cons_closure_thm = store_thm("FOLDL_cons_closure_thm",
     (bs.stack = ptrs ++ fs ++ st) ∧
     0 < k ∧
     (LENGTH ptrs = LENGTH ecs) ∧
-    sz0 + nk ≤ LENGTH st ∧
     (LENGTH ecs = nk - LENGTH fs) ∧
     (LENGTH fs = k - 1) ∧
     (LENGTH bs.stack = sz) ∧
@@ -1034,24 +1046,30 @@ val compile_closures_thm = store_thm("compile_closures_thm",
         EVERY (ISR o SND) defs ∧
         EVERY (IS_SOME o bc_find_loc bs o Lab o OUTR o SND) defs ∧
         EVERY (good_ec o FAPPLY d.ecs o OUTR o SND) defs ∧
-        EVERY (EVERY (λec. ∀fv.
-          (ec = CEEnv fv) ⇒ fv ∈ FDOM env ∧
-                            IS_SOME (lookup_ct cls sz bs.stack bs.refs (env ' fv)))
+        EVERY (EVERY (λec.
+          (∀fv. (ec = CEEnv fv) ⇒
+            fv ∈ FDOM env ∧
+            IS_SOME (lookup_ct cls sz bs.stack bs.refs (env ' fv))) ∧
+          (∀j. (ec = CERef j) ⇒ nz ≠ 0 ∧ j ≤ LENGTH defs))
                o SND o FAPPLY d.ecs o OUTR o SND) defs ∧
         ((nz = 0) ⇒ (LENGTH defs = 1)) ∧
         ((nz ≠ 0) ⇒ (nz = LENGTH defs)) ∧
         (sz = LENGTH bs.stack)
         ⇒
-        ∃bvs rfs.
+        ∃bvs rs.
         let bvs = MAP (λ(xs,cb). Block closure_tag
-          [CodePtr (OUTR cb)
+          [CodePtr (THE (bc_find_loc bs (Lab (OUTR cb))))
           ; let (j,ec) = d.ecs ' (OUTR cb) in
-            Block 0 (REVERSE (MAP ARB ec))
+            Block 0 (REVERSE (MAP
+              (λec. case ec of
+                CEEnv fv => THE(lookup_ct cls sz bs.stack bs.refs (env ' fv))
+              | CERef j => EL j bvs) ec))
           ]) defs in
+        (LENGTH rs = nz) ∧
         bc_next^* bs
         (bs with <| stack := bvs++bs.stack
                   ; pc := next_addr bs.inst_length (bc0 ++ code)
-                  ; refs := bs.refs |++ rfs
+                  ; refs := bs.refs |++ ZIP(rs,TAKE (LENGTH rs) bvs)
                   |>)``,
   rw[compile_closures_def] >>
   qspecl_then[`i0`,`nz`,`s`]mp_tac num_fold_make_ref_thm >>
@@ -1091,10 +1109,53 @@ val compile_closures_thm = store_thm("compile_closures_thm",
   qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
   `P` by (
     map_every qunabbrev_tac[`P`,`Q`,`R`] >>
-    conj_tac >- (
-      unabbrev_all_tac >>
-      Cases_on`nz=0`>> fs[]
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,FORALL_PROD] >>
+    fsrw_tac[QUANT_INST_ss[sum_qp]][] >>
+    rw[] >>
+    qmatch_assum_rename_tac`MEM (xs,INR l) defs`[] >>
+    qmatch_assum_rename_tac`(j,ec) = d.ecs ' l`[] >>
+    qpat_assum`X = d.ecs ' l`(assume_tac o SYM) >>
+    Cases_on`e`>>rw[bv_from_ec_def] >- (
+      qmatch_assum_rename_tac`MEM (CEEnv fv) ec`[] >>
+      first_x_assum(qspecl_then[`xs`,`fv`,`l`]mp_tac) >>
+      first_x_assum(qspecl_then[`xs`,`fv`,`l`]mp_tac) >>
+      simp[FLOOKUP_DEF] >>
+      strip_tac >>
+      qmatch_abbrev_tac`IS_SOME X ==> IS_SOME Y` >>
+      Cases_on`∃x. X = SOME x` >> fs[] >>
+      Cases_on`X`>>fs[] >>
+      `Y = SOME x` by (
+        qpat_assum`Abbrev (SOME x = Z)`(assume_tac o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >>
+        unabbrev_all_tac >>
+        match_mp_tac lookup_ct_imp_incsz_many >>
+        map_every qexists_tac[`LENGTH bs.stack`,`bs.stack`] >>
+        simp[] >>
+        match_mp_tac lookup_ct_change_refs >>
+        simp[] ) >>
+      simp[] ) >>
+    Cases_on`n`>>rw[bv_from_ec_def] >- (
+      ntac 2 (first_x_assum(qspecl_then[`xs`,`l`]mp_tac)) >>
+      simp[good_ec_def] >> rw[] >>
+      `0 < 0` by metis_tac[] >> fs[] ) >>
+    qmatch_assum_rename_tac`MEM (CERef (SUC m)) ec`[] >>
+    first_x_assum(qspecl_then[`xs`,`SUC m`,`l`]mp_tac) >>
+    first_x_assum(qspecl_then[`xs`,`SUC m`,`l`]mp_tac) >>
+    simp[]) >>
+  simp[] >>
+  map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+  strip_tac >> fs[] >>
+  qmatch_assum_abbrev_tac`bc_next^* bs2 bs3` >>
 
+  Cases_on`nz = 0` >- (
+    `(bur = []) ∧ (bsr = [])` by fs[Once num_fold_def] >>
+    fs[] >> rw[] >>
+    fs[LENGTH_NIL] >> rw[] >>
+    qexists_tac`[]` >> fs[FUPDATE_LIST_THM] >>
+    qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+    FOLDL_push_lab_thm
+    push_lab_def
+    bc_eval1_def
+    bc_find_loc_def
 
 set_trace"goalstack print goal at top"0
 
@@ -1595,18 +1656,6 @@ val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
   rpt BasicProvers.VAR_EQ_TAC >>
   Q.PAT_ABBREV_TAC`evs = FILTER X (SET_TO_LIST fvs)` >>
   fs[] >> metis_tac[])
-
-val lookup_ct_change_refs = store_thm("lookup_ct_change_refs",
-  ``∀cl sz st rf rf' ct.
-    (∀n vs p. (ct = CTRef n) ∧ sz < LENGTH st ∧ (EL sz st = Block 0 vs) ∧ n < LENGTH vs ∧ (EL n vs = RefPtr p) ⇒ (FLOOKUP rf' p = FLOOKUP rf p))
-    ⇒ (lookup_ct cl sz st rf' ct = lookup_ct cl sz st rf ct)``,
-  rw[LET_THM] >>
-  Cases_on`ct`>>fs[] >> rw[] >>
-  Cases_on`EL sz st`>>fs[] >>
-  rw[]>>fs[]>>
-  BasicProvers.CASE_TAC>>fs[]>>
-  BasicProvers.CASE_TAC>>fs[]>>
-  BasicProvers.CASE_TAC>>fs[])
 
 val Cenv_bs_change_store = store_thm("Cenv_bs_change_store",
   ``∀c sm cls s env renv rsz bs s' bs' rfs'.
