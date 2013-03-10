@@ -1145,17 +1145,53 @@ val compile_closures_thm = store_thm("compile_closures_thm",
   map_every qunabbrev_tac[`P`,`Q`,`R`] >>
   strip_tac >> fs[] >>
   qmatch_assum_abbrev_tac`bc_next^* bs2 bs3` >>
-
   Cases_on`nz = 0` >- (
     `(bur = []) ∧ (bsr = [])` by fs[Once num_fold_def] >>
     fs[] >> rw[] >>
     fs[LENGTH_NIL] >> rw[] >>
-    qexists_tac`[]` >> fs[FUPDATE_LIST_THM] >>
+    ntac 2 (qexists_tac`[]`) >>
+    simp[FUPDATE_LIST_THM,Abbr`k`] >>
     qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
-    FOLDL_push_lab_thm
-    push_lab_def
-    bc_eval1_def
-    bc_find_loc_def
+    Cases_on`defs = []` >- (
+      simp[markerTheory.Abbrev_def] >>
+      fs[FUPDATE_LIST_THM] >>
+      metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
+    `∃def. defs = [def]` by (
+      Cases_on`defs`>>fs[] >>
+      Cases_on`t`>>fs[markerTheory.Abbrev_def] ) >>
+    fs[FUPDATE_LIST_THM] >>
+    PairCases_on`def`>>fs[] >>
+    Cases_on`def1`>>fs[] >>
+    qmatch_assum_rename_tac`defs = [(xs,INR l)]`[] >>
+    Cases_on`d.ecs ' l`>>fs[] >>
+    qmatch_assum_rename_tac`d.ecs ' l = (j,ec)`[] >>
+    simp[markerTheory.Abbrev_def] >>
+    qmatch_abbrev_tac`bc_next^* bs bs4` >>
+    `bs4 = bs3` by (
+      unabbrev_all_tac >>
+      simp[bc_state_component_equality,bc_find_loc_def] >>
+      simp[MAP_EQ_f] >>
+      qx_gen_tac`e` >>
+      strip_tac >>
+      fs[EVERY_MEM] >>
+      first_x_assum(qspec_then`e`mp_tac) >>
+      first_x_assum(qspec_then`e`mp_tac) >>
+      simp[] >>
+      Cases_on`e`>>simp[] >>
+      simp[bv_from_ec_def,FLOOKUP_DEF] ) >>
+    metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
+  fs[] >> rfs[] >>
+  first_x_assum(qspecl_then[`bs3`,`bc0++bmr++bpl++bcc`,`bsr++bc1`]mp_tac) >>
+  simp[Abbr`bs3`]
+  disch_then(qspecl_then[`bs.stack`,`rs`]mp_tac o CONV_RULE (RESORT_FORALL_CONV List.rev)) >>
+  simp[MAP2_MAP,FDOM_FUPDATE_LIST,MAP_REVERSE,MEM_MAP,EXISTS_PROD] >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`bc_next^* bs3 bs4` >>
+  fs[MAP2_MAP] >>
+  first_x_assum(qspecl_then[`bs4`,`bc0++bmr++bpl++bcc++bur`,`bc1`]mp_tac) >>
+  simp[Abbr`bs4`] >>
+  disch_then(qspecl_then[`bs.stack`,`MAP RefPtr rs`]mp_tac o CONV_RULE (RESORT_FORALL_CONV List.rev)) >>
+  simp[Abbr`k`]
 
 set_trace"goalstack print goal at top"0
 
