@@ -145,6 +145,12 @@ val _ = parsetest ``nTypeDec`` ``ptree_TypeDec``
 
 (* expressions *)
 val _ = parsetest ``nEbase`` T "x" ``[AlphaT "x"]``
+val _ = parsetest ``nEapp`` T "f x y"
+                  ``[AlphaT "f"; AlphaT"x"; AlphaT"y"]``
+val _ = parsetest ``nEapp`` T "f true y"
+                  ``[AlphaT "f"; AlphaT"true"; AlphaT"y"]``
+val _ = parsetest ``nEapp`` T "f true Constructor"
+                  ``[AlphaT "f"; AlphaT"true"; AlphaT"Constructor"]``
 val _ = parsetest ``nEmult`` T
                   "f x * 3"
                   ``[AlphaT "f"; AlphaT "x"; StarT; IntT 3]``
@@ -154,6 +160,9 @@ val _ = parsetest ``nEcomp`` T "x <> true"
                   ``[AlphaT "x"; SymbolT "<>"; AlphaT "true"]``
 val _ = parsetest ``nEcomp`` T "f o g z"
                   ``[AlphaT "f"; AlphaT "o"; AlphaT "g"; AlphaT"z"]``
+val _ = parsetest ``nEtyped`` T "map f Nil : 'a list"
+                  ``[AlphaT "map"; AlphaT "f"; AlphaT"Nil"; ColonT;
+                     TyvarT "'a"; AlphaT "list"]``
 
 
 

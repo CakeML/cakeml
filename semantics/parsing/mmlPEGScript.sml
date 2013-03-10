@@ -66,6 +66,11 @@ val peg_nonfix_def = Define`
   peg_nonfix tgtnt argsym opsym =
     seql [argsym; choicel [seq opsym argsym (++); empty []]] (bindNT tgtnt)
 `
+
+val try_def = Define`
+  try sym = choicel [sym; empty []]
+`
+
 (* ----------------------------------------------------------------------
     PEG for types
    ---------------------------------------------------------------------- *)
@@ -291,6 +296,12 @@ val mmlPEG_def = zDefine`
                                       (nt (mkNT nRelOps) I));
               (mkNT nEcomp, peg_linfix (mkNT nEcomp) (nt (mkNT nErel) I)
                                        (tok ((=) (AlphaT "o")) mktokLf));
+              (mkNT nEbefore, peg_linfix (mkNT nEbefore) (nt (mkNT nEcomp) I)
+                                         (tok ((=) (AlphaT "before")) mktokLf));
+              (mkNT nEtyped, seql [nt (mkNT nEbefore) I;
+                                   try (seql [tok ((=) ColonT) mktokLf;
+                                              nt (mkNT nType) I] I)]
+                                  (bindNT nEtyped));
               (mkNT nType, peg_Type);
               (mkNT nDType, peg_DType);
               (mkNT nTyOp, peg_TyOp);
