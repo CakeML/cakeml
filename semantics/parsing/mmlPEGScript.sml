@@ -71,13 +71,15 @@ val try_def = Define`
   try sym = choicel [sym; empty []]
 `
 
+val tokeq_def = Define`tokeq t = tok ((=) t) mktokLf`
+
 (* ----------------------------------------------------------------------
     PEG for types
    ---------------------------------------------------------------------- *)
 
 val peg_Type_def = Define`
   peg_Type = seq (nt (mkNT nDType) I)
-                 (choice (seq (tok ((=) ArrowT) mktokLf)
+                 (choice (seq (tokeq ArrowT)
                               (nt (mkNT nType) I)
                               (++))
                          (empty [])
@@ -127,19 +129,19 @@ val peg_DType_def = Define`
              (rpt (nt (mkNT nTyOp) I) FLAT)
              (λa ops. FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
                             a ops))
-        (seq (tok ((=) LparT) mktokLf)
+        (seq (tokeq LparT)
              (seq (nt (mkNT nType) I)
                   (choice
                      (* ")" TyOp* *)
-                     (seq (tok ((=) RparT) mktokLf)
+                     (seq (tokeq RparT)
                           (rpt (nt (mkNT nTyOp) I) FLAT)
                           (++))
                      (* ("," Type)* ")" TyOp TyOp* *)
-                     (seq (rpt (seq (tok ((=) CommaT) mktokLf)
+                     (seq (rpt (seq (tokeq CommaT)
                                     (nt (mkNT nType) I)
                                     (++))
                                FLAT)
-                          (seq (tok ((=) RparT) mktokLf)
+                          (seq (tokeq RparT)
                                (seq (nt (mkNT nTyOp) I)
                                     (rpt (nt (mkNT nTyOp) I) FLAT)
                                     (++))
@@ -155,13 +157,13 @@ val peg_DType_def = Define`
 val peg_StarTypes_def = Define`
   peg_StarTypes = peg_linfix (mkNT nStarTypes)
                              (nt (mkNT nDType) I)
-                             (tok ((=) StarT) mktokLf)
+                             (tokeq StarT)
 `;
 
 val peg_StarTypesP_def = Define`
   peg_StarTypesP =
-    choice (seq (tok ((=) LparT) mktokLf)
-                (seq (nt (mkNT nStarTypes) I) (tok ((=) RparT) mktokLf) (++))
+    choice (seq (tokeq LparT)
+                (seq (nt (mkNT nStarTypes) I) (tokeq RparT) (++))
                 (++))
            (nt (mkNT nStarTypes) I)
            (bindNT nStarTypesP o sumID)
@@ -171,11 +173,11 @@ val peg_TypeName_def = Define`
   peg_TypeName =
     choice (nt (mkNT nTyOp) I)
            (choice
-              (seq (tok ((=) LparT) mktokLf)
+              (seq (tokeq LparT)
                    (seq (peg_linfix (mkNT nTyVarList)
                                     (tok isTyvarT mktokLf)
-                                    (tok ((=) CommaT) mktokLf))
-                        (seq (tok ((=) RparT) mktokLf) (nt (mkNT nTyOp) I) (++))
+                                    (tokeq CommaT))
+                        (seq (tokeq RparT) (nt (mkNT nTyOp) I) (++))
                         (++))
                    (++))
               (seq (tok isTyvarT mktokLf) (nt (mkNT nTyOp) I) (++))
@@ -195,7 +197,7 @@ val peg_ConstructorName_def = Define`
 val peg_Dconstructor_def = Define`
   peg_Dconstructor =
     seq (nt (mkNT nConstructorName) I)
-        (choice (seq (tok ((=) OfT) mktokLf) (nt (mkNT nStarTypesP) I) (++))
+        (choice (seq (tokeq OfT) (nt (mkNT nStarTypesP) I) (++))
                 (empty [])
                 sumID)
         (λl1 l2. bindNT nDconstructor (l1 ++ l2))
@@ -206,19 +208,19 @@ val peg_Dconstructor_def = Define`
 val peg_DtypeDecl_def = Define`
   peg_DtypeDecl =
     seq (nt (mkNT nTypeName) I)
-        (seq (tok ((=) EqualsT) mktokLf)
+        (seq (tokeq EqualsT)
              (*  DtypeCons ::= Dconstructor | DtypeCons "|" Dconstructor; *)
              (peg_linfix (mkNT nDtypeCons) (nt (mkNT nDconstructor) I)
-                         (tok ((=) BarT) mktokLf))
+                         (tokeq BarT))
              (++))
         (λl1 l2. bindNT nDtypeDecl (l1 ++ l2))
 `;
 
 val peg_TypeDec_def = Define`
   peg_TypeDec =
-    seq (tok ((=) DatatypeT) mktokLf)
+    seq (tokeq DatatypeT)
         (peg_linfix (mkNT nDtypeDecls) (nt (mkNT nDtypeDecl) I)
-                    (tok ((=) AndT) mktokLf))
+                    (tokeq AndT))
         (λl1 l2. [Nd (mkNT nTypeDec) (l1 ++ l2)])
 `;
 
@@ -239,21 +241,20 @@ val peg_V_def = Define`
 `
 
 val peg_multops_def = Define`
-  peg_multops = pegf (choicel (MAP (λt. tok ((=) t) mktokLf)
+  peg_multops = pegf (choicel (MAP tokeq
                                    [StarT; SymbolT "/"; AlphaT "mod";
                                     AlphaT "div"]))
                      (bindNT nMultOps)
 `;
 
 val peg_addops_def = Define`
-  peg_addops = pegf (choicel [tok ((=) (SymbolT "+")) mktokLf;
-                              tok ((=) (SymbolT "-")) mktokLf])
+  peg_addops = pegf (choicel [tokeq (SymbolT "+"); tokeq (SymbolT "-")])
                     (bindNT nAddOps)
 `;
 
 val peg_relops_def = Define`
   peg_relops = pegf (choicel (tok ((=) EqualsT) mktokLf ::
-                              MAP (λs. tok ((=) (SymbolT s)) mktokLf)
+                              MAP (tokeq o SymbolT)
                                   ["<"; ">"; "<="; ">="; "<>"]))
                     (bindNT nRelOps)
 `;
@@ -263,8 +264,7 @@ val peg_Ebase_def = Define`
     choicel [tok isInt (bindNT nEbase o mktokLf);
              nt (mkNT nV) (bindNT nEbase);
              nt (mkNT nConstructorName) (bindNT nEbase);
-             seql [tok ((=) LparT) mktokLf;
-                   nt (mkNT nE) I; tok ((=) RparT) mktokLf]
+             seql [tokeq LparT; nt (mkNT nE) I; tokeq RparT]
                   (bindNT nEbase)
             ]
 `;
@@ -295,11 +295,11 @@ val mmlPEG_def = zDefine`
               (mkNT nErel, peg_nonfix nErel (nt (mkNT nEadd) I)
                                       (nt (mkNT nRelOps) I));
               (mkNT nEcomp, peg_linfix (mkNT nEcomp) (nt (mkNT nErel) I)
-                                       (tok ((=) (AlphaT "o")) mktokLf));
+                                       (tokeq (AlphaT "o")));
               (mkNT nEbefore, peg_linfix (mkNT nEbefore) (nt (mkNT nEcomp) I)
-                                         (tok ((=) (AlphaT "before")) mktokLf));
+                                         (tokeq (AlphaT "before")));
               (mkNT nEtyped, seql [nt (mkNT nEbefore) I;
-                                   try (seql [tok ((=) ColonT) mktokLf;
+                                   try (seql [tokeq ColonT;
                                               nt (mkNT nType) I] I)]
                                   (bindNT nEtyped));
               (mkNT nType, peg_Type);
