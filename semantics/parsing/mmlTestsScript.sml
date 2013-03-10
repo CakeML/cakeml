@@ -163,6 +163,10 @@ val _ = parsetest ``nEcomp`` T "f o g z"
 val _ = parsetest ``nEtyped`` T "map f Nil : 'a list"
                   ``[AlphaT "map"; AlphaT "f"; AlphaT"Nil"; ColonT;
                      TyvarT "'a"; AlphaT "list"]``
+val _ = parsetest ``nElogicOR`` T "3 < x andalso x < 10 orelse p andalso q"
+                  ``[IntT 3; SymbolT "<"; AlphaT "x"; AndalsoT;
+                     AlphaT "x"; SymbolT "<"; IntT 10; OrelseT;
+                     AlphaT"p"; AndalsoT; AlphaT "q"]``
 
 
 

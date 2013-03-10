@@ -302,6 +302,12 @@ val mmlPEG_def = zDefine`
                                    try (seql [tokeq ColonT;
                                               nt (mkNT nType) I] I)]
                                   (bindNT nEtyped));
+              (mkNT nElogicAND,
+               peg_linfix (mkNT nElogicAND) (nt (mkNT nEtyped) I)
+                          (tokeq AndalsoT));
+              (mkNT nElogicOR,
+               peg_linfix (mkNT nElogicOR) (nt (mkNT nElogicAND) I)
+                          (tokeq OrelseT));
               (mkNT nType, peg_Type);
               (mkNT nDType, peg_DType);
               (mkNT nTyOp, peg_TyOp);
