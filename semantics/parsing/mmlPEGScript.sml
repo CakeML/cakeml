@@ -277,6 +277,11 @@ val mmlPEG_def = zDefine`
     start := nt (mkNT nDecl) I;
     rules := FEMPTY |++
              [(mkNT nV, peg_V);
+              (mkNT nEapp, peg_Eapp);
+              (mkNT nMultOps, peg_multops);
+              (mkNT nAddOps, peg_addops);
+              (mkNT nRelOps, peg_relops);
+              (mkNT nEbase, peg_Ebase);
               (mkNT nEmult, peg_linfix (mkNT nEmult)
                                        (nt (mkNT nEapp) I)
                                        (nt (mkNT nMultOps) I));
@@ -284,11 +289,8 @@ val mmlPEG_def = zDefine`
                                       (nt (mkNT nAddOps) I));
               (mkNT nErel, peg_nonfix nErel (nt (mkNT nEadd) I)
                                       (nt (mkNT nRelOps) I));
-              (mkNT nEapp, peg_Eapp);
-              (mkNT nMultOps, peg_multops);
-              (mkNT nAddOps, peg_addops);
-              (mkNT nRelOps, peg_relops);
-              (mkNT nEbase, peg_Ebase);
+              (mkNT nEcomp, peg_linfix (mkNT nEcomp) (nt (mkNT nErel) I)
+                                       (tok ((=) (AlphaT "o")) mktokLf));
               (mkNT nType, peg_Type);
               (mkNT nDType, peg_DType);
               (mkNT nTyOp, peg_TyOp);

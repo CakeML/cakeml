@@ -150,6 +150,10 @@ val _ = parsetest ``nEmult`` T
                   ``[AlphaT "f"; AlphaT "x"; StarT; IntT 3]``
 val _ = parsetest ``nErel`` T "x <> true"
                   ``[AlphaT "x"; SymbolT "<>"; AlphaT "true"]``
+val _ = parsetest ``nEcomp`` T "x <> true"
+                  ``[AlphaT "x"; SymbolT "<>"; AlphaT "true"]``
+val _ = parsetest ``nEcomp`` T "f o g z"
+                  ``[AlphaT "f"; AlphaT "o"; AlphaT "g"; AlphaT"z"]``
 
 
 
