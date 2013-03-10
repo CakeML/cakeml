@@ -845,6 +845,7 @@ val num_fold_make_ref_thm = store_thm("num_fold_make_ref_thm",
     (bs.pc = next_addr bs.inst_length bc0)
     ⇒
     ∃ps.
+    (LENGTH ps = nz)∧
     ALL_DISTINCT ps ∧
     (∀p. p ∈ set ps ⇒ p ∉ FDOM bs.refs) ∧
     bc_next^* bs
@@ -1027,11 +1028,19 @@ val compile_closures_thm = store_thm("compile_closures_thm",
       (s'.out = REVERSE code ++ s.out) ∧
       EVERY ($~ o is_Label) code ∧
       (s'.next_label = s.next_label) ∧
-      ∀bs bc0 bc1.
+      ∀bs bc0 bc1 cls.
         (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         EVERY (ISR o SND) defs ∧
-        (nz ≠ 0 ⇒ (nz = LENGTH defs))
+        EVERY (IS_SOME o bc_find_loc bs o Lab o OUTR o SND) defs ∧
+        EVERY (good_ec o FAPPLY d.ecs o OUTR o SND) defs ∧
+        EVERY (EVERY (λec. ∀fv.
+          (ec = CEEnv fv) ⇒ fv ∈ FDOM env ∧
+                            IS_SOME (lookup_ct cls sz bs.stack bs.refs (env ' fv)))
+               o SND o FAPPLY d.ecs o OUTR o SND) defs ∧
+        ((nz = 0) ⇒ (LENGTH defs = 1)) ∧
+        ((nz ≠ 0) ⇒ (nz = LENGTH defs)) ∧
+        (sz = LENGTH bs.stack)
         ⇒
         ∃bvs rfs.
         let bvs = MAP (λ(xs,cb). Block closure_tag
@@ -1060,6 +1069,32 @@ val compile_closures_thm = store_thm("compile_closures_thm",
   simp[] >> disch_then(Q.X_CHOOSE_THEN`bsr`strip_assume_tac) >>
   simp[Once SWAP_REVERSE] >>
   rpt strip_tac >>
+  POP_ASSUM_LIST(map_every assume_tac) >>
+  first_x_assum(qspecl_then[`bs`,`bc0`,`bpl ++ bcc ++ bur ++ bsr ++ bc1`]mp_tac)>>
+  simp[] >> disch_then(Q.X_CHOOSE_THEN`rs`strip_assume_tac) >>
+  qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+  first_x_assum(qspecl_then[`bs1`,`bc0++bmr`,`bcc ++ bur ++ bsr ++ bc1`]mp_tac)>>
+  qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+  `P` by (
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    simp[Abbr`bs1`] >>
+    fs[EVERY_MEM,bc_find_loc_def] ) >>
+  simp[] >>
+  map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
+  first_x_assum(qspecl_then[`bs2`,`bc0++bmr++bpl`,`bur ++ bsr ++ bc1`]mp_tac)>>
+  simp[Abbr`bs2`,LENGTH_NIL,Abbr`bs1`] >>
+  disch_then(qspec_then`MAP RefPtr rs ++ bs.stack`mp_tac o CONV_RULE SWAP_FORALL_CONV) >>
+  simp[] >>
+  disch_then(qspec_then`cls`mp_tac) >>
+  qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+  `P` by (
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    conj_tac >- (
+      unabbrev_all_tac >>
+      Cases_on`nz=0`>> fs[]
+
 
 set_trace"goalstack print goal at top"0
 
