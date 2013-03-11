@@ -133,10 +133,10 @@ val _ = Hol_datatype `
 
 val _ = type_abbrev( "ast_prog" , ``: ast_top list``);
 
-(*val elab_p : ast_pat -> pat unit*) 
+(*val elab_p : ast_pat -> pat*)
  val elab_p_defn = Hol_defn "elab_p" `
 
-(elab_p (Ast_Pvar n) = Pvar n NONE)
+(elab_p (Ast_Pvar n) = Pvar n)
 /\
 (elab_p (Ast_Plit l) = Plit l)
 /\
@@ -180,15 +180,15 @@ val _ = Define `
 val _ = type_abbrev( "ctor_env" , ``: (conN, ( conN id)) env``);
 
 (*val elab_t : list typeN -> ast_t -> t*)
-(*val elab_e : ctor_env -> binding_env -> ast_exp -> exp unit*)
+(*val elab_e : ctor_env -> binding_env -> ast_exp -> exp*)
 (*val elab_funs : ctor_env -> binding_env -> list (varN * varN * ast_exp) -> 
-                list (varN * option unit * varN * option unit * exp unit)*)
-(*val elab_dec : option modN -> list typeN -> ctor_env -> binding_env -> ast_dec -> list typeN * ctor_env * binding_env * dec unit*)
-(*val elab_decs : option modN -> list typeN -> ctor_env -> binding_env -> list ast_dec -> list (dec unit)*)
+                list (varN * varN * exp)*)
+(*val elab_dec : option modN -> list typeN -> ctor_env -> binding_env -> ast_dec -> list typeN * ctor_env * binding_env * dec*)
+(*val elab_decs : option modN -> list typeN -> ctor_env -> binding_env -> list ast_dec -> list dec*)
 (*val elab_spec : list typeN -> list ast_spec -> list spec*)
-(*val elab_prog : list typeN -> ctor_env -> binding_env -> list ast_top -> list (top unit)*)
+(*val elab_prog : list typeN -> ctor_env -> binding_env -> list ast_top -> list top*)
 
-(*val get_pat_bindings : forall 'a. pat 'a -> binding_env*)
+(*val get_pat_bindings : pat -> binding_env*)
 val _ = Define `
  (get_pat_bindings p = MAP (\ x . (x, Is_local)) (pat_bindings p []))`;
 
@@ -214,9 +214,9 @@ val _ = Define `
       NONE => Var (Short n)
     | SOME Is_local => Var (Short n)
     | SOME (Is_op op) =>
-        Fun "x" NONE (Fun "y" NONE (App op (Var (Short "x")) (Var (Short "y"))))
+        Fun "x" (Fun "y" (App op (Var (Short "x")) (Var (Short "y"))))
     | SOME (Is_uop uop) =>
-        Fun "x" NONE (Uapp uop (Var (Short "x")))
+        Fun "x" (Uapp uop (Var (Short "x")))
   ))
 /\ 
 (elab_e ctors bound (Ast_Con (Long mn cn) es) =
@@ -231,7 +231,7 @@ val _ = Define `
   ))
 /\
 (elab_e ctors bound (Ast_Fun n e) =
-  Fun n NONE (elab_e ctors (bind n Is_local bound) e))
+  Fun n (elab_e ctors (bind n Is_local bound) e))
 /\
 (elab_e ctors bound (Ast_App e1 e2) =
   App Opapp (elab_e ctors bound e1) (elab_e ctors bound e2))
@@ -250,7 +250,7 @@ val _ = Define `
                 pes))
 /\
 (elab_e ctors bound (Ast_Let x e1 e2) =
-  Let NONE x NONE (elab_e ctors bound e1) (elab_e ctors (bind x Is_local bound) e2))
+  Let NONE x (elab_e ctors bound e1) (elab_e ctors (bind x Is_local bound) e2))
 /\
 (elab_e ctors bound (Ast_Letrec funs e) =
   Letrec NONE (elab_funs ctors (merge (get_funs_bindings funs) bound) funs) 
@@ -260,7 +260,7 @@ val _ = Define `
   [])
 /\
 (elab_funs ctors bound ((n1,n2,e)::funs) =
-  (n1,NONE,n2,NONE,elab_e ctors (bind n2 Is_local bound) e) :: elab_funs ctors bound funs)`;
+  (n1,n2,elab_e ctors (bind n2 Is_local bound) e) :: elab_funs ctors bound funs)`;
 
 val _ = Defn.save_defn elab_e_defn;
 

@@ -158,13 +158,13 @@ let Tref t = Tapp [t] TC_ref
 let Tfn t1 t2 = Tapp [t1;t2] TC_fn
 
 (* Patterns *)
-type pat 'a =
+type pat =
   (* We optionally type annotate all binders *)
-  | Pvar of varN * option 'a
+  | Pvar of varN
   | Plit of lit
   (* Constructor applications. *)
-  | Pcon of id conN * list (pat 'a)
-  | Pref of pat 'a
+  | Pcon of id conN * list pat
+  | Pref of pat
 
 (* Runtime errors.  Temporary: later on we want to move to SML-style declared
  * exception constructors *)
@@ -174,52 +174,51 @@ type error =
   | Int_error of int
 
 (* Expressions *)
-(* We optionally type annotate all binders with a value of type 'a *)
-type exp 'a =
+type exp =
   (* Temporary: later on we want Raise of exp *)
   | Raise of error
-  (* Temporary: later on we want Handle of exp * list (pat 'a * exp) *)
+  (* Temporary: later on we want Handle of exp * list (pat * exp) *)
   (* We don't type annotate this binder because it must be an int *)
-  | Handle of exp 'a * varN * exp 'a
+  | Handle of exp * varN * exp
   | Lit of lit
   (* Constructor application. *)
-  | Con of id conN * list (exp 'a)
+  | Con of id conN * list exp
   | Var of id varN
-  | Fun of varN * option 'a * exp 'a
+  | Fun of varN * exp
   (* Application of a unary operator *)
-  | Uapp of uop * exp 'a
+  | Uapp of uop * exp
   (* Application of an operator (including function application) *)
-  | App of op * exp 'a * exp 'a
+  | App of op * exp * exp
   (* Logical operations (and, or) *)
-  | Log of log * exp 'a * exp 'a
-  | If of exp 'a * exp 'a * exp 'a
+  | Log of log * exp * exp
+  | If of exp * exp * exp
   (* Pattern matching *)
-  | Mat of exp 'a * list (pat 'a * exp 'a)
+  | Mat of exp * list (pat * exp)
   (* The number is how many type variables are bound. *)
-  | Let of option num * varN * option 'a * exp 'a * exp 'a
+  | Let of option num * varN * exp * exp
   (* Local definition of (potentially) mutually recursive functions
    * The first varN is the function's name, and the second varN is its
    * parameter.
    * The number is how many type variables are bound. *)
-  | Letrec of option num * list (varN * option 'a * varN * option 'a * exp 'a) * exp 'a
+  | Letrec of option num * list (varN * varN * exp) * exp
 
 type type_def = list (list tvarN * typeN * list (conN * list t))
 
 (* Declarations *)
-type dec 'a =
+type dec =
   (* Top-level bindings
    * The number is how many type variables are bound.
    * The pattern allows several names to be bound at once *)
-  | Dlet of option num * pat 'a * exp 'a
+  | Dlet of option num * pat * exp
   (* Mutually recursive function definition
    * The number is how many type variables are bound. *)
-  | Dletrec of option num * list (varN * option 'a * varN * option 'a * exp 'a)
+  | Dletrec of option num * list (varN * varN * exp)
   (* Type definition
      Defines several types, each of which has several named variants, which can
      in turn have several arguments *)
   | Dtype of type_def
 
-type decs 'a = list (dec 'a)
+type decs = list dec 
 
 type spec =
   | Sval of varN * t
@@ -228,11 +227,11 @@ type spec =
 
 type specs = list spec
 
-type top 'a =
-  | Tmod of modN * option specs * decs 'a
-  | Tdec of dec 'a
+type top =
+  | Tmod of modN * option specs * decs
+  | Tdec of dec
 
-type prog 'a = list (top 'a)
+type prog = list top
 
 
 (* ------------------------------------------------------------------------ *) 
@@ -240,18 +239,18 @@ type prog 'a = list (top 'a)
 (* ------------------------------------------------------------------------ *) 
 
 (* Value forms *)
-type v 'a =
+type v =
   | Litv of lit
   (* Constructor application. *)
-  | Conv of id conN * list (v 'a)
+  | Conv of id conN * list v 
   (* Function closures
      The environment is used for the free variables in the function *)
-  | Closure of env varN (v 'a) * varN * option 'a * exp 'a
+  | Closure of env varN v * varN * exp
   (* Function closure for recursive functions
    * See Closure and Letrec above
    * The last variable name indicates which function from the mutually
    * recursive bundle this closure value represents *)
-  | Recclosure of env varN (v 'a) * list (varN * option 'a * varN * option 'a * exp 'a) * varN
+  | Recclosure of env varN v * list (varN * varN * exp) * varN
   | Loc of num
 
 
@@ -287,10 +286,11 @@ and
 deBruijn_subst skip ts (Tapp ts' tn) =
   Tapp (List.map (deBruijn_subst skip ts) ts') tn
 
+(*
 val deBruijn_subst_p : num -> list t -> pat t -> pat t 
 let rec
-deBruijn_subst_p skip ts (Pvar x topt) =
-  Pvar x (option_map (deBruijn_subst skip ts) topt)
+deBruijn_subst_p skip ts (Pvar x) =
+  Pvar x
 and
 deBruijn_subst_p skip ts (Plit l) = Plit l
 and
@@ -315,8 +315,8 @@ and
 deBruijn_subst_e skip ts (Var v) =
   Var v
 and
-deBruijn_subst_e skip ts (Fun x topt e) =
-  Fun x (option_map (deBruijn_subst skip ts) topt) (deBruijn_subst_e skip ts e)
+deBruijn_subst_e skip ts (Fun x e) =
+  Fun x (deBruijn_subst_e skip ts e)
 and
 deBruijn_subst_e skip ts (Uapp uop e) =
   Uapp uop (deBruijn_subst_e skip ts e)
@@ -334,11 +334,10 @@ deBruijn_subst_e skip ts (Mat e pes) =
   Mat (deBruijn_subst_e skip ts e) 
       (List.map (fun (p,e) -> (deBruijn_subst_p skip ts p, deBruijn_subst_e skip ts e)) pes)
 and
-deBruijn_subst_e skip ts (Let tvs x topt e1 e2) =
+deBruijn_subst_e skip ts (Let tvs x e1 e2) =
   let skip' = match tvs with | None -> skip | Some x -> x + skip end in
   let ts' = match tvs with | None -> ts | Some tvs -> List.map (deBruijn_inc 0 tvs) ts end in
     Let tvs x 
-      (option_map (deBruijn_subst skip' ts') topt)
       (deBruijn_subst_e skip' ts' e1)
       (deBruijn_subst_e skip ts e2)
 and
@@ -346,11 +345,9 @@ deBruijn_subst_e skip ts (Letrec tvs funs e) =
   let skip' = match tvs with | None -> skip | Some x -> x + skip end in
   let ts' = match tvs with | None -> ts | Some tvs -> List.map (deBruijn_inc 0 tvs) ts end in
     Letrec tvs 
-      (List.map (fun (f,topt1,x,topt2,e) -> 
+      (List.map (fun (f,x,e) -> 
                    (f,
-                    option_map (deBruijn_subst skip' ts') topt1,
                     x,
-                    option_map (deBruijn_subst skip' ts') topt2,
                     (deBruijn_subst_e skip' ts' e)))
          funs) 
       (deBruijn_subst_e skip ts e)
@@ -362,8 +359,8 @@ and
 deBruijn_subst_v ts (Conv cn vs) =
   Conv cn (List.map (deBruijn_subst_v ts) vs)
 and
-deBruijn_subst_v ts (Closure env x topt e) =
-  Closure env x (option_map (deBruijn_subst 0 ts) topt) (deBruijn_subst_e 0 ts e)
+deBruijn_subst_v ts (Closure env x e) =
+  Closure env x (deBruijn_subst_e 0 ts e)
 and
 deBruijn_subst_v ts (Recclosure env funs f) =
   Recclosure env
@@ -377,18 +374,19 @@ deBruijn_subst_v ts (Recclosure env funs f) =
     f
 and
 deBruijn_subst_v ts (Loc l) = Loc l
+ *)
 
 (* Environments *)
 
 (* Maps each constructor to its arity and which type it is from *)
 type envC = env (id conN) (num * id typeN)
 
-type envE 'a = env varN (v 'a)
+type envE = env varN v
 
 (* The bindings of a module *)
-type envM 'a = env modN (envE 'a)
+type envM = env modN envE
 
-val lookup_var_id : forall 'a. id varN -> envM 'a -> envE 'a -> option (v 'a)
+val lookup_var_id : id varN -> envM -> envE -> option v
 let lookup_var_id id menv envE =
   match id with
     | Short x -> lookup x envE
@@ -401,23 +399,23 @@ let lookup_var_id id menv envE =
 
 (* Stores *)
 (* The nth item in the list is the value at location n *)
-type store 'a = list (v 'a)
+type store = list v
 
-val empty_store : forall 'a. store 'a
+val empty_store : store
 let empty_store = []
 
-val store_lookup : forall 'a. num -> store 'a -> option (v 'a)
+val store_lookup : num -> store -> option v
 let store_lookup l st =
   if l < List.length st then
     Some (List.nth st l)
   else
     None
 
-val store_alloc : forall 'a. v 'a -> store 'a -> store 'a * num
+val store_alloc : v -> store -> store * num
 let store_alloc v st =
   (st @ [v], List.length st)
 
-val store_assign : forall 'a. num -> v 'a -> store 'a -> option (store 'a)
+val store_assign : num -> v -> store -> option store
 let store_assign n v st =
   if n < List.length st then
     Some (LUPDATE v n st)
@@ -429,19 +427,19 @@ let store_assign n v st =
  * The hole is denoted by the unit type
  * The env argument contains bindings for the free variables of expressions in
      the context *)
-type ctxt_frame 'a =
-  | Chandle of unit * varN * exp 'a
-  | Capp1 of op * unit * exp 'a
-  | Capp2 of op * v 'a * unit
-  | Clog of log * unit * exp 'a
-  | Cif of unit * exp 'a * exp 'a
-  | Cmat of unit * list (pat 'a * exp 'a)
-  | Clet of option num * varN * option 'a * unit * exp 'a
+type ctxt_frame =
+  | Chandle of unit * varN * exp
+  | Capp1 of op * unit * exp
+  | Capp2 of op * v * unit
+  | Clog of log * unit * exp
+  | Cif of unit * exp * exp
+  | Cmat of unit * list (pat * exp)
+  | Clet of option num * varN * unit * exp
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
-  | Ccon of id conN * list (v 'a) * unit * list (exp 'a)
+  | Ccon of id conN * list v * unit * list exp
   | Cuapp of uop * unit
-type ctxt 'a = ctxt_frame 'a * envE 'a
+type ctxt = ctxt_frame * envE
 
 val lit_same_type : lit -> lit -> bool
 let lit_same_type l1 l2 =
@@ -452,10 +450,10 @@ let lit_same_type l1 l2 =
     | _ -> false
   end
 
-type match_result 'a =
+type match_result =
   | No_match
   | Match_type_error
-  | Match of envE 'a
+  | Match of envE
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
  * environment with the pattern variables bound to the corresponding sub-terms
@@ -465,9 +463,9 @@ type match_result 'a =
  * number of arguments, and constructors in corresponding positions in the
  * pattern and value come from the same type.  Match_type_error is returned
  * when one of these conditions is violated *)
-val pmatch : forall 'a. option num -> envC -> store 'a -> pat 'a -> v 'a -> envE 'a -> match_result 'a
+val pmatch : option num -> envC -> store -> pat -> v -> envE -> match_result
 let rec
-pmatch tvs envC s (Pvar x topt) v' env = Match (bind x v' env)
+pmatch tvs envC s (Pvar x) v' env = Match (bind x v' env)
 and
 pmatch tvs envC s (Plit l) (Litv l') env =
   if l = l' then
@@ -510,9 +508,9 @@ and
 pmatch_list tvs envC s _ _ env = Match_type_error
 
 (* Accumulates the bindings of a patterns *)
-val pat_bindings : forall 'a. pat 'a -> list varN -> list varN
+val pat_bindings : pat -> list varN -> list varN
 let rec
-pat_bindings (Pvar n topt) already_bound =
+pat_bindings (Pvar n) already_bound =
   n::already_bound
 and
 pat_bindings (Plit l) already_bound =
@@ -537,14 +535,14 @@ pats_bindings (p::ps) already_bound =
  * - the current expression to evaluate, or a value if finished
  * - the context stack (continuation) of what to do once the current expression
  *   is finished.  Each entry has an environment for it's free variables *)
-type exp_or_val 'a =
-  | Exp of exp 'a
-  | Val of v 'a
+type exp_or_val =
+  | Exp of exp
+  | Val of v
 
-type state 'a = envM 'a * envC * store 'a * envE 'a * exp_or_val 'a * list (ctxt 'a)
+type state = envM * envC * store * envE * exp_or_val * list ctxt
 
-type e_step_result 'a =
-  | Estep of state 'a
+type e_step_result =
+  | Estep of state
   | Etype_error
   | Estuck
 
@@ -553,41 +551,41 @@ type e_step_result 'a =
  * push individual frames onto the context stack instead of finding a redex in a
  * single step *)
 
-val push : forall 'a. envM 'a -> envC -> store 'a -> envE 'a -> exp 'a -> ctxt_frame 'a -> list (ctxt 'a) -> e_step_result 'a
+val push : envM -> envC -> store -> envE -> exp -> ctxt_frame -> list ctxt -> e_step_result
 let push envM envC s env e c' cs = Estep (envM, envC, s, env, Exp e, (c',env)::cs)
 
-val return : forall 'a. envM 'a -> envC -> store 'a -> envE 'a -> v 'a -> list (ctxt 'a) -> e_step_result 'a
+val return : envM -> envC -> store -> envE -> v -> list ctxt -> e_step_result
 let return envM envC s env v c = Estep (envM, envC, s, env, Val v, c)
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
-val build_rec_env : forall 'a. option num -> list (varN * option 'a * varN * option 'a * exp 'a) -> envE 'a -> envE 'a -> envE 'a
+val build_rec_env : option num -> list (varN * varN * exp) -> envE -> envE -> envE
 let build_rec_env tvs funs cl_env add_to_env =
   List.fold_right
-    (fun (f,topt,x,topt',e) env' -> bind f (Recclosure cl_env funs f) env')
+    (fun (f,x,e) env' -> bind f (Recclosure cl_env funs f) env')
     funs
     add_to_env
 
 (* Lookup in the list of mutually recursive functions *)
-val find_recfun : forall 'a. varN -> list (varN * option 'a * varN * option 'a * exp 'a) -> option (varN * option 'a * exp 'a)
+val find_recfun : varN -> list (varN * varN * exp) -> option (varN * exp)
 let rec find_recfun n funs =
   match funs with
     | [] -> None
-    | (f,_,x,topt,e) :: funs ->
+    | (f,x,e) :: funs ->
         if f = n then
-          Some (x,topt,e)
+          Some (x,e)
         else
           find_recfun n funs
   end
 
 (* Do an application *)
-val do_app : forall 'a. store 'a -> envE 'a -> op -> v 'a -> v 'a -> option (store 'a * envE 'a * exp 'a)
+val do_app : store -> envE -> op -> v -> v -> option (store * envE * exp)
 let do_app s env' op v1 v2 =
   match (op, v1, v2) with
-    | (Opapp, Closure env n topt e, v) ->
+    | (Opapp, Closure env n e, v) ->
         Some (s, bind n v env, e)
     | (Opapp, Recclosure env funs n, v) ->
         match find_recfun n funs with
-          | Some (n,topt,e) -> Some (s, bind n v (build_rec_env (Some 0) funs env env), e)
+          | Some (n,e) -> Some (s, bind n v (build_rec_env (Some 0) funs env env), e)
           | None -> None
         end
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) ->
@@ -610,7 +608,7 @@ let do_app s env' op v1 v2 =
   end
 
 (* Do a logical operation *)
-val do_log : forall 'a. log -> v 'a -> exp 'a -> option (exp 'a)
+val do_log : log -> v -> exp -> option exp
 let do_log l v e =
   match (l, v) with
     | (And, Litv (Bool true)) -> Some e
@@ -620,7 +618,7 @@ let do_log l v e =
   end
 
 (* Do an if-then-else *)
-val do_if : forall 'a. v 'a -> exp 'a -> exp 'a -> option (exp 'a)
+val do_if : v -> exp -> exp -> option exp
 let do_if v e1 e2 =
   if v = Litv (Bool true) then
     Some e1
@@ -637,7 +635,7 @@ let do_con_check cenv n l =
     | Some (l',ns) -> l = l'
   end
 
-val do_uapp : forall 'a. store 'a -> uop -> v 'a -> option (store 'a * v 'a)
+val do_uapp : store -> uop -> v -> option (store * v)
 let do_uapp s uop v =
   match uop with
     | Opderef ->
@@ -655,7 +653,7 @@ let do_uapp s uop v =
   end
 
 (* apply a context to a value *)
-val continue : forall 'a. envM 'a -> envC -> store 'a -> v 'a -> list (ctxt 'a) -> e_step_result 'a
+val continue : envM -> envC -> store -> v -> list ctxt -> e_step_result
 let continue envM envC s v cs =
   match cs with
     | [] -> Estuck
@@ -689,7 +687,7 @@ let continue envM envC s v cs =
           end
         else
           Etype_error
-    | (Clet tvs n topt () e, env) :: c ->
+    | (Clet tvs n () e, env) :: c ->
         Estep (envM, envC, s, bind n v env, Exp e, c)
     | (Ccon n vs () [], env) :: c ->
         if do_con_check envC n (List.length vs + 1) then
@@ -714,7 +712,7 @@ let continue envM envC s v cs =
  * if given to a primitive.  Returns Bind_error when no pattern in a match
  * matches the value.  Otherwise it returns the next state *)
 
-val e_step : state t -> e_step_result t
+val e_step : state -> e_step_result
 let e_step (envM, envC, s, env, ev, c) =
   match ev with
     | Val v  ->
@@ -750,14 +748,14 @@ let e_step (envM, envC, s, env, ev, c) =
                 | Some v -> 
                     return envM envC s env v c
               end
-          | Fun n topt e -> return envM envC s env (Closure env n topt e) c
+          | Fun n e -> return envM envC s env (Closure env n e) c
           | App op e1 e2 -> push envM envC s env e1 (Capp1 op () e2) c
           | Log l e1 e2 -> push envM envC s env e1 (Clog l () e2) c
           | If e1 e2 e3 -> push envM envC s env e1 (Cif () e2 e3) c
           | Mat e pes -> push envM envC s env e (Cmat () pes) c
-          | Let tvs n topt e1 e2 -> push envM envC s env e1 (Clet tvs n topt () e2) c
+          | Let tvs n e1 e2 -> push envM envC s env e1 (Clet tvs n () e2) c
           | Letrec tvs funs e ->
-              if not (all_distinct (List.map (fun (x,a,y,b,z) -> x) funs)) then
+              if not (all_distinct (List.map (fun (x,y,z) -> x) funs)) then
                 Etype_error
               else
                 Estep (envM,envC, s, build_rec_env tvs funs env env, Exp e, c)
@@ -776,8 +774,8 @@ type result 'a =
   | Rval of 'a
   | Rerr of error_result
 
-val e_step_reln : state t -> state t -> bool
-val small_eval : envM t -> envC -> store t -> envE t -> exp t -> list (ctxt t) -> store t * result (v t) -> bool
+val e_step_reln : state -> state -> bool
+val small_eval : envM -> envC -> store -> envE -> exp -> list ctxt -> store * result v -> bool
 
 let e_step_reln st1 st2 =
   (e_step st1 = Estep st2)
@@ -794,7 +792,7 @@ small_eval menv cenv s env e c (s', Rerr Rtype_error) =
     (rtc e_step_reln) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',e',c') &&
     (e_step (menv,cenv,s',env',e',c') = Etype_error)
 
-val e_diverges : envM t -> envC -> store t -> envE t -> exp t -> bool
+val e_diverges : envM -> envC -> store -> envE -> exp -> bool
 let e_diverges menv cenv s env e =
   forall menv' cenv' s' env' e' c'.
     (rtc e_step_reln) (menv,cenv,s,env,Exp e,[]) (menv',cenv',s',env', e',c')
@@ -803,12 +801,12 @@ let e_diverges menv cenv s env e =
       e_step_reln (menv',cenv',s',env', e',c') (menv'',cenv'',s'',env'',e'',c'')
 
 (* ------------------------ Big step semantics -------------------------- *)
-val evaluate : envM t -> envC -> store t -> envE t -> exp t -> store t * result (v t) -> bool
-val evaluate_list : envM t -> envC -> store t -> envE t -> list (exp t) -> store t * result (list (v t)) -> bool
-val evaluate_match : envM t -> envC -> store t -> envE t -> v t -> list (pat t * exp t) -> store t * result (v t) -> bool
-val evaluate_dec : option modN -> envM t -> envC -> store t -> envE t -> dec t -> store t * result (envC * envE t) -> bool
-val evaluate_decs : option modN -> envM t -> envC -> store t -> envE t -> list (dec t) -> store t * result (envC * envE t) -> bool
-val evaluate_prog : envM t -> envC -> store t -> envE t -> prog t -> store t * result (envM t * envC * envE t) -> bool
+val evaluate : envM -> envC -> store -> envE -> exp -> store * result v -> bool
+val evaluate_list : envM -> envC -> store -> envE -> list exp -> store * result (list v) -> bool
+val evaluate_match : envM -> envC -> store -> envE -> v -> list (pat * exp) -> store * result v -> bool
+val evaluate_dec : option modN -> envM -> envC -> store -> envE -> dec -> store * result (envC * envE) -> bool
+val evaluate_decs : option modN -> envM -> envC -> store -> envE -> list dec -> store * result (envC * envE) -> bool
+val evaluate_prog : envM -> envC -> store -> envE -> prog -> store * result (envM * envC * envE) -> bool
 
 indreln
 
@@ -886,10 +884,10 @@ evaluate menv cenv s env (Var n) (s, Rerr Rtype_error)
 
 and
 
-forall menv cenv env n e s topt.
+forall menv cenv env n e s.
 true
 ==>
-evaluate menv cenv s env (Fun n topt e) (s, Rval (Closure env n topt e))
+evaluate menv cenv s env (Fun n e) (s, Rval (Closure env n e))
 
 and
 
@@ -1013,23 +1011,23 @@ evaluate menv cenv s env (Mat e pes) (s', Rerr err)
 
 and
 
-forall menv cenv env n e1 e2 v bv s1 s2 topt tvs.
+forall menv cenv env n e1 e2 v bv s1 s2 tvs.
 evaluate menv cenv s1 env e1 (s2, Rval v) &&
 evaluate menv cenv s2 (bind n v env) e2 bv
 ==>
-evaluate menv cenv s1 env (Let tvs n topt e1 e2) bv
+evaluate menv cenv s1 env (Let tvs n e1 e2) bv
 
 and
 
-forall menv cenv env n e1 e2 err s s' topt tvs.
+forall menv cenv env n e1 e2 err s s' tvs.
 evaluate menv cenv s env e1 (s', Rerr err)
 ==>
-evaluate menv cenv s env (Let tvs n topt e1 e2) (s', Rerr err)
+evaluate menv cenv s env (Let tvs n e1 e2) (s', Rerr err)
 
 and
 
 forall menv cenv env funs e bv s tvs.
-all_distinct (List.map (fun (x,a,y,b,z) -> x) funs) &&
+all_distinct (List.map (fun (x,y,z) -> x) funs) &&
 evaluate menv cenv s (build_rec_env tvs funs env env) e bv
 ==>
 evaluate menv cenv s env (Letrec tvs funs e) bv
@@ -1037,7 +1035,7 @@ evaluate menv cenv s env (Letrec tvs funs e) bv
 and
 
 forall menv cenv env funs e s tvs.
-not (all_distinct (List.map (fun (x,a,y,b,z) -> x) funs))
+not (all_distinct (List.map (fun (x,y,z) -> x) funs))
 ==>
 evaluate menv cenv s env (Letrec tvs funs e) (s, Rerr Rtype_error)
 
@@ -1177,14 +1175,14 @@ evaluate_dec mn menv cenv s env (Dlet tvs p e) (s', Rerr err)
 and
 
 forall mn menv cenv env funs s tvs.
-all_distinct (List.map (fun (x,topt1,y,topt2,z) -> x) funs)
+all_distinct (List.map (fun (x,y,z) -> x) funs)
 ==>
 evaluate_dec mn menv cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env tvs funs env emp))
 
 and
 
 forall mn menv cenv env funs s tvs.
-not (all_distinct (List.map (fun (x,topt1,y,topt2,z) -> x) funs))
+not (all_distinct (List.map (fun (x,y,z) -> x) funs))
 ==>
 evaluate_dec mn menv cenv s env (Dletrec tvs funs) (s, Rerr Rtype_error)
 
@@ -1285,9 +1283,9 @@ List.mem mn (List.map fst menv)
 evaluate_prog menv cenv s env (Tmod mn specs ds1::ds2) (s, Rerr Rtype_error)
 
 
-val dec_diverges : envM t -> envC -> store t -> envE t -> dec t -> bool
-val decs_diverges : option modN -> envM t -> envC -> store t -> envE t -> decs t -> bool
-val prog_diverges : envM t -> envC -> store t -> envE t -> prog t -> bool
+val dec_diverges : envM -> envC -> store -> envE -> dec -> bool
+val decs_diverges : option modN -> envM -> envC -> store -> envE -> decs -> bool
+val prog_diverges : envM -> envC -> store -> envE -> prog -> bool
 
 let dec_diverges menv cenv st env d =
   match d with
@@ -1402,29 +1400,29 @@ num_tvs (Bind_name n tvs t e) = num_tvs e
 (* A pattern matches values of a certain type and extends the type environment
  * with the pattern's binders. The number is the maximum deBruijn type variable
  * allowed. *)
-val type_p : num -> tenvC -> pat t -> t -> list (varN * t) -> bool
+val type_p : num -> tenvC -> pat -> t -> list (varN * t) -> bool
 
 (* An expression has a type *)
-val type_e : tenvM -> tenvC -> tenvE -> exp t -> t -> bool
+val type_e : tenvM -> tenvC -> tenvE -> exp -> t -> bool
 
 (* A list of expressions has a list of types *)
-val type_es : tenvM -> tenvC -> tenvE -> list (exp t) -> list t -> bool
+val type_es : tenvM -> tenvC -> tenvE -> list exp -> list t -> bool
 
 (* Type a mutually recursive bundle of functions.  Unlike pattern typing, the
  * resulting environment does not extend the input environment, but just
  * represents the functions *)
-val type_funs : tenvM -> tenvC -> tenvE -> list (varN * option t * varN * option t * exp t) ->
+val type_funs : tenvM -> tenvC -> tenvE -> list (varN * varN * exp) ->
                 list (varN * t) -> bool
 
 (* Check a declaration and update the top-level environments *)
-val type_d : option modN -> tenvM -> tenvC -> tenvE -> dec t -> tenvC -> env varN (num * t) -> bool
+val type_d : option modN -> tenvM -> tenvC -> tenvE -> dec -> tenvC -> env varN (num * t) -> bool
 
-val type_ds : option modN -> tenvM -> tenvC -> tenvE -> list (dec t) -> tenvC -> env varN (num * t) -> bool
+val type_ds : option modN -> tenvM -> tenvC -> tenvE -> list dec -> tenvC -> env varN (num * t) -> bool
 val weakE : env varN (num * t) -> env varN (num * t) -> bool
 val weakC : tenvC -> tenvC -> bool
 val check_signature : option modN -> tenvC -> env varN (num * t) -> option specs -> tenvC -> env varN (num * t) -> bool
 val type_specs : option modN -> tenvC -> env varN (num * t) -> specs -> tenvC -> env varN (num * t) -> bool
-val type_prog : tenvM -> tenvC -> tenvE -> list (top t) -> tenvM -> tenvC -> env varN (num * t) -> bool
+val type_prog : tenvM -> tenvC -> tenvE -> list top -> tenvM -> tenvC -> env varN (num * t) -> bool
 
 (* Check that the operator can have type (t1 -> t2 -> t3) *)
 val type_op : op -> t -> t -> t -> bool
@@ -1518,7 +1516,7 @@ bind_var_list2 ((n,(tvs,t))::binds) tenv =
 
 
 (* For the value restriction on let-based polymorphism *)
-val is_value : forall 'a. exp 'a -> bool
+val is_value : exp -> bool
 let rec 
 is_value (Lit _) = true
 and
@@ -1526,7 +1524,7 @@ is_value (Con _ es) = List.for_all is_value es
 and
 is_value (Var _) = true
 and
-is_value (Fun _ _ _) = true
+is_value (Fun _ _) = true
 and
 is_value _ = false
 
@@ -1535,7 +1533,7 @@ indreln
 forall tvs cenv n t.
 check_freevars tvs [] t
 ==>
-type_p tvs cenv (Pvar n (Some t)) t [(n,t)]
+type_p tvs cenv (Pvar n) t [(n,t)]
 
 and
 
@@ -1651,7 +1649,7 @@ forall menv cenv tenv n e t1 t2.
 check_freevars (num_tvs tenv) [] t1 &&
 type_e menv cenv (bind_tenv n 0 t1 tenv) e t2
 ==>
-type_e menv cenv tenv (Fun n (Some t1) e) (Tfn t1 t2)
+type_e menv cenv tenv (Fun n e) (Tfn t1 t2)
 
 and
 
@@ -1706,7 +1704,7 @@ is_value e1 &&
 type_e menv cenv (bind_tvar tvs tenv) e1 t1 &&
 type_e menv cenv (bind_tenv n tvs t1 tenv) e2 t2
 ==>
-type_e menv cenv tenv (Let (Some tvs) n (Some t1) e1 e2) t2
+type_e menv cenv tenv (Let (Some tvs) n e1 e2) t2
 
 and
 
@@ -1714,7 +1712,7 @@ forall menv cenv tenv n e1 e2 t1 t2.
 type_e menv cenv tenv e1 t1 &&
 type_e menv cenv (bind_tenv n 0 t1 tenv) e2 t2
 ==>
-type_e menv cenv tenv (Let (Some 0) n (Some t1) e1 e2) t2
+type_e menv cenv tenv (Let (Some 0) n e1 e2) t2
 
 and
 
@@ -1754,7 +1752,7 @@ type_e menv cenv (bind_tenv n 0 t1 env) e t2 &&
 type_funs menv cenv env funs env' &&
 lookup fn env' = None
 ==>
-type_funs menv cenv env ((fn, Some (Tfn t1 t2), n, Some t1, e)::funs) ((fn, Tfn t1 t2)::env')
+type_funs menv cenv env ((fn, n, e)::funs) ((fn, Tfn t1 t2)::env')
 
 val tenv_add_tvs : num -> env varN t -> env varN (num * t)
 let tenv_add_tvs tvs tenv =
@@ -1916,30 +1914,30 @@ type tenvS = env num t
 
 (* A value has a type *)
 (* The number is how many deBruijn type variables are bound in the context. *)
-val type_v : num -> tenvM -> tenvC -> tenvS -> v t -> t -> bool
+val type_v : num -> tenvM -> tenvC -> tenvS -> v -> t -> bool
 
 (* A value environment has a corresponding type environment.  Since all of the
  * entries in the environment are values, and values have no free variables,
  * each entry in the environment can be typed in the empty environment (if at
  * all) *)
-val type_env : tenvM -> tenvC -> tenvS -> envE t -> tenvE -> bool
+val type_env : tenvM -> tenvC -> tenvS -> envE -> tenvE -> bool
 
 (* The type of the store *)
-val type_s : tenvM -> tenvC -> tenvS -> store t -> bool
+val type_s : tenvM -> tenvC -> tenvS -> store -> bool
 
 (* An evaluation context has the second type when its hole is filled with a
  * value of the first type. *)
 (* The number is how many deBruijn type variables are bound in the context.
  * This is only used for constructor contexts, because the value restriction 
  * ensures that no other contexts can be created under a let binding. *)
-val type_ctxt : num -> tenvM -> tenvC -> tenvS -> tenvE -> ctxt_frame t -> t -> t -> bool
-val type_ctxts : num -> tenvM -> tenvC -> tenvS -> list (ctxt t) -> t -> t -> bool
-val type_state : num -> tenvM -> tenvC -> tenvS -> state t -> t -> bool
-val context_invariant : num -> list (ctxt t) -> num -> bool
+val type_ctxt : num -> tenvM -> tenvC -> tenvS -> tenvE -> ctxt_frame -> t -> t -> bool
+val type_ctxts : num -> tenvM -> tenvC -> tenvS -> list ctxt -> t -> t -> bool
+val type_state : num -> tenvM -> tenvC -> tenvS -> state -> t -> bool
+val context_invariant : num -> list ctxt -> num -> bool
 
 (* Type programs without imposing signatures.  This is needed for the type
  * soundness proof *)
-val type_prog' : tenvM -> tenvC -> tenvE -> list (top t) -> tenvM -> tenvC -> env varN (num * t) -> bool
+val type_prog' : tenvM -> tenvC -> tenvE -> list top -> tenvM -> tenvC -> env varN (num * t) -> bool
 
 
 indreln
@@ -2005,7 +2003,7 @@ type_env menv cenv senv env tenv &&
 check_freevars tvs [] t1 &&
 type_e menv cenv (bind_tenv n 0 t1 (bind_tvar tvs tenv)) e t2
 ==>
-type_v tvs menv cenv senv (Closure env n (Some t1) e) (Tfn t1 t2)
+type_v tvs menv cenv senv (Closure env n e) (Tfn t1 t2)
 
 and
 
@@ -2110,10 +2108,10 @@ context_invariant dec_tvs ((Cmat () pes,env) :: c) 0
 
 and
 
-forall dec_tvs c tvs x topt e env.
+forall dec_tvs c tvs x e env.
 context_invariant dec_tvs c 0
 ==>
-context_invariant dec_tvs ((Clet (Some tvs) x topt () e,env) :: c) tvs
+context_invariant dec_tvs ((Clet (Some tvs) x () e,env) :: c) tvs
 
 and
 
@@ -2198,7 +2196,7 @@ forall tvs menv cenv senv tenv e t1 t2 n tvs'.
 check_freevars tvs [] t1 &&
 type_e menv cenv (bind_tenv n tvs' t1 tenv) e t2
 ==>
-type_ctxt tvs menv cenv senv tenv (Clet (Some tvs') n (Some t1) () e) t1 t2
+type_ctxt tvs menv cenv senv tenv (Clet (Some tvs') n () e) t1 t2
 
 and
 
@@ -2255,9 +2253,9 @@ type_state dec_tvs tenvM tenvC senv (envM, envC, s, env, Val v, c) t2
 
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 
-val evaluate_ctxt : envM t -> envC -> store t -> envE t -> ctxt_frame t -> v t -> store t * result (v t) -> bool
-val evaluate_ctxts : envM t -> envC -> store t -> list (ctxt t) -> result (v t) -> store t * result (v t) -> bool
-val evaluate_state : state t -> store t * result (v t) -> bool
+val evaluate_ctxt : envM -> envC -> store -> envE -> ctxt_frame -> v -> store * result v -> bool
+val evaluate_ctxts : envM -> envC -> store -> list ctxt -> result v -> store * result v -> bool
+val evaluate_state : state -> store * result v -> bool
 
 indreln
 
@@ -2357,10 +2355,10 @@ evaluate_ctxt menv cenv s env (Cmat () pes) v bv
 
 and
 
-forall menv cenv env n e2 v bv s topt tvs.
+forall menv cenv env n e2 v bv s tvs.
 evaluate menv cenv s (bind n v env) e2 bv
 ==>
-evaluate_ctxt menv cenv s env (Clet tvs n topt () e2) v bv
+evaluate_ctxt menv cenv s env (Clet tvs n () e2) v bv
 
 and
 
@@ -2442,9 +2440,9 @@ evaluate_state (menv, cenv, s, env, Val v, c) bv
  * module environment. Is equivalent to the normal one for well-typed programs
  * that don't contain module references. *)
 
-val pmatch' : forall 'a. option num -> store 'a -> pat 'a -> v 'a -> envE 'a -> match_result 'a
+val pmatch' : option num -> store -> pat -> v -> envE -> match_result
 let rec
-pmatch' tvs s (Pvar n topt) v' env = Match (bind n v' env)
+pmatch' tvs s (Pvar n) v' env = Match (bind n v' env)
 and
 pmatch' tvs s (Plit l) (Litv l') env =
   if l = l' then
@@ -2547,10 +2545,10 @@ evaluate' s env (Var (Short n)) (s, Rerr Rtype_error)
 
 and
 
-forall env n e s topt.
+forall env n e s.
 true
 ==>
-evaluate' s env (Fun n topt e) (s, Rval (Closure env n topt e))
+evaluate' s env (Fun n e) (s, Rval (Closure env n e))
 
 and
 
@@ -2675,23 +2673,23 @@ evaluate' s env (Mat e pes) (s', Rerr err)
 
 and
 
-forall env n e1 e2 v bv s1 s2 topt tvs.
+forall env n e1 e2 v bv s1 s2 tvs.
 evaluate' s1 env e1 (s2, Rval v) &&
 evaluate' s2 (bind n v env) e2 bv
 ==>
-evaluate' s1 env (Let tvs n topt e1 e2) bv
+evaluate' s1 env (Let tvs n e1 e2) bv
 
 and
 
-forall env n e1 e2 err s s' topt tvs.
+forall env n e1 e2 err s s' tvs.
 evaluate' s env e1 (s', Rerr err)
 ==>
-evaluate' s env (Let tvs n topt e1 e2) (s', Rerr err)
+evaluate' s env (Let tvs n e1 e2) (s', Rerr err)
 
 and
 
 forall env funs e bv s tvs.
-all_distinct (List.map (fun (x,topt1,y,topt2,z) -> x) funs) &&
+all_distinct (List.map (fun (x,y,z) -> x) funs) &&
 evaluate' s (build_rec_env tvs funs env env) e bv
 ==>
 evaluate' s env (Letrec tvs funs e) bv
@@ -2699,7 +2697,7 @@ evaluate' s env (Letrec tvs funs e) bv
 and
 
 forall env funs e s tvs.
-not (all_distinct (List.map (fun (x,topt1,y,topt2,z) -> x) funs))
+not (all_distinct (List.map (fun (x,y,z) -> x) funs))
 ==>
 evaluate' s env (Letrec tvs funs e) (s, Rerr Rtype_error)
 
@@ -2816,14 +2814,14 @@ evaluate_dec' mn menv cenv s env (Dlet tvs p e) (s', Rerr err)
 and
 
 forall mn menv cenv env funs s tvs.
-all_distinct (List.map (fun (x,topt1,y,topt2,z) -> x) funs)
+all_distinct (List.map (fun (x,y,z) -> x) funs)
 ==>
 evaluate_dec' mn menv cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env tvs funs env emp))
 
 and
 
 forall mn menv cenv env funs s tvs.
-not (all_distinct (List.map (fun (x,topt1,y,topt2,z) -> x) funs))
+not (all_distinct (List.map (fun (x,y,z) -> x) funs))
 ==>
 evaluate_dec' mn menv cenv s env (Dletrec tvs funs) (s, Rerr Rtype_error)
 

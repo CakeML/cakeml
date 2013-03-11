@@ -207,7 +207,7 @@ let id_to_tok_tree v =
   end
 
 let rec
-pat_to_tok_tree (Pvar v _) = var_to_tok_tree v
+pat_to_tok_tree (Pvar v) = var_to_tok_tree v
 and
 pat_to_tok_tree (Plit l) = lit_to_tok_tree l
 and
@@ -250,7 +250,7 @@ and
 exp_to_tok_tree indent (Var vid) =
   id_to_tok_tree vid
 and
-exp_to_tok_tree indent (Fun v _ e) =
+exp_to_tok_tree indent (Fun v e) =
   newline indent ^^
   L LparT ^^
   L FnT ^^
@@ -354,7 +354,7 @@ exp_to_tok_tree indent (Mat e pes) =
                (List.map (pat_exp_to_tok_tree (inc_indent indent)) pes) ^^ 
   L RparT
 and
-exp_to_tok_tree indent (Let _ v _ e1 e2) =
+exp_to_tok_tree indent (Let _ v e1 e2) =
   newline indent ^^
   L LetT ^^ L ValT ^^ 
   var_to_tok_tree v ^^ 
@@ -380,7 +380,7 @@ pat_exp_to_tok_tree indent (p,e) =
   L DarrowT ^^
   exp_to_tok_tree (inc_indent (inc_indent indent)) e
 and
-fun_to_tok_tree indent (v1,_,v2,_,e) =
+fun_to_tok_tree indent (v1,v2,e) =
   var_to_tok_tree v1 ^^
   var_to_tok_tree v2 ^^ 
   L EqualsT ^^

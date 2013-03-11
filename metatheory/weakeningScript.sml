@@ -13,11 +13,11 @@ weak_tenvE tenv tenv' =
 
 val weakM_def = Define `
 weakM tenvM tenvM' =
-  EVERY (\(mn',tenv'). 
-            case lookup mn' tenvM of
-              | NONE => F
-              | SOME tenv => weakE tenv tenv')
-        tenvM'`;
+  !mn tenv'.
+    (lookup mn tenvM' = SOME tenv')
+    ⇒
+    (?tenv. (lookup mn tenvM = SOME tenv) ∧
+            weakE tenv tenv')`;
 
 val weakS_def = Define `
 weakS tenvS tenvS' =
@@ -31,13 +31,26 @@ val weakC_refl = Q.store_thm ("weakC_refl",
 `!tenvC. weakC tenvC tenvC`,
 cheat);
 
-val weakC_refl = Q.store_thm ("weakM_refl",
-`!tenvM. weakM tenvM tenvM`,
+val weakE_refl = Q.store_thm ("weakE_refl",
+`!tenv. weakE tenv tenv`,
 cheat);
+
+val weakM_refl = Q.store_thm ("weakM_refl",
+`!tenvM. weakM tenvM tenvM`,
+rw [weakM_def] >>
+metis_tac [weakE_refl]);
 
 val weakS_refl = Q.store_thm ("weakS_refl",
 `!tenvS. weakS tenvS tenvS`,
 rw [weakS_def]);
+
+val weakM_bind = Q.store_thm ("weakM_bind",
+`!tenvM mn tenv.
+  ~MEM mn (MAP FST tenvM) ⇒
+  weakM (bind mn tenv tenvM) tenvM`,
+rw [weakM_def, bind_def] >>
+full_case_tac >>
+metis_tac [optionTheory.NOT_SOME_NONE, lookup_notin, weakE_refl]);
 
 val weak_tenvE_freevars = Q.prove (
 `!tenv tenv' tvs t.

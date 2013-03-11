@@ -110,9 +110,9 @@ type ast_top =
 
 type ast_prog = list ast_top
 
-val elab_p : ast_pat -> pat unit 
+val elab_p : ast_pat -> pat
 let rec
-elab_p (Ast_Pvar n) = Pvar n None
+elab_p (Ast_Pvar n) = Pvar n
 and
 elab_p (Ast_Plit l) = Plit l
 and
@@ -150,15 +150,15 @@ let init_env =
 type ctor_env = env conN (id conN)
 
 val elab_t : list typeN -> ast_t -> t
-val elab_e : ctor_env -> binding_env -> ast_exp -> exp unit
+val elab_e : ctor_env -> binding_env -> ast_exp -> exp
 val elab_funs : ctor_env -> binding_env -> list (varN * varN * ast_exp) -> 
-                list (varN * option unit * varN * option unit * exp unit)
-val elab_dec : option modN -> list typeN -> ctor_env -> binding_env -> ast_dec -> list typeN * ctor_env * binding_env * dec unit
-val elab_decs : option modN -> list typeN -> ctor_env -> binding_env -> list ast_dec -> list (dec unit)
+                list (varN * varN * exp)
+val elab_dec : option modN -> list typeN -> ctor_env -> binding_env -> ast_dec -> list typeN * ctor_env * binding_env * dec
+val elab_decs : option modN -> list typeN -> ctor_env -> binding_env -> list ast_dec -> list dec
 val elab_spec : list typeN -> list ast_spec -> list spec
-val elab_prog : list typeN -> ctor_env -> binding_env -> list ast_top -> list (top unit)
+val elab_prog : list typeN -> ctor_env -> binding_env -> list ast_top -> list top
 
-val get_pat_bindings : forall 'a. pat 'a -> binding_env
+val get_pat_bindings : pat -> binding_env
 let get_pat_bindings p = List.map (fun x -> (x, Is_local)) (pat_bindings p [])
 
 let get_funs_bindings funs = List.map (fun (x,y,z) -> (x, Is_local)) funs
@@ -179,9 +179,9 @@ and elab_e ctors bound (Ast_Var (Short n)) =
     | None -> Var (Short n)
     | Some Is_local -> Var (Short n)
     | Some (Is_op op) ->
-        Fun "x" None (Fun "y" None (App op (Var (Short "x")) (Var (Short "y"))))
+        Fun "x" (Fun "y" (App op (Var (Short "x")) (Var (Short "y"))))
     | Some (Is_uop uop) ->
-        Fun "x" None (Uapp uop (Var (Short "x")))
+        Fun "x" (Uapp uop (Var (Short "x")))
   end
 and 
 elab_e ctors bound (Ast_Con (Long mn cn) es) =
@@ -196,7 +196,7 @@ elab_e ctors bound (Ast_Con (Short cn) es) =
   end
 and
 elab_e ctors bound (Ast_Fun n e) =
-  Fun n None (elab_e ctors (bind n Is_local bound) e)
+  Fun n (elab_e ctors (bind n Is_local bound) e)
 and
 elab_e ctors bound (Ast_App e1 e2) =
   App Opapp (elab_e ctors bound e1) (elab_e ctors bound e2)
@@ -215,7 +215,7 @@ elab_e ctors bound (Ast_Mat e pes) =
                 pes)
 and
 elab_e ctors bound (Ast_Let x e1 e2) =
-  Let None x None (elab_e ctors bound e1) (elab_e ctors (bind x Is_local bound) e2)
+  Let None x (elab_e ctors bound e1) (elab_e ctors (bind x Is_local bound) e2)
 and
 elab_e ctors bound (Ast_Letrec funs e) =
   Letrec None (elab_funs ctors (merge (get_funs_bindings funs) bound) funs) 
@@ -225,7 +225,7 @@ elab_funs ctors bound [] =
   []
 and
 elab_funs ctors bound ((n1,n2,e)::funs) =
-  (n1,None,n2,None,elab_e ctors (bind n2 Is_local bound) e) :: elab_funs ctors bound funs
+  (n1,n2,elab_e ctors (bind n2 Is_local bound) e) :: elab_funs ctors bound funs
 
 let rec get_prim_type tn =
   match tn with

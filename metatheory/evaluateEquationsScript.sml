@@ -26,8 +26,8 @@ metis_tac [])
 
 val evaluate_fun = store_thm(
 "evaluate_fun",
-``∀menv cenv s env n topt e r. 
-  evaluate menv cenv s env (Fun n topt e) r = (r = (s, Rval (Closure env n topt e)))``,
+``∀menv cenv s env n e r. 
+  evaluate menv cenv s env (Fun n e) r = (r = (s, Rval (Closure env n e)))``,
 rw [Once evaluate_cases])
 
 val _ = export_rewrites["evaluate_raise","evaluate_lit","evaluate_fun"];
@@ -77,8 +77,8 @@ rw [Once evaluate'_cases])
 
 val evaluate'_fun = store_thm(
 "evaluate'_fun",
-``∀s env n topt e r. 
-  evaluate' s env (Fun n topt e) r = (r = (s, Rval (Closure env n topt e)))``,
+``∀s env n e r. 
+  evaluate' s env (Fun n e) r = (r = (s, Rval (Closure env n e)))``,
 rw [Once evaluate'_cases])
 
 val _ = export_rewrites["evaluate'_raise","evaluate'_lit","evaluate'_fun"]

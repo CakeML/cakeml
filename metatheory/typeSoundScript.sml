@@ -871,6 +871,7 @@ rw [] >|
 
 val consistent_mod_env_lookup = Q.prove (
 `!tenvS tenvC menv tenvM tenv env n.
+  tenvM_ok tenvM ∧
   consistent_mod_env tenvS tenvC menv tenvM ∧
   (lookup n menv = SOME env) ∧
   (lookup n tenvM = SOME tenv)
@@ -881,7 +882,8 @@ rw [consistent_mod_env_def, lookup_def] >>
 cases_on `mn = n` >>
 fs [] >>
 rw [] >>
-metis_tac [type_env_tenvM_weak]);
+`tenvM_ok tenvM` by fs [tenvM_ok_def] >>
+metis_tac [type_v_weakening, weakC_refl, weakS_refl, weakM_bind, bind_def]);
 
 val type_lookup_lem3 = Q.prove (
 `∀tenvM tenvC menv env tenv tvs tenvS v x t targs tparams idx.
@@ -891,9 +893,9 @@ val type_lookup_lem3 = Q.prove (
   type_env tenvM tenvC tenvS env tenv ∧
   EVERY (check_freevars tvs []) targs ∧
   (t_lookup_var_id x tenvM (bind_tvar tvs tenv) = SOME (LENGTH targs, t)) ∧
-  (lookup_var_id x menv env = SOME (v,tparams))
+  (lookup_var_id x menv env = SOME v)
   ⇒
-  type_v tvs tenvM tenvC tenvS (do_tapp tparams (SOME targs) v) (deBruijn_subst 0 targs t)`,
+  type_v tvs tenvM tenvC tenvS (deBruijn_subst_v targs v) (deBruijn_subst 0 targs t)`,
 cases_on `x` >>
 rw [] >>
 fs [lookup_var_id_def, t_lookup_var_id_def] >-
@@ -921,7 +923,7 @@ val type_env_eqn = Q.prove (
   tenvM_ok tenvM ⇒
   (type_env tenvM tenvC tenvS emp Empty = T) ∧
   (!n tvs t v env tenv. 
-      type_env tenvM tenvC tenvS (bind n (v, SOME (tvs,t)) env) (bind_tenv n tvs t tenv) = 
+      type_env tenvM tenvC tenvS (bind n v env) (bind_tenv n tvs t tenv) = 
       type_v tvs tenvM tenvC tenvS v t ∧ check_freevars tvs [] t ∧ type_env tenvM tenvC tenvS env tenv)`,
 rw [] >>
 rw [Once type_v_cases] >>
@@ -1065,7 +1067,7 @@ fs [e_step_def] >|
           qexists_tac `t1` >>
           qexists_tac `tenv` >>
           rw [] >>
-          qpat_assum `type_e tenvM tenvC tenv (Var s'' o') t1`
+          qpat_assum `type_e tenvM tenvC tenv (Var i) t1`
                    (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
           fs [] >>
           rw [] >>

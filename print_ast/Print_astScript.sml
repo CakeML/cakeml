@@ -244,7 +244,7 @@ val _ = Define `
 
  val pat_to_tok_tree_defn = Hol_defn "pat_to_tok_tree" `
 
-(pat_to_tok_tree (Pvar v _) = var_to_tok_tree v)
+(pat_to_tok_tree (Pvar v) = var_to_tok_tree v)
 /\
 (pat_to_tok_tree (Plit l) = lit_to_tok_tree l)
 /\
@@ -296,7 +296,7 @@ val _ = Define `
 (exp_to_tok_tree indent (Var vid) =
   id_to_tok_tree vid)
 /\
-(exp_to_tok_tree indent (Fun v _ e) = N
+(exp_to_tok_tree indent (Fun v e) = N
   (
   newline indent) (N  
   (L LparT) (N  
@@ -408,7 +408,7 @@ val _ = Define `
                ( MAP (pat_exp_to_tok_tree (inc_indent indent)) pes))  
   (L RparT))))))))
 /\
-(exp_to_tok_tree indent (Let _ v _ e1 e2) = N
+(exp_to_tok_tree indent (Let _ v e1 e2) = N
   (
   newline indent) (N  
   (L LetT) (N   (L ValT) (N 
@@ -443,7 +443,7 @@ val _ = Define `
   (L DarrowT) 
   (exp_to_tok_tree (inc_indent (inc_indent indent)) e)))
 /\
-(fun_to_tok_tree indent (v1,_,v2,_,e) = N
+(fun_to_tok_tree indent (v1,v2,e) = N
   (
   var_to_tok_tree v1) (N
   (
