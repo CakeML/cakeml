@@ -631,6 +631,10 @@ val DROP_LENGTH_NIL_rwt = store_thm("DROP_LENGTH_NIL_rwt",
   ``!l m. (m = LENGTH l) ==> (DROP m l = [])``,
   lrw[DROP_LENGTH_NIL])
 
+val TAKE_LENGTH_ID_rwt = store_thm("TAKE_LENGTH_ID_rwt",
+  ``!l m. (m = LENGTH l) ==> (TAKE m l = l)``,
+  lrw[TAKE_LENGTH_ID])
+
 val DROP_EL_CONS = store_thm("DROP_EL_CONS",
   ``!ls n. n < LENGTH ls ==> (DROP n ls = EL n ls :: DROP (n + 1) ls)``,
   Induct >> lrw[EL_CONS,PRE_SUB1])
@@ -1067,7 +1071,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
           ]) defs in
         (LENGTH rs = nz) ∧
         bc_next^* bs
-        (bs with <| stack := bvs++bs.stack
+        (bs with <| stack := (REVERSE bvs)++bs.stack
                   ; pc := next_addr bs.inst_length (bc0 ++ code)
                   ; refs := bs.refs |++ ZIP(rs,TAKE (LENGTH rs) bvs)
                   |>)``,
@@ -1182,7 +1186,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
     metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
   fs[] >> rfs[] >>
   first_x_assum(qspecl_then[`bs3`,`bc0++bmr++bpl++bcc`,`bsr++bc1`]mp_tac) >>
-  simp[Abbr`bs3`]
+  simp[Abbr`bs3`] >>
   disch_then(qspecl_then[`bs.stack`,`rs`]mp_tac o CONV_RULE (RESORT_FORALL_CONV List.rev)) >>
   simp[MAP2_MAP,FDOM_FUPDATE_LIST,MAP_REVERSE,MEM_MAP,EXISTS_PROD] >>
   strip_tac >>
@@ -1191,7 +1195,20 @@ val compile_closures_thm = store_thm("compile_closures_thm",
   first_x_assum(qspecl_then[`bs4`,`bc0++bmr++bpl++bcc++bur`,`bc1`]mp_tac) >>
   simp[Abbr`bs4`] >>
   disch_then(qspecl_then[`bs.stack`,`MAP RefPtr rs`]mp_tac o CONV_RULE (RESORT_FORALL_CONV List.rev)) >>
-  simp[Abbr`k`]
+  simp[Abbr`k`] >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`bc_next^* bs4 bs5` >>
+  simp[markerTheory.Abbrev_def] >>
+  qexists_tac`TAKE nk (bs5.stack)` >>
+  qexists_tac`rs` >> simp[] >>
+  qho_match_abbrev_tac`bc_next^* bs bs6` >>
+  qsuff_tac`bs5 = bs6` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
+  simp[Abbr`bs5`,Abbr`bs6`,bc_state_component_equality] >>
+  conj_tac >- (
+    lrw[DROP_LENGTH_NIL_rwt,TAKE_LENGTH_ID_rwt] >>
+    lrw[LIST_EQ_REWRITE,EL_MAP,EL_ZIP,EL_REVERSE,PRE_SUB1]
+    lrw[UNCURRY] >- lrw[bc_find_loc_def] >>
+    lrw[MAP_EQ_f,TAKE_APPEND2] >>
 
 set_trace"goalstack print goal at top"0
 
