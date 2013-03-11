@@ -474,7 +474,7 @@ imp_res_tac lexer_get_token_partial_correctness >>
  dfa_path trans start state path ∧
  (REVERSE q' = MAP FST path) ∧
  (finals state = SOME q) ∧
- (STRCAT (REVERSE q') r' = STRCAT (REVERSE "") (STRING v6 v7)) ∧
+ (STRCAT (REVERSE q') r' = STRCAT (REVERSE "") (STRING v8 v9)) ∧
  (∀path_extension state'.
     dfa_path trans state state' path_extension ∧
     (∃s''. STRCAT (MAP FST path_extension) s'' = r') ⇒
@@ -646,7 +646,7 @@ conj_tac >- rw [lexer_def, lexer_no_acc_def] >>
 map_every qx_gen_tac [`trans`, `finals`, `start`, `v8`, `v9`, `acc`] >>
 rw [lexer_def, lexer_no_acc_def] >>
 rw [] >>
-cases_on `lexer_get_token trans finals start "" NONE (STRING v6 v7)` >>
+cases_on `lexer_get_token trans finals start "" NONE (STRING v8 v9)` >>
 rw [] >>
 PairCases_on `x` >>
 fs [] >>
