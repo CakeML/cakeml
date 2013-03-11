@@ -1,34 +1,22 @@
 open HolKernel Parse boolLib bossLib
 
-open TokensTheory AstTheory grammarTheory
+open TokensTheory mmlTokenUtilsTheory AstTheory grammarTheory
+
+open lcsymtacs grammarLib monadsyntax
 
 val _ = new_theory "mmlGrammar"
 
-val _ = Hol_datatype`
-  MMLnonT = nV |
-    nEbase | nEapp | nEmult | nEadd | nErel | nEcomp | nEbefore
-  | nElogic | nE | nError | nLogicalOp | nLiteral | nFDecl
-  | nAndFDecls | nPEs | nPE
-  | nPattern | nType | nDType | nTypeList | nTypeDec | nDtypeDecls
-  | nDtypeDecl | nTypeName | nTyVarList | nDconstructor | nDtypeCons
-  | nStarTypes | nDecl | nTyOp
-  | nMultOps | nAddOps | nRelOps | nCompOps | nBeforeOps
-`;
+(* ----------------------------------------------------------------------
+    We'll be using the option monad quite a bit in what follows
+   ---------------------------------------------------------------------- *)
 
-val _ = type_abbrev("NT", ``:MMLnonT inf``)
-val _ = overload_on("mkNT", ``INL : MMLnonT -> NT``)
-
-val _ = overload_on ("NN", ``\nt. NT (mkNT nt)``)
-val _ = overload_on ("TK", ``TOK : token -> (token,MMLnonT)symbol``)
-
-val mkRules_def = Define`
-  mkRules n rset = IMAGE (\r. (mkNT n, r)) rset
-`
-
-val _ = type_abbrev("mlptree", ``:(token, MMLnonT) parsetree``)
-
-open monadsyntax lcsymtacs
 val _ = overload_on ("monad_bind", ``OPTION_BIND``)
+val _ = overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
+
+val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
+                                        "option.OPTION_IGNORE_BIND_def"]
+
+val assert_def = Define`assert b = if b then SOME() else NONE`
 
 val mmap_def = Define`
   (mmap f [] = SOME []) /\
@@ -45,251 +33,133 @@ val mmap_CONG = store_thm(
   Induct >> rw[]);
 val _ = DefnBase.export_cong "mmap_CONG"
 
-val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def"]
-
 (* ----------------------------------------------------------------------
-    Rules for mini ML types
+    Define the Mini ML CFG
    ---------------------------------------------------------------------- *)
 
+val tokmap0 =
+    List.foldl (fn ((s,t), acc) => Binarymap.insert(acc,s,t))
+               (Binarymap.mkDict String.compare)
+               [("(", ``LparT``), (")", ``RparT``), (",", ``CommaT``),
+                ("->", ``ArrowT``), ("=>", ``DarrowT``),
+                ("*", ``StarT``),
+                ("|", ``BarT``), ("=", ``EqualsT``), (":", ``ColonT``),
+                ("and", ``AndT``),
+                ("andalso", ``AndalsoT``),
+                ("before", ``AlphaT "before"``),
+                ("case", ``CaseT``),
+                ("datatype", ``DatatypeT``),
+                ("else", ``ElseT``),
+                ("end", ``EndT``),
+                ("false", ``AlphaT "false"``),
+                ("fn", ``FnT``),
+                ("fun", ``FunT``),
+                ("if", ``IfT``),
+                ("in", ``InT``),
+                ("let", ``LetT``),
+                ("o", ``AlphaT "o"``),
+                ("of", ``OfT``),
+                ("orelse", ``OrelseT``),
+                ("raise", ``RaiseT``),
+                ("then", ``ThenT``),
+                ("true", ``AlphaT "true"``),
+                ("val", ``ValT``)]
+fun tokmap s =
+    case Binarymap.peek(tokmap0, s) of
+        NONE => raise Fail ("No token binding for "^s)
+      | SOME t => t
 
-val TyOp_rules_def = Define`
-  TyOp_rules = {(mkNT nTyOp, [TK (AlphaT s)]) | T} ∪
-                 {(mkNT nTyOp, [TK (SymbolT s)]) | T}
+val ginfo = { tokmap = tokmap,
+              tokty = ``:token``, nt_tyname = "MMLnonT",
+              start = "Type",
+              gname = "mmlG", mkntname = (fn s => "n" ^ s) }
+
+val mmlG_def = mk_grammar_def ginfo
+`(* types *)
+ TyOp ::= <AlphaT> | <SymbolT>;
+ TypeList ::= Type | Type "," TypeList;
+ DType ::= <TyvarT> | TyOp | DType TyOp | "(" TypeList ")" TyOp | "(" Type ")";
+ Type ::= DType | DType "->" Type;
+
+ (* type declarations *)
+ StarTypes ::= StarTypes "*" DType | DType;
+ StarTypesP ::= "(" StarTypes ")" | StarTypes;
+ TypeName ::= TyOp | "(" TyVarList ")" TyOp | <TyvarT> TyOp ;
+ TyVarList ::= <TyvarT> | TyVarList "," <TyvarT>;
+ Dconstructor ::= ConstructorName "of" StarTypesP | ConstructorName;
+ DtypeCons ::= Dconstructor | DtypeCons "|" Dconstructor;
+ DtypeDecl ::= TypeName "=" DtypeCons ;
+ DtypeDecls ::= DtypeDecl | DtypeDecls "and" DtypeDecl;
+ TypeDec ::= "datatype" DtypeDecls;
+
+ (* expressions - base cases and function applications *)
+ ConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``)
+                  | "true" | "false";
+ V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false" } ∧
+                       s ≠ "" ∧ ¬isUpper (HD s)}``)
+    |  ^(``{SymbolT s |
+            s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"}}``);
+ Ebase ::= "(" E ")" | V | ConstructorName | <IntT>
+        |  "let" "val" V "=" E "in" E "end"
+        |  "let" "fun" AndFDecls "in" E "end";
+ Etuple ::= "(" Elist2 ")";
+ Elist2 ::= Elist1 "," E;
+ Elist1 ::= E | Elist1 "," E;
+ Eapp ::= Eapp Ebase | Ebase
+        | ConstructorName Etuple;
+
+ (* expressions - binary operators *)
+ MultOps ::= ^(``{AlphaT "div"; AlphaT "mod"; StarT; SymbolT "/"}``);
+ AddOps ::= ^(``{SymbolT "+"; SymbolT "-"}``);
+ RelOps ::= ^(``{SymbolT s | s ∈ {"<"; ">"; "<="; ">="; "<>"}}``) | EqualsT;
+ Emult ::= Emult MultOps Eapp | Eapp;
+ Eadd ::= Eadd AddOps Emult | Emult;
+ Erel ::= Eadd RelOps Eadd | Eadd;
+ Ecomp ::= Ecomp "o" Erel | Erel;
+ Ebefore ::= Ebefore "before" Ecomp | Ecomp;
+ Etyped ::= Ebefore | Ebefore ":" Type;
+ ElogicAND ::= ElogicAND "andalso" Etyped | Etyped;
+ ElogicOR ::= ElogicOR "orelse" ElogicAND | ElogicAND;
+ E ::= "if" E "then" E "else" E | "case" E "of" PEs | "fn" V "=>" E | "raise" E
+    |  ElogicOR;
+
+ (* function and value declarations *)
+ FDecl ::= V V "=" E ;
+ AndFDecls ::= FDecl | AndFDecls "and" FDecl;
+ Decl ::= "val" Pattern "=" E | "fun" AndFDecls | TypeDec;
+
+ (* patterns *)
+ Pbase ::= V | ConstructorName | <IntT> | "(" Pattern ")";
+ Pattern ::= ConstructorName Ptuple | ConstructorName Pbase;
+ Ptuple ::= "(" PatternList1 ")";
+ PatternList1 ::= Pattern | PatternList1 "," Pattern;
+ PEs ::= Pattern "=>" E | PEs "|" Pattern "=>" E;
 `;
 
-val TypeList_rules_def = Define`
-  TypeList_rules = mkRules nTypeList {
-    [NN nType];
-    [NN nType; TK CommaT; NN nTypeList]
-  }`
+val _ = type_abbrev("NT", ``:MMLnonT inf``)
+val _ = overload_on("mkNT", ``INL : MMLnonT -> NT``)
 
-val DType_rules_def = Define`
-  DType_rules = mkRules nDType
-    ({[TK (TyvarT s)] | T} ∪
-     {[NN nTyOp];
-      [NN nDType; NN nTyOp];
-      [TK LparT; NN nTypeList; TK RparT; NN nTyOp];
-      [TK LparT; NN nType; TK RparT]})
-`;
+val _ = overload_on ("NN", ``\nt. NT (mkNT nt)``)
+val _ = overload_on ("TK", ``TOK : token -> (token,MMLnonT)symbol``)
+val _ = type_abbrev("mlptree", ``:(token, MMLnonT) parsetree``)
 
-val Type_rules_def = Define`
-  Type_rules = mkRules nType {
-    [NN nDType];
-    [NN nDType; TK ArrowT; NN nType]
-  }
-`;
-
-val ptree_Tyop_def = Define`
-  ptree_Tyop ptree =
-    case ptree of
-      Lf _ => NONE
-    | Nd (mkNT nTyOp) [Lf (TK (AlphaT s))] => SOME s
-    | Nd (mkNT nTyOp) [Lf (TK (SymbolT s))] => SOME s
-    | _ => NONE
-`;
-
-val ptree_Type_def = Define`
-  (ptree_Type ptree : ast_t option =
-    case ptree of
-      Nd nt args =>
-      (case nt of
-         mkNT nType => (case args of
-                         [dt] => ptree_Type dt
-                       | [dt;Lf(TK ArrowT);rt] => do
-                           dty <- ptree_Type dt;
-                           rty <- ptree_Type rt;
-                           SOME(Ast_Tfn dty rty)
-                         od
-                       | _ => NONE)
-       | mkNT nDType => (case args of
-                           [Lf (TK (TyvarT s))] => SOME (Ast_Tvar s)
-                         | [opn] => do
-                             opname <- ptree_Tyop opn;
-                             SOME(Ast_Tapp [] opname)
-                           od
-                         | [dt; opn] => do
-                             dty <- ptree_Type dt;
-                             opname <- ptree_Tyop opn;
-                             SOME(Ast_Tapp [dty] opname)
-                           od
-                         | [Lf (TK LparT); t; Lf (TK RparT)] => ptree_Type t
-                         | [Lf (TK LparT); tl; Lf (TK RparT); opn] => do
-                             tylist <- ptree_Typelist tl;
-                             opname <- ptree_Tyop opn;
-                             SOME(Ast_Tapp tylist opname)
-                           od
-                         | _ => NONE)
-       | _ => NONE)
-    | _ => NONE) ∧
-  (ptree_Typelist ptree : ast_t list option =
-     case ptree of
-       Lf _ => NONE
-     | Nd nt args =>
-       (case nt of
-          mkNT nTypeList => (case args of
-                               [dt] => do
-                                  ty <- ptree_Type dt;
-                                  SOME[ty]
-                               od
-                             | [dt; Lf (TK CommaT); tl'] => do
-                                 ty <- ptree_Type dt;
-                                 tylist <- ptree_Typelist tl';
-                                 SOME(ty::tylist)
-                               od
-                             | _ => NONE)
-         | _ => NONE))
-`;
-
-(* ----------------------------------------------------------------------
-    Expressions etc
-   ---------------------------------------------------------------------- *)
-
-
-val V_rules_def = Define`
-  V_rules =
-   {(mkNT nV, [TK (AlphaT s)]) | s ∉ {"before"; "div"; "mod" }} ∪
-   {(mkNT nV, [TK (SymbolT s)]) | s ∉ {"+"; "*"; "-"; "/" }}`
-
-val Ebase_rules_def = Define`
-  Ebase_rules =
-    mkRules nEbase
-      ({[TK LparT; NN nE; TK RparT];
-        [NN nV];
-        [TK LetT; TK ValT; NN nV; TK EqualsT; NN nE; TK InT;
-         NN nE; TK EndT];
-        [TK LetT; TK FunT; NN nAndFDecls; TK InT; NN nE; TK EndT]} ∪
-      { [TK (IntT i)] | T })
-`
-
-val binop_rule_def = Define`
-  binop_rule tight loose opn = mkRules loose {
-    [NN loose; NN opn; NN tight];
-    [NN tight]
-  }`
-
-val Eapp_rules_def = Define`
-  Eapp_rules = mkRules nEapp {
-    [NN nEapp; NN nEbase];
-    [NN nEbase]
-  }`
-
-val MultOps_rules_def = Define`
-  MultOps_rules = mkRules nMultOps {
-    [TK (AlphaT "div")];
-    [TK (AlphaT "mod")];
-    [TK (SymbolT "*")];
-    [TK (SymbolT "/")]
-  }`;
-
-(* various left associative binary operators *)
-val Emult_rules_def = Define`
-  Emult_rules = binop_rule nEapp nEmult nMultOps
-`;
-val Eadd_rules_def = Define`
-  Eadd_rules = binop_rule nEmult nEadd nAddOps
-`;
-val Erel_rules_def = Define`
-  Erel_rules = binop_rule nEadd nErel nRelOps
-`;
-val Ecomp_rules_def = Define`
-  Ecomp_rules = binop_rule nErel nEcomp nCompOps
-`;
-val Ebefore_rules_def = Define`
-  Ebefore_rules = binop_rule nEcomp nEbefore nBeforeOps
-`;
-
-(* ----------------------------------------------------------------------
-    Parse trees to abstract syntax
-   ---------------------------------------------------------------------- *)
-
-val ptree_Op_def = Define`
-  ptree_Op (Lf _) = NONE ∧
-  ptree_Op (Nd nt subs) =
-    case nt of
-      mkNT nMultOps =>
-        (case subs of
-           [Lf (TK (SymbolT "*"))] => SOME "*"
-         | [Lf (TK (SymbolT "/"))] => SOME "/"
-         | [Lf (TK (AlphaT "mod"))] => SOME "mod"
-         | [Lf (TK (AlphaT "div"))] => SOME "div"
-         | _ => NONE)
-    | mkNT nAddOps =>
-        (case subs of
-           [Lf (TK (SymbolT "+"))] => SOME "+"
-         | [Lf (TK (SymbolT "-"))] => SOME "-"
-         | _ => NONE)
-    | _ => NONE
-`;
-
-val ptree_Expr_def = Define`
-  ptree_Expr (Lf _) = NONE ∧
-  ptree_Expr (Nd nt subs) =
-    case nt of
-      mkNT nEbase =>
-        (case subs of
-           [Lf (TK LparT); Nd t s; Lf (TK RparT)] => ptree_Expr (Nd t s)
-         | [Lf (TK (IntT i))] => SOME (Ast_Lit (IntLit i))
-         | _ => NONE)
-   | mkNT nEapp =>
-       (case subs of
-          [t1; t2] => do
-            a1 <- ptree_Expr t1;
-            a2 <- ptree_Expr t2;
-            SOME(Ast_App a1 a2)
-          od
-        | [t] => ptree_Expr t
-        | _ => NONE)
-   | mkNT nEmult =>
-       (case subs of
-          [t1; opt; t2] => do (* s will be *, /, div, or mod *)
-            a1 <- ptree_Expr t1;
-            a_op <- ptree_Op opt;
-            a2 <- ptree_Expr t2;
-            SOME(Ast_App (Ast_App (Ast_Var a_op) a1) a2)
-          od
-        | [t] => ptree_Expr t
-        | _ => NONE)
-   | _ => NONE
-`;
 
 val ast = ``Nd (mkNT nEmult) [
               Nd (mkNT nEmult) [
                 Nd (mkNT nEmult) [
                   Nd (mkNT nEapp) [Nd (mkNT nEbase) [Lf (TK (IntT 3))]]
                 ];
-                Nd (mkNT nMultOps) [Lf (TK (SymbolT "*"))];
+                Nd (mkNT nMultOps) [Lf (TK StarT)];
                 Nd (mkNT nEapp) [Nd (mkNT nEbase) [Lf (TK (IntT 4))]]
               ];
-              Nd (mkNT nMultOps) [Lf (TK (SymbolT "*"))];
+              Nd (mkNT nMultOps) [Lf (TK (SymbolT "/"))];
               Nd (mkNT nEapp) [Nd (mkNT nEbase) [Lf (TK (IntT 5))]]
             ]``
 
-val parse_result = EVAL ``ptree_Expr ^ast``;
-
-val mmlGrammar_def = Define`
-  mmlGrammar = <| rules := Eapp_rules ∪ Ebase_rules ∪ MultOps_rules ∪
-                           Emult_rules ∪ TyOp_rules ∪ TypeList_rules ∪
-                           DType_rules ∪ Type_rules;
-                  start := mkNT nEmult |>
-`
-
-(* would use EVAL for this too, but it fails to turn (∃i. F) into F, and can't
-   be primed with that as a rewrite rule.
-
-   And if you do
-
-     val _ = computeLib.add_conv (existential, 1, REWR_CONV EXISTS_SIMP) computeLib.the_compset
-     val _ = computeLib.set_skip computeLib.the_compset ``COND`` (SOME 1)
-
-   you get a situation wherein EVAL isn't idempotent.  Yikes.
-*)
 val check_results =
     time (SIMP_CONV (srw_ss())
-              [valid_ptree_def, Eapp_rules_def, Ebase_rules_def,
-               MultOps_rules_def, Emult_rules_def, mkRules_def,
-               binop_rule_def, DISJ_IMP_THM, FORALL_AND_THM])
- ``valid_ptree <| rules := Eapp_rules ∪ Ebase_rules ∪ MultOps_rules ∪
-                           Emult_rules; start := mkNT nEmult |> ^ast``
+              [valid_ptree_def, mmlG_def,DISJ_IMP_THM, FORALL_AND_THM])
+ ``valid_ptree mmlG ^ast``
 
 val _ = if aconv (rhs (concl check_results)) T then print "valid_ptree: OK\n"
         else raise Fail "valid_ptree: failed"

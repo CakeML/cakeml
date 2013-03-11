@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib
 
-open mmlPEGTheory mmlGrammarTheory grammarTheory
+open mmlPEGTheory mmlGrammarTheory mmlPtreeConversionTheory grammarTheory
 
 val _ = new_theory "mmlTests"
 
@@ -21,11 +21,11 @@ end
 val _ = computeLib.add_thms distinct_ths computeLib.the_compset
 
 val result_t = ``Result``
-fun tytest s t = let
+fun parsetest nt sem s t = let
   val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
   val _ = print ("Evaluating "^s^"\n")
   val evalth = time EVAL
-                    ``peg_exec mmltyPEG (nt (mkNT nType) I) ^t [] done failed``
+                    ``peg_exec mmlPEG (nt (mkNT ^nt) I) ^t [] done failed``
   val r = rhs (concl evalth)
   fun diag(s,t) = let
     fun pp pps (s,t) =
@@ -53,16 +53,16 @@ in
         val _ = diag ("fringe = ", fringe_t)
       in
         if aconv fringe_t ttoks then let
-          val ptree_res = time EVAL ``ptree_Type ^res``
-          val _ = diag ("ptree_Type to ", rhs (concl ptree_res))
-          val valid_t = ``valid_ptree mmlGrammar ^res``
+          val ptree_res =
+              case Lib.total mk_comb(sem,res) of
+                  NONE => optionSyntax.mk_none bool
+                | SOME t => rhs (concl (time EVAL t))
+          val _ = diag ("Semantics ("^term_to_string sem^") to ", ptree_res)
+          val valid_t = ``valid_ptree mmlG ^res``
           val vth = SIMP_CONV (srw_ss())
-                              [grammarTheory.valid_ptree_def, mmlGrammar_def,
-                               Eapp_rules_def, Ebase_rules_def,
-                               MultOps_rules_def, Emult_rules_def, mkRules_def,
-                               Type_rules_def, TyOp_rules_def, DType_rules_def,
-                               TypeList_rules_def,
-                               binop_rule_def, DISJ_IMP_THM, FORALL_AND_THM]
+                              [grammarTheory.valid_ptree_def, mmlG_def,
+                               DISJ_IMP_THM, FORALL_AND_THM,
+                               stringTheory.isUpper_def]
                               valid_t
           val vres = rhs (concl vth)
         in
@@ -76,6 +76,7 @@ in
     else die ("FAILED:", r)
   else die ("NO RESULT:", r)
 end
+val tytest = parsetest ``nType`` ``ptree_Type``
 
 val _ = tytest "'a" ``[TyvarT "'a"]``
 val _ = tytest "'a -> bool" ``[TyvarT "'a"; ArrowT; AlphaT "bool"]``
@@ -106,5 +107,67 @@ val _ = tytest "bool list list" ``[AlphaT "bool"; AlphaT "list"; AlphaT "list"]`
 val _ = tytest "('a,bool list)++"
                ``[LparT; TyvarT "'a"; CommaT; AlphaT "bool"; AlphaT "list";
                   RparT; SymbolT"++"]``
+val _ = parsetest ``nStarTypes`` ``ptree_StarTypes F`` "'a" ``[TyvarT "'a"]``;
+val _ = parsetest ``nStarTypesP`` ``ptree_StarTypes T`` "'a * bool"
+                  ``[TyvarT "'a"; StarT; AlphaT "bool"]``
+val _ = parsetest ``nStarTypesP`` ``ptree_StarTypes T`` "('a * bool)"
+                  ``[LparT; TyvarT "'a"; StarT; AlphaT "bool"; RparT]``
+val _ = parsetest ``nStarTypesP`` ``ptree_StarTypes T``
+                  "('a * bool * (bool -> bool))"
+                  ``[LparT; TyvarT "'a"; StarT; AlphaT "bool"; StarT;
+                     LparT; AlphaT "bool"; ArrowT; AlphaT "bool"; RparT;
+                     RparT]``
+val _ = parsetest ``nTypeName`` ``ptree_TypeName`` "bool" ``[AlphaT "bool"]``
+val _ = parsetest ``nTypeName`` ``ptree_TypeName``
+                  "'a list"
+                  ``[TyvarT "'a"; AlphaT "list"]``
+val _ = parsetest ``nTypeName`` ``ptree_TypeName``
+                  "('a,'b) foo"
+                  ``[LparT; TyvarT "'a"; CommaT; TyvarT "'b"; RparT;
+                     AlphaT "foo"]``
+val _ = parsetest ``nConstructorName`` T "Cname" ``[AlphaT "Cname"]``
+val _ = parsetest ``nDconstructor`` ``ptree_Dconstructor`` "Cname"
+                  ``[AlphaT "Cname"]``
+val _ = parsetest ``nDconstructor`` ``ptree_Dconstructor``
+                  "Cname of bool * 'a"
+                  ``[AlphaT "Cname"; OfT; AlphaT "bool"; StarT; TyvarT "'a"]``
+val _ = parsetest ``nDtypeDecl`` ``ptree_DtypeDecl``
+                  "'a foo = C of 'a | D of bool | E"
+                  ``[TyvarT "'a"; AlphaT "foo"; EqualsT;
+                     AlphaT "C"; OfT; TyvarT "'a"; BarT;
+                     AlphaT "D"; OfT; AlphaT "bool"; BarT; AlphaT "E"]``
+val _ = parsetest ``nTypeDec`` ``ptree_TypeDec``
+                  "datatype 'a foo = C of 'a | D of bool | E and bar = F | G"
+                  ``[DatatypeT; TyvarT "'a"; AlphaT "foo"; EqualsT;
+                     AlphaT "C"; OfT; TyvarT "'a"; BarT;
+                     AlphaT "D"; OfT; AlphaT "bool"; BarT; AlphaT "E"; AndT;
+                     AlphaT "bar"; EqualsT; AlphaT "F"; BarT; AlphaT "G"]``
+
+(* expressions *)
+val _ = parsetest ``nEbase`` T "x" ``[AlphaT "x"]``
+val _ = parsetest ``nEapp`` T "f x y"
+                  ``[AlphaT "f"; AlphaT"x"; AlphaT"y"]``
+val _ = parsetest ``nEapp`` T "f true y"
+                  ``[AlphaT "f"; AlphaT"true"; AlphaT"y"]``
+val _ = parsetest ``nEapp`` T "f true Constructor"
+                  ``[AlphaT "f"; AlphaT"true"; AlphaT"Constructor"]``
+val _ = parsetest ``nEmult`` T
+                  "f x * 3"
+                  ``[AlphaT "f"; AlphaT "x"; StarT; IntT 3]``
+val _ = parsetest ``nErel`` T "x <> true"
+                  ``[AlphaT "x"; SymbolT "<>"; AlphaT "true"]``
+val _ = parsetest ``nEcomp`` T "x <> true"
+                  ``[AlphaT "x"; SymbolT "<>"; AlphaT "true"]``
+val _ = parsetest ``nEcomp`` T "f o g z"
+                  ``[AlphaT "f"; AlphaT "o"; AlphaT "g"; AlphaT"z"]``
+val _ = parsetest ``nEtyped`` T "map f Nil : 'a list"
+                  ``[AlphaT "map"; AlphaT "f"; AlphaT"Nil"; ColonT;
+                     TyvarT "'a"; AlphaT "list"]``
+val _ = parsetest ``nElogicOR`` T "3 < x andalso x < 10 orelse p andalso q"
+                  ``[IntT 3; SymbolT "<"; AlphaT "x"; AndalsoT;
+                     AlphaT "x"; SymbolT "<"; IntT 10; OrelseT;
+                     AlphaT"p"; AndalsoT; AlphaT "q"]``
+
+
 
 val _ = export_theory()

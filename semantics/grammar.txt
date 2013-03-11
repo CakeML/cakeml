@@ -26,7 +26,11 @@ Ebase ::=
  | "let" "fun" AndFDecls "in" E "end" // Letrec AndFDecls E
 
 Eapp ::=
-  Eapp Ebase | Ebase
+  Eapp Ebase | Ebase | ConstructorName Etuple
+
+Etuple ::= "(" Elist2 ")"
+Elist2 ::= Elist1 "," E
+Elist1 ::= E | Elist1 "," E
 
 (* level 7 *)
 Emult ::=
@@ -114,10 +118,10 @@ TypeName ::= TyOp
            | TyVar TyOp
            | "(" TyVarList ")" TyOp
 
-TyVarList ::= TyVar | TyVar "," TyVarList
+TyVarList ::= TyVar | TyVarList "," TyVar
 
-Dconstructor ::= V "of" StarTypesP
-               | V
+Dconstructor ::= ConstructorName "of" StarTypesP
+               | ConstructorName
 
 DtypeCons ::= Dconstructor
             | Dconstructor "|" DtypeCons
@@ -126,7 +130,7 @@ StarTypesP ::= "(" StarTypes ")" | StarTypes
 
 StarTypes ::=
             | DType
-            | DType "*" StarTypes
+            | StarTypes "*" DType
 
 Decl ::= "val" Pattern "=" E
        | "fun" AndFDecls

@@ -176,10 +176,14 @@ val bc_eval1_def = Define`
         (λn. SOME (bump_pc s with <| stack := CodePtr n::xs |>))
   | (Return, x :: CodePtr n :: xs) =>
      SOME (s with <| pc := n; stack := x::xs |>)
-  | (Exception, x :: xs) =>
-     (case s.exstack of
-      | (p,m)::es => if m ≤ LENGTH xs then
-        SOME (s with <| pc := p; stack := x :: DROP (LENGTH xs - m) xs |>) else NONE | _ => NONE)
+  | (PushExc, xs) =>
+     SOME (s with <| handler := LENGTH xs; stack := StackPtr s.handler::xs|>)
+  | (PopExc, x::xs) =>
+    if s.handler < LENGTH xs then
+      case EL s.handler (REVERSE xs) of
+      | (StackPtr sp) => SOME (s with <| handler := sp; stack := x::(REVERSE (TAKE s.handler (REVERSE xs))) |>)
+      | _ => NONE
+    else NONE
   | (Ref, x::xs) =>
      let ptr = LEAST n. n ∉ (FDOM s.refs) in
      SOME (bump_pc s with <| stack := (RefPtr ptr)::xs;
@@ -232,12 +236,23 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   qmatch_assum_rename_tac `s1.stack = x::y::t` [] >>
   Cases_on `y` >> fs [] >>
   rw[bc_next_cases] )
+>- ( rw[bc_next_cases] )
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
-  Cases_on `s1.exstack` >> fs[LET_THM] >>
-  qmatch_assum_rename_tac `s1.exstack = p::z` [] >>
-  Cases_on `p` >> fs[] >>
-  rw[bc_next_cases])
+  qmatch_assum_rename_tac`s1.stack = x::xs`[] >>
+  Cases_on `s1.handler < LENGTH xs` >> fs[LET_THM] >>
+  Cases_on `EL s1.handler (REVERSE xs)` >> fs[LET_THM] >>
+  rw[bc_next_cases,BytecodeTheory.bc_state_component_equality] >>
+  qpat_assum`X = x::xs`kall_tac >>
+  qpat_assum`X = SOME PopExc`kall_tac >>
+  qmatch_assum_rename_tac`m < LENGTH xs`[] >>
+  Induct_on`xs`>>fs[] >>
+  fs[ADD1] >> rpt gen_tac >> strip_tac >>
+  Cases_on`m < LENGTH xs` >- (
+    lrw[rich_listTheory.EL_APPEND1,rich_listTheory.TAKE_APPEND1] >>
+    fs[] >> qexists_tac`h::l1` >> lrw[] ) >>
+  `m = LENGTH xs` by DECIDE_TAC >>
+  lrw[rich_listTheory.EL_APPEND2,rich_listTheory.TAKE_APPEND2])
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
   rw[bc_next_cases] )
@@ -260,7 +275,11 @@ val bc_next_bc_eval1 = store_thm(
 ho_match_mp_tac bc_next_ind >>
 rw[bc_eval1_def] >>
 fs[bc_eval_stack_thm] >>
-unabbrev_all_tac >> rw[])
+unabbrev_all_tac >> rw[] >>
+fsrw_tac[ARITH_ss][] >>
+lrw[REVERSE_APPEND,rich_listTheory.EL_APPEND2,rich_listTheory.TAKE_APPEND1] >>
+pop_assum (assume_tac o SYM) >>
+lrw[rich_listTheory.TAKE_REVERSE,rich_listTheory.LASTN_LENGTH_ID])
 
 val bc_eval1_thm = store_thm("bc_eval1_thm",
   ``!s1 s2. bc_next s1 s2 = (bc_eval1 s1 = SOME s2)``,

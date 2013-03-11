@@ -341,7 +341,7 @@ val EvalM_Var_SIMP = store_thm("EvalM_Var_SIMP",
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases]);
 
 val option_CASE_LEMMA2 = prove(
-  ``!topt. (case topt of NONE => v | SOME (t,y) => v) = v``,
+  Pmatch.with_classic_heuristic Term `!topt. (case topt of NONE => v | SOME z => v) = v`,
   Cases \\ SRW_TAC [] [] \\ Cases_on `x` \\ SRW_TAC [] []);
 
 val EvalM_Recclosure = store_thm("EvalM_Recclosure",

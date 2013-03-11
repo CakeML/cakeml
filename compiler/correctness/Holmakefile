@@ -1,11 +1,11 @@
-INCLUDES= .. ../../semantics ../../metatheory ../bytecode
+INCLUDES= .. ../../semantics ../bytecode
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = miniml-heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../../semantics/MiniMLTerminationTheory ../../metatheory/evaluateEquationsTheory ../bytecode/bytecodeTerminationTheory ../compileTerminationTheory
+BARE_THYS = ../../semantics/MiniMLTerminationTheory ../bytecode/bytecodeTerminationTheory ../compileTerminationTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

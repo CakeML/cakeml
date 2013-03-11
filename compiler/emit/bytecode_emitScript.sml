@@ -19,7 +19,7 @@ val init_bc_state_def =  Define`
     code := [];
     pc := 0;
     refs := FEMPTY;
-    exstack := [(0,0)];
+    handler := 0;
     inst_length := λi. 0 |>`
 
 val defs = map EmitML.DEFN [

@@ -144,6 +144,14 @@ val bc_next_MAP_replace_lab = store_thm("bc_next_MAP_replace_lab",
   strip_tac >- tac2 >>
   strip_tac >- tac >>
   strip_tac >- tac >>
+  strip_tac >- (
+    rw[LET_THM] >>
+    match_mp_tac bc_eval1_SOME >>
+    Q.PAT_ABBREV_TAC`f = replace_lab X` >>
+    qspecl_then[`f`,`s1`] mp_tac bc_fetch_MAP >>
+    qunabbrev_tac`f` >> rw[il_replace_lab] >>
+    srw_tac[ARITH_ss][bc_eval1_def] >>
+    lrw[REVERSE_APPEND,EL_APPEND2,TAKE_APPEND2]) >>
   strip_tac >- tac >>
   strip_tac >- tac >>
   strip_tac >- tac )
@@ -192,8 +200,10 @@ val bc_next_FILTER_labels = store_thm("bc_next_FILTER_labels",
   imp_res_tac bc_fetch_MEM >>
   fs[EVERY_MEM] >>
   res_tac >>
-  Cases_on `l` >> fs[bc_find_loc_def] >>
-  rw[bc_fetch_with_stack])
+  TRY (Cases_on `l`) >> fs[bc_find_loc_def] >>
+  rw[bc_fetch_with_stack] >>
+  srw_tac[ARITH_ss][] >>
+  lrw[TAKE_APPEND2,REVERSE_APPEND,EL_APPEND2])
 
 val bc_next_compile_labels = store_thm("bc_next_compile_labels",
   ``∀s1 s2. bc_next s1 s2 ⇒

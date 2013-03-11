@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps listTheory relationTheory arithmeticTheory lcsymtacs
-open miscTheory bytecodeTerminationTheory bytecodeEvalTheory
+open miscTheory bytecodeTerminationTheory bytecodeEvalTheory rich_listTheory
 val _ = intLib.deprecate_int()
 val _ = new_theory"bytecodeExtra"
 
@@ -215,8 +215,8 @@ val bc_next_append_code = store_thm("bc_next_append_code",
     rw[bc_eval1_thm] >>
     imp_res_tac bc_fetch_append_code >>
     imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] >>
-    rw[bump_pc_def]) >>
+    srw_tac[ARITH_ss][bc_eval1_def,LET_THM] >>
+    lrw[REVERSE_APPEND,EL_APPEND2,TAKE_APPEND2]) >>
   strip_tac >- (
     rw[bc_eval1_thm] >>
     imp_res_tac bc_fetch_append_code >>

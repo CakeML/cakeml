@@ -850,7 +850,7 @@ val PULL_EXISTS = save_thm("PULL_EXISTS",
                    ((Q /\ (?x. P x)) = ?x. Q /\ P x)``);
 
 val option_CASE_LEMMA = prove(
-  ``!topt. (case topt of NONE => NONE | SOME t => NONE) = NONE``,
+  Pmatch.with_classic_heuristic Term `!topt. (case topt of NONE => NONE | SOME t => NONE) = NONE`,
   Cases \\ SRW_TAC [] []);
 
 val DeclAssum_Dletrec = store_thm("DeclAssum_Dletrec",
