@@ -1306,7 +1306,7 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
           rw [] >>
           fs [] >>
           metis_tac [mem_lem]]]);
-
+(*
 val tenvC_pat_weakening = Q.store_thm ("tenvC_pat_weakening",
 `(!tvs tenvC p t tenv. type_p tvs tenvC p t tenv ⇒
     !tenvC'. disjoint_env tenvC tenvC' ⇒
@@ -1331,6 +1331,7 @@ rw [] >>
 rw [Once type_e_cases] >>
 fs [RES_FORALL, FORALL_PROD] >>
 metis_tac [lookup_con_disjoint, tenvC_pat_weakening]);
+*)
 
 val check_ctor_tenv_dups_helper1 = Q.prove (
 `∀tenvC l y z.
@@ -1558,6 +1559,7 @@ fs [] >>
 rw [] >>
 metis_tac []);
 
+(*
 val type_e_tvs_weaken_help = Q.prove (
 `!(x:num) y z. x + y ≥ x`,
 rw [] >>
@@ -1574,7 +1576,6 @@ ONCE_REWRITE_TAC [type_p_cases] >>
 rw [] >>
 metis_tac [type_e_tvs_weaken_help, check_freevars_add, EVERY_MEM]);
 
-(*
 val type_e_tvs_weaken = Q.store_thm ("type_e_tvs_weaken",
 `(!tenvM tenvC tenvE e t. type_e tenvM tenvC tenvE e t ⇒
     !tenvE1 tenvE2 tvs.
@@ -1689,18 +1690,6 @@ rw [deBruijn_subst_def, LENGTH_COUNT_LIST, EL_MAP, EL_COUNT_LIST,
     check_freevars_def] >>
 metis_tac []);
 
-val freevars_lookup_tenv = Q.store_thm ("freevars_lookup_tenv",
-`!n inc tenv tvs t.
-  (lookup_tenv n inc tenv = SOME (tvs,t)) ∧
-  tenv_ok tenv
-  ⇒ 
-  check_freevars (inc + num_tvs tenv + tvs) [] t`,
-induct_on `tenv` >>
-rw [lookup_tenv_def, tenv_ok_def, num_tvs_def] >>
-res_tac >>
-full_simp_tac (srw_ss()++ARITH_ss) [] >>
-metis_tac [check_freevars_deBruijn_inc]);
-
 val tenv_ok_bvl2 = Q.store_thm ("tenv_ok_bvl2",
 `!tenv tenv'. 
   tenv_ok (bind_var_list2 tenv Empty) ∧ tenv_ok tenv'
@@ -1718,7 +1707,6 @@ rw [lookup_def, bind_var_list2_def, lookup_tenv_def] >>
 cases_on `n''` >>
 rw [bind_var_list2_def, lookup_tenv_def, bind_tenv_def, deBruijn_inc0]);
 
-
 val freevars_t_lookup_var_id = Q.store_thm ("freevars_t_lookup_var_id",
 `!tenvM tenv tvs n t.
   (t_lookup_var_id n tenvM tenv = SOME (tvs,t)) ∧
@@ -1735,6 +1723,21 @@ fs [] >|
      imp_res_tac lookup_freevars >>
      `num_tvs tenv + tvs ≥ tvs` by decide_tac >>
      metis_tac [check_freevars_add]]);
+
+val lookup_tenv_inc = Q.store_thm ("lookup_tenv_inc",
+`!tvs l tenv n t.
+  tenv_ok tenv ∧
+  (num_tvs tenv = 0)
+  ⇒
+  ((lookup_tenv n 0 tenv = SOME (l,t))
+   =
+   (lookup_tenv n tvs tenv = SOME (l,t)))`,
+induct_on `tenv` >>
+rw [lookup_tenv_def, num_tvs_def, tenv_ok_def] >>
+eq_tac >>
+rw [] >>
+fs [] >>
+metis_tac [nil_deBruijn_inc, deBruijn_inc0]);
 
 val _ = export_theory ();
 

@@ -27,6 +27,18 @@ val weak_tenvE_refl = Q.prove (
 `!tenv. weak_tenvE tenv tenv`,
 rw [weak_tenvE_def]);
 
+val weakC_refl = Q.store_thm ("weakC_refl",
+`!tenvC. weakC tenvC tenvC`,
+cheat);
+
+val weakC_refl = Q.store_thm ("weakM_refl",
+`!tenvM. weakM tenvM tenvM`,
+cheat);
+
+val weakS_refl = Q.store_thm ("weakS_refl",
+`!tenvS. weakS tenvS tenvS`,
+rw [weakS_def]);
+
 val weak_tenvE_freevars = Q.prove (
 `!tenv tenv' tvs t.
   weak_tenvE tenv' tenv ∧
@@ -51,20 +63,14 @@ rw [weak_tenvE_def, num_tvs_def, bind_tvar_def, lookup_tenv_def] >>
 decide_tac);
 
 val weak_tenvE_bind_tvar2 = Q.prove (
-`!tenv tenv' n tvs tvs' t.
+`!tenv tenv' n tvs t.
   tenv_ok tenv ∧
-  tvs' ≥ tvs ∧
   (num_tvs tenv = 0) ∧
   weak_tenvE tenv' tenv ⇒
-  weak_tenvE (bind_tvar tvs' tenv') (bind_tvar tvs tenv)`,
-
+  weak_tenvE (bind_tvar tvs tenv') (bind_tvar 0 tenv)`,
 rw [weak_tenvE_def, num_tvs_def, bind_tvar_def, lookup_tenv_def] >>
-full_simp_tac (srw_ss()++ARITH_ss) []
-
-imp_res_tac freevars_lookup_tenv >>
-
-
-decide_tac);
+full_simp_tac (srw_ss()++ARITH_ss) [] >>
+metis_tac [lookup_tenv_inc]);
 
 val weak_tenvE_bind_var_list = Q.prove (
 `!tenv'' tenv tenv' n tvs t .
@@ -213,29 +219,67 @@ rw [Once type_e_cases] >|
  metis_tac [weak_tenvE_bind_var_list, weak_tenvE_bind_tvar],
  metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars]]);
 
+val gt_0 = Q.prove (
+`!x:num.x ≥ 0`,
+decide_tac);
+
+val type_v_freevars = Q.store_thm ("type_v_freevars",
+`(!tvs tenvM tenvC tenvS v t. type_v tvs tenvM tenvC tenvS v t ⇒
+   tenvM_ok tenvM ⇒
+   check_freevars tvs [] t) ∧
+ (!tvs tenvM tenvC tenvS vs ts. type_vs tvs tenvM tenvC tenvS vs ts ⇒
+   tenvM_ok tenvM ⇒
+   EVERY (check_freevars tvs []) ts) ∧
+ (!tenvM tenvC tenvS env tenv. type_env tenvM tenvC tenvS env tenv ⇒
+   tenvM_ok tenvM ⇒
+   tenv_ok tenv ∧ (num_tvs tenv = 0))`,
+ho_match_mp_tac type_v_strongind >>
+rw [check_freevars_def, tenv_ok_def, bind_tenv_def, num_tvs_def, bind_tvar_def,
+    Tfn_def, Tbool_def, Tint_def, Tunit_def, Tref_def] >-
+metis_tac [] >>
+res_tac >|
+[metis_tac [num_tvs_def, type_e_freevars, bind_tenv_def, bind_tvar_def,
+            tenv_ok_def, arithmeticTheory.ADD, arithmeticTheory.ADD_COMM],
+ metis_tac [num_tvs_def, type_e_freevars, bind_tenv_def, bind_tvar_def,
+            tenv_ok_def, arithmeticTheory.ADD, arithmeticTheory.ADD_COMM],
+ metis_tac [type_funs_Tfn, num_tvs_bind_var_list],
+ metis_tac [type_funs_Tfn, num_tvs_bind_var_list, num_tvs_def,
+            arithmeticTheory.ADD, arithmeticTheory.ADD_COMM],
+ metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
+                arithmeticTheory.GREATER_EQ]]);
+
 val type_v_weakening = Q.store_thm ("type_v_weakening",
 `(!tvs tenvM tenvC tenvS v t. type_v tvs tenvM tenvC tenvS v t ⇒
     !tvs' tenvM' tenvC' tenvS'. 
-      tvs' ≥ tvs ∧ weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weakS tenvS' tenvS ⇒
+      tenvM_ok tenvM' ∧ ((tvs = 0) ∨ (tvs = tvs')) ∧ weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weakS tenvS' tenvS ⇒
       type_v tvs' tenvM' tenvC' tenvS' v t) ∧
  (!tvs tenvM tenvC tenvS vs ts. type_vs tvs tenvM tenvC tenvS vs ts ⇒
     !tvs' tenvM' tenvC' tenvS'. 
-      tvs' ≥ tvs ∧ weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weakS tenvS' tenvS ⇒
+      tenvM_ok tenvM' ∧ ((tvs = 0) ∨ (tvs = tvs')) ∧ weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weakS tenvS' tenvS ⇒
       type_vs tvs' tenvM' tenvC' tenvS' vs ts) ∧
  (!tenvM tenvC tenvS env tenv. type_env tenvM tenvC tenvS env tenv ⇒
-    !tvs' tenvM' tenvC' tenvS'. 
-      weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weakS tenvS' tenvS ⇒
+    !tenvM' tenvC' tenvS'. 
+      tenvM_ok tenvM' ∧ weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weakS tenvS' tenvS ⇒
       type_env tenvM' tenvC' tenvS' env tenv)`,
-
-ho_match_mp_tac type_v_ind >>
+ho_match_mp_tac type_v_strongind >>
 rw [] >>
 rw [Once type_v_cases] >|
 [fs [EVERY_MEM] >>
-     metis_tac [weak_tenvC_lookup, check_freevars_add],
+     metis_tac [weak_tenvC_lookup, check_freevars_add, gt_0],
+ fs [EVERY_MEM] >>
+     metis_tac [weak_tenvC_lookup, check_freevars_add, gt_0],
  metis_tac [type_e_weakening, check_freevars_add, weak_tenvE_refl, 
-            weak_tenvE_bind, weak_tenvE_bind_tvar2],
-
-
-
+            weak_tenvE_bind, weak_tenvE_bind_tvar2, gt_0, type_v_freevars],
+ metis_tac [type_e_weakening, check_freevars_add, weak_tenvE_refl, 
+            weak_tenvE_bind, weak_tenvE_bind_tvar2, gt_0, type_v_freevars],
+ metis_tac [type_e_weakening, check_freevars_add, weak_tenvE_refl, 
+            weak_tenvE_bind_var_list, weak_tenvE_bind_tvar2, gt_0, type_v_freevars],
+ metis_tac [type_e_weakening, check_freevars_add, weak_tenvE_refl, 
+            weak_tenvE_bind_var_list, weak_tenvE_bind_tvar2, gt_0, type_v_freevars],
+ fs [weakS_def] >>
+     metis_tac [],
+ fs [weakS_def] >>
+     metis_tac [],
+ rw [bind_def, emp_def, bind_tvar_def, bind_tenv_def]]);
 
 val _ = export_theory ();
