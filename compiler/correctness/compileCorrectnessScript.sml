@@ -665,6 +665,15 @@ val REVERSE_DROP = store_thm("REVERSE_DROP",
     lrw[DROP_LENGTH_NIL_rwt,ADD1,LASTN] ) THEN
   lrw[DROP_APPEND1,LASTN_APPEND1])
 
+val FUPDATE_LIST_CANCEL = store_thm("FUPDATE_LIST_CANCEL",
+  ``!ls1 fm ls2.
+    (!k. MEM k (MAP FST ls1) ==> MEM k (MAP FST ls2))
+    ==> (fm |++ ls1 |++ ls2 = fm |++ ls2)``,
+  Induct THEN SRW_TAC[][FUPDATE_LIST_THM] THEN
+  Cases_on`h` THEN
+  MATCH_MP_TAC FUPDATE_FUPDATE_LIST_MEM THEN
+  FULL_SIMP_TAC(srw_ss())[])
+
 val cons_closure_thm = store_thm("cons_closure_thm",
   ``∀env0 sz0 sz nk s k j ec.
       let (s',k') = (cons_closure env0 sz0 sz nk) (s,k) (j,ec) in
@@ -1061,17 +1070,17 @@ val compile_closures_thm = store_thm("compile_closures_thm",
         (sz = LENGTH bs.stack)
         ⇒
         ∃bvs rs.
-        let bvs = MAP (λ(xs,cb). Block closure_tag
+        let bvs = REVERSE (MAP (λ(xs,cb). Block closure_tag
           [CodePtr (THE (bc_find_loc bs (Lab (OUTR cb))))
           ; let (j,ec) = d.ecs ' (OUTR cb) in
             Block 0 (REVERSE (MAP
               (λec. case ec of
                 CEEnv fv => THE(lookup_ct cls sz bs.stack bs.refs (env ' fv))
-              | CERef j => EL j bvs) ec))
-          ]) defs in
-        (LENGTH rs = nz) ∧
+              | CERef j => RefPtr (EL (j-1) (REVERSE rs))) ec))
+          ]) defs) in
+        (LENGTH rs = nz) ∧ ALL_DISTINCT rs ∧ (∀r. MEM r rs ⇒ r ∉ FDOM bs.refs) ∧
         bc_next^* bs
-        (bs with <| stack := (REVERSE bvs)++bs.stack
+        (bs with <| stack := bvs++bs.stack
                   ; pc := next_addr bs.inst_length (bc0 ++ code)
                   ; refs := bs.refs |++ ZIP(rs,TAKE (LENGTH rs) bvs)
                   |>)``,
@@ -1153,7 +1162,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
     `(bur = []) ∧ (bsr = [])` by fs[Once num_fold_def] >>
     fs[] >> rw[] >>
     fs[LENGTH_NIL] >> rw[] >>
-    ntac 2 (qexists_tac`[]`) >>
+    qexists_tac`[]` >>
     simp[FUPDATE_LIST_THM,Abbr`k`] >>
     qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
     Cases_on`defs = []` >- (
@@ -1199,18 +1208,57 @@ val compile_closures_thm = store_thm("compile_closures_thm",
   strip_tac >>
   qmatch_assum_abbrev_tac`bc_next^* bs4 bs5` >>
   simp[markerTheory.Abbrev_def] >>
-  qexists_tac`TAKE nk (bs5.stack)` >>
   qexists_tac`rs` >> simp[] >>
   qho_match_abbrev_tac`bc_next^* bs bs6` >>
   qsuff_tac`bs5 = bs6` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
   simp[Abbr`bs5`,Abbr`bs6`,bc_state_component_equality] >>
-  conj_tac >- (
-    lrw[DROP_LENGTH_NIL_rwt,TAKE_LENGTH_ID_rwt] >>
-    lrw[LIST_EQ_REWRITE,EL_MAP,EL_ZIP,EL_REVERSE,PRE_SUB1]
+  simp[DROP_LENGTH_NIL_rwt,TAKE_LENGTH_ID_rwt] >>
+  conj_asm1_tac >- (
+    lrw[LIST_EQ_REWRITE,EL_MAP,EL_ZIP,EL_REVERSE,PRE_SUB1] >>
     lrw[UNCURRY] >- lrw[bc_find_loc_def] >>
     lrw[MAP_EQ_f,TAKE_APPEND2] >>
-
-set_trace"goalstack print goal at top"0
+    qpat_assum`Abbrev (LENGTH X = Y)`mp_tac >>
+    unabbrev_all_tac >> simp[markerTheory.Abbrev_def] >> strip_tac >>
+    rpt (qpat_assum`bc_next^* X Y`kall_tac) >>
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP] >>
+    qpat_assum`MEM ec X`mp_tac >>
+    Q.PAT_ABBREV_TAC`def = EL X defs` >>
+    `MEM def defs` by (
+      rw[Abbr`def`,MEM_EL] >>
+      Q.PAT_ABBREV_TAC`m = X - Y` >>
+      qexists_tac`m` >>
+      simp[Abbr`m`] ) >>
+    rpt (first_x_assum(qspec_then`def`mp_tac)) >>
+    simp[] >>
+    PairCases_on`def`>>fs[] >>
+    Cases_on`def1`>>fs[] >>
+    qmatch_assum_rename_tac`MEM (xs,INR l) defs`[] >>
+    Cases_on`d.ecs ' l` >>
+    qmatch_assum_rename_tac`FAPPLY d.ecs l = (j,ecs)`[] >>
+    simp[bc_find_loc_def] >> rw[] >>
+    Cases_on`ec`>>simp[bv_from_ec_def] >- (
+      qmatch_assum_rename_tac`MEM (CEEnv fv) ecs`[] >>
+      rpt(first_x_assum(qspec_then`fv`mp_tac)) >>
+      simp[FLOOKUP_DEF] >>
+      rpt strip_tac >>
+      AP_TERM_TAC >>
+      qmatch_assum_abbrev_tac`IS_SOME X` >>
+      Cases_on`X`>>fs[] >>
+      match_mp_tac lookup_ct_imp_incsz_many >>
+      map_every qexists_tac[`LENGTH bs.stack`,`bs.stack`] >>
+      simp[] >>
+      pop_assum(SUBST1_TAC o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+      match_mp_tac lookup_ct_change_refs >>
+      simp[] ) >>
+    fs[good_ec_def] >>
+    ntac 2 (first_x_assum(qspec_then`n`mp_tac)) >>
+    Cases_on`n`>>simp[] >>
+    lrw[bv_from_ec_def,ADD1,GSYM REVERSE_ZIP,MAP_REVERSE,ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF,REVERSE_APPEND,DROP_APPEND2] >>
+    lrw[EL_REVERSE,PRE_SUB1,EL_MAP] ) >>
+  pop_assum SUBST1_TAC >>
+  match_mp_tac FUPDATE_LIST_CANCEL >>
+  lrw[MEM_MAP,MEM_ZIP,EXISTS_PROD] >>
+  fs[MEM_EL] >> PROVE_TAC[] )
 
 val compile_closures_next_label_inc = store_thm("compile_closures_next_label_inc",
   ``∀d env sz nz cs defs. (compile_closures d env sz nz cs defs).next_label = cs.next_label``,
