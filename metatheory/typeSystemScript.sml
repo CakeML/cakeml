@@ -1689,7 +1689,7 @@ rw [deBruijn_subst_def, LENGTH_COUNT_LIST, EL_MAP, EL_COUNT_LIST,
     check_freevars_def] >>
 metis_tac []);
 
-val freevars_t_lookup_tenv = Q.store_thm ("freevars_lookup_tenv",
+val freevars_lookup_tenv = Q.store_thm ("freevars_lookup_tenv",
 `!n inc tenv tvs t.
   (lookup_tenv n inc tenv = SOME (tvs,t)) ∧
   tenv_ok tenv
