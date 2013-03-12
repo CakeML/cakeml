@@ -36,13 +36,18 @@ PairCases_on `x` >>
 rw []);
 
 val weakE_refl = Q.store_thm ("weakE_refl",
-`!tenv. weakE tenv tenv`,
-cheat);
+`!tenv. tenv_ok (bind_var_list2 tenv Empty) ⇒ weakE tenv tenv`,
+rw [weakE_def] >>
+every_case_tac >>
+qexists_tac `MAP Tvar_db (COUNT_LIST q)` >>
+rw [LENGTH_COUNT_LIST, EVERY_MAP] >>
+rw [EVERY_MEM, MEM_COUNT_LIST, check_freevars_def] >>
+metis_tac [lookup_freevars, deBruijn_subst_id]);
 
 val weakM_refl = Q.store_thm ("weakM_refl",
-`!tenvM. weakM tenvM tenvM`,
+`!tenvM. tenvM_ok tenvM ⇒ weakM tenvM tenvM`,
 rw [weakM_def] >>
-metis_tac [weakE_refl]);
+metis_tac [weakE_refl, tenvM_ok_lookup]);
 
 val weakS_refl = Q.store_thm ("weakS_refl",
 `!tenvS. weakS tenvS tenvS`,
@@ -55,10 +60,11 @@ val weakM_bind = Q.store_thm ("weakM_bind",
   weakM (bind mn tenv tenvM') tenvM`,
 rw [weakM_def, bind_def] >>
 full_case_tac >>
-metis_tac [optionTheory.NOT_SOME_NONE, lookup_notin, weakE_refl]);
+metis_tac [optionTheory.NOT_SOME_NONE, lookup_notin]);
 
 val weakM_bind2 = Q.store_thm ("weakM_bind2",
 `!mn tenv tenvM tenvM'.
+  tenv_ok (bind_var_list2 tenv Empty) ∧
   weakM tenvM' tenvM ∧
   mn ∉ set (MAP FST tenvM) 
   ⇒
@@ -67,10 +73,11 @@ rw [weakM_def] >>
 fs [lookup_def, bind_def] >>
 cases_on `mn = mn'` >>
 fs [] >>
-metis_tac [weakE_refl]);
+metis_tac [weakE_refl, tenvM_ok_lookup]);
 
 val weakM_bind3 = Q.store_thm ("weakM_bind3",
 `!mn tenv' tenv tenvM.
+  tenvM_ok tenvM ∧
   weakE tenv' tenv
   ⇒
   weakM (bind mn tenv' tenvM) (bind mn tenv tenvM)`,
@@ -78,7 +85,7 @@ rw [weakM_def] >>
 fs [lookup_def, bind_def] >>
 cases_on `mn = mn'` >>
 fs [] >>
-metis_tac [weakE_refl]);
+metis_tac [weakE_refl, tenvM_ok_lookup]);
 
 val weakS_bind = Q.store_thm ("weakS_bind",
 `!l t tenvS.
@@ -526,7 +533,10 @@ rw [] >>
 rw [Once type_prog'_cases] >-
 metis_tac [type_d_weakening, weakC_merge] >>
 MAP_EVERY qexists_tac [`cenv'`, `tenvM'`, `tenv'`, `tenvC'`] >>
-rw [] >>
-metis_tac [bind_def, MAP,weakC_merge, weakM_bind2, type_ds_weakening]);
+rw [] >-
+metis_tac [] >-
+metis_tac [type_ds_weakening] >>
+`tenv_ok (bind_var_list2 tenv' Empty)` by cheat >>
+metis_tac [bind_def, MAP,weakC_merge, weakM_bind2]);
 
 val _ = export_theory ();

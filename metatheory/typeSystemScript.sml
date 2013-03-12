@@ -907,7 +907,7 @@ rw [] >>
 full_simp_tac (srw_ss()++ARITH_ss) [EL_MAP, deBruijn_subst_def, check_freevars_def] >>
 metis_tac [subst_inc_cancel, LENGTH_MAP]);
 
-val lookup_freevars = Q.prove (
+val lookup_freevars = Q.store_thm ("lookup_freevars",
 `!n tenv tvs t.
   tenv_ok (bind_var_list2 tenv Empty) ∧
   (lookup n tenv = SOME (tvs, t))
