@@ -3046,6 +3046,29 @@ val compile_val = store_thm("compile_val",
       simp[] >> disch_then(Q.X_CHOOSE_THEN`cx`strip_assume_tac) >>
       simp[] >>
       fsrw_tac[DNF_ss][] >> rw[] >>
+      first_x_assum(qspecl_then[`bs`,`bc0`,`bc1`,`FDOM cls`]mp_tac) >>
+      qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+      `P` by (
+        map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+        simp[] >>
+        fsrw_tac[DNF_ss][good_ecs_def,IN_FRANGE] >>
+        conj_tac >- (
+          fs[good_code_env_def,FEVERY_DEF] >>
+          first_x_assum(qspec_then`l`mp_tac) >>
+          rw[] >>
+          simp[bc_find_loc_def] >>
+          qmatch_abbrev_tac`IS_SOME X` >>
+          Cases_on`X`>>rw[] >>
+          fs[markerTheory.Abbrev_def] >>
+          pop_assum (assume_tac o SYM) >>
+          imp_res_tac bc_find_loc_aux_NONE >>
+          pop_assum mp_tac >>
+          qpat_assum`X ++ Y = bc0 ++ cx ++ bc1`(SUBST1_TAC o SYM) >>
+          simp[] ) >>
+        Cases_on`cd.ecs ' l` >>
+        qmatch_assum_rename_tac`cd.ecs ' l = (j,ec)`[] >>
+        simp[EVERY_MEM] >>
+        fs[Cenv_bs_def,fmap_rel_def]
 
       set_trace"goalstack print goal at top"0
       cheat ) >>
