@@ -22,7 +22,7 @@ rw[Once Cevaluate_cases] >> PROVE_TAC[])
 val Cevaluate_fun = store_thm(
 "Cevaluate_fun",
 ``∀c d s env ns b res. Cevaluate c d s env (CFun ns b) res =
-  (∀l. (b = INR l) ⇒ l ∈ FDOM c ∧ (FLOOKUP d l = SOME (cbod_fvs c b ∩ FDOM env DIFF (set ns),[],ns,0))) ∧
+  (∀l. (b = INR l) ⇒ l ∈ FDOM c ∧ (FLOOKUP d l = SOME (cbod_fvs c b ∩ FDOM env DIFF (set ns),ns,[],0))) ∧
   (res = (s, Rval (CRecClos env [] [(ns,b)] "")))``,
 rw[Once Cevaluate_cases] >> metis_tac[])
 
@@ -756,9 +756,9 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
     first_x_assum match_mp_tac >>
     conj_tac >- (
       rw[] >>
-      fs[Q.SPECL[`c`,`CRecClos env' ns' defs n`]Cclosed_cases] >>
-      Cases_on`ns'=[]`>>fs[] >>
-      TRY(first_x_assum (qspecl_then [`i`,`ns`] mp_tac) >> rw[]) >>
+      fs[Q.SPECL[`c`,`CRecClos env' ns defs n`]Cclosed_cases] >>
+      Cases_on`ns=[]`>>fs[] >>
+      TRY(first_x_assum (qspecl_then [`i`,`xs`] mp_tac) >> rw[]) >>
       Cases_on `cb` >> fs[] >>
       imp_res_tac find_index_LESS_LENGTH >> pop_assum mp_tac >>
       fs[] >> rw[] >> fs[] >>
@@ -1386,7 +1386,7 @@ strip_tac >- (
   rw[Once Cevaluate_cases] >>
   fsrw_tac[DNF_ss][] >>
   disj1_tac >>
-  fsrw_tac[DNF_ss][Q.SPECL[`c`,`CRecClos env' ns' defs n`]syneq_cases] >>
+  fsrw_tac[DNF_ss][Q.SPECL[`c`,`CRecClos env' ns defs n`]syneq_cases] >>
   qpat_assum `∀s env2 env0. fmap_rel (syneq c) env nv0 ∧ Z ⇒ P` (qspecl_then [`s2`,`env2`] mp_tac) >>
   fsrw_tac[DNF_ss][] >> rw[] >>
   Q.PAT_ABBREV_TAC `env0 = (X ⊌ Y : string |-> Cv) ` >>
@@ -1398,9 +1398,9 @@ strip_tac >- (
   full_simp_tac(pure_ss++(QUANT_INST_ss[pair_default_qp]))[] >>
   rw[] >>
   qmatch_assum_rename_tac `fmap_rel (syneq c) s' s3`[] >>
-  qmatch_assum_abbrev_tac `Cevaluate c d s2 env1 exp (s3,Rval (CRecClos env3 ns' defs n))` >>
+  qmatch_assum_abbrev_tac `Cevaluate c d s2 env1 exp (s3,Rval (CRecClos env3 ns defs n))` >>
   CONV_TAC SWAP_EXISTS_CONV >> qexists_tac `env3` >>
-  CONV_TAC SWAP_EXISTS_CONV >> qexists_tac `ns'` >>
+  CONV_TAC SWAP_EXISTS_CONV >> qexists_tac `ns` >>
   CONV_TAC SWAP_EXISTS_CONV >> qexists_tac `defs` >>
   CONV_TAC SWAP_EXISTS_CONV >> qexists_tac `n` >>
   `env1 = env0` by (
@@ -1413,11 +1413,11 @@ strip_tac >- (
   pop_assum kall_tac >>
   qexists_tac`s3` >> simp[] >>
   `(∀v. v ∈ FRANGE s' ⇒ Cclosed c v) ∧
-   Cclosed c (CRecClos env' ns' defs n)` by (
-    qspecl_then[`c`,`d`,`s`,`env`,`exp`,`(s',Rval (CRecClos env' ns' defs n))`]mp_tac(CONJUNCT1 Cevaluate_closed) >>
+   Cclosed c (CRecClos env' ns defs n)` by (
+    qspecl_then[`c`,`d`,`s`,`env`,`exp`,`(s',Rval (CRecClos env' ns defs n))`]mp_tac(CONJUNCT1 Cevaluate_closed) >>
     rw[] ) >> fs[] >>
   `(∀v. v ∈ FRANGE s3 ⇒ Cclosed c v) ∧
-   Cclosed c (CRecClos env2' ns' defs n)` by (
+   Cclosed c (CRecClos env2' ns defs n)` by (
     qmatch_assum_abbrev_tac`Cevaluate c d s2 env4 exp (s3,vv)` >>
     qspecl_then[`c`,`d`,`s2`,`env4`,`exp`,`(s3,vv)`]mp_tac(CONJUNCT1 Cevaluate_closed) >>
     map_every qunabbrev_tac[`env4`,`vv`] >>
@@ -1459,8 +1459,8 @@ strip_tac >- (
      fs[Abbr`env3`,FDOM_DRESTRICT] >>
      fs[fmap_rel_def] >>
      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
-  fs[Once(Q.SPECL[`c`,`CRecClos env2' ns' defs n`] Cclosed_cases)] >>
-  `∀v. v ∈ FRANGE (extend_rec_env env' env' ns' defs ns vs) ⇒ Cclosed c v` by (
+  fs[Once(Q.SPECL[`c`,`CRecClos env2' ns defs n`] Cclosed_cases)] >>
+  `∀v. v ∈ FRANGE (extend_rec_env env' env' ns defs xs vs) ⇒ Cclosed c v` by (
     fs[extend_rec_env_def,FOLDL2_FUPDATE_LIST,FOLDL_FUPDATE_LIST] >>
     match_mp_tac IN_FRANGE_FUPDATE_LIST_suff >>
     fsrw_tac[DNF_ss][MAP_ZIP,MAP2_MAP,SND_pair,FST_pair,MEM_EL,LENGTH_ZIP,EVERY_MEM] >>
@@ -1470,22 +1470,22 @@ strip_tac >- (
     PROVE_TAC[] ) >>
   fs[] >>
   qunabbrev_tac`env3` >>
-  qabbrev_tac`env3 = extend_rec_env env2' env2' ns' defs ns v2` >>
+  qabbrev_tac`env3 = extend_rec_env env2' env2' ns defs xs v2` >>
   qmatch_assum_abbrev_tac `Cevaluate c d s'' X exp' res` >>
   qunabbrev_tac`X` >>
   `i < LENGTH defs` by (
-    Cases_on`ns'=[]`>>fs[] >>
+    Cases_on`ns=[]`>>fs[] >>
     imp_res_tac find_index_LESS_LENGTH >>
     fs[] >> rfs[] ) >>
-  `free_vars c exp' ⊆ FDOM env' ∪ set ns' ∪ set ns` by (
+  `free_vars c exp' ⊆ FDOM env' ∪ set ns ∪ set xs` by (
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
-    first_x_assum (qspecl_then [`i`,`ns`,`cb`] mp_tac) >>
+    first_x_assum (qspecl_then [`i`,`xs`,`cb`] mp_tac) >>
     rw[] >> fs[EVERY_MEM] >>
-    `MEM (ns,cb) defs` by (rw[MEM_EL] >> qexists_tac `i` >> rw[] >> PROVE_TAC[] ) >>
+    `MEM (xs,cb) defs` by (rw[MEM_EL] >> qexists_tac `i` >> rw[] >> PROVE_TAC[] ) >>
     fsrw_tac[DNF_ss][optionTheory.OPTREL_def,FLOOKUP_DEF,FORALL_PROD] >>
-    first_x_assum (qspecl_then [`ns`,`cb`] mp_tac) >> rw[] >>
+    first_x_assum (qspecl_then [`xs`,`cb`] mp_tac) >> rw[] >>
     pop_assum (qspec_then `x` mp_tac) >> rw[] >>
-    Cases_on`ns'=[]`>>fs[]>>
+    Cases_on`ns=[]`>>fs[]>>
     TRY(qunabbrev_tac`exp'`) >> Cases_on `cb` >> fs[] >>
     fs[FLOOKUP_DEF] >> rw[] >>
     `x ∈ free_vars (c \\ y) (c ' y)` by
@@ -1495,7 +1495,7 @@ strip_tac >- (
     metis_tac[]) >>
   fs[] >>
   qabbrev_tac `env4 =
-    extend_rec_env env2' (DRESTRICT env2' (free_vars c exp' DIFF set ns DIFF set ns') ⊌ env') ns' defs ns v2` >>
+    extend_rec_env env2' (DRESTRICT env2' (free_vars c exp' DIFF set xs DIFF set ns) ⊌ env') ns defs xs v2` >>
   `∀v. v ∈ FRANGE env4 ⇒ Cclosed c v` by (
     unabbrev_all_tac >>
     fs[extend_rec_env_def,FOLDL2_FUPDATE_LIST,FOLDL_FUPDATE_LIST] >>
@@ -1535,17 +1535,17 @@ strip_tac >- (
       conj_tac >- (fsrw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[]) >>
       rw[] >>
       fs[FLOOKUP_DEF,optionTheory.OPTREL_def] >>
-      `MEM (ns,cb) defs` by (rw[MEM_EL] >> qexists_tac `i` >> rw[] >> PROVE_TAC[] ) >>
+      `MEM (xs,cb) defs` by (rw[MEM_EL] >> qexists_tac `i` >> rw[] >> PROVE_TAC[] ) >>
       fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD] >>
-      first_x_assum (qspecl_then [`ns`,`cb`] mp_tac) >> fs[] >>
-      first_x_assum (qspecl_then [`i`,`ns`,`cb`] mp_tac) >> fs[] >>
+      first_x_assum (qspecl_then [`xs`,`cb`] mp_tac) >> fs[] >>
+      first_x_assum (qspecl_then [`i`,`xs`,`cb`] mp_tac) >> fs[] >>
       Cases_on `cb` >> fs[] >- metis_tac[] >>
-      Cases_on `ns' = []` >> fs[] >>
+      Cases_on `ns = []` >> fs[] >>
       rw[FLOOKUP_DEF] >> fs[] >>
       `x ∈ free_vars (c \\ y) (c ' y)` by
         metis_tac[free_vars_DOMSUB,IN_UNION,SUBSET_DEF] >>
       fsrw_tac[DNF_ss][SUBSET_DEF] >>
-      TRY(first_x_assum (qspecl_then [`i`,`ns`,`y`] mp_tac) >> fs[]) >>
+      TRY(first_x_assum (qspecl_then [`i`,`xs`,`y`] mp_tac) >> fs[]) >>
       metis_tac []) >>
     qpat_assum`LENGTH vs = LENGTH v2`assume_tac >>
     fs[EVERY_MEM,pairTheory.FORALL_PROD,MEM_ZIP] >>
@@ -1565,7 +1565,7 @@ strip_tac >- (
     >- (
       qpat_assum `X = d ' y` (assume_tac o SYM) >>
       rw[] >> fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD,MEM_EL] >>
-      first_x_assum (qspecl_then[`ns`,`INR y`,`i`]mp_tac) >>
+      first_x_assum (qspecl_then[`xs`,`INR y`,`i`]mp_tac) >>
       rw[FLOOKUP_DEF,optionTheory.OPTREL_def] >>
       REWRITE_TAC[GSYM CONJ_ASSOC] >>
       simp[RIGHT_EXISTS_AND_THM] >>
@@ -1587,12 +1587,12 @@ strip_tac >- (
     unabbrev_all_tac >>
     rw[EXTENSION] >>
     fs[SUBSET_DEF,fmap_rel_def] >>
+    Cases_on `MEM x xs` >> fs[] >>
     Cases_on `MEM x ns` >> fs[] >>
-    Cases_on `MEM x ns'` >> fs[] >>
     Cases_on `x ∈ FDOM env2'` >> fs[] >>
-    Cases_on `ns' = []` >> fs[] >> rw[] >>
-    TRY(first_x_assum (qspecl_then [`i`,`ns`,`cb`] mp_tac)) >>
-    TRY(first_x_assum (qspecl_then [`i`,`ns`,`cb`] mp_tac)) >>
+    Cases_on `ns = []` >> fs[] >> rw[] >>
+    TRY(first_x_assum (qspecl_then [`i`,`xs`,`cb`] mp_tac)) >>
+    TRY(first_x_assum (qspecl_then [`i`,`xs`,`cb`] mp_tac)) >>
     fs[] >>
     Cases_on `cb` >> fs[] >- METIS_TAC[] >>
     rw[FLOOKUP_DEF] >>
@@ -1601,7 +1601,7 @@ strip_tac >- (
     PROVE_TAC[free_vars_DOMSUB,IN_UNION,SUBSET_DEF]) >>
   rw[DRESTRICT_IS_FEMPTY,FUNION_FEMPTY_2] >>
   rw[DIFF_COMM] >>
-  Q.ISPECL_THEN [`extend_rec_env env2' FEMPTY ns' defs ns v2`,`env2'`,`free_vars c ee`] (mp_tac o GSYM) DRESTRICTED_FUNION >>
+  Q.ISPECL_THEN [`extend_rec_env env2' FEMPTY ns defs xs v2`,`env2'`,`free_vars c ee`] (mp_tac o GSYM) DRESTRICTED_FUNION >>
   rw[DIFF_UNION,DIFF_COMM] >>
   rw[GSYM extend_rec_env_FUNION]) >>
 strip_tac >- (
