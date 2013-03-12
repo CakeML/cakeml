@@ -408,8 +408,9 @@ val with_same_stack = store_thm("with_same_stack",
 val _ = export_rewrites["with_same_stack"]
 
 val good_ec_def = Define`
-  good_ec nz (n,ls) =
+  good_ec (s,nz) (n,ls) =
   (n = LENGTH ls) ∧
+  (∀fv. MEM (CEEnv fv) ls ⇒ fv ∈ s) ∧
   (∀j. MEM (CERef j) ls ⇒ 0 < j ∧ j ≤ nz)`
 
 val good_ecs_def = Define`
@@ -798,7 +799,7 @@ val FOLDL_cons_closure_thm = store_thm("FOLDL_cons_closure_thm",
     (LENGTH ecs = nk - LENGTH fs) ∧
     (LENGTH fs = k - 1) ∧
     EVERY (EVERY (IS_SOME o bv_from_ec cls sz0 (sz - nk) st bs.refs env0) o SND) ecs ∧
-    EVERY (good_ec nk) ecs
+    EVERY (good_ec (FDOM env0, nk)) ecs
     ⇒
     let bvs = MAP2 (λp (j,ec). Block closure_tag [p;
         Block 0 (REVERSE (MAP (THE o bv_from_ec cls sz0 (sz - nk) st bs.refs env0) ec))])
@@ -1051,10 +1052,9 @@ val compile_closures_thm = store_thm("compile_closures_thm",
         (bs.pc = next_addr bs.inst_length bc0) ∧
         EVERY (ISR o SND) defs ∧
         EVERY (IS_SOME o bc_find_loc bs o Lab o OUTR o SND) defs ∧
-        EVERY (good_ec nz o FAPPLY d.ecs o OUTR o SND) defs ∧
+        EVERY (good_ec (FDOM env,nz) o FAPPLY d.ecs o OUTR o SND) defs ∧
         EVERY (EVERY (λec.
           (∀fv. (ec = CEEnv fv) ⇒
-            fv ∈ FDOM env ∧
             IS_SOME (lookup_ct cls sz bs.stack bs.refs (env ' fv))))
                o SND o FAPPLY d.ecs o OUTR o SND) defs ∧
         ((nz = 0) ⇒ (LENGTH defs = 1)) ∧
@@ -1127,9 +1127,10 @@ val compile_closures_thm = store_thm("compile_closures_thm",
     Cases_on`e`>>simp[bv_from_ec_def] >- (
       qmatch_assum_rename_tac`MEM (CEEnv fv) ec`[] >>
       first_x_assum(qspecl_then[`xs`,`fv`,`l`]mp_tac) >>
-      first_x_assum(qspecl_then[`xs`,`fv`,`l`]mp_tac) >>
-      simp[FLOOKUP_DEF] >>
-      strip_tac >>
+      first_x_assum(qspecl_then[`xs`,`l`]mp_tac) >>
+      first_x_assum(qspecl_then[`xs`,`l`]mp_tac) >>
+      simp[FLOOKUP_DEF,good_ec_def] >>
+      ntac 2 strip_tac >>
       qmatch_abbrev_tac`IS_SOME X ==> IS_SOME Y` >>
       Cases_on`∃x. X = SOME x` >> fs[] >>
       Cases_on`X`>>fs[] >>
@@ -1239,6 +1240,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
       qmatch_assum_rename_tac`MEM (CEEnv fv) ecs`[] >>
       rpt(first_x_assum(qspec_then`fv`mp_tac)) >>
       simp[FLOOKUP_DEF] >>
+      fs[good_ec_def] >>
       rpt strip_tac >>
       AP_TERM_TAC >>
       qmatch_assum_abbrev_tac`IS_SOME X` >>
@@ -1704,7 +1706,7 @@ val good_sm_DRESTRICT = store_thm("good_sm_DRESTRICT",
   rw[INJ_DEF,IN_FRANGE,DRESTRICT_DEF] >>
   metis_tac[])
 
-val _ = Parse.overload_on("nz_of",``λd. (LENGTH o FST o SND o SND) o_f (d:num |->(string set#string list#string list#num))``)
+val _ = Parse.overload_on("d_of",``λd. (λp. (FST p, LENGTH(FST(SND(SND p))))) o_f (d:num |->(string set#string list#string list#num))``)
 
 val good_code_env_def = Define`
   good_code_env c d code =
@@ -1717,7 +1719,7 @@ val good_code_env_def = Define`
       (FLOOKUP d l = SOME (vs,xs,ns,k)) ∧
       DISJOINT (set (binders e)) (vs ∪ set ns ∪ set xs) ∧
       (FLOOKUP cd.env_azs l = SOME (cenv,LENGTH xs)) ∧
-      good_ecs (nz_of d) cd.ecs ∧ free_labs e ⊆ FDOM cd.ecs ∧
+      good_ecs (d_of d) cd.ecs ∧ free_labs e ⊆ FDOM cd.ecs ∧
       (cenv = FST(ITSET (bind_fv ns xs (LENGTH xs) k) (free_vars c e) (FEMPTY,0,[]))) ∧
       ((compile cd cenv (TCTail (LENGTH xs) 0) 0 cs e).out = cc ++ cs.out) ∧
       EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧ l < cs.next_label ∧
@@ -2510,7 +2512,7 @@ val compile_val = store_thm("compile_val",
         (res = (s', Rval v)) ∧
         good_sm sm ∧ FDOM s' ⊆ FDOM sm ∧
         good_cls c sm s (bs with code := bce) cls ∧
-        good_ecs (nz_of d) cd.ecs ∧ free_labs exp ⊆ FDOM cd.ecs ∧
+        good_ecs (d_of d) cd.ecs ∧ free_labs exp ⊆ FDOM cd.ecs ∧
         (bce ++ bcr = bs.code) ∧ good_code_env c d bce ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         (free_vars c exp ⊆ FDOM cenv) ∧
@@ -2547,7 +2549,7 @@ val compile_val = store_thm("compile_val",
         (ress = (s', Rval vs)) ∧
         good_sm sm ∧ FDOM s' ⊆ FDOM sm ∧
         good_cls c sm s (bs with code := bce) cls ∧
-        good_ecs (nz_of d) cd.ecs ∧ free_labs_list exps ⊆ FDOM cd.ecs ∧
+        good_ecs (d_of d) cd.ecs ∧ free_labs_list exps ⊆ FDOM cd.ecs ∧
         (bce ++ bcr = bs.code) ∧ good_code_env c d bce ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
@@ -3071,17 +3073,54 @@ val compile_val = store_thm("compile_val",
           simp[] ) >>
         fs[good_ecs_def,FEVERY_DEF,FLOOKUP_DEF] >> rfs[] >>
         first_x_assum(qspec_then`l`mp_tac) >>
-        simp[]
-        conj_tac
-        fsrw_tac[DNF_ss][good_ecs_def,IN_FRANGE] >>
+        simp[] >> strip_tac >>
         Cases_on`cd.ecs ' l` >>
-        qmatch_assum_rename_tac`cd.ecs ' l = (j,ec)`[] >>
+        qmatch_assum_rename_tac`cd.ecs ' l = (j,ecs)`[] >>
         simp[EVERY_MEM] >>
-        fs[Cenv_bs_def,fmap_rel_def]
-
-      set_trace"goalstack print goal at top"0
-      cheat ) >>
-    Q.ISPECL_THEN[`cd`,`cenv`,`sz`,`0`,`cs`,`[(xs,INR l)]:def list`]strip_assume_tac compile_closures_thm >>
+        fs[Cenv_bs_def,fmap_rel_def,FDOM_DRESTRICT,good_ec_def] >>
+        fsrw_tac[DNF_ss][] >>
+        conj_asm1_tac >- fsrw_tac[DNF_ss][SUBSET_DEF] >>
+        qx_gen_tac`fv` >> strip_tac >>
+        rpt (first_x_assum(qspec_then`fv`mp_tac)) >>
+        simp[] >> rw[] >> fs[] >>
+        qmatch_abbrev_tac`IS_SOME X` >>
+        Cases_on`X`>>fs[] ) >>
+      simp[] >>
+      map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+      disch_then(Q.X_CHOOSE_THEN`rs`strip_assume_tac) >>
+      rfs[LENGTH_NIL,FUPDATE_LIST_THM] >> rw[] >>
+      pop_assum mp_tac >>
+      Q.PAT_ABBREV_TAC`bv = Block 3 X` >>
+      strip_tac >>
+      map_every qexists_tac[`bs.refs`,`bv`] >>
+      simp[] >>
+      conj_tac >- (
+        simp[Once Cv_bv_cases] >>
+        simp[Abbr`bv`] >>
+        pop_assum kall_tac >>
+        qpat_assum`bs.code = bc0 ++ Y`kall_tac >>
+        fs[UNCURRY,FLOOKUP_DEF,bc_find_loc_def] >>
+        conj_tac >- (
+          `∃x. bc_find_loc_aux bce bs.inst_length l 0 = SOME x` by (
+            Cases_on`bc_find_loc_aux bce bs.inst_length l 0`>>fs[] >>
+            imp_res_tac bc_find_loc_aux_NONE >>
+            fs[good_code_env_def,FEVERY_DEF] >>
+            pop_assum mp_tac >>
+            first_x_assum(qspec_then`l`mp_tac) >>
+            rw[] >> rw[] ) >>
+          imp_res_tac bc_find_loc_aux_append_code >>
+          qpat_assum`X = bs.code`(assume_tac o SYM) >>
+          fs[] ) >>
+        simp[Once Cv_bv_cases] >>
+        cheat) >>
+      conj_tac >- (
+        match_mp_tac Cenv_bs_imp_incsz >>
+        qexists_tac`bs with code := bce` >>
+        simp[bc_state_component_equality] ) >>
+      fs[good_cls_def]) >>
+    Q.ISPECL_THEN[`cd`,`cenv`,`sz`,`0`,`cs`,`[(xs,INR l)]:def list`]mp_tac compile_closures_thm >>
+    simp[] >> disch_then strip_assume_tac >>
+    pop_assum kall_tac >>
     fs[Once SWAP_REVERSE] >>
     rpt gen_tac >> strip_tac >> fs[] >> rw[] >>
     match_mp_tac code_for_push_return >>
