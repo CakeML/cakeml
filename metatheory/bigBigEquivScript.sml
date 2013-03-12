@@ -5,9 +5,9 @@ open typeSoundTheory;
 val _ = new_theory "bigBigEquiv"
 
 val pmatch_pmatch' = Q.prove (
-`(!tvs (cenv : envC)  (s:'a store) p v env. (pmatch tvs cenv s p v env ≠ Match_type_error) ⇒
+`(!(tvs:'a) (cenv : envC)  (s:store) p v env. (pmatch tvs cenv s p v env ≠ Match_type_error) ⇒
    (pmatch tvs cenv s p v env = pmatch' tvs s p v env)) ∧
- (!tvs (cenv : envC) (s:'a store) ps vs env. (pmatch_list tvs cenv s ps vs env ≠ Match_type_error) ⇒
+ (!(tvs:'a) (cenv : envC) (s:store) ps vs env. (pmatch_list tvs cenv s ps vs env ≠ Match_type_error) ⇒
    (pmatch_list tvs cenv s ps vs env = pmatch_list' tvs s ps vs env))`,
 ho_match_mp_tac pmatch_ind >>
 rw [pmatch_def, pmatch'_def] >|
@@ -150,9 +150,9 @@ val eval_prog'_to_eval_prog_thm = Q.store_thm ("eval_prog'_to_eval_prog_thm",
   consistent_con_env cenv tenvC ∧
   type_env tenvM tenvC tenvS env tenv ∧ 
   type_s tenvM tenvC tenvS st ∧
-  type_prog tenvM tenvC tenv prog tenvM' tenvC' tenv' ∧
+  type_prog' tenvM tenvC tenv prog tenvM' tenvC' tenv' ∧
   evaluate_prog' menv cenv st env prog r ⇒
   evaluate_prog menv cenv st env prog r`,
 metis_tac [eval_prog'_to_eval_prog, prog_type_soundness, untyped_safety_prog, prog_determ, PAIR_EQ]);
 
-val _ = export_theory ()
+val _ = export_theory ();

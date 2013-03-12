@@ -1990,31 +1990,37 @@ type_specs mn cenv tenv specs cenv' tenv'
 type_specs mn cenv tenv (Stype_opq tn :: specs) cenv' tenv')`;
 
 val _ = Define `
- (weakE tenv_impl tenv_spec = EVERY 
-   (\ (x,(tvs_spec,t_spec)) . 
-      (case lookup x tenv_impl of
-          NONE => F
-        | SOME (tvs_impl, t_impl) =>
-            ? subst. ( LENGTH subst = tvs_impl) /\
-              check_freevars tvs_impl [] t_impl /\ EVERY (check_freevars tvs_spec []) subst /\
-              (
-              deBruijn_subst 0 subst t_impl = t_spec)
-      ))
-   tenv_spec)`;
+ (weakE tenv_impl tenv_spec =
+  ! x.
+    (case lookup x tenv_spec of
+        SOME (tvs_spec, t_spec) =>
+          (case lookup x tenv_impl of
+              NONE => F
+            | SOME (tvs_impl, t_impl) =>
+                ? subst. ( LENGTH subst = tvs_impl) /\
+                  check_freevars tvs_impl [] t_impl /\ EVERY (check_freevars tvs_spec []) subst /\
+                  (
+                  deBruijn_subst 0 subst t_impl = t_spec)
+          )
+        | NONE => T
+    ))`;
 
 
 val _ = Define `
- (weakC cenv_impl cenv_spec = EVERY
-   (\ (cn,(tvs_spec,ts_spec,tn_spec)) .
-      (case lookup cn cenv_impl of
-          NONE => F
-        | SOME (tvs_impl, ts_impl, tn_impl) =>
-            (tn_spec = tn_impl) /\
-            (* For simplicity, we reject matches that differ only by renaming of bound type variables *)
-            (tvs_spec = tvs_impl) /\
-            (ts_spec = ts_impl) 
-      ))
-   cenv_spec)`;
+ (weakC cenv_impl cenv_spec =
+  ! cn.
+    (case lookup cn cenv_spec of
+        SOME (tvs_spec,ts_spec,tn_spec) =>
+          (case lookup cn cenv_impl of
+              NONE => F
+            | SOME (tvs_impl, ts_impl, tn_impl) =>
+                (tn_spec = tn_impl) /\
+                (* For simplicity, we reject matches that differ only by renaming of bound type variables *)
+                (tvs_spec = tvs_impl) /\
+                (ts_spec = ts_impl) 
+          )
+      | NONE => T
+    ))`;
 
 
 val _ = Hol_reln `

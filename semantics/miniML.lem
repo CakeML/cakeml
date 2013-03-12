@@ -1838,31 +1838,35 @@ type_specs mn cenv tenv specs cenv' tenv'
 type_specs mn cenv tenv (Stype_opq tn :: specs) cenv' tenv'
 
 let weakE tenv_impl tenv_spec =
-  List.for_all 
-   (fun (x,(tvs_spec,t_spec)) -> 
-      match lookup x tenv_impl with
-        | None -> false
-        | Some (tvs_impl, t_impl) ->
-            exists subst. 
-              List.length subst = tvs_impl &&
-              check_freevars tvs_impl [] t_impl &&
-              List.for_all (check_freevars tvs_spec []) subst &&
-              deBruijn_subst 0 subst t_impl = t_spec
-      end)
-   tenv_spec
+  forall x.
+    match lookup x tenv_spec with
+      | Some (tvs_spec, t_spec) ->
+          match lookup x tenv_impl with
+            | None -> false
+            | Some (tvs_impl, t_impl) ->
+                exists subst. 
+                  List.length subst = tvs_impl &&
+                  check_freevars tvs_impl [] t_impl &&
+                  List.for_all (check_freevars tvs_spec []) subst &&
+                  deBruijn_subst 0 subst t_impl = t_spec
+          end
+        | None -> true
+    end
 
 let weakC cenv_impl cenv_spec =
-  List.for_all
-   (fun (cn,(tvs_spec,ts_spec,tn_spec)) ->
-      match lookup cn cenv_impl with
-        | None -> false
-        | Some (tvs_impl, ts_impl, tn_impl) ->
-            tn_spec = tn_impl &&
-            (* For simplicity, we reject matches that differ only by renaming of bound type variables *)
-            tvs_spec = tvs_impl &&
-            ts_spec = ts_impl 
-      end)
-   cenv_spec
+  forall cn.
+    match lookup cn cenv_spec with
+      | Some (tvs_spec,ts_spec,tn_spec) ->
+          match lookup cn cenv_impl with
+            | None -> false
+            | Some (tvs_impl, ts_impl, tn_impl) ->
+                tn_spec = tn_impl &&
+                (* For simplicity, we reject matches that differ only by renaming of bound type variables *)
+                tvs_spec = tvs_impl &&
+                ts_spec = ts_impl 
+          end
+      | None -> true
+    end
 
 indreln
 
