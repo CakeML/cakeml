@@ -18,11 +18,11 @@ val exp_pred_def = tDefine "exp_pred"`
   (exp_pred (App Opassign _ _) = F) ∧
   (exp_pred (Log _ e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (If e1 e2 e3) = exp_pred e1 ∧ exp_pred e2 ∧ exp_pred e3) ∧
-  (exp_pred (Mat _ _) = F) ∧
+  (exp_pred (Mat e pes) = F ∧ exp_pred e ∧ EVERY exp_pred (MAP SND pes)) ∧
   (exp_pred (Let _ _ _ e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (Letrec _ _ _) = F)`
   (WF_REL_TAC `measure (exp_size ARB)` >>
-   srw_tac[ARITH_ss][exp8_size_thm] >>
+   srw_tac[ARITH_ss][exp8_size_thm,exp5_size_thm,SUM_MAP_exp7_size_thm] >>
    Q.ISPEC_THEN`exp_size ARB`imp_res_tac SUM_MAP_MEM_bound >>
    fsrw_tac[ARITH_ss][])
 val _ = export_rewrites["exp_pred_def"]
@@ -37,7 +37,7 @@ val Cexp_pred_def = tDefine "Cexp_pred"`
   (Cexp_pred (CTagEq e _) = Cexp_pred e) ∧
   (Cexp_pred (CProj e _) = Cexp_pred e) ∧
   (Cexp_pred (CLet _ e0 e) = Cexp_pred e0 ∧ Cexp_pred e) ∧
-  (Cexp_pred (CLetfun _ _ _ _) = F) ∧
+  (Cexp_pred (CLetrec _ _ _) = F) ∧
   (Cexp_pred (CFun _ (INL e)) = Cexp_pred e) ∧
   (Cexp_pred (CFun _ _) = T) ∧
   (Cexp_pred (CCall e es) = Cexp_pred e ∧ EVERY Cexp_pred es) ∧
@@ -51,6 +51,19 @@ val Cexp_pred_def = tDefine "Cexp_pred"`
    fsrw_tac[ARITH_ss][])
 val _ = export_rewrites["Cexp_pred_def"]
 val Cexp_pred_ind = theorem"Cexp_pred_ind"
+
+(*
+val Cexp_pred_remove_mat_vp = store_thm("Cexp_pred_remove_mat_vp",
+  ``(∀p fk sk v. Cexp_pred sk ⇒ Cexp_pred (remove_mat_vp fk sk v p)) ∧
+    (∀ps fk sk v n. Cexp_pred sk ⇒ Cexp_pred (remove_mat_con fk sk v n ps))``,
+  ho_match_mp_tac(TypeBase.induction_of(``:Cpat``)) >>
+  rw[remove_mat_vp_def] >> rw[] )
+
+val Cexp_pred_remove_mat_var = store_thm("Cexp_pred_remove_mat_var",
+  ``∀v pes. EVERY Cexp_pred (MAP SND pes) ⇒ Cexp_pred (remove_mat_var v pes)``,
+  ho_match_mp_tac remove_mat_var_ind >>
+  rw[remove_mat_var_def] >> rw[]
+*)
 
 val exp_pred_Cexp_pred = store_thm("exp_pred_Cexp_pred",
   ``∀m e. exp_pred e ⇒ Cexp_pred (exp_to_Cexp m e)``,
