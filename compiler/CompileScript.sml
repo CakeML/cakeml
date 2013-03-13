@@ -145,15 +145,10 @@ val _ = Defn.save_defn Cpat_vars_defn;
 (free_vars c (CLet x e eb) =((
   free_vars c) e) UNION (((free_vars c) eb) DIFF {x}))
 /\
-(free_vars c (CLetfun T ns defs e) =(((
+(free_vars c (CLetrec ns defs e) =(((
   FOLDL (\ s (vs,b) .
     s UNION (((cbod_fvs c) b) DIFF ((LIST_TO_SET ns) UNION(
                              LIST_TO_SET vs)))))
-  (((free_vars c) e) DIFF( LIST_TO_SET ns))) defs))
-/\
-(free_vars c (CLetfun F ns defs e) =(((
-  FOLDL (\ s (vs,b) .
-    s UNION (((cbod_fvs c) b) DIFF( LIST_TO_SET vs))))
   (((free_vars c) e) DIFF( LIST_TO_SET ns))) defs))
 /\
 (free_vars c (CFun xs b) =(( cbod_fvs c) b) DIFF ((LIST_TO_SET xs)))
@@ -346,21 +341,6 @@ Cevaluate c d s env ((((CLet n) e) b)) (s',( Rerr err)))
 (! c d s env ns defs b r.
 ((LENGTH ns) =( LENGTH defs)) /\(
 ALL_DISTINCT ns) /\
-(! xs l.(( MEM (xs,(INR l))) defs) ==>
-   l IN( FDOM  c) /\ (((FLOOKUP d) l) =( SOME ((((free_vars c) (((FAPPLY  c)  l))) INTER( FDOM env)) DIFF( LIST_TO_SET xs),xs,[],0)))) /\((((((
-Cevaluate c) d) s)
-  (((((FOLDL2 
-    (\ env' n (xs,cb) .((
-      FUPDATE  env') ( n, (((((CRecClos env) []) [(xs,cb)]) "")))))) 
-    env)  ns)  defs)))
-  b) r)
-==>
-Cevaluate c d s env (((((CLetfun F) ns) defs) b)) r)
-
-/\
-(! c d s env ns defs b r.
-((LENGTH ns) =( LENGTH defs)) /\(
-ALL_DISTINCT ns) /\
 (! xs l k. k <( LENGTH defs) /\ (((EL  k)  defs) = (xs,(INR l))) ==>
    l IN( FDOM  c) /\ (((FLOOKUP d) l) =( SOME ((((free_vars c) (((FAPPLY  c)  l))) INTER( FDOM env)) DIFF( LIST_TO_SET ns) DIFF( LIST_TO_SET xs),xs,ns,k)))) /\((((((
 Cevaluate c) d) s)
@@ -370,7 +350,7 @@ Cevaluate c) d) s)
      env) ns)))
   b) r)
 ==>
-Cevaluate c d s env (((((CLetfun T) ns) defs) b)) r)
+Cevaluate c d s env ((((CLetrec ns) defs) b)) r)
 
 /\
 (! c d s env xs cb.
@@ -566,8 +546,8 @@ val _ = Defn.save_defn remove_mat_vp_defn;
 (remove_mat_var v [] =( CRaise Bind_error))
 /\
 (remove_mat_var v ((p,sk)::pes) =
-  let fk =( fresh_var ({v} UNION (((free_vars FEMPTY) sk)) UNION ((Cpat_vars p)))) in((((
-  CLetfun F) [fk]) [([],((INL (((remove_mat_var v) pes)))))])
+  let fk =( fresh_var ({v} UNION (((free_vars FEMPTY) sk)) UNION ((Cpat_vars p)))) in(((
+  CLet fk) (((CFun []) ((INL (((remove_mat_var v) pes)))))))
     (((((remove_mat_vp fk) sk) v) p))))`;
 
 val _ = Defn.save_defn remove_mat_var_defn;
@@ -672,8 +652,8 @@ val _ = Define `
 /\
 (exp_to_Cexp m (Letrec _ defs b) =
   let (fns,Cdefs) =(( defs_to_Cdefs m) defs) in
-  let Cb =(( exp_to_Cexp m) b) in((((
-  CLetfun T) fns) Cdefs) Cb))
+  let Cb =(( exp_to_Cexp m) b) in(((
+  CLetrec fns) Cdefs) Cb))
 /\
 (defs_to_Cdefs m [] = ([],[]))
 /\
@@ -756,10 +736,10 @@ val _ = Defn.save_defn label_defs_defn;
   ((label_closures b))) (\ b .( UNIT
   ((((CLet x) e) b))))))))
 /\
-(label_closures (CLetfun p ns defs e) =(( BIND
+(label_closures (CLetrec ns defs e) =(( BIND
   (((label_defs []) defs))) (\ defs .(( BIND
   ((label_closures e))) (\ e .( UNIT
-  (((((CLetfun p) ns) ((REVERSE defs))) e))))))))
+  ((((CLetrec ns) ((REVERSE defs))) e))))))))
 /\
 (label_closures (CFun xs cb) =(( BIND
   (((label_defs []) [(xs,cb)]))) (\ defs .
@@ -832,7 +812,7 @@ val _ = Defn.save_defn count_unlab_defn;
 /\
 (imm_unlab (CLet x e b) =( imm_unlab e) +( imm_unlab b))
 /\
-(imm_unlab (CLetfun p ns defs e) =( count_unlab defs) +( imm_unlab e))
+(imm_unlab (CLetrec ns defs e) =( count_unlab defs) +( imm_unlab e))
 /\
 (imm_unlab (CFun xs cb) =( count_unlab [(xs,cb)]))
 /\
@@ -901,7 +881,7 @@ val _ = Defn.save_defn defs_to_ldefs_defn; (* should not happen *)
 (calculate_ldefs c ls (CLet _ e b) =(((
   calculate_ldefs c) ((((calculate_ldefs c) ls) b))) e))
 /\
-(calculate_ldefs c ls (CLetfun p ns defs e) =(((
+(calculate_ldefs c ls (CLetrec ns defs e) =(((
   FOLDL
     (\ ls . \x . (case x of (_,cb) =>
       (case cb of INR l =>
@@ -910,7 +890,7 @@ val _ = Defn.save_defn defs_to_ldefs_defn; (* should not happen *)
         )
       | _ => [] (* should not happen *)
       ))))
-    ((if p then ns else [],(
+    ((ns,(
       defs_to_ldefs defs))
      ::(((calculate_ldefs c) ls) e)))
     defs))
@@ -1205,8 +1185,8 @@ val _ = Defn.save_defn pushret_defn;
 (compile d env t sz s (CLet x e eb) =((((((((
   compile_bindings d) env) t) sz) eb) 0) (((((((compile d) env) ((TCNonTail F))) sz) s) e))) [x]))
 /\
-(compile d env t sz s (CLetfun recp ns defs eb) =
-  let s =(((((( compile_closures d) env) sz) (if recp then( LENGTH ns) else 0)) s) defs) in((((((((
+(compile d env t sz s (CLetrec ns defs eb) =
+  let s =(((((( compile_closures d) env) sz) ((LENGTH ns))) s) defs) in((((((((
   compile_bindings d) env) t) sz) eb) 0) s) ns))
 /\
 (compile d env t sz s (CFun xs cb) =((
@@ -1459,7 +1439,7 @@ val _ = Defn.save_defn number_constructors_defn;
 /\
 (repl_dec rs (Dletrec _ defs) =
   let (fns,Cdefs) =(( defs_to_Cdefs ((cmap rs.contab))) defs) in(((
-  compile_Cexp rs) T) (((((CLetfun T) fns) Cdefs) ((CDecl fns))))))
+  compile_Cexp rs) T) ((((CLetrec fns) Cdefs) ((CDecl fns))))))
 /\
 (repl_dec rs (Dlet _ p e) =
   let m =( cmap rs.contab) in
