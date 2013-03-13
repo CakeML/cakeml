@@ -1828,7 +1828,7 @@ rw [tenvM_ok_def, bind_def]);
 
 val prog_type_soundness = Q.store_thm ("prog_type_soundness",
 `!tenvM tenvC tenv prog tenvM' tenvC' tenv'.
-  type_prog' tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
+  type_prog_ignore_sig tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
   ∀tenvS menv cenv env st.
   tenvM_ok tenvM ∧
   tenvC_ok tenvC ∧
@@ -1849,7 +1849,7 @@ val prog_type_soundness = Q.store_thm ("prog_type_soundness",
          disjoint_env tenvC tenvC' ∧
          type_s (tenvM'++tenvM) (tenvC' ++ tenvC) tenvS' st' ∧
          type_env (tenvM'++tenvM) (tenvC' ++ tenvC) tenvS' (env' ++ env) (bind_var_list2 tenv' tenv))`,
-ho_match_mp_tac type_prog'_ind >>
+ho_match_mp_tac type_prog_ignore_sig_ind >>
 rw [METIS_PROVE [] ``x ∨ y = ~x ⇒ y``] >>
 rw [Once evaluate_prog_cases, bind_var_list2_def, emp_def] >>
 rw [] >>
@@ -1976,15 +1976,15 @@ fs [merge_def, emp_def] >|
                 fs [merge_def, bind_def] >>
                     metis_tac [APPEND_ASSOC,APPEND]]]]]);
 
-val type_prog_type_prog' = Q.prove (
+val type_prog_type_prog_ignore_sig = Q.prove (
 `!tenvM tenvC tenv prog tenvM' tenvC' tenv'.
   type_prog tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
   (num_tvs tenv = 0) ∧
   tenvM_ok tenvM ⇒
-  ?tenvM'' tenvC'' tenv''. type_prog' tenvM tenvC tenv prog tenvM'' tenvC'' tenv''`,
+  ?tenvM'' tenvC'' tenv''. type_prog_ignore_sig tenvM tenvC tenv prog tenvM'' tenvC'' tenv''`,
 ho_match_mp_tac type_prog_ind >>
 rw [num_tvs_bvl2] >>
-rw [Once type_prog'_cases] >-
+rw [Once type_prog_ignore_sig_cases] >-
 metis_tac [] >>
 fs [check_signature_cases] >>
 `tenv_ok (bind_var_list2 emp Empty)` by rw [emp_def, bind_var_list2_def, tenv_ok_def] >>
@@ -1999,6 +1999,6 @@ MAP_EVERY qexists_tac [`tenv'''`, `cenv'`, `tenvM''`, `tenv'`, `tenvC''`] >>
 rw [] >>
 `MAP FST (bind mn tenv'' tenvM) = MAP FST (bind mn tenv' tenvM)` by rw [bind_def] >>
 `disjoint_env cenv' tenvC` by metis_tac [type_ds_tenv_ok] >>
-metis_tac [type_prog'_weakening, weakM_bind3, weakC_merge2]);
+metis_tac [type_prog_ignore_sig_weakening, weakM_bind3, weakC_merge2]);
 
 val _ = export_theory ();

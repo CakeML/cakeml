@@ -150,7 +150,7 @@ val eval_prog'_to_eval_prog_thm = Q.store_thm ("eval_prog'_to_eval_prog_thm",
   consistent_con_env cenv tenvC ∧
   type_env tenvM tenvC tenvS env tenv ∧ 
   type_s tenvM tenvC tenvS st ∧
-  type_prog' tenvM tenvC tenv prog tenvM' tenvC' tenv' ∧
+  type_prog_ignore_sig tenvM tenvC tenv prog tenvM' tenvC' tenv' ∧
   evaluate_prog' menv cenv st env prog r ⇒
   evaluate_prog menv cenv st env prog r`,
 metis_tac [eval_prog'_to_eval_prog, prog_type_soundness, untyped_safety_prog, prog_determ, PAIR_EQ]);

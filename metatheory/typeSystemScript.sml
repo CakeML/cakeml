@@ -41,8 +41,13 @@ val tenv_ok_def = Define `
 (tenv_ok (Bind_name x tvs t tenv) = 
   check_freevars (tvs + num_tvs tenv) [] t ∧ tenv_ok tenv)`;
 
+val same_module_def = Define `
+(same_module (Short x) (Short y) = T) ∧
+(same_module (Long mn1 x) (Long mn2 y) = (mn1 = mn2)) ∧
+(same_module _ _ = F)`;
+
 val tenvC_ok_def = Define `
-tenvC_ok tenvC = EVERY (\(cn,tvs,ts,tn). EVERY (check_freevars 0 tvs) ts) tenvC`;
+tenvC_ok tenvC = EVERY (\(cn,tvs,ts,tn). same_module cn tn ∧ EVERY (check_freevars 0 tvs) ts) tenvC`;
 
 val tenvM_ok_def = Define `
 tenvM_ok tenvM = EVERY (\(mn,tenv). tenv_ok (bind_var_list2 tenv Empty)) tenvM`;

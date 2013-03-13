@@ -1941,7 +1941,7 @@ val context_invariant : num -> list ctxt -> num -> bool
 
 (* Type programs without imposing signatures.  This is needed for the type
  * soundness proof *)
-val type_prog' : tenvM -> tenvC -> tenvE -> list top -> tenvM -> tenvC -> env varN (num * t) -> bool
+val type_prog_ignore_sig : tenvM -> tenvC -> tenvE -> list top -> tenvM -> tenvC -> env varN (num * t) -> bool
 
 
 indreln
@@ -1949,24 +1949,24 @@ indreln
 forall menv cenv tenv.
 true
 ==>
-type_prog' menv cenv tenv [] emp emp emp
+type_prog_ignore_sig menv cenv tenv [] emp emp emp
 
 and
 
 forall menv cenv tenv d ds cenv' tenv' menv'' cenv'' tenv''.
 type_d None menv cenv tenv d cenv' tenv' &&
-type_prog' menv (merge cenv' cenv) (bind_var_list2 tenv' tenv) ds menv'' cenv'' tenv''
+type_prog_ignore_sig menv (merge cenv' cenv) (bind_var_list2 tenv' tenv) ds menv'' cenv'' tenv''
 ==>
-type_prog' menv cenv tenv (Tdec d :: ds) menv'' (merge cenv'' cenv') (merge tenv'' tenv')
+type_prog_ignore_sig menv cenv tenv (Tdec d :: ds) menv'' (merge cenv'' cenv') (merge tenv'' tenv')
 
 and
 
 forall menv cenv tenv mn spec ds1 ds2 cenv' menv'' tenv' cenv'' tenv''.
 not (List.mem mn (List.map fst menv)) &&
 type_ds (Some mn) menv cenv tenv ds1 cenv' tenv' &&
-type_prog' (bind mn tenv' menv) (merge cenv' cenv) tenv ds2 menv'' cenv'' tenv''
+type_prog_ignore_sig (bind mn tenv' menv) (merge cenv' cenv) tenv ds2 menv'' cenv'' tenv''
 ==>
-type_prog' menv cenv tenv (Tmod mn spec ds1 :: ds2) (merge menv'' [(mn,tenv')]) (merge cenv'' cenv') tenv''
+type_prog_ignore_sig menv cenv tenv (Tmod mn spec ds1 :: ds2) (merge menv'' [(mn,tenv')]) (merge cenv'' cenv') tenv''
 
 
 indreln
