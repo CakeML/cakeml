@@ -1496,34 +1496,6 @@ rw [] >|
      fs [] >>
      metis_tac [consistent_con_env_thm]]);
 
-val check_ctor_tenvC_ok = Q.prove (
-`!mn tenvC c. check_ctor_tenv mn tenvC c ⇒ tenvC_ok (build_ctor_tenv mn c)`,
-induct_on `c` >>
-rw [build_ctor_tenv_def, tenvC_ok_def] >>
-PairCases_on `h` >>
-fs [check_ctor_tenv_def, EVERY_MAP] >|
-[fs [EVERY_MEM] >>
-     rw [] >>
-     PairCases_on `x` >>
-     fs [] >>
-     rw [] >>
-     res_tac >>
-     fs [],
- fs [EVERY_MEM] >>
-     rw [] >>
-     PairCases_on `e` >>
-     fs [MEM_FLAT, MEM_MAP] >>
-     rw [] >>
-     PairCases_on `y` >>
-     fs [MEM_MAP] >>
-     PairCases_on `y` >>
-     fs [] >>
-     rw [] >>
-     res_tac >>
-     fs [] >>
-     res_tac >>
-     fs []]);
-
 val consistent_con_preservation = Q.prove (
 `!mn tenvC tds cenv.
   check_ctor_tenv mn tenvC tds ∧
@@ -1979,12 +1951,15 @@ fs [merge_def, emp_def] >|
 val type_prog_type_prog_ignore_sig = Q.prove (
 `!tenvM tenvC tenv prog tenvM' tenvC' tenv'.
   type_prog tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
+  tenvC_ok tenvC ∧
   (num_tvs tenv = 0) ∧
   tenvM_ok tenvM ⇒
   ?tenvM'' tenvC'' tenv''. type_prog_ignore_sig tenvM tenvC tenv prog tenvM'' tenvC'' tenv''`,
 ho_match_mp_tac type_prog_ind >>
 rw [num_tvs_bvl2] >>
-rw [Once type_prog_ignore_sig_cases] >-
+rw [Once type_prog_ignore_sig_cases] >>
+`tenvC_ok (merge cenv' tenvC)` 
+        by metis_tac [merge_def, type_ds_tenvC_ok, type_d_tenvC_ok, tenvC_ok_def, EVERY_APPEND] >-
 metis_tac [] >>
 fs [check_signature_cases] >>
 `tenv_ok (bind_var_list2 emp Empty)` by rw [emp_def, bind_var_list2_def, tenv_ok_def] >>
@@ -1995,10 +1970,13 @@ fs [check_signature_cases] >>
 metis_tac [] >>
 fs [] >>
 rw [] >>
-MAP_EVERY qexists_tac [`tenv'''`, `cenv'`, `tenvM''`, `tenv'`, `tenvC''`] >>
 rw [] >>
 `MAP FST (bind mn tenv'' tenvM) = MAP FST (bind mn tenv' tenvM)` by rw [bind_def] >>
-`disjoint_env cenv' tenvC` by metis_tac [type_ds_tenv_ok] >>
+`disjoint_env cenv' tenvC` by metis_tac [type_ds_tenvC_ok] >>
+`tenvC_ok cenv''` by metis_tac [type_specs_tenvC_ok, tenvC_ok_def, emp_def, EVERY_DEF] >>
+`tenvC_ok (merge cenv'' tenvC)` 
+        by metis_tac [merge_def, type_specs_tenvC_ok, tenvC_ok_def, EVERY_APPEND] >>
+fs [] >>
 metis_tac [type_prog_ignore_sig_weakening, weakM_bind3, weakC_merge2]);
 
 val _ = export_theory ();

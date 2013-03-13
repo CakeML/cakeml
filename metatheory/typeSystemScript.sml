@@ -1593,45 +1593,98 @@ cases_on `tvs = 0` >>
 fs [check_freevars_def, num_tvs_bind_var_list, bind_tvar_def, num_tvs_def] >>
 metis_tac [arithmeticTheory.ADD_0]);
 
+val check_ctor_tenvC_ok = Q.store_thm ("check_ctor_tenvC_ok",
+`!mn tenvC c. check_ctor_tenv mn tenvC c ⇒ tenvC_ok (build_ctor_tenv mn c)`,
+induct_on `c` >>
+rw [build_ctor_tenv_def, tenvC_ok_def] >>
+PairCases_on `h` >>
+fs [check_ctor_tenv_def, EVERY_MAP] >|
+[fs [EVERY_MEM] >>
+     rw [] >>
+     PairCases_on `x` >>
+     fs [] >>
+     rw [] >>
+     res_tac >>
+     fs [],
+ fs [EVERY_MEM] >>
+     rw [] >>
+     PairCases_on `e` >>
+     fs [MEM_FLAT, MEM_MAP] >>
+     rw [] >>
+     PairCases_on `y` >>
+     fs [MEM_MAP] >>
+     PairCases_on `y` >>
+     fs [] >>
+     rw [] >>
+     res_tac >>
+     fs [] >>
+     res_tac >>
+     fs []] >>
+cases_on `mn` >>
+rw [same_module_def, mk_id_def]);
+
 val type_d_tenv_ok = Q.store_thm ("type_d_tenv_ok",
 `!tvs tenvM tenvC tenv d tenvC' tenv' tenvM'' tenvC''.
   type_d tvs tenvM tenvC tenv d tenvC' tenv' ∧
   (num_tvs tenv = 0)
   ⇒
-  tenv_ok (bind_var_list2 tenv' Empty) ∧ 
-  disjoint_env tenvC' tenvC`,
+  tenv_ok (bind_var_list2 tenv' Empty)`,
 rw [type_d_cases] >>
 `tenv_ok Empty` by rw [tenv_ok_def] >>
 imp_res_tac type_p_bvl >>
 rw [bvl2_to_bvl] >|
-[rw [emp_def, disjoint_env_def],
- rw [emp_def, disjoint_env_def],
- metis_tac [type_funs_tenv_ok],
- rw [emp_def, disjoint_env_def],
- rw [bind_var_list2_def, emp_def, tenv_ok_def],
- metis_tac [check_ctor_tenv_dups, disjoint_env_def, DISJOINT_SYM]]);
+[metis_tac [type_funs_tenv_ok],
+ rw [bind_var_list2_def, emp_def, tenv_ok_def]]);
 
 val type_ds_tenv_ok = Q.store_thm ("type_ds_tenv_ok",
 `!tvs tenvM tenvC tenv ds tenvC' tenv'.
   type_ds tvs tenvM tenvC tenv ds tenvC' tenv' ⇒
   (num_tvs tenv = 0) ⇒
-  tenv_ok (bind_var_list2 tenv' Empty) ∧ 
-  disjoint_env tenvC' tenvC`,
+  tenv_ok (bind_var_list2 tenv' Empty)`,
 ho_match_mp_tac type_ds_ind >>
 rw [] >|
 [rw [bind_var_list2_def, tenv_ok_def, emp_def],
- rw [disjoint_env_def, emp_def],
  imp_res_tac type_d_tenv_ok >>
      fs [bvl2_append, merge_def, num_tvs_bvl2] >>
-     metis_tac [tenv_ok_bvl2],
- imp_res_tac type_d_tenv_ok >>
+     metis_tac [tenv_ok_bvl2]]);
+
+val type_d_tenvC_ok = Q.store_thm ("type_d_tenvC_ok",
+`!tvs tenvM tenvC tenv d tenvC' tenv' tenvM'' tenvC''.
+  type_d tvs tenvM tenvC tenv d tenvC' tenv'
+  ⇒
+  tenvC_ok tenvC' ∧
+  disjoint_env tenvC' tenvC`,
+rw [type_d_cases] >>
+imp_res_tac type_p_bvl >>
+rw [bvl2_to_bvl] >|
+[rw [tenvC_ok_def, emp_def],
+ rw [emp_def, disjoint_env_def],
+ rw [tenvC_ok_def, emp_def],
+ rw [emp_def, disjoint_env_def],
+ rw [tenvC_ok_def, emp_def],
+ rw [emp_def, disjoint_env_def],
+ metis_tac [check_ctor_tenvC_ok],
+ metis_tac [check_ctor_tenv_dups, disjoint_env_def, DISJOINT_SYM]]);
+
+val type_ds_tenvC_ok = Q.store_thm ("type_ds_tenvC_ok",
+`!tvs tenvM tenvC tenv ds tenvC' tenv'.
+  type_ds tvs tenvM tenvC tenv ds tenvC' tenv' ⇒
+  tenvC_ok tenvC' ∧
+  disjoint_env tenvC' tenvC`,
+ho_match_mp_tac type_ds_ind >>
+rw [] >|
+[rw [tenvC_ok_def, emp_def],
+ rw [disjoint_env_def, emp_def],
+ imp_res_tac type_d_tenvC_ok >>
+     fs [bvl2_append, merge_def, num_tvs_bvl2, tenvC_ok_def, merge_def],
+ imp_res_tac type_d_tenvC_ok >>
      fs [num_tvs_bvl2, merge_def, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
      rw [] >>
-     metis_tac [type_d_tenv_ok]]);
+     metis_tac [type_d_tenvC_ok]]);
 
 val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
-`!tvs cenv tenv specs cenv' tenv'.
-  type_specs tvs cenv tenv specs cenv' tenv' ⇒
+`!tvs tenvC tenv specs tenvC' tenv'.
+  type_specs tvs tenvC tenv specs tenvC' tenv' ⇒
   tenv_ok (bind_var_list2 tenv Empty) ⇒
   tenv_ok (bind_var_list2 tenv' Empty)`,
 ho_match_mp_tac type_specs_ind >>
@@ -1644,6 +1697,17 @@ rw [rich_listTheory.LENGTH_COUNT_LIST, EVERY_MAP] >>
 rw [EVERY_MEM] >>
 fs [rich_listTheory.MEM_COUNT_LIST, check_freevars_def] >>
 metis_tac [check_freevars_add, DECIDE ``!x:num. x ≥ 0``]);
+
+val type_specs_tenvC_ok = Q.store_thm ("type_specs_tenvC_ok",
+`!tvs tenvC tenv specs tenvC' tenv'.
+  type_specs tvs tenvC tenv specs tenvC' tenv' ⇒
+  tenvC_ok tenvC ⇒
+  tenvC_ok tenvC'`,
+ho_match_mp_tac type_specs_ind >>
+rw [] >>
+qpat_assum `A ⇒ B` match_mp_tac >>
+fs [tenvC_ok_def, merge_def] >>
+metis_tac [tenvC_ok_def, check_ctor_tenvC_ok]);
 
 val _ = export_theory ();
 

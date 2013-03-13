@@ -573,7 +573,9 @@ rw [] >>
 rw [Once type_ds_cases] >>
 `weak_other_mods mn (merge cenv' tenvC'') (merge cenv' tenvC)`
          by metis_tac [weak_other_mods_merge] >>
-`tenvC_ok (merge cenv' tenvC'')` by cheat >>
+`tenvC_ok (merge cenv' tenvC'')` 
+       by (fs [tenvC_ok_def, merge_def] >>
+           metis_tac [tenvC_ok_def, type_d_tenvC_ok]) >>
 metis_tac [type_d_weakening, weakC_merge]);
 
 val type_prog_ignore_sig_weakening = Q.store_thm ("type_prog_ignore_sig_weakening",
@@ -581,18 +583,26 @@ val type_prog_ignore_sig_weakening = Q.store_thm ("type_prog_ignore_sig_weakenin
   type_prog_ignore_sig tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
   !tenvM'' tenvC''. weakM tenvM'' tenvM ∧ weakC tenvC'' tenvC ∧
     (num_tvs tenv = 0) ∧
-    (MAP FST tenvM = MAP FST tenvM'')
+    (MAP FST tenvM = MAP FST tenvM'') ∧
+    (tenvC_ok tenvC'')
     ⇒
     type_prog_ignore_sig tenvM'' tenvC'' tenv prog tenvM' tenvC' tenv'`,
 ho_match_mp_tac type_prog_ignore_sig_ind >>
 rw [num_tvs_bvl2] >>
-rw [Once type_prog_ignore_sig_cases] >-
-metis_tac [type_d_weakening, weakC_merge] >>
-MAP_EVERY qexists_tac [`cenv'`, `tenvM'`, `tenv'`, `tenvC'`] >>
-rw [] >-
-metis_tac [] >-
-metis_tac [type_ds_weakening] >>
-`tenv_ok (bind_var_list2 tenv' Empty)` by metis_tac [type_ds_tenv_ok] >>
-metis_tac [bind_def, MAP,weakC_merge, weakM_bind2]);
+rw [Once type_prog_ignore_sig_cases] >>
+`tenvC_ok (merge cenv' tenvC'')` 
+        by metis_tac [tenvC_ok_def, EVERY_APPEND, type_ds_tenvC_ok, merge_def,
+                      type_d_tenvC_ok] >|
+[`weak_other_mods NONE tenvC'' tenvC` by cheat >>
+     metis_tac [type_d_weakening, weakC_merge],
+ MAP_EVERY qexists_tac [`cenv'`, `tenvM'`, `tenv'`, `tenvC'`] >>
+     rw [] >|
+     [metis_tac [],
+      `weak_other_mods (SOME mn) tenvC'' tenvC` by cheat >>
+          metis_tac [type_ds_weakening],
+      `tenv_ok (bind_var_list2 tenv' Empty)` by metis_tac [type_ds_tenv_ok] >>
+          `tenvC_ok (merge cenv' tenvC'')` 
+                  by metis_tac [tenvC_ok_def, EVERY_APPEND, type_ds_tenvC_ok, merge_def] >>
+          metis_tac [bind_def, MAP,weakC_merge, weakM_bind2]]]);
 
 val _ = export_theory ();
