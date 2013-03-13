@@ -1402,7 +1402,7 @@ val compile_append_out = store_thm("compile_append_out",
   strip_tac >- (
     simp[compile_def,LET_THM] >>
     rpt strip_tac >> fs[] >>
-    Q.ISPECL_THEN[`d`,`env`,`sz`,`if recp then LENGTH xs else 0`,`cs`,`defs`]mp_tac compile_closures_thm >>
+    Q.ISPECL_THEN[`d`,`env`,`sz`,`LENGTH xs`,`cs`,`defs`]mp_tac compile_closures_thm >>
     simp[] >> strip_tac >> fs[] >>
     pop_assum kall_tac >>
     simp[FILTER_APPEND,ALL_DISTINCT_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF,ALL_DISTINCT_REVERSE,FILTER_REVERSE,MAP_REVERSE,EVERY_REVERSE] >>
@@ -1617,7 +1617,7 @@ val binders_def = tDefine "binders"`
  (binders (CTagEq e _) = binders e) ∧
  (binders (CProj e _) = binders e) ∧
  (binders (CLet x e b) = binders e ++ [x] ++ binders b) ∧
- (binders (CLetfun _ ns defs e) = FLAT (MAP (λdef. FST def ++ binders_cb (SND def)) defs) ++ ns ++ binders e) ∧
+ (binders (CLetrec ns defs e) = FLAT (MAP (λdef. FST def ++ binders_cb (SND def)) defs) ++ ns ++ binders e) ∧
  (binders (CFun xs cb) = xs ++ binders_cb cb) ∧
  (binders (CCall e es) = FLAT (MAP binders (e::es))) ∧
  (binders (CPrim1 _ e) = binders e) ∧
@@ -3050,7 +3050,6 @@ val compile_val = store_thm("compile_val",
     simp[] >>
     conj_tac >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
     metis_tac[SUBMAP_TRANS] ) >>
-  strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- (
