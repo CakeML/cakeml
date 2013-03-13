@@ -1556,11 +1556,6 @@ rw [] >>
 imp_res_tac check_ctor_tenvC_ok >>
 fs [tenvC_ok_def]);
 
-val bvl2_to_bvl = Q.prove (
-`!tvs tenv tenv'. bind_var_list2 (tenv_add_tvs tvs tenv) tenv' = bind_var_list tvs tenv tenv'`,
-ho_match_mp_tac bind_var_list_ind >>
-rw [bind_var_list_def, bind_var_list2_def, tenv_add_tvs_def]);
-
 val dec_type_soundness = Q.store_thm ("dec_type_soundness",
 `!mn tenvM tenvC tenv d tenvC' tenv' tenvS menv cenv env st.
   type_d mn tenvM tenvC tenv d tenvC' tenv' ∧
@@ -1697,13 +1692,6 @@ qpat_assum `!l. P l` (MP_TAC o Q.SPEC `l`) >>
 rw [] >>
 every_case_tac >>
 fs []);
-
-val bvl2_append = Q.prove (
-`!tenv1 tenv3 tenv2.
-  (bind_var_list2 (tenv1 ++ tenv2) tenv3 = 
-   bind_var_list2 tenv1 (bind_var_list2 tenv2 tenv3))`,
-ho_match_mp_tac bind_var_list2_ind >>
-rw [bind_var_list2_def]);
 
 val type_env_merge_bvl2 = Q.prove (
 `!tenvM tenvC tenvS env1 tenv1 env2 tenv2.
@@ -1991,17 +1979,26 @@ fs [merge_def, emp_def] >|
 val type_prog_type_prog' = Q.prove (
 `!tenvM tenvC tenv prog tenvM' tenvC' tenv'.
   type_prog tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
+  (num_tvs tenv = 0) ∧
+  tenvM_ok tenvM ⇒
   ?tenvM'' tenvC'' tenv''. type_prog' tenvM tenvC tenv prog tenvM'' tenvC'' tenv''`,
 ho_match_mp_tac type_prog_ind >>
-rw [] >>
+rw [num_tvs_bvl2] >>
 rw [Once type_prog'_cases] >-
 metis_tac [] >>
-fs [check_signature_cases] >-
+fs [check_signature_cases] >>
+`tenv_ok (bind_var_list2 emp Empty)` by rw [emp_def, bind_var_list2_def, tenv_ok_def] >>
+`tenv_ok (bind_var_list2 tenv'' Empty)` by metis_tac [type_ds_tenv_ok, type_specs_tenv_ok] >>
+`tenvM_ok (bind mn tenv'' tenvM)` 
+           by (fs [tenvM_ok_def, bind_def] >>
+               metis_tac []) >-
 metis_tac [] >>
+fs [] >>
 rw [] >>
 MAP_EVERY qexists_tac [`tenv'''`, `cenv'`, `tenvM''`, `tenv'`, `tenvC''`] >>
 rw [] >>
 `MAP FST (bind mn tenv'' tenvM) = MAP FST (bind mn tenv' tenvM)` by rw [bind_def] >>
+`disjoint_env cenv' tenvC` by metis_tac [type_ds_tenv_ok] >>
 metis_tac [type_prog'_weakening, weakM_bind3, weakC_merge2]);
 
 val _ = export_theory ();

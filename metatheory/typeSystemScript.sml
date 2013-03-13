@@ -1561,5 +1561,84 @@ rw [] >>
 fs [] >>
 metis_tac [nil_deBruijn_inc, deBruijn_inc0]);
 
+val bvl2_append = Q.store_thm ("bvl2_append",
+`!tenv1 tenv3 tenv2.
+  (bind_var_list2 (tenv1 ++ tenv2) tenv3 = 
+   bind_var_list2 tenv1 (bind_var_list2 tenv2 tenv3))`,
+ho_match_mp_tac bind_var_list2_ind >>
+rw [bind_var_list2_def]);
+
+val bvl2_to_bvl = Q.store_thm ("bvl2_to_bvl",
+`!tvs tenv tenv'. bind_var_list2 (tenv_add_tvs tvs tenv) tenv' = bind_var_list tvs tenv tenv'`,
+ho_match_mp_tac bind_var_list_ind >>
+rw [bind_var_list_def, bind_var_list2_def, tenv_add_tvs_def]);
+
+val type_funs_tenv_ok = Q.store_thm ("type_funs_tenv_ok",
+`!funs tenvM tenvC env tenvE tvs env'.
+  (num_tvs tenvE = 0) ∧
+  type_funs tenvM tenvC (bind_var_list 0 env' (bind_tvar tvs tenvE)) funs env
+  ⇒
+  tenv_ok (bind_var_list tvs env Empty)`,
+induct_on `funs` >>
+rw [] >>
+qpat_assum `type_funs x0 x1 x2 x3 x4` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
+fs [] >>
+rw [check_freevars_def, bind_tenv_def, bind_var_list_def, tenv_ok_def] >>
+cases_on `tvs = 0` >>
+fs [check_freevars_def, num_tvs_bind_var_list, bind_tvar_def, num_tvs_def] >>
+metis_tac [arithmeticTheory.ADD_0]);
+
+val type_d_tenv_ok = Q.store_thm ("type_d_tenv_ok",
+`!tvs tenvM tenvC tenv d tenvC' tenv' tenvM'' tenvC''.
+  type_d tvs tenvM tenvC tenv d tenvC' tenv' ∧
+  (num_tvs tenv = 0)
+  ⇒
+  tenv_ok (bind_var_list2 tenv' Empty) ∧ 
+  disjoint_env tenvC' tenvC`,
+rw [type_d_cases] >>
+`tenv_ok Empty` by rw [tenv_ok_def] >>
+imp_res_tac type_p_bvl >>
+rw [bvl2_to_bvl] >|
+[rw [emp_def, disjoint_env_def],
+ rw [emp_def, disjoint_env_def],
+ metis_tac [type_funs_tenv_ok],
+ rw [emp_def, disjoint_env_def],
+ rw [bind_var_list2_def, emp_def, tenv_ok_def],
+ metis_tac [check_ctor_tenv_dups, disjoint_env_def, DISJOINT_SYM]]);
+
+val type_ds_tenv_ok = Q.store_thm ("type_ds_tenv_ok",
+`!tvs tenvM tenvC tenv ds tenvC' tenv'.
+  type_ds tvs tenvM tenvC tenv ds tenvC' tenv' ⇒
+  (num_tvs tenv = 0) ⇒
+  tenv_ok (bind_var_list2 tenv' Empty) ∧ 
+  disjoint_env tenvC' tenvC`,
+ho_match_mp_tac type_ds_ind >>
+rw [] >|
+[rw [bind_var_list2_def, tenv_ok_def, emp_def],
+ rw [disjoint_env_def, emp_def],
+ imp_res_tac type_d_tenv_ok >>
+     fs [bvl2_append, merge_def, num_tvs_bvl2] >>
+     metis_tac [tenv_ok_bvl2],
+ imp_res_tac type_d_tenv_ok >>
+     fs [num_tvs_bvl2, merge_def, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+     rw [] >>
+     metis_tac [type_d_tenv_ok]]);
+
+val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
+`!tvs cenv tenv specs cenv' tenv'.
+  type_specs tvs cenv tenv specs cenv' tenv' ⇒
+  tenv_ok (bind_var_list2 tenv Empty) ⇒
+  tenv_ok (bind_var_list2 tenv' Empty)`,
+ho_match_mp_tac type_specs_ind >>
+rw [] >>
+qpat_assum `A ⇒ B` match_mp_tac >>
+rw [bind_def, bind_var_list2_def, bind_tenv_def, tenv_ok_def, num_tvs_bvl2,
+    num_tvs_def] >>
+match_mp_tac check_freevars_subst_single >>
+rw [rich_listTheory.LENGTH_COUNT_LIST, EVERY_MAP] >>
+rw [EVERY_MEM] >>
+fs [rich_listTheory.MEM_COUNT_LIST, check_freevars_def] >>
+metis_tac [check_freevars_add, DECIDE ``!x:num. x ≥ 0``]);
+
 val _ = export_theory ();
 

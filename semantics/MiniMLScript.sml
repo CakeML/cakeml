@@ -1967,9 +1967,9 @@ type_specs mn cenv tenv [] cenv tenv)
 
 /\
 
-(! mn cenv tenv x t specs tvs cenv' tenv' fvs.
+(! mn cenv tenv x t specs cenv' tenv' fvs.
 check_freevars 0 fvs t /\
-type_specs mn cenv (bind x (tvs, type_subst ( ZIP ( fvs, ( MAP Tvar_db ( COUNT_LIST ( LENGTH fvs))))) t) tenv) specs cenv' tenv'
+type_specs mn cenv (bind x ( LENGTH fvs, type_subst ( ZIP ( fvs, ( MAP Tvar_db ( COUNT_LIST ( LENGTH fvs))))) t) tenv) specs cenv' tenv'
 ==>
 type_specs mn cenv tenv (Sval x t :: specs) cenv' tenv') 
 

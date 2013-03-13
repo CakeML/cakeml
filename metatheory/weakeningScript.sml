@@ -130,14 +130,17 @@ every_case_tac);
 
 val weakC_merge2 = Q.store_thm ("weakC_merge2",
 `!tenvC1 tenvC2 tenvC3.
+  disjoint_env tenvC1 tenvC3 ∧
   weakC tenvC1 tenvC2
   ⇒
   weakC (merge tenvC1 tenvC3) (merge tenvC2 tenvC3)`,
-cheat >>
 rw [weakC_def, merge_def, lookup_append] >>
 pop_assum (mp_tac o Q.SPEC `cn`) >>
 rw [] >>
-every_case_tac);
+every_case_tac >>
+imp_res_tac lookup_in2 >>
+fs [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+metis_tac []);
 
 val weak_tenvE_freevars = Q.prove (
 `!tenv tenv' tvs t.
@@ -525,18 +528,19 @@ val type_prog'_weakening = Q.store_thm ("type_prog'_weakening",
 `!tenvM tenvC tenv prog tenvM' tenvC' tenv'.
   type_prog' tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
   !tenvM'' tenvC''. weakM tenvM'' tenvM ∧ weakC tenvC'' tenvC ∧
+    (num_tvs tenv = 0) ∧
     (MAP FST tenvM = MAP FST tenvM'')
     ⇒
     type_prog' tenvM'' tenvC'' tenv prog tenvM' tenvC' tenv'`,
 ho_match_mp_tac type_prog'_ind >>
-rw [] >>
+rw [num_tvs_bvl2] >>
 rw [Once type_prog'_cases] >-
 metis_tac [type_d_weakening, weakC_merge] >>
 MAP_EVERY qexists_tac [`cenv'`, `tenvM'`, `tenv'`, `tenvC'`] >>
 rw [] >-
 metis_tac [] >-
 metis_tac [type_ds_weakening] >>
-`tenv_ok (bind_var_list2 tenv' Empty)` by cheat >>
+`tenv_ok (bind_var_list2 tenv' Empty)` by metis_tac [type_ds_tenv_ok] >>
 metis_tac [bind_def, MAP,weakC_merge, weakM_bind2]);
 
 val _ = export_theory ();
