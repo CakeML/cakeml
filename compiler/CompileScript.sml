@@ -342,7 +342,7 @@ Cevaluate c d s env ((((CLet n) e) b)) (s',( Rerr err)))
 ((LENGTH ns) =( LENGTH defs)) /\(
 ALL_DISTINCT ns) /\
 (! xs l k. k <( LENGTH defs) /\ (((EL  k)  defs) = (xs,(INR l))) ==>
-   l IN( FDOM  c) /\ (((FLOOKUP d) l) =( SOME ((((free_vars c) (((FAPPLY  c)  l))) INTER( FDOM env)) DIFF( LIST_TO_SET ns) DIFF( LIST_TO_SET xs),xs,ns,k)))) /\((((((
+   l IN( FDOM  c) /\ (((FLOOKUP d) l) =( SOME (((free_vars c) (((FAPPLY  c)  l))),xs,ns,k)))) /\((((((
 Cevaluate c) d) s)
   ((((FOLDL
      (\ env' n .((
@@ -354,7 +354,7 @@ Cevaluate c d s env ((((CLetrec ns) defs) b)) r)
 
 /\
 (! c d s env xs cb.
-(! l. (cb =( INR l)) ==>  l IN( FDOM  c) /\ (((FLOOKUP d) l) =( SOME ((((cbod_fvs c) cb) INTER( FDOM env)) DIFF( LIST_TO_SET xs),xs,[],0))))
+(! l. (cb =( INR l)) ==>  l IN( FDOM  c) /\ (((FLOOKUP d) l) =( SOME (((cbod_fvs c) cb),xs,[],0))))
 ==>
 Cevaluate c d s env (((CFun xs) cb)) (s,( Rval (((((CRecClos env) []) [(xs,cb)]) "")))))
 
@@ -367,7 +367,7 @@ Cevaluate c) d) s) env) e) (s',( Rval (((((CRecClos env') ns) defs) n))))) /\
  ((((find_index n) ns) 0) =( SOME i))) /\
 (((EL  i)  defs) = (xs,cb)) /\((((((
 Cevaluate_list c) d) s') env) es) (s'',( Rval vs))) /\
-(fvs = ((((cbod_fvs c) cb) INTER( FDOM env')) DIFF( LIST_TO_SET xs) DIFF( LIST_TO_SET ns))) /\
+(fvs =(( cbod_fvs c) cb)) /\
 ((b,(fvs,xs,ns,i)) = (case cb of INL b => (b,(fvs,xs,ns,i))
                                  | INR l => (((FAPPLY  c)  l),((FAPPLY  d)  l)) )) /\
 ((LENGTH xs) =( LENGTH vs)) /\(
