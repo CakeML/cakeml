@@ -1247,7 +1247,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
       qmatch_assum_rename_tac`MEM (CEEnv fv) ecs`[] >>
       rpt(first_x_assum(qspec_then`fv`mp_tac)) >>
       simp[FLOOKUP_DEF] >>
-      fs[good_ec_def] >>
+      fs[] >>
       rpt strip_tac >>
       AP_TERM_TAC >>
       qmatch_assum_abbrev_tac`IS_SOME X` >>
@@ -1263,7 +1263,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
       match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM_matchable >>
       simp[MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF] >>
       PROVE_TAC[]) >>
-    fs[good_ec_def] >>
+    fs[] >>
     ntac 2 (first_x_assum(qspec_then`n`mp_tac)) >>
     simp[] >>
     lrw[EL_REVERSE,PRE_SUB1,EL_APPEND1,EL_MAP]) >>
@@ -3172,9 +3172,20 @@ val compile_val = store_thm("compile_val",
         simp[] >> strip_tac >>
         qpat_assum`cd.ecs ' l = X`mp_tac >>
         simp[] >> strip_tac >> fs[] >> rfs[] >>
-        simp[MAP_REVERSE]
-
-        ) >>
+        simp[MAP_REVERSE] >>
+        qabbrev_tac`fv = EL i envs` >>
+        simp[find_index_def] >>
+        `MEM fv envs` by (rw[MEM_EL,Abbr`fv`] >> PROVE_TAC[]) >>
+        fs[Abbr`envs`,MEM_FILTER,Abbr`fvl`] >>
+        `fv ∈ FDOM cenv` by fs[SUBSET_DEF] >>
+        fs[Cenv_bs_def,fmap_rel_def,FDOM_DRESTRICT] >>
+        `fv ∈ FDOM env` by (fs[EXTENSION] >> PROVE_TAC[] ) >>
+        simp[MAP_MAP_o,EL_MAP,Abbr`ecs`] >>
+        simp[find_index_def] >>
+        rpt(first_x_assum(qspec_then`fv`mp_tac)) >>
+        simp[] >>
+        Q.PAT_ABBREV_TAC`P = lookup_ct a b X Y e` >>
+        Cases_on`P`>>simp[DRESTRICT_DEF]) >>
       conj_tac >- (
         match_mp_tac Cenv_bs_imp_incsz >>
         qexists_tac`bs with code := bce` >>
