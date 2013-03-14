@@ -420,14 +420,10 @@ val with_same_stack = store_thm("with_same_stack",
   rw[bc_state_component_equality])
 val _ = export_rewrites["with_same_stack"]
 
-val good_ec_def = Define`
-  good_ec (s,nz) (n,ls) =
-  (n = LENGTH ls) ∧
-  (∀fv. MEM (CEEnv fv) ls ⇒ fv ∈ s) ∧
-  (∀j. MEM (CERef j) ls ⇒ 0 < j ∧ j ≤ nz)`
-
 val good_ecs_def = Define`
-  good_ecs d ecs = FEVERY (λ(k,v). good_ec (FAPPLY d k) v) ecs`
+  good_ecs d ecs = FEVERY (λ(k,v).
+  let (fvs,xs,ns,j) = FAPPLY d k in
+  v = SND(ITSET(bind_fv ns xs (LENGTH xs) j) fvs (FEMPTY,0,[]))) ecs`
 
 val FOLDL_push_lab_thm = store_thm("FOLDL_push_lab_thm",
  ``∀defs d s ls s' ls'.
@@ -812,7 +808,9 @@ val FOLDL_cons_closure_thm = store_thm("FOLDL_cons_closure_thm",
     (LENGTH ecs = nk - LENGTH fs) ∧
     (LENGTH fs = k - 1) ∧
     EVERY (EVERY (IS_SOME o bv_from_ec cls sz0 (sz - nk) st bs.refs env0) o SND) ecs ∧
-    EVERY (good_ec (FDOM env0, nk)) ecs
+    EVERY (λ(z,ec). (z = LENGTH ec) ∧
+      (∀fv. MEM (CEEnv fv) ec ⇒ fv ∈ FDOM env0) ∧
+      (∀j. MEM (CERef j) ec ⇒ 0 < j ∧ j ≤ nk)) ecs
     ⇒
     let bvs = MAP2 (λp (j,ec). Block closure_tag [p;
         Block 0 (REVERSE (MAP (THE o bv_from_ec cls sz0 (sz - nk) st bs.refs env0) ec))])
@@ -838,7 +836,7 @@ val FOLDL_cons_closure_thm = store_thm("FOLDL_cons_closure_thm",
   first_x_assum(qspecl_then[`bs`,`bc0`,`bcf ++ bc1`,`ptrs`,`fs`,`st`,`cls`]mp_tac) >>
   simp[] >>
   `LENGTH e1 = e0` by (
-    fs[EVERY_MEM,good_ec_def] ) >>
+    fs[EVERY_MEM] ) >>
   rw[] >>
   qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
   match_mp_tac(SIMP_RULE std_ss [transitive_def] RTC_TRANSITIVE) >>
@@ -1065,11 +1063,12 @@ val compile_closures_thm = store_thm("compile_closures_thm",
         (bs.pc = next_addr bs.inst_length bc0) ∧
         EVERY (ISR o SND) defs ∧
         EVERY (IS_SOME o bc_find_loc bs o Lab o OUTR o SND) defs ∧
-        EVERY (good_ec (FDOM env,nz) o FAPPLY d.ecs o OUTR o SND) defs ∧
-        EVERY (EVERY (λec.
-          (∀fv. (ec = CEEnv fv) ⇒
-            IS_SOME (lookup_ct cls sz bs.stack bs.refs (env ' fv))))
-               o SND o FAPPLY d.ecs o OUTR o SND) defs ∧
+        EVERY ((λ(z,ec). (z = LENGTH ec) ∧
+          (∀fv. MEM (CEEnv fv) ec ⇒
+            fv ∈ FDOM env ∧
+            IS_SOME (lookup_ct cls sz bs.stack bs.refs (env ' fv))) ∧
+          (∀j. MEM (CERef j) ec ⇒ 0 < j ∧ j ≤ nz))
+               o FAPPLY d.ecs o OUTR o SND) defs ∧
         ((nz = 0) ⇒ (LENGTH defs = 1)) ∧
         ((nz ≠ 0) ⇒ (nz = LENGTH defs))
         ⇒
@@ -1127,23 +1126,19 @@ val compile_closures_thm = store_thm("compile_closures_thm",
   `P` by (
     map_every qunabbrev_tac[`P`,`Q`,`R`] >>
     fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,FORALL_PROD] >>
-    fsrw_tac[QUANT_INST_ss[sum_qp]][] >>
-    reverse (rw[]) >- (
-      Cases_on`rs`>>fs[] >- (
-        qmatch_assum_rename_tac`MEM (xs,INR l) defs`[] >>
-        rpt(first_x_assum(qspecl_then[`xs`,`l`]mp_tac)) >>
-        Cases_on `d.ecs ' l` >> fs[good_ec_def] ) >>
-      rw[] >> metis_tac[]) >>
+    fsrw_tac[QUANT_INST_ss[std_qp]][UNCURRY] >>
+    reverse conj_tac >- (
+      PROVE_TAC[LESS_EQ_REFL,LESS_EQ_TRANS,ZERO_LESS_EQ] ) >>
+    rw[] >>
     qmatch_assum_rename_tac`MEM (xs,INR l) defs`[] >>
-    qmatch_assum_rename_tac`(j,ec) = d.ecs ' l`[] >>
-    qpat_assum`X = d.ecs ' l`(assume_tac o SYM) >>
-    Cases_on`e`>>simp[bv_from_ec_def] >- (
+    Cases_on`d.ecs ' l` >>
+    qmatch_assum_rename_tac`d.ecs ' l = (j,ec)`[] >>
+    Cases_on`e`>>fs[]>>simp[bv_from_ec_def] >- (
       qmatch_assum_rename_tac`MEM (CEEnv fv) ec`[] >>
-      first_x_assum(qspecl_then[`xs`,`fv`,`l`]mp_tac) >>
-      first_x_assum(qspecl_then[`xs`,`l`]mp_tac) >>
-      first_x_assum(qspecl_then[`xs`,`l`]mp_tac) >>
-      simp[FLOOKUP_DEF,good_ec_def] >>
-      ntac 2 strip_tac >>
+      fsrw_tac[DNF_ss][] >>
+      rpt(first_x_assum(qspecl_then[`xs`,`l`,`fv`]mp_tac)) >>
+      simp[FLOOKUP_DEF] >>
+      strip_tac >>
       qmatch_abbrev_tac`IS_SOME X ==> IS_SOME Y` >>
       Cases_on`∃x. X = SOME x` >> fs[] >>
       Cases_on`X`>>fs[] >>
@@ -1163,7 +1158,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
     qmatch_assum_rename_tac`MEM (CERef n) ec`[] >>
     first_x_assum(qspecl_then[`xs`,`l`]mp_tac) >>
     first_x_assum(qspecl_then[`xs`,`l`]mp_tac) >>
-    simp[good_ec_def] >> strip_tac >>
+    simp[] >> strip_tac >>
     `0 < n ∧ n ≤ LENGTH rs` by PROVE_TAC[] >>
     simp[]) >>
   simp[] >>
@@ -1200,11 +1195,10 @@ val compile_closures_thm = store_thm("compile_closures_thm",
       strip_tac >>
       fs[EVERY_MEM] >>
       first_x_assum(qspec_then`e`mp_tac) >>
-      first_x_assum(qspec_then`e`mp_tac) >>
       simp[] >>
       Cases_on`e`>>simp[] >>
       simp[bv_from_ec_def,FLOOKUP_DEF] >>
-      fs[good_ec_def]) >>
+      res_tac >> fsrw_tac[ARITH_ss][]) >>
     metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
   fs[] >> rfs[] >>
   first_x_assum(qspecl_then[`bs3`,`bc0++bmr++bpl++bcc`,`bsr++bc1`]mp_tac) >>
@@ -1719,8 +1713,6 @@ val good_sm_DRESTRICT = store_thm("good_sm_DRESTRICT",
   rw[INJ_DEF,IN_FRANGE,DRESTRICT_DEF] >>
   metis_tac[])
 
-val _ = Parse.overload_on("d_of",``λd. (λp. (FST p, LENGTH(FST(SND(SND p))))) o_f (d:num |->(string set#string list#string list#num))``)
-
 val good_code_env_def = Define`
   good_code_env c d code =
   ALL_DISTINCT (FILTER is_Label code) ∧
@@ -1732,7 +1724,7 @@ val good_code_env_def = Define`
       (FLOOKUP d l = SOME (vs,xs,ns,k)) ∧
       DISJOINT (set (binders e)) (vs ∪ set ns ∪ set xs) ∧
       (FLOOKUP cd.env_azs l = SOME (cenv,LENGTH xs)) ∧
-      good_ecs (d_of d) cd.ecs ∧ free_labs e ⊆ FDOM cd.ecs ∧
+      good_ecs d cd.ecs ∧ free_labs e ⊆ FDOM cd.ecs ∧
       (cenv = FST(ITSET (bind_fv ns xs (LENGTH xs) k) (free_vars c e) (FEMPTY,0,[]))) ∧
       ((compile cd cenv (TCTail (LENGTH xs) 0) 0 cs e).out = cc ++ cs.out) ∧
       EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧ l < cs.next_label ∧
@@ -2525,7 +2517,7 @@ val compile_val = store_thm("compile_val",
         (res = (s', Rval v)) ∧
         good_sm sm ∧ FDOM s' ⊆ FDOM sm ∧
         good_cls c sm s (bs with code := bce) cls ∧
-        good_ecs (d_of d) cd.ecs ∧ free_labs exp ⊆ FDOM cd.ecs ∧
+        good_ecs d cd.ecs ∧ free_labs exp ⊆ FDOM cd.ecs ∧
         (bce ++ bcr = bs.code) ∧ good_code_env c d bce ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         (free_vars c exp ⊆ FDOM cenv) ∧
@@ -2562,7 +2554,7 @@ val compile_val = store_thm("compile_val",
         (ress = (s', Rval vs)) ∧
         good_sm sm ∧ FDOM s' ⊆ FDOM sm ∧
         good_cls c sm s (bs with code := bce) cls ∧
-        good_ecs (d_of d) cd.ecs ∧ free_labs_list exps ⊆ FDOM cd.ecs ∧
+        good_ecs d cd.ecs ∧ free_labs_list exps ⊆ FDOM cd.ecs ∧
         (bce ++ bcr = bs.code) ∧ good_code_env c d bce ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
@@ -3091,7 +3083,11 @@ val compile_val = store_thm("compile_val",
         simp[EVERY_MEM] >>
         fs[Cenv_bs_def,fmap_rel_def,FDOM_DRESTRICT,good_ec_def] >>
         fsrw_tac[DNF_ss][] >>
-        conj_asm1_tac >- fsrw_tac[DNF_ss][SUBSET_DEF] >>
+        conj_asm1_tac >- (
+          fsrw_tac[DNF_ss][SUBSET_DEF] >>
+
+          metis_tac[]
+
         qx_gen_tac`fv` >> strip_tac >>
         rpt (first_x_assum(qspec_then`fv`mp_tac)) >>
         simp[] >> rw[] >> fs[] >>
