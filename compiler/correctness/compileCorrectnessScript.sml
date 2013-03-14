@@ -2500,18 +2500,29 @@ val benv_bvs_free_vars_SUBSET = store_thm("benv_bvs_free_vars_SUBSET",
   pop_assum(strip_assume_tac o SIMP_RULE(srw_ss())[MEM_EL]) >>
   first_x_assum(qspec_then`n`mp_tac) >> rw[])
 
+  (*
 val benv_bvs_bind_fv = store_thm("benv_bvs_bind_fv",
-(* simplify statement of compile_closures_thm with more reusable definitions first? *)
   ``(benv = MAP (λec. case ec of CEEnv fv => THE (lookup_ct (FDOM cls) sz bs.stack bs.refs (cenv ' fv))
                                | CERef j => RefPtr (EL (j - 1) rs))
                 (SND (SND (ITSET (bind_fv ns xs (LENGTH xs) i) fvs (FEMPTY,0,[]))))) ∧
-    FINITE fvs ∧ ALL_DISTINCT ns ∧ (ns ≠ [] ⇒ i < LENGTH ns)
+    FINITE fvs ∧ ALL_DISTINCT ns ∧ (ns ≠ [] ⇒ i < LENGTH ns) ∧
+    (pp = mk_pp sm c bs cls) ∧
+    (∀v. v ∈ fvs ∧ v ∉ set xs ∧ v ∉ set ns ⇒ v ∈ FDOM env ∧ v ∈ FDOM cenv ∧
+      ∃bv. (lookup_ct (FDOM cls) sz bs.stack bs.refs (cenv ' v) = SOME bv) ∧
+           Cv_bv pp (env ' v) bv) ∧
+    (∀v j. v ∈ fvs ∧ v ∉ set xs ∧ (find_index v ns 0 = SOME j)
     ⇒ benv_bvs pp benv fvs xs env defs ns i``,
   qspecl_then[`ns`,`xs`,`LENGTH xs`,`i`,`fvs`,`(FEMPTY,0,[])`]mp_tac bind_fv_thm >>
   rw[] >> simp[] >>
+  POP_ASSUM_LIST(map_every assume_tac) >>
+  pop_assum kall_tac >>
   simp[Once Cv_bv_cases] >>
   `LENGTH ecs = LENGTH envs` by rw[Abbr`ecs`] >>
-  PairCases_on`pp`>>simp[]
+  simp[] >>
+  qx_gen_tac`j` >> strip_tac >>
+  find_index_MEM
+  (* simplify statement of compile_closures_thm with more reusable definitions first? *)
+  *)
 
 fun filter_asms P = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC o List.rev o List.filter P)
 
@@ -3144,8 +3155,25 @@ val compile_val = store_thm("compile_val",
           imp_res_tac bc_find_loc_aux_append_code >>
           qpat_assum`X = bs.code`(assume_tac o SYM) >>
           fs[] ) >>
+        qpat_assum`good_ecs x y`mp_tac >>
+        simp[good_ecs_def,FEVERY_DEF] >>
+        disch_then(qspec_then`l`mp_tac) >>
+        simp[] >>
+        qspecl_then[`[]`,`xs`,`LENGTH xs`,`0`,`free_vars (c \\ l) (c ' l)`,`(FEMPTY,0,[])`]mp_tac bind_fv_thm >>
+        rw[] >>
+        qpat_assum`ITSET x y z = w`kall_tac >>
+        simp[Once Cv_bv_cases] >>
+        `free_vars c (c ' l) = free_vars (c \\ l) (c ' l)` by (
+          REWRITE_TAC[SET_EQ_SUBSET] >>
+          conj_tac >- PROVE_TAC[CONJUNCT1 free_vars_DOMSUB,IN_UNION,SUBSET_DEF] >>
+          PROVE_TAC[free_vars_DOMSUB_SUBSET] ) >>
+        conj_tac >- simp[Abbr`ecs`,Abbr`envs`,Abbr`fvl`] >>
+        qx_gen_tac`i` >>
+        simp[] >> strip_tac >>
+        qpat_assum`cd.ecs ' l = X`mp_tac >>
+        simp[] >> strip_tac >> fs[] >> rfs[] >>
+        simp[MAP_REVERSE]
 
-        benv_bvs_bind_fv
         ) >>
       conj_tac >- (
         match_mp_tac Cenv_bs_imp_incsz >>
