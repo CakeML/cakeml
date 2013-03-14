@@ -1001,7 +1001,7 @@ val num_fold_update_refptr_thm = store_thm("num_fold_update_refptr_thm",
     lrw[TAKE_EL_SNOC,ZIP_SNOC,SNOC_APPEND,FUPDATE_LIST_APPEND,GSYM ZIP_APPEND,FUPDATE_LIST_THM] ) >>
   rw[])
 
-val num_fold_store_thm = store_thm("store_thm",
+val num_fold_store_thm = store_thm("num_fold_store_thm",
   ``∀nz k s. let s' = num_fold (λs. s with out := Stack (Store k)::s.out) s nz in
     ∃code.
       (s'.out = REVERSE code ++ s.out) ∧
@@ -1727,14 +1727,6 @@ val good_code_env_def = Define`
       EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧ l < cs.next_label ∧
       (code = bc0 ++ Label l :: (REVERSE cc) ++ bc1)
     ) c`
-
-(*
-val good_code_env_append = store_thm("good_code_env_append",
- ``∀c d code ls. good_code_env c d code ⇒ good_code_env c d (code ++ ls)``,
- rw[good_code_env_def,FEVERY_DEF] >>
- res_tac >> rw[] >> metis_tac[APPEND_ASSOC])
-val _ = export_rewrites["good_code_env_append"]
-*)
 
 val retbc_thm = store_thm("retbc_thm",
   ``∀bs bc0 bc1 bv vs benv ret args x st bs'.
@@ -2496,30 +2488,6 @@ val benv_bvs_free_vars_SUBSET = store_thm("benv_bvs_free_vars_SUBSET",
     rw[MEM_FILTER,Abbr`P`,Abbr`fvl`] ) >>
   pop_assum(strip_assume_tac o SIMP_RULE(srw_ss())[MEM_EL]) >>
   first_x_assum(qspec_then`n`mp_tac) >> rw[])
-
-  (*
-val benv_bvs_bind_fv = store_thm("benv_bvs_bind_fv",
-  ``(benv = MAP (λec. case ec of CEEnv fv => THE (lookup_ct (FDOM cls) sz bs.stack bs.refs (cenv ' fv))
-                               | CERef j => RefPtr (EL (j - 1) rs))
-                (SND (SND (ITSET (bind_fv ns xs (LENGTH xs) i) fvs (FEMPTY,0,[]))))) ∧
-    FINITE fvs ∧ ALL_DISTINCT ns ∧ (ns ≠ [] ⇒ i < LENGTH ns) ∧
-    (pp = mk_pp sm c bs cls) ∧
-    (∀v. v ∈ fvs ∧ v ∉ set xs ∧ v ∉ set ns ⇒ v ∈ FDOM env ∧ v ∈ FDOM cenv ∧
-      ∃bv. (lookup_ct (FDOM cls) sz bs.stack bs.refs (cenv ' v) = SOME bv) ∧
-           Cv_bv pp (env ' v) bv) ∧
-    (∀v j. v ∈ fvs ∧ v ∉ set xs ∧ (find_index v ns 0 = SOME j)
-    ⇒ benv_bvs pp benv fvs xs env defs ns i``,
-  qspecl_then[`ns`,`xs`,`LENGTH xs`,`i`,`fvs`,`(FEMPTY,0,[])`]mp_tac bind_fv_thm >>
-  rw[] >> simp[] >>
-  POP_ASSUM_LIST(map_every assume_tac) >>
-  pop_assum kall_tac >>
-  simp[Once Cv_bv_cases] >>
-  `LENGTH ecs = LENGTH envs` by rw[Abbr`ecs`] >>
-  simp[] >>
-  qx_gen_tac`j` >> strip_tac >>
-  find_index_MEM
-  (* simplify statement of compile_closures_thm with more reusable definitions first? *)
-  *)
 
 fun filter_asms P = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC o List.rev o List.filter P)
 
