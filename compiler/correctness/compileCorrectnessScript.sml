@@ -3195,8 +3195,8 @@ val compile_val = store_thm("compile_val",
         fs[SUBMAP_DEF,FDOM_DRESTRICT] ) >>
       pop_assum mp_tac >>
       simp[Abbr`cl`,Once Cv_bv_cases] >>
-      disch_then(qx_choosel_then[`a`,`bve`,`b`,`i'`,`l`,`xs`]strip_assume_tac) >>
-      `i' = i` by ( Cases_on`ns' = []` >> fs[] ) >> rw[] >>
+      disch_then(qx_choosel_then[`a`,`bve`,`b`,`i'`,`l`,`xs'`]strip_assume_tac) >>
+      `(i' = i) ∧ (xs' = xs)` by ( Cases_on`ns = []` >> fs[] >> rfs[]) >> rw[] >>
       fs[] >> rfs[] >> rw[] >> fs[] >> rw[] >>
       qho_match_abbrev_tac`∃rf bv. bc_next^* bs (bs2 rf bv) ∧ P rf bv` >>
       qmatch_assum_abbrev_tac`bc_next^* bs0 bs3` >>
@@ -3278,8 +3278,7 @@ val compile_val = store_thm("compile_val",
       qho_match_abbrev_tac`∃rf bv. bc_next^* bs1 (bs2 rf bv) ∧ P rf bv` >>
       qpat_assum`good_code_env c d bce`(fn th => mp_tac((uncurry CONJ)((I##Q.SPEC`l`)(CONJ_PAIR(SIMP_RULE(srw_ss())[good_code_env_def,FEVERY_DEF]th)))) >> assume_tac th) >>
       fs[FLOOKUP_DEF] >>
-      `(ns,cb) = (xs, INR l)` by (
-        Cases_on`ns'=[]`>>fs[] ) >> fs[] >>
+      `cb = INR l` by ( Cases_on`ns=[]`>>fs[]>>rfs[] ) >> fs[] >>
       simp_tac(srw_ss()++DNF_ss)[] >>
       qpat_assum`X = d ' l`(assume_tac o SYM) >>
       simp[] >>
@@ -3292,8 +3291,8 @@ val compile_val = store_thm("compile_val",
       qmatch_abbrev_tac`(X ⇒ Q) ⇒ R` >>
       `X` by (
         map_every qunabbrev_tac[`X`,`P`,`Q`,`R`] >>
-        `(ns' ≠ [] ⇒ i < LENGTH ns') ∧ ALL_DISTINCT ns'` by (
-          Cases_on`ns'=[]`>>fs[] >>
+        `(ns ≠ [] ⇒ i < LENGTH ns) ∧ ALL_DISTINCT ns` by (
+          Cases_on`ns=[]`>>fs[] >>
           imp_res_tac find_index_LESS_LENGTH >> fs[] ) >>
         simp[FDOM_bind_fv,Abbr`enc`] >>
         conj_tac >- (
@@ -3323,10 +3322,10 @@ val compile_val = store_thm("compile_val",
           Q.ISPECL_THEN[`ns'`,`x`,`0`]mp_tac find_index_MEM >>
           simp[] ) >>
         conj_tac >- (
-          qspecl_then[`c`,`d`,`s`,`env`,`exp`,`(s',Rval (CRecClos env' ns' defs n))`]mp_tac (CONJUNCT1 Cevaluate_Clocs) >>
+          qspecl_then[`c`,`d`,`s`,`env`,`exp`,`(s',Rval (CRecClos env' ns defs n))`]mp_tac (CONJUNCT1 Cevaluate_Clocs) >>
           qspecl_then[`c`,`d`,`s'`,`env`,`exps`,`(s'',Rval vs)`]mp_tac (CONJUNCT2 Cevaluate_Clocs) >>
           simp[] >>
-          qpat_assum `LENGTH ns = LENGTH vs` mp_tac >>
+          qpat_assum `LENGTH xs = LENGTH vs` mp_tac >>
           qpat_assum `FDOM s' ⊆ FDOM s''` mp_tac >>
           rpt (pop_assum kall_tac) >>
           fsrw_tac[DNF_ss][extend_rec_env_def,SUBSET_DEF,FOLDL2_FUPDATE_LIST,FOLDL_FUPDATE_LIST,MAP2_MAP,FST_pair,SND_pair,MAP_ZIP] >>
@@ -3377,7 +3376,7 @@ val compile_val = store_thm("compile_val",
       disch_then(mp_tac o CONV_RULE (RESORT_FORALL_CONV List.rev)) >>
       simp[LENGTH_NIL_SYM,FUPDATE_LIST_THM] >>
       simp_tac(srw_ss())[Abbr`bs1`]>>
-      disch_then(qspecl_then[`bs.stack`,`Block 3 [CodePtr a; Block 0 bve]`,`bvs`,`vs`,`xs`,`defs`,`ns'`,`env'`]mp_tac) >>
+      disch_then(qspecl_then[`bs.stack`,`Block 3 [CodePtr a; Block 0 bve]`,`bvs`,`vs`,`xs`,`defs`,`ns`,`env'`]mp_tac) >>
       pop_assum kall_tac >>
       `LENGTH bvs = LENGTH vs` by fs[EVERY2_EVERY] >>
       `∃bc10. bs.code = cb0 ++ [Label l] ++ REVERSE cc ++ bc10` by (
@@ -3423,13 +3422,11 @@ val compile_val = store_thm("compile_val",
       fs[SUBMAP_DEF,FDOM_DRESTRICT] ) >>
     pop_assum mp_tac >>
     simp[Abbr`cl`,Once Cv_bv_cases] >>
-    disch_then(qx_choosel_then[`a`,`bve`,`b`,`i'`,`l`,`xs`]strip_assume_tac) >>
-    `i' = i` by ( Cases_on`ns' = []` >> fs[] ) >> rw[] >>
+    disch_then(qx_choosel_then[`a`,`bve`,`b`,`i'`,`l`,`xs'`]strip_assume_tac) >>
+    `(i' = i) ∧ (xs' = xs) ∧ (cb = INR l)` by ( Cases_on`ns = []` >> fs[] >> rfs[]) >> rw[] >>
     fs[] >> rfs[] >> rw[] >> fs[] >> rw[] >>
     qpat_assum`good_code_env c d bce`(fn th => mp_tac((uncurry CONJ)((I##Q.SPEC`l`)(CONJ_PAIR(SIMP_RULE(srw_ss())[good_code_env_def,FEVERY_DEF]th)))) >> assume_tac th) >>
     fs[FLOOKUP_DEF] >>
-    `(ns,cb) = (xs, INR l)` by (
-      Cases_on`ns'=[]`>>fs[] ) >> fs[] >>
     simp_tac(srw_ss()++DNF_ss)[] >>
     qpat_assum`X = d ' l`(assume_tac o SYM) >>
     simp[] >>
@@ -3460,8 +3457,8 @@ val compile_val = store_thm("compile_val",
     qmatch_abbrev_tac`(X ⇒ Q) ⇒ R` >>
     `X` by (
       map_every qunabbrev_tac[`X`,`P`,`Q`,`R`] >>
-      `(ns' ≠ [] ⇒ i < LENGTH ns') ∧ ALL_DISTINCT ns'` by (
-        Cases_on`ns'=[]`>>fs[] >>
+      `(ns ≠ [] ⇒ i < LENGTH ns) ∧ ALL_DISTINCT ns` by (
+        Cases_on`ns=[]`>>fs[] >>
         imp_res_tac find_index_LESS_LENGTH >> fs[] ) >>
       simp[FDOM_bind_fv,Abbr`enc`] >>
       conj_tac >- (
@@ -3491,11 +3488,11 @@ val compile_val = store_thm("compile_val",
         Q.ISPECL_THEN[`ns'`,`x`,`0`]mp_tac find_index_MEM >>
         simp[] ) >>
       conj_tac >- (
-        qmatch_assum_abbrev_tac`Cevaluate c d s env exp (s',Rval (CRecClos env' ns' defs n))` >>
-        qspecl_then[`c`,`d`,`s`,`env`,`exp`,`(s',Rval (CRecClos env' ns' defs n))`]mp_tac (CONJUNCT1 Cevaluate_Clocs) >>
+        qmatch_assum_abbrev_tac`Cevaluate c d s env exp (s',Rval (CRecClos env' ns defs n))` >>
+        qspecl_then[`c`,`d`,`s`,`env`,`exp`,`(s',Rval (CRecClos env' ns defs n))`]mp_tac (CONJUNCT1 Cevaluate_Clocs) >>
         qspecl_then[`c`,`d`,`s'`,`env`,`exps`,`(s'',Rval vs)`]mp_tac (CONJUNCT2 Cevaluate_Clocs) >>
         simp[] >>
-        qpat_assum `LENGTH ns = LENGTH vs` mp_tac >>
+        qpat_assum `LENGTH xs = LENGTH vs` mp_tac >>
         qpat_assum `FDOM s' ⊆ FDOM s''` mp_tac >>
         rpt (pop_assum kall_tac) >>
         fsrw_tac[DNF_ss][extend_rec_env_def,SUBSET_DEF,FOLDL2_FUPDATE_LIST,FOLDL_FUPDATE_LIST,MAP2_MAP,FST_pair,SND_pair,MAP_ZIP] >>
@@ -3544,7 +3541,7 @@ val compile_val = store_thm("compile_val",
     simp[Abbr`bs1`] >>
     disch_then(mp_tac o CONV_RULE (RESORT_FORALL_CONV List.rev)) >>
     simp[LENGTH_NIL_SYM,FUPDATE_LIST_THM] >>
-    disch_then(qspecl_then[`st`,`Block 3 [CodePtr a; Block 0 bve]`,`bvs`,`vs`,`xs`,`defs`,`ns'`,`env'`,`cb1 ++ bcr`]mp_tac) >>
+    disch_then(qspecl_then[`st`,`Block 3 [CodePtr a; Block 0 bve]`,`bvs`,`vs`,`xs`,`defs`,`ns`,`env'`,`cb1 ++ bcr`]mp_tac) >>
     simp[] >> pop_assum kall_tac >>
     `LENGTH bvs = LENGTH vs` by fs[EVERY2_EVERY] >>
     simp[code_for_return_def,Abbr`R`] >>
