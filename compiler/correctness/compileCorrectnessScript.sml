@@ -2500,6 +2500,19 @@ val benv_bvs_free_vars_SUBSET = store_thm("benv_bvs_free_vars_SUBSET",
   pop_assum(strip_assume_tac o SIMP_RULE(srw_ss())[MEM_EL]) >>
   first_x_assum(qspec_then`n`mp_tac) >> rw[])
 
+val benv_bvs_bind_fv = store_thm("benv_bvs_bind_fv",
+(* simplify statement of compile_closures_thm with more reusable definitions first? *)
+  ``(benv = MAP (λec. case ec of CEEnv fv => THE (lookup_ct (FDOM cls) sz bs.stack bs.refs (cenv ' fv))
+                               | CERef j => RefPtr (EL (j - 1) rs))
+                (SND (SND (ITSET (bind_fv ns xs (LENGTH xs) i) fvs (FEMPTY,0,[]))))) ∧
+    FINITE fvs ∧ ALL_DISTINCT ns ∧ (ns ≠ [] ⇒ i < LENGTH ns)
+    ⇒ benv_bvs pp benv fvs xs env defs ns i``,
+  qspecl_then[`ns`,`xs`,`LENGTH xs`,`i`,`fvs`,`(FEMPTY,0,[])`]mp_tac bind_fv_thm >>
+  rw[] >> simp[] >>
+  simp[Once Cv_bv_cases] >>
+  `LENGTH ecs = LENGTH envs` by rw[Abbr`ecs`] >>
+  PairCases_on`pp`>>simp[]
+
 fun filter_asms P = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC o List.rev o List.filter P)
 
 val Cv_bv_not_env = store_thm("Cv_bv_not_env",
@@ -3078,21 +3091,29 @@ val compile_val = store_thm("compile_val",
         fs[good_ecs_def,FEVERY_DEF,FLOOKUP_DEF] >> rfs[] >>
         first_x_assum(qspec_then`l`mp_tac) >>
         simp[] >> strip_tac >>
-        Cases_on`cd.ecs ' l` >>
-        qmatch_assum_rename_tac`cd.ecs ' l = (j,ecs)`[] >>
-        simp[EVERY_MEM] >>
-        fs[Cenv_bs_def,fmap_rel_def,FDOM_DRESTRICT,good_ec_def] >>
-        fsrw_tac[DNF_ss][] >>
-        conj_asm1_tac >- (
+        qspecl_then[`[]`,`xs`,`LENGTH xs`,`0`,`free_vars (c \\ l) (c ' l)`,`(FEMPTY,0,[])`]mp_tac bind_fv_thm >>
+        simp[] >> strip_tac >>
+        simp[MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_FILTER] >>
+        ntac 2 (pop_assum kall_tac) >>
+        conj_tac >- (
+          simp[GSYM FORALL_AND_THM] >>
+          simp[GSYM IMP_CONJ_THM] >>
+          rpt gen_tac >> strip_tac >>
           fsrw_tac[DNF_ss][SUBSET_DEF] >>
-
-          metis_tac[]
-
-        qx_gen_tac`fv` >> strip_tac >>
-        rpt (first_x_assum(qspec_then`fv`mp_tac)) >>
-        simp[] >> rw[] >> fs[] >>
-        qmatch_abbrev_tac`IS_SOME X` >>
-        Cases_on`X`>>fs[] ) >>
+          qpat_assum`CEEnv fv = X`mp_tac >>
+          BasicProvers.CASE_TAC >> fs[] >>
+          rw[] >>
+          fs[Cenv_bs_def,fmap_rel_def] >>
+          first_x_assum(qspec_then`fv`mp_tac) >>
+          fs[FDOM_DRESTRICT] >>
+          `fv ∈ FDOM env` by (
+            fsrw_tac[DNF_ss][EXTENSION] >>
+            metis_tac[] ) >>
+          simp[] >>
+          Q.PAT_ABBREV_TAC`P = lookup_ct x y z a b` >>
+          Cases_on`P`>>rw[] ) >>
+        rw[] >>
+        simp[find_index_def] ) >>
       simp[] >>
       map_every qunabbrev_tac[`P`,`Q`,`R`] >>
       disch_then(Q.X_CHOOSE_THEN`rs`strip_assume_tac) >>
@@ -3104,9 +3125,13 @@ val compile_val = store_thm("compile_val",
       simp[] >>
       conj_tac >- (
         simp[Once Cv_bv_cases] >>
+        `MEM (Label l) bce` by (
+          fs[good_code_env_def,FEVERY_DEF] >>
+          first_x_assum(qspec_then`l`mp_tac) >>
+          simp[] >> rw[] >> simp[] ) >>
         simp[Abbr`bv`] >>
-        pop_assum kall_tac >>
         qpat_assum`bs.code = bc0 ++ Y`kall_tac >>
+        qpat_assum`bc_next^* X Y`kall_tac >>
         fs[UNCURRY,FLOOKUP_DEF,bc_find_loc_def] >>
         conj_tac >- (
           `∃x. bc_find_loc_aux bce bs.inst_length l 0 = SOME x` by (
@@ -3119,8 +3144,9 @@ val compile_val = store_thm("compile_val",
           imp_res_tac bc_find_loc_aux_append_code >>
           qpat_assum`X = bs.code`(assume_tac o SYM) >>
           fs[] ) >>
-        simp[Once Cv_bv_cases] >>
-        cheat) >>
+
+        benv_bvs_bind_fv
+        ) >>
       conj_tac >- (
         match_mp_tac Cenv_bs_imp_incsz >>
         qexists_tac`bs with code := bce` >>
