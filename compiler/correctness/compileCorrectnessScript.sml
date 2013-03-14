@@ -10,15 +10,11 @@ val exp_pred_def = tDefine "exp_pred"`
   (exp_pred (Con _ es) = EVERY exp_pred es) ∧
   (exp_pred (Var _ _) = T) ∧
   (exp_pred (Fun _ _ e) = exp_pred e) ∧
-  (exp_pred (Uapp _ _) = F) ∧
-  (exp_pred (App (Opn _) e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
-  (exp_pred (App (Opb _) e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
-  (exp_pred (App Equality e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
-  (exp_pred (App Opapp e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
-  (exp_pred (App Opassign _ _) = F) ∧
+  (exp_pred (Uapp _ e) = exp_pred e) ∧
+  (exp_pred (App _ e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (Log _ e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (If e1 e2 e3) = exp_pred e1 ∧ exp_pred e2 ∧ exp_pred e3) ∧
-  (exp_pred (Mat e pes) = F ∧ exp_pred e ∧ EVERY exp_pred (MAP SND pes)) ∧
+  (exp_pred (Mat e pes) = exp_pred e ∧ EVERY exp_pred (MAP SND pes)) ∧
   (exp_pred (Let _ _ _ e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
   (exp_pred (Letrec _ _ _) = F)`
   (WF_REL_TAC `measure (exp_size ARB)` >>
@@ -41,9 +37,9 @@ val Cexp_pred_def = tDefine "Cexp_pred"`
   (Cexp_pred (CFun _ (INL e)) = Cexp_pred e) ∧
   (Cexp_pred (CFun _ _) = T) ∧
   (Cexp_pred (CCall e es) = Cexp_pred e ∧ EVERY Cexp_pred es) ∧
-  (Cexp_pred (CPrim1 _ _) = F) ∧
+  (Cexp_pred (CPrim1 _ e) = Cexp_pred e) ∧
   (Cexp_pred (CPrim2 _ e1 e2) = Cexp_pred e1 ∧ Cexp_pred e2) ∧
-  (Cexp_pred (CUpd _ _) = F) ∧
+  (Cexp_pred (CUpd e1 e2) = Cexp_pred e1 ∧ Cexp_pred e2) ∧
   (Cexp_pred (CIf e1 e2 e3) = Cexp_pred e1 ∧ Cexp_pred e2 ∧ Cexp_pred e3)`
   (WF_REL_TAC `measure Cexp_size` >>
    srw_tac[ARITH_ss][Cexp4_size_thm] >>
@@ -52,7 +48,6 @@ val Cexp_pred_def = tDefine "Cexp_pred"`
 val _ = export_rewrites["Cexp_pred_def"]
 val Cexp_pred_ind = theorem"Cexp_pred_ind"
 
-(*
 val Cexp_pred_remove_mat_vp = store_thm("Cexp_pred_remove_mat_vp",
   ``(∀p fk sk v. Cexp_pred sk ⇒ Cexp_pred (remove_mat_vp fk sk v p)) ∧
     (∀ps fk sk v n. Cexp_pred sk ⇒ Cexp_pred (remove_mat_con fk sk v n ps))``,
@@ -62,8 +57,7 @@ val Cexp_pred_remove_mat_vp = store_thm("Cexp_pred_remove_mat_vp",
 val Cexp_pred_remove_mat_var = store_thm("Cexp_pred_remove_mat_var",
   ``∀v pes. EVERY Cexp_pred (MAP SND pes) ⇒ Cexp_pred (remove_mat_var v pes)``,
   ho_match_mp_tac remove_mat_var_ind >>
-  rw[remove_mat_var_def] >> rw[]
-*)
+  rw[remove_mat_var_def] >> rw[Cexp_pred_remove_mat_vp])
 
 val exp_pred_Cexp_pred = store_thm("exp_pred_Cexp_pred",
   ``∀m e. exp_pred e ⇒ Cexp_pred (exp_to_Cexp m e)``,
@@ -72,7 +66,10 @@ val exp_pred_Cexp_pred = store_thm("exp_pred_Cexp_pred",
   TRY (
     BasicProvers.EVERY_CASE_TAC >>
     rw[] >> fs[] ) >>
-  fs[EVERY_MEM,FORALL_PROD] >>
+  fs[EVERY_MEM,FORALL_PROD] >- (
+    match_mp_tac Cexp_pred_remove_mat_var >>
+    fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD,MEM_MAP,pes_to_Cpes_MAP,LET_THM,UNCURRY] >>
+    metis_tac[] ) >>
   Cases_on `pat_to_Cpat m [] p` >> fs[])
 
 val repl_exp_contab = store_thm("repl_exp_contab",
