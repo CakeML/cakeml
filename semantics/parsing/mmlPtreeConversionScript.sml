@@ -148,6 +148,18 @@ val ptree_StarTypes_def = Define`
         else NONE
 `;
 
+val ptree_ConstructorName_def = Define`
+  ptree_ConstructorName ast =
+    case ast of
+        Lf _ => NONE
+      | Nd nt args =>
+        if nt = mkNT nConstructorName then
+          case args of
+              [Lf (TOK t)] => destAlphaT t
+            | _ => NONE
+        else NONE
+`
+
 val ptree_Dconstructor_def = Define`
   ptree_Dconstructor ast =
     case ast of
@@ -156,22 +168,18 @@ val ptree_Dconstructor_def = Define`
         if nt = mkNT nDconstructor then
           case args of
               [] => NONE
-            | Nd nt subargs::t =>
-              if nt = mkNT nConstructorName then
-                do
-                  sym <- destLf (HD subargs);
-                  tk <- destTOK sym;
-                  cname <- destAlphaT tk;
-                  types <- case t of
+            | t::ts =>
+              do
+                 cname <- ptree_ConstructorName t;
+                 types <- case ts of
                                [] => SOME []
                              | [oft; startys] =>
                                if oft = Lf (TK OfT) then
                                  ptree_StarTypes T startys
                                else NONE
                              | _ => NONE;
-                  SOME(cname, types)
-                od
-              else NONE
+                 SOME(cname, types)
+              od
             | _ :: t => NONE
         else NONE
 `;
@@ -211,7 +219,7 @@ val ptree_Op_def = Define`
   ptree_Op (Lf _) = NONE ∧
   ptree_Op (Nd nt subs) =
     if nt = mkNT nMultOps then
-      if subs = [Lf (TK (SymbolT "*"))] then SOME "*"
+      if subs = [Lf (TK StarT)] then SOME "*"
       else if subs = [Lf (TK (SymbolT "/"))] then SOME "/"
       else if subs = [Lf (TK (AlphaT "mod"))] then SOME "mod"
       else if subs = [Lf (TK (AlphaT "div"))] then SOME "div"
@@ -223,61 +231,68 @@ val ptree_Op_def = Define`
     else NONE
 `;
 
-val ptree_Expr_def = Define`
-  ptree_Expr (Lf _) = NONE ∧
-  ptree_Expr (Nd nt subs) =
-    case nt of
-      mkNT nEbase =>
-        (case subs of
-           [Lf (TK LparT); Nd t s; Lf (TK RparT)] => ptree_Expr (Nd t s)
-         | [Lf (TK (IntT i))] => SOME (Ast_Lit (IntLit i))
-         | _ => NONE)
-   | mkNT nEapp =>
-       (case subs of
-          [t1; t2] => do
-            a1 <- ptree_Expr t1;
-            a2 <- ptree_Expr t2;
-            SOME(Ast_App a1 a2)
+val OPTION_CHOICE_def = Define`
+  OPTION_CHOICE (SOME y) x = SOME y ∧
+  OPTION_CHOICE NONE x = x
+`
+val _ = overload_on ("++", ``OPTION_CHOICE``)
+
+val ptree_V_def = Define`
+  ptree_V (Lf _) = NONE ∧
+  ptree_V (Nd nt subs) =
+    if nt = mkNT nV then
+      case subs of
+          [Lf (TOK t)] =>
+          do s <- (destAlphaT t ++ destSymbolT t);
+             SOME (Ast_Var s)
           od
-        | [t] => ptree_Expr t
-        | _ => NONE)
-   | mkNT nEmult =>
-       (case subs of
-          [t1; opt; t2] => do (* s will be *, /, div, or mod *)
-            a1 <- ptree_Expr t1;
-            a_op <- ptree_Op opt;
-            a2 <- ptree_Expr t2;
-            SOME(Ast_App (Ast_App (Ast_Var a_op) a1) a2)
-          od
-        | [t] => ptree_Expr t
-        | _ => NONE)
-   | _ => NONE
+        | _ => NONE
+    else NONE
 `;
 
-val ast = ``Nd (mkNT nEmult) [
-              Nd (mkNT nEmult) [
-                Nd (mkNT nEmult) [
-                  Nd (mkNT nEapp) [Nd (mkNT nEbase) [Lf (TK (IntT 3))]]
-                ];
-                Nd (mkNT nMultOps) [Lf (TK (SymbolT "*"))];
-                Nd (mkNT nEapp) [Nd (mkNT nEbase) [Lf (TK (IntT 4))]]
-              ];
-              Nd (mkNT nMultOps) [Lf (TK (SymbolT "*"))];
-              Nd (mkNT nEapp) [Nd (mkNT nEbase) [Lf (TK (IntT 5))]]
-            ]``
-
-val parse_result = EVAL ``ptree_Expr ^ast``;
-
-(* would use EVAL for this too, but it fails to turn (∃i. F) into F, and can't
-   be primed with that as a rewrite rule.
-
-   And if you do
-
-     val _ = computeLib.add_conv (existential, 1, REWR_CONV EXISTS_SIMP) computeLib.the_compset
-     val _ = computeLib.set_skip computeLib.the_compset ``COND`` (SOME 1)
-
-   you get a situation wherein EVAL isn't idempotent.  Yikes.
-*)
-
+val ptree_Expr_def = Define`
+  ptree_Expr ent (Lf _) = NONE ∧
+  ptree_Expr ent (Nd nt subs) =
+    if mkNT ent = nt then
+      if nt = mkNT nEbase then
+        case subs of
+            [lpart; pt; rpart] =>
+            if lpart = Lf (TK LparT) ∧ rpart = Lf (TK RparT) then
+              ptree_Expr nE pt
+            else NONE
+          | [single] =>
+              do
+                lf <- destLf single;
+                t <- destTOK lf;
+                i <- destIntT t ;
+                SOME (Ast_Lit (IntLit i))
+              od ++
+              ptree_V single ++
+              do cname <- ptree_ConstructorName single;
+                 SOME (Ast_Con cname [])
+              od
+          | _ => NONE
+      else if nt = mkNT nEapp then
+        case subs of
+            [t1; t2] => do
+                          a1 <- ptree_Expr nEapp t1;
+                          a2 <- ptree_Expr nEbase t2;
+                          SOME(Ast_App a1 a2)
+                        od
+          | [t] => ptree_Expr nEbase t
+          | _ => NONE
+      else if nt = mkNT nEmult then
+        case subs of
+          [t1; opt; t2] => do (* s will be *, /, div, or mod *)
+            a1 <- ptree_Expr nEmult t1;
+            a_op <- ptree_Op opt;
+            a2 <- ptree_Expr nEapp t2;
+            SOME(Ast_App (Ast_App (Ast_Var a_op) a1) a2)
+          od
+        | [t] => ptree_Expr nEapp t
+        | _ => NONE
+      else NONE
+    else NONE
+`;
 
 val _ = export_theory()

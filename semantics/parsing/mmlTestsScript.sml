@@ -144,14 +144,14 @@ val _ = parsetest ``nTypeDec`` ``ptree_TypeDec``
                      AlphaT "bar"; EqualsT; AlphaT "F"; BarT; AlphaT "G"]``
 
 (* expressions *)
-val _ = parsetest ``nEbase`` T "x" ``[AlphaT "x"]``
-val _ = parsetest ``nEapp`` T "f x y"
+val _ = parsetest ``nEbase`` ``ptree_Expr nEbase`` "x" ``[AlphaT "x"]``
+val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f x y"
                   ``[AlphaT "f"; AlphaT"x"; AlphaT"y"]``
-val _ = parsetest ``nEapp`` T "f true y"
+val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f true y"
                   ``[AlphaT "f"; AlphaT"true"; AlphaT"y"]``
-val _ = parsetest ``nEapp`` T "f true Constructor"
+val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f true Constructor"
                   ``[AlphaT "f"; AlphaT"true"; AlphaT"Constructor"]``
-val _ = parsetest ``nEmult`` T
+val _ = parsetest ``nEmult`` ``ptree_Expr nEmult``
                   "f x * 3"
                   ``[AlphaT "f"; AlphaT "x"; StarT; IntT 3]``
 val _ = parsetest ``nErel`` T "x <> true"
