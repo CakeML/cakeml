@@ -291,7 +291,7 @@ val mmlPEG_def = zDefine`
                seql [tokeq LparT; nt (mkNT nElist2) I; tokeq RparT]
                     (bindNT nEtuple));
               (mkNT nElist2,
-               seql [nt (mkNT nElist1) I; tokeq CommaT; nt (mkNT nE) I]
+               seql [nt (mkNT nE) I; tokeq CommaT; nt (mkNT nElist1) I]
                     (bindNT nElist2));
               (mkNT nElist1,
                peg_linfix (mkNT nElist1) (nt (mkNT nE) I) (tokeq CommaT));

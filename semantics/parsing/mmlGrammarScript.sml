@@ -103,7 +103,7 @@ val mmlG_def = mk_grammar_def ginfo
         |  "let" "val" V "=" E "in" E "end"
         |  "let" "fun" AndFDecls "in" E "end";
  Etuple ::= "(" Elist2 ")";
- Elist2 ::= Elist1 "," E;
+ Elist2 ::= E "," Elist1;
  Elist1 ::= E | Elist1 "," E;
  Eapp ::= Eapp Ebase | Ebase
         | ConstructorName Etuple;
