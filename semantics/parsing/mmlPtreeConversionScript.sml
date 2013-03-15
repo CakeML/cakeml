@@ -250,6 +250,16 @@ val ptree_V_def = Define`
     else NONE
 `;
 
+val updAst_Conname_def = Define`
+  updAst_Conname cname (Ast_Con _ args) = SOME (Ast_Con cname args) ∧
+  updAst_Conname _ _ = NONE
+`
+
+val backAppCon_def = Define`
+  backAppCon (Ast_Con x args) b = SOME (Ast_Con x (args ++ [b])) ∧
+  backAppCon _ _ = NONE
+`
+
 val ptree_Expr_def = Define`
   ptree_Expr ent (Lf _) = NONE ∧
   ptree_Expr ent (Nd nt subs) =
@@ -278,9 +288,43 @@ val ptree_Expr_def = Define`
                           a1 <- ptree_Expr nEapp t1;
                           a2 <- ptree_Expr nEbase t2;
                           SOME(Ast_App a1 a2)
+                        od ++
+                        do
+                          cname <- ptree_ConstructorName t1;
+                          cargs <- ptree_Expr nEtuple t2;
+                          updAst_Conname cname cargs
                         od
           | [t] => ptree_Expr nEbase t
           | _ => NONE
+      else if nt = mkNT nEtuple then
+        case subs of
+            [lpart; el2; rpart] =>
+            if lpart = Lf (TOK LparT) ∧ rpart = Lf (TOK RparT) then
+              ptree_Expr nElist2 el2
+            else NONE
+          | _ => NONE
+      else if nt = mkNT nElist2 then
+        case subs of
+            [el1; ct; e] =>
+            if ct = Lf (TOK CommaT) then
+              do
+                front <- ptree_Expr nElist1 el1;
+                back <- ptree_Expr nE e;
+                backAppCon front back
+              od
+            else NONE
+          | _ => NONE
+      else if nt = mkNT nElist1 then
+        case subs of
+            [sing] => do e <- ptree_Expr nE sing; SOME(Ast_Con "" [e]) od
+          | [el1;ct;e] =>
+            if ct = Lf (TOK CommaT) then
+              do
+                front <- ptree_Expr nElist1 el1 ;
+                back <- ptree_Expr nE e;
+                backAppCon front back
+              od
+            else NONE
       else if nt = mkNT nEmult then
         case subs of
           [t1; opt; t2] => do (* s will be *, /, div, or mod *)

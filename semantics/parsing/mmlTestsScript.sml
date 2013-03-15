@@ -151,6 +151,10 @@ val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f true y"
                   ``[AlphaT "f"; AlphaT"true"; AlphaT"y"]``
 val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f true Constructor"
                   ``[AlphaT "f"; AlphaT"true"; AlphaT"Constructor"]``
+val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "C (x)"
+                  ``[AlphaT "C"; LparT; AlphaT "x"; RparT]``
+val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "C(x, y)"
+                  ``[AlphaT "C"; LparT; AlphaT "x"; CommaT; AlphaT "y"; RparT]``
 val _ = parsetest ``nEmult`` ``ptree_Expr nEmult``
                   "f x * 3"
                   ``[AlphaT "f"; AlphaT "x"; StarT; IntT 3]``
