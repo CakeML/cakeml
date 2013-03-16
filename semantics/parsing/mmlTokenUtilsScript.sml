@@ -48,4 +48,9 @@ val destSymbolT_def = Define`
   (destSymbolT _ = NONE)
 `;
 
+val destIntT_def = Define`
+  (destIntT (IntT i) = SOME i) ∧
+  (destIntT _ = NONE)
+`;
+
 val _ = export_theory()

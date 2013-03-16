@@ -270,11 +270,15 @@ val peg_Ebase_def = Define`
 `;
 
 val peg_Eapp_def = Define`
-  peg_Eapp = seq (nt (mkNT nEbase) I)
-                 (rpt (nt (mkNT nEbase) I) FLAT)
-                 (λa b. [FOLDL (λa b. Nd (mkNT nEapp) [a; b])
-                               (Nd (mkNT nEapp) [HD a])
-                               b])
+  peg_Eapp =
+    choice (seql [nt (mkNT nConstructorName) I; nt (mkNT nEtuple) I]
+                 (bindNT nEapp))
+           (seq (nt (mkNT nEbase) I)
+                (rpt (nt (mkNT nEbase) I) FLAT)
+                (λa b. [FOLDL (λa b. Nd (mkNT nEapp) [a; b])
+                              (Nd (mkNT nEapp) [HD a])
+                              b]))
+           sumID
 `;
 
 val mmlPEG_def = zDefine`
@@ -283,6 +287,14 @@ val mmlPEG_def = zDefine`
     rules := FEMPTY |++
              [(mkNT nV, peg_V);
               (mkNT nEapp, peg_Eapp);
+              (mkNT nEtuple,
+               seql [tokeq LparT; nt (mkNT nElist2) I; tokeq RparT]
+                    (bindNT nEtuple));
+              (mkNT nElist2,
+               seql [nt (mkNT nE) I; tokeq CommaT; nt (mkNT nElist1) I]
+                    (bindNT nElist2));
+              (mkNT nElist1,
+               peg_linfix (mkNT nElist1) (nt (mkNT nE) I) (tokeq CommaT));
               (mkNT nMultOps, peg_multops);
               (mkNT nAddOps, peg_addops);
               (mkNT nRelOps, peg_relops);
@@ -308,6 +320,12 @@ val mmlPEG_def = zDefine`
               (mkNT nElogicOR,
                peg_linfix (mkNT nElogicOR) (nt (mkNT nElogicAND) I)
                           (tokeq OrelseT));
+              (mkNT nE,
+               choicel [seql [tokeq RaiseT; nt (mkNT nE) I] (bindNT nE);
+                        nt (mkNT nElogicOR) (bindNT nE);
+                        seql [tokeq IfT; nt (mkNT nE) I; tokeq ThenT;
+                              nt (mkNT nE) I; tokeq ElseT; nt(mkNT nE) I]
+                             (bindNT nE)]);
               (mkNT nType, peg_Type);
               (mkNT nDType, peg_DType);
               (mkNT nTyOp, peg_TyOp);

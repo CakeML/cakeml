@@ -4,21 +4,6 @@ open mmlPEGTheory mmlGrammarTheory mmlPtreeConversionTheory grammarTheory
 
 val _ = new_theory "mmlTests"
 
-val distinct_ths = let
-  val ntlist = TypeBase.constructors_of ``:MMLnonT``
-  fun recurse [] = []
-    | recurse (t::ts) = let
-      val eqns = map (fn t' => mk_eq(t,t')) ts
-      val ths0 = map (SIMP_CONV (srw_ss()) []) eqns
-      val ths1 = map (CONV_RULE (LAND_CONV (REWR_CONV EQ_SYM_EQ))) ths0
-    in
-      ths0 @ ths1 @ recurse ts
-    end
-in
-  recurse ntlist
-end
-
-val _ = computeLib.add_thms distinct_ths computeLib.the_compset
 
 val result_t = ``Result``
 fun parsetest nt sem s t = let
@@ -144,21 +129,31 @@ val _ = parsetest ``nTypeDec`` ``ptree_TypeDec``
                      AlphaT "bar"; EqualsT; AlphaT "F"; BarT; AlphaT "G"]``
 
 (* expressions *)
-val _ = parsetest ``nEbase`` T "x" ``[AlphaT "x"]``
-val _ = parsetest ``nEapp`` T "f x y"
+val _ = parsetest ``nEbase`` ``ptree_Expr nEbase`` "x" ``[AlphaT "x"]``
+val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f x y"
                   ``[AlphaT "f"; AlphaT"x"; AlphaT"y"]``
-val _ = parsetest ``nEapp`` T "f true y"
+val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f true y"
                   ``[AlphaT "f"; AlphaT"true"; AlphaT"y"]``
-val _ = parsetest ``nEapp`` T "f true Constructor"
+val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f true Constructor"
                   ``[AlphaT "f"; AlphaT"true"; AlphaT"Constructor"]``
-val _ = parsetest ``nEmult`` T
+val _ = parsetest ``nElist1`` ``ptree_Expr nElist1`` "x"
+                  ``[AlphaT "x"]``
+val _ = parsetest ``nElist1`` ``ptree_Expr nElist1`` "x,2"
+                  ``[AlphaT "x"; CommaT; IntT 2]``
+val _ = parsetest ``nElist2`` ``ptree_Expr nElist2`` "x,2"
+                  ``[AlphaT "x"; CommaT; IntT 2]``
+val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "C (x)"
+                  ``[AlphaT "C"; LparT; AlphaT "x"; RparT]``
+val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "C(x, y)"
+                  ``[AlphaT "C"; LparT; AlphaT "x"; CommaT; AlphaT "y"; RparT]``
+val _ = parsetest ``nEmult`` ``ptree_Expr nEmult``
                   "f x * 3"
                   ``[AlphaT "f"; AlphaT "x"; StarT; IntT 3]``
-val _ = parsetest ``nErel`` T "x <> true"
+val _ = parsetest ``nErel`` ``ptree_Expr nErel`` "x <> true"
                   ``[AlphaT "x"; SymbolT "<>"; AlphaT "true"]``
-val _ = parsetest ``nEcomp`` T "x <> true"
+val _ = parsetest ``nEcomp`` ``ptree_Expr nEcomp`` "x <> true"
                   ``[AlphaT "x"; SymbolT "<>"; AlphaT "true"]``
-val _ = parsetest ``nEcomp`` T "f o g z"
+val _ = parsetest ``nEcomp`` ``ptree_Expr nEcomp`` "f o g z"
                   ``[AlphaT "f"; AlphaT "o"; AlphaT "g"; AlphaT"z"]``
 val _ = parsetest ``nEtyped`` T "map f Nil : 'a list"
                   ``[AlphaT "map"; AlphaT "f"; AlphaT"Nil"; ColonT;
@@ -167,6 +162,13 @@ val _ = parsetest ``nElogicOR`` T "3 < x andalso x < 10 orelse p andalso q"
                   ``[IntT 3; SymbolT "<"; AlphaT "x"; AndalsoT;
                      AlphaT "x"; SymbolT "<"; IntT 10; OrelseT;
                      AlphaT"p"; AndalsoT; AlphaT "q"]``
+
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "if x < 10 then f x else C(x,3,g x)"
+                  ``[IfT; AlphaT "x"; SymbolT "<"; IntT 10;
+                     ThenT; AlphaT "f"; AlphaT "x";
+                     ElseT; AlphaT "C";
+                     LparT; AlphaT "x";CommaT;IntT 3;CommaT;
+                     AlphaT "g"; AlphaT "x"; RparT]``
 
 
 
