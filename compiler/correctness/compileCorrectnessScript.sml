@@ -3804,7 +3804,106 @@ val compile_val = store_thm("compile_val",
     qexists_tac`REVERSE args`>>fs[EVERY2_EVERY]) >>
   strip_tac >- rw[] >>
   strip_tac >- (
-    cheat) >>
+    rpt gen_tac >> strip_tac >>
+    rpt gen_tac >> strip_tac >>
+    conj_asm1_tac >- (
+      rw[compile_def,LET_THM,pushret_def] >>
+      qspecl_then[`cd`,`cenv`,`TCNonTail F`,`sz`,`cs`,`e1`](Q.X_CHOOSE_THEN`cx`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
+      qmatch_assum_abbrev_tac`cs0.out = cx ++ cs.out` >>
+      qspecl_then[`cd`,`cenv`,`TCNonTail F`,`sz+1`,`cs0`,`e2`](Q.X_CHOOSE_THEN`cy`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
+      fs[Once SWAP_REVERSE] >>
+      first_x_assum (qspecl_then[`sm`,`cls`,`cs`,`cd`,`cenv`,`sz`,`bs`,`bce`,`bcr`,`bc0`]mp_tac) >>
+      simp[Abbr`cs0`,compile_def,Once SWAP_REVERSE] >>
+      simp[code_for_push_def] >>
+      disch_then (qx_choosel_then [`bvs`,`rfs`,`sms`] strip_assume_tac) >>
+      fs[EVERY2_EVERY] >>
+      `∃bv0 bv1. bvs = [bv0;bv1]` by (
+        Cases_on `bvs` >> fs[] >>
+        Cases_on `t` >> fs[LENGTH_NIL] ) >> fs[] >> rw[] >>
+      fsrw_tac[DNF_ss][] >>
+      qmatch_assum_abbrev_tac `bc_next^* bs bs0` >>
+      Cases_on`v1`>>fs[]>>
+      map_every qexists_tac[`rfs |+ (sms ' n, bv1)`,`sms`,`Block unit_tag []`] >>
+      Cases_on`n ∈ FDOM s'`>> fs[] >>
+      conj_tac >- (
+        match_mp_tac (SIMP_RULE std_ss [transitive_def] RTC_TRANSITIVE) >>
+        qexists_tac`bs0` >>
+        rw[RTC_eq_NRC] >>
+        qexists_tac`SUC(SUC 0)` >>
+        rw[NRC] >>
+        `bc_fetch bs0 = SOME Update` by (
+          match_mp_tac bc_fetch_next_addr >>
+          qexists_tac`bc0 ++ REVERSE cx ++ REVERSE cy` >>
+          simp[Abbr`bs0`] ) >>
+        simp[Once bc_eval1_thm] >>
+        simp[bc_eval1_def,Abbr`bs0`] >>
+        qpat_assum`Cv_bv X Y bv0`mp_tac >>
+        simp[Once Cv_bv_cases] >>
+        disch_then strip_assume_tac >>
+        simp[] >>
+        conj_tac >- (
+          fs[Cenv_bs_def,s_refs_def,fmap_rel_def,f_o_f_DEF,FLOOKUP_DEF] >>
+          fs[EXTENSION] >> metis_tac[] ) >>
+        fs[bump_pc_def] >>
+        qpat_assum`X = SOME Update`kall_tac >>
+        qmatch_abbrev_tac`bc_next bs0 bs1` >>
+        `bc_fetch bs0 = SOME (Stack (Cons unit_tag 0))` by (
+          match_mp_tac bc_fetch_next_addr >>
+          qexists_tac`bc0 ++ REVERSE cx ++ REVERSE cy ++ [Update]` >>
+          simp[Abbr`bs0`,SUM_APPEND,FILTER_APPEND] ) >>
+        simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def] >>
+        simp[bump_pc_def,Abbr`bs0`,Abbr`bs1`,bc_state_component_equality] >>
+        simp[SUM_APPEND,FILTER_APPEND] >>
+        fs[FLOOKUP_DEF] ) >>
+      qpat_assum`X = v`(assume_tac o SYM) >>
+      qpat_assum`X = s'`(assume_tac o SYM) >>
+      simp[Once Cv_bv_cases] >>
+      conj_tac >- (
+        match_mp_tac Cenv_bs_imp_incsz >>
+        Q.PAT_ABBREV_TAC`rfs2 = rfs |+ X` >>
+        qexists_tac`bs with <| code := bce; refs := rfs2|>` >>
+        simp[bc_state_component_equality] >>
+        match_mp_tac Cenv_bs_change_store >>
+        map_every qexists_tac[`sm`,`s`,`bs with code := bce`] >>
+        `FDOM (s' |+ (n,v2)) = FDOM s'` by (
+          simp[EXTENSION] >> PROVE_TAC[]) >>
+        simp[bc_state_component_equality] >>
+        simp[s_refs_def,Abbr`rfs2`] >>
+        reverse conj_tac >- (
+          simp[IN_FRANGE] >>
+          fs[good_cls_def,SUBSET_DEF,UNCURRY,FEVERY_DEF] >>
+          rw[] >> PROVE_TAC[] ) >>
+        simp[fmap_rel_def,f_o_f_DEF] >>
+        conj_asm1_tac >- (
+          simp[EXTENSION] >>
+          fs[good_cls_def,FEVERY_DEF,UNCURRY,IN_FRANGE,Cenv_bs_def,s_refs_def,fmap_rel_def] >>
+          fs[EXTENSION,f_o_f_DEF] >>
+          metis_tac[] ) >>
+        simp[f_o_f_DEF] >>
+        simp[FAPPLY_FUPDATE_THM] >>
+        gen_tac >> strip_tac >>
+        Cases_on`x=n` >> simp[] >>
+        `sms ' x ≠ sms ' n` by (
+          fs[INJ_DEF] >> PROVE_TAC[] ) >>
+        simp[] >>
+        fs[Cenv_bs_def,s_refs_def,fmap_rel_def] >>
+        first_x_assum(qspec_then`x`mp_tac) >>
+        simp[f_o_f_DEF] ) >>
+      simp[EXTENSION] >>
+      `sms ' n ∈ FRANGE sms` by (simp[IN_FRANGE] >> PROVE_TAC[]) >>
+      simp[] >>
+      conj_tac >- PROVE_TAC[] >>
+      fs[good_cls_def,FEVERY_DEF,UNCURRY,FAPPLY_FUPDATE_THM] >>
+      rw[] >> PROVE_TAC[]) >>
+    fs[Once compile_def,LET_THM,pushret_def] >>
+    qspecl_then[`cd`,`cenv`,`sz`,`cs`,`[e1;e2]`]strip_assume_tac(CONJUNCT2(CONJUNCT2 compile_append_out)) >>
+    simp[Once SWAP_REVERSE] >> rw[] >>
+    fs[Once SWAP_REVERSE] >>
+    match_mp_tac code_for_push_return >>
+    qmatch_assum_abbrev_tac`code_for_push sm cls bs bce bc0 ccode s s'' c ccenv rvs renv rsz` >>
+    map_every qexists_tac[`bc0`,`ccode`,`ccenv`,`renv`,`rsz`] >>
+    simp[Abbr`ccode`] >>
+    qexists_tac`REVERSE args`>>fs[EVERY2_EVERY]) >>
   strip_tac >- rw[] >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
