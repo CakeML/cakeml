@@ -143,6 +143,21 @@ val _ = overload_on ("NN", ``\nt. NT (mkNT nt)``)
 val _ = overload_on ("TK", ``TOK : token -> (token,MMLnonT)symbol``)
 val _ = type_abbrev("mlptree", ``:(token, MMLnonT) parsetree``)
 
+val nt_distinct_ths = let
+  val ntlist = TypeBase.constructors_of ``:MMLnonT``
+  fun recurse [] = []
+    | recurse (t::ts) = let
+      val eqns = map (fn t' => mk_eq(t,t')) ts
+      val ths0 = map (SIMP_CONV (srw_ss()) []) eqns
+      val ths1 = map (CONV_RULE (LAND_CONV (REWR_CONV EQ_SYM_EQ))) ths0
+    in
+      ths0 @ ths1 @ recurse ts
+    end
+in
+  save_thm("nt_distinct_ths",  LIST_CONJ (recurse ntlist))
+end
+
+val _ = computeLib.add_persistent_funs ["nt_distinct_ths"]
 
 val ast = ``Nd (mkNT nEmult) [
               Nd (mkNT nEmult) [
