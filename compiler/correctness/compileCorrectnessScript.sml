@@ -16,11 +16,12 @@ val exp_pred_def = tDefine "exp_pred"`
   (exp_pred (If e1 e2 e3) = exp_pred e1 ∧ exp_pred e2 ∧ exp_pred e3) ∧
   (exp_pred (Mat e pes) = exp_pred e ∧ EVERY exp_pred (MAP SND pes)) ∧
   (exp_pred (Let _ _ _ e1 e2) = exp_pred e1 ∧ exp_pred e2) ∧
-  (exp_pred (Letrec _ _ _) = F)`
+  (exp_pred (Letrec _ defs e) = EVERY exp_pred (MAP (SND o SND o SND o SND) defs) ∧ exp_pred e)`
   (WF_REL_TAC `measure (exp_size ARB)` >>
-   srw_tac[ARITH_ss][exp8_size_thm,exp5_size_thm,SUM_MAP_exp7_size_thm] >>
+   srw_tac[ARITH_ss][exp8_size_thm,exp5_size_thm,SUM_MAP_exp7_size_thm,
+                     exp1_size_thm,SUM_MAP_exp2_size_thm,SUM_MAP_exp3_size_thm,SUM_MAP_exp4_size_thm,SUM_MAP_exp6_size_thm] >>
    Q.ISPEC_THEN`exp_size ARB`imp_res_tac SUM_MAP_MEM_bound >>
-   fsrw_tac[ARITH_ss][])
+   fsrw_tac[ARITH_ss][MAP_MAP_o,combinTheory.o_DEF])
 val _ = export_rewrites["exp_pred_def"]
 
 val Cexp_pred_def = tDefine "Cexp_pred"`
@@ -33,7 +34,7 @@ val Cexp_pred_def = tDefine "Cexp_pred"`
   (Cexp_pred (CTagEq e _) = Cexp_pred e) ∧
   (Cexp_pred (CProj e _) = Cexp_pred e) ∧
   (Cexp_pred (CLet _ e0 e) = Cexp_pred e0 ∧ Cexp_pred e) ∧
-  (Cexp_pred (CLetrec _ _ _) = F) ∧
+  (Cexp_pred (CLetrec _ defs e) = EVERY Cexp_pred (MAP OUTL (FILTER ISL (MAP SND defs))) ∧ Cexp_pred e) ∧
   (Cexp_pred (CFun _ (INL e)) = Cexp_pred e) ∧
   (Cexp_pred (CFun _ _) = T) ∧
   (Cexp_pred (CCall e es) = Cexp_pred e ∧ EVERY Cexp_pred es) ∧
@@ -42,9 +43,17 @@ val Cexp_pred_def = tDefine "Cexp_pred"`
   (Cexp_pred (CUpd e1 e2) = Cexp_pred e1 ∧ Cexp_pred e2) ∧
   (Cexp_pred (CIf e1 e2 e3) = Cexp_pred e1 ∧ Cexp_pred e2 ∧ Cexp_pred e3)`
   (WF_REL_TAC `measure Cexp_size` >>
-   srw_tac[ARITH_ss][Cexp4_size_thm] >>
+   srw_tac[ARITH_ss][Cexp4_size_thm,Cexp1_size_thm,SUM_MAP_Cexp2_size_thm] >>
    Q.ISPEC_THEN`Cexp_size`imp_res_tac SUM_MAP_MEM_bound >>
-   fsrw_tac[ARITH_ss][])
+   fsrw_tac[ARITH_ss][MAP_MAP_o,combinTheory.o_DEF,Cexp3_size_thm,MEM_MAP,MEM_FILTER] >>
+   rw[] >>
+   qmatch_assum_rename_tac`MEM d defs`[] >>
+   Q.PAT_ABBREV_TAC`ls = SUM (MAP f defs)` >>
+   Q.PAT_ABBREV_TAC`f = X:(def -> num)` >>
+   Q.ISPECL_THEN[`f`,`d`,`defs`]mp_tac SUM_MAP_MEM_bound >>
+   simp[Abbr`f`] >>
+   Cases_on`SND d`>>fs[basicSizeTheory.sum_size_def] >>
+   srw_tac[ARITH_ss][])
 val _ = export_rewrites["Cexp_pred_def"]
 val Cexp_pred_ind = theorem"Cexp_pred_ind"
 
@@ -69,6 +78,9 @@ val exp_pred_Cexp_pred = store_thm("exp_pred_Cexp_pred",
   fs[EVERY_MEM,FORALL_PROD] >- (
     match_mp_tac Cexp_pred_remove_mat_var >>
     fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD,MEM_MAP,pes_to_Cpes_MAP,LET_THM,UNCURRY] >>
+    metis_tac[] )
+  >- (
+    fsrw_tac[DNF_ss][defs_to_Cdefs_MAP,EVERY_MEM,MEM_MAP,MEM_FILTER,FORALL_PROD] >>
     metis_tac[] ) >>
   Cases_on `pat_to_Cpat m [] p` >> fs[])
 
