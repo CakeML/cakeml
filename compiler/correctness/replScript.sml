@@ -7,6 +7,7 @@ val good_contab_def = Define`
   good_contab (m,w,n) =
     fmap_linv m w`
 
+(*
 val repl_exp_val = store_thm("repl_exp_val",
   ``∀cenv s env exp s' v sm cls rs rs' bc0 bc bs bs'.
       exp_pred exp ∧
@@ -158,6 +159,7 @@ val repl_exp_val = store_thm("repl_exp_val",
     match_mp_tac (MP_CANON Cv_bv_ov) >>
     metis_tac[FST] ) >>
   metis_tac[RTC_TRANSITIVE,transitive_def])
+*)
 
 (* must read an expression followed by all space until the start of another
    expression (or end of string) *)

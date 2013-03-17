@@ -25,7 +25,7 @@ val _ = Hol_datatype `
   | CTagEq of Cexp => num
   | CProj of Cexp => num
   | CLet of string => Cexp => Cexp
-  | CLetfun of bool => string list => (string list # (Cexp + num)) list => Cexp
+  | CLetrec of string list => (string list # (Cexp + num)) list => Cexp
   | CFun of string list => (Cexp + num)
   | CCall of Cexp => Cexp list
   | CPrim1 of Cprim1 => Cexp
