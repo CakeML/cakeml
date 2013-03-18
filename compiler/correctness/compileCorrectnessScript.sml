@@ -1753,6 +1753,44 @@ val Cenv_bs_FUPDATE = store_thm("Cenv_bs_FUPDATE",
     pop_assum (qspec_then`bv`mp_tac) >> rw[]) >>
   metis_tac[])
 
+(* TODO: move *)
+val FUPDATE_LIST_SNOC = store_thm("FUPDATE_LIST_SNOC",
+  ``!xs x fm. fm |++ SNOC x xs = (fm |++ xs) |+ x``,
+  Induct >> rw[FUPDATE_LIST_THM])
+
+val Cenv_bs_FUPDATE_LIST = store_thm("Cenv_bs_FUPDATE_LIST",
+  ``∀vs c sm cls s env cenv sz bs ns bs bvs bs' env' cenv' sz'.
+  Cenv_bs c sm cls s env cenv sz bs ∧
+  (bs' = bs with stack := REVERSE bvs ++ bs.stack) ∧
+  EVERY2 (Cv_bv (mk_pp sm c bs' cls)) vs bvs ∧
+  (LENGTH ns = LENGTH vs) ∧
+  (env' = env |++ ZIP(ns,vs)) ∧
+  (cenv' = cenv |++ ZIP(ns,GENLIST(λm. CTLet(sz+m+1))(LENGTH ns))) ∧
+  (sz' = sz + LENGTH vs)
+  ⇒
+  Cenv_bs c sm cls s env' cenv' sz' bs'``,
+  ho_match_mp_tac SNOC_INDUCT >>
+  conj_tac >- (
+    simp[LENGTH_NIL,FUPDATE_LIST_THM] ) >>
+  rw[GENLIST] >>
+  `∃n ns'. ns = SNOC n ns'` by metis_tac[SNOC_CASES,LENGTH_NIL,SUC_NOT] >>
+  `LENGTH ns' = LENGTH vs` by fs[ADD1] >>
+  simp[ZIP_SNOC,FUPDATE_LIST_SNOC,ADD1] >>
+  REWRITE_TAC[ADD_ASSOC] >>
+  match_mp_tac Cenv_bs_FUPDATE >>
+  fs[EVERY2_EVERY] >>
+  `∃bv bv'. bvs = SNOC bv bv'` by metis_tac[SNOC_CASES,LENGTH_NIL,SUC_NOT] >>
+  qpat_assum`EVERY X Y`mp_tac >>
+  `LENGTH vs = LENGTH bv'` by fs[ADD1] >>
+  simp[ZIP_SNOC,EVERY_SNOC] >> strip_tac >>
+  map_every qexists_tac[`bs with stack := REVERSE bv' ++ bs.stack`,`bv`] >>
+  simp[bc_state_component_equality] >>
+  Q.PAT_ABBREV_TAC`f = X:(num -> ctbind)` >>
+  `f = λm. CTLet (sz + m + 1)` by srw_tac[ARITH_ss][Abbr`f`,FUN_EQ_THM] >>
+  pop_assum SUBST1_TAC >>
+  first_x_assum (match_mp_tac o MP_CANON) >>
+  rw[] )
+
 val Cenv_bs_DOMSUB = store_thm("Cenv_bs_DOMSUB",
   ``∀c sm cls s env k renv rsz bs.
     Cenv_bs c sm cls s env renv rsz bs ⇒
@@ -3311,14 +3349,55 @@ val compile_val = store_thm("compile_val",
       Cases_on`find_index n ns 0`>>fs[]>>
       imp_res_tac find_index_LESS_LENGTH >>
       fsrw_tac[ARITH_ss][] ) >>
-
-        fs[find_index_MEM]
-
-      rw[LET_RAND,LET_RATOR] >>
-      asm_simp_tac(srw_ss())[]
     simp[] >>
     map_every qunabbrev_tac[`P`,`Q`,`R`] >>
-    disch_then(Q.X_CHOOSE_THEN`rs`strip_assume_tac)
+    disch_then(Q.X_CHOOSE_THEN`rs`strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+    first_x_assum(qspecl_then[`sm`,`cls`,`cs`,`cd`,
+      `cenv |++ ZIP(ns,GENLIST(λm. CTLet (sz+m+1))(LENGTH ns))`,`sz+(LENGTH ns)`,
+      `bs1`,`bce`,`bcr`,`bc0++cc`]mp_tac) >>
+    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by (
+      map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+      simp[] >>
+      conj_tac >- (
+        simp[FDOM_FUPDATE_LIST,MAP_ZIP] >>
+        simp[Once DISJOINT_SYM] >>
+        fs[ALL_DISTINCT_APPEND] >>
+        simp[DISJOINT_DEF,EXTENSION] >>
+        metis_tac[] ) >>
+      conj_tac >- fs[ALL_DISTINCT_APPEND] >>
+      conj_tac >- (
+        simp[FOLDL_FUPDATE_LIST] >>
+        asm_simp_tac(srw_ss()++DNF_ss)[SUBSET_DEF] >>
+        REWRITE_TAC[Once CONJ_COMM] >>
+        REWRITE_TAC[GSYM AND_IMP_INTRO] >>
+        gen_tac >>
+        ho_match_mp_tac IN_FRANGE_FUPDATE_LIST_suff >>
+        fsrw_tac[DNF_ss][MEM_MAP,SUBSET_DEF] >>
+        metis_tac[] ) >>
+      conj_tac >- (
+        fs[good_cls_def,Abbr`bs1`,FEVERY_DEF,UNCURRY,FDOM_FUPDATE_LIST] >>
+        rw[] >>
+        Q.PAT_ABBREV_TAC`bv = (bs.refs |++ ls) ' x` >>
+        qsuff_tac`bv = bs.refs ' x` >- metis_tac[] >>
+        qunabbrev_tac`bv` >>
+        match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM >>
+        simp[MAP_ZIP] >>
+        metis_tac[] ) >>
+      conj_tac >- simp[Abbr`bs1`] >>
+      conj_tac >- simp[Abbr`bs1`] >>
+      conj_tac >- (
+        simp[FDOM_FUPDATE_LIST] >>
+        fs[FOLDL_UNION_BIGUNION_paired] >>
+        fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_ZIP,MEM_EL] >>
+        metis_tac[] ) >>
+      conj_tac >- (
+        simp[FOLDL_FUPDATE_LIST] >>
+        match_mp_tac Cenv_bs_FUPDATE_LIST >>
+
+    conj_tac >- (
+      compile_bindings_thm
 
     set_trace"goalstack print goal at top"0
     ...) >>
