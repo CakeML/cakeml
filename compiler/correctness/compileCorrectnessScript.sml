@@ -3464,7 +3464,38 @@ val compile_val = store_thm("compile_val",
             first_x_assum(qspec_then`(xs,INR l)`mp_tac) >>
             simp[MEM_EL] >> metis_tac[] ) >>
           simp[] >>
-          bind_fv_thm
+          qspecl_then[`ns`,`xs`,`LENGTH xs`,`n`,`free_vars c (c ' l)`,`(FEMPTY,0,[])`]mp_tac bind_fv_thm >>
+          simp[] >>
+          disch_then kall_tac >>
+          disch_then kall_tac >>
+          Q.PAT_ABBREV_TAC`fvl:string list = SET_TO_LIST X` >>
+          Q.PAT_ABBREV_TAC`envs = FILTER X fvl` >>
+          qx_gen_tac`i` >> strip_tac >>
+          Q.PAT_ABBREV_TAC`fv = EL i envs`
+          `fv ∈ free_vars c (c ' l) ∧ fv ∉ set xs ∧ find_index fv ns 0 ≠ SOME n` by (
+            `MEM fv envs` by (rw[MEM_EL] >> metis_tac[]) >>
+            pop_assum mp_tac >>
+            simp[Abbr`fv`,Abbr`envs`,Abbr`fvl`,MEM_FILTER] ) >>
+          `fv ∈ free_vars (c \\ l) (c ' l)` by metis_tac[free_vars_DOMSUB,SUBSET_DEF,IN_UNION] >>
+          Cases_on`find_index fv ns 0` >> simp[] >- (
+            simp[EL_REVERSE,EL_MAP,PRE_SUB1] >>
+            fsrw_tac[DNF_ss][FOLDL_UNION_BIGUNION_paired,SUBSET_DEF,FORALL_PROD] >>
+            `¬MEM fv ns` by metis_tac[find_index_MEM] >>
+            first_x_assum(qspecl_then[`fv`,`xs`,`cb`]mp_tac) >>
+            simp[FLOOKUP_DEF] >>
+            `MEM (xs,INR l) defs` by metis_tac[MEM_EL] >>
+            simp[]>>strip_tac >>
+            fs[Cenv_bs_def,fmap_rel_def,FDOM_DRESTRICT,EXTENSION] >>
+            conj_asm1_tac >- PROVE_TAC[] >>
+            first_x_assum(qspec_then`fv`mp_tac) >>
+            simp[] >>
+            BasicProvers.CASE_TAC >>
+            simp[DRESTRICT_DEF] ) >>
+          imp_res_tac find_index_LESS_LENGTH >> fs[] >>
+          simp[EL_REVERSE,PRE_SUB1,EL_MAP] >>
+
+          good_cls_def
+          need cls to change when sm changes
 
     conj_tac >- (
       compile_bindings_thm
