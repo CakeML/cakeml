@@ -404,14 +404,13 @@ val bc_fetch_with_refs = store_thm("bc_fetch_with_refs",
   ``bc_fetch (s with refs := st) = bc_fetch s``,
   rw[bc_fetch_def])
 
-(* TODO: allow cls to change here *)
 val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
   ``∀pp.
     (∀v bv. Cv_bv pp v bv ⇒
       ∀rd c l2a pp' rd'.
         (pp = (rd,c,l2a)) ∧
         (pp' = (rd',c,l2a)) ∧
-        (rd.sm ⊑ rd'.sm) ∧ (rd.cls = rd'.cls) ∧
+        (rd.sm ⊑ rd'.sm) ∧ (rd.cls ⊑ rd'.cls) ∧
         (∀p. p ∈ FDOM rd.cls ∧ p ∉ FRANGE rd.sm ⇒ p ∉ FRANGE rd'.sm)
         ⇒
         Cv_bv pp' v bv) ∧
@@ -419,7 +418,7 @@ val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
       ∀rd c l2a pp' rd'.
         (pp = (rd,c,l2a)) ∧
         (pp' = (rd',c,l2a)) ∧
-        (rd.sm ⊑ rd'.sm) ∧ (rd.cls = rd'.cls) ∧
+        (rd.sm ⊑ rd'.sm) ∧ (rd.cls ⊑ rd'.cls) ∧
         (∀p. p ∈ FDOM rd.cls ∧ p ∉ FRANGE rd.sm ⇒ p ∉ FRANGE rd'.sm)
         ⇒
         benv_bvs pp' benv fvs xs env defs ns i)``,
@@ -438,7 +437,7 @@ val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
   gen_tac >> strip_tac >>
   rpt BasicProvers.VAR_EQ_TAC >>
   Q.PAT_ABBREV_TAC`evs = FILTER X (SET_TO_LIST fvs)` >>
-  fs[] >> metis_tac[])
+  fs[] >> metis_tac[FLOOKUP_SUBMAP])
 
 (* TODO: move *)
 
@@ -1877,15 +1876,15 @@ val Cenv_bs_change_store = store_thm("Cenv_bs_change_store",
     match_mp_tac (MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_SUBMAP)))) >>
     simp[] >>
     qexists_tac`rd` >>
-    fs[s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY]
+    fs[s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY] >>
     fs[SUBMAP_DEF,SUBSET_DEF,DRESTRICT_DEF,IN_FRANGE] >>
     metis_tac[]) >>
   fs[] >> rw[] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   match_mp_tac (MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_SUBMAP)))) >>
   simp[] >>
-  qexists_tac`sm` >>
-  fs[SUBMAP_DEF,SUBSET_DEF,DRESTRICT_DEF])
+  qexists_tac`rd` >>
+  fs[SUBMAP_DEF,SUBSET_DEF,DRESTRICT_DEF,s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY])
 
 val good_code_env_def = Define`
   good_code_env c d code =
@@ -2040,42 +2039,39 @@ val option_case_NONE_F = store_thm("option_case_NONE_F",
   Cases_on`X`>>rw[])
 
 val code_for_push_def = Define`
-  code_for_push sm cls bs bce bc0 code s s' c env vs renv rsz =
-    ∃bvs rf sm'.
+  code_for_push rd bs bce bc0 code s s' c env vs renv rsz =
+    ∃bvs rf rd'.
     let bs' = bs with <| stack := (REVERSE bvs)++bs.stack; pc := next_addr bs.inst_length (bc0 ++ code); refs := rf |> in
     bc_next^* bs bs' ∧
-    EVERY2 (Cv_bv (mk_pp sm' c (bs' with code := bce) cls)) vs bvs ∧
-    Cenv_bs c sm' cls s' env renv (rsz+(LENGTH vs)) (bs' with code := bce) ∧
-    DRESTRICT bs.refs (COMPL (FRANGE sm)) ⊑ DRESTRICT rf (COMPL (FRANGE sm')) ∧
-    sm ⊑ sm' ∧ good_sm sm' ∧ (FDOM sm' = FDOM s') ∧
-    good_cls c sm' s' (bs' with code := bce) cls`
+    EVERY2 (Cv_bv (mk_pp rd' c (bs' with code := bce))) vs bvs ∧
+    Cenv_bs c rd' s' env renv (rsz+(LENGTH vs)) (bs' with code := bce) ∧
+    DRESTRICT bs.refs (COMPL (FRANGE rd.sm)) ⊑ DRESTRICT rf (COMPL (FRANGE rd'.sm)) ∧
+    rd.sm ⊑ rd'.sm ∧ rd.cls ⊑ rd'.cls`
 
 val code_for_return_def = Define`
-  code_for_return sm cls bs bce st ret v s s' c =
-    ∃bv rf sm'.
+  code_for_return rd bs bce st ret v s s' c =
+    ∃bv rf rd'.
     let bs' = bs with <| stack := bv::st; pc := ret; refs := rf |> in
     bc_next^* bs bs' ∧
-    Cv_bv (mk_pp sm' c (bs' with code := bce) cls) v bv ∧
-    s_refs c sm' cls s' (bs' with code := bce) ∧
-    DRESTRICT bs.refs (COMPL (FRANGE sm)) ⊑ DRESTRICT rf (COMPL (FRANGE sm')) ∧
-    sm ⊑ sm' ∧ good_sm sm' ∧ (FDOM sm' = FDOM s') ∧
-    good_cls c sm' s' (bs' with code := bce) cls`
+    Cv_bv (mk_pp rd' c (bs' with code := bce)) v bv ∧
+    s_refs c rd' s' (bs' with code := bce) ∧
+    DRESTRICT bs.refs (COMPL (FRANGE rd.sm)) ⊑ DRESTRICT rf (COMPL (FRANGE rd'.sm)) ∧
+    rd.sm ⊑ rd'.sm ∧ rd.cls ⊑ rd'.cls`
 
 val code_for_push_return = store_thm("code_for_push_return",
-  ``∀sm cls bs bce bc0 code s s' c env v renv rsz bc1 args args1 bs' blvs benv st cl cl1 ret.
-    code_for_push sm cls bs bce bc0 code s s' c env [v] renv rsz ∧
+  ``∀rd bs bce bc0 code s s' c env v renv rsz bc1 args args1 bs' blvs benv st cl cl1 ret.
+    code_for_push rd bs bce bc0 code s s' c env [v] renv rsz ∧
     (bs.code = bc0 ++ code ++ retbc (LENGTH args) (LENGTH blvs) ++ bc1) ∧
     (bs.stack = blvs++benv::CodePtr ret::args++cl::st)
     ⇒
-    code_for_return sm cls bs bce st ret v s s' c``,
+    code_for_return rd bs bce st ret v s s' c``,
     rw[code_for_push_def,code_for_return_def,LET_THM] >>
     qmatch_assum_rename_tac `Cv_bv pp v bv`["pp"] >>
-    map_every qexists_tac [`bv`,`rf`] >>
-    fs[Cenv_bs_def,s_refs_def,good_cls_def] >>
+    map_every qexists_tac [`bv`,`rf`,`rd'`] >>
+    fs[Cenv_bs_def,s_refs_def,good_rd_def] >>
     qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
     qspecl_then[`bs0`,`bs1`,`retbc (LENGTH args) (LENGTH blvs) ++ bc1`]mp_tac (SIMP_RULE(srw_ss())[]RTC_bc_next_append_code) >>
     rw[] >>
-    qexists_tac`sm'`>>simp[] >>
     match_mp_tac (SIMP_RULE std_ss [transitive_def] RTC_TRANSITIVE) >>
     first_assum (exists_tac o rand o concl) >> fs[Abbr`bs0`] >>
     qpat_assum`bs.code = X`(assume_tac o SYM)>>fs[]>>
@@ -2424,16 +2420,15 @@ val FDOM_bind_fv = store_thm("FDOM_bind_fv",
   metis_tac[])
 
 val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
-  ``∀c sm cls s env ns xs az i fvs bs
+  ``∀c rd s env ns xs az i fvs bs
      cenv defs e l vs a benv bve ret bvs st pp.
     (env = DRESTRICT (extend_rec_env cenv cenv ns defs xs vs) fvs) ∧
     (bs.stack = benv::CodePtr ret::(REVERSE bvs)++(Block closure_tag [CodePtr a;benv])::st) ∧
-    (pp = mk_pp sm c bs cls) ∧
+    (pp = mk_pp rd c bs) ∧
     (benv = Block 0 bve) ∧
     (fvs = free_vars c e) ∧
-    good_cls c sm s bs cls ∧
     benv_bvs pp bve fvs xs cenv defs ns i ∧
-    s_refs c sm cls s bs ∧
+    s_refs c rd s bs ∧
     ALL_DISTINCT ns ∧
     ALL_DISTINCT xs ∧
     (ns ≠ [] ⇒ i < LENGTH ns ∧ (LENGTH ns = LENGTH defs) ∧ (EL i defs = (xs,INR l))) ∧
@@ -2444,7 +2439,7 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
     EVERY2 (Cv_bv pp) vs bvs ∧
     fvs ⊆ FDOM cenv ∪ set ns ∪ set xs ∧
     (az = LENGTH vs)
-    ⇒ Cenv_bs c sm cls s env (FST (ITSET (bind_fv ns xs az i) fvs (FEMPTY,0,[]))) 0 bs``,
+    ⇒ Cenv_bs c rd s env (FST (ITSET (bind_fv ns xs az i) fvs (FEMPTY,0,[]))) 0 bs``,
   rw[Cenv_bs_def] >>
   simp[fmap_rel_def] >>
   conj_asm1_tac >- (
@@ -2572,8 +2567,10 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
     first_x_assum(qspec_then`n`mp_tac) >>
     simp[] >>
     disch_then(qx_choosel_then[`p`,`jenv`]strip_assume_tac) >>
-    qpat_assum`good_cls c sm s bs cls`(mp_tac o SIMP_RULE(srw_ss())[good_cls_def,FEVERY_DEF]) >>
-    disch_then(qspec_then`p`mp_tac) >>
+    fs[s_refs_def] >>
+    qpat_assum`good_rd c rd bs`(mp_tac o SIMP_RULE(srw_ss())[good_rd_def,FEVERY_DEF]) >>
+    strip_tac >>
+    first_x_assum(qspec_then`p`mp_tac) >>
     fs[FLOOKUP_DEF] >>
     simp[DRESTRICT_DEF,extend_rec_env_def,FOLDL_FUPDATE_LIST,FOLDL2_FUPDATE_LIST,MAP2_MAP,MAP_ZIP,FST_pair,SND_pair] >>
     strip_tac >>
@@ -2710,20 +2707,18 @@ val SWAP_REVERSE_SYM = store_thm("SWAP_REVERSE_SYM",
 
 val compile_val = store_thm("compile_val",
   ``(∀c d s env exp res. Cevaluate c d s env exp res ⇒
-      ∀sm cls s' v cs cd cenv sz bs bce bcr bc0.
+      ∀rd s' v cs cd cenv sz bs bce bcr bc0.
         Cexp_pred exp ∧
         DISJOINT (set (binders exp)) (FDOM cenv) ∧ ALL_DISTINCT (binders exp) ∧
         BIGUNION (IMAGE all_Clocs (FRANGE env)) ⊆ FDOM s ∧
         BIGUNION (IMAGE all_Clocs (FRANGE s)) ⊆ FDOM s ∧
         (free_bods exp = []) ∧
         (res = (s', Rval v)) ∧
-        good_sm sm ∧ (FDOM sm = FDOM s) ∧
-        good_cls c sm s (bs with code := bce) cls ∧
         good_ecs d cd.ecs ∧ free_labs exp ⊆ FDOM cd.ecs ∧
         (bce ++ bcr = bs.code) ∧ good_code_env c d bce ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         (free_vars c exp ⊆ FDOM cenv) ∧
-        Cenv_bs c sm cls s (DRESTRICT env (FDOM cenv)) cenv sz (bs with code := bce) ∧
+        Cenv_bs c rd s (DRESTRICT env (FDOM cenv)) cenv sz (bs with code := bce) ∧
         ALL_DISTINCT (FILTER is_Label bc0) ∧
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0)
         ⇒
@@ -2731,7 +2726,7 @@ val compile_val = store_thm("compile_val",
         ((compile cd cenv (TCNonTail F) sz cs exp).out = REVERSE code ++ cs.out) ∧
         (bs.code = bc0 ++ code ++ bc1)
        ⇒
-       code_for_push sm cls bs bce bc0 code s s' c (DRESTRICT env (FDOM cenv)) [v] cenv sz) ∧
+       code_for_push rd bs bce bc0 code s s' c (DRESTRICT env (FDOM cenv)) [v] cenv sz) ∧
       (∀code bc1 az lz.
         ((compile cd cenv (TCTail az lz) sz cs exp).out = REVERSE code ++ cs.out) ∧
         (bs.code = bc0 ++ code ++ bc1)
@@ -2741,32 +2736,30 @@ val compile_val = store_thm("compile_val",
         DISJOINT (set (binders exp)) (set (MAP FST klvs)) ∧
         ALL_DISTINCT (MAP FST klvs) ∧
         (env = extend_rec_env env0 env0 ns defs xs vs |++ klvs) ∧
-        EVERY2 (Cv_bv (mk_pp sm c (bs with code := bce) cls)) vs args ∧
-        EVERY2 (Cv_bv (mk_pp sm c (bs with code := bce) cls)) (MAP SND klvs) blvs ∧
+        EVERY2 (Cv_bv (mk_pp rd c (bs with code := bce))) vs args ∧
+        EVERY2 (Cv_bv (mk_pp rd c (bs with code := bce))) (MAP SND klvs) blvs ∧
         (bs.stack = blvs++benv::CodePtr ret::(REVERSE args)++cl::st)
         ⇒
-        code_for_return sm cls bs bce st ret v s s' c)) ∧
+        code_for_return rd bs bce st ret v s s' c)) ∧
     (∀c d s env exps ress. Cevaluate_list c d s env exps ress ⇒
-      ∀sm cls s' vs cs cd cenv sz bs bce bcr bc0 code bc1.
+      ∀rd s' vs cs cd cenv sz bs bce bcr bc0 code bc1.
         EVERY Cexp_pred exps ∧
         DISJOINT (set (FLAT (MAP binders exps))) (FDOM cenv) ∧ ALL_DISTINCT (FLAT (MAP binders exps)) ∧
         BIGUNION (IMAGE all_Clocs (FRANGE env)) ⊆ FDOM s ∧
         BIGUNION (IMAGE all_Clocs (FRANGE s)) ⊆ FDOM s ∧
         (FLAT (MAP free_bods exps) = []) ∧
         (ress = (s', Rval vs)) ∧
-        good_sm sm ∧ (FDOM sm = FDOM s) ∧
-        good_cls c sm s (bs with code := bce) cls ∧
         good_ecs d cd.ecs ∧ free_labs_list exps ⊆ FDOM cd.ecs ∧
         (bce ++ bcr = bs.code) ∧ good_code_env c d bce ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         (BIGUNION (IMAGE (free_vars c) (set exps)) ⊆ FDOM cenv) ∧
-        Cenv_bs c sm cls s (DRESTRICT env (FDOM cenv)) cenv sz (bs with code := bce) ∧
+        Cenv_bs c rd s (DRESTRICT env (FDOM cenv)) cenv sz (bs with code := bce) ∧
         ALL_DISTINCT (FILTER is_Label bc0) ∧
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0)
         ⇒
       (((compile_nts cd cenv sz cs exps).out = REVERSE code ++ cs.out) ⇒
-        code_for_push sm cls bs bce bc0 code s s' c (DRESTRICT env (FDOM cenv)) vs cenv sz))``,
+        code_for_push rd bs bce bc0 code s s' c (DRESTRICT env (FDOM cenv)) vs cenv sz))``,
   ho_match_mp_tac Cevaluate_strongind >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
