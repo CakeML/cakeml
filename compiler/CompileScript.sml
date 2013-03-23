@@ -43,6 +43,10 @@ open BytecodeTheory MiniMLTheory
 (*val return : forall 'a 'b. 'a -> 'b -> 'a * 'b*)
 (*val bind : forall 'a 'b 'c. ('a -> 'b * 'a) -> ('b -> 'a -> 'c * 'a) -> 'a -> 'c * 'a*)
 (*val ubind : forall 'a 'b 'c. ('a -> 'b * 'a) -> ('a -> 'c * 'a) -> 'a -> 'c * 'a*)
+(*val image : forall 'a 'b. ('a -> 'b) -> set 'a -> set 'b*)
+(*val pre : num -> num*)
+(*val count : num -> set num*)
+(*val the : forall 'a 'b. 'a -> 'b*)
 
 (* TODO: Misc. helpers *)
 
@@ -54,10 +58,17 @@ open BytecodeTheory MiniMLTheory
 
 val _ = Defn.save_defn find_index_defn;
 
-val _ = Define `
- (fresh_var s =(
-  num_to_hex_string (($LEAST (\ n .( ~  ((num_to_hex_string n) IN s)))))))`;
+ val el_check_defn = Hol_defn "el_check" `
+ (el_check n ls = if n <( LENGTH ls) then( SOME (((EL  n)  ls))) else NONE)`;
 
+val _ = Defn.save_defn el_check_defn;
+
+ val sorted_list_of_set_defn = Hol_defn "sorted_list_of_set" `
+ (sorted_list_of_set s =
+  let n =( $LEAST (\ n .( ~  (n IN s)))) in
+  n ::( sorted_list_of_set (s DIFF {n})))`;
+
+val _ = Defn.save_defn sorted_list_of_set_defn;
 
  val num_fold_defn = Hol_defn "num_fold" `
  (num_fold f a n = if n = 0 then a else((( num_fold f) ((f a))) (n - 1)))`;
@@ -111,25 +122,13 @@ val _ = Defn.save_defn num_to_bool_defn;
 (* Intermediate language for MiniML compiler *)
 
 
- val Cpat_vars_defn = Hol_defn "Cpat_vars" `
-
-(Cpat_vars (CPvar n) = {n})
-/\
-(Cpat_vars (CPlit _) = {})
-/\
-(Cpat_vars (CPcon _ ps) =((( FOLDL (\ s p . s UNION( Cpat_vars p))) {}) ps))
-/\
-(Cpat_vars (CPref p) =( Cpat_vars p))`;
-
-val _ = Defn.save_defn Cpat_vars_defn;
-
  val free_vars_defn = Hol_defn "free_vars" `
 
 (free_vars _ (CDecl xs) =( LIST_TO_SET xs))
 /\
 (free_vars _ (CRaise _) = {})
 /\
-(free_vars c (CHandle e1 x e2) =(( free_vars c) e1) UNION (((free_vars c) e2) DIFF {x}))
+(free_vars c (CHandle e1 e2) =(( free_vars c) e1) UNION (((IMAGE PRE) (((free_vars c) e2) DIFF {0}))))
 /\
 (free_vars _ (CVar n) = {n})
 /\
@@ -142,16 +141,16 @@ val _ = Defn.save_defn Cpat_vars_defn;
 /\
 (free_vars c (CProj e _) =(( free_vars c) e))
 /\
-(free_vars c (CLet x e eb) =((
-  free_vars c) e) UNION (((free_vars c) eb) DIFF {x}))
+(free_vars c (CLet e eb) =((
+  free_vars c) e) UNION (((IMAGE PRE) (((free_vars c) eb) DIFF {0}))))
 /\
-(free_vars c (CLetrec ns defs e) =(((
-  FOLDL (\ s (vs,b) .
-    s UNION (((cbod_fvs c) b) DIFF ((LIST_TO_SET ns) UNION(
-                             LIST_TO_SET vs)))))
-  (((free_vars c) e) DIFF( LIST_TO_SET ns))) defs))
+(free_vars c (CLetrec defs e) =
+  let n =( LENGTH defs) in(((
+  FOLDL (\ s (k,b) .
+    s UNION (((IMAGE (\ m . m - (k+n))) (((cbod_fvs c) b) DIFF ((count (k+n))))))))
+  (((IMAGE (\ m . m - n)) (((free_vars c) e) DIFF( count n))))) defs))
 /\
-(free_vars c (CFun xs b) =(( cbod_fvs c) b) DIFF ((LIST_TO_SET xs)))
+(free_vars c (CFun k b) =(( IMAGE (\ m . m - k)) (((cbod_fvs c) b) DIFF ((count k)))))
 /\
 (free_vars c (CCall e es) =(((
   FOLDL (\ s e . s UNION(( free_vars c) e)))
@@ -182,7 +181,7 @@ val _ = Defn.save_defn free_vars_defn;
 /\
 (no_closures (CConv _ vs) =(( EVERY no_closures) vs))
 /\
-(no_closures (CRecClos _ _ _ _) = F)`;
+(no_closures (CRecClos _ _ _) = F)`;
 
 val _ = Defn.save_defn no_closures_defn;
 
@@ -245,14 +244,10 @@ val _ = Defn.save_defn CevalUpd_defn;
 val _ = Defn.save_defn CevalPrim1_defn;
 
 val _ = Define `
- (extend_rec_env cenv env rs defs ns vs =((((
-  FOLDL2  (\ en n v .(( FUPDATE  en) ( n, v)))) 
-    ((((FOLDL
-        (\ en n .(( FUPDATE  en) ( n,
-          (((((CRecClos cenv) rs) defs) n))))))
-        env)
-        rs))) 
-    ns)  vs))`;
+ (extend_rec_env cenv env defs vs =((
+  APPEND (((APPEND ((REVERSE vs)))
+    (((GENLIST (((CRecClos cenv) defs))) ((LENGTH defs)))))))
+  env))`;
 
 
 val _ = Hol_reln `
@@ -262,28 +257,28 @@ T
 Cevaluate c d s env ((CRaise error)) (s,( Rerr ((Rraise error)))))
 
 /\
-(! c d s1 env e1 x e2 s2 v.((((((
+(! c d s1 env e1 e2 s2 v.((((((
 Cevaluate c) d) s1) env) e1) (s2,( Rval v)))
 ==>
-Cevaluate c d s1 env ((((CHandle e1) x) e2)) (s2,( Rval v)))
+Cevaluate c d s1 env (((CHandle e1) e2)) (s2,( Rval v)))
 /\
-(! c d s1 env e1 x e2 s2 n res.((((((
+(! c d s1 env e1 e2 s2 n res.((((((
 Cevaluate c) d) s1) env) e1) (s2,( Rerr ((Rraise ((Int_error n))))))) /\((((((
-Cevaluate c) d) s2) (((FUPDATE  env) ( x, ((CLitv ((IntLit n)))))))) e2) res)
+Cevaluate c) d) s2) (((CLitv ((IntLit n))))::env)) e2) res)
 ==>
-Cevaluate c d s1 env ((((CHandle e1) x) e2)) res)
+Cevaluate c d s1 env (((CHandle e1) e2)) res)
 /\
-(! c d s1 env e1 x e2 s2 err.((((((
+(! c d s1 env e1 e2 s2 err.((((((
 Cevaluate c) d) s1) env) e1) (s2,( Rerr err))) /\
 (! n.( ~  (err =( Rraise ((Int_error n))))))
 ==>
-Cevaluate c d s1 env ((((CHandle e1) x) e2)) (s2,( Rerr err)))
+Cevaluate c d s1 env (((CHandle e1) e2)) (s2,( Rerr err)))
 
 /\
 (! c d s env n.
- n IN( FDOM  env)
+n <( LENGTH env)
 ==>
-Cevaluate c d s env ((CVar n)) (s,( Rval (((FAPPLY  env)  n)))))
+Cevaluate c d s env ((CVar n)) (s,( Rval (((EL  n)  env)))))
 
 /\
 (! c d s env l.
@@ -326,53 +321,45 @@ Cevaluate c) d) s) env) e) (s',( Rerr err)))
 Cevaluate c d s env (((CProj e) n)) (s',( Rerr err)))
 
 /\
-(! c d s env n e b s' v r.((((((
+(! c d s env e b s' v r.((((((
 Cevaluate c) d) s) env) e) (s',( Rval v))) /\((((((
-Cevaluate c) d) s') (((FUPDATE  env) ( n, v)))) b) r)
+Cevaluate c) d) s') (v::env)) b) r)
 ==>
-Cevaluate c d s env ((((CLet n) e) b)) r)
+Cevaluate c d s env (((CLet e) b)) r)
 /\
-(! c d s env n e b s' err.((((((
+(! c d s env e b s' err.((((((
 Cevaluate c) d) s) env) e) (s',( Rerr err)))
 ==>
-Cevaluate c d s env ((((CLet n) e) b)) (s',( Rerr err)))
+Cevaluate c d s env (((CLet e) b)) (s',( Rerr err)))
 
 /\
-(! c d s env ns defs b r.
-((LENGTH ns) =( LENGTH defs)) /\(
-ALL_DISTINCT ns) /\
-(! xs l k. k <( LENGTH defs) /\ (((EL  k)  defs) = (xs,(INR l))) ==>
-   l IN( FDOM  c) /\ (((FLOOKUP d) l) =( SOME (((free_vars c) (((FAPPLY  c)  l))),xs,ns,k)))) /\((((((
+(! c d s env defs b r.
+(! k l i. i <( LENGTH defs) /\ (((EL  i)  defs) = (k,(INR l))) ==>
+   l IN( FDOM  c) /\ (((FLOOKUP d) l) =( SOME (((free_vars c) (((FAPPLY  c)  l))),k,(LENGTH defs),i)))) /\((((((
 Cevaluate c) d) s)
-  ((((FOLDL
-     (\ env' n .((
-       FUPDATE  env') ( n, (((((CRecClos env) ns) defs) n))))))
-     env) ns)))
+  (((APPEND (((GENLIST (((CRecClos env) defs))) ((LENGTH defs))))) env)))
   b) r)
 ==>
-Cevaluate c d s env ((((CLetrec ns) defs) b)) r)
+Cevaluate c d s env (((CLetrec defs) b)) r)
 
 /\
-(! c d s env xs cb.
-(! l. (cb =( INR l)) ==>  l IN( FDOM  c) /\ (((FLOOKUP d) l) =( SOME (((cbod_fvs c) cb),xs,[],0))))
+(! c d s env k cb.
+(! l. (cb =( INR l)) ==>  l IN( FDOM  c) /\ (((FLOOKUP d) l) =( SOME (((cbod_fvs c) cb),k,0,1))))
 ==>
-Cevaluate c d s env (((CFun xs) cb)) (s,( Rval (((((CRecClos env) []) [(xs,cb)]) "")))))
+Cevaluate c d s env (((CFun k) cb)) (s,( Rval ((((CRecClos env) [(k,cb)]) 1)))))
 
 /\
-(! c d s env e es s' env' ns defs n i xs cb b s'' vs r fvs.((((((
-Cevaluate c) d) s) env) e) (s',( Rval (((((CRecClos env') ns) defs) n))))) /\
-(if ns = [] then (defs = [(xs,cb)]) /\ (i = 0) else
- ((LENGTH ns) =( LENGTH defs)) /\(
- ALL_DISTINCT ns) /\
- ((((find_index n) ns) 0) =( SOME i))) /\
-(((EL  i)  defs) = (xs,cb)) /\((((((
+(! c d s env e es s' env' ns defs n i k cb b s'' vs r fvs.((((((
+Cevaluate c) d) s) env) e) (s',( Rval ((((CRecClos env') defs) n))))) /\
+(ns =( LENGTH defs)) /\
+(if n < ns then (i = n) /\ (((EL  i)  defs) = (k,cb))
+ else (i = 1) /\ (defs = [(k,cb)])) /\((((((
 Cevaluate_list c) d) s') env) es) (s'',( Rval vs))) /\
 (fvs =(( cbod_fvs c) cb)) /\
-((b,(fvs,xs,ns,i)) = (case cb of INL b => (b,(fvs,xs,ns,i))
-                                 | INR l => (((FAPPLY  c)  l),((FAPPLY  d)  l)) )) /\
-((LENGTH xs) =( LENGTH vs)) /\(
-ALL_DISTINCT xs) /\((((((
-Cevaluate c) d) s'') (((((((extend_rec_env env') env') ns) defs) xs) vs))) b) r)
+((b,(fvs,k,ns,i)) = (case cb of INL b => (b,(fvs,k,ns,i))
+                               | INR l => (((FAPPLY  c)  l),((FAPPLY  d)  l)) )) /\
+(k =( LENGTH vs)) /\((((((
+Cevaluate c) d) s'') (((((extend_rec_env env') env') defs) vs))) b) r)
 ==>
 Cevaluate c d s env (((CCall e) es)) r)
 /\
@@ -469,54 +456,235 @@ EVERY2 ((syneq c))) vs1) vs2)
 ==>
 syneq c (((CConv cn) vs1)) (((CConv cn) vs2)))
 /\
-(! c env1 env2 ns defs d.((
-EVERY
-  (\ (xs,b) .
-    (! v. v IN (((cbod_fvs c) b) DIFF ((LIST_TO_SET ns) UNION(
-                                     LIST_TO_SET xs)))
-      ==>(( ((OPTREL ((syneq c)))) (((FLOOKUP env1) v))) (((FLOOKUP env2) v))))))
-  defs)
+(! c env1 env2 defs1 defs2 d.
+let n = if d <( LENGTH defs1) then( LENGTH defs1) else 0 in(((
+EVERY2
+  (\ (k,b1) (k2,b2) . (k2 = k) /\(((((( syneq_cb c) k) env1) env2) b1) b2)))
+  defs1) defs2)
 ==>
-syneq c (((((CRecClos env1) ns) defs) d)) (((((CRecClos env2) ns) defs) d)))
+syneq c ((((CRecClos env1) defs1) d)) ((((CRecClos env2) defs2) d)))
 /\
 (! c n.
 T
 ==>
-syneq c ((CLoc n)) ((CLoc n)))`;
+syneq c ((CLoc n)) ((CLoc n)))
+/\
+(! c k env1 env2 xs1 xs2.(((
+EVERY2 (\ v1 v2 .(((((( syneq_exp c) k) env1) env2) ((CVar v1))) ((CVar v2))))) xs1) xs2)
+==>
+syneq_exp c k env1 env2 ((CDecl xs1)) ((CDecl xs2)))
+/\
+(! c k env1 env2 err.
+T
+==>
+syneq_exp c k env1 env2 ((CRaise err)) ((CRaise err)))
+/\
+(! c k env1 env2 e1 b1 e2 b2.((((((
+syneq_exp c) k) env1) env2) e1) e2) /\((((((
+syneq_exp c) (k+1)) env1) env2) b1) b2)
+==>
+syneq_exp c k env1 env2 (((CHandle e1) b1)) (((CHandle e2) b2)))
+/\
+(! c k env1 env2 v1 v2.
+v1 < k /\ v2 < k /\ (v1 = v2) \/
+k <= v1 /\ k <= v2 /\((( OPTREL ((syneq c))) (((el_check (v1 - k)) env1))) (((el_check (v2 - k)) env2)))
+==>
+syneq_exp c k env1 env2 ((CVar v1)) ((CVar v2)))
+/\
+(! c k env1 env2 lit.
+T
+==>
+syneq_exp c k env1 env2 ((CLit lit)) ((CLit lit)))
+/\
+(! c k env1 env2 cn es1 es2.(((
+EVERY2 (((((syneq_exp c) k) env1) env2))) es1) es2)
+==>
+syneq_exp c k env1 env2 (((CCon cn) es1)) (((CCon cn) es2)))
+/\
+(! c k env1 env2 n e1 e2.((((((
+syneq_exp c) k) env1) env2) e1) e2)
+==>
+syneq_exp c k env1 env2 (((CTagEq e1) n)) (((CTagEq e2) n)))
+/\
+(! c k env1 env2 n e1 e2.((((((
+syneq_exp c) k) env1) env2) e1) e2)
+==>
+syneq_exp c k env1 env2 (((CProj e1) n)) (((CProj e2) n)))
+/\
+(! c k env1 env2 e1 b1 e2 b2.((((((
+syneq_exp c) k) env1) env2) e1) e2) /\((((((
+syneq_exp c) (k+1)) env1) env2) b1) b2)
+==>
+syneq_exp c k env1 env2 (((CLet e1) b1)) (((CLet e2) b2)))
+/\
+(! c k env1 env2 defs1 defs2 b1 b2.(((
+EVERY2
+  (\ (k1,b1) (k2,b2) .
+    (k1 = k2) /\(((((( syneq_cb c) (k+k1+(LENGTH defs1))) env1) env2) b1) b2)))
+  defs1) defs2) /\((((((
+syneq_exp c) (k+((LENGTH defs1)))) env1) env2) b1) b2)
+==>
+syneq_exp c k env1 env2 (((CLetrec defs1) b1)) (((CLetrec defs2) b2)))
+/\
+(! c k env1 env2 k1 b1 b2.((((((
+syneq_cb c) (k+k1)) env1) env2) b1) b2)
+==>
+syneq_exp c k env1 env2 (((CFun k1) b1)) (((CFun k1) b2)))
+/\
+(! c k env1 env2 e1 e2 es1 es2.((((((
+syneq_exp c) k) env1) env2) e1) e2) /\(((
+EVERY2 (((((syneq_exp c) k) env1) env2))) es1) es2)
+==>
+syneq_exp c k env1 env2 (((CCall e1) es1)) (((CCall e2) es2)))
+/\
+(! c k env1 env2 p1 e1 e2.((((((
+syneq_exp c) k) env1) env2) e1) e2)
+==>
+syneq_exp c k env1 env2 (((CPrim1 p1) e1)) (((CPrim1 p1) e2)))
+/\
+(! c k env1 env2 p2 e11 e21 e12 e22.((((((
+syneq_exp c) k) env1) env2) e11) e12) /\((((((
+syneq_exp c) k) env1) env2) e21) e22)
+==>
+syneq_exp c k env1 env2 ((((CPrim2 p2) e11) e21)) ((((CPrim2 p2) e12) e22)))
+/\
+(! c k env1 env2 e11 e21 e12 e22.((((((
+syneq_exp c) k) env1) env2) e11) e12) /\((((((
+syneq_exp c) k) env1) env2) e21) e22)
+==>
+syneq_exp c k env1 env2 (((CUpd e11) e21)) (((CUpd e12) e22)))
+/\
+(! c k env1 env2 e11 e21 e31 e12 e22 e32.((((((
+syneq_exp c) k) env1) env2) e11) e12) /\((((((
+syneq_exp c) k) env1) env2) e21) e22) /\((((((
+syneq_exp c) k) env1) env2) e31) e32)
+==>
+syneq_exp c k env1 env2 ((((CIf e11) e21) e31)) ((((CIf e12) e22) e32)))
+/\
+(! c k env1 env2 e1 e2.((((((
+syneq_exp c) k) env1) env2) e1) e2)
+==>
+syneq_cb c k env1 env2 ((INL e1)) ((INL e2)))
+/\
+(! c k env1 env2 l e1 e2.
+(((FLOOKUP c) l) =( SOME e1)) /\((((((
+syneq_exp c) k) env1) env2) e1) e2)
+==>
+syneq_cb c k env1 env2 ((INR l)) ((INL e2)))
+/\
+(! c k env1 env2 e1 l e2.
+(((FLOOKUP c) l) =( SOME e2)) /\((((((
+syneq_exp c) k) env1) env2) e1) e2)
+==>
+syneq_cb c k env1 env2 ((INL e1)) ((INR l)))
+/\
+(! c k env1 env2 l1 e1 l2 e2.
+(((FLOOKUP c) l1) =( SOME e1)) /\
+(((FLOOKUP c) l2) =( SOME e2)) /\((((((
+syneq_exp c) k) env1) env2) e1) e2)
+==>
+syneq_cb c k env1 env2 ((INR l1)) ((INR l2)))`;
 
 (* Compiler *)
 
 (* source to intermediate expressions *)
 
+ val shift_defn = Hol_defn "shift" `
+
+(shift k n (CDecl vs) =( CDecl (((MAP (\ v . if v < k then v else v + n)) vs))))
+/\
+(shift k n (CRaise err) =( CRaise err))
+/\
+(shift k n (CHandle e1 e2) =(( CHandle ((((shift k) n) e1))) ((((shift (k+1)) n) e2))))
+/\
+(shift k n (CVar v) =( CVar (if v < k then v else v + n)))
+/\
+(shift k n (CLit l) =( CLit l))
+/\
+(shift k n (CCon cn es) =(( CCon cn) (((MAP (((shift k) n))) es))))
+/\
+(shift k n (CTagEq e m) =(( CTagEq ((((shift k) n) e))) m))
+/\
+(shift k n (CProj e m) =(( CProj ((((shift k) n) e))) m))
+/\
+(shift k n (CLet e b) =(( CLet ((((shift k) n) e))) ((((shift (k+1)) n) b))))
+/\
+(shift k n (CLetrec defs b) =
+  let ns =( LENGTH defs) in
+  let defs =(( MAP (\ (xs,cb) .
+    (xs, (case cb of   INR l =>( INR l) | INL b =>( INL ((((shift (k+ns+xs)) n) b))) ))))
+    defs) in((
+  CLetrec defs) ((((shift (k+ns)) n) b))))
+/\
+(shift k n (CFun xs cb) =(( CFun xs)
+  ((case cb of   INR l =>( INR l) | INL b =>( INL ((((shift (k+xs)) n) b))) ))))
+/\
+(shift k n (CCall e es) =(( CCall ((((shift k) n) e))) (((MAP (((shift k) n))) es))))
+/\
+(shift k n (CPrim1 p1 e) =(( CPrim1 p1) ((((shift k) n) e))))
+/\
+(shift k n (CPrim2 p2 e1 e2) =((( CPrim2 p2) ((((shift k) n) e1))) ((((shift k) n) e2))))
+/\
+(shift k n (CUpd e1 e2) =(( CUpd ((((shift k) n) e1))) ((((shift k) n) e2))))
+/\
+(shift k n (CIf e1 e2 e3) =((( CIf ((((shift k) n) e1))) ((((shift k) n) e2))) ((((shift k) n) e3))))`;
+
+val _ = Defn.save_defn shift_defn;
+
 (* remove pattern-matching using continuations *)
+
+val _ = Hol_datatype `
+ exp_to_Cexp_state = <| bvars : string list ; cnmap : (string, num) fmap |>`;
+
+
+ val cbv_defn = Hol_defn "cbv" `
+ (cbv m v =  m with<| bvars := v::m.bvars |>)`;
+
+val _ = Defn.save_defn cbv_defn;
 
  val pat_to_Cpat_defn = Hol_defn "pat_to_Cpat" `
 
-(pat_to_Cpat m pvs (Pvar vn _) = (vn::pvs,( CPvar vn)))
+(pat_to_Cpat m (Pvar vn _) = (m with<| bvars := vn::m.bvars|>, CPvar))
 /\
-(pat_to_Cpat m pvs (Plit l) = (pvs,( CPlit l)))
+(pat_to_Cpat m (Plit l) = (m,( CPlit l)))
 /\
-(pat_to_Cpat m pvs (Pcon cn ps) =
-  let (pvs,Cps) =((( pats_to_Cpats m) pvs) ps) in
-  (pvs,((CPcon (((FAPPLY  m)  cn))) Cps)))
+(pat_to_Cpat m (Pcon cn ps) =
+  let (m,Cps) =(( pats_to_Cpats m) ps) in
+  (m,((CPcon (((FAPPLY  m.cnmap)  cn))) Cps)))
 /\
-(pat_to_Cpat m pvs (Pref p) =
-  let (pvs,Cp) =((( pat_to_Cpat m) pvs) p) in
-  (pvs,(CPref Cp)))
+(pat_to_Cpat m (Pref p) =
+  let (m,Cp) =(( pat_to_Cpat m) p) in
+  (m,(CPref Cp)))
 /\
-(pats_to_Cpats m pvs [] = (pvs,[]))
+(pats_to_Cpats m [] = (m,[]))
 /\
-(pats_to_Cpats m pvs (p::ps) =
-  let (pvs,Cps) =((( pats_to_Cpats m) pvs) ps) in
-  let (pvs,Cp) =((( pat_to_Cpat m) pvs) p) in
-  (pvs,Cp::Cps))`;
+(pats_to_Cpats m (p::ps) =
+  let (m,Cps) =(( pats_to_Cpats m) ps) in
+  let (m,Cp) =(( pat_to_Cpat m) p) in
+  (m,Cp::Cps))`;
 
 val _ = Defn.save_defn pat_to_Cpat_defn;
 
+ val Cpat_vars_defn = Hol_defn "Cpat_vars" `
+
+(Cpat_vars CPvar = 1)
+/\
+(Cpat_vars (CPlit _) = 0)
+/\
+(Cpat_vars (CPcon _ ps) =( Cpat_vars_list ps))
+/\
+(Cpat_vars (CPref p) =( Cpat_vars p))
+/\
+(Cpat_vars_list [] = 0)
+/\
+(Cpat_vars_list (p::ps) = ((Cpat_vars p))+((Cpat_vars_list ps)))`;
+
+val _ = Defn.save_defn Cpat_vars_defn;
+
  val remove_mat_vp_defn = Hol_defn "remove_mat_vp" `
 
-(remove_mat_vp fk sk v (CPvar pv) =(((
-  CLet pv) ((CVar v))) sk))
+(remove_mat_vp fk sk v CPvar =((
+  CLet ((CVar v))) sk))
 /\
 (remove_mat_vp fk sk v (CPlit l) =(((
   CIf ((((CPrim2 CEq) ((CVar v))) ((CLit l)))))
@@ -527,17 +695,15 @@ val _ = Defn.save_defn pat_to_Cpat_defn;
     ((((((remove_mat_con fk) sk) v) 0) ps)))
     (((CCall ((CVar fk))) []))))
 /\
-(remove_mat_vp fk sk v (CPref p) =
-  let v' =( fresh_var ({v;fk} UNION (((free_vars FEMPTY) sk)) UNION ((Cpat_vars p)))) in(((
-  CLet v') (((CPrim1 CDer) ((CVar v)))))
-    (((((remove_mat_vp fk) sk) v') p))))
+(remove_mat_vp fk sk v (CPref p) =((
+  CLet (((CPrim1 CDer) ((CVar v)))))
+    (((((remove_mat_vp (fk+1)) ((((shift ((Cpat_vars p))) 1) sk))) 0) p))))
 /\
 (remove_mat_con fk sk v n [] = sk)
 /\
-(remove_mat_con fk sk v n (p::ps) =
-  let v' =( fresh_var ({v;fk} UNION (((free_vars FEMPTY) sk)) UNION ((Cpat_vars p)))) in(((
-  CLet v') (((CProj ((CVar v))) n)))
-    (((((remove_mat_vp fk) ((((((remove_mat_con fk) sk) v) (n+1)) ps))) v') p))))`;
+(remove_mat_con fk sk v n (p::ps) =((
+  CLet (((CProj ((CVar v))) n)))
+    (((((remove_mat_vp (fk+1)) ((((((remove_mat_con (fk+1)) ((((shift ((Cpat_vars_list ps))) 1) sk))) (v+1)) (n+1)) ps))) 0) p))))`;
 
 val _ = Defn.save_defn remove_mat_vp_defn;
 
@@ -545,34 +711,28 @@ val _ = Defn.save_defn remove_mat_vp_defn;
 
 (remove_mat_var v [] =( CRaise Bind_error))
 /\
-(remove_mat_var v ((p,sk)::pes) =
-  let fk =( fresh_var ({v} UNION (((free_vars FEMPTY) sk)) UNION ((Cpat_vars p)))) in(((
-  CLet fk) (((CFun []) ((INL (((remove_mat_var v) pes)))))))
-    (((((remove_mat_vp fk) sk) v) p))))`;
+(remove_mat_var v ((p,sk)::pes) =((
+  CLet (((CFun 0) ((INL (((remove_mat_var v) pes)))))))
+    (((((remove_mat_vp 0) ((((shift ((Cpat_vars p))) 1) sk))) (v+1)) p))))`;
 
 val _ = Defn.save_defn remove_mat_var_defn;
 
-val _ = Define `
- Cpes_vars =((
-  FOLDL (\ s (p,e) . s UNION( Cpat_vars p) UNION(( free_vars FEMPTY) e))) {})`;
-
-
  val exp_to_Cexp_defn = Hol_defn "exp_to_Cexp" `
 
-(exp_to_Cexp m (Handle e x b) =(((
-  CHandle (((exp_to_Cexp m) e))) x) (((exp_to_Cexp m) b))))
+(exp_to_Cexp m (Handle e x b) =((
+  CHandle (((exp_to_Cexp m) e))) (((exp_to_Cexp (((cbv m) x))) b))))
 /\
 (exp_to_Cexp m (Raise err) =( CRaise err))
 /\
 (exp_to_Cexp m (Lit l) =( CLit l))
 /\
 (exp_to_Cexp m (Con cn es) =((
-  CCon (((FAPPLY  m)  cn))) (((exps_to_Cexps m) es))))
+  CCon (((FAPPLY  m.cnmap)  cn))) (((exps_to_Cexps m) es))))
 /\
-(exp_to_Cexp m (Var vn _) =( CVar vn))
+(exp_to_Cexp m (Var vn _) =( CVar ((THE ((((find_index vn) m.bvars) 0))))))
 /\
 (exp_to_Cexp m (Fun vn _ e) =((
-  CFun [vn]) ((INL (((exp_to_Cexp m) e))))))
+  CFun 1) ((INL (((exp_to_Cexp (((cbv m) vn))) e))))))
 /\
 (exp_to_Cexp m (App (Opn opn) e1 e2) =
   let Ce1 =(( exp_to_Cexp m) e1) in
@@ -592,14 +752,12 @@ val _ = Define `
   (case opb of
     Lt =>((( CPrim2 CLt) Ce1) Ce2)
   | Leq =>((( CPrim2 CLt) ((((CPrim2 CSub) Ce1) Ce2))) ((CLit ((IntLit i1)))))
-  | opb =>
-      let x1 =( fresh_var (((free_vars FEMPTY) Ce2))) in
-      let x2 =( fresh_var {x1}) in(((
-      CLet x1) Ce1) ((((
-        CLet x2) Ce2) (
+  | opb =>((
+      CLet Ce1) (((
+        CLet Ce2) (
           (case opb of
-            Gt =>(((  CPrim2 CLt) ((CVar x2))) ((CVar x1)))
-          | Geq =>((( CPrim2 CLt) ((((CPrim2 CSub) ((CVar x2))) ((CVar x1))))) ((CLit ((IntLit i1)))))
+            Gt =>(((  CPrim2 CLt) ((CVar 0))) ((CVar 1)))
+          | Geq =>((( CPrim2 CLt) ((((CPrim2 CSub) ((CVar 1))) ((CVar 0))))) ((CLit ((IntLit i1)))))
           )))))
   ))
 /\
@@ -640,32 +798,31 @@ val _ = Define `
   CIf Ce1) Ce2) Ce3))
 /\
 (exp_to_Cexp m (Mat e pes) =
+  let Ce =(( exp_to_Cexp m) e) in
   let Cpes =(( pes_to_Cpes m) pes) in
-  let v =( fresh_var ((Cpes_vars Cpes))) in
-  let Ce =(( exp_to_Cexp m) e) in(((
-  CLet v) Ce) (((remove_mat_var v) Cpes))))
+  let Cpes =(( MAP (\ (p,e) . (p,(((shift ((Cpat_vars p))) 1) e)))) Cpes) in((
+  CLet Ce) (((remove_mat_var 0) Cpes))))
 /\
 (exp_to_Cexp m (Let _ vn _ e b) =
   let Ce =(( exp_to_Cexp m) e) in
-  let Cb =(( exp_to_Cexp m) b) in(((
-  CLet vn) Ce) Cb))
+  let Cb =(( exp_to_Cexp (((cbv m) vn))) b) in((
+  CLet Ce) Cb))
 /\
 (exp_to_Cexp m (Letrec _ defs b) =
-  let (fns,Cdefs) =(( defs_to_Cdefs m) defs) in
-  let Cb =(( exp_to_Cexp m) b) in(((
-  CLetrec fns) Cdefs) Cb))
+  let m =  m with<| bvars := (((MAP ( \x . (case x of (n,_,_,_,_) => n))) defs)) ++ m.bvars |> in((
+  CLetrec (((defs_to_Cdefs m) defs))) (((exp_to_Cexp m) b))))
 /\
-(defs_to_Cdefs m [] = ([],[]))
+(defs_to_Cdefs m [] = [])
 /\
-(defs_to_Cdefs m ((d,_,vn,_,e)::defs) =
-  let Ce =(( exp_to_Cexp m) e) in
-  let (fns,Cdefs) =(( defs_to_Cdefs m) defs) in
-  (d::fns,([vn],(INL Ce))::Cdefs))
+(defs_to_Cdefs m ((_,_,vn,_,e)::defs) =
+  let Ce =(( exp_to_Cexp (((cbv m) vn))) e) in
+  let Cdefs =(( defs_to_Cdefs m) defs) in
+  (1,(INL Ce))::Cdefs)
 /\
 (pes_to_Cpes m [] = [])
 /\
 (pes_to_Cpes m ((p,e)::pes) =
-  let (_pvs,Cp) =((( pat_to_Cpat m) []) p) in
+  let (m,Cp) =(( pat_to_Cpat m) p) in
   let Ce =(( exp_to_Cexp m) e) in
   let Cpes =(( pes_to_Cpes m) pes) in
   (Cp,Ce)::Cpes)
@@ -710,10 +867,10 @@ val _ = Defn.save_defn label_defs_defn;
 /\
 (label_closures (CRaise err) =( UNIT ((CRaise err))))
 /\
-(label_closures (CHandle e1 x e2) =(( BIND
+(label_closures (CHandle e1 e2) =(( BIND
   ((label_closures e1))) (\ e1 .(( BIND
   ((label_closures e2))) (\ e2 .( UNIT
-  ((((CHandle e1) x) e2))))))))
+  (((CHandle e1) e2))))))))
 /\
 (label_closures (CVar x) =( UNIT ((CVar x))))
 /\
@@ -731,15 +888,15 @@ val _ = Defn.save_defn label_defs_defn;
   ((label_closures e))) (\ e .( UNIT
   (((CProj e) n))))))
 /\
-(label_closures (CLet x e b) =(( BIND
+(label_closures (CLet e b) =(( BIND
   ((label_closures e))) (\ e .(( BIND
   ((label_closures b))) (\ b .( UNIT
-  ((((CLet x) e) b))))))))
+  (((CLet e) b))))))))
 /\
-(label_closures (CLetrec ns defs e) =(( BIND
+(label_closures (CLetrec defs e) =(( BIND
   (((label_defs []) defs))) (\ defs .(( BIND
   ((label_closures e))) (\ e .( UNIT
-  ((((CLetrec ns) ((REVERSE defs))) e))))))))
+  (((CLetrec ((REVERSE defs))) e))))))))
 /\
 (label_closures (CFun xs cb) =(( BIND
   (((label_defs []) [(xs,cb)]))) (\ defs .
@@ -798,7 +955,7 @@ val _ = Defn.save_defn count_unlab_defn;
 /\
 (imm_unlab (CRaise err) = 0)
 /\
-(imm_unlab (CHandle e1 x e2) =( imm_unlab e1) +( imm_unlab e2))
+(imm_unlab (CHandle e1 e2) =( imm_unlab e1) +( imm_unlab e2))
 /\
 (imm_unlab (CVar x) = 0)
 /\
@@ -810,9 +967,9 @@ val _ = Defn.save_defn count_unlab_defn;
 /\
 (imm_unlab (CProj e n) =( imm_unlab e))
 /\
-(imm_unlab (CLet x e b) =( imm_unlab e) +( imm_unlab b))
+(imm_unlab (CLet e b) =( imm_unlab e) +( imm_unlab b))
 /\
-(imm_unlab (CLetrec ns defs e) =( count_unlab defs) +( imm_unlab e))
+(imm_unlab (CLetrec defs e) =( count_unlab defs) +( imm_unlab e))
 /\
 (imm_unlab (CFun xs cb) =( count_unlab [(xs,cb)]))
 /\
@@ -878,10 +1035,10 @@ val _ = Defn.save_defn defs_to_ldefs_defn; (* should not happen *)
 /\
 (calculate_ldefs c ls (CProj e _) =((( calculate_ldefs c) ls) e))
 /\
-(calculate_ldefs c ls (CLet _ e b) =(((
+(calculate_ldefs c ls (CLet e b) =(((
   calculate_ldefs c) ((((calculate_ldefs c) ls) b))) e))
 /\
-(calculate_ldefs c ls (CLetrec ns defs e) =(((
+(calculate_ldefs c ls (CLetrec defs e) =(((
   FOLDL
     (\ ls . \x . (case x of (_,cb) =>
       (case cb of INR l =>
@@ -890,7 +1047,7 @@ val _ = Defn.save_defn defs_to_ldefs_defn; (* should not happen *)
         )
       | _ => [] (* should not happen *)
       ))))
-    ((ns,(
+    (((LENGTH defs),(
       defs_to_ldefs defs))
      ::(((calculate_ldefs c) ls) e)))
     defs))
@@ -898,7 +1055,7 @@ val _ = Defn.save_defn defs_to_ldefs_defn; (* should not happen *)
 (calculate_ldefs c ls (CFun xs cb) =
   (case cb of INR l =>
     (case(( FLOOKUP c) l) of NONE => [] (* should not happen *)
-    | SOME e =>((( calculate_ldefs ((($\\ c) l))) (([],[(xs,l)])::ls)) e)
+    | SOME e =>((( calculate_ldefs ((($\\ c) l))) ((0,[(xs,l)])::ls)) e)
     )
   | _ => [] (* should not happen *)
   ))
@@ -930,7 +1087,7 @@ val _ = Hol_datatype `
    CTEnv n means El n of the environment, which is at stack[sz]
    CTRef n means El n of the environment, but it's a ref pointer *)
 
-val _ = type_abbrev( "ctenv" , ``: (string, ctbind) fmap``);
+val _ = type_abbrev( "ctenv" , ``: ctbind list``);
 
 val _ = Hol_datatype `
  call_context = TCNonTail of bool | TCTail of num => num`;
@@ -943,7 +1100,7 @@ val _ = Hol_datatype `
 
 (* helper for reconstructing closure environments *)
 val _ = Hol_datatype `
- cebind = CEEnv of string | CERef of num`;
+ cebind = CEEnv of num | CERef of num`;
 
 
 val _ = type_abbrev( "ecs" , ``: num # cebind list``); (* num is the length of the list *)
@@ -960,7 +1117,7 @@ val _ = Hol_datatype `
 val _ = Hol_datatype `
  closure_data =
   <| ecs: (num, ecs) fmap
-   ; env_azs: (num, (ctenv # num)) fmap
+   ; ctenvs: (num, ctenv) fmap
    |>`;
 
 
@@ -1039,7 +1196,7 @@ val _ = Defn.save_defn compile_varref_defn;
 
  val emit_ec_defn = Hol_defn "emit_ec" `
 
-(emit_ec env z (sz,s) (CEEnv fv) = (sz+1,(((compile_varref sz) s) (((FAPPLY  env)  fv)))))
+(emit_ec env z (sz,s) (CEEnv fv) = (sz+1,(((compile_varref sz) s) (((EL  fv)  env)))))
 /\
 (* sz                                                                                         z *)
 (* e, ..., e, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0,   *)
@@ -1110,20 +1267,13 @@ val _ = Defn.save_defn compile_closures_defn;
 
  val compile_decl_defn = Hol_defn "compile_decl" `
 
-(compile_decl env1 env0 =(
+(compile_decl env1 =(
   FOLDL
     (\ (s,sz,i,env) v .
-      if  v IN( FDOM  env0) then
-        ((case(( FAPPLY  env0)  v) of
-           CTLet x =>(( emit ((((compile_varref sz) s) (((FAPPLY  env1)  v)))))
-                           [(Stack ((Store (sz - x))))])
-         | _ =>(( emit s) [(Stack ((PushInt i2))); PopExc]) (* should not happen *)
-         ), sz, i, env)
-      else
-        ((((compile_varref sz) s) (((FAPPLY  env1)  v))),
+        ((((compile_varref sz) s) (((EL  v)  env1))),
          sz+1,
-         i+1,((
-         FUPDATE  env) ( v, ((CTLet i))))))))`;
+         i+1,
+         ((CTLet i))::env))))`;
 
 val _ = Defn.save_defn compile_decl_defn;
 
@@ -1152,7 +1302,7 @@ val _ = Defn.save_defn pushret_defn;
   (case t of TCNonTail T =>
   (case s.decl of (env0,sz0) =>
   let k = sz - sz0 in
-  let (s,sz,i,env) =((( ((compile_decl env)) env0) (s,sz,sz0+1,env0)) vs) in
+  let (s,sz,i,env) =((( compile_decl env) (s,sz,sz0+1,env0)) vs) in
   let s =(( emit s) [(Stack (((Shift (i -(sz0+1))) k)))]) in
    s with<| decl := (env,sz - k) |>
   ) | _ =>(( pushret t) (((emit s) [(Stack ((PushInt i2))); PopExc]))) (* should not happen *) ))
@@ -1160,7 +1310,7 @@ val _ = Defn.save_defn pushret_defn;
 (compile _ _ t _ s (CRaise err) =((
   pushret t) (((emit s) [(Stack ((PushInt ((error_to_int err))))); PopExc]))))
 /\
-(compile d env t sz s (CHandle e1 x e2) =(((((( compile d) env) t) sz) s) e1))
+(compile d env t sz s (CHandle e1 e2) =(((((( compile d) env) t) sz) s) e1))
 /\
 (compile _ _ t _ s (CLit (IntLit i)) =((
   pushret t) (((emit s) [(Stack ((PushInt i)))]))))
@@ -1171,7 +1321,7 @@ val _ = Defn.save_defn pushret_defn;
 (compile _ _ t _ s (CLit Unit) =((
   pushret t) (((emit s) [(Stack (((Cons unit_tag) 0)))]))))
 /\
-(compile _ env t sz s (CVar vn) =(( pushret t) ((((compile_varref sz) s) (((FAPPLY  env)  vn))))))
+(compile _ env t sz s (CVar vn) =(( pushret t) ((((compile_varref sz) s) (((EL  vn)  env))))))
 /\
 (compile d env t sz s (CCon n es) =((
   pushret t) (((emit ((((((compile_nts d) env) sz) s) es))) [(Stack (((Cons (n+block_tag)) ((LENGTH es)))))]))))
@@ -1182,12 +1332,13 @@ val _ = Defn.save_defn pushret_defn;
 (compile d env t sz s (CProj e n) =((
   pushret t) (((emit (((((((compile d) env) ((TCNonTail F))) sz) s) e))) [(Stack ((El n)))]))))
 /\
-(compile d env t sz s (CLet x e eb) =((((((((
-  compile_bindings d) env) t) sz) eb) 0) (((((((compile d) env) ((TCNonTail F))) sz) s) e))) [x]))
+(compile d env t sz s (CLet e eb) =((((((((
+  compile_bindings d) env) t) sz) eb) 0) (((((((compile d) env) ((TCNonTail F))) sz) s) e))) 1))
 /\
-(compile d env t sz s (CLetrec ns defs eb) =
-  let s =(((((( compile_closures d) env) sz) ((LENGTH ns))) s) defs) in((((((((
-  compile_bindings d) env) t) sz) eb) 0) s) ns))
+(compile d env t sz s (CLetrec defs eb) =
+  let n =( LENGTH defs) in
+  let s =(((((( compile_closures d) env) sz) n) s) defs) in((((((((
+  compile_bindings d) env) t) sz) eb) 0) s) n))
 /\
 (compile d env t sz s (CFun xs cb) =((
   pushret t) (((((((compile_closures d) env) sz) 0) s) [(xs,cb)]))))
@@ -1251,7 +1402,7 @@ val _ = Defn.save_defn pushret_defn;
     compile d) env) t) sz) s) e3)
   ))
 /\
-(compile_bindings d env t sz e n s [] =
+(compile_bindings d env t sz e n s 0 =
   (case t of
     TCTail j k =>(((((( compile d) env) (((TCTail j) (k+n)))) (sz+n)) s) e)
   | TCNonTail F =>((
@@ -1260,10 +1411,8 @@ val _ = Defn.save_defn pushret_defn;
     compile d) env) t) (sz+n)) s) e)
   ))
 /\
-(compile_bindings d env t sz e n s (x::xs) =((((((((
-  compile_bindings d)
-  (((FUPDATE  env) ( x, ((CTLet (sz+(n+1))))))))
-  t) sz) e) (n+1)) s) xs))
+(compile_bindings d env t sz e n s m =((((((((
+  compile_bindings d) (((CTLet (sz+(n+1))))::env)) t) sz) e) (n+1)) s) (m - 1)))
 /\
 (compile_nts d env sz s [] = s)
 /\
@@ -1275,17 +1424,19 @@ val _ = Defn.save_defn compile_defn;
 (* code env to bytecode *)
 
  val bind_fv_defn = Hol_defn "bind_fv" `
-
-(bind_fv ns xs az k fv (env,(ecl,ec)) =
-  (case((( find_index fv) xs) 1) of
-    SOME j => (((FUPDATE  env) ( fv, ((CTArg (2 + az - j))))), (ecl,ec))
-  | NONE => (case((( find_index fv) ns) 0) of
-      NONE => (((FUPDATE  env) ( fv, ((CTEnv ecl)))), (ecl+1,(CEEnv fv)::ec))
-    | SOME j => if j = k
-                then (((FUPDATE  env) ( fv, ((CTArg (2 + az))))), (ecl,ec))
-                else (((FUPDATE  env) ( fv, ((CTRef ecl)))), (ecl+1,((CERef (j+1)))::ec))
-    )
-  ))`;
+ (bind_fv fvs az nz k =
+  let args =(( FILTER (\ v . v IN fvs)) (((GENLIST (\ n . n)) az))) in
+  let args =(( MAP (\ v .( CTArg (2 + az - v)))) args) in
+  let a =( LENGTH args) in
+  let recs =(( FILTER (\ v . v IN fvs)) (((GENLIST (\ n . az+n)) nz))) in
+  let gecs =(( MAP (\ v .( CERef (v+1 - az)))) (((FILTER (\ v .( ~  (v = az+k)))) recs))) in
+  let recs =(( GENLIST (\ i .
+    if(( EL  i)  recs) = az+k then( CTArg (2 + az)) else( CTRef (a+i)))) ((LENGTH recs))) in
+  let r =( LENGTH recs) in
+  let envs =( sorted_list_of_set { v | v IN fvs /\ az + nz < v }) in
+  let genv =(( MAP CEEnv) envs) in
+  let envs =(( GENLIST (\ i .( CTEnv (a+r+i)))) ((LENGTH envs))) in
+  (args++(recs++envs),((LENGTH gecs)+(LENGTH genv),gecs++genv)))`;
 
 val _ = Defn.save_defn bind_fv_defn;
 
@@ -1293,15 +1444,13 @@ val _ = Defn.save_defn bind_fv_defn;
 
 (calculate_ecs c =(
   FOLDL
-    (\ s (ns,defs) .
+    (\ s (nz,defs) .
       let (s,k) =((( FOLDL
-        (\ (s,k) (xs,l) .
-          let az =( LENGTH xs) in
-          let (env,(ecl,ec)) =(((
-            ITSET (((((bind_fv ns) xs) az) k))) (((free_vars c) (((FAPPLY  c)  l))))) (FEMPTY,(0,[]))) in
+        (\ (s,k) (az,l) .
+          let (ctenv,ec) =(((( bind_fv (((free_vars c) (((FAPPLY  c)  l))))) az) nz) k) in
           let s =  s with<|
-                     env_azs :=(( FUPDATE  s.env_azs) ( l, (env,az)))
-                   ; ecs :=(( FUPDATE  s.ecs) ( l, (ecl,ec)))
+                     ctenvs :=(( FUPDATE  s.ctenvs) ( l, ctenv))
+                   ; ecs :=(( FUPDATE  s.ecs) ( l, ec))
                    |> in
           (s,k+1)))
         (s,0)) defs) in
@@ -1311,13 +1460,13 @@ val _ = Defn.save_defn calculate_ecs_defn;
 
  val cce_aux_defn = Hol_defn "cce_aux" `
 
-(cce_aux c d s (ns,defs) =(((
+(cce_aux c d s (nz,ls) =(((
   FOLDL
-    (\ s (xs,l) .
-      let (env,az) =(( FAPPLY  d.env_azs)  l) in
+    (\ s (az,l) .
+      let env =(( FAPPLY  d.ctenvs)  l) in
       let s =(( emit s) [(Label l)]) in((((((
       compile d) env) (((TCTail az) 0))) 0) s) (((FAPPLY  c)  l)))))
-    s) defs))`;
+    s) ls))`;
 
 val _ = Defn.save_defn cce_aux_defn;
 
@@ -1387,6 +1536,7 @@ val _ = Defn.save_defn cmap_defn;
 val _ = Hol_datatype `
  repl_state =
   <| contab : contab
+   ; rbvars : string list
    ; renv : ctenv
    ; rsz  : num
    ; rnext_label : num
@@ -1394,10 +1544,16 @@ val _ = Hol_datatype `
 
 
 
+(*val etC : repl_state -> exp_to_Cexp_state*)
+val _ = Define `
+ (etC rs = <| cnmap :=( cmap rs.contab); bvars := rs.rbvars |>)`;
+
+
 val _ = Define `
  init_repl_state =
   <| contab := (FEMPTY, FEMPTY, 0)
-   ; renv := FEMPTY
+   ; rbvars := []
+   ; renv := []
    ; rsz  := 0
    ; rnext_label := 0
    |>`;
@@ -1408,7 +1564,7 @@ val _ = Define `
   let (Ce,n,c) =((( repeat_label_closures Ce) rs.rnext_label) []) in
   let c =( alist_to_fmap c) in
   let ldefs =((( calculate_ldefs c) []) Ce) in
-  let d =((( calculate_ecs c) <| ecs := FEMPTY; env_azs := FEMPTY |>) ldefs) in
+  let d =((( calculate_ecs c) <| ecs := FEMPTY; ctenvs := FEMPTY |>) ldefs) in
   let cs = <| out := []; next_label := n
             ; decl := (rs.renv,rs.rsz) |> in
   let cs =(((( compile_code_env c) d) cs) ldefs) in
@@ -1438,21 +1594,25 @@ val _ = Defn.save_defn number_constructors_defn;
   repl_dec ( rs with<| contab := ct |>)) ((Dtype ts)))) (* parens: Lem sucks *)
 /\
 (repl_dec rs (Dletrec _ defs) =
-  let (fns,Cdefs) =(( defs_to_Cdefs ((cmap rs.contab))) defs) in(((
-  compile_Cexp rs) T) ((((CLetrec fns) Cdefs) ((CDecl fns))))))
+  let m =( etC rs) in
+  let fns =(( MAP ( \x . (case x of (n,_,_,_,_) => n))) defs) in
+  let m =  m with<| bvars := fns ++ m.bvars |> in
+  let Cdefs =(( defs_to_Cdefs m) defs) in(((
+  compile_Cexp  rs with<| rbvars := m.bvars |>)
+    T) (((CLetrec Cdefs) ((CDecl (((GENLIST (\ i . i)) ((LENGTH fns))))))))))
 /\
 (repl_dec rs (Dlet _ p e) =
-  let m =( cmap rs.contab) in
-  let (pvs,Cp) =((( pat_to_Cpat m) []) p) in
-  let Cpes = [(Cp,(CDecl pvs))] in
-  let vn =( fresh_var ((Cpes_vars Cpes))) in
-  let Ce =(( exp_to_Cexp m) e) in(((
-  compile_Cexp rs) T) ((((CLet vn) Ce) (((remove_mat_var vn) Cpes))))))`;
+  let m =( etC rs) in
+  let Ce =(( exp_to_Cexp m) e) in
+  let (m,Cp) =(( pat_to_Cpat m) p) in
+  let Cpes = [(Cp,(CDecl (((GENLIST (\ i . i)) ((Cpat_vars Cp))))))] in(((
+  compile_Cexp  rs with<| rbvars := m.bvars |>)
+    T) (((CLet Ce) (((remove_mat_var 0) Cpes))))))`;
 
 val _ = Defn.save_defn repl_dec_defn;
 
 val _ = Define `
- (repl_exp s exp =((( compile_Cexp s) F) (((exp_to_Cexp ((cmap s.contab))) exp))))`;
+ (repl_exp s exp =((( compile_Cexp s) F) (((exp_to_Cexp ((etC s))) exp))))`;
 
 
 (* Correctness *)
@@ -1487,7 +1647,7 @@ val _ = Defn.save_defn v_to_ov_defn;
 /\
 (Cv_to_ov m s (CConv cn vs) =(( OConv (((FAPPLY  m)  cn))) (((MAP (((Cv_to_ov m) s))) vs))))
 /\
-(Cv_to_ov m s (CRecClos _ _ _ _) = OFn)
+(Cv_to_ov m s (CRecClos _ _ _) = OFn)
 /\
 (Cv_to_ov m s (CLoc n) =( OLoc (((FAPPLY  s)  n))))`;
 
@@ -1515,17 +1675,19 @@ val _ = Defn.save_defn bv_to_ov_defn;
 (v_to_Cv m (Litv l) =( CLitv l))
 /\
 (v_to_Cv m (Conv cn vs) =((
-  CConv (((FAPPLY  m)  cn))) (((vs_to_Cvs m) vs))))
+  CConv (((FAPPLY  m.cnmap)  cn))) (((vs_to_Cvs m) vs))))
 /\
 (v_to_Cv m (Closure env vn _ e) =
-  let Cenv =( alist_to_fmap (((env_to_Cenv m) env))) in
-  let Ce =(( exp_to_Cexp m) e) in((((
-  CRecClos Cenv) []) [([vn],(INL Ce))]) ""))
+  let Cenv =(( env_to_Cenv m) env) in
+  let Ce =(( exp_to_Cexp (((cbv m) vn))) e) in(((
+  CRecClos Cenv) [(1,(INL Ce))]) 1))
 /\
 (v_to_Cv m (Recclosure env defs vn) =
-  let Cenv =( alist_to_fmap (((env_to_Cenv m) env))) in
-  let (fns,Cdefs) =(( defs_to_Cdefs m) defs) in((((
-  CRecClos Cenv) fns) Cdefs) vn))
+  let Cenv =(( env_to_Cenv m) env) in
+  let fns =(( MAP ( \x . (case x of (n,_,_,_,_) => n))) defs) in
+  let m =  m with<| bvars := fns ++ m.bvars |> in
+  let Cdefs =(( defs_to_Cdefs m) defs) in(((
+  CRecClos Cenv) Cdefs) ((THE ((((find_index vn) fns) 0))))))
 /\
 (v_to_Cv m (Loc n) =( CLoc n))
 /\
@@ -1535,8 +1697,8 @@ val _ = Defn.save_defn bv_to_ov_defn;
 /\
 (env_to_Cenv m [] = [])
 /\
-(env_to_Cenv m ((x,(v,_))::env) =
-  (x,(( v_to_Cv m) v))::(((env_to_Cenv m) env)))`;
+(env_to_Cenv m ((_,(v,_))::env) =
+  (((v_to_Cv m) v))::(((env_to_Cenv m) env)))`;
 
 val _ = Defn.save_defn v_to_Cv_defn;
 

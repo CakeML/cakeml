@@ -4,7 +4,11 @@ val num_to_hex_string : num -> string
 val FOLDL2 : forall 'a 'b 'c. ('a -> 'b -> 'c -> 'a) -> 'a -> list 'b -> list 'c -> 'a
 val EVERY2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool
 val FDOM : forall 'a 'b. fmap 'a 'b -> set 'a
+val IMAGE : forall 'a 'b. ('a -> 'b) -> set 'a -> set 'b
+val PRE : num -> num
+val count : num -> set num
 (* TODO: lem library can't handle option type *)
+val THE : forall 'a 'b. 'a -> 'b
 val OPTREL : forall 'a 'b 'c 'd. ('a -> 'b -> bool) -> 'c -> 'd -> bool
 val FLOOKUP : forall 'a 'b 'c. fmap 'a 'b -> 'a -> 'c
 val DOMSUB : forall 'a 'b. fmap 'a 'b -> 'a -> fmap 'a 'b
