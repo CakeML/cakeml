@@ -175,6 +175,12 @@ val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 3 in x + 4 end"
                   ``[LetT; ValT; AlphaT "x"; EqualsT; IntT 3; InT; AlphaT "x";
                      SymbolT "+"; IntT 4; EndT]``
 
+val _ = parsetest ``nE`` ``ptree_Expr nE``
+                  "let fun sqr x = x * x in sqr 3 + y end"
+                  ``[LetT; FunT; AlphaT "sqr"; AlphaT "x"; EqualsT; AlphaT "x";
+                     StarT; AlphaT "x"; InT; AlphaT "sqr"; IntT 3;
+                     SymbolT "+"; AlphaT "y"; EndT]``
+
 
 
 val _ = export_theory()

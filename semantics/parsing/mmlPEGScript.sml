@@ -333,6 +333,11 @@ val mmlPEG_def = zDefine`
                         seql [tokeq IfT; nt (mkNT nE) I; tokeq ThenT;
                               nt (mkNT nE) I; tokeq ElseT; nt(mkNT nE) I]
                              (bindNT nE)]);
+              (mkNT nAndFDecls,
+               peg_linfix (mkNT nAndFDecls) (nt (mkNT nFDecl) I) (tokeq AndT));
+              (mkNT nFDecl,
+               seql [nt (mkNT nV) I; nt (mkNT nV) I; tokeq EqualsT;
+                     nt (mkNT nE) I] (bindNT nFDecl));
               (mkNT nType, peg_Type);
               (mkNT nDType, peg_DType);
               (mkNT nTyOp, peg_TyOp);
