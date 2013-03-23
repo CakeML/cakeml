@@ -265,6 +265,13 @@ val peg_Ebase_def = Define`
              nt (mkNT nV) (bindNT nEbase);
              nt (mkNT nConstructorName) (bindNT nEbase);
              seql [tokeq LparT; nt (mkNT nE) I; tokeq RparT]
+                  (bindNT nEbase);
+             seql [tokeq LetT;
+                   choicel [seql [tokeq ValT; nt (mkNT nV) I; tokeq EqualsT;
+                                  nt (mkNT nE) I; tokeq InT; nt (mkNT nE) I;
+                                  tokeq EndT] I;
+                            seql [tokeq FunT; nt (mkNT nAndFDecls) I;
+                                  tokeq InT; nt (mkNT nE) I; tokeq EndT] I]]
                   (bindNT nEbase)
             ]
 `;

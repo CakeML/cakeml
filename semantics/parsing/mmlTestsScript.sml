@@ -170,6 +170,10 @@ val _ = parsetest ``nE`` ``ptree_Expr nE`` "if x < 10 then f x else C(x,3,g x)"
                      LparT; AlphaT "x";CommaT;IntT 3;CommaT;
                      AlphaT "g"; AlphaT "x"; RparT]``
 
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 3 in x + 4 end"
+                  ``[LetT; ValT; AlphaT "x"; EqualsT; IntT 3; InT; AlphaT "x";
+                     SymbolT "+"; IntT 4; EndT]``
+
 
 
 val _ = export_theory()
