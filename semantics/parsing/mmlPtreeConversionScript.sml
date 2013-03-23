@@ -244,10 +244,7 @@ val ptree_V_def = Define`
   ptree_V (Nd nt subs) =
     if nt = mkNT nV then
       case subs of
-          [Lf (TOK t)] =>
-          do s <- (destAlphaT t ++ destSymbolT t);
-             SOME (Ast_Var s)
-          od
+          [Lf (TOK t)] => destAlphaT t ++ destSymbolT t
         | _ => NONE
     else NONE
 `;
@@ -284,10 +281,24 @@ val ptree_Expr_def = Define`
                 i <- destIntT t ;
                 SOME (Ast_Lit (IntLit i))
               od ++
-              ptree_V single ++
+              do
+                s <- ptree_V single;
+                SOME (Ast_Var s)
+              od ++
               do cname <- ptree_ConstructorName single;
                  SOME (Ast_Con cname [])
               od
+          | [lett;valt;varpt;eqt;e1pt;intok;e2pt;endt] =>
+              if lett = Lf (TOK LetT) then
+                if valt = Lf (TOK ValT) then
+                  do
+                    vname <- ptree_V varpt;
+                    e1 <- ptree_Expr nE e1pt;
+                    e2 <- ptree_Expr nE e2pt;
+                    SOME(Ast_Let vname e1 e2)
+                  od
+                else NONE
+              else NONE
           | _ => NONE
       else if nt = mkNT nEapp then
         case subs of
