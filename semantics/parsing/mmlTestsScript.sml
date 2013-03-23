@@ -155,10 +155,11 @@ val _ = parsetest ``nEcomp`` ``ptree_Expr nEcomp`` "x <> true"
                   ``[AlphaT "x"; SymbolT "<>"; AlphaT "true"]``
 val _ = parsetest ``nEcomp`` ``ptree_Expr nEcomp`` "f o g z"
                   ``[AlphaT "f"; AlphaT "o"; AlphaT "g"; AlphaT"z"]``
-val _ = parsetest ``nEtyped`` T "map f Nil : 'a list"
+val _ = parsetest ``nEtyped`` ``ptree_Expr nEtyped`` "map f Nil : 'a list"
                   ``[AlphaT "map"; AlphaT "f"; AlphaT"Nil"; ColonT;
                      TyvarT "'a"; AlphaT "list"]``
-val _ = parsetest ``nElogicOR`` T "3 < x andalso x < 10 orelse p andalso q"
+val _ = parsetest ``nElogicOR`` ``ptree_Expr nElogicOR``
+                  "3 < x andalso x < 10 orelse p andalso q"
                   ``[IntT 3; SymbolT "<"; AlphaT "x"; AndalsoT;
                      AlphaT "x"; SymbolT "<"; IntT 10; OrelseT;
                      AlphaT"p"; AndalsoT; AlphaT "q"]``
