@@ -267,7 +267,7 @@ val frontAppCon_def = Define`
 val ptree_Expr_def = Define`
   ptree_Expr ent (Lf _) = NONE ∧
   ptree_Expr ent (Nd nt subs) =
-    if mkNT ent = nt then
+    (if mkNT ent = nt then
       if nt = mkNT nEbase then
         case subs of
             [lpart; pt; rpart] =>
@@ -288,17 +288,21 @@ val ptree_Expr_def = Define`
               do cname <- ptree_ConstructorName single;
                  SOME (Ast_Con cname [])
               od
+          | [lett;funt;andfdecls;intok;ept;endt] =>
+            do
+              assert(lett = Lf (TOK LetT) ∧ funt = Lf (TOK FunT));
+              assert(intok = Lf (TOK InT) ∧ endt = Lf (TOK EndT));
+              decls <- ptree_AndFDecls andfdecls;
+              e <- ptree_Expr nE ept;
+              SOME(Ast_Letrec decls e)
+            od
           | [lett;valt;varpt;eqt;e1pt;intok;e2pt;endt] =>
-              if lett = Lf (TOK LetT) then
-                if valt = Lf (TOK ValT) then
-                  do
-                    vname <- ptree_V varpt;
-                    e1 <- ptree_Expr nE e1pt;
-                    e2 <- ptree_Expr nE e2pt;
-                    SOME(Ast_Let vname e1 e2)
-                  od
-                else NONE
-              else NONE
+            do
+              vname <- ptree_V varpt;
+              e1 <- ptree_Expr nE e1pt;
+              e2 <- ptree_Expr nE e2pt;
+              SOME(Ast_Let vname e1 e2)
+            od
           | _ => NONE
       else if nt = mkNT nEapp then
         case subs of
@@ -435,7 +439,39 @@ val ptree_Expr_def = Define`
           | [t] => ptree_Expr nElogicOR t
           | _ => NONE
       else NONE
-    else NONE
+    else NONE) ∧
+  ptree_AndFDecls ast =
+    (case ast of
+        Lf _ => NONE
+      | Nd nt subs =>
+        if nt = mkNT nAndFDecls then
+          case subs of
+              [single] => do fdec <- ptree_FDecl single; SOME ([fdec]) od
+            | [fdecspt;andt;fdecpt] =>
+              do
+                assert(andt = Lf (TOK AndT));
+                fdecs <- ptree_AndFDecls fdecspt;
+                fdec <- ptree_FDecl fdecpt;
+                SOME(fdecs ++ [fdec])
+              od
+            | _ => NONE
+        else NONE) ∧
+  ptree_FDecl ast =
+    case ast of
+        Lf _ => NONE
+      | Nd nt subs =>
+        if nt = mkNT nFDecl then
+          case subs of
+              [fname_pt; vname_pt; eqt; body_pt] =>
+              do
+                assert(eqt = Lf (TOK EqualsT));
+                fname <- ptree_V fname_pt;
+                vname <- ptree_V vname_pt;
+                body <- ptree_Expr nE body_pt;
+                SOME(fname,vname,body)
+              od
+            | _ => NONE
+        else NONE
 `;
 
 val _ = export_theory()
