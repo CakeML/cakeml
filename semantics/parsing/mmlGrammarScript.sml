@@ -111,7 +111,7 @@ val mmlG_def = mk_grammar_def ginfo
  (* expressions - binary operators *)
  MultOps ::= ^(``{AlphaT "div"; AlphaT "mod"; StarT; SymbolT "/"}``);
  AddOps ::= ^(``{SymbolT "+"; SymbolT "-"}``);
- RelOps ::= ^(``{SymbolT s | s ∈ {"<"; ">"; "<="; ">="; "<>"}}``) | EqualsT;
+ RelOps ::= ^(``{SymbolT s | s ∈ {"<"; ">"; "<="; ">="; "<>"}}``) | "=";
  Emult ::= Emult MultOps Eapp | Eapp;
  Eadd ::= Eadd AddOps Emult | Emult;
  Erel ::= Eadd RelOps Eadd | Eadd;
