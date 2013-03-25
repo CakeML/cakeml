@@ -114,6 +114,16 @@ val _ = export_rewrites["CevalPrim2_def","CevalUpd_def","CevalPrim1_def"];
 
 (* compiler definitions *)
 
+val _ = register "shift" (
+  tprove_no_defn ((shift_def,shift_ind),
+  WF_REL_TAC `measure (Cexp_size o SND o SND)` >>
+  srw_tac[ARITH_ss][Cexp4_size_thm,Cexp1_size_thm,SUM_MAP_Cexp2_size_thm] >>
+  Q.ISPEC_THEN`Cexp_size`imp_res_tac SUM_MAP_MEM_bound >>
+  srw_tac[ARITH_ss][] >>
+  imp_res_tac MEM_pair_MAP >>
+  Q.ISPEC_THEN`Cexp3_size`imp_res_tac SUM_MAP_MEM_bound >>
+  fsrw_tac[ARITH_ss][Cexp_size_def]))
+
 val _ = save_thm("remove_mat_vp_def",remove_mat_vp_def)
 val _ = export_rewrites["remove_mat_vp_def"]
 
@@ -454,6 +464,8 @@ val _ = save_thm("prim1_to_bc_def",prim1_to_bc_def)
 val _ = save_thm("prim2_to_bc_def",prim2_to_bc_def)
 val _ = save_thm("compile_decl_def",compile_decl_def)
 val _ = save_thm("cmap_def",cmap_def)
-val _ = export_rewrites["emit_def","get_labels_def","emit_ec_def","prim1_to_bc_def","prim2_to_bc_def","cmap_def"]
+val _ = save_thm("cbv_def",cbv_def)
+val _ = save_thm("etC_def",etC_def)
+val _ = export_rewrites["emit_def","get_labels_def","emit_ec_def","prim1_to_bc_def","prim2_to_bc_def","cmap_def","cbv_def","etC_def"]
 
 val _ = export_theory()
