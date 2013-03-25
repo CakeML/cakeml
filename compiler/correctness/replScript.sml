@@ -7,8 +7,64 @@ val good_contab_def = Define`
   good_contab (m,w,n) =
     fmap_linv m w`
 
+val PV_def = tDefine "PV"`
+  (PV (Pvar v _) = [v]) ∧
+  (PV (Plit _) = []) ∧
+  (PV (Pcon _ ps) = FLAT (MAP PV ps)) ∧
+  (PV (Pref p) = PV p)`
+(WF_REL_TAC`measure (pat_size ARB)` >>
+ srw_tac[ARITH_ss][pat1_size_thm] >>
+ Q.ISPEC_THEN`pat_size ARB`imp_res_tac SUM_MAP_MEM_bound >>
+ simp[])
+
+val BV_def = tDefine "BV"`
+  (BV (Raise _) = []) ∧
+  (BV (Handle e x e1) = BV e ++ [x] ++ BV e1) ∧
+  (BV (Lit _) = []) ∧
+  (BV (Con _ es) = FLAT (MAP BV es)) ∧
+  (BV (Var _ _) = []) ∧
+  (BV (Fun x _ e) = [x] ++ BV e) ∧
+  (BV (Uapp _ e) = BV e) ∧
+  (BV (App _ e1 e2) = BV e1 ++ BV e2) ∧
+  (BV (Log _ e1 e2) = BV e1 ++ BV e2) ∧
+  (BV (If e1 e2 e3) = BV e1 ++ BV e2 ++ BV e3) ∧
+  (BV (Mat e pes) = BV e ++ FLAT (MAP PV (MAP FST pes)) ++ FLAT (MAP BV (MAP SND pes))) ∧
+  (BV (Let _ x _ e e1) = BV e ++ [x] ++ BV e1) ∧
+  (BV (Letrec _ defs e1) = FLAT (MAP (λdef. [FST def;FST(SND(SND def))] ++ BV(SND(SND(SND(SND def))))) defs) ++ BV e1)`
+(WF_REL_TAC`measure (exp_size ARB)` >>
+ srw_tac[ARITH_ss][exp1_size_thm,SUM_MAP_exp2_size_thm,exp5_size_thm,SUM_MAP_exp7_size_thm,exp8_size_thm
+                  ,SUM_MAP_exp3_size_thm,SUM_MAP_exp4_size_thm,SUM_MAP_exp6_size_thm] >>
+ Q.ISPEC_THEN`exp_size ARB`imp_res_tac SUM_MAP_MEM_bound >>
+ simp[] >>
+ simp[MAP_MAP_o] >>
+ Q.ISPEC_THEN`exp_size ARB o SND o SND o SND o SND`imp_res_tac SUM_MAP_MEM_bound >>
+ fsrw_tac[ARITH_ss][])
+val _ = export_rewrites["PV_def","BV_def"]
+
+(*
+val binders_exp_to_Cexp= store_thm("binders_exp_to_Cexp",
+  ``!s e. binders (exp_to_Cexp s e) = BV e``,
+  ho_match_mp_tac exp_to_Cexp_nice_ind >>
+  strip_tac >- rw[exp_to_Cexp_def] >>
+  strip_tac >- rw[exp_to_Cexp_def] >>
+  strip_tac >- rw[exp_to_Cexp_def] >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def,exps_to_Cexps_MAP,MAP_MAP_o,combinTheory.o_DEF] >>
+    AP_TERM_TAC >> rw[MAP_EQ_f] >> fs[EVERY_MEM] ) >>
+  strip_tac >- rw[exp_to_Cexp_def] >>
+  strip_tac >- rw[exp_to_Cexp_def] >>
+  strip_tac >- ( rw[exp_to_Cexp_def] >> rw[] ) >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >>
+    BasicProvers.CASE_TAC >>
+    rw[]
+    compile_val
+    rw[] ) >>
+  strip_tac >- rw[exp_to_Cexp_def] >>
+    binders_def
+
 val repl_exp_val = store_thm("repl_exp_val",
-  ``∀cenv s env exp s' v sm cls rs rs' bc0 bc bs bs'.
+  ``∀cenv s env exp s' v rd rs rs' bc0 bc bs bs'.
       exp_pred exp ∧
       evaluate cenv s env exp (s', Rval v) ∧
       EVERY closed s ∧
@@ -16,23 +72,24 @@ val repl_exp_val = store_thm("repl_exp_val",
       FV exp ⊆ set (MAP FST env) ∧
       (∀v. v ∈ env_range env ⇒ all_cns v ⊆ set (MAP FST cenv) ∧ all_locs v ⊆ count (LENGTH s)) ∧
       (∀v. MEM v s ⇒ all_cns v ⊆ set (MAP FST cenv) ∧ all_locs v ⊆ count (LENGTH s)) ∧
-      count (LENGTH s') ⊆ FDOM sm ∧
-      good_sm sm ∧
+      count (LENGTH s') ⊆ FDOM rd.sm ∧
       good_cenv cenv ∧
       good_cmap cenv (cmap rs.contab) ∧
       set (MAP FST cenv) ⊆ FDOM (cmap rs.contab) ∧
       good_contab rs.contab ∧
-      env_rs env rs FEMPTY sm cls (store_to_Cstore (cmap rs.contab) s) (bs with code := bc0) ∧
+      env_rs env rs c rd (store_to_Cstore (cmap rs.contab) s) (bs with code := bc0) ∧
       (repl_exp rs exp = (rs',bc)) ∧
       (bs.code = bc0 ++ bc) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       ALL_DISTINCT (FILTER is_Label bc0) ∧
       EVERY (combin$C $< rs.rnext_label o dest_Label) (FILTER is_Label bc0)
       ⇒
-      ∃bv rfs.
-      bc_next^* bs (bs with <|pc := next_addr bs.inst_length (bc0 ++ bc);
-                              stack := bv :: bs.stack; refs := rfs|>) ∧
-      (v_to_ov (DRESTRICT sm (count (LENGTH s'))) v = bv_to_ov (FST(SND(rs.contab))) bv)``,
+      ∃bv rf rd' c'.
+      let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc);
+                          stack := bv :: bs.stack; refs := rd'|> in
+      bc_next^* bs bs' ∧
+      (v_to_ov (DRESTRICT sm (count (LENGTH s'))) v = bv_to_ov (FST(SND(rs.contab))) bv) ∧
+      env_rs env rs' c' rd' (store_to_Cstore (cmap rs'.contab) s') bs'``,
   rw[repl_exp_def,compile_Cexp_def,LET_THM] >>
   qabbrev_tac `p = repeat_label_closures (exp_to_Cexp (cmap rs.contab) exp) rs.rnext_label []` >>
   PairCases_on `p` >> fs[] >>
@@ -158,6 +215,7 @@ val repl_exp_val = store_thm("repl_exp_val",
     match_mp_tac (MP_CANON Cv_bv_ov) >>
     metis_tac[FST] ) >>
   metis_tac[RTC_TRANSITIVE,transitive_def])
+*)
 
 (* must read an expression followed by all space until the start of another
    expression (or end of string) *)

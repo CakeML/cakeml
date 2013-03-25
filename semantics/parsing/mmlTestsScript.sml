@@ -4,6 +4,17 @@ open mmlPEGTheory mmlGrammarTheory mmlPtreeConversionTheory grammarTheory
 
 val _ = new_theory "mmlTests"
 
+val _ = overload_on ("NN", ``λn. Nd (mkNT n)``)
+val _ = overload_on ("Tf", ``λt. Lf (TK t)``)
+val _ = overload_on ("Tfa", ``λs. Lf (TK (AlphaT s))``)
+val _ = overload_on ("Tfs", ``λs. Lf (TK (SymbolT s))``)
+val _ = overload_on (
+  "EREL",
+  ``λl. NN nE [NN nElogicOR [NN nElogicAND
+                                [NN nEtyped [NN nEbefore [NN nEcomp l]]]]]``)
+val _ = overload_on (
+  "EB",
+  ``λl. EREL [NN nErel [NN nEadd [NN nEmult [NN nEapp [NN nEbase l]]]]]``)
 
 val result_t = ``Result``
 fun parsetest nt sem s t = let
@@ -155,10 +166,11 @@ val _ = parsetest ``nEcomp`` ``ptree_Expr nEcomp`` "x <> true"
                   ``[AlphaT "x"; SymbolT "<>"; AlphaT "true"]``
 val _ = parsetest ``nEcomp`` ``ptree_Expr nEcomp`` "f o g z"
                   ``[AlphaT "f"; AlphaT "o"; AlphaT "g"; AlphaT"z"]``
-val _ = parsetest ``nEtyped`` T "map f Nil : 'a list"
+val _ = parsetest ``nEtyped`` ``ptree_Expr nEtyped`` "map f Nil : 'a list"
                   ``[AlphaT "map"; AlphaT "f"; AlphaT"Nil"; ColonT;
                      TyvarT "'a"; AlphaT "list"]``
-val _ = parsetest ``nElogicOR`` T "3 < x andalso x < 10 orelse p andalso q"
+val _ = parsetest ``nElogicOR`` ``ptree_Expr nElogicOR``
+                  "3 < x andalso x < 10 orelse p andalso q"
                   ``[IntT 3; SymbolT "<"; AlphaT "x"; AndalsoT;
                      AlphaT "x"; SymbolT "<"; IntT 10; OrelseT;
                      AlphaT"p"; AndalsoT; AlphaT "q"]``
@@ -169,7 +181,46 @@ val _ = parsetest ``nE`` ``ptree_Expr nE`` "if x < 10 then f x else C(x,3,g x)"
                      ElseT; AlphaT "C";
                      LparT; AlphaT "x";CommaT;IntT 3;CommaT;
                      AlphaT "g"; AlphaT "x"; RparT]``
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "x = 3"
+                  ``[AlphaT "x"; EqualsT; IntT 3]``
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "if x = 10 then 3 else 4"
+                  ``[IfT; AlphaT "x"; EqualsT; IntT 10; ThenT; IntT 3; ElseT;
+                     IntT 4]``
 
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 3 in x + 4 end"
+                  ``[LetT; ValT; AlphaT "x"; EqualsT; IntT 3; InT; AlphaT "x";
+                     SymbolT "+"; IntT 4; EndT]``
 
+val _ = parsetest ``nE`` ``ptree_Expr nE``
+                  "let fun sqr x = x * x in sqr 3 + y end"
+                  ``[LetT; FunT; AlphaT "sqr"; AlphaT "x"; EqualsT; AlphaT "x";
+                     StarT; AlphaT "x"; InT; AlphaT "sqr"; IntT 3;
+                     SymbolT "+"; AlphaT "y"; EndT]``
+val _ = parsetest  ``nE`` ``ptree_Expr nE``
+                   "let fun f x = 1 and g x = 3 in 10 end"
+                   ``[LetT; FunT; AlphaT "f"; AlphaT"x"; EqualsT; IntT 1;
+                      AndT; AlphaT "g"; AlphaT "x"; EqualsT; IntT 3; InT;
+                      IntT 10; EndT]``
+
+val _ = parsetest ``nE`` ``ptree_Expr nE``
+                  "let fun f1 x = x * f2 (x - 1)\n\
+                  \    and f2 y = if y = 2 then 1 else f1 (y + 2)\n\
+                  \in f1 (3 + y)\n\
+                  \end"
+                  ``[LetT;
+                       FunT; AlphaT "f1"; AlphaT "x"; EqualsT;
+                         AlphaT "x"; StarT;
+                         AlphaT "f2"; LparT; AlphaT "x"; SymbolT "-"; IntT 1;
+                                      RparT;
+                       AndT; AlphaT "f2"; AlphaT "y"; EqualsT;
+                         IfT; AlphaT "y"; EqualsT; IntT 2; ThenT;
+                           IntT 1;
+                         ElseT;
+                           AlphaT "f1"; LparT; AlphaT "y"; SymbolT "+"; IntT 2;
+                                        RparT;
+                     InT;
+                       AlphaT "f1"; LparT; IntT 3; SymbolT "+"; AlphaT "y";
+                                    RparT;
+                     EndT]``
 
 val _ = export_theory()

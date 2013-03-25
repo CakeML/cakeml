@@ -1283,7 +1283,7 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
   rw[remove_mat_var_def,LET_THM] >>
   qspecl_then [`p`,`v`] mp_tac (CONJUNCT1 Cpnomatch_remove_mat) >>
   rw[] >>
-  Q.PAT_ABBREV_TAC`ex = CLetfun F [fk] X Y` >>
+  Q.PAT_ABBREV_TAC`ex = CLet fk X Y` >>
   qsuff_tac `∀r0. (case mr of NONE =>
                      fmap_rel (syneq FEMPTY) (FST r0) s ∧
                      (SND r0 = Rerr (Rraise Bind_error))
