@@ -165,7 +165,6 @@ val print_bc_inst = let fun
 | f CallPtr = "CallPtr"
 | f JumpPtr = "JumpPtr"
 | f Return = "Return"
-| f Exception = "Exception"
 | f Deref = "Deref"
 | f Ref = "Ref"
 | f Update = "Update"
