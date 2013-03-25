@@ -1948,35 +1948,4 @@ fs [merge_def, emp_def] >|
                 fs [merge_def, bind_def] >>
                     metis_tac [APPEND_ASSOC,APPEND]]]]]);
 
-val type_prog_type_prog_ignore_sig = Q.prove (
-`!tenvM tenvC tenv prog tenvM' tenvC' tenv'.
-  type_prog tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
-  tenvC_ok tenvC ∧
-  (num_tvs tenv = 0) ∧
-  tenvM_ok tenvM ⇒
-  ?tenvM'' tenvC'' tenv''. type_prog_ignore_sig tenvM tenvC tenv prog tenvM'' tenvC'' tenv''`,
-ho_match_mp_tac type_prog_ind >>
-rw [num_tvs_bvl2] >>
-rw [Once type_prog_ignore_sig_cases] >>
-`tenvC_ok (merge cenv' tenvC)` 
-        by metis_tac [merge_def, type_ds_tenvC_ok, type_d_tenvC_ok, tenvC_ok_def, EVERY_APPEND] >-
-metis_tac [] >>
-fs [check_signature_cases] >>
-`tenv_ok (bind_var_list2 emp Empty)` by rw [emp_def, bind_var_list2_def, tenv_ok_def] >>
-`tenv_ok (bind_var_list2 tenv'' Empty)` by metis_tac [type_ds_tenv_ok, type_specs_tenv_ok] >>
-`tenvM_ok (bind mn tenv'' tenvM)` 
-           by (fs [tenvM_ok_def, bind_def] >>
-               metis_tac []) >-
-metis_tac [] >>
-fs [] >>
-rw [] >>
-rw [] >>
-`MAP FST (bind mn tenv'' tenvM) = MAP FST (bind mn tenv' tenvM)` by rw [bind_def] >>
-`disjoint_env cenv' tenvC` by metis_tac [type_ds_tenvC_ok] >>
-`tenvC_ok cenv''` by metis_tac [type_specs_tenvC_ok, tenvC_ok_def, emp_def, EVERY_DEF] >>
-`tenvC_ok (merge cenv'' tenvC)` 
-        by metis_tac [merge_def, type_specs_tenvC_ok, tenvC_ok_def, EVERY_APPEND] >>
-fs [] >>
-metis_tac [type_prog_ignore_sig_weakening, weakM_bind3, weakC_merge2]);
-
 val _ = export_theory ();

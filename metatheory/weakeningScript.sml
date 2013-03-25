@@ -4,6 +4,76 @@ open MiniMLTheory MiniMLTerminationTheory typeSystemTheory;
 
 val _ = new_theory "weakening";
 
+val tenvC_one_mod_def = Define `
+tenvC_one_mod tenvC mn =
+  !mn' cn x. 
+    (lookup (mk_id mn' cn) tenvC = SOME x)  
+    ⇒
+    (mn = mn')`;
+
+val build_ctor_tenv_one_mod = Q.prove (
+`!mn tdecs.
+  tenvC_one_mod (build_ctor_tenv mn tdecs) mn`,
+rw [tenvC_one_mod_def, lookup_def, build_ctor_tenv_def] >>
+induct_on `tdecs` >>
+rw [] >>
+fs [lookup_append] >>
+PairCases_on `h` >>
+fs [] >>
+cases_on `lookup (mk_id mn' cn) (MAP (λ(cn,ts). (mk_id mn cn,h0,ts,mk_id mn h1)) h2)` >>
+fs [] >>
+rw [] >>
+pop_assum mp_tac >>
+pop_assum (fn _ => all_tac) >>
+induct_on `h2` >>
+rw [lookup_def] >>
+PairCases_on `h` >>
+fs [] >>
+cases_on `mk_id mn h0' = mk_id mn' cn` >>
+fs [] >>
+Cases_on `mn` >>
+Cases_on `mn'` >>
+fs [mk_id_def]);
+
+val tenvC_one_mod_merge = Q.prove (
+`!tenvC1 tenvC2 mn.
+  tenvC_one_mod tenvC1 mn ∧
+  tenvC_one_mod tenvC2 mn
+  ⇒
+  tenvC_one_mod (merge tenvC1 tenvC2) mn`,
+rw [tenvC_one_mod_def, merge_def, lookup_append] >>
+every_case_tac >>
+fs [] >>
+metis_tac []);
+
+val tenvCM_ok_def = Define `
+tenvCM_ok tenvC tenvM =
+  !mn. (?cn x. lookup (mk_id (SOME mn) cn) tenvC = SOME x) ⇒ MEM mn (MAP FST tenvM)`;
+
+val tenvCM_ok_one_mod_NONE = Q.prove (
+`!tenvC1 tenvC2 tenvM.
+  tenvCM_ok tenvC1 tenvM ∧
+  tenvC_one_mod tenvC2 NONE
+  ⇒
+  tenvCM_ok (merge tenvC2 tenvC1) tenvM`,
+rw [tenvCM_ok_def, merge_def, tenvC_one_mod_def] >>
+fs [lookup_append] >>
+every_case_tac >>
+fs [] >>
+metis_tac [optionTheory.NOT_NONE_SOME]);
+
+val tenvCM_ok_one_mod_SOME = Q.prove (
+`!tenvC1 tenvC2 tenvM mn tenv.
+  tenvCM_ok tenvC1 tenvM ∧
+  tenvC_one_mod tenvC2 (SOME mn)
+  ⇒
+  tenvCM_ok (merge tenvC2 tenvC1) (bind mn tenv tenvM)`,
+rw [tenvCM_ok_def, merge_def, tenvC_one_mod_def] >>
+fs [lookup_append] >>
+every_case_tac >>
+fs [bind_def] >>
+metis_tac [optionTheory.NOT_NONE_SOME, optionTheory.SOME_11]);
+
 val weak_tenvE_def = Define `
 weak_tenvE tenv tenv' = 
   num_tvs tenv ≥ num_tvs tenv' ∧
@@ -604,5 +674,80 @@ rw [Once type_prog_ignore_sig_cases] >>
           `tenvC_ok (merge cenv' tenvC'')` 
                   by metis_tac [tenvC_ok_def, EVERY_APPEND, type_ds_tenvC_ok, merge_def] >>
           metis_tac [bind_def, MAP,weakC_merge, weakM_bind2]]]);
+
+val type_d_mod = Q.prove (
+`∀mn tenvM tenvC tenv d tenvC' tenv'.
+  type_d mn tenvM tenvC tenv d tenvC' tenv'
+  ⇒
+  tenvC_one_mod tenvC' mn`,
+rw [type_d_cases, emp_def] >|
+[rw [tenvC_one_mod_def],
+ rw [tenvC_one_mod_def],
+ rw [tenvC_one_mod_def],
+ metis_tac [build_ctor_tenv_one_mod]]);
+
+val type_ds_mod = Q.prove (
+`∀mn tenvM tenvC tenv ds tenvC' tenv'.
+  type_ds mn tenvM tenvC tenv ds tenvC' tenv'
+  ⇒
+  tenvC_one_mod tenvC' mn`,
+ho_match_mp_tac type_ds_ind >>
+rw [emp_def] >-
+rw [tenvC_one_mod_def] >>
+metis_tac [tenvC_one_mod_merge, type_d_mod]);
+
+val type_specs_mod = Q.prove (
+`!mn tenvC tenv specs tenvC' tenv'.
+  type_specs mn tenvC tenv specs tenvC' tenv'
+  ⇒
+  tenvC_one_mod tenvC mn
+  ⇒
+  tenvC_one_mod tenvC' mn`,
+ho_match_mp_tac type_specs_ind >>
+rw [] >>
+metis_tac [tenvC_one_mod_merge, build_ctor_tenv_one_mod]);
+
+val type_prog_type_prog_ignore_sig = Q.store_thm ("type_prog_type_prog_ignore_sig",
+`!tenvM tenvC tenv prog tenvM' tenvC' tenv'.
+  type_prog tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
+  tenvC_ok tenvC ∧
+  (num_tvs tenv = 0) ∧
+  tenvM_ok tenvM ∧
+  tenvCM_ok tenvC tenvM ⇒
+  ?tenvM'' tenvC'' tenv''. type_prog_ignore_sig tenvM tenvC tenv prog tenvM'' tenvC'' tenv''`,
+ho_match_mp_tac type_prog_ind >>
+rw [num_tvs_bvl2] >>
+rw [Once type_prog_ignore_sig_cases] >>
+`tenvC_ok (merge cenv' tenvC)` 
+        by metis_tac [merge_def, type_ds_tenvC_ok, type_d_tenvC_ok, tenvC_ok_def, EVERY_APPEND] >|
+[`tenvC_one_mod cenv' NONE` by metis_tac [type_d_mod] >>
+     metis_tac [tenvCM_ok_one_mod_NONE],
+ fs [check_signature_cases] >>
+     `tenv_ok (bind_var_list2 emp Empty)` by rw [emp_def, bind_var_list2_def, tenv_ok_def] >>
+     `tenv_ok (bind_var_list2 tenv'' Empty)` by metis_tac [type_ds_tenv_ok, type_specs_tenv_ok] >>
+     `tenvM_ok (bind mn tenv'' tenvM)` 
+                by (fs [tenvM_ok_def, bind_def] >>
+                    metis_tac []) >>
+     `tenvC_one_mod cenv'' (SOME mn)` by metis_tac [type_ds_mod, type_specs_mod] >>
+     `tenvCM_ok (merge cenv'' tenvC) (bind mn tenv'' tenvM)`
+             by metis_tac [tenvCM_ok_one_mod_SOME, 
+
+
+                    >-
+     metis_tac [] >>
+     fs [] >>
+     rw [] >>
+     rw [] >>
+     `MAP FST (bind mn tenv'' tenvM) = MAP FST (bind mn tenv' tenvM)` by rw [bind_def] >>
+     `disjoint_env cenv' tenvC` by metis_tac [type_ds_tenvC_ok] >>
+     `tenvC_ok cenv''` by metis_tac [type_specs_tenvC_ok, tenvC_ok_def, emp_def, EVERY_DEF] >>
+     `tenvC_ok (merge cenv'' tenvC)` 
+             by metis_tac [merge_def, type_specs_tenvC_ok, tenvC_ok_def, EVERY_APPEND] >>
+     fs [] >>
+     MAP_EVERY qexists_tac [`tenv'''`, `cenv'`, `tenvM''`, `tenv'`, `tenvC''`] >>
+     rw []
+     metis_tac [type_prog_ignore_sig_weakening, weakM_bind3, weakC_merge2]]);
+
+
 
 val _ = export_theory ();
