@@ -74,6 +74,9 @@ Let NONE "x" NONE (Lit (Bool T))
     [(Plit (Bool F), (Lit (IntLit 1)));
      (Pvar "y" NONE, (Var "y" NONE))])
   (Var "x" NONE))``
+
+  val _ = print(print_Cexp 0 (exp_to_Cexp (etC (snd inits)) (term_to_exp e15)))
+
 val (m,[v]) = mst_run_exp e15
 val true = (OLit (Bool true)) = (bv_to_ov m v);
 val e16 = ``App Equality (Let NONE "x" NONE (Lit (Bool T)) (Var "x" NONE)) (Lit (Bool F))``

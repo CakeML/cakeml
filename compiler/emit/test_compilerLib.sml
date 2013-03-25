@@ -146,13 +146,36 @@ val run_decs_exp = snd o mst_run_decs_exp
 fun mst_run_exp e = mst_run_decs_exp ([],e)
 fun run_exp e = run_decs_exp ([],e)
 
+val int_toString = Int.toString o valOf o intML.toInt
+
+fun print_prim2 CSub = "-"
+| print_prim2 CEq = "="
+| print_prim2 x =  (PolyML.print x; raise Match)
+fun sp d = String.implode(List.tabulate (d,(K #" ")))
+val print_Cexp = let fun
+  f d (CLet (e1,e2)) = (sp d)^"let _ =\n"^(f (d+2) e1)^"\n"^(sp d)^"in\n"^(f (d+2) e2)
+| f d (CFun (n,(sumML.INL e))) = (sp d)^"fn"^(numML.toString n)^" =>\n"^(f (d+2) e)
+| f d (CLit (IntLit n)) = (sp d)^(int_toString n)
+| f d (CLit (Bool true)) = (sp d)^"true"
+| f d (CLit (Bool false)) = (sp d)^"false"
+| f d (CCall (e,es)) = (sp d)^(f 0 e)^"("^(fs es)^")"
+| f d (CPrim2 (p2,e1,e2)) = (f d e1)^"\n"^sp(d+2)^(print_prim2 p2)^"\n"^(f d e2)
+| f d (CIf (e1,e2,e3)) = (sp d)^"if\n"^(f (d+2) e1)^"\n"^(sp d)^"then\n"^(f (d+2) e2)^"\n"^(sp d)^"else\n"^(f (d+2) e3)
+| f d (CVar n) = (sp d)^"v"^(numML.toString n)
+| f d (CRaise err) = (sp d)^"raise "^(PolyML.makestring err)
+| f d x = (PolyML.print x; raise Match)
+and
+  fs [] = ""
+| fs [e] =  f 0 e
+| fs (e::es) = (f 0 e)^","^(fs es)
+in f end
 fun loc_to_string (Addr n) = "Addr "^(numML.toString n)
   | loc_to_string (Lab l) = "Lab "^(numML.toString l)
 val print_bc_stack_op = let fun
   f (Load n) = "Load "^(numML.toString n)
 | f (El n) = "El "^(numML.toString n)
 | f (Pops n) = "Pops "^(numML.toString n)
-| f (PushInt n) = "PushInt "^(Int.toString(valOf(intML.toInt n)))
+| f (PushInt n) = "PushInt "^(int_toString n)
 | f Equal = "Equal"
 | f (Cons (n,m)) = "Cons "^(numML.toString n)^" "^(numML.toString m)
 | f (Shift (n,m)) = "Shift "^(numML.toString n)^" "^(numML.toString m)
