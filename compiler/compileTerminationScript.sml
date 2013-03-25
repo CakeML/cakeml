@@ -15,12 +15,12 @@ fun size_thm name t1 t2 = store_thm(name,tm t1 t2,tac)
 val Cexp1_size_thm = size_thm "Cexp1_size_thm" ``Cexp1_size`` ``Cexp2_size``
 val Cexp4_size_thm = size_thm "Cexp4_size_thm" ``Cexp4_size`` ``Cexp_size``
 val Cpat1_size_thm = size_thm "Cpat1_size_thm" ``Cpat1_size`` ``Cpat_size``
-val Cvs_size_thm = size_thm "Cvs_size_thm" ``Cvs_size`` ``Cv_size``
+val Cv1_size_thm = size_thm "Cv1_size_thm" ``Cv1_size`` ``Cv_size``
 
 val SUM_MAP_Cexp2_size_thm = store_thm(
 "SUM_MAP_Cexp2_size_thm",
 ``∀env. SUM (MAP Cexp2_size env) =
-  SUM (MAP (list_size (list_size char_size)) (MAP FST env))
+  SUM (MAP FST env)
 + SUM (MAP Cexp3_size (MAP SND env))
 + LENGTH env``,
 Induct >- rw[Cexp_size_def] >> Cases >>
@@ -59,6 +59,7 @@ val Cv_size_def = save_thm("Cv_size_def",Cv_size_def)
 val extend_rec_env_def = save_thm("extend_rec_env_def",extend_rec_env_def)
 val syneq_cases = save_thm("syneq_cases",syneq_cases)
 val syneq_ind = save_thm("syneq_ind",syneq_ind)
+val Cpat_vars_def = save_thm("Cpat_vars_def",Cpat_vars_def)
 
 val (free_vars_def, free_vars_ind) = register "free_vars" (
   tprove_no_defn ((free_vars_def,free_vars_ind),
@@ -76,25 +77,16 @@ val _ = export_rewrites["free_vars_def"];
 val (no_closures_def, no_closures_ind) = register "no_closures" (
   tprove_no_defn ((no_closures_def, no_closures_ind),
   WF_REL_TAC `measure Cv_size` >>
-  rw[Cvs_size_thm] >>
+  rw[Cv1_size_thm] >>
   imp_res_tac SUM_MAP_MEM_bound >>
   pop_assum (qspec_then `Cv_size` mp_tac) >>
   srw_tac[ARITH_ss][]))
 val _ = export_rewrites["no_closures_def"];
 
-val (Cpat_vars_def,Cpat_vars_ind) = register "Cpat_vars" (
-  tprove_no_defn ((Cpat_vars_def,Cpat_vars_ind),
-  WF_REL_TAC `measure Cpat_size` >>
-  rw[Cpat1_size_thm] >>
-  imp_res_tac SUM_MAP_MEM_bound >>
-  pop_assum (qspec_then `Cpat_size` mp_tac) >>
-  srw_tac[ARITH_ss][]))
-val _ = export_rewrites["Cpat_vars_def"]
-
 val (Cv_to_ov_def,Cv_to_ov_ind) = register "Cv_to_ov" (
   tprove_no_defn ((Cv_to_ov_def,Cv_to_ov_ind),
   WF_REL_TAC `measure (Cv_size o SND o SND)` >>
-  rw[Cvs_size_thm] >>
+  rw[Cv1_size_thm] >>
   Q.ISPEC_THEN `Cv_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
 val _ = export_rewrites["Cv_to_ov_def"];
@@ -128,8 +120,6 @@ val _ = export_rewrites["remove_mat_vp_def"]
 val _ = register "remove_mat_var" (
   tprove_no_defn ((remove_mat_var_def,remove_mat_var_ind),
   WF_REL_TAC `measure (LENGTH o SND)` >> rw[]))
-
-val Cpes_vars_def = save_thm("Cpes_vars_def",Cpes_vars_def)
 
 val (exp_to_Cexp_def,exp_to_Cexp_ind) = register "exp_to_Cexp" (
   tprove_no_defn ((exp_to_Cexp_def,exp_to_Cexp_ind),
@@ -166,15 +156,12 @@ val (compile_def, compile_ind) = register "compile" (
   tprove_no_defn ((compile_def, compile_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
        | INL (d,env,t,sz,s,e) => (Cexp_size e, 3:num)
-       | INR (INL (d,env,t,sz,e,n,s,[]))=> (Cexp_size e, 4)
-       | INR (INL (d,env,t,sz,e,n,s,ns))=> (Cexp_size e + (SUM (MAP (list_size char_size) ns)) + LENGTH ns, 1)
+       | INR (INL (d,env,t,sz,e,n,s,0))=> (Cexp_size e, 4)
+       | INR (INL (d,env,t,sz,e,n,s,ns))=> (Cexp_size e + ns, 1)
        | INR (INR (d,env,sz,s,es))=> (SUM (MAP Cexp_size es), 3 + LENGTH es)) ` >>
   srw_tac[ARITH_ss][] >>
   srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm,Cexp_size_def,list_size_thm,SUM_MAP_Cexp2_size_thm] >>
-  TRY (Q.ISPEC_THEN `Cexp_size` imp_res_tac SUM_MAP_MEM_bound >> DECIDE_TAC) >>
-  TRY (Cases_on `xs` >> srw_tac[ARITH_ss][]) >>
-  TRY (Cases_on `ns` >> srw_tac[ARITH_ss][]) >>
-  srw_tac[ARITH_ss][list_size_thm]))
+  BasicProvers.CASE_TAC >> fsrw_tac[ARITH_ss][]))
 
 val _ = register "num_fold" (
   tprove_no_defn ((num_fold_def,num_fold_ind),
@@ -233,14 +220,14 @@ val mbd_def = tDefine "mbd"`
 val bodies_def = tDefine "bodies"`
   (bodies (CDecl _) = 0) ∧
   (bodies (CRaise _) = 0) ∧
-  (bodies (CHandle e1 _ e2) = bodies e1 + bodies e2) ∧
+  (bodies (CHandle e1 e2) = bodies e1 + bodies e2) ∧
   (bodies (CVar _) = 0) ∧
   (bodies (CLit _) = 0) ∧
   (bodies (CCon _ es) = SUM (MAP bodies es)) ∧
   (bodies (CTagEq e _) = bodies e) ∧
   (bodies (CProj e _) = bodies e) ∧
-  (bodies (CLet _ e b) = bodies e + bodies b) ∧
-  (bodies (CLetrec _ defs e) = SUM (MAP bod1 defs) + (bodies e)) ∧
+  (bodies (CLet e b) = bodies e + bodies b) ∧
+  (bodies (CLetrec defs e) = SUM (MAP bod1 defs) + (bodies e)) ∧
   (bodies (CFun xs cb) = bod1 (xs,cb)) ∧
   (bodies (CCall e es) = SUM (MAP bodies (e::es))) ∧
   (bodies (CPrim1 _ e) = bodies e) ∧
@@ -261,7 +248,7 @@ val bodies_def = tDefine "bodies"`
   `MEM a (MAP FST defs)` by (rw[MEM_MAP,EXISTS_PROD] >> metis_tac[]) >>
   `MEM b (MAP SND defs)` by (rw[MEM_MAP,EXISTS_PROD] >> metis_tac[]) >>
   Q.ISPEC_THEN`Cexp3_size`imp_res_tac SUM_MAP_MEM_bound >>
-  Q.ISPEC_THEN`list_size (list_size char_size)`imp_res_tac SUM_MAP_MEM_bound >>
+  Q.ISPEC_THEN`I:num->num`imp_res_tac SUM_MAP_MEM_bound >>
   fsrw_tac[ARITH_ss][])
 val _ = export_rewrites["bodies_def"]
 
