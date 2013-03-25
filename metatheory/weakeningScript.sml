@@ -728,12 +728,11 @@ rw [Once type_prog_ignore_sig_cases] >>
      `tenvM_ok (bind mn tenv'' tenvM)` 
                 by (fs [tenvM_ok_def, bind_def] >>
                     metis_tac []) >>
+     `tenvC_one_mod (emp:tenvC) (SOME mn)`
+               by rw [tenvC_one_mod_def, emp_def] >>
      `tenvC_one_mod cenv'' (SOME mn)` by metis_tac [type_ds_mod, type_specs_mod] >>
      `tenvCM_ok (merge cenv'' tenvC) (bind mn tenv'' tenvM)`
-             by metis_tac [tenvCM_ok_one_mod_SOME, 
-
-
-                    >-
+             by metis_tac [tenvCM_ok_one_mod_SOME] >-
      metis_tac [] >>
      fs [] >>
      rw [] >>
@@ -745,7 +744,7 @@ rw [Once type_prog_ignore_sig_cases] >>
              by metis_tac [merge_def, type_specs_tenvC_ok, tenvC_ok_def, EVERY_APPEND] >>
      fs [] >>
      MAP_EVERY qexists_tac [`tenv'''`, `cenv'`, `tenvM''`, `tenv'`, `tenvC''`] >>
-     rw []
+     rw [] >>
      metis_tac [type_prog_ignore_sig_weakening, weakM_bind3, weakC_merge2]]);
 
 
