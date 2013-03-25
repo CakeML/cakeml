@@ -171,6 +171,7 @@ val (compile_def, compile_ind) = register "compile" (
        | INR (INR (d,env,sz,s,es))=> (SUM (MAP Cexp_size es), 3 + LENGTH es)) ` >>
   srw_tac[ARITH_ss][] >>
   srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm,Cexp_size_def,list_size_thm,SUM_MAP_Cexp2_size_thm] >>
+  BasicProvers.CASE_TAC >> fsrw_tac[ARITH_ss][] >>
   BasicProvers.CASE_TAC >> fsrw_tac[ARITH_ss][]))
 
 val _ = register "num_fold" (

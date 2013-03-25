@@ -49,6 +49,7 @@ val data = map
   , datatype_Cprim2
   , datatype_Cpat
   , datatype_Cexp
+  , datatype_exp_to_Cexp_state
   , datatype_label_closures_state
   , datatype_ctbind
   , datatype_cebind
@@ -59,7 +60,7 @@ val data = map
   ]
 
 val defs = map EmitML.DEFN
-[ mk_thm([],``ITSET f s a = FOLDR f a (toList s)``)
+[ mk_thm([],``SET_TO_LIST s = toList s``)
 , alistTheory.alist_to_fmap_def
 , Cpat_vars_def
 , free_vars_def
@@ -67,6 +68,10 @@ val defs = map EmitML.DEFN
 , i0_def
 , i1_def
 , i2_def
+, shift_def
+, cbv_def
+, cmap_def
+, etC_def
 , error_to_int_def
 , get_labels_def
 , compile_varref_def
@@ -96,11 +101,8 @@ val defs = map EmitML.DEFN
 , calculate_labels_def
 , replace_labels_def
 , compile_labels_def
-, cmap_def
 , init_repl_state_def
 , pat_to_Cpat_def
-, fresh_var_def
-, Cpes_vars_def
 , remove_mat_vp_def
 , underscore_rule remove_mat_var_def
 , underscore_rule exp_to_Cexp_def

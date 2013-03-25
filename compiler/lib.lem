@@ -7,6 +7,7 @@ val FDOM : forall 'a 'b. fmap 'a 'b -> set 'a
 val IMAGE : forall 'a 'b. ('a -> 'b) -> set 'a -> set 'b
 val PRE : num -> num
 val count : num -> set num
+val QSORT : forall 'a. ('a -> 'a -> bool) -> list 'a -> list 'a
 (* TODO: lem library can't handle option type *)
 val THE : forall 'a 'b. 'a -> 'b
 val OPTREL : forall 'a 'b 'c 'd. ('a -> 'b -> bool) -> 'c -> 'd -> bool

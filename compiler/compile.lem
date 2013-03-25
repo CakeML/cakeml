@@ -62,6 +62,8 @@ val count : num -> set num
 let inline {hol} count = Hol.count
 val the : forall 'a 'b. 'a -> 'b
 let inline {hol} the = Hol.THE
+val qsort : forall 'a. ('a -> 'a -> bool) -> list 'a -> list 'a
+let inline {hol} qsort = Hol.QSORT
 
 (* TODO: Misc. helpers *)
 
@@ -71,10 +73,6 @@ and
 find_index y (x::xs) n = if x = y then Some n else find_index y xs (n+1)
 
 let rec el_check n ls = if n < List.length ls then Some (List.nth ls n) else None
-
-let rec sorted_list_of_set s =
-  let n = least (fun n -> not (n IN s)) in
-  n :: sorted_list_of_set (s \ {n})
 
 let rec num_fold f a n = if n = 0 then a else num_fold f (f a) (n-1)
 
@@ -1322,17 +1320,17 @@ compile d env t sz s (CIf e1 e2 e3) =
     compile d env t sz s e3
   end
 and
-compile_bindings d env t sz e n s 0 =
-  match t with
-  | TCTail j k -> compile d env (TCTail j (k+n)) (sz+n) s e
-  | TCNonTail false ->
-    emit (compile d env t (sz+n) s e) [Stack (Pops n)]
-  | TCNonTail true ->
-    compile d env t (sz+n) s e
-  end
-and
 compile_bindings d env t sz e n s m =
-  compile_bindings d ((CTLet (sz+(n+1)))::env) t sz e (n+1) s (m-1)
+  if m = 0 then
+    match t with
+    | TCTail j k -> compile d env (TCTail j (k+n)) (sz+n) s e
+    | TCNonTail false ->
+      emit (compile d env t (sz+n) s e) [Stack (Pops n)]
+    | TCNonTail true ->
+      compile d env t (sz+n) s e
+    end
+  else
+    compile_bindings d ((CTLet (sz+(n+1)))::env) t sz e (n+1) s (m-1)
 and
 compile_nts d env sz s [] = s
 and
@@ -1350,7 +1348,7 @@ let rec bind_fv fvs az nz k =
   let recs = genlist (fun i ->
     if List.nth recs i = az+k then CTArg (2 + az) else CTRef (a+i)) (List.length recs) in
   let r = List.length recs in
-  let envs = sorted_list_of_set { v | v IN fvs && az + nz < v } in
+  let envs = List.filter (fun v -> az + nz < v) (qsort (fun x y -> x < y) (Set.to_list fvs)) in
   let genv = List.map CEEnv envs in
   let envs = genlist (fun i -> CTEnv (a+r+i)) (List.length envs) in
   (args@recs@envs,(List.length gecs+List.length genv,gecs@genv))
@@ -1436,7 +1434,7 @@ type repl_state =
    |>
 
 val etC : repl_state -> exp_to_Cexp_state
-let etC rs = <| cnmap = cmap rs.contab; bvars = rs.rbvars |>
+let etC rs = <| bvars = rs.rbvars; cnmap = cmap rs.contab |>
 
 let init_repl_state =
   <| contab = (Pmap.empty, Pmap.empty, 0)

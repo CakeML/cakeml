@@ -47,6 +47,7 @@ open BytecodeTheory MiniMLTheory
 (*val pre : num -> num*)
 (*val count : num -> set num*)
 (*val the : forall 'a 'b. 'a -> 'b*)
+(*val qsort : forall 'a. ('a -> 'a -> bool) -> list 'a -> list 'a*)
 
 (* TODO: Misc. helpers *)
 
@@ -62,13 +63,6 @@ val _ = Defn.save_defn find_index_defn;
  (el_check n ls = if n <( LENGTH ls) then( SOME (((EL  n)  ls))) else NONE)`;
 
 val _ = Defn.save_defn el_check_defn;
-
- val sorted_list_of_set_defn = Hol_defn "sorted_list_of_set" `
- (sorted_list_of_set s =
-  let n =( $LEAST (\ n .( ~  (n IN s)))) in
-  n ::( sorted_list_of_set (s DIFF {n})))`;
-
-val _ = Defn.save_defn sorted_list_of_set_defn;
 
  val num_fold_defn = Hol_defn "num_fold" `
  (num_fold f a n = if n = 0 then a else((( num_fold f) ((f a))) (n - 1)))`;
@@ -1463,17 +1457,17 @@ val _ = Defn.save_defn pushret_defn;
     compile d) env) t) sz) s) e3)
   ))
 /\
-(compile_bindings d env t sz e n s 0 =
-  (case t of
-    TCTail j k =>(((((( compile d) env) (((TCTail j) (k+n)))) (sz+n)) s) e)
-  | TCNonTail F =>((
-    emit (((((((compile d) env) t) (sz+n)) s) e))) [(Stack ((Pops n)))])
-  | TCNonTail T =>((((((
-    compile d) env) t) (sz+n)) s) e)
-  ))
-/\
-(compile_bindings d env t sz e n s m =((((((((
-  compile_bindings d) (((CTLet (sz+(n+1))))::env)) t) sz) e) (n+1)) s) (m - 1)))
+(compile_bindings d env t sz e n s m =
+  if m = 0 then
+    (case t of
+      TCTail j k =>(((((( compile d) env) (((TCTail j) (k+n)))) (sz+n)) s) e)
+    | TCNonTail F =>((
+      emit (((((((compile d) env) t) (sz+n)) s) e))) [(Stack ((Pops n)))])
+    | TCNonTail T =>((((((
+      compile d) env) t) (sz+n)) s) e)
+    )
+  else((((((((
+    compile_bindings d) (((CTLet (sz+(n+1))))::env)) t) sz) e) (n+1)) s) (m - 1)))
 /\
 (compile_nts d env sz s [] = s)
 /\
@@ -1494,7 +1488,7 @@ val _ = Defn.save_defn compile_defn;
   let recs =(( GENLIST (\ i .
     if(( EL  i)  recs) = az+k then( CTArg (2 + az)) else( CTRef (a+i)))) ((LENGTH recs))) in
   let r =( LENGTH recs) in
-  let envs =( sorted_list_of_set { v | v IN fvs /\ az + nz < v }) in
+  let envs =(( FILTER (\ v . az + nz < v)) (((QSORT (\ x y . x < y)) ((SET_TO_LIST fvs))))) in
   let genv =(( MAP CEEnv) envs) in
   let envs =(( GENLIST (\ i .( CTEnv (a+r+i)))) ((LENGTH envs))) in
   (args++(recs++envs),((LENGTH gecs)+(LENGTH genv),gecs++genv)))`;
@@ -1607,7 +1601,7 @@ val _ = Hol_datatype `
 
 (*val etC : repl_state -> exp_to_Cexp_state*)
 val _ = Define `
- (etC rs = <| cnmap :=( cmap rs.contab); bvars := rs.rbvars |>)`;
+ (etC rs = <| bvars := rs.rbvars; cnmap :=( cmap rs.contab) |>)`;
 
 
 val _ = Define `
