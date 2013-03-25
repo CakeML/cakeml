@@ -1341,12 +1341,12 @@ compile_nts d env sz s (e::es) =
 
 let rec bind_fv fvs az nz k =
   let args = List.filter (fun v -> v IN fvs) (genlist (fun n -> n) az) in
-  let args = List.map (fun v -> CTArg (2 + az - v)) args in
+  let args = List.map (fun v -> CTArg (1+az-v)) args in
   let a = List.length args in
   let recs = List.filter (fun v -> v IN fvs) (genlist (fun n -> az+n) nz) in
   let gecs = List.map (fun v -> CERef (v+1-az)) (List.filter (fun v -> not (v = az+k)) recs) in
   let recs = genlist (fun i ->
-    if List.nth recs i = az+k then CTArg (2 + az) else CTRef (a+i)) (List.length recs) in
+    if List.nth recs i = az+k then CTArg (2+az) else CTRef (a+i)) (List.length recs) in
   let r = List.length recs in
   let envs = List.filter (fun v -> az + nz < v) (qsort (fun x y -> x < y) (Set.to_list fvs)) in
   let genv = List.map CEEnv envs in

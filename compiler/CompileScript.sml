@@ -1481,12 +1481,12 @@ val _ = Defn.save_defn compile_defn;
  val bind_fv_defn = Hol_defn "bind_fv" `
  (bind_fv fvs az nz k =
   let args =(( FILTER (\ v . v IN fvs)) (((GENLIST (\ n . n)) az))) in
-  let args =(( MAP (\ v .( CTArg (2 + az - v)))) args) in
+  let args =(( MAP (\ v .( CTArg (1+az - v)))) args) in
   let a =( LENGTH args) in
   let recs =(( FILTER (\ v . v IN fvs)) (((GENLIST (\ n . az+n)) nz))) in
   let gecs =(( MAP (\ v .( CERef (v+1 - az)))) (((FILTER (\ v .( ~  (v = az+k)))) recs))) in
   let recs =(( GENLIST (\ i .
-    if(( EL  i)  recs) = az+k then( CTArg (2 + az)) else( CTRef (a+i)))) ((LENGTH recs))) in
+    if(( EL  i)  recs) = az+k then( CTArg (2+az)) else( CTRef (a+i)))) ((LENGTH recs))) in
   let r =( LENGTH recs) in
   let envs =(( FILTER (\ v . az + nz < v)) (((QSORT (\ x y . x < y)) ((SET_TO_LIST fvs))))) in
   let genv =(( MAP CEEnv) envs) in
