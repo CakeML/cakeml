@@ -644,47 +644,51 @@ syneq_cb c k env1 env2 ((INR l1)) ((INR l2)))`;
 
 (* source to intermediate expressions *)
 
- val shift_defn = Hol_defn "shift" `
+ val mkshift_defn = Hol_defn "mkshift" `
 
-(shift k n (CDecl vs) =( CDecl (((MAP (\ v . if v < k then v else v + n)) vs))))
+(mkshift f k (CDecl vs) =( CDecl (((MAP ((f k))) vs))))
 /\
-(shift k n (CRaise err) =( CRaise err))
+(mkshift f k (CRaise err) =( CRaise err))
 /\
-(shift k n (CHandle e1 e2) =(( CHandle ((((shift k) n) e1))) ((((shift (k+1)) n) e2))))
+(mkshift f k (CHandle e1 e2) =(( CHandle ((((mkshift f) k) e1))) ((((mkshift f) (k+1)) e2))))
 /\
-(shift k n (CVar v) =( CVar (if v < k then v else v + n)))
+(mkshift f k (CVar v) =( CVar (((f k) v))))
 /\
-(shift k n (CLit l) =( CLit l))
+(mkshift f k (CLit l) =( CLit l))
 /\
-(shift k n (CCon cn es) =(( CCon cn) (((MAP (((shift k) n))) es))))
+(mkshift f k (CCon cn es) =(( CCon cn) (((MAP (((mkshift f) k))) es))))
 /\
-(shift k n (CTagEq e m) =(( CTagEq ((((shift k) n) e))) m))
+(mkshift f k (CTagEq e m) =(( CTagEq ((((mkshift f) k) e))) m))
 /\
-(shift k n (CProj e m) =(( CProj ((((shift k) n) e))) m))
+(mkshift f k (CProj e m) =(( CProj ((((mkshift f) k) e))) m))
 /\
-(shift k n (CLet e b) =(( CLet ((((shift k) n) e))) ((((shift (k+1)) n) b))))
+(mkshift f k (CLet e b) =(( CLet ((((mkshift f) k) e))) ((((mkshift f) (k+1)) b))))
 /\
-(shift k n (CLetrec defs b) =
+(mkshift f k (CLetrec defs b) =
   let ns =( LENGTH defs) in
   let defs =(( MAP (\ (xs,cb) .
-    (xs, (case cb of   INR l =>( INR l) | INL b =>( INL ((((shift (k+ns+xs)) n) b))) ))))
+    (xs, (case cb of   INR l =>( INR l) | INL b =>( INL ((((mkshift f) (k+ns+xs)) b))) ))))
     defs) in((
-  CLetrec defs) ((((shift (k+ns)) n) b))))
+  CLetrec defs) ((((mkshift f) (k+ns)) b))))
 /\
-(shift k n (CFun xs cb) =(( CFun xs)
-  ((case cb of   INR l =>( INR l) | INL b =>( INL ((((shift (k+xs)) n) b))) ))))
+(mkshift f k (CFun xs cb) =(( CFun xs)
+  ((case cb of   INR l =>( INR l) | INL b =>( INL ((((mkshift f) (k+xs)) b))) ))))
 /\
-(shift k n (CCall e es) =(( CCall ((((shift k) n) e))) (((MAP (((shift k) n))) es))))
+(mkshift f k (CCall e es) =(( CCall ((((mkshift f) k) e))) (((MAP (((mkshift f) k))) es))))
 /\
-(shift k n (CPrim1 p1 e) =(( CPrim1 p1) ((((shift k) n) e))))
+(mkshift f k (CPrim1 p1 e) =(( CPrim1 p1) ((((mkshift f) k) e))))
 /\
-(shift k n (CPrim2 p2 e1 e2) =((( CPrim2 p2) ((((shift k) n) e1))) ((((shift k) n) e2))))
+(mkshift f k (CPrim2 p2 e1 e2) =((( CPrim2 p2) ((((mkshift f) k) e1))) ((((mkshift f) k) e2))))
 /\
-(shift k n (CUpd e1 e2) =(( CUpd ((((shift k) n) e1))) ((((shift k) n) e2))))
+(mkshift f k (CUpd e1 e2) =(( CUpd ((((mkshift f) k) e1))) ((((mkshift f) k) e2))))
 /\
-(shift k n (CIf e1 e2 e3) =((( CIf ((((shift k) n) e1))) ((((shift k) n) e2))) ((((shift k) n) e3))))`;
+(mkshift f k (CIf e1 e2 e3) =((( CIf ((((mkshift f) k) e1))) ((((mkshift f) k) e2))) ((((mkshift f) k) e3))))`;
 
-val _ = Defn.save_defn shift_defn;
+val _ = Defn.save_defn mkshift_defn;
+
+val _ = Define `
+ (shift n =( mkshift (\ k v . if v < k then v else v + n)))`;
+
 
 (* remove pattern-matching using continuations *)
 
@@ -752,13 +756,13 @@ val _ = Defn.save_defn Cpat_vars_defn;
 /\
 (remove_mat_vp fk sk v (CPref p) =((
   CLet (((CPrim1 CDer) ((CVar v)))))
-    (((((remove_mat_vp (fk+1)) ((((shift ((Cpat_vars p))) 1) sk))) 0) p))))
+    (((((remove_mat_vp (fk+1)) ((((shift 1) ((Cpat_vars p))) sk))) 0) p))))
 /\
 (remove_mat_con fk sk v n [] = sk)
 /\
 (remove_mat_con fk sk v n (p::ps) =((
   CLet (((CProj ((CVar v))) n)))
-    (((((remove_mat_vp (fk+1)) ((((((remove_mat_con (fk+1)) ((((shift ((Cpat_vars_list ps))) 1) sk))) (v+1)) (n+1)) ps))) 0) p))))`;
+    (((((remove_mat_vp (fk+1)) ((((((remove_mat_con (fk+1)) ((((shift 1) ((Cpat_vars_list ps))) sk))) (v+1)) (n+1)) ps))) 0) p))))`;
 
 val _ = Defn.save_defn remove_mat_vp_defn;
 
@@ -768,7 +772,7 @@ val _ = Defn.save_defn remove_mat_vp_defn;
 /\
 (remove_mat_var v ((p,sk)::pes) =((
   CLet (((CFun 0) ((INL (((remove_mat_var v) pes)))))))
-    (((((remove_mat_vp 0) ((((shift ((Cpat_vars p))) 1) sk))) (v+1)) p))))`;
+    (((((remove_mat_vp 0) ((((shift 1) ((Cpat_vars p))) sk))) (v+1)) p))))`;
 
 val _ = Defn.save_defn remove_mat_var_defn;
 
@@ -855,7 +859,7 @@ val _ = Defn.save_defn remove_mat_var_defn;
 (exp_to_Cexp m (Mat e pes) =
   let Ce =(( exp_to_Cexp m) e) in
   let Cpes =(( pes_to_Cpes m) pes) in
-  let Cpes =(( MAP (\ (p,e) . (p,(((shift ((Cpat_vars p))) 1) e)))) Cpes) in((
+  let Cpes =(( MAP (\ (p,e) . (p,(((shift 1) ((Cpat_vars p))) e)))) Cpes) in((
   CLet Ce) (((remove_mat_var 0) Cpes))))
 /\
 (exp_to_Cexp m (Let _ vn _ e b) =
@@ -1073,61 +1077,61 @@ val _ = Defn.save_defn repeat_label_closures_defn;
 
 val _ = Defn.save_defn defs_to_ldefs_defn; (* should not happen *)
 
- val calculate_ldefs_defn = Hol_defn "calculate_ldefs" `
+ val collect_ldefs_defn = Hol_defn "collect_ldefs" `
  (* including many uneta because Hol_defn sucks *)
-(calculate_ldefs c ls (CDecl _) = ls)
+(collect_ldefs c ls (CDecl _) = ls)
 /\
-(calculate_ldefs c ls (CRaise _) = ls)
+(collect_ldefs c ls (CRaise _) = ls)
 /\
-(calculate_ldefs c ls (CVar _) = ls)
+(collect_ldefs c ls (CVar _) = ls)
 /\
-(calculate_ldefs c ls (CLit _) = ls)
+(collect_ldefs c ls (CLit _) = ls)
 /\
-(calculate_ldefs c ls (CCon _ es) =(((
-  FOLDL (\ ls e .((( calculate_ldefs c) ls) e))) ls) es))
+(collect_ldefs c ls (CCon _ es) =(((
+  FOLDL (\ ls e .((( collect_ldefs c) ls) e))) ls) es))
 /\
-(calculate_ldefs c ls (CTagEq e _) =((( calculate_ldefs c) ls) e))
+(collect_ldefs c ls (CTagEq e _) =((( collect_ldefs c) ls) e))
 /\
-(calculate_ldefs c ls (CProj e _) =((( calculate_ldefs c) ls) e))
+(collect_ldefs c ls (CProj e _) =((( collect_ldefs c) ls) e))
 /\
-(calculate_ldefs c ls (CLet e b) =(((
-  calculate_ldefs c) ((((calculate_ldefs c) ls) b))) e))
+(collect_ldefs c ls (CLet e b) =(((
+  collect_ldefs c) ((((collect_ldefs c) ls) b))) e))
 /\
-(calculate_ldefs c ls (CLetrec defs e) =(((
+(collect_ldefs c ls (CLetrec defs e) =(((
   FOLDL
     (\ ls . \x . (case x of (_,cb) =>
       (case cb of INR l =>
         (case(( FLOOKUP c) l) of NONE => [] (* should not happen *)
-        | SOME e =>((( calculate_ldefs ((($\\ c) l))) ls) e)
+        | SOME e =>((( collect_ldefs ((($\\ c) l))) ls) e)
         )
       | _ => [] (* should not happen *)
       ))))
     (((LENGTH defs),(
       defs_to_ldefs defs))
-     ::(((calculate_ldefs c) ls) e)))
+     ::(((collect_ldefs c) ls) e)))
     defs))
 /\
-(calculate_ldefs c ls (CFun xs cb) =
+(collect_ldefs c ls (CFun xs cb) =
   (case cb of INR l =>
     (case(( FLOOKUP c) l) of NONE => [] (* should not happen *)
-    | SOME e =>((( calculate_ldefs ((($\\ c) l))) ((0,[(xs,l)])::ls)) e)
+    | SOME e =>((( collect_ldefs ((($\\ c) l))) ((0,[(xs,l)])::ls)) e)
     )
   | _ => [] (* should not happen *)
   ))
 /\
-(calculate_ldefs c ls (CCall e es) =(((
-  FOLDL (\ ls e .((( calculate_ldefs c) ls) e))) ((((calculate_ldefs c) ls) e))) es))
+(collect_ldefs c ls (CCall e es) =(((
+  FOLDL (\ ls e .((( collect_ldefs c) ls) e))) ((((collect_ldefs c) ls) e))) es))
 /\
-(calculate_ldefs c ls (CPrim2 _ e1 e2) =(((
-  calculate_ldefs c) ((((calculate_ldefs c) ls) e1))) e2))
+(collect_ldefs c ls (CPrim2 _ e1 e2) =(((
+  collect_ldefs c) ((((collect_ldefs c) ls) e1))) e2))
 /\
-(calculate_ldefs c ls (CUpd e1 e2) =(((
-  calculate_ldefs c) ((((calculate_ldefs c) ls) e1))) e2))
+(collect_ldefs c ls (CUpd e1 e2) =(((
+  collect_ldefs c) ((((collect_ldefs c) ls) e1))) e2))
 /\
-(calculate_ldefs c ls (CIf e1 e2 e3) =(((
-  calculate_ldefs c) ((((calculate_ldefs c) ((((calculate_ldefs c) ls) e1))) e2))) e3))`;
+(collect_ldefs c ls (CIf e1 e2 e3) =(((
+  collect_ldefs c) ((((collect_ldefs c) ((((collect_ldefs c) ls) e1))) e2))) e3))`;
 
-val _ = Defn.save_defn calculate_ldefs_defn;
+val _ = Defn.save_defn collect_ldefs_defn;
 
 (* intermediate expressions to bytecode *)
 
@@ -1158,7 +1162,7 @@ val _ = Hol_datatype `
  cebind = CEEnv of num | CERef of num`;
 
 
-val _ = type_abbrev( "ecs" , ``: num # cebind list``); (* num is the length of the list *)
+val _ = type_abbrev( "ceenv" , ``: num # cebind list``); (* num is the length of the list *)
 
 val _ = Hol_datatype `
  compiler_result =
@@ -1171,8 +1175,9 @@ val _ = Hol_datatype `
 
 val _ = Hol_datatype `
  closure_data =
-  <| ecs: (num, ecs) fmap
-   ; ctenvs: (num, ctenv) fmap
+  <| ctenv: ctenv
+   ; ceenv: ceenv
+   ; body: Cexp
    |>`;
 
 
@@ -1264,7 +1269,7 @@ val _ = Defn.save_defn emit_ec_defn;
 (push_lab d (s,ecs) (xs,INL _) = (s,(0,[])::ecs)) (* should not happen *)
 /\
 (push_lab d (s,ecs) (xs,INR l) =
-  (((emit s) [(PushPtr ((Lab l)))]),(((FAPPLY  d.ecs)  l))::ecs))`;
+  (((emit s) [(PushPtr ((Lab l)))]),(((FAPPLY  d)  l)).ceenv::ecs))`;
 
 val _ = Defn.save_defn push_lab_defn;
 
@@ -1479,59 +1484,63 @@ val _ = Defn.save_defn compile_defn;
 (* code env to bytecode *)
 
  val bind_fv_defn = Hol_defn "bind_fv" `
- (bind_fv fvs az nz k =
-  let args =(( FILTER (\ v . v IN fvs)) (((GENLIST (\ n . n)) az))) in
-  let args =(( MAP (\ v .( CTArg (1+az - v)))) args) in
-  let a =( LENGTH args) in
-  let recs =(( FILTER (\ v . v IN fvs)) (((GENLIST (\ n . az+n)) nz))) in
-  let gecs =(( MAP (\ v .( CERef (v+1 - az)))) (((FILTER (\ v .( ~  (v = az+k)))) recs))) in
-  let recs =(( GENLIST (\ i .
-    if(( EL  i)  recs) = az+k then( CTArg (2+az)) else( CTRef (a+i)))) ((LENGTH recs))) in
-  let r =( LENGTH recs) in
-  let envs =(( FILTER (\ v . az + nz < v)) (((QSORT (\ x y . x < y)) ((SET_TO_LIST fvs))))) in
-  let genv =(( MAP CEEnv) envs) in
-  let envs =(( GENLIST (\ i .( CTEnv (a+r+i)))) ((LENGTH envs))) in
-  (args++(recs++envs),((LENGTH gecs)+(LENGTH genv),gecs++genv)))`;
+ (bind_fv e az nz k =
+  let args =(( GENLIST (\ n .( CTArg (2+n)))) az) in
+  let fvs =(( free_vars FEMPTY) e) in
+  let recs =(( FILTER (\ v . az+v IN fvs /\( ~  (v=k)))) (((GENLIST (\ n . n)) nz))) in
+  let erz =( LENGTH recs) in
+  let erec =(( MAP (\ n .( CERef (n+1)))) recs) in
+  let (recs,rz,trec) = if k < nz /\ az+k IN fvs
+    then (k::recs,erz+1,(CTArg (2+az))::(((GENLIST (\ i .( CTRef (i+1)))) erz)))
+    else (recs,erz,((GENLIST CTRef) erz)) in
+  let envs =(( FILTER (\ v . az+nz <= v)) (((QSORT (\ x y . x < y)) ((SET_TO_LIST fvs))))) in
+  let envs =(( MAP (\ v . v -(az+nz))) envs) in
+  let e =((( mkshift (\ k v . if v < k then v else
+                              if v < k+nz then( THE((((find_index (v - k)) recs) k)))
+                              else( THE((((find_index (v -(k+nz))) envs) (k+rz))))))
+                  az) e) in
+  let eenv =(( MAP CEEnv) envs) in
+  let eez =( LENGTH envs) in
+  let tenv =(( GENLIST (\ i .( CTEnv (erz+i)))) eez) in
+  <| ctenv := args++(trec++tenv)
+   ; ceenv := (erz+eez,erec++eenv)
+   ; body := e |>)`;
 
 val _ = Defn.save_defn bind_fv_defn;
 
- val calculate_ecs_defn = Hol_defn "calculate_ecs" `
+ val calculate_closure_data_defn = Hol_defn "calculate_closure_data" `
 
-(calculate_ecs c =(
+(calculate_closure_data c =(
   FOLDL
     (\ s (nz,defs) .
       let (s,k) =((( FOLDL
         (\ (s,k) (az,l) .
-          let (ctenv,ec) =(((( bind_fv (((free_vars c) (((FAPPLY  c)  l))))) az) nz) k) in
-          let s =  s with<|
-                     ctenvs :=(( FUPDATE  s.ctenvs) ( l, ctenv))
-                   ; ecs :=(( FUPDATE  s.ecs) ( l, ec))
-                   |> in
-          (s,k+1)))
+          let r =(((( bind_fv (((FAPPLY  c)  l))) az) nz) k) in
+          (((FUPDATE  s) ( l, r)),k+1)))
         (s,0)) defs) in
       s)))`;
 
-val _ = Defn.save_defn calculate_ecs_defn;
+val _ = Defn.save_defn calculate_closure_data_defn;
 
  val cce_aux_defn = Hol_defn "cce_aux" `
 
-(cce_aux c d s (nz,ls) =(((
+(cce_aux d s (nz,ls) =(((
   FOLDL
     (\ s (az,l) .
-      let env =(( FAPPLY  d.ctenvs)  l) in
+      let env = (((FAPPLY  d)  l)).ctenv in
       let s =(( emit s) [(Label l)]) in((((((
-      compile d) env) (((TCTail az) 0))) 0) s) (((FAPPLY  c)  l)))))
+      compile d) env) (((TCTail az) 0))) 0) s) (((FAPPLY  d)  l)).body)))
     s) ls))`;
 
 val _ = Defn.save_defn cce_aux_defn;
 
  val compile_code_env_defn = Hol_defn "compile_code_env" `
 
-(compile_code_env c d s ldefs =
+(compile_code_env d s ldefs =
   let (s,ls) =(( get_labels 1) s) in
   let l =(( EL  0)  ls) in
   let s =(( emit s) [(Jump ((Lab l)))]) in
-  let s =((( FOLDL (((cce_aux c) d))) s) ldefs) in((
+  let s =((( FOLDL ((cce_aux d))) s) ldefs) in((
   emit s) [(Label l)]))`;
 
 val _ = Defn.save_defn compile_code_env_defn;
@@ -1618,11 +1627,11 @@ val _ = Define `
  (compile_Cexp rs decl Ce =
   let (Ce,n,c) =((( repeat_label_closures Ce) rs.rnext_label) []) in
   let c =( alist_to_fmap c) in
-  let ldefs =((( calculate_ldefs c) []) Ce) in
-  let d =((( calculate_ecs c) <| ecs := FEMPTY; ctenvs := FEMPTY |>) ldefs) in
+  let ldefs =((( collect_ldefs c) []) Ce) in (* is this necessary? can't we use c for ldefs? *)
+  let d =((( calculate_closure_data c) FEMPTY) ldefs) in
   let cs = <| out := []; next_label := n
             ; decl := (rs.renv,rs.rsz) |> in
-  let cs =(((( compile_code_env c) d) cs) ldefs) in
+  let cs =((( compile_code_env d) cs) ldefs) in
   let cs =(((((( compile d) rs.renv) ((TCNonTail decl))) rs.rsz) cs) Ce) in
   let rs = if decl then (case cs.decl of
       (env,sz) =>  rs with<| renv := env ; rsz := sz |>

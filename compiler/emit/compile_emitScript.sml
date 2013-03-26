@@ -11,7 +11,7 @@ val _ = Parse.disable_tyabbrev_printing "envE"
 val _ = Parse.disable_tyabbrev_printing "store"
 val _ = Parse.disable_tyabbrev_printing "type_def"
 val _ = Parse.disable_tyabbrev_printing "ctenv"
-val _ = Parse.disable_tyabbrev_printing "ecs"
+val _ = Parse.disable_tyabbrev_printing "ceenv"
 val _ = Parse.disable_tyabbrev_printing "alist"
 val _ = Parse.disable_tyabbrev_printing "def"
 val _ = Parse.disable_tyabbrev_printing "contab"
@@ -68,6 +68,7 @@ val defs = map EmitML.DEFN
 , i0_def
 , i1_def
 , i2_def
+, mkshift_def
 , shift_def
 , cbv_def
 , cmap_def
@@ -88,14 +89,14 @@ val defs = map EmitML.DEFN
 , imm_unlab_def
 , repeat_label_closures_def
 , defs_to_ldefs_def
-, calculate_ldefs_def
+, collect_ldefs_def
 , push_lab_def
 , underscore_rule cons_closure_def
 , update_refptr_def
 , underscore_rule compile_closures_def
 , compile_decl_def
 , underscore_rule compile_def
-, calculate_ecs_def
+, calculate_closure_data_def
 , cce_aux_def
 , compile_code_env_def
 , calculate_labels_def

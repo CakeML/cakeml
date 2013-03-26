@@ -74,9 +74,6 @@ Let NONE "x" NONE (Lit (Bool T))
     [(Plit (Bool F), (Lit (IntLit 1)));
      (Pvar "y" NONE, (Var "y" NONE))])
   (Var "x" NONE))``
-
-  val _ = print(print_Cexp 0 (exp_to_Cexp (etC (snd inits)) (term_to_exp e15)))
-
 val (m,[v]) = mst_run_exp e15
 val true = (OLit (Bool true)) = (bv_to_ov m v);
 val e16 = ``App Equality (Let NONE "x" NONE (Lit (Bool T)) (Var "x" NONE)) (Lit (Bool F))``
@@ -130,6 +127,17 @@ val e23 = ``Mat (Con "Cons" [Lit (IntLit 2);
               Var "x" NONE);
              (Pcon "Nil" [],
               Lit (IntLit 1))]``
+
+val (bs,rs) = prep_decs inits [listd]
+val Ce = exp_to_Cexp (etC rs) (term_to_exp e23)
+val (Ce',(n,c)) = repeat_label_closures Ce (repl_state_rnext_label rs) []
+val c = alist_to_fmap c
+val ldefs = collect_ldefs c [] Ce'
+val d = calculate_closure_data c fmapML.FEMPTY ldefs
+val cs = compiler_result([],n,(repl_state_renv rs,repl_state_rsz rs))
+val cs = compile_code_env c d cs ldefs
+val cs = compile d (repl_state_renv rs) (TCNonTail false) (repl_state_rsz rs) cs Ce'
+
 val [Number i] = run_decs_exp ([listd],e23)
 val SOME 2 = intML.toInt i;
 val e24 = ``Mat (Con "Nil" [])

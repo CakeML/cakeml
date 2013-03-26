@@ -604,43 +604,45 @@ syneq_cb c k env1 env2 (INR l1) (INR l2)
 (* source to intermediate expressions *)
 
 let rec
-shift k n (CDecl vs) = CDecl (List.map (fun v -> if v < k then v else v + n) vs)
+mkshift f k (CDecl vs) = CDecl (List.map (f k) vs)
 and
-shift k n (CRaise err) = CRaise err
+mkshift f k (CRaise err) = CRaise err
 and
-shift k n (CHandle e1 e2) = CHandle (shift k n e1) (shift (k+1) n e2)
+mkshift f k (CHandle e1 e2) = CHandle (mkshift f k e1) (mkshift f (k+1) e2)
 and
-shift k n (CVar v) = CVar (if v < k then v else v + n)
+mkshift f k (CVar v) = CVar (f k v)
 and
-shift k n (CLit l) = CLit l
+mkshift f k (CLit l) = CLit l
 and
-shift k n (CCon cn es) = CCon cn (List.map (shift k n) es)
+mkshift f k (CCon cn es) = CCon cn (List.map (mkshift f k) es)
 and
-shift k n (CTagEq e m) = CTagEq (shift k n e) m
+mkshift f k (CTagEq e m) = CTagEq (mkshift f k e) m
 and
-shift k n (CProj e m) = CProj (shift k n e) m
+mkshift f k (CProj e m) = CProj (mkshift f k e) m
 and
-shift k n (CLet e b) = CLet (shift k n e) (shift (k+1) n b)
+mkshift f k (CLet e b) = CLet (mkshift f k e) (mkshift f (k+1) b)
 and
-shift k n (CLetrec defs b) =
+mkshift f k (CLetrec defs b) =
   let ns = List.length defs in
   let defs = List.map (fun (xs,cb) ->
-    (xs, match cb with | INR l -> INR l | INL b -> INL (shift (k+ns+xs) n b) end))
+    (xs, match cb with | INR l -> INR l | INL b -> INL (mkshift f (k+ns+xs) b) end))
     defs in
-  CLetrec defs (shift (k+ns) n b)
+  CLetrec defs (mkshift f (k+ns) b)
 and
-shift k n (CFun xs cb) = CFun xs
-  (match cb with | INR l -> INR l | INL b -> INL (shift (k+xs) n b) end)
+mkshift f k (CFun xs cb) = CFun xs
+  (match cb with | INR l -> INR l | INL b -> INL (mkshift f (k+xs) b) end)
 and
-shift k n (CCall e es) = CCall (shift k n e) (List.map (shift k n) es)
+mkshift f k (CCall e es) = CCall (mkshift f k e) (List.map (mkshift f k) es)
 and
-shift k n (CPrim1 p1 e) = CPrim1 p1 (shift k n e)
+mkshift f k (CPrim1 p1 e) = CPrim1 p1 (mkshift f k e)
 and
-shift k n (CPrim2 p2 e1 e2) = CPrim2 p2 (shift k n e1) (shift k n e2)
+mkshift f k (CPrim2 p2 e1 e2) = CPrim2 p2 (mkshift f k e1) (mkshift f k e2)
 and
-shift k n (CUpd e1 e2) = CUpd (shift k n e1) (shift k n e2)
+mkshift f k (CUpd e1 e2) = CUpd (mkshift f k e1) (mkshift f k e2)
 and
-shift k n (CIf e1 e2 e3) = CIf (shift k n e1) (shift k n e2) (shift k n e3)
+mkshift f k (CIf e1 e2 e3) = CIf (mkshift f k e1) (mkshift f k e2) (mkshift f k e3)
+
+let shift n = mkshift (fun k v -> if v < k then v else v + n)
 
 (* remove pattern-matching using continuations *)
 
@@ -695,20 +697,20 @@ remove_mat_vp fk sk v (CPcon cn ps) =
 and
 remove_mat_vp fk sk v (CPref p) =
   CLet (CPrim1 CDer (CVar v))
-    (remove_mat_vp (fk+1) (shift (Cpat_vars p) 1 sk) 0 p)
+    (remove_mat_vp (fk+1) (shift 1 (Cpat_vars p) sk) 0 p)
 and
 remove_mat_con fk sk v n [] = sk
 and
 remove_mat_con fk sk v n (p::ps) =
   CLet (CProj (CVar v) n)
-    (remove_mat_vp (fk+1) (remove_mat_con (fk+1) (shift (Cpat_vars_list ps) 1 sk) (v+1) (n+1) ps) 0 p)
+    (remove_mat_vp (fk+1) (remove_mat_con (fk+1) (shift 1 (Cpat_vars_list ps) sk) (v+1) (n+1) ps) 0 p)
 
 let rec
 remove_mat_var v [] = CRaise Bind_error
 and
 remove_mat_var v ((p,sk)::pes) =
   CLet (CFun 0 (INL (remove_mat_var v pes)))
-    (remove_mat_vp 0 (shift (Cpat_vars p) 1 sk) (v+1) p)
+    (remove_mat_vp 0 (shift 1 (Cpat_vars p) sk) (v+1) p)
 
 let rec
 exp_to_Cexp m (Handle e x b) =
@@ -792,7 +794,7 @@ and
 exp_to_Cexp m (Mat e pes) =
   let Ce = exp_to_Cexp m e in
   let Cpes = pes_to_Cpes m pes in
-  let Cpes = List.map (fun (p,e) -> (p,shift (Cpat_vars p) 1 e)) Cpes in
+  let Cpes = List.map (fun (p,e) -> (p,shift 1 (Cpat_vars p) e)) Cpes in
   CLet Ce (remove_mat_var 0 Cpes)
 and
 exp_to_Cexp m (Let _ vn _ e b) =
@@ -988,57 +990,57 @@ and
 defs_to_ldefs _ = [] (* should not happen *)
 
 let rec (* including many uneta because Hol_defn sucks *)
-calculate_ldefs c ls (CDecl _) = ls
+collect_ldefs c ls (CDecl _) = ls
 and
-calculate_ldefs c ls (CRaise _) = ls
+collect_ldefs c ls (CRaise _) = ls
 and
-calculate_ldefs c ls (CVar _) = ls
+collect_ldefs c ls (CVar _) = ls
 and
-calculate_ldefs c ls (CLit _) = ls
+collect_ldefs c ls (CLit _) = ls
 and
-calculate_ldefs c ls (CCon _ es) =
-  List.fold_left (fun ls e -> calculate_ldefs c ls e) ls es
+collect_ldefs c ls (CCon _ es) =
+  List.fold_left (fun ls e -> collect_ldefs c ls e) ls es
 and
-calculate_ldefs c ls (CTagEq e _) = calculate_ldefs c ls e
+collect_ldefs c ls (CTagEq e _) = collect_ldefs c ls e
 and
-calculate_ldefs c ls (CProj e _) = calculate_ldefs c ls e
+collect_ldefs c ls (CProj e _) = collect_ldefs c ls e
 and
-calculate_ldefs c ls (CLet e b) =
-  calculate_ldefs c (calculate_ldefs c ls b) e
+collect_ldefs c ls (CLet e b) =
+  collect_ldefs c (collect_ldefs c ls b) e
 and
-calculate_ldefs c ls (CLetrec defs e) =
+collect_ldefs c ls (CLetrec defs e) =
   List.fold_left
     (fun ls (_,cb) ->
       match cb with INR l ->
         match flookup c l with None -> [] (* should not happen *)
-        | Some e -> calculate_ldefs (domsub c l) ls e
+        | Some e -> collect_ldefs (domsub c l) ls e
         end
       | _ -> [] (* should not happen *)
       end)
     ((List.length defs,
       defs_to_ldefs defs)
-     ::calculate_ldefs c ls e)
+     ::collect_ldefs c ls e)
     defs
 and
-calculate_ldefs c ls (CFun xs cb) =
+collect_ldefs c ls (CFun xs cb) =
   match cb with INR l ->
     match flookup c l with None -> [] (* should not happen *)
-    | Some e -> calculate_ldefs (domsub c l) ((0,[(xs,l)])::ls) e
+    | Some e -> collect_ldefs (domsub c l) ((0,[(xs,l)])::ls) e
     end
   | _ -> [] (* should not happen *)
   end
 and
-calculate_ldefs c ls (CCall e es) =
-  List.fold_left (fun ls e -> calculate_ldefs c ls e) (calculate_ldefs c ls e) es
+collect_ldefs c ls (CCall e es) =
+  List.fold_left (fun ls e -> collect_ldefs c ls e) (collect_ldefs c ls e) es
 and
-calculate_ldefs c ls (CPrim2 _ e1 e2) =
-  calculate_ldefs c (calculate_ldefs c ls e1) e2
+collect_ldefs c ls (CPrim2 _ e1 e2) =
+  collect_ldefs c (collect_ldefs c ls e1) e2
 and
-calculate_ldefs c ls (CUpd e1 e2) =
-  calculate_ldefs c (calculate_ldefs c ls e1) e2
+collect_ldefs c ls (CUpd e1 e2) =
+  collect_ldefs c (collect_ldefs c ls e1) e2
 and
-calculate_ldefs c ls (CIf e1 e2 e3) =
-  calculate_ldefs c (calculate_ldefs c (calculate_ldefs c ls e1) e2) e3
+collect_ldefs c ls (CIf e1 e2 e3) =
+  collect_ldefs c (collect_ldefs c (collect_ldefs c ls e1) e2) e3
 
 (* intermediate expressions to bytecode *)
 
@@ -1063,7 +1065,7 @@ type call_context = TCNonTail of bool | TCTail of num * num
 (* helper for reconstructing closure environments *)
 type cebind = CEEnv of num | CERef of num
 
-type ecs = num * list cebind (* num is the length of the list *)
+type ceenv = num * list cebind (* num is the length of the list *)
 
 type compiler_result =
   <| out: list bc_inst (* reversed code *)
@@ -1072,8 +1074,9 @@ type compiler_result =
    |>
 
 type closure_data =
-  <| ecs: Pmap.map num ecs
-   ; ctenvs: Pmap.map num ctenv
+  <| ctenv: ctenv
+   ; ceenv: ceenv
+   ; body: Cexp
    |>
 
 let rec
@@ -1145,7 +1148,7 @@ let rec
 push_lab d (s,ecs) (xs,INL _) = (s,(0,[])::ecs) (* should not happen *)
 and
 push_lab d (s,ecs) (xs,INR l) =
-  (emit s [PushPtr (Lab l)],(Pmap.find l d.ecs)::ecs)
+  (emit s [PushPtr (Lab l)],(Pmap.find l d).ceenv::ecs)
 
 let rec
 cons_closure env0 sz0 sz1 nk (s,k) (j,ec) =
@@ -1339,50 +1342,54 @@ compile_nts d env sz s (e::es) =
 
 (* code env to bytecode *)
 
-let rec bind_fv fvs az nz k =
-  let args = List.filter (fun v -> v IN fvs) (genlist (fun n -> n) az) in
-  let args = List.map (fun v -> CTArg (1+az-v)) args in
-  let a = List.length args in
-  let recs = List.filter (fun v -> v IN fvs) (genlist (fun n -> az+n) nz) in
-  let gecs = List.map (fun v -> CERef (v+1-az)) (List.filter (fun v -> not (v = az+k)) recs) in
-  let recs = genlist (fun i ->
-    if List.nth recs i = az+k then CTArg (2+az) else CTRef (a+i)) (List.length recs) in
-  let r = List.length recs in
-  let envs = List.filter (fun v -> az + nz < v) (qsort (fun x y -> x < y) (Set.to_list fvs)) in
-  let genv = List.map CEEnv envs in
-  let envs = genlist (fun i -> CTEnv (a+r+i)) (List.length envs) in
-  (args@recs@envs,(List.length gecs+List.length genv,gecs@genv))
+let rec bind_fv e az nz k =
+  let args = genlist (fun n -> CTArg (2+n)) az in
+  let fvs = free_vars Pmap.empty e in
+  let recs = List.filter (fun v -> az+v IN fvs && not (v=k)) (genlist (fun n -> n) nz) in
+  let erz = List.length recs in
+  let erec = List.map (fun n -> CERef (n+1)) recs in
+  let (recs,rz,trec) = if k < nz && az+k IN fvs
+    then (k::recs,erz+1,CTArg (2+az)::(genlist (fun i -> CTRef (i+1)) erz))
+    else (recs,erz,genlist CTRef erz) in
+  let envs = List.filter (fun v -> az+nz <= v) (qsort (fun x y -> x < y) (Set.to_list fvs)) in
+  let envs = List.map (fun v -> v-(az+nz)) envs in
+  let e = mkshift (fun k v -> if v < k then v else
+                              if v < k+nz then the(find_index (v-k) recs k)
+                              else the(find_index (v-(k+nz)) envs (k+rz)))
+                  az e in
+  let eenv = List.map CEEnv envs in
+  let eez = List.length envs in
+  let tenv = genlist (fun i -> CTEnv (erz+i)) eez in
+  <| ctenv = args@trec@tenv
+   ; ceenv = (erz+eez,erec@eenv)
+   ; body = e |>
 
 let rec
-calculate_ecs c =
+calculate_closure_data c =
   List.fold_left
     (fun s (nz,defs) ->
       let (s,k) = List.fold_left
         (fun (s,k) (az,l) ->
-          let (ctenv,ec) = bind_fv (free_vars c (Pmap.find l c)) az nz k in
-          let s = <| s with
-                     ctenvs = Pmap.add l ctenv s.ctenvs
-                   ; ecs = Pmap.add l ec s.ecs
-                   |> in
-          (s,k+1))
+          let r = bind_fv (Pmap.find l c) az nz k in
+          (Pmap.add l r s,k+1))
         (s,0) defs in
       s)
 
 let rec
-cce_aux c d s (nz,ls) =
+cce_aux d s (nz,ls) =
   List.fold_left
     (fun s (az,l) ->
-      let env = Pmap.find l d.ctenvs in
+      let env = (Pmap.find l d).ctenv in
       let s = emit s [Label l] in
-      compile d env (TCTail az 0) 0 s (Pmap.find l c))
+      compile d env (TCTail az 0) 0 s (Pmap.find l d).body)
     s ls
 
 let rec
-compile_code_env c d s ldefs =
+compile_code_env d s ldefs =
   let (s,ls) = get_labels 1 s in
   let l = List.nth ls 0 in
   let s = emit s [Jump (Lab l)] in
-  let s = List.fold_left (cce_aux c d) s ldefs in
+  let s = List.fold_left (cce_aux d) s ldefs in
   emit s [Label l]
 
 (* replace labels in bytecode with addresses *)
@@ -1447,11 +1454,11 @@ let init_repl_state =
 let compile_Cexp rs decl Ce =
   let (Ce,n,c) = repeat_label_closures Ce rs.rnext_label [] in
   let c = alist_to_fmap c in
-  let ldefs = calculate_ldefs c [] Ce in
-  let d = calculate_ecs c <| ecs = Pmap.empty; ctenvs = Pmap.empty |> ldefs in
+  let ldefs = collect_ldefs c [] Ce in (* is this necessary? can't we use c for ldefs? *)
+  let d = calculate_closure_data c Pmap.empty ldefs in
   let cs = <| out = []; next_label = n
             ; decl = (rs.renv,rs.rsz) |> in
-  let cs = compile_code_env c d cs ldefs in
+  let cs = compile_code_env d cs ldefs in
   let cs = compile d rs.renv (TCNonTail decl) rs.rsz cs Ce in
   let rs = if decl then match cs.decl with
     | (env,sz) -> <| rs with renv = env ; rsz = sz |>

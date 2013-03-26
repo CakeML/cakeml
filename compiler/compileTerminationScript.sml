@@ -114,8 +114,8 @@ val _ = export_rewrites["CevalPrim2_def","CevalUpd_def","CevalPrim1_def"];
 
 (* compiler definitions *)
 
-val _ = register "shift" (
-  tprove_no_defn ((shift_def,shift_ind),
+val _ = register "mkshift" (
+  tprove_no_defn ((mkshift_def,mkshift_ind),
   WF_REL_TAC `measure (Cexp_size o SND o SND)` >>
   srw_tac[ARITH_ss][Cexp4_size_thm,Cexp1_size_thm,SUM_MAP_Cexp2_size_thm] >>
   Q.ISPEC_THEN`Cexp_size`imp_res_tac SUM_MAP_MEM_bound >>
@@ -148,8 +148,8 @@ val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
 
 val pat_to_Cpat_def = save_thm("pat_to_Cpat_def",pat_to_Cpat_def)
 
-val _ = register "calculate_ldefs" (
-  tprove_no_defn ((calculate_ldefs_def, calculate_ldefs_ind),
+val _ = register "collect_ldefs" (
+  tprove_no_defn ((collect_ldefs_def, collect_ldefs_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λ(c,ls,e). (CARD (FDOM c), Cexp_size e))` >>
   srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm] >> fs[FLOOKUP_DEF] >>
   Q.ISPEC_THEN `Cexp_size` mp_tac SUM_MAP_MEM_bound >>
@@ -428,7 +428,7 @@ val _ = save_thm("push_lab_def",push_lab_def)
 val _ = save_thm("cons_closure_def",cons_closure_def)
 val _ = save_thm("update_refptr_def",update_refptr_def)
 val _ = save_thm("compile_closures_def",compile_closures_def)
-val _ = save_thm("calculate_ecs_def",calculate_ecs_def)
+val _ = save_thm("calculate_closure_data_def",calculate_closure_data_def)
 
 val (number_constructors_def,number_constructors_ind) = register "number_constructors" (
   tprove_no_defn ((number_constructors_def,number_constructors_ind),
