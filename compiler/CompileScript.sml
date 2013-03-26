@@ -881,8 +881,8 @@ val _ = Defn.save_defn remove_mat_var_defn;
 (pes_to_Cpes m [] = [])
 /\
 (pes_to_Cpes m ((p,e)::pes) =
-  let (m,Cp) =(( pat_to_Cpat m) p) in
-  let Ce =(( exp_to_Cexp m) e) in
+  let (m',Cp) =(( pat_to_Cpat ( m with<| bvars := [] |>)) p) in (* parens *)
+  let Ce =(( exp_to_Cexp ( m with<| bvars := ((REVERSE m'.bvars))++m.bvars |>)) e) in
   let Cpes =(( pes_to_Cpes m) pes) in
   (Cp,Ce)::Cpes)
 /\
@@ -1668,9 +1668,9 @@ val _ = Defn.save_defn number_constructors_defn;
 (repl_dec rs (Dlet _ p e) =
   let m =( etC rs) in
   let Ce =(( exp_to_Cexp m) e) in
-  let (m,Cp) =(( pat_to_Cpat m) p) in
+  let (m',Cp) =(( pat_to_Cpat ( m with<| bvars := [] |>)) p) in (* parens *)
   let Cpes = [(Cp,(CDecl (((GENLIST (\ i . i)) ((Cpat_vars Cp))))))] in(((
-  compile_Cexp ( rs with<| rbvars := m.bvars |>)) (* parens *)
+  compile_Cexp ( rs with<| rbvars := ((REVERSE m'.bvars))++rs.rbvars |>)) (* parens *)
     T) (((CLet Ce) (((remove_mat_var 0) Cpes))))))`;
 
 val _ = Defn.save_defn repl_dec_defn;
