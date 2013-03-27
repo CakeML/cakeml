@@ -3,6 +3,14 @@ open preamble MiniMLTheory MiniMLTerminationTheory rich_listTheory;
 
 val _ = new_theory "typeSystem";
 
+val all_distinct_map_inj = Q.prove (
+`!f l. (!x y. (f x = f y) ⇒ (x = y)) ⇒ (ALL_DISTINCT (MAP f l) = ALL_DISTINCT l)`,
+Induct_on `l` >>
+rw [] >>
+res_tac >>
+rw [MEM_MAP] >>
+metis_tac []);
+
 val mem_lem = Q.prove (
 `!x y l. MEM (x,y) l ⇒ ∃z. (x = FST z) ∧ z ∈ set l`,
 induct_on `l` >>
@@ -1648,7 +1656,25 @@ val check_ctor_tenvC_ok_lem2 = Q.prove (
   ALL_DISTINCT (FLAT (MAP (λ(p1,p1',p2). MAP (λ(p1'',p2). p1'') p2) c))
   ⇒
   ALL_DISTINCT (FLAT (MAP (λ(p1,p1',p2). MAP (λ(p1'',p2). mk_id mn p1'') p2) c))`,
-cheat);
+rw [] >>
+`FLAT (MAP (λ(p1,p1',p2). MAP (λ(p1'',p2). mk_id mn p1'') p2) c) =
+ MAP (mk_id mn) (FLAT (MAP (λ(p1,p1',p2). MAP (λ(p1'',p2). p1'') p2) c))`
+        by (rw [MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF] >>
+            pop_assum (fn _ => all_tac) >>
+            induct_on `c` >>
+            rw [] >>
+            PairCases_on `h` >>
+            rw [MAP_MAP_o, combinTheory.o_DEF] >>
+            pop_assum (fn _ => all_tac) >>
+            induct_on `h2` >>
+            rw [] >>
+            PairCases_on `h` >>
+            rw []) >>
+rw [] >>
+`!(x:'c) y. (mk_id mn x = mk_id mn y) ⇒ (x = y)`
+        by (cases_on `mn` >>
+            rw [mk_id_def]) >>
+metis_tac [all_distinct_map_inj]);
 
 val check_ctor_tenvC_ok = Q.store_thm ("check_ctor_tenvC_ok",
 `!mn tenvC c. check_ctor_tenv mn tenvC c ⇒ tenvC_ok (build_ctor_tenv mn c)`,
