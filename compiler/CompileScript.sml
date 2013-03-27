@@ -137,7 +137,7 @@ val _ = Hol_datatype `
 
 val _ = Hol_datatype `
  Cexp =
-    CDecl of num list
+    CDecl of (num # string) list
   | CRaise of error
   | CHandle of Cexp => Cexp
   | CVar of num
@@ -169,7 +169,7 @@ val _ = Hol_datatype `
 
  val free_vars_defn = Hol_defn "free_vars" `
 
-(free_vars _ (CDecl xs) =( LIST_TO_SET xs))
+(free_vars _ (CDecl xs) =( LIST_TO_SET (((MAP (\ (n,m) . n)) xs))))
 /\
 (free_vars _ (CRaise _) = {})
 /\
@@ -526,7 +526,7 @@ OPTREL ((syneq c))) (((el_check (v1 - k)) env1))) (((el_check (v2 - k)) env2)))
 syneq_var c k env1 env2 v1 v2)
 /\
 (! c k env1 env2 xs1 xs2.(((
-EVERY2 (((((syneq_var c) k) env1) env2))) xs1) xs2)
+EVERY2 (((((syneq_var c) k) env1) env2))) (((MAP (\ (n,m) . n)) xs1))) (((MAP (\ (n,m) . n)) xs2)))
 ==>
 syneq_exp c k env1 env2 ((CDecl xs1)) ((CDecl xs2)))
 /\
@@ -646,7 +646,7 @@ syneq_cb c k env1 env2 ((INR l1)) ((INR l2)))`;
 
  val mkshift_defn = Hol_defn "mkshift" `
 
-(mkshift f k (CDecl vs) =( CDecl (((MAP ((f k))) vs))))
+(mkshift f k (CDecl vs) =( CDecl (((MAP (\ (n,m) . (((f k) n), m))) vs))))
 /\
 (mkshift f k (CRaise err) =( CRaise err))
 /\
@@ -718,8 +718,8 @@ val _ = Defn.save_defn cbv_defn;
 (pats_to_Cpats m [] = (m,[]))
 /\
 (pats_to_Cpats m (p::ps) =
-  let (m,Cps) =(( pats_to_Cpats m) ps) in
   let (m,Cp) =(( pat_to_Cpat m) p) in
+  let (m,Cps) =(( pats_to_Cpats m) ps) in
   (m,Cp::Cps))`;
 
 val _ = Defn.save_defn pat_to_Cpat_defn;
@@ -760,9 +760,13 @@ val _ = Defn.save_defn Cpat_vars_defn;
 /\
 (remove_mat_con fk sk v n [] = sk)
 /\
-(remove_mat_con fk sk v n (p::ps) =((
+(remove_mat_con fk sk v n (p::ps) =
+  let p1 =( Cpat_vars p) in
+  let p2 =( Cpat_vars_list ps) in((
   CLet (((CProj ((CVar v))) n)))
-    (((((remove_mat_vp (fk+1)) ((((((remove_mat_con (fk+1)) ((((shift 1) ((Cpat_vars_list ps))) sk))) (v+1)) (n+1)) ps))) 0) p))))`;
+    (((((remove_mat_vp (fk+1))
+      ((((((remove_mat_con (fk+1+p1)) ((((shift 1) (p2+p1)) sk))) (v+1+p1)) (n+1)) ps)))
+      0) p))))`;
 
 val _ = Defn.save_defn remove_mat_vp_defn;
 
@@ -881,9 +885,9 @@ val _ = Defn.save_defn remove_mat_var_defn;
 (pes_to_Cpes m [] = [])
 /\
 (pes_to_Cpes m ((p,e)::pes) =
-  let (m',Cp) =(( pat_to_Cpat ( m with<| bvars := [] |>)) p) in (* parens *)
-  let Ce =(( exp_to_Cexp ( m with<| bvars := ((REVERSE m'.bvars))++m.bvars |>)) e) in
   let Cpes =(( pes_to_Cpes m) pes) in
+  let (m,Cp) =(( pat_to_Cpat m) p) in
+  let Ce =(( exp_to_Cexp m) e) in
   (Cp,Ce)::Cpes)
 /\
 (exps_to_Cexps s [] = [])
@@ -1137,7 +1141,7 @@ val _ = Hol_datatype `
  compiler_result =
   <| out: bc_inst list (* reversed code *)
    ; next_label: num
-   ; decl: ctenv # num
+   ; decl: ctenv # num # string list
    |>`;
 
 
@@ -1289,11 +1293,23 @@ val _ = Defn.save_defn compile_closures_defn;
 
 (compile_decl env1 =(
   FOLDL
-    (\ (s,sz,i,env) v .
-        ((((compile_varref sz) s) (((EL  v)  env1))),
-         sz+1,
-         i+1,
-         ((CTLet i))::env))))`;
+    (\ (s,sz,i,env,bvs) (v,bv) .
+      (case((( find_index bv) bvs) 1) of
+        NONE =>
+          ((((compile_varref sz) s) (((EL  v)  env1)))
+          ,sz+1
+          ,i+1
+          ,((CTLet i))::env
+          ,bv::bvs
+          )
+      | SOME j =>
+          (((emit ((((compile_varref sz) s) (((EL  v)  env1))))) [(Stack ((Store ((sz+j)- i))))])
+          ,sz
+          ,i
+          ,env
+          ,bvs
+          )
+      ))))`;
 
 val _ = Defn.save_defn compile_decl_defn;
 
@@ -1319,11 +1335,11 @@ val _ = Defn.save_defn pushret_defn;
 
 (compile _ env t sz s (CDecl vs) =
   (case t of TCNonTail T =>
-  (case s.decl of (env0,sz0) =>
+  (case s.decl of (env0,sz0,bvs0) =>
   let k = sz - sz0 in
-  let (s,sz,i,env) =((( compile_decl env) (s,sz,sz0+1,env0)) vs) in
+  let (s,sz,i,env,bvs) =((( compile_decl env) (s,sz,sz0+1,env0,bvs0)) vs) in
   let s =(( emit s) [(Stack (((Shift (i -(sz0+1))) k)))]) in
-   s with<| decl := (env,sz - k) |>
+   s with<| decl := (env,sz - k,bvs) |>
   ) | _ =>(( pushret t) (((emit s) [(Stack ((PushInt i2))); PopExc]))) (* should not happen *) ))
 /\
 (compile _ _ t _ s (CRaise err) =((
@@ -1544,11 +1560,11 @@ val _ = Define `
   let (Ce,n,c) =((( repeat_label_closures Ce) rs.rnext_label) []) in
   let d =( alist_to_fmap c) in
   let cs = <| out := []; next_label := n
-            ; decl := (rs.renv,rs.rsz) |> in
+            ; decl := (rs.renv,rs.rsz,rs.rbvars) |> in
   let cs =((( compile_code_env d) cs) c) in
   let cs =(((((( compile d) rs.renv) ((TCNonTail decl))) rs.rsz) cs) Ce) in
   let rs = if decl then (case cs.decl of
-      (env,sz) =>  rs with<| renv := env ; rsz := sz |>
+      (env,sz,bvars) =>  rs with<| renv := env; rsz := sz; rbvars := bvars |>
     ) else rs in
   let rs =  rs with<| rnext_label := cs.next_label |> in
   (rs,( REVERSE cs.out)))`;
@@ -1576,16 +1592,15 @@ val _ = Defn.save_defn number_constructors_defn;
   let fns =(( MAP ( \x . (case x of (n,_,_,_,_) => n))) defs) in
   let m =  m with<| bvars := fns ++ m.bvars |> in
   let Cdefs =(( defs_to_Cdefs m) defs) in(((
-  compile_Cexp ( rs with<| rbvars := m.bvars |>)) (* parens *)
-    T) (((CLetrec Cdefs) ((CDecl (((GENLIST (\ i . i)) ((LENGTH fns))))))))))
+  compile_Cexp rs) T) (((CLetrec Cdefs) ((CDecl ((ZIP ( (((GENLIST (\ i . i)) ((LENGTH fns)))), fns)))))))))
 /\
 (repl_dec rs (Dlet _ p e) =
   let m =( etC rs) in
   let Ce =(( exp_to_Cexp m) e) in
-  let (m',Cp) =(( pat_to_Cpat ( m with<| bvars := [] |>)) p) in (* parens *)
-  let Cpes = [(Cp,(CDecl (((GENLIST (\ i . i)) ((Cpat_vars Cp))))))] in(((
-  compile_Cexp ( rs with<| rbvars := ((REVERSE m'.bvars))++rs.rbvars |>)) (* parens *)
-    T) (((CLet Ce) (((remove_mat_var 0) Cpes))))))`;
+  let (m,Cp) =(( pat_to_Cpat ( m with<| bvars := [] |>)) p) in (* parens *)
+  let vs = m.bvars in
+  let Cpes = [(Cp,(CDecl ((ZIP ( (((GENLIST (\ i . i)) ((LENGTH vs)))), vs)))))] in(((
+  compile_Cexp rs) T) (((CLet Ce) (((remove_mat_var 0) Cpes))))))`;
 
 val _ = Defn.save_defn repl_dec_defn;
 

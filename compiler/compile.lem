@@ -119,7 +119,7 @@ type Cpat =
   | CPref of Cpat
 
 type Cexp =
-  | CDecl of list num
+  | CDecl of list (num * string)
   | CRaise of error
   | CHandle of Cexp * Cexp
   | CVar of num
@@ -147,7 +147,7 @@ type Cv =
 (* Semantics *)
 
 let rec
-free_vars _ (CDecl xs) = Set.from_list xs
+free_vars _ (CDecl xs) = Set.from_list (List.map (fun (n,m) -> n) xs)
 and
 free_vars _ (CRaise _) = {}
 and
@@ -485,7 +485,7 @@ optrel (syneq c) (el_check (v1-k) env1) (el_check (v2-k) env2)
 syneq_var c k env1 env2 v1 v2
 and
 forall c k env1 env2 xs1 xs2.
-every2 (syneq_var c k env1 env2) xs1 xs2
+every2 (syneq_var c k env1 env2) (List.map (fun (n,m) -> n) xs1) (List.map (fun (n,m) -> n) xs2)
 ==>
 syneq_exp c k env1 env2 (CDecl xs1) (CDecl xs2)
 and
@@ -604,7 +604,7 @@ syneq_cb c k env1 env2 (INR l1) (INR l2)
 (* source to intermediate expressions *)
 
 let rec
-mkshift f k (CDecl vs) = CDecl (List.map (f k) vs)
+mkshift f k (CDecl vs) = CDecl (List.map (fun (n,m) -> (f k n, m)) vs)
 and
 mkshift f k (CRaise err) = CRaise err
 and
@@ -665,8 +665,8 @@ and
 pats_to_Cpats m [] = (m,[])
 and
 pats_to_Cpats m (p::ps) =
-  let (m,Cps) = pats_to_Cpats m ps in
   let (m,Cp) = pat_to_Cpat m p in
+  let (m,Cps) = pats_to_Cpats m ps in
   (m,Cp::Cps)
 
 let rec
@@ -702,8 +702,12 @@ and
 remove_mat_con fk sk v n [] = sk
 and
 remove_mat_con fk sk v n (p::ps) =
+  let p1 = Cpat_vars p in
+  let p2 = Cpat_vars_list ps in
   CLet (CProj (CVar v) n)
-    (remove_mat_vp (fk+1) (remove_mat_con (fk+1) (shift 1 (Cpat_vars_list ps) sk) (v+1) (n+1) ps) 0 p)
+    (remove_mat_vp (fk+1)
+      (remove_mat_con (fk+1+p1) (shift 1 (p2+p1) sk) (v+1+p1) (n+1) ps)
+      0 p)
 
 let rec
 remove_mat_var v [] = CRaise Bind_error
@@ -816,9 +820,9 @@ and
 pes_to_Cpes m [] = []
 and
 pes_to_Cpes m ((p,e)::pes) =
-  let (m',Cp) = pat_to_Cpat (<| m with bvars = [] |>) p in (* parens *)
-  let Ce = exp_to_Cexp (<| m with bvars = (List.rev m'.bvars)@m.bvars |>) e in
   let Cpes = pes_to_Cpes m pes in
+  let (m,Cp) = pat_to_Cpat m p in
+  let Ce = exp_to_Cexp m e in
   (Cp,Ce)::Cpes
 and
 exps_to_Cexps s [] = []
@@ -1039,7 +1043,7 @@ type call_context = TCNonTail of bool | TCTail of num * num
 type compiler_result =
   <| out: list bc_inst (* reversed code *)
    ; next_label: num
-   ; decl: ctenv * num
+   ; decl: ctenv * num * list string
    |>
 
 let rec
@@ -1159,11 +1163,23 @@ compile_closures d env sz nz s defs =
 let rec
 compile_decl env1 =
   List.fold_left
-    (fun (s,sz,i,env) v ->
-        (compile_varref sz s (List.nth env1 v),
-         sz+1,
-         i+1,
-         (CTLet i)::env))
+    (fun (s,sz,i,env,bvs) (v,bv) ->
+      match find_index bv bvs 1 with
+      | None ->
+          (compile_varref sz s (List.nth env1 v)
+          ,sz+1
+          ,i+1
+          ,(CTLet i)::env
+          ,bv::bvs
+          )
+      | Some j ->
+          (emit (compile_varref sz s (List.nth env1 v)) [Stack (Store ((sz+j)-i))]
+          ,sz
+          ,i
+          ,env
+          ,bvs
+          )
+      end)
 
 let rec
 pushret (TCNonTail _) s = s
@@ -1183,11 +1199,11 @@ pushret (TCTail j k) s =
 let rec
 compile _ env t sz s (CDecl vs) =
   match t with TCNonTail true ->
-  match s.decl with (env0,sz0) ->
+  match s.decl with (env0,sz0,bvs0) ->
   let k = sz - sz0 in
-  let (s,sz,i,env) = compile_decl env (s,sz,sz0+1,env0) vs in
+  let (s,sz,i,env,bvs) = compile_decl env (s,sz,sz0+1,env0,bvs0) vs in
   let s = emit s [Stack (Shift (i-(sz0+1)) k)] in
-  <| s with decl = (env,sz-k) |>
+  <| s with decl = (env,sz-k,bvs) |>
   end | _ -> pushret t (emit s [Stack (PushInt i2); PopExc]) (* should not happen *) end
 and
 compile _ _ t _ s (CRaise err) =
@@ -1380,11 +1396,11 @@ let compile_Cexp rs decl Ce =
   let (Ce,n,c) = repeat_label_closures Ce rs.rnext_label [] in
   let d = alist_to_fmap c in
   let cs = <| out = []; next_label = n
-            ; decl = (rs.renv,rs.rsz) |> in
+            ; decl = (rs.renv,rs.rsz,rs.rbvars) |> in
   let cs = compile_code_env d cs c in
   let cs = compile d rs.renv (TCNonTail decl) rs.rsz cs Ce in
   let rs = if decl then match cs.decl with
-    | (env,sz) -> <| rs with renv = env ; rsz = sz |>
+    | (env,sz,bvars) -> <| rs with renv = env; rsz = sz; rbvars = bvars |>
     end else rs in
   let rs = <| rs with rnext_label = cs.next_label |> in
   (rs, List.rev cs.out)
@@ -1407,16 +1423,15 @@ repl_dec rs (Dletrec _ defs) =
   let fns = List.map (fun (n,_,_,_,_) -> n) defs in
   let m = <| m with bvars = fns @ m.bvars |> in
   let Cdefs = defs_to_Cdefs m defs in
-  compile_Cexp (<| rs with rbvars = m.bvars |>) (* parens *)
-    true (CLetrec Cdefs (CDecl (genlist (fun i -> i) (List.length fns))))
+  compile_Cexp rs true (CLetrec Cdefs (CDecl (List.combine (genlist (fun i -> i) (List.length fns)) fns)))
 and
 repl_dec rs (Dlet _ p e) =
   let m = etC rs in
   let Ce = exp_to_Cexp m e in
-  let (m',Cp) = pat_to_Cpat (<| m with bvars = [] |>) p in (* parens *)
-  let Cpes = [(Cp,CDecl (genlist (fun i -> i) (Cpat_vars Cp)))] in
-  compile_Cexp (<| rs with rbvars = (List.rev m'.bvars)@rs.rbvars |>) (* parens *)
-    true (CLet Ce (remove_mat_var 0 Cpes))
+  let (m,Cp) = pat_to_Cpat (<| m with bvars = [] |>) p in (* parens *)
+  let vs = m.bvars in
+  let Cpes = [(Cp,CDecl (List.combine (genlist (fun i -> i) (List.length vs)) vs))] in
+  compile_Cexp rs true (CLet Ce (remove_mat_var 0 Cpes))
 
 let repl_exp s exp = compile_Cexp s false (exp_to_Cexp (etC s) exp)
 
