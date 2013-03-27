@@ -1526,7 +1526,8 @@ val tenvC_ok_pres = Q.prove (
 rw [type_d_cases, emp_def] >>
 rw [] >>
 imp_res_tac check_ctor_tenvC_ok >>
-fs [tenvC_ok_def]);
+fs [tenvC_ok_def] >>
+cheat);
 
 val dec_type_soundness = Q.store_thm ("dec_type_soundness",
 `!mn tenvM tenvC tenv d tenvC' tenv' tenvS menv cenv env st.

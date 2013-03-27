@@ -47,7 +47,9 @@ val same_module_def = Define `
 (same_module _ _ = F)`;
 
 val tenvC_ok_def = Define `
-tenvC_ok tenvC = EVERY (\(cn,tvs,ts,tn). same_module cn tn ∧ EVERY (check_freevars 0 tvs) ts) tenvC`;
+tenvC_ok tenvC = 
+ALL_DISTINCT (MAP FST tenvC) ∧
+EVERY (\(cn,tvs,ts,tn). same_module cn tn ∧ EVERY (check_freevars 0 tvs) ts) tenvC`;
 
 val tenvM_ok_def = Define `
 tenvM_ok tenvM = EVERY (\(mn,tenv). tenv_ok (bind_var_list2 tenv Empty)) tenvM`;
@@ -1593,8 +1595,9 @@ cases_on `tvs = 0` >>
 fs [check_freevars_def, num_tvs_bind_var_list, bind_tvar_def, num_tvs_def] >>
 metis_tac [arithmeticTheory.ADD_0]);
 
-val check_ctor_tenvC_ok = Q.store_thm ("check_ctor_tenvC_ok",
-`!mn tenvC c. check_ctor_tenv mn tenvC c ⇒ tenvC_ok (build_ctor_tenv mn c)`,
+val check_ctor_tenvC_ok_lem = Q.prove (
+`!mn tenvC c. check_ctor_tenv mn tenvC c ⇒ 
+  EVERY (\(cn,tvs,ts,tn). same_module cn tn ∧ EVERY (check_freevars 0 tvs) ts) (build_ctor_tenv mn c)`,
 induct_on `c` >>
 rw [build_ctor_tenv_def, tenvC_ok_def] >>
 PairCases_on `h` >>
@@ -1622,6 +1625,38 @@ fs [check_ctor_tenv_def, EVERY_MAP] >|
      fs []] >>
 cases_on `mn` >>
 rw [same_module_def, mk_id_def]);
+
+val check_ctor_foldr_flat_map = Q.store_thm ("check_ctor_foldr_flat_map",
+`!c. (let x2 = [] in
+       FOLDR
+         (λ(tvs,tn,condefs) x2.
+            FOLDR (λ(n,ts) x2. n::x2) x2 condefs) x2 c)
+    =
+    FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) c)`,
+induct_on `c` >>
+rw [LET_THM] >>
+PairCases_on `h` >>
+fs [LET_THM] >>
+pop_assum (fn _ => all_tac) >>
+induct_on `h2` >>
+rw [] >>
+PairCases_on `h` >>
+rw []);
+
+val check_ctor_tenvC_ok_lem2 = Q.prove (
+`!c. 
+  ALL_DISTINCT (FLAT (MAP (λ(p1,p1',p2). MAP (λ(p1'',p2). p1'') p2) c))
+  ⇒
+  ALL_DISTINCT (FLAT (MAP (λ(p1,p1',p2). MAP (λ(p1'',p2). mk_id mn p1'') p2) c))`,
+cheat);
+
+val check_ctor_tenvC_ok = Q.store_thm ("check_ctor_tenvC_ok",
+`!mn tenvC c. check_ctor_tenv mn tenvC c ⇒ tenvC_ok (build_ctor_tenv mn c)`,
+rw [tenvC_ok_def] >|
+[fs [build_ctor_tenv_def, check_ctor_tenv_def, check_dup_ctors_def, RES_FORALL,
+     MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, 
+     LAMBDA_PROD, check_ctor_foldr_flat_map, check_ctor_tenvC_ok_lem2],
+ metis_tac [check_ctor_tenvC_ok_lem]]);
 
 val type_d_tenv_ok = Q.store_thm ("type_d_tenv_ok",
 `!tvs tenvM tenvC tenv d tenvC' tenv' tenvM'' tenvC''.
@@ -1676,7 +1711,10 @@ rw [] >|
 [rw [tenvC_ok_def, emp_def],
  rw [disjoint_env_def, emp_def],
  imp_res_tac type_d_tenvC_ok >>
-     fs [bvl2_append, merge_def, num_tvs_bvl2, tenvC_ok_def, merge_def],
+     fs [bvl2_append, merge_def, num_tvs_bvl2, tenvC_ok_def, merge_def,
+         ALL_DISTINCT_APPEND, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+     rw [] >>
+     metis_tac [],
  imp_res_tac type_d_tenvC_ok >>
      fs [num_tvs_bvl2, merge_def, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
      rw [] >>
@@ -1707,7 +1745,14 @@ ho_match_mp_tac type_specs_ind >>
 rw [] >>
 qpat_assum `A ⇒ B` match_mp_tac >>
 fs [tenvC_ok_def, merge_def] >>
-metis_tac [tenvC_ok_def, check_ctor_tenvC_ok]);
+rw [] >|
+[rw [ALL_DISTINCT_APPEND] >>
+     imp_res_tac check_ctor_tenvC_ok >>
+     fs [tenvC_ok_def] >>
+     imp_res_tac check_ctor_tenv_dups >>
+     fs [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+     metis_tac [],
+ metis_tac [tenvC_ok_def, check_ctor_tenvC_ok]]);
 
 val _ = export_theory ();
 
