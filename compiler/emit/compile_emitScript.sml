@@ -50,11 +50,11 @@ val data = map
   , datatype_Cpat
   , datatype_Cexp
   , datatype_exp_to_Cexp_state
-  , datatype_label_closures_state
   , datatype_ctbind
   , datatype_cebind
-  , datatype_call_context
   , datatype_closure_data
+  , datatype_label_closures_state
+  , datatype_call_context
   , datatype_compiler_result
   , datatype_repl_state
   ]
@@ -88,15 +88,12 @@ val defs = map EmitML.DEFN
 , count_unlab_def
 , imm_unlab_def
 , repeat_label_closures_def
-, defs_to_ldefs_def
-, collect_ldefs_def
 , push_lab_def
 , underscore_rule cons_closure_def
 , update_refptr_def
 , underscore_rule compile_closures_def
 , compile_decl_def
 , underscore_rule compile_def
-, calculate_closure_data_def
 , cce_aux_def
 , compile_code_env_def
 , calculate_labels_def

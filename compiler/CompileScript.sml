@@ -895,28 +895,83 @@ val _ = Defn.save_defn exp_to_Cexp_defn;
 
 (* pull closure bodies into code environment *)
 
+(* values in compile-time environment *)
 val _ = Hol_datatype `
- label_closures_state =
-  <| lnext_label: num
-   ; lcode_env: (num # Cexp) list
+ ctbind = CTLet of num | CTArg of num | CTEnv of num | CTRef of num`;
+
+(* CTLet n means stack[sz - n]
+   CTArg n means stack[sz + n]
+   CTEnv n means El n of the environment, which is at stack[sz]
+   CTRef n means El n of the environment, but it's a ref pointer *)
+
+val _ = type_abbrev( "ctenv" , ``: ctbind list``);
+
+(* for constructing closure environments *)
+val _ = Hol_datatype `
+ cebind = CEEnv of num | CERef of num`;
+
+(* CEEnv n means take (Var n) in the creation-site environment
+ * CERef n means we want the nth closure in the recursive bundle *)
+
+val _ = type_abbrev( "ceenv" , ``: num # cebind list``); (* num is the length of the list *)
+
+val _ = Hol_datatype `
+ closure_data =
+  <| ctenv :ctenv (* to be prepended to call-site environment *)
+   ; ceenv :ceenv (* to construct ctenv from creation-site environment *)
+   ; az    :num   (* number of arguments *)
+   ; body  :Cexp  (* adjusted for ctenv *)
    |>`;
 
 
 
+val _ = Hol_datatype `
+ label_closures_state =
+  <| lnext_label: num
+   ; lcode_env: (num # closure_data) list
+   |>`;
+
+
+
+ val bind_fv_defn = Hol_defn "bind_fv" `
+ (bind_fv e az nz k =
+  let args =(( GENLIST (\ n .( CTArg (2+n)))) az) in
+  let fvs =(( free_vars FEMPTY) e) in
+  let recs =(( FILTER (\ v . az+v IN fvs /\( ~  (v=k)))) (((GENLIST (\ n . n)) nz))) in
+  let erz =( LENGTH recs) in
+  let erec =(( MAP (\ n .( CERef (n+1)))) recs) in
+  let (recs,rz,trec) = if k < nz /\ az+k IN fvs
+    then (k::recs,erz+1,(CTArg (2+az))::(((GENLIST (\ i .( CTRef (i+1)))) erz)))
+    else (recs,erz,((GENLIST CTRef) erz)) in
+  let envs =(( FILTER (\ v . az+nz <= v)) (((QSORT (\ x y . x < y)) ((SET_TO_LIST fvs))))) in
+  let envs =(( MAP (\ v . v -(az+nz))) envs) in
+  let e =((( mkshift (\ k v . if v < k then v else
+                              if v < k+nz then( THE((((find_index (v - k)) recs) k)))
+                              else( THE((((find_index (v -(k+nz))) envs) (k+rz))))))
+                  az) e) in
+  let eenv =(( MAP CEEnv) envs) in
+  let eez =( LENGTH envs) in
+  let tenv =(( GENLIST (\ i .( CTEnv (erz+i)))) eez) in
+  <| ctenv := args++(trec++tenv)
+   ; ceenv := (erz+eez,erec++eenv)
+   ; az := az ; body := e |>)`;
+
+val _ = Defn.save_defn bind_fv_defn;
+
  val label_defs_defn = Hol_defn "label_defs" `
 
-(label_defs (ds: def list) ([]: def list) =( UNIT ds))
+(label_defs (ds: def list) nz k ([]: def list) =( UNIT ds))
 /\
-(label_defs ds ((xs,INR a)::defs) =((
-  label_defs ((xs,(INR a))::ds)) defs))
+(label_defs ds nz k ((xs,INR a)::defs) =((((
+  label_defs ((xs,(INR a))::ds)) nz) (k+1)) defs))
 /\
-(label_defs ds ((xs,INL b)::defs) =(( BIND
+(label_defs ds nz k ((xs,INL b)::defs) =(( BIND
   (\ s .(( UNIT s.lnext_label)
     ( s with<| (* parens: Lem sucks *)
       lnext_label := s.lnext_label+1 ;
-      lcode_env := (s.lnext_label,b)::s.lcode_env
+      lcode_env := (s.lnext_label,(((((bind_fv b) xs) nz) k)))::s.lcode_env
      |>)) )) (\ n .
-  (((label_defs ((xs,(INR n))::ds)) defs)))))`;
+  (((((label_defs ((xs,(INR n))::ds)) nz) (k+1)) defs)))))`;
 
 val _ = Defn.save_defn label_defs_defn;
 
@@ -953,12 +1008,12 @@ val _ = Defn.save_defn label_defs_defn;
   (((CLet e) b))))))))
 /\
 (label_closures (CLetrec defs e) =(( BIND
-  (((label_defs []) defs))) (\ defs .(( BIND
+  (((((label_defs []) ((LENGTH defs))) 0) defs))) (\ defs .(( BIND
   ((label_closures e))) (\ e .( UNIT
   (((CLetrec ((REVERSE defs))) e))))))))
 /\
 (label_closures (CFun xs cb) =(( BIND
-  (((label_defs []) [(xs,cb)]))) (\ defs .
+  (((((label_defs []) 0) 0) [(xs,cb)]))) (\ defs .
   let (xs,cb) =(( EL  0)  defs) in( UNIT
   (((CFun xs) cb))))))
 /\
@@ -1059,94 +1114,15 @@ val _ = Defn.save_defn imm_unlab_defn;
 /\
 (label_code_env n ac [] = (n,ac))
 /\
-(label_code_env n ac ((l,e)::ls) =
-  let (e,n,ac) =((( repeat_label_closures e) n) ac) in(((
-  label_code_env n) ((l,e)::ac)) ls))`;
+(label_code_env n ac ((l,cd)::ls) =
+  let (e,n,ac) =((( repeat_label_closures cd.body) n) ac) in(((
+  label_code_env n) ((l, cd with<| body := e |>)::ac)) ls))`;
 
 val _ = Defn.save_defn repeat_label_closures_defn;
-
-(* extract syntactic defs, to assist code_env construction *)
-
- val defs_to_ldefs_defn = Hol_defn "defs_to_ldefs" `
-
-(defs_to_ldefs [] = [])
-/\
-(defs_to_ldefs ((xs,INR l)::defs) = (xs,l)::((defs_to_ldefs defs)))
-/\
-(defs_to_ldefs _ = [])`;
-
-val _ = Defn.save_defn defs_to_ldefs_defn; (* should not happen *)
-
- val collect_ldefs_defn = Hol_defn "collect_ldefs" `
- (* including many uneta because Hol_defn sucks *)
-(collect_ldefs c ls (CDecl _) = ls)
-/\
-(collect_ldefs c ls (CRaise _) = ls)
-/\
-(collect_ldefs c ls (CVar _) = ls)
-/\
-(collect_ldefs c ls (CLit _) = ls)
-/\
-(collect_ldefs c ls (CCon _ es) =(((
-  FOLDL (\ ls e .((( collect_ldefs c) ls) e))) ls) es))
-/\
-(collect_ldefs c ls (CTagEq e _) =((( collect_ldefs c) ls) e))
-/\
-(collect_ldefs c ls (CProj e _) =((( collect_ldefs c) ls) e))
-/\
-(collect_ldefs c ls (CLet e b) =(((
-  collect_ldefs c) ((((collect_ldefs c) ls) b))) e))
-/\
-(collect_ldefs c ls (CLetrec defs e) =(((
-  FOLDL
-    (\ ls . \x . (case x of (_,cb) =>
-      (case cb of INR l =>
-        (case(( FLOOKUP c) l) of NONE => [] (* should not happen *)
-        | SOME e =>((( collect_ldefs ((($\\ c) l))) ls) e)
-        )
-      | _ => [] (* should not happen *)
-      ))))
-    (((LENGTH defs),(
-      defs_to_ldefs defs))
-     ::(((collect_ldefs c) ls) e)))
-    defs))
-/\
-(collect_ldefs c ls (CFun xs cb) =
-  (case cb of INR l =>
-    (case(( FLOOKUP c) l) of NONE => [] (* should not happen *)
-    | SOME e =>((( collect_ldefs ((($\\ c) l))) ((0,[(xs,l)])::ls)) e)
-    )
-  | _ => [] (* should not happen *)
-  ))
-/\
-(collect_ldefs c ls (CCall e es) =(((
-  FOLDL (\ ls e .((( collect_ldefs c) ls) e))) ((((collect_ldefs c) ls) e))) es))
-/\
-(collect_ldefs c ls (CPrim2 _ e1 e2) =(((
-  collect_ldefs c) ((((collect_ldefs c) ls) e1))) e2))
-/\
-(collect_ldefs c ls (CUpd e1 e2) =(((
-  collect_ldefs c) ((((collect_ldefs c) ls) e1))) e2))
-/\
-(collect_ldefs c ls (CIf e1 e2 e3) =(((
-  collect_ldefs c) ((((collect_ldefs c) ((((collect_ldefs c) ls) e1))) e2))) e3))`;
-
-val _ = Defn.save_defn collect_ldefs_defn;
 
 (* intermediate expressions to bytecode *)
 
 (*open Bytecode*)
-
-(* values in compile-time environment *)
-val _ = Hol_datatype `
- ctbind = CTLet of num | CTArg of num | CTEnv of num | CTRef of num`;
-
-(* CTLet n means stack[sz - n]
-   CTArg n means stack[sz + n]
-   CTEnv n means El n of the environment, which is at stack[sz]
-   CTRef n means El n of the environment, but it's a ref pointer *)
-
-val _ = type_abbrev( "ctenv" , ``: ctbind list``);
 
 val _ = Hol_datatype `
  call_context = TCNonTail of bool | TCTail of num => num`;
@@ -1157,27 +1133,11 @@ val _ = Hol_datatype `
 (* TCNonTail b = if b then in tail position, but called from top-level,
  * else not in tail position. *)
 
-(* helper for reconstructing closure environments *)
-val _ = Hol_datatype `
- cebind = CEEnv of num | CERef of num`;
-
-
-val _ = type_abbrev( "ceenv" , ``: num # cebind list``); (* num is the length of the list *)
-
 val _ = Hol_datatype `
  compiler_result =
   <| out: bc_inst list (* reversed code *)
    ; next_label: num
    ; decl: ctenv # num
-   |>`;
-
-
-
-val _ = Hol_datatype `
- closure_data =
-  <| ctenv: ctenv
-   ; ceenv: ceenv
-   ; body: Cexp
    |>`;
 
 
@@ -1280,7 +1240,7 @@ val _ = Defn.save_defn push_lab_defn;
   (* CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0,     *)
   let s =(( emit s) [(Stack ((Load (nk - k))))]) in
   (* CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
-  let (_z,s) =((( FOLDL (((emit_ec env0) sz0))) (sz1+1,s)) ((REVERSE ec))) in
+  let (_z,s) =((( FOLDL (((emit_ec env0) sz0))) (sz1+1,s)) ec) in
   (* e_kj, ..., e_k1, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
   let s =(( emit s) [(Stack (((Cons 0) j)))]) in
   (* env_k, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
@@ -1354,7 +1314,6 @@ val _ = Defn.save_defn compile_decl_defn;
           Return]))`;
 
 val _ = Defn.save_defn pushret_defn;
-
 
  val compile_defn = Hol_defn "compile" `
 
@@ -1483,64 +1442,21 @@ val _ = Defn.save_defn compile_defn;
 
 (* code env to bytecode *)
 
- val bind_fv_defn = Hol_defn "bind_fv" `
- (bind_fv e az nz k =
-  let args =(( GENLIST (\ n .( CTArg (2+n)))) az) in
-  let fvs =(( free_vars FEMPTY) e) in
-  let recs =(( FILTER (\ v . az+v IN fvs /\( ~  (v=k)))) (((GENLIST (\ n . n)) nz))) in
-  let erz =( LENGTH recs) in
-  let erec =(( MAP (\ n .( CERef (n+1)))) recs) in
-  let (recs,rz,trec) = if k < nz /\ az+k IN fvs
-    then (k::recs,erz+1,(CTArg (2+az))::(((GENLIST (\ i .( CTRef (i+1)))) erz)))
-    else (recs,erz,((GENLIST CTRef) erz)) in
-  let envs =(( FILTER (\ v . az+nz <= v)) (((QSORT (\ x y . x < y)) ((SET_TO_LIST fvs))))) in
-  let envs =(( MAP (\ v . v -(az+nz))) envs) in
-  let e =((( mkshift (\ k v . if v < k then v else
-                              if v < k+nz then( THE((((find_index (v - k)) recs) k)))
-                              else( THE((((find_index (v -(k+nz))) envs) (k+rz))))))
-                  az) e) in
-  let eenv =(( MAP CEEnv) envs) in
-  let eez =( LENGTH envs) in
-  let tenv =(( GENLIST (\ i .( CTEnv (erz+i)))) eez) in
-  <| ctenv := args++(trec++tenv)
-   ; ceenv := (erz+eez,erec++eenv)
-   ; body := e |>)`;
-
-val _ = Defn.save_defn bind_fv_defn;
-
- val calculate_closure_data_defn = Hol_defn "calculate_closure_data" `
-
-(calculate_closure_data c =(
-  FOLDL
-    (\ s (nz,defs) .
-      let (s,k) =((( FOLDL
-        (\ (s,k) (az,l) .
-          let r =(((( bind_fv (((FAPPLY  c)  l))) az) nz) k) in
-          (((FUPDATE  s) ( l, r)),k+1)))
-        (s,0)) defs) in
-      s)))`;
-
-val _ = Defn.save_defn calculate_closure_data_defn;
-
  val cce_aux_defn = Hol_defn "cce_aux" `
 
-(cce_aux d s (nz,ls) =(((
-  FOLDL
-    (\ s (az,l) .
-      let env = (((FAPPLY  d)  l)).ctenv in
-      let s =(( emit s) [(Label l)]) in((((((
-      compile d) env) (((TCTail az) 0))) 0) s) (((FAPPLY  d)  l)).body)))
-    s) ls))`;
+(cce_aux d s (l,cd) =
+  let s =(( emit s) [(Label l)]) in((((((
+  compile d) cd.ctenv) (((TCTail cd.az) 0))) 0) s) cd.body))`;
 
 val _ = Defn.save_defn cce_aux_defn;
 
  val compile_code_env_defn = Hol_defn "compile_code_env" `
 
-(compile_code_env d s ldefs =
+(compile_code_env d s c =
   let (s,ls) =(( get_labels 1) s) in
   let l =(( EL  0)  ls) in
   let s =(( emit s) [(Jump ((Lab l)))]) in
-  let s =((( FOLDL ((cce_aux d))) s) ldefs) in((
+  let s =((( FOLDL ((cce_aux d))) s) c) in((
   emit s) [(Label l)]))`;
 
 val _ = Defn.save_defn compile_code_env_defn;
@@ -1626,12 +1542,10 @@ val _ = Define `
 val _ = Define `
  (compile_Cexp rs decl Ce =
   let (Ce,n,c) =((( repeat_label_closures Ce) rs.rnext_label) []) in
-  let c =( alist_to_fmap c) in
-  let ldefs =((( collect_ldefs c) []) Ce) in (* is this necessary? can't we use c for ldefs? *)
-  let d =((( calculate_closure_data c) FEMPTY) ldefs) in
+  let d =( alist_to_fmap c) in
   let cs = <| out := []; next_label := n
             ; decl := (rs.renv,rs.rsz) |> in
-  let cs =((( compile_code_env d) cs) ldefs) in
+  let cs =((( compile_code_env d) cs) c) in
   let cs =(((((( compile d) rs.renv) ((TCNonTail decl))) rs.rsz) cs) Ce) in
   let rs = if decl then (case cs.decl of
       (env,sz) =>  rs with<| renv := env ; rsz := sz |>

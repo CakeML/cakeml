@@ -114,7 +114,7 @@ val _ = export_rewrites["CevalPrim2_def","CevalUpd_def","CevalPrim1_def"];
 
 (* compiler definitions *)
 
-val _ = register "mkshift" (
+val (mkshift_def,mkshift_ind) = register "mkshift" (
   tprove_no_defn ((mkshift_def,mkshift_ind),
   WF_REL_TAC `measure (Cexp_size o SND o SND)` >>
   srw_tac[ARITH_ss][Cexp4_size_thm,Cexp1_size_thm,SUM_MAP_Cexp2_size_thm] >>
@@ -148,14 +148,6 @@ val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
 
 val pat_to_Cpat_def = save_thm("pat_to_Cpat_def",pat_to_Cpat_def)
 
-val _ = register "collect_ldefs" (
-  tprove_no_defn ((collect_ldefs_def, collect_ldefs_ind),
-  WF_REL_TAC `inv_image ($< LEX $<) (λ(c,ls,e). (CARD (FDOM c), Cexp_size e))` >>
-  srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm] >> fs[FLOOKUP_DEF] >>
-  Q.ISPEC_THEN `Cexp_size` mp_tac SUM_MAP_MEM_bound >>
-  strip_tac >> res_tac >> fsrw_tac[ARITH_ss][] >>
-  Cases_on `CARD (FDOM c)` >> fs[]))
-
 val (compile_varref_def, compile_varref_ind) = register "compile_varref" (
   tprove_no_defn ((compile_varref_def, compile_varref_ind),
   WF_REL_TAC `measure (λp. case p of (_,_,CTEnv _) => 0 | (_,_,CTRef _) => 1)`))
@@ -180,7 +172,7 @@ val _ = register "num_fold" (
 
 val (label_defs_def,label_defs_ind) = register "label_defs" (
   tprove_no_defn ((label_defs_def,label_defs_ind),
-  WF_REL_TAC `measure (LENGTH o SND)` >> rw[]))
+  WF_REL_TAC `measure (LENGTH o SND o SND o SND)` >> rw[]))
 
 val _ = save_thm("label_closures_def",label_closures_def)
 
@@ -293,17 +285,30 @@ val label_closures_list_mapM = store_thm("label_closures_list_mapM",
   Induct >> rw[label_closures_def,mapM_cons])
 val _ = export_rewrites["label_closures_list_mapM"]
 
+val bodies_mkshift = store_thm("bodies_mkshift",
+  ``∀f k e. bodies (mkshift f k e) = bodies e``,
+  ho_match_mp_tac mkshift_ind >>
+  rw[mkshift_def,MAP_MAP_o,combinTheory.o_DEF] >> rw[] >>
+  TRY ( Cases_on`cb`>>fs[]>>NO_TAC) >>
+  AP_TERM_TAC >> lrw[MAP_EQ_f] >>
+  simp[Abbr`defs'`,MAP_MAP_o,combinTheory.o_DEF] >>
+  lrw[MAP_EQ_f] >>
+  PairCases_on`a`>>
+  Cases_on`a1`>>fs[] >>
+  fsrw_tac[ARITH_ss][])
+val _ = export_rewrites["bodies_mkshift"]
+
 val label_closures_bodies = store_thm("label_closures_bodies",
-  ``(∀e s e' s'. ((e',s') = label_closures e s) ⇒
+  ``(∀e s cd s'. ((cd,s') = label_closures e s) ⇒
                  ∃c. (s'.lcode_env = c++s.lcode_env) ∧
-                     (bodies e = list_size (bodies o SND) c)) ∧
-    (∀ds ac s ds' s'. ((ds',s') = label_defs ac ds s) ⇒
+                     (bodies e = list_size (bodies o closure_data_body o SND) c)) ∧
+    (∀ds ac nz k s ds' s'. ((ds',s') = label_defs ac nz k ds s) ⇒
                  ∃c. (s'.lcode_env = c++s.lcode_env) ∧
-                     (SUM (MAP bod1 ds) = list_size (bodies o SND) c)) ∧
+                     (SUM (MAP bod1 ds) = list_size (bodies o closure_data_body o SND) c)) ∧
     (∀x:def. T) ∧ (∀x:(Cexp + num). T) ∧
     (∀es s es' s'. ((es',s') = label_closures_list es s) ⇒
                  ∃c. (s'.lcode_env = c++s.lcode_env) ∧
-                     (SUM (MAP bodies es) = list_size (bodies o SND) c))``,
+                     (SUM (MAP bodies es) = list_size (bodies o closure_data_body o SND) c))``,
   ho_match_mp_tac (TypeBase.induction_of``:Cexp``) >>
   srw_tac[DNF_ss][label_closures_def,list_size_thm,SUM_eq_0,MEM_MAP,LENGTH_NIL,UNIT_DEF,BIND_DEF]
   >- (
@@ -330,9 +335,9 @@ val label_closures_bodies = store_thm("label_closures_bodies",
     rw[] >> fs[] >>
     srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
   >- (
-    qabbrev_tac `p = label_defs [] ds s` >>
+    qabbrev_tac `p = label_defs [] (LENGTH ds) 0 ds s` >>
     PairCases_on `p` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`[]`,`s`,`p0`,`p1`] mp_tac) >> rw[] >> fs[] >>
+    first_x_assum (qspecl_then [`[]`,`LENGTH ds`,`0`,`s`,`p0`,`p1`] mp_tac) >> rw[] >> fs[] >>
     qabbrev_tac `q = label_closures e p1` >>
     PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
     first_x_assum (qspecl_then [`p1`,`q0`,`q1`] mp_tac) >> rw[] >>
@@ -340,7 +345,8 @@ val label_closures_bodies = store_thm("label_closures_bodies",
     srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
   >- (
     Cases_on `x` >> fs[label_defs_def,UNIT_DEF,BIND_DEF,LET_THM] >>
-    srw_tac[ARITH_ss][] )
+    srw_tac[ARITH_ss][bind_fv_def] >>
+    rw[Abbr`e`])
   >- (
     qabbrev_tac `q = label_closures e s` >>
     PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
@@ -396,7 +402,8 @@ val label_closures_bodies = store_thm("label_closures_bodies",
     PairCases_on `x` >> Cases_on `x1` >>
     fs[label_defs_def,BIND_DEF,UNIT_DEF] >>
     res_tac >> fs[] >>
-    srw_tac[ARITH_ss][SUM_APPEND] )
+    srw_tac[ARITH_ss][SUM_APPEND,bind_fv_def] >>
+    rw[Abbr`e`])
   >- (
     qabbrev_tac `q = label_closures e s` >>
     PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
@@ -411,16 +418,12 @@ val _ = register "repeat_label_closures" (
   tprove_no_defn ((repeat_label_closures_def,repeat_label_closures_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
     | (INL (e,n,ac)) =>  (bodies e,1:num)
-    | (INR (n,ac,ls)) => (list_size (bodies o SND) ls),0)` >>
+    | (INR (n,ac,ls)) => (list_size (bodies o closure_data_body o SND) ls),0)` >>
   srw_tac[ARITH_ss][list_size_thm] >>
   disj2_tac >>
   imp_res_tac label_closures_bodies >>
   fs[list_size_thm] >>
   srw_tac[ETA_ss,ARITH_ss][combinTheory.o_DEF]))
-
-val _ = register "defs_to_ldefs" (
-  tprove_no_defn ((defs_to_ldefs_def,defs_to_ldefs_ind),
-  WF_REL_TAC `measure LENGTH` >> rw[]))
 
 val _ = save_thm("cce_aux_def",cce_aux_def)
 val _ = save_thm("compile_code_env_def",compile_code_env_def)
@@ -428,7 +431,6 @@ val _ = save_thm("push_lab_def",push_lab_def)
 val _ = save_thm("cons_closure_def",cons_closure_def)
 val _ = save_thm("update_refptr_def",update_refptr_def)
 val _ = save_thm("compile_closures_def",compile_closures_def)
-val _ = save_thm("calculate_closure_data_def",calculate_closure_data_def)
 
 val (number_constructors_def,number_constructors_ind) = register "number_constructors" (
   tprove_no_defn ((number_constructors_def,number_constructors_ind),

@@ -828,24 +828,69 @@ exps_to_Cexps m (e::es) =
 
 (* pull closure bodies into code environment *)
 
-type label_closures_state =
-  <| lnext_label: num
-   ; lcode_env: list (num * Cexp)
+(* values in compile-time environment *)
+type ctbind = CTLet of num | CTArg of num | CTEnv of num | CTRef of num
+(* CTLet n means stack[sz - n]
+   CTArg n means stack[sz + n]
+   CTEnv n means El n of the environment, which is at stack[sz]
+   CTRef n means El n of the environment, but it's a ref pointer *)
+
+type ctenv = list ctbind
+
+(* for constructing closure environments *)
+type cebind = CEEnv of num | CERef of num
+(* CEEnv n means take (Var n) in the creation-site environment
+ * CERef n means we want the nth closure in the recursive bundle *)
+
+type ceenv = num * list cebind (* num is the length of the list *)
+
+type closure_data =
+  <| ctenv :ctenv (* to be prepended to call-site environment *)
+   ; ceenv :ceenv (* to construct ctenv from creation-site environment *)
+   ; az    :num   (* number of arguments *)
+   ; body  :Cexp  (* adjusted for ctenv *)
    |>
 
+type label_closures_state =
+  <| lnext_label: num
+   ; lcode_env: list (num * closure_data)
+   |>
+
+let rec bind_fv e az nz k =
+  let args = genlist (fun n -> CTArg (2+n)) az in
+  let fvs = free_vars Pmap.empty e in
+  let recs = List.filter (fun v -> az+v IN fvs && not (v=k)) (genlist (fun n -> n) nz) in
+  let erz = List.length recs in
+  let erec = List.map (fun n -> CERef (n+1)) recs in
+  let (recs,rz,trec) = if k < nz && az+k IN fvs
+    then (k::recs,erz+1,CTArg (2+az)::(genlist (fun i -> CTRef (i+1)) erz))
+    else (recs,erz,genlist CTRef erz) in
+  let envs = List.filter (fun v -> az+nz <= v) (qsort (fun x y -> x < y) (Set.to_list fvs)) in
+  let envs = List.map (fun v -> v-(az+nz)) envs in
+  let e = mkshift (fun k v -> if v < k then v else
+                              if v < k+nz then the(find_index (v-k) recs k)
+                              else the(find_index (v-(k+nz)) envs (k+rz)))
+                  az e in
+  let eenv = List.map CEEnv envs in
+  let eez = List.length envs in
+  let tenv = genlist (fun i -> CTEnv (erz+i)) eez in
+  <| ctenv = args@trec@tenv
+   ; ceenv = (erz+eez,erec@eenv)
+   ; az = az ; body = e |>
+
 let rec
-label_defs (ds:list def) ([]:list def) = return ds
+label_defs (ds:list def) nz k ([]:list def) = return ds
 and
-label_defs ds ((xs,INR a)::defs) =
-  label_defs ((xs,INR a)::ds) defs
+label_defs ds nz k ((xs,INR a)::defs) =
+  label_defs ((xs,INR a)::ds) nz (k+1) defs
 and
-label_defs ds ((xs,INL b)::defs) = bind
+label_defs ds nz k ((xs,INL b)::defs) = bind
   (fun s -> return s.lnext_label
     (<| s with (* parens: Lem sucks *)
       lnext_label = s.lnext_label+1 ;
-      lcode_env = (s.lnext_label,b)::s.lcode_env
+      lcode_env = (s.lnext_label,(bind_fv b xs nz k))::s.lcode_env
      |>) ) (fun n ->
-  (label_defs ((xs,INR n)::ds) defs))
+  (label_defs ((xs,INR n)::ds) nz (k+1) defs))
 
 let rec
 label_closures (CDecl xs) = return (CDecl xs)
@@ -879,12 +924,12 @@ label_closures (CLet e b) = bind
   (CLet e b)))
 and
 label_closures (CLetrec defs e) = bind
-  (label_defs [] defs) (fun defs -> bind
+  (label_defs [] (List.length defs) 0 defs) (fun defs -> bind
   (label_closures e) (fun e -> return
   (CLetrec (List.rev defs) e)))
 and
 label_closures (CFun xs cb) = bind
-  (label_defs [] [(xs,cb)]) (fun defs ->
+  (label_defs [] 0 0 [(xs,cb)]) (fun defs ->
   let (xs,cb) = List.nth defs 0 in return
   (CFun xs cb))
 and
@@ -976,84 +1021,13 @@ repeat_label_closures e n ac =
 and
 label_code_env n ac [] = (n,ac)
 and
-label_code_env n ac ((l,e)::ls) =
-  let (e,n,ac) = repeat_label_closures e n ac in
-  label_code_env n ((l,e)::ac) ls
-
-(* extract syntactic defs, to assist code_env construction *)
-
-let rec
-defs_to_ldefs [] = []
-and
-defs_to_ldefs ((xs,INR l)::defs) = (xs,l)::(defs_to_ldefs defs)
-and
-defs_to_ldefs _ = [] (* should not happen *)
-
-let rec (* including many uneta because Hol_defn sucks *)
-collect_ldefs c ls (CDecl _) = ls
-and
-collect_ldefs c ls (CRaise _) = ls
-and
-collect_ldefs c ls (CVar _) = ls
-and
-collect_ldefs c ls (CLit _) = ls
-and
-collect_ldefs c ls (CCon _ es) =
-  List.fold_left (fun ls e -> collect_ldefs c ls e) ls es
-and
-collect_ldefs c ls (CTagEq e _) = collect_ldefs c ls e
-and
-collect_ldefs c ls (CProj e _) = collect_ldefs c ls e
-and
-collect_ldefs c ls (CLet e b) =
-  collect_ldefs c (collect_ldefs c ls b) e
-and
-collect_ldefs c ls (CLetrec defs e) =
-  List.fold_left
-    (fun ls (_,cb) ->
-      match cb with INR l ->
-        match flookup c l with None -> [] (* should not happen *)
-        | Some e -> collect_ldefs (domsub c l) ls e
-        end
-      | _ -> [] (* should not happen *)
-      end)
-    ((List.length defs,
-      defs_to_ldefs defs)
-     ::collect_ldefs c ls e)
-    defs
-and
-collect_ldefs c ls (CFun xs cb) =
-  match cb with INR l ->
-    match flookup c l with None -> [] (* should not happen *)
-    | Some e -> collect_ldefs (domsub c l) ((0,[(xs,l)])::ls) e
-    end
-  | _ -> [] (* should not happen *)
-  end
-and
-collect_ldefs c ls (CCall e es) =
-  List.fold_left (fun ls e -> collect_ldefs c ls e) (collect_ldefs c ls e) es
-and
-collect_ldefs c ls (CPrim2 _ e1 e2) =
-  collect_ldefs c (collect_ldefs c ls e1) e2
-and
-collect_ldefs c ls (CUpd e1 e2) =
-  collect_ldefs c (collect_ldefs c ls e1) e2
-and
-collect_ldefs c ls (CIf e1 e2 e3) =
-  collect_ldefs c (collect_ldefs c (collect_ldefs c ls e1) e2) e3
+label_code_env n ac ((l,cd)::ls) =
+  let (e,n,ac) = repeat_label_closures cd.body n ac in
+  label_code_env n ((l,<| cd with body = e |>)::ac) ls
 
 (* intermediate expressions to bytecode *)
 
 open Bytecode
-
-(* values in compile-time environment *)
-type ctbind = CTLet of num | CTArg of num | CTEnv of num | CTRef of num
-(* CTLet n means stack[sz - n]
-   CTArg n means stack[sz + n]
-   CTEnv n means El n of the environment, which is at stack[sz]
-   CTRef n means El n of the environment, but it's a ref pointer *)
-
-type ctenv = list ctbind
 
 type call_context = TCNonTail of bool | TCTail of num * num
 (* TCTail j k = in tail position,
@@ -1062,21 +1036,10 @@ type call_context = TCNonTail of bool | TCTail of num * num
 (* TCNonTail b = if b then in tail position, but called from top-level,
  * else not in tail position. *)
 
-(* helper for reconstructing closure environments *)
-type cebind = CEEnv of num | CERef of num
-
-type ceenv = num * list cebind (* num is the length of the list *)
-
 type compiler_result =
   <| out: list bc_inst (* reversed code *)
    ; next_label: num
    ; decl: ctenv * num
-   |>
-
-type closure_data =
-  <| ctenv: ctenv
-   ; ceenv: ceenv
-   ; body: Cexp
    |>
 
 let rec
@@ -1156,7 +1119,7 @@ cons_closure env0 sz0 sz1 nk (s,k) (j,ec) =
   (* CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0,     *)
   let s = emit s [Stack (Load (nk - k))] in
   (* CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
-  let (_z,s) = List.fold_left (emit_ec env0 sz0) (sz1+1,s) (List.rev ec) in
+  let (_z,s) = List.fold_left (emit_ec env0 sz0) (sz1+1,s) ec in
   (* e_kj, ..., e_k1, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
   let s = emit s [Stack (Cons 0 j)] in
   (* env_k, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
@@ -1216,7 +1179,6 @@ pushret (TCTail j k) s =
           Stack (Pops (j+1));
  (* val, CodePtr ret, *)
           Return]
-
 
 let rec
 compile _ env t sz s (CDecl vs) =
@@ -1342,54 +1304,17 @@ compile_nts d env sz s (e::es) =
 
 (* code env to bytecode *)
 
-let rec bind_fv e az nz k =
-  let args = genlist (fun n -> CTArg (2+n)) az in
-  let fvs = free_vars Pmap.empty e in
-  let recs = List.filter (fun v -> az+v IN fvs && not (v=k)) (genlist (fun n -> n) nz) in
-  let erz = List.length recs in
-  let erec = List.map (fun n -> CERef (n+1)) recs in
-  let (recs,rz,trec) = if k < nz && az+k IN fvs
-    then (k::recs,erz+1,CTArg (2+az)::(genlist (fun i -> CTRef (i+1)) erz))
-    else (recs,erz,genlist CTRef erz) in
-  let envs = List.filter (fun v -> az+nz <= v) (qsort (fun x y -> x < y) (Set.to_list fvs)) in
-  let envs = List.map (fun v -> v-(az+nz)) envs in
-  let e = mkshift (fun k v -> if v < k then v else
-                              if v < k+nz then the(find_index (v-k) recs k)
-                              else the(find_index (v-(k+nz)) envs (k+rz)))
-                  az e in
-  let eenv = List.map CEEnv envs in
-  let eez = List.length envs in
-  let tenv = genlist (fun i -> CTEnv (erz+i)) eez in
-  <| ctenv = args@trec@tenv
-   ; ceenv = (erz+eez,erec@eenv)
-   ; body = e |>
+let rec
+cce_aux d s (l,cd) =
+  let s = emit s [Label l] in
+  compile d cd.ctenv (TCTail cd.az 0) 0 s cd.body
 
 let rec
-calculate_closure_data c =
-  List.fold_left
-    (fun s (nz,defs) ->
-      let (s,k) = List.fold_left
-        (fun (s,k) (az,l) ->
-          let r = bind_fv (Pmap.find l c) az nz k in
-          (Pmap.add l r s,k+1))
-        (s,0) defs in
-      s)
-
-let rec
-cce_aux d s (nz,ls) =
-  List.fold_left
-    (fun s (az,l) ->
-      let env = (Pmap.find l d).ctenv in
-      let s = emit s [Label l] in
-      compile d env (TCTail az 0) 0 s (Pmap.find l d).body)
-    s ls
-
-let rec
-compile_code_env d s ldefs =
+compile_code_env d s c =
   let (s,ls) = get_labels 1 s in
   let l = List.nth ls 0 in
   let s = emit s [Jump (Lab l)] in
-  let s = List.fold_left (cce_aux d) s ldefs in
+  let s = List.fold_left (cce_aux d) s c in
   emit s [Label l]
 
 (* replace labels in bytecode with addresses *)
@@ -1453,12 +1378,10 @@ let init_repl_state =
 
 let compile_Cexp rs decl Ce =
   let (Ce,n,c) = repeat_label_closures Ce rs.rnext_label [] in
-  let c = alist_to_fmap c in
-  let ldefs = collect_ldefs c [] Ce in (* is this necessary? can't we use c for ldefs? *)
-  let d = calculate_closure_data c Pmap.empty ldefs in
+  let d = alist_to_fmap c in
   let cs = <| out = []; next_label = n
             ; decl = (rs.renv,rs.rsz) |> in
-  let cs = compile_code_env d cs ldefs in
+  let cs = compile_code_env d cs c in
   let cs = compile d rs.renv (TCNonTail decl) rs.rsz cs Ce in
   let rs = if decl then match cs.decl with
     | (env,sz) -> <| rs with renv = env ; rsz = sz |>
