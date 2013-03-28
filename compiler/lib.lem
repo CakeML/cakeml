@@ -1,6 +1,5 @@
 val alist_to_fmap : forall 'a 'b. list ('a * 'b) -> fmap 'a 'b
 val LEAST : (num -> bool) -> num
-val num_to_hex_string : num -> string
 val FOLDL2 : forall 'a 'b 'c. ('a -> 'b -> 'c -> 'a) -> 'a -> list 'b -> list 'c -> 'a
 val EVERY2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool
 val FDOM : forall 'a 'b. fmap 'a 'b -> set 'a

@@ -1,10 +1,6 @@
 CompileScript.sml : compile.lem ../lib.lem lib.lem ../semantics/miniML.lem bytecode/bytecode.lem
 	lem -hol_lib ../lib.lem -hol_lib lib.lem ../semantics/miniML.lem bytecode/bytecode.lem -hol compile.lem && rm -f MiniMLScript.sml BytecodeScript.sml &&\
-sed -i '/datatype/N;/= INL of/d' $@ &&\
-sed -i 's/(Cexp, num)(+)/Cexp + num/g' $@ &&\
 sed -i 's/Pmap \$$ map/fmap/g' $@ &&\
 sed -i 's/LEAST/$$LEAST/g' $@ &&\
-sed -i 's/(o_f)/($$o_f)/g' $@ &&\
 sed -i 's/DOMSUB/$$\\\\/g' $@ &&\
-sed -i 's/Hol \$$ Lib \$$ //g' $@ &&\
-sed -i '4 i open alistTheory state_transformerTheory; val _ = intLib.deprecate_int();' $@
+sed -i '5 i open alistTheory state_transformerTheory' $@
