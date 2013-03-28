@@ -154,7 +154,7 @@ fun print_prim2 CSub = "-"
 fun sp d = String.implode(List.tabulate (d,(K #" ")))
 val print_Cexp = let fun
   f d (CLet (e1,e2)) = (sp d)^"let _ =\n"^(f (d+2) e1)^"\n"^(sp d)^"in\n"^(f (d+2) e2)
-| f d (CFun (n,(sumML.INL e))) = (sp d)^"fn"^(numML.toString n)^" =>\n"^(f (d+2) e)
+| f d (CFun (sumML.INL (n,e))) = (sp d)^"fn"^(numML.toString n)^" =>\n"^(f (d+2) e)
 | f d (CLit (IntLit n)) = (sp d)^(int_toString n)
 | f d (CLit (Bool true)) = (sp d)^"true"
 | f d (CLit (Bool false)) = (sp d)^"false"

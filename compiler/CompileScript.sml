@@ -143,8 +143,8 @@ val _ = Hol_datatype `
   | CTagEq of Cexp => num
   | CProj of Cexp => num
   | CLet of Cexp => Cexp
-  | CLetrec of (num # ( (Cexp, num)sum)) list => Cexp
-  | CFun of num => ( (Cexp, num)sum)
+  | CLetrec of ( ((num # Cexp), num)sum) list => Cexp
+  | CFun of ((num # Cexp), num) sum
   | CCall of Cexp => Cexp list
   | CPrim1 of Cprim1 => Cexp
   | CPrim2 of Cprim2 => Cexp => Cexp
@@ -152,7 +152,7 @@ val _ = Hol_datatype `
   | CIf of Cexp => Cexp => Cexp`;
 
 
-val _ = type_abbrev( "def" , ``: num # ( (Cexp, num)sum)``);
+val _ = type_abbrev( "def" , ``: ((num # Cexp), num) sum``);
 
 val _ = Hol_datatype `
  Cv =
@@ -163,6 +163,35 @@ val _ = Hol_datatype `
 
 
 (* Semantics *)
+
+(* values in compile-time environment *)
+val _ = Hol_datatype `
+ ctbind = CTLet of num | CTArg of num | CTEnv of num | CTRef of num`;
+
+(* CTLet n means stack[sz - n]
+   CTArg n means stack[sz + n]
+   CTEnv n means El n of the environment, which is at stack[sz]
+   CTRef n means El n of the environment, but it's a ref pointer *)
+
+val _ = type_abbrev( "ctenv" , ``: ctbind list``);
+
+(* for constructing closure environments *)
+val _ = Hol_datatype `
+ cebind = CEEnv of num | CERef of num`;
+
+(* CEEnv n means take (Var n) in the creation-site environment
+ * CERef n means we want the nth closure in the recursive bundle *)
+
+val _ = type_abbrev( "ceenv" , ``: num # cebind list``); (* num is the length of the list *)
+
+val _ = Hol_datatype `
+ closure_data =
+  <| ctenv :ctenv (* to be prepended to call-site environment *)
+   ; ceenv :ceenv (* to construct ctenv from creation-site environment *)
+   ; az    :num   (* number of arguments *)
+   ; body  :Cexp  (* adjusted for ctenv *)
+   |>`;
+
 
  val free_vars_defn = Hol_defn "free_vars" `
 
@@ -186,11 +215,11 @@ val _ = Hol_datatype `
   free_vars c e UNION ( IMAGE PRE (free_vars c eb DIFF {0})))
 /\
 (free_vars c (CLetrec defs e) =
-  let n = LENGTH defs in FOLDL (\ s (k,b) .
-    s UNION ( IMAGE (\ m . m - (k +n)) (cbod_fvs c b DIFF ( count (k +n)))))
+  let n = LENGTH defs in FOLDL (\ s cb .
+    s UNION ( IMAGE (\ m . m - n) (cbod_fvs c cb DIFF count n)))
   ( IMAGE (\ m . m - n) (free_vars c e DIFF count n)) defs)
 /\
-(free_vars c (CFun k b) = IMAGE (\ m . m - k) (cbod_fvs c b DIFF ( count k)))
+(free_vars c (CFun cb) = cbod_fvs c cb)
 /\
 (free_vars c (CCall e es) = FOLDL (\ s e . s UNION free_vars c e)
   (free_vars c e) es)
@@ -203,11 +232,11 @@ val _ = Hol_datatype `
 /\
 (free_vars c (CIf e1 e2 e3) = free_vars c e1 UNION free_vars c e2 UNION free_vars c e3)
 /\
-(cbod_fvs c (INL e) = free_vars c e)
+(cbod_fvs c (INL (k,e)) = IMAGE (\ m . m - k) (free_vars c e DIFF ( count k)))
 /\
 (cbod_fvs c (INR l) = (case FLOOKUP c l of
     NONE => {}
-  | SOME e => free_vars ( $\\ c l) e
+  | SOME cd => cbod_fvs ( $\\ c l) (INL (cd.az,cd.body))
   ))`;
 
 val _ = Defn.save_defn free_vars_defn;
@@ -368,8 +397,8 @@ Cevaluate c d s env (CLet e b) (s', Rerr err))
 
 /\
 (! c d s env defs b r.
-(! k l i. i < LENGTH defs /\ ( EL  i  defs = (k,INR l)) ==>
-   l IN FDOM  c /\ ( FLOOKUP d l = SOME (free_vars c ( FAPPLY  c  l),k, LENGTH defs,i))) /\
+(! l i. i < LENGTH defs /\ ( EL  i  defs = (INR l)) ==>
+   l IN FDOM  c /\ ( FLOOKUP d l = SOME (cbod_fvs c (INR l),( FAPPLY  c  l).az, LENGTH defs,i))) /\
 Cevaluate c d s
   ( APPEND ( GENLIST (CRecClos env defs) ( LENGTH defs)) env)
   b r
@@ -377,21 +406,21 @@ Cevaluate c d s
 Cevaluate c d s env (CLetrec defs b) r)
 
 /\
-(! c d s env k cb.
-(! l. (cb = INR l) ==>  l IN FDOM  c /\ ( FLOOKUP d l = SOME (cbod_fvs c cb,k,0,1)))
+(! c d s env cb.
+(! l. (cb = INR l) ==>  l IN FDOM  c /\ ( FLOOKUP d l = SOME (cbod_fvs c cb,( FAPPLY  c  l).az,0,1)))
 ==>
-Cevaluate c d s env (CFun k cb) (s, Rval (CRecClos env [(k,cb)] 1)))
+Cevaluate c d s env (CFun cb) (s, Rval (CRecClos env [cb] 1)))
 
 /\
 (! c d s env e es s' env' ns defs n i k cb b s'' vs r fvs.
 Cevaluate c d s env e (s', Rval (CRecClos env' defs n)) /\
 (ns = LENGTH defs) /\
-(if n < ns then (i = n) /\ ( EL  i  defs = (k,cb))
- else (i = 1) /\ (defs = [(k,cb)])) /\
+(if n < ns then (i = n) /\ ( EL  i  defs = cb)
+ else (i = 1) /\ (defs = [cb])) /\
 Cevaluate_list c d s' env es (s'', Rval vs) /\
 (fvs = cbod_fvs c cb) /\
-((b,(fvs,k,ns,i)) = (case cb of INL b => (b,(fvs,k,ns,i))
-                               | INR l => ( FAPPLY  c  l, FAPPLY  d  l) )) /\
+((b,(fvs,k,ns,i)) = (case cb of INL (k,b) => (b,(fvs,k,ns,i))
+                               | INR l => (( FAPPLY  c  l).body, FAPPLY  d  l) )) /\
 (k = LENGTH vs) /\
 Cevaluate c d s'' (extend_rec_env env' env' defs vs) b r
 ==>
@@ -490,8 +519,7 @@ syneq c (CLitv l) (CLitv l))
 syneq c (CConv cn vs1) (CConv cn vs2))
 /\
 (! c env1 env2 defs1 defs2 d. EVERY2
-  (\ (k,b1) (k2,b2) . (k2 = k) /\ syneq_cb c
-    (if d < LENGTH defs1 then LENGTH defs1 +k else k) env1 env2 b1 b2)
+  (syneq_cb c (if d < LENGTH defs1 then LENGTH defs1 else 0) env1 env2)
   defs1 defs2
 ==>
 syneq c (CRecClos env1 defs1 d) (CRecClos env2 defs2 d))
@@ -556,18 +584,15 @@ syneq_exp c (k +1) env1 env2 b1 b2
 ==>
 syneq_exp c k env1 env2 (CLet e1 b1) (CLet e2 b2))
 /\
-(! c k env1 env2 defs1 defs2 b1 b2. EVERY2
-  (\ (k1,b1) (k2,b2) .
-    (k1 = k2) /\ syneq_cb c (k +k1 + LENGTH defs1) env1 env2 b1 b2)
-  defs1 defs2 /\
+(! c k env1 env2 defs1 defs2 b1 b2. EVERY2 (syneq_cb c (k + LENGTH defs1) env1 env2) defs1 defs2 /\
 syneq_exp c (k +( LENGTH defs1)) env1 env2 b1 b2
 ==>
 syneq_exp c k env1 env2 (CLetrec defs1 b1) (CLetrec defs2 b2))
 /\
-(! c k env1 env2 k1 b1 b2.
-syneq_cb c (k +k1) env1 env2 b1 b2
+(! c k env1 env2 cb1 cb2.
+syneq_cb c k env1 env2 cb1 cb2
 ==>
-syneq_exp c k env1 env2 (CFun k1 b1) (CFun k1 b2))
+syneq_exp c k env1 env2 (CFun cb1) (CFun cb2))
 /\
 (! c k env1 env2 e1 e2 es1 es2.
 syneq_exp c k env1 env2 e1 e2 /\ EVERY2 (syneq_exp c k env1 env2) es1 es2
@@ -598,23 +623,23 @@ syneq_exp c k env1 env2 e31 e32
 ==>
 syneq_exp c k env1 env2 (CIf e11 e21 e31) (CIf e12 e22 e32))
 /\
-(! c k env1 env2 e1 e2.
-syneq_exp c k env1 env2 e1 e2
+(! c k env1 env2 az e1 e2.
+syneq_exp c (k +az) env1 env2 e1 e2
 ==>
-syneq_cb c k env1 env2 (INL e1) (INL e2))
+syneq_cb c k env1 env2 (INL (az,e1)) (INL (az,e2)))
 /\
-(! c k env1 env2 l e1 e2. ( FLOOKUP c l = SOME e1) /\
-syneq_exp c k env1 env2 e1 e2
+(! c k env1 env2 az l e1 e2. ( FLOOKUP c l = SOME (az,e1)) /\
+syneq_exp c (k +az) env1 env2 e1 e2
 ==>
-syneq_cb c k env1 env2 (INR l) (INL e2))
+syneq_cb c k env1 env2 (INR l) (INL (az,e2)))
 /\
-(! c k env1 env2 e1 l e2. ( FLOOKUP c l = SOME e2) /\
-syneq_exp c k env1 env2 e1 e2
+(! c k env1 env2 az e1 l e2. ( FLOOKUP c l = SOME (az,e2)) /\
+syneq_exp c (k +az) env1 env2 e1 e2
 ==>
-syneq_cb c k env1 env2 (INL e1) (INR l))
+syneq_cb c k env1 env2 (INL (az,e1)) (INR l))
 /\
-(! c k env1 env2 l1 e1 l2 e2. ( FLOOKUP c l1 = SOME e1) /\ ( FLOOKUP c l2 = SOME e2) /\
-syneq_exp c k env1 env2 e1 e2
+(! c k env1 env2 az l1 e1 l2 e2. ( FLOOKUP c l1 = SOME (az,e1)) /\ ( FLOOKUP c l2 = SOME (az,e2)) /\
+syneq_exp c (k +az) env1 env2 e1 e2
 ==>
 syneq_cb c k env1 env2 (INR l1) (INR l2))`;
 
@@ -644,13 +669,13 @@ syneq_cb c k env1 env2 (INR l1) (INR l2))`;
 /\
 (mkshift f k (CLetrec defs b) =
   let ns = LENGTH defs in
-  let defs = MAP (\ (xs,cb) .
-    (xs, (case cb of   INR l => INR l | INL b => INL (mkshift f (k +ns +xs) b) )))
+  let defs = MAP (\ cb .
+    (case cb of   INR l => INR l | INL (az,b) => INL (az,mkshift f (k +ns +az) b) ))
     defs in
   CLetrec defs (mkshift f (k +ns) b))
 /\
-(mkshift f k (CFun xs cb) = CFun xs
-  ((case cb of   INR l => INR l | INL b => INL (mkshift f (k +xs) b) )))
+(mkshift f k (CFun cb) = CFun
+  ((case cb of   INR l => INR l | INL (az,b) => INL (az,mkshift f (k +az) b) )))
 /\
 (mkshift f k (CCall e es) = CCall (mkshift f k e) ( MAP (mkshift f k) es))
 /\
@@ -751,7 +776,7 @@ val _ = Defn.save_defn remove_mat_vp_defn;
 (remove_mat_var v [] = CRaise Bind_error)
 /\
 (remove_mat_var v ((p,sk)::pes) =
-  CLet (CFun 0 (INL (remove_mat_var v pes)))
+  CLet (CFun (INL (0,remove_mat_var v pes)))
     (remove_mat_vp 0 (shift 1 (Cpat_vars p) sk) (v +1) p))`;
 
 val _ = Defn.save_defn remove_mat_var_defn;
@@ -771,7 +796,7 @@ val _ = Defn.save_defn remove_mat_var_defn;
 (exp_to_Cexp m (Var vn _) = CVar ( THE (find_index vn m.bvars 0)))
 /\
 (exp_to_Cexp m (Fun vn _ e) =
-  CFun 1 (INL (exp_to_Cexp (cbv m vn) e)))
+  CFun (INL (1,exp_to_Cexp (cbv m vn) e)))
 /\
 (exp_to_Cexp m (App (Opn opn) e1 e2) =
   let Ce1 = exp_to_Cexp m e1 in
@@ -857,7 +882,7 @@ val _ = Defn.save_defn remove_mat_var_defn;
 (defs_to_Cdefs m ((_,_,vn,_,e)::defs) =
   let Ce = exp_to_Cexp (cbv m vn) e in
   let Cdefs = defs_to_Cdefs m defs in
-  (1,INL Ce) ::Cdefs)
+  (INL (1,Ce)) ::Cdefs)
 /\
 (pes_to_Cpes m [] = [])
 /\
@@ -875,35 +900,6 @@ val _ = Defn.save_defn remove_mat_var_defn;
 val _ = Defn.save_defn exp_to_Cexp_defn;
 
 (* pull closure bodies into code environment *)
-
-(* values in compile-time environment *)
-val _ = Hol_datatype `
- ctbind = CTLet of num | CTArg of num | CTEnv of num | CTRef of num`;
-
-(* CTLet n means stack[sz - n]
-   CTArg n means stack[sz + n]
-   CTEnv n means El n of the environment, which is at stack[sz]
-   CTRef n means El n of the environment, but it's a ref pointer *)
-
-val _ = type_abbrev( "ctenv" , ``: ctbind list``);
-
-(* for constructing closure environments *)
-val _ = Hol_datatype `
- cebind = CEEnv of num | CERef of num`;
-
-(* CEEnv n means take (Var n) in the creation-site environment
- * CERef n means we want the nth closure in the recursive bundle *)
-
-val _ = type_abbrev( "ceenv" , ``: num # cebind list``); (* num is the length of the list *)
-
-val _ = Hol_datatype `
- closure_data =
-  <| ctenv :ctenv (* to be prepended to call-site environment *)
-   ; ceenv :ceenv (* to construct ctenv from creation-site environment *)
-   ; az    :num   (* number of arguments *)
-   ; body  :Cexp  (* adjusted for ctenv *)
-   |>`;
-
 
 val _ = Hol_datatype `
  label_closures_state =
@@ -941,16 +937,16 @@ val _ = Hol_datatype `
 
 (label_defs (ds: def list) nz k ([]: def list) = UNIT ds)
 /\
-(label_defs ds nz k ((xs,INR a)::defs) =
-  label_defs ((xs,INR a) ::ds) nz (k +1) defs)
+(label_defs ds nz k ((INR a)::defs) =
+  label_defs ((INR a) ::ds) nz (k +1) defs)
 /\
-(label_defs ds nz k ((xs,INL b)::defs) = BIND
+(label_defs ds nz k ((INL (xs,b))::defs) = BIND
   (\ s . UNIT s.lnext_label
     ( s with<|
        lnext_label := s.lnext_label +1 ;
        lcode_env := (s.lnext_label,(bind_fv b xs nz k)) ::s.lcode_env
      |>)) (\ n .
-  (label_defs ((xs,INR n) ::ds) nz (k +1) defs)))`;
+  (label_defs ((INR n) ::ds) nz (k +1) defs)))`;
 
 val _ = Defn.save_defn label_defs_defn;
 
@@ -991,10 +987,8 @@ val _ = Defn.save_defn label_defs_defn;
   (label_closures e) (\ e . UNIT
   (CLetrec ( REVERSE defs) e))))
 /\
-(label_closures (CFun xs cb) = BIND
-  (label_defs [] 0 0 [(xs,cb)]) (\ defs .
-  let (xs,cb) = EL  0  defs in UNIT
-  (CFun xs cb)))
+(label_closures (CFun cb) = BIND
+  (label_defs [] 0 0 [cb]) (\ defs . UNIT (CFun ( EL  0  defs))))
 /\
 (label_closures (CCall e es) = BIND
   (label_closures e) (\ e . BIND
@@ -1031,12 +1025,12 @@ val _ = Defn.save_defn label_defs_defn;
 val _ = Defn.save_defn label_closures_defn;
 
  val count_unlab_defn = Hol_defn "count_unlab" `
-
+ (* TODO: replace by SUM o FILTER ISR ? *)
 (count_unlab [] = 0)
 /\
-(count_unlab ((_,INL _)::ls) = 1 + count_unlab ls)
+(count_unlab ((INL _)::ls) = 1 + count_unlab ls)
 /\
-(count_unlab ((_,INR _)::ls) = count_unlab ls)`;
+(count_unlab ((INR _)::ls) = count_unlab ls)`;
 
 val _ = Defn.save_defn count_unlab_defn;
 
@@ -1064,7 +1058,7 @@ val _ = Defn.save_defn count_unlab_defn;
 /\
 (imm_unlab (CLetrec defs e) = count_unlab defs + imm_unlab e)
 /\
-(imm_unlab (CFun xs cb) = count_unlab [(xs,cb)])
+(imm_unlab (CFun cb) = count_unlab [cb])
 /\
 (imm_unlab (CCall e es) = imm_unlab e + imm_unlab_list es)
 /\
@@ -1199,9 +1193,9 @@ val _ = Defn.save_defn compile_varref_defn;
 
  val push_lab_def = Define `
 
-(push_lab d (s,ecs) (xs,INL _) = (s,((0,[]) ::ecs))) (* should not happen *)
+(push_lab d (s,ecs) (INL _) = (s,((0,[]) ::ecs))) (* should not happen *)
 /\
-(push_lab d (s,ecs) (xs,INR l) =
+(push_lab d (s,ecs) (INR l) =
   (emit s [PushPtr (Lab l)],(( FAPPLY  d  l).ceenv ::ecs)))`;
 
 
@@ -1337,8 +1331,8 @@ val _ = Defn.save_defn compile_varref_defn;
   let s = compile_closures d env sz n s defs in
   compile_bindings d env t sz eb 0 s n)
 /\
-(compile d env t sz s (CFun xs cb) =
-  pushret t (compile_closures d env sz 0 s [(xs,cb)]))
+(compile d env t sz s (CFun cb) =
+  pushret t (compile_closures d env sz 0 s [cb]))
 /\
 (compile d env t sz s (CCall e es) =
   let n = LENGTH es in
@@ -1631,7 +1625,7 @@ val _ = Defn.save_defn bv_to_ov_defn;
 (v_to_Cv m (Closure env vn _ e) =
   let Cenv = env_to_Cenv m env in
   let Ce = exp_to_Cexp (cbv m vn) e in
-  CRecClos Cenv [(1,INL Ce)] 1)
+  CRecClos Cenv [(INL (1,Ce))] 1)
 /\
 (v_to_Cv m (Recclosure env defs vn) =
   let Cenv = env_to_Cenv m env in
