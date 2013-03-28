@@ -3,6 +3,15 @@ open weakeningTheory typeSystemTheory bigSmallEquivTheory;
 
 val _ = new_theory "typeSound";
 
+val type_ctxts_freevars2 = Q.prove (
+`!dec_tvs tenvM tenvC tenvS cs t1 t2.
+  type_ctxts dec_tvs tenvM tenvC tenvS cs t1 t2
+  ⇒ 
+  check_freevars dec_tvs [] t2`,
+ho_match_mp_tac type_ctxts_ind >>
+rw [check_freevars_def]);
+
+(*
 val context_invariant_determ = Q.prove (
 `!dec_tvs c tvs1. context_invariant dec_tvs c tvs1 ⇒ 
     ∀ tvs2. 
@@ -13,17 +22,20 @@ rw [] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once context_invariant_cases]) >>
 fs []);
 
+
 val type_ctxts_freevars = Q.prove (
 `!dec_tvs tenvM tenvC tenvS cs t1 t2.
   type_ctxts dec_tvs tenvM tenvC tenvS cs t1 t2
   ⇒ 
   !tvs. tenvM_ok tenvM ∧ tenvC_ok tenvC ∧ context_invariant dec_tvs cs tvs ⇒
-  check_freevars tvs [] t1 ∧ check_freevars dec_tvs [] t2`,
+  ?tvs'. context_invariant dec_tvs cs tvs' ∧ check_freevars tvs' [] t1 ∧ check_freevars dec_tvs [] t2`,
 ho_match_mp_tac type_ctxts_ind >>
 rw [type_ctxt_cases, check_freevars_def] >>
-imp_res_tac context_invariant_determ >>
 rw [] >>
-pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once context_invariant_cases]) >|
+qpat_assum `context_invariant a b c` (mp_tac o SIMP_RULE (srw_ss()) [Once context_invariant_cases]) >>
+TRY (qpat_assum `context_invariant a b c` (mp_tac o SIMP_RULE (srw_ss()) [Once context_invariant_cases])) >>
+rw [] >>
+rw [Once context_invariant_cases]
 [metis_tac [],
  metis_tac [],
  metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
@@ -60,6 +72,7 @@ pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once context_invariant_cases]) >|
                 arithmeticTheory.GREATER_EQ],
  metis_tac []]);     
 
+ *)
 (* Everything in the type environment is also in the execution environment *)
 val type_lookup_lem = Q.prove (
 `∀tenvM tenvC env tenvS tenv v n t' idx.
@@ -325,7 +338,7 @@ val not_final_state = Q.prove (
      (?op e1 e2. e = Log op e1 e2) ∨
      (?e1 e2 e3. e = If e1 e2 e3) ∨
      (?e' pes. e = Mat e' pes) ∨
-     (?tvs n e1 e2. e = Let tvs n e1 e2) ∨
+     (?n e1 e2. e = Let n e1 e2) ∨
      (?funs e'. e = Letrec funs e')`,
 rw [] >>
 cases_on `e` >>
@@ -917,7 +930,7 @@ val exp_type_preservation = Q.prove (
 rw [type_state_cases] >>
 fs [e_step_def] >|
 [`check_freevars tvs [] t1 ∧ check_freevars dec_tvs [] t`
-           by metis_tac [type_ctxts_freevars] >>
+           by metis_tac [type_ctxts_freevars2, type_e_freevars] >>
      cases_on `e''` >>
      fs [push_def, is_value_def] >>
      rw [] >|

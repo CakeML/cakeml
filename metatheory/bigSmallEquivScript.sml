@@ -224,9 +224,9 @@ val small_eval_match = Q.prove (
 small_eval_step_tac);
 
 val small_eval_let = Q.prove (
-`!menv cenv s env n e1 e2 c r tvs.
-  small_eval menv cenv s env (Let n tvs e1 e2) c r =
-  small_eval menv cenv s env e1 ((Clet n tvs () e2,env)::c) r`,
+`!menv cenv s env n e1 e2 c r.
+  small_eval menv cenv s env (Let n e1 e2) c r =
+  small_eval menv cenv s env e1 ((Clet n () e2,env)::c) r`,
 small_eval_step_tac);
 
 val small_eval_letrec = Q.prove (
@@ -683,15 +683,15 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
                  rw []) >>
      fs [],
  fs [small_eval_def] >>
-     `e_step_reln^* (menv,cenv,s,env,Exp e,[(Clet tvs n () e',env)])
-                    (menv,cenv,s',env',Val v,[(Clet tvs n () e',env)])`
+     `e_step_reln^* (menv,cenv,s,env,Exp e,[(Clet n () e',env)])
+                    (menv,cenv,s',env',Val v,[(Clet n () e',env)])`
              by metis_tac [e_step_add_ctxt, APPEND] >>
-     `e_step_reln (menv,cenv,s',env',Val v,[(Clet tvs n () e',env)])
+     `e_step_reln (menv,cenv,s',env',Val v,[(Clet n () e',env)])
                   (menv,cenv,s',bind n v env,Exp e',[])`
              by rw [e_step_def, e_step_reln_def, continue_def, push_def] >>
      match_mp_tac small_eval_prefix >>
      metis_tac [transitive_RTC, RTC_SINGLE, transitive_def],
- `small_eval menv cenv s env e ([] ++ [(Clet tvs n () e2,env)]) (s', Rerr err)`
+ `small_eval menv cenv s env e ([] ++ [(Clet n () e2,env)]) (s', Rerr err)`
              by (match_mp_tac small_eval_err_add_ctxt >>
                  rw []) >>
      fs [],

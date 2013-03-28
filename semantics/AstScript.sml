@@ -252,7 +252,7 @@ val _ = Define `
                 pes))
 /\
 (elab_e ctors bound (Ast_Let x e1 e2) =
-  Let NONE x (elab_e ctors bound e1) (elab_e ctors (bind x Is_local bound) e2))
+  Let x (elab_e ctors bound e1) (elab_e ctors (bind x Is_local bound) e2))
 /\
 (elab_e ctors bound (Ast_Letrec funs e) =
   Letrec (elab_funs ctors (merge (get_funs_bindings funs) bound) funs) 

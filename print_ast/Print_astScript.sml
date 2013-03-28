@@ -410,7 +410,7 @@ val _ = Define `
                ( MAP (pat_exp_to_tok_tree (inc_indent indent)) pes))  
   (L RparT))))))))
 /\
-(exp_to_tok_tree indent (Let _ v e1 e2) = N
+(exp_to_tok_tree indent (Let v e1 e2) = N
   (
   newline indent) (N  
   (L LetT) (N   (L ValT) (N 

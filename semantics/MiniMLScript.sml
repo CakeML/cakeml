@@ -251,7 +251,7 @@ val _ = Hol_datatype `
   (* Pattern matching *)
   | Mat of exp => (pat # exp) list
   (* The number is how many type variables are bound. *)
-  | Let of num option => varN => exp => exp
+  | Let of varN => exp => exp
   (* Local definition of (potentially) mutually recursive functions
    * The first varN is the function's name, and the second varN is its
    * parameter. *)
@@ -423,7 +423,7 @@ val _ = Hol_datatype `
   | Clog of log => unit => exp
   | Cif of unit => exp => exp
   | Cmat of unit => (pat # exp) list
-  | Clet of num option => varN => unit => exp
+  | Clet of varN => unit => exp
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
   | Ccon of conN id => v list => unit => exp list
@@ -710,7 +710,7 @@ val _ = Define `
           )
         else
           Etype_error
-    | (Clet tvs n ()  e, env) :: c =>
+    | (Clet n ()  e, env) :: c =>
         Estep (envM, envC, s, bind n v env, Exp e, c)
     | (Ccon n vs ()  [], env) :: c =>
         if do_con_check envC n ( LENGTH vs + 1) then
@@ -778,7 +778,7 @@ val _ = Define `
           | Log l e1 e2 => push envM envC s env e1 (Clog l ()  e2) c
           | If e1 e2 e3 => push envM envC s env e1 (Cif ()  e2 e3) c
           | Mat e pes => push envM envC s env e (Cmat ()  pes) c
-          | Let tvs n e1 e2 => push envM envC s env e1 (Clet tvs n ()  e2) c
+          | Let n e1 e2 => push envM envC s env e1 (Clet n ()  e2) c
           | Letrec funs e =>
               if ~  ( ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs)) then
                 Etype_error
@@ -1053,18 +1053,18 @@ evaluate menv cenv s env (Mat e pes) (s', Rerr err))
 
 /\
 
-(! menv cenv env n e1 e2 v bv s1 s2 tvs.
+(! menv cenv env n e1 e2 v bv s1 s2.
 evaluate menv cenv s1 env e1 (s2, Rval v) /\
 evaluate menv cenv s2 (bind n v env) e2 bv
 ==>
-evaluate menv cenv s1 env (Let tvs n e1 e2) bv)
+evaluate menv cenv s1 env (Let n e1 e2) bv)
 
 /\
 
-(! menv cenv env n e1 e2 err s s' tvs.
+(! menv cenv env n e1 e2 err s s'.
 evaluate menv cenv s env e1 (s', Rerr err)
 ==>
-evaluate menv cenv s env (Let tvs n e1 e2) (s', Rerr err))
+evaluate menv cenv s env (Let n e1 e2) (s', Rerr err))
 
 /\
 
@@ -1764,7 +1764,7 @@ is_value e1 /\
 type_e menv cenv (bind_tvar tvs tenv) e1 t1 /\
 type_e menv cenv (bind_tenv n tvs t1 tenv) e2 t2
 ==>
-type_e menv cenv tenv (Let (SOME tvs) n e1 e2) t2)
+type_e menv cenv tenv (Let n e1 e2) t2)
 
 /\
 
@@ -1772,7 +1772,7 @@ type_e menv cenv tenv (Let (SOME tvs) n e1 e2) t2)
 type_e menv cenv tenv e1 t1 /\
 type_e menv cenv (bind_tenv n 0 t1 tenv) e2 t2
 ==>
-type_e menv cenv tenv (Let (SOME 0) n e1 e2) t2)
+type_e menv cenv tenv (Let n e1 e2) t2)
 
 /\
 
@@ -2178,7 +2178,7 @@ context_invariant dec_tvs ((Cmat ()  pes,env) :: c) 0)
 (! dec_tvs c tvs x e env.
 context_invariant dec_tvs c 0
 ==>
-context_invariant dec_tvs ((Clet (SOME tvs) x ()  e,env) :: c) tvs)
+context_invariant dec_tvs ((Clet x ()  e,env) :: c) tvs)
 
 /\
 
@@ -2262,7 +2262,7 @@ type_ctxt tvs menv cenv senv tenv (Cmat ()  pes) t1 t2)
 check_freevars tvs [] t1 /\
 type_e menv cenv (bind_tenv n tvs' t1 tenv) e t2
 ==>
-type_ctxt tvs menv cenv senv tenv (Clet (SOME tvs') n ()  e) t1 t2)
+type_ctxt tvs menv cenv senv tenv (Clet n ()  e) t1 t2)
 
 /\
 
@@ -2425,10 +2425,10 @@ evaluate_ctxt menv cenv s env (Cmat ()  pes) v bv)
 
 /\
 
-(! menv cenv env n e2 v bv s tvs.
+(! menv cenv env n e2 v bv s.
 evaluate menv cenv s (bind n v env) e2 bv
 ==>
-evaluate_ctxt menv cenv s env (Clet tvs n ()  e2) v bv)
+evaluate_ctxt menv cenv s env (Clet n ()  e2) v bv)
 
 /\
 
@@ -2753,18 +2753,18 @@ evaluate' s env (Mat e pes) (s', Rerr err))
 
 /\
 
-(! env n e1 e2 v bv s1 s2 tvs.
+(! env n e1 e2 v bv s1 s2.
 evaluate' s1 env e1 (s2, Rval v) /\
 evaluate' s2 (bind n v env) e2 bv
 ==>
-evaluate' s1 env (Let tvs n e1 e2) bv)
+evaluate' s1 env (Let n e1 e2) bv)
 
 /\
 
-(! env n e1 e2 err s s' tvs.
+(! env n e1 e2 err s s'.
 evaluate' s env e1 (s', Rerr err)
 ==>
-evaluate' s env (Let tvs n e1 e2) (s', Rerr err))
+evaluate' s env (Let n e1 e2) (s', Rerr err))
 
 /\
 

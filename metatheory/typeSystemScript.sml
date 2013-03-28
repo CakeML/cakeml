@@ -1149,6 +1149,7 @@ fs [deBruijn_subst_def, deBruijn_subst_tenvE_def,
      rw [] >>
      qexists_tac `deBruijn_subst (tvs + num_tvs tenvE1)
                         (MAP (deBruijn_inc 0 (tvs + num_tvs tenvE1)) targs) t` >>
+     qexists_tac `tvs` >>
      rw [] >|
      [qpat_assum `∀tenvE1' targs' tvs''.
                      EVERY (check_freevars tvs'' []) targs' ∧
