@@ -59,6 +59,19 @@ tenvC_ok tenvC =
 ALL_DISTINCT (MAP FST tenvC) ∧
 EVERY (\(cn,tvs,ts,tn). same_module cn tn ∧ EVERY (check_freevars 0 tvs) ts) tenvC`;
 
+val disjoint_env_def = Define `
+  disjoint_env e1 e2 =
+    DISJOINT (set (MAP FST e1)) (set (MAP FST e2))`;
+
+val tenvC_ok_merge = Q.store_thm ("tenvC_ok_merge",
+`!tenvC1 tenvC2.
+  tenvC_ok (merge tenvC1 tenvC2) = 
+  tenvC_ok tenvC1 ∧ tenvC_ok tenvC2 ∧ disjoint_env tenvC1 tenvC2`, 
+rw [tenvC_ok_def, merge_def, ALL_DISTINCT_APPEND] >>
+eq_tac >>
+rw [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+metis_tac []);
+
 val tenvM_ok_def = Define `
 tenvM_ok tenvM = EVERY (\(mn,tenv). tenv_ok (bind_var_list2 tenv Empty)) tenvM`;
 
@@ -70,10 +83,6 @@ val consistent_mod_env_def = Define `
   type_env tenvM tenvC tenvS env (bind_var_list2 tenv Empty) ∧
   consistent_mod_env tenvS tenvC menv tenvM) ∧
 (consistent_mod_env tenvS tenvC _ _ = F)`;
-
-val disjoint_env_def = Define `
-  disjoint_env e1 e2 =
-    DISJOINT (set (MAP FST e1)) (set (MAP FST e2))`;
 
 val tenvC_ok_lookup = Q.store_thm ("tenvC_ok_lookup",
 `!tenvC cn tvs ts tn.
@@ -1607,7 +1616,7 @@ val check_ctor_tenvC_ok_lem = Q.prove (
 `!mn tenvC c. check_ctor_tenv mn tenvC c ⇒ 
   EVERY (\(cn,tvs,ts,tn). same_module cn tn ∧ EVERY (check_freevars 0 tvs) ts) (build_ctor_tenv mn c)`,
 induct_on `c` >>
-rw [build_ctor_tenv_def, tenvC_ok_def] >>
+rw [build_ctor_tenv_def] >>
 PairCases_on `h` >>
 fs [check_ctor_tenv_def, EVERY_MAP] >|
 [fs [EVERY_MEM] >>
@@ -1737,8 +1746,8 @@ rw [] >|
 [rw [tenvC_ok_def, emp_def],
  rw [disjoint_env_def, emp_def],
  imp_res_tac type_d_tenvC_ok >>
-     fs [bvl2_append, merge_def, num_tvs_bvl2, tenvC_ok_def, merge_def,
-         ALL_DISTINCT_APPEND, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+     rw [tenvC_ok_merge] >>
+     fs [bvl2_append, merge_def, num_tvs_bvl2, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
      rw [] >>
      metis_tac [],
  imp_res_tac type_d_tenvC_ok >>

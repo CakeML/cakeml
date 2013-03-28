@@ -652,10 +652,8 @@ rw [Once type_ds_cases] >>
          by metis_tac [weak_other_mods_merge] >>
 `tenvC_ok (merge cenv' tenvC'') ∧ tenvC_ok (merge cenv' tenvC)` 
        by (`type_d mn tenvM'' tenvC'' tenv d cenv' tenv'` by metis_tac [type_d_weakening] >>
-           fs [tenvC_ok_def, merge_def] >>
-           imp_res_tac type_d_tenvC_ok >>
-           fs [ALL_DISTINCT_APPEND, disjoint_env_def, DISJOINT_DEF, EXTENSION,
-               tenvC_ok_def] >>
+           `tenvC_ok cenv' ∧ disjoint_env cenv' tenvC'' ∧ disjoint_env cenv' tenvC` by metis_tac [type_d_tenvC_ok] >>
+           rw [tenvC_ok_merge] >>
            metis_tac []) >>
 metis_tac [type_d_weakening, weakC_merge]);
 
@@ -704,7 +702,10 @@ rw [num_tvs_bvl2] >>
 rw [Once type_prog_ignore_sig_cases] >|
 [`weak_other_mods NONE tenvC'' tenvC` by metis_tac [weakC_not_NONE] >>
      `type_d NONE tenvM'' tenvC'' tenv d cenv' tenv'` by metis_tac [type_d_weakening] >>
-     `tenvC_ok (merge cenv' tenvC) ∧ tenvC_ok (merge cenv' tenvC'')` by cheat >>
+     `tenvC_ok cenv' ∧ disjoint_env cenv' tenvC ∧ disjoint_env cenv' tenvC''`
+               by metis_tac [type_d_tenvC_ok] >>
+     `tenvC_ok (merge cenv' tenvC) ∧ tenvC_ok (merge cenv' tenvC'')` 
+                by rw [tenvC_ok_merge] >>
      metis_tac [tenvC_ok_def, weakC_merge, weakC_mods_merge],
  MAP_EVERY qexists_tac [`cenv'`, `tenvM'`, `tenv'`, `tenvC'`] >>
      rw [] >>
@@ -712,7 +713,12 @@ rw [Once type_prog_ignore_sig_cases] >|
      [metis_tac [],
       metis_tac [type_ds_weakening],
       `tenv_ok (bind_var_list2 tenv' Empty)` by metis_tac [type_ds_tenv_ok] >>
-          `tenvC_ok (merge cenv' tenvC'') ∧ tenvC_ok (merge cenv' tenvC)` by cheat >>
+          `type_ds (SOME mn) tenvM'' tenvC'' tenv ds1 cenv' tenv'` 
+                        by metis_tac [type_ds_weakening] >>
+          `tenvC_ok cenv' ∧ disjoint_env cenv' tenvC ∧ disjoint_env cenv' tenvC''`
+                    by metis_tac [type_ds_tenvC_ok] >>
+          `tenvC_ok (merge cenv' tenvC'') ∧ tenvC_ok (merge cenv' tenvC)` 
+                    by rw [tenvC_ok_merge] >>
           `weakC_mods tenvC'' tenvC ⊆ set (MAP SOME (MAP FST (bind mn tenv' tenvM)))`
                   by fs [bind_def, lookup_def, SUBSET_DEF] >>
           qpat_assum `!x. P x` match_mp_tac >>
@@ -740,6 +746,24 @@ rw [emp_def] >-
 rw [tenvC_one_mod_def] >>
 metis_tac [tenvC_one_mod_merge, type_d_mod]);
 
+val weakC_disjoint = Q.prove (
+`!tenvC1 tenvC2 tenvC3.
+  weakC tenvC1 tenvC2 ∧
+  disjoint_env tenvC1 tenvC3
+  ⇒
+  disjoint_env tenvC2 tenvC3`,
+rw [weakC_def, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+pop_assum (mp_tac o Q.SPEC `x`) >>
+pop_assum (mp_tac o Q.SPEC `x`) >>
+rw [] >>
+rw [] >>
+`lookup x tenvC1 = NONE` by metis_tac [lookup_in2, option_nchotomy] >>
+fs [] >>
+cases_on `lookup x tenvC2` >>
+fs [lookup_notin] >>
+PairCases_on `x'` >>
+fs []);
+
 val type_prog_type_prog_ignore_sig = Q.store_thm ("type_prog_type_prog_ignore_sig",
 `!tenvM tenvC tenv prog tenvM' tenvC' tenv'.
   type_prog tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
@@ -750,8 +774,9 @@ val type_prog_type_prog_ignore_sig = Q.store_thm ("type_prog_type_prog_ignore_si
 ho_match_mp_tac type_prog_ind >>
 rw [num_tvs_bvl2] >>
 rw [Once type_prog_ignore_sig_cases] >>
-`tenvC_ok (merge cenv' tenvC)` 
-        by (cheat >> metis_tac [merge_def, type_ds_tenvC_ok, type_d_tenvC_ok, tenvC_ok_def, EVERY_APPEND]) >|
+`tenvC_ok cenv' ∧ disjoint_env cenv' tenvC`
+         by metis_tac [type_ds_tenvC_ok, type_d_tenvC_ok] >>
+`tenvC_ok (merge cenv' tenvC)` by rw [tenvC_ok_merge] >|
 [metis_tac [],
  fs [check_signature_cases] >>
      `tenv_ok (bind_var_list2 emp Empty)` by rw [emp_def, bind_var_list2_def, tenv_ok_def] >>
@@ -765,9 +790,11 @@ rw [Once type_prog_ignore_sig_cases] >>
      rw [] >>
      `MAP FST (bind mn tenv'' tenvM) = MAP FST (bind mn tenv' tenvM)` by rw [bind_def] >>
      `disjoint_env cenv' tenvC` by metis_tac [type_ds_tenvC_ok] >>
-     `tenvC_ok cenv''` by (cheat >> metis_tac [type_specs_tenvC_ok, tenvC_ok_def, emp_def, EVERY_DEF]) >>
+     `tenvC_ok (emp:tenvC)` by rw [emp_def, tenvC_ok_def] >>
+     `tenvC_ok cenv''` by metis_tac [type_specs_tenvC_ok] >>
+     `disjoint_env cenv'' tenvC` by metis_tac [weakC_disjoint] >>
      `tenvC_ok (merge cenv'' tenvC)` 
-             by (cheat >> metis_tac [merge_def, type_specs_tenvC_ok, tenvC_ok_def, EVERY_APPEND]) >>
+             by rw [tenvC_ok_merge] >>
      fs [] >>
      MAP_EVERY qexists_tac [`tenv'''`, `cenv'`, `tenvM''`, `tenv'`, `tenvC''`] >>
      rw [] >>

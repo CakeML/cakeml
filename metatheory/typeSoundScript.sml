@@ -1523,11 +1523,10 @@ val tenvC_ok_pres = Q.prove (
   tenvC_ok tenvC 
   ⇒
   tenvC_ok (tenvC' ++ tenvC)`,
-rw [type_d_cases, emp_def] >>
 rw [] >>
-imp_res_tac check_ctor_tenvC_ok >>
-fs [tenvC_ok_def] >>
-cheat);
+imp_res_tac type_d_tenvC_ok >>
+rw [GSYM merge_def] >>
+rw [tenvC_ok_merge]);
 
 val dec_type_soundness = Q.store_thm ("dec_type_soundness",
 `!mn tenvM tenvC tenv d tenvC' tenv' tenvS menv cenv env st.
@@ -1799,7 +1798,7 @@ rw [tenvM_ok_def, bind_def]);
 (* There is an annoying amount of copy and paste from the decs_type_soundness
  * theorem *)
 
-val prog_type_soundness = Q.store_thm ("prog_type_soundness",
+val prog_type_soundness_no_sig = Q.store_thm ("prog_type_soundness_no_sig",
 `!tenvM tenvC tenv prog tenvM' tenvC' tenv'.
   type_prog_ignore_sig tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
   ∀tenvS menv cenv env st.
@@ -1948,5 +1947,24 @@ fs [merge_def, emp_def] >|
                     metis_tac [APPEND_ASSOC,APPEND],
                 fs [merge_def, bind_def] >>
                     metis_tac [APPEND_ASSOC,APPEND]]]]]);
+
+val prog_type_soundness = Q.store_thm ("prog_type_soundness",
+`!tenvM tenvC tenv prog tenvM' tenvC' tenv'.
+  type_prog tenvM tenvC tenv prog tenvM' tenvC' tenv' ⇒
+  ∀tenvS menv cenv env st.
+  (num_tvs tenv = 0) ∧
+  tenvM_ok tenvM ∧
+  tenvC_ok tenvC ∧
+  consistent_mod_env tenvS tenvC menv tenvM ∧
+  consistent_con_env cenv tenvC ∧
+  type_env tenvM tenvC tenvS env tenv ∧
+  type_s tenvM tenvC tenvS st
+  ⇒
+  prog_diverges menv cenv st env prog ∨
+  ?st' r tenvS'. 
+     (r ≠ Rerr Rtype_error) ∧ 
+     evaluate_prog menv cenv st env prog (st', r) ∧
+     store_type_extension tenvS tenvS'`,
+metis_tac [prog_type_soundness_no_sig, type_prog_type_prog_ignore_sig]);
 
 val _ = export_theory ();
