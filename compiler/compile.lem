@@ -807,7 +807,7 @@ exp_to_Cexp m (Let _ vn _ e b) =
   CLet Ce Cb
 and
 exp_to_Cexp m (Letrec _ defs b) =
-  let m = <| m with bvars = (List.map (fun (n,_,_,_,_) -> n) defs) @ m.bvars |> in
+  let m = <| m with bvars = (List.rev (List.map (fun (n,_,_,_,_) -> n) defs)) @ m.bvars |> in
   CLetrec (defs_to_Cdefs m defs) (exp_to_Cexp m b)
 and
 defs_to_Cdefs m [] = []
@@ -861,11 +861,12 @@ type label_closures_state =
    |>
 
 let rec bind_fv e az nz k =
+  let k = nz-k-1 in
   let args = genlist (fun n -> CTArg (2+n)) az in
   let fvs = free_vars Pmap.empty e in
   let recs = List.filter (fun v -> az+v IN fvs && not (v=k)) (genlist (fun n -> n) nz) in
   let erz = List.length recs in
-  let erec = List.map (fun n -> CERef (n+1)) recs in
+  let erec = List.map (fun n -> CERef (nz-n)) recs in
   let (recs,rz,trec) = if k < nz && az+k IN fvs
     then (k::recs,erz+1,CTArg (2+az)::(genlist (fun i -> CTRef (i+1)) erz))
     else (recs,erz,genlist CTRef erz) in
@@ -1420,7 +1421,7 @@ repl_dec rs (Dtype ((_,_,cs)::ts)) =
 and
 repl_dec rs (Dletrec _ defs) =
   let m = etC rs in
-  let fns = List.map (fun (n,_,_,_,_) -> n) defs in
+  let fns = List.rev (List.map (fun (n,_,_,_,_) -> n) defs) in
   let m = <| m with bvars = fns @ m.bvars |> in
   let Cdefs = defs_to_Cdefs m defs in
   compile_Cexp rs true (CLetrec Cdefs (CDecl (List.combine (genlist (fun i -> i) (List.length fns)) fns)))

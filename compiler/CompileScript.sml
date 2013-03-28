@@ -872,7 +872,7 @@ val _ = Defn.save_defn remove_mat_var_defn;
   CLet Ce) Cb))
 /\
 (exp_to_Cexp m (Letrec _ defs b) =
-  let m =  m with<| bvars := (((MAP ( \x . (case x of (n,_,_,_,_) => n))) defs)) ++ m.bvars |> in((
+  let m =  m with<| bvars := ((REVERSE (((MAP ( \x . (case x of (n,_,_,_,_) => n))) defs)))) ++ m.bvars |> in((
   CLetrec (((defs_to_Cdefs m) defs))) (((exp_to_Cexp m) b))))
 /\
 (defs_to_Cdefs m [] = [])
@@ -939,11 +939,12 @@ val _ = Hol_datatype `
 
  val bind_fv_defn = Hol_defn "bind_fv" `
  (bind_fv e az nz k =
+  let k = nz - k - 1 in
   let args =(( GENLIST (\ n .( CTArg (2+n)))) az) in
   let fvs =(( free_vars FEMPTY) e) in
   let recs =(( FILTER (\ v . az+v IN fvs /\( ~  (v=k)))) (((GENLIST (\ n . n)) nz))) in
   let erz =( LENGTH recs) in
-  let erec =(( MAP (\ n .( CERef (n+1)))) recs) in
+  let erec =(( MAP (\ n .( CERef (nz - n)))) recs) in
   let (recs,rz,trec) = if k < nz /\ az+k IN fvs
     then (k::recs,erz+1,(CTArg (2+az))::(((GENLIST (\ i .( CTRef (i+1)))) erz)))
     else (recs,erz,((GENLIST CTRef) erz)) in
@@ -1589,7 +1590,7 @@ val _ = Defn.save_defn number_constructors_defn;
 /\
 (repl_dec rs (Dletrec _ defs) =
   let m =( etC rs) in
-  let fns =(( MAP ( \x . (case x of (n,_,_,_,_) => n))) defs) in
+  let fns =( REVERSE (((MAP ( \x . (case x of (n,_,_,_,_) => n))) defs))) in
   let m =  m with<| bvars := fns ++ m.bvars |> in
   let Cdefs =(( defs_to_Cdefs m) defs) in(((
   compile_Cexp rs) T) (((CLetrec Cdefs) ((CDecl ((ZIP ( (((GENLIST (\ i . i)) ((LENGTH fns)))), fns)))))))))
