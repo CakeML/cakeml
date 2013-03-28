@@ -658,9 +658,9 @@ val _ = Define `
 
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
-(*val build_rec_env : option num -> list (varN * varN * exp) -> envE -> envE -> envE*)
+(*val build_rec_env : list (varN * varN * exp) -> envE -> envE -> envE*)
 val _ = Define `
- (build_rec_env tvs funs cl_env add_to_env = FOLDR 
+ (build_rec_env funs cl_env add_to_env = FOLDR 
     (\ (f,x,e) env' . bind f (Recclosure cl_env funs f) env') 
     add_to_env 
     funs)`;
@@ -690,7 +690,7 @@ val _ = Define `
         SOME (s, bind n v env, e)
     | (Opapp, Recclosure env funs n, v) =>
         (case find_recfun n funs of
-            SOME (n,e) => SOME (s, bind n v (build_rec_env (SOME 0) funs env env), e)
+            SOME (n,e) => SOME (s, bind n v (build_rec_env funs env env), e)
           | NONE => NONE
         )
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) =>
@@ -875,7 +875,7 @@ val _ = Define `
               if ~  ( ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs)) then
                 Etype_error
               else
-                Estep (envM,envC, s, build_rec_env tvs funs env env, Exp e, c)
+                Estep (envM,envC, s, build_rec_env funs env env, Exp e, c)
           | Uapp uop e =>
               push envM envC s env e (Cuapp uop () ) c
         )
@@ -1161,7 +1161,7 @@ evaluate menv cenv s env (Let tvs n e1 e2) (s', Rerr err))
 /\
 
 (! menv cenv env funs e bv s tvs. ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs) /\
-evaluate menv cenv s (build_rec_env tvs funs env env) e bv
+evaluate menv cenv s (build_rec_env funs env env) e bv
 ==>
 evaluate menv cenv s env (Letrec tvs funs e) bv)
 
@@ -1305,7 +1305,7 @@ evaluate_dec mn menv cenv s env (Dlet tvs p e) (s', Rerr err))
 
 (! mn menv cenv env funs s tvs. ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs)
 ==>
-evaluate_dec mn menv cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env tvs funs env emp)))
+evaluate_dec mn menv cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env funs env emp)))
 
 /\
 
@@ -2861,7 +2861,7 @@ evaluate' s env (Let tvs n e1 e2) (s', Rerr err))
 /\
 
 (! env funs e bv s tvs. ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs) /\
-evaluate' s (build_rec_env tvs funs env env) e bv
+evaluate' s (build_rec_env funs env env) e bv
 ==>
 evaluate' s env (Letrec tvs funs e) bv)
 
@@ -2979,7 +2979,7 @@ evaluate_dec' mn menv cenv s env (Dlet tvs p e) (s', Rerr err))
 
 (! mn menv cenv env funs s tvs. ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs)
 ==>
-evaluate_dec' mn menv cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env tvs funs env emp)))
+evaluate_dec' mn menv cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env funs env emp)))
 
 /\
 

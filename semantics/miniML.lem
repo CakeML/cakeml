@@ -558,8 +558,8 @@ val return : envM -> envC -> store -> envE -> v -> list ctxt -> e_step_result
 let return envM envC s env v c = Estep (envM, envC, s, env, Val v, c)
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
-val build_rec_env : option num -> list (varN * varN * exp) -> envE -> envE -> envE
-let build_rec_env tvs funs cl_env add_to_env =
+val build_rec_env : list (varN * varN * exp) -> envE -> envE -> envE
+let build_rec_env funs cl_env add_to_env =
   List.fold_right
     (fun (f,x,e) env' -> bind f (Recclosure cl_env funs f) env')
     funs
@@ -585,7 +585,7 @@ let do_app s env' op v1 v2 =
         Some (s, bind n v env, e)
     | (Opapp, Recclosure env funs n, v) ->
         match find_recfun n funs with
-          | Some (n,e) -> Some (s, bind n v (build_rec_env (Some 0) funs env env), e)
+          | Some (n,e) -> Some (s, bind n v (build_rec_env funs env env), e)
           | None -> None
         end
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) ->
@@ -758,7 +758,7 @@ let e_step (envM, envC, s, env, ev, c) =
               if not (all_distinct (List.map (fun (x,y,z) -> x) funs)) then
                 Etype_error
               else
-                Estep (envM,envC, s, build_rec_env tvs funs env env, Exp e, c)
+                Estep (envM,envC, s, build_rec_env funs env env, Exp e, c)
           | Uapp uop e ->
               push envM envC s env e (Cuapp uop ()) c
         end
@@ -1028,7 +1028,7 @@ and
 
 forall menv cenv env funs e bv s tvs.
 all_distinct (List.map (fun (x,y,z) -> x) funs) &&
-evaluate menv cenv s (build_rec_env tvs funs env env) e bv
+evaluate menv cenv s (build_rec_env funs env env) e bv
 ==>
 evaluate menv cenv s env (Letrec tvs funs e) bv
 
@@ -1177,7 +1177,7 @@ and
 forall mn menv cenv env funs s tvs.
 all_distinct (List.map (fun (x,y,z) -> x) funs)
 ==>
-evaluate_dec mn menv cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env tvs funs env emp))
+evaluate_dec mn menv cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env funs env emp))
 
 and
 
@@ -2694,7 +2694,7 @@ and
 
 forall env funs e bv s tvs.
 all_distinct (List.map (fun (x,y,z) -> x) funs) &&
-evaluate' s (build_rec_env tvs funs env env) e bv
+evaluate' s (build_rec_env funs env env) e bv
 ==>
 evaluate' s env (Letrec tvs funs e) bv
 
@@ -2820,7 +2820,7 @@ and
 forall mn menv cenv env funs s tvs.
 all_distinct (List.map (fun (x,y,z) -> x) funs)
 ==>
-evaluate_dec' mn menv cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env tvs funs env emp))
+evaluate_dec' mn menv cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env funs env emp))
 
 and
 

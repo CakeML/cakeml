@@ -233,7 +233,7 @@ val small_eval_letrec = Q.prove (
 `!menv cenv s env funs e1 c r tvs.
   ALL_DISTINCT (MAP (λ(x,y,z). x) funs) ⇒
   (small_eval menv cenv s env (Letrec tvs funs e1) c r =
-   small_eval menv cenv s (build_rec_env tvs funs env env) e1 c r)`,
+   small_eval menv cenv s (build_rec_env funs env env) e1 c r)`,
 small_eval_step_tac);
 
 val (small_eval_list_rules, small_eval_list_ind, small_eval_list_cases) = Hol_reln `

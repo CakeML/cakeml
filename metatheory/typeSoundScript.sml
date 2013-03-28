@@ -352,7 +352,7 @@ val do_app_cases = Q.prove (
   (?env'' funs n' n'' e.
     (op = Opapp) ∧ (v1 = Recclosure env'' funs n') ∧
     (find_recfun n' funs = SOME (n'',e)) ∧
-    (st = st') ∧ (env' = bind n'' v2 (build_rec_env (SOME (0:num)) funs env'' env'')) ∧ (v3 = e)) ∨
+    (st = st') ∧ (env' = bind n'' v2 (build_rec_env funs env'' env'')) ∧ (v3 = e)) ∨
   (?lnum.
     (op = Opassign) ∧ (v1 = Loc lnum) ∧ (store_assign lnum v2 st = SOME st') ∧
     (env' = env) ∧ (v3 = Lit Unit))`,
@@ -1623,7 +1623,7 @@ fs [dec_diverges_def, merge_def, emp_def, evaluate_dec_cases, GSYM small_big_exp
  imp_res_tac type_recfun_env >>
      imp_res_tac type_env_merge_lem1 >>
      qexists_tac `st` >>
-     qexists_tac `Rval ([],build_rec_env (SOME tvs) funs env [])` >>
+     qexists_tac `Rval ([],build_rec_env funs env [])` >>
      rw [] >>
      qexists_tac `tenvS` >>
      rw [] >-

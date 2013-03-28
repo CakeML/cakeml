@@ -582,7 +582,7 @@ rw [MEM_MAP] >|
  metis_tac []]);
 
 val build_rec_env_help_lem = Q.prove (
-`∀funs env funs' tvs.
+`∀funs env funs'.
 FOLDR (λ(f,x,e) env'. bind f (Recclosure env funs' f) env') env' funs =
 merge (MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs) env'`,
 Induct >>
@@ -592,8 +592,8 @@ rw []);
 
 (* Alternate definition for build_rec_env *)
 val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
-`∀funs funs' env env' tvs.
-  build_rec_env tvs funs env env' =
+`∀funs funs' env env'.
+  build_rec_env funs env env' =
   merge (MAP (λ(fn,n,e). (fn, Recclosure env funs fn)) funs) env'`,
 rw [build_rec_env_def, build_rec_env_help_lem]);
 
