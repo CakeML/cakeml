@@ -549,7 +549,7 @@ val Decls_Dtype = store_thm("Decls_Dtype",
 
 val Decls_Dlet = store_thm("Decls_Dlet",
   ``!mn menv cenv s env v e cenv1 s1 env1.
-      Decls mn menv cenv s env [Dlet NONE (Pvar v) e] cenv1 s1 env1 =
+      Decls mn menv cenv s env [Dlet (Pvar v) e] cenv1 s1 env1 =
       ?x. (cenv1 = emp) /\ (env1 = bind v x emp) /\
            evaluate' s env e (s1,Rval x)``,
   SIMP_TAC std_ss [Decls_def]
@@ -821,7 +821,7 @@ val DeclAssum_Dtype = store_thm("DeclAssum_Dtype",
 val DeclAssum_Dlet = store_thm("DeclAssum_Dlet",
   ``!ds n P.
       (!env. DeclAssum ds env ==> Eval env (Var (Short n)) P) ==>
-      !v e. ~(v = n) ==> (!env. DeclAssum (SNOC (Dlet NONE (Pvar v) e) ds) env ==> Eval env (Var (Short n)) P)``,
+      !v e. ~(v = n) ==> (!env. DeclAssum (SNOC (Dlet (Pvar v) e) ds) env ==> Eval env (Var (Short n)) P)``,
   SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dlet]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [APPEND,bind_def,Eval_Var_SIMP, merge_def, emp_def] >>
   rw []
@@ -863,7 +863,7 @@ val DeclAssum_Dletrec = store_thm("DeclAssum_Dletrec",
 
 val DeclAssum_Dlet_INTRO = store_thm("DeclAssum_Dlet_INTRO",
   ``(!env. DeclAssum ds env ==> Eval env exp P) ==>
-    (!v env. DeclAssum (SNOC (Dlet NONE (Pvar v) exp) ds) env ==>
+    (!v env. DeclAssum (SNOC (Dlet (Pvar v) exp) ds) env ==>
              Eval env (Var (Short v)) P)``,
   rw [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dlet,
       PULL_EXISTS,bind_def,Eval_Var_SIMP, merge_def, emp_def]

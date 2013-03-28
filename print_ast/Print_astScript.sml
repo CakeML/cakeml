@@ -523,7 +523,7 @@ val _ = Define `
 
  val dec_to_tok_tree_def = Define `
  
-(dec_to_tok_tree indent (Dlet tvs p e) = N 
+(dec_to_tok_tree indent (Dlet p e) = N 
   (L ValT) (N
   (
   pat_to_tok_tree p) (N   

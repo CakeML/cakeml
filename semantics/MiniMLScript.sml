@@ -266,7 +266,7 @@ val _ = Hol_datatype `
   (* Top-level bindings
    * The number is how many type variables are bound.
    * The pattern allows several names to be bound at once *)
-    Dlet of num option => pat => exp
+    Dlet of pat => exp
   (* Mutually recursive function definition *)
   | Dletrec of (varN # varN # exp) list
   (* Type definition
@@ -1173,41 +1173,41 @@ val _ = Define `
 
 val _ = Hol_reln `
 
-(! mn menv cenv env p e v env' s1 s2 tvs.
+(! mn menv cenv env p e v env' s1 s2.
 evaluate menv cenv s1 env e (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
 (pmatch cenv s2 p v emp = Match env')
 ==>
-evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rval (emp, env')))
+evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rval (emp, env')))
 
 /\
 
-(! mn menv cenv env p e v s1 s2 tvs.
+(! mn menv cenv env p e v s1 s2.
 evaluate menv cenv s1 env e (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
 (pmatch cenv s2 p v emp = No_match)
 ==>
-evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr (Rraise Bind_error)))
+evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr (Rraise Bind_error)))
 
 /\
 
-(! mn menv cenv env p e v s1 s2 tvs.
+(! mn menv cenv env p e v s1 s2.
 evaluate menv cenv s1 env e (s2, Rval v) /\
 (pmatch cenv s2 p v emp = Match_type_error)
 ==>
-evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error))
+evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr Rtype_error))
 
 /\
 
-(! mn menv cenv env p e v s1 s2 tvs.
+(! mn menv cenv env p e v s1 s2.
 evaluate menv cenv s1 env e (s2, Rval v) /\ ~  ( ALL_DISTINCT (pat_bindings p []))
 ==>
-evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error))
+evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr Rtype_error))
 
 /\
 
-(! mn menv cenv env p e err s s' tvs.
+(! mn menv cenv env p e err s s'.
 evaluate menv cenv s env e (s', Rerr err)
 ==>
-evaluate_dec mn menv cenv s env (Dlet tvs p e) (s', Rerr err))
+evaluate_dec mn menv cenv s env (Dlet p e) (s', Rerr err))
 
 /\
 
@@ -1325,7 +1325,7 @@ evaluate_prog menv cenv s env (Tmod mn specs ds1 ::ds2) (s, Rerr Rtype_error))`;
 val _ = Define `
  (dec_diverges menv cenv st env d =
   (case d of
-      Dlet tvs p e => e_diverges menv cenv st env e
+      Dlet p e => e_diverges menv cenv st env e
     | Dletrec funs => F
     | Dtype tds => F
   ))`;
@@ -1827,7 +1827,7 @@ is_value e /\ ALL_DISTINCT (pat_bindings p []) /\
 type_p tvs cenv p t tenv' /\
 type_e menv cenv (bind_tvar tvs tenv) e t
 ==>
-type_d mn menv cenv tenv (Dlet (SOME tvs) p e) emp (tenv_add_tvs tvs tenv'))
+type_d mn menv cenv tenv (Dlet p e) emp (tenv_add_tvs tvs tenv'))
 
 /\
 
@@ -1835,7 +1835,7 @@ type_d mn menv cenv tenv (Dlet (SOME tvs) p e) emp (tenv_add_tvs tvs tenv'))
 type_p 0 cenv p t tenv' /\
 type_e menv cenv tenv e t
 ==>
-type_d mn menv cenv tenv (Dlet (SOME 0) p e) emp (tenv_add_tvs 0 tenv'))
+type_d mn menv cenv tenv (Dlet p e) emp (tenv_add_tvs 0 tenv'))
 
 /\
 
@@ -2847,41 +2847,41 @@ evaluate_match' s env v ((p,e) ::pes) (s, Rerr Rtype_error))`;
 
 val _ = Hol_reln `
 
-(! mn menv cenv env p e v env' s1 s2 tvs.
+(! mn menv cenv env p e v env' s1 s2.
 evaluate' s1 env e (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
 (pmatch' s2 p v emp = Match env')
 ==>
-evaluate_dec' mn menv cenv s1 env (Dlet tvs p e) (s2, Rval (emp, env')))
+evaluate_dec' mn menv cenv s1 env (Dlet p e) (s2, Rval (emp, env')))
 
 /\
 
-(! mn menv cenv env p e v s1 s2 tvs.
+(! mn menv cenv env p e v s1 s2.
 evaluate' s1 env e (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
 (pmatch' s2 p v emp = No_match)
 ==>
-evaluate_dec' mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr (Rraise Bind_error)))
+evaluate_dec' mn menv cenv s1 env (Dlet p e) (s2, Rerr (Rraise Bind_error)))
 
 /\
 
-(! mn menv cenv env p e v s1 s2 tvs.
+(! mn menv cenv env p e v s1 s2.
 evaluate' s1 env e (s2, Rval v) /\
 (pmatch' s2 p v emp = Match_type_error)
 ==>
-evaluate_dec' mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error))
+evaluate_dec' mn menv cenv s1 env (Dlet p e) (s2, Rerr Rtype_error))
 
 /\
 
-(! mn menv cenv env p e v s1 s2 tvs.
+(! mn menv cenv env p e v s1 s2.
 evaluate' s1 env e (s2, Rval v) /\ ~  ( ALL_DISTINCT (pat_bindings p []))
 ==>
-evaluate_dec' mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error))
+evaluate_dec' mn menv cenv s1 env (Dlet p e) (s2, Rerr Rtype_error))
 
 /\
 
-(! mn menv cenv env p e err s s' tvs.
+(! mn menv cenv env p e err s s'.
 evaluate' s env e (s', Rerr err)
 ==>
-evaluate_dec' mn menv cenv s env (Dlet tvs p e) (s', Rerr err))
+evaluate_dec' mn menv cenv s env (Dlet p e) (s', Rerr err))
 
 /\
 

@@ -117,7 +117,7 @@ in
                 (n,tm,(MATCH_MP DeclAssum_Dletrec th |> SPEC (rand decl)
                  |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) |> REWRITE_RULE [])
                  handle HOL_ERR _ => th,pre))
-            else if can (match_term ``(Dlet NONE v x) : dec``) decl then
+            else if can (match_term ``(Dlet v x) : dec``) decl then
               (fn (n:string,tm:term,th,pre) =>
                 (n,tm,(MATCH_MP DeclAssum_Dlet th
                  |> SPEC (rand (rator (rand (rator decl)))) |> SPEC (rand decl)

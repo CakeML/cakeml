@@ -438,7 +438,7 @@ let typedef_to_tok_tree indent (tvs, name, variants) =
                (List.map variant_to_tok_tree variants)
 
 let rec 
-dec_to_tok_tree indent (Dlet tvs p e) =
+dec_to_tok_tree indent (Dlet p e) =
   L ValT ^^
   pat_to_tok_tree p ^^ 
   L EqualsT ^^

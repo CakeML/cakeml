@@ -314,7 +314,7 @@ val _ = Define `
 
 (elab_dec mn type_bound ctors bound (Ast_Dlet p e) =
   let p' = elab_p p in
-    ([], emp, get_pat_bindings p', Dlet NONE p' (elab_e ctors bound e)))
+    ([], emp, get_pat_bindings p', Dlet p' (elab_e ctors bound e)))
 /\
 (elab_dec mn type_bound ctors bound (Ast_Dletrec funs) =
   let bound' = get_funs_bindings funs in
