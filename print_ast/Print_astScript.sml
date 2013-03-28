@@ -5,9 +5,11 @@ open set_relationTheory sortingTheory stringTheory wordsTheory
 
 val _ = numLib.prefer_num();
 
-val _ = new_theory "Print_ast"
+
 
 open AstTheory MiniMLTheory TokensTheory
+
+val _ = new_theory "Print_ast"
 
 (*open MiniML*)
 (*open Tokens*)
@@ -423,7 +425,7 @@ val _ = Define `
   ( 
   newline indent)  (L EndT)))))))))))
 /\
-(exp_to_tok_tree indent (Letrec _ funs e) = N
+(exp_to_tok_tree indent (Letrec funs e) = N
   (
   newline indent) (N  
   (L LetT) (N   (L FunT) (N 
@@ -530,7 +532,7 @@ val _ = Define `
   exp_to_tok_tree (inc_indent indent) e) 
   (L SemicolonT)))))
 /\
-(dec_to_tok_tree indent (Dletrec tvs funs) = N 
+(dec_to_tok_tree indent (Dletrec funs) = N 
   (L FunT) (N 
   ( 
   join_trees ( N(newline indent)  (L AndT)) 

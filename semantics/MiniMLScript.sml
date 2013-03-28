@@ -5,9 +5,11 @@ open set_relationTheory sortingTheory stringTheory wordsTheory
 
 val _ = numLib.prefer_num();
 
-val _ = new_theory "MiniML"
+
 
 open TokensTheory
+
+val _ = new_theory "MiniML"
 
 (* By Scott Owens, University of Cambridge, Copyright 2011, 2012
  *                 University of Kent 2012, 2013
@@ -211,7 +213,6 @@ val _ = Define `
 (* Patterns *)
 val _ = Hol_datatype `
  pat =
-  (* We optionally type annotate all binders *)
     Pvar of varN
   | Plit of lit
   (* Constructor applications. *)
@@ -234,7 +235,6 @@ val _ = Hol_datatype `
   (* Temporary: later on we want Raise of exp *)
     Raise of error
   (* Temporary: later on we want Handle of exp * list (pat * exp) *)
-  (* We don't type annotate this binder because it must be an int *)
   | Handle of exp => varN => exp
   | Lit of lit
   (* Constructor application. *)
@@ -254,9 +254,8 @@ val _ = Hol_datatype `
   | Let of num option => varN => exp => exp
   (* Local definition of (potentially) mutually recursive functions
    * The first varN is the function's name, and the second varN is its
-   * parameter.
-   * The number is how many type variables are bound. *)
-  | Letrec of num option => (varN # varN # exp) list => exp`;
+   * parameter. *)
+  | Letrec of (varN # varN # exp) list => exp`;
 
 
 val _ = type_abbrev( "type_def" , ``: ( tvarN list # typeN # (conN # t list) list) list``);
@@ -268,9 +267,8 @@ val _ = Hol_datatype `
    * The number is how many type variables are bound.
    * The pattern allows several names to be bound at once *)
     Dlet of num option => pat => exp
-  (* Mutually recursive function definition
-   * The number is how many type variables are bound. *)
-  | Dletrec of num option => (varN # varN # exp) list
+  (* Mutually recursive function definition *)
+  | Dletrec of (varN # varN # exp) list
   (* Type definition
      Defines several types, each of which has several named variants, which can
      in turn have several arguments *)
@@ -356,96 +354,6 @@ val _ = Defn.save_defn deBruijn_inc_defn;
 
 val _ = Defn.save_defn deBruijn_subst_defn;
 
-(*
-val deBruijn_subst_p : num -> list t -> pat t -> pat t 
-let rec
-deBruijn_subst_p skip ts (Pvar x) =
-  Pvar x
-and
-deBruijn_subst_p skip ts (Plit l) = Plit l
-and
-deBruijn_subst_p skip ts (Pcon cn ps) = 
-  Pcon cn (List.map (deBruijn_subst_p skip ts) ps)
-and
-deBruijn_subst_p skip ts (Pref p) =
-  Pref (deBruijn_subst_p skip ts p)
-
-val deBruijn_subst_e : num -> list t -> exp t -> exp t 
-let rec
-deBruijn_subst_e skip ts (Raise err) = Raise err
-and
-deBruijn_subst_e skip ts (Handle e1 n e2) = 
-  Handle (deBruijn_subst_e skip ts e1) n (deBruijn_subst_e skip ts e2)
-and
-deBruijn_subst_e skip ts (Lit l) = Lit l
-and
-deBruijn_subst_e skip ts (Con cn es) =
-  Con cn (List.map (deBruijn_subst_e skip ts) es)
-and
-deBruijn_subst_e skip ts (Var v) =
-  Var v
-and
-deBruijn_subst_e skip ts (Fun x e) =
-  Fun x (deBruijn_subst_e skip ts e)
-and
-deBruijn_subst_e skip ts (Uapp uop e) =
-  Uapp uop (deBruijn_subst_e skip ts e)
-and
-deBruijn_subst_e skip ts (App bop e1 e2) =
-  App bop (deBruijn_subst_e skip ts e1) (deBruijn_subst_e skip ts e2)
-and
-deBruijn_subst_e skip ts (Log lop e1 e2) =
-  Log lop (deBruijn_subst_e skip ts e1) (deBruijn_subst_e skip ts e2)
-and
-deBruijn_subst_e skip ts (If e1 e2 e3) =
-  If (deBruijn_subst_e skip ts e1) (deBruijn_subst_e skip ts e2) (deBruijn_subst_e skip ts e3)
-and
-deBruijn_subst_e skip ts (Mat e pes) =
-  Mat (deBruijn_subst_e skip ts e) 
-      (List.map (fun (p,e) -> (deBruijn_subst_p skip ts p, deBruijn_subst_e skip ts e)) pes)
-and
-deBruijn_subst_e skip ts (Let tvs x e1 e2) =
-  let skip' = match tvs with | None -> skip | Some x -> x + skip end in
-  let ts' = match tvs with | None -> ts | Some tvs -> List.map (deBruijn_inc 0 tvs) ts end in
-    Let tvs x 
-      (deBruijn_subst_e skip' ts' e1)
-      (deBruijn_subst_e skip ts e2)
-and
-deBruijn_subst_e skip ts (Letrec tvs funs e) =
-  let skip' = match tvs with | None -> skip | Some x -> x + skip end in
-  let ts' = match tvs with | None -> ts | Some tvs -> List.map (deBruijn_inc 0 tvs) ts end in
-    Letrec tvs 
-      (List.map (fun (f,x,e) -> 
-                   (f,
-                    x,
-                    (deBruijn_subst_e skip' ts' e)))
-         funs) 
-      (deBruijn_subst_e skip ts e)
-
-val deBruijn_subst_v : list t -> v t -> v t
-let rec
-deBruijn_subst_v ts (Litv lit) = Litv lit
-and
-deBruijn_subst_v ts (Conv cn vs) =
-  Conv cn (List.map (deBruijn_subst_v ts) vs)
-and
-deBruijn_subst_v ts (Closure env x e) =
-  Closure env x (deBruijn_subst_e 0 ts e)
-and
-deBruijn_subst_v ts (Recclosure env funs f) =
-  Recclosure env
-      (List.map (fun (f,topt1,x,topt2,e) -> 
-                   (f,
-                    option_map (deBruijn_subst 0 ts) topt1,
-                    x,
-                    option_map (deBruijn_subst 0 ts) topt2,
-                    (deBruijn_subst_e 0 ts e)))
-         funs) 
-    f
-and
-deBruijn_subst_v ts (Loc l) = Loc l
- *)
-
 (* Environments *)
 
 (* Maps each constructor to its arity and which type it is from *)
@@ -490,7 +398,7 @@ val _ = Define `
 (*val store_alloc : v -> store -> store * num*)
 val _ = Define `
  (store_alloc v st =
-  (st ++ [v], LENGTH st))`;
+  ((st ++ [v]), LENGTH st))`;
 
 
 (*val store_assign : num -> v -> store -> option store*)
@@ -549,12 +457,12 @@ val _ = Hol_datatype `
  * number of arguments, and constructors in corresponding positions in the
  * pattern and value come from the same type.  Match_type_error is returned
  * when one of these conditions is violated *)
-(*val pmatch : option num -> envC -> store -> pat -> v -> envE -> match_result*)
+(*val pmatch : envC -> store -> pat -> v -> envE -> match_result*)
  val pmatch_defn = Hol_defn "pmatch" `
 
-(pmatch tvs envC s (Pvar x) v' env = Match (bind x v' env))
+(pmatch envC s (Pvar x) v' env = Match (bind x v' env))
 /\
-(pmatch tvs envC s (Plit l) (Litv l') env =
+(pmatch envC s (Plit l) (Litv l') env =
   if l = l' then
     Match env
   else if lit_same_type l l' then
@@ -562,12 +470,12 @@ val _ = Hol_datatype `
   else
     Match_type_error)
 /\
-(pmatch tvs envC s (Pcon n ps) (Conv n' vs) env =
+(pmatch envC s (Pcon n ps) (Conv n' vs) env =
   (case (lookup n envC, lookup n' envC) of
       (SOME (l, t), SOME (l', t')) =>
         if (t = t') /\ ( LENGTH ps = l) /\ ( LENGTH vs = l') then
           if n = n' then
-            pmatch_list tvs envC s ps vs env
+            pmatch_list envC s ps vs env
           else
             No_match
         else
@@ -575,24 +483,24 @@ val _ = Hol_datatype `
     | (_, _) => Match_type_error
   ))
 /\
-(pmatch tvs envC s (Pref p) (Loc lnum) env =
+(pmatch envC s (Pref p) (Loc lnum) env =
   (case store_lookup lnum s of
-      SOME v => pmatch tvs envC s p v env
+      SOME v => pmatch envC s p v env
     | NONE => Match_type_error
   ))
 /\
-(pmatch tvs envC _ _ _ env = Match_type_error)
+(pmatch envC _ _ _ env = Match_type_error)
 /\
-(pmatch_list tvs envC s [] [] env = Match env)
+(pmatch_list envC s [] [] env = Match env)
 /\
-(pmatch_list tvs envC s (p::ps) (v::vs) env =
-  (case pmatch tvs envC s p v env of
+(pmatch_list envC s (p::ps) (v::vs) env =
+  (case pmatch envC s p v env of
       No_match => No_match
     | Match_type_error => Match_type_error
-    | Match env' => pmatch_list tvs envC s ps vs env'
+    | Match env' => pmatch_list envC s ps vs env'
   ))
 /\
-(pmatch_list tvs envC s _ _ env = Match_type_error)`;
+(pmatch_list envC s _ _ env = Match_type_error)`;
 
 val _ = Defn.save_defn pmatch_defn;
 
@@ -649,7 +557,7 @@ val _ = Hol_datatype `
 
 (*val push : envM -> envC -> store -> envE -> exp -> ctxt_frame -> list ctxt -> e_step_result*)
 val _ = Define `
- (push envM envC s env e c' cs = Estep (envM, envC, s, env, Exp e, (c',env) ::cs))`;
+ (push envM envC s env e c' cs = Estep (envM, envC, s, env, Exp e, ((c',env) ::cs)))`;
 
 
 (*val return : envM -> envC -> store -> envE -> v -> list ctxt -> e_step_result*)
@@ -795,9 +703,9 @@ val _ = Define `
         Estep (envM, envC, s, env, Exp (Raise Bind_error), c)
     | (Cmat ()  ((p,e)::pes), env) :: c =>
         if ALL_DISTINCT (pat_bindings p []) then
-          (case pmatch (SOME 0) envC s p v env of
+          (case pmatch envC s p v env of
               Match_type_error => Etype_error
-            | No_match => Estep (envM, envC, s, env, Val v, (Cmat ()  pes,env) ::c)
+            | No_match => Estep (envM, envC, s, env, Val v, ((Cmat ()  pes,env) ::c))
             | Match env' => Estep (envM, envC, s, env', Exp e, c)
           )
         else
@@ -871,7 +779,7 @@ val _ = Define `
           | If e1 e2 e3 => push envM envC s env e1 (Cif ()  e2 e3) c
           | Mat e pes => push envM envC s env e (Cmat ()  pes) c
           | Let tvs n e1 e2 => push envM envC s env e1 (Clet tvs n ()  e2) c
-          | Letrec tvs funs e =>
+          | Letrec funs e =>
               if ~  ( ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs)) then
                 Etype_error
               else
@@ -1160,16 +1068,16 @@ evaluate menv cenv s env (Let tvs n e1 e2) (s', Rerr err))
 
 /\
 
-(! menv cenv env funs e bv s tvs. ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs) /\
+(! menv cenv env funs e bv s. ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs) /\
 evaluate menv cenv s (build_rec_env funs env env) e bv
 ==>
-evaluate menv cenv s env (Letrec tvs funs e) bv)
+evaluate menv cenv s env (Letrec funs e) bv)
 
 /\
 
-(! menv cenv env funs e s tvs. ~  ( ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs))
+(! menv cenv env funs e s. ~  ( ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs))
 ==>
-evaluate menv cenv s env (Letrec tvs funs e) (s, Rerr Rtype_error))
+evaluate menv cenv s env (Letrec funs e) (s, Rerr Rtype_error))
 
 /\
 
@@ -1211,7 +1119,7 @@ evaluate_match menv cenv s env v [] (s, Rerr (Rraise Bind_error)))
 /\
 
 (! menv cenv env v p e pes env' bv s. ALL_DISTINCT (pat_bindings p []) /\
-(pmatch (SOME 0) cenv s p v env = Match env') /\
+(pmatch cenv s p v env = Match env') /\
 evaluate menv cenv s env' e bv
 ==>
 evaluate_match menv cenv s env v ((p,e) ::pes) bv)
@@ -1219,7 +1127,7 @@ evaluate_match menv cenv s env v ((p,e) ::pes) bv)
 /\
 
 (! menv cenv env v p e pes bv s. ALL_DISTINCT (pat_bindings p []) /\
-(pmatch (SOME 0) cenv s p v env = No_match) /\
+(pmatch cenv s p v env = No_match) /\
 evaluate_match menv cenv s env v pes bv
 ==>
 evaluate_match menv cenv s env v ((p,e) ::pes) bv)
@@ -1227,7 +1135,7 @@ evaluate_match menv cenv s env v ((p,e) ::pes) bv)
 /\
 
 (! menv cenv env v p e pes s.
-(pmatch (SOME 0) cenv s p v env = Match_type_error)
+(pmatch cenv s p v env = Match_type_error)
 ==>
 evaluate_match menv cenv s env v ((p,e) ::pes) (s, Rerr Rtype_error))
 
@@ -1267,7 +1175,7 @@ val _ = Hol_reln `
 
 (! mn menv cenv env p e v env' s1 s2 tvs.
 evaluate menv cenv s1 env e (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
-(pmatch tvs cenv s2 p v emp = Match env')
+(pmatch cenv s2 p v emp = Match env')
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rval (emp, env')))
 
@@ -1275,7 +1183,7 @@ evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rval (emp, env')))
 
 (! mn menv cenv env p e v s1 s2 tvs.
 evaluate menv cenv s1 env e (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
-(pmatch tvs cenv s2 p v emp = No_match)
+(pmatch cenv s2 p v emp = No_match)
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr (Rraise Bind_error)))
 
@@ -1283,7 +1191,7 @@ evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr (Rraise Bind_error)))
 
 (! mn menv cenv env p e v s1 s2 tvs.
 evaluate menv cenv s1 env e (s2, Rval v) /\
-(pmatch tvs cenv s2 p v emp = Match_type_error)
+(pmatch cenv s2 p v emp = Match_type_error)
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error))
 
@@ -1303,15 +1211,15 @@ evaluate_dec mn menv cenv s env (Dlet tvs p e) (s', Rerr err))
 
 /\
 
-(! mn menv cenv env funs s tvs. ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs)
+(! mn menv cenv env funs s. ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs)
 ==>
-evaluate_dec mn menv cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env funs env emp)))
+evaluate_dec mn menv cenv s env (Dletrec funs) (s, Rval (emp, build_rec_env funs env emp)))
 
 /\
 
-(! mn menv cenv env funs s tvs. ~  ( ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs))
+(! mn menv cenv env funs s. ~  ( ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs))
 ==>
-evaluate_dec mn menv cenv s env (Dletrec tvs funs) (s, Rerr Rtype_error))
+evaluate_dec mn menv cenv s env (Dletrec funs) (s, Rerr Rtype_error))
 
 /\
 
@@ -1418,7 +1326,7 @@ val _ = Define `
  (dec_diverges menv cenv st env d =
   (case d of
       Dlet tvs p e => e_diverges menv cenv st env e
-    | Dletrec tvs funs => F
+    | Dletrec funs => F
     | Dtype tds => F
   ))`;
 
@@ -1872,7 +1780,7 @@ type_e menv cenv tenv (Let (SOME 0) n e1 e2) t2)
 type_funs menv cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' /\
 type_e menv cenv (bind_var_list tvs tenv' tenv) e t
 ==>
-type_e menv cenv tenv (Letrec (SOME tvs) funs e) t)
+type_e menv cenv tenv (Letrec funs e) t)
 
 /\
 
@@ -1934,7 +1842,7 @@ type_d mn menv cenv tenv (Dlet (SOME 0) p e) emp (tenv_add_tvs 0 tenv'))
 (! mn menv cenv tenv funs tenv' tvs.
 type_funs menv cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv'
 ==>
-type_d mn menv cenv tenv (Dletrec (SOME tvs) funs) emp (tenv_add_tvs tvs tenv'))
+type_d mn menv cenv tenv (Dletrec funs) emp (tenv_add_tvs tvs tenv'))
 
 /\
 
@@ -2363,7 +2271,7 @@ type_vs tvs menv cenv senv ( REVERSE vs)
         ( MAP (type_subst ( ZIP ( tvs', ts'))) ts1) /\
 type_es menv cenv (bind_tvar tvs tenv) es ( MAP (type_subst ( ZIP ( tvs', ts'))) ts2) /\
 (
-lookup cn cenv = SOME (tvs', ts1 ++([t] ++ts2), tn))
+lookup cn cenv = SOME (tvs', (ts1 ++([t] ++ts2)), tn))
 ==>
 type_ctxt tvs menv cenv senv tenv (Ccon cn vs ()  es) (type_subst ( ZIP ( tvs', ts')) t)
           (Tapp ts' (TC_name tn)))`;
@@ -2601,12 +2509,12 @@ evaluate_state (menv, cenv, s, env, Val v, c) bv)`;
  * module environment. Is equivalent to the normal one for well-typed programs
  * that don't contain module references. *)
 
-(*val pmatch' : option num -> store -> pat -> v -> envE -> match_result*)
+(*val pmatch' : store -> pat -> v -> envE -> match_result*)
  val pmatch'_defn = Hol_defn "pmatch'" `
 
-(pmatch' tvs s (Pvar n) v' env = Match (bind n v' env))
+(pmatch' s (Pvar n) v' env = Match (bind n v' env))
 /\
-(pmatch' tvs s (Plit l) (Litv l') env =
+(pmatch' s (Plit l) (Litv l') env =
   if l = l' then
     Match env
   else if lit_same_type l l' then
@@ -2614,30 +2522,30 @@ evaluate_state (menv, cenv, s, env, Val v, c) bv)`;
   else
     Match_type_error)
 /\
-(pmatch' tvs s (Pcon cn ps) (Conv cn' vs) env =
+(pmatch' s (Pcon cn ps) (Conv cn' vs) env =
   if ( LENGTH ps = LENGTH vs) /\ (cn = cn') then
-    pmatch_list' tvs s ps vs env
+    pmatch_list' s ps vs env
   else
     No_match)
 /\
-(pmatch' tvs s (Pref p) (Loc lnum) env =
+(pmatch' s (Pref p) (Loc lnum) env =
   (case store_lookup lnum s of
-      SOME v => pmatch' tvs s p v env
+      SOME v => pmatch' s p v env
     | NONE => Match_type_error
   ))
 /\
-(pmatch' tvs _ _ _ env = Match_type_error)
+(pmatch' _ _ _ env = Match_type_error)
 /\
-(pmatch_list' tvs s [] [] env = Match env)
+(pmatch_list' s [] [] env = Match env)
 /\
-(pmatch_list' tvs s (p::ps) (v::vs) env =
-  (case pmatch' tvs s p v env of
+(pmatch_list' s (p::ps) (v::vs) env =
+  (case pmatch' s p v env of
       No_match => No_match
     | Match_type_error => Match_type_error
-    | Match env' => pmatch_list' tvs s ps vs env'
+    | Match env' => pmatch_list' s ps vs env'
   ))
 /\
-(pmatch_list' tvs _ _ _ env = Match_type_error)`;
+(pmatch_list' _ _ _ env = Match_type_error)`;
 
 val _ = Defn.save_defn pmatch'_defn;
 
@@ -2860,16 +2768,16 @@ evaluate' s env (Let tvs n e1 e2) (s', Rerr err))
 
 /\
 
-(! env funs e bv s tvs. ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs) /\
+(! env funs e bv s. ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs) /\
 evaluate' s (build_rec_env funs env env) e bv
 ==>
-evaluate' s env (Letrec tvs funs e) bv)
+evaluate' s env (Letrec funs e) bv)
 
 /\
 
-(! env funs e s tvs. ~  ( ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs))
+(! env funs e s. ~  ( ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs))
 ==>
-evaluate' s env (Letrec tvs funs e) (s, Rerr Rtype_error))
+evaluate' s env (Letrec funs e) (s, Rerr Rtype_error))
 
 /\
 
@@ -2911,7 +2819,7 @@ evaluate_match' s env v [] (s, Rerr (Rraise Bind_error)))
 /\
 
 (! env v p e pes env' bv s. ALL_DISTINCT (pat_bindings p []) /\
-(pmatch' (SOME 0) s p v env = Match env') /\
+(pmatch' s p v env = Match env') /\
 evaluate' s env' e bv
 ==>
 evaluate_match' s env v ((p,e) ::pes) bv)
@@ -2919,7 +2827,7 @@ evaluate_match' s env v ((p,e) ::pes) bv)
 /\
 
 (! env v p e pes bv s. ALL_DISTINCT (pat_bindings p []) /\
-(pmatch' (SOME 0) s p v env = No_match) /\
+(pmatch' s p v env = No_match) /\
 evaluate_match' s env v pes bv
 ==>
 evaluate_match' s env v ((p,e) ::pes) bv)
@@ -2927,7 +2835,7 @@ evaluate_match' s env v ((p,e) ::pes) bv)
 /\
 
 (! env v p e pes s.
-(pmatch' (SOME 0) s p v env = Match_type_error)
+(pmatch' s p v env = Match_type_error)
 ==>
 evaluate_match' s env v ((p,e) ::pes) (s, Rerr Rtype_error))
 
@@ -2941,7 +2849,7 @@ val _ = Hol_reln `
 
 (! mn menv cenv env p e v env' s1 s2 tvs.
 evaluate' s1 env e (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
-(pmatch' tvs s2 p v emp = Match env')
+(pmatch' s2 p v emp = Match env')
 ==>
 evaluate_dec' mn menv cenv s1 env (Dlet tvs p e) (s2, Rval (emp, env')))
 
@@ -2949,7 +2857,7 @@ evaluate_dec' mn menv cenv s1 env (Dlet tvs p e) (s2, Rval (emp, env')))
 
 (! mn menv cenv env p e v s1 s2 tvs.
 evaluate' s1 env e (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
-(pmatch' tvs s2 p v emp = No_match)
+(pmatch' s2 p v emp = No_match)
 ==>
 evaluate_dec' mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr (Rraise Bind_error)))
 
@@ -2957,7 +2865,7 @@ evaluate_dec' mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr (Rraise Bind_error)))
 
 (! mn menv cenv env p e v s1 s2 tvs.
 evaluate' s1 env e (s2, Rval v) /\
-(pmatch' tvs s2 p v emp = Match_type_error)
+(pmatch' s2 p v emp = Match_type_error)
 ==>
 evaluate_dec' mn menv cenv s1 env (Dlet tvs p e) (s2, Rerr Rtype_error))
 
@@ -2977,15 +2885,15 @@ evaluate_dec' mn menv cenv s env (Dlet tvs p e) (s', Rerr err))
 
 /\
 
-(! mn menv cenv env funs s tvs. ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs)
+(! mn menv cenv env funs s. ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs)
 ==>
-evaluate_dec' mn menv cenv s env (Dletrec tvs funs) (s, Rval (emp, build_rec_env funs env emp)))
+evaluate_dec' mn menv cenv s env (Dletrec funs) (s, Rval (emp, build_rec_env funs env emp)))
 
 /\
 
-(! mn menv cenv env funs s tvs. ~  ( ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs))
+(! mn menv cenv env funs s. ~  ( ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs))
 ==>
-evaluate_dec' mn menv cenv s env (Dletrec tvs funs) (s, Rerr Rtype_error))
+evaluate_dec' mn menv cenv s env (Dletrec funs) (s, Rerr Rtype_error))
 
 /\
 

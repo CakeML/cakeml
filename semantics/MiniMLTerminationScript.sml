@@ -74,15 +74,15 @@ val _ = export_rewrites["lookup_def"];
 val (pmatch_def, pmatch_ind) =
   tprove_no_defn ((pmatch_def, pmatch_ind),
   wf_rel_tac
-  `inv_image $< (λx. case x of INL (tvs,s,a,p,b,c) => pat_size  p 
-                             | INR (tvs,s,a,ps,b,c) => pat1_size ps)`);
+  `inv_image $< (λx. case x of INL (s,a,p,b,c) => pat_size  p 
+                             | INR (s,a,ps,b,c) => pat1_size ps)`);
 val _ = register "pmatch" pmatch_def pmatch_ind;
 
 val (pmatch'_def, pmatch'_ind) =
   tprove_no_defn ((pmatch'_def, pmatch'_ind),
   wf_rel_tac
-  `inv_image $< (λx. case x of INL (tvs,s,p,b,c) => pat_size p 
-                             | INR (tvs,s,ps,b,c) => pat1_size ps)`);
+  `inv_image $< (λx. case x of INL (s,p,b,c) => pat_size p 
+                             | INR (s,ps,b,c) => pat1_size ps)`);
 val _ = register "pmatch'" pmatch'_def pmatch'_ind;
 
 val (find_recfun_def, find_recfun_ind) =

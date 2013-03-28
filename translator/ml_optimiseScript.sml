@@ -52,7 +52,7 @@ val BOTTOM_UP_OPT_def = tDefine "BOTTOM_UP_OPT" `
   (BOTTOM_UP_OPT f (Mat x ys) = f (Mat (BOTTOM_UP_OPT f x) (MAP (\(p,x). (p,BOTTOM_UP_OPT f x)) ys))) /\
   (BOTTOM_UP_OPT f (Let n name x1 x2) = f (Let n name (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2))) /\
   (BOTTOM_UP_OPT f (Handle x1 name x2) = Handle x1 name x2) /\
-  (BOTTOM_UP_OPT f (Letrec d z1 z2) = f (Letrec d z1 z2))`
+  (BOTTOM_UP_OPT f (Letrec z1 z2) = f (Letrec z1 z2))`
  (WF_REL_TAC `measure (exp_size o SND)` THEN REPEAT STRIP_TAC
   THEN IMP_RES_TAC MEM_exp_size1 THEN IMP_RES_TAC MEM_exp_size2 THEN DECIDE_TAC)
 
@@ -429,7 +429,7 @@ val INT_IF_OPT_def = tDefine "INT_IF_OPT" `
   (INT_IF_OPT b (Mat x ys) = Mat (INT_IF_OPT b x) (MAP (\(p,x). (p,INT_IF_OPT (FILTER (int_cmp_keep (pat_vars p)) b) x)) ys)) /\
   (INT_IF_OPT b (Let oo name tt x1 x2) = Let oo name tt (INT_IF_OPT b x1)
      (INT_IF_OPT (int_cmp_let name x1 b ++ FILTER (int_cmp_keep [name]) b) x2)) /\
-  (INT_IF_OPT b (Letrec oo z1 z2) = Letrec oo z1 z2) /\
+  (INT_IF_OPT b (Letrec z1 z2) = Letrec z1 z2) /\
   (INT_IF_OPT b other = other)`
  (WF_REL_TAC `measure (exp_size o SND)` THEN REPEAT STRIP_TAC
   THEN IMP_RES_TAC MEM_exp_size1 THEN IMP_RES_TAC MEM_exp_size2 THEN DECIDE_TAC)

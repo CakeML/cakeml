@@ -1215,6 +1215,7 @@ fs [deBruijn_subst_def, deBruijn_subst_tenvE_def,
                   deBruijn_subst (tvs + num_tvs tenvE1)
                     (MAP (deBruijn_inc 0 (tvs + num_tvs tenvE1)) targs)
                     t')) env` >>
+     qexists_tac `tvs` >>
      rw [] >|
      [qpat_assum `∀tenvE1' targs' tvs''.
                      tenv_ok

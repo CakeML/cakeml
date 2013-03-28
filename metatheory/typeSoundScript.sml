@@ -188,22 +188,22 @@ metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct]);
 (* Well-typed pattern matches either match or not, but they don't raise type
  * errors *)
 val pmatch_type_progress = Q.prove (
-`(∀(tvs':'a) cenv st p v env t tenv tenvS tvs tvs''.
+`(∀ cenv st p v env t tenv tenvS tvs tvs''.
   consistent_con_env cenv tenvC ∧
   type_p tvs'' tenvC p t tenv ∧
   type_v tvs tenvM tenvC tenvS v t ∧
   type_s tenvM tenvC tenvS st
   ⇒
-  (pmatch tvs' cenv st p v env = No_match) ∨
-  (∃env'. pmatch tvs' cenv st p v env = Match env')) ∧
- (∀(tvs':'a) cenv st ps vs env ts tenv tenvS tvs tvs''.
+  (pmatch cenv st p v env = No_match) ∨
+  (∃env'. pmatch cenv st p v env = Match env')) ∧
+ (∀ cenv st ps vs env ts tenv tenvS tvs tvs''.
   consistent_con_env cenv tenvC ∧
   type_ps tvs'' tenvC ps ts tenv ∧
   type_vs tvs tenvM tenvC tenvS vs ts ∧
   type_s tenvM tenvC tenvS st
   ⇒
-  (pmatch_list tvs' cenv st ps vs env = No_match) ∨
-  (∃env'. pmatch_list tvs' cenv st ps vs env = Match env'))`,
+  (pmatch_list cenv st ps vs env = No_match) ∨
+  (∃env'. pmatch_list cenv st ps vs env = Match env'))`,
 ho_match_mp_tac pmatch_ind >>
 rw [] >>
 rw [pmatch_def] >>
@@ -326,7 +326,7 @@ val not_final_state = Q.prove (
      (?e1 e2 e3. e = If e1 e2 e3) ∨
      (?e' pes. e = Mat e' pes) ∨
      (?tvs n e1 e2. e = Let tvs n e1 e2) ∨
-     (?tvs funs e'. e = Letrec tvs funs e')`,
+     (?funs e'. e = Letrec funs e')`,
 rw [] >>
 cases_on `e` >>
 cases_on `c` >>
@@ -496,24 +496,22 @@ rw [] >|
 (* A successful pattern match gives a binding environment with the type given by
 * the pattern type checker *)
 val pmatch_type_preservation = Q.prove (
-`(∀tvs (cenv : envC) st p v env env' tenvM (tenvC:tenvC) tenv t tenv' tenvS tvs'.
-  (pmatch tvs cenv st p v env = Match env') ∧
+`(∀(cenv : envC) st p v env env' tenvM (tenvC:tenvC) tenv t tenv' tenvS tvs.
+  (pmatch cenv st p v env = Match env') ∧
   tenvM_ok tenvM ∧
-  (tvs = SOME tvs') ∧
-  type_v tvs' tenvM tenvC tenvS v t ∧
-  type_p tvs' tenvC p t tenv' ∧
+  type_v tvs tenvM tenvC tenvS v t ∧
+  type_p tvs tenvC p t tenv' ∧
   type_s tenvM tenvC tenvS st ∧
   type_env tenvM tenvC tenvS env tenv ⇒
-  type_env tenvM tenvC tenvS env' (bind_var_list tvs' tenv' tenv)) ∧
- (∀tvs (cenv : envC) st ps vs env env' tenvM (tenvC:tenvC) tenv tenv' ts tenvS tvs'.
-  (pmatch_list tvs cenv st ps vs env = Match env') ∧
+  type_env tenvM tenvC tenvS env' (bind_var_list tvs tenv' tenv)) ∧
+ (∀(cenv : envC) st ps vs env env' tenvM (tenvC:tenvC) tenv tenv' ts tenvS tvs.
+  (pmatch_list cenv st ps vs env = Match env') ∧
   tenvM_ok tenvM ∧
-  (tvs = SOME tvs') ∧
-  type_vs tvs' tenvM tenvC tenvS vs ts ∧
-  type_ps tvs' tenvC ps ts tenv' ∧
+  type_vs tvs tenvM tenvC tenvS vs ts ∧
+  type_ps tvs tenvC ps ts tenv' ∧
   type_s tenvM tenvC tenvS st ∧
   type_env tenvM tenvC tenvS env tenv ⇒
-  type_env tenvM tenvC tenvS env' (bind_var_list tvs' tenv' tenv))`,
+  type_env tenvM tenvC tenvS env' (bind_var_list tvs tenv' tenv))`,
 ho_match_mp_tac pmatch_ind >>
 rw [pmatch_def] >|
 [fs [Once type_p_cases, bind_var_list_def, bind_def] >>
@@ -550,7 +548,7 @@ rw [pmatch_def] >|
      fs [] >>
      rw [] >>
      fs [type_s_def, store_lookup_def, Tref_def] >>
-     `type_v tvs' tenvM tenvC tenvS (EL lnum st) t''` by
+     `type_v tvs tenvM tenvC tenvS (EL lnum st) t''` by
                  metis_tac [type_v_weakening, weakC_refl, weakS_refl, weakM_refl] >>
      metis_tac [],
  fs [Once type_p_cases, bind_var_list_def],
@@ -1505,12 +1503,12 @@ val consistent_con_preservation = Q.prove (
 metis_tac [merge_def,extend_consistent_con]);
 
 val pmatch_append = Q.prove (
-`(!(tvs:'a) (cenv : envC) (st : store) p v env env' env''.
-    (pmatch tvs cenv st p v env = Match env') ⇒
-    (pmatch tvs cenv st p v (env++env'') = Match (env'++env''))) ∧
- (!(tvs:'a) (cenv : envC) (st : store) ps v env env' env''.
-    (pmatch_list tvs cenv st ps v env = Match env') ⇒
-    (pmatch_list tvs cenv st ps v (env++env'') = Match (env'++env'')))`,
+`(!(cenv : envC) (st : store) p v env env' env''.
+    (pmatch cenv st p v env = Match env') ⇒
+    (pmatch cenv st p v (env++env'') = Match (env'++env''))) ∧
+ (!(cenv : envC) (st : store) ps v env env' env''.
+    (pmatch_list cenv st ps v env = Match env') ⇒
+    (pmatch_list cenv st ps v (env++env'') = Match (env'++env'')))`,
 ho_match_mp_tac pmatch_ind >>
 rw [pmatch_def, bind_def] >>
 every_case_tac >>
@@ -1563,8 +1561,8 @@ fs [dec_diverges_def, merge_def, emp_def, evaluate_dec_cases, GSYM small_big_exp
      fs [] >>
      `consistent_mod_env tenvS' tenvC menv tenvM` 
                by metis_tac [consistent_mod_env_weakening, store_type_extension_weakS, weakC_refl] >|
-     [`(pmatch (SOME tvs) cenv st2 p a [] = No_match) ∨
-       (?new_env. pmatch (SOME tvs) cenv st2 p a [] = Match new_env)`
+     [`(pmatch cenv st2 p a [] = No_match) ∨
+       (?new_env. pmatch cenv st2 p a [] = Match new_env)`
                  by (metis_tac [pmatch_type_progress]) >|
           [qexists_tac `st2` >>
                qexists_tac `Rerr (Rraise Bind_error)` >>
@@ -1573,7 +1571,7 @@ fs [dec_diverges_def, merge_def, emp_def, evaluate_dec_cases, GSYM small_big_exp
            qexists_tac `st2` >>
                qexists_tac `Rval ([],new_env)` >>
                rw [] >>
-               `pmatch (SOME tvs) cenv st2 p a ([]++env) = Match (new_env++env)`
+               `pmatch cenv st2 p a ([]++env) = Match (new_env++env)`
                         by metis_tac [pmatch_append] >>
                `type_env tenvM tenvC tenvS [] Empty` by metis_tac [type_v_rules, emp_def] >>
                `type_env tenvM tenvC tenvS' new_env (bind_var_list tvs tenv'' Empty) ∧
@@ -1596,8 +1594,8 @@ fs [dec_diverges_def, merge_def, emp_def, evaluate_dec_cases, GSYM small_big_exp
      fs [] >>
      `consistent_mod_env tenvS' tenvC menv tenvM` 
                by metis_tac [consistent_mod_env_weakening, store_type_extension_weakS, weakC_refl] >|
-     [`(pmatch (SOME (0:num)) cenv st2 p a [] = No_match) ∨
-       (?new_env. pmatch (SOME (0:num)) cenv st2 p a [] = Match new_env)`
+     [`(pmatch cenv st2 p a [] = No_match) ∨
+       (?new_env. pmatch cenv st2 p a [] = Match new_env)`
                  by (metis_tac [pmatch_type_progress]) >|
           [qexists_tac `st2` >>
                qexists_tac `Rerr (Rraise Bind_error)` >>
@@ -1606,7 +1604,7 @@ fs [dec_diverges_def, merge_def, emp_def, evaluate_dec_cases, GSYM small_big_exp
            qexists_tac `st2` >>
                qexists_tac `Rval ([],new_env)` >>
                rw [] >>
-               `pmatch (SOME (0:num)) cenv st2 p a ([]++env) = Match (new_env++env)`
+               `pmatch cenv st2 p a ([]++env) = Match (new_env++env)`
                         by metis_tac [pmatch_append] >>
                `type_env tenvM tenvC tenvS [] Empty` by metis_tac [type_v_rules, emp_def] >>
                `type_env tenvM tenvC tenvS' new_env (bind_var_list 0 tenv'' Empty) ∧

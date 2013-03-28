@@ -562,7 +562,7 @@ val Decls_Dlet = store_thm("Decls_Dlet",
 
 val Decls_Dletrec = store_thm("Decls_Dletrec",
   ``!mn menv cenv s env funs cenv1 s1 env1.
-      Decls mn menv cenv s env [Dletrec NONE funs] cenv1 s1 env1 =
+      Decls mn menv cenv s env [Dletrec funs] cenv1 s1 env1 =
       ALL_DISTINCT (MAP (\(x,y,z). x) funs) /\
       (cenv1 = emp) /\ (env1 = build_rec_env funs env emp) /\ (s1 = s)``,
   SIMP_TAC std_ss [Decls_def]
@@ -638,17 +638,17 @@ val do_app_lemma = prove(
   \\ FULL_SIMP_TAC (srw_ss()) [empty_store_def]);
 
 val pmatch'_lemma = prove(
-  ``(!(t:'a) (s:store) (p:pat) v env x.
-      (pmatch' t empty_store p v env = x) /\ x <> Match_type_error ==>
-      !s. (pmatch' t s p v env = x)) /\
-    (!(t:'a) (s:store) (p:pat list) vs env x.
-      (pmatch_list' t empty_store p vs env = x) /\ x <> Match_type_error ==>
-      !s. (pmatch_list' t s p vs env = x))``,
+  ``(!(s:store) (p:pat) v env x.
+      (pmatch' empty_store p v env = x) /\ x <> Match_type_error ==>
+      !s. (pmatch' s p v env = x)) /\
+    (!(s:store) (p:pat list) vs env x.
+      (pmatch_list' empty_store p vs env = x) /\ x <> Match_type_error ==>
+      !s. (pmatch_list' s p vs env = x))``,
   HO_MATCH_MP_TAC pmatch'_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [pmatch'_def]
   \\ FULL_SIMP_TAC std_ss [store_lookup_def,empty_store_def,LENGTH]
   THEN1 (METIS_TAC [])
-  \\ Cases_on `pmatch' t [] p v env`
+  \\ Cases_on `pmatch' [] p v env`
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Q.PAT_ASSUM `No_match = x` (ASSUME_TAC o GSYM)
   \\ FULL_SIMP_TAC (srw_ss()) []);
@@ -851,7 +851,7 @@ val DeclAssum_Dletrec = store_thm("DeclAssum_Dletrec",
   ``!ds n P.
       (!env. DeclAssum ds env ==> Eval env (Var (Short n)) P) ==>
       !funs. ~(MEM n (MAP FST funs)) ==>
-             (!env. DeclAssum (SNOC (Dletrec NONE funs) ds) env ==>
+             (!env. DeclAssum (SNOC (Dletrec funs) ds) env ==>
                     Eval env (Var (Short n)) P)``,
   SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dletrec]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [bind_def,Eval_Var_SIMP]
@@ -875,7 +875,7 @@ val DeclAssum_Dletrec_INTRO = store_thm("DeclAssum_Dletrec_INTRO",
       DeclAssum ds env /\
       LOOKUP_VAR v env1 (Recclosure env [(v,xs,f)] v) ==>
       Eval env1 (Var (Short v)) P) ==>
-    !env. DeclAssum (SNOC (Dletrec NONE [(v,xs,f)]) ds) env ==>
+    !env. DeclAssum (SNOC (Dletrec [(v,xs,f)]) ds) env ==>
           Eval env (Var (Short v)) P``,
   FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dletrec,
     MAP,ALL_DISTINCT,MEM,PULL_EXISTS,build_rec_env_def,FOLDR,bind_def,

@@ -365,7 +365,7 @@ exp_to_tok_tree indent (Let _ v e1 e2) =
   exp_to_tok_tree (inc_indent indent) e2 ^^ 
   newline indent ^^ L EndT
 and
-exp_to_tok_tree indent (Letrec _ funs e) =
+exp_to_tok_tree indent (Letrec funs e) =
   newline indent ^^
   L LetT ^^ L FunT ^^ 
   join_trees (newline indent ^^ L AndT) 
@@ -445,7 +445,7 @@ dec_to_tok_tree indent (Dlet tvs p e) =
   exp_to_tok_tree (inc_indent indent) e ^^
   L SemicolonT
 and
-dec_to_tok_tree indent (Dletrec tvs funs) =
+dec_to_tok_tree indent (Dletrec funs) =
   L FunT ^^ 
   join_trees (newline indent ^^ L AndT) 
              (List.map (fun_to_tok_tree indent) funs) ^^

@@ -5,9 +5,11 @@ open set_relationTheory sortingTheory stringTheory wordsTheory
 
 val _ = numLib.prefer_num();
 
-val _ = new_theory "Ast"
+
 
 open MiniMLTheory TokensTheory
+
+val _ = new_theory "Ast"
 
 (* An AST that can be the result of parsing, and then elaborated into the type
  * annotated AST in miniML.lem.  We are assuming that constructors start with
@@ -253,8 +255,8 @@ val _ = Define `
   Let NONE x (elab_e ctors bound e1) (elab_e ctors (bind x Is_local bound) e2))
 /\
 (elab_e ctors bound (Ast_Letrec funs e) =
-  Letrec NONE (elab_funs ctors (merge (get_funs_bindings funs) bound) funs) 
-              (elab_e ctors bound e))
+  Letrec (elab_funs ctors (merge (get_funs_bindings funs) bound) funs) 
+         (elab_e ctors bound e))
 /\
 (elab_funs ctors bound [] =
   [])
@@ -316,7 +318,7 @@ val _ = Define `
 /\
 (elab_dec mn type_bound ctors bound (Ast_Dletrec funs) =
   let bound' = get_funs_bindings funs in
-    ([], emp, bound', Dletrec NONE (elab_funs ctors (merge bound' bound) funs)))
+    ([], emp, bound', Dletrec (elab_funs ctors (merge bound' bound) funs)))
 /\
 (elab_dec mn type_bound ctors bound (Ast_Dtype t) = 
   let type_bound' = MAP (\ (tvs,tn,ctors) . tn) t in

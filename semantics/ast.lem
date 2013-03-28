@@ -218,8 +218,8 @@ elab_e ctors bound (Ast_Let x e1 e2) =
   Let None x (elab_e ctors bound e1) (elab_e ctors (bind x Is_local bound) e2)
 and
 elab_e ctors bound (Ast_Letrec funs e) =
-  Letrec None (elab_funs ctors (merge (get_funs_bindings funs) bound) funs) 
-              (elab_e ctors bound e)
+  Letrec (elab_funs ctors (merge (get_funs_bindings funs) bound) funs) 
+         (elab_e ctors bound e)
 and
 elab_funs ctors bound [] =
   []
@@ -270,7 +270,7 @@ elab_dec mn type_bound ctors bound (Ast_Dlet p e) =
 and
 elab_dec mn type_bound ctors bound (Ast_Dletrec funs) =
   let bound' = get_funs_bindings funs in
-    ([], emp, bound', Dletrec None (elab_funs ctors (merge bound' bound) funs))
+    ([], emp, bound', Dletrec (elab_funs ctors (merge bound' bound) funs))
 and
 elab_dec mn type_bound ctors bound (Ast_Dtype t) = 
   let type_bound' = List.map (fun (tvs,tn,ctors) -> tn) t in

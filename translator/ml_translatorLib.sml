@@ -112,7 +112,7 @@ in
   (* functions for appending a new declaration *)
   fun snoc_decl decl = let
     val _ = (decl_term := listSyntax.mk_snoc(decl,!decl_term))
-    val f = if can (match_term ``(Dletrec NONE funs) : dec``) decl then
+    val f = if can (match_term ``(Dletrec funs) : dec``) decl then
               (fn (n:string,tm:term,th,pre) =>
                 (n,tm,(MATCH_MP DeclAssum_Dletrec th |> SPEC (rand decl)
                  |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) |> REWRITE_RULE [])

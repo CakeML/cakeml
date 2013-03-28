@@ -101,7 +101,7 @@ rw [GSYM small_big_exp_equiv] >|
      fs [] >|
      [cases_on `ALL_DISTINCT (pat_bindings p [])` >>
           fs [] >|
-          [cases_on `pmatch o' cenv r0 p a emp` >>
+          [cases_on `pmatch cenv r0 p a emp` >>
                fs [] >|
                [qexists_tac `(r0, Rerr (Rraise Bind_error))` >>
                     rw [] >>

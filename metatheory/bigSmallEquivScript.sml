@@ -230,9 +230,9 @@ val small_eval_let = Q.prove (
 small_eval_step_tac);
 
 val small_eval_letrec = Q.prove (
-`!menv cenv s env funs e1 c r tvs.
+`!menv cenv s env funs e1 c r.
   ALL_DISTINCT (MAP (λ(x,y,z). x) funs) ⇒
-  (small_eval menv cenv s env (Letrec tvs funs e1) c r =
+  (small_eval menv cenv s env (Letrec funs e1) c r =
    small_eval menv cenv s (build_rec_env funs env env) e1 c r)`,
 small_eval_step_tac);
 
@@ -376,13 +376,13 @@ val (small_eval_match_rules, small_eval_match_ind, small_eval_match_cases) = Hol
 (!menv cenv s env v. small_eval_match menv cenv s env v [] (s, Rerr (Rraise Bind_error))) ∧
 (!menv cenv s env p e pes r env' v.
   ALL_DISTINCT (pat_bindings p []) ∧
-  (pmatch (SOME (0:num)) cenv s p v env = Match env') ∧
+  (pmatch cenv s p v env = Match env') ∧
   small_eval menv cenv s env' e [] r
   ⇒
   small_eval_match menv cenv s env v ((p,e)::pes) r) ∧
 (!menv cenv s env e p pes r v.
   ALL_DISTINCT (pat_bindings p []) ∧
-  (pmatch (SOME (0:num)) cenv s p v env = No_match) ∧
+  (pmatch cenv s p v env = No_match) ∧
   small_eval_match menv cenv s env v pes r
   ⇒
   small_eval_match menv cenv s env v ((p,e)::pes) r) ∧
@@ -391,7 +391,7 @@ val (small_eval_match_rules, small_eval_match_ind, small_eval_match_cases) = Hol
   ⇒
   small_eval_match menv cenv s env v ((p,e)::pes) (s, Rerr (Rtype_error))) ∧
 (!menv cenv s env p e pes v.
-  (pmatch (SOME (0:num)) cenv s p v env = Match_type_error)
+  (pmatch cenv s p v env = Match_type_error)
   ⇒
   small_eval_match menv cenv s env v ((p,e)::pes) (s, Rerr (Rtype_error)))`;
 
@@ -697,7 +697,7 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
      fs [],
  rw [small_eval_def] >>
      qexists_tac `env` >>
-     qexists_tac `Exp (Letrec tvs funs e)` >>
+     qexists_tac `Exp (Letrec funs e)` >>
      qexists_tac `[]` >>
      rw [RTC_REFL, e_step_def],
  fs [small_eval_def] >>
