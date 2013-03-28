@@ -1,11 +1,14 @@
 open preamble MiniMLTheory MiniMLTerminationTheory;
-open check_annotatedTheory unifyTheory collapseTheory;
+open unifyTheory collapseTheory;
 open stringTheory monadsyntax;
 
 val _ = new_theory "infer";
 
 (* 'a is the type of the state, 'b is the type of successful computations, and
  * 'c is the type of exceptions *)
+
+val _ = Hol_datatype `
+  exc = Success of 'a | Failure of 'b`;
 
 val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
 
@@ -48,13 +51,17 @@ val write_def = Define `
 (write : α -> (α, unit, β) M) v =
   \s. (Success (), v)`;
 
+val id_to_string_def = Define `
+(id_to_string (Short x) = x) ∧
+(id_to_string (Long x y) = x ++ "." ++ y)`;
+
 val lookup_st_ex_def = Define `
-(lookup_st_ex x [] = failwith ("failed lookup: " ++ x)) ∧
-(lookup_st_ex x ((y,v)::e) =
+(lookup_st_ex pr x [] = failwith ("failed lookup: " ++ pr x)) ∧
+(lookup_st_ex pr x ((y,v)::e) =
   if x = y then
     return v
   else
-    lookup_st_ex x e)`;
+    lookup_st_ex pr x e)`;
 
 val _ = Hol_datatype `
 elab_st = <| next_uvar : num; 
@@ -160,9 +167,9 @@ val infer_deBruijn_subst_def = tDefine "infer_deBruijn_subst" `
  decide_tac);
 
 val infer_p_def = tDefine "infer_p" `
-(infer_p cenv (Pvar n _) =
+(infer_p cenv (Pvar n) =
   do t <- fresh_uvar;
-     return (Pvar n (SOME t), t, [(n,t)])
+     return (Pvar n, t, [(n,t)])
   od) ∧
 (infer_p cenv (Plit (Bool b)) =
   return (Plit (Bool b), Infer_Tapp [] TC_bool, [])) ∧
@@ -171,7 +178,7 @@ val infer_p_def = tDefine "infer_p" `
 (infer_p cenv (Plit Unit) =
   return (Plit Unit, Infer_Tapp [] TC_unit, [])) ∧
 (infer_p cenv (Pcon cn ps) =
-  do (tvs',ts,tn) <- lookup_st_ex cn cenv;
+  do (tvs',ts,tn) <- lookup_st_ex id_to_string cn cenv;
      (ps',ts'',tenv) <- infer_ps cenv ps;
      ts' <- n_fresh_uvar (LENGTH tvs');
      () <- add_constraints ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
@@ -188,8 +195,8 @@ val infer_p_def = tDefine "infer_p" `
      (ps', ts, tenv') <- infer_ps cenv ps; 
      return (p'::ps', t::ts, tenv'++tenv)
   od)`
-(WF_REL_TAC `measure (\x. case x of INL (_,p) => pat_size (\x.0:num) p 
-                                  | INR (_,ps) => pat1_size (\x.0:num) ps)` >>
+(WF_REL_TAC `measure (\x. case x of INL (_,p) => pat_size p 
+                                  | INR (_,ps) => pat1_size ps)` >>
  rw []);
 
 val infer_p_ind = fetch "-" "infer_p_ind"
@@ -248,22 +255,22 @@ val infer_e_def = tDefine "infer_e" `
   return (Lit (IntLit i), Infer_Tapp [] TC_int)) ∧
 (infer_e cenv tenv (Lit Unit) =
   return (Lit Unit, Infer_Tapp [] TC_unit)) ∧
-(infer_e cenv env (Var n topts) =
-  do (tvs,t) <- lookup_st_ex n env;
+(infer_e cenv env (Var (Short n)) =
+  do (tvs,t) <- lookup_st_ex (\x.x) n env;
      uvs <- n_fresh_uvar tvs;
-     return (Var n (SOME uvs), infer_deBruijn_subst uvs t)
+     return (Var (Short n), infer_deBruijn_subst uvs t)
   od) ∧
 (infer_e cenv env (Con cn es) =
-  do (tvs',ts,tn) <- lookup_st_ex cn cenv;
+  do (tvs',ts,tn) <- lookup_st_ex id_to_string cn cenv;
      (es',ts'') <- infer_es cenv env es;
      ts' <- n_fresh_uvar (LENGTH tvs');
      () <- add_constraints ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
        return (Con cn es', Infer_Tapp ts' tn)
   od) ∧
-(infer_e cenv env (Fun x topt e) =
+(infer_e cenv env (Fun x e) =
   do t1 <- fresh_uvar;
      (e', t2) <- infer_e cenv (bind x (0,t1) env) e;
-     return (Fun x (SOME t1) e', Infer_Tapp [t1;t2] TC_fn)
+     return (Fun x e', Infer_Tapp [t1;t2] TC_fn)
   od) ∧
 (infer_e cenv env (Uapp uop e) =
   do (e',t) <- infer_e cenv env e;
@@ -300,29 +307,29 @@ val infer_e_def = tDefine "infer_e" `
        pes' <- infer_pes cenv env pes t1 t2;
        return (Mat e' pes', t2)
   od) ∧
-(infer_e cenv env (Let nopt x topt e1 e2) =
+(infer_e cenv env (Let nopt x e1 e2) =
   if is_value e1 then
     do n <- get_next_uvar;
        (e1',t1) <- infer_e cenv env e1;
        t1' <- apply_subst t1;
        (num_gen,t1'') <- return (generalise n 0 t1');
        (e2',t2) <- infer_e cenv (bind x (num_gen,t1'') env) e2;
-       return (Let (SOME num_gen) x (SOME t1) e1' e2', t2)
+       return (Let (SOME num_gen) x e1' e2', t2)
     od
   else
     do (e1',t1) <- infer_e cenv env e1;
        (e2',t2) <- infer_e cenv (bind x (0,t1) env) e2;
-       return (Let (SOME 0) x (SOME t1) e1' e2', t2)
+       return (Let (SOME 0) x e1' e2', t2)
     od) ∧
 (infer_e cenv env (Letrec nopt funs e) =
   do next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
-     env' <- return (merge (list$MAP2 (\(f,topt1,x,topt2,e) uvar. (f,(0,uvar))) funs uvars) env);
+     env' <- return (merge (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars) env);
      funs' <- infer_funs cenv env' funs;
-     () <- add_constraints uvars (MAP (\(f,topt1,x,topt2,e). THE topt1) funs');
+     (*() <- add_constraints uvars (MAP (\(f,x,e). THE topt1) funs');*)
      ts <- apply_subst_list uvars;
      (num_gen,ts') <- return (generalise_list next 0 ts);
-     env'' <- return (merge (list$MAP2 (\(f,topt1,x,topt2,e) t. (f,(num_gen,t))) funs ts') env);
+     env'' <- return (merge (list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts') env);
      (e',t) <- infer_e cenv env'' e;
      return (Letrec (SOME num_gen) funs' e', t)
   od) ∧
@@ -344,21 +351,21 @@ val infer_e_def = tDefine "infer_e" `
      return ((p',e')::pes')
   od) ∧
 (infer_funs cenv env [] = return []) ∧
-(infer_funs cenv env ((f, topt1, x, topt2, e)::funs) =
+(infer_funs cenv env ((f, x, e)::funs) =
   do uvar <- fresh_uvar;
      (e',t) <- infer_e cenv (bind x (0,uvar) env) e;
      funs' <- infer_funs cenv env funs;
      return ((f, SOME (Infer_Tapp [uvar;t] TC_fn), x, SOME uvar, e') :: funs')
   od)`
-(WF_REL_TAC `measure (\x. case x of | INL (_,_,e) => exp_size (\x.0) e
-                                    | INR (INL (_,_,es)) => exp8_size (\x.0) es
-                                    | INR (INR (INL (_,_,pes,_,_))) => exp5_size (\x.0) pes
-                                    | INR (INR (INR (_,_,funs))) => exp1_size (\x.0) funs)` >>
+(WF_REL_TAC `measure (\x. case x of | INL (_,_,e) => exp_size e
+                                    | INR (INL (_,_,es)) => exp4_size es
+                                    | INR (INR (INL (_,_,pes,_,_))) => exp6_size pes
+                                    | INR (INR (INR (_,_,funs))) => exp1_size funs)` >>
  rw []);
 
 val apply_subst_p_def = tDefine "apply_subst_p" `
-(apply_subst_p s (Pvar n topt) =
-  Pvar n (option_map (apply_subst_t s) topt)) ∧
+(apply_subst_p s (Pvar n) =
+  Pvar n (option_map (apply_subst_t s))) ∧
 (apply_subst_p s (Plit (Bool b)) =
   Plit (Bool b)) ∧
 (apply_subst_p s (Plit (IntLit i)) =
@@ -388,12 +395,12 @@ val apply_subst_e_def = tDefine "apply_subst_e" `
   Lit (IntLit i)) ∧
 (apply_subst_e s (Lit Unit) =
   Lit Unit) ∧
-(apply_subst_e s (Var n topts) =
-  Var n (option_map (MAP (apply_subst_t s)) topts)) ∧
+(apply_subst_e s (Var n) =
+  Var n (option_map (MAP (apply_subst_t s)))) ∧
 (apply_subst_e s (Con cn es) =
   Con cn (apply_subst_es s es)) ∧
-(apply_subst_e s (Fun x topt e) =
-  Fun x (option_map (apply_subst_t s) topt) (apply_subst_e s e)) ∧
+(apply_subst_e s (Fun x e) =
+  Fun x (option_map (apply_subst_t s)) (apply_subst_e s e)) ∧
 (apply_subst_e s (Uapp uop e) =
   Uapp uop (apply_subst_e s e)) ∧
 (apply_subst_e s (App op e1 e2) =
@@ -404,8 +411,8 @@ val apply_subst_e_def = tDefine "apply_subst_e" `
   If (apply_subst_e s e1) (apply_subst_e s e2) (apply_subst_e s e3)) ∧
 (apply_subst_e s (Mat e pes) =
   Mat (apply_subst_e s e) (apply_subst_pes s pes)) ∧
-(apply_subst_e s (Let nopt x topt e1 e2) =
-  Let nopt x (option_map (apply_subst_t s) topt) (apply_subst_e s e1) (apply_subst_e s e2)) ∧
+(apply_subst_e s (Let nopt x e1 e2) =
+  Let nopt x (option_map (apply_subst_t s)) (apply_subst_e s e1) (apply_subst_e s e2)) ∧
 (apply_subst_e s (Letrec nopt funs e) =
   Letrec nopt (apply_subst_funs s funs) (apply_subst_e s e)) ∧
 (apply_subst_es s [] =
@@ -418,11 +425,9 @@ val apply_subst_e_def = tDefine "apply_subst_e" `
   (apply_subst_p s p, apply_subst_e s e) :: apply_subst_pes s pes) ∧
 (apply_subst_funs s [] = 
   []) ∧
-(apply_subst_funs s ((f, topt1, x, topt2, e)::funs) =
+(apply_subst_funs s ((f, x, e)::funs) =
   (f, 
-   option_map (apply_subst_t s) topt1,
    x,
-   option_map (apply_subst_t s) topt2,
    apply_subst_e s e) ::
   apply_subst_funs s funs)`
 (WF_REL_TAC `measure (\x. case x of | INL (_,e) => exp_size (\x.0) e

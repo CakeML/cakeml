@@ -1,2 +1,3 @@
 INCLUDES=.. ../semantics $(HOLDIR)/examples/unification/triangular/first-order
 OPTIONS = QUIT_ON_FAILURE
+HOLHEAP = ../translator/miniml-heap2
