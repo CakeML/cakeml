@@ -160,7 +160,7 @@ type cebind = CEEnv of num | CERef of num
 type ceenv = num * list cebind (* num is the length of the list *)
 
 type closure_data =
-  <| ctenv :ctenv (* to be prepended to call-site environment *)
+  <| ctenv :ctenv
    ; ceenv :ceenv (* to construct ctenv from creation-site environment *)
    ; az    :num   (* number of arguments *)
    ; body  :Cexp  (* adjusted for ctenv *)
@@ -269,11 +269,6 @@ CevalPrim1 CDer s (CLoc n) =
 and
 CevalPrim1 _ s _ = (s, Rerr Rtype_error)
 
-let extend_rec_env cenv env defs vs =
-  List.append (List.append (List.rev vs)
-    (genlist (CRecClos cenv defs) (List.length defs)))
-  env
-
 indreln
 forall c s env error.
 true
@@ -358,9 +353,9 @@ Cevaluate c s env (CLet e b) (s', Rerr err)
 
 and
 forall c s env defs b r.
-(forall l i. i < List.length defs && List.nth defs i = (Inr l) --> Pmap.mem l c) &&
+List.for_all (fun cb -> forall l. cb = Inr l --> Pmap.mem l c) defs &&
 Cevaluate c s
-  (List.append (genlist (CRecClos env defs) (List.length defs)) env)
+  (List.append (List.rev (genlist (CRecClos env defs) (List.length defs))) env)
   b r
 ==>
 Cevaluate c s env (CLetrec defs b) r
@@ -372,15 +367,26 @@ forall c s env cb.
 Cevaluate c s env (CFun cb) (s, Rval (CRecClos env [cb] 0))
 
 and
-forall c s env e es s' env' defs n cb b s'' vs r.
-Cevaluate c s env e (s', Rval (CRecClos env' defs n)) &&
+forall c s env e es s' cenv defs n cb b env'' s'' vs r.
+Cevaluate c s env e (s', Rval (CRecClos cenv defs n)) &&
 n < List.length defs && List.nth defs n = cb &&
 Cevaluate_list c s' env es (s'', Rval vs) &&
-(List.length vs,b) =
-  match cb with Inl (k,b) -> (k,b)
-              | Inr l -> let cd = Pmap.find l c in (cd.az,cd.body)
+(List.length vs,env'',b) =
+  match cb with
+  | Inl (k,b) ->
+    (k
+    ,(List.rev vs)@(List.rev (genlist (CRecClos cenv defs) (List.length defs)))@cenv
+    ,b)
+  | Inr l -> let cd = Pmap.find l c in
+    (cd.az
+    ,(List.rev vs)@(List.map (fun x -> match x with
+                              | CEEnv v -> List.nth v cenv
+                              | CERef n -> CRecClos cenv defs (n-1)
+                              end)
+                             cd.ceenv)
+    ,cd.body)
   end &&
-Cevaluate c s'' (extend_rec_env env' env' defs vs) b r
+Cevaluate c s'' env'' b r
 ==>
 Cevaluate c s env (CCall e es) r
 and
