@@ -636,7 +636,7 @@ syneq_exp c1 c2 az
 syneq_cb c1 c2 env1 env2 defs1 defs2 (INL (az,e1)) (INL (az,e2)))
 /\
 (! c1 c2 env1 env2 defs1 defs2 az l1 cd1 e2. ( FLOOKUP c1 l1 = SOME cd1) /\ (cd1.az = az) /\
-syneq_exp c1 c2 az
+syneq_exp ( $\\ c1 l1) c2 az
   ( MAP (ceenv env1 defs1) cd1.ceenv)
   (( REVERSE ( GENLIST (CRecClos env2 defs2) ( LENGTH defs2))) ++env2)
   cd1.body e2
@@ -644,7 +644,7 @@ syneq_exp c1 c2 az
 syneq_cb c1 c2 env1 env2 defs1 defs2 (INR l1) (INL (az,e2)))
 /\
 (! c1 c2 env1 env2 defs1 defs2 az e1 l2 cd2. ( FLOOKUP c2 l2 = SOME cd2) /\ (cd2.az = az) /\
-syneq_exp c1 c2 az
+syneq_exp c1 ( $\\ c2 l2) az
   (( REVERSE ( GENLIST (CRecClos env1 defs1) ( LENGTH defs1))) ++env1)
   ( MAP (ceenv env2 defs2) cd2.ceenv)
   e1 cd2.body
@@ -652,7 +652,7 @@ syneq_exp c1 c2 az
 syneq_cb c1 c2 env1 env2 defs1 defs2 (INL (az,e1)) (INR l2))
 /\
 (! c1 c2 env1 env2 defs1 defs2 az l1 cd1 l2 cd2. ( FLOOKUP c1 l1 = SOME cd1) /\ (cd1.az = az) /\ ( FLOOKUP c2 l2 = SOME cd2) /\ (cd2.az = az) /\
-syneq_exp c1 c2 az
+syneq_exp ( $\\ c1 l1) ( $\\ c2 l2) az
   ( MAP (ceenv env1 defs1) cd1.ceenv)
   ( MAP (ceenv env2 defs2) cd2.ceenv)
   cd1.body cd2.body
