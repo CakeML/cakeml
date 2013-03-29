@@ -604,7 +604,7 @@ syneq_cb c1 c2 env1 env2 defs1 defs2 (Inl (az,e1)) (Inl (az,e2))
 and
 forall c1 c2 env1 env2 defs1 defs2 az l1 cd1 e2.
 flookup c1 l1 = Some cd1 && cd1.az = az &&
-syneq_exp (domsub c1 l1) c2 az
+syneq_exp c1 c2 az
   (List.map (ceenv env1 defs1) cd1.ceenv)
   ((List.rev (genlist (CRecClos env2 defs2) (List.length defs2)))@env2)
   cd1.body e2
@@ -613,7 +613,7 @@ syneq_cb c1 c2 env1 env2 defs1 defs2 (Inr l1) (Inl (az,e2))
 and
 forall c1 c2 env1 env2 defs1 defs2 az e1 l2 cd2.
 flookup c2 l2 = Some cd2 && cd2.az = az &&
-syneq_exp c1 (domsub c2 l2) az
+syneq_exp c1 c2 az
   ((List.rev (genlist (CRecClos env1 defs1) (List.length defs1)))@env1)
   (List.map (ceenv env2 defs2) cd2.ceenv)
   e1 cd2.body
@@ -623,7 +623,7 @@ and
 forall c1 c2 env1 env2 defs1 defs2 az l1 cd1 l2 cd2.
 flookup c1 l1 = Some cd1 && cd1.az = az &&
 flookup c2 l2 = Some cd2 && cd2.az = az &&
-syneq_exp (domsub c1 l1) (domsub c2 l2) az
+syneq_exp c1 c2 az
   (List.map (ceenv env1 defs1) cd1.ceenv)
   (List.map (ceenv env2 defs2) cd2.ceenv)
   cd1.body cd2.body
