@@ -657,7 +657,7 @@ syneq_exp c1 c2 az
   ( MAP (ceenv env2 defs2) cd2.ceenv)
   cd1.body cd2.body
 ==>
-syneq_cb c1 c2 env1 env2 defs2 defs2 (INR l1) (INR l2))`;
+syneq_cb c1 c2 env1 env2 defs1 defs2 (INR l1) (INR l2))`;
 
 (* Compiler *)
 

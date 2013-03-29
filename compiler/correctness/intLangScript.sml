@@ -23,7 +23,7 @@ val Cevaluate_fun = store_thm(
 "Cevaluate_fun",
 ``∀c s env b res. Cevaluate c s env (CFun b) res =
   (∀l. (b = INR l) ⇒ l ∈ FDOM c) ∧
-  (res = (s, Rval (CRecClos env [b] 1)))``,
+  (res = (s, Rval (CRecClos env [b] 0)))``,
 rw[Once Cevaluate_cases] >> metis_tac[])
 
 val _ = export_rewrites["Cevaluate_raise","Cevaluate_lit","Cevaluate_var","Cevaluate_fun"]
@@ -57,116 +57,198 @@ val Cevaluate_proj = store_thm(
   (∃s' err. Cevaluate c s env exp (s', Rerr err) ∧ (res = (s', Rerr err)))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
-(* syneq equivalence relation lemmas *)
+(* syneq (almost) equivalence relation lemmas *)
 
 (* TODO: move *)
+val syneq_rules = CompileTheory.syneq_rules
 val el_check_def = CompileTheory.el_check_def
 
-val syneq_var_refl0 = store_thm("syneq_var_refl0",
-  ``∀c k env v. (EVERY2 (syneq c) env env) ⇒ syneq_var c k env env v v``,
-  rw[Once syneq_cases,EVERY2_EVERY,EVERY_MEM] >>
-  Cases_on`v<k`>>simp[]>>
-  simp[el_check_def] >>
-  simp[optionTheory.OPTREL_def] >>
-  fs[MEM_ZIP,FORALL_PROD] >>
-  Cases_on`0<LENGTH env`>>simp[]>>
-  Cases_on`v<k+LENGTH env`>>simp[]>>
-  first_x_assum match_mp_tac>>
-  simp[]>>qexists_tac`v-k`>>simp[])
-
-val syneq_exp_refl0 = store_thm("syneq_exp_refl0",
-  ``(∀e c k env. (EVERY2 (syneq c) env env) ⇒ syneq_exp c k env env e e) ∧
-    (∀l c k env. (EVERY2 (syneq c) env env) ⇒ EVERY2 (syneq_cb c k env env) l l) ∧
-    (∀cb c k env. (EVERY2 (syneq c) env env) ∧
-
-    ⇒ syneq_cb c k env env cb cb) ∧
-    (∀p:num#Cexp c k env. syneq_exp c k env env (SND p) (SND p)) ∧
-    (∀es c k env. (EVERY2 (syneq c) env env) ⇒ EVERY2 (syneq_exp c k env env) es es)``,
-  ho_match_mp_tac(TypeBase.induction_of``:Cexp``)>>
-  strip_tac >- (
-    rw[Once syneq_cases] >>
-    simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,FST_pair,ZIP_MAP,MEM_MAP,EXISTS_PROD] >>
-    rw[] >> match_mp_tac syneq_var_refl0 >> simp[] ) >>
+val syneq_sym = store_thm("syneq_sym",
+  ``(∀c1 c2 x y. syneq c1 c2 x y ⇒ syneq c2 c1 y x) ∧
+    (∀c1 c2 k env1 env2 v1 v2. syneq_var c1 c2 k env1 env2 v1 v2 ⇒ syneq_var c2 c1 k env2 env1 v2 v1) ∧
+    (∀c1 c2 k env1 env2 exp1 exp2. syneq_exp c1 c2 k env1 env2 exp1 exp2 ⇒ syneq_exp c2 c1 k env2 env1 exp2 exp1) ∧
+    (∀c1 c2 env1 env2 defs1 defs2 cb1 cb2. syneq_cb c1 c2 env1 env2 defs1 defs2 cb1 cb2 ⇒ syneq_cb c2 c1 env2 env1 defs2 defs1 cb2 cb1)``,
+  ho_match_mp_tac syneq_ind >>
   strip_tac >- rw[Once syneq_cases] >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( rw[Once syneq_cases,syneq_var_refl0] ) >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( Cases >> rw[] >> simp[Once syneq_cases] ) >>
-  strip_tac >- ( rw[] >> simp[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> simp[Once syneq_cases] >>
+    fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,FORALL_PROD] >>
+    pop_assum mp_tac >> fs[MEM_ZIP] >>
+    PROVE_TAC[]) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- rw[Once syneq_cases] >>
+  strip_tac >- rw[Once syneq_cases] >>
+  strip_tac >- (
+    rw[] >> rw[Once syneq_cases] >>
+    fs[optionTheory.OPTREL_def] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once syneq_cases] >>
+    fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,FORALL_PROD] >>
+    pop_assum mp_tac >> fs[MEM_ZIP] >>
+    PROVE_TAC[]) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once syneq_cases] >>
+    fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,FORALL_PROD] >>
+    pop_assum mp_tac >> fs[MEM_ZIP] >>
+    PROVE_TAC[]) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> simp[Once syneq_cases] >>
+    fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,FORALL_PROD] >>
+    ntac 2 (pop_assum mp_tac) >> fs[MEM_ZIP] >>
+    PROVE_TAC[]) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once syneq_cases] >>
+    fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,FORALL_PROD] >>
+    pop_assum mp_tac >> fs[MEM_ZIP] >>
+    PROVE_TAC[]) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  rw[] >> rw[Once syneq_cases])
 
-
-  rw[]
-
-  rw[Once syneq_cases] >>
-  Cases_on`cb`>>rw[]>-(
-    Cases_on`x`>>rw[] )
-    syneq_exp_refl
-
-val syneq_refl = store_thm(
-"syneq_refl",
-``∀c x. syneq c x x``,
-gen_tac >> (
-(TypeBase.induction_of``:Cv``)
-|> Q.SPECL [`W (syneq c)`,`EVERY (W (syneq c))`]
-|> SIMP_RULE(srw_ss())[]
-|> UNDISCH_ALL
-|> CONJUNCT1
-|> DISCH_ALL
-|> match_mp_tac) >>
-rw[] >> rw[syneq_cases] >>
-fsrw_tac[DNF_ss]
-[EVERY2_EVERY,MEM_ZIP,MEM_EL,EVERY_MEM,
- pairTheory.FORALL_PROD,pairTheory.UNCURRY] >>
-rw[] >>
-Cases_on `FLOOKUP env v` >> fs[optionTheory.OPTREL_def] >>
-fsrw_tac[DNF_ss][FLOOKUP_DEF,FRANGE_DEF] >>
-PROVE_TAC[])
-val _ = export_rewrites["syneq_refl"]
-
-val syneq_sym = store_thm(
-"syneq_sym",
-``∀c x y. syneq c x y ⇒ syneq c y x``,
-ho_match_mp_tac syneq_ind >> rw[] >>
-rw[syneq_cases] >- (
-  fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,
-     pairTheory.FORALL_PROD] >>
-  pop_assum mp_tac >>
-  fs[MEM_ZIP] >>
-  PROVE_TAC[] )
->- (
-  fs[EVERY_MEM,pairTheory.FORALL_PROD,optionTheory.OPTREL_def] >>
-  PROVE_TAC[] ))
-
-val syneq_trans = store_thm(
-"syneq_trans",
-``∀c x y. syneq c x y ⇒ ∀z. syneq c y z ⇒ syneq c x z``,
-ho_match_mp_tac syneq_ind >> rw[] >>
-pop_assum mp_tac >>
-rw[syneq_cases] >- (
-  fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >>
-  rpt (qpat_assum` LENGTH X = LENGTH Y` mp_tac) >>
-  ntac 2 strip_tac >>
-  fs[MEM_ZIP,pairTheory.FORALL_PROD] >>
-  PROVE_TAC[] )
->- (
-  fs[optionTheory.OPTREL_def,EVERY_MEM,
-     pairTheory.FORALL_PROD] >>
-  metis_tac[optionTheory.option_CASES,
-            optionTheory.NOT_SOME_NONE,
-            optionTheory.SOME_11] ))
+val syneq_trans = store_thm("syneq_trans",
+  ``(∀c1 c2 x y. syneq c1 c2 x y ⇒ ∀c3 z. syneq c2 c3 y z ⇒ syneq c1 c3 x z) ∧
+    (∀c1 c2 k env1 env2 v1 v2. syneq_var c1 c2 k env1 env2 v1 v2 ⇒
+      ∀c3 env3 v3. syneq_var c2 c3 k env2 env3 v2 v3 ⇒ syneq_var c1 c3 k env1 env3 v1 v3) ∧
+    (∀c1 c2 k env1 env2 e1 e2. syneq_exp c1 c2 k env1 env2 e1 e2 ⇒
+      ∀c3 env3 e3. syneq_exp c2 c3 k env2 env3 e2 e3 ⇒ syneq_exp c1 c3 k env1 env3 e1 e3) ∧
+    (∀c1 c2 env1 env2 d1 d2 e1 e2. syneq_cb c1 c2 env1 env2 d1 d2 e1 e2 ⇒
+      ∀c3 env3 d3 e3. syneq_cb c2 c3 env2 env3 d2 d3 e2 e3 ⇒ syneq_cb c1 c3 env1 env3 d1 d3 e1 e3)``,
+  ho_match_mp_tac syneq_ind >>
+  strip_tac >- ( ntac 2 (rw[Once syneq_cases] ) ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] >>
+    fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >> rw[] >>
+    rpt (qpat_assum` LENGTH X = LENGTH Y` mp_tac) >>
+    ntac 2 strip_tac >>
+    fs[MEM_ZIP,FORALL_PROD] >>
+    PROVE_TAC[] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] ) >>
+  strip_tac >- ( ntac 2 (rw[Once syneq_cases] ) ) >>
+  strip_tac >- (
+    ntac 2 (rw[Once syneq_cases] ) >>
+    fs[optionTheory.OPTREL_def,el_check_def] >>
+    spose_not_then strip_assume_tac >>
+    fsrw_tac[ARITH_ss][] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] >>
+    fs[optionTheory.OPTREL_def,el_check_def] >>
+    fsrw_tac[ARITH_ss][] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] >>
+    fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >> rw[] >>
+    rpt (qpat_assum` LENGTH X = LENGTH Y` mp_tac) >>
+    ntac 2 strip_tac >>
+    fs[MEM_ZIP,FORALL_PROD] >>
+    PROVE_TAC[] ) >>
+  strip_tac >- ( ntac 2 (rw[Once syneq_cases] ) ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] >>
+    fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >> rw[] >>
+    rpt (qpat_assum` LENGTH X = LENGTH Y` mp_tac) >>
+    ntac 2 strip_tac >>
+    fs[MEM_ZIP,FORALL_PROD] >>
+    PROVE_TAC[] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] >>
+    fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >> rw[] >>
+    rpt (qpat_assum` LENGTH X = LENGTH Y` mp_tac) >>
+    ntac 2 strip_tac >>
+    fs[MEM_ZIP,FORALL_PROD] >>
+    PROVE_TAC[] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] >>
+    fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >> rw[] >>
+    rpt (qpat_assum` LENGTH X = LENGTH Y` mp_tac) >>
+    ntac 2 strip_tac >>
+    fs[MEM_ZIP,FORALL_PROD] >>
+    PROVE_TAC[] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] >> rw[] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] ) >>
+  rw[] >> pop_assum mp_tac >>
+  simp[Once syneq_cases] >> strip_tac >>
+  simp[Once syneq_cases] )
 
 val result_rel_syneq_trans = save_thm(
 "result_rel_syneq_trans",
