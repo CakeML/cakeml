@@ -157,7 +157,7 @@ type cebind = CEEnv of num | CERef of num
 (* CEEnv n means take (Var n) in the creation-site environment
  * CERef n means we want the nth closure in the recursive bundle *)
 
-type ceenv = num * list cebind (* num is the length of the list *)
+type ceenv = list cebind
 
 type closure_data =
   <| ctenv :ctenv
@@ -269,6 +269,11 @@ CevalPrim1 CDer s (CLoc n) =
 and
 CevalPrim1 _ s _ = (s, Rerr Rtype_error)
 
+let rec
+ceenv env defs (CEEnv v) = List.nth env v
+and
+ceenv env defs (CERef n) = CRecClos env defs (n-1)
+
 indreln
 forall c s env error.
 true
@@ -379,11 +384,7 @@ Cevaluate_list c s' env es (s'', Rval vs) &&
     ,b)
   | Inr l -> let cd = Pmap.find l c in
     (cd.az
-    ,(List.rev vs)@(List.map (fun x -> match x with
-                              | CEEnv v -> List.nth v cenv
-                              | CERef n -> CRecClos cenv defs (n-1)
-                              end)
-                             cd.ceenv)
+    ,(List.rev vs)@(List.map (ceenv cenv defs) cd.ceenv)
     ,cd.body)
   end &&
 Cevaluate c s'' env'' b r
@@ -473,150 +474,161 @@ Cevaluate_list c s env (e::es) (s'', Rerr err)
 (* equivalence relations on intermediate language *)
 
 indreln
-forall c l.
+forall c1 c2 l.
 true
 ==>
-syneq c (CLitv l) (CLitv l)
+syneq c1 c2 (CLitv l) (CLitv l)
 and
-forall c cn vs1 vs2.
-every2 (syneq c) vs1 vs2
+forall c1 c2 cn vs1 vs2.
+every2 (syneq c1 c2) vs1 vs2
 ==>
-syneq c (CConv cn vs1) (CConv cn vs2)
+syneq c1 c2 (CConv cn vs1) (CConv cn vs2)
 and
-forall c env1 env2 defs1 defs2 d1 d2.
-every2
-  (syneq_cb c (if d1 < List.length defs1 then List.length defs1 else 0) env1 env2)
-  defs1 defs2
+forall c1 c2 env1 env2 defs1 defs2 d1 d2.
+d1 < List.length defs1 && d2 < List.length defs2 &&
+syneq_cb c1 c2 env1 env2 defs1 defs2 (List.nth defs1 d1) (List.nth defs2 d2)
 ==>
-syneq c (CRecClos env1 defs1 d1) (CRecClos env2 defs2 d2)
+syneq c1 c2 (CRecClos env1 defs1 d1) (CRecClos env2 defs2 d2)
 and
-forall c n.
+forall c1 c2 n.
 true
 ==>
-syneq c (CLoc n) (CLoc n)
+syneq c1 c2 (CLoc n) (CLoc n)
 and
-forall c k env1 env2 v.
+forall c1 c2 k env1 env2 v.
 v < k
 ==>
-syneq_var c k env1 env2 v v
+syneq_var c1 c2 k env1 env2 v v
 and
-forall c k env1 env2 v1 v2.
+forall c1 c2 k env1 env2 v1 v2.
 k <= v1 && k <= v2 &&
-optrel (syneq c) (el_check (v1-k) env1) (el_check (v2-k) env2)
+optrel (syneq c1 c2) (el_check (v1-k) env1) (el_check (v2-k) env2)
 ==>
-syneq_var c k env1 env2 v1 v2
+syneq_var c1 c2 k env1 env2 v1 v2
 and
-forall c k env1 env2 xs1 xs2.
-every2 (syneq_var c k env1 env2) (List.map (fun (n,m) -> n) xs1) (List.map (fun (n,m) -> n) xs2)
+forall c1 c2 k env1 env2 xs1 xs2.
+every2 (syneq_var c1 c2 k env1 env2) (List.map (fun (n,m) -> n) xs1) (List.map (fun (n,m) -> n) xs2)
 ==>
-syneq_exp c k env1 env2 (CDecl xs1) (CDecl xs2)
+syneq_exp c1 c2 k env1 env2 (CDecl xs1) (CDecl xs2)
 and
-forall c k env1 env2 err.
+forall c1 c2 k env1 env2 err.
 true
 ==>
-syneq_exp c k env1 env2 (CRaise err) (CRaise err)
+syneq_exp c1 c2 k env1 env2 (CRaise err) (CRaise err)
 and
-forall c k env1 env2 e1 b1 e2 b2.
-syneq_exp c k env1 env2 e1 e2 &&
-syneq_exp c (k+1) env1 env2 b1 b2
+forall c1 c2 k env1 env2 e1 b1 e2 b2.
+syneq_exp c1 c2 k env1 env2 e1 e2 &&
+syneq_exp c1 c2 (k+1) env1 env2 b1 b2
 ==>
-syneq_exp c k env1 env2 (CHandle e1 b1) (CHandle e2 b2)
+syneq_exp c1 c2 k env1 env2 (CHandle e1 b1) (CHandle e2 b2)
 and
-forall c k env1 env2 v1 v2.
-syneq_var c k env1 env2 v1 v2
+forall c1 c2 k env1 env2 v1 v2.
+syneq_var c1 c2 k env1 env2 v1 v2
 ==>
-syneq_exp c k env1 env2 (CVar v1) (CVar v2)
+syneq_exp c1 c2 k env1 env2 (CVar v1) (CVar v2)
 and
-forall c k env1 env2 lit.
+forall c1 c2 k env1 env2 lit.
 true
 ==>
-syneq_exp c k env1 env2 (CLit lit) (CLit lit)
+syneq_exp c1 c2 k env1 env2 (CLit lit) (CLit lit)
 and
-forall c k env1 env2 cn es1 es2.
-every2 (syneq_exp c k env1 env2) es1 es2
+forall c1 c2 k env1 env2 cn es1 es2.
+every2 (syneq_exp c1 c2 k env1 env2) es1 es2
 ==>
-syneq_exp c k env1 env2 (CCon cn es1) (CCon cn es2)
+syneq_exp c1 c2 k env1 env2 (CCon cn es1) (CCon cn es2)
 and
-forall c k env1 env2 n e1 e2.
-syneq_exp c k env1 env2 e1 e2
+forall c1 c2 k env1 env2 n e1 e2.
+syneq_exp c1 c2 k env1 env2 e1 e2
 ==>
-syneq_exp c k env1 env2 (CTagEq e1 n) (CTagEq e2 n)
+syneq_exp c1 c2 k env1 env2 (CTagEq e1 n) (CTagEq e2 n)
 and
-forall c k env1 env2 n e1 e2.
-syneq_exp c k env1 env2 e1 e2
+forall c1 c2 k env1 env2 n e1 e2.
+syneq_exp c1 c2 k env1 env2 e1 e2
 ==>
-syneq_exp c k env1 env2 (CProj e1 n) (CProj e2 n)
+syneq_exp c1 c2 k env1 env2 (CProj e1 n) (CProj e2 n)
 and
-forall c k env1 env2 e1 b1 e2 b2.
-syneq_exp c k env1 env2 e1 e2 &&
-syneq_exp c (k+1) env1 env2 b1 b2
+forall c1 c2 k env1 env2 e1 b1 e2 b2.
+syneq_exp c1 c2 k env1 env2 e1 e2 &&
+syneq_exp c1 c2 (k+1) env1 env2 b1 b2
 ==>
-syneq_exp c k env1 env2 (CLet e1 b1) (CLet e2 b2)
+syneq_exp c1 c2 k env1 env2 (CLet e1 b1) (CLet e2 b2)
 and
-forall c k env1 env2 defs1 defs2 b1 b2.
-every2 (syneq_cb c (k+List.length defs1) env1 env2) defs1 defs2 &&
-syneq_exp c (k+(List.length defs1)) env1 env2 b1 b2
+forall c1 c2 k env1 env2 defs1 defs2 b1 b2.
+every2 (syneq_cb c1 c2 env1 env2 defs1 defs2) defs1 defs2 &&
+syneq_exp c1 c2 (k+(List.length defs1)) env1 env2 b1 b2
 ==>
-syneq_exp c k env1 env2 (CLetrec defs1 b1) (CLetrec defs2 b2)
+syneq_exp c1 c2 k env1 env2 (CLetrec defs1 b1) (CLetrec defs2 b2)
 and
-forall c k env1 env2 cb1 cb2.
-syneq_cb c k env1 env2 cb1 cb2
+forall c1 c2 k env1 env2 cb1 cb2.
+syneq_cb c1 c2 env1 env2 [cb1] [cb2] cb1 cb2
 ==>
-syneq_exp c k env1 env2 (CFun cb1) (CFun cb2)
+syneq_exp c1 c2 k env1 env2 (CFun cb1) (CFun cb2)
 and
-forall c k env1 env2 e1 e2 es1 es2.
-syneq_exp c k env1 env2 e1 e2 &&
-every2 (syneq_exp c k env1 env2) es1 es2
+forall c1 c2 k env1 env2 e1 e2 es1 es2.
+syneq_exp c1 c2 k env1 env2 e1 e2 &&
+every2 (syneq_exp c1 c2 k env1 env2) es1 es2
 ==>
-syneq_exp c k env1 env2 (CCall e1 es1) (CCall e2 es2)
+syneq_exp c1 c2 k env1 env2 (CCall e1 es1) (CCall e2 es2)
 and
-forall c k env1 env2 p1 e1 e2.
-syneq_exp c k env1 env2 e1 e2
+forall c1 c2 k env1 env2 p1 e1 e2.
+syneq_exp c1 c2 k env1 env2 e1 e2
 ==>
-syneq_exp c k env1 env2 (CPrim1 p1 e1) (CPrim1 p1 e2)
+syneq_exp c1 c2 k env1 env2 (CPrim1 p1 e1) (CPrim1 p1 e2)
 and
-forall c k env1 env2 p2 e11 e21 e12 e22.
-syneq_exp c k env1 env2 e11 e12 &&
-syneq_exp c k env1 env2 e21 e22
+forall c1 c2 k env1 env2 p2 e11 e21 e12 e22.
+syneq_exp c1 c2 k env1 env2 e11 e12 &&
+syneq_exp c1 c2 k env1 env2 e21 e22
 ==>
-syneq_exp c k env1 env2 (CPrim2 p2 e11 e21) (CPrim2 p2 e12 e22)
+syneq_exp c1 c2 k env1 env2 (CPrim2 p2 e11 e21) (CPrim2 p2 e12 e22)
 and
-forall c k env1 env2 e11 e21 e12 e22.
-syneq_exp c k env1 env2 e11 e12 &&
-syneq_exp c k env1 env2 e21 e22
+forall c1 c2 k env1 env2 e11 e21 e12 e22.
+syneq_exp c1 c2 k env1 env2 e11 e12 &&
+syneq_exp c1 c2 k env1 env2 e21 e22
 ==>
-syneq_exp c k env1 env2 (CUpd e11 e21) (CUpd e12 e22)
+syneq_exp c1 c2 k env1 env2 (CUpd e11 e21) (CUpd e12 e22)
 and
-forall c k env1 env2 e11 e21 e31 e12 e22 e32.
-syneq_exp c k env1 env2 e11 e12 &&
-syneq_exp c k env1 env2 e21 e22 &&
-syneq_exp c k env1 env2 e31 e32
+forall c1 c2 k env1 env2 e11 e21 e31 e12 e22 e32.
+syneq_exp c1 c2 k env1 env2 e11 e12 &&
+syneq_exp c1 c2 k env1 env2 e21 e22 &&
+syneq_exp c1 c2 k env1 env2 e31 e32
 ==>
-syneq_exp c k env1 env2 (CIf e11 e21 e31) (CIf e12 e22 e32)
+syneq_exp c1 c2 k env1 env2 (CIf e11 e21 e31) (CIf e12 e22 e32)
 and
-forall c k env1 env2 az e1 e2.
-syneq_exp c (k+az) env1 env2 e1 e2
+forall c1 c2 env1 env2 defs1 defs2 az e1 e2.
+syneq_exp c1 c2 az
+  ((List.rev (genlist (CRecClos env1 defs1) (List.length defs1)))@env1)
+  ((List.rev (genlist (CRecClos env2 defs2) (List.length defs2)))@env2)
+  e1 e2
 ==>
-syneq_cb c k env1 env2 (Inl (az,e1)) (Inl (az,e2))
+syneq_cb c1 c2 env1 env2 defs1 defs2 (Inl (az,e1)) (Inl (az,e2))
 and
-forall c k env1 env2 az l e1 e2.
-flookup c l = Some (az,e1) &&
-syneq_exp c (k+az) env1 env2 e1 e2
+forall c1 c2 env1 env2 defs1 defs2 az l1 cd1 e2.
+flookup c1 l1 = Some cd1 && cd1.az = az &&
+syneq_exp c1 c2 az
+  (List.map (ceenv env1 defs1) cd1.ceenv)
+  ((List.rev (genlist (CRecClos env2 defs2) (List.length defs2)))@env2)
+  cd1.body e2
 ==>
-syneq_cb c k env1 env2 (Inr l) (Inl (az,e2))
+syneq_cb c1 c2 env1 env2 defs1 defs2 (Inr l1) (Inl (az,e2))
 and
-forall c k env1 env2 az e1 l e2.
-flookup c l = Some (az,e2) &&
-syneq_exp c (k+az) env1 env2 e1 e2
+forall c1 c2 env1 env2 defs1 defs2 az e1 l2 cd2.
+flookup c2 l2 = Some cd2 && cd2.az = az &&
+syneq_exp c1 c2 az
+  ((List.rev (genlist (CRecClos env1 defs1) (List.length defs1)))@env1)
+  (List.map (ceenv env2 defs2) cd2.ceenv)
+  e1 cd2.body
 ==>
-syneq_cb c k env1 env2 (Inl (az,e1)) (Inr l)
+syneq_cb c1 c2 env1 env2 defs1 defs2 (Inl (az,e1)) (Inr l2)
 and
-forall c k env1 env2 az l1 e1 l2 e2.
-flookup c l1 = Some (az,e1) &&
-flookup c l2 = Some (az,e2) &&
-syneq_exp c (k+az) env1 env2 e1 e2
+forall c1 c2 env1 env2 defs1 defs2 az l1 cd1 l2 cd2.
+flookup c1 l1 = Some cd1 && cd1.az = az &&
+flookup c2 l2 = Some cd2 && cd2.az = az &&
+syneq_exp c1 c2 az
+  (List.map (ceenv env1 defs1) cd1.ceenv)
+  (List.map (ceenv env2 defs2) cd2.ceenv)
+  cd1.body cd2.body
 ==>
-syneq_cb c k env1 env2 (Inr l1) (Inr l2)
+syneq_cb c1 c2 env1 env2 defs2 defs2 (Inr l1) (Inr l2)
 
 (* Compiler *)
 
@@ -873,10 +885,9 @@ let rec bind_fv e az nz k =
                               else the(find_index (v-(k+nz)) envs (k+rz)))
                   az e in
   let eenv = List.map CEEnv envs in
-  let eez = List.length envs in
-  let tenv = genlist (fun i -> CTEnv (erz+i)) eez in
+  let tenv = genlist (fun i -> CTEnv (erz+i)) (List.length envs) in
   <| ctenv = args@trec@tenv
-   ; ceenv = (erz+eez,erec@eenv)
+   ; ceenv = erec@eenv
    ; az = az ; body = e |>
 
 let rec
@@ -1108,20 +1119,20 @@ and
 emit_ec env z (sz,s) (CERef j) = (sz+1,emit s [Stack (Load (sz - z - j))])
 
 let rec
-push_lab d (s,ecs) (Inl _) = (s,(0,[])::ecs) (* should not happen *)
+push_lab d (s,ecs) (Inl _) = (s,[]::ecs) (* should not happen *)
 and
 push_lab d (s,ecs) (Inr l) =
   (emit s [PushPtr (Lab l)],(Pmap.find l d).ceenv::ecs)
 
 let rec
-cons_closure env0 sz0 sz1 nk (s,k) (j,ec) =
+cons_closure env0 sz0 sz1 nk (s,k) ec =
   (* sz1                                                                  sz0 *)
   (* CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0,     *)
   let s = emit s [Stack (Load (nk - k))] in
   (* CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
   let (_z,s) = List.fold_left (emit_ec env0 sz0) (sz1+1,s) ec in
   (* e_kj, ..., e_k1, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
-  let s = emit s [Stack (Cons 0 j)] in
+  let s = emit s [Stack (Cons 0 (List.length ec))] in
   (* env_k, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
   let s = emit s [Stack (Cons closure_tag 2)] in
   (* cl_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
