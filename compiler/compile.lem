@@ -193,7 +193,7 @@ free_vars c (CLetrec defs e) =
     s union (image (fun m -> m - n) (cbod_fvs c cb \ count n)))
   (image (fun m -> m - n) (free_vars c e \ count n)) defs
 and
-free_vars c (CFun cb) = cbod_fvs c cb
+free_vars c (CFun cb) = image pre (cbod_fvs c cb \ {0})
 and
 free_vars c (CCall e es) =
   List.fold_left (fun s e -> s union free_vars c e)
@@ -369,14 +369,12 @@ and
 forall c s env cb.
 (forall l. cb = Inr l --> Pmap.mem l c)
 ==>
-Cevaluate c s env (CFun cb) (s, Rval (CRecClos env [cb] 1))
+Cevaluate c s env (CFun cb) (s, Rval (CRecClos env [cb] 0))
 
 and
-forall c s env e es s' env' ns defs n i cb b s'' vs r.
+forall c s env e es s' env' defs n cb b s'' vs r.
 Cevaluate c s env e (s', Rval (CRecClos env' defs n)) &&
-ns = List.length defs &&
-(if n < ns then i = n && List.nth defs i = cb
- else i = 1 && defs = [cb]) &&
+n < List.length defs && List.nth defs n = cb &&
 Cevaluate_list c s' env es (s'', Rval vs) &&
 (List.length vs,b) =
   match cb with Inl (k,b) -> (k,b)
@@ -479,12 +477,12 @@ every2 (syneq c) vs1 vs2
 ==>
 syneq c (CConv cn vs1) (CConv cn vs2)
 and
-forall c env1 env2 defs1 defs2 d.
+forall c env1 env2 defs1 defs2 d1 d2.
 every2
-  (syneq_cb c (if d < List.length defs1 then List.length defs1 else 0) env1 env2)
+  (syneq_cb c (if d1 < List.length defs1 then List.length defs1 else 0) env1 env2)
   defs1 defs2
 ==>
-syneq c (CRecClos env1 defs1 d) (CRecClos env2 defs2 d)
+syneq c (CRecClos env1 defs1 d1) (CRecClos env2 defs2 d2)
 and
 forall c n.
 true
@@ -645,7 +643,7 @@ mkshift f k (CLetrec defs b) =
   CLetrec defs (mkshift f (k+ns) b)
 and
 mkshift f k (CFun cb) = CFun
-  (match cb with | Inr l -> Inr l | Inl (az,b) -> Inl (az,mkshift f (k+az) b) end)
+  (match cb with | Inr l -> Inr l | Inl (az,b) -> Inl (az,mkshift f (k+1+az) b) end)
 and
 mkshift f k (CCall e es) = CCall (mkshift f k e) (List.map (mkshift f k) es)
 and
@@ -728,7 +726,7 @@ let rec
 remove_mat_var v [] = CRaise Bind_error
 and
 remove_mat_var v ((p,sk)::pes) =
-  CLet (CFun (Inl (0,remove_mat_var v pes)))
+  CLet (CFun (Inl (0,shift 1 0 (remove_mat_var v pes))))
     (remove_mat_vp 0 (shift 1 (Cpat_vars p) sk) (v+1) p)
 
 let rec
@@ -745,7 +743,7 @@ and
 exp_to_Cexp m (Var vn _) = CVar (the (find_index vn m.bvars 0))
 and
 exp_to_Cexp m (Fun vn _ e) =
-  CFun (Inl (1,exp_to_Cexp (cbv m vn) e))
+  CFun (Inl (1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))
 and
 exp_to_Cexp m (App (Opn opn) e1 e2) =
   let Ce1 = exp_to_Cexp m e1 in
@@ -926,7 +924,7 @@ label_closures (CLetrec defs e) = bind
   (CLetrec (List.rev defs) e)))
 and
 label_closures (CFun cb) = bind
-  (label_defs [] 0 0 [cb]) (fun defs ->
+  (label_defs [] 1 0 [cb]) (fun defs ->
   return (CFun (List.nth defs 0)))
 and
 label_closures (CCall e es) = bind
@@ -1232,7 +1230,7 @@ compile d env t sz s (CLetrec defs eb) =
   compile_bindings d env t sz eb 0 s n
 and
 compile d env t sz s (CFun cb) =
-  pushret t (compile_closures d env sz 0 s [cb])
+  pushret t (compile_closures d env sz 1 s [cb])
 and
 compile d env t sz s (CCall e es) =
   let n = List.length es in
