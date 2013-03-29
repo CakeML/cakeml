@@ -254,44 +254,49 @@ val result_rel_syneq_trans = save_thm(
 "result_rel_syneq_trans",
 result_rel_trans
 |> Q.GEN`R`
-|> Q.ISPEC`syneq c`
+|> Q.ISPEC`syneq c c`
 |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
 |> UNDISCH
-|> PROVE_HYP (SIMP_RULE (std_ss++DNF_ss) [](Q.SPEC`c`syneq_trans))
+|> (fn th => PROVE_HYP (PROVE[syneq_trans](hd(hyp th))) th)
 |> SIMP_RULE std_ss [AND_IMP_INTRO])
 
 val result_rel_syneq_sym = save_thm(
 "result_rel_syneq_sym",
 result_rel_sym
 |> Q.GEN`R`
-|> Q.ISPEC`syneq c`
+|> Q.ISPEC`syneq c c`
 |> SIMP_RULE std_ss[syneq_sym])
 
 val fmap_rel_syneq_trans = save_thm(
 "fmap_rel_syneq_trans",
 fmap_rel_trans
 |> Q.GEN`R`
-|> Q.ISPEC`syneq c`
+|> Q.ISPEC`syneq c c`
 |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
 |> UNDISCH
-|> PROVE_HYP (SIMP_RULE (std_ss++DNF_ss) [](Q.SPEC`c`syneq_trans))
+|> (fn th => PROVE_HYP (PROVE[syneq_trans](hd(hyp th))) th)
 |> SIMP_RULE std_ss [AND_IMP_INTRO])
 
 val fmap_rel_syneq_sym = save_thm(
 "fmap_rel_syneq_sym",
 fmap_rel_sym
 |> Q.GEN`R`
-|> Q.ISPEC`syneq c`
+|> Q.ISPEC`syneq c c`
 |> SIMP_RULE std_ss[syneq_sym])
 
 val syneq_ov = store_thm("syneq_ov",
-  ``∀c v1 v2. syneq c v1 v2 ⇒ ∀m s. Cv_to_ov m s v1 = Cv_to_ov m s v2``,
-  ho_match_mp_tac syneq_ind >>
+  ``(∀v1 v2 c1 c2. syneq c1 c2 v1 v2 ⇒ ∀m s. Cv_to_ov m s v1 = Cv_to_ov m s v2) ∧
+    (∀vs1 vs2 c1 c2. EVERY2 (syneq c1 c2) vs1 vs2 ⇒ ∀m s. EVERY2 (λv1 v2. Cv_to_ov m s v1 = Cv_to_ov m s v2) vs1 vs2)``,
+  ho_match_mp_tac(TypeBase.induction_of``:Cv``) >>
+  rw[] >> pop_assum mp_tac >>
+  simp[Once syneq_cases] >>
+  rw[] >> rw[] >>
   rw[MAP_EQ_EVERY2] >>
-  fs[EVERY2_EVERY] >>
-  qmatch_assum_abbrev_tac`EVERY P l` >>
-  match_mp_tac (MP_CANON MONO_EVERY) >>
-  rw[Abbr`P`,UNCURRY])
+  fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+  rw[] >> TRY (
+    first_x_assum (match_mp_tac o MP_CANON) >>
+    metis_tac[] ) >>
+  metis_tac[])
 
 (* Misc. int lang lemmas *)
 
@@ -303,20 +308,12 @@ val good_cmap_def = Define`
       (FAPPLY m c1 = FAPPLY m c2) ⇒ (c1 = c2)`
 
 val Cevaluate_list_LENGTH = store_thm("Cevaluate_list_LENGTH",
-  ``∀exps c d s env s' vs. Cevaluate_list c d s env exps (s', Rval vs) ⇒ (LENGTH vs = LENGTH exps)``,
+  ``∀exps c s env s' vs. Cevaluate_list c s env exps (s', Rval vs) ⇒ (LENGTH vs = LENGTH exps)``,
   Induct >> rw[LENGTH_NIL] >> pop_assum mp_tac >>
   rw[Once Cevaluate_cases] >>
   fsrw_tac[DNF_ss][] >>
   first_x_assum match_mp_tac >>
   srw_tac[SATISFY_ss][])
-
-val FINITE_Cpat_vars = store_thm(
-"FINITE_Cpat_vars",
-``∀p. FINITE (Cpat_vars p)``,
-ho_match_mp_tac Cpat_vars_ind >>
-rw[FOLDL_UNION_BIGUNION] >>
-PROVE_TAC[])
-val _ = export_rewrites["FINITE_Cpat_vars"]
 
 val FINITE_free_vars = store_thm(
 "FINITE_free_vars",
@@ -324,13 +321,8 @@ val FINITE_free_vars = store_thm(
 ho_match_mp_tac free_vars_ind >>
 rw[free_vars_def] >>
 TRY (Cases_on `FLOOKUP c l` >> rw[] >> NO_TAC) >>
-qmatch_rename_tac `FINITE (FOLDL XXX YYY ls)` ["XXX","YYY"] >>
-qmatch_abbrev_tac `FINITE (FOLDL ff s0 ls)` >>
-qsuff_tac `∀s0. FINITE s0 ⇒ FINITE (FOLDL ff s0 ls)` >- rw[Abbr`s0`] >>
-Induct_on `ls` >> rw[Abbr`s0`] >>
-first_assum (ho_match_mp_tac o MP_CANON) >>
-rw[Abbr`ff`] >>
-TRY (Cases_on `h` >> rw[]) >>
+rw[FOLDL_UNION_BIGUNION] >>
+TRY (match_mp_tac IMAGE_FINITE >> match_mp_tac FINITE_DIFF) >>
 metis_tac[])
 val _ = export_rewrites["FINITE_free_vars"]
 
@@ -344,16 +336,61 @@ val free_vars_DOMSUB_SUBSET = store_thm("free_vars_DOMSUB_SUBSET",
   TRY (PROVE_TAC[]) >>
   fsrw_tac[DNF_ss][FLOOKUP_DEF] >> rw[] >>
   fsrw_tac[][DOMSUB_FAPPLY_THM] >>
-  PROVE_TAC[DOMSUB_COMMUTES])
+  first_x_assum match_mp_tac >>
+  metis_tac[DOMSUB_COMMUTES])
 
 val free_vars_DOMSUB = store_thm("free_vars_DOMSUB",
-  ``(∀c e l. (l ∈ FDOM c) ⇒ (free_vars c e ⊆ free_vars (c \\ l) e ∪ free_vars (c \\ l) (c ' l))) ∧
-    (∀c b l. (l ∈ FDOM c) ⇒ (cbod_fvs c b ⊆ cbod_fvs (c \\ l) b ∪ cbod_fvs (c \\ l) (INL (c ' l))))``,
+  ``(∀c e l. (l ∈ FDOM c) ⇒ (free_vars c e ⊆ free_vars (c \\ l) e)) ∧
+    (∀c b l. (l ∈ FDOM c) ⇒ (cbod_fvs c b ⊆ cbod_fvs (c \\ l) b ∪ cbod_fvs (c \\ l) (INL ((c ' l).az,(c ' l).body))))``,
   ho_match_mp_tac free_vars_ind >>
+  rw[FOLDL_UNION_BIGUNION] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF] >>
+  TRY (metis_tac[]) >>
+  full_simp_tac(srw_ss()++QUANT_INST_ss[std_qp])[] >-
+
+  fs[FLOOKUP_DEF] >>
+  BasicProvers.CASE_TAC >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  simp[DOMSUB_FAPPLY_THM] >>
+  metis_tac[DOMSUB_COMMUTES]
+  free_vars_def
+
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    metis_tac[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    simp_tac(srw_ss()++QUANT_INST_ss[std_qp])[] >-
+      metis_tac[] >>
+    rw[] >> res_tac >- metis_tac[] >>
+
+    fsrw_tac[ARITH_ss][ADD1] >>
+    TRY(metis_tac[])>>
+    rw[] >> res_tac >>
+    simp[]
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- ...
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    simp_tac(srw_ss()++QUANT_INST_ss[std_qp])[] >-
+      >- metis_tac[] >>
+    free_vars_def
+
+    rw[] >>
   rw[FOLDL_UNION_BIGUNION,FOLDL_UNION_BIGUNION_paired] >>
   fsrw_tac[DNF_ss][SUBSET_DEF] >>
   fsrw_tac[DNF_ss][pairTheory.FORALL_PROD,pairTheory.EXISTS_PROD] >>
-  TRY (PROVE_TAC[]) >>
+  rw[] >> fsrw_tac[ARITH_ss][PRE_SUB1] >>
+  TRY (metis_tac[]) >>
+  spose_not_then strip_assume_tac >> fsrw_tac[ARITH_ss][] >>
   BasicProvers.EVERY_CASE_TAC >>
   fsrw_tac[DNF_ss][FLOOKUP_DEF] >> rw[] >>
   fsrw_tac[][DOMSUB_FAPPLY_THM] >>
