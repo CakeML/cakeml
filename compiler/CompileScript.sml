@@ -195,49 +195,46 @@ val _ = Hol_datatype `
 
  val free_vars_defn = Hol_defn "free_vars" `
 
-(free_vars _ (CDecl xs) = LIST_TO_SET ( MAP (\ (n,m) . n) xs))
+(free_vars (CDecl xs) = LIST_TO_SET ( MAP (\ (n,m) . n) xs))
 /\
-(free_vars _ (CRaise _) = {})
+(free_vars (CRaise _) = {})
 /\
-(free_vars c (CHandle e1 e2) = free_vars c e1 UNION ( IMAGE PRE (free_vars c e2 DIFF {0})))
+(free_vars (CHandle e1 e2) = free_vars e1 UNION ( IMAGE PRE (free_vars e2 DIFF {0})))
 /\
-(free_vars _ (CVar n) = {n})
+(free_vars (CVar n) = {n})
 /\
-(free_vars _ (CLit _) = {})
+(free_vars (CLit _) = {})
 /\
-(free_vars c (CCon _ es) = FOLDL (\ s e . s UNION free_vars c e) {} es)
+(free_vars (CCon _ es) = FOLDL (\ s e . s UNION free_vars e) {} es)
 /\
-(free_vars c (CTagEq e _) = free_vars c e)
+(free_vars (CTagEq e _) = free_vars e)
 /\
-(free_vars c (CProj e _) = free_vars c e)
+(free_vars (CProj e _) = free_vars e)
 /\
-(free_vars c (CLet e eb) =
-  free_vars c e UNION ( IMAGE PRE (free_vars c eb DIFF {0})))
+(free_vars (CLet e eb) =
+  free_vars e UNION ( IMAGE PRE (free_vars eb DIFF {0})))
 /\
-(free_vars c (CLetrec defs e) =
+(free_vars (CLetrec defs e) =
   let n = LENGTH defs in FOLDL (\ s cb .
-    s UNION ( IMAGE (\ m . m - n) (cbod_fvs c cb DIFF count n)))
-  ( IMAGE (\ m . m - n) (free_vars c e DIFF count n)) defs)
+    s UNION ( IMAGE (\ m . m - n) (cbod_fvs cb DIFF count n)))
+  ( IMAGE (\ m . m - n) (free_vars e DIFF count n)) defs)
 /\
-(free_vars c (CFun cb) = IMAGE PRE (cbod_fvs c cb DIFF {0}))
+(free_vars (CFun cb) = IMAGE PRE (cbod_fvs cb DIFF {0}))
 /\
-(free_vars c (CCall e es) = FOLDL (\ s e . s UNION free_vars c e)
-  (free_vars c e) es)
+(free_vars (CCall e es) = FOLDL (\ s e . s UNION free_vars e)
+  (free_vars e) es)
 /\
-(free_vars c (CPrim1 _ e) = free_vars c e)
+(free_vars (CPrim1 _ e) = free_vars e)
 /\
-(free_vars c (CPrim2 _ e1 e2) = free_vars c e1 UNION free_vars c e2)
+(free_vars (CPrim2 _ e1 e2) = free_vars e1 UNION free_vars e2)
 /\
-(free_vars c (CUpd e1 e2) = free_vars c e1 UNION free_vars c e2)
+(free_vars (CUpd e1 e2) = free_vars e1 UNION free_vars e2)
 /\
-(free_vars c (CIf e1 e2 e3) = free_vars c e1 UNION free_vars c e2 UNION free_vars c e3)
+(free_vars (CIf e1 e2 e3) = free_vars e1 UNION free_vars e2 UNION free_vars e3)
 /\
-(cbod_fvs c (INL (k,e)) = IMAGE (\ m . m - k) (free_vars c e DIFF ( count k)))
+(cbod_fvs (INL (k,e)) = IMAGE (\ m . m - k) (free_vars e DIFF ( count k)))
 /\
-(cbod_fvs c (INR l) = (case FLOOKUP c l of
-    NONE => {}
-  | SOME cd => cbod_fvs ( $\\ c l) (INL (cd.az,cd.body))
-  ))`;
+(cbod_fvs (INR l) = {})`;
 
 val _ = Defn.save_defn free_vars_defn;
 
@@ -928,7 +925,7 @@ val _ = Hol_datatype `
  (bind_fv e az nz k =
   let k = nz - k - 1 in
   let args = GENLIST (\ n . CTArg (2 +n)) az in
-  let fvs = free_vars FEMPTY e in
+  let fvs = free_vars e in
   let recs = FILTER (\ v . az +v IN fvs /\ ~  (v =k)) ( GENLIST (\ n . n) nz) in
   let erz = LENGTH recs in
   let erec = MAP (\ n . CERef (nz - n)) recs in
