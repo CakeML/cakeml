@@ -868,6 +868,192 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
   full_simp_tac std_ss [] >>
   fs[] )
 
+(* syneq expressions evaluate to syneq results *)
+
+(* TODO: move *)
+val EVERY2_RC_same = store_thm("EVERY2_RC_same",
+  ``EVERY2 (RC R) l l``,
+  srw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,MEM_ZIP,relationTheory.RC_DEF])
+val _ = export_rewrites["EVERY2_RC_same"]
+val syneq_strongind = CompileTheory.syneq_strongind
+
+fun RATOR_ASSUM t ttac (g as (asl,w)) = UNDISCH_THEN (first (can (match_term t) o fst o strip_comb) asl) ttac g
+fun rator_assum q ttac = Q_TAC (C RATOR_ASSUM ttac) q
+
+val rev_assum_list = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC)
+fun last_x_assum x = rev_assum_list >> first_x_assum x >> rev_assum_list
+
+val Cevaluate_syneq = store_thm("Cevaluate_syneq",
+  ``(∀c1 s1 env1 exp1 res1. Cevaluate c1 s1 env1 exp1 res1 ⇒
+      ∀k c2 s2 env2 exp2 res2.
+        let cd1 = closure_extra_data_cd o_f c1 in
+        let cd2 = closure_extra_data_cd o_f c2 in
+        syneq_exp cd1 cd2 k (DROP k env1) (DROP k env2) exp1 exp2
+      ∧ k ≤ LENGTH env1 ∧ k ≤ LENGTH env2
+      ∧ EVERY2 (syneq cd1 cd2) (TAKE k env1) (TAKE k env2)
+      ∧ EVERY2 (syneq cd1 cd2) s1 s2
+      ⇒ ∃res2.
+        Cevaluate c2 s2 env2 exp2 res2 ∧
+        EVERY2 (syneq cd1 cd2) (FST res1) (FST res2) ∧
+        result_rel (syneq cd1 cd2) (SND res1) (SND res2)) ∧
+    (∀c1 s1 env1 es1 res1. Cevaluate_list c1 s1 env1 es1 res1 ⇒
+      ∀k c2 s2 env2 es2 res2.
+        let cd1 = closure_extra_data_cd o_f c1 in
+        let cd2 = closure_extra_data_cd o_f c2 in
+        EVERY2 (syneq_exp cd1 cd2 k (DROP k env1) (DROP k env2)) es1 es2
+      ∧ k ≤ LENGTH env1 ∧ k ≤ LENGTH env2
+      ∧ EVERY2 (syneq cd1 cd2) (TAKE k env1) (TAKE k env2)
+      ∧ EVERY2 (syneq cd1 cd2) s1 s2
+      ⇒ ∃res2.
+        Cevaluate_list c2 s2 env2 es2 res2 ∧
+        EVERY2 (syneq cd1 cd2) (FST res1) (FST res2) ∧
+        result_rel (EVERY2 (syneq cd1 cd2)) (SND res1) (SND res2))``,
+  ho_match_mp_tac Cevaluate_strongind >>
+  strip_tac >- simp[Once syneq_cases] >>
+  strip_tac >- (
+    rw[] >>
+    rator_assum`syneq_exp`mp_tac >>
+    simp[Once (CONJUNCT2 syneq_cases)] >>
+    fsrw_tac[DNF_ss][] >>
+    map_every qx_gen_tac[`e`,`b`] >>
+    rw[Once Cevaluate_cases] >>
+    fsrw_tac[DNF_ss][] >>
+    first_x_assum(qspecl_then[`k`,`c2`,`s2'`,`env2`,`e`]mp_tac) >>
+    simp[EXISTS_PROD] >> metis_tac[] ) >>
+  strip_tac >- (
+    rw[] >>
+    rator_assum`syneq_exp`mp_tac >>
+    simp[Once (CONJUNCT2 syneq_cases)] >>
+    fsrw_tac[DNF_ss][] >>
+    map_every qx_gen_tac[`e`,`b`] >>
+    rw[Once Cevaluate_cases] >>
+    fsrw_tac[DNF_ss][] >>
+    disj2_tac >> disj1_tac >>
+    last_x_assum(qspecl_then[`k`,`c2`,`s2`,`env2`,`e`]mp_tac) >>
+    simp[EXISTS_PROD] >> fsrw_tac[DNF_ss][] >>
+    qx_gen_tac`s3` >> strip_tac >>
+    first_x_assum(qspecl_then[`k+1`,`c2`,`s3`]mp_tac) >>
+    simp[] >> simp_tac (std_ss++QUANT_INST_ss[list_qp])[] >>
+    simp[EXISTS_PROD,ADD1] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rw[] >>
+    rator_assum`syneq_exp`mp_tac >>
+    simp[Once (CONJUNCT2 syneq_cases)] >>
+    fsrw_tac[DNF_ss][] >>
+    map_every qx_gen_tac[`e`,`b`] >>
+    rw[Once Cevaluate_cases] >>
+    fsrw_tac[DNF_ss][] >>
+    disj2_tac >>
+    first_x_assum(qspecl_then[`k`,`c2`,`s2'`,`env2`,`e`]mp_tac) >>
+    simp[EXISTS_PROD] ) >>
+  strip_tac >- (
+    rw[] >>
+    rator_assum`syneq_exp`mp_tac >>
+    simp[Once (CONJUNCT2 syneq_cases)] >>
+    simp[CONJUNCT1 (CONJUNCT2 syneq_cases)] >>
+    rw[] >> simp[] >>
+    TRY (
+      conj_asm1_tac >- (
+        fsrw_tac[ARITH_ss][el_check_def] >>
+        spose_not_then strip_assume_tac >>
+        fsrw_tac[ARITH_ss][] >>
+        fsrw_tac[ARITH_ss][optionTheory.OPTREL_def] ) >>
+      fsrw_tac[ARITH_ss][el_check_def] >>
+      rev_full_simp_tac(srw_ss()++ARITH_ss)[optionTheory.OPTREL_def] >>
+      rev_full_simp_tac(srw_ss()++ARITH_ss)[EL_DROP] >>
+      full_simp_tac(srw_ss()++ARITH_ss)[EL_DROP] >>
+      rev_full_simp_tac(srw_ss()++ARITH_ss)[] ) >>
+    fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD]
+    last_x_assum match_mp_tac >>
+    lrw[MEM_ZIP,EL_TAKE] >>
+    qexists_tac`n` >> simp[EL_TAKE] ) >>
+  strip_tac >- simp[Once syneq_cases] >>
+  strip_tac
+
+
+val syneq_Cevaluate = store_thm("syneq_Cevaluate",
+  ``(∀c1 c2 v1 v2. syneq c1 c2 v1 v2 ⇒ T) ∧
+    (∀c1 c2 k env1 env2 v1 v2. syneq_var c1 c2 k env1 env2 v1 v2 ⇒
+      ∀k1 k2 cc1 cc2 s1 s2 res1.
+        (closure_extra_data_cd o_f cc1 = c1) ∧ (closure_extra_data_cd o_f cc2 = c2)
+        ∧ (LENGTH k1 = k) ∧ EVERY2 (syneq c1 c2) k1 k2
+        ∧ EVERY2 (RC (syneq c1 c2)) s1 s2
+        ∧ Cevaluate cc1 s1 (k1++env1) (CVar v1) res1
+        ⇒ ∃res2. Cevaluate cc2 s2 (k2++env2) (CVar v2) res2 ∧
+                 EVERY2 (RC (syneq c1 c2)) (FST res1) (FST res2) ∧
+                 result_rel (syneq c1 c2) (SND res1) (SND res2)) ∧
+    (∀c1 c2 k env1 env2 e1 e2. syneq_exp c1 c2 k env1 env2 e1 e2 ⇒
+      ∀k1 k2 cc1 cc2 s1 s2 res1.
+        (closure_extra_data_cd o_f cc1 = c1) ∧ (closure_extra_data_cd o_f cc2 = c2)
+        ∧ (LENGTH k1 = k) ∧ EVERY2 (syneq c1 c2) k1 k2
+        ∧ EVERY2 (RC (syneq c1 c2)) s1 s2
+        ∧ Cevaluate cc1 s1 (k1++env1) e1 res1
+        ⇒ ∃res2. Cevaluate cc2 s2 (k2++env2) e2 res2 ∧
+                 EVERY2 (RC (syneq c1 c2)) (FST res1) (FST res2) ∧
+                 result_rel (syneq c1 c2) (SND res1) (SND res2)) ∧
+    (∀c1 c2 env1 env2 defs1 defs2 cb1 cb2. syneq_cb c1 c2 env1 env2 defs1 defs2 cb1 cb2 ⇒ T)``
+  ho_match_mp_tac syneq_strongind >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >> simp[] >>
+    rpt gen_tac >> strip_tac >>
+    fsrw_tac[ARITH_ss][EVERY2_EVERY] >>
+    simp[EL_APPEND1] >>
+    fs[EVERY_MEM,FORALL_PROD] >>
+    first_x_assum match_mp_tac >>
+    simp[MEM_ZIP] >> PROVE_TAC[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >> simp[] >>
+    rpt gen_tac >> strip_tac >>
+    fsrw_tac[ARITH_ss][EVERY2_EVERY,el_check_def,optionTheory.OPTREL_def] >>
+    fsrw_tac[ARITH_ss][] >>
+    simp[EL_APPEND2] >>
+    fs[EVERY_MEM,FORALL_PROD] >>
+    first_x_assum match_mp_tac >>
+    simp[MEM_ZIP] >> PROVE_TAC[] ) >>
+  strip_tac >- simp[Once Cevaluate_cases] >>
+  strip_tac >- simp[] >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    simp[Once Cevaluate_cases] >>
+    rpt gen_tac >> strip_tac >- (
+      simp[Once Cevaluate_cases] >> fsrw_tac[DNF_ss][] >>
+      disj1_tac >>
+      POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC) >>
+      first_x_assum(qspecl_then[`k1`,`k2`,`cc1`,`cc2`,`s1`,`s2`,`(s2',Rval v)`]mp_tac) >>
+      fsrw_tac[DNF_ss][EXISTS_PROD] )
+    >- (
+      simp[Once Cevaluate_cases] >> fsrw_tac[DNF_ss][] >>
+      disj2_tac >> disj1_tac >>
+      POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC) >>
+      first_x_assum(qspecl_then[`k1`,`k2`,`cc1`,`cc2`,`s1`,`s2`,`(s2',Rerr (Rraise (Int_error n)))`]mp_tac) >>
+      fsrw_tac[DNF_ss][EXISTS_PROD] >>
+      qx_gen_tac`s3` >> strip_tac >>
+      CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+      simp[GSYM CONJ_ASSOC] >>
+      map_every qexists_tac[`n`,`s3`] >> simp[] >>
+      REWRITE_TAC[Once CONS_APPEND] >>
+      REWRITE_TAC[APPEND_ASSOC] >>
+      CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+      first_x_assum(ho_match_mp_tac o MP_CANON) >>
+      simp[] >> fsrw_tac[DNF_ss][ADD1] >>
+      PROVE_TAC[])
+    >- (
+      simp[Once Cevaluate_cases] >> fsrw_tac[DNF_ss][] >>
+      disj2_tac >>
+      POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC) >>
+      first_x_assum(qspecl_then[`k1`,`k2`,`cc1`,`cc2`,`s1`,`s2`,`(s2',Rerr err)`]mp_tac) >>
+      fsrw_tac[DNF_ss][EXISTS_PROD] )) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    simp[Once Cevaluate_cases]
+
 (* Cevaluate when environment changes *)
 
 val final0 =
