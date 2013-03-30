@@ -50,7 +50,7 @@ val BOTTOM_UP_OPT_def = tDefine "BOTTOM_UP_OPT" `
   (BOTTOM_UP_OPT f (Log l x1 x2) = f (Log l (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2))) /\
   (BOTTOM_UP_OPT f (If x1 x2 x3) = f (If (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2) (BOTTOM_UP_OPT f x3))) /\
   (BOTTOM_UP_OPT f (Mat x ys) = f (Mat (BOTTOM_UP_OPT f x) (MAP (\(p,x). (p,BOTTOM_UP_OPT f x)) ys))) /\
-  (BOTTOM_UP_OPT f (Let n name x1 x2) = f (Let n name (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2))) /\
+  (BOTTOM_UP_OPT f (Let name x1 x2) = f (Let name (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2))) /\
   (BOTTOM_UP_OPT f (Handle x1 name x2) = Handle x1 name x2) /\
   (BOTTOM_UP_OPT f (Letrec z1 z2) = f (Letrec z1 z2))`
  (WF_REL_TAC `measure (exp_size o SND)` THEN REPEAT STRIP_TAC
@@ -141,7 +141,7 @@ val BOTTOM_UP_OPT_THM = prove(
 
 val abs2let_def = Define `
   abs2let x =
-     case x of (App Opapp (Fun v exp) y) => Let (SOME 0) v y exp
+     case x of (App Opapp (Fun v exp) y) => Let v y exp
              | rest => rest`;
 
 val abs2let_thm = prove(
@@ -161,10 +161,8 @@ val abs2let_thm = prove(
 (* rewrite optimisation: let x = y in x --> y *)
 
 val let_id_def = Define `
-  (let_id (Let NONE v x y) =
-     if (y = Var (Short v)) then x else Let NONE v x y) /\
-  (let_id (Let (SOME i) v x y) =
-     if (y = Var (Short v)) /\ (i = 0) then x else Let (SOME i) v x y) /\
+  (let_id (Let v x y) =
+     if (y = Var (Short v)) then x else Let v x y) /\
   (let_id rest = rest)`;
 
 val let_id_thm = prove(

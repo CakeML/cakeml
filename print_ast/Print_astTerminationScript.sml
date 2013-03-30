@@ -51,7 +51,7 @@ val (exp_to_tok_tree_def, exp_to_tok_tree_ind) =
   TRY (induct_on `funs`) >>
   TRY (induct_on `pes`) >>
   TRY (induct_on `es`) >>
-  TRY (induct_on `v41`) >>
+  TRY (induct_on `v40`) >>
   rw [exp_size_def] >>
   fs [exp_size_def] >>
   rw [exp_size_def] >>
