@@ -17,8 +17,6 @@
 (* TODO: printing *)
 
 (* TODO: move to lem *)
-val least : (num -> bool) -> num
-let inline {hol} least = Hol.LEAST
 val alist_to_fmap : forall 'a 'b. list ('a * 'b) -> Pmap.map 'a 'b
 let inline {hol} alist_to_fmap = Hol.alist_to_fmap
 val optrel : forall 'a 'b 'c 'd. ('a -> 'b -> bool) -> 'c -> 'd -> bool
@@ -44,6 +42,8 @@ val the : forall 'a 'b. 'a -> 'b
 let inline {hol} the = Hol.THE
 val qsort : forall 'a. ('a -> 'a -> bool) -> list 'a -> list 'a
 let inline {hol} qsort = Hol.QSORT
+val lupdate : forall 'a. 'a -> num -> list 'a -> list 'a
+let inline {hol} lupdate = Hol.LUPDATE
 
 (* TODO: Misc. helpers *)
 
@@ -235,19 +235,17 @@ CevalPrim2 CEq = fun v1 v2 ->
 
 let rec
 CevalUpd s (CLoc n) (v:Cv) =
-  if Pmap.mem n s
-  then (Pmap.add n v s, Rval (CLitv Unit))
+  if n < List.length s
+  then (lupdate v n s, Rval (CLitv Unit))
   else (s, Rerr Rtype_error)
 and
 CevalUpd s _ _ = (s, Rerr Rtype_error)
 
 let rec
-CevalPrim1 CRef s v =
-  let n = least (fun n -> not (Pmap.mem n s)) in
-  (Pmap.add n v s, Rval (CLoc n))
+CevalPrim1 CRef s v = (s@[v], Rval (CLoc (List.length s)))
 and
 CevalPrim1 CDer s (CLoc n) =
-  (s, match flookup s n with
+  (s, match el_check n s with
       | None -> Rerr Rtype_error
       | Some v -> Rval v
       end)

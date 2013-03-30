@@ -31,7 +31,6 @@ val _ = new_theory "Compile"
 (* TODO: printing *)
 
 (* TODO: move to lem *)
-(*val least : (num -> bool) -> num*)
 (*val alist_to_fmap : forall 'a 'b. list ('a * 'b) -> Pmap.map 'a 'b*)
 (*val optrel : forall 'a 'b 'c 'd. ('a -> 'b -> bool) -> 'c -> 'd -> bool*)
 (*val flookup : forall 'a 'b 'c. Pmap.map 'a 'b -> 'a -> 'c*)
@@ -45,6 +44,7 @@ val _ = new_theory "Compile"
 (*val count : num -> set num*)
 (*val the : forall 'a 'b. 'a -> 'b*)
 (*val qsort : forall 'a. ('a -> 'a -> bool) -> list 'a -> list 'a*)
+(*val lupdate : forall 'a. 'a -> num -> list 'a -> list 'a*)
 
 (* TODO: Misc. helpers *)
 
@@ -284,8 +284,8 @@ val _ = Defn.save_defn no_closures_defn;
  val CevalUpd_def = Define `
 
 (CevalUpd s (CLoc n) (v:Cv) =
-  if  n IN FDOM  s
-  then ( FUPDATE  s ( n, v), Rval (CLitv Unit))
+  if n < LENGTH s
+  then ( LUPDATE v n s, Rval (CLitv Unit))
   else (s, Rerr Rtype_error))
 /\
 (CevalUpd s _ _ = (s, Rerr Rtype_error))`;
@@ -293,12 +293,10 @@ val _ = Defn.save_defn no_closures_defn;
 
  val CevalPrim1_def = Define `
 
-(CevalPrim1 CRef s v =
-  let n = $LEAST (\ n . ~  ( n IN FDOM  s)) in
-  ( FUPDATE  s ( n, v), Rval (CLoc n)))
+(CevalPrim1 CRef s v = ((s ++[v]), Rval (CLoc ( LENGTH s))))
 /\
 (CevalPrim1 CDer s (CLoc n) =
-  (s, (case FLOOKUP s n of
+  (s, (case el_check n s of
         NONE => Rerr Rtype_error
       | SOME v => Rval v
       )))
