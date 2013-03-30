@@ -160,13 +160,16 @@ val _ = Hol_datatype `
 
 (* values in compile-time environment *)
 val _ = Hol_datatype `
- ctbind = CTLet of num | CTArg of num | CTEnv of num | CTRef of num`;
+ ccbind = CCArg of num | CCEnv of num | CCRef of num`;
+
+val _ = Hol_datatype `
+ ctbind = CTLet of num | CTEnv of ccbind`;
 
 (* CTLet n means stack[sz - n]
-   CTArg n means stack[sz + n]
-   CTEnv n means El n of the environment, which is at stack[sz]
-   CTRef n means El n of the environment, but it's a ref pointer *)
-
+   CCArg n means stack[sz + n]
+   CCEnv n means El n of the environment, which is at stack[sz]
+   CCRef n means El n of the environment, but it's a ref pointer *)
+val _ = type_abbrev( "ccenv" , ``: ccbind list``);
 val _ = type_abbrev( "ctenv" , ``: ctbind list``);
 
 (* for constructing closure environments *)
@@ -175,15 +178,14 @@ val _ = Hol_datatype `
 
 (* CEEnv n means take (Var n) in the creation-site environment
  * CERef n means we want the nth closure in the recursive bundle *)
-
 val _ = type_abbrev( "ceenv" , ``: cebind list``);
 
 val _ = Hol_datatype `
  closure_data =
-  <| ctenv :ctenv
-   ; ceenv :ceenv (* to construct ctenv from creation-site environment *)
+  <| ccenv :ccenv
+   ; ceenv :ceenv (* to construct ccenv from creation-site environment *)
    ; az    :num   (* number of arguments *)
-   ; body  :Cexp  (* adjusted for ctenv *)
+   ; body  :Cexp  (* adjusted for ccenv *)
    |>`;
 
 
@@ -311,6 +313,15 @@ val _ = Defn.save_defn no_closures_defn;
 (ceenv env defs (CERef n) = CRecClos env defs (n - 1))`;
 
 
+ val ccenv_def = Define `
+
+(ccenv vs env cenv defs (CCArg v) = EL  (v - 2)  ( REVERSE vs))
+/\
+(ccenv vs env cenv defs (CCEnv v) = ceenv cenv defs ( EL  v  env))
+/\
+(ccenv vs env cenv defs (CCRef v) = ceenv cenv defs ( EL  v  env))`;
+
+
 val _ = Hol_reln `
 (! c s env error.
 T
@@ -426,7 +437,7 @@ Cevaluate_list c s' env es (s'', Rval vs) /\
     ,d.cd.az
     ,d.nz
     ,d.ez
-    ,(( REVERSE vs) ++( MAP (ceenv cenv defs) d.cd.ceenv))
+    , MAP (ccenv vs d.cd.ceenv cenv defs) d.cd.ccenv
     ,d.cd.body)
   )) /\
 Cevaluate c s'' env'' b r
@@ -930,14 +941,14 @@ val _ = Hol_datatype `
  val bind_fv_def = Define `
  (bind_fv e az nz k =
   let k = nz - k - 1 in
-  let args = GENLIST (\ n . CTArg (2 +n)) az in
+  let args = GENLIST (\ n . CCArg (2 +n)) az in
   let fvs = free_vars e in
   let recs = FILTER (\ v . az +v IN fvs /\ ~  (v =k)) ( GENLIST (\ n . n) nz) in
   let erz = LENGTH recs in
   let erec = MAP (\ n . CERef (nz - n)) recs in
   let (recs,rz,trec) = if k < nz /\ az +k IN fvs
-    then ((k ::recs),(erz +1),(CTArg (2 +az) ::( GENLIST (\ i . CTRef (i +1)) erz)))
-    else (recs,erz, GENLIST CTRef erz) in
+    then ((k ::recs),(erz +1),(CCArg (2 +az) ::( GENLIST (\ i . CCRef (i +1)) erz)))
+    else (recs,erz, GENLIST CCRef erz) in
   let envs = FILTER (\ v . az +nz <= v) ( QSORT (\ x y . x < y) ( SET_TO_LIST fvs)) in
   let envs = MAP (\ v . v -(az +nz)) envs in
   let e = mkshift (\ k v . if v < k then v else
@@ -945,8 +956,8 @@ val _ = Hol_datatype `
                               else THE(find_index (v -(k +nz)) envs (k +rz)))
                   az e in
   let eenv = MAP CEEnv envs in
-  let tenv = GENLIST (\ i . CTEnv (erz +i)) ( LENGTH envs) in
-  <| ctenv := (args ++(trec ++tenv))
+  let tenv = GENLIST (\ i . CCEnv (erz +i)) ( LENGTH envs) in
+  <| ccenv := (args ++(trec ++tenv))
    ; ceenv := (erec ++eenv)
    ; az := az ; body := e |>)`;
 
@@ -1165,17 +1176,22 @@ val _ = Define `
 (get_labels n s = (( s with<| next_label := s.next_label + n |>), GENLIST (\ i . s.next_label + i) n))`;
 
 
- val compile_varref_defn = Hol_defn "compile_varref" `
+ val compile_envref_defn = Hol_defn "compile_envref" `
+
+(compile_envref sz s (CCArg n) = emit s [Stack (Load (sz + n))])
+/\
+(compile_envref sz s (CCEnv n) = emit s [Stack (Load sz); Stack (El n)])
+/\
+(compile_envref sz s (CCRef n) = emit (compile_envref sz s (CCEnv n)) [Deref])`;
+
+val _ = Defn.save_defn compile_envref_defn;
+
+ val compile_varref_def = Define `
 
 (compile_varref sz s (CTLet n) = emit s [Stack (Load (sz - n))])
 /\
-(compile_varref sz s (CTArg n) = emit s [Stack (Load (sz + n))])
-/\
-(compile_varref sz s (CTEnv n) = emit s [Stack (Load sz); Stack (El n)])
-/\
-(compile_varref sz s (CTRef n) = emit (compile_varref sz s (CTEnv n)) [Deref])`;
+(compile_varref sz s (CTEnv x) = compile_envref sz s x)`;
 
-val _ = Defn.save_defn compile_varref_defn;
 
 (* calling convention:
  * before: env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
@@ -1436,7 +1452,7 @@ val _ = Defn.save_defn compile_defn;
 
 (cce_aux d s (l,cd) =
   let s = emit s [Label l] in
-  compile d cd.ctenv (TCTail cd.az 0) 0 s cd.body)`;
+  compile d ( MAP CTEnv cd.ccenv) (TCTail cd.az 0) 0 s cd.body)`;
 
 
  val compile_code_env_def = Define `

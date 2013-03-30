@@ -152,11 +152,12 @@ val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
 
 val pat_to_Cpat_def = save_thm("pat_to_Cpat_def",pat_to_Cpat_def)
 
-val (compile_varref_def, compile_varref_ind) = register "compile_varref" (
-  tprove_no_defn ((compile_varref_def, compile_varref_ind),
-  WF_REL_TAC `measure (λp. case p of (_,_,CTEnv _) => 0 | (_,_,CTRef _) => 1)`))
+val (compile_envref_def, compile_envref_ind) = register "compile_envref" (
+  tprove_no_defn ((compile_envref_def, compile_envref_ind),
+  WF_REL_TAC `measure (λp. case p of (_,_,CCEnv _) => 0 | (_,_,CCRef _) => 1)`))
 
-val _ = export_rewrites["compile_varref_def"]
+val _ = save_thm("compile_varref_def",compile_varref_def)
+val _ = export_rewrites["compile_varref_def","compile_envref_def"]
 
 val (compile_def, compile_ind) = register "compile" (
   tprove_no_defn ((compile_def, compile_ind),

@@ -10,6 +10,7 @@ val _ = Parse.disable_tyabbrev_printing "tvarN"
 val _ = Parse.disable_tyabbrev_printing "envE"
 val _ = Parse.disable_tyabbrev_printing "store"
 val _ = Parse.disable_tyabbrev_printing "type_def"
+val _ = Parse.disable_tyabbrev_printing "ccenv"
 val _ = Parse.disable_tyabbrev_printing "ctenv"
 val _ = Parse.disable_tyabbrev_printing "ceenv"
 val _ = Parse.disable_tyabbrev_printing "alist"
@@ -50,6 +51,7 @@ val data = map
   , datatype_Cpat
   , datatype_Cexp
   , datatype_exp_to_Cexp_state
+  , datatype_ccbind
   , datatype_ctbind
   , datatype_cebind
   , datatype_closure_data
@@ -75,6 +77,7 @@ val defs = map EmitML.DEFN
 , etC_def
 , error_to_int_def
 , get_labels_def
+, compile_envref_def
 , compile_varref_def
 , pushret_def
 , prim1_to_bc_def

@@ -126,26 +126,26 @@ type Cv =
 (* Semantics *)
 
 (* values in compile-time environment *)
-type ctbind = CTLet of num | CTArg of num | CTEnv of num | CTRef of num
+type ccbind = CCArg of num | CCEnv of num | CCRef of num
+type ctbind = CTLet of num | CTEnv of ccbind
 (* CTLet n means stack[sz - n]
-   CTArg n means stack[sz + n]
-   CTEnv n means El n of the environment, which is at stack[sz]
-   CTRef n means El n of the environment, but it's a ref pointer *)
-
+   CCArg n means stack[sz + n]
+   CCEnv n means El n of the environment, which is at stack[sz]
+   CCRef n means El n of the environment, but it's a ref pointer *)
+type ccenv = list ccbind
 type ctenv = list ctbind
 
 (* for constructing closure environments *)
 type cebind = CEEnv of num | CERef of num
 (* CEEnv n means take (Var n) in the creation-site environment
  * CERef n means we want the nth closure in the recursive bundle *)
-
 type ceenv = list cebind
 
 type closure_data =
-  <| ctenv :ctenv
-   ; ceenv :ceenv (* to construct ctenv from creation-site environment *)
+  <| ccenv :ccenv
+   ; ceenv :ceenv (* to construct ccenv from creation-site environment *)
    ; az    :num   (* number of arguments *)
-   ; body  :Cexp  (* adjusted for ctenv *)
+   ; body  :Cexp  (* adjusted for ccenv *)
    |>
 
 type closure_extra_data =
@@ -256,6 +256,13 @@ let rec
 ceenv env defs (CEEnv v) = List.nth env v
 and
 ceenv env defs (CERef n) = CRecClos env defs (n-1)
+
+let rec
+ccenv vs env cenv defs (CCArg v) = List.nth (List.rev vs) (v-2)
+and
+ccenv vs env cenv defs (CCEnv v) = ceenv cenv defs (List.nth env v)
+and
+ccenv vs env cenv defs (CCRef v) = ceenv cenv defs (List.nth env v)
 
 indreln
 forall c s env error.
@@ -377,7 +384,7 @@ Cevaluate_list c s' env es (s'', Rval vs) &&
     ,d.cd.az
     ,d.nz
     ,d.ez
-    ,(List.rev vs)@(List.map (ceenv cenv defs) d.cd.ceenv)
+    ,List.map (ccenv vs d.cd.ceenv cenv defs) d.cd.ccenv
     ,d.cd.body)
   end &&
 Cevaluate c s'' env'' b r
@@ -863,14 +870,14 @@ type label_closures_state =
 
 let rec bind_fv e az nz k =
   let k = nz-k-1 in
-  let args = genlist (fun n -> CTArg (2+n)) az in
+  let args = genlist (fun n -> CCArg (2+n)) az in
   let fvs = free_vars e in
   let recs = List.filter (fun v -> az+v IN fvs && not (v=k)) (genlist (fun n -> n) nz) in
   let erz = List.length recs in
   let erec = List.map (fun n -> CERef (nz-n)) recs in
   let (recs,rz,trec) = if k < nz && az+k IN fvs
-    then (k::recs,erz+1,CTArg (2+az)::(genlist (fun i -> CTRef (i+1)) erz))
-    else (recs,erz,genlist CTRef erz) in
+    then (k::recs,erz+1,CCArg (2+az)::(genlist (fun i -> CCRef (i+1)) erz))
+    else (recs,erz,genlist CCRef erz) in
   let envs = List.filter (fun v -> az+nz <= v) (qsort (fun x y -> x < y) (Set.to_list fvs)) in
   let envs = List.map (fun v -> v-(az+nz)) envs in
   let e = mkshift (fun k v -> if v < k then v else
@@ -878,8 +885,8 @@ let rec bind_fv e az nz k =
                               else the(find_index (v-(k+nz)) envs (k+rz)))
                   az e in
   let eenv = List.map CEEnv envs in
-  let tenv = genlist (fun i -> CTEnv (erz+i)) (List.length envs) in
-  <| ctenv = args@trec@tenv
+  let tenv = genlist (fun i -> CCEnv (erz+i)) (List.length envs) in
+  <| ccenv = args@trec@tenv
    ; ceenv = erec@eenv
    ; az = az ; body = e |>
 
@@ -1073,13 +1080,16 @@ get_labels n s = (<| s with next_label = s.next_label + n |>,
                   genlist (fun i -> s.next_label + i) n)
 
 let rec
+compile_envref sz s (CCArg n) = emit s [Stack (Load (sz + n))]
+and
+compile_envref sz s (CCEnv n) = emit s [Stack (Load sz); Stack (El n)]
+and
+compile_envref sz s (CCRef n) = emit (compile_envref sz s (CCEnv n)) [Deref]
+
+let rec
 compile_varref sz s (CTLet n) = emit s [Stack (Load (sz - n))]
 and
-compile_varref sz s (CTArg n) = emit s [Stack (Load (sz + n))]
-and
-compile_varref sz s (CTEnv n) = emit s [Stack (Load sz); Stack (El n)]
-and
-compile_varref sz s (CTRef n) = emit (compile_varref sz s (CTEnv n)) [Deref]
+compile_varref sz s (CTEnv x) = compile_envref sz s x
 
 (* calling convention:
  * before: env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
@@ -1323,7 +1333,7 @@ compile_nts d env sz s (e::es) =
 let rec
 cce_aux d s (l,cd) =
   let s = emit s [Label l] in
-  compile d cd.ctenv (TCTail cd.az 0) 0 s cd.body
+  compile d (List.map CTEnv cd.ccenv) (TCTail cd.az 0) 0 s cd.body
 
 let rec
 compile_code_env d s c =
