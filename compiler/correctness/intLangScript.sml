@@ -298,6 +298,14 @@ val syneq_ov = store_thm("syneq_ov",
     metis_tac[] ) >>
   metis_tac[])
 
+val syneq_lit_loc = store_thm("syneq_lit_loc",
+  ``(syneq c1 c2 (CLitv l1) v2 = (v2 = CLitv l1)) ∧
+    (syneq c1 c2 v1 (CLitv l2) = (v1 = CLitv l2)) ∧
+    (syneq c1 c2 (CLoc n1) v2 = (v2 = CLoc n1)) ∧
+    (syneq c1 c2 v1 (CLoc n2) = (v1 = CLoc n2))``,
+  rpt(simp[Once syneq_cases]))
+val _ = export_rewrites["syneq_lit_loc"]
+
 (* Misc. int lang lemmas *)
 
 val good_cmap_def = Define`
@@ -512,79 +520,92 @@ val Cevaluate_Clocs = store_thm("Cevaluate_Clocs",
 
 (* simple cases of syneq preservation *)
 
-val syneq_no_closures = store_thm(
-"syneq_no_closures",
-``∀c v1 v2. syneq c v1 v2 ⇒ (no_closures v2 = no_closures v1)``,
-ho_match_mp_tac syneq_ind >>
-rw[EVERY2_EVERY] >>
-pop_assum mp_tac >>
-srw_tac[DNF_ss][EVERY_MEM,pairTheory.FORALL_PROD,MEM_ZIP] >>
-srw_tac[DNF_ss][MEM_EL])
+val Cv_ind = store_thm("Cv_ind",
+  ``∀P. (∀l. P (CLitv l)) ∧ (∀n vs. EVERY P vs ⇒ P (CConv n vs)) ∧
+        (∀env defs n. EVERY P env ⇒ P (CRecClos env defs n)) ∧
+        (∀n. P (CLoc n)) ⇒
+        ∀v. P v``,
+  rw[] >>
+  qsuff_tac `(∀v. P v) ∧ (∀vs. EVERY P vs)` >- rw[] >>
+  ho_match_mp_tac(TypeBase.induction_of``:Cv``) >>
+  simp[])
 
-val no_closures_syneq_equal = store_thm(
-"no_closures_syneq_equal",
-``∀c v1 v2. syneq c v1 v2 ⇒ no_closures v1 ⇒ (v1 = v2)``,
-ho_match_mp_tac syneq_ind >>
-srw_tac[ETA_ss][EVERY2_EVERY] >>
-qpat_assum `LENGTH X = Y` assume_tac >>
-fs[EVERY_MEM,pairTheory.FORALL_PROD] >>
-rw[LIST_EQ_REWRITE] >>
-first_x_assum (match_mp_tac o MP_CANON) >>
-fsrw_tac[DNF_ss][MEM_ZIP] >>
-fsrw_tac[DNF_ss][MEM_EL] >>
-PROVE_TAC[])
+val syneq_no_closures = store_thm("syneq_no_closures",
+``∀v1 v2 c1 c2. syneq c1 c2 v1 v2 ⇒ (no_closures v2 = no_closures v1)``,
+  ho_match_mp_tac Cv_ind >>
+  rw[] >> pop_assum mp_tac >>
+  simp[Once syneq_cases] >>
+  rw[] >> rw[] >>
+  srw_tac[ETA_ss][] >>
+  fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+  pop_assum mp_tac >>
+  fsrw_tac[DNF_ss][MEM_ZIP,MEM_EL] >>
+  metis_tac[])
+
+val no_closures_syneq_equal = store_thm("no_closures_syneq_equal",
+``∀v1 v2 c1 c2. syneq c1 c2 v1 v2 ⇒ no_closures v1 ⇒ (v1 = v2)``,
+  ho_match_mp_tac Cv_ind >>
+  rw[] >>
+  pop_assum mp_tac >> simp[Once syneq_cases] >>
+  pop_assum mp_tac >> simp[Once syneq_cases] >>
+  rw[] >> fsrw_tac[ETA_ss,DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+  ntac 2 (pop_assum mp_tac) >>
+  fsrw_tac[DNF_ss][MEM_ZIP,MEM_EL,LIST_EQ_REWRITE] >>
+  metis_tac[])
 
 val CevalPrim2_syneq = store_thm(
 "CevalPrim2_syneq",
-``∀c v1 v2. syneq c v1 v2 ⇒
+``∀v1 v2 c1 c2. syneq c1 c2 v1 v2 ⇒
     ∀p v. (CevalPrim2 p v v1 = CevalPrim2 p v v2) ∧
           (CevalPrim2 p v1 v = CevalPrim2 p v2 v)``,
-ho_match_mp_tac (CompileTheory.syneq_strongind) >>
+ho_match_mp_tac Cv_ind >>
+strip_tac >- ( rw[Once syneq_cases] ) >>
 strip_tac >- (
-  gen_tac >> Cases >> Cases >> rw[] ) >>
-strip_tac >- (
+  gen_tac >> qx_gen_tac`vs1` >>
+  strip_tac >>
+  simp[Once syneq_cases] >>
   rpt gen_tac >> strip_tac >>
-  `EVERY2 (syneq c) vs1 vs2` by (
-    fs[EVERY2_EVERY] >>
-    pop_assum mp_tac >>
-    match_mp_tac EVERY_MONOTONIC >>
-    fs[pairTheory.FORALL_PROD] ) >>
   `no_closures (CConv cn vs1) = no_closures (CConv cn vs2)` by (
     match_mp_tac syneq_no_closures >>
-    qexists_tac `c` >>
-    match_mp_tac syneq_sym >>
-    rw[Once syneq_cases] ) >>
+    simp[Once syneq_cases] >>
+    fsrw_tac[][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+    qpat_assum`LENGTH vs1 = x`assume_tac >>
+    fsrw_tac[DNF_ss][MEM_ZIP] >>
+    PROVE_TAC[syneq_sym]) >>
   `no_closures (CConv cn vs2) ⇒ (vs1 = vs2)` by (
     strip_tac >>
     qsuff_tac `CConv cn vs1 = CConv cn vs2` >- rw[] >>
     match_mp_tac (MP_CANON no_closures_syneq_equal) >>
     rw[Once syneq_cases] >> PROVE_TAC[] ) >>
+  fs[] >>
   Cases >> Cases >> TRY (Cases_on `l`) >> rw[] ) >>
 strip_tac >- (
   rpt gen_tac >> strip_tac >>
+  simp[Once syneq_cases] >>
+  rpt gen_tac >> strip_tac >>
   Cases >> Cases >> TRY (Cases_on `l`) >> rw[] ) >>
-ntac 3 gen_tac >> Cases >> TRY (Cases_on `l`) >> rw[] )
+simp[Once syneq_cases])
 
 val doPrim2_syneq = store_thm(
 "doPrim2_syneq",
-``∀c v1 v2. syneq c v1 v2 ⇒
+``∀v1 v2 c1 c2. syneq c1 c2 v1 v2 ⇒
     ∀b ty op v. (doPrim2 b ty op v v1 = doPrim2 b ty op v v2) ∧
                 (doPrim2 b ty op v1 v = doPrim2 b ty op v2 v)``,
-ho_match_mp_tac (CompileTheory.syneq_strongind) >> rw[] >>
-Cases_on `v` >> rw[] >>
-Cases_on `l` >> rw[])
+ho_match_mp_tac Cv_ind >>
+rw[] >> pop_assum mp_tac >>
+simp[Once syneq_cases] >> rw[] >>
+Cases_on `v` >> rw[])
 
 val CevalUpd_syneq = store_thm(
 "CevalUpd_syneq",
-``∀c s1 v1 v2 s2 w1 w2.
-  syneq c v1 w1 ∧ syneq c v2 w2 ∧ fmap_rel (syneq c) s1 s2 ⇒
-  fmap_rel (syneq c) (FST (CevalUpd s1 v1 v2)) (FST (CevalUpd s2 w1 w2)) ∧
-  result_rel (syneq c) (SND (CevalUpd s1 v1 v2)) (SND (CevalUpd s2 w1 w2))``,
-  ntac 2 gen_tac >>
+``∀c1 c2 s1 v1 v2 s2 w1 w2.
+  syneq c1 c2 v1 w1 ∧ syneq c1 c2 v2 w2 ∧ fmap_rel (syneq c1 c2) s1 s2 ⇒
+  fmap_rel (syneq c1 c2) (FST (CevalUpd s1 v1 v2)) (FST (CevalUpd s2 w1 w2)) ∧
+  result_rel (syneq c1 c2) (SND (CevalUpd s1 v1 v2)) (SND (CevalUpd s2 w1 w2))``,
+  ntac 3 gen_tac >>
   Cases >> simp[] >>
   ntac 2 gen_tac >>
   Cases >> simp[] >>
-  simp[Once syneq_cases] >>
   rw[] >> TRY (
     match_mp_tac fmap_rel_FUPDATE_same >>
     rw[] ) >>
