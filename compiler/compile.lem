@@ -17,32 +17,14 @@
 (* TODO: printing *)
 
 (* TODO: move to lem *)
-val fold_left2 : forall 'a 'b 'c. ('a -> 'b -> 'c -> 'a) -> 'a -> list 'b -> list 'c -> 'a
-let inline {hol} fold_left2 f a lb lc =
-  (* TODO: LEM internal error:
-  List.fold_left (fun a -> Hol.UNCURRY (f a)) a (List.combine lb lc)
-  *)
-  (* TODO: LEM internal error:
-  List.fold_left (fun a (b,c) -> f a b c) a (List.combine lb lc)
-  *)
-  Hol.FOLDL2 f a lb lc
-(* TODO: lem library should use this for List.for_all2 *)
-val every2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool
-let inline {hol} every2 = Hol.EVERY2
 val least : (num -> bool) -> num
 let inline {hol} least = Hol.LEAST
-val int_to_num : int -> num
-let inline {hol} int_to_num = Hol.Num
 val alist_to_fmap : forall 'a 'b. list ('a * 'b) -> Pmap.map 'a 'b
 let inline {hol} alist_to_fmap = Hol.alist_to_fmap
 val optrel : forall 'a 'b 'c 'd. ('a -> 'b -> bool) -> 'c -> 'd -> bool
 let inline {hol} optrel = Hol.OPTREL
 val flookup : forall 'a 'b 'c. Pmap.map 'a 'b -> 'a -> 'c
 let inline {hol} flookup = Hol.FLOOKUP
-val fdom : forall 'a 'b. Pmap.map 'a 'b -> set 'a
-let inline {hol} fdom = Hol.FDOM
-val domsub : forall 'a 'b. Pmap.map 'a 'b -> 'a -> Pmap.map 'a 'b
-let inline {hol} domsub = Hol.DOMSUB
 val genlist : forall 'a. (num -> 'a) -> num -> list 'a
 let inline {hol} genlist = Hol.GENLIST
 open MiniML
@@ -493,7 +475,7 @@ true
 syneq c1 c2 (CLitv l) (CLitv l)
 and
 forall c1 c2 cn vs1 vs2.
-every2 (syneq c1 c2) vs1 vs2
+List.for_all2 (syneq c1 c2) vs1 vs2
 ==>
 syneq c1 c2 (CConv cn vs1) (CConv cn vs2)
 and
@@ -520,7 +502,7 @@ optrel (syneq c1 c2) (el_check (v1-k) env1) (el_check (v2-k) env2)
 syneq_var c1 c2 k env1 env2 v1 v2
 and
 forall c1 c2 k env1 env2 xs1 xs2.
-every2 (syneq_var c1 c2 k env1 env2) (List.map (fun (n,m) -> n) xs1) (List.map (fun (n,m) -> n) xs2)
+List.for_all2 (syneq_var c1 c2 k env1 env2) (List.map (fun (n,m) -> n) xs1) (List.map (fun (n,m) -> n) xs2)
 ==>
 syneq_exp c1 c2 k env1 env2 (CDecl xs1) (CDecl xs2)
 and
@@ -546,7 +528,7 @@ true
 syneq_exp c1 c2 k env1 env2 (CLit lit) (CLit lit)
 and
 forall c1 c2 k env1 env2 cn es1 es2.
-every2 (syneq_exp c1 c2 k env1 env2) es1 es2
+List.for_all2 (syneq_exp c1 c2 k env1 env2) es1 es2
 ==>
 syneq_exp c1 c2 k env1 env2 (CCon cn es1) (CCon cn es2)
 and
@@ -567,7 +549,7 @@ syneq_exp c1 c2 (k+1) env1 env2 b1 b2
 syneq_exp c1 c2 k env1 env2 (CLet e1 b1) (CLet e2 b2)
 and
 forall c1 c2 k env1 env2 defs1 defs2 b1 b2.
-every2 (syneq_cb c1 c2 env1 env2 defs1 defs2) defs1 defs2 &&
+List.for_all2 (syneq_cb c1 c2 env1 env2 defs1 defs2) defs1 defs2 &&
 syneq_exp c1 c2 (k+(List.length defs1)) env1 env2 b1 b2
 ==>
 syneq_exp c1 c2 k env1 env2 (CLetrec defs1 b1) (CLetrec defs2 b2)
@@ -579,7 +561,7 @@ syneq_exp c1 c2 k env1 env2 (CFun cb1) (CFun cb2)
 and
 forall c1 c2 k env1 env2 e1 e2 es1 es2.
 syneq_exp c1 c2 k env1 env2 e1 e2 &&
-every2 (syneq_exp c1 c2 k env1 env2) es1 es2
+List.for_all2 (syneq_exp c1 c2 k env1 env2) es1 es2
 ==>
 syneq_exp c1 c2 k env1 env2 (CCall e1 es1) (CCall e2 es2)
 and
@@ -1580,7 +1562,7 @@ true
 bceqv il c (CLitv (Bool b)) (Number (bool_to_int b))
 and
 forall il c n vs bvs.
-every2 (bceqv il c) vs bvs
+List.for_all2 (bceqv il c) vs bvs
 ==>
 bceqv il c (CConv n vs) (Block n bvs)
 and
@@ -1615,7 +1597,7 @@ true
 v_Cv m c (Litv l) (CLitv l)
 and
 forall m c cn vs Cvs.
-every2 (v_Cv m c) vs Cvs
+List.for_all2 (v_Cv m c) vs Cvs
 ==>
 v_Cv m c (Conv cn vs) (CConv (Pmap.find cn m) Cvs)
 and
@@ -1653,7 +1635,7 @@ exp_Cexp G cm env Cenv (Lit l) (CLit l)
 and
 forall G cm env Cenv cn es Ces.
 Pmap.mem cn cm &&
-every2 (exp_Cexp G cm env Cenv) es Ces
+List.for_all2 (exp_Cexp G cm env Cenv) es Ces
 ==>
 exp_Cexp G cm env Cenv (Con cn es) (CCon (Pmap.find cn cm) Ces)
 and
@@ -1678,7 +1660,7 @@ v_Cv G cm (Litv l) (CLitv l)
 and
 forall G cm cn vs Cvs.
 Pmap.mem cn cm &&
-every2 (v_Cv G cm) vs Cvs
+List.for_all2 (v_Cv G cm) vs Cvs
 ==>
 v_Cv G cm (Conv cn vs) (CConv (Pmap.find cn cm) Cvs)
 *)
@@ -1696,7 +1678,7 @@ v_Cv cm v Cv
 exp_Cexp cm env Cenv (Val v) (CVal Cv)
 and
 forall cm env Cenv cn es Ces.
-every2 (exp_Cexp cm env Cenv) es Ces
+List.for_all2 (exp_Cexp cm env Cenv) es Ces
 ==>
 exp_Cexp cm env Cenv (Con cn es) (CCon (Pmap.find cn cm) Ces)
 and
@@ -1719,7 +1701,7 @@ true
 v_Cv cm (Lit l) (CLit l)
 and
 forall cm cn vs Cvs.
-every2 (v_Cv cm) vs Cvs
+List.for_all2 (v_Cv cm) vs Cvs
 ==>
 v_Cv cm (Conv cn vs) (CConv (Pmap.find cn cm) Cvs)
 and

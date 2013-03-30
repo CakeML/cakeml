@@ -31,16 +31,10 @@ val _ = new_theory "Compile"
 (* TODO: printing *)
 
 (* TODO: move to lem *)
-(*val fold_left2 : forall 'a 'b 'c. ('a -> 'b -> 'c -> 'a) -> 'a -> list 'b -> list 'c -> 'a*)
-(* TODO: lem library should use this for List.for_all2 *)
-(*val every2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool*)
 (*val least : (num -> bool) -> num*)
-(*val int_to_num : int -> num*)
 (*val alist_to_fmap : forall 'a 'b. list ('a * 'b) -> Pmap.map 'a 'b*)
 (*val optrel : forall 'a 'b 'c 'd. ('a -> 'b -> bool) -> 'c -> 'd -> bool*)
 (*val flookup : forall 'a 'b 'c. Pmap.map 'a 'b -> 'a -> 'c*)
-(*val fdom : forall 'a 'b. Pmap.map 'a 'b -> set 'a*)
-(*val domsub : forall 'a 'b. Pmap.map 'a 'b -> 'a -> Pmap.map 'a 'b*)
 (*val genlist : forall 'a. (num -> 'a) -> num -> list 'a*)
 (*open MiniML*)
 (*val return : forall 'a 'b. 'a -> 'b -> 'a * 'b*)
@@ -1726,7 +1720,7 @@ true
 bceqv il c (CLitv (Bool b)) (Number (bool_to_int b))
 and
 forall il c n vs bvs.
-every2 (bceqv il c) vs bvs
+List.for_all2 (bceqv il c) vs bvs
 ==>
 bceqv il c (CConv n vs) (Block n bvs)
 and
@@ -1761,7 +1755,7 @@ true
 v_Cv m c (Litv l) (CLitv l)
 and
 forall m c cn vs Cvs.
-every2 (v_Cv m c) vs Cvs
+List.for_all2 (v_Cv m c) vs Cvs
 ==>
 v_Cv m c (Conv cn vs) (CConv (Pmap.find cn m) Cvs)
 and
@@ -1799,7 +1793,7 @@ exp_Cexp G cm env Cenv (Lit l) (CLit l)
 and
 forall G cm env Cenv cn es Ces.
 Pmap.mem cn cm &&
-every2 (exp_Cexp G cm env Cenv) es Ces
+List.for_all2 (exp_Cexp G cm env Cenv) es Ces
 ==>
 exp_Cexp G cm env Cenv (Con cn es) (CCon (Pmap.find cn cm) Ces)
 and
@@ -1824,7 +1818,7 @@ v_Cv G cm (Litv l) (CLitv l)
 and
 forall G cm cn vs Cvs.
 Pmap.mem cn cm &&
-every2 (v_Cv G cm) vs Cvs
+List.for_all2 (v_Cv G cm) vs Cvs
 ==>
 v_Cv G cm (Conv cn vs) (CConv (Pmap.find cn cm) Cvs)
 *)
@@ -1842,7 +1836,7 @@ v_Cv cm v Cv
 exp_Cexp cm env Cenv (Val v) (CVal Cv)
 and
 forall cm env Cenv cn es Ces.
-every2 (exp_Cexp cm env Cenv) es Ces
+List.for_all2 (exp_Cexp cm env Cenv) es Ces
 ==>
 exp_Cexp cm env Cenv (Con cn es) (CCon (Pmap.find cn cm) Ces)
 and
@@ -1865,7 +1859,7 @@ true
 v_Cv cm (Lit l) (CLit l)
 and
 forall cm cn vs Cvs.
-every2 (v_Cv cm) vs Cvs
+List.for_all2 (v_Cv cm) vs Cvs
 ==>
 v_Cv cm (Conv cn vs) (CConv (Pmap.find cn cm) Cvs)
 and
