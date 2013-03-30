@@ -193,6 +193,14 @@ val _ = Hol_datatype `
    |>`;
 
 
+val _ = Hol_datatype `
+ closure_extra_data =
+  <| cd :closure_data
+   ; nz :num (* size of recursive bundle *)
+   ; ez :num (* size of creation-site environment *)
+   |>`;
+
+
  val free_vars_defn = Hol_defn "free_vars" `
 
 (free_vars (CDecl xs) = LIST_TO_SET ( MAP (\ (n,m) . n) xs))
@@ -394,7 +402,7 @@ Cevaluate c s env e (s', Rerr err)
 Cevaluate c s env (CLet e b) (s', Rerr err))
 
 /\
-(! c s env defs b r. EVERY (\ cb . ! l. (cb = INR l) ==>  l IN FDOM  c) defs /\
+(! c s env defs b r. EVERY (\ cb . ! l. (cb = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = LENGTH defs) /\ (( FAPPLY  c  l).ez = LENGTH env)) defs /\
 Cevaluate c s
   ( APPEND ( REVERSE ( GENLIST (CRecClos env defs) ( LENGTH defs))) env)
   b r
@@ -403,7 +411,7 @@ Cevaluate c s env (CLetrec defs b) r)
 
 /\
 (! c s env cb.
-(! l. (cb = INR l) ==>  l IN FDOM  c)
+(! l. (cb = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = 1) /\ (( FAPPLY  c  l).ez = LENGTH env))
 ==>
 Cevaluate c s env (CFun cb) (s, Rval (CRecClos env [cb] 0)))
 
@@ -412,16 +420,22 @@ Cevaluate c s env (CFun cb) (s, Rval (CRecClos env [cb] 0)))
 Cevaluate c s env e (s', Rval (CRecClos cenv defs n)) /\
 n < LENGTH defs /\ ( EL  n  defs = cb) /\
 Cevaluate_list c s' env es (s'', Rval vs) /\
-(( LENGTH vs,env'',b) =
+((T, LENGTH vs, LENGTH defs, LENGTH cenv,env'',b) =
   (case cb of
     INL (k,b) =>
-    (k
+    (T
+    ,k
+    , LENGTH defs
+    , LENGTH cenv
     ,(( REVERSE vs) ++(( REVERSE ( GENLIST (CRecClos cenv defs) ( LENGTH defs))) ++cenv))
     ,b)
-  | INR l => let cd = FAPPLY  c  l in
-    (cd.az
-    ,(( REVERSE vs) ++( MAP (ceenv cenv defs) cd.ceenv))
-    ,cd.body)
+  | INR l => let d = FAPPLY  c  l in
+    ( (l IN FDOM  c)
+    ,d.cd.az
+    ,d.nz
+    ,d.ez
+    ,(( REVERSE vs) ++( MAP (ceenv cenv defs) d.cd.ceenv))
+    ,d.cd.body)
   )) /\
 Cevaluate c s'' env'' b r
 ==>

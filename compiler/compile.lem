@@ -166,6 +166,12 @@ type closure_data =
    ; body  :Cexp  (* adjusted for ctenv *)
    |>
 
+type closure_extra_data =
+  <| cd :closure_data
+   ; nz :num (* size of recursive bundle *)
+   ; ez :num (* size of creation-site environment *)
+   |>
+
 let rec
 free_vars (CDecl xs) = Set.from_list (List.map (fun (n,m) -> n) xs)
 and
@@ -355,7 +361,9 @@ Cevaluate c s env (CLet e b) (s', Rerr err)
 
 and
 forall c s env defs b r.
-List.for_all (fun cb -> forall l. cb = Inr l --> Pmap.mem l c) defs &&
+List.for_all (fun cb -> forall l. cb = Inr l --> Pmap.mem l c
+  && (Pmap.find l c).nz = List.length defs
+  && (Pmap.find l c).ez = List.length env) defs &&
 Cevaluate c s
   (List.append (List.rev (genlist (CRecClos env defs) (List.length defs))) env)
   b r
@@ -364,7 +372,9 @@ Cevaluate c s env (CLetrec defs b) r
 
 and
 forall c s env cb.
-(forall l. cb = Inr l --> Pmap.mem l c)
+(forall l. cb = Inr l --> Pmap.mem l c
+  && (Pmap.find l c).nz = 1
+  && (Pmap.find l c).ez = List.length env)
 ==>
 Cevaluate c s env (CFun cb) (s, Rval (CRecClos env [cb] 0))
 
@@ -373,16 +383,22 @@ forall c s env e es s' cenv defs n cb b env'' s'' vs r.
 Cevaluate c s env e (s', Rval (CRecClos cenv defs n)) &&
 n < List.length defs && List.nth defs n = cb &&
 Cevaluate_list c s' env es (s'', Rval vs) &&
-(List.length vs,env'',b) =
+(true,List.length vs,List.length defs,List.length cenv,env'',b) =
   match cb with
   | Inl (k,b) ->
-    (k
+    (true
+    ,k
+    ,List.length defs
+    ,List.length cenv
     ,(List.rev vs)@(List.rev (genlist (CRecClos cenv defs) (List.length defs)))@cenv
     ,b)
-  | Inr l -> let cd = Pmap.find l c in
-    (cd.az
-    ,(List.rev vs)@(List.map (ceenv cenv defs) cd.ceenv)
-    ,cd.body)
+  | Inr l -> let d = Pmap.find l c in
+    (Pmap.mem l c
+    ,d.cd.az
+    ,d.nz
+    ,d.ez
+    ,(List.rev vs)@(List.map (ceenv cenv defs) d.cd.ceenv)
+    ,d.cd.body)
   end &&
 Cevaluate c s'' env'' b r
 ==>
