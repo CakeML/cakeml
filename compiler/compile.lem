@@ -258,11 +258,14 @@ and
 ceenv env defs (CERef n) = CRecClos env defs (n-1)
 
 let rec
-ccenv vs env cenv defs (CCArg v) = List.nth (List.rev vs) (v-2)
+ccenv vs env cenv defs n (CCArg v) =
+  if v = 2+List.length vs
+  then CRecClos cenv defs n
+  else List.nth (List.rev vs) (v-2)
 and
-ccenv vs env cenv defs (CCEnv v) = ceenv cenv defs (List.nth env v)
+ccenv vs env cenv defs n (CCEnv v) = ceenv cenv defs (List.nth env v)
 and
-ccenv vs env cenv defs (CCRef v) = ceenv cenv defs (List.nth env v)
+ccenv vs env cenv defs n (CCRef v) = ceenv cenv defs (List.nth env v)
 
 indreln
 forall c s env error.
@@ -384,7 +387,7 @@ Cevaluate_list c s' env es (s'', Rval vs) &&
     ,d.cd.az
     ,d.nz
     ,d.ez
-    ,List.map (ccenv vs d.cd.ceenv cenv defs) d.cd.ccenv
+    ,List.map (ccenv vs d.cd.ceenv cenv defs n) d.cd.ccenv
     ,d.cd.body)
   end &&
 Cevaluate c s'' env'' b r

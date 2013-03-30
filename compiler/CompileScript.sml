@@ -315,11 +315,14 @@ val _ = Defn.save_defn no_closures_defn;
 
  val ccenv_def = Define `
 
-(ccenv vs env cenv defs (CCArg v) = EL  (v - 2)  ( REVERSE vs))
+(ccenv vs env cenv defs n (CCArg v) =
+  if v = 2 + LENGTH vs
+  then CRecClos cenv defs n
+  else EL  (v - 2)  ( REVERSE vs))
 /\
-(ccenv vs env cenv defs (CCEnv v) = ceenv cenv defs ( EL  v  env))
+(ccenv vs env cenv defs n (CCEnv v) = ceenv cenv defs ( EL  v  env))
 /\
-(ccenv vs env cenv defs (CCRef v) = ceenv cenv defs ( EL  v  env))`;
+(ccenv vs env cenv defs n (CCRef v) = ceenv cenv defs ( EL  v  env))`;
 
 
 val _ = Hol_reln `
@@ -437,7 +440,7 @@ Cevaluate_list c s' env es (s'', Rval vs) /\
     ,d.cd.az
     ,d.nz
     ,d.ez
-    , MAP (ccenv vs d.cd.ceenv cenv defs) d.cd.ccenv
+    , MAP (ccenv vs d.cd.ceenv cenv defs n) d.cd.ccenv
     ,d.cd.body)
   )) /\
 Cevaluate c s'' env'' b r
