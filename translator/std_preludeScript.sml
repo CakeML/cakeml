@@ -238,7 +238,7 @@ val PTREE_TYPE_def = fetch "-" "PTREE_TYPE_def";
 val FMAP_TYPE_def = Define `
   FMAP_TYPE a f = \v. ?p. PTREE_TYPE a p v /\ FMAP_EQ_PTREE f p`;
 
-val _ = add_type_inv ``FMAP_TYPE (a:'a -> tv -> bool)`` ``:'a ptree``;
+val _ = add_type_inv ``FMAP_TYPE (a:'a -> v -> bool)`` ``:'a ptree``;
 
 val res = translate BRANCHING_BIT_def;
 val PEEK_eval = translate PEEK_def;
@@ -296,7 +296,7 @@ val evaluate_closure_INTRO = prove(
 
 val EXISTS_SWAP = METIS_PROVE [] ``(?x y. P x y) ==> (?y x. P x y)``
 
-val _ = augment_srw_ss [rewrites [add_tvs_def,do_tapp_def]];
+(* val _ = augment_srw_ss [rewrites [do_tapp_def]]; *)
 
 val tac =
   REPEAT STRIP_TAC
@@ -330,7 +330,8 @@ val tac =
     THEN Q.LIST_EXISTS_TAC [`T`,`F`,`T`]
     THEN FULL_SIMP_TAC std_ss [CONTAINER_def]
     THEN REPEAT STRIP_TAC THEN1
-     (`g x = F` by METIS_TAC []
+     (`g x = F` by ALL_TAC
+      THEN1 (FULL_SIMP_TAC std_ss [])
       THEN POP_ASSUM (fn th => ONCE_REWRITE_TAC [GSYM th])
       THEN MATCH_MP_TAC (REWRITE_RULE [AND_IMP_INTRO] Eval_Arrow)
       THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
@@ -355,9 +356,7 @@ val tac =
   THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
   THEN SIMP_TAC (srw_ss()) [Once do_app_def,find_recfun_def]
   THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
-  THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
   THEN SIMP_TAC (srw_ss()) [Once do_app_def,find_recfun_def]
-  THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
   THEN SIMP_TAC (srw_ss()) [Once do_app_def,find_recfun_def]
   THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
   THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
@@ -378,30 +377,28 @@ val tac =
   THEN FULL_SIMP_TAC (srw_ss()) [FUNPOW]
 
 val Eval_OWHILE = prove(
-  ``PRECONDITION (IS_SOME (OWHILE g f x)) ==>
+  ``PRECONDITION (IS_SOME (OWHILE g f (x:'a))) ==>
     Eval env (Letrec NONE
-          [("owhile",NONE,"g",NONE,
-            Fun "f" NONE
-              (Fun "x" NONE
-                 (If (App Opapp (Var "g" NONE) (Var "x" NONE))
-                    (App Opapp
-                       (App Opapp (App Opapp (Var "owhile" NONE) (Var "g" NONE))
-                          (Var "f" NONE)) (App Opapp (Var "f" NONE) (Var "x" NONE)))
-                    (Con "Some" [Var "x" NONE]))))] (Var "owhile" NONE))
+      [("owhile","g",
+        Fun "f" (Fun "x"
+          (If (App Opapp (Var (Short "g")) (Var (Short "x")))
+            (App Opapp
+             (App Opapp (App Opapp (Var (Short "owhile")) (Var (Short "g")))
+              (Var (Short "f"))) (App Opapp (Var (Short "f")) (Var (Short "x"))))
+            (Con (Short "Some") [Var (Short "x")]))))] (Var (Short "owhile")))
       ((Eq (a --> BOOL) g --> Eq (a --> a) f --> Eq a x --> OPTION_TYPE a) OWHILE)``,
   tac) |> UNDISCH_ALL |> store_eval_thm;
 
 val Eval_WHILE = prove(
-  ``PRECONDITION (IS_SOME (OWHILE g f x)) ==>
+  ``PRECONDITION (IS_SOME (OWHILE g f (x:'a))) ==>
     Eval env (Letrec NONE
-          [("w",NONE,"g",NONE,
-            Fun "f" NONE
-              (Fun "x" NONE
-                 (If (App Opapp (Var "g" NONE) (Var "x" NONE))
-                    (App Opapp
-                       (App Opapp (App Opapp (Var "w" NONE) (Var "g" NONE))
-                          (Var "f" NONE)) (App Opapp (Var "f" NONE) (Var "x" NONE)))
-                    (Var "x" NONE))))] (Var "w" NONE))
+         [("w","g",
+           Fun "f" (Fun "x"
+            (If (App Opapp (Var (Short "g")) (Var (Short "x")))
+               (App Opapp
+                (App Opapp (App Opapp (Var (Short "w")) (Var (Short "g")))
+                 (Var (Short "f"))) (App Opapp (Var (Short "f")) (Var (Short "x"))))
+               (Var (Short "x")))))] (Var (Short "w")))
       ((Eq (a --> BOOL) g --> Eq (a --> a) f --> Eq a x --> a) WHILE)``,
   tac) |> UNDISCH_ALL |> store_eval_thm;
 

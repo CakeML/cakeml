@@ -120,7 +120,7 @@ in
             else if can (match_term ``(Dlet v x) : dec``) decl then
               (fn (n:string,tm:term,th,pre) =>
                 (n,tm,(MATCH_MP DeclAssum_Dlet th
-                 |> SPEC (rand (rator (rand (rator decl)))) |> SPEC (rand decl)
+                 |> SPEC (rand (rand (rator decl))) |> SPEC (rand decl)
                  |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) |> REWRITE_RULE [])
                  handle HOL_ERR _ => th,pre))
             else if can (match_term ``(Dtype x) : dec``) decl then
@@ -151,7 +151,7 @@ in
     val tm = concl (th |> SPEC_ALL |> UNDISCH_ALL)
     val const = tm |> rand |> rand
     val _ = is_const const orelse fail()
-    val n = tm |> rator |> rand |> rator |> rand |> stringSyntax.fromHOLstring
+    val n = tm |> rator |> rand |> rand |> rand |> stringSyntax.fromHOLstring
     val _ = (cert_memory := (n,const,th,pre)::(!cert_memory))
     val _ = update_decl_abbreviation ()
     val (_,_,th,pre) = hd (!cert_memory)
@@ -1469,9 +1469,9 @@ fun apply_Eval_Recclosure fname v th = let
   val body = th |> UNDISCH_ALL |> concl |> rator |> rand
   val inv = get_type_inv (type_of v)
   val new_env = ``(^vname_str,v:v)::(^fname_str,
-                    Recclosure env [(^fname_str,vname_str,^body)] ^fname_str)::(env:envE)``
+                    Recclosure env [(^fname_str,^vname_str,^body)] ^fname_str)::(env:envE)``
   val old_env = ``env:envE``
-  val assum = subst [old_env|->new_env] ``Eval env (Var ^vname_str) (^inv ^v)``
+  val assum = subst [old_env|->new_env] ``Eval env (Var (Short ^vname_str)) (^inv ^v)``
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum |> SIMP_RULE bool_ss []
                |> INST [old_env|->new_env]
@@ -1563,7 +1563,7 @@ val MAP_pattern = ``MAP (f:'a->'b)``
 val tm = rhs
 
 val tm = ``MAP (\v3. type_subst v6 v3) args`` |> rator
-val tm = ``THE : 'c option -> 'c``
+val tm = ``xs ++ ys``
 *)
 
 fun hol2deep tm =
@@ -1598,7 +1598,7 @@ fun hol2deep tm =
     val inv = mk_inv xs (get_type_inv (type_of tm))
     val ss = fst (match_term (rec_term ()) tm)
     val pre = subst ss (rec_pre_var ())
-    val h = ASSUME ``PreImp ^pre (Eval env (Var ^str) (^inv ^f))``
+    val h = ASSUME ``PreImp ^pre (Eval env (Var (Short ^str)) (^inv ^f))``
             |> RW [PreImp_def] |> UNDISCH
     val ys = map (fn tm => MATCH_MP Eval_Eq (hol2deep tm)) xs
     fun apply_arrow hyp [] = hyp
@@ -1876,7 +1876,7 @@ fun extract_precondition th pre_var is_rec =
 (* main translation routines *)
 
 (*
-val def = LENGTH;
+val def = APPEND;
 val def = optionTheory.THE_DEF; translate def;
 *)
 
