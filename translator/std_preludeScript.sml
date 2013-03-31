@@ -378,7 +378,7 @@ val tac =
 
 val Eval_OWHILE = prove(
   ``PRECONDITION (IS_SOME (OWHILE g f (x:'a))) ==>
-    Eval env (Letrec NONE
+    Eval env (Letrec 
       [("owhile","g",
         Fun "f" (Fun "x"
           (If (App Opapp (Var (Short "g")) (Var (Short "x")))
@@ -391,7 +391,7 @@ val Eval_OWHILE = prove(
 
 val Eval_WHILE = prove(
   ``PRECONDITION (IS_SOME (OWHILE g f (x:'a))) ==>
-    Eval env (Letrec NONE
+    Eval env (Letrec 
          [("w","g",
            Fun "f" (Fun "x"
             (If (App Opapp (Var (Short "g")) (Var (Short "x")))
