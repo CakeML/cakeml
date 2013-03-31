@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "lexer_fun";
 
-open stringTheory stringLib listTheory TokensTheory intLib;
+open stringTheory stringLib listTheory TokensTheory ASCIInumbersTheory intLib;
 
 (* This script defines the functional spec for the assmebly
    implementation of the lexer. This lexer specification consists of
@@ -15,6 +15,7 @@ open stringTheory stringLib listTheory TokensTheory intLib;
 val _ = Hol_datatype `symbol = StringS of string
                              | NumberS of num
                              | OtherS of string
+                             | WhitespaceS
                              | ErrorS `;
 
 (* helper functions *)
@@ -27,10 +28,6 @@ val read_while_def = Define `
 
 val is_single_char_symbol_def = Define `
   is_single_char_symbol c = MEM c "()[];~"`;
-
-val str_to_num_def = Define `
-  (str_to_num "" = 0:num) /\
-  (str_to_num (STRING c s) = (ORD c - ORD #"0") * 10 ** (LENGTH s) + str_to_num s)`;
 
 val isSymbol_def = Define `
   isSymbol c = (~(isSpace c) /\ ~(isDigit c) /\ ~(isAlpha c) /\
@@ -99,10 +96,11 @@ val str_to_syms_def = tDefine "str_to_syms" `
   (str_to_syms "" = []) /\
   (str_to_syms (c::str) =
      if isSpace c then (* skip blank space *)
-       str_to_syms str else
+       let (n,rest) = read_while isSpace str "" in
+         WhitespaceS :: str_to_syms str else
      if isDigit c then (* read number *)
        let (n,rest) = read_while isDigit str "" in
-         NumberS (str_to_num (c::n)) :: str_to_syms rest else
+         NumberS (num_from_dec_string (c::n)) :: str_to_syms rest else
      if isAlpha c then (* read alpha-numeric identifier/keyword *)
        let (n,rest) = read_while isAlphaNum str "" in
          OtherS (c::n) :: str_to_syms rest else
@@ -194,12 +192,13 @@ val get_token_def = Define `
     if s = "while" then SOME WhileT else
     if s = "with" then SOME WithT else
     if s = "withtype" then SOME WithtypeT else
-      SOME (SymbolT s)`
+    if EVERY isAlphaNum s then SOME (AlphaT s) else SOME (SymbolT s)`;
 
 (*
 
 Warning! The get_token function never maps into any of the following:
 
+  NewlineT
   ZeroT
   DigitT of string
   NumericT of string
@@ -209,7 +208,6 @@ Warning! The get_token function never maps into any of the following:
   RealT of string
   CharT of string
   TyvarT of string
-  AlphaT of string
   LongidT of string
 
 *)
@@ -217,6 +215,8 @@ Warning! The get_token function never maps into any of the following:
 val syms_to_tokens_def = Define `
   (syms_to_tokens acc [] = SOME acc) /\
   (syms_to_tokens acc (ErrorS::xs) = NONE) /\
+  (syms_to_tokens acc (WhitespaceS::xs) =
+   syms_to_tokens (SNOC (WhitespaceT 0) acc) xs) /\
   (syms_to_tokens acc (StringS s::xs) =
    syms_to_tokens (SNOC (StringT s) acc) xs) /\
   (syms_to_tokens acc (NumberS n::xs) =
