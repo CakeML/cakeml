@@ -886,28 +886,24 @@ fun last_x_assum x = rev_assum_list >> first_x_assum x >> rev_assum_list
 val Cevaluate_syneq = store_thm("Cevaluate_syneq",
   ``(∀c1 s1 env1 exp1 res1. Cevaluate c1 s1 env1 exp1 res1 ⇒
       ∀k c2 s2 env2 exp2 res2.
-        let cd1 = closure_extra_data_cd o_f c1 in
-        let cd2 = closure_extra_data_cd o_f c2 in
-        syneq_exp cd1 cd2 k (DROP k env1) (DROP k env2) exp1 exp2
+        syneq_exp c1 c2 k (DROP k env1) (DROP k env2) exp1 exp2
       ∧ k ≤ LENGTH env1 ∧ k ≤ LENGTH env2
-      ∧ EVERY2 (syneq cd1 cd2) (TAKE k env1) (TAKE k env2)
-      ∧ EVERY2 (syneq cd1 cd2) s1 s2
+      ∧ EVERY2 (syneq c1 c2) (TAKE k env1) (TAKE k env2)
+      ∧ EVERY2 (syneq c1 c2) s1 s2
       ⇒ ∃res2.
         Cevaluate c2 s2 env2 exp2 res2 ∧
-        EVERY2 (syneq cd1 cd2) (FST res1) (FST res2) ∧
-        result_rel (syneq cd1 cd2) (SND res1) (SND res2)) ∧
+        EVERY2 (syneq c1 c2) (FST res1) (FST res2) ∧
+        result_rel (syneq c1 c2) (SND res1) (SND res2)) ∧
     (∀c1 s1 env1 es1 res1. Cevaluate_list c1 s1 env1 es1 res1 ⇒
       ∀k c2 s2 env2 es2 res2.
-        let cd1 = closure_extra_data_cd o_f c1 in
-        let cd2 = closure_extra_data_cd o_f c2 in
-        EVERY2 (syneq_exp cd1 cd2 k (DROP k env1) (DROP k env2)) es1 es2
+        EVERY2 (syneq_exp c1 c2 k (DROP k env1) (DROP k env2)) es1 es2
       ∧ k ≤ LENGTH env1 ∧ k ≤ LENGTH env2
-      ∧ EVERY2 (syneq cd1 cd2) (TAKE k env1) (TAKE k env2)
-      ∧ EVERY2 (syneq cd1 cd2) s1 s2
+      ∧ EVERY2 (syneq c1 c2) (TAKE k env1) (TAKE k env2)
+      ∧ EVERY2 (syneq c1 c2) s1 s2
       ⇒ ∃res2.
         Cevaluate_list c2 s2 env2 es2 res2 ∧
-        EVERY2 (syneq cd1 cd2) (FST res1) (FST res2) ∧
-        result_rel (EVERY2 (syneq cd1 cd2)) (SND res1) (SND res2))``,
+        EVERY2 (syneq c1 c2) (FST res1) (FST res2) ∧
+        result_rel (EVERY2 (syneq c1 c2)) (SND res1) (SND res2))``,
   ho_match_mp_tac Cevaluate_strongind >>
   strip_tac >- simp[Once syneq_cases] >>
   strip_tac >- (
@@ -964,12 +960,33 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
       rev_full_simp_tac(srw_ss()++ARITH_ss)[EL_DROP] >>
       full_simp_tac(srw_ss()++ARITH_ss)[EL_DROP] >>
       rev_full_simp_tac(srw_ss()++ARITH_ss)[] ) >>
-    fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD]
+    fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
     last_x_assum match_mp_tac >>
     lrw[MEM_ZIP,EL_TAKE] >>
     qexists_tac`n` >> simp[EL_TAKE] ) >>
   strip_tac >- simp[Once syneq_cases] >>
-  strip_tac
+  strip_tac >- cheat >>
+  strip_tac >- cheat >>
+  strip_tac >- cheat >>
+  strip_tac >- cheat >>
+  strip_tac >- cheat >>
+  strip_tac >- cheat >>
+  strip_tac >- cheat >>
+  strip_tac >- cheat >>
+  strip_tac >- (
+    rw[] >>
+    rator_assum`syneq_exp`mp_tac >>
+    simp[Once (CONJUNCT2 syneq_cases)] >>
+    fsrw_tac[DNF_ss][] >>
+    map_every qx_gen_tac[`defs2`,`b2`] >>
+    strip_tac >>
+    first_x_assum(qspecl_then[`k + LENGTH defs`,`c2`,`s2`,`REVERSE (GENLIST (CRecClos env2 defs2) (LENGTH defs2)) ++ env2`,`b2`]mp_tac) >>
+    `LENGTH defs2 = LENGTH defs`by fs[EVERY2_EVERY] >>
+    simp[DROP_APPEND2,LENGTH_REVERSE,LENGTH_GENLIST,TAKE_APPEND2] >>
+    simp[Once Cevaluate_cases,SimpR``$==>``]
+
+
+    set_trace"goalstack print goal at top"0
 
 
 val syneq_Cevaluate = store_thm("syneq_Cevaluate",
