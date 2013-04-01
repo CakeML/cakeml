@@ -531,7 +531,7 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_def, decode_left_inverse,
 val apply_subst_t_def = Define `
 apply_subst_t s t = decode_infer_t (subst_APPLY (encode_infer_t o_f s) (encode_infer_t t))`;
 
-val apply_subst_t_eqn = Q.store_thm ("apply_subst_eqn",
+val apply_subst_t_eqn = Q.store_thm ("apply_subst_t_eqn",
 `(!s n.
   apply_subst_t s (Infer_Tuvar n) =
    case FLOOKUP s n of
