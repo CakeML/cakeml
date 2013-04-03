@@ -104,6 +104,14 @@ n_fresh_uvar (n:num) =
        return (v::vs)
     od`;
 
+val init_infer_state_def = Define `
+  init_infer_state = <| next_uvar := 0; subst := FEMPTY |>`;
+
+val init_state_def = Define `
+init_state =
+  \st.
+    (Success (), init_infer_state)`;
+
 val add_constraint_def = Define `
 add_constraint t1 t2 =
   \st. 
@@ -395,7 +403,8 @@ val infer_e_def = tDefine "infer_e" `
 val infer_d_def = Define `
 (infer_d mn menv cenv env (Dlet p e) = 
   if is_value e then
-    do n <- get_next_uvar;
+    do () <- init_state;
+       n <- get_next_uvar;
        t1 <- infer_e menv cenv env e;
        (t2,env') <- infer_p cenv p;
        () <- guard (ALL_DISTINCT (MAP FST env')) "Duplicate pattern variable";
@@ -404,14 +413,16 @@ val infer_d_def = Define `
        return ([], ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts))
     od
   else
-    do t1 <- infer_e menv cenv env e;
+    do () <- init_state;
+       t1 <- infer_e menv cenv env e;
        (t2,env') <- infer_p cenv p;
        () <- guard (ALL_DISTINCT (MAP FST env')) "Duplicate pattern variable";
        () <- add_constraint t1 t2;
        return ([],MAP (λ(n,t). (n,(0,t))) env')
     od) ∧
 (infer_d mn menv cenv env (Dletrec funs) =
-  do next <- get_next_uvar;
+  do () <- init_state;
+     next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
      env' <- return (merge (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars) env);
      () <- infer_funs menv cenv env' funs;
@@ -483,7 +494,8 @@ val check_weakE_def = Define `
   case lookup n env_impl of
     | NONE => failwith "Signature mismatch"
     | SOME (tvs_impl,t_impl) =>
-        do uvs <- n_fresh_uvar tvs_impl;
+        do () <- init_state;
+           uvs <- n_fresh_uvar tvs_impl;
            t <- return (infer_deBruijn_subst uvs t_impl);
            () <- add_constraint t_spec t;
            check_weakE env_impl env_spec
@@ -516,8 +528,5 @@ val infer_prog_def = Define `
     (menv'',cenv''',env''') <- infer_prog ((mn,env'')::menv) (cenv'' ++ cenv) env ds2;
     return (menv'' ++ [(mn,env'')], cenv''' ++ cenv'', env''')
   od)`;
-
-val init_infer_state_def = Define `
-  init_infer_state = <| next_uvar := 0; subst := FEMPTY |>`;
 
 val _ = export_theory ();
