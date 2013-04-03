@@ -53,7 +53,6 @@ val data = map
   , datatype_exp_to_Cexp_state
   , datatype_ccbind
   , datatype_ctbind
-  , datatype_cebind
   , datatype_closure_data
   , datatype_label_closures_state
   , datatype_call_context
@@ -83,7 +82,8 @@ val defs = map EmitML.DEFN
 , prim1_to_bc_def
 , prim2_to_bc_def
 , find_index_def
-, emit_ec_def
+, emit_ceref_def
+, emit_ceenv_def
 , bind_fv_def
 , num_fold_def
 , label_defs_def

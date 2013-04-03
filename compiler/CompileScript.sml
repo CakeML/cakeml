@@ -162,7 +162,7 @@ val _ = Hol_datatype `
 
 (* values in compile-time environment *)
 val _ = Hol_datatype `
- ccbind = CCArg of num | CCEnv of num | CCRef of num`;
+ ccbind = CCArg of num | CCRef of num | CCEnv of num`;
 
 val _ = Hol_datatype `
  ctbind = CTLet of num | CTEnv of ccbind`;
@@ -172,15 +172,8 @@ val _ = Hol_datatype `
    CCEnv n means El n of the environment, which is at stack[sz]
    CCRef n means El n of the environment, but it's a ref pointer *)
 val _ = type_abbrev( "ccenv" , ``: ccbind list``);
+val _ = type_abbrev( "ceenv" , ``: num list # num list``); (* indices of recursive closures, free variables *)
 val _ = type_abbrev( "ctenv" , ``: ctbind list``);
-
-(* for constructing closure environments *)
-val _ = Hol_datatype `
- cebind = CEEnv of num | CERef of num`;
-
-(* CEEnv n means take (Var n) in the creation-site environment
- * CERef n means we want the nth closure in the recursive bundle *)
-val _ = type_abbrev( "ceenv" , ``: cebind list``);
 
 val _ = Hol_datatype `
  closure_data =
@@ -308,25 +301,6 @@ val _ = Defn.save_defn no_closures_defn;
 (CevalPrim1 _ s _ = (s, Rerr Rtype_error))`;
 
 
- val ceenv_def = Define `
-
-(ceenv env defs (CEEnv v) = EL  v  env)
-/\
-(ceenv env defs (CERef n) = CRecClos env defs (n - 1))`;
-
-
- val ccenv_def = Define `
-
-(ccenv vs env cenv defs n (CCArg v) =
-  if v = 2 + LENGTH vs
-  then CRecClos cenv defs n
-  else EL  (v - 2)  ( REVERSE vs))
-/\
-(ccenv vs env cenv defs n (CCEnv v) = ceenv cenv defs ( EL  v  env))
-/\
-(ccenv vs env cenv defs n (CCRef v) = ceenv cenv defs ( EL  v  env))`;
-
-
 val _ = Hol_reln `
 (! c s env error.
 T
@@ -438,11 +412,12 @@ Cevaluate_list c s' env es (s'', Rval vs) /\
     ,(( REVERSE vs) ++(( REVERSE ( GENLIST (CRecClos cenv defs) ( LENGTH defs))) ++cenv))
     ,b)
   | INR l => let d = FAPPLY  c  l in
+             let (recs,envs) = d.cd.ceenv in
     ( (l IN FDOM  c)
     ,d.cd.az
     ,d.nz
     ,d.ez
-    , MAP (ccenv vs d.cd.ceenv cenv defs n) d.cd.ccenv
+    , ( REVERSE vs ++(((CRecClos cenv defs n) :: MAP (CRecClos cenv defs) recs) ++ MAP (\n. EL n  cenv) envs))
     ,d.cd.body)
   )) /\
 Cevaluate c s'' env'' b r
@@ -537,18 +512,12 @@ Cevaluate_list c s env (e ::es) (s'', Rerr err))`;
 /\
 (syneq_cb_aux c d nz ez (INR l) =
   let cd = FAPPLY  c  l in
+  let (recs,envs) = cd.cd.ceenv in
   ( (l IN FDOM  c /\ (cd.nz = nz) /\ (cd.ez = ez))
   ,cd.cd.az
   ,cd.cd.body
-  , LENGTH cd.cd.ccenv
-  , GENLIST (\ v .
-     if v = d then
-       if MEM (CCArg(2 +cd.cd.az)) cd.cd.ccenv then SOME 0 else NONE
-     else $some (\ j . ? k. ALL_DISTINCT cd.cd.ccenv /\
-       (
-       find_index (CCRef k) cd.cd.ccenv 0 = SOME j) /\
-       k < LENGTH cd.cd.ceenv /\ ( EL  k  cd.cd.ceenv = CERef (v +1))))
-   nz
+  ,(1 + LENGTH recs)
+  , GENLIST (\ v . if v = d then SOME 0 else find_index v recs 1) nz
   ))`;
 
 
@@ -946,26 +915,20 @@ val _ = Hol_datatype `
 
 
  val bind_fv_def = Define `
- (bind_fv e az nz k =
-  let k = nz - k - 1 in
-  let args = GENLIST (\ n . CCArg (2 +n)) az in
+ (bind_fv e az nz j =
+  let j = nz - j - 1 in
   let fvs = free_vars e in
-  let recs = FILTER (\ v . az +v IN fvs /\ ~  (v =k)) ( GENLIST (\ n . n) nz) in
-  let erz = LENGTH recs in
-  let erec = MAP (\ n . CERef (nz - n)) recs in
-  let (recs,rz,trec) = if k < nz /\ az +k IN fvs
-    then ((k ::recs),(erz +1),(CCArg (2 +az) ::( GENLIST (\ i . CCRef (i +1)) erz)))
-    else (recs,erz, GENLIST CCRef erz) in
+  let recs = FILTER (\ v . az +v IN fvs /\ ~  (v =j)) ( GENLIST (\ n . n) nz) in
   let envs = FILTER (\ v . az +nz <= v) ( QSORT (\ x y . x < y) ( SET_TO_LIST fvs)) in
   let envs = MAP (\ v . v -(az +nz)) envs in
+  let rz = LENGTH recs +1 in
   let e = mkshift (\ k v . if v < k then v else
-                              if v < k +nz then THE(find_index (v - k) recs k)
+                              if v < k +nz then THE(find_index (v - k) (j ::recs) k)
                               else THE(find_index (v -(k +nz)) envs (k +rz)))
                   az e in
-  let eenv = MAP CEEnv envs in
-  let tenv = GENLIST (\ i . CCEnv (erz +i)) ( LENGTH envs) in
-  <| ccenv := (args ++(trec ++tenv))
-   ; ceenv := (erec ++eenv)
+  let rz = rz - 1 in
+  <| ccenv := (( GENLIST (\ i . CCArg (2 +i)) (az +1)) ++(( GENLIST CCRef rz) ++( GENLIST (\ i . CCEnv (rz +i)) ( LENGTH envs))))
+   ; ceenv := ( MAP (\ i . nz - i) recs,envs)
    ; az := az ; body := e |>)`;
 
 
@@ -1223,18 +1186,21 @@ val _ = Defn.save_defn compile_envref_defn;
    - for each name, store the refptr back where it was
  *)
 
- val emit_ec_def = Define `
+ val emit_ceenv_def = Define `
 
-(emit_ec env z (sz,s) (CEEnv fv) = ((sz +1),compile_varref sz s ( EL  fv  env)))
-/\
+(emit_ceenv env (sz,s) fv = ((sz +1),compile_varref sz s ( EL  fv  env)))`;
+
+
+ val emit_ceref_def = Define `
+
 (* sz                                                                                         z *)
 (* e, ..., e, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0,   *)
-(emit_ec env z (sz,s) (CERef j) = ((sz +1),emit s [Stack (Load (sz - z - j))]))`;
+(emit_ceref z (sz,s) j = ((sz +1),emit s [Stack (Load (sz - z - j))]))`;
 
 
  val push_lab_def = Define `
 
-(push_lab d (s,ecs) (INL _) = (s,([] ::ecs))) (* should not happen *)
+(push_lab d (s,ecs) (INL _) = (s,(([],[]) ::ecs))) (* should not happen *)
 /\
 (push_lab d (s,ecs) (INR l) =
   (emit s [PushPtr (Lab l)],(( FAPPLY  d  l).ceenv ::ecs)))`;
@@ -1242,14 +1208,15 @@ val _ = Defn.save_defn compile_envref_defn;
 
  val cons_closure_def = Define `
 
-(cons_closure env0 sz0 sz1 nk (s,k) ec =
+(cons_closure env0 sz0 sz1 nk (s,k) (refs,envs) =
   (* sz1                                                                  sz0 *)
   (* CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0,     *)
   let s = emit s [Stack (Load (nk - k))] in
   (* CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
-  let (z,s) = FOLDL (emit_ec env0 sz0) ((sz1 +1),s) ec in
+  let (z,s) = FOLDL (emit_ceref sz0) ((sz1 +1),s) refs in
+  let (z,s) = FOLDL (emit_ceenv env0) (z,s) envs in
   (* e_kj, ..., e_k1, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
-  let s = emit s [Stack (Cons 0 ( LENGTH ec))] in
+  let s = emit s [Stack (Cons 0 ( LENGTH refs + LENGTH envs))] in
   (* env_k, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
   let s = emit s [Stack (Cons closure_tag 2)] in
   (* cl_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
