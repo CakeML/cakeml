@@ -508,16 +508,23 @@ Cevaluate_list c s env (e ::es) (s'', Rerr err))`;
 
  val syneq_cb_aux_def = Define `
 
-(syneq_cb_aux c d nz ez (INL (az,e)) = (T,az,e,nz, REVERSE ( GENLIST SOME nz)))
+(syneq_cb_aux c d nz ez (INL (az,e)) = (T,az,e,(nz +ez),
+  (\ n . if n < nz then CCRef n else
+           if n < nz +ez then CCEnv (n - nz)
+           else CCArg n)))
 /\
 (syneq_cb_aux c d nz ez (INR l) =
   let cd = FAPPLY  c  l in
   let (recs,envs) = cd.cd.ceenv in
-  ( (l IN FDOM  c /\ (cd.nz = nz) /\ (cd.ez = ez))
+  ( (l IN FDOM  c /\ (cd.nz = nz) /\ (cd.ez = ez) /\ ALL_DISTINCT recs /\ ALL_DISTINCT envs /\ ~  ( MEM d recs))
   ,cd.cd.az
   ,cd.cd.body
-  ,(1 + LENGTH recs)
-  , GENLIST (\ v . if v = d then SOME 0 else find_index v recs 1) nz
+  ,(1 + LENGTH recs + LENGTH envs)
+  ,(\ n . if n = 0 then CCRef d else
+            if n < 1 + LENGTH recs then CCRef ( EL  (n - 1)  recs) else
+            if n < 1 + LENGTH recs + LENGTH envs
+              then CCEnv ( EL  (n - 1 - LENGTH recs)  envs)
+              else CCArg n)
   ))`;
 
 
@@ -639,12 +646,13 @@ syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
 d1 < nz /\ d2 < nz /\
 ((T,az,e1,j1,r1) = syneq_cb_aux c1 d1 nz ez1 ( EL  d1  defs1)) /\
 ((T,az,e2,j2,r2) = syneq_cb_aux c2 d2 nz ez2 ( EL  d2  defs2)) /\
-syneq_exp c1 c2 (ez1 +az +j1) (ez2 +az +j2)
+syneq_exp c1 c2 (az +j1) (az +j2)
   (\ v1 v2 .
     (v1 < az /\ (v2 = v1)) \/
     (az <= v1 /\ az <= v2 /\
-      (? j. j < nz /\ ( EL  j  r1 = SOME (v1 - az)) /\ ( EL  j  r2 = SOME (v2 - az)))) \/
-    (az +j1 <= v1 /\ az +j2 <= v2 /\ V (v1 - az - j1) (v2 - az - j2)))
+      ((? j. ((r1 (v1 - az) = CCRef j) /\ (r2 (v2 - az) = CCRef j))) \/
+       (? j1 j2.
+         ((r1 (v1 - az) = CCEnv j1) /\ (r2 (v2 - az) = CCEnv j2) /\ V j1 j2)))))
   e1 e2
 ==>
 syneq_cb c1 c2 ez1 ez2 V defs1 defs2 d1 d2)`;

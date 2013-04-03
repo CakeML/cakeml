@@ -65,9 +65,24 @@ val syneq_cb_aux_def = CompileTheory.syneq_cb_aux_def
 val el_check_def = CompileTheory.el_check_def
 fun RATOR_ASSUM t ttac (g as (asl,w)) = UNDISCH_THEN (first (can (match_term t) o fst o strip_comb) asl) ttac g
 fun rator_assum q ttac = Q_TAC (C RATOR_ASSUM ttac) q
-
 val rev_assum_list = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC)
 fun last_x_assum x = rev_assum_list >> first_x_assum x >> rev_assum_list
+
+val find_index_ALL_DISTINCT_EL = store_thm(
+"find_index_ALL_DISTINCT_EL",
+``∀ls n m. ALL_DISTINCT ls ∧ n < LENGTH ls ⇒ (find_index (EL n ls) ls m = SOME (m + n))``,
+Induct >- rw[] >>
+gen_tac >> Cases >>
+srw_tac[ARITH_ss][find_index_def] >>
+metis_tac[MEM_EL])
+val _ = export_rewrites["find_index_ALL_DISTINCT_EL"]
+
+val find_index_LESS_LENGTH = store_thm(
+"find_index_LESS_LENGTH",
+``∀ls n m i. (find_index n ls m = SOME i) ⇒ (m <= i) ∧ (i < m + LENGTH ls)``,
+Induct >> rw[find_index_def] >>
+res_tac >>
+srw_tac[ARITH_ss][arithmeticTheory.ADD1])
 
 val syneq_sym = store_thm("syneq_sym",
   ``(∀c1 c2 x y. syneq c1 c2 x y ⇒ syneq c2 c1 y x) ∧
@@ -180,14 +195,23 @@ val syneq_mono_V = store_thm("syneq_mono_V",
   first_x_assum (match_mp_tac o MP_CANON) >>
   simp[] >> PROVE_TAC[] )
 
-val syneq_cb_aux_ALL_DISTINCT = store_thm("syneq_cb_aux_ALL_DISTINCT",
-  ``(syneq_cb_aux c e nz ez cb = (s,az,b,j,r)) ==>
-    (ALL_DISTINCT r ∧ (LENGTH r = nz))``,
+val syneq_cb_aux_inj = store_thm("syneq_cb_aux_inj",
+  ``(syneq_cb_aux c e nz ez cb = (T,az,b,j,r)) ==>
+    (∀x y. (r x = r y) ==> (x = y))``,
   Cases_on`cb`>>simp[syneq_cb_aux_def] >- (
     Cases_on`x`>>rw[syneq_cb_aux_def] >>
-    rw[LENGTH_REVERSE,ALL_DISTINCT_REVERSE,ALL_DISTINCT_GENLIST] ) >>
-  rw[] >> rw[LENGTH_GENLIST,ALL_DISTINCT_GENLIST] >>
-  pop_assum mp_tac >> rw[]
+    pop_assum mp_tac >> rw[] >>
+    fsrw_tac[ARITH_ss][]) >>
+  rw[UNCURRY] >>
+  pop_assum mp_tac >> rw[] >>
+  fs[MEM_EL] >> TRY (
+    qmatch_assum_rename_tac`z ≠ 0:num`[] >>
+    first_x_assum(qspec_then`z-1`mp_tac) >>
+    srw_tac[ARITH_ss][] >> NO_TAC) >>
+  fs[EL_ALL_DISTINCT_EL_EQ] >>
+  qmatch_assum_abbrev_tac`EL a ls = EL b ls` >>
+  rpt (first_x_assum(qspecl_then[`a`,`b`]mp_tac)) >>
+  simp[Abbr`a`,Abbr`b`])
 
 val syneq_trans = store_thm("syneq_trans",
   ``(∀c1 c2 x y. syneq c1 c2 x y ⇒ ∀c3 z. syneq c2 c3 y z ⇒ syneq c1 c3 x z) ∧
@@ -320,22 +344,10 @@ val syneq_trans = store_thm("syneq_trans",
   HINT_EXISTS_TAC >>
   simp[O_DEF] >>
   pop_assum kall_tac >>
-  srw_tac[DNF_ss,ARITH_ss][]
-  >- (
-    qsuff_tac`j=j'`>-metis_tac[] >>
-    qsuff_tac`ALL_DISTINCT r1' /\ (LENGTH r1' = LENGTH d2)`>-metis_tac[EL_ALL_DISTINCT_EL_EQ] >>
-    metis_tac[syneq_cb_aux_thm]
-
-  fsrw_tac[ARITH_ss][] >>
-  metis_tac[]) >>
-
-  first_x_assum (match_mp_tac o MP_CANON) >>
-  simp[] >> PROVE_TAC[] )
-  simp[O_DEF] >>
-  metis_tac[]
-  )
-*)
-
+  srw_tac[DNF_ss,ARITH_ss][] >> fs[]
+  >- ( spose_not_then strip_assume_tac >> fs[] )
+  >- ( spose_not_then strip_assume_tac >> fs[] ) >>
+  metis_tac[])
 
 val result_rel_syneq_trans = save_thm(
 "result_rel_syneq_trans",
@@ -420,22 +432,6 @@ TRY (match_mp_tac IMAGE_FINITE >> match_mp_tac FINITE_DIFF) >>
 metis_tac[])
 val _ = export_rewrites["FINITE_free_vars"]
 
-val find_index_ALL_DISTINCT_EL = store_thm(
-"find_index_ALL_DISTINCT_EL",
-``∀ls n m. ALL_DISTINCT ls ∧ n < LENGTH ls ⇒ (find_index (EL n ls) ls m = SOME (m + n))``,
-Induct >- rw[] >>
-gen_tac >> Cases >>
-srw_tac[ARITH_ss][find_index_def] >>
-metis_tac[MEM_EL])
-val _ = export_rewrites["find_index_ALL_DISTINCT_EL"]
-
-val find_index_LESS_LENGTH = store_thm(
-"find_index_LESS_LENGTH",
-``∀ls n m i. (find_index n ls m = SOME i) ⇒ (i < m + LENGTH ls)``,
-Induct >> rw[find_index_def] >>
-res_tac >>
-srw_tac[ARITH_ss][arithmeticTheory.ADD1])
-
 val Cevaluate_store_SUBSET = store_thm("Cevaluate_store_SUBSET",
   ``(∀c s env exp res. Cevaluate c s env exp res ⇒ LENGTH s ≤ LENGTH (FST res)) ∧
     (∀c s env exps res. Cevaluate_list c s env exps res ⇒ LENGTH s ≤ LENGTH (FST res))``,
@@ -461,11 +457,6 @@ val CevalPrim2_Clocs = store_thm("CevaluatePrim2_Clocs",
   Cases >> fs[] >> Cases >> fs[] >>
   TRY (Cases_on`l` >> fs[] >> Cases >> fs[] >> Cases_on `l` >> fs[] >> rw[] >> rw[]) >>
   Cases >> fs[] >> rw[] >> rw[])
-
-(* TODO: move *)
-val ccenv_def = CompileTheory.ccenv_def
-val _ = export_rewrites["compileTermination.ceenv_def"]
-val _ = export_rewrites["Compile.ccenv_def"]
 
 val good_cebind_def = Define`
   (good_cebind ez nz (CERef n) = 0 < n ∧ n ≤ nz) ∧
