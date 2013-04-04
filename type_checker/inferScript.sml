@@ -64,7 +64,7 @@ val failwith_def = Define `
 (failwith : α -> (β, γ, α) M) msg = (\s. (Failure msg, s))`;
 
 val guard_def = Define `
-guard P msg = if P then failwith msg else return ()`;
+guard P msg = if P then return () else failwith msg`;
 
 val read_def = Define `
 (read : (α, α, β) M) =
@@ -128,7 +128,9 @@ val add_constraints_def = Define `
   do () <- add_constraint t1 t2;
      () <- add_constraints ts1 ts2;
      return ()
-  od)`;
+  od) ∧
+(add_constraints _ _ =
+  failwith "Bad call to add_constraints")`;
 
 val get_next_uvar_def = Define `
 get_next_uvar =
