@@ -538,13 +538,13 @@ syneq c1 c2 (CLitv l) (CLitv l))
 ==>
 syneq c1 c2 (CConv cn vs1) (CConv cn vs2))
 /\
-(! c1 c2 V env1 env2 defs1 defs2 d1 d2.
+(! c1 c2 V env1 env2 defs1 defs2 d.
 (! v1 v2. V v1 v2 ==>
   (v1 < LENGTH env1 /\ v2 < LENGTH env2 /\
    syneq c1 c2 ( EL  v1  env1) ( EL  v2  env2))) /\
-syneq_cb c1 c2 ( LENGTH env1) ( LENGTH env2) V defs1 defs2 d1 d2
+syneq_cb c1 c2 ( LENGTH env1) ( LENGTH env2) V defs1 defs2
 ==>
-syneq c1 c2 (CRecClos env1 defs1 d1) (CRecClos env2 defs2 d2))
+syneq c1 c2 (CRecClos env1 defs1 d) (CRecClos env2 defs2 d))
 /\
 (! c1 c2 n.
 T
@@ -599,7 +599,7 @@ syneq_exp c1 c2 ez1 ez2 V (CLet e1 b1) (CLet e2 b2))
 (! c1 c2 ez1 ez2 V defs1 defs2 b1 b2 n.
 (n = LENGTH defs1) /\
 (n = LENGTH defs2) /\
-(! d. d < n ==> syneq_cb c1 c2 ez1 ez2 V defs1 defs2 d d) /\
+syneq_cb c1 c2 ez1 ez2 V defs1 defs2 /\
 syneq_exp c1 c2 (ez1 +n) (ez2 +n)
  (\ v1 v2 . (v1 < n /\ (v2 = v1)) \/
                (n <= v1 /\ n <= v2 /\ V (v1 - n) (v2 - n)))
@@ -608,7 +608,7 @@ syneq_exp c1 c2 (ez1 +n) (ez2 +n)
 syneq_exp c1 c2 ez1 ez2 V (CLetrec defs1 b1) (CLetrec defs2 b2))
 /\
 (! c1 c2 ez1 ez2 V cb1 cb2.
-syneq_cb c1 c2 ez1 ez2 V [cb1] [cb2] 0 0
+syneq_cb c1 c2 ez1 ez2 V [cb1] [cb2]
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CFun cb1) (CFun cb2))
 /\
@@ -641,21 +641,22 @@ syneq_exp c1 c2 ez1 ez2 V e31 e32
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
 /\
-(! c1 c2 ez1 ez2 V defs1 defs2 d1 d2 nz az e1 e2 j1 j2 r1 r2.
+(! c1 c2 ez1 ez2 V defs1 defs2 nz.
 (nz = LENGTH defs1) /\ (nz = LENGTH defs2) /\
-d1 < nz /\ d2 < nz /\
-((T,az,e1,j1,r1) = syneq_cb_aux c1 d1 nz ez1 ( EL  d1  defs1)) /\
-((T,az,e2,j2,r2) = syneq_cb_aux c2 d2 nz ez2 ( EL  d2  defs2)) /\
-syneq_exp c1 c2 (az +j1) (az +j2)
-  (\ v1 v2 .
-    (v1 < az /\ (v2 = v1)) \/
-    (az <= v1 /\ az <= v2 /\
-      ((? j. ((r1 (v1 - az) = CCRef j) /\ (r2 (v2 - az) = CCRef j))) \/
-       (? j1 j2.
-         ((r1 (v1 - az) = CCEnv j1) /\ (r2 (v2 - az) = CCEnv j2) /\ V j1 j2)))))
-  e1 e2
+(! n. n < nz ==>
+  (? az e1 j1 r1 e2 j2 r2.
+  ((T,az,e1,j1,r1) = syneq_cb_aux c1 n nz ez1 ( EL  n  defs1)) /\
+  ((T,az,e2,j2,r2) = syneq_cb_aux c2 n nz ez2 ( EL  n  defs2)) /\
+  syneq_exp c1 c2 (az +j1) (az +j2)
+    (\ v1 v2 .
+      (v1 < az /\ (v2 = v1)) \/
+      (az <= v1 /\ az <= v2 /\
+        ((? j. ((r1 (v1 - az) = CCRef j) /\ (r2 (v2 - az) = CCRef j))) \/
+         (? j1 j2.
+           ((r1 (v1 - az) = CCEnv j1) /\ (r2 (v2 - az) = CCEnv j2) /\ V j1 j2)))))
+    e1 e2))
 ==>
-syneq_cb c1 c2 ez1 ez2 V defs1 defs2 d1 d2)`;
+syneq_cb c1 c2 ez1 ez2 V defs1 defs2)`;
 
 (* Compiler *)
 
