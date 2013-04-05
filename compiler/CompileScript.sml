@@ -509,14 +509,14 @@ Cevaluate_list c s env (e ::es) (s'', Rerr err))`;
  val syneq_cb_aux_def = Define `
 
 (syneq_cb_aux c d nz ez (INL (az,e)) = (T,az,e,(nz +ez),
-  (\ n . if n < nz then CCRef n else
+  (\ n . if n < nz then CCRef (nz - n - 1) else
            if n < nz +ez then CCEnv (n - nz)
            else CCArg n)))
 /\
 (syneq_cb_aux c d nz ez (INR l) =
   let cd = FAPPLY  c  l in
   let (recs,envs) = cd.cd.ceenv in
-  ( (l IN FDOM  c /\ (cd.nz = nz) /\ (cd.ez = ez) /\ ALL_DISTINCT recs /\ ALL_DISTINCT envs /\ ~  ( MEM d recs))
+  ( (l IN FDOM  c /\ (cd.nz = nz) /\ (cd.ez = ez))
   ,cd.cd.az
   ,cd.cd.body
   ,(1 + LENGTH recs + LENGTH envs)
