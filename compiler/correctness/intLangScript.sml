@@ -949,6 +949,57 @@ val EVERY2_RC_same = store_thm("EVERY2_RC_same",
 val _ = export_rewrites["EVERY2_RC_same"]
 val syneq_strongind = CompileTheory.syneq_strongind
 
+val CevalPrim1_syneq = store_thm("CevalPrim1_syneq",
+  ``∀c1 c2 uop s1 s2 v1 v2. EVERY2 (syneq c1 c2) s1 s2 ∧ syneq c1 c2 v1 v2 ⇒
+    EVERY2 (syneq c1 c2) (FST (CevalPrim1 uop s1 v1)) (FST (CevalPrim1 uop s2 v2)) ∧
+    result_rel (syneq c1 c2) (SND (CevalPrim1 uop s1 v1)) (SND (CevalPrim1 uop s2 v2))``,
+  ntac 2 gen_tac >>
+  Cases >- (
+    simp[] >> rw[] >> fs[EVERY2_EVERY] >> lrw[GSYM ZIP_APPEND] ) >>
+  ntac 2 gen_tac >>
+  Cases >> simp[Once syneq_cases] >>
+  fsrw_tac[DNF_ss][] >>
+  rw[el_check_def,EVERY2_EVERY] >>
+  rfs[EVERY_MEM,MEM_ZIP,FORALL_PROD] >>
+  fsrw_tac[DNF_ss][])
+
+val CevalPrim2_syneq = store_thm("CevalPrim2_syneq",
+  ``∀c1 c2 p2 v11 v21 v12 v22.
+    syneq c1 c2 v11 v12 ∧ syneq c1 c2 v21 v22 ⇒
+    result_rel (syneq c1 c2) (CevalPrim2 p2 v11 v21) (CevalPrim2 p2 v12 v22)``,
+  ntac 2 gen_tac >>
+  Cases >> simp[] >>
+  Cases >> Cases >>
+  simp[] >>
+  TRY ( simp[Once syneq_cases] >> fsrw_tac[DNF_ss][] >> NO_TAC) >>
+  TRY ( simp[Once (CONJUNCT1 syneq_cases)] >> simp[Once (CONJUNCT1 syneq_cases),SimpR``$/\``] >> fsrw_tac[DNF_ss][] >> NO_TAC) >>
+  TRY (Cases_on`l` >> Cases_on`l'` >> simp[] >> fsrw_tac[DNF_ss][i0_def] >> rw[] >> NO_TAC) >>
+  TRY ( rw[] >> NO_TAC ) >>
+  TRY (
+    rw[] >>
+    spose_not_then strip_assume_tac >>
+    imp_res_tac syneq_no_closures >>
+    fs[Once syneq_cases] >> rw[] >>
+    metis_tac[NOT_EVERY] ) >>
+  simp[Once syneq_cases] >>
+  simp[Once syneq_cases] >>
+  fsrw_tac[DNF_ss][] >>
+  rw[] >- (
+    Cases_on`n=n'`>>rw[]>>
+    lrw[LIST_EQ_REWRITE]>>
+    fs[EVERY2_EVERY,EVERY_MEM]>>
+    Cases_on`LENGTH vs2 = LENGTH vs2'`>>rw[]>>
+    rpt (qpat_assum`LENGTH X = LENGTH Y`mp_tac) >> rpt strip_tac >>
+    fsrw_tac[DNF_ss][MEM_ZIP,FORALL_PROD] >>
+    fsrw_tac[DNF_ss][MEM_EL] >>
+    metis_tac[no_closures_syneq_equal] ) >>
+  fsrw_tac[DNF_ss][EVERY_MEM,EVERY2_EVERY,EXISTS_MEM,EXISTS_PROD] >>
+  spose_not_then strip_assume_tac >>
+  rpt (qpat_assum`LENGTH X = LENGTH Y`mp_tac) >> rpt strip_tac >>
+  fsrw_tac[DNF_ss][MEM_ZIP,FORALL_PROD] >>
+  fsrw_tac[DNF_ss][MEM_EL] >>
+  metis_tac[no_closures_syneq_equal,syneq_no_closures] )
+
 val Cevaluate_syneq = store_thm("Cevaluate_syneq",
   ``(∀c1 s1 env1 exp1 res1. Cevaluate c1 s1 env1 exp1 res1 ⇒
       ∀c2 ez1 ez2 V s2 env2 exp2 res2.
@@ -1371,6 +1422,44 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     fsrw_tac[DNF_ss][EXISTS_PROD] >>
     metis_tac[]) >>
   strip_tac >- (
+    rw[] >>
+    rator_assum`syneq_exp`mp_tac >>
+    simp[Once (CONJUNCT2 syneq_cases)] >>
+    fsrw_tac[DNF_ss][] >>
+    rw[Once Cevaluate_cases] >>
+    fsrw_tac[DNF_ss][] >>
+    disj1_tac >>
+    fsrw_tac[DNF_ss][EXISTS_PROD] >>
+    metis_tac[CevalPrim1_syneq] ) >>
+  strip_tac >- (
+    rw[] >>
+    rator_assum`syneq_exp`mp_tac >>
+    simp[Once (CONJUNCT2 syneq_cases)] >>
+    fsrw_tac[DNF_ss][] >>
+    rw[Once Cevaluate_cases] >>
+    fsrw_tac[DNF_ss][] >>
+    fsrw_tac[DNF_ss][EXISTS_PROD] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rw[] >>
+    rator_assum`syneq_exp`mp_tac >>
+    simp[Once (CONJUNCT2 syneq_cases)] >>
+    fsrw_tac[DNF_ss][] >>
+    rw[Once Cevaluate_cases] >>
+    fsrw_tac[DNF_ss][EXISTS_PROD] >>
+    disj1_tac >>
+    metis_tac[CevalPrim2_syneq] ) >>
+  strip_tac >- (
+    rw[] >>
+    rator_assum`syneq_exp`mp_tac >>
+    simp[Once (CONJUNCT2 syneq_cases)] >>
+    fsrw_tac[DNF_ss][] >>
+    rw[Once Cevaluate_cases] >>
+    fsrw_tac[DNF_ss][] >>
+    fsrw_tac[DNF_ss][EXISTS_PROD] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rw[]
 
   set_trace"goalstack print goal at top"0
 
