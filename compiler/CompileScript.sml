@@ -506,6 +506,11 @@ Cevaluate_list c s env (e ::es) (s'', Rerr err))`;
 
 (* equivalence relations on intermediate language *)
 
+ val closed_cd_def = Define `
+ (closed_cd cd = ! v. v IN free_vars cd.body ==>
+  v < cd.az + LENGTH( FST cd.ceenv) + LENGTH ( SND cd.ceenv) + 1)`;
+
+
  val syneq_cb_aux_def = Define `
 
 (syneq_cb_aux c d nz ez (INL (az,e)) = (T,az,e,(nz +ez),
@@ -516,7 +521,7 @@ Cevaluate_list c s env (e ::es) (s'', Rerr err))`;
 (syneq_cb_aux c d nz ez (INR l) =
   let cd = FAPPLY  c  l in
   let (recs,envs) = cd.cd.ceenv in
-  ( (l IN FDOM  c /\ (cd.nz = nz) /\ (cd.ez = ez))
+  ( (l IN FDOM  c /\ (cd.nz = nz) /\ (cd.ez = ez) /\ closed_cd cd.cd /\ EVERY (\ n . n < ez) envs /\ EVERY (\ n . n < nz) recs)
   ,cd.cd.az
   ,cd.cd.body
   ,(1 + LENGTH recs + LENGTH envs)

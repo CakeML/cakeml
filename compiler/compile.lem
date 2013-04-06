@@ -465,6 +465,9 @@ Cevaluate_list c s env (e::es) (s'', Rerr err)
 
 (* equivalence relations on intermediate language *)
 
+let rec closed_cd cd = forall v. v IN free_vars cd.body -->
+  v < cd.az + List.length(fst cd.ceenv) + List.length (snd cd.ceenv) + 1
+
 let rec
 syneq_cb_aux c d nz ez (Inl (az,e)) = (true,az,e,nz+ez,
   fun n -> if n < nz then CCRef (nz-n-1) else
@@ -474,7 +477,9 @@ and
 syneq_cb_aux c d nz ez (Inr l) =
   let cd = Pmap.find l c in
   let (recs,envs) = cd.cd.ceenv in
-  (Pmap.mem l c && cd.nz = nz && cd.ez = ez
+  (Pmap.mem l c && cd.nz = nz && cd.ez = ez && closed_cd cd.cd
+   && List.for_all (fun n -> n < ez) envs
+   && List.for_all (fun n -> n < nz) recs
   ,cd.cd.az
   ,cd.cd.body
   ,1+List.length recs+List.length envs

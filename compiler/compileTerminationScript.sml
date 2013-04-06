@@ -468,6 +468,7 @@ val _ = save_thm("compile_decl_def",compile_decl_def)
 val _ = save_thm("cmap_def",cmap_def)
 val _ = save_thm("cbv_def",cbv_def)
 val _ = save_thm("etC_def",etC_def)
+val _ = save_thm("closed_cd_def",closed_cd_def)
 val _ = export_rewrites["emit_def","get_labels_def","emit_ceref_def","emit_ceenv_def","prim1_to_bc_def","prim2_to_bc_def","cmap_def","cbv_def","etC_def"]
 
 val _ = export_theory()
