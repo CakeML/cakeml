@@ -369,6 +369,8 @@ Cevaluate_list c s' env es (s'', Rval vs) &&
   | Inr l -> let d = Pmap.find l c in
              let (recs,envs) = d.cd.ceenv in
     (Pmap.mem l c
+     && List.for_all (fun n -> n < List.length cenv) envs
+     && List.for_all (fun n -> n < List.length defs) recs
     ,d.cd.az
     ,d.nz
     ,d.ez

@@ -524,14 +524,12 @@ val good_cd_def = Define`
 
 val Cevaluate_Clocs = store_thm("Cevaluate_Clocs",
   ``(∀c s env exp res. Cevaluate c s env exp res ⇒
-     (∀d. d ∈ FRANGE c ⇒ good_cd d) ∧
      BIGUNION (IMAGE all_Clocs (set env)) ⊆ count (LENGTH s) ∧
      BIGUNION (IMAGE all_Clocs (set s)) ⊆ count (LENGTH s)
      ⇒
      BIGUNION (IMAGE all_Clocs (set (FST res))) ⊆ count (LENGTH (FST res)) ∧
      ∀v. (SND res = Rval v) ⇒ all_Clocs v ⊆ count (LENGTH (FST res))) ∧
     (∀c s env exps res. Cevaluate_list c s env exps res ⇒
-     (∀d. d ∈ FRANGE c ⇒ good_cd d) ∧
      BIGUNION (IMAGE all_Clocs (set env)) ⊆ count (LENGTH s) ∧
      BIGUNION (IMAGE all_Clocs (set s)) ⊆ count (LENGTH s)
      ⇒
@@ -586,11 +584,14 @@ val Cevaluate_Clocs = store_thm("Cevaluate_Clocs",
       fsrw_tac[DNF_ss][MEM_GENLIST]>>
       imp_res_tac Cevaluate_store_SUBSET >>
       fs[] >> metis_tac[LESS_LESS_EQ_TRANS] ) >>
-    fsrw_tac[DNF_ss][MEM_MAP,IN_FRANGE] >>
-    fs[good_cd_def,EVERY_MEM] >>
+    fsrw_tac[DNF_ss][MEM_MAP,IN_FRANGE,UNCURRY] >>
+    rfs[] >>
     imp_res_tac Cevaluate_store_SUBSET >>
-    fsrw_tac[DNF_ss][] >>
-    metis_tac[SIMP_RULE(srw_ss()++DNF_ss)[SUBSET_DEF]all_Clocs_ccenv,LESS_LESS_EQ_TRANS] ) >>
+    fsrw_tac[ARITH_ss][] >>
+    reverse conj_tac >- metis_tac[LESS_LESS_EQ_TRANS] >>
+    conj_tac >- metis_tac[LESS_LESS_EQ_TRANS] >>
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+    metis_tac[LESS_LESS_EQ_TRANS]) >>
   strip_tac >- (
     rw[] >> fs[] >> rfs[] >>
     first_x_assum match_mp_tac >>
@@ -1403,16 +1404,14 @@ val Cclosed_bundle = store_thm("Cclosed_bundle",
 
 val Cevaluate_closed = store_thm("Cevaluate_closed",
   ``(∀c s env exp res. Cevaluate c s env exp res
-     ⇒ (∀d. d ∈ FRANGE c ⇒ good_cd d)
-     ∧ free_vars exp ⊆ count (LENGTH env)
+     ⇒ free_vars exp ⊆ count (LENGTH env)
      ∧ EVERY (Cclosed c) env
      ∧ EVERY (Cclosed c) s
      ⇒
      EVERY (Cclosed c) (FST res) ∧
      every_result (Cclosed c) (SND res)) ∧
     (∀c s env exps ress. Cevaluate_list c s env exps ress
-     ⇒ (∀d. d ∈ FRANGE c ⇒ good_cd d)
-     ∧ BIGUNION (IMAGE free_vars (set exps)) ⊆ count (LENGTH env)
+     ⇒ BIGUNION (IMAGE free_vars (set exps)) ⊆ count (LENGTH env)
      ∧ EVERY (Cclosed c) env
      ∧ EVERY (Cclosed c) s
      ⇒
@@ -1494,11 +1493,12 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
       qsuff_tac`x - LENGTH vs - LENGTH defs < LENGTH cenv` >- DECIDE_TAC >>
       qsuff_tac`x - LENGTH vs - LENGTH defs + LENGTH defs = x - LENGTH vs` >- metis_tac[] >>
       DECIDE_TAC ) >>
+    fsrw_tac[DNF_ss][UNCURRY,SUBSET_DEF] >>
     simp[EVERY_REVERSE,EVERY_MAP] >>
     fsrw_tac[DNF_ss][IN_FRANGE] >>
-    fsrw_tac[DNF_ss][good_cd_def,SUBSET_DEF] >>
     fs[EVERY_MEM] >>
-    ntac 2 strip_tac >>
+    fs[(Q.SPECL[`c`,`CRecClos cenv defs d`]Cclosed_cases)]
+
     qmatch_assum_rename_tac`MEM z (c ' l).cd.ccenv`[] >>
     rfs[] >> fsrw_tac[DNF_ss][] >>
     first_x_assum(qspecl_then[`l`,`z`]mp_tac) >>

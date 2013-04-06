@@ -413,7 +413,7 @@ Cevaluate_list c s' env es (s'', Rval vs) /\
     ,b)
   | INR l => let d = FAPPLY  c  l in
              let (recs,envs) = d.cd.ceenv in
-    ( (l IN FDOM  c)
+    ( (l IN FDOM  c /\ EVERY (\ n . n < LENGTH cenv) envs /\ EVERY (\ n . n < LENGTH defs) recs)
     ,d.cd.az
     ,d.nz
     ,d.ez
