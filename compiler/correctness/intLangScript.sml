@@ -1337,16 +1337,21 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
 
 (* Closed values *)
 
+val closed_cd_def = Define`
+  closed_cd cd = ∀v. v ∈ free_vars cd.cd.body ⇒ v < cd.cd.az + LENGTH (FST cd.cd.ceenv) + LENGTH (SND cd.cd.ceenv) + 1`
+
 val (Cclosed_rules,Cclosed_ind,Cclosed_cases) = Hol_reln`
 (Cclosed c (CLitv l)) ∧
 (EVERY (Cclosed c) vs ⇒ Cclosed c (CConv cn vs)) ∧
 ((EVERY (Cclosed c) env) ∧
  n < LENGTH defs ∧
- (∀cb. MEM cb defs ⇒
-   (∀v. LENGTH defs + v ∈ cbod_fvs cb ⇒ v < LENGTH env) ∧
-   (∀l. (cb = INR l) ⇒ l ∈ FDOM c
-     ∧ ((c ' l).nz = LENGTH defs)
-     ∧ ((c ' l).ez = LENGTH env)))
+ (∀az b. MEM (INL (az,b)) defs ⇒
+    ∀v. v ∈ free_vars b ⇒ v < az + LENGTH defs + LENGTH env) ∧
+ (∀l. MEM (INR l) defs
+   ⇒ l ∈ FDOM c
+   ∧ ((c ' l).nz = LENGTH defs)
+   ∧ ((c ' l).ez = LENGTH env)
+   ∧ closed_cd (c ' l))
 ⇒ Cclosed c (CRecClos env defs n)) ∧
 (Cclosed c (CLoc m))`
 
@@ -1405,6 +1410,7 @@ val Cclosed_bundle = store_thm("Cclosed_bundle",
 val Cevaluate_closed = store_thm("Cevaluate_closed",
   ``(∀c s env exp res. Cevaluate c s env exp res
      ⇒ free_vars exp ⊆ count (LENGTH env)
+     ∧ FEVERY (closed_cd o SND) c
      ∧ EVERY (Cclosed c) env
      ∧ EVERY (Cclosed c) s
      ⇒
@@ -1412,6 +1418,7 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
      every_result (Cclosed c) (SND res)) ∧
     (∀c s env exps ress. Cevaluate_list c s env exps ress
      ⇒ BIGUNION (IMAGE free_vars (set exps)) ⊆ count (LENGTH env)
+     ∧ FEVERY (closed_cd o SND) c
      ∧ EVERY (Cclosed c) env
      ∧ EVERY (Cclosed c) s
      ⇒
@@ -1461,16 +1468,21 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
       fsrw_tac[ARITH_ss][] ) >>
     lrw[EVERY_REVERSE,EVERY_GENLIST] >>
     simp[Once Cclosed_cases] >>
-    fs[EVERY_MEM] >>
-    ntac 3 strip_tac >- (
-      rw[] >> res_tac >>
-      fsrw_tac[ARITH_ss][] ) >>
-    metis_tac[]) >>
+    fsrw_tac[DNF_ss][EVERY_MEM,FEVERY_DEF] >>
+    map_every qx_gen_tac[`az`,`b`,`v`] >>
+    rw[] >>
+    Cases_on`v<az`>>fsrw_tac[ARITH_ss][]>>
+    rpt (first_x_assum(qspecl_then[`INL (az,b)`,`v-az`]mp_tac)) >>
+    simp[] >> fsrw_tac[DNF_ss][] >>
+    simp[GSYM FORALL_AND_THM,AND_IMP_INTRO] >>
+    disch_then(qspec_then`v`mp_tac) >>
+    simp[] >> fsrw_tac[ARITH_ss][] ) >>
   strip_tac >- (
     rw[] >>
-    rw[Once Cclosed_cases] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF] >>
-    res_tac >> fsrw_tac[ARITH_ss][]) >>
+    simp[Once Cclosed_cases] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,PRE_SUB1] >>
+    rw[] >> fsrw_tac[DNF_ss][FEVERY_DEF] >>
+    Cases_on`v≤az`>>fsrw_tac[ARITH_ss][]) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
     fs[FOLDL_UNION_BIGUNION] >>
@@ -1483,46 +1495,19 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
         conj_tac >- metis_tac[Cclosed_bundle] >>
         fs[Once Cclosed_cases] ) >>
       fs[Once Cclosed_cases] >>
-      first_x_assum(qspec_then`INL (x0,x1)`mp_tac) >>
+      last_x_assum(qspecl_then[`x0`,`x1`]mp_tac) >>
       `MEM (INL (x0,x1)) defs` by (rw[MEM_EL] >> PROVE_TAC[]) >>
-      res_tac >> rw[] >>
-      fsrw_tac[ARITH_ss,DNF_ss][] >>
-      res_tac >>
-      Cases_on`x < LENGTH vs`>>fsrw_tac[ARITH_ss][] >>
-      Cases_on`x - LENGTH vs < LENGTH defs`>>fsrw_tac[ARITH_ss][] >>
-      qsuff_tac`x - LENGTH vs - LENGTH defs < LENGTH cenv` >- DECIDE_TAC >>
-      qsuff_tac`x - LENGTH vs - LENGTH defs + LENGTH defs = x - LENGTH vs` >- metis_tac[] >>
-      DECIDE_TAC ) >>
+      fsrw_tac[ARITH_ss,DNF_ss][]) >>
     fsrw_tac[DNF_ss][UNCURRY,SUBSET_DEF] >>
     simp[EVERY_REVERSE,EVERY_MAP] >>
     fsrw_tac[DNF_ss][IN_FRANGE] >>
-    fs[EVERY_MEM] >>
-    fs[(Q.SPECL[`c`,`CRecClos cenv defs d`]Cclosed_cases)]
-
-    qmatch_assum_rename_tac`MEM z (c ' l).cd.ccenv`[] >>
-    rfs[] >> fsrw_tac[DNF_ss][] >>
-    first_x_assum(qspecl_then[`l`,`z`]mp_tac) >>
-    simp[] >>
-    Cases_on`z`>>simp[good_ccbind_def] >- (
-      rw[] >>
-      qmatch_rename_tac`Cclosed c (EL (k-2) (REVERSE vs))`[] >>
-      simp[EL_REVERSE,PRE_SUB1] >>
-      qmatch_abbrev_tac`Cclosed c (EL v vs)` >>
-      qsuff_tac `v < LENGTH vs` >- (fs[MEM_EL] >> PROVE_TAC[]) >>
-      simp[Abbr`v`] )
-    >- (
-      rw[el_check_def] >> rw[] >>
-      qpat_assum`Cclosed c (CRecClos x y z)`mp_tac >>
-      simp[Once Cclosed_cases] >>
-      simp[EVERY_MEM] >>
-      disch_then(match_mp_tac o CONJUNCT1) >>
-      fs[good_cebind_def,MEM_EL] >>
-      PROVE_TAC[] )
-    >- (
-      rw[el_check_def] >> rw[] >>
-      match_mp_tac (MP_CANON Cclosed_bundle) >>
-      fs[good_cebind_def] >>
-      simp[] )) >>
+    fsrw_tac[DNF_ss][EVERY_MEM,FEVERY_DEF] >>
+    fs[(Q.SPECL[`c`,`CRecClos cenv defs d`]Cclosed_cases)] >>
+    qmatch_assum_rename_tac`EL n defs = INR z`[] >>
+    reverse conj_tac >- (
+      conj_tac >- metis_tac[] >>
+      fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] ) >>
+    fsrw_tac[DNF_ss,ARITH_ss][closed_cd_def,MEM_EL]) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
     fsrw_tac[ETA_ss][FOLDL_UNION_BIGUNION] ) >>
