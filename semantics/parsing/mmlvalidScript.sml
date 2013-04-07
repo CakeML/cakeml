@@ -87,6 +87,30 @@ val symbol_rwt = prove(
   Cases_on `h` >> rw[] >>
   Cases_on `a` >> rw[listTheory.LENGTH_NIL]);
 
+val solosymbol_rwt = prove(
+  ``(?s. l = [TK (SymbolT s)]) ⇔
+    do assert (LENGTH l = 1);
+       tok <- destTOK (HD l);
+       assert (isSymbolT tok)
+    od = SOME ()``,
+  Cases_on `l` >> rw[assert_def, optionTheory.OPTION_BIND_def,
+                     optionTheory.OPTION_IGNORE_BIND_def] >>
+  Cases_on `h` >> rw[]  >>
+  Cases_on `a` >> rw[listTheory.LENGTH_NIL])
+
+val soloalpha_rwt = prove(
+  ``(?s. l = [TK (AlphaT s)]) ⇔
+    do assert (LENGTH l = 1);
+       tok <- destTOK (HD l);
+       assert (isAlphaT tok)
+    od = SOME ()``,
+  Cases_on `l` >> rw[assert_def, optionTheory.OPTION_BIND_def,
+                     optionTheory.OPTION_IGNORE_BIND_def] >>
+  Cases_on `h` >> rw[]  >>
+  Cases_on `a` >> rw[listTheory.LENGTH_NIL])
+
+val onecon_rwts =
+    [mmlG_def, alpha_rwt, symbol_rwt, solosymbol_rwt, soloalpha_rwt]
 fun onecon t = let
   val _ = print ("onecon: " ^ term_to_string t ^ "\n")
   val n = mk_var("n", ``:NT``)
@@ -95,14 +119,13 @@ in
   SPEC n mml_okrule_def
        |> SPEC_ALL
        |> CONV_RULE
-            (RAND_CONV (SIMP_CONV (srw_ss())
-                                  [mmlG_def, ass, alpha_rwt, symbol_rwt]))
+            (RAND_CONV (SIMP_CONV (srw_ss()) (ass::onecon_rwts)))
 end
 
 val nt_cases = TypeBase.nchotomy_of  ``:MMLnonT`` |> Q.SPEC `n`
 
 val condcombine_lemma = prove(
-  ``(P ==> Q) ∧ (¬P ⇒ R) ⇔ if P then Q else R``,
+  ``(P ==> (v = e1)) ∧ (¬P ⇒ (v = e2)) ⇔ (v = if P then e1 else e2)``,
   Cases_on `P` >> rw[])
 fun condcombine1 th1 th2 = let
   val hy = hd (hyp th1)
@@ -118,10 +141,49 @@ val sum_cases = TypeBase.nchotomy_of ``:α + β``
                                      |> INST_TYPE [alpha |-> ``:MMLnonT``,
                                                    beta |-> ``:num``]
 
+val mkNT_t = Term.inst [alpha |-> ``:MMLnonT``, beta |-> ``:num``]
+                       sumSyntax.inl_tm
+
+fun mk_nested_case ntth eqn = let
+  fun eqelim nteq = TRANS eqn (AP_TERM mkNT_t nteq)
+  fun recurse ntth =
+      case Lib.total dest_disj (concl ntth) of
+          NONE => eqelim ntth
+        | SOME (d1,d2) =>
+          let
+            val d1_th = eqelim (ASSUME d1)
+            val d2_th = recurse (ASSUME d2)
+          in
+            DISJ_CASES ntth
+                       (DISJ1 d1_th (concl d2_th))
+                       (DISJ2 (concl d1_th) d2_th)
+          end
+in
+  recurse ntth
+end
+
+val nested_nt_cases =
+    mk_nested_case nt_cases (ASSUME (mk_eq(``n:NT``, ``mkNT n``)))
+
+val big_cases = let
+  val d1 = CHOOSE (``n:MMLnonT``, ASSUME ``?x. n = mkNT x``) nested_nt_cases
+in
+  DISJ_CASES sum_cases
+             (DISJ1 d1 (``∃i. n:NT = INR i``))
+             (DISJ2 (concl d1) (ASSUME ``∃i. n:NT = INR i``))
+end
+
 fun combine_to_cond ths = let
   fun recurse negconds ths =
       case ths of
-          [] => REWRITE_RULE negconds sum_cases
+          [] => raise Fail "Can't happen"
+        | [last] =>
+          let
+            val hy = hd (hyp last)
+            val falsum = REWRITE_RULE (ASSUME (mk_neg hy)::negconds) big_cases
+          in
+            PROVE_HYP (CCONTR hy falsum) last
+          end
         | h::t =>
           let
             val hy = hd (hyp h)
@@ -143,6 +205,8 @@ in
   CHOOSE(``i:num``, exth) th0
 end
 
-val bigcond = inr_th :: okrule_rwts0 |> combine_to_cond
+val mml_okrule_eval_th = save_thm(
+  "mml_okrule_eval_th",
+  (okrule_rwts0 @ [inr_th]) |> combine_to_cond)
 
 val _ = export_theory()
