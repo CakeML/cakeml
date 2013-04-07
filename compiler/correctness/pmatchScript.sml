@@ -34,7 +34,7 @@ gen_tac >> Induct >- rw[exp_to_Cexp_def,v_to_Cv_def] >>
 qx_gen_tac`h` >> PairCases_on`h` >>
 rw[exp_to_Cexp_def,v_to_Cv_def])
 
-(* free vars lemmas *)
+(* free vars lemmas
 
 val free_vars_remove_mat_vp = store_thm(
 "free_vars_remove_mat_vp",
@@ -131,6 +131,7 @@ Cases_on `x=fk` >> fsd[] >- (
 mp_tac (CONJUNCT1 free_vars_remove_mat_vp) >>
 fsd[EXTENSION,IN_DIFF,IN_INSERT,IN_SING] >>
 metis_tac[])
+*)
 
 (* Misc. lemmas *)
 
@@ -143,68 +144,35 @@ val pat_to_Cpat_cnmap = store_thm("pat_to_Cpat_cnmap",
   ho_match_mp_tac (TypeBase.induction_of``:α pat``) >>
   rw[pat_to_Cpat_def] >> metis_tac[FST])
 
-val pat_to_Cpat_empty_pvs = store_thm(
-"pat_to_Cpat_empty_pvs",
-``(∀(p:α pat) m. pat_to_Cpat m p =
-  (<| bvars := (FST (pat_to_Cpat (m with bvars := []) p)).bvars ++ m.bvars
-    ; cnmap := m.cnmap |>
-  , SND (pat_to_Cpat (m with bvars := []) p))) ∧
-  (∀(ps:α pat list) m. pats_to_Cpats m ps =
-  (<| bvars := (FLAT (MAP (exp_to_Cexp_state_bvars o FST o pat_to_Cpat (m with bvars := [])) (REVERSE ps)))++m.bvars
-    ; cnmap := m.cnmap |>
-  ,MAP (SND o pat_to_Cpat (m with bvars := [])) ps))``,
+val SND_pat_to_Cpat_cnmap = store_thm(
+"SND_pat_to_Cpat_cnmap",
+``(∀(p:α pat) m m'. (m.cnmap = m'.cnmap) ⇒ (SND (pat_to_Cpat m p) = SND (pat_to_Cpat m' p))) ∧
+  (∀(ps:α pat list) m m'. (m.cnmap = m'.cnmap) ⇒ (SND (pats_to_Cpats m ps) = SND (pats_to_Cpats m' ps)))``,
 ho_match_mp_tac (TypeBase.induction_of``:α pat``) >>
-strip_tac >- rw[pat_to_Cpat_def,exp_to_Cexp_state_component_equality] >>
-strip_tac >- rw[pat_to_Cpat_def,exp_to_Cexp_state_component_equality] >>
+strip_tac >- rw[pat_to_Cpat_def] >>
 strip_tac >- rw[pat_to_Cpat_def] >>
 strip_tac >- (
-  rw[] >>
-  simp_tac std_ss [pat_to_Cpat_def] >>
-  simp_tac std_ss [LET_THM] >>
-  first_assum (qspecl_then[`m`]SUBST1_TAC) >>
-  simp_tac (srw_ss()) [] >>
-  simp_tac (srw_ss()) [UNCURRY] ) >>
-strip_tac >- rw[pat_to_Cpat_def,exp_to_Cexp_state_component_equality] >>
-Cases
->- (rw[pat_to_Cpat_def] >>
-  rw[] >> rpt ((AP_THM_TAC ORELSE AP_TERM_TAC) >>
-               simp[exp_to_Cexp_state_component_equality]))
->- rw[pat_to_Cpat_def]
->- (
-  rpt strip_tac >>
-  simp_tac(srw_ss())[pat_to_Cpat_def,LET_THM] >>
-  qabbrev_tac `p = pats_to_Cpats m l` >>
-  PairCases_on `p` >> fs[] >>
-  qabbrev_tac `q = pats_to_Cpats (p0 with bvars := []) l` >>
-  PairCases_on `q` >> fs[] >>
-  qabbrev_tac `r = pats_to_Cpats (m with bvars := []) l` >>
-  PairCases_on `r` >> fs[] >>
-  fs[pat_to_Cpat_def,LET_THM] >>
-
-  first_x_assum (qspecl_then [`m`,`pvs`] mp_tac) >>
-  rpt (pop_assum (mp_tac o SYM o SIMP_RULE(srw_ss())[markerTheory.Abbrev_def])) >>
-  simp_tac(srw_ss())[] >> rpt (disch_then assume_tac) >>
-  first_assum (qspecl_then [`m`,`p0`] mp_tac) >>
-  qpat_assum `X = (q0,q1)` mp_tac >>
-  qpat_assum `X = (r0,r1)` mp_tac >>
-  simp_tac(srw_ss())[] >> rw[])
->- (
-  rpt strip_tac >>
-  simp_tac(srw_ss())[pat_to_Cpat_def,LET_THM] >>
-  qabbrev_tac `p = pats_to_Cpats m pvs ps` >>
-  PairCases_on `p` >> fs[] >>
-  qabbrev_tac `q = pat_to_Cpat m p0 p'` >>
-  PairCases_on `q` >> fs[] >>
-  qabbrev_tac `r = pat_to_Cpat m [] p'` >>
-  PairCases_on `r` >> fs[] >>
-  fs[pat_to_Cpat_def,LET_THM] >>
-  first_x_assum (qspecl_then [`m`,`pvs`] mp_tac) >>
-  rpt (pop_assum (mp_tac o SYM o SIMP_RULE(srw_ss())[markerTheory.Abbrev_def])) >>
-  simp_tac(srw_ss())[] >> rpt (disch_then assume_tac) >>
-  first_assum (qspecl_then [`m`,`p0`] mp_tac) >>
-  qpat_assum `X = (q0,q1)` mp_tac >>
-  qpat_assum `X = (r0,r1)` mp_tac >>
-  simp_tac(srw_ss())[] >> rw[]))
+  rw[pat_to_Cpat_def] >>
+  qspecl_then[`ps`,`m`]strip_assume_tac(CONJUNCT2 pat_to_Cpat_cnmap)>>
+  qspecl_then[`ps`,`m'`]strip_assume_tac(CONJUNCT2 pat_to_Cpat_cnmap)>>
+  rfs[] >> first_x_assum(qspecl_then[`m`,`m'`]mp_tac) >>rw[] ) >>
+strip_tac >- (
+  rw[pat_to_Cpat_def] >>
+  qspecl_then[`p`,`m`]strip_assume_tac(CONJUNCT1 pat_to_Cpat_cnmap)>>
+  qspecl_then[`p`,`m'`]strip_assume_tac(CONJUNCT1 pat_to_Cpat_cnmap)>>
+  rfs[] >> first_x_assum(qspecl_then[`m`,`m'`]mp_tac) >>rw[] ) >>
+strip_tac >- rw[pat_to_Cpat_def] >>
+rw[pat_to_Cpat_def] >>
+qspecl_then[`p`,`m`]strip_assume_tac(CONJUNCT1 pat_to_Cpat_cnmap)>>
+qspecl_then[`p`,`m'`]strip_assume_tac(CONJUNCT1 pat_to_Cpat_cnmap)>>
+qmatch_assum_rename_tac`pats_to_Cpats m2 ps = (m3,Cps')`[] >>
+qmatch_assum_rename_tac`pats_to_Cpats m0 ps = (m1,Cps)`[] >>
+qspecl_then[`ps`,`m0`]strip_assume_tac(CONJUNCT2 pat_to_Cpat_cnmap)>>
+qspecl_then[`ps`,`m2`]strip_assume_tac(CONJUNCT2 pat_to_Cpat_cnmap)>>
+rfs[] >>
+first_x_assum(qspecl_then[`m0`,`m2`]mp_tac)>>
+first_x_assum(qspecl_then[`m`,`m'`]mp_tac)>>
+rw[] )
 
 (* intermediate language pattern-matching *)
 
@@ -330,6 +298,32 @@ val (Cevaluate_match_rules,Cevaluate_match_ind,Cevaluate_match_cases) = Hol_reln
 (* TODO move: *)
 val el_check_def = CompileTheory.el_check_def
 
+val Cpmatch_list_LENGTH = store_thm("Cpmatch_list_LENGTH",
+  ``∀s ps vs menv. Cpmatch_list s ps vs menv ⇒ (LENGTH ps = LENGTH vs)``,
+  gen_tac >> Induct >> rw[Once Cpmatch_cases] >> rw[] >> PROVE_TAC[])
+
+val Cpmatch_list_nil = store_thm("Cpmatch_list_nil",
+  ``(Cpmatch_list s [] vs e = ((vs = []) ∧ (e = []))) ∧
+    (Cpmatch_list s ps [] e = ((ps = []) ∧ (e = [])))``,
+  rw[Once Cpmatch_cases] >>
+  rw[Once Cpmatch_cases] )
+val _ = export_rewrites["Cpmatch_list_nil"]
+
+val Cpmatch_list_APPEND = store_thm("Cpmatch_list_APPEND",
+  ``∀s p0 p1 vs e. Cpmatch_list s (p0 ++ p1) vs e =
+            ∃e0 e1. Cpmatch_list s p0 (TAKE (LENGTH p0) vs) e0 ∧
+                    Cpmatch_list s p1 (DROP (LENGTH p0) vs) e1 ∧
+                    (e = e1 ++ e0)``,
+  gen_tac >> Induct >- (
+    rw[Once Cpmatch_cases] >>
+    Cases_on `p1` >> fs[] >>
+    rw[Once Cpmatch_cases,SimpRHS] ) >>
+  rw[Once Cpmatch_cases] >>
+  Cases_on `vs` >> fs[] >>
+  rw[Once Cpmatch_cases,SimpRHS] >>
+  srw_tac[DNF_ss][] >>
+  PROVE_TAC[])
+
 val pmatch_Cpmatch = store_thm("pmatch_Cpmatch",
   ``(∀tvs cenv s p (v:'a v) env env'. (pmatch tvs cenv s p v env = Match (env' ++ env))
       ⇒ ∀m. Cpmatch (MAP (v_to_Cv m) s) (SND (pat_to_Cpat m p)) (v_to_Cv m v) (env_to_Cenv m env')) ∧
@@ -392,18 +386,13 @@ val pmatch_Cpmatch = store_thm("pmatch_Cpmatch",
     Cases_on `pmatch_list tvs cenv s ps vs []` >> fs[] >> rw[] >>
     qmatch_assum_rename_tac `pmatch_list tvs cenv s ps vs [] = Match env1`[] >>
     fs[Once (Q.INST[`env`|->`env0++env`]pmatch_nil)] >>
-    rpt (first_x_assum (qspec_then `m` mp_tac)) >> rw[] >>
-    rw[Once Cpmatch_cases] >>
-    rw[pat_to_Cpat_def,vs_to_Cvs_MAP] >>
-    qabbrev_tac `Cps = pats_to_Cpats m ps` >>
-    PairCases_on `Cps` >> fs[] >>
-    qabbrev_tac `Cp = pat_to_Cpat m p` >>
-    PairCases_on `Cp` >> fs[] >>
-
-    fs[Once pat_to_Cpat_empty_pvs] >>
-    fs[markerTheory.Abbrev_def] >> rw[] >>
-    fs[env_to_Cenv_MAP,vs_to_Cvs_MAP] >>
-    PROVE_TAC[] ) >>
+    fs[pat_to_Cpat_def,vs_to_Cvs_MAP,UNCURRY,env_to_Cenv_MAP,LET_THM] >>
+    REWRITE_TAC[Once(rich_listTheory.CONS_APPEND)] >>
+    REWRITE_TAC[Cpmatch_list_APPEND] >>
+    simp[Once Cpmatch_cases] >>
+    qexists_tac`MAP (v_to_Cv m o FST o SND) env0` >>
+    simp[] >>
+    metis_tac[SND_pat_to_Cpat_cnmap,pat_to_Cpat_cnmap]) >>
   strip_tac >- rw[pmatch_def] >>
   rw[pmatch_def])
 
@@ -567,33 +556,6 @@ val Cevaluate_match_MAP_exp = store_thm("Cevaluate_match_MAP_exp",
   strip_tac >- rw[Once Cevaluate_match_cases] >>
   rw[] >>
   rw[Once Cevaluate_match_cases])
-
-val Cpmatch_list_LENGTH = store_thm("Cpmatch_list_LENGTH",
-  ``∀s ps vs menv. Cpmatch_list s ps vs menv ⇒ (LENGTH ps = LENGTH vs)``,
-  gen_tac >> Induct >> rw[Once Cpmatch_cases] >> rw[] >> PROVE_TAC[])
-
-val Cpmatch_list_nil = store_thm("Cpmatch_list_nil",
-  ``(Cpmatch_list s [] vs e = ((vs = []) ∧ (e = FEMPTY))) ∧
-    (Cpmatch_list s ps [] e = ((ps = []) ∧ (e = FEMPTY)))``,
-  rw[Once Cpmatch_cases] >>
-  rw[Once Cpmatch_cases] )
-val _ = export_rewrites["Cpmatch_list_nil"]
-
-val Cpmatch_list_APPEND = store_thm("Cpmatch_list_APPEND",
-  ``∀s p0 p1 vs e. Cpmatch_list s (p0 ++ p1) vs e =
-            ∃e0 e1. Cpmatch_list s p0 (TAKE (LENGTH p0) vs) e0 ∧
-                    Cpmatch_list s p1 (DROP (LENGTH p0) vs) e1 ∧
-                    (e = e1 ⊌ e0)``,
-  gen_tac >> Induct >- (
-    rw[Once Cpmatch_cases] >>
-    rw[FUNION_FEMPTY_2] >>
-    Cases_on `p1` >> fs[] >>
-    rw[Once Cpmatch_cases,SimpRHS] ) >>
-  rw[Once Cpmatch_cases] >>
-  Cases_on `vs` >> fs[] >>
-  rw[Once Cpmatch_cases,SimpRHS] >>
-  srw_tac[DNF_ss][FUNION_ASSOC] >>
-  PROVE_TAC[])
 
 val Cpmatch_FDOM = store_thm("Cpmatch_FDOM",
   ``(∀p v env. Cpmatch s p v env ⇒ (FDOM env = Cpat_vars p)) ∧
