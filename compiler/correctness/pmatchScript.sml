@@ -174,6 +174,10 @@ first_x_assum(qspecl_then[`m0`,`m2`]mp_tac)>>
 first_x_assum(qspecl_then[`m`,`m'`]mp_tac)>>
 rw[] )
 
+val pats_to_Cpats_LENGTH = store_thm("pats_to_Cpats_LENGTH",
+  ``∀ps m. LENGTH (SND (pats_to_Cpats m ps)) = LENGTH ps``,
+  Induct >> rw[pat_to_Cpat_def] >> fs[] >> metis_tac[SND])
+
 (* intermediate language pattern-matching *)
 
 val (Cpmatch_rules,Cpmatch_ind,Cpmatch_cases) = Hol_reln`
@@ -398,16 +402,18 @@ val pmatch_Cpmatch = store_thm("pmatch_Cpmatch",
 
 val pmatch_Cpnomatch = store_thm("pmatch_Cpnomatch",
   ``(∀tvs cenv (s:α store) p v env. good_cenv cenv ∧ (pmatch tvs cenv s p v env = No_match)
-      ⇒ ∀m. good_cmap cenv m ⇒
-            Cpnomatch (store_to_Cstore m s) (SND (pat_to_Cpat m [] p)) (v_to_Cv m v)) ∧
+      ⇒ ∀m. good_cmap cenv m.cnmap ⇒
+            Cpnomatch (MAP (v_to_Cv m) s) (SND (pat_to_Cpat m p)) (v_to_Cv m v)) ∧
     (∀tvs cenv (s:α store) ps vs env env'. good_cenv cenv ∧ (pmatch_list tvs cenv s ps vs env = No_match) ∧ (LENGTH ps = LENGTH vs)
-      ⇒ ∀m. good_cmap cenv m ⇒
-            Cpnomatch_list (store_to_Cstore m s) (SND (pats_to_Cpats m [] ps)) (vs_to_Cvs m vs))``,
+      ⇒ ∀m. good_cmap cenv m.cnmap ⇒
+            Cpnomatch_list (MAP (v_to_Cv m) s) (SND (pats_to_Cpats m ps)) (vs_to_Cvs m vs))``,
   ho_match_mp_tac pmatch_ind >>
   strip_tac >- rw[pmatch_def] >>
   strip_tac >- (
     rw[pmatch_def,lit_same_type_def] >>
-    pop_assum mp_tac >> BasicProvers.EVERY_CASE_TAC >>
+    rpt (pop_assum mp_tac) >>
+    BasicProvers.CASE_TAC >>
+    BasicProvers.CASE_TAC >>
     rw[pat_to_Cpat_def,Once Cpnomatch_cases,v_to_Cv_def] ) >>
   strip_tac >- (
     fs[pmatch_def] >>
@@ -425,7 +431,7 @@ val pmatch_Cpnomatch = store_thm("pmatch_Cpnomatch",
       >- PROVE_TAC[SND,optionTheory.SOME_11,PAIR_EQ] >>
     fs[good_cenv_def,good_cmap_def] >>
     imp_res_tac ALOOKUP_MEM >>
-    PROVE_TAC[] ) >>
+    metis_tac[pat_to_Cpat_cnmap,FST] ) >>
   strip_tac >- (
     rw[pmatch_def] >>
     Cases_on `store_lookup lnum s` >> fs[] >>
@@ -433,8 +439,7 @@ val pmatch_Cpnomatch = store_thm("pmatch_Cpnomatch",
     rw[Once Cpnomatch_cases] >>
     qexists_tac `v_to_Cv m x` >>
     first_x_assum (qspec_then`m`mp_tac) >> rw[] >>
-    fs[store_to_fmap_def,store_lookup_def,FLOOKUP_DEF] >>
-    rw[FUN_FMAP_DEF] ) >>
+    fs[store_to_fmap_def,store_lookup_def,el_check_def,EL_MAP] ) >>
   strip_tac >- rw[pmatch_def] >>
   strip_tac >- rw[pmatch_def] >>
   strip_tac >- rw[pmatch_def] >>
@@ -450,25 +455,24 @@ val pmatch_Cpnomatch = store_thm("pmatch_Cpnomatch",
   strip_tac >- rw[pmatch_def] >>
   strip_tac >- (
     rw[pmatch_def] >>
-    pop_assum mp_tac >>
-    pop_assum mp_tac >>
+    qpat_assum`X = No_match`mp_tac>>
     fs[Once pmatch_nil] >>
     rw[Once (CONJUNCT1 pmatch_nil)] >>
     Cases_on `pmatch tvs cenv s p v []` >> fs[] >> rw[] >- (
       rw[pat_to_Cpat_def,vs_to_Cvs_MAP] >>
       rw[Once Cpnomatch_cases] >>
-      fs[Once pat_to_Cpat_empty_pvs] >>
-      rw[]) >>
+      metis_tac[SND_pat_to_Cpat_cnmap,SND,pat_to_Cpat_cnmap,pats_to_Cpats_LENGTH]) >>
     rw[pat_to_Cpat_def,vs_to_Cvs_MAP] >>
     rw[Once Cpnomatch_cases] >>
-    fs[Once pat_to_Cpat_empty_pvs] >>
     fs[vs_to_Cvs_MAP] >> rw[] >>
-    disj2_tac >>
     `l = l ++ []` by rw[] >>
     qpat_assum `x = Match l` mp_tac >>
     pop_assum SUBST1_TAC >> strip_tac >>
     imp_res_tac pmatch_Cpmatch >>
-    PROVE_TAC[] ) >>
+    disj2_tac >>
+    simp[LEFT_EXISTS_AND_THM] >>
+    conj_tac >- metis_tac[SND] >>
+    metis_tac[SND,pat_to_Cpat_cnmap,SND_pat_to_Cpat_cnmap,FST]) >>
   strip_tac >- rw[pmatch_def] >>
   rw[pmatch_def])
 
