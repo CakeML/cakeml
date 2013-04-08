@@ -62,7 +62,6 @@ rw[Once Cevaluate_cases] >> PROVE_TAC[])
 (* TODO: move *)
 val syneq_rules = CompileTheory.syneq_rules
 val syneq_cb_aux_def = CompileTheory.syneq_cb_aux_def
-val el_check_def = CompileTheory.el_check_def
 fun RATOR_ASSUM t ttac (g as (asl,w)) = UNDISCH_THEN (first (can (match_term t) o fst o strip_comb) asl) ttac g
 fun rator_assum q ttac = Q_TAC (C RATOR_ASSUM ttac) q
 fun RATOR_KEEP_ASSUM t ttac (g as (asl,w)) = ttac (ASSUME (first (can (match_term t) o fst o strip_comb) asl)) g
@@ -1502,6 +1501,23 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
   rpt gen_tac >> ntac 2 strip_tac >>
   full_simp_tac std_ss [] >>
   fs[] )
+
+(* Cevaluate mkshift *)
+
+val Cevaluate_mkshift = store_thm("Cevaluate_mkshift",
+  ``(∀c s env exp res. Cevaluate c s env exp res ⇒
+      ∀env' f k. (∀v. v < LENGTH env ⇒ f k v < LENGTH env' ∧ (EL v env = EL (f k v) env')) ⇒
+        Cevaluate c s env' (mkshift f k exp) res) ∧
+    (∀c s env es rs. Cevaluate_list c s env es rs ⇒
+          ∀env' f k. (∀v. v < LENGTH env ⇒ f k v < LENGTH env' ∧ (EL v env = EL (f k v) env')) ⇒
+            Cevaluate_list c s env' (MAP (mkshift f k) es) rs)``,
+  ho_match_mp_tac Cevaluate_ind >>
+  strip_tac >- rw[] >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] ) >>
+  strip_tac >- (
+    rw[] >>
+    rw[Once Cevaluate_cases] >>
+    disj2_tac >> disj1_tac >>
 
 (* Cevaluate deterministic *)
 

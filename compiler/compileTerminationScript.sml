@@ -64,6 +64,7 @@ val Cv_size_def = save_thm("Cv_size_def",Cv_size_def)
 val syneq_cases = save_thm("syneq_cases",syneq_cases)
 val syneq_ind = save_thm("syneq_ind",syneq_ind)
 val Cpat_vars_def = save_thm("Cpat_vars_def",Cpat_vars_def)
+val _ = export_rewrites["Cpat_vars_def"]
 
 val (free_vars_def, free_vars_ind) = register "free_vars" (
   tprove_no_defn ((free_vars_def,free_vars_ind),
@@ -126,6 +127,7 @@ val (mkshift_def,mkshift_ind) = register "mkshift" (
   imp_res_tac MEM_pair_MAP >>
   Q.ISPEC_THEN`Cexp2_size`imp_res_tac SUM_MAP_MEM_bound >>
   fsrw_tac[ARITH_ss][Cexp_size_def]))
+val _ = export_rewrites["mkshift_def"]
 
 val _ = save_thm("remove_mat_vp_def",remove_mat_vp_def)
 val _ = export_rewrites["remove_mat_vp_def"]
@@ -469,6 +471,8 @@ val _ = save_thm("cmap_def",cmap_def)
 val _ = save_thm("cbv_def",cbv_def)
 val _ = save_thm("etC_def",etC_def)
 val _ = save_thm("closed_cd_def",closed_cd_def)
+val _ = save_thm("el_check_def",el_check_def)
+val _ = save_thm("shift_def",shift_def)
 val _ = export_rewrites["emit_def","get_labels_def","emit_ceref_def","emit_ceenv_def","prim1_to_bc_def","prim2_to_bc_def","cmap_def","cbv_def","etC_def"]
 
 val _ = export_theory()
