@@ -1,4 +1,4 @@
-open HolKernel bossLib boolLib boolSimps pairTheory listTheory pred_setTheory finite_mapTheory alistTheory SatisfySimps lcsymtacs
+open HolKernel bossLib boolLib boolSimps pairTheory listTheory pred_setTheory finite_mapTheory alistTheory relationTheory SatisfySimps lcsymtacs
 open MiniMLTheory MiniMLTerminationTheory miscTheory miniMLExtraTheory compileTerminationTheory intLangTheory
 val _ = new_theory "pmatch"
 val fsd = full_simp_tac std_ss
@@ -299,8 +299,6 @@ val (Cevaluate_match_rules,Cevaluate_match_ind,Cevaluate_match_cases) = Hol_reln
     ⇒ Cevaluate_match s v ((p,e)::pes) env r)`
 
 (* correctness *)
-(* TODO move: *)
-val el_check_def = CompileTheory.el_check_def
 
 val Cpmatch_list_LENGTH = store_thm("Cpmatch_list_LENGTH",
   ``∀s ps vs menv. Cpmatch_list s ps vs menv ⇒ (LENGTH ps = LENGTH vs)``,
@@ -477,19 +475,19 @@ val pmatch_Cpnomatch = store_thm("pmatch_Cpnomatch",
   rw[pmatch_def])
 
 val matchres_def = Define`
-  matchres env cenv s env' e r = ∃env''. (env' = env'' ++ env) ∧ (r = (s, Rval (env'',e)))`
+  matchres (env:α envE) cenv s env' e r = ∃env''. (env' = env'' ++ env) ∧ (r = (s, Rval (env'',e)))`
 
 val evaluate_match_with_Cevaluate_match = store_thm("evaluate_match_with_Cevaluate_match",
   ``∀pes r. evaluate_match_with (matchres env) cenv s env v pes r ⇒
-      ∀m. good_cenv cenv ∧ good_cmap cenv m ⇒
+      ∀m. good_cenv cenv ∧ good_cmap cenv m.cnmap ⇒
         ((r = (s, Rerr (Rraise Bind_error)))
-            ⇒ Cevaluate_match (store_to_Cstore m s) (v_to_Cv m v)
-                (MAP (λ(p,e). (SND (pat_to_Cpat m [] p),e)) pes)
-                FEMPTY NONE) ∧
+            ⇒ Cevaluate_match (MAP (v_to_Cv m) s) (v_to_Cv m v)
+                (MAP (λ(p,e). (SND (pat_to_Cpat m p),e)) pes)
+                [] NONE) ∧
         ∀env' e. (r = (s, Rval (env',e)))
-          ⇒ Cevaluate_match (store_to_Cstore m s) (v_to_Cv m v)
-              (MAP (λ(p,e). (SND (pat_to_Cpat m [] p),e)) pes)
-              (alist_to_fmap (env_to_Cenv m env')) (SOME e)``,
+          ⇒ Cevaluate_match (MAP (v_to_Cv m) s) (v_to_Cv m v)
+              (MAP (λ(p,e). (SND (pat_to_Cpat m p),e)) pes)
+              (env_to_Cenv m env') (SOME e)``,
   ho_match_mp_tac evaluate_match_with_ind >>
   strip_tac >- ( rw[] >> rw[Once Cevaluate_match_cases] ) >>
   strip_tac >- (
@@ -562,26 +560,20 @@ val Cevaluate_match_MAP_exp = store_thm("Cevaluate_match_MAP_exp",
   rw[Once Cevaluate_match_cases])
 
 val Cpmatch_FDOM = store_thm("Cpmatch_FDOM",
-  ``(∀p v env. Cpmatch s p v env ⇒ (FDOM env = Cpat_vars p)) ∧
-    (∀ps vs env. Cpmatch_list s ps vs env ⇒ (FDOM env = BIGUNION (IMAGE Cpat_vars (set ps))))``,
-  ho_match_mp_tac Cpmatch_ind >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[FOLDL_UNION_BIGUNION] >>
-  strip_tac >- rw[FOLDL_UNION_BIGUNION] >>
-  strip_tac >- rw[] >>
-  rw[UNION_COMM])
+  ``(∀p v env. Cpmatch s p v env ⇒ (LENGTH env = Cpat_vars p)) ∧
+    (∀ps vs env. Cpmatch_list s ps vs env ⇒ (LENGTH env = SUM (MAP Cpat_vars ps)))``,
+  ho_match_mp_tac Cpmatch_ind >> rw[] >> fsrw_tac[ARITH_ss][] >>
+  pop_assum kall_tac >>
+  Induct_on`ps` >> rw[])
 
 val Cpmatch_closed = store_thm("Cpmatch_closed",
-  ``(∀p v e. Cpmatch s p v e ⇒ Cclosed c v ∧ (∀v. v ∈ FRANGE s ⇒ Cclosed c v) ⇒ ∀v. v ∈ FRANGE e ⇒ Cclosed c v) ∧
-    (∀ps vs e. Cpmatch_list s ps vs e ⇒ EVERY (Cclosed c) vs ∧ (∀v. v ∈ FRANGE s ⇒ Cclosed c v) ⇒ ∀v. v ∈ FRANGE e ⇒ Cclosed c v)``,
+  ``(∀p v e. Cpmatch s p v e ⇒ Cclosed c v ∧ (EVERY (Cclosed c) s) ⇒ EVERY (Cclosed c) e) ∧
+    (∀ps vs e. Cpmatch_list s ps vs e ⇒ EVERY (Cclosed c) vs ∧ (EVERY (Cclosed c) s) ⇒ EVERY (Cclosed c) e)``,
   ho_match_mp_tac Cpmatch_ind >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
-  strip_tac >- (rw[] >> fs[IN_FRANGE,FLOOKUP_DEF] >> PROVE_TAC[]) >>
+  strip_tac >- (rw[] >> fs[el_check_def,EVERY_MEM,MEM_EL] >> PROVE_TAC[]) >>
   strip_tac >- (rw[] >> fs[Once Cclosed_cases]) >>
-  rw[] >>
-  fsrw_tac[DNF_ss][FRANGE_DEF,FUNION_DEF] >>
   rw[])
 
 val Cpmatch_strongind = theorem"Cpmatch_strongind"
@@ -589,55 +581,55 @@ val Cpmatch_strongind = theorem"Cpmatch_strongind"
 val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
   ``(∀p v menv. Cpmatch s p v menv ⇒
        ∀env x fk e r0.
-         (FLOOKUP env x = SOME v) ∧ fk ∈ FDOM env ∧ x ∉ Cpat_vars p ∧
-         Cclosed FEMPTY v ∧ (∀v. v ∈ FRANGE env ⇒ Cclosed FEMPTY v) ∧
-         (∀v. v ∈ FRANGE s ⇒ Cclosed FEMPTY v) ∧
-         free_vars FEMPTY e ⊆ Cpat_vars p ∪ FDOM env ∧
-         Cevaluate FEMPTY FEMPTY s (menv ⊌ env) e r0
-       ⇒ ∃r. Cevaluate FEMPTY FEMPTY s env (remove_mat_vp fk e x p) r ∧
-             fmap_rel (syneq FEMPTY) (FST r) (FST r0) ∧
-             result_rel (syneq FEMPTY) (SND r) (SND r0)) ∧
+         (el_check x env = SOME v) ∧ fk < LENGTH env ∧
+         Cclosed FEMPTY v ∧ (EVERY (Cclosed FEMPTY) env) ∧ (EVERY (Cclosed FEMPTY) s) ∧
+         free_vars e ⊆ count (Cpat_vars p + LENGTH env) ∧
+         Cevaluate FEMPTY s (menv ++ env) e r0
+       ⇒ ∃r. Cevaluate FEMPTY s env (remove_mat_vp fk e x p) r ∧
+             EVERY2 (RC (syneq FEMPTY FEMPTY)) (FST r) (FST r0) ∧
+             result_rel (RC (syneq FEMPTY FEMPTY)) (SND r) (SND r0)) ∧
     (∀ps vs menv. Cpmatch_list s ps vs menv ⇒
        ∀env x c vs0 ps0 menv0 fk e r0.
-         (FLOOKUP env x = SOME (CConv c (vs0++vs))) ∧
-         fk ∈ FDOM env ∧
-         x ∉ BIGUNION (IMAGE Cpat_vars (set (ps0++ps))) ∧
-         EVERY (Cclosed FEMPTY) (vs0++vs) ∧ (∀v. v ∈ FRANGE env ⇒ Cclosed FEMPTY v) ∧
-         (∀v. v ∈ FRANGE s ⇒ Cclosed FEMPTY v) ∧
-         free_vars FEMPTY e ⊆ BIGUNION (IMAGE Cpat_vars (set (ps0++ps))) ∪ FDOM env ∧
+         (el_check x env = SOME (CConv c (vs0++vs))) ∧
+         fk < LENGTH env ∧
+         EVERY (Cclosed FEMPTY) (vs0++vs) ∧ (EVERY (Cclosed FEMPTY) env) ∧
+         (EVERY (Cclosed FEMPTY) s) ∧
+         free_vars e ⊆ count (SUM (MAP Cpat_vars (ps0++ps)) + LENGTH env) ∧
          Cpmatch_list s ps0 vs0 menv0 ∧
-         Cevaluate FEMPTY FEMPTY s (menv ⊌ menv0 ⊌ env) e r0
-       ⇒ ∃r. Cevaluate FEMPTY FEMPTY s (menv0 ⊌ env) (remove_mat_con fk e x (LENGTH ps0) ps) r ∧
-             fmap_rel (syneq FEMPTY) (FST r) (FST r0) ∧
-             result_rel (syneq FEMPTY) (SND r) (SND r0))``,
+         Cevaluate FEMPTY s (menv ++ menv0 ++ env) e r0
+       ⇒ ∃r. Cevaluate FEMPTY s (menv0 ++ env) (remove_mat_con fk e x (LENGTH ps0) ps) r ∧
+             EVERY2 (RC (syneq FEMPTY FEMPTY)) (FST r) (FST r0) ∧
+             result_rel (RC (syneq FEMPTY FEMPTY)) (SND r) (SND r0))``,
   ho_match_mp_tac Cpmatch_strongind >>
   strip_tac >- (
     rw[remove_mat_var_def] >>
     rw[Once Cevaluate_cases] >>
-    fs[FLOOKUP_DEF] >>
-    fs[FUNION_FUPDATE_1,FUNION_FEMPTY_1] >>
-    PROVE_TAC[result_rel_refl,syneq_refl,fmap_rel_refl]) >>
+    fs[el_check_def] >>
+    metis_tac[result_rel_refl,RC_DEF,EVERY2_RC_same]) >>
   strip_tac >- (
     rw[remove_mat_vp_def] >>
-    fs[FLOOKUP_DEF] >>
+    fs[el_check_def] >>
     rw[Once Cevaluate_cases] >>
     srw_tac[DNF_ss][] >>
     disj1_tac >>
     CONV_TAC (RESORT_EXISTS_CONV List.rev) >> qexists_tac `T` >>
-    fs[FUNION_FEMPTY_1] >>
+    fs[] >>
     rw[Once Cevaluate_cases] >>
     rw[Once Cevaluate_cases] >>
     rw[Once Cevaluate_cases] >>
     rw[Once Cevaluate_cases] >>
-    PROVE_TAC[result_rel_refl,syneq_refl,fmap_rel_refl]) >>
+    metis_tac[result_rel_refl,RC_DEF,EVERY2_RC_same]) >>
   strip_tac >- (
     rw[remove_mat_vp_def,LET_THM] >>
     rw[Once Cevaluate_cases] >>
     srw_tac[DNF_ss][] >>
     disj1_tac >>
     rw[Once Cevaluate_cases,LET_THM] >>
-    fs[FLOOKUP_DEF] >> rw[] >>
-    Q.PAT_ABBREV_TAC`v = fresh_var X` >>
+    fs[el_check_def] >> rw[] >>
+    imp_res_tac Cpmatch_FDOM >>
+    first_x_assum(qspecl_then[`EL n s::env`,`0`,`fk+1`,`shift 1 (Cpat_vars p) e`]mp_tac) >>
+    simp[]
+
     qspecl_then[`FEMPTY`,`FEMPTY`,`s`,`menv ⊌ env`,`e`,`r0`,`v`,`s ' n`]mp_tac Cevaluate_FUPDATE >>
     imp_res_tac Cpmatch_FDOM >>
     `v ∉ FDOM menv` by (
