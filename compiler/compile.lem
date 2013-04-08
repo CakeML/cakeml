@@ -516,6 +516,8 @@ true
 ==>
 syneq c1 c2 (CLoc n) (CLoc n)
 and
+forall c z V e. (forall x. V x x) ==> syneq_exp c c z z V e e
+and
 forall c1 c2 ez1 ez2 V xs1 xs2.
 List.for_all2 V (List.map (fun (n,m) -> n) xs1) (List.map (fun (n,m) -> n) xs2)
 ==>
@@ -608,6 +610,8 @@ syneq_exp c1 c2 ez1 ez2 V e21 e22 &&
 syneq_exp c1 c2 ez1 ez2 V e31 e32
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32)
+and
+forall c z V d. (forall x. V x x) ==> syneq_cb c c z z V d d
 and
 forall c1 c2 ez1 ez2 V defs1 defs2 nz.
 nz = List.length defs1 && nz = List.length defs2 &&

@@ -85,7 +85,15 @@ Induct >> rw[find_index_def] >>
 res_tac >>
 srw_tac[ARITH_ss][arithmeticTheory.ADD1])
 
-val syneq_refl = save_thm("syneq_refl", SIMP_RULE(std_ss)[](CONJUNCT1 syneq_rules))
+val syneq_refl = save_thm("syneq_refl", SIMP_RULE std_ss [] (CONJUNCT1 syneq_rules))
+val _ = export_rewrites["syneq_refl"]
+
+val syneq_exp_refl = List.nth(CONJUNCTS syneq_rules,5)
+val syneq_cb_refl = List.nth(CONJUNCTS syneq_rules,22)
+
+val equality_lambda = store_thm("equality_lambda",
+  ``(λx y. x = y) = $=``,
+  simp[FUN_EQ_THM])
 
 val syneq_sym = store_thm("syneq_sym",
   ``(∀c1 c2 x y. syneq c1 c2 x y ⇒ syneq c2 c1 y x) ∧
@@ -107,6 +115,10 @@ val syneq_sym = store_thm("syneq_sym",
     PROVE_TAC[]) >>
   strip_tac >- rw[Once syneq_cases] >>
   strip_tac >- (
+    rw[] >>
+    rw[Once syneq_cases] >>
+    disj1_tac >> simp[inv_DEF] ) >>
+  strip_tac >- (
     rw[Once syneq_cases] >>
     fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,inv_DEF] >>
     pop_assum mp_tac >> simp[MEM_ZIP] >>
@@ -116,6 +128,7 @@ val syneq_sym = store_thm("syneq_sym",
     fs[optionTheory.OPTREL_def] ) >>
   strip_tac >- (
     rw[] >> rw[Once syneq_cases] >>
+    disj2_tac >>
     pop_assum mp_tac >>
     qmatch_abbrev_tac`a ==> b` >>
     qsuff_tac`a = b` >- rw[] >>
@@ -140,6 +153,7 @@ val syneq_sym = store_thm("syneq_sym",
     PROVE_TAC[]) >>
   strip_tac >- (
     rw[] >> rw[Once syneq_cases] >>
+    disj2_tac >>
     pop_assum mp_tac >>
     qmatch_abbrev_tac`a ==> b` >>
     qsuff_tac`a = b` >- rw[] >>
@@ -149,6 +163,7 @@ val syneq_sym = store_thm("syneq_sym",
     PROVE_TAC[]) >>
   strip_tac >- (
     rw[] >> rw[Once syneq_cases] >>
+    disj2_tac >>
     pop_assum mp_tac >>
     qmatch_abbrev_tac`a ==> b` >>
     qsuff_tac`a = b` >- rw[] >>
@@ -170,8 +185,12 @@ val syneq_sym = store_thm("syneq_sym",
     PROVE_TAC[]) >>
   strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
   strip_tac >- ( rw[] >> rw[Once syneq_cases] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once syneq_cases] >>
+    simp[inv_DEF] ) >>
   rw[] >>
   rw[Once syneq_cases] >>
+  disj2_tac >> rw[] >>
   rfs[] >>
   res_tac >>
   map_every qexists_tac[`az`,`exp2`,`j2`,`r2`,`exp1`,`j1`,`r1`] >>
@@ -191,12 +210,15 @@ val syneq_mono_V = store_thm("syneq_mono_V",
      ∀V'. (∀x y. V x y ⇒ V' x y) ⇒ syneq_cb c1 c2 ez1 ez2 V' defs1 defs2)``,
   ho_match_mp_tac syneq_ind >>
   rw[] >> simp[Once syneq_cases] >> rfs[] >>
-  TRY ( first_x_assum (match_mp_tac o MP_CANON) >>
+  TRY ( disj2_tac >>
+        first_x_assum (match_mp_tac o MP_CANON) >>
         simp[] >> PROVE_TAC[] ) >>
   TRY (
+    disj2_tac >>
     rator_assum`EVERY2`mp_tac >>
     match_mp_tac EVERY2_mono >>
     simp[] ) >>
+  disj2_tac >>
   rw[] >>
   res_tac >>
   rpt (qpat_assum`A = B`(mp_tac o SYM)) >>
@@ -211,7 +233,7 @@ val syneq_trans = store_thm("syneq_trans",
     (∀c1 c2 ez1 ez2 V d1 d2. syneq_cb c1 c2 ez1 ez2 V d1 d2 ⇒
       ∀c3 ez3 V' d3. syneq_cb c2 c3 ez2 ez3 V' d2 d3 ⇒ syneq_cb c1 c3 ez1 ez3 (V' O V) d1 d3)``,
   ho_match_mp_tac syneq_ind >>
-  strip_tac >- rw[Once syneq_cases] >>
+  strip_tac >- rw[] >>
   strip_tac >- ( ntac 2 (rw[Once syneq_cases] ) ) >>
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>
@@ -226,24 +248,47 @@ val syneq_trans = store_thm("syneq_trans",
     rw[] >> pop_assum mp_tac >>
     simp[Once syneq_cases] >> strip_tac >>
     simp[Once syneq_cases] >> rw[] >>
-    TRY (disj2_tac >> qexists_tac`V' O V` >> simp[O_DEF]) >>
-
-    PROVE_TAC[syneq_refl]) >>
+    disj2_tac >- (
+      qexists_tac`V` >>
+      simp[] >>
+      conj_tac >- PROVE_TAC[syneq_refl] >>
+      first_x_assum(qspecl_then[`c2`,`LENGTH env2`,`$=`,`d2`]mp_tac) >>
+      simp[Id_O] >> disch_then match_mp_tac >>
+      simp[Once syneq_cases] ) >>
+    qexists_tac`V' O V` >>
+    simp[O_DEF] >>
+    PROVE_TAC[]) >>
   strip_tac >- ( ntac 2 (rw[Once syneq_cases] ) ) >>
+  strip_tac >- (
+    rw[] >>
+    match_mp_tac (MP_CANON(CONJUNCT1 (CONJUNCT2 syneq_mono_V))) >>
+    qexists_tac`V'` >>
+    simp[O_DEF] >> PROVE_TAC[] ) >>
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>
     simp[Once syneq_cases] >> strip_tac >>
     simp[Once syneq_cases] >>
     fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >> rw[] >>
     rpt (qpat_assum` LENGTH X = LENGTH Y` mp_tac) >>
-    ntac 2 strip_tac >>
+    rpt strip_tac >>
     fs[MEM_ZIP,FORALL_PROD,O_DEF] >>
     PROVE_TAC[] ) >>
   strip_tac >- ( ntac 2 (rw[Once syneq_cases] ) ) >>
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>
     simp[Once syneq_cases] >> strip_tac >>
-    simp[Once syneq_cases] >>
+    simp[Once syneq_cases] >- (
+      simp[O_DEF] >>
+      disj2_tac >>
+      conj_tac >- PROVE_TAC[syneq_rules] >>
+      first_x_assum(qspecl_then[`c2`,`ez2+1`,`$=`,`e2'`]mp_tac) >>
+      simp[Id_O,syneq_rules] >> strip_tac >>
+      match_mp_tac (MP_CANON(CONJUNCT1(CONJUNCT2 syneq_mono_V))) >>
+      HINT_EXISTS_TAC >>
+      simp[O_DEF] >>
+      srw_tac[DNF_ss,ARITH_ss][] >>
+      metis_tac[]) >>
+    disj2_tac >>
     res_tac >>
     match_mp_tac (MP_CANON(CONJUNCT1(CONJUNCT2 syneq_mono_V))) >>
     HINT_EXISTS_TAC >>
@@ -264,21 +309,34 @@ val syneq_trans = store_thm("syneq_trans",
     simp[Once syneq_cases] >>
     fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >> rw[] >>
     rpt (qpat_assum` LENGTH X = LENGTH Y` mp_tac) >>
-    ntac 2 strip_tac >>
+    rpt strip_tac >>
     fs[MEM_ZIP,FORALL_PROD] >>
-    PROVE_TAC[] ) >>
-  strip_tac >- (
-    rw[] >> pop_assum mp_tac >>
-    simp[Once syneq_cases] >> strip_tac >>
-    simp[Once syneq_cases] ) >>
-  strip_tac >- (
-    rw[] >> pop_assum mp_tac >>
-    simp[Once syneq_cases] >> strip_tac >>
-    simp[Once syneq_cases] ) >>
+    PROVE_TAC[syneq_rules] ) >>
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>
     simp[Once syneq_cases] >> strip_tac >>
     simp[Once syneq_cases] >>
+    PROVE_TAC[syneq_rules]) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] >>
+    PROVE_TAC[syneq_rules]) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >> strip_tac >>
+    simp[Once syneq_cases] >- (
+      simp[O_DEF] >>
+      disj2_tac >>
+      conj_tac >- PROVE_TAC[syneq_rules] >>
+      first_x_assum(qspecl_then[`c2`,`ez2+1`,`$=`,`e2'`]mp_tac) >>
+      simp[Id_O,syneq_rules] >> strip_tac >>
+      match_mp_tac (MP_CANON(CONJUNCT1(CONJUNCT2 syneq_mono_V))) >>
+      HINT_EXISTS_TAC >>
+      simp[O_DEF] >>
+      srw_tac[DNF_ss,ARITH_ss][] >>
+      metis_tac[]) >>
+    disj2_tac >>
     res_tac >>
     match_mp_tac (MP_CANON(CONJUNCT1(CONJUNCT2 syneq_mono_V))) >>
     HINT_EXISTS_TAC >>
@@ -289,7 +347,15 @@ val syneq_trans = store_thm("syneq_trans",
     rw[] >> pop_assum mp_tac >>
     simp[Once syneq_cases] >> strip_tac >>
     simp[Once syneq_cases] >>
-    rfs[] >> fs[] >>
+    rfs[] >> fs[] >> disj2_tac >- (
+      conj_tac >- metis_tac[syneq_cb_refl] >>
+      first_x_assum(qspecl_then[`c2`,`ez2 + LENGTH d1`,`$=`,`e2`]mp_tac) >>
+      simp[syneq_exp_refl,O_DEF] >>
+      strip_tac >>
+      match_mp_tac (MP_CANON(CONJUNCT1(CONJUNCT2 syneq_mono_V))) >>
+      HINT_EXISTS_TAC >>
+      srw_tac[DNF_ss,ARITH_ss][] >>
+      metis_tac[]) >>
     res_tac >>
     match_mp_tac (MP_CANON(CONJUNCT1(CONJUNCT2 syneq_mono_V))) >>
     HINT_EXISTS_TAC >>
@@ -299,39 +365,54 @@ val syneq_trans = store_thm("syneq_trans",
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>
     simp[Once syneq_cases] >> strip_tac >>
-    simp[Once syneq_cases] ) >>
+    simp[Once syneq_cases] >>
+    metis_tac[syneq_cb_refl]) >>
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>
     simp[Once syneq_cases] >> strip_tac >>
     simp[Once syneq_cases] >>
     fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >> rw[] >>
     rpt (qpat_assum` LENGTH X = LENGTH Y` mp_tac) >>
-    ntac 2 strip_tac >>
+    rpt strip_tac >>
     fs[MEM_ZIP,FORALL_PROD] >>
-    PROVE_TAC[] ) >>
+    PROVE_TAC[syneq_exp_refl] ) >>
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>
     simp[Once syneq_cases] >> strip_tac >>
-    simp[Once syneq_cases] ) >>
+    simp[Once syneq_cases] >>
+    metis_tac[syneq_exp_refl]) >>
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>
     simp[Once syneq_cases] >> strip_tac >>
-    simp[Once syneq_cases] ) >>
+    simp[Once syneq_cases] >>
+    metis_tac[syneq_exp_refl]) >>
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>
     simp[Once syneq_cases] >> strip_tac >>
-    simp[Once syneq_cases] ) >>
+    simp[Once syneq_cases] >>
+    metis_tac[syneq_exp_refl]) >>
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>
     simp[Once syneq_cases] >> strip_tac >>
-    simp[Once syneq_cases] ) >>
+    simp[Once syneq_cases] >>
+    metis_tac[syneq_exp_refl]) >>
+  strip_tac >- (
+    rw[] >>
+    match_mp_tac (MP_CANON(CONJUNCT2 (CONJUNCT2 syneq_mono_V))) >>
+    simp[O_DEF] >> metis_tac[]) >>
   rw[] >> pop_assum mp_tac >>
   simp[Once syneq_cases] >> strip_tac >>
-  simp[Once syneq_cases] >>
+  simp[Once syneq_cases] >> disj2_tac >>
   fs[] >> rfs[] >> rw[] >> res_tac >>
   rpt (qpat_assum`A = B`(mp_tac o SYM)) >>
   rw[] >> fs[AC ADD_ASSOC ADD_SYM] >>
-  match_mp_tac (MP_CANON(CONJUNCT1(CONJUNCT2 syneq_mono_V))) >>
+  match_mp_tac (MP_CANON(CONJUNCT1(CONJUNCT2 syneq_mono_V))) >- (
+    first_x_assum(qspecl_then[`c2`,`az + j2`,`$=`,`e2`]mp_tac) >>
+    simp[syneq_exp_refl] >> strip_tac >>
+    HINT_EXISTS_TAC >>
+    simp[O_DEF] >>
+    srw_tac[DNF_ss,ARITH_ss][] >>
+    metis_tac[] ) >>
   rator_assum`syneq_exp`mp_tac >>
   qho_match_abbrev_tac`syneq_exp c2 c3 a1 a2 VV e1 e3 ⇒ Z` >>
   strip_tac >>
@@ -358,23 +439,6 @@ result_rel_trans
 val result_rel_syneq_sym = save_thm(
 "result_rel_syneq_sym",
 result_rel_sym
-|> Q.GEN`R`
-|> Q.ISPEC`syneq c c`
-|> SIMP_RULE std_ss[syneq_sym])
-
-val fmap_rel_syneq_trans = save_thm(
-"fmap_rel_syneq_trans",
-fmap_rel_trans
-|> Q.GEN`R`
-|> Q.ISPEC`syneq c c`
-|> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
-|> UNDISCH
-|> (fn th => PROVE_HYP (PROVE[syneq_trans](hd(hyp th))) th)
-|> SIMP_RULE std_ss [AND_IMP_INTRO])
-
-val fmap_rel_syneq_sym = save_thm(
-"fmap_rel_syneq_sym",
-fmap_rel_sym
 |> Q.GEN`R`
 |> Q.ISPEC`syneq c c`
 |> SIMP_RULE std_ss[syneq_sym])
@@ -411,6 +475,23 @@ EVERY2_trans
 |> (fn th => PROVE_HYP (PROVE[syneq_trans](hd(hyp th))) th)
 |> SIMP_RULE std_ss [AND_IMP_INTRO])
 
+val fmap_rel_syneq_trans = save_thm(
+"fmap_rel_syneq_trans",
+fmap_rel_trans
+|> Q.GEN`R`
+|> Q.ISPEC`syneq c c`
+|> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
+|> UNDISCH
+|> (fn th => PROVE_HYP (PROVE[syneq_trans](hd(hyp th))) th)
+|> SIMP_RULE std_ss [AND_IMP_INTRO])
+
+val fmap_rel_syneq_sym = save_thm(
+"fmap_rel_syneq_sym",
+fmap_rel_sym
+|> Q.GEN`R`
+|> Q.ISPEC`syneq c c`
+|> SIMP_RULE std_ss[syneq_sym])
+
 val syneq_ov = store_thm("syneq_ov",
   ``(∀v1 v2 c1 c2. syneq c1 c2 v1 v2 ⇒ ∀m s. Cv_to_ov m s v1 = Cv_to_ov m s v2) ∧
     (∀vs1 vs2 c1 c2. EVERY2 (syneq c1 c2) vs1 vs2 ⇒ ∀m s. EVERY2 (λv1 v2. Cv_to_ov m s v1 = Cv_to_ov m s v2) vs1 vs2)``,
@@ -430,7 +511,7 @@ val syneq_lit_loc = store_thm("syneq_lit_loc",
     (syneq c1 c2 v1 (CLitv l2) = (v1 = CLitv l2)) ∧
     (syneq c1 c2 (CLoc n1) v2 = (v2 = CLoc n1)) ∧
     (syneq c1 c2 v1 (CLoc n2) = (v1 = CLoc n2))``,
-  rpt(simp[Once syneq_cases]))
+  rw[] >> fs[Once syneq_cases] >> rw[EQ_IMP_THM])
 val _ = export_rewrites["syneq_lit_loc"]
 
 (* Misc. int lang lemmas *)
@@ -638,8 +719,8 @@ val no_closures_syneq_equal = store_thm("no_closures_syneq_equal",
   fsrw_tac[DNF_ss][MEM_ZIP,MEM_EL,LIST_EQ_REWRITE] >>
   metis_tac[])
 
-val CevalPrim2_syneq_equal = store_thm(
-"CevalPrim2_syneq_equal",
+val CevalPrim2_syneq = store_thm(
+"CevalPrim2_syneq",
 ``∀v1 v2 c1 c2. syneq c1 c2 v1 v2 ⇒
     ∀p v. (CevalPrim2 p v v1 = CevalPrim2 p v v2) ∧
           (CevalPrim2 p v1 v = CevalPrim2 p v2 v)``,
@@ -649,7 +730,7 @@ strip_tac >- (
   gen_tac >> qx_gen_tac`vs1` >>
   strip_tac >>
   simp[Once syneq_cases] >>
-  rpt gen_tac >> strip_tac >>
+  rpt gen_tac >> strip_tac >- metis_tac[] >>
   `no_closures (CConv cn vs1) = no_closures (CConv cn vs2)` by (
     match_mp_tac syneq_no_closures >>
     simp[Once syneq_cases] >>
@@ -671,8 +752,8 @@ strip_tac >- (
   Cases >> Cases >> TRY (Cases_on `l`) >> rw[] ) >>
 simp[Once syneq_cases])
 
-val doPrim2_syneq_equal = store_thm(
-"doPrim2_syneq_equal",
+val doPrim2_syneq = store_thm(
+"doPrim2_syneq",
 ``∀v1 v2 c1 c2. syneq c1 c2 v1 v2 ⇒
     ∀b ty op v. (doPrim2 b ty op v v1 = doPrim2 b ty op v v2) ∧
                 (doPrim2 b ty op v1 v = doPrim2 b ty op v2 v)``,
@@ -702,43 +783,6 @@ val CevalPrim1_syneq = store_thm("CevalPrim1_syneq",
   rfs[EVERY_MEM,MEM_ZIP,FORALL_PROD] >>
   fsrw_tac[DNF_ss][])
 
-val CevalPrim2_syneq = store_thm("CevalPrim2_syneq",
-  ``∀c1 c2 p2 v11 v21 v12 v22.
-    syneq c1 c2 v11 v12 ∧ syneq c1 c2 v21 v22 ⇒
-    result_rel (syneq c1 c2) (CevalPrim2 p2 v11 v21) (CevalPrim2 p2 v12 v22)``,
-  ntac 2 gen_tac >>
-  Cases >> simp[] >>
-  Cases >> Cases >>
-  simp[] >>
-  TRY ( simp[Once syneq_cases] >> fsrw_tac[DNF_ss][] >> NO_TAC) >>
-  TRY ( simp[Once (CONJUNCT1 syneq_cases)] >> simp[Once (CONJUNCT1 syneq_cases),SimpR``$/\``] >> fsrw_tac[DNF_ss][] >> NO_TAC) >>
-  TRY (Cases_on`l` >> Cases_on`l'` >> simp[] >> fsrw_tac[DNF_ss][i0_def] >> rw[] >> NO_TAC) >>
-  TRY ( rw[] >> NO_TAC ) >>
-  TRY (
-    rw[] >>
-    spose_not_then strip_assume_tac >>
-    imp_res_tac syneq_no_closures >>
-    fs[Once syneq_cases] >> rw[] >>
-    metis_tac[NOT_EVERY] ) >>
-  simp[Once syneq_cases] >>
-  simp[Once syneq_cases] >>
-  fsrw_tac[DNF_ss][] >>
-  rw[] >- (
-    Cases_on`n=n'`>>rw[]>>
-    lrw[LIST_EQ_REWRITE]>>
-    fs[EVERY2_EVERY,EVERY_MEM]>>
-    Cases_on`LENGTH vs2 = LENGTH vs2'`>>rw[]>>
-    rpt (qpat_assum`LENGTH X = LENGTH Y`mp_tac) >> rpt strip_tac >>
-    fsrw_tac[DNF_ss][MEM_ZIP,FORALL_PROD] >>
-    fsrw_tac[DNF_ss][MEM_EL] >>
-    metis_tac[no_closures_syneq_equal] ) >>
-  fsrw_tac[DNF_ss][EVERY_MEM,EVERY2_EVERY,EXISTS_MEM,EXISTS_PROD] >>
-  spose_not_then strip_assume_tac >>
-  rpt (qpat_assum`LENGTH X = LENGTH Y`mp_tac) >> rpt strip_tac >>
-  fsrw_tac[DNF_ss][MEM_ZIP,FORALL_PROD] >>
-  fsrw_tac[DNF_ss][MEM_EL] >>
-  metis_tac[no_closures_syneq_equal,syneq_no_closures] )
-
 val CevalUpd_syneq = store_thm(
 "CevalUpd_syneq",
 ``∀c1 c2 s1 v1 v2 s2 w1 w2.
@@ -758,7 +802,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
   ``(∀c1 s1 env1 exp1 res1. Cevaluate c1 s1 env1 exp1 res1 ⇒
       ∀c2 ez1 ez2 V s2 env2 exp2 res2.
         syneq_exp c1 c2 (LENGTH env1) (LENGTH env2) V exp1 exp2
-      ∧ (∀v1 v2. V v1 v2 ⇒ v1 < LENGTH env1 ∧ v2 < LENGTH env2 ∧ syneq c1 c2 (EL v1 env1) (EL v2 env2))
+      ∧ (∀v1 v2. V v1 v2 ∧ v1 < LENGTH env1 ∧ v2 < LENGTH env2 ⇒ syneq c1 c2 (EL v1 env1) (EL v2 env2))
       ∧ EVERY2 (syneq c1 c2) s1 s2
       ⇒ ∃res2.
         Cevaluate c2 s2 env2 exp2 res2 ∧
@@ -767,25 +811,33 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     (∀c1 s1 env1 es1 res1. Cevaluate_list c1 s1 env1 es1 res1 ⇒
       ∀c2 ez1 ez2 V s2 env2 es2 res2.
         EVERY2 (syneq_exp c1 c2 (LENGTH env1) (LENGTH env2) V) es1 es2
-      ∧ (∀v1 v2. V v1 v2 ⇒ v1 < LENGTH env1 ∧ v2 < LENGTH env2 ∧ syneq c1 c2 (EL v1 env1) (EL v2 env2))
+      ∧ (∀v1 v2. V v1 v2 ∧ v1 < LENGTH env1 ∧ v2 < LENGTH env2 ⇒ syneq c1 c2 (EL v1 env1) (EL v2 env2))
       ∧ EVERY2 (syneq c1 c2) s1 s2
       ⇒ ∃res2.
         Cevaluate_list c2 s2 env2 es2 res2 ∧
         EVERY2 (syneq c1 c2) (FST res1) (FST res2) ∧
         result_rel (EVERY2 (syneq c1 c2)) (SND res1) (SND res2))``,
   ho_match_mp_tac Cevaluate_strongind >>
-  strip_tac >- simp[Once syneq_cases] >>
+  strip_tac >- ( simp[Once syneq_cases] >> rw[] >> rw[] ) >>
   strip_tac >- (
     rw[] >>
     rator_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
+    conj_tac >- (
+      rw[Once Cevaluate_cases] >>
+      fsrw_tac[DNF_ss][EXISTS_PROD] >>
+      disj1_tac >>
+      first_x_assum match_mp_tac >>
+      qexists_tac`$=` >>
+      simp[syneq_exp_refl] ) >>
     map_every qx_gen_tac[`e`,`b`] >>
     rw[Once Cevaluate_cases] >>
     fsrw_tac[DNF_ss][] >>
     first_x_assum(qspecl_then[`c2`,`V`,`s2'`,`env2`,`e`]mp_tac) >>
     simp[EXISTS_PROD] >> metis_tac[] ) >>
   strip_tac >- (
+
     rw[] >>
     rator_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
