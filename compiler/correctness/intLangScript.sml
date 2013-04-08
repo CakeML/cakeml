@@ -1506,18 +1506,87 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
 
 val Cevaluate_mkshift = store_thm("Cevaluate_mkshift",
   ``(∀c s env exp res. Cevaluate c s env exp res ⇒
-      ∀env' f k. (∀v. v < LENGTH env ⇒ f k v < LENGTH env' ∧ (EL v env = EL (f k v) env')) ⇒
-        Cevaluate c s env' (mkshift f k exp) res) ∧
+      ∀env' env0 env1 env1' f k.
+        (env = env0 ++ env1) ∧ (env' = env0 ++ env1') ∧ (LENGTH env0 = k) ∧
+        (∀v. k ≤ v ∧ v < LENGTH env ⇒ f(v-k) < LENGTH env1' ∧ (EL (f(v-k)) env1' = EL (v-k) env1)) ⇒
+        ∃res'.
+        Cevaluate c s env' (mkshift f k exp) res' ∧
+        EVERY2 (RC (syneq c c)) (FST res) (FST res') ∧
+        result_rel (syneq c c) (SND res) (SND res')) ∧
     (∀c s env es rs. Cevaluate_list c s env es rs ⇒
-          ∀env' f k. (∀v. v < LENGTH env ⇒ f k v < LENGTH env' ∧ (EL v env = EL (f k v) env')) ⇒
-            Cevaluate_list c s env' (MAP (mkshift f k) es) rs)``,
+      ∀env' env0 env1 env1' f k.
+        (env = env0 ++ env1) ∧ (env' = env0 ++ env1') ∧ (LENGTH env0 = k) ∧
+        (∀v. k ≤ v ∧ v < LENGTH env ⇒ f(v-k) < LENGTH env1' ∧ (EL (f(v-k)) env1' = EL (v-k) env1)) ⇒
+        ∃rs'.
+        Cevaluate_list c s env' (MAP (mkshift f k) es) rs' ∧
+        EVERY2 (RC (syneq c c)) (FST rs) (FST rs') ∧
+        result_rel (EVERY2 (syneq c c)) (SND rs) (SND rs'))``,
   ho_match_mp_tac Cevaluate_ind >>
   strip_tac >- rw[] >>
-  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] ) >>
   strip_tac >- (
     rw[] >>
     rw[Once Cevaluate_cases] >>
+    fsrw_tac[DNF_ss][EXISTS_PROD]) >>
+  strip_tac >- (
+    rw[] >>
+    rw[Once Cevaluate_cases] >>
+    fsrw_tac[DNF_ss][] >>
     disj2_tac >> disj1_tac >>
+    last_x_assum(qspecl_then[`env0`,`env1`,`env1'`,`f`]mp_tac) >>
+    rw[] >>
+    CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+    map_every qexists_tac[`n`,`FST res'`] >>
+    Cases_on`res'`>>fs[] >>
+    first_x_assum(qspecl_then[`CLitv(IntLit n)::env0`,`env1`,`env1'`,`f`]mp_tac) >>
+
+    Cevaluate_syneq
+
+    simp[ADD1] >> disch_then match_mp_tac >>
+    Cases >> simp[ADD1] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] ) >>
+  strip_tac >- (
+    rw[] >> rw[] >> fsrw_tac[ARITH_ss][] >>
+    lrw[EL_APPEND1,EL_APPEND2] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >>
+    rw[Once Cevaluate_cases] >>
+    srw_tac[ETA_ss][] ) >>
+  strip_tac >- (
+    rw[] >>
+    rw[Once Cevaluate_cases] >>
+    srw_tac[ETA_ss][] ) >>
+  strip_tac >- (
+    rw[Cevaluate_tageq] >>
+    map_every qexists_tac[`m`,`vs`]>>simp[]) >>
+  strip_tac >- rw[Cevaluate_tageq] >>
+  strip_tac >- (
+    rw[Cevaluate_proj] >>
+    map_every qexists_tac[`m`,`vs`]>>simp[] ) >>
+  strip_tac >- rw[Cevaluate_proj] >>
+  strip_tac >- (
+    rw[] >>
+    simp[Cevaluate_let] >>
+    disj1_tac >>
+    last_x_assum(qspecl_then[`env0`,`env1`,`env1'`,`f`]mp_tac) >>
+    rw[] >>
+    map_every qexists_tac[`s'`,`v`] >>
+    simp[] >>
+    first_x_assum(qspecl_then[`v::env0`,`env1`,`env1'`,`f`]mp_tac) >>
+    simp[ADD1] >> disch_then match_mp_tac >>
+    Cases >> simp[ADD1] ) >>
+  strip_tac >- ( rw[] >- simp[Cevaluate_let] ) >>
+  strip_tac >- (
+    rw[] >>
+    simp[Once Cevaluate_cases,Abbr`defs'`] >>
+    conj_tac >- (
+      simp[EVERY_MAP] >>
+      fs[EVERY_MEM] >>
+      Cases >> simp[]
+
+      gen_tac >> strip_tac >>
+      res_tac
+      fsrw_tac[][EVERY_MEM]
 
 (* Cevaluate deterministic *)
 
