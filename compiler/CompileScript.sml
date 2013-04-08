@@ -669,13 +669,13 @@ syneq_cb c1 c2 ez1 ez2 V defs1 defs2)`;
 
  val mkshift_defn = Hol_defn "mkshift" `
 
-(mkshift f k (CDecl vs) = CDecl ( MAP (\ (n,m) . (f k n, m)) vs))
+(mkshift f k (CDecl vs) = CDecl ( MAP (\ (n,m) . ((if n < k then n else (f (n - k)) +k), m)) vs))
 /\
 (mkshift f k (CRaise err) = CRaise err)
 /\
 (mkshift f k (CHandle e1 e2) = CHandle (mkshift f k e1) (mkshift f (k +1) e2))
 /\
-(mkshift f k (CVar v) = CVar (f k v))
+(mkshift f k (CVar v) = CVar (if v < k then v else (f (v - k)) +k))
 /\
 (mkshift f k (CLit l) = CLit l)
 /\
@@ -710,7 +710,7 @@ syneq_cb c1 c2 ez1 ez2 V defs1 defs2)`;
 val _ = Defn.save_defn mkshift_defn;
 
 val _ = Define `
- (shift n = mkshift (\ k v . if v < k then v else v + n))`;
+ (shift n = mkshift (\ v . v +n))`;
 
 
 (* remove pattern-matching using continuations *)
@@ -936,9 +936,8 @@ val _ = Hol_datatype `
   let envs = FILTER (\ v . az +nz <= v) ( QSORT (\ x y . x < y) ( SET_TO_LIST fvs)) in
   let envs = MAP (\ v . v -(az +nz)) envs in
   let rz = LENGTH recs +1 in
-  let e = mkshift (\ k v . if v < k then v else
-                              if v < k +nz then THE(find_index (v - k) (j ::recs) k)
-                              else THE(find_index (v -(k +nz)) envs (k +rz)))
+  let e = mkshift (\ v . if v < nz then THE(find_index v (j ::recs) 0)
+                            else THE(find_index (v - nz) envs rz))
                   az e in
   let rz = rz - 1 in
   <| ccenv := (( GENLIST (\ i . CCArg (2 +i)) (az +1)) ++(( GENLIST CCRef rz) ++( GENLIST (\ i . CCEnv (rz +i)) ( LENGTH envs))))

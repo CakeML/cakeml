@@ -629,13 +629,13 @@ syneq_cb c1 c2 ez1 ez2 V defs1 defs2
 (* source to intermediate expressions *)
 
 let rec
-mkshift f k (CDecl vs) = CDecl (List.map (fun (n,m) -> (f k n, m)) vs)
+mkshift f k (CDecl vs) = CDecl (List.map (fun (n,m) -> (if n < k then n else (f (n-k))+k, m)) vs)
 and
 mkshift f k (CRaise err) = CRaise err
 and
 mkshift f k (CHandle e1 e2) = CHandle (mkshift f k e1) (mkshift f (k+1) e2)
 and
-mkshift f k (CVar v) = CVar (f k v)
+mkshift f k (CVar v) = CVar (if v < k then v else (f (v-k))+k)
 and
 mkshift f k (CLit l) = CLit l
 and
@@ -667,7 +667,7 @@ mkshift f k (CUpd e1 e2) = CUpd (mkshift f k e1) (mkshift f k e2)
 and
 mkshift f k (CIf e1 e2 e3) = CIf (mkshift f k e1) (mkshift f k e2) (mkshift f k e3)
 
-let shift n = mkshift (fun k v -> if v < k then v else v + n)
+let shift n = mkshift (fun v -> v+n)
 
 (* remove pattern-matching using continuations *)
 
@@ -869,9 +869,8 @@ let rec bind_fv e az nz j =
   let envs = List.filter (fun v -> az+nz <= v) (qsort (fun x y -> x < y) (Set.to_list fvs)) in
   let envs = List.map (fun v -> v-(az+nz)) envs in
   let rz = List.length recs+1 in
-  let e = mkshift (fun k v -> if v < k then v else
-                              if v < k+nz then the(find_index (v-k) (j::recs) k)
-                              else the(find_index (v-(k+nz)) envs (k+rz)))
+  let e = mkshift (fun v -> if v < nz then the(find_index v (j::recs) 0)
+                            else the(find_index (v-nz) envs rz))
                   az e in
   let rz = rz-1 in
   <| ccenv = (genlist (fun i -> CCArg (2+i)) (az+1))
