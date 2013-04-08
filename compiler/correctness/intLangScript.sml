@@ -57,7 +57,7 @@ val Cevaluate_proj = store_thm(
   (∃s' err. Cevaluate c s env exp (s', Rerr err) ∧ (res = (s', Rerr err)))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
-(* syneq (almost) equivalence relation lemmas *)
+(* syneq equivalence relation lemmas *)
 
 (* TODO: move *)
 val syneq_rules = CompileTheory.syneq_rules
@@ -85,11 +85,14 @@ Induct >> rw[find_index_def] >>
 res_tac >>
 srw_tac[ARITH_ss][arithmeticTheory.ADD1])
 
+val syneq_refl = save_thm("syneq_refl", SIMP_RULE(std_ss)[](CONJUNCT1 syneq_rules))
+
 val syneq_sym = store_thm("syneq_sym",
   ``(∀c1 c2 x y. syneq c1 c2 x y ⇒ syneq c2 c1 y x) ∧
     (∀c1 c2 ez1 ez2 V exp1 exp2. syneq_exp c1 c2 ez1 ez2 V exp1 exp2 ⇒ syneq_exp c2 c1 ez2 ez1 (inv V) exp2 exp1) ∧
     (∀c1 c2 ez1 ez2 V defs1 defs2. syneq_cb c1 c2 ez1 ez2 V defs1 defs2 ⇒ syneq_cb c2 c1 ez2 ez1 (inv V) defs2 defs1)``,
   ho_match_mp_tac syneq_ind >>
+  strip_tac >- rw[Once syneq_cases] >>
   strip_tac >- rw[Once syneq_cases] >>
   strip_tac >- (
     rw[] >> simp[Once syneq_cases] >>
@@ -98,6 +101,7 @@ val syneq_sym = store_thm("syneq_sym",
     PROVE_TAC[]) >>
   strip_tac >- (
     rw[] >> rw[Once syneq_cases] >>
+    disj2_tac >>
     qexists_tac`inv V` >>
     simp[inv_DEF] >>
     PROVE_TAC[]) >>
@@ -207,6 +211,7 @@ val syneq_trans = store_thm("syneq_trans",
     (∀c1 c2 ez1 ez2 V d1 d2. syneq_cb c1 c2 ez1 ez2 V d1 d2 ⇒
       ∀c3 ez3 V' d3. syneq_cb c2 c3 ez2 ez3 V' d2 d3 ⇒ syneq_cb c1 c3 ez1 ez3 (V' O V) d1 d3)``,
   ho_match_mp_tac syneq_ind >>
+  strip_tac >- rw[Once syneq_cases] >>
   strip_tac >- ( ntac 2 (rw[Once syneq_cases] ) ) >>
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>
@@ -214,16 +219,16 @@ val syneq_trans = store_thm("syneq_trans",
     simp[Once syneq_cases] >>
     fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >> rw[] >>
     rpt (qpat_assum` LENGTH X = LENGTH Y` mp_tac) >>
-    ntac 2 strip_tac >>
+    rpt strip_tac >>
     fs[MEM_ZIP,FORALL_PROD] >>
-    PROVE_TAC[] ) >>
+    PROVE_TAC[syneq_refl] ) >>
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>
     simp[Once syneq_cases] >> strip_tac >>
-    simp[Once syneq_cases] >>
-    qexists_tac`V' O V` >>
-    simp[O_DEF] >>
-    PROVE_TAC[]) >>
+    simp[Once syneq_cases] >> rw[] >>
+    TRY (disj2_tac >> qexists_tac`V' O V` >> simp[O_DEF]) >>
+
+    PROVE_TAC[syneq_refl]) >>
   strip_tac >- ( ntac 2 (rw[Once syneq_cases] ) ) >>
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>

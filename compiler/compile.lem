@@ -491,6 +491,8 @@ syneq_cb_aux c d nz ez (Inr l) =
   )
 
 indreln
+forall c v. true ==> syneq c c v v
+and
 forall c1 c2 l.
 true
 ==>

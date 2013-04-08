@@ -534,6 +534,8 @@ Cevaluate_list c s env (e ::es) (s'', Rerr err))`;
 
 
 val _ = Hol_reln `
+(! c v. T ==> syneq c c v v)
+/\
 (! c1 c2 l.
 T
 ==>
