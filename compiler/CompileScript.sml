@@ -558,9 +558,9 @@ T
 ==>
 syneq c1 c2 (CLoc n) (CLoc n))
 /\
-(! c z V e. (! x. V x x) ==> syneq_exp c c z z V e e)
+(! c z V e. (! x. x < z ==> V x x) ==> syneq_exp c c z z V e e)
 /\
-(! c1 c2 ez1 ez2 V xs1 xs2. EVERY2 V ( MAP (\ (n,m) . n) xs1) ( MAP (\ (n,m) . n) xs2)
+(! c1 c2 ez1 ez2 V xs1 xs2. EVERY2 (\ v1 v2 . V v1 v2 /\ v1 < ez1 /\ v2 < ez2) ( MAP (\ (n,m) . n) xs1) ( MAP (\ (n,m) . n) xs2)
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CDecl xs1) (CDecl xs2))
 /\
@@ -576,7 +576,7 @@ syneq_exp c1 c2 (ez1 +1) (ez2 +1) (\ v1 v2 . ((v1 = 0) /\ (v2 = 0)) \/ 0 < v1 /\
 syneq_exp c1 c2 ez1 ez2 V (CHandle e1 b1) (CHandle e2 b2))
 /\
 (! c1 c2 ez1 ez2 V v1 v2.
-V v1 v2
+V v1 v2 /\ v1 < ez1 /\ v2 < ez2
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CVar v1) (CVar v2))
 /\
@@ -650,7 +650,7 @@ syneq_exp c1 c2 ez1 ez2 V e31 e32
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
 /\
-(! c z V d. (! x. V x x) ==> syneq_cb c c z z V d d)
+(! c z V d. (! x. x < z ==> V x x) ==> syneq_cb c c z z V d d)
 /\
 (! c1 c2 ez1 ez2 V defs1 defs2 nz.
 (nz = LENGTH defs1) /\ (nz = LENGTH defs2) /\
