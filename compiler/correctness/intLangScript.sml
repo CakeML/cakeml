@@ -1948,25 +1948,54 @@ val Cevaluate_mkshift = store_thm("Cevaluate_mkshift",
     rw[Cevaluate_proj] >>
     fsrw_tac[DNF_ss][EXISTS_PROD] ) >>
   strip_tac >- (
-
     rw[] >>
     simp[Cevaluate_let] >>
+    fsrw_tac[DNF_ss][] >>
     disj1_tac >>
     last_x_assum(qspecl_then[`env0`,`env1`,`env1'`,`f`]mp_tac) >>
     rw[] >>
-    map_every qexists_tac[`s'`,`v`] >>
-    simp[] >>
+    CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+    map_every qexists_tac[`v'`,`FST res'`] >>
+    Cases_on`res'`>>fs[]>>
     first_x_assum(qspecl_then[`v::env0`,`env1`,`env1'`,`f`]mp_tac) >>
-    simp[ADD1] >> disch_then match_mp_tac >>
-    Cases >> simp[ADD1] ) >>
-  strip_tac >- ( rw[] >- simp[Cevaluate_let] ) >>
+    simp[ADD1] >>
+    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by (
+      map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+      conj_tac >> Cases >>
+      fsrw_tac[ARITH_ss][ADD1] ) >>
+    simp[] >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    disch_then(Q.X_CHOOSE_THEN`res'`strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`Cevaluate c s' env' e' res'` >>
+    qspecl_then[`c`,`s'`,`env'`,`e'`,`res'`]mp_tac(CONJUNCT1 Cevaluate_syneq) >>
+    simp[] >>
+    qmatch_assum_rename_tac`EVERY2 (syneq c c) s' ss`[] >>
+    disch_then(qspecl_then[`c`,`$=`,`ss`,`v'::(TL env')`,`e'`]mp_tac) >>
+    simp[syneq_exp_refl,Abbr`env'`] >>
+    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by (
+      map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+      Cases >> simp[EL_CONS] ) >>
+    simp[] >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    metis_tac[EVERY2_syneq_trans,result_rel_syneq_trans] ) >>
   strip_tac >- (
     rw[] >>
-    simp[Once Cevaluate_cases,Abbr`defs'`] >>
+    simp[Cevaluate_let] >>
+    fsrw_tac[DNF_ss][EXISTS_PROD]) >>
+  strip_tac >- (
+    rw[LET_THM] >>
+    simp[Once Cevaluate_cases] >>
+    simp[GSYM CONJ_ASSOC] >>
+    simp[RIGHT_EXISTS_AND_THM] >>
     conj_tac >- (
       simp[EVERY_MAP] >>
       fs[EVERY_MEM] >>
-      Cases >> simp[]
+      Cases >> simp[] >>
+      TRY BasicProvers.CASE_TAC >>
+      rw[] >> res_tac >> fs[]
+
 
       gen_tac >> strip_tac >>
       res_tac
