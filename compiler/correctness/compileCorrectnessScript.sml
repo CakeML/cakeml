@@ -1811,9 +1811,6 @@ val Cenv_bs_DOMSUB = store_thm("Cenv_bs_DOMSUB",
     Cenv_bs c rd s (env \\ k) (renv \\ k) rsz bs``,
   rw[Cenv_bs_def,fmap_rel_def,DOMSUB_FAPPLY_THM])
 
-fun qx_choosel_then [] ttac = ttac
-  | qx_choosel_then (q::qs) ttac = Q.X_CHOOSE_THEN q (qx_choosel_then qs ttac)
-
 (* TODO: move *)
 val binders_def = tDefine "binders"`
  (binders (CDecl _) = []) ∧

@@ -491,7 +491,7 @@ syneq_cb_aux c d nz ez (Inr l) =
   )
 
 indreln
-forall c v. true ==> syneq c c v v
+forall c1 c2 v. syneq_cds c1 c2 ==> syneq c1 c2 v v
 and
 forall c1 c2 l.
 true
@@ -516,7 +516,11 @@ true
 ==>
 syneq c1 c2 (CLoc n) (CLoc n)
 and
-forall c z V e. (forall x. x < z --> V x x) ==> syneq_exp c c z z V e e
+forall c1 c2 z V e.
+(forall x. x < z --> V x x) &&
+syneq_cds c1 c2
+==>
+syneq_exp c1 c2 z z V e e
 and
 forall c1 c2 ez1 ez2 V xs1 xs2.
 List.for_all2 (fun v1 v2 -> V v1 v2 && v1 < ez1 && v2 < ez2) (List.map (fun (n,m) -> n) xs1) (List.map (fun (n,m) -> n) xs2)
@@ -611,7 +615,11 @@ syneq_exp c1 c2 ez1 ez2 V e31 e32
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32)
 and
-forall c z V d. (forall x. x < z --> V x x) ==> syneq_cb c c z z V d d
+forall c1 c2 z V d.
+(forall x. x < z --> V x x) &&
+syneq_cds c1 c2
+==>
+syneq_cb c1 c2 z z V d d
 and
 forall c1 c2 ez1 ez2 V defs1 defs2 nz.
 nz = List.length defs1 && nz = List.length defs2 &&
@@ -629,6 +637,28 @@ forall n. n < nz -->
     e1 e2
 ==>
 syneq_cb c1 c2 ez1 ez2 V defs1 defs2
+and
+forall c1 c2.
+(forall l. (Pmap.mem l c1 || Pmap.mem l c2) -->
+  Pmap.mem l c1 && Pmap.mem l c2 &&
+  let cd1 = Pmap.find l c1 in
+  let cd2 = Pmap.find l c2 in
+  cd1.nz = cd2.nz &&
+  cd1.cd.az = cd2.cd.az &&
+  forall V.
+    (forall v1 v2. V v1 v2 -->
+      (v1 < az && v2 = v1) ||
+      (az <= v1 && az <= v2 && 
+      want to reuse syneq_cb here
+      need to refactor
+      maybe: have a relation equating two closure_extra_datas
+      and have a function to turn an INL into a closure_extra_data
+      (and probably factor out a function to turn a closure_extra_data into stuff suitable for syneq_exp)
+    )
+  -->
+  syneq_exp c1 c2 (List.length cd1.cd.ccenv) (List.length cd2.cd.ccenv) V cd1.cd.body cd2.cd.body)
+==>
+syneq_cds c1 c2
 
 (* Compiler *)
 

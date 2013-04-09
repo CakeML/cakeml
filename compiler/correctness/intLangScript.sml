@@ -68,6 +68,8 @@ fun RATOR_KEEP_ASSUM t ttac (g as (asl,w)) = ttac (ASSUME (first (can (match_ter
 fun rator_k_assum q ttac = Q_TAC (C RATOR_KEEP_ASSUM ttac) q
 val rev_assum_list = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC)
 fun last_x_assum x = rev_assum_list >> first_x_assum x >> rev_assum_list
+fun qx_choosel_then [] ttac = ttac
+  | qx_choosel_then (q::qs) ttac = Q.X_CHOOSE_THEN q (qx_choosel_then qs ttac)
 
 val find_index_ALL_DISTINCT_EL = store_thm(
 "find_index_ALL_DISTINCT_EL",
@@ -1853,20 +1855,23 @@ val Cevaluate_mkshift = store_thm("Cevaluate_mkshift",
       ∀env' env0 env1 env1' f k.
         (env = env0 ++ env1) ∧ (env' = env0 ++ env1') ∧ (LENGTH env0 = k) ∧
         (∀v. k ≤ v ∧ v < LENGTH env ⇒ f(v-k) < LENGTH env1' ∧ (EL (f(v-k)) env1' = EL (v-k) env1)) ⇒
-        ∃res'.
-        Cevaluate c s env' (mkshift f k exp) res' ∧
-        EVERY2 (syneq c c) (FST res) (FST res') ∧
-        result_rel (syneq c c) (SND res) (SND res')) ∧
+        ∃c' res'.
+        Cevaluate c' s env' (mkshift f k exp) res' ∧
+        EVERY2 (syneq c c') (FST res) (FST res') ∧
+        result_rel (syneq c c') (SND res) (SND res') ∧
+        syneq_cds c c') ∧
     (∀c s env es rs. Cevaluate_list c s env es rs ⇒
       ∀env' env0 env1 env1' f k.
         (env = env0 ++ env1) ∧ (env' = env0 ++ env1') ∧ (LENGTH env0 = k) ∧
         (∀v. k ≤ v ∧ v < LENGTH env ⇒ f(v-k) < LENGTH env1' ∧ (EL (f(v-k)) env1' = EL (v-k) env1)) ⇒
-        ∃rs'.
-        Cevaluate_list c s env' (MAP (mkshift f k) es) rs' ∧
-        EVERY2 (syneq c c) (FST rs) (FST rs') ∧
-        result_rel (EVERY2 (syneq c c)) (SND rs) (SND rs'))``,
+        ∃c' rs'.
+        Cevaluate_list c' s env' (MAP (mkshift f k) es) rs' ∧
+        EVERY2 (syneq c c') (FST rs) (FST rs') ∧
+        result_rel (EVERY2 (syneq c c')) (SND rs) (SND rs') ∧
+        syneq_cds c c')``,
   ho_match_mp_tac Cevaluate_ind >>
-  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >> qexists_tac `c` >> rw[]) >>
   strip_tac >- (
     rw[] >>
     rw[Once Cevaluate_cases] >>
@@ -1890,12 +1895,13 @@ val Cevaluate_mkshift = store_thm("Cevaluate_mkshift",
       fsrw_tac[ARITH_ss][ADD1] ) >>
     simp[] >>
     map_every qunabbrev_tac[`P`,`Q`,`R`] >>
-    disch_then(Q.X_CHOOSE_THEN`res'`strip_assume_tac) >>
-    qmatch_assum_abbrev_tac`Cevaluate c s' env' e' res'` >>
-    qspecl_then[`c`,`s'`,`env'`,`e'`,`res'`]mp_tac(CONJUNCT1 Cevaluate_syneq) >>
+    disch_then(qx_choosel_then[`c''`,`res'`]strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`Cevaluate c'' s' env' e' res'` >>
+    qspecl_then[`c''`,`s'`,`env'`,`e'`,`res'`]mp_tac(CONJUNCT1 Cevaluate_syneq) >>
     simp[] >>
-    qmatch_assum_rename_tac`EVERY2 (syneq c c) s' ss`[] >>
-    disch_then(qspecl_then[`c`,`$=`,`ss`,`env'`,`e'`]mp_tac) >>
+    qmatch_assum_rename_tac`EVERY2 (syneq c c') s' ss`[] >>
+
+    disch_then(qspecl_then[`c''`,`$=`,`ss`,`env'`,`e'`]mp_tac) >>
     simp[syneq_exp_refl] >>
     metis_tac[EVERY2_syneq_trans,result_rel_syneq_trans] ) >>
   strip_tac >- (
