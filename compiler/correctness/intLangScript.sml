@@ -1855,29 +1855,53 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
 
 (* Cevaluate mkshift *)
 
+val shift_cd_def = Define`
+  shift_cd f k d cd =
+    cd with <| ez := Num(&cd.ez + d)
+             ; cd := cd.cd with ceenv := (FST cd.cd.ceenv, MAP (λv. if v < k then v else f(v-k)+k) (SND cd.cd.ceenv))
+             |>`
+
+val syneq_shift_cd_refl = store_thm("syneq_shift_cd_refl",
+  ``∀v c f k d. syneq c (shift_cd f k d o_f c) v v``,
+  ho_match_mp_tac Cv_ind >>
+  simp[] >>
+  conj_tac >- (
+    rw[] >> rw[Once syneq_cases] >>
+    fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP,MEM_EL] ) >>
+  rw[] >> simp[Once syneq_cases] >>
+  disj2_tac >>
+  fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD,MEM_ZIP,MEM_EL] >>
+  qexists_tac`λv1 v2. v1 < LENGTH env ∧ (v2 = v1)` >>
+  simp[] >>
+  simp[Once syneq_exp_cases] >>
+  disj2_tac >>
+
+
+
 val Cevaluate_mkshift = store_thm("Cevaluate_mkshift",
   ``(∀c s env exp res. Cevaluate c s env exp res ⇒
-      ∀env' env0 env1 env1' f k.
+      ∀env' env0 env1 env1' f k c'.
         (env = env0 ++ env1) ∧ (env' = env0 ++ env1') ∧ (LENGTH env0 = k) ∧
-        (∀v. k ≤ v ∧ v < LENGTH env ⇒ f(v-k) < LENGTH env1' ∧ (EL (f(v-k)) env1' = EL (v-k) env1)) ⇒
-        ∃c' res'.
+        (∀v. k ≤ v ∧ v < LENGTH env ⇒ f(v-k) < LENGTH env1' ∧ (EL (f(v-k)) env1' = EL (v-k) env1)) ∧
+        (c' = (shift_cd f k (&(LENGTH env') - &(LENGTH env))) o_f c)
+        ⇒
+        ∃res'.
         Cevaluate c' s env' (mkshift f k exp) res' ∧
         EVERY2 (syneq c c') (FST res) (FST res') ∧
-        result_rel (syneq c c') (SND res) (SND res') ∧
-        syneq_cds (LENGTH env) (LENGTH env') (λv v'. v < LENGTH env ∧ v' < LENGTH env' ∧ (EL v env = EL v' env')) c c') ∧
+        result_rel (syneq c c') (SND res) (SND res')) ∧
     (∀c s env es rs. Cevaluate_list c s env es rs ⇒
-      ∀env' env0 env1 env1' f k.
+      ∀env' env0 env1 env1' f k c'.
         (env = env0 ++ env1) ∧ (env' = env0 ++ env1') ∧ (LENGTH env0 = k) ∧
-        (∀v. k ≤ v ∧ v < LENGTH env ⇒ f(v-k) < LENGTH env1' ∧ (EL (f(v-k)) env1' = EL (v-k) env1)) ⇒
-        ∃c' rs'.
+        (∀v. k ≤ v ∧ v < LENGTH env ⇒ f(v-k) < LENGTH env1' ∧ (EL (f(v-k)) env1' = EL (v-k) env1)) ∧
+        (c' = (shift_cd f k (&(LENGTH env') - &(LENGTH env))) o_f c)
+        ⇒
+        ∃rs'.
         Cevaluate_list c' s env' (MAP (mkshift f k) es) rs' ∧
         EVERY2 (syneq c c') (FST rs) (FST rs') ∧
-        result_rel (EVERY2 (syneq c c')) (SND rs) (SND rs') ∧
-        syneq_cds (LENGTH env) (LENGTH env') (λv v'. v < LENGTH env ∧ v' < LENGTH env' ∧ (EL v env = EL v' env')) c c')``,
+        result_rel (EVERY2 (syneq c c')) (SND rs) (SND rs'))``,
   ho_match_mp_tac Cevaluate_ind >>
   strip_tac >- (
     rw[] >>
-    qexists_tac `c` >> rw[] >>
     simp[syneq_cds_def,syneq_cb_aux_def,UNCURRY]
     ) >>
   strip_tac >- (
