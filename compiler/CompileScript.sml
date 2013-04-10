@@ -514,7 +514,7 @@ Cevaluate_list c s env (e ::es) (s'', Rerr err))`;
 
  val syneq_cb_aux_def = Define `
 
-(syneq_cb_aux c d nz ez (INL (az,e)) = (T,az,e,(nz +ez),
+(syneq_cb_aux c d nz ez (INL (az,e)) = (az,e,(nz +ez),
   (\ n . if n < nz then CCRef (nz - n - 1) else
            if n < nz +ez then CCEnv (n - nz)
            else CCArg n)))
@@ -522,8 +522,7 @@ Cevaluate_list c s env (e ::es) (s'', Rerr err))`;
 (syneq_cb_aux c d nz ez (INR l) =
   let cd = FAPPLY  c  l in
   let (recs,envs) = cd.cd.ceenv in
-  ( (l IN FDOM  c /\ (cd.nz = nz) /\ (cd.ez = ez) /\ (cd.ix = d) /\ closed_cd cd.cd /\ EVERY (\ n . n < ez) envs /\ EVERY (\ n . n < nz) recs)
-  ,cd.cd.az
+  (cd.cd.az
   ,cd.cd.body
   ,(1 + LENGTH recs + LENGTH envs)
   ,(\ n . if n = 0 then CCRef d else
@@ -544,9 +543,7 @@ Cevaluate_list c s env (e ::es) (s'', Rerr err))`;
 
 
 val _ = Hol_reln `
-(! c z V e. (! x. x < z ==> V x x) ==> syneq_exp c c z z V e e)
-/\
-(! c1 c2 ez1 ez2 V xs1 xs2. EVERY2 (\ v1 v2 . V v1 v2 /\ v1 < ez1 /\ v2 < ez2) ( MAP (\ (n,m) . n) xs1) ( MAP (\ (n,m) . n) xs2)
+(! c1 c2 ez1 ez2 V xs1 xs2. EVERY2 (\ v1 v2 . (v1 < ez1 /\ v2 < ez2 ==> V v1 v2)) ( MAP (\ (n,m) . n) xs1) ( MAP (\ (n,m) . n) xs2)
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CDecl xs1) (CDecl xs2))
 /\
@@ -562,7 +559,7 @@ syneq_exp c1 c2 (ez1 +1) (ez2 +1) (\ v1 v2 . ((v1 = 0) /\ (v2 = 0)) \/ 0 < v1 /\
 syneq_exp c1 c2 ez1 ez2 V (CHandle e1 b1) (CHandle e2 b2))
 /\
 (! c1 c2 ez1 ez2 V v1 v2.
-V v1 v2 /\ v1 < ez1 /\ v2 < ez2
+(v1 < ez1 /\ v2 < ez2 ==> V v1 v2)
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CVar v1) (CVar v2))
 /\
@@ -636,21 +633,17 @@ syneq_exp c1 c2 ez1 ez2 V e31 e32
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
 /\
-(! c z V d. (! x. x < z ==> V x x) ==> syneq_cb c c z z V d d)
-/\
 (! c1 c2 ez1 ez2 V defs1 defs2 nz.
 (nz = LENGTH defs1) /\ (nz = LENGTH defs2) /\
 (! n. n < nz ==>
   (? az e1 j1 r1 e2 j2 r2.
-  ((T,az,e1,j1,r1) = syneq_cb_aux c1 n nz ez1 ( EL  n  defs1)) /\
-  ((T,az,e2,j2,r2) = syneq_cb_aux c2 n nz ez2 ( EL  n  defs2)) /\
+  ((az,e1,j1,r1) = syneq_cb_aux c1 n nz ez1 ( EL  n  defs1)) /\
+  ((az,e2,j2,r2) = syneq_cb_aux c2 n nz ez2 ( EL  n  defs2)) /\
   syneq_exp c1 c2 (az +j1) (az +j2) (syneq_cb_V az r1 r2 V) e1 e2))
 ==>
 syneq_cb c1 c2 ez1 ez2 V defs1 defs2)`;
 
 val _ = Hol_reln `
-(! c v. T ==> syneq c c v v)
-/\
 (! c1 c2 l.
 T
 ==>
@@ -677,8 +670,8 @@ syneq c1 c2 (CLoc n) (CLoc n))`;
  (syneq_cds ez1 ez2 V c1 c2 =
 ! l. ( l IN FDOM  c1 \/  l IN FDOM  c2) ==>
   (? az nz ix e1 j1 r1 e2 j2 r2.
-  ((T,az,e1,j1,r1) = syneq_cb_aux c1 ix nz ez1 (INR l)) /\
-  ((T,az,e2,j2,r2) = syneq_cb_aux c2 ix nz ez2 (INR l)) /\
+  ((az,e1,j1,r1) = syneq_cb_aux c1 ix nz ez1 (INR l)) /\
+  ((az,e2,j2,r2) = syneq_cb_aux c2 ix nz ez2 (INR l)) /\
   syneq_exp c1 c2 (az +j1) (az +j2) (syneq_cb_V az r1 r2 V) e1 e2))`;
 
 

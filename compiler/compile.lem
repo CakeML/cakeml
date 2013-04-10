@@ -470,7 +470,7 @@ let rec closed_cd cd = forall v. v IN free_vars cd.body -->
   v < cd.az + List.length(fst cd.ceenv) + List.length (snd cd.ceenv) + 1
 
 let rec
-syneq_cb_aux c d nz ez (Inl (az,e)) = (true,az,e,nz+ez,
+syneq_cb_aux c d nz ez (Inl (az,e)) = (az,e,nz+ez,
   fun n -> if n < nz then CCRef (nz-n-1) else
            if n < nz+ez then CCEnv (n-nz)
            else CCArg n)
@@ -478,10 +478,7 @@ and
 syneq_cb_aux c d nz ez (Inr l) =
   let cd = Pmap.find l c in
   let (recs,envs) = cd.cd.ceenv in
-  (Pmap.mem l c && cd.nz = nz && cd.ez = ez && cd.ix = d && closed_cd cd.cd
-   && List.for_all (fun n -> n < ez) envs
-   && List.for_all (fun n -> n < nz) recs
-  ,cd.cd.az
+  (cd.cd.az
   ,cd.cd.body
   ,1+List.length recs+List.length envs
   ,fun n -> if n = 0 then CCRef d else
@@ -499,10 +496,8 @@ let rec syneq_cb_V az r1 r2 V v1 v2 =
       (r1 (v1-az) = CCEnv j1 && r2 (v2-az) = CCEnv j2 && V j1 j2))))
 
 indreln
-forall c z V e. (forall x. x < z --> V x x) ==> syneq_exp c c z z V e e
-and
 forall c1 c2 ez1 ez2 V xs1 xs2.
-List.for_all2 (fun v1 v2 -> V v1 v2 && v1 < ez1 && v2 < ez2) (List.map (fun (n,m) -> n) xs1) (List.map (fun (n,m) -> n) xs2)
+List.for_all2 (fun v1 v2 -> (v1 < ez1 && v2 < ez2 --> V v1 v2)) (List.map (fun (n,m) -> n) xs1) (List.map (fun (n,m) -> n) xs2)
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CDecl xs1) (CDecl xs2)
 and
@@ -518,7 +513,7 @@ syneq_exp c1 c2 (ez1+1) (ez2+1) (fun v1 v2 -> (v1 = 0 && v2 = 0) || 0 < v1 && 0 
 syneq_exp c1 c2 ez1 ez2 V (CHandle e1 b1) (CHandle e2 b2)
 and
 forall c1 c2 ez1 ez2 V v1 v2.
-V v1 v2 && v1 < ez1 && v2 < ez2
+(v1 < ez1 && v2 < ez2 --> V v1 v2)
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CVar v1) (CVar v2)
 and
@@ -594,21 +589,17 @@ syneq_exp c1 c2 ez1 ez2 V e31 e32
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32)
 and
-forall c z V d. (forall x. x < z --> V x x) ==> syneq_cb c c z z V d d
-and
 forall c1 c2 ez1 ez2 V defs1 defs2 nz.
 nz = List.length defs1 && nz = List.length defs2 &&
 forall n. n < nz -->
   exists az e1 j1 r1 e2 j2 r2.
-  (true,az,e1,j1,r1) = syneq_cb_aux c1 n nz ez1 (List.nth defs1 n) &&
-  (true,az,e2,j2,r2) = syneq_cb_aux c2 n nz ez2 (List.nth defs2 n) &&
+  (az,e1,j1,r1) = syneq_cb_aux c1 n nz ez1 (List.nth defs1 n) &&
+  (az,e2,j2,r2) = syneq_cb_aux c2 n nz ez2 (List.nth defs2 n) &&
   syneq_exp c1 c2 (az+j1) (az+j2) (syneq_cb_V az r1 r2 V) e1 e2
 ==>
 syneq_cb c1 c2 ez1 ez2 V defs1 defs2
 
 indreln
-forall c v. true ==> syneq c c v v
-and
 forall c1 c2 l.
 true
 ==>
@@ -635,8 +626,8 @@ syneq c1 c2 (CLoc n) (CLoc n)
 let rec syneq_cds ez1 ez2 V c1 c2 =
 forall l. (Pmap.mem l c1 || Pmap.mem l c2) -->
   exists az nz ix e1 j1 r1 e2 j2 r2.
-  (true,az,e1,j1,r1) = syneq_cb_aux c1 ix nz ez1 (Inr l) &&
-  (true,az,e2,j2,r2) = syneq_cb_aux c2 ix nz ez2 (Inr l) &&
+  (az,e1,j1,r1) = syneq_cb_aux c1 ix nz ez1 (Inr l) &&
+  (az,e2,j2,r2) = syneq_cb_aux c2 ix nz ez2 (Inr l) &&
   syneq_exp c1 c2 (az+j1) (az+j2) (syneq_cb_V az r1 r2 V) e1 e2
 
 (* Compiler *)
