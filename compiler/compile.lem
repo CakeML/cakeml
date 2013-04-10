@@ -151,6 +151,7 @@ type closure_extra_data =
   <| cd :closure_data
    ; nz :num (* size of recursive bundle *)
    ; ez :num (* size of creation-site environment *)
+   ; ix :num (* position in recursive bundle *)
    |>
 
 let rec
@@ -477,7 +478,7 @@ and
 syneq_cb_aux c d nz ez (Inr l) =
   let cd = Pmap.find l c in
   let (recs,envs) = cd.cd.ceenv in
-  (Pmap.mem l c && cd.nz = nz && cd.ez = ez && closed_cd cd.cd
+  (Pmap.mem l c && cd.nz = nz && cd.ez = ez && cd.ix = d && closed_cd cd.cd
    && List.for_all (fun n -> n < ez) envs
    && List.for_all (fun n -> n < nz) recs
   ,cd.cd.az
@@ -490,8 +491,15 @@ syneq_cb_aux c d nz ez (Inr l) =
               else CCArg n
   )
 
+let rec syneq_cb_V az r1 r2 V v1 v2 =
+  (v1 < az && v2 = v1) ||
+  (az <= v1 && az <= v2 &&
+   ((exists j. (r1 (v1-az) = CCRef j && r2 (v2-az) = CCRef j)) ||
+    (exists j1 j2.
+      (r1 (v1-az) = CCEnv j1 && r2 (v2-az) = CCEnv j2 && V j1 j2))))
+
 indreln
-forall c1 c2 v. syneq_cds c1 c2 ==> syneq c1 c2 v v
+forall c v. true ==> syneq c c v v
 and
 forall c1 c2 l.
 true
@@ -516,11 +524,7 @@ true
 ==>
 syneq c1 c2 (CLoc n) (CLoc n)
 and
-forall c1 c2 z V e.
-(forall x. x < z --> V x x) &&
-syneq_cds c1 c2
-==>
-syneq_exp c1 c2 z z V e e
+forall c z V e. (forall x. x < z --> V x x) ==> syneq_exp c c z z V e e
 and
 forall c1 c2 ez1 ez2 V xs1 xs2.
 List.for_all2 (fun v1 v2 -> V v1 v2 && v1 < ez1 && v2 < ez2) (List.map (fun (n,m) -> n) xs1) (List.map (fun (n,m) -> n) xs2)
@@ -615,11 +619,7 @@ syneq_exp c1 c2 ez1 ez2 V e31 e32
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32)
 and
-forall c1 c2 z V d.
-(forall x. x < z --> V x x) &&
-syneq_cds c1 c2
-==>
-syneq_cb c1 c2 z z V d d
+forall c z V d. (forall x. x < z --> V x x) ==> syneq_cb c c z z V d d
 and
 forall c1 c2 ez1 ez2 V defs1 defs2 nz.
 nz = List.length defs1 && nz = List.length defs2 &&
@@ -627,38 +627,16 @@ forall n. n < nz -->
   exists az e1 j1 r1 e2 j2 r2.
   (true,az,e1,j1,r1) = syneq_cb_aux c1 n nz ez1 (List.nth defs1 n) &&
   (true,az,e2,j2,r2) = syneq_cb_aux c2 n nz ez2 (List.nth defs2 n) &&
-  syneq_exp c1 c2 (az+j1) (az+j2)
-    (fun v1 v2 ->
-      (v1 < az && v2 = v1) ||
-      (az <= v1 && az <= v2 &&
-        ((exists j. (r1 (v1-az) = CCRef j && r2 (v2-az) = CCRef j)) ||
-         (exists j1 j2.
-           (r1 (v1-az) = CCEnv j1 && r2 (v2-az) = CCEnv j2 && V j1 j2)))))
-    e1 e2
+  syneq_exp c1 c2 (az+j1) (az+j2) (syneq_cb_V az r1 r2 V) e1 e2
 ==>
 syneq_cb c1 c2 ez1 ez2 V defs1 defs2
-and
-forall c1 c2.
-(forall l. (Pmap.mem l c1 || Pmap.mem l c2) -->
-  Pmap.mem l c1 && Pmap.mem l c2 &&
-  let cd1 = Pmap.find l c1 in
-  let cd2 = Pmap.find l c2 in
-  cd1.nz = cd2.nz &&
-  cd1.cd.az = cd2.cd.az &&
-  forall V.
-    (forall v1 v2. V v1 v2 -->
-      (v1 < az && v2 = v1) ||
-      (az <= v1 && az <= v2 && 
-      want to reuse syneq_cb here
-      need to refactor
-      maybe: have a relation equating two closure_extra_datas
-      and have a function to turn an INL into a closure_extra_data
-      (and probably factor out a function to turn a closure_extra_data into stuff suitable for syneq_exp)
-    )
-  -->
-  syneq_exp c1 c2 (List.length cd1.cd.ccenv) (List.length cd2.cd.ccenv) V cd1.cd.body cd2.cd.body)
-==>
-syneq_cds c1 c2
+
+let rec syneq_cds ez1 ez2 V c1 c2 =
+forall l. (Pmap.mem l c1 || Pmap.mem l c2) -->
+  exists az nz ix e1 j1 r1 e2 j2 r2.
+  (true,az,e1,j1,r1) = syneq_cb_aux c1 ix nz ez1 (Inr l) &&
+  (true,az,e2,j2,r2) = syneq_cb_aux c2 ix nz ez2 (Inr l) &&
+  syneq_exp c1 c2 (az+j1) (az+j2) (syneq_cb_V az r1 r2 V) e1 e2
 
 (* Compiler *)
 
