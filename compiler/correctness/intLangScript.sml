@@ -94,24 +94,19 @@ srw_tac[ARITH_ss][arithmeticTheory.ADD1])
 
 val Cexp_ind = save_thm("Cexp_ind",
 TypeBase.induction_of``:Cexp``
-|> Q.SPECL[`P`,`P_defs`,`K T`,`K T`,`EVERY P`]
+|> Q.SPECL[`P`,`P_defs`,`λv. P_defs [v]`,`K T`,`EVERY P`]
 |> UNDISCH_ALL
 |> CONJUNCTS
 |> (C(curry List.take)2)
 |> LIST_CONJ
 |> DISCH_ALL
 |> SIMP_RULE(srw_ss())[]
-
-|> Q.GENL[`P_cb`,`P`])
+|> Q.GENL[`P_defs`,`P`])
 
 val syneq_exp_refl = store_thm("syneq_exp_refl",
   ``(∀e c z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp c c z z V e e) ∧
-  (*
-    (∀d:def list. T) ∧
-    (∀d:def. T) ∧
-    (∀x:(num#Cexp). T) ∧
-    (∀es c z V. (∀v. v < z ⇒ V v v) ⇒ EVERY2 (syneq_exp c c z z V) es es)``,
-  ho_match_mp_tac(TypeBase.induction_of``:Cexp``) >>
+    (∀d n c z V. (∀v. v < z ⇒ V v v) ∧ n ≤ LENGTH d ⇒ syneq_cb c c z z V (DROP n d) (DROP n d))``,
+  ho_match_mp_tac Cexp_ind >>
   strip_tac >- (
     rw[Once syneq_exp_cases] >>
     fsrw_tac[DNF_ss][EVERY2_EVERY,ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF,EVERY_MAP] ) >>
@@ -122,7 +117,8 @@ val syneq_exp_refl = store_thm("syneq_exp_refl",
     Cases >> srw_tac[ARITH_ss][] ) >>
   strip_tac >- rw[Once syneq_exp_cases] >>
   strip_tac >- rw[Once syneq_exp_cases] >>
-  strip_tac >- rw[Once syneq_exp_cases] >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] >>
+    fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,MEM_ZIP,MEM_EL] ) >>
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
   strip_tac >- (
@@ -130,12 +126,19 @@ val syneq_exp_refl = store_thm("syneq_exp_refl",
     first_x_assum match_mp_tac >>
     Cases >> srw_tac[ARITH_ss][] ) >>
   strip_tac >- (
-    rw[] >> rw[Once syneq_exp_cases] >>
+    rw[] >> rw[Once syneq_exp_cases] >- (
+      last_x_assum(qspec_then`0`mp_tac) >>
+      simp[] ) >>
     first_x_assum match_mp_tac >>
     srw_tac[ARITH_ss][] >>
     Cases_on`v < LENGTH d`>>fsrw_tac[ARITH_ss][]) >>
-  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
-  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once syneq_exp_cases] >>
+    last_x_assum(qspec_then`0`mp_tac) >>
+    simp[]) >>
+  strip_tac >- (
+    rw[] >> rw[Once syneq_exp_cases] >>
+    fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,MEM_ZIP,MEM_EL]) >>
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
@@ -143,43 +146,10 @@ val syneq_exp_refl = store_thm("syneq_exp_refl",
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
   strip_tac >- (
     rw[] >>
-*)
-    (∀d c z V. (∀v. v < z ⇒ V v v) ⇒ syneq_cb c c z z V d d) ∧
-    (∀d c z V. (∀v. v < z ⇒ V v v) ⇒ syneq_cb c c z z V [d] [d]) ∧
-    (∀x:(num#Cexp). bar x) ∧
-    (∀es c z V. (∀v. v < z ⇒ V v v) ⇒ EVERY2 (syneq_exp c c z z V) es es)``,
-  ho_match_mp_tac(TypeBase.induction_of``:Cexp``) >>
-  strip_tac >- (
-    rw[Once syneq_exp_cases] >>
-    fsrw_tac[DNF_ss][EVERY2_EVERY,ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF,EVERY_MAP] ) >>
-  strip_tac >- rw[Once syneq_exp_cases] >>
-  strip_tac >- (
-    rw[] >> rw[Once syneq_exp_cases] >>
-    first_x_assum match_mp_tac >>
-    Cases >> srw_tac[ARITH_ss][] ) >>
-  strip_tac >- rw[Once syneq_exp_cases] >>
-  strip_tac >- rw[Once syneq_exp_cases] >>
-  strip_tac >- rw[Once syneq_exp_cases] >>
-  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
-  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
-  strip_tac >- (
-    rw[] >> rw[Once syneq_exp_cases] >>
-    first_x_assum match_mp_tac >>
-    Cases >> srw_tac[ARITH_ss][] ) >>
-  strip_tac >- (
-    rw[] >> rw[Once syneq_exp_cases] >>
-    first_x_assum match_mp_tac >>
-    srw_tac[ARITH_ss][] >>
-    Cases_on`v < LENGTH d`>>fsrw_tac[ARITH_ss][]) >>
-  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
-  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
-  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
-  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
-  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
-  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
-  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
-  strip_tac >- (
-    rw[] >>
+    rw[] >- (
+      last_x_assum(qspec_then`0`mp_tac) >>
+      simp[] ) >>
+
 
     fs[Once syneq_exp_cases] >>
 
