@@ -544,30 +544,6 @@ Cevaluate_list c s env (e ::es) (s'', Rerr err))`;
 
 
 val _ = Hol_reln `
-(! c v. T ==> syneq c c v v)
-/\
-(! c1 c2 l.
-T
-==>
-syneq c1 c2 (CLitv l) (CLitv l))
-/\
-(! c1 c2 cn vs1 vs2. EVERY2 (syneq c1 c2) vs1 vs2
-==>
-syneq c1 c2 (CConv cn vs1) (CConv cn vs2))
-/\
-(! c1 c2 V env1 env2 defs1 defs2 d.
-(! v1 v2. V v1 v2 ==>
-  (v1 < LENGTH env1 /\ v2 < LENGTH env2 /\
-   syneq c1 c2 ( EL  v1  env1) ( EL  v2  env2))) /\
-syneq_cb c1 c2 ( LENGTH env1) ( LENGTH env2) V defs1 defs2
-==>
-syneq c1 c2 (CRecClos env1 defs1 d) (CRecClos env2 defs2 d))
-/\
-(! c1 c2 n.
-T
-==>
-syneq c1 c2 (CLoc n) (CLoc n))
-/\
 (! c z V e. (! x. x < z ==> V x x) ==> syneq_exp c c z z V e e)
 /\
 (! c1 c2 ez1 ez2 V xs1 xs2. EVERY2 (\ v1 v2 . V v1 v2 /\ v1 < ez1 /\ v2 < ez2) ( MAP (\ (n,m) . n) xs1) ( MAP (\ (n,m) . n) xs2)
@@ -671,6 +647,31 @@ syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
   syneq_exp c1 c2 (az +j1) (az +j2) (syneq_cb_V az r1 r2 V) e1 e2))
 ==>
 syneq_cb c1 c2 ez1 ez2 V defs1 defs2)`;
+
+val _ = Hol_reln `
+(! c v. T ==> syneq c c v v)
+/\
+(! c1 c2 l.
+T
+==>
+syneq c1 c2 (CLitv l) (CLitv l))
+/\
+(! c1 c2 cn vs1 vs2. EVERY2 (syneq c1 c2) vs1 vs2
+==>
+syneq c1 c2 (CConv cn vs1) (CConv cn vs2))
+/\
+(! c1 c2 V env1 env2 defs1 defs2 d.
+(! v1 v2. V v1 v2 ==>
+  (v1 < LENGTH env1 /\ v2 < LENGTH env2 /\
+   syneq c1 c2 ( EL  v1  env1) ( EL  v2  env2))) /\
+syneq_cb c1 c2 ( LENGTH env1) ( LENGTH env2) V defs1 defs2
+==>
+syneq c1 c2 (CRecClos env1 defs1 d) (CRecClos env2 defs2 d))
+/\
+(! c1 c2 n.
+T
+==>
+syneq c1 c2 (CLoc n) (CLoc n))`;
 
  val syneq_cds_def = Define `
  (syneq_cds ez1 ez2 V c1 c2 =
