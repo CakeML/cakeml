@@ -62,10 +62,11 @@ rw[Once Cevaluate_cases] >> PROVE_TAC[])
 (* TODO: move *)
 val syneq_rules = CompileTheory.syneq_rules
 val syneq_cb_aux_def = CompileTheory.syneq_cb_aux_def
-fun RATOR_ASSUM t ttac (g as (asl,w)) = UNDISCH_THEN (first (can (match_term t) o fst o strip_comb) asl) ttac g
+val syneq_cb_V_def = CompileTheory.syneq_cb_V_def
+fun RATOR_X_ASSUM t ttac (g as (asl,w)) = UNDISCH_THEN (first (can (match_term t) o fst o strip_comb) asl) ttac g
+fun rator_x_assum q ttac = Q_TAC (C RATOR_X_ASSUM ttac) q
+fun RATOR_ASSUM t ttac (g as (asl,w)) = ttac (ASSUME (first (can (match_term t) o fst o strip_comb) asl)) g
 fun rator_assum q ttac = Q_TAC (C RATOR_ASSUM ttac) q
-fun RATOR_KEEP_ASSUM t ttac (g as (asl,w)) = ttac (ASSUME (first (can (match_term t) o fst o strip_comb) asl)) g
-fun rator_k_assum q ttac = Q_TAC (C RATOR_KEEP_ASSUM ttac) q
 val rev_assum_list = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC)
 fun last_x_assum x = rev_assum_list >> first_x_assum x >> rev_assum_list
 fun qx_choosel_then [] ttac = ttac
@@ -197,7 +198,7 @@ val syneq_sym = store_thm("syneq_sym",
   res_tac >>
   map_every qexists_tac[`az`,`exp2`,`j2`,`r2`,`exp1`,`j1`,`r1`] >>
   simp[] >>
-  rator_assum`syneq_exp`mp_tac >>
+  rator_x_assum`syneq_exp`mp_tac >>
   qmatch_abbrev_tac`a ==> b` >>
   qsuff_tac`a = b` >- rw[] >>
   unabbrev_all_tac >> fs[] >>
@@ -220,7 +221,7 @@ val syneq_mono_V = store_thm("syneq_mono_V",
         PROVE_TAC[] ) >>
   TRY (
     disj2_tac >>
-    rator_assum`EVERY2`mp_tac >>
+    rator_x_assum`EVERY2`mp_tac >>
     match_mp_tac EVERY2_mono >>
     simp[] ) >>
   disj2_tac >>
@@ -443,7 +444,7 @@ val syneq_trans = store_thm("syneq_trans",
     fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
     first_x_assum match_mp_tac >>
     srw_tac[ARITH_ss][]) >>
-  rator_assum`syneq_exp`mp_tac >>
+  rator_x_assum`syneq_exp`mp_tac >>
   qho_match_abbrev_tac`syneq_exp c2 c3 a1 a2 VV e1 e3 ⇒ Z` >>
   strip_tac >>
   first_x_assum(qspecl_then[`c3`,`a2`,`VV`,`e3`]mp_tac) >>
@@ -905,7 +906,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
   strip_tac >- ( simp[Once syneq_cases] >> rw[] >> rw[] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_tac >- (
@@ -922,7 +923,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     simp[EXISTS_PROD] >> metis_tac[] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_tac >- (
@@ -962,7 +963,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_tac >- (
@@ -980,7 +981,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     simp[EXISTS_PROD] >> metis_tac[] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     rw[] >> simp[] >> metis_tac[syneq_exp_refl]) >>
   strip_tac >- (
@@ -988,7 +989,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     rw[] >> rw[] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_tac >- (
@@ -1012,7 +1013,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[]) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     rw[] >>
@@ -1025,7 +1026,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     rw[] >> rw[syneq_exp_refl] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_tac >- (
@@ -1046,7 +1047,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[]) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     simp[Once Cevaluate_cases] >>
@@ -1059,7 +1060,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[syneq_exp_refl] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     simp[Once Cevaluate_cases] >>
@@ -1086,7 +1087,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[syneq_refl,MEM_ZIP]) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_tac >>
@@ -1095,7 +1096,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[syneq_exp_refl] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_tac >- (
@@ -1135,7 +1136,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_tac >>
@@ -1152,7 +1153,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     simp[EXISTS_PROD] >> metis_tac[] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_tac >- (
@@ -1186,7 +1187,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
       rfs[] >> simp_tac(std_ss++QUANT_INST_ss[std_qp])[GSYM LEFT_FORALL_IMP_THM] >>
       qx_gen_tac`d` >> strip_tac >>
       gen_tac >> strip_tac >>
-      rator_assum`syneq_cb`mp_tac >>
+      rator_x_assum`syneq_cb`mp_tac >>
       simp[Once syneq_cases] >>
       strip_tac >- (
         fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
@@ -1208,7 +1209,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     qexists_tac`V` >> simp[]) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     rw[] >> simp[] >>
     simp[Once syneq_cases] >- (
@@ -1217,7 +1218,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
       simp[syneq_refl,syneq_cb_refl] ) >>
     conj_tac >- (
       gen_tac >> strip_tac >>
-      rator_assum`syneq_cb`mp_tac >>
+      rator_x_assum`syneq_cb`mp_tac >>
       simp[Once syneq_cases] >>
       simp[syneq_cb_aux_def] >>
       rw[UNCURRY] >> rw[] ) >>
@@ -1227,7 +1228,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_asm2_tac >- (
@@ -1267,7 +1268,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     strip_tac >>
     CONV_TAC(RESORT_EXISTS_CONV (fn ls => (List.drop(ls,2)@List.take(ls,2)))) >>
     map_every qexists_tac[`s2''`,`vs2`] >>
-    rator_k_assum`syneq_cb`mp_tac >>
+    rator_assum`syneq_cb`mp_tac >>
     simp_tac std_ss [Once syneq_cases] >>
     strip_tac >- (
       fsrw_tac[][LET_THM] >>
@@ -1329,7 +1330,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
         fs[EXISTS_PROD] >>
         first_x_assum match_mp_tac >>
         fs[AC ADD_ASSOC ADD_SYM] >>
-        rator_assum`syneq_exp`mp_tac >>
+        rator_x_assum`syneq_exp`mp_tac >>
         qho_match_abbrev_tac`syneq_exp c1 c2 ez1 ez2 V2 ee1 ee2 ⇒ P` >>
         strip_tac >> simp[Abbr`P`] >>
         qexists_tac`V2` >>
@@ -1359,7 +1360,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
       `LENGTH vs2 = LENGTH vs` by fs[EVERY2_EVERY] >> fs[] >>
       fs[EXISTS_PROD] >>
       first_x_assum match_mp_tac >>
-      rator_assum`syneq_exp`mp_tac >>
+      rator_x_assum`syneq_exp`mp_tac >>
       qho_match_abbrev_tac`syneq_exp c1 c2 ez1 ez2 V2 ee1 ee2 ⇒ P` >>
       strip_tac >> simp[Abbr`P`] >>
       qexists_tac`V2` >>
@@ -1387,7 +1388,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
       `LENGTH vs2 = LENGTH vs` by fs[EVERY2_EVERY] >> fs[] >>
       fs[EXISTS_PROD] >>
       first_x_assum match_mp_tac >>
-      rator_assum`syneq_exp`mp_tac >>
+      rator_x_assum`syneq_exp`mp_tac >>
       qho_match_abbrev_tac`syneq_exp c1 c2 ez1 ez2 V2 ee1 ee2 ⇒ P` >>
       strip_tac >> simp[Abbr`P`] >>
       qexists_tac`V2` >>
@@ -1414,7 +1415,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     `LENGTH vs2 = LENGTH vs` by fs[EVERY2_EVERY] >> fs[] >>
     fs[EXISTS_PROD] >>
     first_x_assum match_mp_tac >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     qho_match_abbrev_tac`syneq_exp c1 c2 ez1 ez2 V2 ee1 ee2 ⇒ P` >>
     strip_tac >> simp[Abbr`P`] >>
     qexists_tac`V2` >>
@@ -1453,7 +1454,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     simp[] >> metis_tac[] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_asm2_tac >- (
@@ -1471,7 +1472,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_asm2_tac >- (
@@ -1486,7 +1487,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[]) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_asm2_tac >- (
@@ -1500,7 +1501,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[CevalPrim1_syneq] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_asm2_tac >- (
@@ -1513,7 +1514,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_asm2_tac >- (
@@ -1526,7 +1527,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[CevalPrim2_syneq] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_asm2_tac >- (
@@ -1539,7 +1540,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_asm2_tac >- (
@@ -1553,7 +1554,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[CevalUpd_syneq] ) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_asm2_tac >- (
@@ -1566,7 +1567,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[] ) >>
   strip_tac >- (
     rw[] >> (
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_asm2_tac >- (
@@ -1589,7 +1590,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     metis_tac[] )) >>
   strip_tac >- (
     rw[] >>
-    rator_assum`syneq_exp`mp_tac >>
+    rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (CONJUNCT2 syneq_cases)] >>
     fsrw_tac[DNF_ss][] >>
     conj_asm2_tac >- (
