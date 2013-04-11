@@ -534,12 +534,11 @@ Cevaluate_list c s env (e ::es) (s'', Rerr err))`;
 
 
  val syneq_cb_V_def = Define `
- (syneq_cb_V az r1 r2 V v1 v2 =
+ (syneq_cb_V az r1 r2 V V' v1 v2 =
   (v1 < az /\ (v2 = v1)) \/
   (az <= v1 /\ az <= v2 /\
-   ((? j. ((r1 (v1 - az) = CCRef j) /\ (r2 (v2 - az) = CCRef j))) \/
-    (? j1 j2.
-      ((r1 (v1 - az) = CCEnv j1) /\ (r2 (v2 - az) = CCEnv j2) /\ V j1 j2)))))`;
+   ((? j1 j2. ((r1 (v1 - az) = CCRef j1) /\ (r2 (v2 - az) = CCRef j2) /\ V' j1 j2)) \/
+    (? j1 j2. ((r1 (v1 - az) = CCEnv j1) /\ (r2 (v2 - az) = CCEnv j2) /\ V j1 j2)))))`;
 
 
 val _ = Hol_reln `
@@ -588,19 +587,18 @@ syneq_exp c1 c2 (ez1 +1) (ez2 +1) (\ v1 v2 . ((v1 = 0) /\ (v2 = 0)) \/ 0 < v1 /\
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CLet e1 b1) (CLet e2 b2))
 /\
-(! c1 c2 ez1 ez2 V defs1 defs2 b1 b2 n.
-(n = LENGTH defs1) /\
-(n = LENGTH defs2) /\
-syneq_cb c1 c2 ez1 ez2 V defs1 defs2 /\
-syneq_exp c1 c2 (ez1 +n) (ez2 +n)
- (\ v1 v2 . (v1 < n /\ (v2 = v1)) \/
-               (n <= v1 /\ n <= v2 /\ V (v1 - n) (v2 - n)))
+(! c1 c2 ez1 ez2 V defs1 defs2 b1 b2 V'.
+syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V' /\
+syneq_exp c1 c2 (ez1 +( LENGTH defs1)) (ez2 +( LENGTH defs2))
+ (\ v1 v2 . (v1 < LENGTH defs1 /\ v2 < LENGTH defs2 /\ V' v1 v2) \/
+               ( LENGTH defs1 <= v1 /\ LENGTH defs2 <= v2 /\ V (v1 - LENGTH defs1) (v2 - LENGTH defs2)))
  b1 b2
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CLetrec defs1 b1) (CLetrec defs2 b2))
 /\
-(! c1 c2 ez1 ez2 V cb1 cb2.
-syneq_cb c1 c2 ez1 ez2 V [cb1] [cb2]
+(! c1 c2 ez1 ez2 V cb1 cb2 V'.
+syneq_defs c1 c2 ez1 ez2 V [cb1] [cb2] V' /\
+V' 0 0
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CFun cb1) (CFun cb2))
 /\
@@ -633,15 +631,14 @@ syneq_exp c1 c2 ez1 ez2 V e31 e32
 ==>
 syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
 /\
-(! c1 c2 ez1 ez2 V defs1 defs2 nz.
-(nz = LENGTH defs1) /\ (nz = LENGTH defs2) /\
-(! n. n < nz ==>
+(! c1 c2 ez1 ez2 V defs1 defs2 V'.
+(! n1 n2. V' n1 n2 /\ n1 < LENGTH defs1 /\ n2 < LENGTH defs2 ==>
   (? az e1 j1 r1 e2 j2 r2.
-  ((az,e1,j1,r1) = syneq_cb_aux c1 n nz ez1 ( EL  n  defs1)) /\
-  ((az,e2,j2,r2) = syneq_cb_aux c2 n nz ez2 ( EL  n  defs2)) /\
-  syneq_exp c1 c2 (az +j1) (az +j2) (syneq_cb_V az r1 r2 V) e1 e2))
+  ((az,e1,j1,r1) = syneq_cb_aux c1 n1 ( LENGTH defs1) ez1 ( EL  n1  defs1)) /\
+  ((az,e2,j2,r2) = syneq_cb_aux c2 n2 ( LENGTH defs2) ez2 ( EL  n2  defs2)) /\
+  syneq_exp c1 c2 (az +j1) (az +j2) (syneq_cb_V az r1 r2 V V') e1 e2))
 ==>
-syneq_cb c1 c2 ez1 ez2 V defs1 defs2)`;
+syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V')`;
 
 val _ = Hol_reln `
 (! c1 c2 l.
@@ -653,27 +650,28 @@ syneq c1 c2 (CLitv l) (CLitv l))
 ==>
 syneq c1 c2 (CConv cn vs1) (CConv cn vs2))
 /\
-(! c1 c2 V env1 env2 defs1 defs2 d.
+(! c1 c2 V env1 env2 defs1 defs2 d1 d2 V'.
 (! v1 v2. V v1 v2 ==>
   (v1 < LENGTH env1 /\ v2 < LENGTH env2 /\
    syneq c1 c2 ( EL  v1  env1) ( EL  v2  env2))) /\
-syneq_cb c1 c2 ( LENGTH env1) ( LENGTH env2) V defs1 defs2
+syneq_defs c1 c2 ( LENGTH env1) ( LENGTH env2) V defs1 defs2 V' /\
+(d1 < LENGTH defs1 /\ d2 < LENGTH defs2 ==> V' d1 d2)
 ==>
-syneq c1 c2 (CRecClos env1 defs1 d) (CRecClos env2 defs2 d))
+syneq c1 c2 (CRecClos env1 defs1 d1) (CRecClos env2 defs2 d2))
 /\
 (! c1 c2 n.
 T
 ==>
 syneq c1 c2 (CLoc n) (CLoc n))`;
 
- val syneq_cds_def = Define `
- (syneq_cds ez1 ez2 V c1 c2 =
-! l. ( l IN FDOM  c1 \/  l IN FDOM  c2) ==>
-  (? az nz ix e1 j1 r1 e2 j2 r2.
-  ((az,e1,j1,r1) = syneq_cb_aux c1 ix nz ez1 (INR l)) /\
-  ((az,e2,j2,r2) = syneq_cb_aux c2 ix nz ez2 (INR l)) /\
-  syneq_exp c1 c2 (az +j1) (az +j2) (syneq_cb_V az r1 r2 V) e1 e2))`;
-
+(*
+let rec syneq_cds ez1 ez2 V c1 c2 =
+forall l. (Pmap.mem l c1 || Pmap.mem l c2) -->
+  exists az nz ix e1 j1 r1 e2 j2 r2.
+  (az,e1,j1,r1) = syneq_cb_aux c1 ix nz ez1 (Inr l) &&
+  (az,e2,j2,r2) = syneq_cb_aux c2 ix nz ez2 (Inr l) &&
+  syneq_exp c1 c2 (az+j1) (az+j2) (syneq_cb_V az r1 r2 V) e1 e2
+*)
 
 (* Compiler *)
 
