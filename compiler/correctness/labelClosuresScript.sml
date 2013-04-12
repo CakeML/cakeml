@@ -36,34 +36,6 @@ fun full_split_pairs_tac P (g as (asl,w)) = let
 
 fun P tm = mem (fst (strip_comb tm)) [``label_closures``,rator ``mapM label_closures``]
 
-(* labels in an expression (but not recursively) *)
-val free_labs_def0 = tDefine "free_labs"`
-  (free_labs (CDecl xs) = {}) ∧
-  (free_labs (CRaise er) = {}) ∧
-  (free_labs (CHandle e1 _ e2) = free_labs e1 ∪ free_labs e2) ∧
-  (free_labs (CVar x) = {}) ∧
-  (free_labs (CLit li) = {}) ∧
-  (free_labs (CCon cn es) = (BIGUNION (IMAGE (free_labs) (set es)))) ∧
-  (free_labs (CTagEq e n) = (free_labs e)) ∧
-  (free_labs (CProj e n) = (free_labs e)) ∧
-  (free_labs (CLet x e eb) = (free_labs e)∪(free_labs eb)) ∧
-  (free_labs (CLetrec ns defs e) = (IMAGE (OUTR o SND) (set (FILTER (ISR o SND) defs)))∪(free_labs e)) ∧
-  (free_labs (CFun xs (INL _)) = {}) ∧
-  (free_labs (CFun xs (INR l)) = {l}) ∧
-  (free_labs (CCall e es) = BIGUNION (IMAGE (free_labs) (set (e::es)))) ∧
-  (free_labs (CPrim1 _ e) = free_labs e) ∧
-  (free_labs (CPrim2 op e1 e2) = (free_labs e1)∪(free_labs e2)) ∧
-  (free_labs (CUpd e1 e2) = (free_labs e1)∪(free_labs e2)) ∧
-  (free_labs (CIf e1 e2 e3) = (free_labs e1)∪(free_labs e2)∪(free_labs e3))`(
-  WF_REL_TAC `measure Cexp_size` >>
-  srw_tac[ARITH_ss][Cexp4_size_thm] >>
-  Q.ISPEC_THEN `Cexp_size` imp_res_tac SUM_MAP_MEM_bound >>
-  fsrw_tac[ARITH_ss][])
-val _ = overload_on("free_labs_defs",``λdefs. IMAGE (OUTR o SND) (set (FILTER (ISR o SND) defs))``)
-val _ = overload_on("free_labs_list",``λes. BIGUNION (IMAGE free_labs (set es))``)
-val free_labs_def = save_thm("free_labs_def",SIMP_RULE(std_ss++ETA_ss)[]free_labs_def0)
-val _ = export_rewrites["free_labs_def"]
-
 (* bodies in an expression (but not recursively) *)
 val free_bods_def = tDefine "free_bods"`
   (free_bods (CDecl xs) = []) ∧
