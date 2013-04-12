@@ -470,7 +470,7 @@ let rec closed_cd cd = forall v. v IN free_vars cd.body -->
   v < cd.az + List.length(fst cd.ceenv) + List.length (snd cd.ceenv) + 1
 
 let rec
-syneq_cb_aux c d nz ez (Inl (az,e)) = (az,e,nz+ez,
+syneq_cb_aux c d nz ez (Inl (az,e)) = (d<nz,az,e,nz+ez,
   fun n -> if n < nz then CCRef (nz-n-1) else
            if n < nz+ez then CCEnv (n-nz)
            else CCArg n)
@@ -478,16 +478,23 @@ and
 syneq_cb_aux c d nz ez (Inr l) =
   let cd = Pmap.find l c in
   let (recs,envs) = cd.cd.ceenv in
-  (cd.cd.az
+  (Pmap.mem l c && cd.nz = nz && cd.ez = ez
+   && List.for_all (fun n -> n < nz) recs
+   && List.for_all (fun n -> n < ez) envs
+   && d < nz
+  ,cd.cd.az
   ,cd.cd.body
   ,1+List.length recs+List.length envs
-  ,fun n -> if n = 0 then CCRef d else
-            if n < 1+List.length recs &&
-               List.nth recs (n-1) < nz
-              then CCRef (List.nth recs (n-1)) else
-            if n < 1+List.length recs+List.length envs &&
-               List.nth envs (n-1-List.length recs) < ez
+  ,fun n -> if n = 0 then if d < nz then CCRef d else CCArg n else
+            if n < 1+List.length recs then
+              if (List.nth recs (n-1)) < nz
+              then CCRef (List.nth recs (n-1))
+              else CCArg n
+            else
+            if n < 1+List.length recs+List.length envs then
+              if (List.nth envs (n-1-List.length recs)) < ez
               then CCEnv (List.nth envs (n-1-List.length recs))
+              else CCArg n
             else CCArg n
   )
 
@@ -553,7 +560,7 @@ forall c1 c2 ez1 ez2 V defs1 defs2 b1 b2 V'.
 syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V' &&
 syneq_exp c1 c2 (ez1+(List.length defs1)) (ez2+(List.length defs2))
  (fun v1 v2 -> (v1 < List.length defs1 && v2 < List.length defs2
-                && V' v1 v2) ||
+                && V' (List.length defs1-v1-1) (List.length defs2-v2-1)) ||
                (List.length defs1 <= v1 && List.length defs2 <= v2
                 && V (v1-List.length defs1) (v2-List.length defs2)))
  b1 b2
@@ -597,11 +604,17 @@ syneq_exp c1 c2 ez1 ez2 V e31 e32
 syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32)
 and
 forall c1 c2 ez1 ez2 V defs1 defs2 V'.
+((List.for_all (fun cb -> forall l. cb = Inr l --> Pmap.mem l c1
+  && (Pmap.find l c1).nz = List.length defs1
+  && (Pmap.find l c1).ez = ez1) defs1) =
+ (List.for_all (fun cb -> forall l. cb = Inr l --> Pmap.mem l c2
+   && (Pmap.find l c2).nz = List.length defs2
+   && (Pmap.find l c2).ez = ez2) defs2)) &&
 (forall n1 n2. V' n1 n2 -->
   n1 < List.length defs1 && n2 < List.length defs2 &&
-  exists az e1 j1 r1 e2 j2 r2.
-  (az,e1,j1,r1) = syneq_cb_aux c1 n1 (List.length defs1) ez1 (List.nth defs1 n1) &&
-  (az,e2,j2,r2) = syneq_cb_aux c2 n2 (List.length defs2) ez2 (List.nth defs2 n2) &&
+  exists b az e1 j1 r1 e2 j2 r2.
+  (b,az,e1,j1,r1) = syneq_cb_aux c1 n1 (List.length defs1) ez1 (List.nth defs1 n1) &&
+  (b,az,e2,j2,r2) = syneq_cb_aux c2 n2 (List.length defs2) ez2 (List.nth defs2 n2) &&
   syneq_exp c1 c2 (az+j1) (az+j2) (syneq_cb_V az r1 r2 V V') e1 e2)
 ==>
 syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V'

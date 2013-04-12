@@ -514,7 +514,7 @@ Cevaluate_list c s env (e ::es) (s'', Rerr err))`;
 
  val syneq_cb_aux_def = Define `
 
-(syneq_cb_aux c d nz ez (INL (az,e)) = (az,e,(nz +ez),
+(syneq_cb_aux c d nz ez (INL (az,e)) = ((d <nz),az,e,(nz +ez),
   (\ n . if n < nz then CCRef (nz - n - 1) else
            if n < nz +ez then CCEnv (n - nz)
            else CCArg n)))
@@ -522,14 +522,20 @@ Cevaluate_list c s env (e ::es) (s'', Rerr err))`;
 (syneq_cb_aux c d nz ez (INR l) =
   let cd = FAPPLY  c  l in
   let (recs,envs) = cd.cd.ceenv in
-  (cd.cd.az
+  ( (l IN FDOM  c /\ (cd.nz = nz) /\ (cd.ez = ez) /\ EVERY (\ n . n < nz) recs /\ EVERY (\ n . n < ez) envs /\ d < nz)
+  ,cd.cd.az
   ,cd.cd.body
   ,(1 + LENGTH recs + LENGTH envs)
-  ,(\ n . if n = 0 then CCRef d else
-            if n < 1 + LENGTH recs /\ EL  (n - 1)  recs < nz
-              then CCRef ( EL  (n - 1)  recs) else
-            if n < 1 + LENGTH recs + LENGTH envs /\ EL  (n - 1 - LENGTH recs)  envs < ez
+  ,(\ n . if n = 0 then if d < nz then CCRef d else CCArg n else
+            if n < 1 + LENGTH recs then
+              if ( EL  (n - 1)  recs) < nz
+              then CCRef ( EL  (n - 1)  recs)
+              else CCArg n
+            else
+            if n < 1 + LENGTH recs + LENGTH envs then
+              if ( EL  (n - 1 - LENGTH recs)  envs) < ez
               then CCEnv ( EL  (n - 1 - LENGTH recs)  envs)
+              else CCArg n
             else CCArg n)
   ))`;
 
@@ -595,7 +601,7 @@ syneq_exp c1 c2 ez1 ez2 V (CLet e1 b1) (CLet e2 b2))
 (! c1 c2 ez1 ez2 V defs1 defs2 b1 b2 V'.
 syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V' /\
 syneq_exp c1 c2 (ez1 +( LENGTH defs1)) (ez2 +( LENGTH defs2))
- (\ v1 v2 . (v1 < LENGTH defs1 /\ v2 < LENGTH defs2 /\ V' v1 v2) \/
+ (\ v1 v2 . (v1 < LENGTH defs1 /\ v2 < LENGTH defs2 /\ V' ( LENGTH defs1 - v1 - 1) ( LENGTH defs2 - v2 - 1)) \/
                ( LENGTH defs1 <= v1 /\ LENGTH defs2 <= v2 /\ V (v1 - LENGTH defs1) (v2 - LENGTH defs2)))
  b1 b2
 ==>
@@ -637,11 +643,13 @@ syneq_exp c1 c2 ez1 ez2 V e31 e32
 syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
 /\
 (! c1 c2 ez1 ez2 V defs1 defs2 V'.
+(( EVERY (\ cb . ! l. (cb = INR l) ==>  l IN FDOM  c1 /\ (( FAPPLY  c1  l).nz = LENGTH defs1) /\ (( FAPPLY  c1  l).ez = ez1)) defs1) =
+ ( EVERY (\ cb . ! l. (cb = INR l) ==>  l IN FDOM  c2 /\ (( FAPPLY  c2  l).nz = LENGTH defs2) /\ (( FAPPLY  c2  l).ez = ez2)) defs2)) /\
 (! n1 n2. V' n1 n2 ==>
   n1 < LENGTH defs1 /\ n2 < LENGTH defs2 /\
-  (? az e1 j1 r1 e2 j2 r2.
-  ((az,e1,j1,r1) = syneq_cb_aux c1 n1 ( LENGTH defs1) ez1 ( EL  n1  defs1)) /\
-  ((az,e2,j2,r2) = syneq_cb_aux c2 n2 ( LENGTH defs2) ez2 ( EL  n2  defs2)) /\
+  (? b az e1 j1 r1 e2 j2 r2.
+  ((b,az,e1,j1,r1) = syneq_cb_aux c1 n1 ( LENGTH defs1) ez1 ( EL  n1  defs1)) /\
+  ((b,az,e2,j2,r2) = syneq_cb_aux c2 n2 ( LENGTH defs2) ez2 ( EL  n2  defs2)) /\
   syneq_exp c1 c2 (az +j1) (az +j2) (syneq_cb_V az r1 r2 V V') e1 e2))
 ==>
 syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V')
