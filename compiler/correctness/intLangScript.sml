@@ -567,6 +567,13 @@ val EVERY2_trans = store_thm("EVERY2_trans",
   FULL_SIMP_TAC (srw_ss()++DNF_ss) [MEM_ZIP] THEN
   METIS_TAC[])
 
+val EVERY2_sym = store_thm("EVERY2_sym",
+  ``(!x y. R1 x y ==> R2 y x) ==> !x y. EVERY2 R1 x y ==> EVERY2 R2 y x``,
+  SRW_TAC[][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] THEN
+  (Q.PAT_ASSUM`LENGTH X = Y`MP_TAC) THEN
+  STRIP_TAC THEN
+  FULL_SIMP_TAC (srw_ss()++DNF_ss) [MEM_ZIP])
+
 val LIST_REL_EVERY2 = store_thm("LIST_REL_EVERY2",
   ``LIST_REL = EVERY2``,
   SRW_TAC[][FUN_EQ_THM] THEN
@@ -607,6 +614,13 @@ EVERY2_trans
 |> UNDISCH
 |> (fn th => PROVE_HYP (PROVE[syneq_trans](hd(hyp th))) th)
 |> SIMP_RULE std_ss [AND_IMP_INTRO])
+
+val EVERY2_syneq_sym = save_thm(
+"EVERY2_syneq_sym",
+EVERY2_sym
+|> Q.GENL[`R2`,`R1`]
+|> Q.ISPECL[`syneq c1 c2`,`syneq c2 c1`]
+|> SIMP_RULE std_ss[syneq_sym])
 
 val fmap_rel_syneq_trans = save_thm(
 "fmap_rel_syneq_trans",
@@ -2136,6 +2150,54 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[])
+val _ = export_rewrites["free_vars_mkshift"]
+
+val free_vars_shift = store_thm("free_vars_shift",
+  ``free_vars (shift k n e) = IMAGE (λv. if v < n then v else k + v) (free_vars e)``,
+  simp[shift_def])
+val _ = export_rewrites["free_vars_shift"]
+
+val free_labs_mkshift = store_thm("free_labs_mkshift",
+  ``∀f k e. free_labs (mkshift f k e) = free_labs e``,
+  ho_match_mp_tac mkshift_ind >> rw[] >>
+  TRY (
+    fsrw_tac[DNF_ss][Once EXTENSION,MEM_MAP,MEM_FILTER] >>
+    metis_tac[] )
+  >- (
+    unabbrev_all_tac >> simp[] >>
+    fsrw_tac[DNF_ss][Once EXTENSION,MEM_FILTER,MEM_MAP] >>
+    srw_tac[DNF_ss][EQ_IMP_THM] >>
+    full_simp_tac(srw_ss()++QUANT_INST_ss[sum_qp])[EXISTS_PROD] >>
+    TRY (Cases_on`OUTL cb` >> Cases_on`cb`) >> fs[] >>
+    TRY (qmatch_assum_rename_tac`ISL z`[]>>Cases_on`OUTL z`>>Cases_on`z`) >> fs[] >>
+    TRY (qmatch_assum_rename_tac`ISR z`[]>>Cases_on`z`) >> fs[] >>
+    TRY ( res_tac >> fsrw_tac[ARITH_ss][] >> metis_tac[] ) >>
+    TRY (
+      disj1_tac >>
+      disj1_tac >>
+      qmatch_assum_abbrev_tac`MEM cb defs` >>
+      qexists_tac`cb` >>
+      simp[Abbr`cb`] >>
+      res_tac >>
+      fsrw_tac[ARITH_ss][] >>
+      NO_TAC ) >>
+    TRY (
+      disj1_tac >>
+      disj2_tac >>
+      qmatch_assum_abbrev_tac`MEM cb defs` >>
+      qexists_tac`cb` >>
+      simp[Abbr`cb`] >>
+      res_tac >>
+      fsrw_tac[ARITH_ss][] >>
+      NO_TAC )) >>
+  Cases_on`cb`>>fs[] >>
+  Cases_on`x`>>fs[])
+val _ = export_rewrites["free_labs_mkshift"]
+
+val free_labs_shift = store_thm("free_labs_shift",
+  ``free_labs (shift k n e) = free_labs e``,
+  simp[shift_def])
+val _ = export_rewrites["free_labs_shift"]
 
 (* Cevaluate deterministic *)
 
