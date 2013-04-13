@@ -803,29 +803,22 @@ val Cpnomatch_strongind = theorem"Cpnomatch_strongind"
 val Cpnomatch_remove_mat = store_thm("Cpnomatch_remove_mat",
   ``(∀p v. Cpnomatch s p v ⇒
        ∀env x fk e r0.
-         (FLOOKUP env x = SOME v) ∧ fk ∈ FDOM env ∧
-         x ∉ Cpat_vars p ∧
-         fk ∉ Cpat_vars p ∧
-         Cclosed FEMPTY v ∧ (∀v. v ∈ FRANGE env ⇒ Cclosed FEMPTY v) ∧
-         (∀v. v ∈ FRANGE s ⇒ Cclosed FEMPTY v) ∧
-         free_vars FEMPTY e ⊆ Cpat_vars p ∪ FDOM env ∧
-         Cevaluate FEMPTY FEMPTY s env (CCall (CVar fk) []) r0
-         ⇒ ∃r. Cevaluate FEMPTY FEMPTY s env (remove_mat_vp fk e x p) r ∧
-               fmap_rel (syneq FEMPTY) (FST r) (FST r0) ∧
-               result_rel (syneq FEMPTY) (SND r) (SND r0)) ∧
+         (el_check x env = SOME v) ∧ fk < LENGTH env ∧
+         (free_vars e ⊆ count (Cpat_vars p + LENGTH env)) ∧
+         (free_labs e = {}) ∧
+         Cevaluate FEMPTY s env (CCall (CVar fk) []) r0
+         ⇒ ∃r. Cevaluate FEMPTY s env (remove_mat_vp fk e x p) r ∧
+               EVERY2 (syneq FEMPTY FEMPTY) (FST r) (FST r0) ∧
+               result_rel (syneq FEMPTY FEMPTY) (SND r) (SND r0)) ∧
     (∀ps vs. Cpnomatch_list s ps vs ⇒
-       ∀env x c ps0 vs0 menv fk e r0.
-         (FLOOKUP env x = SOME (CConv c (vs0 ++ vs))) ∧ fk ∈ FDOM env ∧
-         x ∉ BIGUNION (IMAGE Cpat_vars (set (ps0 ++ ps))) ∧
-         fk ∉ BIGUNION (IMAGE Cpat_vars (set (ps0 ++ ps))) ∧
-         EVERY (Cclosed FEMPTY) (vs0 ++ vs) ∧ (∀v. v ∈ FRANGE env ⇒ Cclosed FEMPTY v) ∧
-         (∀v. v ∈ FRANGE s ⇒ Cclosed FEMPTY v) ∧
-         free_vars FEMPTY e ⊆ BIGUNION (IMAGE Cpat_vars (set (ps0 ++ ps))) ∪ FDOM env ∧
-         Cpmatch_list s ps0 vs0 menv ∧
-         Cevaluate FEMPTY FEMPTY s env (CCall (CVar fk) []) r0
-         ⇒ ∃r. Cevaluate FEMPTY FEMPTY s (menv ⊌ env) (remove_mat_con fk e x (LENGTH ps0) ps) r ∧
-               fmap_rel (syneq FEMPTY) (FST r) (FST r0) ∧
-               result_rel (syneq FEMPTY) (SND r) (SND r0))``,
+       ∀env x c vs0 fk e r0.
+         (el_check x env = SOME (CConv c (vs0 ++ vs))) ∧ fk < LENGTH env ∧
+         (free_vars e ⊆ count (Cpat_vars_list ps + LENGTH env)) ∧
+         (free_labs e = {}) ∧
+         Cevaluate FEMPTY s env (CCall (CVar fk) []) r0
+         ⇒ ∃r. Cevaluate FEMPTY s env (remove_mat_con fk e x (LENGTH vs0) ps) r ∧
+               EVERY2 (syneq FEMPTY FEMPTY) (FST r) (FST r0) ∧
+               result_rel (syneq FEMPTY FEMPTY) (SND r) (SND r0))``,
   ho_match_mp_tac Cpnomatch_ind >>
   strip_tac >- (
     rw[] >>
@@ -836,306 +829,163 @@ val Cpnomatch_remove_mat = store_thm("Cpnomatch_remove_mat",
     rw[Once Cevaluate_cases] >>
     rw[Once Cevaluate_cases] >>
     simp[Once Cevaluate_cases] >>
-    fs[FLOOKUP_DEF] >>
+    fs[el_check_def] >>
     rw[] >>
     rw[Once Cevaluate_cases] >>
-    PROVE_TAC[result_rel_refl,syneq_refl,fmap_rel_refl]) >>
+    PROVE_TAC[result_rel_syneq_refl,EVERY2_syneq_refl]) >>
   strip_tac >- (
     rw[] >>
     rw[Once Cevaluate_cases] >>
     rw[Once Cevaluate_cases] >>
     fsrw_tac[DNF_ss][] >>
-    fs[FLOOKUP_DEF] >>
-    PROVE_TAC[result_rel_refl,syneq_refl,fmap_rel_refl]) >>
+    fs[el_check_def] >>
+    PROVE_TAC[result_rel_syneq_refl,EVERY2_syneq_refl]) >>
   strip_tac >- (
     rw[LET_THM] >>
     rw[Once Cevaluate_cases] >>
     srw_tac[DNF_ss][] >>
     disj1_tac >>
     rw[Once Cevaluate_cases,LET_THM] >>
-    fs[FLOOKUP_DEF] >> rw[] >>
-    Q.PAT_ABBREV_TAC`v = fresh_var X` >>
-    qspecl_then[`FEMPTY`,`FEMPTY`,`s`,`env`,`CCall (CVar fk) []`,`r0`,`v`,`s ' n`]mp_tac Cevaluate_FUPDATE >>
+    fs[el_check_def] >> rw[] >>
+    qspecl_then[`FEMPTY`,`s`,`env`,`CCall (CVar fk) []`,`r0`]mp_tac(CONJUNCT1 Cevaluate_syneq)>>
+    simp[] >>
+    disch_then(qspecl_then[`FEMPTY`,`λv1 v2. v2 = v1 + 1`,`s`,`EL n s::env`,`CCall (CVar (fk+1)) []`]mp_tac) >>
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
-      unabbrev_all_tac >> simp[] >>
-      fsrw_tac[DNF_ss][IN_FRANGE,SUBSET_DEF,FUNION_DEF] >>
-      Q.PAT_ABBREV_TAC`v = fresh_var X` >>
-      `v ∉ {fk}` by (
-        unabbrev_all_tac >>
-        match_mp_tac fresh_var_not_in_any >>
-        rw[] ) >>
-      fs[]) >>
-    map_every qunabbrev_tac[`P`,`Q`,`R`] >> fs[] >>
-    disch_then(Q.X_CHOOSE_THEN`r2`strip_assume_tac) >>
-    first_x_assum(qspecl_then[`env|+(v, s ' n)`,`v`,`fk`,`e`,`r2`]mp_tac) >>
+      map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+      simp[] >>
+      conj_tac >- (
+        simp[Once syneq_exp_cases] >>
+        simp[Once syneq_exp_cases]  ) >>
+      simp[ADD1,EL_CONS,PRE_SUB1] ) >>
+    simp[] >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    pop_assum kall_tac >>
+    disch_then(Q.X_CHOOSE_THEN`r1`strip_assume_tac) >>
+    first_x_assum(qspecl_then[`EL n s::env`,`0`,`fk+1`,`shift 1 (Cpat_vars p) e`,`r1`]mp_tac) >>
+    simp[] >>
+    fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,ADD1] >>
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
-      unabbrev_all_tac >> simp[] >>
-      conj_tac >- (
-        match_mp_tac fresh_var_not_in_any >>
-        rw[] ) >>
-      conj_tac >- (
-        fsrw_tac[DNF_ss][IN_FRANGE,DOMSUB_FAPPLY_THM] ) >>
-      fsrw_tac[DNF_ss][SUBSET_DEF] >>
-      PROVE_TAC[] ) >>
-    map_every qunabbrev_tac[`P`,`Q`,`R`] >> fs[] >>
-    fsrw_tac[DNF_ss][] >>
-    PROVE_TAC[result_rel_syneq_trans,result_rel_syneq_sym,
-              fmap_rel_syneq_sym,fmap_rel_syneq_trans] ) >>
+      simp[Abbr`P`] >>
+      srw_tac[ARITH_ss][] >>
+      res_tac >> simp[] ) >>
+    PROVE_TAC[result_rel_syneq_trans,EVERY2_syneq_trans,
+              result_rel_syneq_sym,EVERY2_syneq_sym] ) >>
   strip_tac >- (
-    rw[FLOOKUP_DEF] >>
+    rw[el_check_def] >>
     rw[Once Cevaluate_cases] >>
     rw[Once Cevaluate_cases] >>
     fsrw_tac[DNF_ss][] >>
-    first_x_assum (qspecl_then [`env`,`x`,`c`,`[]`,`[]`,`FEMPTY`,`fk`,`e`] mp_tac) >>
-    fs[FUNION_FEMPTY_1] >>
-    fs[Once Cclosed_cases,FOLDL_UNION_BIGUNION]) >>
+    disj1_tac >>
+    first_x_assum (qspecl_then [`env`,`x`,`c`,`[]`,`fk`,`e`,`r0`] mp_tac) >>
+    simp[]) >>
   strip_tac >- (
-    rw[FLOOKUP_DEF,LET_THM] >>
+    rw[el_check_def,LET_THM] >>
     rw[Once Cevaluate_cases] >>
     rw[Once Cevaluate_cases] >>
     rw[Cevaluate_proj] >>
     imp_res_tac Cpmatch_FDOM >>
-    Cases_on `x ∈ FDOM menv` >- (
-      pop_assum mp_tac >> fs[] >>
-      metis_tac[] ) >>
-    fs[FUNION_DEF] >>
-    imp_res_tac Cpmatch_list_LENGTH >>
-    fsrw_tac[ARITH_ss][] >>
-    simp_tac std_ss[Once(GSYM APPEND_ASSOC)] >>
-    rw[rich_listTheory.EL_LENGTH_APPEND] >>
-    Q.PAT_ABBREV_TAC`u = fresh_var (X ∪ free_vars FEMPTY e ∪ Y)` >>
-    first_x_assum (qspecl_then [`(menv ⊌ env) |+ (u,v)`,`u`,`fk`] mp_tac) >>
-    fs[FAPPLY_FUPDATE_THM] >>
-    `∀v. v ∈ FRANGE (menv ⊌ env) ⇒ Cclosed FEMPTY v` by (
-      unabbrev_all_tac >>
-      match_mp_tac IN_FRANGE_FUNION_suff >>
-      imp_res_tac Cpmatch_closed >> fs[] ) >>
-    `∀v. v ∈ FRANGE ((menv ⊌ env) \\ u) ⇒ Cclosed FEMPTY v` by (
-      match_mp_tac IN_FRANGE_DOMSUB_suff >> rw[]) >>
-    `free_vars FEMPTY (CCall (CVar fk) []) ⊆ FDOM env` by rw[] >>
-    `u ∉ free_vars FEMPTY (CCall (CVar fk) [])` by (
-      unabbrev_all_tac >>
-      match_mp_tac fresh_var_not_in_any >>
-      rw[] ) >>
-    `u ∉ Cpat_vars p` by (
-      unabbrev_all_tac >>
-      match_mp_tac fresh_var_not_in_any >>
-      rw[] ) >>
-    qspecl_then [`FEMPTY`,`FEMPTY`,`s`,`env`,`CCall (CVar fk) []`,`r0`,`u`,`v`] mp_tac Cevaluate_FUPDATE >>
-    `fk ∉ Cpat_vars p` by metis_tac[] >> fs[] >>
-    rw[] >>
-    fsrw_tac[DNF_ss][] >>
-    Q.PAT_ABBREV_TAC`ee= remove_mat_con fk e x n ps` >>
-    first_x_assum (qspec_then `ee` mp_tac) >>
-    fs[] >>
-    Q.PAT_ABBREV_TAC`P = free_vars FEMPTY ee ⊆ X` >>
+    fsrw_tac[DNF_ss,ARITH_ss][] >>
+    REWRITE_TAC[GSYM APPEND_ASSOC] >>
+    lrw[EL_APPEND2] >>
+    Q.PAT_ABBREV_TAC`e' = remove_mat_con X Y Z A B` >>
+    qspecl_then[`FEMPTY`,`s`,`env`,`CCall (CVar fk) []`,`r0`]mp_tac(CONJUNCT1 Cevaluate_syneq)>>
+    simp[] >>
+    disch_then(qspecl_then[`FEMPTY`,`λv1 v2. v2 = v1 + 1`,`s`,`[v]++env`,`CCall (CVar (fk+1)) []`]mp_tac) >>
+    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
+      map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+      simp[] >>
+      conj_tac >- (
+        simp[Once syneq_exp_cases] >>
+        simp[Once syneq_exp_cases]  ) >>
+      simp[ADD1,EL_CONS,PRE_SUB1] ) >>
+    simp[] >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    pop_assum kall_tac >>
+    disch_then(Q.X_CHOOSE_THEN`r1`strip_assume_tac) >>
+    first_x_assum(qspecl_then[`[v]++env`,`0`,`fk+1`,`e'`,`r1`]mp_tac) >>
+    simp[] >>
+    simp[Abbr`e'`] >>
+    qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+    `P` by (
+      simp[Abbr`P`] >>
+      qmatch_abbrev_tac`free_vars (remove_mat_con fk0 e0 x0 n0 ps0) ⊆ ss` >>
+      qspecl_then[`ps0`,`fk0`,`e0`,`x0`,`n0`]strip_assume_tac(CONJUNCT2 free_vars_remove_mat_vp_SUBSET) >>
+      match_mp_tac SUBSET_TRANS >>
+      HINT_EXISTS_TAC >> simp[] >>
       unabbrev_all_tac >>
-      qspecl_then [`ps`,`fk`,`e`,`x`,`LENGTH vs0 + 1`] mp_tac
-        (CONJUNCT2 free_vars_remove_mat_vp_SUBSET) >>
-      fsrw_tac[DNF_ss][SUBSET_DEF] >>
-      metis_tac[]) >> qunabbrev_tac`P` >> fs[] >>
-    qho_match_abbrev_tac `(∀x. P x ⇒ R x) ⇒ Z` >>
-    qsuff_tac `∃x. P x ∧
-      fmap_rel (syneq FEMPTY) (FST r0) (FST x) ∧
-      result_rel (syneq FEMPTY) (SND r0) (SND x)` >- (
-      unabbrev_all_tac >> fs[] >>
-      PROVE_TAC[result_rel_syneq_trans,result_rel_syneq_sym,
-                fmap_rel_syneq_trans,fmap_rel_syneq_sym] ) >>
-    qunabbrev_tac`P` >> fs[] >>
-    qho_match_abbrev_tac `∃r1. Cevaluate FEMPTY FEMPTY s (env1 |+ (u,v)) exp1 r1 ∧ P r1` >>
-    qspecl_then [`FEMPTY`,`FEMPTY`,`s`,`env`,`exp1`,`r0`,`u`,`v`] mp_tac Cevaluate_FUPDATE >>
-    fs[] >>
-    fs[Abbr`P`,Abbr`exp1`,Abbr`env1`] >>
-    qspecl_then [`FEMPTY`,`FEMPTY`,`s`,`env`,`CCall (CVar fk) []`,`r0`] mp_tac Cevaluate_free_vars_env >>
-    fs[] >>
-    disch_then (Q.X_CHOOSE_THEN `r2` strip_assume_tac) >>
-    qabbrev_tac `env1 = (menv ⊌ env) |+ (u,v)` >>
-    qspecl_then [`FEMPTY`,`FEMPTY`,`s`,`env1`,`CCall (CVar fk)[]`,`r2`] mp_tac Cevaluate_any_super_env >>
-    fs[] >>
-    `fk ∈ FDOM env1` by fs[Abbr`env1`] >>
-    `DRESTRICT env1 {fk} = DRESTRICT env {fk}` by (
-      fs[DRESTRICT_EQ_DRESTRICT] >>
-      fs[SUBMAP_DEF,FDOM_DRESTRICT] >>
-      fs[Once EXTENSION] >>
-      fs[DRESTRICT_DEF] >>
-      `env1 ' fk = env ' fk` by (
-        rw[Abbr`env1`] >>
-        rw[FAPPLY_FUPDATE_THM] >>
-        rw[FUNION_DEF] >>
-        metis_tac[] ) >>
-      fs[] >>
-      metis_tac[] ) >>
-    fs[] >>
-    `∀v. v ∈ FRANGE env1 ⇒ Cclosed FEMPTY v` by (
-      unabbrev_all_tac >>
-      match_mp_tac IN_FRANGE_FUPDATE_suff >>
-      fs[] ) >>
-    fs[] >>
+      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF] >>
+      srw_tac[ARITH_ss][] >>
+      res_tac >> simp[] ) >>
     PROVE_TAC[result_rel_syneq_trans,result_rel_syneq_sym,
-              fmap_rel_syneq_trans,fmap_rel_syneq_sym]) >>
-  rw[FLOOKUP_DEF,LET_THM] >>
+              EVERY2_syneq_trans,EVERY2_syneq_sym]) >>
+  rw[el_check_def,LET_THM] >>
   rw[Once Cevaluate_cases] >>
   rw[Once Cevaluate_cases] >>
   rw[Cevaluate_proj] >>
-  imp_res_tac Cpmatch_FDOM >>
-  Cases_on `x ∈ FDOM menv` >- (
-    pop_assum mp_tac >> fs[] >>
-    metis_tac[] ) >>
-  fs[FUNION_DEF] >>
-  imp_res_tac Cpmatch_list_LENGTH >>
-  fsrw_tac[ARITH_ss][] >>
-  simp_tac std_ss[Once(GSYM APPEND_ASSOC)] >>
-  rw[rich_listTheory.EL_LENGTH_APPEND] >>
-  qspecl_then [`p`,`v`,`env`] mp_tac (CONJUNCT1 Cpmatch_remove_mat) >>
-  fs[] >>
-  Q.PAT_ABBREV_TAC`u = fresh_var (X ∪ free_vars FEMPTY e ∪ Y)` >>
-  Q.PAT_ABBREV_TAC`ee = remove_mat_con fk e x n ps` >>
-  Q.PAT_ABBREV_TAC`env0 = X |+ (u,v)` >>
-  disch_then (qspecl_then [`env0`,`u`,`fk`,`ee`] mp_tac) >>
-  imp_res_tac Cpmatch_closed >>
-  `FLOOKUP env0 u = SOME v` by (unabbrev_all_tac >> fs[FLOOKUP_DEF]) >> fs[] >>
-  `fk ∈ FDOM env0` by (unabbrev_all_tac >> fs[]) >> fs[] >>
-  `u ∉ Cpat_vars p` by (unabbrev_all_tac >> match_mp_tac fresh_var_not_in_any >> rw[]) >> fs[] >>
-  `∀v. v ∈ FRANGE env0 ⇒ Cclosed FEMPTY v` by (
+  fsrw_tac[DNF_ss,ARITH_ss][] >>
+  REWRITE_TAC[GSYM APPEND_ASSOC] >>
+  lrw[EL_APPEND2] >>
+  qspecl_then[`FEMPTY`,`s`,`env'`,`CCall (CVar fk) []`,`r0`]mp_tac(CONJUNCT1 Cevaluate_syneq)>>
+  simp[] >>
+  disch_then(qspecl_then[`FEMPTY`,`λv1 v2. v2 = v1+(Cpat_vars p+1)`,`s`,`env++[v]++env'`,`CCall (CVar (fk+(Cpat_vars p+1))) []`]mp_tac) >>
+  qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+  `P` by (
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    simp[] >>
+    imp_res_tac Cpmatch_FDOM >>
+    conj_tac >- (
+      simp[Once syneq_exp_cases] >>
+      simp[Once syneq_exp_cases] >>
+      srw_tac[ARITH_ss][]) >>
+    srw_tac[ARITH_ss][ADD1,PRE_SUB1,EL_APPEND2] >>
+    REWRITE_TAC[GSYM (APPEND_ASSOC)] >>
+    lrw[EL_APPEND2] ) >>
+  simp[] >>
+  map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+  pop_assum kall_tac >>
+  disch_then(Q.X_CHOOSE_THEN`r1`strip_assume_tac) >>
+  Q.PAT_ABBREV_TAC`e' = remove_mat_con X Y Z A B` >>
+  first_x_assum(qspecl_then[`env++[v]++env'`,`x+(Cpat_vars p+1)`,`c`,`vs0++[v]`,`fk+(Cpat_vars p+1)`
+                           ,`shift 1 (Cpat_vars p + Cpat_vars_list ps) e`,`r1`]mp_tac) >>
+  qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+  `P` by (
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    imp_res_tac Cpmatch_FDOM >>
+    simp[] >>
+    lrw[EL_APPEND2] >>
+    fsrw_tac[ARITH_ss,DNF_ss][SUBSET_DEF] >>
+    srw_tac[ARITH_ss][] >>
+    res_tac >> simp[] ) >>
+  simp[] >>
+  map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+  pop_assum kall_tac >>
+  disch_then(Q.X_CHOOSE_THEN`r2`strip_assume_tac) >>
+  qspecl_then[`p`,`v`,`env`]mp_tac(CONJUNCT1 Cpmatch_remove_mat) >>
+  simp[] >>
+  disch_then(qspecl_then[`[v]++env'`,`0`,`fk+1`,`e'`,`r2`]mp_tac) >>
+  simp[el_check_def] >>
+  qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+  `P` by (
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    imp_res_tac Cpmatch_FDOM >>
+    simp[Abbr`e'`] >>
+    fsrw_tac[ARITH_ss][] >>
+    qmatch_abbrev_tac`free_vars (remove_mat_con fk0 e0 x0 n0 ps0) ⊆ ss` >>
+    qspecl_then[`ps0`,`fk0`,`e0`,`x0`,`n0`]strip_assume_tac(CONJUNCT2 free_vars_remove_mat_vp_SUBSET) >>
+    match_mp_tac SUBSET_TRANS >>
+    HINT_EXISTS_TAC >> simp[] >>
     unabbrev_all_tac >>
-    match_mp_tac IN_FRANGE_FUPDATE_suff >>
-    asm_simp_tac std_ss[] >>
-    match_mp_tac IN_FRANGE_FUNION_suff >>
-    fs[] ) >> fs[] >>
-  `free_vars FEMPTY ee ⊆ Cpat_vars p ∪ FDOM env0` by (
-    unabbrev_all_tac >>
-    ntac 4 (pop_assum kall_tac) >>
-    qspecl_then [`ps`,`fk`,`e`,`x`,`LENGTH vs0 + 1`] mp_tac
-      (CONJUNCT2 free_vars_remove_mat_vp_SUBSET) >>
-    fsrw_tac[DNF_ss][SUBSET_DEF] >>
-    metis_tac[]) >> fs[] >>
-  qsuff_tac `∃rx. Cevaluate FEMPTY FEMPTY s (env ⊌ env0) ee rx ∧
-                  fmap_rel (syneq FEMPTY) (FST rx) (FST r0) ∧
-                  result_rel (syneq FEMPTY) (SND rx) (SND r0)` >-
-    PROVE_TAC[result_rel_syneq_trans,result_rel_syneq_sym,
-              fmap_rel_syneq_trans,fmap_rel_syneq_sym] >>
-  first_x_assum (qspecl_then [`env0`,`x`,`c`,`ps0 ++ [p]`,`vs0 ++ [v]`,`env ⊌ menv`,`fk`,`e`] mp_tac) >>
-  `x ∈ FDOM env0` by fs[Abbr`env0`] >> fs[] >>
-  `env0 ' x = CConv c (vs0 ++ [v] ++ vs)` by (
-    qunabbrev_tac`env0` >>
-    `u ∉ {x}` by (
-      unabbrev_all_tac >>
-      match_mp_tac fresh_var_not_in_any >>
-      rw[] ) >>
-    `x ∉ FDOM env` by metis_tac[] >>
-    fs[FAPPLY_FUPDATE_THM,FUNION_DEF]>> fs[] ) >> fs[] >>
-  qho_match_abbrev_tac `(∀x. P ∧ Q x ⇒ R x) ⇒ Z` >>
-  `P` by (
-    unabbrev_all_tac >> rw[] >>
-    metis_tac[] ) >> qunabbrev_tac`P` >> fs[] >>
-  qunabbrev_tac`Q` >> fs[] >>
-  qho_match_abbrev_tac `(∀x. P ∧ Q x ⇒ R x) ⇒ Z` >>
-  `P` by (
-    unabbrev_all_tac >> rw[] >>
-    metis_tac[] ) >> qunabbrev_tac`P` >> fs[] >>
-  qunabbrev_tac`Q` >> fs[] >>
-  qho_match_abbrev_tac `(∀x. P ∧ Q x ⇒ R x) ⇒ Z` >>
-  `P` by (
-    unabbrev_all_tac >> rw[] >>
-    ntac 10 (pop_assum kall_tac) >>
-    fsrw_tac[DNF_ss][SUBSET_DEF] >>
-    metis_tac[]) >> qunabbrev_tac`P` >> fs[] >>
-  qunabbrev_tac `Q` >> fs[] >>
-  fs[Cpmatch_list_APPEND] >>
-  fs[rich_listTheory.BUTFIRSTN_LENGTH_APPEND] >>
-  fs[rich_listTheory.FIRSTN_LENGTH_APPEND] >>
-  simp_tac std_ss[Q.SPEC`[p]` (CONJUNCT2 (SPEC_ALL Cpmatch_cases))] >>
-  fsrw_tac[DNF_ss][] >>
-  fs[FUNION_FEMPTY_1] >>
-  disch_then (mp_tac o Q.SPEC`menv` o CONV_RULE SWAP_FORALL_CONV) >>
-  disch_then (mp_tac o Q.SPEC`env` o CONV_RULE SWAP_FORALL_CONV) >>
-  fs[] >>
-  qunabbrev_tac`R` >> fs[] >>
-  qunabbrev_tac`Z` >> fs[] >>
-  `u ∉ FDOM env` by (
-    unabbrev_all_tac >>
-    match_mp_tac fresh_var_not_in_any >>
-    fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
-  qspecl_then[`FEMPTY`,`FEMPTY`,`s`,`env'`,`CCall (CVar fk) []`,`r0`] mp_tac Cevaluate_free_vars_env >>
-  fs[] >>
-  disch_then (Q.X_CHOOSE_THEN`r2` strip_assume_tac) >>
-  `DRESTRICT env0 {fk} = DRESTRICT env' {fk}` by (
-    fs[DRESTRICT_EQ_DRESTRICT] >>
-    fs[SUBMAP_DEF,DRESTRICT_DEF] >>
-    `u ∉ {fk}` by (
-      unabbrev_all_tac >>
-      match_mp_tac fresh_var_not_in_any >>
-      rw[] ) >>
-    pop_assum mp_tac >>
-    asm_simp_tac (srw_ss())[FAPPLY_FUPDATE_THM] >>
-    strip_tac >>
-    `fk ∉ FDOM menv` by (
-      asm_simp_tac(srw_ss())[] >>
-      metis_tac[] ) >>
-    `env0 ' fk = env' ' fk` by (
-      qunabbrev_tac`env0` >>
-      asm_simp_tac(srw_ss())[FUNION_DEF,FAPPLY_FUPDATE_THM] ) >>
-    asm_simp_tac(srw_ss())[] >>
-    asm_simp_tac(srw_ss())[Once EXTENSION] >>
-    qunabbrev_tac`env0` >>
-    simp_tac std_ss [FDOM_FUPDATE,FDOM_FUNION] >>
-    simp_tac(srw_ss())[] >>
-    metis_tac[] ) >>
-  qspecl_then[`FEMPTY`,`FEMPTY`,`s`,`env0`,`CCall (CVar fk) []`,`r2`] mp_tac Cevaluate_any_super_env >>
-  fs[] >>
-  disch_then (Q.X_CHOOSE_THEN `r3` strip_assume_tac) >>
-  disch_then (qspec_then `r3` mp_tac) >> fs[] >>
-  disch_then (Q.X_CHOOSE_THEN `r4` strip_assume_tac) >>
-  qspecl_then [`FEMPTY`,`FEMPTY`,`s`,`env ⊌ menv ⊌ env0`,`ee`,`r4`] mp_tac Cevaluate_free_vars_env >>
-  fs[] >>
-  Q.PAT_ABBREV_TAC`P = free_vars FEMPTY ee ⊆ X` >>
-  `P` by (
-    fsrw_tac[DNF_ss][SUBSET_DEF,Abbr`P`] >>
-    metis_tac[] ) >> qunabbrev_tac`P` >> fs[] >>
-  qho_match_abbrev_tac`(P ⇒ Q) ⇒ R` >>
-  `P` by (
-    qunabbrev_tac `P` >>
-    match_mp_tac IN_FRANGE_FUNION_suff >> fs[] >>
-    match_mp_tac IN_FRANGE_FUNION_suff >> fs[] ) >>
-  qunabbrev_tac`P` >> fs[] >>
-  qunabbrev_tac`Q`>>qunabbrev_tac`R` >>
-  disch_then (Q.X_CHOOSE_THEN `r5` strip_assume_tac) >>
-  qspecl_then [`FEMPTY`,`FEMPTY`,`s`,`env ⊌ env0`,`ee`,`r5`] mp_tac Cevaluate_any_super_env >>
-  fs[] >>
-  `DRESTRICT (env ⊌ env0) (free_vars FEMPTY ee) = DRESTRICT (env ⊌ menv ⊌ env0) (free_vars FEMPTY ee)` by (
-    qunabbrev_tac`env0` >>
-    simp_tac std_ss[GSYM FUNION_ASSOC] >>
-    asm_simp_tac std_ss[FUNION_FUPDATE_2] >>
-    `u ∉ free_vars FEMPTY ee` by (
-      qunabbrev_tac`ee` >>
-      qspecl_then [`ps`,`fk`,`e`,`x`,`LENGTH vs0 + 1`] mp_tac (CONJUNCT2 free_vars_remove_mat_vp_SUBSET) >>
-      asm_simp_tac (std_ss++DNF_ss) [SUBSET_DEF,IN_UNION,IN_DIFF] >>
-      strip_tac >>
-      `u ∉ {x;fk}` by (
-        qunabbrev_tac`u` >>
-        match_mp_tac fresh_var_not_in_any >>
-        rw[] ) >>
-      `u ∉ free_vars FEMPTY e` by (
-        qunabbrev_tac`u` >>
-        match_mp_tac fresh_var_not_in_any >>
-        rw[] >> rw[SUBSET_DEF]) >>
-      metis_tac[] ) >>
-    asm_simp_tac std_ss[DRESTRICT_FUPDATE] >>
-    simp_tac std_ss[FUNION_ASSOC,FUNION_IDEMPOT] >>
-    Cases_on `u ∈ BIGUNION (IMAGE Cpat_vars (set ps0))` >>
-    asm_simp_tac std_ss[FUNION_ASSOC] >>
-    asm_simp_tac std_ss[FUNION_FUPDATE_2,DRESTRICT_FUPDATE,FUNION_ASSOC] ) >>
-  fs[] >>
-  qho_match_abbrev_tac`(P ⇒ Q) ⇒ R` >>
-  `P` by (
-    qunabbrev_tac `P` >>
-    match_mp_tac IN_FRANGE_FUNION_suff >> fs[] ) >>
-  qunabbrev_tac`P` >> fs[] >>
+    fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF] >>
+    srw_tac[ARITH_ss][] >>
+    res_tac >> simp[] ) >>
+  simp[] >>
+  map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+  pop_assum kall_tac >>
   metis_tac[result_rel_syneq_trans,result_rel_syneq_sym,
-            fmap_rel_syneq_trans,fmap_rel_syneq_sym] )
+            EVERY2_syneq_trans,EVERY2_syneq_sym] )
 
 val Cevaluate_match_strongind = theorem"Cevaluate_match_strongind"
 
