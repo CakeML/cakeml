@@ -63,6 +63,12 @@ val Cexp_size_def = save_thm("Cexp_size_def",Cexp_size_def)
 val Cv_size_def = save_thm("Cv_size_def",Cv_size_def)
 val syneq_cases = save_thm("syneq_cases",syneq_cases)
 val syneq_ind = save_thm("syneq_ind",syneq_ind)
+val syneq_rules = save_thm("syneq_rules",syneq_rules)
+val syneq_exp_cases = save_thm("syneq_exp_cases",syneq_exp_cases)
+val syneq_exp_ind = save_thm("syneq_exp_ind",syneq_exp_ind)
+val syneq_exp_rules = save_thm("syneq_exp_rules",syneq_exp_rules)
+val syneq_cb_aux_def = save_thm("syneq_cb_aux_def",syneq_cb_aux_def)
+val syneq_cb_V_def = save_thm("syneq_cb_V_def",syneq_cb_V_def)
 val Cpat_vars_def = save_thm("Cpat_vars_def",Cpat_vars_def)
 val _ = export_rewrites["Cpat_vars_def"]
 

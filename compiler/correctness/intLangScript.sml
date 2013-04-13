@@ -60,12 +60,6 @@ rw[Once Cevaluate_cases] >> PROVE_TAC[])
 (* syneq equivalence relation lemmas *)
 
 (* TODO: move *)
-val syneq_exp_rules = CompileTheory.syneq_exp_rules
-val syneq_exp_ind = CompileTheory.syneq_exp_ind
-val syneq_exp_cases = CompileTheory.syneq_exp_cases
-val syneq_rules = CompileTheory.syneq_rules
-val syneq_cb_aux_def = CompileTheory.syneq_cb_aux_def
-val syneq_cb_V_def = CompileTheory.syneq_cb_V_def
 (*val syneq_cds_def = CompileTheory.syneq_cds_def*)
 fun RATOR_X_ASSUM t ttac (g as (asl,w)) = UNDISCH_THEN (first (can (match_term t) o fst o strip_comb) asl) ttac g
 fun rator_x_assum q ttac = Q_TAC (C RATOR_X_ASSUM ttac) q
