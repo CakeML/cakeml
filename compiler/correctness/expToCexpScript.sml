@@ -1,4 +1,4 @@
-open HolKernel bossLib boolLib boolSimps intLib pairTheory sumTheory listTheory pred_setTheory finite_mapTheory alistTheory lcsymtacs
+open HolKernel bossLib boolLib boolSimps intLib pairTheory sumTheory listTheory pred_setTheory finite_mapTheory arithmeticTheory alistTheory lcsymtacs
 open MiniMLTheory MiniMLTerminationTheory miniMLExtraTheory evaluateEquationsTheory miscTheory intLangTheory compileTerminationTheory pmatchTheory
 val _ = new_theory "expToCexp"
 val fsd = full_simp_tac std_ss
@@ -10,7 +10,7 @@ val exp_to_Cexp_nice_ind = save_thm(
 exp_to_Cexp_ind
 |> Q.SPECL [`P`
    ,`λs defs. EVERY (λ(d,t1,vn,t2,e). P s e) defs`
-   ,`λs pes. EVERY (λ(p,e). P s e) pes`
+   ,`λs pes. EVERY (λ(p,e). P (FST (pat_to_Cpat s p)) e) pes`
    ,`λs. EVERY (P s)`]
 |> SIMP_RULE (srw_ss()) []
 |> UNDISCH_ALL
@@ -48,19 +48,21 @@ val all_Clocs_v_to_Cv = store_thm("all_Clocs_v_to_Cv",
 
 val Cpat_vars_pat_to_Cpat = store_thm(
 "Cpat_vars_pat_to_Cpat",
-``(∀(p:α pat) s pvs pvs' Cp. (pat_to_Cpat s pvs p = (pvs',Cp))
-  ⇒ (Cpat_vars Cp = pat_vars p)) ∧
-  (∀(ps:α pat list) s pvs pvs' Cps. (pats_to_Cpats s pvs ps = (pvs',Cps))
-  ⇒ (MAP Cpat_vars Cps = MAP pat_vars ps))``,
+``(∀(p:α pat) s s' Cp. (pat_to_Cpat s p = (s',Cp))
+  ⇒ (Cpat_vars Cp = (LENGTH (pat_bindings p [])))) ∧
+  (∀(ps:α pat list) s s' Cps. (pats_to_Cpats s ps = (s',Cps))
+  ⇒ (MAP Cpat_vars Cps = MAP (λp. (LENGTH (pat_bindings p []))) ps))``,
 ho_match_mp_tac (TypeBase.induction_of ``:α pat``) >>
-rw[pat_to_Cpat_def,LET_THM,pairTheory.UNCURRY] >>
+rw[pat_to_Cpat_def,LET_THM,pairTheory.UNCURRY,pat_bindings_def] >>
 rw[FOLDL_UNION_BIGUNION,IMAGE_BIGUNION] >- (
-  qabbrev_tac `q = pats_to_Cpats s' pvs ps` >>
+  qabbrev_tac `q = pats_to_Cpats s' ps` >>
   PairCases_on `q` >>
   fsrw_tac[ETA_ss][MAP_EQ_EVERY2,EVERY2_EVERY,EVERY_MEM,pairTheory.FORALL_PROD] >>
-  AP_TERM_TAC >>
-  first_x_assum (qspecl_then [`s'`,`pvs`] mp_tac) >>
+  first_x_assum (qspecl_then [`s'`] mp_tac) >>
   rw[] >>
+  rw[Cpat_vars_list_SUM_MAP]
+
+  DB.find"Cpat_vars_list"
   pop_assum mp_tac >>
   rw[MEM_ZIP] >>
   rw[Once EXTENSION,MEM_EL] >>
@@ -87,10 +89,159 @@ val Cpat_vars_SND_pat_to_Cpat = store_thm("Cpat_vars_SND_pat_to_Cpat",
   rw[])
 val _ = export_rewrites["Cpat_vars_SND_pat_to_Cpat"]
 
+val set_FST_pat_to_Cpat_bvars = store_thm("set_FST_pat_to_Cpat_bvars",
+  ``(∀(p:α pat) s. set (FST (pat_to_Cpat s p)).bvars = pat_vars p ∪ set s.bvars) ∧
+    (∀(ps:α pat list) s. set (FST (pats_to_Cpats s ps)).bvars = BIGUNION (IMAGE pat_vars (set ps)) ∪ set s.bvars)``,
+  ho_match_mp_tac (TypeBase.induction_of``:α pat``) >>
+  rw[pat_to_Cpat_def] >> rw[Once EXTENSION]
+  >- ( first_x_assum(qspec_then`s'`mp_tac) >> simp[] )
+  >- ( first_x_assum(qspec_then`s`mp_tac) >> simp[] ) >>
+  first_x_assum(qspec_then`m`mp_tac) >>
+  first_x_assum(qspec_then`s`mp_tac) >>
+  rw[] >>
+  metis_tac[])
+
+(* TODO: move *)
+val CARD_UNION_LE = store_thm("CARD_UNION_LE",
+  ``FINITE s ∧ FINITE t ⇒ CARD (s ∪ t) ≤ CARD s + CARD t``,
+  rw[] >> imp_res_tac CARD_UNION >> fsrw_tac[ARITH_ss][])
+
+(*
+val lem = prove(``combin$C (combin$C f) = f``,simp[FUN_EQ_THM])
+
+val CARD_BIGUNION_LE = store_thm("CARD_BIGUNION_LE",
+  ``∀P n. FINITE P ⇒ (∀s. s ∈ P ⇒ FINITE s) ⇒
+    CARD (BIGUNION P) ≤ ITSET (λe a. a + CARD e) P n``,
+    ho_match_mp_tac ITSET_ind >>
+    rw[]
+
+val CARD_BIGUNION_LE = store_thm("CARD_BIGUNION_LE",
+  ``∀P. FINITE P ⇒ (∀s. s ∈ P ⇒ FINITE s) ⇒
+    CARD (BIGUNION P) ≤ SUM (MAP CARD (SET_TO_LIST P))``,
+  ho_match_mp_tac FINITE_INDUCT >> rw[] >>
+  simp[SUM_MAP_FOLDL] >>
+  Q.PAT_ABBREV_TAC`f = (λa e. a + CARD e)` >>
+  Q.ISPEC_THEN`e INSERT P`mp_tac (INST_TYPE[beta|->``:num``]ITSET_eq_FOLDL_SET_TO_LIST) >>
+  simp[] >>
+  disch_then(Q.ISPECL_THEN[`combin$C f`,`0:num`](mp_tac o SYM)) >>
+  simp[lem] >> strip_tac >>
+  ITSET_ind
+
+  PERM_SUM
+  DB.find"PERM_SUM"
+  ITSET_ind
+  CHOICE_IND
+  DB.find"SET_TO_LIST"
+  DB.find"MAP_FOLDL"
+  SET_TO_LIST
+  CHOICE_INDUCT
+  simp[Once SET_TO_LIST_THM]
+  DB.match [] ``SET_TO_LIST (a INSERT b)``
+  simp[SUM_SET_THM] >>
+  simp[SUM_SET_DELETE] >>
+  rw[] >> fs[] >>
+  match_mp_tac LESS_EQ_TRANS >>
+  qexists_tac`CARD e + CARD (BIGUNION P)` >>
+  conj_tac >- (
+    match_mp_tac CARD_UNION_LE >> simp[] ) >>
+  simp[]
+  DB.find"SUM_SET"
+  SUM_SET_INSERT
+  conj_tac >> simp[]
+  DB.match [] ``X:(num -> bool)->num``
+*)
+
+val pat_bindings_acc = store_thm("pat_bindings_acc",
+  ``(∀(p:α pat) l. pat_bindings p l = pat_bindings p [] ++ l) ∧
+    (∀(ps:α pat list) l. pats_bindings ps l = pats_bindings ps [] ++ l)``,
+  ho_match_mp_tac (TypeBase.induction_of``:α pat``) >> rw[] >>
+  simp_tac std_ss [pat_bindings_def] >>
+  metis_tac[APPEND,APPEND_ASSOC])
+
+val LENGTH_FST_pat_to_Cpat_bvars = store_thm("LENGTH_FST_pat_to_Cpat_bvars",
+  ``(∀(p:α pat) s l. LENGTH (FST (pat_to_Cpat s p)).bvars = LENGTH (pat_bindings p l) - LENGTH l + LENGTH s.bvars) ∧
+    (∀(ps:α pat list) s l. LENGTH (FST (pats_to_Cpats s ps)).bvars = LENGTH (pats_bindings ps l) - LENGTH l + LENGTH s.bvars)``,
+  ho_match_mp_tac (TypeBase.induction_of``:α pat``) >>
+  srw_tac[ARITH_ss,ETA_ss][pat_to_Cpat_def,ADD1,pat_bindings_def]
+  >- ( first_x_assum(qspec_then`s'`mp_tac) >> simp[] )
+  >- ( first_x_assum(qspec_then`s`mp_tac) >> simp[] ) >>
+  first_x_assum(qspec_then`m`mp_tac) >>
+  first_x_assum(qspec_then`s`mp_tac) >>
+  rw[] >>
+  simp[Once pat_bindings_acc] >>
+  first_x_assum(qspec_then`[]`mp_tac) >>
+  first_x_assum(qspec_then`l`mp_tac) >>
+  disch_then SUBST1_TAC >>
+  disch_then SUBST1_TAC >>
+  simp[] >>
+  simp[Once (CONJUNCT1 pat_bindings_acc)] >>
+  simp[Once (CONJUNCT1 pat_bindings_acc),SimpRHS])
+
+val lem = PROVE[]``(a ==> (b \/ c)) = (a /\ ~b ==> c)``
+
 val free_vars_exp_to_Cexp = store_thm(
 "free_vars_exp_to_Cexp",
-``∀s e. free_vars FEMPTY (exp_to_Cexp s e) = FV e``,
+``∀s e. FV e ⊆ set s.bvars ⇒
+        free_vars (exp_to_Cexp s e) ⊆ count (LENGTH s.bvars)``,
 ho_match_mp_tac exp_to_Cexp_nice_ind >>
+strip_tac >- (
+  rw[exp_to_Cexp_def] >>
+  fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1,ADD1] >>
+  conj_tac >> Cases >> fsrw_tac[ARITH_ss,DNF_ss][ADD1,lem] >>
+  strip_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+strip_tac >- rw[exp_to_Cexp_def] >>
+strip_tac >- rw[exp_to_Cexp_def] >>
+strip_tac >- (
+  rw[exp_to_Cexp_def,FOLDL_UNION_BIGUNION] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM,exps_to_Cexps_MAP,MEM_MAP] >>
+  metis_tac[] ) >>
+strip_tac >- (
+  rw[exp_to_Cexp_def] >>
+  imp_res_tac find_index_MEM >>
+  pop_assum(qspec_then`0`mp_tac)>>rw[] >>
+  rw[] ) >>
+strip_tac >- (
+  rw[exp_to_Cexp_def] >>
+  fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1,ADD1] >>
+  rw[] >>
+  fsrw_tac[ARITH_ss][lem] >>
+  res_tac >> fsrw_tac[ARITH_ss][] ) >>
+strip_tac >- ( rw[exp_to_Cexp_def] >> rw[] ) >>
+strip_tac >- (
+  rw[exp_to_Cexp_def] >>
+  BasicProvers.CASE_TAC >> rw[] >>
+  fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
+  conj_tac >> Cases >> fsrw_tac[ARITH_ss][ADD1] >>
+  strip_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+strip_tac >- ( rw[exp_to_Cexp_def] >> rw[] ) >>
+strip_tac >- ( rw[exp_to_Cexp_def] >> rw[] ) >>
+strip_tac >- ( rw[exp_to_Cexp_def] >> rw[] ) >>
+strip_tac >- ( rw[exp_to_Cexp_def] >> rw[] ) >>
+strip_tac >- (
+  rw[exp_to_Cexp_def] >>
+  BasicProvers.CASE_TAC >> rw[] ) >>
+strip_tac >- ( rw[exp_to_Cexp_def] >> rw[] ) >>
+strip_tac >- (
+  rw[exp_to_Cexp_def] >>
+  rw[] >>
+  simp[free_vars_remove_mat_var] >>
+  unabbrev_all_tac >>
+  fsrw_tac[DNF_ss,ARITH_ss][EVERY_MEM,SUBSET_DEF,FORALL_PROD,PRE_SUB1,pes_to_Cpes_MAP,LET_THM,MEM_MAP,UNCURRY] >>
+  simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM] >>
+  map_every qx_gen_tac[`pp`,`ee`,`v`] >>
+
+  DB.match [] ``(a ==> b) /\ (a ==> c)``
+  AND_IMP_T
+  rw[] >> res_tac >>
+  pop_assum mp_tac >>
+  qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+  qsuff_tac`P` >- (
+    simp[Abbr`Q`,Abbr`R`] >> rw[] >>
+    res_tac >> fsrw_tac[ARITH_ss][LENGTH_FST_pat_to_Cpat_bvars] >>
+    LENGTH_FST_pat_to_Cpat_bvars
+
+  DB.find"pat_to_Cpat"
+
 srw_tac[ETA_ss,DNF_ss][exp_to_Cexp_def,exps_to_Cexps_MAP,pes_to_Cpes_MAP,defs_to_Cdefs_MAP,
 FOLDL_UNION_BIGUNION,IMAGE_BIGUNION,BIGUNION_SUBSET,LET_THM,EVERY_MEM] >>
 rw[] >- (
@@ -285,11 +436,8 @@ val _ = export_rewrites["v_to_Cv_do_tapp"]
 
 val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   ``(∀cenv s env exp res. evaluate cenv s env exp res ⇒
+     FV exp ⊆ set (MAP FST env) ∧
      good_cenv cenv ∧ (SND res ≠ Rerr Rtype_error) ⇒
-
-     also will need free vars and free labs (and?) for pmatch stuff
-     and whatever is necessary for shifting (for closures)?
-
      ∀m. good_cmap cenv m.cnmap ⇒
        ∃Cres.
        Cevaluate FEMPTY
@@ -300,6 +448,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
          EVERY2 (syneq FEMPTY FEMPTY) (MAP (v_to_Cv m) (FST res)) (FST Cres) ∧
          result_rel (syneq FEMPTY FEMPTY) (map_result (v_to_Cv m) (SND res)) (SND Cres))∧
     (∀cenv s env exps res. evaluate_list cenv s env exps res ⇒
+     (BIGUNION (IMAGE FV (set exps)) ⊆ set (MAP FST env)) ∧
      good_cenv cenv ∧ (SND res ≠ Rerr Rtype_error) ⇒
      ∀m. good_cmap cenv m.cnmap ⇒
        ∃Cres.
