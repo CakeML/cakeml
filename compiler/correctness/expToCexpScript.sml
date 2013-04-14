@@ -25,11 +25,11 @@ exp_to_Cexp_ind
 val do_Opapp_SOME_CRecClos = store_thm(
 "do_Opapp_SOME_CRecClos",
 ``(do_app s env Opapp v1 v2 = SOME (s',env',exp'')) ∧
-  syneq c (v_to_Cv m v1) w1 ⇒
-  ∃env'' ns' defs n.
-    (w1 = CRecClos env'' ns' defs n)``,
+  syneq c1 c2 (v_to_Cv m v1) w1 ⇒
+  ∃env'' defs n.
+    (w1 = CRecClos env'' defs n)``,
 Cases_on `v1` >> rw[do_app_def,v_to_Cv_def,LET_THM] >>
-fs[defs_to_Cdefs_MAP, syneq_cases])
+fs[defs_to_Cdefs_MAP, Once syneq_cases])
 
 val env_to_Cenv_APPEND = store_thm("env_to_Cenv_APPEND",
   ``env_to_Cenv m (l1 ++ l2) = env_to_Cenv m l1 ++ env_to_Cenv m l2``,
@@ -39,15 +39,10 @@ val _ = export_rewrites["env_to_Cenv_APPEND"]
 val all_Clocs_v_to_Cv = store_thm("all_Clocs_v_to_Cv",
   ``(∀m (v:α v). all_Clocs (v_to_Cv m v) = all_locs v) ∧
     (∀m (vs:α v list). MAP all_Clocs (vs_to_Cvs m vs) = MAP all_locs vs) ∧
-    (∀m env: α envE. all_Clocs o_f (alist_to_fmap (env_to_Cenv m env)) =
-                  all_locs o FST o_f (alist_to_fmap env))``,
+    (∀m env: α envE. MAP all_Clocs (env_to_Cenv m env) = MAP (all_locs o FST o SND) env)``,
   ho_match_mp_tac v_to_Cv_ind >>
-  srw_tac[ETA_ss][v_to_Cv_def,LET_THM,defs_to_Cdefs_MAP]
-  >- simp[GSYM LIST_TO_SET_MAP]
-  >- simp[IMAGE_FRANGE]
-  >- simp[IMAGE_FRANGE] >>
-  AP_THM_TAC >> AP_TERM_TAC >>
-  PROVE_TAC[o_f_DOMSUB])
+  srw_tac[ETA_ss][v_to_Cv_def,LET_THM,defs_to_Cdefs_MAP] >>
+  fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o])
 
 (* free vars lemmas *)
 
