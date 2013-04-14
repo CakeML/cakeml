@@ -80,15 +80,6 @@ rw[FOLDL_UNION_BIGUNION,IMAGE_BIGUNION] >- (
 >- (
   fs[Once pat_to_Cpat_empty_pvs] ))
 
-val Cpes_vars_thm = store_thm(
-"Cpes_vars_thm",
-``Cpes_vars Cpes = BIGUNION (IMAGE Cpat_vars (set (MAP FST Cpes))) ∪ BIGUNION (IMAGE (free_vars FEMPTY) (set (MAP SND Cpes)))``,
-rw[Cpes_vars_def] >>
-rw[Once (GSYM UNION_ASSOC)] >>
-rw[FOLDL_UNION_BIGUNION_paired] >>
-srw_tac[DNF_ss][Once EXTENSION,MEM_MAP,pairTheory.EXISTS_PROD] >>
-PROVE_TAC[])
-
 val Cpat_vars_SND_pat_to_Cpat = store_thm("Cpat_vars_SND_pat_to_Cpat",
   ``Cpat_vars (SND (pat_to_Cpat s [] z)) = pat_vars z``,
   Cases_on `pat_to_Cpat s [] z` >>
@@ -200,39 +191,6 @@ pop_assum mp_tac >>
 rw[FRANGE_DEF,DOMSUB_FAPPLY_THM] >>
 rw[] >> PROVE_TAC[])
 
-(* store_to_Cstore lemmas *)
-
-val FDOM_store_to_Cstore = store_thm("FDOM_store_to_Cstore",
-  ``∀f m. FDOM (store_to_Cstore m f) = count (LENGTH f)``,
-  rw[store_to_fmap_def])
-val _ = export_rewrites["FDOM_store_to_Cstore"]
-
-val FAPPLY_store_to_Cstore = store_thm("FAPPLY_store_to_Cstore",
-  ``∀f m k. k < LENGTH f ⇒ ((store_to_Cstore m f) ' k = v_to_Cv m (EL k f))``,
-  rw[store_to_fmap_def] >>
-  AP_TERM_TAC >> rw[FUN_FMAP_DEF])
-
-val FRANGE_store_to_Cstore = store_thm("FRANGE_store_to_Cstore",
-  ``∀f m. FRANGE (store_to_Cstore m f) = set (MAP (v_to_Cv m) f)``,
-  Induct >- rw[store_to_fmap_def] >>
-  fs[EXTENSION,IN_FRANGE] >>
-  qx_gen_tac`h` >>
-  qx_gen_tac`m` >>
-  qx_gen_tac`x` >>
-  EQ_TAC >> rw[] >- (
-    qmatch_abbrev_tac`A ∨ B` >>
-    Cases_on`A`>>simp[]>>fs[markerTheory.Abbrev_def] >>
-    fsrw_tac[DNF_ss][EQ_IMP_THM] >>
-    fs[FAPPLY_store_to_Cstore] >>
-    Cases_on`k`>>fs[FAPPLY_store_to_Cstore] )
-  >- (
-    qexists_tac`0`>> rw[FAPPLY_store_to_Cstore] ) >>
-  fsrw_tac[DNF_ss][EQ_IMP_THM] >>
-  res_tac >>
-  rfs[FAPPLY_store_to_Cstore] >>
-  qexists_tac`SUC k` >>
-  rw[FAPPLY_store_to_Cstore])
-
 (* do_app SOME lemmas *)
 
 val do_app_Opn_SOME = store_thm("do_app_Opn_SOME",
@@ -287,8 +245,8 @@ probably not true until equality is corrected in the source language *)
 (* TODO: categorise *)
 
 val pat_to_Cpat_deBruijn_subst_p = store_thm("pat_to_Cpat_deBruijn_subst_p",
-  ``(∀p n x m ls. pat_to_Cpat m ls (deBruijn_subst_p n x p) = pat_to_Cpat m ls p) ∧
-    (∀ps n x m ls. pats_to_Cpats m ls (MAP (deBruijn_subst_p n x) ps) = pats_to_Cpats m ls ps)``,
+  ``(∀p n x m. pat_to_Cpat m (deBruijn_subst_p n x p) = pat_to_Cpat m p) ∧
+    (∀ps n x m. pats_to_Cpats m (MAP (deBruijn_subst_p n x) ps) = pats_to_Cpats m ps)``,
   ho_match_mp_tac (TypeBase.induction_of``:t pat``) >>
   srw_tac[ETA_ss][deBruijn_subst_p_def,pat_to_Cpat_def])
 val _ = export_rewrites["pat_to_Cpat_deBruijn_subst_p"]
@@ -301,30 +259,21 @@ val exp_to_Cexp_deBruijn_subst_e = store_thm("exp_to_Cexp_deBruijn_subst_e",
      defs_to_Cdefs_MAP,pes_to_Cpes_MAP,LET_THM,FORALL_PROD]
   >- ( Cases_on`bop`>>rw[exp_to_Cexp_def] )
   >- ( rw[UNCURRY,combinTheory.o_DEF] >>
-       AP_TERM_TAC >> AP_TERM_TAC >>
+       AP_TERM_TAC >>
        rw[MAP_EQ_f,FORALL_PROD] >>
-       res_tac >> rw[] )
-  >- ( rw[UNCURRY,combinTheory.o_DEF] >>
-       rw[LAMBDA_PROD] >>
-       qmatch_abbrev_tac`f a b = f c d` >>
-       `a = c` by (
-         unabbrev_all_tac >>
-         AP_TERM_TAC >> AP_TERM_TAC >>
-         rw[MAP_EQ_f,FORALL_PROD] >>
-         res_tac >> rw[] ) >>
-       `b = d` by (
-         unabbrev_all_tac >>
-         rw[MAP_EQ_f,FORALL_PROD] >>
-         res_tac >> rw[] ) >>
-       rw[] ) >>
-  res_tac >> rw[])
+       AP_TERM_TAC >>
+       res_tac >> rw[] ) >>
+  rw[UNCURRY,combinTheory.o_DEF] >>
+  rw[LAMBDA_PROD] >>
+  metis_tac[])
 val _ = export_rewrites["exp_to_Cexp_deBruijn_subst_e"]
 
 val v_to_Cv_deBruijn_subst_v = store_thm("v_to_Cv_deBruijn_subst_v",
   ``∀x v m. v_to_Cv m (deBruijn_subst_v x v) = v_to_Cv m v``,
   ho_match_mp_tac deBruijn_subst_v_ind >>
   srw_tac[ETA_ss][deBruijn_subst_v_def,v_to_Cv_def,LET_THM,
-                  defs_to_Cdefs_MAP,vs_to_Cvs_MAP,MAP_MAP_o,MAP_EQ_f,FORALL_PROD])
+                  defs_to_Cdefs_MAP,vs_to_Cvs_MAP,MAP_MAP_o,MAP_EQ_f,FORALL_PROD] >>
+  rw[combinTheory.o_DEF,UNCURRY,LAMBDA_PROD])
 val _ = export_rewrites["v_to_Cv_deBruijn_subst_v"]
 
 val v_to_Cv_do_tapp = store_thm("v_to_Cv_do_tapp",
@@ -336,31 +285,35 @@ val _ = export_rewrites["v_to_Cv_do_tapp"]
 
 val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   ``(∀cenv s env exp res. evaluate cenv s env exp res ⇒
+     (*
      (EVERY closed s) ∧
      (EVERY closed (MAP (FST o SND) env)) ∧
+     *)
      (FV exp ⊆ set (MAP FST env)) ∧
      good_cenv cenv ∧ (SND res ≠ Rerr Rtype_error) ⇒
-     ∀m. good_cmap cenv m ⇒
+     ∀m. good_cmap cenv m.cnmap ⇒
        ∃Cres.
-         Cevaluate FEMPTY FEMPTY
-           (store_to_Cstore m s)
-           (alist_to_fmap (env_to_Cenv m env))
+         Cevaluate FEMPTY
+           (MAP (v_to_Cv m) s)
+           (env_to_Cenv m env)
            (exp_to_Cexp m exp) Cres ∧
-         fmap_rel (syneq FEMPTY) (store_to_Cstore m (FST res)) (FST Cres) ∧
-         result_rel (syneq FEMPTY) (map_result (v_to_Cv m) (SND res)) (SND Cres)) ∧
+         EVERY2 (syneq FEMPTY FEMPTY) (MAP (v_to_Cv m) (FST res)) (FST Cres) ∧
+         result_rel (syneq FEMPTY FEMPTY) (map_result (v_to_Cv m) (SND res)) (SND Cres)) ∧
     (∀cenv s env exps res. evaluate_list cenv s env exps res ⇒
+     (*
      (EVERY closed s) ∧
      (EVERY closed (MAP (FST o SND) env)) ∧
+     *)
      (BIGUNION (IMAGE FV (set exps)) ⊆ set (MAP FST env)) ∧
      good_cenv cenv ∧ (SND res ≠ Rerr Rtype_error) ⇒
-     ∀m. good_cmap cenv m ⇒
+     ∀m. good_cmap cenv m.cnmap ⇒
        ∃Cres.
-         Cevaluate_list FEMPTY FEMPTY
-           (store_to_Cstore m s)
-           (alist_to_fmap (env_to_Cenv m env))
+         Cevaluate_list FEMPTY
+           (MAP (v_to_Cv m) s)
+           (env_to_Cenv m env)
            (MAP (exp_to_Cexp m) exps) Cres ∧
-         fmap_rel (syneq FEMPTY) (store_to_Cstore m (FST res)) (FST Cres) ∧
-         result_rel (EVERY2 (syneq FEMPTY)) (map_result (MAP (v_to_Cv m)) (SND res)) (SND Cres))``,
+         EVERY2 (syneq FEMPTY FEMPTY) (MAP (v_to_Cv m) (FST res)) (FST Cres) ∧
+         result_rel (EVERY2 (syneq FEMPTY FEMPTY)) (map_result (MAP (v_to_Cv m)) (SND res)) (SND Cres))``,
   ho_match_mp_tac evaluate_nicematch_strongind >>
   strip_tac >- rw[exp_to_Cexp_def,v_to_Cv_def] >>
   strip_tac >- rw[exp_to_Cexp_def] >>
