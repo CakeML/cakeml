@@ -1525,7 +1525,7 @@ and
 v_to_Cv m (Closure env vn _ e) =
   let Cenv = env_to_Cenv m env in
   let Ce = exp_to_Cexp (cbv m vn) e in
-  CRecClos Cenv [(Inl (1,Ce))] 1
+  CRecClos Cenv [(Inl (1,shift 1 1 Ce))] 0
 and
 v_to_Cv m (Recclosure env defs vn) =
   let Cenv = env_to_Cenv m env in

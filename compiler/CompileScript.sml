@@ -1677,7 +1677,7 @@ val _ = Defn.save_defn bv_to_ov_defn;
 (v_to_Cv m (Closure env vn _ e) =
   let Cenv = env_to_Cenv m env in
   let Ce = exp_to_Cexp (cbv m vn) e in
-  CRecClos Cenv [(INL (1,Ce))] 1)
+  CRecClos Cenv [(INL (1,shift 1 1 Ce))] 0)
 /\
 (v_to_Cv m (Recclosure env defs vn) =
   let Cenv = env_to_Cenv m env in

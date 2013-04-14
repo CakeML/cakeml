@@ -2104,46 +2104,6 @@ val compile_labels_lemma = store_thm("compile_labels_lemma",
   res_tac >> DECIDE_TAC)
 
 (* TODO: move *)
-val find_index_MEM = store_thm("find_index_MEM",
-  ``∀ls x n. ¬MEM x ls = (find_index x ls n = NONE)``,
-  Induct >> rw[find_index_def])
-
-val find_index_LEAST_EL = store_thm("find_index_LEAST_EL",
-  ``∀ls x n. find_index x ls n = if MEM x ls then SOME (n + (LEAST n. x = EL n ls)) else NONE``,
-  Induct >- rw[find_index_def] >>
-  simp[find_index_def] >>
-  rpt gen_tac >>
-  Cases_on`h=x`>>fs[] >- (
-    numLib.LEAST_ELIM_TAC >>
-    conj_tac >- (qexists_tac`0` >> rw[]) >>
-    Cases >> rw[] >>
-    first_x_assum (qspec_then`0`mp_tac) >> rw[] ) >>
-  rw[] >>
-  numLib.LEAST_ELIM_TAC >>
-  conj_tac >- metis_tac[MEM_EL,MEM] >>
-  rw[] >>
-  Cases_on`n`>>fs[ADD1] >>
-  numLib.LEAST_ELIM_TAC >>
-  conj_tac >- metis_tac[] >>
-  rw[] >>
-  qmatch_rename_tac`m = n`[] >>
-  Cases_on`m < n` >- (res_tac >> fs[]) >>
-  Cases_on`n < m` >- (
-    `n + 1 < m + 1` by DECIDE_TAC >>
-    res_tac >> fs[GSYM ADD1] ) >>
-  DECIDE_TAC )
-
-val find_index_ALL_DISTINCT_EL_eq = store_thm("find_index_ALL_DISTINCT_EL_eq",
-  ``∀ls. ALL_DISTINCT ls ⇒ ∀x m i. (find_index x ls m = SOME i) =
-      ∃j. (i = m + j) ∧ j < LENGTH ls ∧ (x = EL j ls)``,
-  rw[EQ_IMP_THM] >- (
-    imp_res_tac find_index_LESS_LENGTH >>
-    fs[find_index_LEAST_EL] >> srw_tac[ARITH_ss][] >>
-    numLib.LEAST_ELIM_TAC >>
-    conj_tac >- PROVE_TAC[MEM_EL] >>
-    fs[EL_ALL_DISTINCT_EL_EQ] ) >>
-  PROVE_TAC[find_index_ALL_DISTINCT_EL])
-
 val fmap_rel_OPTREL_FLOOKUP = store_thm("fmap_rel_OPTREL_FLOOKUP",
   ``fmap_rel R f1 f2 = ∀k. OPTREL R (FLOOKUP f1 k) (FLOOKUP f2 k)``,
   rw[fmap_rel_def,optionTheory.OPTREL_def,FLOOKUP_DEF,EXTENSION] >>
