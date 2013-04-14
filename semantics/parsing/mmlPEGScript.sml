@@ -306,6 +306,8 @@ val mmlPEG_def = zDefine`
                         nt (mkNT nElogicOR) (bindNT nE);
                         seql [tokeq IfT; pnt nE; tokeq ThenT; pnt nE;
                               tokeq ElseT; pnt nE]
+                             (bindNT nE);
+                        seql [tokeq FnT; pnt nV; tokeq DarrowT; pnt nE]
                              (bindNT nE)]);
               (mkNT nAndFDecls,
                peg_linfix (mkNT nAndFDecls) (pnt nFDecl) (tokeq AndT));

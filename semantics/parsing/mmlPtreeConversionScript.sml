@@ -428,7 +428,14 @@ val ptree_Expr_def = Define`
           | _ => NONE
       else if nt = mkNT nE then
         case subs of
-            [ift;g;thent;te;elset;ee] => do
+          | [fnt; vnt; arrowt; ent] =>
+            do
+              assert (fnt = Lf (TOK FnT) ∧ arrowt = Lf (TOK DarrowT));
+              v <- ptree_V vnt;
+              e <- ptree_Expr nE ent;
+              SOME(Ast_Fun v e)
+            od
+          | [ift;g;thent;te;elset;ee] => do
               assert(ift = Lf (TOK IfT) ∧ thent = Lf (TOK ThenT) ∧
                      elset = Lf (TOK ElseT));
               a1 <- ptree_Expr nE g;

@@ -223,4 +223,8 @@ val _ = parsetest ``nE`` ``ptree_Expr nE``
                                     RparT;
                      EndT]``
 
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "fn v => v + 2"
+                  ``[FnT; AlphaT "v"; DarrowT; AlphaT "v"; SymbolT "+";
+                     IntT 2]``
+
 val _ = export_theory()
