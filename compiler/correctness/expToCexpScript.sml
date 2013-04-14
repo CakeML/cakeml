@@ -286,22 +286,30 @@ val _ = export_rewrites["v_to_Cv_do_tapp"]
 val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   ``(∀cenv s env exp res. evaluate cenv s env exp res ⇒
      good_cenv cenv ∧ (SND res ≠ Rerr Rtype_error) ⇒
+
+     also will need free vars and free labs (and?) for pmatch stuff
+     and whatever is necessary for shifting (for closures)?
+
      ∀m. good_cmap cenv m.cnmap ⇒
+       ∃Cres.
        Cevaluate FEMPTY
          (MAP (v_to_Cv m) s)
          (env_to_Cenv m env)
          (exp_to_Cexp (m with bvars := MAP FST env ++ m.bvars) exp)
-         (MAP (v_to_Cv m) (FST res)
-         ,map_result (v_to_Cv m) (SND res)))∧
+         Cres ∧
+         EVERY2 (syneq FEMPTY FEMPTY) (MAP (v_to_Cv m) (FST res)) (FST Cres) ∧
+         result_rel (syneq FEMPTY FEMPTY) (map_result (v_to_Cv m) (SND res)) (SND Cres))∧
     (∀cenv s env exps res. evaluate_list cenv s env exps res ⇒
      good_cenv cenv ∧ (SND res ≠ Rerr Rtype_error) ⇒
      ∀m. good_cmap cenv m.cnmap ⇒
+       ∃Cres.
        Cevaluate_list FEMPTY
          (MAP (v_to_Cv m) s)
          (env_to_Cenv m env)
          (MAP (exp_to_Cexp (m with bvars := MAP FST env ++ m.bvars)) exps)
-         (MAP (v_to_Cv m) (FST res)
-         ,map_result (MAP (v_to_Cv m)) (SND res)))``,
+         Cres ∧
+         EVERY2 (syneq FEMPTY FEMPTY) (MAP (v_to_Cv m) (FST res)) (FST Cres) ∧
+         result_rel (EVERY2 (syneq FEMPTY FEMPTY)) (map_result (MAP (v_to_Cv m)) (SND res)) (SND Cres))``,
   ho_match_mp_tac evaluate_nicematch_strongind >>
   strip_tac >- rw[exp_to_Cexp_def,v_to_Cv_def] >>
   strip_tac >- rw[exp_to_Cexp_def] >>
@@ -351,8 +359,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   strip_tac >- rw[] >>
   strip_tac >- (
     rw[exp_to_Cexp_def,v_to_Cv_def,env_to_Cenv_MAP,LET_THM] >>
-    srw_tac[DNF_ss][Once syneq_cases] >>
-    rw[FINITE_has_fresh_string,fresh_var_not_in]) >>
+    ) >>
   strip_tac >- (
     rw[exp_to_Cexp_def,LET_THM] >> fs[] >>
     rw[Once Cevaluate_cases] >>

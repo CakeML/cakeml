@@ -67,6 +67,10 @@ val find_index_ALL_DISTINCT_EL_eq = store_thm("find_index_ALL_DISTINCT_EL_eq",
     fs[EL_ALL_DISTINCT_EL_EQ] ) >>
   PROVE_TAC[find_index_ALL_DISTINCT_EL])
 
+val find_index_APPEND_same = store_thm("find_index_APPEND_same",
+  ``!l1 n m i l2. (find_index n l1 m = SOME i) ==> (find_index n (l1 ++ l2) m = SOME i)``,
+  Induct >> rw[find_index_def])
+
 (* Cevaluate functional equations *)
 
 val Cevaluate_raise = store_thm(
