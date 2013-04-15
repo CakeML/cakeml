@@ -1,4 +1,4 @@
-open HolKernel bossLib boolLib boolSimps intLib pairTheory sumTheory listTheory pred_setTheory finite_mapTheory arithmeticTheory alistTheory lcsymtacs
+open HolKernel bossLib boolLib boolSimps intLib pairTheory sumTheory listTheory pred_setTheory finite_mapTheory arithmeticTheory alistTheory rich_listTheory lcsymtacs
 open MiniMLTheory MiniMLTerminationTheory miniMLExtraTheory evaluateEquationsTheory miscTheory intLangTheory compileTerminationTheory pmatchTheory
 val _ = new_theory "expToCexp"
 val fsd = full_simp_tac std_ss
@@ -9,7 +9,7 @@ val exp_to_Cexp_nice_ind = save_thm(
 "exp_to_Cexp_nice_ind",
 exp_to_Cexp_ind
 |> Q.SPECL [`P`
-   ,`λs defs. EVERY (λ(d,t1,vn,t2,e). P s e) defs`
+   ,`λs defs. EVERY (λ(d,t1,vn,t2,e). P (s with bvars := vn::s.bvars) e) defs`
    ,`λs pes. EVERY (λ(p,e). P (FST (pat_to_Cpat s p)) e) pes`
    ,`λs. EVERY (P s)`]
 |> SIMP_RULE (srw_ss()) []
@@ -44,6 +44,19 @@ val all_Clocs_v_to_Cv = store_thm("all_Clocs_v_to_Cv",
   srw_tac[ETA_ss][v_to_Cv_def,LET_THM,defs_to_Cdefs_MAP] >>
   fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o])
 
+val pat_bindings_acc = store_thm("pat_bindings_acc",
+  ``(∀(p:α pat) l. pat_bindings p l = pat_bindings p [] ++ l) ∧
+    (∀(ps:α pat list) l. pats_bindings ps l = pats_bindings ps [] ++ l)``,
+  ho_match_mp_tac (TypeBase.induction_of``:α pat``) >> rw[] >>
+  simp_tac std_ss [pat_bindings_def] >>
+  metis_tac[APPEND,APPEND_ASSOC])
+
+val pats_bindings_MAP = store_thm("pats_bindings_MAP",
+  ``∀ps ls. pats_bindings ps ls = FLAT (MAP (combin$C pat_bindings []) (REVERSE ps)) ++ ls``,
+  Induct >>
+  rw[pat_bindings_def] >>
+  rw[Once pat_bindings_acc])
+
 (* free vars lemmas *)
 
 val Cpat_vars_pat_to_Cpat = store_thm(
@@ -60,31 +73,35 @@ rw[FOLDL_UNION_BIGUNION,IMAGE_BIGUNION] >- (
   fsrw_tac[ETA_ss][MAP_EQ_EVERY2,EVERY2_EVERY,EVERY_MEM,pairTheory.FORALL_PROD] >>
   first_x_assum (qspecl_then [`s'`] mp_tac) >>
   rw[] >>
-  rw[Cpat_vars_list_SUM_MAP]
-
-  DB.find"Cpat_vars_list"
-  pop_assum mp_tac >>
-  rw[MEM_ZIP] >>
-  rw[Once EXTENSION,MEM_EL] >>
-  PROVE_TAC[] )
+  rw[Cpat_vars_list_SUM_MAP] >>
+  rw[pats_bindings_MAP,LENGTH_FLAT,MAP_REVERSE,SUM_REVERSE,MAP_MAP_o] >>
+  AP_TERM_TAC >>
+  rw[MAP_EQ_EVERY2,EVERY2_EVERY,EVERY_MEM,FORALL_PROD] )
 >- (
-  qabbrev_tac `q = pat_to_Cpat s pvs p` >>
+  qabbrev_tac `q = pat_to_Cpat s p` >>
   PairCases_on `q` >>
   fs[] >>
   PROVE_TAC[] )
 >- (
-  qabbrev_tac `q = pats_to_Cpats s pvs ps` >>
-  PairCases_on `q` >>
-  qabbrev_tac `r = pat_to_Cpat s q0 p` >>
+  POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC) >>
+  first_x_assum(qspec_then`s`mp_tac) >>
+  qabbrev_tac `r = pat_to_Cpat s p` >>
   PairCases_on `r` >>
-  fs[] >>
-  PROVE_TAC[] )
+  first_x_assum(qspec_then`r0`mp_tac) >>
+  qabbrev_tac `q = pats_to_Cpats r0 ps` >>
+  PairCases_on `q` >> fs[] )
 >- (
-  fs[Once pat_to_Cpat_empty_pvs] ))
+  POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC) >>
+  first_x_assum(qspec_then`s`mp_tac) >>
+  qabbrev_tac `r = pat_to_Cpat s p` >>
+  PairCases_on `r` >>
+  qabbrev_tac `q = pats_to_Cpats r0 ps` >>
+  PairCases_on `q` >> rw[] >>
+  metis_tac[]))
 
 val Cpat_vars_SND_pat_to_Cpat = store_thm("Cpat_vars_SND_pat_to_Cpat",
-  ``Cpat_vars (SND (pat_to_Cpat s [] z)) = pat_vars z``,
-  Cases_on `pat_to_Cpat s [] z` >>
+  ``Cpat_vars (SND (pat_to_Cpat s z)) = LENGTH (pat_bindings z [])``,
+  Cases_on `pat_to_Cpat s z` >>
   imp_res_tac Cpat_vars_pat_to_Cpat >>
   rw[])
 val _ = export_rewrites["Cpat_vars_SND_pat_to_Cpat"]
@@ -150,13 +167,6 @@ val CARD_BIGUNION_LE = store_thm("CARD_BIGUNION_LE",
   conj_tac >> simp[]
   DB.match [] ``X:(num -> bool)->num``
 *)
-
-val pat_bindings_acc = store_thm("pat_bindings_acc",
-  ``(∀(p:α pat) l. pat_bindings p l = pat_bindings p [] ++ l) ∧
-    (∀(ps:α pat list) l. pats_bindings ps l = pats_bindings ps [] ++ l)``,
-  ho_match_mp_tac (TypeBase.induction_of``:α pat``) >> rw[] >>
-  simp_tac std_ss [pat_bindings_def] >>
-  metis_tac[APPEND,APPEND_ASSOC])
 
 val LENGTH_FST_pat_to_Cpat_bvars = store_thm("LENGTH_FST_pat_to_Cpat_bvars",
   ``(∀(p:α pat) s l. LENGTH (FST (pat_to_Cpat s p)).bvars = LENGTH (pat_bindings p l) - LENGTH l + LENGTH s.bvars) ∧
@@ -229,90 +239,69 @@ strip_tac >- (
   fsrw_tac[DNF_ss,ARITH_ss][EVERY_MEM,SUBSET_DEF,FORALL_PROD,PRE_SUB1,pes_to_Cpes_MAP,LET_THM,MEM_MAP,UNCURRY] >>
   simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM] >>
   map_every qx_gen_tac[`pp`,`ee`,`v`] >>
-
-  DB.match [] ``(a ==> b) /\ (a ==> c)``
-  AND_IMP_T
-  rw[] >> res_tac >>
-  pop_assum mp_tac >>
-  qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+  qmatch_abbrev_tac`P ⇒ Q` >>
+  qunabbrev_tac`P` >>
+  srw_tac[ARITH_ss][] >>
+  POP_ASSUM_LIST(MAP_EVERY ASSUME_TAC) >>
+  first_x_assum(qspecl_then[`pp`,`ee`,`v`]mp_tac) >>
+  simp[] >>
+  qmatch_abbrev_tac`(P ⇒ R) ⇒ Q` >>
   qsuff_tac`P` >- (
-    simp[Abbr`Q`,Abbr`R`] >> rw[] >>
-    res_tac >> fsrw_tac[ARITH_ss][LENGTH_FST_pat_to_Cpat_bvars] >>
-    LENGTH_FST_pat_to_Cpat_bvars
-
-  DB.find"pat_to_Cpat"
-
-srw_tac[ETA_ss,DNF_ss][exp_to_Cexp_def,exps_to_Cexps_MAP,pes_to_Cpes_MAP,defs_to_Cdefs_MAP,
-FOLDL_UNION_BIGUNION,IMAGE_BIGUNION,BIGUNION_SUBSET,LET_THM,EVERY_MEM] >>
-rw[] >- (
-  AP_TERM_TAC >>
-  rw[Once EXTENSION] >>
-  fsrw_tac[DNF_ss][MEM_MAP,EVERY_MEM] >>
-  PROVE_TAC[] )
->- (
-  BasicProvers.EVERY_CASE_TAC >> rw[] >>
-  srw_tac[DNF_ss][Once EXTENSION] >>
-  metis_tac[NOT_fresh_var,FINITE_FV])
->- (
-  BasicProvers.EVERY_CASE_TAC >> rw[] )
->- (
-  Q.PAT_ABBREV_TAC`v = fresh_var X` >>
-  Q.PAT_ABBREV_TAC`pe = MAP (X:(α pat#α exp)->(Cpat#Cexp)) pes` >>
-  qabbrev_tac`y = FV e` >>
-  qspecl_then [`v`,`pe`] mp_tac free_vars_remove_mat_var >>
-  asm_simp_tac std_ss [EXTENSION,IN_DIFF,IN_SING,IN_UNION] >>
-  strip_tac >>
-  qx_gen_tac `u` >>
-  Cases_on `u ∈ y` >> fsd[] >>
-  qunabbrev_tac `y` >>
-  fsd[pairTheory.FORALL_PROD] >>
-  Cases_on `u=v` >> fsd[] >- (
-    qunabbrev_tac`v` >>
-    match_mp_tac fresh_var_not_in_any >>
-    pop_assum kall_tac >>
-    ntac 2 (pop_assum kall_tac) >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,pairTheory.FORALL_PROD,
-                     Abbr`pe`,Cpes_vars_thm] >>
-    fsrw_tac[DNF_ss][MAP_MAP_o,combinTheory.o_DEF,
-                     pairTheory.LAMBDA_PROD] >>
-    fsrw_tac[DNF_ss][MEM_MAP,pairTheory.EXISTS_PROD] >>
-    fsrw_tac[DNF_ss][pairTheory.UNCURRY] >>
-    map_every qx_gen_tac [`x`,`y`,`z`] >>
+    simp[Abbr`Q`,Abbr`R`] >>
+    qspecl_then[`pp`,`s`,`[]`]mp_tac(CONJUNCT1 LENGTH_FST_pat_to_Cpat_bvars) >>
+    simp[] ) >>
+  simp[Abbr`P`] >>
+  simp[set_FST_pat_to_Cpat_bvars] >>
+  metis_tac[] ) >>
+strip_tac >- (
+  rw[exp_to_Cexp_def] >>
+  fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1,ADD1] >>
+  conj_tac >> Cases >> fsrw_tac[ARITH_ss,DNF_ss][ADD1,lem] >>
+  strip_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+strip_tac >- (
+  rw[exp_to_Cexp_def] >>
+  fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1,ADD1,LET_THM,FOLDL_UNION_BIGUNION,defs_to_Cdefs_MAP] >>
+  fsrw_tac[DNF_ss,ARITH_ss][EVERY_MEM,FORALL_PROD] >>
+  conj_tac >- (
+    simp[GSYM FORALL_AND_THM] >>
+    qx_gen_tac`m` >>
+    POP_ASSUM_LIST(MAP_EVERY ASSUME_TAC) >>
+    simp[GSYM IMP_CONJ_THM] >>
     strip_tac >>
-    disj2_tac >>
-    map_every qexists_tac [`y`,`z`] >>
-    rw[] >> PROVE_TAC[] ) >>
-  fsrw_tac[DNF_ss][pairTheory.EXISTS_PROD] >>
-  fsrw_tac[DNF_ss][Abbr`pe`,MEM_MAP,pairTheory.EXISTS_PROD] >>
-  fsrw_tac[DNF_ss][pairTheory.UNCURRY] >>
-  rw[Once CONJ_ASSOC] >>
-  qho_match_abbrev_tac `
-    (∃p1 p2. A p1 p2 ∧ MEM (p1,p2) pes) =
-    (∃p1 p2. B p1 p2 ∧ MEM (p1,p2) pes)` >>
-  (qsuff_tac `∀p1 p2. MEM (p1,p2) pes ⇒ (A p1 p2 = B p1 p2)` >- PROVE_TAC[]) >>
-  srw_tac[DNF_ss][Abbr`A`,Abbr`B`] >>
-  first_x_assum (qspecl_then [`p1`,`p2`] mp_tac) >>
-  rw[])
->- (
-  fs[FOLDL_UNION_BIGUNION_paired] >>
-  qmatch_abbrev_tac `X ∪ Y = Z ∪ A` >>
-  `X = A` by (
-    fs[markerTheory.Abbrev_def] >>
-    rw[LIST_TO_SET_MAP] ) >>
-  rw[UNION_COMM] >>
-  unabbrev_all_tac >>
-  ntac 2 AP_TERM_TAC >>
-  rw[Once EXTENSION,pairTheory.EXISTS_PROD,LIST_TO_SET_MAP,DIFF_UNION,DIFF_COMM] >>
-  srw_tac[DNF_ss][MEM_MAP,pairTheory.EXISTS_PROD,pairTheory.UNCURRY] >>
-  fs[pairTheory.FORALL_PROD] >>
-  PROVE_TAC[] )
->- (
-  qabbrev_tac `q = pat_to_Cpat s [] p` >>
-  PairCases_on`q`>>fs[] )
->- (
-  qabbrev_tac `q = pat_to_Cpat s [] p` >>
-  PairCases_on`q`>>fs[] ))
-val _ = export_rewrites["free_vars_exp_to_Cexp"];
+    first_x_assum(qspec_then`m`mp_tac) >>
+    simp[] >>
+    qmatch_abbrev_tac`(P⇒Q)⇒R` >>
+    `P` by (
+      simp[Abbr`P`] >>
+      fs[lem] >> rw[] >>
+      POP_ASSUM_LIST(MAP_EVERY ASSUME_TAC) >>
+      first_x_assum match_mp_tac >>
+      fs[MEM_MAP,FORALL_PROD] ) >>
+    simp[Abbr`Q`,Abbr`R`] ) >>
+  simp[GSYM FORALL_AND_THM] >>
+  Cases >> fs[] >>
+  simp[GSYM IMP_CONJ_THM] >>
+  PairCases_on`x` >>
+  simp[MEM_MAP,EXISTS_PROD] >>
+  qx_gen_tac`m` >> strip_tac >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  qmatch_assum_rename_tac`MEM (a,b,c,d,f) defs`[] >>
+  POP_ASSUM_LIST(MAP_EVERY ASSUME_TAC) >>
+  first_x_assum(qspecl_then[`a`,`b`,`c`,`d`,`f`]mp_tac) >>
+  qpat_assum`z ∈ y`mp_tac >>
+  unabbrev_all_tac >> simp[] >> strip_tac >>
+  qmatch_assum_rename_tac`z ∈ free_vars X`["X"] >>
+  disch_then(qspec_then`z`mp_tac) >>
+  qmatch_abbrev_tac`(P⇒Q)⇒R` >>
+  `P` by (
+    unabbrev_all_tac >>
+    qx_gen_tac`y` >> strip_tac >>
+    first_x_assum(qspecl_then[`y`,`a`,`b`,`c`,`d`,`f`]mp_tac) >>
+    simp[MEM_MAP,EXISTS_PROD,lem] ) >>
+  simp[Abbr`Q`,Abbr`R`] ) >>
+rw[exp_to_Cexp_def] >>
+qabbrev_tac `q = pat_to_Cpat m p` >>
+PairCases_on`q`>>fs[] )
 
 (* closed lemmas *)
 
