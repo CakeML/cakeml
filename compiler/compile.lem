@@ -1520,17 +1520,17 @@ let rec
 v_to_Cv m (Litv l) = CLitv l
 and
 v_to_Cv m (Conv cn vs) =
-  CConv (Pmap.find cn m.cnmap) (vs_to_Cvs m vs)
+  CConv (Pmap.find cn m) (vs_to_Cvs m vs)
 and
 v_to_Cv m (Closure env vn _ e) =
   let Cenv = env_to_Cenv m env in
-  let m = <| m with bvars = List.map fst env |> in
+  let m = <| bvars = List.map fst env ; cnmap = m |> in
   let Ce = exp_to_Cexp (cbv m vn) e in
   CRecClos Cenv [(Inl (1,shift 1 1 Ce))] 0
 and
 v_to_Cv m (Recclosure env defs vn) =
   let Cenv = env_to_Cenv m env in
-  let m = <| m with bvars = List.map fst env |> in
+  let m = <| bvars = List.map fst env ; cnmap = m |> in
   let fns = List.map (fun (n,_,_,_,_) -> n) defs in
   let m = <| m with bvars = fns @ m.bvars |> in
   let Cdefs = defs_to_Cdefs m defs in
