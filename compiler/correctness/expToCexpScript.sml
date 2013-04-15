@@ -423,6 +423,52 @@ val v_to_Cv_do_tapp = store_thm("v_to_Cv_do_tapp",
   rw[])
 val _ = export_rewrites["v_to_Cv_do_tapp"]
 
+val free_labs_exp_to_Cexp = store_thm("free_labs_exp_to_Cexp",
+  ``∀s e. free_labs (exp_to_Cexp s e) = {}``,
+  ho_match_mp_tac exp_to_Cexp_nice_ind >>
+  rw[exp_to_Cexp_def,exps_to_Cexps_MAP,defs_to_Cdefs_MAP,pes_to_Cpes_MAP] >>
+  rw[FILTER_EQ_NIL,IMAGE_EQ_SING,MEM_FILTER] >>
+  TRY (unabbrev_all_tac >>
+       fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,FORALL_PROD] >>
+       simp[UNCURRY] >> NO_TAC) >>
+  TRY (BasicProvers.CASE_TAC >> rw[] >> NO_TAC)
+  >- (
+    simp[EVERY_MEM,EXISTS_MEM,MEM_MAP,EXISTS_PROD] >>
+    unabbrev_all_tac >>
+    fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD] >>
+    metis_tac[] )
+  >- ( Cases_on`pat_to_Cpat m p`>>fs[] ))
+
+(* TODO: move *)
+val syneq_shift_same = store_thm("syneq_shift_same",
+ ``∀c z1 z2 V k f1 e1 f2 e2 V'.
+   syneq_exp c c z1 z2 V' e1 e2 ∧
+   (free_labs e1 = {}) ∧ (free_labs e2 = {}) ∧
+   free_vars e1 ⊆ count z1 ∧ free_vars e2 ⊆ count z2 ∧
+   k ≤ z1 ∧ k ≤ z2 ∧
+   (∀x1 x2. V' x1 x2 ⇒ V (if x1 < k then x1 else (f1(x1-k)+k)) (if x2 < k then x2 else (f2(x2-k)+k))) ∧
+   (∀x. k ≤ x ∧ x < z1 ⇒ k+f1(x-k) < z1) ∧ (∀x. k ≤ x ∧ x < z2 ⇒ k+f2(x-k) < z2)
+   ⇒
+   syneq_exp c c z1 z2 V (mkshift f1 k e1) (mkshift f2 k e2)``,
+  rw[] >>
+  `syneq_exp c c z1 z1 (inv (λv1 v2. if v1 < k then v2 = v1 else v2 = f1(v1-k)+k)) (mkshift f1 k e1) e1` by (
+    match_mp_tac (CONJUNCT1 syneq_exp_sym) >>
+    match_mp_tac mkshift_thm >>
+    simp[] ) >>
+  qmatch_assum_abbrev_tac`syneq_exp c c z1 z1 U se1 e1` >>
+  qspecl_then[`c`,`c`,`z1`,`z1`,`U`,`se1`,`e1`]mp_tac(CONJUNCT1 syneq_exp_trans) >> simp[] >>
+  disch_then(qspecl_then[`c`,`z2`,`V'`,`e2`]mp_tac) >> rw[] >>
+  `syneq_exp c c z2 z2 (λv1 v2. if v1 < k then v2 = v1 else v2 = f2 (v1-k)+k) e2 (mkshift f2 k e2)` by (
+    match_mp_tac mkshift_thm >> simp[] ) >>
+  qmatch_assum_abbrev_tac`syneq_exp c c z2 z2 Y e2 se2` >>
+  `syneq_exp c c z1 z2 (Y O (V' O U)) se1 se2` by metis_tac[syneq_exp_trans] >>
+  match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+  HINT_EXISTS_TAC >>
+  unabbrev_all_tac >>
+  simp[FUN_EQ_THM,relationTheory.O_DEF,relationTheory.inv_DEF] >>
+  rw[] >> fsrw_tac[ARITH_ss][] >>
+  metis_tac[])
+
 val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   ``(∀cenv s env exp res. evaluate cenv s env exp res ⇒
      FV exp ⊆ set (MAP FST env) ∧
