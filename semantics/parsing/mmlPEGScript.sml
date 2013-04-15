@@ -322,7 +322,25 @@ val mmlPEG_def = zDefine`
               (mkNT nTypeDec, peg_TypeDec);
               (mkNT nDtypeDecl, peg_DtypeDecl);
               (mkNT nDconstructor, peg_Dconstructor);
-              (mkNT nConstructorName, peg_ConstructorName)
+              (mkNT nConstructorName, peg_ConstructorName);
+              (mkNT nPbase,
+               pegf (choicel [pnt nV;
+                              pnt nConstructorName;
+                              tok isInt mktokLf;
+                              seql [tokeq LparT; pnt nPattern; tokeq RparT] I])
+                    (bindNT nPbase));
+              (mkNT nPattern,
+               pegf (choicel [seql [pnt nConstructorName;
+                                    choicel [pnt nPtuple; pnt nPbase]] I;
+                              pnt nPbase])
+                    (bindNT nPattern));
+              (mkNT nPtuple, seql [tokeq LparT; pnt nPatternList2; tokeq RparT]
+                                  (bindNT nPtuple));
+              (mkNT nPatternList2,
+               seql [pnt nPattern; tokeq CommaT; pnt nPatternList1]
+                    (bindNT nPatternList2));
+              (mkNT nPatternList1,
+               peg_linfix (mkNT nPatternList1) (pnt nPattern) (tokeq CommaT))
              ] |>
 `;
 
