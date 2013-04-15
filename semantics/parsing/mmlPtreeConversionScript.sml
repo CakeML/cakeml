@@ -481,4 +481,35 @@ val ptree_Expr_def = Define`
         else NONE
 `;
 
+
+val ptree_Pattern_def = Define`
+  (ptree_Pattern nt (Lf _) = NONE) ∧
+  ptree_Pattern nt (Nd nm args) =
+    if mkNT nt <> nm then NONE
+    else if nm = mkNT nPbase then
+      case args of
+          [vic] =>
+          do
+             cname <- ptree_ConstructorName vic;
+             SOME(Ast_Pcon cname [])
+          od ++
+          do
+             vname <- ptree_V vic;
+             SOME(Ast_Pvar vname)
+          od ++
+          do
+            lf <- destLf vic;
+            t <- destTOK lf;
+            i <- destIntT t ;
+            SOME (Ast_Plit (IntLit i))
+          od
+        | [lp; p; rp] =>
+          do
+            assert(lp = Lf (TOK LparT) ∧ rp = Lf (TOK RparT));
+            ptree_Pattern nPattern p
+          od
+        | _ => NONE
+    else NONE
+`
+
 val _ = export_theory()

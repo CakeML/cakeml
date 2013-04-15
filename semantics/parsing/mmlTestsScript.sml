@@ -74,9 +74,12 @@ in
 end
 val tytest = parsetest ``nType`` ``ptree_Type``
 
-val _ = parsetest ``nPbase`` T "3" ``[IntT 3]``
-val _ = parsetest ``nPbase`` T "x" ``[AlphaT "x"]``
-val _ = parsetest ``nPbase`` T "C" ``[AlphaT "C"]``
+val _ = parsetest ``nPbase`` ``ptree_Pattern nPbase`` "3"
+                  ``[IntT 3]``
+val _ = parsetest ``nPbase`` ``ptree_Pattern nPbase`` "x"
+                  ``[AlphaT "x"]``
+val _ = parsetest ``nPbase`` ``ptree_Pattern nPbase`` "C"
+                  ``[AlphaT "C"]``
 val _ = parsetest ``nPattern`` T "C" ``[AlphaT "C"]``
 val _ = parsetest ``nPattern`` T "x" ``[AlphaT "x"]``
 val _ = parsetest ``nPattern`` T "(3)" ``[LparT; IntT 3; RparT]``
