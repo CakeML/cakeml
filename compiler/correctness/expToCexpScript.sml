@@ -1,4 +1,4 @@
-open HolKernel bossLib boolLib boolSimps intLib pairTheory sumTheory listTheory pred_setTheory finite_mapTheory arithmeticTheory alistTheory rich_listTheory lcsymtacs
+open HolKernel bossLib boolLib miscLib boolSimps intLib pairTheory sumTheory listTheory pred_setTheory finite_mapTheory arithmeticTheory alistTheory rich_listTheory lcsymtacs
 open MiniMLTheory MiniMLTerminationTheory miniMLExtraTheory evaluateEquationsTheory miscTheory intLangTheory compileTerminationTheory pmatchTheory
 val _ = new_theory "expToCexp"
 val fsd = full_simp_tac std_ss
@@ -302,6 +302,10 @@ strip_tac >- (
 rw[exp_to_Cexp_def] >>
 qabbrev_tac `q = pat_to_Cpat m p` >>
 PairCases_on`q`>>fs[] )
+
+val free_vars_exp_to_Cexp_matchable = store_thm("free_vars_exp_to_Cexp_matchable",
+  ``FV e ⊆ set m.bvars ∧ count (LENGTH m.bvars) ⊆ s ⇒ free_vars (exp_to_Cexp m e) ⊆ s``,
+  metis_tac[free_vars_exp_to_Cexp,SUBSET_TRANS])
 
 (* closed lemmas *)
 
@@ -1143,42 +1147,71 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         rw[] >> fs[v_to_Cv_def,LET_THM] >>
         fs[Q.SPECL[`c`,`c`,`CRecClos env1 defs zz`]syneq_cases] >>
         rator_x_assum`syneq_defs`mp_tac >>
+        Q.PAT_ABBREV_TAC`env0 = env_to_Cenv cm Z` >>
+        Q.PAT_ABBREV_TAC`defs0 = [X]:def list` >>
+        qabbrev_tac`cl = CRecClos env0 defs0 0` >>
         ho_match_mp_tac syneq_defs_elim_thm >>
         simp[] >> strip_tac >>
-        first_x_assum(qspecl_then[`0`,`n`]mp_tac) >>
+        first_assum(qspecl_then[`0`,`n`]mp_tac) >>
+        simp_tac(srw_ss())[Abbr`defs0`] >>
         simp[syneq_cb_aux_def] >>
         strip_tac >>
         fs[bind_def] >>
+        BasicProvers.VAR_EQ_TAC >>
         qmatch_assum_abbrev_tac`Cevaluate FEMPTY sc envc expc resc` >>
         qspecl_then[`FEMPTY`,`sc`,`envc`,`expc`,`resc`]mp_tac(CONJUNCT1 Cevaluate_syneq) >>
         simp[] >>
         Q.PAT_ABBREV_TAC`envf = w3::ls` >>
-        qmatch_assum_abbrev_tac`syneq_exp FEMPTY FEMPTY z1 z2 U (shift 1 1 expc) x1`
-
-        disch_then(qspecl_then[`FEMPTY`,`λv1 v2. if v1 < 1 then v2 = v1 else v2 = v1 + 1`,`sf`,`envf`,`shift 1 1 expc`]mp_tac) >>
-        `expc = ex` by (
-          unabbrev_all_tac >>
-          match_mp_tac exp_to_Cexp_append_bvars_matchable >>
-          simp[] ) >>
-        BasicProvers.VAR_EQ_TAC >>
+        qmatch_assum_abbrev_tac`syneq_exp FEMPTY FEMPTY z1 z2 U (shift 1 1 expc) x1`>>
+        fs[env_to_Cenv_MAP] >>
+        qunabbrev_tac`envc` >>
+        Q.PAT_ABBREV_TAC`envc:Cv list = MAP f env''` >>
+        disch_then(qspecl_then[`FEMPTY`,`λv1 v2. if v1 < 1 then (v2 = v1) else v2 = v1 + 1`,`sf`,`w2::cl::envc`,`shift 1 1 expc`]mp_tac) >>
         qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
         `P` by (
           map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+          simp[] >>
           conj_tac >- (
             simp[shift_def] >>
             match_mp_tac mkshift_thm >>
-            qunabbrev_tac`ex` >>
-            simp[Abbr`envc`,Abbr`envf`,env_to_Cenv_MAP] >>
-
-            conj_tac >- (
-              srw_tac[ARITH_ss][ADD1,Abbr`z2`]
-            `LENGTH envc 
-          simp[]
-          set_trace"goalstack print goal at top"0
-          unabbrev_all_tac
-        Cevaluate_syneq
-        mkshift_thm
-        syneq_shift_same
+            simp[Abbr`envc`,Abbr`expc`,env_to_Cenv_MAP,ADD1,Abbr`z1`,Abbr`env0`] >>
+            match_mp_tac free_vars_exp_to_Cexp_matchable >>
+            simp[ADD1] ) >>
+          conj_tac >- (
+            lrw[ADD1,Abbr`envc`,env_to_Cenv_MAP,EL_CONS,PRE_SUB1] ) >>
+          metis_tac[EVERY2_syneq_trans] ) >>
+        simp[] >>
+        map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+        pop_assum kall_tac >>
+        disch_then(Q.X_CHOOSE_THEN`resd`strip_assume_tac) >>
+        qspecl_then[`FEMPTY`,`sf`,`w2::cl::envc`,`shift 1 1 expc`,`resd`]mp_tac(CONJUNCT1 Cevaluate_syneq) >>
+        simp[] >>
+        disch_then(qspecl_then[`FEMPTY`,`U`,`sf`,`envf`,`x1`]mp_tac) >>
+        qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
+        `P` by (
+          map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+          simp[] >>
+          unabbrev_all_tac >>
+          fsrw_tac[ARITH_ss][ADD1,env_to_Cenv_MAP] >>
+          simp[syneq_cb_V_def] >>
+          lrw[EL_CONS] >> lrw[EL_CONS,PRE_SUB1] >- (
+            `v1 = 1` by DECIDE_TAC >>
+            lrw[EL_APPEND1,EL_REVERSE,PRE_SUB1] >>
+            simp[Once syneq_cases] >>
+            map_every qexists_tac[`V`,`V'`] >>
+            simp[] >> conj_tac >- metis_tac[] >>
+            qmatch_assum_rename_tac`nd < LENGTH defs + 1`[] >>
+            `nd - 1 + 1 = nd` by fsrw_tac[ARITH_ss][] >> fs[] >>
+            pop_assum kall_tac >>
+            simp[Once syneq_exp_cases] >>
+            disj1_tac >- metis_tac[] ) >>
+          lrw[EL_APPEND2] ) >>
+        simp[] >>
+        map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+        pop_assum kall_tac >>
+        simp[EXISTS_PROD] >>
+        qunabbrev_tac`resc`>>fs[]>>
+        metis_tac[EVERY2_syneq_trans,result_rel_syneq_trans,EVERY2_syneq_sym,result_rel_syneq_sym] ) >>
 
         rw[] >> fs[] >>
         Q.PAT_ABBREV_TAC`env2 = X:string|->Cv` >>
@@ -1280,6 +1313,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         PROVE_TAC[fmap_rel_syneq_trans,result_rel_syneq_trans] ) >>
       rw[] >>
       fs[v_to_Cv_def,LET_THM,defs_to_Cdefs_MAP] >>
+
       fs[Q.SPECL[`c`,`CRecClos env1 ns' defs X`]syneq_cases] >>
       rw[] >> fs[] >> rw[] >> rfs[] >> rw[] >>
       PairCases_on`z`>>fs[]>>rw[]>>
@@ -2357,6 +2391,8 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   simp[] >> strip_tac >>
   fsrw_tac[DNF_ss][FORALL_PROD] >>
   METIS_TAC[fmap_rel_syneq_trans])
+
+set_trace"goalstack print goal at top"0
 
 val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   ``(∀cenv s env exp res. evaluate cenv s env exp res ⇒
