@@ -1254,18 +1254,18 @@ val _ = Defn.save_defn compile_envref_defn;
 
 (cons_closure env0 sz0 sz1 nk (s,k) (refs,envs) =
   (* sz1                                                                  sz0 *)
-  (* CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0,     *)
+  (* CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0,     *)
   let s = emit s [Stack (Load (nk - k))] in
-  (* CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
+  (* CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0, *)
   let (z,s) = FOLDL (emit_ceref sz0) ((sz1 +1),s) refs in
   let (z,s) = FOLDL (emit_ceenv env0) (z,s) envs in
-  (* e_kj, ..., e_k1, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
+  (* e_kj, ..., e_k1, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0, *)
   let s = emit s [Stack (Cons 0 ( LENGTH refs + LENGTH envs))] in
-  (* env_k, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
+  (* env_k, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0, *)
   let s = emit s [Stack (Cons closure_tag 2)] in
-  (* cl_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
+  (* cl_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0, *)
   let s = emit s [Stack (Store (nk - k))] in
-  (* CodePtr nk, ..., cl_k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0, *)
+  (* CodePtr nk, ..., cl_k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0, *)
   (s,(k +1)))`;
 
 
@@ -1285,18 +1285,18 @@ val _ = Defn.save_defn compile_envref_defn;
 
  val compile_closures_def = Define `
 
-(compile_closures d env sz nz s defs =
-  let s = num_fold (\ s . emit s [Stack (PushInt i0); Ref]) s nz in
-  (* RefPtr_nz 0, ..., RefPtr_2 0, RefPtr_1 0, *)
+(compile_closures d env sz s defs =
   let nk = LENGTH defs in
+  let s = num_fold (\ s . emit s [Stack (PushInt i0); Ref]) s nk in
+  (* RefPtr_nk 0, ..., RefPtr_2 0, RefPtr_1 0, *)
   let (s,ecs) = FOLDL (push_lab d) (s,[]) defs in
-  (* CodePtr nk, ..., CodePtr 2, CodePtr 1, RefPtr_nz 0, ..., RefPtr_1 0, *)
-  let (s,k) = FOLDL (cons_closure env sz (sz +nz +nk) nk) (s,1) ( REVERSE ecs) in
-  (* Block 3 [CodePtr nk, env_nk], ..., Block 3 [CodePtr 1, env_1], RefPtr_nz 0, ..., RefPtr_1 0, *)
-  let (s,k) = num_fold (update_refptr nk) (s,1) nz in
-  (* cl_nk, ..., cl_1, RefPtr_nz cl_nz, ..., RefPtr_1 cl_1, *)
+  (* CodePtr nk, ..., CodePtr 2, CodePtr 1, RefPtr_nk 0, ..., RefPtr_1 0, *)
+  let (s,k) = FOLDL (cons_closure env sz (sz +nk +nk) nk) (s,1) ( REVERSE ecs) in
+  (* Block 3 [CodePtr nk, env_nk], ..., Block 3 [CodePtr 1, env_1], RefPtr_nk 0, ..., RefPtr_1 0, *)
+  let (s,k) = num_fold (update_refptr nk) (s,1) nk in
+  (* cl_nk, ..., cl_1, RefPtr_nk cl_nk, ..., RefPtr_1 cl_1, *)
   let k = nk - 1 in
-  num_fold (\ s . emit s [Stack (Store k)]) s nz)`;
+  num_fold (\ s . emit s [Stack (Store k)]) s nk)`;
 
   (* cl_nk, ..., cl_1, *)
 
@@ -1379,12 +1379,11 @@ val _ = Defn.save_defn compile_envref_defn;
   compile_bindings d env t sz eb 0 (compile d env (TCNonTail F) sz s e) 1)
 /\
 (compile d env t sz s (CLetrec defs eb) =
-  let n = LENGTH defs in
-  let s = compile_closures d env sz n s defs in
-  compile_bindings d env t sz eb 0 s n)
+  let s = compile_closures d env sz s defs in
+  compile_bindings d env t sz eb 0 s ( LENGTH defs))
 /\
 (compile d env t sz s (CFun cb) =
-  pushret t (compile_closures d env sz 1 s [cb]))
+  pushret t (compile_closures d env sz s [cb]))
 /\
 (compile d env t sz s (CCall e es) =
   let n = LENGTH es in
