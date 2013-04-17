@@ -924,9 +924,9 @@ val _ = Defn.save_defn remove_mat_var_defn;
   CLet Ce Cb)
 /\
 (exp_to_Cexp m (Letrec _ defs b) =
-  let m = ( m with<| bvars := ( REVERSE ( MAP (\p . 
-  (case (p ) of ( (n,_,_,_,_) ) => n )) defs)) ++ m.bvars |>) in
-  CLetrec (defs_to_Cdefs m defs) (exp_to_Cexp m b))
+  let m = ( m with<| bvars := ( MAP (\p . 
+  (case (p ) of ( (n,_,_,_,_) ) => n )) defs) ++ m.bvars |>) in
+  CLetrec ( REVERSE (defs_to_Cdefs m defs)) (exp_to_Cexp m b))
 /\
 (defs_to_Cdefs m [] = [])
 /\
@@ -1685,8 +1685,8 @@ val _ = Defn.save_defn bv_to_ov_defn;
   let fns = MAP (\p . 
   (case (p ) of ( (n,_,_,_,_) ) => n )) defs in
   let m = ( m with<| bvars := fns ++ m.bvars |>) in
-  let Cdefs = defs_to_Cdefs m defs in
-  CRecClos Cenv Cdefs ( THE (find_index vn fns 0)))
+  let Cdefs = REVERSE (defs_to_Cdefs m defs) in
+  CRecClos Cenv Cdefs ( THE (find_index vn ( REVERSE fns) 0)))
 /\
 (v_to_Cv m (Loc n) = CLoc n)
 /\

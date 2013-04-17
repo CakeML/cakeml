@@ -496,6 +496,17 @@ val syneq_shift_same = store_thm("syneq_shift_same",
   rw[] >> fsrw_tac[ARITH_ss][] >>
   metis_tac[])
 
+(* TODO: move *)
+val find_index_ALL_DISTINCT_REVERSE = store_thm("find_index_ALL_DISTINCT_REVERSE",
+  ``∀ls x m j. ALL_DISTINCT ls ∧ (find_index x ls m = SOME j) ⇒ (find_index x (REVERSE ls) m = SOME (m + LENGTH ls + m - j - 1))``,
+  rw[] >> imp_res_tac find_index_ALL_DISTINCT_EL_eq >>
+  `ALL_DISTINCT (REVERSE ls)` by rw[ALL_DISTINCT_REVERSE] >>
+  simp[find_index_ALL_DISTINCT_EL_eq] >>
+  rw[] >> fsrw_tac[ARITH_ss][] >> rw[] >>
+  qmatch_assum_rename_tac`z < LENGTH ls`[] >>
+  qexists_tac`LENGTH ls - z - 1` >>
+  lrw[EL_REVERSE,PRE_SUB1])
+
 val syneq_defs_elim_thm = let
   val th = (List.last (CONJUNCTS syneq_exp_cases))
   val (xs,t) = strip_forall(concl th)
@@ -1265,56 +1276,44 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         Cases_on`c < a` >- metis_tac[] >>
         DECIDE_TAC ) >>
       *)
+      `ALL_DISTINCT (MAP FST funs)` by (
+        fs[Once closed_cases] ) >>
       `EL m0 (REVERSE funs) = (fn,z)` by (
-        fs[ALOOKUP_LEAST_EL] >>
+        Q.ISPEC_THEN`REVERSE (MAP FST funs)`mp_tac find_index_ALL_DISTINCT_EL_eq >>
+        simp[ALL_DISTINCT_REVERSE >>
+        disch_then(qspecl_then[`fn`,`0`]mp_tac) >>
+        simp[] >> strip_tac >>
         qunabbrev_tac`m0` >>
-        simp[find_index_LEAST_EL] >>
         Q.PAT_ABBREV_TAC`ffuns:string list = MAP x funs` >>
         `ffuns = MAP FST funs` by (
           lrw[Abbr`ffuns`,LIST_EQ_REWRITE,EL_MAP] >>
           Cases_on`EL x funs`>>rw[] ) >>
         simp[] >>
-        numLib.LEAST_ELIM_TAC >>
-        conj_tac >- ( fs[MEM_EL] >> metis_tac[EL_REVERSE,REVERSE_REVERSE,LENGTH_REVERSE,LENGTH_MAP] ) >>
-        qx_gen_tac`a` >>
-        strip_tac >>
-        `a < LENGTH funs` by (
-          fs[MEM_MAP,MEM_EL] >>
-          spose_not_then strip_assume_tac >>
-          qmatch_assum_rename_tac`c = EL b funs`[] >>
-          rw[]
-          `(LENGTH funs - b)-1 < a` by DECIDE_TAC >>
-          res_tac >>
-          rfs[EL_MAP,EL_REVERSE] >>
-          fsrw_tac[ARITH_ss][]
-          ) >>
-        `EL a funs = (FST (EL a funs), SND (EL a funs))` by (
-          Cases_on`EL a funs` >> rw[] ) >>
-        pop_assum SUBST1_TAC >>
-        simp[EL_MAP] >> rw[] >>
-        numLib.LEAST_ELIM_TAC >>
-        conj_tac >- metis_tac[] >>
-        qx_gen_tac`c` >> rw[] >>
-        qsuff_tac`c = a`>-rw[EL_MAP] >>
-        Cases_on`a < c` >- metis_tac[] >>
-        Cases_on`c < a` >- metis_tac[] >>
-        DECIDE_TAC ) >>
+        imp_res_tac ALOOKUP_MEM >>
+        pop_assum mp_tac >>
+        simp[MEM_EL]
+        disch_then(Q.X_CHOOSE_THEN`i`strip_assume_tac) >>
+        pop_assum (assume_tac o SYM) >>
+        `EL (LENGTH funs - i- 1) (REVERSE (MAP FST funs)) = fn` by (
+          lrw[EL_REVERSE,EL_MAP,PRE_SUB1] ) >>
+        first_x_assum(qspec_then`LENGTH funs - i -1`mp_tac) >>
+        simp[] >>
+        lrw[EL_REVERSE,PRE_SUB1] ) >>
       PairCases_on`z`>>fs[]>>rw[]>>
-
       rator_assum`syneq_defs`mp_tac >>
       Q.PAT_ABBREV_TAC`env0 = env_to_Cenv cm Z` >>
       Q.PAT_ABBREV_TAC`defs0:def list = MAP f funs` >>
       ho_match_mp_tac syneq_defs_elim_thm >>
       simp[] >>
-      qabbrev_tac`cl = CRecClos env0 defs0 m0` >>
-      simp[Abbr`defs0`,EVERY_MAP,UNCURRY] >>
+      qabbrev_tac`cl = CRecClos env0 (REVERSE defs0) m0` >>
+      simp[Abbr`defs0`,EVERY_MAP,EVERY_REVERSE,UNCURRY] >>
       strip_tac >>
       first_assum(qspecl_then[`m0`,`n`]mp_tac) >>
       qpat_assum`m0 < LENGTH funs`mp_tac >>
       qpat_assum`V' m0 n`mp_tac >>
       simp_tac(srw_ss())[] >>
       ntac 3 strip_tac >>
-      rfs[EL_MAP] >>
+      rfs[EL_MAP,GSYM MAP_REVERSE] >>
       fs[syneq_cb_aux_def,bind_def] >>
       rpt BasicProvers.VAR_EQ_TAC >>
       rator_x_assum`syneq_exp`mp_tac >>
@@ -1357,23 +1356,31 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
               Cases_on`EL x funs`>>rw[] ) >>
             fs[] >> ntac 2 (pop_assum kall_tac) >>
             simp[defs_to_Cdefs_MAP] >>
-            pop_assum mp_tac >> simp[] >>
-            qpat_assum`closed (Recclosure X Y Z)`mp_tac >>
-            simp[Once closed_cases] >>
-
-            v_to_Cv_def
-
-            disj1_tac
-            conj
-
-          lrw[ADD1,Abbr`envf`,EL_CONS,PRE_SUB1,Abbr`env0`]
-          lrw[ADD1,Abbr`envc`,env_to_Cenv_MAP,EL_CONS,PRE_SUB1] ) >>
+            fs[MAP_REVERSE] >>
+            pop_assum mp_tac >> simp[] >> strip_tac >>
+            qmatch_abbrev_tac`a < LENGTH funs ∧ X` >>
+            qsuff_tac`a = LENGTH funs - v1`>-simp[] >>
+            qunabbrev_tac`a` >>
+            Q.ISPEC_THEN`REVERSE (MAP FST funs)`mp_tac find_index_ALL_DISTINCT_EL_eq >>
+            simp[ALL_DISTINCT_REVERSE] >>
+            disch_then(qspecl_then[`FST (EL (v1-1) funs)`,`0`]mp_tac) >> simp[] >>
+            disch_then(qspec_then`LENGTH funs - v1`mp_tac) >>
+            simp[EL_REVERSE,PRE_SUB1,EL_MAP] )
+          >- (
+            res_tac >>
+            pop_assum mp_tac >>
+            qpat_assum`∀v1 v2. V v1 v2 ⇒ P`kall_tac >>
+            simp[Abbr`env0`] >>
+            simp[EL_CONS,PRE_SUB1,EL_MAP,EL_REVERSE,LENGTH_GENLIST,EL_APPEND2] )
+          >- (
+            fsrw_tac[ARITH_ss][Abbr`z1`,Abbr`z2`] )) >>
         metis_tac[EVERY2_syneq_trans] ) >>
       simp[] >>
       map_every qunabbrev_tac[`P`,`Q`,`R`] >>
-
-
-      )
+      pop_assum kall_tac >>
+      simp[EXISTS_PROD] >>
+      qunabbrev_tac`resc`>>fs[]>>
+      metis_tac[EVERY2_syneq_trans,result_rel_syneq_trans,EVERY2_syneq_sym,result_rel_syneq_sym] )
     >- (
       rw[Once Cevaluate_cases] >>
       fsrw_tac[DNF_ss][] >>
