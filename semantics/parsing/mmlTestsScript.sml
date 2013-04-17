@@ -80,16 +80,19 @@ val _ = parsetest ``nPbase`` ``ptree_Pattern nPbase`` "x"
                   ``[AlphaT "x"]``
 val _ = parsetest ``nPbase`` ``ptree_Pattern nPbase`` "C"
                   ``[AlphaT "C"]``
-val _ = parsetest ``nPattern`` T "C" ``[AlphaT "C"]``
-val _ = parsetest ``nPattern`` T "x" ``[AlphaT "x"]``
-val _ = parsetest ``nPattern`` T "(3)" ``[LparT; IntT 3; RparT]``
-val _ = parsetest ``nPattern`` T "C x" ``[AlphaT "C"; AlphaT "x"]``
-val _ = parsetest ``nPattern`` T "C D" ``[AlphaT "C"; AlphaT "D"]``
-val _ = parsetest ``nPattern`` T "C(x)"
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C" ``[AlphaT "C"]``
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "x" ``[AlphaT "x"]``
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "(3)"
+                  ``[LparT; IntT 3; RparT]``
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C x"
+                  ``[AlphaT "C"; AlphaT "x"]``
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C D"
+                  ``[AlphaT "C"; AlphaT "D"]``
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x)"
                   ``[AlphaT "C"; LparT; AlphaT "x"; RparT]``
-val _ = parsetest ``nPattern`` T "C(x,D)"
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x,D)"
           ``[AlphaT "C"; LparT; AlphaT "x"; CommaT; AlphaT "D"; RparT]``
-val _ = parsetest ``nPattern`` T "C(x,D(1),true)"
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x,D(1),true)"
           ``[AlphaT "C"; LparT; AlphaT "x"; CommaT; AlphaT "D";
              LparT; IntT 1; RparT; CommaT; AlphaT "true"; RparT]``
 

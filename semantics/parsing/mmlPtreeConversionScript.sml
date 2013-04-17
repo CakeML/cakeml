@@ -484,7 +484,7 @@ val ptree_Expr_def = Define`
 
 val ptree_Pattern_def = Define`
   (ptree_Pattern nt (Lf _) = NONE) ∧
-  ptree_Pattern nt (Nd nm args) =
+  (ptree_Pattern nt (Nd nm args) =
     if mkNT nt <> nm then NONE
     else if nm = mkNT nPbase then
       case args of
@@ -509,7 +509,55 @@ val ptree_Pattern_def = Define`
             ptree_Pattern nPattern p
           od
         | _ => NONE
-    else NONE
+    else if nm = mkNT nPattern then
+      case args of
+          [pb] => ptree_Pattern nPbase pb
+        | [cnm; p] =>
+          do
+            cn <- ptree_ConstructorName cnm;
+            (do
+              pb <- ptree_Pattern nPbase p ;
+              SOME (Ast_Pcon cn [pb])
+             od ++ do
+              args <- ptree_Ptuple nPtuple p;
+              SOME (Ast_Pcon cn args)
+            od)
+          od
+        | _ => NONE
+    else NONE) ∧
+  (ptree_Ptuple _ (Lf _) = NONE) ∧
+  (ptree_Ptuple nt (Nd nm args) =
+     if nm <> mkNT nt then NONE
+     else if nt = nPtuple then
+       case args of
+           [lp; pl2; rp] =>
+           do
+             assert (lp = Lf (TOK LparT) ∧ rp = Lf (TOK RparT));
+             ptree_Ptuple nPatternList2 pl2
+           od
+         | _ => NONE
+     else if nt = nPatternList2 then
+       case args of
+           [p; ct; pl1] =>
+           do
+             assert (ct = Lf (TOK CommaT));
+             hdpat <- ptree_Pattern nPattern p;
+             tlpats <- ptree_Ptuple nPatternList1 pl1;
+             SOME(hdpat::tlpats)
+           od
+         | _ => NONE
+     else if nt = nPatternList1 then
+       case args of
+           [p] => do pat <- ptree_Pattern nPattern p; SOME [pat] od
+         | [pl1; ct; p] =>
+           do
+             assert (ct = Lf (TOK CommaT));
+             pats <- ptree_Ptuple nPatternList1 pl1;
+             pat <- ptree_Pattern nPattern p;
+             SOME(APPEND pats [pat])
+           od
+         | _ => NONE
+     else NONE)
 `
 
 val _ = export_theory()
