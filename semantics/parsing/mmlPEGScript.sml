@@ -250,9 +250,9 @@ val peg_Ebase_def = Define`
              seql [tokeq LparT; pnt nE; tokeq RparT] (bindNT nEbase);
              seql [tokeq LetT;
                    choicel [seql [tokeq ValT; pnt nV; tokeq EqualsT;
-                                  pnt nE; tokeq InT; pnt nE;
+                                  pnt nE; pnt nOptSemi; tokeq InT; pnt nE;
                                   tokeq EndT] I;
-                            seql [tokeq FunT; pnt nAndFDecls;
+                            seql [tokeq FunT; pnt nAndFDecls; pnt nOptSemi;
                                   tokeq InT; pnt nE; tokeq EndT] I]]
                   (bindNT nEbase)
             ]
@@ -273,7 +273,10 @@ val mmlPEG_def = zDefine`
   mmlPEG = <|
     start := pnt nDecl;
     rules := FEMPTY |++
-             [(mkNT nV, peg_V);
+             [(mkNT nOptSemi,
+               pegf (choicel [tokeq SemicolonT; empty []])
+                    (bindNT nOptSemi));
+              (mkNT nV, peg_V);
               (mkNT nEapp, peg_Eapp);
               (mkNT nEtuple,
                seql [tokeq LparT; pnt nElist2; tokeq RparT] (bindNT nEtuple));
@@ -342,10 +345,12 @@ val mmlPEG_def = zDefine`
               (mkNT nPatternList1,
                peg_linfix (mkNT nPatternList1) (pnt nPattern) (tokeq CommaT));
               (mkNT nDecl,
-               choicel [seql [tokeq ValT; pnt nPattern; tokeq EqualsT; pnt nE]
+               choicel [seql [tokeq ValT; pnt nPattern; tokeq EqualsT; pnt nE;
+                              pnt nOptSemi]
                              (bindNT nDecl);
-                        seql [tokeq FunT; pnt nAndFDecls] (bindNT nDecl);
-                        pegf (pnt nTypeDec) (bindNT nDecl)])
+                        seql [tokeq FunT; pnt nAndFDecls; pnt nOptSemi]
+                             (bindNT nDecl);
+                        seql [pnt nTypeDec; pnt nOptSemi] (bindNT nDecl)])
              ] |>
 `;
 

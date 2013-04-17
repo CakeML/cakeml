@@ -288,16 +288,18 @@ val ptree_Expr_def = Define`
               do cname <- ptree_ConstructorName single;
                  SOME (Ast_Con cname [])
               od
-          | [lett;funt;andfdecls;intok;ept;endt] =>
+          | [lett;funt;andfdecls;optsemi;intok;ept;endt] =>
             do
+              assert(isOptSemi optsemi);
               assert(lett = Lf (TOK LetT) ∧ funt = Lf (TOK FunT));
               assert(intok = Lf (TOK InT) ∧ endt = Lf (TOK EndT));
               decls <- ptree_AndFDecls andfdecls;
               e <- ptree_Expr nE ept;
               SOME(Ast_Letrec decls e)
             od
-          | [lett;valt;varpt;eqt;e1pt;intok;e2pt;endt] =>
+          | [lett;valt;varpt;eqt;e1pt;optsemi;intok;e2pt;endt] =>
             do
+              assert(isOptSemi optsemi);
               vname <- ptree_V varpt;
               e1 <- ptree_Expr nE e1pt;
               e2 <- ptree_Expr nE e2pt;
@@ -560,6 +562,15 @@ val ptree_Pattern_def = Define`
      else NONE)
 `;
 
+val isOptSemi_def = Define`
+  isOptSemi pt =
+    case pt of
+        Lf _ => F
+      | Nd nt args =>
+        if nt <> mkNT nOptSemi then F
+        else args = [] ∨ args = [Lf (TOK SemicolonT)]
+`
+
 val ptree_Decl_def = Define`
   ptree_Decl pt : ast_dec option =
     case pt of
@@ -573,15 +584,16 @@ val ptree_Decl_def = Define`
                tydec <- ptree_TypeDec dt;
                SOME (Ast_Dtype tydec)
              od
-           | [funtok; fdecls] =>
+           | [funtok; fdecls; optsemi] =>
              do
-               assert(funtok = Lf (TOK FunT));
+               assert(funtok = Lf (TOK FunT) ∧ isOptSemi optsemi);
                fdecs <- ptree_AndFDecls fdecls;
                SOME (Ast_Dletrec fdecs)
              od
-           | [valtok; patpt; eqtok; ept] =>
+           | [valtok; patpt; eqtok; ept; optsemi] =>
              do
-               assert (valtok = Lf (TOK ValT) ∧ eqtok = Lf (TOK EqualsT));
+               assert (valtok = Lf (TOK ValT) ∧ eqtok = Lf (TOK EqualsT) ∧
+                       isOptSemi optsemi);
                pat <- ptree_Pattern nPattern patpt;
                e <- ptree_Expr nE ept;
                SOME (Ast_Dlet pat e)

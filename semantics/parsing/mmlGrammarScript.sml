@@ -41,6 +41,7 @@ val tokmap0 =
     List.foldl (fn ((s,t), acc) => Binarymap.insert(acc,s,t))
                (Binarymap.mkDict String.compare)
                [("(", ``LparT``), (")", ``RparT``), (",", ``CommaT``),
+                (";", ``SemicolonT``),
                 ("->", ``ArrowT``), ("=>", ``DarrowT``),
                 ("*", ``StarT``),
                 ("|", ``BarT``), ("=", ``EqualsT``), (":", ``ColonT``),
@@ -92,6 +93,9 @@ val mmlG_def = mk_grammar_def ginfo
  DtypeDecls ::= DtypeDecl | DtypeDecls "and" DtypeDecl;
  TypeDec ::= "datatype" DtypeDecls;
 
+ (* optional semicolon NT *)
+ OptSemi ::= ";" | ;
+
  (* expressions - base cases and function applications *)
  ConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``)
                   | "true" | "false";
@@ -100,8 +104,8 @@ val mmlG_def = mk_grammar_def ginfo
     |  ^(``{SymbolT s |
             s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"}}``);
  Ebase ::= "(" E ")" | V | ConstructorName | <IntT>
-        |  "let" "val" V "=" E "in" E "end"
-        |  "let" "fun" AndFDecls "in" E "end";
+        |  "let" "val" V "=" E OptSemi "in" E "end"
+        |  "let" "fun" AndFDecls OptSemi "in" E "end";
  Etuple ::= "(" Elist2 ")";
  Elist2 ::= E "," Elist1;
  Elist1 ::= E | Elist1 "," E;
@@ -126,7 +130,8 @@ val mmlG_def = mk_grammar_def ginfo
  (* function and value declarations *)
  FDecl ::= V V "=" E ;
  AndFDecls ::= FDecl | AndFDecls "and" FDecl;
- Decl ::= "val" Pattern "=" E | "fun" AndFDecls | TypeDec;
+ Decl ::= "val" Pattern "=" E OptSemi | "fun" AndFDecls OptSemi
+       |  TypeDec OptSemi ;
 
  (* patterns *)
  Pbase ::= V | ConstructorName | <IntT> | "(" Pattern ")";

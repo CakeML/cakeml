@@ -76,6 +76,8 @@ val tytest = parsetest ``nType`` ``ptree_Type``
 
 val _ = parsetest ``nDecl`` ``ptree_Decl`` "val x = 3"
                   ``[ValT; AlphaT "x"; EqualsT; IntT 3]``
+val _ = parsetest ``nDecl`` ``ptree_Decl`` "val x = 3;"
+                  ``[ValT; AlphaT "x"; EqualsT; IntT 3; SemicolonT]``
 val _ = parsetest ``nDecl`` ``ptree_Decl`` "val C x = 3"
                   ``[ValT; AlphaT "C"; AlphaT "x"; EqualsT; IntT 3]``
 val _ = parsetest ``nDecl`` ``ptree_Decl`` "val C(x,y) = foo"
