@@ -484,3 +484,7 @@ val e70 = ``Let NONE "f" NONE
   (App Opapp (Var "f" NONE) (Lit (IntLit 0)))``
 val (m,[r]) = mst_run_exp e70
 val true = (OLit (IntLit (intML.fromInt 2))) = bv_to_ov m r;
+val e71 = ``Let NONE "x" NONE (Lit (IntLit 0))
+            (App (Opb Gt) (Lit (IntLit 1)) (Var "x" NONE))``
+val (m,[r]) = mst_run_exp e71
+val true = (OLit (Bool true) = bv_to_ov m r);
