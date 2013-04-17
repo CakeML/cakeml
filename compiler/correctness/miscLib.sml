@@ -8,4 +8,9 @@ val rev_assum_list = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC)
 fun last_x_assum x = rev_assum_list >> first_x_assum x >> rev_assum_list
 fun qx_choosel_then [] ttac = ttac
   | qx_choosel_then (q::qs) ttac = Q.X_CHOOSE_THEN q (qx_choosel_then qs ttac)
+val discharge_hyps =
+  qmatch_abbrev_tac`(P⇒Q)⇒R` >>
+  Q.SUBGOAL_THEN`P`
+    (fn P => disch_then (mp_tac o PROVE_HYP P o UNDISCH) >> map_every qunabbrev_tac[`P`,`Q`,`R`]) >|
+  [map_every qunabbrev_tac[`P`,`Q`,`R`],ALL_TAC]
 end
