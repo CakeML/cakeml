@@ -869,10 +869,10 @@ val _ = Defn.save_defn remove_mat_var_defn;
   | Leq => CPrim2 CLt (CPrim2 CSub Ce1 Ce2) (CLit (IntLit i1))
   | opb =>
       CLet Ce1 (
-        CLet Ce2 (
+        CLet (shift 1 0 Ce2) (
           (case opb of
             Gt =>  CPrim2 CLt (CVar 0) (CVar 1)
-          | Geq => CPrim2 CLt (CPrim2 CSub (CVar 1) (CVar 0)) (CLit (IntLit i1))
+          | Geq => CPrim2 CLt (CPrim2 CSub (CVar 0) (CVar 1)) (CLit (IntLit i1))
           )))
   ))
 /\
