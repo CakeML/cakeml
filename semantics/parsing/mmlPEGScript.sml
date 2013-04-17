@@ -340,7 +340,12 @@ val mmlPEG_def = zDefine`
                seql [pnt nPattern; tokeq CommaT; pnt nPatternList1]
                     (bindNT nPatternList2));
               (mkNT nPatternList1,
-               peg_linfix (mkNT nPatternList1) (pnt nPattern) (tokeq CommaT))
+               peg_linfix (mkNT nPatternList1) (pnt nPattern) (tokeq CommaT));
+              (mkNT nDecl,
+               choicel [seql [tokeq ValT; pnt nPattern; tokeq EqualsT; pnt nE]
+                             (bindNT nDecl);
+                        seql [tokeq FunT; pnt nAndFDecls] (bindNT nDecl);
+                        pegf (pnt nTypeDec) (bindNT nDecl)])
              ] |>
 `;
 
