@@ -9,8 +9,13 @@ fun last_x_assum x = rev_assum_list >> first_x_assum x >> rev_assum_list
 fun qx_choosel_then [] ttac = ttac
   | qx_choosel_then (q::qs) ttac = Q.X_CHOOSE_THEN q (qx_choosel_then qs ttac)
 val discharge_hyps =
-  qmatch_abbrev_tac`(P⇒Q)⇒R` >>
-  Q.SUBGOAL_THEN`P`
-    (fn P => disch_then (mp_tac o PROVE_HYP P o UNDISCH) >> map_every qunabbrev_tac[`P`,`Q`,`R`]) >|
-  [map_every qunabbrev_tac[`P`,`Q`,`R`],ALL_TAC]
+  let val P = genvar bool
+      val Q = genvar bool
+      val R = genvar bool
+  in
+  Q.MATCH_ABBREV_TAC`(^P⇒^Q)⇒^R` >>
+  SUBGOAL_THEN P
+    (fn th => disch_then (mp_tac o PROVE_HYP th o UNDISCH) >> map_every qunabbrev_tac[`^P`,`^Q`,`^R`]) >|
+  [map_every qunabbrev_tac[`^P`,`^Q`,`^R`],ALL_TAC]
+  end
 end
