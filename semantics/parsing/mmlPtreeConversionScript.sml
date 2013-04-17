@@ -558,6 +558,35 @@ val ptree_Pattern_def = Define`
            od
          | _ => NONE
      else NONE)
+`;
+
+val ptree_Decl_def = Define`
+  ptree_Decl pt : ast_dec option =
+    case pt of
+       Lf _ => NONE
+     | Nd nt args =>
+       if nt <> mkNT nDecl then NONE
+       else
+         case args of
+             [dt] =>
+             do
+               tydec <- ptree_TypeDec dt;
+               SOME (Ast_Dtype tydec)
+             od
+           | [funtok; fdecls] =>
+             do
+               assert(funtok = Lf (TOK FunT));
+               fdecs <- ptree_AndFDecls fdecls;
+               SOME (Ast_Dletrec fdecs)
+             od
+           | [valtok; patpt; eqtok; ept] =>
+             do
+               assert (valtok = Lf (TOK ValT) ∧ eqtok = Lf (TOK EqualsT));
+               pat <- ptree_Pattern nPattern patpt;
+               e <- ptree_Expr nE ept;
+               SOME (Ast_Dlet pat e)
+             od
+           | _ => NONE
 `
 
 val _ = export_theory()
