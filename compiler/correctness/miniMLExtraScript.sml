@@ -34,6 +34,27 @@ val FINITE_pat_vars = store_thm("FINITE_pat_vars",
   rw[] >> res_tac)
 val _ = export_rewrites["FINITE_pat_vars"]
 
+val pat_bindings_acc = store_thm("pat_bindings_acc",
+  ``(∀(p:α pat) l. pat_bindings p l = pat_bindings p [] ++ l) ∧
+    (∀(ps:α pat list) l. pats_bindings ps l = pats_bindings ps [] ++ l)``,
+  ho_match_mp_tac (TypeBase.induction_of``:α pat``) >> rw[] >>
+  simp_tac std_ss [pat_bindings_def] >>
+  metis_tac[APPEND,APPEND_ASSOC])
+
+val pats_bindings_MAP = store_thm("pats_bindings_MAP",
+  ``∀ps ls. pats_bindings ps ls = FLAT (MAP (combin$C pat_bindings []) (REVERSE ps)) ++ ls``,
+  Induct >>
+  rw[pat_bindings_def] >>
+  rw[Once pat_bindings_acc])
+
+val pat_vars_pat_bindings = store_thm("pat_vars_pat_bindings",
+  ``(∀(p:α pat). pat_vars p = set (pat_bindings p [])) ∧
+    (∀(ps:α pat list). BIGUNION (IMAGE pat_vars (set ps)) = set (pats_bindings ps []))``,
+  ho_match_mp_tac(TypeBase.induction_of``:α pat``) >>
+  srw_tac[ETA_ss][pat_bindings_def] >>
+  rw[Once pat_bindings_acc,SimpRHS] >>
+  rw[UNION_COMM])
+
 val FV_def = tDefine "FV"`
 (FV (Raise _) = {}) ∧
 (FV (Handle e1 x e2) = FV e1 ∪ (FV e2 DIFF {x})) ∧
@@ -116,7 +137,7 @@ val (evaluate_match_with_rules,evaluate_match_with_ind,evaluate_match_with_cases
      strip_comb |> fst |> same_const ``evaluate_match``) *)
    `(evaluate_match_with P cenv s env v [] (s,Rerr (Rraise Bind_error))) ∧
     (ALL_DISTINCT (pat_bindings p []) ∧
-     (pmatch (SOME 0) cenv s p v env = Match env') ∧ P cenv s env' e bv ⇒
+     (pmatch (SOME 0) cenv s p v env = Match env') ∧ P cenv s env' (p,e) bv ⇒
      evaluate_match_with P cenv s env v ((p,e)::pes) bv) ∧
     (ALL_DISTINCT (pat_bindings p []) ∧
      (pmatch (SOME 0) cenv s p v env = No_match) ∧
@@ -129,7 +150,7 @@ val (evaluate_match_with_rules,evaluate_match_with_ind,evaluate_match_with_cases
 
 val evaluate_match_with_evaluate = store_thm(
 "evaluate_match_with_evaluate",
-``evaluate_match = evaluate_match_with evaluate``,
+``evaluate_match = evaluate_match_with (λcenv s env pe bv. evaluate cenv s env (SND pe) bv)``,
 simp_tac std_ss [FUN_EQ_THM] >>
 ntac 4 gen_tac >>
 Induct >-
@@ -179,7 +200,7 @@ evaluate_strongind
 val evaluate_nicematch_strongind = save_thm(
 "evaluate_nicematch_strongind",
 evaluate_strongind
-|> Q.SPECL [`P0`,`P1`,`evaluate_match_with P0`] |> SIMP_RULE (srw_ss()) []
+|> Q.SPECL [`P0`,`P1`,`evaluate_match_with (λcenv s env pe bv. P0 cenv s env (SND pe) bv)`] |> SIMP_RULE (srw_ss()) []
 |> UNDISCH_ALL
 |> CONJUNCTS
 |> C (curry List.take) 2
@@ -545,19 +566,19 @@ val pmatch_closed = store_thm("pmatch_closed",
       EVERY closed s ∧
       (pmatch no cenv s p v env = Match env') ⇒
       EVERY closed (MAP (FST o SND) env') ∧
-      (set (MAP FST env') = pat_vars p ∪ set (MAP FST env))) ∧
+      (MAP FST env' = pat_bindings p [] ++ (MAP FST env))) ∧
     (∀no cenv (s:α store) ps vs env env'.
       EVERY closed (MAP (FST o SND) env) ∧ EVERY closed vs ∧
       EVERY closed s ∧
       (pmatch_list no cenv s ps vs env = Match env') ⇒
       EVERY closed (MAP (FST o SND) env') ∧
-      (set (MAP FST env') = BIGUNION (IMAGE pat_vars (set ps)) ∪ set (MAP FST env)))``,
+      (MAP FST env' = pats_bindings ps [] ++ MAP FST env))``,
   ho_match_mp_tac pmatch_ind >>
   strip_tac >- (
-    rw[pmatch_def,bind_def] >>
+    rw[pmatch_def,bind_def,pat_bindings_def] >>
     rw[] >> rw[EXTENSION] ) >>
   strip_tac >- (
-    rw[pmatch_def] >> rw[] ) >>
+    rw[pmatch_def,pat_bindings_def] >> rw[] ) >>
   strip_tac >- (
     rpt gen_tac >> fs[] >>
     Cases_on `ALOOKUP cenv n` >> fs[] >- (
@@ -568,10 +589,10 @@ val pmatch_closed = store_thm("pmatch_closed",
       rw[pmatch_def] ) >>
     qmatch_assum_rename_tac `ALOOKUP cenv n' = SOME p`[] >>
     PairCases_on `p` >> fs[] >>
-    rw[pmatch_def] >>
+    rw[pmatch_def,pat_bindings_def] >>
     srw_tac[ETA_ss][] ) >>
   strip_tac >- (
-    rw[pmatch_def] >>
+    rw[pmatch_def,pat_bindings_def] >>
     Cases_on `store_lookup lnum s`>>
     fsrw_tac[DNF_ss][store_lookup_def,EVERY_MEM,MEM_EL] >>
     PROVE_TAC[] ) >>
@@ -587,16 +608,16 @@ val pmatch_closed = store_thm("pmatch_closed",
   strip_tac >- rw[pmatch_def] >>
   strip_tac >- rw[pmatch_def] >>
   strip_tac >- rw[pmatch_def] >>
-  strip_tac >- (rw[pmatch_def] >> rw[]) >>
+  strip_tac >- (rw[pmatch_def,pat_bindings_def] >> rw[]) >>
   strip_tac >- (
     rpt gen_tac >>
     strip_tac >>
-    simp_tac(srw_ss())[pmatch_def] >>
+    simp_tac(srw_ss())[pmatch_def,pat_bindings_def] >>
     Cases_on `pmatch no cenv s p v env` >> fs[] >>
     qmatch_assum_rename_tac `pmatch no cenv s p v env = Match env0`[] >>
     Cases_on `pmatch_list no cenv s ps vs env0` >> fs[] >>
     strip_tac >> fs[] >>
-    PROVE_TAC[UNION_COMM,UNION_ASSOC]) >>
+    simp[Once pat_bindings_acc,SimpRHS]) >>
   rw[pmatch_def])
 
 val do_uapp_closed = store_thm("do_uapp_closed",
@@ -788,7 +809,7 @@ strip_tac (* Match *) >- (
   fs[] >> rfs[] >>
   first_x_assum match_mp_tac >>
   MP_TAC(SPEC_ALL(Q.SPEC`SOME 0`(INST_TYPE[alpha|->``:t``](CONJUNCT1 pmatch_closed)))) >>
-  fs[] >>
+  fs[pat_vars_pat_bindings] >>
   fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,EXTENSION] >>
   metis_tac[]) >>
 strip_tac (* Match *) >- rw[] >>

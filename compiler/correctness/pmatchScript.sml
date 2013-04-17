@@ -540,12 +540,12 @@ val evaluate_match_with_Cevaluate_match = store_thm("evaluate_match_with_Cevalua
       ∀m. good_cenv cenv ∧ good_cmap cenv m.cnmap ⇒
         ((r = (s, Rerr (Rraise Bind_error)))
             ⇒ Cevaluate_match (MAP (v_to_Cv m.cnmap) s) (v_to_Cv m.cnmap v)
-                (MAP (λ(p,e). (SND (pat_to_Cpat m p),e)) pes)
+                (MAP (λ(p,e). (SND (pat_to_Cpat m p),(p,e))) pes)
                 [] NONE) ∧
-        ∀env' e. (r = (s, Rval (env',e)))
+        ∀env' e. (r = (s, Rval (env',pe)))
           ⇒ Cevaluate_match (MAP (v_to_Cv m.cnmap) s) (v_to_Cv m.cnmap v)
-              (MAP (λ(p,e). (SND (pat_to_Cpat m p),e)) pes)
-              (env_to_Cenv m.cnmap env') (SOME e)``,
+              (MAP (λ(p,e). (SND (pat_to_Cpat m p),(p,e))) pes)
+              (env_to_Cenv m.cnmap env') (SOME pe)``,
   ho_match_mp_tac evaluate_match_with_ind >>
   strip_tac >- ( rw[] >> rw[Once Cevaluate_match_cases] ) >>
   strip_tac >- (
@@ -589,8 +589,8 @@ val evaluate_match_with_matchres_closed = store_thm("evaluate_match_with_matchre
   ``∀pes r. evaluate_match_with (matchres env) cenv s env v pes r ⇒
             EVERY closed s ∧ EVERY closed (MAP (FST o SND) env) ∧ closed v ⇒
             every_result (λ(menv,mr). EVERY closed (MAP (FST o SND) menv) ∧
-                                      ∃p. MEM (p,mr) pes ∧
-                                          (set (MAP FST menv) = pat_vars p)) (SND r) ``,
+                                      MEM mr pes ∧
+                                      ((MAP FST menv) = pat_bindings (FST mr) [])) (SND r) ``,
   ho_match_mp_tac evaluate_match_with_ind >>
   strip_tac >- rw[] >>
   strip_tac >- (

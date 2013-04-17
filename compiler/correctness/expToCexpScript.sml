@@ -44,19 +44,6 @@ val all_Clocs_v_to_Cv = store_thm("all_Clocs_v_to_Cv",
   srw_tac[ETA_ss][v_to_Cv_def,LET_THM,defs_to_Cdefs_MAP] >>
   fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o])
 
-val pat_bindings_acc = store_thm("pat_bindings_acc",
-  ``(∀(p:α pat) l. pat_bindings p l = pat_bindings p [] ++ l) ∧
-    (∀(ps:α pat list) l. pats_bindings ps l = pats_bindings ps [] ++ l)``,
-  ho_match_mp_tac (TypeBase.induction_of``:α pat``) >> rw[] >>
-  simp_tac std_ss [pat_bindings_def] >>
-  metis_tac[APPEND,APPEND_ASSOC])
-
-val pats_bindings_MAP = store_thm("pats_bindings_MAP",
-  ``∀ps ls. pats_bindings ps ls = FLAT (MAP (combin$C pat_bindings []) (REVERSE ps)) ++ ls``,
-  Induct >>
-  rw[pat_bindings_def] >>
-  rw[Once pat_bindings_acc])
-
 (* free vars lemmas *)
 
 val Cpat_vars_pat_to_Cpat = store_thm(
@@ -117,6 +104,18 @@ val set_FST_pat_to_Cpat_bvars = store_thm("set_FST_pat_to_Cpat_bvars",
   first_x_assum(qspec_then`s`mp_tac) >>
   rw[] >>
   metis_tac[])
+
+val FST_pat_to_Cpat_bvars = store_thm("FST_pat_to_Cpat_bvars",
+  ``(∀(p:α pat) s. (FST (pat_to_Cpat s p)).bvars = pat_bindings p [] ++ s.bvars) ∧
+    (∀(ps:α pat list) s. (FST (pats_to_Cpats s ps)).bvars = pats_bindings ps [] ++ s.bvars)``,
+  ho_match_mp_tac (TypeBase.induction_of``:α pat``) >>
+  rw[pat_to_Cpat_def,pat_bindings_def] >> rw[]
+  >- ( first_x_assum(qspec_then`s'`mp_tac) >> simp[] )
+  >- ( first_x_assum(qspec_then`s`mp_tac) >> simp[] ) >>
+  first_x_assum(qspec_then`m`mp_tac) >>
+  first_x_assum(qspec_then`s`mp_tac) >>
+  rw[] >>
+  simp[Once pat_bindings_acc,SimpRHS])
 
 (* TODO: move *)
 val CARD_UNION_LE = store_thm("CARD_UNION_LE",
@@ -1663,29 +1662,31 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   strip_tac >- (
     rpt strip_tac >> fs[] >>
     fsrw_tac[DNF_ss][EXISTS_PROD] >>
-    first_x_assum (qspec_then `m` mp_tac) >> rw[] >>
-    qmatch_assum_rename_tac `syneq FEMPTY (v_to_Cv m v) w`[] >>
+    first_x_assum (qspec_then `cm` mp_tac) >> rw[] >>
+    qmatch_assum_rename_tac `syneq FEMPTY FEMPTY (v_to_Cv m v) w`[] >>
     rw[exp_to_Cexp_def,LET_THM] >>
     rw[Once Cevaluate_cases] >>
     fsrw_tac[DNF_ss][] >>
     disj1_tac >>
-    qmatch_assum_abbrev_tac`Cevaluate FEMPTY FEMPTY sa enva ea (sd,Rval w)` >>
+    qmatch_assum_abbrev_tac`Cevaluate FEMPTY sa enva ea (sd,Rval w)` >>
     pop_assum kall_tac >>
     CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
     map_every qexists_tac [`w`,`sd`] >> fs[] >>
     qmatch_assum_abbrev_tac `evaluate_match_with P cenv s2 env v pes res` >>
     Q.ISPECL_THEN [`s2`,`pes`,`res`] mp_tac (Q.GEN`s`evaluate_match_with_matchres) >> fs[] >>
+    qmatch_assum_abbrev_tac`Abbrev(ea = exp_to_Cexp mm exp)` >>
+    `mm.cnmap = m` by rw[Abbr`mm`] >>
     PairCases_on`res`>>fs[]>>strip_tac>>
     qmatch_assum_abbrev_tac`evaluate_match_with (matchres env) cenv s2 env v pes r` >>
     Q.ISPECL_THEN [`s2`,`pes`,`r`] mp_tac (Q.GEN`s`evaluate_match_with_Cevaluate_match) >>
     fs[Abbr`r`] >>
-    disch_then (qspec_then `m` mp_tac) >>
+    disch_then (qspec_then `mm` mp_tac) >>
     rw[] >- (
-      qmatch_assum_abbrev_tac `Cevaluate_match sb vv ppes FEMPTY NONE` >>
-      `Cevaluate_match sb vv (MAP (λ(p,e). (p, exp_to_Cexp m e)) ppes) FEMPTY NONE` by (
+      qmatch_assum_abbrev_tac `Cevaluate_match sb vv ppes [] NONE` >>
+      `Cevaluate_match sb vv (MAP (λ(Cp,pe). (Cp, exp_to_Cexp (FST (pat_to_Cpat mm (FST pe))) (SND pe))) ppes) [] NONE` by (
         metis_tac [Cevaluate_match_MAP_exp, optionTheory.OPTION_MAP_DEF] ) >>
-      qmatch_assum_abbrev_tac `Cevaluate_match sb vv (MAP ff ppes) FEMPTY NONE` >>
-      `MAP ff ppes = pes_to_Cpes m pes` by (
+      qmatch_assum_abbrev_tac `Cevaluate_match sb vv (MAP ff ppes) [] NONE` >>
+      `MAP ff ppes = pes_to_Cpes mm pes` by (
         unabbrev_all_tac >>
         rw[pes_to_Cpes_MAP,LET_THM] >>
         rw[MAP_MAP_o,combinTheory.o_DEF,pairTheory.LAMBDA_PROD] >>
@@ -1696,19 +1697,17 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       ntac 2 (pop_assum mp_tac) >>
       pop_assum kall_tac >>
       ntac 2 strip_tac >>
-      Q.SPECL_THEN [`sb`,`v_to_Cv m v`,`pes_to_Cpes m pes`,`FEMPTY`,`NONE`]
+      Q.SPECL_THEN [`sb`,`v_to_Cv mm.cnmap v`,`pes_to_Cpes mm pes`,`[]`,`NONE`]
         mp_tac (INST_TYPE[alpha|->``:Cexp``](Q.GENL[`v`,`s`] Cevaluate_match_syneq)) >>
       fs[] >>
-      disch_then (qspecl_then [`FEMPTY`,`sd`,`w`] mp_tac) >> fs[] >>
+      disch_then (qspecl_then [`FEMPTY`,`FEMPTY`,`sd`,`w`] mp_tac) >> fs[] >>
       strip_tac >>
-      qabbrev_tac`ps = pes_to_Cpes m pes` >>
-      qspecl_then[`sd`,`w`,`ps`,`FEMPTY`,`NONE`]mp_tac(Q.GENL[`v`,`s`]Cevaluate_match_remove_mat_var)>>
+      qabbrev_tac`ps = pes_to_Cpes mm pes` >>
+      qspecl_then[`sd`,`w`,`ps`,`[]`,`NONE`]mp_tac(Q.GENL[`v`,`s`]Cevaluate_match_remove_mat_var)>>
       fs[] >>
       fsrw_tac[DNF_ss][EXISTS_PROD] >>
-      Q.PAT_ABBREV_TAC`envu = enva |+ X` >>
-      Q.PAT_ABBREV_TAC`fv = fresh_var X` >>
-      disch_then (qspecl_then[`envu`,`fv`]mp_tac)>>
-      qmatch_abbrev_tac`(P0 ⇒ Q) ⇒ R` >>
+      disch_then (qspecl_then[`w::enva`,`0`]mp_tac)>>
+      discharge_hyps
       `P0` by (
         map_every qunabbrev_tac[`P0`,`Q`,`R`] >>
         fs[FLOOKUP_UPDATE,Abbr`envu`] >>
