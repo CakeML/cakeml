@@ -1295,7 +1295,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
         qexists_tac`λv1 v2. v1 < (c1 ' y).nz ∧ (v2 = v1)` >>simp[] >>
         match_mp_tac(MP_CANON(CONJUNCT2(syneq_exp_mono_V))) >>
         qexists_tac`V'` >> simp[]) >>
-      Cases_on`v < LENGTH vs2 + 1 + LENGTH (FST (c1 ' y).cd.ceenv)` >>
+      Cases_on`v < LENGTH vs2 + 1 + LENGTH (FST (c1 ' y).ceenv)` >>
       lrw[EL_APPEND2,LENGTH_REVERSE,EL_APPEND1,LENGTH_GENLIST,EL_MAP] >- (
         simp[Once syneq_cases] >>
         qexists_tac`λv1 v2. v1 < (c1 ' y).ez ∧ v2 < (c1 ' y).ez ∧ V' v1 v2`>>simp[] >>
@@ -1607,7 +1607,7 @@ val (Cclosed_rules,Cclosed_ind,Cclosed_cases) = Hol_reln`
    ⇒ l ∈ FDOM c
    ∧ ((c ' l).nz = LENGTH defs)
    ∧ ((c ' l).ez = LENGTH env)
-   ∧ closed_cd (c ' l).cd)
+   ∧ closed_cd (c ' l))
 ⇒ Cclosed c (CRecClos env defs n)) ∧
 (Cclosed c (CLoc m))`
 
@@ -1666,7 +1666,7 @@ val Cclosed_bundle = store_thm("Cclosed_bundle",
 val Cevaluate_closed = store_thm("Cevaluate_closed",
   ``(∀c s env exp res. Cevaluate c s env exp res
      ⇒ free_vars exp ⊆ count (LENGTH env)
-     ∧ FEVERY (closed_cd o closure_extra_data_cd o SND) c
+     ∧ FEVERY (closed_cd o SND) c
      ∧ EVERY (Cclosed c) env
      ∧ EVERY (Cclosed c) s
      ⇒
@@ -1674,7 +1674,7 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
      every_result (Cclosed c) (SND res)) ∧
     (∀c s env exps ress. Cevaluate_list c s env exps ress
      ⇒ BIGUNION (IMAGE free_vars (set exps)) ⊆ count (LENGTH env)
-     ∧ FEVERY (closed_cd o closure_extra_data_cd o SND) c
+     ∧ FEVERY (closed_cd o SND) c
      ∧ EVERY (Cclosed c) env
      ∧ EVERY (Cclosed c) s
      ⇒

@@ -181,12 +181,6 @@ val _ = Hol_datatype `
    ; ceenv :ceenv (* to construct ccenv from creation-site environment *)
    ; az    :num   (* number of arguments *)
    ; body  :Cexp  (* adjusted for ccenv *)
-   |>`;
-
-
-val _ = Hol_datatype `
- closure_extra_data =
-  <| cd :closure_data
    ; nz :num (* size of recursive bundle *)
    ; ez :num (* size of creation-site environment *)
    ; ix :num (* position in recursive bundle *)
@@ -413,13 +407,13 @@ Cevaluate_list c s' env es (s'', Rval vs) /\
     ,(( REVERSE vs) ++(( REVERSE ( GENLIST (CRecClos cenv defs) ( LENGTH defs))) ++cenv))
     ,b)
   | INR l => let d = FAPPLY  c  l in
-             let (recs,envs) = d.cd.ceenv in
+             let (recs,envs) = d.ceenv in
     ( (l IN FDOM  c /\ EVERY (\ n . n < LENGTH cenv) envs /\ EVERY (\ n . n < LENGTH defs) recs)
-    ,d.cd.az
+    ,d.az
     ,d.nz
     ,d.ez
     , ( REVERSE vs ++(((CRecClos cenv defs n) :: MAP (CRecClos cenv defs) recs) ++ MAP (\n. EL n  cenv) envs))
-    ,d.cd.body)
+    ,d.body)
   )) /\
 Cevaluate c s'' env'' b r
 ==>
@@ -521,10 +515,10 @@ Cevaluate_list c s env (e ::es) (s'', Rerr err))`;
 /\
 (syneq_cb_aux c d nz ez (INR l) =
   let cd = FAPPLY  c  l in
-  let (recs,envs) = cd.cd.ceenv in
+  let (recs,envs) = cd.ceenv in
   ( (l IN FDOM  c /\ (cd.nz = nz) /\ (cd.ez = ez) /\ EVERY (\ n . n < nz) recs /\ EVERY (\ n . n < ez) envs /\ d < nz)
-  ,cd.cd.az
-  ,cd.cd.body
+  ,cd.az
+  ,cd.body
   ,(1 + LENGTH recs + LENGTH envs)
   ,(\ n . if n = 0 then if d < nz then CCRef d else CCArg n else
             if n < 1 + LENGTH recs then
@@ -960,8 +954,8 @@ val _ = Hol_datatype `
 
 
  val bind_fv_def = Define `
- (bind_fv e az nz j =
-  let j = nz - j - 1 in
+ (bind_fv e az nz ez ix =
+  let j = nz - ix - 1 in
   let fvs = free_vars e in
   let recs = FILTER (\ v . az +v IN fvs /\ ~  (v =j)) ( GENLIST (\ n . n) nz) in
   let envs = FILTER (\ v . az +nz <= v) ( QSORT (\ x y . x < y) ( SET_TO_LIST fvs)) in
@@ -973,7 +967,8 @@ val _ = Hol_datatype `
   let rz = rz - 1 in
   <| ccenv := (( GENLIST (\ i . CCArg (2 +i)) (az +1)) ++(( GENLIST CCRef rz) ++( GENLIST (\ i . CCEnv (rz +i)) ( LENGTH envs))))
    ; ceenv := (recs,envs)
-   ; az := az ; body := e |>)`;
+   ; az := az ; body := e
+   ; nz := nz ; ez := ez ; ix := ix |>)`;
 
 
  val label_defs_defn = Hol_defn "label_defs" `
@@ -987,7 +982,7 @@ val _ = Hol_datatype `
   (\ s . UNIT s.lnext_label
     ( s with<|
        lnext_label := s.lnext_label +1 ;
-       lcode_env := (s.lnext_label,(bind_fv b xs nz k)) ::s.lcode_env
+       lcode_env := (s.lnext_label,(bind_fv b xs nz 0 k)) ::s.lcode_env
      |>)) (\ n .
   (label_defs ((INR n) ::ds) nz (k +1) defs)))`;
 
