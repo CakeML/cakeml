@@ -8,6 +8,8 @@ val ALL_DISTINCT : forall 'a. list 'a -> bool
 (* TODO: lem library can't handle option type *)
 val some : forall 'a 'b. ('a -> bool) -> 'b
 val THE : forall 'a 'b. 'a -> 'b
+val ISL : forall 'a 'b. 'a -> 'b
+val OUTL : forall 'a 'b. 'a -> 'b
 val OPTREL : forall 'a 'b 'c 'd. ('a -> 'b -> bool) -> 'c -> 'd -> bool
 val FLOOKUP : forall 'a 'b 'c. fmap 'a 'b -> 'a -> 'c
 val int_of_num : num -> int

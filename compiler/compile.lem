@@ -40,6 +40,10 @@ val count : num -> set num
 let inline {hol} count = Hol.count
 val the : forall 'a 'b. 'a -> 'b
 let inline {hol} the = Hol.THE
+val ISL : forall 'a 'b. 'a -> 'b
+let inline {hol} ISL = Hol.ISL
+val OUTL : forall 'a 'b. 'a -> 'b
+let inline {hol} OUTL = Hol.OUTL
 val qsort : forall 'a. ('a -> 'a -> bool) -> list 'a -> list 'a
 let inline {hol} qsort = Hol.QSORT
 val lupdate : forall 'a. 'a -> num -> list 'a -> list 'a
@@ -894,7 +898,7 @@ type label_closures_state =
    ; lcode_env: list (num * closure_data)
    |>
 
-let rec bind_fv e az nz ez ix =
+let rec bind_fv (az,e) nz ez ix =
   let j = nz-ix-1 in
   let fvs = free_vars e in
   let recs = List.filter (fun v -> az+v IN fvs && not (v=j)) (genlist (fun n -> n) nz) in
@@ -915,6 +919,7 @@ let rec bind_fv e az nz ez ix =
    (* make label_defs into a simple MAP (or GENLIST), assuming all the defs are
     * INL to begin with *)
 
+   (*
 let rec
 label_defs ez (ds:list def) nz k ([]:list def) = return ds
 and
@@ -928,6 +933,29 @@ label_defs ez ds nz k ((Inl (xs,b))::defs) = bind
        lcode_env = (s.lnext_label,(bind_fv b xs nz ez k))::s.lcode_env
      |>) (fun n ->
   (label_defs ez ((Inr n)::ds) nz (k+1) defs))
+*)
+
+   (*
+let rec label_defs ez defs s =
+  let nz = List.length defs in
+  let n = s.lnext_label in
+  let bods = genlist (fun i ->
+    match List.nth defs i with
+    | Inr _ -> None (* should not happen *)
+    | Inl (xs,b) -> Some (n+i, bind_fv b xs nz ez i)
+    end) nz in
+  let bods = List.map the (List.filter isSome bods) in
+  let defs = genlist (fun i -> Inr (n+i)) nz in
+  return defs <| s with lnext_label = n + nz; lcode_env = bods@s.lcode_env |>
+  *)
+
+let rec label_defs ez defs s =
+  let nz = List.length defs in
+  let n = s.lnext_label in
+  let bods = genlist (fun i ->
+    (n+i, bind_fv (List.nth defs i) nz ez i)) nz in
+  let defs = genlist (fun i -> Inr (n+i)) nz in
+  return defs <| s with lnext_label = n + nz; lcode_env = bods@s.lcode_env |>
 
 let rec
 label_closures ez (CDecl xs) = return (CDecl xs)
@@ -961,13 +989,15 @@ label_closures ez (CLet e b) = bind
   (CLet e b)))
 and
 label_closures ez (CLetrec defs e) = bind
-  (label_defs ez [] (List.length defs) 0 defs) (fun defs -> bind
+  (label_defs ez (List.map OUTL (List.filter ISL defs))) (fun defs -> bind
   (label_closures (ez+List.length defs) e) (fun e -> return
-  (CLetrec (List.rev defs) e)))
+  (CLetrec defs e)))
 and
-label_closures ez (CFun cb) = bind
-  (label_defs ez [] 1 0 [cb]) (fun defs ->
+label_closures ez (CFun (Inl def)) = bind
+  (label_defs ez [def]) (fun defs ->
   return (CFun (List.nth defs 0)))
+and
+label_closures ez (CFun (Inr l)) = return (CFun (Inr l)) (* should not happen *)
 and
 label_closures ez (CCall e es) = bind
   (label_closures ez e) (fun e -> bind

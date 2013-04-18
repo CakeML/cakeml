@@ -43,6 +43,8 @@ val _ = new_theory "Compile"
 (*val pre : num -> num*)
 (*val count : num -> set num*)
 (*val the : forall 'a 'b. 'a -> 'b*)
+(*val ISL : forall 'a 'b. 'a -> 'b*)
+(*val OUTL : forall 'a 'b. 'a -> 'b*)
 (*val qsort : forall 'a. ('a -> 'a -> bool) -> list 'a -> list 'a*)
 (*val lupdate : forall 'a. 'a -> num -> list 'a -> list 'a*)
 (*val $some : forall 'a 'b. ('a -> bool) -> 'b*)
@@ -954,7 +956,7 @@ val _ = Hol_datatype `
 
 
  val bind_fv_def = Define `
- (bind_fv e az nz ez ix =
+ (bind_fv (az,e) nz ez ix =
   let j = nz - ix - 1 in
   let fvs = free_vars e in
   let recs = FILTER (\ v . az +v IN fvs /\ ~  (v =j)) ( GENLIST (\ n . n) nz) in
@@ -971,22 +973,47 @@ val _ = Hol_datatype `
    ; nz := nz ; ez := ez ; ix := ix |>)`;
 
 
- val label_defs_defn = Hol_defn "label_defs" `
+   (* make label_defs into a simple MAP (or GENLIST), assuming all the defs are
+    * INL to begin with *)
 
-(label_defs ez (ds: def list) nz k ([]: def list) = UNIT ds)
-/\
-(label_defs ez ds nz k ((INR a)::defs) =
-  label_defs ez ((INR a) ::ds) nz (k +1) defs)
-/\
-(label_defs ez ds nz k ((INL (xs,b))::defs) = BIND
-  (\ s . UNIT s.lnext_label
-    ( s with<|
-       lnext_label := s.lnext_label +1 ;
-       lcode_env := (s.lnext_label,(bind_fv b xs nz ez k)) ::s.lcode_env
-     |>)) (\ n .
-  (label_defs ez ((INR n) ::ds) nz (k +1) defs)))`;
+   (*
+let rec
+label_defs ez (ds:list def) nz k ([]:list def) = return ds
+and
+label_defs ez ds nz k ((Inr a)::defs) =
+  label_defs ez ((Inr a)::ds) nz (k+1) defs
+and
+label_defs ez ds nz k ((Inl (xs,b))::defs) = bind
+  (fun s -> return s.lnext_label
+    <| s with
+       lnext_label = s.lnext_label+1 ;
+       lcode_env = (s.lnext_label,(bind_fv b xs nz ez k))::s.lcode_env
+     |>) (fun n ->
+  (label_defs ez ((Inr n)::ds) nz (k+1) defs))
+*)
 
-val _ = Defn.save_defn label_defs_defn;
+   (*
+let rec label_defs ez defs s =
+  let nz = List.length defs in
+  let n = s.lnext_label in
+  let bods = genlist (fun i ->
+    match List.nth defs i with
+    | Inr _ -> None (* should not happen *)
+    | Inl (xs,b) -> Some (n+i, bind_fv b xs nz ez i)
+    end) nz in
+  let bods = List.map the (List.filter isSome bods) in
+  let defs = genlist (fun i -> Inr (n+i)) nz in
+  return defs <| s with lnext_label = n + nz; lcode_env = bods@s.lcode_env |>
+  *)
+
+ val label_defs_def = Define `
+ (label_defs ez defs s =
+  let nz = LENGTH defs in
+  let n = s.lnext_label in
+  let bods = GENLIST (\ i .
+    ((n +i), bind_fv ( EL  i  defs) nz ez i)) nz in
+  let defs = GENLIST (\ i . INR (n +i)) nz in UNIT defs ( s with<| lnext_label := n + nz; lcode_env := bods ++s.lcode_env |>))`;
+
 
  val label_closures_defn = Hol_defn "label_closures" `
 
@@ -1021,12 +1048,14 @@ val _ = Defn.save_defn label_defs_defn;
   (CLet e b))))
 /\
 (label_closures ez (CLetrec defs e) = BIND
-  (label_defs ez [] ( LENGTH defs) 0 defs) (\ defs . BIND
+  (label_defs ez ( MAP OUTL ( FILTER ISL defs))) (\ defs . BIND
   (label_closures (ez + LENGTH defs) e) (\ e . UNIT
-  (CLetrec ( REVERSE defs) e))))
+  (CLetrec defs e))))
 /\
-(label_closures ez (CFun cb) = BIND
-  (label_defs ez [] 1 0 [cb]) (\ defs . UNIT (CFun ( EL  0  defs))))
+(label_closures ez (CFun (INL def)) = BIND
+  (label_defs ez [def]) (\ defs . UNIT (CFun ( EL  0  defs))))
+/\
+(label_closures ez (CFun (INR l)) = UNIT (CFun (INR l))) (* should not happen *)
 /\
 (label_closures ez (CCall e es) = BIND
   (label_closures ez e) (\ e . BIND
