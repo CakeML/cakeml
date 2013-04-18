@@ -973,91 +973,91 @@ val _ = Hol_datatype `
 
  val label_defs_defn = Hol_defn "label_defs" `
 
-(label_defs (ds: def list) nz k ([]: def list) = UNIT ds)
+(label_defs ez (ds: def list) nz k ([]: def list) = UNIT ds)
 /\
-(label_defs ds nz k ((INR a)::defs) =
-  label_defs ((INR a) ::ds) nz (k +1) defs)
+(label_defs ez ds nz k ((INR a)::defs) =
+  label_defs ez ((INR a) ::ds) nz (k +1) defs)
 /\
-(label_defs ds nz k ((INL (xs,b))::defs) = BIND
+(label_defs ez ds nz k ((INL (xs,b))::defs) = BIND
   (\ s . UNIT s.lnext_label
     ( s with<|
        lnext_label := s.lnext_label +1 ;
-       lcode_env := (s.lnext_label,(bind_fv b xs nz 0 k)) ::s.lcode_env
+       lcode_env := (s.lnext_label,(bind_fv b xs nz ez k)) ::s.lcode_env
      |>)) (\ n .
-  (label_defs ((INR n) ::ds) nz (k +1) defs)))`;
+  (label_defs ez ((INR n) ::ds) nz (k +1) defs)))`;
 
 val _ = Defn.save_defn label_defs_defn;
 
  val label_closures_defn = Hol_defn "label_closures" `
 
-(label_closures (CDecl xs) = UNIT (CDecl xs))
+(label_closures ez (CDecl xs) = UNIT (CDecl xs))
 /\
-(label_closures (CRaise err) = UNIT (CRaise err))
+(label_closures ez (CRaise err) = UNIT (CRaise err))
 /\
-(label_closures (CHandle e1 e2) = BIND
-  (label_closures e1) (\ e1 . BIND
-  (label_closures e2) (\ e2 . UNIT
+(label_closures ez (CHandle e1 e2) = BIND
+  (label_closures ez e1) (\ e1 . BIND
+  (label_closures (ez +1) e2) (\ e2 . UNIT
   (CHandle e1 e2))))
 /\
-(label_closures (CVar x) = UNIT (CVar x))
+(label_closures ez (CVar x) = UNIT (CVar x))
 /\
-(label_closures (CLit l) = UNIT (CLit l))
+(label_closures ez (CLit l) = UNIT (CLit l))
 /\
-(label_closures (CCon cn es) = BIND
-  (label_closures_list es) (\ es . UNIT
+(label_closures ez (CCon cn es) = BIND
+  (label_closures_list ez es) (\ es . UNIT
   (CCon cn es)))
 /\
-(label_closures (CTagEq e n) = BIND
-  (label_closures e) (\ e . UNIT
+(label_closures ez (CTagEq e n) = BIND
+  (label_closures ez e) (\ e . UNIT
   (CTagEq e n)))
 /\
-(label_closures (CProj e n) = BIND
-  (label_closures e) (\ e . UNIT
+(label_closures ez (CProj e n) = BIND
+  (label_closures ez e) (\ e . UNIT
   (CProj e n)))
 /\
-(label_closures (CLet e b) = BIND
-  (label_closures e) (\ e . BIND
-  (label_closures b) (\ b . UNIT
+(label_closures ez (CLet e b) = BIND
+  (label_closures ez e) (\ e . BIND
+  (label_closures (ez +1) b) (\ b . UNIT
   (CLet e b))))
 /\
-(label_closures (CLetrec defs e) = BIND
-  (label_defs [] ( LENGTH defs) 0 defs) (\ defs . BIND
-  (label_closures e) (\ e . UNIT
+(label_closures ez (CLetrec defs e) = BIND
+  (label_defs ez [] ( LENGTH defs) 0 defs) (\ defs . BIND
+  (label_closures (ez + LENGTH defs) e) (\ e . UNIT
   (CLetrec ( REVERSE defs) e))))
 /\
-(label_closures (CFun cb) = BIND
-  (label_defs [] 1 0 [cb]) (\ defs . UNIT (CFun ( EL  0  defs))))
+(label_closures ez (CFun cb) = BIND
+  (label_defs ez [] 1 0 [cb]) (\ defs . UNIT (CFun ( EL  0  defs))))
 /\
-(label_closures (CCall e es) = BIND
-  (label_closures e) (\ e . BIND
-  (label_closures_list es) (\ es . UNIT
+(label_closures ez (CCall e es) = BIND
+  (label_closures ez e) (\ e . BIND
+  (label_closures_list ez es) (\ es . UNIT
   (CCall e es))))
 /\
-(label_closures (CPrim1 uop e) = BIND
-  (label_closures e) (\ e . UNIT
+(label_closures ez (CPrim1 uop e) = BIND
+  (label_closures ez e) (\ e . UNIT
     (CPrim1 uop e)))
 /\
-(label_closures (CPrim2 op e1 e2) = BIND
-  (label_closures e1) (\ e1 . BIND
-  (label_closures e2) (\ e2 . UNIT
+(label_closures ez (CPrim2 op e1 e2) = BIND
+  (label_closures ez e1) (\ e1 . BIND
+  (label_closures ez e2) (\ e2 . UNIT
   (CPrim2 op e1 e2))))
 /\
-(label_closures (CUpd e1 e2) = BIND
-  (label_closures e1) (\ e1 . BIND
-  (label_closures e2) (\ e2 . UNIT
+(label_closures ez (CUpd e1 e2) = BIND
+  (label_closures ez e1) (\ e1 . BIND
+  (label_closures ez e2) (\ e2 . UNIT
   (CUpd e1 e2))))
 /\
-(label_closures (CIf e1 e2 e3) = BIND
-  (label_closures e1) (\ e1 . BIND
-  (label_closures e2) (\ e2 . BIND
-  (label_closures e3) (\ e3 . UNIT
+(label_closures ez (CIf e1 e2 e3) = BIND
+  (label_closures ez e1) (\ e1 . BIND
+  (label_closures ez e2) (\ e2 . BIND
+  (label_closures ez e3) (\ e3 . UNIT
   (CIf e1 e2 e3)))))
 /\
-(label_closures_list [] = UNIT [])
+(label_closures_list ez [] = UNIT [])
 /\
-(label_closures_list (e::es) = BIND
-  (label_closures e) (\ e . BIND
-  (label_closures_list es) (\ es . UNIT
+(label_closures_list ez (e::es) = BIND
+  (label_closures ez e) (\ e . BIND
+  (label_closures_list ez es) (\ es . UNIT
   (e ::es))))`;
 
 val _ = Defn.save_defn label_closures_defn;
@@ -1119,7 +1119,7 @@ val _ = Defn.save_defn imm_unlab_defn;
 (repeat_label_closures e n ac =
   if imm_unlab e = 0 then (e,n,ac) else
   let s = <| lnext_label := n; lcode_env := [] |> in
-  let (e,s) = label_closures e s in
+  let (e,s) = label_closures 0 e s in
   let (n,ac) = label_code_env s.lnext_label ac s.lcode_env in
   (e,n,ac))
 /\

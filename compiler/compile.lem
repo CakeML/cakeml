@@ -913,89 +913,89 @@ let rec bind_fv e az nz ez ix =
    ; nz = nz ; ez = ez ; ix = ix |>
 
 let rec
-label_defs (ds:list def) nz k ([]:list def) = return ds
+label_defs ez (ds:list def) nz k ([]:list def) = return ds
 and
-label_defs ds nz k ((Inr a)::defs) =
-  label_defs ((Inr a)::ds) nz (k+1) defs
+label_defs ez ds nz k ((Inr a)::defs) =
+  label_defs ez ((Inr a)::ds) nz (k+1) defs
 and
-label_defs ds nz k ((Inl (xs,b))::defs) = bind
+label_defs ez ds nz k ((Inl (xs,b))::defs) = bind
   (fun s -> return s.lnext_label
     <| s with
        lnext_label = s.lnext_label+1 ;
-       lcode_env = (s.lnext_label,(bind_fv b xs nz 0 k))::s.lcode_env
+       lcode_env = (s.lnext_label,(bind_fv b xs nz ez k))::s.lcode_env
      |>) (fun n ->
-  (label_defs ((Inr n)::ds) nz (k+1) defs))
+  (label_defs ez ((Inr n)::ds) nz (k+1) defs))
 
 let rec
-label_closures (CDecl xs) = return (CDecl xs)
+label_closures ez (CDecl xs) = return (CDecl xs)
 and
-label_closures (CRaise err) = return (CRaise err)
+label_closures ez (CRaise err) = return (CRaise err)
 and
-label_closures (CHandle e1 e2) = bind
-  (label_closures e1) (fun e1 -> bind
-  (label_closures e2) (fun e2 -> return
+label_closures ez (CHandle e1 e2) = bind
+  (label_closures ez e1) (fun e1 -> bind
+  (label_closures (ez+1) e2) (fun e2 -> return
   (CHandle e1 e2)))
 and
-label_closures (CVar x) = return (CVar x)
+label_closures ez (CVar x) = return (CVar x)
 and
-label_closures (CLit l) = return (CLit l)
+label_closures ez (CLit l) = return (CLit l)
 and
-label_closures (CCon cn es) = bind
-  (label_closures_list es) (fun es -> return
+label_closures ez (CCon cn es) = bind
+  (label_closures_list ez es) (fun es -> return
   (CCon cn es))
 and
-label_closures (CTagEq e n) = bind
-  (label_closures e) (fun e -> return
+label_closures ez (CTagEq e n) = bind
+  (label_closures ez e) (fun e -> return
   (CTagEq e n))
 and
-label_closures (CProj e n) = bind
-  (label_closures e) (fun e -> return
+label_closures ez (CProj e n) = bind
+  (label_closures ez e) (fun e -> return
   (CProj e n))
 and
-label_closures (CLet e b) = bind
-  (label_closures e) (fun e -> bind
-  (label_closures b) (fun b -> return
+label_closures ez (CLet e b) = bind
+  (label_closures ez e) (fun e -> bind
+  (label_closures (ez+1) b) (fun b -> return
   (CLet e b)))
 and
-label_closures (CLetrec defs e) = bind
-  (label_defs [] (List.length defs) 0 defs) (fun defs -> bind
-  (label_closures e) (fun e -> return
+label_closures ez (CLetrec defs e) = bind
+  (label_defs ez [] (List.length defs) 0 defs) (fun defs -> bind
+  (label_closures (ez+List.length defs) e) (fun e -> return
   (CLetrec (List.rev defs) e)))
 and
-label_closures (CFun cb) = bind
-  (label_defs [] 1 0 [cb]) (fun defs ->
+label_closures ez (CFun cb) = bind
+  (label_defs ez [] 1 0 [cb]) (fun defs ->
   return (CFun (List.nth defs 0)))
 and
-label_closures (CCall e es) = bind
-  (label_closures e) (fun e -> bind
-  (label_closures_list es) (fun es -> return
+label_closures ez (CCall e es) = bind
+  (label_closures ez e) (fun e -> bind
+  (label_closures_list ez es) (fun es -> return
   (CCall e es)))
 and
-label_closures (CPrim1 uop e) = bind
-  (label_closures e) (fun e -> return
+label_closures ez (CPrim1 uop e) = bind
+  (label_closures ez e) (fun e -> return
     (CPrim1 uop e))
 and
-label_closures (CPrim2 op e1 e2) = bind
-  (label_closures e1) (fun e1 -> bind
-  (label_closures e2) (fun e2 -> return
+label_closures ez (CPrim2 op e1 e2) = bind
+  (label_closures ez e1) (fun e1 -> bind
+  (label_closures ez e2) (fun e2 -> return
   (CPrim2 op e1 e2)))
 and
-label_closures (CUpd e1 e2) = bind
-  (label_closures e1) (fun e1 -> bind
-  (label_closures e2) (fun e2 -> return
+label_closures ez (CUpd e1 e2) = bind
+  (label_closures ez e1) (fun e1 -> bind
+  (label_closures ez e2) (fun e2 -> return
   (CUpd e1 e2)))
 and
-label_closures (CIf e1 e2 e3) = bind
-  (label_closures e1) (fun e1 -> bind
-  (label_closures e2) (fun e2 -> bind
-  (label_closures e3) (fun e3 -> return
+label_closures ez (CIf e1 e2 e3) = bind
+  (label_closures ez e1) (fun e1 -> bind
+  (label_closures ez e2) (fun e2 -> bind
+  (label_closures ez e3) (fun e3 -> return
   (CIf e1 e2 e3))))
 and
-label_closures_list [] = return []
+label_closures_list ez [] = return []
 and
-label_closures_list (e::es) = bind
-  (label_closures e) (fun e -> bind
-  (label_closures_list es) (fun es -> return
+label_closures_list ez (e::es) = bind
+  (label_closures ez e) (fun e -> bind
+  (label_closures_list ez es) (fun es -> return
   (e::es)))
 
 let rec (* TODO: replace by SUM o FILTER ISR ? *)
@@ -1048,7 +1048,7 @@ let rec
 repeat_label_closures e n ac =
   if imm_unlab e = 0 then (e,n,ac) else
   let s = <| lnext_label = n; lcode_env = [] |> in
-  let (e,s) = label_closures e s in
+  let (e,s) = label_closures 0 e s in
   let (n,ac) = label_code_env s.lnext_label ac s.lcode_env in
   (e,n,ac)
 and
