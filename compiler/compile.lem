@@ -912,6 +912,9 @@ let rec bind_fv e az nz ez ix =
    ; az = az ; body = e
    ; nz = nz ; ez = ez ; ix = ix |>
 
+   (* make label_defs into a simple MAP (or GENLIST), assuming all the defs are
+    * INL to begin with *)
+
 let rec
 label_defs ez (ds:list def) nz k ([]:list def) = return ds
 and
