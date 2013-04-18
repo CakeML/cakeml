@@ -5,6 +5,7 @@ fun rator_x_assum q ttac = Q_TAC (C RATOR_X_ASSUM ttac) q
 fun RATOR_ASSUM t ttac (g as (asl,w)) = ttac (ASSUME (first (can (match_term t) o fst o strip_comb) asl)) g
 fun rator_assum q ttac = Q_TAC (C RATOR_ASSUM ttac) q
 val rev_assum_list = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC)
+fun last_assum x = rev_assum_list >> first_assum x >> rev_assum_list
 fun last_x_assum x = rev_assum_list >> first_x_assum x >> rev_assum_list
 fun qx_choosel_then [] ttac = ttac
   | qx_choosel_then (q::qs) ttac = Q.X_CHOOSE_THEN q (qx_choosel_then qs ttac)
