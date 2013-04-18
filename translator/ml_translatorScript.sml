@@ -300,6 +300,23 @@ val FUN_EXISTS_Eq = prove(
 val FUN_QUANT_SIMP = save_thm("FUN_QUANT_SIMP",
   LIST_CONJ [FUN_EXISTS_Eq,FUN_FORALL_PUSH1,FUN_FORALL_PUSH2]);
 
+val Eval_Recclosure_ALT = store_thm("Eval_Recclosure_ALT",
+  ``!funs fname name body.
+    (!v. a n v ==>
+  Eval ((name,v)::FOLDR (\(f,x,e) env'. (f,Recclosure env2 funs f)::env') env2
+           funs) body (b (f n))) ==>
+    LOOKUP_VAR fname env (Recclosure env2 funs fname) ==>
+    (find_recfun fname funs = SOME (name,body)) ==>
+    Eval env (Var (Short fname)) ((Eq a n --> b) f)``,
+  NTAC 6 STRIP_TAC \\ IMP_RES_TAC LOOKUP_VAR_THM
+  \\ POP_ASSUM MP_TAC \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM MP_TAC
+  \\ FULL_SIMP_TAC std_ss [Eval_def,Arrow_def] \\ REPEAT STRIP_TAC
+  \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate'_cases]
+  \\ FULL_SIMP_TAC (srw_ss()) [AppReturns_def,Eq_def,
+       do_app_def,evaluate_closure_def]
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ FULL_SIMP_TAC (srw_ss()) [bind_def,build_rec_env_def,FOLDR,tenv_add_tvs_def]);
+
 val Eval_Recclosure = store_thm("Eval_Recclosure",
   ``(!v. a n v ==>
   Eval ((name,v)::(fname,Recclosure env2 [(fname,name,body)] fname)::env2) body (b (f n))) ==>
@@ -725,7 +742,7 @@ val evaluate_list'_empty_store = prove(
   REPEAT STRIP_TAC \\ IMP_RES_TAC evaluate'_empty_store_lemma
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
-(* 
+(*
 val evaluate_decs'_empty_store_IMP = prove(
   ``!ds1 mn menv cenv1 s2 env'.
       evaluate_decs' mn menv cenv1 s2 env' ds1 (empty_store,Rval (cenv3,env3)) ==>
@@ -758,7 +775,7 @@ rw [combine_dec_result_def]);
 val Decls_APPEND = store_thm("Decls_APPEND",
   ``!s1 s3 mn menv cenv1 cenv4 ds1 ds2 env1 env4.
       Decls mn menv cenv1 s1 env1 (ds1 ++ ds2) cenv4 s3 env4 =
-      ?cenv2 s2 env2 cenv3 env3. 
+      ?cenv2 s2 env2 cenv3 env3.
                       (cenv4 = merge cenv3 cenv2) ∧
                       (env4 = merge env3 env2) ∧
                       Decls mn menv cenv1 s1 env1 ds1 cenv2 s2 env2 /\
