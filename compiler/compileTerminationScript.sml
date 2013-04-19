@@ -182,11 +182,84 @@ val _ = register "num_fold" (
   tprove_no_defn ((num_fold_def,num_fold_ind),
   WF_REL_TAC `measure (SND o SND)`))
 
+val zero_vars_def = tDefine "zero_vars"`
+  (zero_vars (CDecl a) = CDecl (MAP (λ(n,m). (0,m)) a)) ∧
+  (zero_vars (CRaise b) = CRaise b) ∧
+  (zero_vars (CHandle e1 e2) = CHandle (zero_vars e1) (zero_vars e2)) ∧
+  (zero_vars (CVar _) = CVar 0) ∧
+  (zero_vars (CLit c) = CLit c) ∧
+  (zero_vars (CCon cn es) = CCon cn (zero_vars_list es)) ∧
+  (zero_vars (CTagEq e n) = CTagEq (zero_vars e) n) ∧
+  (zero_vars (CProj e n) = CProj (zero_vars e) n) ∧
+  (zero_vars (CLet e1 e2) = CLet (zero_vars e1) (zero_vars e2)) ∧
+  (zero_vars (CLetrec defs e) = CLetrec (zero_vars_defs defs) (zero_vars e)) ∧
+  (zero_vars (CFun def) = CFun (zero_vars_def def)) ∧
+  (zero_vars (CCall e es) = CCall (zero_vars e) (zero_vars_list es)) ∧
+  (zero_vars (CPrim1 p1 e2) = CPrim1 p1 (zero_vars e2)) ∧
+  (zero_vars (CPrim2 p2 e1 e2) = CPrim2 p2 (zero_vars e1) (zero_vars e2)) ∧
+  (zero_vars (CUpd e1 e2) = CUpd (zero_vars e1) (zero_vars e2)) ∧
+  (zero_vars (CIf e1 e2 e3) = CIf (zero_vars e1) (zero_vars e2) (zero_vars e3)) ∧
+  (zero_vars_list [] = []) ∧
+  (zero_vars_list (e::es) = (zero_vars e)::(zero_vars_list es)) ∧
+  (zero_vars_defs [] = []) ∧
+  (zero_vars_defs (def::defs) = (zero_vars_def def)::(zero_vars_defs defs)) ∧
+  (zero_vars_def (INL (xs,b)) = INL (xs,zero_vars b)) ∧
+  (zero_vars_def (INR l) = INR l)`
+  (WF_REL_TAC`inv_image $< (λx. case x of INL e => Cexp_size e |
+    INR (INL es) => Cexp4_size es |
+    INR (INR (INL defs)) => Cexp1_size defs |
+    INR(INR(INR def)) => Cexp2_size def)`)
+
+val zero_vars_list_MAP = store_thm("zero_vars_list_MAP",
+  ``(∀ls. (zero_vars_list ls = MAP (zero_vars) ls)) ∧
+    (∀ls. (zero_vars_defs ls = MAP (zero_vars_def) ls))``,
+  conj_tac >> Induct >> rw[zero_vars_def])
+val _ = export_rewrites["zero_vars_def","zero_vars_list_MAP"]
+
+val zero_vars_mkshift = store_thm("zero_vars_mkshift",
+  ``∀f k e. zero_vars (mkshift f k e) = zero_vars e``,
+  ho_match_mp_tac mkshift_ind >>
+  rw[mkshift_def,MAP_MAP_o,combinTheory.o_DEF,LET_THM] >>
+  lrw[MAP_EQ_f,UNCURRY] >>
+  BasicProvers.CASE_TAC >>
+  BasicProvers.CASE_TAC >> rw[] >>
+  fsrw_tac[ARITH_ss][])
+val _ = export_rewrites["zero_vars_mkshift"]
+
 val (label_closures_def,label_closures_ind) = register "label_closures" (
   tprove_no_defn ((label_closures_def, label_closures_ind),
-  WF_REL_TAC`inv_image $< (λx. case x of INL (ez,e) => Cexp_size e | INR (ez,ls) => Cexp4_size ls)` ))
+  WF_REL_TAC`inv_image $< (λx. case x of
+    | INL (ez,ls,e) => Cexp_size (zero_vars e)
+    | INR (INL (ez,ls,es)) => Cexp4_size (zero_vars_list es)
+    | INR (INR (ez,ls,nz,k,defs)) => SUM (MAP Cexp2_size (MAP (zero_vars_def o INL) defs)))` >>
+  srw_tac[ARITH_ss][Cexp_size_def,SUM_MAP_Cexp3_size_thm,Cexp1_size_thm,SUM_MAP_Cexp2_size_thm,basicSizeTheory.pair_size_def] >- (
+    simp[MAP_MAP_o,combinTheory.o_DEF] >>
+    qmatch_abbrev_tac`a + (b + c) < d + ((2 * f) + (g + (h + 1:num)))` >>
+    qsuff_tac`a ≤ f ∧ (b = 0) ∧ (c = h)` >- simp[] >>
+    unabbrev_all_tac >>
+    conj_tac >- simp[rich_listTheory.LENGTH_FILTER_LEQ] >>
+    conj_tac >- (
+      simp[SUM_eq_0,MEM_MAP,MEM_FILTER] >>
+      qx_gen_tac`a` >> fsrw_tac[DNF_ss][] >>
+      qx_gen_tac`b` >>
+      Cases_on`b`>>simp[]>>
+      Cases_on`x`>>simp[] ) >>
+    AP_TERM_TAC >>
+    AP_TERM_TAC >>
+    qmatch_abbrev_tac`FILTER ISL (MAP f (FILTER ISL defs)) = FILTER ISL (MAP g defs)` >>
+    `MAP f (FILTER ISL defs) = MAP g (FILTER ISL defs)` by (
+      lrw[MAP_EQ_f,MEM_FILTER,Abbr`f`] ) >>
+    simp[] >>
+    qsuff_tac`MAP g (FILTER ISL defs) = FILTER ISL (MAP g defs)` >- (
+      srw_tac[ETA_ss][rich_listTheory.FILTER_FILTER] ) >>
+    match_mp_tac rich_listTheory.MAP_FILTER >>
+    simp[Abbr`g`] >>
+    Cases >> simp[] >>
+    qmatch_abbrev_tac`ISL (zero_vars_def (INL y))` >>
+    Cases_on`y`>>simp[] ) >>
+  simp[bind_fv_def]))
 
-val body_count_def = register"body_count" (
+val (body_count_def,body_count_ind) = register"body_count" (
   tprove_no_defn ((body_count_def,body_count_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
     | INL b => (Cexp_size b, 1:num)
@@ -201,12 +274,6 @@ val body_count_list_MAP = store_thm("body_count_list_MAP",
   ``∀ls. body_count_list ls = SUM (MAP body_count ls)``,
   Induct >> rw[])
 val _ = export_rewrites["body_count_list_MAP"]
-
-val label_closures_list_mapM = store_thm("label_closures_list_mapM",
-  ``label_closures_list ez = mapM (label_closures ez)``,
-  fs[Once FUN_EQ_THM] >>
-  Induct >> rw[label_closures_def,mapM_cons])
-val _ = export_rewrites["label_closures_list_mapM"]
 
 val body_count_mkshift = store_thm("body_count_mkshift",
   ``∀f k e. body_count (mkshift f k e) = body_count e``,
@@ -224,136 +291,6 @@ val _ = export_rewrites["body_count_mkshift"]
 val body_count_bind_fv = store_thm("body_count_bind_fv",
   ``body_count (bind_fv azb nz ez k).body = body_count (SND azb)``,
   Cases_on`azb` >> rw[bind_fv_def] >> rw[Abbr`e`])
-
-val label_closures_body_count = store_thm("label_closures_body_count",
-  ``(∀e ez s cd s'. ((cd,s') = label_closures ez e s) ⇒
-                 ∃c. (s'.lcode_env = c++s.lcode_env) ∧
-                     (body_count e = list_size (body_count o closure_data_body o SND) c)) ∧
-    (∀ds ez s (ds':def list) s'. ((ds',s') = label_defs ez (MAP OUTL (FILTER ISL ds)) s) ⇒
-                 ∃c. (s'.lcode_env = c++s.lcode_env) ∧
-                     (SUM (MAP body_count_def ds) = list_size (body_count o closure_data_body o SND) c)) ∧
-    (∀x:def. T) ∧ (∀x:(num#Cexp). T) ∧
-    (∀es ez s es' s'. ((es',s') = label_closures_list ez es s) ⇒
-                 ∃c. (s'.lcode_env = c++s.lcode_env) ∧
-                     (SUM (MAP body_count es) = list_size (body_count o closure_data_body o SND) c))``,
-  ho_match_mp_tac (TypeBase.induction_of``:Cexp``) >>
-  srw_tac[DNF_ss][label_closures_def,list_size_thm,SUM_eq_0,MEM_MAP,LENGTH_NIL,UNIT_DEF,BIND_DEF]
-  >- (
-    qabbrev_tac `q = label_closures ez e s` >>
-    PairCases_on`q`>>fs[] >>
-    qabbrev_tac `p = label_closures (ez+1) e' q1` >>
-    PairCases_on`p`>>fs[] >>
-    first_x_assum (qspecl_then[`ez+1`,`q1`,`p0`,`p1`]mp_tac) >>
-    first_x_assum (qspecl_then[`ez`,`s`,`q0`,`q1`]mp_tac) >>
-    rw[] >> fs[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
-  >- (
-    Cases_on `mapM (label_closures ez) es s` >> fs[] >> rw[] >>
-    metis_tac[] )
-  >- ( Cases_on `label_closures ez e s` >> first_x_assum(qspecl_then[`ez`,`s`]mp_tac) >>  rw[] >>fs[])
-  >- ( Cases_on `label_closures ez e s` >> first_x_assum(qspecl_then[`ez`,`s`]mp_tac) >>  rw[] >>fs[])
-  >- (
-    qabbrev_tac `q = label_closures ez e s` >>
-    PairCases_on`q`>>fs[] >>
-    qabbrev_tac `p = label_closures (ez+1) e' q1` >>
-    PairCases_on`p`>>fs[] >>
-    first_x_assum (qspecl_then[`ez+1`,`q1`,`p0`,`p1`]mp_tac) >>
-    first_x_assum (qspecl_then[`ez`,`s`,`q0`,`q1`]mp_tac) >>
-    rw[] >> fs[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
-  >- (
-    qabbrev_tac `p:(def list#label_closures_state) = label_defs ez (MAP OUTL (FILTER ISL (ds:def list))) s` >>
-    PairCases_on `p` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`ez`,`s`,`p0`,`p1`] mp_tac) >> rw[] >> fs[] >>
-    qabbrev_tac `q = label_closures (ez + LENGTH p0) e p1` >>
-    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`ez+LENGTH p0`,`p1`,`q0`,`q1`] mp_tac) >> rw[] >>
-    fs[] >> rw[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND])
-  >- (
-    Cases_on `x` >> TRY (Cases_on`x'`) >> fs[label_closures_def,label_defs_def,UNIT_DEF,BIND_DEF,LET_THM] >>
-    srw_tac[ARITH_ss][bind_fv_def] >>
-    rw[Abbr`e`])
-  >- (
-    qabbrev_tac `q = label_closures ez e s` >>
-    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`ez`,`s`,`q0`,`q1`] mp_tac) >> rw[] >>
-    fs[UNCURRY] >> rw[] >>
-    qabbrev_tac `p = mapM (label_closures ez) es q1` >>
-    PairCases_on `p` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`ez`,`q1`,`p0`,`p1`] mp_tac) >> rw[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
-  >- (
-    qabbrev_tac `q = label_closures ez e s` >>
-    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`ez`,`s`,`q0`,`q1`] mp_tac) >>
-    fs[UNCURRY] >> rw[] )
-  >- (
-    qabbrev_tac `q = label_closures ez e s` >>
-    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`ez`,`q1`] mp_tac) >>
-    first_x_assum (qspecl_then [`ez`,`s`,`q0`,`q1`] mp_tac) >>
-    fs[UNCURRY] >> rw[] >>
-    qabbrev_tac `p = label_closures ez e' q1` >>
-    PairCases_on `p` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`p0`,`p1`] mp_tac) >> rw[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
-  >- (
-    qabbrev_tac `q = label_closures ez e s` >>
-    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`ez`,`q1`] mp_tac) >>
-    first_x_assum (qspecl_then [`ez`,`s`,`q0`,`q1`] mp_tac) >>
-    fs[UNCURRY] >> rw[] >>
-    qabbrev_tac `p = label_closures ez e' q1` >>
-    PairCases_on `p` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`p0`,`p1`] mp_tac) >> rw[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
-  >- (
-    qabbrev_tac `q = label_closures ez e s` >>
-    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`ez`,`SND (label_closures ez e' q1)`] mp_tac) >>
-    first_x_assum (qspecl_then [`ez`,`q1`] mp_tac) >>
-    first_x_assum (qspecl_then [`ez`,`s`,`q0`,`q1`] mp_tac) >>
-    fs[UNCURRY] >> rw[] >>
-    qabbrev_tac `p = label_closures ez e' q1` >>
-    PairCases_on `p` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    qpat_assum `!x. y` mp_tac >>
-    first_x_assum (qspecl_then [`p0`,`p1`] mp_tac) >> rw[] >>
-    qabbrev_tac `r = label_closures ez e'' p1` >>
-    PairCases_on `r` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`r0`,`r1`] mp_tac) >> rw[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
-  >- (
-    fs[label_defs_def,UNIT_DEF,LET_THM] )
-  >- (
-    fs[label_defs_def,LET_THM,UNIT_DEF] >>
-    first_x_assum(qspecl_then[`ez`,`s`]strip_assume_tac) >> rw[] >>
-    pop_assum kall_tac >>
-    Cases_on`x`>>TRY(Cases_on`x'`)>> simp[body_count_bind_fv] >> fs[] >>
-    simp[GENLIST_CONS,body_count_bind_fv,combinTheory.o_DEF,MAP_GENLIST])
-  >- (
-    Cases_on`x`>>fs[] >>
-    fs[label_defs_def,LET_THM,UNIT_DEF] )
-  >- (
-    qabbrev_tac `q = label_closures ez e s` >>
-    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`ez`,`s`,`q0`,`q1`] mp_tac) >> rw[] >>
-    fs[UNCURRY] >> rw[] >>
-    qabbrev_tac `p = mapM (label_closures ez) es q1` >>
-    PairCases_on `p` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`ez`,`q1`,`p0`,`p1`] mp_tac) >> rw[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] ))
-
-val _ = register "repeat_label_closures" (
-  tprove_no_defn ((repeat_label_closures_def,repeat_label_closures_ind),
-  WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
-    | (INL (e,n,ac)) =>  (body_count e,1:num)
-    | (INR (n,ac,ls)) => (list_size (body_count o closure_data_body o SND) ls),0)` >>
-  srw_tac[ARITH_ss][list_size_thm] >>
-  disj2_tac >>
-  imp_res_tac label_closures_body_count >>
-  fs[list_size_thm] >>
-  srw_tac[ETA_ss,ARITH_ss][combinTheory.o_DEF]))
 
 val _ = save_thm("cce_aux_def",cce_aux_def)
 val _ = save_thm("compile_code_env_def",compile_code_env_def)

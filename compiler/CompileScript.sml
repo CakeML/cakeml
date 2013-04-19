@@ -948,13 +948,6 @@ val _ = Defn.save_defn exp_to_Cexp_defn;
 
 (* pull closure bodies into code environment *)
 
-val _ = Hol_datatype `
- label_closures_state =
-  <| lnext_label: num
-   ; lcode_env: (num # closure_data) list
-   |>`;
-
-
  val bind_fv_def = Define `
  (bind_fv (az,e) nz ez ix =
   let j = nz - ix - 1 in
@@ -972,91 +965,6 @@ val _ = Hol_datatype `
    ; az := az ; body := e
    ; nz := nz ; ez := ez ; ix := ix |>)`;
 
-
- val label_defs_def = Define `
- (label_defs ez defs s =
-  let nz = LENGTH defs in
-  let n = s.lnext_label in
-  let bods = GENLIST (\ i .
-    ((n +i), bind_fv ( EL  i  defs) nz ez i)) nz in
-  let defs = GENLIST (\ i . INR (n +i)) nz in UNIT defs ( s with<| lnext_label := n + nz; lcode_env := bods ++s.lcode_env |>))`;
-
-
- val label_closures_defn = Hol_defn "label_closures" `
-
-(label_closures ez (CDecl xs) = UNIT (CDecl xs))
-/\
-(label_closures ez (CRaise err) = UNIT (CRaise err))
-/\
-(label_closures ez (CHandle e1 e2) = BIND
-  (label_closures ez e1) (\ e1 . BIND
-  (label_closures (ez +1) e2) (\ e2 . UNIT
-  (CHandle e1 e2))))
-/\
-(label_closures ez (CVar x) = UNIT (CVar x))
-/\
-(label_closures ez (CLit l) = UNIT (CLit l))
-/\
-(label_closures ez (CCon cn es) = BIND
-  (label_closures_list ez es) (\ es . UNIT
-  (CCon cn es)))
-/\
-(label_closures ez (CTagEq e n) = BIND
-  (label_closures ez e) (\ e . UNIT
-  (CTagEq e n)))
-/\
-(label_closures ez (CProj e n) = BIND
-  (label_closures ez e) (\ e . UNIT
-  (CProj e n)))
-/\
-(label_closures ez (CLet e b) = BIND
-  (label_closures ez e) (\ e . BIND
-  (label_closures (ez +1) b) (\ b . UNIT
-  (CLet e b))))
-/\
-(label_closures ez (CLetrec defs e) = BIND
-  (label_defs ez ( MAP OUTL ( FILTER ISL defs))) (\ defs . BIND
-  (label_closures (ez + LENGTH defs) e) (\ e . UNIT
-  (CLetrec defs e))))
-/\
-(label_closures ez (CFun (INL def)) = BIND
-  (label_defs ez [def]) (\ defs . UNIT (CFun ( EL  0  defs))))
-/\
-(label_closures ez (CFun (INR l)) = UNIT (CFun (INR l))) (* should not happen *)
-/\
-(label_closures ez (CCall e es) = BIND
-  (label_closures ez e) (\ e . BIND
-  (label_closures_list ez es) (\ es . UNIT
-  (CCall e es))))
-/\
-(label_closures ez (CPrim1 uop e) = BIND
-  (label_closures ez e) (\ e . UNIT
-    (CPrim1 uop e)))
-/\
-(label_closures ez (CPrim2 op e1 e2) = BIND
-  (label_closures ez e1) (\ e1 . BIND
-  (label_closures ez e2) (\ e2 . UNIT
-  (CPrim2 op e1 e2))))
-/\
-(label_closures ez (CUpd e1 e2) = BIND
-  (label_closures ez e1) (\ e1 . BIND
-  (label_closures ez e2) (\ e2 . UNIT
-  (CUpd e1 e2))))
-/\
-(label_closures ez (CIf e1 e2 e3) = BIND
-  (label_closures ez e1) (\ e1 . BIND
-  (label_closures ez e2) (\ e2 . BIND
-  (label_closures ez e3) (\ e3 . UNIT
-  (CIf e1 e2 e3)))))
-/\
-(label_closures_list ez [] = UNIT [])
-/\
-(label_closures_list ez (e::es) = BIND
-  (label_closures ez e) (\ e . BIND
-  (label_closures_list ez es) (\ es . UNIT
-  (e ::es))))`;
-
-val _ = Defn.save_defn label_closures_defn;
 
  val body_count_defn = Hol_defn "body_count" `
 
@@ -1102,22 +1010,94 @@ val _ = Defn.save_defn label_closures_defn;
 
 val _ = Defn.save_defn body_count_defn;
 
- val repeat_label_closures_defn = Hol_defn "repeat_label_closures" `
+ val label_closures_defn = Hol_defn "label_closures" `
 
-(repeat_label_closures e n ac =
-  if body_count e = 0 then (e,n,ac) else (* TODO: body_count e = 0 can be replaced with a faster predicate *)
-  let s = <| lnext_label := n; lcode_env := [] |> in
-  let (e,s) = label_closures 0 e s in
-  let (n,ac) = label_code_env s.lnext_label ac s.lcode_env in
-  (e,n,ac))
+(label_closures ez ls (CDecl xs) = (CDecl xs, [], ls))
 /\
-(label_code_env n ac [] = (n,ac))
+(label_closures ez ls (CRaise err) = (CRaise err, [], ls))
 /\
-(label_code_env n ac ((l,cd)::ls) =
-  let (e,n,ac) = repeat_label_closures cd.body n ac in
-  label_code_env n ((l,( cd with<| body := e |>)) ::ac) ls)`;
+(label_closures ez ls (CHandle e1 e2) =
+  let (e1,c1,ls) = label_closures ez ls e1 in
+  let (e2,c2,ls) = label_closures (ez +1) ls e2 in
+  (CHandle e1 e2, (c1 ++c2), ls))
+/\
+(label_closures ez ls (CVar x) = (CVar x, [], ls))
+/\
+(label_closures ez ls (CLit l) = (CLit l, [], ls))
+/\
+(label_closures ez ls (CCon cn es) =
+  let (es,c,ls) = label_closures_list ez ls es in
+  (CCon cn es,c,ls))
+/\
+(label_closures ez ls (CTagEq e n) =
+  let (e,c,ls) = label_closures ez ls e in
+  (CTagEq e n,c,ls))
+/\
+(label_closures ez ls (CProj e n) =
+  let (e,c,ls) = label_closures ez ls e in
+  (CProj e n,c,ls))
+/\
+(label_closures ez ls (CLet e1 e2) =
+  let (e1,c1,ls) = label_closures ez ls e1 in
+  let (e2,c2,ls) = label_closures (ez +1) ls e2 in
+  (CLet e1 e2, (c1 ++c2), ls))
+/\
+(label_closures ez ls (CLetrec defs e) =
+  let defs = MAP OUTL ( FILTER ISL defs) in
+  let nz = LENGTH defs in
+  let (defs,cd,ls) = label_closures_defs ez ls nz 0 defs in
+  let (e,ce,ls) = label_closures (ez +nz) ls e in
+  (CLetrec ( MAP INR defs) e, (cd ++ce), ls))
+/\
+(label_closures ez ls (CFun (INL def)) =
+  let (defs,cd,ls) = label_closures_defs ez ls 1 0 [def] in
+  (CFun (INR ( EL  0  defs)), cd, ls))
+/\
+(label_closures ez ls (CFun (INR l)) = (CFun (INR l),[],ls)) (* should not happen *)
+/\
+(label_closures ez ls (CCall e es) =
+  let (e,ce,ls) = label_closures ez ls e in
+  let (es,cs,ls) = label_closures_list ez ls es in
+  (CCall e es,(ce ++cs),ls))
+/\
+(label_closures ez ls (CPrim1 p1 e) =
+  let (e,c,ls) = label_closures ez ls e in
+  (CPrim1 p1 e, c, ls))
+/\
+(label_closures ez ls (CPrim2 p2 e1 e2) =
+  let (e1,c1,ls) = label_closures ez ls e1 in
+  let (e2,c2,ls) = label_closures ez ls e2 in
+  (CPrim2 p2 e1 e2, (c1 ++c2), ls))
+/\
+(label_closures ez ls (CUpd e1 e2) =
+  let (e1,c1,ls) = label_closures ez ls e1 in
+  let (e2,c2,ls) = label_closures ez ls e2 in
+  (CUpd e1 e2, (c1 ++c2), ls))
+/\
+(label_closures ez ls (CIf e1 e2 e3) =
+  let (e1,c1,ls) = label_closures ez ls e1 in
+  let (e2,c2,ls) = label_closures ez ls e2 in
+  let (e3,c3,ls) = label_closures ez ls e3 in
+  (CIf e1 e2 e3, (c1 ++(c2 ++c3)), ls))
+/\
+(label_closures_list ez ls [] = ([],[],ls))
+/\
+(label_closures_list ez ls (e::es) =
+  let (e,c,ls) = label_closures ez ls e in
+  let (es,cs,ls) = label_closures_list ez ls es in
+  ((e ::es),(c ++cs),ls))
+/\
+(label_closures_defs ez ls nz k [] = ([], [], ls))
+/\
+(label_closures_defs ez [] nz k (def::defs) = ([], [], [])) (* should not happen *)
+/\
+(label_closures_defs ez (ld::ls) nz k (def::defs) =
+  let cd = bind_fv def nz ez k in
+  let (b,cb,ls) = label_closures ez ls cd.body in
+  let (lds,cdefs,ls) = label_closures_defs ez ls nz (k +1) defs in
+  ((ld ::lds), ((ld,(cd with<| body := b|>)) ::(cb ++cdefs)), ls))`;
 
-val _ = Defn.save_defn repeat_label_closures_defn;
+val _ = Defn.save_defn label_closures_defn;
 
 (* intermediate expressions to bytecode *)
 
@@ -1542,9 +1522,11 @@ val _ = Define `
 
 val _ = Define `
  (compile_Cexp rs decl Ce =
-  let (Ce,n,c) = repeat_label_closures Ce rs.rnext_label [] in
+  let n = body_count Ce in
+  let ls = GENLIST (\ i . rs.rnext_label + i) n in
+  let (Ce,c,ls) = label_closures 0 ls Ce in
   let d = alist_to_fmap c in
-  let cs = <| out := []; next_label := n
+  let cs = <| out := []; next_label := (rs.rnext_label + n)
             ; decl := (rs.renv,rs.rsz,rs.rbvars) |> in
   let cs = compile_code_env d cs c in
   let cs = compile d rs.renv (TCNonTail decl) rs.rsz cs Ce in

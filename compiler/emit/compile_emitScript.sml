@@ -54,7 +54,6 @@ val data = map
   , datatype_ccbind
   , datatype_ctbind
   , datatype_closure_data
-  , datatype_label_closures_state
   , datatype_call_context
   , datatype_compiler_result
   , datatype_repl_state
@@ -86,10 +85,8 @@ val defs = map EmitML.DEFN
 , emit_ceenv_def
 , bind_fv_def
 , num_fold_def
-, label_defs_def
 , label_closures_def
 , body_count_def
-, repeat_label_closures_def
 , push_lab_def
 , underscore_rule cons_closure_def
 , update_refptr_def
