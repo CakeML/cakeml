@@ -17,6 +17,7 @@ label_closures_ind
 (* TODO: move *)
 val _ = export_rewrites["compileTermination.label_closures_def"]
 
+
 val syneq_cb_aux_mono_c = store_thm("syneq_cb_aux_mono_c",
   ``∀c c' n nz z d.
     (∀x. x ∈ free_labs_defs [d] ⇒ (FLOOKUP c' x = FLOOKUP c x)) ⇒
@@ -28,17 +29,14 @@ val syneq_cb_aux_mono_c = store_thm("syneq_cb_aux_mono_c",
 
 how about just saying you can add anything to the c as long as it's closed under its own labs and the exp labs are in there?
 
-val syneq_exp_mono_c = store_thm("syneq_exp_mono_c",
+val closed_code_env_def = Define`
+  closed_code_env c = ∀x. x ∈ FRANGE c ⇒ free_labs x.body ⊆ FDOM c`
+
+val syneq_exp_c_SUBMAP = store_thm("syneq_exp_c_SUBMAP",
   ``(∀c1 c2 z1 z2 V e1 e2. syneq_exp c1 c2 z1 z2 V e1 e2 ⇒
-      ∀c1' c2'.
-        (∀l. l ∈ free_labs e1 ⇒ (FLOOKUP c1' l = FLOOKUP c1 l)) ∧
-        (∀l. l ∈ free_labs e2 ⇒ (FLOOKUP c2' l = FLOOKUP c2 l))
-        ⇒ syneq_exp c1' c2' z1 z2 V e1 e2) ∧
+      ∀c1'. c1 ⊑ c1' ∧ free_labs e1 ⊆ FDOM c1 ∧ closed_code_env c1 ⇒ syneq_exp c1' c2 z1 z2 V e1 e2) ∧
     (∀c1 c2 z1 z2 V defs1 defs2 U. syneq_defs c1 c2 z1 z2 V defs1 defs2 U ⇒
-      ∀c1' c2'.
-        (∀l. l ∈ free_labs_defs defs1 ⇒ (FLOOKUP c1' l = FLOOKUP c1 l)) ∧
-        (∀l. l ∈ free_labs_defs defs2 ⇒ (FLOOKUP c2' l = FLOOKUP c2 l))
-        ⇒ syneq_defs c1' c2' z1 z2 V defs1 defs2 U)``,
+      ∀c1'. c1 ⊑ c1' ∧ free_labs_defs defs1 ⊆ FDOM c1 ∧ closed_code_env c1 ⇒ syneq_defs c1' c2 z1 z2 V defs1 defs2 U)``,
   ho_match_mp_tac syneq_exp_ind >>
   strip_tac >- rw[Once syneq_exp_cases] >>
   strip_tac >- rw[Once syneq_exp_cases] >>
@@ -50,7 +48,7 @@ val syneq_exp_mono_c = store_thm("syneq_exp_mono_c",
     rw[Once syneq_exp_cases] >>
     fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
     qpat_assum`LENGTH es1 = X`assume_tac >>
-    fsrw_tac[DNF_ss][MEM_ZIP,MEM_EL] >>
+    fsrw_tac[DNF_ss][MEM_ZIP,MEM_EL,SUBSET_DEF] >>
     metis_tac[] ) >>
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
@@ -63,7 +61,7 @@ val syneq_exp_mono_c = store_thm("syneq_exp_mono_c",
     conj_tac >>
     fsrw_tac[ARITH_ss][] >>
     first_x_assum match_mp_tac >>
-    metis_tac[] ) >>
+    fsrw_tac[DNF_ss][SUBSET_DEF]) >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >>
@@ -74,14 +72,13 @@ val syneq_exp_mono_c = store_thm("syneq_exp_mono_c",
     qexists_tac`U` >> simp[] >>
     first_x_assum match_mp_tac >>
     Cases_on`cb1`>>TRY(PairCases_on`x`)>>
-    Cases_on`cb2`>>TRY(PairCases_on`x`)>>
     fsrw_tac[DNF_ss][]) >>
   strip_tac >- (
     rw[] >>
     rw[Once syneq_exp_cases] >>
     fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
     qpat_assum`LENGTH es1 = X`assume_tac >>
-    fsrw_tac[DNF_ss][MEM_ZIP,MEM_EL] >>
+    fsrw_tac[DNF_ss][MEM_ZIP,MEM_EL,SUBSET_DEF] >>
     metis_tac[] ) >>
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
@@ -89,58 +86,83 @@ val syneq_exp_mono_c = store_thm("syneq_exp_mono_c",
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
   strip_tac >- (
     rw[] >>
-    fsrw_tac[DNF_ss][] >>
     simp[Once syneq_exp_cases] >>
-    fsrw_tac[DNF_ss][] >>
     disj1_tac >>
     conj_tac >- (
-      fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER] >>
-      ntac 4 (pop_assum mp_tac) >>
-      simp_tac(srw_ss()++QUANT_INST_ss[std_qp])[] >>
-      simp[FLOOKUP_DEF] >> rw[] >>
-      EQ_TAC >> strip_tac >>
-      simp[GSYM IMP_CONJ_THM,GSYM FORALL_AND_THM] >>
+      fsrw_tac[][EVERY_MEM,MEM_FILTER,SUBMAP_DEF] >>
+      reverse EQ_TAC >- metis_tac[] >>
+      strip_tac >>
+      spose_not_then strip_assume_tac >>
+      qmatch_assum_abbrev_tac`P ⇔ Q` >>
+      `¬P` by metis_tac[] >>
+      pop_assum mp_tac >>
+      simp_tac(srw_ss())[Abbr`P`] >>
       gen_tac >> strip_tac >>
-      res_tac >> fs[] >>
-      res_tac >> fs[] ) >>
-    conj_tac >- first_assum ACCEPT_TAC >>
-    conj_tac >- first_assum ACCEPT_TAC >>
+      qx_gen_tac`b` >> strip_tac >>
+      conj_asm1_tac >- (
+        fsrw_tac[DNF_ss][SUBSET_DEF,MEM_FILTER] >>
+        metis_tac[sumTheory.ISR,sumTheory.OUTR] ) >>
+      metis_tac[] ) >>
     rpt gen_tac >> strip_tac >>
-    fsrw_tac[DNF_ss][MEM_FILTER] >>
-    ntac 5 (pop_assum mp_tac) >>
-    simp_tac(srw_ss()++QUANT_INST_ss[sum_qp])[FORALL_PROD] >>
-    pop_assum(qspecl_then[`n1`,`n2`]strip_assume_tac) >>
-    rpt strip_tac >> fs[] >>
+    first_x_assum(qspecl_then[`n1`,`n2`]mp_tac) >>
+    simp[] >> strip_tac >>
+    first_x_assum(SUBST1_TAC o SYM) >>
+    first_x_assum(strip_assume_tac o SYM) >>
     `MEM (EL n1 defs1) defs1` by (rw[MEM_EL] >> metis_tac[]) >>
-    `MEM (EL n2 defs2) defs2` by (rw[MEM_EL] >> metis_tac[]) >>
     qspecl_then[`c1`,`c1'`,`n1`,`LENGTH defs1`,`z1`,`EL n1 defs1`]mp_tac syneq_cb_aux_mono_c >>
-    qmatch_abbrev_tac`(P⇒Q)⇒R` >>
-    `P` by (
-      fsrw_tac[DNF_ss][Abbr`P`] >>
+    discharge_hyps >- (
+      fsrw_tac[DNF_ss][FLOOKUP_DEF,SUBMAP_DEF,SUBSET_DEF,MEM_FILTER] >>
       Cases_on`EL n1 defs1`>>TRY(PairCases_on`x`)>>fs[] >>
-      metis_tac[] ) >>
-    simp[Abbr`P`,Abbr`Q`,Abbr`R`] >>
-    qspecl_then[`c2`,`c2'`,`n2`,`LENGTH defs2`,`z2`,`EL n2 defs2`]mp_tac syneq_cb_aux_mono_c >>
-    qmatch_abbrev_tac`(P⇒Q)⇒R` >>
-    `P` by (
-      fsrw_tac[DNF_ss][Abbr`P`] >>
-      Cases_on`EL n2 defs2`>>TRY(PairCases_on`x`)>>fs[] >>
-      metis_tac[] ) >>
-    simp[Abbr`P`,Abbr`Q`,Abbr`R`] >>
-    ntac 2 (qpat_assum`X = Y`(mp_tac o SYM)) >>
-    simp[] >> rpt strip_tac >>
+      qx_gen_tac`z` >> strip_tac >>
+      first_x_assum(qspecl_then[`z`,`INL(x0,x1)`]mp_tac) >>
+      simp[] ) >>
+    rw[] >>
     first_x_assum match_mp_tac >>
-    fsrw_tac[DNF_ss][]>>
-    Cases_on`EL n1 defs1`>>TRY(PairCases_on`x`)>>
-    Cases_on`EL n2 defs2`>>TRY(PairCases_on`x`)>>
-    fs[syneq_cb_aux_def,LET_THM,UNCURRY] >>
-    metis_tac[]
-    
-      rw[]
-      simp_tac(srw_ss()++QUANT_INST_ss[std_qp])[]
-      simp[]
+    fsrw_tac[DNF_ss][FLOOKUP_DEF,SUBMAP_DEF,SUBSET_DEF,MEM_FILTER] >>
+    Cases_on`EL n1 defs1`>>TRY(PairCases_on`x`)>>fs[syneq_cb_aux_def] >>
+    qx_gen_tac`z` >> strip_tac >> TRY (
+      first_x_assum(qspecl_then[`z`,`INL(x0,x1)`]mp_tac) >>
+      simp[] >> NO_TAC ) >>
+    fs[closed_code_env_def,IN_FRANGE,SUBSET_DEF] >>
+    fs[LET_THM,UNCURRY] >>
+    metis_tac[sumTheory.ISR,sumTheory.OUTR] ) >>
+  rw[] >>
+  rw[Once syneq_exp_cases]
+  disj1_tac >>
+  conj_tac >- (
+    fsrw_tac[][EVERY_MEM,MEM_FILTER,SUBMAP_DEF] >>
+    reverse EQ_TAC >- metis_tac[] >>
+    strip_tac >>
+    gen_tac >> strip_tac >>
+    gen_tac >> strip_tac >>
+    conj_asm1_tac >- (
+      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_FILTER] >>
+      metis_tac[sumTheory.ISR,sumTheory.OUTR] ) >>
+    metis_tac[] ) >>
 
-
+  rpt gen_tac >> strip_tac >>
+  first_x_assum(qspecl_then[`n1`,`n2`]mp_tac) >>
+  simp[] >> strip_tac >>
+  first_x_assum(SUBST1_TAC o SYM) >>
+  first_x_assum(strip_assume_tac o SYM) >>
+  `MEM (EL n1 defs1) defs1` by (rw[MEM_EL] >> metis_tac[]) >>
+  qspecl_then[`c1`,`c1'`,`n1`,`LENGTH defs1`,`z1`,`EL n1 defs1`]mp_tac syneq_cb_aux_mono_c >>
+  discharge_hyps >- (
+    fsrw_tac[DNF_ss][FLOOKUP_DEF,SUBMAP_DEF,SUBSET_DEF,MEM_FILTER] >>
+    Cases_on`EL n1 defs1`>>TRY(PairCases_on`x`)>>fs[] >>
+    qx_gen_tac`z` >> strip_tac >>
+    first_x_assum(qspecl_then[`z`,`INL(x0,x1)`]mp_tac) >>
+    simp[] ) >>
+  rw[] >>
+  first_x_assum match_mp_tac >>
+  fsrw_tac[DNF_ss][FLOOKUP_DEF,SUBMAP_DEF,SUBSET_DEF,MEM_FILTER] >>
+  Cases_on`EL n1 defs1`>>TRY(PairCases_on`x`)>>fs[syneq_cb_aux_def] >>
+  qx_gen_tac`z` >> strip_tac >> TRY (
+    first_x_assum(qspecl_then[`z`,`INL(x0,x1)`]mp_tac) >>
+    simp[] >> NO_TAC ) >>
+  fs[closed_code_env_def,IN_FRANGE,SUBSET_DEF] >>
+  fs[LET_THM,UNCURRY] >>
+  metis_tac[sumTheory.ISR,sumTheory.OUTR] ) >>
 
 val label_closures_thm = store_thm("label_closures_thm",
   ``(∀ez ls e. let (e',c,ls) = label_closures ez ls e in
