@@ -170,7 +170,9 @@ val label_closures_thm = store_thm("label_closures_thm",
     (∀ez ls es. let (es',c,ls) = label_closures_list ez ls es in
      EVERY2 (syneq_exp FEMPTY (alist_to_fmap c) ez ez $=) es es') ∧
     (∀ez ls nz k defs. let (lds,c,ls) = label_closures_defs ez ls nz k defs in
-      syneq_defs FEMPTY (alist_to_fmap c) ez ez $= (MAP INL defs) (MAP INR lds) (λv1 v2. v1 < LENGTH defs ∧ (v2 = v1)))``,
+      need to generalise this for the recursive cases partway through...
+      (or change the definition to do all the defs at once..?)
+      syneq_defs FEMPTY (alist_to_fmap c) ez ez $= (MAP INL defs) (MAP INR lds) (λv1 v2. v1 < nz ∧ (v2 = v1)))``,
     ho_match_mp_tac label_closures_ind >>
     strip_tac >- (rw[] >> rw[syneq_exp_refl]) >>
     strip_tac >- (rw[] >> rw[syneq_exp_refl]) >>
@@ -178,6 +180,69 @@ val label_closures_thm = store_thm("label_closures_thm",
       rw[] >> fs[LET_THM] >>
       simp[Once syneq_exp_cases] >>
       simp[]
+      ???
+    strip_tac >- (rw[] >> rw[syneq_exp_refl]) >>
+    strip_tac >- (rw[] >> rw[syneq_exp_refl]) >>
+    strip_tac >- (
+      rw[] >> fs[LET_THM] >>
+      rw[Once syneq_exp_cases] ) >>
+    strip_tac >- (
+      rw[] >> fs[LET_THM] >>
+      rw[Once syneq_exp_cases] ) >>
+    strip_tac >- (
+      rw[] >> fs[LET_THM] >>
+      rw[Once syneq_exp_cases] ) >>
+    strip_tac >- (
+      rw[] >> fs[LET_THM] >>
+      simp[Once syneq_exp_cases] >>
+      ???
+    strip_tac >- (
+      rw[] >> fs[LET_THM] >>
+      unabbrev_all_tac >> fs[] >>
+      simp[Once syneq_exp_cases] >>
+      need to know they're all INL
+      ???
+    strip_tac >- (
+      rw[] >> fs[LET_THM] >>
+      simp[Once syneq_exp_cases] >>
+      label_closures_defs_LENGTH
+      ???
+    strip_tac >- (
+      rw[] >> rw[syneq_exp_refl] ) >>
+    strip_tac >- (
+      rw[] >> fs[LET_THM] >>
+      simp[Once syneq_exp_cases] >>
+      ???
+    strip_tac >- (
+      rw[] >> fs[LET_THM] >>
+      simp[Once syneq_exp_cases] ) >>
+    strip_tac >- (
+      rw[] >> fs[LET_THM] >>
+      simp[Once syneq_exp_cases] >>
+      ??? ) >>
+    strip_tac >- (
+      rw[] >> fs[LET_THM] >>
+      simp[Once syneq_exp_cases] >>
+      ??? ) >>
+    strip_tac >- (
+      rw[] >> fs[LET_THM] >>
+      simp[Once syneq_exp_cases] >>
+      ??? ) >>
+    strip_tac >- simp[] >>
+    strip_tac >- (
+      rw[] >> fs[LET_THM] >>
+      ???
+    strip_tac >- (
+      simp[] >>
+      simp[Once syneq_exp_cases] ) >>
+    strip_tac >- (
+      simp[] >>
+      simp[Once syneq_exp_cases] ) >>
+      need ls to be at least the length of defs...
+    strip_tac >- (
+      rw[] >>
+      fs[LET_THM]
+
 
     label_closures_def
 
