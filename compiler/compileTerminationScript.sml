@@ -186,102 +186,21 @@ val (label_closures_def,label_closures_ind) = register "label_closures" (
   tprove_no_defn ((label_closures_def, label_closures_ind),
   WF_REL_TAC`inv_image $< (λx. case x of INL (ez,e) => Cexp_size e | INR (ez,ls) => Cexp4_size ls)` ))
 
-val (count_unlab_def,count_unlab_ind) = register "count_unlab" (
-  tprove_no_defn ((count_unlab_def,count_unlab_ind),
-  WF_REL_TAC `measure LENGTH` >> rw[]))
-
-val _ = save_thm("imm_unlab_def",imm_unlab_def)
-
-(*
-val _ = overload_on("list_max",``MAX_SET o set``)
-
-val mbd_def = tDefine "mbd"`
-  (mbd c (CDecl _) = 0) ∧
-  (mbd c (CRaise _) = 0) ∧
-  (mbd c (CVar _) = 0) ∧
-  (mbd c (CLit _) = 0) ∧
-  (mbd c (CCon _ es) = list_max (MAP (mbd c) es)) ∧
-  (mbd c (CTagEq e _) = mbd c e) ∧
-  (mbd c (CProj e _) = mbd c e) ∧
-  (mbd c (CLet _ es e) = list_max (MAP (mbd c) (e::es))) ∧
-  (mbd c (CLetfun _ _ defs e) = MAX (list_max (MAP (mbd_def c) defs)) (mbd c e)) ∧
-  (mbd c (CFun xs cb) = mbd_def c (xs,cb)) ∧
-  (mbd c (CCall e es) = list_max (MAP (mbd c) (e::es))) ∧
-  (mbd c (CPrim2 _ e1 e2) = MAX (mbd c e1) (mbd c e2)) ∧
-  (mbd c (CIf e1 e2 e3) = list_max (MAP (mbd c) [e1;e2;e3])) ∧
-  (mbd_def c (_,INL b) = (1 + mbd c b)) ∧
-  (mbd_def c (_,INR l) =
-    case FLOOKUP c l of
-    | SOME b => (1 + mbd (c \\ l) b)
-    | NONE => 0)`(
-  WF_REL_TAC `inv_image ($< LEX $< LEX $<) (λx. case x of
-    | INL (c,b) => (CARD (FDOM c), Cexp_size b, 1:num)
-    | INR (c,d) => (CARD (FDOM c), Cexp2_size d, 0))` >>
-  srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm] >>
-  srw_tac[ARITH_ss][SUM_MAP_Cexp2_size_thm] >>
-  Q.ISPEC_THEN`Cexp_size`imp_res_tac SUM_MAP_MEM_bound >>
-  srw_tac[ARITH_ss][] >>
-  TRY (fs[FLOOKUP_DEF] >> Cases_on `CARD (FDOM c)` >> fs[] >> NO_TAC) >>
-  qmatch_assum_rename_tac `MEM (a,b) defs`[] >>
-  `MEM a (MAP FST defs)` by (rw[MEM_MAP,EXISTS_PROD] >> metis_tac[]) >>
-  `MEM b (MAP SND defs)` by (rw[MEM_MAP,EXISTS_PROD] >> metis_tac[]) >>
-  Q.ISPEC_THEN`Cexp3_size`imp_res_tac SUM_MAP_MEM_bound >>
-  Q.ISPEC_THEN`list_size (list_size char_size)`imp_res_tac SUM_MAP_MEM_bound >>
-  fsrw_tac[ARITH_ss][])
-*)
-
-val bodies_def = tDefine "bodies"`
-  (bodies (CDecl _) = 0) ∧
-  (bodies (CRaise _) = 0) ∧
-  (bodies (CHandle e1 e2) = bodies e1 + bodies e2) ∧
-  (bodies (CVar _) = 0) ∧
-  (bodies (CLit _) = 0) ∧
-  (bodies (CCon _ es) = SUM (MAP bodies es)) ∧
-  (bodies (CTagEq e _) = bodies e) ∧
-  (bodies (CProj e _) = bodies e) ∧
-  (bodies (CLet e b) = bodies e + bodies b) ∧
-  (bodies (CLetrec defs e) = SUM (MAP bod1 defs) + (bodies e)) ∧
-  (bodies (CFun cb) = bod1 cb) ∧
-  (bodies (CCall e es) = SUM (MAP bodies (e::es))) ∧
-  (bodies (CPrim1 _ e) = bodies e) ∧
-  (bodies (CPrim2 _ e1 e2) = bodies e1 + bodies e2) ∧
-  (bodies (CUpd e1 e2) = bodies e1 + bodies e2) ∧
-  (bodies (CIf e1 e2 e3) = SUM (MAP bodies [e1;e2;e3])) ∧
-  (bod1 (INL (_,b)) = (1 + bodies b)) ∧
-  (bod1 (INR l) = 0)`
-  (
+val body_count_def = register"body_count" (
+  tprove_no_defn ((body_count_def,body_count_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
     | INL b => (Cexp_size b, 1:num)
-    | INR d => (Cexp2_size d, 0))` >>
+    | INR (INR d) => (Cexp2_size d, 0)
+    | INR (INL es) => (Cexp4_size es, 0))` >>
   srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm] >>
-  srw_tac[ARITH_ss][SUM_MAP_Cexp3_size_thm] >>
-  Q.ISPEC_THEN`Cexp_size`imp_res_tac SUM_MAP_MEM_bound >>
   Q.ISPEC_THEN`Cexp2_size`imp_res_tac SUM_MAP_MEM_bound >>
-  srw_tac[ARITH_ss][])
-val _ = export_rewrites["bodies_def"]
+  srw_tac[ARITH_ss][]))
+val _ = export_rewrites["body_count_def"]
 
-val imm_unlab_list_SUM = store_thm("imm_unlab_list_SUM",
-  ``∀ls. imm_unlab_list ls = SUM (MAP imm_unlab ls)``,
-  Induct >> rw[imm_unlab_def])
-
-val count_unlab_FILTER = store_thm("count_unlab_FILTER",
-  ``count_unlab = LENGTH o (FILTER ISL)``,
-  simp[FUN_EQ_THM] >>
-  Induct >> rw[count_unlab_def] >>
-  Cases_on `h` >>
-  fs[count_unlab_def] >>
-  srw_tac[ARITH_ss][])
-
-val bodies_ind = theorem"bodies_ind"
-
-val imm_bodies_0 = store_thm("imm_bodies_0",
-  ``(∀e. (bodies e = 0) = (imm_unlab e = 0)) ∧
-    (∀d. (bod1 d = 0) = (ISR d))``,
-  ho_match_mp_tac bodies_ind >>
-  rw[imm_unlab_def,imm_unlab_list_SUM] >>
-  fs[SUM_eq_0,MEM_MAP,count_unlab_FILTER,NULL_FILTER,GSYM NULL_LENGTH] >>
-  TRY (metis_tac[]) >>
-  Cases_on `d` >> rw[])
+val body_count_list_MAP = store_thm("body_count_list_MAP",
+  ``∀ls. body_count_list ls = SUM (MAP body_count ls)``,
+  Induct >> rw[])
+val _ = export_rewrites["body_count_list_MAP"]
 
 val label_closures_list_mapM = store_thm("label_closures_list_mapM",
   ``label_closures_list ez = mapM (label_closures ez)``,
@@ -289,8 +208,8 @@ val label_closures_list_mapM = store_thm("label_closures_list_mapM",
   Induct >> rw[label_closures_def,mapM_cons])
 val _ = export_rewrites["label_closures_list_mapM"]
 
-val bodies_mkshift = store_thm("bodies_mkshift",
-  ``∀f k e. bodies (mkshift f k e) = bodies e``,
+val body_count_mkshift = store_thm("body_count_mkshift",
+  ``∀f k e. body_count (mkshift f k e) = body_count e``,
   ho_match_mp_tac mkshift_ind >>
   rw[mkshift_def,MAP_MAP_o,combinTheory.o_DEF] >> rw[] >>
   TRY ( Cases_on`cb`>>fs[]>>BasicProvers.CASE_TAC>>fs[]>>NO_TAC) >>
@@ -300,23 +219,23 @@ val bodies_mkshift = store_thm("bodies_mkshift",
   BasicProvers.CASE_TAC >>
   BasicProvers.CASE_TAC >>
   fsrw_tac[ARITH_ss][])
-val _ = export_rewrites["bodies_mkshift"]
+val _ = export_rewrites["body_count_mkshift"]
 
-val bodies_bind_fv = store_thm("bodies_bind_fv",
-  ``bodies (bind_fv azb nz ez k).body = bodies (SND azb)``,
+val body_count_bind_fv = store_thm("body_count_bind_fv",
+  ``body_count (bind_fv azb nz ez k).body = body_count (SND azb)``,
   Cases_on`azb` >> rw[bind_fv_def] >> rw[Abbr`e`])
 
-val label_closures_bodies = store_thm("label_closures_bodies",
+val label_closures_body_count = store_thm("label_closures_body_count",
   ``(∀e ez s cd s'. ((cd,s') = label_closures ez e s) ⇒
                  ∃c. (s'.lcode_env = c++s.lcode_env) ∧
-                     (bodies e = list_size (bodies o closure_data_body o SND) c)) ∧
+                     (body_count e = list_size (body_count o closure_data_body o SND) c)) ∧
     (∀ds ez s (ds':def list) s'. ((ds',s') = label_defs ez (MAP OUTL (FILTER ISL ds)) s) ⇒
                  ∃c. (s'.lcode_env = c++s.lcode_env) ∧
-                     (SUM (MAP bod1 ds) = list_size (bodies o closure_data_body o SND) c)) ∧
+                     (SUM (MAP body_count_def ds) = list_size (body_count o closure_data_body o SND) c)) ∧
     (∀x:def. T) ∧ (∀x:(num#Cexp). T) ∧
     (∀es ez s es' s'. ((es',s') = label_closures_list ez es s) ⇒
                  ∃c. (s'.lcode_env = c++s.lcode_env) ∧
-                     (SUM (MAP bodies es) = list_size (bodies o closure_data_body o SND) c))``,
+                     (SUM (MAP body_count es) = list_size (body_count o closure_data_body o SND) c))``,
   ho_match_mp_tac (TypeBase.induction_of``:Cexp``) >>
   srw_tac[DNF_ss][label_closures_def,list_size_thm,SUM_eq_0,MEM_MAP,LENGTH_NIL,UNIT_DEF,BIND_DEF]
   >- (
@@ -410,8 +329,8 @@ val label_closures_bodies = store_thm("label_closures_bodies",
     fs[label_defs_def,LET_THM,UNIT_DEF] >>
     first_x_assum(qspecl_then[`ez`,`s`]strip_assume_tac) >> rw[] >>
     pop_assum kall_tac >>
-    Cases_on`x`>>TRY(Cases_on`x'`)>> simp[bodies_bind_fv] >> fs[] >>
-    simp[GENLIST_CONS,bodies_bind_fv,combinTheory.o_DEF,MAP_GENLIST])
+    Cases_on`x`>>TRY(Cases_on`x'`)>> simp[body_count_bind_fv] >> fs[] >>
+    simp[GENLIST_CONS,body_count_bind_fv,combinTheory.o_DEF,MAP_GENLIST])
   >- (
     Cases_on`x`>>fs[] >>
     fs[label_defs_def,LET_THM,UNIT_DEF] )
@@ -428,11 +347,11 @@ val label_closures_bodies = store_thm("label_closures_bodies",
 val _ = register "repeat_label_closures" (
   tprove_no_defn ((repeat_label_closures_def,repeat_label_closures_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
-    | (INL (e,n,ac)) =>  (bodies e,1:num)
-    | (INR (n,ac,ls)) => (list_size (bodies o closure_data_body o SND) ls),0)` >>
+    | (INL (e,n,ac)) =>  (body_count e,1:num)
+    | (INR (n,ac,ls)) => (list_size (body_count o closure_data_body o SND) ls),0)` >>
   srw_tac[ARITH_ss][list_size_thm] >>
   disj2_tac >>
-  imp_res_tac label_closures_bodies >>
+  imp_res_tac label_closures_body_count >>
   fs[list_size_thm] >>
   srw_tac[ETA_ss,ARITH_ss][combinTheory.o_DEF]))
 

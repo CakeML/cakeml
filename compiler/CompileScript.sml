@@ -973,39 +973,6 @@ val _ = Hol_datatype `
    ; nz := nz ; ez := ez ; ix := ix |>)`;
 
 
-   (* make label_defs into a simple MAP (or GENLIST), assuming all the defs are
-    * INL to begin with *)
-
-   (*
-let rec
-label_defs ez (ds:list def) nz k ([]:list def) = return ds
-and
-label_defs ez ds nz k ((Inr a)::defs) =
-  label_defs ez ((Inr a)::ds) nz (k+1) defs
-and
-label_defs ez ds nz k ((Inl (xs,b))::defs) = bind
-  (fun s -> return s.lnext_label
-    <| s with
-       lnext_label = s.lnext_label+1 ;
-       lcode_env = (s.lnext_label,(bind_fv b xs nz ez k))::s.lcode_env
-     |>) (fun n ->
-  (label_defs ez ((Inr n)::ds) nz (k+1) defs))
-*)
-
-   (*
-let rec label_defs ez defs s =
-  let nz = List.length defs in
-  let n = s.lnext_label in
-  let bods = genlist (fun i ->
-    match List.nth defs i with
-    | Inr _ -> None (* should not happen *)
-    | Inl (xs,b) -> Some (n+i, bind_fv b xs nz ez i)
-    end) nz in
-  let bods = List.map the (List.filter isSome bods) in
-  let defs = genlist (fun i -> Inr (n+i)) nz in
-  return defs <| s with lnext_label = n + nz; lcode_env = bods@s.lcode_env |>
-  *)
-
  val label_defs_def = Define `
  (label_defs ez defs s =
   let nz = LENGTH defs in
@@ -1091,62 +1058,54 @@ let rec label_defs ez defs s =
 
 val _ = Defn.save_defn label_closures_defn;
 
- val count_unlab_defn = Hol_defn "count_unlab" `
- (* TODO: replace by SUM o FILTER ISR ? *)
-(count_unlab [] = 0)
-/\
-(count_unlab ((INL _)::ls) = 1 + count_unlab ls)
-/\
-(count_unlab ((INR _)::ls) = count_unlab ls)`;
+ val body_count_defn = Hol_defn "body_count" `
 
-val _ = Defn.save_defn count_unlab_defn;
+(body_count (CDecl xs) = 0)
+/\
+(body_count (CRaise err) = 0)
+/\
+(body_count (CHandle e1 e2) = body_count e1 + body_count e2)
+/\
+(body_count (CVar x) = 0)
+/\
+(body_count (CLit l) = 0)
+/\
+(body_count (CCon cn es) = body_count_list es)
+/\
+(body_count (CTagEq e n) = body_count e)
+/\
+(body_count (CProj e n) = body_count e)
+/\
+(body_count (CLet e b) = body_count e + body_count b)
+/\
+(body_count (CLetrec defs e) = SUM ( MAP body_count_def defs) + body_count e)
+/\
+(body_count (CFun def) = body_count_def def)
+/\
+(body_count (CCall e es) = body_count e + body_count_list es)
+/\
+(body_count (CPrim2 op e1 e2) = body_count e1 + body_count e2)
+/\
+(body_count (CUpd e1 e2) = body_count e1 + body_count e2)
+/\
+(body_count (CPrim1 uop e) = body_count e)
+/\
+(body_count (CIf e1 e2 e3) = body_count e1 + body_count e2 + body_count e3)
+/\
+(body_count_list [] = 0)
+/\
+(body_count_list (e::es) = body_count e + body_count_list es)
+/\
+(body_count_def (INL (xs,b)) = 1 + body_count b)
+/\
+(body_count_def (INR _) = 0)`;
 
-(* imm_unlab e = number of unlabeled (Inl) bodies, without looking
- * recursively at any of the bodies *)
- val imm_unlab_defn = Hol_defn "imm_unlab" `
-
-(imm_unlab (CDecl xs) = 0)
-/\
-(imm_unlab (CRaise err) = 0)
-/\
-(imm_unlab (CHandle e1 e2) = imm_unlab e1 + imm_unlab e2)
-/\
-(imm_unlab (CVar x) = 0)
-/\
-(imm_unlab (CLit l) = 0)
-/\
-(imm_unlab (CCon cn es) = imm_unlab_list es)
-/\
-(imm_unlab (CTagEq e n) = imm_unlab e)
-/\
-(imm_unlab (CProj e n) = imm_unlab e)
-/\
-(imm_unlab (CLet e b) = imm_unlab e + imm_unlab b)
-/\
-(imm_unlab (CLetrec defs e) = count_unlab defs + imm_unlab e)
-/\
-(imm_unlab (CFun cb) = count_unlab [cb])
-/\
-(imm_unlab (CCall e es) = imm_unlab e + imm_unlab_list es)
-/\
-(imm_unlab (CPrim2 op e1 e2) = imm_unlab e1 + imm_unlab e2)
-/\
-(imm_unlab (CUpd e1 e2) = imm_unlab e1 + imm_unlab e2)
-/\
-(imm_unlab (CPrim1 uop e) = imm_unlab e)
-/\
-(imm_unlab (CIf e1 e2 e3) = imm_unlab e1 + imm_unlab e2 + imm_unlab e3)
-/\
-(imm_unlab_list [] = 0)
-/\
-(imm_unlab_list (e::es) = imm_unlab e + imm_unlab_list es)`;
-
-val _ = Defn.save_defn imm_unlab_defn;
+val _ = Defn.save_defn body_count_defn;
 
  val repeat_label_closures_defn = Hol_defn "repeat_label_closures" `
 
 (repeat_label_closures e n ac =
-  if imm_unlab e = 0 then (e,n,ac) else
+  if body_count e = 0 then (e,n,ac) else (* TODO: body_count e = 0 can be replaced with a faster predicate *)
   let s = <| lnext_label := n; lcode_env := [] |> in
   let (e,s) = label_closures 0 e s in
   let (n,ac) = label_code_env s.lnext_label ac s.lcode_env in

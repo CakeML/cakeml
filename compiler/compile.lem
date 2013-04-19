@@ -916,39 +916,6 @@ let rec bind_fv (az,e) nz ez ix =
    ; az = az ; body = e
    ; nz = nz ; ez = ez ; ix = ix |>
 
-   (* make label_defs into a simple MAP (or GENLIST), assuming all the defs are
-    * INL to begin with *)
-
-   (*
-let rec
-label_defs ez (ds:list def) nz k ([]:list def) = return ds
-and
-label_defs ez ds nz k ((Inr a)::defs) =
-  label_defs ez ((Inr a)::ds) nz (k+1) defs
-and
-label_defs ez ds nz k ((Inl (xs,b))::defs) = bind
-  (fun s -> return s.lnext_label
-    <| s with
-       lnext_label = s.lnext_label+1 ;
-       lcode_env = (s.lnext_label,(bind_fv b xs nz ez k))::s.lcode_env
-     |>) (fun n ->
-  (label_defs ez ((Inr n)::ds) nz (k+1) defs))
-*)
-
-   (*
-let rec label_defs ez defs s =
-  let nz = List.length defs in
-  let n = s.lnext_label in
-  let bods = genlist (fun i ->
-    match List.nth defs i with
-    | Inr _ -> None (* should not happen *)
-    | Inl (xs,b) -> Some (n+i, bind_fv b xs nz ez i)
-    end) nz in
-  let bods = List.map the (List.filter isSome bods) in
-  let defs = genlist (fun i -> Inr (n+i)) nz in
-  return defs <| s with lnext_label = n + nz; lcode_env = bods@s.lcode_env |>
-  *)
-
 let rec label_defs ez defs s =
   let nz = List.length defs in
   let n = s.lnext_label in
@@ -1031,55 +998,50 @@ label_closures_list ez (e::es) = bind
   (label_closures_list ez es) (fun es -> return
   (e::es)))
 
-let rec (* TODO: replace by SUM o FILTER ISR ? *)
-count_unlab [] = 0
-and
-count_unlab ((Inl _)::ls) = 1 + count_unlab ls
-and
-count_unlab ((Inr _)::ls) = count_unlab ls
-
-(* imm_unlab e = number of unlabeled (Inl) bodies, without looking
- * recursively at any of the bodies *)
 let rec
-imm_unlab (CDecl xs) = 0
+body_count (CDecl xs) = 0
 and
-imm_unlab (CRaise err) = 0
+body_count (CRaise err) = 0
 and
-imm_unlab (CHandle e1 e2) = imm_unlab e1 + imm_unlab e2
+body_count (CHandle e1 e2) = body_count e1 + body_count e2
 and
-imm_unlab (CVar x) = 0
+body_count (CVar x) = 0
 and
-imm_unlab (CLit l) = 0
+body_count (CLit l) = 0
 and
-imm_unlab (CCon cn es) = imm_unlab_list es
+body_count (CCon cn es) = body_count_list es
 and
-imm_unlab (CTagEq e n) = imm_unlab e
+body_count (CTagEq e n) = body_count e
 and
-imm_unlab (CProj e n) = imm_unlab e
+body_count (CProj e n) = body_count e
 and
-imm_unlab (CLet e b) = imm_unlab e + imm_unlab b
+body_count (CLet e b) = body_count e + body_count b
 and
-imm_unlab (CLetrec defs e) = count_unlab defs + imm_unlab e
+body_count (CLetrec defs e) = Hol.SUM (List.map body_count_def defs) + body_count e
 and
-imm_unlab (CFun cb) = count_unlab [cb]
+body_count (CFun def) = body_count_def def
 and
-imm_unlab (CCall e es) = imm_unlab e + imm_unlab_list es
+body_count (CCall e es) = body_count e + body_count_list es
 and
-imm_unlab (CPrim2 op e1 e2) = imm_unlab e1 + imm_unlab e2
+body_count (CPrim2 op e1 e2) = body_count e1 + body_count e2
 and
-imm_unlab (CUpd e1 e2) = imm_unlab e1 + imm_unlab e2
+body_count (CUpd e1 e2) = body_count e1 + body_count e2
 and
-imm_unlab (CPrim1 uop e) = imm_unlab e
+body_count (CPrim1 uop e) = body_count e
 and
-imm_unlab (CIf e1 e2 e3) = imm_unlab e1 + imm_unlab e2 + imm_unlab e3
+body_count (CIf e1 e2 e3) = body_count e1 + body_count e2 + body_count e3
 and
-imm_unlab_list [] = 0
+body_count_list [] = 0
 and
-imm_unlab_list (e::es) = imm_unlab e + imm_unlab_list es
+body_count_list (e::es) = body_count e + body_count_list es
+and
+body_count_def (Inl (xs,b)) = 1 + body_count b
+and
+body_count_def (Inr _) = 0
 
 let rec
 repeat_label_closures e n ac =
-  if imm_unlab e = 0 then (e,n,ac) else
+  if body_count e = 0 then (e,n,ac) else (* TODO: body_count e = 0 can be replaced with a faster predicate *)
   let s = <| lnext_label = n; lcode_env = [] |> in
   let (e,s) = label_closures 0 e s in
   let (n,ac) = label_code_env s.lnext_label ac s.lcode_env in

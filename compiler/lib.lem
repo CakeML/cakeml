@@ -5,6 +5,7 @@ val PRE : num -> num
 val count : num -> set num
 val QSORT : forall 'a. ('a -> 'a -> bool) -> list 'a -> list 'a
 val ALL_DISTINCT : forall 'a. list 'a -> bool
+val SUM : list num -> num
 (* TODO: lem library can't handle option type *)
 val some : forall 'a 'b. ('a -> bool) -> 'b
 val THE : forall 'a 'b. 'a -> 'b

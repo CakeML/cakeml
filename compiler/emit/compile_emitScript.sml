@@ -88,8 +88,7 @@ val defs = map EmitML.DEFN
 , num_fold_def
 , label_defs_def
 , label_closures_def
-, count_unlab_def
-, imm_unlab_def
+, body_count_def
 , repeat_label_closures_def
 , push_lab_def
 , underscore_rule cons_closure_def
