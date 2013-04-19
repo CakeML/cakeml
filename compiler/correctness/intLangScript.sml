@@ -1802,37 +1802,19 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
   full_simp_tac std_ss [] >>
   fs[] )
 
-(* mkshift *)
 
-(* labels in an expression (but not recursively) *)
-val free_labs_def0 = tDefine "free_labs"`
-  (free_labs (CDecl xs) = {}) ∧
-  (free_labs (CRaise er) = {}) ∧
-  (free_labs (CHandle e1 e2) = free_labs e1 ∪ free_labs e2) ∧
-  (free_labs (CVar x) = {}) ∧
-  (free_labs (CLit li) = {}) ∧
-  (free_labs (CCon cn es) = (BIGUNION (IMAGE (free_labs) (set es)))) ∧
-  (free_labs (CTagEq e n) = (free_labs e)) ∧
-  (free_labs (CProj e n) = (free_labs e)) ∧
-  (free_labs (CLet e eb) = (free_labs e)∪(free_labs eb)) ∧
-  (free_labs (CLetrec defs e) = (BIGUNION(IMAGE free_labs (IMAGE (SND o OUTL)(set(FILTER ISL defs)))))∪(IMAGE OUTR (set (FILTER ISR defs)))∪(free_labs e)) ∧
-  (free_labs (CFun (INL (_,e))) = free_labs e) ∧
-  (free_labs (CFun (INR l)) = {l}) ∧
-  (free_labs (CCall e es) = BIGUNION (IMAGE (free_labs) (set (e::es)))) ∧
-  (free_labs (CPrim1 _ e) = free_labs e) ∧
-  (free_labs (CPrim2 op e1 e2) = (free_labs e1)∪(free_labs e2)) ∧
-  (free_labs (CUpd e1 e2) = (free_labs e1)∪(free_labs e2)) ∧
-  (free_labs (CIf e1 e2 e3) = (free_labs e1)∪(free_labs e2)∪(free_labs e3))`(
-  WF_REL_TAC `measure Cexp_size` >>
-  srw_tac[ARITH_ss][Cexp4_size_thm,Cexp1_size_thm,SUM_MAP_Cexp2_size_thm] >>
-  Q.ISPEC_THEN `Cexp_size` imp_res_tac SUM_MAP_MEM_bound >>
-  Q.ISPEC_THEN `pair_size SUC Cexp_size o OUTL` imp_res_tac SUM_MAP_MEM_bound >>
-  fsrw_tac[ARITH_ss][] >>
-  Cases_on`OUTL x`>>fsrw_tac[ARITH_ss][basicSizeTheory.pair_size_def])
-val free_labs_def = save_thm("free_labs_def",SIMP_RULE(std_ss++ETA_ss)[GSYM IMAGE_COMPOSE]free_labs_def0)
-val _ = Parse.overload_on("free_labs_defs",``λdefs. (BIGUNION(IMAGE (free_labs o SND o OUTL)(set (FILTER ISL defs)))) ∪ IMAGE OUTR (set (FILTER ISR defs))``)
-val _ = Parse.overload_on("free_labs_list",``λes. BIGUNION (IMAGE free_labs (set es))``)
-val _ = export_rewrites["free_labs_def"]
+(* TODO: move *)
+val free_labs_list_MAP = store_thm("free_labs_list_MAP",
+  ``∀es. free_labs_list es = BIGUNION (IMAGE free_labs (set es))``,
+  Induct >> rw[])
+val _ = export_rewrites["free_labs_list_MAP"]
+
+val free_labs_defs_MAP = store_thm("free_labs_defs_MAP",
+  ``∀defs. free_labs_defs defs = BIGUNION (IMAGE free_labs_def (set defs))``,
+  Induct >> rw[])
+val _ = export_rewrites["free_labs_defs_MAP"]
+
+(* mkshift *)
 
 val mkshift_thm = store_thm("mkshift_thm",
  ``∀f k e c z1 z2 V.
@@ -1888,15 +1870,9 @@ val mkshift_thm = store_thm("mkshift_thm",
    fsrw_tac[ARITH_ss][] ) >>
  strip_tac >- (
    simp[FOLDL_UNION_BIGUNION] >> rw[] >- (
-     `defs=[]` by (
-       fs[FILTER_EQ_NIL,EVERY_MEM] >>
-       Cases_on`defs`>>fs[] >>
-       rpt(first_x_assum(qspec_then`h`mp_tac)) >>
-       Cases_on`h`>>rw[] ) >>
-     fs[] >>
      rw[Once syneq_exp_cases] >>
      qexists_tac`λv1 v2. F` >>
-     simp[Once syneq_exp_cases] ) >>
+     simp[Once syneq_exp_cases] >> fs[] ) >>
    rw[Once syneq_exp_cases] >>
    qexists_tac`λv1 v2. v1 < LENGTH defs ∧ (v2 = v1)` >>
    simp[] >>
@@ -1920,8 +1896,15 @@ val mkshift_thm = store_thm("mkshift_thm",
      fs[FILTER_EQ_NIL] >>
      fs[EVERY_MEM,MEM_MAP] >>
      full_simp_tac(srw_ss()++QUANT_INST_ss[sum_qp])[] >>
-     gen_tac >> disch_then(Q.X_CHOOSE_THEN`p`mp_tac) >>
-     Cases_on`p`>>simp[] ) >>
+     EQ_TAC >- (
+       strip_tac >> gen_tac >>
+       simp[GSYM LEFT_FORALL_IMP_THM] >>
+       Cases >> TRY(Cases_on`x`)>>simp[] >>
+       fs[IMAGE_EQ_SING,MEM_FILTER] >>
+       strip_tac >> res_tac >> fs[] ) >>
+     ntac 3 strip_tac >>
+     fs[IMAGE_EQ_SING,MEM_FILTER] >>
+     res_tac >> fs[]) >>
    rw[EL_MAP] >>
    fs[IMAGE_EQ_SING,MEM_FILTER] >>
    fs[FILTER_EQ_NIL,MEM_EL,EVERY_MEM] >>
@@ -1938,15 +1921,12 @@ val mkshift_thm = store_thm("mkshift_thm",
    conj_tac >- srw_tac[ARITH_ss][syneq_cb_V_def] >>
    reverse conj_tac >- (
      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF] >>
-     conj_tac >- (
-       qx_gen_tac`x` >> strip_tac >>
-       first_x_assum(qspec_then`INL (p0,p1)`mp_tac) >>
-       first_x_assum(qspec_then`INL (p0,p1)`mp_tac) >>
-       `MEM (INL (p0,p1)) defs` by (rw[MEM_EL] >> PROVE_TAC[]) >>
-       fsrw_tac[DNF_ss][] >> rw[] >>
-       rpt(first_x_assum(qspec_then`x`mp_tac)) >>
-       simp[] ) >>
-     first_x_assum(qspec_then`v2`mp_tac) >>
+     qx_gen_tac`x` >> strip_tac >>
+     first_x_assum(qspec_then`INL (p0,p1)`mp_tac) >>
+     first_x_assum(qspec_then`INL (p0,p1)`mp_tac) >>
+     `MEM (INL (p0,p1)) defs` by (rw[MEM_EL] >> PROVE_TAC[]) >>
+     fsrw_tac[DNF_ss][] >> rw[] >>
+     rpt(first_x_assum(qspec_then`x`mp_tac)) >>
      simp[] ) >>
    reverse conj_tac >- (
      srw_tac[ARITH_ss][] >>
@@ -2207,28 +2187,37 @@ val free_labs_mkshift = store_thm("free_labs_mkshift",
     fsrw_tac[DNF_ss][Once EXTENSION,MEM_FILTER,MEM_MAP] >>
     srw_tac[DNF_ss][EQ_IMP_THM] >>
     full_simp_tac(srw_ss()++QUANT_INST_ss[sum_qp])[EXISTS_PROD] >>
-    TRY (Cases_on`OUTL cb` >> Cases_on`cb`) >> fs[] >>
-    TRY (qmatch_assum_rename_tac`ISL z`[]>>Cases_on`OUTL z`>>Cases_on`z`) >> fs[] >>
-    TRY (qmatch_assum_rename_tac`ISR z`[]>>Cases_on`z`) >> fs[] >>
-    TRY ( res_tac >> fsrw_tac[ARITH_ss][] >> metis_tac[] ) >>
+    qmatch_assum_rename_tac`MEM z defs`[] >>
+    Cases_on`z`>>fs[] >>
     TRY (
+      rw[] >>
+      qmatch_assum_rename_tac`MEM (INR x) defs`[] >>
       disj1_tac >>
-      disj1_tac >>
-      qmatch_assum_abbrev_tac`MEM cb defs` >>
-      qexists_tac`cb` >>
-      simp[Abbr`cb`] >>
-      res_tac >>
-      fsrw_tac[ARITH_ss][] >>
-      NO_TAC ) >>
+      qexists_tac`INR x` >>
+      simp[] ) >>
     TRY (
+      qmatch_assum_rename_tac`MEM (INL z) defs`[] >>
+      PairCases_on`z`>>fs[] >>
       disj1_tac >>
-      disj2_tac >>
-      qmatch_assum_abbrev_tac`MEM cb defs` >>
-      qexists_tac`cb` >>
-      simp[Abbr`cb`] >>
+      qexists_tac`INL (z0,z1)` >>
+      simp[] >>
       res_tac >>
-      fsrw_tac[ARITH_ss][] >>
-      NO_TAC )) >>
+      fsrw_tac[ARITH_ss][] ) >>
+    TRY (
+      qmatch_assum_rename_tac`MEM (INL z) defs`[] >>
+      PairCases_on`z`>>fs[] >>
+      qmatch_assum_rename_tac`x ∈ X`["X"] >>
+      `x ∈ free_labs_def (INL (z0,z1))`by (
+        rw[] >> res_tac >>
+        first_x_assum match_mp_tac >>
+        qpat_assum`x ∈ X`mp_tac >>
+        simp_tac(srw_ss()++ARITH_ss)[] ) >>
+      metis_tac[] ) >>
+    TRY (
+      rw[] >>
+      qmatch_assum_rename_tac`MEM (INR x) defs`[] >>
+      `x ∈ free_labs_def (INR x)` by rw[] >>
+      metis_tac[] )) >>
   Cases_on`cb`>>fs[] >>
   Cases_on`x`>>fs[])
 val _ = export_rewrites["free_labs_mkshift"]

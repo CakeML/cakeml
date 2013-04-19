@@ -84,6 +84,25 @@ val (free_vars_def, free_vars_ind) = register "free_vars" (
   rw[] >> res_tac >> fs[Cexp_size_def] >> srw_tac[ARITH_ss][]))
 val _ = export_rewrites["free_vars_def"];
 
+val (free_labs_def,free_labs_ind) = register "free_labs" (
+  tprove_no_defn ((free_labs_def,free_labs_ind),
+  (WF_REL_TAC`inv_image ($< LEX $<) (λx. case x of
+    INL e => (Cexp_size e,3:num) |
+    INR (INL es) => (Cexp2_size es,2) |
+    INR (INR (INL defs)) => (Cexp1_size defs,1) |
+    INR(INR(INR def)) => (Cexp4_size def,0))`)))
+
+val free_labs_rwt = save_thm("free_labs_rwt",let
+  fun f n t = GEN_ALL(SIMP_RULE(srw_ss())[](SPEC t (List.nth(CONJUNCTS free_labs_def,n))))
+  val th1 = LIST_CONJ(map(f 0 o rhs o snd o strip_exists)(strip_disj(snd(strip_forall(concl(TypeBase.nchotomy_of``:Cexp``))))))
+  val th2 = LIST_CONJ(map(f 1 o rhs o snd o strip_exists o inst[alpha|->``:num#Cexp``,beta|->``:num``])(strip_disj(snd(strip_forall(concl(TypeBase.nchotomy_of``:def``))))))
+  val th3 = LIST_CONJ(map(f 2 o rhs o snd o strip_exists o inst[alpha|->``:num#Cexp + num``])(strip_disj(snd(strip_forall(concl(TypeBase.nchotomy_of``:def list``))))))
+  val th4 = LIST_CONJ(map(f 3 o rhs o snd o strip_exists o inst[alpha|->``:Cexp``])(strip_disj(snd(strip_forall(concl(TypeBase.nchotomy_of``:Cexp list``))))))
+in
+LIST_CONJ[th1,th2,th3,th4]
+end)
+val _ = export_rewrites["free_labs_rwt"]
+
 val (no_closures_def, no_closures_ind) = register "no_closures" (
   tprove_no_defn ((no_closures_def, no_closures_ind),
   WF_REL_TAC `measure Cv_size` >>

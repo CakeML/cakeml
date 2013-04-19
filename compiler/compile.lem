@@ -464,6 +464,55 @@ Cevaluate_list c s' env es (s'', Rerr err)
 ==>
 Cevaluate_list c s env (e::es) (s'', Rerr err)
 
+(* labels in an expression (but not recursively) *)
+
+let rec
+free_labs (CDecl xs) = {}
+and
+free_labs (CRaise er) = {}
+and
+free_labs (CHandle e1 e2) = free_labs e1 union free_labs e2
+and
+free_labs (CVar x) = {}
+and
+free_labs (CLit li) = {}
+and
+free_labs (CCon cn es) = free_labs_list es
+and
+free_labs (CTagEq e n) = free_labs e
+and
+free_labs (CProj e n) = free_labs e
+and
+free_labs (CLet e eb) = free_labs e union free_labs eb
+and
+free_labs (CLetrec defs e) = free_labs_defs defs union free_labs e
+and
+free_labs (CFun def) = free_labs_def def
+and
+free_labs (CCall e es) = free_labs_list (e::es)
+and
+free_labs (CPrim1 _ e) = free_labs e
+and
+free_labs (CPrim2 op e1 e2) = free_labs e1 union free_labs e2
+and
+free_labs (CUpd e1 e2) = free_labs e1 union free_labs e2
+and
+free_labs (CIf e1 e2 e3) = free_labs e1 union free_labs e2 union free_labs e3
+and
+free_labs_list [] = {}
+and
+free_labs_list (e::es) = free_labs e union free_labs_list es
+and
+free_labs_defs [] = {}
+and
+free_labs_defs [] = {}
+and
+free_labs_defs (d::ds) = free_labs_def d union free_labs_defs ds
+and
+free_labs_def (Inl (_,e)) = free_labs e
+and
+free_labs_def (Inr l) = {l}
+
 (* equivalence relations on intermediate language *)
 
 let rec closed_cd cd = forall v. v IN free_vars cd.body -->
