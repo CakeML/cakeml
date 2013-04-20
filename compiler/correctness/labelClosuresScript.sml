@@ -169,6 +169,13 @@ val body_count_bind_fv = store_thm("body_count_bind_fv",
   Cases_on`def`>>rw[bind_fv_def] >> rw[Abbr`e`])
 val _ = export_rewrites["body_count_bind_fv"]
 
+val bind_fv_nz_ez_ix = store_thm("bind_fv_nz_ez_ix",
+  ``((bind_fv def nz ez ix).nz = nz) ∧
+    ((bind_fv def nz ez ix).ez = ez) ∧
+    ((bind_fv def nz ez ix).ix = ix)``,
+  Cases_on`def`>>rw[bind_fv_def,LET_THM])
+val _ = export_rewrites["bind_fv_nz_ez_ix"]
+
 val label_closures_thm = store_thm("label_closures_thm",
   ``(∀ez j e. (free_labs e = {}) ⇒
      let (e',c,j') = label_closures ez j e in
@@ -185,9 +192,10 @@ val label_closures_thm = store_thm("label_closures_thm",
      free_labs_list es' ⊆ set (MAP FST c) ∧
      closed_code_env (alist_to_fmap c) ∧
      EVERY2 (syneq_exp FEMPTY (alist_to_fmap c) ez ez $=) es es') ∧
-    (∀ez j nz k defs ds.
-     (free_labs_defs (MAP INL defs) = {}) ∧
-     (LENGTH ds = k) ∧ (LENGTH defs = nz - k) ∧ k ≤ nz
+    (∀ez j nz k defs ds c0.
+     (free_labs_defs (MAP INL defs) = {}) ∧ (FDOM c0 = set ds) ∧
+     (LENGTH ds = k) ∧ (LENGTH defs = nz - k) ∧ k ≤ nz ∧
+     (∀ls. (LENGTH ls = LENGTH defs) ⇒ syneq_defs c0 c0 ez ez $= (MAP INR ds ++ MAP INR ls) (MAP INR ds ++ MAP INR ls) (λv1 v2. v1 < nz ∧ (v2 = v1)))
      ⇒
      let (lds,c,j') = label_closures_defs ez j nz k defs in
      (j' = j + SUM (MAP body_count_def (MAP INL defs))) ∧
@@ -195,7 +203,7 @@ val label_closures_thm = store_thm("label_closures_thm",
      (LENGTH lds = LENGTH defs) ∧
      set lds ⊆ set (MAP FST c) ∧
      closed_code_env (alist_to_fmap c) ∧
-     syneq_defs FEMPTY (alist_to_fmap c) ez ez $= (ds ++ MAP INL defs) (ds ++ MAP INR lds) (λv1 v2. v1 < nz ∧ (v2 = v1)))``,
+     syneq_defs c0 (c0 ⊌ alist_to_fmap c) ez ez $= (MAP INR ds ++ MAP INL defs) (MAP INR ds ++ MAP INR lds) (λv1 v2. v1 < nz ∧ (v2 = v1)))``,
   ho_match_mp_tac label_closures_ind >>
   strip_tac >- (rw[] >> rw[syneq_exp_FEMPTY_refl]) >>
   strip_tac >- (rw[] >> rw[syneq_exp_FEMPTY_refl]) >>
@@ -301,11 +309,14 @@ val label_closures_thm = store_thm("label_closures_thm",
       CONV_TAC(RAND_CONV(REWRITE_CONV[Once (CONJUNCT2 (GSYM MAP_ID)),SimpRHS])) >>
       lrw[MAP_EQ_f] ) >>
     full_simp_tac std_ss [] >>
-    first_x_assum(qspec_then`[]`mp_tac) >>
-    simp[] >> strip_tac >>
+    first_x_assum(qspecl_then[`[]`,`FEMPTY`]mp_tac) >>
+    simp[] >>
+    discharge_hyps >- (
+      fs[LENGTH_NIL,syneq_defs_FEMPTY_refl] ) >>
+    strip_tac >>
     simp_tac(srw_ss()++ETA_ss)[] >>
     rfs[] >- (
-      fs[] >> rfs[] >>
+      fs[] >> rfs[] >> fs[markerTheory.Abbrev_def] >>
       simp[FUNION_FEMPTY_1] >>
       simp[Once syneq_exp_cases] >>
       simp[Once syneq_exp_cases] >>
@@ -328,6 +339,7 @@ val label_closures_thm = store_thm("label_closures_thm",
       rfs[] >> fs[] >>
       fsrw_tac[DNF_ss][SUBSET_DEF,MEM_GENLIST] >>
       metis_tac[] ) >>
+    fs[FUNION_FEMPTY_1] >>
     simp[Once syneq_exp_cases] >>
     qexists_tac`λv1 v2. v1 < LENGTH defs ∧ (v2 = v1)` >>
     conj_tac >- (
@@ -344,17 +356,14 @@ val label_closures_thm = store_thm("label_closures_thm",
       match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
       qexists_tac`$=` >>
       simp[] ) >>
-    conj_tac >- (
-      match_mp_tac SUBMAP_FUNION >>
-      simp[DISJOINT_DEF,EXTENSION,MEM_GENLIST] ) >>
-    rfs[] >> fs[] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_GENLIST] ) >>
+    match_mp_tac SUBMAP_FUNION >>
+    simp[DISJOINT_DEF,EXTENSION,MEM_GENLIST] ) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >> strip_tac >>
-    first_x_assum(qspec_then`[]`mp_tac) >>
+    first_x_assum(qspecl_then[`[]`,`FEMPTY`]mp_tac) >>
     simp[] >>
     discharge_hyps >- (
-      BasicProvers.CASE_TAC >> fs[] ) >>
+      BasicProvers.CASE_TAC >> fs[syneq_defs_FEMPTY_refl] ) >>
     qabbrev_tac`p = label_closures ez (j+1) (bind_fv def 1 ez 0).body` >>
     PairCases_on`p` >>
     full_simp_tac std_ss [] >>
@@ -364,6 +373,7 @@ val label_closures_thm = store_thm("label_closures_thm",
       qexists_tac`0` >>
       Cases_on`def`>>simp[] ) >>
     simp[Once syneq_exp_cases] >> fs[] >>
+    fs[FUNION_FEMPTY_1] >>
     HINT_EXISTS_TAC >>
     simp[] ) >>
   strip_tac >- (
@@ -449,9 +459,8 @@ val label_closures_thm = store_thm("label_closures_thm",
     rfs[MEM_ZIP,MEM_EL] >>
     metis_tac[] ) >>
   strip_tac >- (
-    simp[] >> rw[] >>
-    match_mp_tac syneq_defs_FEMPTY_refl >>
-    fsrw_tac[ARITH_ss][] ) >>
+    simp[] >> rw[FUNION_FEMPTY_2] >>
+    fs[LENGTH_NIL]) >>
   rpt gen_tac >> rpt strip_tac >>
   simp[] >>
   full_simp_tac std_ss [] >>
@@ -465,9 +474,10 @@ val label_closures_thm = store_thm("label_closures_thm",
     fs[] >> Cases_on`def` >> fs[] ) >>
   full_simp_tac std_ss [LET_THM] >>
   `k+1≤nz` by (spose_not_then strip_assume_tac >> fsrw_tac[ARITH_ss][]) >>
-  first_x_assum(qspec_then`ds++[INR j]`mp_tac) >>
+  last_x_assum(qspecl_then[`ds++[j]`,`c0|+(j,bind_fv def nz ez k)`]mp_tac) >>
   discharge_hyps >- (
-    fsrw_tac[ARITH_ss][] >> rfs[] >> simp[] ) >>
+    fsrw_tac[ARITH_ss][] >> rfs[] >> simp[LENGTH_NIL] >>
+    cheat) >>
   simp[] >> strip_tac >>
   PairCases_on`def`>>simp[]>>
   conj_tac >- (
@@ -487,8 +497,10 @@ val label_closures_thm = store_thm("label_closures_thm",
     simp[] >>
     rev_full_simp_tac std_ss [body_count_bind_fv] >>
     metis_tac[SUBSET_DEF,IN_INSERT,IN_UNION] ) >>
-
-  simp[Once syneq_exp_cases]
+  simp_tac std_ss [Once syneq_exp_cases] >>
+  conj_tac >- (
+    simp[EVERY_MAP,MEM_GENLIST] >>
+    cheat ) >>
 
 
   ``(∀e ez s. let (e',s') = label_closures ez e s in
