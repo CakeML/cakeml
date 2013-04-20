@@ -158,14 +158,26 @@ val Cexp_only_ind =
 |> DISCH_ALL
 |> Q.GEN`P`
 
-The real reason why this doesn't work:
-  Expressions that go into an infinite loop via the code environment have no finite proof of equivalence to themselves.
-val syneq_exp_refl = store_thm("syneq_exp_refl",
-  ``(∀e c z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp c c z z V e e) ∧
-    (∀defs c z V U d1. (∀v. v < z ⇒ V v v) ∧ (∀v1 v2. U v1 v2 ⇒ v1 < LENGTH (d1++defs) ∧ (v2 = v1)) ∧ LENGTH d1 ≤ 1 ⇒ syneq_defs c c z z V (d1++defs) (d1++defs) U) ∧
-    (∀d c z V U. (∀v. v < z ⇒ V v v) ∧ (∀v1 v2. U v1 v2 ⇒ v1 < 1 ∧ (v2 = v1)) ⇒ syneq_defs c c z z V [d] [d] U) ∧
-    (∀x:num#Cexp. foo x) ∧
-    (∀es c z V. (∀v. v < z ⇒ V v v) ⇒ EVERY2 (syneq_exp c c z z V) es es)``,
+(*
+val lR_def = Define`lR c l2 l1 = l1 ∈ FDOM c ∧ l2 ∈ free_labs (c ' l1).body`
+val wfc_def = Define`wfc c = WF (lR c)`
+val wfc_FEMPTY = store_thm("wfc_FEMPTY",
+  ``wfc FEMPTY``,
+  rw[wfc_def] >>
+  qsuff_tac`lR FEMPTY = REMPTY`>-rw[WF_EMPTY_REL] >>
+  simp[FUN_EQ_THM,lR_def])
+*)
+
+val syneq_exp_FEMPTY_refl = store_thm("syneq_exp_FEMPTY_refl",
+  ``(∀e z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp FEMPTY FEMPTY z z V e e) ∧
+    (∀defs z V U d1. (∀v. v < z ⇒ V v v) ∧ (∀v1 v2. U v1 v2 = (v1 < LENGTH (d1++defs) ∧ (v2 = v1))) ∧
+      EVERY (λd. (∀az e. (d = INL (az,e)) ⇒ ∀z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp FEMPTY FEMPTY z z V e e)) d1 ⇒
+      syneq_defs FEMPTY FEMPTY z z V (d1++defs) (d1++defs) U) ∧
+    (∀d z V U. (∀v. v < z ⇒ V v v) ∧  (∀v1 v2. U v1 v2 = ((v1 = 0) ∧ (v2 = 0))) ⇒
+      (∀az e. (d = INL (az,e)) ⇒ ∀z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp FEMPTY FEMPTY z z V e e) ∧
+      syneq_defs FEMPTY FEMPTY z z V [d] [d] U) ∧
+    (∀(x:num#Cexp) z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp FEMPTY FEMPTY z z V (SND x) (SND x)) ∧
+    (∀es z V. (∀v. v < z ⇒ V v v) ⇒ EVERY2 (syneq_exp FEMPTY FEMPTY z z V) es es)``,
   ho_match_mp_tac (TypeBase.induction_of``:Cexp``) >>
   strip_tac >- (
     rw[Once syneq_exp_cases] >>
@@ -174,7 +186,7 @@ val syneq_exp_refl = store_thm("syneq_exp_refl",
   strip_tac >- rw[Once syneq_exp_cases] >>
   strip_tac >- (
     rw[] >> rw[Once syneq_exp_cases] >>
-    first_x_assum match_mp_tac >>
+    first_x_assum match_mp_tac >> simp[] >>
     Cases >> srw_tac[ARITH_ss][] ) >>
   strip_tac >- (
     rw[Once syneq_exp_cases] >>
@@ -187,12 +199,13 @@ val syneq_exp_refl = store_thm("syneq_exp_refl",
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
   strip_tac >- (
     rw[] >> rw[Once syneq_exp_cases] >>
-    first_x_assum match_mp_tac >>
+    first_x_assum match_mp_tac >> simp[] >>
     Cases >> srw_tac[ARITH_ss][] ) >>
   strip_tac >- (
     rw[] >> rw[Once syneq_exp_cases] >>
     qexists_tac`λv1 v2. v1 < LENGTH defs ∧ (v2 = v1)` >>
     conj_tac >- (
+      fsrw_tac[DNF_ss][] >>
       `defs = [] ++ defs` by rw[] >>
       POP_ASSUM SUBST1_TAC >>
       first_x_assum match_mp_tac >>
@@ -201,8 +214,10 @@ val syneq_exp_refl = store_thm("syneq_exp_refl",
     srw_tac[ARITH_ss][] >>
     Cases_on`v < LENGTH defs`>>fsrw_tac[ARITH_ss][]) >>
   strip_tac >- (
-    rw[] >> rw[Once syneq_exp_cases] >>
-    qexists_tac`λv1 v2. (v1,v2) = (0,0)` >> rw[]) >>
+    rw[] >>
+    simp_tac (srw_ss()) [Once syneq_exp_cases] >>
+    qexists_tac`λv1 v2. (v1,v2) = (0,0)` >>
+    rw[]) >>
   strip_tac >- (
     rw[] >> rw[Once syneq_exp_cases] >>
     fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,MEM_ZIP,MEM_EL]) >>
@@ -212,35 +227,64 @@ val syneq_exp_refl = store_thm("syneq_exp_refl",
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
   strip_tac >- (
     rw[] >>
-    Cases_on`d1`>>fs[] >- (
-      rw[Once syneq_exp_cases] ) >>
-    Cases_on`t`>>fsrw_tac[ARITH_ss][] >>
-    rw[Once syneq_exp_cases]
-    rw[] >> rw[Once syneq_exp_cases]
-    ) >>
+    simp[Once syneq_exp_cases] >>
+    rpt gen_tac >> strip_tac >>
+    res_tac >> fs[] >>
+    fs[EVERY_MEM,MEM_EL] >>
+    fsrw_tac[DNF_ss][] >>
+    Cases_on`EL n1 d1`>>fs[syneq_cb_aux_def,LET_THM,UNCURRY] >>
+    Cases_on`x`>>fs[syneq_cb_aux_def] >>
+    first_x_assum (match_mp_tac o MP_CANON) >>
+    qexists_tac`n1` >> simp[] >>
+    simp[syneq_cb_V_def] >>
+    srw_tac[ARITH_ss][] ) >>
   strip_tac >- (
     rw[] >>
+    fsrw_tac[DNF_ss][] >>
+    `d1 ++ d::defs = (d1 ++ [d]) ++ defs` by rw[] >>
+    pop_assum SUBST1_TAC >>
     first_x_assum match_mp_tac >>
-    simp[] >> metis_tac[] ) >>
+    simp[] >>
+    rw[] >>
+    first_x_assum (match_mp_tac o MP_CANON) >>
+    simp[] >>
+    qexists_tac`0`>>simp[] >>
+    qexists_tac`λv1 v2. (v1 = 0) ∧ (v2 = 0)` >> simp[] ) >>
   strip_tac >- (
-    rw[] >> ?????
+    rw[] >> fs[] >>
+    simp[Once syneq_exp_cases] >>
+    Cases_on`x`>>fs[syneq_cb_aux_def] >>
+    first_x_assum match_mp_tac >>
+    simp[syneq_cb_V_def] >>
+    srw_tac[ARITH_ss][] ) >>
   strip_tac >- (
-    rw[] >> ?????
-  strip_tac >- rw[] >>
+    rw[] >> fs[] >>
+    simp[Once syneq_exp_cases] >>
+    simp[syneq_cb_aux_def,UNCURRY] ) >>
+  strip_tac >- simp[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[])
 
-val syneq_refl = store_thm("syneq_refl",
-  ``∀v c. syneq c c v v``,
+val syneq_defs_FEMPTY_refl = store_thm("syneq_defs_FEMPTY_refl",
+  ``∀z V U defs. (∀v. v < z ⇒ V v v) ∧ (∀v1 v2. U v1 v2 = (v1 < LENGTH defs) ∧ (v2 = v1)) ⇒
+    syneq_defs FEMPTY FEMPTY z z V defs defs U``,
+  rw[] >>
+  `defs = [] ++ defs` by rw[] >>
+  pop_assum SUBST1_TAC >>
+  match_mp_tac (CONJUNCT1 (CONJUNCT2 syneq_exp_FEMPTY_refl)) >>
+  simp[])
+
+val syneq_FEMPTY_refl = store_thm("syneq_FEMPTY_refl",
+  ``∀v. syneq FEMPTY FEMPTY v v``,
   ho_match_mp_tac Cv_ind >> rw[] >>
   simp[Once syneq_cases] >>
   fsrw_tac[DNF_ss][EVERY_MEM,EVERY2_EVERY,FORALL_PROD,MEM_ZIP,MEM_EL] >>
   Cases_on`n < LENGTH defs`>>fsrw_tac[ARITH_ss][]>>
   map_every qexists_tac[`λv1 v2. v1 < LENGTH env ∧ (v2 = v1)`,`λv1 v2. v1 < LENGTH defs ∧ (v2 = v1)`] >>
   simp[] >>
-  match_mp_tac syneq_defs_refl >>
+  match_mp_tac syneq_defs_FEMPTY_refl >>
   simp[])
-val _ = export_rewrites["syneq_refl"]
+val _ = export_rewrites["syneq_FEMPTY_refl"]
 
 val inv_syneq_cb_V = store_thm("inv_syneq_cb_V",
   ``inv (syneq_cb_V az r1 r2 V V') = syneq_cb_V az r2 r1 (inv V) (inv V')``,
