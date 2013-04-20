@@ -686,7 +686,7 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
     rw[remove_mat_var_def] >>
     rw[Once Cevaluate_cases] >>
     fs[el_check_def] >>
-    metis_tac[result_rel_syneq_refl,EVERY2_syneq_refl]) >>
+    metis_tac[result_rel_syneq_FEMPTY_refl,EVERY2_syneq_FEMPTY_refl]) >>
   strip_tac >- (
     rw[remove_mat_vp_def] >>
     fs[el_check_def] >>
@@ -699,7 +699,7 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
     rw[Once Cevaluate_cases] >>
     rw[Once Cevaluate_cases] >>
     rw[Once Cevaluate_cases] >>
-    metis_tac[result_rel_syneq_refl,EVERY2_syneq_refl]) >>
+    metis_tac[result_rel_syneq_FEMPTY_refl,EVERY2_syneq_FEMPTY_refl]) >>
   strip_tac >- (
     rw[remove_mat_vp_def,LET_THM] >>
     rw[Once Cevaluate_cases] >>
@@ -755,7 +755,7 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
     fsrw_tac[DNF_ss][SUBSET_DEF,Cpat_vars_list_SUM_MAP]) >>
   strip_tac >- (
     rw[FUNION_FEMPTY_1] >>
-    PROVE_TAC[result_rel_syneq_refl,EVERY2_syneq_refl] ) >>
+    PROVE_TAC[result_rel_syneq_FEMPTY_refl,EVERY2_syneq_FEMPTY_refl] ) >>
   rpt gen_tac >> strip_tac >>
   rpt gen_tac >> strip_tac >>
   rw[LET_THM] >>
@@ -872,14 +872,14 @@ val Cpnomatch_remove_mat = store_thm("Cpnomatch_remove_mat",
     fs[el_check_def] >>
     rw[] >>
     rw[Once Cevaluate_cases] >>
-    PROVE_TAC[result_rel_syneq_refl,EVERY2_syneq_refl]) >>
+    PROVE_TAC[result_rel_syneq_FEMPTY_refl,EVERY2_syneq_FEMPTY_refl]) >>
   strip_tac >- (
     rw[] >>
     rw[Once Cevaluate_cases] >>
     rw[Once Cevaluate_cases] >>
     fsrw_tac[DNF_ss][] >>
     fs[el_check_def] >>
-    PROVE_TAC[result_rel_syneq_refl,EVERY2_syneq_refl]) >>
+    PROVE_TAC[result_rel_syneq_FEMPTY_refl,EVERY2_syneq_FEMPTY_refl]) >>
   strip_tac >- (
     rw[LET_THM] >>
     rw[Once Cevaluate_cases] >>
