@@ -158,15 +158,19 @@ val Cexp_only_ind =
 |> DISCH_ALL
 |> Q.GEN`P`
 
-val syneq_defs_refl = hd(rev(CONJUNCTS syneq_exp_rules))
-
+The real reason why this doesn't work:
+  Expressions that go into an infinite loop via the code environment have no finite proof of equivalence to themselves.
 val syneq_exp_refl = store_thm("syneq_exp_refl",
-  ``(∀e c z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp c c z z V e e)``,
-  ho_match_mp_tac Cexp_only_ind >>
+  ``(∀e c z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp c c z z V e e) ∧
+    (∀defs c z V U d1. (∀v. v < z ⇒ V v v) ∧ (∀v1 v2. U v1 v2 ⇒ v1 < LENGTH (d1++defs) ∧ (v2 = v1)) ∧ LENGTH d1 ≤ 1 ⇒ syneq_defs c c z z V (d1++defs) (d1++defs) U) ∧
+    (∀d c z V U. (∀v. v < z ⇒ V v v) ∧ (∀v1 v2. U v1 v2 ⇒ v1 < 1 ∧ (v2 = v1)) ⇒ syneq_defs c c z z V [d] [d] U) ∧
+    (∀x:num#Cexp. foo x) ∧
+    (∀es c z V. (∀v. v < z ⇒ V v v) ⇒ EVERY2 (syneq_exp c c z z V) es es)``,
+  ho_match_mp_tac (TypeBase.induction_of``:Cexp``) >>
   strip_tac >- (
     rw[Once syneq_exp_cases] >>
     fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP,EL_MAP] >>
-    rw[] >> Cases_on `FST (EL n l) < z` >> fsrw_tac[ARITH_ss][]) >>
+    rw[] >> Cases_on `FST (EL n defs) < z` >> fsrw_tac[ARITH_ss][]) >>
   strip_tac >- rw[Once syneq_exp_cases] >>
   strip_tac >- (
     rw[] >> rw[Once syneq_exp_cases] >>
@@ -187,25 +191,44 @@ val syneq_exp_refl = store_thm("syneq_exp_refl",
     Cases >> srw_tac[ARITH_ss][] ) >>
   strip_tac >- (
     rw[] >> rw[Once syneq_exp_cases] >>
-    qexists_tac`λv1 v2. v1 < LENGTH l ∧ (v2 = v1)` >>
+    qexists_tac`λv1 v2. v1 < LENGTH defs ∧ (v2 = v1)` >>
     conj_tac >- (
-      match_mp_tac syneq_defs_refl >>
+      `defs = [] ++ defs` by rw[] >>
+      POP_ASSUM SUBST1_TAC >>
+      first_x_assum match_mp_tac >>
       simp[] ) >>
     first_x_assum match_mp_tac >>
     srw_tac[ARITH_ss][] >>
-    Cases_on`v < LENGTH l`>>fsrw_tac[ARITH_ss][]) >>
+    Cases_on`v < LENGTH defs`>>fsrw_tac[ARITH_ss][]) >>
   strip_tac >- (
     rw[] >> rw[Once syneq_exp_cases] >>
-    qexists_tac`λv1 v2. (v1,v2) = (0,0)` >> rw[] >>
-    match_mp_tac syneq_defs_refl >>
-    simp[FUN_EQ_THM]) >>
+    qexists_tac`λv1 v2. (v1,v2) = (0,0)` >> rw[]) >>
   strip_tac >- (
     rw[] >> rw[Once syneq_exp_cases] >>
     fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,MEM_ZIP,MEM_EL]) >>
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
   strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
-  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ))
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- (
+    rw[] >>
+    Cases_on`d1`>>fs[] >- (
+      rw[Once syneq_exp_cases] ) >>
+    Cases_on`t`>>fsrw_tac[ARITH_ss][] >>
+    rw[Once syneq_exp_cases]
+    rw[] >> rw[Once syneq_exp_cases]
+    ) >>
+  strip_tac >- (
+    rw[] >>
+    first_x_assum match_mp_tac >>
+    simp[] >> metis_tac[] ) >>
+  strip_tac >- (
+    rw[] >> ?????
+  strip_tac >- (
+    rw[] >> ?????
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[])
 
 val syneq_refl = store_thm("syneq_refl",
   ``∀v c. syneq c c v v``,

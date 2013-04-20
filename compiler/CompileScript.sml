@@ -685,13 +685,7 @@ syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
   ((b,az,e2,j2,r2) = syneq_cb_aux c2 n2 ( LENGTH defs2) ez2 ( EL  n2  defs2)) /\
   (b ==> syneq_exp c1 c2 (az +j1) (az +j2) (syneq_cb_V az r1 r2 V V') e1 e2))))
 ==>
-syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V')
-/\
-(! c z V defs V'.
-(! v. v < z ==> V v v) /\
-(V' = (\ v1 v2 . v1 < LENGTH defs /\ (v2 = v1)))
-==>
-syneq_defs c c z z V defs defs V')`;
+syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V')`;
 
 val _ = Hol_reln `
 (! c1 c2 l.
