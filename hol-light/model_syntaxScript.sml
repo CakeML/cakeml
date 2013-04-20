@@ -9,25 +9,10 @@ val replicate_def = Define `replicate x n = REPLICATE n x`;
 val infinite_def = Define `infinite s = ~(FINITE s)`;
 
 val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="model_syntax",Name="BIT0"},name=(["Number","Natural"],"bit0")}
-val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="list",Name="HD"},name=(["Data","List"],"head")}
-val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="list",Name="TL"},name=(["Data","List"],"tail")}
 val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="model_syntax",Name="member"},name=(["Data","List"],"member")}
-val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="list",Name="EXISTS"},name=(["Data","List"],"any")}
-val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="list",Name="FILTER"},name=(["Data","List"],"filter")}
-val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="list",Name="MAP"},name=(["Data","List"],"map")}
-val _ = OpenTheoryMap.OpenTheory_tyop_name {tyop={Thy="sum",Tyop="sum"},name=(["Data","Sum"],"+")};
-val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="sum",Name="INR"},name=(["Data","Sum"],"right")};
-val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="sum",Name="INL"},name=(["Data","Sum"],"left")};
-val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="sum",Name="OUTR"},name=(["Data","Sum"],"destRight")};
-val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="sum",Name="OUTL"},name=(["Data","Sum"],"destLeft")};
 val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="model_syntax",Name="replicate"},name=(["Data","List"],"replicate")};
-val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="list",Name="FLAT"},name=(["Data","List"],"concat")};
-val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="pred_set",Name="IMAGE"},name=(["Set"],"image")};
 val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="combin",Name="I"},name=(["Set"],"fromPredicate")};
-val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="pred_set",Name="INTER"},name=(["Set"],"intersect")};
 val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="model_syntax",Name="infinite"},name=(["Set"],"infinite")};
-val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="pred_set",Name="UNIV"},name=(["Set"],"universe")};
-val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="pred_set",Name="DIFF"},name=(["Set"],"difference")};
 val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="bool",Name="IN"},name=(["Set"],"member")};
 
 fun const_name n =
