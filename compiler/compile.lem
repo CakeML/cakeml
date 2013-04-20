@@ -664,7 +664,7 @@ forall c1 c2 ez1 ez2 V defs1 defs2 V'.
   exists b az e1 j1 r1 e2 j2 r2.
   (b,az,e1,j1,r1) = syneq_cb_aux c1 n1 (List.length defs1) ez1 (List.nth defs1 n1) &&
   (b,az,e2,j2,r2) = syneq_cb_aux c2 n2 (List.length defs2) ez2 (List.nth defs2 n2) &&
-  syneq_exp c1 c2 (az+j1) (az+j2) (syneq_cb_V az r1 r2 V V') e1 e2)
+  (b --> syneq_exp c1 c2 (az+j1) (az+j2) (syneq_cb_V az r1 r2 V V') e1 e2))
 ==>
 syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V'
 and

@@ -489,6 +489,7 @@ val syneq_exp_trans = store_thm("syneq_exp_trans",
       rw[] >> res_tac >> rw[] >>
       Q.PAT_ABBREV_TAC`p = syneq_cb_aux X Y Z ez2 A` >>
       PairCases_on`p` >> simp[] >>
+      strip_tac >>
       match_mp_tac syneq_exp_refl >>
       rw[] >>
       match_mp_tac syneq_cb_V_refl >>
@@ -511,6 +512,7 @@ val syneq_exp_trans = store_thm("syneq_exp_trans",
     first_x_assum(qspecl_then[`c3`,`az+j2'`,`syneq_cb_V az r1' r2' V' U'`,`e2'`]mp_tac) >>
     rw[] >>
     match_mp_tac (MP_CANON(CONJUNCT1 (syneq_exp_mono_V))) >>
+    fs[] >> rfs[] >>
     HINT_EXISTS_TAC >>
     simp[syneq_cb_V_def,O_DEF] >>
     srw_tac[ARITH_ss][] >>
@@ -524,7 +526,7 @@ val syneq_exp_trans = store_thm("syneq_exp_trans",
     first_x_assum match_mp_tac >>
     rw[] >>
     Q.PAT_ABBREV_TAC`p = syneq_cb_aux X Y Z ez1 A` >>
-    PairCases_on`p` >> simp[] >>
+    PairCases_on`p` >> simp[] >> strip_tac >>
     match_mp_tac syneq_exp_refl >>
     rw[] >>
     match_mp_tac syneq_cb_V_refl >>
@@ -542,6 +544,7 @@ val syneq_exp_trans = store_thm("syneq_exp_trans",
   rpt (qpat_assum`A = B`(mp_tac o SYM)) >>
   rw[] >>
   match_mp_tac (MP_CANON(CONJUNCT1 (syneq_exp_mono_V))) >>
+  rfs[] >>
   HINT_EXISTS_TAC >>
   simp[syneq_cb_V_def,O_DEF] >>
   srw_tac[ARITH_ss][] >>

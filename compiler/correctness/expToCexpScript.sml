@@ -540,7 +540,7 @@ val syneq_defs_elim_thm = let
   val th2 = prove (mk_imp(d2,d1),
     rw[] >>
     Q.PAT_ABBREV_TAC`p = syneq_cb_aux a b c d e` >>
-    PairCases_on`p` >> simp[] >>
+    PairCases_on`p` >> simp[] >> strip_tac >>
     match_mp_tac syneq_exp_refl >>
     simp[syneq_cb_V_def] >>
     srw_tac[ARITH_ss][] >>
@@ -1259,6 +1259,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       rfs[EL_MAP,GSYM MAP_REVERSE] >>
       fs[syneq_cb_aux_def,bind_def] >>
       rpt BasicProvers.VAR_EQ_TAC >>
+      rfs[] >>
       rator_x_assum`syneq_exp`mp_tac >>
       Q.PAT_ABBREV_TAC`ffuns:string list = MAP X funs` >>
       `ffuns = MAP FST funs` by (
