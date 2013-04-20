@@ -11,12 +11,8 @@ fun full_split_pairs_tac P (g as (asl,w)) = let
   in MAP_EVERY (STRIP_ASSUME_TAC o Lib.C ISPEC pair_CASES) tms end g
 fun P tm = fst (strip_comb tm) = ``label_closures``
 
-want: syneq_exp_mono_c? i.e. can add extra stuff to code env as long as labels actually in exp are agreed
-label_closures_ind
-
 (* TODO: move *)
 val _ = export_rewrites["compileTermination.label_closures_def"]
-
 
 val syneq_cb_aux_mono_c = store_thm("syneq_cb_aux_mono_c",
   ``∀c c' n nz z d.
@@ -26,8 +22,6 @@ val syneq_cb_aux_mono_c = store_thm("syneq_cb_aux_mono_c",
   Cases_on`d`>>TRY(PairCases_on`x`)>>fs[syneq_cb_aux_def,FLOOKUP_DEF]>>
   pop_assum mp_tac >> rw[LET_THM,UNCURRY] >>
   fs[NOT_FDOM_FAPPLY_FEMPTY])
-
-how about just saying you can add anything to the c as long as it's closed under its own labs and the exp labs are in there?
 
 val closed_code_env_def = Define`
   closed_code_env c = ∀x. x ∈ FRANGE c ⇒ free_labs x.body ⊆ FDOM c`
@@ -87,7 +81,6 @@ val syneq_exp_c_SUBMAP = store_thm("syneq_exp_c_SUBMAP",
   strip_tac >- (
     rw[] >>
     simp[Once syneq_exp_cases] >>
-    disj1_tac >>
     conj_tac >- (
       fsrw_tac[][EVERY_MEM,MEM_FILTER,SUBMAP_DEF] >>
       reverse EQ_TAC >- metis_tac[] >>
@@ -101,7 +94,8 @@ val syneq_exp_c_SUBMAP = store_thm("syneq_exp_c_SUBMAP",
       qx_gen_tac`b` >> strip_tac >>
       conj_asm1_tac >- (
         fsrw_tac[DNF_ss][SUBSET_DEF,MEM_FILTER] >>
-        metis_tac[sumTheory.ISR,sumTheory.OUTR] ) >>
+        first_x_assum(qspecl_then[`b`,`INR b`]mp_tac) >>
+        simp[]) >>
       metis_tac[] ) >>
     rpt gen_tac >> strip_tac >>
     first_x_assum(qspecl_then[`n1`,`n2`]mp_tac) >>
@@ -113,10 +107,14 @@ val syneq_exp_c_SUBMAP = store_thm("syneq_exp_c_SUBMAP",
     discharge_hyps >- (
       fsrw_tac[DNF_ss][FLOOKUP_DEF,SUBMAP_DEF,SUBSET_DEF,MEM_FILTER] >>
       Cases_on`EL n1 defs1`>>TRY(PairCases_on`x`)>>fs[] >>
+      TRY (
+        qmatch_assum_rename_tac`EL n1 defs1 = INR z`[] >>
+        first_x_assum(qspecl_then[`z`,`INR z`]mp_tac) >>
+        simp[] ) >>
       qx_gen_tac`z` >> strip_tac >>
       first_x_assum(qspecl_then[`z`,`INL(x0,x1)`]mp_tac) >>
       simp[] ) >>
-    rw[] >>
+    rw[] >> rfs[] >>
     first_x_assum match_mp_tac >>
     fsrw_tac[DNF_ss][FLOOKUP_DEF,SUBMAP_DEF,SUBSET_DEF,MEM_FILTER] >>
     Cases_on`EL n1 defs1`>>TRY(PairCases_on`x`)>>fs[syneq_cb_aux_def] >>
@@ -125,44 +123,7 @@ val syneq_exp_c_SUBMAP = store_thm("syneq_exp_c_SUBMAP",
       simp[] >> NO_TAC ) >>
     fs[closed_code_env_def,IN_FRANGE,SUBSET_DEF] >>
     fs[LET_THM,UNCURRY] >>
-    metis_tac[sumTheory.ISR,sumTheory.OUTR] ) >>
-  rw[] >>
-  rw[Once syneq_exp_cases]
-  disj1_tac >>
-  conj_tac >- (
-    fsrw_tac[][EVERY_MEM,MEM_FILTER,SUBMAP_DEF] >>
-    reverse EQ_TAC >- metis_tac[] >>
-    strip_tac >>
-    gen_tac >> strip_tac >>
-    gen_tac >> strip_tac >>
-    conj_asm1_tac >- (
-      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_FILTER] >>
-      metis_tac[sumTheory.ISR,sumTheory.OUTR] ) >>
-    metis_tac[] ) >>
-
-  rpt gen_tac >> strip_tac >>
-  first_x_assum(qspecl_then[`n1`,`n2`]mp_tac) >>
-  simp[] >> strip_tac >>
-  first_x_assum(SUBST1_TAC o SYM) >>
-  first_x_assum(strip_assume_tac o SYM) >>
-  `MEM (EL n1 defs1) defs1` by (rw[MEM_EL] >> metis_tac[]) >>
-  qspecl_then[`c1`,`c1'`,`n1`,`LENGTH defs1`,`z1`,`EL n1 defs1`]mp_tac syneq_cb_aux_mono_c >>
-  discharge_hyps >- (
-    fsrw_tac[DNF_ss][FLOOKUP_DEF,SUBMAP_DEF,SUBSET_DEF,MEM_FILTER] >>
-    Cases_on`EL n1 defs1`>>TRY(PairCases_on`x`)>>fs[] >>
-    qx_gen_tac`z` >> strip_tac >>
-    first_x_assum(qspecl_then[`z`,`INL(x0,x1)`]mp_tac) >>
-    simp[] ) >>
-  rw[] >>
-  first_x_assum match_mp_tac >>
-  fsrw_tac[DNF_ss][FLOOKUP_DEF,SUBMAP_DEF,SUBSET_DEF,MEM_FILTER] >>
-  Cases_on`EL n1 defs1`>>TRY(PairCases_on`x`)>>fs[syneq_cb_aux_def] >>
-  qx_gen_tac`z` >> strip_tac >> TRY (
-    first_x_assum(qspecl_then[`z`,`INL(x0,x1)`]mp_tac) >>
-    simp[] >> NO_TAC ) >>
-  fs[closed_code_env_def,IN_FRANGE,SUBSET_DEF] >>
-  fs[LET_THM,UNCURRY] >>
-  metis_tac[sumTheory.ISR,sumTheory.OUTR] ) >>
+    metis_tac[sumTheory.ISR,sumTheory.OUTR] ))
 
 val label_closures_thm = store_thm("label_closures_thm",
   ``(∀ez ls e. let (e',c,ls) = label_closures ez ls e in
