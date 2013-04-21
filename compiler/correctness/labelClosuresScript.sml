@@ -773,22 +773,29 @@ val label_closures_thm = store_thm("label_closures_thm",
         rw[Abbr`envs2`,bind_fv_def] >>
         rw[] >> unabbrev_all_tac >> rw[] ) >>
       qpat_assum`Abbrev(envs2 = X)`kall_tac >>
-      qpat_assum`Abbrev(recs = X)`kall_tac >>
-      rw[] >- (
+      qpat_assum`Abbrev(recs2 = X)`kall_tac >>
+      reverse(rw[]) >- (
         simp[syneq_cb_V_def] >>
-        `MEM (x-def0) (j'::recs)` by (
-          simp[Abbr`recs`,MEM_FILTER,MEM_GENLIST] ) >>
-        Q.ISPECL_THEN[`j'::recs`,`x-def0`,`0:num`]mp_tac find_index_MEM >>
+        `MEM (x-(def0+nz)) envs'` by (
+          simp[Abbr`envs'`,Abbr`envs`,MEM_MAP,MEM_FILTER,QSORT_MEM,Abbr`fvs`] >>
+          qexists_tac`x` >> simp[] ) >>
+        Q.ISPECL_THEN[`envs'`,`x-(def0+nz)`,`rz`]mp_tac find_index_MEM >>
         simp[] >> disch_then strip_assume_tac >> simp[] >>
-        `i < rz` by simp[Abbr`rz`] >>
+        simp[Abbr`rz`] ) >>
+      simp[syneq_cb_V_def] >>
+      `MEM (x-def0) (j'::recs)` by (
+        simp[Abbr`recs`,MEM_FILTER,MEM_GENLIST]) >>
+      Q.ISPECL_THEN[`j'::recs`,`x-def0`,`0:num`]mp_tac find_index_MEM >>
+      simp[] >> disch_then strip_assume_tac >> simp[] >>
+      `i < rz` by simp[Abbr`rz`] >>
+      simp[] >>
+      Cases_on`i=0` >- (
         simp[] >>
-        Cases_on`i=0` >- (
-          simp[] >>
-          fs[Abbr`j'`] >>
-          DECIDE_TAC ) >>
-        simp[] >>
-        qpat_assum`EL X Y = x - def0`mp_tac >>
-        simp[EL_CONS,PRE_SUB1] >> strip_tac >>
+        fs[Abbr`j'`] >>
+        DECIDE_TAC ) >>
+      simp[] >>
+      qpat_assum`EL X Y = x - def0`mp_tac >>
+      simp[EL_CONS,PRE_SUB1] >> strip_tac >>
 
       Q.PAT_ABBREV_TAC`fi = find_index X Y Z` >>
       `∃z. hb
