@@ -288,13 +288,17 @@ val ptree_Expr_def = Define`
               do cname <- ptree_ConstructorName single;
                  SOME (Ast_Con cname [])
               od
-          | [lett;letdecs;intok;ept;endt] =>
+          | [lett;letdecs_pt;intok;ept;endt] =>
             do
               assert(lett = Lf (TOK LetT) ∧ intok = Lf (TOK InT) ∧
                      endt = Lf (TOK EndT));
-              (* decls <- ptree_LetDecs letdecs;
+              letdecs <- ptree_LetDecs letdecs_pt;
               e <- ptree_Expr nE ept;
-              SOME(Ast_Letrec decls e) *) NONE
+              SOME(FOLDR (λdf acc. case df of
+                                       INL (v,e0) => Ast_Let v e0 acc
+                                     | INR fds => Ast_Letrec fds acc)
+                         e
+                         letdecs)
             od
           | _ => NONE
       else if nt = mkNT nEapp then
@@ -456,7 +460,7 @@ val ptree_Expr_def = Define`
               od
             | _ => NONE
         else NONE) ∧
-  ptree_FDecl ast =
+  (ptree_FDecl ast =
     case ast of
         Lf _ => NONE
       | Nd nt subs =>
@@ -471,7 +475,48 @@ val ptree_Expr_def = Define`
                 SOME(fname,vname,body)
               od
             | _ => NONE
-        else NONE
+        else NONE) ∧
+  (ptree_LetDecs ptree =
+    case ptree of
+        Lf _ => NONE
+      | Nd nt args =>
+        if nt <> mkNT nLetDecs then NONE
+        else
+          case args of
+              [] => SOME []
+            | [ld_pt; lds_pt] =>
+              do
+                ldopt <- ptree_LetDec ld_pt;
+                lds <- ptree_LetDecs lds_pt;
+                SOME ((case ldopt of NONE => lds | SOME ld => ld::lds))
+              od
+            | _ => NONE) ∧
+  (ptree_LetDec ptree =
+    case ptree of
+        Lf _ => NONE
+      | Nd nt args =>
+        if nt <> mkNT nLetDec then NONE
+        else
+          case args of
+              [single] =>
+              do
+                assert(single = Lf (TOK SemicolonT));
+                SOME NONE
+              od
+            | [funtok; andfdecls_pt] =>
+              do
+                assert (funtok = Lf (TOK FunT));
+                fds <- ptree_AndFDecls andfdecls_pt;
+                SOME (SOME (INR fds))
+              od
+            | [valtok; v_pt; eqtok; e_pt] =>
+              do
+                assert(valtok = Lf (TOK ValT) ∧ eqtok = Lf (TOK EqualsT));
+                v <- ptree_V v_pt;
+                e <- ptree_Expr nE e_pt;
+                SOME (SOME (INL(v,e)))
+              od
+            | _ => NONE)
 `;
 
 

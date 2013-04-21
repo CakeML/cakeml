@@ -81,6 +81,10 @@ in
 end
 val tytest = parsetest ``nType`` ``ptree_Type``
 
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "let in 3 end"
+                  ``[LetT; InT; IntT 3; EndT]``
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "let ; in 3 end"
+                  ``[LetT; SemicolonT; InT; IntT 3; EndT]``
 val _ = parsetest ``nE`` ``ptree_Expr nE``
                   "let val x = 3 val y = 4 in x + y end"
                   ``[LetT; ValT; AlphaT "x"; EqualsT; IntT 3;
