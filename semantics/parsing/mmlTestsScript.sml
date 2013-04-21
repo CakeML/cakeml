@@ -52,7 +52,14 @@ in
           val ptree_res =
               case Lib.total mk_comb(sem,res) of
                   NONE => optionSyntax.mk_none bool
-                | SOME t => rhs (concl (time EVAL t))
+                | SOME t =>
+                  let
+                    val rt = rhs (concl (time EVAL t))
+                  in
+                    if optionSyntax.is_some rt then
+                      rand rt
+                    else die ("Sem. failure", rt)
+                  end
           val _ = diag ("Semantics ("^term_to_string sem^") to ", ptree_res)
           val valid_t = ``valid_ptree mmlG ^res``
           val vth = SIMP_CONV (srw_ss())
