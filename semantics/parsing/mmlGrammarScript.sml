@@ -104,8 +104,7 @@ val mmlG_def = mk_grammar_def ginfo
     |  ^(``{SymbolT s |
             s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"}}``);
  Ebase ::= "(" E ")" | V | ConstructorName | <IntT>
-        |  "let" "val" V "=" E OptSemi "in" E "end"
-        |  "let" "fun" AndFDecls OptSemi "in" E "end";
+        |  "let" LetDecs "in" E "end";
  Etuple ::= "(" Elist2 ")";
  Elist2 ::= E "," Elist1;
  Elist1 ::= E | Elist1 "," E;
@@ -130,8 +129,10 @@ val mmlG_def = mk_grammar_def ginfo
  (* function and value declarations *)
  FDecl ::= V V "=" E ;
  AndFDecls ::= FDecl | AndFDecls "and" FDecl;
- Decl ::= "val" Pattern "=" E OptSemi | "fun" AndFDecls OptSemi
-       |  TypeDec OptSemi ;
+ Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec | ";" ;
+ Decls ::= Decl Decls | ;
+ LetDec ::= "val" V "=" E | "fun" AndFDecls | ";" ;
+ LetDecs ::= LetDec LetDecs | ;
 
  (* patterns *)
  Pbase ::= V | ConstructorName | <IntT> | "(" Pattern ")";
