@@ -248,12 +248,7 @@ val peg_Ebase_def = Define`
              nt (mkNT nV) (bindNT nEbase);
              nt (mkNT nConstructorName) (bindNT nEbase);
              seql [tokeq LparT; pnt nE; tokeq RparT] (bindNT nEbase);
-             seql [tokeq LetT;
-                   choicel [seql [tokeq ValT; pnt nV; tokeq EqualsT;
-                                  pnt nE; pnt nOptSemi; tokeq InT; pnt nE;
-                                  tokeq EndT] I;
-                            seql [tokeq FunT; pnt nAndFDecls; pnt nOptSemi;
-                                  tokeq InT; pnt nE; tokeq EndT] I]]
+             seql [tokeq LetT; pnt nLetDecs; tokeq InT; pnt nE; tokeq EndT]
                   (bindNT nEbase)
             ]
 `;
@@ -344,13 +339,28 @@ val mmlPEG_def = zDefine`
                     (bindNT nPatternList2));
               (mkNT nPatternList1,
                peg_linfix (mkNT nPatternList1) (pnt nPattern) (tokeq CommaT));
+              (mkNT nLetDec,
+               choicel [seql [tokeq ValT; pnt nV; tokeq EqualsT; pnt nE]
+                             (bindNT nLetDec);
+                        seql [tokeq FunT; pnt nAndFDecls]
+                             (bindNT nLetDec);
+                        pegf (tokeq SemicolonT) (bindNT nLetDec)]);
+              (mkNT nLetDecs,
+               rpt (pnt nLetDec)
+                   (λds. [FOLDR (λd acc. Nd (mkNT nLetDecs) [HD d; acc])
+                                (Nd (mkNT nLetDecs) [])
+                                ds]));
               (mkNT nDecl,
-               choicel [seql [tokeq ValT; pnt nPattern; tokeq EqualsT; pnt nE;
-                              pnt nOptSemi]
+               choicel [seql [tokeq ValT; pnt nPattern; tokeq EqualsT; pnt nE]
                              (bindNT nDecl);
-                        seql [tokeq FunT; pnt nAndFDecls; pnt nOptSemi]
-                             (bindNT nDecl);
-                        seql [pnt nTypeDec; pnt nOptSemi] (bindNT nDecl)])
+                        seql [tokeq FunT; pnt nAndFDecls] (bindNT nDecl);
+                        seql [pnt nTypeDec] (bindNT nDecl);
+                        pegf (tokeq SemicolonT) (bindNT nDecl)]);
+              (mkNT nDecls,
+               rpt (pnt nDecl)
+                   (λds. [FOLDR (λd acc. Nd (mkNT nDecls) [HD d; acc])
+                                (Nd (mkNT nDecls) [])
+                                ds]))
              ] |>
 `;
 

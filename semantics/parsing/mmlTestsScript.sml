@@ -74,12 +74,26 @@ in
 end
 val tytest = parsetest ``nType`` ``ptree_Type``
 
+val _ = parsetest ``nE`` ``ptree_Expr nE``
+                  "let val x = 3 val y = 4 in x + y end"
+                  ``[LetT; ValT; AlphaT "x"; EqualsT; IntT 3;
+                     ValT; AlphaT "y"; EqualsT; IntT 4; InT; AlphaT "x";
+                     SymbolT "+"; AlphaT "y"; EndT]``
+val _ = parsetest ``nE`` ``ptree_Expr nE``
+                  "let val x = 3; val y = 4; in x + y end"
+                  ``[LetT; ValT; AlphaT "x"; EqualsT; IntT 3; SemicolonT;
+                     ValT; AlphaT "y"; EqualsT; IntT 4; SemicolonT; InT;
+                     AlphaT "x"; SymbolT "+"; AlphaT "y"; EndT]``
 val _ = parsetest ``nDecl`` ``ptree_Decl`` "val x = 3"
                   ``[ValT; AlphaT "x"; EqualsT; IntT 3]``
-val _ = parsetest ``nDecl`` ``ptree_Decl`` "val x = 3;"
+val _ = parsetest ``nDecls`` ``ptree_Decl`` "val x = 3;"
                   ``[ValT; AlphaT "x"; EqualsT; IntT 3; SemicolonT]``
 val _ = parsetest ``nDecl`` ``ptree_Decl`` "val C x = 3"
                   ``[ValT; AlphaT "C"; AlphaT "x"; EqualsT; IntT 3]``
+val _ = parsetest ``nDecls`` ``ptree_Decl`` "val x = 3; val C y = f z"
+                  ``[ValT; AlphaT "x"; EqualsT; IntT 3; SemicolonT;
+                     ValT; AlphaT "C"; AlphaT "y"; EqualsT; AlphaT "f";
+                     AlphaT "z"]``
 val _ = parsetest ``nDecl`` ``ptree_Decl`` "val C(x,y) = foo"
                   ``[ValT; AlphaT "C"; LparT; AlphaT "x"; CommaT;
                      AlphaT "y"; RparT; EqualsT; AlphaT "foo"]``
