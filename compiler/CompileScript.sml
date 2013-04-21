@@ -1122,7 +1122,7 @@ val _ = Defn.save_defn body_count_defn;
 /\
 (label_closures_defs ez ld nz k (def::defs) =
   let cd = bind_fv def nz ez k in
-  let (b,cb,j) = label_closures ez (ld +1) cd.body in
+  let (b,cb,j) = label_closures (cd.az +nz +ez) (ld +1) cd.body in
   let (lds,cdefs,j) = label_closures_defs ez j nz (k +1) defs in
   ((ld ::lds), ((ld,(cd with<| body := b|>)) ::(cb ++cdefs)), j))`;
 
