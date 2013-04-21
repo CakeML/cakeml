@@ -86,22 +86,25 @@ val _ = parsetest ``nE`` ``ptree_Expr nE``
                      AlphaT "x"; SymbolT "+"; AlphaT "y"; EndT]``
 val _ = parsetest ``nDecl`` ``ptree_Decl`` "val x = 3"
                   ``[ValT; AlphaT "x"; EqualsT; IntT 3]``
-val _ = parsetest ``nDecls`` ``ptree_Decl`` "val x = 3;"
+val _ = parsetest ``nDecls`` ``ptree_Decls`` "val x = 3;"
                   ``[ValT; AlphaT "x"; EqualsT; IntT 3; SemicolonT]``
 val _ = parsetest ``nDecl`` ``ptree_Decl`` "val C x = 3"
                   ``[ValT; AlphaT "C"; AlphaT "x"; EqualsT; IntT 3]``
-val _ = parsetest ``nDecls`` ``ptree_Decl`` "val x = 3; val C y = f z"
+val _ = parsetest ``nDecls`` ``ptree_Decls`` "val x = 3; val C y = f z"
                   ``[ValT; AlphaT "x"; EqualsT; IntT 3; SemicolonT;
                      ValT; AlphaT "C"; AlphaT "y"; EqualsT; AlphaT "f";
                      AlphaT "z"]``
-val _ = parsetest ``nDecl`` ``ptree_Decl`` "val C(x,y) = foo"
+val _ = parsetest ``nDecls`` ``ptree_Decls`` "val C(x,y) = foo"
                   ``[ValT; AlphaT "C"; LparT; AlphaT "x"; CommaT;
                      AlphaT "y"; RparT; EqualsT; AlphaT "foo"]``
 val _ = parsetest ``nDecl`` ``ptree_Decl`` "fun f x = x"
                   ``[FunT; AlphaT "f"; AlphaT "x"; EqualsT; AlphaT "x"]``
-val _ = parsetest ``nDecl`` ``ptree_Decl`` "datatype foo = C | D"
+val _ = parsetest ``nDecls`` ``ptree_Decls`` "datatype foo = C | D"
                   ``[DatatypeT; AlphaT "foo"; EqualsT; AlphaT "C";
                      BarT; AlphaT "D"]``
+val _ = parsetest ``nDecls`` ``ptree_Decls`` "datatype foo = C | D val x = y"
+                  ``[DatatypeT; AlphaT "foo"; EqualsT; AlphaT "C";
+                     BarT; AlphaT "D"; ValT; AlphaT"x"; EqualsT; AlphaT"y"]``
 
 val _ = parsetest ``nPbase`` ``ptree_Pattern nPbase`` "3"
                   ``[IntT 3]``

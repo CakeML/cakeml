@@ -554,7 +554,7 @@ val ptree_Pattern_def = Define`
 `;
 
 val ptree_Decl_def = Define`
-  ptree_Decl pt : ast_dec option =
+  ptree_Decl pt : ast_dec option option =
     case pt of
        Lf _ => NONE
      | Nd nt args =>
@@ -563,23 +563,43 @@ val ptree_Decl_def = Define`
          case args of
              [dt] =>
              do
+               assert (dt = Lf (TOK SemicolonT));
+               SOME NONE
+             od ++
+             do
                tydec <- ptree_TypeDec dt;
-               SOME (Ast_Dtype tydec)
+               SOME (SOME (Ast_Dtype tydec))
              od
-           | [funtok; fdecls; optsemi] =>
+           | [funtok; fdecls] =>
              do
                assert(funtok = Lf (TOK FunT));
                fdecs <- ptree_AndFDecls fdecls;
-               SOME (Ast_Dletrec fdecs)
+               SOME (SOME (Ast_Dletrec fdecs))
              od
-           | [valtok; patpt; eqtok; ept; optsemi] =>
+           | [valtok; patpt; eqtok; ept] =>
              do
                assert (valtok = Lf (TOK ValT) ∧ eqtok = Lf (TOK EqualsT));
                pat <- ptree_Pattern nPattern patpt;
                e <- ptree_Expr nE ept;
-               SOME (Ast_Dlet pat e)
+               SOME (SOME (Ast_Dlet pat e))
              od
            | _ => NONE
+`
+
+val ptree_Decls_def = Define`
+  ptree_Decls (Lf _) = NONE ∧
+  ptree_Decls (Nd nt args) =
+    if nt <> mkNT nDecls then NONE
+    else
+      case args of
+          [] => SOME []
+        | [d_pt; ds_pt] =>
+          do
+            dopt <- ptree_Decl d_pt;
+            ds <- ptree_Decls ds_pt;
+            (case dopt of NONE => SOME ds | SOME d => SOME (d::ds))
+          od
+        | _ => NONE
 `
 
 val _ = export_theory()
