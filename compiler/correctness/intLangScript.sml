@@ -1782,8 +1782,8 @@ val _ = export_rewrites["free_labs_defs_MAP"]
 val mkshift_thm = store_thm("mkshift_thm",
  ``∀f k e c z1 z2 V.
    k ≤ z1 ∧ k ≤ z2 ∧
-   (∀x. x < k ⇒ V x x) ∧
-   (∀x. k ≤ x ∧ x < z1 ⇒ V x (f(x-k)+k) ∧ (f(x-k)+k) < z2) ∧
+   (∀x. x ∈ free_vars e ∧ x < k ⇒ V x x) ∧
+   (∀x. x ∈ free_vars e ∧ k ≤ x ∧ x < z1 ⇒ V x (f(x-k)+k) ∧ (f(x-k)+k) < z2) ∧
    free_vars e ⊆ count z1 ∧
    (free_labs e = {})
    ⇒ syneq_exp c c z1 z2 V e (mkshift f k e)``,
@@ -1844,11 +1844,20 @@ val mkshift_thm = store_thm("mkshift_thm",
      simp[] >>
      conj_tac >- (
        srw_tac[ARITH_ss][] >>
-       Cases_on`x < LENGTH defs`>>fsrw_tac[ARITH_ss][] ) >>
+       Cases_on`x < LENGTH defs`>>fsrw_tac[ARITH_ss][] >>
+       fsrw_tac[DNF_ss][SUBSET_DEF] >>
+       `0 < k` by DECIDE_TAC >> fs[] >>
+       metis_tac[ADD_SYM]) >>
      conj_tac >- (
        gen_tac >> strip_tac >>
        first_x_assum(qspec_then`x-LENGTH defs`mp_tac) >>
-       simp[] ) >>
+       simp[] >>
+       discharge_hyps >- (
+         fsrw_tac[DNF_ss][SUBSET_DEF] >>
+         disj1_tac >>
+         qexists_tac`x` >>
+         simp[] ) >>
+       simp[]) >>
      fsrw_tac[ARITH_ss,DNF_ss][SUBSET_DEF] >>
      qx_gen_tac`x` >> strip_tac >>
      rpt(first_x_assum(qspec_then`x`mp_tac)) >>
@@ -1880,7 +1889,13 @@ val mkshift_thm = store_thm("mkshift_thm",
    simp[] >>
    disch_then match_mp_tac >>
    simp[] >>
-   conj_tac >- srw_tac[ARITH_ss][syneq_cb_V_def] >>
+   conj_tac >- (
+     srw_tac[ARITH_ss][syneq_cb_V_def] >>
+     REWRITE_TAC[SUB_PLUS] >>
+     first_x_assum match_mp_tac >>
+     simp[] >> qexists_tac`v2` >>
+     simp[] >> qexists_tac`x` >>
+     simp[] ) >>
    reverse conj_tac >- (
      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF] >>
      qx_gen_tac`x` >> strip_tac >>
@@ -1899,15 +1914,21 @@ val mkshift_thm = store_thm("mkshift_thm",
      simp[] >>
      REWRITE_TAC[Once (ADD_ASSOC)] >>
      simp[] >>
-     `x - (k + (p0 + LENGTH defs)) = (x - (p0 + LENGTH defs)) - k` by srw_tac[ARITH_ss][] >>
+     `x - (k + (p0 + LENGTH defs)) = x - p0 - LENGTH defs - k` by srw_tac[ARITH_ss][] >>
      pop_assum SUBST1_TAC >>
      first_x_assum match_mp_tac >>
-     simp[] ) >>
+     simp[] >>
+     qexists_tac`v2` >> simp[] >>
+     qexists_tac`x` >> simp[]) >>
    srw_tac[ARITH_ss][syneq_cb_V_def] >- (
-     `x - (k + (p0 + LENGTH defs)) = (x - (p0 + LENGTH defs)) - k` by fsrw_tac[ARITH_ss][] >>
+     `x - (p0 + LENGTH defs) = x - p0 - LENGTH defs` by fsrw_tac[ARITH_ss][] >>
+     pop_assum SUBST1_TAC >>
+     `x - (k + (p0 + LENGTH defs)) = x - p0 - LENGTH defs - k` by fsrw_tac[ARITH_ss][] >>
      pop_assum SUBST1_TAC >>
      first_x_assum match_mp_tac >>
-     fsrw_tac[ARITH_ss][] ) >>
+     fsrw_tac[ARITH_ss][] >>
+     qexists_tac`v2` >> simp[] >>
+     qexists_tac`x` >> simp[]) >>
    spose_not_then strip_assume_tac >>
    qpat_assum`~(x < y)`mp_tac >> simp[] >>
    rw[AC ADD_ASSOC ADD_SYM] >>
@@ -1917,10 +1938,12 @@ val mkshift_thm = store_thm("mkshift_thm",
    simp[] >>
    REWRITE_TAC[Once (ADD_ASSOC)] >>
    simp[] >>
-   `x - (k + (p0 + LENGTH defs)) = (x - (p0 + LENGTH defs)) - k` by srw_tac[ARITH_ss][] >>
+   `x - (k + (p0 + LENGTH defs)) = x - p0 - LENGTH defs - k` by srw_tac[ARITH_ss][] >>
    pop_assum SUBST1_TAC >>
    first_x_assum match_mp_tac >>
-   simp[] ) >>
+   simp[] >>
+   qexists_tac`v2` >> simp[] >>
+   qexists_tac`x` >> simp[]) >>
  strip_tac >- (
    simp[] >> rw[] >>
    Cases_on`cb`>>fs[] >>
@@ -1933,12 +1956,19 @@ val mkshift_thm = store_thm("mkshift_thm",
    fsrw_tac[ARITH_ss][] >>
    first_x_assum match_mp_tac >>
    simp[] >>
-   conj_tac >- srw_tac[ARITH_ss][syneq_cb_V_def] >>
+   conj_tac >- (
+     srw_tac[ARITH_ss][syneq_cb_V_def] >>
+     first_x_assum match_mp_tac >>
+     simp[PRE_SUB1] >>
+     qexists_tac`x-x0`>>simp[] >>
+     qexists_tac`x`>>simp[] ) >>
    conj_tac >- (
      srw_tac[ARITH_ss][syneq_cb_V_def] >- (
-       `x - (k + (x0 + 1)) = (x - (x0 + 1)) - k` by fsrw_tac[ARITH_ss][] >>
+       `x - (k + (x0 + 1)) = x - x0 - 1 - k` by fsrw_tac[ARITH_ss][] >>
        pop_assum SUBST1_TAC >>
-       fsrw_tac[DNF_ss][] >>
+       `x - (x0 + 1) = x - x0 - 1` by fsrw_tac[ARITH_ss][] >>
+       pop_assum SUBST1_TAC >>
+       fsrw_tac[DNF_ss][PRE_SUB1] >>
        first_x_assum match_mp_tac >>
        fsrw_tac[ARITH_ss][] ) >>
      spose_not_then strip_assume_tac >>
@@ -1950,9 +1980,9 @@ val mkshift_thm = store_thm("mkshift_thm",
      simp[] >>
      REWRITE_TAC[Once (ADD_ASSOC)] >>
      simp[] >>
-     `x - (k + (x0 + 1)) = (x - (x0 + 1)) - k` by fsrw_tac[ARITH_ss][] >>
+     `x - (k + (x0 + 1)) = x - x0 - 1 - k` by fsrw_tac[ARITH_ss][] >>
      pop_assum SUBST1_TAC >>
-     fsrw_tac[DNF_ss][] >>
+     fsrw_tac[DNF_ss][PRE_SUB1] >>
      first_x_assum match_mp_tac >>
      fsrw_tac[ARITH_ss][] ) >>
    fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
