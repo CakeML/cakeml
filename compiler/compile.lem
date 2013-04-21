@@ -340,7 +340,7 @@ List.for_all (fun cb -> forall l. cb = Inr l --> Pmap.mem l c
   && (Pmap.find l c).nz = List.length defs
   && (Pmap.find l c).ez = List.length env) defs &&
 Cevaluate c s
-  (List.append (List.rev (genlist (CRecClos env defs) (List.length defs))) env)
+  (List.append (genlist (CRecClos env defs) (List.length defs)) env)
   b r
 ==>
 Cevaluate c s env (CLetrec defs b) r
@@ -356,7 +356,7 @@ Cevaluate c s env (CFun cb) (s, Rval (CRecClos env [cb] 0))
 and
 forall c s env e es s' cenv defs n cb b env'' s'' vs r.
 Cevaluate c s env e (s', Rval (CRecClos cenv defs n)) &&
-n < List.length defs && List.nth defs n = cb &&
+n < List.length defs && List.nth (List.rev defs) n = cb &&
 Cevaluate_list c s' env es (s'', Rval vs) &&
 (true,List.length vs,List.length defs,List.length cenv,env'',b) =
   match cb with
@@ -365,7 +365,7 @@ Cevaluate_list c s' env es (s'', Rval vs) &&
     ,k
     ,List.length defs
     ,List.length cenv
-    ,(List.rev vs)@(List.rev (genlist (CRecClos cenv defs) (List.length defs)))@cenv
+    ,(List.rev vs)@(genlist (CRecClos cenv defs) (List.length defs))@cenv
     ,b)
   | Inr l -> let d = Pmap.find l c in
              let (recs,envs) = d.ceenv in
@@ -520,7 +520,7 @@ let rec closed_cd cd = forall v. v IN free_vars cd.body -->
 
 let rec
 syneq_cb_aux c d nz ez (Inl (az,e)) = (d<nz,az,e,nz+ez,
-  fun n -> if n < nz then CCRef (nz-n-1) else
+  fun n -> if n < nz then CCRef n else
            if n < nz+ez then CCEnv (n-nz)
            else CCArg n)
 and
@@ -609,7 +609,7 @@ forall c1 c2 ez1 ez2 V defs1 defs2 b1 b2 V'.
 syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V' &&
 syneq_exp c1 c2 (ez1+(List.length defs1)) (ez2+(List.length defs2))
  (fun v1 v2 -> (v1 < List.length defs1 && v2 < List.length defs2
-                && V' (List.length defs1-v1-1) (List.length defs2-v2-1)) ||
+                && V' v1 v2) ||
                (List.length defs1 <= v1 && List.length defs2 <= v2
                 && V (v1-List.length defs1) (v2-List.length defs2)))
  b1 b2
@@ -662,8 +662,8 @@ forall c1 c2 ez1 ez2 V defs1 defs2 V'.
 (forall n1 n2. V' n1 n2 -->
   n1 < List.length defs1 && n2 < List.length defs2 &&
   exists b az e1 j1 r1 e2 j2 r2.
-  (b,az,e1,j1,r1) = syneq_cb_aux c1 n1 (List.length defs1) ez1 (List.nth defs1 n1) &&
-  (b,az,e2,j2,r2) = syneq_cb_aux c2 n2 (List.length defs2) ez2 (List.nth defs2 n2) &&
+  (b,az,e1,j1,r1) = syneq_cb_aux c1 n1 (List.length defs1) ez1 (List.nth (List.rev defs1) n1) &&
+  (b,az,e2,j2,r2) = syneq_cb_aux c2 n2 (List.length defs2) ez2 (List.nth (List.rev defs2) n2) &&
   (b --> syneq_exp c1 c2 (az+j1) (az+j2) (syneq_cb_V az r1 r2 V V') e1 e2))
 ==>
 syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V'
@@ -1552,7 +1552,7 @@ v_to_Cv m (Recclosure env defs vn) =
   let fns = List.map (fun (n,_,_,_,_) -> n) defs in
   let m = <| m with bvars = fns @ m.bvars |> in
   let Cdefs = List.rev (defs_to_Cdefs m defs) in
-  CRecClos Cenv Cdefs (the (find_index vn (List.rev fns) 0))
+  CRecClos Cenv Cdefs (the (find_index vn fns 0))
 and
 v_to_Cv m (Loc n) = CLoc n
 and

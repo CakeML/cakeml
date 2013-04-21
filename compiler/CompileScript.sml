@@ -383,7 +383,7 @@ Cevaluate c s env (CLet e b) (s', Rerr err))
 /\
 (! c s env defs b r. ( EVERY (\ cb . ! l. (cb = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = LENGTH defs) /\ (( FAPPLY  c  l).ez = LENGTH env)) defs /\
 Cevaluate c s
-  ( APPEND ( REVERSE ( GENLIST (CRecClos env defs) ( LENGTH defs))) env)
+  ( APPEND ( GENLIST (CRecClos env defs) ( LENGTH defs)) env)
   b r)
 ==>
 Cevaluate c s env (CLetrec defs b) r)
@@ -397,7 +397,7 @@ Cevaluate c s env (CFun cb) (s, Rval (CRecClos env [cb] 0)))
 /\
 (! c s env e es s' cenv defs n cb b env'' s'' vs r.
 (Cevaluate c s env e (s', Rval (CRecClos cenv defs n)) /\
-n < LENGTH defs /\ ( EL  n  defs = cb) /\
+n < LENGTH defs /\ ( EL  n  ( REVERSE defs) = cb) /\
 Cevaluate_list c s' env es (s'', Rval vs) /\
 ((T, LENGTH vs, LENGTH defs, LENGTH cenv,env'',b) =
   (case cb of
@@ -406,7 +406,7 @@ Cevaluate_list c s' env es (s'', Rval vs) /\
     ,k
     , LENGTH defs
     , LENGTH cenv
-    ,(( REVERSE vs) ++(( REVERSE ( GENLIST (CRecClos cenv defs) ( LENGTH defs))) ++cenv))
+    ,(( REVERSE vs) ++(( GENLIST (CRecClos cenv defs) ( LENGTH defs)) ++cenv))
     ,b)
   | INR l => let d = FAPPLY  c  l in
              let (recs,envs) = d.ceenv in
@@ -548,7 +548,7 @@ val _ = Defn.save_defn free_labs_defn;
  val syneq_cb_aux_def = Define `
 
 (syneq_cb_aux c d nz ez (INL (az,e)) = ((d <nz),az,e,(nz +ez),
-  (\ n . if n < nz then CCRef (nz - n - 1) else
+  (\ n . if n < nz then CCRef n else
            if n < nz +ez then CCEnv (n - nz)
            else CCArg n)))
 /\
@@ -634,7 +634,7 @@ syneq_exp c1 c2 ez1 ez2 V (CLet e1 b1) (CLet e2 b2))
 (! c1 c2 ez1 ez2 V defs1 defs2 b1 b2 V'.
 (syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V' /\
 syneq_exp c1 c2 (ez1 +( LENGTH defs1)) (ez2 +( LENGTH defs2))
- (\ v1 v2 . (v1 < LENGTH defs1 /\ v2 < LENGTH defs2 /\ V' ( LENGTH defs1 - v1 - 1) ( LENGTH defs2 - v2 - 1)) \/
+ (\ v1 v2 . (v1 < LENGTH defs1 /\ v2 < LENGTH defs2 /\ V' v1 v2) \/
                ( LENGTH defs1 <= v1 /\ LENGTH defs2 <= v2 /\ V (v1 - LENGTH defs1) (v2 - LENGTH defs2)))
  b1 b2)
 ==>
@@ -681,8 +681,8 @@ syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
 (! n1 n2. V' n1 n2 ==>
   n1 < LENGTH defs1 /\ n2 < LENGTH defs2 /\
   (? b az e1 j1 r1 e2 j2 r2.
-  ((b,az,e1,j1,r1) = syneq_cb_aux c1 n1 ( LENGTH defs1) ez1 ( EL  n1  defs1)) /\
-  ((b,az,e2,j2,r2) = syneq_cb_aux c2 n2 ( LENGTH defs2) ez2 ( EL  n2  defs2)) /\
+  ((b,az,e1,j1,r1) = syneq_cb_aux c1 n1 ( LENGTH defs1) ez1 ( EL  n1  ( REVERSE defs1))) /\
+  ((b,az,e2,j2,r2) = syneq_cb_aux c2 n2 ( LENGTH defs2) ez2 ( EL  n2  ( REVERSE defs2))) /\
   (b ==> syneq_exp c1 c2 (az +j1) (az +j2) (syneq_cb_V az r1 r2 V V') e1 e2))))
 ==>
 syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V')`;
@@ -1679,7 +1679,7 @@ val _ = Defn.save_defn bv_to_ov_defn;
   (case (p ) of ( (n,_,_,_,_) ) => n )) defs in
   let m = ( m with<| bvars := fns ++ m.bvars |>) in
   let Cdefs = REVERSE (defs_to_Cdefs m defs) in
-  CRecClos Cenv Cdefs ( THE (find_index vn ( REVERSE fns) 0)))
+  CRecClos Cenv Cdefs ( THE (find_index vn fns 0)))
 /\
 (v_to_Cv m (Loc n) = CLoc n)
 /\
