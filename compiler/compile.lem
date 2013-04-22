@@ -356,7 +356,7 @@ Cevaluate c s env (CFun cb) (s, Rval (CRecClos env [cb] 0))
 and
 forall c s env e es s' cenv defs n cb b env'' s'' vs r.
 Cevaluate c s env e (s', Rval (CRecClos cenv defs n)) &&
-n < List.length defs && List.nth (List.rev defs) n = cb &&
+n < List.length defs && List.nth defs n = cb &&
 Cevaluate_list c s' env es (s'', Rval vs) &&
 (true,List.length vs,List.length defs,List.length cenv,env'',b) =
   match cb with
@@ -662,8 +662,8 @@ forall c1 c2 ez1 ez2 V defs1 defs2 V'.
 (forall n1 n2. V' n1 n2 -->
   n1 < List.length defs1 && n2 < List.length defs2 &&
   exists b az e1 j1 r1 e2 j2 r2.
-  (b,az,e1,j1,r1) = syneq_cb_aux c1 n1 (List.length defs1) ez1 (List.nth (List.rev defs1) n1) &&
-  (b,az,e2,j2,r2) = syneq_cb_aux c2 n2 (List.length defs2) ez2 (List.nth (List.rev defs2) n2) &&
+  (b,az,e1,j1,r1) = syneq_cb_aux c1 n1 (List.length defs1) ez1 (List.nth defs1 n1) &&
+  (b,az,e2,j2,r2) = syneq_cb_aux c2 n2 (List.length defs2) ez2 (List.nth defs2 n2) &&
   (b --> syneq_exp c1 c2 (az+j1) (az+j2) (syneq_cb_V az r1 r2 V V') e1 e2))
 ==>
 syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V'
@@ -912,7 +912,7 @@ exp_to_Cexp m (Let _ vn _ e b) =
 and
 exp_to_Cexp m (Letrec _ defs b) =
   let m = <| m with bvars = (List.map (fun (n,_,_,_,_) -> n) defs) @ m.bvars |> in
-  CLetrec (List.rev (defs_to_Cdefs m defs)) (exp_to_Cexp m b)
+  CLetrec (defs_to_Cdefs m defs) (exp_to_Cexp m b)
 and
 defs_to_Cdefs m [] = []
 and
@@ -937,13 +937,12 @@ exps_to_Cexps m (e::es) =
 (* pull closure bodies into code environment *)
 
 let rec bind_fv (az,e) nz ez ix =
-  let j = nz-ix-1 in
   let fvs = free_vars e in
-  let recs = List.filter (fun v -> az+v IN fvs && not (v=j)) (genlist (fun n -> n) nz) in
+  let recs = List.filter (fun v -> az+v IN fvs && not (v=ix)) (genlist (fun n -> n) nz) in
   let envs = List.filter (fun v -> az+nz <= v) (qsort (fun x y -> x < y) (Set.to_list fvs)) in
   let envs = List.map (fun v -> v-(az+nz)) envs in
   let rz = List.length recs+1 in
-  let e = mkshift (fun v -> if v < nz then the(find_index v (j::recs) 0)
+  let e = mkshift (fun v -> if v < nz then the(find_index v (ix::recs) 0)
                             else the(find_index (v-nz) envs rz))
                   az e in
   let rz = rz-1 in
@@ -1161,9 +1160,9 @@ let rec
 emit_ceenv env (sz,s) fv = (sz+1,compile_varref sz s (List.nth env fv))
 
 let rec
-(* sz                                                                                         z *)
-(* e, ..., e, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0,   *)
-emit_ceref nz z (sz,s) j = (sz+1,emit s [Stack (Load (sz-z-(nz-j)))])
+(* sz                                                           z                             *)
+(* e, ..., e, CodePtr_k, cl_1, ..., CodePtr k, ..., CodePtr nz, RefPtr_1 0, ..., RefPtr_nz 0, *)
+emit_ceref nz z (sz,s) j = (sz+1,emit s [Stack (Load ((sz-z)+j))])
 
 let rec
 push_lab d (s,ecs) (Inl _) = (s,([],[])::ecs) (* should not happen *)
@@ -1174,46 +1173,45 @@ push_lab d (s,ecs) (Inr l) =
 let rec
 cons_closure env0 sz0 sz1 nk (s,k) (refs,envs) =
   (* sz1                                                                  sz0 *)
-  (* CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0,     *)
-  let s = emit s [Stack (Load (nk - k))] in
-  (* CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0, *)
-  let (z,s) = List.fold_left (emit_ceref nk sz0) (sz1+1,s) refs in
+  (* cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0,     *)
+  let s = emit s [Stack (Load k)] in
+  (* CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
+  let (z,s) = List.fold_left (emit_ceref nk (sz0+nk)) (sz1+1,s) refs in
   let (z,s) = List.fold_left (emit_ceenv env0) (z,s) envs in
-  (* e_kj, ..., e_k1, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0, *)
+  (* e_kj, ..., e_k1, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   let s = emit s [Stack (Cons 0 (List.length refs + List.length envs))] in
-  (* env_k, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0, *)
+  (* env_k, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   let s = emit s [Stack (Cons closure_tag 2)] in
-  (* cl_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0, *)
-  let s = emit s [Stack (Store (nk - k))] in
-  (* CodePtr nk, ..., cl_k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0, *)
+  (* cl_k,  cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
+  let s = emit s [Stack (Store k)] in
+  (* cl_1, ..., cl_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   (s,k+1)
 
 let rec
 update_refptr nk (s,k) =
-  (* nk = nz *)
-  (* cl_nk, ..., cl_1, RefPtr_nz 0, ..., RefPtr_k 0, ..., RefPtr_1 cl_1, *)
-  let s = emit s [Stack (Load (nk + nk - k))] in
-  (* RefPtr_k 0, cl_nk, ..., cl_1, RefPtr_nz 0, ..., RefPtr_k 0, ..., RefPtr_1 cl_1, *)
-  let s = emit s [Stack (Load (1 + nk - k))] in
-  (* cl_k, RefPtr_k 0, cl_nk, ..., cl_1, RefPtr_nz 0, ..., RefPtr_k 0, ..., RefPtr_1 cl_1, *)
+  (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
+  let s = emit s [Stack (Load (nk + k))] in
+  (* RefPtr_k 0, cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
+  let s = emit s [Stack (Load (1 + k))] in
+  (* cl_k, RefPtr_k 0, cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
   let s = emit s [Update] in
-  (* cl_nk, ..., cl_1, RefPtr_nz 0, ..., RefPtr_k cl_k, ..., RefPtr_1 cl_1, *)
+  (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k cl_k, ..., RefPtr_nk 0, *)
   (s,k+1)
 
 let rec
 compile_closures d env sz s defs =
   let nk = List.length defs in
   let s = num_fold (fun s -> emit s [Stack (PushInt i0); Ref]) s nk in
-  (* RefPtr_nk 0, ..., RefPtr_2 0, RefPtr_1 0, *)
-  let (s,ecs) = List.fold_left (push_lab d) (s,[]) defs in
-  (* CodePtr nk, ..., CodePtr 2, CodePtr 1, RefPtr_nk 0, ..., RefPtr_1 0, *)
-  let (s,_k) = List.fold_left (cons_closure env sz (sz+nk+nk) nk) (s,1) (List.rev ecs) in
-  (* Block 3 [CodePtr nk, env_nk], ..., Block 3 [CodePtr 1, env_1], RefPtr_nk 0, ..., RefPtr_1 0, *)
-  let (s,_k) = num_fold (update_refptr nk) (s,1) nk in
-  (* cl_nk, ..., cl_1, RefPtr_nk cl_nk, ..., RefPtr_1 cl_1, *)
+  (* RefPtr_1 0, ..., RefPtr_nk 0, *)
+  let (s,ecs) = List.fold_left (push_lab d) (s,[]) (List.rev defs) in
+  (* CodePtr 1, ..., CodePtr nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
+  let (s,_k) = List.fold_left (cons_closure env sz (sz+nk+nk) nk) (s,0) ecs in
+  (* cl_1, ..., cl_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
+  let (s,_k) = num_fold (update_refptr nk) (s,0) nk in
+  (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_nk cl_nk, *)
   let k = nk - 1 in
   num_fold (fun s -> emit s [Stack (Store k)]) s nk
-  (* cl_nk, ..., cl_1, *)
+  (* cl_1, ..., cl_nk, *)
 
 let rec
 compile_decl env1 =
@@ -1475,7 +1473,7 @@ repl_dec rs (Dtype ((_,_,cs)::ts)) =
 and
 repl_dec rs (Dletrec _ defs) =
   let m = etC rs in
-  let fns = List.rev (List.map (fun (n,_,_,_,_) -> n) defs) in
+  let fns = List.map (fun (n,_,_,_,_) -> n) defs in
   let m = <| m with bvars = fns @ m.bvars |> in
   let Cdefs = defs_to_Cdefs m defs in
   compile_Cexp rs true (CLetrec Cdefs (CDecl (List.combine (genlist (fun i -> i) (List.length fns)) fns)))
@@ -1551,7 +1549,7 @@ v_to_Cv m (Recclosure env defs vn) =
   let m = <| bvars = List.map fst env ; cnmap = m |> in
   let fns = List.map (fun (n,_,_,_,_) -> n) defs in
   let m = <| m with bvars = fns @ m.bvars |> in
-  let Cdefs = List.rev (defs_to_Cdefs m defs) in
+  let Cdefs = defs_to_Cdefs m defs in
   CRecClos Cenv Cdefs (the (find_index vn fns 0))
 and
 v_to_Cv m (Loc n) = CLoc n

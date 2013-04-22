@@ -397,7 +397,7 @@ Cevaluate c s env (CFun cb) (s, Rval (CRecClos env [cb] 0)))
 /\
 (! c s env e es s' cenv defs n cb b env'' s'' vs r.
 (Cevaluate c s env e (s', Rval (CRecClos cenv defs n)) /\
-n < LENGTH defs /\ ( EL  n  ( REVERSE defs) = cb) /\
+n < LENGTH defs /\ ( EL  n  defs = cb) /\
 Cevaluate_list c s' env es (s'', Rval vs) /\
 ((T, LENGTH vs, LENGTH defs, LENGTH cenv,env'',b) =
   (case cb of
@@ -681,8 +681,8 @@ syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
 (! n1 n2. V' n1 n2 ==>
   n1 < LENGTH defs1 /\ n2 < LENGTH defs2 /\
   (? b az e1 j1 r1 e2 j2 r2.
-  ((b,az,e1,j1,r1) = syneq_cb_aux c1 n1 ( LENGTH defs1) ez1 ( EL  n1  ( REVERSE defs1))) /\
-  ((b,az,e2,j2,r2) = syneq_cb_aux c2 n2 ( LENGTH defs2) ez2 ( EL  n2  ( REVERSE defs2))) /\
+  ((b,az,e1,j1,r1) = syneq_cb_aux c1 n1 ( LENGTH defs1) ez1 ( EL  n1  defs1)) /\
+  ((b,az,e2,j2,r2) = syneq_cb_aux c2 n2 ( LENGTH defs2) ez2 ( EL  n2  defs2)) /\
   (b ==> syneq_exp c1 c2 (az +j1) (az +j2) (syneq_cb_V az r1 r2 V V') e1 e2))))
 ==>
 syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V')`;
@@ -953,7 +953,7 @@ val _ = Defn.save_defn remove_mat_var_defn;
 (exp_to_Cexp m (Letrec _ defs b) =
   let m = ( m with<| bvars := ( MAP (\p . 
   (case (p ) of ( (n,_,_,_,_) ) => n )) defs) ++ m.bvars |>) in
-  CLetrec ( REVERSE (defs_to_Cdefs m defs)) (exp_to_Cexp m b))
+  CLetrec (defs_to_Cdefs m defs) (exp_to_Cexp m b))
 /\
 (defs_to_Cdefs m [] = [])
 /\
@@ -981,13 +981,12 @@ val _ = Defn.save_defn exp_to_Cexp_defn;
 
  val bind_fv_def = Define `
  (bind_fv (az,e) nz ez ix =
-  let j = nz - ix - 1 in
   let fvs = free_vars e in
-  let recs = FILTER (\ v . az +v IN fvs /\ ~  (v =j)) ( GENLIST (\ n . n) nz) in
+  let recs = FILTER (\ v . az +v IN fvs /\ ~  (v =ix)) ( GENLIST (\ n . n) nz) in
   let envs = FILTER (\ v . az +nz <= v) ( QSORT (\ x y . x < y) ( SET_TO_LIST fvs)) in
   let envs = MAP (\ v . v -(az +nz)) envs in
   let rz = LENGTH recs +1 in
-  let e = mkshift (\ v . if v < nz then THE(find_index v (j ::recs) 0)
+  let e = mkshift (\ v . if v < nz then THE(find_index v (ix ::recs) 0)
                             else THE(find_index (v - nz) envs rz))
                   az e in
   let rz = rz - 1 in
@@ -1229,9 +1228,9 @@ val _ = Defn.save_defn compile_envref_defn;
 
  val emit_ceref_def = Define `
 
-(* sz                                                                                         z *)
-(* e, ..., e, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nz 0, ..., RefPtr_1 0,   *)
-(emit_ceref nz z (sz,s) j = ((sz +1),emit s [Stack (Load (sz - z -(nz - j)))]))`;
+(* sz                                                           z                             *)
+(* e, ..., e, CodePtr_k, cl_1, ..., CodePtr k, ..., CodePtr nz, RefPtr_1 0, ..., RefPtr_nz 0, *)
+(emit_ceref nz z (sz,s) j = ((sz +1),emit s [Stack (Load ((sz - z) +j))]))`;
 
 
  val push_lab_def = Define `
@@ -1246,32 +1245,31 @@ val _ = Defn.save_defn compile_envref_defn;
 
 (cons_closure env0 sz0 sz1 nk (s,k) (refs,envs) =
   (* sz1                                                                  sz0 *)
-  (* CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0,     *)
-  let s = emit s [Stack (Load (nk - k))] in
-  (* CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0, *)
-  let (z,s) = FOLDL (emit_ceref nk sz0) ((sz1 +1),s) refs in
+  (* cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0,     *)
+  let s = emit s [Stack (Load k)] in
+  (* CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
+  let (z,s) = FOLDL (emit_ceref nk (sz0 +nk)) ((sz1 +1),s) refs in
   let (z,s) = FOLDL (emit_ceenv env0) (z,s) envs in
-  (* e_kj, ..., e_k1, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0, *)
+  (* e_kj, ..., e_k1, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   let s = emit s [Stack (Cons 0 ( LENGTH refs + LENGTH envs))] in
-  (* env_k, CodePtr_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0, *)
+  (* env_k, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   let s = emit s [Stack (Cons closure_tag 2)] in
-  (* cl_k, CodePtr nk, ..., CodePtr k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0, *)
-  let s = emit s [Stack (Store (nk - k))] in
-  (* CodePtr nk, ..., cl_k, ..., cl_1, RefPtr_nk 0, ..., RefPtr_1 0, *)
+  (* cl_k,  cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
+  let s = emit s [Stack (Store k)] in
+  (* cl_1, ..., cl_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   (s,(k +1)))`;
 
 
  val update_refptr_def = Define `
 
 (update_refptr nk (s,k) =
-  (* nk = nz *)
-  (* cl_nk, ..., cl_1, RefPtr_nz 0, ..., RefPtr_k 0, ..., RefPtr_1 cl_1, *)
-  let s = emit s [Stack (Load (nk + nk - k))] in
-  (* RefPtr_k 0, cl_nk, ..., cl_1, RefPtr_nz 0, ..., RefPtr_k 0, ..., RefPtr_1 cl_1, *)
-  let s = emit s [Stack (Load (1 + nk - k))] in
-  (* cl_k, RefPtr_k 0, cl_nk, ..., cl_1, RefPtr_nz 0, ..., RefPtr_k 0, ..., RefPtr_1 cl_1, *)
+  (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
+  let s = emit s [Stack (Load (nk + k))] in
+  (* RefPtr_k 0, cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
+  let s = emit s [Stack (Load (1 + k))] in
+  (* cl_k, RefPtr_k 0, cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k 0, ..., RefPtr_nk 0, *)
   let s = emit s [Update] in
-  (* cl_nk, ..., cl_1, RefPtr_nz 0, ..., RefPtr_k cl_k, ..., RefPtr_1 cl_1, *)
+  (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_k cl_k, ..., RefPtr_nk 0, *)
   (s,(k +1)))`;
 
 
@@ -1280,17 +1278,17 @@ val _ = Defn.save_defn compile_envref_defn;
 (compile_closures d env sz s defs =
   let nk = LENGTH defs in
   let s = num_fold (\ s . emit s [Stack (PushInt i0); Ref]) s nk in
-  (* RefPtr_nk 0, ..., RefPtr_2 0, RefPtr_1 0, *)
-  let (s,ecs) = FOLDL (push_lab d) (s,[]) defs in
-  (* CodePtr nk, ..., CodePtr 2, CodePtr 1, RefPtr_nk 0, ..., RefPtr_1 0, *)
-  let (s,k) = FOLDL (cons_closure env sz (sz +nk +nk) nk) (s,1) ( REVERSE ecs) in
-  (* Block 3 [CodePtr nk, env_nk], ..., Block 3 [CodePtr 1, env_1], RefPtr_nk 0, ..., RefPtr_1 0, *)
-  let (s,k) = num_fold (update_refptr nk) (s,1) nk in
-  (* cl_nk, ..., cl_1, RefPtr_nk cl_nk, ..., RefPtr_1 cl_1, *)
+  (* RefPtr_1 0, ..., RefPtr_nk 0, *)
+  let (s,ecs) = FOLDL (push_lab d) (s,[]) ( REVERSE defs) in
+  (* CodePtr 1, ..., CodePtr nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
+  let (s,k) = FOLDL (cons_closure env sz (sz +nk +nk) nk) (s,0) ecs in
+  (* cl_1, ..., cl_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
+  let (s,k) = num_fold (update_refptr nk) (s,0) nk in
+  (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_nk cl_nk, *)
   let k = nk - 1 in
   num_fold (\ s . emit s [Stack (Store k)]) s nk)`;
 
-  (* cl_nk, ..., cl_1, *)
+  (* cl_1, ..., cl_nk, *)
 
  val compile_decl_def = Define `
 
@@ -1584,8 +1582,8 @@ val _ = Defn.save_defn number_constructors_defn;
 /\
 (repl_dec rs (Dletrec _ defs) =
   let m = etC rs in
-  let fns = REVERSE ( MAP (\p . 
-  (case (p ) of ( (n,_,_,_,_) ) => n )) defs) in
+  let fns = MAP (\p . 
+  (case (p ) of ( (n,_,_,_,_) ) => n )) defs in
   let m = ( m with<| bvars := fns ++ m.bvars |>) in
   let Cdefs = defs_to_Cdefs m defs in
   compile_Cexp rs T (CLetrec Cdefs (CDecl ( ZIP ( ( GENLIST (\ i . i) ( LENGTH fns)), fns)))))
@@ -1678,7 +1676,7 @@ val _ = Defn.save_defn bv_to_ov_defn;
   let fns = MAP (\p . 
   (case (p ) of ( (n,_,_,_,_) ) => n )) defs in
   let m = ( m with<| bvars := fns ++ m.bvars |>) in
-  let Cdefs = REVERSE (defs_to_Cdefs m defs) in
+  let Cdefs = defs_to_Cdefs m defs in
   CRecClos Cenv Cdefs ( THE (find_index vn fns 0)))
 /\
 (v_to_Cv m (Loc n) = CLoc n)
