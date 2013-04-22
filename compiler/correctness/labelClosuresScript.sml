@@ -246,6 +246,89 @@ val bind_fv_syneq = store_thm("bind_fv_syneq",
   simp[syneq_cb_V_def]
 *)
 
+val syneq_exp_c_syneq = store_thm("syneq_exp_c_syneq",
+  ``(∀c1 c2 z1 z2 V e1 e2. syneq_exp c1 c2 z1 z2 V e1 e2 ⇒
+     ∀k cd. k ∈ FDOM c2 ∧
+       (cd.az = (c2 ' k).az) ∧
+       (cd.nz = (c2 ' k).nz) ∧
+       (cd.ez = (c2 ' k).ez) ∧
+       (cd.ceenv = (c2 ' k).ceenv) ∧
+       syneq_exp c2 c2 ((c2 ' k).ez+(c2 ' k).nz+(c2 ' k).az) ((c2 ' k).ez+(c2 ' k).nz+(c2 ' k).az) $= (c2 ' k).body cd.body ⇒
+          syneq_exp c1 (c2 |+ (k,cd)) z1 z2 V e1 e2) ∧
+    (∀c1 c2 z1 z2 V defs1 defs2 U. syneq_defs c1 c2 z1 z2 V defs1 defs2 U ⇒
+      ∀k cd. k ∈ FDOM c2 ∧
+       (cd.az = (c2 ' k).az) ∧
+       (cd.nz = (c2 ' k).nz) ∧
+       (cd.ez = (c2 ' k).ez) ∧
+       (cd.ceenv = (c2 ' k).ceenv) ∧
+       syneq_exp c2 c2 ((c2 ' k).ez+(c2 ' k).nz+(c2 ' k).az) ((c2 ' k).ez+(c2 ' k).nz+(c2 ' k).az) $= (c2 ' k).body cd.body ⇒
+          syneq_defs c1 (c2 |+ (k,cd)) z1 z2 V defs1 defs2 U)``,
+  ho_match_mp_tac syneq_exp_ind >>
+  strip_tac >- (rw[] >> rw[Once syneq_exp_cases]) >>
+  strip_tac >- (rw[] >> rw[Once syneq_exp_cases]) >>
+  strip_tac >- (rw[] >> rw[Once syneq_exp_cases]) >>
+  strip_tac >- (rw[] >> rw[Once syneq_exp_cases]) >>
+  strip_tac >- (rw[] >> rw[Once syneq_exp_cases]) >>
+  strip_tac >- (
+    rw[] >>
+    rw[Once syneq_exp_cases] >>
+    fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] ) >>
+  strip_tac >- (rw[] >> rw[Once syneq_exp_cases]) >>
+  strip_tac >- (rw[] >> rw[Once syneq_exp_cases]) >>
+  strip_tac >- (rw[] >> rw[Once syneq_exp_cases]) >>
+  strip_tac >- (
+    rw[] >>
+    rw[Once syneq_exp_cases] >>
+    qexists_tac`U`>>simp[]) >>
+  strip_tac >- (
+    rw[] >>
+    rw[Once syneq_exp_cases] >>
+    qexists_tac`U`>>simp[]) >>
+  strip_tac >- (
+    rw[] >>
+    rw[Once syneq_exp_cases] >>
+    fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] ) >>
+  strip_tac >- (rw[] >> rw[Once syneq_exp_cases]) >>
+  strip_tac >- (rw[] >> rw[Once syneq_exp_cases]) >>
+  strip_tac >- (rw[] >> rw[Once syneq_exp_cases]) >>
+  strip_tac >- (rw[] >> rw[Once syneq_exp_cases]) >>
+  rw[] >>
+  simp[Once syneq_exp_cases] >>
+  conj_tac >- (
+    fsrw_tac[][EVERY_MEM] >>
+    metis_tac[FAPPLY_FUPDATE_THM] ) >>
+  ntac 2 gen_tac >> strip_tac >>
+  first_x_assum(qspecl_then[`n1`,`n2`]mp_tac) >>
+  simp[] >> strip_tac >>
+  ntac 2 (qpat_assum `X = Y`(mp_tac o SYM)) >>
+  rw[] >>
+  Cases_on`EL n2 defs2`>>TRY(PairCases_on`x`)>>fs[syneq_cb_aux_def,LET_THM] >- (
+    rfs[] >>
+    first_x_assum match_mp_tac >>
+    simp[] >> fsrw_tac[ARITH_ss][] ) >>
+  fs[UNCURRY] >>
+  rpt (BasicProvers.VAR_EQ_TAC) >>
+  conj_tac >- (
+    fs[EVERY_MEM] >>
+    Cases_on`y=k`>>fs[FAPPLY_FUPDATE_THM] ) >>
+  Q.PAT_ABBREV_TAC`sc = syneq_cb_V X Y Z A`
+  conj_tac >- ( Cases_on`y=k`>>fs[FAPPLY_FUPDATE_THM] ) >>
+  strip_tac >>
+  fs[] >> rfs[] >>
+  first_x_assum(qspecl_then[`k`,`cd`]mp_tac) >>
+  simp[] >>
+  discharge_hyps >- fsrw_tac[ARITH_ss][] >>
+  strip_tac >>
+  reverse(Cases_on`y=k`)>>fs[FAPPLY_FUPDATE_THM]>-(
+    simp[Abbr`sc`] ) >>
+  qmatch_assum_abbrev_tac `syneq_exp c1 c2k z1k z2k sck e1 bk` >>
+  qmatch_assum_abbrev_tac `syneq_exp c2 c2 zj zj $= bk cd.body` >>
+  qspecl_then[`c1`,`c2k`,`z1k`,`z2k`,`sck`,`e1`,`bk`]mp_tac(CONJUNCT1 syneq_exp_trans) >>
+  simp[] >>
+  disch_then(qspecl_then[`c2k`,`z2k`,`$=`,`cd.body`]mp_tac) >>
+  discharge_hyps >- (
+    match_mp_tac syneq_exp_c_SUBMAP_1
+
 val label_closures_thm = store_thm("label_closures_thm",
   ``(∀ez j e. (free_labs e = {}) ∧ free_vars e ⊆ count ez ⇒
      let (e',c,j') = label_closures ez j e in
@@ -843,22 +926,47 @@ val label_closures_thm = store_thm("label_closures_thm",
     simp[] >>
     rev_full_simp_tac std_ss [body_count_bind_fv] >>
     metis_tac[SUBSET_DEF,IN_INSERT,IN_UNION] ) >>
-
-  need to be able to replace a body in the code env with a syneq one
-
-  match_mp_tac syneq_defs_c_SUBMAP_2 >>
   ONCE_REWRITE_TAC[prove(``a ++ x::y = a ++ [x] ++ y``,simp[])] >>
-  HINT_EXISTS_TAC >>
-  simp[] >>
-  conj_tac >- (
-    `¬MEM j ds0` by metis_tac[LESS_REFL] >>
-    simp[FUNION_FUPDATE_1,FUNION_FUPDATE_2] >>
-    simp[SUBMAP_FUPDATE]
-    DB.match ["finite_map"] ``(FUNION a b) |+ c``
-    FUNION_UPDATE
-    simp[EVERY_MAP,MEM_GENLIST] >>
-    cheat ) >>
-
+  full_simp_tac std_ss [FUNION_FUPDATE_1] >>
+  qmatch_assum_abbrev_tac`syneq_defs c1 (c20 |+ v1) ez ez $= defs1 defs2 U` >>
+  `¬MEM j ds0` by metis_tac[LESS_REFL] >>
+  simp[FUNION_FUPDATE_2] >>
+  qmatch_abbrev_tac`syneq_defs c1 (c21 |+ v2) ez ez $= defs1 defs2 U` >>
+  `syneq_defs c1 (c21 |+ v1) ez ez $= defs1 defs2 U` by (
+    match_mp_tac syneq_defs_c_SUBMAP_2 >>
+    qexists_tac`c20 |+ v1` >>
+    conj_tac >- rw[] >>
+    conj_tac >- (
+      simp[Abbr`v1`] >>
+      simp[SUBMAP_FUPDATE] >>
+      match_mp_tac DOMSUB_SUBMAP >>
+      simp[] >>
+      match_mp_tac SUBMAP_TRANS >>
+      qexists_tac`c20` >>
+      simp[SUBMAP_DOMSUB] >>
+      simp[Abbr`c20`,Abbr`c21`] >>
+      Q.ISPECL_THEN[`alist_to_fmap p1`,`alist_to_fmap q1`]mp_tac FUNION_COMM >>
+      discharge_hyps >- (
+        simp[IN_DISJOINT,MEM_GENLIST] ) >>
+      disch_then SUBST1_TAC >>
+      simp[FUNION_ASSOC] >>
+      match_mp_tac SUBMAP_FUNION >>
+      simp[] ) >>
+    conj_tac >- (
+      simp[Abbr`defs2`,Abbr`c20`,Abbr`v1`,SUBSET_DEF,MEM_GENLIST] >>
+      simp_tac(srw_ss()++DNF_ss++ARITH_ss)[MEM_MAP] >>
+      qpat_assum`set q0 ⊆ X`mp_tac >>
+      simp[SUBSET_DEF,MEM_GENLIST] ) >>
+    simp[closed_code_env_def] >>
+    ho_match_mp_tac IN_FRANGE_FUPDATE_suff >>
+    simp[Abbr`v1`] >>
+    qunabbrev_tac`c20` >>
+    ho_match_mp_tac IN_FRANGE_FUNION_suff >>
+    rator_x_assum`closed_code_env`mp_tac >>
+    rator_x_assum`closed_code_env`mp_tac >>
+    rator_x_assum`closed_code_env`mp_tac >>
+    simp[closed_code_env_def] >>
+    metis_tac[SUBSET_DEF,IN_INSERT,IN_UNION] ) >>
 
 set_trace"goalstack print goal at top"0
 
