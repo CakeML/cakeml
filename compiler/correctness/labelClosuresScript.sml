@@ -566,7 +566,8 @@ val label_closures_thm = store_thm("label_closures_thm",
   rpt gen_tac >> rpt strip_tac >>
   full_simp_tac (std_ss++ARITH_ss) [] >>
   last_x_assum mp_tac >>
-  simp[] >> strip_tac >>
+  last_x_assum mp_tac >>
+  simp[] >> ntac 2 strip_tac >>
   Q.PAT_ABBREV_TAC`ezz = ez + X` >>
   qabbrev_tac`p = label_closures ezz (j+1) (bind_fv def nz ez k).body` >>
   PairCases_on`p` >>
@@ -576,12 +577,13 @@ val label_closures_thm = store_thm("label_closures_thm",
   full_simp_tac std_ss [] >>
   `free_labs (bind_fv def nz ez k).body = {}` by (
     fs[] >> Cases_on`def` >> fs[] ) >>
+  `free_labs (SND def) = {}` by (
+    fs[] >> Cases_on`def` >> fs[] ) >>
   `free_vars (bind_fv def nz ez k).body ⊆ count ezz` by (
     PairCases_on`def`>>simp[bind_fv_def,Abbr`ezz`] >>
     first_x_assum(qspec_then`[]`kall_tac) >>
     qpat_assum`P⇒Q`kall_tac >>
-    pop_assum kall_tac >>
-    qpat_assum`X = {}`kall_tac >>
+    rpt(qpat_assum`X = {}`kall_tac) >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
     srw_tac[ARITH_ss][] >- (
       qho_match_abbrev_tac`(THE (find_index x ls n)) < y` >>
@@ -594,7 +596,7 @@ val label_closures_thm = store_thm("label_closures_thm",
       conj_tac >- (
         match_mp_tac LENGTH_FILTER_LESS >>
         simp[Abbr`P`,Abbr`ls`,EXISTS_MEM,MEM_GENLIST] >>
-        qexists_tac`nz - (LENGTH ls0 + 1)` >>
+        qexists_tac`LENGTH ls0` >>
         simp[] ) >>
       simp[Abbr`ls`] ) >>
     qho_match_abbrev_tac`(THE (find_index x ls n)) < y` >>
@@ -608,7 +610,7 @@ val label_closures_thm = store_thm("label_closures_thm",
       `nz = LENGTH ls` by rw[Abbr`ls`] >> pop_assum SUBST1_TAC >>
       match_mp_tac LENGTH_FILTER_LESS >>
       simp[Abbr`P`,Abbr`ls`,EXISTS_MEM,MEM_GENLIST] >>
-      qexists_tac`nz - SUC (LENGTH ls0)` >>
+      qexists_tac`LENGTH ls0` >>
       simp[] ) >>
     reverse conj_tac >- (
       unabbrev_all_tac >>
@@ -733,7 +735,7 @@ val label_closures_thm = store_thm("label_closures_thm",
       qunabbrev_tac`bb` >>
       rw[bind_fv_def] >> rw[] >>
       rw[Abbr`e`] >>
-      match_mp_tac mkshift_thm
+      match_mp_tac mkshift_thm >>
       simp[Abbr`z1`,Abbr`z2`] >>
       conj_tac >- simp[Abbr`sc`,Abbr`V`,syneq_cb_V_def] >>
       reverse conj_tac >- fsrw_tac[ARITH_ss][Abbr`ezz`] >>
@@ -783,35 +785,17 @@ val label_closures_thm = store_thm("label_closures_thm",
         simp[] >> disch_then strip_assume_tac >> simp[] >>
         simp[Abbr`rz`] ) >>
       simp[syneq_cb_V_def] >>
-      `MEM (x-def0) (j'::recs)` by (
+      `MEM (x-def0) (LENGTH ls0::recs)` by (
         simp[Abbr`recs`,MEM_FILTER,MEM_GENLIST]) >>
-      Q.ISPECL_THEN[`j'::recs`,`x-def0`,`0:num`]mp_tac find_index_MEM >>
+      Q.ISPECL_THEN[`LENGTH ls0::recs`,`x-def0`,`0:num`]mp_tac find_index_MEM >>
       simp[] >> disch_then strip_assume_tac >> simp[] >>
       `i < rz` by simp[Abbr`rz`] >>
       simp[] >>
       Cases_on`i=0` >- (
-        simp[] >>
-        fs[Abbr`j'`] >>
-        DECIDE_TAC ) >>
+        simp[] >> fs[] >> DECIDE_TAC ) >>
       simp[] >>
       qpat_assum`EL X Y = x - def0`mp_tac >>
-      simp[EL_CONS,PRE_SUB1] >> strip_tac >>
-
-      Q.PAT_ABBREV_TAC`fi = find_index X Y Z` >>
-      `∃z. hb
-      rw[]
-      qho_match_abbrev_tac`P lk` >>
-      qunabbrev_tac`lk` >>
-      ho_match_mp_tac THE_find_index_suff >>
-      reverse conj_tac >- (
-        simp[Abbr`recs`,MEM_FILTER,MEM_GENLIST] ) >>
-      simp[Abbr`P`]
-      rw[bind_fv_def] >> rw[] >> fs[] >>
-      fsrw_tac[ARITH_ss][]
-
-
-      strip_tac >> fs[] >>
-      cheat ) >>
+      simp[EL_CONS,PRE_SUB1]) >>
     lrw[EL_CONS] >>
     ntac 2 (qpat_assum`X = Y`(mp_tac o SYM)) >>
     simp[PRE_SUB1,EL_MAP] >>
@@ -822,20 +806,29 @@ val label_closures_thm = store_thm("label_closures_thm",
     match_mp_tac syneq_exp_c_SUBMAP_2 >>
     qexists_tac`c0` >>
     fsrw_tac[ARITH_ss][] >>
-    conj_tac >- metis_tac[LESS_REFL] >>
-    fsrw_tac[DNF_ss][MEM_MAP,FORALL_PROD] >>
-    qsuff_tac `free_labs e1 = {}` >- rw[] >>
-    first_x_assum match_mp_tac >>
-    qexists_tac`az` >>
-    simp[MEM_EL] >>
-    qexists_tac`v - (LENGTH ls0 + 1)` >>
-    simp[]) >>
+    reverse conj_tac >- (
+      conj_tac >- metis_tac[LESS_REFL] >>
+      fsrw_tac[DNF_ss][MEM_MAP,FORALL_PROD] >>
+      qsuff_tac `free_labs e1 = {}` >- rw[] >>
+      first_x_assum match_mp_tac >>
+      qexists_tac`az` >>
+      simp[MEM_EL] >>
+      qexists_tac`v - (LENGTH ls0 + 1)` >>
+      simp[]) >>
+    match_mp_tac (MP_CANON(CONJUNCT1 syneq_exp_mono_V)) >>
+    HINT_EXISTS_TAC >>
+    simp[] >>
+    simp[syneq_cb_V_def] >>
+    srw_tac[ARITH_ss][] ) >>
   simp[] >> strip_tac >>
   PairCases_on`def`>>simp[ADD1]>>
   conj_tac >- (
+    fsrw_tac[ARITH_ss][] >- (
+      lrw[LIST_EQ_REWRITE] >>
+      Cases_on`x=0`>>lrw[EL_CONS] ) >>
     lrw[LIST_EQ_REWRITE,EL_CONS,ADD1] >>
     Cases_on`x=0` >> lrw[EL_CONS,PRE_SUB1] >>
-    Cases_on`x < body_count def1 + 1` >>
+    Cases_on`x < body_count def1 +1` >>
     lrw[EL_APPEND1,EL_APPEND2] ) >>
   conj_tac >- fsrw_tac[ARITH_ss][] >>
   conj_tac >- (
