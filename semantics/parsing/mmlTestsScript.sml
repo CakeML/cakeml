@@ -1,6 +1,7 @@
 open HolKernel Parse boolLib bossLib
 
-open mmlPEGTheory mmlGrammarTheory mmlPtreeConversionTheory grammarTheory
+open mmlPEGTheory mmlGrammarTheory mmlPtreeConversionTheory
+     mmlvalidTheory grammarTheory
 
 val _ = new_theory "mmlTests"
 
@@ -62,11 +63,7 @@ in
                   end
           val _ = diag ("Semantics ("^term_to_string sem^") to ", ptree_res)
           val valid_t = ``valid_ptree mmlG ^res``
-          val vth = SIMP_CONV (srw_ss())
-                              [grammarTheory.valid_ptree_def, mmlG_def,
-                               DISJ_IMP_THM, FORALL_AND_THM,
-                               stringTheory.isUpper_def]
-                              valid_t
+          val vth = time EVAL valid_t
           val vres = rhs (concl vth)
         in
           if aconv boolSyntax.T vres then print "Valid\n"
