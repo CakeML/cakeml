@@ -106,14 +106,9 @@ val str_to_syms_def = tDefine "str_to_syms" `
        let (n,rest) = read_while isAlphaNumPrime str "" in
          OtherS (c::n) :: str_to_syms rest else
      if c = #"'" then (* read type variable *)
-       let (primes,rest0) = read_while (\c. c = #"'") str "" in
-       let (n1,rest1) = read_while isAlphaNum rest0 ""
+       let (n,rest) = read_while isAlphaNum str [c]
        in
-         if n1 = "" then [ErrorS]
-         else
-           let (n2,rest2) = read_while isAlphaNumPrime rest1 (c::primes ++ n1)
-           in
-             OtherS n2 :: str_to_syms rest2 else
+         OtherS n :: str_to_syms rest else
      if c = #"\"" then (* read string *)
        let (t,rest) = read_string str "" in
          t :: str_to_syms rest else
