@@ -328,8 +328,8 @@ rw[v_to_Cv_def] >> rw[Cclosed_rules]
 fs[Once closed_cases] >>
 simp[Once Cclosed_cases] >>
 simp[defs_to_Cdefs_MAP,Abbr`Cdefs`,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
-Q.ISPECL_THEN[`REVERSE fns`,`vn`,`0:num`]mp_tac find_index_MEM >>
-`MEM vn (REVERSE fns)` by (
+Q.ISPECL_THEN[`fns`,`vn`,`0:num`]mp_tac find_index_MEM >>
+`MEM vn (fns)` by (
   unabbrev_all_tac >>
   fs[MEM_MAP,EXISTS_PROD] >>
   PROVE_TAC[] ) >>
@@ -1196,8 +1196,8 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       qmatch_assum_rename_tac`ALOOKUP funs fn = SOME z`[] >>
       `ALL_DISTINCT (MAP FST funs)` by (
         fs[Once closed_cases] ) >>
-      `EL m0 (REVERSE funs) = (fn,z)` by (
-        Q.ISPEC_THEN`REVERSE (MAP FST funs)`mp_tac find_index_ALL_DISTINCT_EL_eq >>
+      `EL m0 funs = (fn,z)` by (
+        Q.ISPEC_THEN`(MAP FST funs)`mp_tac find_index_ALL_DISTINCT_EL_eq >>
         simp[ALL_DISTINCT_REVERSE] >>
         disch_then(qspecl_then[`fn`,`0`]mp_tac) >>
         simp[] >> strip_tac >>
@@ -1212,18 +1212,14 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         simp[MEM_EL] >>
         disch_then(Q.X_CHOOSE_THEN`i`strip_assume_tac) >>
         pop_assum (assume_tac o SYM) >>
-        `EL (LENGTH funs - i- 1) (REVERSE (MAP FST funs)) = fn` by (
-          lrw[EL_REVERSE,EL_MAP,PRE_SUB1] ) >>
-        first_x_assum(qspec_then`LENGTH funs - i -1`mp_tac) >>
-        simp[] >>
-        lrw[EL_REVERSE,PRE_SUB1] ) >>
+        first_x_assum(qspec_then`i`mp_tac) >>
+        simp[EL_MAP]) >>
       PairCases_on`z`>>fs[]>>rw[]>>
       rator_assum`syneq_defs`mp_tac >>
       Q.PAT_ABBREV_TAC`env0 = env_to_Cenv cm Z` >>
       Q.PAT_ABBREV_TAC`defs0:def list = MAP f funs` >>
       simp_tac (srw_ss()) [Once syneq_exp_cases] >>
       simp[] >>
-      qabbrev_tac`cl = CRecClos env0 (REVERSE defs0) m0` >>
       simp[Abbr`defs0`,EVERY_MAP,EVERY_REVERSE,UNCURRY] >>
       strip_tac >>
       first_assum(qspecl_then[`m0`,`n`]mp_tac) >>
@@ -1278,12 +1274,12 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
             fs[MAP_REVERSE] >>
             pop_assum mp_tac >> simp[] >> strip_tac >>
             qmatch_abbrev_tac`a < LENGTH funs ∧ X` >>
-            qsuff_tac`a = LENGTH funs - v1`>-simp[] >>
+            qsuff_tac`a = v1-1`>-simp[] >>
             qunabbrev_tac`a` >>
-            Q.ISPEC_THEN`REVERSE (MAP FST funs)`mp_tac find_index_ALL_DISTINCT_EL_eq >>
+            Q.ISPEC_THEN`(MAP FST funs)`mp_tac find_index_ALL_DISTINCT_EL_eq >>
             simp[ALL_DISTINCT_REVERSE] >>
             disch_then(qspecl_then[`FST (EL (v1-1) funs)`,`0`]mp_tac) >> simp[] >>
-            disch_then(qspec_then`LENGTH funs - v1`mp_tac) >>
+            disch_then(qspec_then`v1-1`mp_tac) >>
             simp[EL_REVERSE,PRE_SUB1,EL_MAP] )
           >- (
             res_tac >>
@@ -1877,7 +1873,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     simp[v_to_Cv_def,LET_THM,pairTheory.UNCURRY,defs_to_Cdefs_MAP
         ,env_to_Cenv_MAP,MAP_MAP_o,combinTheory.o_DEF,pairTheory.LAMBDA_PROD] >>
     simp[REVERSE_GENLIST,PRE_SUB1,FST_5tup] >>
-    Q.PAT_ABBREV_TAC`defs:def list = REVERSE (MAP f funs)` >>
+    Q.PAT_ABBREV_TAC`defs:def list = (MAP f funs)` >>
     map_every qx_gen_tac[`p1`,`p2`] >> strip_tac >>
     map_every qexists_tac[`p1`,`p2`] >>
     reverse conj_tac >- METIS_TAC[] >>
@@ -1886,11 +1882,11 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     qmatch_assum_abbrev_tac`Cevaluate FEMPTY ss l2 ee rr` >>
     qsuff_tac`l1 = l2`>-rw[] >>
     lrw[Abbr`l1`,Abbr`l2`,LIST_EQ_REWRITE,EL_MAP,UNCURRY] >>
-    Q.ISPEC_THEN`REVERSE (MAP FST funs)`mp_tac find_index_ALL_DISTINCT_EL_eq >>
+    Q.ISPEC_THEN`(MAP FST funs)`mp_tac find_index_ALL_DISTINCT_EL_eq >>
     simp[ALL_DISTINCT_REVERSE] >>
     disch_then(qspecl_then[`FST (EL x funs)`,`0`]mp_tac) >>
     simp[] >>
-    disch_then(qspec_then`LENGTH funs - x - 1`mp_tac) >>
+    disch_then(qspec_then`x`mp_tac) >>
     simp[EL_REVERSE,PRE_SUB1,EL_MAP]) >>
   strip_tac >- rw[] >>
   strip_tac >- (
