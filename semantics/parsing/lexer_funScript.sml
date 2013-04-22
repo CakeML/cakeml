@@ -21,10 +21,10 @@ val _ = Hol_datatype `symbol = StringS of string
 (* helper functions *)
 
 val read_while_def = Define `
-  (read_while P "" s = (s,"")) /\
+  (read_while P "" s = (IMPLODE (REVERSE s),"")) /\
   (read_while P (STRING c cs) s =
-     if P c then read_while P cs (STRCAT s (STRING c ""))
-            else (s,STRING c cs))`;
+     if P c then read_while P cs (c :: s)
+            else (IMPLODE (REVERSE s),STRING c cs))`;
 
 val is_single_char_symbol_def = Define `
   is_single_char_symbol c = MEM c "()[];~"`;
@@ -85,7 +85,7 @@ val skip_comment_thm = prove(
 
 val read_while_thm = prove(
   ``!cs s cs' s'.
-       (read_while P cs s = (s',cs')) ==> LENGTH cs' <= LENGTH cs``,
+       (read_while P cs s = (s',cs')) ==> STRLEN cs' <= STRLEN cs``,
   Induct THEN SRW_TAC [][read_while_def] THEN SRW_TAC [][] THEN
   RES_TAC THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND] THEN DECIDE_TAC);
 
@@ -97,13 +97,13 @@ val str_to_syms_def = tDefine "str_to_syms" `
   (str_to_syms "" = []) /\
   (str_to_syms (c::str) =
      if isSpace c then (* skip blank space *)
-       let (n,rest) = read_while isSpace str "" in
+       let (n,rest) = read_while isSpace str [] in
          WhitespaceS :: str_to_syms str else
      if isDigit c then (* read number *)
-       let (n,rest) = read_while isDigit str "" in
+       let (n,rest) = read_while isDigit str [] in
          NumberS (num_from_dec_string (c::n)) :: str_to_syms rest else
      if isAlpha c then (* read alpha-numeric identifier/keyword *)
-       let (n,rest) = read_while isAlphaNumPrime str "" in
+       let (n,rest) = read_while isAlphaNumPrime str [] in
          OtherS (c::n) :: str_to_syms rest else
      if c = #"'" then (* read type variable *)
        let (n,rest) = read_while isAlphaNum str [c]
@@ -120,7 +120,7 @@ val str_to_syms_def = tDefine "str_to_syms" `
      if is_single_char_symbol c then (* single character tokens *)
        OtherS [c] :: str_to_syms str else
      if isSymbol c then (* read symbol identifier *)
-       let (n,rest) = read_while isSymbol str "" in
+       let (n,rest) = read_while isSymbol str [] in
          OtherS (c::n) :: str_to_syms rest
      else (* input not recognised *)
        [ErrorS])`
