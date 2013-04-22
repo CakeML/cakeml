@@ -278,6 +278,7 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
 (infer_e menv cenv env (Handle e1 x e2) =
   do t1 <- infer_e menv cenv env e1;
+     () <- add_constraint t1 (Infer_Tapp [] TC_int);
      t2 <- infer_e menv cenv (bind x (0,Infer_Tapp [] TC_int) env) e2;
      () <- add_constraint t1 t2;
      return t1
