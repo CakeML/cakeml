@@ -306,7 +306,12 @@ val mmlPEG_def = zDefine`
                               tokeq ElseT; pnt nE]
                              (bindNT nE);
                         seql [tokeq FnT; pnt nV; tokeq DarrowT; pnt nE]
+                             (bindNT nE);
+                        seql [tokeq CaseT; pnt nE; tokeq OfT; pnt nPEs]
                              (bindNT nE)]);
+              (mkNT nPEs, peg_linfix (mkNT nPEs) (pnt nPE) (tokeq BarT));
+              (mkNT nPE, seql [pnt nPattern; tokeq DarrowT; pnt nE]
+                              (bindNT nPE));
               (mkNT nAndFDecls,
                peg_linfix (mkNT nAndFDecls) (pnt nFDecl) (tokeq AndT));
               (mkNT nFDecl,

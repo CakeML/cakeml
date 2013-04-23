@@ -140,7 +140,8 @@ val mmlG_def = mk_grammar_def ginfo
  Ptuple ::= "(" PatternList2 ")";
  PatternList2 ::= Pattern "," PatternList1;
  PatternList1 ::= Pattern | PatternList1 "," Pattern;
- PEs ::= Pattern "=>" E | PEs "|" Pattern "=>" E;
+ PE ::= Pattern "=>" E;
+ PEs ::= PE | PEs "|" PE;
 `;
 
 val _ = type_abbrev("NT", ``:MMLnonT inf``)
