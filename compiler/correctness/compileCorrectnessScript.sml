@@ -24,19 +24,24 @@ val exp_pred_def = tDefine "exp_pred"`
    fsrw_tac[ARITH_ss][MAP_MAP_o,combinTheory.o_DEF])
 val _ = export_rewrites["exp_pred_def"]
 
+(* TODO: move *)
+val SUM_MAP_PLUS = store_thm("SUM_MAP_PLUS",
+  ``∀f g ls. SUM (MAP (λx. f x + g x) ls) = SUM (MAP f ls) + SUM (MAP g ls)``,
+  ntac 2 gen_tac >> Induct >> simp[])
+
 val Cexp_pred_def = tDefine "Cexp_pred"`
   (Cexp_pred (CDecl _) = T) ∧
   (Cexp_pred (CRaise _) = T) ∧
-  (Cexp_pred (CHandle _ _ _) = F) ∧
+  (Cexp_pred (CHandle _ _) = F) ∧
   (Cexp_pred (CVar _) = T) ∧
   (Cexp_pred (CLit _) = T) ∧
   (Cexp_pred (CCon _ es) = EVERY Cexp_pred es) ∧
   (Cexp_pred (CTagEq e _) = Cexp_pred e) ∧
   (Cexp_pred (CProj e _) = Cexp_pred e) ∧
-  (Cexp_pred (CLet _ e0 e) = Cexp_pred e0 ∧ Cexp_pred e) ∧
-  (Cexp_pred (CLetrec _ defs e) = EVERY Cexp_pred (MAP OUTL (FILTER ISL (MAP SND defs))) ∧ Cexp_pred e) ∧
-  (Cexp_pred (CFun _ (INL e)) = Cexp_pred e) ∧
-  (Cexp_pred (CFun _ _) = T) ∧
+  (Cexp_pred (CLet e0 e) = Cexp_pred e0 ∧ Cexp_pred e) ∧
+  (Cexp_pred (CLetrec defs e) = EVERY Cexp_pred (MAP (SND o OUTL) (FILTER ISL defs)) ∧ Cexp_pred e) ∧
+  (Cexp_pred (CFun (INL (az,e))) = Cexp_pred e) ∧
+  (Cexp_pred (CFun _) = T) ∧
   (Cexp_pred (CCall e es) = Cexp_pred e ∧ EVERY Cexp_pred es) ∧
   (Cexp_pred (CPrim1 _ e) = Cexp_pred e) ∧
   (Cexp_pred (CPrim2 _ e1 e2) = Cexp_pred e1 ∧ Cexp_pred e2) ∧
@@ -45,55 +50,52 @@ val Cexp_pred_def = tDefine "Cexp_pred"`
   (WF_REL_TAC `measure Cexp_size` >>
    srw_tac[ARITH_ss][Cexp4_size_thm,Cexp1_size_thm,SUM_MAP_Cexp2_size_thm] >>
    Q.ISPEC_THEN`Cexp_size`imp_res_tac SUM_MAP_MEM_bound >>
-   fsrw_tac[ARITH_ss][MAP_MAP_o,combinTheory.o_DEF,Cexp3_size_thm,MEM_MAP,MEM_FILTER] >>
+   fsrw_tac[ARITH_ss][MAP_MAP_o,combinTheory.o_DEF,MEM_MAP,MEM_FILTER] >>
    rw[] >>
-   qmatch_assum_rename_tac`MEM d defs`[] >>
-   Q.PAT_ABBREV_TAC`ls = SUM (MAP f defs)` >>
-   Q.PAT_ABBREV_TAC`f = X:(def -> num)` >>
-   Q.ISPECL_THEN[`f`,`d`,`defs`]mp_tac SUM_MAP_MEM_bound >>
-   simp[Abbr`f`] >>
-   Cases_on`SND d`>>fs[basicSizeTheory.sum_size_def] >>
-   srw_tac[ARITH_ss][])
+   simp[basicSizeTheory.pair_size_def,UNCURRY] >>
+   simp[SUM_MAP_PLUS] )
 val _ = export_rewrites["Cexp_pred_def"]
 val Cexp_pred_ind = theorem"Cexp_pred_ind"
+
+val Cexp_pred_mkshift = store_thm("Cexp_pred_mkshift",
+  ``∀f k e . Cexp_pred e ⇒ Cexp_pred (mkshift f k e)``,
+  ho_match_mp_tac mkshift_ind >> simp[] >> rw[] >>
+  fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,MEM_FILTER] >>
+  TRY gen_tac >>
+  Cases_on`cb`>>TRY(PairCases_on`x`)>>fs[]>>
+  strip_tac >> res_tac >>fs[])
+val _ = export_rewrites["Cexp_pred_mkshift"]
 
 val Cexp_pred_remove_mat_vp = store_thm("Cexp_pred_remove_mat_vp",
   ``(∀p fk sk v. Cexp_pred sk ⇒ Cexp_pred (remove_mat_vp fk sk v p)) ∧
     (∀ps fk sk v n. Cexp_pred sk ⇒ Cexp_pred (remove_mat_con fk sk v n ps))``,
   ho_match_mp_tac(TypeBase.induction_of(``:Cpat``)) >>
-  rw[remove_mat_vp_def] >> rw[] )
+  rw[remove_mat_vp_def,shift_def] >> rw[] )
 
 val Cexp_pred_remove_mat_var = store_thm("Cexp_pred_remove_mat_var",
   ``∀v pes. EVERY Cexp_pred (MAP SND pes) ⇒ Cexp_pred (remove_mat_var v pes)``,
   ho_match_mp_tac remove_mat_var_ind >>
-  rw[remove_mat_var_def] >> rw[Cexp_pred_remove_mat_vp])
+  rw[remove_mat_var_def] >> rw[Cexp_pred_remove_mat_vp,shift_def])
 
 val exp_pred_Cexp_pred = store_thm("exp_pred_Cexp_pred",
   ``∀m e. exp_pred e ⇒ Cexp_pred (exp_to_Cexp m e)``,
   ho_match_mp_tac exp_to_Cexp_nice_ind >>
-  rw[exp_to_Cexp_def,LET_THM,exps_to_Cexps_MAP,EVERY_MAP] >>
+  rw[exp_to_Cexp_def,LET_THM,exps_to_Cexps_MAP,EVERY_MAP,shift_def] >>
   TRY (
     BasicProvers.EVERY_CASE_TAC >>
     rw[] >> fs[] ) >>
   fs[EVERY_MEM,FORALL_PROD] >- (
     match_mp_tac Cexp_pred_remove_mat_var >>
     fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD,MEM_MAP,pes_to_Cpes_MAP,LET_THM,UNCURRY] >>
-    metis_tac[] )
+    metis_tac[Cexp_pred_mkshift] )
   >- (
     fsrw_tac[DNF_ss][defs_to_Cdefs_MAP,EVERY_MEM,MEM_MAP,MEM_FILTER,FORALL_PROD] >>
     metis_tac[] ) >>
-  Cases_on `pat_to_Cpat m [] p` >> fs[])
+  Cases_on `pat_to_Cpat m p` >> fs[])
 
 val repl_exp_contab = store_thm("repl_exp_contab",
   ``(repl_exp rs exp = (rs',c)) ==> (rs'.contab = rs.contab)``,
-  rw[repl_exp_def,compile_Cexp_def,LET_THM] >>
-  qabbrev_tac`p=repeat_label_closures (exp_to_Cexp (cmap rs.contab) exp) rs.rnext_label []` >>
-  PairCases_on`p`>>fs[] >> rw[] >>
-  BasicProvers.EVERY_CASE_TAC >> rw[])
-
-val el_check_def = Define`
-  el_check n ls = if n < LENGTH ls then SOME (EL n ls) else NONE`
-val _ = export_rewrites["el_check_def"]
+  rw[repl_exp_def,compile_Cexp_def,LET_THM,UNCURRY] >> rw[])
 
 val lookup_ct_def = Define`
   (lookup_ct cl sz st rs (CTLet n) = if sz < n then NONE else el_check (sz - n) st) ∧
