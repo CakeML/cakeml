@@ -1163,7 +1163,7 @@ emit_ceenv env (sz,s) fv = (sz+1,compile_varref sz s (List.nth env fv))
 let rec
 (* sz                                                           z                             *)
 (* e, ..., e, CodePtr_k, cl_1, ..., CodePtr k, ..., CodePtr nz, RefPtr_1 0, ..., RefPtr_nz 0, *)
-emit_ceref nz z (sz,s) j = (sz+1,emit s [Stack (Load ((sz-z)+j))])
+emit_ceref z (sz,s) j = (sz+1,emit s [Stack (Load ((sz-z)+j))])
 
 let rec
 push_lab d (s,ecs) (Inl _) = (s,([],[])::ecs) (* should not happen *)
@@ -1177,7 +1177,7 @@ cons_closure env0 sz nk (s,k) (refs,envs) =
   (* cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0,    *)
   let s = emit s [Stack (Load k)] in
   (* CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let (z,s) = List.fold_left (emit_ceref nk (sz+nk)) (sz+nk+nk+1,s) refs in
+  let (z,s) = List.fold_left (emit_ceref (sz+nk)) (sz+nk+nk+1,s) refs in
   let (z,s) = List.fold_left (emit_ceenv env0) (z,s) envs in
   (* e_kj, ..., e_k1, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   let s = emit s [Stack (Cons 0 (List.length refs + List.length envs))] in

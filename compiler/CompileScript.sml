@@ -1231,7 +1231,7 @@ val _ = Defn.save_defn compile_envref_defn;
 
 (* sz                                                           z                             *)
 (* e, ..., e, CodePtr_k, cl_1, ..., CodePtr k, ..., CodePtr nz, RefPtr_1 0, ..., RefPtr_nz 0, *)
-(emit_ceref nz z (sz,s) j = ((sz +1),emit s [Stack (Load ((sz - z) +j))]))`;
+(emit_ceref z (sz,s) j = ((sz +1),emit s [Stack (Load ((sz - z) +j))]))`;
 
 
  val push_lab_def = Define `
@@ -1249,7 +1249,7 @@ val _ = Defn.save_defn compile_envref_defn;
   (* cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0,    *)
   let s = emit s [Stack (Load k)] in
   (* CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let (z,s) = FOLDL (emit_ceref nk (sz +nk)) ((sz +nk +nk +1),s) refs in
+  let (z,s) = FOLDL (emit_ceref (sz +nk)) ((sz +nk +nk +1),s) refs in
   let (z,s) = FOLDL (emit_ceenv env0) (z,s) envs in
   (* e_kj, ..., e_k1, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   let s = emit s [Stack (Cons 0 ( LENGTH refs + LENGTH envs))] in
