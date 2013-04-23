@@ -97,24 +97,28 @@ val repl_exp_contab = store_thm("repl_exp_contab",
   ``(repl_exp rs exp = (rs',c)) ==> (rs'.contab = rs.contab)``,
   rw[repl_exp_def,compile_Cexp_def,LET_THM,UNCURRY] >> rw[])
 
-val lookup_ct_def = Define`
-  (lookup_ct cl sz st rs (CTLet n) = if sz < n then NONE else el_check (sz - n) st) ∧
-  (lookup_ct cl sz st rs (CTArg n) = el_check (sz + n) st) ∧
-  (lookup_ct cl sz st rs (CTEnv n) =
+val lookup_cc_def = Define`
+  (lookup_cc cl sz st rs (CCArg n) = el_check (sz + n) st) ∧
+  (lookup_cc cl sz st rs (CCEnv n) =
    OPTION_BIND (el_check sz st)
    (λv. case v of Block 0 vs => el_check n vs | _ => NONE)) ∧
-  (lookup_ct cl sz st rs (CTRef n) =
+  (lookup_cc cl sz st rs (CCRef n) =
    OPTION_BIND (el_check sz st)
    (λv. case v of Block 0 vs =>
      OPTION_BIND (el_check n vs)
      (λv. case v of RefPtr p => if p ∈ cl then FLOOKUP rs p else NONE | _ => NONE)
      | _ => NONE))`
-val _ = export_rewrites["lookup_ct_def"]
+val lookup_ct_def = Define`
+  (lookup_ct cl sz st rs (CTLet n) = if sz < n then NONE else el_check (sz - n) st) ∧
+  (lookup_ct cl sz st rs (CTEnv cc) = lookup_cc cl sz st rs cc)`
+val _ = export_rewrites["lookup_ct_def","lookup_cc_def"]
 
+(*
 val _ = Parse.overload_on("bundle_fvs", ``λc ns defs.
   BIGUNION (IMAGE (λ(xs,cb). cbod_fvs c cb DIFF set xs DIFF set ns) (set defs))``)
+*)
 
-val _ = Hol_datatype`refs_data = <| sm : num |-> num ; cls : num |-> ((string |-> Cv) # string list # def list # num) |>`
+val _ = Hol_datatype`refs_data = <| sm : num |-> num ; cls : num |-> (Cv list # def list # num) |>`
 
 val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   (Cv_bv pp (CLitv (IntLit k)) (Number k)) ∧
@@ -123,25 +127,22 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   ((FLOOKUP (FST pp).sm m = SOME p) ⇒ Cv_bv pp (CLoc m) (RefPtr p)) ∧
   (EVERY2 (Cv_bv pp) vs bvs ⇒ Cv_bv pp (CConv cn vs) (Block (cn+block_tag) bvs)) ∧
   ((pp = (rd,c,l2a)) ∧
-   (if ns = [] then (i = 0) ∧ (defs = [(xs,INR l)]) else
-    (LENGTH defs = LENGTH ns) ∧
-    (find_index n ns 0 = SOME i) ∧
-    (EL i defs = (xs,INR l))) ∧
+   (EL n defs = INR l) ∧
    (l2a l = SOME a) ∧
-   (FLOOKUP c l = SOME e) ∧
-   benv_bvs pp bvs (free_vars c e) xs env defs ns i
-   ⇒ Cv_bv pp (CRecClos env ns defs n) (Block closure_tag [CodePtr a; Block 0 bvs])) ∧
+   (FLOOKUP c l = SOME cd) ∧
+   benv_bvs pp bvs cd env defs n
+   ⇒ Cv_bv pp (CRecClos env defs n) (Block closure_tag [CodePtr a; Block 0 bvs])) ∧
   ((pp = (rd,c,l2a)) ∧
-   (evs = FILTER (λv. v ∉ set xs ∧ (∀j. (find_index v ns 0 = SOME j) ⇒ j ≠ i)) (SET_TO_LIST fvs)) ∧
-   (LENGTH bvs = LENGTH evs) ∧
-   (∀i x bv. i < LENGTH evs ∧ (x = EL i evs) ∧ (bv = EL i bvs) ⇒
-     if find_index x ns 0 = NONE then
-       x ∈ FDOM env ∧ Cv_bv pp (env ' x) bv
-     else ∃j p jenv. (find_index x ns 0 = SOME j) ∧
+   ((recs,envs) = cd.ceenv) ∧
+   (LENGTH bvs = LENGTH recs + LENGTH envs) ∧
+   (∀i x bv. i < LENGTH recs ∧ (x = EL i recs) ∧ (bv = EL i bvs) ⇒
+     ∃p jenv.
        (bv = RefPtr p) ∧
-       (FLOOKUP rd.cls p = SOME (jenv,ns,defs,j)) ∧
-       fmap_rel (syneq c) (DRESTRICT jenv (bundle_fvs c ns defs)) (DRESTRICT env (bundle_fvs c ns defs)))
-   ⇒ benv_bvs pp bvs fvs xs env defs ns i)`
+       (FLOOKUP rd.cls p = SOME (jenv,defs,x)) ∧
+       EVERY2 (syneq c c) jenv env) ∧
+   (∀i x bv. LENGTH recs + i < LENGTH envs ∧ (x = EL i envs) ∧ (bv = EL (LENGTH recs + i) bvs) ⇒
+       x < LENGTH env ∧ Cv_bv pp (EL x env) bv)
+   ⇒ benv_bvs pp bvs cd env defs ix)`
 
 val Cv_bv_only_ind =
   Cv_bv_ind
@@ -150,7 +151,7 @@ val Cv_bv_only_ind =
 |> CONJUNCT1
 |> DISCH_ALL
 |> Q.GEN`benv_bvs'`
-|> Q.SPEC`K(K(K(K(K(K(K T))))))`
+|> Q.SPEC`K(K(K(K(K T))))`
 |> SIMP_RULE std_ss []
 |> GEN_ALL
 
@@ -190,11 +191,10 @@ val _ = Parse.overload_on("good_sm",``λsm. INJ (FAPPLY sm) (FDOM sm) (FRANGE sm
 val good_rd_def = Define`
   good_rd c rd bs =
     good_sm rd.sm ∧
-    FEVERY (λ(p,(env,ns,defs,j)).
+    FEVERY (λ(p,(env,defs,j)).
       p ∈ FDOM bs.refs ∧
       p ∉ FRANGE rd.sm ∧
-      j < LENGTH ns ∧
-      Cv_bv (mk_pp rd c bs) (CRecClos env ns defs (EL j ns)) (bs.refs ' p))
+      Cv_bv (mk_pp rd c bs) (CRecClos env defs j) (bs.refs ' p))
     rd.cls`
 
 val s_refs_def = Define`
@@ -205,7 +205,7 @@ val s_refs_def = Define`
 
 val Cenv_bs_def = Define`
   Cenv_bs c rd s Cenv (renv:ctenv) sz bs =
-    (fmap_rel
+    (EVERY2
        (λCv b. case lookup_ct (FDOM rd.cls) sz bs.stack bs.refs b of NONE => F
              | SOME bv => Cv_bv (mk_pp rd c bs) Cv bv)
      Cenv renv) ∧
@@ -213,7 +213,7 @@ val Cenv_bs_def = Define`
 
 val env_rs_def = Define`
   env_rs env rs c rd s bs =
-    let Cenv = alist_to_fmap (env_to_Cenv (cmap rs.contab) env) in
+    let Cenv = env_to_Cenv (cmap rs.contab) env in
     Cenv_bs c rd s Cenv rs.renv rs.rsz bs`
 
 val compile_varref_thm = store_thm("compile_varref_thm",
@@ -226,6 +226,7 @@ val compile_varref_thm = store_thm("compile_varref_thm",
       ⇒
       bc_next^* bs bs'``,
   ntac 7 gen_tac >> Cases >> rw[] >>
+  TRY(Cases_on`c`>>fs[])>>
   qpat_assum`X = REVERSE code`(assume_tac o SIMP_RULE std_ss [Once SWAP_REVERSE]) >> fs[] >>
   qmatch_assum_abbrev_tac `code = x::ls1` >>
   `bc_fetch bs = SOME x` by (
@@ -236,33 +237,13 @@ val compile_varref_thm = store_thm("compile_varref_thm",
     qmatch_abbrev_tac `bc_next^* bs bs'` >>
     `(bc_eval1 bs = SOME bs')` by (
       rw[bc_eval1_def,Abbr`x`] >>
+      rfs[el_check_def] >>
       rw[bc_eval_stack_def] >>
-      srw_tac[ARITH_ss][bump_pc_def,SUM_APPEND,FILTER_APPEND,ADD1,Abbr`ls1`,Abbr`bs'`,bc_state_component_equality] ) >>
-    qmatch_abbrev_tac `bc_next^* bs bs'` >>
+      srw_tac[ARITH_ss][bump_pc_def,SUM_APPEND,FILTER_APPEND,ADD1,Abbr`bs'`,Abbr`ls1`,bc_state_component_equality] >>
+      NO_TAC) >>
     metis_tac[bc_eval1_thm,RTC_CASES1] )
   >- (
-    qmatch_abbrev_tac `bc_next^* bs bs'` >>
-    qpat_assum `X = SOME bv` mp_tac >>
-    BasicProvers.EVERY_CASE_TAC >> rw[] >>
-    rw[RTC_eq_NRC] >>
-    qexists_tac `SUC (SUC ZERO)` >> rw[NRC] >>
-    srw_tac[DNF_ss][ALT_ZERO] >>
-    rw[bc_eval1_thm] >>
-    rw[Once bc_eval1_def,Abbr`x`] >>
-    rw[bc_eval_stack_def] >>
-    qunabbrev_tac`ls1` >>
-    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x;y] ++ bc1` >>
-    qmatch_abbrev_tac `bc_eval1 bs0 = SOME bs'` >>
-    `bc_fetch bs0 = SOME y` by (
-      match_mp_tac bc_fetch_next_addr >>
-      map_every qexists_tac [`ls0++[x]`,`bc1`] >>
-      unabbrev_all_tac >> rw[bump_pc_def] >>
-      srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND] ) >>
-    rw[bc_eval1_def,Abbr`y`] >>
-    rw[bc_eval_stack_def,Abbr`bs0`,Abbr`bs'`] >>
-    unabbrev_all_tac >>
-    srw_tac[ARITH_ss][bump_pc_def,FILTER_APPEND,SUM_APPEND,ADD1] )
-  >- (
+    rfs[el_check_def] >>
     qmatch_abbrev_tac `bc_next^* bs bs'` >>
     qpat_assum `X = SOME bv` mp_tac >>
     BasicProvers.EVERY_CASE_TAC >> rw[] >>
@@ -277,6 +258,7 @@ val compile_varref_thm = store_thm("compile_varref_thm",
     rw[bc_eval_stack_def] >>
     Q.PAT_ABBREV_TAC `bs0 = bump_pc bs with stack := st` >>
     qunabbrev_tac`ls1` >>
+    fs[] >>
     qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x;y;z] ++ bc1` >>
     `bc_fetch bs0 = SOME y` by (
       match_mp_tac bc_fetch_next_addr >>
@@ -293,10 +275,35 @@ val compile_varref_thm = store_thm("compile_varref_thm",
       map_every qexists_tac [`ls0++[x;y]`,`bc1`] >>
       rw[Abbr`bs0`,bump_pc_def,Abbr`z`] >>
       srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND,Abbr`y`,Abbr`x`] ) >>
+    rw[bc_eval_stack_def] >>
     rw[bc_eval1_def,Abbr`bs0`,bump_pc_def,Abbr`z`] >>
     fs[FLOOKUP_DEF] >>
     unabbrev_all_tac >>
-    srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND,ADD1] ))
+    srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND,ADD1] )
+  >- (
+    rfs[el_check_def] >>
+    qmatch_abbrev_tac `bc_next^* bs bs'` >>
+    qpat_assum `X = SOME bv` mp_tac >>
+    BasicProvers.EVERY_CASE_TAC >> rw[] >>
+    rw[RTC_eq_NRC] >>
+    qexists_tac `SUC (SUC ZERO)` >> rw[NRC] >>
+    srw_tac[DNF_ss][ALT_ZERO] >>
+    rw[bc_eval1_thm] >>
+    rw[Once bc_eval1_def,Abbr`x`] >>
+    rfs[el_check_def] >>
+    rw[bc_eval_stack_def] >>
+    qunabbrev_tac`ls1` >> fs[] >>
+    qmatch_assum_abbrev_tac `bs.code = ls0 ++ [x;y] ++ bc1` >>
+    qmatch_abbrev_tac `bc_eval1 bs0 = SOME bs'` >>
+    `bc_fetch bs0 = SOME y` by (
+      match_mp_tac bc_fetch_next_addr >>
+      map_every qexists_tac [`ls0++[x]`,`bc1`] >>
+      unabbrev_all_tac >> rw[bump_pc_def] >>
+      srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND] ) >>
+    rw[bc_eval1_def,Abbr`y`] >>
+    rw[bc_eval_stack_def,Abbr`bs0`,Abbr`bs'`] >>
+    unabbrev_all_tac >>
+    srw_tac[ARITH_ss][bump_pc_def,FILTER_APPEND,SUM_APPEND,ADD1] ))
 
 val no_closures_Cv_bv_equal = store_thm("no_closures_Cv_bv_equal",
   ``∀pp cv bv. Cv_bv pp cv bv ⇒
