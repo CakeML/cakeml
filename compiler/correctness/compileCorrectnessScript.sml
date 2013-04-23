@@ -895,22 +895,21 @@ val cons_closure_thm = store_thm("cons_closure_thm",
       let (s',k') = cons_closure env0 sz0 sz1 nk (s,k) (refs,envs) in
       ∃code.
       (s'.out = REVERSE code ++ s.out) ∧
-      EVERY ($~ o is_Label) code ∧
-      (s'.next_label = s.next_label) ∧
+      EVERY ($~ o is_Label) code ∧ (s'.next_label = s.next_label) ∧
       (k' = k + 1) ∧
-      ∀bs bc0 bc1 ptrs fs st cls.
+      ∀bs bc0 bc1 cls.
         (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
-        (bs.stack = ptrs ++ fs ++ st) ∧
-        0 < k ∧ k ≤ nk ∧ nk ≤ sz ∧
-        (LENGTH fs = k - 1) ∧
-        (LENGTH ptrs = nk - k + 1) ∧
-        (LENGTH ec = j) ∧
+        k < nk ∧ nk + nk ≤ sz ∧
         EVERY (IS_SOME o bv_from_ec cls sz0 (sz - nk) st bs.refs env0) ec
         ⇒
-        bc_next^* bs (bs with <| stack := FRONT ptrs++
-                                          Block closure_tag [LAST ptrs;
-                                          Block 0 (REVERSE (MAP (THE o (bv_from_ec cls sz0 (sz - nk) st bs.refs env0)) ec))]::fs++st
+        bc_next^* bs (bs with <| stack :=
+          LUPDATE
+          (Block closure_tag
+            [EL k bs.stack;
+             Block 0 (MAP (λn. EL (nk+n) bs.stack) refs ++
+                      MAP (λn. THE (lookup_ct cls sz1 bs.stack bs.refs n)) envs)])
+          k bs.stack
                                ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
   simp[cons_closure_def,UNCURRY] >> rpt gen_tac >>
   Q.PAT_ABBREV_TAC`s0 = s with out := X` >>

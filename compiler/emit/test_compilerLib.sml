@@ -111,7 +111,7 @@ in case fst(dest_const f) of
   | "Dletrec" => let val [x1,x2] = xs in Dletrec (NONE,dest_list (dest_pair fromHOLstring (dest_pair (K NONE) (dest_pair fromHOLstring (dest_pair (K NONE) term_to_exp)))) x2) end
   | s => raise Fail s
 end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
-val term_to_ov = v_to_ov fmapML.FEMPTY o term_to_v
+val term_to_ov = v_to_ov [] o term_to_v
 
 fun add_code c bs = bc_state_code_fupd
   (compile_labels (bc_state_inst_length bs) o (C append c))

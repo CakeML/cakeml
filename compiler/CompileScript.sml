@@ -1244,12 +1244,12 @@ val _ = Defn.save_defn compile_envref_defn;
 
  val cons_closure_def = Define `
 
-(cons_closure env0 sz0 sz1 nk (s,k) (refs,envs) =
-  (* sz1                                                                  sz0 *)
-  (* cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0,     *)
+(cons_closure env0 sz nk (s,k) (refs,envs) =
+  (*                                                                      sz *)
+  (* cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0,    *)
   let s = emit s [Stack (Load k)] in
   (* CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let (z,s) = FOLDL (emit_ceref nk (sz0 +nk)) ((sz1 +1),s) refs in
+  let (z,s) = FOLDL (emit_ceref nk (sz +nk)) ((sz +nk +nk +1),s) refs in
   let (z,s) = FOLDL (emit_ceenv env0) (z,s) envs in
   (* e_kj, ..., e_k1, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   let s = emit s [Stack (Cons 0 ( LENGTH refs + LENGTH envs))] in
@@ -1282,7 +1282,7 @@ val _ = Defn.save_defn compile_envref_defn;
   (* RefPtr_1 0, ..., RefPtr_nk 0, *)
   let (s,ecs) = FOLDL (push_lab d) (s,[]) ( REVERSE defs) in
   (* CodePtr 1, ..., CodePtr nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let (s,k) = FOLDL (cons_closure env sz (sz +nk +nk) nk) (s,0) ecs in
+  let (s,k) = FOLDL (cons_closure env sz nk) (s,0) ecs in
   (* cl_1, ..., cl_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   let (s,k) = num_fold (update_refptr nk) (s,0) nk in
   (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_nk cl_nk, *)
