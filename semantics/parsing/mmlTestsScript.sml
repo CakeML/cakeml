@@ -78,11 +78,22 @@ in
 end
 val tytest = parsetest ``nType`` ``ptree_Type``
 
-val _ = parsetest ``nE`` T "case x of Nil => 0 | Cons(h,t) => 1 + len t"
+val _ = parsetest ``nE`` ``ptree_Expr nE``
+                  "case x of Nil => 0 | Cons(h,t) => 1 + len t"
                   ``[CaseT; AlphaT "x"; OfT; AlphaT "Nil"; DarrowT; IntT 0;
                      BarT; AlphaT "Cons"; LparT; AlphaT "h"; CommaT;
                      AlphaT "t"; RparT; DarrowT; IntT 1; SymbolT "+";
                      AlphaT "len"; AlphaT "t"]``
+val _ = parsetest ``nE`` ``ptree_Expr nE``
+                  "case x of Nil => 0\n\
+                  \        | Cons(h,t) => case h of 0 => 0\n\
+                  \                               | x => x*2 + len t"
+                  ``[CaseT; AlphaT "x"; OfT; AlphaT "Nil"; DarrowT; IntT 0;
+                     BarT; AlphaT "Cons"; LparT; AlphaT "h"; CommaT;
+                     AlphaT "t"; RparT; DarrowT;
+                     CaseT; AlphaT"h"; OfT; IntT 0; DarrowT; IntT 0;
+                     BarT; AlphaT"x"; DarrowT; AlphaT"x";StarT; IntT 2;
+                     SymbolT "+"; AlphaT "len"; AlphaT "t"]``
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let in 3 end"
                   ``[LetT; InT; IntT 3; EndT]``
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let ; in 3 end"
