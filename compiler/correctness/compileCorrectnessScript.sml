@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory lcsymtacs quantHeuristicsLib quantHeuristicsLibAbbrev
-open MiniMLTerminationTheory miniMLExtraTheory miscTheory compileTerminationTheory intLangTheory bytecodeTerminationTheory evaluateEquationsTheory expToCexpTheory pmatchTheory labelClosuresTheory bytecodeEvalTheory bytecodeExtraTheory
+open MiniMLTerminationTheory miniMLExtraTheory miscTheory miscLib compileTerminationTheory intLangTheory bytecodeTerminationTheory evaluateEquationsTheory expToCexpTheory pmatchTheory labelClosuresTheory bytecodeEvalTheory bytecodeExtraTheory
 val _ = numLib.prefer_num()
 val _ = new_theory "compileCorrectness"
 
@@ -599,28 +599,29 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
   qexists_tac`n` >>
   simp[EL_MAP])
 
+val compile_envref_next_label_inc = store_thm("compile_envref_next_label_inc",
+  ``∀sz cs b. (compile_envref sz cs b).next_label = cs.next_label``,
+  ntac 2 gen_tac >> Cases >> rw[])
+val _ = export_rewrites["compile_envref_next_label_inc"]
+
 val compile_varref_next_label_inc = store_thm("compile_varref_next_label_inc",
   ``∀sz cs b. (compile_varref sz cs b).next_label = cs.next_label``,
   ntac 2 gen_tac >> Cases >> rw[])
 val _ = export_rewrites["compile_varref_next_label_inc"]
 
 val compile_decl_next_label_inc = store_thm("compile_decl_next_label_inc",
-  ``∀env1 env0 a vs.(FST (compile_decl env1 env0 a vs)).next_label = (FST a).next_label``,
+  ``∀env a vs.(FST (compile_decl env a vs)).next_label = (FST a).next_label``,
   rw[compile_decl_def] >>
   SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``FOLDL``1"f"] >>
   qho_match_abbrev_tac`P (FOLDL f a vs)` >>
   match_mp_tac FOLDL_invariant >>
   fs[Abbr`P`] >>
   qx_gen_tac `x` >> PairCases_on`x` >>
+  qx_gen_tac`y` >> PairCases_on`y` >>
   rw[Abbr`f`] >>
   BasicProvers.EVERY_CASE_TAC >>
   rw[])
 val _ = export_rewrites["compile_decl_next_label_inc"]
-
-val good_ecs_def = Define`
-  good_ecs d ecs = FEVERY (λ(k,v).
-  let (fvs,xs,ns,j) = FAPPLY d k in
-  v = SND(ITSET(bind_fv ns xs (LENGTH xs) j) fvs (FEMPTY,0,[]))) ecs`
 
 val FOLDL_push_lab_thm = store_thm("FOLDL_push_lab_thm",
  ``∀defs d s ls s' ls'.
@@ -633,18 +634,17 @@ val FOLDL_push_lab_thm = store_thm("FOLDL_push_lab_thm",
    ∀bs bc0 bc1.
      (bs.code = bc0 ++ code ++ bc1) ∧
      (bs.pc = next_addr bs.inst_length bc0) ∧
-     EVERY (ISR o SND) defs ∧
-     EVERY (IS_SOME o bc_find_loc bs o Lab o OUTR o SND) defs
+     EVERY ISR defs ∧
+     EVERY (IS_SOME o bc_find_loc bs o Lab o OUTR) defs
      ⇒
-     (ls' = (REVERSE (MAP (FAPPLY d.ecs o OUTR o SND) defs)) ++ ls) ∧
-     bc_next^* bs (bs with <| stack :=  (REVERSE (MAP (CodePtr o THE o bc_find_loc bs o Lab o OUTR o SND) defs))++bs.stack
+     (ls' = (REVERSE (MAP (closure_data_ceenv o FAPPLY d o OUTR) defs)) ++ ls) ∧
+     bc_next^* bs (bs with <| stack :=  (REVERSE (MAP (CodePtr o THE o bc_find_loc bs o Lab o OUTR) defs))++bs.stack
                             ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
   Induct >- (
     rw[Once SWAP_REVERSE] >>
     pop_assum(assume_tac o SYM) >> fs[] ) >>
   qx_gen_tac`cb` >>
-  PairCases_on`cb` >>
-  Cases_on`cb1` >> rw[push_lab_def] >>
+  Cases_on`cb` >> rw[push_lab_def] >>
   fs[] >- metis_tac[] >>
   qmatch_assum_abbrev_tac`FOLDL (push_lab d) (ss,lss) defs = (s',ls')` >>
   first_x_assum(qspecl_then[`d`,`ss`,`lss`,`s'`,`ls'`]mp_tac) >> simp[] >>
@@ -659,12 +659,11 @@ val FOLDL_push_lab_thm = store_thm("FOLDL_push_lab_thm",
   Cases_on`bc_find_loc bs (Lab y)`>>fs[] >>
   qmatch_abbrev_tac`P ∧ bc_next^* bs1 bs2` >>
   first_x_assum(qspecl_then[`bs1`,`bc0 ++ [PushPtr (Lab y)]`,`bc1`]mp_tac) >>
-  qmatch_abbrev_tac`(X ⇒ Y) ⇒ Z` >>
-  `X` by (
+  discharge_hyps >- (
     unabbrev_all_tac >>
     simp[FILTER_APPEND,SUM_APPEND,ADD1] >>
     rfs[EVERY_MEM,bc_find_loc_def] ) >>
-  simp[Abbr`Y`,Abbr`Z`,Abbr`P`] >> strip_tac >>
+  simp[Abbr`P`] >> strip_tac >>
   qmatch_assum_abbrev_tac`bc_next^* bs1 bs2'` >>
   `bs2' = bs2` by (
     unabbrev_all_tac >>
@@ -677,16 +676,20 @@ val lookup_ct_incsz = store_thm("lookup_ct_incsz",
      lookup_ct cls sz st refs b)``,
   fs[GSYM ADD1] >>
   Cases_on `b` >> rw[] >>
+  fsrw_tac[ARITH_ss][el_check_def] >>
+  rw[SUB,GSYM ADD_SUC] >>
   fsrw_tac[ARITH_ss][] >>
-  rw[SUB,GSYM ADD_SUC])
+  Cases_on`c`>>rw[el_check_def]>>
+  fsrw_tac[ARITH_ss][EL_CONS,PRE_SUB1,ADD1])
 
 val lookup_ct_imp_incsz = store_thm("lookup_ct_imp_incsz",
   ``(lookup_ct cls sz st refs b = SOME v) ⇒
     (lookup_ct cls (sz+1) (x::st) refs b = SOME v)``,
   fs[GSYM ADD1] >>
-  Cases_on `b` >> rw[] >>
-  fsrw_tac[ARITH_ss][] >>
-  rw[SUB,GSYM ADD_SUC])
+  Cases_on `b` >> rw[el_check_def] >>
+  fsrw_tac[ARITH_ss][EL_CONS,PRE_SUB1,ADD1] >>
+  Cases_on`c`>>rw[el_check_def] >>
+  fsrw_tac[ARITH_ss][EL_CONS,PRE_SUB1,ADD1,el_check_def])
 
 val lookup_ct_imp_incsz_many = store_thm("lookup_ct_imp_incsz_many",
   ``∀cls sz st refs b v st' sz' ls.
@@ -704,13 +707,14 @@ val lookup_ct_imp_incsz_many = store_thm("lookup_ct_imp_incsz_many",
 
 val lookup_ct_change_refs = store_thm("lookup_ct_change_refs",
   ``∀cl cl' sz st rf rf' ct.
-    (∀n vs p. (ct = CTRef n) ∧ sz < LENGTH st ∧ (EL sz st = Block 0 vs) ∧ n < LENGTH vs ∧ (EL n vs = RefPtr p) ⇒
+    (∀n vs p. (ct = CTEnv (CCRef n)) ∧ sz < LENGTH st ∧ (EL sz st = Block 0 vs) ∧ n < LENGTH vs ∧ (EL n vs = RefPtr p) ⇒
       (p ∈ cl = p ∈ cl') ∧ (p ∈ cl ⇒ (FLOOKUP rf' p = FLOOKUP rf p)))
     ⇒ (lookup_ct cl' sz st rf' ct = lookup_ct cl sz st rf ct)``,
   rw[LET_THM] >>
   Cases_on`ct`>>fs[] >> rw[] >>
-  Cases_on`EL sz st`>>fs[] >>
-  rw[]>>fs[]>>
+  Cases_on`c`>>fs[el_check_def]>>
+  Cases_on`EL sz st`>>fs[] >> rw[]>>fs[]>>
+  BasicProvers.CASE_TAC>>fs[]>>
   BasicProvers.CASE_TAC>>fs[]>>
   BasicProvers.CASE_TAC>>fs[]>>
   BasicProvers.CASE_TAC>>fs[])
@@ -823,6 +827,13 @@ val FOLDL_emit_ec_thm = store_thm("FOLDL_emit_ec_thm",
     rw[bc_state_component_equality] >>
     lrw[MAP_EQ_f,ADD1] ) >>
   rw[] )
+
+(*
+val good_ecs_def = Define`
+  good_ecs d ecs = FEVERY (λ(k,v).
+  let (fvs,xs,ns,j) = FAPPLY d k in
+  v = SND(ITSET(bind_fv ns xs (LENGTH xs) j) fvs (FEMPTY,0,[]))) ecs`
+*)
 
 (* TODO: move *)
 val TAKE_PRE_LENGTH = store_thm("TAKE_PRE_LENGTH",
