@@ -1508,7 +1508,7 @@ v_to_ov s (Closure _ _ _ _) = OFn
 and
 v_to_ov s (Recclosure _ _ _) = OFn
 and
-v_to_ov s (Loc n) = OLoc (Pmap.find n s)
+v_to_ov s (Loc n) = OLoc (List.nth s n)
 
 let rec
 Cv_to_ov m s (CLitv l) = OLit l
@@ -1517,7 +1517,7 @@ Cv_to_ov m s (CConv cn vs) = OConv (Pmap.find cn m) (List.map (Cv_to_ov m s) vs)
 and
 Cv_to_ov m s (CRecClos _ _ _) = OFn
 and
-Cv_to_ov m s (CLoc n) = OLoc (Pmap.find n s)
+Cv_to_ov m s (CLoc n) = OLoc (List.nth s n)
 
 let rec
 bv_to_ov m (Number i) = OLit (IntLit i)

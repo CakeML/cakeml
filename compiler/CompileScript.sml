@@ -1625,7 +1625,7 @@ val _ = Hol_datatype `
 /\
 (v_to_ov s (Recclosure _ _ _) = OFn)
 /\
-(v_to_ov s (Loc n) = OLoc ( FAPPLY  s  n))`;
+(v_to_ov s (Loc n) = OLoc ( EL  n  s))`;
 
 val _ = Defn.save_defn v_to_ov_defn;
 
@@ -1637,7 +1637,7 @@ val _ = Defn.save_defn v_to_ov_defn;
 /\
 (Cv_to_ov m s (CRecClos _ _ _) = OFn)
 /\
-(Cv_to_ov m s (CLoc n) = OLoc ( FAPPLY  s  n))`;
+(Cv_to_ov m s (CLoc n) = OLoc ( EL  n  s))`;
 
 val _ = Defn.save_defn Cv_to_ov_defn;
 
