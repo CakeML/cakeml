@@ -242,17 +242,6 @@ val peg_relops_def = Define`
                     (bindNT nRelOps)
 `;
 
-val peg_Ebase_def = Define`
-  peg_Ebase =
-    choicel [tok isInt (bindNT nEbase o mktokLf);
-             nt (mkNT nV) (bindNT nEbase);
-             nt (mkNT nConstructorName) (bindNT nEbase);
-             seql [tokeq LparT; pnt nE; tokeq RparT] (bindNT nEbase);
-             seql [tokeq LetT; pnt nLetDecs; tokeq InT; pnt nE; tokeq EndT]
-                  (bindNT nEbase)
-            ]
-`;
-
 val peg_Eapp_def = Define`
   peg_Eapp =
     choice (seql [pnt nConstructorName; pnt nEtuple] (bindNT nEapp))
@@ -281,7 +270,17 @@ val mmlPEG_def = zDefine`
               (mkNT nMultOps, peg_multops);
               (mkNT nAddOps, peg_addops);
               (mkNT nRelOps, peg_relops);
-              (mkNT nEbase, peg_Ebase);
+              (mkNT nEbase,
+               choicel [tok isInt (bindNT nEbase o mktokLf);
+                        nt (mkNT nV) (bindNT nEbase);
+                        nt (mkNT nConstructorName) (bindNT nEbase);
+                        seql [tokeq LparT; pnt nEseq; tokeq RparT]
+                             (bindNT nEbase);
+                        seql [tokeq LetT; pnt nLetDecs; tokeq InT; pnt nEseq;
+                              tokeq EndT]
+                             (bindNT nEbase)]);
+              (mkNT nEseq,
+               peg_linfix (mkNT nEseq) (pnt nE) (tokeq SemicolonT));
               (mkNT nEmult,
                peg_linfix (mkNT nEmult) (pnt nEapp) (pnt nMultOps));
               (mkNT nEadd, peg_linfix (mkNT nEadd) (pnt nEmult) (pnt nAddOps));

@@ -342,6 +342,16 @@ val frontAppCon_def = Define`
   frontAppCon _ _ = NONE
 `;
 
+val Eseq_encode_def = Define`
+  (Eseq_encode [] = NONE) ∧
+  (Eseq_encode [e] = SOME e) ∧
+  (Eseq_encode (e::es) =
+   do
+     body <- Eseq_encode es;
+     SOME(Ast_Let "_" e body)
+   od)
+`
+
 val ptree_Expr_def = Define`
   ptree_Expr ent (Lf _) = NONE ∧
   ptree_Expr ent (Nd nt subs) =
@@ -350,7 +360,10 @@ val ptree_Expr_def = Define`
         case subs of
             [lpart; pt; rpart] =>
             if lpart = Lf (TK LparT) ∧ rpart = Lf (TK RparT) then
-              ptree_Expr nE pt
+              do
+                eseq <- ptree_Eseq pt;
+                Eseq_encode eseq
+              od
             else NONE
           | [single] =>
               do
@@ -371,7 +384,8 @@ val ptree_Expr_def = Define`
               assert(lett = Lf (TOK LetT) ∧ intok = Lf (TOK InT) ∧
                      endt = Lf (TOK EndT));
               letdecs <- ptree_LetDecs letdecs_pt;
-              e <- ptree_Expr nE ept;
+              eseq <- ptree_Eseq ept;
+              e <- Eseq_encode eseq;
               SOME(FOLDR (λdf acc. case df of
                                        INL (v,e0) => Ast_Let v e0 acc
                                      | INR fds => Ast_Letrec fds acc)
@@ -630,7 +644,25 @@ val ptree_Expr_def = Define`
              e <- ptree_Expr nE e_pt;
              SOME(p,e)
            od
-         | _ => NONE)
+         | _ => NONE) ∧
+  (ptree_Eseq (Lf _) = NONE) ∧
+  (ptree_Eseq (Nd nt args) =
+    if nt <> mkNT nEseq then NONE
+    else
+      case args of
+          [single] =>
+          do
+            e <- ptree_Expr nE single;
+            SOME[e]
+          od
+        | [seq_pt; semi; e_pt] =>
+          do
+            assert(semi = Lf (TOK SemicolonT));
+            seq <- ptree_Eseq seq_pt;
+            e <- ptree_Expr nE e_pt;
+            SOME(seq ++ [e])
+          od
+        | _ => NONE)
 `;
 
 

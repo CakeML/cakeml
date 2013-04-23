@@ -103,8 +103,9 @@ val mmlG_def = mk_grammar_def ginfo
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
     |  ^(``{SymbolT s |
             s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"}}``);
- Ebase ::= "(" E ")" | V | ConstructorName | <IntT>
-        |  "let" LetDecs "in" E "end";
+ Ebase ::= "(" Eseq ")" | V | ConstructorName | <IntT>
+        |  "let" LetDecs "in" Eseq "end";
+ Eseq ::= Eseq ";" E | E;
  Etuple ::= "(" Elist2 ")";
  Elist2 ::= E "," Elist1;
  Elist1 ::= E | Elist1 "," E;
