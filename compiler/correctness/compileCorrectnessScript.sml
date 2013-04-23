@@ -29,6 +29,58 @@ val SUM_MAP_PLUS = store_thm("SUM_MAP_PLUS",
   ``∀f g ls. SUM (MAP (λx. f x + g x) ls) = SUM (MAP f ls) + SUM (MAP g ls)``,
   ntac 2 gen_tac >> Induct >> simp[])
 
+val TAKE_PRE_LENGTH = store_thm("TAKE_PRE_LENGTH",
+  ``!ls. ls <> [] ==> (TAKE (PRE (LENGTH ls)) ls = FRONT ls)``,
+  Induct THEN SRW_TAC[][LENGTH_NIL] THEN
+  FULL_SIMP_TAC(srw_ss())[FRONT_DEF,PRE_SUB1])
+
+val DROP_LENGTH_NIL_rwt = store_thm("DROP_LENGTH_NIL_rwt",
+  ``!l m. (m = LENGTH l) ==> (DROP m l = [])``,
+  lrw[DROP_LENGTH_NIL])
+
+val TAKE_LENGTH_ID_rwt = store_thm("TAKE_LENGTH_ID_rwt",
+  ``!l m. (m = LENGTH l) ==> (TAKE m l = l)``,
+  lrw[TAKE_LENGTH_ID])
+
+val DROP_EL_CONS = store_thm("DROP_EL_CONS",
+  ``!ls n. n < LENGTH ls ==> (DROP n ls = EL n ls :: DROP (n + 1) ls)``,
+  Induct >> lrw[EL_CONS,PRE_SUB1])
+
+val TAKE_EL_SNOC = store_thm("TAKE_EL_SNOC",
+  ``!ls n. n < LENGTH ls ==> (TAKE (n + 1) ls = SNOC (EL n ls) (TAKE n ls))``,
+  HO_MATCH_MP_TAC SNOC_INDUCT >>
+  CONJ_TAC THEN1 SRW_TAC[][] THEN
+  REPEAT STRIP_TAC THEN
+  Cases_on`n = LENGTH ls` THEN1 (
+    lrw[EL_LENGTH_SNOC,TAKE_SNOC,TAKE_APPEND1,EL_APPEND1,EL_APPEND2,TAKE_APPEND2] ) THEN
+  `n < LENGTH ls` by fsrw_tac[ARITH_ss][ADD1] THEN
+  lrw[TAKE_SNOC,TAKE_APPEND1,EL_APPEND1])
+
+val ZIP_DROP = store_thm("ZIP_DROP",
+  ``!a b n. n <= LENGTH a /\ (LENGTH a = LENGTH b) ==>
+      (ZIP (DROP n a,DROP n b) = DROP n (ZIP (a,b)))``,
+  Induct THEN SRW_TAC[][LENGTH_NIL_SYM,ADD1] THEN
+  Cases_on`b` THEN FULL_SIMP_TAC(srw_ss())[] THEN
+  FIRST_X_ASSUM MATCH_MP_TAC THEN
+  FULL_SIMP_TAC(srw_ss()++ARITH_ss)[])
+
+val REVERSE_DROP = store_thm("REVERSE_DROP",
+  ``!ls n. n <= LENGTH ls ==> (REVERSE (DROP n ls) = REVERSE (LASTN (LENGTH ls - n) ls))``,
+  HO_MATCH_MP_TAC SNOC_INDUCT THEN
+  SRW_TAC[][LASTN] THEN
+  Cases_on`n = SUC (LENGTH ls)` THEN1 (
+    lrw[DROP_LENGTH_NIL_rwt,ADD1,LASTN] ) THEN
+  lrw[DROP_APPEND1,LASTN_APPEND1])
+
+val FUPDATE_LIST_CANCEL = store_thm("FUPDATE_LIST_CANCEL",
+  ``!ls1 fm ls2.
+    (!k. MEM k (MAP FST ls1) ==> MEM k (MAP FST ls2))
+    ==> (fm |++ ls1 |++ ls2 = fm |++ ls2)``,
+  Induct THEN SRW_TAC[][FUPDATE_LIST_THM] THEN
+  Cases_on`h` THEN
+  MATCH_MP_TAC FUPDATE_FUPDATE_LIST_MEM THEN
+  FULL_SIMP_TAC(srw_ss())[])
+
 val Cexp_pred_def = tDefine "Cexp_pred"`
   (Cexp_pred (CDecl _) = T) ∧
   (Cexp_pred (CRaise _) = T) ∧
@@ -719,178 +771,128 @@ val lookup_ct_change_refs = store_thm("lookup_ct_change_refs",
   BasicProvers.CASE_TAC>>fs[]>>
   BasicProvers.CASE_TAC>>fs[])
 
+val compile_envref_append_out = store_thm("compile_envref_append_out",
+  ``∀sz cs b. ∃bc. ((compile_envref sz cs b).out = bc ++ cs.out) ∧ (EVERY ($~ o is_Label) bc)``,
+  ho_match_mp_tac compile_envref_ind >> rw[])
+
+val compile_varref_append_out = store_thm("compile_varref_append_out",
+  ``∀sz cs b. ∃bc. ((compile_varref sz cs b).out = bc ++ cs.out) ∧ (EVERY ($~ o is_Label) bc)``,
+  ntac 2 gen_tac >> Cases >> rw[compile_envref_append_out])
+
 val bv_from_ec_def = Define`
   (bv_from_ec cls sz0 sz1 st rf env (CEEnv fv) =
     OPTION_BIND (FLOOKUP env fv) (lookup_ct cls sz1 st rf)) ∧
   (bv_from_ec cls sz0 sz1 st rf env (CERef j) =
    if sz1 < sz0 + j then NONE else el_check (sz1 - sz0 - j) st)`
 
-val compile_varref_append_out = store_thm("compile_varref_append_out",
-  ``∀sz cs b. ∃bc. ((compile_varref sz cs b).out = bc ++ cs.out) ∧ (EVERY ($~ o is_Label) bc)``,
-  ho_match_mp_tac compile_varref_ind >> rw[])
-
-val emit_ec_thm = store_thm("emit_ec_thm",
-  ``∀env0 sz0 sz1 s ec.
-     let (z',s') = emit_ec env0 sz0 (sz1,s) ec in
-     ∃code.
-     (z' = sz1 + 1) ∧
-     (s'.out = REVERSE code ++ s.out) ∧
-     (s'.next_label = s.next_label) ∧
-     EVERY ($~ o is_Label) code ∧
-     ∀bs bc0 bc1 cls fs st.
-       (bs.code = bc0 ++ code ++ bc1) ∧
-       (bs.pc = next_addr bs.inst_length bc0) ∧
-       (bs.stack = fs ++ st) ∧
-       IS_SOME (bv_from_ec cls sz0 (sz1 - LENGTH fs) st bs.refs env0 ec) ∧
-       LENGTH fs ≤ sz1
-       ⇒
-       bc_next^* bs (bs with <| stack := THE (bv_from_ec cls sz0 (sz1 - LENGTH fs) st bs.refs env0 ec)::bs.stack
-         ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
-  ntac 4 gen_tac >>
-  Cases >> rw[] >- (
-    Q.PAT_ABBREV_TAC`fv = env0 ' X` >>
-    qspecl_then[`sz1`,`s`,`fv`]strip_assume_tac compile_varref_append_out >>
-    qspecl_then[`sz1`,`s`,`fv`]strip_assume_tac compile_varref_next_label_inc >>
-    simp[Once SWAP_REVERSE,EVERY_REVERSE] >>
-    simp[bv_from_ec_def] >>
-    rw[FLOOKUP_DEF] >>
-    Cases_on`lookup_ct cls (sz1 - LENGTH fs) st bs.refs fv`>>fs[] >>
-    `lookup_ct cls sz1 (fs ++ st) bs.refs fv = SOME x` by (
-      match_mp_tac lookup_ct_imp_incsz_many >>
-      qexists_tac`sz1 - LENGTH fs` >>
-      qexists_tac`st` >> srw_tac[ARITH_ss][] ) >>
-    qspecl_then[`bs`,`bc0`,`REVERSE bc`,`bc1`,`cls`,`sz1`,`s`,`fv`,`x`]mp_tac compile_varref_thm >>
-    rw[]) >>
-  rw[Once SWAP_REVERSE,bv_from_ec_def] >>
-  Cases_on`0 < LENGTH st`>> fsrw_tac[ARITH_ss][] >>
-  Cases_on`sz1 < n + (sz0 + (LENGTH fs + LENGTH st))`>> fsrw_tac[ARITH_ss][] >>
+val FOLDL_emit_ceref_thm = store_thm("FOLDL_emit_ceref_thm",
+  ``∀ls nk z sz s.
+      let (z',s') = FOLDL (emit_ceref nk z) (sz,s) ls in
+      ∃code.
+      (s'.out = REVERSE code ++ s.out) ∧
+      EVERY ($~ o is_Label) code ∧ (s'.next_label = s.next_label) ∧
+      ∀bs bc0 bc1 fs st.
+        (bs.code = bc0 ++ code ++ bc1) ∧ (bs.pc = next_addr bs.inst_length bc0) ∧
+        z ≤ sz ∧ EVERY (λn. sz-z+n < LENGTH bs.stack) ls
+        ⇒
+        bc_next^* bs (bs with <| stack := REVERSE (MAP (λn. EL ((sz-z)+n) bs.stack) ls) ++ bs.stack
+                               ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
+  Induct >- (
+    rw[Once SWAP_REVERSE,LET_THM] >>
+    rpt (first_x_assum (mp_tac o SYM)) >> rw[]) >>
+  qx_gen_tac`e` >> rw[] >>
+  qmatch_assum_abbrev_tac`FOLDL (emit_ceref nk z) (sz + 1, s1) ls = X` >>
+  first_x_assum(qspecl_then[`nk`,`z`,`sz+1`,`s1`]mp_tac) >>
+  simp[Abbr`X`,Abbr`s1`] >>
+  disch_then(Q.X_CHOOSE_THEN`bc`strip_assume_tac) >> rw[] >>
+  simp[Once SWAP_REVERSE] >> rw[] >>
   simp[Once RTC_CASES1] >> disj2_tac >>
-  qmatch_assum_abbrev_tac`bs.code = bc0 ++ [x] ++ bc1` >>
-  `bc_fetch bs = SOME x` by (
-    match_mp_tac bc_fetch_next_addr >>
-    rw[Abbr`x`] >> qexists_tac`bc0` >> rw[] ) >>
-  rw[bc_eval1_thm,bc_eval1_def,Abbr`x`] >- fs[] >>
-  simp[bc_eval_stack_def,bump_pc_def] >>
-  simp[Once RTC_CASES1] >>
-  simp[bc_state_component_equality,FILTER_APPEND,SUM_APPEND] >>
-  lrw[EL_APPEND2])
+  `bc_fetch bs = SOME(Stack(Load(sz-z+e)))` by (
+    match_mp_tac bc_fetch_next_addr>>
+    map_every qexists_tac[`bc0`,`bc++bc1`]>>
+    simp[])>>
+  simp[bc_eval1_thm,bc_eval1_def] >>
+  simp[bc_eval_stack_def,bump_pc_def]>>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  first_x_assum(qspecl_then[`bs1`,`bc0++[Stack(Load(sz-z+e))]`,`bc1`]mp_tac)>>
+  simp[Abbr`bs1`]>>
+  discharge_hyps >- (
+    simp[ADD1,SUM_APPEND,FILTER_APPEND] >>
+    fsrw_tac[ARITH_ss][EVERY_MEM] >>
+    rw[] >> res_tac >> DECIDE_TAC ) >>
+  rw[] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1' bs2'` >>
+  `bs1' = bs1` by simp[bc_state_component_equality,Abbr`bs1'`,Abbr`bs1`,FILTER_APPEND,SUM_APPEND]>>
+  `bs2' = bs2` by (
+    simp[bc_state_component_equality,Abbr`bs2'`,Abbr`bs2`,Abbr`bs1`,FILTER_APPEND,SUM_APPEND,MAP_EQ_f] >>
+    lrw[EL_CONS,PRE_SUB1] ) >>
+  rw[])
 
-val FOLDL_emit_ec_thm = store_thm("FOLDL_emit_ec_thm",
-  ``∀ec env0 sz0 sz1 s.
-     let (z',s') = FOLDL (emit_ec env0 sz0) (sz1,s) ec in
+val FOLDL_emit_ceenv_thm = store_thm("FOLDL_emit_ceenv_thm",
+  ``∀ec env0 z s.
+     let (z',s') = FOLDL (emit_ceenv env0) (z,s) ec in
      ∃code.
      (s'.out = REVERSE code ++ s.out) ∧
-     EVERY ($~ o is_Label) code ∧
-     (s'.next_label = s.next_label) ∧
-     ∀bs bc0 bc1 cls fs st.
+     EVERY ($~ o is_Label) code ∧ (s'.next_label = s.next_label) ∧
+     ∀bs bc0 bc1 cls.
        (bs.code = bc0 ++ code ++ bc1) ∧
        (bs.pc = next_addr bs.inst_length bc0) ∧
-       (bs.stack = fs ++ st) ∧
-       EVERY (IS_SOME o bv_from_ec cls sz0 (sz1 - LENGTH fs) st bs.refs env0) ec ∧
-       LENGTH fs ≤ sz1
+       EVERY (λn. n < LENGTH env0) ec ∧
+       EVERY (λn. IS_SOME (lookup_ct cls z bs.stack bs.refs (EL n env0))) ec
        ⇒
-       bc_next^* bs (bs with <| stack := (REVERSE (MAP (THE o bv_from_ec cls sz0 (sz1 - LENGTH fs) st bs.refs env0) ec))++bs.stack
+       bc_next^* bs (bs with <| stack := (REVERSE (MAP (λn. THE (lookup_ct cls z bs.stack bs.refs (EL n env0))) ec))++bs.stack
                               ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
   Induct >- (
     rw[Once SWAP_REVERSE,LET_THM] >>
     rpt (first_x_assum (mp_tac o SYM)) >> rw[]) >>
   qx_gen_tac`e` >> rw[] >>
-  qspecl_then[`env0`,`sz0`,`sz1`,`s`,`e`]mp_tac emit_ec_thm >>
-  Cases_on`emit_ec env0 sz0 (sz1,s) e` >> simp[] >>
+  qmatch_assum_abbrev_tac`FOLDL (emit_ceenv env0) (z + 1, s1) ec = X` >>
+  first_x_assum(qspecl_then[`env0`,`z+1`,`s1`]mp_tac) >>
+  simp[Abbr`X`,Abbr`s1`] >>
   disch_then(Q.X_CHOOSE_THEN`bc`strip_assume_tac) >> rw[] >>
-  qmatch_assum_rename_tac`emit_ec env0 sz0 (sz1,s) e = (sz1 + 1,ss)`[] >>
-  first_x_assum(qspecl_then[`env0`,`sz0`,`sz1+1`,`ss`]mp_tac) >>
-  simp[] >> rw[] >> fs[] >>
-  simp[Once SWAP_REVERSE] >> rw[] >>
-  POP_ASSUM_LIST(map_every assume_tac) >>
-  first_x_assum(qspecl_then[`bs`,`bc0`,`code ++ bc1`,`cls`,`fs`]mp_tac) >>
-  simp[] >> strip_tac >> fs[] >> rfs[] >>
-  qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+  qspecl_then[`z`,`s`,`EL e env0`]mp_tac compile_varref_append_out >>
+  disch_then(Q.X_CHOOSE_THEN`bcv`strip_assume_tac) >> rw[] >>
+  simp[Once SWAP_REVERSE] >> rw[EVERY_REVERSE] >>
+  Cases_on`lookup_ct cls z bs.stack bs.refs (EL e env0)`>>fs[] >>
+  qspecl_then[`bs`,`bc0`,`REVERSE bcv`,`bc++bc1`,`cls`,`z`,`s`,`EL e env0`,`x`]mp_tac compile_varref_thm >>
+  simp[] >> strip_tac >>
   match_mp_tac(SIMP_RULE std_ss [transitive_def] RTC_TRANSITIVE) >>
-  qexists_tac`bs1`>>rw[] >>
-  Q.PAT_ABBREV_TAC`bv = THE (bv_from_ec X Y Z st x y z)` >>
-  first_x_assum(qspecl_then[`bs1`,`bc0 ++ bc`,`bc1`,`cls`,`bv::fs`]mp_tac) >>
-  simp[Abbr`bs1`] >>
-  qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
-  `P` by (
-    unabbrev_all_tac >>
+  HINT_EXISTS_TAC >> simp[] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  first_x_assum(qspecl_then[`bs1`,`bc0++REVERSE bcv`,`bc1`,`cls`]mp_tac) >>
+  discharge_hyps >- (
+    simp[Abbr`bs1`] >>
     fs[EVERY_MEM] >>
-    qx_gen_tac`x` >> strip_tac >>
-    first_x_assum(qspec_then`x`mp_tac) >> rw[] >>
-    Cases_on`x`>>fs[bv_from_ec_def,FLOOKUP_DEF] >>
-    rw[] >> fsrw_tac[ARITH_ss][ADD1] ) >>
-  simp[Abbr`Q`,Abbr`R`] >> strip_tac >>
-  qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
-  qmatch_abbrev_tac`bc_next^* bs1 bs2'` >>
+    PROVE_TAC[lookup_ct_imp_incsz,optionTheory.IS_SOME_DEF,optionTheory.option_CASES] ) >>
+  rw[] >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1 bs2'` >>
   `bs2' = bs2` by (
-    unabbrev_all_tac >>
-    rw[bc_state_component_equality] >>
-    lrw[MAP_EQ_f,ADD1] ) >>
-  rw[] )
+    rw[Abbr`bs2'`,Abbr`bs2`,Abbr`bs1`] >>
+    simp[bc_state_component_equality,MAP_EQ_f] >>
+    fs[EVERY_MEM] >>
+    metis_tac[lookup_ct_imp_incsz,optionTheory.THE_DEF,optionTheory.IS_SOME_DEF,optionTheory.option_CASES] ) >>
+  fs[])
 
-(*
-val good_ecs_def = Define`
-  good_ecs d ecs = FEVERY (λ(k,v).
-  let (fvs,xs,ns,j) = FAPPLY d k in
-  v = SND(ITSET(bind_fv ns xs (LENGTH xs) j) fvs (FEMPTY,0,[]))) ecs`
-*)
-
-(* TODO: move *)
-val TAKE_PRE_LENGTH = store_thm("TAKE_PRE_LENGTH",
-  ``!ls. ls <> [] ==> (TAKE (PRE (LENGTH ls)) ls = FRONT ls)``,
-  Induct THEN SRW_TAC[][LENGTH_NIL] THEN
-  FULL_SIMP_TAC(srw_ss())[FRONT_DEF,PRE_SUB1])
-
-val DROP_LENGTH_NIL_rwt = store_thm("DROP_LENGTH_NIL_rwt",
-  ``!l m. (m = LENGTH l) ==> (DROP m l = [])``,
-  lrw[DROP_LENGTH_NIL])
-
-val TAKE_LENGTH_ID_rwt = store_thm("TAKE_LENGTH_ID_rwt",
-  ``!l m. (m = LENGTH l) ==> (TAKE m l = l)``,
-  lrw[TAKE_LENGTH_ID])
-
-val DROP_EL_CONS = store_thm("DROP_EL_CONS",
-  ``!ls n. n < LENGTH ls ==> (DROP n ls = EL n ls :: DROP (n + 1) ls)``,
-  Induct >> lrw[EL_CONS,PRE_SUB1])
-
-val TAKE_EL_SNOC = store_thm("TAKE_EL_SNOC",
-  ``!ls n. n < LENGTH ls ==> (TAKE (n + 1) ls = SNOC (EL n ls) (TAKE n ls))``,
-  HO_MATCH_MP_TAC SNOC_INDUCT >>
-  CONJ_TAC THEN1 SRW_TAC[][] THEN
-  REPEAT STRIP_TAC THEN
-  Cases_on`n = LENGTH ls` THEN1 (
-    lrw[EL_LENGTH_SNOC,TAKE_SNOC,TAKE_APPEND1,EL_APPEND1,EL_APPEND2,TAKE_APPEND2] ) THEN
-  `n < LENGTH ls` by fsrw_tac[ARITH_ss][ADD1] THEN
-  lrw[TAKE_SNOC,TAKE_APPEND1,EL_APPEND1])
-
-val ZIP_DROP = store_thm("ZIP_DROP",
-  ``!a b n. n <= LENGTH a /\ (LENGTH a = LENGTH b) ==>
-      (ZIP (DROP n a,DROP n b) = DROP n (ZIP (a,b)))``,
-  Induct THEN SRW_TAC[][LENGTH_NIL_SYM,ADD1] THEN
-  Cases_on`b` THEN FULL_SIMP_TAC(srw_ss())[] THEN
-  FIRST_X_ASSUM MATCH_MP_TAC THEN
-  FULL_SIMP_TAC(srw_ss()++ARITH_ss)[])
-
-val REVERSE_DROP = store_thm("REVERSE_DROP",
-  ``!ls n. n <= LENGTH ls ==> (REVERSE (DROP n ls) = REVERSE (LASTN (LENGTH ls - n) ls))``,
-  HO_MATCH_MP_TAC SNOC_INDUCT THEN
-  SRW_TAC[][LASTN] THEN
-  Cases_on`n = SUC (LENGTH ls)` THEN1 (
-    lrw[DROP_LENGTH_NIL_rwt,ADD1,LASTN] ) THEN
-  lrw[DROP_APPEND1,LASTN_APPEND1])
-
-val FUPDATE_LIST_CANCEL = store_thm("FUPDATE_LIST_CANCEL",
-  ``!ls1 fm ls2.
-    (!k. MEM k (MAP FST ls1) ==> MEM k (MAP FST ls2))
-    ==> (fm |++ ls1 |++ ls2 = fm |++ ls2)``,
-  Induct THEN SRW_TAC[][FUPDATE_LIST_THM] THEN
-  Cases_on`h` THEN
-  MATCH_MP_TAC FUPDATE_FUPDATE_LIST_MEM THEN
-  FULL_SIMP_TAC(srw_ss())[])
+cons_closure env0 sz0 sz1 nk (s,k) (refs,envs) =
+  (* sz1                                                                  sz0 *)
+  (* cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0,     *)
+  let s = emit s [Stack (Load k)] in
+  (* CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
+  let (z,s) = List.fold_left (emit_ceref nk (sz0+nk)) (sz1+1,s) refs in
+  let (z,s) = List.fold_left (emit_ceenv env0) (z,s) envs in
+  (* e_kj, ..., e_k1, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
+  let s = emit s [Stack (Cons 0 (List.length refs + List.length envs))] in
+  (* env_k, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
+  let s = emit s [Stack (Cons closure_tag 2)] in
+  (* cl_k,  cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
+  let s = emit s [Stack (Store k)] in
+  (* cl_1, ..., cl_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
+  (s,k+1)
 
 val cons_closure_thm = store_thm("cons_closure_thm",
-  ``∀env0 sz0 sz nk s k j ec.
-      let (s',k') = (cons_closure env0 sz0 sz nk) (s,k) (j,ec) in
+  ``∀env0 sz0 sz1 nk s k refs envs.
+      let (s',k') = cons_closure env0 sz0 sz1 nk (s,k) (refs,envs) in
       ∃code.
       (s'.out = REVERSE code ++ s.out) ∧
       EVERY ($~ o is_Label) code ∧
@@ -999,6 +1001,10 @@ val cons_closure_thm = store_thm("cons_closure_thm",
   pop_assum mp_tac >>
   simp_tac std_ss [DROP_LENGTH_NIL,TAKE_PRE_LENGTH] >>
   simp_tac (srw_ss())[EL_PRE_LENGTH])
+
+(* CodePtr 1, ..., CodePtr nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
+let (s,_k) = List.fold_left (cons_closure env sz (sz+nk+nk) nk) (s,0) ecs in
+(* cl_1, ..., cl_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
 
 val FOLDL_cons_closure_thm = store_thm("FOLDL_cons_closure_thm",
   ``∀ecs env0 sz0 sz nk s k.
@@ -1905,6 +1911,13 @@ val Cenv_bs_change_store = store_thm("Cenv_bs_change_store",
   simp[] >>
   qexists_tac`rd` >>
   fs[SUBMAP_DEF,SUBSET_DEF,DRESTRICT_DEF,s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY])
+
+(*
+val good_ecs_def = Define`
+  good_ecs d ecs = FEVERY (λ(k,v).
+  let (fvs,xs,ns,j) = FAPPLY d k in
+  v = SND(ITSET(bind_fv ns xs (LENGTH xs) j) fvs (FEMPTY,0,[]))) ecs`
+*)
 
 val good_code_env_def = Define`
   good_code_env c d code =
