@@ -1002,10 +1002,6 @@ val cons_closure_thm = store_thm("cons_closure_thm",
     lrw[MAP_EQ_f,DROP_APPEND1,DROP_APPEND2] ) >>
   Cases_on`z < k`>> lrw[EL_APPEND1,EL_APPEND2,EL_TAKE,EL_DROP] )
 
-(* CodePtr 1, ..., CodePtr nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-let (s,_k) = List.fold_left (cons_closure env sz nk) (s,0) ecs in
-(* cl_1, ..., cl_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-
 val FOLDL_cons_closure_thm = store_thm("FOLDL_cons_closure_thm",
   ``∀ecs env0 sz nk s k.
     let (s',k') = FOLDL (cons_closure env0 sz nk) (s,k) ecs in
@@ -1026,9 +1022,9 @@ val FOLDL_cons_closure_thm = store_thm("FOLDL_cons_closure_thm",
         Block 0
           (MAP (λn. EL (nk + n) bs.stack) recs ++
            MAP (λn. THE (lookup_ct cls sz (DROP (nk + nk) bs.stack) bs.refs (EL n env0))) envs)])
-              (TAKE (nk-k) bs.stack) ecs in
+              (TAKE (nk-k) (DROP k bs.stack)) ecs in
     bc_next^* bs
-    (bs with <| stack := bvs ++ (DROP (nk-k) bs.stack)
+    (bs with <| stack := TAKE k bs.stack ++ bvs ++ (DROP nk bs.stack)
               ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
   Induct >- (
     simp[Once SWAP_REVERSE,LENGTH_NIL_SYM,LENGTH_NIL] >> rw[] >>
@@ -1062,25 +1058,19 @@ val FOLDL_cons_closure_thm = store_thm("FOLDL_cons_closure_thm",
   simp[Abbr`bs2'`,Abbr`bs2`,bc_state_component_equality,Abbr`bs1`,MAP2_MAP] >>
   simp[LIST_EQ_REWRITE] >>
   qx_gen_tac`z` >> strip_tac >>
-  Cases_on`z<LENGTH ecs`>>lrw[EL_APPEND1,EL_MAP,EL_ZIP,EL_REVERSE,PRE_SUB1] >- (
-    simp[UNCURRY] >>
-    lrw[EL_LUPDATE,EL_TAKE]
-    DECIDE_TAC
-  simp[GSYM ZIP_APPEND]
-  `DROP (nk - (k + 1)) (LUPDATE f1 k bs.stack) = [(e0,e1O
-
-  lrw[LIST_EQ_REWRITE,EL_APPEND1]
-  qmatch_abbrev_tac`(MAP f l1) ++ [f1] = (MAP f l2)` >>
-    qsuff_tac `∃z. (f1 = f z) ∧ (l2 = l1 ++ [z])` >- (
-      rw[] >> lrw[] ) >>
-    qexists_tac`(LAST (h::t), LENGTH e1, e1)` >>
-    simp[Abbr`l2`,Abbr`l1`,Abbr`f1`,Abbr`f`] >>
-    Q.ISPEC_THEN`h::t`mp_tac APPEND_FRONT_LAST >> simp[] >>
-    disch_then(fn th => CONV_TAC (LAND_CONV(ONCE_REWRITE_CONV[SYM th]))) >>
-    lrw[GSYM ZIP_APPEND] ) >>
-  rw[])
-
-set_trace"goalstack print goal at top"0
+  Cases_on`z<k`>>lrw[EL_APPEND1,EL_TAKE,EL_LUPDATE] >>
+  `TAKE (nk-k) (DROP k bs.stack) = EL k bs.stack::(TAKE(nk-k-1) (DROP (k+1) bs.stack))` by (
+    lrw[LIST_EQ_REWRITE,EL_TAKE,EL_DROP] >>
+    Cases_on`x=0`>>lrw[EL_CONS,PRE_SUB1,EL_TAKE,EL_DROP] ) >>
+  simp[] >>
+  Cases_on`z=k`>>lrw[EL_APPEND1,EL_APPEND2,EL_TAKE,EL_LUPDATE] >>
+  REWRITE_TAC[GSYM APPEND_ASSOC] >>
+  lrw[EL_APPEND2,EL_CONS,PRE_SUB1] >>
+  `DROP nk (LUPDATE f1 k bs.stack) = DROP nk bs.stack` by (
+    lrw[LIST_EQ_REWRITE,EL_DROP,EL_LUPDATE] ) >>
+  `DROP (k+1) (LUPDATE f1 k bs.stack) = DROP (k+1) bs.stack` by (
+    lrw[LIST_EQ_REWRITE,EL_DROP,EL_LUPDATE] ) >>
+  simp[])
 
 val num_fold_make_ref_thm = store_thm("num_fold_make_ref_thm",
   ``∀x nz s.
@@ -1155,15 +1145,15 @@ val num_fold_update_refptr_thm = store_thm("num_fold_update_refptr_thm",
     (bs.stack = vs ++ (MAP RefPtr rs) ++ st) ∧
     (∀r. MEM r rs ⇒ r ∈ FDOM bs.refs) ∧ ALL_DISTINCT rs ∧
     (LENGTH rs = nk) ∧ (LENGTH vs = nk) ∧
-    0 < k ∧ (nz + k-1 = nk)
+    (k + nz = nk)
     ⇒
     bc_next^* bs
-    (bs with <| refs := bs.refs |++ ZIP (TAKE nz rs,TAKE nz vs)
+    (bs with <| refs := bs.refs |++ ZIP (DROP k rs,DROP k vs)
               ; pc := next_addr bs.inst_length (bc0 ++ code)|>)``,
   Induct >- (
     rw[Once num_fold_def,Once SWAP_REVERSE,LENGTH_NIL,FUPDATE_LIST_THM] >>
     rw[] >> fsrw_tac[ARITH_ss][FUPDATE_LIST_THM] >>
-    metis_tac[DROP_LENGTH_NIL,FUPDATE_LIST_THM,with_same_pc,with_same_refs,RTC_CASES1,MAP2]) >>
+    metis_tac[DROP_LENGTH_NIL,ZIP,FUPDATE_LIST_THM,with_same_pc,with_same_refs,RTC_CASES1,MAP2]) >>
   rw[Once num_fold_def,update_refptr_def] >>
   first_x_assum(qspecl_then[`nk`,`s'''`,`k+1`]mp_tac) >>
   simp[] >> unabbrev_all_tac >> simp[] >>
@@ -1204,24 +1194,20 @@ val num_fold_update_refptr_thm = store_thm("num_fold_update_refptr_thm",
   conj_asm1_tac >- (
     first_x_assum match_mp_tac >>
     simp[MEM_EL] >>
-    qexists_tac`nz` >>
+    qexists_tac`k` >>
     simp[] ) >>
   qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
   first_x_assum(qspecl_then[`bs1`,`bc0 ++ ls`,`bc1`,`vvs`,`rrs`,`st`]mp_tac) >>
   simp[Abbr`bs1`,Abbr`ls`,FILTER_APPEND,SUM_APPEND,ADD1] >>
   qmatch_abbrev_tac`bc_next^* bs3 bs4 ⇒ bc_next^* bs3 bs2` >>
-  `bs4 = bs2` by (
-    unabbrev_all_tac >>
-    simp[bc_state_component_equality,FILTER_APPEND,SUM_APPEND] >>
-    Q.PAT_ABBREV_TAC`kvl = ZIP (TAKE nz rrs,TAKE nz vvs)` >>
-    `EL nz rrs ∉ set (MAP FST kvl)` by (
-      fs[EL_ALL_DISTINCT_EL_EQ,Abbr`kvl`,MAP_ZIP,MEM_EL] >>
-      spose_not_then strip_assume_tac >>
-      pop_assum mp_tac >>
-      lrw[EL_TAKE] ) >>
-    simp[FUPDATE_FUPDATE_LIST_COMMUTES] >>
-    lrw[TAKE_EL_SNOC,ZIP_SNOC,SNOC_APPEND,FUPDATE_LIST_APPEND,GSYM ZIP_APPEND,FUPDATE_LIST_THM] ) >>
-  rw[])
+  qsuff_tac `bs4 = bs2` >- rw[] >>
+  unabbrev_all_tac >>
+  simp[bc_state_component_equality,FILTER_APPEND,SUM_APPEND] >>
+  `DROP k rrs = EL k rrs :: DROP (k + 1) rrs` by (
+     simp[GSYM ADD1,DROP_CONS_EL] ) >>
+  `DROP k vvs = EL k vvs :: DROP (k + 1) vvs` by (
+     simp[GSYM ADD1,DROP_CONS_EL] ) >>
+  simp[FUPDATE_LIST_THM])
 
 val num_fold_store_thm = store_thm("num_fold_store_thm",
   ``∀nz k s. let s' = num_fold (λs. s with out := Stack (Store k)::s.out) s nz in
@@ -1490,6 +1476,8 @@ val compile_closures_thm = store_thm("compile_closures_thm",
   match_mp_tac FUPDATE_LIST_CANCEL >>
   lrw[MEM_MAP,MEM_ZIP,EXISTS_PROD] >>
   fs[MEM_EL] >> PROVE_TAC[] )
+
+set_trace"goalstack print goal at top"0
 
 val compile_closures_next_label_inc = store_thm("compile_closures_next_label_inc",
   ``∀d env sz nz cs defs. (compile_closures d env sz nz cs defs).next_label = cs.next_label``,
