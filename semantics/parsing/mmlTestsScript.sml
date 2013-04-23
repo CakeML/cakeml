@@ -80,9 +80,11 @@ val tytest = parsetest ``nType`` ``ptree_Type``
 
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "(f x; 3)"
                   ``[LparT; AlphaT "f"; AlphaT"x"; SemicolonT; IntT 3; RparT]``
-val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 2 in f x; 3 end"
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 2 in f x; g (x + 1); 3 end"
                   ``[LetT; ValT; AlphaT"x"; EqualsT; IntT 2; InT;
-                     AlphaT "f"; AlphaT "x"; SemicolonT; IntT 3; EndT]``
+                     AlphaT "f"; AlphaT "x"; SemicolonT;
+                     AlphaT "g"; LparT; AlphaT"x"; SymbolT"+"; IntT 1; RparT;
+                     SemicolonT; IntT 3; EndT]``
 val _ = parsetest ``nE`` ``ptree_Expr nE``
                   "case x of Nil => 0 | Cons(h,t) => 1 + len t"
                   ``[CaseT; AlphaT "x"; OfT; AlphaT "Nil"; DarrowT; IntT 0;
