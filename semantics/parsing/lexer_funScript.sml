@@ -21,10 +21,10 @@ val _ = Hol_datatype `symbol = StringS of string
 (* helper functions *)
 
 val read_while_def = Define `
-  (read_while P "" s = (s,"")) /\
+  (read_while P "" s = (IMPLODE (REVERSE s),"")) /\
   (read_while P (STRING c cs) s =
-     if P c then read_while P cs (STRCAT s (STRING c ""))
-            else (s,STRING c cs))`;
+     if P c then read_while P cs (c :: s)
+            else (IMPLODE (REVERSE s),STRING c cs))`;
 
 val is_single_char_symbol_def = Define `
   is_single_char_symbol c = MEM c "()[];~"`;
@@ -85,25 +85,30 @@ val skip_comment_thm = prove(
 
 val read_while_thm = prove(
   ``!cs s cs' s'.
-       (read_while P cs s = (s',cs')) ==> LENGTH cs' <= LENGTH cs + LENGTH s``,
-  Induct THEN SIMP_TAC std_ss [read_while_def] THEN REPEAT STRIP_TAC
-  THEN Cases_on `P h` THEN FULL_SIMP_TAC std_ss [LENGTH]
-  THEN RES_TAC THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND]
-  THEN REPEAT (Q.PAT_ASSUM `STRING c cs = cs'` (ASSUME_TAC o GSYM))
-  THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND] THEN DECIDE_TAC);
+       (read_while P cs s = (s',cs')) ==> STRLEN cs' <= STRLEN cs``,
+  Induct THEN SRW_TAC [][read_while_def] THEN SRW_TAC [][] THEN
+  RES_TAC THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND] THEN DECIDE_TAC);
+
+val isAlphaNumPrime_def = Define`
+  isAlphaNumPrime c ⇔ isAlphaNum c ∨ c = #"'"
+`
 
 val str_to_syms_def = tDefine "str_to_syms" `
   (str_to_syms "" = []) /\
   (str_to_syms (c::str) =
      if isSpace c then (* skip blank space *)
-       let (n,rest) = read_while isSpace str "" in
+       let (n,rest) = read_while isSpace str [] in
          WhitespaceS :: str_to_syms str else
      if isDigit c then (* read number *)
-       let (n,rest) = read_while isDigit str "" in
+       let (n,rest) = read_while isDigit str [] in
          NumberS (num_from_dec_string (c::n)) :: str_to_syms rest else
      if isAlpha c then (* read alpha-numeric identifier/keyword *)
-       let (n,rest) = read_while isAlphaNum str "" in
+       let (n,rest) = read_while isAlphaNumPrime str [] in
          OtherS (c::n) :: str_to_syms rest else
+     if c = #"'" then (* read type variable *)
+       let (n,rest) = read_while isAlphaNum str [c]
+       in
+         OtherS n :: str_to_syms rest else
      if c = #"\"" then (* read string *)
        let (t,rest) = read_string str "" in
          t :: str_to_syms rest else
@@ -115,7 +120,7 @@ val str_to_syms_def = tDefine "str_to_syms" `
      if is_single_char_symbol c then (* single character tokens *)
        OtherS [c] :: str_to_syms str else
      if isSymbol c then (* read symbol identifier *)
-       let (n,rest) = read_while isSymbol str "" in
+       let (n,rest) = read_while isSymbol str [] in
          OtherS (c::n) :: str_to_syms rest
      else (* input not recognised *)
        [ErrorS])`
@@ -139,18 +144,18 @@ val get_token_def = Define `
     if s = "*" then SOME StarT else
     if s = "," then SOME CommaT else
     if s = "->" then SOME ArrowT else
-    if s = "???" then SOME DotsT else     (* no idea *)
+    if s = "..." then SOME DotsT else
     if s = ":" then SOME ColonT else
-    if s = "???" then SOME SealT else     (* no idea *)
+    if s = ":>" then SOME SealT else
     if s = ";" then SOME SemicolonT else
     if s = "=" then SOME EqualsT else
-    if s = "???" then SOME DarrowT else   (* no idea *)
+    if s = "=>" then SOME DarrowT else
     if s = "[" then SOME LbrackT else
     if s = "]" then SOME RbrackT else
     if s = "_" then SOME UnderbarT else
     if s = "{" then SOME LbraceT else
     if s = "}" then SOME RbraceT else
-    if s = "-" then SOME BarT else
+    if s = "|" then SOME BarT else
     if s = "abstype" then SOME AbstypeT else
     if s = "and" then SOME AndT else
     if s = "andalso" then SOME AndalsoT else
@@ -168,7 +173,7 @@ val get_token_def = Define `
     if s = "handle" then SOME HandleT else
     if s = "if" then SOME IfT else
     if s = "in" then SOME InT else
-    if s = "inlcude" then SOME IncludeT else
+    if s = "include" then SOME IncludeT else
     if s = "infix" then SOME InfixT else
     if s = "infixr" then SOME InfixrT else
     if s = "let" then SOME LetT else
@@ -192,7 +197,8 @@ val get_token_def = Define `
     if s = "while" then SOME WhileT else
     if s = "with" then SOME WithT else
     if s = "withtype" then SOME WithtypeT else
-    if EVERY isAlphaNum s then SOME (AlphaT s) else SOME (SymbolT s)`;
+    if isAlpha (HD s) then SOME (AlphaT s) else
+    if HD s = #"'" then SOME (TyvarT s) else SOME (SymbolT s)`;
 
 (*
 
@@ -233,7 +239,10 @@ val lexer_fun_def = Define `
 
 (*
 
-  EVAL ``lexer_fun "3 (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``
+  EVAL ``lexer_fun "3 (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``;
+  EVAL ``lexer_fun "a b cd c2 c3'"``;
+  EVAL ``lexer_fun "'a 'b '2"``;
+  EVAL ``lexer_fun "'"``
 
 *)
 

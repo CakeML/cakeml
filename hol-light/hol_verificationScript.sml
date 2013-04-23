@@ -2656,7 +2656,7 @@ val INST_TYPE_thm = store_thm("INST_TYPE_thm",
   \\ Q.SPEC_TAC (`a`,`a`) \\ Q.SPEC_TAC (`l`,`l`)
   \\ Induct THEN1 (Cases \\ FULL_SIMP_TAC (srw_ss()) [])
   \\ STRIP_TAC \\ Cases THEN1 (FULL_SIMP_TAC (srw_ss()) [])
-  \\ FULL_SIMP_TAC std_ss [EVERY2_def,MAP]);
+  \\ FULL_SIMP_TAC std_ss [LIST_REL_def,MAP]);
 
 val map_lemma = prove(
   ``!l P s res s'.
@@ -2709,7 +2709,7 @@ val INST_thm = store_thm("INST_thm",
   \\ Q.SPEC_TAC (`a`,`a`) \\ Q.SPEC_TAC (`l`,`l`)
   \\ Induct THEN1 (Cases \\ FULL_SIMP_TAC (srw_ss()) [])
   \\ STRIP_TAC \\ Cases THEN1 (FULL_SIMP_TAC (srw_ss()) [])
-  \\ FULL_SIMP_TAC std_ss [EVERY2_def,MAP]);
+  \\ FULL_SIMP_TAC std_ss [LIST_REL_def,MAP]);
 
 (* ------------------------------------------------------------------------- *)
 (* Verification of definition functions                                      *)

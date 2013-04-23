@@ -249,6 +249,84 @@ val ptree_V_def = Define`
     else NONE
 `;
 
+val ptree_Pattern_def = Define`
+  (ptree_Pattern nt (Lf _) = NONE) ∧
+  (ptree_Pattern nt (Nd nm args) =
+    if mkNT nt <> nm then NONE
+    else if nm = mkNT nPbase then
+      case args of
+          [vic] =>
+          do
+             cname <- ptree_ConstructorName vic;
+             SOME(Ast_Pcon cname [])
+          od ++
+          do
+             vname <- ptree_V vic;
+             SOME(Ast_Pvar vname)
+          od ++
+          do
+            lf <- destLf vic;
+            t <- destTOK lf;
+            i <- destIntT t ;
+            SOME (Ast_Plit (IntLit i))
+          od
+        | [lp; p; rp] =>
+          do
+            assert(lp = Lf (TOK LparT) ∧ rp = Lf (TOK RparT));
+            ptree_Pattern nPattern p
+          od
+        | _ => NONE
+    else if nm = mkNT nPattern then
+      case args of
+          [pb] => ptree_Pattern nPbase pb
+        | [cnm; p] =>
+          do
+            cn <- ptree_ConstructorName cnm;
+            (do
+              pb <- ptree_Pattern nPbase p ;
+              SOME (Ast_Pcon cn [pb])
+             od ++ do
+              args <- ptree_Ptuple nPtuple p;
+              SOME (Ast_Pcon cn args)
+            od)
+          od
+        | _ => NONE
+    else NONE) ∧
+  (ptree_Ptuple _ (Lf _) = NONE) ∧
+  (ptree_Ptuple nt (Nd nm args) =
+     if nm <> mkNT nt then NONE
+     else if nt = nPtuple then
+       case args of
+           [lp; pl2; rp] =>
+           do
+             assert (lp = Lf (TOK LparT) ∧ rp = Lf (TOK RparT));
+             ptree_Ptuple nPatternList2 pl2
+           od
+         | _ => NONE
+     else if nt = nPatternList2 then
+       case args of
+           [p; ct; pl1] =>
+           do
+             assert (ct = Lf (TOK CommaT));
+             hdpat <- ptree_Pattern nPattern p;
+             tlpats <- ptree_Ptuple nPatternList1 pl1;
+             SOME(hdpat::tlpats)
+           od
+         | _ => NONE
+     else if nt = nPatternList1 then
+       case args of
+           [p] => do pat <- ptree_Pattern nPattern p; SOME [pat] od
+         | [pl1; ct; p] =>
+           do
+             assert (ct = Lf (TOK CommaT));
+             pats <- ptree_Ptuple nPatternList1 pl1;
+             pat <- ptree_Pattern nPattern p;
+             SOME(APPEND pats [pat])
+           od
+         | _ => NONE
+     else NONE)
+`;
+
 val updAst_Conname_def = Define`
   updAst_Conname cname (Ast_Con _ args) = SOME (Ast_Con cname args) ∧
   updAst_Conname _ _ = NONE
@@ -264,6 +342,16 @@ val frontAppCon_def = Define`
   frontAppCon _ _ = NONE
 `;
 
+val Eseq_encode_def = Define`
+  (Eseq_encode [] = NONE) ∧
+  (Eseq_encode [e] = SOME e) ∧
+  (Eseq_encode (e::es) =
+   do
+     body <- Eseq_encode es;
+     SOME(Ast_Let "_" e body)
+   od)
+`
+
 val ptree_Expr_def = Define`
   ptree_Expr ent (Lf _) = NONE ∧
   ptree_Expr ent (Nd nt subs) =
@@ -272,7 +360,10 @@ val ptree_Expr_def = Define`
         case subs of
             [lpart; pt; rpart] =>
             if lpart = Lf (TK LparT) ∧ rpart = Lf (TK RparT) then
-              ptree_Expr nE pt
+              do
+                eseq <- ptree_Eseq pt;
+                Eseq_encode eseq
+              od
             else NONE
           | [single] =>
               do
@@ -288,20 +379,18 @@ val ptree_Expr_def = Define`
               do cname <- ptree_ConstructorName single;
                  SOME (Ast_Con cname [])
               od
-          | [lett;funt;andfdecls;intok;ept;endt] =>
+          | [lett;letdecs_pt;intok;ept;endt] =>
             do
-              assert(lett = Lf (TOK LetT) ∧ funt = Lf (TOK FunT));
-              assert(intok = Lf (TOK InT) ∧ endt = Lf (TOK EndT));
-              decls <- ptree_AndFDecls andfdecls;
-              e <- ptree_Expr nE ept;
-              SOME(Ast_Letrec decls e)
-            od
-          | [lett;valt;varpt;eqt;e1pt;intok;e2pt;endt] =>
-            do
-              vname <- ptree_V varpt;
-              e1 <- ptree_Expr nE e1pt;
-              e2 <- ptree_Expr nE e2pt;
-              SOME(Ast_Let vname e1 e2)
+              assert(lett = Lf (TOK LetT) ∧ intok = Lf (TOK InT) ∧
+                     endt = Lf (TOK EndT));
+              letdecs <- ptree_LetDecs letdecs_pt;
+              eseq <- ptree_Eseq ept;
+              e <- Eseq_encode eseq;
+              SOME(FOLDR (λdf acc. case df of
+                                       INL (v,e0) => Ast_Let v e0 acc
+                                     | INR fds => Ast_Letrec fds acc)
+                         e
+                         letdecs)
             od
           | _ => NONE
       else if nt = mkNT nEapp then
@@ -428,7 +517,19 @@ val ptree_Expr_def = Define`
           | _ => NONE
       else if nt = mkNT nE then
         case subs of
-            [ift;g;thent;te;elset;ee] => do
+          | [fnt; vnt; arrowt; ent] =>
+            do
+              assert (fnt = Lf (TOK FnT) ∧ arrowt = Lf (TOK DarrowT));
+              v <- ptree_V vnt;
+              e <- ptree_Expr nE ent;
+              SOME(Ast_Fun v e)
+            od ++ do
+              assert (fnt = Lf (TOK CaseT) ∧ arrowt = Lf (TOK OfT));
+              e <- ptree_Expr nE vnt;
+              pes <- ptree_PEs ent;
+              SOME(Ast_Mat e pes)
+            od
+          | [ift;g;thent;te;elset;ee] => do
               assert(ift = Lf (TOK IfT) ∧ thent = Lf (TOK ThenT) ∧
                      elset = Lf (TOK ElseT));
               a1 <- ptree_Expr nE g;
@@ -456,7 +557,7 @@ val ptree_Expr_def = Define`
               od
             | _ => NONE
         else NONE) ∧
-  ptree_FDecl ast =
+  (ptree_FDecl ast =
     case ast of
         Lf _ => NONE
       | Nd nt subs =>
@@ -471,7 +572,147 @@ val ptree_Expr_def = Define`
                 SOME(fname,vname,body)
               od
             | _ => NONE
-        else NONE
+        else NONE) ∧
+  (ptree_LetDecs ptree =
+    case ptree of
+        Lf _ => NONE
+      | Nd nt args =>
+        if nt <> mkNT nLetDecs then NONE
+        else
+          case args of
+              [] => SOME []
+            | [ld_pt; lds_pt] =>
+              do
+                ldopt <- ptree_LetDec ld_pt;
+                lds <- ptree_LetDecs lds_pt;
+                SOME ((case ldopt of NONE => lds | SOME ld => ld::lds))
+              od
+            | _ => NONE) ∧
+  (ptree_LetDec ptree =
+    case ptree of
+        Lf _ => NONE
+      | Nd nt args =>
+        if nt <> mkNT nLetDec then NONE
+        else
+          case args of
+              [single] =>
+              do
+                assert(single = Lf (TOK SemicolonT));
+                SOME NONE
+              od
+            | [funtok; andfdecls_pt] =>
+              do
+                assert (funtok = Lf (TOK FunT));
+                fds <- ptree_AndFDecls andfdecls_pt;
+                SOME (SOME (INR fds))
+              od
+            | [valtok; v_pt; eqtok; e_pt] =>
+              do
+                assert(valtok = Lf (TOK ValT) ∧ eqtok = Lf (TOK EqualsT));
+                v <- ptree_V v_pt;
+                e <- ptree_Expr nE e_pt;
+                SOME (SOME (INL(v,e)))
+              od
+            | _ => NONE) ∧
+  (ptree_PEs (Lf _) = NONE) ∧
+  (ptree_PEs (Nd nt args) =
+    if nt <> mkNT nPEs then NONE
+    else
+      case args of
+          [single] =>
+          do
+            pe <- ptree_PE single;
+            SOME [pe]
+          od
+        | [pes_pt; bartok; pe_pt] =>
+          do
+            assert(bartok = Lf (TOK BarT));
+            pes <- ptree_PEs pes_pt;
+            pe <- ptree_PE pe_pt;
+            SOME(pes ++ [pe])
+          od
+        | _ => NONE) ∧
+  (ptree_PE (Lf _) = NONE) ∧
+  (ptree_PE (Nd nt args) =
+     if nt <> mkNT nPE then NONE
+     else
+       case args of
+           [p_pt; arrow; e_pt] =>
+           do
+             assert(arrow = Lf (TOK DarrowT));
+             p <- ptree_Pattern nPattern p_pt;
+             e <- ptree_Expr nE e_pt;
+             SOME(p,e)
+           od
+         | _ => NONE) ∧
+  (ptree_Eseq (Lf _) = NONE) ∧
+  (ptree_Eseq (Nd nt args) =
+    if nt <> mkNT nEseq then NONE
+    else
+      case args of
+          [single] =>
+          do
+            e <- ptree_Expr nE single;
+            SOME[e]
+          od
+        | [seq_pt; semi; e_pt] =>
+          do
+            assert(semi = Lf (TOK SemicolonT));
+            seq <- ptree_Eseq seq_pt;
+            e <- ptree_Expr nE e_pt;
+            SOME(seq ++ [e])
+          od
+        | _ => NONE)
 `;
+
+
+val ptree_Decl_def = Define`
+  ptree_Decl pt : ast_dec option option =
+    case pt of
+       Lf _ => NONE
+     | Nd nt args =>
+       if nt <> mkNT nDecl then NONE
+       else
+         case args of
+             [dt] =>
+             do
+               assert (dt = Lf (TOK SemicolonT));
+               SOME NONE
+             od ++
+             do
+               tydec <- ptree_TypeDec dt;
+               SOME (SOME (Ast_Dtype tydec))
+             od
+           | [funtok; fdecls] =>
+             do
+               assert(funtok = Lf (TOK FunT));
+               fdecs <- ptree_AndFDecls fdecls;
+               SOME (SOME (Ast_Dletrec fdecs))
+             od
+           | [valtok; patpt; eqtok; ept] =>
+             do
+               assert (valtok = Lf (TOK ValT) ∧ eqtok = Lf (TOK EqualsT));
+               pat <- ptree_Pattern nPattern patpt;
+               e <- ptree_Expr nE ept;
+               SOME (SOME (Ast_Dlet pat e))
+             od
+           | _ => NONE
+`
+
+val ptree_Decls_def = Define`
+  ptree_Decls (Lf _) = NONE ∧
+  ptree_Decls (Nd nt args) =
+    if nt <> mkNT nDecls then NONE
+    else
+      case args of
+          [] => SOME []
+        | [d_pt; ds_pt] =>
+          do
+            dopt <- ptree_Decl d_pt;
+            ds <- ptree_Decls ds_pt;
+            (case dopt of NONE => SOME ds | SOME d => SOME (d::ds))
+          od
+        | _ => NONE
+`
 
 val _ = export_theory()

@@ -1,6 +1,7 @@
 open HolKernel Parse boolLib bossLib
 
-open mmlPEGTheory mmlGrammarTheory mmlPtreeConversionTheory grammarTheory
+open mmlPEGTheory mmlGrammarTheory mmlPtreeConversionTheory
+     mmlvalidTheory grammarTheory
 
 val _ = new_theory "mmlTests"
 
@@ -52,14 +53,17 @@ in
           val ptree_res =
               case Lib.total mk_comb(sem,res) of
                   NONE => optionSyntax.mk_none bool
-                | SOME t => rhs (concl (time EVAL t))
+                | SOME t =>
+                  let
+                    val rt = rhs (concl (time EVAL t))
+                  in
+                    if optionSyntax.is_some rt then
+                      rand rt
+                    else die ("Sem. failure", rt)
+                  end
           val _ = diag ("Semantics ("^term_to_string sem^") to ", ptree_res)
           val valid_t = ``valid_ptree mmlG ^res``
-          val vth = SIMP_CONV (srw_ss())
-                              [grammarTheory.valid_ptree_def, mmlG_def,
-                               DISJ_IMP_THM, FORALL_AND_THM,
-                               stringTheory.isUpper_def]
-                              valid_t
+          val vth = time EVAL valid_t
           val vres = rhs (concl vth)
         in
           if aconv boolSyntax.T vres then print "Valid\n"
@@ -73,6 +77,87 @@ in
   else die ("NO RESULT:", r)
 end
 val tytest = parsetest ``nType`` ``ptree_Type``
+
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "(f x; 3)"
+                  ``[LparT; AlphaT "f"; AlphaT"x"; SemicolonT; IntT 3; RparT]``
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 2 in f x; g (x + 1); 3 end"
+                  ``[LetT; ValT; AlphaT"x"; EqualsT; IntT 2; InT;
+                     AlphaT "f"; AlphaT "x"; SemicolonT;
+                     AlphaT "g"; LparT; AlphaT"x"; SymbolT"+"; IntT 1; RparT;
+                     SemicolonT; IntT 3; EndT]``
+val _ = parsetest ``nE`` ``ptree_Expr nE``
+                  "case x of Nil => 0 | Cons(h,t) => 1 + len t"
+                  ``[CaseT; AlphaT "x"; OfT; AlphaT "Nil"; DarrowT; IntT 0;
+                     BarT; AlphaT "Cons"; LparT; AlphaT "h"; CommaT;
+                     AlphaT "t"; RparT; DarrowT; IntT 1; SymbolT "+";
+                     AlphaT "len"; AlphaT "t"]``
+val _ = parsetest ``nE`` ``ptree_Expr nE``
+                  "case x of Nil => 0\n\
+                  \        | Cons(h,t) => case h of 0 => 0\n\
+                  \                               | x => x*2 + len t"
+                  ``[CaseT; AlphaT "x"; OfT; AlphaT "Nil"; DarrowT; IntT 0;
+                     BarT; AlphaT "Cons"; LparT; AlphaT "h"; CommaT;
+                     AlphaT "t"; RparT; DarrowT;
+                     CaseT; AlphaT"h"; OfT; IntT 0; DarrowT; IntT 0;
+                     BarT; AlphaT"x"; DarrowT; AlphaT"x";StarT; IntT 2;
+                     SymbolT "+"; AlphaT "len"; AlphaT "t"]``
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "let in 3 end"
+                  ``[LetT; InT; IntT 3; EndT]``
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "let ; in 3 end"
+                  ``[LetT; SemicolonT; InT; IntT 3; EndT]``
+val _ = parsetest ``nE`` ``ptree_Expr nE``
+                  "let val x = 3 val y = 4 in x + y end"
+                  ``[LetT; ValT; AlphaT "x"; EqualsT; IntT 3;
+                     ValT; AlphaT "y"; EqualsT; IntT 4; InT; AlphaT "x";
+                     SymbolT "+"; AlphaT "y"; EndT]``
+val _ = parsetest ``nE`` ``ptree_Expr nE``
+                  "let val x = 3; val y = 4; in x + y end"
+                  ``[LetT; ValT; AlphaT "x"; EqualsT; IntT 3; SemicolonT;
+                     ValT; AlphaT "y"; EqualsT; IntT 4; SemicolonT; InT;
+                     AlphaT "x"; SymbolT "+"; AlphaT "y"; EndT]``
+val _ = parsetest ``nDecl`` ``ptree_Decl`` "val x = 3"
+                  ``[ValT; AlphaT "x"; EqualsT; IntT 3]``
+val _ = parsetest ``nDecls`` ``ptree_Decls`` "val x = 3;"
+                  ``[ValT; AlphaT "x"; EqualsT; IntT 3; SemicolonT]``
+val _ = parsetest ``nDecl`` ``ptree_Decl`` "val C x = 3"
+                  ``[ValT; AlphaT "C"; AlphaT "x"; EqualsT; IntT 3]``
+val _ = parsetest ``nDecls`` ``ptree_Decls`` "val x = 3; val C y = f z"
+                  ``[ValT; AlphaT "x"; EqualsT; IntT 3; SemicolonT;
+                     ValT; AlphaT "C"; AlphaT "y"; EqualsT; AlphaT "f";
+                     AlphaT "z"]``
+val _ = parsetest ``nDecls`` ``ptree_Decls`` "val C(x,y) = foo"
+                  ``[ValT; AlphaT "C"; LparT; AlphaT "x"; CommaT;
+                     AlphaT "y"; RparT; EqualsT; AlphaT "foo"]``
+val _ = parsetest ``nDecl`` ``ptree_Decl`` "fun f x = x"
+                  ``[FunT; AlphaT "f"; AlphaT "x"; EqualsT; AlphaT "x"]``
+val _ = parsetest ``nDecls`` ``ptree_Decls`` "datatype foo = C | D"
+                  ``[DatatypeT; AlphaT "foo"; EqualsT; AlphaT "C";
+                     BarT; AlphaT "D"]``
+val _ = parsetest ``nDecls`` ``ptree_Decls`` "datatype foo = C | D val x = y"
+                  ``[DatatypeT; AlphaT "foo"; EqualsT; AlphaT "C";
+                     BarT; AlphaT "D"; ValT; AlphaT"x"; EqualsT; AlphaT"y"]``
+
+val _ = parsetest ``nPbase`` ``ptree_Pattern nPbase`` "3"
+                  ``[IntT 3]``
+val _ = parsetest ``nPbase`` ``ptree_Pattern nPbase`` "x"
+                  ``[AlphaT "x"]``
+val _ = parsetest ``nPbase`` ``ptree_Pattern nPbase`` "C"
+                  ``[AlphaT "C"]``
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C" ``[AlphaT "C"]``
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "x" ``[AlphaT "x"]``
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "(3)"
+                  ``[LparT; IntT 3; RparT]``
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C x"
+                  ``[AlphaT "C"; AlphaT "x"]``
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C D"
+                  ``[AlphaT "C"; AlphaT "D"]``
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x)"
+                  ``[AlphaT "C"; LparT; AlphaT "x"; RparT]``
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x,D)"
+          ``[AlphaT "C"; LparT; AlphaT "x"; CommaT; AlphaT "D"; RparT]``
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x,D(1),true)"
+          ``[AlphaT "C"; LparT; AlphaT "x"; CommaT; AlphaT "D";
+             LparT; IntT 1; RparT; CommaT; AlphaT "true"; RparT]``
 
 val _ = tytest "'a" ``[TyvarT "'a"]``
 val _ = tytest "'a -> bool" ``[TyvarT "'a"; ArrowT; AlphaT "bool"]``
@@ -222,5 +307,9 @@ val _ = parsetest ``nE`` ``ptree_Expr nE``
                        AlphaT "f1"; LparT; IntT 3; SymbolT "+"; AlphaT "y";
                                     RparT;
                      EndT]``
+
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "fn v => v + 2"
+                  ``[FnT; AlphaT "v"; DarrowT; AlphaT "v"; SymbolT "+";
+                     IntT 2]``
 
 val _ = export_theory()

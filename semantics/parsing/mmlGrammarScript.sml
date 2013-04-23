@@ -41,6 +41,7 @@ val tokmap0 =
     List.foldl (fn ((s,t), acc) => Binarymap.insert(acc,s,t))
                (Binarymap.mkDict String.compare)
                [("(", ``LparT``), (")", ``RparT``), (",", ``CommaT``),
+                (";", ``SemicolonT``),
                 ("->", ``ArrowT``), ("=>", ``DarrowT``),
                 ("*", ``StarT``),
                 ("|", ``BarT``), ("=", ``EqualsT``), (":", ``ColonT``),
@@ -92,6 +93,9 @@ val mmlG_def = mk_grammar_def ginfo
  DtypeDecls ::= DtypeDecl | DtypeDecls "and" DtypeDecl;
  TypeDec ::= "datatype" DtypeDecls;
 
+ (* optional semicolon NT *)
+ OptSemi ::= ";" | ;
+
  (* expressions - base cases and function applications *)
  ConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``)
                   | "true" | "false";
@@ -99,9 +103,9 @@ val mmlG_def = mk_grammar_def ginfo
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
     |  ^(``{SymbolT s |
             s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"}}``);
- Ebase ::= "(" E ")" | V | ConstructorName | <IntT>
-        |  "let" "val" V "=" E "in" E "end"
-        |  "let" "fun" AndFDecls "in" E "end";
+ Ebase ::= "(" Eseq ")" | V | ConstructorName | <IntT>
+        |  "let" LetDecs "in" Eseq "end";
+ Eseq ::= Eseq ";" E | E;
  Etuple ::= "(" Elist2 ")";
  Elist2 ::= E "," Elist1;
  Elist1 ::= E | Elist1 "," E;
@@ -126,7 +130,10 @@ val mmlG_def = mk_grammar_def ginfo
  (* function and value declarations *)
  FDecl ::= V V "=" E ;
  AndFDecls ::= FDecl | AndFDecls "and" FDecl;
- Decl ::= "val" Pattern "=" E | "fun" AndFDecls | TypeDec;
+ Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec | ";" ;
+ Decls ::= Decl Decls | ;
+ LetDec ::= "val" V "=" E | "fun" AndFDecls | ";" ;
+ LetDecs ::= LetDec LetDecs | ;
 
  (* patterns *)
  Pbase ::= V | ConstructorName | <IntT> | "(" Pattern ")";
@@ -134,7 +141,8 @@ val mmlG_def = mk_grammar_def ginfo
  Ptuple ::= "(" PatternList2 ")";
  PatternList2 ::= Pattern "," PatternList1;
  PatternList1 ::= Pattern | PatternList1 "," Pattern;
- PEs ::= Pattern "=>" E | PEs "|" Pattern "=>" E;
+ PE ::= Pattern "=>" E;
+ PEs ::= PE | PEs "|" PE;
 `;
 
 val _ = type_abbrev("NT", ``:MMLnonT inf``)

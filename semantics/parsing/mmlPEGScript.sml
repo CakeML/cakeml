@@ -242,22 +242,6 @@ val peg_relops_def = Define`
                     (bindNT nRelOps)
 `;
 
-val peg_Ebase_def = Define`
-  peg_Ebase =
-    choicel [tok isInt (bindNT nEbase o mktokLf);
-             nt (mkNT nV) (bindNT nEbase);
-             nt (mkNT nConstructorName) (bindNT nEbase);
-             seql [tokeq LparT; pnt nE; tokeq RparT] (bindNT nEbase);
-             seql [tokeq LetT;
-                   choicel [seql [tokeq ValT; pnt nV; tokeq EqualsT;
-                                  pnt nE; tokeq InT; pnt nE;
-                                  tokeq EndT] I;
-                            seql [tokeq FunT; pnt nAndFDecls;
-                                  tokeq InT; pnt nE; tokeq EndT] I]]
-                  (bindNT nEbase)
-            ]
-`;
-
 val peg_Eapp_def = Define`
   peg_Eapp =
     choice (seql [pnt nConstructorName; pnt nEtuple] (bindNT nEapp))
@@ -273,7 +257,10 @@ val mmlPEG_def = zDefine`
   mmlPEG = <|
     start := pnt nDecl;
     rules := FEMPTY |++
-             [(mkNT nV, peg_V);
+             [(mkNT nOptSemi,
+               pegf (choicel [tokeq SemicolonT; empty []])
+                    (bindNT nOptSemi));
+              (mkNT nV, peg_V);
               (mkNT nEapp, peg_Eapp);
               (mkNT nEtuple,
                seql [tokeq LparT; pnt nElist2; tokeq RparT] (bindNT nEtuple));
@@ -283,7 +270,17 @@ val mmlPEG_def = zDefine`
               (mkNT nMultOps, peg_multops);
               (mkNT nAddOps, peg_addops);
               (mkNT nRelOps, peg_relops);
-              (mkNT nEbase, peg_Ebase);
+              (mkNT nEbase,
+               choicel [tok isInt (bindNT nEbase o mktokLf);
+                        nt (mkNT nV) (bindNT nEbase);
+                        nt (mkNT nConstructorName) (bindNT nEbase);
+                        seql [tokeq LparT; pnt nEseq; tokeq RparT]
+                             (bindNT nEbase);
+                        seql [tokeq LetT; pnt nLetDecs; tokeq InT; pnt nEseq;
+                              tokeq EndT]
+                             (bindNT nEbase)]);
+              (mkNT nEseq,
+               peg_linfix (mkNT nEseq) (pnt nE) (tokeq SemicolonT));
               (mkNT nEmult,
                peg_linfix (mkNT nEmult) (pnt nEapp) (pnt nMultOps));
               (mkNT nEadd, peg_linfix (mkNT nEadd) (pnt nEmult) (pnt nAddOps));
@@ -306,7 +303,14 @@ val mmlPEG_def = zDefine`
                         nt (mkNT nElogicOR) (bindNT nE);
                         seql [tokeq IfT; pnt nE; tokeq ThenT; pnt nE;
                               tokeq ElseT; pnt nE]
+                             (bindNT nE);
+                        seql [tokeq FnT; pnt nV; tokeq DarrowT; pnt nE]
+                             (bindNT nE);
+                        seql [tokeq CaseT; pnt nE; tokeq OfT; pnt nPEs]
                              (bindNT nE)]);
+              (mkNT nPEs, peg_linfix (mkNT nPEs) (pnt nPE) (tokeq BarT));
+              (mkNT nPE, seql [pnt nPattern; tokeq DarrowT; pnt nE]
+                              (bindNT nPE));
               (mkNT nAndFDecls,
                peg_linfix (mkNT nAndFDecls) (pnt nFDecl) (tokeq AndT));
               (mkNT nFDecl,
@@ -320,7 +324,47 @@ val mmlPEG_def = zDefine`
               (mkNT nTypeDec, peg_TypeDec);
               (mkNT nDtypeDecl, peg_DtypeDecl);
               (mkNT nDconstructor, peg_Dconstructor);
-              (mkNT nConstructorName, peg_ConstructorName)
+              (mkNT nConstructorName, peg_ConstructorName);
+              (mkNT nPbase,
+               pegf (choicel [pnt nV;
+                              pnt nConstructorName;
+                              tok isInt mktokLf;
+                              seql [tokeq LparT; pnt nPattern; tokeq RparT] I])
+                    (bindNT nPbase));
+              (mkNT nPattern,
+               pegf (choicel [seql [pnt nConstructorName;
+                                    choicel [pnt nPtuple; pnt nPbase]] I;
+                              pnt nPbase])
+                    (bindNT nPattern));
+              (mkNT nPtuple, seql [tokeq LparT; pnt nPatternList2; tokeq RparT]
+                                  (bindNT nPtuple));
+              (mkNT nPatternList2,
+               seql [pnt nPattern; tokeq CommaT; pnt nPatternList1]
+                    (bindNT nPatternList2));
+              (mkNT nPatternList1,
+               peg_linfix (mkNT nPatternList1) (pnt nPattern) (tokeq CommaT));
+              (mkNT nLetDec,
+               choicel [seql [tokeq ValT; pnt nV; tokeq EqualsT; pnt nE]
+                             (bindNT nLetDec);
+                        seql [tokeq FunT; pnt nAndFDecls]
+                             (bindNT nLetDec);
+                        pegf (tokeq SemicolonT) (bindNT nLetDec)]);
+              (mkNT nLetDecs,
+               rpt (pnt nLetDec)
+                   (λds. [FOLDR (λd acc. Nd (mkNT nLetDecs) [HD d; acc])
+                                (Nd (mkNT nLetDecs) [])
+                                ds]));
+              (mkNT nDecl,
+               choicel [seql [tokeq ValT; pnt nPattern; tokeq EqualsT; pnt nE]
+                             (bindNT nDecl);
+                        seql [tokeq FunT; pnt nAndFDecls] (bindNT nDecl);
+                        seql [pnt nTypeDec] (bindNT nDecl);
+                        pegf (tokeq SemicolonT) (bindNT nDecl)]);
+              (mkNT nDecls,
+               rpt (pnt nDecl)
+                   (λds. [FOLDR (λd acc. Nd (mkNT nDecls) [HD d; acc])
+                                (Nd (mkNT nDecls) [])
+                                ds]))
              ] |>
 `;
 
