@@ -490,6 +490,7 @@ val free_labs_exp_to_Cexp = store_thm("free_labs_exp_to_Cexp",
   >- ( Cases_on`pat_to_Cpat m p`>>fs[] ))
 val _ = export_rewrites["free_labs_exp_to_Cexp"]
 
+(*
 (* TODO: move *)
 val syneq_shift_same = store_thm("syneq_shift_same",
  ``∀c z1 z2 V k f1 e1 f2 e2 V'.
@@ -519,6 +520,7 @@ val syneq_shift_same = store_thm("syneq_shift_same",
   simp[FUN_EQ_THM,relationTheory.O_DEF,relationTheory.inv_DEF] >>
   rw[] >> fsrw_tac[ARITH_ss][] >>
   metis_tac[])
+*)
 
 (* TODO: move *)
 val find_index_ALL_DISTINCT_REVERSE = store_thm("find_index_ALL_DISTINCT_REVERSE",
@@ -711,8 +713,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     simp[] >>
     disch_then(qspecl_then[`$=`,`s2`,`env1`,`exp1`]mp_tac) >>
     simp[syneq_exp_FEMPTY_refl,EXISTS_PROD] >>
-    metis_tac[result_rel_syneq_trans,EVERY2_syneq_trans,
-              result_rel_syneq_sym,EVERY2_syneq_sym]) >>
+    metis_tac[result_rel_syneq_trans,EVERY2_syneq_trans]) >>
   strip_tac >- (
     rw[exp_to_Cexp_def] >>
     rw[Once Cevaluate_cases] >>
@@ -1172,7 +1173,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         pop_assum kall_tac >>
         simp[EXISTS_PROD] >>
         qunabbrev_tac`resc`>>fs[]>>
-        metis_tac[EVERY2_syneq_trans,result_rel_syneq_trans,EVERY2_syneq_sym,result_rel_syneq_sym] ) >>
+        metis_tac[EVERY2_syneq_trans,result_rel_syneq_trans] ) >>
       rw[] >> fs[v_to_Cv_def,LET_THM,defs_to_Cdefs_MAP] >> rw[] >>
       reverse(fs[Q.SPECL[`c`,`c`,`CRecClos env1 defs zz`]syneq_cases]) >- (
         qpat_assum`LENGTH funs ≤ X`mp_tac >>
@@ -1294,7 +1295,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       pop_assum kall_tac >>
       simp[EXISTS_PROD] >>
       qunabbrev_tac`resc`>>fs[]>>
-      metis_tac[EVERY2_syneq_trans,result_rel_syneq_trans,EVERY2_syneq_sym,result_rel_syneq_sym] )
+      metis_tac[EVERY2_syneq_trans,result_rel_syneq_trans] )
     >- (
       rw[Once Cevaluate_cases] >>
       fsrw_tac[DNF_ss][] >>
@@ -1707,7 +1708,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
             metis_tac[] ) >>
           simp[SUBSET_DEF,ADD1,Abbr`enva`,env_to_Cenv_MAP] ) >>
         simp[SUBSET_DEF] ) >>
-      metis_tac[EVERY2_syneq_trans,EVERY2_syneq_sym] ) >>
+      metis_tac[EVERY2_syneq_trans] ) >>
     qmatch_assum_abbrev_tac `Cevaluate_match sb vv ppes eenv (SOME mr)` >>
     Q.ISPECL_THEN[`sb`,`vv`,`ppes`,`eenv`,`SOME mr`]mp_tac
       (INST_TYPE[beta|->``:Cexp``](Q.GENL[`v`,`s`]Cevaluate_match_MAP_exp)) >> simp[] >>
@@ -1807,8 +1808,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     disch_then(qspec_then`rg`mp_tac) >>
     simp[EXISTS_PROD] >>
     fs[Abbr`er`] >>
-    metis_tac[result_rel_syneq_trans,result_rel_syneq_sym,
-              EVERY2_syneq_sym,EVERY2_syneq_trans]) >>
+    metis_tac[result_rel_syneq_trans,EVERY2_syneq_trans]) >>
   strip_tac >- (
     rw[exp_to_Cexp_def,LET_THM] >>
     rw[Once Cevaluate_cases] >>
@@ -1839,8 +1839,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     simp[syneq_exp_FEMPTY_refl,EXISTS_PROD,Abbr`env1`,ADD1,Abbr`c1`] >>
     discharge_hyps >- (
       Cases >> lrw[EL_CONS] ) >>
-    metis_tac[result_rel_syneq_trans,EVERY2_syneq_trans,
-              result_rel_syneq_sym,EVERY2_syneq_sym]) >>
+    metis_tac[result_rel_syneq_trans,EVERY2_syneq_trans]) >>
   strip_tac >- (
     rw[exp_to_Cexp_def,LET_THM] >>
     rw[Once Cevaluate_cases] >>
