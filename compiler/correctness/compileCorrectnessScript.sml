@@ -213,10 +213,10 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
    ((recs,envs) = cd.ceenv) ∧
    (LENGTH bvs = LENGTH recs + LENGTH envs) ∧
    (∀i x bv. i < LENGTH recs ∧ (x = EL i recs) ∧ (bv = EL i bvs) ⇒
-     ∃p jenv.
+     ∃p jenv jdefs jx.
        (bv = RefPtr p) ∧
-       (FLOOKUP rd.cls p = SOME (jenv,defs,x)) ∧
-       EVERY2 (syneq c) jenv env) ∧
+       (FLOOKUP rd.cls p = SOME (jenv,jdefs,jx)) ∧
+       syneq c (CRecClos env defs x) (CRecClos jenv jdefs jx)) ∧
    (∀i x bv. LENGTH recs + i < LENGTH envs ∧ (x = EL i envs) ∧ (bv = EL (LENGTH recs + i) bvs) ⇒
        x < LENGTH env ∧ Cv_bv pp (EL x env) bv)
    ⇒ benv_bvs pp bvs cd env defs)`
@@ -268,9 +268,23 @@ val labs_only_def = tDefine "labs_only"`
    fsrw_tac[ARITH_ss][])
 val _ = export_rewrites["labs_only_def"]
 
+val _ = Parse.overload_on("mk_pp", ``λrd c bs.
+  (rd
+  ,c
+  ,combin$C (bc_find_loc_aux bs.code bs.inst_length) 0
+  )``)
+
+val good_rd_def = Define`
+  good_rd c rd bs =
+    FEVERY (λ(p,(env,defs,j)).
+      p ∈ FDOM bs.refs ∧
+      p ∉ set rd.sm ∧
+      Cv_bv (mk_pp rd c bs) (CRecClos env defs j) (bs.refs ' p))
+    rd.cls`
+
 val syneq_Cv_bv = store_thm("syneq_Cv_bv",
   ``∀c v1 v2. syneq c v1 v2 ⇒
-    ∀pp bv. (FST(SND pp) = c) ∧ labs_only v2 ∧ Cv_bv pp v1 bv ⇒ Cv_bv pp v2 bv``,
+    ∀pp bv. (FST(SND pp) = c) ∧ Cv_bv pp v1 bv ⇒ Cv_bv pp v2 bv``,
   ho_match_mp_tac CompileTheory.syneq_strongind >>
   strip_tac >- (
     simp[Once Cv_bv_cases] >>
@@ -297,14 +311,20 @@ val syneq_Cv_bv = store_thm("syneq_Cv_bv",
     simp[Once syneq_exp_cases] >> strip_tac >>
     fs[EVERY_MEM] >>
     full_simp_tac(srw_ss()++QUANT_INST_ss[])[] >>
-    `∃l2. EL d2 defs2 = INR l2` by (
-      fs[MEM_EL] >>
-      full_simp_tac(srw_ss()++QUANT_INST_ss[sum_qp])[] >>
-      Cases_on`EL d2 defs2`>>fs[] >> PROVE_TAC[] ) >>
     first_x_assum(qspecl_then[`d1`,`d2`]mp_tac) >>
     simp[] >> strip_tac >>
+    rator_x_assum`benv_bvs`mp_tac >>
+    simp[Once Cv_bv_cases] >>
+    simp[Once Cv_bv_cases,SimpR``$==>``] >>
+    `∃envs recs. cd.ceenv = (recs,envs)` by (
+      Cases_on`cd.ceenv`>>rw[] ) >> simp[] >>
+    rfs[] >>
+    rfs[syneq_cb_aux_def,FLOOKUP_DEF,LET_THM] >> fs[] >>
 
-    fs[FLOOKUP_DEF]
+    reverse conj_tac >- (
+      gen_tac >> strip_tac >>
+      hb
+    strip_tac
 
     map_every qexists_tac[`cd`,`l`] >>
     fs[]
@@ -353,20 +373,6 @@ val syneq_Cv_bv = store_thm("syneq_Cv_bv",
     first_x_assum(qspecl_then[`p1`,`p2`,`k`,`n`]mp_tac) >>
     rfs[] >> rw[] >> fs[]) >>
   simp[Once Cv_bv_cases] >> rw[])
-
-val _ = Parse.overload_on("mk_pp", ``λrd c bs.
-  (rd
-  ,c
-  ,combin$C (bc_find_loc_aux bs.code bs.inst_length) 0
-  )``)
-
-val good_rd_def = Define`
-  good_rd c rd bs =
-    FEVERY (λ(p,(env,defs,j)).
-      p ∈ FDOM bs.refs ∧
-      p ∉ set rd.sm ∧
-      Cv_bv (mk_pp rd c bs) (CRecClos env defs j) (bs.refs ' p))
-    rd.cls`
 
 val s_refs_def = Define`
   s_refs c rd s bs =
