@@ -1679,11 +1679,11 @@ val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
      (∀x y. (SND (SND pp) x = SOME y) ⇒ (l2a x = SOME y))
      ∧ (pp' = (FST pp, FST(SND pp), l2a))
      ⇒ Cv_bv pp' Cv bv) ∧
-    (∀benv fs xs env defs ns i.
-     benv_bvs pp benv fs xs env defs ns i ⇒ ∀pp' l2a.
+    (∀benv fs env defs i.
+     benv_bvs pp benv fs env defs i ⇒ ∀pp' l2a.
      (∀x y. (SND (SND pp) x = SOME y) ⇒ (l2a x = SOME y))
      ∧ (pp' = (FST pp, FST(SND pp), l2a))
-     ⇒ benv_bvs pp' benv fs xs env defs ns i)``,
+     ⇒ benv_bvs pp' benv fs env defs i)``,
   gen_tac >>
   PairCases_on `pp` >> simp[] >>
   ho_match_mp_tac Cv_bv_ind >>
@@ -1702,8 +1702,7 @@ val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
     map_every qexists_tac[`e`,`i`,`l`,`xs`] >> simp[] ) >>
   rpt gen_tac >> strip_tac >>
   rw[Once Cv_bv_cases] >>
-  fs[LENGTH_NIL] >>
-  res_tac >> rw[] >> fs[])
+  qpat_assum`X = fs.ceenv`(assume_tac o SYM)>>fs[])
 
 val Cv_bv_l2a_mono_mp = MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_l2a_mono)))
 
@@ -1712,6 +1711,7 @@ val s_refs_append_code = store_thm("s_refs_append_code",
      s_refs c rd s bs ∧ (bs' = (bs with code := bs.code ++ ls))
     ⇒ s_refs c rd s bs'``,
   rw[s_refs_def,fmap_rel_def,good_rd_def,FEVERY_DEF,UNCURRY] >>
+  fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rpt strip_tac >>
   res_tac >>
   match_mp_tac Cv_bv_l2a_mono_mp >>
   qexists_tac `mk_pp rd c bs` >>
@@ -1722,7 +1722,7 @@ val Cenv_bs_append_code = store_thm("Cenv_bs_append_code",
     Cenv_bs c rd s env env0 sz0 bs ∧ (bs' = (bs with code := bs.code ++ ls)) ⇒
     Cenv_bs c rd s env env0 sz0 bs'``,
   reverse(rw[Cenv_bs_def]) >- PROVE_TAC[s_refs_append_code] >>
-  fs[Cenv_bs_def,fmap_rel_def,s_refs_def] >> rw[] >>
+  fs[Cenv_bs_def,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,s_refs_def] >> rw[] >>
   res_tac >>
   BasicProvers.CASE_TAC >> fs[] >>
   match_mp_tac Cv_bv_l2a_mono_mp >>
@@ -1730,134 +1730,83 @@ val Cenv_bs_append_code = store_thm("Cenv_bs_append_code",
   rw[] >> metis_tac[bc_find_loc_aux_append_code])
 
 val Cenv_bs_FUPDATE = store_thm("Cenv_bs_FUPDATE",
-  ``∀c rd s env env0 sz0 bs n v bv bs'.
+  ``∀c rd s env env0 sz0 bs v bv bs'.
     Cenv_bs c rd s env env0 sz0 bs ∧
     Cv_bv (mk_pp rd c bs') v bv ∧
     (bs' = bs with stack := bv::bs.stack)
     ⇒
-    Cenv_bs c rd s (env |+ (n,v)) (env0 |+ (n,CTLet (sz0 + 1))) (sz0 + 1) bs'``,
-  rw[Cenv_bs_def,s_refs_def] >> fs[] >- (
-    fs[fmap_rel_def] >>
-    qx_gen_tac`x` >>
-    Cases_on`x=n`>>fs[] >>
-    strip_tac >>
-    rw[FAPPLY_FUPDATE_THM] >>
-    first_x_assum (qspec_then `x` mp_tac) >> rw[] >>
-    Cases_on `lookup_ct (FDOM rd.cls) sz0 bs.stack bs.refs (env0 ' x)` >> fs[] >>
+    Cenv_bs c rd s (v::env) ((CTLet (sz0 + 1))::env0) (sz0 + 1) bs'``,
+  rw[Cenv_bs_def,s_refs_def] >> fs[el_check_def] >- (
+    fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+    rpt strip_tac >> res_tac >>
+    pop_assum mp_tac >> BasicProvers.CASE_TAC >>
     imp_res_tac lookup_ct_imp_incsz >>
-    pop_assum (qspec_then`bv`mp_tac) >> rw[]) >>
+    simp[] ) >>
   fs[good_rd_def])
 
 val Cenv_bs_FUPDATE_LIST = store_thm("Cenv_bs_FUPDATE_LIST",
-  ``∀vs c rd s env cenv sz bs ns bs bvs bs' env' cenv' sz'.
+  ``∀vs c rd s env cenv sz bs bs bvs bs' env' cenv' sz'.
   Cenv_bs c rd s env cenv sz bs ∧
-  (bs' = bs with stack := REVERSE bvs ++ bs.stack) ∧
+  (bs' = bs with stack := bvs ++ bs.stack) ∧
   EVERY2 (Cv_bv (mk_pp rd c bs')) vs bvs ∧
-  (LENGTH ns = LENGTH vs) ∧
-  (env' = env |++ ZIP(ns,vs)) ∧
-  (cenv' = cenv |++ ZIP(ns,GENLIST(λm. CTLet(sz+m+1))(LENGTH ns))) ∧
+  (env' = vs++env) ∧
+  (cenv' = (REVERSE(GENLIST(λm. CTLet(sz+m+1))(LENGTH vs)))++cenv) ∧
   (sz' = sz + LENGTH vs)
   ⇒
   Cenv_bs c rd s env' cenv' sz' bs'``,
-  ho_match_mp_tac SNOC_INDUCT >>
-  conj_tac >- (
+  Induct >- (
     simp[LENGTH_NIL,FUPDATE_LIST_THM] ) >>
-  rw[GENLIST] >>
-  `∃n ns'. ns = SNOC n ns'` by metis_tac[SNOC_CASES,LENGTH_NIL,SUC_NOT] >>
-  `LENGTH ns' = LENGTH vs` by fs[ADD1] >>
-  simp[ZIP_SNOC,FUPDATE_LIST_SNOC,ADD1] >>
+  rw[] >>
+  rw[GENLIST,REVERSE_SNOC] >> simp[ADD1] >>
   REWRITE_TAC[ADD_ASSOC] >>
   match_mp_tac Cenv_bs_FUPDATE >>
-  fs[EVERY2_EVERY] >>
-  `∃bv bv'. bvs = SNOC bv bv'` by metis_tac[SNOC_CASES,LENGTH_NIL,SUC_NOT] >>
-  qpat_assum`EVERY X Y`mp_tac >>
-  `LENGTH vs = LENGTH bv'` by fs[ADD1] >>
-  simp[ZIP_SNOC,EVERY_SNOC] >> strip_tac >>
-  map_every qexists_tac[`bs with stack := REVERSE bv' ++ bs.stack`,`bv`] >>
+  qexists_tac`bs with stack := ys ++ bs.stack` >>
   simp[bc_state_component_equality] >>
-  Q.PAT_ABBREV_TAC`f = X:(num -> ctbind)` >>
-  `f = λm. CTLet (sz + m + 1)` by srw_tac[ARITH_ss][Abbr`f`,FUN_EQ_THM] >>
-  pop_assum SUBST1_TAC >>
-  first_x_assum (match_mp_tac o MP_CANON) >>
-  rw[] )
+  conj_tac >- (
+    first_x_assum match_mp_tac >>
+    simp[] >>
+    qexists_tac`bs` >> simp[] >>
+    qexists_tac`ys` >> simp[] >>
+    match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
+    HINT_EXISTS_TAC >>
+    simp[] ) >>
+  match_mp_tac Cv_bv_l2a_mono_mp >>
+  HINT_EXISTS_TAC >>
+  simp[])
 
 val Cenv_bs_DOMSUB = store_thm("Cenv_bs_DOMSUB",
   ``∀c rd s env k renv rsz bs.
-    Cenv_bs c rd s env renv rsz bs ⇒
-    Cenv_bs c rd s (env \\ k) (renv \\ k) rsz bs``,
-  rw[Cenv_bs_def,fmap_rel_def,DOMSUB_FAPPLY_THM])
-
-(* TODO: move *)
-val binders_def = tDefine "binders"`
- (binders (CDecl _) = []) ∧
- (binders (CRaise _) = []) ∧
- (binders (CHandle e1 x e2) = binders e1 ++ [x] ++ binders e2) ∧
- (binders (CVar _) = []) ∧
- (binders (CLit _) = []) ∧
- (binders (CCon _ es) = FLAT (MAP binders es)) ∧
- (binders (CTagEq e _) = binders e) ∧
- (binders (CProj e _) = binders e) ∧
- (binders (CLet x e b) = binders e ++ [x] ++ binders b) ∧
- (binders (CLetrec ns defs e) = FLAT (MAP (λdef. FST def ++ binders_cb (SND def)) defs) ++ ns ++ binders e) ∧
- (binders (CFun xs cb) = xs ++ binders_cb cb) ∧
- (binders (CCall e es) = FLAT (MAP binders (e::es))) ∧
- (binders (CPrim1 _ e) = binders e) ∧
- (binders (CPrim2 _ e1 e2) = binders e1 ++ binders e2) ∧
- (binders (CUpd e1 e2) = binders e1 ++ binders e2) ∧
- (binders (CIf e1 e2 e3) = binders e1 ++ binders e2 ++ binders e3) ∧
- (binders_cb (INL b) = binders b) ∧
- (binders_cb (INR l) = [])`
-(WF_REL_TAC `inv_image $<
-  (λx. case x of INL e => Cexp_size e | INR (INL b) => SUC (Cexp_size b) | INR (INR _) => 0)` >>
- srw_tac[ARITH_ss][Cexp4_size_thm,Cexp1_size_thm,Cexp3_size_thm,
-                   SUM_MAP_Cexp2_size_thm] >>
- Q.ISPEC_THEN`Cexp_size`imp_res_tac SUM_MAP_MEM_bound >>
- fsrw_tac[ARITH_ss][] >>
- TRY (Cases_on`cb`>>srw_tac[ARITH_ss][basicSizeTheory.sum_size_def]) >>
- qmatch_assum_rename_tac`MEM (a,b) defs`[] >>
- `MEM b (MAP SND defs)` by (rw[MEM_MAP,EXISTS_PROD]>>PROVE_TAC[]) >>
- Q.ISPEC_THEN`Cexp3_size`imp_res_tac SUM_MAP_MEM_bound >>
- Cases_on`b`>>fsrw_tac[ARITH_ss][Cexp3_size_thm,basicSizeTheory.sum_size_def])
-val _ = export_rewrites["binders_def"]
+    Cenv_bs c rd s env renv rsz bs ∧ (env ≠ []) ∧ (renv ≠ []) ⇒
+    Cenv_bs c rd s (TL env) (TL renv) rsz bs``,
+  ntac 3 gen_tac >> Cases >> simp[] >> Cases >> simp[] >>
+  rw[Cenv_bs_def,EVERY2_EVERY])
 
 val Cenv_bs_change_store = store_thm("Cenv_bs_change_store",
   ``∀c rd s env renv rsz bs rd' s' bs' rfs'.
     Cenv_bs c rd s env renv rsz bs ∧
     s_refs c rd' s' bs' ∧
     (bs' = bs with refs := rfs') ∧
-    DRESTRICT bs.refs (COMPL (FRANGE rd.sm)) ⊑ DRESTRICT rfs' (COMPL (FRANGE rd'.sm)) ∧
-    rd.sm ⊑ rd'.sm ∧ rd.cls ⊑ rd'.cls
+    DRESTRICT bs.refs (COMPL (set rd.sm)) ⊑ DRESTRICT rfs' (COMPL (set rd'.sm)) ∧
+    rd.sm ≼ rd'.sm ∧ rd.cls ⊑ rd'.cls
     ⇒
     Cenv_bs c rd' s' env renv rsz bs'``,
-  rw[Cenv_bs_def,fmap_rel_def] >>
-  first_x_assum(qspec_then`x`mp_tac) >> rw[] >>
-  qspecl_then[`FDOM rd.cls`,`FDOM rd'.cls`,`rsz`,`bs.stack`,`bs.refs`,`rfs'`,`renv ' x`]mp_tac lookup_ct_change_refs >>
-  Cases_on`∃n. renv ' x = CTRef n` >- (
-    fs[] >> rw[] >> fs[] >> fs[] >>
-    Cases_on`EL rsz bs.stack`>>fs[] >>
-    qmatch_assum_rename_tac`EL rsz bs.stack = Block m vs`[] >>
-    Cases_on`m`>>fs[]>>
-    Cases_on`n < LENGTH vs`>>fs[] >>
-    Cases_on`EL n vs`>>fs[] >>
-    qmatch_assum_rename_tac`EL n vs = RefPtr p`[] >>
-    Cases_on`p ∈ FDOM rd.cls`>>fs[]>>
-    fs[SUBMAP_DEF,DRESTRICT_DEF,FLOOKUP_DEF] >>
-    Cases_on`p ∈ FDOM bs.refs`>>fs[] >>
-    `p ∈ FDOM rfs' ∧ p ∉ FRANGE rd.sm` by (
-      fs[s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY] ) >>
-    fs[] >>
-    match_mp_tac (MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_SUBMAP)))) >>
-    simp[] >>
-    qexists_tac`rd` >>
-    fs[s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY] >>
-    fs[SUBMAP_DEF,SUBSET_DEF,DRESTRICT_DEF,IN_FRANGE] >>
-    metis_tac[]) >>
-  fs[] >> rw[] >>
-  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  rw[Cenv_bs_def,EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+  res_tac >> pop_assum mp_tac >> BasicProvers.CASE_TAC >> strip_tac >>
+  qho_match_abbrev_tac`case X of NONE => F | SOME Y => Z Y` >>
+  qmatch_assum_abbrev_tac`X' = SOME x` >>
+  `X = X'` by (
+    unabbrev_all_tac >>
+    match_mp_tac lookup_ct_change_refs >>
+    rpt gen_tac >> strip_tac >>
+    fs[s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY,el_check_def] >>
+    fs[SUBMAP_DEF,FDOM_DRESTRICT,FLOOKUP_DEF,DRESTRICT_DEF] >>
+    metis_tac[] ) >>
+  simp[Abbr`Z`] >>
   match_mp_tac (MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_SUBMAP)))) >>
+  HINT_EXISTS_TAC >>
   simp[] >>
-  qexists_tac`rd` >>
-  fs[SUBMAP_DEF,SUBSET_DEF,DRESTRICT_DEF,s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY])
+  fs[s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY] >>
+  fs[SUBMAP_DEF,SUBSET_DEF,DRESTRICT_DEF,IN_FRANGE] )
 
 (*
 val good_ecs_def = Define`
@@ -1870,12 +1819,9 @@ val good_code_env_def = Define`
   good_code_env c d code =
   ALL_DISTINCT (FILTER is_Label code) ∧
   FEVERY (λ(l,e).
-    Cexp_pred e ∧
-    ALL_DISTINCT (binders e) ∧
-    (free_bods e = []) ∧
+    Cexp_pred e ∧ (body_count e = 0) ∧
     ∃cd cenv cs vs ns xs k bc0 cc bc1.
       (FLOOKUP d l = SOME (vs,xs,ns,k)) ∧
-      DISJOINT (set (binders e)) (vs ∪ set ns ∪ set xs) ∧
       (FLOOKUP cd.env_azs l = SOME (cenv,LENGTH xs)) ∧
       good_ecs d cd.ecs ∧ free_labs e ⊆ FDOM cd.ecs ∧
       (cenv = FST(ITSET (bind_fv ns xs (LENGTH xs) k) (free_vars c e) (FEMPTY,0,[]))) ∧
