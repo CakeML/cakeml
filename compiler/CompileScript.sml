@@ -680,6 +680,7 @@ syneq_exp c ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
  ( EVERY (\ cb . ! l. (cb = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = LENGTH defs2) /\ (( FAPPLY  c  l).ez = ez2)) defs2)) /\
 (! n1 n2. V' n1 n2 ==>
   n1 < LENGTH defs1 /\ n2 < LENGTH defs2 /\
+  (! l. ( EL  n1  defs1 = INR l) ==> ( EL  n2  defs2 = INR l)) /\
   (? b az e1 j1 r1 e2 j2 r2.
   ((b,az,e1,j1,r1) = syneq_cb_aux c n1 ( LENGTH defs1) ez1 ( EL  n1  defs1)) /\
   ((b,az,e2,j2,r2) = syneq_cb_aux c n2 ( LENGTH defs2) ez2 ( EL  n2  defs2)) /\

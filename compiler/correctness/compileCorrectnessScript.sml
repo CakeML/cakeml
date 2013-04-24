@@ -216,7 +216,7 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
      ∃p jenv.
        (bv = RefPtr p) ∧
        (FLOOKUP rd.cls p = SOME (jenv,defs,x)) ∧
-       EVERY2 (syneq c c) jenv env) ∧
+       EVERY2 (syneq c) jenv env) ∧
    (∀i x bv. LENGTH recs + i < LENGTH envs ∧ (x = EL i envs) ∧ (bv = EL (LENGTH recs + i) bvs) ⇒
        x < LENGTH env ∧ Cv_bv pp (EL x env) bv)
    ⇒ benv_bvs pp bvs cd env defs)`
@@ -269,8 +269,8 @@ val labs_only_def = tDefine "labs_only"`
 val _ = export_rewrites["labs_only_def"]
 
 val syneq_Cv_bv = store_thm("syneq_Cv_bv",
-  ``∀c1 c2 v1 v2. syneq c1 c2 v1 v2 ⇒
-    ∀pp bv. (FST(SND pp) = c1) ∧ (c2 = c1) ∧ labs_only v2 ∧ Cv_bv pp v1 bv ⇒ Cv_bv pp v2 bv``,
+  ``∀c v1 v2. syneq c v1 v2 ⇒
+    ∀pp bv. (FST(SND pp) = c) ∧ labs_only v2 ∧ Cv_bv pp v1 bv ⇒ Cv_bv pp v2 bv``,
   ho_match_mp_tac CompileTheory.syneq_strongind >>
   strip_tac >- (
     simp[Once Cv_bv_cases] >>

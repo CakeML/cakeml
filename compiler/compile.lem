@@ -661,6 +661,7 @@ forall c ez1 ez2 V defs1 defs2 V'.
    && (Pmap.find l c).ez = ez2) defs2)) &&
 (forall n1 n2. V' n1 n2 -->
   n1 < List.length defs1 && n2 < List.length defs2 &&
+  (forall l. List.nth defs1 n1 = Inr l --> List.nth defs2 n2 = Inr l) &&
   exists b az e1 j1 r1 e2 j2 r2.
   (b,az,e1,j1,r1) = syneq_cb_aux c n1 (List.length defs1) ez1 (List.nth defs1 n1) &&
   (b,az,e2,j2,r2) = syneq_cb_aux c n2 (List.length defs2) ez2 (List.nth defs2 n2) &&
