@@ -1,6 +1,11 @@
 open preamble;
 open MiniMLTheory MiniMLTerminationTheory inferTheory unifyTheory;
 
+val fmap2_id = Q.prove (
+`!m. FMAP_MAP2 (\(x,y). y) m = m`,
+rw [FMAP_MAP2_def] >>
+cheat);
+
 val _ = new_theory "inferSound";
 
 val t_unify_apply = Q.prove (
@@ -26,6 +31,12 @@ val flookup_thm = Q.prove (
 `!f x v. ((FLOOKUP f x = NONE) = x ∉ FDOM f) ∧
          ((FLOOKUP f x = SOME v) = x ∈ FDOM f ∧ (f ' x = v))`,
 rw [FLOOKUP_DEF]);
+
+val lookup_map = Q.prove (
+`!n env v f. 
+  (lookup n env = SOME v) ⇒ (lookup n (MAP (\(x,y). (x, f y)) env) = SOME (f v))`,
+ho_match_mp_tac lookup_ind >>
+rw []);
 
 val count_add1 = Q.prove (
 `!n. count (n + 1) = n INSERT count n`,
@@ -251,20 +262,33 @@ val convert_menv_def = Define `
 convert_menv menv = 
   MAP (\(mn,env). (mn, MAP (\(x,(tvs,t)). (x,(tvs,convert_t t))) env)) menv`;
 
+(*
 val (tenv_rel_rules, tenv_rel_ind, tenv_rel_cases) = Hol_reln `
-(!sub. 
-  tenv_rel sub [] Empty) ∧
-(!sub x tvs t env tenv.
-  tenv_rel sub env tenv
+(!s. 
+  tenv_rel s [] Empty) ∧
+(!s x tvs t env tenv.
+  tenv_rel s env tenv
   ⇒
-  tenv_rel sub ((x,(tvs,t))::env) 
-               (Bind_name x tvs (convert_t (apply_subst_t sub t)) tenv)) ∧
-(!sub tvs env tenv.
-  tenv_rel sub env tenv 
+  tenv_rel s ((x,(tvs,t))::env) 
+             (Bind_name x tvs (convert_t (apply_subst_t (t_collapse s) t)) tenv)) ∧
+(!s tvs env tenv.
+  tenv_rel s env tenv 
   ⇒
-  tenv_rel sub env (Bind_tvar tvs tenv))`;
+  tenv_rel s env (Bind_tvar tvs tenv))`;
 
-  (*
+val tenv_rel_lookup = Q.prove (
+`!s env tenv.
+  tenv_rel s env tenv
+  ⇒
+  !x tvs t tvs'. (lookup x env = SOME (tvs,t)) ⇒
+    (lookup_tenv x tvs' tenv = 
+     SOME (tvs, (convert_t (apply_subst_t (t_collapse s) t))))`,
+
+ho_match_mp_tac tenv_rel_ind >>
+rw [lookup_tenv_def] >>
+TRY full_case_tac >>
+rw []
+
 val infer_invariant_def = Define `
 infer_invariant st = 
   (* Only substitute for existing uvars *)
@@ -439,6 +463,107 @@ every_case_tac >>
 fs [] >>
 metis_tac [t_unify_apply2]);
 
+val check_t_to_check_freevars = Q.prove (
+`!tvs (n:num set) t. check_t tvs {} t ⇒ check_freevars tvs [] (convert_t t)`,
+ho_match_mp_tac (fetch "-" "check_t_ind") >>
+rw [check_t_def, check_freevars_def, convert_t_def, EVERY_MAP] >>
+fs [EVERY_MEM]);
+
+val sub_completion_check = Q.prove (
+`!tvs m s uvar s' extra_constraints.
+sub_completion m (uvar + tvs) s' extra_constraints s
+⇒
+EVERY (λn. check_freevars m [] (convert_t (apply_subst_t s (Infer_Tuvar (uvar + n))))) (COUNT_LIST tvs)`,
+induct_on `tvs` >>
+rw [sub_completion_def, rich_listTheory.COUNT_LIST_SNOC, EVERY_SNOC] >>
+fs [sub_completion_def] >|
+[qpat_assum `!m' s. P m' s` match_mp_tac >>
+     rw [] >>
+     qexists_tac `s'` >>
+     qexists_tac `extra_constraints` >>
+     qexists_tac `s2` >>
+     rw [] >>
+     full_simp_tac (srw_ss()++ARITH_ss) [SUBSET_DEF],
+ rw [apply_subst_t_eqn] >>
+     `uvar+tvs ∈ FDOM (t_collapse s2)`
+            by full_simp_tac (srw_ss()++ARITH_ss) [SUBSET_DEF] >>
+     fs [FLOOKUP_DEF] >>
+     `t_collapse s2 ' (uvar + tvs) ∈ FRANGE (t_collapse s2)`
+            by (fs [FRANGE_DEF] >>
+                metis_tac []) >>
+     metis_tac [check_t_to_check_freevars]]);
+
+val infer_deBruijn_inc_def = tDefine "infer_deBruijn_inc" `
+(infer_deBruijn_inc n (Infer_Tvar_db m) = 
+  Infer_Tvar_db (m + n)) ∧
+(infer_deBruijn_inc n (Infer_Tapp ts tn) =
+  Infer_Tapp (MAP (infer_deBruijn_inc n) ts) tn) ∧
+(infer_deBruijn_inc n (Infer_Tuvar m) = 
+  Infer_Tuvar m)`
+(WF_REL_TAC `measure (infer_t_size o SND)` >>
+ rw [] >>
+ induct_on `ts` >>
+ rw [infer_t_size_def] >>
+ res_tac >>
+ decide_tac);
+
+val infer_deBruijn_inc0 = Q.prove (
+`!(n:num) t. infer_deBruijn_inc 0 t = t`,
+ho_match_mp_tac (fetch "-" "infer_deBruijn_inc_ind") >>
+rw [infer_deBruijn_inc_def] >>
+induct_on `ts` >>
+rw []);
+
+val subst_infer_subst_swap_lem = Q.prove (
+`!t. (LENGTH ts = tvs) ∧
+     check_t n {} t
+     ⇒
+     (convert_t t = deBruijn_subst 0 ts (convert_t (infer_deBruijn_inc tvs t)))`,
+ho_match_mp_tac (fetch "-" "convert_t_ind") >>
+srw_tac [ARITH_ss] [check_t_def, convert_t_def, infer_deBruijn_inc_def, deBruijn_subst_def] >>
+induct_on `ts'` >>
+rw []);
+
+val subst_infer_subst_swap = Q.prove (
+`(!t s tvs uvar n.
+  count (uvar + tvs) ⊆ FDOM (t_collapse s) ∧
+  (!t. t ∈ FRANGE (t_collapse s) ⇒ check_t n {} t) ∧
+  check_t tvs (count uvar) t ⇒
+  (convert_t
+    (apply_subst_t (t_collapse s)
+       (infer_deBruijn_subst
+          (MAP (λn. Infer_Tuvar (uvar + n)) (COUNT_LIST tvs))
+          t)) =
+   deBruijn_subst 0
+    (MAP (convert_t o apply_subst_t (t_collapse s))
+       (MAP (λn. Infer_Tuvar (uvar + n)) (COUNT_LIST tvs)))
+    (convert_t (apply_subst_t (FMAP_MAP2 (λ(x,t). infer_deBruijn_inc tvs t) (t_collapse s)) t)))) ∧
+ (!ts s tvs uvar n.
+  count (uvar + tvs) ⊆ FDOM (t_collapse s) ∧
+  (!t. t ∈ FRANGE (t_collapse s) ⇒ check_t n {} t) ∧
+  EVERY (\t. check_t tvs (count uvar) t) ts ⇒
+  (MAP (convert_t o
+       apply_subst_t (t_collapse s) o
+       infer_deBruijn_subst (MAP (λn. Infer_Tuvar (uvar + n)) (COUNT_LIST tvs)))
+      ts =
+   MAP (deBruijn_subst 0 (MAP (convert_t o apply_subst_t (t_collapse s)) (MAP (λn. Infer_Tuvar (uvar + n)) (COUNT_LIST tvs))) o
+       convert_t o 
+       apply_subst_t (FMAP_MAP2 (λ(x,t). infer_deBruijn_inc tvs t) (t_collapse s)))
+      ts))`,
+ho_match_mp_tac infer_t_induction >>
+rw [apply_subst_t_eqn, convert_t_def, deBruijn_subst_def, EL_MAP,
+    infer_deBruijn_subst_def, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
+    rich_listTheory.LENGTH_COUNT_LIST] >|
+[fs [SUBSET_DEF, FLOOKUP_DEF, FRANGE_FLOOKUP, FMAP_MAP2_THM] >>
+     `n < uvar + tvs` by decide_tac >>
+     `n ∈ FDOM (t_collapse s)` by res_tac >>
+     fs [] >>
+     `check_t n' {} (t_collapse s ' n)` by metis_tac [] >>
+     fs [] >>
+     metis_tac [LENGTH_MAP, rich_listTheory.LENGTH_COUNT_LIST, subst_infer_subst_swap_lem],
+ metis_tac [],
+ metis_tac []]);
+
 val binop_tac =
 rw [typeSystemTheory.type_op_cases, 
     Tint_def, Tbool_def, Tref_def, Tfn_def, Tunit_def] >>
@@ -450,13 +575,20 @@ imp_res_tac sub_completion_apply >>
 fs [apply_subst_t_eqn] >>
 metis_tac [convert_t_def, MAP];
 
-(*
+val tenv_inv_def = Define `
+tenv_inv s env tenv =
+  (!x tvs t.
+    (lookup x env = SOME (tvs,t)) ⇒
+    (lookup_tenv x 0 tenv = 
+     SOME (tvs, convert_t (apply_subst_t (FMAP_MAP2 (λ(x,t).  infer_deBruijn_inc tvs t) (t_collapse s)) t))))`;
+
+     (*
 val infer_e_sound = Q.prove (
 `(!menv cenv env e st st' ext tenv t extra_constraints s.
     (infer_e menv cenv env e st = (Success t, st')) ∧
     check_menv menv ∧
     sub_completion (num_tvs tenv) st'.next_uvar st'.subst extra_constraints s ∧
-    tenv_rel s env tenv
+    tenv_inv s env tenv
     ⇒
     type_e (convert_menv menv) cenv tenv e 
            (convert_t (apply_subst_t s t))) ∧
@@ -464,7 +596,7 @@ val infer_e_sound = Q.prove (
     (infer_es menv cenv env es st = (Success ts, st')) ∧
     check_menv menv ∧
     sub_completion (num_tvs tenv) st'.next_uvar st'.subst extra_constraints s ∧
-    tenv_rel s env tenv
+    tenv_inv s env tenv
     ⇒
     type_es (convert_menv menv) cenv tenv es 
             (MAP (convert_t o apply_subst_t s) ts)) ∧
@@ -472,14 +604,14 @@ val infer_e_sound = Q.prove (
     (infer_pes menv cenv env pes t1 t2 st = (Success (), st')) ∧
     check_menv menv ∧
     sub_completion (num_tvs tenv) st'.next_uvar st'.subst extra_constraints s ∧
-    tenv_rel s env tenv
+    tenv_inv s env tenv
     ⇒
     T) ∧
  (!menv cenv env funs st st' ext tenv extra_constraints s.
     (infer_funs menv cenv env funs st = (Success (), st')) ∧
     check_menv menv ∧
     sub_completion (num_tvs tenv) st'.next_uvar st'.subst extra_constraints s ∧
-    tenv_rel s env tenv
+    tenv_inv s env tenv
     ⇒
     ?env'. type_funs (convert_menv menv) cenv tenv funs env')`,
 
@@ -497,11 +629,14 @@ rw [apply_subst_t_eqn, convert_t_def, Tbool_def, Tint_def, Tunit_def] >|
  (* Handle *)
      binop_tac,
  (* Handle *)
-     `tenv_rel s ((x,0,Infer_Tapp [] TC_int)::env) 
+     `tenv_inv s ((x,0,Infer_Tapp [] TC_int)::env) 
                  (Bind_name x 0 
                             (convert_t (apply_subst_t s (Infer_Tapp [] TC_int))) 
                             tenv)`
-             by rw [Once tenv_rel_cases] >>
+             by (fs [tenv_inv_def, lookup_tenv_def] >>
+                 rw [typeSystemTheory.deBruijn_inc0, infer_deBruijn_inc0] >>
+                 rw [infer_deBruijn_inc0, fmap2_id] >>
+                 fs [sub_completion_def, t_collapse_idem]) >>
      `num_tvs tenv = num_tvs (Bind_name x 0 (convert_t (apply_subst_t s (Infer_Tapp [] TC_int))) tenv)`
              by rw [num_tvs_def] >>
      rw [bind_tenv_def] >>
@@ -512,12 +647,39 @@ rw [apply_subst_t_eqn, convert_t_def, Tbool_def, Tint_def, Tunit_def] >|
                 by (PairCases_on `v'` >>
                     rw []) >>
      rw [] >>
-     qexists_tac `convert_t (apply_subst_t s t)` >>
+     qexists_tac `convert_t (apply_subst_t (FMAP_MAP2 (λ(x,t). infer_deBruijn_inc tvs t) (t_collapse s)) t)` >>
      qexists_tac `MAP (convert_t o apply_subst_t s) (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST tvs))` >>
-     rw []
-     all_tac,
+     rw [] >|
+     [fs [sub_completion_def] >>
+          rw [] >>
+          `check_t tvs (count st.next_uvar) t` by cheat >>
+          metis_tac [subst_infer_subst_swap, t_collapse_idem],
+      rw [EVERY_MAP] >>
+          metis_tac [sub_completion_check, FST],
+      rw [rich_listTheory.LENGTH_COUNT_LIST] >>
+          fs [tenv_inv_def]],
  (* Var long *)
-     all_tac,
+     rw [t_lookup_var_id_def] >>
+     `?tvs t. v' = (tvs, t)` 
+                by (PairCases_on `v'` >>
+                    rw []) >>
+     rw [] >>
+     qexists_tac `convert_t (apply_subst_t (FMAP_MAP2 (λ(x,t). infer_deBruijn_inc tvs t) (t_collapse s)) t)` >>
+     qexists_tac `MAP (convert_t o apply_subst_t s) (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST tvs))` >>
+     rw [] >|
+     [fs [sub_completion_def] >>
+          rw [] >>
+          `check_t tvs (count st.next_uvar) t` by cheat >>
+          metis_tac [subst_infer_subst_swap, t_collapse_idem],
+      rw [EVERY_MAP] >>
+          metis_tac [sub_completion_check, FST],
+      rw [rich_listTheory.LENGTH_COUNT_LIST] >>
+          fs [convert_menv_def, check_menv_def] >>
+          `lookup mn (MAP (λ(mn,env). (mn,MAP (λ(x,tvs,t). (x,tvs,convert_t t)) env)) menv) =
+           SOME (MAP (λ(x,tvs,t). (x,tvs,convert_t t)) env')`
+                    by metis_tac [lookup_map] >>
+          rw [] >>
+          all_tac],
  (* Con *)
      all_tac,
  (* Fun *)
@@ -559,7 +721,6 @@ rw [apply_subst_t_eqn, convert_t_def, Tbool_def, Tint_def, Tunit_def] >|
  all_tac,
  all_tac,
  all_tac]
-
  *)
  (*
 (* Fn case *)
