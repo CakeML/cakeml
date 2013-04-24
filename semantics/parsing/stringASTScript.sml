@@ -14,6 +14,10 @@ val stringAST_def = Define`
     od
 `
 
+val stringDecs_def = Define`
+  stringDecs s = OPTION_MAP (elab_decs [] [] o SND) (stringAST s)
+`
+
 val t = time (rhs o concl o EVAL)
         ``stringAST "datatype 'a list = Nil | Cons of 'a * 'a list;\n\
                     \val x = 3; fun f x = x + 1 val y = 4;"``
