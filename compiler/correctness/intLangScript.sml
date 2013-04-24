@@ -1996,6 +1996,239 @@ val mkshift_thm = store_thm("mkshift_thm",
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ))
 
+(* there is a more general theorem to be had about syneq being symmetric, but I haven't been bothered... *)
+val mkshift_thm2 = store_thm("mkshift_thm2",
+ ``∀f k e c z1 z2 V.
+   k ≤ z1 ∧ k ≤ z2 ∧
+   (∀x. x ∈ free_vars e ∧ x < k ⇒ V x x) ∧
+   (∀x. x ∈ free_vars e ∧ k ≤ x ∧ x < z2 ⇒ V (f(x-k)+k) x ∧ (f(x-k)+k) < z1) ∧
+   free_vars e ⊆ count z2 ∧
+   (free_labs e = {})
+   ⇒ syneq_exp c z1 z2 V (mkshift f k e) e``,
+ ho_match_mp_tac mkshift_ind >>
+ strip_tac >- (
+   rw[SUBSET_DEF,MEM_MAP] >>
+   rw[Once syneq_exp_cases] >>
+   simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
+   rw[] >> simp[EL_MAP] >>
+   fsrw_tac[DNF_ss][EXISTS_PROD,FORALL_PROD] >>
+   Cases_on`EL n vs`>> fsrw_tac[DNF_ss,ARITH_ss][MEM_EL] >>
+   rw[] >> fsrw_tac[ARITH_ss][] >>
+   res_tac >> rfs[] >>
+   fsrw_tac[ARITH_ss][] ) >>
+ strip_tac >- rw[Once syneq_exp_cases] >>
+ strip_tac >- (
+   rw[] >>
+   rw[Once syneq_exp_cases] >>
+   first_x_assum match_mp_tac >>
+   fsrw_tac[ARITH_ss,QUANT_INST_ss[num_qp]][SUBSET_DEF,PRE_SUB1,ADD1] >>
+   conj_tac >> Cases >> fsrw_tac[ARITH_ss][ADD1] >> rw[] >>
+   `k+ f (n - k) < z1` by metis_tac[] >>
+   fsrw_tac[ARITH_ss][] ) >>
+ strip_tac >- (
+   rw[] >>
+   rw[Once syneq_exp_cases] >>
+   fsrw_tac[ARITH_ss][] ) >>
+ strip_tac >- rw[Once syneq_exp_cases] >>
+ strip_tac >- (
+   rw[] >>
+   rw[Once syneq_exp_cases] >>
+   fsrw_tac[DNF_ss][FOLDL_UNION_BIGUNION,SUBSET_DEF,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
+   fsrw_tac[DNF_ss][EL_MAP,MEM_EL] >> rw[] >>
+   first_x_assum (match_mp_tac o MP_CANON) >>
+   fsrw_tac[ARITH_ss][] >>
+   fsrw_tac[DNF_ss][IMAGE_EQ_SING,MEM_EL] >>
+   metis_tac[]) >>
+ strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+ strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+ strip_tac >- (
+   rw[] >>
+   rw[Once syneq_exp_cases] >>
+   first_x_assum match_mp_tac >>
+   fsrw_tac[ARITH_ss,QUANT_INST_ss[num_qp]][SUBSET_DEF,PRE_SUB1,ADD1] >>
+   conj_tac >> Cases >> fsrw_tac[ARITH_ss][ADD1] >> rw[] >>
+   `k+ f (n - k) < z1` by metis_tac[] >>
+   fsrw_tac[ARITH_ss][] ) >>
+ strip_tac >- (
+   simp[FOLDL_UNION_BIGUNION] >> rw[] >- (
+     rw[Once syneq_exp_cases] >>
+     qexists_tac`λv1 v2. F` >>
+     simp[Once syneq_exp_cases] >> fs[] ) >>
+   rw[Once syneq_exp_cases] >>
+   qexists_tac`λv1 v2. v1 < LENGTH defs ∧ (v2 = v1)` >>
+   simp[] >>
+   reverse conj_tac >- (
+     first_x_assum match_mp_tac >>
+     simp[] >>
+     conj_tac >- (
+       srw_tac[ARITH_ss][] >>
+       Cases_on`x < LENGTH defs`>>fsrw_tac[ARITH_ss][] >>
+       fsrw_tac[DNF_ss][SUBSET_DEF] >>
+       `0 < k` by DECIDE_TAC >> fs[] >>
+       metis_tac[ADD_SYM]) >>
+     conj_tac >- (
+       gen_tac >> strip_tac >>
+       first_x_assum(qspec_then`x-LENGTH defs`mp_tac) >>
+       simp[] >>
+       discharge_hyps >- (
+         fsrw_tac[DNF_ss][SUBSET_DEF] >>
+         disj1_tac >>
+         qexists_tac`x` >>
+         simp[] ) >>
+       simp[]) >>
+     fsrw_tac[ARITH_ss,DNF_ss][SUBSET_DEF] >>
+     qx_gen_tac`x` >> strip_tac >>
+     rpt(first_x_assum(qspec_then`x`mp_tac)) >>
+     simp[] ) >>
+   simp[Once syneq_exp_cases] >>
+   conj_tac >- (
+     fs[FILTER_EQ_NIL] >>
+     fs[EVERY_MEM,MEM_MAP] >>
+     full_simp_tac(srw_ss()++QUANT_INST_ss[sum_qp])[] >>
+     reverse EQ_TAC >- (
+       strip_tac >> gen_tac >>
+       simp[GSYM LEFT_FORALL_IMP_THM] >>
+       Cases >> TRY(Cases_on`x`)>>simp[] >>
+       fs[IMAGE_EQ_SING,MEM_FILTER] >>
+       strip_tac >> res_tac >> fs[] ) >>
+     ntac 3 strip_tac >>
+     fs[IMAGE_EQ_SING,MEM_FILTER] >>
+     res_tac >> fs[]) >>
+   rw[EL_MAP] >- (
+     Cases_on`EL v2 defs`>>fs[]>>
+     Cases_on`x`>>fs[] ) >>
+   fs[IMAGE_EQ_SING,MEM_FILTER] >>
+   fs[FILTER_EQ_NIL,MEM_EL,EVERY_MEM] >>
+   first_x_assum(qspec_then`EL v2 defs`(mp_tac o SIMP_RULE(srw_ss()++DNF_ss)[])) >>
+   disch_then(qspec_then`v2`mp_tac) >>
+   Cases_on`EL v2 defs`>>rw[] >>
+   qmatch_assum_rename_tac`EL v2 defs = INL p`[] >>
+   PairCases_on`p`>>simp[syneq_cb_aux_def] >>
+   fsrw_tac[DNF_ss][] >>
+   first_x_assum(qspecl_then[`p0`,`p1`,`v2`]mp_tac) >>
+   simp[] >>
+   disch_then match_mp_tac >>
+   simp[] >>
+   conj_tac >- (
+     srw_tac[ARITH_ss][syneq_cb_V_def] >>
+     REWRITE_TAC[SUB_PLUS] >>
+     first_x_assum match_mp_tac >>
+     simp[] >> qexists_tac`v2` >>
+     simp[] >> qexists_tac`x` >>
+     simp[] ) >>
+   reverse conj_tac >- (
+     fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF] >>
+     qx_gen_tac`x` >> strip_tac >>
+     first_x_assum(qspec_then`INL (p0,p1)`mp_tac) >>
+     first_x_assum(qspec_then`INL (p0,p1)`mp_tac) >>
+     `MEM (INL (p0,p1)) defs` by (rw[MEM_EL] >> PROVE_TAC[]) >>
+     fsrw_tac[DNF_ss][] >> rw[] >>
+     rpt(first_x_assum(qspec_then`x`mp_tac)) >>
+     simp[] ) >>
+   reverse conj_tac >- (
+     srw_tac[ARITH_ss][] >>
+     rw[AC ADD_ASSOC ADD_SYM] >>
+     REWRITE_TAC[Once ADD_ASSOC] >>
+     CONV_TAC(LAND_CONV(LAND_CONV(REWRITE_CONV[Once ADD_SYM]))) >>
+     REWRITE_TAC[Once (GSYM ADD_ASSOC)] >>
+     simp[] >>
+     REWRITE_TAC[Once (ADD_ASSOC)] >>
+     simp[] >>
+     `x - (k + (p0 + LENGTH defs)) = x - p0 - LENGTH defs - k` by srw_tac[ARITH_ss][] >>
+     pop_assum SUBST1_TAC >>
+     first_x_assum match_mp_tac >>
+     simp[] >>
+     qexists_tac`v2` >> simp[] >>
+     qexists_tac`x` >> simp[]) >>
+   srw_tac[ARITH_ss][syneq_cb_V_def] >- (
+     `x - (p0 + LENGTH defs) = x - p0 - LENGTH defs` by fsrw_tac[ARITH_ss][] >>
+     pop_assum SUBST1_TAC >>
+     `x - (k + (p0 + LENGTH defs)) = x - p0 - LENGTH defs - k` by fsrw_tac[ARITH_ss][] >>
+     pop_assum SUBST1_TAC >>
+     first_x_assum match_mp_tac >>
+     fsrw_tac[ARITH_ss][] >>
+     qexists_tac`v2` >> simp[] >>
+     qexists_tac`x` >> simp[]) >>
+   spose_not_then strip_assume_tac >>
+   qpat_assum`~(x < y)`mp_tac >> simp[] >>
+   rw[AC ADD_ASSOC ADD_SYM] >>
+   REWRITE_TAC[Once ADD_ASSOC] >>
+   CONV_TAC(LAND_CONV(LAND_CONV(REWRITE_CONV[Once ADD_SYM]))) >>
+   REWRITE_TAC[Once (GSYM ADD_ASSOC)] >>
+   simp[] >>
+   REWRITE_TAC[Once (ADD_ASSOC)] >>
+   simp[] >>
+   `x - (k + (p0 + LENGTH defs)) = x - p0 - LENGTH defs - k` by srw_tac[ARITH_ss][] >>
+   pop_assum SUBST1_TAC >>
+   first_x_assum match_mp_tac >>
+   simp[] >>
+   qexists_tac`v2` >> simp[] >>
+   qexists_tac`x` >> simp[]) >>
+ strip_tac >- (
+   simp[] >> rw[] >>
+   Cases_on`cb`>>fs[] >>
+   PairCases_on`x`>>fs[] >>
+   rw[Once syneq_exp_cases] >>
+   qexists_tac`λv1 v2. (v1 = 0) ∧ (v2 = 0)` >>
+   simp[] >>
+   simp[Once syneq_exp_cases] >>
+   simp[syneq_cb_aux_def] >>
+   fsrw_tac[ARITH_ss][] >>
+   first_x_assum match_mp_tac >>
+   simp[] >>
+   conj_tac >- (
+     srw_tac[ARITH_ss][syneq_cb_V_def] >>
+     first_x_assum match_mp_tac >>
+     simp[PRE_SUB1] >>
+     qexists_tac`x-x0`>>simp[] >>
+     qexists_tac`x`>>simp[] ) >>
+   conj_tac >- (
+     srw_tac[ARITH_ss][syneq_cb_V_def] >- (
+       `x - (k + (x0 + 1)) = x - x0 - 1 - k` by fsrw_tac[ARITH_ss][] >>
+       pop_assum SUBST1_TAC >>
+       `x - (x0 + 1) = x - x0 - 1` by fsrw_tac[ARITH_ss][] >>
+       pop_assum SUBST1_TAC >>
+       fsrw_tac[DNF_ss][PRE_SUB1] >>
+       first_x_assum match_mp_tac >>
+       fsrw_tac[ARITH_ss][] ) >>
+     spose_not_then strip_assume_tac >>
+     qpat_assum`~(x < y)`mp_tac >> simp[] >>
+     rw[AC ADD_ASSOC ADD_SYM] >>
+     REWRITE_TAC[Once ADD_ASSOC] >>
+     CONV_TAC(LAND_CONV(LAND_CONV(REWRITE_CONV[Once ADD_SYM]))) >>
+     REWRITE_TAC[Once (GSYM ADD_ASSOC)] >>
+     simp[] >>
+     REWRITE_TAC[Once (ADD_ASSOC)] >>
+     simp[] >>
+     `x - (k + (x0 + 1)) = x - x0 - 1 - k` by fsrw_tac[ARITH_ss][] >>
+     pop_assum SUBST1_TAC >>
+     fsrw_tac[DNF_ss][PRE_SUB1] >>
+     first_x_assum match_mp_tac >>
+     fsrw_tac[ARITH_ss][] ) >>
+   fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
+   qx_gen_tac`x` >>strip_tac >>
+   rpt(first_x_assum(qspec_then`x`mp_tac)) >>
+   simp[] ) >>
+ strip_tac >- (
+   simp[FOLDL_UNION_BIGUNION] >>
+   rpt gen_tac >> strip_tac >>
+   Q.PAT_ABBREV_TAC`P = X ∨ Y` >>
+   rw[] >>
+   rw[Once syneq_exp_cases] >>
+   simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
+   rw[] >> simp[EL_MAP] >>
+   fsrw_tac[DNF_ss][EXISTS_PROD,FORALL_PROD] >>
+   first_x_assum (match_mp_tac o MP_CANON) >>
+   simp[MEM_EL] >>
+   fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
+   qexists_tac`n` >> simp[] >>
+   fs[markerTheory.Abbrev_def] >> rw[] >> fs[IMAGE_EQ_SING,MEM_EL] >>
+   metis_tac[] ) >>
+ strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+ strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+ strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+ strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ))
+
 val free_vars_mkshift = store_thm("free_vars_mkshift",
   ``∀f k e. free_vars (mkshift f k e) = IMAGE (λv. if v < k then v else f (v-k) + k) (free_vars e)``,
   ho_match_mp_tac mkshift_ind >>
