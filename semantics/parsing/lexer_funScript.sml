@@ -27,7 +27,7 @@ val read_while_def = Define `
             else (IMPLODE (REVERSE s),STRING c cs))`;
 
 val is_single_char_symbol_def = Define `
-  is_single_char_symbol c = MEM c "()[];,"`;
+  is_single_char_symbol c = MEM c "()[];,_"`;
 
 val isSymbol_def = Define `
   isSymbol c = (~(isSpace c) /\ ~(isDigit c) /\ ~(isAlpha c) /\
@@ -103,7 +103,9 @@ val str_to_syms_def = tDefine "str_to_syms" `
        let (n,rest) = read_while isDigit str [] in
          NumberS (num_from_dec_string (c::n)) :: str_to_syms rest else
      if isAlpha c then (* read alpha-numeric identifier/keyword *)
-       let (n,rest) = read_while isAlphaNumPrime str [] in
+       let (n,rest) =
+           read_while (λc. isAlphaNumPrime c ∨ (c = #"_")) str []
+       in
          OtherS (c::n) :: str_to_syms rest else
      if c = #"'" then (* read type variable *)
        let (n,rest) = read_while isAlphaNum str [c]
