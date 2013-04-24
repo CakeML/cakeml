@@ -27,11 +27,11 @@ val read_while_def = Define `
             else (IMPLODE (REVERSE s),STRING c cs))`;
 
 val is_single_char_symbol_def = Define `
-  is_single_char_symbol c = MEM c "()[];~"`;
+  is_single_char_symbol c = MEM c "()[];,"`;
 
 val isSymbol_def = Define `
   isSymbol c = (~(isSpace c) /\ ~(isDigit c) /\ ~(isAlpha c) /\
-                ~(MEM c "()[];") /\ (ORD #" " < ORD c))`;
+                ~is_single_char_symbol c /\ (ORD #" " < ORD c))`;
 
 val read_string_def = tDefine "read_string" `
   read_string str s =
