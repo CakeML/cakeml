@@ -45,6 +45,7 @@ val tokmap0 =
                 ("->", ``ArrowT``), ("=>", ``DarrowT``),
                 ("*", ``StarT``),
                 ("|", ``BarT``), ("=", ``EqualsT``), (":", ``ColonT``),
+                ("_", ``UnderbarT``),
                 ("and", ``AndT``),
                 ("andalso", ``AndalsoT``),
                 ("before", ``AlphaT "before"``),
@@ -138,7 +139,7 @@ val mmlG_def = mk_grammar_def ginfo
  LetDecs ::= LetDec LetDecs | ;
 
  (* patterns *)
- Pbase ::= V | ConstructorName | <IntT> | "(" Pattern ")";
+ Pbase ::= V | ConstructorName | <IntT> | "(" Pattern ")" | "_";
  Pattern ::= ConstructorName Ptuple |  ConstructorName Pbase | Pbase;
  Ptuple ::= "(" PatternList2 ")";
  PatternList2 ::= Pattern "," PatternList1;

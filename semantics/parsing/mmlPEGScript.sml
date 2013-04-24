@@ -335,6 +335,7 @@ val mmlPEG_def = zDefine`
                pegf (choicel [pnt nV;
                               pnt nConstructorName;
                               tok isInt mktokLf;
+                              tokeq UnderbarT;
                               seql [tokeq LparT; pnt nPattern; tokeq RparT] I])
                     (bindNT nPbase));
               (mkNT nPattern,

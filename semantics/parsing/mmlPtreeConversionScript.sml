@@ -278,7 +278,9 @@ val ptree_Pattern_def = Define`
             t <- destTOK lf;
             i <- destIntT t ;
             SOME (Ast_Plit (IntLit i))
-          od
+          od ++
+          if vic = Lf (TOK UnderbarT) then SOME (Ast_Pvar "_")
+          else NONE
         | [lp; p; rp] =>
           do
             assert(lp = Lf (TOK LparT) ∧ rp = Lf (TOK RparT));

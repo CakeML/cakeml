@@ -93,6 +93,11 @@ val _ = parsetest ``nDecls``
                   "val x = (y := 3);"
                   ``[ValT; AlphaT "x"; EqualsT; LparT; AlphaT "y";
                      SymbolT ":="; IntT 3; RparT; SemicolonT]``
+val _ = parsetest ``nDecls``
+                  ``OPTION_MAP (elab_decs [] []) o ptree_Decls``
+                  "val _ = (y := 3);"
+                  ``[ValT; UnderbarT; EqualsT; LparT; AlphaT "y";
+                     SymbolT ":="; IntT 3; RparT; SemicolonT]``
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "(f x; 3)"
                   ``[LparT; AlphaT "f"; AlphaT"x"; SemicolonT; IntT 3; RparT]``
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 2 in f x; g (x + 1); 3 end"
