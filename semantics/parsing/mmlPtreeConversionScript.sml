@@ -236,6 +236,10 @@ val ptree_Op_def = Define`
         s <- (destSymbolT tok ++ SOME "=");
         SOME s
       od
+    else if nt = mkNT nCompOps then
+      if subs = [Lf (TK (SymbolT ":="))] then SOME ":="
+      else if subs = [Lf (TK (AlphaT "o"))] then SOME "o"
+      else NONE
     else NONE
 `;
 
@@ -488,10 +492,10 @@ val ptree_Expr_def = Define`
       else if nt = mkNT nEcomp then
         case subs of
             [t1;opt;t2] => do
-              assert(opt = Lf(TOK (AlphaT "o")));
               a1 <- ptree_Expr nEcomp t1;
+              a_op <- ptree_Op opt;
               a2 <- ptree_Expr nErel t2;
-              SOME(Ast_App(Ast_App (Ast_Var "o") a1) a2)
+              SOME(Ast_App(Ast_App (Ast_Var a_op) a1) a2)
             od
           | [t] => ptree_Expr nErel t
           | _ => NONE

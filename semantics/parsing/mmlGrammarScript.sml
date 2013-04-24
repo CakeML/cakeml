@@ -41,7 +41,7 @@ val tokmap0 =
     List.foldl (fn ((s,t), acc) => Binarymap.insert(acc,s,t))
                (Binarymap.mkDict String.compare)
                [("(", ``LparT``), (")", ``RparT``), (",", ``CommaT``),
-                (";", ``SemicolonT``),
+                (";", ``SemicolonT``), (":=", ``SymbolT ":="``),
                 ("->", ``ArrowT``), ("=>", ``DarrowT``),
                 ("*", ``StarT``),
                 ("|", ``BarT``), ("=", ``EqualsT``), (":", ``ColonT``),
@@ -103,7 +103,7 @@ val mmlG_def = mk_grammar_def ginfo
  V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false"; "ref" } ∧
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
     |  ^(``{SymbolT s |
-            s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"}}``);
+            s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"; ":="}}``);
  Ebase ::= "(" Eseq ")" | V | ConstructorName | <IntT>
         |  "let" LetDecs "in" Eseq "end";
  Eseq ::= Eseq ";" E | E;
@@ -117,10 +117,11 @@ val mmlG_def = mk_grammar_def ginfo
  MultOps ::= ^(``{AlphaT "div"; AlphaT "mod"; StarT; SymbolT "/"}``);
  AddOps ::= ^(``{SymbolT "+"; SymbolT "-"}``);
  RelOps ::= ^(``{SymbolT s | s ∈ {"<"; ">"; "<="; ">="; "<>"}}``) | "=";
+ CompOps ::= "o" | ":=";
  Emult ::= Emult MultOps Eapp | Eapp;
  Eadd ::= Eadd AddOps Emult | Emult;
  Erel ::= Eadd RelOps Eadd | Eadd;
- Ecomp ::= Ecomp "o" Erel | Erel;
+ Ecomp ::= Ecomp CompOps Erel | Erel;
  Ebefore ::= Ebefore "before" Ecomp | Ecomp;
  Etyped ::= Ebefore | Ebefore ":" Type;
  ElogicAND ::= ElogicAND "andalso" Etyped | Etyped;

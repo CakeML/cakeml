@@ -219,7 +219,8 @@ val peg_V_def = Define`
                mktokLf)
           (tok (λt.
                   do s <- destSymbolT t;
-                     assert(s ∉ {"+"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"})
+                     assert(s ∉ {"+"; "-"; "/"; "<"; ">"; "<="; ">="; "<>";
+                                 ":="})
                   od = SOME ())
                mktokLf)
           (bindNT nV o sumID)
@@ -272,6 +273,9 @@ val mmlPEG_def = zDefine`
               (mkNT nMultOps, peg_multops);
               (mkNT nAddOps, peg_addops);
               (mkNT nRelOps, peg_relops);
+              (mkNT nCompOps, pegf (choicel [tokeq (SymbolT ":=");
+                                             tokeq (AlphaT "o")])
+                                   (bindNT nCompOps));
               (mkNT nEbase,
                choicel [tok isInt (bindNT nEbase o mktokLf);
                         nt (mkNT nV) (bindNT nEbase);
@@ -288,7 +292,7 @@ val mmlPEG_def = zDefine`
               (mkNT nEadd, peg_linfix (mkNT nEadd) (pnt nEmult) (pnt nAddOps));
               (mkNT nErel, peg_nonfix nErel (pnt nEadd) (pnt nRelOps));
               (mkNT nEcomp, peg_linfix (mkNT nEcomp) (pnt nErel)
-                                       (tokeq (AlphaT "o")));
+                                       (pnt nCompOps));
               (mkNT nEbefore, peg_linfix (mkNT nEbefore) (pnt nEcomp)
                                          (tokeq (AlphaT "before")));
               (mkNT nEtyped, seql [pnt nEbefore;
