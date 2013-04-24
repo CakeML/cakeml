@@ -105,7 +105,7 @@ val mmlG_def = mk_grammar_def ginfo
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
     |  ^(``{SymbolT s |
             s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"; ":="}}``);
- Ebase ::= "(" Eseq ")" | V | ConstructorName | <IntT>
+ Ebase ::= "(" Eseq ")" | "(" ")" | V | ConstructorName | <IntT>
         |  "let" LetDecs "in" Eseq "end";
  Eseq ::= Eseq ";" E | E;
  Etuple ::= "(" Elist2 ")";
@@ -139,7 +139,7 @@ val mmlG_def = mk_grammar_def ginfo
  LetDecs ::= LetDec LetDecs | ;
 
  (* patterns *)
- Pbase ::= V | ConstructorName | <IntT> | "(" Pattern ")" | "_";
+ Pbase ::= V | ConstructorName | <IntT> | "(" Pattern ")" | "(" ")" | "_";
  Pattern ::= ConstructorName Ptuple |  ConstructorName Pbase | Pbase;
  Ptuple ::= "(" PatternList2 ")";
  PatternList2 ::= Pattern "," PatternList1;

@@ -280,6 +280,7 @@ val mmlPEG_def = zDefine`
                choicel [tok isInt (bindNT nEbase o mktokLf);
                         nt (mkNT nV) (bindNT nEbase);
                         nt (mkNT nConstructorName) (bindNT nEbase);
+                        seql [tokeq LparT; tokeq RparT] (bindNT nEbase);
                         seql [tokeq LparT; pnt nEseq; tokeq RparT]
                              (bindNT nEbase);
                         seql [tokeq LetT; pnt nLetDecs; tokeq InT; pnt nEseq;
@@ -336,6 +337,7 @@ val mmlPEG_def = zDefine`
                               pnt nConstructorName;
                               tok isInt mktokLf;
                               tokeq UnderbarT;
+                              seql [tokeq LparT; tokeq RparT] I;
                               seql [tokeq LparT; pnt nPattern; tokeq RparT] I])
                     (bindNT nPbase));
               (mkNT nPattern,

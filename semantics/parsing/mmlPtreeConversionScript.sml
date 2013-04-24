@@ -281,6 +281,9 @@ val ptree_Pattern_def = Define`
           od ++
           if vic = Lf (TOK UnderbarT) then SOME (Ast_Pvar "_")
           else NONE
+        | [lp; rp] => if lp = Lf (TOK LparT) ∧ rp = Lf (TOK RparT) then
+                        SOME (Ast_Plit Unit)
+                      else NONE
         | [lp; p; rp] =>
           do
             assert(lp = Lf (TOK LparT) ∧ rp = Lf (TOK RparT));
@@ -405,6 +408,9 @@ val ptree_Expr_def = Define`
                  else
                    SOME (Ast_Con cname [])
               od
+          | [lp;rp] => if lp = Lf (TK LparT) ∧ rp = Lf (TK RparT) then
+                         SOME (Ast_Lit Unit)
+                       else NONE
           | [lett;letdecs_pt;intok;ept;endt] =>
             do
               assert(lett = Lf (TOK LetT) ∧ intok = Lf (TOK InT) ∧

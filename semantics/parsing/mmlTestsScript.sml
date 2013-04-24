@@ -78,6 +78,12 @@ in
 end
 val tytest = parsetest ``nType`` ``ptree_Type``
 
+val _ = parsetest ``nDecls`` ``OPTION_MAP (elab_decs [] []) o ptree_Decls``
+                  "val x = f()"
+                  ``[ValT; AlphaT"x";EqualsT; AlphaT"f";LparT; RparT]``
+val _ = parsetest ``nDecls`` ``OPTION_MAP (elab_decs [] []) o ptree_Decls``
+                  "val () = f x"
+                  ``[ValT; LparT; RparT; EqualsT; AlphaT"f";AlphaT "x"]``
 val _ = parsetest ``nDecls``
                   ``OPTION_MAP (elab_decs [] []) o ptree_Decls``
                   "val x = ref false;"
