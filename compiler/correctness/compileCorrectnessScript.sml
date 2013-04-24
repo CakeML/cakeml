@@ -1619,41 +1619,42 @@ val Cenv_bs_imp_incsz = store_thm("Cenv_bs_imp_incsz",
     (∃v p e. (bs' = bs with <| stack := v::bs.stack; pc := p; handler := e |>))
     ⇒
     Cenv_bs c rd s env renv (rsz+1) bs'``,
-  rw[Cenv_bs_def,fmap_rel_def,s_refs_def,FDOM_DRESTRICT,good_rd_def] >> rw[] >> fs[] >- (
-    qmatch_assum_rename_tac `z ∈ FDOM env`[] >>
-    first_x_assum (qspec_then `z` mp_tac) >>
-    BasicProvers.CASE_TAC >>
-    imp_res_tac lookup_ct_imp_incsz >>
-    rw[] ) >>
-  metis_tac[])
+  rw[Cenv_bs_def,s_refs_def,good_rd_def] >> rw[] >> fs[] >>
+  match_mp_tac(GEN_ALL(MP_CANON EVERY2_mono)) >>
+  HINT_EXISTS_TAC >> simp[] >>
+  rpt gen_tac >>
+  BasicProvers.CASE_TAC >>
+  imp_res_tac lookup_ct_imp_incsz >>
+  simp[])
 
 val Cenv_bs_imp_decsz = store_thm("Cenv_bs_imp_decsz",
   ``∀c rd s env renv rsz bs bs'.
     Cenv_bs c rd s env renv (rsz+1) bs ∧
-      (CTLet (rsz+1) ∉ FRANGE renv) ∧
+      (CTLet (rsz+1) ∉ set renv) ∧
       (∃v p e. bs = bs' with <| stack := v::bs'.stack; pc := p; handler := e |>) ⇒
     Cenv_bs c rd s env renv rsz bs'``,
-  rw[Cenv_bs_def,fmap_rel_def,s_refs_def,FDOM_DRESTRICT,good_rd_def] >> fs[] >- (
-    qmatch_assum_rename_tac `z ∈ FDOM env`[] >>
-    first_x_assum (qspec_then `z` mp_tac) >>
-    BasicProvers.CASE_TAC >>
-    pop_assum mp_tac >>
-    rw[lookup_ct_incsz] >>
-    fs[FRANGE_DEF] >>
-    PROVE_TAC[]) >>
+  rw[Cenv_bs_def,fmap_rel_def,s_refs_def,FDOM_DRESTRICT,good_rd_def] >> fs[] >>
+  fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+  rpt strip_tac >> res_tac >> pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  pop_assum mp_tac >>
+  rw[lookup_ct_incsz] >>
+  rfs[MEM_ZIP,MEM_EL] >>
   metis_tac[])
 
 val Cenv_bs_CTLet_bound = store_thm("Cenv_bs_CTLet_bound",
-  ``Cenv_bs c rd s env renv rsz bs ∧ CTLet n ∈ FRANGE renv ⇒ n ≤ rsz``,
-  rw[Cenv_bs_def,fmap_rel_def,IN_FRANGE] >>
-  qmatch_assum_rename_tac `z ∈ FDOM renv`[] >>
+  ``Cenv_bs c rd s env renv rsz bs ∧ MEM (CTLet n) renv ⇒ n ≤ rsz``,
+  rw[Cenv_bs_def,EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+  rfs[MEM_ZIP,MEM_EL] >> fsrw_tac[DNF_ss][] >>
+  qmatch_assum_rename_tac `z < LENGTH renv`[]>>
   first_x_assum (qspec_then `z` mp_tac) >>
-  `z ∈ FDOM env` by PROVE_TAC[] >> rw[] >>
-  fsrw_tac[ARITH_ss][])
+  qpat_assum`CTLet n = X`(assume_tac o SYM) >>
+  simp[el_check_def] >>
+  srw_tac[ARITH_ss][])
 
 val Cenv_bs_pops = store_thm("Cenv_bs_pops",
   ``∀vs c rd s env renv rsz bs bs'. Cenv_bs c rd s env renv (rsz + LENGTH vs) bs ∧
-    (∀n. CTLet n ∈ FRANGE renv ⇒ n ≤ rsz) ∧
+    (∀n. MEM (CTLet n) renv ⇒ n ≤ rsz) ∧
     (∃p e. bs = bs' with <| stack := vs ++ bs'.stack; pc := p; handler := e|>)
     ⇒ Cenv_bs c rd s env renv rsz bs'``,
   Induct >> rw[] >- ( fs[Cenv_bs_def,s_refs_def,good_rd_def] >> fs[]) >>
