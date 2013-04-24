@@ -583,134 +583,134 @@ val _ = Defn.save_defn free_labs_defn;
 
 
 val _ = Hol_reln `
-(! c1 c2 ez1 ez2 V xs1 xs2. ( EVERY2 (\ v1 v2 . (v1 < ez1 /\ v2 < ez2 /\ V v1 v2) \/
+(! c ez1 ez2 V xs1 xs2. ( EVERY2 (\ v1 v2 . (v1 < ez1 /\ v2 < ez2 /\ V v1 v2) \/
                             (ez1 <= v1 /\ ez2 <= v2 /\ (v1 = v2)))
   ( MAP FST xs1) ( MAP FST xs2))
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CDecl xs1) (CDecl xs2))
+syneq_exp c ez1 ez2 V (CDecl xs1) (CDecl xs2))
 /\
-(! c1 c2 ez1 ez2 V err.
+(! c ez1 ez2 V err.
 T
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CRaise err) (CRaise err))
+syneq_exp c ez1 ez2 V (CRaise err) (CRaise err))
 /\
-(! c1 c2 ez1 ez2 V e1 b1 e2 b2.
-(syneq_exp c1 c2 ez1 ez2 V e1 e2 /\
-syneq_exp c1 c2 (ez1 +1) (ez2 +1) (\ v1 v2 . ((v1 = 0) /\ (v2 = 0)) \/ 0 < v1 /\ 0 < v2 /\ V (v1 - 1) (v2 - 1)) b1 b2)
+(! c ez1 ez2 V e1 b1 e2 b2.
+(syneq_exp c ez1 ez2 V e1 e2 /\
+syneq_exp c (ez1 +1) (ez2 +1) (\ v1 v2 . ((v1 = 0) /\ (v2 = 0)) \/ 0 < v1 /\ 0 < v2 /\ V (v1 - 1) (v2 - 1)) b1 b2)
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CHandle e1 b1) (CHandle e2 b2))
+syneq_exp c ez1 ez2 V (CHandle e1 b1) (CHandle e2 b2))
 /\
-(! c1 c2 ez1 ez2 V v1 v2.
+(! c ez1 ez2 V v1 v2.
 ((v1 < ez1 /\ v2 < ez2 /\ V v1 v2) \/
 (ez1 <= v1 /\ ez2 <= v2 /\ (v1 = v2)))
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CVar v1) (CVar v2))
+syneq_exp c ez1 ez2 V (CVar v1) (CVar v2))
 /\
-(! c1 c2 ez1 ez2 V lit.
+(! c ez1 ez2 V lit.
 T
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CLit lit) (CLit lit))
+syneq_exp c ez1 ez2 V (CLit lit) (CLit lit))
 /\
-(! c1 c2 ez1 ez2 V cn es1 es2. ( EVERY2 (syneq_exp c1 c2 ez1 ez2 V) es1 es2)
+(! c ez1 ez2 V cn es1 es2. ( EVERY2 (syneq_exp c ez1 ez2 V) es1 es2)
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CCon cn es1) (CCon cn es2))
+syneq_exp c ez1 ez2 V (CCon cn es1) (CCon cn es2))
 /\
-(! c1 c2 ez1 ez2 V n e1 e2.
-(syneq_exp c1 c2 ez1 ez2 V e1 e2)
+(! c ez1 ez2 V n e1 e2.
+(syneq_exp c ez1 ez2 V e1 e2)
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CTagEq e1 n) (CTagEq e2 n))
+syneq_exp c ez1 ez2 V (CTagEq e1 n) (CTagEq e2 n))
 /\
-(! c1 c2 ez1 ez2 V n e1 e2.
-(syneq_exp c1 c2 ez1 ez2 V e1 e2)
+(! c ez1 ez2 V n e1 e2.
+(syneq_exp c ez1 ez2 V e1 e2)
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CProj e1 n) (CProj e2 n))
+syneq_exp c ez1 ez2 V (CProj e1 n) (CProj e2 n))
 /\
-(! c1 c2 ez1 ez2 V e1 b1 e2 b2.
-(syneq_exp c1 c2 ez1 ez2 V e1 e2 /\
-syneq_exp c1 c2 (ez1 +1) (ez2 +1) (\ v1 v2 . ((v1 = 0) /\ (v2 = 0)) \/ 0 < v1 /\ 0 < v2 /\ V (v1 - 1) (v2 - 1)) b1 b2)
+(! c ez1 ez2 V e1 b1 e2 b2.
+(syneq_exp c ez1 ez2 V e1 e2 /\
+syneq_exp c (ez1 +1) (ez2 +1) (\ v1 v2 . ((v1 = 0) /\ (v2 = 0)) \/ 0 < v1 /\ 0 < v2 /\ V (v1 - 1) (v2 - 1)) b1 b2)
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CLet e1 b1) (CLet e2 b2))
+syneq_exp c ez1 ez2 V (CLet e1 b1) (CLet e2 b2))
 /\
-(! c1 c2 ez1 ez2 V defs1 defs2 b1 b2 V'.
-(syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V' /\
-syneq_exp c1 c2 (ez1 +( LENGTH defs1)) (ez2 +( LENGTH defs2))
+(! c ez1 ez2 V defs1 defs2 b1 b2 V'.
+(syneq_defs c ez1 ez2 V defs1 defs2 V' /\
+syneq_exp c (ez1 +( LENGTH defs1)) (ez2 +( LENGTH defs2))
  (\ v1 v2 . (v1 < LENGTH defs1 /\ v2 < LENGTH defs2 /\ V' v1 v2) \/
                ( LENGTH defs1 <= v1 /\ LENGTH defs2 <= v2 /\ V (v1 - LENGTH defs1) (v2 - LENGTH defs2)))
  b1 b2)
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CLetrec defs1 b1) (CLetrec defs2 b2))
+syneq_exp c ez1 ez2 V (CLetrec defs1 b1) (CLetrec defs2 b2))
 /\
-(! c1 c2 ez1 ez2 V cb1 cb2 V'.
-(syneq_defs c1 c2 ez1 ez2 V [cb1] [cb2] V' /\
+(! c ez1 ez2 V cb1 cb2 V'.
+(syneq_defs c ez1 ez2 V [cb1] [cb2] V' /\
 V' 0 0)
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CFun cb1) (CFun cb2))
+syneq_exp c ez1 ez2 V (CFun cb1) (CFun cb2))
 /\
-(! c1 c2 ez1 ez2 V e1 e2 es1 es2.
-(syneq_exp c1 c2 ez1 ez2 V e1 e2 /\ EVERY2 (syneq_exp c1 c2 ez1 ez2 V) es1 es2)
+(! c ez1 ez2 V e1 e2 es1 es2.
+(syneq_exp c ez1 ez2 V e1 e2 /\ EVERY2 (syneq_exp c ez1 ez2 V) es1 es2)
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CCall e1 es1) (CCall e2 es2))
+syneq_exp c ez1 ez2 V (CCall e1 es1) (CCall e2 es2))
 /\
-(! c1 c2 ez1 ez2 V p1 e1 e2.
-(syneq_exp c1 c2 ez1 ez2 V e1 e2)
+(! c ez1 ez2 V p1 e1 e2.
+(syneq_exp c ez1 ez2 V e1 e2)
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CPrim1 p1 e1) (CPrim1 p1 e2))
+syneq_exp c ez1 ez2 V (CPrim1 p1 e1) (CPrim1 p1 e2))
 /\
-(! c1 c2 ez1 ez2 V p2 e11 e21 e12 e22.
-(syneq_exp c1 c2 ez1 ez2 V e11 e12 /\
-syneq_exp c1 c2 ez1 ez2 V e21 e22)
+(! c ez1 ez2 V p2 e11 e21 e12 e22.
+(syneq_exp c ez1 ez2 V e11 e12 /\
+syneq_exp c ez1 ez2 V e21 e22)
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CPrim2 p2 e11 e21) (CPrim2 p2 e12 e22))
+syneq_exp c ez1 ez2 V (CPrim2 p2 e11 e21) (CPrim2 p2 e12 e22))
 /\
-(! c1 c2 ez1 ez2 V e11 e21 e12 e22.
-(syneq_exp c1 c2 ez1 ez2 V e11 e12 /\
-syneq_exp c1 c2 ez1 ez2 V e21 e22)
+(! c ez1 ez2 V e11 e21 e12 e22.
+(syneq_exp c ez1 ez2 V e11 e12 /\
+syneq_exp c ez1 ez2 V e21 e22)
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CUpd e11 e21) (CUpd e12 e22))
+syneq_exp c ez1 ez2 V (CUpd e11 e21) (CUpd e12 e22))
 /\
-(! c1 c2 ez1 ez2 V e11 e21 e31 e12 e22 e32.
-(syneq_exp c1 c2 ez1 ez2 V e11 e12 /\
-syneq_exp c1 c2 ez1 ez2 V e21 e22 /\
-syneq_exp c1 c2 ez1 ez2 V e31 e32)
+(! c ez1 ez2 V e11 e21 e31 e12 e22 e32.
+(syneq_exp c ez1 ez2 V e11 e12 /\
+syneq_exp c ez1 ez2 V e21 e22 /\
+syneq_exp c ez1 ez2 V e31 e32)
 ==>
-syneq_exp c1 c2 ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
+syneq_exp c ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
 /\
-(! c1 c2 ez1 ez2 V defs1 defs2 V'.
-((( EVERY (\ cb . ! l. (cb = INR l) ==>  l IN FDOM  c1 /\ (( FAPPLY  c1  l).nz = LENGTH defs1) /\ (( FAPPLY  c1  l).ez = ez1)) defs1) =
- ( EVERY (\ cb . ! l. (cb = INR l) ==>  l IN FDOM  c2 /\ (( FAPPLY  c2  l).nz = LENGTH defs2) /\ (( FAPPLY  c2  l).ez = ez2)) defs2)) /\
+(! c ez1 ez2 V defs1 defs2 V'.
+((( EVERY (\ cb . ! l. (cb = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = LENGTH defs1) /\ (( FAPPLY  c  l).ez = ez1)) defs1) =
+ ( EVERY (\ cb . ! l. (cb = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = LENGTH defs2) /\ (( FAPPLY  c  l).ez = ez2)) defs2)) /\
 (! n1 n2. V' n1 n2 ==>
   n1 < LENGTH defs1 /\ n2 < LENGTH defs2 /\
   (? b az e1 j1 r1 e2 j2 r2.
-  ((b,az,e1,j1,r1) = syneq_cb_aux c1 n1 ( LENGTH defs1) ez1 ( EL  n1  defs1)) /\
-  ((b,az,e2,j2,r2) = syneq_cb_aux c2 n2 ( LENGTH defs2) ez2 ( EL  n2  defs2)) /\
-  (b ==> syneq_exp c1 c2 (az +j1) (az +j2) (syneq_cb_V az r1 r2 V V') e1 e2))))
+  ((b,az,e1,j1,r1) = syneq_cb_aux c n1 ( LENGTH defs1) ez1 ( EL  n1  defs1)) /\
+  ((b,az,e2,j2,r2) = syneq_cb_aux c n2 ( LENGTH defs2) ez2 ( EL  n2  defs2)) /\
+  (b ==> syneq_exp c (az +j1) (az +j2) (syneq_cb_V az r1 r2 V V') e1 e2))))
 ==>
-syneq_defs c1 c2 ez1 ez2 V defs1 defs2 V')`;
+syneq_defs c ez1 ez2 V defs1 defs2 V')`;
 
 val _ = Hol_reln `
-(! c1 c2 l.
+(! c l.
 T
 ==>
-syneq c1 c2 (CLitv l) (CLitv l))
+syneq c (CLitv l) (CLitv l))
 /\
-(! c1 c2 cn vs1 vs2. ( EVERY2 (syneq c1 c2) vs1 vs2)
+(! c cn vs1 vs2. ( EVERY2 (syneq c) vs1 vs2)
 ==>
-syneq c1 c2 (CConv cn vs1) (CConv cn vs2))
+syneq c (CConv cn vs1) (CConv cn vs2))
 /\
-(! c1 c2 V env1 env2 defs1 defs2 d1 d2 V'.
+(! c V env1 env2 defs1 defs2 d1 d2 V'.
 ((! v1 v2. V v1 v2 ==>
   (v1 < LENGTH env1 /\ v2 < LENGTH env2 /\
-   syneq c1 c2 ( EL  v1  env1) ( EL  v2  env2))) /\
-syneq_defs c1 c2 ( LENGTH env1) ( LENGTH env2) V defs1 defs2 V' /\
+   syneq c ( EL  v1  env1) ( EL  v2  env2))) /\
+syneq_defs c ( LENGTH env1) ( LENGTH env2) V defs1 defs2 V' /\
 ((d1 < LENGTH defs1 /\ d2 < LENGTH defs2 /\ V' d1 d2) \/
  ( LENGTH defs1 <= d1 /\ LENGTH defs2 <= d2 /\ (d1 = d2))))
 ==>
-syneq c1 c2 (CRecClos env1 defs1 d1) (CRecClos env2 defs2 d2))
+syneq c (CRecClos env1 defs1 d1) (CRecClos env2 defs2 d2))
 /\
-(! c1 c2 n.
+(! c n.
 T
 ==>
-syneq c1 c2 (CLoc n) (CLoc n))`;
+syneq c (CLoc n) (CLoc n))`;
 
 (*
 let rec syneq_cds ez1 ez2 V c1 c2 =
