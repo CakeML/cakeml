@@ -171,7 +171,7 @@ val peg_TypeName_def = Define`
 val peg_ConstructorName_def = Define`
   peg_ConstructorName =
     tok (λt. do s <- destAlphaT t ;
-                assert (s ≠ "" ∧ isUpper (HD s) ∨ s ∈ {"true"; "false"})
+                assert (s ≠ "" ∧ isUpper (HD s) ∨ s ∈ {"true"; "false"; "ref"})
              od = SOME ())
         (bindNT nConstructorName o mktokLf)
 `;
@@ -212,7 +212,9 @@ val peg_V_def = Define`
   peg_V =
    choice (tok (λt.
                   do s <- destAlphaT t;
-                     assert(s ∉ {"before"; "div"; "mod"; "o"; "true"; "false"} ∧                            s ≠ "" ∧ ¬isUpper (HD s))
+                     assert(s ∉ {"before"; "div"; "mod"; "o";
+                                 "true"; "false";"ref"} ∧
+                            s ≠ "" ∧ ¬isUpper (HD s))
                   od = SOME ())
                mktokLf)
           (tok (λt.

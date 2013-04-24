@@ -78,6 +78,14 @@ in
 end
 val tytest = parsetest ``nType`` ``ptree_Type``
 
+val _ = parsetest ``nDecls`` ``ptree_Decls``
+                  "val x = ref false;"
+                  ``[ValT; AlphaT "x"; EqualsT; AlphaT "ref";
+                     AlphaT "false"]``
+val _ = parsetest ``nDecls`` ``ptree_Decls``
+                  "val ref y = f z"
+                  ``[ValT; AlphaT "ref"; AlphaT "y"; EqualsT;
+                     AlphaT"f"; AlphaT"z"]``
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "(f x; 3)"
                   ``[LparT; AlphaT "f"; AlphaT"x"; SemicolonT; IntT 3; RparT]``
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 2 in f x; g (x + 1); 3 end"

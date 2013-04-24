@@ -62,6 +62,7 @@ val tokmap0 =
                 ("of", ``OfT``),
                 ("orelse", ``OrelseT``),
                 ("raise", ``RaiseT``),
+                ("ref", ``AlphaT "ref"``),
                 ("then", ``ThenT``),
                 ("true", ``AlphaT "true"``),
                 ("val", ``ValT``)]
@@ -98,8 +99,8 @@ val mmlG_def = mk_grammar_def ginfo
 
  (* expressions - base cases and function applications *)
  ConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``)
-                  | "true" | "false";
- V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false" } ∧
+                  | "true" | "false" | "ref";
+ V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false"; "ref" } ∧
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
     |  ^(``{SymbolT s |
             s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"}}``);

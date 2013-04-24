@@ -258,7 +258,12 @@ val ptree_Pattern_def = Define`
           [vic] =>
           do
              cname <- ptree_ConstructorName vic;
-             SOME(Ast_Pcon cname [])
+             if cname = "true" then
+               SOME(Ast_Plit (Bool T))
+             else if cname = "false" then
+               SOME(Ast_Plit (Bool F))
+             else
+               SOME(Ast_Pcon cname [])
           od ++
           do
              vname <- ptree_V vic;
@@ -284,7 +289,10 @@ val ptree_Pattern_def = Define`
             cn <- ptree_ConstructorName cnm;
             (do
               pb <- ptree_Pattern nPbase p ;
-              SOME (Ast_Pcon cn [pb])
+              if cn = "ref" then
+                SOME(Ast_Pref pb)
+              else
+                SOME (Ast_Pcon cn [pb])
              od ++ do
               args <- ptree_Ptuple nPtuple p;
               SOME (Ast_Pcon cn args)
@@ -352,6 +360,13 @@ val Eseq_encode_def = Define`
    od)
 `
 
+val mkAst_App_def = Define`
+  mkAst_App a1 a2 =
+   case a1 of
+       Ast_Con "ref" [] => Ast_App (Ast_Var "ref") a2
+     | _ => Ast_App a1 a2
+`
+
 val ptree_Expr_def = Define`
   ptree_Expr ent (Lf _) = NONE ∧
   ptree_Expr ent (Nd nt subs) =
@@ -377,7 +392,12 @@ val ptree_Expr_def = Define`
                 SOME (Ast_Var s)
               od ++
               do cname <- ptree_ConstructorName single;
-                 SOME (Ast_Con cname [])
+                 if cname = "true" then
+                   SOME (Ast_Lit (Bool T))
+                 else if cname = "false" then
+                   SOME (Ast_Lit (Bool F))
+                 else
+                   SOME (Ast_Con cname [])
               od
           | [lett;letdecs_pt;intok;ept;endt] =>
             do
@@ -398,7 +418,7 @@ val ptree_Expr_def = Define`
             [t1; t2] => do
                           a1 <- ptree_Expr nEapp t1;
                           a2 <- ptree_Expr nEbase t2;
-                          SOME(Ast_App a1 a2)
+                          SOME(mkAst_App a1 a2)
                         od ++
                         do
                           cname <- ptree_ConstructorName t1;
