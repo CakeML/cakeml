@@ -30,6 +30,14 @@ Conv.TOP_SWEEP_CONV
    in if n = 0 then raise Conv.UNCHANGED else Conv.RENAME_VARS_CONV vs tm end)
 end
 
+fun fix_compile_bindings_suc th = let
+  val ([lz,ls],cs) = List.partition (equal``compile_bindings``o fst o strip_comb o lhs o snd o strip_forall o concl) (CONJUNCTS th)
+  val (l,rz) = dest_eq (snd (strip_forall (concl lz)))
+  val rs = rator (rhs (snd (strip_forall (concl ls))))
+  val n = mk_var("m",``:num``)
+  val th = GEN_ALL (mk_thm([],mk_eq(mk_comb(rator l,n),mk_cond(mk_eq(n,numSyntax.zero_tm),rz,mk_comb(rs,numSyntax.mk_pre n)))))
+  in LIST_CONJ(th::cs) end
+
 val data = map
   (fn th => EmitML.DATATYPE [QUOTE (datatype_thm_to_string th)])
   [ MiniMLTheory.datatype_lit
@@ -92,7 +100,7 @@ val defs = map EmitML.DEFN
 , update_refptr_def
 , underscore_rule compile_closures_def
 , compile_decl_def
-, underscore_rule compile_def
+, fix_compile_bindings_suc (underscore_rule compile_def)
 , cce_aux_def
 , compile_code_env_def
 , calculate_labels_def

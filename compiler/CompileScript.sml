@@ -1435,17 +1435,17 @@ val _ = Defn.save_defn compile_envref_defn;
     compile d env t sz s e3
   ))
 /\
+(compile_bindings d env t sz e n s 0 =
+  (case t of
+    TCTail j k => compile d env (TCTail j (k +n)) (sz +n) s e
+  | TCNonTail F =>
+    emit (compile d env t (sz +n) s e) [Stack (Pops n)]
+  | TCNonTail T =>
+    compile d env t (sz +n) s e
+  ))
+/\
 (compile_bindings d env t sz e n s m =
-  if m = 0 then
-    (case t of
-      TCTail j k => compile d env (TCTail j (k +n)) (sz +n) s e
-    | TCNonTail F =>
-      emit (compile d env t (sz +n) s e) [Stack (Pops n)]
-    | TCNonTail T =>
-      compile d env t (sz +n) s e
-    )
-  else
-    compile_bindings d ((CTLet (sz +(n +1))) ::env) t sz e (n +1) s (m - 1))
+  compile_bindings d ((CTLet (sz +(n +1))) ::env) t sz e (n +1) s (m - 1))
 /\
 (compile_nts d env sz s [] = s)
 /\

@@ -1354,17 +1354,17 @@ compile d env t sz s (CIf e1 e2 e3) =
     compile d env t sz s e3
   end
 and
+compile_bindings d env t sz e n s 0 =
+  match t with
+  | TCTail j k -> compile d env (TCTail j (k+n)) (sz+n) s e
+  | TCNonTail false ->
+    emit (compile d env t (sz+n) s e) [Stack (Pops n)]
+  | TCNonTail true ->
+    compile d env t (sz+n) s e
+  end
+and
 compile_bindings d env t sz e n s m =
-  if m = 0 then
-    match t with
-    | TCTail j k -> compile d env (TCTail j (k+n)) (sz+n) s e
-    | TCNonTail false ->
-      emit (compile d env t (sz+n) s e) [Stack (Pops n)]
-    | TCNonTail true ->
-      compile d env t (sz+n) s e
-    end
-  else
-    compile_bindings d ((CTLet (sz+(n+1)))::env) t sz e (n+1) s (m-1)
+  compile_bindings d ((CTLet (sz+(n+1)))::env) t sz e (n+1) s (m-1)
 and
 compile_nts d env sz s [] = s
 and
