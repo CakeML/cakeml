@@ -439,6 +439,48 @@ rw [] >>
 full_simp_tac (srw_ss()++ARITH_ss) [SUBSET_DEF] >>
 metis_tac []);
 
+val sub_completion_add_constraints = Q.prove (
+`!s1 ts1 s2 n next_uvar s2 s3 ts2.
+  pure_add_constraints s1 ts1 s2 ∧
+  sub_completion n next_uvar s2 ts2 s3
+  ⇒
+  sub_completion n next_uvar s1 (ts1++ts2) s3`,
+induct_on `ts1` >>
+rw [pure_add_constraints_def] >>
+Cases_on `h` >>
+fs [pure_add_constraints_def] >>
+TRY (PairCases_on `x`) >>
+fs [pure_add_constraints_def] >>
+res_tac >>
+fs [sub_completion_def] >>
+rw [] >>
+fs [pure_add_constraints_def, pure_add_constraints_append] >>
+metis_tac []);
+
+val sub_completion_more_vars = Q.prove (
+`!m n1 n2 s1 ts s2.
+  sub_completion m (n1 + n2) s1 ts s2 ⇒ sub_completion m n1 s1 ts s2`,
+rw [sub_completion_def] >>
+qexists_tac `s2'` >>
+rw [] >>
+fs [SUBSET_DEF] >>
+rw [] >>
+`x < n1 + n2` by decide_tac >>
+metis_tac []);
+
+val sub_completion_infer_es = Q.prove (
+`!menv cenv env es st1 t st2 n ts2 s.
+  (infer_es menv cenv env es st1 = (Success t, st2)) ∧
+  sub_completion n st2.next_uvar st2.subst ts2 s
+  ⇒
+  ?ts1. sub_completion n st1.next_uvar st1.subst (ts1 ++ ts2) s`,
+induct_on `es` >>
+rw [infer_e_def, success_eqns] >-
+metis_tac [APPEND] >>
+res_tac >>
+imp_res_tac sub_completion_infer >>
+metis_tac [APPEND_ASSOC]);
+
 val sub_completion_apply = Q.prove (
 `!n uvars s1 ts s2 t1 t2.
   (apply_subst_t (t_collapse s1) t1 = apply_subst_t (t_collapse s1) t2) ∧
@@ -514,6 +556,16 @@ rw [infer_deBruijn_inc_def] >>
 induct_on `ts` >>
 rw []);
 
+val check_t_subst = Q.prove (
+`!t tvs s. 
+  check_t tvs {} t
+  ⇒
+  (convert_t t = convert_t (apply_subst_t (FMAP_MAP2 (λ(x,t). infer_deBruijn_inc tvs t) (t_collapse s)) t))`,
+ho_match_mp_tac (fetch "-" "convert_t_ind") >>
+srw_tac [ARITH_ss] [check_t_def, convert_t_def, apply_subst_t_eqn] >>
+induct_on `ts` >>
+rw []);
+
 val subst_infer_subst_swap_lem = Q.prove (
 `!t. (LENGTH ts = tvs) ∧
      check_t n {} t
@@ -563,6 +615,49 @@ rw [apply_subst_t_eqn, convert_t_def, deBruijn_subst_def, EL_MAP,
      metis_tac [LENGTH_MAP, rich_listTheory.LENGTH_COUNT_LIST, subst_infer_subst_swap_lem],
  metis_tac [],
  metis_tac []]);
+
+ (*
+val subst_infer_subst_swap = Q.prove (
+`(!t1 t2 s tvs nuvar.
+   type_subst
+      (ZIP
+         (tvs,
+          MAP (λa. convert_t a)
+            (MAP (apply_subst_t s)
+               (MAP (λn. Infer_Tuvar (nuvar + n))
+                  (COUNT_LIST (LENGTH tvs)))))) t1
+   =
+   (convert_t o apply_subst_t s) t2) ∧
+ (!ts1 ts2 s tvs nuvar.
+  (LENGTH ts1 = LENGTH ts2) ∧
+  ⇒
+  (MAP
+     (type_subst
+        (ZIP
+           (tvs,
+            MAP (λa. convert_t a)
+              (MAP (apply_subst_t s)
+                 (MAP (λn. Infer_Tuvar (nuvar + n))
+                    (COUNT_LIST (LENGTH tvs))))))) ts1
+   =
+   MAP (convert_t o apply_subst_t s) ts2))`,
+
+
+ho_match_mp_tac t_induction >>
+rw [apply_subst_t_eqn, convert_t_def, type_subst_def, EL_MAP,
+    infer_deBruijn_subst_def, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
+    rich_listTheory.LENGTH_COUNT_LIST] >|
+[fs [SUBSET_DEF, FLOOKUP_DEF, FRANGE_FLOOKUP, FMAP_MAP2_THM] >>
+     `n < uvar + tvs` by decide_tac >>
+     `n ∈ FDOM (t_collapse s)` by res_tac >>
+     fs [] >>
+     `check_t n' {} (t_collapse s ' n)` by metis_tac [] >>
+     fs [] >>
+     metis_tac [LENGTH_MAP, rich_listTheory.LENGTH_COUNT_LIST, subst_infer_subst_swap_lem],
+ metis_tac [],
+ metis_tac []]);
+
+ *)
 
 val binop_tac =
 rw [typeSystemTheory.type_op_cases, 
@@ -679,8 +774,46 @@ rw [apply_subst_t_eqn, convert_t_def, Tbool_def, Tint_def, Tunit_def] >|
            SOME (MAP (λ(x,tvs,t). (x,tvs,convert_t t)) env')`
                     by metis_tac [lookup_map] >>
           rw [] >>
-          all_tac],
+          `lookup n (MAP (λ(x,y). (x,(\z. FST z,convert_t (SND z)) y)) env') =
+           SOME ((\y. FST y,convert_t (SND y)) (tvs,t))`
+                    by (match_mp_tac lookup_map >>
+                        rw[]) >>
+          fs [LAMBDA_PROD] >>
+          `check_t tvs {} t`
+                    by (imp_res_tac typeSystemTheory.lookup_in >>
+                        fs [MEM_MAP, EVERY_MEM] >>
+                        rw [] >>
+                        PairCases_on `y'` >>
+                        PairCases_on `y''''` >>
+                        PairCases_on `y'''` >>
+                        PairCases_on `y'''''` >>
+                        fs [] >>
+                        rw [] >>
+                        res_tac >>
+                        fs [] >>
+                        res_tac >>
+                        fs []) >>
+          metis_tac [check_t_subst]],
  (* Con *)
+     `?tvs ts t. v' = (tvs, ts, t)` by (PairCases_on `v'` >> rw []) >>
+     rw [rich_listTheory.LENGTH_COUNT_LIST, EVERY_MAP] >>
+     fs [] >-
+     metis_tac [sub_completion_check] >>
+     `type_es (convert_menv menv) cenv tenv es (MAP (convert_t o apply_subst_t s) ts'')`
+             by (imp_res_tac sub_completion_add_constraints >>
+                 `sub_completion (num_tvs tenv) st'''.next_uvar st'''.subst
+                    (MAP SOME
+                       (ZIP
+                          (ts'',
+                           MAP
+                             (infer_type_subst
+                                (ZIP
+                                   (tvs,
+                                    MAP (λn. Infer_Tuvar (st'''.next_uvar + n))
+                                      (COUNT_LIST (LENGTH tvs))))) ts)) ++ extra_constraints) s`
+                                   by metis_tac [sub_completion_more_vars] >>
+                 imp_res_tac sub_completion_infer_es >>
+                 metis_tac []) >>
      all_tac,
  (* Fun *)
      all_tac,
@@ -722,6 +855,7 @@ rw [apply_subst_t_eqn, convert_t_def, Tbool_def, Tint_def, Tunit_def] >|
  all_tac,
  all_tac]
  *)
+
  (*
 (* Fn case *)
 rw [Tfn_def]
