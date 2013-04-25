@@ -213,11 +213,12 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
    ((recs,envs) = cd.ceenv) ∧
    (LENGTH bvs = LENGTH recs + LENGTH envs) ∧
    (∀i x bv. i < LENGTH recs ∧ (x = EL i recs) ∧ (bv = EL i bvs) ⇒
+     x < LENGTH defs ∧
      ∃p jenv jdefs jx.
-       (bv = RefPtr p) ∧
+       (bv = RefPtr p) ∧ jx < LENGTH jdefs ∧
        (FLOOKUP rd.cls p = SOME (jenv,jdefs,jx)) ∧
-       syneq c (CRecClos env defs x) (CRecClos jenv jdefs jx)) ∧
-   (∀i x bv. LENGTH recs + i < LENGTH envs ∧ (x = EL i envs) ∧ (bv = EL (LENGTH recs + i) bvs) ⇒
+       syneq c (CRecClos jenv jdefs jx) (CRecClos env defs x)) ∧
+   (∀i x bv. i < LENGTH envs ∧ (x = EL i envs) ∧ (bv = EL (LENGTH recs + i) bvs) ⇒
        x < LENGTH env ∧ Cv_bv pp (EL x env) bv)
    ⇒ benv_bvs pp bvs cd env defs)`
 
@@ -282,6 +283,9 @@ val good_rd_def = Define`
       Cv_bv (mk_pp rd c bs) (CRecClos env defs j) (bs.refs ' p))
     rd.cls`
 
+val syneq_exp_relates_same_vars = store_thm("syneq_exp_relates_same_vars",
+  ``(∀c z1 z2 V e1 e2. syneq_exp c z1 z2 V e1 e2 ⇒ (z2 = z1) ∧ (e2 = e1) ∧ 
+
 val syneq_Cv_bv = store_thm("syneq_Cv_bv",
   ``∀c v1 v2. syneq c v1 v2 ⇒
     ∀pp bv. (FST(SND pp) = c) ∧ Cv_bv pp v1 bv ⇒ Cv_bv pp v2 bv``,
@@ -304,22 +308,55 @@ val syneq_Cv_bv = store_thm("syneq_Cv_bv",
       simp[Once Cv_bv_cases] >>
       simp[Once Cv_bv_cases,SimpR``$==>``] >>
       simp[FORALL_PROD,el_check_def] ) >>
+    `syneq c (CRecClos env1 defs1 d1) (CRecClos env2 defs2 d2)` by (
+      simp[Once syneq_cases] >> metis_tac[] ) >>
     simp[Once Cv_bv_cases] >>
-    simp[Once Cv_bv_cases,SimpR``$==>``] >>
     simp[el_check_def] >> rw[] >>
     rator_x_assum`syneq_defs`mp_tac >>
     simp[Once syneq_exp_cases] >> strip_tac >>
     fs[EVERY_MEM] >>
     full_simp_tac(srw_ss()++QUANT_INST_ss[])[] >>
+    rfs[] >> rw[] >>
     first_x_assum(qspecl_then[`d1`,`d2`]mp_tac) >>
-    simp[] >> strip_tac >>
+    simp[] >> strip_tac >> rfs[] >>
+    `MEM (INR l) defs1 ∧ MEM (INR l) defs2` by (rw[MEM_EL] >> PROVE_TAC[]) >>
+    `∃envs recs. cd.ceenv = (recs,envs)` by (
+      Cases_on`cd.ceenv`>>rw[] ) >>
+    fs[FLOOKUP_DEF] >> rw[] >>
+    ntac 2(qpat_assum`(X,Z) = Y`mp_tac) >>
+    simp[syneq_cb_aux_def] >> strip_tac >>
+    `b` by (
+      simp[] >>
+      rator_x_assum`benv_bvs`mp_tac >>
+      simp[Once Cv_bv_cases] >>
+      simp[EVERY_MEM,MEM_EL] >>
+      metis_tac[] ) >>
+    fs[] >> rw[] >> fs[] >> rw[] >>
+    simp[Once Cv_bv_cases,el_check_def,FLOOKUP_DEF] >>
     rator_x_assum`benv_bvs`mp_tac >>
     simp[Once Cv_bv_cases] >>
     simp[Once Cv_bv_cases,SimpR``$==>``] >>
-    `∃envs recs. cd.ceenv = (recs,envs)` by (
-      Cases_on`cd.ceenv`>>rw[] ) >> simp[] >>
+    strip_tac >> simp[] >>
+    conj_tac >- (
+      gen_tac >> strip_tac >>
+      res_tac >> simp[] >>
+      rator_x_assum`syneq`mp_tac >>
+      simp[Once syneq_cases] >>
+      simp[Once syneq_cases,SimpR``$==>``] >>
+      rator_x_assum`syneq`mp_tac >>
+      simp[Once syneq_cases] >>
+      disch_then(qx_choosel_then[`V1`,`U1`]strip_assume_tac) >>
+      disch_then(qx_choosel_then[`V2`,`U2`]strip_assume_tac) >>
+      syneq_exp_trans
+      syneq_exp_mono_V
+
+    rfs[syneq_cb_aux_def,LET_THM,FLOOKUP_DEF] >> fs[]
+
+    simp[] >>
     rfs[] >>
     rfs[syneq_cb_aux_def,FLOOKUP_DEF,LET_THM] >> fs[] >>
+    rpt (BasicProvers.VAR_EQ_TAC) >> strip_tac >>
+    fs[EVERY_MEM]
 
     reverse conj_tac >- (
       gen_tac >> strip_tac >>
@@ -373,6 +410,8 @@ val syneq_Cv_bv = store_thm("syneq_Cv_bv",
     first_x_assum(qspecl_then[`p1`,`p2`,`k`,`n`]mp_tac) >>
     rfs[] >> rw[] >> fs[]) >>
   simp[Once Cv_bv_cases] >> rw[])
+
+set_trace"goalstack print goal at top"0
 
 val s_refs_def = Define`
   s_refs c rd s bs =
