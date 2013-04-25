@@ -91,7 +91,7 @@ rw[Once Cevaluate_cases] >> PROVE_TAC[])
 val Cevaluate_fun = store_thm(
 "Cevaluate_fun",
 ``∀c s env b res. Cevaluate c s env (CFun b) res =
-  (∀l. (b = INR l) ⇒ l ∈ FDOM c ∧ ((c ' l).nz = 1) ∧ ((c ' l).ez = LENGTH env)) ∧
+  (∀l. (b = INR l) ⇒ l ∈ FDOM c ∧ ((c ' l).nz = 1) ∧ ((c ' l).ez = LENGTH env) ∧ ((c ' l).ix = 0)) ∧
   (res = (s, Rval (CRecClos env [b] 0)))``,
 rw[Once Cevaluate_cases] >> metis_tac[])
 
@@ -1222,7 +1222,13 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     conj_tac >- (
       rator_x_assum`syneq_defs`mp_tac >>
       simp[Once syneq_exp_cases] >>
-      fsrw_tac[DNF_ss][] ) >>
+      strip_tac >>
+      qmatch_assum_abbrev_tac`P <=> Q` >>
+      `P` by (
+        simp_tac(srw_ss())[Abbr`P`] >>
+        rpt gen_tac >> strip_tac >>
+        res_tac >> simp[] ) >>
+      fs[]) >>
     first_x_assum match_mp_tac >>
     simp[] >> rfs[] >>
     simp[ADD_SYM] >>
@@ -1553,10 +1559,11 @@ val (Cclosed_rules,Cclosed_ind,Cclosed_cases) = Hol_reln`
  n < LENGTH defs ∧
  (∀az b. MEM (INL (az,b)) defs ⇒
     ∀v. v ∈ free_vars b ⇒ v < az + LENGTH defs + LENGTH env) ∧
- (∀l. MEM (INR l) defs
+ (∀i l. i < LENGTH defs ∧ (EL i defs = INR l)
    ⇒ l ∈ FDOM c
    ∧ ((c ' l).nz = LENGTH defs)
    ∧ ((c ' l).ez = LENGTH env)
+   ∧ ((c ' l).ix = i)
    ∧ closed_cd (c ' l))
 ⇒ Cclosed c (CRecClos env defs n)) ∧
 (Cclosed c (CLoc m))`
@@ -1675,6 +1682,7 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
     lrw[EVERY_REVERSE,EVERY_GENLIST] >>
     simp[Once Cclosed_cases] >>
     fsrw_tac[DNF_ss][EVERY_MEM,FEVERY_DEF] >>
+    fsrw_tac[SATISFY_ss][] >>
     map_every qx_gen_tac[`az`,`b`,`v`] >>
     rw[] >>
     Cases_on`v<az`>>fsrw_tac[ARITH_ss][]>>
@@ -1857,12 +1865,20 @@ val mkshift_thm = store_thm("mkshift_thm",
      EQ_TAC >- (
        strip_tac >> gen_tac >>
        simp[GSYM LEFT_FORALL_IMP_THM] >>
-       Cases >> TRY(Cases_on`x`)>>simp[] >>
+       strip_tac >> strip_tac >>
+       pop_assum mp_tac >> simp[EL_MAP] >>
+       BasicProvers.CASE_TAC >>
+       TRY(Cases_on`x`)>>simp[] >>
+       `MEM (EL i defs) defs` by PROVE_TAC[MEM_EL] >>
        fs[IMAGE_EQ_SING,MEM_FILTER] >>
-       strip_tac >> res_tac >> fs[] ) >>
+       first_x_assum(qspec_then`EL i defs`mp_tac) >>
+       simp[]) >>
      ntac 3 strip_tac >>
      fs[IMAGE_EQ_SING,MEM_FILTER] >>
-     res_tac >> fs[]) >>
+     strip_tac >>
+     `MEM (EL i defs) defs` by PROVE_TAC[MEM_EL] >>
+     first_x_assum(qspec_then`EL i defs`mp_tac) >>
+     simp[]) >>
    rw[EL_MAP] >>
    fs[IMAGE_EQ_SING,MEM_FILTER] >>
    fs[FILTER_EQ_NIL,MEM_EL,EVERY_MEM] >>
@@ -1996,6 +2012,7 @@ val mkshift_thm = store_thm("mkshift_thm",
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ))
 
+(*
 (* there is a more general theorem to be had about syneq being symmetric, but I haven't been bothered... *)
 val mkshift_thm2 = store_thm("mkshift_thm2",
  ``∀f k e c z1 z2 V.
@@ -2228,6 +2245,7 @@ val mkshift_thm2 = store_thm("mkshift_thm2",
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ))
+*)
 
 val free_vars_mkshift = store_thm("free_vars_mkshift",
   ``∀f k e. free_vars (mkshift f k e) = IMAGE (λv. if v < k then v else f (v-k) + k) (free_vars e)``,

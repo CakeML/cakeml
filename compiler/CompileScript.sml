@@ -381,7 +381,8 @@ Cevaluate c s env (CLet e b) r)
 Cevaluate c s env (CLet e b) (s', Rerr err))
 
 /\
-(! c s env defs b r. ( EVERY (\ cb . ! l. (cb = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = LENGTH defs) /\ (( FAPPLY  c  l).ez = LENGTH env)) defs /\
+(! c s env defs b r.
+((! i l. i < LENGTH defs /\ ( EL  i  defs = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = LENGTH defs) /\ (( FAPPLY  c  l).ez = LENGTH env) /\ (( FAPPLY  c  l).ix = i)) /\
 Cevaluate c s
   ( APPEND ( GENLIST (CRecClos env defs) ( LENGTH defs)) env)
   b r)
@@ -390,7 +391,7 @@ Cevaluate c s env (CLetrec defs b) r)
 
 /\
 (! c s env cb.
-(! l. (cb = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = 1) /\ (( FAPPLY  c  l).ez = LENGTH env))
+(! l. (cb = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = 1) /\ (( FAPPLY  c  l).ez = LENGTH env) /\ (( FAPPLY  c  l).ix = 0))
 ==>
 Cevaluate c s env (CFun cb) (s, Rval (CRecClos env [cb] 0)))
 
@@ -410,7 +411,7 @@ Cevaluate_list c s' env es (s'', Rval vs) /\
     ,b)
   | INR l => let d = FAPPLY  c  l in
              let (recs,envs) = d.ceenv in
-    ( (l IN FDOM  c /\ EVERY (\ n . n < LENGTH cenv) envs /\ EVERY (\ n . n < LENGTH defs) recs)
+    ( (l IN FDOM  c /\ EVERY (\ n . n < LENGTH cenv) envs /\ EVERY (\ n . n < LENGTH defs) recs /\ (d.ix = n))
     ,d.az
     ,d.nz
     ,d.ez
@@ -555,7 +556,7 @@ val _ = Defn.save_defn free_labs_defn;
 (syneq_cb_aux c d nz ez (INR l) =
   let cd = FAPPLY  c  l in
   let (recs,envs) = cd.ceenv in
-  ( (l IN FDOM  c /\ (cd.nz = nz) /\ (cd.ez = ez) /\ EVERY (\ n . n < nz) recs /\ EVERY (\ n . n < ez) envs /\ d < nz)
+  ( (l IN FDOM  c /\ (cd.nz = nz) /\ (cd.ez = ez) /\ (cd.ix = d) /\ EVERY (\ n . n < nz) recs /\ EVERY (\ n . n < ez) envs /\ d < nz)
   ,cd.az
   ,cd.body
   ,(1 + LENGTH recs + LENGTH envs)
@@ -676,8 +677,8 @@ syneq_exp c ez1 ez2 V e31 e32)
 syneq_exp c ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
 /\
 (! c ez1 ez2 V defs1 defs2 V'.
-((( EVERY (\ cb . ! l. (cb = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = LENGTH defs1) /\ (( FAPPLY  c  l).ez = ez1)) defs1) =
- ( EVERY (\ cb . ! l. (cb = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = LENGTH defs2) /\ (( FAPPLY  c  l).ez = ez2)) defs2)) /\
+(((! i l. i < LENGTH defs1 /\ ( EL  i  defs1 = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = LENGTH defs1) /\ (( FAPPLY  c  l).ez = ez1) /\ (( FAPPLY  c  l).ix = i)) =
+ (! i l. i < LENGTH defs2 /\ ( EL  i  defs2 = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = LENGTH defs2) /\ (( FAPPLY  c  l).ez = ez2) /\ (( FAPPLY  c  l).ix = i))) /\
 (! n1 n2. V' n1 n2 ==>
   n1 < LENGTH defs1 /\ n2 < LENGTH defs2 /\
   (! l. ( EL  n1  defs1 = INR l) ==> ( EL  n2  defs2 = INR l)) /\

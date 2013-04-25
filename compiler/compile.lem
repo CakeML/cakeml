@@ -336,9 +336,11 @@ Cevaluate c s env (CLet e b) (s', Rerr err)
 
 and
 forall c s env defs b r.
-List.for_all (fun cb -> forall l. cb = Inr l --> Pmap.mem l c
+(forall i l. i < List.length defs && (List.nth defs i = Inr l)
+  --> Pmap.mem l c
   && (Pmap.find l c).nz = List.length defs
-  && (Pmap.find l c).ez = List.length env) defs &&
+  && (Pmap.find l c).ez = List.length env
+  && (Pmap.find l c).ix = i) &&
 Cevaluate c s
   (List.append (genlist (CRecClos env defs) (List.length defs)) env)
   b r
@@ -349,7 +351,8 @@ and
 forall c s env cb.
 (forall l. cb = Inr l --> Pmap.mem l c
   && (Pmap.find l c).nz = 1
-  && (Pmap.find l c).ez = List.length env)
+  && (Pmap.find l c).ez = List.length env
+  && (Pmap.find l c).ix = 0)
 ==>
 Cevaluate c s env (CFun cb) (s, Rval (CRecClos env [cb] 0))
 
@@ -372,6 +375,7 @@ Cevaluate_list c s' env es (s'', Rval vs) &&
     (Pmap.mem l c
      && List.for_all (fun n -> n < List.length cenv) envs
      && List.for_all (fun n -> n < List.length defs) recs
+     && d.ix = n
     ,d.az
     ,d.nz
     ,d.ez
@@ -527,7 +531,7 @@ and
 syneq_cb_aux c d nz ez (Inr l) =
   let cd = Pmap.find l c in
   let (recs,envs) = cd.ceenv in
-  (Pmap.mem l c && cd.nz = nz && cd.ez = ez
+  (Pmap.mem l c && cd.nz = nz && cd.ez = ez && cd.ix = d
    && List.for_all (fun n -> n < nz) recs
    && List.for_all (fun n -> n < ez) envs
    && d < nz
@@ -653,12 +657,16 @@ syneq_exp c ez1 ez2 V e31 e32
 syneq_exp c ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32)
 and
 forall c ez1 ez2 V defs1 defs2 V'.
-((List.for_all (fun cb -> forall l. cb = Inr l --> Pmap.mem l c
+((forall i l. i < List.length defs1 && List.nth defs1 i = Inr l
+  --> Pmap.mem l c
   && (Pmap.find l c).nz = List.length defs1
-  && (Pmap.find l c).ez = ez1) defs1) =
- (List.for_all (fun cb -> forall l. cb = Inr l --> Pmap.mem l c
-   && (Pmap.find l c).nz = List.length defs2
-   && (Pmap.find l c).ez = ez2) defs2)) &&
+  && (Pmap.find l c).ez = ez1
+  && (Pmap.find l c).ix = i) =
+ (forall i l. i < List.length defs2 && List.nth defs2 i = Inr l
+  --> Pmap.mem l c
+  && (Pmap.find l c).nz = List.length defs2
+  && (Pmap.find l c).ez = ez2
+  && (Pmap.find l c).ix = i)) &&
 (forall n1 n2. V' n1 n2 -->
   n1 < List.length defs1 && n2 < List.length defs2 &&
   (forall l. List.nth defs1 n1 = Inr l --> List.nth defs2 n2 = Inr l) &&

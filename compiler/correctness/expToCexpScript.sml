@@ -338,6 +338,9 @@ simp[] >> strip_tac >>
 simp[] >>
 fsrw_tac[DNF_ss][] >>
 fsrw_tac[DNF_ss][MEM_EL] >>
+reverse conj_tac >- (
+  rw[] >> spose_not_then strip_assume_tac >>
+  rfs[EL_MAP,UNCURRY] ) >>
 rpt gen_tac >> strip_tac >>
 qmatch_assum_rename_tac`(a,b,c,d,e) = EL j defs`[] >>
 first_x_assum(qspecl_then[`j`,`a`,`b`,`c`,`d`,`e`]mp_tac) >>
@@ -1875,7 +1878,9 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     map_every qx_gen_tac[`p1`,`p2`] >> strip_tac >>
     map_every qexists_tac[`p1`,`p2`] >>
     reverse conj_tac >- METIS_TAC[] >>
-    conj_tac >- ( simp[EVERY_MEM,Abbr`defs`,MEM_MAP,EXISTS_PROD] >> rw[] ) >>
+    conj_tac >- (
+      rw[] >> spose_not_then strip_assume_tac >>
+      rfs[Abbr`defs`,EL_MAP,UNCURRY] ) >>
     qmatch_abbrev_tac`Cevaluate FEMPTY ss l1 ee rr` >>
     qmatch_assum_abbrev_tac`Cevaluate FEMPTY ss l2 ee rr` >>
     qsuff_tac`l1 = l2`>-rw[] >>
