@@ -102,7 +102,11 @@ val syneq_exp_c_SUBMAP = store_thm("syneq_exp_c_SUBMAP",
       metis_tac[] ) >>
     disch_then SUBST1_TAC >>
     disch_then SUBST1_TAC >>
-    ntac 2 (qpat_assum`X = Y`(mp_tac o SYM)) >> rw[] >> fs[] >>
+    ntac 2 (qpat_assum`X = Y`(mp_tac o SYM)) >>
+    simp[] >> ntac 3 strip_tac >> fs[] >>
+    reverse conj_tac >- (
+      gen_tac >> strip_tac >>
+      fs[MEM_EL] >> res_tac >> fs[] >> rfs[] ) >>
     first_x_assum match_mp_tac >> simp[] >>
     conj_tac >- (
       Cases_on`EL n1 defs1`>>TRY(PairCases_on`x`)>>fs[syneq_cb_aux_def,MEM_EL] >- (

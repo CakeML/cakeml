@@ -341,11 +341,30 @@ val Cv_bv_syneq = store_thm("Cv_bv_syneq",
   fsrw_tac[SATISFY_ss][GSYM LEFT_FORALL_IMP_THM] >>
   strip_tac >> fs[] >> strip_tac >> fs[] >>
   rpt BasicProvers.VAR_EQ_TAC >>
+  conj_tac >- (
+    gen_tac >> strip_tac >>
+    last_x_assum(qspec_then`i`mp_tac) >>
+    simp[] >> strip_tac >>
+    HINT_EXISTS_TAC >> simp[] >>
+    qsuff_tac`syneq c (CRecClos env1 defs1 (EL i recs)) (CRecClos env2 defs2 (EL i recs))`
+      >- metis_tac[syneq_trans] >>
+    simp[Once syneq_cases] >>
+    HINT_EXISTS_TAC >>
+    qexists_tac`U` >>
+    simp[] >> conj_tac >- metis_tac[] >>
+    disj1_tac >>
+    first_x_assum match_mp_tac >>
+    simp[MEM_EL] >> metis_tac[] ) >>
+  gen_tac >> strip_tac >>
+  qpat_assum`∀i. i < LENGTH envs ⇒ P ∧ Q`(qspec_then`i`mp_tac) >>
+  simp[] >> strip_tac >>
+  first_x_assum match_mp_tac >>
+  fsrw_tac[DNF_ss][] >>
+  first_x_assum match_mp_tac >>
+  first_x_assum match_mp_tac >>
+  simp[MEM_EL] >> metis_tac[])
 
-    match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
-    HINT_EXISTS_TAC
-    simp[]
-
+(*
 val syneq_exp_relates_same_vars = store_thm("syneq_exp_relates_same_vars",
   ``(∀c z z2 V e e2. syneq_exp c z z2 V e e2 ⇒ (z2 = z) ∧ (e2 = e) ⇒ ∀v. v ∈ free_vars e ∧ v < z ⇒ V v v) ∧
     (∀c z z2 V defs defs2 U. syneq_defs c z z2 V defs defs2 U ⇒
@@ -483,7 +502,6 @@ val syneq_exp_Cv_bv = store_thm("syneq_exp_Cv_bv",
   qpat_assum`X = Y.ceenv`(assume_tac o SYM) >>
   simp[syneq_cb_aux_def,EVERY_MEM,MEM_EL]
 
-
 val syneq_Cv_bv = store_thm("syneq_Cv_bv",
   ``∀c v1 v2. syneq c v1 v2 ⇒
     ∀pp bv. (FST(SND pp) = c) ∧ Cv_bv pp v1 bv ⇒ Cv_bv pp v2 bv``,
@@ -612,6 +630,7 @@ val syneq_Cv_bv = store_thm("syneq_Cv_bv",
   simp[Once Cv_bv_cases] >> rw[])
 
 set_trace"goalstack print goal at top"0
+*)
 
 val s_refs_def = Define`
   s_refs c rd s bs =

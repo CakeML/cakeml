@@ -676,18 +676,19 @@ syneq_exp c ez1 ez2 V e31 e32)
 ==>
 syneq_exp c ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
 /\
-(! c ez1 ez2 V defs1 defs2 V'.
+(! c ez1 ez2 V defs1 defs2 U.
 (((! i l. i < LENGTH defs1 /\ ( EL  i  defs1 = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = LENGTH defs1) /\ (( FAPPLY  c  l).ez = ez1) /\ (( FAPPLY  c  l).ix = i)) =
  (! i l. i < LENGTH defs2 /\ ( EL  i  defs2 = INR l) ==>  l IN FDOM  c /\ (( FAPPLY  c  l).nz = LENGTH defs2) /\ (( FAPPLY  c  l).ez = ez2) /\ (( FAPPLY  c  l).ix = i))) /\
-(! n1 n2. V' n1 n2 ==>
+(! n1 n2. U n1 n2 ==>
   n1 < LENGTH defs1 /\ n2 < LENGTH defs2 /\
   (! l. ( EL  n1  defs1 = INR l) ==> ( EL  n2  defs2 = INR l)) /\
   (? b az e1 j1 r1 e2 j2 r2.
   ((b,az,e1,j1,r1) = syneq_cb_aux c n1 ( LENGTH defs1) ez1 ( EL  n1  defs1)) /\
   ((b,az,e2,j2,r2) = syneq_cb_aux c n2 ( LENGTH defs2) ez2 ( EL  n2  defs2)) /\
-  (b ==> syneq_exp c (az +j1) (az +j2) (syneq_cb_V az r1 r2 V V') e1 e2))))
+  (b ==> syneq_exp c (az +j1) (az +j2) (syneq_cb_V az r1 r2 V U) e1 e2 /\
+    (! l. ( EL  n1  defs1 = INR l) ==> EVERY (\ v . U v v) ( FST ( FAPPLY  c  l).ceenv) /\ EVERY (\ v . V v v) ( SND ( FAPPLY  c  l).ceenv))))))
 ==>
-syneq_defs c ez1 ez2 V defs1 defs2 V')`;
+syneq_defs c ez1 ez2 V defs1 defs2 U)`;
 
 val _ = Hol_reln `
 (! c l.

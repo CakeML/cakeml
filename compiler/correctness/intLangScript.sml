@@ -403,7 +403,12 @@ val syneq_exp_mono_V = store_thm("syneq_exp_mono_V",
   last_x_assum(qspecl_then[`n1`,`n2`]mp_tac) >>
   simp[] >> strip_tac >>
   rpt (qpat_assum`A = B`(mp_tac o SYM)) >>
-  rw[] >>
+  reverse(rw[]) >- (
+    fs[] >> fs[EVERY_MEM] >> rw[] >>
+    first_x_assum match_mp_tac >>
+    rfs[] >>
+    fs[syneq_cb_aux_def,LET_THM,UNCURRY,EVERY_MEM] ) >>
+  fsrw_tac[DNF_ss][] >>
   first_x_assum (match_mp_tac o MP_CANON) >>
   simp[syneq_cb_V_def] >>
   srw_tac[ARITH_ss][] >>
@@ -560,7 +565,13 @@ val syneq_exp_trans = store_thm("syneq_exp_trans",
     ntac 4 (last_x_assum(qspecl_then[`n1`,`n2`]mp_tac)) >> rw[] >>
     ntac 4 (last_x_assum(qspecl_then[`n2`,`n3`]mp_tac)) >> rw[] >>
     rpt (qpat_assum`A = B`(mp_tac o SYM)) >>
-    rw[] >>
+    simp[] >> ntac 6 strip_tac >>
+    reverse conj_tac >- (
+      simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM] >>
+      gen_tac >> ntac 2 strip_tac >>
+      fs[] >> rfs[] >>
+      fs[EVERY_MEM] >>
+      metis_tac[] ) >>
     first_x_assum(qspecl_then[`az+j2'`,`syneq_cb_V az r1' r2' V' U'`,`e2'`]mp_tac) >>
     rw[] >> rfs[] >>
     match_mp_tac (MP_CANON(CONJUNCT1 (syneq_exp_mono_V))) >>
