@@ -6,40 +6,40 @@ val _ = new_theory "evaluateEquations"
 
 val evaluate_raise = Q.store_thm (
 "evaluate_raise",
-`!cenv s env err bv.
-  (evaluate cenv s env (Raise err) bv = (bv = (s, Rerr (Rraise err))))`,
+`!menv cenv s env err bv.
+  (evaluate menv cenv s env (Raise err) bv = (bv = (s, Rerr (Rraise err))))`,
 rw [Once evaluate_cases]);
 
 val evaluate_lit = Q.store_thm(
 "evaluate_lit",
-`!cenv s env l r.
-  (evaluate cenv s env (Lit l) r = (r = (s,Rval (Litv l))))`,
+`!menv cenv s env l r.
+  (evaluate menv cenv s env (Lit l) r = (r = (s,Rval (Litv l))))`,
 rw [Once evaluate_cases]);
 
 val evaluate_var = store_thm(
 "evaluate_var",
-``∀cenv s env n r targs. evaluate cenv s env (Var n targs) r =
-  (∃v topt. (lookup n env = SOME (v, topt)) ∧ (r = (s, Rval (do_tapp topt targs v)))) ∨
-  ((lookup n env = NONE) ∧ (r = (s, Rerr Rtype_error)))``,
+``∀menv cenv s env n r. evaluate menv cenv s env (Var n) r =
+  (∃v topt. (lookup_var_id n menv env = SOME v) ∧ (r = (s, Rval v))) ∨
+  ((lookup_var_id n menv env = NONE) ∧ (r = (s, Rerr Rtype_error)))``,
 rw [Once evaluate_cases] >>
 metis_tac [])
 
 val evaluate_fun = store_thm(
 "evaluate_fun",
-``∀cenv s env n topt e r. 
-  evaluate cenv s env (Fun n topt e) r = (r = (s, Rval (Closure env n topt e)))``,
+``∀menv cenv s env n e r. 
+  evaluate menv cenv s env (Fun n e) r = (r = (s, Rval (Closure env n e)))``,
 rw [Once evaluate_cases])
 
 val _ = export_rewrites["evaluate_raise","evaluate_lit","evaluate_fun"];
 
 val evaluate_con = Q.store_thm(
 "evaluate_con",
-`!cenv env cn es r s1.
-  (evaluate cenv s1 env (Con cn es) r =
+`!menv cenv env cn es r s1.
+  (evaluate menv cenv s1 env (Con cn es) r =
    if do_con_check cenv cn (LENGTH es) then
-     (∃err s2. evaluate_list cenv s1 env es (s2, Rerr err) ∧
+     (∃err s2. evaluate_list menv cenv s1 env es (s2, Rerr err) ∧
             (r = (s2, Rerr err))) ∨
-     (∃vs s2. evaluate_list cenv s1 env es (s2, Rval vs) ∧
+     (∃vs s2. evaluate_list menv cenv s1 env es (s2, Rval vs) ∧
            (r = (s2, Rval (Conv cn vs))))
    else (r = (s1, Rerr Rtype_error)))`,
 rw [Once evaluate_cases] >>
@@ -47,20 +47,20 @@ metis_tac []);
 
 val evaluate_app = store_thm(
 "evaluate_app",
-``∀cenv s1 env op e1 e2 r. evaluate cenv s1 env (App op e1 e2) r =
+``∀menv cenv s1 env op e1 e2 r. evaluate menv cenv s1 env (App op e1 e2) r =
   (∃v1 v2 env' e s2 s3 s4. 
-     evaluate cenv s1 env e1 (s2, Rval v1) ∧ 
-     (evaluate cenv s2 env e2 (s3, Rval v2)) ∧
+     evaluate menv cenv s1 env e1 (s2, Rval v1) ∧ 
+     (evaluate menv cenv s2 env e2 (s3, Rval v2)) ∧
                   (do_app s3 env op v1 v2 = SOME (s4,env',e)) ∧
-                  evaluate cenv s4 env' e r) ∨
+                  evaluate menv cenv s4 env' e r) ∨
   (∃v1 v2 s2 s3. 
-     evaluate cenv s1 env e1 (s2, Rval v1) ∧ 
-     (evaluate cenv s2 env e2 (s3, Rval v2)) ∧
+     evaluate menv cenv s1 env e1 (s2, Rval v1) ∧ 
+     (evaluate menv cenv s2 env e2 (s3, Rval v2)) ∧
            (do_app s3 env op v1 v2 = NONE) ∧
            (r = (s3, Rerr Rtype_error))) ∨
-  (∃v1 err s2 s3. evaluate cenv s1 env e1 (s2, Rval v1) ∧ (evaluate cenv s2 env e2 (s3, Rerr err)) ∧
+  (∃v1 err s2 s3. evaluate menv cenv s1 env e1 (s2, Rval v1) ∧ (evaluate menv cenv s2 env e2 (s3, Rerr err)) ∧
             (r = (s3, Rerr err))) ∨
-  (∃err s. evaluate cenv s1 env e1 (s, Rerr err) ∧
+  (∃err s. evaluate menv cenv s1 env e1 (s, Rerr err) ∧
          (r = (s, Rerr err)))``,
 rw[Once evaluate_cases] >>
 metis_tac [])
@@ -77,8 +77,8 @@ rw [Once evaluate'_cases])
 
 val evaluate'_fun = store_thm(
 "evaluate'_fun",
-``∀s env n topt e r. 
-  evaluate' s env (Fun n topt e) r = (r = (s, Rval (Closure env n topt e)))``,
+``∀s env n e r. 
+  evaluate' s env (Fun n e) r = (r = (s, Rval (Closure env n e)))``,
 rw [Once evaluate'_cases])
 
 val _ = export_rewrites["evaluate'_raise","evaluate'_lit","evaluate'_fun"]
@@ -93,10 +93,13 @@ metis_tac [])
 
 val evaluate'_var = store_thm(
 "evaluate'_var",
-``∀s env n r targs. evaluate' s env (Var n targs) r =
-  (∃v topt. (lookup n env = SOME (v,topt)) ∧ (r = (s, Rval (do_tapp topt targs v))) ∨
-  ((lookup n env = NONE) ∧ (r = (s, Rerr Rtype_error))))``,
+``∀s env n r. evaluate' s env (Var n) r =
+  (∃n' v. (n = Short n') ∧
+          (((lookup n' env = SOME v) ∧ (r = (s, Rval v))) ∨
+           ((lookup n' env = NONE) ∧ (r = (s, Rerr Rtype_error)))))``,
 rw [Once evaluate'_cases] >>
+cases_on `n` >>
+fs [] >>
 metis_tac [])
 
 val evaluate_list'_thm = store_thm(
@@ -148,10 +151,5 @@ val evaluate'_log = store_thm(
   (∃err s2. evaluate' s env e1 (s2, Rerr err) ∧ (r = (s2, Rerr err)))``,
 rw[Once evaluate'_cases] >>
 metis_tac [])
-
-val d_state_to_store_thm = Q.store_thm ("d_state_to_store_thm",
-`(d_state_to_store s (SOME (v0,v1,v3,s',v7,v9,v10)) = s') ∧
- (d_state_to_store s NONE = s)`,
-rw [d_state_to_store_def]);
 
 val _ = export_theory ()

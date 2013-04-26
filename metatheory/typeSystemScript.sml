@@ -1,7 +1,15 @@
 (* Theorems about type_e, type_es, and type_funs *)
-open preamble MiniMLTheory MiniMLTerminationTheory;
+open preamble MiniMLTheory MiniMLTerminationTheory rich_listTheory;
 
 val _ = new_theory "typeSystem";
+
+val all_distinct_map_inj = Q.prove (
+`!f l. (!x y. (f x = f y) ⇒ (x = y)) ⇒ (ALL_DISTINCT (MAP f l) = ALL_DISTINCT l)`,
+Induct_on `l` >>
+rw [] >>
+res_tac >>
+rw [MEM_MAP] >>
+metis_tac []);
 
 val mem_lem = Q.prove (
 `!x y l. MEM (x,y) l ⇒ ∃z. (x = FST z) ∧ z ∈ set l`,
@@ -24,28 +32,16 @@ val option_map_eqns = Q.prove (
  (!f x. option_map f (SOME x) = SOME (f x))`,
 rw [option_map_def]);
 
-(* TODO: Move these four definitions to miniML.lem? *)
+(* TODO: Move these definitions to miniML.lem? *)
 (* Check that the dynamic and static constructor environments are consistent *)
 val consistent_con_env_def = Define `
   (consistent_con_env [] [] = T) ∧
-  (consistent_con_env ((cn, (n, ns))::envC) ((cn', (tvs, ts, tn))::tenvC) =
+  (consistent_con_env ((cn, (n, tn'))::envC) ((cn', (tvs, ts, tn))::tenvC) =
     (cn = cn') ∧
+    (tn = tn') ∧
     (LENGTH ts = n) ∧
-    cn IN ns ∧
     consistent_con_env envC tenvC) ∧
   (consistent_con_env _ _ = F)`;
-
-(* Check that two constructors of the same type have the same set of all
- * constructors for that type *)
-val consistent_con_env2_def = Define `
-  consistent_con_env2 envC tenvC =
-    (∀n1 n2 tvs1 tvs2 ts1 ts2 tn ns1 ns2 l1 l2.
-       (lookup n1 tenvC = SOME (tvs1,ts1,tn)) ∧
-       (lookup n2 tenvC = SOME (tvs2,ts2,tn)) ∧
-       (lookup n1 envC = SOME (l1,ns1)) ∧
-       (lookup n2 envC = SOME (l2,ns2))
-       ⇒
-       (ns1 = ns2))`;
 
 val tenv_ok_def = Define `
 (tenv_ok Empty = T) ∧
@@ -53,19 +49,40 @@ val tenv_ok_def = Define `
 (tenv_ok (Bind_name x tvs t tenv) = 
   check_freevars (tvs + num_tvs tenv) [] t ∧ tenv_ok tenv)`;
 
-val tenvC_ok_def = Define `
-tenvC_ok tenvC = EVERY (\(cn,tvs,ts,tn). EVERY (check_freevars 0 tvs) ts) tenvC`;
+val same_module_def = Define `
+(same_module (Short x) (Short y) = T) ∧
+(same_module (Long mn1 x) (Long mn2 y) = (mn1 = mn2)) ∧
+(same_module _ _ = F)`;
 
-val get_first_tenv_def = Define `
-  (get_first_tenv ds NONE =
-     case ds of
-        (Dtype tds::ds) => tds
-      | _ => []) ∧
-  (get_first_tenv _ _ = [])`;
+val tenvC_ok_def = Define `
+tenvC_ok tenvC = 
+ALL_DISTINCT (MAP FST tenvC) ∧
+EVERY (\(cn,tvs,ts,tn). same_module cn tn ∧ EVERY (check_freevars 0 tvs) ts) tenvC`;
 
 val disjoint_env_def = Define `
   disjoint_env e1 e2 =
     DISJOINT (set (MAP FST e1)) (set (MAP FST e2))`;
+
+val tenvC_ok_merge = Q.store_thm ("tenvC_ok_merge",
+`!tenvC1 tenvC2.
+  tenvC_ok (merge tenvC1 tenvC2) = 
+  tenvC_ok tenvC1 ∧ tenvC_ok tenvC2 ∧ disjoint_env tenvC1 tenvC2`, 
+rw [tenvC_ok_def, merge_def, ALL_DISTINCT_APPEND] >>
+eq_tac >>
+rw [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+metis_tac []);
+
+val tenvM_ok_def = Define `
+tenvM_ok tenvM = EVERY (\(mn,tenv). tenv_ok (bind_var_list2 tenv Empty)) tenvM`;
+
+val consistent_mod_env_def = Define `
+(consistent_mod_env tenvS tenvC [] [] = T) ∧
+(consistent_mod_env tenvS tenvC ((mn,env)::menv) ((mn',tenv)::tenvM) =
+  (mn = mn') ∧
+  ¬(MEM mn (MAP FST tenvM)) ∧
+  type_env tenvM tenvC tenvS env (bind_var_list2 tenv Empty) ∧
+  consistent_mod_env tenvS tenvC menv tenvM) ∧
+(consistent_mod_env tenvS tenvC _ _ = F)`;
 
 val tenvC_ok_lookup = Q.store_thm ("tenvC_ok_lookup",
 `!tenvC cn tvs ts tn.
@@ -81,23 +98,46 @@ rw [] >>
 fs [] >>
 metis_tac []);
 
+val tenvM_ok_lookup = Q.store_thm ("tenvM_ok_lookup",
+`!n tenvM tenvC tenv.
+  tenvM_ok tenvM ∧
+  (lookup n tenvM = SOME tenv) ⇒
+  tenv_ok (bind_var_list2 tenv Empty)`,
+induct_on `tenvM` >>
+rw [lookup_def, tenvM_ok_def] >>
+PairCases_on `h` >>
+fs [lookup_def] >>
+every_case_tac >>
+fs [] >>
+metis_tac [tenvM_ok_def]);
+
+val lookup_con_ok = Q.store_thm ("lookup_con_ok",
+`!tenvC cn tvs ts tn.
+  tenvC_ok tenvC ∧ (lookup cn tenvC = SOME (tvs,ts,tn))
+  ⇒
+  EVERY (check_freevars 0 tvs) ts`,
+rw [lookup_def] >>
+every_case_tac >>
+fs [] >>
+metis_tac [tenvM_ok_lookup, tenvC_ok_lookup]);
+
 (* Constructors in their type environment are also in their execution
  * environment *)
 val consistent_con_env_thm = Q.store_thm ("consistent_con_env_thm",
-`∀envC tenvC.
-  consistent_con_env envC tenvC 
+`∀cenv tenvC.
+  consistent_con_env cenv tenvC 
   ⇒
   ((lookup cn tenvC = SOME (tvs, ts, tn)) ⇒ 
-     (∃ns. (lookup cn envC = SOME (LENGTH ts, ns)) ∧ cn IN ns))
+     (∃ns. (lookup cn cenv = SOME (LENGTH ts, tn))))
   ∧
-  ((lookup cn tenvC = NONE) ⇒ (lookup cn envC = NONE))`,
+  ((lookup cn tenvC = NONE) ⇒ (lookup cn cenv = NONE))`,
 recInduct (fetch "-" "consistent_con_env_ind") >>
 rw [lookup_def, consistent_con_env_def] >>
 rw []);
 
 val type_es_length = Q.store_thm ("type_es_length",
-`∀tenvC tenv es ts.
-  type_es tenvC tenv es ts ⇒ (LENGTH es = LENGTH ts)`,
+`∀tenvM tenvC tenv es ts.
+  type_es tenvM tenvC tenv es ts ⇒ (LENGTH es = LENGTH ts)`,
 induct_on `es` >>
 rw [Once type_e_cases] >>
 rw [] >>
@@ -143,6 +183,13 @@ fs [Once DISJOINT_SYM, DISJOINT_INSERT] >>
 fs [disjoint_env_def] >>
 metis_tac [DISJOINT_SYM]);
 
+val lookup_con_disjoint = Q.store_thm ("lookup_con_disjoint",
+`!x v tenvC1 tenvC2.
+  (lookup x tenvC1 = SOME v) ∧
+  disjoint_env tenvC1 tenvC2
+  ⇒
+  (lookup x (merge tenvC2 tenvC1) = SOME v)`,
+metis_tac [lookup_disjoint]);
 
 val lookup_notin = Q.store_thm ("lookup_notin",
 `!x e. (lookup x e = NONE) = ~MEM x (MAP FST e)`,
@@ -209,30 +256,33 @@ rw [type_op_def, Tfn_def, Tint_def, Tbool_def, Tunit_def, Tref_def] >>
 cases_on `op` >>
 rw [] >>
 cases_on `t1` >>
-rw [] >>
-cases_on `l` >>
 rw [] >|
-[cases_on `t` >>
+[cases_on `t2` >>
+     fs [],
+ cases_on `t2` >>
+     fs [],
+ cases_on `t2` >>
      rw [] >>
-     cases_on `t2` >>
+     cases_on `t'` >>
+     rw [] >>
+     every_case_tac,
+ cases_on `t2` >>
+     fs [],
+ cases_on `t2` >>
+     fs [],
+ cases_on `t2` >>
+     rw [] >>
+     cases_on `t'` >>
      rw [] >>
      every_case_tac,
  cases_on `t` >>
-     rw [] >>
-     cases_on `t2` >>
-     rw [] >>
-     every_case_tac,
- cases_on `t'` >>
-     rw [] >>
-     cases_on `t''` >>
-     rw [] >>
-     cases_on `t` >>
-     rw [] >>
+     rw []  >>
+     every_case_tac >>
      metis_tac [],
- cases_on `t'` >>
-     rw [] >>
-     cases_on `t` >>
-     rw []]);
+ cases_on `t` >>
+     rw []  >>
+     every_case_tac >>
+     metis_tac []]);
 
 val check_freevars_subst_list = Q.store_thm ("check_freevars_subst_list",
 `!dbmax tvs tvs' ts ts'.
@@ -257,6 +307,19 @@ fs [EVERY_MEM] >>
 fs [MEM_EL] >-
 metis_tac [] >>
 decide_tac);
+
+val deBruijn_subst_check_freevars2 = Q.store_thm ("deBruijn_subst_check_freevars2",
+`!tvs tvs' t ts n tvs''.
+  check_freevars (LENGTH ts) tvs' t ∧
+  EVERY (check_freevars tvs tvs') ts
+  ⇒
+  check_freevars tvs tvs' (deBruijn_subst 0 ts t)`,
+ho_match_mp_tac check_freevars_ind >>
+rw [check_freevars_def, deBruijn_subst_def, EVERY_MAP] >>
+fs [EVERY_MEM] >>
+fs [MEM_EL] >>
+rw [] >>
+metis_tac []);
 
 val check_freevars_add = Q.store_thm ("check_freevars_add",
 `(!tvs tvs' t. check_freevars tvs tvs' t ⇒ 
@@ -297,6 +360,49 @@ rw [check_freevars_def, num_tvs_def, lookup_tenv_def, tenv_ok_def] >>
 metis_tac [deBruijn_subst_check_freevars, arithmeticTheory.ADD_ASSOC,
            check_freevars_subst_inc]);
 
+val deBruijn_inc0 = Q.store_thm ("deBruijn_inc0",
+`(!t sk. deBruijn_inc sk 0 t = t) ∧
+ (!ts sk. MAP (deBruijn_inc sk 0) ts = ts)`,
+ho_match_mp_tac t_induction >>
+rw [deBruijn_inc_def] >>
+metis_tac []);
+
+val num_tvs_bvl2 = Q.store_thm ("num_tvs_bvl2",
+`!tenv1 tenv2. num_tvs (bind_var_list2 tenv1 tenv2) = num_tvs tenv2`,
+ho_match_mp_tac bind_var_list2_ind >>
+rw [num_tvs_def, bind_var_list2_def, bind_tenv_def]);
+
+val type_e_freevars_lem3 = Q.prove (
+`!tenv tenv' targs n t inc.
+  EVERY (check_freevars (num_tvs tenv') []) targs ∧
+  (lookup n tenv = SOME (LENGTH targs,t)) ∧
+  tenv_ok (bind_var_list2 tenv Empty)
+  ⇒ 
+  check_freevars (num_tvs tenv') [] (deBruijn_subst 0 targs t)`,
+induct_on `tenv` >>
+rw [lookup_def, tenv_ok_def, bind_var_list2_def] >>
+PairCases_on `h` >>
+rw [] >>
+fs [lookup_def, tenv_ok_def, bind_var_list2_def, bind_tenv_def] >>
+cases_on `h0 = n` >>
+fs [] >>
+rw [] >>
+metis_tac [deBruijn_subst_check_freevars2, arithmeticTheory.ADD_0, num_tvs_bvl2, num_tvs_def]);
+
+val type_e_freevars_lem4 = Q.prove (
+`!tenvM tenv targs n t.
+  EVERY (check_freevars (num_tvs tenv) []) targs ∧
+  (t_lookup_var_id n tenvM tenv = SOME (LENGTH targs,t)) ∧
+  tenvM_ok tenvM ∧
+  tenv_ok tenv
+  ⇒ 
+  check_freevars (num_tvs tenv) [] (deBruijn_subst 0 targs t)`,
+rw [t_lookup_var_id_def] >>
+every_case_tac >>
+fs [] >>
+imp_res_tac tenvM_ok_lookup >>
+metis_tac [type_e_freevars_lem3,type_e_freevars_lem2,arithmeticTheory.ADD]);
+
 val num_tvs_bind_var_list = Q.store_thm ("num_tvs_bind_var_list",
 `!tvs env tenvE. num_tvs (bind_var_list tvs env tenvE) = num_tvs tenvE`,
 induct_on `env` >>
@@ -304,36 +410,36 @@ rw [num_tvs_def, bind_var_list_def] >>
 PairCases_on `h` >>
 rw [bind_var_list_def, bind_tenv_def, num_tvs_def]);
 
-val tenv_ok_bind_var_list = Q.store_thm ("tenv_ok_bind_var_list",
-`!funs tenvC env tenvE tvs env'.
-  type_funs tenvC (bind_var_list 0 env' tenvE) funs env ∧
+val tenv_ok_bind_var_list_funs = Q.store_thm ("tenv_ok_bind_var_list_funs",
+`!funs tenvM tenvC env tenvE tvs env'.
+  type_funs tenvM tenvC (bind_var_list 0 env' tenvE) funs env ∧
   tenv_ok tenvE
   ⇒
   tenv_ok (bind_var_list 0 env tenvE)`,
 induct_on `funs` >>
 rw [] >>
-qpat_assum `type_funs x0 x1 x2 x3` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
+qpat_assum `type_funs x0 x1 x2 x3 x4` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
 fs [] >>
 rw [check_freevars_def, bind_tenv_def, bind_var_list_def, tenv_ok_def] >>
 fs [check_freevars_def, num_tvs_bind_var_list] >>
 metis_tac []);
 
-val type_freevars_lem4 = Q.prove (
-`!funs tenvC env tenvE tvs env'.
-  type_funs tenvC (bind_var_list 0 env' (bind_tvar tvs tenvE)) funs env ∧
+val tenv_ok_bind_var_list_tvs = Q.store_thm ("tenv_ok_bind_var_list_tvs",
+`!funs tenvM tenvC env tenvE tvs env'.
+  type_funs tenvM tenvC (bind_var_list 0 env' (bind_tvar tvs tenvE)) funs env ∧
   tenv_ok tenvE
   ⇒
   tenv_ok (bind_var_list tvs env tenvE)`,
 induct_on `funs` >>
 rw [] >>
-qpat_assum `type_funs x0 x1 x2 x3` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
+qpat_assum `type_funs x0 x1 x2 x3 x4` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
 fs [] >>
 rw [check_freevars_def, bind_tenv_def, bind_var_list_def, tenv_ok_def] >>
 cases_on `tvs = 0` >>
 fs [check_freevars_def, num_tvs_bind_var_list, bind_tvar_def, num_tvs_def] >>
 metis_tac []);
 
-val type_freevars_lem5 = Q.prove (
+val tenv_ok_bind_var_list = Q.store_thm ("tenv_ok_bind_var_list",
 `!tenvE env.
   tenv_ok tenvE ∧ EVERY (check_freevars (num_tvs tenvE) []) (MAP SND env)
   ⇒
@@ -359,16 +465,19 @@ rw [check_freevars_def, bind_tenv_def, Tbool_def, Tint_def, Tunit_def, Tref_def,
 metis_tac []);
 
 val type_e_freevars = Q.store_thm ("type_e_freevars",
-`(!tenvC tenvE e t. 
-   type_e tenvC tenvE e t ⇒ 
+`(!tenvM tenvC tenvE e t. 
+   type_e tenvM tenvC tenvE e t ⇒ 
+   tenvM_ok tenvM ∧
    tenv_ok tenvE ⇒
    check_freevars (num_tvs tenvE) [] t) ∧
- (!tenvC tenvE es ts. 
-   type_es tenvC tenvE es ts ⇒
+ (!tenvM tenvC tenvE es ts. 
+   type_es tenvM tenvC tenvE es ts ⇒
+   tenvM_ok tenvM ∧
    tenv_ok tenvE ⇒
    EVERY (check_freevars (num_tvs tenvE) []) ts) ∧
- (!tenvC tenvE funs env. 
-   type_funs tenvC tenvE funs env ⇒
+ (!tenvM tenvC tenvE funs env. 
+   type_funs tenvM tenvC tenvE funs env ⇒
+   tenvM_ok tenvM ∧
    tenv_ok tenvE ⇒
    EVERY (check_freevars (num_tvs tenvE) []) (MAP SND env))`,
 ho_match_mp_tac type_e_strongind >>
@@ -377,25 +486,25 @@ rw [check_freevars_def, bind_tenv_def, num_tvs_def, type_uop_cases, type_op_case
     Tunit_def, Tref_def] >>
 fs [check_freevars_def] >|
 [metis_tac [deBruijn_subst_check_freevars],
- metis_tac [type_e_freevars_lem2, arithmeticTheory.ADD],
+ metis_tac [type_e_freevars_lem4, arithmeticTheory.ADD],
  cases_on `pes` >>
      fs [RES_FORALL, num_tvs_bind_var_list] >>
      qpat_assum `!x. P x` (ASSUME_TAC o Q.SPEC `(FST h, SND h)`) >>
      fs [] >>
-     metis_tac [type_p_freevars, type_freevars_lem5],
- metis_tac [tenv_ok_bind_var_list, num_tvs_bind_var_list],
- metis_tac [type_freevars_lem4, num_tvs_bind_var_list, bind_tvar_def]]);
+     metis_tac [type_p_freevars, tenv_ok_bind_var_list],
+ metis_tac [tenv_ok_bind_var_list_funs, num_tvs_bind_var_list],
+ metis_tac [tenv_ok_bind_var_list_tvs, num_tvs_bind_var_list, bind_tvar_def]]);
 
 (* Recursive functions have function type *)
 val type_funs_Tfn = Q.store_thm ("type_funs_Tfn",
-`∀tenvC tenv funs tenv' tvs t n.
-  type_funs tenvC tenv funs tenv' ∧
+`∀tenvM tenvC tenv funs tenv' tvs t n.
+  type_funs tenvM tenvC tenv funs tenv' ∧
   (lookup n tenv' = SOME t)
   ⇒
   ∃t1 t2. (t = Tfn t1 t2) ∧ check_freevars (num_tvs tenv) [] (Tfn t1 t2)`,
 induct_on `funs` >>
 rw [] >>
-qpat_assum `type_funs tenvC tenv funspat tenv'`
+qpat_assum `type_funs tenvM tenvC tenv funspat tenv'`
       (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
 rw [] >>
 fs [lookup_def, emp_def, bind_def] >>
@@ -405,9 +514,9 @@ metis_tac [type_e_freevars, bind_tenv_def, num_tvs_def]);
 
 (* Recursive functions can be looked up in the execution environment. *)
 val type_funs_lookup = Q.store_thm ("type_funs_lookup",
-`∀fn env tenvC funs env' n e tenv.
+`∀fn env tenvM tenvC funs env' n e tenv.
   MEM (fn,n,e) funs ∧
-  type_funs tenvC tenv funs env'
+  type_funs tenvM tenvC tenv funs env'
   ⇒
   (∃t. lookup fn env' = SOME t)`,
 Induct_on `funs` >>
@@ -420,9 +529,9 @@ metis_tac []);
 
 (* Functions in the type environment can be found *)
 val type_funs_find_recfun = Q.store_thm ("type_funs_find_recfun",
-`∀fn env tenvC funs tenv' e tenv t.
+`∀fn env tenvM tenvC funs tenv' e tenv t.
   (lookup fn tenv' = SOME t) ∧
-  type_funs tenvC tenv funs tenv'
+  type_funs tenvM tenvC tenv funs tenv'
   ⇒
   (∃n e. find_recfun fn funs = SOME (n,e))`,
 Induct_on `funs` >>
@@ -434,17 +543,16 @@ rw [Once find_recfun_def] >>
 metis_tac []);
 
 val type_recfun_lookup = Q.store_thm ("type_recfun_lookup",
-`∀fn funs n e tenvC tenv tenv' tvs t1 t2 topt.
-  (find_recfun fn funs = SOME (n,topt,e)) ∧
-  type_funs tenvC tenv funs tenv' ∧
+`∀fn funs n e tenvM tenvC tenv tenv' tvs t1 t2.
+  (find_recfun fn funs = SOME (n,e)) ∧
+  type_funs tenvM tenvC tenv funs tenv' ∧
   (lookup fn tenv' = SOME (Tfn t1 t2))
   ⇒
-  type_e tenvC (bind_tenv n 0 t1 tenv) e t2 ∧
-  (?t3. topt = SOME t1) ∧
+  type_e tenvM tenvC (bind_tenv n 0 t1 tenv) e t2 ∧
   check_freevars (num_tvs tenv) [] (Tfn t1 t2)`,
 induct_on `funs` >>
 rw [Once find_recfun_def] >>
-qpat_assum `type_funs tenvC tenv (h::funs) tenv'`
+qpat_assum `type_funs tenvM tenvC tenv (h::funs) tenv'`
             (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once type_e_cases]) >>
 rw [] >>
 fs [] >>
@@ -456,10 +564,10 @@ metis_tac [bind_tenv_def, num_tvs_def, type_e_freevars, type_funs_Tfn,
 
 (* No duplicate function definitions in a single let rec *)
 val type_funs_distinct = Q.store_thm ("type_funs_distinct",
-`∀tenvC tenv funs tenv'.
-  type_funs tenvC tenv funs tenv'
+`∀tenvM tenvC tenv funs tenv'.
+  type_funs tenvM tenvC tenv funs tenv'
   ⇒
-  ALL_DISTINCT (MAP (λ(x,a,y,b,z). x) funs)`,
+  ALL_DISTINCT (MAP (λ(x,y,z). x) funs)`,
 induct_on `funs` >>
 rw [] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
@@ -474,9 +582,9 @@ rw [MEM_MAP] >|
  metis_tac []]);
 
 val build_rec_env_help_lem = Q.prove (
-`∀funs env funs' tvs.
-FOLDR (λ(f,topt1,x,topt2,e) env'. bind f (Recclosure env funs' f, add_tvs tvs topt1) env') env funs =
-merge (MAP (λ(fn,n,e). (fn, (Recclosure env funs' fn, add_tvs tvs n))) funs) env`,
+`∀funs env funs'.
+FOLDR (λ(f,x,e) env'. bind f (Recclosure env funs' f) env') env' funs =
+merge (MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs) env'`,
 Induct >>
 rw [merge_def, bind_def] >>
 PairCases_on `h` >>
@@ -484,9 +592,9 @@ rw []);
 
 (* Alternate definition for build_rec_env *)
 val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
-`∀funs funs' env tvs.
-  build_rec_env tvs funs env =
-  merge (MAP (λ(fn,n,e). (fn, (Recclosure env funs fn, add_tvs tvs n))) funs) env`,
+`∀funs funs' env env'.
+  build_rec_env funs env env' =
+  merge (MAP (λ(fn,n,e). (fn, Recclosure env funs fn)) funs) env'`,
 rw [build_rec_env_def, build_rec_env_help_lem]);
 
 val deBruijn_subst_tenvE_def = Define `
@@ -658,19 +766,6 @@ decide_tac >>
 induct_on `ts` >>
 fs []);
 
-(*
-val deBruijn_subst_inc_lem = Q.prove (
-`(!t ts idx.
-   (deBruijn_subst 0 ts (deBruijn_inc (LENGTH ts) idx t) =
-    deBruijn_subst idx ts (deBruijn_inc 0 idx t))) ∧
- (!ts' ts idx.
-   (MAP (\t. deBruijn_subst 0 ts (deBruijn_inc (LENGTH ts) idx t)) ts' =
-    MAP (\t. deBruijn_subst idx ts (deBruijn_inc 0 idx t)) ts'))`,
-ho_match_mp_tac t_induction >>
-rw [deBruijn_subst_def, deBruijn_inc_def] >>
-full_simp_tac (srw_ss() ++ ARITH_ss) [MAP_MAP_o, combinTheory.o_DEF]);
-*)
-
 val lookup_tenv_inc_some = Q.prove (
 `!n inc e tvs t inc2.
    (lookup_tenv n inc e = SOME (tvs, t)) 
@@ -722,7 +817,7 @@ rw [lookup_tenv_def, num_tvs_def, tenv_ok_def] >|
      metis_tac [nil_deBruijn_inc],
  metis_tac [arithmeticTheory.ADD, arithmeticTheory.ADD_COMM]]);
 
-val type_e_subst_lem2 = Q.prove (
+val deBruijn_subst2 = Q.store_thm ("deBruijn_subst2",
 `(!t sk targs targs' tvs'.
   check_freevars (LENGTH targs) [] t ⇒
   (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs') (deBruijn_subst 0 targs t) =
@@ -783,7 +878,7 @@ rw [] >>
 full_simp_tac (srw_ss()++ARITH_ss) [EL_MAP] >>
 metis_tac [type_e_subst_lem4]);
 
-val type_e_subst_lem6 = Q.prove (
+val lookup_tenv_freevars = Q.prove (
 `!e n inc t tvs.
   tenv_ok e ∧
   (lookup_tenv n inc e = SOME (tvs, t))
@@ -836,6 +931,20 @@ rw [] >>
 full_simp_tac (srw_ss()++ARITH_ss) [EL_MAP, deBruijn_subst_def, check_freevars_def] >>
 metis_tac [subst_inc_cancel, LENGTH_MAP]);
 
+val lookup_freevars = Q.store_thm ("lookup_freevars",
+`!n tenv tvs t.
+  tenv_ok (bind_var_list2 tenv Empty) ∧
+  (lookup n tenv = SOME (tvs, t))
+  ⇒
+  check_freevars tvs [] t`,
+induct_on `tenv` >>
+rw [lookup_def] >>
+PairCases_on `h` >>
+fs [lookup_def, bind_var_list2_def, tenv_ok_def, bind_tenv_def] >>
+every_case_tac >>
+fs [] >>
+metis_tac [num_tvs_bvl2, arithmeticTheory.ADD_0, num_tvs_def]);
+
 val type_p_subst = Q.store_thm ("type_p_subst",
 `(!n tenvC p t tenv. type_p n tenvC p t tenv ⇒
     !targs' inc tvs targs.
@@ -845,7 +954,7 @@ val type_p_subst = Q.store_thm ("type_p_subst",
     (targs' = MAP (deBruijn_inc 0 inc) targs)
     ⇒
     type_p (inc + tvs) tenvC 
-           (deBruijn_subst_p inc targs' p) 
+           p
            (deBruijn_subst inc targs' t)
            (MAP (\(x,t). (x, deBruijn_subst inc targs' t)) tenv)) ∧
  (!n tenvC ps ts tenv. type_ps n tenvC ps ts tenv ⇒
@@ -856,28 +965,21 @@ val type_p_subst = Q.store_thm ("type_p_subst",
     (targs' = MAP (deBruijn_inc 0 inc) targs)
     ⇒
     type_ps (inc +  tvs) tenvC 
-           (MAP (deBruijn_subst_p inc targs') ps) 
+           ps
            (MAP (deBruijn_subst inc targs') ts)
            (MAP (\(x,t). (x, deBruijn_subst inc targs' t)) tenv))`,
 ho_match_mp_tac type_p_strongind >>
 rw [] >>
 ONCE_REWRITE_TAC [type_p_cases] >>
-rw [deBruijn_subst_p_def, deBruijn_subst_def, option_map_eqns, Tint_def,
+rw [deBruijn_subst_def, option_map_eqns, Tint_def,
     Tbool_def, Tunit_def, Tref_def] >|
 [metis_tac [check_freevars_lem],
  rw [EVERY_MAP] >>
      fs [EVERY_MEM] >>
      rw [] >>
      metis_tac [check_freevars_lem, EVERY_MEM],
- metis_tac [type_subst_deBruijn_subst_list, tenvC_ok_lookup],
+ metis_tac [type_subst_deBruijn_subst_list, lookup_con_ok],
  metis_tac []]); 
-
-val pat_bindings_subst_p = Q.prove (
-`(!p b sk ts. pat_bindings (deBruijn_subst_p sk ts p) b = pat_bindings p b) ∧
- (!ps b sk ts. pats_bindings (MAP (deBruijn_subst_p sk ts) ps) b = pats_bindings ps b)`,
-ho_match_mp_tac pat_induction >>
-rw [pat_bindings_def, deBruijn_subst_p_def] >>
-metis_tac []);
 
 val deBruijn_subst_E_bind_var_list = Q.store_thm ("deBruijn_subst_E_bind_var_list",
 `!tenv1 tenv2 tvs. 
@@ -901,79 +1003,63 @@ rw [bind_var_list_def] >>
 PairCases_on `h` >>
 rw [bind_var_list_def, db_merge_def, bind_tenv_def]);
 
-val is_value_deBruijn_subst = Q.prove (
-`!e. is_value e ⇒ is_value (deBruijn_subst_e x y e)`,
-ho_match_mp_tac is_value_ind >>
-rw [is_value_def, deBruijn_subst_e_def] >>
-fs [EVERY_MEM, MEM_MAP] >>
-metis_tac []);
-
-val deBruijn_inc0 = Q.store_thm ("deBruijn_inc0",
-`(!t sk. deBruijn_inc sk 0 t = t) ∧
- (!ts sk. MAP (deBruijn_inc sk 0) ts = ts)`,
-ho_match_mp_tac t_induction >>
-rw [deBruijn_inc_def] >>
-metis_tac []);
-
 val type_e_subst = Q.store_thm ("type_e_subst",
-`(!tenvC tenvE e t. type_e tenvC tenvE e t ⇒
+`(!tenvM tenvC tenvE e t. type_e tenvM tenvC tenvE e t ⇒
     !tenvE1 targs tvs targs'.
       (num_tvs tenvE2 = 0) ∧
+      tenvM_ok tenvM ∧
       tenvC_ok tenvC ∧
       tenv_ok tenvE ∧
       (EVERY (check_freevars tvs []) targs) ∧
       (tenvE = db_merge tenvE1 (bind_tvar (LENGTH targs) tenvE2)) ∧
       (targs' = MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs)
       ⇒
-      type_e tenvC (db_merge (deBruijn_subst_tenvE targs tenvE1) (bind_tvar tvs tenvE2)) 
-                   (deBruijn_subst_e (num_tvs tenvE1) targs' e)
+      type_e tenvM tenvC (db_merge (deBruijn_subst_tenvE targs tenvE1) (bind_tvar tvs tenvE2)) 
+                   e
                    (deBruijn_subst (num_tvs tenvE1) targs' t)) ∧
- (!tenvC tenvE es ts. type_es tenvC tenvE es ts ⇒
+ (!tenvM tenvC tenvE es ts. type_es tenvM tenvC tenvE es ts ⇒
     !tenvE1 targs tvs targs'.
       (num_tvs tenvE2 = 0) ∧
+      tenvM_ok tenvM ∧
       tenvC_ok tenvC ∧
       tenv_ok tenvE ∧
       (EVERY (check_freevars tvs []) targs) ∧
       (tenvE = db_merge tenvE1 (bind_tvar (LENGTH targs) tenvE2)) ∧
       (targs' = MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs)
       ⇒
-    type_es tenvC (db_merge (deBruijn_subst_tenvE targs tenvE1) (bind_tvar tvs tenvE2))
-                  (MAP (deBruijn_subst_e (num_tvs tenvE1) targs') es) 
+    type_es tenvM tenvC (db_merge (deBruijn_subst_tenvE targs tenvE1) (bind_tvar tvs tenvE2))
+                  es
                   (MAP (deBruijn_subst (num_tvs tenvE1) targs') ts)) ∧
- (!tenvC tenvE funs env. type_funs tenvC tenvE funs env ⇒
+ (!tenvM tenvC tenvE funs env. type_funs tenvM tenvC tenvE funs env ⇒
     !tenvE1 targs tvs targs'.
       (num_tvs tenvE2 = 0) ∧
+      tenvM_ok tenvM ∧
       tenvC_ok tenvC ∧
       tenv_ok tenvE ∧
       (EVERY (check_freevars tvs []) targs) ∧
       (tenvE = db_merge tenvE1 (bind_tvar (LENGTH targs) tenvE2)) ∧
       (targs' = MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs)
       ⇒
-      type_funs tenvC (db_merge (deBruijn_subst_tenvE targs tenvE1) (bind_tvar tvs tenvE2)) 
-                      (MAP (\(f,topt1,x,topt2,e').
-                              (f, option_map (deBruijn_subst (num_tvs tenvE1) targs') topt1,
-                               x, option_map (deBruijn_subst (num_tvs tenvE1) targs') topt2,
-                               deBruijn_subst_e (num_tvs tenvE1) targs' e'))
-                           funs) 
+      type_funs tenvM tenvC (db_merge (deBruijn_subst_tenvE targs tenvE1) (bind_tvar tvs tenvE2)) 
+                      funs 
                       (MAP (\(x,t). (x, deBruijn_subst (num_tvs tenvE1) targs' t)) env))`,
 ho_match_mp_tac type_e_strongind >>
 rw [] >>
 ONCE_REWRITE_TAC [type_e_cases] >>
-rw [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def, 
+rw [deBruijn_subst_def, deBruijn_subst_tenvE_def, 
     bind_tvar_rewrites, bind_tenv_def, num_tvs_def, option_map_eqns,
     num_tvs_db_merge, num_tvs_deBruijn_subst_tenvE] >>
-fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def, 
+fs [deBruijn_subst_def, deBruijn_subst_tenvE_def, 
     bind_tvar_rewrites, bind_tenv_def, num_tvs_def, option_map_eqns,
     num_tvs_db_merge, num_tvs_deBruijn_subst_tenvE, tenv_ok_def,
     Tbool_def, Tint_def, Tunit_def, Tref_def, Tfn_def] >>
 `tenv_ok tenvE2` by metis_tac [tenv_ok_db_merge, bind_tvar_def, tenv_ok_def] >|
 [metis_tac [check_freevars_lem],
  qpat_assum `!tenvE1' targs' tvs'. P tenvE1' targs' tvs' ⇒
-        type_e tenvC
+        type_e tenvM tenvC
           (db_merge (deBruijn_subst_tenvE targs' tenvE1')
              (bind_tvar tvs' tenvE2))
-          (deBruijn_subst_e (num_tvs tenvE1')
-             (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') e')
+          e'
           (deBruijn_subst (num_tvs tenvE1')
              (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') t)`
         (MP_TAC o Q.SPECL [`Bind_name var 0 Tint tenvE1`,
@@ -985,33 +1071,50 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
  fs [EVERY_MAP, EVERY_MEM] >>
      rw [] >>
      metis_tac [check_freevars_lem, EVERY_MEM],
- metis_tac [type_subst_deBruijn_subst_list, tenvC_ok_lookup],
- imp_res_tac type_e_subst_lem6 >>
-     fs [lookup_tenv_db_merge] >>
-     cases_on `lookup_tenv n 0 tenvE1` >>
-     fs [lookup_tenv_def, bind_tvar_rewrites, num_tvs_deBruijn_subst_tenvE] >>
-     rw [] >|
-     [imp_res_tac lookup_tenv_subst_none >>
-          rw [] >>
-          imp_res_tac lookup_tenv_inc_some >>
-          rw [] >>
-          pop_assum (ASSUME_TAC o Q.SPEC `num_tvs tenvE1 + tvs'`) >>
+ metis_tac [type_subst_deBruijn_subst_list, lookup_con_ok],
+ cases_on `n` >>
+     fs [t_lookup_var_id_def] >|
+     [imp_res_tac lookup_tenv_freevars >>
+          fs [lookup_tenv_db_merge] >>
+          cases_on `lookup_tenv a 0 tenvE1` >>
+          fs [lookup_tenv_def, bind_tvar_rewrites, num_tvs_deBruijn_subst_tenvE] >>
+          rw [] >|
+          [imp_res_tac lookup_tenv_subst_none >>
+               rw [] >>
+               imp_res_tac lookup_tenv_inc_some >>
+               rw [] >>
+               pop_assum (ASSUME_TAC o Q.SPEC `num_tvs tenvE1 + tvs'`) >>
+               fs [] >>
+               rw [] >>
+               imp_res_tac type_e_subst_lem1 >>
+               fs [nil_deBruijn_inc] >>
+               qexists_tac `(MAP (deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs')) targs)` >>
+               rw [] >-
+               metis_tac [deBruijn_subst2] >>
+               fs [EVERY_MAP, EVERY_MEM, MEM_MAP] >>
+               rw [] >>
+               metis_tac [type_e_subst_lem3, EVERY_MEM],
+           imp_res_tac lookup_tenv_deBruijn_subst_tenvE >>
+               fs [] >>
+               rw [] >>
+               fs [nil_deBruijn_subst, num_tvs_db_merge, bind_tvar_rewrites] >>
+               fs [EVERY_MAP, EVERY_MEM] >>
+               rw [] >>
+               qexists_tac `(MAP (deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs')) targs)`  >>
+               rw [] >>
+               fs [MEM_MAP] >>
+               metis_tac [type_e_subst_lem3, EVERY_MEM, type_e_subst_lem7]],
+      cases_on `lookup s tenvM` >>
           fs [] >>
           rw [] >>
-          imp_res_tac type_e_subst_lem1 >>
-          fs [nil_deBruijn_inc] >-
-          metis_tac [type_e_subst_lem2] >>
-          fs [EVERY_MAP, EVERY_MEM] >>
-          rw [] >>
-          metis_tac [type_e_subst_lem3, EVERY_MEM],
-      imp_res_tac lookup_tenv_deBruijn_subst_tenvE >>
-          pop_assum (ASSUME_TAC o Q.SPEC `targs'`) >>
-          fs [] >>
-          rw [] >>
-          fs [nil_deBruijn_subst, num_tvs_db_merge, bind_tvar_rewrites] >>
-          fs [EVERY_MAP, EVERY_MEM] >>
-          rw [] >>
-          metis_tac [type_e_subst_lem3, EVERY_MEM, type_e_subst_lem7]],
+          qexists_tac `MAP (deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs')) targs` >>
+          rw [] >|
+          [match_mp_tac (hd (CONJUNCTS deBruijn_subst2)) >>
+               rw [] >>
+               metis_tac [tenvM_ok_lookup, lookup_freevars, arithmeticTheory.ADD, arithmeticTheory.ADD_0],
+           fs [EVERY_MAP, EVERY_MEM] >>
+               rw [] >>
+               metis_tac [type_e_subst_lem3, EVERY_MEM]]],
  qpat_assum `!tenvE1' targs' tvs'. P tenvE1' targs' tvs'` 
            (ASSUME_TAC o Q.SPEC `Bind_name n 0 t1 tenvE1`) >>
      fs [num_tvs_def, deBruijn_subst_tenvE_def, db_merge_def] >>
@@ -1028,35 +1131,35 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
      rw [] >>
      PairCases_on `x` >>
      fs [MEM_MAP] >>
-     PairCases_on `y` >>
-     fs [] >>
-     rw [] >>
-     qpat_assum `!x. MEM x pes ⇒ P x` (MP_TAC o Q.SPEC `(y0,y1)`) >>
+     qpat_assum `!x. MEM x pes ⇒ P x` (MP_TAC o Q.SPEC `(x0,x1)`) >>
      rw [] >>
      qexists_tac `MAP (\(x,t). (x, deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) t))
                       tenv'` >>
-     rw [pat_bindings_subst_p] >-
+     rw [] >-
      metis_tac [type_p_subst] >>
      pop_assum (MATCH_MP_TAC o 
                 SIMP_RULE (srw_ss()) [num_tvs_bind_var_list, deBruijn_subst_E_bind_var_list,
                                       db_merge_bind_var_list] o
                 Q.SPECL [`bind_var_list 0 tenv' tenvE1`, `targs`, `tvs`]) >>
      rw [] >>
-     match_mp_tac type_freevars_lem5 >>
+     match_mp_tac tenv_ok_bind_var_list >>
      rw [num_tvs_db_merge, bind_tvar_rewrites] >>
      metis_tac [type_p_freevars],
  disj1_tac >>
-     rw [is_value_deBruijn_subst] >|
+     rw [] >>
+     qexists_tac `deBruijn_subst (tvs + num_tvs tenvE1)
+                        (MAP (deBruijn_inc 0 (tvs + num_tvs tenvE1)) targs) t` >>
+     qexists_tac `tvs` >>
+     rw [] >|
      [qpat_assum `∀tenvE1' targs' tvs''.
                      EVERY (check_freevars tvs'' []) targs' ∧
                      (bind_tvar tvs
                         (db_merge tenvE1 (bind_tvar (LENGTH targs) tenvE2)) =
                       db_merge tenvE1' (bind_tvar (LENGTH targs') tenvE2)) ⇒
-                     type_e tenvC
+                     type_e tenvM tenvC
                        (db_merge (deBruijn_subst_tenvE targs' tenvE1')
                           (bind_tvar tvs'' tenvE2))
-                       (deBruijn_subst_e (num_tvs tenvE1')
-                          (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') e)
+                       e
                        (deBruijn_subst (num_tvs tenvE1')
                           (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') t)`
                 (MP_TAC o Q.SPECL [`bind_tvar tvs tenvE1`, `targs`, `tvs'`]) >>
@@ -1069,11 +1172,10 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
                      (Bind_name n tvs t
                         (db_merge tenvE1 (bind_tvar (LENGTH targs) tenvE2)) =
                       db_merge tenvE1' (bind_tvar (LENGTH targs') tenvE2)) ⇒
-                     type_e tenvC
+                     type_e tenvM tenvC
                        (db_merge (deBruijn_subst_tenvE targs' tenvE1')
                           (bind_tvar tvs'' tenvE2))
-                       (deBruijn_subst_e (num_tvs tenvE1')
-                          (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') e')
+                       e'
                        (deBruijn_subst (num_tvs tenvE1')
                           (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') t')`
                  (MP_TAC o 
@@ -1086,19 +1188,20 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
           metis_tac [arithmeticTheory.ADD, arithmeticTheory.ADD_ASSOC, arithmeticTheory.ADD_COMM]],
  disj2_tac >>
      rw [] >>
-     fs [deBruijn_inc0] >-
-     metis_tac [] >>
+     qexists_tac `deBruijn_subst (num_tvs tenvE1)
+                        (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) t` >>
+     fs [deBruijn_inc0] >>
+     rw [] >>
      qpat_assum `∀tenvE1' targs' tvs'.
                      check_freevars (skip' + LENGTH targs) [] t ∧
                      EVERY (check_freevars tvs' []) targs' ∧
                      (Bind_name n 0 t
                         (db_merge tenvE1 (bind_tvar (LENGTH targs) tenvE2)) =
                       db_merge tenvE1' (bind_tvar (LENGTH targs') tenvE2)) ⇒
-                     type_e tenvC
+                     type_e tenvM tenvC
                        (db_merge (deBruijn_subst_tenvE targs' tenvE1')
                           (bind_tvar tvs' tenvE2))
-                       (deBruijn_subst_e (num_tvs tenvE1')
-                          (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') e')
+                       e'
                        (deBruijn_subst (num_tvs tenvE1')
                           (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') t')`
                  (MP_TAC o 
@@ -1108,7 +1211,12 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
      imp_res_tac type_e_freevars >>
      fs [tenv_ok_def, num_tvs_def, bind_tvar_rewrites, num_tvs_db_merge] >>
      metis_tac [arithmeticTheory.ADD, arithmeticTheory.ADD_ASSOC, arithmeticTheory.ADD_COMM],
- qexists_tac `MAP (\(x,t). (x, deBruijn_subst skip' ts' t)) env` >>
+ qexists_tac `MAP (λ(x,t').
+                 (x,
+                  deBruijn_subst (tvs + num_tvs tenvE1)
+                    (MAP (deBruijn_inc 0 (tvs + num_tvs tenvE1)) targs)
+                    t')) env` >>
+     qexists_tac `tvs` >>
      rw [] >|
      [qpat_assum `∀tenvE1' targs' tvs''.
                      tenv_ok
@@ -1120,23 +1228,10 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
                         (bind_tvar tvs
                            (db_merge tenvE1 (bind_tvar (LENGTH targs) tenvE2))) =
                       db_merge tenvE1' (bind_tvar (LENGTH targs') tenvE2)) ⇒
-                     type_funs tenvC
+                     type_funs tenvM tenvC
                        (db_merge (deBruijn_subst_tenvE targs' tenvE1')
                           (bind_tvar tvs'' tenvE2))
-                       (MAP
-                          (λ(f,topt1,x,topt2,e').
-                             (f,
-                              option_map
-                                (deBruijn_subst (num_tvs tenvE1')
-                                   (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs'))
-                                topt1,x,
-                              option_map
-                                (deBruijn_subst (num_tvs tenvE1')
-                                   (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs'))
-                                topt2,
-                              deBruijn_subst_e (num_tvs tenvE1')
-                                (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') e'))
-                          funs)
+                       funs
                        (MAP
                           (λ(x,t).
                              (x,
@@ -1147,12 +1242,8 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
                   Q.SPECL [`bind_var_list 0 env (bind_tvar tvs tenvE1)`, `targs`, `tvs'`]) >>
           rw [bind_tvar_rewrites, db_merge_bind_var_list, num_tvs_bind_var_list, 
               deBruijn_subst_E_bind_var_list] >>
-          `ts' = MAP (deBruijn_inc 0 skip') targs`
-                      by metis_tac [MAP_MAP_o, combinTheory.o_DEF,deBruijn_inc_deBruijn_inc] >>
-          fs [] >>
-          rw [] >>
           pop_assum match_mp_tac >>
-          match_mp_tac tenv_ok_bind_var_list >>
+          match_mp_tac tenv_ok_bind_var_list_funs >>
           rw [bind_tvar_rewrites] >>
           metis_tac [],
       qpat_assum `∀tenvE1' targs' tvs''.
@@ -1163,22 +1254,17 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
                      (bind_var_list tvs env
                         (db_merge tenvE1 (bind_tvar (LENGTH targs) tenvE2)) =
                       db_merge tenvE1' (bind_tvar (LENGTH targs') tenvE2)) ⇒
-                     type_e tenvC
+                     type_e tenvM tenvC
                        (db_merge (deBruijn_subst_tenvE targs' tenvE1')
                           (bind_tvar tvs'' tenvE2))
-                       (deBruijn_subst_e (num_tvs tenvE1')
-                          (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') e)
+                       e
                        (deBruijn_subst (num_tvs tenvE1')
                           (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') t)`
                  (MP_TAC o 
                   Q.SPECL [`bind_var_list tvs env tenvE1`, `targs`, `tvs'`]) >>
           rw [num_tvs_bind_var_list, deBruijn_subst_E_bind_var_list, db_merge_bind_var_list] >>
-          `ts' = MAP (deBruijn_inc 0 skip') targs`
-                      by metis_tac [MAP_MAP_o, combinTheory.o_DEF,deBruijn_inc_deBruijn_inc] >>
-          fs [] >>
-          rw [] >>
           pop_assum match_mp_tac >>
-          match_mp_tac type_freevars_lem4 >>
+          match_mp_tac tenv_ok_bind_var_list_tvs >>
           metis_tac []],
  fs [check_freevars_def] >>
      qpat_assum `∀tenvE1' targs' tvs'.
@@ -1187,11 +1273,10 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
                (Bind_name n 0 t1
                   (db_merge tenvE1 (bind_tvar (LENGTH targs) tenvE2)) =
                 db_merge tenvE1' (bind_tvar (LENGTH targs') tenvE2)) ⇒
-               type_e tenvC
+               type_e tenvM tenvC
                  (db_merge (deBruijn_subst_tenvE targs' tenvE1')
                     (bind_tvar tvs' tenvE2))
-                 (deBruijn_subst_e (num_tvs tenvE1')
-                    (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') e)
+                 e
                  (deBruijn_subst (num_tvs tenvE1')
                     (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') t)`
                  (MP_TAC o 
@@ -1208,49 +1293,24 @@ fs [deBruijn_subst_e_def, deBruijn_subst_def, deBruijn_subst_tenvE_def,
           fs [] >>
           metis_tac [mem_lem]]]);
 
-val tenvC_pat_weakening = Q.store_thm ("tenvC_pat_weakening",
-`(!tvs tenvC p t tenv. type_p tvs tenvC p t tenv ⇒
-    !tenvC'. disjoint_env tenvC tenvC' ⇒
-             type_p tvs (merge tenvC' tenvC) p t tenv) ∧
- (!tvs tenvC ps ts tenv. type_ps tvs tenvC ps ts tenv ⇒
-    !tenvC'. disjoint_env tenvC tenvC' ⇒
-             type_ps tvs (merge tenvC' tenvC) ps ts tenv)`,
-ho_match_mp_tac type_p_ind >>
-rw [] >>
-rw [Once type_p_cases] >>
-metis_tac [lookup_disjoint]);
-
-val tenvC_weakening = Q.store_thm ("tenvC_weakening",
-`(!tenvC tenv e t. type_e tenvC tenv e t ⇒
-    !tenvC'. disjoint_env tenvC tenvC' ⇒ type_e (merge tenvC' tenvC) tenv e t) ∧
- (!tenvC tenv es ts. type_es tenvC tenv es ts ⇒
-    !tenvC'. disjoint_env tenvC tenvC' ⇒ type_es (merge tenvC' tenvC) tenv es ts) ∧
- (!tenvC tenv funs tenv'. type_funs tenvC tenv funs tenv' ⇒
-    !tenvC'. disjoint_env tenvC tenvC' ⇒ type_funs (merge tenvC' tenvC) tenv funs tenv')`,
-ho_match_mp_tac type_e_ind >>
-rw [] >>
-rw [Once type_e_cases] >>
-fs [RES_FORALL, FORALL_PROD] >>
-metis_tac [lookup_disjoint, tenvC_pat_weakening]);
-
 val check_ctor_tenv_dups_helper1 = Q.prove (
 `∀tenvC l y z.
-  (!x. MEM x l ⇒ (λ(n,ts). lookup n tenvC = NONE) x)
+  (!x. MEM x l ⇒ (λ(n,ts). lookup (mk_id mn n) tenvC = NONE) x)
   ⇒
-  DISJOINT (set (MAP (λx. FST ((λ(cn,ts). (cn,y,ts,z)) x)) l))
+  DISJOINT (set (MAP (λx. FST ((λ(cn,ts). (mk_id mn cn,y,ts,mk_id mn z)) x)) l))
            (set (MAP FST tenvC))`,
 induct_on `l` >>
 rw [] >>
 cases_on `h` >>
 fs [] >>
-`(λ(n,ts). lookup n tenvC = NONE) (q,r)` by metis_tac [] >>
+`(λ(n,ts). lookup (mk_id mn n) tenvC = NONE) (q,r)` by metis_tac [] >>
 fs [] >>
 metis_tac [lookup_notin]);
 
 val check_ctor_tenv_dups_helper2 = Q.prove (
-`!tds tenvC.
-  (∀((tvs,tn,condefs)::set tds) ((n,ts)::set condefs). lookup n tenvC = NONE) ⇒
-    disjoint_env tenvC (build_ctor_tenv tds)`,
+`!mn tds tenvC.
+  (∀((tvs,tn,condefs)::set tds) ((n,ts)::set condefs). lookup (mk_id mn n) tenvC = NONE) ⇒
+    disjoint_env tenvC (build_ctor_tenv mn tds)`,
 induct_on `tds` >>
 rw [build_ctor_tenv_def, disjoint_env_def] >|
 [fs [RES_FORALL] >>
@@ -1259,27 +1319,20 @@ rw [build_ctor_tenv_def, disjoint_env_def] >|
      cases_on `r` >>
      fs [] >>
      `(λ(tvs,tn,condefs).
-         ∀x. MEM x condefs ⇒ (λ(n,ts). lookup n tenvC = NONE) x) (q,q',r')`
+         ∀x. MEM x condefs ⇒ (λ(n,ts). lookup (mk_id mn n) tenvC = NONE) x) (q,q',r')`
                 by metis_tac [] >>
      fs [MAP_MAP_o, combinTheory.o_DEF] >>
      metis_tac [check_ctor_tenv_dups_helper1],
  fs [RES_FORALL] >>
-     `disjoint_env tenvC (build_ctor_tenv tds)` by metis_tac [] >>
+     `disjoint_env tenvC (build_ctor_tenv mn tds)` by metis_tac [] >>
      fs [disjoint_env_def, build_ctor_tenv_def] >>
      metis_tac [DISJOINT_SYM]]);
 
 val check_ctor_tenv_dups = Q.store_thm ("check_ctor_tenv_dups",
 `!tenvC tds.
-  check_ctor_tenv tenvC tds ⇒ disjoint_env tenvC (build_ctor_tenv tds)`,
+  check_ctor_tenv mn tenvC tds ⇒ disjoint_env tenvC (build_ctor_tenv mn tds)`,
 rw [check_ctor_tenv_def, check_dup_ctors_def] >>
 metis_tac [check_ctor_tenv_dups_helper2, RES_FORALL]);
-
-val disjoint_env_rev = Q.store_thm ("disjoint_env_rev",
-`!tenvC tenvC'. disjoint_env tenvC tenvC' ⇒ disjoint_env tenvC (REVERSE tenvC')`,
-induct_on `tenvC'` >>
-rw [disjoint_env_def] >>
-fs [Once DISJOINT_SYM] >>
-metis_tac [disjoint_env_def, DISJOINT_SYM]);
 
 val consistent_con_append = Q.prove (
 `!envC tenvC.
@@ -1292,22 +1345,12 @@ ho_match_mp_tac (fetch "-" "consistent_con_env_ind") >>
 rw [consistent_con_env_def] >>
 rw []);
 
-val consistent_con_env_rev = Q.prove (
-`!envC tenvC.
-  consistent_con_env envC tenvC ⇒
-  consistent_con_env (REVERSE envC) (REVERSE tenvC)`,
-ho_match_mp_tac (fetch "-" "consistent_con_env_ind") >>
-rw [consistent_con_env_def] >>
-`consistent_con_env [(cn,LENGTH ts,ns)] [(cn,tvs,ts,tn)]`
-              by rw [consistent_con_env_def] >>
-metis_tac [consistent_con_append]);
-
 val extend_consistent_con = Q.store_thm ("extend_consistent_con",
 `!envC tenvC tds.
   consistent_con_env envC tenvC
   ⇒
-  consistent_con_env (build_tdefs tds ++ envC)
-                     (REVERSE (build_ctor_tenv tds) ++ tenvC)`,
+  consistent_con_env (build_tdefs mn tds ++ envC)
+                     (build_ctor_tenv mn tds ++ tenvC)`,
 induct_on `tds` >>
 rw [build_tdefs_def, build_ctor_tenv_def] >>
 cases_on `h` >>
@@ -1315,25 +1358,20 @@ cases_on `r` >>
 fs [] >>
 `!x. (!cn ts. MEM (cn,ts) r' ⇒ MEM (cn,ts) x) ⇒
   consistent_con_env
-  (MAP (λ(conN,ts). (conN,LENGTH ts,{cn | (cn,ts) | MEM (cn,ts) x})) r')
-  (MAP (λ(cn,ts). (cn,q,ts,q')) r')`
+  (MAP (λ(conN,ts). (mk_id mn conN,LENGTH ts,mk_id mn q')) r')
+  (MAP (λ(cn,ts). (mk_id mn cn,q,ts,mk_id mn q')) r')`
             by (Induct_on `r'` >>
                 rw [consistent_con_env_def] >>
-                cases_on `h` >>
-                cases_on `r` >>
+                PairCases_on `h` >>
                 fs [] >>
-                rw [consistent_con_env_def, GSPECIFICATION] >|
-                [qexists_tac `(q'',[])` >>
-                     rw [],
-                 qexists_tac `(q'',h::t)` >>
-                     rw []]) >>
+                rw [consistent_con_env_def] >>
+                metis_tac []) >>
 fs [build_ctor_tenv_def, build_tdefs_def] >>
-metis_tac [consistent_con_append, APPEND_ASSOC, consistent_con_env_rev,
-           REVERSE_APPEND]);
+metis_tac [consistent_con_append, APPEND_ASSOC]);
 
 val check_dup_ctors_disj = Q.store_thm ("check_dup_ctors_disj",
 `!tenvC tds.
-  check_dup_ctors tds tenvC ⇒ disjoint_env tenvC (build_ctor_tenv tds)`,
+  check_dup_ctors mn tenvC tds ⇒ disjoint_env tenvC (build_ctor_tenv mn tds)`,
 rw [check_dup_ctors_def] >>
 metis_tac [check_ctor_tenv_dups_helper2]);
 
@@ -1384,25 +1422,24 @@ rw [lookup_def,lookup_append_none]);
 
 val lookup_none_lem = Q.prove (
 `!x h0 h1 h2 h3.
-  (lookup x (MAP (λ(cn,ts). (cn,h0,ts,h1)) h2) = NONE)
+  (lookup x (MAP (λ(cn,ts). (mk_id mn cn,h0,ts,mk_id mn h1)) h2) = NONE)
   = 
-  (lookup x (MAP (λ(conN,ts). (conN,LENGTH ts,{cn | (cn,ts) | MEM (cn,ts) h3})) h2) = NONE)`,
+  (lookup x (MAP (λ(conN,ts). (mk_id mn conN,LENGTH ts,mk_id mn h3)) h2) = NONE)`,
 induct_on `h2` >>
 rw [lookup_def] >>
 PairCases_on `h` >>
 rw [lookup_def]);
-  
 
 val lookup_none = Q.store_thm ("lookup_none",
 `!tds tenvC envC x.
-  !x. (lookup x (build_ctor_tenv tds) = NONE) =
-      (lookup x (build_tdefs tds) = NONE)`,
+  !x. (lookup x (build_ctor_tenv mn tds) = NONE) =
+      (lookup x (build_tdefs mn tds) = NONE)`,
 Induct >>
 rw [] >-
 fs [build_ctor_tenv_def, build_tdefs_def, lookup_def] >>
 rw [build_ctor_tenv_def, build_tdefs_def, lookup_def] >>
 PairCases_on `h` >>
-rw [lookup_append_none, REVERSE_APPEND, lookup_reverse_none] >>
+rw [lookup_append_none] >>
 eq_tac >>
 rw [] >|
 [metis_tac [lookup_none_lem],
@@ -1411,13 +1448,13 @@ rw [] >|
  metis_tac [build_ctor_tenv_def, build_tdefs_def, lookup_reverse_none]]);
 
 val build_ctor_tenv_empty = Q.store_thm ("build_ctor_tenv_empty",
-`build_ctor_tenv [] = []`,
+`build_ctor_tenv mn [] = []`,
 rw [build_ctor_tenv_def]);
 
 val build_ctor_tenv_cons = Q.prove (
 `∀tvs tn ctors tds.
-  build_ctor_tenv ((tvs,tn,ctors)::tds) =
-    MAP (λ(cn,ts). (cn,tvs,ts,tn)) ctors ++ build_ctor_tenv tds`,
+  build_ctor_tenv mn ((tvs,tn,ctors)::tds) =
+    MAP (λ(cn,ts). (mk_id mn cn,tvs,ts,mk_id mn tn)) ctors ++ build_ctor_tenv mn tds`,
 rw [build_ctor_tenv_def]);
 
 val lemma = Q.prove (
@@ -1436,73 +1473,35 @@ cases_on `r` >>
 rw [] >>
 metis_tac []);
 
-val check_ctor_tenv_different_types = Q.store_thm ("check_ctor_tenv_different_types",
-`!tenvC tds.
-  EVERY
-    (λ(tvs,tn,ctors).
-       EVERY (λx. case x of (v,v2,v4,tn') => tn ≠ tn') tenvC) tds ∧
-  (lookup n1 tenvC = SOME (tvs1,ts1,tn1)) ∧
-  (lookup n2 (REVERSE (build_ctor_tenv tds)) = SOME (tvs2,ts2,tn2))
-  ⇒
-  (tn1 ≠ tn2)`,
-induct_on `tenvC` >>
-rw [build_ctor_tenv_empty,lookup_def] >>
-cases_on `h` >>
-fs [lookup_def] >>
-every_case_tac >>
-fs [] >>
-rw [] >|
-[induct_on `tds` >>
-     fs [lookup_def,build_ctor_tenv_empty]  >>
-     rw [] >>
-     cases_on `h` >>
-     cases_on `r'` >>
-     fs [build_ctor_tenv_cons, lookup_append, REVERSE_APPEND] >>
-     every_case_tac >>
-     fs [] >>
-     induct_on `r''` >>
-     fs [lookup_def] >>
-     rw [] >>
-     cases_on `h` >>
-     fs [lookup_def] >>
-     every_case_tac >>
-     fs [] >>
-     fs [lookup_append] >>
-     every_case_tac >>
-     fs [lookup_def],
- fs [every_conj_tup3] >>
-     metis_tac []]);
-
 val build_tdefs_cons = Q.prove (
 `!tvs tn ctors tds.
-  build_tdefs ((tvs,tn,ctors)::tds) =
-    build_tdefs tds ++
-    REVERSE (MAP (\(conN,ts). (conN, LENGTH ts, {cn | (cn,ts) | MEM (cn,ts) ctors}))
-        ctors)`,
+  build_tdefs mn ((tvs,tn,ctors)::tds) =
+    (MAP (\(conN,ts). (mk_id mn conN, LENGTH ts, mk_id mn tn))
+        ctors) ++ build_tdefs mn tds`,
 rw [build_tdefs_def]);
 
 val check_dup_ctors_cons = Q.prove (
 `!tvs ts ctors tds tenvC.
-  check_dup_ctors ((tvs,ts,ctors)::tds) tenvC
+  check_dup_ctors mn tenvC ((tvs,ts,ctors)::tds)
   ⇒
-  check_dup_ctors tds tenvC`,
+  check_dup_ctors mn tenvC tds`,
 induct_on `tds` >>
 rw [check_dup_ctors_def, LET_THM, RES_FORALL] >-
 metis_tac [] >-
 metis_tac [] >>
-cases_on `h` >>
+PairCases_on `h` >>
 fs [] >>
 pop_assum MP_TAC >>
 pop_assum (fn _ => all_tac) >>
 induct_on `ctors` >>
 rw [] >>
-cases_on `h` >>
+PairCases_on `h` >>
 fs []);
 
 val check_ctor_tenv_cons = Q.prove (
 `!tvs ts ctors tds tenvC.
-  check_ctor_tenv tenvC ((tvs,ts,ctors)::tds) ⇒
-  check_ctor_tenv tenvC tds`,
+  check_ctor_tenv mn tenvC ((tvs,ts,ctors)::tds) ⇒
+  check_ctor_tenv mn tenvC tds`,
 rw [check_ctor_tenv_def] >>
 metis_tac [check_dup_ctors_cons]);
 
@@ -1520,173 +1519,277 @@ fs [] >>
 rw [] >>
 metis_tac []);
 
-val lookup_same_ctor_type_help = Q.prove (
-`!tds.
-  (lookup n2 (REVERSE (build_ctor_tenv tds)) = SOME (tvs2,ts2,tn))
-  ⇒
-  MEM tn (MAP (λx. case x of (v,tn,v3) => tn) tds)`,
-Induct >>
-rw [lookup_def,build_ctor_tenv_empty] >>
-cases_on `h` >>
-cases_on `r` >>
-fs [build_ctor_tenv_cons, REVERSE_APPEND] >>
-induct_on `r'` >>
-rw [] >>
-cases_on `h` >>
-fs [lookup_def] >>
-every_case_tac >>
-fs [] >>
-fs [lookup_append] >>
-every_case_tac >>
-fs [lookup_def]);
+val type_p_bvl = Q.store_thm ("type_p_bvl",
+`(!tvs tenvC p t tenv. type_p tvs tenvC p t tenv ⇒
+  !tenv'. tenv_ok tenv' ⇒ tenv_ok (bind_var_list tvs tenv tenv')) ∧
+ (!tvs tenvC ps ts tenv. type_ps tvs tenvC ps ts tenv ⇒
+  !tenv'. tenv_ok tenv' ⇒ tenv_ok (bind_var_list tvs tenv tenv'))`,
+ho_match_mp_tac type_p_ind >>
+rw [bind_var_list_def, tenv_ok_def, bind_tenv_def, num_tvs_def,
+    bind_var_list_append] >>
+`tvs + num_tvs tenv' ≥ tvs` by decide_tac >>
+metis_tac [check_freevars_add]);
 
-val lookup_same_ctor_type_help2 = Q.prove (
-`!ctors n1 ns1 r'.
-  (lookup n1
-    (MAP (λ(conN,ts). (conN,LENGTH ts,{cn | (cn,ts) | MEM (cn,ts) r'})) ctors) =
-   SOME (l1,ns1))
-  ⇒
-  (ns1 = {cn | (cn,ts) | MEM (cn,ts) r'})`,
+val deBruijn_subst_id = Q.store_thm ("deBruijn_subst_id",
+`(!t n. check_freevars n [] t ⇒ (deBruijn_subst 0 (MAP Tvar_db (COUNT_LIST n)) t = t)) ∧
+ (!ts n. EVERY (check_freevars n []) ts ⇒ (MAP (deBruijn_subst 0 (MAP Tvar_db (COUNT_LIST n))) ts = ts))`,
 Induct >>
-rw [lookup_def] >>
-cases_on `h` >>
-fs [lookup_def] >>
-every_case_tac >>
-fs [] >>
-rw [] >>
+rw [deBruijn_subst_def, LENGTH_COUNT_LIST, EL_MAP, EL_COUNT_LIST,
+    check_freevars_def] >>
 metis_tac []);
 
-val lookup_same_ctor_type = Q.store_thm ("lookup_same_ctor_type",
-`!tds.
-  check_ctor_tenv tenvC tds ∧
-  (lookup n1 (REVERSE (build_ctor_tenv tds)) = SOME (tvs1,ts1,tn)) ∧
-  (lookup n2 (REVERSE (build_ctor_tenv tds)) = SOME (tvs2,ts2,tn)) ∧
-  (lookup n1 (build_tdefs tds) = SOME (l1,ns1)) ∧
-  (lookup n2 (build_tdefs tds) = SOME (l2,ns2))
+val tenv_ok_bvl2 = Q.store_thm ("tenv_ok_bvl2",
+`!tenv tenv'. 
+  tenv_ok (bind_var_list2 tenv Empty) ∧ tenv_ok tenv'
   ⇒
-  (ns1 = ns2)`,
-Induct >>
-rw [] >-
-fs [build_tdefs_def, lookup_def] >>
+  tenv_ok (bind_var_list2 tenv tenv')`,
+ho_match_mp_tac bind_var_list2_ind >>
+rw [bind_var_list2_def, tenv_ok_def, bind_tenv_def, num_tvs_bvl2, num_tvs_def] >>
+`tvs + num_tvs tenv' ≥ tvs` by decide_tac >>
+metis_tac [check_freevars_add]);
+
+val bvl2_lookup = Q.store_thm ("bvl2_lookup",
+`!n tenv. lookup n tenv = lookup_tenv n 0 (bind_var_list2 tenv Empty)`,
+ho_match_mp_tac lookup_ind >>
+rw [lookup_def, bind_var_list2_def, lookup_tenv_def] >>
+cases_on `n''` >>
+rw [bind_var_list2_def, lookup_tenv_def, bind_tenv_def, deBruijn_inc0]);
+
+val freevars_t_lookup_var_id = Q.store_thm ("freevars_t_lookup_var_id",
+`!tenvM tenv tvs n t.
+  (t_lookup_var_id n tenvM tenv = SOME (tvs,t)) ∧
+  tenvM_ok tenvM ∧
+  tenv_ok tenv
+  ⇒ 
+  check_freevars (num_tvs tenv + tvs) [] t`,
+rw [t_lookup_var_id_def] >>
+every_case_tac >>
+fs [] >|
+[imp_res_tac lookup_tenv_freevars >>
+     full_simp_tac (srw_ss()++ARITH_ss) [],
+ imp_res_tac tenvM_ok_lookup >>
+     imp_res_tac lookup_freevars >>
+     `num_tvs tenv + tvs ≥ tvs` by decide_tac >>
+     metis_tac [check_freevars_add]]);
+
+val lookup_tenv_inc = Q.store_thm ("lookup_tenv_inc",
+`!tvs l tenv n t.
+  tenv_ok tenv ∧
+  (num_tvs tenv = 0)
+  ⇒
+  ((lookup_tenv n 0 tenv = SOME (l,t))
+   =
+   (lookup_tenv n tvs tenv = SOME (l,t)))`,
+induct_on `tenv` >>
+rw [lookup_tenv_def, num_tvs_def, tenv_ok_def] >>
+eq_tac >>
+rw [] >>
+fs [] >>
+metis_tac [nil_deBruijn_inc, deBruijn_inc0]);
+
+val bvl2_append = Q.store_thm ("bvl2_append",
+`!tenv1 tenv3 tenv2.
+  (bind_var_list2 (tenv1 ++ tenv2) tenv3 = 
+   bind_var_list2 tenv1 (bind_var_list2 tenv2 tenv3))`,
+ho_match_mp_tac bind_var_list2_ind >>
+rw [bind_var_list2_def]);
+
+val bvl2_to_bvl = Q.store_thm ("bvl2_to_bvl",
+`!tvs tenv tenv'. bind_var_list2 (tenv_add_tvs tvs tenv) tenv' = bind_var_list tvs tenv tenv'`,
+ho_match_mp_tac bind_var_list_ind >>
+rw [bind_var_list_def, bind_var_list2_def, tenv_add_tvs_def]);
+
+val type_funs_tenv_ok = Q.store_thm ("type_funs_tenv_ok",
+`!funs tenvM tenvC env tenvE tvs env'.
+  (num_tvs tenvE = 0) ∧
+  type_funs tenvM tenvC (bind_var_list 0 env' (bind_tvar tvs tenvE)) funs env
+  ⇒
+  tenv_ok (bind_var_list tvs env Empty)`,
+induct_on `funs` >>
+rw [] >>
+qpat_assum `type_funs x0 x1 x2 x3 x4` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
+fs [] >>
+rw [check_freevars_def, bind_tenv_def, bind_var_list_def, tenv_ok_def] >>
+cases_on `tvs = 0` >>
+fs [check_freevars_def, num_tvs_bind_var_list, bind_tvar_def, num_tvs_def] >>
+metis_tac [arithmeticTheory.ADD_0]);
+
+val check_ctor_tenvC_ok_lem = Q.prove (
+`!mn tenvC c. check_ctor_tenv mn tenvC c ⇒ 
+  EVERY (\(cn,tvs,ts,tn). same_module cn tn ∧ EVERY (check_freevars 0 tvs) ts) (build_ctor_tenv mn c)`,
+induct_on `c` >>
+rw [build_ctor_tenv_def] >>
 PairCases_on `h` >>
-fs [build_ctor_tenv_cons,build_tdefs_cons, lookup_append,
-    REVERSE_APPEND] >>
-`check_ctor_tenv tenvC tds` by metis_tac [check_ctor_tenv_cons] >>
-every_case_tac >>
-fs [lookup_reverse_none, lookup_none] >>
-rw [] >|
-[metis_tac [lookup_same_ctor_type_help2, rich_listTheory.MAP_REVERSE],
- metis_tac [lookup_same_ctor_type_help2, rich_listTheory.MAP_REVERSE],
- metis_tac [lookup_same_ctor_type_help2, rich_listTheory.MAP_REVERSE],
- metis_tac [lookup_same_ctor_type_help2, rich_listTheory.MAP_REVERSE],
- `h1 = tn` by metis_tac [lookup_type, rich_listTheory.MAP_REVERSE] >>
-     rw [] >>
-     fs [check_ctor_tenv_def] >>
-     metis_tac [lookup_same_ctor_type_help],
- metis_tac [lookup_none, optionTheory.NOT_SOME_NONE, lookup_reverse_none],
- `h1 = tn` by metis_tac [lookup_type, rich_listTheory.MAP_REVERSE] >>
-     rw [] >>
-     fs [check_ctor_tenv_def] >>
-     metis_tac [lookup_same_ctor_type_help],
- metis_tac [lookup_none, optionTheory.NOT_SOME_NONE, lookup_reverse_none]]);
-
-val extend_consistent_con2 = Q.store_thm ("extend_consistent_con2",
-`!envC tenvC tds.
-  check_ctor_tenv tenvC tds ∧
-  consistent_con_env2 envC tenvC ⇒
-  consistent_con_env2 (build_tdefs tds ++ envC) (REVERSE (build_ctor_tenv tds) ++ tenvC)`,
-rw [consistent_con_env2_def, lookup_append] >>
-every_case_tac >>
-fs [lookup_none, lookup_reverse_none] >-
-metis_tac [] >>
-imp_res_tac check_dup_ctors_disj >|
-[metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none],
- metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none],
- metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none],
- metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none, 
-            check_ctor_tenv_different_types, check_ctor_tenv_def],
- metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none],
- metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none, 
-            check_ctor_tenv_different_types, check_ctor_tenv_def],
- metis_tac [optionTheory.NOT_SOME_NONE, lookup_none, lookup_reverse_none],
- metis_tac [lookup_same_ctor_type]]);
-
-val type_e_tvs_weaken_help = Q.prove (
-`!(x:num) y z. x + y ≥ x`,
-rw [] >>
-decide_tac);
-
-val type_p_tvs_weaken = Q.prove (
-`(!tvs tenvC p t tenv. type_p tvs tenvC p t tenv ⇒
-    !tvs'. type_p (tvs + tvs') tenvC p t tenv) ∧
- (!tvs tenvC ps ts tenv. type_ps tvs tenvC ps ts tenv ⇒
-    !tvs'. type_ps (tvs + tvs') tenvC ps ts tenv)`,
-ho_match_mp_tac type_p_ind >>
-rw [] >>
-ONCE_REWRITE_TAC [type_p_cases] >>
-rw [] >>
-metis_tac [type_e_tvs_weaken_help, check_freevars_add, EVERY_MEM]);
-
-val type_e_tvs_weaken = Q.store_thm ("type_e_tvs_weaken",
-`(!tenvC tenvE e t. type_e tenvC tenvE e t ⇒
-    !tenvE1 tenvE2 tvs.
-      tenv_ok tenvE2 ∧
-      (num_tvs tenvE2 = 0) ∧
-      (tenvE = db_merge tenvE1 (bind_tvar 0 tenvE2))
-      ⇒
-      type_e tenvC (db_merge tenvE1 (bind_tvar tvs tenvE2)) e t) ∧
- (!tenvC tenvE es ts. type_es tenvC tenvE es ts ⇒
-    !tenvE1 tenvE2 tvs.
-      tenv_ok tenvE2 ∧
-      (num_tvs tenvE2 = 0) ∧
-      (tenvE = db_merge tenvE1 (bind_tvar 0 tenvE2))
-      ⇒
-    type_es tenvC (db_merge tenvE1 (bind_tvar tvs tenvE2)) es ts) ∧
- (!tenvC tenvE funs env. type_funs tenvC tenvE funs env ⇒
-    !tenvE1 tenvE2 tvs.
-      tenv_ok tenvE2 ∧
-      (num_tvs tenvE2 = 0) ∧
-      (tenvE = db_merge tenvE1 (bind_tvar 0 tenvE2))
-      ⇒
-      type_funs tenvC (db_merge tenvE1 (bind_tvar tvs tenvE2)) funs env)`,
-ho_match_mp_tac type_e_strongind >>
-rw [] >>
-ONCE_REWRITE_TAC [type_e_cases] >>
-rw [] >>
-fs [num_tvs_db_merge, bind_tvar_rewrites] >|
-[metis_tac [type_e_tvs_weaken_help, check_freevars_add],
- metis_tac [db_merge_def, bind_tenv_def],
- metis_tac [type_e_tvs_weaken_help, check_freevars_add, EVERY_MEM],
- qexists_tac `t` >>
-     rw [] >-
-     metis_tac [type_e_tvs_weaken_help, check_freevars_add, EVERY_MEM] >>
-     fs [lookup_tenv_db_merge] >>
-     every_case_tac >>
-     fs [bind_tvar_rewrites] >>
-     induct_on `tenvE2` >>
-     rw [lookup_tenv_def, num_tvs_def] >>
-     fs [tenv_ok_def] >>
-     rw [nil_deBruijn_inc],
- metis_tac [type_e_tvs_weaken_help, check_freevars_add, EVERY_MEM, db_merge_def,
-            bind_tenv_def],
- metis_tac [db_merge_def, bind_tenv_def],
- metis_tac [db_merge_def, bind_tenv_def],
- fs [RES_FORALL] >>
-     rw [] >>
-     qexists_tac `t` >>
+fs [check_ctor_tenv_def, EVERY_MAP] >|
+[fs [EVERY_MEM] >>
      rw [] >>
      PairCases_on `x` >>
      fs [] >>
      rw [] >>
-     RES_TAC >>
+     res_tac >>
+     fs [],
+ fs [EVERY_MEM] >>
+     rw [] >>
+     PairCases_on `e` >>
+     fs [MEM_FLAT, MEM_MAP] >>
+     rw [] >>
+     PairCases_on `y` >>
+     fs [MEM_MAP] >>
+     PairCases_on `y` >>
      fs [] >>
-     metis_tac [type_p_tvs_weaken, db_merge_bind_var_list],
- metis_tac [db_merge_def, bind_tenv_def, bind_tvar_def],
- metis_tac [db_merge_def, bind_tenv_def],
- metis_tac [db_merge_def, bind_tenv_def, bind_tvar_def, db_merge_bind_var_list],
- fs [Tfn_def] >>
-     metis_tac [type_e_tvs_weaken_help, check_freevars_add, EVERY_MEM,
-                db_merge_def, bind_tenv_def]]);
+     rw [] >>
+     res_tac >>
+     fs [] >>
+     res_tac >>
+     fs []] >>
+cases_on `mn` >>
+rw [same_module_def, mk_id_def]);
+
+val check_ctor_foldr_flat_map = Q.store_thm ("check_ctor_foldr_flat_map",
+`!c. (let x2 = [] in
+       FOLDR
+         (λ(tvs,tn,condefs) x2.
+            FOLDR (λ(n,ts) x2. n::x2) x2 condefs) x2 c)
+    =
+    FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) c)`,
+induct_on `c` >>
+rw [LET_THM] >>
+PairCases_on `h` >>
+fs [LET_THM] >>
+pop_assum (fn _ => all_tac) >>
+induct_on `h2` >>
+rw [] >>
+PairCases_on `h` >>
+rw []);
+
+val check_ctor_tenvC_ok_lem2 = Q.prove (
+`!c. 
+  ALL_DISTINCT (FLAT (MAP (λ(p1,p1',p2). MAP (λ(p1'',p2). p1'') p2) c))
+  ⇒
+  ALL_DISTINCT (FLAT (MAP (λ(p1,p1',p2). MAP (λ(p1'',p2). mk_id mn p1'') p2) c))`,
+rw [] >>
+`FLAT (MAP (λ(p1,p1',p2). MAP (λ(p1'',p2). mk_id mn p1'') p2) c) =
+ MAP (mk_id mn) (FLAT (MAP (λ(p1,p1',p2). MAP (λ(p1'',p2). p1'') p2) c))`
+        by (rw [MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF] >>
+            pop_assum (fn _ => all_tac) >>
+            induct_on `c` >>
+            rw [] >>
+            PairCases_on `h` >>
+            rw [MAP_MAP_o, combinTheory.o_DEF] >>
+            pop_assum (fn _ => all_tac) >>
+            induct_on `h2` >>
+            rw [] >>
+            PairCases_on `h` >>
+            rw []) >>
+rw [] >>
+`!(x:'c) y. (mk_id mn x = mk_id mn y) ⇒ (x = y)`
+        by (cases_on `mn` >>
+            rw [mk_id_def]) >>
+metis_tac [all_distinct_map_inj]);
+
+val check_ctor_tenvC_ok = Q.store_thm ("check_ctor_tenvC_ok",
+`!mn tenvC c. check_ctor_tenv mn tenvC c ⇒ tenvC_ok (build_ctor_tenv mn c)`,
+rw [tenvC_ok_def] >|
+[fs [build_ctor_tenv_def, check_ctor_tenv_def, check_dup_ctors_def, RES_FORALL,
+     MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, 
+     LAMBDA_PROD, check_ctor_foldr_flat_map, check_ctor_tenvC_ok_lem2],
+ metis_tac [check_ctor_tenvC_ok_lem]]);
+
+val type_d_tenv_ok = Q.store_thm ("type_d_tenv_ok",
+`!tvs tenvM tenvC tenv d tenvC' tenv' tenvM'' tenvC''.
+  type_d tvs tenvM tenvC tenv d tenvC' tenv' ∧
+  (num_tvs tenv = 0)
+  ⇒
+  tenv_ok (bind_var_list2 tenv' Empty)`,
+rw [type_d_cases] >>
+`tenv_ok Empty` by rw [tenv_ok_def] >>
+imp_res_tac type_p_bvl >>
+rw [bvl2_to_bvl] >|
+[metis_tac [type_funs_tenv_ok],
+ rw [bind_var_list2_def, emp_def, tenv_ok_def]]);
+
+val type_ds_tenv_ok = Q.store_thm ("type_ds_tenv_ok",
+`!tvs tenvM tenvC tenv ds tenvC' tenv'.
+  type_ds tvs tenvM tenvC tenv ds tenvC' tenv' ⇒
+  (num_tvs tenv = 0) ⇒
+  tenv_ok (bind_var_list2 tenv' Empty)`,
+ho_match_mp_tac type_ds_ind >>
+rw [] >|
+[rw [bind_var_list2_def, tenv_ok_def, emp_def],
+ imp_res_tac type_d_tenv_ok >>
+     fs [bvl2_append, merge_def, num_tvs_bvl2] >>
+     metis_tac [tenv_ok_bvl2]]);
+
+val type_d_tenvC_ok = Q.store_thm ("type_d_tenvC_ok",
+`!tvs tenvM tenvC tenv d tenvC' tenv' tenvM'' tenvC''.
+  type_d tvs tenvM tenvC tenv d tenvC' tenv'
+  ⇒
+  tenvC_ok tenvC' ∧
+  disjoint_env tenvC' tenvC`,
+rw [type_d_cases] >>
+imp_res_tac type_p_bvl >>
+rw [bvl2_to_bvl] >|
+[rw [tenvC_ok_def, emp_def],
+ rw [emp_def, disjoint_env_def],
+ rw [tenvC_ok_def, emp_def],
+ rw [emp_def, disjoint_env_def],
+ rw [tenvC_ok_def, emp_def],
+ rw [emp_def, disjoint_env_def],
+ metis_tac [check_ctor_tenvC_ok],
+ metis_tac [check_ctor_tenv_dups, disjoint_env_def, DISJOINT_SYM]]);
+
+val type_ds_tenvC_ok = Q.store_thm ("type_ds_tenvC_ok",
+`!tvs tenvM tenvC tenv ds tenvC' tenv'.
+  type_ds tvs tenvM tenvC tenv ds tenvC' tenv' ⇒
+  tenvC_ok tenvC' ∧
+  disjoint_env tenvC' tenvC`,
+ho_match_mp_tac type_ds_ind >>
+rw [] >|
+[rw [tenvC_ok_def, emp_def],
+ rw [disjoint_env_def, emp_def],
+ imp_res_tac type_d_tenvC_ok >>
+     rw [tenvC_ok_merge] >>
+     fs [bvl2_append, merge_def, num_tvs_bvl2, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+     rw [] >>
+     metis_tac [],
+ imp_res_tac type_d_tenvC_ok >>
+     fs [num_tvs_bvl2, merge_def, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+     rw [] >>
+     metis_tac [type_d_tenvC_ok]]);
+
+val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
+`!tvs tenvC tenv specs tenvC' tenv'.
+  type_specs tvs tenvC tenv specs tenvC' tenv' ⇒
+  tenv_ok (bind_var_list2 tenv Empty) ⇒
+  tenv_ok (bind_var_list2 tenv' Empty)`,
+ho_match_mp_tac type_specs_ind >>
+rw [] >>
+qpat_assum `A ⇒ B` match_mp_tac >>
+rw [bind_def, bind_var_list2_def, bind_tenv_def, tenv_ok_def, num_tvs_bvl2,
+    num_tvs_def] >>
+match_mp_tac check_freevars_subst_single >>
+rw [rich_listTheory.LENGTH_COUNT_LIST, EVERY_MAP] >>
+rw [EVERY_MEM] >>
+fs [rich_listTheory.MEM_COUNT_LIST, check_freevars_def] >>
+metis_tac [check_freevars_add, DECIDE ``!x:num. x ≥ 0``]);
+
+val type_specs_tenvC_ok = Q.store_thm ("type_specs_tenvC_ok",
+`!tvs tenvC tenv specs tenvC' tenv'.
+  type_specs tvs tenvC tenv specs tenvC' tenv' ⇒
+  tenvC_ok tenvC ⇒
+  tenvC_ok tenvC'`,
+ho_match_mp_tac type_specs_ind >>
+rw [] >>
+qpat_assum `A ⇒ B` match_mp_tac >>
+fs [tenvC_ok_def, merge_def] >>
+rw [] >|
+[rw [ALL_DISTINCT_APPEND] >>
+     imp_res_tac check_ctor_tenvC_ok >>
+     fs [tenvC_ok_def] >>
+     imp_res_tac check_ctor_tenv_dups >>
+     fs [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+     metis_tac [],
+ metis_tac [tenvC_ok_def, check_ctor_tenvC_ok]]);
 
 val _ = export_theory ();
 

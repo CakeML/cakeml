@@ -766,11 +766,11 @@ type exp_to_Cexp_state = <| bvars : list string ; cnmap : Pmap.map string num |>
 let rec cbv m v = <| m with bvars = v::m.bvars |>
 
 let rec
-pat_to_Cpat m (Pvar vn _) = (<|m with bvars = vn::m.bvars|>, CPvar)
+pat_to_Cpat m (Pvar vn) = (<|m with bvars = vn::m.bvars|>, CPvar)
 and
 pat_to_Cpat m (Plit l) = (m, CPlit l)
 and
-pat_to_Cpat m (Pcon cn ps) =
+pat_to_Cpat m (Pcon (Short cn) ps) =
   let (m,Cps) = pats_to_Cpats m ps in
   (m,CPcon (Pmap.find cn m.cnmap) Cps)
 and
@@ -840,12 +840,12 @@ exp_to_Cexp m (Raise err) = CRaise err
 and
 exp_to_Cexp m (Lit l) = CLit l
 and
-exp_to_Cexp m (Con cn es) =
+exp_to_Cexp m (Con (Short cn) es) =
   CCon (Pmap.find cn m.cnmap) (exps_to_Cexps m es)
 and
-exp_to_Cexp m (Var vn _) = CVar (the (find_index vn m.bvars 0))
+exp_to_Cexp m (Var (Short vn)) = CVar (the (find_index vn m.bvars 0))
 and
-exp_to_Cexp m (Fun vn _ e) =
+exp_to_Cexp m (Fun vn e) =
   CFun (Inl (1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))
 and
 exp_to_Cexp m (App (Opn opn) e1 e2) =
@@ -917,18 +917,18 @@ exp_to_Cexp m (Mat e pes) =
   let Cpes = List.map (fun (p,e) -> (p,shift 1 (Cpat_vars p) e)) Cpes in
   CLet Ce (remove_mat_var 0 Cpes)
 and
-exp_to_Cexp m (Let _ vn _ e b) =
+exp_to_Cexp m (Let vn e b) =
   let Ce = exp_to_Cexp m e in
   let Cb = exp_to_Cexp (cbv m vn) b in
   CLet Ce Cb
 and
-exp_to_Cexp m (Letrec _ defs b) =
-  let m = <| m with bvars = (List.map (fun (n,_,_,_,_) -> n) defs) @ m.bvars |> in
+exp_to_Cexp m (Letrec defs b) =
+  let m = <| m with bvars = (List.map (fun (n,_,_) -> n) defs) @ m.bvars |> in
   CLetrec (defs_to_Cdefs m defs) (exp_to_Cexp m b)
 and
 defs_to_Cdefs m [] = []
 and
-defs_to_Cdefs m ((_,_,vn,_,e)::defs) =
+defs_to_Cdefs m ((_,vn,e)::defs) =
   let Ce = exp_to_Cexp (cbv m vn) e in
   let Cdefs = defs_to_Cdefs m defs in
   (Inl (1,Ce))::Cdefs
@@ -1484,14 +1484,14 @@ repl_dec rs (Dtype ((_,_,cs)::ts)) =
   let ct = number_constructors cs rs.contab in
   repl_dec <| rs with contab = ct |> (Dtype ts)
 and
-repl_dec rs (Dletrec _ defs) =
+repl_dec rs (Dletrec defs) =
   let m = etC rs in
-  let fns = List.map (fun (n,_,_,_,_) -> n) defs in
+  let fns = List.map (fun (n,_,_) -> n) defs in
   let m = <| m with bvars = fns @ m.bvars |> in
   let Cdefs = defs_to_Cdefs m defs in
   compile_Cexp rs true (CLetrec Cdefs (CDecl (List.combine (genlist (fun i -> i) (List.length fns)) fns)))
 and
-repl_dec rs (Dlet _ p e) =
+repl_dec rs (Dlet p e) =
   let m = etC rs in
   let Ce = exp_to_Cexp m e in
   let (m,Cp) = pat_to_Cpat <| m with bvars = [] |> p in
@@ -1514,9 +1514,9 @@ type ov =
 let rec
 v_to_ov s (Litv l) = OLit l
 and
-v_to_ov s (Conv cn vs) = OConv cn (List.map (v_to_ov s) vs)
+v_to_ov s (Conv (Short cn) vs) = OConv cn (List.map (v_to_ov s) vs)
 and
-v_to_ov s (Closure _ _ _ _) = OFn
+v_to_ov s (Closure _ _ _) = OFn
 and
 v_to_ov s (Recclosure _ _ _) = OFn
 and
@@ -1548,10 +1548,10 @@ bv_to_ov m (RefPtr n) = OLoc n
 let rec
 v_to_Cv m (Litv l) = CLitv l
 and
-v_to_Cv m (Conv cn vs) =
+v_to_Cv m (Conv (Short cn) vs) =
   CConv (Pmap.find cn m) (vs_to_Cvs m vs)
 and
-v_to_Cv m (Closure env vn _ e) =
+v_to_Cv m (Closure env vn e) =
   let Cenv = env_to_Cenv m env in
   let m = <| bvars = List.map fst env ; cnmap = m |> in
   let Ce = exp_to_Cexp (cbv m vn) e in
@@ -1560,7 +1560,7 @@ and
 v_to_Cv m (Recclosure env defs vn) =
   let Cenv = env_to_Cenv m env in
   let m = <| bvars = List.map fst env ; cnmap = m |> in
-  let fns = List.map (fun (n,_,_,_,_) -> n) defs in
+  let fns = List.map (fun (n,_,_) -> n) defs in
   let m = <| m with bvars = fns @ m.bvars |> in
   let Cdefs = defs_to_Cdefs m defs in
   CRecClos Cenv Cdefs (the (find_index vn fns 0))
@@ -1573,7 +1573,7 @@ vs_to_Cvs m (v::vs) = v_to_Cv m v :: vs_to_Cvs m vs
 and
 env_to_Cenv m [] = []
 and
-env_to_Cenv m ((_,(v,_))::env) =
+env_to_Cenv m ((_,v)::env) =
   (v_to_Cv m v)::(env_to_Cenv m env)
 
 (* intermediate to target values *)

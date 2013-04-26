@@ -198,15 +198,23 @@ let var_to_tok_tree v =
   else
     L (LongidT v)
 
+let id_to_tok_tree v =
+  match v with
+    | Short v ->
+        L (LongidT v)
+    | Long m v ->
+        L (LongidT (m ^ "." ^ v))
+  end
+
 let rec
-pat_to_tok_tree (Pvar v _) = var_to_tok_tree v
+pat_to_tok_tree (Pvar v) = var_to_tok_tree v
 and
 pat_to_tok_tree (Plit l) = lit_to_tok_tree l
 and
-pat_to_tok_tree (Pcon c []) = var_to_tok_tree c
+pat_to_tok_tree (Pcon c []) = id_to_tok_tree c
 and
 pat_to_tok_tree (Pcon c ps) =
-  L LparT ^^ var_to_tok_tree c ^^ 
+  L LparT ^^ id_to_tok_tree c ^^ 
     L LparT ^^ join_trees (L CommaT) (List.map pat_to_tok_tree ps) ^^
     L RparT ^^ L RparT
 and
@@ -230,19 +238,19 @@ exp_to_tok_tree indent (Lit l) =
   lit_to_tok_tree l
 and
 exp_to_tok_tree indent (Con c []) =
-  var_to_tok_tree c
+  id_to_tok_tree c
 and
 exp_to_tok_tree indent (Con c es) =
   L LparT ^^
-  var_to_tok_tree c ^^ 
+  id_to_tok_tree c ^^ 
   L LparT ^^
   join_trees (L CommaT) (List.map (exp_to_tok_tree indent) es) ^^ 
   L RparT ^^ L RparT
 and
-exp_to_tok_tree indent (Var v _) =
-  var_to_tok_tree v
+exp_to_tok_tree indent (Var vid) =
+  id_to_tok_tree vid
 and
-exp_to_tok_tree indent (Fun v _ e) =
+exp_to_tok_tree indent (Fun v e) =
   newline indent ^^
   L LparT ^^
   L FnT ^^
@@ -346,7 +354,7 @@ exp_to_tok_tree indent (Mat e pes) =
                (List.map (pat_exp_to_tok_tree (inc_indent indent)) pes) ^^ 
   L RparT
 and
-exp_to_tok_tree indent (Let _ v _ e1 e2) =
+exp_to_tok_tree indent (Let v e1 e2) =
   newline indent ^^
   L LetT ^^ L ValT ^^ 
   var_to_tok_tree v ^^ 
@@ -357,7 +365,7 @@ exp_to_tok_tree indent (Let _ v _ e1 e2) =
   exp_to_tok_tree (inc_indent indent) e2 ^^ 
   newline indent ^^ L EndT
 and
-exp_to_tok_tree indent (Letrec _ funs e) =
+exp_to_tok_tree indent (Letrec funs e) =
   newline indent ^^
   L LetT ^^ L FunT ^^ 
   join_trees (newline indent ^^ L AndT) 
@@ -372,7 +380,7 @@ pat_exp_to_tok_tree indent (p,e) =
   L DarrowT ^^
   exp_to_tok_tree (inc_indent (inc_indent indent)) e
 and
-fun_to_tok_tree indent (v1,_,v2,_,e) =
+fun_to_tok_tree indent (v1,v2,e) =
   var_to_tok_tree v1 ^^
   var_to_tok_tree v2 ^^ 
   L EqualsT ^^
@@ -430,14 +438,14 @@ let typedef_to_tok_tree indent (tvs, name, variants) =
                (List.map variant_to_tok_tree variants)
 
 let rec 
-dec_to_tok_tree indent (Dlet tvs p e) =
+dec_to_tok_tree indent (Dlet p e) =
   L ValT ^^
   pat_to_tok_tree p ^^ 
   L EqualsT ^^
   exp_to_tok_tree (inc_indent indent) e ^^
   L SemicolonT
 and
-dec_to_tok_tree indent (Dletrec tvs funs) =
+dec_to_tok_tree indent (Dletrec funs) =
   L FunT ^^ 
   join_trees (newline indent ^^ L AndT) 
              (List.map (fun_to_tok_tree indent) funs) ^^

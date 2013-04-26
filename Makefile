@@ -4,6 +4,7 @@ semantics/MiniMLScript.sml print_ast/Print_astScript.sml semantics/TokensScript.
 	mv MiniMLScript.sml semantics/
 	mv TokensScript.sml semantics/
 	mv AstScript.sml semantics/
+	rm *ExtraScript.sml
 
 clean:
 	rm -f Print_astScript.sml MiniMLScript.sml TokensScript.sml print_ast/Print_astScript.sml semantics/MiniMLScript.sml semantics/TokensScript.sml semantics/AstScript.sml
@@ -12,3 +13,4 @@ test:
 	cd compiler/emit; Holmake && ./selftest.exe
 	cd compiler/correctness; Holmake
 	cd hol-light; Holmake
+	cd type_check; Holmake

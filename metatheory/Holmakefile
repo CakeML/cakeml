@@ -1,2 +1,15 @@
 INCLUDES=.. ../semantics
 OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = miniml-heap1
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+BARE_THYS = ../semantics/MiniMLTheory \
+            ../semantics/MiniMLTerminationTheory
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+endif
+

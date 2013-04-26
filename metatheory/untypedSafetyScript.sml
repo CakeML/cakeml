@@ -1,5 +1,5 @@
 open preamble;
-open MiniMLTheory MiniMLTerminationTheory evaluateEquationsTheory;
+open MiniMLTheory MiniMLTerminationTheory evaluateEquationsTheory determTheory bigSmallEquivTheory;
 
 val _ = new_theory "untypedSafety";
 
@@ -8,26 +8,26 @@ val _ = new_theory "untypedSafety";
  * gives a result, and it can't do both. *)
 
 val untyped_safety_exp_step = Q.prove (
-`∀envC s env e c.
-  (e_step (envC, s, env, e, c) = Estuck) =
+`∀menv cenv s env e c.
+  (e_step (menv,cenv, s, env, e, c) = Estuck) =
   (c = []) ∧ ((?v. e = Val v) ∨ (?err. e = Exp (Raise err)))`,
 rw [e_step_def, continue_def, push_def, return_def] >>
 every_case_tac);
 
 val e_step_cenv_same = Q.store_thm("e_step_cenv_same",
-`!envC s env e c envC' s' env' e' c'.
-  (e_step (envC, s, env, e, c) = Estep (envC', s', env', e', c')) ⇒
-  (envC = envC')`,
+`!menv cenv s env e c menv' cenv' s' env' e' c'.
+  (e_step (menv,cenv, s, env, e, c) = Estep (menv',cenv', s', env', e', c')) ⇒
+  (cenv = cenv') ∧ (menv = menv')`,
 rw [e_step_def, continue_def, push_def, return_def] >>
 every_case_tac >>
 fs []);
 
 val e_step_rtc_cenv_same_lem = Q.prove (
 `!s s'. e_step_reln^* s s' ⇒
-  !envC store env e c envC' store' env' e' c'.
-  (s = (envC, store, env, e, c)) ∧
-  (s' = (envC', store', env', e', c')) ⇒
-  (envC = envC')`,
+  !menv cenv store env e c menv' cenv' store' env' e' c'.
+  (s = (menv,cenv, store, env, e, c)) ∧
+  (s' = (menv',cenv', store', env', e', c')) ⇒
+  (cenv = cenv') ∧ (menv = menv')`,
 HO_MATCH_MP_TAC RTC_INDUCT >>
 rw [] >>
 PairCases_on `s'` >>
@@ -35,37 +35,37 @@ fs [e_step_reln_def] >>
 metis_tac [e_step_cenv_same]);
 
 val e_step_rtc_cenv_same = Q.store_thm("e_step_rtc_cenv_same",
-`!envC s env e c envC' s' env' e' c'.
-  e_step_reln^* (envC, s, env, e, c) (envC', s', env', e', c')
+`!menv cenv s env e c menv' cenv' s' env' e' c'.
+  e_step_reln^* (menv,cenv, s, env, e, c) (menv',cenv', s', env', e', c')
   ⇒
-  (envC = envC')`,
+  (cenv = cenv') ∧ (menv = menv')`,
 metis_tac [e_step_rtc_cenv_same_lem]);
 
 val small_exp_safety1 = Q.prove (
-`!cenv s env e r.
-  ¬(e_diverges cenv s env e ∧ ?r. small_eval cenv s env e [] r)`,
+`!menv cenv s env e r.
+  ¬(e_diverges menv cenv s env e ∧ ?r. small_eval menv cenv s env e [] r)`,
 rw [e_diverges_def, METIS_PROVE [] ``~x ∨ ~y = y ⇒ ~x``] >>
 cases_on `r` >>
 cases_on `r'` >>
 (TRY (Cases_on `e'`)) >>
 fs [small_eval_def, e_step_reln_def] >|
-[`∀cenv'' s'' env'' e'' c''.
-       e_step (cenv,q,env',Val a,[]) ≠ Estep (cenv'',s'',env'',e'',c'')`
+[`∀menv'' cenv'' s'' env'' e'' c''.
+       e_step (menv,cenv,q,env',Val a,[]) ≠ Estep (menv'',cenv'',s'',env'',e'',c'')`
             by rw [e_step_def, continue_def] >>
      metis_tac [],
  metis_tac [e_step_result_distinct],
- `∀cenv'' s'' env'' e''' c''.
-    e_step (cenv,q,env',Exp (Raise e''),[]) ≠ Estep (cenv'',s'',env'',e''',c'')`
+ `∀menv'' cenv'' s'' env'' e''' c''.
+    e_step (menv,cenv,q,env',Exp (Raise e''),[]) ≠ Estep (menv'',cenv'',s'',env'',e''',c'')`
          by rw [e_step_def, continue_def] >>
      metis_tac []]);
 
 val small_exp_safety2 = Q.prove (
-`!cenv s env e.
-  e_diverges cenv s env e ∨ ?r. small_eval cenv s env e [] r`,
+`!menv cenv s env e.
+  e_diverges menv cenv s env e ∨ ?r. small_eval menv cenv s env e [] r`,
 rw [e_diverges_def, METIS_PROVE [] ``x ∨ y = ~x ⇒ y``, e_step_reln_def] >>
-cases_on `e_step (cenv',s',env',e',c')` >>
+cases_on `e_step (menv',cenv',s',env',e',c')` >>
 fs [untyped_safety_exp_step] >>
-`cenv = cenv'` by metis_tac [e_step_rtc_cenv_same] >|
+`(cenv = cenv') ∧ (menv = menv')` by metis_tac [e_step_rtc_cenv_same] >|
 [PairCases_on `p` >>
      fs [],
  qexists_tac `(s', Rerr Rtype_error)` >>
@@ -79,59 +79,84 @@ fs [untyped_safety_exp_step] >>
      metis_tac []]);
 
 val untyped_safety_exp = Q.store_thm ("untyped_safety_exp",
-`!cenv s env e. (?r. small_eval cenv s env e [] r) = ¬e_diverges cenv s env e`,
+`!menv cenv s env e. (?r. small_eval menv cenv s env e [] r) = ¬e_diverges menv cenv s env e`,
 metis_tac [small_exp_safety2, small_exp_safety1]);
 
-val untyped_safety_step = Q.prove (
-`∀envC s env ds st.
-  (d_step (envC, s, env, ds, st) = Dstuck) = (ds = []) ∧ (st = NONE)`,
-rw [d_step_def, e_step_def, continue_def, push_def, return_def] >>
-cases_on `st` >>
+val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
+`!mn menv cenv s env d. (∃r. evaluate_dec mn menv cenv s env d r) = ~dec_diverges menv cenv s env d`,
+rw [Once evaluate_dec_cases, dec_diverges_def] >>
+cases_on `d` >>
+rw [GSYM small_big_exp_equiv] >|
+[eq_tac >>
+     rw [GSYM untyped_safety_exp] >-
+     metis_tac [] >-
+     metis_tac [] >-
+     metis_tac [] >-
+     metis_tac [] >-
+     metis_tac [] >>
+     fs [GSYM untyped_safety_exp] >>
+     PairCases_on `r` >>
+     fs [] >>
+     cases_on `r1` >>
+     fs [] >|
+     [cases_on `ALL_DISTINCT (pat_bindings p [])` >>
+          fs [] >|
+          [cases_on `pmatch cenv r0 p a emp` >>
+               fs [] >|
+               [qexists_tac `(r0, Rerr (Rraise Bind_error))` >>
+                    rw [] >>
+                    metis_tac [],
+                qexists_tac `(r0, Rerr Rtype_error)` >>
+                    rw [] >>
+                    metis_tac [],
+                fs [merge_def, emp_def] >-
+                    metis_tac [] >>
+                    `?r. evaluate_decs mn menv cenv r0 (l ++ env) ds r` by metis_tac [] >>
+                    PairCases_on `r` >>
+                    metis_tac [APPEND]],
+           qexists_tac `(r0, Rerr Rtype_error)` >>
+               rw [] >>
+               metis_tac []],
+      qexists_tac `(r0,Rerr e')` >>
+          rw []],
+ metis_tac [],
+ metis_tac []]);
+
+val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
+`!mn menv cenv s env ds. (?r. evaluate_decs mn menv cenv s env ds r) = ~decs_diverges mn menv cenv s env ds`,
+induct_on `ds` >>
 rw [] >-
-every_case_tac >>
-PairCases_on `x` >> 
+rw [Once evaluate_decs_cases, Once decs_diverges_cases] >>
+rw [Once evaluate_decs_cases, Once decs_diverges_cases] >>
+eq_tac >>
 rw [] >>
-cases_on `x5` >>
 rw [] >>
-every_case_tac);
+CCONTR_TAC >> 
+fs [] >>
+imp_res_tac dec_determ >>
+fs [] >>
+rw [] >>
+pop_assum mp_tac >>
+rw [] >>
+metis_tac [untyped_safety_dec, pair_CASES, result_nchotomy]);
 
-val untyped_safety_thm = Q.prove (
-`!cenv s env ds.
-  diverges cenv s env ds ∨ ?r. d_small_eval cenv s env ds NONE r`,
-rw [diverges_def, METIS_PROVE [] ``x ∨ y = ~x ⇒ y``, d_step_reln_def] >>
-cases_on `d_step (cenv',s',env',ds',c')` >>
-fs [untyped_safety_step] >|
-[PairCases_on `p` >> 
-     fs [],
- qexists_tac `(d_state_to_store s' c', Rerr (Rraise e))` >>
-     rw [d_small_eval_def] >>
-     metis_tac [d_state_to_store_thm],
- qexists_tac `(d_state_to_store s' c', Rerr Rtype_error)` >>
-     rw [d_small_eval_def] >>
-     metis_tac [d_state_to_store_thm],
- qexists_tac `(d_state_to_store s' c', Rval (cenv',env'))` >>
-     rw [d_small_eval_def] >>
-     metis_tac [d_state_to_store_thm]]);
-
-val untyped_safety_thm2 = Q.prove (
-`!cenv s env ds r.
-  ¬(diverges cenv s env ds ∧ ?r. d_small_eval cenv s env ds NONE r)`,
-rw [diverges_def, METIS_PROVE [] ``~x ∨ ~y = y ⇒ ~x``] >>
-cases_on `r` >>
-cases_on `r'` >|
-[all_tac, cases_on `e`] >>
-fs [d_small_eval_def, d_step_reln_def] >|
-[PairCases_on `a` >>
-     fs [d_small_eval_def, d_step_reln_def] >>
-     `∀cenv'' s'' env'' ds'' c''.
-         d_step (a0,q,a1,[],NONE) ≠ Dstep (cenv'',s'',env'',ds'',c'')`
-              by rw [d_step_def] >>
-     metis_tac [],
- metis_tac [d_step_result_distinct],
- metis_tac [d_step_result_distinct]]);
-
-val untyped_safety = Q.store_thm ("untyped_safety",
-`!cenv s env ds. (?r. d_small_eval cenv s env ds NONE r) = ~diverges cenv s env ds`,
-metis_tac [untyped_safety_thm2, untyped_safety_thm]);
+val untyped_safety_prog = Q.store_thm ("untyped_safety_prog",
+`!menv cenv s env ds. (?r. evaluate_prog menv cenv s env ds r) = ~prog_diverges menv cenv s env ds`,
+induct_on `ds` >>
+rw [] >-
+rw [Once evaluate_prog_cases, Once prog_diverges_cases] >>
+rw [Once evaluate_prog_cases, Once prog_diverges_cases] >>
+eq_tac >>
+rw [] >>
+rw [] >>
+CCONTR_TAC >> 
+fs [] >>
+imp_res_tac dec_determ >>
+imp_res_tac decs_determ >>
+fs [] >>
+rw [] >>
+pop_assum mp_tac >>
+rw [] >>
+metis_tac [top_nchotomy, untyped_safety_decs, untyped_safety_dec, pair_CASES, result_nchotomy]);
 
 val _ = export_theory ();

@@ -1,11 +1,34 @@
 open preamble MiniMLTheory MiniMLTerminationTheory;
-open check_annotatedTheory unifyTheory collapseTheory;
+open unifyTheory collapseTheory;
 open stringTheory monadsyntax;
 
 val _ = new_theory "infer";
 
+val nub_def = Define `
+(nub [] = []) ∧
+(nub (x::l) =
+  if MEM x l then
+    nub l
+  else
+    x :: nub l)`;
+
+val nub_set = Q.prove (
+`!l. set l = set (nub l)`,
+Induct >>
+rw [nub_def, EXTENSION] >>
+metis_tac []);
+
+val all_distinct_nub = Q.prove (
+`!l. ALL_DISTINCT (nub l)`,
+Induct >>
+rw [nub_def] >>
+metis_tac [nub_set]);
+
 (* 'a is the type of the state, 'b is the type of successful computations, and
  * 'c is the type of exceptions *)
+
+val _ = Hol_datatype `
+  exc = Success of 'a | Failure of 'b`;
 
 val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
 
@@ -40,6 +63,9 @@ val _ = temp_overload_on ("return", ``st_ex_return``);
 val failwith_def = Define `
 (failwith : α -> (β, γ, α) M) msg = (\s. (Failure msg, s))`;
 
+val guard_def = Define `
+guard P msg = if P then return () else failwith msg`;
+
 val read_def = Define `
 (read : (α, α, β) M) =
   \s. (Success s, s)`;
@@ -48,13 +74,17 @@ val write_def = Define `
 (write : α -> (α, unit, β) M) v =
   \s. (Success (), v)`;
 
+val id_to_string_def = Define `
+(id_to_string (Short x) = x) ∧
+(id_to_string (Long x y) = x ++ "." ++ y)`;
+
 val lookup_st_ex_def = Define `
-(lookup_st_ex x [] = failwith ("failed lookup: " ++ x)) ∧
-(lookup_st_ex x ((y,v)::e) =
+(lookup_st_ex pr x [] = failwith ("failed lookup: " ++ pr x)) ∧
+(lookup_st_ex pr x ((y,v)::e) =
   if x = y then
     return v
   else
-    lookup_st_ex x e)`;
+    lookup_st_ex pr x e)`;
 
 val _ = Hol_datatype `
 elab_st = <| next_uvar : num; 
@@ -74,6 +104,14 @@ n_fresh_uvar (n:num) =
        return (v::vs)
     od`;
 
+val init_infer_state_def = Define `
+  init_infer_state = <| next_uvar := 0; subst := FEMPTY |>`;
+
+val init_state_def = Define `
+init_state =
+  \st.
+    (Success (), init_infer_state)`;
+
 val add_constraint_def = Define `
 add_constraint t1 t2 =
   \st. 
@@ -90,7 +128,9 @@ val add_constraints_def = Define `
   do () <- add_constraint t1 t2;
      () <- add_constraints ts1 ts2;
      return ()
-  od)`;
+  od) ∧
+(add_constraints _ _ =
+  failwith "Bad call to add_constraints")`;
 
 val get_next_uvar_def = Define `
 get_next_uvar =
@@ -160,36 +200,36 @@ val infer_deBruijn_subst_def = tDefine "infer_deBruijn_subst" `
  decide_tac);
 
 val infer_p_def = tDefine "infer_p" `
-(infer_p cenv (Pvar n _) =
+(infer_p cenv (Pvar n) =
   do t <- fresh_uvar;
-     return (Pvar n (SOME t), t, [(n,t)])
+     return (t, [(n,t)])
   od) ∧
 (infer_p cenv (Plit (Bool b)) =
-  return (Plit (Bool b), Infer_Tapp [] TC_bool, [])) ∧
+  return (Infer_Tapp [] TC_bool, [])) ∧
 (infer_p cenv (Plit (IntLit i)) =
-  return (Plit (IntLit i), Infer_Tapp [] TC_int, [])) ∧
+  return (Infer_Tapp [] TC_int, [])) ∧
 (infer_p cenv (Plit Unit) =
-  return (Plit Unit, Infer_Tapp [] TC_unit, [])) ∧
+  return (Infer_Tapp [] TC_unit, [])) ∧
 (infer_p cenv (Pcon cn ps) =
-  do (tvs',ts,tn) <- lookup_st_ex cn cenv;
-     (ps',ts'',tenv) <- infer_ps cenv ps;
+  do (tvs',ts,tn) <- lookup_st_ex id_to_string cn cenv;
+     (ts'',tenv) <- infer_ps cenv ps;
      ts' <- n_fresh_uvar (LENGTH tvs');
      () <- add_constraints ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
-       return (Pcon cn ps', Infer_Tapp ts' tn, tenv)
+       return (Infer_Tapp ts' (TC_name tn), tenv)
   od) ∧
 (infer_p cenv (Pref p) =
-  do (p',t,tenv) <- infer_p cenv p;
-    return (Pref p', Infer_Tapp [t] TC_ref, tenv)
+  do (t,tenv) <- infer_p cenv p;
+    return (Infer_Tapp [t] TC_ref, tenv)
   od) ∧
 (infer_ps cenv [] =
-  return ([], [], [])) ∧
+  return ([], [])) ∧
 (infer_ps cenv (p::ps) =
-  do (p', t, tenv) <- infer_p cenv p; 
-     (ps', ts, tenv') <- infer_ps cenv ps; 
-     return (p'::ps', t::ts, tenv'++tenv)
+  do (t, tenv) <- infer_p cenv p; 
+     (ts, tenv') <- infer_ps cenv ps; 
+     return (t::ts, tenv'++tenv)
   od)`
-(WF_REL_TAC `measure (\x. case x of INL (_,p) => pat_size (\x.0:num) p 
-                                  | INR (_,ps) => pat1_size (\x.0:num) ps)` >>
+(WF_REL_TAC `measure (\x. case x of INL (_,p) => pat_size p 
+                                  | INR (_,ps) => pat1_size ps)` >>
  rw []);
 
 val infer_p_ind = fetch "-" "infer_p_ind"
@@ -232,212 +272,264 @@ constrain_op op t1 t2 =
        od`;
 
 val infer_e_def = tDefine "infer_e" `
-(infer_e cenv env (Raise err) =
+(infer_e menv cenv env (Raise err) =
   do t <- fresh_uvar;
-     return (Raise err, t)
+     return t
   od) ∧
-(infer_e cenv env (Handle e1 x e2) =
-  do (e1',t1) <- infer_e cenv env e1;
-     (e2',t2) <- infer_e cenv (bind x (0,Infer_Tapp [] TC_int) env) e2;
+(infer_e menv cenv env (Handle e1 x e2) =
+  do t1 <- infer_e menv cenv env e1;
+     () <- add_constraint t1 (Infer_Tapp [] TC_int);
+     t2 <- infer_e menv cenv (bind x (0,Infer_Tapp [] TC_int) env) e2;
      () <- add_constraint t1 t2;
-     return (Handle e1' x e2', t1)
+     return t1
   od) ∧
-(infer_e cenv tenv (Lit (Bool b)) =
-  return (Lit (Bool b), Infer_Tapp [] TC_bool)) ∧
-(infer_e cenv tenv (Lit (IntLit i)) =
-  return (Lit (IntLit i), Infer_Tapp [] TC_int)) ∧
-(infer_e cenv tenv (Lit Unit) =
-  return (Lit Unit, Infer_Tapp [] TC_unit)) ∧
-(infer_e cenv env (Var n topts) =
-  do (tvs,t) <- lookup_st_ex n env;
+(infer_e menv cenv tenv (Lit (Bool b)) =
+  return (Infer_Tapp [] TC_bool)) ∧
+(infer_e menv cenv tenv (Lit (IntLit i)) =
+  return (Infer_Tapp [] TC_int)) ∧
+(infer_e menv cenv tenv (Lit Unit) =
+  return (Infer_Tapp [] TC_unit)) ∧
+(infer_e menv cenv env (Var (Short n)) =
+  do (tvs,t) <- lookup_st_ex (\x.x) n env;
      uvs <- n_fresh_uvar tvs;
-     return (Var n (SOME uvs), infer_deBruijn_subst uvs t)
+     return (infer_deBruijn_subst uvs t)
   od) ∧
-(infer_e cenv env (Con cn es) =
-  do (tvs',ts,tn) <- lookup_st_ex cn cenv;
-     (es',ts'') <- infer_es cenv env es;
+(infer_e menv cenv env (Var (Long mn n)) =
+  do env' <- lookup_st_ex (\x. id_to_string (Long x n)) mn menv;
+     (tvs,t) <- lookup_st_ex (\x. id_to_string (Long mn x)) n env';
+     uvs <- n_fresh_uvar tvs;
+     return (infer_deBruijn_subst uvs t)
+  od) ∧
+(infer_e menv cenv env (Con cn es) =
+  do (tvs',ts,tn) <- lookup_st_ex id_to_string cn cenv;
+     ts'' <- infer_es menv cenv env es;
      ts' <- n_fresh_uvar (LENGTH tvs');
      () <- add_constraints ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
-       return (Con cn es', Infer_Tapp ts' tn)
+       return (Infer_Tapp ts' (TC_name tn))
   od) ∧
-(infer_e cenv env (Fun x topt e) =
+(infer_e menv cenv env (Fun x e) =
   do t1 <- fresh_uvar;
-     (e', t2) <- infer_e cenv (bind x (0,t1) env) e;
-     return (Fun x (SOME t1) e', Infer_Tapp [t1;t2] TC_fn)
+     t2 <- infer_e menv cenv (bind x (0,t1) env) e;
+     return (Infer_Tapp [t1;t2] TC_fn)
   od) ∧
-(infer_e cenv env (Uapp uop e) =
-  do (e',t) <- infer_e cenv env e;
+(infer_e menv cenv env (Uapp uop e) =
+  do t <- infer_e menv cenv env e;
      t' <- constrain_uop uop t;
-     return (Uapp uop e', t')
+     return t'
   od) ∧
-(infer_e cenv env (App op e1 e2) =
-  do (e1',t1) <- infer_e cenv env e1;
-     (e2',t2) <- infer_e cenv env e2;
+(infer_e menv cenv env (App op e1 e2) =
+  do t1 <- infer_e menv cenv env e1;
+     t2 <- infer_e menv cenv env e2;
      t3 <- constrain_op op t1 t2;
-     return (App op e1' e2', t3)
+     return t3
   od) ∧
-(infer_e cenv env (Log log e1 e2) =
-  do (e1',t1) <- infer_e cenv env e1;
-     (e2',t2) <- infer_e cenv env e2;
+(infer_e menv cenv env (Log log e1 e2) =
+  do t1 <- infer_e menv cenv env e1;
+     t2 <- infer_e menv cenv env e2;
      () <- add_constraint t1 (Infer_Tapp [] TC_bool);
      () <- add_constraint t2 (Infer_Tapp [] TC_bool);
-     return (Log log e1' e2', Infer_Tapp [] TC_bool) 
+     return (Infer_Tapp [] TC_bool) 
   od) ∧
-(infer_e cenv env (If e1 e2 e3) =
-  do (e1',t1) <- infer_e cenv env e1;
+(infer_e menv cenv env (If e1 e2 e3) =
+  do t1 <- infer_e menv cenv env e1;
      () <- add_constraint t1 (Infer_Tapp [] TC_bool);
-     (e2',t2) <- infer_e cenv env e2;
-     (e3',t3) <- infer_e cenv env e3;
+     t2 <- infer_e menv cenv env e2;
+     t3 <- infer_e menv cenv env e3;
      () <- add_constraint t2 t3;
-     return (If e1' e2' e3', t2)
+     return t2
   od) ∧
-(infer_e cenv env (Mat e pes) =
+(infer_e menv cenv env (Mat e pes) =
   if pes = [] then
     failwith "Empty pattern match"
   else
-    do (e',t1) <- infer_e cenv env e;
+    do t1 <- infer_e menv cenv env e;
        t2 <- fresh_uvar;
-       pes' <- infer_pes cenv env pes t1 t2;
-       return (Mat e' pes', t2)
+       () <- infer_pes menv cenv env pes t1 t2;
+       return t2
   od) ∧
-(infer_e cenv env (Let nopt x topt e1 e2) =
+(infer_e menv cenv env (Let x e1 e2) =
   if is_value e1 then
     do n <- get_next_uvar;
-       (e1',t1) <- infer_e cenv env e1;
+       t1 <- infer_e menv cenv env e1;
        t1' <- apply_subst t1;
        (num_gen,t1'') <- return (generalise n 0 t1');
-       (e2',t2) <- infer_e cenv (bind x (num_gen,t1'') env) e2;
-       return (Let (SOME num_gen) x (SOME t1) e1' e2', t2)
+       t2 <- infer_e menv cenv (bind x (num_gen,t1'') env) e2;
+       return t2
     od
   else
-    do (e1',t1) <- infer_e cenv env e1;
-       (e2',t2) <- infer_e cenv (bind x (0,t1) env) e2;
-       return (Let (SOME 0) x (SOME t1) e1' e2', t2)
+    do t1 <- infer_e menv cenv env e1;
+       t2 <- infer_e menv cenv (bind x (0,t1) env) e2;
+       return t2
     od) ∧
-(infer_e cenv env (Letrec nopt funs e) =
+(infer_e menv cenv env (Letrec funs e) =
   do next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
-     env' <- return (merge (list$MAP2 (\(f,topt1,x,topt2,e) uvar. (f,(0,uvar))) funs uvars) env);
-     funs' <- infer_funs cenv env' funs;
-     () <- add_constraints uvars (MAP (\(f,topt1,x,topt2,e). THE topt1) funs');
+     env' <- return (merge (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars) env);
+     () <- infer_funs menv cenv env' funs;
      ts <- apply_subst_list uvars;
      (num_gen,ts') <- return (generalise_list next 0 ts);
-     env'' <- return (merge (list$MAP2 (\(f,topt1,x,topt2,e) t. (f,(num_gen,t))) funs ts') env);
-     (e',t) <- infer_e cenv env'' e;
-     return (Letrec (SOME num_gen) funs' e', t)
+     env'' <- return (merge (list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts') env);
+     t <- infer_e menv cenv env'' e;
+     return t
   od) ∧
-(infer_es cenv env [] =
-  return ([],[])) ∧
-(infer_es cenv env (e::es) =
-  do (e',t) <- infer_e cenv env e;
-     (es',ts) <- infer_es cenv env es;
-     return (e'::es',t::ts)
+(infer_es menv cenv env [] =
+  return []) ∧
+(infer_es menv cenv env (e::es) =
+  do t <- infer_e menv cenv env e;
+     ts <- infer_es menv cenv env es;
+     return (t::ts)
   od) ∧
-(infer_pes cenv env [] t1 t2 =
-   return []) ∧
-(infer_pes cenv env ((p,e)::pes) t1 t2 =
-  do (p', t1', env') <- infer_p cenv p;
+(infer_pes menv cenv env [] t1 t2 =
+   return ()) ∧
+(infer_pes menv cenv env ((p,e)::pes) t1 t2 =
+  do (t1', env') <- infer_p cenv p;
+     () <- guard (ALL_DISTINCT (MAP FST env')) "Duplicate pattern variable";
      () <- add_constraint t1 t1';
-     (e', t2') <- infer_e cenv (merge (MAP (\(n,t). (n,(0,t))) env') env) e;
+     t2' <- infer_e menv cenv (merge (MAP (\(n,t). (n,(0,t))) env') env) e;
      () <- add_constraint t2 t2';
-     pes' <- infer_pes cenv env pes t1 t2;
-     return ((p',e')::pes')
+     () <- infer_pes menv cenv env pes t1 t2;
+     return ()
   od) ∧
-(infer_funs cenv env [] = return []) ∧
-(infer_funs cenv env ((f, topt1, x, topt2, e)::funs) =
+(infer_funs menv cenv env [] = return ()) ∧
+(infer_funs menv cenv env ((f, x, e)::funs) =
   do uvar <- fresh_uvar;
-     (e',t) <- infer_e cenv (bind x (0,uvar) env) e;
-     funs' <- infer_funs cenv env funs;
-     return ((f, SOME (Infer_Tapp [uvar;t] TC_fn), x, SOME uvar, e') :: funs')
+     t <- infer_e menv cenv (bind x (0,uvar) env) e;
+     () <- infer_funs menv cenv env funs;
+     return ()
   od)`
-(WF_REL_TAC `measure (\x. case x of | INL (_,_,e) => exp_size (\x.0) e
-                                    | INR (INL (_,_,es)) => exp8_size (\x.0) es
-                                    | INR (INR (INL (_,_,pes,_,_))) => exp5_size (\x.0) pes
-                                    | INR (INR (INR (_,_,funs))) => exp1_size (\x.0) funs)` >>
+(WF_REL_TAC `measure (\x. case x of | INL (_,_,_,e) => exp_size e
+                                    | INR (INL (_,_,_,es)) => exp6_size es
+                                    | INR (INR (INL (_,_,_,pes,_,_))) => exp4_size pes
+                                    | INR (INR (INR (_,_,_,funs))) => exp1_size funs)` >>
  rw []);
 
-val apply_subst_p_def = tDefine "apply_subst_p" `
-(apply_subst_p s (Pvar n topt) =
-  Pvar n (option_map (apply_subst_t s) topt)) ∧
-(apply_subst_p s (Plit (Bool b)) =
-  Plit (Bool b)) ∧
-(apply_subst_p s (Plit (IntLit i)) =
-  Plit (IntLit i)) ∧
-(apply_subst_p s (Plit Unit) =
-  Plit Unit) ∧
-(apply_subst_p s (Pcon cn ps) =
-  Pcon cn (apply_subst_ps s ps)) ∧
-(apply_subst_p s (Pref p) =
-  Pref (apply_subst_p s p)) ∧
-(apply_subst_ps s [] =
-  []) ∧
-(apply_subst_ps s (p::ps) =
-  apply_subst_p s p :: apply_subst_ps s ps)`
-(WF_REL_TAC `measure (\x. case x of INL (_,p) => pat_size (\x.0:num) p 
-                                  | INR (_,ps) => pat1_size (\x.0:num) ps)` >>
- rw []);
+val infer_d_def = Define `
+(infer_d mn menv cenv env (Dlet p e) = 
+  if is_value e then
+    do () <- init_state;
+       n <- get_next_uvar;
+       t1 <- infer_e menv cenv env e;
+       (t2,env') <- infer_p cenv p;
+       () <- guard (ALL_DISTINCT (MAP FST env')) "Duplicate pattern variable";
+       () <- add_constraint t1 t2;
+       (num_tvs, ts) <- return (generalise_list n 0 (MAP SND env'));
+       return ([], ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts))
+    od
+  else
+    do () <- init_state;
+       t1 <- infer_e menv cenv env e;
+       (t2,env') <- infer_p cenv p;
+       () <- guard (ALL_DISTINCT (MAP FST env')) "Duplicate pattern variable";
+       () <- add_constraint t1 t2;
+       return ([],MAP (λ(n,t). (n,(0,t))) env')
+    od) ∧
+(infer_d mn menv cenv env (Dletrec funs) =
+  do () <- init_state;
+     next <- get_next_uvar;
+     uvars <- n_fresh_uvar (LENGTH funs);
+     env' <- return (merge (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars) env);
+     () <- infer_funs menv cenv env' funs;
+     ts <- apply_subst_list uvars;
+     (num_gen,ts') <- return (generalise_list next 0 ts);
+     return ([], list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts')
+  od) ∧
+(infer_d mn menv cenv env (Dtype tdecs) =
+  if check_ctor_tenv mn cenv tdecs then
+    return (build_ctor_tenv mn tdecs, [])
+  else
+    failwith "Bad type definition")`;
 
-val apply_subst_e_def = tDefine "apply_subst_e" `
-(apply_subst_e s (Raise err) =
-  Raise err) ∧
-(apply_subst_e s (Handle e1 x e2) =
-  Handle (apply_subst_e s e1) x (apply_subst_e s e2)) ∧
-(apply_subst_e s (Lit (Bool b)) =
-  Lit (Bool b)) ∧
-(apply_subst_e s (Lit (IntLit i)) =
-  Lit (IntLit i)) ∧
-(apply_subst_e s (Lit Unit) =
-  Lit Unit) ∧
-(apply_subst_e s (Var n topts) =
-  Var n (option_map (MAP (apply_subst_t s)) topts)) ∧
-(apply_subst_e s (Con cn es) =
-  Con cn (apply_subst_es s es)) ∧
-(apply_subst_e s (Fun x topt e) =
-  Fun x (option_map (apply_subst_t s) topt) (apply_subst_e s e)) ∧
-(apply_subst_e s (Uapp uop e) =
-  Uapp uop (apply_subst_e s e)) ∧
-(apply_subst_e s (App op e1 e2) =
-  App op (apply_subst_e s e1) (apply_subst_e s e2)) ∧
-(apply_subst_e s (Log log e1 e2) =
-  Log log (apply_subst_e s e1) (apply_subst_e s e2)) ∧
-(apply_subst_e s (If e1 e2 e3) =
-  If (apply_subst_e s e1) (apply_subst_e s e2) (apply_subst_e s e3)) ∧
-(apply_subst_e s (Mat e pes) =
-  Mat (apply_subst_e s e) (apply_subst_pes s pes)) ∧
-(apply_subst_e s (Let nopt x topt e1 e2) =
-  Let nopt x (option_map (apply_subst_t s) topt) (apply_subst_e s e1) (apply_subst_e s e2)) ∧
-(apply_subst_e s (Letrec nopt funs e) =
-  Letrec nopt (apply_subst_funs s funs) (apply_subst_e s e)) ∧
-(apply_subst_es s [] =
-  [] ) ∧
-(apply_subst_es s (e::es) =
-  apply_subst_e s e :: apply_subst_es s es) ∧
-(apply_subst_pes s [] =
-  []) ∧
-(apply_subst_pes s ((p,e)::pes) =
-  (apply_subst_p s p, apply_subst_e s e) :: apply_subst_pes s pes) ∧
-(apply_subst_funs s [] = 
-  []) ∧
-(apply_subst_funs s ((f, topt1, x, topt2, e)::funs) =
-  (f, 
-   option_map (apply_subst_t s) topt1,
-   x,
-   option_map (apply_subst_t s) topt2,
-   apply_subst_e s e) ::
-  apply_subst_funs s funs)`
-(WF_REL_TAC `measure (\x. case x of | INL (_,e) => exp_size (\x.0) e
-                                    | INR (INL (_,es)) => exp8_size (\x.0) es
-                                    | INR (INR (INL (_,pes))) => exp5_size (\x.0) pes
-                                    | INR (INR (INR (_,funs))) => exp1_size (\x.0) funs)` >>
- rw []);
+val infer_ds_def = Define `
+(infer_ds mn menv cenv env [] =
+  return ([],[])) ∧
+(infer_ds mn menv cenv env (d::ds) =
+  do
+    (cenv',env') <- infer_d mn menv cenv env d;
+    (cenv'',env'') <- infer_ds mn menv (cenv' ++ cenv) (env' ++ env) ds;
+    return (cenv'' ++ cenv', env'' ++ env')
+  od)`;
 
-val infer_and_annotate_e_def = Define `
-infer_and_annotate_e cenv env e =
-  let init_st = <| next_uvar := 0; subst := FEMPTY |> in
-    case (infer_e cenv env e) init_st of
-      | (Failure x, st) => Failure x
-      | (Success (e',t), st) =>
-          let sub = t_collapse st.subst in
-            Success (apply_subst_e sub e', apply_subst_t sub t)`;
+val t_to_freevars_def = Define `
+(t_to_freevars (Tvar tn) = 
+  return [tn]) ∧
+(t_to_freevars (Tvar_db _) = 
+  failwith "deBruijn index in type definition") ∧
+(t_to_freevars (Tapp ts tc) =
+  ts_to_freevars ts) ∧
+(ts_to_freevars [] = return []) ∧
+(ts_to_freevars (t::ts) =
+  do fvs1 <- t_to_freevars t;
+     fvs2 <- ts_to_freevars ts;
+     return (fvs1++fvs2)
+  od)`;
+
+val check_specs_def = Define `
+(check_specs mn cenv env [] =
+  return (cenv,env)) ∧
+(check_specs mn cenv env (Sval x t::specs) =
+  do fvs <- t_to_freevars t;
+     fvs' <- return (nub fvs);
+     check_specs mn cenv (bind x (LENGTH fvs', infer_type_subst (ZIP (fvs', MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs')))) t) env) specs
+  od) ∧
+(check_specs mn cenv env (Stype td :: specs) =
+  do () <- guard (check_ctor_tenv mn cenv td) "Bad type definition";
+     check_specs mn (merge (build_ctor_tenv mn td) cenv) env specs
+  od) ∧
+(check_specs mn cenv env (Stype_opq tn :: specs) =
+  do () <- guard (EVERY (\(cn,(x,y,tn')). mk_id mn tn ≠ tn') cenv) "Duplicate type definition";
+     check_specs mn cenv env specs
+  od)`;
+
+val check_weakC_def = Define `
+(check_weakC cenv_impl cenv_spec =
+  EVERY (\(cn, (tvs_spec, ts_spec, tn_spec)).
+            case lookup cn cenv_impl of
+              | NONE => F
+              | SOME (tvs_impl,ts_impl,tn_impl) =>
+                  (tn_spec = tn_impl) ∧ 
+                  (tvs_spec = tvs_impl) ∧
+                  (ts_spec = ts_impl))
+        cenv_spec)`;
+
+val check_weakE_def = Define `
+(check_weakE env_impl [] = return ()) ∧
+(check_weakE env_impl ((n, (tvs_spec, t_spec)) :: env_spec) =
+  case lookup n env_impl of
+    | NONE => failwith "Signature mismatch"
+    | SOME (tvs_impl,t_impl) =>
+        do () <- init_state;
+           uvs <- n_fresh_uvar tvs_impl;
+           t <- return (infer_deBruijn_subst uvs t_impl);
+           () <- add_constraint t_spec t;
+           check_weakE env_impl env_spec
+        od)`;
+
+val check_signature_def = Define `
+(check_signature mn cenv env NONE = 
+  return (cenv, env)) ∧
+(check_signature mn cenv env (SOME specs) =
+  do (cenv', env') <- check_specs mn [] [] specs;
+     () <- guard (check_weakC cenv cenv') "Signature mismatch";
+     () <- check_weakE env env';
+     return (cenv',env')
+  od)`;
+
+val infer_prog_def = Define `
+(infer_prog menv cenv env [] =
+  return ([],[],[])) ∧
+(infer_prog menv cenv env (Tdec d::ds) =
+  do
+    (cenv',env') <- infer_d NONE menv cenv env d;
+    (menv'', cenv'', env'') <- 
+             infer_prog menv (cenv' ++ cenv) (env' ++ env) ds;
+    return (menv'', cenv'' ++ cenv', env'' ++ env')
+  od) ∧
+(infer_prog menv cenv env (Tmod mn spec ds1 :: ds2) =
+  do
+    (cenv',env') <- infer_ds (SOME mn) menv cenv env ds1;
+    (cenv'',env'') <- check_signature (SOME mn) cenv' env' spec;
+    (menv'',cenv''',env''') <- infer_prog ((mn,env'')::menv) (cenv'' ++ cenv) env ds2;
+    return (menv'' ++ [(mn,env'')], cenv''' ++ cenv'', env''')
+  od)`;
 
 val _ = export_theory ();

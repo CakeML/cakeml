@@ -29,12 +29,12 @@ infix \\ val op \\ = op THEN;
 (* first an optimisation combinator: BOTTOM_UP_OPT *)
 
 val MEM_exp_size1 = prove(
-  ``!xs a. MEM a xs ==> exp_size (\x.0) a <= exp8_size (\x.0) xs``,
+  ``!xs a. MEM a xs ==> exp_size a <= exp6_size xs``,
   Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC);
 
 val MEM_exp_size2 = prove(
-  ``!ys p x. MEM (p,x) ys ==> exp_size (\x.0) x < exp5_size (\x.0) ys``,
+  ``!ys p x. MEM (p,x) ys ==> exp_size x < exp4_size ys``,
   Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def] THEN Cases
   THEN FULL_SIMP_TAC std_ss [exp_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC);
@@ -42,18 +42,18 @@ val MEM_exp_size2 = prove(
 val BOTTOM_UP_OPT_def = tDefine "BOTTOM_UP_OPT" `
   (BOTTOM_UP_OPT f (Lit v) = f (Lit v)) /\
   (BOTTOM_UP_OPT f (Raise ex) = f (Raise ex)) /\
-  (BOTTOM_UP_OPT f (Var name t) = f (Var name t)) /\
+  (BOTTOM_UP_OPT f (Var name) = f (Var name)) /\
   (BOTTOM_UP_OPT f (Con tag xs) = f (Con tag (MAP (BOTTOM_UP_OPT f) xs))) /\
-  (BOTTOM_UP_OPT f (Fun name ty x) = f (Fun name ty x)) /\
+  (BOTTOM_UP_OPT f (Fun name x) = f (Fun name x)) /\
   (BOTTOM_UP_OPT f (Uapp uop x2) = f (Uapp uop (BOTTOM_UP_OPT f x2))) /\
   (BOTTOM_UP_OPT f (App op x1 x2) = f (App op (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2))) /\
   (BOTTOM_UP_OPT f (Log l x1 x2) = f (Log l (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2))) /\
   (BOTTOM_UP_OPT f (If x1 x2 x3) = f (If (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2) (BOTTOM_UP_OPT f x3))) /\
   (BOTTOM_UP_OPT f (Mat x ys) = f (Mat (BOTTOM_UP_OPT f x) (MAP (\(p,x). (p,BOTTOM_UP_OPT f x)) ys))) /\
-  (BOTTOM_UP_OPT f (Let n name tt x1 x2) = f (Let n name tt (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2))) /\
+  (BOTTOM_UP_OPT f (Let name x1 x2) = f (Let name (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2))) /\
   (BOTTOM_UP_OPT f (Handle x1 name x2) = Handle x1 name x2) /\
-  (BOTTOM_UP_OPT f (Letrec d z1 z2) = f (Letrec d z1 z2))`
- (WF_REL_TAC `measure (exp_size (\x.0) o SND)` THEN REPEAT STRIP_TAC
+  (BOTTOM_UP_OPT f (Letrec z1 z2) = f (Letrec z1 z2))`
+ (WF_REL_TAC `measure (exp_size o SND)` THEN REPEAT STRIP_TAC
   THEN IMP_RES_TAC MEM_exp_size1 THEN IMP_RES_TAC MEM_exp_size2 THEN DECIDE_TAC)
 
 val two_assums = METIS_PROVE [] ``(b ==> c) = (b ==> c /\ b)``;
@@ -141,7 +141,7 @@ val BOTTOM_UP_OPT_THM = prove(
 
 val abs2let_def = Define `
   abs2let x =
-     case x of (App Opapp (Fun v tt exp) y) => Let (SOME 0) v tt y exp
+     case x of (App Opapp (Fun v exp) y) => Let v y exp
              | rest => rest`;
 
 val abs2let_thm = prove(
@@ -161,10 +161,8 @@ val abs2let_thm = prove(
 (* rewrite optimisation: let x = y in x --> y *)
 
 val let_id_def = Define `
-  (let_id (Let NONE v NONE x y) =
-     if (y = Var v NONE) then x else Let NONE v NONE x y) /\
-  (let_id (Let (SOME i) v (SOME t) x y) =
-     if (y = Var v (SOME [t])) /\ (i = 0) then x else Let (SOME i) v (SOME t) x y) /\
+  (let_id (Let v x y) =
+     if (y = Var (Short v)) then x else Let v x y) /\
   (let_id rest = rest)`;
 
 val let_id_thm = prove(
@@ -175,7 +173,7 @@ val let_id_thm = prove(
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
   \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases,bind_def,lookup_def]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) [do_tapp_def,add_tvs_def]);
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) [tenv_add_tvs_def]);
 
 
 (* rewrite optimisations: x - n + n --> x and x + n - n --> x *)
@@ -238,8 +236,8 @@ val opt_sub_add_thm = prove(
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
   \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [evaluate_Lit]
-  \\ `?i1 i2. (v1 = Litv (IntLit i1)) /\ (v2 = Litv (IntLit i2))` by METIS_TAC [do_app_IMP]
-  \\ `?i1' i2'. (v1' = Litv (IntLit i1')) /\ (v2' = Litv (IntLit i2'))` by METIS_TAC [do_app_IMP]
+  \\ `?i1 i2. (v1 = Litv (IntLit i1)) /\ (Litv l = Litv (IntLit i2))` by METIS_TAC [do_app_IMP]
+  \\ `?i1' i2'. (v1' = Litv (IntLit i1')) /\ (Litv l = Litv (IntLit i2'))` by METIS_TAC [do_app_IMP]
   \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
   \\ REPEAT (Q.PAT_ASSUM `Lit xx = yy` (ASSUME_TAC o GSYM))
@@ -429,7 +427,7 @@ val INT_IF_OPT_def = tDefine "INT_IF_OPT" `
   (INT_IF_OPT b (Mat x ys) = Mat (INT_IF_OPT b x) (MAP (\(p,x). (p,INT_IF_OPT (FILTER (int_cmp_keep (pat_vars p)) b) x)) ys)) /\
   (INT_IF_OPT b (Let oo name tt x1 x2) = Let oo name tt (INT_IF_OPT b x1)
      (INT_IF_OPT (int_cmp_let name x1 b ++ FILTER (int_cmp_keep [name]) b) x2)) /\
-  (INT_IF_OPT b (Letrec oo z1 z2) = Letrec oo z1 z2) /\
+  (INT_IF_OPT b (Letrec z1 z2) = Letrec z1 z2) /\
   (INT_IF_OPT b other = other)`
  (WF_REL_TAC `measure (exp_size o SND)` THEN REPEAT STRIP_TAC
   THEN IMP_RES_TAC MEM_exp_size1 THEN IMP_RES_TAC MEM_exp_size2 THEN DECIDE_TAC)
