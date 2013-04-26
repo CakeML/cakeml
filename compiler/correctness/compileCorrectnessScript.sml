@@ -2184,7 +2184,8 @@ val good_code_env_def = Define`
   FEVERY (λ(l,cd).
     Cexp_pred cd.body ∧ (body_count cd.body = 0) ∧
     ∃cs bc0 cc bc1.
-      (* good_ecs d cd.ecs ∧ *)
+      EVERY (λv. v < cd.nz) (FST cd.ceenv) ∧
+      EVERY (λv. v < cd.ez) (SND cd.ceenv) ∧
       (* free_labs cd.body ⊆ FDOM c ∧ *)
       ((compile c (MAP CTEnv cd.ccenv) (TCTail cd.az 0) 0 cs cd.body).out = cc ++ cs.out) ∧
       EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧ l < cs.next_label ∧
@@ -3422,61 +3423,26 @@ val compile_val = store_thm("compile_val",
         fs[markerTheory.Abbrev_def] >>
         imp_res_tac(GSYM bc_find_loc_aux_NONE)>>
         fs[]) >>
-
       simp[LENGTH_NIL] >>
-      qx_gen_tac`e` >> strip_tac >>
-      PairCases_on`e`>>fs[]>>
-      `∃l. (e1 = INR l) ∧ l ∈ FDOM cd.ecs` by (
-        res_tac >> Cases_on`e1` >>
-        fsrw_tac[DNF_ss][SUBSET_DEF,MEM_FILTER]  >>
-        res_tac >> fs[] ) >>
+      simp[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+      map_every qx_gen_tac[`l`,`i`] >> strip_tac >>
       simp[UNCURRY] >>
-      fs[good_ecs_def,FEVERY_DEF] >>
-      `∃k. k < LENGTH defs ∧ ((e0,INR l) = EL k defs)` by (
-        fs[MEM_EL] >> PROVE_TAC[] ) >>
-      first_x_assum(qspecl_then[`e0`,`l`,`k`]mp_tac) >>
-      simp[FLOOKUP_DEF] >> strip_tac >>
-      qmatch_abbrev_tac`P` >>
+      rator_x_assum`good_code_env`mp_tac >>
+      simp[good_code_env_def,FEVERY_DEF] >> strip_tac >>
       first_x_assum(qspec_then`l`mp_tac) >>
-      simp[] >>
-      qspecl_then[`ns`,`e0`,`LENGTH e0`,`k`,`free_vars c (c ' l)`,`(FEMPTY,0,[])`]mp_tac bind_fv_thm >>
-      simp[] >>
-      Q.PAT_ABBREV_TAC`fvl = SET_TO_LIST (free_vars X Y)` >>
-      Q.PAT_ABBREV_TAC`args = FILTER X fvl` >>
-      Q.PAT_ABBREV_TAC`envs = FILTER X fvl` >>
-      ntac 2 strip_tac >>
-      simp[Abbr`P`] >>
-      ntac 2 (pop_assum kall_tac) >>
-      simp[MEM_MAP,MAP_MAP_o,EXISTS_PROD] >>
-      simp[Abbr`envs`,MEM_FILTER] >>
-      conj_tac >- (
-        gen_tac >>
-        disch_then(Q.X_CHOOSE_THEN`n`mp_tac) >>
-        Cases_on`find_index n ns 0`>>fs[]>>
-        simp[Abbr`fvl`] >>
-        fs[FOLDL_UNION_BIGUNION_paired] >>
-        strip_tac >>
-        fsrw_tac[DNF_ss][SUBSET_DEF] >>
-        conj_asm1_tac >- (
-          first_x_assum(qspecl_then[`n`,`(e0,INR l)`]match_mp_tac) >>
-          simp[FLOOKUP_DEF] >>
-          metis_tac[find_index_MEM,free_vars_DOMSUB,SUBSET_DEF,IN_UNION] ) >>
-        fs[Cenv_bs_def,fmap_rel_def,FDOM_DRESTRICT] >>
-        qmatch_abbrev_tac`IS_SOME X`>>
-        Cases_on`X`>>fs[]>>
-        `n ∈ FDOM env` by (fs[EXTENSION] >> PROVE_TAC[]) >>
-        first_x_assum(qspec_then`n`mp_tac)>>
-        simp[] ) >>
-      gen_tac >>
-      disch_then(Q.X_CHOOSE_THEN`n`mp_tac) >>
-      Cases_on`find_index n ns 0`>>fs[]>>
-      imp_res_tac find_index_LESS_LENGTH >>
-      fsrw_tac[ARITH_ss][] ) >>
-    simp[] >>
-    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+      `l ∈ FDOM c` by metis_tac[] >>
+      simp[EVERY_MEM,MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+      `LENGTH cenv = LENGTH env` by metis_tac[Cenv_bs_def,EVERY2_EVERY] >>
+      strip_tac >>
+      conj_tac >- metis_tac[] >>
+      reverse conj_tac >- metis_tac[] >>
+      rator_x_assum`Cenv_bs`mp_tac >>
+      simp[Cenv_bs_def,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+      simp[option_case_NONE_F] >>
+      metis_tac[optionTheory.IS_SOME_DEF] ) >>
     disch_then(Q.X_CHOOSE_THEN`rs`strip_assume_tac) >>
     qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
-    qabbrev_tac`rd' = rd with cls := rd.cls |++ (GENLIST (λi. (EL i rs, (env, ns, defs, LENGTH rs - i - 1))) (LENGTH rs))` >>
+    qabbrev_tac`rd' = rd with cls := rd.cls |++ (GENLIST (λi. (EL i rs, (env, defs, i))) (LENGTH rs))` >>
     `rd.cls ⊑ rd'.cls` by (
       simp[Abbr`rd'`] >>
       simp[SUBMAP_DEF,FDOM_FUPDATE_LIST] >>
@@ -3485,9 +3451,11 @@ val compile_val = store_thm("compile_val",
       simp[MAP_GENLIST,combinTheory.o_DEF,MEM_GENLIST] >>
       fs[Cenv_bs_def,s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY] >>
       metis_tac[MEM_EL]) >>
-    Q.PAT_ABBREV_TAC`ccs = compile_closures cd cenv sz (LENGTH defs) cs defs` >>
-    first_x_assum(qspecl_then[`rd'`,`ccs`,`cd`,
-      `cenv |++ ZIP(ns,GENLIST(λm. CTLet (sz+m+1))(LENGTH ns))`,`sz+(LENGTH ns)`,
+    Q.PAT_ABBREV_TAC`ccs = compile_closures c cenv sz cs defs` >>
+
+    first_x_assum(qspecl_then[`rd'`,`ccs`,
+      `cenv |++ GENLIST(λm. CTLet (sz+m+1))(LENGTH defs)`,
+      `sz+(LENGTH defs)`,
       `bs1`,`bce`,`bcr`,`bc0++cc`]mp_tac) >>
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
