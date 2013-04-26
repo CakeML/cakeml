@@ -356,7 +356,9 @@ val tac =
   THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
   THEN SIMP_TAC (srw_ss()) [Once do_app_def,find_recfun_def]
   THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
+  THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
   THEN SIMP_TAC (srw_ss()) [Once do_app_def,find_recfun_def]
+  THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
   THEN SIMP_TAC (srw_ss()) [Once do_app_def,find_recfun_def]
   THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
   THEN ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,lookup_def,Eval_def]
@@ -378,7 +380,7 @@ val tac =
 
 val Eval_OWHILE = prove(
   ``PRECONDITION (IS_SOME (OWHILE g f (x:'a))) ==>
-    Eval env (Letrec 
+    Eval env (Letrec
       [("owhile","g",
         Fun "f" (Fun "x"
           (If (App Opapp (Var (Short "g")) (Var (Short "x")))
@@ -391,7 +393,7 @@ val Eval_OWHILE = prove(
 
 val Eval_WHILE = prove(
   ``PRECONDITION (IS_SOME (OWHILE g f (x:'a))) ==>
-    Eval env (Letrec 
+    Eval env (Letrec
          [("w","g",
            Fun "f" (Fun "x"
             (If (App Opapp (Var (Short "g")) (Var (Short "x")))

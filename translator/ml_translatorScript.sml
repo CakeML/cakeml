@@ -222,7 +222,8 @@ val Eval_Bool_Not = store_thm("Eval_Bool_Not",
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
   \\ Q.LIST_EXISTS_TAC [`Litv (Bool F)`,`empty_store`]
   \\ FULL_SIMP_TAC std_ss []
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []);
+  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
+  \\ SIMP_TAC std_ss [contains_closure_def]);
 
 val Eval_Implies = store_thm("Eval_Implies",
   ``Eval env x1 (BOOL b1) ==>
@@ -524,6 +525,14 @@ val EqualityType_NUM_BOOL = store_thm("EqualityType_NUM_BOOL",
   ``EqualityType NUM /\ EqualityType INT /\ EqualityType BOOL``,
   EVAL_TAC \\ FULL_SIMP_TAC (srw_ss()) [no_closures_def]);
 
+val no_closures_IMP_NOT_contains_closure = prove(
+  ``!res. no_closures res ==> ~contains_closure res``,
+  HO_MATCH_MP_TAC contains_closure_ind
+  \\ SIMP_TAC std_ss [no_closures_def,EVERY_MEM,contains_closure_def,
+       EXISTS_MEM] \\ REPEAT STRIP_TAC
+  \\ SIMP_TAC std_ss [METIS_PROVE [] ``~b \/ c = (b ==> c)``]
+  \\ REPEAT STRIP_TAC \\ RES_TAC);
+
 val Eval_Equality = store_thm("Eval_Equality",
   ``Eval env x1 (a y1) /\ Eval env x2 (a y2) ==>
     EqualityType a ==>
@@ -535,7 +544,8 @@ val Eval_Equality = store_thm("Eval_Equality",
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
   \\ REPEAT (Q.EXISTS_TAC `empty_store`) \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases]
-  \\ FULL_SIMP_TAC (srw_ss()) [EqualityType_def]);
+  \\ FULL_SIMP_TAC (srw_ss()) [EqualityType_def]
+  \\ METIS_TAC [no_closures_IMP_NOT_contains_closure]);
 
 
 (* evaluation of declarations *)
@@ -770,12 +780,13 @@ val Decls_APPEND = store_thm("Decls_APPEND",
   ``!s1 s3 mn menv cenv1 cenv4 ds1 ds2 env1 env4.
       Decls mn menv cenv1 s1 env1 (ds1 ++ ds2) cenv4 s3 env4 =
       ?cenv2 s2 env2 cenv3 env3.
-                      (cenv4 = merge cenv3 cenv2) ∧
-                      (env4 = merge env3 env2) ∧
-                      Decls mn menv cenv1 s1 env1 ds1 cenv2 s2 env2 /\
-                      Decls mn menv (merge cenv2 cenv1) s2 (merge env2 env1) ds2 cenv3 s3 env3``,
+         (cenv4 = merge cenv3 cenv2) /\
+         (env4 = merge env3 env2) /\
+         Decls mn menv cenv1 s1 env1 ds1 cenv2 s2 env2 /\
+         Decls mn menv (merge cenv2 cenv1) s2 (merge env2 env1) ds2 cenv3 s3 env3``,
   Induct_on `ds1` \\ FULL_SIMP_TAC std_ss [APPEND,Decls_def]
-  THEN1 (ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) [merge_def, emp_def])
+  THEN1 (ONCE_REWRITE_TAC [evaluate_decs'_cases]
+         \\ SIMP_TAC (srw_ss()) [merge_def, emp_def])
   \\ SIMP_TAC (srw_ss()) [Once evaluate_decs'_cases]
   \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
@@ -841,7 +852,7 @@ val DeclAssum_Dlet = store_thm("DeclAssum_Dlet",
 val DeclAssum_Dletrec_LEMMA = prove(
   ``!funs:(varN, varN # exp) env.
       ~MEM n (MAP FST funs) ==>
-      (lookup n (MAP (λ(fn,n,e). (fn,Recclosure env2 funs' fn)) funs ++ env2) =
+      (lookup n (MAP (\(fn,n,e). (fn,Recclosure env2 funs' fn)) funs ++ env2) =
        lookup n (env2:envE))``,
   Induct
   \\ rw []
@@ -855,7 +866,8 @@ val PULL_EXISTS = save_thm("PULL_EXISTS",
                    ((Q /\ (?x. P x)) = ?x. Q /\ P x)``);
 
 val option_CASE_LEMMA = prove(
-  Pmatch.with_classic_heuristic Term `!topt. (case topt of NONE => NONE | SOME t => NONE) = NONE`,
+  Pmatch.with_classic_heuristic Term
+  `!topt. (case topt of NONE => NONE | SOME t => NONE) = NONE`,
   Cases \\ SRW_TAC [] []);
 
 val DeclAssum_Dletrec = store_thm("DeclAssum_Dletrec",
@@ -868,9 +880,13 @@ val DeclAssum_Dletrec = store_thm("DeclAssum_Dletrec",
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [bind_def,Eval_Var_SIMP]
   \\ FULL_SIMP_TAC std_ss [PULL_EXISTS] \\ RES_TAC
   \\ MATCH_MP_TAC Eval_Var_SWAP_ENV
-  \\ Q.EXISTS_TAC `env2` \\ FULL_SIMP_TAC std_ss [] >>
-  fs [typeSystemTheory.build_rec_env_merge, merge_def, emp_def] >>
-  metis_tac [DeclAssum_Dletrec_LEMMA]);
+  \\ Q.EXISTS_TAC `env2` \\ FULL_SIMP_TAC std_ss [merge_def,emp_def,APPEND_NIL]
+  \\ Q.PAT_ASSUM `n NOTIN set (MAP FST funs)` MP_TAC
+  \\ SIMP_TAC std_ss [build_rec_env_def]
+  \\ Q.SPEC_TAC (`Recclosure env2 funs`,`recc`)
+  \\ Q.SPEC_TAC (`funs`,`xs`) \\ Induct
+  \\ FULL_SIMP_TAC std_ss [FOLDR,APPEND,FORALL_PROD,MAP,bind_def,
+       lookup_def,MEM,bind_def]);
 
 val DeclAssum_Dlet_INTRO = store_thm("DeclAssum_Dlet_INTRO",
   ``(!env. DeclAssum ds env ==> Eval env exp P) ==>

@@ -14,10 +14,7 @@ infix \\ val op \\ = op THEN;
 
   This optimiser:
    - first, rewrites "(fn x => exp) y" to "let x = y in exp"
-   - then, attempts to decide simple arithmetic in if-statements,
-     e.g. it attempts to simplify "if n < 0 then 0 else n" to "n"
-     such if-statements arise from translation of minus for :num
-   - finally, a number of rewrites are applied, e.g.
+   - then, a number of rewrites are applied, e.g.
        "x - n + n" --> "x"
        "x + n - n" --> "x"
        "let x = y in x" --> "y"
@@ -153,7 +150,7 @@ val abs2let_thm = prove(
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases,do_app_def]
   \\ REPEAT STRIP_TAC \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
   \\ Q.LIST_EXISTS_TAC [`v2`,`s3`] \\ FULL_SIMP_TAC std_ss []
-  \\ Q.PAT_ASSUM `evaluate' s env (Fun s' o'' e') ((s2,Rval v1))` MP_TAC
+  \\ Q.PAT_ASSUM `evaluate' s env (Fun s' e') ((s2,Rval v1))` MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases,do_app_def]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []);
 
@@ -234,20 +231,17 @@ val opt_sub_add_thm = prove(
   \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
-  \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [evaluate_Lit]
+  \\ REPEAT STRIP_TAC
   \\ `?i1 i2. (v1 = Litv (IntLit i1)) /\ (Litv l = Litv (IntLit i2))` by METIS_TAC [do_app_IMP]
   \\ `?i1' i2'. (v1' = Litv (IntLit i1')) /\ (Litv l = Litv (IntLit i2'))` by METIS_TAC [do_app_IMP]
   \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
   \\ REPEAT (Q.PAT_ASSUM `Lit xx = yy` (ASSUME_TAC o GSYM))
   \\ FULL_SIMP_TAC (srw_ss()) [evaluate_Lit]
-  \\ REPEAT (Q.PAT_ASSUM `IntLit xx = yy` (ASSUME_TAC o GSYM))
-  \\ FULL_SIMP_TAC (srw_ss()) [evaluate_Lit]
   \\ FULL_SIMP_TAC (srw_ss()) [opn_lookup_def,
        intLib.COOPER_PROVE ``i + i2 - i2 = i:int``,
        intLib.COOPER_PROVE ``i - i2 + i2 = i:int``]);
-
 
 (*
 

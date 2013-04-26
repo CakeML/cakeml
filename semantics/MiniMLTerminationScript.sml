@@ -74,16 +74,23 @@ val _ = export_rewrites["lookup_def"];
 val (pmatch_def, pmatch_ind) =
   tprove_no_defn ((pmatch_def, pmatch_ind),
   wf_rel_tac
-  `inv_image $< (λx. case x of INL (s,a,p,b,c) => pat_size  p 
+  `inv_image $< (λx. case x of INL (s,a,p,b,c) => pat_size  p
                              | INR (s,a,ps,b,c) => pat1_size ps)`);
 val _ = register "pmatch" pmatch_def pmatch_ind;
 
 val (pmatch'_def, pmatch'_ind) =
   tprove_no_defn ((pmatch'_def, pmatch'_ind),
   wf_rel_tac
-  `inv_image $< (λx. case x of INL (s,p,b,c) => pat_size p 
+  `inv_image $< (λx. case x of INL (s,p,b,c) => pat_size p
                              | INR (s,ps,b,c) => pat1_size ps)`);
 val _ = register "pmatch'" pmatch'_def pmatch'_ind;
+
+val (contains_closure_def, contains_closure_ind) =
+  tprove_no_defn ((contains_closure_def, contains_closure_ind),
+  wf_rel_tac `measure v_size`
+  THEN Induct_on `vs` THEN rw [v_size_def] THEN1 decide_tac
+  THEN RES_TAC THEN POP_ASSUM (ASSUME_TAC o Q.SPEC `cn`) THEN decide_tac);
+val _ = register "contains_closure" contains_closure_def contains_closure_ind;
 
 val (find_recfun_def, find_recfun_ind) =
   tprove_no_defn ((find_recfun_def, find_recfun_ind),
