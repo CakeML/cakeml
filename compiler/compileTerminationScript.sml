@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib Defn pairTheory pred_setTheory listTheory finite_mapTheory state_transformerTheory lcsymtacs
-open MiniMLTheory MiniMLTerminationTheory CexpTypesTheory CompileTheory
+open MiniMLTheory MiniMLTerminationTheory CompileTheory
 val _ = new_theory "compileTermination"
 
 (* size helper theorems *)
@@ -15,20 +15,25 @@ fun size_thm name t1 t2 = store_thm(name,tm t1 t2,tac)
 val Cexp1_size_thm = size_thm "Cexp1_size_thm" ``Cexp1_size`` ``Cexp2_size``
 val Cexp4_size_thm = size_thm "Cexp4_size_thm" ``Cexp4_size`` ``Cexp_size``
 val Cpat1_size_thm = size_thm "Cpat1_size_thm" ``Cpat1_size`` ``Cpat_size``
-val Cvs_size_thm = size_thm "Cvs_size_thm" ``Cvs_size`` ``Cv_size``
+val Cv1_size_thm = size_thm "Cv1_size_thm" ``Cv1_size`` ``Cv_size``
 
-val SUM_MAP_Cexp2_size_thm = store_thm(
-"SUM_MAP_Cexp2_size_thm",
-``∀env. SUM (MAP Cexp2_size env) =
-  SUM (MAP (list_size (list_size char_size)) (MAP FST env))
-+ SUM (MAP Cexp3_size (MAP SND env))
+val SUM_MAP_Cexp3_size_thm = store_thm(
+"SUM_MAP_Cexp3_size_thm",
+``∀env. SUM (MAP Cexp3_size env) =
+  SUM (MAP FST env)
++ SUM (MAP Cexp_size (MAP SND env))
 + LENGTH env``,
 Induct >- rw[Cexp_size_def] >> Cases >>
 srw_tac[ARITH_ss][Cexp_size_def])
 
-val Cexp3_size_thm = store_thm("Cexp3_size_thm",
-  ``∀cb. Cexp3_size cb = 1 + sum_size Cexp_size I cb``,
-  Cases_on `cb` >> rw[Cexp_size_def,basicSizeTheory.sum_size_def])
+val SUM_MAP_Cexp2_size_thm = store_thm("SUM_MAP_Cexp2_size_thm",
+  ``∀defs. SUM (MAP Cexp2_size defs) =
+    SUM (MAP OUTR (FILTER ISR defs)) +
+    SUM (MAP (pair_size SUC Cexp_size o OUTL) (FILTER ISL defs)) +
+    LENGTH defs``,
+  Induct >- rw[Cexp_size_def] >>
+  Cases >> srw_tac[ARITH_ss][Cexp_size_def] >>
+  Cases_on`x`>>srw_tac[ARITH_ss][Cexp_size_def,basicSizeTheory.pair_size_def,arithmeticTheory.ADD1])
 
 val list_size_thm = store_thm(
 "list_size_thm",
@@ -56,45 +61,61 @@ val Cevaluate_strongind = save_thm("Cevaluate_strongind",Cevaluate_strongind)
 val find_index_def = save_thm("find_index_def",find_index_def)
 val Cexp_size_def = save_thm("Cexp_size_def",Cexp_size_def)
 val Cv_size_def = save_thm("Cv_size_def",Cv_size_def)
-val extend_rec_env_def = save_thm("extend_rec_env_def",extend_rec_env_def)
 val syneq_cases = save_thm("syneq_cases",syneq_cases)
 val syneq_ind = save_thm("syneq_ind",syneq_ind)
+val syneq_rules = save_thm("syneq_rules",syneq_rules)
+val syneq_exp_cases = save_thm("syneq_exp_cases",syneq_exp_cases)
+val syneq_exp_ind = save_thm("syneq_exp_ind",syneq_exp_ind)
+val syneq_exp_rules = save_thm("syneq_exp_rules",syneq_exp_rules)
+val syneq_cb_aux_def = save_thm("syneq_cb_aux_def",syneq_cb_aux_def)
+val syneq_cb_V_def = save_thm("syneq_cb_V_def",syneq_cb_V_def)
+val Cpat_vars_def = save_thm("Cpat_vars_def",Cpat_vars_def)
+val _ = export_rewrites["Cpat_vars_def"]
 
 val (free_vars_def, free_vars_ind) = register "free_vars" (
   tprove_no_defn ((free_vars_def,free_vars_ind),
-  WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
-    | INL (c,e) => (CARD (FDOM c), Cexp_size e)
-    | INR (c,b) => (CARD (FDOM c), Cexp3_size b))` >>
+  WF_REL_TAC `inv_image $< (λx. case x of
+    | INL e => Cexp_size e
+    | INR b => Cexp2_size b)` >>
   srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm] >>
   fsrw_tac[][FLOOKUP_DEF]>>
   MAP_EVERY (fn q => Q.ISPEC_THEN q mp_tac SUM_MAP_MEM_bound)
   [`Cexp_size`,`Cexp2_size`] >>
-  rw[] >> res_tac >> fs[Cexp_size_def] >> srw_tac[ARITH_ss][] >>
-  Cases_on `CARD (FDOM c)` >> fs[]))
+  rw[] >> res_tac >> fs[Cexp_size_def] >> srw_tac[ARITH_ss][]))
 val _ = export_rewrites["free_vars_def"];
+
+val (free_labs_def,free_labs_ind) = register "free_labs" (
+  tprove_no_defn ((free_labs_def,free_labs_ind),
+  (WF_REL_TAC`inv_image ($< LEX $<) (λx. case x of
+    INL e => (Cexp_size e,3:num) |
+    INR (INL es) => (Cexp2_size es,2) |
+    INR (INR (INL defs)) => (Cexp1_size defs,1) |
+    INR(INR(INR def)) => (Cexp4_size def,0))`)))
+
+val free_labs_rwt = save_thm("free_labs_rwt",let
+  fun f n t = GEN_ALL(SIMP_RULE(srw_ss())[](SPEC t (List.nth(CONJUNCTS free_labs_def,n))))
+  val th1 = LIST_CONJ(map(f 0 o rhs o snd o strip_exists)(strip_disj(snd(strip_forall(concl(TypeBase.nchotomy_of``:Cexp``))))))
+  val th2 = LIST_CONJ(map(f 1 o rhs o snd o strip_exists o inst[alpha|->``:num#Cexp``,beta|->``:num``])(strip_disj(snd(strip_forall(concl(TypeBase.nchotomy_of``:def``))))))
+  val th3 = LIST_CONJ(map(f 2 o rhs o snd o strip_exists o inst[alpha|->``:num#Cexp + num``])(strip_disj(snd(strip_forall(concl(TypeBase.nchotomy_of``:def list``))))))
+  val th4 = LIST_CONJ(map(f 3 o rhs o snd o strip_exists o inst[alpha|->``:Cexp``])(strip_disj(snd(strip_forall(concl(TypeBase.nchotomy_of``:Cexp list``))))))
+in
+LIST_CONJ[th1,th2,th3,th4]
+end)
+val _ = export_rewrites["free_labs_rwt"]
 
 val (no_closures_def, no_closures_ind) = register "no_closures" (
   tprove_no_defn ((no_closures_def, no_closures_ind),
   WF_REL_TAC `measure Cv_size` >>
-  rw[Cvs_size_thm] >>
+  rw[Cv1_size_thm] >>
   imp_res_tac SUM_MAP_MEM_bound >>
   pop_assum (qspec_then `Cv_size` mp_tac) >>
   srw_tac[ARITH_ss][]))
 val _ = export_rewrites["no_closures_def"];
 
-val (Cpat_vars_def,Cpat_vars_ind) = register "Cpat_vars" (
-  tprove_no_defn ((Cpat_vars_def,Cpat_vars_ind),
-  WF_REL_TAC `measure Cpat_size` >>
-  rw[Cpat1_size_thm] >>
-  imp_res_tac SUM_MAP_MEM_bound >>
-  pop_assum (qspec_then `Cpat_size` mp_tac) >>
-  srw_tac[ARITH_ss][]))
-val _ = export_rewrites["Cpat_vars_def"]
-
 val (Cv_to_ov_def,Cv_to_ov_ind) = register "Cv_to_ov" (
   tprove_no_defn ((Cv_to_ov_def,Cv_to_ov_ind),
   WF_REL_TAC `measure (Cv_size o SND o SND)` >>
-  rw[Cvs_size_thm] >>
+  rw[Cv1_size_thm] >>
   Q.ISPEC_THEN `Cv_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
 val _ = export_rewrites["Cv_to_ov_def"];
@@ -122,14 +143,23 @@ val _ = export_rewrites["CevalPrim2_def","CevalUpd_def","CevalPrim1_def"];
 
 (* compiler definitions *)
 
+val (mkshift_def,mkshift_ind) = register "mkshift" (
+  tprove_no_defn ((mkshift_def,mkshift_ind),
+  WF_REL_TAC `measure (Cexp_size o SND o SND)` >>
+  srw_tac[ARITH_ss][Cexp4_size_thm,Cexp1_size_thm,SUM_MAP_Cexp3_size_thm] >>
+  Q.ISPEC_THEN`Cexp_size`imp_res_tac SUM_MAP_MEM_bound >>
+  srw_tac[ARITH_ss][] >>
+  imp_res_tac MEM_pair_MAP >>
+  Q.ISPEC_THEN`Cexp2_size`imp_res_tac SUM_MAP_MEM_bound >>
+  fsrw_tac[ARITH_ss][Cexp_size_def]))
+val _ = export_rewrites["mkshift_def"]
+
 val _ = save_thm("remove_mat_vp_def",remove_mat_vp_def)
 val _ = export_rewrites["remove_mat_vp_def"]
 
 val _ = register "remove_mat_var" (
   tprove_no_defn ((remove_mat_var_def,remove_mat_var_ind),
   WF_REL_TAC `measure (LENGTH o SND)` >> rw[]))
-
-val Cpes_vars_def = save_thm("Cpes_vars_def",Cpes_vars_def)
 
 val (exp_to_Cexp_def,exp_to_Cexp_ind) = register "exp_to_Cexp" (
   tprove_no_defn ((exp_to_Cexp_def,exp_to_Cexp_ind),
@@ -148,281 +178,138 @@ val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
 
 val pat_to_Cpat_def = save_thm("pat_to_Cpat_def",pat_to_Cpat_def)
 
-val _ = register "calculate_ldefs" (
-  tprove_no_defn ((calculate_ldefs_def, calculate_ldefs_ind),
-  WF_REL_TAC `inv_image ($< LEX $<) (λ(c,ls,e). (CARD (FDOM c), Cexp_size e))` >>
-  srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm] >> fs[FLOOKUP_DEF] >>
-  Q.ISPEC_THEN `Cexp_size` mp_tac SUM_MAP_MEM_bound >>
-  strip_tac >> res_tac >> fsrw_tac[ARITH_ss][] >>
-  Cases_on `CARD (FDOM c)` >> fs[]))
+val (compile_envref_def, compile_envref_ind) = register "compile_envref" (
+  tprove_no_defn ((compile_envref_def, compile_envref_ind),
+  WF_REL_TAC `measure (λp. case p of (_,_,CCEnv _) => 0 | (_,_,CCRef _) => 1)`))
 
-val (compile_varref_def, compile_varref_ind) = register "compile_varref" (
-  tprove_no_defn ((compile_varref_def, compile_varref_ind),
-  WF_REL_TAC `measure (λp. case p of (_,_,CTEnv _) => 0 | (_,_,CTRef _) => 1)`))
-
-val _ = export_rewrites["compile_varref_def"]
+val _ = save_thm("compile_varref_def",compile_varref_def)
+val _ = export_rewrites["compile_varref_def","compile_envref_def"]
 
 val (compile_def, compile_ind) = register "compile" (
   tprove_no_defn ((compile_def, compile_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
        | INL (d,env,t,sz,s,e) => (Cexp_size e, 3:num)
-       | INR (INL (d,env,t,sz,e,n,s,[]))=> (Cexp_size e, 4)
-       | INR (INL (d,env,t,sz,e,n,s,ns))=> (Cexp_size e + (SUM (MAP (list_size char_size) ns)) + LENGTH ns, 1)
+       | INR (INL (d,env,t,sz,e,n,s,0))=> (Cexp_size e, 4)
+       | INR (INL (d,env,t,sz,e,n,s,ns))=> (Cexp_size e + ns, 1)
        | INR (INR (d,env,sz,s,es))=> (SUM (MAP Cexp_size es), 3 + LENGTH es)) ` >>
   srw_tac[ARITH_ss][] >>
-  srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm,Cexp_size_def,list_size_thm,SUM_MAP_Cexp2_size_thm] >>
-  TRY (Q.ISPEC_THEN `Cexp_size` imp_res_tac SUM_MAP_MEM_bound >> DECIDE_TAC) >>
-  TRY (Cases_on `xs` >> srw_tac[ARITH_ss][]) >>
-  TRY (Cases_on `ns` >> srw_tac[ARITH_ss][]) >>
-  srw_tac[ARITH_ss][list_size_thm]))
+  srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm,Cexp_size_def,list_size_thm,SUM_MAP_Cexp3_size_thm] >>
+  BasicProvers.CASE_TAC >> fsrw_tac[ARITH_ss][] >>
+  BasicProvers.CASE_TAC >> fsrw_tac[ARITH_ss][]))
 
 val _ = register "num_fold" (
   tprove_no_defn ((num_fold_def,num_fold_ind),
   WF_REL_TAC `measure (SND o SND)`))
 
-val (label_defs_def,label_defs_ind) = register "label_defs" (
-  tprove_no_defn ((label_defs_def,label_defs_ind),
-  WF_REL_TAC `measure (LENGTH o SND)` >> rw[]))
+val zero_vars_def = tDefine "zero_vars"`
+  (zero_vars (CDecl a) = CDecl (MAP (λ(n,m). (0,m)) a)) ∧
+  (zero_vars (CRaise b) = CRaise b) ∧
+  (zero_vars (CHandle e1 e2) = CHandle (zero_vars e1) (zero_vars e2)) ∧
+  (zero_vars (CVar _) = CVar 0) ∧
+  (zero_vars (CLit c) = CLit c) ∧
+  (zero_vars (CCon cn es) = CCon cn (zero_vars_list es)) ∧
+  (zero_vars (CTagEq e n) = CTagEq (zero_vars e) n) ∧
+  (zero_vars (CProj e n) = CProj (zero_vars e) n) ∧
+  (zero_vars (CLet e1 e2) = CLet (zero_vars e1) (zero_vars e2)) ∧
+  (zero_vars (CLetrec defs e) = CLetrec (zero_vars_defs defs) (zero_vars e)) ∧
+  (zero_vars (CFun def) = CFun (zero_vars_def def)) ∧
+  (zero_vars (CCall e es) = CCall (zero_vars e) (zero_vars_list es)) ∧
+  (zero_vars (CPrim1 p1 e2) = CPrim1 p1 (zero_vars e2)) ∧
+  (zero_vars (CPrim2 p2 e1 e2) = CPrim2 p2 (zero_vars e1) (zero_vars e2)) ∧
+  (zero_vars (CUpd e1 e2) = CUpd (zero_vars e1) (zero_vars e2)) ∧
+  (zero_vars (CIf e1 e2 e3) = CIf (zero_vars e1) (zero_vars e2) (zero_vars e3)) ∧
+  (zero_vars_list [] = []) ∧
+  (zero_vars_list (e::es) = (zero_vars e)::(zero_vars_list es)) ∧
+  (zero_vars_defs [] = []) ∧
+  (zero_vars_defs (def::defs) = (zero_vars_def def)::(zero_vars_defs defs)) ∧
+  (zero_vars_def (INL (xs,b)) = INL (xs,zero_vars b)) ∧
+  (zero_vars_def (INR l) = INR l)`
+  (WF_REL_TAC`inv_image $< (λx. case x of INL e => Cexp_size e |
+    INR (INL es) => Cexp4_size es |
+    INR (INR (INL defs)) => Cexp1_size defs |
+    INR(INR(INR def)) => Cexp2_size def)`)
 
-val _ = save_thm("label_closures_def",label_closures_def)
+val zero_vars_list_MAP = store_thm("zero_vars_list_MAP",
+  ``(∀ls. (zero_vars_list ls = MAP (zero_vars) ls)) ∧
+    (∀ls. (zero_vars_defs ls = MAP (zero_vars_def) ls))``,
+  conj_tac >> Induct >> rw[zero_vars_def])
+val _ = export_rewrites["zero_vars_def","zero_vars_list_MAP"]
 
-val (count_unlab_def,count_unlab_ind) = register "count_unlab" (
-  tprove_no_defn ((count_unlab_def,count_unlab_ind),
-  WF_REL_TAC `measure LENGTH` >> rw[]))
-
-val _ = save_thm("imm_unlab_def",imm_unlab_def)
-
-(*
-val _ = overload_on("list_max",``MAX_SET o set``)
-
-val mbd_def = tDefine "mbd"`
-  (mbd c (CDecl _) = 0) ∧
-  (mbd c (CRaise _) = 0) ∧
-  (mbd c (CVar _) = 0) ∧
-  (mbd c (CLit _) = 0) ∧
-  (mbd c (CCon _ es) = list_max (MAP (mbd c) es)) ∧
-  (mbd c (CTagEq e _) = mbd c e) ∧
-  (mbd c (CProj e _) = mbd c e) ∧
-  (mbd c (CLet _ es e) = list_max (MAP (mbd c) (e::es))) ∧
-  (mbd c (CLetfun _ _ defs e) = MAX (list_max (MAP (mbd_def c) defs)) (mbd c e)) ∧
-  (mbd c (CFun xs cb) = mbd_def c (xs,cb)) ∧
-  (mbd c (CCall e es) = list_max (MAP (mbd c) (e::es))) ∧
-  (mbd c (CPrim2 _ e1 e2) = MAX (mbd c e1) (mbd c e2)) ∧
-  (mbd c (CIf e1 e2 e3) = list_max (MAP (mbd c) [e1;e2;e3])) ∧
-  (mbd_def c (_,INL b) = (1 + mbd c b)) ∧
-  (mbd_def c (_,INR l) =
-    case FLOOKUP c l of
-    | SOME b => (1 + mbd (c \\ l) b)
-    | NONE => 0)`(
-  WF_REL_TAC `inv_image ($< LEX $< LEX $<) (λx. case x of
-    | INL (c,b) => (CARD (FDOM c), Cexp_size b, 1:num)
-    | INR (c,d) => (CARD (FDOM c), Cexp2_size d, 0))` >>
-  srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm] >>
-  srw_tac[ARITH_ss][SUM_MAP_Cexp2_size_thm] >>
-  Q.ISPEC_THEN`Cexp_size`imp_res_tac SUM_MAP_MEM_bound >>
-  srw_tac[ARITH_ss][] >>
-  TRY (fs[FLOOKUP_DEF] >> Cases_on `CARD (FDOM c)` >> fs[] >> NO_TAC) >>
-  qmatch_assum_rename_tac `MEM (a,b) defs`[] >>
-  `MEM a (MAP FST defs)` by (rw[MEM_MAP,EXISTS_PROD] >> metis_tac[]) >>
-  `MEM b (MAP SND defs)` by (rw[MEM_MAP,EXISTS_PROD] >> metis_tac[]) >>
-  Q.ISPEC_THEN`Cexp3_size`imp_res_tac SUM_MAP_MEM_bound >>
-  Q.ISPEC_THEN`list_size (list_size char_size)`imp_res_tac SUM_MAP_MEM_bound >>
+val zero_vars_mkshift = store_thm("zero_vars_mkshift",
+  ``∀f k e. zero_vars (mkshift f k e) = zero_vars e``,
+  ho_match_mp_tac mkshift_ind >>
+  rw[mkshift_def,MAP_MAP_o,combinTheory.o_DEF,LET_THM] >>
+  lrw[MAP_EQ_f,UNCURRY] >>
+  BasicProvers.CASE_TAC >>
+  BasicProvers.CASE_TAC >> rw[] >>
   fsrw_tac[ARITH_ss][])
-*)
+val _ = export_rewrites["zero_vars_mkshift"]
 
-val bodies_def = tDefine "bodies"`
-  (bodies (CDecl _) = 0) ∧
-  (bodies (CRaise _) = 0) ∧
-  (bodies (CHandle e1 _ e2) = bodies e1 + bodies e2) ∧
-  (bodies (CVar _) = 0) ∧
-  (bodies (CLit _) = 0) ∧
-  (bodies (CCon _ es) = SUM (MAP bodies es)) ∧
-  (bodies (CTagEq e _) = bodies e) ∧
-  (bodies (CProj e _) = bodies e) ∧
-  (bodies (CLet _ e b) = bodies e + bodies b) ∧
-  (bodies (CLetrec _ defs e) = SUM (MAP bod1 defs) + (bodies e)) ∧
-  (bodies (CFun xs cb) = bod1 (xs,cb)) ∧
-  (bodies (CCall e es) = SUM (MAP bodies (e::es))) ∧
-  (bodies (CPrim1 _ e) = bodies e) ∧
-  (bodies (CPrim2 _ e1 e2) = bodies e1 + bodies e2) ∧
-  (bodies (CUpd e1 e2) = bodies e1 + bodies e2) ∧
-  (bodies (CIf e1 e2 e3) = SUM (MAP bodies [e1;e2;e3])) ∧
-  (bod1 (_,INL b) = (1 + bodies b)) ∧
-  (bod1 (_,INR l) = 0)`
-  (
+val (label_closures_def,label_closures_ind) = register "label_closures" (
+  tprove_no_defn ((label_closures_def, label_closures_ind),
+  WF_REL_TAC`inv_image $< (λx. case x of
+    | INL (ez,ls,e) => Cexp_size (zero_vars e)
+    | INR (INL (ez,ls,es)) => Cexp4_size (zero_vars_list es)
+    | INR (INR (ez,ls,nz,k,defs)) => SUM (MAP Cexp2_size (MAP (zero_vars_def o INL) defs)))` >>
+  srw_tac[ARITH_ss][Cexp_size_def,SUM_MAP_Cexp3_size_thm,Cexp1_size_thm,SUM_MAP_Cexp2_size_thm,basicSizeTheory.pair_size_def] >- (
+    simp[MAP_MAP_o,combinTheory.o_DEF] >>
+    qmatch_abbrev_tac`a + (b + c) < d + ((2 * f) + (g + (h + 1:num)))` >>
+    qsuff_tac`a ≤ f ∧ (b = 0) ∧ (c = h)` >- simp[] >>
+    unabbrev_all_tac >>
+    conj_tac >- simp[rich_listTheory.LENGTH_FILTER_LEQ] >>
+    conj_tac >- (
+      simp[SUM_eq_0,MEM_MAP,MEM_FILTER] >>
+      qx_gen_tac`a` >> fsrw_tac[DNF_ss][] >>
+      qx_gen_tac`b` >>
+      Cases_on`b`>>simp[]>>
+      Cases_on`x`>>simp[] ) >>
+    AP_TERM_TAC >>
+    AP_TERM_TAC >>
+    qmatch_abbrev_tac`FILTER ISL (MAP f (FILTER ISL defs)) = FILTER ISL (MAP g defs)` >>
+    `MAP f (FILTER ISL defs) = MAP g (FILTER ISL defs)` by (
+      lrw[MAP_EQ_f,MEM_FILTER,Abbr`f`] ) >>
+    simp[] >>
+    qsuff_tac`MAP g (FILTER ISL defs) = FILTER ISL (MAP g defs)` >- (
+      srw_tac[ETA_ss][rich_listTheory.FILTER_FILTER] ) >>
+    match_mp_tac rich_listTheory.MAP_FILTER >>
+    simp[Abbr`g`] >>
+    Cases >> simp[] >>
+    qmatch_abbrev_tac`ISL (zero_vars_def (INL y))` >>
+    Cases_on`y`>>simp[] ) >>
+  simp[bind_fv_def]))
+
+val (body_count_def,body_count_ind) = register"body_count" (
+  tprove_no_defn ((body_count_def,body_count_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
     | INL b => (Cexp_size b, 1:num)
-    | INR d => (Cexp2_size d, 0))` >>
+    | INR (INR d) => (Cexp2_size d, 0)
+    | INR (INL es) => (Cexp4_size es, 0))` >>
   srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm] >>
-  srw_tac[ARITH_ss][SUM_MAP_Cexp2_size_thm] >>
-  Q.ISPEC_THEN`Cexp_size`imp_res_tac SUM_MAP_MEM_bound >>
-  srw_tac[ARITH_ss][] >>
-  qmatch_assum_rename_tac `MEM (a,b) defs`[] >>
-  `MEM a (MAP FST defs)` by (rw[MEM_MAP,EXISTS_PROD] >> metis_tac[]) >>
-  `MEM b (MAP SND defs)` by (rw[MEM_MAP,EXISTS_PROD] >> metis_tac[]) >>
-  Q.ISPEC_THEN`Cexp3_size`imp_res_tac SUM_MAP_MEM_bound >>
-  Q.ISPEC_THEN`list_size (list_size char_size)`imp_res_tac SUM_MAP_MEM_bound >>
+  Q.ISPEC_THEN`Cexp2_size`imp_res_tac SUM_MAP_MEM_bound >>
+  srw_tac[ARITH_ss][]))
+val _ = export_rewrites["body_count_def"]
+
+val body_count_list_MAP = store_thm("body_count_list_MAP",
+  ``∀ls. body_count_list ls = SUM (MAP body_count ls)``,
+  Induct >> rw[])
+val _ = export_rewrites["body_count_list_MAP"]
+
+val body_count_mkshift = store_thm("body_count_mkshift",
+  ``∀f k e. body_count (mkshift f k e) = body_count e``,
+  ho_match_mp_tac mkshift_ind >>
+  rw[mkshift_def,MAP_MAP_o,combinTheory.o_DEF] >> rw[] >>
+  TRY ( Cases_on`cb`>>fs[]>>BasicProvers.CASE_TAC>>fs[]>>NO_TAC) >>
+  AP_TERM_TAC >> lrw[MAP_EQ_f] >>
+  simp[Abbr`defs'`,MAP_MAP_o,combinTheory.o_DEF] >>
+  lrw[MAP_EQ_f] >>
+  BasicProvers.CASE_TAC >>
+  BasicProvers.CASE_TAC >>
   fsrw_tac[ARITH_ss][])
-val _ = export_rewrites["bodies_def"]
+val _ = export_rewrites["body_count_mkshift"]
 
-val imm_unlab_list_SUM = store_thm("imm_unlab_list_SUM",
-  ``∀ls. imm_unlab_list ls = SUM (MAP imm_unlab ls)``,
-  Induct >> rw[imm_unlab_def])
-
-val count_unlab_FILTER = store_thm("count_unlab_FILTER",
-  ``count_unlab = LENGTH o (FILTER (ISL o SND))``,
-  simp[FUN_EQ_THM] >>
-  Induct >> rw[count_unlab_def] >>
-  PairCases_on `h` >>
-  Cases_on `h1` >>
-  fs[count_unlab_def] >>
-  srw_tac[ARITH_ss][])
-
-val bodies_ind = theorem"bodies_ind"
-
-val imm_bodies_0 = store_thm("imm_bodies_0",
-  ``(∀e. (bodies e = 0) = (imm_unlab e = 0)) ∧
-    (∀d. (bod1 d = 0) = (ISR (SND d)))``,
-  ho_match_mp_tac bodies_ind >>
-  rw[imm_unlab_def,imm_unlab_list_SUM] >>
-  fs[SUM_eq_0,MEM_MAP,count_unlab_FILTER,NULL_FILTER,GSYM NULL_LENGTH] >>
-  TRY (metis_tac[]) >>
-  Cases_on `cb` >> rw[])
-
-val label_closures_list_mapM = store_thm("label_closures_list_mapM",
-  ``label_closures_list = mapM label_closures``,
-  fs[Once FUN_EQ_THM] >>
-  Induct >> rw[label_closures_def,mapM_cons])
-val _ = export_rewrites["label_closures_list_mapM"]
-
-val label_closures_bodies = store_thm("label_closures_bodies",
-  ``(∀e s e' s'. ((e',s') = label_closures e s) ⇒
-                 ∃c. (s'.lcode_env = c++s.lcode_env) ∧
-                     (bodies e = list_size (bodies o SND) c)) ∧
-    (∀ds ac s ds' s'. ((ds',s') = label_defs ac ds s) ⇒
-                 ∃c. (s'.lcode_env = c++s.lcode_env) ∧
-                     (SUM (MAP bod1 ds) = list_size (bodies o SND) c)) ∧
-    (∀x:def. T) ∧ (∀x:(Cexp + num). T) ∧
-    (∀es s es' s'. ((es',s') = label_closures_list es s) ⇒
-                 ∃c. (s'.lcode_env = c++s.lcode_env) ∧
-                     (SUM (MAP bodies es) = list_size (bodies o SND) c))``,
-  ho_match_mp_tac (TypeBase.induction_of``:Cexp``) >>
-  srw_tac[DNF_ss][label_closures_def,list_size_thm,SUM_eq_0,MEM_MAP,LENGTH_NIL,UNIT_DEF,BIND_DEF]
-  >- (
-    qabbrev_tac `q = label_closures e s` >>
-    PairCases_on`q`>>fs[] >>
-    qabbrev_tac `p = label_closures e' q1` >>
-    PairCases_on`p`>>fs[] >>
-    first_x_assum (qspecl_then[`q1`,`p0`,`p1`]mp_tac) >>
-    first_x_assum (qspecl_then[`s`,`q0`,`q1`]mp_tac) >>
-    rw[] >> fs[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
-  >- (
-    Cases_on `mapM label_closures es s` >> fs[] >> rw[] >>
-    metis_tac[] )
-  >- ( Cases_on `label_closures e s` >> fs[] >> rw[] )
-  >- ( Cases_on `label_closures e s` >> fs[] >> rw[] )
-  >- (
-    qabbrev_tac `q = label_closures e s` >>
-    PairCases_on`q`>>fs[] >>
-    qabbrev_tac `p = label_closures e' q1` >>
-    PairCases_on`p`>>fs[] >>
-    first_x_assum (qspecl_then[`q1`,`p0`,`p1`]mp_tac) >>
-    first_x_assum (qspecl_then[`s`,`q0`,`q1`]mp_tac) >>
-    rw[] >> fs[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
-  >- (
-    qabbrev_tac `p = label_defs [] ds s` >>
-    PairCases_on `p` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`[]`,`s`,`p0`,`p1`] mp_tac) >> rw[] >> fs[] >>
-    qabbrev_tac `q = label_closures e p1` >>
-    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`p1`,`q0`,`q1`] mp_tac) >> rw[] >>
-    fs[] >> rw[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
-  >- (
-    Cases_on `x` >> fs[label_defs_def,UNIT_DEF,BIND_DEF,LET_THM] >>
-    srw_tac[ARITH_ss][] )
-  >- (
-    qabbrev_tac `q = label_closures e s` >>
-    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`s`,`q0`,`q1`] mp_tac) >> rw[] >>
-    fs[UNCURRY] >> rw[] >>
-    qabbrev_tac `p = mapM label_closures es q1` >>
-    PairCases_on `p` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`q1`,`p0`,`p1`] mp_tac) >> rw[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
-  >- (
-    qabbrev_tac `q = label_closures e s` >>
-    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`s`,`q0`,`q1`] mp_tac) >>
-    fs[UNCURRY] >> rw[] )
-  >- (
-    qabbrev_tac `q = label_closures e s` >>
-    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspec_then `q1` mp_tac) >>
-    first_x_assum (qspecl_then [`s`,`q0`,`q1`] mp_tac) >>
-    fs[UNCURRY] >> rw[] >>
-    qabbrev_tac `p = label_closures e' q1` >>
-    PairCases_on `p` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`p0`,`p1`] mp_tac) >> rw[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
-  >- (
-    qabbrev_tac `q = label_closures e s` >>
-    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspec_then `q1` mp_tac) >>
-    first_x_assum (qspecl_then [`s`,`q0`,`q1`] mp_tac) >>
-    fs[UNCURRY] >> rw[] >>
-    qabbrev_tac `p = label_closures e' q1` >>
-    PairCases_on `p` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`p0`,`p1`] mp_tac) >> rw[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
-  >- (
-    qabbrev_tac `q = label_closures e s` >>
-    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspec_then `SND (label_closures e' q1)` mp_tac) >>
-    first_x_assum (qspec_then `q1` mp_tac) >>
-    first_x_assum (qspecl_then [`s`,`q0`,`q1`] mp_tac) >>
-    fs[UNCURRY] >> rw[] >>
-    qabbrev_tac `p = label_closures e' q1` >>
-    PairCases_on `p` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    qpat_assum `!x. y` mp_tac >>
-    first_x_assum (qspecl_then [`p0`,`p1`] mp_tac) >> rw[] >>
-    qabbrev_tac `r = label_closures e'' p1` >>
-    PairCases_on `r` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`r0`,`r1`] mp_tac) >> rw[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] )
-  >- (
-    fs[label_defs_def,UNIT_DEF] )
-  >- (
-    PairCases_on `x` >> Cases_on `x1` >>
-    fs[label_defs_def,BIND_DEF,UNIT_DEF] >>
-    res_tac >> fs[] >>
-    srw_tac[ARITH_ss][SUM_APPEND] )
-  >- (
-    qabbrev_tac `q = label_closures e s` >>
-    PairCases_on `q` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`s`,`q0`,`q1`] mp_tac) >> rw[] >>
-    fs[UNCURRY] >> rw[] >>
-    qabbrev_tac `p = mapM label_closures es q1` >>
-    PairCases_on `p` >> pop_assum (assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    first_x_assum (qspecl_then [`q1`,`p0`,`p1`] mp_tac) >> rw[] >>
-    srw_tac[ETA_ss,ARITH_ss][SUM_APPEND] ))
-
-val _ = register "repeat_label_closures" (
-  tprove_no_defn ((repeat_label_closures_def,repeat_label_closures_ind),
-  WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
-    | (INL (e,n,ac)) =>  (bodies e,1:num)
-    | (INR (n,ac,ls)) => (list_size (bodies o SND) ls),0)` >>
-  srw_tac[ARITH_ss][list_size_thm] >>
-  disj2_tac >>
-  imp_res_tac label_closures_bodies >>
-  fs[list_size_thm] >>
-  srw_tac[ETA_ss,ARITH_ss][combinTheory.o_DEF]))
-
-val _ = register "defs_to_ldefs" (
-  tprove_no_defn ((defs_to_ldefs_def,defs_to_ldefs_ind),
-  WF_REL_TAC `measure LENGTH` >> rw[]))
+val body_count_bind_fv = store_thm("body_count_bind_fv",
+  ``body_count (bind_fv azb nz ez k).body = body_count (SND azb)``,
+  Cases_on`azb` >> rw[bind_fv_def] >> rw[Abbr`e`])
 
 val _ = save_thm("cce_aux_def",cce_aux_def)
 val _ = save_thm("compile_code_env_def",compile_code_env_def)
@@ -430,7 +317,6 @@ val _ = save_thm("push_lab_def",push_lab_def)
 val _ = save_thm("cons_closure_def",cons_closure_def)
 val _ = save_thm("update_refptr_def",update_refptr_def)
 val _ = save_thm("compile_closures_def",compile_closures_def)
-val _ = save_thm("calculate_ecs_def",calculate_ecs_def)
 
 val (number_constructors_def,number_constructors_ind) = register "number_constructors" (
   tprove_no_defn ((number_constructors_def,number_constructors_ind),
@@ -462,11 +348,17 @@ val _ = save_thm("compile_Cexp_def",compile_Cexp_def)
 val _ = save_thm("emit_def",emit_def)
 val _ = save_thm("pushret_def",pushret_def)
 val _ = save_thm("get_labels_def",get_labels_def)
-val _ = save_thm("emit_ec_def",emit_ec_def)
+val _ = save_thm("emit_ceref_def",emit_ceref_def)
+val _ = save_thm("emit_ceenv_def",emit_ceenv_def)
 val _ = save_thm("prim1_to_bc_def",prim1_to_bc_def)
 val _ = save_thm("prim2_to_bc_def",prim2_to_bc_def)
 val _ = save_thm("compile_decl_def",compile_decl_def)
 val _ = save_thm("cmap_def",cmap_def)
-val _ = export_rewrites["emit_def","get_labels_def","emit_ec_def","prim1_to_bc_def","prim2_to_bc_def","cmap_def"]
+val _ = save_thm("cbv_def",cbv_def)
+val _ = save_thm("etC_def",etC_def)
+val _ = save_thm("closed_cd_def",closed_cd_def)
+val _ = save_thm("el_check_def",el_check_def)
+val _ = save_thm("shift_def",shift_def)
+val _ = export_rewrites["emit_def","get_labels_def","emit_ceref_def","emit_ceenv_def","prim1_to_bc_def","prim2_to_bc_def","cmap_def","cbv_def","etC_def"]
 
 val _ = export_theory()

@@ -111,7 +111,7 @@ in case fst(dest_const f) of
   | "Dletrec" => let val [x1,x2] = xs in Dletrec (NONE,dest_list (dest_pair fromHOLstring (dest_pair (K NONE) (dest_pair fromHOLstring (dest_pair (K NONE) term_to_exp)))) x2) end
   | s => raise Fail s
 end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
-val term_to_ov = v_to_ov fmapML.FEMPTY o term_to_v
+val term_to_ov = v_to_ov [] o term_to_v
 
 fun add_code c bs = bc_state_code_fupd
   (compile_labels (bc_state_inst_length bs) o (C append c))
@@ -146,13 +146,37 @@ val run_decs_exp = snd o mst_run_decs_exp
 fun mst_run_exp e = mst_run_decs_exp ([],e)
 fun run_exp e = run_decs_exp ([],e)
 
+val int_toString = Int.toString o valOf o intML.toInt
+
+fun print_prim2 CSub = "-"
+| print_prim2 CEq = "="
+| print_prim2 x =  (PolyML.print x; raise Match)
+fun sp d = String.implode(List.tabulate (d,(K #" ")))
+val print_Cexp = let fun
+  f d (CLet (e1,e2)) = (sp d)^"let _ =\n"^(f (d+2) e1)^"\n"^(sp d)^"in\n"^(f (d+2) e2)
+| f d (CFun (sumML.INL (n,e))) = (sp d)^"fn"^(numML.toString n)^" =>\n"^(f (d+2) e)
+| f d (CLit (IntLit n)) = (sp d)^(int_toString n)
+| f d (CLit (Bool true)) = (sp d)^"true"
+| f d (CLit (Bool false)) = (sp d)^"false"
+| f d (CCall (e,es)) = (sp d)^(f 0 e)^"("^(fs es)^")"
+| f d (CPrim2 (p2,e1,e2)) = (f d e1)^"\n"^sp(d+2)^(print_prim2 p2)^"\n"^(f d e2)
+| f d (CIf (e1,e2,e3)) = (sp d)^"if\n"^(f (d+2) e1)^"\n"^(sp d)^"then\n"^(f (d+2) e2)^"\n"^(sp d)^"else\n"^(f (d+2) e3)
+| f d (CVar n) = (sp d)^"v"^(numML.toString n)
+| f d (CRaise err) = (sp d)^"raise "^(PolyML.makestring err)
+| f d x = (PolyML.print x; raise Match)
+and
+  fs [] = ""
+| fs [e] =  f 0 e
+| fs (e::es) = (f 0 e)^","^(fs es)
+in f end
 fun loc_to_string (Addr n) = "Addr "^(numML.toString n)
   | loc_to_string (Lab l) = "Lab "^(numML.toString l)
 val print_bc_stack_op = let fun
   f (Load n) = "Load "^(numML.toString n)
 | f (El n) = "El "^(numML.toString n)
 | f (Pops n) = "Pops "^(numML.toString n)
-| f (PushInt n) = "PushInt "^(Int.toString(valOf(intML.toInt n)))
+| f (PushInt n) = "PushInt "^(int_toString n)
+| f (TagEq n) = "TagEq "^(numML.toString n)
 | f Equal = "Equal"
 | f (Cons (n,m)) = "Cons "^(numML.toString n)^" "^(numML.toString m)
 | f (Shift (n,m)) = "Shift "^(numML.toString n)^" "^(numML.toString m)
@@ -165,9 +189,9 @@ val print_bc_inst = let fun
 | f CallPtr = "CallPtr"
 | f JumpPtr = "JumpPtr"
 | f Return = "Return"
-| f Exception = "Exception"
 | f Deref = "Deref"
 | f Ref = "Ref"
+| f PopExc = "PopExc"
 | f Update = "Update"
 | f (Jump n) = "Jump "^(loc_to_string n)
 | f (JumpIf n) = "JumpIf "^(loc_to_string n)

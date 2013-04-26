@@ -284,7 +284,7 @@ val d0 = paird
 val d1 = ``Dlet NONE (Pcon "Pair_type" [Pvar "x" NONE;Pvar "y" NONE]) (Con "Pair_type" [Lit (IntLit 1);Lit (IntLit 2)])``
 val d2 = ``Dlet NONE (Pvar "x" NONE) (Lit (IntLit 3))``
 val e45 = ``Con "Pair_type" [Var "x" NONE;Var "y" NONE]``
-val [Block (_,[Number xb,Number yb]),Number y,Number x] = run_decs_exp ([d0,d1,d2],e45)
+val [Block (_,[Number xb,Number yb]),Number x,Number y] = run_decs_exp ([d0,d1,d2],e45)
 val SOME 3 = intML.toInt x
 val SOME 2 = intML.toInt y
 val true = xb = x
@@ -292,7 +292,7 @@ val true = yb = y;
 val d1 = ``Dlet NONE (Pcon "Pair_type" [Pvar "y" NONE;Pvar "x" NONE]) (Con "Pair_type" [Lit (IntLit 1);Lit (IntLit 2)])``
 val d2 = ``Dlet NONE (Pvar "x" NONE) (Lit (IntLit 3))``
 val e46 = ``Con "Pair_type" [Var "x" NONE;Var "y" NONE]``
-val [Block (_,[Number xb,Number yb]),Number x,Number y] = run_decs_exp ([d0,d1,d2],e46)
+val [Block (_,[Number xb,Number yb]),Number y,Number x] = run_decs_exp ([d0,d1,d2],e46)
 val SOME 3 = intML.toInt xb
 val SOME 1 = intML.toInt yb
 val true = x = xb
@@ -305,7 +305,7 @@ val e47 = ``Con "Pair_type" [
               Con "Pair_type" [Var "x" NONE; Var "y" NONE];
               Let NONE "x" NONE (Fun "x" NONE (App (Opn Plus) (Var "x" NONE) (Var "y" NONE)))
                 (App Opapp (Var "x" NONE) (Var "y" NONE))]``
-val [Block (_,[Block (_,[Number x3,Number y4]),Number yy]),Number y,Number x] = run_decs_exp([d0,d1,d2,d3],e47)
+val [Block (_,[Block (_,[Number x3,Number y4]),Number yy]),Number x,Number y] = run_decs_exp([d0,d1,d2,d3],e47)
 val SOME 4 = intML.toInt y
 val SOME 3 = intML.toInt x
 val SOME 3 = intML.toInt x3
@@ -325,7 +325,7 @@ val SOME 1 = intML.toInt r;
 val d0 = paird
 val d1 = ``Dlet NONE (Pcon "Pair_type" [Pvar "y" NONE;Pvar "x" NONE]) (Con "Pair_type" [Lit (IntLit 1);Lit (IntLit 2)])``
 val e50 = ``Var "y" NONE``
-val [Number r, Number x, Number y] = run_decs_exp([d0,d1],e50)
+val [Number r, Number y, Number x] = run_decs_exp([d0,d1],e50)
 val SOME 2 = intML.toInt x
 val SOME 1 = intML.toInt y
 val true = r = y;
@@ -484,3 +484,7 @@ val e70 = ``Let NONE "f" NONE
   (App Opapp (Var "f" NONE) (Lit (IntLit 0)))``
 val (m,[r]) = mst_run_exp e70
 val true = (OLit (IntLit (intML.fromInt 2))) = bv_to_ov m r;
+val e71 = ``Let NONE "x" NONE (Lit (IntLit 0))
+            (App (Opb Gt) (Lit (IntLit 1)) (Var "x" NONE))``
+val (m,[r]) = mst_run_exp e71
+val true = (OLit (Bool true) = bv_to_ov m r);

@@ -1,6 +1,6 @@
 open HolKernel bossLib boolLib EmitTeX
 open bytecode_emitTheory extended_emitTheory basis_emitTheory
-open CexpTypesTheory CompileTheory compileTerminationTheory
+open CompileTheory compileTerminationTheory
 val _ = new_theory "compile_emit"
 
 val _ = Parse.temp_type_abbrev("set",``:'a -> bool``)
@@ -10,8 +10,9 @@ val _ = Parse.disable_tyabbrev_printing "tvarN"
 val _ = Parse.disable_tyabbrev_printing "envE"
 val _ = Parse.disable_tyabbrev_printing "store"
 val _ = Parse.disable_tyabbrev_printing "type_def"
+val _ = Parse.disable_tyabbrev_printing "ccenv"
 val _ = Parse.disable_tyabbrev_printing "ctenv"
-val _ = Parse.disable_tyabbrev_printing "ecs"
+val _ = Parse.disable_tyabbrev_printing "ceenv"
 val _ = Parse.disable_tyabbrev_printing "alist"
 val _ = Parse.disable_tyabbrev_printing "def"
 val _ = Parse.disable_tyabbrev_printing "contab"
@@ -28,6 +29,14 @@ Conv.TOP_SWEEP_CONV
      val (vs,n) = List.foldr foldthis ([],0) vs
    in if n = 0 then raise Conv.UNCHANGED else Conv.RENAME_VARS_CONV vs tm end)
 end
+
+fun fix_compile_bindings_suc th = let
+  val ([lz,ls],cs) = List.partition (equal``compile_bindings``o fst o strip_comb o lhs o snd o strip_forall o concl) (CONJUNCTS th)
+  val (l,rz) = dest_eq (snd (strip_forall (concl lz)))
+  val rs = rator (rhs (snd (strip_forall (concl ls))))
+  val n = mk_var("m",``:num``)
+  val th = GEN_ALL (mk_thm([],mk_eq(mk_comb(rator l,n),mk_cond(mk_eq(n,numSyntax.zero_tm),rz,mk_comb(rs,numSyntax.mk_pre n)))))
+  in LIST_CONJ(th::cs) end
 
 val data = map
   (fn th => EmitML.DATATYPE [QUOTE (datatype_thm_to_string th)])
@@ -49,17 +58,17 @@ val data = map
   , datatype_Cprim2
   , datatype_Cpat
   , datatype_Cexp
-  , datatype_label_closures_state
+  , datatype_exp_to_Cexp_state
+  , datatype_ccbind
   , datatype_ctbind
-  , datatype_cebind
-  , datatype_call_context
   , datatype_closure_data
+  , datatype_call_context
   , datatype_compiler_result
   , datatype_repl_state
   ]
 
 val defs = map EmitML.DEFN
-[ mk_thm([],``ITSET f s a = FOLDR f a (toList s)``)
+[ mk_thm([],``SET_TO_LIST s = toList s``)
 , alistTheory.alist_to_fmap_def
 , Cpat_vars_def
 , free_vars_def
@@ -67,40 +76,38 @@ val defs = map EmitML.DEFN
 , i0_def
 , i1_def
 , i2_def
+, mkshift_def
+, shift_def
+, cbv_def
+, cmap_def
+, etC_def
 , error_to_int_def
 , get_labels_def
+, compile_envref_def
 , compile_varref_def
 , pushret_def
 , prim1_to_bc_def
 , prim2_to_bc_def
 , find_index_def
-, emit_ec_def
+, emit_ceref_def
+, emit_ceenv_def
 , bind_fv_def
 , num_fold_def
-, label_defs_def
 , label_closures_def
-, count_unlab_def
-, imm_unlab_def
-, repeat_label_closures_def
-, defs_to_ldefs_def
-, calculate_ldefs_def
+, body_count_def
 , push_lab_def
 , underscore_rule cons_closure_def
 , update_refptr_def
 , underscore_rule compile_closures_def
 , compile_decl_def
-, underscore_rule compile_def
-, calculate_ecs_def
+, fix_compile_bindings_suc (underscore_rule compile_def)
 , cce_aux_def
 , compile_code_env_def
 , calculate_labels_def
 , replace_labels_def
 , compile_labels_def
-, cmap_def
 , init_repl_state_def
 , pat_to_Cpat_def
-, fresh_var_def
-, Cpes_vars_def
 , remove_mat_vp_def
 , underscore_rule remove_mat_var_def
 , underscore_rule exp_to_Cexp_def
