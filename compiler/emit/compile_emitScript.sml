@@ -47,6 +47,7 @@ val data = map
   , MiniMLTheory.datatype_op
   , MiniMLTheory.datatype_uop
   , MiniMLTheory.datatype_log
+  , MiniMLTheory.datatype_id
   , MiniMLTheory.datatype_pat
   , MiniMLTheory.datatype_exp
   , MiniMLTheory.datatype_v
