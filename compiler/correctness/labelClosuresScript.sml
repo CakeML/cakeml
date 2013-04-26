@@ -326,21 +326,38 @@ val syneq_exp_c_syneq = store_thm("syneq_exp_c_syneq",
     simp[Abbr`z2k`,Abbr`zj`] ) >>
   simp[])
 
+val good_code_env_def = Define`
+  good_code_env c = ∀cd. cd ∈ FRANGE c ⇒
+    (body_count cd.body = 0) ∧ free_labs cd.body ⊆ FDOM c ∧
+    EVERY (λv. v < cd.ez) (SND cd.ceenv) ∧
+    ∃e. (cd = (bind_fv (cd.az,e) cd.nz cd.ez cd.ix) with body := cd.body)`
+
+val good_code_env_FEMPTY = store_thm("good_code_env_FEMPTY",
+  ``good_code_env FEMPTY``,
+  rw[good_code_env_def,IN_FRANGE])
+val _ = export_rewrites["good_code_env_FEMPTY"]
+
 val label_closures_thm = store_thm("label_closures_thm",
   ``(∀ez j e. (free_labs e = {}) ∧ free_vars e ⊆ count ez ⇒
      let (e',c,j') = label_closures ez j e in
      (j' = j + body_count e) ∧
      (MAP FST c = (GENLIST ($+ j) (body_count e))) ∧
+     (body_count e' = 0) ∧
      free_labs e' ⊆ set (MAP FST c) ∧
+     free_vars e' ⊆ count ez ∧
      closed_code_env (alist_to_fmap c) ∧
+     good_code_env (alist_to_fmap c) ∧
      syneq_exp (alist_to_fmap c) ez ez $= e e') ∧
     (∀ez j es.
      (free_labs_list es = {}) ∧ BIGUNION (IMAGE free_vars (set es)) ⊆ count ez ⇒
      let (es',c,j') = label_closures_list ez j es in
      (j' = j + body_count_list es) ∧
      (MAP FST c = (GENLIST ($+ j) (body_count_list es))) ∧
+     (body_count_list es' = 0) ∧
      free_labs_list es' ⊆ set (MAP FST c) ∧
+     BIGUNION (IMAGE free_vars (set es')) ⊆ count ez ∧
      closed_code_env (alist_to_fmap c) ∧
+     good_code_env (alist_to_fmap c) ∧
      EVERY2 (syneq_exp (alist_to_fmap c) ez ez $=) es es') ∧
     (∀ez j nz k defs ds0 ls0 c0.
      (free_labs_defs (MAP INL ls0 ++ MAP INL defs) = {}) ∧ (FDOM c0 = set ds0) ∧
@@ -355,6 +372,7 @@ val label_closures_thm = store_thm("label_closures_thm",
      (LENGTH lds = LENGTH defs) ∧
      set lds ⊆ set (MAP FST c) ∧
      closed_code_env (alist_to_fmap c) ∧
+     good_code_env (alist_to_fmap c) ∧
      syneq_defs (c0 ⊌ alist_to_fmap c) ez ez $= (MAP INL ls0 ++ MAP INL defs) (MAP INR ds0 ++ MAP INR lds) (λv1 v2. v1 < nz ∧ (v2 = v1)))``,
   ho_match_mp_tac label_closures_ind >>
   strip_tac >- (rw[] >> rw[syneq_exp_FEMPTY_refl]) >>

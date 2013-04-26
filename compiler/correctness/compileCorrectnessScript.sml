@@ -2178,18 +2178,15 @@ val good_ecs_def = Define`
   v = SND(ITSET(bind_fv ns xs (LENGTH xs) j) fvs (FEMPTY,0,[]))) ecs`
 *)
 
-val good_code_env_def = Define`
-  good_code_env c code =
+val code_env_code_def = Define`
+  code_env_code c code =
   ALL_DISTINCT (FILTER is_Label code) ∧
   FEVERY (λ(l,cd).
-    Cexp_pred cd.body ∧ (body_count cd.body = 0) ∧ free_labs cd.body ⊆ FDOM c ∧
-    ∃e cs bc0 cc bc1.
-      (cd = (bind_fv (cd.az,e) cd.nz cd.ez cd.ix) with body := cd.body) ∧
-      EVERY (λv. v < cd.ez) (SND cd.ceenv) ∧
+    ∃cs bc0 cc bc1.
+      Cexp_pred cd.body ∧
       ((compile c (MAP CTEnv cd.ccenv) (TCTail cd.az 0) 0 cs cd.body).out = cc ++ cs.out) ∧
       EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧ l < cs.next_label ∧
-      (code = bc0 ++ Label l :: (REVERSE cc) ++ bc1)
-    ) c`
+      (code = bc0 ++ Label l :: (REVERSE cc) ++ bc1)) c`
 
 val retbc_thm = store_thm("retbc_thm",
   ``∀bs bc0 bc1 bv vs benv ret args x st bs'.
