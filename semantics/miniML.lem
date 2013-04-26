@@ -483,6 +483,18 @@ let rec find_recfun n funs =
           find_recfun n funs
   end
 
+val contains_closure : v -> bool
+let rec
+contains_closure (Litv l) = false
+and
+contains_closure (Conv cn vs) = List.exist contains_closure vs
+and
+contains_closure (Closure env n e) = true
+and
+contains_closure (Recclosure env funs n) = true
+and
+contains_closure (Loc n) = false
+
 (* Do an application *)
 val do_app : store -> envE -> op -> v -> v -> option (store * envE * exp)
 let do_app s env' op v1 v2 =
@@ -502,9 +514,10 @@ let do_app s env' op v1 v2 =
     | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) ->
         Some (s, env', Lit (Bool (opb_lookup op n1 n2)))
     | (Equality, v1, v2) ->
-        (* TODO: Check for closures in v1 and v2, and possibly check that they
-         * have the same type *)
-        Some (s, env', Lit (Bool (v1 = v2)))
+        if contains_closure v1 || contains_closure v2 then
+          None
+        else
+          Some (s, env', Lit (Bool (v1 = v2)))
     | (Opassign, (Loc lnum), v) ->
         match store_assign lnum v s with
         | Some st -> Some (st, env', Lit Unit)
