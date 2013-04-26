@@ -122,9 +122,9 @@ val _ = export_rewrites["Cv_to_ov_def"];
 
 val (v_to_ov_def,v_to_ov_ind) = register "v_to_ov" (
   tprove_no_defn ((v_to_ov_def,v_to_ov_ind),
-  WF_REL_TAC `measure (v_size (K 0) o SND)` >>
-  rw[v4_size_thm] >>
-  Q.ISPEC_THEN `v_size (K 0)` imp_res_tac SUM_MAP_MEM_bound >>
+  WF_REL_TAC `measure (v_size o SND)` >>
+  rw[v3_size_thm] >>
+  Q.ISPEC_THEN `v_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
 val _ = export_rewrites["v_to_ov_def"];
 
@@ -164,23 +164,26 @@ val _ = register "remove_mat_var" (
 val (exp_to_Cexp_def,exp_to_Cexp_ind) = register "exp_to_Cexp" (
   tprove_no_defn ((exp_to_Cexp_def,exp_to_Cexp_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
-    | INL (_,e) => exp_size ARB e
-    | INR (INL (_,defs)) => exp1_size ARB defs
-    | INR (INR (INL (_,pes))) => exp5_size ARB pes
-    | INR (INR (INR (_,es))) => exp8_size ARB es)`))
+    | INL (_,e) => exp_size e
+    | INR (INL (_,defs)) => exp1_size defs
+    | INR (INR (INL (_,pes))) => exp4_size pes
+    | INR (INR (INR (_,es))) => exp6_size es)`))
 
 val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
   tprove_no_defn ((v_to_Cv_def,v_to_Cv_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
-    | INL (_,v) => v_size ARB v
-    | INR (INL (_, vs)) => v4_size ARB vs
-    | INR (INR (_, env)) => v1_size ARB env)`))
+    | INL (_,v) => v_size v
+    | INR (INL (_, vs)) => v3_size vs
+    | INR (INR (_, env)) => v1_size env)`))
 
-val pat_to_Cpat_def = save_thm("pat_to_Cpat_def",pat_to_Cpat_def)
+val (pat_to_Cpat_def,pat_to_Cpat_ind) = register "pat_to_Cpat" (
+  tprove_no_defn ((pat_to_Cpat_def,pat_to_Cpat_ind),
+  WF_REL_TAC `inv_image $< (λx. case x of
+    | INL (_,p) => pat_size p
+    | INR (_,ps) => pat1_size ps)`))
 
-val (compile_envref_def, compile_envref_ind) = register "compile_envref" (
-  tprove_no_defn ((compile_envref_def, compile_envref_ind),
-  WF_REL_TAC `measure (λp. case p of (_,_,CCEnv _) => 0 | (_,_,CCRef _) => 1)`))
+val compile_envref_def = save_thm("compile_envref_def",compile_envref_def)
+val compile_envref_ind = save_thm("compile_envref_ind",compile_envref_ind)
 
 val _ = save_thm("compile_varref_def",compile_varref_def)
 val _ = export_rewrites["compile_varref_def","compile_envref_def"]
@@ -324,7 +327,7 @@ val (number_constructors_def,number_constructors_ind) = register "number_constru
 
 val (repl_dec_def,repl_dec_ind) = register "repl_dec" (
   tprove_no_defn ((repl_dec_def,repl_dec_ind),
-  WF_REL_TAC `measure (dec_size ARB o SND)`))
+  WF_REL_TAC `measure (dec_size o SND)`))
 
 val (bv_to_ov_def,bv_to_ov_ind) = register "bv_to_ov" (
   tprove_no_defn ((bv_to_ov_def,bv_to_ov_ind),
