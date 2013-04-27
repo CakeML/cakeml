@@ -326,21 +326,63 @@ val syneq_exp_c_syneq = store_thm("syneq_exp_c_syneq",
     simp[Abbr`z2k`,Abbr`zj`] ) >>
   simp[])
 
+val good_code_env_def = Define`
+  good_code_env c = ∀cd. cd ∈ FRANGE c ⇒
+    (body_count cd.body = 0) ∧ free_labs cd.body ⊆ FDOM c ∧
+    EVERY (λv. v < cd.ez) (SND cd.ceenv) ∧
+    free_vars cd.body ⊆ count (LENGTH cd.ccenv) ∧
+    ∃e. (cd = (bind_fv (cd.az,e) cd.nz cd.ez cd.ix) with body := cd.body)`
+
+val good_code_env_FEMPTY = store_thm("good_code_env_FEMPTY",
+  ``good_code_env FEMPTY``,
+  rw[good_code_env_def,IN_FRANGE])
+val _ = export_rewrites["good_code_env_FEMPTY"]
+
+val good_code_env_FUNION = store_thm("good_code_env_FUNION",
+  ``∀c1 c2. DISJOINT (FDOM c1) (FDOM c2) ∧ good_code_env c1 ∧ good_code_env c2 ⇒ good_code_env (c1 ⊌ c2)``,
+  simp[good_code_env_def,FRANGE_FUNION] >>
+  metis_tac[SUBSET_UNION,SUBSET_TRANS])
+
+val FUPDATE_EQ_FUNION = store_thm("FUPDATE_EQ_FUNION",
+  ``∀fm kv. fm |+ kv = (FEMPTY |+ kv) ⊌ fm``,
+  gen_tac >> Cases >>
+  simp[GSYM fmap_EQ_THM,FDOM_FUPDATE,FAPPLY_FUPDATE_THM,FUNION_DEF] >>
+  simp[EXTENSION])
+
+val good_code_env_FUPDATE = store_thm("good_code_env_FUPDATE",
+  ``∀c k cd. (good_code_env c ∧
+    (body_count cd.body = 0) ∧ free_labs cd.body ⊆ k INSERT FDOM c ∧
+    EVERY (λv. v < cd.ez) (SND cd.ceenv) ∧
+    free_vars cd.body ⊆ count (LENGTH cd.ccenv) ∧
+    ∃e. (cd = (bind_fv (cd.az,e) cd.nz cd.ez cd.ix) with body := cd.body))
+    ⇒ good_code_env (c |+ (k,cd))``,
+  rpt gen_tac >> strip_tac >>
+  fs[good_code_env_def] >>
+  gen_tac >> strip_tac >- metis_tac[] >>
+  pop_assum mp_tac >>
+  metis_tac[FRANGE_DOMSUB_SUBSET,SUBSET_DEF,IN_INSERT])
+
 val label_closures_thm = store_thm("label_closures_thm",
   ``(∀ez j e. (free_labs e = {}) ∧ free_vars e ⊆ count ez ⇒
      let (e',c,j') = label_closures ez j e in
      (j' = j + body_count e) ∧
      (MAP FST c = (GENLIST ($+ j) (body_count e))) ∧
+     (body_count e' = 0) ∧
      free_labs e' ⊆ set (MAP FST c) ∧
+     free_vars e' ⊆ free_vars e ∧
      closed_code_env (alist_to_fmap c) ∧
+     good_code_env (alist_to_fmap c) ∧
      syneq_exp (alist_to_fmap c) ez ez $= e e') ∧
     (∀ez j es.
      (free_labs_list es = {}) ∧ BIGUNION (IMAGE free_vars (set es)) ⊆ count ez ⇒
      let (es',c,j') = label_closures_list ez j es in
      (j' = j + body_count_list es) ∧
      (MAP FST c = (GENLIST ($+ j) (body_count_list es))) ∧
+     (body_count_list es' = 0) ∧
      free_labs_list es' ⊆ set (MAP FST c) ∧
+     BIGUNION (IMAGE free_vars (set es')) ⊆ BIGUNION (IMAGE free_vars (set es)) ∧
      closed_code_env (alist_to_fmap c) ∧
+     good_code_env (alist_to_fmap c) ∧
      EVERY2 (syneq_exp (alist_to_fmap c) ez ez $=) es es') ∧
     (∀ez j nz k defs ds0 ls0 c0.
      (free_labs_defs (MAP INL ls0 ++ MAP INL defs) = {}) ∧ (FDOM c0 = set ds0) ∧
@@ -355,6 +397,7 @@ val label_closures_thm = store_thm("label_closures_thm",
      (LENGTH lds = LENGTH defs) ∧
      set lds ⊆ set (MAP FST c) ∧
      closed_code_env (alist_to_fmap c) ∧
+     good_code_env (alist_to_fmap c) ∧
      syneq_defs (c0 ⊌ alist_to_fmap c) ez ez $= (MAP INL ls0 ++ MAP INL defs) (MAP INR ds0 ++ MAP INR lds) (λv1 v2. v1 < nz ∧ (v2 = v1)))``,
   ho_match_mp_tac label_closures_ind >>
   strip_tac >- (rw[] >> rw[syneq_exp_FEMPTY_refl]) >>
@@ -377,9 +420,18 @@ val label_closures_thm = store_thm("label_closures_thm",
     conj_tac >- (
       fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
     conj_tac >- (
+      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
+      Cases >> rw[ADD1] >>
+      res_tac >>
+      disj2_tac >> HINT_EXISTS_TAC >>
+      fsrw_tac[ARITH_ss][] ) >>
+    conj_tac >- (
       fsrw_tac[DNF_ss][closed_code_env_def] >>
       ho_match_mp_tac IN_FRANGE_FUNION_suff >>
       PROVE_TAC[SUBSET_UNION,SUBSET_TRANS] ) >>
+    conj_tac >- (
+      match_mp_tac good_code_env_FUNION >>
+      simp[DISJOINT_DEF,MEM_GENLIST,EXTENSION] ) >>
     simp[Once syneq_exp_cases] >>
     conj_tac >- (
       match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_c_SUBMAP)) >>
@@ -401,7 +453,7 @@ val label_closures_thm = store_thm("label_closures_thm",
     fs[LET_THM] >- simp[Once syneq_exp_cases] >>
     fs[IMAGE_EQ_SING,FOLDL_UNION_BIGUNION] >>
     qabbrev_tac`p = label_closures_list ez j es` >> PairCases_on`p`>>fs[LET_THM] >>
-    rfs[] >>
+    rfs[FOLDL_UNION_BIGUNION] >>
     simp[Once syneq_exp_cases] ) >>
   strip_tac >- (
     rw[] >> fs[LET_THM] >>
@@ -427,9 +479,18 @@ val label_closures_thm = store_thm("label_closures_thm",
     conj_tac >- (
       fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
     conj_tac >- (
+      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
+      Cases >> rw[ADD1] >>
+      res_tac >>
+      disj2_tac >> HINT_EXISTS_TAC >>
+      fsrw_tac[ARITH_ss][] ) >>
+    conj_tac >- (
       fsrw_tac[DNF_ss][closed_code_env_def] >>
       ho_match_mp_tac IN_FRANGE_FUNION_suff >>
       PROVE_TAC[SUBSET_UNION,SUBSET_TRANS] ) >>
+    conj_tac >- (
+      match_mp_tac good_code_env_FUNION >>
+      simp[DISJOINT_DEF,MEM_GENLIST,EXTENSION] ) >>
     simp[Once syneq_exp_cases] >>
     conj_tac >- (
       match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_c_SUBMAP)) >>
@@ -508,15 +569,27 @@ val label_closures_thm = store_thm("label_closures_thm",
       Cases_on`x < SUM (MAP body_count_def defs)` >>
       lrw[EL_APPEND1,EL_APPEND2] ) >>
     conj_tac >- (
+      simp[SUM_eq_0,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] ) >>
+    conj_tac >- (
       rfs[] >> fs[] >>
       fsrw_tac[DNF_ss][SUBSET_DEF,MEM_GENLIST,MEM_MAP] >>
       rfs[] ) >>
+    fs[FOLDL_UNION_BIGUNION,LET_THM] >>
+    conj_tac >- (
+      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP] >>
+      gen_tac >> strip_tac >>
+      disj1_tac >>
+      qexists_tac`m` >>
+      simp[] ) >>
     conj_tac >- (
       fsrw_tac[DNF_ss][closed_code_env_def] >>
       ho_match_mp_tac IN_FRANGE_FUNION_suff >>
       rfs[] >> fs[] >>
       fsrw_tac[DNF_ss][SUBSET_DEF,MEM_GENLIST] >>
       metis_tac[] ) >>
+    conj_tac >- (
+      match_mp_tac good_code_env_FUNION >>
+      simp[IN_DISJOINT,MEM_GENLIST,EXTENSION] ) >>
     fs[FUNION_FEMPTY_1] >>
     simp[Once syneq_exp_cases] >>
     qexists_tac`λv1 v2. v1 < LENGTH defs ∧ (v2 = v1)` >>
@@ -553,6 +626,9 @@ val label_closures_thm = store_thm("label_closures_thm",
       fsrw_tac[DNF_ss][SUBSET_DEF,MEM_GENLIST] >>
       qexists_tac`0` >>
       Cases_on`def`>>simp[] ) >>
+    simp[MEM_GENLIST] >>
+    conj_tac >- (
+      Cases_on`def`>>qexists_tac`0`>>simp[] ) >>
     simp[Once syneq_exp_cases] >> fs[] >>
     fs[FUNION_FEMPTY_1] >>
     HINT_EXISTS_TAC >>
@@ -576,9 +652,14 @@ val label_closures_thm = store_thm("label_closures_thm",
     conj_tac >- (
       fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
     conj_tac >- (
+      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+    conj_tac >- (
       fsrw_tac[DNF_ss][closed_code_env_def] >>
       ho_match_mp_tac IN_FRANGE_FUNION_suff >>
       PROVE_TAC[SUBSET_UNION,SUBSET_TRANS] ) >>
+    conj_tac >- (
+      match_mp_tac good_code_env_FUNION >>
+      simp[IN_DISJOINT,EXTENSION,MEM_GENLIST] ) >>
     simp[Once syneq_exp_cases] >>
     conj_tac >- (
       match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_c_SUBMAP)) >>
@@ -614,10 +695,15 @@ val label_closures_thm = store_thm("label_closures_thm",
       rfs[] >>
       fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
     conj_tac >- (
+      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+    conj_tac >- (
       rfs[] >>
       fsrw_tac[DNF_ss][closed_code_env_def] >>
       ho_match_mp_tac IN_FRANGE_FUNION_suff >>
       metis_tac[SUBSET_UNION,SUBSET_TRANS] ) >>
+    conj_tac >- (
+      match_mp_tac good_code_env_FUNION >>
+      simp[IN_DISJOINT,EXTENSION,MEM_GENLIST] ) >>
     simp[Once syneq_exp_cases] >>
     conj_tac >> match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_c_SUBMAP)) >- (
       HINT_EXISTS_TAC >> rfs[SUBMAP_FUNION] ) >>
@@ -640,10 +726,15 @@ val label_closures_thm = store_thm("label_closures_thm",
       rfs[] >>
       fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
     conj_tac >- (
+      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+    conj_tac >- (
       rfs[] >>
       fsrw_tac[DNF_ss][closed_code_env_def] >>
       ho_match_mp_tac IN_FRANGE_FUNION_suff >>
       metis_tac[SUBSET_UNION,SUBSET_TRANS] ) >>
+    conj_tac >- (
+      match_mp_tac good_code_env_FUNION >>
+      simp[IN_DISJOINT,EXTENSION,MEM_GENLIST] ) >>
     simp[Once syneq_exp_cases] >>
     conj_tac >> match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_c_SUBMAP)) >- (
       HINT_EXISTS_TAC >> rfs[SUBMAP_FUNION] ) >>
@@ -669,6 +760,8 @@ val label_closures_thm = store_thm("label_closures_thm",
       rfs[] >>
       fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,MEM_GENLIST] ) >>
     conj_tac >- (
+      fsrw_tac[DNF_ss][SUBSET_DEF]) >>
+    conj_tac >- (
       rfs[] >>
       fsrw_tac[DNF_ss][closed_code_env_def] >>
       ho_match_mp_tac IN_FRANGE_FUNION_suff >>
@@ -676,6 +769,11 @@ val label_closures_thm = store_thm("label_closures_thm",
         metis_tac[SUBSET_UNION,SUBSET_TRANS] >>
       ho_match_mp_tac IN_FRANGE_FUNION_suff >>
       metis_tac[SUBSET_UNION,SUBSET_TRANS]) >>
+    conj_tac >- (
+      match_mp_tac good_code_env_FUNION >>
+      simp[EXTENSION,IN_DISJOINT,MEM_GENLIST] >>
+      match_mp_tac good_code_env_FUNION >>
+      simp[EXTENSION,IN_DISJOINT,MEM_GENLIST] ) >>
     simp[Once syneq_exp_cases] >>
     conj_tac >- (
       match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_c_SUBMAP)) >>
@@ -710,9 +808,14 @@ val label_closures_thm = store_thm("label_closures_thm",
     conj_tac >- (
       fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
     conj_tac >- (
+      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+    conj_tac >- (
       fsrw_tac[DNF_ss][closed_code_env_def] >>
       ho_match_mp_tac IN_FRANGE_FUNION_suff >>
       metis_tac[SUBSET_UNION,SUBSET_TRANS] ) >>
+    conj_tac >- (
+      match_mp_tac good_code_env_FUNION >>
+      simp[IN_DISJOINT,EXTENSION,MEM_GENLIST] ) >>
     conj_tac >- (
       match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_c_SUBMAP)) >>
       HINT_EXISTS_TAC >> fs[SUBMAP_FUNION] ) >>
@@ -1065,6 +1168,32 @@ val label_closures_thm = store_thm("label_closures_thm",
       metis_tac[FDOM_alist_to_fmap,SUBSET_DEF,IN_INSERT,IN_UNION] ) >>
     simp[] >>
     metis_tac[SUBSET_DEF,IN_INSERT,IN_UNION]) >>
+  conj_tac >- (
+    match_mp_tac good_code_env_FUPDATE >>
+    conj_tac >- (
+      match_mp_tac good_code_env_FUNION >>
+      simp[EXTENSION,IN_DISJOINT,MEM_GENLIST] ) >>
+    rpt(qpat_assum`X = {}`kall_tac) >>
+    rfs[] >>
+    conj_tac >- (
+      fsrw_tac[DNF_ss][MEM_GENLIST,SUBSET_DEF] ) >>
+    conj_tac >- (
+      simp[bind_fv_def,EVERY_MEM,MEM_MAP,MEM_FILTER,GSYM LEFT_FORALL_IMP_THM,QSORT_MEM] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] >>
+      ntac 4 (pop_assum kall_tac) >>
+      conj_tac >> gen_tac >> strip_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    conj_tac >- (
+      qpat_assum`free_vars p0 ⊆ X`mp_tac >>
+      simp[bind_fv_def,SUBSET_DEF] >> strip_tac >>
+      qx_gen_tac`v` >> strip_tac >>
+      first_x_assum(qspec_then`v`mp_tac) >>
+      simp[] >> rw[] >> srw_tac[ARITH_ss][] >>
+      qho_match_abbrev_tac`THE (find_index x ls n) < X` >>
+      qho_match_abbrev_tac`P (THE (find_index x ls n))` >>
+      match_mp_tac THE_find_index_suff >>
+      simp[Abbr`ls`,Abbr`P`,Abbr`X`,MEM_FILTER,MEM_GENLIST,Abbr`n`,Abbr`x`,MEM_MAP,QSORT_MEM] >>
+      HINT_EXISTS_TAC >> simp[] ) >>
+    PROVE_TAC[] ) >>
   ONCE_REWRITE_TAC[prove(``a ++ x::y = a ++ [x] ++ y``,simp[])] >>
   full_simp_tac std_ss [FUNION_FUPDATE_1] >>
   qmatch_assum_abbrev_tac`syneq_defs (c20 |+ v1) ez ez $= defs1 defs2 U` >>
