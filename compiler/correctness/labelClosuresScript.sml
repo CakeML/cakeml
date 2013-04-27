@@ -330,6 +330,7 @@ val good_code_env_def = Define`
   good_code_env c = ∀cd. cd ∈ FRANGE c ⇒
     (body_count cd.body = 0) ∧ free_labs cd.body ⊆ FDOM c ∧
     EVERY (λv. v < cd.ez) (SND cd.ceenv) ∧
+    free_vars cd.body ⊆ count (LENGTH cd.ccenv) ∧
     ∃e. (cd = (bind_fv (cd.az,e) cd.nz cd.ez cd.ix) with body := cd.body)`
 
 val good_code_env_FEMPTY = store_thm("good_code_env_FEMPTY",
@@ -352,6 +353,7 @@ val good_code_env_FUPDATE = store_thm("good_code_env_FUPDATE",
   ``∀c k cd. (good_code_env c ∧
     (body_count cd.body = 0) ∧ free_labs cd.body ⊆ k INSERT FDOM c ∧
     EVERY (λv. v < cd.ez) (SND cd.ceenv) ∧
+    free_vars cd.body ⊆ count (LENGTH cd.ccenv) ∧
     ∃e. (cd = (bind_fv (cd.az,e) cd.nz cd.ez cd.ix) with body := cd.body))
     ⇒ good_code_env (c |+ (k,cd))``,
   rpt gen_tac >> strip_tac >>
@@ -1180,6 +1182,17 @@ val label_closures_thm = store_thm("label_closures_thm",
       fsrw_tac[DNF_ss][SUBSET_DEF] >>
       ntac 4 (pop_assum kall_tac) >>
       conj_tac >> gen_tac >> strip_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    conj_tac >- (
+      qpat_assum`free_vars p0 ⊆ X`mp_tac >>
+      simp[bind_fv_def,SUBSET_DEF] >> strip_tac >>
+      qx_gen_tac`v` >> strip_tac >>
+      first_x_assum(qspec_then`v`mp_tac) >>
+      simp[] >> rw[] >> srw_tac[ARITH_ss][] >>
+      qho_match_abbrev_tac`THE (find_index x ls n) < X` >>
+      qho_match_abbrev_tac`P (THE (find_index x ls n))` >>
+      match_mp_tac THE_find_index_suff >>
+      simp[Abbr`ls`,Abbr`P`,Abbr`X`,MEM_FILTER,MEM_GENLIST,Abbr`n`,Abbr`x`,MEM_MAP,QSORT_MEM] >>
+      HINT_EXISTS_TAC >> simp[] ) >>
     PROVE_TAC[] ) >>
   ONCE_REWRITE_TAC[prove(``a ++ x::y = a ++ [x] ++ y``,simp[])] >>
   full_simp_tac std_ss [FUNION_FUPDATE_1] >>
