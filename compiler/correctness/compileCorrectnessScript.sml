@@ -1705,13 +1705,13 @@ val Cenv_bs_change_store = store_thm("Cenv_bs_change_store",
   fs[SUBMAP_DEF,SUBSET_DEF,DRESTRICT_DEF,IN_FRANGE] )
 
 val code_env_code_def = Define`
-  code_env_code c code =
+  code_env_code c c0 code =
   good_code_env c ∧
   ALL_DISTINCT (FILTER is_Label code) ∧
   FEVERY (λ(l,cd).
     ∃cs bc0 cc bc1.
       Cexp_pred cd.body ∧
-      ((compile c (MAP CTEnv cd.ccenv) (TCTail cd.az 0) 0 cs cd.body).out = cc ++ cs.out) ∧
+      ((compile c0 (MAP CTEnv cd.ccenv) (TCTail cd.az 0) 0 cs cd.body).out = cc ++ cs.out) ∧
       EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧ l < cs.next_label ∧
       (code = bc0 ++ Label l :: (REVERSE cc) ++ bc1)) c`
 
@@ -2036,7 +2036,7 @@ val compile_val = store_thm("compile_val",
         BIGUNION (IMAGE all_Clocs (set s)) ⊆ count (LENGTH s) ∧
         (body_count exp = 0) ∧
         (res = (s', Rval v)) ∧
-        (bce ++ bcr = bs.code) ∧ code_env_code c bce ∧
+        (bce ++ bcr = bs.code) ∧ code_env_code c c bce ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         (free_vars exp ⊆ count (LENGTH cenv)) ∧
         Cenv_bs c rd s env cenv sz (bs with code := bce) ∧
@@ -2067,7 +2067,7 @@ val compile_val = store_thm("compile_val",
         BIGUNION (IMAGE all_Clocs (set s)) ⊆ count (LENGTH s) ∧
         (body_count_list exps = 0) ∧
         (ress = (s', Rval vs)) ∧
-        (bce ++ bcr = bs.code) ∧ code_env_code c bce ∧
+        (bce ++ bcr = bs.code) ∧ code_env_code c c bce ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         (BIGUNION (IMAGE free_vars (set exps)) ⊆ count (LENGTH cenv)) ∧
