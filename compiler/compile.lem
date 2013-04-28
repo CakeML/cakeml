@@ -1391,12 +1391,13 @@ cce_aux d s (l,cd) =
   compile d (List.map CTEnv cd.ccenv) (TCTail cd.az 0) 0 s cd.body
 
 let rec
-compile_code_env d s c =
+compile_code_env s c =
   let (s,ls) = get_labels 1 s in
   let l = List.nth ls 0 in
   let s = emit s [Jump (Lab l)] in
+  let d = alist_to_fmap c in
   let s = List.fold_left (cce_aux d) s c in
-  emit s [Label l]
+  (d,emit s [Label l])
 
 (* replace labels in bytecode with addresses *)
 
@@ -1460,11 +1461,10 @@ let init_repl_state =
 let compile_Cexp rs decl Ce =
   let n = body_count Ce in
   let (Ce,c,n) = label_closures (List.length rs.rbvars) rs.rnext_label Ce in
-  let d = alist_to_fmap c in
   let cs = <| out = []; next_label = n
             ; decl = (rs.renv,rs.rsz,rs.rbvars) |> in
-  let cs = compile_code_env d cs c in
-  let cs = compile d rs.renv (TCNonTail decl) rs.rsz cs Ce in
+  let (c,cs) = compile_code_env cs c in
+  let cs = compile c rs.renv (TCNonTail decl) rs.rsz cs Ce in
   let rs = if decl then match cs.decl with
     | (env,sz,bvars) -> <| rs with renv = env; rsz = sz; rbvars = bvars |>
     end else rs in

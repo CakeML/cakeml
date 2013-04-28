@@ -1468,12 +1468,13 @@ val _ = Defn.save_defn compile_defn;
 
  val compile_code_env_def = Define `
 
-(compile_code_env d s c =
+(compile_code_env s c =
   let (s,ls) = get_labels 1 s in
   let l = EL  0  ls in
   let s = emit s [Jump (Lab l)] in
+  let d = alist_to_fmap c in
   let s = FOLDL (cce_aux d) s c in
-  emit s [Label l])`;
+  (d,emit s [Label l]))`;
 
 
 (* replace labels in bytecode with addresses *)
@@ -1555,11 +1556,10 @@ val _ = Define `
  (compile_Cexp rs decl Ce =
   let n = body_count Ce in
   let (Ce,c,n) = label_closures ( LENGTH rs.rbvars) rs.rnext_label Ce in
-  let d = alist_to_fmap c in
   let cs = <| out := []; next_label := n
             ; decl := (rs.renv,rs.rsz,rs.rbvars) |> in
-  let cs = compile_code_env d cs c in
-  let cs = compile d rs.renv (TCNonTail decl) rs.rsz cs Ce in
+  let (c,cs) = compile_code_env cs c in
+  let cs = compile c rs.renv (TCNonTail decl) rs.rsz cs Ce in
   let rs = if decl then (case cs.decl of
       (env,sz,bvars) => ( rs with<| renv := env; rsz := sz; rbvars := bvars |>)
     ) else rs in
