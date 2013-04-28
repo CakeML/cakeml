@@ -3,6 +3,17 @@ open MiniMLTheory MiniMLTerminationTheory miniMLExtraTheory evaluateEquationsThe
 val _ = new_theory "expToCexp"
 val fsd = full_simp_tac std_ss
 
+(* TODO: move? *)
+val find_index_ALL_DISTINCT_REVERSE = store_thm("find_index_ALL_DISTINCT_REVERSE",
+  ``∀ls x m j. ALL_DISTINCT ls ∧ (find_index x ls m = SOME j) ⇒ (find_index x (REVERSE ls) m = SOME (m + LENGTH ls + m - j - 1))``,
+  rw[] >> imp_res_tac find_index_ALL_DISTINCT_EL_eq >>
+  `ALL_DISTINCT (REVERSE ls)` by rw[ALL_DISTINCT_REVERSE] >>
+  simp[find_index_ALL_DISTINCT_EL_eq] >>
+  rw[] >> fsrw_tac[ARITH_ss][] >> rw[] >>
+  qmatch_assum_rename_tac`z < LENGTH ls`[] >>
+  qexists_tac`LENGTH ls - z - 1` >>
+  lrw[EL_REVERSE,PRE_SUB1])
+
 (* Nicer induction *)
 
 val exp_to_Cexp_nice_ind = save_thm(
@@ -116,56 +127,6 @@ val FST_pat_to_Cpat_bvars = store_thm("FST_pat_to_Cpat_bvars",
   first_x_assum(qspec_then`s`mp_tac) >>
   rw[] >>
   simp[Once pat_bindings_acc,SimpRHS])
-
-(* TODO: move *)
-val CARD_UNION_LE = store_thm("CARD_UNION_LE",
-  ``FINITE s ∧ FINITE t ⇒ CARD (s ∪ t) ≤ CARD s + CARD t``,
-  rw[] >> imp_res_tac CARD_UNION >> fsrw_tac[ARITH_ss][])
-
-(*
-val lem = prove(``combin$C (combin$C f) = f``,simp[FUN_EQ_THM])
-
-val CARD_BIGUNION_LE = store_thm("CARD_BIGUNION_LE",
-  ``∀P n. FINITE P ⇒ (∀s. s ∈ P ⇒ FINITE s) ⇒
-    CARD (BIGUNION P) ≤ ITSET (λe a. a + CARD e) P n``,
-    ho_match_mp_tac ITSET_ind >>
-    rw[]
-
-val CARD_BIGUNION_LE = store_thm("CARD_BIGUNION_LE",
-  ``∀P. FINITE P ⇒ (∀s. s ∈ P ⇒ FINITE s) ⇒
-    CARD (BIGUNION P) ≤ SUM (MAP CARD (SET_TO_LIST P))``,
-  ho_match_mp_tac FINITE_INDUCT >> rw[] >>
-  simp[SUM_MAP_FOLDL] >>
-  Q.PAT_ABBREV_TAC`f = (λa e. a + CARD e)` >>
-  Q.ISPEC_THEN`e INSERT P`mp_tac (INST_TYPE[beta|->``:num``]ITSET_eq_FOLDL_SET_TO_LIST) >>
-  simp[] >>
-  disch_then(Q.ISPECL_THEN[`combin$C f`,`0:num`](mp_tac o SYM)) >>
-  simp[lem] >> strip_tac >>
-  ITSET_ind
-
-  PERM_SUM
-  DB.find"PERM_SUM"
-  ITSET_ind
-  CHOICE_IND
-  DB.find"SET_TO_LIST"
-  DB.find"MAP_FOLDL"
-  SET_TO_LIST
-  CHOICE_INDUCT
-  simp[Once SET_TO_LIST_THM]
-  DB.match [] ``SET_TO_LIST (a INSERT b)``
-  simp[SUM_SET_THM] >>
-  simp[SUM_SET_DELETE] >>
-  rw[] >> fs[] >>
-  match_mp_tac LESS_EQ_TRANS >>
-  qexists_tac`CARD e + CARD (BIGUNION P)` >>
-  conj_tac >- (
-    match_mp_tac CARD_UNION_LE >> simp[] ) >>
-  simp[]
-  DB.find"SUM_SET"
-  SUM_SET_INSERT
-  conj_tac >> simp[]
-  DB.match [] ``X:(num -> bool)->num``
-*)
 
 val LENGTH_FST_pat_to_Cpat_bvars = store_thm("LENGTH_FST_pat_to_Cpat_bvars",
   ``(∀(p:α pat) s l. LENGTH (FST (pat_to_Cpat s p)).bvars = LENGTH (pat_bindings p l) - LENGTH l + LENGTH s.bvars) ∧
@@ -493,53 +454,6 @@ val free_labs_exp_to_Cexp = store_thm("free_labs_exp_to_Cexp",
   >- ( Cases_on`pat_to_Cpat m p`>>fs[] ))
 val _ = export_rewrites["free_labs_exp_to_Cexp"]
 
-(*
-(* TODO: move *)
-val syneq_shift_same = store_thm("syneq_shift_same",
- ``∀c z1 z2 V k f1 e1 f2 e2 V'.
-   syneq_exp c z1 z2 V' e1 e2 ∧
-   (free_labs e1 = {}) ∧ (free_labs e2 = {}) ∧
-   free_vars e1 ⊆ count z1 ∧ free_vars e2 ⊆ count z2 ∧
-   k ≤ z1 ∧ k ≤ z2 ∧
-   (∀x1 x2. V' x1 x2 ⇒ V (if x1 < k then x1 else (f1(x1-k)+k)) (if x2 < k then x2 else (f2(x2-k)+k))) ∧
-   (∀x. k ≤ x ∧ x < z1 ⇒ k+f1(x-k) < z1) ∧ (∀x. k ≤ x ∧ x < z2 ⇒ k+f2(x-k) < z2)
-   ⇒
-   syneq_exp c z1 z2 V (mkshift f1 k e1) (mkshift f2 k e2)``,
-  rw[] >>
-  `syneq_exp c z1 z1 (inv (λv1 v2. if v1 < k then v2 = v1 else v2 = f1(v1-k)+k)) (mkshift f1 k e1) e1` by (
-    match_mp_tac (CONJUNCT1 syneq_exp_sym) >>
-    match_mp_tac mkshift_thm >>
-    simp[] ) >>
-  qmatch_assum_abbrev_tac`syneq_exp c z1 z1 U se1 e1` >>
-  qspecl_then[`c`,`z1`,`z1`,`U`,`se1`,`e1`]mp_tac(CONJUNCT1 syneq_exp_trans) >> simp[] >>
-  disch_then(qspecl_then[`z2`,`V'`,`e2`]mp_tac) >> rw[] >>
-  `syneq_exp c z2 z2 (λv1 v2. if v1 < k then v2 = v1 else v2 = f2 (v1-k)+k) e2 (mkshift f2 k e2)` by (
-    match_mp_tac mkshift_thm >> simp[] ) >>
-  qmatch_assum_abbrev_tac`syneq_exp c z2 z2 Y e2 se2` >>
-  `syneq_exp c z1 z2 (Y O (V' O U)) se1 se2` by metis_tac[syneq_exp_trans] >>
-  match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
-  HINT_EXISTS_TAC >>
-  unabbrev_all_tac >>
-  simp[FUN_EQ_THM,relationTheory.O_DEF,relationTheory.inv_DEF] >>
-  rw[] >> fsrw_tac[ARITH_ss][] >>
-  metis_tac[])
-*)
-
-(* TODO: move *)
-val find_index_ALL_DISTINCT_REVERSE = store_thm("find_index_ALL_DISTINCT_REVERSE",
-  ``∀ls x m j. ALL_DISTINCT ls ∧ (find_index x ls m = SOME j) ⇒ (find_index x (REVERSE ls) m = SOME (m + LENGTH ls + m - j - 1))``,
-  rw[] >> imp_res_tac find_index_ALL_DISTINCT_EL_eq >>
-  `ALL_DISTINCT (REVERSE ls)` by rw[ALL_DISTINCT_REVERSE] >>
-  simp[find_index_ALL_DISTINCT_EL_eq] >>
-  rw[] >> fsrw_tac[ARITH_ss][] >> rw[] >>
-  qmatch_assum_rename_tac`z < LENGTH ls`[] >>
-  qexists_tac`LENGTH ls - z - 1` >>
-  lrw[EL_REVERSE,PRE_SUB1])
-
-val EVERY2_APPEND_suff = store_thm("EVERY2_APPEND_suff",
-  ``EVERY2 R l1 l2 ∧ EVERY2 R l3 l4 ⇒ EVERY2 R (l1 ++ l3) (l2 ++ l4)``,
-  metis_tac[EVERY2_APPEND])
-
 val exp_to_Cexp_state_component_equality = DB.fetch"Compile""exp_to_Cexp_state_component_equality"
 
 val pat_to_Cpat_acc = store_thm("pat_to_Cpat_acc",
@@ -632,29 +546,6 @@ val evaluate_closed_under_cenv = store_thm("evaluate_closed_under_cenv",
   rw[] >>
   qspecl_then[`cenv`,`s`,`env`,`exp`,`res`]mp_tac (CONJUNCT1 evaluate_all_cns) >>
   fsrw_tac[DNF_ss][closed_under_cenv_def])
-
-(* TODO: move *)
-val Cevaluate_FEMPTY_any_syneq_store = store_thm("Cevaluate_FEMPTY_any_syneq_store",
-  ``∀s s' env exp res. Cevaluate FEMPTY s env exp res ∧ EVERY2 (syneq FEMPTY) s s' ⇒
-      ∃res'. Cevaluate FEMPTY s' env exp res' ∧ EVERY2 (syneq FEMPTY) (FST res) (FST res') ∧ result_rel (syneq FEMPTY) (SND res) (SND res')``,
-    rw[] >>
-    qspecl_then[`FEMPTY`,`s`,`env`,`exp`,`res`]mp_tac (CONJUNCT1 Cevaluate_syneq) >> simp[] >>
-    disch_then(qspecl_then[`$=`,`s'`,`env`,`exp`]mp_tac) >> simp[syneq_exp_FEMPTY_refl])
-
-val Cevaluate_list_FEMPTY_any_syneq_any = store_thm("Cevaluate_list_FEMPTY_any_syneq_any",
-  ``∀s1 s2 env1 env2 e res. Cevaluate_list FEMPTY s1 env1 e res ∧ EVERY2 (syneq FEMPTY) s1 s2 ∧ EVERY2 (syneq FEMPTY) env1 env2 ⇒
-      ∃res2. Cevaluate_list FEMPTY s2 env2 e res2 ∧ EVERY2 (syneq FEMPTY) (FST res) (FST res2) ∧ result_rel (EVERY2 (syneq FEMPTY)) (SND res) (SND res2)``,
-    rw[] >>
-    qspecl_then[`FEMPTY`,`s1`,`env1`,`e`,`res`]mp_tac (CONJUNCT2 Cevaluate_syneq) >> simp[] >>
-    `LENGTH env1 = LENGTH env2` by fs[EVERY2_EVERY] >>
-    disch_then(qspecl_then[`$=`,`s2`,`env2`,`e`]mp_tac) >> simp[syneq_exp_FEMPTY_refl] >>
-    discharge_hyps >- (
-      fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP,syneq_exp_FEMPTY_refl] ) >> simp[])
-
-(* TODO: move *)
-val IMAGE_SUBSET_gen = store_thm("IMAGE_SUBSET_gen",
-  ``∀f s u t. s ⊆ u ∧ (IMAGE f u ⊆ t) ⇒ IMAGE f s ⊆ t``,
-  simp[SUBSET_DEF] >> metis_tac[])
 
 val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   ``(∀cenv s env exp res. evaluate cenv s env exp res ⇒

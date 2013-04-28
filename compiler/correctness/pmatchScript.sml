@@ -194,7 +194,7 @@ val free_labs_remove_mat_var = store_thm("free_labs_remove_mat_var",
   ho_match_mp_tac remove_mat_var_ind >> rw[remove_mat_var_def] >> simp[UNION_COMM])
 val _ = export_rewrites["free_labs_remove_mat_var"]
 
-(* TODO: move *)
+(* TODO: move? *)
 
 val pat_to_Cpat_cnmap = store_thm("pat_to_Cpat_cnmap",
   ``(∀(p:α pat) m. (FST (pat_to_Cpat m p)).cnmap = m.cnmap) ∧
@@ -1164,12 +1164,6 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
   simp[] >>
   Cases_on`mr`>>fs[] >>
   metis_tac[EVERY2_syneq_trans])
-
-(* TODO: move *)
-val EVERY2_APPEND = store_thm("EVERY2_APPEND",
-  ``EVERY2 R l1 l2 /\ EVERY2 R l3 l4 <=> EVERY2 R (l1 ++ l3) (l2 ++ l4) /\ (LENGTH l1 = LENGTH l2) /\ (LENGTH l3 = LENGTH l4)``,
-  rw[EVERY2_EVERY,EVERY_MEM] >>
-  metis_tac[ZIP_APPEND,MEM_APPEND])
 
 val Cpmatch_syneq = store_thm("Cpmatch_syneq",
   ``(∀p v env. Cpmatch s p v env ⇒

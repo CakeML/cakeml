@@ -63,6 +63,7 @@ val Cexp_size_def = save_thm("Cexp_size_def",Cexp_size_def)
 val Cv_size_def = save_thm("Cv_size_def",Cv_size_def)
 val syneq_cases = save_thm("syneq_cases",syneq_cases)
 val syneq_ind = save_thm("syneq_ind",syneq_ind)
+val syneq_strongind = save_thm("syneq_strongind",syneq_strongind)
 val syneq_rules = save_thm("syneq_rules",syneq_rules)
 val syneq_exp_cases = save_thm("syneq_exp_cases",syneq_exp_cases)
 val syneq_exp_ind = save_thm("syneq_exp_ind",syneq_exp_ind)
@@ -277,6 +278,7 @@ val (label_closures_def,label_closures_ind) = register "label_closures" (
     qmatch_abbrev_tac`ISL (zero_vars_def (INL y))` >>
     Cases_on`y`>>simp[] ) >>
   simp[bind_fv_def]))
+val _ = export_rewrites["label_closures_def"]
 
 val (body_count_def,body_count_ind) = register"body_count" (
   tprove_no_defn ((body_count_def,body_count_ind),
