@@ -138,7 +138,11 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
      (s.next_label ≤ s'.next_label) ∧
      EVERY (λn. MEM n (MAP FST c) ∨ between s.next_label s'.next_label n)
        (MAP dest_Label (FILTER is_Label code)) ∧
-     (good_code_env (alist_to_fmap c) ∧ EVERY (combin$C $< s.next_label) (MAP FST c) ⇒
+     ((∀n. good_code_env (alist_to_fmap (DROP n c))) ∧
+      ALL_DISTINCT (MAP FST c) ∧
+      EVERY (combin$C $< s.next_label) (MAP FST c) ∧
+      EVERY (Cexp_pred o closure_data_body) (MAP SND c)
+      ⇒
       code_env_code (alist_to_fmap c) d code)``,
    Induct >- (
      simp[Once SWAP_REVERSE,code_env_code_def,FEVERY_DEF] ) >>
@@ -156,6 +160,7 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
    disch_then(Q.X_CHOOSE_THEN`c0`strip_assume_tac) >>
    simp[Abbr`s0`] >>
    simp[Once SWAP_REVERSE] >>
+   qpat_assum`∀j k. P`kall_tac >>
    fs[] >> simp[] >>
    simp[FILTER_APPEND,FILTER_REVERSE] >>
    conj_tac >- (
@@ -167,11 +172,32 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
    `EVERY (combin$C $< s1.next_label) (MAP FST c)` by (
      fsrw_tac[ARITH_ss][EVERY_MAP,EVERY_MEM] >>
      metis_tac[LESS_LESS_EQ_TRANS] ) >>
-   `good_code_env (alist_to_fmap c)` by (
-     fs[good_code_env_def,IN_FRANGE]
-
+   `∀n. good_code_env (alist_to_fmap (DROP n c))` by (
+     gen_tac >>
+     first_x_assum(qspec_then`SUC n`mp_tac) >>
+     simp[] ) >>
+   fs[] >>
    fs[code_env_code_def,MEM_FILTER,FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE] >>
-   strip_tac >>
+   conj_tac >- (
+     first_x_assum(qspec_then`0`kall_tac)>>
+     first_x_assum(qspec_then`0`mp_tac)>>
+     simp[] ) >>
+   conj_tac >- (
+     rfs[FILTER_APPEND] >>
+     fsrw_tac[DNF_ss][EVERY_MAP,EVERY_FILTER] >>
+     fsrw_tac[DNF_ss][EVERY_MEM,is_Label_rwt,between_def,MEM_MAP,EXISTS_PROD,FORALL_PROD] >>
+     rw[] >> spose_not_then strip_assume_tac >> res_tac >> TRY (res_tac >> DECIDE_TAC)) >>
+   fs[FEVERY_DEF] >>
+   qx_gen_tac`x` >>
+   Cases_on`x=p0`>>simp[]>-(
+     qexists_tac`s with out := Label p0::s.out` >>
+     qexists_tac`[]`>>
+     simp[] ) >>
+   simp[FAPPLY_FUPDATE_THM] >> rw[] >>
+   last_x_assum(qspec_then`x`mp_tac) >> rw[] >>
+   HINT_EXISTS_TAC >>
+   qexists_tac`Label p0::(REVERSE bc ++bc0)` >>
+   simp[FILTER_APPEND,FILTER_REVERSE,EVERY_REVERSE]
 
    cce_aux_def
 
