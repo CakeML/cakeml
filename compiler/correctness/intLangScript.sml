@@ -90,6 +90,20 @@ val free_labs_defs_MAP = store_thm("free_labs_defs_MAP",
   Induct >> rw[])
 val _ = export_rewrites["free_labs_defs_MAP"]
 
+val vlabs_def = Define`
+  (vlabs (CLitv _) = {}) ∧
+  (vlabs (CConv _ vs) = vlabs_list vs) ∧
+  (vlabs (CRecClos env defs _) = vlabs_list env ∪ free_labs_defs defs) ∧
+  (vlabs (CLoc _) = {}) ∧
+  (vlabs_list [] = {}) ∧
+  (vlabs_list (v::vs) = vlabs v ∪ vlabs_list vs)`
+val _ = export_rewrites["vlabs_def"]
+
+val vlabs_list_MAP = store_thm("vlabs_list_MAP",
+ ``∀vs. vlabs_list vs = BIGUNION (IMAGE vlabs (set vs))``,
+ Induct >> rw[])
+val _ = export_rewrites["vlabs_list_MAP"]
+
 (* Cevaluate functional equations *)
 
 val Cevaluate_raise = store_thm(
@@ -2264,18 +2278,33 @@ val syneq_exp_c_SUBMAP = store_thm("syneq_exp_c_SUBMAP",
     metis_tac[] ))
 
 val syneq_c_SUBMAP = store_thm("syneq_c_SUBMAP",
-  ``∀c v1 v2. syneq c v1 v2 ⇒ ∀c'. closed_code_env c ∧ c ⊑ c' ⇒ syneq c' v1 v2``,
+  ``∀c v1 v2. syneq c v1 v2 ⇒ ∀c'. closed_code_env c ∧ c ⊑ c' ∧ (vlabs v1 = {}) ∧ (vlabs v2 ⊆ FDOM c) ⇒ syneq c' v1 v2``,
   ho_match_mp_tac syneq_ind >> simp[] >>
   strip_tac >- (
     rw[] >>
     simp[Once syneq_cases] >>
     fs[EVERY2_EVERY,EVERY_MEM] >>
-    rfs[MEM_ZIP,FORALL_PROD] ) >>
-  reverse (rw[]) >> rw[Once syneq_cases] >>
+    rfs[MEM_ZIP,FORALL_PROD,IMAGE_EQ_SING] >>
+    fs[GSYM LEFT_FORALL_IMP_THM,MEM_EL,SUBSET_DEF] >>
+    metis_tac[]) >>
+  rpt gen_tac >>
+  Q.PAT_ABBREV_TAC`h1 = (P = []) ∨ Q` >>
+  Q.PAT_ABBREV_TAC`h2 = (P = []) ∨ Q` >>
+  rw[] >> rw[Once syneq_cases] >>
   map_every qexists_tac[`V`,`V'`] >>
-  (conj_tac >- metis_tac[]) >> simp[] >>
+  fs[IMAGE_EQ_SING,MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+  (conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    fsrw_tac[DNF_ss][] >>
+    conj_tac >- PROVE_TAC[] >>
+    conj_tac >- PROVE_TAC[] >>
+    first_x_assum (match_mp_tac o MP_CANON) >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
+    metis_tac[prim_recTheory.NOT_LESS_0,LENGTH_NIL])) >> simp[] >>
   match_mp_tac(MP_CANON (CONJUNCT2 syneq_exp_c_SUBMAP)) >>
   HINT_EXISTS_TAC >> simp[] >>
+  simp[IMAGE_EQ_SING,MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+  PROVE_TAC[])
 
 val syneq_exp_c_syneq = store_thm("syneq_exp_c_syneq",
   ``(∀c z1 z2 V e1 e2. syneq_exp c z1 z2 V e1 e2 ⇒

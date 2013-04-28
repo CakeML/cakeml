@@ -166,7 +166,7 @@ val repl_exp_val = store_thm("repl_exp_val",
   fs[env_rs_def] >>
   simp[FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
   simp_tac(srw_ss()++DNF_ss)[] >>
-  map_every qx_gen_tac [`Cs'`,`Cv`] >> strip_tac >>
+  map_every qx_gen_tac [`Cs'0`,`Cv0`] >> strip_tac >>
   `Cexp_pred Ce0` by PROVE_TAC[exp_pred_Cexp_pred] >>
   qspecl_then[`LENGTH env`,`rs.rnext_label`,`Ce0`]mp_tac(CONJUNCT1 label_closures_thm) >>
   discharge_hyps >- (
@@ -186,7 +186,24 @@ val repl_exp_val = store_thm("repl_exp_val",
   qspecl_then[`Cc`,`Cs`,`Cenv`,`Ce0`,`(Cs'0,Rval Cv0)`]mp_tac(CONJUNCT1 Cevaluate_syneq) >>
   `LENGTH Cenv = LENGTH env` by simp[Abbr`Cenv`,env_to_Cenv_MAP] >>
   simp[] >> disch_then(qspecl_then[`$=`,`Cs`,`Cenv`,`Ce`]mp_tac) >> simp[] >>
+  discharge_hyps >- (
+    conj_tac >- (
+      rpt strip_tac >>
+      match_mp_tac (MP_CANON syneq_c_SUBMAP) >>
+      qexists_tac`FEMPTY` >>
+      simp[Abbr`Cc`,SUBMAP_FEMPTY,Abbr`Cenv`,env_to_Cenv_MAP,EL_MAP] ) >>
+    simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+    rpt strip_tac >>
+    match_mp_tac (MP_CANON syneq_c_SUBMAP) >>
+    qexists_tac`FEMPTY` >>
+    fs[Abbr`Cs`,EL_MAP,SUBMAP_FEMPTY] ) >>
+  simp_tac(srw_ss()++DNF_ss)[FORALL_PROD] >>
+  map_every qx_gen_tac[`Cs'`,`Cv`] >>
+  strip_tac >>
+  qspecl_then[`Cc`,`Cs`,`Cenv`,`Ce`,`(Cs',Rval Cv)`]mp_tac(CONJUNCT1 compile_val) >> simp[] >>
+  disch_then(qspecl_then[`rd`,`cce`,`rs.renv`,`rs.rsz`]mp_tac) >>
 
+  simp[FORALL_PROD,GSYM LEFT_FORALL_IMP_THM]
   fs[compile_code_env_def,LET_THM] >>
   qmatch_assum_abbrev_tac `Cevaluate Cc Cd Cs Cenv Ce (Cs', Rval Cv)` >>
   Q.PAT_ABBREV_TAC`cs = compiler_result_out_fupd X Y` >>

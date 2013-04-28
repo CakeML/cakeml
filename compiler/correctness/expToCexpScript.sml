@@ -454,6 +454,18 @@ val free_labs_exp_to_Cexp = store_thm("free_labs_exp_to_Cexp",
   >- ( Cases_on`pat_to_Cpat m p`>>fs[] ))
 val _ = export_rewrites["free_labs_exp_to_Cexp"]
 
+val vlabs_v_to_Cv = store_thm("vlabs_v_to_Cv",
+  ``(∀m (v:α v). vlabs (v_to_Cv m v) = {}) ∧
+    (∀m (vs:α v list). vlabs_list (vs_to_Cvs m vs) = {}) ∧
+    (∀m (env:α envE). EVERY (λv. vlabs v = {}) (env_to_Cenv m env))``,
+  ho_match_mp_tac v_to_Cv_ind >>
+  rw[v_to_Cv_def] >>
+  TRY(qunabbrev_tac`Ce`)>>
+  TRY(qunabbrev_tac`Cdefs`)>>
+  fs[v_to_Cv_def,Abbr`Cenv`,env_to_Cenv_MAP,EVERY_MAP,EVERY_MEM,MEM_MAP,IMAGE_EQ_SING,GSYM LEFT_FORALL_IMP_THM,defs_to_Cdefs_MAP] >>
+  simp[FORALL_PROD])
+val _ = export_rewrites["vlabs_v_to_Cv"]
+
 val exp_to_Cexp_state_component_equality = DB.fetch"Compile""exp_to_Cexp_state_component_equality"
 
 val pat_to_Cpat_acc = store_thm("pat_to_Cpat_acc",
