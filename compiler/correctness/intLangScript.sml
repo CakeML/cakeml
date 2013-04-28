@@ -2263,6 +2263,20 @@ val syneq_exp_c_SUBMAP = store_thm("syneq_exp_c_SUBMAP",
     fs[LET_THM,UNCURRY,closed_code_env_def,IN_FRANGE,SUBSET_DEF] >>
     metis_tac[] ))
 
+val syneq_c_SUBMAP = store_thm("syneq_c_SUBMAP",
+  ``∀c v1 v2. syneq c v1 v2 ⇒ ∀c'. closed_code_env c ∧ c ⊑ c' ⇒ syneq c' v1 v2``,
+  ho_match_mp_tac syneq_ind >> simp[] >>
+  strip_tac >- (
+    rw[] >>
+    simp[Once syneq_cases] >>
+    fs[EVERY2_EVERY,EVERY_MEM] >>
+    rfs[MEM_ZIP,FORALL_PROD] ) >>
+  reverse (rw[]) >> rw[Once syneq_cases] >>
+  map_every qexists_tac[`V`,`V'`] >>
+  (conj_tac >- metis_tac[]) >> simp[] >>
+  match_mp_tac(MP_CANON (CONJUNCT2 syneq_exp_c_SUBMAP)) >>
+  HINT_EXISTS_TAC >> simp[] >>
+
 val syneq_exp_c_syneq = store_thm("syneq_exp_c_syneq",
   ``(∀c z1 z2 V e1 e2. syneq_exp c z1 z2 V e1 e2 ⇒
      ∀k cd. (free_labs e1 = {}) (* ∧ free_labs e2 ⊆ FDOM c ∧ closed_code_env c *) ∧ k ∈ FDOM c ∧

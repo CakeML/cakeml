@@ -1,83 +1,148 @@
 open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory pred_setTheory relationTheory arithmeticTheory whileTheory pairTheory quantHeuristicsLib lcsymtacs
-open miniMLExtraTheory miscTheory intLangTheory expToCexpTheory compileTerminationTheory compileCorrectnessTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory pmatchTheory 
-open MiniMLTerminationTheory finite_mapTheory
+open miniMLExtraTheory miscTheory intLangTheory expToCexpTheory compileTerminationTheory compileCorrectnessTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory pmatchTheory  labelClosuresTheory
+open miscLib MiniMLTerminationTheory finite_mapTheory
 val _ = new_theory"repl"
 
 val good_contab_def = Define`
   good_contab (m,w,n) =
     fmap_linv m w`
 
-val PV_def = tDefine "PV"`
-  (PV (Pvar v _) = [v]) ∧
-  (PV (Plit _) = []) ∧
-  (PV (Pcon _ ps) = FLAT (MAP PV ps)) ∧
-  (PV (Pref p) = PV p)`
-(WF_REL_TAC`measure (pat_size ARB)` >>
- srw_tac[ARITH_ss][pat1_size_thm] >>
- Q.ISPEC_THEN`pat_size ARB`imp_res_tac SUM_MAP_MEM_bound >>
- simp[])
+val env_rs_def = Define`
+  env_rs env rs c rd s bs =
+    (rs.rbvars = MAP FST env) ∧
+    let Cenv = env_to_Cenv (cmap rs.contab) env in
+    Cenv_bs c rd s Cenv rs.renv rs.rsz bs`
 
-val BV_def = tDefine "BV"`
-  (BV (Raise _) = []) ∧
-  (BV (Handle e x e1) = BV e ++ [x] ++ BV e1) ∧
-  (BV (Lit _) = []) ∧
-  (BV (Con _ es) = FLAT (MAP BV es)) ∧
-  (BV (Var _ _) = []) ∧
-  (BV (Fun x _ e) = [x] ++ BV e) ∧
-  (BV (Uapp _ e) = BV e) ∧
-  (BV (App _ e1 e2) = BV e1 ++ BV e2) ∧
-  (BV (Log _ e1 e2) = BV e1 ++ BV e2) ∧
-  (BV (If e1 e2 e3) = BV e1 ++ BV e2 ++ BV e3) ∧
-  (BV (Mat e pes) = BV e ++ FLAT (MAP PV (MAP FST pes)) ++ FLAT (MAP BV (MAP SND pes))) ∧
-  (BV (Let _ x _ e e1) = BV e ++ [x] ++ BV e1) ∧
-  (BV (Letrec _ defs e1) = FLAT (MAP (λdef. [FST def;FST(SND(SND def))] ++ BV(SND(SND(SND(SND def))))) defs) ++ BV e1)`
-(WF_REL_TAC`measure (exp_size ARB)` >>
- srw_tac[ARITH_ss][exp1_size_thm,SUM_MAP_exp2_size_thm,exp5_size_thm,SUM_MAP_exp7_size_thm,exp8_size_thm
-                  ,SUM_MAP_exp3_size_thm,SUM_MAP_exp4_size_thm,SUM_MAP_exp6_size_thm] >>
- Q.ISPEC_THEN`exp_size ARB`imp_res_tac SUM_MAP_MEM_bound >>
- simp[] >>
- simp[MAP_MAP_o] >>
- Q.ISPEC_THEN`exp_size ARB o SND o SND o SND o SND`imp_res_tac SUM_MAP_MEM_bound >>
- fsrw_tac[ARITH_ss][])
-val _ = export_rewrites["PV_def","BV_def"]
+(* TODO: move *)
+val Cevaluate_mono_c = store_thm("Cevaluate_mono_c",
+  ``(∀c s env exp res. Cevaluate c s env exp res ⇒
+       ∀c'. c ⊑ c' ⇒ Cevaluate c' s env exp res) ∧
+    (∀c s env es res. Cevaluate_list c s env es res ⇒
+       ∀c'. c ⊑ c' ⇒ Cevaluate_list c' s env es res)``,
+  ho_match_mp_tac Cevaluate_ind >>
+  strip_tac >- rw[] >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[]) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> fs[SUBMAP_DEF] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> fs[SUBMAP_DEF] >> metis_tac[] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once Cevaluate_cases] >>
+    disj1_tac >>
+    map_every qexists_tac[`s'`,`cenv`,`defs`,`n`] >> simp[] >>
+    Cases_on`EL n defs`>>TRY(PairCases_on`x`)>>fs[] >>
+    fs[LET_THM,UNCURRY] >>
+    metis_tac[SUBMAP_DEF] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> fs[SUBMAP_DEF] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ) >>
+  strip_tac >- ( rw[] >> rw[Once Cevaluate_cases] >> metis_tac[] ))
+
+val label_closures_Cexp_pred = store_thm("label_closures_Cexp_pred",
+  ``(∀ez j e. Cexp_pred e ⇒ Cexp_pred(FST(label_closures ez j e))) ∧
+    (∀ez j es. EVERY Cexp_pred es ⇒ EVERY Cexp_pred (FST(label_closures_list ez j es))) ∧
+    (∀(ez:num) (j:num) (nz:num) (k:num) (defs:(num#Cexp)list). T)``,
+  ho_match_mp_tac label_closures_ind >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- ( ntac 2 (rw[EVERY_MEM]) ) >>
+  strip_tac >- ( rw[] >> fs[] ) >>
+  strip_tac >- ( rw[] >> fs[] ) >>
+  strip_tac >- ( rw[] >> fs[] ) >>
+  strip_tac >- (
+    simp[UNCURRY] >>
+    rw[] >>
+    simp[EVERY_MAP,EVERY_FILTER] >>
+    fs[] >>
+    first_x_assum match_mp_tac >>
+    metis_tac[pairTheory.pair_CASES,SND] ) >>
+  strip_tac >- ( rw[] >> rw[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- ( ntac 2 (rw[EVERY_MEM]) >> fs[]) >>
+  strip_tac >- ( rw[] >> fs[] ) >>
+  strip_tac >- ( rw[] >> fs[] ) >>
+  strip_tac >- ( rw[] >> fs[] ) >>
+  strip_tac >- ( rw[] >> fs[] ) >>
+  strip_tac >- ( rw[] >> fs[] ) >>
+  strip_tac >- ( rw[] >> fs[] ) >>
+  strip_tac >- ( rw[] >> fs[] ) >>
+  strip_tac >- ( rw[] >> fs[] ))
 
 (*
-val binders_exp_to_Cexp= store_thm("binders_exp_to_Cexp",
-  ``!s e. binders (exp_to_Cexp s e) = BV e``,
-  ho_match_mp_tac exp_to_Cexp_nice_ind >>
-  strip_tac >- rw[exp_to_Cexp_def] >>
-  strip_tac >- rw[exp_to_Cexp_def] >>
-  strip_tac >- rw[exp_to_Cexp_def] >>
+val syneq_exp_Cexp_pred = store_thm("syneq_exp_Cexp_pred",
+  ``(∀c z1 z2 V e1 e2. syneq_exp c z1 z2 V e1 e2 ⇒ Cexp_pred e1 ⇒ Cexp_pred e2) ∧
+    (∀c z1 z2 V defs1 defs2 U. syneq_defs c z1 z2 V defs1 defs2 U ⇒
+      EVERY Cexp_pred (MAP (SND o OUTL) (FILTER ISL defs1)) ⇒
+      ∀n1 n2. n1 < LENGTH defs1 ∧ U n1 n2 ∧ n2 < LENGTH defs2 ∧ ISL (EL n2 defs2) ⇒ Cexp_pred (SND (OUTL (EL n2 defs2))))``,
+  ho_match_mp_tac syneq_exp_ind >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
   strip_tac >- (
-    rw[exp_to_Cexp_def,exps_to_Cexps_MAP,MAP_MAP_o,combinTheory.o_DEF] >>
-    AP_TERM_TAC >> rw[MAP_EQ_f] >> fs[EVERY_MEM] ) >>
-  strip_tac >- rw[exp_to_Cexp_def] >>
-  strip_tac >- rw[exp_to_Cexp_def] >>
-  strip_tac >- ( rw[exp_to_Cexp_def] >> rw[] ) >>
+    rw[EVERY_MEM,EVERY2_EVERY,FORALL_PROD] >>
+    rfs[MEM_ZIP,MEM_EL,GSYM LEFT_FORALL_IMP_THM] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
   strip_tac >- (
-    rw[exp_to_Cexp_def] >>
-    BasicProvers.CASE_TAC >>
-    rw[]
-    compile_val
-    rw[] ) >>
-  strip_tac >- rw[exp_to_Cexp_def] >>
-    binders_def
+    rw[EVERY_MEM] >>
+    syneq_exp_rules
+  strip_tac >- (
+    ntac 4 gen_tac >>
+    Cases >> Cases >> rw[EVERY_MEM] >>
+    PairCases_on`x`>>TRY(Cases_on`x'`)>>fs[]) >>
+  strip_tac >- (
+    rw[EVERY_MEM,EVERY2_EVERY,FORALL_PROD] >>
+    rfs[MEM_ZIP,MEM_EL,GSYM LEFT_FORALL_IMP_THM] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[EVERY_MEM,MEM_MAP,MEM_FILTER,GSYM LEFT_FORALL_IMP_THM] >>
+    Cases_on`y`>>fs[]>>
+    PairCases_on`x`>>fs[]
+*)
 
 val repl_exp_val = store_thm("repl_exp_val",
-  ``∀cenv s env exp s' v rd rs rs' bc0 bc bs bs'.
+  ``∀cenv s c env exp s' v rd rs rs' bc0 bc bs bs'.
       exp_pred exp ∧
       evaluate cenv s env exp (s', Rval v) ∧
       EVERY closed s ∧
       EVERY closed (MAP (FST o SND) env) ∧
       FV exp ⊆ set (MAP FST env) ∧
-      (∀v. v ∈ env_range env ⇒ all_cns v ⊆ set (MAP FST cenv) ∧ all_locs v ⊆ count (LENGTH s)) ∧
-      (∀v. MEM v s ⇒ all_cns v ⊆ set (MAP FST cenv) ∧ all_locs v ⊆ count (LENGTH s)) ∧
-      count (LENGTH s') ⊆ FDOM rd.sm ∧
+      closed_under_cenv cenv env s ∧
+      LENGTH s' ≤ LENGTH rd.sm ∧
       good_cenv cenv ∧
       good_cmap cenv (cmap rs.contab) ∧
       set (MAP FST cenv) ⊆ FDOM (cmap rs.contab) ∧
       good_contab rs.contab ∧
-      env_rs env rs c rd (store_to_Cstore (cmap rs.contab) s) (bs with code := bc0) ∧
+      env_rs env rs c rd (MAP (v_to_Cv (cmap rs.contab)) s) (bs with code := bc0) ∧
       (repl_exp rs exp = (rs',bc)) ∧
       (bs.code = bc0 ++ bc) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
@@ -86,24 +151,42 @@ val repl_exp_val = store_thm("repl_exp_val",
       ⇒
       ∃bv rf rd' c'.
       let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc);
-                          stack := bv :: bs.stack; refs := rd'|> in
+                          stack := bv :: bs.stack; refs := rf|> in
       bc_next^* bs bs' ∧
-      (v_to_ov (DRESTRICT sm (count (LENGTH s'))) v = bv_to_ov (FST(SND(rs.contab))) bv) ∧
-      env_rs env rs' c' rd' (store_to_Cstore (cmap rs'.contab) s') bs'``,
-  rw[repl_exp_def,compile_Cexp_def,LET_THM] >>
-  qabbrev_tac `p = repeat_label_closures (exp_to_Cexp (cmap rs.contab) exp) rs.rnext_label []` >>
-  PairCases_on `p` >> fs[] >>
-  qspecl_then[`cenv`,`s`,`env`,`exp`,`(s',Rval v)`] mp_tac (CONJUNCT1 exp_to_Cexp_thm1) >> fs[] >>
-  disch_then (qspec_then `cmap rs.contab` mp_tac) >> fsrw_tac[DNF_ss][] >>
-  simp[FORALL_PROD] >>
-  map_every qx_gen_tac [`Cs'`,`Cv`] >> rw[] >>
-  qabbrev_tac `Ce = exp_to_Cexp (cmap rs.contab) exp` >>
-  `Cexp_pred Ce` by PROVE_TAC[exp_pred_Cexp_pred] >>
-  `(p0,p1,p2) = (Ce,rs.rnext_label,[])` by PROVE_TAC[Cexp_pred_repeat_label_closures] >>
-  fs[] >> rw[] >>
-  `calculate_ldefs FEMPTY [] Ce = []` by PROVE_TAC[Cexp_pred_calculate_ldefs] >>
-  fs[] >>
-  fs[calculate_ecs_def] >>
+      (v_to_ov rd'.sm v = bv_to_ov (FST(SND(rs'.contab))) bv) ∧
+      env_rs env rs' c' rd' (MAP (v_to_Cv (cmap rs'.contab)) s') bs'``,
+  rpt gen_tac >>
+  simp[repl_exp_def,compile_Cexp_def,GSYM LEFT_FORALL_IMP_THM] >>
+  Q.PAT_ABBREV_TAC`Ce0 = exp_to_Cexp X exp` >>
+  Q.PAT_ABBREV_TAC`p = label_closures Y X Ce0` >>
+  PairCases_on`p`>>simp[]>> strip_tac >>
+  qspecl_then[`cenv`,`s`,`env`,`exp`,`(s',Rval v)`] mp_tac (CONJUNCT1 exp_to_Cexp_thm1) >>
+  simp[] >>
+  disch_then (qspec_then `cmap rs.contab` mp_tac) >>
+  fs[env_rs_def] >>
+  simp[FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
+  simp_tac(srw_ss()++DNF_ss)[] >>
+  map_every qx_gen_tac [`Cs'`,`Cv`] >> strip_tac >>
+  `Cexp_pred Ce0` by PROVE_TAC[exp_pred_Cexp_pred] >>
+  qspecl_then[`LENGTH env`,`rs.rnext_label`,`Ce0`]mp_tac(CONJUNCT1 label_closures_thm) >>
+  discharge_hyps >- (
+    simp[Abbr`Ce0`] >>
+    match_mp_tac free_vars_exp_to_Cexp_matchable >>
+    simp[] ) >>
+  simp[] >> strip_tac >>
+  qpat_assum`X = bc`mp_tac >>
+  Q.PAT_ABBREV_TAC`cce = compile_code_env X Y Z` >>
+  `Cexp_pred p0` by metis_tac[label_closures_Cexp_pred,FST] >>
+  qmatch_assum_abbrev_tac `Cevaluate FEMPTY Cs Cenv Ce0 (Cs'0, Rval Cv0)` >>
+  qmatch_assum_rename_tac`body_count Ce = 0`[] >>
+  qabbrev_tac`Cc = alist_to_fmap p1` >>
+  `Cevaluate Cc Cs Cenv Ce0 (Cs'0, Rval Cv0)` by (
+    match_mp_tac (MP_CANON (CONJUNCT1 Cevaluate_mono_c)) >>
+    qexists_tac`FEMPTY`>>simp[SUBMAP_FEMPTY] ) >>
+  qspecl_then[`Cc`,`Cs`,`Cenv`,`Ce0`,`(Cs'0,Rval Cv0)`]mp_tac(CONJUNCT1 Cevaluate_syneq) >>
+  `LENGTH Cenv = LENGTH env` by simp[Abbr`Cenv`,env_to_Cenv_MAP] >>
+  simp[] >> disch_then(qspecl_then[`$=`,`Cs`,`Cenv`,`Ce`]mp_tac) >> simp[] >>
+
   fs[compile_code_env_def,LET_THM] >>
   qmatch_assum_abbrev_tac `Cevaluate Cc Cd Cs Cenv Ce (Cs', Rval Cv)` >>
   Q.PAT_ABBREV_TAC`cs = compiler_result_out_fupd X Y` >>
@@ -215,7 +298,8 @@ val repl_exp_val = store_thm("repl_exp_val",
     match_mp_tac (MP_CANON Cv_bv_ov) >>
     metis_tac[FST] ) >>
   metis_tac[RTC_TRANSITIVE,transitive_def])
-*)
+
+set_trace"goalstack print goal at top"0
 
 (* must read an expression followed by all space until the start of another
    expression (or end of string) *)

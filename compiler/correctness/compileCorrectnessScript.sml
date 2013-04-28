@@ -245,11 +245,6 @@ val Cenv_bs_def = Define`
      Cenv renv) ∧
     s_refs c rd s bs`
 
-val env_rs_def = Define`
-  env_rs env rs c rd s bs =
-    let Cenv = env_to_Cenv (cmap rs.contab) env in
-    Cenv_bs c rd s Cenv rs.renv rs.rsz bs`
-
 val compile_varref_thm = store_thm("compile_varref_thm",
   ``∀bs bc0 code bc1 cls sz cs b bv bs'.
       ((compile_varref sz cs b).out = REVERSE code ++ cs.out) ∧

@@ -1554,7 +1554,7 @@ val _ = Define `
 val _ = Define `
  (compile_Cexp rs decl Ce =
   let n = body_count Ce in
-  let (Ce,c,n) = label_closures 0 rs.rnext_label Ce in
+  let (Ce,c,n) = label_closures ( LENGTH rs.rbvars) rs.rnext_label Ce in
   let d = alist_to_fmap c in
   let cs = <| out := []; next_label := n
             ; decl := (rs.renv,rs.rsz,rs.rbvars) |> in
