@@ -80,7 +80,21 @@ val tytest = parsetest ``nType`` ``ptree_Type``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] [] init_env) o ptree_Decls``
 
-
+val _ = parsetest ``nDecls`` elab_decls "fun f x y = x + y"
+                  ``[FunT; AlphaT "f"; AlphaT"x"; AlphaT"y"; EqualsT; AlphaT"x";
+                     SymbolT "+"; AlphaT "y"]``
+val _ = parsetest ``nDecls`` elab_decls
+                  "datatype 'a list = Nil | Cons of 'a * 'a list \
+                  \fun map f l = case l of Nil => Nil \
+                  \                      | Cons(h,t) => Cons(f h, map f t)"
+                  ``[DatatypeT; TyvarT "'a"; AlphaT"list"; EqualsT; AlphaT "Nil";
+                     BarT; AlphaT "Cons"; OfT; TyvarT "'a"; StarT; TyvarT "'a";
+                     AlphaT "list";
+                     FunT; AlphaT"map"; AlphaT"f"; AlphaT"l"; EqualsT;
+                     CaseT; AlphaT "l"; OfT; AlphaT"Nil"; DarrowT; AlphaT"Nil";
+                     BarT; AlphaT"Cons"; LparT; AlphaT"h"; CommaT; AlphaT"t";
+                     RparT; DarrowT; AlphaT"Cons"; LparT; AlphaT"f"; AlphaT "h";
+                     CommaT; AlphaT "map"; AlphaT "f"; AlphaT "t"; RparT]``
 val _ = parsetest ``nDecls`` elab_decls "val x = f()"
                   ``[ValT; AlphaT"x";EqualsT; AlphaT"f";LparT; RparT]``
 val _ = parsetest ``nDecls`` elab_decls "val () = f x"

@@ -264,6 +264,11 @@ val mmlPEG_def = zDefine`
                pegf (choicel [tokeq SemicolonT; empty []])
                     (bindNT nOptSemi));
               (mkNT nV, peg_V);
+              (mkNT nVlist1,
+               seql [pnt nV; rpt (pnt nV) FLAT]
+                    (λl. [FOLDR (λe acc. Nd (mkNT nVlist1) [e; acc])
+                                (Nd (mkNT nVlist1) [LAST l])
+                                (FRONT l)]));
               (mkNT nFQV, pegf (pnt nV) (bindNT nFQV));
               (mkNT nEapp, peg_Eapp);
               (mkNT nEtuple,
@@ -322,7 +327,8 @@ val mmlPEG_def = zDefine`
               (mkNT nAndFDecls,
                peg_linfix (mkNT nAndFDecls) (pnt nFDecl) (tokeq AndT));
               (mkNT nFDecl,
-               seql [pnt nV; pnt nV; tokeq EqualsT; pnt nE] (bindNT nFDecl));
+               seql [pnt nV; pnt nVlist1; tokeq EqualsT; pnt nE]
+                    (bindNT nFDecl));
               (mkNT nType, peg_Type);
               (mkNT nDType, peg_DType);
               (mkNT nTyOp, peg_TyOp);

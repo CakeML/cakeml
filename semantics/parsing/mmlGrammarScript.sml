@@ -108,6 +108,7 @@ val mmlG_def = mk_grammar_def ginfo
     |  ^(``{SymbolT s |
             s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"; ":="}}``);
  FQV ::= V; (* add module-qualified name too *)
+ Vlist1 ::= V Vlist1 | V;
  Ebase ::= "(" Eseq ")" | "(" ")" | FQV | ConstructorName | <IntT>
         |  "let" LetDecs "in" Eseq "end";
  Eseq ::= Eseq ";" E | E;
@@ -134,7 +135,7 @@ val mmlG_def = mk_grammar_def ginfo
     |  ElogicOR;
 
  (* function and value declarations *)
- FDecl ::= V V "=" E ;
+ FDecl ::= V Vlist1 "=" E ;
  AndFDecls ::= FDecl | AndFDecls "and" FDecl;
  Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec | ";" ;
  Decls ::= Decl Decls | ;

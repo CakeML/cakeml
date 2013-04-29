@@ -283,6 +283,22 @@ val ptree_V_def = Define`
     else NONE
 `;
 
+val ptree_Vlist1_def = Define`
+  ptree_Vlist1 (Lf _) = NONE ∧
+  ptree_Vlist1 (Nd nm subs) =
+    if nm <> mkNT nVlist1 then NONE
+    else
+      case subs of
+          [v_pt] => do v <- ptree_V v_pt; SOME [v] od
+        | [v_pt; vs_pt] =>
+          do
+            v <- ptree_V v_pt;
+            vs <- ptree_Vlist1 vs_pt;
+            SOME(v::vs)
+          od
+        | _ => NONE
+`
+
 val ptree_FQV_def = Define`
   ptree_FQV (Lf _) = NONE ∧
   ptree_FQV (Nd nt args) =
@@ -636,13 +652,13 @@ val ptree_Expr_def = Define`
       | Nd nt subs =>
         if nt = mkNT nFDecl then
           case subs of
-              [fname_pt; vname_pt; eqt; body_pt] =>
+              [fname_pt; vnames_pt; eqt; body_pt] =>
               do
                 assert(eqt = Lf (TOK EqualsT));
                 fname <- ptree_V fname_pt;
-                vname <- ptree_V vname_pt;
-                body <- ptree_Expr nE body_pt;
-                SOME(fname,vname,body)
+                vs <- ptree_Vlist1 vnames_pt;
+                body0 <- ptree_Expr nE body_pt;
+                SOME(fname,HD vs,FOLDR Ast_Fun body0 (TL vs))
               od
             | _ => NONE
         else NONE) ∧
