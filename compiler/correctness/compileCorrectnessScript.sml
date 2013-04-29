@@ -155,7 +155,7 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
    (LENGTH bvs = LENGTH recs + LENGTH envs) ∧
    (∀i x bv. i < LENGTH recs ∧ (x = EL i recs) ∧ (bv = EL i bvs) ⇒
      x < LENGTH defs ∧
-     ∃p. (bv = RefPtr p) ∧ (FLOOKUP rd.cls p = SOME (env,defs,x))) ∧
+     ∃p. (bv = RefPtr p) ∧ ∃jenv jdefs jx. (FLOOKUP rd.cls p = SOME (jenv,jdefs,jx)) ∧ (RC (syneq c)) (CRecClos jenv jdefs jx) (CRecClos env defs x)) ∧
    (∀i x bv. i < LENGTH envs ∧ (x = EL i envs) ∧ (bv = EL (LENGTH recs + i) bvs) ⇒
        x < LENGTH env ∧ Cv_bv pp (EL x env) bv)
    ⇒ benv_bvs pp bvs cd env defs)`
@@ -221,6 +221,88 @@ val good_rd_def = Define`
       Cv_bv (mk_pp rd c bs) (CRecClos env defs j) (bs.refs ' p))
     rd.cls`
 
+val Cv_bv_strongind = theorem"Cv_bv_strongind"
+
+val Cv_bv_syneq = store_thm("Cv_bv_syneq",
+  ``(∀v1 bv. Cv_bv pp v1 bv ⇒ ∀v2. syneq (FST(SND pp)) v1 v2 ⇒ Cv_bv pp v2 bv) ∧
+    (∀bvs cd env1 defs1. benv_bvs pp bvs cd env1 defs1 ⇒
+      ∀env2 defs2 V U.
+        syneq_defs (FST(SND pp)) (LENGTH env1) (LENGTH env2) V defs1 defs2 U ∧ U cd.ix cd.ix ∧
+        (∀v1 v2. V v1 v2 ⇒ v1 < LENGTH env1 ∧ v2 < LENGTH env2 ∧ syneq (FST(SND pp)) (EL v1 env1) (EL v2 env2)) ∧
+        (cd.nz = LENGTH defs1) ∧ (cd.ez = LENGTH env1) ∧
+        cd.ix < LENGTH defs1 ∧ ISR (EL cd.ix defs1) ∧ (FLOOKUP (FST(SND pp)) (OUTR (EL cd.ix defs1)) = SOME cd)
+        ⇒ benv_bvs pp bvs cd env2 defs2)``,
+  ho_match_mp_tac (Cv_bv_strongind) >>
+  strip_tac >- ( simp[Once Cv_bv_cases] ) >>
+  strip_tac >- ( simp[Once Cv_bv_cases] ) >>
+  strip_tac >- ( simp[Once Cv_bv_cases] ) >>
+  strip_tac >- ( simp[Once Cv_bv_cases] ) >>
+  strip_tac >- (
+    rw[] >> pop_assum mp_tac >>
+    simp[Once syneq_cases] >>
+    rw[Once Cv_bv_cases] >>
+    fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+    rfs[MEM_ZIP] >> fs[MEM_ZIP] >>
+    fsrw_tac[DNF_ss][] ) >>
+  strip_tac >- (
+    rw[el_check_def,FLOOKUP_DEF] >>
+    rator_x_assum`syneq`mp_tac >>
+    simp[Once syneq_cases] >> rw[] >>
+    simp[Once Cv_bv_cases,el_check_def,FLOOKUP_DEF] >>
+    qexists_tac`l` >> simp[] >>
+    rator_assum`syneq_defs`mp_tac >>
+    simp_tac(srw_ss())[Once syneq_exp_cases,EVERY_MEM] >>
+    simp_tac(srw_ss()++QUANT_INST_ss[sum_qp])[] >>
+    simp[] >> strip_tac >>
+    first_x_assum(qspecl_then[`(c ' l).ix`,`d2`]mp_tac) >>
+    simp[] >> strip_tac >>
+    conj_asm1_tac >-
+      rev_full_simp_tac(srw_ss()++SATISFY_ss)[] >>
+    BasicProvers.VAR_EQ_TAC >>
+    rev_full_simp_tac(srw_ss()++SATISFY_ss)[] >>
+    first_x_assum match_mp_tac >>
+    HINT_EXISTS_TAC >>
+    HINT_EXISTS_TAC >>
+    srw_tac[SATISFY_ss][] ) >>
+  rw[] >>
+  simp[Once Cv_bv_cases] >>
+  rator_assum`syneq_defs`mp_tac >>
+  simp_tac(srw_ss())[Once syneq_exp_cases,EVERY_MEM] >>
+  strip_tac >>
+  first_x_assum(qspecl_then[`cd.ix`,`cd.ix`]mp_tac) >>
+  simp[] >>
+  Cases_on`EL cd.ix defs1`>>fs[] >>
+  qmatch_assum_rename_tac`EL cd.ix defs1 = INR l`[] >>
+  strip_tac >>
+  ntac 2 (qpat_assum`X = Y`mp_tac) >>
+  fs[FLOOKUP_DEF] >>
+  simp[syneq_cb_aux_def,EVERY_MEM,MEM_EL] >>
+  fsrw_tac[SATISFY_ss][GSYM LEFT_FORALL_IMP_THM] >>
+  strip_tac >> fs[] >> strip_tac >> fs[] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  conj_tac >- (
+    gen_tac >> strip_tac >>
+    last_x_assum(qspec_then`i`mp_tac) >>
+    simp[] >> strip_tac >>
+    HINT_EXISTS_TAC >> simp[] >>
+    qsuff_tac`syneq c (CRecClos env1 defs1 (EL i recs)) (CRecClos env2 defs2 (EL i recs))`>-(
+      fs[RC_DEF] >> metis_tac[syneq_trans] ) >>
+    simp[Once syneq_cases] >>
+    HINT_EXISTS_TAC >>
+    qexists_tac`U` >>
+    simp[] >> conj_tac >- metis_tac[] >>
+    disj1_tac >>
+    first_x_assum match_mp_tac >>
+    simp[MEM_EL] >> metis_tac[] ) >>
+  gen_tac >> strip_tac >>
+  qpat_assum`∀i. i < LENGTH envs ⇒ P ∧ Q`(qspec_then`i`mp_tac) >>
+  simp[] >> strip_tac >>
+  first_x_assum match_mp_tac >>
+  fsrw_tac[DNF_ss][] >>
+  first_x_assum match_mp_tac >>
+  first_x_assum match_mp_tac >>
+  simp[MEM_EL] >> metis_tac[])
+
 val s_refs_def = Define`
   s_refs c rd s bs =
   good_rd c rd bs ∧
@@ -244,6 +326,17 @@ val Cenv_bs_def = Define`
              | SOME bv => Cv_bv (mk_pp rd c bs) Cv bv)
      Cenv renv) ∧
     s_refs c rd s bs`
+
+val Cenv_bs_syneq_store = store_thm("Cenv_bs_syneq_store",
+  ``∀c rd s Cenv renv sz bs s'. LIST_REL (syneq c) s s' ∧ Cenv_bs c rd s Cenv renv sz bs ⇒
+             Cenv_bs c rd s' Cenv renv sz bs``,
+  rw[Cenv_bs_def] >>
+  fs[s_refs_def] >>
+  conj_asm1_tac >- metis_tac[EVERY2_EVERY] >>
+  fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+  rfs[MEM_ZIP] >> fs[MEM_ZIP] >>
+  fs[GSYM LEFT_FORALL_IMP_THM] >>
+  metis_tac[Cv_bv_syneq,FST,SND])
 
 val compile_varref_thm = store_thm("compile_varref_thm",
   ``∀bs bc0 code bc1 cls sz cs b bv bs'.
@@ -1982,7 +2075,10 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
     fs[FLOOKUP_DEF] >>
     fs[s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY] >>
     qpat_assum`∀x. x ∈ FDOM rd.cls ⇒ X`(qspec_then`p`mp_tac) >>
-    simp[] ) >>
+    simp[] >> strip_tac >>
+    fs[RC_DEF] >- metis_tac[] >>
+    match_mp_tac (MP_CANON (CONJUNCT1 Cv_bv_syneq)) >>
+    HINT_EXISTS_TAC >> simp[]) >>
   Q.PAT_ABBREV_TAC`lenvs = LENGTH (FILTER P (QSORT X Y))` >>
   `lenvs = LENGTH envs` by (
     fs[bind_fv_def,LET_THM,Abbr`lenvs`] >>
@@ -2642,8 +2738,11 @@ val compile_val = store_thm("compile_val",
                 simp[EVERY_MEM,MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
                 metis_tac[] ) >>
               simp[Abbr`recs`,EVERY_MEM,MEM_FILTER,MEM_GENLIST] ) >>
+            map_every qexists_tac[`env`,`defs`,`EL i recs`] >>
             simp[FLOOKUP_DEF,Abbr`rd'`,FDOM_FUPDATE_LIST,MEM_MAP,MEM_GENLIST,EXISTS_PROD] >>
+            simp[GSYM CONJ_ASSOC] >>
             conj_tac >- metis_tac[] >>
+            reverse conj_tac >- metis_tac[RC_DEF] >>
             qho_match_abbrev_tac`(fm |++ ls) ' k = X` >>
             qho_match_abbrev_tac`P ((fm |++ ls) ' k)` >>
             ho_match_mp_tac FUPDATE_LIST_ALL_DISTINCT_APPLY_MEM >>
@@ -2897,8 +2996,11 @@ val compile_val = store_thm("compile_val",
               simp[EVERY_MEM,MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
               metis_tac[] ) >>
             simp[Abbr`recs`,EVERY_MEM,MEM_FILTER,MEM_GENLIST] ) >>
+          map_every qexists_tac[`klvs ++ REVERSE vs ++ env0`,`defs`,`EL i recs`] >>
           simp[FLOOKUP_DEF,Abbr`rd'`,FDOM_FUPDATE_LIST,MEM_MAP,MEM_GENLIST,EXISTS_PROD] >>
+          simp[GSYM CONJ_ASSOC] >>
           conj_tac >- metis_tac[] >>
+          reverse conj_tac >- metis_tac[RC_DEF] >>
           qho_match_abbrev_tac`(fm |++ ls) ' k = X` >>
           qho_match_abbrev_tac`P ((fm |++ ls) ' k)` >>
           ho_match_mp_tac FUPDATE_LIST_ALL_DISTINCT_APPLY_MEM >>
