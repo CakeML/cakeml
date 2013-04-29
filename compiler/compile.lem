@@ -1467,7 +1467,7 @@ let compile_Cexp rs decl Ce =
   let cs = compile c rs.renv (TCNonTail decl) rs.rsz cs Ce in
   let rs = if decl then match cs.decl with
     | (env,sz,bvars) -> <| rs with renv = env; rsz = sz; rbvars = bvars |>
-    end else rs in
+    end else <| rs with rsz = rs.rsz + 1 |> in
   let rs = <| rs with rnext_label = cs.next_label |> in
   (rs, List.rev cs.out)
 

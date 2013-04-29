@@ -1562,7 +1562,7 @@ val _ = Define `
   let cs = compile c rs.renv (TCNonTail decl) rs.rsz cs Ce in
   let rs = if decl then (case cs.decl of
       (env,sz,bvars) => ( rs with<| renv := env; rsz := sz; rbvars := bvars |>)
-    ) else rs in
+    ) else ( rs with<| rsz := rs.rsz + 1 |>) in
   let rs = ( rs with<| rnext_label := cs.next_label |>) in
   (rs, REVERSE cs.out))`;
 
