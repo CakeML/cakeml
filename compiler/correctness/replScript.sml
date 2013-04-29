@@ -1,6 +1,6 @@
 open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory pred_setTheory relationTheory arithmeticTheory whileTheory pairTheory quantHeuristicsLib lcsymtacs
 open miniMLExtraTheory miscTheory intLangTheory expToCexpTheory compileTerminationTheory compileCorrectnessTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory pmatchTheory  labelClosuresTheory
-open miscLib MiniMLTerminationTheory finite_mapTheory
+open miscLib MiniMLTerminationTheory finite_mapTheory sortingTheory
 val _ = new_theory"repl"
 
 val good_contab_def = Define`
@@ -131,6 +131,11 @@ val syneq_exp_Cexp_pred = store_thm("syneq_exp_Cexp_pred",
     PairCases_on`x`>>fs[]
 *)
 
+val transitive_LESS = store_thm("transitive_LESS",
+  ``transitive ($< : (num->num->bool))``,
+  rw[transitive_def] >> PROVE_TAC[LESS_TRANS])
+val _ = export_rewrites["transitive_LESS"]
+
 val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
   ``∀c d s. let s' = FOLDL (cce_aux d) s c in
      ∃code.
@@ -141,6 +146,7 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
      ((∀n. good_code_env (alist_to_fmap (DROP n c))) ∧
       ALL_DISTINCT (MAP FST c) ∧
       EVERY (combin$C $< s.next_label) (MAP FST c) ∧
+      SORTED $< (MAP FST c) ∧
       EVERY (Cexp_pred o closure_data_body) (MAP SND c)
       ⇒
       code_env_code (alist_to_fmap c) d code)``,
@@ -176,6 +182,9 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
      gen_tac >>
      first_x_assum(qspec_then`SUC n`mp_tac) >>
      simp[] ) >>
+   `SORTED $< (MAP FST c)` by (
+    Q.ISPECL_THEN[`$< : num -> num -> bool`,`MAP FST c`,`p0`]mp_tac SORTED_EQ>>
+    simp[] ) >>
    fs[] >>
    fs[code_env_code_def,MEM_FILTER,FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE] >>
    conj_tac >- (
@@ -192,12 +201,17 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
    Cases_on`x=p0`>>simp[]>-(
      qexists_tac`s with out := Label p0::s.out` >>
      qexists_tac`[]`>>
-     simp[] ) >>
+     simp[] >>
+     fs[EVERY_MEM] >> PROVE_TAC[]) >>
    simp[FAPPLY_FUPDATE_THM] >> rw[] >>
+   `p0 < x` by (
+      Q.ISPECL_THEN[`$< : num -> num -> bool`,`MAP FST c`,`p0`]mp_tac SORTED_EQ>>
+      simp[] ) >>
    last_x_assum(qspec_then`x`mp_tac) >> rw[] >>
    HINT_EXISTS_TAC >>
    qexists_tac`Label p0::(REVERSE bc ++bc0)` >>
-   simp[FILTER_APPEND,FILTER_REVERSE,EVERY_REVERSE]
+   simp[FILTER_APPEND,FILTER_REVERSE,EVERY_REVERSE] >>
+   fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,between_def]
 
    cce_aux_def
 
