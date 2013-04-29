@@ -307,6 +307,64 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
   rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] >>
   res_tac >> fsrw_tac[ARITH_ss][])
 
+val syneq_exp_SUBMAP_labs_only = store_thm("syneq_exp_SUBMAP_labs_only",
+  ``(∀c z1 z2 V e1 e2. syneq_exp c z1 z2 V e1 e2 ⇒ ∀c'. c ⊑ c' ∧ (body_count e1 = 0) ⇒ syneq_exp c' z1 z2 V e1 e2) ∧
+    (∀c z1 z2 V defs1 defs2 U. syneq_defs c z1 z2 V defs1 defs2 U ⇒ ∀c'. c ⊑ c' ∧ (SUM (MAP body_count_def defs1) = 0) ⇒ syneq_defs c' z1 z2 V defs1 defs2 U)``,
+  ho_match_mp_tac syneq_exp_ind >>
+  strip_tac >- rw[Once syneq_exp_cases] >>
+  strip_tac >- rw[Once syneq_exp_cases] >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- rw[Once syneq_exp_cases] >>
+  strip_tac >- rw[Once syneq_exp_cases] >>
+  strip_tac >- (
+    rw[] >> rw[Once syneq_exp_cases] >>
+    fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD,SUM_eq_0] >>
+    rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+    fsrw_tac[DNF_ss][MEM_MAP,MEM_EL]) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once syneq_exp_cases] >>
+    qexists_tac`U` >> simp[] >>
+    fsrw_tac[ETA_ss][] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once syneq_exp_cases] >>
+    HINT_EXISTS_TAC >> simp[] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once syneq_exp_cases] >>
+    fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD,SUM_eq_0] >>
+    rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+    fsrw_tac[DNF_ss][MEM_MAP,MEM_EL]) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rpt gen_tac >> strip_tac >>
+    simp[Once syneq_exp_cases] >>
+    syneq_exp_c_SUBMAP
+
+
+val syneq_c_SUBMAP_labs_only = store_thm("syneq_c_SUBMAP_labs_only",
+  ``∀c v1 v2. syneq c v1 v2 ⇒ ∀c'. c ⊑ c' ∧ labs_only v1 ⇒ syneq c' v1 v2``,
+  ho_match_mp_tac syneq_ind >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >>
+    rw[Once syneq_cases] >>
+    fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
+    rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL] ) >>
+  strip_tac >- (
+    rw[] >>
+    rw[Once syneq_cases] >>
+    map_every qexists_tac [`V`,`V'`] >>
+    fs[EVERY_MEM,MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+    (conj_tac >- metis_tac[]) >>
+
+  syneq_c_SUBMAP
+
 val Cv_bv_c_SUBMAP = store_thm("Cv_bv_c_SUBMAP",
   ``∀pp.
     (∀Cv bv. Cv_bv pp Cv bv ⇒ ∀rd c l2a c'. (pp = (rd,c,l2a)) ∧ c ⊑ c' ⇒ Cv_bv (rd,c',l2a) Cv bv) ∧
@@ -329,7 +387,10 @@ val Cv_bv_c_SUBMAP = store_thm("Cv_bv_c_SUBMAP",
     qexists_tac`l` >> simp[] >>
     metis_tac[] ) >>
   rw[] >>
-  simp[Once Cv_bv_cases] )
+  simp[Once Cv_bv_cases] >>
+  syneq_c_SUBMAP
+  syneq_exp_c_SUBMAP
+  )
 
 val s_refs_c_SUBMAP = store_thm("s_refs_c_SUBMAP",
   ``∀c rd s bs c'. s_refs c rd s bs ∧ c ⊑ c' ⇒ s_refs c' rd s bs``,
