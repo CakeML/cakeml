@@ -10,6 +10,7 @@
 # HOLHEAP
 miniml-heap
 miniml-heap0
+local-hol-heap
 
 # Translator stuff
 *txt
