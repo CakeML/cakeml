@@ -138,89 +138,73 @@ val _ = export_rewrites["transitive_LESS"]
 
 val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
   ``∀c d s. let s' = FOLDL (cce_aux d) s c in
+     ALL_DISTINCT (MAP FST c) ∧
+     EVERY (combin$C $< s.next_label) (MAP FST c)
+      ⇒
      ∃code.
      (s'.out = REVERSE code ++ s.out) ∧
      (s.next_label ≤ s'.next_label) ∧
+     ALL_DISTINCT (FILTER is_Label code) ∧
      EVERY (λn. MEM n (MAP FST c) ∨ between s.next_label s'.next_label n)
        (MAP dest_Label (FILTER is_Label code)) ∧
-     ((∀n. good_code_env (alist_to_fmap (DROP n c))) ∧
-      ALL_DISTINCT (MAP FST c) ∧
-      EVERY (combin$C $< s.next_label) (MAP FST c) ∧
-      SORTED $< (MAP FST c) ∧
-      EVERY (Cexp_pred o closure_data_body) (MAP SND c)
-      ⇒
-      code_env_code (alist_to_fmap c) d code)``,
+     ∃cs.
+     ∀i. i < LENGTH c ⇒ let (l,cd) = EL i c in
+         s.next_label ≤ (cs i).next_label ∧
+         (∀j. j < i ⇒ (cs j).next_label ≤ (cs i).next_label) ∧
+         ∃cc. ((compile d (MAP CTEnv cd.ccenv) (TCTail cd.az 0) 0 (cs i) cd.body).out = cc ++ (cs i).out) ∧
+              l < (cs i).next_label ∧
+              ∃bc0 bc1. (code = bc0 ++ Label l::REVERSE cc ++ bc1) ∧
+                        EVERY (combin$C $< (cs i).next_label o dest_Label)
+                          (FILTER is_Label bc0)``,
    Induct >- (
      simp[Once SWAP_REVERSE,code_env_code_def,FEVERY_DEF] ) >>
    simp[] >>
-   qx_gen_tac`p`>>
-   PairCases_on`p` >>
+   qx_gen_tac`p`>> PairCases_on`p` >>
    rpt gen_tac >>
    simp[cce_aux_def] >>
+   strip_tac >>
    Q.PAT_ABBREV_TAC`s0 = s with out := X::y` >>
    qspecl_then[`d`,`MAP CTEnv p1.ccenv`,`TCTail p1.az 0`,`0`,`s0`,`p1.body`]
      strip_assume_tac(CONJUNCT1 compile_append_out) >>
+   qpat_assum`∀j k. P`kall_tac >>
    Q.PAT_ABBREV_TAC`s1 = compile d X Y Z A B` >>
    first_x_assum(qspecl_then[`d`,`s1`]mp_tac) >>
    simp[] >>
+   discharge_hyps >- (
+     fsrw_tac[ARITH_ss][EVERY_MEM,Abbr`s0`] >>
+     rw[] >> res_tac >> DECIDE_TAC ) >>
    disch_then(Q.X_CHOOSE_THEN`c0`strip_assume_tac) >>
    simp[Abbr`s0`] >>
    simp[Once SWAP_REVERSE] >>
-   qpat_assum`∀j k. P`kall_tac >>
    fs[] >> simp[] >>
-   simp[FILTER_APPEND,FILTER_REVERSE] >>
+   simp[FILTER_APPEND,FILTER_REVERSE,MEM_FILTER,ALL_DISTINCT_REVERSE,ALL_DISTINCT_APPEND] >>
    conj_tac >- (
      rfs[FILTER_APPEND] >>
      fs[EVERY_MAP,EVERY_FILTER,EVERY_REVERSE,between_def] >>
-     fsrw_tac[DNF_ss,ARITH_ss][EVERY_MEM] >>
-     metis_tac[LESS_EQ_LESS_TRANS,LESS_LESS_EQ_TRANS,LESS_EQ_TRANS] ) >>
+     fsrw_tac[DNF_ss,ARITH_ss][EVERY_MEM,MEM_MAP] >>
+     rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][]
+       >- metis_tac[] >>
+     res_tac >> fsrw_tac[ARITH_ss][] ) >>
+   conj_tac >- (
+     fs[EVERY_MAP,EVERY_REVERSE,EVERY_FILTER,is_Label_rwt,GSYM LEFT_FORALL_IMP_THM] >>
+     fsrw_tac[DNF_ss][EVERY_MEM,between_def] >>
+     rw[] >> spose_not_then strip_assume_tac >> res_tac >>
+     fsrw_tac[ARITH_ss][] ) >>
+   qexists_tac`λi. if i = 0 then (s with out := Label p0::s.out) else cs (i-1)` >>
+   Cases >> simp[] >- (
+     map_every qexists_tac[`[]`,`c0`] >> simp[] ) >>
    strip_tac >>
-   `EVERY (combin$C $< s1.next_label) (MAP FST c)` by (
-     fsrw_tac[ARITH_ss][EVERY_MAP,EVERY_MEM] >>
-     metis_tac[LESS_LESS_EQ_TRANS] ) >>
-   `∀n. good_code_env (alist_to_fmap (DROP n c))` by (
-     gen_tac >>
-     first_x_assum(qspec_then`SUC n`mp_tac) >>
-     simp[] ) >>
-   `SORTED $< (MAP FST c)` by (
-    Q.ISPECL_THEN[`$< : num -> num -> bool`,`MAP FST c`,`p0`]mp_tac SORTED_EQ>>
-    simp[] ) >>
-   fs[] >>
-   fs[code_env_code_def,MEM_FILTER,FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE] >>
-   conj_tac >- (
-     first_x_assum(qspec_then`0`kall_tac)>>
-     first_x_assum(qspec_then`0`mp_tac)>>
-     simp[] ) >>
-   conj_tac >- (
-     rfs[FILTER_APPEND] >>
-     fsrw_tac[DNF_ss][EVERY_MAP,EVERY_FILTER] >>
-     fsrw_tac[DNF_ss][EVERY_MEM,is_Label_rwt,between_def,MEM_MAP,EXISTS_PROD,FORALL_PROD] >>
-     rw[] >> spose_not_then strip_assume_tac >> res_tac >> TRY (res_tac >> DECIDE_TAC)) >>
-   fs[FEVERY_DEF] >>
-   qx_gen_tac`x` >>
-   Cases_on`x=p0`>>simp[]>-(
-     qexists_tac`s with out := Label p0::s.out` >>
-     qexists_tac`[]`>>
-     simp[] >>
-     fs[EVERY_MEM] >> PROVE_TAC[]) >>
-   simp[FAPPLY_FUPDATE_THM] >> rw[] >>
-   `p0 < x` by (
-      Q.ISPECL_THEN[`$< : num -> num -> bool`,`MAP FST c`,`p0`]mp_tac SORTED_EQ>>
-      simp[] ) >>
-   last_x_assum(qspec_then`x`mp_tac) >> rw[] >>
-   HINT_EXISTS_TAC >>
-   qexists_tac`Label p0::(REVERSE bc ++bc0)` >>
-   simp[FILTER_APPEND,FILTER_REVERSE,EVERY_REVERSE] >>
-   fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,between_def]
-
-   cce_aux_def
-
-   simp[] >> rpt gen_tac >>
-   qho_match_abbrev_tac`P (FOLDL (cce_aux d) s c)` >>
-   match_mp_tac FOLDL_invariant >>
-   conj_tac >- (
-     simp[Abbr`P`,Once SWAP_REVERSE,code_env_code_def]
-     DB.find"FOLDL_inv"
+   first_x_assum(qspec_then`n`mp_tac) >>
+   simp[UNCURRY] >> strip_tac >>
+   simp[] >>
+   conj_asm1_tac >- ( Cases >> simp[] ) >>
+   qexists_tac`Label p0::(REVERSE bc ++ bc0)` >>
+   simp[FILTER_APPEND,FILTER_REVERSE,EVERY_REVERSE,EVERY_FILTER,is_Label_rwt,GSYM LEFT_FORALL_IMP_THM] >>
+   qpat_assum`EVERY X (FILTER is_Label bc0)`mp_tac >>
+   qpat_assum`EVERY X (MAP Y (FILTER is_Label bc))`mp_tac >>
+   simp[EVERY_FILTER,EVERY_MAP,is_Label_rwt,GSYM LEFT_FORALL_IMP_THM,between_def] >>
+   asm_simp_tac(srw_ss()++ARITH_ss++DNF_ss)[EVERY_MEM] >>
+   rw[] >> res_tac >> DECIDE_TAC)
 
 val compile_code_env_thm = store_thm("compile_code_env_thm",
   ``∀s c. let (d,s') = compile_code_env s c in
