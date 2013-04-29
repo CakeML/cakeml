@@ -208,23 +208,79 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
 
 val compile_code_env_thm = store_thm("compile_code_env_thm",
   ``∀s c. let (d,s') = compile_code_env s c in
+      ALL_DISTINCT (MAP FST c) ∧
+      EVERY (Cexp_pred o closure_data_body) (MAP SND c) ∧
+      EVERY (combin$C $< s.next_label) (MAP FST c) ∧
+      good_code_env (alist_to_fmap c)
+      ⇒
       (d = alist_to_fmap c) ∧
       ∃code.
       (s'.out = REVERSE code ++ s.out) ∧
       (s.next_label < s'.next_label) ∧
-      EVERY (between s.next_label s'.next_label)
+      EVERY (λn. MEM n (MAP FST c) ∨ between s.next_label s'.next_label n)
         (MAP dest_Label (FILTER is_Label code)) ∧
-      code_env_code d code ∧
+      code_env_code d d code ∧
       ∀bs bc0 bc1.
         (bs.code = bc0 ++ code ++ bc1) ∧
-        (bs.pc = next_addr bs.inst_length bc0)
+        (bs.pc = next_addr bs.inst_length bc0) ∧
+        ALL_DISTINCT (FILTER is_Label bc0) ∧
+        (∀l1 l2. MEM l1 (MAP dest_Label (FILTER is_Label bc0)) ∧ ((l2 = s.next_label) ∨ MEM l2 (MAP FST c)) ⇒ l1 < l2)
         ⇒
-        bc_next^* bs (bs with pc := next_addr bs.inst_length (bc0++code))``,
-  rw[compile_code_env_def] >>
-  rw[]
-
-  compile_code_env_def
-  cce_aux_def
+        bc_next bs (bs with pc := next_addr bs.inst_length (bc0++code))``,
+  rw[compile_code_env_def] >> rw[] >>
+  qspecl_then[`c`,`d`,`s''`]mp_tac FOLDL_cce_aux_thm >>
+  simp[Abbr`s''`] >>
+  discharge_hyps >- (
+    fsrw_tac[ARITH_ss][EVERY_MEM] >>
+    rw[] >> res_tac >> DECIDE_TAC ) >>
+  disch_then(Q.X_CHOOSE_THEN`c0`strip_assume_tac) >>
+  simp[Once SWAP_REVERSE] >>
+  conj_tac >- (
+    fs[EVERY_MAP,EVERY_FILTER,is_Label_rwt,GSYM LEFT_FORALL_IMP_THM,between_def,Abbr`l`] >>
+    reverse conj_tac >- (disj2_tac >> DECIDE_TAC) >>
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+    rw[] >> res_tac >>
+    TRY(metis_tac[]) >>
+    disj2_tac >> DECIDE_TAC ) >>
+  conj_tac >- (
+    simp[code_env_code_def,FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER] >>
+    conj_asm1_tac >- (
+      fs[EVERY_MAP,EVERY_FILTER] >>
+      fs[EVERY_MEM] >>
+      spose_not_then strip_assume_tac >>
+      res_tac >>
+      fs[between_def,MEM_MAP] >- (
+        res_tac >> DECIDE_TAC ) >>
+      fs[Abbr`l`] >> DECIDE_TAC ) >>
+    simp[FEVERY_DEF,Abbr`d`,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
+    simp[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+    qx_gen_tac`i` >> strip_tac >>
+    first_x_assum(qspec_then`i`mp_tac) >>
+    simp[UNCURRY] >> strip_tac >>
+    `alist_to_fmap c ' (FST (EL i c)) = SND (EL i c)` by (
+      match_mp_tac alistTheory.ALOOKUP_SOME_FAPPLY_alist_to_fmap >>
+      match_mp_tac alistTheory.ALOOKUP_ALL_DISTINCT_MEM >>
+      simp[MEM_EL] >> PROVE_TAC[] ) >>
+    simp[] >>
+    qexists_tac`cs i`>>simp[] >>
+    qexists_tac`Jump (Lab l)::bc0` >>
+    simp[] >>
+    fs[EVERY_MEM,MEM_MAP] >>
+    fsrw_tac[DNF_ss][MEM_EL] ) >>
+  rpt gen_tac >>
+  strip_tac >>
+  `bc_fetch bs = SOME (Jump (Lab l))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0` >> simp[] ) >>
+  simp[bc_eval1_thm,bc_eval1_def,bc_state_component_equality,bc_find_loc_def] >>
+  match_mp_tac bc_find_loc_aux_append_code >>
+  match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+  qexists_tac`LENGTH bc0 + 1 + LENGTH c0` >>
+  simp[EL_APPEND2,TAKE_APPEND2,FILTER_APPEND,SUM_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER] >>
+  fs[Abbr`l`,EVERY_MAP,EVERY_FILTER,between_def] >>
+  fsrw_tac[DNF_ss][EVERY_MEM,is_Label_rwt,MEM_MAP,EXISTS_PROD,FORALL_PROD,MEM_FILTER] >>
+  rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] >>
+  res_tac >> fsrw_tac[ARITH_ss][])
 
 val Cv_bv_c_SUBMAP = store_thm("Cv_bv_c_SUBMAP",
   ``∀pp.
