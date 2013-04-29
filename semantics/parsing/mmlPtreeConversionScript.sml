@@ -16,13 +16,34 @@ val _ = new_theory "mmlPtreeConversion"
    This is a disgusting failing of our theory mechanism.  *)
 val _ = hide "nt"
 
+
+val OPTION_CHOICE_def = Define`
+  OPTION_CHOICE (SOME y) x = SOME y ∧
+  OPTION_CHOICE NONE x = x
+`
+
+val _ = overload_on ("++", ``OPTION_CHOICE``)
+
 val ptree_Tyop_def = Define`
   ptree_Tyop ptree =
     case ptree of
       Lf _ => NONE
-    | Nd (mkNT nTyOp) [Lf (TK (AlphaT s))] => SOME s
-    | Nd (mkNT nTyOp) [Lf (TK (SymbolT s))] => SOME s
+    | Nd (mkNT nTyOp) [Lf (TK (AlphaT s))] => SOME (Short s)
+    | Nd (mkNT nTyOp) [Lf (TK (SymbolT s))] => SOME (Short s)
     | _ => NONE
+`;
+
+val ptree_UQTyop_def = Define`
+  ptree_UQTyop (Lf _) = NONE ∧
+  ptree_UQTyop (Nd nt args) =
+    if nt <> mkNT nUQTyOp then NONE
+    else
+      do
+        assert (LENGTH args = 1);
+        lf <- destLf (HD args);
+        tk <- destTOK lf;
+        destSymbolT tk ++ destAlphaT tk
+      od
 `;
 
 val ptree_linfix_def = Define`
@@ -102,15 +123,15 @@ val ptree_TypeName_def = Define`
     | Nd nt args =>
       if nt = mkNT nTypeName then
         case args of
-          [opt] => do opn <- ptree_Tyop opt ; SOME([], opn) od
+          [opt] => do opn <- ptree_UQTyop opt ; SOME([], opn) od
         | [sym; opt] => do tyvn <- destTyvarPT sym ;
-                           opn <- ptree_Tyop opt ;
+                           opn <- ptree_UQTyop opt ;
                            SOME ([tyvn], opn)
                         od
         | [lp; tyvl; rp; opt] =>
           if lp = Lf (TK LparT) ∧ rp = Lf (TK RparT) then do
               tyvnms <- ptree_linfix nTyVarList CommaT destTyvarPT tyvl;
-              opn <- ptree_Tyop opt;
+              opn <- ptree_UQTyop opt;
               SOME(tyvnms, opn)
             od
           else NONE
@@ -143,16 +164,31 @@ val ptree_StarTypes_def = Define`
         else NONE
 `;
 
+val ptree_UQConstructorName_def = Define`
+  ptree_UQConstructorName (Lf _) = NONE ∧
+  ptree_UQConstructorName (Nd nm args) =
+    if nm <> mkNT nUQConstructorName then NONE
+    else
+      do
+        assert (LENGTH args = 1);
+        lf <- destLf (HD args);
+        tk <- destTOK lf;
+        destAlphaT tk
+      od
+  `
+
 val ptree_ConstructorName_def = Define`
   ptree_ConstructorName ast =
     case ast of
         Lf _ => NONE
       | Nd nt args =>
-        if nt = mkNT nConstructorName then
-          case args of
-              [Lf (TOK t)] => destAlphaT t
-            | _ => NONE
-        else NONE
+        if nt <> mkNT nConstructorName then NONE
+        else
+          do
+            assert (LENGTH args = 1);
+            s <- ptree_UQConstructorName (HD args);
+            SOME (Short s)
+          od
 `
 
 val ptree_Dconstructor_def = Define`
@@ -165,7 +201,7 @@ val ptree_Dconstructor_def = Define`
               [] => NONE
             | t::ts =>
               do
-                 cname <- ptree_ConstructorName t;
+                 cname <- ptree_UQConstructorName t;
                  types <- case ts of
                                [] => SOME []
                              | [oft; startys] =>
@@ -210,35 +246,29 @@ val ptree_TypeDec_def = Define`
           | _ => NONE
       else NONE`;
 
-val OPTION_CHOICE_def = Define`
-  OPTION_CHOICE (SOME y) x = SOME y ∧
-  OPTION_CHOICE NONE x = x
-`
-val _ = overload_on ("++", ``OPTION_CHOICE``)
-
 val ptree_Op_def = Define`
   ptree_Op (Lf _) = NONE ∧
   ptree_Op (Nd nt subs) =
     if nt = mkNT nMultOps then
-      if subs = [Lf (TK StarT)] then SOME "*"
-      else if subs = [Lf (TK (SymbolT "/"))] then SOME "/"
-      else if subs = [Lf (TK (AlphaT "mod"))] then SOME "mod"
-      else if subs = [Lf (TK (AlphaT "div"))] then SOME "div"
+      if subs = [Lf (TK StarT)] then SOME (Short "*")
+      else if subs = [Lf (TK (SymbolT "/"))] then SOME (Short "/")
+      else if subs = [Lf (TK (AlphaT "mod"))] then SOME (Short "mod")
+      else if subs = [Lf (TK (AlphaT "div"))] then SOME (Short "div")
       else NONE
     else if nt = mkNT nAddOps then
-      if subs = [Lf (TK (SymbolT "+"))] then SOME "+"
-      else if subs = [Lf (TK (SymbolT "-"))] then SOME "-"
+      if subs = [Lf (TK (SymbolT "+"))] then SOME (Short "+")
+      else if subs = [Lf (TK (SymbolT "-"))] then SOME (Short "-")
       else NONE
     else if nt = mkNT nRelOps then
       do
         sym <- destLf (HD subs);
         tok <- destTOK sym;
         s <- (destSymbolT tok ++ SOME "=");
-        SOME s
+        SOME (Short s)
       od
     else if nt = mkNT nCompOps then
-      if subs = [Lf (TK (SymbolT ":="))] then SOME ":="
-      else if subs = [Lf (TK (AlphaT "o"))] then SOME "o"
+      if subs = [Lf (TK (SymbolT ":="))] then SOME (Short ":=")
+      else if subs = [Lf (TK (AlphaT "o"))] then SOME (Short "o")
       else NONE
     else NONE
 `;
@@ -253,6 +283,17 @@ val ptree_V_def = Define`
     else NONE
 `;
 
+val ptree_FQV_def = Define`
+  ptree_FQV (Lf _) = NONE ∧
+  ptree_FQV (Nd nt args) =
+    if nt <> mkNT nFQV then NONE
+    else
+      do
+        assert(LENGTH args = 1);
+        s <- ptree_V (HD args);
+        SOME(Short s)
+      od`
+
 val ptree_Pattern_def = Define`
   (ptree_Pattern nt (Lf _) = NONE) ∧
   (ptree_Pattern nt (Nd nm args) =
@@ -262,9 +303,9 @@ val ptree_Pattern_def = Define`
           [vic] =>
           do
              cname <- ptree_ConstructorName vic;
-             if cname = "true" then
+             if cname = Short "true" then
                SOME(Ast_Plit (Bool T))
-             else if cname = "false" then
+             else if cname = Short "false" then
                SOME(Ast_Plit (Bool F))
              else
                SOME(Ast_Pcon cname [])
@@ -298,7 +339,7 @@ val ptree_Pattern_def = Define`
             cn <- ptree_ConstructorName cnm;
             (do
               pb <- ptree_Pattern nPbase p ;
-              if cn = "ref" then
+              if cn = Short "ref" then
                 SOME(Ast_Pref pb)
               else
                 SOME (Ast_Pcon cn [pb])
@@ -372,7 +413,7 @@ val Eseq_encode_def = Define`
 val mkAst_App_def = Define`
   mkAst_App a1 a2 =
    case a1 of
-       Ast_Con "ref" [] => Ast_App (Ast_Var "ref") a2
+       Ast_Con (Short "ref") [] => Ast_App (Ast_Var (Short "ref")) a2
      | _ => Ast_App a1 a2
 `
 
@@ -397,13 +438,13 @@ val ptree_Expr_def = Define`
                 SOME (Ast_Lit (IntLit i))
               od ++
               do
-                s <- ptree_V single;
+                s <- ptree_FQV single;
                 SOME (Ast_Var s)
               od ++
               do cname <- ptree_ConstructorName single;
-                 if cname = "true" then
+                 if cname = Short "true" then
                    SOME (Ast_Lit (Bool T))
-                 else if cname = "false" then
+                 else if cname = Short "false" then
                    SOME (Ast_Lit (Bool F))
                  else
                    SOME (Ast_Con cname [])
@@ -458,7 +499,7 @@ val ptree_Expr_def = Define`
           | _ => NONE
       else if nt = mkNT nElist1 then
         case subs of
-            [sing] => do e <- ptree_Expr nE sing; SOME(Ast_Con "" [e]) od
+            [sing] => do e <- ptree_Expr nE sing; SOME(Ast_Con (Short "") [e]) od
           | [el1;ct;e] =>
             if ct = Lf (TOK CommaT) then
               do
@@ -513,7 +554,7 @@ val ptree_Expr_def = Define`
             assert(opt = Lf(TOK(AlphaT "before")));
             a1 <- ptree_Expr nEbefore t1;
             a2 <- ptree_Expr nEcomp t2;
-            SOME(Ast_App (Ast_App (Ast_Var"before") a1) a2)
+            SOME(Ast_App (Ast_App (Ast_Var (Short "before")) a1) a2)
           od
         | [t] => ptree_Expr nEcomp t
         | _ => NONE

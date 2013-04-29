@@ -15,7 +15,7 @@ val stringAST_def = Define`
 `
 
 val stringDecs_def = Define`
-  stringDecs s = OPTION_MAP (elab_decs [] [] o SND) (stringAST s)
+  stringDecs s = OPTION_MAP (elab_decs NONE [] [] init_env o SND) (stringAST s)
 `
 
 val t = time (rhs o concl o EVAL)
@@ -27,11 +27,11 @@ val expected =
      [Ast_Dtype
         [(["'a"],"list",
           [("Nil",[]);
-           ("Cons",[Ast_Tvar "'a"; Ast_Tapp [Ast_Tvar "'a"] "list"])])];
+           ("Cons",[Ast_Tvar "'a"; Ast_Tapp [Ast_Tvar "'a"] (Short "list")])])];
       Ast_Dlet (Ast_Pvar "x") (Ast_Lit (IntLit 3));
       Ast_Dletrec
         [("f","x",
-          Ast_App (Ast_App (Ast_Var "+") (Ast_Var "x"))
+          Ast_App (Ast_App (Ast_Var (Short "+")) (Ast_Var (Short "x")))
             (Ast_Lit (IntLit 1)))];
       Ast_Dlet (Ast_Pvar "y") (Ast_Lit (IntLit 4))])``
 val _ = assert (aconv expected) t

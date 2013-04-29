@@ -78,30 +78,23 @@ in
 end
 val tytest = parsetest ``nType`` ``ptree_Type``
 
-val _ = parsetest ``nDecls`` ``OPTION_MAP (elab_decs [] []) o ptree_Decls``
-                  "val x = f()"
+val elab_decls = ``OPTION_MAP (elab_decs NONE [] [] init_env) o ptree_Decls``
+
+
+val _ = parsetest ``nDecls`` elab_decls "val x = f()"
                   ``[ValT; AlphaT"x";EqualsT; AlphaT"f";LparT; RparT]``
-val _ = parsetest ``nDecls`` ``OPTION_MAP (elab_decs [] []) o ptree_Decls``
-                  "val () = f x"
+val _ = parsetest ``nDecls`` elab_decls "val () = f x"
                   ``[ValT; LparT; RparT; EqualsT; AlphaT"f";AlphaT "x"]``
-val _ = parsetest ``nDecls``
-                  ``OPTION_MAP (elab_decs [] []) o ptree_Decls``
-                  "val x = ref false;"
+val _ = parsetest ``nDecls`` elab_decls "val x = ref false;"
                   ``[ValT; AlphaT "x"; EqualsT; AlphaT "ref";
                      AlphaT "false"; SemicolonT]``
-val _ = parsetest ``nDecls``
-                  ``OPTION_MAP (elab_decs [] []) o ptree_Decls``
-                  "val ref y = f z"
+val _ = parsetest ``nDecls`` elab_decls "val ref y = f z"
                   ``[ValT; AlphaT "ref"; AlphaT "y"; EqualsT;
                      AlphaT"f"; AlphaT"z"]``
-val _ = parsetest ``nDecls``
-                  ``OPTION_MAP (elab_decs [] []) o ptree_Decls``
-                  "val x = (y := 3);"
+val _ = parsetest ``nDecls`` elab_decls "val x = (y := 3);"
                   ``[ValT; AlphaT "x"; EqualsT; LparT; AlphaT "y";
                      SymbolT ":="; IntT 3; RparT; SemicolonT]``
-val _ = parsetest ``nDecls``
-                  ``OPTION_MAP (elab_decs [] []) o ptree_Decls``
-                  "val _ = (y := 3);"
+val _ = parsetest ``nDecls`` elab_decls "val _ = (y := 3);"
                   ``[ValT; UnderbarT; EqualsT; LparT; AlphaT "y";
                      SymbolT ":="; IntT 3; RparT; SemicolonT]``
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "(f x; 3)"

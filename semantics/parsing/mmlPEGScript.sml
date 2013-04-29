@@ -157,29 +157,29 @@ val peg_StarTypesP_def = Define`
 
 val peg_TypeName_def = Define`
   peg_TypeName =
-    choicel [pegf (pnt nTyOp) (bindNT nTypeName);
+    choicel [pegf (pnt nUQTyOp) (bindNT nTypeName);
              seql [tokeq LparT;
                    peg_linfix (mkNT nTyVarList)
                               (tok isTyvarT mktokLf)
                               (tokeq CommaT);
                    tokeq RparT;
-                   pnt nTyOp] (bindNT nTypeName);
-             seql [tok isTyvarT mktokLf; pnt nTyOp] (bindNT nTypeName)
+                   pnt nUQTyOp] (bindNT nTypeName);
+             seql [tok isTyvarT mktokLf; pnt nUQTyOp] (bindNT nTypeName)
             ]
 `;
 
-val peg_ConstructorName_def = Define`
-  peg_ConstructorName =
+val peg_UQConstructorName_def = Define`
+  peg_UQConstructorName =
     tok (λt. do s <- destAlphaT t ;
                 assert (s ≠ "" ∧ isUpper (HD s) ∨ s ∈ {"true"; "false"; "ref"})
              od = SOME ())
-        (bindNT nConstructorName o mktokLf)
+        (bindNT nUQConstructorName o mktokLf)
 `;
 
 (* Dconstructor ::= ConstructorName "of" StarTypesP | ConstructorName; *)
 val peg_Dconstructor_def = Define`
   peg_Dconstructor =
-    seq (pnt nConstructorName)
+    seq (pnt nUQConstructorName)
         (choice (seq (tokeq OfT) (pnt nStarTypesP) (++))
                 (empty [])
                 sumID)
@@ -264,6 +264,7 @@ val mmlPEG_def = zDefine`
                pegf (choicel [tokeq SemicolonT; empty []])
                     (bindNT nOptSemi));
               (mkNT nV, peg_V);
+              (mkNT nFQV, pegf (pnt nV) (bindNT nFQV));
               (mkNT nEapp, peg_Eapp);
               (mkNT nEtuple,
                seql [tokeq LparT; pnt nElist2; tokeq RparT] (bindNT nEtuple));
@@ -278,7 +279,7 @@ val mmlPEG_def = zDefine`
                                    (bindNT nCompOps));
               (mkNT nEbase,
                choicel [tok isInt (bindNT nEbase o mktokLf);
-                        nt (mkNT nV) (bindNT nEbase);
+                        nt (mkNT nFQV) (bindNT nEbase);
                         nt (mkNT nConstructorName) (bindNT nEbase);
                         seql [tokeq LparT; tokeq RparT] (bindNT nEbase);
                         seql [tokeq LparT; pnt nEseq; tokeq RparT]
@@ -325,13 +326,16 @@ val mmlPEG_def = zDefine`
               (mkNT nType, peg_Type);
               (mkNT nDType, peg_DType);
               (mkNT nTyOp, peg_TyOp);
+              (mkNT nUQTyOp, tok isAlphaSym (bindNT nUQTyOp o mktokLf));
               (mkNT nStarTypes, peg_StarTypes);
               (mkNT nStarTypesP, peg_StarTypesP);
               (mkNT nTypeName, peg_TypeName);
               (mkNT nTypeDec, peg_TypeDec);
               (mkNT nDtypeDecl, peg_DtypeDecl);
               (mkNT nDconstructor, peg_Dconstructor);
-              (mkNT nConstructorName, peg_ConstructorName);
+              (mkNT nUQConstructorName, peg_UQConstructorName);
+              (mkNT nConstructorName,
+               pegf (pnt nUQConstructorName) (bindNT nConstructorName));
               (mkNT nPbase,
                pegf (choicel [pnt nV;
                               pnt nConstructorName;

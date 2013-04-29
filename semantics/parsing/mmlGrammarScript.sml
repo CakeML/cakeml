@@ -79,7 +79,8 @@ val ginfo = { tokmap = tokmap,
 
 val mmlG_def = mk_grammar_def ginfo
 `(* types *)
- TyOp ::= <AlphaT> | <SymbolT>;
+ TyOp ::= <AlphaT> | <SymbolT>; (* should be extended with module-qualifed names *)
+ UQTyOp ::= <AlphaT> | <SymbolT>;
  TypeList ::= Type | Type "," TypeList;
  DType ::= <TyvarT> | TyOp | DType TyOp | "(" TypeList ")" TyOp | "(" Type ")";
  Type ::= DType | DType "->" Type;
@@ -87,9 +88,9 @@ val mmlG_def = mk_grammar_def ginfo
  (* type declarations *)
  StarTypes ::= StarTypes "*" DType | DType;
  StarTypesP ::= "(" StarTypes ")" | StarTypes;
- TypeName ::= TyOp | "(" TyVarList ")" TyOp | <TyvarT> TyOp ;
+ TypeName ::= UQTyOp | "(" TyVarList ")" UQTyOp | <TyvarT> UQTyOp ;
  TyVarList ::= <TyvarT> | TyVarList "," <TyvarT>;
- Dconstructor ::= ConstructorName "of" StarTypesP | ConstructorName;
+ Dconstructor ::= UQConstructorName "of" StarTypesP | UQConstructorName;
  DtypeCons ::= Dconstructor | DtypeCons "|" Dconstructor;
  DtypeDecl ::= TypeName "=" DtypeCons ;
  DtypeDecls ::= DtypeDecl | DtypeDecls "and" DtypeDecl;
@@ -99,13 +100,15 @@ val mmlG_def = mk_grammar_def ginfo
  OptSemi ::= ";" | ;
 
  (* expressions - base cases and function applications *)
- ConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``)
-                  | "true" | "false" | "ref";
+ UQConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``)
+                    | "true" | "false" | "ref";
+ ConstructorName ::= UQConstructorName; (* add qualified version *)
  V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false"; "ref" } ∧
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
     |  ^(``{SymbolT s |
             s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"; ":="}}``);
- Ebase ::= "(" Eseq ")" | "(" ")" | V | ConstructorName | <IntT>
+ FQV ::= V; (* add module-qualified name too *)
+ Ebase ::= "(" Eseq ")" | "(" ")" | FQV | ConstructorName | <IntT>
         |  "let" LetDecs "in" Eseq "end";
  Eseq ::= Eseq ";" E | E;
  Etuple ::= "(" Elist2 ")";

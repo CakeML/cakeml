@@ -107,9 +107,9 @@ val tyvar_rwt = prove(
   Cases_on `l` >> rw[] >> Cases_on `h` >> rw[]  >> Cases_on `a` >> rw[])
 
 val typename_rwt = prove(
-  ``(∃s. l = [TK (TyvarT s); NN nTyOp]) ⇔
+  ``(∃s. l = [TK (TyvarT s); NN nUQTyOp]) ⇔
     do
-      assert (LENGTH l = 2 ∧ HD (TL l) = NN nTyOp);
+      assert (LENGTH l = 2 ∧ HD (TL l) = NN nUQTyOp);
       tok <- destTOK (HD l);
       assert (isTyvarT tok )
     od = SOME ()``,
