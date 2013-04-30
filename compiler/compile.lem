@@ -168,7 +168,7 @@ free_vars (CLetrec defs e) =
   free_vars_defs n defs union
   (image (fun m -> m - n) (free_vars e \ count n))
 and
-free_vars (CFun def) = image pre (free_vars_def 1 def \ {0})
+free_vars (CFun def) = free_vars_def 1 def
 and
 free_vars (CCall e es) = free_vars e union free_vars_list es
 and

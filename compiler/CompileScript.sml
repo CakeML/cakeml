@@ -202,7 +202,7 @@ val _ = Hol_datatype `
   free_vars_defs n defs UNION
   ( IMAGE (\ m . m - n) (free_vars e DIFF count n)))
 /\
-(free_vars (CFun def) = IMAGE PRE (free_vars_def 1 def DIFF {0}))
+(free_vars (CFun def) = free_vars_def 1 def)
 /\
 (free_vars (CCall e es) = free_vars e UNION free_vars_list es)
 /\
