@@ -2088,16 +2088,16 @@ val free_vars_shift = store_thm("free_vars_shift",
   simp[shift_def])
 val _ = export_rewrites["free_vars_shift"]
 
-(*
-maybe only true if you look at the first component?
 val free_labs_mkshift = store_thm("free_labs_mkshift",
-  ``∀f k e. free_labs (mkshift f k e) = free_labs e``,
+  ``∀f k e. MAP FST (free_labs (mkshift f k e)) = MAP FST (free_labs e)``,
   ho_match_mp_tac mkshift_ind >> rw[free_labs_list_MAP,free_vars_defs_MAP] >>
   TRY (
+    simp[MAP_FLAT] >>
     AP_TERM_TAC >>
-    simp[MAP_MAP_o,MAP_EQ_f] )
+    simp[MAP_MAP_o,MAP_EQ_f] >>
+    NO_TAC )
   >- (
-    unabbrev_all_tac >> simp[] >>
+    unabbrev_all_tac >> simp[MAP_FLAT] >>
     AP_TERM_TAC >>
     simp[MAP_MAP_o,MAP_EQ_f,FORALL_PROD] >>
     Cases >> simp[] >>
@@ -2107,10 +2107,22 @@ val free_labs_mkshift = store_thm("free_labs_mkshift",
 val _ = export_rewrites["free_labs_mkshift"]
 
 val free_labs_shift = store_thm("free_labs_shift",
-  ``free_labs (shift k n e) = free_labs e``,
+  ``MAP FST (free_labs (shift k n e)) = MAP FST (free_labs e)``,
   simp[shift_def])
 val _ = export_rewrites["free_labs_shift"]
-*)
+
+val free_labs_shift_NIL = store_thm("free_labs_shift_NIL",
+  ``∀k n e. (free_labs (shift k n e) = []) = (free_labs e = [])``,
+  rw[EQ_IMP_THM] >- (
+    qmatch_assum_abbrev_tac`f x = []` >>
+    `MAP FST (f x) = []`  by rw[] >>
+    unabbrev_all_tac >>
+    full_simp_tac std_ss [free_labs_shift] >>
+    fs[] ) >>
+  qsuff_tac`MAP FST (free_labs (shift k n e)) = []` >- rw[] >>
+  simp_tac std_ss [free_labs_shift] >>
+  simp[])
+val _ = export_rewrites["free_labs_shift_NIL"]
 
 (* code environment stuff
 
@@ -2389,8 +2401,8 @@ val syneq_exp_c_syneq = store_thm("syneq_exp_c_syneq",
 (* Cevaluate deterministic *)
 
 val Cevaluate_determ = store_thm("Cevaluate_determ",
-  ``(∀c s env exp res. Cevaluate c s env exp res ⇒ ∀res'. Cevaluate c s env exp res' ⇒ (res' = res)) ∧
-    (∀c s env exps ress. Cevaluate_list c s env exps ress ⇒ ∀ress'. Cevaluate_list c s env exps ress' ⇒ (ress' = ress))``,
+  ``(∀s env exp res. Cevaluate s env exp res ⇒ ∀res'. Cevaluate s env exp res' ⇒ (res' = res)) ∧
+    (∀s env exps ress. Cevaluate_list s env exps ress ⇒ ∀ress'. Cevaluate_list s env exps ress' ⇒ (ress' = ress))``,
   ho_match_mp_tac Cevaluate_ind >>
   strip_tac >- rw[] >>
   strip_tac >- (
@@ -2445,7 +2457,8 @@ val Cevaluate_determ = store_thm("Cevaluate_determ",
     rpt gen_tac >> strip_tac >>
     simp[Once Cevaluate_cases] >>
     fsrw_tac[DNF_ss][] >>
-    Cases_on`cb`>|[Cases_on`x`,ALL_TAC]>>fs[UNCURRY]>>
+    PairCases_on`def`>>fs[]>>
+    Cases_on`def0`>>fs[]>|[ALL_TAC,PairCases_on`x`]>>fs[UNCURRY]>>
     rw[] >>
     res_tac >> fs[] >> rw[] >> rfs[] >> rw[] >>
     res_tac >> fs[] >> rw[] >>
