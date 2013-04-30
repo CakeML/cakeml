@@ -127,7 +127,7 @@ type Cexp =
   | CProj of Cexp * num
   | CLet of Cexp * Cexp
   | CLetrec of list ((option (num * (ccenv * ceenv))) * (num * Cexp)) * Cexp
-  | CFun of (option (num * (ccenv * ceenv))) * (num * Cexp)
+  | CFun of ((option (num * (ccenv * ceenv))) * (num * Cexp))
   | CCall of Cexp * list Cexp
   | CPrim1 of Cprim1 * Cexp
   | CPrim2 of Cprim2 * Cexp * Cexp
@@ -168,7 +168,7 @@ free_vars (CLetrec defs e) =
   free_vars_defs n defs union
   (image (fun m -> m - n) (free_vars e \ count n))
 and
-free_vars (CFun def) = image pre (free_vars_def def \ {0})
+free_vars (CFun def) = image pre (free_vars_def 1 def \ {0})
 and
 free_vars (CCall e es) = free_vars e union free_vars_list es
 and
@@ -353,8 +353,8 @@ Cevaluate_list s' env es (s'', Rval vs) &&
     ,k
     ,(List.rev vs)@(genlist (CRecClos cenv defs) (List.length defs))@cenv
     ,b)
-  | (Some (_,(_,(recs,envs))),(k,b))
-    (List.for_all (fun n -> n < List.length cenv) envs
+  | (Some (_,(_,(recs,envs))),(k,b)) ->
+    (List.for_all (fun n -> n < List.length cenv) envs &&
      List.for_all (fun n -> n < List.length defs) recs
     ,k
     ,List.rev vs
@@ -460,8 +460,8 @@ syneq_cb_aux d nz ez (None,(az,e)) = (d<nz,az,e,nz+ez,
            else CCArg n)
 and
 syneq_cb_aux d nz ez (Some(_,(_,(recs,envs))),(az,e)) =
-  (List.for_all (fun n -> n < nz) recs
-   List.for_all (fun n -> n < ez) envs
+  (List.for_all (fun n -> n < nz) recs &&
+   List.for_all (fun n -> n < ez) envs &&
    d < nz
   ,az
   ,e
@@ -595,7 +595,7 @@ forall ez1 ez2 V defs1 defs2 U.
   (b,az,e2,j2,r2) = syneq_cb_aux n2 (List.length defs2) ez2 (List.nth defs2 n2) &&
   (b --> syneq_exp (az+j1) (az+j2) (syneq_cb_V az r1 r2 V U) e1 e2 &&
     forall l ccenv recs envs b.
-      List.nth defs1 n1 = (Some(l,(ccenv,(recs,envs))),e)
+      List.nth defs1 n1 = (Some(l,(ccenv,(recs,envs))),b)
       --> List.for_all (fun v -> U v v) recs &&
           List.for_all (fun v -> V v v) envs))
 ==>
@@ -741,7 +741,7 @@ let rec
 remove_mat_var v [] = CRaise Bind_error
 and
 remove_mat_var v ((p,sk)::pes) =
-  CLet (CFun (Inl (0,shift 1 0 (remove_mat_var v pes))))
+  CLet (CFun (None, (0,shift 1 0 (remove_mat_var v pes))))
     (remove_mat_vp 0 (shift 1 (Cpat_vars p) sk) (v+1) p)
 
 let rec
@@ -952,15 +952,15 @@ label_closures ez j (CLet e1 e2) =
   (CLet e1 e2, j)
 and
 label_closures ez j (CLetrec defs e) =
-  let defs = List.map snd (List.filter (Hol.IS_NONE o fst) defs) in
+  let defs = List.map snd (List.filter (Hol.o Hol.IS_NONE fst) defs) in
   let nz = List.length defs in
   let (defs,j) = label_closures_defs ez j nz 0 defs in
   let (e,j) = label_closures (ez+nz) j e in
-  (CLetrec (List.map Inr defs) e, j)
+  (CLetrec defs e, j)
 and
 label_closures ez j (CFun (None, def)) =
   let (defs,j) = label_closures_defs ez j 1 0 [def] in
-  (CFun (Inr (List.nth defs 0)), j)
+  (CFun (List.nth defs 0), j)
 and
 label_closures ez j (CFun (Some x,y)) = (CFun (Some x,y),j) (* should not happen *)
 and
