@@ -1169,14 +1169,10 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
       fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD] >>
       srw_tac[ARITH_ss][] >>
       metis_tac[] ) >>
-    fsrw_tac[DNF_ss][EVERY_MEM,Once EXTENSION,MEM_MAP,EXISTS_PROD,FORALL_PROD] >>
-    simp[Once EXTENSION,SimpRHS] >>
-    Cases_on`pes=[]`>>rw[] >>
-    srw_tac[DNF_ss][EQ_IMP_THM] >- metis_tac[] >>
-    Cases_on`pes`>>fs[] >>
-    Cases_on`h`>>fsrw_tac[DNF_ss][] >>
-    disj1_tac >>
-    simp[EXTENSION] ) >>
+    simp[free_labs_remove_mat_var_NIL] >>
+    fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD] >>
+    simp[free_labs_list_MAP,FLAT_EQ_NIL,EVERY_MAP,EVERY_MEM,FORALL_PROD] >>
+    metis_tac[]) >>
   first_x_assum(qspecl_then[`env`,`x`]mp_tac) >>
   simp[] >>
   Cases_on`mr`>>fs[] >>
@@ -1184,11 +1180,11 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
 
 val Cpmatch_syneq = store_thm("Cpmatch_syneq",
   ``(∀p v env. Cpmatch s p v env ⇒
-      ∀c s' w. syneq c v w ∧ EVERY2 (syneq c) s s' ⇒
-      ∃env'. Cpmatch s' p w env' ∧ EVERY2 (syneq c) env env') ∧
+      ∀s' w. syneq v w ∧ EVERY2 (syneq) s s' ⇒
+      ∃env'. Cpmatch s' p w env' ∧ EVERY2 (syneq) env env') ∧
     (∀ps vs env. Cpmatch_list s ps vs env ⇒
-      ∀c s' ws. EVERY2 (syneq c) vs ws ∧ EVERY2 (syneq c) s s' ⇒
-      ∃env'. Cpmatch_list s' ps ws env' ∧ EVERY2 (syneq c) env env')``,
+      ∀s' ws. EVERY2 (syneq) vs ws ∧ EVERY2 (syneq) s s' ⇒
+      ∃env'. Cpmatch_list s' ps ws env' ∧ EVERY2 (syneq) env env')``,
   ho_match_mp_tac Cpmatch_ind >>
   strip_tac >- rw[Once Cpmatch_cases,fmap_rel_def] >>
   strip_tac >- rw[Once Cpmatch_cases,Once syneq_cases] >>
@@ -1196,7 +1192,7 @@ val Cpmatch_syneq = store_thm("Cpmatch_syneq",
     rw[] >>
     rw[Once Cpmatch_cases] >>
     fsrw_tac[DNF_ss][] >> rw[] >>
-    `∃w. (el_check n s' = SOME w) ∧ syneq c v w` by (
+    `∃w. (el_check n s' = SOME w) ∧ syneq v w` by (
       fs[EVERY2_EVERY,el_check_def,EVERY_MEM,FORALL_PROD] >>
       rfs[MEM_ZIP] >> metis_tac[]) >>
     fs[]) >>
@@ -1213,10 +1209,10 @@ val Cpmatch_syneq = store_thm("Cpmatch_syneq",
 
 val Cpnomatch_syneq = store_thm("Cpnomatch_syneq",
   ``(∀p v. Cpnomatch s p v ⇒
-      ∀c s' w. syneq c v w ∧ EVERY2 (syneq c) s s' ⇒
+      ∀s' w. syneq v w ∧ EVERY2 (syneq) s s' ⇒
         Cpnomatch s' p w) ∧
     (∀ps vs. Cpnomatch_list s ps vs ⇒
-      ∀c s' ws. EVERY2 (syneq c) vs ws ∧ EVERY2 (syneq c) s s' ⇒
+      ∀s' ws. EVERY2 (syneq) vs ws ∧ EVERY2 (syneq) s s' ⇒
         Cpnomatch_list s' ps ws)``,
   ho_match_mp_tac Cpnomatch_ind >> rw[] >>
   TRY (
@@ -1225,7 +1221,7 @@ val Cpnomatch_syneq = store_thm("Cpnomatch_syneq",
     res_tac >> NO_TAC) >>
   TRY (
     rw[Once Cpnomatch_cases] >>
-    `∃w. (el_check n s' = SOME w) ∧ syneq c v w` by (
+    `∃w. (el_check n s' = SOME w) ∧ syneq v w` by (
       fs[el_check_def,EVERY2_EVERY,EVERY_MEM] >>
       rfs[MEM_ZIP,FORALL_PROD] >>
       metis_tac[]) >>
@@ -1237,8 +1233,8 @@ val Cpnomatch_syneq = store_thm("Cpnomatch_syneq",
 
 val Cevaluate_match_syneq = store_thm("Cevaluate_match_syneq",
   ``∀pes env r. Cevaluate_match s v pes env r ⇒
-      ∀c s' w. syneq c v w ∧ EVERY2 (syneq c) s s' ⇒
-        ∃env'. Cevaluate_match s' w pes env' r ∧ EVERY2 (syneq c) env env'``,
+      ∀s' w. syneq v w ∧ EVERY2 (syneq) s s' ⇒
+        ∃env'. Cevaluate_match s' w pes env' r ∧ EVERY2 (syneq) env env'``,
   ho_match_mp_tac Cevaluate_match_ind >>
   strip_tac >- rw[Once Cevaluate_match_cases] >>
   strip_tac >- (
@@ -1252,8 +1248,8 @@ val Cevaluate_match_syneq = store_thm("Cevaluate_match_syneq",
 
 val Cevaluate_match_closed = store_thm("Cevaluate_match_closed",
   ``∀pes env r. Cevaluate_match s v pes env r ⇒
-      EVERY (Cclosed c) s ∧ Cclosed c v ⇒
-      EVERY (Cclosed c) env``,
+      EVERY (Cclosed) s ∧ Cclosed v ⇒
+      EVERY (Cclosed) env``,
   ho_match_mp_tac Cevaluate_match_ind >>
   rw[Cpmatch_closed] >>
   imp_res_tac Cpmatch_closed)
