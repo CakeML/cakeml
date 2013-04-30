@@ -1303,6 +1303,45 @@ let rec
 cce_aux_def s (Some (l,(ccenv,_)),(az,b)) =
   let s = emit s [Label l] in
   compile (List.map CTEnv ccenv) (TCTail az 0) 0 s b
+and
+cce_aux_def s (None,_) = s
+
+let rec
+cce_aux s (CDecl xs) = s
+and
+cce_aux s (CRaise err) = s
+and
+cce_aux s (CHandle e1 e2) = cce_aux (cce_aux s e1) e2
+and
+cce_aux s (CVar x) = s
+and
+cce_aux s (CLit l) = s
+and
+cce_aux s (CCon cn es) = cce_aux_list s es
+and
+cce_aux s (CTagEq e n) = cce_aux s e
+and
+cce_aux s (CProj e n) = cce_aux s e
+and
+cce_aux s (CLet e b) = cce_aux (cce_aux s e) b
+and
+cce_aux s (CLetrec defs e) = cce_aux (List.fold_left cce_aux_def s defs) e
+and
+cce_aux s (CFun def) = cce_aux_def s def
+and
+cce_aux s (CCall e es) = cce_aux_list (cce_aux s e) es
+and
+cce_aux s (CPrim2 op e1 e2) = cce_aux (cce_aux s e1) e2
+and
+cce_aux s (CUpd e1 e2) = cce_aux (cce_aux s e1) e2
+and
+cce_aux s (CPrim1 uop e) = cce_aux s e
+and
+cce_aux s (CIf e1 e2 e3) = cce_aux (cce_aux (cce_aux s e1) e2) e3
+and
+cce_aux_list s [] = s
+and
+cce_aux_list s (e::es) = cce_aux_list (cce_aux s e) es
 
 let rec
 compile_code_env s e =
@@ -1467,7 +1506,7 @@ v_to_Cv m (Closure env vn _ e) =
   let Cenv = env_to_Cenv m env in
   let m = <| bvars = List.map fst env ; cnmap = m |> in
   let Ce = exp_to_Cexp (cbv m vn) e in
-  CRecClos Cenv [(Inl (1,shift 1 1 Ce))] 0
+  CRecClos Cenv [(None, (1,shift 1 1 Ce))] 0
 and
 v_to_Cv m (Recclosure env defs vn) =
   let Cenv = env_to_Cenv m env in
