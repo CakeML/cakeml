@@ -1397,52 +1397,49 @@ val _ = Defn.save_defn compile_defn;
 
 (* code env to bytecode *)
 
- val cce_aux_def_def = Define `
-
-(cce_aux_def s (SOME (l,(ccenv,_)),(az,b)) =
-  let s = emit s [Label l] in
-  compile ( MAP CTEnv ccenv) (TCTail az 0) 0 s b)
-/\
-(cce_aux_def s (NONE,_) = s)`;
-
-
  val cce_aux_defn = Hol_defn "cce_aux" `
 
-(cce_aux s (CDecl xs) = s)
+(cce_aux s (CDecl _) = s)
 /\
-(cce_aux s (CRaise err) = s)
+(cce_aux s (CRaise _) = s)
 /\
 (cce_aux s (CHandle e1 e2) = cce_aux (cce_aux s e1) e2)
 /\
-(cce_aux s (CVar x) = s)
+(cce_aux s (CVar _) = s)
 /\
-(cce_aux s (CLit l) = s)
+(cce_aux s (CLit _) = s)
 /\
-(cce_aux s (CCon cn es) = cce_aux_list s es)
+(cce_aux s (CCon _ es) = cce_aux_list s es)
 /\
-(cce_aux s (CTagEq e n) = cce_aux s e)
+(cce_aux s (CTagEq e _) = cce_aux s e)
 /\
-(cce_aux s (CProj e n) = cce_aux s e)
+(cce_aux s (CProj e _) = cce_aux s e)
 /\
 (cce_aux s (CLet e b) = cce_aux (cce_aux s e) b)
 /\
-(cce_aux s (CLetrec defs e) = cce_aux ( FOLDL cce_aux_def s defs) e)
+(cce_aux s (CLetrec defs e) = cce_aux ( FOLDL (\ s e . cce_aux_def s e) s defs) e) (* uneta: Hol_defn sucks *)
 /\
 (cce_aux s (CFun def) = cce_aux_def s def)
 /\
 (cce_aux s (CCall e es) = cce_aux_list (cce_aux s e) es)
 /\
-(cce_aux s (CPrim2 op e1 e2) = cce_aux (cce_aux s e1) e2)
+(cce_aux s (CPrim2 _ e1 e2) = cce_aux (cce_aux s e1) e2)
 /\
 (cce_aux s (CUpd e1 e2) = cce_aux (cce_aux s e1) e2)
 /\
-(cce_aux s (CPrim1 uop e) = cce_aux s e)
+(cce_aux s (CPrim1 _ e) = cce_aux s e)
 /\
 (cce_aux s (CIf e1 e2 e3) = cce_aux (cce_aux (cce_aux s e1) e2) e3)
 /\
 (cce_aux_list s [] = s)
 /\
-(cce_aux_list s (e::es) = cce_aux_list (cce_aux s e) es)`;
+(cce_aux_list s (e::es) = cce_aux_list (cce_aux s e) es)
+/\
+(cce_aux_def s (SOME (l,(ccenv,_)),(az,b)) =
+  let s = emit (cce_aux s b) [Label l] in
+  compile ( MAP CTEnv ccenv) (TCTail az 0) 0 s b)
+/\
+(cce_aux_def s (NONE,_) = s)`;
 
 val _ = Defn.save_defn cce_aux_defn;
 
