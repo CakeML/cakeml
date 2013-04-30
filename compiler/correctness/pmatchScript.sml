@@ -184,32 +184,15 @@ simp[])
 (* Misc. lemmas *)
 
 val free_labs_remove_mat_vp = store_thm("free_labs_remove_mat_vp",
-  ``(∀p fk e x. MAP FST (free_labs (remove_mat_vp fk e x p)) = MAP FST (free_labs e)) ∧
-    (∀ps fk e x n. MAP FST (free_labs (remove_mat_con fk e x n ps)) = MAP FST (free_labs e))``,
+  ``(∀p fk e x. free_labs (remove_mat_vp fk e x p) = free_labs e) ∧
+    (∀ps fk e x n. free_labs (remove_mat_con fk e x n ps) = free_labs e)``,
   ho_match_mp_tac(TypeBase.induction_of(``:Cpat``)) >> simp[])
 val _ = export_rewrites["free_labs_remove_mat_vp"]
 
 val free_labs_remove_mat_var = store_thm("free_labs_remove_mat_var",
-  ``∀x pes. MAP FST (free_labs (remove_mat_var x pes)) = MAP FST (free_labs_list (REVERSE (MAP SND pes)))``,
+  ``∀x pes. free_labs (remove_mat_var x pes) = free_labs_list (REVERSE (MAP SND pes))``,
   ho_match_mp_tac remove_mat_var_ind >> rw[remove_mat_var_def] >> simp[free_labs_list_MAP])
 val _ = export_rewrites["free_labs_remove_mat_var"]
-
-val free_labs_remove_mat_vp_NIL = store_thm("free_labs_remove_mat_vp_NIL",
-  ``((free_labs (remove_mat_vp fk e x p) = []) = (free_labs e = [])) ∧
-    ((free_labs (remove_mat_con fk e x n ps) = []) = (free_labs e = []))``,
-  metis_tac[free_labs_remove_mat_vp,MAP_EQ_NIL])
-
-val free_labs_remove_mat_var_NIL = store_thm("free_labs_remove_mat_var_NIL",
-  ``(free_labs (remove_mat_var x pes) = []) = (free_labs_list (MAP SND pes) = [])``,
-  match_mp_tac EQ_TRANS >>
-  qexists_tac`MAP FST (free_labs (remove_mat_var x pes)) = []` >>
-  conj_tac >- rw[] >>
-  match_mp_tac EQ_TRANS >>
-  qexists_tac`MAP FST (free_labs_list (REVERSE (MAP SND pes))) = []` >>
-  conj_tac >- metis_tac[free_labs_remove_mat_var] >>
-  simp[free_labs_list_MAP,FLAT_EQ_NIL,EVERY_MAP,EVERY_REVERSE])
-
-val _ = export_rewrites["free_labs_remove_mat_vp_NIL","free_labs_remove_mat_var"]
 
 (* TODO: move? *)
 
@@ -1169,9 +1152,8 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
       fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD] >>
       srw_tac[ARITH_ss][] >>
       metis_tac[] ) >>
-    simp[free_labs_remove_mat_var_NIL] >>
     fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD] >>
-    simp[free_labs_list_MAP,FLAT_EQ_NIL,EVERY_MAP,EVERY_MEM,FORALL_PROD] >>
+    simp[free_labs_list_MAP,FLAT_EQ_NIL,EVERY_MAP,EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD] >>
     metis_tac[]) >>
   first_x_assum(qspecl_then[`env`,`x`]mp_tac) >>
   simp[] >>

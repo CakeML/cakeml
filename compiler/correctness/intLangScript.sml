@@ -2089,40 +2089,25 @@ val free_vars_shift = store_thm("free_vars_shift",
 val _ = export_rewrites["free_vars_shift"]
 
 val free_labs_mkshift = store_thm("free_labs_mkshift",
-  ``∀f k e. MAP FST (free_labs (mkshift f k e)) = MAP FST (free_labs e)``,
-  ho_match_mp_tac mkshift_ind >> rw[free_labs_list_MAP,free_vars_defs_MAP] >>
+  ``∀f k e. free_labs (mkshift f k e) = free_labs e``,
+  ho_match_mp_tac mkshift_ind >> rw[free_labs_list_MAP] >> rw[] >>
   TRY (
-    simp[MAP_FLAT] >>
     AP_TERM_TAC >>
+    TRY(qunabbrev_tac`defs'`) >>
     simp[MAP_MAP_o,MAP_EQ_f] >>
-    NO_TAC )
-  >- (
-    unabbrev_all_tac >> simp[MAP_FLAT] >>
-    AP_TERM_TAC >>
-    simp[MAP_MAP_o,MAP_EQ_f,FORALL_PROD] >>
+    simp[FORALL_PROD] >>
     Cases >> simp[] >>
-    metis_tac[ADD_ASSOC,ADD_SYM] ) >>
-  PairCases_on`cb`>>fs[] >>
-  Cases_on`cb0`>>fs[])
+    rw[] >> res_tac >>
+    fsrw_tac[ARITH_ss][] >>
+    NO_TAC ) >>
+  PairCases_on`cb` >> simp[] >>
+  Cases_on`cb0`>>simp[] >> fsrw_tac[ARITH_ss][])
 val _ = export_rewrites["free_labs_mkshift"]
 
 val free_labs_shift = store_thm("free_labs_shift",
-  ``MAP FST (free_labs (shift k n e)) = MAP FST (free_labs e)``,
+  ``(free_labs (shift k n e)) = (free_labs e)``,
   simp[shift_def])
 val _ = export_rewrites["free_labs_shift"]
-
-val free_labs_shift_NIL = store_thm("free_labs_shift_NIL",
-  ``∀k n e. (free_labs (shift k n e) = []) = (free_labs e = [])``,
-  rw[EQ_IMP_THM] >- (
-    qmatch_assum_abbrev_tac`f x = []` >>
-    `MAP FST (f x) = []`  by rw[] >>
-    unabbrev_all_tac >>
-    full_simp_tac std_ss [free_labs_shift] >>
-    fs[] ) >>
-  qsuff_tac`MAP FST (free_labs (shift k n e)) = []` >- rw[] >>
-  simp_tac std_ss [free_labs_shift] >>
-  simp[])
-val _ = export_rewrites["free_labs_shift_NIL"]
 
 (* code environment stuff
 
