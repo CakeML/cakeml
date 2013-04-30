@@ -1399,45 +1399,45 @@ val _ = Defn.save_defn compile_defn;
 
  val free_labs_defn = Hol_defn "free_labs" `
 
-(free_labs s (CDecl _) = s)
+(free_labs (CDecl _) = [])
 /\
-(free_labs s (CRaise _) = s)
+(free_labs (CRaise _) = [])
 /\
-(free_labs s (CHandle e1 e2) = free_labs (free_labs s e1) e2)
+(free_labs (CHandle e1 e2) = free_labs e1 ++ free_labs e2)
 /\
-(free_labs s (CVar _) = s)
+(free_labs (CVar _) = [])
 /\
-(free_labs s (CLit _) = s)
+(free_labs (CLit _) = [])
 /\
-(free_labs s (CCon _ es) = free_labs_list s es)
+(free_labs (CCon _ es) = free_labs_list es)
 /\
-(free_labs s (CTagEq e _) = free_labs s e)
+(free_labs (CTagEq e _) = free_labs e)
 /\
-(free_labs s (CProj e _) = free_labs s e)
+(free_labs (CProj e _) = free_labs e)
 /\
-(free_labs s (CLet e b) = free_labs (free_labs s e) b)
+(free_labs (CLet e b) = free_labs e ++ free_labs b)
 /\
-(free_labs s (CLetrec defs e) = free_labs ( FOLDL (\ s e . free_labs_def s e) s defs) e) (* uneta: Hol_defn sucks *)
+(free_labs (CLetrec defs e) = FLAT ( MAP free_labs_def defs) ++ free_labs e)
 /\
-(free_labs s (CFun def) = free_labs_def s def)
+(free_labs (CFun def) = free_labs_def def)
 /\
-(free_labs s (CCall e es) = free_labs_list (free_labs s e) es)
+(free_labs (CCall e es) = free_labs_list es ++ free_labs e)
 /\
-(free_labs s (CPrim2 _ e1 e2) = free_labs (free_labs s e1) e2)
+(free_labs (CPrim2 _ e1 e2) = free_labs e1 ++ free_labs e2)
 /\
-(free_labs s (CUpd e1 e2) = free_labs (free_labs s e1) e2)
+(free_labs (CUpd e1 e2) = free_labs e1 ++ free_labs e2)
 /\
-(free_labs s (CPrim1 _ e) = free_labs s e)
+(free_labs (CPrim1 _ e) = free_labs e)
 /\
-(free_labs s (CIf e1 e2 e3) = free_labs (free_labs (free_labs s e1) e2) e3)
+(free_labs (CIf e1 e2 e3) = free_labs e1 ++ (free_labs e2 ++ free_labs e3))
 /\
-(free_labs_list s [] = s)
+(free_labs_list [] = [])
 /\
-(free_labs_list s (e::es) = free_labs_list (free_labs s e) es)
+(free_labs_list (e::es) = free_labs e ++ free_labs_list es)
 /\
-(free_labs_def s (SOME cd,(az,b)) = (cd,(az,b)) ::(free_labs s b))
+(free_labs_def (SOME cd,(az,b)) = (cd,(az,b)) ::(free_labs b))
 /\
-(free_labs_def s (NONE,_) = s)`;
+(free_labs_def (NONE,_) = [])`;
 
 val _ = Defn.save_defn free_labs_defn;
 
@@ -1452,7 +1452,7 @@ val _ = Defn.save_defn free_labs_defn;
   let (s,ls) = get_labels 1 s in
   let l = EL  0  ls in
   let s = emit s [Jump (Lab l)] in
-  let s = FOLDL cce_aux s (free_labs [] e) in
+  let s = FOLDL cce_aux s (free_labs e) in
   emit s [Label l])`;
 
 

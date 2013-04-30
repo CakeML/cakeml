@@ -313,9 +313,9 @@ val body_count_bind_fv = store_thm("body_count_bind_fv",
 val _ = register "free_labs" (
   tprove_no_defn ((free_labs_def, free_labs_ind),
   WF_REL_TAC`inv_image $< (λx. case x of
-    | INL (j,e) => Cexp_size e
-    | INR (INL (j,es)) => Cexp4_size es
-    | INR (INR (s,def)) => Cexp2_size def)` >>
+    | INL (e) => Cexp_size e
+    | INR (INL (es)) => Cexp4_size es
+    | INR (INR (def)) => Cexp2_size def)` >>
   srw_tac[ARITH_ss][Cexp1_size_thm,SUM_MAP_Cexp2_size_thm,GSYM MAP_MAP_o] >>
   qmatch_assum_rename_tac `MEM (x,y,z) defs`[] >>
   `MEM x (MAP FST defs)` by (rw[MEM_MAP,EXISTS_PROD]>>PROVE_TAC[]) >>

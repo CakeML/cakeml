@@ -1300,45 +1300,45 @@ compile_nts env sz s (e::es) =
 (* code env to bytecode *)
 
 let rec
-free_labs s (CDecl _) = s
+free_labs (CDecl _) = []
 and
-free_labs s (CRaise _) = s
+free_labs (CRaise _) = []
 and
-free_labs s (CHandle e1 e2) = free_labs (free_labs s e1) e2
+free_labs (CHandle e1 e2) = free_labs e1 @ free_labs e2
 and
-free_labs s (CVar _) = s
+free_labs (CVar _) = []
 and
-free_labs s (CLit _) = s
+free_labs (CLit _) = []
 and
-free_labs s (CCon _ es) = free_labs_list s es
+free_labs (CCon _ es) = free_labs_list es
 and
-free_labs s (CTagEq e _) = free_labs s e
+free_labs (CTagEq e _) = free_labs e
 and
-free_labs s (CProj e _) = free_labs s e
+free_labs (CProj e _) = free_labs e
 and
-free_labs s (CLet e b) = free_labs (free_labs s e) b
+free_labs (CLet e b) = free_labs e @ free_labs b
 and
-free_labs s (CLetrec defs e) = free_labs (List.fold_left (fun s e -> free_labs_def s e) s defs) e (* uneta: Hol_defn sucks *)
+free_labs (CLetrec defs e) = List.concat (List.map free_labs_def defs) @ free_labs e
 and
-free_labs s (CFun def) = free_labs_def s def
+free_labs (CFun def) = free_labs_def def
 and
-free_labs s (CCall e es) = free_labs_list (free_labs s e) es
+free_labs (CCall e es) = free_labs_list es @ free_labs e
 and
-free_labs s (CPrim2 _ e1 e2) = free_labs (free_labs s e1) e2
+free_labs (CPrim2 _ e1 e2) = free_labs e1 @ free_labs e2
 and
-free_labs s (CUpd e1 e2) = free_labs (free_labs s e1) e2
+free_labs (CUpd e1 e2) = free_labs e1 @ free_labs e2
 and
-free_labs s (CPrim1 _ e) = free_labs s e
+free_labs (CPrim1 _ e) = free_labs e
 and
-free_labs s (CIf e1 e2 e3) = free_labs (free_labs (free_labs s e1) e2) e3
+free_labs (CIf e1 e2 e3) = free_labs e1 @ free_labs e2 @ free_labs e3
 and
-free_labs_list s [] = s
+free_labs_list [] = []
 and
-free_labs_list s (e::es) = free_labs_list (free_labs s e) es
+free_labs_list (e::es) = free_labs e @ free_labs_list es
 and
-free_labs_def s (Some cd,(az,b)) = (cd,(az,b))::(free_labs s b)
+free_labs_def (Some cd,(az,b)) = (cd,(az,b))::(free_labs b)
 and
-free_labs_def s (None,_) = s
+free_labs_def (None,_) = []
 
 let rec cce_aux s ((l,(ccenv,_)),(az,b)) =
   compile (List.map CTEnv ccenv) (TCTail az 0) 0 (emit s [Label l]) b
@@ -1348,7 +1348,7 @@ compile_code_env s e =
   let (s,ls) = get_labels 1 s in
   let l = List.nth ls 0 in
   let s = emit s [Jump (Lab l)] in
-  let s = List.fold_left cce_aux s (free_labs [] e) in
+  let s = List.fold_left cce_aux s (free_labs e) in
   emit s [Label l]
 
 (* replace labels in bytecode with addresses *)
