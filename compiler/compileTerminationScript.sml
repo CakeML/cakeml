@@ -310,8 +310,8 @@ val body_count_bind_fv = store_thm("body_count_bind_fv",
   Cases_on`azb` >> rw[bind_fv_def] >> rw[Abbr`e`])
 *)
 
-val _ = register "cce_aux" (
-  tprove_no_defn ((cce_aux_def, cce_aux_ind),
+val _ = register "free_labs" (
+  tprove_no_defn ((free_labs_def, free_labs_ind),
   WF_REL_TAC`inv_image $< (λx. case x of
     | INL (j,e) => Cexp_size e
     | INR (INL (j,es)) => Cexp4_size es
@@ -332,8 +332,9 @@ val _ = register "cce_aux" (
   fsrw_tac[ARITH_ss][basicSizeTheory.pair_size_def] >>
   qsuff_tac`LENGTH defs ≠ 0`>-fsrw_tac[ARITH_ss][] >>
   Cases_on`defs`>>fs[]))
-val _ = export_rewrites["cce_aux_def"]
+val _ = export_rewrites["free_labs_def"]
 
+val _ = save_thm("cce_aux_def",cce_aux_def)
 val _ = save_thm("compile_code_env_def",compile_code_env_def)
 val _ = save_thm("push_lab_def",push_lab_def)
 val _ = save_thm("cons_closure_def",cons_closure_def)

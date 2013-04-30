@@ -99,6 +99,7 @@ val defs = map EmitML.DEFN
 , underscore_rule compile_closures_def
 , compile_decl_def
 , fix_compile_bindings_suc (underscore_rule compile_def)
+, free_labs_def
 , cce_aux_def
 , compile_code_env_def
 , calculate_labels_def

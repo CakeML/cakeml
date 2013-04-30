@@ -1397,51 +1397,54 @@ val _ = Defn.save_defn compile_defn;
 
 (* code env to bytecode *)
 
- val cce_aux_defn = Hol_defn "cce_aux" `
+ val free_labs_defn = Hol_defn "free_labs" `
 
-(cce_aux s (CDecl _) = s)
+(free_labs s (CDecl _) = s)
 /\
-(cce_aux s (CRaise _) = s)
+(free_labs s (CRaise _) = s)
 /\
-(cce_aux s (CHandle e1 e2) = cce_aux (cce_aux s e1) e2)
+(free_labs s (CHandle e1 e2) = free_labs (free_labs s e1) e2)
 /\
-(cce_aux s (CVar _) = s)
+(free_labs s (CVar _) = s)
 /\
-(cce_aux s (CLit _) = s)
+(free_labs s (CLit _) = s)
 /\
-(cce_aux s (CCon _ es) = cce_aux_list s es)
+(free_labs s (CCon _ es) = free_labs_list s es)
 /\
-(cce_aux s (CTagEq e _) = cce_aux s e)
+(free_labs s (CTagEq e _) = free_labs s e)
 /\
-(cce_aux s (CProj e _) = cce_aux s e)
+(free_labs s (CProj e _) = free_labs s e)
 /\
-(cce_aux s (CLet e b) = cce_aux (cce_aux s e) b)
+(free_labs s (CLet e b) = free_labs (free_labs s e) b)
 /\
-(cce_aux s (CLetrec defs e) = cce_aux ( FOLDL (\ s e . cce_aux_def s e) s defs) e) (* uneta: Hol_defn sucks *)
+(free_labs s (CLetrec defs e) = free_labs ( FOLDL (\ s e . free_labs_def s e) s defs) e) (* uneta: Hol_defn sucks *)
 /\
-(cce_aux s (CFun def) = cce_aux_def s def)
+(free_labs s (CFun def) = free_labs_def s def)
 /\
-(cce_aux s (CCall e es) = cce_aux_list (cce_aux s e) es)
+(free_labs s (CCall e es) = free_labs_list (free_labs s e) es)
 /\
-(cce_aux s (CPrim2 _ e1 e2) = cce_aux (cce_aux s e1) e2)
+(free_labs s (CPrim2 _ e1 e2) = free_labs (free_labs s e1) e2)
 /\
-(cce_aux s (CUpd e1 e2) = cce_aux (cce_aux s e1) e2)
+(free_labs s (CUpd e1 e2) = free_labs (free_labs s e1) e2)
 /\
-(cce_aux s (CPrim1 _ e) = cce_aux s e)
+(free_labs s (CPrim1 _ e) = free_labs s e)
 /\
-(cce_aux s (CIf e1 e2 e3) = cce_aux (cce_aux (cce_aux s e1) e2) e3)
+(free_labs s (CIf e1 e2 e3) = free_labs (free_labs (free_labs s e1) e2) e3)
 /\
-(cce_aux_list s [] = s)
+(free_labs_list s [] = s)
 /\
-(cce_aux_list s (e::es) = cce_aux_list (cce_aux s e) es)
+(free_labs_list s (e::es) = free_labs_list (free_labs s e) es)
 /\
-(cce_aux_def s (SOME (l,(ccenv,_)),(az,b)) =
-  let s = emit (cce_aux s b) [Label l] in
-  compile ( MAP CTEnv ccenv) (TCTail az 0) 0 s b)
+(free_labs_def s (SOME cd,(az,b)) = (cd,(az,b)) ::(free_labs s b))
 /\
-(cce_aux_def s (NONE,_) = s)`;
+(free_labs_def s (NONE,_) = s)`;
 
-val _ = Defn.save_defn cce_aux_defn;
+val _ = Defn.save_defn free_labs_defn;
+
+ val cce_aux_def = Define `
+ (cce_aux s ((l,(ccenv,_)),(az,b)) =
+  compile ( MAP CTEnv ccenv) (TCTail az 0) 0 (emit s [Label l]) b)`;
+
 
  val compile_code_env_def = Define `
 
@@ -1449,7 +1452,7 @@ val _ = Defn.save_defn cce_aux_defn;
   let (s,ls) = get_labels 1 s in
   let l = EL  0  ls in
   let s = emit s [Jump (Lab l)] in
-  let s = cce_aux s e in
+  let s = FOLDL cce_aux s (free_labs [] e) in
   emit s [Label l])`;
 
 
