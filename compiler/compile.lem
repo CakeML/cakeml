@@ -1338,7 +1338,7 @@ free_labs_list (e::es) = free_labs e @ free_labs_list es
 and
 free_labs_def (Some cd,(az,b)) = (cd,(az,b))::(free_labs b)
 and
-free_labs_def (None,_) = []
+free_labs_def (None,(az,b)) = free_labs b
 
 let rec cce_aux s ((l,(ccenv,_)),(az,b)) =
   compile (List.map CTEnv ccenv) (TCTail az 0) 0 (emit s [Label l]) b

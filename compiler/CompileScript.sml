@@ -1437,7 +1437,7 @@ val _ = Defn.save_defn compile_defn;
 /\
 (free_labs_def (SOME cd,(az,b)) = (cd,(az,b)) ::(free_labs b))
 /\
-(free_labs_def (NONE,_) = [])`;
+(free_labs_def (NONE,(az,b)) = free_labs b)`;
 
 val _ = Defn.save_defn free_labs_defn;
 
