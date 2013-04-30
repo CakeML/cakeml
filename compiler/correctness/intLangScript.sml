@@ -79,7 +79,7 @@ val THE_find_index_suff = store_thm("THE_find_index_suff",
   pop_assum(qspec_then`n`mp_tac) >>
   srw_tac[DNF_ss,ARITH_ss][])
 
-(* TODO: move? *)
+(* TODO: move?
 val free_labs_list_MAP = store_thm("free_labs_list_MAP",
   ``∀es. free_labs_list es = BIGUNION (IMAGE free_labs (set es))``,
   Induct >> rw[])
@@ -103,28 +103,28 @@ val vlabs_list_MAP = store_thm("vlabs_list_MAP",
  ``∀vs. vlabs_list vs = BIGUNION (IMAGE vlabs (set vs))``,
  Induct >> rw[])
 val _ = export_rewrites["vlabs_list_MAP"]
+*)
 
 (* Cevaluate functional equations *)
 
 val Cevaluate_raise = store_thm(
 "Cevaluate_raise",
-``∀c s env err res. Cevaluate c s env (CRaise err) res = (res = (s, Rerr (Rraise err)))``,
+``∀s env err res. Cevaluate s env (CRaise err) res = (res = (s, Rerr (Rraise err)))``,
 rw[Once Cevaluate_cases])
 
 val Cevaluate_lit = store_thm(
 "Cevaluate_lit",
-``∀c s env l res. Cevaluate c s env (CLit l) res = (res = (s, Rval (CLitv l)))``,
+``∀s env l res. Cevaluate s env (CLit l) res = (res = (s, Rval (CLitv l)))``,
 rw[Once Cevaluate_cases])
 
 val Cevaluate_var = store_thm(
 "Cevaluate_var",
-``∀c s env vn res. Cevaluate c s env (CVar vn) res = (vn < LENGTH env ∧ (res = (s, Rval (EL vn env))))``,
+``∀s env vn res. Cevaluate s env (CVar vn) res = (vn < LENGTH env ∧ (res = (s, Rval (EL vn env))))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
 val Cevaluate_fun = store_thm(
 "Cevaluate_fun",
-``∀c s env b res. Cevaluate c s env (CFun b) res =
-  (∀l. (b = INR l) ⇒ l ∈ FDOM c ∧ ((c ' l).nz = 1) ∧ ((c ' l).ez = LENGTH env) ∧ ((c ' l).ix = 0)) ∧
+``∀s env b res. Cevaluate s env (CFun b) res =
   (res = (s, Rval (CRecClos env [b] 0)))``,
 rw[Once Cevaluate_cases] >> metis_tac[])
 
@@ -132,31 +132,31 @@ val _ = export_rewrites["Cevaluate_raise","Cevaluate_lit","Cevaluate_var","Ceval
 
 val Cevaluate_con = store_thm(
 "Cevaluate_con",
-``∀c s env cn es res. Cevaluate c s env (CCon cn es) res =
-(∃s' vs. Cevaluate_list c s env es (s', Rval vs) ∧ (res = (s', Rval (CConv cn vs)))) ∨
-(∃s' err. Cevaluate_list c s env es (s', Rerr err) ∧ (res = (s', Rerr err)))``,
+``∀s env cn es res. Cevaluate s env (CCon cn es) res =
+(∃s' vs. Cevaluate_list s env es (s', Rval vs) ∧ (res = (s', Rval (CConv cn vs)))) ∨
+(∃s' err. Cevaluate_list s env es (s', Rerr err) ∧ (res = (s', Rerr err)))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
 val Cevaluate_tageq = store_thm(
 "Cevaluate_tageq",
-``∀c s env exp n res. Cevaluate c s env (CTagEq exp n) res =
-  (∃s' m vs. Cevaluate c s env exp (s', Rval (CConv m vs)) ∧ (res = (s', Rval (CLitv (Bool (n = m)))))) ∨
-  (∃s' err. Cevaluate c s env exp (s', Rerr err) ∧ (res = (s', Rerr err)))``,
+``∀s env exp n res. Cevaluate s env (CTagEq exp n) res =
+  (∃s' m vs. Cevaluate s env exp (s', Rval (CConv m vs)) ∧ (res = (s', Rval (CLitv (Bool (n = m)))))) ∨
+  (∃s' err. Cevaluate s env exp (s', Rerr err) ∧ (res = (s', Rerr err)))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
 val Cevaluate_let = store_thm(
 "Cevaluate_let",
-``∀c s env e b res. Cevaluate c s env (CLet e b) res =
-(∃s' v. Cevaluate c s env e (s', Rval v) ∧
-     Cevaluate c s' (v::env) b res) ∨
-(∃s' err. Cevaluate c s env e (s', Rerr err) ∧ (res = (s', Rerr err)))``,
+``∀s env e b res. Cevaluate s env (CLet e b) res =
+(∃s' v. Cevaluate s env e (s', Rval v) ∧
+     Cevaluate s' (v::env) b res) ∨
+(∃s' err. Cevaluate s env e (s', Rerr err) ∧ (res = (s', Rerr err)))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
 val Cevaluate_proj = store_thm(
 "Cevaluate_proj",
-``∀c s env exp n res. Cevaluate c s env (CProj exp n) res =
-  (∃s' m vs. Cevaluate c s env exp (s', Rval (CConv m vs)) ∧ (n < LENGTH vs) ∧ (res = (s', Rval (EL n vs)))) ∨
-  (∃s' err. Cevaluate c s env exp (s', Rerr err) ∧ (res = (s', Rerr err)))``,
+``∀s env exp n res. Cevaluate s env (CProj exp n) res =
+  (∃s' m vs. Cevaluate s env exp (s', Rval (CConv m vs)) ∧ (n < LENGTH vs) ∧ (res = (s', Rval (EL n vs)))) ∨
+  (∃s' err. Cevaluate s env exp (s', Rerr err) ∧ (res = (s', Rerr err)))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
 (* syneq equivalence relation lemmas *)
@@ -172,10 +172,10 @@ val Cv_ind = store_thm("Cv_ind",
   simp[])
 
 val syneq_lit_loc = store_thm("syneq_lit_loc",
-  ``(syneq c (CLitv l1) v2 = (v2 = CLitv l1)) ∧
-    (syneq c v1 (CLitv l2) = (v1 = CLitv l2)) ∧
-    (syneq c (CLoc n1) v2 = (v2 = CLoc n1)) ∧
-    (syneq c v1 (CLoc n2) = (v1 = CLoc n2))``,
+  ``(syneq (CLitv l1) v2 = (v2 = CLitv l1)) ∧
+    (syneq v1 (CLitv l2) = (v1 = CLitv l2)) ∧
+    (syneq (CLoc n1) v2 = (v2 = CLoc n1)) ∧
+    (syneq v1 (CLoc n2) = (v1 = CLoc n2))``,
   rw[] >> fs[Once syneq_cases] >> rw[EQ_IMP_THM])
 val _ = export_rewrites["syneq_lit_loc"]
 
@@ -188,16 +188,16 @@ val Cexp_only_ind =
 |> DISCH_ALL
 |> Q.GEN`P`
 
-val syneq_exp_FEMPTY_refl = store_thm("syneq_exp_FEMPTY_refl",
-  ``(∀e z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp FEMPTY z z V e e) ∧
+val syneq_exp_refl = store_thm("syneq_exp_refl",
+  ``(∀e z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp z z V e e) ∧
     (∀defs z V U d1. (∀v. v < z ⇒ V v v) ∧ (∀v1 v2. U v1 v2 = (v1 < LENGTH (d1++defs) ∧ (v2 = v1))) ∧
-      EVERY (λd. (∀az e. (d = INL (az,e)) ⇒ ∀z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp FEMPTY z z V e e)) d1 ⇒
-      syneq_defs FEMPTY z z V (d1++defs) (d1++defs) U) ∧
+      EVERY (λd. (∀cd az e. (d = (cd,az,e)) ⇒ ∀z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp z z V e e)) d1 ⇒
+      syneq_defs z z V (d1++defs) (d1++defs) U) ∧
     (∀d z V U. (∀v. v < z ⇒ V v v) ∧  (∀v1 v2. U v1 v2 = ((v1 = 0) ∧ (v2 = 0))) ⇒
-      (∀az e. (d = INL (az,e)) ⇒ ∀z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp FEMPTY z z V e e) ∧
-      syneq_defs FEMPTY z z V [d] [d] U) ∧
-    (∀(x:num#Cexp) z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp FEMPTY z z V (SND x) (SND x)) ∧
-    (∀es z V. (∀v. v < z ⇒ V v v) ⇒ EVERY2 (syneq_exp FEMPTY z z V) es es)``,
+      (∀cd az e. (d = (cd,az,e)) ⇒ ∀z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp z z V e e) ∧
+      syneq_defs z z V [d] [d] U) ∧
+    (∀(x:num#Cexp) z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp z z V (SND x) (SND x)) ∧
+    (∀es z V. (∀v. v < z ⇒ V v v) ⇒ EVERY2 (syneq_exp z z V) es es)``,
   ho_match_mp_tac (TypeBase.induction_of``:Cexp``) >>
   strip_tac >- (
     rw[Once syneq_exp_cases] >>
@@ -252,12 +252,24 @@ val syneq_exp_FEMPTY_refl = store_thm("syneq_exp_FEMPTY_refl",
     res_tac >> fs[] >>
     fs[EVERY_MEM,MEM_EL] >>
     fsrw_tac[DNF_ss][] >>
-    Cases_on`EL n1 d1`>>fs[syneq_cb_aux_def,LET_THM,UNCURRY] >>
-    Cases_on`x`>>fs[syneq_cb_aux_def] >>
-    first_x_assum (match_mp_tac o MP_CANON) >>
-    qexists_tac`n1` >> simp[] >>
-    simp[syneq_cb_V_def] >>
-    srw_tac[ARITH_ss][] ) >>
+    qabbrev_tac`p = EL n1 d1` >>
+    PairCases_on`p`>>fs[syneq_cb_aux_def,LET_THM,UNCURRY] >>
+    Cases_on`p0`>>TRY(PairCases_on`x`)>>fs[syneq_cb_aux_def] >- (
+      first_x_assum (match_mp_tac o MP_CANON) >>
+      qexists_tac`n1` >> simp[] >>
+      simp[syneq_cb_V_def] >>
+      srw_tac[ARITH_ss][] ) >>
+    conj_tac >- (
+      strip_tac >>
+      first_x_assum (match_mp_tac o MP_CANON) >>
+      qexists_tac`n1`>>simp[]>>
+      simp[syneq_cb_V_def] >>
+      srw_tac[ARITH_ss][] ) >>
+    conj_tac >- (
+      simp[EVERY_MEM,MEM_EL] >>
+      PROVE_TAC[] ) >>
+    simp[EVERY_MEM,MEM_EL] >>
+    PROVE_TAC[] ) >>
   strip_tac >- (
     rw[] >>
     fsrw_tac[DNF_ss][] >>
@@ -273,38 +285,43 @@ val syneq_exp_FEMPTY_refl = store_thm("syneq_exp_FEMPTY_refl",
   strip_tac >- (
     rw[] >> fs[] >>
     simp[Once syneq_exp_cases] >>
-    Cases_on`x`>>fs[syneq_cb_aux_def] >>
+    PairCases_on`x`>>Cases_on`o'`>>TRY(PairCases_on`x`)>>fs[syneq_cb_aux_def] >- (
+      first_x_assum match_mp_tac >>
+      simp[syneq_cb_V_def] >>
+      srw_tac[ARITH_ss][] ) >>
+    strip_tac >>
+    reverse conj_tac >- (
+      fsrw_tac[DNF_ss][EVERY_MEM] ) >>
     first_x_assum match_mp_tac >>
-    simp[syneq_cb_V_def] >>
-    srw_tac[ARITH_ss][] ) >>
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+    srw_tac[ARITH_ss][syneq_cb_V_def] ) >>
   strip_tac >- (
     rw[] >> fs[] >>
     simp[Once syneq_exp_cases] >>
     simp[syneq_cb_aux_def,UNCURRY] ) >>
   strip_tac >- simp[] >>
-  strip_tac >- rw[] >>
   strip_tac >- rw[])
 
-val syneq_defs_FEMPTY_refl = store_thm("syneq_defs_FEMPTY_refl",
+val syneq_defs_refl = store_thm("syneq_defs_refl",
   ``∀z V U defs. (∀v. v < z ⇒ V v v) ∧ (∀v1 v2. U v1 v2 = (v1 < LENGTH defs) ∧ (v2 = v1)) ⇒
-    syneq_defs FEMPTY z z V defs defs U``,
+    syneq_defs z z V defs defs U``,
   rw[] >>
   `defs = [] ++ defs` by rw[] >>
   pop_assum SUBST1_TAC >>
-  match_mp_tac (CONJUNCT1 (CONJUNCT2 syneq_exp_FEMPTY_refl)) >>
+  match_mp_tac (CONJUNCT1 (CONJUNCT2 syneq_exp_refl)) >>
   simp[])
 
-val syneq_FEMPTY_refl = store_thm("syneq_FEMPTY_refl",
-  ``∀v. syneq FEMPTY v v``,
+val syneq_refl = store_thm("syneq_refl",
+  ``∀v. syneq v v``,
   ho_match_mp_tac Cv_ind >> rw[] >>
   simp[Once syneq_cases] >>
   fsrw_tac[DNF_ss][EVERY_MEM,EVERY2_EVERY,FORALL_PROD,MEM_ZIP,MEM_EL] >>
   Cases_on`n < LENGTH defs`>>fsrw_tac[ARITH_ss][]>>
   map_every qexists_tac[`λv1 v2. v1 < LENGTH env ∧ (v2 = v1)`,`λv1 v2. v1 < LENGTH defs ∧ (v2 = v1)`] >>
   simp[] >>
-  match_mp_tac syneq_defs_FEMPTY_refl >>
+  match_mp_tac syneq_defs_refl >>
   simp[])
-val _ = export_rewrites["syneq_FEMPTY_refl"]
+val _ = export_rewrites["syneq_refl"]
 
 val inv_syneq_cb_V = store_thm("inv_syneq_cb_V",
   ``inv (syneq_cb_V az r1 r2 V V') = syneq_cb_V az r2 r1 (inv V) (inv V')``,
@@ -413,9 +430,9 @@ EVERY2_sym
 *)
 
 val syneq_exp_mono_V = store_thm("syneq_exp_mono_V",
-  ``(∀c ez1 ez2 V exp1 exp2. syneq_exp c ez1 ez2 V exp1 exp2 ⇒ ∀V'. (∀x y. V x y ∧ x < ez1 ∧ y < ez2 ⇒ V' x y) ⇒ syneq_exp c ez1 ez2 V' exp1 exp2) ∧
-    (∀c ez1 ez2 V defs1 defs2 U. syneq_defs c ez1 ez2 V defs1 defs2 U ⇒
-     ∀V'. (∀x y. V x y ∧ x < ez1 ∧ y < ez2 ⇒ V' x y) ⇒ syneq_defs c ez1 ez2 V' defs1 defs2 U)``,
+  ``(∀ez1 ez2 V exp1 exp2. syneq_exp ez1 ez2 V exp1 exp2 ⇒ ∀V'. (∀x y. V x y ∧ x < ez1 ∧ y < ez2 ⇒ V' x y) ⇒ syneq_exp ez1 ez2 V' exp1 exp2) ∧
+    (∀ez1 ez2 V defs1 defs2 U. syneq_defs ez1 ez2 V defs1 defs2 U ⇒
+     ∀V'. (∀x y. V x y ∧ x < ez1 ∧ y < ez2 ⇒ V' x y) ⇒ syneq_defs ez1 ez2 V' defs1 defs2 U)``,
   ho_match_mp_tac syneq_exp_ind >>
   rw[] >> simp[Once syneq_exp_cases] >> rfs[] >>
   TRY ( first_x_assum (match_mp_tac o MP_CANON) >>
