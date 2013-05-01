@@ -1,4 +1,40 @@
+open Lib
 open Ast
+
+(* Only to get check_dup_ctors *)
+open SemanticPrimitives 
+
+(* Type substitution *)
+
+(* Increment the deBruijn indices in a type by n levels, skipping all levels
+ * less than skip. *)
+val deBruijn_inc : num -> num -> t -> t
+let rec
+deBruijn_inc skip n (Tvar tv) = Tvar tv
+and
+deBruijn_inc skip n (Tvar_db m) =
+  if m < skip then
+    Tvar_db m
+  else
+    Tvar_db (m + n)
+and
+deBruijn_inc skip n (Tapp ts tn) = Tapp (List.map (deBruijn_inc skip n) ts) tn
+
+(* skip the lowest given indices and replace the next (LENGTH ts) with the given types and reduce all the higher ones *)
+val deBruijn_subst : num -> list t -> t -> t
+let rec
+deBruijn_subst skip ts (Tvar tv) = Tvar tv
+and
+deBruijn_subst skip ts (Tvar_db n) =
+  if not (n < skip) && n < List.length ts + skip then
+    List.nth ts (n - skip)
+  else if not (n < skip) then
+    Tvar_db (n - List.length ts)
+  else
+    Tvar_db n
+and
+deBruijn_subst skip ts (Tapp ts' tn) =
+  Tapp (List.map (deBruijn_subst skip ts) ts') tn
 
 (* constructor type environments: each constructor has a type
  * forall tyvars. t list -> (tyvars) typeN *)

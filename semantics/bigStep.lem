@@ -1,5 +1,10 @@
-open Ast SemanticPrimitives
+open Lib
+open Ast 
+open SemanticPrimitives
 
+(* To get the definition of expression divergence to use in defining definition
+ * divergence *)
+open SmallStep
 
 (* ------------------------ Big step semantics -------------------------- *)
 val evaluate : envM -> envC -> store -> envE -> exp -> store * result v -> bool

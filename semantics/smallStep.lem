@@ -1,4 +1,6 @@
-open Ast SemanticPrimitives
+open Lib
+open Ast 
+open SemanticPrimitives
 
 (* Small-step semantics for expression only.  Modules and definitions have
  * big-step semantics only *)
@@ -11,7 +13,7 @@ type ctxt_frame =
   | Chandle of unit * varN * exp
   | Capp1 of op * unit * exp
   | Capp2 of op * v * unit
-  | Clog of log * unit * exp
+  | Clog of lop * unit * exp
   | Cif of unit * exp * exp
   | Cmat of unit * list (pat * exp)
   | Clet of varN * unit * exp

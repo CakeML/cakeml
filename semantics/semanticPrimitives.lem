@@ -1,3 +1,4 @@
+open Lib
 open Ast
 
 (* Value forms *)
@@ -49,35 +50,13 @@ let store_assign n v st =
   else
     None
 
-(* Environments *)
-type env 'a 'b = list ('a*'b)
-
-val emp : forall 'a 'b. env 'a 'b
-let emp = []
-
-val lookup : forall 'a 'b. 'a -> env 'a 'b -> option 'b
-let rec
-lookup n [] = None
-and
-lookup n ((n',v)::e) =
-  if n' = n then
-    Some v
-  else
-    lookup n e
-
-val bind : forall 'a 'b. 'a -> 'b -> env 'a 'b -> env 'a 'b
-let bind n v e = (n,v)::e
-
-val merge : forall 'a 'b. env 'a 'b -> env 'a 'b -> env 'a 'b
-let merge e1 e2 = e1 @ e2
-      
-(* The bindings of a module *)
-type envM = env modN envE
-
 (* Maps each constructor to its arity and which type it is from *)
 type envC = env (id conN) (num * id typeN)
 
 type envE = env varN v
+
+(* The bindings of a module *)
+type envM = env modN envE
 
 val lookup_var_id : id varN -> envM -> envE -> option v
 let lookup_var_id id menv envE =

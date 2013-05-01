@@ -1,0 +1,16 @@
+type char
+val RTC : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)
+val MOD : num -> num -> num
+val STRING : char -> string -> string
+val SUB : (string * num) -> char
+val STRLEN : string -> num
+val Num : int -> num
+val CHR : num -> char
+val ORD : char -> num
+
+type word32
+type word16
+type word8
+
+val LUPDATE : forall 'a. 'a -> num -> list 'a -> list 'a
+val COUNT_LIST : num -> list num

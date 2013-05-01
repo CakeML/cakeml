@@ -25,7 +25,8 @@
  * 
  *)
 
-open MiniML
+open Lib
+open Ast
 
 type ast_pat =
     (* x *)
@@ -62,7 +63,7 @@ type ast_exp =
   | Ast_App of ast_exp * ast_exp
     (* e andalso e *)
     (* e orelse e *)
-  | Ast_Log of log * ast_exp * ast_exp
+  | Ast_Log of lop * ast_exp * ast_exp
     (* if e then e else e *)
   | Ast_If of ast_exp * ast_exp * ast_exp
     (* case e of C(x,y) => x | D y => y *)
@@ -201,8 +202,8 @@ and
 elab_e ctors bound (Ast_App e1 e2) =
   App Opapp (elab_e ctors bound e1) (elab_e ctors bound e2)
 and
-elab_e ctors bound (Ast_Log log e1 e2) =
-  Log log (elab_e ctors bound e1) (elab_e ctors bound e2)
+elab_e ctors bound (Ast_Log lop e1 e2) =
+  Log lop (elab_e ctors bound e1) (elab_e ctors bound e2)
 and
 elab_e ctors bound (Ast_If e1 e2 e3) =
   If (elab_e ctors bound e1) (elab_e ctors bound e2) (elab_e ctors bound e3)

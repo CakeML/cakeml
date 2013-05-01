@@ -20,66 +20,10 @@
  * system is typical.  The big step semantics is also typical.  The small-step
  * and big-step semantics agree even on untyped programs. *)
 
-val i : num -> Int.int
-let inline {hol} i = Hol.(&)
-
-val all_distinct : forall 'a. list 'a -> bool
-let inline {hol} all_distinct = Hol.ALL_DISTINCT
-
-val rtc : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)
-let inline {hol} rtc = Hol.RTC
-
-val count_list : num -> list num
-let inline {hol} count_list = Hol.COUNT_LIST
-
-val option_map : forall 'a 'b. ('a -> 'b) -> option 'a -> option 'b
-let option_map f x = 
-  match x with
-    | None -> None
-    | Some y -> Some (f y)
-  end
-
-(* Change the nth element in the list to 'a *)
-val LUPDATE : forall 'a. 'a -> num -> list 'a -> list 'a
-let inline {hol} LUPDATE = Hol.LUPDATE
-
 
 (* ------------------------------------------------------------------------ *) 
 (*   The Semantics                                                          *)
 (* ------------------------------------------------------------------------ *) 
-
-
-(* Type substitution *)
-
-(* Increment the deBruijn indices in a type by n levels, skipping all levels
- * less than skip. *)
-val deBruijn_inc : num -> num -> t -> t
-let rec
-deBruijn_inc skip n (Tvar tv) = Tvar tv
-and
-deBruijn_inc skip n (Tvar_db m) =
-  if m < skip then
-    Tvar_db m
-  else
-    Tvar_db (m + n)
-and
-deBruijn_inc skip n (Tapp ts tn) = Tapp (List.map (deBruijn_inc skip n) ts) tn
-
-(* skip the lowest given indices and replace the next (LENGTH ts) with the given types and reduce all the higher ones *)
-val deBruijn_subst : num -> list t -> t -> t
-let rec
-deBruijn_subst skip ts (Tvar tv) = Tvar tv
-and
-deBruijn_subst skip ts (Tvar_db n) =
-  if not (n < skip) && n < List.length ts + skip then
-    List.nth ts (n - skip)
-  else if not (n < skip) then
-    Tvar_db (n - List.length ts)
-  else
-    Tvar_db n
-and
-deBruijn_subst skip ts (Tapp ts' tn) =
-  Tapp (List.map (deBruijn_subst skip ts) ts') tn
 
 (* ------------------------------------------------------------------------ *) 
 (*   Auxiliary definitions used in the proofs                               *)
