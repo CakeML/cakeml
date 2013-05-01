@@ -4,7 +4,7 @@ open TokensTheory mmlTokenUtilsTheory AstTheory grammarTheory
 
 open lcsymtacs grammarLib monadsyntax
 
-val _ = new_theory "mmlGrammar"
+val _ = new_theory "grammar"
 
 (* ----------------------------------------------------------------------
     We'll be using the option monad quite a bit in what follows
