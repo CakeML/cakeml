@@ -15,7 +15,6 @@ open stringTheory stringLib listTheory TokensTheory ASCIInumbersTheory intLib;
 val _ = Hol_datatype `symbol = StringS of string
                              | NumberS of num
                              | OtherS of string
-                             | WhitespaceS
                              | ErrorS `;
 
 (* helper functions *)
@@ -98,7 +97,7 @@ val str_to_syms_def = tDefine "str_to_syms" `
   (str_to_syms (c::str) =
      if isSpace c then (* skip blank space *)
        let (n,rest) = read_while isSpace str [] in
-         WhitespaceS :: str_to_syms str else
+         str_to_syms str else
      if isDigit c then (* read number *)
        let (n,rest) = read_while isDigit str [] in
          NumberS (num_from_dec_string (c::n)) :: str_to_syms rest else
@@ -223,8 +222,6 @@ Warning! The get_token function never maps into any of the following:
 val syms_to_tokens_def = Define `
   (syms_to_tokens acc [] = SOME acc) /\
   (syms_to_tokens acc (ErrorS::xs) = NONE) /\
-  (syms_to_tokens acc (WhitespaceS::xs) =
-   syms_to_tokens (SNOC (WhitespaceT 0) acc) xs) /\
   (syms_to_tokens acc (StringS s::xs) =
    syms_to_tokens (SNOC (StringT s) acc) xs) /\
   (syms_to_tokens acc (NumberS n::xs) =

@@ -34,11 +34,6 @@ val _ = export_rewrites ["isAlphaSym_def"]
 val isTyvarT_def = Define`isTyvarT (TyvarT _) = T ∧ isTyvarT _ = F`
 val _ = export_rewrites ["isTyvarT_def"]
 
-val isWhitespaceT_def = Define`
-  (isWhitespaceT (WhitespaceT _) ⇔ T) ∧
-  (isWhitespaceT _ ⇔ F)
-`
-
 val destTyvarPT_def = Define`
   (destTyvarPT (Lf (TOK (TyvarT s))) = SOME s) ∧
   (destTyvarPT _ = NONE)
