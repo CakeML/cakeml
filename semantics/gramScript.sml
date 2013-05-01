@@ -1,10 +1,10 @@
 open HolKernel Parse boolLib bossLib
 
-open TokensTheory mmlTokenUtilsTheory AstTheory grammarTheory
+open TokensTheory tokenUtilsTheory AstTheory grammarTheory
 
 open lcsymtacs grammarLib monadsyntax
 
-val _ = new_theory "grammar"
+val _ = new_theory "gram"
 
 (* ----------------------------------------------------------------------
     We'll be using the option monad quite a bit in what follows

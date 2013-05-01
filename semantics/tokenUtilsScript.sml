@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib
 
 open TokensTheory
 
-val _ = new_theory "mmlTokenUtils"
+val _ = new_theory "tokenUtils"
 
 (* ----------------------------------------------------------------------
     Utility functions over tokens; perhaps should just appear in

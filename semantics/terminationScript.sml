@@ -1,7 +1,7 @@
 open preamble intSimps;
-open MiniMLTheory;
+open typeSystemTheory;
 
-val _ = new_theory "MiniMLTermination";
+val _ = new_theory "termination";
 
 (* ------------------ Termination proofs for MiniMLTheory ----------------- *)
 

@@ -1,10 +1,11 @@
 OPTIONS = QUIT_ON_FAILURE
+INCLUDES = $(HOLDIR)/examples/parsing/
 
 ifdef POLY
-HOLHEAP = miniml-heap0
+HOLHEAP = sem_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../preamble
+BARE_THYS = ../preamble $(HOLDIR)/examples/parsing/grammarLib
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
