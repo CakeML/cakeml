@@ -1,0 +1,186 @@
+(* Literal constants *)
+type lit =
+  | IntLit of int
+  | Bool of bool
+  | Unit
+
+(* Built-in binary operations (including function application) *)
+
+type opn = Plus | Minus | Times | Divide | Modulo
+type opb = Lt | Gt | Leq | Geq
+
+let opn_lookup n = match n with
+  | Plus -> Int.(+)
+  | Minus -> Int.(-)
+  | Times -> Int.( * )
+  | Divide -> Int.(/)
+  | Modulo -> Int.(%)
+end
+
+let opb_lookup n : int -> int -> bool = match n with
+  | Lt -> Int.(<)
+  | Gt -> Int.(>)
+  | Leq -> Int.(<=)
+  | Geq -> Int.(>=)
+end
+
+(* Opapp is function application *)
+type op =
+  | Opn of opn
+  | Opb of opb
+  | Equality
+  | Opapp
+  | Opassign
+
+type uop =
+  | Opref
+  | Opderef
+
+(* Built-in logical operations *)
+type lop =
+  | And
+  | Or
+
+(* Module names *)
+type modN = string
+
+(* Identifiers *)
+type id 'a =
+  | Short of 'a
+  | Long of modN * 'a
+
+(* Variable names *)
+type varN = string
+
+(* Constructor names (from datatype definitions) *)
+type conN = string
+
+(* Type names *)
+type typeN = string
+
+(* Type variable names *)
+type tvarN = string
+
+val mk_id : forall 'a. option modN -> 'a -> id 'a
+let mk_id mn_opt n =
+  match mn_opt with
+    | None -> Short n
+    | Some mn -> Long mn n
+  end
+
+(* Types
+ * 0-ary type applications represent unparameterised types (e.g., num or string)
+ *)
+type tc = 
+  | TC_name of id typeN
+  | TC_int
+  | TC_bool
+  | TC_unit
+  | TC_ref
+  | TC_fn
+
+type t =
+  | Tvar of tvarN
+  (* DeBruin indexed type variables. *)
+  | Tvar_db of num
+  | Tapp of list t * tc
+
+let Tint = Tapp [] TC_int
+let Tunit = Tapp [] TC_unit
+let Tbool = Tapp [] TC_bool
+let Tref t = Tapp [t] TC_ref
+let Tfn t1 t2 = Tapp [t1;t2] TC_fn
+
+(* Patterns *)
+type pat =
+  | Pvar of varN
+  | Plit of lit
+  (* Constructor applications. *)
+  | Pcon of id conN * list pat
+  | Pref of pat
+
+(* Runtime errors.  Temporary: later on we want to move to SML-style declared
+ * exception constructors *)
+type error =
+  | Bind_error
+  | Div_error
+  | Int_error of int
+
+(* Expressions *)
+type exp =
+  (* Temporary: later on we want Raise of exp *)
+  | Raise of error
+  (* Temporary: later on we want Handle of exp * list (pat * exp) *)
+  | Handle of exp * varN * exp
+  | Lit of lit
+  (* Constructor application. *)
+  | Con of id conN * list exp
+  | Var of id varN
+  | Fun of varN * exp
+  (* Application of a unary operator *)
+  | Uapp of uop * exp
+  (* Application of an operator (including function application) *)
+  | App of op * exp * exp
+  (* Logical operations (and, or) *)
+  | Log of lop * exp * exp
+  | If of exp * exp * exp
+  (* Pattern matching *)
+  | Mat of exp * list (pat * exp)
+  (* The number is how many type variables are bound. *)
+  | Let of varN * exp * exp
+  (* Local definition of (potentially) mutually recursive functions
+   * The first varN is the function's name, and the second varN is its
+   * parameter. *)
+  | Letrec of list (varN * varN * exp) * exp
+
+type type_def = list (list tvarN * typeN * list (conN * list t))
+
+(* Declarations *)
+type dec =
+  (* Top-level bindings
+   * The number is how many type variables are bound.
+   * The pattern allows several names to be bound at once *)
+  | Dlet of pat * exp
+  (* Mutually recursive function definition *)
+  | Dletrec of list (varN * varN * exp)
+  (* Type definition
+     Defines several types, each of which has several named variants, which can
+     in turn have several arguments *)
+  | Dtype of type_def
+
+type decs = list dec 
+
+type spec =
+  | Sval of varN * t
+  | Stype of type_def
+  | Stype_opq of typeN
+
+type specs = list spec
+
+type top =
+  | Tmod of modN * option specs * decs
+  | Tdec of dec
+
+type prog = list top
+
+(* Accumulates the bindings of a pattern *)
+val pat_bindings : pat -> list varN -> list varN
+let rec
+pat_bindings (Pvar n) already_bound =
+  n::already_bound
+and
+pat_bindings (Plit l) already_bound =
+  already_bound
+and
+pat_bindings (Pcon _ ps) already_bound =
+  pats_bindings ps already_bound
+and
+pat_bindings (Pref p) already_bound =
+  pat_bindings p already_bound
+and
+pats_bindings [] already_bound =
+  already_bound
+and
+pats_bindings (p::ps) already_bound =
+  pats_bindings ps (pat_bindings p already_bound)
+              

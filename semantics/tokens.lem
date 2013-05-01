@@ -1,6 +1,5 @@
+(* Tokens for Standard ML.  NB, not all of them are used in CakeML *)
 type token =
-| WhitespaceT of num
-| NewlineT 
 | HashT | LparT | RparT | StarT | CommaT | ArrowT | DotsT | ColonT | SealT 
 | SemicolonT | EqualsT | DarrowT | LbrackT | RbrackT | UnderbarT | LbraceT 
 | BarT | RbraceT | AbstypeT | AndT | AndalsoT | AsT | CaseT | DatatypeT | DoT 

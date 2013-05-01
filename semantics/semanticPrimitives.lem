@@ -1,0 +1,305 @@
+open Ast
+
+(* Value forms *)
+type v =
+  | Litv of lit
+  (* Constructor application. *)
+  | Conv of id conN * list v 
+  (* Function closures
+     The environment is used for the free variables in the function *)
+  | Closure of env varN v * varN * exp
+  (* Function closure for recursive functions
+   * See Closure and Letrec above
+   * The last variable name indicates which function from the mutually
+   * recursive bundle this closure value represents *)
+  | Recclosure of env varN v * list (varN * varN * exp) * varN
+  | Loc of num
+
+(* The result of evaluation *)
+type error_result =
+  | Rtype_error
+  | Rraise of error
+
+type result 'a =
+  | Rval of 'a
+  | Rerr of error_result
+
+(* Stores *)
+(* The nth item in the list is the value at location n *)
+type store = list v
+
+val empty_store : store
+let empty_store = []
+
+val store_lookup : num -> store -> option v
+let store_lookup l st =
+  if l < List.length st then
+    Some (List.nth st l)
+  else
+    None
+
+val store_alloc : v -> store -> store * num
+let store_alloc v st =
+  (st @ [v], List.length st)
+
+val store_assign : num -> v -> store -> option store
+let store_assign n v st =
+  if n < List.length st then
+    Some (LUPDATE v n st)
+  else
+    None
+
+(* Environments *)
+type env 'a 'b = list ('a*'b)
+
+val emp : forall 'a 'b. env 'a 'b
+let emp = []
+
+val lookup : forall 'a 'b. 'a -> env 'a 'b -> option 'b
+let rec
+lookup n [] = None
+and
+lookup n ((n',v)::e) =
+  if n' = n then
+    Some v
+  else
+    lookup n e
+
+val bind : forall 'a 'b. 'a -> 'b -> env 'a 'b -> env 'a 'b
+let bind n v e = (n,v)::e
+
+val merge : forall 'a 'b. env 'a 'b -> env 'a 'b -> env 'a 'b
+let merge e1 e2 = e1 @ e2
+      
+(* The bindings of a module *)
+type envM = env modN envE
+
+(* Maps each constructor to its arity and which type it is from *)
+type envC = env (id conN) (num * id typeN)
+
+type envE = env varN v
+
+val lookup_var_id : id varN -> envM -> envE -> option v
+let lookup_var_id id menv envE =
+  match id with
+    | Short x -> lookup x envE
+    | Long x y ->
+        match lookup x menv with
+          | None -> None
+          | Some env -> lookup y env
+        end
+  end
+
+(* Other primitives *)
+(* Check that a constructor is properly applied *)
+val do_con_check : envC -> id conN -> num -> bool
+let do_con_check cenv n l =
+  match lookup n cenv with
+    | None -> false
+    | Some (l',ns) -> l = l'
+  end
+
+val lit_same_type : lit -> lit -> bool
+let lit_same_type l1 l2 =
+  match (l1,l2) with
+    | (IntLit _, IntLit _) -> true
+    | (Bool _, Bool _) -> true
+    | (Unit, Unit) -> true
+    | _ -> false
+  end
+
+type match_result =
+  | No_match
+  | Match_type_error
+  | Match of envE
+
+(* A big-step pattern matcher.  If the value matches the pattern, return an
+ * environment with the pattern variables bound to the corresponding sub-terms
+ * of the value; this environment extends the environment given as an argument.
+ * No_match is returned when there is no match, but any constructors
+ * encountered in determining the match failure are applied to the correct
+ * number of arguments, and constructors in corresponding positions in the
+ * pattern and value come from the same type.  Match_type_error is returned
+ * when one of these conditions is violated *)
+val pmatch : envC -> store -> pat -> v -> envE -> match_result
+let rec
+pmatch envC s (Pvar x) v' env = Match (bind x v' env)
+and
+pmatch envC s (Plit l) (Litv l') env =
+  if l = l' then
+    Match env
+  else if lit_same_type l l' then
+    No_match
+  else
+    Match_type_error
+and
+pmatch envC s (Pcon n ps) (Conv n' vs) env =
+  match (lookup n envC, lookup n' envC) with
+    | (Some (l, t), Some (l', t')) ->
+        if t = t' && (List.length ps = l) && (List.length vs = l') then
+          if n = n' then
+            pmatch_list envC s ps vs env
+          else
+            No_match
+        else
+          Match_type_error
+    | (_, _) -> Match_type_error
+  end
+and
+pmatch envC s (Pref p) (Loc lnum) env =
+  match store_lookup lnum s with
+    | Some v -> pmatch envC s p v env
+    | None -> Match_type_error
+  end
+and
+pmatch envC _ _ _ env = Match_type_error
+and
+pmatch_list envC s [] [] env = Match env
+and
+pmatch_list envC s (p::ps) (v::vs) env =
+  match pmatch envC s p v env with
+    | No_match -> No_match
+    | Match_type_error -> Match_type_error
+    | Match env' -> pmatch_list envC s ps vs env'
+  end
+and
+pmatch_list envC s _ _ env = Match_type_error
+
+(* Bind each function of a mutually recursive set of functions to its closure *)
+val build_rec_env : list (varN * varN * exp) -> envE -> envE -> envE
+let build_rec_env funs cl_env add_to_env =
+  List.fold_right
+    (fun (f,x,e) env' -> bind f (Recclosure cl_env funs f) env')
+    funs
+    add_to_env
+
+(* Lookup in the list of mutually recursive functions *)
+val find_recfun : varN -> list (varN * varN * exp) -> option (varN * exp)
+let rec find_recfun n funs =
+  match funs with
+    | [] -> None
+    | (f,x,e) :: funs ->
+        if f = n then
+          Some (x,e)
+        else
+          find_recfun n funs
+  end
+
+(* Check whether a value contains a closure, but don't indirect through the store *)
+val contains_closure : v -> bool
+let rec
+contains_closure (Litv l) = false
+and
+contains_closure (Conv cn vs) = List.exist contains_closure vs
+and
+contains_closure (Closure env n e) = true
+and
+contains_closure (Recclosure env funs n) = true
+and
+contains_closure (Loc n) = false
+
+val do_uapp : store -> uop -> v -> option (store * v)
+let do_uapp s uop v =
+  match uop with
+    | Opderef ->
+        match v with
+          | Loc n ->
+              match store_lookup n s with
+                | Some v -> Some (s,v)
+                | None -> None
+              end
+          | _ -> None
+        end
+    | Opref ->
+        let (s',n) = store_alloc v s in
+          Some (s', Loc n)
+  end
+
+(* Do an application *)
+val do_app : store -> envE -> op -> v -> v -> option (store * envE * exp)
+let do_app s env' op v1 v2 =
+  match (op, v1, v2) with
+    | (Opapp, Closure env n e, v) ->
+        Some (s, bind n v env, e)
+    | (Opapp, Recclosure env funs n, v) ->
+        match find_recfun n funs with
+          | Some (n,e) -> Some (s, bind n v (build_rec_env funs env env), e)
+          | None -> None
+        end
+    | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) ->
+        if (op = Divide || op = Modulo) && n2 = i 0 then
+          Some (s, env', Raise Div_error)
+        else
+          Some (s, env',Lit (IntLit (opn_lookup op n1 n2)))
+    | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) ->
+        Some (s, env', Lit (Bool (opb_lookup op n1 n2)))
+    | (Equality, v1, v2) ->
+        if contains_closure v1 || contains_closure v2 then
+          None
+        else
+          Some (s, env', Lit (Bool (v1 = v2)))
+    | (Opassign, (Loc lnum), v) ->
+        match store_assign lnum v s with
+        | Some st -> Some (st, env', Lit Unit)
+        | None -> None
+        end
+    | _ -> None
+  end
+
+(* Do a logical operation *)
+val do_log : lop -> v -> exp -> option exp
+let do_log l v e =
+  match (l, v) with
+    | (And, Litv (Bool true)) -> Some e
+    | (Or, Litv (Bool false)) -> Some e
+    | (_, Litv (Bool b)) -> Some (Lit (Bool b))
+    | _ -> None
+  end
+
+(* Do an if-then-else *)
+val do_if : v -> exp -> exp -> option exp
+let do_if v e1 e2 =
+  if v = Litv (Bool true) then
+    Some e1
+  else if v = Litv (Bool false) then
+    Some e2
+  else
+    None
+
+(* Semantic helpers for definitions *)
+
+(* Add the given type definition to the given constructor environment *)
+val build_tdefs : option modN -> list (list tvarN * typeN * list (conN * list t)) -> envC
+let build_tdefs mn tds =
+  List.flatten
+    (List.map
+      (fun (tvs, tn, condefs) ->
+         List.map
+           (fun (conN, ts) ->
+              (mk_id mn conN, (List.length ts, mk_id mn tn)))
+           condefs)
+      tds)
+
+(* Checks that no constructor is defined twice *)
+val check_dup_ctors :
+    forall 'a. option modN -> env (id conN) 'a -> list (list tvarN * typeN * list (conN * list t)) -> bool
+let check_dup_ctors mn_opt cenv tds =
+  (forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs).
+     lookup (mk_id mn_opt n) cenv = None)
+  &&
+  all_distinct [ n | forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs) | true ]
+
+val combine_dec_result : forall 'a 'b 'c 'd. env 'a 'b -> env 'c 'd -> result (env 'a 'b * env 'c 'd) -> result (env 'a 'b * env 'c 'd)
+let combine_dec_result cenv env r =
+  match r with
+    | Rerr e -> Rerr e
+    | Rval (cenv',env') -> Rval (merge cenv' cenv, merge env' env)
+  end
+
+val combine_mod_result : forall 'a 'b 'c 'd 'e 'f. env 'a 'b -> env 'c 'd -> env 'e 'f -> result (env 'a 'b * env 'c 'd * env 'e 'f) -> result (env 'a 'b * env 'c 'd * env 'e 'f)
+let combine_mod_result menv cenv env r =
+  match r with
+    | Rerr e -> Rerr e
+    | Rval (menv',cenv',env') -> Rval (merge menv' menv, merge cenv' cenv, merge env' env)
+  end
+
