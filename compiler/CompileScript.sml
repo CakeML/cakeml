@@ -1421,7 +1421,7 @@ val _ = Defn.save_defn compile_defn;
 /\
 (free_labs (CFun def) = free_labs_def def)
 /\
-(free_labs (CCall e es) = free_labs_list es ++ free_labs e)
+(free_labs (CCall e es) = free_labs e ++ free_labs_list es)
 /\
 (free_labs (CPrim2 _ e1 e2) = free_labs e1 ++ free_labs e2)
 /\

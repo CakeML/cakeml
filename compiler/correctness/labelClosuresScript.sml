@@ -64,12 +64,13 @@ val good_code_env_def = tDefine"good_code_env"`
     | INR (INL (ez,es)) => Cexp4_size es
     | INR (INR (INL (ez,nz,k,ds))) => Cexp1_size ds
     | INR (INR (INR (ez,nz,k,d))) => Cexp2_size d)`)
+val _ = export_rewrites["good_code_env_def"]
 
 val label_closures_thm = store_thm("label_closures_thm",
   ``(∀ez j e. (free_labs e = []) ∧ free_vars e ⊆ count ez ⇒
      let (e',j') = label_closures ez j e in
      (j' = j + (LENGTH (free_labs e'))) ∧
-     (MAP FST (free_labs e') = (GENLIST ($+ j) (LENGTH (free_labs e')))) ∧
+     (MAP (FST o FST) (free_labs e') = (GENLIST ($+ j) (LENGTH (free_labs e')))) ∧
      free_vars e' ⊆ free_vars e ∧
      good_code_env ez e' ∧
      syneq_exp ez ez $= e e') ∧
@@ -77,30 +78,30 @@ val label_closures_thm = store_thm("label_closures_thm",
      (free_labs_list es = []) ∧ free_vars_list es ⊆ count ez ⇒
      let (es',j') = label_closures_list ez j es in
      (j' = j + LENGTH (free_labs_list es')) ∧
-     (MAP FST (free_labs_list es') = (GENLIST ($+ j) (LENGTH (free_labs_list es')))) ∧
+     (MAP (FST o FST) (free_labs_list es') = (GENLIST ($+ j) (LENGTH (free_labs_list es')))) ∧
      free_vars_list es' ⊆ free_vars_list es ∧
      good_code_env_list ez es' ∧
      EVERY2 (syneq_exp ez ez $=) es es') ∧
-    (∀ez j nz k defs ds0 ls0 c0.
+    (∀ez j nz k defs ds0 ls0.
      (*
      (EVERY ($= [])  (MAP INL ls0 ++ MAP INL defs) = {}) ∧ (FDOM c0 = set ds0) ∧
      *)
-     free_vars_defs nz defs ⊆ count ez ∧
+     free_vars_defs nz (MAP ($, NONE) defs) ⊆ count ez ∧
      (LENGTH ds0 = k) ∧ (LENGTH defs = nz - k) ∧ k ≤ nz ∧ (LENGTH ls0 = k) (* ∧
-     (∀l. MEM l ds0 ⇒ l < j) ∧ closed_code_env c0 ∧
-     syneq_defs c0 ez ez $= (MAP INL ls0 ++ MAP INL defs) (MAP INR ds0 ++ MAP INL defs) (λv1 v2. v1 < nz ∧ (v2 = v1))
+     (∀l. MEM l ds0 ⇒ l < j) ∧
+     syneq_defs ez ez $= (MAP INL ls0 ++ MAP INL defs) (MAP INR ds0 ++ MAP INL defs) (λv1 v2. v1 < nz ∧ (v2 = v1))
      *)
      ⇒
      let (defs',j') = label_closures_defs ez j nz k defs in
-     (j' = j + SUM (MAP body_count_def (MAP INL defs))) ∧
-     (MAP FST c = (GENLIST ($+ j) (SUM (MAP body_count_def (MAP INL defs))))) ∧
-     (LENGTH lds = LENGTH defs) ∧
-     set lds ⊆ set (MAP FST c) ∧
+     (j' = j + LENGTH (FLAT (MAP free_labs_def defs'))) ∧
+     (MAP (FST o FST) (FLAT (MAP free_labs_def defs')) = GENLIST ($+ j) (LENGTH (FLAT (MAP free_labs_def defs')))) ∧
+     free_vars_defs nz defs' ⊆ free_vars_defs nz (MAP ($, NONE) defs) ∧
+     (LENGTH defs' = LENGTH defs) ∧
      good_code_env_defs ez nz k defs' ∧
-     syneq_defs ez ez $= (MAP INL ls0 ++ MAP INL defs) (MAP INR ds0 ++ MAP INR lds) (λv1 v2. v1 < nz ∧ (v2 = v1)))``,
+     syneq_defs ez ez $= (ls0 ++ (MAP ($, NONE) defs)) (ds0 ++ defs') (λv1 v2. v1 < nz ∧ (v2 = v1)))``,
   ho_match_mp_tac label_closures_ind >>
-  strip_tac >- (rw[] >> rw[syneq_exp_FEMPTY_refl]) >>
-  strip_tac >- (rw[] >> rw[syneq_exp_FEMPTY_refl]) >>
+  strip_tac >- (rw[] >> rw[syneq_exp_refl]) >>
+  strip_tac >- (rw[] >> rw[syneq_exp_refl]) >>
   strip_tac >- (
     ntac 2 gen_tac >>
     map_every qx_gen_tac[`e1`,`e2`] >>
@@ -109,50 +110,28 @@ val label_closures_thm = store_thm("label_closures_thm",
       fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
       Cases>>fsrw_tac[ARITH_ss][] ) >> fs[] >>
     qabbrev_tac`p = label_closures ez j e1` >> PairCases_on`p`>>fs[LET_THM] >>
-    qabbrev_tac`q = label_closures (ez+1) (j + body_count e1) e2` >> PairCases_on`q`>>fs[] >>
+    qabbrev_tac`q = label_closures (ez+1) (j + LENGTH (free_labs p0)) e2` >> PairCases_on`q`>>fs[] >>
     simp[LIST_EQ_REWRITE] >>
     conj_tac >- (
       gen_tac >>
-      Cases_on`x<body_count e1`>>
+      Cases_on`x<LENGTH (free_labs p0)`>>
       lrw[EL_APPEND1,EL_APPEND2] ) >>
     rfs[] >>
-    conj_tac >- (
-      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
     conj_tac >- (
       fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
       Cases >> rw[ADD1] >>
       res_tac >>
       disj2_tac >> HINT_EXISTS_TAC >>
       fsrw_tac[ARITH_ss][] ) >>
-    conj_tac >- (
-      fsrw_tac[DNF_ss][closed_code_env_def] >>
-      ho_match_mp_tac IN_FRANGE_FUNION_suff >>
-      PROVE_TAC[SUBSET_UNION,SUBSET_TRANS] ) >>
-    conj_tac >- (
-      match_mp_tac good_code_env_FUNION >>
-      simp[DISJOINT_DEF,MEM_GENLIST,EXTENSION] ) >>
     simp[Once syneq_exp_cases] >>
-    conj_tac >- (
-      match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_c_SUBMAP)) >>
-      HINT_EXISTS_TAC >>
-      simp[SUBMAP_FUNION] ) >>
-    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_c_SUBMAP)) >>
-    qexists_tac`alist_to_fmap q1` >>
-    simp[] >>
-    conj_tac >- (
-      match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
-      HINT_EXISTS_TAC >>
-      simp[] ) >>
-    match_mp_tac SUBMAP_FUNION >>
-    simp[DISJOINT_DEF,EXTENSION,MEM_GENLIST] ) >>
-  strip_tac >- (rw[] >> rw[syneq_exp_FEMPTY_refl]) >>
-  strip_tac >- (rw[] >> rw[syneq_exp_FEMPTY_refl]) >>
+    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+    HINT_EXISTS_TAC >>
+    simp[]) >>
+  strip_tac >- (rw[] >> rw[syneq_exp_refl]) >>
+  strip_tac >- (rw[] >> rw[syneq_exp_refl]) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >> strip_tac >>
-    fs[LET_THM] >- simp[Once syneq_exp_cases] >>
-    fs[IMAGE_EQ_SING,FOLDL_UNION_BIGUNION] >>
-    qabbrev_tac`p = label_closures_list ez j es` >> PairCases_on`p`>>fs[LET_THM] >>
-    rfs[FOLDL_UNION_BIGUNION] >>
+    fs[LET_THM,UNCURRY] >>
     simp[Once syneq_exp_cases] ) >>
   strip_tac >- (
     rw[] >> fs[LET_THM] >>
@@ -168,185 +147,106 @@ val label_closures_thm = store_thm("label_closures_thm",
       fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
       Cases>>fsrw_tac[ARITH_ss][] ) >> fs[] >>
     qabbrev_tac`p = label_closures ez j e1` >> PairCases_on`p`>>fs[LET_THM] >>
-    qabbrev_tac`q = label_closures (ez+1) (j + body_count e1) e2` >> PairCases_on`q`>>fs[] >>
+    qabbrev_tac`q = label_closures (ez+1) (j + LENGTH (free_labs p0)) e2` >> PairCases_on`q`>>fs[] >>
     simp[LIST_EQ_REWRITE] >>
     conj_tac >- (
       gen_tac >>
-      Cases_on`x<body_count e1`>>
+      Cases_on`x<LENGTH (free_labs p0)`>>
       lrw[EL_APPEND1,EL_APPEND2] ) >>
     rfs[] >>
-    conj_tac >- (
-      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
     conj_tac >- (
       fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
       Cases >> rw[ADD1] >>
       res_tac >>
       disj2_tac >> HINT_EXISTS_TAC >>
       fsrw_tac[ARITH_ss][] ) >>
-    conj_tac >- (
-      fsrw_tac[DNF_ss][closed_code_env_def] >>
-      ho_match_mp_tac IN_FRANGE_FUNION_suff >>
-      PROVE_TAC[SUBSET_UNION,SUBSET_TRANS] ) >>
-    conj_tac >- (
-      match_mp_tac good_code_env_FUNION >>
-      simp[DISJOINT_DEF,MEM_GENLIST,EXTENSION] ) >>
     simp[Once syneq_exp_cases] >>
-    conj_tac >- (
-      match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_c_SUBMAP)) >>
-      HINT_EXISTS_TAC >>
-      simp[SUBMAP_FUNION] ) >>
-    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_c_SUBMAP)) >>
-    qexists_tac`alist_to_fmap q1` >>
-    simp[] >>
-    conj_tac >- (
-      match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
-      HINT_EXISTS_TAC >>
-      simp[] ) >>
-    match_mp_tac SUBMAP_FUNION >>
-    simp[DISJOINT_DEF,EXTENSION,MEM_GENLIST] ) >>
+    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+    HINT_EXISTS_TAC >>
+    simp[]) >>
   strip_tac >- (
     rpt strip_tac >>
     simp[] >>
-    `FILTER ISL defs = defs` by (
+    `FILTER (IS_NONE o FST) defs = defs` by (
       simp[FILTER_EQ_ID] >>
-      fs[IMAGE_EQ_SING,FILTER_EQ_NIL,EXISTS_MEM,EVERY_MEM] >>
-      qx_gen_tac`z` >> strip_tac >>
+      fs[FLAT_EQ_NIL,EVERY_MAP] >>
+      fs[EVERY_MEM,FORALL_PROD] >>
+      qx_gen_tac`z` >> rpt strip_tac >>
       res_tac >> Cases_on`z`>>fs[] ) >>
     full_simp_tac std_ss [LET_THM] >>
     full_simp_tac std_ss [FILTER_EQ_ID,LENGTH_MAP] >>
-    qabbrev_tac`p = label_closures_defs ez j (LENGTH defs) 0 (MAP OUTL defs)` >>
+    qabbrev_tac`p = label_closures_defs ez j (LENGTH defs) 0 (MAP SND defs)` >>
     PairCases_on`p`>>
-    `free_labs e = {}`by fs[] >>
+    `free_labs e = []`by fs[] >>
     `free_vars e ⊆ count (ez + LENGTH defs)` by (
       qpat_assum`free_vars X ⊆ Y`mp_tac >>
       rpt (pop_assum kall_tac) >>
-      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,LET_THM,FOLDL_UNION_BIGUNION] >>
-      Cases>>srw_tac[ARITH_ss][ADD1] >>
+      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,LET_THM] >>
+      srw_tac[ARITH_ss][ADD1] >>
       res_tac >> fsrw_tac[ARITH_ss][] ) >>
     full_simp_tac std_ss [] >>
-    qabbrev_tac`q = label_closures (ez + LENGTH defs) p2 e` >>
+    qabbrev_tac`q = label_closures (ez + LENGTH defs) p1 e` >>
     PairCases_on`q` >>
     full_simp_tac std_ss [] >>
-    `MAP INL (MAP OUTL defs) = defs` by (
+    `MAP ($, NONE) (MAP SND defs) = defs` by (
       fs[EVERY_MEM] >>
       lrw[MAP_MAP_o] >>
       CONV_TAC(RAND_CONV(REWRITE_CONV[Once (CONJUNCT2 (GSYM MAP_ID)),SimpRHS])) >>
-      lrw[MAP_EQ_f] ) >>
+      lrw[MAP_EQ_f,FORALL_PROD] >> res_tac >> fs[]) >>
     full_simp_tac std_ss [] >>
-    first_x_assum(qspecl_then[`[]`,`[]`,`FEMPTY`]mp_tac) >>
+    first_x_assum(qspecl_then[`[]`,`[]`]mp_tac) >>
     simp[] >>
-    discharge_hyps >- (
-      fs[LENGTH_NIL,syneq_defs_FEMPTY_refl] >>
-      fsrw_tac[DNF_ss,ARITH_ss][LET_THM,FOLDL_UNION_BIGUNION,SUBSET_DEF,EXISTS_PROD,MEM_MAP] >>
-      simp[GSYM FORALL_AND_THM] >>
-      simp[GSYM IMP_CONJ_THM] >>
-      map_every qx_gen_tac[`d1`,`d2`,`d`,`m`] >>
-      strip_tac >>
-      rpt (first_x_assum(qspec_then`d`mp_tac)) >>
-      fs[EVERY_MEM] >> res_tac >>
-      Cases_on`d`>>fs[] >> BasicProvers.VAR_EQ_TAC >>
-      simp[AND_IMP_INTRO,GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM] >>
-      disch_then(qspec_then`m-d1`mp_tac) >>
-      Cases_on`m<d1`>>fsrw_tac[ARITH_ss][]>>
-      simp[GSYM LEFT_EXISTS_AND_THM,GSYM LEFT_FORALL_IMP_THM] >>
-      disch_then(qspec_then`m`mp_tac) >>
-      srw_tac[ARITH_ss][]) >>
+    fs[LET_THM] >>
     strip_tac >>
     simp_tac(srw_ss()++ETA_ss)[] >>
-    rfs[] >- (
-      fs[] >> rfs[] >> fs[markerTheory.Abbrev_def] >>
-      simp[FUNION_FEMPTY_1] >>
-      simp[Once syneq_exp_cases] >>
-      simp[Once syneq_exp_cases] >>
-      qexists_tac`REMPTY` >> simp[] >>
-      qmatch_abbrev_tac`P x y z` >>
-      qmatch_assum_abbrev_tac`P x' y z` >>
-      `x = x'` by rw[FUN_EQ_THM,Abbr`x`,Abbr`x'`] >> fs[] ) >>
-    simp[] >>
+    rfs[] >> simp[] >>
     conj_tac >- (
       lrw[LIST_EQ_REWRITE] >>
-      Cases_on`x < SUM (MAP body_count_def defs)` >>
+      Cases_on`x < LENGTH (FLAT (MAP free_labs_def p0))` >>
       lrw[EL_APPEND1,EL_APPEND2] ) >>
     conj_tac >- (
-      simp[SUM_eq_0,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] ) >>
-    conj_tac >- (
-      rfs[] >> fs[] >>
-      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_GENLIST,MEM_MAP] >>
-      rfs[] ) >>
-    fs[FOLDL_UNION_BIGUNION,LET_THM] >>
-    conj_tac >- (
-      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,free_vars_defs_MAP] >>
       gen_tac >> strip_tac >>
-      disj1_tac >>
+      disj2_tac >>
       qexists_tac`m` >>
       simp[] ) >>
-    conj_tac >- (
-      fsrw_tac[DNF_ss][closed_code_env_def] >>
-      ho_match_mp_tac IN_FRANGE_FUNION_suff >>
-      rfs[] >> fs[] >>
-      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_GENLIST] >>
-      metis_tac[] ) >>
-    conj_tac >- (
-      match_mp_tac good_code_env_FUNION >>
-      simp[IN_DISJOINT,MEM_GENLIST,EXTENSION] ) >>
-    fs[FUNION_FEMPTY_1] >>
     simp[Once syneq_exp_cases] >>
-    qexists_tac`λv1 v2. v1 < LENGTH defs ∧ (v2 = v1)` >>
-    conj_tac >- (
-      match_mp_tac (MP_CANON (CONJUNCT2 syneq_exp_c_SUBMAP)) >>
-      HINT_EXISTS_TAC >>
-      simp[SUBMAP_FUNION] >>
-      rfs[] >> fs[] >>
-      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_GENLIST,MEM_MAP] >> rfs[] >>
-      Cases_on`p0`>>fs[] >> metis_tac[] ) >>
-    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_c_SUBMAP)) >>
-    qexists_tac`alist_to_fmap q1` >>
-    simp[] >>
-    conj_tac >- (
-      match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
-      qexists_tac`$=` >>
-      simp[] ) >>
-    match_mp_tac SUBMAP_FUNION >>
-    simp[DISJOINT_DEF,EXTENSION,MEM_GENLIST] ) >>
+    HINT_EXISTS_TAC >> simp[] >>
+    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+    HINT_EXISTS_TAC >>
+    simp[]) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >> strip_tac >>
-    first_x_assum(qspecl_then[`[]`,`[]`,`FEMPTY`]mp_tac) >>
+    first_x_assum(qspecl_then[`[]`,`[]`]mp_tac) >>
     simp[] >>
     discharge_hyps >- (
-      BasicProvers.CASE_TAC >> fs[syneq_defs_FEMPTY_refl] >>
-      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
-      rw[] >> res_tac >> fsrw_tac[ARITH_ss][]) >>
-    Q.PAT_ABBREV_TAC`ezz = FST def + X` >>
-    qabbrev_tac`p = label_closures ezz (j+1) (bind_fv def 1 ez 0).body` >>
+      PairCases_on`def`>>fs[]) >>
+    qabbrev_tac`p = label_closures_defs ez j 1 0 [def]` >>
     PairCases_on`p` >>
     full_simp_tac std_ss [] >>
     strip_tac >>
-    conj_tac >- (
-      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_GENLIST] >>
-      qexists_tac`0` >>
-      Cases_on`def`>>simp[] ) >>
-    simp[MEM_GENLIST] >>
-    conj_tac >- (
-      Cases_on`def`>>qexists_tac`0`>>simp[] ) >>
+    Cases_on`p0`>>fs[]>>
+    Cases_on`t`>>fs[]>>
+    PairCases_on`h`>>PairCases_on`def`>>fs[]>>
     simp[Once syneq_exp_cases] >> fs[] >>
-    fs[FUNION_FEMPTY_1] >>
     HINT_EXISTS_TAC >>
     simp[] ) >>
   strip_tac >- (
-    rw[] >> rw[syneq_exp_FEMPTY_refl] ) >>
+    rw[] >> PairCases_on`x`>>fs[]>>
+    PairCases_on`y`>>fs[]) >>
   strip_tac >- (
     ntac 2 gen_tac >>
     map_every qx_gen_tac[`e`,`es`] >>
     rpt strip_tac >>
-    qabbrev_tac`p = label_closures ez j e` >> PairCases_on`p`>>fs[LET_THM] >- (
-      rfs[] >> simp[Once syneq_exp_cases] ) >>
-    qabbrev_tac`q = label_closures_list ez (j + body_count e) es` >> PairCases_on`q`>>fs[] >>
-    fs[FOLDL_UNION_BIGUNION] >>
+    qabbrev_tac`p = label_closures ez j e` >> PairCases_on`p`>>fs[LET_THM] >>
+    qabbrev_tac`q = label_closures_list ez (j + LENGTH (free_labs p0)) es` >> PairCases_on`q`>>fs[] >>
+    fs[] >>
     simp[LIST_EQ_REWRITE] >>
     conj_tac >- (
       gen_tac >>
-      Cases_on`x<body_count e`>>
+      Cases_on`x<LENGTH (free_labs_list q0)`>>
       lrw[EL_APPEND1,EL_APPEND2] ) >>
+
     rfs[] >>
     conj_tac >- (
       fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
