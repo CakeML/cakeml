@@ -3,6 +3,7 @@ open Parse relationTheory arithmeticTheory rich_listTheory finite_mapTheory pred
 open SatisfySimps miscLib miscTheory intLangTheory compileTerminationTheory
 val _ = new_theory"labelClosures"
 
+(*
 val free_labs_bind_fv = store_thm("free_labs_bind_fv",
   ``free_labs (bind_fv def nz ez k).body = free_labs (SND def)``,
   Cases_on`def`>>rw[bind_fv_def] >> rw[Abbr`e`])
@@ -24,74 +25,79 @@ val bind_fv_az = store_thm("bind_fv_az",
   ``(bind_fv def nz ez ix).az = FST def``,
   Cases_on`def`>>rw[bind_fv_def,LET_THM])
 val _ = export_rewrites["bind_fv_az"]
+*)
 
-val good_code_env_def = Define`
-  good_code_env c = ∀cd. cd ∈ FRANGE c ⇒
-    (body_count cd.body = 0) ∧ free_labs cd.body ⊆ FDOM c ∧
-    EVERY (λv. v < cd.ez) (SND cd.ceenv) ∧
-    free_vars cd.body ⊆ count (LENGTH cd.ccenv) ∧
-    ∃e. (cd = (bind_fv (cd.az,e) cd.nz cd.ez cd.ix) with body := cd.body)`
+val good_cd_def = Define`
+  good_cd ez nz ix ((l,cc,recs,envs),az,b) =
+    EVERY (λv. v < ez) envs ∧
+    free_vars b ⊆ count (LENGTH cc) ∧
+    ∃e e'. (cc,(recs,envs),e') = (bind_fv (az,e) nz ix)`
 
-val good_code_env_FEMPTY = store_thm("good_code_env_FEMPTY",
-  ``good_code_env FEMPTY``,
-  rw[good_code_env_def,IN_FRANGE])
-val _ = export_rewrites["good_code_env_FEMPTY"]
-
-val good_code_env_FUNION = store_thm("good_code_env_FUNION",
-  ``∀c1 c2. DISJOINT (FDOM c1) (FDOM c2) ∧ good_code_env c1 ∧ good_code_env c2 ⇒ good_code_env (c1 ⊌ c2)``,
-  simp[good_code_env_def,FRANGE_FUNION] >>
-  metis_tac[SUBSET_UNION,SUBSET_TRANS])
-
-val good_code_env_FUPDATE = store_thm("good_code_env_FUPDATE",
-  ``∀c k cd. (good_code_env c ∧
-    (body_count cd.body = 0) ∧ free_labs cd.body ⊆ k INSERT FDOM c ∧
-    EVERY (λv. v < cd.ez) (SND cd.ceenv) ∧
-    free_vars cd.body ⊆ count (LENGTH cd.ccenv) ∧
-    ∃e. (cd = (bind_fv (cd.az,e) cd.nz cd.ez cd.ix) with body := cd.body))
-    ⇒ good_code_env (c |+ (k,cd))``,
-  rpt gen_tac >> strip_tac >>
-  fs[good_code_env_def] >>
-  gen_tac >> strip_tac >- metis_tac[] >>
-  pop_assum mp_tac >>
-  metis_tac[FRANGE_DOMSUB_SUBSET,SUBSET_DEF,IN_INSERT])
+val good_code_env_def = tDefine"good_code_env"`
+  (good_code_env ez (CDecl _) = T) ∧
+  (good_code_env ez (CRaise _) = T) ∧
+  (good_code_env ez (CHandle e1 e2) = good_code_env ez e1 ∧ good_code_env (ez+1) e2) ∧
+  (good_code_env ez (CVar _) = T) ∧
+  (good_code_env ez (CLit _) = T) ∧
+  (good_code_env ez (CCon _ es) = good_code_env_list ez es) ∧
+  (good_code_env ez (CTagEq e _) = good_code_env ez e) ∧
+  (good_code_env ez (CProj e _) = good_code_env ez e) ∧
+  (good_code_env ez (CLet e1 e2) = good_code_env ez e1 ∧ good_code_env (ez+1) e2) ∧
+  (good_code_env ez (CLetrec defs e) =
+    good_code_env_defs ez (LENGTH defs) 0 defs ∧
+    good_code_env (ez+LENGTH defs) e) ∧
+  (good_code_env ez (CFun def) =
+    good_code_env_def ez 1 0 def) ∧
+  (good_code_env ez (CCall e es) = good_code_env ez e ∧ good_code_env_list ez es) ∧
+  (good_code_env ez (CPrim1 _ e) = good_code_env ez e) ∧
+  (good_code_env ez (CPrim2 _ e1 e2) = good_code_env ez e1 ∧ good_code_env ez e2) ∧
+  (good_code_env ez (CUpd e1 e2) = good_code_env ez e1 ∧ good_code_env ez e2) ∧
+  (good_code_env ez (CIf e1 e2 e3) = good_code_env ez e1 ∧ good_code_env ez e2 ∧ good_code_env ez e3) ∧
+  (good_code_env_list ez [] = T) ∧
+  (good_code_env_list ez (e::es) = good_code_env ez e ∧ good_code_env_list ez es) ∧
+  (good_code_env_defs ez nz k [] = T) ∧
+  (good_code_env_defs ez nz k (d::ds) = good_code_env_def ez nz k d ∧ good_code_env_defs ez nz (k+1) ds) ∧
+  (good_code_env_def ez nz k (SOME cd,az,b) = good_cd ez nz k (cd,az,b) ∧ good_code_env ez b) ∧
+  (good_code_env_def ez nz k (NONE,az,b) = F)`
+  (WF_REL_TAC`inv_image $< (λx. case x of
+    | INL (ez,e) => Cexp_size e
+    | INR (INL (ez,es)) => Cexp4_size es
+    | INR (INR (INL (ez,nz,k,ds))) => Cexp1_size ds
+    | INR (INR (INR (ez,nz,k,d))) => Cexp2_size d)`)
 
 val label_closures_thm = store_thm("label_closures_thm",
-  ``(∀ez j e. (free_labs e = {}) ∧ free_vars e ⊆ count ez ⇒
-     let (e',c,j') = label_closures ez j e in
-     (j' = j + body_count e) ∧
-     (MAP FST c = (GENLIST ($+ j) (body_count e))) ∧
-     (body_count e' = 0) ∧
-     free_labs e' ⊆ set (MAP FST c) ∧
+  ``(∀ez j e. (free_labs e = []) ∧ free_vars e ⊆ count ez ⇒
+     let (e',j') = label_closures ez j e in
+     (j' = j + (LENGTH (free_labs e'))) ∧
+     (MAP FST (free_labs e') = (GENLIST ($+ j) (LENGTH (free_labs e')))) ∧
      free_vars e' ⊆ free_vars e ∧
-     closed_code_env (alist_to_fmap c) ∧
-     good_code_env (alist_to_fmap c) ∧
-     syneq_exp (alist_to_fmap c) ez ez $= e e') ∧
+     good_code_env ez e' ∧
+     syneq_exp ez ez $= e e') ∧
     (∀ez j es.
-     (free_labs_list es = {}) ∧ BIGUNION (IMAGE free_vars (set es)) ⊆ count ez ⇒
-     let (es',c,j') = label_closures_list ez j es in
-     (j' = j + body_count_list es) ∧
-     (MAP FST c = (GENLIST ($+ j) (body_count_list es))) ∧
-     (body_count_list es' = 0) ∧
-     free_labs_list es' ⊆ set (MAP FST c) ∧
-     BIGUNION (IMAGE free_vars (set es')) ⊆ BIGUNION (IMAGE free_vars (set es)) ∧
-     closed_code_env (alist_to_fmap c) ∧
-     good_code_env (alist_to_fmap c) ∧
-     EVERY2 (syneq_exp (alist_to_fmap c) ez ez $=) es es') ∧
+     (free_labs_list es = []) ∧ free_vars_list es ⊆ count ez ⇒
+     let (es',j') = label_closures_list ez j es in
+     (j' = j + LENGTH (free_labs_list es')) ∧
+     (MAP FST (free_labs_list es') = (GENLIST ($+ j) (LENGTH (free_labs_list es')))) ∧
+     free_vars_list es' ⊆ free_vars_list es ∧
+     good_code_env_list ez es' ∧
+     EVERY2 (syneq_exp ez ez $=) es es') ∧
     (∀ez j nz k defs ds0 ls0 c0.
-     (free_labs_defs (MAP INL ls0 ++ MAP INL defs) = {}) ∧ (FDOM c0 = set ds0) ∧
-     BIGUNION (IMAGE (cbod_fvs o INL) (set defs)) ⊆ count (nz+ez) ∧
-     (LENGTH ds0 = k) ∧ (LENGTH defs = nz - k) ∧ k ≤ nz ∧ (LENGTH ls0 = k) ∧
+     (*
+     (EVERY ($= [])  (MAP INL ls0 ++ MAP INL defs) = {}) ∧ (FDOM c0 = set ds0) ∧
+     *)
+     free_vars_defs nz defs ⊆ count ez ∧
+     (LENGTH ds0 = k) ∧ (LENGTH defs = nz - k) ∧ k ≤ nz ∧ (LENGTH ls0 = k) (* ∧
      (∀l. MEM l ds0 ⇒ l < j) ∧ closed_code_env c0 ∧
      syneq_defs c0 ez ez $= (MAP INL ls0 ++ MAP INL defs) (MAP INR ds0 ++ MAP INL defs) (λv1 v2. v1 < nz ∧ (v2 = v1))
+     *)
      ⇒
-     let (lds,c,j') = label_closures_defs ez j nz k defs in
+     let (defs',j') = label_closures_defs ez j nz k defs in
      (j' = j + SUM (MAP body_count_def (MAP INL defs))) ∧
      (MAP FST c = (GENLIST ($+ j) (SUM (MAP body_count_def (MAP INL defs))))) ∧
      (LENGTH lds = LENGTH defs) ∧
      set lds ⊆ set (MAP FST c) ∧
-     closed_code_env (alist_to_fmap c) ∧
-     good_code_env (alist_to_fmap c) ∧
-     syneq_defs (c0 ⊌ alist_to_fmap c) ez ez $= (MAP INL ls0 ++ MAP INL defs) (MAP INR ds0 ++ MAP INR lds) (λv1 v2. v1 < nz ∧ (v2 = v1)))``,
+     good_code_env_defs ez nz k defs' ∧
+     syneq_defs ez ez $= (MAP INL ls0 ++ MAP INL defs) (MAP INR ds0 ++ MAP INR lds) (λv1 v2. v1 < nz ∧ (v2 = v1)))``,
   ho_match_mp_tac label_closures_ind >>
   strip_tac >- (rw[] >> rw[syneq_exp_FEMPTY_refl]) >>
   strip_tac >- (rw[] >> rw[syneq_exp_FEMPTY_refl]) >>
