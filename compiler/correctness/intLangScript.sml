@@ -84,26 +84,82 @@ val free_labs_list_MAP = store_thm("free_labs_list_MAP",
   Induct >> rw[])
 (* val _ = export_rewrites["free_labs_list_MAP"] *)
 
-(*
-val free_labs_defs_MAP = store_thm("free_labs_defs_MAP",
-  ``∀defs. free_labs_defs defs = BIGUNION (IMAGE free_labs_def (set defs))``,
-  Induct >> rw[])
-val _ = export_rewrites["free_labs_defs_MAP"]
+val no_vlabs_def = Define`
+  (no_vlabs (CLitv _) = T) ∧
+  (no_vlabs (CConv _ vs) = no_vlabs_list vs) ∧
+  (no_vlabs (CRecClos env defs _) = no_vlabs_list env ∧ EVERY ($= []) (MAP free_labs_def defs)) ∧
+  (no_vlabs (CLoc _) = T) ∧
+  (no_vlabs_list [] = T) ∧
+  (no_vlabs_list (v::vs) = no_vlabs v ∧ no_vlabs_list vs)`
+val _ = export_rewrites["no_vlabs_def"]
 
-val vlabs_def = Define`
-  (vlabs (CLitv _) = {}) ∧
-  (vlabs (CConv _ vs) = vlabs_list vs) ∧
-  (vlabs (CRecClos env defs _) = vlabs_list env ∪ free_labs_defs defs) ∧
-  (vlabs (CLoc _) = {}) ∧
-  (vlabs_list [] = {}) ∧
-  (vlabs_list (v::vs) = vlabs v ∪ vlabs_list vs)`
-val _ = export_rewrites["vlabs_def"]
-
-val vlabs_list_MAP = store_thm("vlabs_list_MAP",
- ``∀vs. vlabs_list vs = BIGUNION (IMAGE vlabs (set vs))``,
+val no_vlabs_list_MAP = store_thm("no_vlabs_list_MAP",
+ ``∀vs. no_vlabs_list vs = EVERY no_vlabs vs``,
  Induct >> rw[])
-val _ = export_rewrites["vlabs_list_MAP"]
-*)
+val _ = export_rewrites["no_vlabs_list_MAP"]
+
+val Cevaluate_no_vlabs = store_thm("Cevaluate_no_vlabs",
+  ``(∀s env exp res. Cevaluate s env exp res ⇒ no_vlabs_list s ∧ no_vlabs_list env ∧ (free_labs exp = []) ⇒
+        no_vlabs_list (FST res) ∧ (∀v. (SND res = Rval v) ⇒ no_vlabs v)) ∧
+    (∀s env es res. Cevaluate_list s env es res ⇒ no_vlabs_list s ∧ no_vlabs_list env ∧ (free_labs_list es = []) ⇒
+        no_vlabs_list (FST res) ∧ (∀vs. (SND res = Rval vs) ⇒ no_vlabs_list vs))``,
+  ho_match_mp_tac Cevaluate_ind >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[EVERY_MEM,MEM_EL] >>
+    PROVE_TAC[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >> fs[] >>
+    fs[EVERY_MEM,MEM_EL,GSYM LEFT_FORALL_IMP_THM] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >> fs[FLAT_EQ_NIL,EVERY_GENLIST,EVERY_MAP] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >> fs[] >> rfs[] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    fs[EVERY_REVERSE,EVERY_GENLIST,EVERY_MAP] >> rfs[] >>
+    fsrw_tac[DNF_ss][] >>
+    first_x_assum(match_mp_tac o MP_CANON) >>
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+    metis_tac[free_labs_def,NOT_NIL_CONS] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    ntac 2 gen_tac >>
+    Cases >> ntac 2 gen_tac >>
+    Cases >> rw[] >>
+    fs[el_check_def,EVERY_MEM] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    fs[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >> rw[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    ntac 2 gen_tac >>
+    Cases >> ntac 3 gen_tac >>
+    Cases >> TRY (Cases_on`l`) >> Cases >> TRY (Cases_on`l`) >> rw[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    ntac 5 gen_tac >>
+    Cases >> rw[] >> fs[] >>
+    fs[EVERY_MEM] >>
+    PROVE_TAC[MEM_LUPDATE] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[])
 
 val free_vars_list_MAP = store_thm("free_vars_list_MAP",
   ``∀es. free_vars_list es = BIGUNION (IMAGE free_vars (set es))``,

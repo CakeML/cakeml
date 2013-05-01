@@ -72,6 +72,18 @@ val free_labs_exp_to_Cexp = store_thm("free_labs_exp_to_Cexp",
   >- ( Cases_on`pat_to_Cpat m p`>>fs[] ))
 val _ = export_rewrites["free_labs_exp_to_Cexp"]
 
+val no_vlabs_v_to_Cv = store_thm("no_vlabs_v_to_Cv",
+  ``(∀m (v:α v). no_vlabs (v_to_Cv m v)) ∧
+    (∀m (vs:α v list). no_vlabs_list (vs_to_Cvs m vs)) ∧
+    (∀m (env:α envE). no_vlabs_list (env_to_Cenv m env))``,
+  ho_match_mp_tac v_to_Cv_ind >>
+  rw[v_to_Cv_def] >>
+  TRY(qunabbrev_tac`Ce`)>>
+  TRY(qunabbrev_tac`Cdefs`)>>
+  simp[EVERY_MAP,defs_to_Cdefs_MAP] >>
+  simp[EVERY_MEM,UNCURRY])
+val _ = export_rewrites["no_vlabs_v_to_Cv"]
+
 (* free vars lemmas *)
 
 val Cpat_vars_pat_to_Cpat = store_thm(
@@ -436,20 +448,6 @@ val v_to_Cv_do_tapp = store_thm("v_to_Cv_do_tapp",
   BasicProvers.EVERY_CASE_TAC >>
   rw[])
 val _ = export_rewrites["v_to_Cv_do_tapp"]
-
-(*
-val vlabs_v_to_Cv = store_thm("vlabs_v_to_Cv",
-  ``(∀m (v:α v). vlabs (v_to_Cv m v) = {}) ∧
-    (∀m (vs:α v list). vlabs_list (vs_to_Cvs m vs) = {}) ∧
-    (∀m (env:α envE). EVERY (λv. vlabs v = {}) (env_to_Cenv m env))``,
-  ho_match_mp_tac v_to_Cv_ind >>
-  rw[v_to_Cv_def] >>
-  TRY(qunabbrev_tac`Ce`)>>
-  TRY(qunabbrev_tac`Cdefs`)>>
-  fs[v_to_Cv_def,Abbr`Cenv`,env_to_Cenv_MAP,EVERY_MAP,EVERY_MEM,MEM_MAP,IMAGE_EQ_SING,GSYM LEFT_FORALL_IMP_THM,defs_to_Cdefs_MAP] >>
-  simp[FORALL_PROD])
-val _ = export_rewrites["vlabs_v_to_Cv"]
-*)
 
 val exp_to_Cexp_state_component_equality = DB.fetch"Compile""exp_to_Cexp_state_component_equality"
 
@@ -990,15 +988,46 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         fs[EVERY_MEM,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
         metis_tac[v_to_Cv_closed] ) >>
       qspecl_then[`sa`,`enva`,`e1a`,`sd,Rval (CRecClos env1 defs n)`]mp_tac(CONJUNCT1 Cevaluate_closed)>>
-      simp[FEVERY_DEF] >>
+      simp[] >>
       simp[Q.SPECL[`CRecClos env1 defs n`]Cclosed_cases] >>
+      `free_labs e1a = []` by rw[Abbr`e1a`] >> simp[] >>
       strip_tac >>
-      fs[MEM_EL] >>
-      reverse(Cases_on`EL n defs`)>>fs[]>-metis_tac[]>>
-      PairCases_on`x`>>simp[] >>
+      `∃b. EL n defs = (NONE,1,b)` by (
+        qspecl_then[`sa`,`enva`,`e1a`,`(sd,Rval (CRecClos env1 defs n))`]mp_tac(CONJUNCT1 Cevaluate_no_vlabs) >>
+        simp[] >>
+        discharge_hyps >- (
+          simp[Abbr`sa`,Abbr`enva`,env_to_Cenv_MAP,EVERY_MAP] ) >>
+        simp[EVERY_MAP] >> strip_tac >>
+        `free_labs_def (EL n defs) = []` by (fs[EVERY_MEM,MEM_EL] >> metis_tac[]) >>
+        qabbrev_tac`p = EL n defs` >> PairCases_on`p` >>
+        simp[] >> Cases_on`p0`>>fs[] >>
+        fs[do_app_Opapp_SOME] >> rw[] >- (
+          fs[v_to_Cv_def,LET_THM] >>
+          fs[Q.SPECL[`CRecClos env1 defs zz`]syneq_cases] >>
+          rator_x_assum`syneq_defs`mp_tac >>
+          simp[Once syneq_exp_cases,env_to_Cenv_MAP] >>
+          disch_then(qspecl_then[`0`,`n`]mp_tac) >>
+          simp[] >>
+          simp[syneq_cb_aux_def]  ) >>
+        fs[v_to_Cv_def,LET_THM] >>
+        fs[Q.SPECL[`CRecClos env1 defs zz`]syneq_cases] >>
+        rator_x_assum`syneq_defs`mp_tac >>
+        simp[Once syneq_exp_cases,env_to_Cenv_MAP,defs_to_Cdefs_MAP] >>
+        qmatch_assum_abbrev_tac`V' a n` >>
+        disch_then(qspecl_then[`a`,`n`]mp_tac) >>
+        `(λx. x < LENGTH funs) a` by (
+          qunabbrev_tac`a` >>
+          match_mp_tac THE_find_index_suff >>
+          simp[MEM_MAP,EXISTS_PROD] >>
+          imp_res_tac ALOOKUP_MEM >>
+          PairCases_on`z` >>
+          PROVE_TAC[] ) >>
+        fs[] >>
+        simp[EL_MAP,syneq_cb_aux_def,UNCURRY] ) >>
+      simp[] >>
       fs[do_app_Opapp_SOME] >- (
         rw[] >> fs[v_to_Cv_def,LET_THM] >>
-        fs[Q.SPECL[`c`,`c`,`CRecClos env1 defs zz`]syneq_cases] >>
+        fs[Q.SPECL[`c`,`CRecClos env1 defs zz`]syneq_cases] >>
         rator_x_assum`syneq_defs`mp_tac >>
         Q.PAT_ABBREV_TAC`env0 = env_to_Cenv cm Z` >>
         Q.PAT_ABBREV_TAC`defs0 = [X]:def list` >>
@@ -1010,7 +1039,6 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         simp[syneq_cb_aux_def] >>
         strip_tac >>
         fs[bind_def] >>
-        BasicProvers.VAR_EQ_TAC >>
         qmatch_assum_abbrev_tac`Cevaluate sc envc expc resc` >>
         qspecl_then[`sc`,`envc`,`expc`,`resc`]mp_tac(CONJUNCT1 Cevaluate_syneq) >>
         simp[] >>
@@ -1066,7 +1094,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         qunabbrev_tac`resc`>>fs[]>>
         metis_tac[EVERY2_syneq_trans,result_rel_syneq_trans] ) >>
       rw[] >> fs[v_to_Cv_def,LET_THM,defs_to_Cdefs_MAP] >> rw[] >>
-      reverse(fs[Q.SPECL[`c`,`c`,`CRecClos env1 defs zz`]syneq_cases]) >- (
+      reverse(fs[Q.SPECL[`c`,`CRecClos env1 defs zz`]syneq_cases]) >- (
         qpat_assum`LENGTH funs ≤ X`mp_tac >>
         imp_res_tac ALOOKUP_MEM >>
         qmatch_assum_rename_tac`MEM (a,z) funs`[] >>
@@ -1143,7 +1171,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         map_every qunabbrev_tac[`P`,`Q`,`R`] >>
         simp[] >>
         conj_tac >- (
-          qmatch_abbrev_tac`syneq_exp c z3 z4 U expc ef` >>
+          qmatch_abbrev_tac`syneq_exp z3 z4 U expc ef` >>
           qsuff_tac`(z3 = z1) ∧ (z4 = z2)`>-rw[] >>
           map_every qunabbrev_tac[`z1`,`z2`,`z3`,`z4`] >>
           simp[ADD1,Abbr`envf`,Abbr`env0`] ) >>
@@ -1723,11 +1751,11 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     disch_then(qx_choosel_then[`s3`,`v3`]strip_assume_tac) >>
     CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
     map_every qexists_tac[`vv`,`s2`] >> simp[] >> fs[v_to_Cv_def] >>
-    qmatch_assum_abbrev_tac`Cevaluate c1 s1 env1 exp1 (s3,v3)` >>
-    qspecl_then[`c1`,`s1`,`env1`,`exp1`,`(s3,v3)`]mp_tac(CONJUNCT1 Cevaluate_syneq) >>
+    qmatch_assum_abbrev_tac`Cevaluate s1 env1 exp1 (s3,v3)` >>
+    qspecl_then[`s1`,`env1`,`exp1`,`(s3,v3)`]mp_tac(CONJUNCT1 Cevaluate_syneq) >>
     simp[] >>
     disch_then(qspecl_then[`$=`,`s2`,`vv::(TL env1)`,`exp1`]mp_tac) >>
-    simp[syneq_exp_refl,EXISTS_PROD,Abbr`env1`,ADD1,Abbr`c1`] >>
+    simp[syneq_exp_refl,EXISTS_PROD,Abbr`env1`,ADD1] >>
     discharge_hyps >- (
       Cases >> lrw[EL_CONS] ) >>
     metis_tac[result_rel_syneq_trans,EVERY2_syneq_trans]) >>
@@ -1766,9 +1794,6 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     map_every qx_gen_tac[`p1`,`p2`] >> strip_tac >>
     map_every qexists_tac[`p1`,`p2`] >>
     reverse conj_tac >- METIS_TAC[] >>
-    conj_tac >- (
-      rw[] >> spose_not_then strip_assume_tac >>
-      rfs[Abbr`defs`,EL_MAP,UNCURRY] ) >>
     qmatch_abbrev_tac`Cevaluate ss l1 ee rr` >>
     qmatch_assum_abbrev_tac`Cevaluate ss l2 ee rr` >>
     qsuff_tac`l1 = l2`>-rw[] >>
