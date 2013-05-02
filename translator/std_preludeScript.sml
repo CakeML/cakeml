@@ -3,7 +3,8 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "std_prelude";
 open arithmeticTheory listTheory combinTheory pairTheory sumTheory;
 open optionTheory oneTheory bitTheory stringTheory whileTheory;
 open patriciaTheory finite_mapTheory pred_setTheory;
-open MiniMLTheory MiniMLTerminationTheory Print_astTerminationTheory
+open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
+open terminationTheory;
 
 open ml_translatorLib ml_translatorTheory mini_preludeTheory;;
 
@@ -117,7 +118,7 @@ val ZIP_side_def = prove(
   |> update_precondition;
 
 val EL_side_def = prove(
-  ``!n xs. EL_side n xs = n < LENGTH xs``,
+  ``!n xs. EL_side n xs = (n < LENGTH xs)``,
   Induct THEN Cases_on `xs` THEN FULL_SIMP_TAC (srw_ss())
     [fetch "-" "EL_side_def",CONTAINER_def])
   |> update_precondition;
@@ -145,7 +146,7 @@ val res = translate EXP_AUX_THM; (* tailrec version of EXP *)
 val res = translate MIN_DEF;
 val res = translate MAX_DEF;
 val res = translate EVEN_MOD2;
-val res = translate (REWRITE_RULE [EVEN_MOD2,DECIDE ``~(n = 0) = 0 < n:num``] ODD_EVEN);
+val res = translate (REWRITE_RULE [EVEN_MOD2,DECIDE ``~(n = 0) = (0 < n:num)``] ODD_EVEN);
 val res = translate FUNPOW;
 val res = translate MOD_2EXP_def;
 val res = translate DIV_2EXP_def;
@@ -205,7 +206,7 @@ val res = translate bitTheory.SBIT_def;
 (* patricia trees, i.e. num |-> 'a *)
 
 val FMAP_EQ_PTREE_def = Define `
-  FMAP_EQ_PTREE f p =
+  FMAP_EQ_PTREE f p <=>
     (FDOM f = { n | IS_SOME (PEEK p n) }) /\
     FEVERY (\(n,x). PEEK p n = SOME x) f /\ IS_PTREE p`;
 

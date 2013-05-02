@@ -63,15 +63,15 @@ val res = translate (word_mul_def |> INST_TYPE [alpha|->``:8``]);
 val res = translate (bitTheory.BITWISE_def)
 
 val word_xor_lemma = prove(
-  ``!w v:word32. w ?? v = n2w (BITWISE 32 (\x y. x <> y) (w2n w) (w2n v))``,
+  ``!w v:word32. (w ?? v) = n2w (BITWISE 32 (\x y. x <> y) (w2n w) (w2n v))``,
   REPEAT Cases THEN FULL_SIMP_TAC (srw_ss()) [word_xor_n2w]);
 
 val word_xor_lemma8 = prove(
-  ``!w v:word8. w ?? v = n2w (BITWISE 8 (\x y. x <> y) (w2n w) (w2n v))``,
+  ``!w v:word8. (w ?? v) = n2w (BITWISE 8 (\x y. x <> y) (w2n w) (w2n v))``,
   REPEAT Cases THEN FULL_SIMP_TAC (srw_ss()) [word_xor_n2w]);
 
 val word_xor_lemma16 = prove(
-  ``!w v:word16. w ?? v = n2w (BITWISE 16 (\x y. x <> y) (w2n w) (w2n v))``,
+  ``!w v:word16. (w ?? v) = n2w (BITWISE 16 (\x y. x <> y) (w2n w) (w2n v))``,
   REPEAT Cases THEN FULL_SIMP_TAC (srw_ss()) [word_xor_n2w]);
 
 val res = translate word_xor_lemma
@@ -79,24 +79,24 @@ val res = translate word_xor_lemma8
 val res = translate word_xor_lemma16
 
 val word_or_lemma = prove(
-  ``!w v:word32. w !! v = n2w (BITWISE 32 (\x y. x \/ y) (w2n w) (w2n v))``,
+  ``!w v:word32. (w !! v) = n2w (BITWISE 32 (\x y. x \/ y) (w2n w) (w2n v))``,
   REPEAT Cases THEN FULL_SIMP_TAC (srw_ss()) [word_or_n2w]
-  THEN `(λx y. x ∨ y) = $\/` by FULL_SIMP_TAC std_ss [FUN_EQ_THM]
+  THEN `(\x y. x \/ y) = $\/` by FULL_SIMP_TAC std_ss [FUN_EQ_THM]
   THEN FULL_SIMP_TAC std_ss []);
 
 val word_or_lemma16 = prove(
-  ``!w v:word16. w !! v = n2w (BITWISE 16 (\x y. x \/ y) (w2n w) (w2n v))``,
+  ``!w v:word16. (w !! v) = n2w (BITWISE 16 (\x y. x \/ y) (w2n w) (w2n v))``,
   REPEAT Cases THEN FULL_SIMP_TAC (srw_ss()) [word_or_n2w]
-  THEN `(λx y. x ∨ y) = $\/` by FULL_SIMP_TAC std_ss [FUN_EQ_THM]
+  THEN `(\x y. x \/ y) = $\/` by FULL_SIMP_TAC std_ss [FUN_EQ_THM]
   THEN FULL_SIMP_TAC std_ss []);
 
 val res = translate word_or_lemma
 val res = translate word_or_lemma16
 
 val word_and_lemma = prove(
-  ``!w v:word32. w && v = n2w (BITWISE 32 (\x y. x ∧ y) (w2n w) (w2n v))``,
+  ``!w v:word32. (w && v) = n2w (BITWISE 32 (\x y. x /\ y) (w2n w) (w2n v))``,
   REPEAT Cases THEN FULL_SIMP_TAC (srw_ss()) [word_and_n2w]
-  THEN `(λx y. x ∧ y) = (/\)` by FULL_SIMP_TAC std_ss [FUN_EQ_THM]
+  THEN `(\x y. x /\ y) = (/\)` by FULL_SIMP_TAC std_ss [FUN_EQ_THM]
   THEN FULL_SIMP_TAC std_ss []);
 
 val res = translate word_and_lemma
@@ -106,10 +106,10 @@ val res = translate (WORD_MUL_LSL |> INST_TYPE [alpha|->``:16``])
 val res = translate (WORD_MUL_LSL |> INST_TYPE [alpha|->``:8``])
 
 val WORD_LSR_LEMMA = prove(
-  ``!w n. w >>> n = n2w (w2n w DIV 2**n)``,
+  ``!w n. (w >>> n) = n2w (w2n w DIV 2**n)``,
   Cases THEN SIMP_TAC std_ss [GSYM w2n_11,w2n_lsr,w2n_n2w,n2w_w2n]
   THEN REPEAT STRIP_TAC
-  THEN `n MOD dimword (:α) DIV 2 ** n' < dimword (:α)` by ALL_TAC
+  THEN `n MOD dimword (:'a) DIV 2 ** n' < dimword (:'a)` by ALL_TAC
   THEN FULL_SIMP_TAC std_ss [DIV_LT_X]
   THEN Cases_on `(2:num) ** n'`
   THEN FULL_SIMP_TAC std_ss [ADD1] THEN DECIDE_TAC);
@@ -167,6 +167,4 @@ val res = translate lemma;
 val res = translate (ff32 wordsTheory.word_ror)
 val res = translate (ff32 wordsTheory.word_rol_def)
 
-
 val _ = export_theory();
-
