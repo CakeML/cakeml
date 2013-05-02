@@ -1,5 +1,5 @@
 open preamble;
-open MiniMLTheory;
+open LibTheory SemanticPrimitivesTheory BigStepTheory SmallStepTheory;
 open evaluateEquationsTheory;
 
 val _ = new_theory "bigSmallEquiv";
@@ -130,7 +130,7 @@ rw [small_eval_def] >|
 
 val small_eval_err_add_ctxt =
 SIMP_RULE (srw_ss ()) 
-   [METIS_PROVE [] ``!x y z. x ⇒ y ⇒ z = x ∧ y ⇒ z``]
+   [METIS_PROVE [] ``!x y z. (x ⇒ y ⇒ z) = (x ∧ y ⇒ z)``]
    small_eval_err_add_ctxt;
 
 val small_eval_step_tac =
