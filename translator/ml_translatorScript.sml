@@ -1,6 +1,7 @@
 open HolKernel Parse boolLib bossLib; val _ = new_theory "ml_translator";
 
-open MiniMLTheory MiniMLTerminationTheory;
+open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
+open terminationTheory;
 open arithmeticTheory listTheory combinTheory pairTheory;
 open integerTheory;
 open lcsymtacs;
@@ -34,7 +35,7 @@ val Eq_def = Define `
   Eq (abs:'a->v->bool) x =
     (\y v. (x = y) /\ abs y v)`;
 
-val And_def = Define `And a P x v = P x /\ a (x:'a) (v:v)`;
+val And_def = Define `And a P x v = (P x /\ a (x:'a) (v:v))`;
 
 val U_TYPE_def = Define `
   U_TYPE (u:unit) (v:v) = (v = Litv Unit)`;
@@ -103,7 +104,7 @@ val Eval_Fun = store_thm("Eval_Fun",
   SIMP_TAC std_ss [Eval_def,Arrow_def] \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ASM_SIMP_TAC (srw_ss()) [AppReturns_def,Eval_def,do_app_def,
-       bind_def,evaluate_closure_def,tenv_add_tvs_def]);
+       bind_def,evaluate_closure_def]);
 
 val Eval_Fun_Eq = store_thm("Eval_Fun_Eq",
   ``(!v. a x v ==> Eval ((name,v)::env) body (b (f x))) ==>
@@ -111,7 +112,7 @@ val Eval_Fun_Eq = store_thm("Eval_Fun_Eq",
   SIMP_TAC std_ss [Eval_def,Arrow_def] \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ASM_SIMP_TAC (srw_ss()) [AppReturns_def,evaluate_closure_def,
-       do_app_def,bind_def,Eq_def,tenv_add_tvs_def]);
+       do_app_def,bind_def,Eq_def]);
 
 val And_IMP_Eq = store_thm("And_IMP_Eq",
   ``Eval env exp ((And a P --> b) f) ==>
@@ -138,7 +139,7 @@ val Eval_Let = store_thm("Eval_Let",
   SIMP_TAC std_ss [Eval_def,Arrow_def] \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
   \\ RES_TAC \\ Q.EXISTS_TAC `res''` \\ FULL_SIMP_TAC std_ss [LET_DEF,bind_def]
-  \\ Q.LIST_EXISTS_TAC [`res'`,`empty_store`] \\ FULL_SIMP_TAC std_ss [tenv_add_tvs_def]);
+  \\ Q.LIST_EXISTS_TAC [`res'`,`empty_store`] \\ FULL_SIMP_TAC std_ss []);
 
 val Eval_Var_SWAP_ENV = store_thm("Eval_Var_SWAP_ENV",
   ``!env1.
@@ -316,7 +317,7 @@ val Eval_Recclosure_ALT = store_thm("Eval_Recclosure_ALT",
   \\ FULL_SIMP_TAC (srw_ss()) [AppReturns_def,Eq_def,
        do_app_def,evaluate_closure_def]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ FULL_SIMP_TAC (srw_ss()) [bind_def,build_rec_env_def,FOLDR,tenv_add_tvs_def]);
+  \\ FULL_SIMP_TAC (srw_ss()) [bind_def,build_rec_env_def,FOLDR]);
 
 val Eval_Recclosure = store_thm("Eval_Recclosure",
   ``(!v. a n v ==>
@@ -501,7 +502,7 @@ val Eval_NUM_EQ_0 = store_thm("Eval_NUM_EQ_0",
         Eval env (App (Opb Leq) x (Lit (IntLit 0))) (BOOL (n = 0))``,
   REPEAT STRIP_TAC \\ ASSUME_TAC (Q.SPEC `0` Eval_Val_NUM)
   \\ FULL_SIMP_TAC std_ss [NUM_def]
-  \\ `(n = 0) = &n <= 0` by intLib.COOPER_TAC
+  \\ `(n = 0) = (&n <= 0)` by intLib.COOPER_TAC
   \\ FULL_SIMP_TAC std_ss [Eval_INT_LESS_EQ]);
 
 
@@ -517,7 +518,7 @@ val no_closures_def = tDefine "no_closures" `
   \\ DECIDE_TAC)
 
 val EqualityType_def = Define `
-  EqualityType (abs:'a->v->bool) =
+  EqualityType (abs:'a->v->bool) <=>
     (!x1 v1. abs x1 v1 ==> no_closures v1) /\
     (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> ((v1 = v2) = (x1 = x2)))`;
 
@@ -530,7 +531,7 @@ val no_closures_IMP_NOT_contains_closure = prove(
   HO_MATCH_MP_TAC contains_closure_ind
   \\ SIMP_TAC std_ss [no_closures_def,EVERY_MEM,contains_closure_def,
        EXISTS_MEM] \\ REPEAT STRIP_TAC
-  \\ SIMP_TAC std_ss [METIS_PROVE [] ``~b \/ c = (b ==> c)``]
+  \\ SIMP_TAC std_ss [METIS_PROVE [] ``~b \/ c <=> (b ==> c)``]
   \\ REPEAT STRIP_TAC \\ RES_TAC);
 
 val Eval_Equality = store_thm("Eval_Equality",
@@ -559,8 +560,9 @@ val DeclAssum_def = Define `
 
 val Decls_Dtype = store_thm("Decls_Dtype",
   ``!mn menv cenv s env tds cenv1 s1 env1.
-      Decls mn menv cenv s env [Dtype tds] cenv1 s1 env1 =
-      check_dup_ctors mn cenv tds /\ (cenv1 = build_tdefs mn tds) /\ (env1 = emp) /\ (s1 = s)``,
+      Decls mn menv cenv s env [Dtype tds] cenv1 s1 env1 <=>
+      check_dup_ctors mn cenv tds /\ (cenv1 = build_tdefs mn tds) /\
+      (env1 = emp) /\ (s1 = s)``,
   SIMP_TAC std_ss [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
@@ -577,21 +579,21 @@ val Decls_Dlet = store_thm("Decls_Dlet",
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC (srw_ss()) [pat_bindings_def,ALL_DISTINCT,MEM,
-       pmatch'_def,bind_def,tenv_add_tvs_def, evaluate_dec'_cases,
+       pmatch'_def,bind_def, evaluate_dec'_cases,
        combine_dec_result_def, emp_def, merge_def]
   \\ METIS_TAC []);
 
 val Decls_Dletrec = store_thm("Decls_Dletrec",
   ``!mn menv cenv s env funs cenv1 s1 env1.
-      Decls mn menv cenv s env [Dletrec funs] cenv1 s1 env1 =
+      Decls mn menv cenv s env [Dletrec funs] cenv1 s1 env1 <=>
       ALL_DISTINCT (MAP (\(x,y,z). x) funs) /\
       (cenv1 = emp) /\ (env1 = build_rec_env funs env emp) /\ (s1 = s)``,
   SIMP_TAC std_ss [Decls_def]
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
   \\ ONCE_REWRITE_TAC [evaluate_decs'_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ FULL_SIMP_TAC (srw_ss()) [pat_bindings_def,ALL_DISTINCT,MEM,pmatch_def,bind_def,
-                               merge_def, emp_def, evaluate_dec'_cases,
-                               combine_dec_result_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [pat_bindings_def,ALL_DISTINCT,MEM,
+       pmatch_def,bind_def,merge_def, emp_def, evaluate_dec'_cases,
+       combine_dec_result_def]
   \\ METIS_TAC []);
 
 val _ = temp_overload_on("has_emp",``\x. FST x = empty_store``)
@@ -736,7 +738,7 @@ val evaluate'_empty_store_EQ = store_thm("evaluate'_empty_store_EQ",
   METIS_TAC [evaluate'_empty_store_IMP]);
 
 val evaluate'_empty_store = store_thm("evaluate'_empty_store",
-  ``evaluate' s2 env xs ((empty_store,Rval ys)) =
+  ``evaluate' s2 env xs ((empty_store,Rval ys)) <=>
     evaluate' s2 env xs ((empty_store,Rval ys)) /\ (s2 = empty_store)``,
   REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC evaluate'_empty_store_lemma \\ FULL_SIMP_TAC std_ss []);
@@ -746,35 +748,16 @@ val evaluate_list'_empty_store = prove(
   REPEAT STRIP_TAC \\ IMP_RES_TAC evaluate'_empty_store_lemma
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
-(*
-val evaluate_decs'_empty_store_IMP = prove(
-  ``!ds1 mn menv cenv1 s2 env'.
-      evaluate_decs' mn menv cenv1 s2 env' ds1 (empty_store,Rval (cenv3,env3)) ==>
-      (s2 = empty_store)``,
-  Induct \\ ONCE_REWRITE_TAC [evaluate_decs'_cases]
-  \\ FULL_SIMP_TAC (srw_ss()) [] \\ Cases \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ REPEAT STRIP_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss [evaluate_dec'_cases]
-  \\ IMP_RES_TAC evaluate'_empty_store_lemma
-  \\ FULL_SIMP_TAC (srw_ss()) []);
-
-val evaluate_decs'_empty_store = prove(
-  ``evaluate_decs' cenv1 s2 env' ds1 (empty_store,Rval (cenv3,env3)) =
-    evaluate_decs' cenv1 s2 env' ds1 (empty_store,Rval (cenv3,env3)) /\
-    (s2 = empty_store)``,
-  METIS_TAC [evaluate_decs'_empty_store_IMP]);
-  *)
-
 val combine_dec_result_rval = Q.prove (
-`!new_tds new_env cenv env.
-  combine_dec_result new_tds new_env (Rval (cenv, env)) =
-  Rval (merge cenv new_tds, merge env new_env)`,
-rw [combine_dec_result_def]);
+  `!new_tds new_env cenv env.
+     combine_dec_result new_tds new_env (Rval (cenv, env)) =
+     Rval (merge cenv new_tds, merge env new_env)`,
+  rw [combine_dec_result_def]);
 
 val combine_dec_result_rerr = Q.prove (
-`!new_tds new_env err.
-  combine_dec_result new_tds new_env (Rerr err) =
-  Rerr err`,
-rw [combine_dec_result_def]);
+  `!new_tds new_env err.
+     combine_dec_result new_tds new_env (Rerr err) = Rerr err`,
+  rw [combine_dec_result_def]);
 
 val Decls_APPEND = store_thm("Decls_APPEND",
   ``!s1 s3 mn menv cenv1 cenv4 ds1 ds2 env1 env4.
@@ -828,7 +811,7 @@ val Decls_CONS = save_thm("Decls_CONS",
   |> REWRITE_RULE [APPEND]);
 
 val Decls_NIL = store_thm("Decls_NIL",
-  ``Decls mn menv cenv1 s1 env1 [] cenv2 s2 env2 =
+  ``Decls mn menv cenv1 s1 env1 [] cenv2 s2 env2 <=>
       (env2 = emp) /\ (s2 = s1) /\ (cenv2 = emp)``,
   SIMP_TAC std_ss [Decls_def]
   \\ SIMP_TAC (srw_ss()) [Once evaluate_decs'_cases]
@@ -949,7 +932,7 @@ val IMP_PreImp = store_thm("IMP_PreImp",
 
 val evaluate_list_SIMP = store_thm("evaluate_list_SIMP",
   ``(evaluate_list' empty_store env [] (empty_store,Rval ([])) = T) /\
-    (evaluate_list' empty_store env (x::xs) (empty_store,Rval ((y::ys))) =
+    (evaluate_list' empty_store env (x::xs) (empty_store,Rval ((y::ys))) <=>
      evaluate' empty_store  env x (empty_store,Rval (y)) /\
      evaluate_list' empty_store env xs (empty_store,Rval (ys)))``,
   REPEAT STRIP_TAC \\ SIMP_TAC std_ss [Once evaluate_cases]
@@ -984,8 +967,8 @@ val FALSE_def = Define `FALSE = F`;
 val TRUE_def = Define `TRUE = T`;
 
 val MEMBER_def = Define `
-  (MEMBER (x:'a) [] = F) /\
-  (MEMBER x (y::ys) = (x = y) \/ MEMBER x ys)`;
+  (MEMBER (x:'a) [] <=> F) /\
+  (MEMBER x (y::ys) <=> (x = y) \/ MEMBER x ys)`;
 
 val MEM_EQ_MEMBER = prove(
   ``!ys x. MEM x ys = MEMBER x ys``,
