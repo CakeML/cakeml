@@ -8,6 +8,7 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 SEM_BARE_THYS = AstTheory \
 	        ElabTheory \
 	        lexer_funTheory \
+	        TypeSystemTheory
 
 UNIF_BAR_THYS = collapseTheory \
 		redUnifTheory \

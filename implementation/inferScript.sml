@@ -1,4 +1,4 @@
-open preamble AstTheory;
+open preamble AstTheory TypeSystemTheory;
 open unifyTheory collapseTheory;
 open stringTheory monadsyntax;
 
