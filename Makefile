@@ -9,11 +9,14 @@ clean:
 	cd metatheory; Holmake cleanAll
 	cd semantics; Holmake cleanAll
 	cd implementation; Holmake cleanAll
+	cd translator; Holmake cleanAll
 
 all_lem:
 	make -C semantics
 	make -C metatheory
+	make -C translator
 
 clean_lem:
 	make -C semantics clean
 	make -C metatheory clean
+	make -C translator clean

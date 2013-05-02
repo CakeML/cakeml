@@ -1,4 +1,5 @@
-open MiniML
+open Lib
+open Ast
 open Tokens
 
 val Num : Int.int -> num
