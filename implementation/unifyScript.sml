@@ -1,4 +1,4 @@
-open preamble finite_mapTheory optionTheory MiniMLTheory; 
+open preamble finite_mapTheory optionTheory LibTheory AstTheory; 
 open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory;
 
 val option_bind_thm = Q.prove (

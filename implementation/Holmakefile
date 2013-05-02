@@ -1,0 +1,18 @@
+INCLUDES=.. ../semantics $(HOLDIR)/examples/unification/triangular/first-order
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = impl_heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+BARE_THYS = ../semantics/TerminationTheory \
+	    ../semantics/ElabTheory \
+	    ../semantics/lexer_funTheory \
+	    $(HOLDIR)/examples/unification/triangular/first-order/walkTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b ../semantics/sem_heap -o $(HOLHEAP) $(BARE_THYS)
+endif
+

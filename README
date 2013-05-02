@@ -1,17 +1,20 @@
+The CakeML project.  See http://www.cl.cam.ac.uk/~mom22/cakeml
+
 Directory structure:
 
 - semantics
-    The definition of MiniML, including
+    The definition of CakeML, including
+    - its concrete syntax
     - its abstract syntax
     - small step semantics
     - big step semantics
     - a type system
-    The definition is expressed in Lem (http://www.cl.cam.ac.uk/~so294/lem),
-    but might not work on the released version at any given time, so the 
-    generated HOL is also included.
+    The definition is (mostly) expressed in Lem
+    (http://www.cs.kent.ac.uk/~sao/lem), but the generated HOL is also
+    included.
 
-- print_ast
-    - a printer for MiniML's AST.
+- implementation
+    The compiler implementation
 
 - metatheory
     Proofs about MiniML, including
@@ -21,6 +24,12 @@ Directory structure:
 
 - translator
     A proof-producing translator from HOL functions to MiniML
+
+- hol-light
+    An implementation of Hol light (http://www.cl.cam.ac.uk/~jrh13/hol-light/)
+    in CakeML
+
+below here, refactor
 
 - translator/okasaki-examples
     15 data structures/algorithms from Chris Okasaki's Purely Functional Data
@@ -39,5 +48,3 @@ Directory structure:
 - compiler
     The sketchy beginnings of a verified compiler from MiniML to ???
 
-- lexer
-    The start of a verified lexer generator.

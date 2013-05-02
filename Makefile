@@ -8,6 +8,7 @@ test:
 clean:
 	cd metatheory; Holmake cleanAll
 	cd semantics; Holmake cleanAll
+	cd implementation; Holmake cleanAll
 
 all_lem:
 	make -C semantics

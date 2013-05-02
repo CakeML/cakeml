@@ -1,4 +1,4 @@
-INCLUDES=.. ../semantics
+INCLUDES=.. ../semantics ../implementation
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -7,11 +7,12 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = ../semantics/TerminationTheory \
             ../semantics/BigStepTheory \
-            ../semantics/TypeSystemTheory
+            ../semantics/TypeSystemTheory \
+            ../semantics/SmallStepTheory \
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b ../semantics/sem_heap -o $(HOLHEAP) $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -b ../semantics/impl_heap -o $(HOLHEAP) $(BARE_THYS)
 endif
 

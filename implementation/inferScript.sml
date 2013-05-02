@@ -1,4 +1,4 @@
-open preamble MiniMLTheory MiniMLTerminationTheory;
+open preamble AstTheory;
 open unifyTheory collapseTheory;
 open stringTheory monadsyntax;
 
