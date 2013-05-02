@@ -1,0 +1,46 @@
+The semantics of CakeML
+
+lexer_funScript.sml
+    A functional specification of a lexing function from strings to token lists
+
+tokens.lem
+    The tokens
+
+tokenUtilsScript.sml
+    Some theorems about tokens that the grammar needs
+
+gramScript.sml
+    The grammar that specifies how token lists should be converted to parsing
+    ASTs
+
+elab.lem
+    Defines parsing ASTs, and an elaboration function that converts into the
+    main AST by resolving references to primitives and module bindings.
+
+ast.lem
+    Defines the AST
+
+typeSystem.lem
+    Specifies the type system
+
+semanticPrimitives.lem
+    Definitions of semantic primitives (e.g., values, and functions for doing
+    primitive operations) that are use in both the big-step and small-step
+    semantics.
+
+smallStep.lem
+    A small-step semantics based on the CEKS machine.  Only for expressions.
+
+bigStep.lem
+    A big-step semantics.  For modules, definitions, and expressions.
+    The big-step and small-step semantics are proven equivalent in the
+    metatheory directory.
+
+altBigStep.lem
+    An alternate big-step semantics used by the HOL-to-CakeML translator.  For
+    well-typed programs, if the program evaluates to a value or error in it,
+    then the program evaluates to the same value or error in the bigStep.lem
+    semantics (proved in metatheory).
+
+terminationScript.sml
+    Termination proofs for recursive functions defined in the .lem files

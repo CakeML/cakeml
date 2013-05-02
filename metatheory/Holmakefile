@@ -6,7 +6,9 @@ HOLHEAP = meta_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = ../semantics/TerminationTheory \
-            ../semantics/BigStepTheory
+            ../semantics/BigStepTheory \
+            ../semantics/TypeSystemTheory
+
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

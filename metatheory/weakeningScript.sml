@@ -1,6 +1,9 @@
 open preamble;
 open optionTheory rich_listTheory;
-open MiniMLTheory MiniMLTerminationTheory typeSystemTheory;
+open LibTheory AstTheory TypeSystemTheory typeSysPropsTheory;
+open SemanticPrimitivesTheory;
+open TypeSoundInvariantsTheory;
+open terminationTheory metaTerminationTheory;
 
 val _ = new_theory "weakening";
 
@@ -72,10 +75,10 @@ metis_tac []);
 
 val weak_tenvE_def = Define `
 weak_tenvE tenv tenv' = 
-  num_tvs tenv ≥ num_tvs tenv' ∧
-  ∀n inc tvs t. 
+  (num_tvs tenv ≥ num_tvs tenv' ∧
+   ∀n inc tvs t. 
     (lookup_tenv n inc tenv' = SOME (tvs,t)) ⇒
-    (lookup_tenv n inc tenv = SOME (tvs,t))`;
+    (lookup_tenv n inc tenv = SOME (tvs,t)))`;
 
 val weakM_def = Define `
 weakM tenvM tenvM' =

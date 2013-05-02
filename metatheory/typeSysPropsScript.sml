@@ -1,7 +1,11 @@
 (* Theorems about type_e, type_es, and type_funs *)
-open preamble MiniMLTheory MiniMLTerminationTheory rich_listTheory;
+open preamble rich_listTheory;
+open LibTheory AstTheory TypeSystemTheory terminationTheory;
 
-val _ = new_theory "typeSystem";
+val _ = new_theory "typeSysProps";
+
+val check_dup_ctors_def = SemanticPrimitivesTheory.check_dup_ctors_def;
+val build_tdefs_def = SemanticPrimitivesTheory.build_tdefs_def;
 
 val all_distinct_map_inj = Q.prove (
 `!f l. (!x y. (f x = f y) ⇒ (x = y)) ⇒ (ALL_DISTINCT (MAP f l) = ALL_DISTINCT l)`,
@@ -37,17 +41,17 @@ rw [option_map_def]);
 val consistent_con_env_def = Define `
   (consistent_con_env [] [] = T) ∧
   (consistent_con_env ((cn, (n, tn'))::envC) ((cn', (tvs, ts, tn))::tenvC) =
-    (cn = cn') ∧
-    (tn = tn') ∧
-    (LENGTH ts = n) ∧
-    consistent_con_env envC tenvC) ∧
+    ((cn = cn') ∧
+     (tn = tn') ∧
+     (LENGTH ts = n) ∧
+     consistent_con_env envC tenvC)) ∧
   (consistent_con_env _ _ = F)`;
 
 val tenv_ok_def = Define `
 (tenv_ok Empty = T) ∧
 (tenv_ok (Bind_tvar n tenv) = tenv_ok tenv) ∧
 (tenv_ok (Bind_name x tvs t tenv) = 
-  check_freevars (tvs + num_tvs tenv) [] t ∧ tenv_ok tenv)`;
+  (check_freevars (tvs + num_tvs tenv) [] t ∧ tenv_ok tenv))`;
 
 val same_module_def = Define `
 (same_module (Short x) (Short y) = T) ∧
@@ -56,8 +60,8 @@ val same_module_def = Define `
 
 val tenvC_ok_def = Define `
 tenvC_ok tenvC = 
-ALL_DISTINCT (MAP FST tenvC) ∧
-EVERY (\(cn,tvs,ts,tn). same_module cn tn ∧ EVERY (check_freevars 0 tvs) ts) tenvC`;
+(ALL_DISTINCT (MAP FST tenvC) ∧
+ EVERY (\(cn,tvs,ts,tn). same_module cn tn ∧ EVERY (check_freevars 0 tvs) ts) tenvC)`;
 
 val disjoint_env_def = Define `
   disjoint_env e1 e2 =
@@ -66,7 +70,7 @@ val disjoint_env_def = Define `
 val tenvC_ok_merge = Q.store_thm ("tenvC_ok_merge",
 `!tenvC1 tenvC2.
   tenvC_ok (merge tenvC1 tenvC2) = 
-  tenvC_ok tenvC1 ∧ tenvC_ok tenvC2 ∧ disjoint_env tenvC1 tenvC2`, 
+  (tenvC_ok tenvC1 ∧ tenvC_ok tenvC2 ∧ disjoint_env tenvC1 tenvC2)`, 
 rw [tenvC_ok_def, merge_def, ALL_DISTINCT_APPEND] >>
 eq_tac >>
 rw [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
@@ -74,15 +78,6 @@ metis_tac []);
 
 val tenvM_ok_def = Define `
 tenvM_ok tenvM = EVERY (\(mn,tenv). tenv_ok (bind_var_list2 tenv Empty)) tenvM`;
-
-val consistent_mod_env_def = Define `
-(consistent_mod_env tenvS tenvC [] [] = T) ∧
-(consistent_mod_env tenvS tenvC ((mn,env)::menv) ((mn',tenv)::tenvM) =
-  (mn = mn') ∧
-  ¬(MEM mn (MAP FST tenvM)) ∧
-  type_env tenvM tenvC tenvS env (bind_var_list2 tenv Empty) ∧
-  consistent_mod_env tenvS tenvC menv tenvM) ∧
-(consistent_mod_env tenvS tenvC _ _ = F)`;
 
 val tenvC_ok_lookup = Q.store_thm ("tenvC_ok_lookup",
 `!tenvC cn tvs ts tn.
@@ -229,8 +224,8 @@ rw [check_freevars_def, type_subst_def, EVERY_MAP] >|
 val type_uop_cases = Q.store_thm ("type_uop_cases",
 `∀uop t1 t2.
   type_uop uop t1 t2 =
-  ((uop = Opref) ∧ (t2 = Tref t1)) ∨
-  ((uop = Opderef) ∧ (t1 = Tref t2))`,
+  (((uop = Opref) ∧ (t2 = Tref t1)) ∨
+   ((uop = Opderef) ∧ (t1 = Tref t2)))`,
 rw [type_uop_def, Tint_def, Tbool_def, Tunit_def, Tref_def] >>
 cases_on `uop` >>
 rw [] >>
@@ -247,11 +242,11 @@ metis_tac []);
 val type_op_cases = Q.store_thm ("type_op_cases",
 `!op t1 t2 t3.
   type_op op t1 t2 t3 =
-  ((∃op'. op = Opn op') ∧ (t1 = Tint) ∧ (t2 = Tint) ∧ (t3 = Tint)) ∨
-  ((∃op'. op = Opb op') ∧ (t1 = Tint) ∧ (t2 = Tint) ∧ (t3 = Tbool)) ∨
-  ((op = Opapp) ∧ (t1 = Tfn t2 t3)) ∨
-  ((op = Equality) ∧ (t1 = t2) ∧ (t3 = Tbool)) ∨
-  ((op = Opassign) ∧ (t1 = Tref t2) ∧ (t3 = Tunit))`,
+  (((∃op'. op = Opn op') ∧ (t1 = Tint) ∧ (t2 = Tint) ∧ (t3 = Tint)) ∨
+   ((∃op'. op = Opb op') ∧ (t1 = Tint) ∧ (t2 = Tint) ∧ (t3 = Tbool)) ∨
+   ((op = Opapp) ∧ (t1 = Tfn t2 t3)) ∨
+   ((op = Equality) ∧ (t1 = t2) ∧ (t3 = Tbool)) ∨
+   ((op = Opassign) ∧ (t1 = Tref t2) ∧ (t3 = Tunit)))`,
 rw [type_op_def, Tfn_def, Tint_def, Tbool_def, Tunit_def, Tref_def] >>
 cases_on `op` >>
 rw [] >>
@@ -580,22 +575,6 @@ rw [MEM_MAP] >|
      rw [] >>
      metis_tac [type_funs_lookup, optionTheory.NOT_SOME_NONE],
  metis_tac []]);
-
-val build_rec_env_help_lem = Q.prove (
-`∀funs env funs'.
-FOLDR (λ(f,x,e) env'. bind f (Recclosure env funs' f) env') env' funs =
-merge (MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs) env'`,
-Induct >>
-rw [merge_def, bind_def] >>
-PairCases_on `h` >>
-rw []);
-
-(* Alternate definition for build_rec_env *)
-val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
-`∀funs funs' env env'.
-  build_rec_env funs env env' =
-  merge (MAP (λ(fn,n,e). (fn, Recclosure env funs fn)) funs) env'`,
-rw [build_rec_env_def, build_rec_env_help_lem]);
 
 val deBruijn_subst_tenvE_def = Define `
 (deBruijn_subst_tenvE targs Empty = Empty) ∧
@@ -1404,7 +1383,7 @@ fs []);
 
 val lookup_append_none = Q.store_thm ("lookup_append_none",
 `!x e1 e2. 
-  (lookup x (e1++e2) = NONE) = (lookup x e1 = NONE) ∧ (lookup x e2 = NONE)`,
+  (lookup x (e1++e2) = NONE) = ((lookup x e1 = NONE) ∧ (lookup x e2 = NONE))`,
 rw [lookup_append] >>
 eq_tac >>
 rw [] >>
@@ -1454,7 +1433,7 @@ rw [build_ctor_tenv_def]);
 val build_ctor_tenv_cons = Q.prove (
 `∀tvs tn ctors tds.
   build_ctor_tenv mn ((tvs,tn,ctors)::tds) =
-    MAP (λ(cn,ts). (mk_id mn cn,tvs,ts,mk_id mn tn)) ctors ++ build_ctor_tenv mn tds`,
+    (MAP (λ(cn,ts). (mk_id mn cn,tvs,ts,mk_id mn tn)) ctors ++ build_ctor_tenv mn tds)`,
 rw [build_ctor_tenv_def]);
 
 val lemma = Q.prove (
@@ -1464,8 +1443,8 @@ rw []);
 val every_conj_tup3 = Q.prove (
 `!P Q l.
   EVERY (\(x,y,z). P x y z ∧ Q x y z) l =
-  EVERY (\(x,y,z). P x y z) l ∧
-  EVERY (\(x,y,z). Q x y z) l`,
+  (EVERY (\(x,y,z). P x y z) l ∧
+   EVERY (\(x,y,z). Q x y z) l)`,
 induct_on `l` >>
 rw [] >>
 cases_on `h` >>

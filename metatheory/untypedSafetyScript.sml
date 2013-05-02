@@ -1,5 +1,7 @@
 open preamble;
-open MiniMLTheory MiniMLTerminationTheory evaluateEquationsTheory determTheory bigSmallEquivTheory;
+open LibTheory AstTheory BigStepTheory SmallStepTheory SemanticPrimitivesTheory
+open evaluateEquationsTheory determTheory bigSmallEquivTheory
+open terminationTheory metaTerminationTheory
 
 val _ = new_theory "untypedSafety";
 
@@ -10,7 +12,7 @@ val _ = new_theory "untypedSafety";
 val untyped_safety_exp_step = Q.prove (
 `∀menv cenv s env e c.
   (e_step (menv,cenv, s, env, e, c) = Estuck) =
-  (c = []) ∧ ((?v. e = Val v) ∨ (?err. e = Exp (Raise err)))`,
+  ((c = []) ∧ ((?v. e = Val v) ∨ (?err. e = Exp (Raise err))))`,
 rw [e_step_def, continue_def, push_def, return_def] >>
 every_case_tac);
 
@@ -44,7 +46,7 @@ metis_tac [e_step_rtc_cenv_same_lem]);
 val small_exp_safety1 = Q.prove (
 `!menv cenv s env e r.
   ¬(e_diverges menv cenv s env e ∧ ?r. small_eval menv cenv s env e [] r)`,
-rw [e_diverges_def, METIS_PROVE [] ``~x ∨ ~y = y ⇒ ~x``] >>
+rw [e_diverges_def, METIS_PROVE [] ``(~x ∨ ~y) = (y ⇒ ~x)``] >>
 cases_on `r` >>
 cases_on `r'` >>
 (TRY (Cases_on `e'`)) >>
@@ -62,7 +64,7 @@ fs [small_eval_def, e_step_reln_def] >|
 val small_exp_safety2 = Q.prove (
 `!menv cenv s env e.
   e_diverges menv cenv s env e ∨ ?r. small_eval menv cenv s env e [] r`,
-rw [e_diverges_def, METIS_PROVE [] ``x ∨ y = ~x ⇒ y``, e_step_reln_def] >>
+rw [e_diverges_def, METIS_PROVE [] ``(x ∨ y) = (~x ⇒ y)``, e_step_reln_def] >>
 cases_on `e_step (menv',cenv',s',env',e',c')` >>
 fs [untyped_safety_exp_step] >>
 `(cenv = cenv') ∧ (menv = menv')` by metis_tac [e_step_rtc_cenv_same] >|
