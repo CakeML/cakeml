@@ -1,4 +1,4 @@
-INCLUDES = ../translator ../semantics ../print_ast
+INCLUDES = ../translator ../semantics
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -6,10 +6,8 @@ HOLHEAP = local-hol-heap
 PARENT_HOLHEAP = ../translator/local-hol-heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../semantics/MiniMLTheory \
-            ../semantics/MiniMLTerminationTheory \
-            ../print_ast/Print_astTheory \
-            ../print_ast/Print_astTerminationTheory
+BARE_THYS = ../translator/Print_astTheory \
+            ../translator/Print_astTerminationTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

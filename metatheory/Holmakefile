@@ -5,12 +5,20 @@ ifdef POLY
 HOLHEAP = meta_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../semantics/TerminationTheory \
-            ../semantics/BigStepTheory \
-            ../semantics/TypeSystemTheory \
-            ../semantics/SmallStepTheory
+PRE_BARE_THYS = AltBigStepTheory \
+		AstTheory \
+		BigStepTheory \
+		LibTheory \
+		SemanticPrimitivesTheory \
+		SmallStepTheory \
+		TokensTheory \
+		TypeSystemTheory \
+		terminationTheory \
+		tokenUtilsTheory
 
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+BARE_THYS = $(patsubst %,../semantics/%,$(PRE_BARE_THYS))
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) ../semantics/sem_heap
 
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b ../semantics/sem_heap -o $(HOLHEAP) $(BARE_THYS)

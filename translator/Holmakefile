@@ -6,9 +6,14 @@ HOLHEAP = local-hol-heap
 PARENT_HOLHEAP = ../semantics/sem_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../semantics/AstTheory \
-            ../semantics/terminationTheory \
-	    ../semantics/AltBigStepTheory
+PRE_BARE_THYS = AstTheory \
+		TokensTheory \
+		LibTheory \
+		SemanticPrimitivesTheory \
+		AltBigStepTheory
+
+BARE_THYS =  $(patsubst %,../semantics/%,$(PRE_BARE_THYS))
+
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

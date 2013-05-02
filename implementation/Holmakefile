@@ -5,10 +5,16 @@ ifdef POLY
 HOLHEAP = impl_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../semantics/TerminationTheory \
-	    ../semantics/ElabTheory \
-	    ../semantics/lexer_funTheory \
-	    $(HOLDIR)/examples/unification/triangular/first-order/walkTheory
+SEM_BARE_THYS = AstTheory \
+	        ElabTheory \
+	        lexer_funTheory \
+
+UNIF_BAR_THYS = collapseTheory \
+		redUnifTheory \
+		unifDefTheory \
+		unifPropsTheory
+
+BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) $(patsubst %,$(HOLDIR)/examples/unification/triangular/first-order/%,$(UNIF_BARE_THYS))  
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
