@@ -14,7 +14,8 @@ val _ = new_theory "Tokens"
 (* Tokens for Standard ML.  NB, not all of them are used in CakeML *)
 val _ = Hol_datatype `
  token =
-  HashT | LparT | RparT | StarT | CommaT | ArrowT | DotsT | ColonT | SealT 
+  WhitespaceT of num | NewlineT
+| HashT | LparT | RparT | StarT | CommaT | ArrowT | DotsT | ColonT | SealT 
 | SemicolonT | EqualsT | DarrowT | LbrackT | RbrackT | UnderbarT | LbraceT 
 | BarT | RbraceT | AbstypeT | AndT | AndalsoT | AsT | CaseT | DatatypeT | DoT 
 | ElseT | EndT | EqtypeT | ExceptionT | FnT | FunT | FunctorT | HandleT | IfT 
