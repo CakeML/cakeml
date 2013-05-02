@@ -147,17 +147,17 @@ val _ = add_infix("otherwise",400,HOLgrammars.RIGHT)
 (* others *)
 
 val _ = Define `
-  can f x = do f x ; return T od
-            otherwise return F`;
+  can f x = (do f x ; return T od
+             otherwise return F)`;
 
 val _ = Define `
-  try f x msg = f x otherwise failwith msg`;
+  try f x msg = (f x otherwise failwith msg)`;
 
 val raise_clash_def = Define `
   ((raise_clash c) :'a M) = do set_the_clash_var c ; failwith "clash" od`;
 
 val handle_clash_def = Define `
-  handle_clash x f = x otherwise do v <- get_the_clash_var ; f v od`;
+  handle_clash x f = (x otherwise do v <- get_the_clash_var ; f v od)`;
 
 (* define failing lookup function *)
 
@@ -618,7 +618,7 @@ val EXISTS_IMP = prove(
   Induct THEN SIMP_TAC (srw_ss()) [EXISTS_DEF] THEN METIS_TAC []);
 
 val MEM_union = prove(
-  ``!y z x. MEM x (union y z) = MEM x y \/ MEM x z``,
+  ``!y z x. MEM x (union y z) = (MEM x y \/ MEM x z)``,
   Induct
   THEN FULL_SIMP_TAC std_ss [fetch "-" "union_def"]
   THEN ONCE_REWRITE_TAC [fetch "-" "itlist_def"]
@@ -626,7 +626,7 @@ val MEM_union = prove(
   THEN SRW_TAC [] [] THEN METIS_TAC []);
 
 val MEM_subtract = prove(
-  ``!y z x. MEM x (subtract y z) = MEM x y /\ ~MEM x z``,
+  ``!y z x. MEM x (subtract y z) = (MEM x y /\ ~MEM x z)``,
   FULL_SIMP_TAC std_ss [fetch "-" "subtract_def",MEM_FILTER] THEN METIS_TAC []);
 
 val vfree_in_IMP = prove(
