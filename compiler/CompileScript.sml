@@ -1397,53 +1397,65 @@ val _ = Defn.save_defn compile_defn;
 
 (* code env to bytecode *)
 
+(* edit free_labs to include Some/None, ez, nz, and ix, and add a free_labs_defs
+ * constant, and then use free_labs as the basis for both good_code_env and
+ * code_env_code *)
+
  val free_labs_defn = Hol_defn "free_labs" `
 
-(free_labs (CDecl _) = [])
+(free_labs ez (CDecl _) = [])
 /\
-(free_labs (CRaise _) = [])
+(free_labs ez (CRaise _) = [])
 /\
-(free_labs (CHandle e1 e2) = free_labs e1 ++ free_labs e2)
+(free_labs ez (CHandle e1 e2) = free_labs ez e1 ++ free_labs (ez +1) e2)
 /\
-(free_labs (CVar _) = [])
+(free_labs ez (CVar _) = [])
 /\
-(free_labs (CLit _) = [])
+(free_labs ez (CLit _) = [])
 /\
-(free_labs (CCon _ es) = free_labs_list es)
+(free_labs ez (CCon _ es) = free_labs_list ez es)
 /\
-(free_labs (CTagEq e _) = free_labs e)
+(free_labs ez (CTagEq e _) = free_labs ez e)
 /\
-(free_labs (CProj e _) = free_labs e)
+(free_labs ez (CProj e _) = free_labs ez e)
 /\
-(free_labs (CLet e b) = free_labs e ++ free_labs b)
+(free_labs ez (CLet e b) = free_labs ez e ++ free_labs (ez +1) b)
 /\
-(free_labs (CLetrec defs e) = FLAT ( MAP free_labs_def defs) ++ free_labs e)
+(free_labs ez (CLetrec defs e) =
+  free_labs_defs ez ( LENGTH defs) 0 defs ++
+  free_labs (ez + LENGTH defs) e)
 /\
-(free_labs (CFun def) = free_labs_def def)
+(free_labs ez (CFun def) = free_labs_def ez 1 0 def)
 /\
-(free_labs (CCall e es) = free_labs e ++ free_labs_list es)
+(free_labs ez (CCall e es) = free_labs ez e ++ free_labs_list ez es)
 /\
-(free_labs (CPrim2 _ e1 e2) = free_labs e1 ++ free_labs e2)
+(free_labs ez (CPrim2 _ e1 e2) = free_labs ez e1 ++ free_labs ez e2)
 /\
-(free_labs (CUpd e1 e2) = free_labs e1 ++ free_labs e2)
+(free_labs ez (CUpd e1 e2) = free_labs ez e1 ++ free_labs ez e2)
 /\
-(free_labs (CPrim1 _ e) = free_labs e)
+(free_labs ez (CPrim1 _ e) = free_labs ez e)
 /\
-(free_labs (CIf e1 e2 e3) = free_labs e1 ++ (free_labs e2 ++ free_labs e3))
+(free_labs ez (CIf e1 e2 e3) = free_labs ez e1 ++ (free_labs ez e2 ++ free_labs ez e3))
 /\
-(free_labs_list [] = [])
+(free_labs_list ez [] = [])
 /\
-(free_labs_list (e::es) = free_labs e ++ free_labs_list es)
+(free_labs_list ez (e::es) = free_labs ez e ++ free_labs_list ez es)
 /\
-(free_labs_def (SOME cd,(az,b)) = (cd,(az,b)) ::(free_labs b))
+(free_labs_defs ez nz ix [] = [])
 /\
-(free_labs_def (NONE,(az,b)) = free_labs b)`;
+(free_labs_defs ez nz ix (d::ds) = free_labs_def ez nz ix d ++ free_labs_defs ez nz (ix +1) ds)
+/\
+(free_labs_def ez nz ix (SOME (l,(cc,(re,ev))),(az,b)) =
+  (SOME ((ez,nz,ix),(l,(cc,(re,ev))),(az,b)) ::(free_labs (1 + LENGTH re + LENGTH ev + az) b)))
+/\
+(free_labs_def ez nz ix (NONE,(az,b)) = (NONE ::free_labs (ez +nz +az) b))`;
 
 val _ = Defn.save_defn free_labs_defn;
 
  val cce_aux_def = Define `
- (cce_aux s ((l,(ccenv,_)),(az,b)) =
-  compile ( MAP CTEnv ccenv) (TCTail az 0) 0 (emit s [Label l]) b)`;
+ (cce_aux s (SOME (_,(l,(ccenv,_)),(az,b))) =
+  compile ( MAP CTEnv ccenv) (TCTail az 0) 0 (emit s [Label l]) b)
+/\ (cce_aux s NONE = s)`;
 
 
  val compile_code_env_def = Define `
@@ -1452,7 +1464,7 @@ val _ = Defn.save_defn free_labs_defn;
   let (s,ls) = get_labels 1 s in
   let l = EL  0  ls in
   let s = emit s [Jump (Lab l)] in
-  let s = FOLDL cce_aux s (free_labs e) in
+  let s = FOLDL cce_aux s (free_labs 0 e) in
   emit s [Label l])`;
 
 

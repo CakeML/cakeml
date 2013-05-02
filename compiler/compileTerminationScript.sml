@@ -275,63 +275,13 @@ val (label_closures_def,label_closures_ind) = register "label_closures" (
   fsrw_tac[ARITH_ss][bind_fv_def,LET_THM]))
 val _ = export_rewrites["label_closures_def"]
 
-(*
-val (body_count_def,body_count_ind) = register"body_count" (
-  tprove_no_defn ((body_count_def,body_count_ind),
-  WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
-    | INL b => (Cexp_size b, 1:num)
-    | INR (INR d) => (Cexp2_size d, 0)
-    | INR (INL es) => (Cexp4_size es, 0))` >>
-  srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm] >>
-  Q.ISPEC_THEN`Cexp2_size`imp_res_tac SUM_MAP_MEM_bound >>
-  srw_tac[ARITH_ss][]))
-val _ = export_rewrites["body_count_def"]
-
-val body_count_list_MAP = store_thm("body_count_list_MAP",
-  ``∀ls. body_count_list ls = SUM (MAP body_count ls)``,
-  Induct >> rw[])
-val _ = export_rewrites["body_count_list_MAP"]
-
-val body_count_mkshift = store_thm("body_count_mkshift",
-  ``∀f k e. body_count (mkshift f k e) = body_count e``,
-  ho_match_mp_tac mkshift_ind >>
-  rw[mkshift_def,MAP_MAP_o,combinTheory.o_DEF] >> rw[] >>
-  TRY ( Cases_on`cb`>>fs[]>>BasicProvers.CASE_TAC>>fs[]>>NO_TAC) >>
-  AP_TERM_TAC >> lrw[MAP_EQ_f] >>
-  simp[Abbr`defs'`,MAP_MAP_o,combinTheory.o_DEF] >>
-  lrw[MAP_EQ_f] >>
-  BasicProvers.CASE_TAC >>
-  BasicProvers.CASE_TAC >>
-  fsrw_tac[ARITH_ss][])
-val _ = export_rewrites["body_count_mkshift"]
-
-val body_count_bind_fv = store_thm("body_count_bind_fv",
-  ``body_count (bind_fv azb nz ez k).body = body_count (SND azb)``,
-  Cases_on`azb` >> rw[bind_fv_def] >> rw[Abbr`e`])
-*)
-
 val _ = register "free_labs" (
   tprove_no_defn ((free_labs_def, free_labs_ind),
   WF_REL_TAC`inv_image $< (λx. case x of
-    | INL (e) => Cexp_size e
-    | INR (INL (es)) => Cexp4_size es
-    | INR (INR (def)) => Cexp2_size def)` >>
-  srw_tac[ARITH_ss][Cexp1_size_thm,SUM_MAP_Cexp2_size_thm,GSYM MAP_MAP_o] >>
-  qmatch_assum_rename_tac `MEM (x,y,z) defs`[] >>
-  `MEM x (MAP FST defs)` by (rw[MEM_MAP,EXISTS_PROD]>>PROVE_TAC[]) >>
-  `MEM (y,z) (MAP SND defs)` by (rw[MEM_MAP,EXISTS_PROD]>>PROVE_TAC[]) >>
-  Q.ISPEC_THEN`Cexp3_size`imp_res_tac SUM_MAP_MEM_bound >>
-  Q.PAT_ABBREV_TAC`Y = Cexp_size z + Z` >>
-  Q.PAT_ABBREV_TAC`f1 = X:(num#ccenv#ceenv)option->num` >>
-  qunabbrev_tac`Y` >>
-  Q.ISPEC_THEN`f1:(num#ccenv#ceenv)option->num`imp_res_tac SUM_MAP_MEM_bound >>
-  pop_assum(qspec_then`f1`strip_assume_tac) >>
-  Cases_on`x`>>fsrw_tac[ARITH_ss][Abbr`f1`,basicSizeTheory.option_size_def,Cexp_size_def] >- (
-    Cases_on`defs`>>fsrw_tac[ARITH_ss][] ) >>
-  PairCases_on`x'` >>
-  fsrw_tac[ARITH_ss][basicSizeTheory.pair_size_def] >>
-  qsuff_tac`LENGTH defs ≠ 0`>-fsrw_tac[ARITH_ss][] >>
-  Cases_on`defs`>>fs[]))
+    | INL (ez,e) => Cexp_size e
+    | INR (INL (ez,es)) => Cexp4_size es
+    | INR (INR (INL (ez,nz,ix,ds))) => Cexp1_size ds
+    | INR (INR (INR (ez,nz,ix,def))) => Cexp2_size def)`))
 val _ = export_rewrites["free_labs_def"]
 
 val _ = save_thm("cce_aux_def",cce_aux_def)
