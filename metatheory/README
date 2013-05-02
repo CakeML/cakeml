@@ -1,0 +1,39 @@
+This directory contains theorems about the semantics.
+
+
+bigBigEquivScript.sml
+    The equivalence between the bigStep and altBigStep semantics
+
+bigSmallEquivScript.sml
+    The equivalence between the big-step and small-step semantics
+
+bigSmallInvariants.lem
+    Definitions needed to state the invariants about big-step/small-step equivalence.
+    Mostly, how to big-step evaluate intermediate small-step states.
+
+determScript.sml
+    Determinism for both the big-step and small-step semantics.
+
+evaluateEquationsScript.sml
+    Some helper lemmas about the big-step relation.
+
+metaTerminationScript.sml
+    Termination proofs for the recursive functions defined in Lem.
+
+typeSoundInvariants.lem
+    Definitions needed to state the invariants about type soundness.  Mostly,
+    how to type values and intermediate small-step states, and some
+    well-formedness conditions on various type environments.
+
+typeSoundScript.sml
+    Type soundness.
+
+typeSysPropsScript.sml
+    Some useful lemmas about the type system.
+
+untypedSafetyScript.sml
+    Prove that for all programs, including ill-typed ones, the semantics never
+    gets stuck, but instead returns RTypeError.
+
+weakeningScript.sml
+    Weakening lemmas used in type soundness
