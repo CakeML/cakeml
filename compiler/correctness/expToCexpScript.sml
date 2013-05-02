@@ -72,17 +72,17 @@ val free_labs_exp_to_Cexp = store_thm("free_labs_exp_to_Cexp",
   >- ( Cases_on`pat_to_Cpat m p`>>fs[] ))
 val _ = export_rewrites["free_labs_exp_to_Cexp"]
 
-val no_vlabs_v_to_Cv = store_thm("no_vlabs_v_to_Cv",
-  ``(∀m (v:α v). no_vlabs (v_to_Cv m v)) ∧
-    (∀m (vs:α v list). no_vlabs_list (vs_to_Cvs m vs)) ∧
-    (∀m (env:α envE). no_vlabs_list (env_to_Cenv m env))``,
+val vlabs_v_to_Cv = store_thm("vlabs_v_to_Cv",
+  ``(∀m (v:α v). vlabs (v_to_Cv m v) = {}) ∧
+    (∀m (vs:α v list). vlabs_list (vs_to_Cvs m vs) = {}) ∧
+    (∀m (env:α envE). vlabs_list (env_to_Cenv m env) = {})``,
   ho_match_mp_tac v_to_Cv_ind >>
   rw[v_to_Cv_def] >>
   TRY(qunabbrev_tac`Ce`)>>
   TRY(qunabbrev_tac`Cdefs`)>>
-  simp[EVERY_MAP,defs_to_Cdefs_MAP] >>
+  simp[FLAT_EQ_NIL,EVERY_MAP,defs_to_Cdefs_MAP] >>
   simp[EVERY_MEM,UNCURRY])
-val _ = export_rewrites["no_vlabs_v_to_Cv"]
+val _ = export_rewrites["vlabs_v_to_Cv"]
 
 (* free vars lemmas *)
 
@@ -993,12 +993,11 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       `free_labs e1a = []` by rw[Abbr`e1a`] >> simp[] >>
       strip_tac >>
       `∃b. EL n defs = (NONE,1,b)` by (
-        qspecl_then[`sa`,`enva`,`e1a`,`(sd,Rval (CRecClos env1 defs n))`]mp_tac(CONJUNCT1 Cevaluate_no_vlabs) >>
+        qspecl_then[`sa`,`enva`,`e1a`,`(sd,Rval (CRecClos env1 defs n))`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
         simp[] >>
-        discharge_hyps >- (
-          simp[Abbr`sa`,Abbr`enva`,env_to_Cenv_MAP,EVERY_MAP] ) >>
-        simp[EVERY_MAP] >> strip_tac >>
-        `free_labs_def (EL n defs) = []` by (fs[EVERY_MEM,MEM_EL] >> metis_tac[]) >>
+        simp_tac(srw_ss()++DNF_ss)[SUBSET_DEF,MEM_FLAT,MEM_MAP,Abbr`enva`,env_to_Cenv_MAP,Abbr`sa`] >>
+        strip_tac >>
+        `set (free_labs_def (EL n defs)) = {}` by metis_tac[MEM_EL,EXTENSION,NOT_IN_EMPTY] >>
         qabbrev_tac`p = EL n defs` >> PairCases_on`p` >>
         simp[] >> Cases_on`p0`>>fs[] >>
         fs[do_app_Opapp_SOME] >> rw[] >- (
