@@ -84,64 +84,96 @@ val free_labs_list_MAP = store_thm("free_labs_list_MAP",
   Induct >> rw[])
 (* val _ = export_rewrites["free_labs_list_MAP"] *)
 
-val no_vlabs_def = Define`
-  (no_vlabs (CLitv _) = T) ∧
-  (no_vlabs (CConv _ vs) = no_vlabs_list vs) ∧
-  (no_vlabs (CRecClos env defs _) = no_vlabs_list env ∧ EVERY ($= []) (MAP free_labs_def defs)) ∧
-  (no_vlabs (CLoc _) = T) ∧
-  (no_vlabs_list [] = T) ∧
-  (no_vlabs_list (v::vs) = no_vlabs v ∧ no_vlabs_list vs)`
-val _ = export_rewrites["no_vlabs_def"]
+val vlabs_def = Define`
+  (vlabs (CLitv _) = {}) ∧
+  (vlabs (CConv _ vs) = vlabs_list vs) ∧
+  (vlabs (CRecClos env defs _) = vlabs_list env ∪ set (FLAT (MAP free_labs_def defs))) ∧
+  (vlabs (CLoc _) = {}) ∧
+  (vlabs_list [] = {}) ∧
+  (vlabs_list (v::vs) = vlabs v ∪ vlabs_list vs)`
+val _ = export_rewrites["vlabs_def"]
 
-val no_vlabs_list_MAP = store_thm("no_vlabs_list_MAP",
- ``∀vs. no_vlabs_list vs = EVERY no_vlabs vs``,
+val vlabs_list_MAP = store_thm("vlabs_list_MAP",
+ ``∀vs. vlabs_list vs = BIGUNION (IMAGE vlabs (set vs))``,
  Induct >> rw[])
-val _ = export_rewrites["no_vlabs_list_MAP"]
+val _ = export_rewrites["vlabs_list_MAP"]
 
-val Cevaluate_no_vlabs = store_thm("Cevaluate_no_vlabs",
-  ``(∀s env exp res. Cevaluate s env exp res ⇒ no_vlabs_list s ∧ no_vlabs_list env ∧ (free_labs exp = []) ⇒
-        no_vlabs_list (FST res) ∧ (∀v. (SND res = Rval v) ⇒ no_vlabs v)) ∧
-    (∀s env es res. Cevaluate_list s env es res ⇒ no_vlabs_list s ∧ no_vlabs_list env ∧ (free_labs_list es = []) ⇒
-        no_vlabs_list (FST res) ∧ (∀vs. (SND res = Rval vs) ⇒ no_vlabs_list vs))``,
+val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
+  ``(∀s env exp res. Cevaluate s env exp res ⇒
+        (vlabs_list (FST res) ⊆ vlabs_list s ∪ vlabs_list env ∪ set (free_labs exp)) ∧
+        (∀v. (SND res = Rval v) ⇒ vlabs v ⊆ vlabs_list s ∪ vlabs_list env ∪ set (free_labs exp))) ∧
+    (∀s env es res. Cevaluate_list s env es res ⇒
+        (vlabs_list (FST res) ⊆ vlabs_list s ∪ vlabs_list env ∪ set (free_labs_list es)) ∧
+        (∀vs. (SND res = Rval vs) ⇒ vlabs_list vs ⊆ vlabs_list s ∪ vlabs_list env ∪ set (free_labs_list es)))``,
   ho_match_mp_tac Cevaluate_ind >>
   strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
   strip_tac >- (
-    rw[EVERY_MEM,MEM_EL] >>
+    srw_tac[DNF_ss][EVERY_MEM,MEM_EL,SUBSET_DEF] >>
     PROVE_TAC[] ) >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
   strip_tac >- (
-    rw[] >> fs[] >>
-    fs[EVERY_MEM,MEM_EL,GSYM LEFT_FORALL_IMP_THM] ) >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
+    srw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM,MEM_EL] >>
+    metis_tac[] ) >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
   strip_tac >- (
-    rw[] >> fs[FLAT_EQ_NIL,EVERY_GENLIST,EVERY_MAP] ) >>
-  strip_tac >- rw[] >>
+    srw_tac[DNF_ss][SUBSET_DEF,MEM_FLAT,MEM_MAP,MEM_GENLIST] >>
+    metis_tac[] ) >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
   strip_tac >- (
-    rw[] >> fs[] >> rfs[] >>
-    BasicProvers.EVERY_CASE_TAC >>
-    fs[EVERY_REVERSE,EVERY_GENLIST,EVERY_MAP] >> rfs[] >>
-    fsrw_tac[DNF_ss][] >>
-    first_x_assum(match_mp_tac o MP_CANON) >>
-    fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
-    metis_tac[free_labs_def,NOT_NIL_CONS] ) >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
+    rpt gen_tac >> strip_tac >>
+    BasicProvers.EVERY_CASE_TAC >> rfs[] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_FLAT,MEM_MAP,MEM_GENLIST] >- (
+      qmatch_assum_rename_tac`EL n defs = (NONE,x,y)`[] >>
+      `∀x. MEM x (free_labs y) ⇒ MEM x (free_labs_def (EL n defs))` by metis_tac[free_labs_def] >>
+      metis_tac[MEM_EL] ) >>
+    conj_tac >- (
+      map_every qx_gen_tac [`x`,`y`] >> strip_tac >>
+      first_x_assum(qspecl_then[`x`,`y`]mp_tac) >>
+      simp[] >> strip_tac
+        >-metis_tac[]
+        >-metis_tac[]
+        >-metis_tac[]
+        >-metis_tac[]
+        >-metis_tac[]
+        >-metis_tac[]
+        >- (
+          fsrw_tac[DNF_ss][EVERY_MEM] >>
+          metis_tac[MEM_EL] ) >>
+      `MEM x (free_labs_def (EL n defs))` by metis_tac[free_labs_def,MEM] >>
+      metis_tac[MEM_EL] ) >>
+    map_every qx_gen_tac [`x`,`y`] >> ntac 2 strip_tac >>
+    first_x_assum(qspecl_then[`x`,`y`]mp_tac) >>
+    simp[] >> strip_tac
+      >-metis_tac[]
+      >-metis_tac[]
+      >-metis_tac[]
+      >-metis_tac[]
+      >-metis_tac[]
+      >-metis_tac[]
+      >- (
+        fsrw_tac[DNF_ss][EVERY_MEM] >>
+        metis_tac[MEM_EL] ) >>
+    `MEM y (free_labs_def (EL n defs))` by metis_tac[free_labs_def,MEM] >>
+    metis_tac[MEM_EL] ) >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
   strip_tac >- (
     ntac 2 gen_tac >>
     Cases >> ntac 2 gen_tac >>
     Cases >> rw[] >>
     fs[el_check_def,EVERY_MEM] >>
     BasicProvers.EVERY_CASE_TAC >>
-    fs[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >> rw[] ) >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    metis_tac[MEM_EL]) >>
   strip_tac >- rw[] >>
   strip_tac >- (
     ntac 2 gen_tac >>
@@ -152,14 +184,15 @@ val Cevaluate_no_vlabs = store_thm("Cevaluate_no_vlabs",
     ntac 5 gen_tac >>
     Cases >> rw[] >> fs[] >>
     fs[EVERY_MEM] >>
-    PROVE_TAC[MEM_LUPDATE] ) >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    metis_tac[MEM_LUPDATE] ) >>
   strip_tac >- rw[] >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
   strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
-  strip_tac >- rw[])
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
+  strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ))
 
 val free_vars_list_MAP = store_thm("free_vars_list_MAP",
   ``∀es. free_vars_list es = BIGUNION (IMAGE free_vars (set es))``,
