@@ -17,8 +17,8 @@ val tree_to_set_def = Define `
 
 (* That the tree is a binary search tree *)
 val is_bst_def = Define `
-(is_bst lt Empty = T) ∧
-(is_bst lt (Tree t1 x t2) =
+(is_bst lt Empty <=> T) ∧
+(is_bst lt (Tree t1 x t2) <=>
   is_bst lt t1 ∧
   is_bst lt t2 ∧
   (!y. y ∈ tree_to_set t1 ⇒ lt y x) ∧
@@ -54,9 +54,9 @@ val member_correct = Q.store_thm ("member_correct",
 `!lt t x.
   StrongLinearOrder lt ∧ is_bst lt t
   ⇒
-  (member lt x t = x ∈ tree_to_set t)`,
-induct_on `t` >>
-rw [member_def, is_bst_def, tree_to_set_def] >>
+  (member lt x t <=> x ∈ tree_to_set t)`,
+strip_tac >> induct_on `t` >>
+rw [member_def, is_bst_def, tree_to_set_def] >> fs [] >>
 fs [StrongLinearOrder, StrongOrder, irreflexive_def, transitive_def,
     trichotomous] >>
 metis_tac []);

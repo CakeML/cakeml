@@ -64,8 +64,8 @@ val only_digits_def = Define `
   (only_digits (Two x y) = [x;y])`;
 
 val depth_def = Define `
-  (depth n (Once x) = (n = 0:num)) /\
-  (depth n (Twice t1 t2) = ~(n = 0) /\ depth (n-1) t1 /\ depth (n-1) t2)`;
+  (depth n (Once x) <=> (n = 0:num)) /\
+  (depth n (Twice t1 t2) <=> ~(n = 0) /\ depth (n-1) t1 /\ depth (n-1) t2)`;
 
 val ddepth_def = Define `
   ddepth n d = EVERY (\d. depth n d) (only_digits d)`;
@@ -74,12 +74,12 @@ val two_def = Define `
   (two (Two _ _) = T) /\ (two _ = F)`;
 
 val queue_ok_def = Define `
-  (queue_ok n (Shallow x) = ~two x /\ ddepth n x) /\
-  (queue_ok n (Deep x1 t x2) =
+  (queue_ok n (Shallow x) <=> ~two x /\ ddepth n x) /\
+  (queue_ok n (Deep x1 t x2) <=>
      ~(x1 = Zero) /\ queue_ok (n+1) t /\ ~two x2 /\ ddepth n x1 /\ ddepth n x2)`;
 
 val queue_inv_def = Define `
-  queue_inv q t = queue_ok 0 t /\ (q = flatten t)`;
+  queue_inv q t <=> queue_ok 0 t /\ (q = flatten t)`;
 
 val empty_thm = prove(
   ``queue_inv [] empty``,

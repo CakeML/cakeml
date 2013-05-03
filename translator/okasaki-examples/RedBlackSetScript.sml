@@ -23,8 +23,8 @@ val tree_to_set_def = Define `
 
 (* The tree is a binary search tree *)
 val is_bst_def = Define `
-(is_bst lt Empty = T) ∧
-(is_bst lt (Tree _ t1 x t2) =
+(is_bst lt Empty <=> T) ∧
+(is_bst lt (Tree _ t1 x t2) <=>
   is_bst lt t1 ∧
   is_bst lt t2 ∧
   (!y. y ∈ tree_to_set t1 ⇒ lt y x) ∧
@@ -35,15 +35,15 @@ val not_red_def = Define `
 (not_red _ = T)`;
 
 val red_black_invariant1_def = Define `
-(red_black_invariant1 Empty = T) ∧
-(red_black_invariant1 (Tree Black t1 x t2) =
+(red_black_invariant1 Empty <=> T) ∧
+(red_black_invariant1 (Tree Black t1 x t2) <=>
   red_black_invariant1 t1 ∧ red_black_invariant1 t2) ∧
-(red_black_invariant1 (Tree Red t1 x t2) =
+(red_black_invariant1 (Tree Red t1 x t2) <=>
   red_black_invariant1 t1 ∧ red_black_invariant1 t2 ∧
   not_red t1 ∧ not_red t2)`;
 
-(* Count the number of black nodes along every path to the root.  Return NONE
- * if this number isn't the same along every path *)
+(* Count the number of black nodes along every path to the root.
+ * Return NONE, if this number isn't the same along every path. *)
 val red_black_invariant2_def = Define `
 (red_black_invariant2 Empty = SOME 0) ∧
 (red_black_invariant2 (Tree c t1 x t2) =
@@ -91,27 +91,35 @@ val balance_def = Define `
 
 val balance_ind = fetch "-" "balance_ind"
 
-(* HOL expands the above balance into over 100 cases, so this alternate
- * definition works better for the translator. *)
+(* HOL expands the above balance into over 50 cases, so this alternate
+ * definition works better for the current translator. *)
 val balance_left_left_def = mlDefine `
-(balance_left_left (Tree Red (Tree Red a x b) y c) z d =
-  SOME (Tree Red (Tree Black a x b) y (Tree Black c z d))) ∧
-(balance_left_left a x b = NONE)`;
+  balance_left_left a z d =
+    case a of
+    | (Tree Red (Tree Red a x b) y c) =>
+         SOME (Tree Red (Tree Black a x b) y (Tree Black c z d))
+    | _ => NONE`
 
 val balance_left_right_def = mlDefine `
-(balance_left_right (Tree Red a x (Tree Red b y c)) z d =
-  SOME (Tree Red (Tree Black a x b) y (Tree Black c z d))) ∧
-(balance_left_right a x b = NONE)`;
+  balance_left_right a z d =
+    case a of
+    | (Tree Red a x (Tree Red b y c)) =>
+         SOME (Tree Red (Tree Black a x b) y (Tree Black c z d))
+    | _ => NONE`;
 
 val balance_right_left_def = mlDefine `
-(balance_right_left a x (Tree Red (Tree Red b y c) z d) =
-  SOME (Tree Red (Tree Black a x b) y (Tree Black c z d))) ∧
-(balance_right_left a x b = NONE)`;
+  balance_right_left a x b =
+    case b of
+    | (Tree Red (Tree Red b y c) z d) =>
+         SOME (Tree Red (Tree Black a x b) y (Tree Black c z d))
+    | _ => NONE`;
 
 val balance_right_right_def = mlDefine `
-(balance_right_right a x (Tree Red b y (Tree Red c z d)) =
-  SOME (Tree Red (Tree Black a x b) y (Tree Black c z d))) ∧
-(balance_right_right a x b = NONE)`;
+  balance_right_right a x b =
+    case b of
+    | (Tree Red b y (Tree Red c z d)) =>
+         SOME (Tree Red (Tree Black a x b) y (Tree Black c z d))
+    | _ => NONE`
 
 val balance'_def = mlDefine `
 balance' c a x b =
@@ -153,20 +161,25 @@ val balance'_correct = Q.prove (
 `!c a x b. balance' c a x b = balance c a x b`,
 recInduct balance_ind >>
 rw [balance'_def, balance_def, balance_left_left_def, balance_left_right_def,
-    balance_right_left_def, balance_right_right_def]);
+    balance_right_left_def, balance_right_right_def] >>
+REPEAT (BasicProvers.FULL_CASE_TAC));
 
 val balance'_tree = Q.prove (
 `!c t1 x t2. ∃c' t1' x' t2'. (balance' c t1 x t2 = Tree c' t1' x' t2')`,
 recInduct balance_ind >>
 rw [balance'_def, balance_left_left_def, balance_left_right_def,
-    balance_right_left_def, balance_right_right_def]);
+    balance_right_left_def, balance_right_right_def] >>
+REPEAT BasicProvers.FULL_CASE_TAC);
 
 val balance'_set = Q.prove (
 `!c t1 x t2. tree_to_set (balance' c t1 x t2) = tree_to_set (Tree c t1 x t2)`,
 recInduct balance_ind >>
 srw_tac [PRED_SET_AC_ss]
         [balance'_def, balance_left_left_def, balance_left_right_def,
-         balance_right_left_def, balance_right_right_def, tree_to_set_def]);
+         balance_right_left_def, balance_right_right_def,
+         tree_to_set_def] >>
+REPEAT BasicProvers.FULL_CASE_TAC >>
+srw_tac [PRED_SET_AC_ss] [tree_to_set_def]);
 
 val balance'_bst = Q.prove (
 `!c t1 x t2.
@@ -175,8 +188,15 @@ val balance'_bst = Q.prove (
   is_bst lt (balance' c t1 x t2)`,
 recInduct balance_ind >>
 rw [transitive_def, balance'_def,  balance_left_left_def,
-    balance_left_right_def, balance_right_left_def, balance_right_right_def,
-    is_bst_def, tree_to_set_def] >>
+    balance_left_right_def, balance_right_left_def,
+    balance_right_right_def, is_bst_def, tree_to_set_def] >>
+fs [transitive_def, balance'_def,  balance_left_left_def,
+    balance_left_right_def, balance_right_left_def,
+    balance_right_right_def, is_bst_def, tree_to_set_def] >>
+REPEAT BasicProvers.FULL_CASE_TAC >>
+fs [transitive_def, balance'_def,  balance_left_left_def,
+    balance_left_right_def, balance_right_left_def,
+    balance_right_right_def, is_bst_def, tree_to_set_def] >>
 metis_tac []);
 
 val ins_tree = Q.prove (
@@ -238,17 +258,17 @@ val member_correct = Q.store_thm ("member_correct",
   StrongLinearOrder lt ∧
   is_bst lt t
   ⇒
-  (member lt x t = x ∈ tree_to_set t)`,
-induct_on `t` >>
+  (member lt x t <=> x ∈ tree_to_set t)`,
+strip_tac >> induct_on `t` >>
 rw [member_def, is_bst_def, tree_to_set_def] >>
 fs [StrongLinearOrder, StrongOrder, irreflexive_def, transitive_def,
     trichotomous] >>
 metis_tac []);
 
 
-(* Prove the two red-black invariants that no red node has a red child, and that
- * the number of black nodes is the same on each path from the root to the
- * leaves. *)
+(* Prove the two red-black invariants that no red node has a red child,
+ * and that the number of black nodes is the same on each path from
+ * the root to the leaves. *)
 
 val case_opt_lem = Q.prove (
 `!x f z.
@@ -301,11 +321,11 @@ cases_on `n = n''` >>
 cases_on `c` >>
 fs []);
 
-(* Invariant one hold everywhere except for the root node, where it may or may
- * not. *)
+(* Invariant one hold everywhere except for the root node,
+ * where it may or may not. *)
 val rbinv1_root_def = Define `
-(rbinv1_root Empty = T) ∧
-(rbinv1_root (Tree c t1 x t2) =
+(rbinv1_root Empty <=> T) ∧
+(rbinv1_root (Tree c t1 x t2) <=>
   red_black_invariant1 t1 ∧ red_black_invariant1 t2)`;
 
 val balance_inv1_black = Q.prove (
@@ -355,8 +375,8 @@ cases_on `c` >>
 fs [red_black_invariant1_def, rbinv1_root_def]);
 
 
-(* Simplify the side conditions on the generated certificate theorems, based on
- * the verification. *)
+(* Simplify the side conditions on the generated certificate theorems,
+ * based on the verification. *)
 
 val insert_side_def = fetch "-" "insert_side_def"
 
