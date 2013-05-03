@@ -20,17 +20,17 @@ val _ = export_rewrites["transitive_LESS"]
 
 val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
   ``∀c s. let s' = FOLDL cce_aux s c in
-     ALL_DISTINCT (MAP (FST o FST o SND) c) ∧
-     EVERY (combin$C $< s.next_label) (MAP (FST o FST o SND) c)
+     ALL_DISTINCT (MAP (FST o FST) c) ∧
+     EVERY (combin$C $< s.next_label) (MAP (FST o FST) c)
       ⇒
      ∃code.
      (s'.out = REVERSE code ++ s.out) ∧
      (s.next_label ≤ s'.next_label) ∧
      ALL_DISTINCT (FILTER is_Label code) ∧
-     EVERY (λn. MEM n (MAP (FST o FST o SND) c) ∨ between s.next_label s'.next_label n)
+     EVERY (λn. MEM n (MAP (FST o FST) c) ∨ between s.next_label s'.next_label n)
        (MAP dest_Label (FILTER is_Label code)) ∧
      ∃cs.
-     ∀i. i < LENGTH c ⇒ let (zz,(l,ccenv,ce),(az,body)) = EL i c in
+     ∀i. i < LENGTH c ⇒ let ((l,ccenv,ce),(az,body)) = EL i c in
          s.next_label ≤ (cs i).next_label ∧
          (∀j. j < i ⇒ (cs j).next_label ≤ (cs i).next_label) ∧
          ∃cc. ((compile (MAP CTEnv ccenv) (TCTail az 0) 0 (cs i) body).out = cc ++ (cs i).out) ∧
@@ -45,7 +45,7 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
    simp[cce_aux_def] >>
    strip_tac >>
    Q.PAT_ABBREV_TAC`s0 = s with out := X::y` >>
-   qspecl_then[`MAP CTEnv p2`,`TCTail p4 0`,`0`,`s0`,`p5`]
+   qspecl_then[`MAP CTEnv p1`,`TCTail p3 0`,`0`,`s0`,`p4`]
      strip_assume_tac(CONJUNCT1 compile_append_out) >>
    Q.PAT_ABBREV_TAC`s1 = compile X Y Z A B` >>
    first_x_assum(qspecl_then[`s1`]mp_tac) >>
@@ -70,7 +70,7 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
      fsrw_tac[DNF_ss][EVERY_MEM,between_def] >>
      rw[] >> spose_not_then strip_assume_tac >> res_tac >>
      fsrw_tac[ARITH_ss][] ) >>
-   qexists_tac`λi. if i = 0 then (s with out := Label p1::s.out) else cs (i-1)` >>
+   qexists_tac`λi. if i = 0 then (s with out := Label p0::s.out) else cs (i-1)` >>
    Cases >> simp[] >- (
      map_every qexists_tac[`[]`,`c0`] >> simp[] ) >>
    strip_tac >>
@@ -78,7 +78,7 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
    simp[UNCURRY] >> strip_tac >>
    simp[] >>
    conj_asm1_tac >- ( Cases >> simp[] ) >>
-   qexists_tac`Label p1::(REVERSE bc ++ bc0)` >>
+   qexists_tac`Label p0::(REVERSE bc ++ bc0)` >>
    simp[FILTER_APPEND,FILTER_REVERSE,EVERY_REVERSE,EVERY_FILTER,is_Label_rwt,GSYM LEFT_FORALL_IMP_THM] >>
    qpat_assum`EVERY X (FILTER is_Label bc0)`mp_tac >>
    qpat_assum`EVERY X (MAP Y (FILTER is_Label bc))`mp_tac >>
@@ -86,31 +86,40 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
    asm_simp_tac(srw_ss()++ARITH_ss++DNF_ss)[EVERY_MEM] >>
    rw[] >> res_tac >> DECIDE_TAC)
 
+val MAP_SND_free_labs_any_ez = store_thm("MAP_SND_free_labs_any_ez",
+  ``(∀ez e ez'. MAP SND (free_labs ez e) = MAP SND (free_labs ez' e)) ∧
+    (∀ez es ez'. MAP SND (free_labs_list ez es) = MAP SND (free_labs_list ez' es)) ∧
+    (∀ez nz ix defs ez'. MAP SND (free_labs_defs ez nz ix defs) = MAP SND (free_labs_defs ez' nz ix defs)) ∧
+    (∀ez nz ix def ez'. MAP SND (free_labs_def ez nz ix def) = MAP SND (free_labs_def ez' nz ix def))``,
+  ho_match_mp_tac free_labs_ind >> rw[] >> metis_tac[])
+
 val compile_code_env_thm = store_thm("compile_code_env_thm",
-  ``∀s e. let s' = compile_code_env s e in
-      ALL_DISTINCT (MAP (FST o FST o SND) (free_labs 0 e)) ∧
-      EVERY (combin$C $< s.next_label) (MAP (FST o FST o SND) (free_labs 0 e)) ∧
-      EVERY good_cd (free_labs 0 e)
+  ``∀ez s e. let s' = compile_code_env s e in
+      ALL_DISTINCT (MAP (FST o FST o SND) (free_labs ez e)) ∧
+      EVERY (combin$C $< s.next_label) (MAP (FST o FST o SND) (free_labs ez e)) ∧
+      EVERY good_cd (free_labs ez e)
       ⇒
       ∃code.
       (s'.out = REVERSE code ++ s.out) ∧
       (s.next_label < s'.next_label) ∧
       ALL_DISTINCT (FILTER is_Label code) ∧
-      EVERY (λn. MEM n (MAP (FST o FST o SND) (free_labs 0 e)) ∨ between s.next_label s'.next_label n)
+      EVERY (λn. MEM n (MAP (FST o FST o SND) (free_labs ez e)) ∨ between s.next_label s'.next_label n)
         (MAP dest_Label (FILTER is_Label code)) ∧
-      EVERY (code_env_cd code) (free_labs 0 e) ∧
       ∀bs bc0 bc1.
         (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         ALL_DISTINCT (FILTER is_Label bc0) ∧
-        (∀l1 l2. MEM l1 (MAP dest_Label (FILTER is_Label bc0)) ∧ ((l2 = s.next_label) ∨ MEM l2 (MAP (FST o FST o SND) (free_labs 0 e))) ⇒ l1 < l2)
+        (∀l1 l2. MEM l1 (MAP dest_Label (FILTER is_Label bc0)) ∧ ((l2 = s.next_label) ∨ MEM l2 (MAP (FST o FST o SND) (free_labs ez e))) ⇒ l1 < l2)
         ⇒
+        EVERY (code_env_cd (bc0++code)) (free_labs ez e) ∧
         bc_next bs (bs with pc := next_addr bs.inst_length (bc0++code))``,
   rw[compile_code_env_def] >> rw[] >>
-  Q.ISPECL_THEN[`free_labs 0 e`,`s''`]mp_tac FOLDL_cce_aux_thm >>
+  `MAP SND (free_labs 0 e) = MAP SND (free_labs ez e)` by metis_tac[MAP_SND_free_labs_any_ez] >>
+  fs[] >>
+  Q.ISPECL_THEN[`MAP SND (free_labs ez e)`,`s''`]mp_tac FOLDL_cce_aux_thm >>
   simp[Abbr`s''`] >>
   discharge_hyps >- (
-    fsrw_tac[ARITH_ss][EVERY_MEM] >>
+    fsrw_tac[ARITH_ss][EVERY_MEM,MAP_MAP_o] >>
     rw[] >> res_tac >> DECIDE_TAC ) >>
   disch_then(Q.X_CHOOSE_THEN`c0`strip_assume_tac) >>
   simp[Once SWAP_REVERSE,Abbr`s''''`] >>
@@ -118,8 +127,8 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
     simp[ALL_DISTINCT_APPEND,FILTER_APPEND,MEM_FILTER,Abbr`l`] >>
     fs[EVERY_MAP,EVERY_FILTER] >> fs[EVERY_MEM] >>
     spose_not_then strip_assume_tac >> res_tac >>
-    fsrw_tac[ARITH_ss][between_def,MEM_MAP] >>
-    res_tac >> DECIDE_TAC ) >>
+    fsrw_tac[ARITH_ss][between_def,MEM_MAP,MAP_MAP_o] >>
+    res_tac >> rw[] >> DECIDE_TAC ) >>
   conj_tac >- (
     fs[EVERY_MAP,EVERY_FILTER,is_Label_rwt,GSYM LEFT_FORALL_IMP_THM,between_def,Abbr`l`] >>
     reverse conj_tac >- (disj2_tac >> DECIDE_TAC) >>
@@ -127,22 +136,25 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
     rw[] >> res_tac >>
     TRY(metis_tac[]) >>
     disj2_tac >> DECIDE_TAC ) >>
+  rpt gen_tac >>
+  strip_tac >>
   conj_tac >- (
     fs[EVERY_MEM] >>
     qx_gen_tac`z` >>
     PairCases_on`z` >> strip_tac >>
     simp[code_env_cd_def] >>
-    qmatch_assum_abbrev_tac`MEM cd (free_labs 0 e)` >>
-    `∃i. i < LENGTH (free_labs 0 e) ∧ (EL i (free_labs 0 e) = cd)` by metis_tac[MEM_EL] >>
-    first_x_assum(qspec_then`i`mp_tac) >>
+    qmatch_assum_abbrev_tac`MEM cd (free_labs ez e)` >>
+    `∃i. i < LENGTH (free_labs ez e) ∧ (EL i (free_labs ez e) = cd)` by metis_tac[MEM_EL] >>
+    qpat_assum`∀i. P ⇒ Q`(qspec_then`i`mp_tac) >>
+    simp[EL_MAP] >>
     simp[Abbr`cd`] >> strip_tac >>
     qexists_tac`cs i`>>simp[] >>
-    qexists_tac`Jump (Lab l)::bc0` >>
+    qexists_tac`bc0++Jump (Lab l)::bc0'` >>
     simp[] >>
-    fs[EVERY_MEM,MEM_MAP] >>
-    fsrw_tac[DNF_ss][MEM_EL] ) >>
-  rpt gen_tac >>
-  strip_tac >>
+    fs[EVERY_MEM,MEM_MAP,FILTER_APPEND] >>
+    fsrw_tac[DNF_ss][] >- (
+      rpt strip_tac >> res_tac >> DECIDE_TAC) >>
+    rpt strip_tac >> res_tac >> DECIDE_TAC) >>
   `bc_fetch bs = SOME (Jump (Lab l))` by (
     match_mp_tac bc_fetch_next_addr >>
     qexists_tac`bc0` >> simp[] ) >>
@@ -155,13 +167,6 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
   fsrw_tac[DNF_ss][EVERY_MEM,is_Label_rwt,MEM_MAP,EXISTS_PROD,FORALL_PROD,MEM_FILTER] >>
   rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] >>
   res_tac >> fsrw_tac[ARITH_ss][])
-
-val code_env_cd_append = store_thm("code_env_cd_append",
-  ``∀cd code code'. code_env_cd code cd ∧ ALL_DISTINCT (FILTER is_Label (code ++ code')) ⇒
-    code_env_cd (code ++ code') cd``,
-  rw[] >> PairCases_on`cd` >> fs[code_env_cd_def] >>
-  HINT_EXISTS_TAC >> simp[] >>
-  HINT_EXISTS_TAC >> simp[])
 
 val repl_exp_val = store_thm("repl_exp_val",
   ``∀cenv s env exp s' v rd rs rs' bc0 bc bs bs'.
@@ -200,7 +205,7 @@ val repl_exp_val = store_thm("repl_exp_val",
   fs[env_rs_def] >>
   simp[FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
   simp_tac(srw_ss()++DNF_ss)[] >>
-  map_every qx_gen_tac [`Cs'`,`Cv`] >> strip_tac >>
+  map_every qx_gen_tac [`Cs'0`,`Cv0`] >> strip_tac >>
   qspecl_then[`LENGTH env`,`rs.rnext_label`,`Ce0`]mp_tac(CONJUNCT1 label_closures_thm) >>
   discharge_hyps >- (
     simp[Abbr`Ce0`] >>
@@ -212,16 +217,16 @@ val repl_exp_val = store_thm("repl_exp_val",
   qpat_assum`Abbrev(cce = X)`mp_tac >>
   Q.PAT_ABBREV_TAC`s0 = X with out := []` >>
   strip_tac >>
-  qspecl_then[`s0`,`p0`]mp_tac compile_code_env_thm >>
+  qspecl_then[`LENGTH env`,`s0`,`p0`]mp_tac compile_code_env_thm >>
   simp[] >>
   discharge_hyps >- (
     simp[ALL_DISTINCT_GENLIST,EVERY_GENLIST,Abbr`s0`] ) >>
-
-  strip_tac >>
+  disch_then(Q.X_CHOOSE_THEN`c0`strip_assume_tac) >>
   Q.PAT_ABBREV_TAC`tf = X:call_context` >>
-  qspecl_then[`FST cce`,`rs.renv`,`tf`,`rs.rsz`,`SND cce`,`Ce`]strip_assume_tac(CONJUNCT1 compile_append_out) >>
+  qmatch_assum_rename_tac`free_vars Ce ⊆ free_vars Ce0`[] >>
+  qspecl_then[`rs.renv`,`tf`,`rs.rsz`,`cce`,`Ce`](Q.X_CHOOSE_THEN`bc1`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
   fs[Abbr`tf`] >>
-  simp[REVERSE_APPEND] >>
+  simp[REVERSE_APPEND] >> rw[] >>
   first_x_assum(qspecl_then[`bs`,`bc0`]mp_tac) >>
   simp[Abbr`s0`] >>
   discharge_hyps >- (
@@ -231,66 +236,32 @@ val repl_exp_val = store_thm("repl_exp_val",
     rw[] >> res_tac >> DECIDE_TAC ) >>
   strip_tac >>
   qmatch_assum_abbrev_tac`bc_next bs bs1` >>
-  qspecl_then[`Cc`,`Cs`,`Cenv`,`Ce`,`(Cs',Rval Cv)`]mp_tac(CONJUNCT1 compile_val) >> simp[] >>
-  disch_then(qspecl_then[`rd`,`SND cce`,`rs.renv`,`rs.rsz`,`bs1`,`bc0 ++ REVERSE (SND cce).out`,`REVERSE bc`,`bc0 ++ REVERSE (SND cce).out`]mp_tac) >>
-  `code_env_code Cc Cc (bc0 ++ REVERSE (SND cce).out)` by (
-    simp[Abbr`Cenv`,Abbr`Cs`,env_to_Cenv_MAP,LIST_TO_SET_MAP,GSYM IMAGE_COMPOSE,combinTheory.o_DEF,all_Clocs_v_to_Cv,Abbr`bs1`] >>
-    simp[code_env_code_def,FILTER_APPEND,ALL_DISTINCT_APPEND,Abbr`Cc`] >>
-    conj_tac >- (
-      match_mp_tac good_code_env_FUNION >>
-      fs[env_rs_def,code_env_code_def] >>
-      simp[DISJOINT_DEF,EXTENSION,MEM_GENLIST] >>
-      gen_tac >> spose_not_then strip_assume_tac >>
-      fsrw_tac[DNF_ss][SUBSET_DEF] >>
-      res_tac >> fsrw_tac[ARITH_ss][]) >>
-    conj_tac >- (
-      fsrw_tac[DNF_ss][EVERY_MAP,EVERY_FILTER,is_Label_rwt,MEM_FILTER,MEM_GENLIST,between_def] >>
-      fsrw_tac[DNF_ss][EVERY_MEM] >>
-      rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
-    rfs[env_rs_def,code_env_code_def] >>
-    rfs[FEVERY_DEF] >>
-    gen_tac >>
-    Cases_on`x ∈ FDOM c`>>simp[FUNION_DEF] >- (
-      last_x_assum(qspec_then`x`mp_tac) >>
-      simp[] >> strip_tac >>
-      qexists_tac`cs` >>
-      Q.PAT_ABBREV_TAC`cp = compile X Y Z A B C` >>
-      qmatch_assum_abbrev_tac`cq.out = cc ++ cs.out` >>
-      `cp = cq` by (
-        map_every qunabbrev_tac[`cp`,`cq`] >>
-        match_mp_tac (CONJUNCT1 compile_c_SUBMAP) >>
-        simp[SUBMAP_FUNION] >>
-        fs[good_code_env_def,IN_FRANGE] >>
-        metis_tac[] ) >>
-      simp[] >> qexists_tac`bc0'` >> simp[] ) >>
-    strip_tac >>
-    first_x_assum(qspec_then`x`mp_tac) >>
-    simp[] >> strip_tac >>
-    qexists_tac`cs` >>
-    Q.PAT_ABBREV_TAC`cp = compile X Y Z A B C` >>
-    qmatch_assum_abbrev_tac`cq.out = cc ++ cs.out` >>
-    `cp = cq` by (
-      map_every qunabbrev_tac[`cp`,`cq`] >>
-      match_mp_tac (CONJUNCT1 compile_c_SUBMAP) >>
-      conj_tac >- (
-        rfs[good_code_env_def,IN_FRANGE] >>
-        metis_tac[] ) >>
-      match_mp_tac SUBMAP_FUNION >>
-      simp[IN_DISJOINT] >> disj2_tac >>
-      gen_tac >> spose_not_then strip_assume_tac >>
-      fsrw_tac[DNF_ss][EVERY_MEM,MEM_GENLIST,SUBSET_DEF] >>
-      res_tac >> fsrw_tac[ARITH_ss][] ) >>
-    simp[] >>
-    qexists_tac`bc0 ++ bc0'` >>
-    simp[FILTER_APPEND] >>
-    fs[EVERY_FILTER,is_Label_rwt,GSYM LEFT_FORALL_IMP_THM] >>
-    fsrw_tac[DNF_ss][EVERY_MEM] >>
-    rw[] >> res_tac >> fs[MEM_GENLIST] >>
-    DECIDE_TAC ) >>
+  qmatch_assum_abbrev_tac`Cevaluate Cs Cenv Ce0 (Cs'0,Rval Cv0)` >>
+  qspecl_then[`Cs`,`Cenv`,`Ce0`,`Cs'0,Rval Cv0`]mp_tac(CONJUNCT1 Cevaluate_syneq) >> simp[] >>
+  disch_then(qspecl_then[`$=`,`Cs`,`Cenv`,`Ce`]mp_tac) >>
+  `LENGTH Cenv = LENGTH env` by rw[Abbr`Cenv`,env_to_Cenv_MAP] >>
+  simp[EXISTS_PROD] >>
+  simp_tac(srw_ss()++DNF_ss)[] >>
+  map_every qx_gen_tac[`Cs'`,`Cv`] >> strip_tac >>
+  qspecl_then[`Cs`,`Cenv`,`Ce`,`(Cs',Rval Cv)`]mp_tac(CONJUNCT1 compile_val) >> simp[] >>
+  disch_then(qspecl_then[`rd`,`cce`,`rs.renv`,`rs.rsz`,`bs1`,`bc0 ++ REVERSE (cce).out`,`REVERSE bc1`,`bc0 ++ REVERSE (cce).out`]mp_tac) >>
+  `EVERY (code_env_cd (bc0 ++ REVERSE (cce).out)) (free_labs (LENGTH env) Ce)` by ( fs[Abbr`cce`] ) >>
+
+  (* need to change Cs and Cenv into syneq things that satisfy all_vlabs and code_env_cd for bc0 -
+    hopefully this can be proven to be always possible ?
+    or env_rs should guarantee it ?  *)
+
   discharge_hyps >- (
     simp[Abbr`Cenv`,Abbr`Cs`,env_to_Cenv_MAP,LIST_TO_SET_MAP,GSYM IMAGE_COMPOSE,combinTheory.o_DEF,all_Clocs_v_to_Cv,Abbr`bs1`] >>
     conj_tac >- ( fsrw_tac[DNF_ss][SUBSET_DEF] >> PROVE_TAC[] ) >>
     conj_tac >- ( fsrw_tac[DNF_ss][SUBSET_DEF] >> PROVE_TAC[] ) >>
+    conj_tac >- (
+      simp[FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+      fs[EVERY_MAP,MEM_FILTER,EVERY_FILTER,is_Label_rwt,GSYM LEFT_FORALL_IMP_THM,between_def] >>
+      rw[] >> fs[EVERY_MEM] >> spose_not_then strip_assume_tac >>
+      res_tac >> fs[MEM_GENLIST] >> DECIDE_TAC ) >>
+    conj_tac >- simp[EVERY_MAP]
+
     conj_tac >- (
       match_mp_tac SUBSET_TRANS >>
       HINT_EXISTS_TAC >>
