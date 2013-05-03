@@ -1347,7 +1347,7 @@ and
 free_labs_defs ez nz ix (d::ds) = free_labs_def ez nz ix d @ free_labs_defs ez nz (ix+1) ds
 and
 free_labs_def ez nz ix (Some (l,(cc,(re,ev))),(az,b)) =
-  (((ez,nz,ix),(l,(cc,(re,ev))),(az,b))::(free_labs (1 + List.length re + List.length ev + az) b))
+  (((ez,nz,ix),((l,(cc,(re,ev))),(az,b)))::(free_labs (1 + List.length re + List.length ev + az) b))
 and
 free_labs_def ez nz ix (None,(az,b)) = (free_labs (ez+nz+az) b)
 
@@ -1441,7 +1441,7 @@ all_labs_def (Some _,(az,b)) = all_labs b
 and
 all_labs_def (None,(az,b)) = false
 
-let rec cce_aux s (_,(l,(ccenv,_)),(az,b)) =
+let rec cce_aux s ((l,(ccenv,_)),(az,b)) =
   compile (List.map CTEnv ccenv) (TCTail az 0) 0 (emit s [Label l]) b
 
 let rec
@@ -1449,7 +1449,7 @@ compile_code_env s e =
   let (s,ls) = get_labels 1 s in
   let l = List.nth ls 0 in
   let s = emit s [Jump (Lab l)] in
-  let s = List.fold_left cce_aux s (free_labs 0 e) in
+  let s = List.fold_left cce_aux s (List.map snd (free_labs 0 e)) in
   emit s [Label l]
 
 (* replace labels in bytecode with addresses *)
