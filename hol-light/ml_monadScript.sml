@@ -8,7 +8,9 @@ open ml_translatorLib;
 
 open hol_kernelTheory;
 open stringTheory listTheory pairTheory;
-open MiniMLTheory MiniMLTerminationTheory;
+open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
+open terminationTheory;
+
 
 infix \\ val op \\ = op THEN;
 
@@ -143,7 +145,7 @@ val _ = register_type ``:def``;
 (* definition of EvalM *)
 
 val HOL_STORE_def = Define `
-  HOL_STORE s refs =
+  HOL_STORE s refs <=>
     5 <= LENGTH s /\
     (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) NUM)) refs.the_type_constants (EL 0 s) /\
     (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE)) refs.the_term_constants (EL 1 s) /\
@@ -486,7 +488,7 @@ val EvalM_If = store_thm("EvalM_If",
 val Eval_Var_SIMP2 = store_thm("Eval_Var_SIMP2",
   ``Eval ((x,i)::env) (Var (Short y)) p =
       if x = y then p i else Eval env (Var (Short y)) p``,
-  SIMP_TAC (srw_ss()) [Eval_def,Once evaluate_cases,lookup_def] \\ SRW_TAC [] []
+  SIMP_TAC (srw_ss()) [Eval_def,Once evaluate'_cases,lookup_def] \\ SRW_TAC [] []
   \\ ASM_SIMP_TAC (srw_ss()) [Eval_def,Once evaluate'_cases,lookup_def]
   \\ ASM_SIMP_TAC (srw_ss()) [Eval_def,Once evaluate'_cases,lookup_def]);
 
