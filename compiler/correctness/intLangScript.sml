@@ -330,6 +330,67 @@ val Cevaluate_no_vlabs = store_thm("Cevaluate_no_vlabs",
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL])
 
+val Cevaluate_all_vlabs = store_thm("Cevaluate_all_vlabs",
+  ``(∀s env exp res. Cevaluate s env exp res ⇒ all_vlabs_list s ∧ all_vlabs_list env ∧ all_labs exp ⇒
+        all_vlabs_list (FST res) ∧ (∀v. (SND res = Rval v) ⇒ all_vlabs v)) ∧
+    (∀s env es res. Cevaluate_list s env es res ⇒ all_vlabs_list s ∧ all_vlabs_list env ∧ all_labs_list es ⇒
+        all_vlabs_list (FST res) ∧ (∀vs. (SND res = Rval vs) ⇒ all_vlabs_list vs))``,
+  ho_match_mp_tac Cevaluate_ind >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- (
+    rpt gen_tac >> ntac 2 strip_tac >> fs[] >> rfs[] >>
+    BasicProvers.EVERY_CASE_TAC >> rfs[EVERY_REVERSE] >> fs[EVERY_REVERSE] >>
+    first_x_assum match_mp_tac >>
+    simp[EVERY_MAP,EVERY_GENLIST] >>
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+    metis_tac[all_labs_def] ) >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- (
+    ntac 2 gen_tac >>
+    Cases >> ntac 2 gen_tac >>
+    Cases >> rw[] >>
+    fs[el_check_def,EVERY_MEM] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+    metis_tac[MEM_EL]) >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- (
+    ntac 2 gen_tac >>
+    Cases >> ntac 3 gen_tac >>
+    Cases >> TRY (Cases_on`l`) >> Cases >> TRY (Cases_on`l`) >> rw[] ) >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    ntac 5 gen_tac >>
+    Cases >> rw[] >> fs[] >>
+    fs[EVERY_MEM] >>
+    fsrw_tac[DNF_ss][EVERY_MEM] >>
+    metis_tac[MEM_LUPDATE] ) >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- (
+    ntac 6 gen_tac >>
+    Cases >> fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] ) >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- ( rw[] >> fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] ) >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL])
+
 val free_vars_list_MAP = store_thm("free_vars_list_MAP",
   ``∀es. free_vars_list es = BIGUNION (IMAGE free_vars (set es))``,
   Induct >> simp[])
