@@ -1259,6 +1259,7 @@ fun single_line_def def = let
            fetch thy (name ^ "_primitive_def")
            handle HOL_ERR _ =>
            fetch thy (name ^ "_primitive_DEF")
+  val tp = tp |> PURE_REWRITE_RULE [MEMBER_INTRO]
   val (v,tm) = tp |> concl |> rand |> rand |> dest_abs
   val goal = mk_eq(mk_comb(tpc,args),mk_comb(subst [v|->tpc] tm,args))
   val pre_tm =
@@ -2122,7 +2123,7 @@ fun translate def = let
     val lemma = prove(goal,
       STRIP_TAC
       \\ SIMP_TAC std_ss [FORALL_PROD]
-      \\ MATCH_MP_TAC ind_thm
+      \\ MATCH_MP_TAC (RW [MEMBER_INTRO] ind_thm)
       \\ REPEAT STRIP_TAC
       \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
       \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
