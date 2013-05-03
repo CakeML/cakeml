@@ -284,6 +284,24 @@ val _ = register "free_labs" (
     | INR (INR (INR (ez,nz,ix,def))) => Cexp2_size def)`))
 val _ = export_rewrites["free_labs_def"]
 
+val _ = register "no_labs" (
+  tprove_no_defn ((no_labs_def, no_labs_ind),
+  WF_REL_TAC`inv_image $< (λx. case x of
+    | INL (e) => Cexp_size e
+    | INR (INL (es)) => Cexp4_size es
+    | INR (INR (INL (ds))) => Cexp1_size ds
+    | INR (INR (INR (def))) => Cexp2_size def)`))
+val _ = export_rewrites["no_labs_def"]
+
+val _ = register "all_labs" (
+  tprove_no_defn ((all_labs_def, all_labs_ind),
+  WF_REL_TAC`inv_image $< (λx. case x of
+    | INL (e) => Cexp_size e
+    | INR (INL (es)) => Cexp4_size es
+    | INR (INR (INL (ds))) => Cexp1_size ds
+    | INR (INR (INR (def))) => Cexp2_size def)`))
+val _ = export_rewrites["all_labs_def"]
+
 val _ = save_thm("cce_aux_def",cce_aux_def)
 val _ = save_thm("compile_code_env_def",compile_code_env_def)
 val _ = save_thm("push_lab_def",push_lab_def)

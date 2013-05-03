@@ -1347,13 +1347,102 @@ and
 free_labs_defs ez nz ix (d::ds) = free_labs_def ez nz ix d @ free_labs_defs ez nz (ix+1) ds
 and
 free_labs_def ez nz ix (Some (l,(cc,(re,ev))),(az,b)) =
-  (Some ((ez,nz,ix),(l,(cc,(re,ev))),(az,b))::(free_labs (1 + List.length re + List.length ev + az) b))
+  (((ez,nz,ix),(l,(cc,(re,ev))),(az,b))::(free_labs (1 + List.length re + List.length ev + az) b))
 and
-free_labs_def ez nz ix (None,(az,b)) = (None::free_labs (ez+nz+az) b)
+free_labs_def ez nz ix (None,(az,b)) = (free_labs (ez+nz+az) b)
 
-let rec cce_aux s (Some (_,(l,(ccenv,_)),(az,b))) =
+let rec
+no_labs (CDecl _) = true
+and
+no_labs (CRaise _) = true
+and
+no_labs (CHandle e1 e2) = no_labs e1 && no_labs e2
+and
+no_labs (CVar _) = true
+and
+no_labs (CLit _) = true
+and
+no_labs (CCon _ es) = no_labs_list es
+and
+no_labs (CTagEq e _) = no_labs e
+and
+no_labs (CProj e _) = no_labs e
+and
+no_labs (CLet e b) = no_labs e && no_labs b
+and
+no_labs (CLetrec defs e) = no_labs_defs defs && no_labs e
+and
+no_labs (CFun def) = no_labs_def def
+and
+no_labs (CCall e es) = no_labs e && no_labs_list es
+and
+no_labs (CPrim2 _ e1 e2) = no_labs e1 && no_labs e2
+and
+no_labs (CUpd e1 e2) = no_labs e1 && no_labs e2
+and
+no_labs (CPrim1 _ e) = no_labs e
+and
+no_labs (CIf e1 e2 e3) = no_labs e1 && no_labs e2 && no_labs e3
+and
+no_labs_list [] = true
+and
+no_labs_list (e::es) = no_labs e && no_labs_list es
+and
+no_labs_defs [] = true
+and
+no_labs_defs (d::ds) = no_labs_def d && no_labs_defs ds
+and
+no_labs_def (Some _,_) = false
+and
+no_labs_def (None,(az,b)) = no_labs b
+
+let rec
+all_labs (CDecl _) = true
+and
+all_labs (CRaise _) = true
+and
+all_labs (CHandle e1 e2) = all_labs e1 && all_labs e2
+and
+all_labs (CVar _) = true
+and
+all_labs (CLit _) = true
+and
+all_labs (CCon _ es) = all_labs_list es
+and
+all_labs (CTagEq e _) = all_labs e
+and
+all_labs (CProj e _) = all_labs e
+and
+all_labs (CLet e b) = all_labs e && all_labs b
+and
+all_labs (CLetrec defs e) = all_labs_defs defs && all_labs e
+and
+all_labs (CFun def) = all_labs_def def
+and
+all_labs (CCall e es) = all_labs e && all_labs_list es
+and
+all_labs (CPrim2 _ e1 e2) = all_labs e1 && all_labs e2
+and
+all_labs (CUpd e1 e2) = all_labs e1 && all_labs e2
+and
+all_labs (CPrim1 _ e) = all_labs e
+and
+all_labs (CIf e1 e2 e3) = all_labs e1 && all_labs e2 && all_labs e3
+and
+all_labs_list [] = true
+and
+all_labs_list (e::es) = all_labs e && all_labs_list es
+and
+all_labs_defs [] = true
+and
+all_labs_defs (d::ds) = all_labs_def d && all_labs_defs ds
+and
+all_labs_def (Some _,(az,b)) = all_labs b
+and
+all_labs_def (None,(az,b)) = false
+
+let rec cce_aux s (_,(l,(ccenv,_)),(az,b)) =
   compile (List.map CTEnv ccenv) (TCTail az 0) 0 (emit s [Label l]) b
-and cce_aux s None = s
 
 let rec
 compile_code_env s e =

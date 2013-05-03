@@ -55,11 +55,11 @@ val all_Clocs_v_to_Cv = store_thm("all_Clocs_v_to_Cv",
   srw_tac[ETA_ss][v_to_Cv_def,LET_THM,defs_to_Cdefs_MAP] >>
   fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o])
 
-val free_labs_exp_to_Cexp = store_thm("free_labs_exp_to_Cexp",
-  ``∀s e. free_labs (exp_to_Cexp s e) = []``,
+val no_labs_exp_to_Cexp = store_thm("no_labs_exp_to_Cexp",
+  ``∀s e. no_labs (exp_to_Cexp s e)``,
   ho_match_mp_tac exp_to_Cexp_nice_ind >>
   rw[exp_to_Cexp_def,exps_to_Cexps_MAP,defs_to_Cdefs_MAP,pes_to_Cpes_MAP] >>
-  rw[free_labs_list_MAP,FLAT_EQ_NIL,EVERY_MAP,EVERY_REVERSE] >>
+  rw[EVERY_MAP,EVERY_REVERSE] >>
   TRY (unabbrev_all_tac >>
        fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,FORALL_PROD] >>
        simp[UNCURRY] >> NO_TAC) >>
@@ -70,19 +70,19 @@ val free_labs_exp_to_Cexp = store_thm("free_labs_exp_to_Cexp",
     fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD] >>
     metis_tac[] )
   >- ( Cases_on`pat_to_Cpat m p`>>fs[] ))
-val _ = export_rewrites["free_labs_exp_to_Cexp"]
+val _ = export_rewrites["no_labs_exp_to_Cexp"]
 
-val vlabs_v_to_Cv = store_thm("vlabs_v_to_Cv",
-  ``(∀m (v:α v). vlabs (v_to_Cv m v) = {}) ∧
-    (∀m (vs:α v list). vlabs_list (vs_to_Cvs m vs) = {}) ∧
-    (∀m (env:α envE). vlabs_list (env_to_Cenv m env) = {})``,
+val no_vlabs_v_to_Cv = store_thm("no_vlabs_v_to_Cv",
+  ``(∀m (v:α v). no_vlabs (v_to_Cv m v)) ∧
+    (∀m (vs:α v list). no_vlabs_list (vs_to_Cvs m vs)) ∧
+    (∀m (env:α envE). no_vlabs_list (env_to_Cenv m env))``,
   ho_match_mp_tac v_to_Cv_ind >>
   rw[v_to_Cv_def] >>
   TRY(qunabbrev_tac`Ce`)>>
   TRY(qunabbrev_tac`Cdefs`)>>
   simp[FLAT_EQ_NIL,EVERY_MAP,defs_to_Cdefs_MAP] >>
   simp[EVERY_MEM,UNCURRY])
-val _ = export_rewrites["vlabs_v_to_Cv"]
+val _ = export_rewrites["no_vlabs_v_to_Cv"]
 
 (* free vars lemmas *)
 
@@ -294,18 +294,17 @@ ho_match_mp_tac v_to_Cv_ind >>
 rw[v_to_Cv_def] >> rw[Cclosed_rules]
 >- (
   fs[Once closed_cases] >>
-  rw[Once Cclosed_cases] >- (
-    simp[Abbr`Cenv`,env_to_Cenv_MAP,SUBSET_DEF,GSYM LEFT_FORALL_IMP_THM] >>
-    Cases >> simp[Abbr`Ce`,ADD1] >>
-    strip_tac >>
-    qmatch_assum_abbrev_tac`z ∈ free_vars (exp_to_Cexp s e)` >>
-    qspecl_then[`s`,`e`]mp_tac free_vars_exp_to_Cexp >>
-    unabbrev_all_tac >>
-    simp[SUBSET_DEF,ADD1] >> fs[SUBSET_DEF] >>
-    discharge_hyps >- metis_tac[] >>
-    disch_then(qspec_then`n+1`mp_tac) >>
-    simp[] ) >>
-  simp[closed_cd_def,EVERY_MEM,FORALL_PROD,Abbr`Ce`] ) >>
+  rw[Once Cclosed_cases] >- simp[Abbr`Ce`] >>
+  simp[Abbr`Cenv`,env_to_Cenv_MAP,SUBSET_DEF,GSYM LEFT_FORALL_IMP_THM] >>
+  Cases >> simp[Abbr`Ce`,ADD1] >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`z ∈ free_vars (exp_to_Cexp s e)` >>
+  qspecl_then[`s`,`e`]mp_tac free_vars_exp_to_Cexp >>
+  unabbrev_all_tac >>
+  simp[SUBSET_DEF,ADD1] >> fs[SUBSET_DEF] >>
+  discharge_hyps >- metis_tac[] >>
+  disch_then(qspec_then`n+1`mp_tac) >>
+  simp[] ) >>
 fs[Once closed_cases] >>
 simp[Once Cclosed_cases] >>
 simp[defs_to_Cdefs_MAP,Abbr`Cdefs`,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
@@ -990,16 +989,15 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       qspecl_then[`sa`,`enva`,`e1a`,`sd,Rval (CRecClos env1 defs n)`]mp_tac(CONJUNCT1 Cevaluate_closed)>>
       simp[] >>
       simp[Q.SPECL[`CRecClos env1 defs n`]Cclosed_cases] >>
-      `free_labs e1a = []` by rw[Abbr`e1a`] >> simp[] >>
+      `no_labs e1a` by rw[Abbr`e1a`] >> simp[] >>
       strip_tac >>
       `∃b. EL n defs = (NONE,1,b)` by (
-        qspecl_then[`sa`,`enva`,`e1a`,`(sd,Rval (CRecClos env1 defs n))`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
+        qspecl_then[`sa`,`enva`,`e1a`,`(sd,Rval (CRecClos env1 defs n))`]mp_tac(CONJUNCT1 Cevaluate_no_vlabs) >>
         simp[] >>
-        simp_tac(srw_ss()++DNF_ss)[SUBSET_DEF,MEM_FLAT,MEM_MAP,Abbr`enva`,env_to_Cenv_MAP,Abbr`sa`] >>
+        simp_tac(srw_ss()++DNF_ss)[EVERY_MAP,Abbr`enva`,env_to_Cenv_MAP,Abbr`sa`] >>
         strip_tac >>
-        `set (free_labs_def (EL n defs)) = {}` by metis_tac[MEM_EL,EXTENSION,NOT_IN_EMPTY] >>
         qabbrev_tac`p = EL n defs` >> PairCases_on`p` >>
-        simp[] >> Cases_on`p0`>>fs[] >>
+        `MEM (p0,p1,p2) defs` by metis_tac[MEM_EL] >> res_tac >> fs[] >>
         fs[do_app_Opapp_SOME] >> rw[] >- (
           fs[v_to_Cv_def,LET_THM] >>
           fs[Q.SPECL[`CRecClos env1 defs zz`]syneq_cases] >>

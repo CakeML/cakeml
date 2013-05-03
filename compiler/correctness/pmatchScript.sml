@@ -183,16 +183,16 @@ simp[])
 
 (* Misc. lemmas *)
 
-val free_labs_remove_mat_vp = store_thm("free_labs_remove_mat_vp",
-  ``(∀p fk e x. free_labs (remove_mat_vp fk e x p) = free_labs e) ∧
-    (∀ps fk e x n. free_labs (remove_mat_con fk e x n ps) = free_labs e)``,
+val no_labs_remove_mat_vp = store_thm("no_labs_remove_mat_vp",
+  ``(∀p fk e x. no_labs (remove_mat_vp fk e x p) = no_labs e) ∧
+    (∀ps fk e x n. no_labs (remove_mat_con fk e x n ps) = no_labs e)``,
   ho_match_mp_tac(TypeBase.induction_of(``:Cpat``)) >> simp[])
-val _ = export_rewrites["free_labs_remove_mat_vp"]
+val _ = export_rewrites["no_labs_remove_mat_vp"]
 
-val free_labs_remove_mat_var = store_thm("free_labs_remove_mat_var",
-  ``∀x pes. free_labs (remove_mat_var x pes) = free_labs_list (REVERSE (MAP SND pes))``,
-  ho_match_mp_tac remove_mat_var_ind >> rw[remove_mat_var_def] >> simp[free_labs_list_MAP])
-val _ = export_rewrites["free_labs_remove_mat_var"]
+val no_labs_remove_mat_var = store_thm("no_labs_remove_mat_var",
+  ``∀x pes. no_labs (remove_mat_var x pes) = no_labs_list (MAP SND pes)``,
+  ho_match_mp_tac remove_mat_var_ind >> rw[remove_mat_var_def] >> simp[] >> metis_tac[])
+val _ = export_rewrites["no_labs_remove_mat_var"]
 
 (* TODO: move? *)
 
@@ -666,7 +666,7 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
          (el_check x env = SOME v) ∧
          free_vars e ⊆ count (Cpat_vars p + LENGTH env) ∧
          fk < LENGTH env ∧
-         (free_labs e = []) ∧
+         no_labs e ∧
          Cevaluate s (menv ++ env) e r0
        ⇒ ∃r. Cevaluate s env (remove_mat_vp fk e x p) r ∧
              EVERY2 (syneq) (FST r0) (FST r) ∧
@@ -676,7 +676,7 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
          (el_check x (menv0 ++ env) = SOME (CConv c (vs0++vs))) ∧
          free_vars e ⊆ count (LENGTH (menv ++ menv0 ++ env)) ∧
          fk < LENGTH (menv0 ++ env) ∧
-         (free_labs e = []) ∧
+         no_labs e ∧
          Cevaluate s (menv ++ menv0 ++ env) e r0
        ⇒ ∃r. Cevaluate s (menv0 ++ env) (remove_mat_con fk e x (LENGTH vs0) ps) r ∧
              EVERY2 (syneq) (FST r0) (FST r) ∧
@@ -843,7 +843,7 @@ val Cpnomatch_remove_mat = store_thm("Cpnomatch_remove_mat",
        ∀env x fk e r0.
          (el_check x env = SOME v) ∧ fk < LENGTH env ∧
          (free_vars e ⊆ count (Cpat_vars p + LENGTH env)) ∧
-         (free_labs e = []) ∧
+         no_labs e ∧
          Cevaluate s env (CCall (CVar fk) []) r0
          ⇒ ∃r. Cevaluate s env (remove_mat_vp fk e x p) r ∧
                EVERY2 (syneq) (FST r0) (FST r) ∧
@@ -852,7 +852,7 @@ val Cpnomatch_remove_mat = store_thm("Cpnomatch_remove_mat",
        ∀env x c vs0 fk e r0.
          (el_check x env = SOME (CConv c (vs0 ++ vs))) ∧ fk < LENGTH env ∧
          (free_vars e ⊆ count (Cpat_vars_list ps + LENGTH env)) ∧
-         (free_labs e = []) ∧
+         no_labs e ∧
          Cevaluate s env (CCall (CVar fk) []) r0
          ⇒ ∃r. Cevaluate s env (remove_mat_con fk e x (LENGTH vs0) ps) r ∧
                EVERY2 (syneq) (FST r0) (FST r) ∧
@@ -1042,7 +1042,7 @@ val Cevaluate_match_NONE_NIL = store_thm("Cevaluate_match_NONE_NIL",
 val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
   ``∀pes menv mr. Cevaluate_match s v pes menv mr ⇒
       ∀env x. (el_check x env = SOME v) ∧
-              EVERY (λ(p,e). free_vars e ⊆ count (Cpat_vars p + LENGTH env) ∧ (free_labs e = [])) pes
+              EVERY (λ(p,e). free_vars e ⊆ count (Cpat_vars p + LENGTH env) ∧ no_labs e) pes
       ⇒
        case mr of
        | NONE =>
