@@ -1968,18 +1968,15 @@ val mkshift_thm = store_thm("mkshift_thm",
      first_x_assum(qspecl_then[`z`,`v2`]mp_tac) >>
      simp[] ) >>
    srw_tac[ARITH_ss][syneq_cb_V_def] >- (
-     `x - (p1 + LENGTH defs) = x - p1 - LENGTH defs` by fsrw_tac[ARITH_ss][] >>
-     pop_assum SUBST1_TAC >>
-     `x - (k + (p1 + LENGTH defs)) = x - p1 - LENGTH defs - k` by fsrw_tac[ARITH_ss][] >>
-     pop_assum SUBST1_TAC >>
-
      fsrw_tac[ARITH_ss,DNF_ss][free_vars_defs_MAP,MEM_EL] >>
+     `x - (p1 + LENGTH defs) = x - p1 - LENGTH defs` by fsrw_tac[ARITH_ss][] >> pop_assum SUBST1_TAC >>
+     `x - (k + (p1 + LENGTH defs)) = x - p1 - LENGTH defs - k` by fsrw_tac[ARITH_ss][] >> pop_assum SUBST1_TAC >>
      last_x_assum match_mp_tac >>
-
      qexists_tac`v2` >> simp[] >>
      qexists_tac`x` >> simp[]) >>
    spose_not_then strip_assume_tac >>
    qpat_assum`~(x < y)`mp_tac >> simp[] >>
+   fsrw_tac[DNF_ss,ARITH_ss][MEM_EL,free_vars_defs_MAP] >>
    rw[AC ADD_ASSOC ADD_SYM] >>
    REWRITE_TAC[Once ADD_ASSOC] >>
    CONV_TAC(LAND_CONV(LAND_CONV(REWRITE_CONV[Once ADD_SYM]))) >>
@@ -1990,13 +1987,12 @@ val mkshift_thm = store_thm("mkshift_thm",
    `x - (k + (p1 + LENGTH defs)) = x - p1 - LENGTH defs - k` by srw_tac[ARITH_ss][] >>
    pop_assum SUBST1_TAC >>
    last_x_assum match_mp_tac >>
-   simp_tac(srw_ss()++DNF_ss)[MEM_EL,free_vars_defs_MAP] >>
    qexists_tac`v2` >> simp[] >>
    qexists_tac`x` >> simp[]) >>
  strip_tac >- (
    simp[] >> rw[] >>
    PairCases_on`cb`>>fs[] >>
-   Cases_on`cb0`>>fs[] >>
+   Cases_on`cb0`>>TRY(PairCases_on`x`)>>fs[] >>
    rw[Once syneq_exp_cases] >>
    qexists_tac`λv1 v2. (v1 = 0) ∧ (v2 = 0)` >>
    simp[] >>
@@ -2045,9 +2041,8 @@ val mkshift_thm = store_thm("mkshift_thm",
    simp[MEM_EL] >>
    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
    qexists_tac`n` >> simp[] >>
-   fs[markerTheory.Abbrev_def] >> rw[] >> fs[free_labs_list_MAP,FLAT_EQ_NIL,EVERY_MAP] >>
-   fsrw_tac[DNF_ss][free_vars_list_MAP,MEM_EL] >>
-   fsrw_tac[DNF_ss][EVERY_MEM] >>
+   fsrw_tac[DNF_ss][free_vars_list_MAP,EVERY_MEM,free_labs_list_MAP,MEM_FLAT,MEM_MAP] >>
+   fsrw_tac[DNF_ss][MEM_EL] >>
    metis_tac[ADD_SYM,MEM_EL] ) >>
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
@@ -2190,23 +2185,35 @@ val free_vars_shift = store_thm("free_vars_shift",
 val _ = export_rewrites["free_vars_shift"]
 
 val free_labs_mkshift = store_thm("free_labs_mkshift",
-  ``∀f k e. free_labs (mkshift f k e) = free_labs e``,
+  ``∀f k e ez. free_labs ez (mkshift f k e) = free_labs ez e``,
   ho_match_mp_tac mkshift_ind >> rw[free_labs_list_MAP] >> rw[] >>
   TRY (
     AP_TERM_TAC >>
-    TRY(qunabbrev_tac`defs'`) >>
     simp[MAP_MAP_o,MAP_EQ_f] >>
     simp[FORALL_PROD] >>
     Cases >> simp[] >>
     rw[] >> res_tac >>
     fsrw_tac[ARITH_ss][] >>
     NO_TAC ) >>
+  TRY (
+    qunabbrev_tac`defs'` >>
+    simp[free_labs_defs_MAP] >>
+    AP_TERM_TAC >>
+    simp[Once LIST_EQ_REWRITE] >>
+    rpt strip_tac >>
+    simp[EL_MAP] >>
+    fsrw_tac[DNF_ss][MEM_EL] >>
+    qabbrev_tac`p = EL x defs` >>
+    PairCases_on`p`>>fs[]>>
+    Cases_on`p0`>>fs[]>>
+    first_x_assum(qspecl_then[`p1`,`p2`,`ez+ns+p1`,`x`]mp_tac)>>
+    simp[] ) >>
   PairCases_on`cb` >> simp[] >>
   Cases_on`cb0`>>simp[] >> fsrw_tac[ARITH_ss][])
 val _ = export_rewrites["free_labs_mkshift"]
 
 val free_labs_shift = store_thm("free_labs_shift",
-  ``(free_labs (shift k n e)) = (free_labs e)``,
+  ``(free_labs ez (shift k n e)) = (free_labs ez e)``,
   simp[shift_def])
 val _ = export_rewrites["free_labs_shift"]
 
