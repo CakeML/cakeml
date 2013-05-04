@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory sortingTheory lcsymtacs quantHeuristicsLib quantHeuristicsLibAbbrev
-open MiniMLTerminationTheory miniMLExtraTheory miscTheory miscLib compileTerminationTheory intLangTheory bytecodeTerminationTheory evaluateEquationsTheory expToCexpTheory pmatchTheory labelClosuresTheory bytecodeEvalTheory bytecodeExtraTheory
+open terminationTheory miniMLExtraTheory miscTheory miscLib compileTerminationTheory intLangTheory bytecodeTerminationTheory evaluateEquationsTheory expToCexpTheory pmatchTheory labelClosuresTheory bytecodeEvalTheory bytecodeExtraTheory
 val _ = numLib.prefer_num()
 val _ = new_theory "compileCorrectness"
 

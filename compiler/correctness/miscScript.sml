@@ -4,6 +4,26 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val OPTION_EVERY_def = Define`
+  (OPTION_EVERY P NONE = T) /\
+  (OPTION_EVERY P (SOME v) = P v)`
+val _ = export_rewrites["OPTION_EVERY_def"]
+val OPTION_EVERY_cong = store_thm("OPTION_EVERY_cong",
+  ``!o1 o2 P1 P2. (o1 = o2) /\ (!x. (o2 = SOME x) ==> (P1 x = P2 x)) ==>
+                  (OPTION_EVERY P1 o1 = OPTION_EVERY P2 o2)``,
+  Cases THEN SRW_TAC[][] THEN SRW_TAC[][])
+val _ = DefnBase.export_cong"OPTION_EVERY_cong"
+val OPTION_EVERY_mono = store_thm("OPTION_EVERY_mono",
+  ``(!x. P x ==> Q x) ==> OPTION_EVERY P op ==> OPTION_EVERY Q op``,
+  Cases_on `op` THEN SRW_TAC[][])
+val _ = IndDefLib.export_mono"OPTION_EVERY_mono"
+
+val MEM_LUPDATE = store_thm("MEM_LUPDATE",
+  ``!l x y i. MEM x (LUPDATE y i l) ==> (x = y) \/ MEM x l``,
+  Induct THEN SRW_TAC[][LUPDATE_def] THEN
+  Cases_on`i`THEN FULL_SIMP_TAC(srw_ss())[LUPDATE_def] THEN
+  PROVE_TAC[])
+
 val option_case_NONE_F = store_thm("option_case_NONE_F",
   ``(case X of NONE => F | SOME x => P x) = (∃x. (X = SOME x) ∧ P x)``,
   Cases_on`X`>>rw[])
