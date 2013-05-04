@@ -7,7 +7,8 @@ selftest.exe: test_compiler.uo compile_emitTheory.uo
 	$(HOLMOSMLC) -o $@ $<
 
 ifdef POLY
-HOLHEAP = miniml-heap
+HOLHEAP = heap
+PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = ../compileTerminationTheory\
@@ -18,5 +19,5 @@ BARE_THYS = ../compileTerminationTheory\
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
 endif

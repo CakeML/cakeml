@@ -2,12 +2,13 @@ INCLUDES=../semantics ./bytecode
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
-HOLHEAP = miniml-heap
+HOLHEAP = heap
+PARENT_HOLHEAP = ../semantics/sem_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = ../semantics/terminationTheory ./bytecode/BytecodeTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
 endif

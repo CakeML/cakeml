@@ -6,6 +6,7 @@
 *.ui
 *.o
 .HOLMK
+selftest.exe
 
 # HOLHEAP
 *heap
