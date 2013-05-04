@@ -4,6 +4,11 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val BIGUNION_IMAGE_set_SUBSET = store_thm("BIGUNION_IMAGE_set_SUBSET",
+  ``(BIGUNION (IMAGE f (set ls)) ⊆ s) =
+    (∀x. MEM x ls ⇒ f x ⊆ s)``,
+  srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[])
+
 val OPTION_EVERY_def = Define`
   (OPTION_EVERY P NONE = T) /\
   (OPTION_EVERY P (SOME v) = P v)`
@@ -796,6 +801,10 @@ val IN_FRANGE_FUPDATE_suff = store_thm(
 rw[] >>
 imp_res_tac(SIMP_RULE(srw_ss())[SUBSET_DEF]FRANGE_FUPDATE_SUBSET) >>
 fs[])
+
+val IN_FRANGE_o_f_suff = store_thm("IN_FRANGE_o_f_suff",
+  ``(∀v. v ∈ FRANGE fm ⇒ P (f v)) ⇒ ∀v. v ∈ FRANGE (f o_f fm) ⇒ P v``,
+  rw[IN_FRANGE] >> rw[] >> first_x_assum match_mp_tac >> PROVE_TAC[])
 
 (* DRESTRICT stuff *)
 

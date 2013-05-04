@@ -41,15 +41,15 @@ val SUM_MAP_exp5_size_thm = store_thm(
 Induct >- rw[exp_size_def] >>
 Cases >> srw_tac[ARITH_ss][exp_size_def])
 
-(*
 val SUM_MAP_v2_size_thm = store_thm(
 "SUM_MAP_v2_size_thm",
-``∀env f. SUM (MAP (v2_size f) env) = SUM (MAP (list_size char_size) (MAP FST env)) +
-                                      SUM (MAP (v3_size f) (MAP SND env)) +
-                                      LENGTH env``,
+``∀env. SUM (MAP v2_size env) = SUM (MAP (list_size char_size) (MAP FST env)) +
+                                SUM (MAP v_size (MAP SND env)) +
+                                LENGTH env``,
 Induct >- rw[v_size_def] >>
 Cases >> srw_tac[ARITH_ss][v_size_def])
 
+(*
 val SUM_MAP_v3_size_thm = store_thm(
 "SUM_MAP_v3_size_thm",
 ``∀env f. SUM (MAP (v3_size f) env) = SUM (MAP (v_size f) (MAP FST env)) +
