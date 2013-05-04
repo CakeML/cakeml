@@ -10,6 +10,7 @@ fun tm t1 t2 =  ``∀ls. ^t1 ls = SUM (MAP ^t2 ls) + LENGTH ls``
 fun size_thm name t1 t2 = store_thm(name,tm t1 t2,tac)
 val exp1_size_thm = size_thm "exp1_size_thm" ``exp1_size`` ``exp2_size``
 val exp4_size_thm = size_thm "exp4_size_thm" ``exp4_size`` ``exp5_size``
+val exp6_size_thm = size_thm "exp6_size_thm" ``exp6_size`` ``exp_size``
 val pat1_size_thm = size_thm "pat1_size_thm" ``pat1_size`` ``pat_size``
 val v1_size_thm = size_thm "v1_size_thm" ``v1_size`` ``v2_size``
 val v3_size_thm = size_thm "v3_size_thm" ``v3_size`` ``v_size``
@@ -29,6 +30,14 @@ val SUM_MAP_exp3_size_thm = store_thm(
 ``∀ls. SUM (MAP exp3_size ls) = SUM (MAP (list_size char_size) (MAP FST ls)) +
                                       SUM (MAP exp_size (MAP SND ls)) +
                                       LENGTH ls``,
+Induct >- rw[exp_size_def] >>
+Cases >> srw_tac[ARITH_ss][exp_size_def])
+
+val SUM_MAP_exp5_size_thm = store_thm(
+"SUM_MAP_exp5_size_thm",
+``∀ls. SUM (MAP exp5_size ls) = SUM (MAP pat_size (MAP FST ls)) +
+                                SUM (MAP exp_size (MAP SND ls)) +
+                                LENGTH ls``,
 Induct >- rw[exp_size_def] >>
 Cases >> srw_tac[ARITH_ss][exp_size_def])
 

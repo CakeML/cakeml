@@ -1,6 +1,6 @@
 open HolKernel bossLib boolLib boolSimps pairTheory alistTheory listTheory rich_listTheory pred_setTheory finite_mapTheory lcsymtacs SatisfySimps quantHeuristicsLib
-open MiniMLTheory MiniMLTerminationTheory miscTheory compileTerminationTheory
-val _ = new_theory "miniMLExtra"
+open SemanticPrimitivesTheory AstTheory BigStepTheory TypeSystemTheory terminationTheory miscTheory compileTerminationTheory
+val _ = new_theory "semanticsExtra"
 
 val lookup_ALOOKUP = store_thm(
 "lookup_ALOOKUP",
@@ -10,34 +10,17 @@ val _ = export_rewrites["lookup_ALOOKUP"];
 
 val find_recfun_ALOOKUP = store_thm(
 "find_recfun_ALOOKUP",
-``∀funs n. find_recfun n funs = OPTION_MAP SND (ALOOKUP funs n)``,
+``∀funs n. find_recfun n funs = ALOOKUP funs n``,
 Induct >- rw[find_recfun_def] >>
 qx_gen_tac `d` >>
 PairCases_on `d` >>
 rw[find_recfun_def])
 val _ = export_rewrites["find_recfun_ALOOKUP"]
 
-val pat_vars_def = tDefine "pat_vars"`
-(pat_vars (Pvar v _) = {v}) ∧
-(pat_vars (Plit l) = {}) ∧
-(pat_vars (Pcon c ps) = BIGUNION (IMAGE pat_vars (set ps))) ∧
-(pat_vars (Pref p) = pat_vars p)`(
-WF_REL_TAC `measure (pat_size ARB)` >>
-srw_tac[ARITH_ss][pat1_size_thm] >>
-Q.ISPEC_THEN `pat_size ARB` imp_res_tac SUM_MAP_MEM_bound >>
-srw_tac[ARITH_ss][])
-val _ = export_rewrites["pat_vars_def"]
-
-val FINITE_pat_vars = store_thm("FINITE_pat_vars",
-  ``∀p. FINITE (pat_vars p)``,
-  ho_match_mp_tac (theorem"pat_vars_ind") >>
-  rw[] >> res_tac)
-val _ = export_rewrites["FINITE_pat_vars"]
-
 val pat_bindings_acc = store_thm("pat_bindings_acc",
-  ``(∀(p:α pat) l. pat_bindings p l = pat_bindings p [] ++ l) ∧
-    (∀(ps:α pat list) l. pats_bindings ps l = pats_bindings ps [] ++ l)``,
-  ho_match_mp_tac (TypeBase.induction_of``:α pat``) >> rw[] >>
+  ``(∀p l. pat_bindings p l = pat_bindings p [] ++ l) ∧
+    (∀ps l. pats_bindings ps l = pats_bindings ps [] ++ l)``,
+  ho_match_mp_tac (TypeBase.induction_of``:pat``) >> rw[] >>
   simp_tac std_ss [pat_bindings_def] >>
   metis_tac[APPEND,APPEND_ASSOC])
 
@@ -47,41 +30,30 @@ val pats_bindings_MAP = store_thm("pats_bindings_MAP",
   rw[pat_bindings_def] >>
   rw[Once pat_bindings_acc])
 
-val pat_vars_pat_bindings = store_thm("pat_vars_pat_bindings",
-  ``(∀(p:α pat). pat_vars p = set (pat_bindings p [])) ∧
-    (∀(ps:α pat list). BIGUNION (IMAGE pat_vars (set ps)) = set (pats_bindings ps []))``,
-  ho_match_mp_tac(TypeBase.induction_of``:α pat``) >>
-  srw_tac[ETA_ss][pat_bindings_def] >>
-  rw[Once pat_bindings_acc,SimpRHS] >>
-  rw[UNION_COMM])
-
 val FV_def = tDefine "FV"`
 (FV (Raise _) = {}) ∧
-(FV (Handle e1 x e2) = FV e1 ∪ (FV e2 DIFF {x})) ∧
+(FV (Handle e1 x e2) = FV e1 ∪ (FV e2 DIFF {Short x})) ∧
 (FV (Lit _) = {}) ∧
 (FV (Con _ ls) = BIGUNION (IMAGE FV (set ls))) ∧
-(FV (Var x _) = {x}) ∧
-(FV (Fun x _ e) = FV e DIFF {x}) ∧
+(FV (Var id) = {id}) ∧
+(FV (Fun x e) = FV e DIFF {Short x}) ∧
 (FV (Uapp _ e) = FV e) ∧
 (FV (App _ e1 e2) = FV e1 ∪ FV e2) ∧
 (FV (Log _ e1 e2) = FV e1 ∪ FV e2) ∧
 (FV (If e1 e2 e3) = FV e1 ∪ FV e2 ∪ FV e3) ∧
-(FV (Mat e pes) = FV e ∪ BIGUNION (IMAGE (λ(p,e). FV e DIFF pat_vars p) (set pes))) ∧
-(FV (Let _ x _ e b) = FV e ∪ (FV b DIFF {x})) ∧
-(FV (Letrec _ defs b) = BIGUNION (IMAGE (λ(y,_0,x,_1,e). FV e DIFF ({x} ∪ (IMAGE FST (set defs)))) (set defs)) ∪ (FV b DIFF (IMAGE FST (set defs))))`
-(WF_REL_TAC `measure (exp_size ARB)` >>
-srw_tac[ARITH_ss][exp1_size_thm,exp5_size_thm,exp8_size_thm,
-                  SUM_MAP_exp7_size_thm,SUM_MAP_exp2_size_thm,
-                  SUM_MAP_exp3_size_thm,SUM_MAP_exp4_size_thm,SUM_MAP_exp6_size_thm] >>
+(FV (Mat e pes) = FV e ∪ BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))) ∧
+(FV (Let x e b) = FV e ∪ (FV b DIFF {Short x})) ∧
+(FV (Letrec defs b) = BIGUNION (IMAGE (λ(y,x,e). FV e DIFF ({Short x} ∪ (IMAGE (Short o FST) (set defs)))) (set defs)) ∪ (FV b DIFF (IMAGE (Short o FST) (set defs))))`
+(WF_REL_TAC `measure exp_size` >>
+srw_tac[ARITH_ss][exp1_size_thm,exp4_size_thm,exp6_size_thm,SUM_MAP_exp2_size_thm,SUM_MAP_exp3_size_thm,SUM_MAP_exp5_size_thm] >>
 TRY (
-  qmatch_assum_rename_tac`MEM (a,z,c,d,e) defs`[]>>
-  `MEM e (MAP SND (MAP SND (MAP SND (MAP SND defs))))`by
+  qmatch_assum_rename_tac`MEM (y,x,e) defs`[]>>
+  `MEM e (MAP SND (MAP SND defs))`by
   srw_tac[SATISFY_ss][MEM_MAP,EXISTS_PROD] ) >>
 TRY (
   qmatch_assum_rename_tac`MEM (p,z) pes`[]>>
-  `MEM z (MAP SND pes)`by srw_tac[SATISFY_ss][MEM_MAP,EXISTS_PROD] ) >>
-map_every (fn q => Q.ISPEC_THEN q imp_res_tac SUM_MAP_MEM_bound)
-  [`exp2_size ARB`,`exp5_size ARB`,`exp_size ARB`] >>
+  `MEM z (MAP SND pes)`by (srw_tac[SATISFY_ss][MEM_MAP,EXISTS_PROD] >> NO_TAC)) >>
+Q.ISPEC_THEN `exp_size` imp_res_tac SUM_MAP_MEM_bound >>
 fsrw_tac[ARITH_ss][exp_size_def])
 val _ = export_rewrites["FV_def"]
 
