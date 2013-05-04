@@ -8,10 +8,7 @@
 .HOLMK
 
 # HOLHEAP
-miniml-heap
-miniml-heap0
-local-hol-heap
-sem_heap
+*heap
 
 # Translator stuff
 *txt
