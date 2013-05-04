@@ -11,6 +11,7 @@
 miniml-heap
 miniml-heap0
 local-hol-heap
+sem_heap
 
 # Translator stuff
 *txt
