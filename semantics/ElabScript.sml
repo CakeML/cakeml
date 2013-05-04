@@ -181,9 +181,9 @@ val _ = type_abbrev( "ctor_env" , ``: (conN, ( conN id)) env``);
 (*val elab_funs : ctor_env -> binding_env -> list (varN * varN * ast_exp) -> 
                 list (varN * varN * exp)*)
 (*val elab_dec : option modN -> list typeN -> ctor_env -> binding_env -> ast_dec -> list typeN * ctor_env * binding_env * dec*)
-(*val elab_decs : option modN -> list typeN -> ctor_env -> binding_env -> list ast_dec -> list dec*)
+(*val elab_decs : option modN -> list typeN -> ctor_env -> binding_env -> list ast_dec -> list typeN * ctor_env * binding_env * list dec*)
 (*val elab_spec : list typeN -> list ast_spec -> list spec*)
-(*val elab_prog : list typeN -> ctor_env -> binding_env -> list ast_top -> list top*)
+(*val elab_prog : list typeN -> ctor_env -> binding_env -> list ast_top -> list typeN * ctor_env * binding_env * prog*)
 
 (*val get_pat_bindings : pat -> binding_env*)
 val _ = Define `
@@ -326,12 +326,14 @@ val _ = Define `
 
  val elab_decs_defn = Hol_defn "elab_decs" `
 
-(elab_decs mn type_bound ctors bound [] = ([]))
+(elab_decs mn type_bound ctors bound [] = ([],emp,emp,[]))
 /\
 (elab_decs mn type_bound ctors bound (d::ds) =  
  (let (type_bound', ctors', bound', d') = ( elab_dec mn type_bound ctors bound d) in
-  let ds' = (elab_decs mn (type_bound' ++ type_bound) (merge ctors' ctors) (merge bound' bound) ds) in
-    d' ::ds'))`;
+  let (type_bound'',ctors'',bound'',ds') =    
+ (elab_decs mn (type_bound' ++ type_bound) (merge ctors' ctors) (merge bound' bound) ds) 
+  in
+    ((type_bound'' ++type_bound'), merge ctors'' ctors', merge bound'' bound', (d' ::ds'))))`;
 
 val _ = Defn.save_defn elab_decs_defn;
 
@@ -353,17 +355,19 @@ val _ = Defn.save_defn elab_spec_defn;
 
  val elab_prog_defn = Hol_defn "elab_prog" `
 
-(elab_prog type_bound ctors bound [] = ([]))
+(elab_prog type_bound ctors bound [] = ([],emp,emp,[]))
 /\
 (elab_prog type_bound ctors bound (Ast_Tdec d::prog) =  
 (let (type_bound', ctors', bound', d') = ( elab_dec NONE type_bound ctors bound d) in
-  let prog' = (elab_prog (type_bound' ++ type_bound) (merge ctors' ctors) (merge bound' bound) prog) in
-    Tdec d' ::prog'))
+  let (type_bound'',ctors'',bound'',prog') =    
+ (elab_prog (type_bound' ++ type_bound) (merge ctors' ctors) (merge bound' bound) prog)
+  in
+    ((type_bound'' ++type_bound),merge ctors'' ctors',merge bound'' bound',(Tdec d' ::prog'))))
 /\
 (elab_prog type_bound ctors bound (Ast_Tmod mn spec ds::prog) =  
-(let ds' = ( elab_decs (SOME mn) type_bound ctors bound ds) in
-  let prog' = (elab_prog type_bound ctors bound prog) in
-    Tmod mn (option_map (elab_spec type_bound) spec) ds' ::prog'))`;
+(let (type_bound',ctors',bound',ds') = ( elab_decs (SOME mn) type_bound ctors bound ds) in
+  let (type_bound'',ctors'',bound'',prog') = (elab_prog type_bound ctors bound prog) in
+    (type_bound'',ctors'',bound'',(Tmod mn (option_map (elab_spec type_bound) spec) ds' ::prog'))))`;
 
 val _ = Defn.save_defn elab_prog_defn;
 val _ = export_theory()

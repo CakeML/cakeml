@@ -44,3 +44,6 @@ altBigStep.lem
 
 terminationScript.sml
     Termination proofs for recursive functions defined in the .lem files
+
+replScript.
+    Pulls everything together into a semantics for the CakeML repl
