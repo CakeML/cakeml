@@ -9,7 +9,7 @@ val option_case_NONE_F = store_thm("option_case_NONE_F",
   Cases_on`X`>>rw[])
 
 val IS_PREFIX_THM = store_thm("IS_PREFIX_THM",
- ``!l2 l1. IS_PREFIX l1 l2 = (LENGTH l2 <= LENGTH l1) /\ !n. n < LENGTH l2 ==> (EL n l2 = EL n l1)``,
+ ``!l2 l1. IS_PREFIX l1 l2 <=> (LENGTH l2 <= LENGTH l1) /\ !n. n < LENGTH l2 ==> (EL n l2 = EL n l1)``,
  Induct THEN SRW_TAC[][IS_PREFIX] THEN
  Cases_on`l1`THEN SRW_TAC[][EQ_IMP_THM] THEN1 (
    Cases_on`n`THEN SRW_TAC[][EL_CONS] THEN
@@ -231,7 +231,7 @@ val FUPDATE_LIST_ALL_DISTINCT_PERM = store_thm("FUPDATE_LIST_ALL_DISTINCT_PERM",
   rw[FUPDATE_LIST_THM])
 
 val ALL_DISTINCT_MEM_ZIP_MAP = store_thm("ALL_DISTINCT_MEM_ZIP_MAP",
-  ``!f x ls. ALL_DISTINCT ls ==> (MEM x (ZIP (ls, MAP f ls)) = MEM (FST x) ls /\ (SND x = f (FST x)))``,
+  ``!f x ls. ALL_DISTINCT ls ==> (MEM x (ZIP (ls, MAP f ls)) <=> MEM (FST x) ls /\ (SND x = f (FST x)))``,
   GEN_TAC THEN Cases THEN
   SRW_TAC[][MEM_ZIP,FORALL_PROD] THEN
   SRW_TAC[][EQ_IMP_THM] THEN
@@ -252,7 +252,7 @@ val SUBMAP_mono_FUPDATE = store_thm("SUBMAP_mono_FUPDATE",
   SRW_TAC[][SUBMAP_FUPDATE])
 
 val SUBMAP_DOMSUB_gen = store_thm("SUBMAP_DOMSUB_gen",
-  ``!f g k. f \\ k SUBMAP g = f \\ k SUBMAP g \\ k``,
+  ``!f g k. f \\ k SUBMAP g <=> f \\ k SUBMAP g \\ k``,
   SRW_TAC[][SUBMAP_DEF,EQ_IMP_THM,DOMSUB_FAPPLY_THM])
 
 val DOMSUB_SUBMAP = store_thm("DOMSUB_SUBMAP",
@@ -293,7 +293,7 @@ val FOLDL_invariant_rest = store_thm("FOLDL_invariant_rest",
   rw[] >> first_x_assum (qspecl_then[`x`,`SUC n`] mp_tac) >> rw[])
 
 val between_def = Define`
-  between x y z = x:num ≤ z ∧ z < y`
+  between x y z ⇔ x:num ≤ z ∧ z < y`
 
 val TAKE_SUM = store_thm("TAKE_SUM",
   ``!n m l. n + m <= LENGTH l ==> (TAKE (n + m) l = TAKE n l ++ TAKE m (DROP n l))``,
@@ -334,7 +334,7 @@ val SUC_LEAST = store_thm("SUC_LEAST",
   DECIDE_TAC)
 
 val fmap_linv_def = Define`
-  fmap_linv f1 f2 = (FDOM f2 = FRANGE f1) /\ (!x. x IN FDOM f1 ==> (FLOOKUP f2 (FAPPLY f1 x) = SOME x))`
+  fmap_linv f1 f2 ⇔ (FDOM f2 = FRANGE f1) /\ (!x. x IN FDOM f1 ==> (FLOOKUP f2 (FAPPLY f1 x) = SOME x))`
 
 val fmap_linv_unique = store_thm("fmap_linv_unique",
   ``!f f1 f2. fmap_linv f f1 /\ fmap_linv f f2 ==> (f1 = f2)``,
@@ -436,7 +436,7 @@ val LIST_TO_SET_GENLIST = store_thm("LIST_TO_SET_GENLIST",
   SRW_TAC[][EXTENSION,MEM_GENLIST] THEN PROVE_TAC[])
 
 val DRESTRICT_EQ_DRESTRICT_SAME = store_thm("DRESTRICT_EQ_DRESTRICT_SAME",
-  ``(DRESTRICT f1 s = DRESTRICT f2 s) =
+  ``(DRESTRICT f1 s = DRESTRICT f2 s) ⇔
     (s INTER FDOM f1 = s INTER FDOM f2) /\
     (!x. x IN FDOM f1 /\ x IN s ==> (f1 ' x = f2 ' x))``,
   SRW_TAC[][DRESTRICT_EQ_DRESTRICT,SUBMAP_DEF,DRESTRICT_DEF,EXTENSION] THEN
@@ -479,13 +479,13 @@ val _ = export_rewrites ["IF_NONE_EQUALS_OPTION"]
 (* TODO: move elsewhere? export as rewrite? *)
 val IN_option_rwt = store_thm(
 "IN_option_rwt",
-``(x ∈ case opt of NONE => {} | SOME y => Q y) =
+``(x ∈ case opt of NONE => {} | SOME y => Q y) ⇔
   (∃y. (opt = SOME y) ∧ x ∈ Q y)``,
 Cases_on `opt` >> rw[EQ_IMP_THM])
 
 val IN_option_rwt2 = store_thm(
 "IN_option_rwt2",
-``x ∈ option_CASE opt {} s = ∃y. (opt = SOME y) ∧ x ∈ s y``,
+``x ∈ option_CASE opt {} s ⇔ ∃y. (opt = SOME y) ∧ x ∈ s y``,
 Cases_on `opt` >> rw[])
 
 (* Re-expressing folds *)
@@ -594,7 +594,7 @@ MAP_ZIP
 
 val INJ_I = store_thm(
 "INJ_I",
-``∀s t. INJ I s t = s ⊆ t``,
+``∀s t. INJ I s t ⇔ s ⊆ t``,
 SRW_TAC[][INJ_DEF,SUBSET_DEF])
 
 val MAP_KEYS_I = store_thm(
@@ -680,7 +680,7 @@ val FUPDATE_LIST_ALL_DISTINCT_REVERSE = store_thm("FUPDATE_LIST_ALL_DISTINCT_REV
 
 val IN_FRANGE = store_thm(
 "IN_FRANGE",
-``!f v. v IN FRANGE f = ?k. k IN FDOM f /\ (f ' k = v)``,
+``!f v. v IN FRANGE f ⇔ ?k. k IN FDOM f /\ (f ' k = v)``,
 SRW_TAC[][FRANGE_DEF])
 
 val FRANGE_FUPDATE_LIST_SUBSET = store_thm(
@@ -857,7 +857,7 @@ PROVE_TAC[])
 
 val LESS_1 = store_thm(
 "LESS_1",
-``x < 1 = (x = 0:num)``,
+``x < 1 ⇔ (x = 0:num)``,
 DECIDE_TAC)
 val _ = export_rewrites["LESS_1"]
 
