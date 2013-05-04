@@ -40,20 +40,20 @@ fun fix_compile_bindings_suc th = let
 
 val data = map
   (fn th => EmitML.DATATYPE [QUOTE (datatype_thm_to_string th)])
-  [ MiniMLTheory.datatype_lit
-  , MiniMLTheory.datatype_error
-  , MiniMLTheory.datatype_opb
-  , MiniMLTheory.datatype_opn
-  , MiniMLTheory.datatype_op
-  , MiniMLTheory.datatype_uop
-  , MiniMLTheory.datatype_log
-  , MiniMLTheory.datatype_id
-  , MiniMLTheory.datatype_pat
-  , MiniMLTheory.datatype_exp
-  , MiniMLTheory.datatype_v
-  , MiniMLTheory.datatype_tc0
-  , MiniMLTheory.datatype_t
-  , MiniMLTheory.datatype_dec
+  [ AstTheory.datatype_lit
+  , AstTheory.datatype_error
+  , AstTheory.datatype_opb
+  , AstTheory.datatype_opn
+  , AstTheory.datatype_op
+  , AstTheory.datatype_uop
+  , AstTheory.datatype_lop
+  , AstTheory.datatype_id
+  , AstTheory.datatype_pat
+  , AstTheory.datatype_exp
+  , SemanticPrimitivesTheory.datatype_v
+  , AstTheory.datatype_tc0
+  , AstTheory.datatype_t
+  , AstTheory.datatype_dec
   , datatype_ov
   , datatype_Cprim1
   , datatype_Cprim2

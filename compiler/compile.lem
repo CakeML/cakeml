@@ -25,7 +25,9 @@ val flookup : forall 'a 'b 'c. Pmap.map 'a 'b -> 'a -> 'c
 let inline {hol} flookup = Hol.FLOOKUP
 val genlist : forall 'a. (num -> 'a) -> num -> list 'a
 let inline {hol} genlist = Hol.GENLIST
-open MiniML
+open SemanticPrimitives
+open Ast
+open BigStep
 val return : forall 'a 'b. 'a -> 'b -> 'a * 'b
 let inline {hol} return = Hol.UNIT
 val bind : forall 'a 'b 'c. ('a -> 'b * 'a) -> ('b -> 'a -> 'c * 'a) -> 'a -> 'c * 'a

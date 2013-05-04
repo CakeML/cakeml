@@ -8,7 +8,7 @@ val _ = numLib.prefer_num();
 
 
 
-open BytecodeTheory MiniMLTheory
+open BytecodeTheory BigStepTheory SmallStepTheory SemanticPrimitivesTheory AstTheory LibTheory
 
 val _ = new_theory "Compile"
 
@@ -35,7 +35,9 @@ val _ = new_theory "Compile"
 (*val optrel : forall 'a 'b 'c 'd. ('a -> 'b -> bool) -> 'c -> 'd -> bool*)
 (*val flookup : forall 'a 'b 'c. Pmap.map 'a 'b -> 'a -> 'c*)
 (*val genlist : forall 'a. (num -> 'a) -> num -> list 'a*)
-(*open MiniML*)
+(*open SemanticPrimitives*)
+(*open Ast*)
+(*open BigStep*)
 (*val return : forall 'a 'b. 'a -> 'b -> 'a * 'b*)
 (*val bind : forall 'a 'b 'c. ('a -> 'b * 'a) -> ('b -> 'a -> 'c * 'a) -> 'a -> 'c * 'a*)
 (*val ubind : forall 'a 'b 'c. ('a -> 'b * 'a) -> ('a -> 'c * 'a) -> 'a -> 'c * 'a*)
@@ -728,15 +730,9 @@ val _ = Hol_datatype `
 /\
 (pat_to_Cpat m (Plit l) = (m, CPlit l))
 /\
-<<<<<<< HEAD
-(pat_to_Cpat m (Pcon (Short cn) ps) =
-  let (m,Cps) = pats_to_Cpats m ps in
-  (m,CPcon ( FAPPLY  m.cnmap  cn) Cps))
-=======
-(pat_to_Cpat m (Pcon cn ps) =  
+(pat_to_Cpat m (Pcon (Short cn) ps) =  
 (let (m,Cps) = (pats_to_Cpats m ps) in
   (m,CPcon ( FAPPLY  m.cnmap  cn) Cps)))
->>>>>>> compiler-proofs
 /\
 (pat_to_Cpat m (Pref p) =  
 (let (m,Cp) = (pat_to_Cpat m p) in
@@ -816,23 +812,13 @@ val _ = Defn.save_defn remove_mat_var_defn;
 /\
 (exp_to_Cexp m (Lit l) = (CLit l))
 /\
-<<<<<<< HEAD
-(exp_to_Cexp m (Con (Short cn) es) =
-  CCon ( FAPPLY  m.cnmap  cn) (exps_to_Cexps m es))
-/\
-(exp_to_Cexp m (Var (Short vn)) = CVar ( THE (find_index vn m.bvars 0)))
-/\
-(exp_to_Cexp m (Fun vn e) =
-  CFun (INL (1,shift 1 1 (exp_to_Cexp (cbv m vn) e))))
-=======
-(exp_to_Cexp m (Con cn es) =  
+(exp_to_Cexp m (Con (Short cn) es) =  
 (CCon ( FAPPLY  m.cnmap  cn) (exps_to_Cexps m es)))
 /\
-(exp_to_Cexp m (Var vn _) = (CVar ( THE (find_index vn m.bvars 0))))
+(exp_to_Cexp m (Var (Short vn)) = (CVar ( THE (find_index vn m.bvars 0))))
 /\
-(exp_to_Cexp m (Fun vn _ e) =  
+(exp_to_Cexp m (Fun vn e) =  
 (CFun (NONE,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))))
->>>>>>> compiler-proofs
 /\
 (exp_to_Cexp m (App (Opn opn) e1 e2) =  
 (let Ce1 = (exp_to_Cexp m e1) in
@@ -903,41 +889,22 @@ val _ = Defn.save_defn remove_mat_var_defn;
   let Cpes = ( MAP (\ (p,e) . (p,shift 1 (Cpat_vars p) e)) Cpes) in
   CLet Ce (remove_mat_var 0 Cpes)))
 /\
-<<<<<<< HEAD
-(exp_to_Cexp m (Let vn e b) =
-  let Ce = exp_to_Cexp m e in
-  let Cb = exp_to_Cexp (cbv m vn) b in
-  CLet Ce Cb)
-/\
-(exp_to_Cexp m (Letrec defs b) =
-  let m = ( m with<| bvars := ( MAP (\p . 
-  (case (p ) of ( (n,_,_) ) => n )) defs) ++ m.bvars |>) in
-  CLetrec (defs_to_Cdefs m defs) (exp_to_Cexp m b))
-=======
-(exp_to_Cexp m (Let _ vn _ e b) =  
+(exp_to_Cexp m (Let vn e b) =  
 (let Ce = (exp_to_Cexp m e) in
   let Cb = (exp_to_Cexp (cbv m vn) b) in
   CLet Ce Cb))
 /\
-(exp_to_Cexp m (Letrec _ defs b) =  
+(exp_to_Cexp m (Letrec defs b) =  
 (let m = (( m with<| bvars := ( MAP (\p . 
-  (case (p ) of ( (n,_,_,_,_) ) => n )) defs) ++ m.bvars |>)) in
+  (case (p ) of ( (n,_,_) ) => n )) defs) ++ m.bvars |>)) in
   CLetrec (defs_to_Cdefs m defs) (exp_to_Cexp m b)))
->>>>>>> compiler-proofs
 /\
 (defs_to_Cdefs m [] = ([]))
 /\
-<<<<<<< HEAD
-(defs_to_Cdefs m ((_,vn,e)::defs) =
-  let Ce = exp_to_Cexp (cbv m vn) e in
-  let Cdefs = defs_to_Cdefs m defs in
-  (INL (1,Ce)) ::Cdefs)
-=======
-(defs_to_Cdefs m ((_,_,vn,_,e)::defs) =  
+(defs_to_Cdefs m ((_,vn,e)::defs) =  
 (let Ce = (exp_to_Cexp (cbv m vn) e) in
   let Cdefs = (defs_to_Cdefs m defs) in
   (NONE,(1,Ce)) ::Cdefs))
->>>>>>> compiler-proofs
 /\
 (pes_to_Cpes m [] = ([]))
 /\
@@ -1713,47 +1680,25 @@ val _ = Defn.save_defn number_constructors_defn;
 
 (repl_dec rs (Dtype []) = (rs,[]))
 /\
-<<<<<<< HEAD
-(repl_dec rs (Dtype ((_,_,cs)::ts)) =
-  let ct = number_constructors cs rs.contab in
-  repl_dec ( rs with<| contab := ct |>) (Dtype ts))
-/\
-(repl_dec rs (Dletrec defs) =
-  let m = etC rs in
-  let fns = MAP (\p . 
-  (case (p ) of ( (n,_,_) ) => n )) defs in
-  let m = ( m with<| bvars := fns ++ m.bvars |>) in
-  let Cdefs = defs_to_Cdefs m defs in
-  compile_Cexp rs T (CLetrec Cdefs (CDecl ( ZIP ( ( GENLIST (\ i . i) ( LENGTH fns)), fns)))))
-/\
-(repl_dec rs (Dlet p e) =
-  let m = etC rs in
-  let Ce = exp_to_Cexp m e in
-  let (m,Cp) = pat_to_Cpat ( m with<| bvars := [] |>) p in
-  let vs = m.bvars in
-  let Cpes = [(Cp,CDecl ( ZIP ( ( GENLIST (\ i . i) ( LENGTH vs)), vs)))] in
-  compile_Cexp rs T (CLet Ce (remove_mat_var 0 Cpes)))`;
-=======
 (repl_dec rs (Dtype ((_,_,cs)::ts)) =  
 (let ct = ( number_constructors cs rs.contab) in
   repl_dec ( rs with<| contab := ct |>) (Dtype ts)))
 /\
-(repl_dec rs (Dletrec _ defs) =  
+(repl_dec rs (Dletrec defs) =  
 (let m = ( etC rs) in
   let fns = ( MAP (\p . 
-  (case (p ) of ( (n,_,_,_,_) ) => n )) defs) in
+  (case (p ) of ( (n,_,_) ) => n )) defs) in
   let m = (( m with<| bvars := fns ++ m.bvars |>)) in
   let Cdefs = ( defs_to_Cdefs m defs) in
   compile_Cexp rs T (CLetrec Cdefs (CDecl ( ZIP ( ( GENLIST (\ i . i) ( LENGTH fns)), fns))))))
 /\
-(repl_dec rs (Dlet _ p e) =  
+(repl_dec rs (Dlet p e) =  
 (let m = ( etC rs) in
   let Ce = ( exp_to_Cexp m e) in
   let (m,Cp) = ( pat_to_Cpat ( m with<| bvars := [] |>) p) in
   let vs = (m.bvars) in
   let Cpes = ([(Cp,CDecl ( ZIP ( ( GENLIST (\ i . i) ( LENGTH vs)), vs)))]) in
   compile_Cexp rs T (CLet Ce (remove_mat_var 0 Cpes))))`;
->>>>>>> compiler-proofs
 
 val _ = Defn.save_defn repl_dec_defn;
 
@@ -1777,11 +1722,7 @@ val _ = Hol_datatype `
 
 (v_to_ov s (Litv l) = (OLit l))
 /\
-<<<<<<< HEAD
-(v_to_ov s (Conv (Short cn) vs) = OConv cn ( MAP (v_to_ov s) vs))
-=======
-(v_to_ov s (Conv cn vs) = (OConv cn ( MAP (v_to_ov s) vs)))
->>>>>>> compiler-proofs
+(v_to_ov s (Conv (Short cn) vs) = (OConv cn ( MAP (v_to_ov s) vs)))
 /\
 (v_to_ov s (Closure _ _ _) = OFn)
 /\
@@ -1824,29 +1765,10 @@ val _ = Defn.save_defn bv_to_ov_defn;
 
 (v_to_Cv m (Litv l) = (CLitv l))
 /\
-<<<<<<< HEAD
-(v_to_Cv m (Conv (Short cn) vs) =
-  CConv ( FAPPLY  m  cn) (vs_to_Cvs m vs))
-/\
-(v_to_Cv m (Closure env vn e) =
-  let Cenv = env_to_Cenv m env in
-  let m = <| bvars := ( MAP FST env) ; cnmap := m |> in
-  let Ce = exp_to_Cexp (cbv m vn) e in
-  CRecClos Cenv [(INL (1,shift 1 1 Ce))] 0)
-/\
-(v_to_Cv m (Recclosure env defs vn) =
-  let Cenv = env_to_Cenv m env in
-  let m = <| bvars := ( MAP FST env) ; cnmap := m |> in
-  let fns = MAP (\p . 
-  (case (p ) of ( (n,_,_) ) => n )) defs in
-  let m = ( m with<| bvars := fns ++ m.bvars |>) in
-  let Cdefs = defs_to_Cdefs m defs in
-  CRecClos Cenv Cdefs ( THE (find_index vn fns 0)))
-=======
-(v_to_Cv m (Conv cn vs) =  
+(v_to_Cv m (Conv (Short cn) vs) =  
 (CConv ( FAPPLY  m  cn) (vs_to_Cvs m vs)))
 /\
-(v_to_Cv m (Closure env vn _ e) =  
+(v_to_Cv m (Closure env vn e) =  
 (let Cenv = (env_to_Cenv m env) in
   let m = (<| bvars := ( MAP FST env) ; cnmap := m |>) in
   let Ce = ( exp_to_Cexp (cbv m vn) e) in
@@ -1856,11 +1778,10 @@ val _ = Defn.save_defn bv_to_ov_defn;
 (let Cenv = (env_to_Cenv m env) in
   let m = (<| bvars := ( MAP FST env) ; cnmap := m |>) in
   let fns = ( MAP (\p . 
-  (case (p ) of ( (n,_,_,_,_) ) => n )) defs) in
+  (case (p ) of ( (n,_,_) ) => n )) defs) in
   let m = (( m with<| bvars := fns ++ m.bvars |>)) in
   let Cdefs = ( defs_to_Cdefs m defs) in
   CRecClos Cenv Cdefs ( THE (find_index vn fns 0))))
->>>>>>> compiler-proofs
 /\
 (v_to_Cv m (Loc n) = (CLoc n))
 /\
@@ -1870,13 +1791,8 @@ val _ = Defn.save_defn bv_to_ov_defn;
 /\
 (env_to_Cenv m [] = ([]))
 /\
-<<<<<<< HEAD
-(env_to_Cenv m ((_,v)::env) =
-  (v_to_Cv m v) ::(env_to_Cenv m env))`;
-=======
-(env_to_Cenv m ((_,(v,_))::env) =  
+(env_to_Cenv m ((_,v)::env) =  
 ((v_to_Cv m v) ::(env_to_Cenv m env)))`;
->>>>>>> compiler-proofs
 
 val _ = Defn.save_defn v_to_Cv_defn;
 

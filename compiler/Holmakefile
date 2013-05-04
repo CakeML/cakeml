@@ -5,7 +5,7 @@ ifdef POLY
 HOLHEAP = miniml-heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../semantics/MiniMLTerminationTheory ./bytecode/BytecodeTheory
+BARE_THYS = ../semantics/terminationTheory ./bytecode/BytecodeTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
