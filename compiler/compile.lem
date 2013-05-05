@@ -14,27 +14,12 @@
 (* TODO: more efficient pattern-matching *)
 (* TODO: store type information on CMat nodes (for pattern matching compilation)? *)
 
-(* TODO: move to lem *)
-val genlist : forall 'a. (num -> 'a) -> num -> list 'a
-let inline {hol} genlist = Hol.GENLIST
-val image : forall 'a 'b. ('a -> 'b) -> set 'a -> set 'b
-let inline {hol} image = Hol.IMAGE
-val pre : num -> num
-let inline {hol} pre = Hol.PRE
-val count : num -> set num
-let inline {hol} count = Hol.count
-val the : forall 'a 'b. 'a -> 'b
-let inline {hol} the = Hol.THE
-
+open CompilerLib
 open SemanticPrimitives
 open Ast
 open BigStep
 
 (* TODO: Misc. helpers *)
-
-let i0 = Bytecode.int_of_num 0
-let i1 = Bytecode.int_of_num 1
-let i2 = Bytecode.int_of_num 2
 
 let rec
 find_index y [] _ = None

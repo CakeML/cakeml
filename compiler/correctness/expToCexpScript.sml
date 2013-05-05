@@ -837,7 +837,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         qx_gen_tac`sf` >> strip_tac >>
         qexists_tac`sf`>>
         reverse conj_tac >- metis_tac[EVERY2_syneq_trans] >>
-        rw[CompileTheory.i1_def] >> ARITH_TAC )
+        rw[CompilerLibTheory.i1_def] >> ARITH_TAC )
       >- (
         rw[Once Cevaluate_cases] >>
         srw_tac[DNF_ss][] >>
@@ -874,7 +874,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         rw[Once (CONJUNCT2 Cevaluate_cases)] >>
         rw[Once (CONJUNCT2 Cevaluate_cases)] >>
         fs[] >>
-        lrw[ADD1,CompileTheory.i1_def] >- ARITH_TAC >>
+        lrw[ADD1,CompilerLibTheory.i1_def] >- ARITH_TAC >>
         metis_tac[EVERY2_syneq_trans]) )
     >- (
       rw[Once Cevaluate_cases] >>

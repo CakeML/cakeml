@@ -8,7 +8,7 @@ val _ = numLib.prefer_num();
 
 
 
-open BytecodeTheory BigStepTheory SmallStepTheory SemanticPrimitivesTheory AstTheory LibTheory
+open BytecodeTheory CompilerLibTheory BigStepTheory SmallStepTheory SemanticPrimitivesTheory AstTheory LibTheory
 
 val _ = new_theory "Compile"
 
@@ -28,28 +28,12 @@ val _ = new_theory "Compile"
 (* TODO: more efficient pattern-matching *)
 (* TODO: store type information on CMat nodes (for pattern matching compilation)? *)
 
-(* TODO: move to lem *)
-(*val genlist : forall 'a. (num -> 'a) -> num -> list 'a*)
-(*val image : forall 'a 'b. ('a -> 'b) -> set 'a -> set 'b*)
-(*val pre : num -> num*)
-(*val count : num -> set num*)
-(*val the : forall 'a 'b. 'a -> 'b*)
-
+(*open CompilerLib*)
 (*open SemanticPrimitives*)
 (*open Ast*)
 (*open BigStep*)
 
 (* TODO: Misc. helpers *)
-
-val _ = Define `
- i0 = ( int_of_num 0)`;
-
-val _ = Define `
- i1 = ( int_of_num 1)`;
-
-val _ = Define `
- i2 = ( int_of_num 2)`;
-
 
  val find_index_defn = Hol_defn "find_index" `
 
