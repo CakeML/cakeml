@@ -1,23 +1,13 @@
-val alist_to_fmap : forall 'a 'b. list ('a * 'b) -> fmap 'a 'b
 val LEAST : (num -> bool) -> num
 val IMAGE : forall 'a 'b. ('a -> 'b) -> set 'a -> set 'b
 val PRE : num -> num
 val count : num -> set num
 val QSORT : forall 'a. ('a -> 'a -> bool) -> list 'a -> list 'a
-val ALL_DISTINCT : forall 'a. list 'a -> bool
 val SUM : list num -> num
 val o : forall 'a 'b 'c. ('b -> 'c) -> ('a -> 'b) -> ('a -> 'c)
 (* TODO: lem library can't handle option type *)
 val IS_SOME : forall 'a. 'a -> bool
 val IS_NONE : forall 'a. 'a -> bool
-val some : forall 'a 'b. ('a -> bool) -> 'b
 val THE : forall 'a 'b. 'a -> 'b
-val ISL : forall 'a 'b. 'a -> 'b
-val OUTL : forall 'a 'b. 'a -> 'b
-val OPTREL : forall 'a 'b 'c 'd. ('a -> 'b -> bool) -> 'c -> 'd -> bool
-val FLOOKUP : forall 'a 'b 'c. fmap 'a 'b -> 'a -> 'c
 val int_of_num : num -> int
 val GENLIST : forall 'a. (num -> 'a) -> num -> list 'a
-val UNIT : forall 'a 'b. 'a -> 'b -> 'a * 'b
-val BIND : forall 'a 'b 'c. ('a -> 'b * 'a) -> ('b -> 'a -> 'c * 'a) -> 'a -> 'c * 'a
-val IGNORE_BIND : forall 'a 'b 'c. ('a -> 'b * 'a) -> ('a -> 'c * 'a) -> 'a -> 'c * 'a

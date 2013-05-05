@@ -2,7 +2,7 @@
 open bossLib Theory Parse res_quanTheory
 open fixedPointTheory finite_mapTheory listTheory pairTheory pred_setTheory
 open integerTheory set_relationTheory sortingTheory stringTheory wordsTheory
-open alistTheory state_transformerTheory
+open alistTheory
 
 val _ = numLib.prefer_num();
 
@@ -12,8 +12,8 @@ open BytecodeTheory BigStepTheory SmallStepTheory SemanticPrimitivesTheory AstTh
 
 val _ = new_theory "Compile"
 
-(* TODO: compile Raise and Handle properly; requires changes to bytecode *)
-(* TODO: simple type system and checker *)
+(* TODO: compile Raise and Handle properly *)
+(* TODO: simple type system and checker? *)
 (* TODO: map_Cexp? *)
 (* TODO: use Pmap.peek instead of mem when it becomes available *)
 (* TODO: collapse nested functions *)
@@ -25,34 +25,31 @@ val _ = new_theory "Compile"
 (* TODO: avoid Shifts when possible *)
 (* TODO: registers, register allocation, greedy shuffling? *)
 (* TODO: bytecode optimizer: repeated Pops, unreachable code (e.g. after a Jump) *)
-(* TODO: more efficient pattern-matching method? *)
-(* TODO: store type information on CMat nodes (for pattern matching compilation) *)
-(* TODO: typechecking *)
-(* TODO: printing *)
+(* TODO: more efficient pattern-matching *)
+(* TODO: store type information on CMat nodes (for pattern matching compilation)? *)
 
 (* TODO: move to lem *)
-(*val alist_to_fmap : forall 'a 'b. list ('a * 'b) -> Pmap.map 'a 'b*)
-(*val optrel : forall 'a 'b 'c 'd. ('a -> 'b -> bool) -> 'c -> 'd -> bool*)
-(*val flookup : forall 'a 'b 'c. Pmap.map 'a 'b -> 'a -> 'c*)
 (*val genlist : forall 'a. (num -> 'a) -> num -> list 'a*)
-(*open SemanticPrimitives*)
-(*open Ast*)
-(*open BigStep*)
-(*val return : forall 'a 'b. 'a -> 'b -> 'a * 'b*)
-(*val bind : forall 'a 'b 'c. ('a -> 'b * 'a) -> ('b -> 'a -> 'c * 'a) -> 'a -> 'c * 'a*)
-(*val ubind : forall 'a 'b 'c. ('a -> 'b * 'a) -> ('a -> 'c * 'a) -> 'a -> 'c * 'a*)
 (*val image : forall 'a 'b. ('a -> 'b) -> set 'a -> set 'b*)
 (*val pre : num -> num*)
 (*val count : num -> set num*)
 (*val the : forall 'a 'b. 'a -> 'b*)
-(*val ISL : forall 'a 'b. 'a -> 'b*)
-(*val OUTL : forall 'a 'b. 'a -> 'b*)
-(*val qsort : forall 'a. ('a -> 'a -> bool) -> list 'a -> list 'a*)
-(*val lupdate : forall 'a. 'a -> num -> list 'a -> list 'a*)
-(*val $some : forall 'a 'b. ('a -> bool) -> 'b*)
-(*val all_distinct : forall 'a. list 'a -> bool*)
+
+(*open SemanticPrimitives*)
+(*open Ast*)
+(*open BigStep*)
 
 (* TODO: Misc. helpers *)
+
+val _ = Define `
+ i0 = ( int_of_num 0)`;
+
+val _ = Define `
+ i1 = ( int_of_num 1)`;
+
+val _ = Define `
+ i2 = ( int_of_num 2)`;
+
 
  val find_index_defn = Hol_defn "find_index" `
 
@@ -83,16 +80,6 @@ val _ = Defn.save_defn num_fold_defn;
 (every_result  P (Rerr _) = T)
 /\
 (every_result P (Rval v) = (P v))`;
-
-
-val _ = Define `
- i0 = ( int_of_num 0)`;
-
-val _ = Define `
- i1 = ( int_of_num 1)`;
-
-val _ = Define `
- i2 = ( int_of_num 2)`;
 
 
  val error_to_int_def = Define `
@@ -277,7 +264,7 @@ val _ = Defn.save_defn no_closures_defn;
 
 (CevalUpd s (CLoc n) (v:Cv) =  
 (if n < LENGTH s
-  then ( LUPDATE v n s, Rval (CLitv Unit))
+  then (LUPDATE v n s, Rval (CLitv Unit))
   else (s, Rerr Rtype_error)))
 /\
 (CevalUpd s _ _ = (s, Rerr Rtype_error))`;
@@ -931,7 +918,7 @@ val _ = Defn.save_defn exp_to_Cexp_defn;
  (bind_fv (az,e) nz ix =  
 (let fvs = ( free_vars e) in
   let recs = ( FILTER (\ v . az +v IN fvs /\ ~  (v =ix)) ( GENLIST (\ n . n) nz)) in
-  let envs = ( FILTER (\ v . az +nz <= v) ( QSORT (\ x y . x < y) ( SET_TO_LIST fvs))) in
+  let envs = ( FILTER (\ v . az +nz <= v) (QSORT (\ x y . x < y) ( SET_TO_LIST fvs))) in
   let envs = ( MAP (\ v . v -(az +nz)) envs) in
   let rz = ( LENGTH recs +1) in
   let e = ( mkshift (\ v . if v < nz then THE(find_index v (ix ::recs) 0)
@@ -1157,7 +1144,7 @@ val _ = Defn.save_defn compile_envref_defn;
  * where Env = Number 0 for empty, or else
  * Block 3 [v1,...,vk]
  * with a value for each free variable
- * ($some values may be RefPtrs to other (mutrec) closures)
+ * (some values may be RefPtrs to other (mutrec) closures)
  *)
 
 (* closure construction, for a bundle of nz names, nk defs:
@@ -1799,237 +1786,5 @@ val _ = Defn.save_defn bv_to_ov_defn;
 ((v_to_Cv m v) ::(env_to_Cenv m env)))`;
 
 val _ = Defn.save_defn v_to_Cv_defn;
-
-(* intermediate to target values *)
-
-(*
-let rec
-Cv_to_bv (CLitv (IntLit i)) = Number i
-and
-Cv_to_bv (CLitv (Bool b)) = Number (bool_to_int b)
-and
-Cv_to_bv (CConv n vs) = Block n (Cvs_to_bvs vs)
-and
-Cv_to_bv (CRecClos env ns defs n) = Block 0 [CodePtr ?, ?]
-and
-Cvs_to_bvs [] = []
-and
-Cvs_to_bvs (v::vs) = Cv_to_bv v :: Cvs_to_bvs vs
-*)
-
-(*
-indreln
-forall il c cc.
-true
-==>
-bc_code_prefix il (List.append c cc) 0 c
-and
-forall il p i c cc.
-bc_code_prefix il cc p c
-==>
-bc_code_prefix il (i::cc) (p + il i) c
-
-let rec
-body_cs env xs =
-  <| env = env; sz = 0; out = []; next_label = 0;
-     tail = TCTail (List.length xs) 0; decl = None |>
-
-let rec
-body_env ns xs j fvs =
-  let (n,env,(nec,ec)) =
-    Set.fold (bind_fv ns xs (List.length xs) j) fvs (0,Pmap.empty,(0,[])) in
-  (env,ec)
-
-indreln
-forall il c i.
-true
-==>
-bceqv il c (CLitv (IntLit i)) (Number i)
-and
-forall il c b.
-true
-==>
-bceqv il c (CLitv (Bool b)) (Number (bool_to_int b))
-and
-forall il c n vs bvs.
-List.for_all2 (bceqv il c) vs bvs
-==>
-bceqv il c (CConv n vs) (Block n bvs)
-and
-forall il c env ns defs n j xs e cenv ec f bvs.
-find_index n ns 0 = Some j &&
-List.nth defs j = (xs,e) &&
-(cenv,ec) = body_env ns xs j (free_vars Pmap.empty e) &&
-List.length bvs = List.length ec &&
-(forall i. i < List.length ec -->
-    (exists fv. List.nth ec i = CEEnv fv &&
-                bceqv il c (Pmap.find fv env) (List.nth bvs i)) ||
-    (exists k kxs ke kenv kec g.
-        List.nth ec i = CERef k &&
-        List.nth defs k = (kxs,ke) &&
-        (kenv,kec) = body_env ns xs k (free_vars ke) &&
-        bc_code_prefix il c g
-          (List.rev (compile (body_cs kenv kxs) ke).out))) &&
-bc_code_prefix il c f (List.rev (compile (body_cs cenv xs) e).out)
-==>
-bceqv il c (CRecClos env ns defs n)
-  (Block 0 [CodePtr f; if bvs = [] then Number i0 else Block 0 bvs])
-*)
-
-
-(* relating source to intermediate language *)
-
-(*
-indreln
-forall m c l.
-true
-==>
-v_Cv m c (Litv l) (CLitv l)
-and
-forall m c cn vs Cvs.
-List.for_all2 (v_Cv m c) vs Cvs
-==>
-v_Cv m c (Conv cn vs) (CConv (Pmap.find cn m) Cvs)
-and
-forall m c env vn e fn l.
-env_Cenv m c env Cenv &&
-
-==>
-v_Cv m c (Closure env vn e) (CRecClos Cenv [fn] [([vn],l)] fn)
-and
-==>
-v_Cv m c (Recclosure env defs fn) (CRecClos Cenv fns Cdefs fn)
-and
-forall c env1 env2 ns defs d.
-List.for_all
-  (fun (xs,b) ->
-    (forall v. v IN (cbod_fvs c b \ (Set.from_list ns union
-                                     Set.from_list xs))
-      --> (optrel (syneq c)) (flookup env1 v) (flookup env2 v)))
-  defs
-==>
-v_Cv m c (CRecClos env1 ns defs d) (CRecClos env2 ns defs d)
-*)
-
-(*
-indreln
-forall G cm env Cenv err.
-true
-==>
-exp_Cexp G cm env Cenv (Raise err) (CRaise err)
-and
-forall G cm env Cenv l.
-true
-==>
-exp_Cexp G cm env Cenv (Lit l) (CLit l)
-and
-forall G cm env Cenv cn es Ces.
-Pmap.mem cn cm &&
-List.for_all2 (exp_Cexp G cm env Cenv) es Ces
-==>
-exp_Cexp G cm env Cenv (Con cn es) (CCon (Pmap.find cn cm) Ces)
-and
-forall G cm env Cenv vn v Cvn.
-lookup vn env = Some v &&
-Pmap.mem Cvn Cenv &&
-G cm v (Pmap.find Cvn Cenv)
-==>
-exp_Cexp G cm env Cenv (Var vn) (CVar Cvn)
-and
-forall G cm env Cenv vn e n Ce.
-(forall v Cv. G cm v Cv -->
-  exp_Cexp G cm (bind vn v env) (Pmap.add n Cv Cenv) e Ce)
-==>
-exp_Cexp G cm env Cenv (Fun vn e) (CFun [n] Ce)
-
-indreln
-forall G cm l.
-true
-==>
-v_Cv G cm (Litv l) (CLitv l)
-and
-forall G cm cn vs Cvs.
-Pmap.mem cn cm &&
-List.for_all2 (v_Cv G cm) vs Cvs
-==>
-v_Cv G cm (Conv cn vs) (CConv (Pmap.find cn cm) Cvs)
-*)
-
-(*
-indreln
-forall cm env Cenv err.
-true
-==>
-exp_Cexp cm env Cenv (Raise err) (CRaise err)
-and
-forall cm env Cenv v Cv.
-v_Cv cm v Cv
-==>
-exp_Cexp cm env Cenv (Val v) (CVal Cv)
-and
-forall cm env Cenv cn es Ces.
-List.for_all2 (exp_Cexp cm env Cenv) es Ces
-==>
-exp_Cexp cm env Cenv (Con cn es) (CCon (Pmap.find cn cm) Ces)
-and
-forall cm env Cenv vn v Cvn Cv.
-lookup vn env = Some v &&
-Pmap.mem Cvn Cenv && Pmap.find Cvn Cenv = Cv && (* TODO: lookup *)
-v_Cv cm v Cv
-==>
-exp_Cexp cm env Cenv (Var vn) (CVar Cvn)
-and
-forall cm env Cenv vn e n Ce.
-(* but what to do here without a context of equal variables? *)
-(* (see comments in v_Cv below) *)
-==>
-exp_Cexp cm env Cenv (Fun vn e) (CFun n Ce)
-and
-forall cm l.
-true
-==>
-v_Cv cm (Lit l) (CLit l)
-and
-forall cm cn vs Cvs.
-List.for_all2 (v_Cv cm) vs Cvs
-==>
-v_Cv cm (Conv cn vs) (CConv (Pmap.find cn cm) Cvs)
-and
-forall cm env vn e Cenv n Ce.
-(* can't do this because it's a negative occurrence of v_Cv,
- * leading to a non-monotonic rule
-(forall v Cv. v_Cv cm v Cv -->
- exp_Cexp cm (bind vn v env) (Pmap.add n Cv (alist_to_fmap Cenv)) e Ce)
-*)
-(* obviously this is incorrect (requires the functions to be equivalent on
- * arbitrary pairs of arguments)
- * options for extension include:
-   * normal form (open): use the same free variable as the argument
-     * but does this distinguish too many pairs of terms?
-   * carry around a context of equal values/variables
-     * but how does this relate with the environments in closures?
-     * probably just have to have both independently
-   * parameterise by a "global knowledge" relation of equal values *)
-(forall v Cv. exp_Cexp cm (bind vn v env) (Pmap.add n Cv (alist_to_fmap Cenv)) e Ce)
-==>
-v_Cv cm (Closure env vn e) (CClosure Cenv [n] Ce)
-*)
-
-(*
-let rec
-Cv_to_bv (CLitv (IntLit i)) = Number i
-and
-Cv_to_bv (CLitv (Bool b)) = Number (bool_to_int b)
-and
-Cv_to_bv (CConv n vs) = Block n (Cvs_to_bvs vs)
-and
-Cv_to_bv (CClosure env vs b) = Block 0 [CodePtr ?, ?]
-and
-Cv_to_bv (CRecClos env ns defs n) = Block 0 [CodePtr ?, ?]
-and
-Cvs_to_bvs [] = []
-and
-Cvs_to_bvs (v::vs) = Cv_to_bv v :: Cvs_to_bvs vs
-*)
 val _ = export_theory()
 
