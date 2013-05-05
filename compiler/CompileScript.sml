@@ -8,7 +8,7 @@ val _ = numLib.prefer_num();
 
 
 
-open BytecodeTheory CompilerLibTheory BigStepTheory SmallStepTheory SemanticPrimitivesTheory AstTheory LibTheory
+open CompilerPrimitivesTheory BytecodeTheory CompilerLibTheory SemanticPrimitivesTheory AstTheory LibTheory
 
 val _ = new_theory "Compile"
 
@@ -28,59 +28,10 @@ val _ = new_theory "Compile"
 (* TODO: more efficient pattern-matching *)
 (* TODO: store type information on CMat nodes (for pattern matching compilation)? *)
 
-(*open CompilerLib*)
 (*open SemanticPrimitives*)
 (*open Ast*)
-(*open BigStep*)
-
-(* TODO: Misc. helpers *)
-
- val find_index_defn = Hol_defn "find_index" `
-
-(find_index y [] _ = NONE)
-/\
-(find_index y (x::xs) n = (if x = y then SOME n else find_index y xs (n +1)))`;
-
-val _ = Defn.save_defn find_index_defn;
-
- val el_check_def = Define `
- (el_check n ls = (if n < LENGTH ls then SOME ( EL  n  ls) else NONE))`;
-
-
- val num_fold_defn = Hol_defn "num_fold" `
- (num_fold f a n = (if n = 0 then a else num_fold f (f a) (n - 1)))`;
-
-val _ = Defn.save_defn num_fold_defn;
-
- val map_result_def = Define `
-
-(map_result f (Rval v) = (Rval (f v)))
-/\
-(map_result f (Rerr e) = (Rerr e))`;
-
-
- val every_result_def = Define `
-
-(every_result  P (Rerr _) = T)
-/\
-(every_result P (Rval v) = (P v))`;
-
-
- val error_to_int_def = Define `
-
-(error_to_int Bind_error = i0)
-/\
-(error_to_int Div_error = i1)
-/\
-(error_to_int (Int_error n) = ( int_add i2 n))`;
-
-
- val num_to_bool_def = Define `
-
-(num_to_bool 0 = F)
-/\
-(num_to_bool (SUC 0) = T)`;
-
+(*open CompilerLib*)
+(*open CompilerPrimitives*)
 
 (* Intermediate language for MiniML compiler *)
 

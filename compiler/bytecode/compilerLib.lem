@@ -28,3 +28,11 @@ let i0 = int_of_num 0
 let i1 = int_of_num 1
 let i2 = int_of_num 2
 
+let rec
+find_index y [] _ = None
+and
+find_index y (x::xs) n = if x = y then Some n else find_index y xs (n+1)
+
+let rec el_check n ls = if n < List.length ls then Some (List.nth ls n) else None
+
+let rec num_fold f a n = if n = 0 then a else num_fold f (f a) (n-1)

@@ -14,43 +14,10 @@
 (* TODO: more efficient pattern-matching *)
 (* TODO: store type information on CMat nodes (for pattern matching compilation)? *)
 
-open CompilerLib
 open SemanticPrimitives
 open Ast
-open BigStep
-
-(* TODO: Misc. helpers *)
-
-let rec
-find_index y [] _ = None
-and
-find_index y (x::xs) n = if x = y then Some n else find_index y xs (n+1)
-
-let rec el_check n ls = if n < List.length ls then Some (List.nth ls n) else None
-
-let rec num_fold f a n = if n = 0 then a else num_fold f (f a) (n-1)
-
-let rec
-map_result f (Rval v) = Rval (f v)
-and
-map_result f (Rerr e) = Rerr e
-
-let rec
-every_result  P (Rerr _) = true
-and
-every_result P (Rval v) = P v
-
-let rec
-error_to_int Bind_error = i0
-and
-error_to_int Div_error = i1
-and
-error_to_int (Int_error n) = Int.(+) i2 n
-
-let rec
-num_to_bool 0 = false
-and
-num_to_bool 1 = true
+open CompilerLib
+open CompilerPrimitives
 
 (* Intermediate language for MiniML compiler *)
 

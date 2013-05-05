@@ -37,5 +37,21 @@ val _ = Define `
  i2 = ( int_of_num 2)`;
 
 
+ val find_index_defn = Hol_defn "find_index" `
+
+(find_index y [] _ = NONE)
+/\
+(find_index y (x::xs) n = (if x = y then SOME n else find_index y xs (n +1)))`;
+
+val _ = Defn.save_defn find_index_defn;
+
+ val el_check_def = Define `
+ (el_check n ls = (if n < LENGTH ls then SOME ( EL  n  ls) else NONE))`;
+
+
+ val num_fold_defn = Hol_defn "num_fold" `
+ (num_fold f a n = (if n = 0 then a else num_fold f (f a) (n - 1)))`;
+
+val _ = Defn.save_defn num_fold_defn;
 val _ = export_theory()
 
