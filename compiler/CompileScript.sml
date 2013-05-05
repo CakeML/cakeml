@@ -718,7 +718,7 @@ val _ = Define `
 (* remove pattern-matching using continuations *)
 
 val _ = Hol_datatype `
- exp_to_Cexp_state = <| bvars : string list ; cnmap : (string, num)fmap |>`;
+ exp_to_Cexp_state = <| bvars : string list ; cnmap : (( conN id), num)fmap |>`;
 
  val cbv_def = Define `
  (cbv m v = (( m with<| bvars := v ::m.bvars |>)))`;
@@ -730,7 +730,7 @@ val _ = Hol_datatype `
 /\
 (pat_to_Cpat m (Plit l) = (m, CPlit l))
 /\
-(pat_to_Cpat m (Pcon (Short cn) ps) =  
+(pat_to_Cpat m (Pcon cn ps) =  
 (let (m,Cps) = (pats_to_Cpats m ps) in
   (m,CPcon ( FAPPLY  m.cnmap  cn) Cps)))
 /\
@@ -812,7 +812,7 @@ val _ = Defn.save_defn remove_mat_var_defn;
 /\
 (exp_to_Cexp m (Lit l) = (CLit l))
 /\
-(exp_to_Cexp m (Con (Short cn) es) =  
+(exp_to_Cexp m (Con cn es) =  
 (CCon ( FAPPLY  m.cnmap  cn) (exps_to_Cexps m es)))
 /\
 (exp_to_Cexp m (Var (Short vn)) = (CVar ( THE (find_index vn m.bvars 0))))
@@ -1622,8 +1622,8 @@ val _ = Defn.save_defn replace_labels_defn;
 
 (* repl *)
 
-val _ = type_abbrev( "contab" , ``: (conN, num)fmap # (num, conN)fmap # num``);
-(*val cmap : contab -> Pmap.map conN num*)
+val _ = type_abbrev( "contab" , ``: (( conN id), num)fmap # (num, ( conN id))fmap # num``);
+(*val cmap : contab -> Pmap.map (id conN) num*)
  val cmap_def = Define `
  (cmap (m,_,_) = m)`;
 
@@ -1672,7 +1672,7 @@ val _ = Define `
 (number_constructors [] ct = ct)
 /\
 (number_constructors ((c,_)::cs) (m,w,n) =  
-(number_constructors cs ( FUPDATE  m ( c, n), FUPDATE  w ( n, c), (n +1))))`;
+(number_constructors cs ( FUPDATE  m ( (Short c), n), FUPDATE  w ( n, (Short c)), (n +1))))`;
 
 val _ = Defn.save_defn number_constructors_defn;
 
@@ -1713,7 +1713,7 @@ val _ = Define `
 val _ = Hol_datatype `
  ov =
     OLit of lit
-  | OConv of conN => ov list
+  | OConv of conN id => ov list
   | OFn
   | OLoc of num`;
  (* machine, not semantic, address *)
@@ -1722,7 +1722,7 @@ val _ = Hol_datatype `
 
 (v_to_ov s (Litv l) = (OLit l))
 /\
-(v_to_ov s (Conv (Short cn) vs) = (OConv cn ( MAP (v_to_ov s) vs)))
+(v_to_ov s (Conv cn vs) = (OConv cn ( MAP (v_to_ov s) vs)))
 /\
 (v_to_ov s (Closure _ _ _) = OFn)
 /\
@@ -1765,7 +1765,7 @@ val _ = Defn.save_defn bv_to_ov_defn;
 
 (v_to_Cv m (Litv l) = (CLitv l))
 /\
-(v_to_Cv m (Conv (Short cn) vs) =  
+(v_to_Cv m (Conv cn vs) =  
 (CConv ( FAPPLY  m  cn) (vs_to_Cvs m vs)))
 /\
 (v_to_Cv m (Closure env vn e) =  

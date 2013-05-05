@@ -176,11 +176,14 @@ val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
     | INR (INL (_, vs)) => v3_size vs
     | INR (INR (_, env)) => v1_size env)`))
 
+(*
 val (pat_to_Cpat_def,pat_to_Cpat_ind) = register "pat_to_Cpat" (
   tprove_no_defn ((pat_to_Cpat_def,pat_to_Cpat_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
     | INL (_,p) => pat_size p
     | INR (_,ps) => pat1_size ps)`))
+*)
+val pat_to_Cpat_def = save_thm("pat_to_Cpat_def",pat_to_Cpat_def)
 
 val compile_envref_def = save_thm("compile_envref_def",compile_envref_def)
 val compile_envref_ind = save_thm("compile_envref_ind",compile_envref_ind)
