@@ -1259,7 +1259,6 @@ fun single_line_def def = let
            fetch thy (name ^ "_primitive_def")
            handle HOL_ERR _ =>
            fetch thy (name ^ "_primitive_DEF")
-  val tp = tp |> PURE_REWRITE_RULE [MEMBER_INTRO]
   val (v,tm) = tp |> concl |> rand |> rand |> dest_abs
   val goal = mk_eq(mk_comb(tpc,args),mk_comb(subst [v|->tpc] tm,args))
   val pre_tm =
@@ -1441,6 +1440,8 @@ in
     in LIST_CONJ (map f (CONJUNCTS (SPEC_ALL def))) end
 end
 
+val use_mem_intro = ref false;
+
 fun preprocess_def def = let
   val def = force_eqns def
   val is_rec = is_rec_def def
@@ -1459,6 +1460,10 @@ fun preprocess_def def = let
     in def end;
   val defs = map rephrase_def defs
   val ind = if is_rec andalso is_NONE ind then SOME (find_ind_thm (hd defs)) else ind
+  fun option_apply f NONE = NONE | option_apply f (SOME x) = SOME (f x)
+  val mem_intro_rule = PURE_REWRITE_RULE [MEMBER_INTRO]
+  val (defs,ind) = if not (!use_mem_intro) then (defs,ind) else
+                     (map mem_intro_rule defs, option_apply mem_intro_rule ind)
   in (is_rec,defs,ind) end;
 
 
@@ -2123,7 +2128,7 @@ fun translate def = let
     val lemma = prove(goal,
       STRIP_TAC
       \\ SIMP_TAC std_ss [FORALL_PROD]
-      \\ MATCH_MP_TAC (RW [MEMBER_INTRO] ind_thm)
+      \\ MATCH_MP_TAC ind_thm
       \\ REPEAT STRIP_TAC
       \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
       \\ FULL_SIMP_TAC (srw_ss()) [ADD1]

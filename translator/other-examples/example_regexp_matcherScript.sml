@@ -5,11 +5,11 @@ open arithmeticTheory listTheory sortingTheory regexpMatchTheory;
 
 open ml_translatorLib ml_translatorTheory;
 
+val _ = (use_mem_intro := true);
 
 (* matcher -- recursion over a datatype *)
 
 val res = translate MEMBER_def
-val res = translate (REWRITE_RULE [MEMBER_INTRO] match_def)
+val res = translate match_def
 
 val _ = export_theory();
-
