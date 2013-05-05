@@ -28,7 +28,7 @@ val _ = export_rewrites["bind_fv_az"]
 *)
 
 val good_cd_def = Define`
-  good_cd ((ez,nz,ix),(l,cc,recs,envs),az,b) =
+  good_cd ((ez,nz,ix),(l,cc,recs,envs),az,b) ⇔
     EVERY (λv. v < ez) envs ∧
     free_vars b ⊆ count (LENGTH cc) ∧
     ∃e e'. (cc,(recs,envs),e') = (bind_fv (az,e) nz ix)`

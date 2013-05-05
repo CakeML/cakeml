@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory sortingTheory lcsymtacs quantHeuristicsLib quantHeuristicsLibAbbrev
-open terminationTheory miniMLExtraTheory miscTheory miscLib compileTerminationTheory intLangTheory bytecodeTerminationTheory evaluateEquationsTheory expToCexpTheory pmatchTheory labelClosuresTheory bytecodeEvalTheory bytecodeExtraTheory
+open miscTheory miscLib compileTerminationTheory intLangTheory bytecodeTerminationTheory evaluateEquationsTheory expToCexpTheory pmatchTheory labelClosuresTheory bytecodeEvalTheory bytecodeExtraTheory
 val _ = numLib.prefer_num()
 val _ = new_theory "compileCorrectness"
 
@@ -102,14 +102,6 @@ val Cv_bv_ov = store_thm("Cv_bv_ov",
     fs[EVERY2_EVERY] ) >>
   rw[bv_to_ov_def])
 
-val v_to_Cv_ov = store_thm("v_to_Cv_ov",
-  ``(∀m (v:α v) w s. (all_cns v ⊆ FDOM m) ∧ fmap_linv m w ==> (Cv_to_ov w s (v_to_Cv m v) = v_to_ov s v)) ∧
-    (∀m (vs:α v list) w s. (BIGUNION (IMAGE all_cns (set vs)) ⊆ FDOM m) ∧ fmap_linv m w ==> (MAP (Cv_to_ov w s) (vs_to_Cvs m vs) = MAP (v_to_ov s) vs)) ∧
-    (∀(m:string|->num) (env:α envE). T)``,
-  ho_match_mp_tac v_to_Cv_ind >>
-  rw[v_to_Cv_def] >> rw[Cv_to_ov_def] >>
-  srw_tac[ETA_ss][fmap_linv_FAPPLY])
-
 val _ = Parse.overload_on("mk_pp", ``λrd bs.
   (rd
   ,combin$C (bc_find_loc_aux bs.code bs.inst_length) 0
@@ -206,7 +198,7 @@ val Cv_bv_syneq = store_thm("Cv_bv_syneq",
   simp[MEM_EL] >> metis_tac[])
 
 val s_refs_def = Define`
-  s_refs rd s bs =
+  s_refs rd s bs ⇔
   good_rd rd bs ∧
   (LENGTH rd.sm = LENGTH s) ∧
   EVERY (λp. p ∈ FDOM bs.refs) rd.sm ∧
@@ -222,7 +214,7 @@ val s_refs_with_stack = store_thm("s_refs_with_stack",
   rw[s_refs_def,good_rd_def])
 
 val Cenv_bs_def = Define`
-  Cenv_bs rd s Cenv (renv:ctenv) sz bs =
+  Cenv_bs rd s Cenv (renv:ctenv) sz bs ⇔
     (EVERY2
        (λCv b. case lookup_ct (FDOM rd.cls) sz bs.stack bs.refs b of NONE => F
              | SOME bv => Cv_bv (mk_pp rd bs) Cv bv)
@@ -626,7 +618,7 @@ val lookup_ct_imp_incsz_many = store_thm("lookup_ct_imp_incsz_many",
 val lookup_ct_change_refs = store_thm("lookup_ct_change_refs",
   ``∀cl cl' sz st rf rf' ct.
     (∀n vs p. (ct = CTEnv (CCRef n)) ∧ sz < LENGTH st ∧ (EL sz st = Block 0 vs) ∧ n < LENGTH vs ∧ (EL n vs = RefPtr p) ⇒
-      (p ∈ cl = p ∈ cl') ∧ (p ∈ cl ⇒ (FLOOKUP rf' p = FLOOKUP rf p)))
+      (p ∈ cl ⇔ p ∈ cl') ∧ (p ∈ cl ⇒ (FLOOKUP rf' p = FLOOKUP rf p)))
     ⇒ (lookup_ct cl' sz st rf' ct = lookup_ct cl sz st rf ct)``,
   rw[LET_THM] >>
   Cases_on`ct`>>fs[] >> rw[] >>
@@ -1927,7 +1919,7 @@ val compile_bindings_thm = store_thm("compile_bindings_thm",
   simp[FUN_EQ_THM])
 
 val code_env_cd_def = Define`
-  code_env_cd code (x,(l,ccenv,ce),(az,b)) =
+  code_env_cd code (x,(l,ccenv,ce),(az,b)) ⇔
     good_cd (x,(l,ccenv,ce),(az,b)) ∧
     ∃cs bc0 cc bc1.
       ((compile (MAP CTEnv ccenv) (TCTail az 0) 0 cs b).out = cc ++ cs.out) ∧
