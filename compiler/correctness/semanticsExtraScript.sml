@@ -577,12 +577,6 @@ val result_rel_sym = store_thm(
 ``(∀x y. R x y ⇒ R y x) ⇒ (∀x y. result_rel R x y ⇒ result_rel R y x)``,
 rw[] >> Cases_on `x` >> fs[])
 
-val good_cenv_def = Define`
-  good_cenv cenv =
-  ∀c n s. (MEM (c,(n,s)) cenv) ⇒
-    c ∈ s ∧
-    ∀c' n' s'. MEM (c',(n',s')) cenv ∧ c' ∈ s' ⇒ (s = s')`
-
 (* TODO: categorise *)
 
 val build_rec_env_MAP = store_thm("build_rec_env_MAP",

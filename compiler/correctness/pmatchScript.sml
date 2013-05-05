@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps pairTheory listTheory pred_setTheory finite_mapTheory alistTheory relationTheory SatisfySimps arithmeticTheory rich_listTheory lcsymtacs
-open MiniMLTheory MiniMLTerminationTheory miscTheory miniMLExtraTheory compileTerminationTheory intLangTheory
+open LibTheory SemanticPrimitivesTheory terminationTheory miscTheory semanticsExtraTheory compileTerminationTheory intLangTheory
 val _ = new_theory "pmatch"
 val fsd = full_simp_tac std_ss
 
@@ -18,7 +18,7 @@ Cases >> rw[exp_to_Cexp_def])
 
 val defs_to_Cdefs_MAP = store_thm(
 "defs_to_Cdefs_MAP",
-``∀s defs. defs_to_Cdefs s defs = MAP (λ(d,t1,vn,t2,e). (NONE, (1,exp_to_Cexp (s with <|bvars := vn::s.bvars|>) e))) defs``,
+``∀s defs. defs_to_Cdefs s defs = MAP (λ(d,vn,e). (NONE, (1,exp_to_Cexp (s with <|bvars := vn::s.bvars|>) e))) defs``,
 gen_tac >> Induct >- rw[exp_to_Cexp_def] >>
 qx_gen_tac `d` >> PairCases_on `d` >> rw[exp_to_Cexp_def])
 
@@ -29,7 +29,7 @@ gen_tac >> Induct >> rw[v_to_Cv_def])
 
 val env_to_Cenv_MAP = store_thm(
 "env_to_Cenv_MAP",
-``∀s env. env_to_Cenv s env = MAP (v_to_Cv s o FST o SND) env``,
+``∀s env. env_to_Cenv s env = MAP (v_to_Cv s o SND) env``,
 gen_tac >> Induct >- rw[exp_to_Cexp_def,v_to_Cv_def] >>
 qx_gen_tac`h` >> PairCases_on`h` >>
 rw[exp_to_Cexp_def,v_to_Cv_def])
@@ -157,14 +157,14 @@ full_simp_tac std_ss [EXTENSION,IN_UNION,IN_DIFF,IN_SING] >>
 qx_gen_tac `x` >>
 Cases_on `x=v` >> fsd[] >>
 Q.PAT_ABBREV_TAC`fvr = IMAGE (λm:num. m - 1) (IMAGE f (free_vars y) DIFF z)` >>
-`x ∈ fvr = x ∈ free_vars (remove_mat_var v pes)` by (
+`x ∈ fvr ⇔ x ∈ free_vars (remove_mat_var v pes)` by (
   unabbrev_all_tac >> simp[PRE_SUB1] >>
   srw_tac[ARITH_ss][EQ_IMP_THM] >> simp[] >>
   qexists_tac`x+1` >> simp[] ) >>
 first_x_assum(qspec_then`x`mp_tac) >>
 asm_simp_tac std_ss [] >>
 disch_then kall_tac >>
-qmatch_abbrev_tac`a ∨ b = c ∨ a` >>
+qmatch_abbrev_tac`a ∨ b ⇔ c ∨ a` >>
 Cases_on`a`>>rw[] >>
 unabbrev_all_tac >>
 pop_assum kall_tac >>
@@ -197,16 +197,16 @@ val _ = export_rewrites["no_labs_remove_mat_var"]
 (* TODO: move? *)
 
 val pat_to_Cpat_cnmap = store_thm("pat_to_Cpat_cnmap",
-  ``(∀(p:α pat) m. (FST (pat_to_Cpat m p)).cnmap = m.cnmap) ∧
-    (∀(ps:α pat list) m. (FST (pats_to_Cpats m ps)).cnmap = m.cnmap)``,
-  ho_match_mp_tac (TypeBase.induction_of``:α pat``) >>
+  ``(∀p m. (FST (pat_to_Cpat m p)).cnmap = m.cnmap) ∧
+    (∀ps m. (FST (pats_to_Cpats m ps)).cnmap = m.cnmap)``,
+  ho_match_mp_tac (TypeBase.induction_of``:pat``) >>
   rw[pat_to_Cpat_def] >> metis_tac[FST])
 
 val SND_pat_to_Cpat_cnmap = store_thm(
 "SND_pat_to_Cpat_cnmap",
-``(∀(p:α pat) m m'. (m.cnmap = m'.cnmap) ⇒ (SND (pat_to_Cpat m p) = SND (pat_to_Cpat m' p))) ∧
-  (∀(ps:α pat list) m m'. (m.cnmap = m'.cnmap) ⇒ (SND (pats_to_Cpats m ps) = SND (pats_to_Cpats m' ps)))``,
-ho_match_mp_tac (TypeBase.induction_of``:α pat``) >>
+``(∀p m m'. (m.cnmap = m'.cnmap) ⇒ (SND (pat_to_Cpat m p) = SND (pat_to_Cpat m' p))) ∧
+  (∀ps m m'. (m.cnmap = m'.cnmap) ⇒ (SND (pats_to_Cpats m ps) = SND (pats_to_Cpats m' ps)))``,
+ho_match_mp_tac (TypeBase.induction_of``:pat``) >>
 strip_tac >- rw[pat_to_Cpat_def] >>
 strip_tac >- rw[pat_to_Cpat_def] >>
 strip_tac >- (
@@ -385,9 +385,9 @@ val Cpmatch_list_APPEND = store_thm("Cpmatch_list_APPEND",
   PROVE_TAC[])
 
 val pmatch_Cpmatch = store_thm("pmatch_Cpmatch",
-  ``(∀tvs cenv s p (v:'a v) env env'. (pmatch tvs cenv s p v env = Match (env' ++ env))
+  ``(∀(cenv:envC) s p v env env'. (pmatch cenv s p v env = Match (env' ++ env))
       ⇒ ∀m. Cpmatch (MAP (v_to_Cv m.cnmap) s) (SND (pat_to_Cpat m p)) (v_to_Cv m.cnmap v) (env_to_Cenv m.cnmap env')) ∧
-    (∀tvs cenv s ps (vs:'a v list) env env'. (pmatch_list tvs cenv s ps vs env = Match (env' ++ env))
+    (∀(cenv:envC) s ps vs env env'. (pmatch_list cenv s ps vs env = Match (env' ++ env))
       ⇒ ∀m. Cpmatch_list (MAP (v_to_Cv m.cnmap) s) (SND (pats_to_Cpats m ps)) (vs_to_Cvs m.cnmap vs) (env_to_Cenv m.cnmap env'))``,
   ho_match_mp_tac pmatch_ind >>
   strip_tac >- (
@@ -439,28 +439,28 @@ val pmatch_Cpmatch = store_thm("pmatch_Cpmatch",
     pop_assum mp_tac >>
     fs[Once pmatch_nil] >>
     rw[Once (CONJUNCT1 pmatch_nil)] >>
-    Cases_on `pmatch tvs cenv s p v []` >> fs[] >> rw[] >>
-    qmatch_assum_rename_tac `pmatch tvs cenv s p v [] = Match env0`[] >>
-    qpat_assum`pmatch_list tvs cenv s ps vs X = Y` mp_tac >>
+    Cases_on `pmatch cenv s p v []` >> fs[] >> rw[] >>
+    qmatch_assum_rename_tac `pmatch cenv s p v [] = Match env0`[] >>
+    qpat_assum`pmatch_list cenv s ps vs X = Y` mp_tac >>
     simp[Once pmatch_nil] >> strip_tac >>
-    Cases_on `pmatch_list tvs cenv s ps vs []` >> fs[] >> rw[] >>
-    qmatch_assum_rename_tac `pmatch_list tvs cenv s ps vs [] = Match env1`[] >>
+    Cases_on `pmatch_list cenv s ps vs []` >> fs[] >> rw[] >>
+    qmatch_assum_rename_tac `pmatch_list cenv s ps vs [] = Match env1`[] >>
     fs[Once (Q.INST[`env`|->`env0++env`]pmatch_nil)] >>
     fs[pat_to_Cpat_def,vs_to_Cvs_MAP,UNCURRY,env_to_Cenv_MAP,LET_THM] >>
     REWRITE_TAC[Once(rich_listTheory.CONS_APPEND)] >>
     REWRITE_TAC[Cpmatch_list_APPEND] >>
     simp[Once Cpmatch_cases] >>
-    qexists_tac`MAP (v_to_Cv m.cnmap o FST o SND) env0` >>
+    qexists_tac`MAP (v_to_Cv m.cnmap o SND) env0` >>
     simp[] >>
     metis_tac[SND_pat_to_Cpat_cnmap,pat_to_Cpat_cnmap]) >>
   strip_tac >- rw[pmatch_def] >>
   rw[pmatch_def])
 
 val pmatch_Cpnomatch = store_thm("pmatch_Cpnomatch",
-  ``(∀tvs cenv (s:α store) p v env. good_cenv cenv ∧ (pmatch tvs cenv s p v env = No_match)
+  ``(∀(cenv:envC) s p v env. (pmatch cenv s p v env = No_match)
       ⇒ ∀m. good_cmap cenv m.cnmap ⇒
             Cpnomatch (MAP (v_to_Cv m.cnmap) s) (SND (pat_to_Cpat m p)) (v_to_Cv m.cnmap v)) ∧
-    (∀tvs cenv (s:α store) ps vs env env'. good_cenv cenv ∧ (pmatch_list tvs cenv s ps vs env = No_match) ∧ (LENGTH ps = LENGTH vs)
+    (∀(cenv:envC) s ps vs env env'. (pmatch_list cenv s ps vs env = No_match) ∧ (LENGTH ps = LENGTH vs)
       ⇒ ∀m. good_cmap cenv m.cnmap ⇒
             Cpnomatch_list (MAP (v_to_Cv m.cnmap) s) (SND (pats_to_Cpats m ps)) (vs_to_Cvs m.cnmap vs))``,
   ho_match_mp_tac pmatch_ind >>
@@ -485,7 +485,7 @@ val pmatch_Cpnomatch = store_thm("pmatch_Cpnomatch",
     rw[pat_to_Cpat_def] >> rw[v_to_Cv_def] >>
     rw[Once Cpnomatch_cases]
       >- PROVE_TAC[SND,optionTheory.SOME_11,PAIR_EQ] >>
-    fs[good_cenv_def,good_cmap_def] >>
+    fs[good_cmap_def] >>
     imp_res_tac ALOOKUP_MEM >>
     metis_tac[pat_to_Cpat_cnmap,FST] ) >>
   strip_tac >- (
@@ -514,7 +514,7 @@ val pmatch_Cpnomatch = store_thm("pmatch_Cpnomatch",
     qpat_assum`X = No_match`mp_tac>>
     fs[Once pmatch_nil] >>
     rw[Once (CONJUNCT1 pmatch_nil)] >>
-    Cases_on `pmatch tvs cenv s p v []` >> fs[] >> rw[] >- (
+    Cases_on `pmatch cenv s p v []` >> fs[] >> rw[] >- (
       rw[pat_to_Cpat_def,vs_to_Cvs_MAP] >>
       rw[Once Cpnomatch_cases] >>
       metis_tac[SND_pat_to_Cpat_cnmap,SND,pat_to_Cpat_cnmap,pats_to_Cpats_LENGTH]) >>
@@ -533,16 +533,16 @@ val pmatch_Cpnomatch = store_thm("pmatch_Cpnomatch",
   rw[pmatch_def])
 
 val matchres_def = Define`
-  matchres (env:α envE) cenv s env' e r = ∃env''. (env' = env'' ++ env) ∧ (r = (s, Rval (env'',e)))`
+  matchres (env:envE) cenv s env' e r = ∃env''. (env' = env'' ++ env) ∧ (r = (s, Rval (env'',e)))`
 
 val evaluate_match_with_Cevaluate_match = store_thm("evaluate_match_with_Cevaluate_match",
-  ``∀pes r. evaluate_match_with (matchres env) cenv s env v pes r ⇒
-      ∀m. good_cenv cenv ∧ good_cmap cenv m.cnmap ⇒
+  ``∀pes r. evaluate_match_with (matchres env) (cenv:envC) s env v pes r ⇒
+      ∀m. good_cmap cenv m.cnmap ⇒
         ((r = (s, Rerr (Rraise Bind_error)))
             ⇒ Cevaluate_match (MAP (v_to_Cv m.cnmap) s) (v_to_Cv m.cnmap v)
                 (MAP (λ(p,e). (SND (pat_to_Cpat m p),(p,e))) pes)
                 [] NONE) ∧
-        ∀env' pe. (r = (s, Rval (env',pe)))
+        ∀env' (pe:pat#exp). (r = (s, Rval (env',pe)))
           ⇒ Cevaluate_match (MAP (v_to_Cv m.cnmap) s) (v_to_Cv m.cnmap v)
               (MAP (λ(p,e). (SND (pat_to_Cpat m p),(p,e))) pes)
               (env_to_Cenv m.cnmap env') (SOME pe)``,
@@ -559,7 +559,7 @@ val evaluate_match_with_Cevaluate_match = store_thm("evaluate_match_with_Cevalua
   strip_tac >- rw[] >> rw[] )
 
 val evaluate_match_with_matchres = store_thm("evaluate_match_with_matchres",
-  ``∀pes r. evaluate_match_with P cenv s env v pes r ⇒
+  ``∀(pes:(pat#exp)list) r. evaluate_match_with P (cenv:envC) s env v pes r ⇒
             (SND r ≠ Rerr Rtype_error) ⇒
             ((SND r = Rerr (Rraise Bind_error)) ∧
              evaluate_match_with (matchres env) cenv s env v pes (s, Rerr (Rraise Bind_error)) ∧
@@ -574,7 +574,7 @@ val evaluate_match_with_matchres = store_thm("evaluate_match_with_matchres",
     rw[Once evaluate_match_with_cases] >>
     rw[matchres_def] >>
     fs[Once pmatch_nil] >>
-    Cases_on `pmatch (SOME 0) cenv s p v []` >>fs[] >>
+    Cases_on `pmatch cenv s p v []` >>fs[] >>
     PROVE_TAC[] ) >>
   strip_tac >- (
     rw[] >> fs[] >>
@@ -586,9 +586,9 @@ val evaluate_match_with_matchres = store_thm("evaluate_match_with_matchres",
   rw[])
 
 val evaluate_match_with_matchres_closed = store_thm("evaluate_match_with_matchres_closed",
-  ``∀pes r. evaluate_match_with (matchres env) cenv s env v pes r ⇒
-            EVERY closed s ∧ EVERY closed (MAP (FST o SND) env) ∧ closed v ⇒
-            every_result (λ(menv,mr). EVERY closed (MAP (FST o SND) menv) ∧
+  ``∀(pes:(pat#exp)list) r. evaluate_match_with (matchres env) (cenv:envC) s env v pes r ⇒
+            EVERY (closed envM) s ∧ EVERY (closed envM) (MAP SND env) ∧ closed envM v ⇒
+            every_result (λ(menv,mr). EVERY (closed envM) (MAP SND menv) ∧
                                       MEM mr pes ∧
                                       ((MAP FST menv) = pat_bindings (FST mr) [])) (SND r) ``,
   ho_match_mp_tac evaluate_match_with_ind >>
@@ -597,9 +597,9 @@ val evaluate_match_with_matchres_closed = store_thm("evaluate_match_with_matchre
     rw[matchres_def] >>
     fs[] >>
     fs[Once pmatch_nil] >>
-    Cases_on `pmatch (SOME 0) cenv s p v []` >> fs[] >>
-    qspecl_then [`SOME 0`,`cenv`,`s`,`p`,`v`,`[]`] mp_tac (CONJUNCT1 pmatch_closed) >>
-    fs[] >> fsrw_tac[DNF_ss][] ) >>
+    Cases_on `pmatch cenv s p v []` >> fs[] >>
+    qspecl_then [`cenv`,`s`,`p`,`v`,`[]`] mp_tac (CONJUNCT1 pmatch_closed) >>
+    fs[] >> fsrw_tac[DNF_ss][] >> metis_tac[] ) >>
   strip_tac >- (
     rw[] >> fs[] >>
     Cases_on `SND r` >> fs[] >>
@@ -609,18 +609,18 @@ val evaluate_match_with_matchres_closed = store_thm("evaluate_match_with_matchre
   rw[])
 
 val evaluate_match_with_matchres_all_cns = store_thm("evaluate_match_with_matchres_all_cns",
-  ``∀pes r. evaluate_match_with (matchres env) cenv s env v pes r ⇒
-            (∀w. MEM w s ∨ MEM w (MAP (FST o SND) env) ∨ (w = v) ⇒ all_cns w ⊆ set (MAP FST cenv)) ⇒
+  ``∀pes r. evaluate_match_with (matchres env) (cenv:envC) s env v pes r ⇒
+            (∀w. MEM w s ∨ MEM w (MAP SND env) ∨ (w = v) ⇒ all_cns w ⊆ set (MAP FST cenv)) ⇒
             (∀v. MEM v (FST r) ⇒ all_cns v ⊆ set (MAP FST cenv)) ∧
-            every_result (λ(menv,mr). ∀v. MEM v (MAP (FST o SND) menv) ⇒ all_cns v ⊆ set (MAP FST cenv)) (SND r) ``,
+            every_result (λ(menv,mr). ∀v. MEM v (MAP SND menv) ⇒ all_cns v ⊆ set (MAP FST cenv)) (SND r) ``,
   ho_match_mp_tac evaluate_match_with_ind >>
   strip_tac >- rw[] >>
   strip_tac >- (
     rw[matchres_def] >>
     fs[] >>
     fs[Once pmatch_nil] >>
-    Cases_on `pmatch (SOME 0) cenv s p v []` >> fs[] >>
-    qspecl_then [`SOME 0`,`cenv`,`s`,`p`,`v`,`[]`] mp_tac (CONJUNCT1 pmatch_all_cns) >>
+    Cases_on `pmatch cenv s p v []` >> fs[] >>
+    qspecl_then [`cenv`,`s`,`p`,`v`,`[]`] mp_tac (CONJUNCT1 pmatch_all_cns) >>
     fs[] >>
     fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP] >>
     metis_tac[]) >>
