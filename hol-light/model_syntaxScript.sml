@@ -13,7 +13,6 @@ val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="model_syntax",Name="mem
 val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="model_syntax",Name="replicate"},name=(["Data","List"],"replicate")};
 val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="combin",Name="I"},name=(["Set"],"fromPredicate")};
 val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="model_syntax",Name="infinite"},name=(["Set"],"infinite")};
-val _ = OpenTheoryMap.OpenTheory_const_name {const={Thy="bool",Name="IN"},name=(["Set"],"member")};
 
 fun const_name n =
   if mem (snd n) ["ORD","CHR"] then {Thy="string",Name=snd n}
