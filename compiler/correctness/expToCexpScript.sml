@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib miscLib boolSimps intLib pairTheory sumTheory listTheory pred_setTheory finite_mapTheory arithmeticTheory alistTheory rich_listTheory lcsymtacs
-open SemanticPrimitivesTheory AstTheory terminationTheory semanticsExtraTheory evaluateEquationsTheory miscTheory intLangTheory compileTerminationTheory pmatchTheory
+open LibTheory SemanticPrimitivesTheory AstTheory terminationTheory semanticsExtraTheory evaluateEquationsTheory miscTheory intLangTheory compileTerminationTheory pmatchTheory
 val _ = new_theory "expToCexp"
 val fsd = full_simp_tac std_ss
 
@@ -151,7 +151,7 @@ val FST_pat_to_Cpat_bvars = store_thm("FST_pat_to_Cpat_bvars",
     (∀ps s. (FST (pats_to_Cpats s ps)).bvars = pats_bindings ps [] ++ s.bvars)``,
   ho_match_mp_tac (TypeBase.induction_of``:pat``) >>
   rw[pat_to_Cpat_def,pat_bindings_def] >> rw[]
-  >- ( first_x_assum(qspec_then`s'`mp_tac) >> simp[] )
+  >- ( first_x_assum(qspec_then`s`mp_tac) >> simp[] )
   >- ( first_x_assum(qspec_then`s`mp_tac) >> simp[] ) >>
   first_x_assum(qspec_then`m`mp_tac) >>
   first_x_assum(qspec_then`s`mp_tac) >>
@@ -159,11 +159,11 @@ val FST_pat_to_Cpat_bvars = store_thm("FST_pat_to_Cpat_bvars",
   simp[Once pat_bindings_acc,SimpRHS])
 
 val LENGTH_FST_pat_to_Cpat_bvars = store_thm("LENGTH_FST_pat_to_Cpat_bvars",
-  ``(∀(p:α pat) s l. LENGTH (FST (pat_to_Cpat s p)).bvars = LENGTH (pat_bindings p l) - LENGTH l + LENGTH s.bvars) ∧
-    (∀(ps:α pat list) s l. LENGTH (FST (pats_to_Cpats s ps)).bvars = LENGTH (pats_bindings ps l) - LENGTH l + LENGTH s.bvars)``,
-  ho_match_mp_tac (TypeBase.induction_of``:α pat``) >>
+  ``(∀p s l. LENGTH (FST (pat_to_Cpat s p)).bvars = LENGTH (pat_bindings p l) - LENGTH l + LENGTH s.bvars) ∧
+    (∀ps s l. LENGTH (FST (pats_to_Cpats s ps)).bvars = LENGTH (pats_bindings ps l) - LENGTH l + LENGTH s.bvars)``,
+  ho_match_mp_tac (TypeBase.induction_of``:pat``) >>
   srw_tac[ARITH_ss,ETA_ss][pat_to_Cpat_def,ADD1,pat_bindings_def]
-  >- ( first_x_assum(qspec_then`s'`mp_tac) >> simp[] )
+  >- ( first_x_assum(qspec_then`s`mp_tac) >> simp[] )
   >- ( first_x_assum(qspec_then`s`mp_tac) >> simp[] ) >>
   first_x_assum(qspec_then`m`mp_tac) >>
   first_x_assum(qspec_then`s`mp_tac) >>
@@ -181,7 +181,7 @@ val lem = PROVE[]``(a ==> (b \/ c)) = (a /\ ~b ==> c)``
 
 val free_vars_exp_to_Cexp = store_thm(
 "free_vars_exp_to_Cexp",
-``∀s e. FV e ⊆ set s.bvars ⇒
+``∀s e. SFV e ⊆ set s.bvars ⇒
         free_vars (exp_to_Cexp s e) ⊆ count (LENGTH s.bvars)``,
 ho_match_mp_tac exp_to_Cexp_nice_ind >>
 strip_tac >- (
@@ -200,27 +200,42 @@ strip_tac >- (
   imp_res_tac find_index_MEM >>
   pop_assum(qspec_then`0`mp_tac)>>rw[] >>
   rw[] ) >>
+strip_tac >- rw[exp_to_Cexp_def] >>
 strip_tac >- (
   rw[exp_to_Cexp_def] >>
   fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1,ADD1] >>
   rw[] >>
   fsrw_tac[ARITH_ss][lem] >>
   res_tac >> fsrw_tac[ARITH_ss][] ) >>
-strip_tac >- ( rw[exp_to_Cexp_def] >> rw[] ) >>
 strip_tac >- (
   rw[exp_to_Cexp_def] >>
   BasicProvers.CASE_TAC >> rw[] >>
   fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
   conj_tac >> Cases >> fsrw_tac[ARITH_ss][ADD1] >>
   strip_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
-strip_tac >- ( rw[exp_to_Cexp_def] >> rw[] ) >>
-strip_tac >- ( rw[exp_to_Cexp_def] >> rw[] ) >>
-strip_tac >- ( rw[exp_to_Cexp_def] >> rw[] ) >>
+strip_tac >- (
+  rw[exp_to_Cexp_def] >>
+  BasicProvers.CASE_TAC >> rw[] >>
+  fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
+  conj_tac >> Cases >> fsrw_tac[ARITH_ss][ADD1] >>
+  strip_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
+strip_tac >- (
+  rw[exp_to_Cexp_def] >> rw[] >>
+  fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] ) >>
+strip_tac >- (
+  rw[exp_to_Cexp_def] >> rw[] >>
+  fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] ) >>
+strip_tac >- (
+  rw[exp_to_Cexp_def] >> rw[] >>
+  fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] ) >>
 strip_tac >- ( rw[exp_to_Cexp_def] >> rw[] ) >>
 strip_tac >- (
   rw[exp_to_Cexp_def] >>
-  BasicProvers.CASE_TAC >> rw[] ) >>
-strip_tac >- ( rw[exp_to_Cexp_def] >> rw[] ) >>
+  BasicProvers.CASE_TAC >> rw[] >>
+  fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF] ) >>
+strip_tac >- (
+  rw[exp_to_Cexp_def] >> rw[] >>
+  fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF] ) >>
 strip_tac >- (
   rw[exp_to_Cexp_def] >>
   rw[] >>
@@ -256,16 +271,16 @@ strip_tac >- (
     simp[MEM_MAP,EXISTS_PROD,GSYM LEFT_FORALL_IMP_THM] >>
     map_every qx_gen_tac[`m`,`x`,`y`,`z`] >>
     simp[GSYM RIGHT_EXISTS_AND_THM,GSYM LEFT_FORALL_IMP_THM] >>
-    map_every qx_gen_tac[`a`,`b`,`c`,`d`,`f`] >>
-    last_x_assum(qspecl_then[`a`,`b`,`c`,`d`,`f`]mp_tac) >>
+    map_every qx_gen_tac[`a`,`b`,`c`] >>
+    last_x_assum(qspecl_then[`a`,`b`,`c`]mp_tac) >>
     rw[] >> fs[] >>
     qmatch_assum_rename_tac`z ∈ free_vars X`["X"] >>
     first_x_assum(qspec_then`z`mp_tac) >>
     fs[Abbr`m'`] >>
     discharge_hyps >- (
       gen_tac >> strip_tac >>
-      first_x_assum(qspecl_then[`x`,`a`,`b`,`c`,`d`,`f`]mp_tac) >>
-      Cases_on`x=c`>>simp[MEM_MAP,EXISTS_PROD] >>
+      first_x_assum(qspecl_then[`x`,`a`,`b`,`c`]mp_tac) >>
+      Cases_on`x=b`>>simp[MEM_MAP,EXISTS_PROD] >>
       metis_tac[] ) >>
     simp[] ) >>
   simp[GSYM FORALL_AND_THM] >>
@@ -281,16 +296,16 @@ qabbrev_tac `q = pat_to_Cpat m p` >>
 PairCases_on`q`>>fs[] )
 
 val free_vars_exp_to_Cexp_matchable = store_thm("free_vars_exp_to_Cexp_matchable",
-  ``FV e ⊆ set m.bvars ∧ count (LENGTH m.bvars) ⊆ s ⇒ free_vars (exp_to_Cexp m e) ⊆ s``,
+  ``SFV e ⊆ set m.bvars ∧ count (LENGTH m.bvars) ⊆ s ⇒ free_vars (exp_to_Cexp m e) ⊆ s``,
   metis_tac[free_vars_exp_to_Cexp,SUBSET_TRANS])
 
 (* closed lemmas *)
 
 val v_to_Cv_closed = store_thm(
 "v_to_Cv_closed",
-``(∀m (v:α v). closed v ⇒ Cclosed (v_to_Cv m v)) ∧
-  (∀m (vs:α v list). EVERY closed vs ⇒ EVERY (Cclosed) (vs_to_Cvs m vs)) ∧
-  (∀m (env:α envE). EVERY closed (MAP (FST o SND) env) ⇒ EVERY (Cclosed) (env_to_Cenv m env))``,
+``(∀m v. closed [] v ⇒ Cclosed (v_to_Cv m v)) ∧
+  (∀m vs. EVERY (closed []) vs ⇒ EVERY (Cclosed) (vs_to_Cvs m vs)) ∧
+  (∀m env. EVERY (closed []) (MAP SND env) ⇒ EVERY (Cclosed) (env_to_Cenv m env))``,
 ho_match_mp_tac v_to_Cv_ind >>
 rw[v_to_Cv_def] >> rw[Cclosed_rules]
 >- (
@@ -303,7 +318,7 @@ rw[v_to_Cv_def] >> rw[Cclosed_rules]
   qspecl_then[`s`,`e`]mp_tac free_vars_exp_to_Cexp >>
   unabbrev_all_tac >>
   simp[SUBSET_DEF,ADD1] >> fs[SUBSET_DEF] >>
-  discharge_hyps >- metis_tac[] >>
+  discharge_hyps >- (rw[] >> res_tac >> fs[MEM_MAP] >> metis_tac[]) >>
   disch_then(qspec_then`n+1`mp_tac) >>
   simp[] ) >>
 fs[Once closed_cases] >>
@@ -320,8 +335,8 @@ simp[] >>
 fsrw_tac[DNF_ss][] >>
 fsrw_tac[DNF_ss][MEM_EL] >>
 rpt gen_tac >> strip_tac >>
-qmatch_assum_rename_tac`(a,b,c,d,e) = EL j defs`[] >>
-first_x_assum(qspecl_then[`j`,`a`,`b`,`c`,`d`,`e`]mp_tac) >>
+qmatch_assum_rename_tac`(a,b,c) = EL j defs`[] >>
+first_x_assum(qspecl_then[`a`,`b`,`c`,`j`]mp_tac) >>
 simp[] >>
 strip_tac >>
 match_mp_tac free_vars_exp_to_Cexp_matchable >>
@@ -329,6 +344,7 @@ simp[] >>
 unabbrev_all_tac >> fs[] >>
 conj_tac >- (
   fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD] >>
+  rw[] >> res_tac >> fs[MEM_MAP] >>
   metis_tac[]) >>
 simp[env_to_Cenv_MAP,ADD1])
 
@@ -362,13 +378,13 @@ val do_app_Opb_SOME = store_thm("do_app_Opb_SOME",
 val do_app_Opapp_SOME = store_thm("do_app_Opapp_SOME",
 ``(do_app s env_ Opapp v1 v2 = SOME (s',env',exp')) =
   ((s' = s) ∧
-   ((∃env n to e. (v1 = Closure env n to e) ∧
-                  (env' = bind n (v2,add_tvs (SOME 0) to) env) ∧
+   ((∃env n to e. (v1 = Closure env n e) ∧
+                  (env' = bind n v2 env) ∧
                   (exp' = e)) ∨
     (∃env funs n to m.
       (v1 = Recclosure env funs n) ∧
-      (find_recfun n funs = SOME (m,to,exp')) ∧
-      (env' = bind m (v2,add_tvs(SOME 0) to) (build_rec_env (SOME 0) funs env)))))``,
+      (find_recfun n funs = SOME (m,exp')) ∧
+      (env' = bind m v2 (build_rec_env funs env env)))))``,
   Cases_on`v1`>>rw[do_app_def] >- rw[EQ_IMP_THM] >>
   BasicProvers.EVERY_CASE_TAC >>
   fs[optionTheory.OPTION_MAP_EQ_NONE] >>
@@ -379,91 +395,48 @@ val do_app_Opapp_SOME = store_thm("do_app_Opapp_SOME",
 
 val v_to_Cv_inj = store_thm(
 "v_to_Cv_inj",
-``(∀s (v1:α v) v2.
-    all_cns v1 ⊆ set (MAP FST cenv) ∧
+``(∀s v1 v2.
+    all_cns v1 ⊆ set (MAP FST (cenv:envC)) ∧
     all_cns v2 ⊆ set (MAP FST cenv) ∧
-    good_cenv (cenv:envC) ∧
     good_cmap cenv s ∧
-    (*
-    no_closures v1 ∧ no_closures v2 ∧
-    *)
+    ¬contains_closure v1 ∧ ¬contains_closure v2 ∧
     (v_to_Cv s v1 = v_to_Cv s v2) ⇒ (v1 = v2)) ∧
-  (∀s (vs1:α v list) vs2.
+  (∀s vs1 vs2.
     BIGUNION (IMAGE all_cns (set vs1)) ⊆ set (MAP FST cenv) ∧
     BIGUNION (IMAGE all_cns (set vs2)) ⊆ set (MAP FST cenv) ∧
-    good_cenv cenv ∧
     good_cmap cenv s ∧
-    (*
-    EVERY no_closures vs1 ∧ EVERY no_closures vs2 ∧
-    *)
+    ¬EXISTS contains_closure vs1 ∧ ¬EXISTS contains_closure vs2 ∧
     (vs_to_Cvs s vs1 = vs_to_Cvs s vs2) ⇒ (vs1 = vs2)) ∧
-  (∀(s:string|->num) (env1:α envE).T)``,
+  (∀(s:string id|->num) (env1:envE).T)``,
 ho_match_mp_tac v_to_Cv_ind >> rw[v_to_Cv_def,LET_THM,vs_to_Cvs_MAP,env_to_Cenv_MAP] >>
 TRY (Cases_on`v2`>>fs[v_to_Cv_def,LET_THM]>>NO_TAC)
 >- (
   Cases_on`v2`>>fs[v_to_Cv_def,vs_to_Cvs_MAP,MAP_EQ_EVERY2,EVERY2_EVERY,LET_THM] >>
-  fs[good_cenv_def,good_cmap_def,MEM_MAP,EXISTS_PROD] >>
+  fsrw_tac[ETA_ss][good_cmap_def,MEM_MAP,EXISTS_PROD,contains_closure_def] >>
+  fs[FORALL_PROD] >>
   metis_tac[] )
->- cheat
->- cheat
+>- fs[contains_closure_def]
+>- fs[contains_closure_def]
 >- (Cases_on`vs2`>>fs[]))
 
 (* TODO: categorise *)
-
-val pat_to_Cpat_deBruijn_subst_p = store_thm("pat_to_Cpat_deBruijn_subst_p",
-  ``(∀p n x m. pat_to_Cpat m (deBruijn_subst_p n x p) = pat_to_Cpat m p) ∧
-    (∀ps n x m. pats_to_Cpats m (MAP (deBruijn_subst_p n x) ps) = pats_to_Cpats m ps)``,
-  ho_match_mp_tac (TypeBase.induction_of``:t pat``) >>
-  srw_tac[ETA_ss][deBruijn_subst_p_def,pat_to_Cpat_def])
-val _ = export_rewrites["pat_to_Cpat_deBruijn_subst_p"]
-
-val exp_to_Cexp_deBruijn_subst_e = store_thm("exp_to_Cexp_deBruijn_subst_e",
-  ``∀n x e m. exp_to_Cexp m (deBruijn_subst_e n x e) = exp_to_Cexp m e``,
-  ho_match_mp_tac deBruijn_subst_e_ind >>
-  srw_tac[ETA_ss][deBruijn_subst_e_def] >>
-  rw[exp_to_Cexp_def,exps_to_Cexps_MAP,MAP_MAP_o,MAP_EQ_f,
-     defs_to_Cdefs_MAP,pes_to_Cpes_MAP,LET_THM,FORALL_PROD]
-  >- ( Cases_on`bop`>>rw[exp_to_Cexp_def] )
-  >- ( rw[UNCURRY,combinTheory.o_DEF] >>
-       AP_TERM_TAC >>
-       rw[MAP_EQ_f,FORALL_PROD] >>
-       AP_TERM_TAC >>
-       res_tac >> rw[] ) >>
-  rw[UNCURRY,combinTheory.o_DEF] >>
-  rw[LAMBDA_PROD] >>
-  metis_tac[])
-val _ = export_rewrites["exp_to_Cexp_deBruijn_subst_e"]
-
-val v_to_Cv_deBruijn_subst_v = store_thm("v_to_Cv_deBruijn_subst_v",
-  ``∀x v m. v_to_Cv m (deBruijn_subst_v x v) = v_to_Cv m v``,
-  ho_match_mp_tac deBruijn_subst_v_ind >>
-  srw_tac[ETA_ss][deBruijn_subst_v_def,v_to_Cv_def,LET_THM,MAP_REVERSE,
-                  defs_to_Cdefs_MAP,vs_to_Cvs_MAP,MAP_MAP_o,MAP_EQ_f,FORALL_PROD] >>
-  rw[combinTheory.o_DEF,UNCURRY,LAMBDA_PROD])
-val _ = export_rewrites["v_to_Cv_deBruijn_subst_v"]
-
-val v_to_Cv_do_tapp = store_thm("v_to_Cv_do_tapp",
-  ``∀ts to v m. v_to_Cv m (do_tapp ts to v) = v_to_Cv m v``,
-  rw[do_tapp_def] >>
-  BasicProvers.EVERY_CASE_TAC >>
-  rw[])
-val _ = export_rewrites["v_to_Cv_do_tapp"]
-
 val exp_to_Cexp_state_component_equality = DB.fetch"Compile""exp_to_Cexp_state_component_equality"
 
 val pat_to_Cpat_acc = store_thm("pat_to_Cpat_acc",
-  ``(∀(p:α pat) s s' Cp. (pat_to_Cpat s p = (s',Cp)) ⇒
+  ``(∀p s s' Cp. (pat_to_Cpat s p = (s',Cp)) ⇒
       ∃ls. (s'.bvars = ls ++ s.bvars) ∧ (set ls = pat_vars p) ∧
            (pat_to_Cpat (s with bvars := []) p = (s' with bvars := ls, Cp))) ∧
-    (∀(ps:α pat list) s s' Cps. (pats_to_Cpats s ps = (s',Cps)) ⇒
+    (∀ps s s' Cps. (pats_to_Cpats s ps = (s',Cps)) ⇒
       ∃ls. (s'.bvars = ls ++ s.bvars) ∧ (set ls = BIGUNION (IMAGE pat_vars (set ps))) ∧
            (pats_to_Cpats (s with bvars := []) ps = (s' with bvars := ls, Cps)))``,
-  ho_match_mp_tac(TypeBase.induction_of``:α pat``) >>
-  rw[pat_to_Cpat_def,exp_to_Cexp_state_component_equality]
+  ho_match_mp_tac(TypeBase.induction_of``:pat``) >>
+  rw[pat_to_Cpat_def,exp_to_Cexp_state_component_equality,pat_bindings_def,pats_bindings_MAP]
   >- (
-    first_x_assum(qspec_then`s'`mp_tac) >>
-    qabbrev_tac`q = pats_to_Cpats s' ps` >>
-    PairCases_on`q`>>fs[LET_THM]>>rw[]>>fsrw_tac[ETA_ss][])
+    first_x_assum(qspec_then`s`mp_tac) >>
+    qabbrev_tac`q = pats_to_Cpats s ps` >>
+    PairCases_on`q`>>fs[LET_THM]>>rw[]>>fsrw_tac[ETA_ss][] >>
+    srw_tac[DNF_ss][EXTENSION,MEM_FLAT,MEM_MAP] >>
+    metis_tac[])
   >- (
     first_x_assum(qspec_then`s`mp_tac) >>
     qabbrev_tac`q = pat_to_Cpat s p` >>
@@ -484,7 +457,7 @@ val pat_to_Cpat_acc = store_thm("pat_to_Cpat_acc",
   fs[exp_to_Cexp_state_component_equality,UNION_COMM])
 
 val exp_to_Cexp_append_bvars = store_thm("exp_to_Cexp_append_bvars",
-  ``∀ls s e. FV e ⊆ set s.bvars ⇒ (exp_to_Cexp (s with bvars := s.bvars ++ ls) e = exp_to_Cexp s e)``,
+  ``∀ls s e. SFV e ⊆ set s.bvars ⇒ (exp_to_Cexp (s with bvars := s.bvars ++ ls) e = exp_to_Cexp s e)``,
   gen_tac >> ho_match_mp_tac exp_to_Cexp_nice_ind >>
   rw[exp_to_Cexp_def,exps_to_Cexps_MAP,defs_to_Cdefs_MAP,pes_to_Cpes_MAP] >>
   TRY (
@@ -495,6 +468,9 @@ val exp_to_Cexp_append_bvars = store_thm("exp_to_Cexp_append_bvars",
     metis_tac[find_index_MEM,find_index_APPEND_same] )
   >- (
     unabbrev_all_tac >>
+    conj_tac >- (
+      first_x_assum match_mp_tac >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
     rpt AP_TERM_TAC >>
     rw[MAP_EQ_f,FORALL_PROD] >>
     qmatch_assum_rename_tac`pat_to_Cpat s p = (s',Cp)`[] >>
@@ -523,7 +499,7 @@ val exp_to_Cexp_append_bvars = store_thm("exp_to_Cexp_append_bvars",
 
 val exp_to_Cexp_append_bvars_matchable = store_thm(
   "exp_to_Cexp_append_bvars_matchable",
-  ``∀ls s s' e. FV e ⊆ set s.bvars ∧ (s'.cnmap = s.cnmap) ∧ (s'.bvars = s.bvars ++ ls) ⇒
+  ``∀ls s s' e. SFV e ⊆ set s.bvars ∧ (s'.cnmap = s.cnmap) ∧ (s'.bvars = s.bvars ++ ls) ⇒
              (exp_to_Cexp s' e = exp_to_Cexp s e)``,
   rw[] >> imp_res_tac exp_to_Cexp_append_bvars >>
   pop_assum(qspec_then`ls`strip_assume_tac) >>
@@ -532,22 +508,26 @@ val exp_to_Cexp_append_bvars_matchable = store_thm(
   simp[exp_to_Cexp_state_component_equality,Abbr`z`])
 
 val closed_under_cenv_def = Define`
-  closed_under_cenv cenv env s =
-  (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_cns v ⊆ set (MAP FST cenv))`
+  closed_under_cenv (cenv:envC) (menv:envM) env s =
+  (∀v. v ∈ menv_range menv ∨ v ∈ env_range env ∨ MEM v s ⇒ all_cns v ⊆ set (MAP FST cenv))`
 
 val evaluate_closed_under_cenv = store_thm("evaluate_closed_under_cenv",
-  ``∀cenv s env exp res. closed_under_cenv cenv env s ∧ evaluate cenv s env exp res ⇒
-    closed_under_cenv cenv env (FST res)``,
+  ``∀menv cenv s env exp res. closed_under_cenv cenv menv env s ∧ evaluate menv cenv s env exp res ⇒
+    closed_under_cenv cenv menv env (FST res)``,
   rw[] >>
-  qspecl_then[`cenv`,`s`,`env`,`exp`,`res`]mp_tac (CONJUNCT1 evaluate_all_cns) >>
+  qspecl_then[`menv`,`cenv`,`s`,`env`,`exp`,`res`]mp_tac (CONJUNCT1 evaluate_all_cns) >>
   fsrw_tac[DNF_ss][closed_under_cenv_def])
 
+val is_null_def = Define`is_null menv ⇔ menv = []`
+
 val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
-  ``(∀cenv s env exp res. evaluate cenv s env exp res ⇒
-     FV exp ⊆ set (MAP FST env) ∧
-     (EVERY closed s) ∧ (EVERY closed (MAP (FST o SND) env)) ∧
-     closed_under_cenv cenv env s ∧
-     good_cenv cenv ∧ (SND res ≠ Rerr Rtype_error) ⇒
+  ``(∀menv cenv s env exp res. evaluate menv cenv s env exp res ⇒
+     (is_null menv) ∧
+     FV exp ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+     (EVERY (closed menv) s) ∧ (EVERY (closed menv) (MAP SND env)) ∧
+     EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
+     closed_under_cenv cenv menv env s ∧
+     (SND res ≠ Rerr Rtype_error) ⇒
      ∀cm. good_cmap cenv cm ⇒
        ∃Cres.
        Cevaluate
@@ -557,11 +537,13 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
          Cres ∧
          EVERY2 (syneq) (MAP (v_to_Cv cm) (FST res)) (FST Cres) ∧
          result_rel (syneq) (map_result (v_to_Cv cm) (SND res)) (SND Cres))∧
-    (∀cenv s env exps res. evaluate_list cenv s env exps res ⇒
-     (BIGUNION (IMAGE FV (set exps)) ⊆ set (MAP FST env)) ∧
-     (EVERY closed s) ∧ (EVERY closed (MAP (FST o SND) env)) ∧
-     closed_under_cenv cenv env s ∧
-     good_cenv cenv ∧ (SND res ≠ Rerr Rtype_error) ⇒
+    (∀menv cenv s env exps res. evaluate_list menv cenv s env exps res ⇒
+     (is_null menv) ∧
+     BIGUNION (IMAGE FV (set exps)) ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+     (EVERY (closed menv) s) ∧ (EVERY (closed menv) (MAP SND env)) ∧
+     EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
+     closed_under_cenv cenv menv env s ∧
+     (SND res ≠ Rerr Rtype_error) ⇒
      ∀cm. good_cmap cenv cm ⇒
        ∃Cres.
        Cevaluate_list
@@ -588,13 +570,12 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     disj2_tac >> disj1_tac >>
     last_x_assum(qspec_then`cm`mp_tac) >> simp[] >>
     disch_then(Q.X_CHOOSE_THEN`s2`strip_assume_tac) >>
-    qspecl_then[`cenv`,`s`,`env`,`exp`,`(s',Rerr (Rraise (Int_error n)))`]mp_tac(CONJUNCT1 evaluate_closed) >>
-    qspecl_then[`cenv`,`s`,`env`,`exp`,`(s',Rerr (Rraise (Int_error n)))`]mp_tac(evaluate_closed_under_cenv) >>
+    qspecl_then[`menv`,`cenv`,`s`,`env`,`exp`,`(s',Rerr (Rraise (Int_error n)))`]mp_tac(CONJUNCT1 evaluate_closed) >>
+    qspecl_then[`menv`,`cenv`,`s`,`env`,`exp`,`(s',Rerr (Rraise (Int_error n)))`]mp_tac(evaluate_closed_under_cenv) >>
     fsrw_tac[DNF_ss][env_to_Cenv_MAP,SUBSET_DEF,lem] >> strip_tac >> strip_tac >>
     first_x_assum(qspec_then`cm`mp_tac) >>
     fsrw_tac[DNF_ss][closed_under_cenv_def,EXISTS_PROD] >>
-    disch_then(mp_tac o UNDISCH_ALL) >>
-    disch_then(qx_choosel_then[`s3`,`v`]strip_assume_tac) >>
+    map_every qx_gen_tac [`s3`,`v`] >> strip_tac >>
     CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
     map_every qexists_tac[`n`,`s2`] >> simp[] >> fs[v_to_Cv_def] >>
     qmatch_assum_abbrev_tac`Cevaluate s1 env1 exp1 (s3,v)` >>

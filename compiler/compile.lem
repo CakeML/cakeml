@@ -759,7 +759,7 @@ exp_to_Cexp m (Con cn es) =
 and
 exp_to_Cexp m (Var (Short vn)) = CVar (the (find_index vn m.bvars 0))
 and
-exp_to_Cexp m (Var (Long _ _)) = CVar (the None)
+exp_to_Cexp m (Var (Long _ _)) = CRaise Bind_error
 and
 exp_to_Cexp m (Fun vn e) =
   CFun (None,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))

@@ -1010,11 +1010,11 @@ val syneq_ov = store_thm("syneq_ov",
 (* Misc. int lang lemmas *)
 
 val good_cmap_def = Define`
-  good_cmap cenv m =
-    ∀c1 n1 c2 n2 s.
-      MEM (c1,(n1,s)) cenv ∧
-      MEM (c2,(n2,s)) cenv ∧
-      (FAPPLY m c1 = FAPPLY m c2) ⇒ (c1 = c2)`
+  good_cmap (cenv:envC) m =
+    ∀p1 p2.
+      MEM p1 cenv ∧
+      MEM p2 cenv ∧
+      (FAPPLY m (FST p1) = FAPPLY m (FST p2)) ⇒ (p1 = p2)`
 
 val Cevaluate_list_LENGTH = store_thm("Cevaluate_list_LENGTH",
   ``∀exps s env s' vs. Cevaluate_list s env exps (s', Rval vs) ⇒ (LENGTH vs = LENGTH exps)``,
