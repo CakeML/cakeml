@@ -238,7 +238,9 @@ val _ = Defn.save_defn free_vars_defn;
 /\
 (no_closures (CConv _ vs) = ( EVERY no_closures vs))
 /\
-(no_closures (CRecClos _ _ _) = F)`;
+(no_closures (CRecClos _ _ _) = F)
+/\
+(no_closures (CLoc n) = T)`;
 
 val _ = Defn.save_defn no_closures_defn;
 

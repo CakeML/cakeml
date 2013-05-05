@@ -520,6 +520,12 @@ val evaluate_closed_under_cenv = store_thm("evaluate_closed_under_cenv",
 
 val is_null_def = Define`is_null menv ⇔ menv = []`
 
+val no_closures_contains_closure = store_thm("no_closures_contains_closure",
+  ``(∀v m. no_closures (v_to_Cv m v) = ¬contains_closure v)``,
+  ho_match_mp_tac contains_closure_ind >>
+  simp[contains_closure_def,v_to_Cv_def,no_closures_def] >>
+  simp_tac(srw_ss()++DNF_ss)[EVERY_MEM,vs_to_Cvs_MAP,MEM_MAP])
+
 val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   ``(∀menv cenv s env exp res. evaluate menv cenv s env exp res ⇒
      (is_null menv) ∧
@@ -600,11 +606,16 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
        exps_to_Cexps_MAP,Cevaluate_con] >>
     fsrw_tac[DNF_ss,ETA_ss][EXISTS_PROD]) >>
   strip_tac >- (
-    fs[exp_to_Cexp_def,MEM_MAP,pairTheory.EXISTS_PROD,env_to_Cenv_MAP] >>
-    rpt gen_tac >> rpt (disch_then strip_assume_tac) >> qx_gen_tac `m` >>
+    fs[exp_to_Cexp_def,MEM_MAP,pairTheory.EXISTS_PROD,env_to_Cenv_MAP,lookup_var_id_def] >>
+    rpt gen_tac >>
+    reverse BasicProvers.CASE_TAC >- (
+      simp[MEM_FLAT,is_null_def,MEM_MAP] >>
+      rw[] >> fs[] ) >>
+    simp_tac(srw_ss()++DNF_ss)[MEM_FLAT,MEM_MAP] >>
+    qx_gen_tac `m` >> simp[exp_to_Cexp_def] >>
+    gen_tac >> ntac 3 strip_tac >>
     fs[ALOOKUP_LEAST_EL] >>
     simp[find_index_LEAST_EL] >>
-    strip_tac >>
     conj_asm1_tac >- (
       numLib.LEAST_ELIM_TAC >>
       fs[MEM_EL] >>
@@ -615,7 +626,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       qmatch_rename_tac`b < LENGTH env`[] >>
       `~(a<b)`by metis_tac[] >>
       DECIDE_TAC ) >>
-    `(LEAST m. EL m (MAP FST env) = n) = (LEAST m. n = EL m (MAP FST env))` by (
+    `(LEAST m. EL m (MAP FST env) = a) = (LEAST m. a = EL m (MAP FST env))` by (
       rw[] >> AP_TERM_TAC >> rw[FUN_EQ_THM] >> PROVE_TAC[] ) >>
     fs[EL_MAP]) >>
   strip_tac >- rw[] >>
@@ -661,7 +672,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     rw[Once Cevaluate_cases] >>
     fsrw_tac[DNF_ss][] ) >>
   strip_tac >- (
-    ntac 2 gen_tac >>
+    ntac 3 gen_tac >>
     Cases >> fs[exp_to_Cexp_def] >>
     qx_gen_tac `e1` >>
     qx_gen_tac `e2` >>
@@ -673,12 +684,12 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       rw[Once(CONJUNCT2 Cevaluate_cases)] >> fsrw_tac[DNF_ss][] >>
       rw[Once(CONJUNCT2 Cevaluate_cases)] >> fsrw_tac[DNF_ss][] >>
       rpt (first_x_assum (qspec_then `cm` mp_tac)) >>
-      `closed_under_cenv cenv env' s'' ∧ closed_under_cenv cenv env s'` by (
+      `closed_under_cenv cenv menv env' s'' ∧ closed_under_cenv cenv menv env s'` by (
         `(s'' = s3) ∧ (env' = env)` by fs[do_app_Opn_SOME] >>
         imp_res_tac evaluate_closed_under_cenv >> fs[] ) >>
       rw[] >>
       qmatch_assum_rename_tac `syneq (v_to_Cv cm v1) w1`[] >>
-      qspecl_then[`cenv`,`s`,`env`,`e1`,`(s',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+      qspecl_then[`menv`,`cenv`,`s`,`env`,`e1`,`(s',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
       simp[] >> strip_tac >> fs[] >>
       qmatch_assum_rename_tac `syneq (v_to_Cv m v2) w2`[] >>
       qmatch_assum_rename_tac`SND r1 = Rval w1`[] >>
@@ -693,10 +704,10 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       fsrw_tac[DNF_ss][FORALL_PROD] >>
       map_every qx_gen_tac[`s2`,`u2`] >> strip_tac >>
       PairCases_on`res`>>fsrw_tac[DNF_ss][EXISTS_PROD] >> rw[] >>
-      qspecl_then[`cenv`,`s'`,`env`,`e2`,`(s3,Rval v2)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+      qspecl_then[`menv`,`cenv`,`s'`,`env`,`e2`,`(s3,Rval v2)`]mp_tac(CONJUNCT1 evaluate_closed) >>
       simp[] >> strip_tac >>
       qmatch_assum_rename_tac `do_app s3 env (Opn opn) v1 v2 = SOME (s4,env',exp'')` [] >>
-      Q.ISPECL_THEN[`s3`,`s4`,`env`,`Opn opn`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
+      Q.ISPECL_THEN[`menv`,`s3`,`s4`,`env`,`Opn opn`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
       simp[] >> strip_tac >> fs[] >>
       fs[do_app_Opn_SOME] >> rw[] >>
       fs[v_to_Cv_def] >> rw[] >>
@@ -717,16 +728,16 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     >- (
       qmatch_assum_rename_tac `do_app s3 env (Opb opb) v1 v2 = SOME (s4,env',exp'')` [] >>
       fs[] >>
-      qmatch_assum_rename_tac`evaluate cenv s env e1 (s1,Rval v1)`[] >>
-      qmatch_assum_rename_tac`evaluate cenv s1 env e2 (s2,Rval v2)`[] >>
-      qspecl_then[`cenv`,`s`,`env`,`e1`,`(s1,Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+      qmatch_assum_rename_tac`evaluate menv cenv s env e1 (s1,Rval v1)`[] >>
+      qmatch_assum_rename_tac`evaluate menv cenv s1 env e2 (s2,Rval v2)`[] >>
+      qspecl_then[`menv`,`cenv`,`s`,`env`,`e1`,`(s1,Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
       simp[] >> strip_tac >>
-      qspecl_then[`cenv`,`s1`,`env`,`e2`,`(s2,Rval v2)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+      qspecl_then[`menv`,`cenv`,`s1`,`env`,`e2`,`(s2,Rval v2)`]mp_tac(CONJUNCT1 evaluate_closed) >>
       simp[] >> strip_tac >>
       fs[] >>
-      Q.ISPECL_THEN[`s2`,`s4`,`env`,`Opb opb`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
+      Q.ISPECL_THEN[`menv`,`s2`,`s4`,`env`,`Opb opb`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
       simp[] >> strip_tac >> fs[] >>
-      `closed_under_cenv cenv env s1 ∧ closed_under_cenv cenv env' s4` by (
+      `closed_under_cenv cenv menv env s1 ∧ closed_under_cenv cenv menv env' s4` by (
         fs[do_app_Opb_SOME] >>
         imp_res_tac evaluate_closed_under_cenv >> rfs[] ) >>
       fs[] >>
@@ -782,7 +793,9 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
             match_mp_tac mkshift_thm >>
             simp[ADD1,Abbr`enva`,Abbr`e2a`,env_to_Cenv_MAP] >>
             match_mp_tac free_vars_exp_to_Cexp_matchable >>
-            simp[] ) >>
+            simp[] >>
+            fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,is_null_def,MEM_FLAT] >> rfs[] >>
+            fsrw_tac[DNF_ss][EXISTS_PROD] >> rw[] >> res_tac >> fs[] >> metis_tac[]) >>
           lrw[EL_CONS,PRE_SUB1] ) >>
         simp[] >> map_every qunabbrev_tac[`P`,`Q`,`R`] >> pop_assum kall_tac >>
         fsrw_tac[DNF_ss][FORALL_PROD] >>
@@ -834,7 +847,9 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
             match_mp_tac mkshift_thm >>
             simp[ADD1,Abbr`enva`,Abbr`e2a`,env_to_Cenv_MAP] >>
             match_mp_tac free_vars_exp_to_Cexp_matchable >>
-            simp[] ) >>
+            simp[] >>
+            fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,is_null_def,MEM_FLAT] >> rfs[] >>
+            fsrw_tac[DNF_ss][EXISTS_PROD] >> rw[] >> res_tac >> fs[] >> metis_tac[]) >>
           lrw[EL_CONS,PRE_SUB1] ) >>
         simp[] >> map_every qunabbrev_tac[`P`,`Q`,`R`] >> pop_assum kall_tac >>
         fsrw_tac[DNF_ss][FORALL_PROD] >>
@@ -861,13 +876,13 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       rw[Once(CONJUNCT2 Cevaluate_cases)] >>
       rw[Once(CONJUNCT2 Cevaluate_cases)] >>
       srw_tac[DNF_ss][] >> fs[] >>
-      qspecl_then[`cenv`,`s`,`env`,`e1`,`(s',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+      qspecl_then[`menv`,`cenv`,`s`,`env`,`e1`,`(s',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
       simp[]>>strip_tac >>
-      qspecl_then[`cenv`,`s'`,`env`,`e2`,`(s3,Rval v2)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+      qspecl_then[`menv`,`cenv`,`s'`,`env`,`e2`,`(s3,Rval v2)`]mp_tac(CONJUNCT1 evaluate_closed) >>
       simp[]>>strip_tac >>
-      Q.ISPECL_THEN[`s3`,`s''`,`env`,`Equality`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
+      Q.ISPECL_THEN[`menv`,`s3`,`s''`,`env`,`Equality`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
       simp[]>>strip_tac>> fs[] >>
-      `closed_under_cenv cenv env' s'' ∧ closed_under_cenv cenv env s'` by (
+      `closed_under_cenv cenv menv env' s'' ∧ closed_under_cenv cenv menv env s'` by (
         fs[do_app_def] >> imp_res_tac evaluate_closed_under_cenv >> rfs[] ) >> fs[] >>
       rpt (first_x_assum (qspec_then `cm` mp_tac)) >>
       rw[EXISTS_PROD] >>
@@ -903,11 +918,12 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         strip_tac >>
         match_mp_tac (MP_CANON(CONJUNCT1 v_to_Cv_inj)) >>
         qexists_tac`m` >>
-        qspecl_then[`cenv`,`s`,`env`,`e1`,`(s',Rval v1)`]mp_tac(CONJUNCT1 evaluate_all_cns) >>
-        qspecl_then[`cenv`,`s'`,`env`,`e2`,`(s'',Rval v2)`]mp_tac(CONJUNCT1 evaluate_all_cns) >>
+        qspecl_then[`menv`,`cenv`,`s`,`env`,`e1`,`(s',Rval v1)`]mp_tac(CONJUNCT1 evaluate_all_cns) >>
+        qspecl_then[`menv`,`cenv`,`s'`,`env`,`e2`,`(s'',Rval v2)`]mp_tac(CONJUNCT1 evaluate_all_cns) >>
         fsrw_tac[DNF_ss][closed_under_cenv_def] ) >>
-      cheat )
+      metis_tac[no_closures_contains_closure,syneq_no_closures])
     >- (
+
       rw[Once Cevaluate_cases] >>
       srw_tac[DNF_ss][] >>
       disj1_tac >>

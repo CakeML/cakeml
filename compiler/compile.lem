@@ -202,6 +202,8 @@ and
 no_closures (CConv _ vs) = List.for_all no_closures vs
 and
 no_closures (CRecClos _ _ _) = false
+and
+no_closures (CLoc n) = true
 
 let rec
 doPrim2 b ty op (CLitv (IntLit x)) (CLitv (IntLit y)) =
