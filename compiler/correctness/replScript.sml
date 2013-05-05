@@ -1,6 +1,5 @@
-open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory pred_setTheory relationTheory arithmeticTheory whileTheory pairTheory quantHeuristicsLib lcsymtacs
-open miniMLExtraTheory miscTheory intLangTheory expToCexpTheory compileTerminationTheory compileCorrectnessTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory pmatchTheory  labelClosuresTheory
-open miscLib MiniMLTerminationTheory finite_mapTheory sortingTheory SatisfySimps
+open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory pred_setTheory relationTheory arithmeticTheory whileTheory pairTheory quantHeuristicsLib lcsymtacs sortingTheory finite_mapTheory
+open SatisfySimps miscLib terminationTheory semanticsExtraTheory miscTheory intLangTheory expToCexpTheory compileTerminationTheory compileCorrectnessTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory pmatchTheory labelClosuresTheory
 val _ = new_theory"repl"
 
 val good_contab_def = Define`
@@ -8,7 +7,7 @@ val good_contab_def = Define`
     fmap_linv m w`
 
 val env_rs_def = Define`
-  env_rs env rs rd s bs =
+  env_rs env rs rd s bs ⇔
     (rs.rbvars = MAP FST env) ∧
     let Cs0 = MAP (v_to_Cv (cmap rs.contab)) s in
     let Cenv0 = env_to_Cenv (cmap rs.contab) env in
@@ -20,11 +19,6 @@ val env_rs_def = Define`
     (∀cd. cd ∈ vlabs_list Cs ⇒ code_env_cd bs.code cd) ∧
     (∀cd. cd ∈ vlabs_list Cenv ⇒ code_env_cd bs.code cd) ∧
     Cenv_bs rd Cs Cenv rs.renv rs.rsz bs`
-
-val transitive_LESS = store_thm("transitive_LESS",
-  ``transitive ($< : (num->num->bool))``,
-  rw[transitive_def] >> PROVE_TAC[LESS_TRANS])
-val _ = export_rewrites["transitive_LESS"]
 
 val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
   ``∀c s. let s' = FOLDL cce_aux s c in
@@ -93,13 +87,6 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
    simp[EVERY_FILTER,EVERY_MAP,is_Label_rwt,GSYM LEFT_FORALL_IMP_THM,between_def] >>
    asm_simp_tac(srw_ss()++ARITH_ss++DNF_ss)[EVERY_MEM] >>
    rw[] >> res_tac >> DECIDE_TAC)
-
-val MAP_SND_free_labs_any_ez = store_thm("MAP_SND_free_labs_any_ez",
-  ``(∀ez e ez'. MAP SND (free_labs ez e) = MAP SND (free_labs ez' e)) ∧
-    (∀ez es ez'. MAP SND (free_labs_list ez es) = MAP SND (free_labs_list ez' es)) ∧
-    (∀ez nz ix defs ez'. MAP SND (free_labs_defs ez nz ix defs) = MAP SND (free_labs_defs ez' nz ix defs)) ∧
-    (∀ez nz ix def ez'. MAP SND (free_labs_def ez nz ix def) = MAP SND (free_labs_def ez' nz ix def))``,
-  ho_match_mp_tac free_labs_ind >> rw[] >> metis_tac[])
 
 val compile_code_env_thm = store_thm("compile_code_env_thm",
   ``∀ez s e. let s' = compile_code_env s e in
@@ -184,15 +171,16 @@ val code_env_cd_append = store_thm("code_env_cd_append",
   HINT_EXISTS_TAC>>simp[])
 
 val repl_exp_val = store_thm("repl_exp_val",
-  ``∀cenv s env exp s' v rd rs rs' bc0 bc bs bs'.
-      evaluate cenv s env exp (s', Rval v) ∧
-      EVERY closed s ∧
-      EVERY closed (MAP (FST o SND) env) ∧
-      FV exp ⊆ set (MAP FST env) ∧
-      closed_under_cenv cenv env s ∧
+  ``∀menv cenv s env exp s' v rd rs rs' bc0 bc bs bs'.
+      evaluate menv cenv s env exp (s', Rval v) ∧
+      is_null menv ∧
+      EVERY (closed menv) s ∧
+      EVERY (closed menv) (MAP SND env) ∧
+      EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
+      FV exp ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+      closed_under_cenv cenv menv env s ∧
       (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
       LENGTH s' ≤ LENGTH rd.sm ∧
-      good_cenv cenv ∧
       good_cmap cenv (cmap rs.contab) ∧
       set (MAP FST cenv) ⊆ FDOM (cmap rs.contab) ∧
       good_contab rs.contab ∧
@@ -214,7 +202,7 @@ val repl_exp_val = store_thm("repl_exp_val",
   Q.PAT_ABBREV_TAC`Ce0 = exp_to_Cexp X exp` >>
   Q.PAT_ABBREV_TAC`p = label_closures Y X Ce0` >>
   PairCases_on`p`>>simp[]>> strip_tac >>
-  qspecl_then[`cenv`,`s`,`env`,`exp`,`(s',Rval v)`] mp_tac (CONJUNCT1 exp_to_Cexp_thm1) >>
+  qspecl_then[`menv`,`cenv`,`s`,`env`,`exp`,`(s',Rval v)`] mp_tac (CONJUNCT1 exp_to_Cexp_thm1) >>
   simp[] >>
   disch_then (qspec_then `cmap rs.contab` mp_tac) >>
   fs[env_rs_def] >>
@@ -225,7 +213,9 @@ val repl_exp_val = store_thm("repl_exp_val",
   discharge_hyps >- (
     simp[Abbr`Ce0`] >>
     match_mp_tac free_vars_exp_to_Cexp_matchable >>
-    simp[] ) >>
+    simp[] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_FLAT,is_null_def,MEM_MAP] >>
+    rw[] >> rfs[] >> res_tac >> fs[] >> metis_tac[]) >>
   simp[] >> strip_tac >>
   qpat_assum`X = bc`mp_tac >>
   Q.PAT_ABBREV_TAC`cce = compile_code_env X Y` >>
@@ -269,19 +259,6 @@ val repl_exp_val = store_thm("repl_exp_val",
   qspecl_then[`Cs`,`Cenv`,`Ce`,`(Cs',Rval Cv)`]mp_tac(CONJUNCT1 compile_val) >> simp[] >>
   disch_then(qspecl_then[`rd`,`cce`,`rs.renv`,`rs.rsz`,`bs1`,`bc0 ++ REVERSE (cce).out`,`REVERSE bc1`,`bc0 ++ REVERSE (cce).out`]mp_tac) >>
   `EVERY (code_env_cd (bc0 ++ REVERSE (cce).out)) (free_labs (LENGTH env) Ce)` by ( fs[Abbr`cce`] ) >>
-  (*
-  `LENGTH Cs = LENGTH s` by (
-    simp[GSYM LIST_TO_SET_MAP,Abbr`Cenv0`,Abbr`Cs0`,env_to_Cenv_MAP,MAP_MAP_o,combinTheory.o_DEF,all_Clocs_v_to_Cv,Abbr`bs1`] >>
-    fs[EVERY2_EVERY]) >>
-  `BIGUNION (IMAGE all_Clocs (set Cenv)) ⊆ count (LENGTH Cs) ∧
-   BIGUNION (IMAGE all_Clocs (set Cs)) ⊆ count (LENGTH Cs)` by (
-    simp[] >> conj_tac >> match_mp_tac SUBSET_TRANS >>
-    (HINT_EXISTS_TAC ORELSE qexists_tac`BIGUNION (IMAGE all_Clocs (set Cs0))`) >>
-    simp[] >>
-    simp[GSYM LIST_TO_SET_MAP,Abbr`Cenv0`,Abbr`Cs0`,env_to_Cenv_MAP,MAP_MAP_o,combinTheory.o_DEF,all_Clocs_v_to_Cv,Abbr`bs1`] >>
-    simp[LIST_TO_SET_MAP] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF] >> PROVE_TAC[] ) >>
-  *)
   discharge_hyps >- (
     simp[Abbr`bs1`] >>
     conj_tac >- (
@@ -301,7 +278,9 @@ val repl_exp_val = store_thm("repl_exp_val",
       simp[Abbr`Ce0`] >>
       match_mp_tac free_vars_exp_to_Cexp_matchable >>
       simp[] >>
-      fs[Cenv_bs_def,EVERY2_EVERY] ) >>
+      fs[Cenv_bs_def,EVERY2_EVERY] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF,is_null_def,MEM_MAP,MEM_FLAT] >>
+      rw[] >> rfs[] >> res_tac >> fs[] >> metis_tac[]) >>
     conj_tac >- (
       match_mp_tac Cenv_bs_append_code >>
       qmatch_assum_abbrev_tac`bc_next bs bs1` >>
@@ -326,7 +305,7 @@ val repl_exp_val = store_thm("repl_exp_val",
       match_mp_tac (CONJUNCT1 v_to_Cv_ov) >>
       qabbrev_tac`ct=rs.contab` >>
       PairCases_on`ct` >> fs[good_contab_def] >>
-      qspecl_then[`cenv`,`s`,`env`,`exp`,`s',Rval v`]mp_tac (CONJUNCT1 evaluate_all_cns) >>
+      qspecl_then[`menv`,`cenv`,`s`,`env`,`exp`,`s',Rval v`]mp_tac (CONJUNCT1 evaluate_all_cns) >>
       fs[good_cmap_def,closed_under_cenv_def] >>
       fs[SUBSET_DEF,MEM_MAP,EXISTS_PROD] >>
       metis_tac[]) >>
@@ -365,7 +344,7 @@ val repl_exp_val = store_thm("repl_exp_val",
 (* must read an expression followed by all space until the start of another
    expression (or end of string) *)
 val parse_def = Define`
-  (parse : string -> (t exp # string) option) s = ARB`
+  (parse : string -> (exp # string) option) s = ARB`
 
 val _ = Hol_datatype`
   swhile_result = Terminate of 'a | Diverge`
@@ -385,12 +364,14 @@ val intersperse_def = Define`
   (intersperse _ [x] = [x]) ∧
   (intersperse a (x::xs) = x::a::intersperse a xs)`
 
+val id_to_string = new_constant("id_to_string",``:conN id -> string``)
+
 val ov_to_string_def = tDefine "ov_to_string"`
   (ov_to_string (OLit (IntLit i)) = if i < 0 then "-"++(num_to_dec_string (Num (-i)))
                                              else num_to_dec_string (Num i)) ∧
   (ov_to_string (OLit (Bool T)) = "true") ∧
   (ov_to_string (OLit (Bool F)) = "false") ∧
-  (ov_to_string (OConv cn vs) = cn++"("++CONCAT(intersperse "," (MAP ov_to_string vs))++")") ∧
+  (ov_to_string (OConv cn vs) = (id_to_string cn)++"("++CONCAT(intersperse "," (MAP ov_to_string vs))++")") ∧
   (ov_to_string OFn = "fn")`
   (WF_REL_TAC`measure ov_size` >>
    gen_tac >> Induct >> rw[CompileTheory.ov_size_def] >>

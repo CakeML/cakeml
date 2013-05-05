@@ -4,6 +4,11 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val transitive_LESS = store_thm("transitive_LESS",
+  ``transitive ($< : (num->num->bool))``,
+  rw[relationTheory.transitive_def] >> PROVE_TAC[LESS_TRANS])
+val _ = export_rewrites["transitive_LESS"]
+
 val BIGUNION_IMAGE_set_SUBSET = store_thm("BIGUNION_IMAGE_set_SUBSET",
   ``(BIGUNION (IMAGE f (set ls)) ⊆ s) =
     (∀x. MEM x ls ⇒ f x ⊆ s)``,

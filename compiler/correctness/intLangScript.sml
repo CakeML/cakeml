@@ -1034,6 +1034,13 @@ ho_match_mp_tac free_vars_ind >>
 rw[free_vars_def] >> simp[FINITE_UNION])
 val _ = export_rewrites["FINITE_free_vars"]
 
+val MAP_SND_free_labs_any_ez = store_thm("MAP_SND_free_labs_any_ez",
+  ``(∀ez e ez'. MAP SND (free_labs ez e) = MAP SND (free_labs ez' e)) ∧
+    (∀ez es ez'. MAP SND (free_labs_list ez es) = MAP SND (free_labs_list ez' es)) ∧
+    (∀ez nz ix defs ez'. MAP SND (free_labs_defs ez nz ix defs) = MAP SND (free_labs_defs ez' nz ix defs)) ∧
+    (∀ez nz ix def ez'. MAP SND (free_labs_def ez nz ix def) = MAP SND (free_labs_def ez' nz ix def))``,
+  ho_match_mp_tac free_labs_ind >> rw[] >> metis_tac[])
+
 val Cevaluate_store_SUBSET = store_thm("Cevaluate_store_SUBSET",
   ``(∀s env exp res. Cevaluate s env exp res ⇒ LENGTH s ≤ LENGTH (FST res)) ∧
     (∀s env exps res. Cevaluate_list s env exps res ⇒ LENGTH s ≤ LENGTH (FST res))``,
