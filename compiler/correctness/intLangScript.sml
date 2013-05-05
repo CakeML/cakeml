@@ -1,8 +1,11 @@
 open HolKernel bossLib boolLib miscLib boolSimps pairTheory listTheory rich_listTheory pred_setTheory finite_mapTheory relationTheory SatisfySimps arithmeticTheory quantHeuristicsLib lcsymtacs
-open miscTheory semanticsExtraTheory compileTerminationTheory
+open miscTheory semanticsExtraTheory CompilerLibTheory CompilerPrimitivesTheory IntLangTheory compileTerminationTheory
 val _ = new_theory "intLang"
 
 (* TODO: move?*)
+
+val _ = export_rewrites(List.map(fn s => "IntLang."^s)["doPrim2_def","CevalPrim2_def","CevalUpd_def","CevalPrim1_def"]);
+val _ = export_rewrites["Compile.Cpat_vars_def"]
 
 val find_index_NOT_MEM = store_thm("find_index_NOT_MEM",
   ``∀ls x n. ¬MEM x ls = (find_index x ls n = NONE)``,

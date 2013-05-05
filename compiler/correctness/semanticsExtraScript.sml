@@ -2,6 +2,8 @@ open HolKernel bossLib boolLib boolSimps pairTheory alistTheory listTheory rich_
 open LibTheory SemanticPrimitivesTheory AstTheory BigStepTheory TypeSystemTheory terminationTheory miscTheory compileTerminationTheory
 val _ = new_theory "semanticsExtra"
 
+val _ = export_rewrites(List.map(fn s => "CompilerPrimitives."^s)["map_result_def","every_result_def"]);
+
 val lookup_ALOOKUP = store_thm(
 "lookup_ALOOKUP",
 ``lookup = combin$C ALOOKUP``,

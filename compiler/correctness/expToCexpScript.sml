@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib miscLib boolSimps intLib pairTheory sumTheory listTheory pred_setTheory finite_mapTheory arithmeticTheory alistTheory rich_listTheory lcsymtacs
-open LibTheory SemanticPrimitivesTheory AstTheory terminationTheory semanticsExtraTheory evaluateEquationsTheory miscTheory intLangTheory compileTerminationTheory pmatchTheory
+open LibTheory SemanticPrimitivesTheory AstTheory terminationTheory semanticsExtraTheory evaluateEquationsTheory miscTheory CompilerLibTheory IntLangTheory intLangTheory compileTerminationTheory pmatchTheory
 val _ = new_theory "expToCexp"
 val fsd = full_simp_tac std_ss
 

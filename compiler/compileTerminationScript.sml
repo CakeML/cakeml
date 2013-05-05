@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib Defn pairTheory pred_setTheory listTheory finite_mapTheory state_transformerTheory lcsymtacs
-open terminationTheory CompilerLibTheory CompilerPrimitivesTheory CompileTheory
+open terminationTheory CompilerLibTheory CompilerPrimitivesTheory CompileTheory IntLangTheory
 val _ = new_theory "compileTermination"
 
 (* size helper theorems *)
@@ -46,32 +46,10 @@ val bc_value1_size_thm = store_thm(
 Induct >- rw[BytecodeTheory.bc_value_size_def] >>
 srw_tac [ARITH_ss][BytecodeTheory.bc_value_size_def])
 
-(* semantics definitions *)
-
 fun register name (def,ind) = let
   val _ = save_thm(name^"_def", def)
   val _ = save_thm(name^"_ind", ind)
 in (def,ind) end
-
-val Cevaluate_cases = save_thm("Cevaluate_cases",Cevaluate_cases)
-val Cevaluate_rules = save_thm("Cevaluate_rules",Cevaluate_rules)
-val i0_def = save_thm("i0_def",i0_def)
-val Cevaluate_ind = save_thm("Cevaluate_ind",Cevaluate_ind)
-val Cevaluate_strongind = save_thm("Cevaluate_strongind",Cevaluate_strongind)
-val find_index_def = save_thm("find_index_def",find_index_def)
-val Cexp_size_def = save_thm("Cexp_size_def",Cexp_size_def)
-val Cv_size_def = save_thm("Cv_size_def",Cv_size_def)
-val syneq_cases = save_thm("syneq_cases",syneq_cases)
-val syneq_ind = save_thm("syneq_ind",syneq_ind)
-val syneq_strongind = save_thm("syneq_strongind",syneq_strongind)
-val syneq_rules = save_thm("syneq_rules",syneq_rules)
-val syneq_exp_cases = save_thm("syneq_exp_cases",syneq_exp_cases)
-val syneq_exp_ind = save_thm("syneq_exp_ind",syneq_exp_ind)
-val syneq_exp_rules = save_thm("syneq_exp_rules",syneq_exp_rules)
-val syneq_cb_aux_def = save_thm("syneq_cb_aux_def",syneq_cb_aux_def)
-val syneq_cb_V_def = save_thm("syneq_cb_V_def",syneq_cb_V_def)
-val Cpat_vars_def = save_thm("Cpat_vars_def",Cpat_vars_def)
-val _ = export_rewrites["Cpat_vars_def"]
 
 val (free_vars_def, free_vars_ind) = register "free_vars" (
   tprove_no_defn ((free_vars_def,free_vars_ind),
@@ -81,27 +59,6 @@ val (free_vars_def, free_vars_ind) = register "free_vars" (
     | INR (INR (INL (n,defs))) => Cexp1_size defs
     | INR (INR (INR (n,def))) => Cexp2_size def)`))
 val _ = export_rewrites["free_vars_def"];
-
-(*
-val (free_labs_def,free_labs_ind) = register "free_labs" (
-  tprove_no_defn ((free_labs_def,free_labs_ind),
-  (WF_REL_TAC`inv_image ($< LEX $<) (λx. case x of
-    INL e => (Cexp_size e,3:num) |
-    INR (INL es) => (Cexp2_size es,2) |
-    INR (INR (INL defs)) => (Cexp1_size defs,1) |
-    INR(INR(INR def)) => (Cexp4_size def,0))`)))
-
-val free_labs_rwt = save_thm("free_labs_rwt",let
-  fun f n t = GEN_ALL(SIMP_RULE(srw_ss())[](SPEC t (List.nth(CONJUNCTS free_labs_def,n))))
-  val th1 = LIST_CONJ(map(f 0 o rhs o snd o strip_exists)(strip_disj(snd(strip_forall(concl(TypeBase.nchotomy_of``:Cexp``))))))
-  val th2 = LIST_CONJ(map(f 1 o rhs o snd o strip_exists o inst[alpha|->``:num#Cexp``,beta|->``:num``])(strip_disj(snd(strip_forall(concl(TypeBase.nchotomy_of``:def``))))))
-  val th3 = LIST_CONJ(map(f 2 o rhs o snd o strip_exists o inst[alpha|->``:num#Cexp + num``])(strip_disj(snd(strip_forall(concl(TypeBase.nchotomy_of``:def list``))))))
-  val th4 = LIST_CONJ(map(f 3 o rhs o snd o strip_exists o inst[alpha|->``:Cexp``])(strip_disj(snd(strip_forall(concl(TypeBase.nchotomy_of``:Cexp list``))))))
-in
-LIST_CONJ[th1,th2,th3,th4]
-end)
-val _ = export_rewrites["free_labs_rwt"]
-*)
 
 val (no_closures_def, no_closures_ind) = register "no_closures" (
   tprove_no_defn ((no_closures_def, no_closures_ind),
@@ -127,21 +84,6 @@ val (v_to_ov_def,v_to_ov_ind) = register "v_to_ov" (
   Q.ISPEC_THEN `v_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
 val _ = export_rewrites["v_to_ov_def"];
-
-val _ = save_thm ("map_result_def", map_result_def);
-val _ = export_rewrites["map_result_def"];
-val _ = save_thm ("every_result_def", every_result_def);
-val _ = export_rewrites["every_result_def"]
-
-val _ = save_thm ("doPrim2_def", doPrim2_def);
-val _ = export_rewrites["doPrim2_def"];
-
-val _ = save_thm ("CevalPrim2_def", CevalPrim2_def);
-val _ = save_thm ("CevalUpd_def", CevalUpd_def);
-val _ = save_thm ("CevalPrim1_def", CevalPrim1_def);
-val _ = export_rewrites["CevalPrim2_def","CevalUpd_def","CevalPrim1_def"];
-
-(* compiler definitions *)
 
 val (mkshift_def,mkshift_ind) = register "mkshift" (
   tprove_no_defn ((mkshift_def,mkshift_ind),
@@ -354,8 +296,6 @@ val _ = save_thm("compile_decl_def",compile_decl_def)
 val _ = save_thm("cmap_def",cmap_def)
 val _ = save_thm("cbv_def",cbv_def)
 val _ = save_thm("etC_def",etC_def)
-(*val _ = save_thm("closed_cd_def",closed_cd_def)*)
-val _ = save_thm("el_check_def",el_check_def)
 val _ = save_thm("shift_def",shift_def)
 val _ = export_rewrites["emit_def","get_labels_def","emit_ceref_def","emit_ceenv_def","prim1_to_bc_def","prim2_to_bc_def","cmap_def","cbv_def","etC_def"]
 
