@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib miscLib boolSimps intLib pairTheory sumTheory listTheory pred_setTheory finite_mapTheory arithmeticTheory alistTheory rich_listTheory lcsymtacs
-open MiniMLTheory MiniMLTerminationTheory miniMLExtraTheory evaluateEquationsTheory miscTheory intLangTheory compileTerminationTheory pmatchTheory
+open SemanticPrimitivesTheory AstTheory terminationTheory semanticsExtraTheory evaluateEquationsTheory miscTheory intLangTheory compileTerminationTheory pmatchTheory
 val _ = new_theory "expToCexp"
 val fsd = full_simp_tac std_ss
 
@@ -20,7 +20,7 @@ val exp_to_Cexp_nice_ind = save_thm(
 "exp_to_Cexp_nice_ind",
 exp_to_Cexp_ind
 |> Q.SPECL [`P`
-   ,`λs defs. EVERY (λ(d,t1,vn,t2,e). P (s with bvars := vn::s.bvars) e) defs`
+   ,`λs defs. EVERY (λ(d,vn,e). P (s with bvars := vn::s.bvars) e) defs`
    ,`λs pes. EVERY (λ(p,e). P (FST (pat_to_Cpat s p)) e) pes`
    ,`λs. EVERY (P s)`]
 |> SIMP_RULE (srw_ss()) []
@@ -48,9 +48,9 @@ val env_to_Cenv_APPEND = store_thm("env_to_Cenv_APPEND",
 val _ = export_rewrites["env_to_Cenv_APPEND"]
 
 val all_Clocs_v_to_Cv = store_thm("all_Clocs_v_to_Cv",
-  ``(∀m (v:α v). all_Clocs (v_to_Cv m v) = all_locs v) ∧
-    (∀m (vs:α v list). MAP all_Clocs (vs_to_Cvs m vs) = MAP all_locs vs) ∧
-    (∀m env: α envE. MAP all_Clocs (env_to_Cenv m env) = MAP (all_locs o FST o SND) env)``,
+  ``(∀m v. all_Clocs (v_to_Cv m v) = all_locs v) ∧
+    (∀m vs. MAP all_Clocs (vs_to_Cvs m vs) = MAP all_locs vs) ∧
+    (∀m env. MAP all_Clocs (env_to_Cenv m env) = MAP (all_locs o SND) env)``,
   ho_match_mp_tac v_to_Cv_ind >>
   srw_tac[ETA_ss][v_to_Cv_def,LET_THM,defs_to_Cdefs_MAP] >>
   fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o])
@@ -73,9 +73,9 @@ val no_labs_exp_to_Cexp = store_thm("no_labs_exp_to_Cexp",
 val _ = export_rewrites["no_labs_exp_to_Cexp"]
 
 val no_vlabs_v_to_Cv = store_thm("no_vlabs_v_to_Cv",
-  ``(∀m (v:α v). no_vlabs (v_to_Cv m v)) ∧
-    (∀m (vs:α v list). no_vlabs_list (vs_to_Cvs m vs)) ∧
-    (∀m (env:α envE). no_vlabs_list (env_to_Cenv m env))``,
+  ``(∀m v. no_vlabs (v_to_Cv m v)) ∧
+    (∀m vs. no_vlabs_list (vs_to_Cvs m vs)) ∧
+    (∀m env. no_vlabs_list (env_to_Cenv m env))``,
   ho_match_mp_tac v_to_Cv_ind >>
   rw[v_to_Cv_def] >>
   TRY(qunabbrev_tac`Ce`)>>
@@ -88,17 +88,17 @@ val _ = export_rewrites["no_vlabs_v_to_Cv"]
 
 val Cpat_vars_pat_to_Cpat = store_thm(
 "Cpat_vars_pat_to_Cpat",
-``(∀(p:α pat) s s' Cp. (pat_to_Cpat s p = (s',Cp))
+``(∀p s s' Cp. (pat_to_Cpat s p = (s',Cp))
   ⇒ (Cpat_vars Cp = (LENGTH (pat_bindings p [])))) ∧
-  (∀(ps:α pat list) s s' Cps. (pats_to_Cpats s ps = (s',Cps))
+  (∀ps s s' Cps. (pats_to_Cpats s ps = (s',Cps))
   ⇒ (MAP Cpat_vars Cps = MAP (λp. (LENGTH (pat_bindings p []))) ps))``,
-ho_match_mp_tac (TypeBase.induction_of ``:α pat``) >>
+ho_match_mp_tac (TypeBase.induction_of ``:pat``) >>
 rw[pat_to_Cpat_def,LET_THM,pairTheory.UNCURRY,pat_bindings_def] >>
 rw[FOLDL_UNION_BIGUNION,IMAGE_BIGUNION] >- (
-  qabbrev_tac `q = pats_to_Cpats s' ps` >>
+  qabbrev_tac `q = pats_to_Cpats s ps` >>
   PairCases_on `q` >>
   fsrw_tac[ETA_ss][MAP_EQ_EVERY2,EVERY2_EVERY,EVERY_MEM,pairTheory.FORALL_PROD] >>
-  first_x_assum (qspecl_then [`s'`] mp_tac) >>
+  first_x_assum (qspecl_then [`s`] mp_tac) >>
   rw[] >>
   rw[Cpat_vars_list_SUM_MAP] >>
   rw[pats_bindings_MAP,LENGTH_FLAT,MAP_REVERSE,SUM_REVERSE,MAP_MAP_o] >>
@@ -134,21 +134,22 @@ val Cpat_vars_SND_pat_to_Cpat = store_thm("Cpat_vars_SND_pat_to_Cpat",
 val _ = export_rewrites["Cpat_vars_SND_pat_to_Cpat"]
 
 val set_FST_pat_to_Cpat_bvars = store_thm("set_FST_pat_to_Cpat_bvars",
-  ``(∀(p:α pat) s. set (FST (pat_to_Cpat s p)).bvars = pat_vars p ∪ set s.bvars) ∧
-    (∀(ps:α pat list) s. set (FST (pats_to_Cpats s ps)).bvars = BIGUNION (IMAGE pat_vars (set ps)) ∪ set s.bvars)``,
-  ho_match_mp_tac (TypeBase.induction_of``:α pat``) >>
-  rw[pat_to_Cpat_def] >> rw[Once EXTENSION]
-  >- ( first_x_assum(qspec_then`s'`mp_tac) >> simp[] )
-  >- ( first_x_assum(qspec_then`s`mp_tac) >> simp[] ) >>
+  ``(∀p s. set (FST (pat_to_Cpat s p)).bvars = pat_vars p ∪ set s.bvars) ∧
+    (∀ps s. set (FST (pats_to_Cpats s ps)).bvars = BIGUNION (IMAGE pat_vars (set ps)) ∪ set s.bvars)``,
+  ho_match_mp_tac (TypeBase.induction_of``:pat``) >>
+  rw[pat_to_Cpat_def,pat_bindings_def,pats_bindings_MAP] >> rw[]
+  >- simp[Once EXTENSION]
+  >- ( first_x_assum(qspec_then`s`mp_tac) >> rw[EXTENSION,MEM_FLAT,MEM_MAP] >> metis_tac[] )
+  >- ( first_x_assum(qspec_then`s`mp_tac) >> rw[EXTENSION,MEM_FLAT,MEM_MAP] >> metis_tac[] ) >>
   first_x_assum(qspec_then`m`mp_tac) >>
   first_x_assum(qspec_then`s`mp_tac) >>
   rw[] >>
-  metis_tac[])
+  metis_tac[UNION_ASSOC,UNION_COMM])
 
 val FST_pat_to_Cpat_bvars = store_thm("FST_pat_to_Cpat_bvars",
-  ``(∀(p:α pat) s. (FST (pat_to_Cpat s p)).bvars = pat_bindings p [] ++ s.bvars) ∧
-    (∀(ps:α pat list) s. (FST (pats_to_Cpats s ps)).bvars = pats_bindings ps [] ++ s.bvars)``,
-  ho_match_mp_tac (TypeBase.induction_of``:α pat``) >>
+  ``(∀p s. (FST (pat_to_Cpat s p)).bvars = pat_bindings p [] ++ s.bvars) ∧
+    (∀ps s. (FST (pats_to_Cpats s ps)).bvars = pats_bindings ps [] ++ s.bvars)``,
+  ho_match_mp_tac (TypeBase.induction_of``:pat``) >>
   rw[pat_to_Cpat_def,pat_bindings_def] >> rw[]
   >- ( first_x_assum(qspec_then`s'`mp_tac) >> simp[] )
   >- ( first_x_assum(qspec_then`s`mp_tac) >> simp[] ) >>

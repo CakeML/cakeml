@@ -817,6 +817,8 @@ val _ = Defn.save_defn remove_mat_var_defn;
 /\
 (exp_to_Cexp m (Var (Short vn)) = (CVar ( THE (find_index vn m.bvars 0))))
 /\
+(exp_to_Cexp m (Var (Long _ _)) = (CVar ( THE NONE)))
+/\
 (exp_to_Cexp m (Fun vn e) =  
 (CFun (NONE,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))))
 /\
