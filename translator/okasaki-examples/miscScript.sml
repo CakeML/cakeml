@@ -7,7 +7,7 @@ val rw = srw_tac []
 val _ = new_theory "misc"
 
 val WeakLinearOrder_neg = Q.store_thm ("WeakLinearOrder_neg",
-`!leq x y. WeakLinearOrder leq ⇒ (~leq x y = leq y x ∧ x ≠ y)`,
+`!leq x y. WeakLinearOrder leq ⇒ (~leq x y <=> leq y x ∧ x ≠ y)`,
 metis_tac [WeakLinearOrder, WeakOrder, trichotomous, reflexive_def,
            antisymmetric_def]);
 

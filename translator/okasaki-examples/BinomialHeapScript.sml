@@ -29,11 +29,11 @@ val heap_to_bag_def = tDefine "heap_to_bag" `
  rw [tree_size_def]);
 
 val is_heap_ordered_def = tDefine "is_heap_ordered" `
-(is_heap_ordered get_key leq [] = T) ∧
-(is_heap_ordered get_key leq (t::ts) =
+(is_heap_ordered get_key leq [] <=> T) ∧
+(is_heap_ordered get_key leq (t::ts) <=>
   is_heap_ordered_tree get_key leq t ∧ is_heap_ordered get_key leq ts) ∧
 
-(is_heap_ordered_tree get_key leq (Node _ x hs) =
+(is_heap_ordered_tree get_key leq (Node _ x hs) <=>
   is_heap_ordered get_key leq hs ∧
   BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag hs))`
 (wf_rel_tac `measure (\x. case x of INL (_,_,x) => tree1_size (\x.0) x
@@ -310,8 +310,8 @@ val heap_size_def = tDefine "heap_size" `
  rw []);
 
 val is_binomial_tree_def = Define `
-(is_binomial_tree (Node r x []) = (r = 0)) ∧
-(is_binomial_tree (Node r x (t::ts)) =
+(is_binomial_tree (Node r x []) <=> (r = 0)) ∧
+(is_binomial_tree (Node r x (t::ts)) <=>
   SORTED ($> : num->num->bool) (MAP rank (t::ts)) ∧
   (r ≠ 0) ∧
   is_binomial_tree t ∧
@@ -341,7 +341,7 @@ rw [arithmeticTheory.EXP_SUB, GSYM arithmeticTheory.TIMES2,
     bitTheory.DIV_MULT_THM2, exp2_mod2]);
 
 val is_binomial_heap_def = Define `
-is_binomial_heap h =
+is_binomial_heap h <=>
   EVERY is_binomial_tree h ∧ SORTED ($< : num->num->bool) (MAP rank h)`;
 
 val trans_less = Q.prove (

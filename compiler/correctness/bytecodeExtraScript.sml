@@ -12,6 +12,11 @@ val bump_pc_with_stack = store_thm("bump_pc_with_stack",
   rw[bump_pc_def,bc_fetch_with_stack] >>
   BasicProvers.EVERY_CASE_TAC)
 
+val bump_pc_inst_length = store_thm("bump_pc_inst_length",
+  ``(bump_pc s).inst_length = s.inst_length``,
+  rw[bump_pc_def] >> BasicProvers.CASE_TAC >> rw[])
+val _ = export_rewrites["bump_pc_inst_length"]
+
 val bc_fetch_aux_MAP = store_thm("bc_fetch_aux_MAP",
   ``!il f. (∀x. il (f x) = il x) ∧ (∀x. is_Label (f x) = is_Label x) ⇒
       ∀ls n. (bc_fetch_aux (MAP f ls) il n = OPTION_MAP f (bc_fetch_aux ls il n))``,

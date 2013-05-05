@@ -1,7 +1,29 @@
-open preamble MiniMLTheory MiniMLTerminationTheory 
-open weakeningTheory typeSystemTheory bigSmallEquivTheory;
+open preamble
+open LibTheory AstTheory TypeSystemTheory SemanticPrimitivesTheory;
+open SmallStepTheory BigStepTheory;
+open terminationTheory;
+open weakeningTheory typeSysPropsTheory bigSmallEquivTheory;
+open TypeSoundInvariantsTheory;
+open metaTerminationTheory;
 
 val _ = new_theory "typeSound";
+
+val build_rec_env_help_lem = Q.prove (
+`∀funs env funs'.
+FOLDR (λ(f,x,e) env'. bind f (Recclosure env funs' f) env') env' funs =
+merge (MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs) env'`,
+Induct >>
+rw [merge_def, bind_def] >>
+PairCases_on `h` >>
+rw []);
+
+(* Alternate definition for build_rec_env *)
+val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
+`∀funs funs' env env'.
+  build_rec_env funs env env' =
+  merge (MAP (λ(fn,n,e). (fn, Recclosure env funs fn)) funs) env'`,
+rw [build_rec_env_def, build_rec_env_help_lem]);
+
 
 val type_ctxts_freevars = Q.prove (
 `!tvs tenvM tenvC tenvS cs t1 t2.
@@ -134,8 +156,8 @@ metis_tac []);
 val type_vs_end_lem = Q.prove (
 `∀tvs tenvM tenvC vs ts v t tenvS.
   type_vs tvs tenvM tenvC tenvS (vs++[v]) (ts++[t]) =
-  type_v tvs tenvM tenvC tenvS v t ∧
-  type_vs tvs tenvM tenvC tenvS vs ts`,
+  (type_v tvs tenvM tenvC tenvS v t ∧
+   type_vs tvs tenvM tenvC tenvS vs ts)`,
 induct_on `vs` >>
 rw [] >>
 cases_on `ts` >>
@@ -314,7 +336,7 @@ val final_state_def = Define `
 val not_final_state = Q.prove (
 `!menv cenv st env e c.
   ¬final_state (menv,cenv,st,env,Exp e,c) =
-     (?x y. c = x::y) ∨
+    ((?x y. c = x::y) ∨
      (?e1 x e2. e = Handle e1 x e2) ∨
      (?l. e = Lit l) ∨
      (?cn es. e = Con cn es) ∨
@@ -326,7 +348,7 @@ val not_final_state = Q.prove (
      (?e1 e2 e3. e = If e1 e2 e3) ∨
      (?e' pes. e = Mat e' pes) ∨
      (?n e1 e2. e = Let n e1 e2) ∨
-     (?funs e'. e = Letrec funs e')`,
+     (?funs e'. e = Letrec funs e'))`,
 rw [] >>
 cases_on `e` >>
 cases_on `c` >>
@@ -336,7 +358,7 @@ val do_app_cases = Q.prove (
 `!st env op v1 v2 st' env' v3.
   (do_app st env op v1 v2 = SOME (st',env',v3))
   =
-  (?op' n1 n2. 
+  ((?op' n1 n2. 
     (op = Opn op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
     ((((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧ 
      (st' = st) ∧ (env' = env) ∧ (v3 = Raise Div_error) ∨
@@ -345,7 +367,8 @@ val do_app_cases = Q.prove (
   (?op' n1 n2.
     (op = Opb op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
     (st = st') ∧ (env = env') ∧ (v3 = Lit (Bool (opb_lookup op' n1 n2)))) ∨
-  ((op = Equality) ∧ (st = st') ∧ (env = env') ∧ (v3 = Lit (Bool (v1 = v2)))) ∨
+  ((op = Equality) ∧ ¬contains_closure v1 ∧ ~contains_closure v2 ∧ 
+   (st = st') ∧ (env = env') ∧ (v3 = Lit (Bool (v1 = v2)))) ∨
   (∃env'' n e.
     (op = Opapp) ∧ (v1 = Closure env'' n e) ∧
     (st' = st) ∧ (env' = bind n v2 env'') ∧ (v3 = e)) ∨
@@ -355,8 +378,8 @@ val do_app_cases = Q.prove (
     (st = st') ∧ (env' = bind n'' v2 (build_rec_env funs env'' env'')) ∧ (v3 = e)) ∨
   (?lnum.
     (op = Opassign) ∧ (v1 = Loc lnum) ∧ (store_assign lnum v2 st = SOME st') ∧
-    (env' = env) ∧ (v3 = Lit Unit))`,
-rw [do_app_def] >>
+    (env' = env) ∧ (v3 = Lit Unit)))`,
+SIMP_TAC (srw_ss()) [do_app_def] >>
 cases_on `op` >>
 rw [] >|
 [cases_on `v1` >>
@@ -462,8 +485,11 @@ rw [] >|
           fs [] >>
           imp_res_tac type_funs_find_recfun >>
           fs [],
+      (* Type soundness fails until we implement equality types *)
+      `~contains_closure v' ∧ ~contains_closure v` by cheat >>
+          fs [],
       qpat_assum `type_v a tenvM tenvC senv (Loc n) z` 
-                  (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+              (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
           fs [type_s_def] >>
           res_tac >>
           fs [store_assign_def, store_lookup_def],
@@ -566,7 +592,10 @@ rw [pmatch_def] >|
 val type_env2_def = Define `
 (type_env2 tenvM tenvC tenvS tvs [] [] = T) ∧
 (type_env2 tenvM tenvC tenvS tvs ((x,v)::env) ((x',t) ::tenv) = 
-  check_freevars tvs [] t ∧ (x = x') ∧ type_v tvs tenvM tenvC tenvS v t ∧ type_env2 tenvM tenvC tenvS tvs env tenv) ∧
+  (check_freevars tvs [] t ∧ 
+   (x = x') ∧ 
+   type_v tvs tenvM tenvC tenvS v t ∧ 
+   type_env2 tenvM tenvC tenvS tvs env tenv)) ∧
 (type_env2 tenvM tenvC tenvS tvs _ _ = F)`;
 
 val type_env2_to_type_env = Q.prove (
@@ -627,10 +656,10 @@ metis_tac [type_v_freevars]);
 val type_env_merge = Q.prove (
 `∀tenvM tenvC env env' tenv tenv' tvs tenvS.
   tenvM_ok tenvM ⇒
-  (type_env tenvM tenvC tenvS (merge env' env) (bind_var_list tvs tenv' tenv) ∧
-   (LENGTH env' = LENGTH tenv')
+  ((type_env tenvM tenvC tenvS (merge env' env) (bind_var_list tvs tenv' tenv) ∧
+    (LENGTH env' = LENGTH tenv'))
    =
-   type_env2 tenvM tenvC tenvS tvs env' tenv' ∧ type_env tenvM tenvC tenvS env tenv)`,
+   (type_env2 tenvM tenvC tenvS tvs env' tenv' ∧ type_env tenvM tenvC tenvS env tenv))`,
 metis_tac [type_env_merge_lem1, type_env_merge_lem2]);
 
 val type_recfun_env_help = Q.prove (
@@ -895,7 +924,7 @@ val type_env_eqn = Q.prove (
   (type_env tenvM tenvC tenvS emp Empty = T) ∧
   (!n tvs t v env tenv. 
       type_env tenvM tenvC tenvS (bind n v env) (bind_tenv n tvs t tenv) = 
-      type_v tvs tenvM tenvC tenvS v t ∧ check_freevars tvs [] t ∧ type_env tenvM tenvC tenvS env tenv)`,
+      (type_v tvs tenvM tenvC tenvS v t ∧ check_freevars tvs [] t ∧ type_env tenvM tenvC tenvS env tenv))`,
 rw [] >>
 rw [Once type_v_cases] >>
 fs [bind_def, emp_def, bind_tenv_def] >>
@@ -1444,7 +1473,7 @@ val exp_type_soundness = Q.store_thm ("exp_type_soundness",
             type_s tenvM tenvC tenvS' st' ∧
             store_type_extension tenvS tenvS' ∧
             (!v. (r = Rval v) ⇒ type_v tvs tenvM tenvC tenvS' v t)))`,
-rw [e_diverges_def, METIS_PROVE [] ``x ∨ y = ~x ⇒ y``] >>
+rw [e_diverges_def, METIS_PROVE [] ``(x ∨ y) = (~x ⇒ y)``] >>
 `type_state tvs tenvM tenvC tenvS (menv,cenv,st,env,Exp e,[]) t`
          by (rw [type_state_cases] >>
              qexists_tac `t` >>
@@ -1566,7 +1595,7 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
          type_s tenvM (tenvC' ++ tenvC) tenvS' st' ∧
          type_env tenvM (tenvC' ++ tenvC) tenvS' (env' ++ env) (bind_var_list2 tenv' tenv) ∧
          type_env tenvM (tenvC' ++ tenvC) tenvS' env' (bind_var_list2 tenv' Empty))`,
-rw [METIS_PROVE [] ``x ∨ y = ~x ⇒ y``] >>
+rw [METIS_PROVE [] ``(x ∨ y) = (~x ⇒ y)``] >>
 fs [type_d_cases] >>
 rw [] >>
 fs [dec_diverges_def, merge_def, emp_def, evaluate_dec_cases, GSYM small_big_exp_equiv] >|
@@ -1721,7 +1750,7 @@ val decs_type_soundness = Q.store_thm ("decs_type_soundness",
          type_env tenvM (tenvC' ++ tenvC) tenvS' env' (bind_var_list2 tenv' Empty) ∧
          type_env tenvM (tenvC' ++ tenvC) tenvS' (env'++env) (bind_var_list2 tenv' tenv))`,
 ho_match_mp_tac type_ds_ind >>
-rw [METIS_PROVE [] ``x ∨ y = ~x ⇒ y``] >>
+rw [METIS_PROVE [] ``(x ∨ y) = (~x ⇒ y)``] >>
 rw [Once evaluate_decs_cases, bind_var_list2_def, emp_def] >>
 rw [] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once decs_diverges_cases]) >>
@@ -1838,7 +1867,7 @@ val prog_type_soundness_no_sig = Q.store_thm ("prog_type_soundness_no_sig",
          type_s (tenvM'++tenvM) (tenvC' ++ tenvC) tenvS' st' ∧
          type_env (tenvM'++tenvM) (tenvC' ++ tenvC) tenvS' (env' ++ env) (bind_var_list2 tenv' tenv))`,
 ho_match_mp_tac type_prog_ignore_sig_ind >>
-rw [METIS_PROVE [] ``x ∨ y = ~x ⇒ y``] >>
+rw [METIS_PROVE [] ``(x ∨ y) = (~x ⇒ y)``] >>
 rw [Once evaluate_prog_cases, bind_var_list2_def, emp_def] >>
 rw [] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once prog_diverges_cases]) >>

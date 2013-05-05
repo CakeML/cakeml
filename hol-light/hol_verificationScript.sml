@@ -172,7 +172,7 @@ val TYPE = prove(
   \\ SIMP_TAC std_ss [MEM_MAP,PULL_EXISTS]);
 
 val BASIC_TYPE = prove(
-  ``(TYPE defs (fun ty1 ty2) = TYPE defs ty1 /\ TYPE defs ty2) /\
+  ``(TYPE defs (fun ty1 ty2) <=> TYPE defs ty1 /\ TYPE defs ty2) /\
     (TYPE defs bool_ty)``,
   FULL_SIMP_TAC (srw_ss()) [TYPE_def,hol_ty_def] \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [Once type_ok_CASES,type_DISTINCT,type_INJ]);
@@ -334,7 +334,7 @@ val type_INDUCT_ALT = prove(
   \\ FULL_SIMP_TAC std_ss [EVERY_DEF]);
 
 val type_ok_Fun = prove(
-  ``type_ok defs (Fun ty1 ty2) = type_ok defs ty1 /\ type_ok defs ty2``,
+  ``type_ok defs (Fun ty1 ty2) <=> type_ok defs ty1 /\ type_ok defs ty2``,
   SIMP_TAC std_ss [Once type_ok_CASES,type_INJ,type_DISTINCT]);
 
 val type_ok_Bool = prove(
@@ -364,8 +364,8 @@ val welltyped_in_CONS = prove(
   FULL_SIMP_TAC std_ss [welltyped_in,context_ok,term_ok_CONS])
 
 val welltyped_in_Comb = prove(
-  ``welltyped_in (Comb x y) defs = welltyped_in x defs /\ welltyped_in y defs /\
-                                   welltyped (Comb x y)``,
+  ``welltyped_in (Comb x y) defs <=> welltyped_in x defs /\ welltyped_in y defs /\
+                                     welltyped (Comb x y)``,
   FULL_SIMP_TAC std_ss [welltyped_in,WELLTYPED_CLAUSES,term_ok] \\ METIS_TAC []);
 
 val has_type_INJ = prove(
@@ -618,7 +618,6 @@ val term_ok_IMP_type_ok = prove(
   \\ FULL_SIMP_TAC std_ss [term_ok,typeof,type_ok_Fun,type_ok_Bool,WELLTYPED_CLAUSES]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [codomain,type_ok_Fun]);
 
-
 val LENGTH_EQ_FILTER_FILTER = prove(
   ``!xs. EVERY (\x. (P x \/ Q x) /\ ~(P x /\ Q x)) xs ==>
          (LENGTH xs = LENGTH (FILTER P xs) + LENGTH (FILTER Q xs))``,
@@ -626,7 +625,7 @@ val LENGTH_EQ_FILTER_FILTER = prove(
   \\ Cases_on `P h` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD_CLAUSES]);
 
 val string_lt = prove(
-  ``!x y. string_lt x y = x < y``,
+  ``!x y. string_lt x y = (x < y)``,
   Induct \\ Cases_on `y`
   \\ FULL_SIMP_TAC std_ss [string_lt,stringTheory.string_lt_def]
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [stringTheory.char_lt_def]);
@@ -953,13 +952,13 @@ val is_vartype_thm = store_thm("is_vartype_thm",
   Cases \\ SIMP_TAC (srw_ss()) [is_vartype_def]);
 
 val MEM_union = prove(
-  ``!xs ys x. MEM x (union xs ys) = MEM x xs \/ MEM x ys``,
+  ``!xs ys x. MEM x (union xs ys) <=> MEM x xs \/ MEM x ys``,
   Induct \\ FULL_SIMP_TAC std_ss [union_def]
   \\ ONCE_REWRITE_TAC [itlist_def] \\ SRW_TAC [] [insert_def]
   \\ METIS_TAC []);
 
 val MEM_STRING_UNION = prove(
-  ``!xs ys x. MEM x (STRING_UNION xs ys) = MEM x xs \/ MEM x ys``,
+  ``!xs ys x. MEM x (STRING_UNION xs ys) <=> MEM x xs \/ MEM x ys``,
   Induct \\ FULL_SIMP_TAC std_ss [STRING_UNION]
   \\ ONCE_REWRITE_TAC [ITLIST] \\ SRW_TAC [] [STRING_INSERT]
   \\ METIS_TAC []);
@@ -1640,7 +1639,7 @@ val REPLICATE_11 = prove(
   Induct \\ Cases \\ SRW_TAC [] [rich_listTheory.REPLICATE]);
 
 val EXISTS_union = prove(
-  ``!xs ys. EXISTS P (union xs ys) = EXISTS P xs \/ EXISTS P ys``,
+  ``!xs ys. EXISTS P (union xs ys) <=> EXISTS P xs \/ EXISTS P ys``,
   SIMP_TAC std_ss [EXISTS_MEM,MEM_MAP,MEM_union] \\ METIS_TAC []);
 
 val VFREE_IN_TYPE = prove(
@@ -1740,7 +1739,7 @@ val variant_alt = prove(
   |> SIMP_RULE std_ss [] |> SPEC_ALL;
 
 val TERM_Abs = prove(
-  ``TERM defs (Abs (Var v ty) tm) = TYPE defs ty /\ TERM defs tm``,
+  ``TERM defs (Abs (Var v ty) tm) <=> TYPE defs ty /\ TERM defs tm``,
   SIMP_TAC std_ss [TERM_def,welltyped_in,hol_tm_def,WELLTYPED_CLAUSES,
     term_ok,TYPE_def,AC CONJ_ASSOC CONJ_COMM]);
 
@@ -1995,13 +1994,13 @@ val inst_aux_Var = prove(
        LET_DEF,ex_return_def] \\ METIS_TAC []);
 
 val MEM_union = prove(
-  ``!xs ys x. MEM x (union xs ys) = MEM x xs \/ MEM x ys``,
+  ``!xs ys x. MEM x (union xs ys) <=> MEM x xs \/ MEM x ys``,
   Induct \\ FULL_SIMP_TAC std_ss [union_def]
   \\ SIMP_TAC (srw_ss()) [Once itlist_def,insert_def]
   \\ SRW_TAC [] [] \\ METIS_TAC []);
 
 val MEM_subtract = prove(
-  ``!xs ys x. MEM x (subtract xs ys) = MEM x xs /\ ~MEM x ys``,
+  ``!xs ys x. MEM x (subtract xs ys) <=> MEM x xs /\ ~MEM x ys``,
   FULL_SIMP_TAC std_ss [subtract_def,MEM_FILTER,MEM] \\ METIS_TAC []);
 
 val MEM_frees = prove(
@@ -2994,7 +2993,7 @@ val ALL_DISTINCT_STRING_SORT = prove(
         stringTheory.string_lt_cases]);
 
 val SORTED_CONS = prove(
-  ``!x. SORTED $<= (x::xs) = SORTED $<= xs /\ !y. MEM (y:string) xs ==> x <= y``,
+  ``!x. SORTED $<= (x::xs) <=> SORTED $<= xs /\ !y. MEM (y:string) xs ==> x <= y``,
   Induct_on `xs` \\ FULL_SIMP_TAC std_ss [sortingTheory.SORTED_DEF,MEM]
   \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [] \\ RES_TAC
@@ -3115,7 +3114,7 @@ val term_type_SIMP = prove(
   \\ SIMP_TAC (srw_ss()) [Once term_type_def]);
 
 val TERM_Comb = prove(
-  ``TERM defs (Comb f a) =
+  ``TERM defs (Comb f a) <=>
     TERM defs f /\ TERM defs a /\
     ?ty. hol_ty (term_type f) = Fun (hol_ty (term_type a)) ty``,
   REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC

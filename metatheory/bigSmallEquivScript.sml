@@ -1,6 +1,6 @@
 open preamble;
-open MiniMLTheory;
-open evaluateEquationsTheory;
+open LibTheory SemanticPrimitivesTheory BigStepTheory SmallStepTheory;
+open evaluateEquationsTheory BigSmallInvariantsTheory;
 
 val _ = new_theory "bigSmallEquiv";
 
@@ -130,7 +130,7 @@ rw [small_eval_def] >|
 
 val small_eval_err_add_ctxt =
 SIMP_RULE (srw_ss ()) 
-   [METIS_PROVE [] ``!x y z. x ⇒ y ⇒ z = x ∧ y ⇒ z``]
+   [METIS_PROVE [] ``!x y z. (x ⇒ y ⇒ z) = (x ∧ y ⇒ z)``]
    small_eval_err_add_ctxt;
 
 val small_eval_step_tac =
@@ -719,7 +719,7 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
 val evaluate_ctxts_cons = Q.prove (
 `!menv cenv s1 f cs res1 bv.
   evaluate_ctxts menv cenv s1 (f::cs) res1 bv =
-  (?c s2 env v' res2 v.
+  ((?c s2 env v' res2 v.
      (res1 = Rval v) ∧
      (f = (c,env)) ∧
      evaluate_ctxt menv cenv s1 env c v (s2, res2) ∧
@@ -733,7 +733,7 @@ val evaluate_ctxts_cons = Q.prove (
      (res1 = Rerr (Rraise (Int_error i))) ∧
      (f = (Chandle () var e',env)) ∧
      evaluate menv cenv s1 (bind var (Litv (IntLit i)) env) e' (s2, res2) ∧
-     evaluate_ctxts menv cenv s2 cs res2 bv)`,
+     evaluate_ctxts menv cenv s2 cs res2 bv))`,
 rw [] >>
 rw [Once evaluate_ctxts_cases] >>
 EQ_TAC >>

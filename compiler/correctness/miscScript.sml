@@ -4,9 +4,183 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val transitive_LESS = store_thm("transitive_LESS",
+  ``transitive ($< : (num->num->bool))``,
+  rw[relationTheory.transitive_def] >> PROVE_TAC[LESS_TRANS])
+val _ = export_rewrites["transitive_LESS"]
+
+val BIGUNION_IMAGE_set_SUBSET = store_thm("BIGUNION_IMAGE_set_SUBSET",
+  ``(BIGUNION (IMAGE f (set ls)) ⊆ s) =
+    (∀x. MEM x ls ⇒ f x ⊆ s)``,
+  srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[])
+
+val OPTION_EVERY_def = Define`
+  (OPTION_EVERY P NONE = T) /\
+  (OPTION_EVERY P (SOME v) = P v)`
+val _ = export_rewrites["OPTION_EVERY_def"]
+val OPTION_EVERY_cong = store_thm("OPTION_EVERY_cong",
+  ``!o1 o2 P1 P2. (o1 = o2) /\ (!x. (o2 = SOME x) ==> (P1 x = P2 x)) ==>
+                  (OPTION_EVERY P1 o1 = OPTION_EVERY P2 o2)``,
+  Cases THEN SRW_TAC[][] THEN SRW_TAC[][])
+val _ = DefnBase.export_cong"OPTION_EVERY_cong"
+val OPTION_EVERY_mono = store_thm("OPTION_EVERY_mono",
+  ``(!x. P x ==> Q x) ==> OPTION_EVERY P op ==> OPTION_EVERY Q op``,
+  Cases_on `op` THEN SRW_TAC[][])
+val _ = IndDefLib.export_mono"OPTION_EVERY_mono"
+
+val MEM_LUPDATE = store_thm("MEM_LUPDATE",
+  ``!l x y i. MEM x (LUPDATE y i l) ==> (x = y) \/ MEM x l``,
+  Induct THEN SRW_TAC[][LUPDATE_def] THEN
+  Cases_on`i`THEN FULL_SIMP_TAC(srw_ss())[LUPDATE_def] THEN
+  PROVE_TAC[])
+
+val option_case_NONE_F = store_thm("option_case_NONE_F",
+  ``(case X of NONE => F | SOME x => P x) = (∃x. (X = SOME x) ∧ P x)``,
+  Cases_on`X`>>rw[])
+
+val IS_PREFIX_THM = store_thm("IS_PREFIX_THM",
+ ``!l2 l1. IS_PREFIX l1 l2 <=> (LENGTH l2 <= LENGTH l1) /\ !n. n < LENGTH l2 ==> (EL n l2 = EL n l1)``,
+ Induct THEN SRW_TAC[][IS_PREFIX] THEN
+ Cases_on`l1`THEN SRW_TAC[][EQ_IMP_THM] THEN1 (
+   Cases_on`n`THEN SRW_TAC[][EL_CONS] THEN
+   FULL_SIMP_TAC(srw_ss()++ARITH_ss)[] )
+ THEN1 (
+   POP_ASSUM(Q.SPEC_THEN`0`MP_TAC)THEN SRW_TAC[][] )
+ THEN1 (
+   FIRST_X_ASSUM(Q.SPEC_THEN`SUC n`MP_TAC)THEN SRW_TAC[][] ))
+
+val SUM_MAP_PLUS = store_thm("SUM_MAP_PLUS",
+  ``∀f g ls. SUM (MAP (λx. f x + g x) ls) = SUM (MAP f ls) + SUM (MAP g ls)``,
+  ntac 2 gen_tac >> Induct >> simp[])
+
+val TAKE_PRE_LENGTH = store_thm("TAKE_PRE_LENGTH",
+  ``!ls. ls <> [] ==> (TAKE (PRE (LENGTH ls)) ls = FRONT ls)``,
+  Induct THEN SRW_TAC[][LENGTH_NIL] THEN
+  FULL_SIMP_TAC(srw_ss())[FRONT_DEF,PRE_SUB1])
+
+val DROP_LENGTH_NIL_rwt = store_thm("DROP_LENGTH_NIL_rwt",
+  ``!l m. (m = LENGTH l) ==> (DROP m l = [])``,
+  lrw[DROP_LENGTH_NIL])
+
+val TAKE_LENGTH_ID_rwt = store_thm("TAKE_LENGTH_ID_rwt",
+  ``!l m. (m = LENGTH l) ==> (TAKE m l = l)``,
+  lrw[TAKE_LENGTH_ID])
+
+val DROP_EL_CONS = store_thm("DROP_EL_CONS",
+  ``!ls n. n < LENGTH ls ==> (DROP n ls = EL n ls :: DROP (n + 1) ls)``,
+  Induct >> lrw[EL_CONS,PRE_SUB1])
+
+val TAKE_EL_SNOC = store_thm("TAKE_EL_SNOC",
+  ``!ls n. n < LENGTH ls ==> (TAKE (n + 1) ls = SNOC (EL n ls) (TAKE n ls))``,
+  HO_MATCH_MP_TAC SNOC_INDUCT >>
+  CONJ_TAC THEN1 SRW_TAC[][] THEN
+  REPEAT STRIP_TAC THEN
+  Cases_on`n = LENGTH ls` THEN1 (
+    lrw[EL_LENGTH_SNOC,TAKE_SNOC,TAKE_APPEND1,EL_APPEND1,EL_APPEND2,TAKE_APPEND2] ) THEN
+  `n < LENGTH ls` by fsrw_tac[ARITH_ss][ADD1] THEN
+  lrw[TAKE_SNOC,TAKE_APPEND1,EL_APPEND1])
+
+val ZIP_DROP = store_thm("ZIP_DROP",
+  ``!a b n. n <= LENGTH a /\ (LENGTH a = LENGTH b) ==>
+      (ZIP (DROP n a,DROP n b) = DROP n (ZIP (a,b)))``,
+  Induct THEN SRW_TAC[][LENGTH_NIL_SYM,ADD1] THEN
+  Cases_on`b` THEN FULL_SIMP_TAC(srw_ss())[] THEN
+  FIRST_X_ASSUM MATCH_MP_TAC THEN
+  FULL_SIMP_TAC(srw_ss()++ARITH_ss)[])
+
+val REVERSE_DROP = store_thm("REVERSE_DROP",
+  ``!ls n. n <= LENGTH ls ==> (REVERSE (DROP n ls) = REVERSE (LASTN (LENGTH ls - n) ls))``,
+  HO_MATCH_MP_TAC SNOC_INDUCT THEN
+  SRW_TAC[][LASTN] THEN
+  Cases_on`n = SUC (LENGTH ls)` THEN1 (
+    lrw[DROP_LENGTH_NIL_rwt,ADD1,LASTN] ) THEN
+  lrw[DROP_APPEND1,LASTN_APPEND1])
+
+val FUPDATE_LIST_CANCEL = store_thm("FUPDATE_LIST_CANCEL",
+  ``!ls1 fm ls2.
+    (!k. MEM k (MAP FST ls1) ==> MEM k (MAP FST ls2))
+    ==> (fm |++ ls1 |++ ls2 = fm |++ ls2)``,
+  Induct THEN SRW_TAC[][FUPDATE_LIST_THM] THEN
+  Cases_on`h` THEN
+  MATCH_MP_TAC FUPDATE_FUPDATE_LIST_MEM THEN
+  FULL_SIMP_TAC(srw_ss())[])
+
+val FUPDATE_LIST_SNOC = store_thm("FUPDATE_LIST_SNOC",
+  ``!xs x fm. fm |++ SNOC x xs = (fm |++ xs) |+ x``,
+  Induct >> rw[FUPDATE_LIST_THM])
+
+val FUPDATE_EQ_FUNION = store_thm("FUPDATE_EQ_FUNION",
+  ``∀fm kv. fm |+ kv = (FEMPTY |+ kv) ⊌ fm``,
+  gen_tac >> Cases >>
+  simp[GSYM fmap_EQ_THM,FDOM_FUPDATE,FAPPLY_FUPDATE_THM,FUNION_DEF] >>
+  simp[EXTENSION])
+
+val GENLIST_EL = store_thm("GENLIST_EL",
+  ``!ls f n. (n = LENGTH ls) /\ (!i. i < n ==> (f i = EL i ls)) ==>
+             (GENLIST f n = ls)``,
+  lrw[LIST_EQ_REWRITE])
+
+val fmap_rel_OPTREL_FLOOKUP = store_thm("fmap_rel_OPTREL_FLOOKUP",
+  ``fmap_rel R f1 f2 = ∀k. OPTREL R (FLOOKUP f1 k) (FLOOKUP f2 k)``,
+  rw[fmap_rel_def,optionTheory.OPTREL_def,FLOOKUP_DEF,EXTENSION] >>
+  PROVE_TAC[])
+
+val FUPDATE_LIST_APPEND_COMMUTES = store_thm("FUPDATE_LIST_APPEND_COMMUTES",
+  ``!l1 l2 fm. DISJOINT (set (MAP FST l1)) (set (MAP FST l2)) ⇒ (fm |++ l1 |++ l2 = fm |++ l2 |++ l1)``,
+  Induct >- rw[FUPDATE_LIST_THM] >>
+  Cases >> rw[FUPDATE_LIST_THM] >>
+  metis_tac[FUPDATE_FUPDATE_LIST_COMMUTES])
+
+val LENGTH_FILTER_LESS = store_thm("LENGTH_FILTER_LESS",
+  ``!P ls. EXISTS ($~ o P) ls ==> LENGTH (FILTER P ls) < LENGTH ls``,
+  GEN_TAC THEN Induct THEN SRW_TAC[][] THEN
+  MATCH_MP_TAC LESS_EQ_IMP_LESS_SUC THEN
+  MATCH_ACCEPT_TAC LENGTH_FILTER_LEQ)
+
+val EVERY2_trans = store_thm("EVERY2_trans",
+  ``(!x y z. R x y /\ R y z ==> R x z) ==>
+    !x y z. EVERY2 R x y /\ EVERY2 R y z ==> EVERY2 R x z``,
+  SRW_TAC[][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] THEN
+  REPEAT (Q.PAT_ASSUM`LENGTH X = Y`MP_TAC) THEN
+  REPEAT STRIP_TAC THEN
+  FULL_SIMP_TAC (srw_ss()++DNF_ss) [MEM_ZIP] THEN
+  METIS_TAC[])
+
+val EVERY2_sym = store_thm("EVERY2_sym",
+  ``(!x y. R1 x y ==> R2 y x) ==> !x y. EVERY2 R1 x y ==> EVERY2 R2 y x``,
+  SRW_TAC[][EVERY2_EVERY,EVERY_MEM,FORALL_PROD] THEN
+  (Q.PAT_ASSUM`LENGTH X = Y`MP_TAC) THEN
+  STRIP_TAC THEN
+  FULL_SIMP_TAC (srw_ss()++DNF_ss) [MEM_ZIP])
+
+val EVERY2_LUPDATE_same = store_thm("EVERY2_LUPDATE_same",
+  ``!P l1 l2 v1 v2 n. P v1 v2 /\ EVERY2 P l1 l2 ==>
+    EVERY2 P (LUPDATE v1 n l1) (LUPDATE v2 n l2)``,
+  GEN_TAC THEN Induct THEN
+  SRW_TAC[][LUPDATE_def] THEN
+  Cases_on`n`THEN SRW_TAC[][LUPDATE_def] THEN
+  Cases_on`l2`THEN FULL_SIMP_TAC(srw_ss())[LUPDATE_def])
+
+val EVERY2_refl = store_thm("EVERY2_refl",
+  ``(!x. MEM x ls ==> R x x) ==> (EVERY2 R ls ls)``,
+  Induct_on`ls` >>rw[])
+
+val EVERY2_APPEND = store_thm("EVERY2_APPEND",
+  ``EVERY2 R l1 l2 /\ EVERY2 R l3 l4 <=> EVERY2 R (l1 ++ l3) (l2 ++ l4) /\ (LENGTH l1 = LENGTH l2) /\ (LENGTH l3 = LENGTH l4)``,
+  rw[EVERY2_EVERY,EVERY_MEM] >>
+  metis_tac[ZIP_APPEND,MEM_APPEND])
+
+val EVERY2_APPEND_suff = store_thm("EVERY2_APPEND_suff",
+  ``EVERY2 R l1 l2 ∧ EVERY2 R l3 l4 ⇒ EVERY2 R (l1 ++ l3) (l2 ++ l4)``,
+  metis_tac[EVERY2_APPEND])
+
 val SWAP_REVERSE = store_thm("SWAP_REVERSE",
   ``!l1 l2. (l1 = REVERSE l2) = (l2 = REVERSE l1)``,
   SRW_TAC[][EQ_IMP_THM])
+
+val SWAP_REVERSE_SYM = store_thm("SWAP_REVERSE_SYM",
+  ``!l1 l2. (REVERSE l1 = l2) = (l1 = REVERSE l2)``,
+  metis_tac[SWAP_REVERSE])
 
 val EVERY2_THM = store_thm("EVERY2_THM",
   ``(!P ys. EVERY2 P [] ys = (ys = [])) /\
@@ -18,6 +192,19 @@ val EVERY2_THM = store_thm("EVERY2_THM",
     SRW_TAC[][EQ_IMP_THM] THEN NO_TAC ) THEN
   Cases THEN SRW_TAC[][EVERY2_EVERY])
 val _ = export_rewrites["EVERY2_THM"]
+
+val EVERY2_RC_same = store_thm("EVERY2_RC_same",
+  ``EVERY2 (RC R) l l``,
+  srw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,MEM_ZIP,relationTheory.RC_DEF])
+val _ = export_rewrites["EVERY2_RC_same"]
+
+val CARD_UNION_LE = store_thm("CARD_UNION_LE",
+  ``FINITE s ∧ FINITE t ⇒ CARD (s ∪ t) ≤ CARD s + CARD t``,
+  rw[] >> imp_res_tac CARD_UNION >> fsrw_tac[ARITH_ss][])
+
+val IMAGE_SUBSET_gen = store_thm("IMAGE_SUBSET_gen",
+  ``∀f s u t. s ⊆ u ∧ (IMAGE f u ⊆ t) ⇒ IMAGE f s ⊆ t``,
+  simp[SUBSET_DEF] >> metis_tac[])
 
 val REVERSE_INV = store_thm("REVERSE_INV",
   ``!l1 l2. (REVERSE l1 = REVERSE l2) = (l1 = l2)``,
@@ -74,7 +261,7 @@ val FUPDATE_LIST_ALL_DISTINCT_PERM = store_thm("FUPDATE_LIST_ALL_DISTINCT_PERM",
   rw[FUPDATE_LIST_THM])
 
 val ALL_DISTINCT_MEM_ZIP_MAP = store_thm("ALL_DISTINCT_MEM_ZIP_MAP",
-  ``!f x ls. ALL_DISTINCT ls ==> (MEM x (ZIP (ls, MAP f ls)) = MEM (FST x) ls /\ (SND x = f (FST x)))``,
+  ``!f x ls. ALL_DISTINCT ls ==> (MEM x (ZIP (ls, MAP f ls)) <=> MEM (FST x) ls /\ (SND x = f (FST x)))``,
   GEN_TAC THEN Cases THEN
   SRW_TAC[][MEM_ZIP,FORALL_PROD] THEN
   SRW_TAC[][EQ_IMP_THM] THEN
@@ -95,7 +282,7 @@ val SUBMAP_mono_FUPDATE = store_thm("SUBMAP_mono_FUPDATE",
   SRW_TAC[][SUBMAP_FUPDATE])
 
 val SUBMAP_DOMSUB_gen = store_thm("SUBMAP_DOMSUB_gen",
-  ``!f g k. f \\ k SUBMAP g = f \\ k SUBMAP g \\ k``,
+  ``!f g k. f \\ k SUBMAP g <=> f \\ k SUBMAP g \\ k``,
   SRW_TAC[][SUBMAP_DEF,EQ_IMP_THM,DOMSUB_FAPPLY_THM])
 
 val DOMSUB_SUBMAP = store_thm("DOMSUB_SUBMAP",
@@ -136,7 +323,7 @@ val FOLDL_invariant_rest = store_thm("FOLDL_invariant_rest",
   rw[] >> first_x_assum (qspecl_then[`x`,`SUC n`] mp_tac) >> rw[])
 
 val between_def = Define`
-  between x y z = x:num ≤ z ∧ z < y`
+  between x y z ⇔ x:num ≤ z ∧ z < y`
 
 val TAKE_SUM = store_thm("TAKE_SUM",
   ``!n m l. n + m <= LENGTH l ==> (TAKE (n + m) l = TAKE n l ++ TAKE m (DROP n l))``,
@@ -177,7 +364,7 @@ val SUC_LEAST = store_thm("SUC_LEAST",
   DECIDE_TAC)
 
 val fmap_linv_def = Define`
-  fmap_linv f1 f2 = (FDOM f2 = FRANGE f1) /\ (!x. x IN FDOM f1 ==> (FLOOKUP f2 (FAPPLY f1 x) = SOME x))`
+  fmap_linv f1 f2 ⇔ (FDOM f2 = FRANGE f1) /\ (!x. x IN FDOM f1 ==> (FLOOKUP f2 (FAPPLY f1 x) = SOME x))`
 
 val fmap_linv_unique = store_thm("fmap_linv_unique",
   ``!f f1 f2. fmap_linv f f1 /\ fmap_linv f f2 ==> (f1 = f2)``,
@@ -279,7 +466,7 @@ val LIST_TO_SET_GENLIST = store_thm("LIST_TO_SET_GENLIST",
   SRW_TAC[][EXTENSION,MEM_GENLIST] THEN PROVE_TAC[])
 
 val DRESTRICT_EQ_DRESTRICT_SAME = store_thm("DRESTRICT_EQ_DRESTRICT_SAME",
-  ``(DRESTRICT f1 s = DRESTRICT f2 s) =
+  ``(DRESTRICT f1 s = DRESTRICT f2 s) ⇔
     (s INTER FDOM f1 = s INTER FDOM f2) /\
     (!x. x IN FDOM f1 /\ x IN s ==> (f1 ' x = f2 ' x))``,
   SRW_TAC[][DRESTRICT_EQ_DRESTRICT,SUBMAP_DEF,DRESTRICT_DEF,EXTENSION] THEN
@@ -322,13 +509,13 @@ val _ = export_rewrites ["IF_NONE_EQUALS_OPTION"]
 (* TODO: move elsewhere? export as rewrite? *)
 val IN_option_rwt = store_thm(
 "IN_option_rwt",
-``(x ∈ case opt of NONE => {} | SOME y => Q y) =
+``(x ∈ case opt of NONE => {} | SOME y => Q y) ⇔
   (∃y. (opt = SOME y) ∧ x ∈ Q y)``,
 Cases_on `opt` >> rw[EQ_IMP_THM])
 
 val IN_option_rwt2 = store_thm(
 "IN_option_rwt2",
-``x ∈ option_CASE opt {} s = ∃y. (opt = SOME y) ∧ x ∈ s y``,
+``x ∈ option_CASE opt {} s ⇔ ∃y. (opt = SOME y) ∧ x ∈ s y``,
 Cases_on `opt` >> rw[])
 
 (* Re-expressing folds *)
@@ -437,7 +624,7 @@ MAP_ZIP
 
 val INJ_I = store_thm(
 "INJ_I",
-``∀s t. INJ I s t = s ⊆ t``,
+``∀s t. INJ I s t ⇔ s ⊆ t``,
 SRW_TAC[][INJ_DEF,SUBSET_DEF])
 
 val MAP_KEYS_I = store_thm(
@@ -523,7 +710,7 @@ val FUPDATE_LIST_ALL_DISTINCT_REVERSE = store_thm("FUPDATE_LIST_ALL_DISTINCT_REV
 
 val IN_FRANGE = store_thm(
 "IN_FRANGE",
-``!f v. v IN FRANGE f = ?k. k IN FDOM f /\ (f ' k = v)``,
+``!f v. v IN FRANGE f ⇔ ?k. k IN FDOM f /\ (f ' k = v)``,
 SRW_TAC[][FRANGE_DEF])
 
 val FRANGE_FUPDATE_LIST_SUBSET = store_thm(
@@ -620,6 +807,10 @@ rw[] >>
 imp_res_tac(SIMP_RULE(srw_ss())[SUBSET_DEF]FRANGE_FUPDATE_SUBSET) >>
 fs[])
 
+val IN_FRANGE_o_f_suff = store_thm("IN_FRANGE_o_f_suff",
+  ``(∀v. v ∈ FRANGE fm ⇒ P (f v)) ⇒ ∀v. v ∈ FRANGE (f o_f fm) ⇒ P v``,
+  rw[IN_FRANGE] >> rw[] >> first_x_assum match_mp_tac >> PROVE_TAC[])
+
 (* DRESTRICT stuff *)
 
 val DRESTRICT_SUBMAP_gen = store_thm(
@@ -700,7 +891,7 @@ PROVE_TAC[])
 
 val LESS_1 = store_thm(
 "LESS_1",
-``x < 1 = (x = 0:num)``,
+``x < 1 ⇔ (x = 0:num)``,
 DECIDE_TAC)
 val _ = export_rewrites["LESS_1"]
 
@@ -723,5 +914,17 @@ val DRESTRICT_SUBSET = store_thm("DRESTRICT_SUBSET",
     >- metis_tac[DRESTRICT_SUBSET_SUBMAP,SUBMAP_TRANS] >>
   fsrw_tac[DNF_ss][SUBSET_DEF,EXTENSION] >>
   metis_tac[])
+
+val f_o_f_FUPDATE_compose = store_thm("f_o_f_FUPDATE_compose",
+  ``∀f1 f2 k x v. x ∉ FDOM f1 ∧ x ∉ FRANGE f2 ⇒
+    (f1 |+ (x,v) f_o_f f2 |+ (k,x) = (f1 f_o_f f2) |+ (k,v))``,
+  rw[GSYM fmap_EQ_THM,f_o_f_DEF,FAPPLY_FUPDATE_THM] >>
+  simp[] >> rw[] >> fs[] >> rw[EXTENSION] >>
+  fs[IN_FRANGE] >> rw[]
+  >- PROVE_TAC[]
+  >- PROVE_TAC[] >>
+  qmatch_assum_rename_tac`y <> k`[] >>
+  `y ∈ FDOM (f1 f_o_f f2)` by rw[f_o_f_DEF] >>
+  rw[f_o_f_DEF])
 
 val _ = export_theory()

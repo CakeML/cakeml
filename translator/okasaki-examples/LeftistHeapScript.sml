@@ -24,8 +24,8 @@ val rank_def = mlDefine `
 (rank (Tree r _ _ _) = r)`;
 
 val is_heap_ordered_def = Define `
-(is_heap_ordered get_key leq Empty = T) ∧
-(is_heap_ordered get_key leq (Tree _ x h1 h2) =
+(is_heap_ordered get_key leq Empty <=> T) ∧
+(is_heap_ordered get_key leq (Tree _ x h1 h2) <=>
   is_heap_ordered get_key leq h1 ∧
   is_heap_ordered get_key leq h2 ∧
   BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h1) ∧

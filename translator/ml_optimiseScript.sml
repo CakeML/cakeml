@@ -1,6 +1,7 @@
 open HolKernel Parse boolLib bossLib; val _ = new_theory "ml_optimise";
 
-open MiniMLTheory MiniMLTerminationTheory;
+open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
+open terminationTheory;
 open arithmeticTheory listTheory combinTheory pairTheory;
 open integerTheory ml_translatorTheory;
 
@@ -170,7 +171,7 @@ val let_id_thm = prove(
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
   \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases,bind_def,lookup_def]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) [tenv_add_tvs_def]);
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []);
 
 
 (* rewrite optimisations: x - n + n --> x and x + n - n --> x *)
@@ -211,7 +212,7 @@ val evaluate'_11_Rval = prove(
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
 val evaluate_Lit = prove(
-  ``evaluate' s env (Lit l) (s1,Rval (res)) = (res = Litv l) /\ (s = s1)``,
+  ``evaluate' s env (Lit l) (s1,Rval (res)) <=> (res = Litv l) /\ (s = s1)``,
   FULL_SIMP_TAC (srw_ss()) [Once evaluate'_cases] \\ METIS_TAC []);
 
 val opt_sub_add_thm = prove(

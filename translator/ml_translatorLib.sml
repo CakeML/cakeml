@@ -3,9 +3,9 @@ struct
 
 open HolKernel boolLib bossLib;
 
-open MiniMLTheory MiniMLTerminationTheory;
-open Print_astTheory Print_astTerminationTheory intLib;
-open ml_translatorTheory;
+open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
+open terminationTheory;
+open ml_translatorTheory intLib;
 open arithmeticTheory listTheory combinTheory pairTheory;
 open integerTheory intLib ml_optimiseTheory;
 
@@ -991,7 +991,7 @@ fun derive_thms_for_type ty = let
           \\ Q.EXISTS_TAC `empty_store` \\ FULL_SIMP_TAC std_ss []
           \\ NTAC (2 * length ts) (ASM_SIMP_TAC (srw_ss())
                [Once evaluate'_cases,pmatch'_def,bind_def,
-                pat_bindings_def,tenv_add_tvs_def])
+                pat_bindings_def])
     val tac = init_tac THENL (map (fn (n,f,fxs,pxs,tm,exp,xs) => case_tac n) ts)
     val case_lemma = prove(goal,tac)
     val case_lemma = case_lemma |> PURE_REWRITE_RULE [TAG_def]
@@ -1440,6 +1440,8 @@ in
     in LIST_CONJ (map f (CONJUNCTS (SPEC_ALL def))) end
 end
 
+val use_mem_intro = ref false;
+
 fun preprocess_def def = let
   val def = force_eqns def
   val is_rec = is_rec_def def
@@ -1458,6 +1460,10 @@ fun preprocess_def def = let
     in def end;
   val defs = map rephrase_def defs
   val ind = if is_rec andalso is_NONE ind then SOME (find_ind_thm (hd defs)) else ind
+  fun option_apply f NONE = NONE | option_apply f (SOME x) = SOME (f x)
+  val mem_intro_rule = PURE_REWRITE_RULE [MEMBER_INTRO]
+  val (defs,ind) = if not (!use_mem_intro) then (defs,ind) else
+                     (map mem_intro_rule defs, option_apply mem_intro_rule ind)
   in (is_rec,defs,ind) end;
 
 

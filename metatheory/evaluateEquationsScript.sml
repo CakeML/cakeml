@@ -1,4 +1,4 @@
-open preamble MiniMLTheory
+open preamble BigStepTheory
 
 val _ = new_theory "evaluateEquations"
 
@@ -47,7 +47,7 @@ metis_tac []);
 
 val evaluate_app = store_thm(
 "evaluate_app",
-``∀menv cenv s1 env op e1 e2 r. evaluate menv cenv s1 env (App op e1 e2) r =
+``∀menv (cenv :envC) s1 env op e1 e2 r. evaluate menv cenv s1 env (App op e1 e2) r =
   (∃v1 v2 env' e s2 s3 s4. 
      evaluate menv cenv s1 env e1 (s2, Rval v1) ∧ 
      (evaluate menv cenv s2 env e2 (s3, Rval v2)) ∧
@@ -65,6 +65,7 @@ val evaluate_app = store_thm(
 rw[Once evaluate_cases] >>
 metis_tac [])
 
+(*
 val evaluate'_raise = store_thm(
 "evaluate'_raise",
 ``∀env s err r. evaluate' s env (Raise err) r = (r = (s, Rerr (Rraise err)))``,
@@ -152,4 +153,5 @@ val evaluate'_log = store_thm(
 rw[Once evaluate'_cases] >>
 metis_tac [])
 
+*)
 val _ = export_theory ()

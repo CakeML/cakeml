@@ -1,0 +1,46 @@
+val i : num -> Int.int
+let inline {hol} i = Hol.(&)
+
+val all_distinct : forall 'a. list 'a -> bool
+let inline {hol} all_distinct = Hol.ALL_DISTINCT
+
+val rtc : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)
+let inline {hol} rtc = Hol.RTC
+
+val count_list : num -> list num
+let inline {hol} count_list = Hol.COUNT_LIST
+
+val option_map : forall 'a 'b. ('a -> 'b) -> option 'a -> option 'b
+let option_map f x = 
+  match x with
+    | None -> None
+    | Some y -> Some (f y)
+  end
+
+(* Change the nth element in the list to 'a *)
+val LUPDATE : forall 'a. 'a -> num -> list 'a -> list 'a
+let inline {hol} LUPDATE = Hol.LUPDATE
+
+
+(* Environments *)
+type env 'a 'b = list ('a*'b)
+
+val emp : forall 'a 'b. env 'a 'b
+let emp = []
+
+val lookup : forall 'a 'b. 'a -> env 'a 'b -> option 'b
+let rec
+lookup n [] = None
+and
+lookup n ((n',v)::e) =
+  if n' = n then
+    Some v
+  else
+    lookup n e
+
+val bind : forall 'a 'b. 'a -> 'b -> env 'a 'b -> env 'a 'b
+let bind n v e = (n,v)::e
+
+val merge : forall 'a 'b. env 'a 'b -> env 'a 'b -> env 'a 'b
+let merge e1 e2 = e1 @ e2
+

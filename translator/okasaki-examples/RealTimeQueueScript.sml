@@ -36,11 +36,11 @@ val tail_def = mlDefine `
 (* verification proof *)
 
 val prop_def = Define `
-  prop d q (QUEUE f r s) =
+  prop d q (QUEUE f r s) <=>
     (q = f ++ REVERSE r) /\ (LENGTH s + LENGTH r = LENGTH f + d)`
 
 val queue_inv_def = Define `
-  queue_inv q (QUEUE f r s) = prop 0 q (QUEUE f r s)`
+  queue_inv q (QUEUE f r s) <=> prop 0 q (QUEUE f r s)`
 
 val empty_thm = prove(
   ``!xs. queue_inv xs empty = (xs = [])``,

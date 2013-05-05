@@ -1,4 +1,4 @@
-open preamble MiniMLTheory bigSmallEquivTheory;
+open preamble SemanticPrimitivesTheory BigStepTheory bigSmallEquivTheory;
 
 val _ = new_theory "determ";
 

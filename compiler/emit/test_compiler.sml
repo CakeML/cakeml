@@ -223,7 +223,7 @@ val e34 = ``App Opapp (App Opapp (Var (Short "APPEND")) (Con (Short "Nil") []))
 val (m,st) = mst_run_decs_exp (ds,e34)
 val [r,cl] = st
 val tm = bv_to_ov m r
-val true = tm = OConv ("Nil",[])
+val true = tm = OConv (Short "Nil",[])
 val tm = bv_to_ov m cl
 val true = tm = OFn;
 fun h t = hd(tl(snd(strip_comb(concl t))))
@@ -238,7 +238,7 @@ val e32 = h t
 val (m,st) = mst_run_decs_exp (ds,e32)
 val [res,cl] = st
 val tm = bv_to_ov m res
-val true = tm = OConv ("Cons",[OLit (IntLit (intML.fromInt 4)), OConv ("Nil",[])]);
+val true = tm = OConv (Short "Cons",[OLit (IntLit (intML.fromInt 4)), OConv (Short "Nil",[])]);
 val _ = reset_translation()
 val _ = translate sortingTheory.PART_DEF
 val _ = translate sortingTheory.PARTITION_DEF

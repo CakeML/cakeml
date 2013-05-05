@@ -1,0 +1,9 @@
+This directory contains the implementation of the compiler.
+
+unifyScript.sml
+    Defines a unification algorithm for use in the type inferencer.  Based on
+    the triangular unification algorithm in
+    HOL/examples/unification/triangular/first-order
+
+inferScript.sml
+    Define a type inferencer

@@ -6,11 +6,10 @@
 *.ui
 *.o
 .HOLMK
+selftest.exe
 
 # HOLHEAP
-miniml-heap
-miniml-heap0
-local-hol-heap
+*heap
 
 # Translator stuff
 *txt

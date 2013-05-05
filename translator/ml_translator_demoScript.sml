@@ -20,7 +20,8 @@ val (qsort_eval,_) = get_cert "QSORT"
 val Eval_Var_lemma = prove(
   ``(lookup name env = SOME x) /\ P x ==> Eval env (Var (Short name)) P``,
   REPEAT STRIP_TAC
-  THEN FULL_SIMP_TAC (srw_ss()) [Eval_def,Once MiniMLTheory.evaluate'_cases]);
+  THEN FULL_SIMP_TAC (srw_ss()) [Eval_def,
+         Once AltBigStepTheory.evaluate'_cases]);
 
 val Eval_QSORT_EXPANDED = save_thm("Eval_QSORT_EXPANDED",let
   val th = MATCH_MP Eval_Arrow qsort_eval

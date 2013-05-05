@@ -38,7 +38,7 @@ val is_Label_replace_lab = store_thm("is_Label_replace_lab",
 val _ = export_rewrites["is_Label_replace_lab"]
 
 val good_il_def = Define`
-  good_il il =
+  good_il il ⇔
   (∀x. il (Jump x) = il (Jump ARB)) ∧
   (∀x. il (JumpIf x) = il (JumpIf ARB)) ∧
   (∀x. il (Call x) = il (Call ARB)) ∧

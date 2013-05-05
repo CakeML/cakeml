@@ -2,7 +2,8 @@ open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "ml_hol_kernel";
 
-open MiniMLTheory MiniMLTerminationTheory;
+open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
+open terminationTheory;
 open Print_astTheory Print_astTerminationTheory intLib;
 open ml_translatorTheory ml_translatorLib;
 open arithmeticTheory listTheory combinTheory pairTheory;

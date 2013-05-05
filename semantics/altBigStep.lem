@@ -1,0 +1,475 @@
+open Lib
+open Ast 
+open SemanticPrimitives
+
+(* A version of the big-step expression semantics that doesn't use the
+ * constructor environment to know if a value is ok or not.  It also has no
+ * module environment. Is equivalent to the normal one for well-typed programs
+ * that don't contain module references. *)
+
+val pmatch' : store -> pat -> v -> envE -> match_result
+let rec
+pmatch' s (Pvar n) v' env = Match (bind n v' env)
+and
+pmatch' s (Plit l) (Litv l') env =
+  if l = l' then
+    Match env
+  else if lit_same_type l l' then
+    No_match
+  else
+    Match_type_error
+and
+pmatch' s (Pcon cn ps) (Conv cn' vs) env =
+  if List.length ps = List.length vs && cn = cn' then
+    pmatch_list' s ps vs env
+  else
+    No_match
+and
+pmatch' s (Pref p) (Loc lnum) env =
+  match store_lookup lnum s with
+    | Some v -> pmatch' s p v env
+    | None -> Match_type_error
+  end
+and
+pmatch' _ _ _ env = Match_type_error
+and
+pmatch_list' s [] [] env = Match env
+and
+pmatch_list' s (p::ps) (v::vs) env =
+  match pmatch' s p v env with
+    | No_match -> No_match
+    | Match_type_error -> Match_type_error
+    | Match env' -> pmatch_list' s ps vs env'
+  end
+and
+pmatch_list' _ _ _ env = Match_type_error
+
+
+indreln
+
+forall env l s.
+true
+==>
+evaluate' s env (Lit l) (s, Rval (Litv l))
+
+and
+
+forall env err s.
+true
+==>
+evaluate' s env (Raise err) (s, Rerr (Rraise err))
+
+and
+
+forall s1 s2 env e1 e2 v var.
+evaluate' s1 env e1 (s2, Rval v)
+==>
+evaluate' s1 env (Handle e1 var e2) (s2, Rval v)
+
+and
+
+forall s1 s2 env e1 e2 n var bv.
+evaluate' s1 env e1 (s2, Rerr (Rraise (Int_error n))) &&
+evaluate' s2 (bind var (Litv (IntLit n)) env) e2 bv
+==>
+evaluate' s1 env (Handle e1 var e2) bv
+
+and
+
+forall s1 s2 env e1 e2 var err.
+evaluate' s1 env e1 (s2, Rerr err) &&
+(err = Rtype_error || err = Rraise Bind_error || err = Rraise Div_error)
+==>
+evaluate' s1 env (Handle e1 var e2) (s2, Rerr err)
+
+and
+
+forall env cn es vs s1 s2.
+evaluate_list' s1 env es (s2, Rval vs)
+==>
+evaluate' s1 env (Con cn es) (s2, Rval (Conv cn vs))
+
+and
+
+forall env cn es err s s'.
+evaluate_list' s env es (s', Rerr err)
+==>
+evaluate' s env (Con cn es) (s', Rerr err)
+
+and
+
+forall env n v s.
+(lookup n env = Some v)
+==>
+evaluate' s env (Var (Short n)) (s, Rval v)
+
+and
+
+forall env n s.
+(lookup n env = None)
+==>
+evaluate' s env (Var (Short n)) (s, Rerr Rtype_error)
+
+and
+
+forall env n e s.
+true
+==>
+evaluate' s env (Fun n e) (s, Rval (Closure env n e))
+
+and
+
+forall env uop e v v' s1 s2 s3.
+evaluate' s1 env e (s2, Rval v) &&
+do_uapp s2 uop v = Some (s3,v')
+==>
+evaluate' s1 env (Uapp uop e) (s3, Rval v')
+
+and
+
+forall env uop e v s1 s2.
+evaluate' s1 env e (s2, Rval v) &&
+do_uapp s2 uop v = None
+==>
+evaluate' s1 env (Uapp uop e) (s2, Rerr Rtype_error)
+
+and
+
+forall env uop e err s s'.
+evaluate' s env e (s', Rerr err)
+==>
+evaluate' s env (Uapp uop e) (s', Rerr err)
+
+and
+
+forall env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 s4.
+evaluate' s1 env e1 (s2, Rval v1) &&
+evaluate' s2 env e2 (s3, Rval v2) &&
+do_app s3 env op v1 v2 = Some (s4, env', e3) &&
+evaluate' s4 env' e3 bv
+==>
+evaluate' s1 env (App op e1 e2) bv
+
+and
+
+forall env op e1 e2 v1 v2 s1 s2 s3.
+evaluate' s1 env e1 (s2, Rval v1) &&
+evaluate' s2 env e2 (s3, Rval v2) &&
+do_app s3 env op v1 v2 = None
+==>
+evaluate' s1 env (App op e1 e2) (s3, Rerr Rtype_error)
+
+and
+
+forall env op e1 e2 v1 err s1 s2 s3.
+evaluate' s1 env e1 (s2, Rval v1) &&
+evaluate' s2 env e2 (s3, Rerr err)
+==>
+evaluate' s1 env (App op e1 e2) (s3, Rerr err)
+
+and
+
+forall env op e1 e2 err s s'.
+evaluate' s env e1 (s', Rerr err)
+==>
+evaluate' s env (App op e1 e2) (s', Rerr err)
+
+and
+
+forall env op e1 e2 v e' bv s1 s2.
+evaluate' s1 env e1 (s2, Rval v) &&
+do_log op v e2 = Some e' &&
+evaluate' s2 env e' bv
+==>
+evaluate' s1 env (Log op e1 e2) bv
+
+and
+
+forall env op e1 e2 v s1 s2.
+evaluate' s1 env e1 (s2, Rval v) &&
+do_log op v e2 = None
+==>
+evaluate' s1 env (Log op e1 e2) (s2, Rerr Rtype_error)
+
+and
+
+forall env op e1 e2 err s s'.
+evaluate' s env e1 (s', Rerr err)
+==>
+evaluate' s env (Log op e1 e2) (s', Rerr err)
+
+and
+
+forall env e1 e2 e3 v e' bv s1 s2.
+evaluate' s1 env e1 (s2, Rval v) &&
+do_if v e2 e3 = Some e' &&
+evaluate' s2 env e' bv
+==>
+evaluate' s1 env (If e1 e2 e3) bv
+
+and
+
+forall env e1 e2 e3 v s1 s2.
+evaluate' s1 env e1 (s2, Rval v) &&
+do_if v e2 e3 = None
+==>
+evaluate' s1 env (If e1 e2 e3) (s2, Rerr Rtype_error)
+
+and
+
+
+forall env e1 e2 e3 err s s'.
+evaluate' s env e1 (s', Rerr err)
+==>
+evaluate' s env (If e1 e2 e3) (s', Rerr err)
+
+and
+
+forall env e pes v bv s1 s2.
+evaluate' s1 env e (s2, Rval v) &&
+evaluate_match' s2 env v pes bv
+==>
+evaluate' s1 env (Mat e pes) bv
+
+and
+
+forall env e pes err s s'.
+evaluate' s env e (s', Rerr err)
+==>
+evaluate' s env (Mat e pes) (s', Rerr err)
+
+and
+
+forall env n e1 e2 v bv s1 s2.
+evaluate' s1 env e1 (s2, Rval v) &&
+evaluate' s2 (bind n v env) e2 bv
+==>
+evaluate' s1 env (Let n e1 e2) bv
+
+and
+
+forall env n e1 e2 err s s'.
+evaluate' s env e1 (s', Rerr err)
+==>
+evaluate' s env (Let n e1 e2) (s', Rerr err)
+
+and
+
+forall env funs e bv s.
+all_distinct (List.map (fun (x,y,z) -> x) funs) &&
+evaluate' s (build_rec_env funs env env) e bv
+==>
+evaluate' s env (Letrec funs e) bv
+
+and
+
+forall env funs e s.
+not (all_distinct (List.map (fun (x,y,z) -> x) funs))
+==>
+evaluate' s env (Letrec funs e) (s, Rerr Rtype_error)
+
+and
+
+forall env s.
+true
+==>
+evaluate_list' s env [] (s, Rval [])
+
+and
+
+forall env e es v vs s1 s2 s3.
+evaluate' s1 env e (s2, Rval v) &&
+evaluate_list' s2 env es (s3, Rval vs)
+==>
+evaluate_list' s1 env (e::es) (s3, Rval (v::vs))
+
+and
+
+forall env e es err s s'.
+evaluate' s env e (s', Rerr err)
+==>
+evaluate_list' s env (e::es) (s', Rerr err)
+
+and
+
+forall env e es v err s1 s2 s3.
+evaluate' s1 env e (s2, Rval v) &&
+evaluate_list' s2 env es (s3, Rerr err)
+==>
+evaluate_list' s1 env (e::es) (s3, Rerr err)
+
+and
+
+forall env v s.
+true
+==>
+evaluate_match' s env v [] (s, Rerr (Rraise Bind_error))
+
+and
+
+forall env v p e pes env' bv s.
+all_distinct (pat_bindings p []) &&
+(pmatch' s p v env = Match env') &&
+evaluate' s env' e bv
+==>
+evaluate_match' s env v ((p,e)::pes) bv
+
+and
+
+forall env v p e pes bv s.
+all_distinct (pat_bindings p []) &&
+(pmatch' s p v env = No_match) &&
+evaluate_match' s env v pes bv
+==>
+evaluate_match' s env v ((p,e)::pes) bv
+
+and
+
+forall env v p e pes s.
+(pmatch' s p v env = Match_type_error)
+==>
+evaluate_match' s env v ((p,e)::pes) (s, Rerr Rtype_error)
+
+and
+
+forall env v p e pes s.
+not (all_distinct (pat_bindings p []))
+==>
+evaluate_match' s env v ((p,e)::pes) (s, Rerr Rtype_error)
+
+indreln
+
+forall mn menv cenv env p e v env' s1 s2.
+evaluate' s1 env e (s2, Rval v) &&
+all_distinct (pat_bindings p []) &&
+(pmatch' s2 p v emp = Match env')
+==>
+evaluate_dec' mn menv cenv s1 env (Dlet p e) (s2, Rval (emp, env'))
+
+and
+
+forall mn menv cenv env p e v s1 s2.
+evaluate' s1 env e (s2, Rval v) &&
+all_distinct (pat_bindings p []) &&
+(pmatch' s2 p v emp = No_match)
+==>
+evaluate_dec' mn menv cenv s1 env (Dlet p e) (s2, Rerr (Rraise Bind_error))
+
+and
+
+forall mn menv cenv env p e v s1 s2.
+evaluate' s1 env e (s2, Rval v) &&
+(pmatch' s2 p v emp = Match_type_error)
+==>
+evaluate_dec' mn menv cenv s1 env (Dlet p e) (s2, Rerr Rtype_error)
+
+and
+
+forall mn menv cenv env p e v s1 s2.
+evaluate' s1 env e (s2, Rval v) &&
+not (all_distinct (pat_bindings p []))
+==>
+evaluate_dec' mn menv cenv s1 env (Dlet p e) (s2, Rerr Rtype_error)
+
+and
+
+forall mn menv cenv env p e err s s'.
+evaluate' s env e (s', Rerr err)
+==>
+evaluate_dec' mn menv cenv s env (Dlet p e) (s', Rerr err)
+
+and
+
+forall mn menv cenv env funs s.
+all_distinct (List.map (fun (x,y,z) -> x) funs)
+==>
+evaluate_dec' mn menv cenv s env (Dletrec funs) (s, Rval (emp, build_rec_env funs env emp))
+
+and
+
+forall mn menv cenv env funs s.
+not (all_distinct (List.map (fun (x,y,z) -> x) funs))
+==>
+evaluate_dec' mn menv cenv s env (Dletrec funs) (s, Rerr Rtype_error)
+
+and
+
+forall mn menv cenv env tds s.
+check_dup_ctors mn cenv tds
+==>
+evaluate_dec' mn menv cenv s env (Dtype tds) (s, Rval (build_tdefs mn tds, emp))
+
+and
+
+forall mn menv cenv env tds s.
+not (check_dup_ctors mn cenv tds)
+==>
+evaluate_dec' mn menv cenv s env (Dtype tds) (s, Rerr Rtype_error)
+
+indreln
+
+forall mn menv cenv s env.
+true
+==>
+evaluate_decs' mn menv cenv s env [] (s, Rval (emp, emp))
+
+and
+
+forall mn menv cenv s1 s2 env d ds e.
+evaluate_dec' mn menv cenv s1 env d (s2, Rerr e)
+==>
+evaluate_decs' mn menv cenv s1 env (d::ds) (s2, Rerr e)
+
+and
+
+forall mn menv cenv s1 s2 s3 env d ds new_tds new_env r.
+evaluate_dec' mn menv cenv s1 env d (s2, Rval (new_tds,new_env)) &&
+evaluate_decs' mn menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, r)
+==>
+evaluate_decs' mn menv cenv s1 env (d::ds) (s3, combine_dec_result new_tds new_env r)
+
+indreln
+
+forall menv cenv s env.
+true
+==>
+evaluate_prog' menv cenv s env [] (s, Rval (emp, emp, emp))
+
+and
+
+forall menv cenv s1 s2 s3 env d ds new_tds new_env r.
+evaluate_dec' None menv cenv s1 env d (s2, Rval (new_tds,new_env)) &&
+evaluate_prog' menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, r)
+==>
+evaluate_prog' menv cenv s1 env (Tdec d::ds) (s3, combine_mod_result emp new_tds new_env r)
+
+and
+
+forall menv cenv s1 s2 env d ds e.
+evaluate_dec' None menv cenv s1 env d (s2, Rerr e)
+==>
+evaluate_prog' menv cenv s1 env (Tdec d::ds) (s2, Rerr e)
+
+and
+
+forall menv cenv s1 s2 s3 env ds1 ds2 mn specs new_tds new_env r.
+not (List.mem mn (List.map fst menv)) &&
+evaluate_decs' (Some mn) menv cenv s1 env ds1 (s2, Rval (new_tds,new_env)) &&
+evaluate_prog' (bind mn new_env menv) (merge new_tds cenv) s2 env ds2 (s3, r)
+==>
+evaluate_prog' menv cenv s1 env (Tmod mn specs ds1::ds2) (s3, combine_mod_result [(mn,new_env)] new_tds emp r)
+
+and
+
+forall menv cenv s1 s2 env mn specs ds1 ds2 e.
+not (List.mem mn (List.map fst menv)) &&
+evaluate_decs' (Some mn) menv cenv s1 env ds1 (s2, Rerr e)
+==>
+evaluate_prog' menv cenv s1 env (Tmod mn specs ds1::ds2) (s2, Rerr e)
+
+and
+
+forall menv cenv s env mn specs ds1 ds2.
+List.mem mn (List.map fst menv)
+==>
+evaluate_prog' menv cenv s env (Tmod mn specs ds1::ds2) (s, Rerr Rtype_error)

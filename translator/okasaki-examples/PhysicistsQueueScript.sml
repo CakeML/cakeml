@@ -38,7 +38,7 @@ val tail_def = mlDefine `
 (* verification proof *)
 
 val queue_inv_def = Define `
-  queue_inv q (QUEUE w lenf f lenr r) =
+  queue_inv q (QUEUE w lenf f lenr r) <=>
     (q = f ++ REVERSE r) /\ (lenr = LENGTH r) /\ (lenf = LENGTH f) /\
     lenr <= lenf /\ ((w = []) ==> (q = [])) /\ isPREFIX w f`;
 

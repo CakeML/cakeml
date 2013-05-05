@@ -23,8 +23,8 @@ val heap_to_bag_def = Define `
   BAG_UNION (heap_to_bag h) (heaps_to_bag hs))`;
 
 val is_heap_ordered_def = tDefine "is_heap_ordered" `
-(is_heap_ordered get_key leq Empty = T) ∧
-(is_heap_ordered get_key leq (Tree x hs) =
+(is_heap_ordered get_key leq Empty <=> T) ∧
+(is_heap_ordered get_key leq (Tree x hs) <=>
   EVERY (is_heap_ordered get_key leq) hs ∧
   BAG_EVERY (\y. leq (get_key x) (get_key y)) (heaps_to_bag hs))`
 (wf_rel_tac `measure (\(_,_,h). (heap_size (\x.1) h))` >>

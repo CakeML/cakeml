@@ -19,8 +19,8 @@ val heap_to_bag_def = Define `
   BAG_INSERT x (BAG_UNION (heap_to_bag h1) (heap_to_bag h2)))`;
 
 val is_heap_ordered_def = Define `
-(is_heap_ordered get_key leq Empty = T) ∧
-(is_heap_ordered get_key leq (Tree h1 x h2) =
+(is_heap_ordered get_key leq Empty <=> T) ∧
+(is_heap_ordered get_key leq (Tree h1 x h2) <=>
   is_heap_ordered get_key leq h1 ∧
   is_heap_ordered get_key leq h2 ∧
   BAG_EVERY (\y. leq (get_key y) (get_key x)) (heap_to_bag h1) ∧

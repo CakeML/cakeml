@@ -1,0 +1,30 @@
+(* TODO: these should be in the lem library *)
+
+val genlist : forall 'a. (num -> 'a) -> num -> list 'a
+let inline {hol} genlist = Hol.GENLIST
+
+val image : forall 'a 'b. ('a -> 'b) -> set 'a -> set 'b
+let inline {hol} image = Hol.IMAGE
+
+val pre : num -> num
+let inline {hol} pre = Hol.PRE
+
+val count : num -> set num
+let inline {hol} count = Hol.count
+
+val the : forall 'a 'b. 'a -> 'b
+let inline {hol} the = Hol.THE
+
+val drop : forall 'a. num -> list 'a -> list 'a
+let inline {hol} drop = Hol.DROP
+
+val least : (num -> bool) -> num
+let inline {hol} least = Hol.LEAST
+
+val int_of_num : num -> int
+let inline {hol} int_of_num = Hol.int_of_num
+
+let i0 = int_of_num 0
+let i1 = int_of_num 1
+let i2 = int_of_num 2
+

@@ -2,14 +2,25 @@ INCLUDES=.. ../semantics
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
-HOLHEAP = miniml-heap1
+HOLHEAP = meta_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../semantics/MiniMLTheory \
-            ../semantics/MiniMLTerminationTheory
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+PRE_BARE_THYS = AltBigStepTheory \
+		AstTheory \
+		BigStepTheory \
+		LibTheory \
+		SemanticPrimitivesTheory \
+		SmallStepTheory \
+		TokensTheory \
+		TypeSystemTheory \
+		terminationTheory \
+		tokenUtilsTheory
+
+BARE_THYS = $(patsubst %,../semantics/%,$(PRE_BARE_THYS))
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) ../semantics/sem_heap
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -b ../semantics/sem_heap -o $(HOLHEAP) $(BARE_THYS)
 endif
 
