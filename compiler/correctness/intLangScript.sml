@@ -120,19 +120,19 @@ val vlabs_list_MAP = store_thm("vlabs_list_MAP",
 val no_vlabs_def = Define`
   (no_vlabs (CLitv _) = T) ∧
   (no_vlabs (CConv _ vs) = no_vlabs_list vs) ∧
-  (no_vlabs (CRecClos env defs _) = no_vlabs_list env ∧ no_labs_defs defs) ∧
+  (no_vlabs (CRecClos env defs _) ⇔ no_vlabs_list env ∧ no_labs_defs defs) ∧
   (no_vlabs (CLoc _) = T) ∧
   (no_vlabs_list [] = T) ∧
-  (no_vlabs_list (v::vs) = no_vlabs v ∧ no_vlabs_list vs)`
+  (no_vlabs_list (v::vs) ⇔ no_vlabs v ∧ no_vlabs_list vs)`
 val _ = export_rewrites["no_vlabs_def"]
 
 val all_vlabs_def = Define`
   (all_vlabs (CLitv _) = T) ∧
   (all_vlabs (CConv _ vs) = all_vlabs_list vs) ∧
-  (all_vlabs (CRecClos env defs _) = all_vlabs_list env ∧ all_labs_defs defs) ∧
+  (all_vlabs (CRecClos env defs _) ⇔ all_vlabs_list env ∧ all_labs_defs defs) ∧
   (all_vlabs (CLoc _) = T) ∧
   (all_vlabs_list [] = T) ∧
-  (all_vlabs_list (v::vs) = all_vlabs v ∧ all_vlabs_list vs)`
+  (all_vlabs_list (v::vs) ⇔ all_vlabs v ∧ all_vlabs_list vs)`
 val _ = export_rewrites["all_vlabs_def"]
 
 val no_vlabs_list_MAP = store_thm("no_vlabs_list_MAP",
@@ -426,21 +426,21 @@ val _ = export_rewrites["Cevaluate_raise","Cevaluate_lit","Cevaluate_var","Ceval
 
 val Cevaluate_con = store_thm(
 "Cevaluate_con",
-``∀s env cn es res. Cevaluate s env (CCon cn es) res =
+``∀s env cn es res. Cevaluate s env (CCon cn es) res ⇔
 (∃s' vs. Cevaluate_list s env es (s', Rval vs) ∧ (res = (s', Rval (CConv cn vs)))) ∨
 (∃s' err. Cevaluate_list s env es (s', Rerr err) ∧ (res = (s', Rerr err)))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
 val Cevaluate_tageq = store_thm(
 "Cevaluate_tageq",
-``∀s env exp n res. Cevaluate s env (CTagEq exp n) res =
+``∀s env exp n res. Cevaluate s env (CTagEq exp n) res ⇔
   (∃s' m vs. Cevaluate s env exp (s', Rval (CConv m vs)) ∧ (res = (s', Rval (CLitv (Bool (n = m)))))) ∨
   (∃s' err. Cevaluate s env exp (s', Rerr err) ∧ (res = (s', Rerr err)))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
 val Cevaluate_let = store_thm(
 "Cevaluate_let",
-``∀s env e b res. Cevaluate s env (CLet e b) res =
+``∀s env e b res. Cevaluate s env (CLet e b) res ⇔
 (∃s' v. Cevaluate s env e (s', Rval v) ∧
      Cevaluate s' (v::env) b res) ∨
 (∃s' err. Cevaluate s env e (s', Rerr err) ∧ (res = (s', Rerr err)))``,
@@ -448,7 +448,7 @@ rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
 val Cevaluate_proj = store_thm(
 "Cevaluate_proj",
-``∀s env exp n res. Cevaluate s env (CProj exp n) res =
+``∀s env exp n res. Cevaluate s env (CProj exp n) res ⇔
   (∃s' m vs. Cevaluate s env exp (s', Rval (CConv m vs)) ∧ (n < LENGTH vs) ∧ (res = (s', Rval (EL n vs)))) ∨
   (∃s' err. Cevaluate s env exp (s', Rerr err) ∧ (res = (s', Rerr err)))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
@@ -597,7 +597,7 @@ val syneq_exp_refl = store_thm("syneq_exp_refl",
   strip_tac >- rw[])
 
 val syneq_defs_refl = store_thm("syneq_defs_refl",
-  ``∀z V U defs. (∀v. v < z ⇒ V v v) ∧ (∀v1 v2. U v1 v2 = (v1 < LENGTH defs) ∧ (v2 = v1)) ⇒
+  ``∀z V U defs. (∀v. v < z ⇒ V v v) ∧ (∀v1 v2. U v1 v2 ⇔ (v1 < LENGTH defs) ∧ (v2 = v1)) ⇒
     syneq_defs z z V defs defs U``,
   rw[] >>
   `defs = [] ++ defs` by rw[] >>
