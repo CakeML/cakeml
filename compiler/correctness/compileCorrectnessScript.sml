@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory sortingTheory lcsymtacs quantHeuristicsLib quantHeuristicsLibAbbrev
-open miscTheory miscLib CompilerLibTheory compileTerminationTheory IntLangTheory intLangTheory bytecodeTerminationTheory evaluateEquationsTheory expToCexpTheory pmatchTheory labelClosuresTheory bytecodeEvalTheory bytecodeExtraTheory
+open miscTheory miscLib CompilerLibTheory CompilerPrimitivesTheory IntLangTheory ToBytecodeTheory compileTerminationTheory intLangTheory bytecodeTerminationTheory evaluateEquationsTheory expToCexpTheory pmatchTheory labelClosuresTheory bytecodeEvalTheory bytecodeExtraTheory
 val _ = numLib.prefer_num()
 val _ = new_theory "compileCorrectness"
 
@@ -30,10 +30,6 @@ val with_same_sm = store_thm("with_same_sm",
   ``rd with sm := rd.sm = rd``,
   rw[theorem"refs_data_component_equality"])
 val _ = export_rewrites["with_same_sm"]
-
-val repl_exp_contab = store_thm("repl_exp_contab",
-  ``(repl_exp rs exp = (rs',c)) ==> (rs'.contab = rs.contab)``,
-  rw[repl_exp_def,compile_Cexp_def,LET_THM,UNCURRY] >> rw[])
 
 val lookup_cc_def = Define`
   (lookup_cc cl sz st rs (CCArg n) = el_check (sz + n) st) ∧

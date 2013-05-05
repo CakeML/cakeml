@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib Defn pairTheory pred_setTheory listTheory finite_mapTheory state_transformerTheory lcsymtacs
-open terminationTheory CompilerLibTheory CompilerPrimitivesTheory CompileTheory IntLangTheory ToIntLangTheory
+open terminationTheory CompilerLibTheory CompilerPrimitivesTheory CompileTheory IntLangTheory ToIntLangTheory ToBytecodeTheory
 val _ = new_theory "compileTermination"
 
 (* size helper theorems *)
@@ -46,6 +46,8 @@ val bc_value1_size_thm = store_thm(
 Induct >- rw[BytecodeTheory.bc_value_size_def] >>
 srw_tac [ARITH_ss][BytecodeTheory.bc_value_size_def])
 
+(* termination proofs *)
+
 fun register name (def,ind) = let
   val _ = save_thm(name^"_def", def)
   val _ = save_thm(name^"_ind", ind)
@@ -58,7 +60,6 @@ val (free_vars_def, free_vars_ind) = register "free_vars" (
     | INR (INL es) => Cexp4_size es
     | INR (INR (INL (n,defs))) => Cexp1_size defs
     | INR (INR (INR (n,def))) => Cexp2_size def)`))
-val _ = export_rewrites["free_vars_def"];
 
 val (no_closures_def, no_closures_ind) = register "no_closures" (
   tprove_no_defn ((no_closures_def, no_closures_ind),
@@ -67,7 +68,6 @@ val (no_closures_def, no_closures_ind) = register "no_closures" (
   imp_res_tac SUM_MAP_MEM_bound >>
   pop_assum (qspec_then `Cv_size` mp_tac) >>
   srw_tac[ARITH_ss][]))
-val _ = export_rewrites["no_closures_def"];
 
 val (Cv_to_ov_def,Cv_to_ov_ind) = register "Cv_to_ov" (
   tprove_no_defn ((Cv_to_ov_def,Cv_to_ov_ind),
@@ -75,7 +75,6 @@ val (Cv_to_ov_def,Cv_to_ov_ind) = register "Cv_to_ov" (
   rw[Cv1_size_thm] >>
   Q.ISPEC_THEN `Cv_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
-val _ = export_rewrites["Cv_to_ov_def"];
 
 val (v_to_ov_def,v_to_ov_ind) = register "v_to_ov" (
   tprove_no_defn ((v_to_ov_def,v_to_ov_ind),
@@ -83,7 +82,6 @@ val (v_to_ov_def,v_to_ov_ind) = register "v_to_ov" (
   rw[v3_size_thm] >>
   Q.ISPEC_THEN `v_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
-val _ = export_rewrites["v_to_ov_def"];
 
 val (mkshift_def,mkshift_ind) = register "mkshift" (
   tprove_no_defn ((mkshift_def,mkshift_ind),
@@ -94,10 +92,6 @@ val (mkshift_def,mkshift_ind) = register "mkshift" (
   imp_res_tac MEM_pair_MAP >>
   Q.ISPEC_THEN`Cexp2_size`imp_res_tac SUM_MAP_MEM_bound >>
   fsrw_tac[ARITH_ss][Cexp_size_def]))
-val _ = export_rewrites["mkshift_def"]
-
-val _ = save_thm("remove_mat_vp_def",remove_mat_vp_def)
-val _ = export_rewrites["remove_mat_vp_def"]
 
 val _ = register "remove_mat_var" (
   tprove_no_defn ((remove_mat_var_def,remove_mat_var_ind),
@@ -118,21 +112,9 @@ val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
     | INR (INL (_, vs)) => v3_size vs
     | INR (INR (_, env)) => v1_size env)`))
 
-(*
-val (pat_to_Cpat_def,pat_to_Cpat_ind) = register "pat_to_Cpat" (
-  tprove_no_defn ((pat_to_Cpat_def,pat_to_Cpat_ind),
-  WF_REL_TAC `inv_image $< (λx. case x of
-    | INL (_,p) => pat_size p
-    | INR (_,ps) => pat1_size ps)`))
-*)
-val pat_to_Cpat_def = save_thm("pat_to_Cpat_def",pat_to_Cpat_def)
-
 val (compile_envref_def, compile_envref_ind) = register "compile_envref" (
   tprove_no_defn ((compile_envref_def, compile_envref_ind),
   WF_REL_TAC `measure (λp. case p of (_,_,CCEnv _) => 0 | (_,_,CCRef _) => 1)`))
-
-val _ = save_thm("compile_varref_def",compile_varref_def)
-val _ = export_rewrites["compile_varref_def","compile_envref_def"]
 
 val (compile_def, compile_ind) = register "compile" (
   tprove_no_defn ((compile_def, compile_ind),
@@ -149,6 +131,8 @@ val (compile_def, compile_ind) = register "compile" (
 val _ = register "num_fold" (
   tprove_no_defn ((num_fold_def,num_fold_ind),
   WF_REL_TAC `measure (SND o SND)`))
+
+(* TODO: make zero_ temporary (don't store/export) *)
 
 val zero_vars_def = tDefine "zero_vars"`
   (zero_vars (CDecl a) = CDecl (MAP (λ(n,m). (0,m)) a)) ∧
@@ -222,7 +206,6 @@ val (label_closures_def,label_closures_ind) = register "label_closures" (
     qx_gen_tac`x` >> PairCases_on`x` >>
     Cases_on`x0`>>simp[Abbr`P`,Abbr`g`]) >>
   fsrw_tac[ARITH_ss][bind_fv_def,LET_THM]))
-val _ = export_rewrites["label_closures_def"]
 
 val _ = register "free_labs" (
   tprove_no_defn ((free_labs_def, free_labs_ind),
@@ -231,7 +214,6 @@ val _ = register "free_labs" (
     | INR (INL (ez,es)) => Cexp4_size es
     | INR (INR (INL (ez,nz,ix,ds))) => Cexp1_size ds
     | INR (INR (INR (ez,nz,ix,def))) => Cexp2_size def)`))
-val _ = export_rewrites["free_labs_def"]
 
 val _ = register "no_labs" (
   tprove_no_defn ((no_labs_def, no_labs_ind),
@@ -240,7 +222,6 @@ val _ = register "no_labs" (
     | INR (INL (es)) => Cexp4_size es
     | INR (INR (INL (ds))) => Cexp1_size ds
     | INR (INR (INR (def))) => Cexp2_size def)`))
-val _ = export_rewrites["no_labs_def"]
 
 val _ = register "all_labs" (
   tprove_no_defn ((all_labs_def, all_labs_ind),
@@ -249,14 +230,6 @@ val _ = register "all_labs" (
     | INR (INL (es)) => Cexp4_size es
     | INR (INR (INL (ds))) => Cexp1_size ds
     | INR (INR (INR (def))) => Cexp2_size def)`))
-val _ = export_rewrites["all_labs_def"]
-
-val _ = save_thm("cce_aux_def",cce_aux_def)
-val _ = save_thm("compile_code_env_def",compile_code_env_def)
-val _ = save_thm("push_lab_def",push_lab_def)
-val _ = save_thm("cons_closure_def",cons_closure_def)
-val _ = save_thm("update_refptr_def",update_refptr_def)
-val _ = save_thm("compile_closures_def",compile_closures_def)
 
 val (number_constructors_def,number_constructors_ind) = register "number_constructors" (
   tprove_no_defn ((number_constructors_def,number_constructors_ind),
@@ -281,22 +254,20 @@ val _ = register "replace_labels" (
   tprove_no_defn ((replace_labels_def,replace_labels_ind),
   WF_REL_TAC `measure (LENGTH o SND o SND)` >> rw[]))
 
-val _ = save_thm("bind_fv_def",bind_fv_def)
-val _ = save_thm("compile_labels_def",compile_labels_def)
-val _ = save_thm("repl_exp_def",repl_exp_def)
-val _ = save_thm("compile_Cexp_def",compile_Cexp_def)
-val _ = save_thm("emit_def",emit_def)
-val _ = save_thm("pushret_def",pushret_def)
-val _ = save_thm("get_labels_def",get_labels_def)
-val _ = save_thm("emit_ceref_def",emit_ceref_def)
-val _ = save_thm("emit_ceenv_def",emit_ceenv_def)
-val _ = save_thm("prim1_to_bc_def",prim1_to_bc_def)
-val _ = save_thm("prim2_to_bc_def",prim2_to_bc_def)
-val _ = save_thm("compile_decl_def",compile_decl_def)
-val _ = save_thm("cmap_def",cmap_def)
-val _ = save_thm("cbv_def",cbv_def)
-val _ = save_thm("etC_def",etC_def)
-val _ = save_thm("shift_def",shift_def)
-val _ = export_rewrites["emit_def","get_labels_def","emit_ceref_def","emit_ceenv_def","prim1_to_bc_def","prim2_to_bc_def","cmap_def","cbv_def","etC_def"]
+(* export rewrites *)
+
+val _ = export_rewrites
+["ToBytecode.emit_def","ToBytecode.get_labels_def","ToBytecode.emit_ceref_def","ToBytecode.emit_ceenv_def"
+,"ToBytecode.prim1_to_bc_def","ToBytecode.prim2_to_bc_def","Compile.cmap_def","ToIntLang.cbv_def","Compile.etC_def"
+,"ToIntLang.remove_mat_vp_def","free_vars_def","no_closures_def"
+,"Cv_to_ov_def","v_to_ov_def"
+,"ToBytecode.compile_varref_def","compile_envref_def"
+,"mkshift_def"
+,"label_closures_def"
+,"ToIntLang.Cpat_vars_def"
+,"CompilerPrimitives.map_result_def","CompilerPrimitives.every_result_def"
+,"IntLang.doPrim2_def","IntLang.CevalPrim2_def","IntLang.CevalUpd_def","IntLang.CevalPrim1_def"
+,"free_labs_def","no_labs_def","all_labs_def"];
+
 
 val _ = export_theory()
