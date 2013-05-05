@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib miscLib boolSimps intLib pairTheory sumTheory listTheory pred_setTheory finite_mapTheory arithmeticTheory alistTheory rich_listTheory lcsymtacs
-open LibTheory SemanticPrimitivesTheory AstTheory terminationTheory semanticsExtraTheory evaluateEquationsTheory miscTheory CompilerLibTheory IntLangTheory intLangTheory compileTerminationTheory pmatchTheory
+open LibTheory SemanticPrimitivesTheory AstTheory terminationTheory semanticsExtraTheory evaluateEquationsTheory miscTheory CompilerLibTheory IntLangTheory intLangTheory ToIntLangTheory compileTerminationTheory pmatchTheory
 val _ = new_theory "expToCexp"
 val fsd = full_simp_tac std_ss
 
@@ -426,9 +426,6 @@ TRY (Cases_on`v2`>>fs[v_to_Cv_def,LET_THM]>>NO_TAC)
 >- fs[contains_closure_def]
 >- fs[contains_closure_def]
 >- (Cases_on`vs2`>>fs[]))
-
-(* TODO: categorise *)
-val exp_to_Cexp_state_component_equality = DB.fetch"Compile""exp_to_Cexp_state_component_equality"
 
 val pat_to_Cpat_acc = store_thm("pat_to_Cpat_acc",
   ``(∀p s s' Cp. (pat_to_Cpat s p = (s',Cp)) ⇒

@@ -1,0 +1,282 @@
+(* Translation from CakeML to Intermediate Language *)
+
+open CompilerLib
+open IntLang
+open Ast
+
+let rec
+free_vars (CDecl xs) = Set.from_list (List.map (fun (n,m) -> n) xs)
+and
+free_vars (CRaise _) = {}
+and
+free_vars (CHandle e1 e2) = free_vars e1 union (image pre (free_vars e2 \ {0}))
+and
+free_vars (CVar n) = {n}
+and
+free_vars (CLit _) = {}
+and
+free_vars (CCon _ es) = free_vars_list es
+and
+free_vars (CTagEq e _) = free_vars e
+and
+free_vars (CProj e _) = free_vars e
+and
+free_vars (CLet e eb) = free_vars e union (image pre (free_vars eb \ {0}))
+and
+free_vars (CLetrec defs e) =
+  let n = List.length defs in
+  free_vars_defs n defs union
+  (image (fun m -> m - n) (free_vars e \ count n))
+and
+free_vars (CFun def) = free_vars_def 1 def
+and
+free_vars (CCall e es) = free_vars e union free_vars_list es
+and
+free_vars (CPrim1 _ e) = free_vars e
+and
+free_vars (CPrim2 _ e1 e2) = free_vars e1 union free_vars e2
+and
+free_vars (CUpd e1 e2) = free_vars e1 union free_vars e2
+and
+free_vars (CIf e1 e2 e3) = free_vars e1 union free_vars e2 union free_vars e3
+and
+free_vars_list [] = {}
+and
+free_vars_list (e::es) = free_vars e union free_vars_list es
+and
+free_vars_defs n [] = {}
+and
+free_vars_defs n (d::ds) = free_vars_def n d union free_vars_defs n ds
+and
+free_vars_def n (None,(k,e)) = image (fun m -> m-(n+k)) (free_vars e \ (count (n+k)))
+and
+free_vars_def n (Some _,_) = {}
+
+let rec
+mkshift f k (CDecl vs) = CDecl (List.map (fun (n,m) -> (if n < k then n else (f (n-k))+k, m)) vs)
+and
+mkshift f k (CRaise err) = CRaise err
+and
+mkshift f k (CHandle e1 e2) = CHandle (mkshift f k e1) (mkshift f (k+1) e2)
+and
+mkshift f k (CVar v) = CVar (if v < k then v else (f (v-k))+k)
+and
+mkshift f k (CLit l) = CLit l
+and
+mkshift f k (CCon cn es) = CCon cn (List.map (mkshift f k) es)
+and
+mkshift f k (CTagEq e m) = CTagEq (mkshift f k e) m
+and
+mkshift f k (CProj e m) = CProj (mkshift f k e) m
+and
+mkshift f k (CLet e b) = CLet (mkshift f k e) (mkshift f (k+1) b)
+and
+mkshift f k (CLetrec defs b) =
+  let ns = List.length defs in
+  let defs = List.map (fun cb ->
+    match cb with | (Some _,_) -> cb | (None,(az,b)) -> (None,(az,mkshift f (k+ns+az) b)) end)
+    defs in
+  CLetrec defs (mkshift f (k+ns) b)
+and
+mkshift f k (CFun cb) = CFun
+  (match cb with | (Some _,_) -> cb | (None,(az,b)) -> (None,(az,mkshift f (k+1+az) b)) end)
+and
+mkshift f k (CCall e es) = CCall (mkshift f k e) (List.map (mkshift f k) es)
+and
+mkshift f k (CPrim1 p1 e) = CPrim1 p1 (mkshift f k e)
+and
+mkshift f k (CPrim2 p2 e1 e2) = CPrim2 p2 (mkshift f k e1) (mkshift f k e2)
+and
+mkshift f k (CUpd e1 e2) = CUpd (mkshift f k e1) (mkshift f k e2)
+and
+mkshift f k (CIf e1 e2 e3) = CIf (mkshift f k e1) (mkshift f k e2) (mkshift f k e3)
+
+let shift n = mkshift (fun v -> v+n)
+
+(* remove pattern-matching using continuations *)
+
+type exp_to_Cexp_state = <| bvars : list string ; cnmap : Pmap.map (id conN) num |>
+let rec cbv m v = <| m with bvars = v::m.bvars |>
+
+let rec
+pat_to_Cpat m (Pvar vn) = (<|m with bvars = vn::m.bvars|>, CPvar)
+and
+pat_to_Cpat m (Plit l) = (m, CPlit l)
+and
+pat_to_Cpat m (Pcon cn ps) =
+  let (m,Cps) = pats_to_Cpats m ps in
+  (m,CPcon (Pmap.find cn m.cnmap) Cps)
+and
+pat_to_Cpat m (Pref p) =
+  let (m,Cp) = pat_to_Cpat m p in
+  (m,CPref Cp)
+and
+pats_to_Cpats m [] = (m,[])
+and
+pats_to_Cpats m (p::ps) =
+  let (m,Cp) = pat_to_Cpat m p in
+  let (m,Cps) = pats_to_Cpats m ps in
+  (m,Cp::Cps)
+
+let rec
+Cpat_vars CPvar = 1
+and
+Cpat_vars (CPlit _) = 0
+and
+Cpat_vars (CPcon _ ps) = Cpat_vars_list ps
+and
+Cpat_vars (CPref p) = Cpat_vars p
+and
+Cpat_vars_list [] = 0
+and
+Cpat_vars_list (p::ps) = (Cpat_vars p)+(Cpat_vars_list ps)
+
+let rec
+remove_mat_vp fk sk v CPvar =
+  CLet (CVar v) sk
+and
+remove_mat_vp fk sk v (CPlit l) =
+  CIf (CPrim2 CEq (CVar v) (CLit l))
+    sk (CCall (CVar fk) [])
+and
+remove_mat_vp fk sk v (CPcon cn ps) =
+  CIf (CTagEq (CVar v) cn)
+    (remove_mat_con fk sk v 0 ps)
+    (CCall (CVar fk) [])
+and
+remove_mat_vp fk sk v (CPref p) =
+  CLet (CPrim1 CDer (CVar v))
+    (remove_mat_vp (fk+1) (shift 1 (Cpat_vars p) sk) 0 p)
+and
+remove_mat_con fk sk v n [] = sk
+and
+remove_mat_con fk sk v n (p::ps) =
+  let p1 = Cpat_vars p in
+  let p2 = Cpat_vars_list ps in
+  CLet (CProj (CVar v) n)
+    (remove_mat_vp (fk+1)
+      (remove_mat_con (fk+1+p1) (shift 1 (p2+p1) sk) (v+1+p1) (n+1) ps)
+      0 p)
+
+let rec
+remove_mat_var v [] = CRaise Bind_error
+and
+remove_mat_var v ((p,sk)::pes) =
+  CLet (CFun (None, (0,shift 1 0 (remove_mat_var v pes))))
+    (remove_mat_vp 0 (shift 1 (Cpat_vars p) sk) (v+1) p)
+
+let rec
+exp_to_Cexp m (Handle e x b) =
+  CHandle (exp_to_Cexp m e) (exp_to_Cexp (cbv m x) b)
+and
+exp_to_Cexp m (Raise err) = CRaise err
+and
+exp_to_Cexp m (Lit l) = CLit l
+and
+exp_to_Cexp m (Con cn es) =
+  CCon (Pmap.find cn m.cnmap) (exps_to_Cexps m es)
+and
+exp_to_Cexp m (Var (Short vn)) = CVar (the (find_index vn m.bvars 0))
+and
+exp_to_Cexp m (Var (Long _ _)) = CRaise Bind_error
+and
+exp_to_Cexp m (Fun vn e) =
+  CFun (None,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))
+and
+exp_to_Cexp m (App (Opn opn) e1 e2) =
+  let Ce1 = exp_to_Cexp m e1 in
+  let Ce2 = exp_to_Cexp m e2 in
+  CPrim2 (match opn with
+          | Plus   -> CAdd
+          | Minus  -> CSub
+          | Times  -> CMul
+          | Divide -> CDiv
+          | Modulo -> CMod
+          end)
+  Ce1 Ce2
+and
+exp_to_Cexp m (App (Opb opb) e1 e2) =
+  let Ce1 = exp_to_Cexp m e1 in
+  let Ce2 = exp_to_Cexp m e2 in
+  match opb with
+  | Lt -> CPrim2 CLt Ce1 Ce2
+  | Leq -> CPrim2 CLt (CPrim2 CSub Ce1 Ce2) (CLit (IntLit i1))
+  | opb ->
+      CLet Ce1 (
+        CLet (shift 1 0 Ce2) (
+          match opb with
+          | Gt ->  CPrim2 CLt (CVar 0) (CVar 1)
+          | Geq -> CPrim2 CLt (CPrim2 CSub (CVar 0) (CVar 1)) (CLit (IntLit i1))
+          end))
+  end
+and
+exp_to_Cexp m (App Equality e1 e2) =
+  let Ce1 = exp_to_Cexp m e1 in
+  let Ce2 = exp_to_Cexp m e2 in
+  CPrim2 CEq Ce1 Ce2
+and
+exp_to_Cexp m (App Opapp e1 e2) =
+  let Ce1 = exp_to_Cexp m e1 in
+  let Ce2 = exp_to_Cexp m e2 in
+  CCall Ce1 [Ce2]
+and
+exp_to_Cexp m (App Opassign e1 e2) =
+  let Ce1 = exp_to_Cexp m e1 in
+  let Ce2 = exp_to_Cexp m e2 in
+  CUpd Ce1 Ce2
+and
+exp_to_Cexp m (Uapp uop e) =
+  let Ce = exp_to_Cexp m e in
+  CPrim1 (match uop with
+          | Opref   -> CRef
+          | Opderef -> CDer
+          end) Ce
+and
+exp_to_Cexp m (Log log e1 e2) =
+  let Ce1 = exp_to_Cexp m e1 in
+  let Ce2 = exp_to_Cexp m e2 in
+  (match log with
+   | And -> CIf Ce1 Ce2 (CLit (Bool false))
+   | Or  -> CIf Ce1 (CLit (Bool true)) Ce2
+   end)
+and
+exp_to_Cexp m (If e1 e2 e3) =
+  let Ce1 = exp_to_Cexp m e1 in
+  let Ce2 = exp_to_Cexp m e2 in
+  let Ce3 = exp_to_Cexp m e3 in
+  CIf Ce1 Ce2 Ce3
+and
+exp_to_Cexp m (Mat e pes) =
+  let Ce = exp_to_Cexp m e in
+  let Cpes = pes_to_Cpes m pes in
+  let Cpes = List.map (fun (p,e) -> (p,shift 1 (Cpat_vars p) e)) Cpes in
+  CLet Ce (remove_mat_var 0 Cpes)
+and
+exp_to_Cexp m (Let vn e b) =
+  let Ce = exp_to_Cexp m e in
+  let Cb = exp_to_Cexp (cbv m vn) b in
+  CLet Ce Cb
+and
+exp_to_Cexp m (Letrec defs b) =
+  let m = <| m with bvars = (List.map (fun (n,_,_) -> n) defs) @ m.bvars |> in
+  CLetrec (defs_to_Cdefs m defs) (exp_to_Cexp m b)
+and
+defs_to_Cdefs m [] = []
+and
+defs_to_Cdefs m ((_,vn,e)::defs) =
+  let Ce = exp_to_Cexp (cbv m vn) e in
+  let Cdefs = defs_to_Cdefs m defs in
+  (None,(1,Ce))::Cdefs
+and
+pes_to_Cpes m [] = []
+and
+pes_to_Cpes m ((p,e)::pes) =
+  let Cpes = pes_to_Cpes m pes in
+  let (m,Cp) = pat_to_Cpat m p in
+  let Ce = exp_to_Cexp m e in
+  (Cp,Ce)::Cpes
+and
+exps_to_Cexps s [] = []
+and
+exps_to_Cexps m (e::es) =
+  exp_to_Cexp m e :: exps_to_Cexps m es

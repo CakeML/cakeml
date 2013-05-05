@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib Defn pairTheory pred_setTheory listTheory finite_mapTheory state_transformerTheory lcsymtacs
-open terminationTheory CompilerLibTheory CompilerPrimitivesTheory CompileTheory IntLangTheory
+open terminationTheory CompilerLibTheory CompilerPrimitivesTheory CompileTheory IntLangTheory ToIntLangTheory
 val _ = new_theory "compileTermination"
 
 (* size helper theorems *)
