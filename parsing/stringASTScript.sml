@@ -8,7 +8,7 @@ val _ = new_theory "stringAST"
 val stringAST_def = Define`
   stringAST s =
     do
-      toks0 <- lexer_fun s ;
+      toks0 <- SOME (lexer_fun s) ;
       let toks = FILTER (\t. ¬isWhitespaceT t) toks0 in
       mmlParseDecls toks
     od
