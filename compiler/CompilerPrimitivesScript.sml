@@ -19,7 +19,7 @@ val _ = new_theory "CompilerPrimitives"
 
 (map_result f (Rval v) = (Rval (f v)))
 /\
-(map_result f (Rerr e) = (Rerr e))`;
+(map_result _ (Rerr e) = (Rerr e))`;
 
 
  val every_result_def = Define `

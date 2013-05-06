@@ -5,7 +5,7 @@ open CompilerLib
 let rec
 map_result f (Rval v) = Rval (f v)
 and
-map_result f (Rerr e) = Rerr e
+map_result _ (Rerr e) = Rerr e
 
 let rec
 every_result _ (Rerr _) = true
