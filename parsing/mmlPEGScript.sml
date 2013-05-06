@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib
 
-open mmlGrammarTheory pegexecTheory
+open gramTheory pegexecTheory
 
 local open monadsyntax in end
 

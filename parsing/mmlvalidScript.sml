@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib
 
-open mmlGrammarTheory
+open gramTheory
 open lcsymtacs
 open boolSimps
 open monadsyntax

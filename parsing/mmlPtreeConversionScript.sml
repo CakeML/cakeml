@@ -1,8 +1,10 @@
 open HolKernel Parse boolLib bossLib
 
-open mmlGrammarTheory
+open gramTheory
 
 open monadsyntax lcsymtacs
+
+local open ElabTheory in end (* for "ast" type *)
 
 val _ = new_theory "mmlPtreeConversion"
 
