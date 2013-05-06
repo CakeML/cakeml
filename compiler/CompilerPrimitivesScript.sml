@@ -24,7 +24,7 @@ val _ = new_theory "CompilerPrimitives"
 
  val every_result_def = Define `
 
-(every_result  P (Rerr _) = T)
+(every_result _ (Rerr _) = T)
 /\
 (every_result P (Rval v) = (P v))`;
 
@@ -42,8 +42,7 @@ val _ = new_theory "CompilerPrimitives"
 
 (num_to_bool 0 = F)
 /\
-(num_to_bool (SUC 0) = T)`;
-
+(num_to_bool _ = T)`;
 
 val _ = export_theory()
 

@@ -8,7 +8,7 @@ and
 map_result f (Rerr e) = Rerr e
 
 let rec
-every_result  P (Rerr _) = true
+every_result _ (Rerr _) = true
 and
 every_result P (Rval v) = P v
 
@@ -22,5 +22,4 @@ error_to_int (Int_error n) = Int.(+) i2 n
 let rec
 num_to_bool 0 = false
 and
-num_to_bool 1 = true
-
+num_to_bool _ = true

@@ -19,7 +19,7 @@ val _ = new_theory "ToIntLang"
 
  val free_vars_defn = Hol_defn "free_vars" `
 
-(free_vars (CDecl xs) = ( LIST_TO_SET ( MAP (\ (n,m) . n) xs)))
+(free_vars (CDecl xs) = ( LIST_TO_SET ( MAP FST xs)))
 /\
 (free_vars (CRaise _) = ({}))
 /\
@@ -58,13 +58,13 @@ val _ = new_theory "ToIntLang"
 /\
 (free_vars_list (e::es) = (free_vars e UNION free_vars_list es))
 /\
-(free_vars_defs n [] = ({}))
+(free_vars_defs _ [] = ({}))
 /\
 (free_vars_defs n (d::ds) = (free_vars_def n d UNION free_vars_defs n ds))
 /\
 (free_vars_def n (NONE,(k,e)) = ( IMAGE (\ m . m -(n +k)) (free_vars e DIFF ( count (n +k)))))
 /\
-(free_vars_def n (SOME _,_) = ({}))`;
+(free_vars_def _ (SOME _,_) = ({}))`;
 
 val _ = Defn.save_defn free_vars_defn;
 
@@ -72,13 +72,13 @@ val _ = Defn.save_defn free_vars_defn;
 
 (mkshift f k (CDecl vs) = (CDecl ( MAP (\ (n,m) . ((if n < k then n else (f (n - k)) +k), m)) vs)))
 /\
-(mkshift f k (CRaise err) = (CRaise err))
+(mkshift _ _ (CRaise err) = (CRaise err))
 /\
 (mkshift f k (CHandle e1 e2) = (CHandle (mkshift f k e1) (mkshift f (k +1) e2)))
 /\
 (mkshift f k (CVar v) = (CVar (if v < k then v else (f (v - k)) +k)))
 /\
-(mkshift f k (CLit l) = (CLit l))
+(mkshift _ _ (CLit l) = (CLit l))
 /\
 (mkshift f k (CCon cn es) = (CCon cn ( MAP (mkshift f k) es)))
 /\
@@ -164,7 +164,7 @@ val _ = Defn.save_defn Cpat_vars_defn;
 
  val remove_mat_vp_defn = Hol_defn "remove_mat_vp" `
 
-(remove_mat_vp fk sk v CPvar =  
+(remove_mat_vp _ sk v CPvar =  
 (CLet (CVar v) sk))
 /\
 (remove_mat_vp fk sk v (CPlit l) =  
@@ -180,7 +180,7 @@ val _ = Defn.save_defn Cpat_vars_defn;
 (CLet (CPrim1 CDer (CVar v))
     (remove_mat_vp (fk +1) (shift 1 (Cpat_vars p) sk) 0 p)))
 /\
-(remove_mat_con fk sk v n [] = sk)
+(remove_mat_con _ sk _ _ [] = sk)
 /\
 (remove_mat_con fk sk v n (p::ps) =  
 (let p1 = ( Cpat_vars p) in
@@ -194,7 +194,7 @@ val _ = Defn.save_defn remove_mat_vp_defn;
 
  val remove_mat_var_defn = Hol_defn "remove_mat_var" `
 
-(remove_mat_var v [] = (CRaise Bind_error))
+(remove_mat_var _ [] = (CRaise Bind_error))
 /\
 (remove_mat_var v ((p,sk)::pes) =  
 (CLet (CFun (NONE, (0,shift 1 0 (remove_mat_var v pes))))
@@ -207,16 +207,16 @@ val _ = Defn.save_defn remove_mat_var_defn;
 (exp_to_Cexp m (Handle e x b) =  
 (CHandle (exp_to_Cexp m e) (exp_to_Cexp (cbv m x) b)))
 /\
-(exp_to_Cexp m (Raise err) = (CRaise err))
+(exp_to_Cexp _ (Raise err) = (CRaise err))
 /\
-(exp_to_Cexp m (Lit l) = (CLit l))
+(exp_to_Cexp _ (Lit l) = (CLit l))
 /\
 (exp_to_Cexp m (Con cn es) =  
 (CCon ( FAPPLY  m.cnmap  cn) (exps_to_Cexps m es)))
 /\
 (exp_to_Cexp m (Var (Short vn)) = (CVar ( THE (find_index vn m.bvars 0))))
 /\
-(exp_to_Cexp m (Var (Long _ _)) = (CRaise Bind_error))
+(exp_to_Cexp _ (Var (Long _ _)) = (CRaise Bind_error))
 /\
 (exp_to_Cexp m (Fun vn e) =  
 (CFun (NONE,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))))
@@ -245,6 +245,7 @@ val _ = Defn.save_defn remove_mat_var_defn;
           (case opb of
             Gt =>  CPrim2 CLt (CVar 0) (CVar 1)
           | Geq => CPrim2 CLt (CPrim2 CSub (CVar 0) (CVar 1)) (CLit (IntLit i1))
+          | _ => CRaise Bind_error (* should not happen *)
           )))
   )))
 /\
@@ -300,14 +301,14 @@ val _ = Defn.save_defn remove_mat_var_defn;
   (case (p ) of ( (n,_,_) ) => n )) defs) ++ m.bvars |>)) in
   CLetrec (defs_to_Cdefs m defs) (exp_to_Cexp m b)))
 /\
-(defs_to_Cdefs m [] = ([]))
+(defs_to_Cdefs _ [] = ([]))
 /\
 (defs_to_Cdefs m ((_,vn,e)::defs) =  
 (let Ce = (exp_to_Cexp (cbv m vn) e) in
   let Cdefs = (defs_to_Cdefs m defs) in
   (NONE,(1,Ce)) ::Cdefs))
 /\
-(pes_to_Cpes m [] = ([]))
+(pes_to_Cpes _ [] = ([]))
 /\
 (pes_to_Cpes m ((p,e)::pes) =  
 (let Cpes = (pes_to_Cpes m pes) in
@@ -315,7 +316,7 @@ val _ = Defn.save_defn remove_mat_var_defn;
   let Ce = (exp_to_Cexp m e) in
   (Cp,Ce) ::Cpes))
 /\
-(exps_to_Cexps s [] = ([]))
+(exps_to_Cexps _ [] = ([]))
 /\
 (exps_to_Cexps m (e::es) =  
 (exp_to_Cexp m e :: exps_to_Cexps m es))`;
@@ -328,7 +329,7 @@ val _ = Defn.save_defn exp_to_Cexp_defn;
 
  val v_to_Cv_defn = Hol_defn "v_to_Cv" `
 
-(v_to_Cv m (Litv l) = (CLitv l))
+(v_to_Cv _ (Litv l) = (CLitv l))
 /\
 (v_to_Cv m (Conv cn vs) =  
 (CConv ( FAPPLY  m  cn) (vs_to_Cvs m vs)))
@@ -348,13 +349,13 @@ val _ = Defn.save_defn exp_to_Cexp_defn;
   let Cdefs = ( defs_to_Cdefs m defs) in
   CRecClos Cenv Cdefs ( THE (find_index vn fns 0))))
 /\
-(v_to_Cv m (Loc n) = (CLoc n))
+(v_to_Cv _ (Loc n) = (CLoc n))
 /\
-(vs_to_Cvs m [] = ([]))
+(vs_to_Cvs _ [] = ([]))
 /\
 (vs_to_Cvs m (v::vs) = (v_to_Cv m v :: vs_to_Cvs m vs))
 /\
-(env_to_Cenv m [] = ([]))
+(env_to_Cenv _ [] = ([]))
 /\
 (env_to_Cenv m ((_,v)::env) =  
 ((v_to_Cv m v) ::(env_to_Cenv m env)))`;

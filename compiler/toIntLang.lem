@@ -5,7 +5,7 @@ open IntLang
 open Ast
 
 let rec
-free_vars (CDecl xs) = Set.from_list (List.map (fun (n,m) -> n) xs)
+free_vars (CDecl xs) = Set.from_list (List.map fst xs)
 and
 free_vars (CRaise _) = {}
 and
@@ -44,24 +44,24 @@ free_vars_list [] = {}
 and
 free_vars_list (e::es) = free_vars e union free_vars_list es
 and
-free_vars_defs n [] = {}
+free_vars_defs _ [] = {}
 and
 free_vars_defs n (d::ds) = free_vars_def n d union free_vars_defs n ds
 and
 free_vars_def n (None,(k,e)) = image (fun m -> m-(n+k)) (free_vars e \ (count (n+k)))
 and
-free_vars_def n (Some _,_) = {}
+free_vars_def _ (Some _,_) = {}
 
 let rec
 mkshift f k (CDecl vs) = CDecl (List.map (fun (n,m) -> (if n < k then n else (f (n-k))+k, m)) vs)
 and
-mkshift f k (CRaise err) = CRaise err
+mkshift _ _ (CRaise err) = CRaise err
 and
 mkshift f k (CHandle e1 e2) = CHandle (mkshift f k e1) (mkshift f (k+1) e2)
 and
 mkshift f k (CVar v) = CVar (if v < k then v else (f (v-k))+k)
 and
-mkshift f k (CLit l) = CLit l
+mkshift _ _ (CLit l) = CLit l
 and
 mkshift f k (CCon cn es) = CCon cn (List.map (mkshift f k) es)
 and
@@ -132,7 +132,7 @@ and
 Cpat_vars_list (p::ps) = (Cpat_vars p)+(Cpat_vars_list ps)
 
 let rec
-remove_mat_vp fk sk v CPvar =
+remove_mat_vp _ sk v CPvar =
   CLet (CVar v) sk
 and
 remove_mat_vp fk sk v (CPlit l) =
@@ -148,7 +148,7 @@ remove_mat_vp fk sk v (CPref p) =
   CLet (CPrim1 CDer (CVar v))
     (remove_mat_vp (fk+1) (shift 1 (Cpat_vars p) sk) 0 p)
 and
-remove_mat_con fk sk v n [] = sk
+remove_mat_con _ sk _ _ [] = sk
 and
 remove_mat_con fk sk v n (p::ps) =
   let p1 = Cpat_vars p in
@@ -159,7 +159,7 @@ remove_mat_con fk sk v n (p::ps) =
       0 p)
 
 let rec
-remove_mat_var v [] = CRaise Bind_error
+remove_mat_var _ [] = CRaise Bind_error
 and
 remove_mat_var v ((p,sk)::pes) =
   CLet (CFun (None, (0,shift 1 0 (remove_mat_var v pes))))
@@ -169,16 +169,16 @@ let rec
 exp_to_Cexp m (Handle e x b) =
   CHandle (exp_to_Cexp m e) (exp_to_Cexp (cbv m x) b)
 and
-exp_to_Cexp m (Raise err) = CRaise err
+exp_to_Cexp _ (Raise err) = CRaise err
 and
-exp_to_Cexp m (Lit l) = CLit l
+exp_to_Cexp _ (Lit l) = CLit l
 and
 exp_to_Cexp m (Con cn es) =
   CCon (Pmap.find cn m.cnmap) (exps_to_Cexps m es)
 and
 exp_to_Cexp m (Var (Short vn)) = CVar (the (find_index vn m.bvars 0))
 and
-exp_to_Cexp m (Var (Long _ _)) = CRaise Bind_error
+exp_to_Cexp _ (Var (Long _ _)) = CRaise Bind_error
 and
 exp_to_Cexp m (Fun vn e) =
   CFun (None,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))
@@ -207,6 +207,7 @@ exp_to_Cexp m (App (Opb opb) e1 e2) =
           match opb with
           | Gt ->  CPrim2 CLt (CVar 0) (CVar 1)
           | Geq -> CPrim2 CLt (CPrim2 CSub (CVar 0) (CVar 1)) (CLit (IntLit i1))
+          | _ -> CRaise Bind_error (* should not happen *)
           end))
   end
 and
@@ -261,14 +262,14 @@ exp_to_Cexp m (Letrec defs b) =
   let m = <| m with bvars = (List.map (fun (n,_,_) -> n) defs) @ m.bvars |> in
   CLetrec (defs_to_Cdefs m defs) (exp_to_Cexp m b)
 and
-defs_to_Cdefs m [] = []
+defs_to_Cdefs _ [] = []
 and
 defs_to_Cdefs m ((_,vn,e)::defs) =
   let Ce = exp_to_Cexp (cbv m vn) e in
   let Cdefs = defs_to_Cdefs m defs in
   (None,(1,Ce))::Cdefs
 and
-pes_to_Cpes m [] = []
+pes_to_Cpes _ [] = []
 and
 pes_to_Cpes m ((p,e)::pes) =
   let Cpes = pes_to_Cpes m pes in
@@ -276,7 +277,7 @@ pes_to_Cpes m ((p,e)::pes) =
   let Ce = exp_to_Cexp m e in
   (Cp,Ce)::Cpes
 and
-exps_to_Cexps s [] = []
+exps_to_Cexps _ [] = []
 and
 exps_to_Cexps m (e::es) =
   exp_to_Cexp m e :: exps_to_Cexps m es
@@ -286,7 +287,7 @@ exps_to_Cexps m (e::es) =
 open SemanticPrimitives
 
 let rec
-v_to_Cv m (Litv l) = CLitv l
+v_to_Cv _ (Litv l) = CLitv l
 and
 v_to_Cv m (Conv cn vs) =
   CConv (Pmap.find cn m) (vs_to_Cvs m vs)
@@ -305,13 +306,13 @@ v_to_Cv m (Recclosure env defs vn) =
   let Cdefs = defs_to_Cdefs m defs in
   CRecClos Cenv Cdefs (the (find_index vn fns 0))
 and
-v_to_Cv m (Loc n) = CLoc n
+v_to_Cv _ (Loc n) = CLoc n
 and
-vs_to_Cvs m [] = []
+vs_to_Cvs _ [] = []
 and
 vs_to_Cvs m (v::vs) = v_to_Cv m v :: vs_to_Cvs m vs
 and
-env_to_Cenv m [] = []
+env_to_Cenv _ [] = []
 and
 env_to_Cenv m ((_,v)::env) =
   (v_to_Cv m v)::(env_to_Cenv m env)

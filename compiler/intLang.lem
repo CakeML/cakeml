@@ -62,14 +62,14 @@ no_closures (CConv _ vs) = List.for_all no_closures vs
 and
 no_closures (CRecClos _ _ _) = false
 and
-no_closures (CLoc n) = true
+no_closures (CLoc _) = true
 
 let rec
 doPrim2 b ty op (CLitv (IntLit x)) (CLitv (IntLit y)) =
   if b && y = i0 then Rerr (Rraise Div_error)
   else Rval (CLitv (ty (op x y)))
 and
-doPrim2 b ty op _ _ = Rerr Rtype_error
+doPrim2 _ _ _ _ _ = Rerr Rtype_error
 
 let rec
 CevalPrim2 CAdd = doPrim2 false IntLit Int.(+)
@@ -530,7 +530,7 @@ no_labs_defs (d::ds) = no_labs_def d && no_labs_defs ds
 and
 no_labs_def (Some _,_) = false
 and
-no_labs_def (None,(az,b)) = no_labs b
+no_labs_def (None,(_,b)) = no_labs b
 
 let rec
 all_labs (CDecl _) = true
@@ -573,6 +573,6 @@ all_labs_defs [] = true
 and
 all_labs_defs (d::ds) = all_labs_def d && all_labs_defs ds
 and
-all_labs_def (Some _,(az,b)) = all_labs b
+all_labs_def (Some _,(_,b)) = all_labs b
 and
-all_labs_def (None,(az,b)) = false
+all_labs_def (None,_) = false

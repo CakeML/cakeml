@@ -90,7 +90,7 @@ val _ = Hol_datatype `
 /\
 (no_closures (CRecClos _ _ _) = F)
 /\
-(no_closures (CLoc n) = T)`;
+(no_closures (CLoc _) = T)`;
 
 val _ = Defn.save_defn no_closures_defn;
 
@@ -100,7 +100,7 @@ val _ = Defn.save_defn no_closures_defn;
 (if b /\ (y = i0) then Rerr (Rraise Div_error)
   else Rval (CLitv (ty (op x y)))))
 /\
-(doPrim2 b ty op _ _ = (Rerr Rtype_error))`;
+(doPrim2 _ _ _ _ _ = (Rerr Rtype_error))`;
 
 
  val CevalPrim2_def = Define `
@@ -558,7 +558,7 @@ syneq (CLoc n) (CLoc n))`;
 /\
 (no_labs_def (SOME _,_) = F)
 /\
-(no_labs_def (NONE,(az,b)) = (no_labs b))`;
+(no_labs_def (NONE,(_,b)) = (no_labs b))`;
 
 val _ = Defn.save_defn no_labs_defn;
 
@@ -604,9 +604,9 @@ val _ = Defn.save_defn no_labs_defn;
 /\
 (all_labs_defs (d::ds) = (all_labs_def d /\ all_labs_defs ds))
 /\
-(all_labs_def (SOME _,(az,b)) = (all_labs b))
+(all_labs_def (SOME _,(_,b)) = (all_labs b))
 /\
-(all_labs_def (NONE,(az,b)) = F)`;
+(all_labs_def (NONE,_) = F)`;
 
 val _ = Defn.save_defn all_labs_defn;
 val _ = export_theory()

@@ -41,18 +41,18 @@ val _ = new_theory "ToBytecode"
 
  val label_closures_defn = Hol_defn "label_closures" `
 
-(label_closures ez j (CDecl xs) = (CDecl xs, j))
+(label_closures _ j (CDecl xs) = (CDecl xs, j))
 /\
-(label_closures ez j (CRaise err) = (CRaise err, j))
+(label_closures _ j (CRaise err) = (CRaise err, j))
 /\
 (label_closures ez j (CHandle e1 e2) =  
 (let (e1,j) = (label_closures ez j e1) in
   let (e2,j) = (label_closures (ez +1) j e2) in
   (CHandle e1 e2, j)))
 /\
-(label_closures ez j (CVar x) = (CVar x, j))
+(label_closures _ j (CVar x) = (CVar x, j))
 /\
-(label_closures ez j (CLit l) = (CLit l, j))
+(label_closures _ j (CLit l) = (CLit l, j))
 /\
 (label_closures ez j (CCon cn es) =  
 (let (es,j) = (label_closures_list ez j es) in
@@ -82,7 +82,7 @@ val _ = new_theory "ToBytecode"
 (let (defs,j) = (label_closures_defs ez j 1 0 [def]) in
   (CFun ( EL  0  defs), j)))
 /\
-(label_closures ez j (CFun (SOME x,y)) = (CFun (SOME x,y),j)) (* should not happen *)
+(label_closures _ j (CFun (SOME x,y)) = (CFun (SOME x,y),j)) (* should not happen *)
 /\
 (label_closures ez j (CCall e es) =  
 (let (e,j) = (label_closures ez j e) in
@@ -109,14 +109,14 @@ val _ = new_theory "ToBytecode"
   let (e3,j) = (label_closures ez j e3) in
   (CIf e1 e2 e3, j)))
 /\
-(label_closures_list ez j [] = ([],j))
+(label_closures_list _ j [] = ([],j))
 /\
 (label_closures_list ez j (e::es) =  
 (let (e,j) = (label_closures ez j e) in
   let (es,j) = (label_closures_list ez j es) in
   ((e ::es),j)))
 /\
-(label_closures_defs ez j nz k [] = ([], j))
+(label_closures_defs _ j _ _ [] = ([], j))
 /\
 (label_closures_defs ez ld nz k ((az,b)::defs) =  
 (let (ccenv,ceenv,b) = ( bind_fv (az,b) nz k) in
@@ -244,8 +244,9 @@ val _ = Defn.save_defn compile_envref_defn;
   (*                                                                      sz *)
   (* cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0,    *)let s = ( emit s [Stack (Load k)]) in
   (* CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let (z,s) = ( FOLDL (emit_ceref (sz +nk)) ((sz +nk +nk +1),s) refs) in
-  let (z,s) = ( FOLDL (emit_ceenv env0) (z,s) envs) in
+  let (z,s) = ( FOLDL (emit_ceref (sz +nk)) ((sz +nk +nk +1),s) refs) in  
+  (case FOLDL (emit_ceenv env0) (z,s) envs of
+      (_,s) =>
   (* e_kj, ..., e_k1, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   let s = ( emit s [Stack (Cons 0 ( LENGTH refs + LENGTH envs))]) in
   (* env_k, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
@@ -253,7 +254,8 @@ val _ = Defn.save_defn compile_envref_defn;
   (* cl_k,  cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   let s = ( emit s [Stack (Store k)]) in
   (* cl_1, ..., cl_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  (s,(k +1))))`;
+  (s,(k + 1))
+  )))`;
 
 
  val update_refptr_def = Define `
@@ -454,7 +456,7 @@ val _ = Defn.save_defn compile_envref_defn;
 (compile_bindings env t sz e n s m =  
 (compile_bindings ((CTLet (sz +(n +1))) ::env) t sz e (n +1) s (m - 1)))
 /\
-(compile_nts env sz s [] = s)
+(compile_nts _ _ s [] = s)
 /\
 (compile_nts env sz s (e::es) =  
 (compile_nts env (sz +1) (compile env (TCNonTail F) sz s e) es))`;
@@ -465,15 +467,15 @@ val _ = Defn.save_defn compile_defn;
 
  val free_labs_defn = Hol_defn "free_labs" `
 
-(free_labs ez (CDecl _) = ([]))
+(free_labs _ (CDecl _) = ([]))
 /\
-(free_labs ez (CRaise _) = ([]))
+(free_labs _ (CRaise _) = ([]))
 /\
 (free_labs ez (CHandle e1 e2) = (free_labs ez e1 ++ free_labs (ez +1) e2))
 /\
-(free_labs ez (CVar _) = ([]))
+(free_labs _ (CVar _) = ([]))
 /\
-(free_labs ez (CLit _) = ([]))
+(free_labs _ (CLit _) = ([]))
 /\
 (free_labs ez (CCon _ es) = (free_labs_list ez es))
 /\
@@ -499,18 +501,18 @@ val _ = Defn.save_defn compile_defn;
 /\
 (free_labs ez (CIf e1 e2 e3) = (free_labs ez e1 ++ (free_labs ez e2 ++ free_labs ez e3)))
 /\
-(free_labs_list ez [] = ([]))
+(free_labs_list _ [] = ([]))
 /\
 (free_labs_list ez (e::es) = (free_labs ez e ++ free_labs_list ez es))
 /\
-(free_labs_defs ez nz ix [] = ([]))
+(free_labs_defs _ _ _ [] = ([]))
 /\
 (free_labs_defs ez nz ix (d::ds) = (free_labs_def ez nz ix d ++ free_labs_defs ez nz (ix +1) ds))
 /\
 (free_labs_def ez nz ix (SOME (l,(cc,(re,ev))),(az,b)) =
   (((ez,nz,ix),((l,(cc,(re,ev))),(az,b))) ::(free_labs (1 + LENGTH re + LENGTH ev + az) b)))
 /\
-(free_labs_def ez nz ix (NONE,(az,b)) = (free_labs (ez +nz +az) b))`;
+(free_labs_def ez nz _ (NONE,(az,b)) = (free_labs (ez +nz +az) b))`;
 
 val _ = Defn.save_defn free_labs_defn;
 
@@ -534,7 +536,7 @@ val _ = Defn.save_defn free_labs_defn;
 
  val calculate_labels_defn = Hol_defn "calculate_labels" `
 
-(calculate_labels il m n a [] = (m,n,a))
+(calculate_labels _ m n a [] = (m,n,a))
 /\
 (calculate_labels il m n a (Label l::lbc) =  
 (calculate_labels il ( FUPDATE  m ( l, n)) n a lbc))
@@ -546,7 +548,7 @@ val _ = Defn.save_defn calculate_labels_defn;
 
  val replace_labels_defn = Hol_defn "replace_labels" `
 
-(replace_labels m a [] = a)
+(replace_labels _ a [] = a)
 /\
 (replace_labels m a (Jump (Lab l)::bc) =  
 (replace_labels m (Jump (Addr ( FAPPLY  m  l)) ::a) bc))
@@ -567,9 +569,11 @@ val _ = Defn.save_defn replace_labels_defn;
 
  val compile_labels_def = Define `
 
-(compile_labels il lbc =  
-(let (m,n,bc) = ( calculate_labels il FEMPTY 0 [] lbc) in
-    replace_labels m [] bc))`;
+(compile_labels il lbc = 
+  ((case calculate_labels il FEMPTY 0 [] lbc of
+       (m,_,bc) =>
+   replace_labels m [] bc
+   )))`;
 
 val _ = export_theory()
 

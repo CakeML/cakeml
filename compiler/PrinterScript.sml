@@ -23,18 +23,19 @@ val _ = Hol_datatype `
     OLit of lit
   | OConv of conN id => ov list
   | OFn
-  | OLoc of num`;
- (* machine, not semantic, address *)
+  | OLoc of num (* machine, not semantic, address *)
+  | OError`;
+ (* internal machine value (pointer) that should not appear *)
 
  val v_to_ov_defn = Hol_defn "v_to_ov" `
 
-(v_to_ov s (Litv l) = (OLit l))
+(v_to_ov _ (Litv l) = (OLit l))
 /\
 (v_to_ov s (Conv cn vs) = (OConv cn ( MAP (v_to_ov s) vs)))
 /\
-(v_to_ov s (Closure _ _ _) = OFn)
+(v_to_ov _ (Closure _ _ _) = OFn)
 /\
-(v_to_ov s (Recclosure _ _ _) = OFn)
+(v_to_ov _ (Recclosure _ _ _) = OFn)
 /\
 (v_to_ov s (Loc n) = (OLoc ( EL  n  s)))`;
 
@@ -42,19 +43,19 @@ val _ = Defn.save_defn v_to_ov_defn;
 
  val Cv_to_ov_defn = Hol_defn "Cv_to_ov" `
 
-(Cv_to_ov m s (CLitv l) = (OLit l))
+(Cv_to_ov _ _ (CLitv l) = (OLit l))
 /\
 (Cv_to_ov m s (CConv cn vs) = (OConv ( FAPPLY  m  cn) ( MAP (Cv_to_ov m s) vs)))
 /\
-(Cv_to_ov m s (CRecClos _ _ _) = OFn)
+(Cv_to_ov _ _ (CRecClos _ _ _) = OFn)
 /\
-(Cv_to_ov m s (CLoc n) = (OLoc ( EL  n  s)))`;
+(Cv_to_ov _ s (CLoc n) = (OLoc ( EL  n  s)))`;
 
 val _ = Defn.save_defn Cv_to_ov_defn;
 
  val bv_to_ov_defn = Hol_defn "bv_to_ov" `
 
-(bv_to_ov m (Number i) = (OLit (IntLit i)))
+(bv_to_ov _ (Number i) = (OLit (IntLit i)))
 /\
 (bv_to_ov m (Block n vs) =  
 (if n = (bool_to_tag F) then OLit (Bool F) else
@@ -63,7 +64,9 @@ val _ = Defn.save_defn Cv_to_ov_defn;
   if n = closure_tag then OFn else
   OConv ( FAPPLY  m  (n - block_tag)) ( MAP (bv_to_ov m) vs)))
 /\
-(bv_to_ov m (RefPtr n) = (OLoc n))`;
+(bv_to_ov _ (RefPtr n) = (OLoc n))
+/\
+(bv_to_ov _ _ = OError)`;
 
 val _ = Defn.save_defn bv_to_ov_defn;
 val _ = export_theory()

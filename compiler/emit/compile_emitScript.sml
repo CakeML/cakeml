@@ -120,13 +120,8 @@ val defs = map EmitML.DEFN
 ]
 
 val num_to_bool = prove(
-``num_to_bool n = if n = 0 then F else if n = 1 then T else ARB``,
-SRW_TAC[][num_to_bool_primitive_def] THEN
-SELECT_ELIM_TAC THEN
-SRW_TAC[][relationTheory.WFREC_THM] THEN1
-PROVE_TAC[prim_recTheory.WF_LESS] THEN
-Cases_on `n` THEN SRW_TAC[][] THEN
-Cases_on `n'` THEN SRW_TAC[][])
+``num_to_bool n <=> n <> 0``,
+Cases_on `n` THEN SRW_TAC[][num_to_bool_def])
 
 val _ = EmitML.eSML "compile" (
   (EmitML.OPEN ["num","fmap","set","sum","bytecode","state_transformer"])
