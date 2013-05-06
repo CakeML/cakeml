@@ -1,6 +1,6 @@
 open HolKernel boolLib boolSimps bossLib quantHeuristicsLib pairTheory listTheory alistTheory prim_recTheory sortingTheory whileTheory
 open Parse relationTheory arithmeticTheory rich_listTheory finite_mapTheory pred_setTheory state_transformerTheory lcsymtacs
-open SatisfySimps miscLib miscTheory IntLangTheory ToBytecodeTheory compileTerminationTheory intLangTheory
+open SatisfySimps miscLib miscTheory IntLangTheory ToBytecodeTheory compilerTerminationTheory intLangTheory
 val _ = new_theory"labelClosures"
 
 (*

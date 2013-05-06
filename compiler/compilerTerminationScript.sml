@@ -1,6 +1,6 @@
 open HolKernel boolLib boolSimps bossLib Defn pairTheory pred_setTheory listTheory finite_mapTheory state_transformerTheory lcsymtacs
-open terminationTheory CompilerLibTheory CompilerPrimitivesTheory CompileTheory IntLangTheory ToIntLangTheory ToBytecodeTheory
-val _ = new_theory "compileTermination"
+open terminationTheory CompilerLibTheory CompilerPrimitivesTheory IntLangTheory ToIntLangTheory ToBytecodeTheory CompilerTheory PrinterTheory
+val _ = new_theory "compilerTermination"
 
 (* size helper theorems *)
 
@@ -235,8 +235,8 @@ val (number_constructors_def,number_constructors_ind) = register "number_constru
   tprove_no_defn ((number_constructors_def,number_constructors_ind),
   WF_REL_TAC `measure (LENGTH o FST)` >> rw[]))
 
-val (repl_dec_def,repl_dec_ind) = register "repl_dec" (
-  tprove_no_defn ((repl_dec_def,repl_dec_ind),
+val (compile_dec_def,compile_dec_ind) = register "compile_dec" (
+  tprove_no_defn ((compile_dec_def,compile_dec_ind),
   WF_REL_TAC `measure (dec_size o SND)`))
 
 val (bv_to_ov_def,bv_to_ov_ind) = register "bv_to_ov" (
@@ -258,7 +258,7 @@ val _ = register "replace_labels" (
 
 val _ = export_rewrites
 ["ToBytecode.emit_def","ToBytecode.get_labels_def","ToBytecode.emit_ceref_def","ToBytecode.emit_ceenv_def"
-,"ToBytecode.prim1_to_bc_def","ToBytecode.prim2_to_bc_def","Compile.cmap_def","ToIntLang.cbv_def","Compile.etC_def"
+,"ToBytecode.prim1_to_bc_def","ToBytecode.prim2_to_bc_def","Compiler.cmap_def","ToIntLang.cbv_def","Compiler.etC_def"
 ,"ToIntLang.remove_mat_vp_def","free_vars_def","no_closures_def"
 ,"Cv_to_ov_def","v_to_ov_def"
 ,"ToBytecode.compile_varref_def","compile_envref_def"

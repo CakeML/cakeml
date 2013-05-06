@@ -1,5 +1,5 @@
-open SemanticPrimitives
 open Ast
+open SemanticPrimitives
 open CompilerLib
 
 let rec

@@ -12,7 +12,7 @@ PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = ../bytecode/bytecodeEvalTheory\
- ../compileTerminationTheory\
+ ../compilerTerminationTheory\
  $(HOLDIR)/src/TeX/EmitTeX\
  $(HOLDIR)/src/emit/basis_emitTheory\
  ../../translator/ml_translatorLib

@@ -1,6 +1,6 @@
 open HolKernel bossLib boolLib EmitTeX
 open bytecode_emitTheory extended_emitTheory basis_emitTheory
-open CompilerLibTheory CompilerPrimitivesTheory IntLangTheory ToIntLangTheory ToBytecodeTheory CompileTheory compileTerminationTheory
+open CompilerLibTheory CompilerPrimitivesTheory IntLangTheory ToIntLangTheory ToBytecodeTheory CompilerTheory PrinterTheory compilerTerminationTheory
 val _ = new_theory "compile_emit"
 
 val _ = Parse.temp_type_abbrev("set",``:'a -> bool``)
@@ -63,7 +63,7 @@ val data = map
   , datatype_exp_to_Cexp_state
   , datatype_call_context
   , datatype_compiler_result
-  , datatype_repl_state
+  , datatype_compiler_state
   , datatype_ov
   ]
 
@@ -106,15 +106,15 @@ val defs = map EmitML.DEFN
 , calculate_labels_def
 , replace_labels_def
 , compile_labels_def
-, init_repl_state_def
+, init_compiler_state_def
 , pat_to_Cpat_def
 , remove_mat_vp_def
 , underscore_rule remove_mat_var_def
 , underscore_rule exp_to_Cexp_def
 , compile_Cexp_def
-, repl_exp_def
+, compile_exp_def
 , number_constructors_def
-, repl_dec_def
+, compile_dec_def
 , v_to_ov_def
 , bv_to_ov_def
 ]

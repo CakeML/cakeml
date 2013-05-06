@@ -1,0 +1,70 @@
+open Ast
+open CompilerLib
+open IntLang
+open ToIntLang
+open ToBytecode
+
+type contab = Pmap.map (id conN) num * Pmap.map num (id conN) * num
+val cmap : contab -> Pmap.map (id conN) num
+let rec cmap (m,_,_) = m
+
+type compiler_state =
+  <| contab : contab
+   ; rbvars : list string
+   ; renv : ctenv
+   ; rsz  : num
+   ; rnext_label : num
+   |>
+
+val etC : compiler_state -> exp_to_Cexp_state
+let etC rs = <| bvars = rs.rbvars; cnmap = cmap rs.contab |>
+
+let init_compiler_state =
+  <| contab = (Pmap.empty, Pmap.empty, 0)
+   ; rbvars = []
+   ; renv = []
+   ; rsz  = 0
+   ; rnext_label = 0
+   |>
+
+let compile_Cexp rs decl Ce =
+  let (Ce,n) = label_closures (List.length rs.rbvars) rs.rnext_label Ce in
+  let cs = <| out = []; next_label = n
+            ; decl = (rs.renv,rs.rsz,rs.rbvars) |> in
+  let cs = compile_code_env cs Ce in
+  let cs = compile rs.renv (TCNonTail decl) rs.rsz cs Ce in
+  let rs = if decl then match cs.decl with
+    | (env,sz,bvars) -> <| rs with renv = env; rsz = sz; rbvars = bvars |>
+    end else <| rs with rsz = rs.rsz + 1 |> in
+  let rs = <| rs with rnext_label = cs.next_label |> in
+  (rs, List.rev cs.out)
+
+let rec
+number_constructors [] ct = ct
+and
+number_constructors ((c,_)::cs) (m,w,n) =
+  number_constructors cs (Pmap.add (Short c) n m, Pmap.add n (Short c) w, n+1)
+
+let rec
+compile_dec rs (Dtype []) = (rs,[])
+and
+compile_dec rs (Dtype ((_,_,cs)::ts)) =
+  let ct = number_constructors cs rs.contab in
+  compile_dec <| rs with contab = ct |> (Dtype ts)
+and
+compile_dec rs (Dletrec defs) =
+  let m = etC rs in
+  let fns = List.map (fun (n,_,_) -> n) defs in
+  let m = <| m with bvars = fns @ m.bvars |> in
+  let Cdefs = defs_to_Cdefs m defs in
+  compile_Cexp rs true (CLetrec Cdefs (CDecl (List.combine (genlist (fun i -> i) (List.length fns)) fns)))
+and
+compile_dec rs (Dlet p e) =
+  let m = etC rs in
+  let Ce = exp_to_Cexp m e in
+  let (m,Cp) = pat_to_Cpat <| m with bvars = [] |> p in
+  let vs = m.bvars in
+  let Cpes = [(Cp,CDecl (List.combine (genlist (fun i -> i) (List.length vs)) vs))] in
+  compile_Cexp rs true (CLet Ce (remove_mat_var 0 Cpes))
+
+let compile_exp s exp = compile_Cexp s false (exp_to_Cexp (etC s) exp)

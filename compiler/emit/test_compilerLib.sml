@@ -120,12 +120,12 @@ fun add_code c bs = bc_state_code_fupd
 
 fun prep_decs (bs,rs) [] = (bs,rs)
   | prep_decs (bs,rs) (d::ds) = let
-      val (rs,c) = repl_dec rs (term_to_dec d)
+      val (rs,c) = compile_dec rs (term_to_dec d)
       val bs = add_code c bs
     in prep_decs (bs,rs) ds end
 
 fun prep_exp (bs,rs) e = let
-  val (rs,c) = repl_exp rs (term_to_exp e)
+  val (rs,c) = compile_exp rs (term_to_exp e)
   val bs = add_code c bs
 in (bs,rs) end
 
@@ -134,9 +134,9 @@ fun prep_decs_exp (bs,rs) (ds,e) = let
   val (bs,rs) = prep_exp (bs,rs) e
 in (bs,rs) end
 
-val inits = (init_bc_state, init_repl_state)
+val inits = (init_bc_state, init_compiler_state)
 
-fun cpam rs = let val (_,(w,_)) = repl_state_contab rs in w end
+fun cpam rs = let val (_,(w,_)) = compiler_state_contab rs in w end
 
 fun mst_run_decs_exp (ds,e) = let
   val (bs,rs) = prep_decs_exp inits (ds,e)

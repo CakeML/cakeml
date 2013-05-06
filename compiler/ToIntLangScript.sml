@@ -321,5 +321,44 @@ val _ = Defn.save_defn remove_mat_var_defn;
 (exp_to_Cexp m e :: exps_to_Cexps m es))`;
 
 val _ = Defn.save_defn exp_to_Cexp_defn;
+
+(* source to intermediate values *)
+
+(*open SemanticPrimitives*)
+
+ val v_to_Cv_defn = Hol_defn "v_to_Cv" `
+
+(v_to_Cv m (Litv l) = (CLitv l))
+/\
+(v_to_Cv m (Conv cn vs) =  
+(CConv ( FAPPLY  m  cn) (vs_to_Cvs m vs)))
+/\
+(v_to_Cv m (Closure env vn e) =  
+(let Cenv = (env_to_Cenv m env) in
+  let m = (<| bvars := ( MAP FST env) ; cnmap := m |>) in
+  let Ce = ( exp_to_Cexp (cbv m vn) e) in
+  CRecClos Cenv [(NONE, (1,shift 1 1 Ce))] 0))
+/\
+(v_to_Cv m (Recclosure env defs vn) =  
+(let Cenv = (env_to_Cenv m env) in
+  let m = (<| bvars := ( MAP FST env) ; cnmap := m |>) in
+  let fns = ( MAP (\p . 
+  (case (p ) of ( (n,_,_) ) => n )) defs) in
+  let m = (( m with<| bvars := fns ++ m.bvars |>)) in
+  let Cdefs = ( defs_to_Cdefs m defs) in
+  CRecClos Cenv Cdefs ( THE (find_index vn fns 0))))
+/\
+(v_to_Cv m (Loc n) = (CLoc n))
+/\
+(vs_to_Cvs m [] = ([]))
+/\
+(vs_to_Cvs m (v::vs) = (v_to_Cv m v :: vs_to_Cvs m vs))
+/\
+(env_to_Cenv m [] = ([]))
+/\
+(env_to_Cenv m ((_,v)::env) =  
+((v_to_Cv m v) ::(env_to_Cenv m env)))`;
+
+val _ = Defn.save_defn v_to_Cv_defn;
 val _ = export_theory()
 

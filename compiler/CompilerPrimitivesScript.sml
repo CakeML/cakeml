@@ -11,8 +11,8 @@ open BytecodeTheory CompilerLibTheory SemanticPrimitivesTheory AstTheory LibTheo
 
 val _ = new_theory "CompilerPrimitives"
 
-(*open SemanticPrimitives*)
 (*open Ast*)
+(*open SemanticPrimitives*)
 (*open CompilerLib*)
 
  val map_result_def = Define `

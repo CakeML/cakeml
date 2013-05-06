@@ -1,0 +1,44 @@
+(* observable values *)
+
+open Ast
+open SemanticPrimitives
+open IntLang
+open Bytecode
+
+type ov =
+  | OLit of lit
+  | OConv of id conN * list ov
+  | OFn
+  | OLoc of num (* machine, not semantic, address *)
+
+let rec
+v_to_ov s (Litv l) = OLit l
+and
+v_to_ov s (Conv cn vs) = OConv cn (List.map (v_to_ov s) vs)
+and
+v_to_ov s (Closure _ _ _) = OFn
+and
+v_to_ov s (Recclosure _ _ _) = OFn
+and
+v_to_ov s (Loc n) = OLoc (List.nth s n)
+
+let rec
+Cv_to_ov m s (CLitv l) = OLit l
+and
+Cv_to_ov m s (CConv cn vs) = OConv (Pmap.find cn m) (List.map (Cv_to_ov m s) vs)
+and
+Cv_to_ov m s (CRecClos _ _ _) = OFn
+and
+Cv_to_ov m s (CLoc n) = OLoc (List.nth s n)
+
+let rec
+bv_to_ov m (Number i) = OLit (IntLit i)
+and
+bv_to_ov m (Block n vs) =
+  if n = (bool_to_tag false) then OLit (Bool false) else
+  if n = (bool_to_tag true) then OLit (Bool true) else
+  if n = unit_tag then OLit Unit else
+  if n = closure_tag then OFn else
+  OConv (Pmap.find (n-block_tag) m) (List.map (bv_to_ov m) vs)
+and
+bv_to_ov m (RefPtr n) = OLoc n

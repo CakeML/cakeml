@@ -280,3 +280,38 @@ exps_to_Cexps s [] = []
 and
 exps_to_Cexps m (e::es) =
   exp_to_Cexp m e :: exps_to_Cexps m es
+
+(* source to intermediate values *)
+
+open SemanticPrimitives
+
+let rec
+v_to_Cv m (Litv l) = CLitv l
+and
+v_to_Cv m (Conv cn vs) =
+  CConv (Pmap.find cn m) (vs_to_Cvs m vs)
+and
+v_to_Cv m (Closure env vn e) =
+  let Cenv = env_to_Cenv m env in
+  let m = <| bvars = List.map fst env ; cnmap = m |> in
+  let Ce = exp_to_Cexp (cbv m vn) e in
+  CRecClos Cenv [(None, (1,shift 1 1 Ce))] 0
+and
+v_to_Cv m (Recclosure env defs vn) =
+  let Cenv = env_to_Cenv m env in
+  let m = <| bvars = List.map fst env ; cnmap = m |> in
+  let fns = List.map (fun (n,_,_) -> n) defs in
+  let m = <| m with bvars = fns @ m.bvars |> in
+  let Cdefs = defs_to_Cdefs m defs in
+  CRecClos Cenv Cdefs (the (find_index vn fns 0))
+and
+v_to_Cv m (Loc n) = CLoc n
+and
+vs_to_Cvs m [] = []
+and
+vs_to_Cvs m (v::vs) = v_to_Cv m v :: vs_to_Cvs m vs
+and
+env_to_Cenv m [] = []
+and
+env_to_Cenv m ((_,v)::env) =
+  (v_to_Cv m v)::(env_to_Cenv m env)

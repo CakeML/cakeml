@@ -14,8 +14,8 @@ val _ = new_theory "IntLang"
 (* Intermediate language *)
 
 (*open CompilerLib*)
-(*open SemanticPrimitives*)
 (*open Ast*)
+(*open SemanticPrimitives*)
 
 (* Syntax *)
 
@@ -511,5 +511,103 @@ syneq (CRecClos env1 defs1 d1) (CRecClos env2 defs2 d2))
 T
 ==>
 syneq (CLoc n) (CLoc n))`;
+
+(* auxiliary functions over the syntax *)
+
+ val no_labs_defn = Hol_defn "no_labs" `
+
+(no_labs (CDecl _) = T)
+/\
+(no_labs (CRaise _) = T)
+/\
+(no_labs (CHandle e1 e2) = (no_labs e1 /\ no_labs e2))
+/\
+(no_labs (CVar _) = T)
+/\
+(no_labs (CLit _) = T)
+/\
+(no_labs (CCon _ es) = (no_labs_list es))
+/\
+(no_labs (CTagEq e _) = (no_labs e))
+/\
+(no_labs (CProj e _) = (no_labs e))
+/\
+(no_labs (CLet e b) = (no_labs e /\ no_labs b))
+/\
+(no_labs (CLetrec defs e) = (no_labs_defs defs /\ no_labs e))
+/\
+(no_labs (CFun def) = (no_labs_def def))
+/\
+(no_labs (CCall e es) = (no_labs e /\ no_labs_list es))
+/\
+(no_labs (CPrim2 _ e1 e2) = (no_labs e1 /\ no_labs e2))
+/\
+(no_labs (CUpd e1 e2) = (no_labs e1 /\ no_labs e2))
+/\
+(no_labs (CPrim1 _ e) = (no_labs e))
+/\
+(no_labs (CIf e1 e2 e3) = (no_labs e1 /\ no_labs e2 /\ no_labs e3))
+/\
+(no_labs_list [] = T)
+/\
+(no_labs_list (e::es) = (no_labs e /\ no_labs_list es))
+/\
+(no_labs_defs [] = T)
+/\
+(no_labs_defs (d::ds) = (no_labs_def d /\ no_labs_defs ds))
+/\
+(no_labs_def (SOME _,_) = F)
+/\
+(no_labs_def (NONE,(az,b)) = (no_labs b))`;
+
+val _ = Defn.save_defn no_labs_defn;
+
+ val all_labs_defn = Hol_defn "all_labs" `
+
+(all_labs (CDecl _) = T)
+/\
+(all_labs (CRaise _) = T)
+/\
+(all_labs (CHandle e1 e2) = (all_labs e1 /\ all_labs e2))
+/\
+(all_labs (CVar _) = T)
+/\
+(all_labs (CLit _) = T)
+/\
+(all_labs (CCon _ es) = (all_labs_list es))
+/\
+(all_labs (CTagEq e _) = (all_labs e))
+/\
+(all_labs (CProj e _) = (all_labs e))
+/\
+(all_labs (CLet e b) = (all_labs e /\ all_labs b))
+/\
+(all_labs (CLetrec defs e) = (all_labs_defs defs /\ all_labs e))
+/\
+(all_labs (CFun def) = (all_labs_def def))
+/\
+(all_labs (CCall e es) = (all_labs e /\ all_labs_list es))
+/\
+(all_labs (CPrim2 _ e1 e2) = (all_labs e1 /\ all_labs e2))
+/\
+(all_labs (CUpd e1 e2) = (all_labs e1 /\ all_labs e2))
+/\
+(all_labs (CPrim1 _ e) = (all_labs e))
+/\
+(all_labs (CIf e1 e2 e3) = (all_labs e1 /\ all_labs e2 /\ all_labs e3))
+/\
+(all_labs_list [] = T)
+/\
+(all_labs_list (e::es) = (all_labs e /\ all_labs_list es))
+/\
+(all_labs_defs [] = T)
+/\
+(all_labs_defs (d::ds) = (all_labs_def d /\ all_labs_defs ds))
+/\
+(all_labs_def (SOME _,(az,b)) = (all_labs b))
+/\
+(all_labs_def (NONE,(az,b)) = F)`;
+
+val _ = Defn.save_defn all_labs_defn;
 val _ = export_theory()
 

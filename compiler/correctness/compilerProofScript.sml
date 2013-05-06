@@ -1,6 +1,6 @@
 open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory pred_setTheory relationTheory arithmeticTheory whileTheory pairTheory quantHeuristicsLib lcsymtacs sortingTheory finite_mapTheory
-open SatisfySimps miscLib terminationTheory semanticsExtraTheory miscTheory ToBytecodeTheory CompileTheory intLangTheory expToCexpTheory compileTerminationTheory compileCorrectnessTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory pmatchTheory labelClosuresTheory
-val _ = new_theory"repl"
+open SatisfySimps miscLib terminationTheory semanticsExtraTheory miscTheory ToBytecodeTheory CompilerTheory intLangTheory expToCexpTheory compilerTerminationTheory compileCorrectnessTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory pmatchTheory labelClosuresTheory
+val _ = new_theory"compilerProof"
 
 val good_contab_def = Define`
   good_contab (m,w,n) =
@@ -170,7 +170,7 @@ val code_env_cd_append = store_thm("code_env_cd_append",
   HINT_EXISTS_TAC>>simp[]>>
   HINT_EXISTS_TAC>>simp[])
 
-val repl_exp_val = store_thm("repl_exp_val",
+val compile_exp_val = store_thm("compile_exp_val",
   ``∀menv cenv s env exp s' v rd rs rs' bc0 bc bs bs'.
       evaluate menv cenv s env exp (s', Rval v) ∧
       is_null menv ∧
@@ -185,7 +185,7 @@ val repl_exp_val = store_thm("repl_exp_val",
       set (MAP FST cenv) ⊆ FDOM (cmap rs.contab) ∧
       good_contab rs.contab ∧
       env_rs env rs rd s (bs with code := bc0) ∧
-      (repl_exp rs exp = (rs',bc)) ∧
+      (compile_exp rs exp = (rs',bc)) ∧
       (bs.code = bc0 ++ bc) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       ALL_DISTINCT (FILTER is_Label bc0) ∧
@@ -198,7 +198,7 @@ val repl_exp_val = store_thm("repl_exp_val",
       (v_to_ov rd'.sm v = bv_to_ov (FST(SND(rs'.contab))) bv) ∧
       env_rs env rs' rd' s' bs'``,
   rpt gen_tac >>
-  simp[repl_exp_def,compile_Cexp_def,GSYM LEFT_FORALL_IMP_THM] >>
+  simp[compile_exp_def,compile_Cexp_def,GSYM LEFT_FORALL_IMP_THM] >>
   Q.PAT_ABBREV_TAC`Ce0 = exp_to_Cexp X exp` >>
   Q.PAT_ABBREV_TAC`p = label_closures Y X Ce0` >>
   PairCases_on`p`>>simp[]>> strip_tac >>

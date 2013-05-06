@@ -6,7 +6,7 @@ HOLHEAP = heap
 PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../../semantics/terminationTheory ../../metatheory/evaluateEquationsTheory ../bytecode/bytecodeTerminationTheory ../compileTerminationTheory
+BARE_THYS = ../../semantics/terminationTheory ../../metatheory/evaluateEquationsTheory ../bytecode/bytecodeTerminationTheory ../compilerTerminationTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

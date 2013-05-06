@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory alistTheory finite_mapTheory lcsymtacs
-open miscTheory bytecodeTerminationTheory ToBytecodeTheory compileTerminationTheory bytecodeEvalTheory bytecodeExtraTheory
+open miscTheory bytecodeTerminationTheory ToBytecodeTheory compilerTerminationTheory bytecodeEvalTheory bytecodeExtraTheory
 val _ = intLib.deprecate_int()
 val _ = new_theory"compileLabels"
 

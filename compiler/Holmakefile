@@ -1,10 +1,23 @@
-INCLUDES=../semantics ./bytecode
+INCLUDES = ../semantics ./bytecode
+
 OPTIONS = QUIT_ON_FAILURE
+
+LIBS = ../semantics/hol_lib.lem hol_lib.lem
+SEMANTICSI = lib ast semanticPrimitives
+BYTECODEI = compilerLib bytecode
+COMPILERH = compilerPrimitives intLang toIntLang toBytecode compiler printer
+COMPILERU = CompilerPrimitives IntLang ToIntLang ToBytecode Compiler Printer
+
+LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,bytecode/%.lem,$(BYTECODEI))
+LEMH = $(patsubst %,%.lem,$(COMPILERH))
+
+CompilerScript.sml: $(LIBS) $(LEMI) $(LEMH)
+	lem -extra_level auto $(patsubst %,-hol_lib %,$(LIBS)) $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH))
 
 ifdef POLY
 HOLHEAP = heap
 PARENT_HOLHEAP = ../semantics/sem_heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+POLY_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = ../semantics/terminationTheory ./bytecode/bytecodeTerminationTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
@@ -12,3 +25,5 @@ DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
 endif
+
+EXTRA_CLEANS = $(POLY_CLEANS) $(patsubst %,%Script.sml,$(COMPILERU))
