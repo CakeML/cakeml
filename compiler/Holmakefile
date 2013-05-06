@@ -12,7 +12,7 @@ GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(COMPILERU))
 LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,bytecode/%.lem,$(BYTECODEI))
 LEMH = $(patsubst %,%.lem,$(COMPILERH))
 
-$(GEN_SCRIPTS): $(LIBS) $(LEMI) $(LEMH)
+PrinterScript.sml: $(LIBS) $(LEMI) $(LEMH)
 	lem -extra_level auto $(patsubst %,-hol_lib %,$(LIBS)) $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH))
 
 ifdef POLY
