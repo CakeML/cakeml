@@ -15,6 +15,7 @@ val _ = new_theory "Printer"
 
 (*open Ast*)
 (*open SemanticPrimitives*)
+(*open CompilerLib*)
 (*open IntLang*)
 (*open Bytecode*)
 
@@ -69,5 +70,39 @@ val _ = Defn.save_defn Cv_to_ov_defn;
 (bv_to_ov _ _ = OError)`;
 
 val _ = Defn.save_defn bv_to_ov_defn;
+
+ val id_to_string_def = Define `
+
+(id_to_string (Short s) = s)
+/\
+(id_to_string (Long x y) = ( STRCAT  x ( STRCAT  "." y)))`;
+
+
+ val ov_to_string_defn = Hol_defn "ov_to_string" `
+
+(ov_to_string (OLit (IntLit (i:int))) =  
+(if int_lt i i0 then STRCAT  "-" ( num_to_dec_string ( Num ( int_neg i)))
+  else num_to_dec_string ( Num i)))
+/\
+(ov_to_string (OLit (Bool T)) = "true")
+/\
+(ov_to_string (OLit (Bool F)) = "false")
+/\
+(ov_to_string (OLit Unit) = "()")
+/\
+(ov_to_string (OConv cn vs) = ( STRCAT 
+  (id_to_string cn) ( STRCAT  " " 
+  (case intersperse ", " ( MAP ov_to_string vs) of
+    [s] => s
+  | ls => STRCAT  "(" ( STRCAT(FLAT ls) ")")
+  ))))
+/\
+(ov_to_string (OLoc _) = "<ref>")
+/\
+(ov_to_string OFn = "<fn>")
+/\
+(ov_to_string OError = "<error>")`;
+
+val _ = Defn.save_defn ov_to_string_defn;
 val _ = export_theory()
 

@@ -24,6 +24,15 @@ let inline {hol} least = Hol.LEAST
 val int_of_num : num -> int
 let inline {hol} int_of_num = Hol.int_of_num
 
+val num_of_int : int -> num
+let inline {hol} num_of_int = Hol.Num
+
+val string_of_num : num -> string
+let inline {hol} string_of_num = Hol.num_to_dec_string
+
+val neg : int -> int
+let inline {hol} neg = Hol.int_neg
+
 let i0 = int_of_num 0
 let i1 = int_of_num 1
 let i2 = int_of_num 2
@@ -36,3 +45,10 @@ find_index y (x::xs) n = if x = y then Some n else find_index y xs (n+1)
 let rec el_check n ls = if n < List.length ls then Some (List.nth ls n) else None
 
 let rec num_fold f a n = if n = 0 then a else num_fold f (f a) (n-1)
+
+let rec
+intersperse _ [] = []
+and
+intersperse _ [x] = [x]
+and
+intersperse a (x::xs) = x::a::intersperse a xs

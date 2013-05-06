@@ -2,6 +2,7 @@
 
 open Ast
 open SemanticPrimitives
+open CompilerLib
 open IntLang
 open Bytecode
 
@@ -45,3 +46,32 @@ and
 bv_to_ov _ (RefPtr n) = OLoc n
 and
 bv_to_ov _ _ = OError
+
+let rec
+id_to_string (Short s) = s
+and
+id_to_string (Long x y) = x^"."^y
+
+let rec
+ov_to_string (OLit (IntLit (i:int))) =
+  if Int.(<) i i0 then "-"^(string_of_num (num_of_int (neg i)))
+  else string_of_num (num_of_int i)
+and
+ov_to_string (OLit (Bool true)) = "true"
+and
+ov_to_string (OLit (Bool false)) = "false"
+and
+ov_to_string (OLit Unit) = "()"
+and
+ov_to_string (OConv cn vs) =
+  (id_to_string cn)^" "^
+  match intersperse ", " (List.map ov_to_string vs) with
+  | [s] -> s
+  | ls -> "("^Hol.FLAT ls^")"
+  end
+and
+ov_to_string (OLoc _) = "<ref>"
+and
+ov_to_string OFn = "<fn>"
+and
+ov_to_string OError = "<error>"

@@ -341,22 +341,4 @@ val compile_exp_val = store_thm("compile_exp_val",
   HINT_EXISTS_TAC >>
   simp[bc_state_component_equality])
 
-val intersperse_def = Define`
-  (intersperse _ [] = []) ∧
-  (intersperse _ [x] = [x]) ∧
-  (intersperse a (x::xs) = x::a::intersperse a xs)`
-
-val id_to_string = new_constant("id_to_string",``:conN id -> string``)
-
-val ov_to_string_def = tDefine "ov_to_string"`
-  (ov_to_string (OLit (IntLit i)) = if i < 0 then "-"++(num_to_dec_string (Num (-i)))
-                                             else num_to_dec_string (Num i)) ∧
-  (ov_to_string (OLit (Bool T)) = "true") ∧
-  (ov_to_string (OLit (Bool F)) = "false") ∧
-  (ov_to_string (OConv cn vs) = (id_to_string cn)++"("++CONCAT(intersperse "," (MAP ov_to_string vs))++")") ∧
-  (ov_to_string OFn = "fn")`
-  (WF_REL_TAC`measure ov_size` >>
-   gen_tac >> Induct >> rw[PrinterTheory.ov_size_def] >>
-   res_tac >> srw_tac[ARITH_ss][])
-
 val _ = export_theory()

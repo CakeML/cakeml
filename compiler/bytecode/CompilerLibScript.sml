@@ -27,6 +27,12 @@ val _ = new_theory "CompilerLib"
 
 (*val int_of_num : num -> int*)
 
+(*val num_of_int : int -> num*)
+
+(*val string_of_num : num -> string*)
+
+(*val neg : int -> int*)
+
 val _ = Define `
  i0 = ( int_of_num 0)`;
 
@@ -53,5 +59,15 @@ val _ = Defn.save_defn find_index_defn;
  (num_fold f a n = (if n = 0 then a else num_fold f (f a) (n - 1)))`;
 
 val _ = Defn.save_defn num_fold_defn;
+
+ val intersperse_defn = Hol_defn "intersperse" `
+
+(intersperse _ [] = ([]))
+/\
+(intersperse _ [x] = ([x]))
+/\
+(intersperse a (x::xs) = (x ::a ::intersperse a xs))`;
+
+val _ = Defn.save_defn intersperse_defn;
 val _ = export_theory()
 
