@@ -5,8 +5,6 @@ val _ = new_theory"repl_fun"
 
 val _ = new_constant("parse",``:token list -> ast_prog option list``)
 
-val _ = new_constant("print_dec",``:dec -> bc_state -> string list``)
-
 val _ = Hol_datatype`repl_fun_state = <|
   rtype_bindings : typeN list; rctors : ctor_env; rbindings : binding_env;
   rmenv : (modN, (varN,num#infer_t) env) env; rcenv : tenvC; rtenv : (tvarN,num#infer_t) env;
@@ -39,7 +37,7 @@ val prog_repl_fun_def = Define`
     let (cs,bc) = compile_dec cs dec in
     let bs = bs with <| code := bs.code ++ bc ; pc := next_addr bs.inst_length bs.code |> in
     OPTION_BIND (bc_eval bs)
-    (λbs. OPTION_MAP (λ(s,ls). (s, (FLAT(MAP(SNOC #"\n")(print_dec dec bs)))::ls)) (prog_repl_fun (cs,bs) tops)))`
+    (λbs. OPTION_MAP (λ(s,ls). (s, (FLAT(MAP(SNOC #"\n")(print_dec cs bs dec)))::ls)) (prog_repl_fun (cs,bs) tops)))`
 
 val update_state_def = Define`
   update_state s tbs cts bds rm rc rt cs bs =
