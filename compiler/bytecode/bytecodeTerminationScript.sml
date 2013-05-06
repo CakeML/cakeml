@@ -22,5 +22,6 @@ val _ = save_thm("is_Label_def",is_Label_def);
 val _ = export_rewrites["is_Label_def","bool_to_tag_def","bool_to_val_def",
                         "unit_tag_def","unit_val_def","closure_tag_def",
                         "block_tag_def"];
+val _ = Parse.overload_on("next_addr", ``λil ls. SUM (MAP (SUC o il) (FILTER ($~ o is_Label) ls))``)
 
 val _ = export_theory()

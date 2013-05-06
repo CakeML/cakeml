@@ -73,8 +73,6 @@ val labels_only_def = Define`
   (labels_only _ = T)`
 val _ = export_rewrites["labels_only_def"]
 
-val _ = Parse.overload_on("next_addr", ``λil ls. SUM (MAP (SUC o il) (FILTER ($~ o is_Label) ls))``)
-
 val bc_fetch_next_addr = store_thm("bc_fetch_next_addr",
   ``∀bc0 bs x bc.
     (bs.code = bc0 ++ (x::bc)) ∧ (¬is_Label x) ∧
