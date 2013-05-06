@@ -139,67 +139,67 @@ val str_to_syms_def = tDefine "str_to_syms" `
 
 val get_token_def = Define `
   get_token s =
-    if s = "#" then SOME HashT else
-    if s = "(" then SOME LparT else
-    if s = ")" then SOME RparT else
-    if s = "*" then SOME StarT else
-    if s = "," then SOME CommaT else
-    if s = "->" then SOME ArrowT else
-    if s = "..." then SOME DotsT else
-    if s = ":" then SOME ColonT else
-    if s = ":>" then SOME SealT else
-    if s = ";" then SOME SemicolonT else
-    if s = "=" then SOME EqualsT else
-    if s = "=>" then SOME DarrowT else
-    if s = "[" then SOME LbrackT else
-    if s = "]" then SOME RbrackT else
-    if s = "_" then SOME UnderbarT else
-    if s = "{" then SOME LbraceT else
-    if s = "}" then SOME RbraceT else
-    if s = "|" then SOME BarT else
-    if s = "abstype" then SOME AbstypeT else
-    if s = "and" then SOME AndT else
-    if s = "andalso" then SOME AndalsoT else
-    if s = "as" then SOME AsT else
-    if s = "case" then SOME CaseT else
-    if s = "datatype" then SOME DatatypeT else
-    if s = "do" then SOME DoT else
-    if s = "else" then SOME ElseT else
-    if s = "end" then SOME EndT else
-    if s = "eqtype" then SOME EqtypeT else
-    if s = "exception" then SOME ExceptionT else
-    if s = "fn" then SOME FnT else
-    if s = "fun" then SOME FunT else
-    if s = "functor" then SOME FunctorT else
-    if s = "handle" then SOME HandleT else
-    if s = "if" then SOME IfT else
-    if s = "in" then SOME InT else
-    if s = "include" then SOME IncludeT else
-    if s = "infix" then SOME InfixT else
-    if s = "infixr" then SOME InfixrT else
-    if s = "let" then SOME LetT else
-    if s = "local" then SOME LocalT else
-    if s = "nonfix" then SOME NonfixT else
-    if s = "of" then SOME OfT else
-    if s = "op" then SOME OpT else
-    if s = "open" then SOME OpenT else
-    if s = "orelse" then SOME OrelseT else
-    if s = "raise" then SOME RaiseT else
-    if s = "rec" then SOME RecT else
-    if s = "sharing" then SOME SharingT else
-    if s = "sig" then SOME SigT else
-    if s = "signature" then SOME SignatureT else
-    if s = "struct" then SOME StructT else
-    if s = "structure" then SOME StructureT else
-    if s = "then" then SOME ThenT else
-    if s = "type" then SOME TypeT else
-    if s = "val" then SOME ValT else
-    if s = "where" then SOME WhereT else
-    if s = "while" then SOME WhileT else
-    if s = "with" then SOME WithT else
-    if s = "withtype" then SOME WithtypeT else
-    if isAlpha (HD s) then SOME (AlphaT s) else
-    if HD s = #"'" then SOME (TyvarT s) else SOME (SymbolT s)`;
+    if s = "#" then HashT else
+    if s = "(" then LparT else
+    if s = ")" then RparT else
+    if s = "*" then StarT else
+    if s = "," then CommaT else
+    if s = "->" then ArrowT else
+    if s = "..." then DotsT else
+    if s = ":" then ColonT else
+    if s = ":>" then SealT else
+    if s = ";" then SemicolonT else
+    if s = "=" then EqualsT else
+    if s = "=>" then DarrowT else
+    if s = "[" then LbrackT else
+    if s = "]" then RbrackT else
+    if s = "_" then UnderbarT else
+    if s = "{" then LbraceT else
+    if s = "}" then RbraceT else
+    if s = "|" then BarT else
+    if s = "abstype" then AbstypeT else
+    if s = "and" then AndT else
+    if s = "andalso" then AndalsoT else
+    if s = "as" then AsT else
+    if s = "case" then CaseT else
+    if s = "datatype" then DatatypeT else
+    if s = "do" then DoT else
+    if s = "else" then ElseT else
+    if s = "end" then EndT else
+    if s = "eqtype" then EqtypeT else
+    if s = "exception" then ExceptionT else
+    if s = "fn" then FnT else
+    if s = "fun" then FunT else
+    if s = "functor" then FunctorT else
+    if s = "handle" then HandleT else
+    if s = "if" then IfT else
+    if s = "in" then InT else
+    if s = "include" then IncludeT else
+    if s = "infix" then InfixT else
+    if s = "infixr" then InfixrT else
+    if s = "let" then LetT else
+    if s = "local" then LocalT else
+    if s = "nonfix" then NonfixT else
+    if s = "of" then OfT else
+    if s = "op" then OpT else
+    if s = "open" then OpenT else
+    if s = "orelse" then OrelseT else
+    if s = "raise" then RaiseT else
+    if s = "rec" then RecT else
+    if s = "sharing" then SharingT else
+    if s = "sig" then SigT else
+    if s = "signature" then SignatureT else
+    if s = "struct" then StructT else
+    if s = "structure" then StructureT else
+    if s = "then" then ThenT else
+    if s = "type" then TypeT else
+    if s = "val" then ValT else
+    if s = "where" then WhereT else
+    if s = "while" then WhileT else
+    if s = "with" then WithT else
+    if s = "withtype" then WithtypeT else
+    if isAlpha (HD s) then (AlphaT s) else
+    if HD s = #"'" then (TyvarT s) else (SymbolT s)`;
 
 (*
 
@@ -220,16 +220,15 @@ Warning! The get_token function never maps into any of the following:
 *)
 
 val syms_to_tokens_def = Define `
-  (syms_to_tokens acc [] = SOME acc) /\
-  (syms_to_tokens acc (ErrorS::xs) = NONE) /\
+  (syms_to_tokens acc [] = acc) /\
+  (syms_to_tokens acc (ErrorS::xs) =
+   syms_to_tokens (SNOC LexErrorT acc) xs) /\
   (syms_to_tokens acc (StringS s::xs) =
    syms_to_tokens (SNOC (StringT s) acc) xs) /\
   (syms_to_tokens acc (NumberS n::xs) =
    syms_to_tokens (SNOC (IntT (& n)) acc) xs) /\
   (syms_to_tokens acc (OtherS s::xs) =
-     case get_token s of
-     | NONE => NONE
-     | SOME t => syms_to_tokens (SNOC t acc) xs)`;
+     syms_to_tokens (SNOC (get_token s) acc) xs)`;
 
 (* top-level lexer specification *)
 
