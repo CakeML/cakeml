@@ -1,0 +1,14 @@
+compilerLib.lem
+  library functions used throughout the compiler
+
+bytecode.lem
+  definition of bytecode language
+
+bytecodeEvalScript.sml
+  functional version of the bytecode evaluation relation
+
+as yet undocumented:
+
+benchmarking
+
+hardware
