@@ -341,24 +341,6 @@ val compile_exp_val = store_thm("compile_exp_val",
   HINT_EXISTS_TAC >>
   simp[bc_state_component_equality])
 
-(* must read an expression followed by all space until the start of another
-   expression (or end of string) *)
-val parse_def = Define`
-  (parse : string -> (exp # string) option) s = ARB`
-
-val _ = Hol_datatype`
-  swhile_result = Terminate of 'a | Diverge`
-
-val _ = Hol_datatype`
-  swhile_step_result = Success of 'a | Fail of 'b`
-
-val SWHILE_def = Define`
-  SWHILE f x = case OWHILE (ISL o f) (OUTL o f) x of NONE => Diverge | SOME y => Terminate (OUTR (f y))`
-
-val SWHILE_thm = store_thm("SWHILE_thm",
-  ``SWHILE f x = case f x of INL x => SWHILE f x | INR y => Terminate y``,
-  rw[SWHILE_def] >> Cases_on `f x` >> rw[Once OWHILE_THM])
-
 val intersperse_def = Define`
   (intersperse _ [] = []) ∧
   (intersperse _ [x] = [x]) ∧
@@ -376,45 +358,5 @@ val ov_to_string_def = tDefine "ov_to_string"`
   (WF_REL_TAC`measure ov_size` >>
    gen_tac >> Induct >> rw[PrinterTheory.ov_size_def] >>
    res_tac >> srw_tac[ARITH_ss][])
-
-(*
-``ov_to_string (OConv "Cons" [OLit(IntLit (-3));OConv "Nil"[]]) = X ``
-rw[ov_to_string_def,intersperse_def,
-   ASCIInumbersTheory.num_to_dec_string_def,
-   ASCIInumbersTheory.n2s_def,
-   ASCIInumbersTheory.HEX_def,
-   Once numposrepTheory.n2l_def ]
-*)
-
-val init_bc_state_def =  Define`
-  init_bc_state = <|
-    stack := [];
-    code := [];
-    pc := 0;
-    refs := FEMPTY;
-    handler := 0;
-    inst_length := ARB |>`
-
-val repl_def = Define`
-  repl s = SWHILE
-   (λ(rs,bs,inp:string,out:string).
-     if inp = "" then INR (Success out) else
-     case parse inp of NONE => INR (Fail "parse error") |
-     SOME (exp,inp) =>
-       (* typecheck? *)
-       let (rs',bc) = compile_exp rs exp in
-       let bs' = bs with <|code := bs.code ++ bc;
-                           pc := next_addr bs.inst_length bs.code|> in
-       case SWHILE (λbs.
-         if bs.pc = next_addr bs.inst_length (bs.code ++ bc) then INR (Success bs)
-         else case bc_eval1 bs of NONE => INR (Fail "runtime error") | SOME bs => INL bs)
-         bs'
-       of | Diverge => INR (Fail "divergence")
-          | Terminate (Fail s) => INR (Fail s)
-          | Terminate (Success bs'') =>
-       (* let vals = extract_bindings rs' bs'' in *)
-       let v = HD bs''.stack in
-       INL (rs',bs'',inp,(out ++ "\n" ++ (ov_to_string (bv_to_ov (FST (SND rs'.contab)) v)))))
-  (init_compiler_state,init_bc_state,s,"")`
 
 val _ = export_theory()
