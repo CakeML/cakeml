@@ -4,8 +4,6 @@ open gramTheory;
 
 val _ = new_theory "repl";
 
-val _ = new_constant("lex", ``:string -> token list``);
-
 (* top-level semicolon detector breaks the token list up into chunks.
   the parser turns these chunks into either ast_progs or errors (NONE).
   if it encounters an error, it drops tokens until the next chunk.  *)
@@ -92,6 +90,6 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 
 
 val repl_def = Define `
-repl state input = ast_repl state (parse (lex input))`;
+repl state input = ast_repl state (parse (lexer_fun input))`;
 
 val _ = export_theory ();
