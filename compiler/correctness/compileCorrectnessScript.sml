@@ -751,12 +751,14 @@ val cons_closure_thm = store_thm("cons_closure_thm",
   simp[UNCURRY] >>
   disch_then(Q.X_CHOOSE_THEN`bc`strip_assume_tac) >>
   Q.PAT_ABBREV_TAC`s1 = FOLDL (emit_ceref Y) X refs` >>
-  qspecl_then[`envs`,`env0`,`FST s1`,`SND s1`]mp_tac FOLDL_emit_ceenv_thm >>
+  PairCases_on`s1` >> pop_assum (assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >>
+  Q.PAT_ABBREV_TAC`s2 = FOLDL (emit_ceenv X) Y envs` >>
+  PairCases_on`s2` >> pop_assum (assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >>
+  qspecl_then[`envs`,`env0`,`s10`,`s11`]mp_tac FOLDL_emit_ceenv_thm >>
   simp[UNCURRY] >>
   disch_then(Q.X_CHOOSE_THEN`bc1`strip_assume_tac) >>
-  fs[Abbr`s1`,Abbr`s0`,Once SWAP_REVERSE] >>
+  fs[Abbr`s0`,Once SWAP_REVERSE] >>
   rpt (qpat_assum `X = Y.next_label` kall_tac) >>
-  qpat_assum`FST X = Y`kall_tac >>
   rpt(qpat_assum`X.out = Y`kall_tac) >>
   rpt gen_tac >> strip_tac >>
   simp[Once RTC_CASES1] >> disj2_tac >>

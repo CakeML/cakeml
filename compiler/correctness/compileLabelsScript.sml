@@ -215,6 +215,10 @@ val bc_next_compile_labels = store_thm("bc_next_compile_labels",
   imp_res_tac calculate_labels_thm >>
   rpt BasicProvers.VAR_EQ_TAC >>
   qunabbrev_tac`c` >>
+  Q.PAT_ABBREV_TAC`p = calculate_labels X Y Z A B` >>
+  PairCases_on`p` >> simp[] >>
+  pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >>
+  res_tac >> fs[] >>
   rw[MAP_REVERSE] >>
   `∀x. ($~ o is_Label) (replace_lab m x) = ($~ o is_Label) x` by rw[] >>
   rw[MAP_FILTER] >>

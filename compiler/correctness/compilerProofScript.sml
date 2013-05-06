@@ -374,7 +374,7 @@ val ov_to_string_def = tDefine "ov_to_string"`
   (ov_to_string (OConv cn vs) = (id_to_string cn)++"("++CONCAT(intersperse "," (MAP ov_to_string vs))++")") ∧
   (ov_to_string OFn = "fn")`
   (WF_REL_TAC`measure ov_size` >>
-   gen_tac >> Induct >> rw[CompileTheory.ov_size_def] >>
+   gen_tac >> Induct >> rw[PrinterTheory.ov_size_def] >>
    res_tac >> srw_tac[ARITH_ss][])
 
 (*
@@ -402,7 +402,7 @@ val repl_def = Define`
      case parse inp of NONE => INR (Fail "parse error") |
      SOME (exp,inp) =>
        (* typecheck? *)
-       let (rs',bc) = repl_exp rs exp in
+       let (rs',bc) = compile_exp rs exp in
        let bs' = bs with <|code := bs.code ++ bc;
                            pc := next_addr bs.inst_length bs.code|> in
        case SWHILE (λbs.
@@ -415,6 +415,6 @@ val repl_def = Define`
        (* let vals = extract_bindings rs' bs'' in *)
        let v = HD bs''.stack in
        INL (rs',bs'',inp,(out ++ "\n" ++ (ov_to_string (bv_to_ov (FST (SND rs'.contab)) v)))))
-  (init_repl_state,init_bc_state,s,"")`
+  (init_compiler_state,init_bc_state,s,"")`
 
 val _ = export_theory()
