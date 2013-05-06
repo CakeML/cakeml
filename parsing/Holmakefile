@@ -1,11 +1,11 @@
-INCLUDES = $(HOLDIR)/examples/parsing ../
+INCLUDES = $(HOLDIR)/examples/parsing ../semantics
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = parsing-heap
 EXTRA_CLEANS = parsing-heap
 
-BARE_THYS = ../TokensTheory ../AstTheory $(HOLDIR)/examples/parsing/pegexecTheory
+BARE_THYS = ../semantics/tokenUtilsTheory ../semantics/ElabTheory $(HOLDIR)/examples/parsing/pegexecTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
