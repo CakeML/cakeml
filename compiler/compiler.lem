@@ -71,3 +71,8 @@ compile_dec rs (Dlet p e) =
   compile_Cexp rs true (CLet Ce (remove_mat_var 0 Cpes))
 
 let compile_exp s exp = compile_Cexp s false (exp_to_Cexp (etC s) exp)
+
+(*
+let rec lookup_bv cs bs v =
+  the (lookup_ct (fdom bs.refs) cs.rsz bs.stack bs.refs (List.nth (find_index v cs.rbvars 0) cs.renv))
+*)

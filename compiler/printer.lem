@@ -75,3 +75,18 @@ and
 ov_to_string OFn = "<fn>"
 and
 ov_to_string OError = "<error>"
+
+(*
+let rec
+print_dec (Dtype ls) _ _ =
+  List.map (fun (_,s,_) -> "type "^s) ls
+and
+print_dec (Dlet p _) cs bs =
+  List.map
+    (fun p -> "val "^p^" = "^
+      (ov_to_string (bv_to_ov (Compiler.cpam cs) (Compiler.lookup_bv cs bs p))))
+    (pat_bindings p [])
+and
+print_dec (Dletrec defs) _ _ =
+  List.map (fun (f,_,_) -> "val "^f^" = <fn>") defs
+*)
