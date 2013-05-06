@@ -1,6 +1,6 @@
 open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory pred_setTheory relationTheory arithmeticTheory whileTheory pairTheory quantHeuristicsLib lcsymtacs sortingTheory finite_mapTheory
-open SatisfySimps miscLib terminationTheory semanticsExtraTheory miscTheory ToBytecodeTheory CompilerTheory intLangTheory expToCexpTheory compilerTerminationTheory compileCorrectnessTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory pmatchTheory labelClosuresTheory
-val _ = new_theory"compilerProof"
+open SatisfySimps miscLib terminationTheory semanticsExtraTheory miscTheory ToBytecodeTheory CompilerTheory compilerTerminationTheory intLangExtraTheory pmatchTheory toIntLangProofsTheory toBytecodeProofsTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory
+val _ = new_theory"compilerProofs"
 
 val good_contab_def = Define`
   good_contab (m,w,n) =
