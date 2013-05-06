@@ -31,22 +31,6 @@ val with_same_sm = store_thm("with_same_sm",
   rw[theorem"refs_data_component_equality"])
 val _ = export_rewrites["with_same_sm"]
 
-val lookup_cc_def = Define`
-  (lookup_cc sz st rs (CCArg n) = el_check (sz + n) st) ∧
-  (lookup_cc sz st rs (CCEnv n) =
-   OPTION_BIND (el_check sz st)
-   (λv. case v of Block 0 vs => el_check n vs | _ => NONE)) ∧
-  (lookup_cc sz st rs (CCRef n) =
-   OPTION_BIND (el_check sz st)
-   (λv. case v of Block 0 vs =>
-     OPTION_BIND (el_check n vs)
-     (λv. case v of RefPtr p => FLOOKUP rs p | _ => NONE)
-     | _ => NONE))`
-val lookup_ct_def = Define`
-  (lookup_ct sz st rs (CTLet n) = if sz < n then NONE else el_check (sz - n) st) ∧
-  (lookup_ct sz st rs (CTEnv cc) = lookup_cc sz st rs cc)`
-val _ = export_rewrites["lookup_ct_def","lookup_cc_def"]
-
 val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   (Cv_bv pp (CLitv (IntLit k)) (Number k)) ∧
   (Cv_bv pp (CLitv (Bool b)) (bool_to_val b)) ∧

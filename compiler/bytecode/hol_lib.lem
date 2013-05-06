@@ -15,3 +15,5 @@ val FLAT : list string -> string
 val IS_SOME : forall 'a. 'a -> bool
 val IS_NONE : forall 'a. 'a -> bool
 val THE : forall 'a 'b. 'a -> 'b
+val OPTION_BIND : forall 'a 'b 'c. 'a -> ('b -> 'c) -> 'c
+val FLOOKUP : forall 'a 'b 'c. 'a -> 'b -> 'c
