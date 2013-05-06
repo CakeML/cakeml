@@ -2,7 +2,7 @@ INCLUDES = ../semantics ./bytecode
 
 OPTIONS = QUIT_ON_FAILURE
 
-LIBS = ../semantics/hol_lib.lem hol_lib.lem
+LIBS = ../semantics/hol_lib.lem bytecode/hol_lib.lem
 SEMANTICSI = lib ast semanticPrimitives
 BYTECODEI = compilerLib bytecode
 COMPILERH = compilerPrimitives intLang toIntLang toBytecode compiler printer

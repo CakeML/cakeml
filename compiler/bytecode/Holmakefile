@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-BytecodeScript.sml: bytecode.lem
-	lem -extra_level auto -hol_lib ../hol_lib.lem -hol compilerLib.lem -hol $< &&\
+BytecodeScript.sml: hol_lib.lem compilerLib.lem bytecode.lem
+	lem -extra_level auto -hol_lib hol_lib.lem -hol compilerLib.lem -hol bytecode.lem &&\
 	sed -i 's/LEAST/$$LEAST/g' $@
 EXTRA_CLEANS = BytecodeScript.sml
