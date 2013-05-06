@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib
 
-open TokensTheory tokenUtilsTheory AstTheory grammarTheory
+open TokensTheory grammarTheory
 
 open lcsymtacs grammarLib monadsyntax
 
