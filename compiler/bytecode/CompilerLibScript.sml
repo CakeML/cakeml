@@ -39,7 +39,7 @@ val _ = Define `
 
  val find_index_defn = Hol_defn "find_index" `
 
-(find_index y [] _ = NONE)
+(find_index _ [] _ = NONE)
 /\
 (find_index y (x::xs) n = (if x = y then SOME n else find_index y xs (n +1)))`;
 

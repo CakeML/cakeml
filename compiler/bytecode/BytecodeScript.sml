@@ -120,7 +120,7 @@ val _ = Define `
 
  val bc_fetch_aux_defn = Hol_defn "bc_fetch_aux" `
 
-(bc_fetch_aux [] len (n:num) = NONE)
+(bc_fetch_aux [] _ _ = NONE)
 /\
 (bc_fetch_aux (x::xs) len n =  
 (if is_Label x then bc_fetch_aux xs len n else
@@ -146,7 +146,7 @@ val _ = Define `
 (* finding the address of a location *)
  val bc_find_loc_aux_defn = Hol_defn "bc_find_loc_aux" `
 
-(bc_find_loc_aux [] len l n = NONE)
+(bc_find_loc_aux [] _ _ _ = NONE)
 /\
 (bc_find_loc_aux (x::xs) len l n =  
 (if x = Label l then SOME n else
@@ -156,7 +156,7 @@ val _ = Defn.save_defn bc_find_loc_aux_defn;
 
  val bc_find_loc_def = Define `
 
-(bc_find_loc s (Addr n) = (SOME n))
+(bc_find_loc _ (Addr n) = (SOME n))
 /\
 (bc_find_loc s (Lab l) = ( bc_find_loc_aux s.code s.inst_length l 0))`;
 

@@ -82,7 +82,7 @@ and
 is_Label _ = false
 
 let rec
-bc_fetch_aux [] len (n:num) = None
+bc_fetch_aux [] _ _ = None
 and
 bc_fetch_aux (x::xs) len n =
   if is_Label x then bc_fetch_aux xs len n else
@@ -101,14 +101,14 @@ end
 
 (* finding the address of a location *)
 let rec
-bc_find_loc_aux [] len l n = None
+bc_find_loc_aux [] _ _ _ = None
 and
 bc_find_loc_aux (x::xs) len l n =
   if x = Label l then Some n else
     bc_find_loc_aux xs len l (n + (if is_Label x then 0 else len x + 1))
 
 let rec
-bc_find_loc s (Addr n) = Some n
+bc_find_loc _ (Addr n) = Some n
 and
 bc_find_loc s (Lab l) = bc_find_loc_aux s.code s.inst_length l 0
 
