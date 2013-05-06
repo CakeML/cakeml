@@ -140,7 +140,7 @@ fun cpam rs = let val (_,(w,_)) = compiler_state_contab rs in w end
 
 fun mst_run_decs_exp (ds,e) = let
   val (bs,rs) = prep_decs_exp inits (ds,e)
-  val bs = bc_eval bs
+  val (SOME bs) = bc_eval bs
 in (cpam rs, bc_state_stack bs) end
 
 val run_decs_exp = snd o mst_run_decs_exp

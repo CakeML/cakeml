@@ -286,11 +286,11 @@ val bc_eval1_thm = store_thm("bc_eval1_thm",
 rw[] >> EQ_TAC >> rw[bc_eval1_SOME,bc_next_bc_eval1])
 
 val bc_eval_exists = prove(
-``∃bc_eval. ∀s. bc_eval s = case bc_eval1 s of NONE => s | SOME s => bc_eval s``,
-qexists_tac `λs. WHILE (IS_SOME o bc_eval1) (THE o bc_eval1) s` >>
+``∃bc_eval. ∀s. bc_eval s = case bc_eval1 s of NONE => SOME s | SOME s => bc_eval s``,
+qexists_tac `λs. OWHILE (IS_SOME o bc_eval1) (THE o bc_eval1) s` >>
 rw[] >>
 Cases_on `bc_eval1 s` >>
-rw[Once whileTheory.WHILE])
+rw[Once whileTheory.OWHILE_THM])
 val bc_eval_def = new_specification("bc_eval_def",["bc_eval"],bc_eval_exists)
 
 val _ = export_theory();
