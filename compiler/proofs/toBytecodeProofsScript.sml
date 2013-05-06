@@ -32,19 +32,19 @@ val with_same_sm = store_thm("with_same_sm",
 val _ = export_rewrites["with_same_sm"]
 
 val lookup_cc_def = Define`
-  (lookup_cc cl sz st rs (CCArg n) = el_check (sz + n) st) ∧
-  (lookup_cc cl sz st rs (CCEnv n) =
+  (lookup_cc sz st rs (CCArg n) = el_check (sz + n) st) ∧
+  (lookup_cc sz st rs (CCEnv n) =
    OPTION_BIND (el_check sz st)
    (λv. case v of Block 0 vs => el_check n vs | _ => NONE)) ∧
-  (lookup_cc cl sz st rs (CCRef n) =
+  (lookup_cc sz st rs (CCRef n) =
    OPTION_BIND (el_check sz st)
    (λv. case v of Block 0 vs =>
      OPTION_BIND (el_check n vs)
-     (λv. case v of RefPtr p => if p ∈ cl then FLOOKUP rs p else NONE | _ => NONE)
+     (λv. case v of RefPtr p => FLOOKUP rs p | _ => NONE)
      | _ => NONE))`
 val lookup_ct_def = Define`
-  (lookup_ct cl sz st rs (CTLet n) = if sz < n then NONE else el_check (sz - n) st) ∧
-  (lookup_ct cl sz st rs (CTEnv cc) = lookup_cc cl sz st rs cc)`
+  (lookup_ct sz st rs (CTLet n) = if sz < n then NONE else el_check (sz - n) st) ∧
+  (lookup_ct sz st rs (CTEnv cc) = lookup_cc sz st rs cc)`
 val _ = export_rewrites["lookup_ct_def","lookup_cc_def"]
 
 val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
@@ -212,7 +212,7 @@ val s_refs_with_stack = store_thm("s_refs_with_stack",
 val Cenv_bs_def = Define`
   Cenv_bs rd s Cenv (renv:ctenv) sz bs ⇔
     (EVERY2
-       (λCv b. case lookup_ct (FDOM rd.cls) sz bs.stack bs.refs b of NONE => F
+       (λCv b. case lookup_ct sz bs.stack (DRESTRICT bs.refs (FDOM rd.cls)) b of NONE => F
              | SOME bv => Cv_bv (mk_pp rd bs) Cv bv)
      Cenv renv) ∧
     s_refs rd s bs`
@@ -233,7 +233,7 @@ val compile_varref_thm = store_thm("compile_varref_thm",
       ((compile_varref sz cs b).out = REVERSE code ++ cs.out) ∧
       (bs.code = bc0 ++ code ++ bc1) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
-      (lookup_ct cls sz bs.stack bs.refs b = SOME bv) ∧
+      (lookup_ct sz bs.stack (DRESTRICT bs.refs cls) b = SOME bv) ∧
       (bs' = bs with <| stack := bv::bs.stack ; pc := next_addr bs.inst_length (bc0 ++ code)|>)
       ⇒
       bc_next^* bs bs'``,
@@ -291,6 +291,7 @@ val compile_varref_thm = store_thm("compile_varref_thm",
     rw[bc_eval1_def,Abbr`bs0`,bump_pc_def,Abbr`z`] >>
     fs[FLOOKUP_DEF] >>
     unabbrev_all_tac >>
+    fs[FDOM_DRESTRICT,DRESTRICT_DEF] >>
     srw_tac[ARITH_ss][FILTER_APPEND,SUM_APPEND,ADD1] )
   >- (
     rfs[el_check_def] >>
@@ -577,9 +578,9 @@ val compile_decl_next_label_inc = store_thm("compile_decl_next_label_inc",
 val _ = export_rewrites["compile_decl_next_label_inc"]
 
 val lookup_ct_incsz = store_thm("lookup_ct_incsz",
-  ``(lookup_ct cls (sz+1) (x::st) refs b =
+  ``(lookup_ct (sz+1) (x::st) refs b =
      if (b = CTLet (sz+1)) then SOME x else
-     lookup_ct cls sz st refs b)``,
+     lookup_ct sz st refs b)``,
   fs[GSYM ADD1] >>
   Cases_on `b` >> rw[] >>
   fsrw_tac[ARITH_ss][el_check_def] >>
@@ -589,8 +590,8 @@ val lookup_ct_incsz = store_thm("lookup_ct_incsz",
   fsrw_tac[ARITH_ss][EL_CONS,PRE_SUB1,ADD1])
 
 val lookup_ct_imp_incsz = store_thm("lookup_ct_imp_incsz",
-  ``(lookup_ct cls sz st refs b = SOME v) ⇒
-    (lookup_ct cls (sz+1) (x::st) refs b = SOME v)``,
+  ``(lookup_ct sz st refs b = SOME v) ⇒
+    (lookup_ct (sz+1) (x::st) refs b = SOME v)``,
   fs[GSYM ADD1] >>
   Cases_on `b` >> rw[el_check_def] >>
   fsrw_tac[ARITH_ss][EL_CONS,PRE_SUB1,ADD1] >>
@@ -598,10 +599,10 @@ val lookup_ct_imp_incsz = store_thm("lookup_ct_imp_incsz",
   fsrw_tac[ARITH_ss][EL_CONS,PRE_SUB1,ADD1,el_check_def])
 
 val lookup_ct_imp_incsz_many = store_thm("lookup_ct_imp_incsz_many",
-  ``∀cls sz st refs b v st' sz' ls.
-    (lookup_ct cls sz st refs b = SOME v) ∧
+  ``∀sz st refs b v st' sz' ls.
+    (lookup_ct sz st refs b = SOME v) ∧
      sz ≤ sz' ∧ (st' = ls ++ st) ∧ (LENGTH ls = sz' - sz)
-   ⇒ (lookup_ct cls sz' st' refs b = SOME v)``,
+   ⇒ (lookup_ct sz' st' refs b = SOME v)``,
   Induct_on`sz' - sz` >- (
     rw[] >> `sz = sz'` by srw_tac[ARITH_ss][] >> fs[LENGTH_NIL] ) >>
   rw[] >> Cases_on`ls`>>fs[] >- fsrw_tac[ARITH_ss][] >>
@@ -612,10 +613,10 @@ val lookup_ct_imp_incsz_many = store_thm("lookup_ct_imp_incsz_many",
   fsrw_tac[ARITH_ss][])
 
 val lookup_ct_change_refs = store_thm("lookup_ct_change_refs",
-  ``∀cl cl' sz st rf rf' ct.
+  ``∀sz st rf rf' ct.
     (∀n vs p. (ct = CTEnv (CCRef n)) ∧ sz < LENGTH st ∧ (EL sz st = Block 0 vs) ∧ n < LENGTH vs ∧ (EL n vs = RefPtr p) ⇒
-      (p ∈ cl ⇔ p ∈ cl') ∧ (p ∈ cl ⇒ (FLOOKUP rf' p = FLOOKUP rf p)))
-    ⇒ (lookup_ct cl' sz st rf' ct = lookup_ct cl sz st rf ct)``,
+       (FLOOKUP rf' p = FLOOKUP rf p))
+    ⇒ (lookup_ct sz st rf' ct = lookup_ct sz st rf ct)``,
   rw[LET_THM] >>
   Cases_on`ct`>>fs[] >> rw[] >>
   Cases_on`c`>>fs[el_check_def]>>
@@ -688,9 +689,9 @@ val FOLDL_emit_ceenv_thm = store_thm("FOLDL_emit_ceenv_thm",
        (bs.code = bc0 ++ code ++ bc1) ∧
        (bs.pc = next_addr bs.inst_length bc0) ∧
        EVERY (λn. n < LENGTH env0) ec ∧ j ≤ z ∧ j ≤ LENGTH bs.stack ∧
-       EVERY (λn. IS_SOME (lookup_ct cls (z-j) (DROP j bs.stack) bs.refs (EL n env0))) ec
+       EVERY (λn. IS_SOME (lookup_ct (z-j) (DROP j bs.stack) (DRESTRICT bs.refs cls) (EL n env0))) ec
        ⇒
-       bc_next^* bs (bs with <| stack := (REVERSE (MAP (λn. THE (lookup_ct cls (z-j) (DROP j bs.stack) bs.refs (EL n env0))) ec))++bs.stack
+       bc_next^* bs (bs with <| stack := (REVERSE (MAP (λn. THE (lookup_ct (z-j) (DROP j bs.stack) (DRESTRICT bs.refs cls) (EL n env0))) ec))++bs.stack
                               ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
   Induct >- (
     rw[Once SWAP_REVERSE,LET_THM] >>
@@ -703,8 +704,8 @@ val FOLDL_emit_ceenv_thm = store_thm("FOLDL_emit_ceenv_thm",
   qspecl_then[`z`,`s`,`EL e env0`]mp_tac compile_varref_append_out >>
   disch_then(Q.X_CHOOSE_THEN`bcv`strip_assume_tac) >> rw[] >>
   simp[Once SWAP_REVERSE] >> rw[EVERY_REVERSE] >>
-  Cases_on`lookup_ct cls (z-j) (DROP j bs.stack) bs.refs (EL e env0)`>>fs[] >>
-  `lookup_ct cls z bs.stack bs.refs (EL e env0) = SOME x` by (
+  Cases_on`lookup_ct (z-j) (DROP j bs.stack) (DRESTRICT bs.refs cls) (EL e env0)`>>fs[] >>
+  `lookup_ct z bs.stack (DRESTRICT bs.refs cls) (EL e env0) = SOME x` by (
     match_mp_tac lookup_ct_imp_incsz_many >>
     map_every qexists_tac[`z-j`,`DROP j bs.stack`,`TAKE j bs.stack`] >>
     simp[LENGTH_TAKE] ) >>
@@ -735,14 +736,14 @@ val cons_closure_thm = store_thm("cons_closure_thm",
         k < LENGTH bs.stack ∧ nk + nk ≤ LENGTH bs.stack ∧
         EVERY (λn. nk + n < LENGTH bs.stack) refs ∧
         EVERY (λn. n < LENGTH env0) envs ∧
-        EVERY (λn. IS_SOME (lookup_ct cls sz (DROP (nk+nk) bs.stack) bs.refs (EL n env0))) envs
+        EVERY (λn. IS_SOME (lookup_ct sz (DROP (nk+nk) bs.stack) (DRESTRICT bs.refs cls) (EL n env0))) envs
         ⇒
         bc_next^* bs (bs with <| stack :=
           LUPDATE
           (Block closure_tag
             [EL k bs.stack;
              Block 0 (MAP (λn. EL (nk+n) bs.stack) refs ++
-                      MAP (λn. THE (lookup_ct cls sz (DROP (nk+nk) bs.stack) bs.refs (EL n env0))) envs)])
+                      MAP (λn. THE (lookup_ct sz (DROP (nk+nk) bs.stack) (DRESTRICT bs.refs cls) (EL n env0))) envs)])
           k bs.stack
                                ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
   simp[cons_closure_def,UNCURRY] >> rpt gen_tac >>
@@ -977,13 +978,13 @@ val FOLDL_cons_closure_thm = store_thm("FOLDL_cons_closure_thm",
     (LENGTH ecs = nk - k) ∧ k ≤ nk ∧ nk + nk ≤ LENGTH bs.stack ∧
     EVERY (λ(recs,envs).
       EVERY (λn. n < LENGTH env0) envs ∧
-      EVERY (λn. IS_SOME (lookup_ct cls sz (DROP (nk + nk) bs.stack) bs.refs (EL n env0))) envs ∧
+      EVERY (λn. IS_SOME (lookup_ct sz (DROP (nk + nk) bs.stack) (DRESTRICT bs.refs cls) (EL n env0))) envs ∧
       EVERY (λn. nk + n < LENGTH bs.stack) recs) ecs
     ⇒
     let bvs = MAP2 (λp (recs,envs). Block closure_tag [p;
         Block 0
           (MAP (λn. EL (nk + n) bs.stack) recs ++
-           MAP (λn. THE (lookup_ct cls sz (DROP (nk + nk) bs.stack) bs.refs (EL n env0))) envs)])
+           MAP (λn. THE (lookup_ct sz (DROP (nk + nk) bs.stack) (DRESTRICT bs.refs cls) (EL n env0))) envs)])
               (TAKE (nk-k) (DROP k bs.stack)) ecs in
     bc_next^* bs
     (bs with <| stack := TAKE k bs.stack ++ bvs ++ (DROP nk bs.stack)
@@ -1174,7 +1175,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
         EVERY (IS_SOME o bc_find_loc bs o Lab o FST o THE o FST) defs ∧
         EVERY ((λ(recs,envs).
           EVERY (λn. n < LENGTH env) envs ∧
-          EVERY (λn. IS_SOME (lookup_ct cls sz bs.stack bs.refs (EL n env))) envs ∧
+          EVERY (λn. IS_SOME (lookup_ct sz bs.stack (DRESTRICT bs.refs cls) (EL n env))) envs ∧
           EVERY (λn. n < LENGTH defs) recs)
                o SND o SND o THE o FST) defs
         ⇒
@@ -1183,7 +1184,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
         ((λ(l,cc,(recs,envs)). Block closure_tag
           [CodePtr (THE (bc_find_loc bs (Lab l)))
           ; Block 0 (MAP (λn. RefPtr (EL n rs)) recs ++
-                     MAP (λn. THE (lookup_ct cls sz bs.stack bs.refs (EL n env))) envs)])
+                     MAP (λn. THE (lookup_ct sz bs.stack (DRESTRICT bs.refs cls) (EL n env))) envs)])
         o THE o FST) defs in
         (LENGTH rs = LENGTH defs) ∧ ALL_DISTINCT rs ∧ (∀r. MEM r rs ⇒ r ∉ FDOM bs.refs) ∧
         bc_next^* bs
@@ -1232,7 +1233,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
       simp[] ) >>
     rpt strip_tac >>
     qmatch_abbrev_tac`IS_SOME lc` >>
-    qsuff_tac`lc = lookup_ct cls sz bs.stack bs.refs (EL n env)`>-rw[] >>
+    qsuff_tac`lc = lookup_ct sz bs.stack (DRESTRICT bs.refs cls) (EL n env)`>-rw[] >>
     simp[Abbr`lc`] >>
     Q.PAT_ABBREV_TAC`ls:bc_value list = DROP (2 * nk) st` >>
     `ls = bs.stack` by (
@@ -1240,13 +1241,13 @@ val compile_closures_thm = store_thm("compile_closures_thm",
     simp[] >>
     match_mp_tac lookup_ct_change_refs >>
     rw[] >>
-    simp[FLOOKUP_DEF,FDOM_FUPDATE_LIST,MEM_MAP,EXISTS_PROD] >>
+    simp[FLOOKUP_DEF,FDOM_FUPDATE_LIST,MEM_MAP,EXISTS_PROD,DRESTRICT_DEF] >>
     `¬MEM p rs` by (
-      `IS_SOME (lookup_ct cls sz bs.stack bs.refs (EL n env))` by (
+      `IS_SOME (lookup_ct sz bs.stack (DRESTRICT bs.refs cls) (EL n env))` by (
         first_x_assum match_mp_tac >> rw[] ) >>
       pop_assum mp_tac >>
       qpat_assum`EL n env = X`SUBST1_TAC >>
-      simp[el_check_def,FLOOKUP_DEF] >> rw[] >>
+      simp[el_check_def,FLOOKUP_DEF,DRESTRICT_DEF] >> rw[] >>
       metis_tac[] ) >>
     simp[] >> rw[] >>
     match_mp_tac EQ_SYM >>
@@ -1300,11 +1301,11 @@ val compile_closures_thm = store_thm("compile_closures_thm",
     AP_TERM_TAC >>
     match_mp_tac lookup_ct_change_refs >>
     simp[] >> rw[] >> fs[FLOOKUP_DEF] >>
-    simp[FDOM_FUPDATE_LIST,MEM_MAP,EXISTS_PROD] >>
+    simp[DRESTRICT_DEF,FDOM_FUPDATE_LIST,MEM_MAP,EXISTS_PROD] >>
     `¬MEM p rs` by (
       fs[EVERY_MEM,UNCURRY] >>
       spose_not_then strip_assume_tac >>
-      res_tac >> rfs[el_check_def,FLOOKUP_DEF] ) >>
+      res_tac >> rfs[el_check_def,FLOOKUP_DEF,DRESTRICT_DEF] ) >>
     rw[] >>
     match_mp_tac EQ_SYM >>
     match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM_matchable >>
@@ -1973,7 +1974,7 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
     simp[Once Cv_bv_cases] >> strip_tac >>
     qpat_assum`∀i. i < LENGTH recs ⇒ X`(qspec_then`n - (LENGTH vs + 1)` mp_tac) >>
     simp[] >> strip_tac >> simp[] >>
-    fs[FLOOKUP_DEF] >>
+    fs[FLOOKUP_DEF,DRESTRICT_DEF] >>
     fs[s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY] >>
     qpat_assum`∀x. x ∈ FDOM rd.cls ⇒ X`(qspec_then`p`mp_tac) >>
     simp[] >> strip_tac >>
