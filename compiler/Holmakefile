@@ -7,11 +7,12 @@ SEMANTICSI = lib ast semanticPrimitives
 BYTECODEI = compilerLib bytecode
 COMPILERH = compilerPrimitives intLang toIntLang toBytecode compiler printer
 COMPILERU = CompilerPrimitives IntLang ToIntLang ToBytecode Compiler Printer
+GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(COMPILERU))
 
 LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,bytecode/%.lem,$(BYTECODEI))
 LEMH = $(patsubst %,%.lem,$(COMPILERH))
 
-CompilerScript.sml: $(LIBS) $(LEMI) $(LEMH)
+$(GEN_SCRIPTS): $(LIBS) $(LEMI) $(LEMH)
 	lem -extra_level auto $(patsubst %,-hol_lib %,$(LIBS)) $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH))
 
 ifdef POLY
@@ -26,4 +27,4 @@ $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
 endif
 
-EXTRA_CLEANS = $(POLY_CLEANS) $(patsubst %,%Script.sml,$(COMPILERU))
+EXTRA_CLEANS = $(POLY_CLEANS) $(GEN_SCRIPTS)
