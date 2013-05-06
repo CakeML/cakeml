@@ -7,3 +7,6 @@ unifyScript.sml
 
 inferScript.sml
     Define a type inferencer
+
+repl_funScript.sml
+  Define the read-eval-print loop

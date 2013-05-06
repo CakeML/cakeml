@@ -1,4 +1,4 @@
-INCLUDES=.. ../semantics $(HOLDIR)/examples/unification/triangular/first-order
+INCLUDES=.. ../semantics $(HOLDIR)/examples/unification/triangular/first-order ../parsing ../compiler ../compiler/bytecode
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -10,12 +10,12 @@ SEM_BARE_THYS = AstTheory \
 	        lexer_funTheory \
 	        TypeSystemTheory
 
-UNIF_BAR_THYS = collapseTheory \
+UNIF_BARE_THYS = collapseTheory \
 		redUnifTheory \
 		unifDefTheory \
 		unifPropsTheory
 
-BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) $(patsubst %,$(HOLDIR)/examples/unification/triangular/first-order/%,$(UNIF_BARE_THYS))  
+BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) $(patsubst %,$(HOLDIR)/examples/unification/triangular/first-order/%,$(UNIF_BARE_THYS)) ../parsing/mmlParseTheory ../compiler/compilerTerminationTheory ../compiler/bytecode/bytecodeEvalTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
