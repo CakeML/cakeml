@@ -1,0 +1,26 @@
+bytecode
+  target language definition
+
+intLang.lem
+  intermediate language definition
+
+toIntLang.lem
+  translation from source language to intermediate language
+
+toBytecode.lem
+  translation from intermediate language to target language
+
+compiler.lem
+  top-level wrappers for the compiler implementation
+
+printer.lem
+  observable values, conversions to them, and from them to strings
+
+compilerTerminationScript.sml
+  termination proofs and exporting of some rewrites
+
+proofs
+  semantics preservation proofs
+
+tests
+  rough testing infrastructure based on EmitML

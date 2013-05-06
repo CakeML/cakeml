@@ -4,8 +4,8 @@ test:
 	cd metatheory; Holmake
 	cd translator; Holmake
 	cd hol-light; Holmake
-	cd compiler/emit; Holmake && ./selftest.exe
-	cd compiler/correctness; Holmake
+	cd compiler/tests; Holmake && ./selftest.exe
+	cd compiler/proofs; Holmake
 
 clean:
 	cd metatheory; Holmake cleanAll
@@ -13,6 +13,9 @@ clean:
 	cd implementation; Holmake cleanAll
 	cd translator; Holmake cleanAll
 	cd hol-light; Holmake cleanAll
+	cd compiler; Holmake cleanAll
+	cd compiler/tests; Holmake cleanAll
+	cd compiler/proofs; Holmake cleanAll
 
 all_lem:
 	make -C semantics
