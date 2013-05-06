@@ -117,6 +117,7 @@ val defs = map EmitML.DEFN
 , compile_dec_def
 , v_to_ov_def
 , bv_to_ov_def
+, cpam_def
 ]
 
 val num_to_bool = prove(

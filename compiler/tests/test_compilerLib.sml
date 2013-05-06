@@ -136,8 +136,6 @@ in (bs,rs) end
 
 val inits = (init_bc_state, init_compiler_state)
 
-fun cpam rs = let val (_,(w,_)) = compiler_state_contab rs in w end
-
 fun mst_run_decs_exp (ds,e) = let
   val (bs,rs) = prep_decs_exp inits (ds,e)
   val (SOME bs) = bc_eval bs

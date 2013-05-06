@@ -16,6 +16,9 @@ type compiler_state =
    ; rnext_label : num
    |>
 
+val cpam : compiler_state -> Pmap.map num (id conN)
+let rec cpam s = match s.contab with (_,w,_) -> w end
+
 val etC : compiler_state -> exp_to_Cexp_state
 let etC rs = <| bvars = rs.rbvars; cnmap = cmap rs.contab |>
 

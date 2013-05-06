@@ -33,6 +33,11 @@ val _ = Hol_datatype `
    |>`;
 
 
+(*val cpam : compiler_state -> Pmap.map num (id conN)*)
+ val cpam_def = Define `
+ (cpam s = ((case s.contab of (_,w,_) => w )))`;
+
+
 (*val etC : compiler_state -> exp_to_Cexp_state*)
 val _ = Define `
  (etC rs = (<| bvars := rs.rbvars; cnmap := ( cmap rs.contab) |>))`;
