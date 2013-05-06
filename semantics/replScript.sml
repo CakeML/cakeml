@@ -23,6 +23,11 @@ repl_state = <| (* Elaborator state *)
                 (* Semantics state *)
                 envM : envM; envC : envC; store : store; envE : envE |>`;
 
+val init_repl_state_def = Define`
+  init_repl_state = <| type_bindings := []; ctors := []; bindings := [];
+                       tenvM := []; tenvC := []; tenv := Empty;
+                       envM := []; envC := []; store := []; envE := [] |>`
+
 val _ = Hol_datatype `
 repl_result = 
     Terminate
@@ -90,6 +95,6 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 
 
 val repl_def = Define `
-repl state input = ast_repl state (parse (lexer_fun input))`;
+repl input = ast_repl init_repl_state (parse (lexer_fun input))`;
 
 val _ = export_theory ();
