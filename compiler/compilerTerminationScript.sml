@@ -135,7 +135,6 @@ val _ = register "num_fold" (
 (* TODO: make zero_ temporary (don't store/export) *)
 
 val zero_vars_def = tDefine "zero_vars"`
-  (zero_vars (CDecl a) = CDecl (MAP (λ(n,m). (0,m)) a)) ∧
   (zero_vars (CRaise b) = CRaise b) ∧
   (zero_vars (CHandle e1 e2) = CHandle (zero_vars e1) (zero_vars e2)) ∧
   (zero_vars (CVar _) = CVar 0) ∧

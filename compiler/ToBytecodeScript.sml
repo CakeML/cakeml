@@ -41,8 +41,6 @@ val _ = new_theory "ToBytecode"
 
  val label_closures_defn = Hol_defn "label_closures" `
 
-(label_closures _ j (CDecl xs) = (CDecl xs, j))
-/\
 (label_closures _ j (CRaise err) = (CRaise err, j))
 /\
 (label_closures ez j (CHandle e1 e2) =  
@@ -128,19 +126,17 @@ val _ = new_theory "ToBytecode"
 val _ = Defn.save_defn label_closures_defn;
 
 val _ = Hol_datatype `
- call_context = TCNonTail of bool | TCTail of num => num`;
+ call_context = TCNonTail | TCTail of num => num`;
 
 (* TCTail j k = in tail position,
    * the called function has j arguments, and
    * k let variables have been bound *)
-(* TCNonTail b = if b then in tail position, but called from top-level,
- * else not in tail position. *)
+(* TCNonTail = in tail position, or called from top-level *)
 
 val _ = Hol_datatype `
  compiler_result =
   <| out: bc_inst list (* reversed code *)
    ; next_label: num
-   ; decl: ctenv # num # string list
    |>`;
 
 
@@ -288,31 +284,9 @@ val _ = Defn.save_defn compile_envref_defn;
 
   (* cl_1, ..., cl_nk, *)
 
- val compile_decl_def = Define `
-
-(compile_decl env1 = ( FOLDL
-    (\ (s,sz,i,env,bvs) (v,bv) .
-      (case find_index bv bvs 1 of
-        NONE =>
-          (compile_varref sz s ( EL  v  env1)
-          ,(sz +1)
-          ,(i +1)
-          ,((CTLet i) ::env)
-          ,(bv ::bvs)
-          )
-      | SOME j =>
-          (emit (compile_varref sz s ( EL  v  env1)) [Stack (Store ((sz +j) - i))]
-          ,sz
-          ,i
-          ,env
-          ,bvs
-          )
-      ))))`;
-
-
  val pushret_def = Define `
 
-(pushret (TCNonTail _) s = s)
+(pushret TCNonTail s = s)
 /\
 (pushret (TCTail j k) s =  
 (
@@ -330,15 +304,6 @@ val _ = Defn.save_defn compile_envref_defn;
 
  val compile_defn = Hol_defn "compile" `
 
-(compile env t sz s (CDecl vs) =  
-((case t of TCNonTail T =>
-  (case s.decl of (env0,sz0,bvs0) =>
-  let k = (sz - sz0) in
-  let (s,sz,i,env,bvs) = ( compile_decl env (s,sz,(sz0 +1),env0,bvs0) vs) in
-  let s = ( emit s [Stack (Shift (i -(sz0 +1)) k)]) in
-  ( s with<| decl := (env,(sz - k),bvs) |>)
-  ) | _ => pushret t (emit s [Stack (PushInt i2); PopExc]) (* should not happen *) )))
-/\
 (compile _ t _ s (CRaise err) =  
 (
   pushret t (emit s [Stack (PushInt (error_to_int err)); PopExc])))
@@ -365,14 +330,14 @@ val _ = Defn.save_defn compile_envref_defn;
 /\
 (compile env t sz s (CTagEq e n) =  
 (
-  pushret t (emit (compile env (TCNonTail F) sz s e) [Stack (TagEq (n +block_tag))])))
+  pushret t (emit (compile env TCNonTail sz s e) [Stack (TagEq (n +block_tag))])))
 /\
 (compile env t sz s (CProj e n) =  
 (
-  pushret t (emit (compile env (TCNonTail F) sz s e) [Stack (El n)])))
+  pushret t (emit (compile env TCNonTail sz s e) [Stack (El n)])))
 /\
 (compile env t sz s (CLet e eb) =  
-(compile_bindings env t sz eb 0 (compile env (TCNonTail F) sz s e) 1))
+(compile_bindings env t sz eb 0 (compile env TCNonTail sz s e) 1))
 /\
 (compile env t sz s (CLetrec defs eb) =  
 (let s = ( compile_closures env sz s defs) in
@@ -386,7 +351,7 @@ val _ = Defn.save_defn compile_envref_defn;
 (let n = ( LENGTH es) in
   let s = (compile_nts env sz s (e ::es)) in
   (case t of
-    TCNonTail _ =>
+    TCNonTail =>
     (* argn, ..., arg2, arg1, Block 0 [CodePtr c; env], *)
     let s = ( emit s [Stack (Load n); Stack (El 1)]) in
     (* env, argn, ..., arg1, Block 0 [CodePtr c; env], *)
@@ -413,7 +378,7 @@ val _ = Defn.save_defn compile_envref_defn;
 /\
 (compile env t sz s (CPrim1 uop e) =  
 (
-  pushret t (emit (compile env (TCNonTail F) sz s e) [prim1_to_bc uop])))
+  pushret t (emit (compile env TCNonTail sz s e) [prim1_to_bc uop])))
 /\
 (compile env t sz s (CPrim2 op e1 e2) =  
 ( (* TODO: need to detect div by zero? *)
@@ -424,12 +389,12 @@ val _ = Defn.save_defn compile_envref_defn;
   pushret t (emit (compile_nts env sz s [e1;e2]) [Update; Stack (Cons unit_tag 0)])))
 /\
 (compile env t sz s (CIf e1 e2 e3) =  
-(let s = (compile env (TCNonTail F) sz s e1) in
+(let s = (compile env TCNonTail sz s e1) in
   let (s,labs) = ( get_labels 2 s) in
   let n0 = ( EL  0  labs) in
   let n1 = ( EL  1  labs) in
   (case t of
-    TCNonTail _ =>
+    TCNonTail =>
     let (s,labs) = ( get_labels 1 s) in
     let n2 = ( EL  0  labs) in
     let s = ( emit s [(JumpIf (Lab n0)); (Jump (Lab n1)); Label n0]) in
@@ -447,10 +412,8 @@ val _ = Defn.save_defn compile_envref_defn;
 (compile_bindings env t sz e n s 0 =  
 ((case t of
     TCTail j k => compile env (TCTail j (k +n)) (sz +n) s e
-  | TCNonTail F =>
+  | TCNonTail =>
     emit (compile env t (sz +n) s e) [Stack (Pops n)]
-  | TCNonTail T =>
-    compile env t (sz +n) s e
   )))
 /\
 (compile_bindings env t sz e n s m =  
@@ -459,7 +422,7 @@ val _ = Defn.save_defn compile_envref_defn;
 (compile_nts _ _ s [] = s)
 /\
 (compile_nts env sz s (e::es) =  
-(compile_nts env (sz +1) (compile env (TCNonTail F) sz s e) es))`;
+(compile_nts env (sz +1) (compile env TCNonTail sz s e) es))`;
 
 val _ = Defn.save_defn compile_defn;
 
@@ -467,8 +430,6 @@ val _ = Defn.save_defn compile_defn;
 
  val free_labs_defn = Hol_defn "free_labs" `
 
-(free_labs _ (CDecl _) = ([]))
-/\
 (free_labs _ (CRaise _) = ([]))
 /\
 (free_labs ez (CHandle e1 e2) = (free_labs ez e1 ++ free_labs (ez +1) e2))

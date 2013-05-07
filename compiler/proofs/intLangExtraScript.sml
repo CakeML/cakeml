@@ -493,10 +493,6 @@ val syneq_exp_refl = store_thm("syneq_exp_refl",
     (∀(x:num#Cexp) z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp z z V (SND x) (SND x)) ∧
     (∀es z V. (∀v. v < z ⇒ V v v) ⇒ EVERY2 (syneq_exp z z V) es es)``,
   ho_match_mp_tac (TypeBase.induction_of``:Cexp``) >>
-  strip_tac >- (
-    rw[Once syneq_exp_cases] >>
-    fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP,EL_MAP] >>
-    rw[] >> Cases_on `FST (EL n defs) < z` >> fsrw_tac[ARITH_ss][]) >>
   strip_tac >- rw[Once syneq_exp_cases] >>
   strip_tac >- (
     rw[] >> rw[Once syneq_exp_cases] >>
@@ -790,17 +786,6 @@ val syneq_exp_trans = store_thm("syneq_exp_trans",
     (∀ez1 ez2 V d1 d2 U. syneq_defs ez1 ez2 V d1 d2 U ⇒
       ∀ez3 V' d3 U'. syneq_defs ez2 ez3 V' d2 d3 U' ⇒ syneq_defs ez1 ez3 (V' O V) d1 d3 (U' O U))``,
   ho_match_mp_tac syneq_exp_ind >>
-  strip_tac >- (
-    rw[] >> pop_assum mp_tac >>
-    simp[Once syneq_exp_cases] >>
-    simp[Once syneq_exp_cases] >>
-    fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rw[] >> rw[] >>
-    rpt (qpat_assum` LENGTH X = LENGTH Y` mp_tac) >> rpt strip_tac >>
-    fsrw_tac[DNF_ss][MEM_ZIP,EL_MAP,FST_pair,O_DEF] >> rw[] >>
-    first_x_assum(qspec_then`n`mp_tac) >> rw[] >>
-    first_x_assum(qspec_then`n`mp_tac) >> rw[] >>
-    fsrw_tac[ARITH_ss][] >>
-    PROVE_TAC[] ) >>
   strip_tac >- ( ntac 2 (rw[Once syneq_exp_cases] ) ) >>
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>
@@ -2015,16 +2000,6 @@ val mkshift_thm = store_thm("mkshift_thm",
    free_vars e ⊆ count z1 ∧ no_labs e
    ⇒ syneq_exp z1 z2 V e (mkshift f k e)``,
  ho_match_mp_tac mkshift_ind >>
- strip_tac >- (
-   rw[SUBSET_DEF,MEM_MAP] >>
-   rw[Once syneq_exp_cases] >>
-   simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
-   rw[] >> simp[EL_MAP] >>
-   fsrw_tac[DNF_ss][EXISTS_PROD,FORALL_PROD] >>
-   Cases_on`EL n vs`>> fsrw_tac[DNF_ss,ARITH_ss][MEM_EL] >>
-   rw[] >> fsrw_tac[ARITH_ss][] >>
-   res_tac >> rfs[] >>
-   fsrw_tac[ARITH_ss][] ) >>
  strip_tac >- rw[Once syneq_exp_cases] >>
  strip_tac >- (
    rw[] >>
@@ -2206,9 +2181,6 @@ val mkshift_thm = store_thm("mkshift_thm",
 val free_vars_mkshift = store_thm("free_vars_mkshift",
   ``∀f k e. free_vars (mkshift f k e) = IMAGE (λv. if v < k then v else f (v-k) + k) (free_vars e)``,
   ho_match_mp_tac mkshift_ind >>
-  strip_tac >- (
-    srw_tac[DNF_ss][EXTENSION,MEM_MAP,EXISTS_PROD] >>
-    metis_tac[] ) >>
   strip_tac >- rw[] >>
   strip_tac >- (
     rw[EXTENSION] >>

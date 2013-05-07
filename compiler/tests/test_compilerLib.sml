@@ -124,10 +124,7 @@ fun prep_decs (bs,rs) [] = (bs,rs)
       val bs = add_code c bs
     in prep_decs (bs,rs) ds end
 
-fun prep_exp (bs,rs) e = let
-  val (rs,c) = compile_exp rs (term_to_exp e)
-  val bs = add_code c bs
-in (bs,rs) end
+fun prep_exp (bs,rs) e = prep_decs (bs,rs) [``Dlet (Pvar "it") ^e``]
 
 fun prep_decs_exp (bs,rs) (ds,e) = let
   val (bs,rs) = prep_decs (bs,rs) ds
@@ -180,6 +177,7 @@ val print_bc_stack_op = let fun
 | f (Cons (n,m)) = "Cons "^(numML.toString n)^" "^(numML.toString m)
 | f (Shift (n,m)) = "Shift "^(numML.toString n)^" "^(numML.toString m)
 | f (Store n) = "Store "^(numML.toString n)
+| f Pop = "Pop"
 | f Sub = "Sub"
 | f x = (PolyML.print x; raise Match)
 in f end

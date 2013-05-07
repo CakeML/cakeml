@@ -16,6 +16,7 @@ val _ = new_theory "Compiler"
 (*open IntLang*)
 (*open ToIntLang*)
 (*open ToBytecode*)
+(*open Bytecode*)
 
 val _ = type_abbrev( "contab" , ``: (( conN id), num)fmap # (num, ( conN id))fmap # num``);
 (*val cmap : contab -> Pmap.map (id conN) num*)
@@ -54,17 +55,11 @@ val _ = Define `
 
 
 val _ = Define `
- (compile_Cexp rs decl Ce =  
+ (compile_Cexp rs Ce =  
 (let (Ce,n) = ( label_closures ( LENGTH rs.rbvars) rs.rnext_label Ce) in
-  let cs = (<| out := []; next_label := n
-            ; decl := (rs.renv,rs.rsz,rs.rbvars) |>) in
+  let cs = (<| out := []; next_label := n |>) in
   let cs = ( compile_code_env cs Ce) in
-  let cs = ( compile rs.renv (TCNonTail decl) rs.rsz cs Ce) in
-  let rs = (if decl then (case cs.decl of
-      (env,sz,bvars) => ( rs with<| renv := env; rsz := sz; rbvars := bvars |>)
-    ) else ( rs with<| rsz := rs.rsz + 1 |>)) in
-  let rs = (( rs with<| rnext_label := cs.next_label |>)) in
-  (rs, REVERSE cs.out)))`;
+  compile rs.renv TCNonTail rs.rsz cs Ce))`;
 
 
  val number_constructors_defn = Hol_defn "number_constructors" `
@@ -75,6 +70,25 @@ val _ = Define `
 (number_constructors cs ( FUPDATE  m ( (Short c), n), FUPDATE  w ( n, (Short c)), (n +1))))`;
 
 val _ = Defn.save_defn number_constructors_defn;
+
+val _ = Define `
+ (compile_decl rs cs vs = 
+  ((case FOLDL
+           (\ (s,z,i,env,bvs) bv .
+            (case find_index bv bvs 1 of
+                  NONE =>
+            (emit s ( MAP Stack [Load 0; Load 0; El i; Store 1]) ,(z + 1)
+            ,(i + 1) ,((CTLet (rs.rsz + z + 1)) :: env) ,(bv :: bvs) )
+              | SOME j =>
+            (emit s ( MAP Stack [Load 0; El i; Store j]) ,z ,(i + 1) ,env
+            ,bvs )
+            )) (cs,0,0,rs.renv,rs.rbvars) vs of
+       (cs,z,_,env,bvs) =>
+   let cs = ( emit cs [Stack Pop]) in
+   (( rs with<| rsz := rs.rsz + z ; renv := env ; rbvars := bvs
+   ; rnext_label := cs.next_label |>) , REVERSE cs.out)
+   )))`;
+
 
  val compile_dec_def = Define `
 
@@ -90,19 +104,17 @@ val _ = Defn.save_defn number_constructors_defn;
   (case (p ) of ( (n,_,_) ) => n )) defs) in
   let m = (( m with<| bvars := fns ++ m.bvars |>)) in
   let Cdefs = ( defs_to_Cdefs m defs) in
-  compile_Cexp rs T (CLetrec Cdefs (CDecl ( ZIP ( ( GENLIST (\ i . i) ( LENGTH fns)), fns))))))
+  let cs = ( compile_Cexp rs (CLetrec Cdefs (CCon 0 ( GENLIST CVar ( LENGTH fns))))) in
+  compile_decl rs cs fns))
 /\
 (compile_dec rs (Dlet p e) =  
 (let m = ( etC rs) in
   let Ce = ( exp_to_Cexp m e) in
   let (m,Cp) = ( pat_to_Cpat ( m with<| bvars := [] |>) p) in
   let vs = (m.bvars) in
-  let Cpes = ([(Cp,CDecl ( ZIP ( ( GENLIST (\ i . i) ( LENGTH vs)), vs)))]) in
-  compile_Cexp rs T (CLet Ce (remove_mat_var 0 Cpes))))`;
-
-
-val _ = Define `
- (compile_exp s exp = ( compile_Cexp s F (exp_to_Cexp (etC s) exp)))`;
+  let Cpes = ([(Cp,CCon 0 ( GENLIST CVar ( LENGTH vs)))]) in
+  let cs = ( compile_Cexp rs (CLet Ce (remove_mat_var 0 Cpes))) in
+  compile_decl rs cs vs))`;
 
 val _ = export_theory()
 

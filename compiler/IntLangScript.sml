@@ -52,8 +52,7 @@ val _ = type_abbrev( "ctenv" , ``: ctbind list``);
 
 val _ = Hol_datatype `
  Cexp =
-    CDecl of (num # string) list
-  | CRaise of error
+    CRaise of error
   | CHandle of Cexp => Cexp
   | CVar of num
   | CLit of lit
@@ -383,12 +382,6 @@ Cevaluate_list s env (e ::es) (s'', Rerr err))`;
 
 
 val _ = Hol_reln `
-(! ez1 ez2 V xs1 xs2. ( EVERY2 (\ v1 v2 . (v1 < ez1 /\ v2 < ez2 /\ V v1 v2) \/
-                            (ez1 <= v1 /\ ez2 <= v2 /\ (v1 = v2)))
-  ( MAP FST xs1) ( MAP FST xs2))
-==>
-syneq_exp ez1 ez2 V (CDecl xs1) (CDecl xs2))
-/\
 (! ez1 ez2 V err.
 T
 ==>
@@ -516,8 +509,6 @@ syneq (CLoc n) (CLoc n))`;
 
  val no_labs_defn = Hol_defn "no_labs" `
 
-(no_labs (CDecl _) = T)
-/\
 (no_labs (CRaise _) = T)
 /\
 (no_labs (CHandle e1 e2) = (no_labs e1 /\ no_labs e2))
@@ -564,8 +555,6 @@ val _ = Defn.save_defn no_labs_defn;
 
  val all_labs_defn = Hol_defn "all_labs" `
 
-(all_labs (CDecl _) = T)
-/\
 (all_labs (CRaise _) = T)
 /\
 (all_labs (CHandle e1 e2) = (all_labs e1 /\ all_labs e2))

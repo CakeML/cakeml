@@ -3,6 +3,7 @@ open CompilerLib
 open IntLang
 open ToIntLang
 open ToBytecode
+open Bytecode
 
 type contab = Pmap.map (id conN) num * Pmap.map num (id conN) * num
 val cmap : contab -> Pmap.map (id conN) num
@@ -30,23 +31,42 @@ let init_compiler_state =
    ; rnext_label = 0
    |>
 
-let compile_Cexp rs decl Ce =
+let compile_Cexp rs Ce =
   let (Ce,n) = label_closures (List.length rs.rbvars) rs.rnext_label Ce in
-  let cs = <| out = []; next_label = n
-            ; decl = (rs.renv,rs.rsz,rs.rbvars) |> in
+  let cs = <| out = []; next_label = n |> in
   let cs = compile_code_env cs Ce in
-  let cs = compile rs.renv (TCNonTail decl) rs.rsz cs Ce in
-  let rs = if decl then match cs.decl with
-    | (env,sz,bvars) -> <| rs with renv = env; rsz = sz; rbvars = bvars |>
-    end else <| rs with rsz = rs.rsz + 1 |> in
-  let rs = <| rs with rnext_label = cs.next_label |> in
-  (rs, List.rev cs.out)
+  compile rs.renv TCNonTail rs.rsz cs Ce
 
 let rec
 number_constructors [] ct = ct
 and
 number_constructors ((c,_)::cs) (m,w,n) =
   number_constructors cs (Pmap.add (Short c) n m, Pmap.add n (Short c) w, n+1)
+
+let compile_decl rs cs vs =
+  let (cs,z,_,env,bvs) =
+  List.fold_left
+    (fun (s,z,i,env,bvs) bv ->
+      match find_index bv bvs 1 with
+      | None ->
+          (emit s (List.map Stack [Load 0; Load 0; El i; Store 1])
+          ,z+1
+          ,i+1
+          ,(CTLet (rs.rsz+z+1))::env
+          ,bv::bvs
+          )
+      | Some j ->
+          (emit s (List.map Stack [Load 0; El i; Store j])
+          ,z
+          ,i+1
+          ,env
+          ,bvs
+          )
+      end) (cs,0,0,rs.renv,rs.rbvars) vs in
+  let cs = emit cs [Stack Pop] in
+  (<| rs with rsz = rs.rsz+z ; renv = env ; rbvars = bvs
+    ; rnext_label = cs.next_label |>
+  ,List.rev cs.out)
 
 let rec
 compile_dec rs (Dtype ts) =
@@ -61,14 +81,14 @@ compile_dec rs (Dletrec defs) =
   let fns = List.map (fun (n,_,_) -> n) defs in
   let m = <| m with bvars = fns @ m.bvars |> in
   let Cdefs = defs_to_Cdefs m defs in
-  compile_Cexp rs true (CLetrec Cdefs (CDecl (List.combine (genlist (fun i -> i) (List.length fns)) fns)))
+  let cs = compile_Cexp rs (CLetrec Cdefs (CCon 0 (genlist CVar (List.length fns)))) in
+  compile_decl rs cs fns
 and
 compile_dec rs (Dlet p e) =
   let m = etC rs in
   let Ce = exp_to_Cexp m e in
   let (m,Cp) = pat_to_Cpat <| m with bvars = [] |> p in
   let vs = m.bvars in
-  let Cpes = [(Cp,CDecl (List.combine (genlist (fun i -> i) (List.length vs)) vs))] in
-  compile_Cexp rs true (CLet Ce (remove_mat_var 0 Cpes))
-
-let compile_exp s exp = compile_Cexp s false (exp_to_Cexp (etC s) exp)
+  let Cpes = [(Cp,CCon 0 (genlist CVar (List.length vs)))] in
+  let cs = compile_Cexp rs (CLet Ce (remove_mat_var 0 Cpes)) in
+  compile_decl rs cs vs

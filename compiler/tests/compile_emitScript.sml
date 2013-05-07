@@ -112,7 +112,6 @@ val defs = map EmitML.DEFN
 , underscore_rule remove_mat_var_def
 , underscore_rule exp_to_Cexp_def
 , compile_Cexp_def
-, compile_exp_def
 , number_constructors_def
 , compile_dec_def
 , v_to_ov_def

@@ -5,8 +5,6 @@ open IntLang
 open Ast
 
 let rec
-free_vars (CDecl xs) = Set.from_list (List.map fst xs)
-and
 free_vars (CRaise _) = {}
 and
 free_vars (CHandle e1 e2) = free_vars e1 union (image pre (free_vars e2 \ {0}))
@@ -53,8 +51,6 @@ and
 free_vars_def _ (Some _,_) = {}
 
 let rec
-mkshift f k (CDecl vs) = CDecl (List.map (fun (n,m) -> (if n < k then n else (f (n-k))+k, m)) vs)
-and
 mkshift _ _ (CRaise err) = CRaise err
 and
 mkshift f k (CHandle e1 e2) = CHandle (mkshift f k e1) (mkshift f (k+1) e2)

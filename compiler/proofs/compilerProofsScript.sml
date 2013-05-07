@@ -173,6 +173,7 @@ val code_env_cd_append = store_thm("code_env_cd_append",
   HINT_EXISTS_TAC>>simp[]>>
   HINT_EXISTS_TAC>>simp[])
 
+(*
 val compile_exp_val = store_thm("compile_exp_val",
   ``∀menv cenv s env exp s' v rd rs rs' bc0 bc bs bs'.
       evaluate menv cenv s env exp (s', Rval v) ∧
@@ -340,5 +341,6 @@ val compile_exp_val = store_thm("compile_exp_val",
   match_mp_tac Cenv_bs_append_code >>
   HINT_EXISTS_TAC >>
   simp[bc_state_component_equality])
+*)
 
 val _ = export_theory()

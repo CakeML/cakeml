@@ -19,8 +19,6 @@ val _ = new_theory "ToIntLang"
 
  val free_vars_defn = Hol_defn "free_vars" `
 
-(free_vars (CDecl xs) = ( LIST_TO_SET ( MAP FST xs)))
-/\
 (free_vars (CRaise _) = ({}))
 /\
 (free_vars (CHandle e1 e2) = (free_vars e1 UNION ( IMAGE PRE (free_vars e2 DIFF {0}))))
@@ -70,8 +68,6 @@ val _ = Defn.save_defn free_vars_defn;
 
  val mkshift_defn = Hol_defn "mkshift" `
 
-(mkshift f k (CDecl vs) = (CDecl ( MAP (\ (n,m) . ((if n < k then n else (f (n - k)) +k), m)) vs)))
-/\
 (mkshift _ _ (CRaise err) = (CRaise err))
 /\
 (mkshift f k (CHandle e1 e2) = (CHandle (mkshift f k e1) (mkshift f (k +1) e2)))

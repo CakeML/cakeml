@@ -28,7 +28,6 @@ type ceenv = list num * list num (* indices of recursive closures, free variable
 type ctenv = list ctbind
 
 type Cexp =
-  | CDecl of list (num * string)
   | CRaise of error
   | CHandle of Cexp * Cexp
   | CVar of num
@@ -345,13 +344,6 @@ let rec syneq_cb_V az r1 r2 V V' v1 v2 =
     (exists j. (r1 (v1-az) = CCArg j) && r2 (v2-az) = CCArg j)))
 
 indreln
-forall ez1 ez2 V xs1 xs2.
-List.for_all2 (fun v1 v2 -> (v1 < ez1 && v2 < ez2 && V v1 v2) ||
-                            (ez1 <= v1 && ez2 <= v2 && v1 = v2))
-  (List.map fst xs1) (List.map fst xs2)
-==>
-syneq_exp ez1 ez2 V (CDecl xs1) (CDecl xs2)
-and
 forall ez1 ez2 V err.
 true
 ==>
@@ -488,8 +480,6 @@ syneq (CLoc n) (CLoc n)
 (* auxiliary functions over the syntax *)
 
 let rec
-no_labs (CDecl _) = true
-and
 no_labs (CRaise _) = true
 and
 no_labs (CHandle e1 e2) = no_labs e1 && no_labs e2
@@ -533,8 +523,6 @@ and
 no_labs_def (None,(_,b)) = no_labs b
 
 let rec
-all_labs (CDecl _) = true
-and
 all_labs (CRaise _) = true
 and
 all_labs (CHandle e1 e2) = all_labs e1 && all_labs e2
