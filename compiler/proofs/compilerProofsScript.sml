@@ -7,7 +7,10 @@ val good_contab_def = Define`
     fmap_linv m w`
 
 val env_rs_def = Define`
-  env_rs env rs rd s bs ⇔
+  env_rs cenv env rs rd s bs ⇔
+    good_contab rs.contab ∧
+    good_cmap cenv (cmap rs.contab) ∧
+    set (MAP FST cenv) ⊆ FDOM (cmap rs.contab) ∧
     (rs.rbvars = MAP FST env) ∧
     let Cs0 = MAP (v_to_Cv (cmap rs.contab)) s in
     let Cenv0 = env_to_Cenv (cmap rs.contab) env in
@@ -181,10 +184,7 @@ val compile_exp_val = store_thm("compile_exp_val",
       closed_under_cenv cenv menv env s ∧
       (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
       LENGTH s' ≤ LENGTH rd.sm ∧
-      good_cmap cenv (cmap rs.contab) ∧
-      set (MAP FST cenv) ⊆ FDOM (cmap rs.contab) ∧
-      good_contab rs.contab ∧
-      env_rs env rs rd s (bs with code := bc0) ∧
+      env_rs cenv env rs rd s (bs with code := bc0) ∧
       (compile_exp rs exp = (rs',bc)) ∧
       (bs.code = bc0 ++ bc) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
@@ -196,7 +196,7 @@ val compile_exp_val = store_thm("compile_exp_val",
                           stack := bv :: bs.stack; refs := rf|> in
       bc_next^* bs bs' ∧
       (v_to_ov rd'.sm v = bv_to_ov (FST(SND(rs'.contab))) bv) ∧
-      env_rs env rs' rd' s' bs'``,
+      env_rs cenv env rs' rd' s' bs'``,
   rpt gen_tac >>
   simp[compile_exp_def,compile_Cexp_def,GSYM LEFT_FORALL_IMP_THM] >>
   Q.PAT_ABBREV_TAC`Ce0 = exp_to_Cexp X exp` >>
