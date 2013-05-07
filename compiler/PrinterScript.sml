@@ -107,6 +107,8 @@ val _ = Defn.save_defn ov_to_string_defn;
 
 (*open Compiler*)
 
+(* TODO: these two don't belong here *)
+
  val lookup_cc_def = Define `
 
 (lookup_cc sz st rs (CCArg n) = ( el_check (sz + n) st))
@@ -132,25 +134,32 @@ val _ = Defn.save_defn ov_to_string_defn;
 (lookup_ct sz st rs (CTEnv cc) = ( lookup_cc sz st rs cc))`;
 
 
- val lookup_bv_def = Define `
- (lookup_bv cs bs v =  
+val _ = Define `
+ (stack_index cs v =  
+(cs.rsz - ( EL  (the 0 (find_index v cs.rbvars 0))  cs.renv)))`;
+
+
+ val preprint_dec_def = Define `
+
+(preprint_dec _ (Dtype _) = ([]))
+/\
+(preprint_dec cs (Dlet p _) = ( MAP (\ v . (stack_index cs v,v)) (pat_bindings p [])))
+/\
+(preprint_dec cs (Dletrec defs) = ( MAP (\p . 
+  (case (p ) of ( (v,_,_) ) => (stack_index cs v,v) )) defs))`;
+
+
+val _ = Define `
+ (simple_printer ds cs stack =  
 (
-  OPTION_BIND (find_index v cs.rbvars 0)
-  (\ n . lookup_ct cs.rsz bs.stack bs.refs (CTLet ( EL  n  cs.renv)))))`;
-
-
- val print_dec_def = Define `
-
-(print_dec _ _ (Dtype ls) = ( MAP (\p . 
-  (case (p ) of ( (_,s,_) ) => STRCAT "type " s )) ls))
-/\
-(print_dec cs bs (Dlet p _) = ( MAP
-    (\ p . STRCAT  "val " ( STRCAT  p ( STRCAT  " = " 
-      (ov_to_string (bv_to_ov (Compiler$cpam cs) (THE (lookup_bv cs bs p)))))))
-    (pat_bindings p [])))
-/\
-(print_dec _ _ (Dletrec defs) = ( MAP (\p . 
-  (case (p ) of ( (f,_,_) ) => STRCAT "val " ( STRCAT f " = <fn>") )) defs))`;
+  FLAT
+    ( MAP
+       (\ (n,v) . STRCAT 
+         "val " ( STRCAT  v ( STRCAT  " = " ( STRCAT  
+         (ov_to_string
+           (bv_to_ov cs
+             ( EL  n  stack))) "\n"))))
+       ds)))`;
 
 val _ = export_theory()
 

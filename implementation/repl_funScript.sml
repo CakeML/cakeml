@@ -36,7 +36,7 @@ val init_repl_fun_state = Define`
 
 val print_result_def = Define `
   print_result s bs =
-    FLAT (MAP (\x. x ++ "\n") (FLAT (MAP (print_dec s.rcompiler_state bs) s.decs)))`
+    simple_printer (FLAT (MAP (preprint_dec s.rcompiler_state) s.decs)) (cpam s.rcompiler_state) bs.stack`
 
 val update_state_def = Define`
   update_state s tbs cts bds (rm,rc,rt) cs ds =

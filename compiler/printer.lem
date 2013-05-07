@@ -78,6 +78,8 @@ ov_to_string OError = "<error>"
 
 open Compiler
 
+(* TODO: these two don't belong here *)
+
 let rec
 lookup_cc sz st rs (CCArg n) = el_check (sz + n) st
 and
@@ -97,19 +99,24 @@ lookup_ct sz st rs (CTLet n) = if sz < n then None else el_check (sz - n) st
 and
 lookup_ct sz st rs (CTEnv cc) = lookup_cc sz st rs cc
 
-let rec lookup_bv cs bs v =
-  Hol.OPTION_BIND (find_index v cs.rbvars 0)
-  (fun n -> lookup_ct cs.rsz bs.stack bs.refs (CTLet (List.nth cs.renv n)))
+let stack_index cs v =
+  cs.rsz - (List.nth cs.renv (the 0 (find_index v cs.rbvars 0)))
 
 let rec
-print_dec _ _ (Dtype ls) =
-  List.map (fun (_,s,_) -> "type "^s) ls
+preprint_dec _ (Dtype _) = []
 and
-print_dec cs bs (Dlet p _) =
-  List.map
-    (fun p -> "val "^p^" = "^
-      (ov_to_string (bv_to_ov (Compiler.cpam cs) (Hol.THE (lookup_bv cs bs p)))))
-    (pat_bindings p [])
+preprint_dec cs (Dlet p _) =
+  List.map (fun v -> (stack_index cs v,v)) (pat_bindings p [])
 and
-print_dec _ _ (Dletrec defs) =
-  List.map (fun (f,_,_) -> "val "^f^" = <fn>") defs
+preprint_dec cs (Dletrec defs) =
+  List.map (fun (v,_,_) -> (stack_index cs v,v)) defs
+
+let simple_printer ds cs stack =
+  Hol.FLAT
+    (List.map
+       (fun (n,v) ->
+         "val "^v^" = "^
+         (ov_to_string
+           (bv_to_ov cs
+             (List.nth stack n)))^"\n")
+       ds)
