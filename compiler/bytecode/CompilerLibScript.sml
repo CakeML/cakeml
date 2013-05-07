@@ -81,7 +81,7 @@ val _ = Defn.save_defn lunion_defn;
 
 
  val the_def = Define `
- (the (SOME x) = x) /\ (the NONE = 0)`;
+ (the _ (SOME x) = x) /\ (the x NONE = x)`;
 
 val _ = export_theory()
 

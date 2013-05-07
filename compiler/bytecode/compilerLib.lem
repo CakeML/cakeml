@@ -56,4 +56,4 @@ let rec
 lshift n ls =
   List.map (fun v -> v - n) (List.filter (fun v -> n <= v) ls)
 
-let rec the (Some x) = x and the None = 0
+let rec the _ (Some x) = x and the x None = x

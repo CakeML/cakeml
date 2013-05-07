@@ -209,7 +209,7 @@ val _ = Defn.save_defn remove_mat_var_defn;
 (exp_to_Cexp m (Con cn es) =  
 (CCon ( FAPPLY  m.cnmap  cn) (exps_to_Cexps m es)))
 /\
-(exp_to_Cexp m (Var (Short vn)) = (CVar (the (find_index vn m.bvars 0))))
+(exp_to_Cexp m (Var (Short vn)) = (CVar (the 0 (find_index vn m.bvars 0))))
 /\
 (exp_to_Cexp _ (Var (Long _ _)) = (CRaise Bind_error))
 /\
@@ -342,7 +342,7 @@ val _ = Defn.save_defn exp_to_Cexp_defn;
   (case (p ) of ( (n,_,_) ) => n )) defs) in
   let m = (( m with<| bvars := fns ++ m.bvars |>)) in
   let Cdefs = ( defs_to_Cdefs m defs) in
-  CRecClos Cenv Cdefs (the (find_index vn fns 0))))
+  CRecClos Cenv Cdefs (the 0 (find_index vn fns 0))))
 /\
 (v_to_Cv _ (Loc n) = (CLoc n))
 /\

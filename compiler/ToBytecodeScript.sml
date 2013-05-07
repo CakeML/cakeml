@@ -29,8 +29,8 @@ val _ = new_theory "ToBytecode"
   let envs = ( FILTER (\ v . az +nz <= v) fvs) in
   let envs = ( MAP (\ v . v -(az +nz)) envs) in
   let rz = ( LENGTH recs +1) in
-  let e = ( mkshift (\ v . if v < nz then the(find_index v (ix ::recs) 0)
-                            else the(find_index (v - nz) envs rz))
+  let e = ( mkshift (\ v . if v < nz then the 0 (find_index v (ix ::recs) 0)
+                            else the 0 (find_index (v - nz) envs rz))
                   az e) in
   let rz = (rz - 1) in
   ((( GENLIST (\ i . CCArg (2 +i)) (az +1)) ++(( GENLIST CCRef rz) ++( GENLIST (\ i . CCEnv (rz +i)) ( LENGTH envs))))
