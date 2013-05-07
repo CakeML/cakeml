@@ -80,7 +80,7 @@ val pnt_def = Define`pnt ntsym = nt (mkNT ntsym) I`
    ---------------------------------------------------------------------- *)
 
 val peg_Type_def = Define`
-  peg_Type = seq (nt (mkNT nDType) I)
+  peg_Type = seq (pnt nDType)
                  (choice (seq (tokeq ArrowT) (pnt nType) (++))
                          (empty [])
                          sumID)
@@ -125,7 +125,7 @@ val peg_DType_def = Define`
            (λa ops. FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
                           a ops))
       (choice
-        (seq (nt (mkNT nTyOp) (λx. [Nd (mkNT nDType) x]))
+        (seq (pegf (pnt nTyOp) (bindNT nDType))
              (rpt (pnt nTyOp) FLAT)
              (λa ops. FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
                             a ops))
@@ -142,17 +142,6 @@ val peg_DType_def = Define`
              (λa b. b))
         sumID)
       sumID
-`;
-
-val peg_StarTypes_def = Define`
-  peg_StarTypes = peg_linfix (mkNT nStarTypes) (pnt nDType) (tokeq StarT)
-`;
-
-val peg_StarTypesP_def = Define`
-  peg_StarTypesP =
-    choicel [seql [tokeq LparT; pnt nStarTypes; tokeq RparT]
-                  (bindNT nStarTypesP);
-             pegf (pnt nStarTypes) (bindNT nStarTypesP)]
 `;
 
 val peg_TypeName_def = Define`
@@ -174,29 +163,6 @@ val peg_UQConstructorName_def = Define`
                 assert (s ≠ "" ∧ isUpper (HD s) ∨ s ∈ {"true"; "false"; "ref"})
              od = SOME ())
         (bindNT nUQConstructorName o mktokLf)
-`;
-
-(* Dconstructor ::= ConstructorName "of" StarTypesP | ConstructorName; *)
-val peg_Dconstructor_def = Define`
-  peg_Dconstructor =
-    seq (pnt nUQConstructorName)
-        (choice (seq (tokeq OfT) (pnt nStarTypesP) (++))
-                (empty [])
-                sumID)
-        (λl1 l2. bindNT nDconstructor (l1 ++ l2))
-`;
-
-
-(* DtypeDecl ::= TypeName "=" DtypeCons ; *)
-val peg_DtypeDecl_def = Define`
-  peg_DtypeDecl =
-    seq (pnt nTypeName)
-        (seq (tokeq EqualsT)
-             (*  DtypeCons ::= Dconstructor | DtypeCons "|" Dconstructor; *)
-             (peg_linfix (mkNT nDtypeCons) (pnt nDconstructor)
-                         (tokeq BarT))
-             (++))
-        (λl1 l2. bindNT nDtypeDecl (l1 ++ l2))
 `;
 
 val peg_TypeDec_def = Define`
@@ -225,25 +191,6 @@ val peg_V_def = Define`
                mktokLf)
           (bindNT nV o sumID)
 `
-
-val peg_multops_def = Define`
-  peg_multops = pegf (choicel (MAP tokeq
-                                   [StarT; SymbolT "/"; AlphaT "mod";
-                                    AlphaT "div"]))
-                     (bindNT nMultOps)
-`;
-
-val peg_addops_def = Define`
-  peg_addops = pegf (choicel [tokeq (SymbolT "+"); tokeq (SymbolT "-")])
-                    (bindNT nAddOps)
-`;
-
-val peg_relops_def = Define`
-  peg_relops = pegf (choicel (tok ((=) EqualsT) mktokLf ::
-                              MAP (tokeq o SymbolT)
-                                  ["<"; ">"; "<="; ">="; "<>"]))
-                    (bindNT nRelOps)
-`;
 
 val peg_Eapp_def = Define`
   peg_Eapp =
@@ -276,16 +223,24 @@ val mmlPEG_def = zDefine`
               (mkNT nElist2,
                seql [pnt nE; tokeq CommaT; pnt nElist1] (bindNT nElist2));
               (mkNT nElist1, peg_linfix (mkNT nElist1) (pnt nE) (tokeq CommaT));
-              (mkNT nMultOps, peg_multops);
-              (mkNT nAddOps, peg_addops);
-              (mkNT nRelOps, peg_relops);
+              (mkNT nMultOps,
+               pegf (choicel (MAP tokeq
+                                  [StarT; SymbolT "/"; AlphaT "mod"; AlphaT "div"]))
+                    (bindNT nMultOps));
+              (mkNT nAddOps,
+               pegf (choicel [tokeq (SymbolT "+"); tokeq (SymbolT "-")])
+                    (bindNT nAddOps));
+              (mkNT nRelOps, pegf (choicel (tok ((=) EqualsT) mktokLf ::
+                                            MAP (tokeq o SymbolT)
+                                                ["<"; ">"; "<="; ">="; "<>"]))
+                                  (bindNT nRelOps));
               (mkNT nCompOps, pegf (choicel [tokeq (SymbolT ":=");
                                              tokeq (AlphaT "o")])
                                    (bindNT nCompOps));
               (mkNT nEbase,
                choicel [tok isInt (bindNT nEbase o mktokLf);
-                        nt (mkNT nFQV) (bindNT nEbase);
-                        nt (mkNT nConstructorName) (bindNT nEbase);
+                        pegf (pnt nFQV) (bindNT nEbase);
+                        pegf (pnt nConstructorName) (bindNT nEbase);
                         seql [tokeq LparT; tokeq RparT] (bindNT nEbase);
                         seql [tokeq LparT; pnt nEseq; tokeq RparT]
                              (bindNT nEbase);
@@ -313,7 +268,7 @@ val mmlPEG_def = zDefine`
                           (tokeq OrelseT));
               (mkNT nE,
                choicel [seql [tokeq RaiseT; pnt nE] (bindNT nE);
-                        nt (mkNT nElogicOR) (bindNT nE);
+                        pegf (pnt nElogicOR) (bindNT nE);
                         seql [tokeq IfT; pnt nE; tokeq ThenT; pnt nE;
                               tokeq ElseT; pnt nE]
                              (bindNT nE);
@@ -333,12 +288,23 @@ val mmlPEG_def = zDefine`
               (mkNT nDType, peg_DType);
               (mkNT nTyOp, peg_TyOp);
               (mkNT nUQTyOp, tok isAlphaSym (bindNT nUQTyOp o mktokLf));
-              (mkNT nStarTypes, peg_StarTypes);
-              (mkNT nStarTypesP, peg_StarTypesP);
+              (mkNT nStarTypes,
+               peg_linfix (mkNT nStarTypes) (pnt nDType) (tokeq StarT));
+              (mkNT nStarTypesP,
+               choicel [seql [tokeq LparT; pnt nStarTypes; tokeq RparT]
+                             (bindNT nStarTypesP);
+                        pegf (pnt nStarTypes) (bindNT nStarTypesP)]);
               (mkNT nTypeName, peg_TypeName);
               (mkNT nTypeDec, peg_TypeDec);
-              (mkNT nDtypeDecl, peg_DtypeDecl);
-              (mkNT nDconstructor, peg_Dconstructor);
+              (mkNT nDtypeDecl,
+               seql [pnt nTypeName;
+                     tokeq EqualsT;
+                     peg_linfix (mkNT nDtypeCons) (pnt nDconstructor) (tokeq BarT)]
+                    (bindNT nDtypeDecl));
+              (mkNT nDconstructor,
+               seql [pnt nUQConstructorName;
+                     try (seql [tokeq OfT; pnt nStarTypesP] I)]
+                    (bindNT nDconstructor));
               (mkNT nUQConstructorName, peg_UQConstructorName);
               (mkNT nConstructorName,
                pegf (pnt nUQConstructorName) (bindNT nConstructorName));
@@ -387,10 +353,34 @@ val mmlPEG_def = zDefine`
              ] |>
 `;
 
-val rules = SIMP_CONV (srw_ss()) [mmlPEG_def] ``mmlPEG.rules``
+val rules_t = ``mmlPEG.rules``
+val rules = SIMP_CONV (srw_ss()) [mmlPEG_def] rules_t
+
+val _ = print "Calculating application of mmlPEG rules - "
+val mmlpeg_rules_applied = let
+  val app0 = finite_mapSyntax.fapply_t
+  val theta =
+      Type.match_type (type_of app0 |> dom_rng |> #1) (type_of rules_t)
+  val app = inst theta app0
+  val app_rules = AP_TERM app rules
+  fun mkrule t =
+      AP_THM app_rules ``mkNT ^t``
+             |> SIMP_RULE (srw_ss()) [finite_mapTheory.FUPDATE_LIST,
+                                      finite_mapTheory.FAPPLY_FUPDATE_THM]
+in
+    TypeBase.constructors_of ``:MMLnonT`` |> map mkrule
+end
+val _ = print "done\n"
+
+val peg_dom =
+    SIMP_CONV (srw_ss()) [mmlPEG_def,
+                          finite_mapTheory.FRANGE_FUPDATE_DOMSUB,
+                          finite_mapTheory.DOMSUB_FUPDATE_THM,
+                          finite_mapTheory.FUPDATE_LIST_THM] ``FDOM mmlPEG.rules``
+
 val spec0 =
     peg_nt_thm |> Q.GEN `G`  |> Q.ISPEC `mmlPEG`
-               |> SIMP_RULE (srw_ss()) [rules, finite_mapTheory.FUPDATE_LIST]
+               |> SIMP_RULE (srw_ss()) [peg_dom]
                |> Q.GEN `n`
 
 val mkNT = ``mkNT``
@@ -399,11 +389,131 @@ val mmlPEG_exec_thm = save_thm(
   "mmlPEG_exec_thm",
   TypeBase.constructors_of ``:MMLnonT``
     |> map (fn t => ISPEC (mk_comb(mkNT, t)) spec0)
-    |> map (SIMP_RULE (srw_ss()) [finite_mapTheory.FAPPLY_FUPDATE_THM])
+    |> map (SIMP_RULE (srw_ss()) mmlpeg_rules_applied)
     |> LIST_CONJ)
 val _ = computeLib.add_persistent_funs ["mmlPEG_exec_thm"]
 
 val test1 = time EVAL ``peg_exec mmlPEG (pnt nErel) [IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] [] done failed``
 
+
+open lcsymtacs
+
+val frange_image = prove(
+  ``FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)``,
+  simp[finite_mapTheory.FRANGE_DEF, pred_setTheory.EXTENSION] >> metis_tac[]);
+
+val peg_range =
+    SIMP_CONV (srw_ss())
+              (peg_dom :: frange_image :: mmlpeg_rules_applied)
+              ``FRANGE mmlPEG.rules``
+
+val peg_start = SIMP_CONV(srw_ss()) [mmlPEG_def]``mmlPEG.start``
+
+val wfpeg_rwts = pegTheory.wfpeg_cases
+                   |> ISPEC ``mmlPEG``
+                   |> (fn th => map (fn t => Q.SPEC t th)
+                                    [`seq e1 e2 f`, `choice e1 e2 f`, `tok P f`,
+                                     `any f`, `empty v`, `not e v`, `rpt e f`,
+                                     `choicel []`, `choicel (h::t)`, `tokeq t`,
+                                     `pegf e f`
+                      ])
+                   |> map (CONV_RULE
+                             (RAND_CONV (SIMP_CONV (srw_ss())
+                                                   [choicel_def, seql_def, tokeq_def,
+                                                    pegf_def])))
+
+val wfpeg_pnt = pegTheory.wfpeg_cases
+                  |> ISPEC ``mmlPEG``
+                  |> Q.SPEC `pnt n`
+                  |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [pnt_def]))
+
+val peg0_rwts = pegTheory.peg0_cases
+                  |> ISPEC ``mmlPEG`` |> CONJUNCTS
+                  |> map (fn th => map (fn t => Q.SPEC t th)
+                                       [`tok P f`, `choice e1 e2 f`, `seq e1 e2 f`,
+                                        `tokeq t`, `empty l`, `not e v`])
+                  |> List.concat
+                  |> map (CONV_RULE
+                            (RAND_CONV (SIMP_CONV (srw_ss())
+                                                  [tokeq_def])))
+
+val pegnt_case_ths = pegTheory.peg0_cases
+                      |> ISPEC ``mmlPEG`` |> CONJUNCTS
+                      |> map (Q.SPEC `pnt n`)
+                      |> map (CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [pnt_def])))
+
+fun pegnt(t,acc) = let
+  val th =
+      prove(``¬peg0 mmlPEG (pnt ^t)``,
+            simp(pegnt_case_ths @ mmlpeg_rules_applied @
+                 [peg_dom, peg_V_def, peg_UQConstructorName_def, peg_TypeName_def,
+                  peg_TypeDec_def, choicel_def, seql_def,
+                  peg_TyOp_def, pegf_def, peg_linfix_def,
+                  peg_DType_def, peg_Eapp_def]) >>
+            simp(peg0_rwts @ acc))
+in
+  th::acc
+end
+
+val npeg0_rwts =
+    List.foldl pegnt []
+               [``nTypeDec``, ``nDecl``, ``nV``, ``nVlist1``, ``nUQTyOp``,
+                ``nUQConstructorName``, ``nConstructorName``, ``nTypeName``,
+                ``nTyOp``, ``nDType``, ``nStarTypes``, ``nStarTypesP``,
+                ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``, ``nLetDec``,
+                ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``]
+
+fun wfnt(t,acc) = let
+  val th =
+    prove(``wfpeg mmlPEG (pnt ^t)``,
+          SIMP_TAC (srw_ss()) (mmlpeg_rules_applied @
+                               [wfpeg_pnt, peg_dom, try_def,
+                                seql_def, peg_TypeDec_def, peg_V_def, peg_Type_def,
+                                peg_UQConstructorName_def, peg_TypeName_def,
+                                peg_TyOp_def, peg_DType_def, peg_nonfix_def,
+                                tokeq_def, peg_linfix_def, peg_Eapp_def]) THEN
+          simp(wfpeg_rwts @ npeg0_rwts @ peg0_rwts @ acc))
+in
+  th::acc
+end;
+
+val topo_nts = [``nV``, ``nTypeDec``, ``nDecl``, ``nVlist1``,
+                ``nUQTyOp``, ``nUQConstructorName``,
+                ``nConstructorName``, ``nTypeName``, ``nTyOp``, ``nDType``,
+                ``nStarTypes``, ``nStarTypesP``,
+                ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``, ``nPE``,
+                ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``, ``nFQV``,
+                ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
+                ``nEmult``, ``nEadd``, ``nErel``,
+                ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``,
+                ``nElogicOR``, ``nE``, ``nType``,
+                ``nPatternList1``, ``nPatternList2``,
+                ``nEtuple``, ``nEseq``, ``nElist1``, ``nElist2``, ``nDtypeDecl``,
+                ``nDecls``, ``nDconstructor``, ``nAndFDecls``]
+
+val cml_wfpeg_thm = save_thm(
+  "cml_wfpeg_thm",
+  LIST_CONJ (List.foldl wfnt [] topo_nts))
+
+(*
+set_diff (TypeBase.constructors_of ``:MMLnonT``)
+         (topo_nts @ [``nTyVarList``, ``nTypeList``, ``nDtypeDecls``,
+                      ``nDtypeCons``])
+*)
+
+val subexprs_pnt = prove(
+  ``subexprs (pnt n) = {pnt n}``,
+  simp[pegTheory.subexprs_def, pnt_def]);
+
+val PEG_wellformed = store_thm(
+  "PEG_wellformed",
+  ``wfG mmlPEG``,
+  simp[pegTheory.wfG_def, pegTheory.Gexprs_def, pegTheory.subexprs_def,
+       subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
+       choicel_def, seql_def, pegf_def, tokeq_def, try_def,
+       peg_linfix_def, peg_UQConstructorName_def, peg_TypeDec_def,
+       peg_TypeName_def, peg_V_def, peg_Eapp_def, peg_nonfix_def, peg_Type_def,
+       peg_DType_def, peg_TyOp_def] >>
+  simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
 
 val _ = export_theory()
