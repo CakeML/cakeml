@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = $(HOLDIR)/examples/parsing/
+INCLUDES = $(HOLDIR)/examples/parsing/ ..
 
 ifdef POLY
 HOLHEAP = sem_heap
@@ -11,4 +11,3 @@ DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
 endif
-
