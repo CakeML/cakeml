@@ -391,12 +391,28 @@ val Cevaluate_all_vlabs = store_thm("Cevaluate_all_vlabs",
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL])
 
+
+(* TODO: move *)
+val set_lunion = store_thm("set_lunion",
+  ``∀l1 l2. set (lunion l1 l2) = set l1 ∪ set l2``,
+  Induct >> simp[lunion_def] >> rw[EXTENSION] >> metis_tac[])
+val _ = export_rewrites["set_lunion"]
+
+val set_lshift = store_thm("set_lshift",
+  ``∀ls n. set (lshift n ls) = { m-n | m | m ∈ set ls ∧ n ≤ m}``,
+  Induct >> rw[lshift_def,EXTENSION,MEM_MAP,MEM_FILTER,EQ_IMP_THM] >>
+  srw_tac[ARITH_ss,SATISFY_ss][] >> fsrw_tac[ARITH_ss][] >>
+  TRY(qexists_tac`h`>>simp[]>>NO_TAC)>>
+  TRY(qexists_tac`v`>>simp[]>>NO_TAC)>>
+  TRY(qexists_tac`m`>>simp[]>>NO_TAC))
+val _ = export_rewrites["set_lshift"]
+
 val free_vars_list_MAP = store_thm("free_vars_list_MAP",
-  ``∀es. free_vars_list es = BIGUNION (IMAGE free_vars (set es))``,
+  ``∀es. set (free_vars_list es) = set (FLAT (MAP free_vars es))``,
   Induct >> simp[])
 
 val free_vars_defs_MAP = store_thm("free_vars_defs_MAP",
-  ``∀n defs. free_vars_defs n defs = BIGUNION (IMAGE (free_vars_def n) (set defs))``,
+  ``∀n defs. set (free_vars_defs n defs) = set (FLAT (MAP (free_vars_def n) defs))``,
   gen_tac >> Induct >> simp[])
 
 (* Cevaluate functional equations *)
@@ -1008,16 +1024,6 @@ val Cevaluate_list_LENGTH = store_thm("Cevaluate_list_LENGTH",
   fsrw_tac[DNF_ss][] >>
   first_x_assum match_mp_tac >>
   srw_tac[SATISFY_ss][])
-
-val FINITE_free_vars = store_thm(
-"FINITE_free_vars",
-``(∀t. FINITE (free_vars t)) ∧
-  (∀ts. FINITE (free_vars_list ts)) ∧
-  (∀n ds. FINITE (free_vars_defs n ds)) ∧
-  (∀n d. FINITE (free_vars_def n d))``,
-ho_match_mp_tac free_vars_ind >>
-rw[free_vars_def] >> simp[FINITE_UNION])
-val _ = export_rewrites["FINITE_free_vars"]
 
 val MAP_SND_free_labs_any_ez = store_thm("MAP_SND_free_labs_any_ez",
   ``(∀ez e ez'. MAP SND (free_labs ez e) = MAP SND (free_labs ez' e)) ∧
@@ -1800,7 +1806,7 @@ val (Cclosed_rules,Cclosed_ind,Cclosed_cases) = Hol_reln`
  n < LENGTH defs ∧
  (∀cd az b. MEM ((cd,az,b)) defs ⇒
     IS_NONE cd ∧ no_labs b ∧
-    free_vars b ⊆ count (az + LENGTH defs + LENGTH env))
+    set (free_vars b) ⊆ count (az + LENGTH defs + LENGTH env))
 ⇒ Cclosed (CRecClos env defs n)) ∧
 (Cclosed (CLoc m))`
 
@@ -1858,7 +1864,7 @@ val Cclosed_bundle = store_thm("Cclosed_bundle",
 
 val Cevaluate_closed = store_thm("Cevaluate_closed",
   ``(∀s env exp res. Cevaluate s env exp res
-     ⇒ free_vars exp ⊆ count (LENGTH env)
+     ⇒ set (free_vars exp) ⊆ count (LENGTH env)
      ∧ no_labs exp
      ∧ EVERY (Cclosed) env
      ∧ EVERY (Cclosed) s
@@ -1866,7 +1872,7 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
      EVERY (Cclosed) (FST res) ∧
      every_result (Cclosed) (SND res)) ∧
     (∀s env exps ress. Cevaluate_list s env exps ress
-     ⇒ free_vars_list exps ⊆ count (LENGTH env)
+     ⇒ set (free_vars_list exps) ⊆ count (LENGTH env)
      ∧ no_labs_list exps
      ∧ EVERY (Cclosed) env
      ∧ EVERY (Cclosed) s
@@ -1882,7 +1888,7 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
     rfs[] >>
     conj_tac >>
     first_x_assum(match_mp_tac o MP_CANON) >>
-    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FILTER] >>
     Cases >> fsrw_tac[ARITH_ss][] >>
     rw[] >> res_tac >> fs[ADD1]) >>
   strip_tac >- rw[] >>
@@ -1903,7 +1909,7 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
     first_x_assum match_mp_tac >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,ADD1] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,ADD1,MEM_MAP,MEM_FILTER] >>
     Cases >> fsrw_tac[ARITH_ss][] >>
     rw[] >> res_tac >> fs[ADD1]) >>
   strip_tac >- rw[] >>
@@ -1911,7 +1917,7 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
     rpt gen_tac >> ntac 2 strip_tac >>
     fs[FOLDL_FUPDATE_LIST,FOLDL_UNION_BIGUNION] >>
     first_x_assum match_mp_tac >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,LET_THM] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,LET_THM,MEM_MAP,MEM_FILTER] >>
     conj_tac >- (
       rw[] >> res_tac >>
       fsrw_tac[ARITH_ss][] ) >>
@@ -1925,16 +1931,18 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
     simp[RIGHT_FORALL_IMP_THM,GSYM IMP_CONJ_THM] >>
     strip_tac >>
     res_tac >> fs[] >> BasicProvers.VAR_EQ_TAC >> fs[] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP] >>
     rpt strip_tac >> res_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FILTER] >>
+    res_tac >>
     fsrw_tac[ARITH_ss][]) >>
   strip_tac >- (
     rw[] >>
     simp[Once Cclosed_cases] >>
     PairCases_on`def` >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,PRE_SUB1] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,PRE_SUB1,MEM_MAP,MEM_FILTER] >>
     Cases_on`def0`>>TRY(PairCases_on`x`)>>fs[]>>
-    rw[] >> fsrw_tac[DNF_ss][FEVERY_DEF] >>
+    rw[] >> fsrw_tac[DNF_ss][FEVERY_DEF,MEM_MAP,MEM_FILTER] >>
     Cases_on`x≤def1`>>fsrw_tac[ARITH_ss][]) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
@@ -1995,9 +2003,9 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
 val mkshift_thm = store_thm("mkshift_thm",
  ``∀f k e z1 z2 V.
    k ≤ z1 ∧ k ≤ z2 ∧
-   (∀x. x ∈ free_vars e ∧ x < k ⇒ V x x) ∧
-   (∀x. x ∈ free_vars e ∧ k ≤ x ∧ x < z1 ⇒ V x (f(x-k)+k) ∧ (f(x-k)+k) < z2) ∧
-   free_vars e ⊆ count z1 ∧ no_labs e
+   (∀x. MEM x (free_vars e) ∧ x < k ⇒ V x x) ∧
+   (∀x. MEM x (free_vars e) ∧ k ≤ x ∧ x < z1 ⇒ V x (f(x-k)+k) ∧ (f(x-k)+k) < z2) ∧
+   set (free_vars e) ⊆ count z1 ∧ no_labs e
    ⇒ syneq_exp z1 z2 V e (mkshift f k e)``,
  ho_match_mp_tac mkshift_ind >>
  strip_tac >- rw[Once syneq_exp_cases] >>
@@ -2005,10 +2013,9 @@ val mkshift_thm = store_thm("mkshift_thm",
    rw[] >>
    rw[Once syneq_exp_cases] >>
    first_x_assum match_mp_tac >>
-   fsrw_tac[ARITH_ss,QUANT_INST_ss[num_qp]][SUBSET_DEF,PRE_SUB1,ADD1] >>
-   conj_tac >> Cases >> fsrw_tac[ARITH_ss][ADD1] >> rw[] >>
-   `k+ f (n - k) < z2` by metis_tac[] >>
-   fsrw_tac[ARITH_ss][] ) >>
+   fsrw_tac[ARITH_ss,QUANT_INST_ss[num_qp]][SUBSET_DEF,PRE_SUB1,ADD1,MEM_MAP,MEM_FILTER,GSYM LEFT_FORALL_IMP_THM] >>
+   conj_tac >> TRY conj_tac >> Cases >> fsrw_tac[ARITH_ss][ADD1] >> rw[] >>
+   res_tac >> fsrw_tac[ARITH_ss][]) >>
  strip_tac >- (
    rw[] >>
    rw[Once syneq_exp_cases] >>
@@ -2018,20 +2025,17 @@ val mkshift_thm = store_thm("mkshift_thm",
    rw[] >>
    rw[Once syneq_exp_cases] >>
    fsrw_tac[DNF_ss][FOLDL_UNION_BIGUNION,SUBSET_DEF,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP,free_labs_list_MAP,MEM_FLAT,MEM_MAP] >>
-   fsrw_tac[DNF_ss][EL_MAP,MEM_EL] >> rw[] >>
-   first_x_assum (match_mp_tac o MP_CANON) >>
-   fsrw_tac[ARITH_ss][free_vars_list_MAP] >>
-   metis_tac[MEM_EL]) >>
+   fsrw_tac[DNF_ss][free_vars_list_MAP,MEM_FLAT,MEM_MAP] >>
+   fsrw_tac[DNF_ss][EL_MAP,MEM_EL] >> rw[]) >>
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
  strip_tac >- (
    rw[] >>
    rw[Once syneq_exp_cases] >>
    first_x_assum match_mp_tac >>
-   fsrw_tac[ARITH_ss,QUANT_INST_ss[num_qp]][SUBSET_DEF,PRE_SUB1,ADD1] >>
-   conj_tac >> Cases >> fsrw_tac[ARITH_ss][ADD1] >> rw[] >>
-   `k+ f (n - k) < z2` by metis_tac[] >>
-   fsrw_tac[ARITH_ss][] ) >>
+   fsrw_tac[ARITH_ss,QUANT_INST_ss[num_qp]][SUBSET_DEF,PRE_SUB1,ADD1,MEM_MAP,MEM_FILTER,GSYM LEFT_FORALL_IMP_THM] >>
+   conj_tac >> TRY conj_tac >> Cases >> fsrw_tac[ARITH_ss][ADD1] >> rw[] >>
+   res_tac >> fsrw_tac[ARITH_ss][]) >>
  strip_tac >- (
    simp[FOLDL_UNION_BIGUNION] >> rw[] >>
    rw[Once syneq_exp_cases] >>
@@ -2041,22 +2045,20 @@ val mkshift_thm = store_thm("mkshift_thm",
      first_x_assum match_mp_tac >>
      simp[] >>
      conj_tac >- (
+       fsrw_tac[DNF_ss,ARITH_ss][MEM_MAP,MEM_FILTER,free_vars_defs_MAP] >>
        srw_tac[ARITH_ss][] >>
-       Cases_on`x < LENGTH defs`>>fsrw_tac[ARITH_ss][] >>
-       fsrw_tac[DNF_ss][SUBSET_DEF] >>
-       `0 < k` by DECIDE_TAC >> fs[] >>
-       metis_tac[ADD_SYM]) >>
+       Cases_on`x < LENGTH defs`>>fsrw_tac[ARITH_ss][]) >>
      conj_tac >- (
        gen_tac >> strip_tac >>
        first_x_assum(qspec_then`x-LENGTH defs`mp_tac) >>
        simp[] >>
        discharge_hyps >- (
-         fsrw_tac[DNF_ss][SUBSET_DEF,free_vars_defs_MAP] >>
+         fsrw_tac[DNF_ss][SUBSET_DEF,free_vars_defs_MAP,MEM_MAP,MEM_FILTER,MEM_FLAT] >>
          disj2_tac >>
          qexists_tac`x` >>
          simp[] ) >>
        simp[]) >>
-     fsrw_tac[ARITH_ss,DNF_ss][SUBSET_DEF] >>
+     fsrw_tac[ARITH_ss,DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FILTER] >>
      qx_gen_tac`x` >> strip_tac >>
      rpt(first_x_assum(qspec_then`x`mp_tac)) >>
      simp[] ) >>
@@ -2080,32 +2082,34 @@ val mkshift_thm = store_thm("mkshift_thm",
      simp[free_vars_defs_MAP] >>
      simp_tac(srw_ss()++DNF_ss)[] >>
      disj1_tac >>
+     fsrw_tac[DNF_ss][MEM_FLAT,MEM_MAP,MEM_FILTER,free_vars_defs_MAP] >>
      qexists_tac`EL v2 defs` >>
-     simp[MEM_EL] >>
-     conj_tac >- (qexists_tac`x`>>simp[])>>
-     metis_tac[]) >>
+     simp[MEM_MAP,MEM_FILTER] >>
+     conj_tac >- metis_tac[MEM_EL] >>
+     qexists_tac`x`>>simp[]) >>
    reverse conj_tac >- (
-     fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF] >>
+     fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,MEM_MAP,MEM_FILTER] >>
      conj_tac >- (
        qx_gen_tac`x` >> strip_tac >>
-       fsrw_tac[DNF_ss,ARITH_ss][free_vars_defs_MAP,MEM_EL] >>
+       fsrw_tac[DNF_ss,ARITH_ss][free_vars_defs_MAP,MEM_MAP,MEM_FILTER,MEM_FLAT] >>
        Cases_on`x<p1+LENGTH defs`>-simp[]>>
-       (first_x_assum(qspecl_then[`x-p1-LENGTH defs`,`v2`]mp_tac)) >>
-       simp[] >>
-       discharge_hyps >- ( qexists_tac`x` >> simp[] ) >>
+       (first_x_assum(qspecl_then[`x-p1-LENGTH defs`,`EL v2 defs`]mp_tac)) >>
+       simp[MEM_MAP,MEM_FILTER] >>
+       discharge_hyps >- ( conj_tac >- metis_tac[MEM_EL] >> qexists_tac`x` >> simp[] ) >>
        simp[] ) >>
      `MEM (NONE,p1,p2) defs` by metis_tac[MEM_EL] >>
      res_tac >> fs[]) >>
    srw_tac[ARITH_ss][syneq_cb_V_def] >- (
-     fsrw_tac[ARITH_ss,DNF_ss][free_vars_defs_MAP,MEM_EL] >>
+     fsrw_tac[ARITH_ss,DNF_ss][free_vars_defs_MAP,MEM_MAP,MEM_FILTER,MEM_FLAT] >>
      `x - (p1 + LENGTH defs) = x - p1 - LENGTH defs` by fsrw_tac[ARITH_ss][] >> pop_assum SUBST1_TAC >>
      `x - (k + (p1 + LENGTH defs)) = x - p1 - LENGTH defs - k` by fsrw_tac[ARITH_ss][] >> pop_assum SUBST1_TAC >>
      last_x_assum match_mp_tac >>
-     qexists_tac`v2` >> simp[] >>
+     qexists_tac`EL v2 defs` >> simp[MEM_MAP,MEM_FILTER] >>
+     conj_tac >- metis_tac[MEM_EL] >>
      qexists_tac`x` >> simp[]) >>
    spose_not_then strip_assume_tac >>
    qpat_assum`~(x < y)`mp_tac >> simp[] >>
-   fsrw_tac[DNF_ss,ARITH_ss][MEM_EL,free_vars_defs_MAP] >>
+   fsrw_tac[DNF_ss,ARITH_ss][MEM_MAP,MEM_FILTER,MEM_FLAT,free_vars_defs_MAP] >>
    rw[AC ADD_ASSOC ADD_SYM] >>
    REWRITE_TAC[Once ADD_ASSOC] >>
    CONV_TAC(LAND_CONV(LAND_CONV(REWRITE_CONV[Once ADD_SYM]))) >>
@@ -2116,7 +2120,8 @@ val mkshift_thm = store_thm("mkshift_thm",
    `x - (k + (p1 + LENGTH defs)) = x - p1 - LENGTH defs - k` by srw_tac[ARITH_ss][] >>
    pop_assum SUBST1_TAC >>
    last_x_assum match_mp_tac >>
-   qexists_tac`v2` >> simp[] >>
+   qexists_tac`EL v2 defs`>>simp[MEM_MAP,MEM_FILTER] >>
+   conj_tac >- metis_tac[MEM_EL] >>
    qexists_tac`x` >> simp[]) >>
  strip_tac >- (
    simp[] >> rw[] >>
@@ -2133,7 +2138,7 @@ val mkshift_thm = store_thm("mkshift_thm",
    conj_tac >- (
      srw_tac[ARITH_ss][syneq_cb_V_def] >>
      first_x_assum match_mp_tac >>
-     simp[PRE_SUB1] >>
+     simp[PRE_SUB1,MEM_MAP,MEM_FILTER] >>
      qexists_tac`x`>>simp[] ) >>
    conj_tac >- (
      srw_tac[ARITH_ss][syneq_cb_V_def] >- (
@@ -2141,7 +2146,8 @@ val mkshift_thm = store_thm("mkshift_thm",
        `x - (cb1 + (k + 1)) = x - (cb1 + 1) - k` by fsrw_tac[ARITH_ss][] >>
        pop_assum SUBST1_TAC >>
        first_x_assum match_mp_tac >>
-       simp[] ) >>
+       simp[MEM_MAP,MEM_FILTER] >>
+       qexists_tac`x`>>simp[]) >>
      spose_not_then strip_assume_tac >>
      qpat_assum`~(x < y)`mp_tac >> simp[] >>
      rw[AC ADD_ASSOC ADD_SYM] >>
@@ -2155,8 +2161,9 @@ val mkshift_thm = store_thm("mkshift_thm",
      pop_assum SUBST1_TAC >>
      fsrw_tac[DNF_ss][PRE_SUB1] >>
      first_x_assum match_mp_tac >>
-     fsrw_tac[ARITH_ss][] ) >>
-   fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
+     fsrw_tac[ARITH_ss][MEM_MAP,MEM_FILTER] >>
+     qexists_tac`x`>>simp[]) >>
+   fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1,MEM_MAP,MEM_FILTER] >>
    qx_gen_tac`x` >>strip_tac >>
    rpt(first_x_assum(qspec_then`x`mp_tac)) >>
    simp[] ) >>
@@ -2167,23 +2174,24 @@ val mkshift_thm = store_thm("mkshift_thm",
    rw[] >> simp[EL_MAP] >>
    fsrw_tac[DNF_ss][EXISTS_PROD,FORALL_PROD] >>
    first_x_assum (match_mp_tac o MP_CANON) >>
-   simp[MEM_EL] >>
-   fsrw_tac[DNF_ss][SUBSET_DEF,MEM_EL] >>
-   qexists_tac`n` >> simp[] >>
-   fsrw_tac[DNF_ss][free_vars_list_MAP,EVERY_MEM,free_labs_list_MAP,MEM_FLAT,MEM_MAP] >>
-   fsrw_tac[DNF_ss][MEM_EL] >>
-   metis_tac[ADD_SYM,MEM_EL] ) >>
+   `MEM (EL n es) es` by metis_tac[MEM_EL] >>
+   simp[] >>
+   fsrw_tac[DNF_ss][free_vars_list_MAP,MEM_FLAT,MEM_MAP] >>
+   conj_tac >- metis_tac[] >>
+   conj_tac >- metis_tac[ADD_SYM] >>
+   fsrw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM,MEM_FLAT,MEM_MAP] >>
+   metis_tac[]) >>
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ))
 
 val free_vars_mkshift = store_thm("free_vars_mkshift",
-  ``∀f k e. free_vars (mkshift f k e) = IMAGE (λv. if v < k then v else f (v-k) + k) (free_vars e)``,
+  ``∀f k e. set (free_vars (mkshift f k e)) = IMAGE (λv. if v < k then v else f (v-k) + k) (set (free_vars e))``,
   ho_match_mp_tac mkshift_ind >>
   strip_tac >- rw[] >>
   strip_tac >- (
-    rw[EXTENSION] >>
+    rw[EXTENSION,MEM_MAP,MEM_FILTER] >>
     rw[EQ_IMP_THM]
     >- metis_tac[]
     >- (
@@ -2203,16 +2211,13 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
       srw_tac[ARITH_ss][]
       >- metis_tac[] >>
       fsrw_tac[ARITH_ss][] >>
-      qmatch_assum_rename_tac`z:num ≠ 0`[] >>
-      qexists_tac`k + f (z - (k + 1)) + 1` >>
-      simp[] >>
-      qexists_tac`z` >>
-      simp[] )) >>
+      fsrw_tac[ARITH_ss,DNF_ss][] >>
+      qexists_tac`m`>>simp[])) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- (
     rw[free_vars_list_MAP] >>
-    fsrw_tac[DNF_ss][Once EXTENSION] >>
+    fsrw_tac[DNF_ss][Once EXTENSION,MEM_FLAT,MEM_MAP] >>
     fsrw_tac[DNF_ss][MEM_MAP,EQ_IMP_THM] >>
     metis_tac[] ) >>
   strip_tac >- rw[] >>
@@ -2222,7 +2227,8 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
     rw[EQ_IMP_THM]
     >- metis_tac[]
     >- (
-      fsrw_tac[ARITH_ss][PRE_SUB1] >>
+      fsrw_tac[ARITH_ss][PRE_SUB1,MEM_MAP,MEM_FILTER] >>
+      res_tac >>
       qexists_tac`v-1` >>
       fsrw_tac[ARITH_ss][] >>
       disj2_tac >>
@@ -2233,16 +2239,23 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
       qexists_tac`v` >>
       srw_tac[ARITH_ss][] )
     >- (
-      fsrw_tac[ARITH_ss][PRE_SUB1] >>
+      fsrw_tac[ARITH_ss][PRE_SUB1,MEM_MAP,MEM_FILTER,EQ_IMP_THM,GSYM LEFT_FORALL_IMP_THM,FORALL_AND_THM] >>
+      res_tac >>
+      srw_tac[ARITH_ss][] >>
+      fsrw_tac[ARITH_ss][]
+      >- (
+        disj2_tac >>
+        qexists_tac`m` >>
+        simp[] )
+      >- (
+        disj2_tac >>
+        fsrw_tac[ARITH_ss][] >>
+        qexists_tac`k + (f (m - (k + 1))) + 1` >>
+        simp[] ) >>
+      Cases_on`k`>> fsrw_tac[ARITH_ss][] >>
+      Cases_on`m`>>fsrw_tac[ARITH_ss][] >>
       disj2_tac >>
-      srw_tac[ARITH_ss][]
-      >- metis_tac[] >>
-      fsrw_tac[ARITH_ss][] >>
-      qmatch_assum_rename_tac`z:num ≠ 0`[] >>
-      qexists_tac`k + f (z - (k + 1)) + 1` >>
-      simp[] >>
-      qexists_tac`z` >>
-      simp[] )) >>
+      qexists_tac`SUC (f n)`>>simp[ADD1])) >>
   strip_tac >- (
     simp[] >> rw[] >>
     simp[free_vars_defs_MAP] >>
@@ -2250,23 +2263,25 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
     qmatch_abbrev_tac`a ∪ b = c ∪ d` >>
     `b = d` by (
       unabbrev_all_tac >>
-      simp[Once EXTENSION] >>
+      simp[Once EXTENSION,MEM_FILTER] >>
       gen_tac >>
       srw_tac[DNF_ss][EQ_IMP_THM] >- (
         qexists_tac`v` >> simp[] ) >>
       qexists_tac`m` >> simp[] ) >>
     `a = c` by (
       unabbrev_all_tac >>
-      simp[Once EXTENSION] >>
+      simp[Once EXTENSION,MEM_FLAT,MEM_MAP] >>
       srw_tac[DNF_ss][EQ_IMP_THM] >- (
         BasicProvers.EVERY_CASE_TAC >- (
           qmatch_assum_rename_tac`MEM (NONE,az,b) defs`[] >>
           first_x_assum(qspecl_then[`az`,`b`]mp_tac) >>
           simp[] >> strip_tac >> fs[] >>
+          fsrw_tac[DNF_ss][MEM_MAP,MEM_FILTER] >>
           rw[] >> fsrw_tac[ARITH_ss][] >>
           qexists_tac`v - (az + LENGTH defs)` >>
           simp[] >>
           HINT_EXISTS_TAC >> simp[] >>
+          simp[MEM_MAP,MEM_FILTER] >>
           qexists_tac`v` >> simp[] ) >>
         qmatch_assum_rename_tac`MEM (SOME p,q,r) defs`[] >>
         PairCases_on`p` >>
@@ -2276,15 +2291,14 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
       qmatch_assum_rename_tac`MEM d defs`[] >>
       PairCases_on`d` >> simp[] >>
       Cases_on`d0`>>simp[]>>fs[]>>
-      fsrw_tac[DNF_ss][] >>
-      qexists_tac`m` >>
-      simp[] ) >>
+      fsrw_tac[DNF_ss][MEM_MAP,MEM_FILTER] >>
+      qexists_tac`m` >> simp[] ) >>
     simp[] ) >>
   strip_tac >- (
     rw[] >>
     PairCases_on`cb`>>simp[] >>
     Cases_on`cb0`>>simp[] >>
-    simp[Once EXTENSION,PRE_SUB1]>>
+    simp[Once EXTENSION,PRE_SUB1,MEM_MAP,MEM_FILTER]>>
     srw_tac[ARITH_ss][EQ_IMP_THM] >- (
       fs[Once EXTENSION] >>
       fsrw_tac[DNF_ss][] >>
@@ -2297,7 +2311,7 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
   strip_tac >- (
     rw[free_vars_list_MAP] >>
     fsrw_tac[DNF_ss][Once EXTENSION] >>
-    fsrw_tac[DNF_ss][MEM_MAP,EQ_IMP_THM] >>
+    fsrw_tac[DNF_ss][MEM_MAP,MEM_FLAT,EQ_IMP_THM] >>
     metis_tac[] ) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
@@ -2306,7 +2320,7 @@ val free_vars_mkshift = store_thm("free_vars_mkshift",
 val _ = export_rewrites["free_vars_mkshift"]
 
 val free_vars_shift = store_thm("free_vars_shift",
-  ``free_vars (shift k n e) = IMAGE (λv. if v < n then v else k + v) (free_vars e)``,
+  ``set (free_vars (shift k n e)) = IMAGE (λv. if v < n then v else k + v) (set (free_vars e))``,
   simp[shift_def])
 val _ = export_rewrites["free_vars_shift"]
 
