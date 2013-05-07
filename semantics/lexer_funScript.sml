@@ -89,7 +89,7 @@ val read_while_thm = prove(
   RES_TAC THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND] THEN DECIDE_TAC);
 
 val isAlphaNumPrime_def = Define`
-  isAlphaNumPrime c ⇔ isAlphaNum c ∨ c = #"'"
+  isAlphaNumPrime c <=> isAlphaNum c ∨ c = #"'"
 `
 
 val str_to_syms_def = tDefine "str_to_syms" `
@@ -222,11 +222,11 @@ Warning! The get_token function never maps into any of the following:
 val syms_to_tokens_def = Define `
   (syms_to_tokens acc [] = acc) /\
   (syms_to_tokens acc (ErrorS::xs) =
-   syms_to_tokens (SNOC LexErrorT acc) xs) /\
+     syms_to_tokens (SNOC LexErrorT acc) xs) /\
   (syms_to_tokens acc (StringS s::xs) =
-   syms_to_tokens (SNOC (StringT s) acc) xs) /\
+     syms_to_tokens (SNOC (StringT s) acc) xs) /\
   (syms_to_tokens acc (NumberS n::xs) =
-   syms_to_tokens (SNOC (IntT (& n)) acc) xs) /\
+     syms_to_tokens (SNOC (IntT (& n)) acc) xs) /\
   (syms_to_tokens acc (OtherS s::xs) =
      syms_to_tokens (SNOC (get_token s) acc) xs)`;
 

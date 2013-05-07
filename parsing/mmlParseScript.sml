@@ -29,4 +29,11 @@ val mmlParseDecls_def = Define`
   od
 `
 
+val parse_def = Define ` (* parses a few declarations, no junk is allowed at the end *)
+  (parse : token list -> ast_prog option) tokens =
+    OPTION_BIND (mmlParseDecls tokens)
+      (\(ts,ast_decs).
+          if ts <> [] then NONE else SOME (MAP Ast_Tdec ast_decs))
+`;
+
 val _ = export_theory()
