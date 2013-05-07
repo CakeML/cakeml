@@ -5,13 +5,13 @@ open IntLang
 open Ast
 
 let rec
-free_vars (CRaise _) = {}
+free_vars (CRaise _) = []
 and
-free_vars (CHandle e1 e2) = free_vars e1 union (image pre (free_vars e2 \ {0}))
+free_vars (CHandle e1 e2) = lunion (free_vars e1) (lshift 1 (free_vars e2))
 and
-free_vars (CVar n) = {n}
+free_vars (CVar n) = [n]
 and
-free_vars (CLit _) = {}
+free_vars (CLit _) = []
 and
 free_vars (CCon _ es) = free_vars_list es
 and
@@ -19,36 +19,35 @@ free_vars (CTagEq e _) = free_vars e
 and
 free_vars (CProj e _) = free_vars e
 and
-free_vars (CLet e eb) = free_vars e union (image pre (free_vars eb \ {0}))
+free_vars (CLet e eb) = lunion (free_vars e) (lshift 1 (free_vars eb))
 and
 free_vars (CLetrec defs e) =
   let n = List.length defs in
-  free_vars_defs n defs union
-  (image (fun m -> m - n) (free_vars e \ count n))
+  lunion (free_vars_defs n defs) (lshift n (free_vars e))
 and
 free_vars (CFun def) = free_vars_def 1 def
 and
-free_vars (CCall e es) = free_vars e union free_vars_list es
+free_vars (CCall e es) = lunion (free_vars e) (free_vars_list es)
 and
 free_vars (CPrim1 _ e) = free_vars e
 and
-free_vars (CPrim2 _ e1 e2) = free_vars e1 union free_vars e2
+free_vars (CPrim2 _ e1 e2) = lunion (free_vars e1) (free_vars e2)
 and
-free_vars (CUpd e1 e2) = free_vars e1 union free_vars e2
+free_vars (CUpd e1 e2) = lunion (free_vars e1) (free_vars e2)
 and
-free_vars (CIf e1 e2 e3) = free_vars e1 union free_vars e2 union free_vars e3
+free_vars (CIf e1 e2 e3) = lunion (free_vars e1) (lunion (free_vars e2) (free_vars e3))
 and
-free_vars_list [] = {}
+free_vars_list [] = []
 and
-free_vars_list (e::es) = free_vars e union free_vars_list es
+free_vars_list (e::es) = lunion (free_vars e) (free_vars_list es)
 and
-free_vars_defs _ [] = {}
+free_vars_defs _ [] = []
 and
-free_vars_defs n (d::ds) = free_vars_def n d union free_vars_defs n ds
+free_vars_defs n (d::ds) = lunion (free_vars_def n d) (free_vars_defs n ds)
 and
-free_vars_def n (None,(k,e)) = image (fun m -> m-(n+k)) (free_vars e \ (count (n+k)))
+free_vars_def n (None,(k,e)) = lshift (n+k) (free_vars e)
 and
-free_vars_def _ (Some _,_) = {}
+free_vars_def _ (Some _,_) = []
 
 let rec
 mkshift _ _ (CRaise err) = CRaise err

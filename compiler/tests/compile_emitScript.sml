@@ -71,6 +71,9 @@ val defs = map EmitML.DEFN
 [ mk_thm([],``SET_TO_LIST s = toList s``)
 , alistTheory.alist_to_fmap_def
 , Cpat_vars_def
+, lunion_def
+, lshift_def
+, the_def
 , free_vars_def
 , emit_def
 , i0_def

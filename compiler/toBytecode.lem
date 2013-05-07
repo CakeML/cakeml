@@ -11,8 +11,8 @@ open Bytecode
 
 let rec bind_fv (az,e) nz ix =
   let fvs = free_vars e in
-  let recs = List.filter (fun v -> az+v IN fvs && not (v=ix)) (genlist (fun n -> n) nz) in
-  let envs = List.filter (fun v -> az+nz <= v) (Hol.QSORT (fun x y -> x < y) (Set.to_list fvs)) in
+  let recs = List.filter (fun v -> List.mem (az+v) fvs && not (v=ix)) (genlist (fun n -> n) nz) in
+  let envs = List.filter (fun v -> az+nz <= v) fvs in
   let envs = List.map (fun v -> v-(az+nz)) envs in
   let rz = List.length recs+1 in
   let e = mkshift (fun v -> if v < nz then the(find_index v (ix::recs) 0)

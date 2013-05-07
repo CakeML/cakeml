@@ -3,17 +3,8 @@
 val genlist : forall 'a. (num -> 'a) -> num -> list 'a
 let inline {hol} genlist = Hol.GENLIST
 
-val image : forall 'a 'b. ('a -> 'b) -> set 'a -> set 'b
-let inline {hol} image = Hol.IMAGE
-
 val pre : num -> num
 let inline {hol} pre = Hol.PRE
-
-val count : num -> set num
-let inline {hol} count = Hol.count
-
-val the : forall 'a 'b. 'a -> 'b
-let inline {hol} the = Hol.THE
 
 val drop : forall 'a. num -> list 'a -> list 'a
 let inline {hol} drop = Hol.DROP
@@ -52,3 +43,17 @@ and
 intersperse _ [x] = [x]
 and
 intersperse a (x::xs) = x::a::intersperse a xs
+
+let rec
+lunion [] s = s
+and
+lunion (x::xs) s =
+  if List.mem x s
+  then lunion xs s
+  else x::(lunion xs s)
+
+let rec
+lshift n ls =
+  List.map (fun v -> v - n) (List.filter (fun v -> n <= v) ls)
+
+let rec the (Some x) = x and the None = 0

@@ -13,13 +13,7 @@ val _ = new_theory "CompilerLib"
 
 (*val genlist : forall 'a. (num -> 'a) -> num -> list 'a*)
 
-(*val image : forall 'a 'b. ('a -> 'b) -> set 'a -> set 'b*)
-
 (*val pre : num -> num*)
-
-(*val count : num -> set num*)
-
-(*val the : forall 'a 'b. 'a -> 'b*)
 
 (*val drop : forall 'a. num -> list 'a -> list 'a*)
 
@@ -69,5 +63,25 @@ val _ = Defn.save_defn num_fold_defn;
 (intersperse a (x::xs) = (x ::a ::intersperse a xs))`;
 
 val _ = Defn.save_defn intersperse_defn;
+
+ val lunion_defn = Hol_defn "lunion" `
+
+(lunion [] s = s)
+/\
+(lunion (x::xs) s =  
+(if MEM x s
+  then lunion xs s
+  else x ::(lunion xs s)))`;
+
+val _ = Defn.save_defn lunion_defn;
+
+ val lshift_def = Define `
+
+(lshift n ls = ( MAP (\ v . v - n) ( FILTER (\ v . n <= v) ls)))`;
+
+
+ val the_def = Define `
+ (the (SOME x) = x) /\ (the NONE = 0)`;
+
 val _ = export_theory()
 

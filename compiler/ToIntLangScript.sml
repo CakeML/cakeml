@@ -19,13 +19,13 @@ val _ = new_theory "ToIntLang"
 
  val free_vars_defn = Hol_defn "free_vars" `
 
-(free_vars (CRaise _) = ({}))
+(free_vars (CRaise _) = ([]))
 /\
-(free_vars (CHandle e1 e2) = (free_vars e1 UNION ( IMAGE PRE (free_vars e2 DIFF {0}))))
+(free_vars (CHandle e1 e2) = ( lunion (free_vars e1) (lshift 1 (free_vars e2))))
 /\
-(free_vars (CVar n) = ({n}))
+(free_vars (CVar n) = ([n]))
 /\
-(free_vars (CLit _) = ({}))
+(free_vars (CLit _) = ([]))
 /\
 (free_vars (CCon _ es) = (free_vars_list es))
 /\
@@ -33,36 +33,35 @@ val _ = new_theory "ToIntLang"
 /\
 (free_vars (CProj e _) = (free_vars e))
 /\
-(free_vars (CLet e eb) = (free_vars e UNION ( IMAGE PRE (free_vars eb DIFF {0}))))
+(free_vars (CLet e eb) = ( lunion (free_vars e) (lshift 1 (free_vars eb))))
 /\
 (free_vars (CLetrec defs e) =  
 (let n = ( LENGTH defs) in
-  free_vars_defs n defs UNION
-  ( IMAGE (\ m . m - n) (free_vars e DIFF count n))))
+  lunion (free_vars_defs n defs) (lshift n (free_vars e))))
 /\
 (free_vars (CFun def) = (free_vars_def 1 def))
 /\
-(free_vars (CCall e es) = (free_vars e UNION free_vars_list es))
+(free_vars (CCall e es) = ( lunion (free_vars e) (free_vars_list es)))
 /\
 (free_vars (CPrim1 _ e) = (free_vars e))
 /\
-(free_vars (CPrim2 _ e1 e2) = (free_vars e1 UNION free_vars e2))
+(free_vars (CPrim2 _ e1 e2) = ( lunion (free_vars e1) (free_vars e2)))
 /\
-(free_vars (CUpd e1 e2) = (free_vars e1 UNION free_vars e2))
+(free_vars (CUpd e1 e2) = ( lunion (free_vars e1) (free_vars e2)))
 /\
-(free_vars (CIf e1 e2 e3) = (free_vars e1 UNION free_vars e2 UNION free_vars e3))
+(free_vars (CIf e1 e2 e3) = ( lunion (free_vars e1) (lunion (free_vars e2) (free_vars e3))))
 /\
-(free_vars_list [] = ({}))
+(free_vars_list [] = ([]))
 /\
-(free_vars_list (e::es) = (free_vars e UNION free_vars_list es))
+(free_vars_list (e::es) = ( lunion (free_vars e) (free_vars_list es)))
 /\
-(free_vars_defs _ [] = ({}))
+(free_vars_defs _ [] = ([]))
 /\
-(free_vars_defs n (d::ds) = (free_vars_def n d UNION free_vars_defs n ds))
+(free_vars_defs n (d::ds) = ( lunion (free_vars_def n d) (free_vars_defs n ds)))
 /\
-(free_vars_def n (NONE,(k,e)) = ( IMAGE (\ m . m -(n +k)) (free_vars e DIFF ( count (n +k)))))
+(free_vars_def n (NONE,(k,e)) = ( lshift (n +k) (free_vars e)))
 /\
-(free_vars_def _ (SOME _,_) = ({}))`;
+(free_vars_def _ (SOME _,_) = ([]))`;
 
 val _ = Defn.save_defn free_vars_defn;
 
@@ -210,7 +209,7 @@ val _ = Defn.save_defn remove_mat_var_defn;
 (exp_to_Cexp m (Con cn es) =  
 (CCon ( FAPPLY  m.cnmap  cn) (exps_to_Cexps m es)))
 /\
-(exp_to_Cexp m (Var (Short vn)) = (CVar ( THE (find_index vn m.bvars 0))))
+(exp_to_Cexp m (Var (Short vn)) = (CVar (the (find_index vn m.bvars 0))))
 /\
 (exp_to_Cexp _ (Var (Long _ _)) = (CRaise Bind_error))
 /\
@@ -343,7 +342,7 @@ val _ = Defn.save_defn exp_to_Cexp_defn;
   (case (p ) of ( (n,_,_) ) => n )) defs) in
   let m = (( m with<| bvars := fns ++ m.bvars |>)) in
   let Cdefs = ( defs_to_Cdefs m defs) in
-  CRecClos Cenv Cdefs ( THE (find_index vn fns 0))))
+  CRecClos Cenv Cdefs (the (find_index vn fns 0))))
 /\
 (v_to_Cv _ (Loc n) = (CLoc n))
 /\
