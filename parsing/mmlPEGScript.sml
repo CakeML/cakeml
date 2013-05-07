@@ -207,10 +207,7 @@ val mmlPEG_def = zDefine`
   mmlPEG = <|
     start := pnt nDecl;
     rules := FEMPTY |++
-             [(mkNT nOptSemi,
-               pegf (choicel [tokeq SemicolonT; empty []])
-                    (bindNT nOptSemi));
-              (mkNT nV, peg_V);
+             [(mkNT nV, peg_V);
               (mkNT nVlist1,
                seql [pnt nV; rpt (pnt nV) FLAT]
                     (λl. [FOLDR (λe acc. Nd (mkNT nVlist1) [e; acc])

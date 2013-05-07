@@ -96,9 +96,6 @@ val mmlG_def = mk_grammar_def ginfo
  DtypeDecls ::= DtypeDecl | DtypeDecls "and" DtypeDecl;
  TypeDec ::= "datatype" DtypeDecls;
 
- (* optional semicolon NT *)
- OptSemi ::= ";" | ;
-
  (* expressions - base cases and function applications *)
  UQConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``)
                     | "true" | "false" | "ref";
