@@ -117,6 +117,8 @@ val defs = map EmitML.DEFN
 , compile_Cexp_def
 , number_constructors_def
 , compile_dec_def
+, id_to_string_def
+, LibTheory.lookup_def
 , v_to_ov_def
 , bv_to_ov_def
 , cpam_def

@@ -8,15 +8,20 @@ open Bytecode
 
 type ov =
   | OLit of lit
-  | OConv of id conN * list ov
+  | OConv of string * list ov
   | OFn
   | OLoc of num (* machine, not semantic, address *)
   | OError (* internal machine value (pointer) that should not appear *)
 
 let rec
+id_to_string (Short s) = s
+and
+id_to_string (Long x y) = x^"."^y
+
+let rec
 v_to_ov _ (Litv l) = OLit l
 and
-v_to_ov s (Conv cn vs) = OConv cn (List.map (v_to_ov s) vs)
+v_to_ov s (Conv cn vs) = OConv (id_to_string cn) (List.map (v_to_ov s) vs)
 and
 v_to_ov _ (Closure _ _ _) = OFn
 and
@@ -27,7 +32,7 @@ v_to_ov s (Loc n) = OLoc (List.nth s n)
 let rec
 Cv_to_ov _ _ (CLitv l) = OLit l
 and
-Cv_to_ov m s (CConv cn vs) = OConv (Pmap.find cn m) (List.map (Cv_to_ov m s) vs)
+Cv_to_ov m s (CConv cn vs) = OConv (id_to_string (Pmap.find cn m)) (List.map (Cv_to_ov m s) vs)
 and
 Cv_to_ov _ _ (CRecClos _ _ _) = OFn
 and
@@ -41,16 +46,11 @@ bv_to_ov m (Block n vs) =
   if n = (bool_to_tag true) then OLit (Bool true) else
   if n = unit_tag then OLit Unit else
   if n = closure_tag then OFn else
-  OConv (Pmap.find (n-block_tag) m) (List.map (bv_to_ov m) vs)
+  OConv (the "?" (Lib.lookup (n-block_tag) m)) (List.map (bv_to_ov m) vs)
 and
 bv_to_ov _ (RefPtr n) = OLoc n
 and
 bv_to_ov _ _ = OError
-
-let rec
-id_to_string (Short s) = s
-and
-id_to_string (Long x y) = x^"."^y
 
 let rec
 ov_to_string (OLit (IntLit (i:int))) =
@@ -64,7 +64,7 @@ and
 ov_to_string (OLit Unit) = "()"
 and
 ov_to_string (OConv cn vs) =
-  (id_to_string cn)^" "^
+  cn^" "^
   match intersperse ", " (List.map ov_to_string vs) with
   | [s] -> s
   | ls -> "("^Hol.FLAT ls^")"

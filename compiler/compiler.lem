@@ -5,7 +5,7 @@ open ToIntLang
 open ToBytecode
 open Bytecode
 
-type contab = Pmap.map (id conN) num * Pmap.map num (id conN) * num
+type contab = Pmap.map (id conN) num * list (num * string) * num
 val cmap : contab -> Pmap.map (id conN) num
 let rec cmap (m,_,_) = m
 
@@ -17,14 +17,14 @@ type compiler_state =
    ; rnext_label : num
    |>
 
-val cpam : compiler_state -> Pmap.map num (id conN)
+val cpam : compiler_state -> list (num * string)
 let rec cpam s = match s.contab with (_,w,_) -> w end
 
 val etC : compiler_state -> exp_to_Cexp_state
 let etC rs = <| bvars = rs.rbvars; cnmap = cmap rs.contab |>
 
 let init_compiler_state =
-  <| contab = (Pmap.empty, Pmap.empty, 0)
+  <| contab = (Pmap.empty, [], 0)
    ; rbvars = []
    ; renv = []
    ; rsz  = 0
@@ -41,7 +41,7 @@ let rec
 number_constructors [] ct = ct
 and
 number_constructors ((c,_)::cs) (m,w,n) =
-  number_constructors cs (Pmap.add (Short c) n m, Pmap.add n (Short c) w, n+1)
+  number_constructors cs (Pmap.add (Short c) n m, (n,c)::w, n+1)
 
 let compile_decl rs cs vs =
   let (cs,z,_,env,bvs) =

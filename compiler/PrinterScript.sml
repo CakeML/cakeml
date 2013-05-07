@@ -22,17 +22,24 @@ val _ = new_theory "Printer"
 val _ = Hol_datatype `
  ov =
     OLit of lit
-  | OConv of conN id => ov list
+  | OConv of string => ov list
   | OFn
   | OLoc of num (* machine, not semantic, address *)
   | OError`;
  (* internal machine value (pointer) that should not appear *)
 
+ val id_to_string_def = Define `
+
+(id_to_string (Short s) = s)
+/\
+(id_to_string (Long x y) = ( STRCAT  x ( STRCAT  "." y)))`;
+
+
  val v_to_ov_defn = Hol_defn "v_to_ov" `
 
 (v_to_ov _ (Litv l) = (OLit l))
 /\
-(v_to_ov s (Conv cn vs) = (OConv cn ( MAP (v_to_ov s) vs)))
+(v_to_ov s (Conv cn vs) = (OConv (id_to_string cn) ( MAP (v_to_ov s) vs)))
 /\
 (v_to_ov _ (Closure _ _ _) = OFn)
 /\
@@ -46,7 +53,7 @@ val _ = Defn.save_defn v_to_ov_defn;
 
 (Cv_to_ov _ _ (CLitv l) = (OLit l))
 /\
-(Cv_to_ov m s (CConv cn vs) = (OConv ( FAPPLY  m  cn) ( MAP (Cv_to_ov m s) vs)))
+(Cv_to_ov m s (CConv cn vs) = (OConv (id_to_string ( FAPPLY  m  cn)) ( MAP (Cv_to_ov m s) vs)))
 /\
 (Cv_to_ov _ _ (CRecClos _ _ _) = OFn)
 /\
@@ -63,20 +70,13 @@ val _ = Defn.save_defn Cv_to_ov_defn;
   if n = (bool_to_tag T) then OLit (Bool T) else
   if n = unit_tag then OLit Unit else
   if n = closure_tag then OFn else
-  OConv ( FAPPLY  m  (n - block_tag)) ( MAP (bv_to_ov m) vs)))
+  OConv (the "?" (Lib$lookup (n - block_tag) m)) ( MAP (bv_to_ov m) vs)))
 /\
 (bv_to_ov _ (RefPtr n) = (OLoc n))
 /\
 (bv_to_ov _ _ = OError)`;
 
 val _ = Defn.save_defn bv_to_ov_defn;
-
- val id_to_string_def = Define `
-
-(id_to_string (Short s) = s)
-/\
-(id_to_string (Long x y) = ( STRCAT  x ( STRCAT  "." y)))`;
-
 
  val ov_to_string_defn = Hol_defn "ov_to_string" `
 
@@ -91,7 +91,7 @@ val _ = Defn.save_defn bv_to_ov_defn;
 (ov_to_string (OLit Unit) = "()")
 /\
 (ov_to_string (OConv cn vs) = ( STRCAT 
-  (id_to_string cn) ( STRCAT  " " 
+  cn ( STRCAT  " " 
   (case intersperse ", " ( MAP ov_to_string vs) of
     [s] => s
   | ls => STRCAT  "(" ( STRCAT(FLAT ls) ")")

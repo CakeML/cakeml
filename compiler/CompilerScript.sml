@@ -18,7 +18,7 @@ val _ = new_theory "Compiler"
 (*open ToBytecode*)
 (*open Bytecode*)
 
-val _ = type_abbrev( "contab" , ``: (( conN id), num)fmap # (num, ( conN id))fmap # num``);
+val _ = type_abbrev( "contab" , ``: (( conN id), num)fmap # (num # string) list # num``);
 (*val cmap : contab -> Pmap.map (id conN) num*)
  val cmap_def = Define `
  (cmap (m,_,_) = m)`;
@@ -34,7 +34,7 @@ val _ = Hol_datatype `
    |>`;
 
 
-(*val cpam : compiler_state -> Pmap.map num (id conN)*)
+(*val cpam : compiler_state -> list (num * string)*)
  val cpam_def = Define `
  (cpam s = ((case s.contab of (_,w,_) => w )))`;
 
@@ -46,7 +46,7 @@ val _ = Define `
 
 val _ = Define `
  init_compiler_state =  
-(<| contab := ( FEMPTY, FEMPTY, 0)
+(<| contab := ( FEMPTY, [], 0)
    ; rbvars := []
    ; renv := []
    ; rsz  := 0
@@ -67,7 +67,7 @@ val _ = Define `
 (number_constructors [] ct = ct)
 /\
 (number_constructors ((c,_)::cs) (m,w,n) =  
-(number_constructors cs ( FUPDATE  m ( (Short c), n), FUPDATE  w ( n, (Short c)), (n +1))))`;
+(number_constructors cs ( FUPDATE  m ( (Short c), n), ((n,c) ::w), (n +1))))`;
 
 val _ = Defn.save_defn number_constructors_defn;
 
