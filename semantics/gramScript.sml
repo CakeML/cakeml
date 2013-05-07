@@ -42,6 +42,7 @@ val tokmap0 =
                (Binarymap.mkDict String.compare)
                [("(", ``LparT``), (")", ``RparT``), (",", ``CommaT``),
                 (";", ``SemicolonT``), (":=", ``SymbolT ":="``),
+                (":>", ``SealT``),
                 ("->", ``ArrowT``), ("=>", ``DarrowT``),
                 ("*", ``StarT``),
                 ("|", ``BarT``), ("=", ``EqualsT``), (":", ``ColonT``),
@@ -64,8 +65,12 @@ val tokmap0 =
                 ("orelse", ``OrelseT``),
                 ("raise", ``RaiseT``),
                 ("ref", ``AlphaT "ref"``),
+                ("sig", ``SigT``),
+                ("struct", ``StructT``),
+                ("structure", ``StructureT``),
                 ("then", ``ThenT``),
                 ("true", ``AlphaT "true"``),
+                ("type", ``TypeT``),
                 ("val", ``ValT``)]
 fun tokmap s =
     case Binarymap.peek(tokmap0, s) of
@@ -147,6 +152,16 @@ val mmlG_def = mk_grammar_def ginfo
  PatternList1 ::= Pattern | PatternList1 "," Pattern;
  PE ::= Pattern "=>" E;
  PEs ::= PE | PEs "|" PE;
+
+ (* modules *)
+ SpecLine ::= "val" V ":" Type
+           |  "type" V
+           |  TypeDec ;
+ SpecLineList ::= SpecLine SpecLineList | ;
+ SignatureValue ::= "sig" SpecLineList "end" ;
+ OptionalSignatureAscription ::= ":>" SignatureValue | ;
+ Structure ::= "structure" V OptionalSignatureAscription "=" "struct" Decls "end";
+ TopLevelDec ::= Structure | Decl;
 `;
 
 val _ = type_abbrev("NT", ``:MMLnonT inf``)
