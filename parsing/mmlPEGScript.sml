@@ -346,7 +346,28 @@ val mmlPEG_def = zDefine`
                rpt (pnt nDecl)
                    (λds. [FOLDR (λd acc. Nd (mkNT nDecls) [HD d; acc])
                                 (Nd (mkNT nDecls) [])
-                                ds]))
+                                ds]));
+              (mkNT nSpecLine,
+               choicel [seql [tokeq ValT; pnt nV; tokeq ColonT; pnt nType]
+                             (bindNT nSpecLine);
+                        seql [tokeq TypeT; pnt nV] (bindNT nSpecLine);
+                        pegf (pnt nTypeDec) (bindNT nSpecLine)]);
+              (mkNT nSpecLineList,
+               rpt (pnt nSpecLine)
+                   (λsls. [FOLDR (λsl acc. Nd (mkNT nSpecLineList) [HD sl; acc])
+                                 (Nd (mkNT nSpecLineList) []) sls]));
+              (mkNT nSignatureValue,
+               seql [tokeq SigT; pnt nSpecLineList; tokeq EndT]
+                    (bindNT nSignatureValue));
+              (mkNT nOptionalSignatureAscription,
+               pegf (try (seql [tokeq SealT; pnt nSignatureValue] I))
+                    (bindNT nOptionalSignatureAscription));
+              (mkNT nStructure,
+               seql [tokeq StructureT; pnt nV; pnt nOptionalSignatureAscription;
+                     tokeq EqualsT; tokeq StructT; pnt nDecls; tokeq EndT]
+                    (bindNT nStructure));
+              (mkNT nTopLevelDec,
+               pegf (choicel [pnt nStructure; pnt nDecl]) (bindNT nTopLevelDec))
              ] |>
 `;
 
@@ -458,7 +479,8 @@ val npeg0_rwts =
                 ``nUQConstructorName``, ``nConstructorName``, ``nTypeName``,
                 ``nTyOp``, ``nDType``, ``nStarTypes``, ``nStarTypesP``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``, ``nLetDec``,
-                ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``]
+                ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
+                ``nSpecLine``]
 
 fun wfnt(t,acc) = let
   val th =
@@ -486,7 +508,10 @@ val topo_nts = [``nV``, ``nTypeDec``, ``nDecl``, ``nVlist1``,
                 ``nElogicOR``, ``nE``, ``nType``,
                 ``nPatternList1``, ``nPatternList2``,
                 ``nEtuple``, ``nEseq``, ``nElist1``, ``nElist2``, ``nDtypeDecl``,
-                ``nDecls``, ``nDconstructor``, ``nAndFDecls``]
+                ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,
+                ``nSpecLineList``, ``nSignatureValue``,
+                ``nOptionalSignatureAscription``, ``nStructure``,
+                ``nTopLevelDec``]
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",
