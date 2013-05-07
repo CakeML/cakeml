@@ -76,13 +76,13 @@ val _ = Define `
 
 val _ = Defn.save_defn number_constructors_defn;
 
- val compile_dec_defn = Hol_defn "compile_dec" `
+ val compile_dec_def = Define `
 
-(compile_dec rs (Dtype []) = (rs,[]))
-/\
-(compile_dec rs (Dtype ((_,_,cs)::ts)) =  
-(let ct = ( number_constructors cs rs.contab) in
-  compile_dec ( rs with<| contab := ct |>) (Dtype ts)))
+(compile_dec rs (Dtype ts) =
+  (( rs with<| contab := FOLDL
+        (\ct p . (case (ct ,p ) of ( ct , (_,_,cs) ) => number_constructors cs ct ))
+        rs.contab ts |>)
+  ,[]))
 /\
 (compile_dec rs (Dletrec defs) =  
 (let m = ( etC rs) in
@@ -100,7 +100,6 @@ val _ = Defn.save_defn number_constructors_defn;
   let Cpes = ([(Cp,CDecl ( ZIP ( ( GENLIST (\ i . i) ( LENGTH vs)), vs)))]) in
   compile_Cexp rs T (CLet Ce (remove_mat_var 0 Cpes))))`;
 
-val _ = Defn.save_defn compile_dec_defn;
 
 val _ = Define `
  (compile_exp s exp = ( compile_Cexp s F (exp_to_Cexp (etC s) exp)))`;

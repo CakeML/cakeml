@@ -49,11 +49,12 @@ number_constructors ((c,_)::cs) (m,w,n) =
   number_constructors cs (Pmap.add (Short c) n m, Pmap.add n (Short c) w, n+1)
 
 let rec
-compile_dec rs (Dtype []) = (rs,[])
-and
-compile_dec rs (Dtype ((_,_,cs)::ts)) =
-  let ct = number_constructors cs rs.contab in
-  compile_dec <| rs with contab = ct |> (Dtype ts)
+compile_dec rs (Dtype ts) =
+  (<| rs with contab =
+      List.fold_left
+        (fun ct (_,_,cs) -> number_constructors cs ct)
+        rs.contab ts |>
+  ,[])
 and
 compile_dec rs (Dletrec defs) =
   let m = etC rs in

@@ -235,10 +235,6 @@ val (number_constructors_def,number_constructors_ind) = register "number_constru
   tprove_no_defn ((number_constructors_def,number_constructors_ind),
   WF_REL_TAC `measure (LENGTH o FST)` >> rw[]))
 
-val (compile_dec_def,compile_dec_ind) = register "compile_dec" (
-  tprove_no_defn ((compile_dec_def,compile_dec_ind),
-  WF_REL_TAC `measure (dec_size o SND)`))
-
 val (bv_to_ov_def,bv_to_ov_ind) = register "bv_to_ov" (
   tprove_no_defn ((bv_to_ov_def,bv_to_ov_ind),
   WF_REL_TAC `measure (bc_value_size o SND)` >>
