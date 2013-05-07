@@ -12,9 +12,9 @@ GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(COMPILERU))
 LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,bytecode/%.lem,$(BYTECODEI))
 LEMH = $(patsubst %,%.lem,$(COMPILERH))
 
-PrinterScript.sml: $(LIBS) $(LEMI) $(LEMH)
+$(GEN_SCRIPTS): $(LIBS) $(LEMI) $(LEMH)
 	lem -extra_level auto $(patsubst %,-hol_lib %,$(LIBS)) $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH))
-	touch -c PrinterScript.sml
+	touch -c $(GEN_SCRIPTS)
 
 ifdef POLY
 HOLHEAP = heap
