@@ -136,7 +136,7 @@ val _ = Defn.save_defn ov_to_string_defn;
  (lookup_bv cs bs v =  
 (
   OPTION_BIND (find_index v cs.rbvars 0)
-  (\ n . lookup_ct cs.rsz bs.stack bs.refs ( EL  n  cs.renv))))`;
+  (\ n . lookup_ct cs.rsz bs.stack bs.refs (CTLet ( EL  n  cs.renv)))))`;
 
 
  val print_dec_def = Define `

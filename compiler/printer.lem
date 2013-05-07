@@ -99,7 +99,7 @@ lookup_ct sz st rs (CTEnv cc) = lookup_cc sz st rs cc
 
 let rec lookup_bv cs bs v =
   Hol.OPTION_BIND (find_index v cs.rbvars 0)
-  (fun n -> lookup_ct cs.rsz bs.stack bs.refs (List.nth cs.renv n))
+  (fun n -> lookup_ct cs.rsz bs.stack bs.refs (CTLet (List.nth cs.renv n)))
 
 let rec
 print_dec _ _ (Dtype ls) =

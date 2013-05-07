@@ -12,7 +12,7 @@ let rec cmap (m,_,_) = m
 type compiler_state =
   <| contab : contab
    ; rbvars : list string
-   ; renv : ctenv
+   ; renv : list num
    ; rsz  : num
    ; rnext_label : num
    |>
@@ -35,7 +35,7 @@ let compile_Cexp rs Ce =
   let (Ce,n) = label_closures (List.length rs.rbvars) rs.rnext_label Ce in
   let cs = <| out = []; next_label = n |> in
   let cs = compile_code_env cs Ce in
-  compile rs.renv TCNonTail rs.rsz cs Ce
+  compile (List.map CTLet rs.renv) TCNonTail rs.rsz cs Ce
 
 let rec
 number_constructors [] ct = ct
@@ -52,7 +52,7 @@ let compile_decl rs cs vs =
           (emit s (List.map Stack [Load 0; Load 0; El i; Store 1])
           ,z+1
           ,i+1
-          ,(CTLet (rs.rsz+z+1))::env
+          ,(rs.rsz+z+1)::env
           ,bv::bvs
           )
       | Some j ->

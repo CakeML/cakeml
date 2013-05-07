@@ -28,7 +28,7 @@ val _ = Hol_datatype `
  compiler_state =
   <| contab : contab
    ; rbvars : string list
-   ; renv : ctenv
+   ; renv : num list
    ; rsz  : num
    ; rnext_label : num
    |>`;
@@ -59,7 +59,7 @@ val _ = Define `
 (let (Ce,n) = ( label_closures ( LENGTH rs.rbvars) rs.rnext_label Ce) in
   let cs = (<| out := []; next_label := n |>) in
   let cs = ( compile_code_env cs Ce) in
-  compile rs.renv TCNonTail rs.rsz cs Ce))`;
+  compile ( MAP CTLet rs.renv) TCNonTail rs.rsz cs Ce))`;
 
 
  val number_constructors_defn = Hol_defn "number_constructors" `
@@ -78,7 +78,7 @@ val _ = Define `
             (case find_index bv bvs 1 of
                   NONE =>
             (emit s ( MAP Stack [Load 0; Load 0; El i; Store 1]) ,(z + 1)
-            ,(i + 1) ,((CTLet (rs.rsz + z + 1)) :: env) ,(bv :: bvs) )
+            ,(i + 1) ,((rs.rsz + z + 1) :: env) ,(bv :: bvs) )
               | SOME j =>
             (emit s ( MAP Stack [Load 0; El i; Store j]) ,z ,(i + 1) ,env
             ,bvs )
