@@ -53,7 +53,7 @@ val _ = Defn.save_defn v_to_ov_defn;
 
 (Cv_to_ov _ _ (CLitv l) = (OLit l))
 /\
-(Cv_to_ov m s (CConv cn vs) = (OConv (id_to_string ( FAPPLY  m  cn)) ( MAP (Cv_to_ov m s) vs)))
+(Cv_to_ov m s (CConv cn vs) = (OConv (the "?" (Lib$lookup cn m)) ( MAP (Cv_to_ov m s) vs)))
 /\
 (Cv_to_ov _ _ (CRecClos _ _ _) = OFn)
 /\

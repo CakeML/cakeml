@@ -32,7 +32,7 @@ v_to_ov s (Loc n) = OLoc (List.nth s n)
 let rec
 Cv_to_ov _ _ (CLitv l) = OLit l
 and
-Cv_to_ov m s (CConv cn vs) = OConv (id_to_string (Pmap.find cn m)) (List.map (Cv_to_ov m s) vs)
+Cv_to_ov m s (CConv cn vs) = OConv (the "?" (Lib.lookup cn m)) (List.map (Cv_to_ov m s) vs)
 and
 Cv_to_ov _ _ (CRecClos _ _ _) = OFn
 and

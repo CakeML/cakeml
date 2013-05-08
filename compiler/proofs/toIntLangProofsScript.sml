@@ -84,13 +84,20 @@ val no_vlabs_v_to_Cv = store_thm("no_vlabs_v_to_Cv",
   simp[EVERY_MEM,UNCURRY])
 val _ = export_rewrites["no_vlabs_v_to_Cv"]
 
+val cmap_linv_def = Define`
+  cmap_linv m w ⇔ ∀x. x ∈ FDOM m ⇒ (ALOOKUP w (FAPPLY m x) = SOME (id_to_string x))`
+
+val cmap_linv_FAPPLY = store_thm("cmap_linv_FAPPLY",
+  ``cmap_linv f g ∧ x ∈ FDOM f ⇒ (the d (ALOOKUP g (FAPPLY f x)) = (id_to_string x))``,
+  rw[cmap_linv_def,IN_FRANGE])
+
 val v_to_Cv_ov = store_thm("v_to_Cv_ov",
-  ``(∀m v w s. (all_cns v ⊆ FDOM m) ∧ fmap_linv m w ==> (Cv_to_ov w s (v_to_Cv m v) = v_to_ov s v)) ∧
-    (∀m vs w s. (BIGUNION (IMAGE all_cns (set vs)) ⊆ FDOM m) ∧ fmap_linv m w ==> (MAP (Cv_to_ov w s) (vs_to_Cvs m vs) = MAP (v_to_ov s) vs)) ∧
+  ``(∀m v w s. (all_cns v ⊆ FDOM m) ∧ cmap_linv m w ==> (Cv_to_ov w s (v_to_Cv m v) = v_to_ov s v)) ∧
+    (∀m vs w s. (BIGUNION (IMAGE all_cns (set vs)) ⊆ FDOM m) ∧ cmap_linv m w ==> (MAP (Cv_to_ov w s) (vs_to_Cvs m vs) = MAP (v_to_ov s) vs)) ∧
     (∀(m:(conN id)|->num) (env:envE). T)``,
   ho_match_mp_tac v_to_Cv_ind >>
   rw[v_to_Cv_def] >> rw[Cv_to_ov_def] >>
-  srw_tac[ETA_ss][fmap_linv_FAPPLY])
+  srw_tac[ETA_ss][cmap_linv_FAPPLY])
 
 (* free vars lemmas *)
 
