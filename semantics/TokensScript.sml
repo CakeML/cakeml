@@ -7,8 +7,6 @@ val _ = numLib.prefer_num();
 
 
 
-open LibTheory
-
 val _ = new_theory "Tokens"
 
 (* Tokens for Standard ML.  NB, not all of them are used in CakeML *)
@@ -35,7 +33,7 @@ val _ = Hol_datatype `
 | TyvarT of string
 | AlphaT of string
 | SymbolT of string
-| LongidT of string`;
+| LongidT of string => string`;
 
 val _ = export_theory()
 

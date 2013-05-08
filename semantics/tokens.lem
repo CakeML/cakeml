@@ -21,4 +21,4 @@ type token =
 | TyvarT of string
 | AlphaT of string
 | SymbolT of string
-| LongidT of string
+| LongidT of string * string
