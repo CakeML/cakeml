@@ -68,6 +68,12 @@ let compile_decl rs cs vs =
     ; rnext_label = cs.next_label |>
   ,List.rev cs.out)
 
+let compile_fake_exp rs vs e =
+  let m = etC rs in
+  let Ce = exp_to_Cexp <| m with cnmap = Pmap.add (Short "") 0 m.cnmap |> e in
+  let cs = compile_Cexp rs Ce in
+  compile_decl rs cs vs
+
 let rec
 compile_dec rs (Dtype ts) =
   (<| rs with contab =
@@ -77,18 +83,13 @@ compile_dec rs (Dtype ts) =
   ,[])
 and
 compile_dec rs (Dletrec defs) =
-  let m = etC rs in
-  let fns = List.map (fun (n,_,_) -> n) defs in
-  let m = <| m with bvars = fns @ m.bvars |> in
-  let Cdefs = defs_to_Cdefs m defs in
-  let cs = compile_Cexp rs (CLetrec Cdefs (CCon 0 (genlist CVar (List.length fns)))) in
-  compile_decl rs cs fns
+  let vs = List.map (fun (n,_,_) -> n) defs in
+  let vars = List.map (fun s -> Var (Short s)) vs in
+  let e = Letrec defs (Con (Short "") vars) in
+  compile_fake_exp rs vs e
 and
 compile_dec rs (Dlet p e) =
-  let m = etC rs in
-  let Ce = exp_to_Cexp m e in
-  let (m,Cp) = pat_to_Cpat <| m with bvars = [] |> p in
-  let vs = m.bvars in
-  let Cpes = [(Cp,CCon 0 (genlist CVar (List.length vs)))] in
-  let cs = compile_Cexp rs (CLet Ce (remove_mat_var 0 Cpes)) in
-  compile_decl rs cs vs
+  let vs = pat_bindings p [] in
+  let vars = List.map (fun s -> Var (Short s)) vs in
+  let e = Mat e [(p,Con (Short "") vars)] in
+  compile_fake_exp rs vs e

@@ -90,6 +90,14 @@ val _ = Define `
    )))`;
 
 
+val _ = Define `
+ (compile_fake_exp rs vs e =  
+(let m = ( etC rs) in
+  let Ce = ( exp_to_Cexp ( m with<| cnmap := FUPDATE  m.cnmap ( (Short ""), 0) |>) e) in
+  let cs = ( compile_Cexp rs Ce) in
+  compile_decl rs cs vs))`;
+
+
  val compile_dec_def = Define `
 
 (compile_dec rs (Dtype ts) =
@@ -99,22 +107,17 @@ val _ = Define `
   ,[]))
 /\
 (compile_dec rs (Dletrec defs) =  
-(let m = ( etC rs) in
-  let fns = ( MAP (\p . 
+(let vs = ( MAP (\p . 
   (case (p ) of ( (n,_,_) ) => n )) defs) in
-  let m = (( m with<| bvars := fns ++ m.bvars |>)) in
-  let Cdefs = ( defs_to_Cdefs m defs) in
-  let cs = ( compile_Cexp rs (CLetrec Cdefs (CCon 0 ( GENLIST CVar ( LENGTH fns))))) in
-  compile_decl rs cs fns))
+  let vars = ( MAP (\ s . Var (Short s)) vs) in
+  let e = (Letrec defs (Con (Short "") vars)) in
+  compile_fake_exp rs vs e))
 /\
 (compile_dec rs (Dlet p e) =  
-(let m = ( etC rs) in
-  let Ce = ( exp_to_Cexp m e) in
-  let (m,Cp) = ( pat_to_Cpat ( m with<| bvars := [] |>) p) in
-  let vs = (m.bvars) in
-  let Cpes = ([(Cp,CCon 0 ( GENLIST CVar ( LENGTH vs)))]) in
-  let cs = ( compile_Cexp rs (CLet Ce (remove_mat_var 0 Cpes))) in
-  compile_decl rs cs vs))`;
+(let vs = ( pat_bindings p []) in
+  let vars = ( MAP (\ s . Var (Short s)) vs) in
+  let e = (Mat e [(p,Con (Short "") vars)]) in
+  compile_fake_exp rs vs e))`;
 
 val _ = export_theory()
 
