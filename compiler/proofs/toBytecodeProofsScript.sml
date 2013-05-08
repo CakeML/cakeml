@@ -1935,8 +1935,8 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
     simp[Abbr`Y`,Abbr`Z`,Abbr`recs`] >>
     match_mp_tac (GSYM EL_MAP) >>
     fs[] >> DECIDE_TAC ) >>
-  Q.PAT_ABBREV_TAC`lenvs = LENGTH (FILTER P (QSORT X Y))` >>
-  Q.PAT_ABBREV_TAC`envs:num list = MAP X (FILTER Y (QSORT Z A))` >>
+  Q.PAT_ABBREV_TAC`lenvs = LENGTH (FILTER P (free_vars X))` >>
+  Q.PAT_ABBREV_TAC`envs:num list = MAP X (FILTER Y Z)` >>
   `lenvs = LENGTH envs` by ( simp[Abbr`lenvs`,Abbr`envs`]) >>
   qunabbrev_tac`lrecs` >> fs[] >>
   qmatch_assum_abbrev_tac`n < LENGTH vs + 1 + lrecs + LENGTH envs` >>
@@ -1950,7 +1950,7 @@ val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
 val good_cd_def = Define`
   good_cd ((ez,nz,ix),(l,cc,recs,envs),az,b) ⇔
     EVERY (λv. v < ez) envs ∧
-    free_vars b ⊆ count (LENGTH cc) ∧
+    set (free_vars b) ⊆ count (LENGTH cc) ∧
     ∃e e'. (cc,(recs,envs),e') = (bind_fv (az,e) nz ix)`
 
 val code_env_cd_def = Define`
@@ -1974,7 +1974,7 @@ val compile_val = store_thm("compile_val",
         (∀cd. cd ∈ vlabs_list s ⇒ code_env_cd bce cd) ∧
         (∀cd. cd ∈ vlabs_list env ⇒ code_env_cd bce cd) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
-        (free_vars exp ⊆ count (LENGTH cenv)) ∧
+        set (free_vars exp) ⊆ count (LENGTH cenv) ∧
         Cenv_bs rd s env cenv sz (bs with code := bce) ∧
         ALL_DISTINCT (FILTER is_Label bc0) ∧
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0)
@@ -2009,7 +2009,7 @@ val compile_val = store_thm("compile_val",
         (∀cd. cd ∈ vlabs_list env ⇒ code_env_cd bce cd) ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
-        (free_vars_list exps ⊆ count (LENGTH cenv)) ∧
+        set (free_vars_list exps) ⊆ count (LENGTH cenv) ∧
         Cenv_bs rd s env cenv sz (bs with code := bce) ∧
         ALL_DISTINCT (FILTER is_Label bc0) ∧
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0)
@@ -2543,7 +2543,7 @@ val compile_val = store_thm("compile_val",
       conj_tac >- simp[Abbr`bs1`] >>
       conj_tac >- (
         fsrw_tac[DNF_ss][SUBSET_DEF,FOLDL_UNION_BIGUNION,LET_THM] >>
-        metis_tac[LESS_IMP_LESS_ADD,ADD_SYM] ) >>
+        rw[] >> res_tac >> fsrw_tac[ARITH_ss][]) >>
       conj_tac >- (
         match_mp_tac Cenv_bs_FUPDATE_LIST >>
         Q.PAT_ABBREV_TAC`vs = GENLIST (CRecClos env defs) Y` >>
@@ -4202,31 +4202,31 @@ val compile_val = store_thm("compile_val",
   rw[] )
 
 val label_closures_thm = store_thm("label_closures_thm",
-  ``(∀ez j e. (no_labs e) ∧ free_vars e ⊆ count ez ⇒
+  ``(∀ez j e. (no_labs e) ∧ set (free_vars e) ⊆ count ez ⇒
      let (e',j') = label_closures ez j e in
      (j' = j + (LENGTH (free_labs ez e'))) ∧
      (MAP (FST o FST o SND) (free_labs ez e') = (GENLIST ($+ j) (LENGTH (free_labs ez e')))) ∧
-     free_vars e' ⊆ free_vars e ∧
+     set (free_vars e') ⊆ set (free_vars e) ∧
      all_labs e' ∧ EVERY good_cd (free_labs ez e') ∧
      syneq_exp ez ez $= e e') ∧
     (∀ez j es.
-     (no_labs_list es) ∧ free_vars_list es ⊆ count ez ⇒
+     (no_labs_list es) ∧ set (free_vars_list es) ⊆ count ez ⇒
      let (es',j') = label_closures_list ez j es in
      (j' = j + LENGTH (free_labs_list ez es')) ∧
      (MAP (FST o FST o SND) (free_labs_list ez es') = (GENLIST ($+ j) (LENGTH (free_labs_list ez es')))) ∧
-     free_vars_list es' ⊆ free_vars_list es ∧
+     set (free_vars_list es') ⊆ set (free_vars_list es) ∧
      all_labs_list es' ∧ EVERY good_cd (free_labs_list ez es') ∧
      EVERY2 (syneq_exp ez ez $=) es es') ∧
     (∀ez j nz k defs ds0 ls0.
      (no_labs_defs (ls0 ++ MAP ($, NONE) defs)) ∧
-     free_vars_defs nz (MAP ($, NONE) defs) ⊆ count ez ∧
+     set (free_vars_defs nz (MAP ($, NONE) defs)) ⊆ count ez ∧
      (LENGTH ds0 = k) ∧ (LENGTH defs = nz - k) ∧ k ≤ nz ∧ (LENGTH ls0 = k) ∧
      syneq_defs ez ez $= (ls0 ++ MAP ($, NONE) defs) (ds0 ++ MAP ($, NONE) defs) (λv1 v2. v1 < nz ∧ (v2 = v1))
      ⇒
      let (defs',j') = label_closures_defs ez j nz k defs in
      (j' = j + LENGTH (free_labs_defs ez nz k defs')) ∧
      (MAP (FST o FST o SND) (free_labs_defs ez nz k defs') = GENLIST ($+ j) (LENGTH (free_labs_defs ez nz k defs'))) ∧
-     free_vars_defs nz defs' ⊆ free_vars_defs nz (MAP ($, NONE) defs) ∧
+     set (free_vars_defs nz defs') ⊆ set (free_vars_defs nz (MAP ($, NONE) defs)) ∧
      (LENGTH defs' = LENGTH defs) ∧
      all_labs_defs defs' ∧
      EVERY good_cd (free_labs_defs ez nz k defs') ∧
@@ -4237,7 +4237,7 @@ val label_closures_thm = store_thm("label_closures_thm",
     ntac 2 gen_tac >>
     map_every qx_gen_tac[`e1`,`e2`] >>
     rpt strip_tac >> fs[] >>
-    `free_vars e2 ⊆ count (ez + 1)` by (
+    `set (free_vars e2) ⊆ count (ez + 1)` by (
       fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
       Cases>>fsrw_tac[ARITH_ss][] ) >> fs[] >>
     qabbrev_tac`p = label_closures ez j e1` >> PairCases_on`p`>>fs[LET_THM] >>
@@ -4274,7 +4274,7 @@ val label_closures_thm = store_thm("label_closures_thm",
     ntac 2 gen_tac >>
     map_every qx_gen_tac[`e1`,`e2`] >>
     rpt strip_tac >> fs[] >>
-    `free_vars e2 ⊆ count (ez + 1)` by (
+    `set (free_vars e2) ⊆ count (ez + 1)` by (
       fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
       Cases>>fsrw_tac[ARITH_ss][] ) >> fs[] >>
     qabbrev_tac`p = label_closures ez j e1` >> PairCases_on`p`>>fs[LET_THM] >>
@@ -4309,8 +4309,8 @@ val label_closures_thm = store_thm("label_closures_thm",
     qabbrev_tac`p = label_closures_defs ez j (LENGTH defs) 0 (MAP SND defs)` >>
     PairCases_on`p`>>
     `no_labs e`by fs[] >>
-    `free_vars e ⊆ count (ez + LENGTH defs)` by (
-      qpat_assum`free_vars X ⊆ Y`mp_tac >>
+    `set (free_vars e) ⊆ count (ez + LENGTH defs)` by (
+      qpat_assum`set (free_vars X) ⊆ Y`mp_tac >>
       rpt (pop_assum kall_tac) >>
       fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,LET_THM] >>
       srw_tac[ARITH_ss][ADD1] >>
@@ -4465,15 +4465,15 @@ val label_closures_thm = store_thm("label_closures_thm",
   PairCases_on`q` >> full_simp_tac std_ss [] >>
   `no_labs r3` by (
     fs[bind_fv_def,LET_THM,markerTheory.Abbrev_def] ) >>
-  `free_vars r3 ⊆ count ezz` by (
+  `set (free_vars r3) ⊆ count ezz` by (
     fs[bind_fv_def,LET_THM,markerTheory.Abbrev_def] >>
     first_x_assum(qspec_then`[]`kall_tac) >>
     qpat_assum`P⇒Q`kall_tac >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
     srw_tac[ARITH_ss][] >- (
-      qho_match_abbrev_tac`(THE (find_index x ls n)) < y` >>
-      qho_match_abbrev_tac`P (THE (find_index x ls n))` >>
-      ho_match_mp_tac THE_find_index_suff >>
+      qho_match_abbrev_tac`(the n (find_index x ls n)) < y` >>
+      qho_match_abbrev_tac`P (the n (find_index x ls n))` >>
+      ho_match_mp_tac the_find_index_suff >>
       simp[Abbr`P`,Abbr`x`,Abbr`ls`,MEM_FILTER,ADD1,MEM_GENLIST,Abbr`n`,Abbr`y`] >>
       rw[] >>
       qmatch_abbrev_tac`m < A + B` >>
@@ -4481,9 +4481,9 @@ val label_closures_thm = store_thm("label_closures_thm",
       Cases_on`B=0`>>fsrw_tac[ARITH_ss][]>>
       fs[LENGTH_NIL_SYM,FILTER_EQ_NIL,EVERY_MEM,QSORT_MEM,markerTheory.Abbrev_def] >>
       res_tac >> fsrw_tac[ARITH_ss][]) >>
-    qho_match_abbrev_tac`(THE (find_index x ls n)) < y` >>
-    qho_match_abbrev_tac`P (THE (find_index x ls n))` >>
-    ho_match_mp_tac THE_find_index_suff >>
+    qho_match_abbrev_tac`(the 0 (find_index x ls n)) < y` >>
+    qho_match_abbrev_tac`P (the 0 (find_index x ls n))` >>
+    ho_match_mp_tac the_find_index_suff >>
     `n ≤ nz` by (
       unabbrev_all_tac >>
       simp[GSYM ADD1] >>
@@ -4530,7 +4530,8 @@ val label_closures_thm = store_thm("label_closures_thm",
         fs[bind_fv_def,LET_THM,markerTheory.Abbrev_def] >>
         simp[EVERY_MEM,MEM_MAP,MEM_FILTER,QSORT_MEM,MEM_FILTER,MEM_GENLIST] >>
         simp[GSYM LEFT_FORALL_IMP_THM] >>
-        qpat_assum`IMAGE X  Y ⊆ count ez` mp_tac >>
+        qpat_assum`Y ⊆ count ez` mp_tac >>
+        qpat_assum`Y ⊆ count ez` mp_tac >>
         simp[SUBSET_DEF,GSYM LEFT_FORALL_IMP_THM] >>
         srw_tac[DNF_ss,ARITH_ss][NOT_LESS] >>
         metis_tac[] ) >>
@@ -4546,32 +4547,33 @@ val label_closures_thm = store_thm("label_closures_thm",
       simp[Abbr`z1`,Abbr`ezz`] >>
       conj_tac >- simp[Abbr`V`,syneq_cb_V_def] >>
       reverse conj_tac >- (
-        qpat_assum`IMAGE X Y ⊆ count ez`mp_tac >>
+        qpat_assum`Y ⊆ count ez`mp_tac >>
+        qpat_assum`Y ⊆ count ez`mp_tac >>
         simp[SUBSET_DEF,GSYM LEFT_FORALL_IMP_THM] >>
         srw_tac[DNF_ss,ARITH_ss][NOT_LESS] >>
         Cases_on`az + nz ≤ x`>>simp[]) >>
       gen_tac >> strip_tac >>
       reverse conj_tac >- (
         rw[] >- (
-          qho_match_abbrev_tac`THE (find_index a w c) < X` >>
+          qho_match_abbrev_tac`the 0 (find_index a w c) < X` >>
           qunabbrev_tac`X` >>
-          qho_match_abbrev_tac`P (THE (find_index a w c))` >>
-          match_mp_tac THE_find_index_suff >>
+          qho_match_abbrev_tac`P (the c (find_index a w c))` >>
+          match_mp_tac the_find_index_suff >>
           reverse conj_tac >- (
             unabbrev_all_tac >>
             fs[SUBSET_DEF] >>
             simp[MEM_FILTER,MEM_GENLIST] ) >>
           simp[Abbr`w`,Abbr`c`,Abbr`P`]) >>
-        qho_match_abbrev_tac`THE (find_index a w c) < X` >>
+        qho_match_abbrev_tac`the 0 (find_index a w c) < X` >>
         qunabbrev_tac`X` >>
-        qho_match_abbrev_tac`P (THE (find_index a w c))` >>
-        match_mp_tac THE_find_index_suff >>
+        qho_match_abbrev_tac`P (the 0 (find_index a w c))` >>
+        match_mp_tac the_find_index_suff >>
         reverse conj_tac >- (
           unabbrev_all_tac >>
           simp[MEM_MAP,MEM_FILTER,QSORT_MEM] >>
           qexists_tac`x`>>simp[]) >>
         simp[Abbr`w`,Abbr`c`,Abbr`P`]) >>
-      Q.PAT_ABBREV_TAC`envs:num list = MAP X (FILTER Y (QSORT Z A))` >>
+      Q.PAT_ABBREV_TAC`envs:num list = MAP X (FILTER Y Z)` >>
       `¬(x < az + nz) ⇒ MEM (x-(az+nz)) envs` by (
         simp[Abbr`envs`,MEM_MAP,MEM_FILTER,QSORT_MEM] >>
         strip_tac >>
@@ -4630,26 +4632,27 @@ val label_closures_thm = store_thm("label_closures_thm",
     fs[bind_fv_def,LET_THM,markerTheory.Abbrev_def] >>
     simp[EVERY_MAP,EVERY_FILTER] >>
     simp[EVERY_MEM,QSORT_MEM] >>
-    qpat_assum`IMAGE X Y ⊆ count ez` mp_tac >>
+    qpat_assum`Y ⊆ count ez` mp_tac >>
+    qpat_assum`Y ⊆ count ez` mp_tac >>
     srw_tac[DNF_ss][SUBSET_DEF] >>
     res_tac >> fsrw_tac[ARITH_ss][] ) >>
   conj_tac >- (
     fs[bind_fv_def,LET_THM,markerTheory.Abbrev_def] >>
-    qpat_assum`free_vars p0 ⊆ X`mp_tac >>
+    qpat_assum`set (free_vars p0) ⊆ X`mp_tac >>
     simp[SUBSET_DEF] >> strip_tac >>
     gen_tac >> strip_tac >>
     first_x_assum(qspec_then`x`mp_tac) >>
     simp[] >> strip_tac >>
     Cases_on`v<az`>>fsrw_tac[ARITH_ss][]>>
     Cases_on`v<az+nz`>>fsrw_tac[ARITH_ss][]>- (
-      qho_match_abbrev_tac`THE (find_index a ls n) < X` >>
-      qho_match_abbrev_tac`P (THE (find_index a ls n))` >>
-      match_mp_tac THE_find_index_suff >>
+      qho_match_abbrev_tac`the 0 (find_index a ls n) < X` >>
+      qho_match_abbrev_tac`P (the n (find_index a ls n))` >>
+      match_mp_tac the_find_index_suff >>
       simp[Abbr`ls`,Abbr`P`,Abbr`X`,MEM_FILTER,MEM_GENLIST,Abbr`n`,Abbr`a`,MEM_MAP,QSORT_MEM] ) >>
     rw[] >>
-    qho_match_abbrev_tac`THE (find_index a ls n) < X` >>
-    qho_match_abbrev_tac`P (THE (find_index a ls n))` >>
-    match_mp_tac THE_find_index_suff >>
+    qho_match_abbrev_tac`the 0 (find_index a ls n) < X` >>
+    qho_match_abbrev_tac`P (the 0 (find_index a ls n))` >>
+    match_mp_tac the_find_index_suff >>
     simp[Abbr`ls`,Abbr`P`,Abbr`X`,MEM_FILTER,MEM_GENLIST,Abbr`n`,Abbr`a`,MEM_MAP,QSORT_MEM] >>
     HINT_EXISTS_TAC >> simp[] ) >>
   map_every qexists_tac[`b`,`r3`] >>
