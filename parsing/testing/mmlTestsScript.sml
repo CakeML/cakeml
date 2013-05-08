@@ -94,6 +94,11 @@ val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec``
                   ``[StructureT; AlphaT "s"; SealT; SigT; ValT; AlphaT "x";
                      ColonT; AlphaT"int"; EndT; EqualsT; StructT; ValT; AlphaT "x";
                      EqualsT; IntT 3; EndT]``
+val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec``
+                  "structure s :> sig val x : int; end = struct val x = 3 end"
+                  ``[StructureT; AlphaT "s"; SealT; SigT; ValT; AlphaT "x";
+                     ColonT; AlphaT"int"; SemicolonT; EndT; EqualsT; StructT;
+                     ValT; AlphaT "x"; EqualsT; IntT 3; EndT]``
 val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec`` "val x = 10"
                   ``[ValT; AlphaT "x"; EqualsT; IntT 10]``
 val _ = parsetest ``nDecls`` elab_decls "fun f x y = x + y"

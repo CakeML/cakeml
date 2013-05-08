@@ -680,13 +680,6 @@ val ptree_Expr_def = Define`
                   lds <- ptree_LetDecs lds_pt;
                   SOME (ld::lds)
                 od
-            | [ld_pt; semitok; lds_pt] =>
-              do
-                assert(semitok = Lf (TOK SemicolonT));
-                ld <- ptree_LetDec ld_pt;
-                lds <- ptree_LetDecs lds_pt;
-                SOME (ld::lds)
-              od
             | _ => NONE) ∧
   (ptree_LetDec ptree =
     case ptree of
@@ -805,13 +798,6 @@ val ptree_Decls_def = Define`
               ds <- ptree_Decls ds_pt;
               SOME(d::ds)
             od
-        | [d_pt; semitok; ds_pt] =>
-          do
-            assert(semitok = Lf (TOK SemicolonT));
-            d <- ptree_Decl d_pt;
-            ds <- ptree_Decls ds_pt;
-            SOME(d::ds)
-          od
         | _ => NONE
 `
 
@@ -850,11 +836,13 @@ val ptree_SpeclineList_def = Define`
       case args of
           [] => SOME []
         | [sl_pt; sll_pt] =>
-          do
-            sl <- ptree_SpecLine sl_pt;
-            sll <- ptree_SpeclineList sll_pt;
-            SOME(sl::sll)
-          od
+          if sl_pt = Lf (TOK SemicolonT) then ptree_SpeclineList sll_pt
+          else
+            do
+              sl <- ptree_SpecLine sl_pt;
+              sll <- ptree_SpeclineList sll_pt;
+              SOME(sl::sll)
+            od
         | _ => NONE
 `
 

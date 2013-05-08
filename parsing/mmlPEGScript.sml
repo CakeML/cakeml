@@ -330,10 +330,8 @@ val mmlPEG_def = zDefine`
                              (bindNT nLetDec);
                         seql [tokeq FunT; pnt nAndFDecls] (bindNT nLetDec)]);
               (mkNT nLetDecs,
-               choicel [seql [pnt nLetDec; try (tokeq SemicolonT); pnt nLetDecs]
-                             (bindNT nLetDecs);
-                        seql [tokeq SemicolonT; pnt nLetDecs]
-                             (bindNT nLetDecs);
+               choicel [seql [pnt nLetDec; pnt nLetDecs] (bindNT nLetDecs);
+                        seql [tokeq SemicolonT; pnt nLetDecs] (bindNT nLetDecs);
                         pegf (empty []) (bindNT nLetDecs)]);
               (mkNT nDecl,
                choicel [seql [tokeq ValT; pnt nPattern; tokeq EqualsT; pnt nE]
@@ -341,8 +339,7 @@ val mmlPEG_def = zDefine`
                         seql [tokeq FunT; pnt nAndFDecls] (bindNT nDecl);
                         seql [pnt nTypeDec] (bindNT nDecl)]);
               (mkNT nDecls,
-               choicel [seql [pnt nDecl; try (tokeq SemicolonT); pnt nDecls]
-                             (bindNT nDecls);
+               choicel [seql [pnt nDecl; pnt nDecls] (bindNT nDecls);
                         seql [tokeq SemicolonT; pnt nDecls] (bindNT nDecls);
                         pegf (empty []) (bindNT nDecls)]);
               (mkNT nSpecLine,
@@ -351,9 +348,11 @@ val mmlPEG_def = zDefine`
                         seql [tokeq TypeT; pnt nV] (bindNT nSpecLine);
                         pegf (pnt nTypeDec) (bindNT nSpecLine)]);
               (mkNT nSpecLineList,
-               rpt (pnt nSpecLine)
-                   (λsls. [FOLDR (λsl acc. Nd (mkNT nSpecLineList) [HD sl; acc])
-                                 (Nd (mkNT nSpecLineList) []) sls]));
+               choicel [seql [pnt nSpecLine; pnt nSpecLineList]
+                             (bindNT nSpecLineList);
+                        seql [tokeq SemicolonT; pnt nSpecLineList]
+                             (bindNT nSpecLineList);
+                        pegf (empty []) (bindNT nSpecLineList)]);
               (mkNT nSignatureValue,
                seql [tokeq SigT; pnt nSpecLineList; tokeq EndT]
                     (bindNT nSignatureValue));

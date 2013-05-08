@@ -140,9 +140,9 @@ val mmlG_def = mk_grammar_def ginfo
  FDecl ::= V Vlist1 "=" E ;
  AndFDecls ::= FDecl | AndFDecls "and" FDecl;
  Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec ;
- Decls ::= Decl Decls | Decl ";" Decls | ";" Decls | ;
+ Decls ::= Decl Decls | ";" Decls | ;
  LetDec ::= "val" V "=" E | "fun" AndFDecls ;
- LetDecs ::= LetDec LetDecs | LetDec ";" LetDecs | ";" LetDecs | ;
+ LetDecs ::= LetDec LetDecs | ";" LetDecs | ;
 
  (* patterns *)
  Pbase ::= V | ConstructorName | <IntT> | "(" Pattern ")" | "(" ")" | "_";
@@ -157,7 +157,7 @@ val mmlG_def = mk_grammar_def ginfo
  SpecLine ::= "val" V ":" Type
            |  "type" V
            |  TypeDec ;
- SpecLineList ::= SpecLine SpecLineList | ;
+ SpecLineList ::= SpecLine SpecLineList | ";" SpecLineList | ;
  SignatureValue ::= "sig" SpecLineList "end" ;
  OptionalSignatureAscription ::= ":>" SignatureValue | ;
  Structure ::= "structure" V OptionalSignatureAscription "=" "struct" Decls "end";

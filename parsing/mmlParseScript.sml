@@ -111,7 +111,7 @@ val repl_parse_step_def = Define`
 (*
 open lexer_funTheory;
 
-Define`rstr s = repl_parse_step (lexer_fun s)`
+Define`rstr s = repl_parse_step (lexer_fun s)`;
 
 EVAL ``rstr "val x = 3 val y = 10; x + y;"``;
 
@@ -122,13 +122,17 @@ EVAL ``rstr "val x = (10 + val y = 10; x + y;"``;
      calling for more input.  I don't know how they're doing this, but
      am not too bothered by not managing to replicate it. *)
 
-EVAL ``rstr "val x = let val x = ) ; x + y;"``
+EVAL ``rstr "val x = let val x = ) ; x + y;"``;
   (* the semi-colon finder and splitter do manage this one *)
 
-EVAL ``rstr "; val x = 3; val y = 10; x + y;"``
+EVAL ``rstr "; val x = 3; val y = 10; x + y;"``;
 
 EVAL ``rstr "structure s :> sig val x : int end = struct \
             \val x = 10 + 101; end;"``
+
+EVAL ``rstr "structure s :> sig datatype 'a list = Nil | Cons of 'a * 'a list; \
+            \ val map : ('a -> 'b) -> 'a list -> 'b list; end = \
+            \struct val x = 10; end; map f (Cons(x,y))"``;
 
 *)
 
