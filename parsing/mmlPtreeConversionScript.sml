@@ -806,4 +806,109 @@ val ptree_Decls_def = Define`
         | _ => NONE
 `
 
+val ptree_SpecLine_def = Define`
+  ptree_SpecLine (Lf _) = NONE ∧
+  ptree_SpecLine (Nd nt args) =
+    if nt <> mkNT nSpecLine then NONE
+    else
+      case args of
+          [td_pt] =>
+          do
+            td <- ptree_TypeDec td_pt;
+            SOME(Ast_Stype td)
+          od
+        | [typetok; tname_pt] =>
+          do
+            assert(typetok = Lf (TOK TypeT));
+            tname <- ptree_V tname_pt;
+            SOME(Ast_Stype_opq tname)
+          od
+        | [valtok; vname_pt; coltok; type_pt] =>
+          do
+            assert(valtok = Lf (TOK ValT) ∧ coltok = Lf (TOK ColonT));
+            vname <- ptree_V vname_pt;
+            ty <- ptree_Type type_pt;
+            SOME(Ast_Sval vname ty)
+          od
+        | _ => NONE
+`
+
+val ptree_SpeclineList_def = Define`
+  ptree_SpeclineList (Lf _) = NONE ∧
+  ptree_SpeclineList (Nd nt args) =
+    if nt <> mkNT nSpecLineList then NONE
+    else
+      case args of
+          [] => SOME []
+        | [sl_pt; sll_pt] =>
+          do
+            sl <- ptree_SpecLine sl_pt;
+            sll <- ptree_SpeclineList sll_pt;
+            SOME(sl::sll)
+          od
+        | _ => NONE
+`
+
+val ptree_SignatureValue_def = Define`
+  ptree_SignatureValue (Lf _) = NONE ∧
+  ptree_SignatureValue (Nd nt args) =
+    if nt <> mkNT nSignatureValue then NONE
+    else
+      case args of
+          [sigtok; sll_pt; endtok] =>
+          do
+            assert(sigtok = Lf (TOK SigT) ∧ endtok = Lf (TOK EndT));
+            ptree_SpeclineList sll_pt
+          od
+        | _ => NONE
+`;
+
+val ptree_Structure_def = Define`
+  ptree_Structure (Lf _) = NONE ∧
+  ptree_Structure (Nd nt args) =
+    if nt <> mkNT nStructure then NONE
+    else
+      case args of
+          [structuretok; sname_pt; asc_opt; eqtok; structtok; ds_pt; endtok] =>
+          do
+            assert(structtok = Lf (TOK StructT) ∧
+                   structuretok = Lf (TOK StructureT) ∧
+                   eqtok = Lf (TOK EqualsT) ∧ endtok = Lf (TOK EndT));
+            sname <- ptree_V sname_pt;
+            asc <- case asc_opt of
+                       Lf _ => NONE
+                     | Nd nt args =>
+                         if nt <> mkNT nOptionalSignatureAscription then NONE
+                         else
+                           case args of
+                               [] => SOME NONE
+                             | [sealtok; sig_pt] =>
+                               do
+                                 assert(sealtok = Lf (TOK SealT));
+                                 sigv <- ptree_SignatureValue sig_pt;
+                                 SOME (SOME sigv)
+                               od
+                             | _ => NONE;
+            ds <- ptree_Decls ds_pt;
+            SOME(Ast_Tmod sname asc ds)
+          od
+        | _ => NONE
+`
+
+val ptree_TopLevelDec_def = Define`
+  ptree_TopLevelDec (Lf _) = NONE ∧
+  ptree_TopLevelDec (Nd nt args) =
+    if nt <> mkNT nTopLevelDec then NONE
+    else
+      case args of
+          [pt] =>
+            OPTION_MAP SOME (ptree_Structure pt) ++
+            do
+              d_opt <- ptree_Decl pt;
+              SOME (OPTION_MAP Ast_Tdec d_opt)
+            od
+        | _ => NONE
+`
+
+
 val _ = export_theory()
