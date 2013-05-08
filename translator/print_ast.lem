@@ -57,7 +57,7 @@ tok_to_string (WhitespaceT n) s = spaces n s
 and
 tok_to_string (IntT i) s = space_append (int_to_string i) s
 and
-tok_to_string (LongidT id) s = space_append id s
+tok_to_string (LongidT mn id) s = space_append (if mn = "" then id else mn^"."^id) s
 and
 tok_to_string (TyvarT tv) s = space_append ("'" ^ tv) s
 and
@@ -185,9 +185,9 @@ join_trees sep (x::y::l) =
   x ^^ sep ^^ join_trees sep (y::l)
 
 let rec
-lit_to_tok_tree (Bool true) = L (LongidT "true")
+lit_to_tok_tree (Bool true) = L (LongidT "" "true")
 and
-lit_to_tok_tree (Bool false) = L (LongidT "false")
+lit_to_tok_tree (Bool false) = L (LongidT "" "false")
 and
 lit_to_tok_tree (IntLit n) = L (IntT n)
 and
@@ -195,16 +195,16 @@ lit_to_tok_tree Unit = N (L LparT) (L RparT)
 
 let var_to_tok_tree v =
   if is_sml_infix v then
-    L OpT ^^ L (LongidT v)
+    L OpT ^^ L (LongidT "" v)
   else
-    L (LongidT v)
+    L (LongidT "" v)
 
 let id_to_tok_tree v =
   match v with
     | Short v ->
-        L (LongidT v)
+        L (LongidT "" v)
     | Long m v ->
-        L (LongidT (m ^ "." ^ v))
+        L (LongidT m v)
   end
 
 let rec
@@ -220,7 +220,7 @@ pat_to_tok_tree (Pcon c ps) =
     L RparT ^^ L RparT
 and
 pat_to_tok_tree (Pref p) =
-  L LparT ^^ L (LongidT "ref") ^^ pat_to_tok_tree p ^^ L RparT
+  L LparT ^^ L (LongidT "" "ref") ^^ pat_to_tok_tree p ^^ L RparT
 
 let inc_indent i = 
   if (i:num) < 30 then
@@ -233,7 +233,7 @@ let newline indent =
 
 let rec
 exp_to_tok_tree indent (Raise r) =
-  L LparT ^^ L (LongidT "raise") ^^ L (LongidT "Bind") ^^ L RparT
+  L LparT ^^ L (LongidT "" "raise") ^^ L (LongidT "" "Bind") ^^ L RparT
 and
 exp_to_tok_tree indent (Lit l) =
   lit_to_tok_tree l
@@ -268,7 +268,7 @@ exp_to_tok_tree indent (Uapp uop e) =
     end
   in
     L LparT ^^
-    L (LongidT s) ^^
+    L (LongidT "" s) ^^
     exp_to_tok_tree indent e ^^
     L RparT
 and
@@ -296,7 +296,7 @@ exp_to_tok_tree indent (App (Opn o) e1 e2) =
   in
     L LparT ^^
     exp_to_tok_tree indent e1 ^^ 
-    L (LongidT s) ^^ 
+    L (LongidT "" s) ^^ 
     exp_to_tok_tree indent e2 ^^ 
     L RparT
 and
@@ -310,14 +310,14 @@ exp_to_tok_tree indent (App (Opb o') e1 e2) =
   in
     L LparT ^^
     exp_to_tok_tree indent e1 ^^ 
-    L (LongidT s) ^^ 
+    L (LongidT "" s) ^^ 
     exp_to_tok_tree indent e2 ^^ 
     L RparT
 and
 exp_to_tok_tree indent (App Opassign e1 e2) =
   L LparT ^^
   exp_to_tok_tree indent e1 ^^ 
-  L (LongidT ":=") ^^ 
+  L (LongidT "" ":=") ^^ 
   exp_to_tok_tree indent e2 ^^ 
   L RparT
 and
@@ -389,16 +389,16 @@ fun_to_tok_tree indent (v1,v2,e) =
 
 let rec
 tc_to_tok_tree TC_int =
-  L (LongidT "int")
+  L (LongidT "" "int")
 and
 tc_to_tok_tree TC_bool =
-  L (LongidT "bool")
+  L (LongidT "" "bool")
 and
 tc_to_tok_tree TC_unit =
-  L (LongidT "unit")
+  L (LongidT "" "unit")
 and
 tc_to_tok_tree TC_ref =
-  L (LongidT "ref")
+  L (LongidT "" "ref")
 
 let rec
 type_to_tok_tree (Tvar tn) =
@@ -427,12 +427,12 @@ let variant_to_tok_tree (c,ts) =
 val typedef_to_tok_tree : num -> list tvarN * typeN * list (conN * list t) -> tok_tree
 let typedef_to_tok_tree indent (tvs, name, variants) =
   (if tvs = [] then 
-     L (LongidT name)
+     L (LongidT "" name)
    else 
      L LparT ^^ 
      join_trees (L CommaT) (List.map (fun tv -> L (TyvarT tv)) tvs) ^^ 
      L RparT ^^
-     L (LongidT name)) ^^ 
+     L (LongidT "" name)) ^^ 
   L EqualsT ^^
   newline (inc_indent (inc_indent indent)) ^^
   join_trees (newline (inc_indent indent) ^^ L BarT) 
