@@ -28,8 +28,6 @@ val _ = Hol_datatype `
  compiler_state =
   <| contab : contab
    ; rbvars : string list
-   ; renv : num list
-   ; rsz  : num
    ; rnext_label : num
    |>`;
 
@@ -48,18 +46,17 @@ val _ = Define `
  init_compiler_state =  
 (<| contab := ( FEMPTY, [], 0)
    ; rbvars := []
-   ; renv := []
-   ; rsz  := 0
    ; rnext_label := 0
    |>)`;
 
 
 val _ = Define `
  (compile_Cexp rs Ce =  
-(let (Ce,n) = ( label_closures ( LENGTH rs.rbvars) rs.rnext_label Ce) in
+(let rsz = ( LENGTH rs.rbvars) in
+  let (Ce,n) = ( label_closures rsz rs.rnext_label Ce) in
   let cs = (<| out := []; next_label := n |>) in
   let cs = ( compile_code_env cs Ce) in
-  compile ( MAP CTLet rs.renv) TCNonTail rs.rsz cs Ce))`;
+  compile ( GENLIST (\ i . CTLet (rsz - i)) rsz) TCNonTail rsz cs Ce))`;
 
 
  val number_constructors_defn = Hol_defn "number_constructors" `
@@ -71,38 +68,39 @@ val _ = Define `
 
 val _ = Defn.save_defn number_constructors_defn;
 
- val compile_decl_defn = Hol_defn "compile_decl" `
+ val compile_shadows_defn = Hol_defn "compile_shadows" `
 
-(compile_decl s z _ env bvs [] = (s,z,env,bvs))
+(compile_shadows bvs cs i [] = cs)
 /\
-(compile_decl s z i env bvs (v::vs) =  
-((case find_index v bvs 1 of
-    NONE => compile_decl
-      (emit s ( MAP Stack [Load 0; Load 0; El i; Store 1]))
-      (z +1)
-      (i +1)
-      ((z +1) ::env)
-      (v ::bvs)
-      vs
-  | SOME j => compile_decl
-      (emit s ( MAP Stack [Load 0; El i; Store j]))
-      z
-      (i +1)
-      env
-      bvs
-      vs
-  )))`;
+(compile_shadows bvs cs i (v::vs) =  
+(let j = ( the 0 (find_index v bvs 1)) in
+  let cs = ( emit cs ( MAP Stack [Load 0; El i; Store j])) in
+  compile_shadows bvs cs (i +1) vs))`;
 
-val _ = Defn.save_defn compile_decl_defn;
+val _ = Defn.save_defn compile_shadows_defn;
+
+ val compile_news_defn = Hol_defn "compile_news" `
+
+(compile_news cs i [] = cs)
+/\
+(compile_news cs i (v::vs) =  
+(let cs = ( emit cs ( MAP Stack [Load 0; Load 0; El i; Store 1])) in
+  compile_news cs (i +1) vs))`;
+
+val _ = Defn.save_defn compile_news_defn;
 
 val _ = Define `
  (compile_fake_exp rs vs e =  
 (let m = ( etC rs) in
-  let Ce = ( exp_to_Cexp ( m with<| cnmap := FUPDATE  m.cnmap ( (Short ""), 0) |>) e) in
+  let cn = (Short "") in
+  let (shadows,news) = ( PARTITION (\ v . MEM v rs.rbvars) vs) in
+  let Ce = ( exp_to_Cexp ( m with<| cnmap := FUPDATE  m.cnmap ( cn, 0) |>)
+           (e (Con cn ( MAP (\ v . Var (Short v)) (shadows ++news))))) in
   let cs = ( compile_Cexp rs Ce) in
-  let (cs,z,env,bvs) = ( compile_decl cs rs.rsz 0 rs.renv rs.rbvars vs) in
+  let cs = ( compile_shadows rs.rbvars cs 0 shadows) in
+  let cs = ( compile_news cs ( LENGTH shadows) news) in
   let cs = ( emit cs [Stack Pop]) in
-  (( rs with<| rsz := z ; renv := env ; rbvars := bvs
+  (( rs with<| rbvars := ( REVERSE news) ++rs.rbvars
     ; rnext_label := cs.next_label |>)
   , REVERSE cs.out)))`;
 
@@ -118,15 +116,11 @@ val _ = Define `
 (compile_dec rs (Dletrec defs) =  
 (let vs = ( MAP (\p . 
   (case (p ) of ( (n,_,_) ) => n )) defs) in
-  let vars = ( MAP (\ s . Var (Short s)) vs) in
-  let e = (Letrec defs (Con (Short "") vars)) in
-  compile_fake_exp rs vs e))
+  compile_fake_exp rs vs (\ b . Letrec defs b)))
 /\
 (compile_dec rs (Dlet p e) =  
 (let vs = ( pat_bindings p []) in
-  let vars = ( MAP (\ s . Var (Short s)) vs) in
-  let e = (Mat e [(p,Con (Short "") vars)]) in
-  compile_fake_exp rs vs e))`;
+  compile_fake_exp rs vs (\ b . Mat e [(p,b)])))`;
 
 val _ = export_theory()
 

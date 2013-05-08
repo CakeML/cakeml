@@ -101,7 +101,6 @@ val defs = map EmitML.DEFN
 , underscore_rule cons_closure_def
 , update_refptr_def
 , underscore_rule compile_closures_def
-, compile_decl_def
 , fix_compile_bindings_suc (underscore_rule compile_def)
 , free_labs_def
 , cce_aux_def
@@ -117,6 +116,8 @@ val defs = map EmitML.DEFN
 , compile_Cexp_def
 , number_constructors_def
 , AstTheory.pat_bindings_def
+, compile_shadows_def
+, compile_news_def
 , compile_fake_exp_def
 , compile_dec_def
 , id_to_string_def
@@ -131,7 +132,7 @@ val num_to_bool = prove(
 Cases_on `n` THEN SRW_TAC[][num_to_bool_def])
 
 val _ = EmitML.eSML "compile" (
-  (EmitML.OPEN ["num","fmap","set","sum","bytecode","state_transformer"])
+  (EmitML.OPEN ["num","fmap","set","sum","bytecode","sorting"])
 ::(EmitML.MLSIG "type num = numML.num")
 ::(EmitML.MLSIG "type int = intML.int")
 ::(EmitML.MLSTRUCT "type int = intML.int")

@@ -135,8 +135,7 @@ val _ = Defn.save_defn ov_to_string_defn;
 
 
 val _ = Define `
- (stack_index cs v =  
-(cs.rsz - ( EL  (the 0 (find_index v cs.rbvars 0))  cs.renv)))`;
+ (stack_index cs v = ( the 0 (find_index v cs.rbvars 0)))`;
 
 
  val preprint_dec_def = Define `

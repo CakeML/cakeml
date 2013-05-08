@@ -12,8 +12,6 @@ let rec cmap (m,_,_) = m
 type compiler_state =
   <| contab : contab
    ; rbvars : list string
-   ; renv : list num
-   ; rsz  : num
    ; rnext_label : num
    |>
 
@@ -26,16 +24,15 @@ let etC rs = <| bvars = rs.rbvars; cnmap = cmap rs.contab |>
 let init_compiler_state =
   <| contab = (Pmap.empty, [], 0)
    ; rbvars = []
-   ; renv = []
-   ; rsz  = 0
    ; rnext_label = 0
    |>
 
 let compile_Cexp rs Ce =
-  let (Ce,n) = label_closures (List.length rs.rbvars) rs.rnext_label Ce in
+  let rsz = List.length rs.rbvars in
+  let (Ce,n) = label_closures rsz rs.rnext_label Ce in
   let cs = <| out = []; next_label = n |> in
   let cs = compile_code_env cs Ce in
-  compile (List.map CTLet rs.renv) TCNonTail rs.rsz cs Ce
+  compile (genlist (fun i -> CTLet (rsz-i)) rsz) TCNonTail rsz cs Ce
 
 let rec
 number_constructors [] ct = ct
@@ -44,33 +41,31 @@ number_constructors ((c,_)::cs) (m,w,n) =
   number_constructors cs (Pmap.add (Short c) n m, (n,c)::w, n+1)
 
 let rec
-compile_decl s z _ env bvs [] = (s,z,env,bvs)
+compile_shadows bvs cs i [] = cs
 and
-compile_decl s z i env bvs (v::vs) =
-  match find_index v bvs 1 with
-  | None -> compile_decl
-      (emit s (List.map Stack [Load 0; Load 0; El i; Store 1]))
-      (z+1)
-      (i+1)
-      ((z+1)::env)
-      (v::bvs)
-      vs
-  | Some j -> compile_decl
-      (emit s (List.map Stack [Load 0; El i; Store j]))
-      z
-      (i+1)
-      env
-      bvs
-      vs
-  end
+compile_shadows bvs cs i (v::vs) =
+  let j = the 0 (find_index v bvs 1) in
+  let cs = emit cs (List.map Stack [Load 0; El i; Store j]) in
+  compile_shadows bvs cs (i+1) vs
+
+let rec
+compile_news cs i [] = cs
+and
+compile_news cs i (v::vs) =
+  let cs = emit cs (List.map Stack [Load 0; Load 0; El i; Store 1]) in
+  compile_news cs (i+1) vs
 
 let compile_fake_exp rs vs e =
   let m = etC rs in
-  let Ce = exp_to_Cexp <| m with cnmap = Pmap.add (Short "") 0 m.cnmap |> e in
+  let cn = Short "" in
+  let (shadows,news) = Hol.PARTITION (fun v -> List.mem v rs.rbvars) vs in
+  let Ce = exp_to_Cexp <| m with cnmap = Pmap.add cn 0 m.cnmap |>
+           (e (Con cn (List.map (fun v -> Var (Short v)) (shadows@news)))) in
   let cs = compile_Cexp rs Ce in
-  let (cs,z,env,bvs) = compile_decl cs rs.rsz 0 rs.renv rs.rbvars vs in
+  let cs = compile_shadows rs.rbvars cs 0 shadows in
+  let cs = compile_news cs (List.length shadows) news in
   let cs = emit cs [Stack Pop] in
-  (<| rs with rsz = z ; renv = env ; rbvars = bvs
+  (<| rs with rbvars = (List.rev news)@rs.rbvars
     ; rnext_label = cs.next_label |>
   ,List.rev cs.out)
 
@@ -84,12 +79,8 @@ compile_dec rs (Dtype ts) =
 and
 compile_dec rs (Dletrec defs) =
   let vs = List.map (fun (n,_,_) -> n) defs in
-  let vars = List.map (fun s -> Var (Short s)) vs in
-  let e = Letrec defs (Con (Short "") vars) in
-  compile_fake_exp rs vs e
+  compile_fake_exp rs vs (fun b -> Letrec defs b)
 and
 compile_dec rs (Dlet p e) =
   let vs = pat_bindings p [] in
-  let vars = List.map (fun s -> Var (Short s)) vs in
-  let e = Mat e [(p,Con (Short "") vars)] in
-  compile_fake_exp rs vs e
+  compile_fake_exp rs vs (fun b -> Mat e [(p,b)])

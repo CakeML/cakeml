@@ -284,15 +284,15 @@ val d0 = paird
 val d1 = ``Dlet (Pcon (Short "Pair_type") [Pvar "x";Pvar "y"]) (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])``
 val d2 = ``Dlet (Pvar "x") (Lit (IntLit 3))``
 val e45 = ``Con (Short "Pair_type") [Var (Short "x");Var (Short "y")]``
-val [Block (_,[Number xb,Number yb]),Number x,Number y] = run_decs_exp ([d0,d1,d2],e45)
-val SOME 3 = intML.toInt x
-val SOME 2 = intML.toInt y
+val [Block (_,[Number xb,Number yb]),Number y,Number x] = run_decs_exp ([d0,d1,d2],e45)
+val SOME 3 = intML.toInt xb
+val SOME 2 = intML.toInt yb
 val true = xb = x
 val true = yb = y;
 val d1 = ``Dlet (Pcon (Short "Pair_type") [Pvar "y";Pvar "x"]) (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])``
 val d2 = ``Dlet (Pvar "x") (Lit (IntLit 3))``
 val e46 = ``Con (Short "Pair_type") [Var (Short "x");Var (Short "y")]``
-val [Block (_,[Number xb,Number yb]),Number y,Number x] = run_decs_exp ([d0,d1,d2],e46)
+val [Block (_,[Number xb,Number yb]),Number x,Number y] = run_decs_exp ([d0,d1,d2],e46)
 val SOME 3 = intML.toInt xb
 val SOME 1 = intML.toInt yb
 val true = x = xb
@@ -305,7 +305,7 @@ val e47 = ``Con (Short "Pair_type") [
               Con (Short "Pair_type") [Var (Short "x"); Var (Short "y")];
               Let "x" (Fun "x" (App (Opn Plus) (Var (Short "x")) (Var (Short "y"))))
                 (App Opapp (Var (Short "x")) (Var (Short "y")))]``
-val [Block (_,[Block (_,[Number x3,Number y4]),Number yy]),Number x,Number y] = run_decs_exp([d0,d1,d2,d3],e47)
+val [Block (_,[Block (_,[Number x3,Number y4]),Number yy]),Number y,Number x] = run_decs_exp([d0,d1,d2,d3],e47)
 val SOME 4 = intML.toInt y
 val SOME 3 = intML.toInt x
 val SOME 3 = intML.toInt x3
@@ -325,7 +325,7 @@ val SOME 1 = intML.toInt r;
 val d0 = paird
 val d1 = ``Dlet (Pcon (Short "Pair_type") [Pvar "y";Pvar "x"]) (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])``
 val e50 = ``Var (Short "y")``
-val [Number r, Number y, Number x] = run_decs_exp([d0,d1],e50)
+val [Number r, Number x, Number y] = run_decs_exp([d0,d1],e50)
 val SOME 2 = intML.toInt x
 val SOME 1 = intML.toInt y
 val true = r = y;

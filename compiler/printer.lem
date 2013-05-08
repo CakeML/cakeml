@@ -99,8 +99,7 @@ lookup_ct sz st rs (CTLet n) = if sz < n then None else el_check (sz - n) st
 and
 lookup_ct sz st rs (CTEnv cc) = lookup_cc sz st rs cc
 
-let stack_index cs v =
-  cs.rsz - (List.nth cs.renv (the 0 (find_index v cs.rbvars 0)))
+let stack_index cs v = the 0 (find_index v cs.rbvars 0)
 
 let rec
 preprint_dec _ (Dtype _) = []
