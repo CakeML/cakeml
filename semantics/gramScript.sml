@@ -104,12 +104,16 @@ val mmlG_def = mk_grammar_def ginfo
  (* expressions - base cases and function applications *)
  UQConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``)
                     | "true" | "false" | "ref";
- ConstructorName ::= UQConstructorName; (* add qualified version *)
+ ConstructorName ::=
+     UQConstructorName
+  | ^(``{LongidT str s | str,s | s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s)}``);
  V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false"; "ref" } ∧
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
     |  ^(``{SymbolT s |
             s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"; ":="}}``);
- FQV ::= V; (* add module-qualified name too *)
+ FQV ::= V
+      |  ^(``{LongidT str s | str,s |
+              s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s))}``) ;
  Vlist1 ::= V Vlist1 | V;
  Ebase ::= "(" Eseq ")" | "(" ")" | FQV | ConstructorName | <IntT>
         |  "let" LetDecs "in" Eseq "end";

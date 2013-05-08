@@ -39,6 +39,18 @@ val isWhitespaceT_def = Define`
   (isWhitespaceT _ ⇔ F)
 `
 
+val isLongidT_def = Define`
+  (isLongidT (LongidT _ _) ⇔ T) ∧
+  (isLongidT _ ⇔ F)
+`
+val _ = export_rewrites ["isLongidT_def"]
+
+val destLongidT_def = Define`
+  (destLongidT (LongidT str s) = SOME (str,s)) ∧
+  (destLongidT _ = NONE)
+`
+val _ = export_rewrites ["destLongidT_def"]
+
 val destTyvarPT_def = Define`
   (destTyvarPT (Lf (TOK (TyvarT s))) = SOME s) ∧
   (destTyvarPT _ = NONE)

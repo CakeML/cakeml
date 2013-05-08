@@ -305,12 +305,19 @@ val ptree_FQV_def = Define`
   ptree_FQV (Lf _) = NONE ∧
   ptree_FQV (Nd nt args) =
     if nt <> mkNT nFQV then NONE
+    else if LENGTH args <> 1 then NONE
     else
       do
-        assert(LENGTH args = 1);
         s <- ptree_V (HD args);
         SOME(Short s)
-      od`
+      od ++
+      do
+        lf <- destLf (HD args);
+        tk <- destTOK lf;
+        (str,s) <- destLongidT tk;
+        SOME(Long str s)
+      od
+`
 
 val ptree_Pattern_def = Define`
   (ptree_Pattern nt (Lf _) = NONE) ∧

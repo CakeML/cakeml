@@ -203,6 +203,14 @@ val peg_Eapp_def = Define`
            sumID
 `;
 
+val peg_longV_def = Define`
+  peg_longV = tok (λt. do
+                        (str,s) <- destLongidT t;
+                        assert(s <> "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)))
+                       od = SOME ())
+                  (bindNT nFQV o mktokLf)
+`
+
 val mmlPEG_def = zDefine`
   mmlPEG = <|
     start := pnt nDecl;
@@ -213,7 +221,7 @@ val mmlPEG_def = zDefine`
                     (λl. [FOLDR (λe acc. Nd (mkNT nVlist1) [e; acc])
                                 (Nd (mkNT nVlist1) [LAST l])
                                 (FRONT l)]));
-              (mkNT nFQV, pegf (pnt nV) (bindNT nFQV));
+              (mkNT nFQV, choicel [pegf (pnt nV) (bindNT nFQV); peg_longV]);
               (mkNT nEapp, peg_Eapp);
               (mkNT nEtuple,
                seql [tokeq LparT; pnt nElist2; tokeq RparT] (bindNT nEtuple));
@@ -304,7 +312,7 @@ val mmlPEG_def = zDefine`
                     (bindNT nDconstructor));
               (mkNT nUQConstructorName, peg_UQConstructorName);
               (mkNT nConstructorName,
-               pegf (pnt nUQConstructorName) (bindNT nConstructorName));
+               choicel [pegf (pnt nUQConstructorName) (bindNT nConstructorName)]);
               (mkNT nPbase,
                pegf (choicel [pnt nV;
                               pnt nConstructorName;
@@ -470,7 +478,7 @@ fun pegnt(t,acc) = let
       prove(``¬peg0 mmlPEG (pnt ^t)``,
             simp(pegnt_case_ths @ mmlpeg_rules_applied @
                  [peg_dom, peg_V_def, peg_UQConstructorName_def, peg_TypeName_def,
-                  peg_TypeDec_def, choicel_def, seql_def,
+                  peg_TypeDec_def, choicel_def, seql_def, peg_longV_def,
                   peg_TyOp_def, pegf_def, peg_linfix_def,
                   peg_DType_def, peg_Eapp_def]) >>
             simp(peg0_rwts @ acc))
@@ -491,7 +499,7 @@ fun wfnt(t,acc) = let
   val th =
     prove(``wfpeg mmlPEG (pnt ^t)``,
           SIMP_TAC (srw_ss()) (mmlpeg_rules_applied @
-                               [wfpeg_pnt, peg_dom, try_def,
+                               [wfpeg_pnt, peg_dom, try_def, peg_longV_def,
                                 seql_def, peg_TypeDec_def, peg_V_def, peg_Type_def,
                                 peg_UQConstructorName_def, peg_TypeName_def,
                                 peg_TyOp_def, peg_DType_def, peg_nonfix_def,
@@ -540,7 +548,7 @@ val PEG_wellformed = store_thm(
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
        peg_linfix_def, peg_UQConstructorName_def, peg_TypeDec_def,
        peg_TypeName_def, peg_V_def, peg_Eapp_def, peg_nonfix_def, peg_Type_def,
-       peg_DType_def, peg_TyOp_def] >>
+       peg_DType_def, peg_TyOp_def, peg_longV_def] >>
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
 
 val _ = export_theory()
