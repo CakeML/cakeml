@@ -40,26 +40,87 @@ val Cpat_vars_list_SUM_MAP = store_thm("Cpat_vars_list_SUM_MAP",
 
 (* free vars lemmas *)
 
+val free_vars_remove_mat_vp_SUBSET = store_thm(
+"free_vars_remove_mat_vp_SUBSET",
+``(∀p fk sk v. set (free_vars (remove_mat_vp fk sk v p)) ⊆
+  {v;fk} ∪ set (lshift (Cpat_vars p) (free_vars sk))) ∧
+(∀ps fk sk v n. set (free_vars (remove_mat_con fk sk v n ps)) ⊆
+  {v;fk} ∪ set (lshift (Cpat_vars_list ps) (free_vars sk)))``,
+ho_match_mp_tac (TypeBase.induction_of(``:Cpat``)) >>
+strip_tac >- (
+  rw[SUBSET_DEF,MEM_MAP,MEM_FILTER] >> PROVE_TAC[]) >>
+strip_tac >- (rw[SUBSET_DEF,MEM_FILTER] >> PROVE_TAC[]) >>
+strip_tac >- (
+  rw[SUBSET_DEF,MEM_MAP,MEM_FILTER] >>
+  pop_assum mp_tac >> rw[] >>
+  PROVE_TAC[] ) >>
+strip_tac >- (
+  rw[SUBSET_DEF,MEM_MAP,MEM_FILTER] >>
+  qmatch_assum_abbrev_tac`MEM z (free_vars (remove_mat_vp X Y Z p))` >>
+  first_assum(qspecl_then[`X`,`Y`,`Z`,`z`]mp_tac) >>
+  simp[] >>
+  spose_not_then strip_assume_tac >>
+  unabbrev_all_tac >>
+  fsrw_tac[ARITH_ss][] >> rw[] >>
+  rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
+  res_tac >> fsrw_tac[ARITH_ss][] >>
+  rw[] >> fsrw_tac[DNF_ss,ARITH_ss][] >>
+  pop_assum mp_tac >> srw_tac[ARITH_ss][] >>
+  first_x_assum(qspec_then`v'`strip_assume_tac) >> rfs[] >>
+  fsrw_tac[ARITH_ss][]) >>
+strip_tac >- rw[] >>
+srw_tac[DNF_ss][LET_THM,SUBSET_DEF] >>
+first_x_assum(qspecl_then[`fk+1+Cpat_vars p`,`shift 1 (Cpat_vars_list ps + Cpat_vars p) sk`,`v+1+Cpat_vars p`,`n+1`]mp_tac) >>
+qmatch_assum_abbrev_tac`MEM z (free_vars (remove_mat_vp fk0 sk0 v0 p))` >>
+first_x_assum(qspecl_then[`fk0`,`sk0`,`v0`,`z`]mp_tac) >>
+unabbrev_all_tac >> srw_tac[ARITH_ss][PRE_SUB1] >- (
+  disj1_tac >> disj2_tac >> simp[] ) >>
+first_x_assum(qspec_then`m'`mp_tac) >>
+simp[] >> strip_tac >> simp[] >> rw[] >>
+pop_assum mp_tac >> rw[] >> fsrw_tac[ARITH_ss][] >>
+metis_tac[NOT_LESS])
+
+val free_vars_remove_mat_var_SUBSET = store_thm(
+"free_vars_remove_mat_var_SUBSET",
+``∀v pes. set (free_vars (remove_mat_var v pes)) ⊆ {v} ∪ BIGUNION (IMAGE (λ(p,e). set (lshift (Cpat_vars p) (free_vars e))) (set pes))``,
+ho_match_mp_tac remove_mat_var_ind >>
+strip_tac >- rw[remove_mat_var_def] >>
+srw_tac[DNF_ss][remove_mat_var_def,SUBSET_DEF] >-
+  metis_tac[] >>
+qspecl_then[`p`,`0`,`shift 1 (Cpat_vars p) sk`,`v + 1`]mp_tac(CONJUNCT1 free_vars_remove_mat_vp_SUBSET) >>
+rw[SUBSET_DEF] >>
+pop_assum(qspec_then`m`mp_tac) >>
+srw_tac[ARITH_ss][] >> fsrw_tac[ARITH_ss][] >>
+pop_assum mp_tac >> srw_tac[ARITH_ss][] >>
+metis_tac[NOT_LESS])
+
+
+(*
 val free_vars_remove_mat_vp = store_thm(
 "free_vars_remove_mat_vp",
 ``(∀p fk sk v.
-    (free_vars (remove_mat_vp fk sk v p) DIFF {v;fk} =
-     IMAGE (λm. m - (Cpat_vars p)) (free_vars sk DIFF (count (Cpat_vars p))) DIFF {v;fk})) ∧
+    (set (free_vars (remove_mat_vp fk sk v p)) DIFF {v;fk} =
+     IMAGE (λm. m - (Cpat_vars p)) (set (free_vars sk) DIFF (count (Cpat_vars p))) DIFF {v;fk})) ∧
   (∀ps fk sk v n.
-   (free_vars (remove_mat_con fk sk v n ps) DIFF {v;fk} =
+   (set (free_vars (remove_mat_con fk sk v n ps)) DIFF {v;fk} =
     IMAGE (λm. m - (Cpat_vars_list ps))
-      (free_vars sk DIFF (count (Cpat_vars_list ps))) DIFF {v;fk}))``,
+      (set (free_vars sk) DIFF (count (Cpat_vars_list ps))) DIFF {v;fk}))``,
 ho_match_mp_tac (TypeBase.induction_of(``:Cpat``)) >>
 strip_tac >- (
-  rw[EXTENSION,PRE_SUB1] >> PROVE_TAC[]) >>
+  srw_tac[ARITH_ss][EXTENSION,PRE_SUB1,MEM_MAP,MEM_FILTER,EQ_IMP_THM] >>
+  TRY(qexists_tac`v'`>>srw_tac[ARITH_ss][]>>NO_TAC)>>
+  TRY(qexists_tac`m`>>srw_tac[ARITH_ss][]>>NO_TAC)) >>
 strip_tac >- (
   rw[EXTENSION] >> PROVE_TAC[] ) >>
 strip_tac >- (
   rw[FOLDL_UNION_BIGUNION] >>
-  fs[EXTENSION] >> METIS_TAC[] ) >>
+  fs[EXTENSION] >>
+  srw_tac[][EQ_IMP_THM] >>
+  METIS_TAC[] ) >>
 strip_tac >- (
   rw[] >> rw[] >>
-  rw[EXTENSION] >>
+  fsrw_tac[][EXTENSION,MEM_MAP,MEM_FILTER] >>
+  srw_tac[ARITH_ss][] >>
   Cases_on`x=v`>>fs[]>>
   Cases_on`x=fk`>>fs[]>>
   first_x_assum(qspecl_then[`fk+1`,`shift 1 (Cpat_vars p) sk`,`0`]mp_tac) >>
@@ -69,7 +130,7 @@ strip_tac >- (
   srw_tac[ARITH_ss][EQ_IMP_THM] >> fs[] >- (
     fsrw_tac[ARITH_ss][] >>
     rw[] >> pop_assum mp_tac >> rw[] >> fs[] >>
-    qmatch_assum_rename_tac`z ∈ free_vars sk`[] >>
+    qmatch_assum_rename_tac`MEM z (free_vars sk)`[] >>
     qexists_tac`z` >>
     fsrw_tac[ARITH_ss][] ) >>
   qexists_tac`m - Cpat_vars p + 1` >>
@@ -98,10 +159,9 @@ unabbrev_all_tac >>
 fsrw_tac[ARITH_ss][] >> rfs[] >>
 srw_tac[ARITH_ss][EQ_IMP_THM] >> fs[] >- (
   fsrw_tac[ARITH_ss][] >> rw[] >> rfs[] >>
-  qmatch_assum_abbrev_tac`z ∈ free_vars Z` >>
-  first_x_assum(qspec_then`z`mp_tac) >>
-  simp[] >> rw[] >>
   first_x_assum(qspec_then`m`mp_tac) >>
+  simp[] >> rw[] >>
+  first_x_assum(qspec_then`m'`mp_tac) >>
   simp[] >> rw[] >>
   rw[]>>fsrw_tac[ARITH_ss][] >>
   PROVE_TAC[] ) >>
@@ -119,37 +179,10 @@ srw_tac[ARITH_ss][] >>
 qexists_tac`m` >>
 srw_tac[ARITH_ss][])
 
-val free_vars_remove_mat_vp_SUBSET = store_thm(
-"free_vars_remove_mat_vp_SUBSET",
-``(∀p fk sk v. free_vars (remove_mat_vp fk sk v p) ⊆
-  {v;fk} ∪ (IMAGE (λm. m - Cpat_vars p) (free_vars sk DIFF count (Cpat_vars p)))) ∧
-(∀ps fk sk v n. free_vars (remove_mat_con fk sk v n ps) ⊆
-  {v;fk} ∪ (IMAGE (λm. m - Cpat_vars_list ps) (free_vars sk DIFF count (Cpat_vars_list ps))))``,
-ho_match_mp_tac (TypeBase.induction_of(``:Cpat``)) >>
-strip_tac >- (
-  rw[SUBSET_DEF] >> rw[PRE_SUB1] >> PROVE_TAC[]) >>
-strip_tac >- rw[] >>
-strip_tac >- rw[FOLDL_UNION_BIGUNION] >>
-strip_tac >- (
-  rw[LET_THM,SUBSET_DEF] >>
-  res_tac >> fsrw_tac[ARITH_ss][PRE_SUB1] >>
-  PROVE_TAC[]) >>
-strip_tac >- rw[] >>
-srw_tac[DNF_ss][LET_THM,SUBSET_DEF] >>
-first_x_assum(qspecl_then[`fk+1+Cpat_vars p`,`shift 1 (Cpat_vars_list ps + Cpat_vars p) sk`,`v+1+Cpat_vars p`,`n+1`]mp_tac) >>
-qmatch_assum_abbrev_tac`z ∈ free_vars (remove_mat_vp fk0 sk0 v0 p)` >>
-first_x_assum(qspecl_then[`fk0`,`sk0`,`v0`,`z`]mp_tac) >>
-unabbrev_all_tac >> srw_tac[ARITH_ss][PRE_SUB1] >- (
-  disj1_tac >> disj2_tac >> simp[] ) >>
-first_x_assum(qspec_then`m`mp_tac) >>
-simp[] >> strip_tac >> simp[] >> rw[] >>
-pop_assum mp_tac >> rw[] >> fsrw_tac[ARITH_ss][] >>
-metis_tac[])
-
 val free_vars_remove_mat_var = store_thm(
 "free_vars_remove_mat_var",
-``∀v pes. free_vars (remove_mat_var v pes) DIFF {v} =
-  BIGUNION (IMAGE (λ(p,e). IMAGE (λn. n - Cpat_vars p) (free_vars e DIFF count (Cpat_vars p))) (set pes)) DIFF {v}``,
+``∀v pes. set (free_vars (remove_mat_var v pes)) DIFF {v} =
+  BIGUNION (IMAGE (λ(p,e). IMAGE (λn. n - Cpat_vars p) (set (free_vars e DIFF count (Cpat_vars p))) (set pes)) DIFF {v}``,
 ho_match_mp_tac remove_mat_var_ind >>
 strip_tac >- rw[remove_mat_var_def] >>
 rw[remove_mat_var_def] >>
@@ -180,6 +213,7 @@ first_x_assum(qspec_then`n`mp_tac) >>
 simp[] >> rw[] >>
 HINT_EXISTS_TAC >>
 simp[])
+*)
 
 (* Misc. lemmas *)
 
@@ -664,7 +698,7 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
   ``(∀p v menv. Cpmatch s p v menv ⇒
        ∀env x fk e r0.
          (el_check x env = SOME v) ∧
-         free_vars e ⊆ count (Cpat_vars p + LENGTH env) ∧
+         set (free_vars e) ⊆ count (Cpat_vars p + LENGTH env) ∧
          fk < LENGTH env ∧
          no_labs e ∧
          Cevaluate s (menv ++ env) e r0
@@ -674,7 +708,7 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
     (∀ps vs menv. Cpmatch_list s ps vs menv ⇒
        ∀env x c vs0 menv0 fk e r0.
          (el_check x (menv0 ++ env) = SOME (CConv c (vs0++vs))) ∧
-         free_vars e ⊆ count (LENGTH (menv ++ menv0 ++ env)) ∧
+         set (free_vars e) ⊆ count (LENGTH (menv ++ menv0 ++ env)) ∧
          fk < LENGTH (menv0 ++ env) ∧
          no_labs e ∧
          Cevaluate s (menv ++ menv0 ++ env) e r0
@@ -822,7 +856,7 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
   `P` by (
     map_every qunabbrev_tac[`P`,`Q`,`R`] >>
     simp[Abbr`e'`] >>
-    qmatch_abbrev_tac`free_vars (remove_mat_con fk0 sk0 v0 n0 ps) ⊆ s0` >>
+    qmatch_abbrev_tac`set (free_vars (remove_mat_con fk0 sk0 v0 n0 ps)) ⊆ s0` >>
     match_mp_tac SUBSET_TRANS >>
     qspecl_then[`ps`,`fk0`,`sk0`,`v0`,`n0`]strip_assume_tac(CONJUNCT2 free_vars_remove_mat_vp_SUBSET) >>
     HINT_EXISTS_TAC >> simp[] >>
@@ -842,7 +876,7 @@ val Cpnomatch_remove_mat = store_thm("Cpnomatch_remove_mat",
   ``(∀p v. Cpnomatch s p v ⇒
        ∀env x fk e r0.
          (el_check x env = SOME v) ∧ fk < LENGTH env ∧
-         (free_vars e ⊆ count (Cpat_vars p + LENGTH env)) ∧
+         set (free_vars e) ⊆ count (Cpat_vars p + LENGTH env) ∧
          no_labs e ∧
          Cevaluate s env (CCall (CVar fk) []) r0
          ⇒ ∃r. Cevaluate s env (remove_mat_vp fk e x p) r ∧
@@ -851,7 +885,7 @@ val Cpnomatch_remove_mat = store_thm("Cpnomatch_remove_mat",
     (∀ps vs. Cpnomatch_list s ps vs ⇒
        ∀env x c vs0 fk e r0.
          (el_check x env = SOME (CConv c (vs0 ++ vs))) ∧ fk < LENGTH env ∧
-         (free_vars e ⊆ count (Cpat_vars_list ps + LENGTH env)) ∧
+         set (free_vars e) ⊆ count (Cpat_vars_list ps + LENGTH env) ∧
          no_labs e ∧
          Cevaluate s env (CCall (CVar fk) []) r0
          ⇒ ∃r. Cevaluate s env (remove_mat_con fk e x (LENGTH vs0) ps) r ∧
@@ -948,7 +982,7 @@ val Cpnomatch_remove_mat = store_thm("Cpnomatch_remove_mat",
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
       simp[Abbr`P`] >>
-      qmatch_abbrev_tac`free_vars (remove_mat_con fk0 e0 x0 n0 ps0) ⊆ ss` >>
+      qmatch_abbrev_tac`set (free_vars (remove_mat_con fk0 e0 x0 n0 ps0)) ⊆ ss` >>
       qspecl_then[`ps0`,`fk0`,`e0`,`x0`,`n0`]strip_assume_tac(CONJUNCT2 free_vars_remove_mat_vp_SUBSET) >>
       match_mp_tac SUBSET_TRANS >>
       HINT_EXISTS_TAC >> simp[] >>
@@ -1009,7 +1043,7 @@ val Cpnomatch_remove_mat = store_thm("Cpnomatch_remove_mat",
     imp_res_tac Cpmatch_FDOM >>
     simp[Abbr`e'`] >>
     fsrw_tac[ARITH_ss][] >>
-    qmatch_abbrev_tac`free_vars (remove_mat_con fk0 e0 x0 n0 ps0) ⊆ ss` >>
+    qmatch_abbrev_tac`set (free_vars (remove_mat_con fk0 e0 x0 n0 ps0)) ⊆ ss` >>
     qspecl_then[`ps0`,`fk0`,`e0`,`x0`,`n0`]strip_assume_tac(CONJUNCT2 free_vars_remove_mat_vp_SUBSET) >>
     match_mp_tac SUBSET_TRANS >>
     HINT_EXISTS_TAC >> simp[] >>
@@ -1042,7 +1076,7 @@ val Cevaluate_match_NONE_NIL = store_thm("Cevaluate_match_NONE_NIL",
 val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
   ``∀pes menv mr. Cevaluate_match s v pes menv mr ⇒
       ∀env x. (el_check x env = SOME v) ∧
-              EVERY (λ(p,e). free_vars e ⊆ count (Cpat_vars p + LENGTH env) ∧ no_labs e) pes
+              EVERY (λ(p,e). set (free_vars e) ⊆ count (Cpat_vars p + LENGTH env) ∧ no_labs e) pes
       ⇒
        case mr of
        | NONE =>
@@ -1142,13 +1176,12 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
     simp[shift_def,ADD1,EL_CONS,PRE_SUB1] >>
     match_mp_tac mkshift_thm >>
     simp[] >> conj_tac >- (
-      qspecl_then[`x`,`pes`]mp_tac free_vars_remove_mat_var >>
-      srw_tac[DNF_ss][Once EXTENSION] >>
+      qspecl_then[`x`,`pes`]strip_assume_tac free_vars_remove_mat_var_SUBSET >>
+      match_mp_tac SUBSET_TRANS >> HINT_EXISTS_TAC >>
       fsrw_tac[DNF_ss][SUBSET_DEF] >>
       qx_gen_tac`y` >>
+      simp[FORALL_PROD] >>
       Cases_on`y=x`>>rw[] >>
-      first_x_assum(qspec_then`y`mp_tac) >>
-      simp[EXISTS_PROD] >>
       fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD] >>
       srw_tac[ARITH_ss][] >>
       metis_tac[] ) >>
