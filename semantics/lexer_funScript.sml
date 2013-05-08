@@ -30,7 +30,7 @@ val is_single_char_symbol_def = Define `
 
 val isSymbol_def = Define `
   isSymbol c = (~(isSpace c) /\ ~(isDigit c) /\ ~(isAlpha c) /\
-                ~is_single_char_symbol c /\ (ORD #" " < ORD c))`;
+                ~is_single_char_symbol c /\ ORD #" " < ORD c /\ c <> #".")`;
 
 val read_string_def = tDefine "read_string" `
   read_string str s =
@@ -92,6 +92,61 @@ val isAlphaNumPrime_def = Define`
   isAlphaNumPrime c <=> isAlphaNum c ∨ c = #"'"
 `
 
+val moduleRead_def = Define`
+  moduleRead initP c s =
+    let (n,rest) = read_while initP s [c]
+    in
+      case rest of
+          [] => (OtherS n, rest)
+        | [h] => if h = #"." then (ErrorS, [])
+                 else (OtherS n, rest)
+        | h1::h2::rest' =>
+          if h1 = #"." then
+            let nextP = if isAlpha h2 then SOME isAlphaNumPrime
+                        else if isSymbol h2 then SOME isSymbol
+                        else NONE
+            in
+              case nextP of
+                  NONE => (ErrorS, rest')
+                | SOME P =>
+                  let (n2, rest'') = read_while P rest' [h2]
+                  in
+                    (OtherS (n ++ "." ++ n2), rest'')
+          else (OtherS n, rest)
+`
+
+val moduleRead_thm = store_thm(
+  "moduleRead_thm",
+  ``!s tk r. (moduleRead P c s = (tk, r)) ==> STRLEN r <= STRLEN s``,
+  SIMP_TAC (srw_ss())[moduleRead_def, LET_THM] THEN REPEAT GEN_TAC THEN
+  `?p q. read_while P s [c] = (p,q)`
+    by METIS_TAC [TypeBase.nchotomy_of ``:'a # 'b``] THEN
+  ASM_SIMP_TAC (srw_ss()) [] THEN
+  `(q = []) \/  ?h t. q = h::t`
+    by METIS_TAC [TypeBase.nchotomy_of ``:'a list``]
+  THEN1 (SRW_TAC [][] THEN SRW_TAC [][]) THEN
+  ASM_SIMP_TAC (srw_ss()) [] THEN
+  `(t = []) \/  ?h2 t2. t = h2::t2`
+    by METIS_TAC [TypeBase.nchotomy_of ``:'a list``]
+  THEN1 (SRW_TAC [][] THEN SRW_TAC [][] THEN IMP_RES_TAC read_while_thm THEN
+         FULL_SIMP_TAC (srw_ss()) []) THEN
+  ASM_SIMP_TAC (srw_ss()) [] THEN
+  REVERSE (Cases_on `h = #"."`)
+    THEN1 (SRW_TAC [][] THEN SRW_TAC [][] THEN IMP_RES_TAC read_while_thm THEN
+           FULL_SIMP_TAC (srw_ss()) []) THEN
+  ASM_SIMP_TAC (srw_ss())[] THEN
+  Q.MATCH_ABBREV_TAC `option_CASE PP XX YY = (tk,r) ==> RR` THEN
+  MAP_EVERY Q.UNABBREV_TAC [`XX`, `YY`, `RR`] THEN
+  `PP = NONE ∨ ∃P'. PP = SOME P'`
+    by METIS_TAC [TypeBase.nchotomy_of ``:'a option``]
+  THEN1 (SRW_TAC [][] THEN IMP_RES_TAC read_while_thm THEN
+         FULL_SIMP_TAC (srw_ss() ++ ARITH_ss) []) THEN
+  ASM_SIMP_TAC (srw_ss())[] THEN
+  `?n2 rest2. read_while P' t2 [h2] = (n2,rest2)`
+    by METIS_TAC [TypeBase.nchotomy_of ``:'a # 'b``] THEN
+  SRW_TAC [][] THEN IMP_RES_TAC read_while_thm THEN
+  FULL_SIMP_TAC (srw_ss() ++ ARITH_ss) [])
+
 val str_to_syms_def = tDefine "str_to_syms" `
   (str_to_syms "" = []) /\
   (str_to_syms (c::str) =
@@ -102,10 +157,9 @@ val str_to_syms_def = tDefine "str_to_syms" `
        let (n,rest) = read_while isDigit str [] in
          NumberS (num_from_dec_string (c::n)) :: str_to_syms rest else
      if isAlpha c then (* read alpha-numeric identifier/keyword *)
-       let (n,rest) =
-           read_while (λc. isAlphaNumPrime c ∨ (c = #"_")) str []
+       let (n,rest) = moduleRead isAlphaNumPrime c str
        in
-         OtherS (c::n) :: str_to_syms rest else
+         n :: str_to_syms rest else
      if c = #"'" then (* read type variable *)
        let (n,rest) = read_while isAlphaNum str [c]
        in
@@ -121,11 +175,13 @@ val str_to_syms_def = tDefine "str_to_syms" `
      if is_single_char_symbol c then (* single character tokens *)
        OtherS [c] :: str_to_syms str else
      if isSymbol c then (* read symbol identifier *)
-       let (n,rest) = read_while isSymbol str [] in
-         OtherS (c::n) :: str_to_syms rest
+       let (n,rest) = moduleRead isSymbol c str
+       in
+         n :: str_to_syms rest
      else (* input not recognised *)
        [ErrorS])`
   (WF_REL_TAC `measure LENGTH` THEN REPEAT STRIP_TAC
+   THEN IMP_RES_TAC (GSYM moduleRead_thm)
    THEN IMP_RES_TAC (GSYM read_while_thm)
    THEN IMP_RES_TAC (GSYM read_string_thm)
    THEN IMP_RES_TAC skip_comment_thm THEN Cases_on `str`
@@ -136,6 +192,27 @@ val str_to_syms_def = tDefine "str_to_syms" `
   EVAL ``str_to_syms "3 (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``
 
 *)
+
+
+val splitAtP_def = Define`
+  splitAtP P [] k = k [] [] ∧
+  splitAtP P (h::t) k = if P h then k [] (h::t)
+                        else splitAtP P t (λp. k (h::p))
+`
+
+val moduleSplit_def = Define`
+  moduleSplit s =
+    splitAtP (λc. c = #".") s
+             (λp sfx.
+                 case sfx of
+                     [] => if isAlpha (HD s) then AlphaT s
+                           else SymbolT s
+                   | [_] => LexErrorT
+                   | _::t => if MEM #"." t then LexErrorT
+                             else LongidT p t)
+`
+
+
 
 val get_token_def = Define `
   get_token s =
@@ -198,8 +275,8 @@ val get_token_def = Define `
     if s = "while" then WhileT else
     if s = "with" then WithT else
     if s = "withtype" then WithtypeT else
-    if isAlpha (HD s) then (AlphaT s) else
-    if HD s = #"'" then (TyvarT s) else (SymbolT s)`;
+    if HD s = #"'" then TyvarT s else
+    moduleSplit s`;
 
 (*
 
@@ -207,6 +284,7 @@ Warning! The get_token function never maps into any of the following:
 
   NewlineT
   ZeroT
+  WhitespaceT
   DigitT of string
   NumericT of string
   HexintT of string
@@ -214,8 +292,6 @@ Warning! The get_token function never maps into any of the following:
   HexwordT of string
   RealT of string
   CharT of string
-  TyvarT of string
-  LongidT of string
 
 *)
 
@@ -240,7 +316,8 @@ val lexer_fun_def = Define `
   EVAL ``lexer_fun "3 (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``;
   EVAL ``lexer_fun "a b cd c2 c3'"``;
   EVAL ``lexer_fun "'a 'b '2"``;
-  EVAL ``lexer_fun "'"``
+  EVAL ``lexer_fun "'"``;
+  EVAL ``lexer_fun "x.y +.foo y.+ +.+ foo'.z z.foo' + 3 + x. + .z"``
 
 *)
 
