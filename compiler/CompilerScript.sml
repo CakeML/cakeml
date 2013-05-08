@@ -71,31 +71,40 @@ val _ = Define `
 
 val _ = Defn.save_defn number_constructors_defn;
 
-val _ = Define `
- (compile_decl rs cs vs = 
-  ((case FOLDL
-           (\ (s,z,i,env,bvs) bv .
-            (case find_index bv bvs 1 of
-                  NONE =>
-            (emit s ( MAP Stack [Load 0; Load 0; El i; Store 1]) ,(z + 1)
-            ,(i + 1) ,((rs.rsz + z + 1) :: env) ,(bv :: bvs) )
-              | SOME j =>
-            (emit s ( MAP Stack [Load 0; El i; Store j]) ,z ,(i + 1) ,env
-            ,bvs )
-            )) (cs,0,0,rs.renv,rs.rbvars) vs of
-       (cs,z,_,env,bvs) =>
-   let cs = ( emit cs [Stack Pop]) in
-   (( rs with<| rsz := rs.rsz + z ; renv := env ; rbvars := bvs
-   ; rnext_label := cs.next_label |>) , REVERSE cs.out)
-   )))`;
+ val compile_decl_defn = Hol_defn "compile_decl" `
 
+(compile_decl s z _ env bvs [] = (s,z,env,bvs))
+/\
+(compile_decl s z i env bvs (v::vs) =  
+((case find_index v bvs 1 of
+    NONE => compile_decl
+      (emit s ( MAP Stack [Load 0; Load 0; El i; Store 1]))
+      (z +1)
+      (i +1)
+      ((z +1) ::env)
+      (v ::bvs)
+      vs
+  | SOME j => compile_decl
+      (emit s ( MAP Stack [Load 0; El i; Store j]))
+      z
+      (i +1)
+      env
+      bvs
+      vs
+  )))`;
+
+val _ = Defn.save_defn compile_decl_defn;
 
 val _ = Define `
  (compile_fake_exp rs vs e =  
 (let m = ( etC rs) in
   let Ce = ( exp_to_Cexp ( m with<| cnmap := FUPDATE  m.cnmap ( (Short ""), 0) |>) e) in
   let cs = ( compile_Cexp rs Ce) in
-  compile_decl rs cs vs))`;
+  let (cs,z,env,bvs) = ( compile_decl cs rs.rsz 0 rs.renv rs.rbvars vs) in
+  let cs = ( emit cs [Stack Pop]) in
+  (( rs with<| rsz := z ; renv := env ; rbvars := bvs
+    ; rnext_label := cs.next_label |>)
+  , REVERSE cs.out)))`;
 
 
  val compile_dec_def = Define `
