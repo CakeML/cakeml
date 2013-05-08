@@ -79,6 +79,14 @@ val THE_find_index_suff = store_thm("THE_find_index_suff",
   pop_assum(qspec_then`n`mp_tac) >>
   srw_tac[DNF_ss,ARITH_ss][])
 
+val the_find_index_suff = store_thm("the_find_index_suff",
+  ``∀P d x ls n. (∀m. m < LENGTH ls ⇒ P (m + n)) ∧ MEM x ls ⇒
+    P (the d (find_index x ls n))``,
+  rw[] >>
+  imp_res_tac find_index_MEM >>
+  pop_assum(qspec_then`n`mp_tac) >>
+  srw_tac[DNF_ss,ARITH_ss][])
+
 val free_labs_list_MAP = store_thm("free_labs_list_MAP",
   ``∀es ez. free_labs_list ez es = FLAT (MAP (free_labs ez) es)``,
   Induct >> rw[])

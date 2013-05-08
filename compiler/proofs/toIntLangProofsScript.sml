@@ -190,7 +190,7 @@ val lem = PROVE[]``(a ==> (b \/ c)) = (a /\ ~b ==> c)``
 val free_vars_exp_to_Cexp = store_thm(
 "free_vars_exp_to_Cexp",
 ``∀s e. SFV e ⊆ set s.bvars ⇒
-        free_vars (exp_to_Cexp s e) ⊆ count (LENGTH s.bvars)``,
+        set (free_vars (exp_to_Cexp s e)) ⊆ count (LENGTH s.bvars)``,
 ho_match_mp_tac exp_to_Cexp_nice_ind >>
 strip_tac >- (
   rw[exp_to_Cexp_def] >>
@@ -201,7 +201,7 @@ strip_tac >- rw[exp_to_Cexp_def] >>
 strip_tac >- rw[exp_to_Cexp_def] >>
 strip_tac >- (
   rw[exp_to_Cexp_def,free_vars_list_MAP] >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM,exps_to_Cexps_MAP,MEM_MAP] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM,exps_to_Cexps_MAP,MEM_MAP,MEM_FLAT] >>
   metis_tac[] ) >>
 strip_tac >- (
   rw[exp_to_Cexp_def] >>
@@ -246,16 +246,22 @@ strip_tac >- (
   fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF] ) >>
 strip_tac >- (
   rw[exp_to_Cexp_def] >>
-  rw[] >>
-  simp[free_vars_remove_mat_var] >>
+  rw[] >- (
+    first_x_assum match_mp_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+  qspecl_then[`0`,`Cpes'`]strip_assume_tac free_vars_remove_mat_var_SUBSET >>
   unabbrev_all_tac >>
   fsrw_tac[DNF_ss,ARITH_ss][EVERY_MEM,SUBSET_DEF,FORALL_PROD,PRE_SUB1,pes_to_Cpes_MAP,LET_THM,MEM_MAP,UNCURRY] >>
   simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM] >>
+  qx_gen_tac`m` >> strip_tac >>
+  Cases_on`m=0`>>fsrw_tac[ARITH_ss][] >>
+  first_x_assum(qspec_then`m`mp_tac) >>
+  simp[EXISTS_PROD] >>
+  simp[GSYM LEFT_FORALL_IMP_THM] >>
   map_every qx_gen_tac[`pp`,`ee`,`v`] >>
   qmatch_abbrev_tac`P ⇒ Q` >>
   qunabbrev_tac`P` >>
   srw_tac[ARITH_ss][] >>
-  POP_ASSUM_LIST(MAP_EVERY ASSUME_TAC) >>
   first_x_assum(qspecl_then[`pp`,`ee`,`v`]mp_tac) >>
   simp[] >>
   qmatch_abbrev_tac`(P ⇒ R) ⇒ Q` >>
@@ -273,23 +279,16 @@ strip_tac >- (
   strip_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
 strip_tac >- (
   rw[exp_to_Cexp_def] >>
-  fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1,ADD1,LET_THM,free_vars_defs_MAP,defs_to_Cdefs_MAP] >>
-  fsrw_tac[DNF_ss,ARITH_ss][EVERY_MEM,FORALL_PROD] >>
+  fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1,ADD1,LET_THM,free_vars_defs_MAP,defs_to_Cdefs_MAP,MEM_FLAT] >>
+  fsrw_tac[DNF_ss,ARITH_ss][EVERY_MEM,FORALL_PROD,MEM_MAP] >>
   conj_tac >- (
-    simp[MEM_MAP,EXISTS_PROD,GSYM LEFT_FORALL_IMP_THM] >>
+    simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM] >>
     map_every qx_gen_tac[`m`,`x`,`y`,`z`] >>
-    simp[GSYM RIGHT_EXISTS_AND_THM,GSYM LEFT_FORALL_IMP_THM] >>
-    map_every qx_gen_tac[`a`,`b`,`c`] >>
-    last_x_assum(qspecl_then[`a`,`b`,`c`]mp_tac) >>
-    rw[] >> fs[] >>
-    qmatch_assum_rename_tac`z ∈ free_vars X`["X"] >>
-    first_x_assum(qspec_then`z`mp_tac) >>
-    fs[Abbr`m'`] >>
-    discharge_hyps >- (
-      gen_tac >> strip_tac >>
-      first_x_assum(qspecl_then[`x`,`a`,`b`,`c`]mp_tac) >>
-      Cases_on`x=b`>>simp[MEM_MAP,EXISTS_PROD] >>
-      metis_tac[] ) >>
+    strip_tac >>
+    last_x_assum(qspecl_then[`m`,`x`,`y`,`z`]mp_tac) >>
+    fs[EXISTS_PROD] >>
+    discharge_hyps >- metis_tac[] >>
+    discharge_hyps >- fs[Abbr`m'`] >>
     simp[] ) >>
   simp[GSYM FORALL_AND_THM] >>
   simp[GSYM IMP_CONJ_THM] >>
@@ -304,7 +303,7 @@ qabbrev_tac `q = pat_to_Cpat m p` >>
 PairCases_on`q`>>fs[] )
 
 val free_vars_exp_to_Cexp_matchable = store_thm("free_vars_exp_to_Cexp_matchable",
-  ``SFV e ⊆ set m.bvars ∧ count (LENGTH m.bvars) ⊆ s ⇒ free_vars (exp_to_Cexp m e) ⊆ s``,
+  ``SFV e ⊆ set m.bvars ∧ count (LENGTH m.bvars) ⊆ s ⇒ set (free_vars (exp_to_Cexp m e)) ⊆ s``,
   metis_tac[free_vars_exp_to_Cexp,SUBSET_TRANS])
 
 (* closed lemmas *)
@@ -322,7 +321,7 @@ rw[v_to_Cv_def] >> rw[Cclosed_rules]
   simp[Abbr`Cenv`,env_to_Cenv_MAP,SUBSET_DEF,GSYM LEFT_FORALL_IMP_THM] >>
   Cases >> simp[Abbr`Ce`,ADD1] >>
   strip_tac >>
-  qmatch_assum_abbrev_tac`z ∈ free_vars (exp_to_Cexp s e)` >>
+  qmatch_assum_abbrev_tac`MEM z (free_vars (exp_to_Cexp s e))` >>
   qspecl_then[`s`,`e`]mp_tac free_vars_exp_to_Cexp >>
   unabbrev_all_tac >>
   simp[SUBSET_DEF,ADD1] >> fs[SUBSET_DEF] >>
@@ -977,7 +976,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       CONV_TAC (RESORT_EXISTS_CONV (fn ls => List.drop(ls,2)@List.take(ls,2))) >>
       map_every qexists_tac[`n`,`defs`,`env1`,`sd`] >>
       rw[] >>
-      `free_vars e1a ⊆ count (LENGTH enva)` by (
+      `set (free_vars e1a) ⊆ count (LENGTH enva)` by (
         qmatch_assum_abbrev_tac`Abbrev(e1a = exp_to_Cexp m' e1)` >>
         Q.ISPECL_THEN[`m'`,`e1`]mp_tac free_vars_exp_to_Cexp >>
         simp[Abbr`m'`,Abbr`enva`,env_to_Cenv_MAP] >>
@@ -1019,7 +1018,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         disch_then(qspecl_then[`a`,`n`]mp_tac) >>
         `(λx. x < LENGTH funs) a` by (
           qunabbrev_tac`a` >>
-          match_mp_tac THE_find_index_suff >>
+          match_mp_tac the_find_index_suff >>
           simp[MEM_MAP,EXISTS_PROD] >>
           imp_res_tac ALOOKUP_MEM >>
           PROVE_TAC[] ) >>
