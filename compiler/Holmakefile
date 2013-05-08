@@ -14,7 +14,6 @@ LEMH = $(patsubst %,%.lem,$(COMPILERH))
 
 $(GEN_SCRIPTS): $(LIBS) $(LEMI) $(LEMH)
 	lem -extra_level auto $(patsubst %,-hol_lib %,$(LIBS)) $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH))
-	touch -c $(GEN_SCRIPTS)
 
 ifdef POLY
 HOLHEAP = heap
