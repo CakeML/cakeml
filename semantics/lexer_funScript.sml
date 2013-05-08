@@ -89,7 +89,7 @@ val read_while_thm = prove(
   RES_TAC THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND] THEN DECIDE_TAC);
 
 val isAlphaNumPrime_def = Define`
-  isAlphaNumPrime c <=> isAlphaNum c ∨ c = #"'"
+  isAlphaNumPrime c <=> isAlphaNum c \/ c = #"'"
 `
 
 val moduleRead_def = Define`
@@ -147,39 +147,36 @@ val moduleRead_thm = store_thm(
   SRW_TAC [][] THEN IMP_RES_TAC read_while_thm THEN
   FULL_SIMP_TAC (srw_ss() ++ ARITH_ss) [])
 
-val str_to_syms_def = tDefine "str_to_syms" `
-  (str_to_syms "" = []) /\
-  (str_to_syms (c::str) =
+val next_sym_def = tDefine "next_sym" `
+  (next_sym "" = NONE) /\
+  (next_sym (c::str) =
      if isSpace c then (* skip blank space *)
-       let (n,rest) = read_while isSpace str [] in
-         str_to_syms str else
-     if isDigit c then (* read number *)
+       next_sym str
+     else if isDigit c then (* read number *)
        let (n,rest) = read_while isDigit str [] in
-         NumberS (num_from_dec_string (c::n)) :: str_to_syms rest else
-     if isAlpha c then (* read alpha-numeric identifier/keyword *)
-       let (n,rest) = moduleRead isAlphaNumPrime c str
-       in
-         n :: str_to_syms rest else
-     if c = #"'" then (* read type variable *)
-       let (n,rest) = read_while isAlphaNum str [c]
-       in
-         OtherS n :: str_to_syms rest else
-     if c = #"\"" then (* read string *)
+         SOME (NumberS (num_from_dec_string (c::n)), rest)
+     else if isAlpha c then (* read alpha-numeric identifier/keyword *)
+       let (n,rest) = moduleRead isAlphaNumPrime c str in
+         SOME (n, rest)
+     else if c = #"'" then (* read type variable *)
+       let (n,rest) = read_while isAlphaNum str [c] in
+         SOME (OtherS n, rest)
+     else if c = #"\"" then (* read string *)
        let (t,rest) = read_string str "" in
-         t :: str_to_syms rest else
-     if isPREFIX "*)" (c::str) then [ErrorS] else
-     if isPREFIX "(*" (c::str) then
+         SOME (t, rest)
+     else if isPREFIX "*)" (c::str) then
+       SOME (ErrorS, TL str)
+     else if isPREFIX "(*" (c::str) then
        case skip_comment (TL str) 0 of
-       | NONE => [ErrorS]
-       | SOME rest => str_to_syms rest else
-     if is_single_char_symbol c then (* single character tokens *)
-       OtherS [c] :: str_to_syms str else
-     if isSymbol c then (* read symbol identifier *)
-       let (n,rest) = moduleRead isSymbol c str
-       in
-         n :: str_to_syms rest
+       | NONE => SOME (ErrorS, "")
+       | SOME rest => next_sym rest
+     else if is_single_char_symbol c then (* single character tokens *)
+       SOME (OtherS [c], str)
+     else if isSymbol c then (* read symbol identifier *)
+       let (n,rest) = moduleRead isSymbol c str in
+         SOME (n, rest)
      else (* input not recognised *)
-       [ErrorS])`
+       SOME (ErrorS, str))`
   (WF_REL_TAC `measure LENGTH` THEN REPEAT STRIP_TAC
    THEN IMP_RES_TAC (GSYM moduleRead_thm)
    THEN IMP_RES_TAC (GSYM read_while_thm)
@@ -187,12 +184,31 @@ val str_to_syms_def = tDefine "str_to_syms" `
    THEN IMP_RES_TAC skip_comment_thm THEN Cases_on `str`
    THEN FULL_SIMP_TAC (srw_ss()) [LENGTH] THEN DECIDE_TAC)
 
+val next_sym_LESS = prove(
+  ``!input. (next_sym input = SOME (s,rest)) ==> LENGTH rest < LENGTH input``,
+  HO_MATCH_MP_TAC (fetch "-" "next_sym_ind") THEN REPEAT STRIP_TAC
+  THEN POP_ASSUM MP_TAC THEN ONCE_REWRITE_TAC [next_sym_def]
+  THEN SIMP_TAC (srw_ss()) [METIS_PROVE [] ``(b ==> c) <=> ~b \/ c``]
+  THEN SRW_TAC [] [] THEN IMP_RES_TAC read_while_thm
+  THEN IMP_RES_TAC read_string_thm
+  THEN Cases_on `input` THEN FULL_SIMP_TAC (srw_ss()) []
+  THEN SIMP_TAC pure_ss [METIS_PROVE [] ``~b \/ ~c <=> ~(b /\ c:bool)``]
+  THEN SIMP_TAC pure_ss [METIS_PROVE [] ``~b \/ c <=> (b ==> c)``]
+  THEN REPEAT STRIP_TAC
+  THEN TRY (POP_ASSUM MP_TAC THEN Q.PAT_ABBREV_TAC `pat = skip_comment ttt 0`
+    THEN Cases_on `pat` THEN FULL_SIMP_TAC std_ss [markerTheory.Abbrev_def])
+  THEN REPEAT STRIP_TAC THEN IMP_RES_TAC (GSYM skip_comment_thm)
+  THEN IMP_RES_TAC moduleRead_thm
+  THEN FULL_SIMP_TAC (srw_ss()) [LENGTH]
+  THEN TRY (Q.PAT_ASSUM `xx = rest` (ASSUME_TAC o GSYM))
+  THEN FULL_SIMP_TAC std_ss [LENGTH] THEN DECIDE_TAC);
+
 (*
 
-  EVAL ``str_to_syms "3 (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``
+  EVAL ``next_sym "3 (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``
+  EVAL ``next_sym " (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``
 
 *)
-
 
 val splitAtP_def = Define`
   splitAtP P [] k = k [] [] ∧
@@ -211,8 +227,6 @@ val moduleSplit_def = Define`
                    | _::t => if MEM #"." t then LexErrorT
                              else LongidT p t)
 `
-
-
 
 val get_token_def = Define `
   get_token s =
@@ -278,46 +292,55 @@ val get_token_def = Define `
     if HD s = #"'" then TyvarT s else
     moduleSplit s`;
 
-(*
+val token_of_sym_def = Define `
+  token_of_sym s =
+    case s of
+    | ErrorS    => LexErrorT
+    | StringS s => StringT s
+    | NumberS n => IntT (& n)
+    | OtherS s  => get_token s `;
 
-Warning! The get_token function never maps into any of the following:
+val next_token_def = Define `
+  next_token input =
+    case next_sym input of
+    | NONE => NONE
+    | SOME (sym, rest_of_input) => SOME (token_of_sym sym, rest_of_input)`;
 
-  NewlineT
-  ZeroT
-  WhitespaceT
-  DigitT of string
-  NumericT of string
-  HexintT of string
-  WordT of string
-  HexwordT of string
-  RealT of string
-  CharT of string
-
-*)
-
-val syms_to_tokens_def = Define `
-  (syms_to_tokens acc [] = acc) /\
-  (syms_to_tokens acc (ErrorS::xs) =
-     syms_to_tokens (SNOC LexErrorT acc) xs) /\
-  (syms_to_tokens acc (StringS s::xs) =
-     syms_to_tokens (SNOC (StringT s) acc) xs) /\
-  (syms_to_tokens acc (NumberS n::xs) =
-     syms_to_tokens (SNOC (IntT (& n)) acc) xs) /\
-  (syms_to_tokens acc (OtherS s::xs) =
-     syms_to_tokens (SNOC (get_token s) acc) xs)`;
+val next_token_LESS = store_thm("next_token_LESS",
+  ``!s rest input. (next_token input = SOME (s,rest)) ==>
+                   LENGTH rest < LENGTH input``,
+  NTAC 3 STRIP_TAC THEN Cases_on `next_sym input`
+  THEN ASM_SIMP_TAC (srw_ss()) [next_token_def]
+  THEN Cases_on `x` THEN ASM_SIMP_TAC (srw_ss()) []
+  THEN IMP_RES_TAC next_sym_LESS THEN REPEAT STRIP_TAC
+  THEN FULL_SIMP_TAC std_ss []);
 
 (* top-level lexer specification *)
 
-val lexer_fun_def = Define `
-  lexer_fun = syms_to_tokens [] o str_to_syms`;
+val tac = WF_REL_TAC `measure LENGTH` THEN SRW_TAC [] [next_token_LESS];
+
+val lexer_fun_def = tDefine "lexer_fun" `
+  lexer_fun input =
+    case next_token input of
+    | NONE => []
+    | SOME (token, rest_of_input) => token :: lexer_fun rest_of_input ` tac;
 
 (*
 
-  EVAL ``lexer_fun "3 (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``;
-  EVAL ``lexer_fun "a b cd c2 c3'"``;
-  EVAL ``lexer_fun "'a 'b '2"``;
-  EVAL ``lexer_fun "'"``;
-  EVAL ``lexer_fun "x.y +.foo y.+ +.+ foo'.z z.foo' + 3 + x. + .z"``
+  A few tests:
+
+    EVAL ``lexer_fun "3 (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``;
+    EVAL ``lexer_fun "a b cd c2 c3'"``;
+    EVAL ``lexer_fun "'a 'b '2"``;
+    EVAL ``lexer_fun "'"``
+
+*)
+
+(*
+
+  TODO: Should the token datatype be cleaned? A lot of tokens aren't
+        produced, e.g. NewlineT, ZeroT, DigitT, NumericT, HexintT,
+        WordT, HexwordT, RealT, CharT, TyvarT, LongidT.
 
 *)
 

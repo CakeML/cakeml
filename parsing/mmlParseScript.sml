@@ -29,6 +29,15 @@ val mmlParseDecls_def = Define`
   od
 `
 
+(* This function parses declarations, no junk is allowed at the end.
+   It is used in implementation/repl_funScript.sml. *)
+val parse_def = Define `
+  (parse : token list -> ast_prog option) tokens =
+    OPTION_BIND (mmlParseDecls tokens)
+      (\(ts,ast_decs).
+          if ts <> [] then NONE else SOME (MAP Ast_Tdec ast_decs))
+`;
+
 val _ = Hol_datatype`semihider = SH_END | SH_PAR`
 (* extend with SH_BRACE and SH_BRACKET when records and lists
    are part of the syntax *)
