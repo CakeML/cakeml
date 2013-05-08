@@ -673,10 +673,19 @@ val ptree_Expr_def = Define`
           case args of
               [] => SOME []
             | [ld_pt; lds_pt] =>
+              if ld_pt = Lf (TOK SemicolonT) then ptree_LetDecs lds_pt
+              else
+                do
+                  ld <- ptree_LetDec ld_pt;
+                  lds <- ptree_LetDecs lds_pt;
+                  SOME (ld::lds)
+                od
+            | [ld_pt; semitok; lds_pt] =>
               do
-                ldopt <- ptree_LetDec ld_pt;
+                assert(semitok = Lf (TOK SemicolonT));
+                ld <- ptree_LetDec ld_pt;
                 lds <- ptree_LetDecs lds_pt;
-                SOME ((case ldopt of NONE => lds | SOME ld => ld::lds))
+                SOME (ld::lds)
               od
             | _ => NONE) ∧
   (ptree_LetDec ptree =
@@ -686,23 +695,18 @@ val ptree_Expr_def = Define`
         if nt <> mkNT nLetDec then NONE
         else
           case args of
-              [single] =>
-              do
-                assert(single = Lf (TOK SemicolonT));
-                SOME NONE
-              od
-            | [funtok; andfdecls_pt] =>
+              [funtok; andfdecls_pt] =>
               do
                 assert (funtok = Lf (TOK FunT));
                 fds <- ptree_AndFDecls andfdecls_pt;
-                SOME (SOME (INR fds))
+                SOME (INR fds)
               od
             | [valtok; v_pt; eqtok; e_pt] =>
               do
                 assert(valtok = Lf (TOK ValT) ∧ eqtok = Lf (TOK EqualsT));
                 v <- ptree_V v_pt;
                 e <- ptree_Expr nE e_pt;
-                SOME (SOME (INL(v,e)))
+                SOME (INL(v,e))
               od
             | _ => NONE) ∧
   (ptree_PEs (Lf _) = NONE) ∧
@@ -758,7 +762,7 @@ val ptree_Expr_def = Define`
 
 
 val ptree_Decl_def = Define`
-  ptree_Decl pt : ast_dec option option =
+  ptree_Decl pt : ast_dec option =
     case pt of
        Lf _ => NONE
      | Nd nt args =>
@@ -767,25 +771,21 @@ val ptree_Decl_def = Define`
          case args of
              [dt] =>
              do
-               assert (dt = Lf (TOK SemicolonT));
-               SOME NONE
-             od ++
-             do
                tydec <- ptree_TypeDec dt;
-               SOME (SOME (Ast_Dtype tydec))
+               SOME (Ast_Dtype tydec)
              od
            | [funtok; fdecls] =>
              do
                assert(funtok = Lf (TOK FunT));
                fdecs <- ptree_AndFDecls fdecls;
-               SOME (SOME (Ast_Dletrec fdecs))
+               SOME (Ast_Dletrec fdecs)
              od
            | [valtok; patpt; eqtok; ept] =>
              do
                assert (valtok = Lf (TOK ValT) ∧ eqtok = Lf (TOK EqualsT));
                pat <- ptree_Pattern nPattern patpt;
                e <- ptree_Expr nE ept;
-               SOME (SOME (Ast_Dlet pat e))
+               SOME (Ast_Dlet pat e)
              od
            | _ => NONE
 `
@@ -798,10 +798,19 @@ val ptree_Decls_def = Define`
       case args of
           [] => SOME []
         | [d_pt; ds_pt] =>
+          if d_pt = Lf (TOK SemicolonT) then ptree_Decls ds_pt
+          else
+            do
+              d <- ptree_Decl d_pt;
+              ds <- ptree_Decls ds_pt;
+              SOME(d::ds)
+            od
+        | [d_pt; semitok; ds_pt] =>
           do
-            dopt <- ptree_Decl d_pt;
+            assert(semitok = Lf (TOK SemicolonT));
+            d <- ptree_Decl d_pt;
             ds <- ptree_Decls ds_pt;
-            (case dopt of NONE => SOME ds | SOME d => SOME (d::ds))
+            SOME(d::ds)
           od
         | _ => NONE
 `
@@ -902,11 +911,8 @@ val ptree_TopLevelDec_def = Define`
     else
       case args of
           [pt] =>
-            OPTION_MAP SOME (ptree_Structure pt) ++
-            do
-              d_opt <- ptree_Decl pt;
-              SOME (OPTION_MAP Ast_Tdec d_opt)
-            od
+            ptree_Structure pt ++
+            OPTION_MAP Ast_Tdec (ptree_Decl pt)
         | _ => NONE
 `
 

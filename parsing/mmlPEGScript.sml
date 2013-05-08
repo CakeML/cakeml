@@ -328,25 +328,23 @@ val mmlPEG_def = zDefine`
               (mkNT nLetDec,
                choicel [seql [tokeq ValT; pnt nV; tokeq EqualsT; pnt nE]
                              (bindNT nLetDec);
-                        seql [tokeq FunT; pnt nAndFDecls]
-                             (bindNT nLetDec);
-                        pegf (tokeq SemicolonT) (bindNT nLetDec)]);
+                        seql [tokeq FunT; pnt nAndFDecls] (bindNT nLetDec)]);
               (mkNT nLetDecs,
-               rpt (pnt nLetDec)
-                   (λds. [FOLDR (λd acc. Nd (mkNT nLetDecs) [HD d; acc])
-                                (Nd (mkNT nLetDecs) [])
-                                ds]));
+               choicel [seql [pnt nLetDec; try (tokeq SemicolonT); pnt nLetDecs]
+                             (bindNT nLetDecs);
+                        seql [tokeq SemicolonT; pnt nLetDecs]
+                             (bindNT nLetDecs);
+                        pegf (empty []) (bindNT nLetDecs)]);
               (mkNT nDecl,
                choicel [seql [tokeq ValT; pnt nPattern; tokeq EqualsT; pnt nE]
                              (bindNT nDecl);
                         seql [tokeq FunT; pnt nAndFDecls] (bindNT nDecl);
-                        seql [pnt nTypeDec] (bindNT nDecl);
-                        pegf (tokeq SemicolonT) (bindNT nDecl)]);
+                        seql [pnt nTypeDec] (bindNT nDecl)]);
               (mkNT nDecls,
-               rpt (pnt nDecl)
-                   (λds. [FOLDR (λd acc. Nd (mkNT nDecls) [HD d; acc])
-                                (Nd (mkNT nDecls) [])
-                                ds]));
+               choicel [seql [pnt nDecl; try (tokeq SemicolonT); pnt nDecls]
+                             (bindNT nDecls);
+                        seql [tokeq SemicolonT; pnt nDecls] (bindNT nDecls);
+                        pegf (empty []) (bindNT nDecls)]);
               (mkNT nSpecLine,
                choicel [seql [tokeq ValT; pnt nV; tokeq ColonT; pnt nType]
                              (bindNT nSpecLine);

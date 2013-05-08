@@ -139,10 +139,10 @@ val mmlG_def = mk_grammar_def ginfo
  (* function and value declarations *)
  FDecl ::= V Vlist1 "=" E ;
  AndFDecls ::= FDecl | AndFDecls "and" FDecl;
- Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec | ";" ;
- Decls ::= Decl Decls | ;
- LetDec ::= "val" V "=" E | "fun" AndFDecls | ";" ;
- LetDecs ::= LetDec LetDecs | ;
+ Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec ;
+ Decls ::= Decl Decls | Decl ";" Decls | ";" Decls | ;
+ LetDec ::= "val" V "=" E | "fun" AndFDecls ;
+ LetDecs ::= LetDec LetDecs | LetDec ";" LetDecs | ";" LetDecs | ;
 
  (* patterns *)
  Pbase ::= V | ConstructorName | <IntT> | "(" Pattern ")" | "(" ")" | "_";
