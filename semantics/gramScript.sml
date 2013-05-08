@@ -162,6 +162,8 @@ val mmlG_def = mk_grammar_def ginfo
  OptionalSignatureAscription ::= ":>" SignatureValue | ;
  Structure ::= "structure" V OptionalSignatureAscription "=" "struct" Decls "end";
  TopLevelDec ::= Structure | Decl;
+ TopLevelDecs ::= TopLevelDec TopLevelDecs | ;
+ REPLPhrase ::= TopLevelDecs ";" | E ";" ;
 `;
 
 val _ = type_abbrev("NT", ``:MMLnonT inf``)

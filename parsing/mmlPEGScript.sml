@@ -365,7 +365,15 @@ val mmlPEG_def = zDefine`
                      tokeq EqualsT; tokeq StructT; pnt nDecls; tokeq EndT]
                     (bindNT nStructure));
               (mkNT nTopLevelDec,
-               pegf (choicel [pnt nStructure; pnt nDecl]) (bindNT nTopLevelDec))
+               pegf (choicel [pnt nStructure; pnt nDecl]) (bindNT nTopLevelDec));
+              (mkNT nTopLevelDecs,
+               rpt (pnt nTopLevelDec)
+                   (λtds. [FOLDR (λtd acc. Nd (mkNT nTopLevelDecs) [HD td; acc])
+                                 (Nd (mkNT nTopLevelDecs) []) tds]));
+              (mkNT nREPLPhrase,
+               choicel [seql [pnt nE; tokeq SemicolonT] (bindNT nREPLPhrase);
+                        seql [pnt nTopLevelDecs; tokeq SemicolonT]
+                             (bindNT nREPLPhrase)])
              ] |>
 `;
 
@@ -478,7 +486,7 @@ val npeg0_rwts =
                 ``nTyOp``, ``nDType``, ``nStarTypes``, ``nStarTypesP``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``, ``nLetDec``,
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
-                ``nSpecLine``]
+                ``nSpecLine``, ``nStructure``, ``nTopLevelDec``]
 
 fun wfnt(t,acc) = let
   val th =
@@ -509,7 +517,7 @@ val topo_nts = [``nV``, ``nTypeDec``, ``nDecl``, ``nVlist1``,
                 ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,
                 ``nSpecLineList``, ``nSignatureValue``,
                 ``nOptionalSignatureAscription``, ``nStructure``,
-                ``nTopLevelDec``]
+                ``nTopLevelDec``, ``nTopLevelDecs``]
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",

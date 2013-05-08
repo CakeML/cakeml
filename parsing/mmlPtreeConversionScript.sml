@@ -916,5 +916,35 @@ val ptree_TopLevelDec_def = Define`
         | _ => NONE
 `
 
+val ptree_TopLevelDecs_def = Define`
+  ptree_TopLevelDecs (Lf _) = NONE ∧
+  ptree_TopLevelDecs (Nd nt args) =
+    if nt <> mkNT nTopLevelDecs then NONE
+    else
+      case args of
+          [] => SOME []
+        | [td_pt; tds_pt] =>
+          do
+            td <- ptree_TopLevelDec td_pt;
+            tds <- ptree_TopLevelDecs tds_pt;
+            SOME(td::tds)
+          od
+`;
+
+val ptree_REPLPhrase_def = Define`
+  ptree_REPLPhrase (Lf _) = NONE ∧
+  ptree_REPLPhrase (Nd nt args) =
+    if nt <> mkNT nREPLPhrase then NONE
+    else
+      case args of
+          [pt; semitok] =>
+            ptree_TopLevelDecs pt ++
+            do
+              e <- ptree_Expr nE pt;
+              SOME[Ast_Tdec (Ast_Dlet (Ast_Pvar "it") e)]
+            od
+         | _ => NONE
+`;
+
 
 val _ = export_theory()

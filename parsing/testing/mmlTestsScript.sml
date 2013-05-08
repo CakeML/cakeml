@@ -80,6 +80,11 @@ val tytest = parsetest ``nType`` ``ptree_Type``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] [] init_env) o ptree_Decls``
 
+val _ = parsetest ``nREPLPhrase`` ``ptree_REPLPhrase`` "val x = 10 val y = 3;"
+                  ``[ValT; AlphaT "x"; EqualsT; IntT 10; ValT; AlphaT "y";
+                     EqualsT; IntT 3; SemicolonT]``
+val _ = parsetest ``nREPLPhrase`` ``ptree_REPLPhrase`` "x + 10;"
+                  ``[AlphaT "x"; SymbolT "+"; IntT 10; SemicolonT]``
 val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec``
                   "structure s = struct val x = 3 end"
                   ``[StructureT; AlphaT "s"; EqualsT; StructT; ValT; AlphaT "x";
