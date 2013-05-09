@@ -108,10 +108,10 @@ val lemma2 =
 
 val _ = computeLib.add_funs [lemma1,lemma2]
 
-val input = ``"val x = 1"``
+val input = ``"val x = 1; val y = 2;"``
 
 val tokens = EVAL ``lex_until_toplevel_semicolon ^input`` |> concl |> rhs |> rand |> rator |> rand
-val ast_prog = EVAL ``parse ^tokens`` |> concl |> rhs |> rand
+val ast_prog = EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
 val s = ``init_repl_fun_state``
 
 val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
