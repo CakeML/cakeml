@@ -22,7 +22,7 @@ val init_bc_state_def =  Define`
 
 val init_repl_fun_state = Define`
   init_repl_fun_state = <|
-    rtypes := []; rctors := []; rbindings := [];
+    rtypes := []; rctors := []; rbindings := Elab$init_env;
     rmenv := []; rcenv := []; rtenv := [];
     rcompiler_state := init_compiler_state ; decs := [] |>`
 
