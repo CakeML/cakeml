@@ -63,7 +63,7 @@ val _ = new_theory "ToIntLang"
 /\
 (free_vars_def _ (SOME _,_) = ([]))`;
 
-val _ = Defn.save_defn free_vars_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn free_vars_defn;
 
  val mkshift_defn = Hol_defn "mkshift" `
 
@@ -103,7 +103,7 @@ val _ = Defn.save_defn free_vars_defn;
 /\
 (mkshift f k (CIf e1 e2 e3) = (CIf (mkshift f k e1) (mkshift f k e2) (mkshift f k e3)))`;
 
-val _ = Defn.save_defn mkshift_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn mkshift_defn;
 
 val _ = Define `
  (shift n = ( mkshift (\ v . v +n)))`;
@@ -139,7 +139,7 @@ val _ = Hol_datatype `
   let (m,Cps) = (pats_to_Cpats m ps) in
   (m,(Cp ::Cps))))`;
 
-val _ = Defn.save_defn pat_to_Cpat_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_to_Cpat_defn;
 
  val Cpat_vars_defn = Hol_defn "Cpat_vars" `
 
@@ -155,7 +155,7 @@ val _ = Defn.save_defn pat_to_Cpat_defn;
 /\
 (Cpat_vars_list (p::ps) = ((Cpat_vars p) +(Cpat_vars_list ps)))`;
 
-val _ = Defn.save_defn Cpat_vars_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn Cpat_vars_defn;
 
  val remove_mat_vp_defn = Hol_defn "remove_mat_vp" `
 
@@ -185,7 +185,7 @@ val _ = Defn.save_defn Cpat_vars_defn;
       (remove_mat_con (fk +1 +p1) (shift 1 (p2 +p1) sk) (v +1 +p1) (n +1) ps)
       0 p)))`;
 
-val _ = Defn.save_defn remove_mat_vp_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn remove_mat_vp_defn;
 
  val remove_mat_var_defn = Hol_defn "remove_mat_var" `
 
@@ -195,7 +195,7 @@ val _ = Defn.save_defn remove_mat_vp_defn;
 (CLet (CFun (NONE, (0,shift 1 0 (remove_mat_var v pes))))
     (remove_mat_vp 0 (shift 1 (Cpat_vars p) sk) (v +1) p)))`;
 
-val _ = Defn.save_defn remove_mat_var_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn remove_mat_var_defn;
 
  val exp_to_Cexp_defn = Hol_defn "exp_to_Cexp" `
 
@@ -316,7 +316,7 @@ val _ = Defn.save_defn remove_mat_var_defn;
 (exps_to_Cexps m (e::es) =  
 (exp_to_Cexp m e :: exps_to_Cexps m es))`;
 
-val _ = Defn.save_defn exp_to_Cexp_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn exp_to_Cexp_defn;
 
 (* source to intermediate values *)
 
@@ -355,6 +355,6 @@ val _ = Defn.save_defn exp_to_Cexp_defn;
 (env_to_Cenv m ((_,v)::env) =  
 ((v_to_Cv m v) ::(env_to_Cenv m env)))`;
 
-val _ = Defn.save_defn v_to_Cv_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn v_to_Cv_defn;
 val _ = export_theory()
 

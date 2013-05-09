@@ -7,6 +7,8 @@ val _ = numLib.prefer_num();
 
 
 
+open LibTheory
+
 val _ = new_theory "Tokens"
 
 (* Tokens for Standard ML.  NB, not all of them are used in CakeML *)

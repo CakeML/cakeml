@@ -123,7 +123,7 @@ val _ = new_theory "ToBytecode"
   let (defs,j) = (label_closures_defs ez j nz (k +1) defs) in
   (((SOME (ld,(ccenv,ceenv)),(az,b)) ::defs), j)))`;
 
-val _ = Defn.save_defn label_closures_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn label_closures_defn;
 
 val _ = Hol_datatype `
  call_context = TCNonTail | TCTail of num => num`;
@@ -181,7 +181,7 @@ val _ = Define `
 /\
 (compile_envref sz s (CCRef n) = ( emit (compile_envref sz s (CCEnv n)) [Deref]))`;
 
-val _ = Defn.save_defn compile_envref_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_envref_defn;
 
  val compile_varref_def = Define `
 
@@ -424,7 +424,7 @@ val _ = Defn.save_defn compile_envref_defn;
 (compile_nts env sz s (e::es) =  
 (compile_nts env (sz +1) (compile env TCNonTail sz s e) es))`;
 
-val _ = Defn.save_defn compile_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_defn;
 
 (* code env to bytecode *)
 
@@ -475,7 +475,7 @@ val _ = Defn.save_defn compile_defn;
 /\
 (free_labs_def ez nz _ (NONE,(az,b)) = (free_labs (ez +nz +az) b))`;
 
-val _ = Defn.save_defn free_labs_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn free_labs_defn;
 
  val cce_aux_def = Define `
  (cce_aux s ((l,(ccenv,_)),(az,b)) =  
@@ -505,7 +505,7 @@ val _ = Defn.save_defn free_labs_defn;
 (calculate_labels il m n a (i::lbc) =  
 (calculate_labels il m (n + il i + 1) (i ::a) lbc))`;
 
-val _ = Defn.save_defn calculate_labels_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn calculate_labels_defn;
 
  val replace_labels_defn = Hol_defn "replace_labels" `
 
@@ -526,7 +526,7 @@ val _ = Defn.save_defn calculate_labels_defn;
 (replace_labels m a (i::bc) =  
 (replace_labels m (i ::a) bc))`;
 
-val _ = Defn.save_defn replace_labels_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn replace_labels_defn;
 
  val compile_labels_def = Define `
 

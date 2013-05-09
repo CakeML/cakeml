@@ -91,7 +91,7 @@ val _ = Hol_datatype `
 /\
 (no_closures (CLoc _) = T)`;
 
-val _ = Defn.save_defn no_closures_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn no_closures_defn;
 
  val doPrim2_def = Define `
 
@@ -551,7 +551,7 @@ syneq (CLoc n) (CLoc n))`;
 /\
 (no_labs_def (NONE,(_,b)) = (no_labs b))`;
 
-val _ = Defn.save_defn no_labs_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn no_labs_defn;
 
  val all_labs_defn = Hol_defn "all_labs" `
 
@@ -597,6 +597,6 @@ val _ = Defn.save_defn no_labs_defn;
 /\
 (all_labs_def (NONE,_) = F)`;
 
-val _ = Defn.save_defn all_labs_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn all_labs_defn;
 val _ = export_theory()
 

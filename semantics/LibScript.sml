@@ -49,7 +49,7 @@ val _ = Define `
   else
     lookup n e))`;
 
-val _ = Defn.save_defn lookup_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn lookup_defn;
 
 (*val bind : forall 'a 'b. 'a -> 'b -> env 'a 'b -> env 'a 'b*)
 val _ = Define `

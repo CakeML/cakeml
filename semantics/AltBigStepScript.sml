@@ -58,7 +58,7 @@ val _ = new_theory "AltBigStep"
 /\
 (pmatch_list' _ _ _ env = Match_type_error)`;
 
-val _ = Defn.save_defn pmatch'_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pmatch'_defn;
 
 
 val _ = Hol_reln `

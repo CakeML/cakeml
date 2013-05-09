@@ -34,7 +34,7 @@ val _ = new_theory "TypeSystem"
 /\
 (deBruijn_inc skip n (Tapp ts tn) = (Tapp ( MAP (deBruijn_inc skip n) ts) tn))`;
 
-val _ = Defn.save_defn deBruijn_inc_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn deBruijn_inc_defn;
 
 (* skip the lowest given indices and replace the next (LENGTH ts) with the given types and reduce all the higher ones *)
 (*val deBruijn_subst : num -> list t -> t -> t*)
@@ -52,7 +52,7 @@ val _ = Defn.save_defn deBruijn_inc_defn;
 (deBruijn_subst skip ts (Tapp ts' tn) =  
 (Tapp ( MAP (deBruijn_subst skip ts) ts') tn))`;
 
-val _ = Defn.save_defn deBruijn_subst_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn deBruijn_subst_defn;
 
 (* constructor type environments: each constructor has a type
  * forall tyvars. t list -> (tyvars) typeN *)
@@ -87,7 +87,7 @@ val _ = Define `
   else
     lookup_tenv n inc e))`;
 
-val _ = Defn.save_defn lookup_tenv_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn lookup_tenv_defn;
 
 (*val bind_tenv : varN -> num -> t -> tenvE -> tenvE*)
 val _ = Define `
@@ -116,7 +116,7 @@ val _ = Define `
 /\
 (num_tvs (Bind_name n tvs t e) = (num_tvs e))`;
 
-val _ = Defn.save_defn num_tvs_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn num_tvs_defn;
 
 (* A pattern matches values of a certain type and extends the type environment
  * with the pattern's binders. The number is the maximum deBruijn type variable
@@ -182,7 +182,7 @@ val _ = Define `
 /\
 (check_freevars dbmax tvs (Tvar_db n) = (n < dbmax))`;
 
-val _ = Defn.save_defn check_freevars_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn check_freevars_defn;
 
 (* Check that a type definition defines no already defined (or duplicate)
  * constructors or types, and that the free type variables of each constructor
@@ -226,7 +226,7 @@ val _ = Define `
 /\
 (type_subst s (Tvar_db n) = (Tvar_db n))`;
 
-val _ = Defn.save_defn type_subst_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn type_subst_defn;
 
 (*val bind_var_list : num -> list (varN * t) -> tenvE -> tenvE*)
  val bind_var_list_defn = Hol_defn "bind_var_list" `
@@ -237,7 +237,7 @@ val _ = Defn.save_defn type_subst_defn;
 (
   bind_tenv n tvs t (bind_var_list tvs binds tenv)))`;
 
-val _ = Defn.save_defn bind_var_list_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn bind_var_list_defn;
 
 (*val bind_var_list2 : env varN (num * t) -> tenvE -> tenvE*)
  val bind_var_list2_defn = Hol_defn "bind_var_list2" `
@@ -248,7 +248,7 @@ val _ = Defn.save_defn bind_var_list_defn;
 (
   bind_tenv n tvs t (bind_var_list2 binds tenv)))`;
 
-val _ = Defn.save_defn bind_var_list2_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn bind_var_list2_defn;
 
 
 (* For the value restriction on let-based polymorphism *)
@@ -265,7 +265,7 @@ val _ = Defn.save_defn bind_var_list2_defn;
 /\
 (is_value _ = F)`;
 
-val _ = Defn.save_defn is_value_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn is_value_defn;
 
 val _ = Hol_reln `
 

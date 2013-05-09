@@ -66,7 +66,7 @@ val _ = Define `
 (number_constructors ((c,_)::cs) (m,w,n) =  
 (number_constructors cs ( FUPDATE  m ( (Short c), n), ((n,c) ::w), (n +1))))`;
 
-val _ = Defn.save_defn number_constructors_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn number_constructors_defn;
 
  val compile_shadows_defn = Hol_defn "compile_shadows" `
 
@@ -77,7 +77,7 @@ val _ = Defn.save_defn number_constructors_defn;
   let cs = ( emit cs ( MAP Stack [Load 0; El i; Store j])) in
   compile_shadows bvs cs (i +1) vs))`;
 
-val _ = Defn.save_defn compile_shadows_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_shadows_defn;
 
  val compile_news_defn = Hol_defn "compile_news" `
 
@@ -87,7 +87,7 @@ val _ = Defn.save_defn compile_shadows_defn;
 (let cs = ( emit cs ( MAP Stack [Load 0; Load 0; El i; Store 1])) in
   compile_news cs (i +1) vs))`;
 
-val _ = Defn.save_defn compile_news_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_news_defn;
 
 val _ = Define `
  (compile_fake_exp rs vs e =  

@@ -145,7 +145,7 @@ val _ = type_abbrev( "ast_prog" , ``: ast_top list``);
 /\
 (elab_ps (p::ps) = (elab_p p :: elab_ps ps))`;
 
-val _ = Defn.save_defn elab_p_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_p_defn;
 
 val _ = Hol_datatype `
  ops =
@@ -259,7 +259,7 @@ val _ = Define `
 (elab_funs ctors bound ((n1,n2,e)::funs) =  
 ((n1,n2,elab_e ctors (bind n2 Is_local bound) e) :: elab_funs ctors bound funs))`;
 
-val _ = Defn.save_defn elab_e_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_e_defn;
 
  val get_prim_type_def = Define `
  (get_prim_type tn =  
@@ -294,7 +294,7 @@ val _ = Defn.save_defn elab_e_defn;
         | SOME tc0 => Tapp ts' tc0
       )))`;
 
-val _ = Defn.save_defn elab_t_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_t_defn;
 
 val _ = Define `
  (get_ctors_bindings mn t = ( FLAT
@@ -335,7 +335,7 @@ val _ = Define `
   in
     ((type_bound'' ++type_bound'), merge ctors'' ctors', merge bound'' bound', (d' ::ds'))))`;
 
-val _ = Defn.save_defn elab_decs_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_decs_defn;
 
  val elab_spec_defn = Hol_defn "elab_spec" `
  
@@ -351,7 +351,7 @@ val _ = Defn.save_defn elab_decs_defn;
 (elab_spec type_bound (Ast_Stype_opq tn::spec) =  
 (Stype_opq tn :: elab_spec (tn ::type_bound) spec))`;
 
-val _ = Defn.save_defn elab_spec_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_spec_defn;
 
  val elab_prog_defn = Hol_defn "elab_prog" `
 
@@ -369,6 +369,6 @@ val _ = Defn.save_defn elab_spec_defn;
   let (type_bound'',ctors'',bound'',prog') = (elab_prog type_bound ctors bound prog) in
     (type_bound'',ctors'',bound'',(Tmod mn (option_map (elab_spec type_bound) spec) ds' ::prog'))))`;
 
-val _ = Defn.save_defn elab_prog_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_prog_defn;
 val _ = export_theory()
 

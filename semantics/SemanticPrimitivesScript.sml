@@ -180,7 +180,7 @@ val _ = Hol_datatype `
 /\
 (pmatch_list envC s _ _ env = Match_type_error)`;
 
-val _ = Defn.save_defn pmatch_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pmatch_defn;
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
 (*val build_rec_env : list (varN * varN * exp) -> envE -> envE -> envE*)
@@ -204,7 +204,7 @@ val _ = Define `
           find_recfun n funs
   )))`;
 
-val _ = Defn.save_defn find_recfun_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn find_recfun_defn;
 
 (* Check whether a value contains a closure, but don't indirect through the store *)
 (*val contains_closure : v -> bool*)
@@ -220,7 +220,7 @@ val _ = Defn.save_defn find_recfun_defn;
 /\
 (contains_closure (Loc n) = F)`;
 
-val _ = Defn.save_defn contains_closure_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn contains_closure_defn;
 
 (*val do_uapp : store -> uop -> v -> option (store * v)*)
 val _ = Define `

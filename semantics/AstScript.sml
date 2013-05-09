@@ -244,7 +244,7 @@ val _ = type_abbrev( "prog" , ``: top list``);
 (pats_bindings (p::ps) already_bound =  
 (pats_bindings ps (pat_bindings p already_bound)))`;
 
-val _ = Defn.save_defn pat_bindings_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_bindings_defn;
               
 val _ = export_theory()
 

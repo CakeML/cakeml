@@ -47,7 +47,7 @@ val _ = Hol_datatype `
 /\
 (v_to_ov s (Loc n) = (OLoc ( EL  n  s)))`;
 
-val _ = Defn.save_defn v_to_ov_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn v_to_ov_defn;
 
  val Cv_to_ov_defn = Hol_defn "Cv_to_ov" `
 
@@ -59,7 +59,7 @@ val _ = Defn.save_defn v_to_ov_defn;
 /\
 (Cv_to_ov _ s (CLoc n) = (OLoc ( EL  n  s)))`;
 
-val _ = Defn.save_defn Cv_to_ov_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn Cv_to_ov_defn;
 
  val bv_to_ov_defn = Hol_defn "bv_to_ov" `
 
@@ -76,7 +76,7 @@ val _ = Defn.save_defn Cv_to_ov_defn;
 /\
 (bv_to_ov _ _ = OError)`;
 
-val _ = Defn.save_defn bv_to_ov_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn bv_to_ov_defn;
 
  val ov_to_string_defn = Hol_defn "ov_to_string" `
 
@@ -103,7 +103,7 @@ val _ = Defn.save_defn bv_to_ov_defn;
 /\
 (ov_to_string OError = "<error>")`;
 
-val _ = Defn.save_defn ov_to_string_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn ov_to_string_defn;
 
 (*open Compiler*)
 
