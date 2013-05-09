@@ -9,13 +9,14 @@ val MEM_pair_MAP = store_thm(
 ``MEM (a,b) ls ==> MEM a (MAP FST ls) /\ MEM b (MAP SND ls)``,
 rw[MEM_MAP,pairTheory.EXISTS_PROD] >> PROVE_TAC[])
 
-val tac = Induct >- rw[Cexp_size_def,Cpat_size_def,Cv_size_def] >> srw_tac [ARITH_ss][Cexp_size_def,Cpat_size_def,Cv_size_def]
+val tac = Induct >- rw[Cexp_size_def,Cpat_size_def,Cv_size_def,ov_size_def] >> srw_tac [ARITH_ss][Cexp_size_def,Cpat_size_def,Cv_size_def,ov_size_def]
 fun tm t1 t2 =  ``∀ls. ^t1 ls = SUM (MAP ^t2 ls) + LENGTH ls``
 fun size_thm name t1 t2 = store_thm(name,tm t1 t2,tac)
 val Cexp1_size_thm = size_thm "Cexp1_size_thm" ``Cexp1_size`` ``Cexp2_size``
 val Cexp4_size_thm = size_thm "Cexp4_size_thm" ``Cexp4_size`` ``Cexp_size``
 val Cpat1_size_thm = size_thm "Cpat1_size_thm" ``Cpat1_size`` ``Cpat_size``
 val Cv1_size_thm = size_thm "Cv1_size_thm" ``Cv1_size`` ``Cv_size``
+val ov1_size_thm = size_thm "ov1_size_thm" ``ov1_size`` ``ov_size``
 
 val SUM_MAP_Cexp3_size_thm = store_thm(
 "SUM_MAP_Cexp3_size_thm",
@@ -249,6 +250,13 @@ val _ = register "calculate_labels" (
 val _ = register "replace_labels" (
   tprove_no_defn ((replace_labels_def,replace_labels_ind),
   WF_REL_TAC `measure (LENGTH o SND o SND)` >> rw[]))
+
+val _ = register "ov_to_string" (
+  tprove_no_defn((ov_to_string_def,ov_to_string_ind),
+  WF_REL_TAC`measure ov_size`>>
+  srw_tac[ARITH_ss][ov1_size_thm]>>
+  Q.ISPEC_THEN`ov_size`imp_res_tac SUM_MAP_MEM_bound>>
+  fsrw_tac[ARITH_ss][]))
 
 (* export rewrites *)
 
