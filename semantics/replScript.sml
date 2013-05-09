@@ -24,7 +24,7 @@ repl_state = <| (* Elaborator state *)
                 envM : envM; envC : envC; store : store; envE : envE |>`;
 
 val init_repl_state_def = Define`
-  init_repl_state = <| type_bindings := []; ctors := []; bindings := [];
+  init_repl_state = <| type_bindings := []; ctors := []; bindings := Elab$init_env;
                        tenvM := []; tenvC := []; tenv := Empty;
                        envM := []; envC := []; store := []; envE := [] |>`
 
