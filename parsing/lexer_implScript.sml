@@ -16,7 +16,7 @@ val lex_aux_def = tDefine "lex_aux" `
       NONE => NONE
     | (* case: token found *)
       SOME (token, rest) =>
-        if token = SemicolonT /\ (stk = [] \/ error) then SOME (REVERSE acc, rest)
+        if token = SemicolonT /\ (stk = [] \/ error) then SOME (REVERSE (token::acc), rest)
         else
           let new_acc = (token::acc) in
             if error then lex_aux new_acc error stk rest
