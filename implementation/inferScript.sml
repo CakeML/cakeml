@@ -1,5 +1,5 @@
 open preamble AstTheory TypeSystemTheory;
-open unifyTheory collapseTheory;
+open unifyTheory;
 open stringTheory monadsyntax;
 
 val _ = new_theory "infer";
@@ -87,11 +87,11 @@ val lookup_st_ex_def = Define `
     lookup_st_ex pr x e)`;
 
 val _ = Hol_datatype `
-elab_st = <| next_uvar : num; 
-             subst : 'a |>`;
+infer_st = <| next_uvar : num; 
+              subst : 'a |>`;
 
 val fresh_uvar_def = Define `
-(fresh_uvar : ('b elab_st, infer_t, α) M) =
+(fresh_uvar : ('b infer_st, infer_t, α) M) =
   \s. (Success (Infer_Tuvar s.next_uvar), s with <| next_uvar := s.next_uvar + 1 |>)`;
 
 val n_fresh_uvar_def = Define  `
@@ -136,21 +136,17 @@ val get_next_uvar_def = Define `
 get_next_uvar =
   \st. (Success st.next_uvar, st)`;
 
-val get_subst_def = Define `
-get_subst =
-  \st. (Success st.subst, st)`;
-
 val apply_subst_def = Define `
 apply_subst t =
-  \st.
-    let sub = t_collapse st.subst in
-      (Success (apply_subst_t sub t), st with <|subst := sub |>)`;
+  do st <- read;
+     return (t_walkstar st.subst t)
+  od`;
 
 val apply_subst_list_def = Define `
 apply_subst_list ts =
-  \st.
-    let sub = t_collapse st.subst in
-      (Success (MAP (apply_subst_t sub) ts), st with <|subst := sub |>)`;
+  do st <- read;
+     return (MAP (t_walkstar st.subst) ts)
+  od`;
 
 (* Generalise the unification variables greater than m, starting at deBruijn index n.
  * Return how many were generalised and the generalised type *)

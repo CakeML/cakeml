@@ -32,7 +32,7 @@ val _ = new_theory "Print_ast"
   else
     num_to_string (n DIV 10) ( STRCAT ( STRING (CHR  (n MOD 10 + 48)) "")  acc)))`;
 
-val _ = Defn.save_defn num_to_string_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn num_to_string_defn;
 
 (*val int_to_string : Int.int -> string*)
 val _ = Define `
@@ -54,7 +54,7 @@ val _ = Define `
   else STRCAT 
     " "  (spaces (n - 1) s)))`;
 
-val _ = Defn.save_defn spaces_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn spaces_defn;
 
 val _ = Define `
  (space_append s1 s2 =  
@@ -151,7 +151,7 @@ val _ = Define `
  ( 
   tok_to_string t (tok_list_to_string l)))`;
 
-val _ = Defn.save_defn tok_list_to_string_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn tok_list_to_string_defn;
 
 (*type 'a tree = L of 'a | N of 'a tree * 'a tree*)
 val _ = Hol_datatype `
@@ -169,7 +169,7 @@ val _ = Hol_datatype `
 /\
 (tree_to_list (N x1 x2) acc = (tree_to_list x1 (tree_to_list x2 acc)))`;
 
-val _ = Defn.save_defn tree_to_list_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn tree_to_list_defn;
 
 (* Should include "^", but I don't know how to get that into HOL, since
  * antiquote seem stronger than strings.  See the specification in
@@ -215,7 +215,7 @@ val _ = Define `
 (join_trees sep (x::y::l) = (N 
   x (N   sep  (join_trees sep (y ::l)))))`;
 
-val _ = Defn.save_defn join_trees_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn join_trees_defn;
 
  val lit_to_tok_tree_def = Define `
 
@@ -262,7 +262,7 @@ val _ = Define `
 (pat_to_tok_tree (Pref p) = (N 
   (L LparT) (N   (L (LongidT "" "ref")) (N   (pat_to_tok_tree p)  (L RparT)))))`;
 
-val _ = Defn.save_defn pat_to_tok_tree_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_to_tok_tree_defn;
 
 val _ = Define `
  (inc_indent i =  
@@ -458,7 +458,7 @@ val _ = Define `
   (L EqualsT) 
   (exp_to_tok_tree (inc_indent indent) e)))))`;
 
-val _ = Defn.save_defn exp_to_tok_tree_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn exp_to_tok_tree_defn;
 
  val tc_to_tok_tree_def = Define `
 
@@ -493,7 +493,7 @@ val _ = Defn.save_defn exp_to_tok_tree_defn;
     join_trees (L CommaT) ( MAP type_to_tok_tree ts)) (N   (L RparT)  
     (tc_to_tok_tree tc0)))))`;
 
-val _ = Defn.save_defn type_to_tok_tree_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn type_to_tok_tree_defn;
 
 val _ = Define `
  (variant_to_tok_tree (c,ts) =  

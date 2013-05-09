@@ -172,7 +172,7 @@ type_env menv cenv senv (bind n v env) (bind_tenv n tvs t tenv))`;
 /\
 (consistent_mod_env tenvS tenvC _ _ = F)`;
 
-val _ = Defn.save_defn consistent_mod_env_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn consistent_mod_env_defn;
 
 val _ = Define `
  (type_s menv cenv senv s =  
