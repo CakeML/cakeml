@@ -115,9 +115,29 @@ val _ = computeLib.add_funs
   ]
 val _ = computeLib.add_funs[listTheory.SUM] (* why isn't this in there already !? *)
 
-val input = ``"val x = true; val y = false;"``
-(* LOOPS if you use numbers, because of toString or Num in ov_to_string *)
+val _ = computeLib.add_funs
+  [ElabTheory.elab_p_def
+  ,pat_bindings_def
+  ,compile_news_def
+  ,compile_shadows_def
+  ,CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)compile_def
+  ,label_closures_def
+  ,remove_mat_var_def
+  ,ToIntLangTheory.remove_mat_vp_def
+  ,mkshift_def
+  ,ToBytecodeTheory.cce_aux_def
+  ,exp_to_Cexp_def
+  ,ToIntLangTheory.pat_to_Cpat_def
+  ,ToIntLangTheory.Cpat_vars_def
+  ]
 
+(* need wordsLib to make EVAL work on toString - this should be fixed in HOL *)
+(* need intLib to EVAL double negation of ints *)
+open wordsLib intLib
+
+val input = ``"val x = true; val y = 2;"``
+
+(*
 val (tokens,rest_of_input) = EVAL ``lex_until_toplevel_semicolon ^input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
 val ast_prog = EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
 val s = ``init_repl_fun_state``
@@ -154,6 +174,7 @@ val bs = EVAL ``install_code ^code ^bs`` |> concl |> rhs
 val new_bs = EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
 
 val res = EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
+*)
 
 val res = EVAL ``repl_fun ^input``
 
