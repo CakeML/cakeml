@@ -528,6 +528,23 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_def, decode_left_inverse,
       metis_tac [FUPDATE_PURGE], 
       metis_tac [FUPDATE_PURGE]]]);
 
+val encode_infer_t_inj = Q.prove(
+`(!t1 t2. (encode_infer_t t1 = encode_infer_t t2) ==> (t1 = t2)) /\
+ (∀t1s t2s. (encode_infer_ts t1s = encode_infer_ts t2s) ⇒ (t1s = t2s))`,
+ ho_match_mp_tac(TypeBase.induction_of``:infer_t``)>>
+ simp[encode_infer_t_def] >>
+ strip_tac >- (
+   gen_tac >> Cases >> simp[encode_infer_t_def] ) >>
+ strip_tac >- (
+   gen_tac >> strip_tac >>
+   gen_tac >> Cases >> simp[encode_infer_t_def] ) >>
+ strip_tac >- (
+   gen_tac >> Cases >> simp[encode_infer_t_def] ) >>
+ strip_tac >- (
+   Cases >> simp[encode_infer_t_def] ) >>
+ rpt gen_tac >> strip_tac >>
+ Cases >> simp[encode_infer_t_def])
+
 val apply_subst_t_def = zDefine `
 apply_subst_t s t = decode_infer_t (subst_APPLY (encode_infer_t o_f s) (encode_infer_t t))`;
 
@@ -588,5 +605,20 @@ val t_collapse_eqn = Q.store_thm ("t_collapse_eqn",
 `!s. t_collapse s = FUN_FMAP (\v. t_walkstar s (Infer_Tuvar v)) (FDOM s)`,
 rw [collapse_def, t_collapse_def, t_walkstar_def, encode_infer_t_def, walkstar_def] >>
 rw [GSYM fmap_EQ_THM, FUN_FMAP_DEF]);
+
+val t_unify_unifier = store_thm("t_unify_unifier",
+  ``t_wfs s ∧ (t_unify s t1 t2 = SOME sx) ⇒ t_wfs sx ∧ s ⊑ sx ∧ (t_walkstar sx t1 = t_walkstar sx t2)``,
+  simp[t_unify_def,option_map_OPTION_MAP] >> strip_tac >>
+  qmatch_assum_abbrev_tac`unify us ut1 ut2 = SOME uz` >>
+  qspecl_then[`us`,`ut1`,`ut2`,`s`,`t1`,`t2`]mp_tac encode_unify >>
+  simp[option_map_OPTION_MAP] >>
+  disch_then(Q.X_CHOOSE_THEN`w`strip_assume_tac) >>
+  `wfs us` by metis_tac[t_wfs_def] >>
+  imp_res_tac unify_unifier >>
+  unabbrev_all_tac >>
+  rw[decode_left_inverse,decode_left_inverse_I,I_o_f] >>
+  simp[t_wfs_def,t_walkstar_def] >>
+  fs[SUBMAP_DEF] >>
+  metis_tac[encode_infer_t_inj,o_f_FAPPLY])
 
 val _ = export_theory ();
