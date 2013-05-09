@@ -280,6 +280,12 @@ end
 val mml_okrule_eval_th = save_thm(
   "mml_okrule_eval_th",
   (okrule_rwts0 @ [inr_th]) |> combine_to_cond)
+
+val _ = assert (not o isSome o
+                Lib.total (find_term (same_const existential)) o
+                concl)
+               mml_okrule_eval_th
+
 val _ = computeLib.add_persistent_funs ["mml_okrule_eval_th"]
 
 val _ = export_theory()
