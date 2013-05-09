@@ -84,8 +84,8 @@ val ginfo = { tokmap = tokmap,
 
 val mmlG_def = mk_grammar_def ginfo
 `(* types *)
- TyOp ::= <AlphaT> | <SymbolT>; (* should be extended with module-qualifed names *)
  UQTyOp ::= <AlphaT> | <SymbolT>;
+ TyOp ::= UQTyOp | <LongidT>;
  TypeList ::= Type | Type "," TypeList;
  DType ::= <TyvarT> | TyOp | DType TyOp | "(" TypeList ")" TyOp | "(" Type ")";
  Type ::= DType | DType "->" Type;

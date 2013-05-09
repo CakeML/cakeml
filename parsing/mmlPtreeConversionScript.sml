@@ -26,15 +26,6 @@ val OPTION_CHOICE_def = Define`
 
 val _ = overload_on ("++", ``OPTION_CHOICE``)
 
-val ptree_Tyop_def = Define`
-  ptree_Tyop ptree =
-    case ptree of
-      Lf _ => NONE
-    | Nd (mkNT nTyOp) [Lf (TK (AlphaT s))] => SOME (Short s)
-    | Nd (mkNT nTyOp) [Lf (TK (SymbolT s))] => SOME (Short s)
-    | _ => NONE
-`;
-
 val ptree_UQTyop_def = Define`
   ptree_UQTyop (Lf _) = NONE ∧
   ptree_UQTyop (Nd nt args) =
@@ -47,6 +38,28 @@ val ptree_UQTyop_def = Define`
         destSymbolT tk ++ destAlphaT tk
       od
 `;
+
+val _ = temp_overload_on ("'", ``λf a. OPTION_BIND a f``);
+
+val ptree_Tyop_def = Define`
+  ptree_Tyop (Lf _) = NONE ∧
+  ptree_Tyop (Nd nt args) =
+    if nt <> mkNT nTyOp then NONE
+    else
+      case args of
+          [pt] =>
+          do
+            (str,s) <- destLongidT ' (destTOK ' (destLf pt));
+            SOME(Long str s)
+          od ++
+          do
+            nm <- ptree_UQTyop pt;
+            SOME(Short nm)
+          od
+        | _ => NONE
+`;
+
+
 
 val ptree_linfix_def = Define`
   ptree_linfix topnt opn elnt (pt : mlptree) =

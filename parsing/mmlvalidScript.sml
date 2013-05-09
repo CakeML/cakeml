@@ -128,6 +128,16 @@ val longid_rwt = prove(
   Cases_on `l` >> rw[] >> Cases_on `t` >> rw[] >>
   Cases_on `h` >> rw[] >> Cases_on `a` >> rw[]);
 
+val solo_longid_rwt = prove(
+  ``(∃s str. l = [TK (LongidT str s)]) ⇔
+    do
+      assert(LENGTH l = 1);
+      tok <- destTOK (HD l);
+      assert(isLongidT tok)
+    od = SOME ()``,
+  Cases_on `l` >> rw[] >> Cases_on `t` >> rw[] >>
+  Cases_on `h` >> rw[] >> Cases_on `a` >> rw[]);
+
 val suc_eq = prove(
    ``(SUC n = NUMERAL (BIT1 m) ⇔ n = PRE (NUMERAL (BIT1 m))) ∧
      (SUC n = NUMERAL (BIT2 m) ⇔ n = NUMERAL (BIT1 m)) ``,
@@ -171,7 +181,8 @@ val _ = diminish_srw_ss ["TEMP"]
 
 val onecon_rwts =
     [mmlG_def, alpha_rwt, symbol_rwt, solosymbol_rwt, soloalpha_rwt,
-     int_rwt, tyvar_rwt, typename_rwt, tyvarlist_rwt, longid_rwt]
+     int_rwt, tyvar_rwt, typename_rwt, tyvarlist_rwt, longid_rwt,
+     solo_longid_rwt]
 fun onecon t = let
   val _ = print ("onecon: " ^ term_to_string t ^ "\n")
   val n = mk_var("n", ``:NT``)
