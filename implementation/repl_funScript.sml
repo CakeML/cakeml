@@ -70,7 +70,8 @@ val parse_elaborate_typecheck_compile_def = Define `
 
 val install_code_def = Define `
   install_code code bs =
-    bs with <| code := bs.code ++ code ;
+    let code = compile_labels bs.inst_length (bs.code ++ code) in
+    bs with <| code := code ;
                pc := next_addr bs.inst_length bs.code |>`;
 
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` THEN REPEAT STRIP_TAC
@@ -100,15 +101,6 @@ val repl_fun_def = Define`
 
 (*
 
-val input = ``"val x = 1; val y = 2;"``
-
-val tokens = EVAL ``lex_until_toplevel_semicolon ^input`` |> concl |> rhs |> rand |> rator |> rand
-val ast_prog = EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
-val s = ``init_repl_fun_state``
-
-val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
-  |> concl |> rhs |> rand |> rand |> rand
-
 val cheat_wfs = let val wfs = (mk_thm([],``t_wfs s``)) in
 fn th => PROVE_HYP wfs (UNDISCH(SPEC_ALL th))
 end
@@ -121,6 +113,17 @@ val _ = computeLib.add_funs
   ,cheat_wfs unifyTheory.t_vwalk_eqn
   ,computeLib.lazyfy_thm(bytecodeEvalTheory.bc_eval_def)
   ]
+val _ = computeLib.add_funs[listTheory.SUM] (* why isn't this in there already !? *)
+
+val input = ``"val x = true; val y = false;"``
+(* LOOPS if you use numbers, because of toString or Num in ov_to_string *)
+
+val (tokens,rest_of_input) = EVAL ``lex_until_toplevel_semicolon ^input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
+val ast_prog = EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
+val s = ``init_repl_fun_state``
+
+val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
+  |> concl |> rhs |> rand |> rand |> rand
 
 val res = EVAL ``FST (infer_prog ^s.rmenv ^s.rcenv ^s.rtenv ^prog init_infer_state)``
 
@@ -130,9 +133,29 @@ val (code,new_s) = res |> concl |> rhs |> rand |> pairSyntax.dest_pair
 
 val bs = EVAL ``install_code ^code init_bc_state`` |> concl |> rhs
 
-potential problem: compiler didn't translate labels into addresses?
+val new_bs = EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
 
-val res = EVAL ``repl_fun ^input`` LOOPS
+val res = EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
+
+val (tokens,rest_of_input) = EVAL ``lex_until_toplevel_semicolon ^rest_of_input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
+val ast_prog = EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
+val s = new_s
+val bs = new_bs
+
+val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
+  |> concl |> rhs |> rand |> rand |> rand
+
+val res = EVAL  ``parse_elaborate_typecheck_compile ^tokens init_repl_fun_state``
+
+val (code,new_s) = res |> concl |> rhs |> rand |> pairSyntax.dest_pair
+
+val bs = EVAL ``install_code ^code ^bs`` |> concl |> rhs
+
+val new_bs = EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
+
+val res = EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
+
+val res = EVAL ``repl_fun ^input``
 
 *)
 
