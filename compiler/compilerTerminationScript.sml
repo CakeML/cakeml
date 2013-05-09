@@ -51,6 +51,7 @@ srw_tac [ARITH_ss][BytecodeTheory.bc_value_size_def])
 fun register name (def,ind) = let
   val _ = save_thm(name^"_def", def)
   val _ = save_thm(name^"_ind", ind)
+  val _ = computeLib.add_persistent_funs [name^"_def"]
 in (def,ind) end
 
 val (free_vars_def, free_vars_ind) = register "free_vars" (
