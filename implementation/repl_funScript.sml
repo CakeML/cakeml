@@ -141,15 +141,24 @@ this might work if the inferencer only uses t_unify to generate substitutions:
     val th1 = SPECL [t1,t2] (MATCH_MP unifyTheory.t_oc_eqn wfs_s)
     val th2 = EVAL (rhs(concl th1))
     in TRANS th1 th2 end
+  fun t_walkstar_conv tm = let
+    val (_,[s,t]) = strip_comb tm
+    val wfs_s = hd(Net.index s (!db))
+    val th1 = SPEC t (MATCH_MP unifyTheory.t_walkstar_eqn wfs_s)
+    val th2 = EVAL (rhs(concl th1))
+    in TRANS th1 th2 end
 
   val _ = computeLib.add_convs
   [(``t_unify``,3,t_unify_conv)
   ,(``t_vwalk``,2,t_vwalk_conv)
+  ,(``t_walkstar``,2,t_walkstar_conv)
   ,(``t_oc``,3,t_oc_conv)
   ]
 
+  (*
   val tm = ``t_unify FEMPTY (Infer_Tvar_db 0) (Infer_Tuvar 3)``
   EVAL tm
+  *)
 
 otherwise we need to cheat:
 
@@ -177,6 +186,7 @@ val _ = computeLib.add_funs
   ,exp_to_Cexp_def
   ,ToIntLangTheory.pat_to_Cpat_def
   ,ToIntLangTheory.Cpat_vars_def
+  ,generalise_def
   ]
 
 (* need wordsLib to make EVAL work on toString - this should be fixed in HOL *)
@@ -225,6 +235,49 @@ val input = ``"val x = true; val y = 2;"``
 *)
 
 val res = EVAL ``repl_fun ^input``
+
+val input = ``"fun f x = x + 3; f 2;"``
+
+(* intermediate steps:
+  val (tokens,rest_of_input) = EVAL ``lex_until_toplevel_semicolon ^input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
+  val ast_prog = EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
+  val s = ``init_repl_fun_state``
+
+  val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
+    |> concl |> rhs |> rand |> rand |> rand
+
+  val res = EVAL ``FST (infer_prog ^s.rmenv ^s.rcenv ^s.rtenv ^prog init_infer_state)``
+
+  val res = EVAL  ``parse_elaborate_typecheck_compile ^tokens init_repl_fun_state``
+
+  val (code,new_s) = res |> concl |> rhs |> rand |> pairSyntax.dest_pair
+
+  val bs = EVAL ``install_code ^code init_bc_state`` |> concl |> rhs
+
+  val new_bs = EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
+
+  val res = EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
+
+  val (tokens,rest_of_input) = EVAL ``lex_until_toplevel_semicolon ^rest_of_input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
+  val ast_prog = EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
+  val s = new_s
+  val bs = new_bs
+
+  val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
+    |> concl |> rhs |> rand |> rand |> rand
+
+  val res = EVAL  ``parse_elaborate_typecheck_compile ^tokens ^new_s``
+
+  val (code,new_s) = res |> concl |> rhs |> rand |> pairSyntax.dest_pair
+
+  val bs = EVAL ``install_code ^code ^bs`` |> concl |> rhs
+
+  val new_bs = EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
+
+  val res = EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
+*)
+
+val res = time EVAL ``repl_fun ^input``
 
 *)
 
