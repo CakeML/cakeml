@@ -210,7 +210,7 @@ val peg_longV_def = Define`
 
 val mmlPEG_def = zDefine`
   mmlPEG = <|
-    start := pnt nDecl;
+    start := pnt nREPLPhrase;
     rules := FEMPTY |++
              [(mkNT nV, peg_V);
               (mkNT nVlist1,
@@ -546,7 +546,7 @@ val topo_nts = [``nV``, ``nTypeDec``, ``nDecl``, ``nVlist1``,
                 ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,
                 ``nSpecLineList``, ``nSignatureValue``,
                 ``nOptionalSignatureAscription``, ``nStructure``,
-                ``nTopLevelDec``, ``nTopLevelDecs``]
+                ``nTopLevelDec``, ``nTopLevelDecs``, ``nREPLPhrase``]
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",
@@ -572,5 +572,18 @@ val PEG_wellformed = store_thm(
        peg_TypeName_def, peg_V_def, peg_Eapp_def, peg_nonfix_def, peg_Type_def,
        peg_DType_def, peg_longV_def] >>
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
+
+val parse_REPLPhrase_total = store_thm(
+  "parse_REPLPhrase_total",
+  ``!i.
+      ?r. peg_exec mmlPEG (pnt nREPLPhrase) i [] done failed =
+          Result r``,
+  gen_tac >>
+  assume_tac PEG_wellformed >>
+  `pnt nREPLPhrase ∈ Gexprs mmlPEG`
+    by simp[pegTheory.Gexprs_def, peg_start, subexprs_pnt] >>
+  `∃pr. peg_eval mmlPEG (i, pnt nREPLPhrase) pr`
+    by simp[pegTheory.peg_eval_total] >>
+  pop_assum mp_tac >> simp[peg_eval_executed]);
 
 val _ = export_theory()

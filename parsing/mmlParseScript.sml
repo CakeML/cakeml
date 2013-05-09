@@ -6,7 +6,7 @@ open monadsyntax
 val _ = new_theory "mmlParse"
 
 val _ = overload_on ("mmlpegexec",
-                     ``λn t. peg_exec mmlPEG (nt (mkNT n) I) t [] done failed``)
+                     ``λn t. peg_exec mmlPEG (pnt n) t [] done failed``)
 
 val destResult_def = Define`
   destResult (Result x) = x ∧
