@@ -85,6 +85,10 @@ val _ = parsetest ``nREPLPhrase`` ``ptree_REPLPhrase``
                   ``[ValT; AlphaT "x"; EqualsT; AlphaT "z"; ColonT;
                      LongidT "S" "ty"; ArrowT; AlphaT "bool";
                      SemicolonT]``;
+val _ = parsetest ``nREPLPhrase`` ``ptree_REPLPhrase``
+                  "val S.C x = z;"
+                  ``[ValT; LongidT "S" "C"; AlphaT "x"; EqualsT;
+                     AlphaT "z"; SemicolonT]``;
 val _ = parsetest ``nREPLPhrase`` ``ptree_REPLPhrase`` "val x = str.y;"
                   ``[ValT; AlphaT "x"; EqualsT; LongidT "str" "y"; SemicolonT]``
 val _ = parsetest ``nREPLPhrase`` ``ptree_REPLPhrase`` "val x = 10 val y = 3;"

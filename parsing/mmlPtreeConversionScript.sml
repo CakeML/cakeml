@@ -199,11 +199,17 @@ val ptree_ConstructorName_def = Define`
       | Nd nt args =>
         if nt <> mkNT nConstructorName then NONE
         else
-          do
-            assert (LENGTH args = 1);
-            s <- ptree_UQConstructorName (HD args);
-            SOME (Short s)
-          od
+          case args of
+              [pt] =>
+              do
+                s <- ptree_UQConstructorName (HD args);
+                SOME (Short s)
+              od ++
+              do
+                (str,s) <- destLongidT ' (destTOK ' (destLf pt));
+                SOME (Long str s)
+              od
+            | _ => NONE
 `
 
 val ptree_Dconstructor_def = Define`

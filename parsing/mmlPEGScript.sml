@@ -311,7 +311,14 @@ val mmlPEG_def = zDefine`
                     (bindNT nDconstructor));
               (mkNT nUQConstructorName, peg_UQConstructorName);
               (mkNT nConstructorName,
-               choicel [pegf (pnt nUQConstructorName) (bindNT nConstructorName)]);
+               choicel [
+                 pegf (pnt nUQConstructorName) (bindNT nConstructorName);
+                 tok (λt. do
+                            (str,s) <- destLongidT t;
+                            assert(s <> "" ∧ isAlpha (HD s) ∧
+                                   isUpper (HD s))
+                          od = SOME ())
+                     (bindNT nConstructorName o mktokLf)]);
               (mkNT nPbase,
                pegf (choicel [pnt nV;
                               pnt nConstructorName;
@@ -384,23 +391,39 @@ val mmlPEG_def = zDefine`
 `;
 
 val rules_t = ``mmlPEG.rules``
-val rules = SIMP_CONV (srw_ss()) [mmlPEG_def] rules_t
+fun ty2frag ty = let
+  open simpLib
+  val {convs,rewrs} = TypeBase.simpls_of ty
+in
+  merge_ss (rewrites rewrs :: map conv_ss convs)
+end
+(* can't use srw_ss() as it will attack the bodies of the rules,
+   and in particular, will destroy predicates from tok
+   constructors of the form
+        do ... od = SOME ()
+   which matches optionTheory.OPTION_BIND_EQUALS_OPTION, putting
+   an existential into our rewrite thereby *)
+val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β,γ)peg``)
+                      [mmlPEG_def, combinTheory.K_DEF,
+                       finite_mapTheory.FUPDATE_LIST_THM] rules_t
 
-val _ = print "Calculating application of mmlPEG rules - "
+val _ = print "Calculating application of mmlPEG rules\n"
 val mmlpeg_rules_applied = let
   val app0 = finite_mapSyntax.fapply_t
   val theta =
       Type.match_type (type_of app0 |> dom_rng |> #1) (type_of rules_t)
   val app = inst theta app0
   val app_rules = AP_TERM app rules
+  val sset = bool_ss ++ ty2frag ``:'a + 'b`` ++ ty2frag ``:MMLnonT``
   fun mkrule t =
       AP_THM app_rules ``mkNT ^t``
-             |> SIMP_RULE (srw_ss()) [finite_mapTheory.FUPDATE_LIST,
-                                      finite_mapTheory.FAPPLY_FUPDATE_THM]
+             |> SIMP_RULE sset
+                  [finite_mapTheory.FAPPLY_FUPDATE_THM]
+  val ths = TypeBase.constructors_of ``:MMLnonT`` |> map mkrule
 in
-    TypeBase.constructors_of ``:MMLnonT`` |> map mkrule
+    save_thm("mmlpeg_rules_applied", LIST_CONJ ths);
+    ths
 end
-val _ = print "done\n"
 
 val peg_dom =
     SIMP_CONV (srw_ss()) [mmlPEG_def,
@@ -419,7 +442,7 @@ val mmlPEG_exec_thm = save_thm(
   "mmlPEG_exec_thm",
   TypeBase.constructors_of ``:MMLnonT``
     |> map (fn t => ISPEC (mk_comb(mkNT, t)) spec0)
-    |> map (SIMP_RULE (srw_ss()) mmlpeg_rules_applied)
+    |> map (SIMP_RULE bool_ss mmlpeg_rules_applied)
     |> LIST_CONJ)
 val _ = computeLib.add_persistent_funs ["mmlPEG_exec_thm"]
 
