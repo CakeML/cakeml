@@ -100,20 +100,68 @@ val repl_fun_def = Define`
   repl_fun input = main_loop (init_bc_state,init_repl_fun_state) input`;
 
 (*
+this might work if the inferencer only uses t_unify to generate substitutions:
 
-val cheat_wfs = let val wfs = (mk_thm([],``t_wfs s``)) in
-fn th => PROVE_HYP wfs (UNDISCH(SPEC_ALL th))
-end
+  val t_unify_wfs = prove(
+   ``t_wfs s ∧ (t_unify s t1 t2 = SOME sx) ==> t_wfs sx``,
+   metis_tac[unifyTheory.t_unify_unifier])
 
-val _ = computeLib.add_funs
-  [cheat_wfs unifyTheory.t_unify_eqn
-  ,unifyTheory.t_walk_eqn
-  ,unifyTheory.t_ext_s_check_eqn
-  ,cheat_wfs unifyTheory.t_oc_eqn
-  ,cheat_wfs unifyTheory.t_vwalk_eqn
-  ,computeLib.lazyfy_thm(bytecodeEvalTheory.bc_eval_def)
+  val t_wfs_FEMPTY = prove(
+    ``t_wfs FEMPTY``,
+    rw[unifyTheory.t_wfs_def])
+
+  val _ = computeLib.add_funs
+    [unifyTheory.t_walk_eqn
+    ,unifyTheory.t_ext_s_check_eqn
+    ,computeLib.lazyfy_thm(bytecodeEvalTheory.bc_eval_def)
+    ]
+  val _ = computeLib.add_funs[listTheory.SUM] (* why isn't this in there already !? *)
+
+  val db = ref (Net.insert (rand(concl(t_wfs_FEMPTY)),t_wfs_FEMPTY) Net.empty)
+  fun t_unify_conv tm = let
+    val (_,[s,t1,t2]) = strip_comb tm
+    val wfs_s = hd(Net.index s (!db))
+    val th1 = SPECL [t1,t2] (MATCH_MP unifyTheory.t_unify_eqn wfs_s)
+    val th2 = EVAL (rhs(concl th1))
+    val th3 = TRANS th1 th2
+    val res = rhs(concl th2)
+    val _ = if optionSyntax.is_some res then
+            db := Net.insert (rand res,PROVE[wfs_s,t_unify_wfs,th3]``^(rator(concl wfs_s)) ^(rand res)``) (!db)
+            else ()
+    in th3 end
+  fun t_vwalk_conv tm = let
+    val (_,[s,t]) = strip_comb tm
+    val wfs_s = hd(Net.index s (!db))
+    val th1 = SPEC t (MATCH_MP unifyTheory.t_vwalk_eqn wfs_s)
+    val th2 = EVAL (rhs(concl th1))
+    in TRANS th1 th2 end
+  fun t_oc_conv tm = let
+    val (_,[s,t1,t2]) = strip_comb tm
+    val wfs_s = hd(Net.index s (!db))
+    val th1 = SPECL [t1,t2] (MATCH_MP unifyTheory.t_oc_eqn wfs_s)
+    val th2 = EVAL (rhs(concl th1))
+    in TRANS th1 th2 end
+
+  val _ = computeLib.add_convs
+  [(``t_unify``,3,t_unify_conv)
+  ,(``t_vwalk``,2,t_vwalk_conv)
+  ,(``t_oc``,3,t_oc_conv)
   ]
-val _ = computeLib.add_funs[listTheory.SUM] (* why isn't this in there already !? *)
+
+  val tm = ``t_unify FEMPTY (Infer_Tvar_db 0) (Infer_Tuvar 3)``
+  EVAL tm
+
+otherwise we need to cheat:
+
+  val cheat_wfs = let val wfs = (mk_thm([],``t_wfs s``)) in
+  fn th => PROVE_HYP wfs (UNDISCH(SPEC_ALL th))
+  end
+
+  val _ = computeLib.add_funs
+  [cheat_wfs unifyTheory.t_unify_eqn
+  ,cheat_wfs unifyTheory.t_vwalk_eqn
+  ,cheat_wfs unifyTheory.t_oc_eqn
+  ]
 
 val _ = computeLib.add_funs
   [ElabTheory.elab_p_def
@@ -137,43 +185,43 @@ open wordsLib intLib
 
 val input = ``"val x = true; val y = 2;"``
 
-(*
-val (tokens,rest_of_input) = EVAL ``lex_until_toplevel_semicolon ^input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
-val ast_prog = EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
-val s = ``init_repl_fun_state``
+(* intermediate steps:
+  val (tokens,rest_of_input) = EVAL ``lex_until_toplevel_semicolon ^input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
+  val ast_prog = EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
+  val s = ``init_repl_fun_state``
 
-val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
-  |> concl |> rhs |> rand |> rand |> rand
+  val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
+    |> concl |> rhs |> rand |> rand |> rand
 
-val res = EVAL ``FST (infer_prog ^s.rmenv ^s.rcenv ^s.rtenv ^prog init_infer_state)``
+  val res = EVAL ``FST (infer_prog ^s.rmenv ^s.rcenv ^s.rtenv ^prog init_infer_state)``
 
-val res = EVAL  ``parse_elaborate_typecheck_compile ^tokens init_repl_fun_state``
+  val res = EVAL  ``parse_elaborate_typecheck_compile ^tokens init_repl_fun_state``
 
-val (code,new_s) = res |> concl |> rhs |> rand |> pairSyntax.dest_pair
+  val (code,new_s) = res |> concl |> rhs |> rand |> pairSyntax.dest_pair
 
-val bs = EVAL ``install_code ^code init_bc_state`` |> concl |> rhs
+  val bs = EVAL ``install_code ^code init_bc_state`` |> concl |> rhs
 
-val new_bs = EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
+  val new_bs = EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
 
-val res = EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
+  val res = EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
 
-val (tokens,rest_of_input) = EVAL ``lex_until_toplevel_semicolon ^rest_of_input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
-val ast_prog = EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
-val s = new_s
-val bs = new_bs
+  val (tokens,rest_of_input) = EVAL ``lex_until_toplevel_semicolon ^rest_of_input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
+  val ast_prog = EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
+  val s = new_s
+  val bs = new_bs
 
-val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
-  |> concl |> rhs |> rand |> rand |> rand
+  val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
+    |> concl |> rhs |> rand |> rand |> rand
 
-val res = EVAL  ``parse_elaborate_typecheck_compile ^tokens init_repl_fun_state``
+  val res = EVAL  ``parse_elaborate_typecheck_compile ^tokens init_repl_fun_state``
 
-val (code,new_s) = res |> concl |> rhs |> rand |> pairSyntax.dest_pair
+  val (code,new_s) = res |> concl |> rhs |> rand |> pairSyntax.dest_pair
 
-val bs = EVAL ``install_code ^code ^bs`` |> concl |> rhs
+  val bs = EVAL ``install_code ^code ^bs`` |> concl |> rhs
 
-val new_bs = EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
+  val new_bs = EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
 
-val res = EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
+  val res = EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
 *)
 
 val res = EVAL ``repl_fun ^input``
