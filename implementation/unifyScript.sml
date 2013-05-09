@@ -66,10 +66,10 @@ val decode_left_inverse_I = Q.prove (
 rw [FUN_EQ_THM] >>
 metis_tac [decode_left_inverse]);
 
-val t_wfs_def = Define `
+val t_wfs_def = zDefine `
 t_wfs s = wfs (encode_infer_t o_f s)`;
 
-val t_vwalk_def = Define `
+val t_vwalk_def = zDefine `
 t_vwalk s v = decode_infer_t (vwalk (encode_infer_t o_f s) v)`;
 
 val t_vwalk_ind' = Q.prove (
@@ -113,7 +113,7 @@ fs [t_wfs_def] >|
      cases_on `x` >>
      rw [encode_infer_t_def, decode_infer_t_def, decode_left_inverse]]);
 
-val t_walk_def = Define `
+val t_walk_def = zDefine `
 t_walk s t = decode_infer_t (walk (encode_infer_t o_f s) (encode_infer_t t))`;
 
 val t_walk_eqn = Q.store_thm ("t_walk_eqn",
@@ -123,7 +123,7 @@ val t_walk_eqn = Q.store_thm ("t_walk_eqn",
 rw [t_walk_def, walk_def, t_vwalk_def, encode_infer_t_def,
     decode_infer_t_def, decode_left_inverse]);
 
-val t_oc_def = Define `
+val t_oc_def = zDefine `
 t_oc s t v = oc (encode_infer_t o_f s) (encode_infer_t t) v`;
 
 (*
@@ -194,7 +194,7 @@ rw [walk_def, encode_infer_t_def, decode_infer_t_def, decode_left_inverse,
 cases_on `t_vwalk s n` >>
 rw [encode_infer_t_def, t_oc_eqn_help]);
 
-val t_ext_s_check_def = Define `
+val t_ext_s_check_def = zDefine `
 t_ext_s_check s v t =
   option_map 
     ((o_f) decode_infer_t)
@@ -207,7 +207,7 @@ rw [t_ext_s_check_def, t_oc_def, option_map_def, decode_left_inverse_I,
     I_o_f, decode_left_inverse] >>
 metis_tac [FUPDATE_PURGE]);
 
-val t_unify_def = Define `
+val t_unify_def = zDefine `
 t_unify s t1 t2 = 
   option_map 
     ((o_f) decode_infer_t)
@@ -528,7 +528,7 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_def, decode_left_inverse,
       metis_tac [FUPDATE_PURGE], 
       metis_tac [FUPDATE_PURGE]]]);
 
-val apply_subst_t_def = Define `
+val apply_subst_t_def = zDefine `
 apply_subst_t s t = decode_infer_t (subst_APPLY (encode_infer_t o_f s) (encode_infer_t t))`;
 
 val apply_subst_t_eqn = Q.store_thm ("apply_subst_t_eqn",
@@ -550,7 +550,7 @@ rw [decode_left_inverse, decode_infer_t_def] >>
 induct_on `ts` >>
 rw [apply_subst_t_def, encode_infer_t_def, decode_infer_t_def]);
 
-val t_walkstar_def = Define `
+val t_walkstar_def = zDefine `
 t_walkstar s t = 
   decode_infer_t (walkstar (encode_infer_t o_f s) (encode_infer_t t))`;
 
@@ -580,7 +580,7 @@ rw [encode_infer_t_def, decode_infer_t_def, decode_left_inverse, encode_vwalk] >
  cases_on `t_vwalk s n` >>
      rw [encode_infer_t_def, decode_infer_t_def, ts_walkstar_thm]]);
 
-val t_collapse_def = Define `
+val t_collapse_def = zDefine `
 t_collapse s = 
   decode_infer_t o_f collapse (encode_infer_t o_f s)`;
 
