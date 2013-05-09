@@ -9,5 +9,5 @@ BARE_THYS = ../preamble $(HOLDIR)/examples/parsing/grammarLib
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS) ASCIInumbersTheory
 endif
