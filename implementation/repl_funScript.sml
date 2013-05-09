@@ -100,14 +100,6 @@ val repl_fun_def = Define`
 
 (*
 
-val lemma1 =
-  unifDefTheory.unify_def |> SPEC_ALL |> UNDISCH |> concl |> (fn tm => mk_thm([],tm))
-
-val lemma2 =
-  walkTheory.vwalk_def |> SPEC_ALL |> UNDISCH |> concl |> (fn tm => mk_thm([],tm))
-
-val _ = computeLib.add_funs [lemma1,lemma2]
-
 val input = ``"val x = 1; val y = 2;"``
 
 val tokens = EVAL ``lex_until_toplevel_semicolon ^input`` |> concl |> rhs |> rand |> rator |> rand
@@ -117,9 +109,30 @@ val s = ``init_repl_fun_state``
 val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
   |> concl |> rhs |> rand |> rand |> rand
 
+val cheat_wfs = let val wfs = (mk_thm([],``t_wfs s``)) in
+fn th => PROVE_HYP wfs (UNDISCH(SPEC_ALL th))
+end
+
+val _ = computeLib.add_funs
+  [cheat_wfs unifyTheory.t_unify_eqn
+  ,unifyTheory.t_walk_eqn
+  ,unifyTheory.t_ext_s_check_eqn
+  ,cheat_wfs unifyTheory.t_oc_eqn
+  ,cheat_wfs unifyTheory.t_vwalk_eqn
+  ,computeLib.lazyfy_thm(bytecodeEvalTheory.bc_eval_def)
+  ]
+
 val res = EVAL ``FST (infer_prog ^s.rmenv ^s.rcenv ^s.rtenv ^prog init_infer_state)``
 
 val res = EVAL  ``parse_elaborate_typecheck_compile ^tokens init_repl_fun_state``
+
+val (code,new_s) = res |> concl |> rhs |> rand |> pairSyntax.dest_pair
+
+val bs = EVAL ``install_code ^code init_bc_state`` |> concl |> rhs
+
+potential problem: compiler didn't translate labels into addresses?
+
+val res = EVAL ``repl_fun ^input`` LOOPS
 
 *)
 
