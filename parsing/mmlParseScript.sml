@@ -21,10 +21,10 @@ val mmlParseExpr_def = Define`
   od
 `;
 
-val mmlParseDecls_def = Define`
-  mmlParseDecls toks = do
-    (toks', pts) <- destResult (mmlpegexec nDecls toks);
-    ast <- ptree_Decls (HD pts);
+val mmlParseREPLPhrase_def = Define`
+  mmlParseREPLPhrase toks = do
+    (toks', pts) <- destResult (mmlpegexec nREPLPhrase toks);
+    ast <- ptree_REPLPhrase (HD pts);
     SOME(toks',ast)
   od
 `
@@ -33,9 +33,10 @@ val mmlParseDecls_def = Define`
    It is used in implementation/repl_funScript.sml. *)
 val parse_def = Define `
   (parse : token list -> ast_prog option) tokens =
-    OPTION_BIND (mmlParseDecls tokens)
-      (\(ts,ast_decs).
-          if ts <> [] then NONE else SOME (MAP Ast_Tdec ast_decs))
+    do
+      (ts,ast_tdecs) <- mmlParseREPLPhrase tokens;
+      if ts <> [] then NONE else SOME ast_tdecs
+    od
 `;
 
 val _ = Hol_datatype`semihider = SH_END | SH_PAR`
