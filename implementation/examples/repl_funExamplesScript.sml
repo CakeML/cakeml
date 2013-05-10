@@ -107,6 +107,9 @@ val input = ``"datatype foo = C of int | D of bool; fun f x = case x of (C i) =>
 val ex3 = time EVAL ``repl_fun ^input``
 val _ = save_thm("ex3",ex3)
 
+val input = ``"fun f n = if n = 0 then 1 else n * f (n-1); f 0;"``
+val ex4 = time EVAL ``repl_fun ^input``
+
 (* intermediate steps:
   val s = ``init_repl_fun_state``
   val bs = ``init_bc_state``
@@ -129,6 +132,13 @@ val _ = save_thm("ex3",ex3)
   val (code,new_s) = time EVAL ``parse_elaborate_typecheck_compile ^tokens ^s`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
 
   val bs = EVAL ``install_code ^code ^bs`` |> concl |> rhs
+
+  (*
+    val bc_evaln_def = Define`
+      (bc_evaln 0 bs = SOME bs) ∧
+      (bc_evaln (SUC n) bs = OPTION_BIND (bc_eval1 bs) (bc_evaln n))`
+    val bs = time EVAL ``bc_evaln 50 ^bs`` |> concl |> rhs |> rand
+  *)
 
   val new_bs = time EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
 
