@@ -115,7 +115,10 @@ val _ = save_thm("ex3",ex3)
 
     val ast_prog = time EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
 
-    val prog = time EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog`` |> concl |> rhs |> rand |> rand |> rand
+    val rtypes = EVAL ``^s.rtypes`` |> concl |> rhs
+    val rctors = EVAL ``^s.rctors`` |> concl |> rhs
+    val rbindings = EVAL ``^s.rbindings`` |> concl |> rhs
+    val prog = time EVAL ``elab_prog ^rtypes ^rctors ^rbindings ^ast_prog`` |> concl |> rhs |> rand |> rand |> rand
 
     val rmenv = EVAL ``^s.rmenv`` |> concl |> rhs
     val rcenv = EVAL ``^s.rcenv`` |> concl |> rhs
