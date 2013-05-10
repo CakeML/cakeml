@@ -196,7 +196,7 @@ val input = ``"fun f x = x + 3; f 2;"``
 val ex2 = time EVAL ``repl_fun ^input``
 val _ = save_thm("ex2",ex2)
 
-val input = ``"datatype foo = C of int | D of bool; fun f x = case x of (C i) => i+1 | D _ => 0; f (C 3);"``
+val input = ``"datatype foo = C of int | D of bool; fun f x = case x of (C i) => i+1 | D _ => 0; f (C (3));"``
 
 val ex3 = time EVAL ``repl_fun ^input``
 val _ = save_thm("ex3",ex3)

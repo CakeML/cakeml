@@ -1,2 +1,14 @@
-INCLUDES=..
-HOLHEAP=../impl_heap
+INCLUDES = ..
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+BARE_THYS = ../repl_funTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b ../impl_heap -o $(HOLHEAP) $(BARE_THYS)
+endif
