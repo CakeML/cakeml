@@ -18,7 +18,7 @@ val _ = overload_on (
   ``λl. EREL [NN nErel [NN nEadd [NN nEmult [NN nEapp [NN nEbase l]]]]]``)
 
 val result_t = ``Result``
-fun parsetest nt sem s = let
+fun parsetest0 nt sem s opt = let
   val s_t = stringSyntax.lift_string bool s
   val _ = print ("Lexing "^s^"\n")
   val t = time (rhs o concl o EVAL) ``lexer_fun ^s_t``
@@ -65,6 +65,14 @@ in
                     else die ("Sem. failure", rt)
                   end
           val _ = diag ("Semantics ("^term_to_string sem^") to ", ptree_res)
+          val _ = if not (optionSyntax.is_none ptree_res) then
+                    case opt of
+                        NONE => ()
+                      | SOME t => if aconv t ptree_res then
+                                    print "Semantic output as expected\n"
+                                  else
+                                    die ("Semantics not required ", t)
+                  else ()
           val valid_t = ``valid_ptree mmlG ^res``
           val vth = time EVAL valid_t
           val vres = rhs (concl vth)
@@ -79,9 +87,14 @@ in
     else die ("FAILED:", r)
   else die ("NO RESULT:", r)
 end
+
+fun parsetest t1 t2 s = parsetest0 t1 t2 s NONE
 val tytest = parsetest ``nType`` ``ptree_Type``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] [] init_env) o ptree_Decls``
+
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "C(3)"
+                   (SOME ``Ast_Con (Short "C") [Ast_Lit (IntLit 3)]``)
 
 val _ = parsetest ``nREPLPhrase`` ``ptree_REPLPhrase``
                   "val x = z : S.ty -> bool;"
