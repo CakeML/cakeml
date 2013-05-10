@@ -573,17 +573,18 @@ val PEG_wellformed = store_thm(
        peg_DType_def, peg_longV_def] >>
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
 
-val parse_REPLPhrase_total = store_thm(
+val parse_REPLPhrase_total = save_thm(
   "parse_REPLPhrase_total",
-  ``!i.
-      ?r. peg_exec mmlPEG (pnt nREPLPhrase) i [] done failed =
-          Result r``,
-  gen_tac >>
-  assume_tac PEG_wellformed >>
-  `pnt nREPLPhrase ∈ Gexprs mmlPEG`
-    by simp[pegTheory.Gexprs_def, peg_start, subexprs_pnt] >>
-  `∃pr. peg_eval mmlPEG (i, pnt nREPLPhrase) pr`
-    by simp[pegTheory.peg_eval_total] >>
-  pop_assum mp_tac >> simp[peg_eval_executed]);
+  MATCH_MP peg_exec_total PEG_wellformed
+           |> REWRITE_RULE [peg_start] |> Q.GEN `i`);
+
+val coreloop_REPLPhrase_total = save_thm(
+  "coreloop_REPLPhrase_total",
+  MATCH_MP coreloop_total PEG_wellformed
+    |> REWRITE_RULE [peg_start] |> Q.GEN `i`);
+
+val owhile_REPLPhrase_total = save_thm(
+  "owhile_REPLPhrase_total",
+  SIMP_RULE (srw_ss()) [coreloop_def] coreloop_REPLPhrase_total);
 
 val _ = export_theory()
