@@ -361,7 +361,8 @@ val infer_e_def = tDefine "infer_e" `
   do next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
      env' <- return (merge (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars) env);
-     () <- infer_funs menv cenv env' funs;
+     funs_ts <- infer_funs menv cenv env' funs;
+     () <- add_constraints uvars funs_ts;
      ts <- apply_subst_list uvars;
      (num_gen,ts') <- return (generalise_list next 0 ts);
      env'' <- return (merge (list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts') env);
@@ -386,12 +387,12 @@ val infer_e_def = tDefine "infer_e" `
      () <- infer_pes menv cenv env pes t1 t2;
      return ()
   od) ∧
-(infer_funs menv cenv env [] = return ()) ∧
+(infer_funs menv cenv env [] = return []) ∧
 (infer_funs menv cenv env ((f, x, e)::funs) =
   do uvar <- fresh_uvar;
      t <- infer_e menv cenv (bind x (0,uvar) env) e;
-     () <- infer_funs menv cenv env funs;
-     return ()
+     ts <- infer_funs menv cenv env funs;
+     return (Infer_Tapp [uvar;t] TC_fn::ts)
   od)`
 (WF_REL_TAC `measure (\x. case x of | INL (_,_,_,e) => exp_size e
                                     | INR (INL (_,_,_,es)) => exp6_size es
@@ -424,7 +425,8 @@ val infer_d_def = Define `
      next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
      env' <- return (merge (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars) env);
-     () <- infer_funs menv cenv env' funs;
+     funs_ts <- infer_funs menv cenv env' funs;
+     () <- add_constraints uvars funs_ts;
      ts <- apply_subst_list uvars;
      (num_gen,ts') <- return (generalise_list next 0 ts);
      return ([], list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts')
