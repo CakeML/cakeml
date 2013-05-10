@@ -128,7 +128,7 @@ val _ = Define `
       if n < len x + 1 then NONE else
         bc_fetch_aux xs len (n - (len x + 1))))`;
 
-val _ = Defn.save_defn bc_fetch_aux_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn bc_fetch_aux_defn;
 
 val _ = Define `
  (bc_fetch s = ( bc_fetch_aux s.code s.inst_length s.pc))`;
@@ -152,7 +152,7 @@ val _ = Define `
 (if x = Label l then SOME n else
     bc_find_loc_aux xs len l (n + (if is_Label x then 0 else len x + 1))))`;
 
-val _ = Defn.save_defn bc_find_loc_aux_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn bc_find_loc_aux_defn;
 
  val bc_find_loc_def = Define `
 
