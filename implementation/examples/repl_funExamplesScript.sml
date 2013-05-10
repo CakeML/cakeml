@@ -59,22 +59,6 @@ val _ = computeLib.add_convs
 ,(``t_oc``,3,t_oc_conv)
 ]
 
-(*
-  val tm = ``t_unify FEMPTY (Infer_Tvar_db 0) (Infer_Tuvar 3)``
-  EVAL tm
-*)
-
-(* alternative cheating method:
-  val cheat_wfs = let val wfs = (mk_thm([],``t_wfs s``)) in
-  fn th => PROVE_HYP wfs (UNDISCH(SPEC_ALL th))
-  end
-  val _ = computeLib.add_funs
-  [cheat_wfs unifyTheory.t_unify_eqn
-  ,cheat_wfs unifyTheory.t_vwalk_eqn
-  ,cheat_wfs unifyTheory.t_oc_eqn
-  ]
-*)
-
 (* add repl definitions to the compset *)
 
 val RES_FORALL_set = prove(``RES_FORALL (set ls) P = EVERY P ls``,rw[RES_FORALL_THM,listTheory.EVERY_MEM])
@@ -110,93 +94,10 @@ val _ = computeLib.add_funs
 
 val input = ``"val x = true; val y = 2;"``
 
-(* intermediate steps:
-  val (tokens,rest_of_input) = EVAL ``lex_until_toplevel_semicolon ^input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
-  val ast_prog = EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
-  val s = ``init_repl_fun_state``
-
-  val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
-    |> concl |> rhs |> rand |> rand |> rand
-
-  val res = EVAL ``FST (infer_prog ^s.rmenv ^s.rcenv ^s.rtenv ^prog init_infer_state)``
-
-  val res = EVAL  ``parse_elaborate_typecheck_compile ^tokens init_repl_fun_state``
-
-  val (code,new_s) = res |> concl |> rhs |> rand |> pairSyntax.dest_pair
-
-  val bs = EVAL ``install_code ^code init_bc_state`` |> concl |> rhs
-
-  val new_bs = EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
-
-  val res = EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
-
-  val (tokens,rest_of_input) = EVAL ``lex_until_toplevel_semicolon ^rest_of_input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
-  val ast_prog = EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
-  val s = new_s
-  val bs = new_bs
-
-  val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
-    |> concl |> rhs |> rand |> rand |> rand
-
-  val res = EVAL  ``parse_elaborate_typecheck_compile ^tokens init_repl_fun_state``
-
-  val (code,new_s) = res |> concl |> rhs |> rand |> pairSyntax.dest_pair
-
-  val bs = EVAL ``install_code ^code ^bs`` |> concl |> rhs
-
-  val new_bs = EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
-
-  val res = EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
-*)
-
 val ex1 = time EVAL ``repl_fun ^input``
 val _ = save_thm("ex1",ex1)
 
 val input = ``"fun f x = x + 3; f 2;"``
-
-(* intermediate steps:
-  val (tokens,rest_of_input) = EVAL ``lex_until_toplevel_semicolon ^input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
-  val ast_prog = EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
-  val s = ``init_repl_fun_state``
-
-  val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
-    |> concl |> rhs |> rand |> rand |> rand
-
-  val res = EVAL ``FST (infer_prog ^s.rmenv ^s.rcenv ^s.rtenv ^prog init_infer_state)``
-
-  val res = EVAL  ``parse_elaborate_typecheck_compile ^tokens init_repl_fun_state``
-
-  val (code,new_s) = res |> concl |> rhs |> rand |> pairSyntax.dest_pair
-
-  val bs = EVAL ``install_code ^code init_bc_state`` |> concl |> rhs
-
-  val new_bs = EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
-
-  val res = EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
-
-  val (tokens,rest_of_input) = EVAL ``lex_until_toplevel_semicolon ^rest_of_input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
-  val ast_prog = EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
-  val s = new_s
-  val bs = new_bs
-
-  val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
-    |> concl |> rhs |> rand |> rand |> rand
-
-  val rmenv = EVAL ``^s.rmenv`` |> concl |> rhs
-  val rcenv = EVAL ``^s.rcenv`` |> concl |> rhs
-  val rtenv = EVAL ``^s.rtenv`` |> concl |> rhs
-  val res = EVAL ``infer_prog ^rmenv ^rcenv ^rtenv ^prog``
-
-  val res = EVAL  ``parse_elaborate_typecheck_compile ^tokens ^new_s``
-
-  val (code,new_s) = res |> concl |> rhs |> rand |> pairSyntax.dest_pair
-
-  val bs = EVAL ``install_code ^code ^bs`` |> concl |> rhs
-
-  val new_bs = EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
-
-  val res = EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
-*)
 
 val ex2 = time EVAL ``repl_fun ^input``
 val _ = save_thm("ex2",ex2)
@@ -205,5 +106,34 @@ val input = ``"datatype foo = C of int | D of bool; fun f x = case x of (C i) =>
 
 val ex3 = time EVAL ``repl_fun ^input``
 val _ = save_thm("ex3",ex3)
+
+(* intermediate steps:
+  val s = ``init_repl_fun_state``
+  val bs = ``init_bc_state``
+
+  val (tokens,rest_of_input) = time EVAL ``lex_until_toplevel_semicolon ^input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
+
+    val ast_prog = time EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
+
+    val prog = time EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog`` |> concl |> rhs |> rand |> rand |> rand
+
+    val rmenv = EVAL ``^s.rmenv`` |> concl |> rhs
+    val rcenv = EVAL ``^s.rcenv`` |> concl |> rhs
+    val rtenv = EVAL ``^s.rtenv`` |> concl |> rhs
+
+    val res = time EVAL ``infer_prog ^rmenv ^rcenv ^rtenv ^prog init_infer_state``
+
+  val (code,new_s) = time EVAL ``parse_elaborate_typecheck_compile ^tokens ^s`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
+
+  val bs = EVAL ``install_code ^code ^bs`` |> concl |> rhs
+
+  val new_bs = time EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
+
+  val res = time EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
+
+  val input = rest_of_input
+  val s = new_s
+  val bs = new_bs
+*)
 
 val _ = export_theory()
