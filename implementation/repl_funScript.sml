@@ -18,7 +18,7 @@ val init_bc_state_def =  Define`
     pc := 0;
     refs := FEMPTY;
     handler := 0;
-    inst_length := \x.0 |>`
+    inst_length := K 0 |>`
 
 val init_repl_fun_state = Define`
   init_repl_fun_state = <|
@@ -172,6 +172,8 @@ otherwise we need to cheat:
   ,cheat_wfs unifyTheory.t_oc_eqn
   ]
 
+val RES_FORALL_set = prove(``RES_FORALL (set ls) P = EVERY P ls``,rw[RES_FORALL_THM,listTheory.EVERY_MEM])
+
 val _ = computeLib.add_funs
   [ElabTheory.elab_p_def
   ,pat_bindings_def
@@ -187,11 +189,19 @@ val _ = computeLib.add_funs
   ,ToIntLangTheory.pat_to_Cpat_def
   ,ToIntLangTheory.Cpat_vars_def
   ,generalise_def
+  ,RES_FORALL_set
   ]
 
 (* need wordsLib to make EVAL work on toString - this should be fixed in HOL *)
 (* need intLib to EVAL double negation of ints *)
 open wordsLib intLib
+
+val bc_fetch_aux_zero = prove(
+``∀ls n. bc_fetch_aux ls (K 0) n = el_check n (FILTER ($~ o is_Label) ls)``,
+Induct >> rw[CompilerLibTheory.el_check_def] >> fs[] >> fsrw_tac[ARITH_ss][] >>
+simp[rich_listTheory.EL_CONS,arithmeticTheory.PRE_SUB1])
+
+val _ = computeLib.add_funs[bc_fetch_aux_zero]
 
 val input = ``"val x = true; val y = 2;"``
 
@@ -234,7 +244,7 @@ val input = ``"val x = true; val y = 2;"``
   val res = EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
 *)
 
-val res = EVAL ``repl_fun ^input``
+val res = time EVAL ``repl_fun ^input``
 
 val input = ``"fun f x = x + 3; f 2;"``
 
@@ -276,6 +286,10 @@ val input = ``"fun f x = x + 3; f 2;"``
 
   val res = EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
 *)
+
+val res = time EVAL ``repl_fun ^input``
+
+val input = ``"datatype foo = C of int | D of bool; fun f (C i) = i+1 | f (D _) = 0; f (C 3);"``
 
 val res = time EVAL ``repl_fun ^input``
 
