@@ -182,6 +182,11 @@ val input = ``"fun f x = x + 3; f 2;"``
   val prog = EVAL ``elab_prog ^s.rtypes ^s.rctors ^s.rbindings ^ast_prog``
     |> concl |> rhs |> rand |> rand |> rand
 
+  val rmenv = EVAL ``^s.rmenv`` |> concl |> rhs
+  val rcenv = EVAL ``^s.rcenv`` |> concl |> rhs
+  val rtenv = EVAL ``^s.rtenv`` |> concl |> rhs
+  val res = EVAL ``infer_prog ^rmenv ^rcenv ^rtenv ^prog``
+
   val res = EVAL  ``parse_elaborate_typecheck_compile ^tokens ^new_s``
 
   val (code,new_s) = res |> concl |> rhs |> rand |> pairSyntax.dest_pair
