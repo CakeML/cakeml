@@ -2,6 +2,7 @@ test:
 	cd semantics; Holmake
 	cd implementation; Holmake
 	cd metatheory; Holmake
+	cd impl_proofs; Holmake
 	cd translator; Holmake
 	cd hol-light; Holmake
 	cd compiler/tests; Holmake && ./selftest.exe
@@ -11,6 +12,7 @@ clean:
 	cd metatheory; Holmake cleanAll
 	cd semantics; Holmake cleanAll
 	cd implementation; Holmake cleanAll
+	cd impl_proofs; Holmake cleanAll
 	cd translator; Holmake cleanAll
 	cd hol-light; Holmake cleanAll
 	cd compiler; Holmake cleanAll

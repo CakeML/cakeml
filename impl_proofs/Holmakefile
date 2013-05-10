@@ -1,0 +1,24 @@
+INCLUDES=.. ../semantics ../implementation
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = proofs_heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+IMPL_BARE_THYS = inferTheory \
+	         unifyTheory
+
+SEM_BARE_THYS = AstTheory SemanticPrimitivesTheory terminationTheory TypeSystemTheory
+
+META_BARE_THYS = typeSysPropsTheory
+
+BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS))\
+	    $(patsubst %,../implementation/%,$(IMPL_BARE_THYS)) \
+	    $(patsubst %,../metatheory/%,$(META_BARE_THYS))
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b ../implementation/impl_heap -o $(HOLHEAP) $(BARE_THYS)
+endif
+

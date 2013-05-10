@@ -1,5 +1,5 @@
 open preamble;
-open MiniMLTheory MiniMLTerminationTheory inferTheory unifyTheory;
+open LibTheory TypeSystemTheory AstTheory SemanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 
 val fmap2_id = Q.prove (
 `!m. FMAP_MAP2 (\(x,y). y) m = m`,
@@ -23,13 +23,9 @@ val t_unify_apply2 = Q.prove (
   (apply_subst_t (t_collapse s2) t1 = apply_subst_t (t_collapse s2) t2)`,
 cheat);
 
-val t_collapse_idem = Q.prove (
-`!s. t_collapse (t_collapse s) = t_collapse s`,
-cheat);
-
 val flookup_thm = Q.prove (
-`!f x v. ((FLOOKUP f x = NONE) = x ∉ FDOM f) ∧
-         ((FLOOKUP f x = SOME v) = x ∈ FDOM f ∧ (f ' x = v))`,
+`!f x v. ((FLOOKUP f x = NONE) = (x ∉ FDOM f)) ∧
+         ((FLOOKUP f x = SOME v) = (x ∈ FDOM f ∧ (f ' x = v)))`,
 rw [FLOOKUP_DEF]);
 
 val lookup_map = Q.prove (
@@ -97,9 +93,9 @@ val apply_subst_success = Q.prove (
 `!t1 st1 t2 st2.
   (apply_subst t1 st1 = (Success t2, st2))
   =
-  ((st2 = st1 with subst := t_collapse st1.subst) ∧
-   (t2 = apply_subst_t (t_collapse st1.subst) t1))`,
-rw [LET_THM, apply_subst_def] >>
+  ((st2 = st1) ∧
+   (t2 = t_walkstar st1.subst t1))`,
+rw [st_ex_return_def, st_ex_bind_def, LET_THM, apply_subst_def, read_def] >>
 eq_tac >>
 rw []);
 
@@ -114,11 +110,9 @@ metis_tac []);
 
 val pure_add_constraints_def = Define `
 (pure_add_constraints s [] s' = (s = s')) ∧
-(pure_add_constraints s1 (SOME (t1,t2)::rest) s' = 
+(pure_add_constraints s1 ((t1,t2)::rest) s' = 
   ?s2. (t_unify s1 t1 t2 = SOME s2) ∧
-       pure_add_constraints s2 rest s') ∧
-(pure_add_constraints s (NONE::rest) s' =
-  pure_add_constraints (t_collapse s) rest s')`;
+       pure_add_constraints s2 rest s')`;
 
 val pure_add_constraints_ind = fetch "-" "pure_add_constraints_ind";
 
@@ -135,19 +129,19 @@ val add_constraints_success = Q.prove (
 `!ts1 ts2 st st' x.
   (add_constraints ts1 ts2 st = (Success x, st'))
   =
-  (LENGTH ts1 = LENGTH ts2) ∧ 
-  ((x = ()) ∧ 
-  (st.next_uvar = st'.next_uvar) ∧
-  pure_add_constraints st.subst (MAP SOME (ZIP (ts1,ts2))) st'.subst)`,
+  ((LENGTH ts1 = LENGTH ts2) ∧ 
+   ((x = ()) ∧ 
+   (st.next_uvar = st'.next_uvar) ∧
+   pure_add_constraints st.subst (ZIP (ts1,ts2)) st'.subst))`,
 ho_match_mp_tac add_constraints_ind >>
 rw [add_constraints_def, pure_add_constraints_def, st_ex_return_success,
     failwith_def, st_ex_bind_success, add_constraint_success] >>
 TRY (cases_on `x`) >>
 rw [pure_add_constraints_def] >-
-metis_tac [elab_st_component_equality] >>
+metis_tac [infer_st_component_equality] >>
 eq_tac >>
 rw [] >>
-fs [elab_st_subst] >>
+fs [infer_st_subst] >>
 cases_on `t_unify st.subst t1 t2` >>
 fs []);
 
@@ -169,7 +163,7 @@ val constrain_uop_success = Q.prove (
   =
   (((uop = Opref) ∧ (st = st') ∧ (v = Infer_Tapp [t] TC_ref)) ∨
    ((uop = Opderef) ∧ 
-    (?uvar st''. ((fresh_uvar : ((num |-> infer_t) elab_st, infer_t, string) M) st = (Success uvar, st'')) ∧
+    (?uvar st''. ((fresh_uvar : ((num |-> infer_t) infer_st, infer_t, string) M) st = (Success uvar, st'')) ∧
                  (v = uvar) ∧
                  (add_constraint t (Infer_Tapp [uvar] TC_ref) st'' = (Success (), st')))))`,
 rw [constrain_uop_def] >>
@@ -226,12 +220,13 @@ val success_eqns =
              apply_subst_success, add_constraint_success, lookup_st_ex_success,
              n_fresh_uvar_success, failwith_success, add_constraints_success,
              constrain_uop_success, constrain_op_success, oneTheory.one,
-             get_next_uvar_success, apply_subst_list_success, guard_success];
+             get_next_uvar_success, apply_subst_list_success, guard_success,
+             read_def];
 
 val check_t_def = tDefine "check_t" `
-(check_t n uvars (Infer_Tuvar v) = v ∈ uvars) ∧
+(check_t n uvars (Infer_Tuvar v) = (v ∈ uvars)) ∧
 (check_t n uvars (Infer_Tvar_db n') = 
-  n' < n) ∧
+  (n' < n)) ∧
 (check_t n uvars (Infer_Tapp ts tc) = EVERY (check_t n uvars) ts)`
 (WF_REL_TAC `measure (infer_t_size o SND o SND)` >>
  rw [] >>
@@ -341,8 +336,8 @@ val infer_e_next_uvar_mono = Q.prove (
     (infer_pes menv cenv env pes t1 t2 st = (Success (), st'))
     ⇒
     st.next_uvar ≤ st'.next_uvar) ∧
- (!menv cenv env funs st st'.
-    (infer_funs menv cenv env funs st = (Success (), st'))
+ (!menv cenv env funs st st' ts.
+    (infer_funs menv cenv env funs st = (Success ts, st'))
     ⇒
     st.next_uvar ≤ st'.next_uvar)`,
 ho_match_mp_tac infer_e_ind >>
@@ -385,8 +380,8 @@ val infer_e_constraints = Q.prove (
     (infer_pes menv cenv env pes t1 t2 st = (Success (), st'))
     ⇒
     (?ts. pure_add_constraints st.subst ts st'.subst)) ∧
- (!menv cenv env funs st st'.
-    (infer_funs menv cenv env funs st = (Success (), st'))
+ (!menv cenv env funs st st' ts'.
+    (infer_funs menv cenv env funs st = (Success ts', st'))
     ⇒
     (?ts. pure_add_constraints st.subst ts st'.subst))`,
 ho_match_mp_tac infer_e_ind >>
@@ -410,7 +405,7 @@ val sub_completion_unify = Q.prove (
   (t_unify st.subst t1 t2 = SOME s1) ∧
   sub_completion n (st.next_uvar + 1) s1 ts s2
   ⇒
-  sub_completion n st.next_uvar st.subst (SOME (t1,t2)::ts) s2`,
+  sub_completion n st.next_uvar st.subst ((t1,t2)::ts) s2`,
 rw [sub_completion_def, pure_add_constraints_def] >>
 qexists_tac `s2'` >>
 rw [] >>
@@ -421,7 +416,7 @@ val sub_completion_unify2 = Q.prove (
   (t_unify s1 t1 t2 = SOME s2) ∧
   sub_completion n next_uvar s2 ts s3
   ⇒
-  sub_completion n next_uvar s1 (SOME (t1,t2)::ts) s3`,
+  sub_completion n next_uvar s1 ((t1,t2)::ts) s3`,
 rw [sub_completion_def, pure_add_constraints_def]);
 
 val sub_completion_infer = Q.prove (
@@ -497,11 +492,7 @@ induct_on `ts` >>
 rw [pure_add_constraints_def] >-
 metis_tac [] >>
 cases_on `h` >>
-fs [pure_add_constraints_def] >-
-metis_tac [t_collapse_idem] >>
-PairCases_on `x` >>
 fs [pure_add_constraints_def] >>
-every_case_tac >>
 fs [] >>
 metis_tac [t_unify_apply2]);
 
@@ -660,7 +651,7 @@ rw [apply_subst_t_eqn, convert_t_def, type_subst_def, EL_MAP,
  *)
 
 val binop_tac =
-rw [typeSystemTheory.type_op_cases, 
+rw [typeSysPropsTheory.type_op_cases, 
     Tint_def, Tbool_def, Tref_def, Tfn_def, Tunit_def] >>
 imp_res_tac sub_completion_unify2 >>
 imp_res_tac sub_completion_infer >>
@@ -668,7 +659,7 @@ res_tac >>
 imp_res_tac t_unify_apply >>
 imp_res_tac sub_completion_apply >>
 fs [apply_subst_t_eqn] >>
-metis_tac [convert_t_def, MAP];
+metis_tac [MAP];
 
 val tenv_inv_def = Define `
 tenv_inv s env tenv =
@@ -702,8 +693,8 @@ val infer_e_sound = Q.prove (
     tenv_inv s env tenv
     ⇒
     T) ∧
- (!menv cenv env funs st st' ext tenv extra_constraints s.
-    (infer_funs menv cenv env funs st = (Success (), st')) ∧
+ (!menv cenv env funs st st' ext tenv extra_constraints s ts.
+    (infer_funs menv cenv env funs st = (Success ts, st')) ∧
     check_menv menv ∧
     sub_completion (num_tvs tenv) st'.next_uvar st'.subst extra_constraints s ∧
     tenv_inv s env tenv
@@ -729,9 +720,9 @@ rw [apply_subst_t_eqn, convert_t_def, Tbool_def, Tint_def, Tunit_def] >|
                             (convert_t (apply_subst_t s (Infer_Tapp [] TC_int))) 
                             tenv)`
              by (fs [tenv_inv_def, lookup_tenv_def] >>
-                 rw [typeSystemTheory.deBruijn_inc0, infer_deBruijn_inc0] >>
+                 rw [typeSysPropsTheory.deBruijn_inc0, infer_deBruijn_inc0] >>
                  rw [infer_deBruijn_inc0, fmap2_id] >>
-                 fs [sub_completion_def, t_collapse_idem]) >>
+                 fs [sub_completion_def]) >>
      `num_tvs tenv = num_tvs (Bind_name x 0 (convert_t (apply_subst_t s (Infer_Tapp [] TC_int))) tenv)`
              by rw [num_tvs_def] >>
      rw [bind_tenv_def] >>
