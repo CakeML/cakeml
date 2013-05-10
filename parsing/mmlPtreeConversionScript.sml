@@ -458,6 +458,7 @@ val mkAst_App_def = Define`
   mkAst_App a1 a2 =
    case a1 of
        Ast_Con (Short "ref") [] => Ast_App (Ast_Var (Short "ref")) a2
+     | Ast_Con s [] => Ast_Con s [a2]
      | _ => Ast_App a1 a2
 `
 
