@@ -6,6 +6,18 @@ open ml_translatorLib ml_translatorTheory std_preludeTheory;
 val _ = translation_extends "std_prelude";
 
 
+(* bit *)
+
+val res = translate MOD_2EXP_def;
+val res = translate DIV_2EXP_def;
+val res = translate DIV2_def;
+
+val res = translate bitTheory.BITS_THM2;
+val res = translate (SIMP_RULE std_ss [bitTheory.BITS_THM,DECIDE ``SUC n - n = 1``] bitTheory.BIT_def);
+val res = translate bitTheory.SBIT_def;
+
+(* words *)
+
 val WORD_def = Define `WORD w = NUM (w2n w)`;
 
 val _ = add_type_inv (inst [alpha|->``:32``] ``WORD``) ``:num``

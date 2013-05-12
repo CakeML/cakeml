@@ -737,6 +737,13 @@ val evaluate'_empty_store_EQ = store_thm("evaluate'_empty_store_EQ",
     !s. evaluate' s env x (s,Rval y)``,
   METIS_TAC [evaluate'_empty_store_IMP]);
 
+val do_app_empty_store = store_thm("do_app_empty_store",
+  ``(do_app s3 env Opapp v1 v2 = SOME (empty_store,env',e3)) <=>
+    (do_app s3 env Opapp v1 v2 = SOME (empty_store,env',e3)) /\ (s3 = empty_store)``,
+  SIMP_TAC (srw_ss()) [do_app_def] \\ Cases_on `v1`
+  \\ SIMP_TAC (srw_ss()) [do_app_def] \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ METIS_TAC []);
+
 val evaluate'_empty_store = store_thm("evaluate'_empty_store",
   ``evaluate' s2 env xs ((empty_store,Rval ys)) <=>
     evaluate' s2 env xs ((empty_store,Rval ys)) /\ (s2 = empty_store)``,
