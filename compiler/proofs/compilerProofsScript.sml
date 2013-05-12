@@ -385,10 +385,9 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       ALL_DISTINCT (FILTER is_Label bc0) ∧
       EVERY (combin$C $< rs.rnext_label o dest_Label) (FILTER is_Label bc0)
       ⇒
-      ∃bvs rf rd'.
+      ∃st rf rd'.
       let env' = ZIP(vars,vs) ++ env in
-      let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc);
-                          stack := bvs ++ bs.stack; refs := rf|> in
+      let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := st; refs := rf|> in
       bc_next^* bs bs' ∧
       env_rs cenv env' rs' rd' s' bs'``,
   rpt gen_tac >>
@@ -412,6 +411,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
   fs[env_rs_def,LET_THM] >>
   qmatch_assum_abbrev_tac`LIST_REL syneq (env_to_Cenv cm env1) Cenv` >>
   `∃s1 vs1. evaluate menv cenv s env1 exp (s1,Rval (Conv (Short "") vs1)) ∧
+            LIST_REL syneq (MAP (v_to_Cv cm) s') (MAP (v_to_Cv cm) s1) ∧
             LIST_REL syneq (MAP (v_to_Cv cm) vs) (MAP (v_to_Cv cm) vs1)`
       by cheat >>
   qspecl_then[`menv`,`cenv`,`s`,`env1`,`exp`,`(s1,Rval (Conv (Short "") vs1))`] mp_tac (CONJUNCT1 exp_to_Cexp_thm1) >>
@@ -559,11 +559,53 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       simp[] ) >>
     simp[SUBSET_DEF] >>
     metis_tac[ALL_DISTINCT_PERM,PARTITION_DEF,PERM_PARTITION,ALL_DISTINCT_APPEND] ) >>
-  RTC_bc_next_append_code
-
-  map_every qexists_tac[`bv`,`rf`,`rd'`,`Cenv`,`Cs'`] >>
-  conj_tac >- metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`bc_next^* bs2' bs3'` >>
+  `bc_next^* (bs2' with code := bc0++c0++REVERSE bc1++c1++c2) (bs3' with code := bc0++c0++REVERSE bc1++c1++c2)` by (
+    match_mp_tac RTC_bc_next_append_code >>
+    map_every qexists_tac[`bs2'`,`bs3'`] >>
+    simp[Abbr`bs2'`,Abbr`bs3'`,bc_state_component_equality] ) >>
+  first_x_assum(qspecl_then[`bs3' with code := bc0 ++ c0 ++ REVERSE bc1 ++ c1 ++ c2`,`bc0++c0++REVERSE bc1++c1`,`4`,`bvs`]mp_tac) >>
+  simp[Abbr`bs3'`] >>
+  discharge_hyps >- (
+    `LENGTH vv0 + LENGTH vv1 = LENGTH vars` by
+      metis_tac[PART_LENGTH,PARTITION_DEF,LENGTH_NIL,ADD_0,ADD_ASSOC] >>
+    fs[EVERY2_EVERY] ) >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`bc_next^* bs4 bs5` >>
+  map_every qexists_tac[`TL bs5.stack`,`rf`,`rd'`,`REVERSE Cvs ++ Cenv`,`Cs'`] >>
+  conj_tac >- (
+    match_mp_tac (SIMP_RULE std_ss [transitive_def]RTC_TRANSITIVE) >>
+    qexists_tac`bs2` >>
+    conj_tac >- metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] >>
+    qmatch_assum_abbrev_tac`bc_next^* bs2' bs3'` >>
+    `bc_next^* (bs2' with code := bs.code) (bs3' with code := bs.code)` by (
+      match_mp_tac RTC_bc_next_append_code >>
+      map_every qexists_tac[`bs2'`,`bs3'`] >>
+      simp[bc_state_component_equality,Abbr`bs2'`,Abbr`bs3'`] ) >>
+    `bc_next^* (bs4 with code := bs.code) (bs5 with code := bs.code)` by (
+      match_mp_tac RTC_bc_next_append_code >>
+      map_every qexists_tac[`bs4`,`bs5`] >>
+      simp[bc_state_component_equality,Abbr`bs4`,Abbr`bs5`] ) >>
+    `bs4 with code := bs.code = bs3' with code := bs.code` by (
+      simp[Abbr`bs4`,Abbr`bs3'`,bc_state_component_equality,Abbr`bs2'`] ) >>
+    `bs2 = bs2' with code := bs.code` by (
+      simp[Abbr`bs2'`,bc_state_component_equality,Abbr`bs2`] ) >>
+    `bc_next^* bs2 (bs5 with code := bs.code)` by metis_tac[RTC_TRANSITIVE,transitive_def] >>
+    simp_tac std_ss [Once RTC_CASES2] >> disj2_tac >>
+    HINT_EXISTS_TAC >> simp[] >>
+    qmatch_abbrev_tac`bc_next bs6 bs7` >>
+    `bc_fetch bs6 = SOME (Stack Pop)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs6`] >>
+      CONV_TAC SWAP_EXISTS_CONV >>
+      qexists_tac`[]` >> simp[Abbr`bs5`] ) >>
+    simp[bc_eval1_thm,bc_eval1_def] >>
+    simp[bc_eval_stack_def,Abbr`bs6`,bump_pc_def] >>
+    simp[Abbr`bs5`,Abbr`bs7`,bc_state_component_equality,bc_eval_stack_def] >>
+    simp[Abbr`bs2'`,SUM_APPEND,FILTER_APPEND,ADD1,Abbr`bs2`] ) >>
   simp[] >>
+
   conj_tac >- (
     `v_to_ov rd'.sm v = Cv_to_ov (FST(SND rs.contab)) rd'.sm (v_to_Cv (cmap rs.contab) v)` by (
       match_mp_tac EQ_SYM >>
