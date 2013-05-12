@@ -364,8 +364,21 @@ val PERM_PARTITION = store_thm("PERM_PARTITION",
   ``∀P L A B. ((A,B) = PARTITION P L) ==> PERM L (A ++ B)``,
   METIS_TAC[PERM_PART,PARTITION_DEF,APPEND_NIL])
 
+val EVERY2_REVERSE = store_thm("EVERY2_REVERSE",
+  ``!R l1 l2. EVERY2 R l1 l2 ==> EVERY2 R (REVERSE l1) (REVERSE l2)``,
+  rw[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_REVERSE] >>
+  first_x_assum match_mp_tac >>
+  simp[])
+
+val EVERY2_DROP = store_thm("EVERY2_DROP",
+  ``∀R l1 l2 n. EVERY2 R l1 l2 ∧ n <= LENGTH l1 ==> EVERY2 R (DROP n l1) (DROP n l2)``,
+  rw[EVERY2_EVERY,ZIP_DROP] >>
+  match_mp_tac (MP_CANON EVERY_DROP) >>
+  rw[] >> PROVE_TAC[])
+
 val compile_fake_exp_val = store_thm("compile_fake_exp_val",
-  ``∀menv cenv s env expf exp s' vs rd rs vars rs' bc0 bc bs bs'.
+  ``∀menv cenv s env expf exp s' vs rd rs vars vv0 vv1 rs' bc0 bc bs bs'.
       evaluate menv cenv s env exp (s', Rval (Conv (Short "") vs)) ∧
       is_null menv ∧
       EVERY (closed menv) s ∧
@@ -378,25 +391,25 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       env_rs cenv env rs rd s (bs with code := bc0) ∧
       ALL_DISTINCT vars ∧
       (LENGTH vars = LENGTH vs) ∧
+      (PARTITION (λv. MEM v rs.rbvars) vars = (vv0,vv1)) ∧
       (compile_fake_exp rs vars expf = (rs',bc)) ∧
-      (exp = expf (Con (Short "") (MAP (Var o Short) (UNCURRY $++ (PARTITION (λv. MEM v rs.rbvars) vars))))) ∧
+      (exp = expf (Con (Short "") (MAP (Var o Short) (vv0++vv1)))) ∧
       (bs.code = bc0 ++ bc) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       ALL_DISTINCT (FILTER is_Label bc0) ∧
       EVERY (combin$C $< rs.rnext_label o dest_Label) (FILTER is_Label bc0)
       ⇒
       ∃st rf rd'.
-      let env' = ZIP(vars,vs) ++ env in
+      let env' = ZIP(vv0++vv1,vs) ++ env in
       let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := st; refs := rf|> in
       bc_next^* bs bs' ∧
       env_rs cenv env' rs' rd' s' bs'``,
   rpt gen_tac >>
   simp[compile_fake_exp_def,compile_Cexp_def,GSYM LEFT_FORALL_IMP_THM] >>
-  Q.PAT_ABBREV_TAC`vv = PARTITION X vars` >>
-  PairCases_on`vv`>>simp[]>>
+  simp[GSYM AND_IMP_INTRO] >>
   Q.PAT_ABBREV_TAC`Ce0 = exp_to_Cexp X (expf Y)` >>
   Q.PAT_ABBREV_TAC`p = label_closures Y X Ce0` >>
-  PairCases_on`p`>>simp[]>> strip_tac >>
+  PairCases_on`p`>>simp[]>> rpt strip_tac >>
   qpat_assum`Abbrev(Ce0 = X)`mp_tac >>
   Q.PAT_ABBREV_TAC`exp' = expf X` >>
   `exp' = exp` by (
@@ -539,9 +552,8 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
   last_x_assum(qspecl_then[`bs2 with code := bc0++c0++REVERSE bc1++c1 `,`bc0++c0++REVERSE bc1`,`4`,`bvs`,`bs.stack`]mp_tac) >>
   discharge_hyps >- (
     simp[Abbr`bs2`] >>
+    qpat_assum`PARTITION X Y = Z`(assume_tac o SYM) >>
     fs[PARTITION_DEF] >>
-    qpat_assum`Abbrev((vv0,vv1)=X)`mp_tac >>
-    simp[markerTheory.Abbrev_def] >> strip_tac >>
     imp_res_tac PART_LENGTH >>
     imp_res_tac PARTs_HAVE_PROP >>
     rfs[] >>
@@ -573,7 +585,10 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     fs[EVERY2_EVERY] ) >>
   strip_tac >>
   qmatch_assum_abbrev_tac`bc_next^* bs4 bs5` >>
-  map_every qexists_tac[`TL bs5.stack`,`rf`,`rd'`,`REVERSE Cvs ++ Cenv`,`Cs'`] >>
+  map_every qexists_tac[`TL bs5.stack`,`rf`,`rd'`
+    ,`REVERSE (DROP (LENGTH vv0) Cvs) ++
+      GENLIST (λx. if x < LENGTH rs.rbvars ∧ MEM (EL x rs.rbvars) vv0 then EL (THE (find_index (EL x rs.rbvars) vv0 0)) Cvs else EL x Cenv) (LENGTH Cenv)`
+    ,`Cs'`] >>
   conj_tac >- (
     match_mp_tac (SIMP_RULE std_ss [transitive_def]RTC_TRANSITIVE) >>
     qexists_tac`bs2` >>
@@ -604,7 +619,75 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     simp[bc_eval_stack_def,Abbr`bs6`,bump_pc_def] >>
     simp[Abbr`bs5`,Abbr`bs7`,bc_state_component_equality,bc_eval_stack_def] >>
     simp[Abbr`bs2'`,SUM_APPEND,FILTER_APPEND,ADD1,Abbr`bs2`] ) >>
-  simp[] >>
+  simp[Abbr`bs5`] >>
+  ntac 5 (pop_assum kall_tac) >>
+  conj_tac >- (
+    qpat_assum`PARTITION X Y = Z`(assume_tac o SYM) >>
+    fs[PARTITION_DEF]>>
+    imp_res_tac PART_LENGTH >>
+    imp_res_tac PART_MEM >>
+    imp_res_tac PARTs_HAVE_PROP >>
+    fs[MAP_ZIP] >>
+    fs[EXTENSION] >> metis_tac[] ) >>
+  conj_tac >- (
+    simp[ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE] >>
+    qpat_assum`PARTITION X Y = Z`(mp_tac o SYM) >>
+    qpat_assum`ALL_DISTINCT vars`mp_tac >>
+    qpat_assum`set rs.rbvars = X`(SUBST1_TAC o SYM) >>
+    rpt (pop_assum kall_tac) >>
+    simp[PARTITION_DEF] >>
+    rw[] >> imp_res_tac PART_MEM >>
+    imp_res_tac PARTs_HAVE_PROP >>
+    imp_res_tac PERM_PART >> fs[] >>
+    metis_tac[ALL_DISTINCT_PERM,ALL_DISTINCT_APPEND] ) >>
+  conj_tac >- metis_tac[EVERY2_syneq_trans] >>
+  conj_tac >- (
+    match_mp_tac EVERY2_APPEND_suff >>
+    conj_tac >- (
+      simp[MAP_REVERSE,env_to_Cenv_MAP] >>
+      match_mp_tac EVERY2_REVERSE >>
+      match_mp_tac EVERY2_syneq_trans >>
+      qexists_tac`DROP (LENGTH vv0) (MAP (v_to_Cv cm) vs)` >>
+      reverse conj_tac >- (
+        match_mp_tac EVERY2_DROP >>
+        simp[] >>
+        conj_tac >- metis_tac[EVERY2_syneq_trans] >>
+        qsuff_tac`LENGTH (vv0 ++ vv1) = LENGTH vars`>-simp[] >>
+        metis_tac[PERM_PARTITION,PERM_LENGTH] ) >>
+      simp[MAP_MAP_o,combinTheory.o_DEF] >>
+      qmatch_abbrev_tac`LIST_REL R l1 l2` >>
+      qsuff_tac`l1 = l2`>-metis_tac[EVERY2_syneq_refl] >>
+      simp[Abbr`l1`,Abbr`l2`,LIST_EQ_REWRITE] >>
+      fs[EVERY2_EVERY,PARTITION_DEF] >>
+      `LENGTH vs = LENGTH vv0 + LENGTH vv1` by (
+        qpat_assum`X = (vv0,vv1)`(assume_tac o SYM) >>
+        imp_res_tac PART_LENGTH >> fs[] ) >>
+      simp[] >>
+      rw[EL_MAP] >>
+      simp[EL_DROP,EL_MAP] >>
+      `ALL_DISTINCT (vv0 ++ vv1)` by (
+        metis_tac[ALL_DISTINCT_PERM,PERM_PART,APPEND_NIL] ) >>
+      ntac 3 (pop_assum mp_tac) >>
+      rpt (pop_assum kall_tac) >>
+      rw[] >>
+      Q.PAT_ABBREV_TAC`al = ZIP (vv0++vv1,vs)` >>
+      `ALL_DISTINCT (MAP FST al)` by (
+        simp[Abbr`al`,MAP_ZIP] ) >>
+      `MEM (EL x vv1, EL (x + LENGTH vv0) vs) al` by (
+        simp[Abbr`al`,MEM_ZIP] >>
+        qexists_tac`x + LENGTH vv0` >>
+        simp[EL_APPEND2] ) >>
+      imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+      simp[ALOOKUP_APPEND] ) >>
+    map_every qunabbrev_tac[`Cenv0`,`env1`] >>
+    qpat_assum`EVERY2 syneq X Cenv`mp_tac >>
+
+    reverse conj_tac >- (
+      match_mp_tac EVERY2_syneq_trans >>
+      qexists_tac`Cenv0` >> simp[] >>
+      simp[Abbr`Cenv0`,Abbr`env1`] >>
+
+    simp[]
 
   conj_tac >- (
     `v_to_ov rd'.sm v = Cv_to_ov (FST(SND rs.contab)) rd'.sm (v_to_Cv (cmap rs.contab) v)` by (
