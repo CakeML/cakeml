@@ -20,4 +20,5 @@ val discharge_hyps =
     (fn th => disch_then (mp_tac o PROVE_HYP th o UNDISCH) >> map_every qunabbrev_tac[`^P`,`^Q`,`^R`]) >|
   [map_every qunabbrev_tac[`^P`,`^Q`,`^R`],ALL_TAC]
   end
+fun prove_hyps_by tac th = PROVE_HYP (prove(list_mk_conj (hyp th),tac)) th
 end
