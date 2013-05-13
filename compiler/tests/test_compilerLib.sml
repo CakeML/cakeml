@@ -121,7 +121,7 @@ fun add_code c bs = bc_state_code_fupd
 fun prep_decs (bs,rs) [] = (bs,rs)
   | prep_decs (bs,rs) (d::ds) = let
       val (rs,c) = compile_dec rs (term_to_dec d)
-      val bs = add_code (c@[Stack Pop]) bs
+      val bs = add_code (map (fn Stop => Stack Pop | i => i) c) bs
     in prep_decs (bs,rs) ds end
 
 fun prep_exp (bs,rs) e = prep_decs (bs,rs) [``Dlet (Pvar "it") ^e``]
@@ -190,7 +190,9 @@ val print_bc_inst = let fun
 | f Deref = "Deref"
 | f Ref = "Ref"
 | f PopExc = "PopExc"
+| f PushExc = "PushExc"
 | f Update = "Update"
+| f Stop = "Stop"
 | f (Jump n) = "Jump "^(loc_to_string n)
 | f (JumpIf n) = "JumpIf "^(loc_to_string n)
 | f (PushPtr n) = "PushPtr "^(loc_to_string n)
@@ -199,6 +201,7 @@ in f end
 fun
   print_bv (Block (t,vs)) = "Block "^(numML.toString t)^" ["^(print_bvs vs)
 | print_bv (CodePtr n) = "CodePtr "^(numML.toString n)
+| print_bv (StackPtr n) = "StackPtr "^(numML.toString n)
 | print_bv (RefPtr n) = "RefPtr "^(numML.toString n)
 | print_bv (Number n) = "Number "^(Int.toString (valOf (intML.toInt n)))
 and print_bvs [] = "]" | print_bvs [bv] = (print_bv bv)^"]" | print_bvs (bv::bvs) = (print_bv bv)^", "^(print_bvs bvs)

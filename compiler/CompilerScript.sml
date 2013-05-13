@@ -55,8 +55,11 @@ val _ = Define `
 (let rsz = ( LENGTH rs.rbvars) in
   let (Ce,n) = ( label_closures rsz rs.rnext_label Ce) in
   let cs = (<| out := []; next_label := n |>) in
+  let (cs,l) = ( get_labels 1 cs) in
+  let l = ( EL  0  l) in
+  let cs = ( emit cs [PushPtr (Lab l); PushExc]) in
   let cs = ( compile_code_env cs Ce) in
-  compile ( GENLIST (\ i . CTLet (rsz - i)) rsz) TCNonTail rsz cs Ce))`;
+  (l, compile ( GENLIST (\ i . CTLet (rsz - i)) rsz) TCNonTail (rsz +2) cs Ce)))`;
 
 
  val number_constructors_defn = Hol_defn "number_constructors" `
@@ -96,10 +99,14 @@ val _ = Define `
   let (shadows,news) = ( PARTITION (\ v . MEM v rs.rbvars) vs) in
   let Ce = ( exp_to_Cexp ( m with<| cnmap := FUPDATE  m.cnmap ( cn, 0) |>)
            (e (Con cn ( MAP (\ v . Var (Short v)) (shadows ++news))))) in
-  let cs = ( compile_Cexp rs Ce) in
+  let (l1,cs) = ( compile_Cexp rs Ce) in
+  let cs = ( emit cs [PopExc; Stack (Pops 1)]) in
   let cs = ( compile_shadows rs.rbvars cs 0 shadows) in
   let cs = ( compile_news cs ( LENGTH shadows) news) in
-  let cs = ( emit cs [Stack Pop; Stack (PushInt i0)]) in
+  let (cs,l2) = ( get_labels 1 cs) in
+  let l2 = ( EL  0  l2) in
+  let cs = ( emit cs [Stack Pop; Stack (PushInt i0); PushPtr (Lab l2); JumpPtr
+                   ; Label l1; Stack (PushInt i1); Label l2; Stop]) in
   (( rs with<| rbvars := ( REVERSE news) ++rs.rbvars
     ; rnext_label := cs.next_label |>)
   , REVERSE cs.out)))`;
@@ -111,7 +118,7 @@ val _ = Define `
   (( rs with<| contab := FOLDL
         (\ct p . (case (ct ,p ) of ( ct , (_,_,cs) ) => number_constructors cs ct ))
         rs.contab ts |>)
-  ,[Stack (PushInt i0)]))
+  ,[Stack (PushInt i0); Stop]))
 /\
 (compile_dec rs (Dletrec defs) =  
 (let vs = ( MAP (\p . 
