@@ -341,50 +341,6 @@ val compile_news_thm = store_thm("compile_news_thm",
   simp[])
 
 (* TODO: move *)
-val PERM_PART = store_thm("PERM_PART",
-  ``∀P L l1 l2 p q. (p,q) = PART P L l1 l2 ⇒ PERM (L ++ (l1 ++ l2)) (p++q)``,
-  GEN_TAC THEN Induct >>
-  simp[PART_DEF] >> rw[] >- (
-    first_x_assum(qspecl_then[`h::l1`,`l2`,`p`,`q`]mp_tac) >>
-    simp[] >>
-    REWRITE_TAC[Once CONS_APPEND] >>
-    strip_tac >>
-    REWRITE_TAC[Once CONS_APPEND] >>
-    full_simp_tac std_ss [APPEND_ASSOC] >>
-    metis_tac[PERM_REWR,PERM_APPEND] ) >>
-  first_x_assum(qspecl_then[`l1`,`h::l2`,`p`,`q`]mp_tac) >>
-  simp[] >>
-  REWRITE_TAC[Once CONS_APPEND] >>
-  strip_tac >>
-  REWRITE_TAC[Once CONS_APPEND] >>
-  full_simp_tac std_ss [APPEND_ASSOC] >>
-  metis_tac[PERM_REWR,PERM_APPEND,APPEND_ASSOC] )
-
-val PERM_PARTITION = store_thm("PERM_PARTITION",
-  ``∀P L A B. ((A,B) = PARTITION P L) ==> PERM L (A ++ B)``,
-  METIS_TAC[PERM_PART,PARTITION_DEF,APPEND_NIL])
-
-val EVERY2_REVERSE = store_thm("EVERY2_REVERSE",
-  ``!R l1 l2. EVERY2 R l1 l2 ==> EVERY2 R (REVERSE l1) (REVERSE l2)``,
-  rw[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
-  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_REVERSE] >>
-  first_x_assum match_mp_tac >>
-  simp[])
-
-val EVERY2_DROP = store_thm("EVERY2_DROP",
-  ``∀R l1 l2 n. EVERY2 R l1 l2 ∧ n <= LENGTH l1 ==> EVERY2 R (DROP n l1) (DROP n l2)``,
-  rw[EVERY2_EVERY,ZIP_DROP] >>
-  match_mp_tac (MP_CANON EVERY_DROP) >>
-  rw[] >> PROVE_TAC[])
-
-val vlabs_list_APPEND = store_thm("vlabs_list_APPEND",
-  ``vlabs_list (l1 ++ l2) = vlabs_list l1 ∪ vlabs_list l2``,
-  rw[vlabs_list_MAP])
-
-val vlabs_list_REVERSE = store_thm("vlabs_list_REVERSE",
-  ``vlabs_list (REVERSE ls) = vlabs_list ls``,
-  rw[vlabs_list_MAP])
-
 val closed_under_menv_def = Define`
   closed_under_menv menv env s ⇔
     EVERY (closed menv) s ∧

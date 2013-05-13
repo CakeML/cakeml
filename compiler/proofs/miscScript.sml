@@ -1,8 +1,38 @@
-open HolKernel bossLib boolLib boolSimps listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory lcsymtacs
+open HolKernel bossLib boolLib boolSimps listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory sortingTheory lcsymtacs
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
+
+val PERM_PART = store_thm("PERM_PART",
+  ``∀P L l1 l2 p q. (p,q) = PART P L l1 l2 ⇒ PERM (L ++ (l1 ++ l2)) (p++q)``,
+  GEN_TAC THEN Induct >>
+  simp[PART_DEF] >> rw[] >- (
+    first_x_assum(qspecl_then[`h::l1`,`l2`,`p`,`q`]mp_tac) >>
+    simp[] >>
+    REWRITE_TAC[Once CONS_APPEND] >>
+    strip_tac >>
+    REWRITE_TAC[Once CONS_APPEND] >>
+    full_simp_tac std_ss [APPEND_ASSOC] >>
+    metis_tac[PERM_REWR,PERM_APPEND] ) >>
+  first_x_assum(qspecl_then[`l1`,`h::l2`,`p`,`q`]mp_tac) >>
+  simp[] >>
+  REWRITE_TAC[Once CONS_APPEND] >>
+  strip_tac >>
+  REWRITE_TAC[Once CONS_APPEND] >>
+  full_simp_tac std_ss [APPEND_ASSOC] >>
+  metis_tac[PERM_REWR,PERM_APPEND,APPEND_ASSOC] )
+
+val PERM_PARTITION = store_thm("PERM_PARTITION",
+  ``∀P L A B. ((A,B) = PARTITION P L) ==> PERM L (A ++ B)``,
+  METIS_TAC[PERM_PART,PARTITION_DEF,APPEND_NIL])
+
+val EVERY2_REVERSE = store_thm("EVERY2_REVERSE",
+  ``!R l1 l2. EVERY2 R l1 l2 ==> EVERY2 R (REVERSE l1) (REVERSE l2)``,
+  rw[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_REVERSE] >>
+  first_x_assum match_mp_tac >>
+  simp[])
 
 val transitive_LESS = store_thm("transitive_LESS",
   ``transitive ($< : (num->num->bool))``,
@@ -87,6 +117,12 @@ val ZIP_DROP = store_thm("ZIP_DROP",
   Cases_on`b` THEN FULL_SIMP_TAC(srw_ss())[] THEN
   FIRST_X_ASSUM MATCH_MP_TAC THEN
   FULL_SIMP_TAC(srw_ss()++ARITH_ss)[])
+
+val EVERY2_DROP = store_thm("EVERY2_DROP",
+  ``∀R l1 l2 n. EVERY2 R l1 l2 ∧ n <= LENGTH l1 ==> EVERY2 R (DROP n l1) (DROP n l2)``,
+  rw[EVERY2_EVERY,ZIP_DROP] >>
+  match_mp_tac (MP_CANON EVERY_DROP) >>
+  rw[] >> PROVE_TAC[])
 
 val REVERSE_DROP = store_thm("REVERSE_DROP",
   ``!ls n. n <= LENGTH ls ==> (REVERSE (DROP n ls) = REVERSE (LASTN (LENGTH ls - n) ls))``,

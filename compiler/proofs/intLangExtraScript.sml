@@ -125,6 +125,14 @@ val vlabs_list_MAP = store_thm("vlabs_list_MAP",
  ``∀vs. vlabs_list vs = BIGUNION (IMAGE vlabs (set vs))``,
  Induct >> rw[])
 
+val vlabs_list_APPEND = store_thm("vlabs_list_APPEND",
+  ``vlabs_list (l1 ++ l2) = vlabs_list l1 ∪ vlabs_list l2``,
+  rw[vlabs_list_MAP])
+
+val vlabs_list_REVERSE = store_thm("vlabs_list_REVERSE",
+  ``vlabs_list (REVERSE ls) = vlabs_list ls``,
+  rw[vlabs_list_MAP])
+
 val no_vlabs_def = Define`
   (no_vlabs (CLitv _) = T) ∧
   (no_vlabs (CConv _ vs) = no_vlabs_list vs) ∧
