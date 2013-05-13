@@ -151,7 +151,7 @@ val bc_next_MAP_replace_lab = store_thm("bc_next_MAP_replace_lab",
     qspecl_then[`f`,`s1`] mp_tac bc_fetch_MAP >>
     qunabbrev_tac`f` >> rw[il_replace_lab] >>
     srw_tac[ARITH_ss][bc_eval1_def] >>
-    lrw[REVERSE_APPEND,EL_APPEND2,TAKE_APPEND2]) >>
+    lrw[REVERSE_APPEND,EL_APPEND2,TAKE_APPEND2,bump_pc_def]) >>
   strip_tac >- tac >>
   strip_tac >- tac >>
   strip_tac >- tac )
