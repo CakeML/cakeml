@@ -29,8 +29,15 @@ val mmlParseREPLPhrase_def = Define`
   od
 `
 
-(* This function parses declarations, no junk is allowed at the end.
-   It is used in implementation/repl_funScript.sml. *)
+val mmlParseREPLTop_def = Define`
+  mmlParseREPLTop toks = do
+    (toks', pts) <- destResult (mmlpegexec nREPLTop toks);
+    ast <- ptree_REPLTop (HD pts);
+    SOME(toks',ast)
+  od
+`
+
+(* This function parses declarations, no junk is allowed at the end. *)
 val parse_def = Define `
   (parse : token list -> ast_prog option) tokens =
     do
@@ -39,13 +46,14 @@ val parse_def = Define `
     od
 `;
 
-(* TODO: fix *)
+(* This function parses a single declaration followed by a semicolon.
+   No junk is allowed at the end.
+   It is used in implementation/repl_funScript.sml. *)
 val parse_top_def = Define `
   (parse_top : token list -> ast_top option) tokens =
     do
-      (ts,ast_tdecs) <- mmlParseREPLPhrase tokens;
-      if ts <> [] then NONE
-      else case ast_tdecs of [top] => SOME top | _ => NONE
+      (ts,ast_top) <- mmlParseREPLTop tokens;
+      if ts <> [] then NONE else SOME ast_top
     od
 `;
 

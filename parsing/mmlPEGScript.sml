@@ -210,7 +210,7 @@ val peg_longV_def = Define`
 
 val mmlPEG_def = zDefine`
   mmlPEG = <|
-    start := pnt nREPLPhrase;
+    start := pnt nREPLTop;
     rules := FEMPTY |++
              [(mkNT nV, peg_V);
               (mkNT nVlist1,
@@ -386,7 +386,11 @@ val mmlPEG_def = zDefine`
               (mkNT nREPLPhrase,
                choicel [seql [pnt nE; tokeq SemicolonT] (bindNT nREPLPhrase);
                         seql [pnt nTopLevelDecs; tokeq SemicolonT]
-                             (bindNT nREPLPhrase)])
+                             (bindNT nREPLPhrase)]);
+              (mkNT nREPLTop,
+               choicel [seql [pnt nE; tokeq SemicolonT] (bindNT nREPLTop);
+                        seql [pnt nTopLevelDec; tokeq SemicolonT]
+                             (bindNT nREPLTop)])
              ] |>
 `;
 
@@ -546,7 +550,7 @@ val topo_nts = [``nV``, ``nTypeDec``, ``nDecl``, ``nVlist1``,
                 ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,
                 ``nSpecLineList``, ``nSignatureValue``,
                 ``nOptionalSignatureAscription``, ``nStructure``,
-                ``nTopLevelDec``, ``nTopLevelDecs``, ``nREPLPhrase``]
+                ``nTopLevelDec``, ``nTopLevelDecs``, ``nREPLPhrase``, ``nREPLTop``]
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",
@@ -573,18 +577,18 @@ val PEG_wellformed = store_thm(
        peg_DType_def, peg_longV_def] >>
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
 
-val parse_REPLPhrase_total = save_thm(
-  "parse_REPLPhrase_total",
+val parse_REPLTop_total = save_thm(
+  "parse_REPLTop_total",
   MATCH_MP peg_exec_total PEG_wellformed
            |> REWRITE_RULE [peg_start] |> Q.GEN `i`);
 
-val coreloop_REPLPhrase_total = save_thm(
-  "coreloop_REPLPhrase_total",
+val coreloop_REPLTop_total = save_thm(
+  "coreloop_REPLTop_total",
   MATCH_MP coreloop_total PEG_wellformed
     |> REWRITE_RULE [peg_start] |> Q.GEN `i`);
 
-val owhile_REPLPhrase_total = save_thm(
-  "owhile_REPLPhrase_total",
-  SIMP_RULE (srw_ss()) [coreloop_def] coreloop_REPLPhrase_total);
+val owhile_REPLTop_total = save_thm(
+  "owhile_REPLTop_total",
+  SIMP_RULE (srw_ss()) [coreloop_def] coreloop_REPLTop_total);
 
 val _ = export_theory()

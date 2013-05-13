@@ -961,5 +961,20 @@ val ptree_REPLPhrase_def = Define`
          | _ => NONE
 `;
 
+val ptree_REPLTop_def = Define`
+  ptree_REPLTop (Lf _) = NONE ∧
+  ptree_REPLTop (Nd nt args) =
+    if nt <> mkNT nREPLTop then NONE
+    else
+      case args of
+          [pt; semitok] =>
+            ptree_TopLevelDec pt ++
+            do
+              e <- ptree_Expr nE pt;
+              SOME(Ast_Tdec (Ast_Dlet (Ast_Pvar "it") e))
+            od
+         | _ => NONE
+`;
+
 
 val _ = export_theory()

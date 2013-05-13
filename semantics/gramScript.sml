@@ -168,6 +168,7 @@ val mmlG_def = mk_grammar_def ginfo
  TopLevelDec ::= Structure | Decl;
  TopLevelDecs ::= TopLevelDec TopLevelDecs | ;
  REPLPhrase ::= TopLevelDecs ";" | E ";" ;
+ REPLTop ::= TopLevelDec ";" | E ";" ;
 `;
 
 val _ = type_abbrev("NT", ``:MMLnonT inf``)
