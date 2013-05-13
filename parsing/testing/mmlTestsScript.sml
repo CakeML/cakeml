@@ -199,8 +199,7 @@ val _ = parsetest ``nElist1`` ``ptree_Expr nElist1`` "x,2"
 val _ = parsetest ``nElist2`` ``ptree_Expr nElist2`` "x,2"
 val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "C (x)"
 val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "C(x, y)"
-val _ = parsetest ``nEmult`` ``ptree_Expr nEmult``
-                  "f x * 3"
+val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "f x * 3"
 val _ = parsetest ``nErel`` ``ptree_Expr nErel`` "x <> true"
 val _ = parsetest ``nEcomp`` ``ptree_Expr nEcomp`` "x <> true"
 val _ = parsetest ``nEcomp`` ``ptree_Expr nEcomp`` "f o g z"
@@ -208,6 +207,14 @@ val _ = parsetest ``nEtyped`` ``ptree_Expr nEtyped`` "map f Nil : 'a list"
 val _ = parsetest ``nElogicOR`` ``ptree_Expr nElogicOR``
                   "3 < x andalso x < 10 orelse p andalso q"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "if x < 10 then f x else C(x,3,g x)"
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "1 + 2 + 3"
+                   (SOME ``Ast_App
+                             (Ast_App (Ast_Var (Short "+"))
+                                      (Ast_App
+                                         (Ast_App (Ast_Var (Short "+"))
+                                                  (Ast_Lit (IntLit 1)))
+                                         (Ast_Lit (IntLit 2))))
+                             (Ast_Lit (IntLit 3))``)
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "x = 3"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "if x = 10 then 3 else 4"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 3 in x + 4 end"

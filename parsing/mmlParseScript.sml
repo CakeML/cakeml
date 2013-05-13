@@ -16,7 +16,8 @@ val destResult_def = Define`
 val mmlParseExpr_def = Define`
   mmlParseExpr toks = do
     (toks', pts) <- destResult (mmlpegexec nE toks);
-    ast <- ptree_Expr nE (HD pts);
+    pt <- oHD pts;
+    ast <- ptree_Expr nE pt;
     SOME(toks',ast)
   od
 `;
@@ -24,7 +25,8 @@ val mmlParseExpr_def = Define`
 val mmlParseREPLPhrase_def = Define`
   mmlParseREPLPhrase toks = do
     (toks', pts) <- destResult (mmlpegexec nREPLPhrase toks);
-    ast <- ptree_REPLPhrase (HD pts);
+    pt <- oHD pts;
+    ast <- ptree_REPLPhrase pt;
     SOME(toks',ast)
   od
 `
@@ -32,7 +34,8 @@ val mmlParseREPLPhrase_def = Define`
 val mmlParseREPLTop_def = Define`
   mmlParseREPLTop toks = do
     (toks', pts) <- destResult (mmlpegexec nREPLTop toks);
-    ast <- ptree_REPLTop (HD pts);
+    pt <- oHD pts;
+    ast <- ptree_REPLTop pt;
     SOME(toks',ast)
   od
 `
@@ -120,7 +123,8 @@ val parse_REPLphrase_def = Define`
   parse_REPLphrase toks =
     do
       (toks',pts) <- destResult (mmlpegexec nREPLPhrase toks);
-      tds <- ptree_REPLPhrase (HD pts);
+      pt <- oHD pts;
+      tds <- ptree_REPLPhrase pt;
       SOME(toks',tds)
     od
 `
