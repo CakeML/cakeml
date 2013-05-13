@@ -179,6 +179,7 @@ val print_bc_stack_op = let fun
 | f (Store n) = "Store "^(numML.toString n)
 | f Pop = "Pop"
 | f Sub = "Sub"
+| f Add = "Add"
 | f x = (PolyML.print x; raise Match)
 in f end
 val print_bc_inst = let fun
