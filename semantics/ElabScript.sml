@@ -183,6 +183,7 @@ val _ = type_abbrev( "ctor_env" , ``: (conN, ( conN id)) env``);
 (*val elab_dec : option modN -> list typeN -> ctor_env -> binding_env -> ast_dec -> list typeN * ctor_env * binding_env * dec*)
 (*val elab_decs : option modN -> list typeN -> ctor_env -> binding_env -> list ast_dec -> list typeN * ctor_env * binding_env * list dec*)
 (*val elab_spec : list typeN -> list ast_spec -> list spec*)
+(*val elab_top : list typeN -> ctor_env -> binding_env -> ast_top -> list typeN * ctor_env * binding_env * top*)
 (*val elab_prog : list typeN -> ctor_env -> binding_env -> list ast_top -> list typeN * ctor_env * binding_env * prog*)
 
 (*val get_pat_bindings : pat -> binding_env*)
@@ -352,6 +353,17 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (Stype_opq tn :: elab_spec (tn ::type_bound) spec))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_spec_defn;
+
+ val elab_top_def = Define `
+
+(elab_top type_bound ctors bound (Ast_Tdec d) =  
+(let (type_bound', ctors', bound', d') = ( elab_dec NONE type_bound ctors bound d) in
+      (type_bound', ctors', bound', Tdec d')))
+/\
+(elab_top type_bound ctors bound (Ast_Tmod mn spec ds) =  
+(let (type_bound',ctors',bound',ds') = ( elab_decs (SOME mn) type_bound ctors bound ds) in
+      (type_bound, ctors, bound,Tmod mn (option_map (elab_spec type_bound) spec) ds')))`;
+
 
  val elab_prog_defn = Hol_defn "elab_prog" `
 

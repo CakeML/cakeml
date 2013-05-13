@@ -512,6 +512,19 @@ val check_signature_def = Define `
      return (cenv',env')
   od)`;
 
+val infer_top_def = Define `
+(infer_top menv cenv env (Tdec d) =
+  do
+    (cenv',env') <- infer_d NONE menv cenv env d;
+    return (menv, cenv', env')
+  od) ∧
+(infer_top menv cenv env (Tmod mn spec ds1) =
+  do
+    (cenv',env') <- infer_ds (SOME mn) menv cenv env ds1;
+    (cenv'',env'') <- check_signature (SOME mn) cenv' env' spec;
+    return ((mn,env'')::menv, cenv'', env'')
+  od)`;
+
 val infer_prog_def = Define `
 (infer_prog menv cenv env [] =
   return ([],[],[])) ∧
@@ -528,6 +541,6 @@ val infer_prog_def = Define `
     (cenv'',env'') <- check_signature (SOME mn) cenv' env' spec;
     (menv'',cenv''',env''') <- infer_prog ((mn,env'')::menv) (cenv'' ++ cenv) env ds2;
     return (menv'' ++ [(mn,env'')], cenv''' ++ cenv'', env''')
-  od)`;
+  od)`; (* the append of [(mn,env'')] seems wrong *)
 
 val _ = export_theory ();
