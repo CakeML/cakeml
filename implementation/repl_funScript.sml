@@ -80,17 +80,17 @@ val install_code_def = Define `
     bs with <| code := code ; pc := next_addr bs.inst_length bs.code |>`;
 
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` THEN REPEAT STRIP_TAC
-           THEN IMP_RES_TAC lex_next_top_LESS);
+           THEN IMP_RES_TAC lex_until_toplevel_semicolon_LESS);
 
 val main_loop_def = tDefine "main_loop" `
   main_loop (bs,s) input =
-    case lex_next_top input of
-      (* case: nothing but white space found, i.e. end of input *)
+    case lex_until_toplevel_semicolon input of
+      (* case: no semicolon found, i.e. trailing characters then end of input *)
       NONE => Terminate
-    | (* case: tokens have been read, now eval-print-and-loop *)
+    | (* case: tokens for next top have been read, now eval-print-and-loop *)
       SOME (tokens, rest_of_input) =>
         case parse_elaborate_typecheck_compile tokens s of
-          (* case: cannot turn into code, show print error message, continue *)
+          (* case: cannot turn into code, print error message, continue *)
           Failure error_msg => Result error_msg (main_loop (bs,s) rest_of_input)
         | (* case: new code generated, install, run, print and continue *)
           Success (code,new_s) =>

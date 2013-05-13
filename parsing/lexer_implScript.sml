@@ -12,12 +12,11 @@ val _ = Hol_datatype`semihider = SH_END | SH_PAR`
 val lex_aux_def = tDefine "lex_aux" `
   lex_aux acc error stk input =
     case next_token input of
-    | (* case: end of input, only white space found *)
-      NONE => if acc = [] then NONE else SOME (REVERSE acc, "")
+    | (* case: end of input and no final semicolon, discard acc *)
+      NONE => NONE
     | (* case: token found *)
       SOME (token, rest) =>
-        if (token = SemicolonT) /\ (stk = [] \/ error) (* TODO: fix *)
-        then SOME (REVERSE (token::acc), rest)
+        if token = SemicolonT /\ (stk = [] \/ error) then SOME (REVERSE (token::acc), rest)
         else
           let new_acc = (token::acc) in
             if error then lex_aux new_acc error stk rest
@@ -37,14 +36,13 @@ val lex_aux_def = tDefine "lex_aux" `
   (WF_REL_TAC `measure (LENGTH o SND o SND o SND)`
    THEN SRW_TAC []  [next_token_LESS]);
 
-val lex_next_top_def = Define `
-  lex_next_top input = lex_aux [] F [] input`;
+val lex_until_toplevel_semicolon_def = Define `
+  lex_until_toplevel_semicolon input = lex_aux [] F [] input`;
 
 val lex_aux_LESS = prove(
   ``!acc error stk input.
       (lex_aux acc error stk input = SOME (ts, rest)) ==>
       LENGTH rest < LENGTH input``,
-  cheat (*
   HO_MATCH_MP_TAC (fetch "-" "lex_aux_ind")
   THEN REPEAT STRIP_TAC THEN POP_ASSUM MP_TAC
   THEN ONCE_REWRITE_TAC [lex_aux_def]
@@ -54,13 +52,13 @@ val lex_aux_LESS = prove(
   THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC
   THEN IMP_RES_TAC arithmeticTheory.LESS_TRANS
   THEN Cases_on `stk` THEN FULL_SIMP_TAC (srw_ss()) []
-  THEN Cases_on `h` THEN FULL_SIMP_TAC (srw_ss()) []*));
+  THEN Cases_on `h` THEN FULL_SIMP_TAC (srw_ss()) []);
 
-val lex_next_top_LESS = store_thm(
-  "lex_next_top_LESS",
-  ``(lex_next_top input = SOME (ts,rest)) ==>
+val lex_until_toplevel_semicolon_LESS = store_thm(
+  "lex_until_toplevel_semicolon_LESS",
+  ``(lex_until_toplevel_semicolon input = SOME (ts,rest)) ==>
     LENGTH rest < LENGTH input``,
-  SIMP_TAC std_ss [lex_next_top_def]
+  SIMP_TAC std_ss [lex_until_toplevel_semicolon_def]
   THEN REPEAT STRIP_TAC THEN IMP_RES_TAC lex_aux_LESS);
 
 val _ = export_theory();
