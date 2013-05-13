@@ -263,15 +263,16 @@ bc_next s ((s with<| pc := n; stack := x ::xs|>)))
 (! s.
 (bc_fetch s = SOME PushExc) (* parens: Lem sucks *)
 ==>
-bc_next s ((s with<| handler := LENGTH s.stack ;
-                    stack := (StackPtr s.handler) ::s.stack|>)))
+bc_next s ((bump_pc s with<|
+               handler := LENGTH s.stack ;
+               stack := (StackPtr s.handler) ::s.stack|>)))
 /\
 (! s sp x l1 l2.
 ((
 bc_fetch s = SOME PopExc) /\
 (s.stack = x ::l1 ++ StackPtr sp ::l2) /\ ( LENGTH l2 = s.handler))
 ==>
-bc_next s ((s with<| handler := sp; stack := x ::l2|>)))
+bc_next s ((bump_pc s with<| handler := sp; stack := x ::l2|>)))
 /\
 (! s x xs ptr.
 ((
