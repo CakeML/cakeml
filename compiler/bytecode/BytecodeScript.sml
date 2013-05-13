@@ -54,8 +54,9 @@ val _ = Hol_datatype `
   | PopExc                  (* pop exception handler *)
   | Ref                     (* create a new ref cell *)
   | Deref                   (* dereference a ref cell *)
-  | Update`;
-                  (* update a ref cell *)
+  | Update                  (* update a ref cell *)
+  | Stop`;
+                    (* halt execution *)
 
 (* --- Semantics --- *)
 
