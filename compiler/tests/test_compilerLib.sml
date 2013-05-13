@@ -121,7 +121,7 @@ fun add_code c bs = bc_state_code_fupd
 fun prep_decs (bs,rs) [] = (bs,rs)
   | prep_decs (bs,rs) (d::ds) = let
       val (rs,c) = compile_dec rs (term_to_dec d)
-      val bs = add_code c bs
+      val bs = add_code (c@[Stack Pop]) bs
     in prep_decs (bs,rs) ds end
 
 fun prep_exp (bs,rs) e = prep_decs (bs,rs) [``Dlet (Pvar "it") ^e``]

@@ -64,7 +64,7 @@ let compile_fake_exp rs vs e =
   let cs = compile_Cexp rs Ce in
   let cs = compile_shadows rs.rbvars cs 0 shadows in
   let cs = compile_news cs (List.length shadows) news in
-  let cs = emit cs [Stack Pop] in
+  let cs = emit cs [Stack Pop; Stack (PushInt i0)] in
   (<| rs with rbvars = (List.rev news)@rs.rbvars
     ; rnext_label = cs.next_label |>
   ,List.rev cs.out)
@@ -75,7 +75,7 @@ compile_dec rs (Dtype ts) =
       List.fold_left
         (fun ct (_,_,cs) -> number_constructors cs ct)
         rs.contab ts |>
-  ,[])
+  ,[Stack (PushInt i0)])
 and
 compile_dec rs (Dletrec defs) =
   let vs = List.map (fun (n,_,_) -> n) defs in

@@ -99,7 +99,7 @@ val _ = Define `
   let cs = ( compile_Cexp rs Ce) in
   let cs = ( compile_shadows rs.rbvars cs 0 shadows) in
   let cs = ( compile_news cs ( LENGTH shadows) news) in
-  let cs = ( emit cs [Stack Pop]) in
+  let cs = ( emit cs [Stack Pop; Stack (PushInt i0)]) in
   (( rs with<| rbvars := ( REVERSE news) ++rs.rbvars
     ; rnext_label := cs.next_label |>)
   , REVERSE cs.out)))`;
@@ -111,7 +111,7 @@ val _ = Define `
   (( rs with<| contab := FOLDL
         (\ct p . (case (ct ,p ) of ( ct , (_,_,cs) ) => number_constructors cs ct ))
         rs.contab ts |>)
-  ,[]))
+  ,[Stack (PushInt i0)]))
 /\
 (compile_dec rs (Dletrec defs) =  
 (let vs = ( MAP (\p . 
