@@ -114,7 +114,7 @@ val ex4 = time EVAL ``repl_fun ^input``
   val s = ``init_repl_fun_state``
   val bs = ``init_bc_state``
 
-  val (tokens,rest_of_input) = time EVAL ``lex_until_toplevel_semicolon ^input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
+  val (tokens,rest_of_input) = time EVAL ``lex_next_top ^input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
 
     val ast_prog = time EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
 
@@ -142,7 +142,7 @@ val ex4 = time EVAL ``repl_fun ^input``
 
   val new_bs = time EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
 
-  val res = time EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs
+  val (new_bs,res) = time EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs |> pairSyntax.dest_pair
 
   val input = rest_of_input
   val s = new_s
