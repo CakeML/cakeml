@@ -39,6 +39,17 @@ val parse_def = Define `
     od
 `;
 
+(* TODO: fix *)
+val parse_top_def = Define `
+  (parse_top : token list -> ast_top option) tokens =
+    do
+      (ts,ast_tdecs) <- mmlParseREPLPhrase tokens;
+      if ts <> [] then NONE
+      else case ast_tdecs of [top] => SOME top | _ => NONE
+    od
+`;
+
+
 val _ = Hol_datatype`semihider = SH_END | SH_PAR`
 (* extend with SH_BRACE and SH_BRACKET when records and lists
    are part of the syntax *)

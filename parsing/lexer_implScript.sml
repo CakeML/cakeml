@@ -16,7 +16,9 @@ val lex_aux_def = tDefine "lex_aux" `
       NONE => NONE
     | (* case: token found *)
       SOME (token, rest) =>
-        if token = SemicolonT /\ (stk = [] \/ error) then SOME (REVERSE (token::acc), rest)
+        if MEM token [ValT; SemicolonT; FunT; DatatypeT; StructureT; LocalT; OpenT]
+           /\ (stk = [] \/ error)
+        then SOME (REVERSE (token::acc), rest)
         else
           let new_acc = (token::acc) in
             if error then lex_aux new_acc error stk rest
@@ -36,8 +38,8 @@ val lex_aux_def = tDefine "lex_aux" `
   (WF_REL_TAC `measure (LENGTH o SND o SND o SND)`
    THEN SRW_TAC []  [next_token_LESS]);
 
-val lex_until_toplevel_semicolon_def = Define `
-  lex_until_toplevel_semicolon input = lex_aux [] F [] input`;
+val lex_next_top_def = Define `
+  lex_next_top input = lex_aux [] F [] input`;
 
 val lex_aux_LESS = prove(
   ``!acc error stk input.
@@ -54,11 +56,11 @@ val lex_aux_LESS = prove(
   THEN Cases_on `stk` THEN FULL_SIMP_TAC (srw_ss()) []
   THEN Cases_on `h` THEN FULL_SIMP_TAC (srw_ss()) []);
 
-val lex_until_toplevel_semicolon_LESS = store_thm(
-  "lex_until_toplevel_semicolon_LESS",
-  ``(lex_until_toplevel_semicolon input = SOME (ts,rest)) ==>
+val lex_next_top_LESS = store_thm(
+  "lex_next_top_LESS",
+  ``(lex_next_top input = SOME (ts,rest)) ==>
     LENGTH rest < LENGTH input``,
-  SIMP_TAC std_ss [lex_until_toplevel_semicolon_def]
+  SIMP_TAC std_ss [lex_next_top_def]
   THEN REPEAT STRIP_TAC THEN IMP_RES_TAC lex_aux_LESS);
 
 val _ = export_theory();
