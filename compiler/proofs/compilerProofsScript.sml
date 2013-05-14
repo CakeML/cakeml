@@ -994,7 +994,58 @@ val env_rs_ALOOKUP_same = store_thm("env_rs_ALOOKUP_same",
   REWRITE_TAC[FLOOKUP_DEF] >>
   metis_tac[optionTheory.NOT_SOME_NONE])
 
-(*
+val ALOOKUP_APPEND_same = store_thm("ALOOKUP_APPEND_same",
+  ``∀l1 l2 l. (ALOOKUP l1 = ALOOKUP l2) ==> ALOOKUP (l1 ++ l) = ALOOKUP (l2 ++ l)``,
+  rw[ALOOKUP_APPEND,FUN_EQ_THM])
+
+val ALOOKUP_ALL_DISTINCT_PERM_same = store_thm("ALOOKUP_ALL_DISTINCT_PERM_same",
+  ``∀l1 l2. ALL_DISTINCT (MAP FST l1) ∧ PERM (MAP FST l1) (MAP FST l2) ∧ (set l1 = set l2) ⇒ (ALOOKUP l1 = ALOOKUP l2)``,
+  simp[EXTENSION] >>
+  rw[FUN_EQ_THM] >>
+  Cases_on`ALOOKUP l2 x` >- (
+    imp_res_tac ALOOKUP_FAILS >>
+    imp_res_tac MEM_PERM >>
+    fs[FORALL_PROD,MEM_MAP,EXISTS_PROD] >>
+    metis_tac[ALOOKUP_FAILS] ) >>
+  qmatch_assum_rename_tac`ALOOKUP l2 x = SOME p`[] >>
+  imp_res_tac ALOOKUP_MEM >>
+  `ALL_DISTINCT (MAP FST l2)` by (
+    metis_tac[ALL_DISTINCT_PERM]) >>
+  imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+  metis_tac[])
+
+val ALL_DISTINCT_PERM_ALOOKUP_ZIP = store_thm("ALL_DISTINCT_PERM_ALOOKUP_ZIP",
+  ``∀l1 l2 l3. ALL_DISTINCT (MAP FST l1) ∧ PERM (MAP FST l1) l2
+    ⇒ (set l1 = set (ZIP (l2, MAP (THE o ALOOKUP (l1 ++ l3)) l2)))``,
+  rw[EXTENSION,FORALL_PROD,EQ_IMP_THM] >- (
+    qmatch_assum_rename_tac`MEM (x,y) l1`[] >>
+    imp_res_tac PERM_LENGTH >> fs[] >>
+    simp[MEM_ZIP] >>
+    imp_res_tac MEM_PERM >>
+    fs[MEM_MAP,EXISTS_PROD] >>
+    `MEM x l2` by metis_tac[] >>
+    `∃m. m < LENGTH l2 ∧ x = EL m l2` by metis_tac[MEM_EL] >>
+    qexists_tac`m`>>simp[]>>
+    simp[EL_MAP] >>
+    imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+    rw[ALOOKUP_APPEND] ) >>
+  qmatch_rename_tac`MEM (x,y) l1`[] >>
+  imp_res_tac PERM_LENGTH >>
+  fs[MEM_ZIP] >>
+  simp[EL_MAP] >>
+  imp_res_tac MEM_PERM >>
+  fs[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+  first_x_assum(qspec_then`n`mp_tac) >>
+  discharge_hyps >- simp[] >>
+  disch_then(Q.X_CHOOSE_THEN`m`strip_assume_tac) >>
+  qexists_tac`m` >>
+  simp[EL_MAP] >>
+  Cases_on`EL m l1`>>simp[ALOOKUP_APPEND] >>
+  BasicProvers.CASE_TAC >- (
+    imp_res_tac ALOOKUP_FAILS >>
+    metis_tac[MEM_EL] ) >>
+  metis_tac[MEM_EL,ALOOKUP_ALL_DISTINCT_MEM,optionTheory.THE_DEF])
+
 val compile_dec_val = store_thm("compile_dec_val",
   ``∀mn menv cenv s env dec res. evaluate_dec mn menv cenv s env dec res ⇒
      ∀s' cenv' env' rs rs' rd bc bs bc0.
@@ -1108,20 +1159,86 @@ val compile_dec_val = store_thm("compile_dec_val",
     rfs[MEM_ZIP] >>
     REWRITE_TAC[GSYM MAP_APPEND] >>
     simp[EL_MAP,ALOOKUP_APPEND] >>
-    fs[] >> rfs[] )
+    fs[] >> rfs[] ) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- (
-    rw[compile_dec_def,FST_triple,compile_Cexp_def] >>
-    ... ) >>
+    rpt gen_tac >>
+    simp[compile_dec_def,FST_triple] >>
+    strip_tac >> rpt gen_tac >> strip_tac >>
+    qabbrev_tac`vv = PARTITION (λv. MEM v rs.rbvars) (MAP FST funs)` >>
+    PairCases_on`vv` >>
+    qabbrev_tac`exp = Con (Short "") (MAP (Var o Short) (vv0 ++ vv1))` >>
+    `Short "" ∉ set (MAP FST cenv)` by ( fs[env_rs_def]) >>
+    qmatch_assum_abbrev_tac`compile_fake_exp rs X Y = Z` >>
+    `X = MAP FST funs` by (
+      rw[Once LIST_EQ_REWRITE,Abbr`X`,EL_MAP] >>
+      BasicProvers.CASE_TAC ) >>
+    map_every qunabbrev_tac[`Y`,`Z`] >>
+    BasicProvers.VAR_EQ_TAC >> pop_assum kall_tac >>
+    `evaluate menv ((Short "",(LENGTH vv0 + LENGTH vv1,ARB))::cenv) s env (Letrec funs exp)
+        (s,Rval (Conv (Short "") (MAP (THE o (ALOOKUP (build_rec_env funs env env))) (vv0 ++ vv1))))` by (
+      simp[Once evaluate_cases,FST_triple] >>
+      simp[Once evaluate_cases,Abbr`exp`] >>
+      simp[SemanticPrimitivesTheory.do_con_check_def] >>
+      REWRITE_TAC[GSYM MAP_APPEND] >>
+      match_mp_tac evaluate_list_MAP_Var >>
+      simp[build_rec_env_dom] >>
+      fs[PARTITION_DEF,markerTheory.Abbrev_def] >>
+      imp_res_tac PART_MEM >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+    qmatch_assum_abbrev_tac`evaluate menv ((Short "",tup)::cenv) s env Mexp (s,Rval (Conv (Short "") vs))` >>
+    qspecl_then[`rs`,`MAP FST funs`,`λb. Letrec funs b`,`menv`,`tup`,`cenv`,`s`,`env`]mp_tac compile_fake_exp_val >>
+    simp[] >>
+    REWRITE_TAC[GSYM MAP_APPEND] >>
+    disch_then(qspecl_then[`s`,`vs`,`rd`,`bc0`,`bs`]mp_tac) >>
+    simp[] >>
+    discharge_hyps >- (
+      fs[PARTITION_DEF,markerTheory.Abbrev_def] >>
+      imp_res_tac PART_MEM >>
+      imp_res_tac PART_LENGTH >>
+      reverse conj_tac >- (fs[] >> metis_tac[]) >>
+      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    disch_then(qx_choosel_then[`st`,`rf`,`rd'`]strip_assume_tac) >>
+    map_every qexists_tac[`st`,`rf`,`rd'`] >>
+    rw[LibTheory.emp_def] >>
+    match_mp_tac env_rs_ALOOKUP_same >>
+    HINT_EXISTS_TAC >> simp[] >>
+    match_mp_tac ALOOKUP_APPEND_same >>
+    match_mp_tac ALOOKUP_ALL_DISTINCT_PERM_same >>
+    conj_asm1_tac >- simp[build_rec_env_MAP] >>
+    conj_asm1_tac >- (
+      fs[PARTITION_DEF,markerTheory.Abbrev_def] >>
+      simp[build_rec_env_MAP,MAP_ZIP] >>
+      imp_res_tac PERM_PART >> fs[] ) >>
+    qunabbrev_tac`vs` >>
+    simp_tac std_ss [build_rec_env_MAP,APPEND_NIL] >>
+    match_mp_tac ALL_DISTINCT_PERM_ALOOKUP_ZIP >>
+    simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+    fsrw_tac[ETA_ss][] >>
+    rfs[MAP_ZIP] ) >>
   strip_tac >- rw[] >>
   strip_tac >- (
-    rw[compile_dec_def] >>
-    FOLDL_number_constructors_thm
-    ... ) >>
+    simp[compile_dec_def] >>
+    rpt gen_tac >> strip_tac >>
+    rpt gen_tac >> strip_tac >>
+    map_every qexists_tac[`bs.stack`,`bs.refs`,`rd`] >>
+    conj_tac >- (
+      simp[RTC_eq_NRC] >>
+      qexists_tac`SUC 0` >> simp[] >>
+      rw[bc_eval1_thm] >>
+      `bc_fetch bs = SOME (Stack (PushInt i0))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        qexists_tac`bc0`>>simp[] ) >>
+      rw[bc_eval1_def,bump_pc_def,bc_eval_stack_def] >>
+      simp[bc_state_component_equality,SUM_APPEND,FILTER_APPEND] ) >>
+    cheat
+    (* need hypothesis that Short "" doesn't appear in new constructors *)
+    (* want FOLDL_number_constructors_thm ? *)
+    ) >>
   strip_tac >- rw[])
-*)
 
 val _ = export_theory()
