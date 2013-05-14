@@ -1876,4 +1876,68 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   fsrw_tac[DNF_ss][FORALL_PROD] >>
   METIS_TAC[EVERY2_syneq_trans])
 
+val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
+  ``(∀m exp bvs1 bvs2. (set bvs1 = set bvs2) ⇒
+      syneq_exp (LENGTH bvs1) (LENGTH bvs2)
+        (λv1 v2. v1 < LENGTH bvs1 ∧ v2 < LENGTH bvs2 ∧ (EL v1 bvs1 = EL v2 bvs2) ∨
+                 LENGTH bvs1 ≤ v1 ∧ LENGTH bvs2 ≤ v2 ∧ (v2 = v1))
+        (exp_to_Cexp (m with bvars := bvs1) exp)
+        (exp_to_Cexp (m with bvars := bvs2) exp)) ∧
+    (∀m defs bvs1 bvs2. (set bvs1 = set bvs2) ⇒
+      syneq_defs (LENGTH bvs1) (LENGTH bvs2)
+        (λv1 v2. v1 < LENGTH bvs1 ∧ v2 < LENGTH bvs2 ∧ (EL v1 bvs1 = EL v2 bvs2) ∨
+                 LENGTH bvs1 ≤ v1 ∧ LENGTH bvs2 ≤ v2 ∧ (v2 = v1))
+        (defs_to_Cdefs (m with bvars := (MAP FST defs) ++ bvs1) defs)
+        (defs_to_Cdefs (m with bvars := (MAP FST defs) ++ bvs2) defs)
+        (λv1 v2. v1 < LENGTH defs ∧ (v2 = v1))) ∧
+    (∀m pes bvs1 bvs2. (set bvs1 = set bvs2) ⇒
+      EVERY2 (λ(p1,e1) (p2,e2).
+        syneq_exp (Cpat_vars p1 + LENGTH bvs1) (Cpat_vars p2 + LENGTH bvs2)
+          (λv1 v2. v1 < Cpat_vars p1 ∧ v2 < Cpat_vars p2 ∧ (v2 = v1) ∨
+                   Cpat_vars p1 ≤ v1 ∧ Cpat_vars p2 ≤ v2 ∧
+                   v1 < Cpat_vars p1 + LENGTH bvs1 ∧ v2 < Cpat_vars p2 + LENGTH bvs2 ∧ (EL v1 bvs1 = EL v2 bvs2) ∨
+                   Cpat_vars p1 + LENGTH bvs1 ≤ v1 ∧ Cpat_vars p2 + LENGTH bvs2 ≤ v2 ∧ (v2 = v1))
+          e1 e2)
+                        (pes_to_Cpes (m with bvars := bvs1) pes)
+                        (pes_to_Cpes (m with bvars := bvs2) pes)) ∧
+    (∀m es bvs1 bvs2. (set bvs1 = set bvs2) ⇒
+      EVERY2 (syneq_exp (LENGTH bvs1) (LENGTH bvs2)
+               (λv1 v2. v1 < LENGTH bvs1 ∧ v2 < LENGTH bvs2 ∧ (EL v1 bvs1 = EL v2 bvs2) ∨
+                        LENGTH bvs1 ≤ v1 ∧ LENGTH bvs2 ≤ v2 ∧ (v2 = v1)))
+         (exps_to_Cexps (m with bvars := bvs1) es)
+         (exps_to_Cexps (m with bvars := bvs2) es))``
+  ho_match_mp_tac exp_to_Cexp_ind >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >>
+    rw[Once syneq_exp_cases] >>
+    first_x_assum(qspecl_then[`x::bvs1`,`x::bvs2`]mp_tac) >>
+    simp[ADD1,EL_CONS]
+
+val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
+  ``∀v1 v2. enveq v1 v2 ⇒ ∀m. syneq (v_to_Cv m v1) (v_to_Cv m v2)``,
+  ho_match_mp_tac enveq_ind >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >>
+    rw[v_to_Cv_def] >>
+    rw[Once syneq_cases,vs_to_Cvs_MAP] >>
+    simp[EVERY2_MAP] >>
+    match_mp_tac (GEN_ALL (MP_CANON EVERY2_mono)) >>
+    HINT_EXISTS_TAC >> simp[] ) >>
+  strip_tac >- (
+    rw[] >>
+    rw[v_to_Cv_def] >>
+    rw[Once syneq_cases] >>
+    rw[Once syneq_exp_cases]
+  strip_tac >- (
+    rw[] >>
+    rw[v_to_Cv_def] >>
+    rw[Once syneq_cases] >>
+    rw[Once syneq_exp_cases]
+
+  v_to_Cv_ind
+  type_of ``env_to_Cenv``
+  exp_to_Cexp_nice_ind
+  exp_to_Cexp_ind
+
 val _ = export_theory()
