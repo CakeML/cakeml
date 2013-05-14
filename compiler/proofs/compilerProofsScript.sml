@@ -1046,6 +1046,46 @@ val ALL_DISTINCT_PERM_ALOOKUP_ZIP = store_thm("ALL_DISTINCT_PERM_ALOOKUP_ZIP",
     metis_tac[MEM_EL] ) >>
   metis_tac[MEM_EL,ALOOKUP_ALL_DISTINCT_MEM,optionTheory.THE_DEF])
 
+val number_constructors_thm = store_thm("number_constructors_thm",
+  ``∀cs ct. number_constructors cs ct = (FST ct |++ GENLIST (λi. (Short (FST (EL i cs)), (SND(SND ct))+i)) (LENGTH cs)
+                                        ,REVERSE (GENLIST (λi. ((SND(SND ct))+i,FST(EL i cs))) (LENGTH cs)) ++ (FST(SND ct))
+                                        ,(SND(SND ct)) + LENGTH cs)``,
+  Induct >- simp[number_constructors_def,FUPDATE_LIST_THM] >>
+  qx_gen_tac`p` >> PairCases_on`p` >>
+  qx_gen_tac`q` >> PairCases_on`q` >>
+  simp[number_constructors_def] >>
+  conj_tac >- (
+    simp[GENLIST_CONS,FUPDATE_LIST_THM] >>
+    AP_TERM_TAC >>
+    simp[LIST_EQ_REWRITE] ) >>
+  simp[GENLIST_CONS] >>
+  simp[LIST_EQ_REWRITE])
+
+val number_constructors_append = store_thm("number_constructors_append",
+  ``∀l1 l2 ct. number_constructors (l1 ++ l2) ct = number_constructors l2 (number_constructors l1 ct)``,
+  Induct >> simp[number_constructors_def] >>
+  qx_gen_tac`p` >> PairCases_on`p` >>
+  gen_tac >> qx_gen_tac`q` >> PairCases_on`q` >>
+  simp[number_constructors_def])
+
+val FOLDL_number_constructors_thm = store_thm("FOLDL_number_constructors_thm",
+  ``∀tds ct. FOLDL (λct p. case p of (x,y,cs) => number_constructors cs ct) ct tds =
+    number_constructors (FLAT (MAP (SND o SND) tds)) ct``,
+  Induct >- (simp[number_constructors_thm,FUPDATE_LIST_THM]) >>
+  simp[] >>
+  qx_gen_tac`p` >> PairCases_on`p` >>
+  simp[] >>
+  simp[number_constructors_append])
+
+(*
+val good_contab_number_constructors = store_thm("good_contab_number_constructors",
+  ``∀ls ct. good_contab ct ⇒ good_contab (number_constructors ls ct)``,
+  rw[] >>
+  PairCases_on`ct` >>
+  fs[good_contab_def,number_constructors_thm] >>
+  fs[cmap_linv_def,FDOM_FUPDATE_LIST] >>
+*)
+
 val compile_dec_val = store_thm("compile_dec_val",
   ``∀mn menv cenv s env dec res. evaluate_dec mn menv cenv s env dec res ⇒
      ∀s' cenv' env' rs rs' rd bc bs bc0.
@@ -1055,6 +1095,7 @@ val compile_dec_val = store_thm("compile_dec_val",
       EVERY (closed menv) (MAP SND env) ∧
       EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
       FV_dec dec ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+      (∀ts. (dec = Dtype ts) ⇒ "" ∉ set (MAP (FST o SND) ts)) ∧
       closed_under_cenv cenv menv env s ∧
       closed_under_menv menv env s ∧
       (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
@@ -1235,9 +1276,13 @@ val compile_dec_val = store_thm("compile_dec_val",
         qexists_tac`bc0`>>simp[] ) >>
       rw[bc_eval1_def,bump_pc_def,bc_eval_stack_def] >>
       simp[bc_state_component_equality,SUM_APPEND,FILTER_APPEND] ) >>
+    fs[FOLDL_number_constructors_thm,SemanticPrimitivesTheory.build_tdefs_def,LibTheory.emp_def,AstTheory.mk_id_def] >>
+    fs[env_rs_def] >>
+    (*
+    conj_tac >- (
+      fs[good_contab_def]
+    *)
     cheat
-    (* need hypothesis that Short "" doesn't appear in new constructors *)
-    (* want FOLDL_number_constructors_thm ? *)
     ) >>
   strip_tac >- rw[])
 
