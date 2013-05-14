@@ -1396,7 +1396,8 @@ fun get_induction_for_def def = let
                 |> concl |> dest_eq |> fst |> repeat rator
                 |> dest_thy_const
   in fetch "compilerTermination" ((#Name res) ^ "_ind") handle HOL_ERR _ =>
-     fetch (#Thy res) ((#Name res) ^ "_ind") end
+     fetch (#Thy res) ((#Name res) ^ "_ind") handle HOL_ERR _ =>
+     fetch (#Thy res) ((#Name res) ^ "_IND") end
   handle HOL_ERR _ => let
   fun mk_arg_vars xs = let
     fun aux [] = []
