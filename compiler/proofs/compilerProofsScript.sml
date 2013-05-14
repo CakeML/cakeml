@@ -161,11 +161,11 @@ val env_rs_def = Define`
     good_contab rs.contab ∧
     good_cmap cenv (cmap rs.contab) ∧
     set (MAP FST cenv) ⊆ FDOM (cmap rs.contab) ∧
-    Short "" ∉ FDOM (cmap rs.contab) ∧
+    Short "" ∈ FDOM (cmap rs.contab) ∧
     (set rs.rbvars = set (MAP FST env)) ∧
     ALL_DISTINCT rs.rbvars ∧
-    let Cs0 = MAP (v_to_Cv (cmap rs.contab |+ (Short "",0))) s in
-    let Cenv0 = env_to_Cenv (cmap rs.contab |+ (Short "",0)) (MAP (λv. (v,THE (ALOOKUP env v))) rs.rbvars) in
+    let Cs0 = MAP (v_to_Cv (cmap rs.contab)) s in
+    let Cenv0 = env_to_Cenv (cmap rs.contab) (MAP (λv. (v,THE (ALOOKUP env v))) rs.rbvars) in
     let rsz = LENGTH rs.rbvars in
     ∃Cenv Cs.
     LIST_REL syneq Cs0 Cs ∧ LIST_REL syneq Cenv0 Cenv ∧
@@ -408,19 +408,21 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     fs[closed_under_menv_def] >>
     simp[Abbr`env1`] >>
     fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP] >>
-    fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,closed_under_cenv_def,FORALL_PROD] >>
-    simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM] >> map_every qx_gen_tac[`k`,`v`] >> strip_tac >>
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,closed_under_cenv_def,FORALL_PROD,EXISTS_PROD] >>
+    simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM] >>
+    map_every qx_gen_tac[`k`,`v`] >> strip_tac >>
     Cases_on`ALOOKUP env k` >- (
       imp_res_tac ALOOKUP_NONE >>
       fs[MEM_MAP,FORALL_PROD] ) >>
     imp_res_tac ALOOKUP_MEM >>
-    simp[] >> metis_tac[] ) >>
+    simp[] >>
+    metis_tac[SUBSET_DEF,IN_INSERT] ) >>
   disch_then (qspec_then `cm` mp_tac) >>
   discharge_hyps >- (
     fs[good_cmap_def,FAPPLY_FUPDATE_THM,Abbr`cm`] >>
     rw[] >>
     fs[SUBSET_DEF,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
-    metis_tac[] ) >>
+    metis_tac[FST] ) >>
   `MAP FST env1 = rs.rbvars` by (
     simp[Abbr`env1`,MAP_MAP_o,combinTheory.o_DEF] ) >>
   simp[FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
@@ -573,7 +575,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
   map_every qx_gen_tac[`rf`,`rd'`,`bv`] >> strip_tac >>
   qunabbrev_tac`bs2` >>
   qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
-  `∃Cvs. (Cv = CConv 0 Cvs) ∧ EVERY2 syneq (MAP (v_to_Cv cm) vs1) Cvs` by (
+  `∃u Cvs. (Cv = CConv u Cvs) ∧ EVERY2 syneq (MAP (v_to_Cv cm) vs1) Cvs` by (
     qpat_assum`syneq X Cv0`mp_tac >>
     simp[v_to_Cv_def,Once IntLangTheory.syneq_cases] >> rw[] >>
     qpat_assum`syneq X Cv`mp_tac >>
@@ -612,7 +614,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
   qpat_assum`bc_fetch X = Y`kall_tac >>
   qmatch_assum_rename_tac`Abbrev(bs2 = X)`["X"] >>
   last_x_assum(qspecl_then[`bs2 with code := TAKE (LENGTH bc0 + LENGTH bc1 + LENGTH c0 + 4 + LENGTH c1) bs.code`
-                          ,`TAKE (LENGTH bc0 + LENGTH bc1 + LENGTH c0 + 4) bs.code`,`4`,`bvs`,`bs.stack`]mp_tac) >>
+                          ,`TAKE (LENGTH bc0 + LENGTH bc1 + LENGTH c0 + 4) bs.code`,`4+u`,`bvs`,`bs.stack`]mp_tac) >>
   `LENGTH rs.rbvars ≤ LENGTH bs.stack` by (
     qpat_assum`Cenv_bs rd Cs Cenv renv (LENGTH rs.rbvars)X `mp_tac >>
     simp[Cenv_bs_def,EVERY2_EVERY,Abbr`renv`,EVERY_MEM,FORALL_PROD,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,CompilerLibTheory.el_check_def]>>
@@ -651,7 +653,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     match_mp_tac RTC_bc_next_append_code >>
     map_every qexists_tac[`bs2'`,`bs3'`] >>
     simp[Abbr`bs2'`,Abbr`bs3'`,bc_state_component_equality] ) >>
-  first_x_assum(qspecl_then[`bs3' with code := bs3'.code ++ c2`,`bs3'.code`,`4`,`bvs`]mp_tac) >>
+  first_x_assum(qspecl_then[`bs3' with code := bs3'.code ++ c2`,`bs3'.code`,`4+u`,`bvs`]mp_tac) >>
   simp[Abbr`bs3'`] >>
   discharge_hyps >- ( fs[EVERY2_EVERY] ) >>
   strip_tac >>

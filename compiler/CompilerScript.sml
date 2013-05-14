@@ -44,7 +44,7 @@ val _ = Define `
 
 val _ = Define `
  init_compiler_state =  
-(<| contab := ( FEMPTY, [], 0)
+(<| contab := ( FUPDATE FEMPTY ( (Short ""), 0), [(0,"")], 1)
    ; rbvars := []
    ; rnext_label := 0
    |>)`;
@@ -95,10 +95,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = Define `
  (compile_fake_exp rs vs e =  
 (let m = ( etC rs) in
-  let cn = (Short "") in
   let (shadows,news) = ( PARTITION (\ v . MEM v rs.rbvars) vs) in
-  let Ce = ( exp_to_Cexp ( m with<| cnmap := FUPDATE  m.cnmap ( cn, 0) |>)
-           (e (Con cn ( MAP (\ v . Var (Short v)) (shadows ++news))))) in
+  let Ce = ( exp_to_Cexp m (e (Con (Short "") ( MAP (\ v . Var (Short v)) (shadows ++news))))) in
   let (l1,cs) = ( compile_Cexp rs Ce) in
   let cs = ( emit cs [PopExc; Stack (Pops 1)]) in
   let cs = ( compile_shadows rs.rbvars cs 0 shadows) in
