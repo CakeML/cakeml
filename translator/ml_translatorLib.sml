@@ -1379,7 +1379,25 @@ fun split_let_and_conv tm = let
                           THEN REWRITE_TAC [])
   in lemma end handle HOL_ERR _ => NO_CONV tm;
 
-fun mutual_to_single_line_def def = let
+fun mk_fun_type ty1 ty2 = mk_type("fun",[ty1,ty2])
+
+fun list_mk_fun_type [ty] = ty
+  | list_mk_fun_type (ty1::tys) =
+      mk_fun_type ty1 (list_mk_fun_type tys)
+  | list_mk_fun_type _ = fail()
+
+fun all_distinct [] = []
+  | all_distinct (x::xs) = let
+      val ys = all_distinct xs
+      in if mem x ys then ys else x::ys end
+
+fun get_induction_for_def def = let
+  val res = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
+                |> concl |> dest_eq |> fst |> repeat rator
+                |> dest_thy_const
+  in fetch "compilerTermination" ((#Name res) ^ "_ind") handle HOL_ERR _ =>
+     fetch (#Thy res) ((#Name res) ^ "_ind") end
+  handle HOL_ERR _ => let
   fun mk_arg_vars xs = let
     fun aux [] = []
       | aux (x::xs) = mk_var("v" ^ (int_to_string (length xs + 1)),type_of x)
@@ -1395,27 +1413,92 @@ fun mutual_to_single_line_def def = let
     val vargs = mk_arg_vars args
     val args = pairSyntax.list_mk_pair args
     in (const,vargs,args,rhs) end
-  fun all_distinct [] = []
-    | all_distinct (x::xs) = let
-        val ys = all_distinct xs
-        in if mem x ys then ys else x::ys end
   val cs = def |> CONJUNCTS |> map (f o concl o SPEC_ALL)
   val cnames = map (fn (x,_,_,_) => x) cs |> all_distinct
   val cs = map (fn c => (c, map (fn (x,y,z,q) => (y,z,q))
                               (filter (fn (x,_,_,_) => c = x) cs))) cnames
            |> map (fn (c,x) => (c,hd (map (fn (x,y,z) => x) x),
                                 map (fn (x,y,z) => (y,z)) x))
-  val _ = 1 < length cs orelse failwith "not mutually recursive"
-  val name = dest_thy_const (cs |> hd |> (fn (x,y,z) => x))
-  val ind = fetch (#Thy name) ((#Name name) ^ "_ind")
-  val tms = map (fn (x,y,z) => (x,y,TypeBase.mk_pattern_fn z)) cs
-  fun goal_line (const,vargs,rhs) = let
-    val lhs = foldl (fn (x,y) => mk_comb(y,x)) const vargs
-    val pvargs = pairSyntax.list_mk_pair vargs
-    val rhs = mk_comb(rhs,pvargs)
-    val goal = mk_eq(lhs,rhs)
-    in list_mk_abs(vargs,goal) end
-  val goals = map goal_line tms
+  fun split_at P [] = fail()
+    | split_at P (x::xs) = if P x then ([],x,xs) else let
+        val (x1,y1,z1) = split_at P xs
+        in (x::x1,y1,z1) end
+  fun find_pat_match (_,args,pats) = let
+    val pat = hd pats |> fst
+    val vs = pairSyntax.list_mk_pair args
+    val ss = fst (match_term vs pat)
+    val xs = map (subst ss) args
+    in (split_at (not o is_var) xs) end
+  val xs = map find_pat_match cs
+  val ty = map (fn (_,x,_) => type_of x) xs |> hd
+  val raw_ind = TypeBase.induction_of ty
+  fun my_mk_var ty = mk_var("pat_var", ty)
+  val index = ref 0
+  fun goal_step (xs,t,ys) = let
+    val v = my_mk_var (type_of t)
+    val args = xs @ [v] @ ys
+    val P = mk_var("P" ^ (int_to_string (!index)) ,
+              list_mk_fun_type ((map type_of args) @ [``:bool``]))
+    val _ = (index := (!index) + 1)
+    val prop = list_mk_comb(P,args)
+    val goal = list_mk_forall(args,prop)
+    val step = mk_abs(v,list_mk_forall(xs @ ys,prop))
+    in (P,(goal,step)) end
+  val res = map goal_step xs
+  fun ISPEC_LIST [] th = th
+    | ISPEC_LIST (x::xs) th = ISPEC_LIST xs (ISPEC x th)
+  val ind = ISPEC_LIST (map (snd o snd) res) raw_ind
+            |> CONV_RULE (DEPTH_CONV BETA_CONV)
+  val goal1 = ind |> concl |> dest_imp |> snd
+  val goal2 = list_mk_conj (map (fst o snd) res)
+  val goal = mk_imp(goal1,goal2)
+  val lemma = prove(goal, REPEAT STRIP_TAC THEN ASM_REWRITE_TAC [])
+  val ind = MP lemma (ind |> UNDISCH_ALL) |> DISCH_ALL
+            |> GENL (map fst res)
+  in ind end handle HOL_ERR _ =>
+  failwith "unable to construct induction theorem from TypeBase info"
+
+fun mutual_to_single_line_def def = let
+  (* get induction theorem *)
+  val ind = get_induction_for_def def
+  (* collapse to one line per function *)
+  fun mk_arg_vars xs = let
+    fun aux [] = []
+      | aux (x::xs) = mk_var("v" ^ (int_to_string (length xs + 1)),type_of x)
+                       :: aux xs
+    in (rev o aux o rev) xs end
+  fun dest_fun_app tm = let
+    val (x,y) = dest_comb tm
+    val (f,args) = dest_fun_app x
+    in (f,args @ [y]) end handle HOL_ERR _ => (tm,[])
+  fun f tm = let
+    val (lhs,rhs) = dest_eq tm
+    val (const,args) = dest_fun_app lhs
+    val vargs = mk_arg_vars args
+    in (const,vargs,args,rhs) end
+  val cs = def |> CONJUNCTS |> map (f o concl o SPEC_ALL)
+  val cnames = map (fn (x,_,_,_) => x) cs |> all_distinct
+  (* val _ = 1 < length cnames orelse failwith "not mutually recursive" *)
+  val cs = map (fn c => (c, map (fn (x,y,z,q) => (y,z,q))
+                              (filter (fn (x,_,_,_) => c = x) cs))) cnames
+           |> map (fn (c,x) => (c,hd (map (fn (x,y,z) => x) x),
+                                map (fn (x,y,z) => (y,z)) x))
+  fun goal_line (c,args,pats) = let
+    fun transpose [] = []
+      | transpose ([]::xs) = []
+      | transpose xs = map hd xs :: transpose (map tl xs)
+    val us = transpose (map fst pats) |> map all_distinct
+    val ts = zip us args |> map (fn (x,y) => length x > 1)
+    val pats = map (fn (ps,body) =>
+      (pairSyntax.list_mk_pair (map snd (filter fst (zip ts ps))),body)) pats
+    val rhs = TypeBase.mk_pattern_fn pats
+    val rhs_x = filter fst (zip ts args) |> map snd |> pairSyntax.list_mk_pair
+    val rhs = mk_comb(rhs,rhs_x)
+    val ss = filter (not o fst) (zip ts (zip us args)) |> map snd
+             |> map (fn (x,y) => y |-> hd x)
+    val args = map (subst ss) args
+    in list_mk_abs(args,mk_eq(list_mk_comb(c,args),rhs)) end
+  val goals = map goal_line cs
   val lemma = SPECL goals ind
   val goal = lemma |> concl |> dest_imp |> fst
   val lemma1 = prove(goal,
