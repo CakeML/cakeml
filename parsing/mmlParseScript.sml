@@ -3,6 +3,8 @@ open HolKernel Parse boolLib bossLib
 open mmlPEGTheory mmlPtreeConversionTheory
 open monadsyntax
 
+local open mmlvalidTheory in end
+
 val _ = new_theory "mmlParse"
 
 val _ = overload_on ("mmlpegexec",
@@ -31,10 +33,21 @@ val mmlParseREPLPhrase_def = Define`
   od
 `
 
+(* to translate/eval mmlvalid, use theorems
+     mmlvalidTheory.mml_okrule_eval_th
+     mmlvalidTheory.mmlvalid_thm
+     mmlvalidTheory.mmlvalidL_def
+     grammarTheory.ptree_head_def
+
+   mmlvalid and mmlvalidL are mutually recursive in this presentation.
+*)
+
 val mmlParseREPLTop_def = Define`
-  mmlParseREPLTop toks = do
+  mmlParseREPLTop doValidation toks = do
     (toks', pts) <- destResult (mmlpegexec nREPLTop toks);
     pt <- oHD pts;
+    (* use if-then-else to hint at short-circuit/lazy evaluation *)
+    assert(if doValidation then mmlvalid pt else T);
     ast <- ptree_REPLTop pt;
     SOME(toks',ast)
   od
@@ -55,7 +68,7 @@ val parse_def = Define `
 val parse_top_def = Define `
   (parse_top : token list -> ast_top option) tokens =
     do
-      (ts,ast_top) <- mmlParseREPLTop tokens;
+      (ts,ast_top) <- mmlParseREPLTop T tokens;
       if ts <> [] then NONE else SOME ast_top
     od
 `;
