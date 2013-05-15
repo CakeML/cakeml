@@ -18,11 +18,8 @@ val _ = new_theory "Elab"
  * in comments before each node.
  * 
  * Also, an elaboration from this syntax to the AST in ast.lem.  The
- * elaboration spots variables and types that are bound to ML primitives.  The
- * elaboration isn't particularly sophisticated: primitives are always turned
- * into functions, and we don't look for places where the primitive is already
- * applied, so 1 + 2 becomes (fun x y -> x + y) 1 2.  The elaboration also
- * prefixes datatype constructors and types with their paths, so
+ * elaboration spots types that are bound to ML primitives.  It also prefixes
+ * datatype constructors and types with their paths, so
  *
  * structure S = struct datatype t = C val x = C end
  *
