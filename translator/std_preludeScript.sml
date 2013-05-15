@@ -217,6 +217,33 @@ val Eval_FLOOKUP = prove(
   |> MATCH_MP (MATCH_MP Eval_WEAKEN ALOOKUP_eval)
   |> store_eval_thm;
 
+(*
+
+val FAPPLY_ALT_def = Define `FAPPLY_ALT f x = THE (FLOOKUP f x)`;
+val FAPPLY_ALT_eval = translate FAPPLY_ALT_def;
+
+val decl_assum =
+  FAPPLY_ALT_eval |> hyp |> first (can (match_term ``DeclAssum x y``))
+
+val Eval_FAPPLY_ALT = prove(
+  ``!(b:'b -> v -> bool) (a:'a -> v -> bool).
+      ^decl_assum /\
+      PRECONDITION (IS_SOME (FLOOKUP v1 v2)) /\
+      EqualityType b ==>
+      Eval env (Var (Short "FAPPLY_ALT"))
+        ((Eq (FMAP_TYPE b a) v1 --> Eq b v2 --> a) $')``,
+  REPEAT STRIP_TAC
+  THEN MATCH_MP_TAC (MATCH_MP Eval_WEAKEN FAPPLY_ALT_eval |> DISCH_ALL |>
+                     REWRITE_RULE [AND_IMP_INTRO])
+  THEN FULL_SIMP_TAC std_ss [PRECONDITION_def] THEN REPEAT STRIP_TAC
+  THEN FULL_SIMP_TAC std_ss [fetch "-" "FAPPLY_ALT_side_def"]
+  THEN FULL_SIMP_TAC std_ss [Arrow_def,AppReturns_def,Eq_def,FAPPLY_ALT_def]
+  THEN FULL_SIMP_TAC std_ss [FLOOKUP_DEF]
+  THEN Cases_on `v2 IN FDOM v1` THEN FULL_SIMP_TAC std_ss [])
+  |> SPEC_ALL |> UNDISCH_ALL |> store_eval_thm;
+
+*)
+
 val AUPDATE_def = Define `AUPDATE l (x:'a,y:'b) = (x,y)::l`;
 val AUPDATE_eval = translate AUPDATE_def;
 

@@ -78,7 +78,9 @@ val _ = new_theory "ToBytecode"
 /\
 (label_closures ez j (CFun (NONE, def)) =  
 (let (defs,j) = (label_closures_defs ez j 1 0 [def]) in
-  (CFun ( EL  0  defs), j)))
+  (CFun ((case defs of def::_ => def
+         | [] => (SOME (0,([],([],[]))),def) (* should not happen *) ))
+  , j)))
 /\
 (label_closures _ j (CFun (SOME x,y)) = (CFun (SOME x,y),j)) (* should not happen *)
 /\
@@ -168,9 +170,9 @@ val _ = Define `
  emit = ( FOLDL (\ s i . ( s with<| out := i :: s.out |>)))`;
 
 
- val get_labels_def = Define `
+ val get_label_def = Define `
 
-(get_labels n s = (( s with<| next_label := s.next_label + n |>), GENLIST (\ i . s.next_label + i) n))`;
+(get_label s = (( s with<| next_label := s.next_label + 1 |>), s.next_label))`;
 
 
  val compile_envref_defn = Hol_defn "compile_envref" `
@@ -215,7 +217,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val emit_ceenv_def = Define `
 
-(emit_ceenv env (sz,s) fv = ((sz +1),compile_varref sz s ( EL  fv  env)))`;
+(emit_ceenv env (sz,s) fv = ((sz +1),
+  compile_varref sz s
+  ((case el_check fv env of SOME x => x
+   | NONE => CTLet 0 (* should not happen *) ))))`;
 
 
  val emit_ceref_def = Define `
@@ -322,7 +327,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (
   pushret t (emit s [Stack (Cons unit_tag 0)])))
 /\
-(compile env t sz s (CVar vn) = ( pushret t (compile_varref sz s ( EL  vn  env))))
+(compile env t sz s (CVar vn) = ( pushret t
+  (compile_varref sz s
+    ((case el_check vn env of SOME x => x
+     | NONE => CTLet 0 (* should not happen *) )))))
 /\
 (compile env t sz s (CCon n es) =  
 (
@@ -390,13 +398,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (compile env t sz s (CIf e1 e2 e3) =  
 (let s = (compile env TCNonTail sz s e1) in
-  let (s,labs) = ( get_labels 2 s) in
-  let n0 = ( EL  0  labs) in
-  let n1 = ( EL  1  labs) in
+  let (s,n0) = ( get_label s) in
+  let (s,n1) = ( get_label s) in
   (case t of
     TCNonTail =>
-    let (s,labs) = ( get_labels 1 s) in
-    let n2 = ( EL  0  labs) in
+    let (s,n2) = ( get_label s) in
     let s = ( emit s [(JumpIf (Lab n0)); (Jump (Lab n1)); Label n0]) in
     let s = (compile env t sz s e2) in
     let s = ( emit s [Jump (Lab n2); Label n1]) in
@@ -486,8 +492,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  val compile_code_env_def = Define `
 
 (compile_code_env s e =  
-(let (s,ls) = ( get_labels 1 s) in
-  let l = ( EL  0  ls) in
+(let (s,l) = ( get_label s) in
   let s = ( emit s [Jump (Lab l)]) in
   let s = ( FOLDL cce_aux s ( MAP SND (free_labs 0 e))) in
   emit s [Label l]))`;
@@ -512,16 +517,16 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (replace_labels _ a [] = a)
 /\
 (replace_labels m a (Jump (Lab l)::bc) =  
-(replace_labels m (Jump (Addr ( FAPPLY  m  l)) ::a) bc))
+(replace_labels m (Jump (Addr (fapply 0 l m)) ::a) bc))
 /\
 (replace_labels m a (JumpIf (Lab l)::bc) =  
-(replace_labels m (JumpIf (Addr ( FAPPLY  m  l)) ::a) bc))
+(replace_labels m (JumpIf (Addr (fapply 0 l m)) ::a) bc))
 /\
 (replace_labels m a (Call (Lab l)::bc) =  
-(replace_labels m (Call (Addr ( FAPPLY  m  l)) ::a) bc))
+(replace_labels m (Call (Addr (fapply 0 l m)) ::a) bc))
 /\
 (replace_labels m a (PushPtr (Lab l)::bc) =  
-(replace_labels m (PushPtr (Addr ( FAPPLY  m  l)) ::a) bc))
+(replace_labels m (PushPtr (Addr (fapply 0 l m)) ::a) bc))
 /\
 (replace_labels m a (i::bc) =  
 (replace_labels m (i ::a) bc))`;

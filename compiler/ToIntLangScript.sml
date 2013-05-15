@@ -126,7 +126,7 @@ val _ = Hol_datatype `
 /\
 (pat_to_Cpat m (Pcon cn ps) =  
 (let (m,Cps) = (pats_to_Cpats m ps) in
-  (m,CPcon ( FAPPLY  m.cnmap  cn) Cps)))
+  (m,CPcon (fapply 0 cn m.cnmap) Cps)))
 /\
 (pat_to_Cpat m (Pref p) =  
 (let (m,Cp) = (pat_to_Cpat m p) in
@@ -207,7 +207,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (exp_to_Cexp _ (Lit l) = (CLit l))
 /\
 (exp_to_Cexp m (Con cn es) =  
-(CCon ( FAPPLY  m.cnmap  cn) (exps_to_Cexps m es)))
+(CCon (fapply 0 cn m.cnmap) (exps_to_Cexps m es)))
 /\
 (exp_to_Cexp m (Var (Short vn)) = (CVar (the 0 (find_index vn m.bvars 0))))
 /\
@@ -327,7 +327,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (v_to_Cv _ (Litv l) = (CLitv l))
 /\
 (v_to_Cv m (Conv cn vs) =  
-(CConv ( FAPPLY  m  cn) (vs_to_Cvs m vs)))
+(CConv (fapply 0 cn m) (vs_to_Cvs m vs)))
 /\
 (v_to_Cv m (Closure env vn e) =  
 (let Cenv = (env_to_Cenv m env) in

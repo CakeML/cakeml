@@ -13,31 +13,41 @@ Directory structure:
     Lem (http://www.cs.kent.ac.uk/~sao/lem),
     but the generated HOL is also included.
 
-- implementation
-    The compiler implementation in HOL (mostly expressed in Lem)
-
 - metatheory
     Proofs about CakeML, including
     - type soundness
     - determinism
     - equivalence of the big and small step semantics
 
+- implementation
+    The REPL implementation in HOL, including
+      - the type inferencer implementation
+      - definition of repl_fun : string -> repl_result
+      - examples of evaluating repl_fun in the logic
+
+- parsing
+    Lexer and PEG parser for CakeML.
+
+- compiler
+    The middle of the compiler, translating from CakeML abstract syntax to bytecode.
+    Includes:
+      - the bytecode specification and evaluator
+      - the compiler implementation (expressed in Lem)
+      - compiler correctness proofs
+      - rudimentary tests using EmitML
+      - (steps towards) a compiler from bytecode to x86 machine code
+
+- impl_proofs
+    A proof of soundness for the type inferencer.
+
 - translator
-    A proof-producing translator from HOL functions to CakeML
+    A proof-producing translator from HOL functions to CakeML.
 
 - hol-light
     An implementation of HOL Light (http://www.cl.cam.ac.uk/~jrh13/hol-light/)
-    in CakeML
+    in CakeML.
 
-below here, refactor or describe
-
-- lexer
-
-- parsing
-
-- type_checker
-
-- print_ast
+--below here, refactor or describe--
 
 - translator/okasaki-examples
     15 data structures/algorithms from Chris Okasaki's Purely Functional Data
@@ -53,7 +63,6 @@ below here, refactor or describe
     A copying GC, 91 function, regular expression matched and SLR parser
     generator taken from other places, and ollected here for the translator.
 
-- compiler
-    The sketchy beginnings of a verified compiler from MiniML to ???
+- lexer
 
 - computability

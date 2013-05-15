@@ -83,5 +83,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  val the_def = Define `
  (the _ (SOME x) = x) /\ (the x NONE = x)`;
 
+
+val _ = Define `
+ (fapply d x f = (if  x IN FDOM  f then FAPPLY  f  x else d))`;
+
 val _ = export_theory()
 

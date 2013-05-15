@@ -37,6 +37,7 @@ type
   | Ref                     (* create a new ref cell *)
   | Deref                   (* dereference a ref cell *)
   | Update                  (* update a ref cell *)
+  | Stop                    (* halt execution *)
 
 (* --- Semantics --- *)
 
@@ -218,15 +219,16 @@ and
 forall s.
 (bc_fetch s = Some PushExc) (* parens: Lem sucks *)
 ==>
-bc_next s (<|s with handler = List.length s.stack ;
-                    stack = (StackPtr s.handler)::s.stack|>)
+bc_next s (<|bump_pc s with
+               handler = List.length s.stack ;
+               stack = (StackPtr s.handler)::s.stack|>)
 and
 forall s sp x l1 l2.
 bc_fetch s = Some PopExc &&
 s.stack = x::l1 @ StackPtr sp::l2 &&
 List.length l2 = s.handler
 ==>
-bc_next s (<|s with handler = sp; stack = x::l2|>)
+bc_next s (<|bump_pc s with handler = sp; stack = x::l2|>)
 and
 forall s x xs ptr.
 bc_fetch s = Some Ref

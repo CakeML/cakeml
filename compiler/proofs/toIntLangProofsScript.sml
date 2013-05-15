@@ -429,6 +429,9 @@ TRY (Cases_on`v2`>>fs[v_to_Cv_def,LET_THM]>>NO_TAC)
   fsrw_tac[ETA_ss][good_cmap_def,MEM_MAP,EXISTS_PROD,contains_closure_def] >>
   fs[FORALL_PROD] >>
   metis_tac[] )
+>- (
+  fs[good_cmap_def,MEM_MAP] >>
+  metis_tac[] )
 >- fs[contains_closure_def]
 >- fs[contains_closure_def]
 >- (Cases_on`vs2`>>fs[]))

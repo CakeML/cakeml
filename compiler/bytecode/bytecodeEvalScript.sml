@@ -177,11 +177,11 @@ val bc_eval1_def = Define`
   | (Return, x :: CodePtr n :: xs) =>
      SOME (s with <| pc := n; stack := x::xs |>)
   | (PushExc, xs) =>
-     SOME (s with <| handler := LENGTH xs; stack := StackPtr s.handler::xs|>)
+     SOME (bump_pc s with <| handler := LENGTH xs; stack := StackPtr s.handler::xs|>)
   | (PopExc, x::xs) =>
     if s.handler < LENGTH xs then
       case EL s.handler (REVERSE xs) of
-      | (StackPtr sp) => SOME (s with <| handler := sp; stack := x::(REVERSE (TAKE s.handler (REVERSE xs))) |>)
+      | (StackPtr sp) => SOME (bump_pc s with <| handler := sp; stack := x::(REVERSE (TAKE s.handler (REVERSE xs))) |>)
       | _ => NONE
     else NONE
   | (Ref, x::xs) =>

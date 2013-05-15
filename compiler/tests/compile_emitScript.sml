@@ -74,6 +74,8 @@ val defs = map EmitML.DEFN
 , lunion_def
 , lshift_def
 , the_def
+, el_check_def
+, fapply_def
 , free_vars_def
 , emit_def
 , i0_def
@@ -85,7 +87,7 @@ val defs = map EmitML.DEFN
 , cmap_def
 , etC_def
 , error_to_int_def
-, get_labels_def
+, get_label_def
 , compile_envref_def
 , compile_varref_def
 , pushret_def

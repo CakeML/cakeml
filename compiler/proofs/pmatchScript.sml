@@ -441,7 +441,9 @@ val pmatch_Cpmatch = store_thm("pmatch_Cpmatch",
     PairCases_on `p` >> fs[] >>
     rw[] >> rfs[] >>
     fs[pat_to_Cpat_def,LET_THM,UNCURRY] >>
-    rw[v_to_Cv_def] >>
+    simp[pat_to_Cpat_cnmap] >>
+    imp_res_tac ALOOKUP_MEM >>
+    simp[v_to_Cv_def] >>
     rw[Once Cpmatch_cases] >>
     rw[pat_to_Cpat_cnmap]) >>
   strip_tac >- (
@@ -514,14 +516,24 @@ val pmatch_Cpnomatch = store_thm("pmatch_Cpnomatch",
     Cases_on `ALOOKUP cenv n'` >> fs[] >>
     qmatch_assum_rename_tac `ALOOKUP cenv n' = SOME p`[] >>
     PairCases_on `p` >> fs[] >>
-    rw[] >>
-    pop_assum mp_tac >> rw[] >>
-    rw[pat_to_Cpat_def] >> rw[v_to_Cv_def] >>
-    rw[Once Cpnomatch_cases]
-      >- PROVE_TAC[SND,optionTheory.SOME_11,PAIR_EQ] >>
-    fs[good_cmap_def] >>
+    rw[] >> pop_assum mp_tac >> rw[] >>
+    simp[pat_to_Cpat_def] >> simp[v_to_Cv_def] >>
+    `n ∈ FDOM m.cnmap` by (
+      imp_res_tac ALOOKUP_MEM >>
+      fs[good_cmap_def,FORALL_PROD] >>
+      metis_tac[] ) >>
+    TRY (
+      `n' ∈ FDOM m.cnmap` by (
+        imp_res_tac ALOOKUP_MEM >>
+        fs[good_cmap_def,FORALL_PROD] >>
+        metis_tac[] )) >>
+    rw[Once Cpnomatch_cases] >- (
+      simp[UNCURRY,pat_to_Cpat_cnmap] >>
+      PROVE_TAC[SND,optionTheory.SOME_11,PAIR_EQ] ) >>
+    simp[UNCURRY,pat_to_Cpat_cnmap] >>
+    fs[good_cmap_def,FORALL_PROD] >>
     imp_res_tac ALOOKUP_MEM >>
-    metis_tac[pat_to_Cpat_cnmap,FST] ) >>
+    metis_tac[]) >>
   strip_tac >- (
     rw[pmatch_def] >>
     Cases_on `store_lookup lnum s` >> fs[] >>

@@ -92,23 +92,24 @@ val _ = computeLib.add_funs
   ,bc_fetch_aux_zero
   ]
 
-val input = ``"val x = true; val y = 2;"``
+fun run_print_save name input = let
+  val _ = print"\n"
+  val thm = time EVAL ``repl_fun ^input``
+  val _ = print(thm_to_string thm)
+  val _ = print"\n"
+in save_thm(name,thm) end
 
-val ex1 = time EVAL ``repl_fun ^input``
-val _ = save_thm("ex1",ex1)
+val input = ``"val x = true; val y = 2;"``
+val _ = run_print_save "ex1" input
 
 val input = ``"fun f x = x + 3; f 2;"``
-
-val ex2 = time EVAL ``repl_fun ^input``
-val _ = save_thm("ex2",ex2)
+val _ = run_print_save "ex2" input
 
 val input = ``"datatype foo = C of int | D of bool; fun f x = case x of (C i) => i+1 | D _ => 0; f (C (3));"``
-
-val ex3 = time EVAL ``repl_fun ^input``
-val _ = save_thm("ex3",ex3)
+val _ = run_print_save "ex3" input
 
 val input = ``"fun f n = if n = 0 then 1 else n * f (n-1); f 0;"``
-val ex4 = time EVAL ``repl_fun ^input``
+val _ = run_print_save "ex4" input
 
 (* intermediate steps:
   val s = ``init_repl_fun_state``

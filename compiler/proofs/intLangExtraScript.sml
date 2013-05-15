@@ -125,6 +125,14 @@ val vlabs_list_MAP = store_thm("vlabs_list_MAP",
  ``∀vs. vlabs_list vs = BIGUNION (IMAGE vlabs (set vs))``,
  Induct >> rw[])
 
+val vlabs_list_APPEND = store_thm("vlabs_list_APPEND",
+  ``vlabs_list (l1 ++ l2) = vlabs_list l1 ∪ vlabs_list l2``,
+  rw[vlabs_list_MAP])
+
+val vlabs_list_REVERSE = store_thm("vlabs_list_REVERSE",
+  ``vlabs_list (REVERSE ls) = vlabs_list ls``,
+  rw[vlabs_list_MAP])
+
 val no_vlabs_def = Define`
   (no_vlabs (CLitv _) = T) ∧
   (no_vlabs (CConv _ vs) = no_vlabs_list vs) ∧
@@ -1021,9 +1029,9 @@ val syneq_ov = store_thm("syneq_ov",
 val good_cmap_def = Define`
   good_cmap (cenv:envC) m =
     ∀p1 p2.
-      MEM p1 cenv ∧
-      MEM p2 cenv ∧
-      (FAPPLY m (FST p1) = FAPPLY m (FST p2)) ⇒ (p1 = p2)`
+      MEM p1 cenv ∧ MEM p2 cenv ⇒
+      (FST p1) ∈ FDOM m ∧ (FST p2) ∈ FDOM m ∧
+      ((FAPPLY m (FST p1) = FAPPLY m (FST p2)) ⇒ (p1 = p2))`
 
 val Cevaluate_list_LENGTH = store_thm("Cevaluate_list_LENGTH",
   ``∀exps s env s' vs. Cevaluate_list s env exps (s', Rval vs) ⇒ (LENGTH vs = LENGTH exps)``,

@@ -1,0 +1,29 @@
+INCLUDES = .. ../../semantics ../../parsing ../../compiler \
+           ../../compiler/bytecode ../../implementation \
+           $(HOLDIR)/examples/unification/triangular/first-order \
+           $(HOLDIR)/examples/parsing
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = local-hol-heap
+PARENT_HOLHEAP = ../local-hol-heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+PRE_BARE_THYS = AstTheory \
+		TokensTheory \
+		LibTheory \
+		SemanticPrimitivesTheory \
+		AltBigStepTheory
+
+BARE_THYS = $(patsubst %,../../semantics/%,$(PRE_BARE_THYS)) \
+            ../ml_translatorLib \
+            ../../parsing/mmlParseTheory \
+            ../../compiler/compilerTerminationTheory \
+            ../../implementation/inferTheory \
+            ../../implementation/repl_funTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif

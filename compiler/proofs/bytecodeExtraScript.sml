@@ -208,17 +208,17 @@ val bc_next_append_code = store_thm("bc_next_append_code",
     rw[bc_eval1_thm] >>
     imp_res_tac bc_fetch_append_code >>
     imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] ) >>
+    rw[bc_eval1_def,LET_THM,bump_pc_def] ) >>
   strip_tac >- (
-    rw[bc_eval1_thm] >>
+    rw[bc_eval1_thm,bump_pc_def] >>
     imp_res_tac bc_fetch_append_code >>
     imp_res_tac bc_find_loc_append_code >>
-    rw[bc_eval1_def,LET_THM] ) >>
+    rw[bc_eval1_def,LET_THM,bump_pc_def] ) >>
   strip_tac >- (
-    rw[bc_eval1_thm] >>
+    rw[bc_eval1_thm,bump_pc_def] >>
     imp_res_tac bc_fetch_append_code >>
     imp_res_tac bc_find_loc_append_code >>
-    srw_tac[ARITH_ss][bc_eval1_def,LET_THM] >>
+    srw_tac[ARITH_ss][bc_eval1_def,LET_THM,bump_pc_def] >>
     lrw[REVERSE_APPEND,EL_APPEND2,TAKE_APPEND2]) >>
   strip_tac >- (
     rw[bc_eval1_thm] >>

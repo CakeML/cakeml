@@ -3,6 +3,8 @@ open HolKernel Parse boolLib bossLib
 open mmlPEGTheory mmlPtreeConversionTheory
 open monadsyntax
 
+local open mmlvalidTheory in end
+
 val _ = new_theory "mmlParse"
 
 val _ = overload_on ("mmlpegexec",
@@ -16,7 +18,8 @@ val destResult_def = Define`
 val mmlParseExpr_def = Define`
   mmlParseExpr toks = do
     (toks', pts) <- destResult (mmlpegexec nE toks);
-    ast <- ptree_Expr nE (HD pts);
+    pt <- oHD pts;
+    ast <- ptree_Expr nE pt;
     SOME(toks',ast)
   od
 `;
@@ -24,13 +27,33 @@ val mmlParseExpr_def = Define`
 val mmlParseREPLPhrase_def = Define`
   mmlParseREPLPhrase toks = do
     (toks', pts) <- destResult (mmlpegexec nREPLPhrase toks);
-    ast <- ptree_REPLPhrase (HD pts);
+    pt <- oHD pts;
+    ast <- ptree_REPLPhrase pt;
     SOME(toks',ast)
   od
 `
 
-(* This function parses declarations, no junk is allowed at the end.
-   It is used in implementation/repl_funScript.sml. *)
+(* to translate/eval mmlvalid, use theorems
+     mmlvalidTheory.mml_okrule_eval_th
+     mmlvalidTheory.mmlvalid_thm
+     mmlvalidTheory.mmlvalidL_def
+     grammarTheory.ptree_head_def
+
+   mmlvalid and mmlvalidL are mutually recursive in this presentation.
+*)
+
+val mmlParseREPLTop_def = Define`
+  mmlParseREPLTop doValidation toks = do
+    (toks', pts) <- destResult (mmlpegexec nREPLTop toks);
+    pt <- oHD pts;
+    (* use if-then-else to hint at short-circuit/lazy evaluation *)
+    assert(if doValidation then mmlvalid pt else T);
+    ast <- ptree_REPLTop pt;
+    SOME(toks',ast)
+  od
+`
+
+(* This function parses declarations, no junk is allowed at the end. *)
 val parse_def = Define `
   (parse : token list -> ast_prog option) tokens =
     do
@@ -39,13 +62,14 @@ val parse_def = Define `
     od
 `;
 
-(* TODO: fix *)
+(* This function parses a single declaration followed by a semicolon.
+   No junk is allowed at the end.
+   It is used in implementation/repl_funScript.sml. *)
 val parse_top_def = Define `
   (parse_top : token list -> ast_top option) tokens =
     do
-      (ts,ast_tdecs) <- mmlParseREPLPhrase tokens;
-      if ts <> [] then NONE
-      else case ast_tdecs of [top] => SOME top | _ => NONE
+      (ts,ast_top) <- mmlParseREPLTop T tokens;
+      if ts <> [] then NONE else SOME ast_top
     od
 `;
 
@@ -112,7 +136,8 @@ val parse_REPLphrase_def = Define`
   parse_REPLphrase toks =
     do
       (toks',pts) <- destResult (mmlpegexec nREPLPhrase toks);
-      tds <- ptree_REPLPhrase (HD pts);
+      pt <- oHD pts;
+      tds <- ptree_REPLPhrase pt;
       SOME(toks',tds)
     od
 `

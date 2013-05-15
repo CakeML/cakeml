@@ -43,7 +43,9 @@ val mk_rinfix_def = Define`
 val peg_linfix_def = Define`
   peg_linfix tgtnt rptsym opsym =
     seq rptsym (rpt (seq opsym rptsym (++)) FLAT)
-        (λa b. [mk_linfix tgtnt (Nd tgtnt [HD a]) b])
+        (λa b. case a of
+                   [] => []
+                  | h::_ => [mk_linfix tgtnt (Nd tgtnt [h]) b])
 `;
 
 val mktokLf_def = Define`mktokLf t = [Lf (TK t)]`
@@ -84,9 +86,12 @@ val peg_Type_def = Define`
                  (choice (seq (tokeq ArrowT) (pnt nType) (++))
                          (empty [])
                          sumID)
-                 (λa b. case b of
-                          [] => [Nd (mkNT nType) a]
-                        | _ => [Nd (mkNT nType) [HD a; HD b; HD (TL b)]])
+                 (λa b. case (a,b) of
+                          (_, []) => [Nd (mkNT nType) a]
+                        | ([], _) => [] (* shouldn't happen *)
+                        | (_, [b]) => [] (* shouldn't happen *)
+                        | (ah::at, b1::b2::bt) =>
+                          [Nd (mkNT nType) [ah; b1; b2]])
 `;
 
 val splitAt_def = Define`
@@ -100,17 +105,25 @@ val splitAt_def = Define`
 val calcTyOp_def = Define`
   calcTyOp a b =
     case b of
-      [Lf (TK RparT)] => [Nd (mkNT nDType) [Lf (TK LparT); HD a; HD b]]
-    | Lf (TK RparT)::ops => FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
-                                  [Lf (TK LparT); Nd (mkNT nTypeList) a; HD b]
-                                  ops
+      [Lf (TK RparT)] =>
+      (case a of
+           [] => []
+         | ah::_ => [Nd (mkNT nDType) [Lf (TK LparT); ah; Lf (TK RparT)]])
+    | Lf (TK RparT)::ops =>
+      FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
+            [Lf (TK LparT); Nd (mkNT nTypeList) a; Lf (TK RparT)]
+            ops
     | _ => let (tylist, paren_ops) = splitAt (Lf (TK RparT)) b
            in
-             let tylist_n = mk_rinfix (mkNT nTypeList) (HD a :: tylist)
-             in
-               FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
-                     [Lf (TK LparT); tylist_n; Lf (TK RparT)]
-                     (TL paren_ops)
+             case (a,paren_ops) of
+                 ([],_) => []  (* shouldn't happen *)
+               | (_,[]) => []  (* shouldn't happen *)
+               | (ah::_,_::pt) =>
+                 let tylist_n = mk_rinfix (mkNT nTypeList) (ah :: tylist)
+                 in
+                   FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
+                         [Lf (TK LparT); tylist_n; Lf (TK RparT)]
+                         pt
 `;
 
 val peg_DType_def = Define`
@@ -194,9 +207,12 @@ val peg_Eapp_def = Define`
     choice (seql [pnt nConstructorName; pnt nEtuple] (bindNT nEapp))
            (seq (pnt nEbase)
                 (rpt (pnt nEbase) FLAT)
-                (λa b. [FOLDL (λa b. Nd (mkNT nEapp) [a; b])
-                              (Nd (mkNT nEapp) [HD a])
-                              b]))
+                (λa b.
+                    case a of
+                        [] => []
+                      | ah::_ =>
+                        [FOLDL (λa b. Nd (mkNT nEapp) [a; b])
+                               (Nd (mkNT nEapp) [ah]) b]))
            sumID
 `;
 
@@ -210,7 +226,7 @@ val peg_longV_def = Define`
 
 val mmlPEG_def = zDefine`
   mmlPEG = <|
-    start := pnt nREPLPhrase;
+    start := pnt nREPLTop;
     rules := FEMPTY |++
              [(mkNT nV, peg_V);
               (mkNT nVlist1,
@@ -381,12 +397,21 @@ val mmlPEG_def = zDefine`
                pegf (choicel [pnt nStructure; pnt nDecl]) (bindNT nTopLevelDec));
               (mkNT nTopLevelDecs,
                rpt (pnt nTopLevelDec)
-                   (λtds. [FOLDR (λtd acc. Nd (mkNT nTopLevelDecs) [HD td; acc])
-                                 (Nd (mkNT nTopLevelDecs) []) tds]));
+                   (λtds. [FOLDR
+                             (λtd acc.
+                                  Nd (mkNT nTopLevelDecs)
+                                     (case td of
+                                          [] => [acc] (* should't happen *)
+                                        | tdh::_ => [tdh; acc]))
+                             (Nd (mkNT nTopLevelDecs) []) tds]));
               (mkNT nREPLPhrase,
                choicel [seql [pnt nE; tokeq SemicolonT] (bindNT nREPLPhrase);
                         seql [pnt nTopLevelDecs; tokeq SemicolonT]
-                             (bindNT nREPLPhrase)])
+                             (bindNT nREPLPhrase)]);
+              (mkNT nREPLTop,
+               choicel [seql [pnt nE; tokeq SemicolonT] (bindNT nREPLTop);
+                        seql [pnt nTopLevelDec; tokeq SemicolonT]
+                             (bindNT nREPLTop)])
              ] |>
 `;
 
@@ -546,7 +571,7 @@ val topo_nts = [``nV``, ``nTypeDec``, ``nDecl``, ``nVlist1``,
                 ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,
                 ``nSpecLineList``, ``nSignatureValue``,
                 ``nOptionalSignatureAscription``, ``nStructure``,
-                ``nTopLevelDec``, ``nTopLevelDecs``, ``nREPLPhrase``]
+                ``nTopLevelDec``, ``nTopLevelDecs``, ``nREPLPhrase``, ``nREPLTop``]
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",
@@ -573,18 +598,18 @@ val PEG_wellformed = store_thm(
        peg_DType_def, peg_longV_def] >>
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
 
-val parse_REPLPhrase_total = save_thm(
-  "parse_REPLPhrase_total",
+val parse_REPLTop_total = save_thm(
+  "parse_REPLTop_total",
   MATCH_MP peg_exec_total PEG_wellformed
            |> REWRITE_RULE [peg_start] |> Q.GEN `i`);
 
-val coreloop_REPLPhrase_total = save_thm(
-  "coreloop_REPLPhrase_total",
+val coreloop_REPLTop_total = save_thm(
+  "coreloop_REPLTop_total",
   MATCH_MP coreloop_total PEG_wellformed
     |> REWRITE_RULE [peg_start] |> Q.GEN `i`);
 
-val owhile_REPLPhrase_total = save_thm(
-  "owhile_REPLPhrase_total",
-  SIMP_RULE (srw_ss()) [coreloop_def] coreloop_REPLPhrase_total);
+val owhile_REPLTop_total = save_thm(
+  "owhile_REPLTop_total",
+  SIMP_RULE (srw_ss()) [coreloop_def] coreloop_REPLTop_total);
 
 val _ = export_theory()

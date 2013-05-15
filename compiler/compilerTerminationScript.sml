@@ -261,7 +261,7 @@ val _ = register "ov_to_string" (
 (* export rewrites *)
 
 val _ = export_rewrites
-["ToBytecode.emit_def","ToBytecode.get_labels_def","ToBytecode.emit_ceref_def","ToBytecode.emit_ceenv_def"
+["ToBytecode.emit_def","ToBytecode.get_label_def","ToBytecode.emit_ceref_def","ToBytecode.emit_ceenv_def"
 ,"ToBytecode.prim1_to_bc_def","ToBytecode.prim2_to_bc_def","Compiler.cmap_def","ToIntLang.cbv_def","Compiler.etC_def"
 ,"ToIntLang.remove_mat_vp_def","free_vars_def","no_closures_def"
 ,"Cv_to_ov_def","v_to_ov_def"
@@ -272,6 +272,6 @@ val _ = export_rewrites
 ,"CompilerPrimitives.map_result_def","CompilerPrimitives.every_result_def"
 ,"IntLang.doPrim2_def","IntLang.CevalPrim2_def","IntLang.CevalUpd_def","IntLang.CevalPrim1_def"
 ,"free_labs_def","no_labs_def","all_labs_def","Printer.lookup_ct_def","Printer.lookup_cc_def"
-,"CompilerLib.the_def"];
+,"CompilerLib.the_def","CompilerLib.fapply_def"];
 
 val _ = export_theory()
