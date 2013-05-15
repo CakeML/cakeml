@@ -74,6 +74,7 @@ val defs = map EmitML.DEFN
 , lunion_def
 , lshift_def
 , the_def
+, el_check_def
 , free_vars_def
 , emit_def
 , i0_def

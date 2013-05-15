@@ -671,9 +671,12 @@ val FOLDL_emit_ceenv_thm = store_thm("FOLDL_emit_ceenv_thm",
   first_x_assum(qspecl_then[`env0`,`z+1`,`s1`]mp_tac) >>
   simp[Abbr`X`,Abbr`s1`] >>
   disch_then(Q.X_CHOOSE_THEN`bc`strip_assume_tac) >> rw[] >>
-  qspecl_then[`z`,`s`,`EL e env0`]mp_tac compile_varref_append_out >>
+  Q.PAT_ABBREV_TAC`ell:ctbind = X` >>
+  qspecl_then[`z`,`s`,`ell`]mp_tac compile_varref_append_out >>
   disch_then(Q.X_CHOOSE_THEN`bcv`strip_assume_tac) >> rw[] >>
   simp[Once SWAP_REVERSE] >> rw[EVERY_REVERSE] >>
+  `ell = EL e env0` by (
+    simp[Abbr`ell`,el_check_def] ) >> rw[] >>
   Cases_on`lookup_ct (z-j) (DROP j bs.stack) (DRESTRICT bs.refs cls) (EL e env0)`>>fs[] >>
   `lookup_ct z bs.stack (DRESTRICT bs.refs cls) (EL e env0) = SOME x` by (
     match_mp_tac lookup_ct_imp_incsz_many >>
@@ -1355,7 +1358,8 @@ val compile_append_out = store_thm("compile_append_out",
     rw[] >> fs[] >> rw[zero_exists_lemma]) >>
   strip_tac >- (
     rw[compile_def] >>
-    qspecl_then[`sz`,`cs`,`EL vn env`]mp_tac compile_varref_append_out >>
+    Q.PAT_ABBREV_TAC`ell:ctbind = X` >>
+    qspecl_then[`sz`,`cs`,`ell`]mp_tac compile_varref_append_out >>
     SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
     qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
     rw[] >> fs[GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
@@ -2037,6 +2041,7 @@ val compile_val = store_thm("compile_val",
       map_every qexists_tac [`[x]`,`bs.refs`,`rd`] >> rw[s_refs_with_stack] >- (
         match_mp_tac compile_varref_thm >> fs[] >>
         simp[bc_state_component_equality] >>
+        rfs[el_check_def] >>
         metis_tac[])
       >- (
         qmatch_assum_rename_tac `z < LENGTH cenv`[] >>
@@ -2049,6 +2054,7 @@ val compile_val = store_thm("compile_val",
       fs[s_refs_def,good_rd_def]) >>
     rw[] >> fs[] >>
     match_mp_tac code_for_push_return >>
+    rfs[el_check_def] >>
     qspecl_then[`sz`,`cs`,`EL n cenv`]strip_assume_tac compile_varref_append_out >> fs[] >>
     first_x_assum(qspec_then`REVERSE bc`mp_tac) >> simp[] >>
     fs[Once SWAP_REVERSE] >> strip_tac >>

@@ -78,7 +78,9 @@ val _ = new_theory "ToBytecode"
 /\
 (label_closures ez j (CFun (NONE, def)) =  
 (let (defs,j) = (label_closures_defs ez j 1 0 [def]) in
-  (CFun ( EL  0  defs), j)))
+  (CFun ((case defs of def::_ => def
+         | [] => (SOME (0,([],([],[]))),def) (* should not happen *) ))
+  , j)))
 /\
 (label_closures _ j (CFun (SOME x,y)) = (CFun (SOME x,y),j)) (* should not happen *)
 /\
@@ -215,7 +217,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val emit_ceenv_def = Define `
 
-(emit_ceenv env (sz,s) fv = ((sz +1),compile_varref sz s ( EL  fv  env)))`;
+(emit_ceenv env (sz,s) fv = ((sz +1),
+  compile_varref sz s
+  ((case el_check fv env of SOME x => x
+   | NONE => CTLet 0 (* should not happen *) ))))`;
 
 
  val emit_ceref_def = Define `
@@ -322,7 +327,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (
   pushret t (emit s [Stack (Cons unit_tag 0)])))
 /\
-(compile env t sz s (CVar vn) = ( pushret t (compile_varref sz s ( EL  vn  env))))
+(compile env t sz s (CVar vn) = ( pushret t
+  (compile_varref sz s
+    ((case el_check vn env of SOME x => x
+     | NONE => CTLet 0 (* should not happen *) )))))
 /\
 (compile env t sz s (CCon n es) =  
 (
