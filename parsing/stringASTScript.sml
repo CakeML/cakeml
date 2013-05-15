@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib
 
 open mmlParseTheory lexer_funTheory
-open monadsyntax
+open monadsyntax ASCIInumbersLib
 
 val _ = new_theory "stringAST"
 
