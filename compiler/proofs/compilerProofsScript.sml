@@ -101,13 +101,13 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
   disch_then(Q.X_CHOOSE_THEN`c0`strip_assume_tac) >>
   simp[Once SWAP_REVERSE,Abbr`s''''`] >>
   conj_tac >- (
-    simp[ALL_DISTINCT_APPEND,FILTER_APPEND,MEM_FILTER,Abbr`l`] >>
+    simp[ALL_DISTINCT_APPEND,FILTER_APPEND,MEM_FILTER] >>
     fs[EVERY_MAP,EVERY_FILTER] >> fs[EVERY_MEM] >>
     spose_not_then strip_assume_tac >> res_tac >>
     fsrw_tac[ARITH_ss][between_def,MEM_MAP,MAP_MAP_o] >>
     res_tac >> rw[] >> DECIDE_TAC ) >>
   conj_tac >- (
-    fs[EVERY_MAP,EVERY_FILTER,is_Label_rwt,GSYM LEFT_FORALL_IMP_THM,between_def,Abbr`l`] >>
+    fs[EVERY_MAP,EVERY_FILTER,is_Label_rwt,GSYM LEFT_FORALL_IMP_THM,between_def] >>
     reverse conj_tac >- (disj2_tac >> DECIDE_TAC) >>
     fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
     rw[] >> res_tac >>
@@ -126,13 +126,13 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
     simp[EL_MAP] >>
     simp[Abbr`cd`] >> strip_tac >>
     qexists_tac`cs i`>>simp[] >>
-    qexists_tac`bc0++Jump (Lab l)::bc0'` >>
+    qexists_tac`bc0++Jump (Lab s.next_label)::bc0'` >>
     simp[] >>
     fs[EVERY_MEM,MEM_MAP,FILTER_APPEND] >>
     fsrw_tac[DNF_ss][] >- (
       rpt strip_tac >> res_tac >> DECIDE_TAC) >>
     rpt strip_tac >> res_tac >> DECIDE_TAC) >>
-  `bc_fetch bs = SOME (Jump (Lab l))` by (
+  `bc_fetch bs = SOME (Jump (Lab s.next_label))` by (
     match_mp_tac bc_fetch_next_addr >>
     qexists_tac`bc0` >> simp[] ) >>
   simp[bc_eval1_thm,bc_eval1_def,bc_state_component_equality,bc_find_loc_def] >>
@@ -140,7 +140,7 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
   match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
   qexists_tac`LENGTH bc0 + 1 + LENGTH c0` >>
   simp[EL_APPEND2,TAKE_APPEND2,FILTER_APPEND,SUM_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER] >>
-  fs[Abbr`l`,EVERY_MAP,EVERY_FILTER,between_def] >>
+  fs[EVERY_MAP,EVERY_FILTER,between_def] >>
   fsrw_tac[DNF_ss][EVERY_MEM,is_Label_rwt,MEM_MAP,EXISTS_PROD,FORALL_PROD,MEM_FILTER] >>
   rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] >>
   res_tac >> fsrw_tac[ARITH_ss][])

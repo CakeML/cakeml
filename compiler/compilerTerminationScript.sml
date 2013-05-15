@@ -261,7 +261,7 @@ val _ = register "ov_to_string" (
 (* export rewrites *)
 
 val _ = export_rewrites
-["ToBytecode.emit_def","ToBytecode.get_labels_def","ToBytecode.emit_ceref_def","ToBytecode.emit_ceenv_def"
+["ToBytecode.emit_def","ToBytecode.get_label_def","ToBytecode.emit_ceref_def","ToBytecode.emit_ceenv_def"
 ,"ToBytecode.prim1_to_bc_def","ToBytecode.prim2_to_bc_def","Compiler.cmap_def","ToIntLang.cbv_def","Compiler.etC_def"
 ,"ToIntLang.remove_mat_vp_def","free_vars_def","no_closures_def"
 ,"Cv_to_ov_def","v_to_ov_def"

@@ -55,8 +55,7 @@ val _ = Define `
 (let rsz = ( LENGTH rs.rbvars) in
   let (Ce,n) = ( label_closures rsz rs.rnext_label Ce) in
   let cs = (<| out := []; next_label := n |>) in
-  let (cs,l) = ( get_labels 1 cs) in
-  let l = ( EL  0  l) in
+  let (cs,l) = ( get_label cs) in
   let cs = ( emit cs [PushPtr (Lab l); PushExc]) in
   let cs = ( compile_code_env cs Ce) in
   (l, compile ( GENLIST (\ i . CTLet (rsz - i)) rsz) TCNonTail (rsz +2) cs Ce)))`;
@@ -101,8 +100,7 @@ val _ = Define `
   let cs = ( emit cs [PopExc; Stack (Pops 1)]) in
   let cs = ( compile_shadows rs.rbvars cs 0 shadows) in
   let cs = ( compile_news cs ( LENGTH shadows) news) in
-  let (cs,l2) = ( get_labels 1 cs) in
-  let l2 = ( EL  0  l2) in
+  let (cs,l2) = ( get_label cs) in
   let cs = ( emit cs [Stack Pop; Stack (PushInt i0); PushPtr (Lab l2); JumpPtr
                    ; Label l1; Stack (PushInt i1); Label l2; Stop]) in
   (( rs with<| rbvars := ( REVERSE news) ++rs.rbvars

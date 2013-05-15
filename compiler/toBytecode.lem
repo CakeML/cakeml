@@ -143,8 +143,7 @@ prim2_to_bc CEq = Equal
 let emit = List.fold_left (fun s i -> <| s with out = i :: s.out |>)
 
 let rec
-get_labels n s = (<| s with next_label = s.next_label + n |>,
-                  genlist (fun i -> s.next_label + i) n)
+get_label s = (<| s with next_label = s.next_label + 1 |>, s.next_label)
 
 let rec
 compile_envref sz s (CCArg n) = emit s [Stack (Load (sz + n))]
@@ -329,13 +328,11 @@ compile env t sz s (CUpd e1 e2) =
 and
 compile env t sz s (CIf e1 e2 e3) =
   let s = compile env TCNonTail sz s e1 in
-  let (s,labs) = get_labels 2 s in
-  let n0 = List.nth labs 0 in
-  let n1 = List.nth labs 1 in
+  let (s,n0) = get_label s in
+  let (s,n1) = get_label s in
   match t with
   | TCNonTail ->
-    let (s,labs) = get_labels 1 s in
-    let n2 = List.nth labs 0 in
+    let (s,n2) = get_label s in
     let s = emit s [(JumpIf (Lab n0)); (Jump (Lab n1)); Label n0] in
     let s = compile env t sz s e2 in
     let s = emit s [Jump (Lab n2); Label n1] in
@@ -416,8 +413,7 @@ let rec cce_aux s ((l,(ccenv,_)),(az,b)) =
 
 let rec
 compile_code_env s e =
-  let (s,ls) = get_labels 1 s in
-  let l = List.nth ls 0 in
+  let (s,l) = get_label s in
   let s = emit s [Jump (Lab l)] in
   let s = List.fold_left cce_aux s (List.map snd (free_labs 0 e)) in
   emit s [Label l]

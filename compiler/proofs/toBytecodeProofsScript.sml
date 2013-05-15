@@ -3797,7 +3797,7 @@ val compile_val = store_thm("compile_val",
             simp[Abbr`bs11`,Abbr`lc3`] >>
             Q.PAT_ABBREV_TAC`ls = X ++ REVERSE be2` >>
             qexists_tac`ls` >>
-            rw[] ) >>
+            srw_tac[ARITH_ss][Abbr`nl2`,Abbr`nl1`] ) >>
           `bc_next bs11 bs13` by (
             rw[bc_eval1_thm] >>
             rw[bc_eval1_def,Abbr`bs13`,Abbr`bs11`] >>

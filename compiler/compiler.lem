@@ -31,8 +31,7 @@ let compile_Cexp rs Ce =
   let rsz = List.length rs.rbvars in
   let (Ce,n) = label_closures rsz rs.rnext_label Ce in
   let cs = <| out = []; next_label = n |> in
-  let (cs,l) = get_labels 1 cs in
-  let l = List.nth l 0 in
+  let (cs,l) = get_label cs in
   let cs = emit cs [PushPtr (Lab l); PushExc] in
   let cs = compile_code_env cs Ce in
   (l, compile (genlist (fun i -> CTLet (rsz-i)) rsz) TCNonTail (rsz+2) cs Ce)
@@ -66,8 +65,7 @@ let compile_fake_exp rs vs e =
   let cs = emit cs [PopExc; Stack (Pops 1)] in
   let cs = compile_shadows rs.rbvars cs 0 shadows in
   let cs = compile_news cs (List.length shadows) news in
-  let (cs,l2) = get_labels 1 cs in
-  let l2 = List.nth l2 0 in
+  let (cs,l2) = get_label cs in
   let cs = emit cs [Stack Pop; Stack (PushInt i0); PushPtr (Lab l2); JumpPtr
                    ; Label l1; Stack (PushInt i1); Label l2; Stop] in
   (<| rs with rbvars = (List.rev news)@rs.rbvars
