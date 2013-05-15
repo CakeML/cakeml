@@ -1,11 +1,11 @@
-INCLUDES = ..
+INCLUDES = .. ../../translator/repl
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../repl_funTheory
+BARE_THYS = ../repl_funTheory ../repl_computeLib ../../translator/repl/ml_repl_stepTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
