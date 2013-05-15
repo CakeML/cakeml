@@ -625,43 +625,47 @@ fun derive_record_specific_thms ty = let
   val update_funs =
     TypeBase.updates_of ty
     |> map (rator o rator o fst o dest_eq o concl o SPEC_ALL)
+  val thy_name = access_funs |> hd |>dest_thy_const |> #Thy
   val tm =
-    DB.fetch "-" (ty_name ^ "_11")
+    DB.fetch thy_name (ty_name ^ "_11")
     |> SPEC_ALL |> concl |> dest_eq |> fst |> dest_eq |> fst
   val xs = dest_args tm
   val c = repeat rator tm
   val case_tm =
-    DB.fetch "-" (ty_name ^ "_case_cong")
+    DB.fetch thy_name (ty_name ^ "_case_cong")
     |> SPEC_ALL |> UNDISCH_ALL |> concl |> dest_eq |> fst |> repeat rator
   fun prove_accessor_eq (a,x) = let
-     val v = mk_var("v",type_of tm)
-     val f = foldr (fn (v,tm) => mk_abs(v,tm)) x xs
-     val ty1 = case_tm |> type_of |> dest_type  |> snd |> hd
-     val i = match_type ty1 (type_of f)
-     val rhs = mk_comb(mk_comb(inst i case_tm,f),v)
-     val lhs = mk_comb(a,v)
-     val goal = mk_forall(v,mk_eq(lhs,rhs))
-     val lemma = prove(goal,Cases THEN SRW_TAC [] [])
-     in lemma end
+    val v = mk_var("v",type_of tm)
+    val f = foldr (fn (v,tm) => mk_abs(v,tm)) x xs
+    val ty1 = case_tm |> type_of |> dest_type |> snd |> el 2
+                                 |> dest_type |> snd |> hd
+    val i = match_type ty1 (type_of f)
+    val rhs = mk_comb(mk_comb(inst i case_tm,v),f)
+    val lhs = mk_comb(a,v)
+    val goal = mk_forall(v,mk_eq(lhs,rhs))
+    val lemma = prove(goal,Cases THEN SRW_TAC [] [])
+    in lemma end
   val a_lemmas = map prove_accessor_eq (zip access_funs xs)
   fun prove_updates_eq (a,x) = let
-     val v = mk_var("v",type_of tm)
-     val t = type_of x
-     val g = mk_var("g",mk_type("fun",[t,t]))
-     val f = foldr mk_abs (subst [x|->mk_comb(g,x)] tm) xs
-     val ty1 = case_tm |> type_of |> dest_type  |> snd |> hd
-     val i = match_type ty1 (type_of f)
-     val rhs = mk_comb(mk_comb(inst i case_tm,f),v)
-     val lhs = mk_comb(mk_comb(a,g),v)
-     val goal = mk_forall(v,mk_forall(g,mk_eq(lhs,rhs)))
-     val tac = Cases THEN SRW_TAC [] [DB.fetch "-" (ty_name ^ "_fn_updates")]
-     in prove(goal,tac) end
+    val v = mk_var("v",type_of tm)
+    val t = type_of x
+    val g = mk_var("g",mk_type("fun",[t,t]))
+    val f = foldr mk_abs (subst [x|->mk_comb(g,x)] tm) xs
+    val ty1 = case_tm |> type_of |> dest_type |> snd |> el 2
+                                 |> dest_type |> snd |> hd
+    val i = match_type ty1 (type_of f)
+    val rhs = mk_comb(mk_comb(inst i case_tm,v),f)
+    val lhs = mk_comb(mk_comb(a,g),v)
+    val goal = mk_forall(v,mk_forall(g,mk_eq(lhs,rhs)))
+    val tac = Cases THEN SRW_TAC [] [DB.fetch thy_name (ty_name ^ "_fn_updates")]
+    in prove(goal,tac) end
   val b_lemmas = map prove_updates_eq (zip update_funs xs)
   val arb = mk_arb(type_of tm)
   val tm2 = foldr (fn ((a,x),y) => mk_comb(``^a (K ^x)``,y)) arb (zip update_funs xs)
   val goal = mk_eq(tm2,tm)
-  val rw_lemma = prove(goal,SRW_TAC [] [DB.fetch "-" (ty_name ^ "_component_equality")])
-  val rw_lemmas = CONJ (DB.fetch "-" (ty_name ^ "_fupdcanon")) rw_lemma
+  val rw_lemma = prove(goal,SRW_TAC []
+    [DB.fetch thy_name (ty_name ^ "_component_equality")])
+  val rw_lemmas = CONJ (DB.fetch thy_name (ty_name ^ "_fupdcanon")) rw_lemma
   in (a_lemmas @ b_lemmas, [rw_lemmas]) end;
 
 fun rename_bound_vars_rule prefix th = let
@@ -1036,7 +1040,8 @@ fun derive_thms_for_type ty = let
     in (ty,eq_lemma,inv_def,conses,case_lemma,ts) end
   val res = map make_calls (zip case_thms inv_defs)
   val _ = snoc_dtype_decl dtype
-  val (rws1,rws2) = if not is_record then ([],[]) else derive_record_specific_thms (hd tys)
+  val (rws1,rws2) = if not is_record then ([],[])
+                    else derive_record_specific_thms (hd tys)
   in (rws1,rws2,res) end;
 
 local
@@ -1102,7 +1107,7 @@ fun inst_cons_thm tm hol2deep = let
   val ss = fst (match_term res tm)
   val ys = map (fn x => hol2deep (subst ss x)) xs
   val th1 = if length ys = 0 then TRUTH else LIST_CONJ ys
-  in MATCH_MP (D th) th1 end
+  in MATCH_MP (D th) (UNDISCH_ALL th1) end
 
 fun inst_case_thm_for tm = let
   val (_,_,names) = TypeBase.dest_case tm
@@ -1149,6 +1154,9 @@ val sat_hyp_lemma = prove(
 val last_fail = ref T;
 (*
   val tm = !last_fail
+
+  val tm = hyps
+  val tm = y
 *)
 
 fun inst_case_thm tm hol2deep = let
@@ -1192,6 +1200,7 @@ fun inst_case_thm tm hol2deep = let
   val th = MATCH_MP th lemma
   val th = CONV_RULE (RATOR_CONV (DEPTH_CONV BETA_CONV THENC
                                   REWRITE_CONV [])) th
+  val th = th |> UNDISCH_ALL
   in th end;
 
 fun SIMP_EqualityType_ASSUMS th = let
@@ -1358,7 +1367,11 @@ fun find_ind_thm def = let
   val const = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL |> concl
                   |> dest_eq |> fst |> repeat rator
   val r = dest_thy_const const
-  val ind = fetch (#Thy r) ((#Name r) ^ "_ind")
+  val ind = fetch "termination" ((#Name r) ^ "_ind")
+            handle HOL_ERR _ =>
+            fetch "compilerTermination" ((#Name r) ^ "_ind")
+            handle HOL_ERR _ =>
+            fetch (#Thy r) ((#Name r) ^ "_ind")
             handle HOL_ERR _ =>
             fetch (#Thy r) ((#Name r) ^ "_IND")
             handle HOL_ERR _ =>
@@ -1615,6 +1628,29 @@ fun apply_Eval_Fun v th fix = let
                    else MATCH_MP Eval_Fun (GEN ``v:v`` (FORCE_GEN v th1))
   in th2 end;
 
+(*
+
+JUNK:
+
+val th = Eval_Var_SIMP
+val tm = ``lookup "a" (("b",v)::[])``
+
+  val lookup_cons = lookup_def |> CONJUNCTS |> last |> SPEC_ALL
+  val lookup_pat = lookup_cons |> concl |> dest_eq |> fst
+  val IF_T = prove(``(if T then x else y) = x:'a``, SIMP_TAC std_ss [])
+  val IF_F = prove(``(if F then x else y) = y:'a``, SIMP_TAC std_ss [])
+
+  fun lookup_cons_conv tm = let
+    val (s,i) = match_term lookup_pat tm
+    val lemma = INST s (INST_TYPE i lookup_cons)
+    val c = stringLib.string_EQ_CONV
+    val c = (RAND_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV) c
+    val c = c THENC RAND_CONV (REWR_CONV IF_T ORELSEC REWR_CONV IF_F)
+    val lemma = CONV_RULE c lemma
+    in lemma end handle HOL_ERR _ => NO_CONV tm
+
+*)
+
 fun apply_Eval_Recclosure recc fname v th = let
   val vname = fst (dest_var v)
   val vname_str = stringLib.fromMLstring vname
@@ -1630,21 +1666,24 @@ fun apply_Eval_Recclosure recc fname v th = let
   val assum = subst [old_env|->new_env]
                 ``Eval env (Var (Short ^vname_str)) (^inv ^v)``
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
-               |> DISCH_ALL |> DISCH assum |> SIMP_RULE bool_ss []
+               |> DISCH_ALL |> DISCH assum (* |> SIMP_RULE bool_ss [] *)
                |> INST [old_env|->new_env]
-               |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_def]
+               |> PURE_REWRITE_RULE [Eval_Var_SIMP,lookup_def]
                |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
-               |> SIMP_RULE bool_ss [SafeVar_def]
+               |> REWRITE_RULE [SafeVar_def]
   val new_assum = fst (dest_imp (concl thx))
-  val th1 = thx |> UNDISCH_ALL
+  val th1 = thx |> UNDISCH |> REWRITE_RULE [ASSUME new_assum]
+                |> UNDISCH_ALL
                 |> CONV_RULE ((RAND_CONV o RAND_CONV) (UNBETA_CONV v))
                 |> DISCH new_assum
   val th2 = MATCH_MP lemma (Q.INST [`env`|->`cl_env`] (GEN ``v:v`` th1))
   val assum = ASSUME (fst (dest_imp (concl th2)))
   val th3 = D th2 |> REWRITE_RULE [assum]
-               |> SIMP_RULE std_ss [Eval_Var_SIMP,lookup_def,FOLDR]
-               |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
-               |> SIMP_RULE bool_ss [SafeVar_def]
+                  |> REWRITE_RULE [Eval_Var_SIMP,lookup_def,FOLDR]
+                  |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)
+                  |> REWRITE_RULE [Eval_Var_SIMP,lookup_def,FOLDR]
+                  |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
+                  |> REWRITE_RULE [SafeVar_def]
   val lemma = Eval_Eq_Recclosure |> UNDISCH
   val lemma_lhs = lemma |> concl |> dest_eq |> fst
   fun replace_conv tm = let
@@ -1727,6 +1766,8 @@ val tm = ``MAP (\v3. type_subst v6 v3) args`` |> rator
 val tm = ``xs ++ ys``
 
 val tm = ``odd (v1 - 1) v2``
+
+val tm = ``CFun cb``
 *)
 
 fun hol2deep tm =
@@ -2105,6 +2146,13 @@ val ODD_EVEN = Define `
 val even_ind = fetch "-" "even_ind";
 val def = ODD_EVEN;
 
+val (fname,lhs,tm,_) = hd info
+
+val tm = z
+val tm = rand tm
+
+hol2deep tm
+
 *)
 
 fun translate def = let
@@ -2117,10 +2165,16 @@ fun translate def = let
   val msg = comma (map (fn (fname,_,_,_) => fname) info)
   val _ = print ("Translating " ^ msg ^ "\n")
   (* derive deep embedding *)
+  val _ = print "  deep"
+  fun check th = let
+    val f = can (find_term (can (match_term
+              ``WF:('a -> 'a -> bool) -> bool``))) (th |> D |> concl)
+    in if f then failwith "WR" else th end
   val _ = map (fn (fname,lhs,_,_) => install_rec_pattern lhs fname) info
-  val thms = map (fn (fname,lhs,rhs,def) => (fname,hol2deep rhs,def)) info
+  val thms = map (fn (fname,lhs,rhs,def) => (fname,check (hol2deep rhs),def)) info
   val _ = uninstall_rec_patterns ()
   (* postprocess raw certificates *)
+  val _ = print ", postprocess"
   fun optimise_and_abstract (fname,th,def) = let
     (* replace rhs with lhs *)
     val th = th |> CONV_RULE ((RAND_CONV o RAND_CONV)
@@ -2167,10 +2221,21 @@ fun translate def = let
     (* store certificate for later use *)
     val pre = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
     val th = store_cert th [pre] |> Q.SPEC `env` |> UNDISCH_ALL
+    val _ = print ", done.\n"
     val _ = print_fname fname def (* should really be original def *)
     in th end
     else (* is_rec *) let
 
+    (* abbreviate code *)
+    fun abbrev_code (fname,def,th,v) = let
+      val th = th |> UNDISCH_ALL
+      val exp = th |> concl |> rator |> rand
+      val n = "[[ " ^ fname ^ "_code ]]"
+      val code_def = new_definition(n,mk_eq(mk_var(n,type_of exp),exp))
+      val th = CONV_RULE ((RATOR_CONV o RAND_CONV) (K (GSYM code_def))) th
+      in (code_def,(fname,def,th,v)) end
+    val (code_defs,thms) = let val x = map abbrev_code thms
+                           in (map fst x, map snd x) end
     (* introduce Recclosure *)
     fun mk_Recclosure_part (fname,def,th,v) = let
       val fname = fname |> stringLib.fromMLstring
@@ -2186,10 +2251,17 @@ fun translate def = let
                |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV std_ss [EVAL_T_F]))
       val th = clean_assumptions th
       in (fname,def,th) end
+(*
+val (fname,def,th,v) = el 1 thms
+*)
+
+    val _ = print ", recc intro"
     val thms = map apply_recc thms
     (* collect precondition *)
+    val _ = print ", precond"
     val thms = extract_precondition_rec thms
     (* apply induction *)
+    val _ = print ", ind"
     fun get_goal (fname,def,th,pre) = let
       val th = REWRITE_RULE [CONTAINER_def] th
       val hs = hyp th
@@ -2212,7 +2284,8 @@ fun translate def = let
     val lemma = prove(goal,
       STRIP_TAC
       \\ SIMP_TAC std_ss [FORALL_PROD]
-      \\ MATCH_MP_TAC ind_thm
+      \\ (MATCH_MP_TAC ind_thm ORELSE
+          MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
       \\ REPEAT STRIP_TAC
       \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
       \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
@@ -2222,6 +2295,7 @@ fun translate def = let
       \\ METIS_TAC []);
     val results = UNDISCH lemma |> CONJUNCTS |> map SPEC_ALL
     (* clean up *)
+    val _ = print ", clean"
     fun fix (th,(fname,def,_,pre)) = let
       val th = RW [PreImp_def] th |> UNDISCH_ALL
       val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
@@ -2237,6 +2311,7 @@ fun translate def = let
     val Precs = zip Ps recs |> map (pairSyntax.mk_pair)
     val Precs_tm = listSyntax.mk_list(Precs,type_of (hd Precs))
     (* introduce letrec declaration *)
+    val _ = print ", letrec intro"
     val lemma =
       SPEC Precs_tm DeclAssum_Dletrec_INTRO_ALT
       |> REWRITE_RULE [EVERY_DEF]
@@ -2252,8 +2327,12 @@ fun translate def = let
                    |> DISCH (ss (get_DeclAssum ()))
                    |> PURE_REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
                    |> Q.GEN `cl_env` |> Q.GEN `env`
-    val th = MATCH_MP lemma th |> Q.SPEC `env` |> UNDISCH_ALL
+    val th = MATCH_MP lemma th |> Q.SPEC `env` |> DISCH_ALL
+             |> PURE_ONCE_REWRITE_RULE code_defs |> UNDISCH_ALL
+    val _ = code_defs |> map
+              (delete_const o fst o dest_const o fst o dest_eq o concl)
     (* store certificate for later use *)
+    val _ = print ", store"
     fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
     val pres = map (fn (fname,def,th,pre) => force_thm_the pre) thms
     val th = store_cert th pres |> CONJUNCTS
@@ -2261,8 +2340,9 @@ fun translate def = let
                                 |> LIST_CONJ
     val (fname,def,_,_) = hd thms
     val _ = print_fname fname def (* should be original def *)
+    val _ = print ", done.\n"
     in th end
-  in th end handle UnableToTranslate tm => let
+  in check th end handle UnableToTranslate tm => let
     val _ = print "\n\nCannot translate term:  "
     val _ = print_term tm
     val _ = print "\n\nwhich has type:\n\n"
@@ -2290,5 +2370,9 @@ fun mltDefine name q tac = let
 
 fun reset_translation () =
   (cert_reset(); type_reset(); print_reset(); finalise_reset());
+
+(*
+max_print_depth := 25;
+*)
 
 end
