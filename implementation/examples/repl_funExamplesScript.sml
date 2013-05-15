@@ -28,18 +28,17 @@ val _ = run_print_save "ex4" input
 
   val (tokens,rest_of_input) = time EVAL ``lex_until_toplevel_semicolon ^input`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
 
-    val ast_prog = time EVAL ``mmlParse$parse ^tokens`` |> concl |> rhs |> rand
+    val ast_top = time EVAL ``mmlParse$parse_top ^tokens`` |> concl |> rhs |> rand
 
     val rtypes = EVAL ``^s.rtypes`` |> concl |> rhs
     val rctors = EVAL ``^s.rctors`` |> concl |> rhs
-    val rbindings = EVAL ``^s.rbindings`` |> concl |> rhs
-    val prog = time EVAL ``elab_prog ^rtypes ^rctors ^rbindings ^ast_prog`` |> concl |> rhs |> rand |> rand |> rand
+    val top = time EVAL ``elab_top ^rtypes ^rctors ^ast_top`` |> concl |> rhs |> rand |> rand
 
     val rmenv = EVAL ``^s.rmenv`` |> concl |> rhs
     val rcenv = EVAL ``^s.rcenv`` |> concl |> rhs
     val rtenv = EVAL ``^s.rtenv`` |> concl |> rhs
 
-    val res = time EVAL ``infer_prog ^rmenv ^rcenv ^rtenv ^prog init_infer_state``
+    val res = time EVAL ``infer_top ^rmenv ^rcenv ^rtenv ^top init_infer_state``
 
   val (code,new_s) = time EVAL ``parse_elaborate_typecheck_compile ^tokens ^s`` |> concl |> rhs |> rand |> pairSyntax.dest_pair
 
