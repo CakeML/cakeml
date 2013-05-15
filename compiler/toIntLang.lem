@@ -100,7 +100,7 @@ pat_to_Cpat m (Plit l) = (m, CPlit l)
 and
 pat_to_Cpat m (Pcon cn ps) =
   let (m,Cps) = pats_to_Cpats m ps in
-  (m,CPcon (Pmap.find cn m.cnmap) Cps)
+  (m,CPcon (fapply 0 cn m.cnmap) Cps)
 and
 pat_to_Cpat m (Pref p) =
   let (m,Cp) = pat_to_Cpat m p in
@@ -169,7 +169,7 @@ and
 exp_to_Cexp _ (Lit l) = CLit l
 and
 exp_to_Cexp m (Con cn es) =
-  CCon (Pmap.find cn m.cnmap) (exps_to_Cexps m es)
+  CCon (fapply 0 cn m.cnmap) (exps_to_Cexps m es)
 and
 exp_to_Cexp m (Var (Short vn)) = CVar (the 0 (find_index vn m.bvars 0))
 and
@@ -285,7 +285,7 @@ let rec
 v_to_Cv _ (Litv l) = CLitv l
 and
 v_to_Cv m (Conv cn vs) =
-  CConv (Pmap.find cn m) (vs_to_Cvs m vs)
+  CConv (fapply 0 cn m) (vs_to_Cvs m vs)
 and
 v_to_Cv m (Closure env vn e) =
   let Cenv = env_to_Cenv m env in

@@ -517,16 +517,16 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (replace_labels _ a [] = a)
 /\
 (replace_labels m a (Jump (Lab l)::bc) =  
-(replace_labels m (Jump (Addr ( FAPPLY  m  l)) ::a) bc))
+(replace_labels m (Jump (Addr (fapply 0 l m)) ::a) bc))
 /\
 (replace_labels m a (JumpIf (Lab l)::bc) =  
-(replace_labels m (JumpIf (Addr ( FAPPLY  m  l)) ::a) bc))
+(replace_labels m (JumpIf (Addr (fapply 0 l m)) ::a) bc))
 /\
 (replace_labels m a (Call (Lab l)::bc) =  
-(replace_labels m (Call (Addr ( FAPPLY  m  l)) ::a) bc))
+(replace_labels m (Call (Addr (fapply 0 l m)) ::a) bc))
 /\
 (replace_labels m a (PushPtr (Lab l)::bc) =  
-(replace_labels m (PushPtr (Addr ( FAPPLY  m  l)) ::a) bc))
+(replace_labels m (PushPtr (Addr (fapply 0 l m)) ::a) bc))
 /\
 (replace_labels m a (i::bc) =  
 (replace_labels m (i ::a) bc))`;

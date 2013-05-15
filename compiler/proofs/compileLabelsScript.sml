@@ -1,6 +1,6 @@
 open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory alistTheory finite_mapTheory lcsymtacs
 open miscTheory bytecodeTerminationTheory ToBytecodeTheory compilerTerminationTheory bytecodeEvalTheory bytecodeExtraTheory
-val _ = intLib.deprecate_int()
+val _ = numLib.prefer_num()
 val _ = new_theory"compileLabels"
 
 val el_of_addr_def = Define`
@@ -25,10 +25,10 @@ val bc_fetch_aux_el_of_addr = store_thm("bc_fetch_aux_el_of_addr",
   rw[GSYM arithmeticTheory.ADD1])
 
 val replace_lab_def = Define`
-  (replace_lab m (Jump (Lab l)) = Jump (Addr (FAPPLY m l))) ∧
-  (replace_lab m (JumpIf (Lab l)) = JumpIf (Addr (m ' l))) ∧
-  (replace_lab m (Call (Lab l)) = Call (Addr (m ' l))) ∧
-  (replace_lab m (PushPtr (Lab l)) = PushPtr (Addr (m ' l))) ∧
+  (replace_lab m (Jump (Lab l)) = Jump (Addr (fapply 0 l m))) ∧
+  (replace_lab m (JumpIf (Lab l)) = JumpIf (Addr (fapply 0 l m))) ∧
+  (replace_lab m (Call (Lab l)) = Call (Addr (fapply 0 l m))) ∧
+  (replace_lab m (PushPtr (Lab l)) = PushPtr (Addr (fapply 0 l m))) ∧
   (replace_lab m i = i)`
 val _ = export_rewrites["replace_lab_def"]
 

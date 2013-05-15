@@ -75,6 +75,7 @@ val defs = map EmitML.DEFN
 , lshift_def
 , the_def
 , el_check_def
+, fapply_def
 , free_vars_def
 , emit_def
 , i0_def

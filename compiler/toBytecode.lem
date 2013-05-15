@@ -441,16 +441,16 @@ let rec
 replace_labels _ a [] = a
 and
 replace_labels m a (Jump (Lab l)::bc) =
-  replace_labels m (Jump (Addr (Pmap.find l m))::a) bc
+  replace_labels m (Jump (Addr (fapply 0 l m))::a) bc
 and
 replace_labels m a (JumpIf (Lab l)::bc) =
-  replace_labels m (JumpIf (Addr (Pmap.find l m))::a) bc
+  replace_labels m (JumpIf (Addr (fapply 0 l m))::a) bc
 and
 replace_labels m a (Call (Lab l)::bc) =
-  replace_labels m (Call (Addr (Pmap.find l m))::a) bc
+  replace_labels m (Call (Addr (fapply 0 l m))::a) bc
 and
 replace_labels m a (PushPtr (Lab l)::bc) =
-  replace_labels m (PushPtr (Addr (Pmap.find l m))::a) bc
+  replace_labels m (PushPtr (Addr (fapply 0 l m))::a) bc
 and
 replace_labels m a (i::bc) =
   replace_labels m (i::a) bc

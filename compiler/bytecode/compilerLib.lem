@@ -57,3 +57,5 @@ lshift n ls =
   List.map (fun v -> v - n) (List.filter (fun v -> n <= v) ls)
 
 let rec the _ (Some x) = x and the x None = x
+
+let fapply d x f = if Pmap.mem x f then Pmap.find x f else d
