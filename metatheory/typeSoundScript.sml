@@ -2012,4 +2012,16 @@ val prog_type_soundness = Q.store_thm ("prog_type_soundness",
      store_type_extension tenvS tenvS'`,
 metis_tac [prog_type_soundness_no_sig, type_prog_type_prog_ignore_sig]);
 
+val init_env_sound = Q.store_thm ("init_env_sound",
+`∀tenvM tenvC tenvS. type_env tenvM tenvC tenvS init_env init_tenv`,
+NTAC 15 (rw [Once type_v_cases, init_tenv_def, init_env_def, bind_def,
+             emp_def, bind_tenv_def, Tfn_def, Tint_def, Tref_def,
+             check_freevars_def]) >>
+NTAC 3 (ONCE_REWRITE_TAC [type_e_cases] >>
+        rw [Tfn_def, num_tvs_def, bind_tvar_def, check_freevars_def, bind_tenv_def,
+            t_lookup_var_id_def, lookup_tenv_def, type_op_cases, Tint_def,
+            deBruijn_inc_def, deBruijn_subst_def, Tref_def, type_uop_cases]) >>
+qexists_tac `[]` >>
+rw []);
+
 val _ = export_theory ();

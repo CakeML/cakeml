@@ -5,7 +5,7 @@ open lexer_implTheory mmlParseTheory AstTheory inferTheory CompilerTheory
 val _ = new_theory "repl_fun";
 
 val _ = Hol_datatype`repl_fun_state = <|
-  rtypes : typeN list ; rctors : ctor_env ; rbindings : binding_env;
+  rtypes : typeN list ; rctors : ctor_env ;
   rmenv : (modN, (varN,num#infer_t) env) env ; rcenv : tenvC;
   rtenv : (tvarN,num#infer_t) env ;
   rcompiler_state : compiler_state ;
@@ -22,7 +22,7 @@ val init_bc_state_def =  Define`
 
 val init_repl_fun_state = Define`
   init_repl_fun_state = <|
-    rtypes := []; rctors := []; rbindings := Elab$init_env;
+    rtypes := []; rctors := [];
     rmenv := []; rcenv := []; rtenv := [];
     rcompiler_state := init_compiler_state ; top := (Tmod "" NONE []) |>`
 
@@ -43,10 +43,9 @@ val print_result_def = Define `
       )`
 
 val update_state_def = Define`
-  update_state s tbs cts bds (rm,rc,rt) cs t =
+  update_state s tbs cts (rm,rc,rt) cs t =
   s with <| rtypes  := tbs ++ s.rtypes
           ; rctors          := cts ++ s.rctors
-          ; rbindings       := bds ++ s.rbindings
           ; rmenv           := rm ++ s.rmenv
           ; rcenv           := rc ++ s.rcenv
           ; rtenv           := rt ++ s.rtenv
@@ -65,14 +64,14 @@ val parse_elaborate_typecheck_compile_def = Define `
       NONE => Failure "parse error"
     | (* case: ast_top produced *)
       SOME ast_top =>
-        let (ts,cts,bds,top) = elab_top s.rtypes s.rctors s.rbindings ast_top in
+        let (ts,cts,top) = elab_top s.rtypes s.rctors ast_top in
           case FST (infer_top s.rmenv s.rcenv s.rtenv top init_infer_state) of
             (* type inference failed to find type *)
           | Failure _ => Failure "type error"
             (* type found, type safe! *)
           | Success type_state =>
              let (cs,code) = compile_top s.rcompiler_state top in
-               Success (code,update_state s ts cts bds type_state cs top)`
+               Success (code,update_state s ts cts type_state cs top)`
 
 val install_code_def = Define `
   install_code code bs =

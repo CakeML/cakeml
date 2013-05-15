@@ -14,7 +14,7 @@ val stringAST_def = Define`
 `
 
 val stringDecs_def = Define`
-  stringDecs s = OPTION_MAP (elab_prog [] [] init_env o SND) (stringAST s)
+  stringDecs s = OPTION_MAP (elab_prog [] [] o SND) (stringAST s)
 `
 
 val t = time (rhs o concl o EVAL)
