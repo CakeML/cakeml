@@ -8,8 +8,8 @@ val _ = translation_extends "std_prelude";
 
 (* bit *)
 
-val res = translate MOD_2EXP_def;
-val res = translate DIV_2EXP_def;
+val res = translate bitTheory.MOD_2EXP_def;
+val res = translate bitTheory.DIV_2EXP_def;
 val res = translate DIV2_def;
 
 val res = translate bitTheory.BITS_THM2;
