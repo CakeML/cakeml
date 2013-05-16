@@ -844,6 +844,27 @@ fun define_ref_inv tys = let
 fun domain ty = ty |> dest_fun_type |> fst
 fun codomain ty = ty |> dest_fun_type |> snd
 
+fun persistent_skip_case_const const = let
+  val ty = (domain (type_of const))
+  val thm_name = if ty = ``:bool`` then "COND_DEF" else
+    DB.match [] (concl (TypeBase.case_def_of ty))
+    |> map (fn ((thy,name),_) => thy ^ "Theory." ^ name) |> hd
+  val str = thm_name
+  val str = "(Drule.CONJUNCTS " ^ str ^ ")"
+  val str = "(List.hd " ^ str ^ ")"
+  val str = "(Drule.SPEC_ALL " ^ str ^ ")"
+  val str = "(Thm.concl " ^ str ^ ")"
+  val str = "(boolSyntax.dest_eq " ^ str ^ ")"
+  val str = "(Lib.fst " ^ str ^ ")"
+  val str = "(Lib.repeat Term.rator " ^ str ^ ")"
+  val str = "val () = computeLib.set_skip computeLib.the_compset" ^
+            " " ^ str ^ " (SOME 1);\n"
+  val _ = adjoin_to_theory
+     {sig_ps = NONE, struct_ps = SOME(fn ppstrm => PP.add_string ppstrm str)}
+  in computeLib.set_skip computeLib.the_compset const (SOME 1) end
+
+val _ = persistent_skip_case_const ``COND:bool -> 'a -> 'a -> 'a``;
+
 (*
 val ty = ``:'a list``; derive_thms_for_type ty
 val ty = ``:'a # 'b``; derive_thms_for_type ty
@@ -891,7 +912,9 @@ fun derive_thms_for_type ty = let
     val cases_th = TypeBase.case_def_of ty
     val (x1,x2) = cases_th |> CONJUNCTS |> hd |> concl |> repeat (snd o dest_forall)
                            |> dest_eq
-    val ty1 = x1 |> repeat rator |> type_of |> domain
+    val case_const = x1 |> repeat rator
+    val _ = persistent_skip_case_const case_const
+    val ty1 = case_const |> type_of |> domain
     val ty2 = x2 |> type_of
     val cases_th = INST_TYPE [ty2 |-> ``:'return_type``] cases_th
                    |> INST_TYPE (match_type ty1 ty)

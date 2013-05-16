@@ -8,6 +8,7 @@ val _ = computeLib.stoppers := let
   val stoppers = [stop_CONS ,``Dlet``,``Dletrec``,``Dtype``]
   in SOME (fn tm => mem tm stoppers) end
 
+(*
 val _ = let
   open computeLib (* TODO: these calls should be automatic in HOL *)
   (*
@@ -47,8 +48,11 @@ in
   set_skip the_compset ``compiler_result_CASE`` (SOME 1);
   set_skip the_compset ``call_context_CASE`` (SOME 1);
   set_skip the_compset ``ctbind_CASE`` (SOME 1);
-  set_skip the_compset ``COND`` (SOME 1);
+  set_skip the_compset ``COND`` (SOME 1)
 end
+*)
+
+val () = computeLib.set_skip computeLib.the_compset ``COND`` (SOME 1);
 
 val compile_decs = Define`
   compile_decs cs [] acc = acc ∧
@@ -60,11 +64,12 @@ val _ = computeLib.add_funs[ml_repl_step_decls]
 
 val _ = Globals.max_print_depth := 20
 
-(*
 val _ = PolyML.fullGC();
+val res = time EVAL
+  ``compile_decs init_compiler_state (TAKE 100 ml_repl_step_decls) stop_NIL``
 
+(*
 EVAL ``TAKE 20 (DROP 100 ml_repl_step_decls)``
-val res = time EVAL ``compile_decs init_compiler_state (TAKE 120 ml_repl_step_decls) stop_NIL``
 val _ = time EVAL ``compile_decs init_compiler_state ml_repl_step_decls stop_NIL``
 *)
 
