@@ -1,8 +1,33 @@
-open HolKernel boolLib bossLib lcsymtacs
+open HolKernel Parse boolLib bossLib lcsymtacs
 open lexer_implTheory mmlParseTheory AstTheory inferTheory CompilerTheory
      PrinterTheory compilerTerminationTheory bytecodeEvalTheory replTheory
+     ElabTheory
 
 val _ = new_theory "repl_fun";
+
+val _ = type_abbrev ("elaborate_state", ``:typeN list # ctor_env``);
+
+val elaborate_top_def = Define `
+elaborate_top ((types, constructors) : elaborate_state) ast_top =
+  let (new_types, new_constructors, top) = elab_top types constructors ast_top in
+    ((new_types++types, new_constructors ++ constructors), top)`;
+
+val initial_elaborate_state_def = Define `
+initial_elaborate_state : elaborate_state = ([], [])`;
+
+val _ = type_abbrev ("inference_state", ``:(modN, (varN, num # infer_t) env) env # tenvC # (varN, num # infer_t) env``);
+
+val inference_top_def = Define `
+inference_top ((module_type_env, constructor_type_env, type_env) :inference_state) ast_top =
+  case FST (infer_top module_type_env constructor_type_env type_env ast_top infer$init_infer_state) of
+     | Failure _ => Failure "type error"
+     | Success (new_module_type_env, new_constructor_type_env, new_type_env) =>
+        Success (new_module_type_env ++ module_type_env,
+                  new_constructor_type_env ++ constructor_type_env,
+                  new_type_env ++ type_env)`;
+
+val initial_inference_state_def = Define `
+initial_inference_state : inference_state = ([], [], infer$init_type_env)`;
 
 val _ = Hol_datatype`repl_fun_state = <|
   rtypes : typeN list ; rctors : ctor_env ;

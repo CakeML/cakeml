@@ -598,7 +598,6 @@ type_prog (bind mn tenv'' menv) (merge cenv'' cenv) tenv ds2 menv'' cenv''' tenv
 ==>
 type_prog menv cenv tenv (Tmod mn spec ds1 :: ds2) (merge menv'' [(mn,tenv'')]) (merge cenv''' cenv'') tenv'''
 
-
 val init_tenv : tenvE
 let init_tenv =
   List.fold_right
