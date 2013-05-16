@@ -12,8 +12,8 @@ elaborate_top ((types, constructors) : elaborator_state) ast_top =
   let (new_types, new_constructors, top) = elab_top types constructors ast_top in
     ((new_types++types, new_constructors ++ constructors), top)`;
 
-val init_elaborator_state_def = Define `
-init_elaborator_state : elaborator_state = ([], [])`;
+val initial_elaborator_state_def = Define `
+initial_elaborator_state : elaborator_state = ([], [])`;
 
 val _ = type_abbrev ("inferencer_state", ``:(modN, (varN, num # infer_t) env) env # tenvC # (varN, num # infer_t) env``);
 
@@ -26,8 +26,8 @@ infertype_top ((module_type_env, constructor_type_env, type_env) :inferencer_sta
                   new_constructor_type_env ++ constructor_type_env,
                   new_type_env ++ type_env)`;
 
-val init_inferencer_state_def = Define `
-init_inferencer_state : inferencer_state = ([], [], infer$init_type_env)`;
+val initial_inferencer_state_def = Define `
+initial_inferencer_state : inferencer_state = ([], [], infer$init_type_env)`;
 
 val _ = Hol_datatype`repl_fun_state = <|
   relaborator_state : elaborator_state;
@@ -35,20 +35,34 @@ val _ = Hol_datatype`repl_fun_state = <|
   rcompiler_state  : compiler_state;
   top : top |>`
 
-val init_bc_state_def =  Define`
-  init_bc_state = <|
-    stack := [];
-    code := [];
-    pc := 0;
-    refs := FEMPTY;
-    handler := 0;
-    inst_length := K 0 |>`
+val compile_decs = Define`
+  compile_decs cs [] acc = (cs,acc) ∧
+  compile_decs cs (d::ds) acc =
+  let (cs,code) = compile_dec cs d in
+  compile_decs cs ds (code::acc)`
 
-val init_repl_fun_state = Define`
-  init_repl_fun_state = <|
-    relaborator_state := init_elaborator_state;
-    rinferencer_state := init_inferencer_state;
-    rcompiler_state   := init_compiler_state;
+val compile_primitives_def = Define`
+  compile_primitives =
+    compile_decs init_compiler_state
+    [Dlet(Pvar"+")  (Fun"x"(Fun"y"(App(Opn Plus  )(Var(Short"x"))(Var(Short"y")))))
+    ;Dlet(Pvar"-")  (Fun"x"(Fun"y"(App(Opn Minus )(Var(Short"x"))(Var(Short"y")))))
+    ;Dlet(Pvar"*")  (Fun"x"(Fun"y"(App(Opn Times )(Var(Short"x"))(Var(Short"y")))))
+    ;Dlet(Pvar"div")(Fun"x"(Fun"y"(App(Opn Divide)(Var(Short"x"))(Var(Short"y")))))
+    ;Dlet(Pvar"mod")(Fun"x"(Fun"y"(App(Opn Modulo)(Var(Short"x"))(Var(Short"y")))))
+    ;Dlet(Pvar"<")  (Fun"x"(Fun"y"(App(Opb Lt    )(Var(Short"x"))(Var(Short"y")))))
+    ;Dlet(Pvar">")  (Fun"x"(Fun"y"(App(Opb Gt    )(Var(Short"x"))(Var(Short"y")))))
+    ;Dlet(Pvar"<=") (Fun"x"(Fun"y"(App(Opb Leq   )(Var(Short"x"))(Var(Short"y")))))
+    ;Dlet(Pvar">=") (Fun"x"(Fun"y"(App(Opb Geq   )(Var(Short"x"))(Var(Short"y")))))
+    ;Dlet(Pvar"=")  (Fun"x"(Fun"y"(App(Equality  )(Var(Short"x"))(Var(Short"y")))))
+    ;Dlet(Pvar":=") (Fun"x"(Fun"y"(App(Opassign  )(Var(Short"x"))(Var(Short"y")))))
+    ;Dlet(Pvar"!")  (Fun"x"(Uapp(Opderef)(Var(Short"x"))))
+    ;Dlet(Pvar"ref")(Fun"x"(Uapp(Opref  )(Var(Short"x"))))] []`
+
+val initial_repl_fun_state = Define`
+  initial_repl_fun_state = <|
+    relaborator_state := initial_elaborator_state;
+    rinferencer_state := initial_inferencer_state;
+    rcompiler_state   := FST compile_primitives;
     top := (Tmod "" NONE []) |>`
 
 val print_result_def = Define `
@@ -100,6 +114,16 @@ val install_code_def = Define `
     let code = compile_labels bs.inst_length (bs.code ++ code) in
     bs with <| code := code ; pc := next_addr bs.inst_length bs.code |>`;
 
+val initial_bc_state_def =  Define`
+  initial_bc_state =
+  install_code (FLAT(REVERSE(SND compile_primitives)))
+    <|stack := [];
+      code := [];
+      pc := 0;
+      refs := FEMPTY;
+      handler := 0;
+      inst_length := K 0 |>`
+
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` THEN REPEAT STRIP_TAC
            THEN IMP_RES_TAC lex_until_toplevel_semicolon_LESS);
 
@@ -124,7 +148,7 @@ val main_loop_def = tDefine "main_loop" `
                 Result output (main_loop (new_bs,new_s) rest_of_input) ` tac ;
 
 val repl_fun_def = Define`
-  repl_fun input = main_loop (init_bc_state,init_repl_fun_state) input`;
+  repl_fun input = main_loop (initial_bc_state,initial_repl_fun_state) input`;
 
 (*
 
