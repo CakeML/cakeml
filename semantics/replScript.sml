@@ -8,7 +8,7 @@ val _ = new_theory "repl";
 (* top-level semicolon detector breaks the token list up into chunks.
   the parser turns these chunks into either ast_progs or errors (NONE).
   if it encounters an error, it drops tokens until the next chunk.  *)
-val _ = new_constant("parse", ``:token list -> ast_prog option list``);
+val _ = new_constant("parse", ``:token list -> ast_top option list``);
 
 val _ = Hol_datatype `
 repl_state = <| (* Elaborator state *)
@@ -94,28 +94,28 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 (!state. 
   ast_repl state [] Terminate) ∧
 
-(!state ast asts prog rest type_bindings' ctors' tenvM' tenvC' tenv' store' r.
-  (elab_prog state.type_bindings state.ctors ast = 
-   (type_bindings', ctors', prog)) ∧
-  (type_prog state.tenvM state.tenvC state.tenv prog tenvM' tenvC' tenv') ∧
-  evaluate_prog state.envM state.envC state.store state.envE prog (store',r) ∧
+(!state ast asts top rest type_bindings' ctors' tenvM' tenvC' tenv' store' r.
+  (elab_top state.type_bindings state.ctors ast = 
+   (type_bindings', ctors', top)) ∧
+  (type_top state.tenvM state.tenvC state.tenv top tenvM' tenvC' tenv') ∧
+  evaluate_top state.envM state.envC state.store state.envE top (store',r) ∧
   ast_repl (update_repl_state state type_bindings' ctors' tenvM' tenvC' tenv' store' r) asts rest
   ⇒
   ast_repl state (SOME ast::asts) (Result (print_result r) rest)) ∧
 
-(!state ast asts prog type_bindings' ctors' tenvM' tenvC' tenv'.
-  (elab_prog state.type_bindings state.ctors ast = 
-   (type_bindings', ctors', prog)) ∧
-  (type_prog state.tenvM state.tenvC state.tenv prog tenvM' tenvC' tenv') ∧
-  prog_diverges state.envM state.envC state.store state.envE prog
+(!state ast asts top type_bindings' ctors' tenvM' tenvC' tenv'.
+  (elab_top state.type_bindings state.ctors ast = 
+   (type_bindings', ctors', top)) ∧
+  (type_top state.tenvM state.tenvC state.tenv top tenvM' tenvC' tenv') ∧
+  prog_diverges state.envM state.envC state.store state.envE [prog]
   ⇒
   ast_repl state (SOME ast::asts) Diverge) ∧
 
-(!state ast asts rest prog type_bindings' ctors'.
-  (elab_prog state.type_bindings state.ctors ast = 
-   (type_bindings', ctors', prog)) ∧
+(!state ast asts rest top type_bindings' ctors'.
+  (elab_top state.type_bindings state.ctors ast = 
+   (type_bindings', ctors', top)) ∧
   (!tenvM' tenvC' tenv'.
-    ¬type_prog state.tenvM state.tenvC state.tenv prog tenvM' tenvC' tenv') ∧
+    ¬type_top state.tenvM state.tenvC state.tenv top tenvM' tenvC' tenv') ∧
   ast_repl state asts rest
   ⇒
   ast_repl state (SOME ast::asts) (Result "<type error>" rest)) ∧
@@ -124,7 +124,6 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
   ast_repl state asts rest
   ⇒
   ast_repl state (NONE::asts) (Result "<parse error>" rest))`;
-
 
 val repl_def = Define `
 repl input = ast_repl init_repl_state (parse (lexer_fun input))`;
