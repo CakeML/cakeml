@@ -35,28 +35,23 @@ val _ = Hol_datatype`repl_fun_state = <|
   rcompiler_state  : compiler_state;
   top : top |>`
 
-val compile_decs = Define`
-  compile_decs cs [] acc = (cs,acc) ∧
-  compile_decs cs (d::ds) acc =
-  let (cs,code) = compile_dec cs d in
-  compile_decs cs ds (code::acc)`
-
 val compile_primitives_def = Define`
   compile_primitives =
-    compile_decs init_compiler_state
-    [Dlet(Pvar"+")  (Fun"x"(Fun"y"(App(Opn Plus  )(Var(Short"x"))(Var(Short"y")))))
-    ;Dlet(Pvar"-")  (Fun"x"(Fun"y"(App(Opn Minus )(Var(Short"x"))(Var(Short"y")))))
-    ;Dlet(Pvar"*")  (Fun"x"(Fun"y"(App(Opn Times )(Var(Short"x"))(Var(Short"y")))))
-    ;Dlet(Pvar"div")(Fun"x"(Fun"y"(App(Opn Divide)(Var(Short"x"))(Var(Short"y")))))
-    ;Dlet(Pvar"mod")(Fun"x"(Fun"y"(App(Opn Modulo)(Var(Short"x"))(Var(Short"y")))))
-    ;Dlet(Pvar"<")  (Fun"x"(Fun"y"(App(Opb Lt    )(Var(Short"x"))(Var(Short"y")))))
-    ;Dlet(Pvar">")  (Fun"x"(Fun"y"(App(Opb Gt    )(Var(Short"x"))(Var(Short"y")))))
-    ;Dlet(Pvar"<=") (Fun"x"(Fun"y"(App(Opb Leq   )(Var(Short"x"))(Var(Short"y")))))
-    ;Dlet(Pvar">=") (Fun"x"(Fun"y"(App(Opb Geq   )(Var(Short"x"))(Var(Short"y")))))
-    ;Dlet(Pvar"=")  (Fun"x"(Fun"y"(App(Equality  )(Var(Short"x"))(Var(Short"y")))))
-    ;Dlet(Pvar":=") (Fun"x"(Fun"y"(App(Opassign  )(Var(Short"x"))(Var(Short"y")))))
-    ;Dlet(Pvar"!")  (Fun"x"(Uapp(Opderef)(Var(Short"x"))))
-    ;Dlet(Pvar"ref")(Fun"x"(Uapp(Opref  )(Var(Short"x"))))] []`
+    compile_dec init_compiler_state
+    (Dletrec
+    [("+"  ,"x",Fun"y"(App(Opn Plus  )(Var(Short"x"))(Var(Short"y"))))
+    ;("-"  ,"x",Fun"y"(App(Opn Minus )(Var(Short"x"))(Var(Short"y"))))
+    ;("*"  ,"x",Fun"y"(App(Opn Times )(Var(Short"x"))(Var(Short"y"))))
+    ;("div","x",Fun"y"(App(Opn Divide)(Var(Short"x"))(Var(Short"y"))))
+    ;("mod","x",Fun"y"(App(Opn Modulo)(Var(Short"x"))(Var(Short"y"))))
+    ;("<"  ,"x",Fun"y"(App(Opb Lt    )(Var(Short"x"))(Var(Short"y"))))
+    ;(">"  ,"x",Fun"y"(App(Opb Gt    )(Var(Short"x"))(Var(Short"y"))))
+    ;("<=" ,"x",Fun"y"(App(Opb Leq   )(Var(Short"x"))(Var(Short"y"))))
+    ;(">=" ,"x",Fun"y"(App(Opb Geq   )(Var(Short"x"))(Var(Short"y"))))
+    ;("="  ,"x",Fun"y"(App(Equality  )(Var(Short"x"))(Var(Short"y"))))
+    ;(":=" ,"x",Fun"y"(App(Opassign  )(Var(Short"x"))(Var(Short"y"))))
+    ;("!"  ,"x",Uapp(Opderef)(Var(Short"x")))
+    ;("ref","x",Uapp(Opref  )(Var(Short"x")))])`
 
 val initial_repl_fun_state = Define`
   initial_repl_fun_state = <|
@@ -116,13 +111,15 @@ val install_code_def = Define `
 
 val initial_bc_state_def =  Define`
   initial_bc_state =
-  install_code (FLAT(REVERSE(SND compile_primitives)))
+  let bs =
     <|stack := [];
       code := [];
       pc := 0;
       refs := FEMPTY;
       handler := 0;
-      inst_length := K 0 |>`
+      inst_length := K 0 |> in
+  let bs = THE (bc_eval (install_code (SND compile_primitives) bs)) in
+  bs with stack := TL bs.stack`
 
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` THEN REPEAT STRIP_TAC
            THEN IMP_RES_TAC lex_until_toplevel_semicolon_LESS);
