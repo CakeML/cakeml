@@ -2142,11 +2142,14 @@ fun remove_Eq th rev_params = let
 fun rev_param_list tm =
   if is_comb tm then rand tm :: rev_param_list (rator tm) else []
 
-val EVAL_T_F = LIST_CONJ [EVAL ``CONTAINER TRUE``,EVAL ``CONTAINER FALSE``]
+val EVAL_T_F = LIST_CONJ [EVAL ``CONTAINER TRUE``, EVAL ``CONTAINER FALSE``]
 
 fun list_dest f tm =
   let val (x,y) = f tm in list_dest f x @ list_dest f y end
   handle HOL_ERR _ => [tm];
+
+fun reset_translation () =
+  (cert_reset(); type_reset(); print_reset(); finalise_reset());
 
 (*
 val def = SUM;
@@ -2178,6 +2181,9 @@ hol2deep tm
 
 *)
 
+val find_def_for_const =
+  ref ((fn const => raise UnableToTranslate const) : term -> thm);
+
 fun translate def = let
   val original_def = def
   fun the (SOME x) = x | the _ = failwith("the of NONE")
@@ -2186,18 +2192,21 @@ fun translate def = let
   val (is_rec,defs,ind) = preprocess_def def
   val info = map get_info defs
   val msg = comma (map (fn (fname,_,_,_) => fname) info)
-  val _ = print ("Translating " ^ msg ^ "\n")
   (* derive deep embedding *)
-  val _ = print "  deep"
-  fun check th = let
-    val f = can (find_term (can (match_term
-              ``WF:('a -> 'a -> bool) -> bool``))) (th |> D |> concl)
-    in if f then failwith "WR" else th end
-  val _ = map (fn (fname,lhs,_,_) => install_rec_pattern lhs fname) info
-  val thms = map (fn (fname,lhs,rhs,def) => (fname,check (hol2deep rhs),def)) info
-  val _ = uninstall_rec_patterns ()
+  fun compute_deep_embedding info = let
+    val _ = map (fn (fname,lhs,_,_) => install_rec_pattern lhs fname) info
+    val thms = map (fn (fname,lhs,rhs,def) => (fname,hol2deep rhs,def)) info
+    val _ = uninstall_rec_patterns ()
+    in thms end
+  fun loop info =
+    compute_deep_embedding info
+    handle UnableToTranslate tm => let
+      val _ = is_const tm orelse raise (UnableToTranslate tm)
+      val _ = translate ((!find_def_for_const) tm)
+      in loop info end
+  val thms = loop info
+  val _ = print ("Translating " ^ msg ^ "\n")
   (* postprocess raw certificates *)
-  val _ = print ", postprocess"
   fun optimise_and_abstract (fname,th,def) = let
     (* replace rhs with lhs *)
     val th = th |> CONV_RULE ((RAND_CONV o RAND_CONV)
@@ -2244,7 +2253,6 @@ fun translate def = let
     (* store certificate for later use *)
     val pre = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
     val th = store_cert th [pre] |> Q.SPEC `env` |> UNDISCH_ALL
-    val _ = print ", done.\n"
     val _ = print_fname fname def (* should really be original def *)
     in th end
     else (* is_rec *) let
@@ -2278,13 +2286,10 @@ fun translate def = let
 val (fname,def,th,v) = el 1 thms
 *)
 
-    val _ = print ", recc intro"
     val thms = map apply_recc thms
     (* collect precondition *)
-    val _ = print ", precond"
     val thms = extract_precondition_rec thms
     (* apply induction *)
-    val _ = print ", ind"
     fun get_goal (fname,def,th,pre) = let
       val th = REWRITE_RULE [CONTAINER_def] th
       val hs = hyp th
@@ -2318,7 +2323,6 @@ val (fname,def,th,v) = el 1 thms
       \\ METIS_TAC []);
     val results = UNDISCH lemma |> CONJUNCTS |> map SPEC_ALL
     (* clean up *)
-    val _ = print ", clean"
     fun fix (th,(fname,def,_,pre)) = let
       val th = RW [PreImp_def] th |> UNDISCH_ALL
       val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
@@ -2334,7 +2338,6 @@ val (fname,def,th,v) = el 1 thms
     val Precs = zip Ps recs |> map (pairSyntax.mk_pair)
     val Precs_tm = listSyntax.mk_list(Precs,type_of (hd Precs))
     (* introduce letrec declaration *)
-    val _ = print ", letrec intro"
     val lemma =
       SPEC Precs_tm DeclAssum_Dletrec_INTRO_ALT
       |> REWRITE_RULE [EVERY_DEF]
@@ -2355,7 +2358,6 @@ val (fname,def,th,v) = el 1 thms
     val _ = code_defs |> map
               (delete_const o fst o dest_const o fst o dest_eq o concl)
     (* store certificate for later use *)
-    val _ = print ", store"
     fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
     val pres = map (fn (fname,def,th,pre) => force_thm_the pre) thms
     val th = store_cert th pres |> CONJUNCTS
@@ -2363,8 +2365,11 @@ val (fname,def,th,v) = el 1 thms
                                 |> LIST_CONJ
     val (fname,def,_,_) = hd thms
     val _ = print_fname fname def (* should be original def *)
-    val _ = print ", done.\n"
     in th end
+  fun check th = let
+    val f = can (find_term (can (match_term
+              ``WF:('a -> 'a -> bool) -> bool``))) (th |> D |> concl)
+    in if f then failwith "WR" else th end
   in check th end handle UnableToTranslate tm => let
     val _ = print "\n\nCannot translate term:  "
     val _ = print_term tm
@@ -2390,9 +2395,6 @@ fun mltDefine name q tac = let
   val _ = print_thm (D th)
   val _ = print "\n\n"
   in def end;
-
-fun reset_translation () =
-  (cert_reset(); type_reset(); print_reset(); finalise_reset());
 
 (*
 max_print_depth := 25;
