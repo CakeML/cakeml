@@ -73,46 +73,6 @@ val parse_top_def = Define `
     od
 `;
 
-
-val _ = Hol_datatype`semihider = SH_END | SH_PAR`
-(* extend with SH_BRACE and SH_BRACKET when records and lists
-   are part of the syntax *)
-
-val toplevel_semi_dex_def = Define`
-  toplevel_semi_dex (i:num) error stk [] = NONE ∧
-  toplevel_semi_dex i error stk (h::t) =
-    if h = SemicolonT ∧ (stk = [] ∨ error) then SOME i
-    else if error then toplevel_semi_dex (i + 1) error stk t
-    else if h = LetT then toplevel_semi_dex (i + 1) F (SH_END::stk) t
-    else if h = StructT then toplevel_semi_dex (i + 1) F (SH_END::stk) t
-    else if h = SigT then toplevel_semi_dex (i + 1) F (SH_END::stk) t
-    else if h = LparT then toplevel_semi_dex (i + 1) F (SH_PAR::stk) t
-    else if h = EndT then
-      case stk of
-          SH_END :: stk' => toplevel_semi_dex (i + 1) F stk' t
-        | _ => toplevel_semi_dex (i + 1) T [] t
-    else if h = RparT then
-      case stk of
-          SH_PAR :: stk' => toplevel_semi_dex (i + 1) F stk' t
-        | _ => toplevel_semi_dex (i + 1) T [] t
-    else toplevel_semi_dex (i + 1) F stk t
-`
-
-(* open lexer_funTheory;
-assert
-  (aconv ``SOME 16n`` o rhs o concl)
-  (EVAL
-    ``toplevel_semi_dex 1 F []
-        (lexer_fun "let val x = 3; val y = 10 in x + y end; (")``);
-
-assert
-  (aconv ``SOME 16n`` o rhs o concl)
-  (EVAL
-    ``toplevel_semi_dex 1 F []
-        (lexer_fun "let val x) = 3; val y = 10 in x + y end; (")``)
-
-*)
-
 val splitAt_def = Define`
   splitAt _ [] k = k [] [] ∧
   splitAt n (h::t) k = if n = 0n then k [] (h::t)
@@ -142,6 +102,9 @@ val parse_REPLphrase_def = Define`
     od
 `
 
+(*
+open lexer_funTheory;
+
 val repl_parse_step_def = Define`
   repl_parse_step toks =
     case toplevel_semi_dex 1 F [] toks of
@@ -154,8 +117,6 @@ val repl_parse_step_def = Define`
                                                (* p' should always be [] *)
 `
 
-(*
-open lexer_funTheory;
 
 Define`rstr s = repl_parse_step (lexer_fun s)`;
 
