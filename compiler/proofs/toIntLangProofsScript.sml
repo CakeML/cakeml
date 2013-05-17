@@ -1944,6 +1944,17 @@ val syneq_exp_mkshift_both = store_thm("syneq_exp_mkshift_both",
   fs[LET_THM])
 
 (*
+val remove_mat_var_syneq = store_thm("remove_mat_var_syneq",
+  ``∀v pes1 pes2.
+      EVERY2 (λ(p1,e1) (p2,e2). syneq_exp (z1 + Cpat_vars p1) (z2 + Cpat_vars p2) (V or equal pat vars) e1 e2) pes1 pes2 ⇒
+      syneq_exp z1 z2 V (remove_mat_var v pes1) (remove_mat_var v pes2)``
+      remove_mat_var_def
+      remove_mat_var_ind
+      DB.find"remove_mat_vp"
+DB.find"remove_mat_var";
+*)
+
+(*
 val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
   ``(∀m exp bvs bvs1 bvs2. {x | Short x ∈ FV exp} ⊆ set (bvs ++ bvs1) ∧ (set bvs1 = set bvs2) ⇒
       syneq_exp (LENGTH bvs + LENGTH bvs1) (LENGTH bvs + LENGTH bvs2)
@@ -1963,6 +1974,14 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
         (defs_to_Cdefs (m with bvars := (MAP FST defs) ++ bvs++bvs2) defs)
         (λv1 v2. v1 < LENGTH defs ∧ (v2 = v1))) ∧
     (∀m pes bvs bvs1 bvs2. {x | Short x ∈ FV_pes pes} ⊆ set (bvs ++ bvs1) ∧ (set bvs1 = set bvs2) ⇒
+      syneq_exp (LENGTH bvs + LENGTH bvs1) (LENGTH bvs + LENGTH bvs2)
+        (λv1 v2. (v1 < LENGTH bvs ∧ (v2 = v1)) ∨
+                 (LENGTH bvs ≤ v1 ∧ LENGTH bvs ≤ v2 ∧ v1 < LENGTH bvs + LENGTH bvs1 ∧ v2 < LENGTH bvs + LENGTH bvs2 ∧
+                  (EL (v1 - LENGTH bvs) bvs1 = EL (v2 - LENGTH bvs) bvs2)) ∨
+                 (LENGTH bvs + LENGTH bvs1 ≤ v1 ∧ LENGTH bvs + LENGTH bvs2 ≤ v2 ∧ (v2 = v1)))
+        (remove_mat_var 0 (pes_to_Cpes (m with bvars := bvs ++ bvs1) pes))
+        (remove_mat_var 0 (pes_to_Cpes (m with bvars := bvs ++ bvs2) pes))
+    (*
       EVERY2 (λ(p1,e1) (p2,e2).
         syneq_exp (LENGTH bvs + Cpat_vars p1 + LENGTH bvs1) (LENGTH bvs + Cpat_vars p2 + LENGTH bvs2)
           (λv1 v2. v1 < LENGTH bvs + Cpat_vars p1 ∧ v2 < LENGTH bvs + Cpat_vars p2 ∧ (v2 = v1) ∨
@@ -1972,7 +1991,9 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
                    LENGTH bvs + Cpat_vars p1 + LENGTH bvs1 ≤ v1 ∧ LENGTH bvs + Cpat_vars p2 + LENGTH bvs2 ≤ v2 ∧ (v2 = v1))
           e1 e2)
                         (pes_to_Cpes (m with bvars := bvs++bvs1) pes)
-                        (pes_to_Cpes (m with bvars := bvs++bvs2) pes)) ∧
+                        (pes_to_Cpes (m with bvars := bvs++bvs2) pes)
+    *)
+    ) ∧
     (∀m es bvs bvs1 bvs2. { x | Short x ∈ FV_list es} ⊆ set (bvs ++ bvs1) ∧ (set bvs1 = set bvs2) ⇒
       EVERY2
         (syneq_exp (LENGTH bvs + LENGTH bvs1) (LENGTH bvs + LENGTH bvs2)
@@ -2181,6 +2202,48 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
     first_x_assum match_mp_tac >>
     fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
   strip_tac >- (
+    simp[exp_to_Cexp_def] >>
+    rw[] >>
+    rw[Once syneq_exp_cases] >- (
+      first_x_assum match_mp_tac >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+    ???
+    ) >>
+  strip_tac >- (
+    simp[exp_to_Cexp_def] >> rw[] >>
+    rw[Once syneq_exp_cases] >- (
+      first_x_assum match_mp_tac >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+    first_x_assum(qspecl_then[`vn::bvs`,`bvs1`,`bvs2`]mp_tac) >>
+    discharge_hyps >- (fsrw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[]) >>
+    simp[ADD1,EL_CONS] >> strip_tac >>
+    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+    first_x_assum(qspecl_then[`vn::bvs`,`bvs1`,`bvs2`]mp_tac) >>
+    discharge_hyps >- (fsrw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[]) >>
+    simp[ADD1] >> strip_tac >>
+    HINT_EXISTS_TAC >> simp[] >>
+    Cases >> simp[ADD1] >>
+    rw[] >> simp[] ) >>
+  strip_tac >- (
+    simp[exp_to_Cexp_def] >> rw[] >>
+    Q.PAT_ABBREV_TAC`MFd:string list = MAP X defs` >>
+    `MFd = MAP FST defs` by (
+      simp[Abbr`MFd`,MAP_EQ_f,FORALL_PROD] ) >>
+    pop_assum SUBST1_TAC >> qunabbrev_tac`MFd` >>
+    rw[Once syneq_exp_cases] >>
+    qexists_tac`λv1 v2. v1 < LENGTH defs ∧ v2 = v1` >>
+    conj_tac >- (
+      first_x_assum match_mp_tac >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+    Q.PAT_ABBREV_TAC`X = LENGTH (Q R defs)` >>
+    `X = LENGTH defs` by simp[Abbr`X`,defs_to_Cdefs_MAP] >>
+    pop_assum SUBST1_TAC >> qunabbrev_tac`X` >>
+    Q.PAT_ABBREV_TAC`X = LENGTH (Q R defs)` >>
+    `X = LENGTH defs` by simp[Abbr`X`,defs_to_Cdefs_MAP] >>
+    pop_assum SUBST1_TAC >> qunabbrev_tac`X` >>
+    last_x_assum(qspecl_then[`bvs`,`bvs1`,`bvs2`]mp_tac) >>
+    discharge_hyps >- (
+      fsrw_tac[DNF_ss][SUBSET_DEF,FV_defs_MAP,FORALL_PROD,MEM_MAP] >>
 
 val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
   ``∀v1 v2. enveq v1 v2 ⇒ ∀m. syneq (v_to_Cv m v1) (v_to_Cv m v2)``,
