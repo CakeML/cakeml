@@ -1150,7 +1150,7 @@ val compile_dec_val = store_thm("compile_dec_val",
     disch_then(qspecl_then[`s2`,`vs`,`rd`,`bc0`,`bs`]mp_tac) >>
     simp[] >>
     discharge_hyps >- (
-      fs[PARTITION_DEF,markerTheory.Abbrev_def] >>
+      fs[PARTITION_DEF,markerTheory.Abbrev_def,FV_list_MAP] >>
       imp_res_tac PART_MEM >>
       imp_res_tac PART_LENGTH >>
       reverse conj_tac >- (fs[] >> metis_tac[]) >>
@@ -1237,7 +1237,7 @@ val compile_dec_val = store_thm("compile_dec_val",
     disch_then(qspecl_then[`s`,`vs`,`rd`,`bc0`,`bs`]mp_tac) >>
     simp[] >>
     discharge_hyps >- (
-      fs[PARTITION_DEF,markerTheory.Abbrev_def] >>
+      fs[PARTITION_DEF,markerTheory.Abbrev_def,FV_list_MAP] >>
       imp_res_tac PART_MEM >>
       imp_res_tac PART_LENGTH >>
       reverse conj_tac >- (fs[] >> metis_tac[]) >>

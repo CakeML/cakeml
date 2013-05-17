@@ -30,40 +30,65 @@ val pats_bindings_MAP = store_thm("pats_bindings_MAP",
   rw[pat_bindings_def] >>
   rw[Once pat_bindings_acc])
 
+val _ = Parse.overload_on("pat_vars",``λp. set (pat_bindings p [])``)
+
 val FV_def = tDefine "FV"`
-(FV (Raise _) = {}) ∧
-(FV (Handle e1 x e2) = FV e1 ∪ (FV e2 DIFF {Short x})) ∧
-(FV (Lit _) = {}) ∧
-(FV (Con _ ls) = BIGUNION (IMAGE FV (set ls))) ∧
-(FV (Var id) = {id}) ∧
-(FV (Fun x e) = FV e DIFF {Short x}) ∧
-(FV (Uapp _ e) = FV e) ∧
-(FV (App _ e1 e2) = FV e1 ∪ FV e2) ∧
-(FV (Log _ e1 e2) = FV e1 ∪ FV e2) ∧
-(FV (If e1 e2 e3) = FV e1 ∪ FV e2 ∪ FV e3) ∧
-(FV (Mat e pes) = FV e ∪ BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))) ∧
-(FV (Let x e b) = FV e ∪ (FV b DIFF {Short x})) ∧
-(FV (Letrec defs b) = BIGUNION (IMAGE (λ(y,x,e). FV e DIFF ({Short x} ∪ (IMAGE (Short o FST) (set defs)))) (set defs)) ∪ (FV b DIFF (IMAGE (Short o FST) (set defs))))`
-(WF_REL_TAC `measure exp_size` >>
-srw_tac[ARITH_ss][exp1_size_thm,exp4_size_thm,exp6_size_thm,SUM_MAP_exp2_size_thm,SUM_MAP_exp3_size_thm,SUM_MAP_exp5_size_thm] >>
-TRY (
-  qmatch_assum_rename_tac`MEM (y,x,e) defs`[]>>
-  `MEM e (MAP SND (MAP SND defs))`by
-  srw_tac[SATISFY_ss][MEM_MAP,EXISTS_PROD] ) >>
-TRY (
-  qmatch_assum_rename_tac`MEM (p,z) pes`[]>>
-  `MEM z (MAP SND pes)`by (srw_tac[SATISFY_ss][MEM_MAP,EXISTS_PROD] >> NO_TAC)) >>
-Q.ISPEC_THEN `exp_size` imp_res_tac SUM_MAP_MEM_bound >>
-fsrw_tac[ARITH_ss][exp_size_def])
+  (FV (Raise _) = {}) ∧
+  (FV (Handle e1 x e2) = FV e1 ∪ (FV e2 DIFF {Short x})) ∧
+  (FV (Lit _) = {}) ∧
+  (FV (Con _ ls) = FV_list ls) ∧
+  (FV (Var id) = {id}) ∧
+  (FV (Fun x e) = FV e DIFF {Short x}) ∧
+  (FV (Uapp _ e) = FV e) ∧
+  (FV (App _ e1 e2) = FV e1 ∪ FV e2) ∧
+  (FV (Log _ e1 e2) = FV e1 ∪ FV e2) ∧
+  (FV (If e1 e2 e3) = FV e1 ∪ FV e2 ∪ FV e3) ∧
+  (FV (Mat e pes) = FV e ∪ FV_pes pes) ∧
+  (FV (Let x e b) = FV e ∪ (FV b DIFF {Short x})) ∧
+  (FV (Letrec defs b) =
+     let ds = set (MAP (Short o FST) defs) in
+     FV_defs ds defs ∪ (FV b DIFF ds)) ∧
+  (FV_list [] = {}) ∧
+  (FV_list (e::es) = FV e ∪ FV_list es) ∧
+  (FV_pes [] = {}) ∧
+  (FV_pes ((p,e)::pes) =
+     (FV e DIFF (IMAGE Short (pat_vars p))) ∪ FV_pes pes) ∧
+  (FV_defs _ [] = {}) ∧
+  (FV_defs ds ((_,x,e)::defs) =
+     (FV e DIFF ({Short x} ∪ ds)) ∪ FV_defs ds defs)`
+(WF_REL_TAC `inv_image $< (λx. case x of
+   | INL e => exp_size e
+   | INR (INL es) => exp6_size es
+   | INR (INR (INL pes)) => exp4_size pes
+   | INR (INR (INR (_,defs))) => exp1_size defs)`)
 val _ = export_rewrites["FV_def"]
+
+val FV_ind = theorem"FV_ind"
 
 val FINITE_FV = store_thm(
 "FINITE_FV",
-``∀exp. FINITE (FV exp)``,
-ho_match_mp_tac (theorem"FV_ind") >>
+``(∀exp. FINITE (FV exp)) ∧
+  (∀es. FINITE (FV_list es)) ∧
+  (∀pes. FINITE (FV_pes pes)) ∧
+  (∀ds defs. FINITE (FV_defs ds defs))``,
+ho_match_mp_tac FV_ind >>
 rw[pairTheory.EXISTS_PROD] >>
 fsrw_tac[SATISFY_ss][])
 val _ = export_rewrites["FINITE_FV"]
+
+val FV_defs_MAP = store_thm("FV_defs_MAP",
+  ``FV_defs ds defs = BIGUNION (IMAGE (λ(d,x,e). FV e DIFF ({Short x} ∪ ds)) (set defs))``,
+  Induct_on`defs`>>simp[]>>
+  qx_gen_tac`p`>>PairCases_on`p`>>rw[])
+
+val FV_pes_MAP = store_thm("FV_pes_MAP",
+  ``FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (pat_vars p))) (set pes))``,
+  Induct_on`pes`>>simp[]>>
+  qx_gen_tac`p`>>PairCases_on`p`>>rw[])
+
+val FV_list_MAP = store_thm("FV_list_MAP",
+  ``FV_list es = BIGUNION (IMAGE FV (set es))``,
+  Induct_on`es`>>simp[])
 
 val (evaluate_match_with_rules,evaluate_match_with_ind,evaluate_match_with_cases) = Hol_reln
   (* evaluate_rules |> SIMP_RULE (srw_ss()) [] |> concl |> strip_conj |>
@@ -417,8 +442,6 @@ val every_result_rwt = store_thm("every_result_rwt",
   ``every_result P res = (∀v. (res = Rval v) ⇒ P v)``,
   Cases_on`res`>>rw[])
 
-val _ = Parse.overload_on("pat_vars",``λp. set (pat_bindings p [])``)
-
 val evaluate_closed = store_thm(
 "evaluate_closed",
 ``(∀menv (cenv:envC) s env exp res.
@@ -432,7 +455,7 @@ val evaluate_closed = store_thm(
    every_result (closed menv) (SND res)) ∧
   (∀menv (cenv:envC) s env exps ress.
    evaluate_list menv cenv s env exps ress ⇒
-   BIGUNION (IMAGE FV (set exps)) ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+   FV_list exps ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
    EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
    EVERY (closed menv) (MAP SND env) ∧
    EVERY (closed menv) s
@@ -441,7 +464,7 @@ val evaluate_closed = store_thm(
    every_result (EVERY (closed menv)) (SND ress)) ∧
   (∀menv (cenv:envC) s env v pes res.
    evaluate_match menv cenv s env v pes res ⇒
-   BIGUNION (IMAGE (λ(p,e). FV e DIFF IMAGE Short (pat_vars p)) (set pes)) ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+   FV_pes pes ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
    EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
    EVERY (closed menv) (MAP SND env) ∧
    EVERY (closed menv) s ∧ closed menv v
@@ -513,11 +536,13 @@ strip_tac (* Letrec *) >- (
   first_x_assum match_mp_tac >>
   fs[FST_triple] >> rfs[] >>
   conj_tac >- (
-    fs[GSYM MAP_MAP_o] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+    fs[GSYM MAP_MAP_o,LET_THM,FV_defs_MAP] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_FLAT] >>
+    gen_tac >> strip_tac >> res_tac >>
+    Cases_on`x`>>fs[] >>
     PROVE_TAC[] ) >>
   match_mp_tac build_rec_env_closed >> fs[] >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_EL] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_FLAT,LET_THM,FV_defs_MAP] >>
   metis_tac[]) >>
 strip_tac (* Letrec *) >- rw[] >>
 strip_tac (* [] *) >- rw[] >>
@@ -532,7 +557,7 @@ strip_tac (* Match *) >- (
   qspecl_then[`cenv`,`s`,`p`,`v`,`env`,`env'`,`menv`]mp_tac(CONJUNCT1 pmatch_closed) >>
   simp[] >>
   fs[GSYM MAP_MAP_o] >> strip_tac >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,MEM_MAP] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,MEM_MAP,FV_pes_MAP,MEM_FLAT] >>
   metis_tac[]) >>
 strip_tac (* Match *) >- rw[] >>
 strip_tac (* Match *) >- rw[] >>
