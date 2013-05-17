@@ -1905,39 +1905,43 @@ val syneq_exp_trans_matchable = store_thm("syneq_exp_trans_matchable",
   match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
   HINT_EXISTS_TAC >> simp[])
 
-(*
 val syneq_exp_mkshift_both = store_thm("syneq_exp_mkshift_both",
-  ``∀z1 z2 V f k e1 e2 U.
-    k ≤ z1 ∧ k ≤ z2 ∧
-    syneq_exp z1 z2 U e1 e2 ∧
-    set(free_vars e1) ⊆ count z1 ∧
-    set(free_vars e2) ⊆ count z2 ∧
+  ``∀y1 y2 z1 z2 V f k e1 e2 U.
+    syneq_exp y1 y2 U e1 e2 ∧
+    set(free_vars e1) ⊆ count y1 ∧
+    set(free_vars e2) ⊆ count y2 ∧
+    k ≤ y1 ∧ k ≤ y2 ∧ k ≤ z1 ∧ k ≤ z2 ∧
     no_labs e1 ∧ no_labs e2 ∧
-    (V = (λx y. if x < k then y = x else if y < k then x = y else U (x-k)(y-k))) ∧
+    (let R = λx y. if x < k then y = x else y = f (x-k) + k in
+       (∀x y. (R O U O inv R) x y ⇒ V x y)) ∧
     (∀x. MEM x (free_vars e1) ∧ k ≤ x ⇒ f (x-k)+k < z1) ∧
     (∀x. MEM x (free_vars e2) ∧ k ≤ x ⇒ f (x-k)+k < z2)
-    ⇒ syneq_exp z1 z2 V (mkshift f k e1) (mkshift f k e2)``
+    ⇒ syneq_exp z1 z2 V (mkshift f k e1) (mkshift f k e2)``,
   rw[] >>
-  match_mp_tac syneq_exp_trans_matchable >>
-  map_every qexists_tac[`z1`,`e1`,`inv (λx y. if x < k then y = x else y = f (x-k) + k)`] >>
-  simp[RIGHT_EXISTS_AND_THM] >>
-  conj_tac >- (
-    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_sym_no_labs)) >>
-    simp[] >>
-    match_mp_tac mkshift_thm >>
-    simp[] ) >>
-  qexists_tac `λx y. if x < k then y = x else if y < k then x = y else U (x-k)(y-k)` >>
+  match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+  qabbrev_tac`R = λx y. if x < k then y = x else y = f (x-k) + k` >>
+  qexists_tac`R O U O (inv R)` >>
   conj_tac >- (
     match_mp_tac syneq_exp_trans_matchable >>
-    map_every qexists_tac[`z2`,`e2`,`λx y. if x < k then y = x else y = f (x-k) + k`] >>
+    map_every qexists_tac[`y1`,`e1`,`inv R`] >>
     simp[RIGHT_EXISTS_AND_THM] >>
     conj_tac >- (
-      match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
-      qexists_tac`U` >>
-      simp[]
+      match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_sym_no_labs)) >>
+      simp[] >>
       match_mp_tac mkshift_thm >>
+      simp[]>> simp[Abbr`R`]) >>
+    qexists_tac `R O U` >>
+    conj_tac >- (
+      match_mp_tac syneq_exp_trans_matchable >>
+      map_every qexists_tac[`y2`,`e2`,`U`] >>
+      simp[] >>
+      qexists_tac`R` >>
+      conj_tac >- (
+        match_mp_tac mkshift_thm >>
+        simp[] >> simp[Abbr`R`]) >>
       simp[] ) >>
-*)
+    simp[relationTheory.O_ASSOC] ) >>
+  fs[LET_THM])
 
 (*
 val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
@@ -2109,16 +2113,74 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
       fsrw_tac[DNF_ss][SUBSET_DEF] >>
       NO_TAC) >>
     TRY (
-      match_mp_tac syneq_exp_trans_matchable >>
-      Q.PAT_ABBREV_TAC`e1 = exp_to_Cexp X exp'` >>
-      Q.PAT_ABBREV_TAC`e2 = exp_to_Cexp X exp'` >>
-      map_every qexists_tac [`LENGTH bvs + LENGTH bvs1
-
+      match_mp_tac syneq_exp_mkshift_both >>
+      last_x_assum(qspecl_then[`bvs`,`bvs1`,`bvs2`]mp_tac) >>
+      discharge_hyps >- fsrw_tac[DNF_ss][SUBSET_DEF] >> strip_tac >>
+      qmatch_assum_abbrev_tac`syneq_exp y1 y2 U e1 e2` >>
+      map_every qexists_tac[`y1`,`y2`,`U`] >>
+      simp[] >>
+      conj_tac >- simp[Abbr`U`] >>
+      conj_asm1_tac >- (
+        simp[Abbr`e1`,Abbr`y1`] >>
+        match_mp_tac free_vars_exp_to_Cexp_matchable >>
+        fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+      conj_asm1_tac >- (
+        simp[Abbr`e2`,Abbr`y2`] >>
+        match_mp_tac free_vars_exp_to_Cexp_matchable >>
+        fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+      conj_tac >- simp[Abbr`e1`] >>
+      conj_tac >- simp[Abbr`e2`] >>
+      conj_tac >- (
+        simp[relationTheory.O_DEF,relationTheory.inv_DEF,Abbr`U`] >>
+        Cases >> simp[] >>
+        Cases >> simp[ADD1] >>
+        rw[] >> simp[] ) >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] >> NO_TAC) >>
     TRY (
       rw[Once syneq_exp_cases] >>
       rw[Once syneq_exp_cases] >>
       rw[Once syneq_exp_cases] >>
-      simp[] >> NO_TAC)
+      simp[] >> NO_TAC)) >>
+  strip_tac >- (
+    simp[exp_to_Cexp_def] >>
+    rw[] >>
+    rw[Once syneq_exp_cases] >>
+    first_x_assum match_mp_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+  strip_tac >- (
+    simp[exp_to_Cexp_def] >>
+    rw[] >>
+    rw[Once syneq_exp_cases] >>
+    first_x_assum match_mp_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+  strip_tac >- (
+    simp[exp_to_Cexp_def] >>
+    rw[] >>
+    rw[Once syneq_exp_cases] >>
+    first_x_assum match_mp_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+  strip_tac >- (
+    simp[exp_to_Cexp_def] >>
+    rw[] >>
+    rw[Once syneq_exp_cases] >>
+    first_x_assum match_mp_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+  strip_tac >- (
+    gen_tac >> Cases >>
+    simp[exp_to_Cexp_def] >>
+    rw[] >>
+    rw[Once syneq_exp_cases] >>
+    TRY (
+      first_x_assum match_mp_tac >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] >> NO_TAC) >>
+    rw[Once syneq_exp_cases] ) >>
+  strip_tac >- (
+    simp[exp_to_Cexp_def] >>
+    rw[] >>
+    rw[Once syneq_exp_cases] >>
+    first_x_assum match_mp_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+  strip_tac >- (
 
 val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
   ``∀v1 v2. enveq v1 v2 ⇒ ∀m. syneq (v_to_Cv m v1) (v_to_Cv m v2)``,
