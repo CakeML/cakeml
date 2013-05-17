@@ -528,19 +528,43 @@ val infer_top_def = Define `
 val infer_prog_def = Define `
 (infer_prog menv cenv env [] =
   return ([],[],[])) ∧
-(infer_prog menv cenv env (Tdec d::ds) =
+(infer_prog menv cenv env (top::ds) =
   do
-    (cenv',env') <- infer_d NONE menv cenv env d;
-    (menv'', cenv'', env'') <- 
-             infer_prog menv (cenv' ++ cenv) (env' ++ env) ds;
-    return (menv'', cenv'' ++ cenv', env'' ++ env')
-  od) ∧
-(infer_prog menv cenv env (Tmod mn spec ds1 :: ds2) =
-  do
-    (cenv',env') <- infer_ds (SOME mn) menv cenv env ds1;
-    (cenv'',env'') <- check_signature (SOME mn) cenv' env' spec;
-    (menv'',cenv''',env''') <- infer_prog ((mn,env'')::menv) (cenv'' ++ cenv) env ds2;
-    return (menv'' ++ [(mn,env'')], cenv''' ++ cenv'', env''')
-  od)`; (* the append of [(mn,env'')] seems wrong *)
+    (menv',cenv',env') <- infer_top menv cenv env top;
+    (menv'', cenv'', env'') <- infer_prog menv (cenv' ++ cenv) (env' ++ env) ds;
+    return (menv''++menv', cenv'' ++ cenv', env'' ++ env')
+  od)`;
+
+
+val Infer_Tfn_def = Define `
+Infer_Tfn t1 t2 = Infer_Tapp [t1;t2] TC_fn`;
+
+val Infer_Tint = Define `
+Infer_Tint = Infer_Tapp [] TC_int`;
+
+val Infer_Tbool = Define `
+Infer_Tbool = Infer_Tapp [] TC_bool`;
+
+val Infer_Tunit = Define `
+Infer_Tunit = Infer_Tapp [] TC_unit`;
+
+val Infer_Tref = Define `
+Infer_Tref t = Infer_Tapp [t] TC_ref`;
+
+val init_type_env_def = Define `
+init_type_env =
+  [("+", (0:num, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tint)));
+   ("-", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tint)));
+   ("*", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tint)));
+   ("div", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tint)));
+   ("mod", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tint)));
+   ("<", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tbool)));
+   (">", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tbool)));
+   ("<=", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tbool)));
+   (">=", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tbool)));
+   ("=", (1, Infer_Tfn (Infer_Tvar_db 0) (Infer_Tfn (Infer_Tvar_db 0) Infer_Tbool)));
+   (":=", (1, Infer_Tfn (Infer_Tref (Infer_Tvar_db 0)) (Infer_Tfn (Infer_Tvar_db 0) Infer_Tunit)));
+   ("!", (1, Infer_Tfn (Infer_Tref (Infer_Tvar_db 0)) (Infer_Tvar_db 0)));
+   ("ref", (1, Infer_Tfn (Infer_Tvar_db 0) (Infer_Tref (Infer_Tvar_db 0))))]`;
 
 val _ = export_theory ();

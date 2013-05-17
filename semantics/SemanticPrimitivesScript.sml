@@ -342,5 +342,23 @@ val _ = Define `
   )))`;
 
 
+(*val init_env : envE*)
+val _ = Define `
+ init_env =  
+([("+", Closure [] "x" (Fun "y" (App (Opn Plus) (Var (Short "x")) (Var (Short "y")))));
+   ("-", Closure [] "x" (Fun "y" (App (Opn Minus) (Var (Short "x")) (Var (Short "y")))));
+   ("*", Closure [] "x" (Fun "y" (App (Opn Times) (Var (Short "x")) (Var (Short "y")))));
+   ("div", Closure [] "x" (Fun "y" (App (Opn Divide) (Var (Short "x")) (Var (Short "y")))));
+   ("mod", Closure [] "x" (Fun "y" (App (Opn Modulo) (Var (Short "x")) (Var (Short "y")))));
+   ("<", Closure [] "x" (Fun "y" (App (Opb Lt) (Var (Short "x")) (Var (Short "y")))));
+   (">", Closure [] "x" (Fun "y" (App (Opb Gt) (Var (Short "x")) (Var (Short "y")))));
+   ("<=", Closure [] "x" (Fun "y" (App (Opb Leq) (Var (Short "x")) (Var (Short "y")))));
+   (">=", Closure [] "x" (Fun "y" (App (Opb Geq) (Var (Short "x")) (Var (Short "y")))));
+   ("=", Closure [] "x" (Fun "y" (App Equality (Var (Short "x")) (Var (Short "y")))));
+   (":=", Closure [] "x" (Fun "y" (App Opassign (Var (Short "x")) (Var (Short "y")))));
+   ("!", Closure [] "x" (Uapp Opderef (Var (Short "x"))));
+   ("ref", Closure [] "x" (Uapp Opref (Var (Short "x"))))])`;
+
+
 val _ = export_theory()
 

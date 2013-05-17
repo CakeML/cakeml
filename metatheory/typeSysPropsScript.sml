@@ -880,7 +880,7 @@ induct_on `e` >>
 rw [lookup_tenv_def,deBruijn_subst_tenvE_def, deBruijn_inc_def, num_tvs_def] >>
 metis_tac [arithmeticTheory.ADD_ASSOC, type_e_subst_lem5]);
 
-val subst_inc_cancel = Q.prove (
+val subst_inc_cancel = Q.store_thm ("subst_inc_cancel",
 `(!t ts inc. 
   deBruijn_subst 0 ts (deBruijn_inc 0 (inc + LENGTH ts) t)
   =

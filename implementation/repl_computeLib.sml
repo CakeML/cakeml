@@ -1,7 +1,5 @@
 structure repl_computeLib = struct
-open preamble repl_funTheory wordsLib intLib
-(* need wordsLib to make EVAL work on toString - this should be fixed in HOL *)
-(* need intLib to EVAL double negation of ints *)
+open preamble repl_funTheory ASCIInumbersLib intLib
 open AstTheory inferTheory CompilerTheory compilerTerminationTheory bytecodeEvalTheory
 
 val t_unify_wfs = prove(
@@ -89,4 +87,59 @@ val _ = computeLib.add_funs
   ,RES_FORALL_set
   ,bc_fetch_aux_zero
   ]
+
+val _ = let
+  open computeLib
+in
+  set_skip the_compset ``evalcase_CASE`` (SOME 1);
+  set_skip the_compset ``list_CASE`` (SOME 1);
+  set_skip the_compset ``option_CASE`` (SOME 1);
+  set_skip the_compset ``sum_CASE`` (SOME 1);
+  set_skip the_compset ``id_CASE`` (SOME 1);
+  set_skip the_compset ``tc0_CASE`` (SOME 1);
+  set_skip the_compset ``t_CASE`` (SOME 1);
+  set_skip the_compset ``lit_CASE`` (SOME 1);
+  set_skip the_compset ``pat_CASE`` (SOME 1);
+  set_skip the_compset ``lop_CASE`` (SOME 1);
+  set_skip the_compset ``opb_CASE`` (SOME 1);
+  set_skip the_compset ``opn_CASE`` (SOME 1);
+  set_skip the_compset ``op_CASE`` (SOME 1);
+  set_skip the_compset ``uop_CASE`` (SOME 1);
+  set_skip the_compset ``error_CASE`` (SOME 1);
+  set_skip the_compset ``exp_CASE`` (SOME 1);
+  set_skip the_compset ``dec_CASE`` (SOME 1);
+  set_skip the_compset ``spec_CASE`` (SOME 1);
+  set_skip the_compset ``top_CASE`` (SOME 1);
+  set_skip the_compset ``ast_t_CASE`` (SOME 1);
+  set_skip the_compset ``ast_pat_CASE`` (SOME 1);
+  set_skip the_compset ``ast_exp_CASE`` (SOME 1);
+  set_skip the_compset ``ast_dec_CASE`` (SOME 1);
+  set_skip the_compset ``ast_spec_CASE`` (SOME 1);
+  set_skip the_compset ``ast_top_CASE`` (SOME 1);
+  set_skip the_compset ``bc_stack_op_CASE`` (SOME 1);
+  set_skip the_compset ``bc_inst_CASE`` (SOME 1);
+  set_skip the_compset ``compiler_state_CASE`` (SOME 1);
+  set_skip the_compset ``Cpat_CASE`` (SOME 1);
+  set_skip the_compset ``exp_to_Cexp_state_CASE`` (SOME 1);
+  set_skip the_compset ``compiler_result_CASE`` (SOME 1);
+  set_skip the_compset ``call_context_CASE`` (SOME 1);
+  set_skip the_compset ``ctbind_CASE`` (SOME 1);
+  set_skip the_compset ``COND`` (SOME 1)
+end
+
+val eval_compile_primitives = EVAL ``compile_primitives``
+val _ = computeLib.del_funs[compile_primitives_def]
+val _ = computeLib.add_funs[eval_compile_primitives]
+val eval_initial_repl_fun_state = EVAL ``initial_repl_fun_state``
+val _ = PolyML.fullGC();
+val eval_initial_bc_state = EVAL ``initial_bc_state``
+val _ = computeLib.del_funs[initial_repl_fun_state_def,initial_bc_state_def]
+val _ = computeLib.add_funs[eval_initial_repl_fun_state,eval_initial_bc_state]
+
+val C_main_loop_def = Define`C_main_loop i (s,bs) = main_loop (s,bs) i`
+val eval_C_main_loop = EVAL``C_main_loop i (s,bs)``
+val _ = computeLib.del_funs[main_loop_def]
+bc_eval1_def
+val _ = computeLib.add_funs[GSYM C_main_loop_def]
+val _ = computeLib.set_skip computeLib.the_compset ``C_main_loop`` (SOME 1)
 end

@@ -597,3 +597,22 @@ check_signature (Some mn) cenv' tenv' spec cenv'' tenv'' &&
 type_prog (bind mn tenv'' menv) (merge cenv'' cenv) tenv ds2 menv'' cenv''' tenv'''
 ==>
 type_prog menv cenv tenv (Tmod mn spec ds1 :: ds2) (merge menv'' [(mn,tenv'')]) (merge cenv''' cenv'') tenv'''
+
+val init_tenv : tenvE
+let init_tenv =
+  List.fold_right
+    (fun (tn,tvs,t) tenv -> Bind_name tn tvs t tenv)
+    [("+", 0, Tfn Tint (Tfn Tint Tint));
+     ("-", 0, Tfn Tint (Tfn Tint Tint));
+     ("*", 0, Tfn Tint (Tfn Tint Tint));
+     ("div", 0, Tfn Tint (Tfn Tint Tint));
+     ("mod", 0, Tfn Tint (Tfn Tint Tint));
+     ("<", 0, Tfn Tint (Tfn Tint Tbool));
+     (">", 0, Tfn Tint (Tfn Tint Tbool));
+     ("<=", 0, Tfn Tint (Tfn Tint Tbool));
+     (">=", 0, Tfn Tint (Tfn Tint Tbool));
+     ("=", 1, Tfn (Tvar_db 0) (Tfn (Tvar_db 0) Tbool));
+     (":=", 1, Tfn (Tref (Tvar_db 0)) (Tfn (Tvar_db 0) Tunit));
+     ("!", 1, Tfn (Tref (Tvar_db 0)) (Tvar_db 0));
+     ("ref", 1, Tfn (Tvar_db 0) (Tref (Tvar_db 0)))]
+    Empty
