@@ -1878,7 +1878,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   METIS_TAC[EVERY2_syneq_trans])
 
 (* TODO: move *)
-val find_index_APPEND_fst = store_thm("find_index_APPEND_fst",
+val find_index_APPEND1 = store_thm("find_index_APPEND1",
   ``∀l1 n l2 m i. (find_index n (l1 ++ l2) m = SOME i) ∧ (i < m+LENGTH l1) ⇒ (find_index n l1 m = SOME i)``,
   Induct >> simp[find_index_def] >- (
     spose_not_then strip_assume_tac >>
@@ -1888,11 +1888,22 @@ val find_index_APPEND_fst = store_thm("find_index_APPEND_fst",
   first_x_assum match_mp_tac >>
   simp[])
 
-val find_index_APPEND_snd = store_thm("find_index_APPEND_snd",
+val find_index_APPEND2 = store_thm("find_index_APPEND2",
   ``∀l1 n l2 m i. (find_index n (l1 ++ l2) m = SOME i) ∧ (m + LENGTH l1 ≤ i) ⇒ (find_index n l2 (m+LENGTH l1) = SOME i)``,
   Induct >> simp[find_index_def] >>
   rw[] >> fsrw_tac[ARITH_ss][] >>
   res_tac >> fsrw_tac[ARITH_ss][ADD1])
+
+val syneq_exp_trans_matchable = store_thm("syneq_exp_trans_matchable",
+  ``∀ez1 ez2 ez3 e1 e2 e3 V V' U.
+    syneq_exp ez1 ez2 V e1 e2 ∧ syneq_exp ez2 ez3 V' e2 e3 ∧
+    (∀x y. (V' O V) x y ∧ x < ez1 ∧ y < ez3 ⇒ U x y)
+    ⇒
+    syneq_exp ez1 ez3 U e1 e3``,
+  rw[] >>
+  imp_res_tac (CONJUNCT1 syneq_exp_trans) >>
+  match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+  HINT_EXISTS_TAC >> simp[])
 
 (*
 val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
@@ -1969,13 +1980,13 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
     imp_res_tac find_index_LESS_LENGTH >>
     fsrw_tac[ARITH_ss][] >>
     Cases_on `x < LENGTH bvs` >- (
-      Q.ISPECL_THEN[`bvs`,`vn`,`bvs1`,`0`]mp_tac find_index_APPEND_fst >>
+      Q.ISPECL_THEN[`bvs`,`vn`,`bvs1`,`0`]mp_tac find_index_APPEND1 >>
       simp[] >> strip_tac >>
       imp_res_tac find_index_APPEND_same >>
       metis_tac[optionTheory.SOME_11] ) >>
     simp[] >>
-    imp_res_tac find_index_APPEND_snd >>
-    imp_res_tac find_index_APPEND_fst >>
+    imp_res_tac find_index_APPEND2 >>
+    imp_res_tac find_index_APPEND1 >>
     ntac 2 (pop_assum kall_tac) >> rfs[] >>
     Cases_on`x' < LENGTH bvs` >> fs[] >- (
       `MEM vn bvs` by metis_tac[find_index_NOT_MEM,optionTheory.NOT_SOME_NONE] >>
@@ -1999,8 +2010,50 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
     rw[exp_to_Cexp_def] >>
     rw[Once syneq_exp_cases] >>
     rw[Once syneq_exp_cases] >>
-    rw[]
-    mkshift_thm
+    qexists_tac`λv1 v2. (v1 = 0) ∧ (v2 = v1)` >>
+    simp[] >>
+    simp[syneq_cb_aux_def] >>
+    simp[shift_def] >>
+    match_mp_tac syneq_exp_trans_matchable >>
+    Q.PAT_ABBREV_TAC`e1 = exp_to_Cexp X exp` >>
+    map_every qexists_tac[`LENGTH bvs + LENGTH bvs1 + 1`,`e1`,`inv (λx y. ((x = 0) ∧ (y = 0)) ∨ (x ≠ 0) ∧ (y = x + 1))`] >>
+    simp[RIGHT_EXISTS_AND_THM] >>
+    conj_tac >- (
+      match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_sym_no_labs)) >>
+      reverse conj_tac >- simp[Abbr`e1`] >>
+      match_mp_tac mkshift_thm >>
+      simp[Abbr`e1`] >>
+      match_mp_tac free_vars_exp_to_Cexp_matchable >>
+      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,lem,ADD1] ) >>
+    qexists_tac`λx y. if x = 0 then y = 0 else
+                      if x-1 < LENGTH bvs then y = x + 1 else
+                      2+LENGTH bvs ≤ y ∧ (EL (x-LENGTH bvs-1) bvs1 = EL (y-LENGTH bvs-2) bvs2)` >>
+    conj_tac >- (
+      match_mp_tac syneq_exp_trans_matchable >>
+      first_x_assum(qspecl_then[`vn::bvs`,`bvs1`,`bvs2`]mp_tac) >>
+      discharge_hyps >- ( fsrw_tac[DNF_ss][SUBSET_DEF,lem] ) >>
+      simp[ADD1] >>
+      Q.PAT_ABBREV_TAC`e2 = exp_to_Cexp X exp` >>
+      strip_tac >>
+      map_every qexists_tac[`LENGTH bvs + LENGTH bvs2 + 1`,`e2`] >>
+      simp[] >> HINT_EXISTS_TAC >>
+      simp[] >>
+      qexists_tac`λx y. ((x = 0) ∧ (y = 0)) ∨ (x ≠ 0) ∧ (y = x + 1)` >>
+      conj_tac >- (
+        match_mp_tac mkshift_thm >>
+        simp[Abbr`e2`] >>
+        match_mp_tac free_vars_exp_to_Cexp_matchable >>
+        fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,lem] ) >>
+      simp[relationTheory.O_DEF] >>
+      Cases >> simp[ADD1] >>
+      Cases >> simp[ADD1] >>
+      rw[] >> simp[] >>
+      fsrw_tac[ARITH_ss][] ) >>
+    simp[relationTheory.O_DEF,relationTheory.inv_DEF] >>
+    simp[syneq_cb_V_def] >>
+    Cases >> simp[] >>
+    Cases >> simp[ADD1] >>
+    rw[] >> simp[] )
 
 val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
   ``∀v1 v2. enveq v1 v2 ⇒ ∀m. syneq (v_to_Cv m v1) (v_to_Cv m v2)``,
