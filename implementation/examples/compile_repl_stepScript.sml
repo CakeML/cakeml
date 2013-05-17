@@ -8,52 +8,6 @@ val _ = computeLib.stoppers := let
   val stoppers = [stop_CONS ,``Dlet``,``Dletrec``,``Dtype``]
   in SOME (fn tm => mem tm stoppers) end
 
-(*
-val _ = let
-  open computeLib (* TODO: these calls should be automatic in HOL *)
-  (*
-  EVAL ``MAP (λdec. case dec of Dtype ts => MAP (FST o SND) ts) (FILTER (λdec. case dec of Dtype _ => T | _ => F) ml_repl_step_decls)``
-  *)
-in
-  set_skip the_compset ``evalcase_CASE`` (SOME 1);
-  set_skip the_compset ``list_CASE`` (SOME 1);
-  set_skip the_compset ``option_CASE`` (SOME 1);
-  set_skip the_compset ``sum_CASE`` (SOME 1);
-  set_skip the_compset ``id_CASE`` (SOME 1);
-  set_skip the_compset ``tc0_CASE`` (SOME 1);
-  set_skip the_compset ``t_CASE`` (SOME 1);
-  set_skip the_compset ``lit_CASE`` (SOME 1);
-  set_skip the_compset ``pat_CASE`` (SOME 1);
-  set_skip the_compset ``lop_CASE`` (SOME 1);
-  set_skip the_compset ``opb_CASE`` (SOME 1);
-  set_skip the_compset ``opn_CASE`` (SOME 1);
-  set_skip the_compset ``op_CASE`` (SOME 1);
-  set_skip the_compset ``uop_CASE`` (SOME 1);
-  set_skip the_compset ``error_CASE`` (SOME 1);
-  set_skip the_compset ``exp_CASE`` (SOME 1);
-  set_skip the_compset ``dec_CASE`` (SOME 1);
-  set_skip the_compset ``spec_CASE`` (SOME 1);
-  set_skip the_compset ``top_CASE`` (SOME 1);
-  set_skip the_compset ``ast_t_CASE`` (SOME 1);
-  set_skip the_compset ``ast_pat_CASE`` (SOME 1);
-  set_skip the_compset ``ast_exp_CASE`` (SOME 1);
-  set_skip the_compset ``ast_dec_CASE`` (SOME 1);
-  set_skip the_compset ``ast_spec_CASE`` (SOME 1);
-  set_skip the_compset ``ast_top_CASE`` (SOME 1);
-  set_skip the_compset ``bc_stack_op_CASE`` (SOME 1);
-  set_skip the_compset ``bc_inst_CASE`` (SOME 1);
-  set_skip the_compset ``compiler_state_CASE`` (SOME 1);
-  set_skip the_compset ``Cpat_CASE`` (SOME 1);
-  set_skip the_compset ``exp_to_Cexp_state_CASE`` (SOME 1);
-  set_skip the_compset ``compiler_result_CASE`` (SOME 1);
-  set_skip the_compset ``call_context_CASE`` (SOME 1);
-  set_skip the_compset ``ctbind_CASE`` (SOME 1);
-  set_skip the_compset ``COND`` (SOME 1)
-end
-*)
-
-val () = computeLib.set_skip computeLib.the_compset ``COND`` (SOME 1);
-
 val compile_decs = Define`
   compile_decs cs [] acc = acc ∧
   compile_decs cs (d::ds) acc =
@@ -62,11 +16,13 @@ val compile_decs = Define`
 
 val _ = computeLib.add_funs[ml_repl_step_decls]
 
+(*
 val _ = Globals.max_print_depth := 20
 
 val _ = PolyML.fullGC();
 val res = time EVAL
   ``compile_decs init_compiler_state (TAKE 100 ml_repl_step_decls) stop_NIL``
+*)
 
 (*
 EVAL ``TAKE 20 (DROP 100 ml_repl_step_decls)``

@@ -5,11 +5,8 @@
  * in comments before each node.
  * 
  * Also, an elaboration from this syntax to the AST in ast.lem.  The
- * elaboration spots variables and types that are bound to ML primitives.  The
- * elaboration isn't particularly sophisticated: primitives are always turned
- * into functions, and we don't look for places where the primitive is already
- * applied, so 1 + 2 becomes (fun x y -> x + y) 1 2.  The elaboration also
- * prefixes datatype constructors and types with their paths, so
+ * elaboration spots types that are bound to ML primitives.  It also prefixes
+ * datatype constructors and types with their paths, so
  *
  * structure S = struct datatype t = C val x = C end
  *
@@ -119,109 +116,73 @@ elab_ps [] = []
 and
 elab_ps (p::ps) = elab_p p :: elab_ps ps
 
-type ops =
-  | Is_uop of uop
-  | Is_op of op
-  | Is_local
-
-type binding_env = env varN ops
-
-val init_env : binding_env
-let init_env =
-  [("+", Is_op (Opn Plus));
-   ("-", Is_op (Opn Minus));
-   ("*", Is_op (Opn Times));
-   ("div", Is_op (Opn Divide));
-   ("mod", Is_op (Opn Modulo));
-   ("<", Is_op (Opb Lt));
-   (">", Is_op (Opb Gt));
-   ("<=", Is_op (Opb Leq));
-   (">=", Is_op (Opb Geq));
-   ("=", Is_op Equality);
-   (":=", Is_op Opassign);
-   ("!", Is_uop Opderef);
-   ("ref", Is_uop Opref)]
-
 type ctor_env = env conN (id conN)
 
 val elab_t : list typeN -> ast_t -> t
-val elab_e : ctor_env -> binding_env -> ast_exp -> exp
-val elab_funs : ctor_env -> binding_env -> list (varN * varN * ast_exp) -> 
+val elab_e : ctor_env -> ast_exp -> exp
+val elab_funs : ctor_env -> list (varN * varN * ast_exp) -> 
                 list (varN * varN * exp)
-val elab_dec : option modN -> list typeN -> ctor_env -> binding_env -> ast_dec -> list typeN * ctor_env * binding_env * dec
-val elab_decs : option modN -> list typeN -> ctor_env -> binding_env -> list ast_dec -> list typeN * ctor_env * binding_env * list dec
+val elab_dec : option modN -> list typeN -> ctor_env -> ast_dec -> list typeN * ctor_env * dec
+val elab_decs : option modN -> list typeN -> ctor_env -> list ast_dec -> list typeN * ctor_env * list dec
 val elab_spec : list typeN -> list ast_spec -> list spec
-val elab_top : list typeN -> ctor_env -> binding_env -> ast_top -> list typeN * ctor_env * binding_env * top
-val elab_prog : list typeN -> ctor_env -> binding_env -> list ast_top -> list typeN * ctor_env * binding_env * prog
-
-val get_pat_bindings : pat -> binding_env
-let get_pat_bindings p = List.map (fun x -> (x, Is_local)) (pat_bindings p [])
-
-let get_funs_bindings funs = List.map (fun (x,y,z) -> (x, Is_local)) funs
+val elab_top : list typeN -> ctor_env -> ast_top -> list typeN * ctor_env * top
+val elab_prog : list typeN -> ctor_env -> list ast_top -> list typeN * ctor_env * prog
 
 let rec
-elab_e ctors bound (Ast_Raise err) =
+elab_e ctors (Ast_Raise err) =
   Raise err
 and
-elab_e ctors bound (Ast_Handle e1 x e2) =
-  Handle (elab_e ctors bound e1) x (elab_e ctors (bind x Is_local bound) e2)
+elab_e ctors (Ast_Handle e1 x e2) =
+  Handle (elab_e ctors e1) x (elab_e ctors e2)
 and
-elab_e ctors bound (Ast_Lit l) =
+elab_e ctors (Ast_Lit l) =
   Lit l
-and elab_e ctors bound (Ast_Var (Long m n)) =
-  Var (Long m n)
-and elab_e ctors bound (Ast_Var (Short n)) =
-  match lookup n bound with
-    | None -> Var (Short n)
-    | Some Is_local -> Var (Short n)
-    | Some (Is_op op) ->
-        Fun "x" (Fun "y" (App op (Var (Short "x")) (Var (Short "y"))))
-    | Some (Is_uop uop) ->
-        Fun "x" (Uapp uop (Var (Short "x")))
-  end
 and 
-elab_e ctors bound (Ast_Con (Long mn cn) es) =
-  Con (Long mn cn) (List.map (elab_e ctors bound) es)
+elab_e ctors (Ast_Var id) =
+  Var id
 and
-elab_e ctors bound (Ast_Con (Short cn) es) =
+elab_e ctors (Ast_Con (Long mn cn) es) =
+  Con (Long mn cn) (List.map (elab_e ctors) es)
+and
+elab_e ctors (Ast_Con (Short cn) es) =
   match lookup cn ctors with
     | Some cid ->
-        Con cid (List.map (elab_e ctors bound) es)
+        Con cid (List.map (elab_e ctors) es)
     | None ->
-        Con (Short cn) (List.map (elab_e ctors bound) es)
+        Con (Short cn) (List.map (elab_e ctors) es)
   end
 and
-elab_e ctors bound (Ast_Fun n e) =
-  Fun n (elab_e ctors (bind n Is_local bound) e)
+elab_e ctors (Ast_Fun n e) =
+  Fun n (elab_e ctors e)
 and
-elab_e ctors bound (Ast_App e1 e2) =
-  App Opapp (elab_e ctors bound e1) (elab_e ctors bound e2)
+elab_e ctors (Ast_App e1 e2) =
+  App Opapp (elab_e ctors e1) (elab_e ctors e2)
 and
-elab_e ctors bound (Ast_Log lop e1 e2) =
-  Log lop (elab_e ctors bound e1) (elab_e ctors bound e2)
+elab_e ctors (Ast_Log lop e1 e2) =
+  Log lop (elab_e ctors e1) (elab_e ctors e2)
 and
-elab_e ctors bound (Ast_If e1 e2 e3) =
-  If (elab_e ctors bound e1) (elab_e ctors bound e2) (elab_e ctors bound e3)
+elab_e ctors (Ast_If e1 e2 e3) =
+  If (elab_e ctors e1) (elab_e ctors e2) (elab_e ctors e3)
 and
-elab_e ctors bound (Ast_Mat e pes) =
-  Mat (elab_e ctors bound e) 
+elab_e ctors (Ast_Mat e pes) =
+  Mat (elab_e ctors e) 
       (List.map (fun (p,e) -> 
                    let p' = elab_p p in
-                     (p', elab_e ctors (merge (get_pat_bindings p') bound) e))
+                     (p', elab_e ctors e))
                 pes)
 and
-elab_e ctors bound (Ast_Let x e1 e2) =
-  Let x (elab_e ctors bound e1) (elab_e ctors (bind x Is_local bound) e2)
+elab_e ctors (Ast_Let x e1 e2) =
+  Let x (elab_e ctors e1) (elab_e ctors e2)
 and
-elab_e ctors bound (Ast_Letrec funs e) =
-  Letrec (elab_funs ctors (merge (get_funs_bindings funs) bound) funs) 
-         (elab_e ctors bound e)
+elab_e ctors (Ast_Letrec funs e) =
+  Letrec (elab_funs ctors funs) 
+         (elab_e ctors e)
 and
-elab_funs ctors bound [] =
+elab_funs ctors [] =
   []
 and
-elab_funs ctors bound ((n1,n2,e)::funs) =
-  (n1,n2,elab_e ctors (bind n2 Is_local bound) e) :: elab_funs ctors bound funs
+elab_funs ctors ((n1,n2,e)::funs) =
+  (n1,n2,elab_e ctors e) :: elab_funs ctors funs
 
 let rec get_prim_type tn =
   match tn with
@@ -260,30 +221,28 @@ let elab_td type_bound (tvs,tn,ctors) =
   (tvs, tn, List.map (fun (cn,t) -> (cn, List.map (elab_t type_bound) t)) ctors)
 
 let rec
-elab_dec mn type_bound ctors bound (Ast_Dlet p e) =
+elab_dec mn type_bound ctors (Ast_Dlet p e) =
   let p' = elab_p p in
-    ([], emp, get_pat_bindings p', Dlet p' (elab_e ctors bound e))
+    ([], emp, Dlet p' (elab_e ctors e))
 and
-elab_dec mn type_bound ctors bound (Ast_Dletrec funs) =
-  let bound' = get_funs_bindings funs in
-    ([], emp, bound', Dletrec (elab_funs ctors (merge bound' bound) funs))
+elab_dec mn type_bound ctors (Ast_Dletrec funs) =
+  ([], emp, Dletrec (elab_funs ctors funs))
 and
-elab_dec mn type_bound ctors bound (Ast_Dtype t) = 
+elab_dec mn type_bound ctors (Ast_Dtype t) = 
   let type_bound' = List.map (fun (tvs,tn,ctors) -> tn) t in
   (type_bound',
    merge (get_ctors_bindings mn t) ctors,
-   emp, 
    Dtype (List.map (elab_td (type_bound' @ type_bound)) t))
 
 let rec
-elab_decs mn type_bound ctors bound [] = ([],emp,emp,[])
+elab_decs mn type_bound ctors [] = ([],emp,[])
 and
-elab_decs mn type_bound ctors bound (d::ds) = 
-  let (type_bound', ctors', bound', d') = elab_dec mn type_bound ctors bound d in
-  let (type_bound'',ctors'',bound'',ds') = 
-    elab_decs mn (type_bound' @ type_bound) (merge ctors' ctors) (merge bound' bound) ds 
+elab_decs mn type_bound ctors (d::ds) = 
+  let (type_bound', ctors', d') = elab_dec mn type_bound ctors d in
+  let (type_bound'',ctors'',ds') = 
+    elab_decs mn (type_bound' @ type_bound) (merge ctors' ctors) ds 
   in
-    (type_bound''@type_bound', merge ctors'' ctors', merge bound'' bound', d'::ds')
+    (type_bound''@type_bound', merge ctors'' ctors', d'::ds')
 
 let rec 
 elab_spec type_bound [] = []
@@ -299,25 +258,20 @@ elab_spec type_bound (Ast_Stype_opq tn::spec) =
   Stype_opq tn :: elab_spec (tn::type_bound) spec
 
 let rec
-elab_top type_bound ctors bound (Ast_Tdec d) =
-  let (type_bound', ctors', bound', d') = elab_dec None type_bound ctors bound d in
-      (type_bound', ctors', bound', Tdec d')
+elab_top type_bound ctors (Ast_Tdec d) =
+  let (type_bound', ctors', d') = elab_dec None type_bound ctors d in
+      (type_bound', ctors', Tdec d')
 and
-elab_top type_bound ctors bound (Ast_Tmod mn spec ds) =
-  let (type_bound',ctors',bound',ds') = elab_decs (Some mn) type_bound ctors bound ds in
-      (type_bound, ctors, bound,Tmod mn (option_map (elab_spec type_bound) spec) ds')
+elab_top type_bound ctors (Ast_Tmod mn spec ds) =
+  let (type_bound',ctors',ds') = elab_decs (Some mn) type_bound ctors ds in
+      (type_bound,ctors,Tmod mn (option_map (elab_spec type_bound) spec) ds')
 
 let rec
-elab_prog type_bound ctors bound [] = ([],emp,emp,[])
+elab_prog type_bound ctors [] = ([],emp,[])
 and
-elab_prog type_bound ctors bound (Ast_Tdec d::prog) =
-  let (type_bound', ctors', bound', d') = elab_dec None type_bound ctors bound d in
-  let (type_bound'',ctors'',bound'',prog') = 
-    elab_prog (type_bound' @ type_bound) (merge ctors' ctors) (merge bound' bound) prog
+elab_prog type_bound ctors (top::prog) =
+  let (type_bound',ctors',top') = elab_top type_bound ctors top in
+  let (type_bound'',ctors'',prog') = 
+    elab_prog (type_bound' @ type_bound) (merge ctors' ctors) prog
   in
-    (type_bound''@type_bound,merge ctors'' ctors',merge bound'' bound',Tdec d'::prog')
-and
-elab_prog type_bound ctors bound (Ast_Tmod mn spec ds::prog) =
-  let (type_bound',ctors',bound',ds') = elab_decs (Some mn) type_bound ctors bound ds in
-  let (type_bound'',ctors'',bound'',prog') = elab_prog type_bound ctors bound prog in
-    (type_bound'',ctors'',bound'',Tmod mn (option_map (elab_spec type_bound) spec) ds'::prog')
+    (type_bound''@type_bound', merge ctors'' ctors', top'::prog')

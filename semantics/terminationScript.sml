@@ -85,14 +85,16 @@ fun register name def ind =
     ()
   end
 
+  (*
 val _ = uncurry (register "elab_prog") (
   tprove_no_defn ((elab_prog_def, elab_prog_ind),
-    WF_REL_TAC`measure (LENGTH o SND o SND o SND)`>>
+    WF_REL_TAC`measure (LENGTH o SND o SND)`>>
     simp[]))
+    *)
 
 val _ = uncurry (register "elab_e") (
   tprove_no_defn ((elab_e_def, elab_e_ind),
-  WF_REL_TAC`inv_image $< (λx. case x of INL (_,_,e) => ast_exp_size e | INR (_,_,l) => ast_exp1_size l)` >>
+  WF_REL_TAC`inv_image $< (λx. case x of INL (_,e) => ast_exp_size e | INR (_,l) => ast_exp1_size l)` >>
   simp[ast_exp_size_def,ast_exp6_size_thm,ast_exp4_size_thm,SUM_MAP_ast_exp5_size_thm] >>
   rw[] >>
   Q.ISPEC_THEN`ast_exp_size`imp_res_tac SUM_MAP_MEM_bound >> fsrw_tac[ARITH_ss][]>>
