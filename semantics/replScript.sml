@@ -5,10 +5,45 @@ open gramTheory;
 
 val _ = new_theory "repl";
 
-(* top-level semicolon detector breaks the token list up into chunks.
-  the parser turns these chunks into either ast_progs or errors (NONE).
-  if it encounters an error, it drops tokens until the next chunk.  *)
-val _ = new_constant("parse", ``:token list -> ast_top option list``);
+val toplevel_semi_dex_non0 = Q.prove (
+`!i err stk toks j. (0 < i ∨ toks = []) ∧ (toplevel_semi_dex i err stk toks = SOME j) ⇒ 0 < j`,
+induct_on `toks` >>
+rw [toplevel_semi_dex_def] >>
+fs [] >-
+metis_tac [DECIDE ``!x:num. 0 < x + 1``] >-
+metis_tac [DECIDE ``!x:num. 0 < x + 1``] >-
+metis_tac [DECIDE ``!x:num. 0 < x + 1``] >-
+metis_tac [DECIDE ``!x:num. 0 < x + 1``] >-
+metis_tac [DECIDE ``!x:num. 0 < x + 1``] >-
+(cases_on `stk` >>
+ fs [] >-
+ metis_tac [DECIDE ``!x:num. 0 < x + 1``] >>
+ cases_on `h` >>
+ fs [] >>
+ metis_tac [DECIDE ``!x:num. 0 < x + 1``]) >-
+(cases_on `stk` >>
+ fs [] >-
+ metis_tac [DECIDE ``!x:num. 0 < x + 1``] >>
+ cases_on `h` >>
+ fs [] >>
+ metis_tac [DECIDE ``!x:num. 0 < x + 1``]) >>
+metis_tac [DECIDE ``!x:num. 0 < x + 1``]);
+
+val split_top_level_semi_def = tDefine "split_top_level_semi" `
+(split_top_level_semi toks = 
+  case toplevel_semi_dex 0 F [] toks of
+    | NONE => [toks]
+    | SOME i =>
+        TAKE (i+1) toks :: split_top_level_semi (DROP (i+1) toks))`
+(wf_rel_tac `measure LENGTH` >>
+ rw [] >>
+ cases_on `toks` >>
+ fs [toplevel_semi_dex_def] >>
+ cases_on `h` >>
+ fs [] >>
+ metis_tac [toplevel_semi_dex_non0, DECIDE ``0 < 1:num``, DECIDE ``!x:num. 0 < x + 1``]);
+
+val _ = new_constant("parse", ``:token list -> ast_top option``);
 
 val _ = Hol_datatype `
 repl_state = <| (* Elaborator state *)
@@ -126,6 +161,6 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
   ast_repl state (NONE::asts) (Result "<parse error>" rest))`;
 
 val repl_def = Define `
-repl input = ast_repl init_repl_state (parse (lexer_fun input))`;
+repl input = ast_repl init_repl_state (MAP parse (split_top_level_semi (lexer_fun input)))`; 
 
 val _ = export_theory ();
