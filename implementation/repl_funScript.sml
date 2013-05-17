@@ -20,7 +20,7 @@ val _ = type_abbrev ("inferencer_state", ``:(modN, (varN, num # infer_t) env) en
 val infertype_top_def = Define `
 infertype_top ((module_type_env, constructor_type_env, type_env) :inferencer_state) ast_top =
   case FST (infer_top module_type_env constructor_type_env type_env ast_top infer$init_infer_state) of
-     | Failure _ => Failure "type error"
+     | Failure _ => Failure "<type error>"
      | Success (new_module_type_env, new_constructor_type_env, new_type_env) =>
         Success (new_module_type_env ++ module_type_env,
                   new_constructor_type_env ++ constructor_type_env,
@@ -92,13 +92,13 @@ val parse_elaborate_infertype_compile_def = Define `
   parse_elaborate_infertype_compile tokens s =
     case parse_top tokens of
       (* case: parse error *)
-      NONE => Failure "parse error"
+      NONE => Failure "<parse error>"
     | (* case: ast_top produced *)
       SOME ast_top =>
         let (es,top) = elaborate_top s.relaborator_state ast_top in
           case infertype_top s.rinferencer_state top of
             (* type inference failed to find type *)
-          | Failure _ => Failure "type error"
+          | Failure _ => Failure "<type error>"
             (* type found, type safe! *)
           | Success is =>
              let (cs,code) = compile_top s.rcompiler_state top in

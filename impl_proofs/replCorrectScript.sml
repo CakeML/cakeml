@@ -17,17 +17,20 @@ val lexer_correct = Q.prove (
 cheat);
 
 val parser_correct = Q.prove (
-`!toks. parse_top tok' = parse tok'`,
+`!toks. parse_top toks = parse toks`,
 cheat);
 
 (*
-val replCorrect = Q.store_thm ("replCorrect",
-`!input output. (repl_fun input = output) ⇒ (repl input output)`,
+val replCorrect_lem = Q.prove (
+`!repl_state bc_state repl_fun_state.
+  ast_repl repl_state
+    (MAP parse (split_top_level_semi (lexer_fun input)))
+    (main_loop (bc_state,repl_fun_state) input)`,
+  
 
 completeInduct_on `LENGTH input` >>
-rw [repl_fun_def, repl_def, Once main_loop_def, lexer_correct, 
-    Once lex_impl_all_def] >>
-cases_on `lex_until_toplevel_semicolon input'` >>
+rw [Once main_loop_def, lexer_correct, Once lex_impl_all_def] >>
+cases_on `lex_until_toplevel_semicolon input` >>
 rw [] >-
 metis_tac [ast_repl_rules] >>
 `?tok input_rest. x = (tok, input_rest)`
@@ -39,28 +42,43 @@ rw [] >>
             metis_tac []) >>
 rw [] >>
 rw [Once ast_repl_cases, parse_elaborate_infertype_compile_def, parser_correct] >-
-(* The semantics and implementation had a different error message*)
-cheat >>
-Q.ABBREV_TAC `x = elaborate_top init_repl_fun_state.relaborator_state ast` >>
-`?new_elaborate_state ast'. x = (new_elaborate_state, ast')` 
-       by (cases_on `x` >>
-           metis_tac []) >>
+((* A parse error *)
+ `LENGTH input_rest < LENGTH input` by metis_tac [lex_until_toplevel_semicolon_LESS] >>
+     metis_tac [lexer_correct]) >>
+`?new_repl_fun_elab_state ast'.
+    elaborate_top repl_fun_state'.relaborator_state ast = (new_repl_fun_elab_state, ast')`
+          by (cases_on `elaborate_top repl_fun_state'.relaborator_state ast` >>
+              metis_tac []) >>
 rw [] >>
-Q.ABBREV_TAC `infer_res = infertype_top init_repl_fun_state.rinferencer_state ast'` >>
-rw [] >>
-`?error_msg infer_state.
-  infer_res = Failure error_msg ∨ 
-  infer_res = Success infer_state`
-         by (cases_on `infer_res` >>
+`?error_msg new_repl_run_infer_state.
+  infertype_top repl_fun_state'.rinferencer_state ast' = Failure error_msg ∨ 
+  infertype_top repl_fun_state'.rinferencer_state ast' = Success new_repl_run_infer_state`
+         by (cases_on `infertype_top repl_fun_state'.rinferencer_state ast'` >>
              metis_tac []) >>
-rw []
-        
+rw [] >-
+((* A type error *)
+ 
 
+(* To encapsulate that we allow the type inferencer to fail when the type system
+ * has a type. *)
+val (add_type_error_rules, add_type_error_cases, add_type_error_ind) = Hol_reln `
+(add_type_error Terminate Terminate) ∧
+(add_type_error Diverge Diverge) ∧
+(!rs. add_type_error Diverge (Result "<type error>" rs)) ∧
+(!r rs rs'. 
+  add_type_error rs rs'
+  ⇒
+  add_type_error (Result r rs) (Result r rs')) ∧
+(!r rs rs'. 
+  add_type_error rs rs'
+  ⇒
+  add_type_error (Result r rs) (Result "<type error>" rs'))`;
 
-cases_on `infer_top init_repl_fun_state.rmenv
-              init_repl_fun_state.rcenv init_repl_fun_state.rtenv top'
-              init_infer_state` >>
-rw []
+val replCorrect = Q.store_thm ("replCorrect",
+`!input output. 
+  (repl_fun input = output) ⇒ 
+  ?output'. add_type_error output' output ∧ (repl input output')`,
+rw [repl_fun_def, repl_def]
 *)
 
 val _ = export_theory ();
