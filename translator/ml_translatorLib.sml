@@ -865,7 +865,19 @@ fun persistent_skip_case_const const = let
 
 val _ = persistent_skip_case_const ``COND:bool -> 'a -> 'a -> 'a``;
 
+ val (FILTER_ASSUM_TAC : (term -> bool) -> tactic) = let
+  fun sing f [x] = f x
+    | sing f _ = raise ERR "sing" "Bind Error"
+  fun add_assum (x,th) = UNDISCH (DISCH x th)
+  fun f p (asl,w) =
+    ([(filter p asl,w)], sing (fn th =>
+           (foldr add_assum th (filter (not o p) asl))))
+  in f end
+
 (*
+
+val ty = ``:token``
+
 val ty = ``:'a list``; derive_thms_for_type ty
 val ty = ``:'a # 'b``; derive_thms_for_type ty
 val ty = ``:'a + num``; derive_thms_for_type ty
@@ -997,29 +1009,48 @@ fun derive_thms_for_type ty = let
     val hyp0 = ``TAG 0 (b0 ==> Eval env ^exp_var ^x)``
     val hyps = list_mk_conj(hyp0::hyps)
     val goal = mk_imp(tt,mk_imp(hyps,result))
+    val evaluate_Mat =
+      ``evaluate' empty_store env (Mat exp pats) (empty_store,Rval res)``
+      |> (ONCE_REWRITE_CONV [evaluate'_cases] THENC SIMP_CONV (srw_ss()) [])
+    val evaluate_match_Conv =
+      ``evaluate_match' empty_store env (Conv (Short s) args)
+           ((Pcon (Short s) pats,exp2)::pats2) (x,Rval y)``
+      |> (ONCE_REWRITE_CONV [evaluate'_cases] THENC
+          SIMP_CONV (srw_ss()) [pmatch'_def])
+    val IF_T = prove(``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
+    val IF_F = prove(``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
+    fun aux 1 = ALL_CONV
+      | aux n = REWR_CONV evaluate_match_SKIP THENC
+                (RATOR_CONV o RATOR_CONV o RAND_CONV) EVAL THENC
+                REWR_CONV IF_T THENC RAND_CONV (aux (n-1))
+                THENC (REWRITE_CONV [pat_bindings_def])
     val init_tac =
-          PURE_REWRITE_TAC [CONTAINER_def]
+          REWRITE_TAC [CONTAINER_def]
           \\ REPEAT STRIP_TAC \\ STRIP_ASSUME_TAC (Q.SPEC `x` case_th)
     fun case_tac n =
-          Q.PAT_ASSUM `TAG 0 bbb` (MP_TAC o REWRITE_RULE [TAG_def,inv_def,Eval_def])
-          \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
-          \\ Q.PAT_ASSUM `TAG () bbb` (STRIP_ASSUME_TAC o remove_primes o
-               SPEC_ALL o REWRITE_RULE [TAG_def,inv_def,Eval_def])
-          \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT] \\ FULL_SIMP_TAC std_ss [inv_def]
-          \\ Q.PAT_ASSUM `TAG ^(numSyntax.term_of_int n) bbb`
-               (STRIP_ASSUME_TAC o REWRITE_RULE [TAG_def])
-          \\ REPEAT (Q.PAT_ASSUM `TAG xxx yyy` (K ALL_TAC))
-          \\ POP_ASSUM (MP_TAC o remove_primes o SPEC_ALL o REWRITE_RULE [Eval_def])
-          \\ FULL_SIMP_TAC std_ss [Eval_def] \\ REPEAT STRIP_TAC
-          \\ Q.EXISTS_TAC `res'` \\ FULL_SIMP_TAC std_ss []
-          \\ ASM_SIMP_TAC (srw_ss()) []
-          \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
-          \\ Q.EXISTS_TAC `res`
-          \\ Q.EXISTS_TAC `empty_store` \\ FULL_SIMP_TAC std_ss []
-          \\ NTAC (2 * length ts) (ASM_SIMP_TAC (srw_ss())
-               [Once evaluate'_cases,pmatch'_def,bind_def,
-                pat_bindings_def])
+          FILTER_ASSUM_TAC (fn tm =>
+               not (can (match_term ``TAG (n:num) (b:bool)``) tm) orelse
+               can (match_term ``TAG (0:num) (b:bool)``) tm orelse
+               can (match_term ``TAG ^(numSyntax.term_of_int n) (b:bool)``) tm)
+          \\ POP_ASSUM (fn th => FULL_SIMP_TAC (srw_ss()) [th])
+          \\ Q.PAT_ASSUM `TAG 0 bbb` (MP_TAC o
+               (CONV_RULE ((RAND_CONV o RAND_CONV) (ALPHA_CONV ``v:v``))) o
+               REWRITE_RULE [TAG_def,Eval_def])
+          \\ POP_ASSUM (MP_TAC o REWRITE_RULE [] o remove_primes o
+                        SPEC_ALL o REWRITE_RULE [TAG_def])
+          \\ STRIP_TAC \\ STRIP_TAC
+          \\ POP_ASSUM (STRIP_ASSUME_TAC o REWRITE_RULE [inv_def] o UNDISCH)
+          \\ Q.PAT_ASSUM `TAG n bbb` (STRIP_ASSUME_TAC o UNDISCH_ALL o
+                REWRITE_RULE [GSYM AND_IMP_INTRO] o remove_primes o
+                SPEC_ALL o REWRITE_RULE [TAG_def,Eval_def])
+          \\ CONV_TAC (REWR_CONV Eval_def) \\ Q.EXISTS_TAC `res`
+          \\ ASM_REWRITE_TAC [evaluate_Mat]
+          \\ Q.LIST_EXISTS_TAC [`v`,`empty_store`] \\ ASM_REWRITE_TAC []
+          \\ CONV_TAC (aux n)
+          \\ REWRITE_TAC [evaluate_match_Conv,LENGTH,pmatch'_def]
+          \\ ASM_SIMP_TAC (srw_ss()) [pmatch'_def,bind_def,pat_bindings_def]
     val tac = init_tac THENL (map (fn (n,f,fxs,pxs,tm,exp,xs) => case_tac n) ts)
+    val _ = PolyML.fullGC();
     val case_lemma = prove(goal,tac)
     val case_lemma = case_lemma |> PURE_REWRITE_RULE [TAG_def]
     in (case_lemma,ts) end;
@@ -1058,6 +1089,9 @@ fun derive_thms_for_type ty = let
     val x = inv_lhs |> rator |> rand
     val input = mk_var("input",type_of x)
     val inv_lhs = subst [x|->input] inv_lhs
+
+
+
     val (case_lemma,ts) = prove_case_of_lemma (ty,case_th,inv_lhs,inv_def)
     val conses = map (derive_cons ty inv_lhs inv_def) ts
     in (ty,eq_lemma,inv_def,conses,case_lemma,ts) end

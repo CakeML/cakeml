@@ -985,4 +985,16 @@ val MEMBER_INTRO = store_thm("MEMBER_INTRO",
   ``(MEM = MEMBER) /\ (MEM x = MEMBER x) /\ (MEM x ys = MEMBER x ys)``,
   FULL_SIMP_TAC std_ss [FUN_EQ_THM,MEM_EQ_MEMBER]);
 
+val evaluate_match_SKIP = store_thm("evaluate_match_SKIP",
+  ``evaluate_match' empty_store env (Conv (Short s1) args1)
+      ((Pcon (Short s2) pats2,exp2)::pats) (x,Rval res) <=>
+    if s1 <> s2 then
+      ALL_DISTINCT (pat_bindings (Pcon (Short s2) pats2) []) /\
+      evaluate_match' empty_store env (Conv (Short s1) args1) pats (x,Rval res)
+    else
+      evaluate_match' empty_store env (Conv (Short s1) args1)
+        ((Pcon (Short s2) pats2,exp2)::pats) (x,Rval res)``,
+  SRW_TAC [] []
+  \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,pmatch'_def]);
+
 val _ = export_theory();
