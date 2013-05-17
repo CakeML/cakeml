@@ -1,5 +1,6 @@
 open HolKernel bossLib boolLib miscLib boolSimps intLib pairTheory sumTheory listTheory pred_setTheory finite_mapTheory arithmeticTheory alistTheory rich_listTheory lcsymtacs
 open LibTheory SemanticPrimitivesTheory AstTheory terminationTheory semanticsExtraTheory evaluateEquationsTheory miscTheory CompilerLibTheory IntLangTheory ToIntLangTheory compilerTerminationTheory intLangExtraTheory pmatchTheory
+val _ = numLib.prefer_num()
 val _ = new_theory "toIntLangProofs"
 val fsd = full_simp_tac std_ss
 
@@ -1876,42 +1877,130 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   fsrw_tac[DNF_ss][FORALL_PROD] >>
   METIS_TAC[EVERY2_syneq_trans])
 
+(* TODO: move *)
+val find_index_APPEND_fst = store_thm("find_index_APPEND_fst",
+  ``∀l1 n l2 m i. (find_index n (l1 ++ l2) m = SOME i) ∧ (i < m+LENGTH l1) ⇒ (find_index n l1 m = SOME i)``,
+  Induct >> simp[find_index_def] >- (
+    spose_not_then strip_assume_tac >>
+    imp_res_tac find_index_LESS_LENGTH >>
+    DECIDE_TAC ) >>
+  rw[] >> res_tac >>
+  first_x_assum match_mp_tac >>
+  simp[])
+
+val find_index_APPEND_snd = store_thm("find_index_APPEND_snd",
+  ``∀l1 n l2 m i. (find_index n (l1 ++ l2) m = SOME i) ∧ (m + LENGTH l1 ≤ i) ⇒ (find_index n l2 (m+LENGTH l1) = SOME i)``,
+  Induct >> simp[find_index_def] >>
+  rw[] >> fsrw_tac[ARITH_ss][] >>
+  res_tac >> fsrw_tac[ARITH_ss][ADD1])
+
+(*
 val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
-  ``(∀m exp bvs1 bvs2. (set bvs1 = set bvs2) ⇒
-      syneq_exp (LENGTH bvs1) (LENGTH bvs2)
-        (λv1 v2. v1 < LENGTH bvs1 ∧ v2 < LENGTH bvs2 ∧ (EL v1 bvs1 = EL v2 bvs2) ∨
-                 LENGTH bvs1 ≤ v1 ∧ LENGTH bvs2 ≤ v2 ∧ (v2 = v1))
-        (exp_to_Cexp (m with bvars := bvs1) exp)
-        (exp_to_Cexp (m with bvars := bvs2) exp)) ∧
-    (∀m defs bvs1 bvs2. (set bvs1 = set bvs2) ⇒
-      syneq_defs (LENGTH bvs1) (LENGTH bvs2)
-        (λv1 v2. v1 < LENGTH bvs1 ∧ v2 < LENGTH bvs2 ∧ (EL v1 bvs1 = EL v2 bvs2) ∨
-                 LENGTH bvs1 ≤ v1 ∧ LENGTH bvs2 ≤ v2 ∧ (v2 = v1))
-        (defs_to_Cdefs (m with bvars := (MAP FST defs) ++ bvs1) defs)
-        (defs_to_Cdefs (m with bvars := (MAP FST defs) ++ bvs2) defs)
+  ``(∀m exp bvs bvs1 bvs2. {x | Short x ∈ FV exp} ⊆ set (bvs ++ bvs1) ∧ (set bvs1 = set bvs2) ⇒
+      syneq_exp (LENGTH bvs + LENGTH bvs1) (LENGTH bvs + LENGTH bvs2)
+        (λv1 v2. (v1 < LENGTH bvs ∧ (v2 = v1)) ∨
+                 (LENGTH bvs ≤ v1 ∧ LENGTH bvs ≤ v2 ∧ v1 < LENGTH bvs + LENGTH bvs1 ∧ v2 < LENGTH bvs + LENGTH bvs2 ∧
+                  (EL (v1 - LENGTH bvs) bvs1 = EL (v2 - LENGTH bvs) bvs2)) ∨
+                 (LENGTH bvs + LENGTH bvs1 ≤ v1 ∧ LENGTH bvs + LENGTH bvs2 ≤ v2 ∧ (v2 = v1)))
+        (exp_to_Cexp (m with bvars := bvs++bvs1) exp)
+        (exp_to_Cexp (m with bvars := bvs++bvs2) exp)) ∧
+    (∀m defs bvs bvs1 bvs2. {x | Short x ∈ FV_defs (set (MAP (Short o FST) defs)) defs} ⊆ set (bvs ++ bvs1) ∧ (set bvs1 = set bvs2) ⇒
+      syneq_defs (LENGTH bvs + LENGTH bvs1) (LENGTH bvs + LENGTH bvs2)
+        (λv1 v2. (v1 < LENGTH bvs ∧ (v2 = v1)) ∨
+                 (LENGTH bvs ≤ v1 ∧ LENGTH bvs ≤ v2 ∧ v1 < LENGTH bvs + LENGTH bvs1 ∧ v2 < LENGTH bvs + LENGTH bvs2 ∧
+                  (EL (v1 - LENGTH bvs) bvs1 = EL (v2 - LENGTH bvs) bvs2)) ∨
+                 (LENGTH bvs + LENGTH bvs1 ≤ v1 ∧ LENGTH bvs + LENGTH bvs2 ≤ v2 ∧ (v2 = v1)))
+        (defs_to_Cdefs (m with bvars := (MAP FST defs) ++ bvs++bvs1) defs)
+        (defs_to_Cdefs (m with bvars := (MAP FST defs) ++ bvs++bvs2) defs)
         (λv1 v2. v1 < LENGTH defs ∧ (v2 = v1))) ∧
-    (∀m pes bvs1 bvs2. (set bvs1 = set bvs2) ⇒
+    (∀m pes bvs bvs1 bvs2. {x | Short x ∈ FV_pes pes} ⊆ set (bvs ++ bvs1) ∧ (set bvs1 = set bvs2) ⇒
       EVERY2 (λ(p1,e1) (p2,e2).
-        syneq_exp (Cpat_vars p1 + LENGTH bvs1) (Cpat_vars p2 + LENGTH bvs2)
-          (λv1 v2. v1 < Cpat_vars p1 ∧ v2 < Cpat_vars p2 ∧ (v2 = v1) ∨
-                   Cpat_vars p1 ≤ v1 ∧ Cpat_vars p2 ≤ v2 ∧
-                   v1 < Cpat_vars p1 + LENGTH bvs1 ∧ v2 < Cpat_vars p2 + LENGTH bvs2 ∧ (EL v1 bvs1 = EL v2 bvs2) ∨
-                   Cpat_vars p1 + LENGTH bvs1 ≤ v1 ∧ Cpat_vars p2 + LENGTH bvs2 ≤ v2 ∧ (v2 = v1))
+        syneq_exp (LENGTH bvs + Cpat_vars p1 + LENGTH bvs1) (LENGTH bvs + Cpat_vars p2 + LENGTH bvs2)
+          (λv1 v2. v1 < LENGTH bvs + Cpat_vars p1 ∧ v2 < LENGTH bvs + Cpat_vars p2 ∧ (v2 = v1) ∨
+                   LENGTH bvs + Cpat_vars p1 ≤ v1 ∧ LENGTH bvs + Cpat_vars p2 ≤ v2 ∧
+                   v1 < LENGTH bvs + Cpat_vars p1 + LENGTH bvs1 ∧ v2 < LENGTH bvs + Cpat_vars p2 + LENGTH bvs2 ∧
+                   (EL (v1-LENGTH bvs-Cpat_vars p1) bvs1 = EL (v2-LENGTH bvs-Cpat_vars p2) bvs2) ∨
+                   LENGTH bvs + Cpat_vars p1 + LENGTH bvs1 ≤ v1 ∧ LENGTH bvs + Cpat_vars p2 + LENGTH bvs2 ≤ v2 ∧ (v2 = v1))
           e1 e2)
-                        (pes_to_Cpes (m with bvars := bvs1) pes)
-                        (pes_to_Cpes (m with bvars := bvs2) pes)) ∧
-    (∀m es bvs1 bvs2. (set bvs1 = set bvs2) ⇒
-      EVERY2 (syneq_exp (LENGTH bvs1) (LENGTH bvs2)
-               (λv1 v2. v1 < LENGTH bvs1 ∧ v2 < LENGTH bvs2 ∧ (EL v1 bvs1 = EL v2 bvs2) ∨
-                        LENGTH bvs1 ≤ v1 ∧ LENGTH bvs2 ≤ v2 ∧ (v2 = v1)))
-         (exps_to_Cexps (m with bvars := bvs1) es)
-         (exps_to_Cexps (m with bvars := bvs2) es))``
+                        (pes_to_Cpes (m with bvars := bvs++bvs1) pes)
+                        (pes_to_Cpes (m with bvars := bvs++bvs2) pes)) ∧
+    (∀m es bvs bvs1 bvs2. { x | Short x ∈ FV_list es} ⊆ set (bvs ++ bvs1) ∧ (set bvs1 = set bvs2) ⇒
+      EVERY2
+        (syneq_exp (LENGTH bvs + LENGTH bvs1) (LENGTH bvs + LENGTH bvs2)
+           (λv1 v2. (v1 < LENGTH bvs ∧ (v2 = v1)) ∨
+                    (LENGTH bvs ≤ v1 ∧ LENGTH bvs ≤ v2 ∧ v1 < LENGTH bvs + LENGTH bvs1 ∧ v2 < LENGTH bvs + LENGTH bvs2 ∧
+                     (EL (v1 - LENGTH bvs) bvs1 = EL (v2 - LENGTH bvs) bvs2)) ∨
+                    (LENGTH bvs + LENGTH bvs1 ≤ v1 ∧ LENGTH bvs + LENGTH bvs2 ≤ v2 ∧ (v2 = v1))))
+        (exps_to_Cexps (m with bvars := bvs++bvs1) es)
+        (exps_to_Cexps (m with bvars := bvs++bvs2) es))``
   ho_match_mp_tac exp_to_Cexp_ind >>
   strip_tac >- (
     rw[exp_to_Cexp_def] >>
+    rw[Once syneq_exp_cases] >- (
+      first_x_assum match_mp_tac >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+    first_x_assum(qspecl_then[`x::bvs`,`bvs1`,`bvs2`]mp_tac) >>
+    discharge_hyps >- (fsrw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[]) >>
+    simp[ADD1,EL_CONS] >> strip_tac >>
+    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+    HINT_EXISTS_TAC >> simp[] >>
+    Cases >> simp[ADD1] >>
+    rw[] >> simp[] ) >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >>
+    rw[Once syneq_exp_cases] ) >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >>
+    rw[Once syneq_exp_cases] ) >>
+  strip_tac >- (
+    simp[exp_to_Cexp_def] >>
+    rpt gen_tac >> strip_tac >>
+    Q.PAT_ABBREV_TAC`cm = if X then Y else 0:num` >>
+    rw[Once syneq_exp_cases] ) >>
+  strip_tac >- (
+    simp[exp_to_Cexp_def] >>
+    rpt gen_tac >>
+    Q.PAT_ABBREV_TAC`M ⇔ P ∨ Q` >>
     rw[Once syneq_exp_cases] >>
-    first_x_assum(qspecl_then[`x::bvs1`,`x::bvs2`]mp_tac) >>
-    simp[ADD1,EL_CONS]
+    Cases_on`find_index vn (bvs ++ bvs1) 0` >> simp[] >- (
+      fs[GSYM find_index_NOT_MEM,markerTheory.Abbrev_def] ) >>
+    Cases_on`find_index vn (bvs ++ bvs2) 0` >> simp[] >- (
+      fs[GSYM find_index_NOT_MEM,markerTheory.Abbrev_def] ) >>
+    imp_res_tac find_index_LESS_LENGTH >>
+    fsrw_tac[ARITH_ss][] >>
+    Cases_on `x < LENGTH bvs` >- (
+      Q.ISPECL_THEN[`bvs`,`vn`,`bvs1`,`0`]mp_tac find_index_APPEND_fst >>
+      simp[] >> strip_tac >>
+      imp_res_tac find_index_APPEND_same >>
+      metis_tac[optionTheory.SOME_11] ) >>
+    simp[] >>
+    imp_res_tac find_index_APPEND_snd >>
+    imp_res_tac find_index_APPEND_fst >>
+    ntac 2 (pop_assum kall_tac) >> rfs[] >>
+    Cases_on`x' < LENGTH bvs` >> fs[] >- (
+      `MEM vn bvs` by metis_tac[find_index_NOT_MEM,optionTheory.NOT_SOME_NONE] >>
+      Q.ISPECL_THEN[`bvs`,`vn`,`0`]mp_tac find_index_MEM >>
+      discharge_hyps >- rw[] >>
+      strip_tac >> fs[] >>
+      `SOME x = SOME i` by metis_tac[find_index_APPEND_same] >>
+      fs[] ) >>
+    rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
+    `MEM vn bvs1` by metis_tac[find_index_NOT_MEM,optionTheory.NOT_SOME_NONE] >>
+    Q.ISPECL_THEN[`bvs1`,`vn`,`LENGTH bvs`]mp_tac find_index_MEM >>
+    simp[] >> fsrw_tac[ARITH_ss][] >>
+    Q.ISPECL_THEN[`bvs2`,`vn`,`LENGTH bvs`]mp_tac find_index_MEM >>
+    fs[EXTENSION] >>
+    discharge_hyps >- PROVE_TAC[] >>
+    rw[] >> simp[] ) >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >>
+    rw[Once syneq_exp_cases] ) >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >>
+    rw[Once syneq_exp_cases] >>
+    rw[Once syneq_exp_cases] >>
+    rw[]
+    mkshift_thm
 
 val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
   ``∀v1 v2. enveq v1 v2 ⇒ ∀m. syneq (v_to_Cv m v1) (v_to_Cv m v2)``,
@@ -1939,5 +2028,6 @@ val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
   type_of ``env_to_Cenv``
   exp_to_Cexp_nice_ind
   exp_to_Cexp_ind
+*)
 
 val _ = export_theory()
