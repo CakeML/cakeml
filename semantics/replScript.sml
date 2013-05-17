@@ -132,8 +132,8 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 (!state ast asts top rest type_bindings' ctors' tenvM' tenvC' tenv' store' r.
   (elab_top state.type_bindings state.ctors ast = 
    (type_bindings', ctors', top)) ∧
-  (type_top state.tenvM state.tenvC state.tenv top tenvM' tenvC' tenv') ∧
-  evaluate_top state.envM state.envC state.store state.envE top (store',r) ∧
+  (type_prog state.tenvM state.tenvC state.tenv [top] tenvM' tenvC' tenv') ∧
+  evaluate_prog state.envM state.envC state.store state.envE [top] (store',r) ∧
   ast_repl (update_repl_state state type_bindings' ctors' tenvM' tenvC' tenv' store' r) asts rest
   ⇒
   ast_repl state (SOME ast::asts) (Result (print_result r) rest)) ∧
@@ -141,8 +141,8 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 (!state ast asts top type_bindings' ctors' tenvM' tenvC' tenv'.
   (elab_top state.type_bindings state.ctors ast = 
    (type_bindings', ctors', top)) ∧
-  (type_top state.tenvM state.tenvC state.tenv top tenvM' tenvC' tenv') ∧
-  prog_diverges state.envM state.envC state.store state.envE [prog]
+  (type_prog state.tenvM state.tenvC state.tenv [top] tenvM' tenvC' tenv') ∧
+  prog_diverges state.envM state.envC state.store state.envE [top]
   ⇒
   ast_repl state (SOME ast::asts) Diverge) ∧
 
@@ -150,7 +150,7 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
   (elab_top state.type_bindings state.ctors ast = 
    (type_bindings', ctors', top)) ∧
   (!tenvM' tenvC' tenv'.
-    ¬type_top state.tenvM state.tenvC state.tenv top tenvM' tenvC' tenv') ∧
+    ¬type_prog state.tenvM state.tenvC state.tenv [top] tenvM' tenvC' tenv') ∧
   ast_repl state asts rest
   ⇒
   ast_repl state (SOME ast::asts) (Result "<type error>" rest)) ∧
