@@ -127,40 +127,36 @@ val print_result_def = Define `
 val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 
 (!state. 
-  ast_repl state [] Terminate) ∧
+  ast_repl state [] [] Terminate) ∧
 
-(!state ast asts top rest type_bindings' ctors' tenvM' tenvC' tenv' store' r.
+(!state type_errors ast asts top rest type_bindings' ctors' tenvM' tenvC' tenv' store' r.
   (elab_top state.type_bindings state.ctors ast = 
    (type_bindings', ctors', top)) ∧
   (type_prog state.tenvM state.tenvC state.tenv [top] tenvM' tenvC' tenv') ∧
   evaluate_prog state.envM state.envC state.store state.envE [top] (store',r) ∧
-  ast_repl (update_repl_state state type_bindings' ctors' tenvM' tenvC' tenv' store' r) asts rest
+  ast_repl (update_repl_state state type_bindings' ctors' tenvM' tenvC' tenv' store' r) type_errors asts rest
   ⇒
-  ast_repl state (SOME ast::asts) (Result (print_result r) rest)) ∧
+  ast_repl state (F::type_errors) (SOME ast::asts) (Result (print_result r) rest)) ∧
 
-(!state ast asts top type_bindings' ctors' tenvM' tenvC' tenv'.
+(!state type_errors ast asts top type_bindings' ctors' tenvM' tenvC' tenv'.
   (elab_top state.type_bindings state.ctors ast = 
    (type_bindings', ctors', top)) ∧
   (type_prog state.tenvM state.tenvC state.tenv [top] tenvM' tenvC' tenv') ∧
   prog_diverges state.envM state.envC state.store state.envE [top]
   ⇒
-  ast_repl state (SOME ast::asts) Diverge) ∧
+  ast_repl state (F::type_errors) (SOME ast::asts) Diverge) ∧
 
-(!state ast asts rest top type_bindings' ctors'.
-  (elab_top state.type_bindings state.ctors ast = 
-   (type_bindings', ctors', top)) ∧
-  (!tenvM' tenvC' tenv'.
-    ¬type_prog state.tenvM state.tenvC state.tenv [top] tenvM' tenvC' tenv') ∧
-  ast_repl state asts rest
+(!state type_errors ast asts rest.
+  ast_repl state type_errors asts rest
   ⇒
-  ast_repl state (SOME ast::asts) (Result "<type error>" rest)) ∧
+  ast_repl state (T::type_errors) (SOME ast::asts) (Result "<type error>" rest)) ∧
 
-(!state asts rest. 
-  ast_repl state asts rest
+(!state x type_errors asts rest. 
+  ast_repl state type_errors asts rest
   ⇒
-  ast_repl state (NONE::asts) (Result "<parse error>" rest))`;
+  ast_repl state (x::type_errors) (NONE::asts) (Result "<parse error>" rest))`;
 
 val repl_def = Define `
-repl input = ast_repl init_repl_state (MAP parse (split_top_level_semi (lexer_fun input)))`; 
+repl type_errors input = ast_repl init_repl_state type_errors (MAP parse (split_top_level_semi (lexer_fun input)))`; 
 
 val _ = export_theory ();
