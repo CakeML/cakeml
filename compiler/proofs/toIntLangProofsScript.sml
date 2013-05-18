@@ -2062,8 +2062,7 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
       syneq_exp (LENGTH bvs + LENGTH bvs1) (LENGTH bvs + LENGTH bvs2)
         (λv1 v2. (v1 < LENGTH bvs ∧ (v2 = v1)) ∨
                  (LENGTH bvs ≤ v1 ∧ LENGTH bvs ≤ v2 ∧ v1 < LENGTH bvs + LENGTH bvs1 ∧ v2 < LENGTH bvs + LENGTH bvs2 ∧
-                  (EL (v1 - LENGTH bvs) bvs1 = EL (v2 - LENGTH bvs) bvs2)) ∨
-                 (LENGTH bvs + LENGTH bvs1 ≤ v1 ∧ LENGTH bvs + LENGTH bvs2 ≤ v2 ∧ (v2 = v1)))
+                  (EL (v1 - LENGTH bvs) bvs1 = EL (v2 - LENGTH bvs) bvs2)))
         (exp_to_Cexp (m with bvars := bvs++bvs1) exp)
         (exp_to_Cexp (m with bvars := bvs++bvs2) exp)``
   ho_match_mp_tac exp_to_Cexp_nice_ind >>
