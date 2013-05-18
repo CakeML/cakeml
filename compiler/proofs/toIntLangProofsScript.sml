@@ -2196,7 +2196,7 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
                  (LENGTH bvs ≤ v1 ∧ LENGTH bvs ≤ v2 ∧ v1 < LENGTH bvs + LENGTH bvs1 ∧ v2 < LENGTH bvs + LENGTH bvs2 ∧
                   (EL (v1 - LENGTH bvs) bvs1 = EL (v2 - LENGTH bvs) bvs2)))
         (exp_to_Cexp (m with bvars := bvs++bvs1) exp)
-        (exp_to_Cexp (m with bvars := bvs++bvs2) exp)``
+        (exp_to_Cexp (m with bvars := bvs++bvs2) exp)``,
   ho_match_mp_tac exp_to_Cexp_nice_ind >>
   strip_tac >- (
     rw[exp_to_Cexp_def] >>
@@ -2417,7 +2417,6 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
     simp[EVERY_MAP,UNCURRY] >>
     simp[EVERY2_MAP,UNCURRY] >>
     conj_tac >- (
-      match_mp_tac free_vars_remove_mat_var_matchable >>
       fsrw_tac[DNF_ss,ARITH_ss][FV_pes_MAP,SUBSET_DEF,FORALL_PROD,MEM_MAP] >>
       rw[] >> simp[] >>
       qmatch_assum_abbrev_tac`MEM v (free_vars (exp_to_Cexp s e))` >>
@@ -2429,7 +2428,6 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
       disch_then(qspec_then`v`mp_tac) >>
       simp[] ) >>
     conj_tac >- (
-      match_mp_tac free_vars_remove_mat_var_matchable >>
       fsrw_tac[DNF_ss,ARITH_ss][FV_pes_MAP,SUBSET_DEF,FORALL_PROD,MEM_MAP] >>
       rw[] >> simp[] >>
       qmatch_assum_abbrev_tac`MEM v (free_vars (exp_to_Cexp s e))` >>
@@ -2475,7 +2473,6 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
     simp[relationTheory.O_DEF,relationTheory.inv_DEF] >>
     simp[Abbr`U`] >>
     map_every qx_gen_tac[`x`,`y`] >>
-    (*
     Cases_on `x < LENGTH (pat_bindings p [])` >> simp[] >>
     Cases_on `y < LENGTH (pat_bindings p [])` >> simp[] >>
     Cases_on`x`>>simp[]>>
@@ -2484,17 +2481,7 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
     Cases_on`n' < LENGTH bvs`>>simp[]>>
     Cases_on`n < LENGTH (pat_bindings p [])`>>simp[]>>
     Cases_on`n' < LENGTH (pat_bindings p [])`>>simp[]>>
-    Cases_on`n < LENGTH bvs + LENGTH bvs1`>>simp[]
-
-    strip_tac >> simp[] >>
-    spose_not_then strip_assume_tac >>
-    fsrw_tac[ARITH_ss][] >>
-    rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
-    DECIDE_TAC
-    rw[] >> simp[]
-    Cases >> simp[]
-    *)
-    cheat) >>
+    rw[] >> simp[]) >>
   strip_tac >- (
     simp[exp_to_Cexp_def] >> rw[] >>
     rw[Once syneq_exp_cases] >- (
