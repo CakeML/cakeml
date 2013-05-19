@@ -2326,7 +2326,6 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
     rw[Once syneq_exp_cases] >>
     first_x_assum match_mp_tac >>
     fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
-
   strip_tac >- (
     gen_tac >> Cases >>
     simp[exp_to_Cexp_def] >>
@@ -2363,7 +2362,11 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
         simp[relationTheory.O_DEF,relationTheory.inv_DEF,Abbr`U`] >>
         Cases >> simp[] >>
         Cases >> simp[ADD1] >>
-        rw[] >> simp[] ) >>
+        rw[] >> simp[] >>
+        rw[] >>
+        qmatch_rename_tac`a + 1 ≤ b + (LENGTH bvs + 1)`[] >>
+        (qsuff_tac`a ≤ b + LENGTH bvs` >- DECIDE_TAC) >>
+        first_x_assum match_mp_tac >> simp[]) >>
       fsrw_tac[DNF_ss][SUBSET_DEF] >> NO_TAC) >>
     TRY (
       rw[Once syneq_exp_cases] >>
@@ -2487,7 +2490,12 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
     Cases_on`n' < LENGTH bvs`>>simp[]>>
     Cases_on`n < LENGTH (pat_bindings p [])`>>simp[]>>
     Cases_on`n' < LENGTH (pat_bindings p [])`>>simp[]>>
-    rw[] >> simp[]) >>
+    rw[] >> simp[] >>
+    rw[] >> simp[] >>
+    qmatch_rename_tac`a + 1 ≤ b + (c + (d + 1))`[] >>
+    (qsuff_tac`a ≤ b + (c + d)` >- DECIDE_TAC) >>
+    first_x_assum match_mp_tac >>
+    simp[]) >>
   strip_tac >- (
     simp[exp_to_Cexp_def] >> rw[] >>
     rw[Once syneq_exp_cases] >- (
@@ -2532,7 +2540,12 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
       simp[syneq_cb_V_def] >>
       Cases >> simp[] >>
       Cases >> simp[ADD1] >>
-      rw[] >> simp[]) >>
+      rw[] >> simp[] >>
+      rw[] >> simp[] >>
+      qmatch_rename_tac`a ≤ b + (c + d)`[] >>
+      (qsuff_tac`a + 1 ≤ b + (c + (d + 1))` >- DECIDE_TAC) >>
+      first_x_assum match_mp_tac >>
+      simp[]) >>
     Q.PAT_ABBREV_TAC`X = LENGTH (Q R defs)` >>
     `X = LENGTH defs` by simp[Abbr`X`,defs_to_Cdefs_MAP] >>
     pop_assum SUBST1_TAC >> qunabbrev_tac`X` >>
@@ -2554,6 +2567,7 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
   qabbrev_tac`q = pat_to_Cpat m p` >>
   PairCases_on`q` >> fs[] )
 
+(*
 val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
   ``∀v1 v2. enveq v1 v2 ⇒ ∀menv m. closed menv v1 ∧ closed menv v2 ⇒ syneq (v_to_Cv m v1) (v_to_Cv m v2)``,
   ho_match_mp_tac enveq_ind >>
@@ -2630,5 +2644,6 @@ val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
   type_of ``env_to_Cenv``
   exp_to_Cexp_nice_ind
   exp_to_Cexp_ind
+*)
 
 val _ = export_theory()
