@@ -2634,7 +2634,7 @@ val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
     Cases_on`n`>>simp[ADD1] >>
     Cases_on`n'`>>simp[ADD1] >>
     simp[EL_MAP] >> strip_tac >>
-    fs[ALIST_REL_def]
+    fs[ALIST_REL_def] >>
     qmatch_assum_rename_tac`FST (EL a env1) = FST (EL b env2)`[] >>
     `ALOOKUP env1 (FST (EL a env1)) = SOME (SND (EL a env1))` by (
       simp[ALOOKUP_LEAST_EL] >>
@@ -2669,16 +2669,101 @@ val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
     fs[EVERY_MEM] >>
     fsrw_tac[ARITH_ss][ADD1] >>
     metis_tac[MEM_EL] ) >>
-
   strip_tac >- (
     rw[] >>
-    rw[v_to_Cv_def] >>
+    simp[v_to_Cv_def] >>
     rw[Once syneq_cases] >>
-    rw[Once syneq_exp_cases]
-
-  v_to_Cv_ind
-  type_of ``env_to_Cenv``
-  exp_to_Cexp_nice_ind
-  exp_to_Cexp_ind
+    Q.PAT_ABBREV_TAC`Mfd:string list = MAP X defs` >>
+    `Mfd = MAP FST defs` by (
+      simp[Abbr`Mfd`,MAP_EQ_f,FORALL_PROD] ) >>
+    pop_assum SUBST1_TAC >> qunabbrev_tac`Mfd` >>
+    qho_match_abbrev_tac `P (the 0 (find_index vn (MAP FST defs) 0))` >>
+    match_mp_tac the_find_index_suff >>
+    reverse conj_tac >- fs[Once closed_cases] >>
+    simp[Abbr`P`] >>
+    qx_gen_tac`n` >> strip_tac >>
+    simp[defs_to_Cdefs_MAP] >>
+    simp[env_to_Cenv_MAP] >>
+    qexists_tac`λx y. x < LENGTH env1 ∧ y < LENGTH env2 ∧
+      (∀n. n < LENGTH env1 ∧ FST (EL n env1) = FST (EL x env1) ⇒ x ≤ n) ∧
+      (∀n. n < LENGTH env2 ∧ FST (EL n env2) = FST (EL y env2) ⇒ y ≤ n) ∧
+      syneq (v_to_Cv m (SND (EL x env1))) (v_to_Cv m (SND (EL y env2)))` >>
+    qexists_tac`λx y. x < LENGTH defs ∧ x = y` >>
+    simp[] >>
+    conj_tac >- (rw[] >> simp[EL_MAP]) >>
+    simp[Once syneq_exp_cases] >>
+    simp[EL_MAP] >>
+    simp[UNCURRY] >>
+    simp[syneq_cb_aux_def] >>
+    qx_gen_tac`k` >> strip_tac >>
+    qspecl_then[`<|cnmap := m|>`,`SND(SND(EL k defs))`,`FST(SND(EL k defs))::MAP FST defs`,`MAP FST env1`,`MAP FST env2`]mp_tac exp_to_Cexp_syneq >>
+    discharge_hyps >- (
+      fs[Once closed_cases] >>
+      conj_tac >- (
+        fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,EXISTS_PROD] >>
+        qabbrev_tac`p = EL k defs` >> PairCases_on`p` >> fs[] >>
+        `MEM (p0,p1,p2) defs` by metis_tac[MEM_EL] >>
+        rw[] >> res_tac >> fs[] >> metis_tac[] ) >>
+      fs[ALIST_REL_fmap_rel,fmap_rel_def] ) >>
+    simp[ADD1] >>
+    strip_tac >>
+    qmatch_assum_abbrev_tac`syneq_exp z1 z2 U e1 e2` >>
+    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+    qexists_tac`U` >>
+    simp[Abbr`z1`,Abbr`z2`,Abbr`U`] >>
+    simp[relationTheory.O_DEF,relationTheory.inv_DEF,syneq_cb_V_def] >>
+    Cases >> simp[] >>
+    Cases >> simp[ADD1] >>
+    Cases_on`n' + 1 < LENGTH defs + (LENGTH env1 + 1)` >> simp[] >>
+    Cases_on`n'' + 1 < LENGTH defs + (LENGTH env2 + 1)` >> simp[] >>
+    Cases_on`n' < LENGTH defs` >> simp[] >>
+    Cases_on`n'' < LENGTH defs` >> simp[] >>
+    simp[EL_MAP,GSYM AND_IMP_INTRO] >> strip_tac >>
+    ntac 2 strip_tac >>
+    conj_asm1_tac >- (
+      rw[] >> res_tac >>
+      fsrw_tac[ARITH_ss][] ) >>
+    conj_asm1_tac >- (
+      rw[] >> res_tac >>
+      fsrw_tac[ARITH_ss][] ) >>
+    fs[ALIST_REL_def] >>
+    qmatch_assum_rename_tac`FST (EL (a - LENGTH defs) env1) = FST (EL (b - LENGTH defs) env2)`[] >>
+    `ALOOKUP env1 (FST (EL (a - LENGTH defs) env1)) = SOME (SND (EL (a - LENGTH defs) env1))` by (
+      simp[ALOOKUP_LEAST_EL] >>
+      simp[MEM_MAP] >>
+      fsrw_tac[ARITH_ss][ADD1] >>
+      `a - LENGTH defs < LENGTH env1` by simp[] >>
+      conj_tac >- metis_tac[MEM_EL] >>
+      numLib.LEAST_ELIM_TAC >>
+      conj_tac >- (qexists_tac`a - LENGTH defs` >> simp[EL_MAP]) >>
+      rw[] >>
+      `¬(a - LENGTH defs < n')` by metis_tac[EL_MAP] >>
+      `n' < LENGTH env1` by DECIDE_TAC >>
+      `a ≤ n' + LENGTH defs` by metis_tac[EL_MAP] >>
+      `a - LENGTH defs = n'` by DECIDE_TAC >>
+      simp[EL_MAP] ) >>
+    `ALOOKUP env2 (FST (EL (b - LENGTH defs) env2)) = SOME (SND (EL (b - LENGTH defs) env2))` by (
+      simp[ALOOKUP_LEAST_EL] >>
+      simp[MEM_MAP] >>
+      fsrw_tac[ARITH_ss][ADD1] >>
+      `b - LENGTH defs < LENGTH env2` by simp[] >>
+      conj_tac >- metis_tac[MEM_EL] >>
+      numLib.LEAST_ELIM_TAC >>
+      conj_tac >- (qexists_tac`b - LENGTH defs` >> simp[EL_MAP]) >>
+      rw[] >>
+      `¬(b - LENGTH defs < n')` by metis_tac[EL_MAP] >>
+      `n' < LENGTH env2` by DECIDE_TAC >>
+      `b ≤ n' + LENGTH defs` by metis_tac[EL_MAP] >>
+      `b - LENGTH defs = n'` by DECIDE_TAC >>
+      simp[EL_MAP] ) >>
+    last_x_assum(qspec_then`FST (EL (a - LENGTH defs) env1)`mp_tac) >>
+    simp[optionTheory.OPTREL_def] >>
+    disch_then match_mp_tac >>
+    fs[Q.SPECL[`menv`,`Recclosure env1 defs vn`] closed_cases,EVERY_MAP] >>
+    fs[EVERY_MEM] >>
+    fsrw_tac[ARITH_ss][ADD1] >>
+    `a - LENGTH defs < LENGTH env1 ∧ b - LENGTH defs < LENGTH env2` by simp[] >>
+    metis_tac[MEM_EL] ) >>
+  simp[])
 
 val _ = export_theory()
