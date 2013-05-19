@@ -37,8 +37,8 @@ val Eq_def = Define `
 
 val And_def = Define `And a P x v = (P x /\ a (x:'a) (v:v))`;
 
-val U_TYPE_def = Define `
-  U_TYPE (u:unit) (v:v) = (v = Litv Unit)`;
+val UNIT_TYPE_def = Define `
+  UNIT_TYPE (u:unit) (v:v) = (v = Litv Unit)`;
 
 val INT_def = Define `
   INT i = \v:v. (v = Litv (IntLit i))`;
@@ -167,6 +167,10 @@ val Eval_Val_INT = store_thm("Eval_Val_INT",
 val Eval_Val_NUM = store_thm("Eval_Val_NUM",
   ``!n. Eval env (Lit (IntLit (&n))) (NUM n)``,
   SIMP_TAC (srw_ss()) [Once evaluate_cases,NUM_def,INT_def,Eval_def]);
+
+val Eval_Val_UNIT = store_thm("Eval_Val_UNIT",
+  ``Eval env (Lit Unit) (UNIT_TYPE ())``,
+  SIMP_TAC (srw_ss()) [Once evaluate_cases,UNIT_TYPE_def,Eval_def]);
 
 val Eval_Val_BOOL = store_thm("Eval_Val_BOOL",
   ``!n. Eval env (Lit (Bool n)) (BOOL n)``,

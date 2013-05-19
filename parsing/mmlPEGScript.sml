@@ -32,11 +32,13 @@ val sumID_def = Define`
 
 val mk_linfix_def = Define`
   mk_linfix tgt acc [] = acc ∧
+  mk_linfix tgt acc [t] = acc ∧  (* Magnus added this line *)
   mk_linfix tgt acc (opt::t::rest) =
     mk_linfix tgt (Nd tgt [acc; opt; t]) rest
 `;
 
 val mk_rinfix_def = Define`
+  mk_rinfix tgt [] = Nd tgt [] ∧ (* Magnus added this line *)
   mk_rinfix tgt [t] = Nd tgt [t] ∧
   mk_rinfix tgt (t::opt::rest) = Nd tgt [t; opt; mk_rinfix tgt rest]`;
 
@@ -56,9 +58,11 @@ val bindNT_def = Define`
 val pegf_def = Define`pegf sym f = seq sym (empty []) (λl1 l2. f l1)`
 
 val choicel_def = Define`
-  choicel [] = not (empty ARB) ARB ∧
+  choicel [] = not (empty []) [] ∧ (* Magnus: replaced ARB with [] *)
   choicel (h::t) = choice h (choicel t) sumID
 `;
+
+
 
 val seql_def = Define`
   seql l f = pegf (FOLDR (\p acc. seq p acc (++)) (empty []) l) f
@@ -102,28 +106,28 @@ val splitAt_def = Define`
                             (h::pfx,s)
 `
 
-val calcTyOp_def = Define`
+val calcTyOp_def = Define` (* Magnus: rephrased to fit better with translator *)
   calcTyOp a b =
-    case b of
-      [Lf (TK RparT)] =>
+    if b = [Lf (TK RparT)] then
       (case a of
            [] => []
          | ah::_ => [Nd (mkNT nDType) [Lf (TK LparT); ah; Lf (TK RparT)]])
-    | Lf (TK RparT)::ops =>
-      FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
-            [Lf (TK LparT); Nd (mkNT nTypeList) a; Lf (TK RparT)]
-            ops
-    | _ => let (tylist, paren_ops) = splitAt (Lf (TK RparT)) b
-           in
-             case (a,paren_ops) of
-                 ([],_) => []  (* shouldn't happen *)
-               | (_,[]) => []  (* shouldn't happen *)
-               | (ah::_,_::pt) =>
-                 let tylist_n = mk_rinfix (mkNT nTypeList) (ah :: tylist)
-                 in
-                   FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
-                         [Lf (TK LparT); tylist_n; Lf (TK RparT)]
-                         pt
+    else if b ≠ [] /\ HD b = Lf (TK RparT) then
+      let ops = TL b in
+        FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
+              [Lf (TK LparT); Nd (mkNT nTypeList) a; Lf (TK RparT)]
+              ops
+    else let (tylist, paren_ops) = splitAt (Lf (TK RparT)) b
+         in
+           case (a,paren_ops) of
+               ([],_) => []  (* shouldn't happen *)
+             | (_,[]) => []  (* shouldn't happen *)
+             | (ah::_,_::pt) =>
+               let tylist_n = mk_rinfix (mkNT nTypeList) (ah :: tylist)
+               in
+                 FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
+                       [Lf (TK LparT); tylist_n; Lf (TK RparT)]
+                       pt
 `;
 
 val peg_DType_def = Define`
@@ -231,9 +235,10 @@ val mmlPEG_def = zDefine`
              [(mkNT nV, peg_V);
               (mkNT nVlist1,
                seql [pnt nV; rpt (pnt nV) FLAT]
-                    (λl. [FOLDR (λe acc. Nd (mkNT nVlist1) [e; acc])
-                                (Nd (mkNT nVlist1) [LAST l])
-                                (FRONT l)]));
+                    (λl. if l = [] then [] (* Magnus added this if *)
+                         else [FOLDR (λe acc. Nd (mkNT nVlist1) [e; acc])
+                                       (Nd (mkNT nVlist1) [LAST l])
+                                       (FRONT l)]));
               (mkNT nFQV, choicel [pegf (pnt nV) (bindNT nFQV); peg_longV]);
               (mkNT nEapp, peg_Eapp);
               (mkNT nEtuple,

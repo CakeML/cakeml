@@ -28,10 +28,6 @@ val res = translate S_DEF;
 val res = translate UPDATE_def;
 val res = translate W_DEF;
 
-(* one *)
-
-val _ = register_type ``:one``
-
 (* option *)
 
 val res = translate THE_DEF;
@@ -105,6 +101,7 @@ val res = translate isPREFIX;
 val res = translate FRONT_DEF;
 val res = translate ZIP;
 val res = translate EL;
+val res = translate LAST_DEF;
 
 val FRONT_side_def = prove(
   ``!xs. FRONT_side xs = ~(xs = [])``,
@@ -121,6 +118,11 @@ val EL_side_def = prove(
   ``!n xs. EL_side n xs = (n < LENGTH xs)``,
   Induct THEN Cases_on `xs` THEN FULL_SIMP_TAC (srw_ss())
     [fetch "-" "EL_side_def",CONTAINER_def])
+  |> update_precondition;
+
+val LAST_side_def = prove(
+  ``!xs. LAST_side xs = ~(xs = [])``,
+  Induct THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "LAST_side_def",CONTAINER_def])
   |> update_precondition;
 
 (* sorting *)
