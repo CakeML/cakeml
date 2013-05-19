@@ -3,6 +3,8 @@ open HolKernel Parse boolLib bossLib
 open mmlPEGTheory gramTheory mmlPtreeConversionTheory
      mmlvalidTheory grammarTheory lexer_funTheory
 
+local open ASCIInumbersLib in end
+
 val _ = new_theory "mmlTests"
 
 val _ = overload_on ("NN", ``λn. Nd (mkNT n)``)
@@ -91,7 +93,7 @@ end
 fun parsetest t1 t2 s = parsetest0 t1 t2 s NONE
 val tytest = parsetest ``nType`` ``ptree_Type``
 
-val elab_decls = ``OPTION_MAP (elab_decs NONE [] [] init_env) o ptree_Decls``
+val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "C(3)"
                    (SOME ``Ast_Con (Short "C") [Ast_Lit (IntLit 3)]``)
