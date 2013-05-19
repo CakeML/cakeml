@@ -1,4 +1,4 @@
-open HolKernel bossLib boolLib boolSimps pairTheory alistTheory listTheory rich_listTheory pred_setTheory finite_mapTheory lcsymtacs SatisfySimps quantHeuristicsLib
+open HolKernel bossLib boolLib boolSimps pairTheory alistTheory listTheory rich_listTheory pred_setTheory finite_mapTheory lcsymtacs SatisfySimps quantHeuristicsLib miscLib
 open LibTheory SemanticPrimitivesTheory AstTheory BigStepTheory TypeSystemTheory terminationTheory miscTheory
 val _ = new_theory "semanticsExtra"
 
@@ -30,40 +30,65 @@ val pats_bindings_MAP = store_thm("pats_bindings_MAP",
   rw[pat_bindings_def] >>
   rw[Once pat_bindings_acc])
 
+val _ = Parse.overload_on("pat_vars",``λp. set (pat_bindings p [])``)
+
 val FV_def = tDefine "FV"`
-(FV (Raise _) = {}) ∧
-(FV (Handle e1 x e2) = FV e1 ∪ (FV e2 DIFF {Short x})) ∧
-(FV (Lit _) = {}) ∧
-(FV (Con _ ls) = BIGUNION (IMAGE FV (set ls))) ∧
-(FV (Var id) = {id}) ∧
-(FV (Fun x e) = FV e DIFF {Short x}) ∧
-(FV (Uapp _ e) = FV e) ∧
-(FV (App _ e1 e2) = FV e1 ∪ FV e2) ∧
-(FV (Log _ e1 e2) = FV e1 ∪ FV e2) ∧
-(FV (If e1 e2 e3) = FV e1 ∪ FV e2 ∪ FV e3) ∧
-(FV (Mat e pes) = FV e ∪ BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))) ∧
-(FV (Let x e b) = FV e ∪ (FV b DIFF {Short x})) ∧
-(FV (Letrec defs b) = BIGUNION (IMAGE (λ(y,x,e). FV e DIFF ({Short x} ∪ (IMAGE (Short o FST) (set defs)))) (set defs)) ∪ (FV b DIFF (IMAGE (Short o FST) (set defs))))`
-(WF_REL_TAC `measure exp_size` >>
-srw_tac[ARITH_ss][exp1_size_thm,exp4_size_thm,exp6_size_thm,SUM_MAP_exp2_size_thm,SUM_MAP_exp3_size_thm,SUM_MAP_exp5_size_thm] >>
-TRY (
-  qmatch_assum_rename_tac`MEM (y,x,e) defs`[]>>
-  `MEM e (MAP SND (MAP SND defs))`by
-  srw_tac[SATISFY_ss][MEM_MAP,EXISTS_PROD] ) >>
-TRY (
-  qmatch_assum_rename_tac`MEM (p,z) pes`[]>>
-  `MEM z (MAP SND pes)`by (srw_tac[SATISFY_ss][MEM_MAP,EXISTS_PROD] >> NO_TAC)) >>
-Q.ISPEC_THEN `exp_size` imp_res_tac SUM_MAP_MEM_bound >>
-fsrw_tac[ARITH_ss][exp_size_def])
+  (FV (Raise _) = {}) ∧
+  (FV (Handle e1 x e2) = FV e1 ∪ (FV e2 DIFF {Short x})) ∧
+  (FV (Lit _) = {}) ∧
+  (FV (Con _ ls) = FV_list ls) ∧
+  (FV (Var id) = {id}) ∧
+  (FV (Fun x e) = FV e DIFF {Short x}) ∧
+  (FV (Uapp _ e) = FV e) ∧
+  (FV (App _ e1 e2) = FV e1 ∪ FV e2) ∧
+  (FV (Log _ e1 e2) = FV e1 ∪ FV e2) ∧
+  (FV (If e1 e2 e3) = FV e1 ∪ FV e2 ∪ FV e3) ∧
+  (FV (Mat e pes) = FV e ∪ FV_pes pes) ∧
+  (FV (Let x e b) = FV e ∪ (FV b DIFF {Short x})) ∧
+  (FV (Letrec defs b) =
+     let ds = set (MAP (Short o FST) defs) in
+     FV_defs ds defs ∪ (FV b DIFF ds)) ∧
+  (FV_list [] = {}) ∧
+  (FV_list (e::es) = FV e ∪ FV_list es) ∧
+  (FV_pes [] = {}) ∧
+  (FV_pes ((p,e)::pes) =
+     (FV e DIFF (IMAGE Short (pat_vars p))) ∪ FV_pes pes) ∧
+  (FV_defs _ [] = {}) ∧
+  (FV_defs ds ((_,x,e)::defs) =
+     (FV e DIFF ({Short x} ∪ ds)) ∪ FV_defs ds defs)`
+(WF_REL_TAC `inv_image $< (λx. case x of
+   | INL e => exp_size e
+   | INR (INL es) => exp6_size es
+   | INR (INR (INL pes)) => exp4_size pes
+   | INR (INR (INR (_,defs))) => exp1_size defs)`)
 val _ = export_rewrites["FV_def"]
+
+val FV_ind = theorem"FV_ind"
 
 val FINITE_FV = store_thm(
 "FINITE_FV",
-``∀exp. FINITE (FV exp)``,
-ho_match_mp_tac (theorem"FV_ind") >>
+``(∀exp. FINITE (FV exp)) ∧
+  (∀es. FINITE (FV_list es)) ∧
+  (∀pes. FINITE (FV_pes pes)) ∧
+  (∀ds defs. FINITE (FV_defs ds defs))``,
+ho_match_mp_tac FV_ind >>
 rw[pairTheory.EXISTS_PROD] >>
 fsrw_tac[SATISFY_ss][])
 val _ = export_rewrites["FINITE_FV"]
+
+val FV_defs_MAP = store_thm("FV_defs_MAP",
+  ``FV_defs ds defs = BIGUNION (IMAGE (λ(d,x,e). FV e DIFF ({Short x} ∪ ds)) (set defs))``,
+  Induct_on`defs`>>simp[]>>
+  qx_gen_tac`p`>>PairCases_on`p`>>rw[])
+
+val FV_pes_MAP = store_thm("FV_pes_MAP",
+  ``FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (pat_vars p))) (set pes))``,
+  Induct_on`pes`>>simp[]>>
+  qx_gen_tac`p`>>PairCases_on`p`>>rw[])
+
+val FV_list_MAP = store_thm("FV_list_MAP",
+  ``FV_list es = BIGUNION (IMAGE FV (set es))``,
+  Induct_on`es`>>simp[])
 
 val (evaluate_match_with_rules,evaluate_match_with_ind,evaluate_match_with_cases) = Hol_reln
   (* evaluate_rules |> SIMP_RULE (srw_ss()) [] |> concl |> strip_conj |>
@@ -417,8 +442,6 @@ val every_result_rwt = store_thm("every_result_rwt",
   ``every_result P res = (∀v. (res = Rval v) ⇒ P v)``,
   Cases_on`res`>>rw[])
 
-val _ = Parse.overload_on("pat_vars",``λp. set (pat_bindings p [])``)
-
 val evaluate_closed = store_thm(
 "evaluate_closed",
 ``(∀menv (cenv:envC) s env exp res.
@@ -432,7 +455,7 @@ val evaluate_closed = store_thm(
    every_result (closed menv) (SND res)) ∧
   (∀menv (cenv:envC) s env exps ress.
    evaluate_list menv cenv s env exps ress ⇒
-   BIGUNION (IMAGE FV (set exps)) ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+   FV_list exps ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
    EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
    EVERY (closed menv) (MAP SND env) ∧
    EVERY (closed menv) s
@@ -441,7 +464,7 @@ val evaluate_closed = store_thm(
    every_result (EVERY (closed menv)) (SND ress)) ∧
   (∀menv (cenv:envC) s env v pes res.
    evaluate_match menv cenv s env v pes res ⇒
-   BIGUNION (IMAGE (λ(p,e). FV e DIFF IMAGE Short (pat_vars p)) (set pes)) ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+   FV_pes pes ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
    EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
    EVERY (closed menv) (MAP SND env) ∧
    EVERY (closed menv) s ∧ closed menv v
@@ -513,11 +536,13 @@ strip_tac (* Letrec *) >- (
   first_x_assum match_mp_tac >>
   fs[FST_triple] >> rfs[] >>
   conj_tac >- (
-    fs[GSYM MAP_MAP_o] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+    fs[GSYM MAP_MAP_o,LET_THM,FV_defs_MAP] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_FLAT] >>
+    gen_tac >> strip_tac >> res_tac >>
+    Cases_on`x`>>fs[] >>
     PROVE_TAC[] ) >>
   match_mp_tac build_rec_env_closed >> fs[] >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_EL] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_FLAT,LET_THM,FV_defs_MAP] >>
   metis_tac[]) >>
 strip_tac (* Letrec *) >- rw[] >>
 strip_tac (* [] *) >- rw[] >>
@@ -532,7 +557,7 @@ strip_tac (* Match *) >- (
   qspecl_then[`cenv`,`s`,`p`,`v`,`env`,`env'`,`menv`]mp_tac(CONJUNCT1 pmatch_closed) >>
   simp[] >>
   fs[GSYM MAP_MAP_o] >> strip_tac >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,MEM_MAP] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,MEM_MAP,FV_pes_MAP,MEM_FLAT] >>
   metis_tac[]) >>
 strip_tac (* Match *) >- rw[] >>
 strip_tac (* Match *) >- rw[] >>
@@ -781,5 +806,185 @@ val all_locs_def = tDefine "all_locs"`
  Q.ISPEC_THEN`v_size`imp_res_tac SUM_MAP_MEM_bound >>
  fsrw_tac[ARITH_ss][] )
 val _ = export_rewrites["all_locs_def"]
+
+(* TODO: move *)
+val ALIST_REL_def = Define`
+  ALIST_REL R a1 a2 = ∀x. OPTION_REL R (ALOOKUP a1 x) (ALOOKUP a2 x)`
+
+val ALIST_REL_fmap_rel = store_thm("ALIST_REL_fmap_rel",
+  ``ALIST_REL R a1 a2 = fmap_rel R (alist_to_fmap a1) (alist_to_fmap a2)``,
+  rw[ALIST_REL_def,fmap_rel_def,EQ_IMP_THM] >- (
+    fs[EXTENSION] >>
+    rw[EQ_IMP_THM] >>
+    first_x_assum(qspec_then`x`mp_tac) >>
+    Cases_on`ALOOKUP a1 x`>>rw[optionTheory.OPTREL_def] >>
+    imp_res_tac ALOOKUP_NONE >> fs[] >>
+    imp_res_tac ALOOKUP_MEM >> rw[MEM_MAP,EXISTS_PROD] >>
+    PROVE_TAC[])
+  >- (
+    first_x_assum(qspec_then`x`mp_tac) >>
+    rw[optionTheory.OPTREL_def] >>
+    imp_res_tac ALOOKUP_NONE >>
+    imp_res_tac ALOOKUP_SOME_FAPPLY_alist_to_fmap >>
+    rw[] )
+  >- (
+    rw[optionTheory.OPTREL_def] >>
+    fs[EXTENSION] >>
+    ntac 2 (pop_assum(qspec_then`x`mp_tac)) >>
+    rw[] >>
+    Cases_on`ALOOKUP a1 x`>>
+    imp_res_tac ALOOKUP_NONE >> fs[]
+      >- metis_tac[ALOOKUP_NONE] >>
+    imp_res_tac ALOOKUP_MEM >>
+    `MEM x (MAP FST a1)` by srw_tac[SATISFY_ss][MEM_MAP,EXISTS_PROD] >>
+    Cases_on`ALOOKUP a2 x`>>
+    imp_res_tac ALOOKUP_NONE >> fs[] >>
+    imp_res_tac ALOOKUP_SOME_FAPPLY_alist_to_fmap >>
+    rw[]))
+
+val ALIST_REL_mono = store_thm("ALIST_REL_mono",
+  ``(∀x y. R1 x y ⇒ R2 x y) ⇒ ALIST_REL R1 a1 a2 ⇒ ALIST_REL R2 a1 a2``,
+  metis_tac[ALIST_REL_fmap_rel,fmap_rel_mono])
+val _ = IndDefLib.export_mono"ALIST_REL_mono"
+
+val ALIST_REL_CONS_SAME = store_thm("ALIST_REL_CONS_SAME",
+  ``ALIST_REL R env1 env2 ∧ R v1 v2 ⇒ ALIST_REL R ((x,v1)::env1) ((x,v2)::env2)``,
+  rw[ALIST_REL_def] >> rw[] >> rw[optionTheory.OPTREL_def])
+
+val ALIST_REL_refl = store_thm("ALIST_REL_refl",
+  ``(∀x. R x x) ⇒ ∀x. ALIST_REL R x x``,
+  metis_tac[ALIST_REL_fmap_rel,fmap_rel_refl])
+
+val ALIST_REL_trans = store_thm("ALIST_REL_trans",
+  ``(∀x y z. R x y ∧ R y z ⇒ R x z) ⇒ ∀x y z. ALIST_REL R x y ∧ ALIST_REL R y z ⇒ ALIST_REL R x z``,
+  PROVE_TAC[ALIST_REL_fmap_rel,fmap_rel_trans])
+
+val (enveq_rules,enveq_ind,enveq_cases) = Hol_reln`
+  (enveq (Litv l) (Litv l)) ∧
+  (EVERY2 enveq vs1 vs2 ⇒ enveq (Conv cn vs1) (Conv cn vs2)) ∧
+  (ALIST_REL enveq env1 env2 ⇒ enveq (Closure env1 vn e) (Closure env2 vn e)) ∧
+  (ALIST_REL enveq env1 env2 ⇒ enveq (Recclosure env1 defs vn) (Recclosure env2 defs vn)) ∧
+  (enveq (Loc n) (Loc n))`
+
+val enveq_refl = store_thm("enveq_refl",
+  ``(∀v. enveq v v) ∧
+    (∀(env:envE). ALIST_REL enveq env env) ∧
+    (∀(p:string#v). enveq (SND p) (SND p)) ∧
+    (∀vs. EVERY2 enveq vs vs)``,
+  ho_match_mp_tac(TypeBase.induction_of``:v``)>>
+  rw[enveq_cases] >- rw[ALIST_REL_fmap_rel] >>
+  PairCases_on`p`>> fs[] >>
+  match_mp_tac ALIST_REL_CONS_SAME >>
+  rw[Once enveq_cases])
+val _ = export_rewrites["enveq_refl"]
+
+val enveq_trans = store_thm("enveq_trans",
+  ``∀e1 e2. enveq e1 e2 ⇒ ∀e3. enveq e2 e3 ⇒ enveq e1 e3``,
+  ho_match_mp_tac enveq_ind >> rw[] >- (
+    rw[Once enveq_cases] >>
+    pop_assum mp_tac >>
+    rw[Once enveq_cases] >>
+    fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rw[] >>
+    rpt (qpat_assum`LENGTH X = Y`mp_tac) >>
+    rpt strip_tac >> fs[MEM_ZIP] >>
+    metis_tac[] )
+  >- (
+    pop_assum mp_tac >>
+    rw[Once enveq_cases] >>
+    rw[Once enveq_cases] >>
+    fs[ALIST_REL_def,optionTheory.OPTREL_def] >>
+    rpt strip_tac >>
+    metis_tac[optionTheory.option_CASES,optionTheory.NOT_SOME_NONE,optionTheory.SOME_11] ) >>
+  pop_assum mp_tac >>
+  rw[Once enveq_cases] >>
+  rw[Once enveq_cases] >>
+  fs[ALIST_REL_def,optionTheory.OPTREL_def] >>
+  rpt strip_tac >>
+  metis_tac[optionTheory.option_CASES,optionTheory.NOT_SOME_NONE,optionTheory.SOME_11] )
+
+val EVERY2_enveq_trans = save_thm("EVERY2_enveq_trans",
+ EVERY2_trans |> Q.GEN`R` |> Q.ISPEC`enveq` |> UNDISCH
+ |> prove_hyps_by(metis_tac[enveq_trans]))
+
+val ALIST_REL_enveq_trans = save_thm("ALIST_REL_enveq_trans",
+  ALIST_REL_trans |> Q.GEN`R` |> Q.ISPEC`enveq` |> UNDISCH
+ |> prove_hyps_by(metis_tac[enveq_trans]))
+
+val ALOOKUP_CONS_SAME = store_thm("ALOOKUP_CONS_SAME",
+  ``(ALOOKUP env1 = ALOOKUP env2) ⇒ (ALOOKUP (x::env1) = ALOOKUP (x::env2))``,
+  Cases_on`x`>>rw[FUN_EQ_THM])
+
+val evaluate_enveq = store_thm("evaluate_enveq",
+  ``(∀menv (cenv:envC) s env exp res. evaluate menv cenv s env exp res ⇒
+      ∀s' env'. (ALIST_REL enveq env env') ∧ (LIST_REL enveq s s') ⇒
+        ∃res'. evaluate menv cenv s' env' exp res' ∧
+               EVERY2 enveq (FST res) (FST res') ∧
+               result_rel enveq (SND res) (SND res')) ∧
+    (∀menv (cenv:envC) s env es res. evaluate_list menv cenv s env es res ⇒
+      ∀s' env'. (ALIST_REL enveq env env') ∧ (LIST_REL enveq s s') ⇒
+        ∃res'. evaluate_list menv cenv s' env' es res' ∧
+               EVERY2 enveq (FST res) (FST res') ∧
+               result_rel (EVERY2 enveq) (SND res) (SND res')) ∧
+    (∀menv (cenv:envC) s env v pes res. evaluate_match menv cenv s env v pes res ⇒
+      ∀s' env'. (ALIST_REL enveq env env') ∧ (LIST_REL enveq s s') ⇒
+        ∃res'. evaluate_match menv cenv s' env' v pes res' ∧
+               EVERY2 enveq (FST res) (FST res') ∧
+               result_rel enveq (SND res) (SND res'))``,
+  ho_match_mp_tac evaluate_ind >>
+  strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >>
+    rw[Once evaluate_cases] >>
+    fsrw_tac[DNF_ss][EXISTS_PROD] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >> rw[] >>
+    rw[Once evaluate_cases] >>
+    fsrw_tac[DNF_ss][bind_def] >>
+    disj2_tac >> disj1_tac >>
+    last_x_assum(qspecl_then[`s''`,`env'`]mp_tac) >> rw[] >>
+    qmatch_assum_rename_tac`LIST_REL enveq s' s'''`[] >>
+    last_x_assum(qspecl_then[`s'''`,`((var,Litv (IntLit n))::env')`]mp_tac) >>
+    discharge_hyps >- ( simp[] >> metis_tac[ALIST_REL_CONS_SAME,enveq_refl] ) >>
+    rw[] >> PROVE_TAC[]) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >> rw[] >>
+    rw[Once evaluate_cases] >>
+    fsrw_tac[DNF_ss][bind_def] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >> rw[] >>
+    rw[Once evaluate_cases] >>
+    fsrw_tac[DNF_ss][] >>
+    simp[Once enveq_cases]) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >> rw[] >>
+    rw[Once evaluate_cases] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >> rw[] >>
+    rw[Once evaluate_cases] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >> rw[] >>
+    rw[Once evaluate_cases] >>
+    fsrw_tac[DNF_ss][lookup_var_id_def] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    fs[ALIST_REL_def,optionTheory.OPTREL_def] >>
+    metis_tac[optionTheory.NOT_SOME_NONE,optionTheory.SOME_11] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >> rw[] >>
+    rw[Once evaluate_cases] >>
+    fsrw_tac[DNF_ss][lookup_var_id_def] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    fs[ALIST_REL_def,optionTheory.OPTREL_def] >>
+    metis_tac[optionTheory.NOT_SOME_NONE,optionTheory.SOME_11] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >> rw[] >>
+    rw[Once enveq_cases] ) >>
+  strip_tac >- (
+    ntac 3 gen_tac >>
+    Cases >> simp[FORALL_PROD,EXISTS_PROD] >> rw[] >>
+    rw[Once evaluate_cases] >>
+    fsrw_tac[DNF_ss][] >>
+    cheat ) >>
+  cheat )
 
 val _ = export_theory()

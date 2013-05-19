@@ -402,8 +402,51 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
   qmatch_assum_abbrev_tac`LIST_REL syneq (env_to_Cenv cm env1) Cenv` >>
   `∃s1 vs1. evaluate menv ((Short"",tup)::cenv) s env1 exp (s1,Rval (Conv (Short "") vs1)) ∧
             LIST_REL syneq (MAP (v_to_Cv cm) s') (MAP (v_to_Cv cm) s1) ∧
-            LIST_REL syneq (MAP (v_to_Cv cm) vs) (MAP (v_to_Cv cm) vs1)`
-      by cheat >>
+            LIST_REL syneq (MAP (v_to_Cv cm) vs) (MAP (v_to_Cv cm) vs1)` by (
+    qspecl_then[`menv`,`(Short "",tup)::cenv`,`s`,`env`,`exp`,`(s',Rval (Conv (Short "") vs))`]mp_tac(CONJUNCT1 evaluate_enveq) >>
+    simp[] >>
+    disch_then(qspecl_then[`s`,`env1`]mp_tac) >>
+    discharge_hyps >- (
+      simp[Abbr`env1`] >>
+      simp[ALIST_REL_def,optionTheory.OPTREL_def] >>
+      qx_gen_tac`k` >>
+      Cases_on`ALOOKUP env k` >> simp[] >- (
+        imp_res_tac ALOOKUP_FAILS >>
+        simp[ALOOKUP_NONE,MEM_MAP,FORALL_PROD] >>
+        metis_tac[] ) >>
+      qexists_tac`THE (ALOOKUP env k)` >>
+      simp[] >>
+      match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
+      simp[MAP_MAP_o,combinTheory.o_DEF] >>
+      simp[MEM_MAP] >>
+      imp_res_tac ALOOKUP_MEM >>
+      simp[EXISTS_PROD] >> metis_tac[] ) >>
+    simp[EXISTS_PROD] >>
+    simp_tac(srw_ss()++DNF_ss)[] >>
+    map_every qx_gen_tac[`s1`,`vs1`] >> strip_tac >>
+    pop_assum mp_tac >> simp[Once enveq_cases] >>
+    strip_tac >>
+    map_every qexists_tac[`s1`,`vs2`] >> fs[] >>
+    simp[EVERY2_MAP] >>
+    fs[closed_under_menv_def] >>
+    qspecl_then[`menv`,`(Short "",tup)::cenv`,`s`,`env`,`exp`,`(s',Rval (Conv (Short "") vs))`]mp_tac(CONJUNCT1 evaluate_closed) >>
+    simp[] >> strip_tac >>
+    qspecl_then[`menv`,`(Short "",tup)::cenv`,`s`,`env1`,`exp`,`(s1,Rval (Conv (Short "") vs2))`]mp_tac(CONJUNCT1 evaluate_closed) >>
+    simp[] >>
+    discharge_hyps >- (
+      simp[Abbr`env1`,EVERY_MAP,MAP_MAP_o,combinTheory.o_DEF] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM,MEM_MAP,MEM_FLAT] >>
+      qx_gen_tac`z` >> strip_tac >>
+      qsuff_tac`∃y. MEM y env ∧ (THE (ALOOKUP env (FST z)) = SND y)` >- metis_tac[] >>
+      Cases_on`ALOOKUP env (FST z)` >- (
+        imp_res_tac ALOOKUP_FAILS >>
+        Cases_on`z`>>fs[] ) >>
+      imp_res_tac ALOOKUP_MEM >>
+      simp[EXISTS_PROD] >> metis_tac[] ) >>
+    strip_tac >>
+    fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+    rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+    metis_tac[enveq_v_to_Cv,MEM_EL]) >>
   qspecl_then[`menv`,`(Short"",tup)::cenv`,`s`,`env1`,`exp`,`(s1,Rval (Conv (Short "") vs1))`] mp_tac (CONJUNCT1 exp_to_Cexp_thm1) >>
   simp[] >>
   discharge_hyps >- (
@@ -1150,7 +1193,7 @@ val compile_dec_val = store_thm("compile_dec_val",
     disch_then(qspecl_then[`s2`,`vs`,`rd`,`bc0`,`bs`]mp_tac) >>
     simp[] >>
     discharge_hyps >- (
-      fs[PARTITION_DEF,markerTheory.Abbrev_def] >>
+      fs[PARTITION_DEF,markerTheory.Abbrev_def,FV_list_MAP] >>
       imp_res_tac PART_MEM >>
       imp_res_tac PART_LENGTH >>
       reverse conj_tac >- (fs[] >> metis_tac[]) >>
@@ -1237,7 +1280,7 @@ val compile_dec_val = store_thm("compile_dec_val",
     disch_then(qspecl_then[`s`,`vs`,`rd`,`bc0`,`bs`]mp_tac) >>
     simp[] >>
     discharge_hyps >- (
-      fs[PARTITION_DEF,markerTheory.Abbrev_def] >>
+      fs[PARTITION_DEF,markerTheory.Abbrev_def,FV_list_MAP] >>
       imp_res_tac PART_MEM >>
       imp_res_tac PART_LENGTH >>
       reverse conj_tac >- (fs[] >> metis_tac[]) >>
