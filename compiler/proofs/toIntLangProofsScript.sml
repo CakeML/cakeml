@@ -2180,7 +2180,9 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
       syneq_exp (LENGTH bvs + LENGTH bvs1) (LENGTH bvs + LENGTH bvs2)
         (λv1 v2. (v1 < LENGTH bvs ∧ (v2 = v1)) ∨
                  (LENGTH bvs ≤ v1 ∧ LENGTH bvs ≤ v2 ∧ v1 < LENGTH bvs + LENGTH bvs1 ∧ v2 < LENGTH bvs + LENGTH bvs2 ∧
-                  (EL (v1 - LENGTH bvs) bvs1 = EL (v2 - LENGTH bvs) bvs2)))
+                  (EL (v1 - LENGTH bvs) bvs1 = EL (v2 - LENGTH bvs) bvs2) ∧
+                  (∀n. n < LENGTH bvs1 ∧ EL n bvs1 = EL (v1 - LENGTH bvs) bvs1 ⇒ v1 - LENGTH bvs ≤ n) ∧
+                  (∀n. n < LENGTH bvs2 ∧ EL n bvs2 = EL (v2 - LENGTH bvs) bvs2 ⇒ v2 - LENGTH bvs ≤ n)))
         (exp_to_Cexp (m with bvars := bvs++bvs1) exp)
         (exp_to_Cexp (m with bvars := bvs++bvs2) exp)``,
   ho_match_mp_tac exp_to_Cexp_nice_ind >>
@@ -2249,7 +2251,14 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
     Q.ISPECL_THEN[`bvs2`,`vn`,`LENGTH bvs`]mp_tac find_index_MEM >>
     fs[EXTENSION] >>
     discharge_hyps >- PROVE_TAC[] >>
-    rw[] >> simp[] ) >>
+    rw[] >> simp[] >> fsrw_tac[ARITH_ss][] >>
+    fs[find_index_LEAST_EL] >>
+    fsrw_tac[ARITH_ss][] >>
+    qmatch_rename_tac`z ≤ n`[] >>
+    TRY(qpat_assum`EL z bvs2 = X`(assume_tac o SYM)>>fs[]) >>
+    qpat_assum`X = z`(SUBST1_TAC o SYM) >>
+    numLib.LEAST_ELIM_TAC >>
+    metis_tac[NOT_LESS]) >>
   strip_tac >- (
     rw[exp_to_Cexp_def] >>
     rw[Once syneq_exp_cases] ) >>
@@ -2274,7 +2283,9 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
       fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,lem,ADD1] ) >>
     qexists_tac`λx y. if x = 0 then y = 0 else
                       if x-1 < LENGTH bvs then y = x + 1 else
-                      2+LENGTH bvs ≤ y ∧ (EL (x-LENGTH bvs-1) bvs1 = EL (y-LENGTH bvs-2) bvs2)` >>
+                      2+LENGTH bvs ≤ y ∧ (EL (x-LENGTH bvs-1) bvs1 = EL (y-LENGTH bvs-2) bvs2) ∧
+                      (∀n. n < LENGTH bvs1 ∧ EL n bvs1 = EL (x-LENGTH bvs-1) bvs1 ⇒ x-LENGTH bvs-1 ≤ n) ∧
+                      (∀n. n < LENGTH bvs2 ∧ EL n bvs2 = EL (y-LENGTH bvs-2) bvs2 ⇒ y-LENGTH bvs-2 ≤ n)` >>
     conj_tac >- (
       match_mp_tac syneq_exp_trans_matchable >>
       first_x_assum(qspecl_then[`vn::bvs`,`bvs1`,`bvs2`]mp_tac) >>
@@ -2295,18 +2306,27 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
       Cases >> simp[ADD1] >>
       Cases >> simp[ADD1] >>
       rw[] >> simp[] >>
-      fsrw_tac[ARITH_ss][] ) >>
+      fsrw_tac[ARITH_ss][] >>
+      qmatch_rename_tac`a + 1 ≤ b + (LENGTH bvs + 2)`[] >>
+      qsuff_tac`a ≤ b + (LENGTH bvs + 1)` >- DECIDE_TAC >>
+      first_x_assum match_mp_tac >>
+      simp[]) >>
     simp[relationTheory.O_DEF,relationTheory.inv_DEF] >>
     simp[syneq_cb_V_def] >>
     Cases >> simp[] >>
     Cases >> simp[ADD1] >>
-    rw[] >> simp[] ) >>
+    rw[] >> simp[] >>
+    qmatch_rename_tac`a ≤ b + (LENGTH bvs + 1)`[] >>
+    qsuff_tac`a + 1 ≤ b + (LENGTH bvs + 2)` >- DECIDE_TAC >>
+    first_x_assum match_mp_tac >>
+    simp[]) >>
   strip_tac >- (
     simp[exp_to_Cexp_def] >>
     rw[] >>
     rw[Once syneq_exp_cases] >>
     first_x_assum match_mp_tac >>
     fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+
   strip_tac >- (
     gen_tac >> Cases >>
     simp[exp_to_Cexp_def] >>
@@ -2535,7 +2555,7 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
   PairCases_on`q` >> fs[] )
 
 val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
-  ``∀v1 v2. enveq v1 v2 ⇒ ∀m. syneq (v_to_Cv m v1) (v_to_Cv m v2)``,
+  ``∀v1 v2. enveq v1 v2 ⇒ ∀menv m. closed menv v1 ∧ closed menv v2 ⇒ syneq (v_to_Cv m v1) (v_to_Cv m v2)``,
   ho_match_mp_tac enveq_ind >>
   strip_tac >- rw[] >>
   strip_tac >- (
@@ -2543,16 +2563,63 @@ val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
     rw[v_to_Cv_def] >>
     rw[Once syneq_cases,vs_to_Cvs_MAP] >>
     simp[EVERY2_MAP] >>
-    match_mp_tac (GEN_ALL (MP_CANON EVERY2_mono)) >>
-    HINT_EXISTS_TAC >> simp[] ) >>
+    match_mp_tac EVERY2_MEM_MONO >>
+    HINT_EXISTS_TAC >> simp[FORALL_PROD] >>
+    fs[EVERY2_EVERY] >>
+    simp[MEM_ZIP] >>
+    metis_tac[MEM_EL,EVERY_MEM]) >>
   strip_tac >- (
     rw[] >>
     simp[v_to_Cv_def] >>
     rw[Once syneq_cases] >>
-    qexists_tac`λx y. 
+    simp[env_to_Cenv_MAP] >>
 
-    syneq_exp_mkshift_both
-    rw[Once syneq_exp_cases]
+    (*
+    qho_match_abbrev_tac`∃X U. (∀v1 v2. X v1 v2 ⇒ V v1 v2) ∧ Q X U` >>
+    qexists_tac`V` >>
+    *)
+    qexists_tac`λx y. x and y are the least indices for their key, and their values are syneq`
+    qexists_tac`λx y. x = 0 ∧ y = 0` >>
+    simp[Abbr`Q`] >>
+    simp[Once syneq_exp_cases] >>
+    simp[syneq_cb_aux_def] >>
+    simp[shift_def] >>
+    match_mp_tac syneq_exp_mkshift_both >>
+    qspecl_then[`<| cnmap := m |>`,`e`,`[vn]`,`MAP FST env1`,`MAP FST env2`]mp_tac exp_to_Cexp_syneq >>
+    discharge_hyps >- (
+      fs[Once closed_cases] >>
+      conj_tac >- (
+        fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,EXISTS_PROD] >>
+        rw[] >> res_tac >> fs[] >> metis_tac[] ) >>
+      fs[ALIST_REL_fmap_rel,fmap_rel_def] ) >>
+    simp[] >>
+    strip_tac >>
+    qmatch_assum_abbrev_tac`syneq_exp z1 z2 U e1 e2` >>
+    map_every qexists_tac[`z1`,`z2`,`U`] >>
+    simp[Abbr`z1`,Abbr`z2`,Abbr`U`] >>
+    conj_asm1_tac >- (
+      simp[Abbr`e1`] >>
+      match_mp_tac free_vars_exp_to_Cexp_matchable >>
+      fs[Once closed_cases] >>
+      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,EXISTS_PROD] >>
+      rw[] >> res_tac >> fs[] >> metis_tac[] ) >>
+    conj_asm1_tac >- (
+      simp[Abbr`e2`] >>
+      match_mp_tac free_vars_exp_to_Cexp_matchable >>
+      fs[Once closed_cases] >>
+      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,EXISTS_PROD] >>
+      rw[] >> res_tac >> fs[] >> metis_tac[] ) >>
+    reverse conj_tac >- (
+      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF] >>
+      rw[] >> res_tac >> simp[] ) >>
+    simp[relationTheory.O_DEF,relationTheory.inv_DEF,syneq_cb_V_def,Abbr`V`] >>
+    Cases >> simp[] >>
+    Cases >> simp[ADD1] >>
+    rw[] >> simp[] >>
+    fs[ALIST_REL_def]
+
   strip_tac >- (
     rw[] >>
     rw[v_to_Cv_def] >>

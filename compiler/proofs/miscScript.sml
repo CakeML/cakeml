@@ -941,6 +941,10 @@ val EVERY_MEM_MONO = store_thm("EVERY_MEM_MONO",
   ``∀P Q l. (∀x. MEM x l ∧ P x ⇒ Q x) ∧ EVERY P l ⇒ EVERY Q l``,
   ntac 2 gen_tac >> Induct >> rw[])
 
+val EVERY2_MEM_MONO = store_thm("EVERY2_MEM_MONO",
+  ``∀P Q l1 l2. (∀x. MEM x (ZIP (l1,l2)) ∧ UNCURRY P x ⇒ UNCURRY Q x) ∧ EVERY2 P l1 l2 ⇒ EVERY2 Q l1 l2``,
+  rw[EVERY2_EVERY] >> match_mp_tac EVERY_MEM_MONO >> PROVE_TAC[])
+
 val DRESTRICT_SUBSET = store_thm("DRESTRICT_SUBSET",
   ``∀f1 f2 s t.
     (DRESTRICT f1 s = DRESTRICT f2 s) ∧ t ⊆ s ⇒
