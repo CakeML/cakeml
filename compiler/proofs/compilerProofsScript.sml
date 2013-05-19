@@ -153,16 +153,18 @@ val code_env_cd_append = store_thm("code_env_cd_append",
   HINT_EXISTS_TAC>>simp[])
 
 val good_contab_def = Define`
-  good_contab (m,w,n) =
+  good_contab ((m,w,n):contab) ⇔
+    ALL_DISTINCT (MAP SND w) ∧
+    EVERY (combin$C $< n) (MAP FST w) ∧
+    set (MAP SND w) ⊆ (IMAGE id_to_string (FDOM m)) ∧
     cmap_linv m w`
 
 val env_rs_def = Define`
   env_rs cenv env rs rd s bs ⇔
     good_contab rs.contab ∧
     good_cmap cenv (cmap rs.contab) ∧
-    set (MAP FST cenv) ⊆ FDOM (cmap rs.contab) ∧
+    (({Short ""} ∪ set (MAP FST cenv)) = FDOM (cmap rs.contab)) ∧
     Short "" ∉ set (MAP FST cenv) ∧
-    Short "" ∈ FDOM (cmap rs.contab) ∧
     (∀id. (FLOOKUP (cmap rs.contab) id = SOME ((cmap rs.contab) ' (Short ""))) ⇒ (id = Short "")) ∧
     (set rs.rbvars = set (MAP FST env)) ∧
     ALL_DISTINCT rs.rbvars ∧
@@ -473,8 +475,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
   discharge_hyps >- (
     fs[good_cmap_def,FAPPLY_FUPDATE_THM,Abbr`cm`] >>
     rw[] >>
-    fs[SUBSET_DEF,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
-    TRY(metis_tac[FST]) >>
+    fs[SET_EQ_SUBSET,SUBSET_DEF,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
     qmatch_assum_rename_tac`MEM pp cenv`[] >>
     first_x_assum(qspec_then`FST pp`mp_tac) >>
     REWRITE_TAC[FLOOKUP_DEF] >>
@@ -1120,14 +1121,35 @@ val FOLDL_number_constructors_thm = store_thm("FOLDL_number_constructors_thm",
   simp[] >>
   simp[number_constructors_append])
 
-(*
-val good_contab_number_constructors = store_thm("good_contab_number_constructors",
-  ``∀ls ct. good_contab ct ⇒ good_contab (number_constructors ls ct)``,
+val check_dup_ctors_ALL_DISTINCT = store_thm("check_dup_ctors_ALL_DISTINCT",
+  ``check_dup_ctors menv cenv tds ⇒ ALL_DISTINCT (MAP FST (FLAT (MAP (SND o SND) tds)))``,
+  simp[SemanticPrimitivesTheory.check_dup_ctors_def] >>
   rw[] >>
-  PairCases_on`ct` >>
-  fs[good_contab_def,number_constructors_thm] >>
-  fs[cmap_linv_def,FDOM_FUPDATE_LIST] >>
-*)
+  qmatch_assum_abbrev_tac`ALL_DISTINCT l1` >>
+  qmatch_abbrev_tac`ALL_DISTINCT l2` >>
+  qsuff_tac`l1 = l2`>- PROVE_TAC[] >>
+  unabbrev_all_tac >>
+  rpt (pop_assum kall_tac) >>
+  Induct_on`tds` >> simp[FORALL_PROD] >>
+  Induct >> simp[FORALL_PROD])
+
+val check_dup_ctors_NOT_MEM = store_thm("check_dup_ctors_NOT_MEM",
+  ``check_dup_ctors mn cenv tds ∧ MEM e (MAP FST (FLAT (MAP (SND o SND) tds))) ⇒ ¬MEM (mk_id mn e) (MAP FST cenv)``,
+  simp[SemanticPrimitivesTheory.check_dup_ctors_def] >>
+  strip_tac >>
+  qpat_assum`ALL_DISTINCT X`kall_tac >>
+  Induct_on`tds` >> simp[] >>
+  fs[FORALL_PROD,res_quanTheory.RES_FORALL] >>
+  rw[] >- (
+    fsrw_tac[DNF_ss][MEM_MAP] >>
+    qmatch_assum_rename_tac`MEM a b`[] >>
+    PairCases_on`a`>>fs[] >>
+    res_tac >>
+    imp_res_tac ALOOKUP_FAILS >>
+    simp[FORALL_PROD] >>
+    metis_tac[] ) >>
+  first_x_assum (match_mp_tac o MP_CANON) >>
+  simp[] >> metis_tac[])
 
 val compile_dec_val = store_thm("compile_dec_val",
   ``∀mn menv cenv s env dec res. evaluate_dec mn menv cenv s env dec res ⇒
@@ -1138,7 +1160,8 @@ val compile_dec_val = store_thm("compile_dec_val",
       EVERY (closed menv) (MAP SND env) ∧
       EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
       FV_dec dec ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-      (∀ts. (dec = Dtype ts) ⇒ "" ∉ set (MAP (FST o SND) ts)) ∧
+      (∀ts. (dec = Dtype ts) ⇒ "" ∉ set (MAP FST (FLAT (MAP (SND o SND) ts)))) ∧
+      (∀mn n. MEM (Long mn n) (MAP FST cenv) ⇒ MEM mn (MAP FST menv)) ∧
       closed_under_cenv cenv menv env s ∧
       closed_under_menv menv env s ∧
       (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
@@ -1321,12 +1344,36 @@ val compile_dec_val = store_thm("compile_dec_val",
       simp[bc_state_component_equality,SUM_APPEND,FILTER_APPEND] ) >>
     fs[FOLDL_number_constructors_thm,SemanticPrimitivesTheory.build_tdefs_def,LibTheory.emp_def,AstTheory.mk_id_def] >>
     fs[env_rs_def] >>
-    (*
     conj_tac >- (
-      fs[good_contab_def]
-    *)
-    cheat
-    ) >>
+      fs[number_constructors_thm] >>
+      qabbrev_tac`p = rs.contab` >>
+      PairCases_on`p` >>
+      fs[good_contab_def] >>
+      fs[good_cmap_def,cmap_linv_def] >>
+      conj_asm1_tac >- (
+        simp[MAP_REVERSE,ALL_DISTINCT_REVERSE,ALL_DISTINCT_APPEND,MAP_GENLIST,ALL_DISTINCT_GENLIST] >>
+        simp[MEM_GENLIST,MEM_MAP,FORALL_PROD] >>
+        imp_res_tac check_dup_ctors_ALL_DISTINCT >>
+        fs[EL_ALL_DISTINCT_EL_EQ,EL_MAP] >>
+        conj_tac >- metis_tac[] >>
+        qsuff_tac`∀e. MEM e (MAP FST (FLAT (MAP (SND o SND) tds))) ⇒ ¬MEM e (MAP SND p1)` >- (
+          simp[MEM_MAP] >>
+          simp[MEM_EL,EL_MAP,GSYM LEFT_FORALL_IMP_THM] >>
+          simp[FORALL_PROD] ) >>
+        imp_res_tac check_dup_ctors_NOT_MEM >>
+        rpt strip_tac >>
+        fs[EXTENSION] >>
+        fs[SUBSET_DEF] >>
+        res_tac >>
+        res_tac >- (
+          rw[] >>
+          fsrw_tac[DNF_ss][MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_FLAT,PrinterTheory.id_to_string_def] ) >>
+        rw[] >>
+        qmatch_assum_rename_tac`MEM z (MAP FST cenv)`[] >> fs[] >>
+        Cases_on`z`>>fs[PrinterTheory.id_to_string_def,AstTheory.mk_id_def] >>
+        res_tac >> fs[is_null_def] >> rw[] >> fs[] ) >>
+      cheat ) >>
+    cheat) >>
   strip_tac >- rw[])
 
 val _ = export_theory()

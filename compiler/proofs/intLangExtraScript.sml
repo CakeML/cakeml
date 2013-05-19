@@ -1019,7 +1019,8 @@ val syneq_ov = store_thm("syneq_ov",
 (* Misc. int lang lemmas *)
 
 val good_cmap_def = Define`
-  good_cmap (cenv:envC) m =
+  good_cmap (cenv:envC) m ⇔
+    ALL_DISTINCT (MAP FST cenv) ∧
     ∀p1 p2.
       MEM p1 cenv ∧ MEM p2 cenv ⇒
       (FST p1) ∈ FDOM m ∧ (FST p2) ∈ FDOM m ∧
