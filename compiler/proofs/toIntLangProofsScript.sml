@@ -2567,7 +2567,6 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
   qabbrev_tac`q = pat_to_Cpat m p` >>
   PairCases_on`q` >> fs[] )
 
-(*
 val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
   ``∀v1 v2. enveq v1 v2 ⇒ ∀menv m. closed menv v1 ∧ closed menv v2 ⇒ syneq (v_to_Cv m v1) (v_to_Cv m v2)``,
   ho_match_mp_tac enveq_ind >>
@@ -2587,14 +2586,13 @@ val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
     simp[v_to_Cv_def] >>
     rw[Once syneq_cases] >>
     simp[env_to_Cenv_MAP] >>
-
-    (*
-    qho_match_abbrev_tac`∃X U. (∀v1 v2. X v1 v2 ⇒ V v1 v2) ∧ Q X U` >>
-    qexists_tac`V` >>
-    *)
-    qexists_tac`λx y. x and y are the least indices for their key, and their values are syneq`
+    qexists_tac`λx y. x < LENGTH env1 ∧ y < LENGTH env2 ∧
+      (∀n. n < LENGTH env1 ∧ FST (EL n env1) = FST (EL x env1) ⇒ x ≤ n) ∧
+      (∀n. n < LENGTH env2 ∧ FST (EL n env2) = FST (EL y env2) ⇒ y ≤ n) ∧
+      syneq (v_to_Cv m (SND (EL x env1))) (v_to_Cv m (SND (EL y env2)))` >>
     qexists_tac`λx y. x = 0 ∧ y = 0` >>
-    simp[Abbr`Q`] >>
+    simp[] >>
+    conj_tac >- (rw[] >> simp[EL_MAP]) >>
     simp[Once syneq_exp_cases] >>
     simp[syneq_cb_aux_def] >>
     simp[shift_def] >>
@@ -2628,11 +2626,49 @@ val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
     reverse conj_tac >- (
       fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF] >>
       rw[] >> res_tac >> simp[] ) >>
-    simp[relationTheory.O_DEF,relationTheory.inv_DEF,syneq_cb_V_def,Abbr`V`] >>
+    simp[relationTheory.O_DEF,relationTheory.inv_DEF,syneq_cb_V_def] >>
     Cases >> simp[] >>
     Cases >> simp[ADD1] >>
-    rw[] >> simp[] >>
+    Cases_on`n + 1 < LENGTH env1 + 2` >> simp[] >>
+    Cases_on`n' + 1 < LENGTH env2 + 2` >> simp[] >>
+    Cases_on`n`>>simp[ADD1] >>
+    Cases_on`n'`>>simp[ADD1] >>
+    simp[EL_MAP] >> strip_tac >>
     fs[ALIST_REL_def]
+    qmatch_assum_rename_tac`FST (EL a env1) = FST (EL b env2)`[] >>
+    `ALOOKUP env1 (FST (EL a env1)) = SOME (SND (EL a env1))` by (
+      simp[ALOOKUP_LEAST_EL] >>
+      simp[MEM_MAP] >>
+      fsrw_tac[ARITH_ss][ADD1] >>
+      conj_tac >- metis_tac[MEM_EL] >>
+      numLib.LEAST_ELIM_TAC >>
+      conj_tac >- (qexists_tac`a` >> simp[EL_MAP]) >>
+      rw[] >>
+      `¬(a < n)` by metis_tac[EL_MAP] >>
+      `n < LENGTH env1` by DECIDE_TAC >>
+      `a ≤ n` by metis_tac[] >>
+      `a = n` by DECIDE_TAC >>
+      simp[EL_MAP] ) >>
+    `ALOOKUP env2 (FST (EL b env2)) = SOME (SND (EL b env2))` by (
+      simp[ALOOKUP_LEAST_EL] >>
+      simp[MEM_MAP] >>
+      fsrw_tac[ARITH_ss][ADD1] >>
+      conj_tac >- metis_tac[MEM_EL] >>
+      numLib.LEAST_ELIM_TAC >>
+      conj_tac >- (qexists_tac`b` >> simp[EL_MAP]) >>
+      rw[] >>
+      `¬(b < n)` by metis_tac[EL_MAP] >>
+      `n < LENGTH env2` by DECIDE_TAC >>
+      `b ≤ n` by metis_tac[] >>
+      `b = n` by DECIDE_TAC >>
+      simp[EL_MAP] ) >>
+    last_x_assum(qspec_then`FST (EL a env1)`mp_tac) >>
+    simp[optionTheory.OPTREL_def] >>
+    disch_then match_mp_tac >>
+    fs[Q.SPECL[`menv`,`Closure env1 vn e`] closed_cases,EVERY_MAP] >>
+    fs[EVERY_MEM] >>
+    fsrw_tac[ARITH_ss][ADD1] >>
+    metis_tac[MEM_EL] ) >>
 
   strip_tac >- (
     rw[] >>
@@ -2644,6 +2680,5 @@ val enveq_v_to_Cv = store_thm("enveq_v_to_Cv",
   type_of ``env_to_Cenv``
   exp_to_Cexp_nice_ind
   exp_to_Cexp_ind
-*)
 
 val _ = export_theory()
