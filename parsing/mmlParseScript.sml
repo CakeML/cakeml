@@ -73,20 +73,6 @@ val parse_top_def = Define `
     od
 `;
 
-val splitAt_def = Define`
-  splitAt _ [] k = k [] [] ∧
-  splitAt n (h::t) k = if n = 0n then k [] (h::t)
-                       else splitAt (n-1) t (λp. k (h :: p))
-`
-(*
-assert
-  (aconv ``([1n;2;3],[4n;5])`` o rhs o concl)
-  (EVAL ``splitAt 3 [1n;2;3;4;5] (,)``);
-assert
-  (aconv ``([1n;2;3;4;5],[]:num list)`` o rhs o concl)
-  (EVAL ``splitAt 7 [1n;2;3;4;5] (,)``)
-*)
-
 val _ = Hol_datatype`
   repl_parse_result = RPR_INCOMPLETE of token list
                     | RPR_PROG of ast_prog option => token list
