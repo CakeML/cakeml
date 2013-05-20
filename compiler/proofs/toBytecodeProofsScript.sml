@@ -1337,7 +1337,16 @@ val compile_append_out = store_thm("compile_append_out",
     qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
     fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
     rw[] >> fs[] >> rw[zero_exists_lemma]) >>
-  strip_tac >- rw[compile_def] >>
+  strip_tac >- (
+    simp[compile_def] >> rw[] >>
+    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
+    qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
+    simp[] >>
+    fsrw_tac[ARITH_ss,ETA_ss,DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,EVERY_MEM,MEM_MAP,is_Label_rwt,between_def] >>
+    qpat_assum`∀j k. t = TCTail j k ⇒ X`kall_tac >>
+    rw[] >> fs[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] >>
+    `FILTER is_Label bc'' = []` by (simp[FILTER_EQ_NIL,EVERY_MEM,is_Label_rwt] >> metis_tac[]) >>
+    fs[]) >>
   strip_tac >- (
     rw[compile_def] >>
     SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>

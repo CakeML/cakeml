@@ -749,7 +749,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     match_mp_tac (SIMP_RULE std_ss [transitive_def]RTC_TRANSITIVE) >>
     qexists_tac`bs5 with code := bs.code` >> simp[] >>
     simp[RTC_eq_NRC] >>
-    qexists_tac`SUC(SUC(SUC(SUC 0)))` >>
+    qexists_tac`SUC(SUC(SUC 0))` >>
     simp[NRC] >>
     simp[Abbr`bs5`,Abbr`bs2'`,Abbr`bs2`] >>
     ntac 13 (pop_assum kall_tac) >>
@@ -773,27 +773,19 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     simp[Abbr`bs6`,bc_eval_stack_def] >>
     simp[Abbr`P`] >>
     Q.PAT_ABBREV_TAC`l2 = Lab X.next_label` >>
-    qho_match_abbrev_tac`∃z. bc_eval1 bs6 = SOME z ∧ P z` >>
-    `bc_fetch bs6 = SOME (PushPtr l2)` by (
+    qho_match_abbrev_tac`bc_eval1 bs6 = SOME z` >>
+    `bc_fetch bs6 = SOME (Jump l2)` by (
       match_mp_tac bc_fetch_next_addr >>
       qexists_tac`cd++[Stack Pop;Stack (PushInt i0)]`>>
       simp[Abbr`bs6`,SUM_APPEND,FILTER_APPEND] ) >>
-    simp[bc_eval1_def,bump_pc_def] >>
     `bc_find_loc bs6 l2 = SOME (next_addr bs.inst_length (TAKE (LENGTH bs.code - 1) bs.code))` by (
       simp[Abbr`l2`,bc_find_loc_def] >>
       match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
       qexists_tac`LENGTH bs.code - 2` >>
       simp[Abbr`bs6`,EL_APPEND1,EL_APPEND2] >>
       simp[SUM_APPEND,FILTER_APPEND,TAKE_APPEND1,TAKE_APPEND2] ) >>
-    simp[Abbr`bs6`,bc_eval_stack_def] >>
-    simp[Abbr`P`] >>
-    qmatch_abbrev_tac`bc_eval1 bs6 = SOME z` >>
-    `bc_fetch bs6 = SOME JumpPtr` by (
-      match_mp_tac bc_fetch_next_addr >>
-      qexists_tac`cd++[Stack Pop;Stack (PushInt i0);PushPtr l2]`>>
-      simp[Abbr`bs6`,SUM_APPEND,FILTER_APPEND] ) >>
-    simp[bc_eval1_def,Abbr`bs6`,Abbr`z`] >>
-    simp[bc_state_component_equality,SUM_APPEND,FILTER_APPEND,Abbr`cd`,TAKE_APPEND1,TAKE_APPEND2] ) >>
+    simp[bc_eval1_def] >>
+    simp[Abbr`z`,Abbr`bs6`,bc_state_component_equality,SUM_APPEND,FILTER_APPEND,Abbr`cd`,TAKE_APPEND1,TAKE_APPEND2] ) >>
   simp[Abbr`bs5`] >>
   ntac 5 (pop_assum kall_tac) >>
   conj_tac >- ( fs[MAP_ZIP] >> fs[EXTENSION] >> metis_tac[] ) >>
