@@ -258,8 +258,9 @@ pushret (TCTail j k) s =
           Return]
 
 let rec
-compile _ _ _ s (CRaise err) =
-  emit s [Stack (PushInt (error_to_int err)); PopExc; Return]
+compile env _ sz s (CRaise e) =
+  let s = compile env TCNonTail sz s e in
+  emit s [PopExc; Return]
 and
 compile env t sz s (CHandle e1 e2) =
   let (s,n0) = get_label s in

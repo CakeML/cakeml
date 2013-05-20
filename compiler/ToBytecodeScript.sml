@@ -309,9 +309,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val compile_defn = Hol_defn "compile" `
 
-(compile _ _ _ s (CRaise err) =  
-(
-  emit s [Stack (PushInt (error_to_int err)); PopExc; Return]))
+(compile env _ sz s (CRaise e) =  
+(let s = (compile env TCNonTail sz s e) in
+  emit s [PopExc; Return]))
 /\
 (compile env t sz s (CHandle e1 e2) =  
 (let (s,n0) = ( get_label s) in

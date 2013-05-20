@@ -154,7 +154,7 @@ remove_mat_con fk sk v n (p::ps) =
       0 p)
 
 let rec
-remove_mat_var _ [] = CRaise Bind_error
+remove_mat_var _ [] = CRaise CBind_exc
 and
 remove_mat_var v ((p,sk)::pes) =
   CLet (CFun (None, (0,shift 1 0 (remove_mat_var v pes))))
@@ -164,7 +164,11 @@ let rec
 exp_to_Cexp m (Handle e x b) =
   CHandle (exp_to_Cexp m e) (exp_to_Cexp (cbv m x) b)
 and
-exp_to_Cexp _ (Raise err) = CRaise err
+exp_to_Cexp _ (Raise Bind_error) = CRaise CBind_exc
+and
+exp_to_Cexp _ (Raise Div_error) = CRaise CDiv_exc
+and
+exp_to_Cexp _ (Raise (Int_error n)) = CRaise (CInt_exc n)
 and
 exp_to_Cexp _ (Lit l) = CLit l
 and
@@ -173,7 +177,7 @@ exp_to_Cexp m (Con cn es) =
 and
 exp_to_Cexp m (Var (Short vn)) = CVar (the 0 (find_index vn m.bvars 0))
 and
-exp_to_Cexp _ (Var (Long _ _)) = CRaise Bind_error
+exp_to_Cexp _ (Var (Long _ _)) = CRaise CBind_exc
 and
 exp_to_Cexp m (Fun vn e) =
   CFun (None,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))
@@ -202,7 +206,7 @@ exp_to_Cexp m (App (Opb opb) e1 e2) =
           match opb with
           | Gt ->  CPrim2 CLt (CVar 0) (CVar 1)
           | Geq -> CPrim2 CLt (CPrim2 CSub (CVar 0) (CVar 1)) (CLit (IntLit i1))
-          | _ -> CRaise Bind_error (* should not happen *)
+          | _ -> CRaise CBind_exc (* should not happen *)
           end))
   end
 and

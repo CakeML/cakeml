@@ -189,7 +189,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val remove_mat_var_defn = Hol_defn "remove_mat_var" `
 
-(remove_mat_var _ [] = (CRaise Bind_error))
+(remove_mat_var _ [] = (CRaise CBind_exc))
 /\
 (remove_mat_var v ((p,sk)::pes) =  
 (CLet (CFun (NONE, (0,shift 1 0 (remove_mat_var v pes))))
@@ -202,7 +202,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (exp_to_Cexp m (Handle e x b) =  
 (CHandle (exp_to_Cexp m e) (exp_to_Cexp (cbv m x) b)))
 /\
-(exp_to_Cexp _ (Raise err) = (CRaise err))
+(exp_to_Cexp _ (Raise Bind_error) = (CRaise CBind_exc))
+/\
+(exp_to_Cexp _ (Raise Div_error) = (CRaise CDiv_exc))
+/\
+(exp_to_Cexp _ (Raise (Int_error n)) = (CRaise (CInt_exc n)))
 /\
 (exp_to_Cexp _ (Lit l) = (CLit l))
 /\
@@ -211,7 +215,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (exp_to_Cexp m (Var (Short vn)) = (CVar (the 0 (find_index vn m.bvars 0))))
 /\
-(exp_to_Cexp _ (Var (Long _ _)) = (CRaise Bind_error))
+(exp_to_Cexp _ (Var (Long _ _)) = (CRaise CBind_exc))
 /\
 (exp_to_Cexp m (Fun vn e) =  
 (CFun (NONE,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))))
@@ -240,7 +244,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
           (case opb of
             Gt =>  CPrim2 CLt (CVar 0) (CVar 1)
           | Geq => CPrim2 CLt (CPrim2 CSub (CVar 0) (CVar 1)) (CLit (IntLit i1))
-          | _ => CRaise Bind_error (* should not happen *)
+          | _ => CRaise CBind_exc (* should not happen *)
           )))
   )))
 /\
