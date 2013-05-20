@@ -62,6 +62,7 @@ end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
 fun term_to_error tm =
   case fst(dest_const tm) of
     "Bind_error" => Bind_error
+  | "Div_error" => Div_error
   | s => raise Fail s
 fun term_to_v tm = let
   val (f,xs) = strip_comb tm
@@ -118,29 +119,40 @@ fun add_code c bs = bc_state_code_fupd
   (compile_labels (bc_state_inst_length bs) o (C append c))
   bs
 
-fun prep_decs (bs,rs) [] = (bs,rs)
-  | prep_decs (bs,rs) (d::ds) = let
+fun run_decs (bs,rs) [] = (bs,rs)
+  | run_decs (bs,rs) (d::ds) = let
       val (rs,c) = compile_dec rs (term_to_dec d)
-      val bs = add_code (map (fn Stop => Stack Pop | i => i) c) bs
-    in prep_decs (bs,rs) ds end
+      val bs = add_code c bs
+      val SOME bs = bc_eval bs
+      val bs = bump_pc (bc_state_stack_fupd List.tl bs)
+    in run_decs (bs,rs) ds end
 
-fun prep_exp (bs,rs) e = prep_decs (bs,rs) [``Dlet (Pvar "it") ^e``]
-
-fun prep_decs_exp (bs,rs) (ds,e) = let
-  val (bs,rs) = prep_decs (bs,rs) ds
-  val (bs,rs) = prep_exp (bs,rs) e
-in (bs,rs) end
+fun prep_exp (bs,rs) e = let
+  val (rs,c) = compile_dec rs (term_to_dec ``Dlet (Pvar "it") ^e``)
+in (add_code c bs,rs) end
 
 val inits = (init_bc_state, init_compiler_state)
 
-fun mst_run_decs_exp (ds,e) = let
-  val (bs,rs) = prep_decs_exp inits (ds,e)
+fun mst_run_decs_exp_gen test (ds,e) = let
+  val (bs,rs) = run_decs inits ds
+  val (bs,rs) = prep_exp (bs,rs) e
   val (SOME bs) = bc_eval bs
-in (cpam rs, bc_state_stack bs) end
+  val Number x::st = bc_state_stack bs
+  val true = test x
+in (cpam rs, st) end
 
+fun valt x = intML.toInt x = SOME 0
+fun exct x = intML.toInt x = SOME 1
+
+val mst_run_decs_exp = mst_run_decs_exp_gen valt
 val run_decs_exp = snd o mst_run_decs_exp
 fun mst_run_exp e = mst_run_decs_exp ([],e)
 fun run_exp e = run_decs_exp ([],e)
+
+val mst_run_decs_exp_exc = mst_run_decs_exp_gen exct
+val run_decs_exp_exc = snd o mst_run_decs_exp_exc
+fun mst_run_exp_exc e = mst_run_decs_exp_exc ([],e)
+fun run_exp_exc e = run_decs_exp_exc ([],e)
 
 val int_toString = Int.toString o valOf o intML.toInt
 

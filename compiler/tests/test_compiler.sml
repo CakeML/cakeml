@@ -268,8 +268,9 @@ val e43 = ``Letrec [("o","n",
   (App Opapp (Var (Short "o")) (Lit (IntLit 1000)))``
 val (bs43,_) = prep_exp inits e43
 val SOME s43 = bc_eval_limit 12 bs43
-val [Number i] = bc_state_stack s43
+val [Number z, Number i] = bc_state_stack s43
 val SOME 0 = intML.toInt i;
+val true = i = z;
 val d = ``Dletrec
 [("o","n",
   If (App Equality (Var (Short "n")) (Lit (IntLit 0)))
