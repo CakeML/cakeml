@@ -842,35 +842,35 @@ val set_the_type_constants_thm = store_thm("set_the_type_constants_thm",
   ``Eval env (Var (Short "the_type_constants")) ($= the_type_constants) ==>
     Eval env exp (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) NUM) x) ==>
     EvalM env (App Opassign (Var (Short "the_type_constants")) exp)
-      ((HOL_MONAD U_TYPE) (set_the_type_constants x))``,
+      ((HOL_MONAD UNIT_TYPE) (set_the_type_constants x))``,
   update_tac `LUPDATE res 0 s` `refs with the_type_constants := x`);
 
 val set_the_term_constants_thm = store_thm("set_the_term_constants_thm",
   ``Eval env (Var (Short "the_term_constants")) ($= the_term_constants) ==>
     Eval env exp (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE) x) ==>
     EvalM env (App Opassign (Var (Short "the_term_constants")) exp)
-      ((HOL_MONAD U_TYPE) (set_the_term_constants x))``,
+      ((HOL_MONAD UNIT_TYPE) (set_the_term_constants x))``,
   update_tac `LUPDATE res 1 s` `refs with the_term_constants := x`);
 
 val set_the_axioms_thm = store_thm("set_the_axioms_thm",
   ``Eval env (Var (Short "the_axioms")) ($= the_axioms) ==>
     Eval env exp (LIST_TYPE THM_TYPE x) ==>
     EvalM env (App Opassign (Var (Short "the_axioms")) exp)
-      ((HOL_MONAD U_TYPE) (set_the_axioms x))``,
+      ((HOL_MONAD UNIT_TYPE) (set_the_axioms x))``,
   update_tac `LUPDATE res 2 s` `refs with the_axioms := x`);
 
 val set_the_definitions_thm = store_thm("set_the_definitions_thm",
   ``Eval env (Var (Short "the_definitions")) ($= the_definitions) ==>
     Eval env exp (LIST_TYPE DEF_TYPE x) ==>
     EvalM env (App Opassign (Var (Short "the_definitions")) exp)
-      ((HOL_MONAD U_TYPE) (set_the_definitions x))``,
+      ((HOL_MONAD UNIT_TYPE) (set_the_definitions x))``,
   update_tac `LUPDATE res 3 s` `refs with the_definitions := x`);
 
 val set_the_clash_var_thm = store_thm("set_the_clash_var_thm",
   ``Eval env (Var (Short "the_clash_var")) ($= the_clash_var) ==>
     Eval env exp (HOL_TERM_TYPE x) ==>
     EvalM env (App Opassign (Var (Short "the_clash_var")) exp)
-      ((HOL_MONAD U_TYPE) (set_the_clash_var x))``,
+      ((HOL_MONAD UNIT_TYPE) (set_the_clash_var x))``,
   update_tac `LUPDATE res 4 s` `refs with the_clash_var := x`);
 
 val _ = export_theory();

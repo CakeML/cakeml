@@ -486,12 +486,12 @@ metis_tac [delete_lem, merge_binomial_heap, remove_min_binomial_heap]);
 
 (* Simplify the side conditions on the generated certificate theorems *)
 
-val remove_min_tree_side_def = fetch "-" "remove_min_tree_side_def"
-val remove_min_tree_side_ind = fetch "-" "remove_min_tree_side_ind"
+val remove_min_tree_side_def = fetch "-" "remove_min_tree_side_cases"
 
 val remove_min_tree_side = Q.prove (
 `!get_key leq h. remove_min_tree_side get_key leq h = (h ≠ [])`,
-recInduct remove_min_tree_side_ind >>
-rw [remove_min_tree_side_def]);
+Induct_on `h`
+THEN SIMP_TAC std_ss [Once remove_min_tree_side_def]
+THEN Cases_on `h` THEN FULL_SIMP_TAC (srw_ss()) []);
 
 val _ = export_theory ();

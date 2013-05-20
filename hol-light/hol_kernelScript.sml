@@ -416,8 +416,9 @@ val _ = Define `
   alphavars env tm1 tm2 =
     case env of
       [] => (tm1 = tm2)
-    | (t1,t2)::oenv => ((t1 = tm1) /\ (t2 = tm2)) \/
-                       ((t1 <> tm1) /\ (t2 <> tm2) /\ alphavars oenv tm1 tm2)`;
+    | (t1,t2)::oenv =>
+         ((t1 = tm1) /\ (t2 = tm2)) \/
+         ((t1 <> tm1) /\ (t2 <> tm2) /\ alphavars oenv tm1 tm2)`;
 
 val _ = Define `
   raconv env tm1 tm2 =

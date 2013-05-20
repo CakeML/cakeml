@@ -68,7 +68,7 @@ val update_tree_def = mlDefine `
   else
     Node w t1 (update_tree (i - w DIV 2) y t2))`;
 
-val lookup_def = mlDefine `
+val def = Define `
 (lookup i (Zero::ts) = lookup i ts) ∧
 (lookup i (One t::ts) =
   if i < size t then

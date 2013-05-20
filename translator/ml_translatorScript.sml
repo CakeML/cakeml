@@ -527,7 +527,8 @@ val EqualityType_def = Define `
     (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> ((v1 = v2) = (x1 = x2)))`;
 
 val EqualityType_NUM_BOOL = store_thm("EqualityType_NUM_BOOL",
-  ``EqualityType NUM /\ EqualityType INT /\ EqualityType BOOL``,
+  ``EqualityType NUM /\ EqualityType INT /\
+    EqualityType BOOL /\ EqualityType UNIT_TYPE``,
   EVAL_TAC \\ FULL_SIMP_TAC (srw_ss()) [no_closures_def]);
 
 val no_closures_IMP_NOT_contains_closure = prove(

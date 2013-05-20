@@ -20,16 +20,23 @@ fun find_def tm = let
 val res = translate EVEN_MOD2;
 
 val _ = translate (find_def ``UNIT``);
-val BIND_def = find_def ``BIND``;
-val _ = translate (SIMP_RULE std_ss [FUN_EQ_THM] BIND_def);
 
-val prob_while_cut_def = find_def ``prob_while_cut``;
-val _ = translate prob_while_cut_def;
+val def = find_def ``BIND``;
+val _ = translate (SIMP_RULE std_ss [FUN_EQ_THM] def);
+
+val lemma = prove(
+  ``prob_while_cut c b n = \x. prob_while_cut c b n x``,
+  SIMP_TAC std_ss [FUN_EQ_THM]);
+
+val def = find_def ``prob_while_cut``
+          |> RW1 [lemma] |> SIMP_RULE std_ss []
+val _ = translate def;
 
 val _ = translate K_DEF;
 val _ = translate I_THM;
-val many_def = find_def ``many``;
-val _ = translate many_def;
+
+val def = find_def ``many``;
+val _ = translate def;
 
 val log2_def = find_def ``log2``;
 val _ = translate log2_def;

@@ -15,12 +15,16 @@ val _ = translation_extends "std_prelude";
 
 (* translator setup *)
 
+val _ = add_preferred_thy "termination";
+val _ = add_preferred_thy "compilerTermination";
+
 val lemma = prove(
   ``(b <> [] /\ x) = if b = [] then F else x``,
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
 
 fun def_of_const tm = let
-  val res = dest_thy_const tm
+  val res = dest_thy_const tm handle HOL_ERR _ =>
+              failwith ("Unable to translate: " ^ term_to_string tm)
   val name = (#Name res)
   fun def_from_thy thy name =
     DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
@@ -40,55 +44,32 @@ val _ = (find_def_for_const := def_of_const);
 
 (* compiler *)
 
-val _ = register_type ``:bc_inst``;
-
 val fapply_thm = prove(
   ``fapply d x f = case FLOOKUP f x of NONE => d | SOME y => y``,
   SRW_TAC [] [fapply_def,FLOOKUP_DEF]);
 
 val _ = translate fapply_thm;
-val _ = translate compile_dec_def;
-(* val _ = translate compile_top_def; *)
+val _ = translate compile_top_def;
+
+(* elaborator *)
+
+val _ = translate (def_of_const ``elab_top``);
 
 (* parser *)
 
-val _ = (find_def_for_const := (fn _ => fail()));
-
-val _ = translate FUPDATE_LIST;
-val _ = translate (def_of_const ``pnt``);
-val _ = translate (def_of_const ``sumID``);
-val _ = translate (def_of_const ``bindNT``);
-val _ = translate (def_of_const ``mktokLf``);
-val _ = translate (def_of_const ``destSymbolT``);
-val _ = translate (def_of_const ``destAlphaT``);
-val _ = translate (def_of_const ``OPTION_BIND``);
-val _ = translate (def_of_const ``isUpper``);
-val _ = translate (def_of_const ``assert``);
-val _ = translate (def_of_const ``peg_V``);
-val _ = translate (def_of_const ``pegf``);
-val _ = translate (def_of_const ``seql``);
-val _ = translate (def_of_const ``destLongidT``);
-val _ = translate (def_of_const ``isLower``);
-val _ = translate (def_of_const ``isAlpha``);
-val _ = translate (def_of_const ``peg_longV``);
-val _ = translate (def_of_const ``peg_Eapp``);
-val _ = translate (def_of_const ``tokeq``);
-val _ = translate (def_of_const ``isInt``);
-val _ = translate (def_of_const ``isLongidT``);
-val _ = translate (def_of_const ``isTyvarT``);
-val _ = translate (def_of_const ``choicel``);
-val _ = translate (def_of_const ``mk_linfix``);
-val _ = translate (def_of_const ``peg_linfix``);
-val _ = translate (def_of_const ``peg_nonfix``);
-val _ = translate (def_of_const ``try``);
-val _ = translate (def_of_const ``peg_Type``);
-val _ = translate (def_of_const ``mk_rinfix``);
-val _ = translate (def_of_const ``isAlphaSym``);
-val _ = translate (def_of_const ``calcTyOp``);
-val _ = translate (def_of_const ``peg_DType``);
-val _ = translate (def_of_const ``peg_TypeName``);
-val _ = translate (def_of_const ``peg_TypeDec``);
-val _ = translate (def_of_const ``peg_UQConstructorName``);
 val _ = translate (def_of_const ``mmlPEG``);
+
+val INTRO_FLOOKUP = prove(
+  ``(if n IN FDOM G.rules
+     then EV (G.rules ' n) i r y fk
+     else Result NONE) =
+    (case FLOOKUP G.rules n of
+       NONE => Result NONE
+     | SOME x => EV x i r y fk)``,
+  SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]);
+
+val _ = translate (def_of_const ``coreloop`` |> RW [INTRO_FLOOKUP]
+                   |> SPEC_ALL |> RW1 [FUN_EQ_THM]);
+val _ = translate (def_of_const ``peg_exec``);
 
 val _ = export_theory();
