@@ -181,6 +181,7 @@ val ptree_StarTypes_def = Define`
                  ty <- ptree_Type pt2;
                  SOME(list$APPEND pfx [ty: ast_t])
               od
+            | _ => NONE
         else NONE
 `;
 
@@ -191,6 +192,7 @@ val ptree_UQConstructorName_def = Define`
     else
       case args of
           [pt] => destAlphaT ' (destTOK ' (destLf pt))
+        | _ => NONE
 `
 
 val ptree_ConstructorName_def = Define`
