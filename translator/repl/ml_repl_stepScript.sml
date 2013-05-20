@@ -54,9 +54,6 @@ val _ = translate compile_dec_def;
 
 val _ = (find_def_for_const := (fn _ => fail()));
 
-(* It's really confusing that mmlPEG and mmlParse define
-   different splitAt functions *)
-val _ = translate mmlPEGTheory.splitAt_def;
 val _ = translate FUPDATE_LIST;
 val _ = translate (def_of_const ``pnt``);
 val _ = translate (def_of_const ``sumID``);

@@ -78,6 +78,8 @@ val LENGTH_AUX_THM = prove(
   Induct THEN ASM_SIMP_TAC std_ss [LENGTH_AUX_def,LENGTH,ADD1,AC ADD_COMM ADD_ASSOC])
   |> Q.SPECL [`xs`,`0`] |> GSYM |> SIMP_RULE std_ss [];
 
+val SUC_LEMMA = prove(``SUC = \x. x+1``,SIMP_TAC std_ss [FUN_EQ_THM,ADD1]);
+
 val res = translate LENGTH_AUX_def;
 val res = translate LENGTH_AUX_THM;
 val res = translate MAP;
@@ -102,6 +104,7 @@ val res = translate FRONT_DEF;
 val res = translate ZIP;
 val res = translate EL;
 val res = translate LAST_DEF;
+val res = translate (splitAtPki_DEF |> REWRITE_RULE [SUC_LEMMA])
 
 val FRONT_side_def = prove(
   ``!xs. FRONT_side xs = ~(xs = [])``,
@@ -403,8 +406,6 @@ val Eval_OWHILE = prove(
                (Con (Short "Some") [Var (Short "x")])))] (Var (Short "w")))))
       ((Eq (a --> BOOL) g --> Eq (a --> a) f --> Eq a x --> OPTION_TYPE a) OWHILE)``,
   tac) |> UNDISCH_ALL |> store_eval_thm;
-
-val SUC_LEMMA = prove(``SUC = \x. x+1``,SIMP_TAC std_ss [FUN_EQ_THM,ADD1]);
 
 val LEAST_LEMMA = prove(
   ``$LEAST P = WHILE (\x. ~(P x)) (\x. x + 1) 0``,

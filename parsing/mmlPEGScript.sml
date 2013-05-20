@@ -98,14 +98,6 @@ val peg_Type_def = Define`
                           [Nd (mkNT nType) [ah; b1; b2]])
 `;
 
-val splitAt_def = Define`
-  splitAt x [] = ([], []) ∧
-  splitAt x (h::t) = if x = h then ([], h::t)
-                     else let (pfx,s) = splitAt x t
-                          in
-                            (h::pfx,s)
-`
-
 val calcTyOp_def = Define` (* Magnus: rephrased to fit better with translator *)
   calcTyOp a b =
     if b = [Lf (TK RparT)] then
@@ -117,7 +109,7 @@ val calcTyOp_def = Define` (* Magnus: rephrased to fit better with translator *)
         FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
               [Lf (TK LparT); Nd (mkNT nTypeList) a; Lf (TK RparT)]
               ops
-    else let (tylist, paren_ops) = splitAt (Lf (TK RparT)) b
+    else let (tylist, paren_ops) = splitAtPki (K ((=) (Lf (TK RparT)))) (,) b
          in
            case (a,paren_ops) of
                ([],_) => []  (* shouldn't happen *)
