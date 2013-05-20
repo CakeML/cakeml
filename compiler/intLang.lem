@@ -62,12 +62,11 @@ type Cresult 'a =
   | Cval of 'a
   | Cexc of Ce
 
-let bind_exc_cn = 0
-let div_exc_cn = 1
-let int_exc_cn = 2
+let tuple_cn = 0
+let bind_exc_cn = 1
+let div_exc_cn = 2
 let CBind_exc = CCon bind_exc_cn []
 let CDiv_exc = CCon div_exc_cn []
-let CInt_exc n = CCon int_exc_cn [CLit (IntLit n)]
 let CBind_excv = CConv bind_exc_cn []
 let CDiv_excv = CConv div_exc_cn []
 

@@ -168,7 +168,7 @@ exp_to_Cexp _ (Raise Bind_error) = CRaise CBind_exc
 and
 exp_to_Cexp _ (Raise Div_error) = CRaise CDiv_exc
 and
-exp_to_Cexp _ (Raise (Int_error n)) = CRaise (CInt_exc n)
+exp_to_Cexp _ (Raise (Int_error n)) = CRaise (CLit (IntLit n))
 and
 exp_to_Cexp _ (Lit l) = CLit l
 and

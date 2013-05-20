@@ -206,7 +206,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (exp_to_Cexp _ (Raise Div_error) = (CRaise CDiv_exc))
 /\
-(exp_to_Cexp _ (Raise (Int_error n)) = (CRaise (CInt_exc n)))
+(exp_to_Cexp _ (Raise (Int_error n)) = (CRaise (CLit (IntLit n))))
 /\
 (exp_to_Cexp _ (Lit l) = (CLit l))
 /\

@@ -490,8 +490,8 @@ val e71 = ``Let "x" (Lit (IntLit 0))
 val (m,[r]) = mst_run_exp e71
 val true = (OLit (Bool true) = bv_to_ov m r);
 val e72 = ``Raise Bind_error``
-val [Number i] = run_exp_exc e72
-val true = i = error_to_int Bind_error;
+val (m,[bv]) = mst_run_exp_exc e72
+val true = (OConv ("Bind",[])) = bv_to_ov m bv
 val e73 = ``Handle (Raise (Int_error 42)) "x" (Var(Short "x"))``
 val [Number i] = run_exp e73
 val SOME 42 = intML.toInt i;

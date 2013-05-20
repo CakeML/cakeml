@@ -94,22 +94,19 @@ val _ = Hol_datatype `
 
 
 val _ = Define `
- bind_exc_cn = 0`;
+ tuple_cn = 0`;
 
 val _ = Define `
- div_exc_cn = 1`;
+ bind_exc_cn = 1`;
 
 val _ = Define `
- int_exc_cn = 2`;
+ div_exc_cn = 2`;
 
 val _ = Define `
  CBind_exc = (CCon bind_exc_cn [])`;
 
 val _ = Define `
  CDiv_exc = (CCon div_exc_cn [])`;
-
-val _ = Define `
- (CInt_exc n = (CCon int_exc_cn [CLit (IntLit n)]))`;
 
 val _ = Define `
  CBind_excv = (CConv bind_exc_cn [])`;

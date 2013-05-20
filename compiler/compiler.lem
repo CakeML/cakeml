@@ -22,7 +22,12 @@ val etC : compiler_state -> exp_to_Cexp_state
 let etC rs = <| bvars = rs.rbvars; cnmap = cmap rs.contab |>
 
 let init_compiler_state =
-  <| contab = (Pmap.add (Short "") 0 Pmap.empty, [(0,"")], 1)
+  <| contab = (Pmap.add (Short "Div") div_exc_cn
+               (Pmap.add (Short "Bind") bind_exc_cn
+                (Pmap.add (Short "") tuple_cn Pmap.empty))
+              (* TODO: don't need to store n, use length of list? *)
+              ,[(tuple_cn,"");(bind_exc_cn,"Bind");(div_exc_cn,"Div")]
+              ,3)
    ; rbvars = []
    ; rnext_label = 0
    |>

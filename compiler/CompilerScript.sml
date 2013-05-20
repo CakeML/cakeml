@@ -44,7 +44,12 @@ val _ = Define `
 
 val _ = Define `
  init_compiler_state =  
-(<| contab := ( FUPDATE FEMPTY ( (Short ""), 0), [(0,"")], 1)
+(<| contab := ( FUPDATE 
+               ( FUPDATE 
+                ( FUPDATE FEMPTY ( (Short ""), tuple_cn)) ( (Short "Bind"), bind_exc_cn)) ( (Short "Div"), div_exc_cn)
+              (* TODO: don't need to store n, use length of list? *)
+              ,[(tuple_cn,"");(bind_exc_cn,"Bind");(div_exc_cn,"Div")]
+              ,3)
    ; rbvars := []
    ; rnext_label := 0
    |>)`;
