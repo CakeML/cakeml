@@ -59,11 +59,14 @@ in case fst(dest_const f) of
   | "Pcon" => let val [x1,x2] = xs in Pcon (Short(fromId x1), dest_list term_to_pat x2) end
   | s => raise Fail s
 end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
-fun term_to_error tm =
-  case fst(dest_const tm) of
+fun term_to_error tm = let
+  val (f,xs) = strip_comb tm in
+  case fst(dest_const f) of
     "Bind_error" => Bind_error
   | "Div_error" => Div_error
+  | "Int_error" => Int_error (term_to_int (hd xs))
   | s => raise Fail s
+  end
 fun term_to_v tm = let
   val (f,xs) = strip_comb tm
 in case fst(dest_const f) of
@@ -85,6 +88,7 @@ in case fst(dest_const f) of
   | "Con" => let val [x1,x2] = xs in Con (Short(fromId x1),dest_list term_to_exp x2) end
   | "Letrec" => let val [x1,x2] = xs in Letrec (dest_list (dest_pair fromHOLstring (dest_pair fromHOLstring term_to_exp)) x1,term_to_exp x2) end
   | "Raise" => let val [x1] = xs in compileML.Raise (term_to_error x1) end
+  | "Handle" => let val [x1,x2,x3] = xs in compileML.Handle (term_to_exp x1, fromHOLstring x2, term_to_exp x3) end
   | s => raise Fail (s^"1")
 end handle (Fail s) => raise Fail s | _ => raise Fail ((Parse.term_to_string tm)^"2")
 fun term_to_tc tm = let
