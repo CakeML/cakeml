@@ -32,13 +32,13 @@ val sumID_def = Define`
 
 val mk_linfix_def = Define`
   mk_linfix tgt acc [] = acc ∧
-  mk_linfix tgt acc [t] = acc ∧  (* Magnus added this line *)
+  mk_linfix tgt acc [t] = acc ∧
   mk_linfix tgt acc (opt::t::rest) =
     mk_linfix tgt (Nd tgt [acc; opt; t]) rest
 `;
 
 val mk_rinfix_def = Define`
-  mk_rinfix tgt [] = Nd tgt [] ∧ (* Magnus added this line *)
+  mk_rinfix tgt [] = Nd tgt [] ∧
   mk_rinfix tgt [t] = Nd tgt [t] ∧
   mk_rinfix tgt (t::opt::rest) = Nd tgt [t; opt; mk_rinfix tgt rest]`;
 
@@ -58,7 +58,7 @@ val bindNT_def = Define`
 val pegf_def = Define`pegf sym f = seq sym (empty []) (λl1 l2. f l1)`
 
 val choicel_def = Define`
-  choicel [] = not (empty []) [] ∧ (* Magnus: replaced ARB with [] *)
+  choicel [] = not (empty []) [] ∧
   choicel (h::t) = choice h (choicel t) sumID
 `;
 
@@ -98,7 +98,7 @@ val peg_Type_def = Define`
                           [Nd (mkNT nType) [ah; b1; b2]])
 `;
 
-val calcTyOp_def = Define` (* Magnus: rephrased to fit better with translator *)
+val calcTyOp_def = Define`
   calcTyOp a b =
     if b = [Lf (TK RparT)] then
       (case a of
@@ -227,7 +227,7 @@ val mmlPEG_def = zDefine`
              [(mkNT nV, peg_V);
               (mkNT nVlist1,
                seql [pnt nV; rpt (pnt nV) FLAT]
-                    (λl. if l = [] then [] (* Magnus added this if *)
+                    (λl. if l = [] then []
                          else [FOLDR (λe acc. Nd (mkNT nVlist1) [e; acc])
                                        (Nd (mkNT nVlist1) [LAST l])
                                        (FRONT l)]));
