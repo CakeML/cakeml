@@ -99,8 +99,8 @@ int_to_string (i:int) =
 
 val print_lit_def = Define `
 (print_lit (IntLit i) = int_to_string i) ∧
-(print_lit (Bool true) = "true") ∧
-(print_lit (Bool false) = "false") ∧
+(print_lit (Bool T) = "true") ∧
+(print_lit (Bool F) = "false") ∧
 (print_lit Unit = "()")`;
 
 val print_v_def = Define `
