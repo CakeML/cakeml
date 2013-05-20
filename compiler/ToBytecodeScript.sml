@@ -309,11 +309,18 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val compile_defn = Hol_defn "compile" `
 
-(compile _ t _ s (CRaise err) =  
+(compile _ _ _ s (CRaise err) =  
 (
-  pushret t (emit s [Stack (PushInt (error_to_int err)); PopExc])))
+  emit s [Stack (PushInt (error_to_int err)); PopExc; Return]))
 /\
-(compile env t sz s (CHandle e1 e2) = (compile env t sz s e1))
+(compile env t sz s (CHandle e1 e2) =  
+(let (s,n0) = ( get_label s) in
+  let (s,n1) = ( get_label s) in
+  let s = ( emit s [PushPtr (Lab n0); PushExc]) in
+  let s = (compile env TCNonTail sz s e1) in
+  let s = ( emit s [PopExc; Stack (Pops 1); Jump (Lab n1); Label n0]) in
+  let s = (compile_bindings env t sz e2 0 s 1) in
+  pushret t (emit s [Label n1])))
 /\
 (compile _ t _ s (CLit (IntLit i)) =  
 (
@@ -400,7 +407,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (let s = (compile env TCNonTail sz s e1) in
   let (s,n0) = ( get_label s) in
   let (s,n1) = ( get_label s) in
-  (case t of
+  (case t of (* TODO: The TCNonTail code probably works for both cases *)
     TCNonTail =>
     let (s,n2) = ( get_label s) in
     let s = ( emit s [(JumpIf (Lab n0)); (Jump (Lab n1)); Label n0]) in

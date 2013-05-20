@@ -101,7 +101,7 @@ val _ = Define `
   let cs = ( compile_shadows rs.rbvars cs 0 shadows) in
   let cs = ( compile_news cs ( LENGTH shadows) news) in
   let (cs,l2) = ( get_label cs) in
-  let cs = ( emit cs [Stack Pop; Stack (PushInt i0); PushPtr (Lab l2); JumpPtr
+  let cs = ( emit cs [Stack Pop; Stack (PushInt i0); Jump (Lab l2)
                    ; Label l1; Stack (PushInt i1); Label l2; Stop]) in
   (( rs with<| rbvars := ( REVERSE news) ++rs.rbvars
     ; rnext_label := cs.next_label |>)

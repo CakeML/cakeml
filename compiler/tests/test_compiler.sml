@@ -268,8 +268,9 @@ val e43 = ``Letrec [("o","n",
   (App Opapp (Var (Short "o")) (Lit (IntLit 1000)))``
 val (bs43,_) = prep_exp inits e43
 val SOME s43 = bc_eval_limit 12 bs43
-val [Number i] = bc_state_stack s43
+val [Number z, Number i] = bc_state_stack s43
 val SOME 0 = intML.toInt i;
+val true = i = z;
 val d = ``Dletrec
 [("o","n",
   If (App Equality (Var (Short "n")) (Lit (IntLit 0)))
@@ -488,3 +489,9 @@ val e71 = ``Let "x" (Lit (IntLit 0))
             (App (Opb Gt) (Lit (IntLit 1)) (Var (Short "x")))``
 val (m,[r]) = mst_run_exp e71
 val true = (OLit (Bool true) = bv_to_ov m r);
+val e72 = ``Raise Bind_error``
+val [Number i] = run_exp_exc e72
+val true = i = error_to_int Bind_error;
+val e73 = ``Handle (Raise (Int_error 42)) "x" (Var(Short "x"))``
+val [Number i] = run_exp e73
+val SOME 42 = intML.toInt i;
