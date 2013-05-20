@@ -379,7 +379,7 @@ compile_nts env sz s (e::es) =
 (* code env to bytecode *)
 
 let rec
-free_labs _ (CRaise _) = []
+free_labs ez (CRaise e) = free_labs ez e
 and
 free_labs ez (CHandle e1 e2) = free_labs ez e1 @ free_labs (ez+1) e2
 and

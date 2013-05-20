@@ -443,7 +443,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val free_labs_defn = Hol_defn "free_labs" `
 
-(free_labs _ (CRaise _) = ([]))
+(free_labs ez (CRaise e) = (free_labs ez e))
 /\
 (free_labs ez (CHandle e1 e2) = (free_labs ez e1 ++ free_labs (ez +1) e2))
 /\
