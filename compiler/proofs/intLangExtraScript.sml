@@ -162,12 +162,15 @@ val _ = export_rewrites["no_vlabs_list_MAP","all_vlabs_list_MAP"]
 val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
   ``(∀s env exp res. Cevaluate s env exp res ⇒
         (vlabs_list (FST res) ⊆ vlabs_list s ∪ vlabs_list env ∪ set (free_labs (LENGTH env) exp)) ∧
-        (∀v. (SND res = Rval v) ⇒ vlabs v ⊆ vlabs_list s ∪ vlabs_list env ∪ set (free_labs (LENGTH env) exp))) ∧
+        (∀v. (SND res = Cval v) ⇒ vlabs v ⊆ vlabs_list s ∪ vlabs_list env ∪ set (free_labs (LENGTH env) exp)) ∧
+        (∀v. (SND res = Cexc (Craise v)) ⇒ vlabs v ⊆ vlabs_list s ∪ vlabs_list env ∪ set (free_labs (LENGTH env) exp))) ∧
     (∀s env es res. Cevaluate_list s env es res ⇒
         (vlabs_list (FST res) ⊆ vlabs_list s ∪ vlabs_list env ∪ set (free_labs_list (LENGTH env) es)) ∧
-        (∀vs. (SND res = Rval vs) ⇒ vlabs_list vs ⊆ vlabs_list s ∪ vlabs_list env ∪ set (free_labs_list (LENGTH env) es)))``,
+        (∀vs. (SND res = Cval vs) ⇒ vlabs_list vs ⊆ vlabs_list s ∪ vlabs_list env ∪ set (free_labs_list (LENGTH env) es)) ∧
+        (∀v. (SND res = Cexc (Craise v)) ⇒ vlabs v ⊆ vlabs_list s ∪ vlabs_list env ∪ set (free_labs_list (LENGTH env) es)))``,
   ho_match_mp_tac Cevaluate_ind >>
-  strip_tac >- rw[] >>
+  strip_tac >- srw_tac[DNF_ss][SUBSET_DEF] >>
+  strip_tac >- srw_tac[DNF_ss][SUBSET_DEF] >>
   strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
   strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF,ADD1] >> metis_tac[] ) >>
   strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
@@ -287,13 +290,15 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
 
 val Cevaluate_no_vlabs = store_thm("Cevaluate_no_vlabs",
   ``(∀s env exp res. Cevaluate s env exp res ⇒ no_vlabs_list s ∧ no_vlabs_list env ∧ no_labs exp ⇒
-        no_vlabs_list (FST res) ∧ (∀v. (SND res = Rval v) ⇒ no_vlabs v)) ∧
+        no_vlabs_list (FST res) ∧ (∀v. (SND res = Cval v) ⇒ no_vlabs v) ∧ (∀v. (SND res = Cexc (Craise v)) ⇒ no_vlabs v)) ∧
     (∀s env es res. Cevaluate_list s env es res ⇒ no_vlabs_list s ∧ no_vlabs_list env ∧ no_labs_list es ⇒
-        no_vlabs_list (FST res) ∧ (∀vs. (SND res = Rval vs) ⇒ no_vlabs_list vs))``,
+        no_vlabs_list (FST res) ∧ (∀vs. (SND res = Cval vs) ⇒ no_vlabs_list vs) ∧ (∀v. (SND res = Cexc (Craise v)) ⇒ no_vlabs v))``,
   ho_match_mp_tac Cevaluate_ind >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- simp[] >>
+  strip_tac >- simp[] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
@@ -302,10 +307,12 @@ val Cevaluate_no_vlabs = store_thm("Cevaluate_no_vlabs",
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- simp[] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
-  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
-  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
-  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- (
+    simp[] >>
+    simp_tac pure_ss [EVERY_MEM,MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+    simp[] >> rw[] >> fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] ) >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >> fs[] >> rfs[] >>
@@ -348,13 +355,15 @@ val Cevaluate_no_vlabs = store_thm("Cevaluate_no_vlabs",
 
 val Cevaluate_all_vlabs = store_thm("Cevaluate_all_vlabs",
   ``(∀s env exp res. Cevaluate s env exp res ⇒ all_vlabs_list s ∧ all_vlabs_list env ∧ all_labs exp ⇒
-        all_vlabs_list (FST res) ∧ (∀v. (SND res = Rval v) ⇒ all_vlabs v)) ∧
+        all_vlabs_list (FST res) ∧ (∀v. (SND res = Cval v) ⇒ all_vlabs v) ∧ (∀v. (SND res = Cexc (Craise v)) ⇒ all_vlabs v)) ∧
     (∀s env es res. Cevaluate_list s env es res ⇒ all_vlabs_list s ∧ all_vlabs_list env ∧ all_labs_list es ⇒
-        all_vlabs_list (FST res) ∧ (∀vs. (SND res = Rval vs) ⇒ all_vlabs_list vs))``,
+        all_vlabs_list (FST res) ∧ (∀vs. (SND res = Cval vs) ⇒ all_vlabs_list vs) ∧ (∀v. (SND res = Cexc (Craise v)) ⇒ all_vlabs v))``,
   ho_match_mp_tac Cevaluate_ind >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- simp[] >>
+  strip_tac >- simp[] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
@@ -363,10 +372,12 @@ val Cevaluate_all_vlabs = store_thm("Cevaluate_all_vlabs",
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- simp[] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
-  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
-  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
-  strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
+  strip_tac >- (
+    simp[] >>
+    simp_tac pure_ss [EVERY_MEM,MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+    simp[] >> rw[] >> fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] ) >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >> fs[] >> rfs[] >>
@@ -407,7 +418,6 @@ val Cevaluate_all_vlabs = store_thm("Cevaluate_all_vlabs",
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL])
 
-
 (* TODO: move *)
 val set_lunion = store_thm("set_lunion",
   ``∀l1 l2. set (lunion l1 l2) = set l1 ∪ set l2``,
@@ -431,58 +441,126 @@ val free_vars_defs_MAP = store_thm("free_vars_defs_MAP",
   ``∀n defs. set (free_vars_defs n defs) = set (FLAT (MAP (free_vars_def n) defs))``,
   gen_tac >> Induct >> simp[])
 
-(* Cevaluate functional equations *)
+(* TODO: move? *)
+val Cexc_rel_def = Define`
+  (Cexc_rel R (Craise v1) (Craise v2) = R v1 v2) ∧
+  (Cexc_rel R Ctype_error Ctype_error = T) ∧
+  (Cexc_rel _ _ _ = F)`
+val _ = export_rewrites["Cexc_rel_def"]
 
-val Cevaluate_raise = store_thm(
-"Cevaluate_raise",
-``∀s env err res. Cevaluate s env (CRaise err) res = (res = (s, Rerr (Rraise err)))``,
-rw[Once Cevaluate_cases])
+val Cresult_rel_def = Define`
+(Cresult_rel R1 R2 (Cval v1) (Cval v2) = R1 v1 v2) ∧
+(Cresult_rel R1 R2 (Cexc e1) (Cexc e2) = Cexc_rel R2 e1 e2) ∧
+(Cresult_rel _ _ _ _ = F)`
+val _ = export_rewrites["Cresult_rel_def"]
+
+val Cexc_rel_Craise1 = store_thm("Cexc_rel_Craise1",
+  ``Cexc_rel R (Craise v) e = ∃v'. (e = Craise v') ∧ R v v'``,
+  Cases_on`e`>>rw[])
+val Cexc_rel_Craise2 = store_thm("Cexc_rel_Craise2",
+  ``Cexc_rel R e (Craise v) = ∃v'. (e = Craise v') ∧ R v' v``,
+  Cases_on`e`>>rw[])
+val Cexc_rel_Ctype_error = store_thm("Cexc_rel_Ctype_error",
+  ``(Cexc_rel R Ctype_error e = (e = Ctype_error)) ∧
+    (Cexc_rel R e Ctype_error = (e = Ctype_error))``,
+  Cases_on`e`>>rw[])
+val _ = export_rewrites["Cexc_rel_Craise1","Cexc_rel_Craise2","Cexc_rel_Ctype_error"]
+
+val Cresult_rel_Cval = store_thm(
+"Cresult_rel_Cval",
+``Cresult_rel R1 R2 (Cval v) r = ∃v'. (r = Cval v') ∧ R1 v v'``,
+Cases_on `r` >> rw[])
+val Cresult_rel_Cexc1 = store_thm(
+"Cresult_rel_Cexc1",
+``Cresult_rel R1 R2 (Cexc e) r = ∃e'. (r = Cexc e') ∧ Cexc_rel R2 e e'``,
+Cases_on `r` >> rw[EQ_IMP_THM])
+val Cresult_rel_Cexc2 = store_thm(
+"Cresult_rel_Cexc2",
+``Cresult_rel R1 R2 r (Cexc e) = ∃e'. (r = Cexc e') ∧ Cexc_rel R2 e' e``,
+Cases_on `r` >> rw[EQ_IMP_THM])
+val _ = export_rewrites["Cresult_rel_Cval","Cresult_rel_Cexc1","Cresult_rel_Cexc2"]
+
+val Cexc_rel_refl = store_thm(
+"Cexc_rel_refl",
+  ``(∀x. R x x) ⇒ ∀x. Cexc_rel R x x``,
+strip_tac >> Cases >> rw[])
+val _ = export_rewrites["Cexc_rel_refl"]
+
+val Cresult_rel_refl = store_thm(
+"Cresult_rel_refl",
+``(∀x. R1 x x) ∧ (∀x. R2 x x) ⇒ ∀x. Cresult_rel R1 R2 x x``,
+strip_tac >> Cases >> rw[])
+val _ = export_rewrites["Cresult_rel_refl"]
+
+val Cexc_rel_trans = store_thm(
+"Cexc_rel_trans",
+``(∀x y z. R x y ∧ R y z ⇒ R x z) ⇒ (∀x y z. Cexc_rel R x y ∧ Cexc_rel R y z ⇒ Cexc_rel R x z)``,
+rw[] >>
+Cases_on `x` >> fs[] >> rw[] >> fs[] >> PROVE_TAC[])
+
+val Cresult_rel_trans = store_thm(
+"Cresult_rel_trans",
+``(∀x y z. R1 x y ∧ R1 y z ⇒ R1 x z) ∧ (∀x y z. R2 x y ∧ R2 y z ⇒ R2 x z) ⇒ (∀x y z. Cresult_rel R1 R2 x y ∧ Cresult_rel R1 R2 y z ⇒ Cresult_rel R1 R2 x z)``,
+rw[] >>
+Cases_on `x` >> fs[] >> rw[] >> fs[] >> PROVE_TAC[Cexc_rel_trans])
+
+val Cexc_rel_sym = store_thm(
+"Cexc_rel_sym",
+``(∀x y. R x y ⇒ R y x) ⇒ (∀x y. Cexc_rel R x y ⇒ Cexc_rel R y x)``,
+rw[] >> Cases_on `x` >> fs[])
+
+val Cresult_rel_sym = store_thm(
+"Cresult_rel_sym",
+``(∀x y. R1 x y ⇒ R1 y x) ∧ (∀x y. R2 x y ⇒ R2 y x) ⇒ (∀x y. Cresult_rel R1 R2 x y ⇒ Cresult_rel R1 R2 y x)``,
+rw[] >> Cases_on `x` >> fs[Cexc_rel_sym])
+
+(* Cevaluate functional equations *)
 
 val Cevaluate_lit = store_thm(
 "Cevaluate_lit",
-``∀s env l res. Cevaluate s env (CLit l) res = (res = (s, Rval (CLitv l)))``,
+``∀s env l res. Cevaluate s env (CLit l) res = (res = (s, Cval (CLitv l)))``,
 rw[Once Cevaluate_cases])
 
 val Cevaluate_var = store_thm(
 "Cevaluate_var",
-``∀s env vn res. Cevaluate s env (CVar vn) res = (vn < LENGTH env ∧ (res = (s, Rval (EL vn env))))``,
+``∀s env vn res. Cevaluate s env (CVar vn) res = (vn < LENGTH env ∧ (res = (s, Cval (EL vn env))))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
 val Cevaluate_fun = store_thm(
 "Cevaluate_fun",
 ``∀s env b res. Cevaluate s env (CFun b) res =
-  (res = (s, Rval (CRecClos env [b] 0)))``,
+  (res = (s, Cval (CRecClos env [b] 0)))``,
 rw[Once Cevaluate_cases] >> metis_tac[])
 
-val _ = export_rewrites["Cevaluate_raise","Cevaluate_lit","Cevaluate_var","Cevaluate_fun"]
+val _ = export_rewrites["Cevaluate_lit","Cevaluate_var","Cevaluate_fun"]
 
 val Cevaluate_con = store_thm(
 "Cevaluate_con",
 ``∀s env cn es res. Cevaluate s env (CCon cn es) res ⇔
-(∃s' vs. Cevaluate_list s env es (s', Rval vs) ∧ (res = (s', Rval (CConv cn vs)))) ∨
-(∃s' err. Cevaluate_list s env es (s', Rerr err) ∧ (res = (s', Rerr err)))``,
+(∃s' vs. Cevaluate_list s env es (s', Cval vs) ∧ (res = (s', Cval (CConv cn vs)))) ∨
+(∃s' err. Cevaluate_list s env es (s', Cexc err) ∧ (res = (s', Cexc err)))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
 val Cevaluate_tageq = store_thm(
 "Cevaluate_tageq",
 ``∀s env exp n res. Cevaluate s env (CTagEq exp n) res ⇔
-  (∃s' m vs. Cevaluate s env exp (s', Rval (CConv m vs)) ∧ (res = (s', Rval (CLitv (Bool (n = m)))))) ∨
-  (∃s' err. Cevaluate s env exp (s', Rerr err) ∧ (res = (s', Rerr err)))``,
+  (∃s' m vs. Cevaluate s env exp (s', Cval (CConv m vs)) ∧ (res = (s', Cval (CLitv (Bool (n = m)))))) ∨
+  (∃s' err. Cevaluate s env exp (s', Cexc err) ∧ (res = (s', Cexc err)))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
 val Cevaluate_let = store_thm(
 "Cevaluate_let",
 ``∀s env e b res. Cevaluate s env (CLet e b) res ⇔
-(∃s' v. Cevaluate s env e (s', Rval v) ∧
+(∃s' v. Cevaluate s env e (s', Cval v) ∧
      Cevaluate s' (v::env) b res) ∨
-(∃s' err. Cevaluate s env e (s', Rerr err) ∧ (res = (s', Rerr err)))``,
+(∃s' err. Cevaluate s env e (s', Cexc err) ∧ (res = (s', Cexc err)))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
 val Cevaluate_proj = store_thm(
 "Cevaluate_proj",
 ``∀s env exp n res. Cevaluate s env (CProj exp n) res ⇔
-  (∃s' m vs. Cevaluate s env exp (s', Rval (CConv m vs)) ∧ (n < LENGTH vs) ∧ (res = (s', Rval (EL n vs)))) ∨
-  (∃s' err. Cevaluate s env exp (s', Rerr err) ∧ (res = (s', Rerr err)))``,
+  (∃s' m vs. Cevaluate s env exp (s', Cval (CConv m vs)) ∧ (n < LENGTH vs) ∧ (res = (s', Cval (EL n vs)))) ∨
+  (∃s' err. Cevaluate s env exp (s', Cexc err) ∧ (res = (s', Cexc err)))``,
 rw[Once Cevaluate_cases] >> PROVE_TAC[])
 
 (* syneq equivalence relation lemmas *)
@@ -525,7 +603,7 @@ val syneq_exp_refl = store_thm("syneq_exp_refl",
     (∀(x:num#Cexp) z V. (∀v. v < z ⇒ V v v) ⇒ syneq_exp z z V (SND x) (SND x)) ∧
     (∀es z V. (∀v. v < z ⇒ V v v) ⇒ EVERY2 (syneq_exp z z V) es es)``,
   ho_match_mp_tac (TypeBase.induction_of``:Cexp``) >>
-  strip_tac >- rw[Once syneq_exp_cases] >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
   strip_tac >- (
     rw[] >> rw[Once syneq_exp_cases] >>
     first_x_assum match_mp_tac >> simp[] >>
@@ -810,7 +888,7 @@ val syneq_exp_trans = store_thm("syneq_exp_trans",
     (∀ez1 ez2 V d1 d2 U. syneq_defs ez1 ez2 V d1 d2 U ⇒
       ∀ez3 V' d3 U'. syneq_defs ez2 ez3 V' d2 d3 U' ⇒ syneq_defs ez1 ez3 (V' O V) d1 d3 (U' O U))``,
   ho_match_mp_tac syneq_exp_ind >>
-  strip_tac >- ( ntac 2 (rw[Once syneq_exp_cases] ) ) >>
+  strip_tac >- ( rw[] >> pop_assum mp_tac >> ntac 2 (rw[Once syneq_exp_cases] ) ) >>
   strip_tac >- (
     rw[] >> pop_assum mp_tac >>
     simp[Once syneq_exp_cases] >> strip_tac >>
@@ -959,24 +1037,6 @@ val syneq_trans = store_thm("syneq_trans",
   TRY conj_tac >>
   TRY (PROVE_TAC[syneq_exp_trans]))
 
-val result_rel_syneq_refl = save_thm(
-"result_rel_syneq_refl",
-result_rel_refl
-|> Q.GEN`R`
-|> Q.ISPEC`syneq`
-|> SIMP_RULE std_ss [syneq_refl])
-val _ = export_rewrites["result_rel_syneq_refl"]
-
-val result_rel_syneq_trans = save_thm(
-"result_rel_syneq_trans",
-result_rel_trans
-|> Q.GEN`R`
-|> Q.ISPEC`syneq`
-|> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
-|> UNDISCH
-|> (fn th => PROVE_HYP (PROVE[syneq_trans](hd(hyp th))) th)
-|> SIMP_RULE std_ss [AND_IMP_INTRO])
-
 val EVERY2_syneq_refl = save_thm("EVERY2_syneq_refl",
 EVERY2_refl
 |> Q.GEN`R`
@@ -1000,6 +1060,61 @@ EVERY2_trans
 |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
 |> UNDISCH
 |> (fn th => PROVE_HYP (PROVE[syneq_trans](hd(hyp th))) th)
+|> SIMP_RULE std_ss [AND_IMP_INTRO])
+
+val result_rel_syneq_refl = save_thm(
+"result_rel_syneq_refl",
+result_rel_refl
+|> Q.GEN`R`
+|> Q.ISPEC`syneq`
+|> SIMP_RULE std_ss [syneq_refl])
+val _ = export_rewrites["result_rel_syneq_refl"]
+
+val Cresult_rel_syneq_refl = save_thm(
+"Cresult_rel_syneq_refl",
+Cresult_rel_refl
+|> Q.GENL[`R2`,`R1`]
+|> Q.ISPECL[`syneq`,`syneq`]
+|> SIMP_RULE std_ss [syneq_refl])
+val _ = export_rewrites["Cresult_rel_syneq_refl"]
+
+val Cresult_rel_list_syneq_refl = save_thm(
+"Cresult_rel_list_syneq_refl",
+Cresult_rel_refl
+|> Q.GENL[`R2`,`R1`]
+|> Q.ISPECL[`EVERY2 syneq`,`syneq`]
+|> SIMP_RULE std_ss [syneq_refl,EVERY2_syneq_refl])
+val _ = export_rewrites["Cresult_rel_syneq_refl"]
+
+val result_rel_syneq_trans = save_thm(
+"result_rel_syneq_trans",
+result_rel_trans
+|> Q.GEN`R`
+|> Q.ISPEC`syneq`
+|> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
+|> UNDISCH
+|> (fn th => PROVE_HYP (PROVE[syneq_trans](hd(hyp th))) th)
+|> SIMP_RULE std_ss [AND_IMP_INTRO])
+
+val Cresult_rel_syneq_trans = save_thm(
+"Cresult_rel_syneq_trans",
+Cresult_rel_trans
+|> Q.GENL[`R2`,`R1`]
+|> Q.ISPECL[`syneq`,`syneq`]
+|> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
+|> UNDISCH |> UNDISCH
+|> (fn th => PROVE_HYP (PROVE[syneq_trans](hd(hyp th))) th)
+|> SIMP_RULE std_ss [AND_IMP_INTRO])
+
+val Cresult_rel_list_syneq_trans = save_thm(
+"Cresult_rel_list_syneq_trans",
+Cresult_rel_trans
+|> Q.GENL[`R2`,`R1`]
+|> Q.ISPECL[`EVERY2 syneq`,`syneq`]
+|> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
+|> UNDISCH |> UNDISCH
+|> (fn th => PROVE_HYP (PROVE[syneq_trans](hd(hyp th))) th)
+|> (fn th => PROVE_HYP (PROVE[EVERY2_syneq_trans](hd(hyp th))) th)
 |> SIMP_RULE std_ss [AND_IMP_INTRO])
 
 val syneq_ov = store_thm("syneq_ov",
@@ -1027,7 +1142,7 @@ val good_cmap_def = Define`
       ((FAPPLY m (FST p1) = FAPPLY m (FST p2)) ⇒ (p1 = p2))`
 
 val Cevaluate_list_LENGTH = store_thm("Cevaluate_list_LENGTH",
-  ``∀exps s env s' vs. Cevaluate_list s env exps (s', Rval vs) ⇒ (LENGTH vs = LENGTH exps)``,
+  ``∀exps s env s' vs. Cevaluate_list s env exps (s', Cval vs) ⇒ (LENGTH vs = LENGTH exps)``,
   Induct >> rw[LENGTH_NIL] >> pop_assum mp_tac >>
   rw[Once Cevaluate_cases] >>
   fsrw_tac[DNF_ss][] >>
@@ -1062,7 +1177,7 @@ val all_Clocs_def = tDefine "all_Clocs"`
 val _ = export_rewrites["all_Clocs_def"]
 
 val CevalPrim2_Clocs = store_thm("CevaluatePrim2_Clocs",
-  ``∀p2 v1 v2 v. (CevalPrim2 p2 v1 v2 = Rval v) ⇒ (all_Clocs v = {})``,
+  ``∀p2 v1 v2 v. ((CevalPrim2 p2 v1 v2 = Cval v) ∨ (CevalPrim2 p2 v1 v2 = Cexc (Craise v))) ⇒ (all_Clocs v = {})``,
   Cases >> fs[] >> Cases >> fs[] >>
   TRY (Cases_on`l` >> fs[] >> Cases >> fs[] >> Cases_on `l` >> fs[] >> rw[] >> rw[]) >>
   Cases >> fs[] >> rw[] >> rw[])
@@ -1073,14 +1188,17 @@ val Cevaluate_Clocs = store_thm("Cevaluate_Clocs",
      BIGUNION (IMAGE all_Clocs (set s)) ⊆ count (LENGTH s)
      ⇒
      BIGUNION (IMAGE all_Clocs (set (FST res))) ⊆ count (LENGTH (FST res)) ∧
-     ∀v. (SND res = Rval v) ⇒ all_Clocs v ⊆ count (LENGTH (FST res))) ∧
+     (∀v. (SND res = Cval v) ⇒ all_Clocs v ⊆ count (LENGTH (FST res))) ∧
+     (∀v. (SND res = Cexc (Craise v)) ⇒ all_Clocs v ⊆ count (LENGTH (FST res)))) ∧
     (∀s env exps res. Cevaluate_list s env exps res ⇒
      BIGUNION (IMAGE all_Clocs (set env)) ⊆ count (LENGTH s) ∧
      BIGUNION (IMAGE all_Clocs (set s)) ⊆ count (LENGTH s)
      ⇒
      BIGUNION (IMAGE all_Clocs (set (FST res))) ⊆ count (LENGTH (FST res)) ∧
-     ∀vs. (SND res = Rval vs) ⇒ BIGUNION (IMAGE all_Clocs (set vs)) ⊆ count (LENGTH (FST res)))``,
+     (∀vs. (SND res = Cval vs) ⇒ BIGUNION (IMAGE all_Clocs (set vs)) ⊆ count (LENGTH (FST res))) ∧
+     (∀v. (SND res = Cexc (Craise v)) ⇒ all_Clocs v ⊆ count (LENGTH (FST res))))``,
   ho_match_mp_tac Cevaluate_strongind >>
+  strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- (
@@ -1138,7 +1256,7 @@ val Cevaluate_Clocs = store_thm("Cevaluate_Clocs",
     fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
     metis_tac[LESS_LESS_EQ_TRANS]) >>
   strip_tac >- (
-    rw[] >> fs[] >> rfs[] >>
+    simp[] >> rpt gen_tac >> strip_tac >> strip_tac >>
     first_x_assum match_mp_tac >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
     metis_tac[Cevaluate_store_SUBSET,LESS_LESS_EQ_TRANS,FST] ) >>
@@ -1222,7 +1340,7 @@ Cases_on `v` >> rw[])
 val CevalPrim2_syneq = store_thm("CevalPrim2_syneq",
   ``∀p2 v11 v21 v12 v22.
     syneq v11 v12 ∧ syneq v21 v22 ⇒
-    result_rel (syneq) (CevalPrim2 p2 v11 v21) (CevalPrim2 p2 v12 v22)``,
+    Cresult_rel syneq syneq (CevalPrim2 p2 v11 v21) (CevalPrim2 p2 v12 v22)``,
   Cases >> simp[] >>
   Cases >> Cases >>
   simp[] >>
@@ -1248,7 +1366,7 @@ val CevalPrim2_syneq = store_thm("CevalPrim2_syneq",
 val CevalPrim1_syneq = store_thm("CevalPrim1_syneq",
   ``∀uop s1 s2 v1 v2. EVERY2 (syneq) s1 s2 ∧ syneq v1 v2 ⇒
     EVERY2 (syneq) (FST (CevalPrim1 uop s1 v1)) (FST (CevalPrim1 uop s2 v2)) ∧
-    result_rel (syneq) (SND (CevalPrim1 uop s1 v1)) (SND (CevalPrim1 uop s2 v2))``,
+    Cresult_rel syneq syneq (SND (CevalPrim1 uop s1 v1)) (SND (CevalPrim1 uop s2 v2))``,
   Cases >- (
     simp[] >> rw[] >> fs[EVERY2_EVERY] >> lrw[GSYM ZIP_APPEND] ) >>
   ntac 2 gen_tac >>
@@ -1263,7 +1381,7 @@ val CevalUpd_syneq = store_thm(
 ``∀s1 v1 v2 s2 w1 w2.
   syneq v1 w1 ∧ syneq v2 w2 ∧ EVERY2 (syneq) s1 s2 ⇒
   EVERY2 (syneq) (FST (CevalUpd s1 v1 v2)) (FST (CevalUpd s2 w1 w2)) ∧
-  result_rel (syneq) (SND (CevalUpd s1 v1 v2)) (SND (CevalUpd s2 w1 w2))``,
+  Cresult_rel syneq syneq (SND (CevalUpd s1 v1 v2)) (SND (CevalUpd s2 w1 w2))``,
   gen_tac >>
   Cases >> simp[] >>
   ntac 2 gen_tac >>
@@ -1282,7 +1400,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
       ⇒ ∃res2.
         Cevaluate s2 env2 exp2 res2 ∧
         EVERY2 (syneq) (FST res1) (FST res2) ∧
-        result_rel (syneq) (SND res1) (SND res2)) ∧
+        Cresult_rel syneq syneq (SND res1) (SND res2)) ∧
     (∀s1 env1 es1 res1. Cevaluate_list s1 env1 es1 res1 ⇒
       ∀ez1 ez2 V s2 env2 es2 res2.
         EVERY2 (syneq_exp (LENGTH env1) (LENGTH env2) V) es1 es2
@@ -1291,7 +1409,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
       ⇒ ∃res2.
         Cevaluate_list s2 env2 es2 res2 ∧
         EVERY2 (syneq) (FST res1) (FST res2) ∧
-        result_rel (EVERY2 (syneq)) (SND res1) (SND res2))``,
+        Cresult_rel (EVERY2 (syneq)) syneq (SND res1) (SND res2))``,
   ho_match_mp_tac Cevaluate_strongind >>
   strip_tac >- ( simp[Once syneq_exp_cases] >> rw[] >> rw[] ) >>
   strip_tac >- (
@@ -1733,7 +1851,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     last_x_assum(qspecl_then[`V`,`s2`,`env2`,`e12`]mp_tac) >>
     simp[GSYM AND_IMP_INTRO] >> disch_then(mp_tac o UNDISCH_ALL) >>
     rw[] >>
-    qmatch_assum_abbrev_tac`Cevaluate s2 env2 e12 (s3,Rval (CLitv (Bool b)))` >>
+    qmatch_assum_abbrev_tac`Cevaluate s2 env2 e12 (s3,Cval (CLitv (Bool b)))` >>
     CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
     map_every qexists_tac[`b`,`s3`] >>
     simp[Abbr`b`] >>

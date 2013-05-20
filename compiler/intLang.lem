@@ -127,13 +127,13 @@ indreln
 forall s env exp s' v.
 Cevaluate s env exp (s', Cval v)
 ==>
-Cevaluate s env (CRaise exp) (s, Cexc (Craise v))
+Cevaluate s env (CRaise exp) (s', Cexc (Craise v))
 
 and
 forall s env exp s' err.
 Cevaluate s env exp (s', Cexc err)
 ==>
-Cevaluate s env (CRaise exp) (s, Cexc err)
+Cevaluate s env (CRaise exp) (s', Cexc err)
 
 and
 forall s1 env e1 e2 s2 v.
@@ -365,10 +365,10 @@ let rec syneq_cb_V az r1 r2 V V' v1 v2 =
     (exists j. (r1 (v1-az) = CCArg j) && r2 (v2-az) = CCArg j)))
 
 indreln
-forall ez1 ez2 V err.
-true
+forall ez1 ez2 V e1 e2.
+syneq_exp ez1 ez2 V e1 e2
 ==>
-syneq_exp ez1 ez2 V (CRaise err) (CRaise err)
+syneq_exp ez1 ez2 V (CRaise e1) (CRaise e2)
 and
 forall ez1 ez2 V e1 b1 e2 b2.
 syneq_exp ez1 ez2 V e1 e2 &&
@@ -501,7 +501,7 @@ syneq (CLoc n) (CLoc n)
 (* auxiliary functions over the syntax *)
 
 let rec
-no_labs (CRaise _) = true
+no_labs (CRaise e) = no_labs e
 and
 no_labs (CHandle e1 e2) = no_labs e1 && no_labs e2
 and
@@ -544,7 +544,7 @@ and
 no_labs_def (None,(_,b)) = no_labs b
 
 let rec
-all_labs (CRaise _) = true
+all_labs (CRaise e) = all_labs e
 and
 all_labs (CHandle e1 e2) = all_labs e1 && all_labs e2
 and

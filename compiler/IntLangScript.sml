@@ -183,13 +183,13 @@ val _ = Hol_reln `
 (! s env exp s' v.
 (Cevaluate s env exp (s', Cval v))
 ==>
-Cevaluate s env (CRaise exp) (s, Cexc (Craise v)))
+Cevaluate s env (CRaise exp) (s', Cexc (Craise v)))
 
 /\
 (! s env exp s' err.
 (Cevaluate s env exp (s', Cexc err))
 ==>
-Cevaluate s env (CRaise exp) (s, Cexc err))
+Cevaluate s env (CRaise exp) (s', Cexc err))
 
 /\
 (! s1 env e1 e2 s2 v.
@@ -421,10 +421,10 @@ Cevaluate_list s env (e ::es) (s'', Cexc err))`;
 
 
 val _ = Hol_reln `
-(! ez1 ez2 V err.
-T
+(! ez1 ez2 V e1 e2.
+(syneq_exp ez1 ez2 V e1 e2)
 ==>
-syneq_exp ez1 ez2 V (CRaise err) (CRaise err))
+syneq_exp ez1 ez2 V (CRaise e1) (CRaise e2))
 /\
 (! ez1 ez2 V e1 b1 e2 b2.
 (syneq_exp ez1 ez2 V e1 e2 /\
@@ -548,7 +548,7 @@ syneq (CLoc n) (CLoc n))`;
 
  val no_labs_defn = Hol_defn "no_labs" `
 
-(no_labs (CRaise _) = T)
+(no_labs (CRaise e) = (no_labs e))
 /\
 (no_labs (CHandle e1 e2) = (no_labs e1 /\ no_labs e2))
 /\
@@ -594,7 +594,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val all_labs_defn = Hol_defn "all_labs" `
 
-(all_labs (CRaise _) = T)
+(all_labs (CRaise e) = (all_labs e))
 /\
 (all_labs (CHandle e1 e2) = (all_labs e1 /\ all_labs e2))
 /\
