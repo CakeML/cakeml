@@ -87,53 +87,59 @@ val ptree_linfix_def = Define`
 val ptree_Type_def = Define`
   (ptree_Type ptree : ast_t option =
     case ptree of
-      Nd nt args =>
-      (case nt of
-         mkNT nType => (case args of
-                         [dt] => ptree_Type dt
-                       | [dt;Lf(TK ArrowT);rt] => do
-                           dty <- ptree_Type dt;
-                           rty <- ptree_Type rt;
-                           SOME(Ast_Tfn dty rty)
-                         od
-                       | _ => NONE)
-       | mkNT nDType => (case args of
-                           [Lf (TK (TyvarT s))] => SOME (Ast_Tvar s)
-                         | [opn] => do
-                             opname <- ptree_Tyop opn;
-                             SOME(Ast_Tapp [] opname)
-                           od
-                         | [dt; opn] => do
+        Nd nt args =>
+        if nt = mkNT nType then
+          case args of
+              [dt] => ptree_Type dt
+            | [dt;arrowt;rt] =>
+              do
+                assert(arrowt = Lf (TOK ArrowT));
+                dty <- ptree_Type dt;
+                rty <- ptree_Type rt;
+                SOME(Ast_Tfn dty rty)
+              od
+            | _ => NONE
+        else if nt = mkNT nDType then
+          case args of
+              [pt] =>
+                OPTION_MAP Ast_Tvar (destTyvarPT pt) ++
+                OPTION_MAP (Ast_Tapp []) (ptree_Tyop pt)
+            | [dt; opn] => do
                              dty <- ptree_Type dt;
                              opname <- ptree_Tyop opn;
                              SOME(Ast_Tapp [dty] opname)
                            od
-                         | [Lf (TK LparT); t; Lf (TK RparT)] => ptree_Type t
-                         | [Lf (TK LparT); tl; Lf (TK RparT); opn] => do
-                             tylist <- ptree_Typelist tl;
-                             opname <- ptree_Tyop opn;
-                             SOME(Ast_Tapp tylist opname)
-                           od
-                         | _ => NONE)
-       | _ => NONE)
-    | _ => NONE) ∧
+            | [lpart; t; rpart] =>
+              do
+                assert(lpart = Lf (TK LparT) ∧ rpart = Lf (TK RparT));
+                ptree_Type t
+              od
+           | [lpart; tl; rpart; opn] =>
+             do
+                assert(lpart = Lf (TK LparT) ∧ rpart = Lf (TK RparT));
+                tylist <- ptree_Typelist tl;
+                opname <- ptree_Tyop opn;
+                SOME(Ast_Tapp tylist opname)
+             od
+           | _ => NONE
+        else NONE
+      | _ => NONE) ∧
   (ptree_Typelist ptree : ast_t list option =
      case ptree of
        Lf _ => NONE
      | Nd nt args =>
-       (case nt of
-          mkNT nTypeList => (case args of
-                               [dt] => do
-                                  ty <- ptree_Type dt;
-                                  SOME[ty]
-                               od
-                             | [dt; Lf (TK CommaT); tl'] => do
-                                 ty <- ptree_Type dt;
-                                 tylist <- ptree_Typelist tl';
-                                 SOME(ty::tylist)
-                               od
-                             | _ => NONE)
-         | _ => NONE))
+       if nt <> mkNT nTypeList then NONE
+       else
+         case args of
+             [dt] => do ty <- ptree_Type dt; SOME[ty] od
+           | [dt; commat; tl'] =>
+             do
+               assert(commat = Lf (TK CommaT));
+               ty <- ptree_Type dt;
+               tylist <- ptree_Typelist tl';
+               SOME(ty::tylist)
+             od
+           | _ => NONE)
 `;
 
 val ptree_TypeName_def = Define`
