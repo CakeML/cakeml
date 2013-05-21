@@ -214,7 +214,8 @@ val ast = ``Nd (mkNT nEmult) [
 
 val check_results =
     time (SIMP_CONV (srw_ss())
-              [valid_ptree_def, mmlG_def,DISJ_IMP_THM, FORALL_AND_THM])
+              [valid_ptree_def, mmlG_def,DISJ_IMP_THM, FORALL_AND_THM,
+               finite_mapTheory.FAPPLY_FUPDATE_THM])
  ``valid_ptree mmlG ^ast``
 
 val _ = if aconv (rhs (concl check_results)) T then print "valid_ptree: OK\n"

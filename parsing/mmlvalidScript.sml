@@ -22,16 +22,13 @@ val mmlvalidL_lemma = prove(
   Induct_on `children` >> asm_simp_tac (srw_ss() ++ DNF_ss) [mmlvalid_def]);
 
 val mml_okrule_def = zDefine`
-  mml_okrule n l ⇔ (n, l) ∈ mmlG.rules
+  mml_okrule n l ⇔ n ∈ FDOM mmlG.rules ∧ l ∈ mmlG.rules ' n
 `
-
-
-
 
 val mmlvalid_Nd =
   ``mmlvalid (Nd n l)``
     |> SIMP_CONV (srw_ss()) [mmlvalid_def, GSYM mml_okrule_def,
-                             GSYM mmlvalidL_lemma]
+                             GSYM mmlvalidL_lemma, CONJ_ASSOC]
 
 val mmlvalid_thm = store_thm(
   "mmlvalid_thm",
@@ -197,11 +194,11 @@ fun onecon t = let
   val _ = print ("onecon: " ^ term_to_string t ^ "\n")
   val n = mk_var("n", ``:NT``)
   val ass = ASSUME (mk_eq(n, t))
+  val rwts = ass::finite_mapTheory.FAPPLY_FUPDATE_THM::onecon_rwts
 in
   SPEC n mml_okrule_def
        |> SPEC_ALL
-       |> CONV_RULE
-            (RAND_CONV (SIMP_CONV (srw_ss()) (ass::onecon_rwts)))
+       |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) rwts))
 end
 
 val nt_cases = TypeBase.nchotomy_of  ``:MMLnonT`` |> Q.SPEC `n`
