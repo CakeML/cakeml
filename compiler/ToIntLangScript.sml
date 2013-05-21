@@ -19,7 +19,7 @@ val _ = new_theory "ToIntLang"
 
  val free_vars_defn = Hol_defn "free_vars" `
 
-(free_vars (CRaise _) = ([]))
+(free_vars (CRaise e) = (free_vars e))
 /\
 (free_vars (CHandle e1 e2) = ( lunion (free_vars e1) (lshift 1 (free_vars e2))))
 /\
@@ -67,7 +67,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val mkshift_defn = Hol_defn "mkshift" `
 
-(mkshift _ _ (CRaise err) = (CRaise err))
+(mkshift f k (CRaise e) = (CRaise (mkshift f k e)))
 /\
 (mkshift f k (CHandle e1 e2) = (CHandle (mkshift f k e1) (mkshift f (k +1) e2)))
 /\

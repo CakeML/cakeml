@@ -5,7 +5,7 @@ open IntLang
 open Ast
 
 let rec
-free_vars (CRaise _) = []
+free_vars (CRaise e) = free_vars e
 and
 free_vars (CHandle e1 e2) = lunion (free_vars e1) (lshift 1 (free_vars e2))
 and
@@ -50,7 +50,7 @@ and
 free_vars_def _ (Some _,_) = []
 
 let rec
-mkshift _ _ (CRaise err) = CRaise err
+mkshift f k (CRaise e) = CRaise (mkshift f k e)
 and
 mkshift f k (CHandle e1 e2) = CHandle (mkshift f k e1) (mkshift f (k+1) e2)
 and

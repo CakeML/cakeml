@@ -1123,6 +1123,11 @@ val every_Cresult_def = Define`
   (every_Cresult P1 P2 (Cexc Ctype_error) = T)`
 val _ = export_rewrites["every_Cresult_def"]
 
+val every_Cresult_P1 = store_thm("every_Cresult_P1",
+  ``every_Cresult P1 P2 (Cexc e) ⇒ every_Cresult P1' P2 (Cexc e)``,
+  Cases_on`e`>> rw[])
+val _ = export_rewrites["every_Cresult_P1"]
+
 val syneq_ov = store_thm("syneq_ov",
   ``(∀v1 v2. syneq v1 v2 ⇒ ∀m s. Cv_to_ov m s v1 = Cv_to_ov m s v2) ∧
     (∀vs1 vs2. EVERY2 (syneq) vs1 vs2 ⇒ ∀m s. EVERY2 (λv1 v2. Cv_to_ov m s v1 = Cv_to_ov m s v2) vs1 vs2)``,
@@ -2017,6 +2022,7 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
   ho_match_mp_tac Cevaluate_ind >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
+  strip_tac >- rw[] >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
     fsrw_tac[DNF_ss][ADD1] >>
@@ -2034,7 +2040,8 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
     srw_tac[ETA_ss][FOLDL_UNION_BIGUNION] >> fs[] >>
     rw[Once Cclosed_cases] ) >>
   strip_tac >- (
-    srw_tac[ETA_ss][FOLDL_UNION_BIGUNION] ) >>
+    srw_tac[ETA_ss][FOLDL_UNION_BIGUNION] >> fs[] >>
+    metis_tac[every_Cresult_P1]) >>
   strip_tac >- ( rw[] >> rw[Once Cclosed_cases]) >>
   strip_tac >- rw[] >>
   strip_tac >- (
@@ -2097,7 +2104,8 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
     simp[]) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
-    fsrw_tac[ETA_ss][FOLDL_UNION_BIGUNION] ) >>
+    fsrw_tac[ETA_ss][FOLDL_UNION_BIGUNION] >>
+    metis_tac[every_Cresult_P1]) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
     fsrw_tac[ETA_ss][FOLDL_UNION_BIGUNION] ) >>
@@ -2107,14 +2115,14 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
     fs[] >> metis_tac[CevalPrim1_closed]) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
+  strip_tac >- ( rw[] >> metis_tac[every_Cresult_P1] ) >>
   strip_tac >- (
     rw[] >- (
       match_mp_tac (MP_CANON (CONJUNCT2 CevalUpd_closed)) >>
       rw[]) >>
     match_mp_tac (CONJUNCT1 CevalUpd_closed) >>
     rw[] ) >>
-  strip_tac >- rw[] >>
+  strip_tac >- ( rw[] >> metis_tac[every_Cresult_P1] ) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
     first_x_assum match_mp_tac >>
@@ -2128,7 +2136,7 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
     full_simp_tac std_ss [] >>
-    fs[] ) >>
+    fs[] >> metis_tac[every_Cresult_P1]) >>
   rpt gen_tac >> ntac 2 strip_tac >>
   full_simp_tac std_ss [] >>
   fs[] )
