@@ -243,7 +243,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     INL p2 => CPrim2 p2 Ce1 Ce2
   | INR p2 =>
     CLet Ce1
-      (CLet Ce2
+      (CLet (shift 1 0 Ce2)
         (CIf (CPrim2 CEq (CVar 0) (CLit (IntLit i0)))
              (CRaise CDiv_exc)
              (CPrim2 p2 (CVar 1) (CVar 0))))

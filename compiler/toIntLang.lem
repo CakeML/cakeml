@@ -203,7 +203,7 @@ exp_to_Cexp m (App (Opn opn) e1 e2) =
   | Inl p2 -> CPrim2 p2 Ce1 Ce2
   | Inr p2 ->
     CLet Ce1
-      (CLet Ce2
+      (CLet (shift 1 0 Ce2)
         (CIf (CPrim2 CEq (CVar 0) (CLit (IntLit i0)))
              (CRaise CDiv_exc)
              (CPrim2 p2 (CVar 1) (CVar 0))))
