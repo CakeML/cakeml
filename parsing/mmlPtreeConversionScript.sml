@@ -637,8 +637,27 @@ val ptree_Expr_def = Define`
             od
           | [t] => ptree_Expr nElogicAND t
           | _ => NONE
+      else if nt = mkNT nEhandle then
+        case subs of
+            [pt] => ptree_Expr nElogicOR pt
+          | [e1pt; handlet; vpt; arrowt; e2pt] =>
+            do
+              assert(handlet = Lf (TOK HandleT) ∧ arrowt = Lf (TOK DarrowT));
+              e1 <- ptree_Expr nElogicOR e1pt;
+              v <- ptree_V vpt;
+              e2 <- ptree_Expr nE e2pt;
+              SOME(Ast_Handle e1 v e2)
+            od
+          | _ => NONE
       else if nt = mkNT nE then
         case subs of
+          | [t] => ptree_Expr nEhandle t
+          | [raiset; ept] =>
+            do
+              assert(raiset = Lf (TOK RaiseT));
+              e <- ptree_Expr nE ept;
+              SOME(Ast_Raise Bind_error) (* bogus *)
+            od
           | [fnt; vnt; arrowt; ent] =>
             do
               assert (fnt = Lf (TOK FnT) ∧ arrowt = Lf (TOK DarrowT));
@@ -659,7 +678,6 @@ val ptree_Expr_def = Define`
               a3 <- ptree_Expr nE ee;
               SOME(Ast_If a1 a2 a3)
             od
-          | [t] => ptree_Expr nElogicOR t
           | _ => NONE
       else NONE
     else NONE) ∧

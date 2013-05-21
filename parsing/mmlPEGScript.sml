@@ -281,9 +281,14 @@ val mmlPEG_def = zDefine`
               (mkNT nElogicOR,
                peg_linfix (mkNT nElogicOR) (pnt nElogicAND)
                           (tokeq OrelseT));
+              (mkNT nEhandle,
+               seql [pnt nElogicOR;
+                     try (seql [tokeq HandleT; pnt nV; tokeq DarrowT;
+                                pnt nE] I)] (bindNT nEhandle)
+              );
               (mkNT nE,
                choicel [seql [tokeq RaiseT; pnt nE] (bindNT nE);
-                        pegf (pnt nElogicOR) (bindNT nE);
+                        pegf (pnt nEhandle) (bindNT nE);
                         seql [tokeq IfT; pnt nE; tokeq ThenT; pnt nE;
                               tokeq ElseT; pnt nE]
                              (bindNT nE);
@@ -562,7 +567,7 @@ val topo_nts = [``nV``, ``nTypeDec``, ``nDecl``, ``nVlist1``,
                 ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nErel``,
                 ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``,
-                ``nElogicOR``, ``nE``, ``nType``,
+                ``nElogicOR``, ``nEhandle``, ``nE``, ``nType``,
                 ``nPatternList1``, ``nPatternList2``,
                 ``nEtuple``, ``nEseq``, ``nElist1``, ``nElist2``, ``nDtypeDecl``,
                 ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,

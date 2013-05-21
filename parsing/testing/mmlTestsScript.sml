@@ -13,8 +13,10 @@ val _ = overload_on ("Tfa", ``λs. Lf (TK (AlphaT s))``)
 val _ = overload_on ("Tfs", ``λs. Lf (TK (SymbolT s))``)
 val _ = overload_on (
   "EREL",
-  ``λl. NN nE [NN nElogicOR [NN nElogicAND
-                                [NN nEtyped [NN nEbefore [NN nEcomp l]]]]]``)
+  ``λl. NN nE [NN nEhandle
+                  [NN nElogicOR
+                      [NN nElogicAND
+                          [NN nEtyped [NN nEbefore [NN nEcomp l]]]]]]``)
 val _ = overload_on (
   "EB",
   ``λl. EREL [NN nErel [NN nEadd [NN nEmult [NN nEapp [NN nEbase l]]]]]``)
@@ -95,6 +97,20 @@ val tytest = parsetest ``nType`` ``ptree_Type``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "4 handle x => 3 + 4"
+                   (SOME ``Ast_Handle (Ast_Lit (IntLit 4))
+                                      "x"
+                                      (Ast_App (Ast_App (Ast_Var (Short "+"))
+                                                        (Ast_Lit (IntLit 3)))
+                                               (Ast_Lit (IntLit 4)))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE``
+                   "if raise f then 2 else 3 handle f => 23"
+                   (SOME ``Ast_If (Ast_Raise Bind_error)
+                                  (Ast_Lit (IntLit 2))
+                                  (Ast_Handle
+                                     (Ast_Lit (IntLit 3))
+                                     "f"
+                                     (Ast_Lit (IntLit 23)))``);
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "C(3)"
                    (SOME ``Ast_Con (Short "C") [Ast_Lit (IntLit 3)]``)
 
