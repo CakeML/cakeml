@@ -41,7 +41,9 @@ val _ = new_theory "ToBytecode"
 
  val label_closures_defn = Hol_defn "label_closures" `
 
-(label_closures _ j (CRaise err) = (CRaise err, j))
+(label_closures ez j (CRaise e) =  
+(let (e,j) = (label_closures ez j e) in
+  (CRaise e, j)))
 /\
 (label_closures ez j (CHandle e1 e2) =  
 (let (e1,j) = (label_closures ez j e1) in

@@ -27,7 +27,9 @@ let rec bind_fv (az,e) nz ix =
   )
 
 let rec
-label_closures _ j (CRaise err) = (CRaise err, j)
+label_closures ez j (CRaise e) =
+  let (e,j) = label_closures ez j e in
+  (CRaise e, j)
 and
 label_closures ez j (CHandle e1 e2) =
   let (e1,j) = label_closures ez j e1 in
