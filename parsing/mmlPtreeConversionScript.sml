@@ -580,6 +580,7 @@ val ptree_Expr_def = Define`
                 backAppCon front back
               od
             else NONE
+          | _ => NONE
       else if nt = mkNT nEmult then
         case subs of
           [t1; opt; t2] => do (* s will be *, /, div, or mod *)
@@ -990,6 +991,7 @@ val ptree_TopLevelDecs_def = Define`
             tds <- ptree_TopLevelDecs tds_pt;
             SOME(td::tds)
           od
+        | _ => NONE
 `;
 
 val ptree_REPLPhrase_def = Define`

@@ -55,7 +55,7 @@ val _ = translate compile_top_def;
 
 val _ = translate (def_of_const ``elab_top``);
 
-(* parser *)
+(* parsing: peg_exec and mmlPEG *)
 
 val _ = translate (def_of_const ``mmlPEG``);
 
@@ -71,5 +71,57 @@ val INTRO_FLOOKUP = prove(
 val _ = translate (def_of_const ``coreloop`` |> RW [INTRO_FLOOKUP]
                    |> SPEC_ALL |> RW1 [FUN_EQ_THM]);
 val _ = translate (def_of_const ``peg_exec``);
+
+(* parsing: mmlvalid *)
+
+val LENGTH_LEMMA = prove(
+  ``!l. ((LENGTH l = 1) ==> l <> []) /\
+        ((LENGTH l = 2) ==> l <> [] /\ TL l <> [])``,
+  Cases THEN FULL_SIMP_TAC std_ss [LENGTH]
+  THEN Cases_on `t` THEN FULL_SIMP_TAC (srw_ss()) [LENGTH]);
+
+val if_and_lemma = METIS_PROVE []
+  ``(if b1 /\ b2 then x else y) = if b1 then (if b2 then x else y) else y``
+
+val monad_unitbind_assert = prove(
+  ``!b x. monad_unitbind (assert b) x = if b then x else NONE``,
+  Cases \\ EVAL_TAC \\ SIMP_TAC std_ss []);
+
+val _ = translate (mmlvalidTheory.mml_okrule_eval_th
+                   |> RW [monad_unitbind_assert,lemma,if_and_lemma])
+
+val mml_okrule_side_def = prove(
+  ``!x y. mml_okrule_side x y = T``,
+  SIMP_TAC std_ss [fetch "-" "mml_okrule_side_def"]
+  \\ FULL_SIMP_TAC std_ss [LENGTH_LEMMA]
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) [])
+  |> update_precondition;
+
+val _ = translate grammarTheory.ptree_head_def
+
+val res = translate
+  (((mmlvalidTheory.mmlvalid_thm |> CONJUNCTS) @
+    (mmlvalidTheory.mmlvalidL_def |> CONJUNCTS))
+   |> map GEN_ALL |> LIST_CONJ)
+
+(* parsing: ptree converstion *)
+
+val _ = translate (def_of_const ``ptree_Type``); (* uses cheat *)
+val _ = translate (def_of_const ``ptree_Expr``); (* uses cheat *)
+val _ = translate (def_of_const ``ptree_REPLTop``);
+
+(* parsing: top-level parser *)
+
+val _ = translate (RW [monad_unitbind_assert,mmlParseREPLTop_def] parse_top_def);
+
+val parse_top_side_def = prove(
+  ``!x. parse_top_side x = T``,
+  SIMP_TAC std_ss [fetch "-" "parse_top_side_def",
+    fetch "-" "peg_exec_side_def", fetch "-" "coreloop_side_def"]
+  \\ REPEAT STRIP_TAC
+  \\ STRIP_ASSUME_TAC (Q.SPEC `x` owhile_REPLTop_total)
+  \\ FULL_SIMP_TAC std_ss [INTRO_FLOOKUP] \\ POP_ASSUM MP_TAC
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ FULL_SIMP_TAC std_ss [])
+  |> update_precondition;
 
 val _ = export_theory();

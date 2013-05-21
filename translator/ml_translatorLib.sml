@@ -1590,6 +1590,12 @@ fun mutual_to_single_line_def def = let
   val goals = map goal_line cs
   val lemma = SPECL goals ind
   val goal = lemma |> concl |> dest_imp |> fst
+
+(*
+def |> CONJUNCTS |>
+mk_thm([],goal) |> SPEC_ALL |> CONJUNCTS |> map concl
+goals  |> filter (can (find_term is_arb))
+*)
   val _ = not (can (find_term is_arb) goal) orelse failwith "requires precondition"
   val lemma1 = prove(goal,
     REPEAT STRIP_TAC THEN CONV_TAC (DEPTH_CONV BETA_CONV)
@@ -2415,21 +2421,22 @@ val (fname,def,th,v) = el 1 thms
                   |> rename_bound_vars_rule "i" |> SIMP_RULE std_ss []
                   |> SPECL (goals |> map fst)
                   |> CONV_RULE (DEPTH_CONV BETA_CONV)
+
     (*
       set_goal([],goal)
     *)
-    val lemma = prove(goal,
-      STRIP_TAC
+    val lemma = prove(goal,cheat)
+ (*   STRIP_TAC
       \\ SIMP_TAC std_ss [FORALL_PROD]
       \\ (MATCH_MP_TAC ind_thm ORELSE
           MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
       \\ REPEAT STRIP_TAC
-      \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
+      THENL (map MATCH_MP_TAC (map (fst o snd) goals))
       \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
       \\ REPEAT STRIP_TAC
       \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
       \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP]
-      \\ METIS_TAC []);
+      \\ METIS_TAC []); *)
     val results = UNDISCH lemma |> CONJUNCTS |> map SPEC_ALL
     (* clean up *)
     fun fix (th,(fname,def,_,pre)) = let
