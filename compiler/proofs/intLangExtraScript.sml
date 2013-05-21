@@ -514,6 +514,25 @@ val Cresult_rel_sym = store_thm(
 ``(∀x y. R1 x y ⇒ R1 y x) ∧ (∀x y. R2 x y ⇒ R2 y x) ⇒ (∀x y. Cresult_rel R1 R2 x y ⇒ Cresult_rel R1 R2 y x)``,
 rw[] >> Cases_on `x` >> fs[Cexc_rel_sym])
 
+val every_Cresult_def = Define`
+  (every_Cresult P1 P2 (Cval v) = P1 v) ∧
+  (every_Cresult P1 P2 (Cexc (Craise v)) = P2 v) ∧
+  (every_Cresult P1 P2 (Cexc Ctype_error) = T)`
+val _ = export_rewrites["every_Cresult_def"]
+
+val every_Cresult_P1 = store_thm("every_Cresult_P1",
+  ``every_Cresult P1 P2 (Cexc e) ⇒ every_Cresult P1' P2 (Cexc e)``,
+  Cases_on`e`>> rw[])
+val _ = export_rewrites["every_Cresult_P1"]
+
+val Cmap_result_def = Define`
+  (Cmap_result f (Rval v) = Cval (f v)) ∧
+  (Cmap_result f (Rerr (Rraise Bind_error)) = Cexc (Craise CBind_excv)) ∧
+  (Cmap_result f (Rerr (Rraise Div_error)) = Cexc (Craise CDiv_excv)) ∧
+  (Cmap_result f (Rerr (Rraise (Int_error n))) = Cexc (Craise (CLitv (IntLit n)))) ∧
+  (Cmap_result f (Rerr Rtype_error) = Cexc Ctype_error)`
+val _ = export_rewrites["Cmap_result_def"]
+
 (* Cevaluate functional equations *)
 
 val Cevaluate_lit = store_thm(
@@ -1116,17 +1135,6 @@ Cresult_rel_trans
 |> (fn th => PROVE_HYP (PROVE[syneq_trans](hd(hyp th))) th)
 |> (fn th => PROVE_HYP (PROVE[EVERY2_syneq_trans](hd(hyp th))) th)
 |> SIMP_RULE std_ss [AND_IMP_INTRO])
-
-val every_Cresult_def = Define`
-  (every_Cresult P1 P2 (Cval v) = P1 v) ∧
-  (every_Cresult P1 P2 (Cexc (Craise v)) = P2 v) ∧
-  (every_Cresult P1 P2 (Cexc Ctype_error) = T)`
-val _ = export_rewrites["every_Cresult_def"]
-
-val every_Cresult_P1 = store_thm("every_Cresult_P1",
-  ``every_Cresult P1 P2 (Cexc e) ⇒ every_Cresult P1' P2 (Cexc e)``,
-  Cases_on`e`>> rw[])
-val _ = export_rewrites["every_Cresult_P1"]
 
 val syneq_ov = store_thm("syneq_ov",
   ``(∀v1 v2. syneq v1 v2 ⇒ ∀m s. Cv_to_ov m s v1 = Cv_to_ov m s v2) ∧

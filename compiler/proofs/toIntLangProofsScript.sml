@@ -207,6 +207,8 @@ strip_tac >- (
   strip_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
 strip_tac >- rw[exp_to_Cexp_def] >>
 strip_tac >- rw[exp_to_Cexp_def] >>
+strip_tac >- rw[exp_to_Cexp_def] >>
+strip_tac >- rw[exp_to_Cexp_def] >>
 strip_tac >- (
   rw[exp_to_Cexp_def,free_vars_list_MAP,FV_list_MAP] >>
   fsrw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM,exps_to_Cexps_MAP,MEM_MAP,MEM_FLAT] >>
@@ -557,7 +559,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
          (exp_to_Cexp (<| bvars := MAP FST env; cnmap := cm|>) exp)
          Cres ∧
          EVERY2 (syneq) (MAP (v_to_Cv cm) (FST res)) (FST Cres) ∧
-         result_rel (syneq) (map_result (v_to_Cv cm) (SND res)) (SND Cres))∧
+         Cresult_rel syneq syneq (Cmap_result (v_to_Cv cm) (SND res)) (SND Cres))∧
     (∀menv cenv s env exps res. evaluate_list menv cenv s env exps res ⇒
      (is_null menv) ∧
      FV_list exps ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
@@ -573,10 +575,18 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
          (MAP (exp_to_Cexp (<| bvars := MAP FST env; cnmap := cm|>)) exps)
          Cres ∧
          EVERY2 (syneq) (MAP (v_to_Cv cm) (FST res)) (FST Cres) ∧
-         result_rel (EVERY2 (syneq)) (map_result (MAP (v_to_Cv cm)) (SND res)) (SND Cres))``,
+         Cresult_rel (EVERY2 (syneq)) syneq (Cmap_result (MAP (v_to_Cv cm)) (SND res)) (SND Cres))``,
   ho_match_mp_tac evaluate_nicematch_strongind >>
   strip_tac >- rw[exp_to_Cexp_def,v_to_Cv_def] >>
-  strip_tac >- rw[exp_to_Cexp_def] >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >>
+    Cases_on`err`>>simp[] >>
+    simp[exp_to_Cexp_def] >>
+    simp[Once Cevaluate_cases] >>
+    srw_tac[DNF_ss][] >>
+    ntac 2 (simp[Once syneq_cases]) >>
+    simp[Once Cevaluate_cases] >>
+    simp[Once Cevaluate_cases] ) >>
   strip_tac >- (
     rw[exp_to_Cexp_def] >> fs[] >>
     first_x_assum(qspec_then`cm`mp_tac) >> rw[] >>
@@ -598,17 +608,35 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     fsrw_tac[DNF_ss][closed_under_cenv_def,EXISTS_PROD] >>
     map_every qx_gen_tac [`s3`,`v`] >> strip_tac >>
     CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-    map_every qexists_tac[`n`,`s2`] >> simp[] >> fs[v_to_Cv_def] >>
+    map_every qexists_tac[`CLitv (IntLit n)`,`s2`] >> simp[] >> fs[v_to_Cv_def] >>
     qmatch_assum_abbrev_tac`Cevaluate s1 env1 exp1 (s3,v)` >>
     qspecl_then[`s1`,`env1`,`exp1`,`(s3,v)`]mp_tac(CONJUNCT1 Cevaluate_syneq) >>
     simp[] >>
     disch_then(qspecl_then[`$=`,`s2`,`env1`,`exp1`]mp_tac) >>
     simp[syneq_exp_refl,EXISTS_PROD] >>
-    metis_tac[result_rel_syneq_trans,EVERY2_syneq_trans]) >>
+    strip_tac >>
+    srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
+    ntac 4 (srw_tac[DNF_ss][Once Cevaluate_cases]) >>
+    srw_tac[DNF_ss][Once Cevaluate_cases,Abbr`env1`] >>
+    srw_tac[DNF_ss][Once Cevaluate_cases] >>
+    srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
+    ntac 6 (srw_tac[DNF_ss][Once Cevaluate_cases]) >>
+    metis_tac[Cresult_rel_syneq_trans,EVERY2_syneq_trans]) >>
   strip_tac >- (
+    rpt gen_tac >> simp[] >>
     rw[exp_to_Cexp_def] >>
     rw[Once Cevaluate_cases] >>
-    fsrw_tac[DNF_ss][EXISTS_PROD]) >>
+    fsrw_tac[DNF_ss][EXISTS_PROD] >>
+    fs[Once syneq_cases] >>
+    CONV_TAC (RESORT_EXISTS_CONV List.rev) >|
+      [qexists_tac`CBind_excv`,qexists_tac`CDiv_excv`] >>
+    first_x_assum(qspec_then`cm`mp_tac) >> simp[] >>
+    disch_then(Q.X_CHOOSE_THEN`s3`strip_assume_tac) >>
+    qexists_tac`s3` >> simp[] >>
+    srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
+    ntac 6 (srw_tac[DNF_ss][Once Cevaluate_cases]) >>
+    srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
+    rpt (srw_tac[DNF_ss][Once Cevaluate_cases])) >>
   strip_tac >- (
     rw[exp_to_Cexp_def,v_to_Cv_def,
        exps_to_Cexps_MAP,vs_to_Cvs_MAP,
@@ -619,7 +647,10 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   strip_tac >- (
     rw[exp_to_Cexp_def,v_to_Cv_def,
        exps_to_Cexps_MAP,Cevaluate_con] >>
-    fsrw_tac[DNF_ss,ETA_ss][EXISTS_PROD]) >>
+    fsrw_tac[DNF_ss,ETA_ss][EXISTS_PROD] >>
+    Cases_on`err`>>simp[]>>fs[]>>
+    Cases_on`e`>>simp[]>>fs[] >>
+    metis_tac[]) >>
   strip_tac >- (
     fs[exp_to_Cexp_def,MEM_MAP,pairTheory.EXISTS_PROD,env_to_Cenv_MAP,lookup_var_id_def] >>
     rpt gen_tac >>
@@ -685,7 +716,11 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   strip_tac >- (
     rw[exp_to_Cexp_def,LET_THM,EXISTS_PROD] >>
     rw[Once Cevaluate_cases] >>
-    fsrw_tac[DNF_ss][] ) >>
+    fsrw_tac[DNF_ss][] >>
+    Cases_on`err`>>simp[]>>fs[]>>
+    Cases_on`e`>>simp[]>>fs[]>>
+    metis_tac[]) >>
+
   strip_tac >- (
     ntac 3 gen_tac >>
     Cases >> fs[exp_to_Cexp_def] >>
