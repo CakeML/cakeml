@@ -396,7 +396,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   pushret t (emit (compile env TCNonTail sz s e) [prim1_to_bc uop])))
 /\
 (compile env t sz s (CPrim2 op e1 e2) =  
-( (* TODO: need to detect div by zero? *)
+(
   pushret t (emit (compile_nts env sz s [e1;e2]) [Stack (prim2_to_bc op)])))
 /\
 (compile env t sz s (CUpd e1 e2) =  

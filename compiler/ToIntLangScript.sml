@@ -197,10 +197,26 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn remove_mat_var_defn;
 
+ val opn_to_prim2_def = Define `
+
+(opn_to_prim2 Plus = (INL CAdd))
+/\
+(opn_to_prim2 Minus = (INL CSub))
+/\
+(opn_to_prim2 Times = (INL CMul))
+/\
+(opn_to_prim2 Divide = (INR CDiv))
+/\
+(opn_to_prim2 Modulo = (INR CMod))`;
+
+
  val exp_to_Cexp_defn = Hol_defn "exp_to_Cexp" `
 
 (exp_to_Cexp m (Handle e x b) =  
-(CHandle (exp_to_Cexp m e) (exp_to_Cexp (cbv m x) b)))
+(CHandle (exp_to_Cexp m e)
+    (CIf (CPrim2 CEq (CVar 0) CBind_exc) (CRaise CBind_exc)
+         (CIf (CPrim2 CEq (CVar 0) CDiv_exc) (CRaise CDiv_exc)
+              (exp_to_Cexp (cbv m x) b)))))
 /\
 (exp_to_Cexp _ (Raise Bind_error) = (CRaise CBind_exc))
 /\
@@ -223,14 +239,15 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (exp_to_Cexp m (App (Opn opn) e1 e2) =  
 (let Ce1 = (exp_to_Cexp m e1) in
   let Ce2 = (exp_to_Cexp m e2) in
-  CPrim2 ((case opn of
-            Plus   => CAdd
-          | Minus  => CSub
-          | Times  => CMul
-          | Divide => CDiv
-          | Modulo => CMod
-          ))
-  Ce1 Ce2))
+  (case opn_to_prim2 opn of
+    INL p2 => CPrim2 p2 Ce1 Ce2
+  | INR p2 =>
+    CLet Ce1
+      (CLet Ce2
+        (CIf (CPrim2 CEq (CVar 0) (CLit (IntLit i0)))
+             (CRaise CDiv_exc)
+             (CPrim2 p2 (CVar 1) (CVar 0))))
+  )))
 /\
 (exp_to_Cexp m (App (Opb opb) e1 e2) =  
 (let Ce1 = (exp_to_Cexp m e1) in

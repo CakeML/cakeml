@@ -161,8 +161,22 @@ remove_mat_var v ((p,sk)::pes) =
     (remove_mat_vp 0 (shift 1 (Cpat_vars p) sk) (v+1) p)
 
 let rec
+opn_to_prim2 Plus = Inl CAdd
+and
+opn_to_prim2 Minus = Inl CSub
+and
+opn_to_prim2 Times = Inl CMul
+and
+opn_to_prim2 Divide = Inr CDiv
+and
+opn_to_prim2 Modulo = Inr CMod
+
+let rec
 exp_to_Cexp m (Handle e x b) =
-  CHandle (exp_to_Cexp m e) (exp_to_Cexp (cbv m x) b)
+  CHandle (exp_to_Cexp m e)
+    (CIf (CPrim2 CEq (CVar 0) CBind_exc) (CRaise CBind_exc)
+         (CIf (CPrim2 CEq (CVar 0) CDiv_exc) (CRaise CDiv_exc)
+              (exp_to_Cexp (cbv m x) b)))
 and
 exp_to_Cexp _ (Raise Bind_error) = CRaise CBind_exc
 and
@@ -185,14 +199,15 @@ and
 exp_to_Cexp m (App (Opn opn) e1 e2) =
   let Ce1 = exp_to_Cexp m e1 in
   let Ce2 = exp_to_Cexp m e2 in
-  CPrim2 (match opn with
-          | Plus   -> CAdd
-          | Minus  -> CSub
-          | Times  -> CMul
-          | Divide -> CDiv
-          | Modulo -> CMod
-          end)
-  Ce1 Ce2
+  match opn_to_prim2 opn with
+  | Inl p2 -> CPrim2 p2 Ce1 Ce2
+  | Inr p2 ->
+    CLet Ce1
+      (CLet Ce2
+        (CIf (CPrim2 CEq (CVar 0) (CLit (IntLit i0)))
+             (CRaise CDiv_exc)
+             (CPrim2 p2 (CVar 1) (CVar 0))))
+  end
 and
 exp_to_Cexp m (App (Opb opb) e1 e2) =
   let Ce1 = exp_to_Cexp m e1 in

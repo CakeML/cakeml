@@ -491,10 +491,16 @@ val (m,[r]) = mst_run_exp e71
 val true = (OLit (Bool true) = bv_to_ov m r);
 val e72 = ``Raise Bind_error``
 val (m,[bv]) = mst_run_exp_exc e72
-val true = (OConv ("Bind",[])) = bv_to_ov m bv
+val true = (OConv ("Bind",[])) = bv_to_ov m bv;
 val e73 = ``Handle (Raise (Int_error 42)) "x" (Var(Short "x"))``
 val [Number i] = run_exp e73
 val SOME 42 = intML.toInt i;
 val e74 = ``Mat (Lit (Bool F)) [Plit (Bool T),Lit (IntLit 0)]``
 val (m,[bv]) = mst_run_exp_exc e74
-val true = (OConv ("Bind",[])) = bv_to_ov m bv
+val true = (OConv ("Bind",[])) = bv_to_ov m bv;
+val e75 = ``Handle (App (Opn Divide) (Lit (IntLit 1)) (Raise (Int_error 1))) "x" (Var(Short "x"))``
+val (m,[Number i]) = mst_run_exp e75
+val SOME 1 = intML.toInt i;
+val e76 = ``Handle (App (Opn Divide) (Lit (IntLit 1)) (Lit (IntLit 0))) "x" (Var(Short "x"))``
+val (m,[bv]) = mst_run_exp_exc e76
+val true = (OConv ("Div",[])) = bv_to_ov m bv;
