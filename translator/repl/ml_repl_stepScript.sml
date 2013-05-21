@@ -85,7 +85,7 @@ val if_and_lemma = METIS_PROVE []
 
 val monad_unitbind_assert = prove(
   ``!b x. monad_unitbind (assert b) x = if b then x else NONE``,
-  Cases \\ EVAL_TAC \\ SIMP_TAC std_ss []);
+  Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
 
 val _ = translate (mmlvalidTheory.mml_okrule_eval_th
                    |> RW [monad_unitbind_assert,lemma,if_and_lemma])
@@ -93,8 +93,8 @@ val _ = translate (mmlvalidTheory.mml_okrule_eval_th
 val mml_okrule_side_def = prove(
   ``!x y. mml_okrule_side x y = T``,
   SIMP_TAC std_ss [fetch "-" "mml_okrule_side_def"]
-  \\ FULL_SIMP_TAC std_ss [LENGTH_LEMMA]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) [])
+  THEN FULL_SIMP_TAC std_ss [LENGTH_LEMMA]
+  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) [])
   |> update_precondition;
 
 val _ = translate grammarTheory.ptree_head_def
@@ -118,10 +118,10 @@ val parse_top_side_def = prove(
   ``!x. parse_top_side x = T``,
   SIMP_TAC std_ss [fetch "-" "parse_top_side_def",
     fetch "-" "peg_exec_side_def", fetch "-" "coreloop_side_def"]
-  \\ REPEAT STRIP_TAC
-  \\ STRIP_ASSUME_TAC (Q.SPEC `x` owhile_REPLTop_total)
-  \\ FULL_SIMP_TAC std_ss [INTRO_FLOOKUP] \\ POP_ASSUM MP_TAC
-  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ FULL_SIMP_TAC std_ss [])
+  THEN REPEAT STRIP_TAC
+  THEN STRIP_ASSUME_TAC (Q.SPEC `x` owhile_REPLTop_total)
+  THEN FULL_SIMP_TAC std_ss [INTRO_FLOOKUP] THEN POP_ASSUM MP_TAC
+  THEN CONV_TAC (DEPTH_CONV ETA_CONV) THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;
 
 val _ = export_theory();
