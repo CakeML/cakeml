@@ -570,9 +570,9 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     rw[] >> res_tac >> DECIDE_TAC ) >>
   strip_tac >>
   qmatch_assum_abbrev_tac`bc_next bs2 bs1` >>
-  qmatch_assum_abbrev_tac`Cevaluate Cs0 Cenv0 Ce0 (Cs'0,Rval Cv0)` >>
+  qmatch_assum_abbrev_tac`Cevaluate Cs0 Cenv0 Ce0 (Cs'0,Cval Cv0)` >>
   fs[LET_THM] >>
-  qspecl_then[`Cs0`,`Cenv0`,`Ce0`,`Cs'0,Rval Cv0`]mp_tac(CONJUNCT1 Cevaluate_syneq) >> simp[] >>
+  qspecl_then[`Cs0`,`Cenv0`,`Ce0`,`Cs'0,Cval Cv0`]mp_tac(CONJUNCT1 Cevaluate_syneq) >> simp[] >>
   disch_then(qspecl_then[`$=`,`Cs`,`Cenv`,`Ce`]mp_tac) >>
   `LENGTH Cenv0 = LENGTH rs.rbvars` by rw[Abbr`Cenv0`,env_to_Cenv_MAP,Abbr`env1`] >>
   `LENGTH Cenv = LENGTH rs.rbvars` by fs[EVERY2_EVERY,Abbr`env1`] >>
@@ -585,7 +585,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     simp[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] ) >>
   simp_tac(srw_ss()++DNF_ss)[] >>
   map_every qx_gen_tac[`Cs'`,`Cv`] >> strip_tac >>
-  qspecl_then[`Cs`,`Cenv`,`Ce`,`(Cs',Rval Cv)`]mp_tac(CONJUNCT1 compile_val) >> simp[] >>
+  qspecl_then[`Cs`,`Cenv`,`Ce`,`(Cs',Cval Cv)`]mp_tac(CONJUNCT1 compile_val) >> simp[] >>
   disch_then(qspecl_then[`rd`,`cce`,`renv`,`LENGTH rs.rbvars + 2`,`bs1`
     ,`bc0 ++ [PushPtr(Lab l1);PushExc]++c0`,`DROP (LENGTH bc0 + 2 + LENGTH c0) bs.code`,`bc0 ++ [PushPtr(Lab l1);PushExc] ++ c0`]mp_tac) >>
   discharge_hyps >- (
@@ -864,7 +864,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       METIS_TAC[MEM_EL] ) >>
     fs[GSYM ALOOKUP_NONE] >>
     simp[ALOOKUP_APPEND] ) >>
-  qspecl_then[`Cs`,`Cenv`,`Ce`,`Cs',Rval Cv`]mp_tac(CONJUNCT1 Cevaluate_Clocs) >>
+  qspecl_then[`Cs`,`Cenv`,`Ce`,`Cs',Cval Cv`]mp_tac(CONJUNCT1 Cevaluate_Clocs) >>
   simp[] >> strip_tac >>
   conj_tac >- (
     `LENGTH Cvs = LENGTH vs` by fs[EVERY2_EVERY] >>
@@ -872,7 +872,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
     conj_tac >- ( rw[] >> imp_res_tac MEM_DROP >> metis_tac[] ) >>
     simp[MEM_GENLIST] >>
-    qspecl_then[`Cs`,`Cenv`,`Ce`,`Cs',Rval Cv`]mp_tac(CONJUNCT1 Cevaluate_store_SUBSET) >>
+    qspecl_then[`Cs`,`Cenv`,`Ce`,`Cs',Cval Cv`]mp_tac(CONJUNCT1 Cevaluate_store_SUBSET) >>
     simp[] >> strip_tac >>
     rw[] >> fs[] >>
     ntac 2 (pop_assum mp_tac) >> rw[] >- (
@@ -884,7 +884,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     qmatch_assum_rename_tac`x ∈ all_Clocs (EL z Cenv)`[] >>
     `z < LENGTH Cenv` by simp[] >>
     metis_tac[MEM_EL,LESS_LESS_EQ_TRANS] ) >>
-  qspecl_then[`Cs`,`Cenv`,`Ce`,`Cs',Rval Cv`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
+  qspecl_then[`Cs`,`Cenv`,`Ce`,`Cs',Cval Cv`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
   simp[] >> strip_tac >>
   conj_tac >- (
     simp[EVERY_REVERSE,EVERY_GENLIST] >>
@@ -901,7 +901,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     `x < LENGTH Cenv` by simp[] >>
     fs[EVERY_MEM] >>
     metis_tac[MEM_EL] ) >>
-  qspecl_then[`Cs`,`Cenv`,`Ce`,`Cs',Rval Cv`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
+  qspecl_then[`Cs`,`Cenv`,`Ce`,`Cs',Cval Cv`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
   simp[SUBSET_DEF,FORALL_PROD] >> strip_tac >>
   simp[REVERSE_APPEND] >>
   SUBST1_TAC(prove(``bc0 ++ PushPtr (Lab l1)::PushExc::(c0 ++ REVERSE bc1) = bc0 ++ [PushPtr (Lab l1);PushExc] ++ c0 ++ REVERSE bc1``,simp[])) >>
