@@ -2151,7 +2151,7 @@ val mkshift_thm = store_thm("mkshift_thm",
    set (free_vars e) ⊆ count z1 ∧ no_labs e
    ⇒ syneq_exp z1 z2 V e (mkshift f k e)``,
  ho_match_mp_tac mkshift_ind >>
- strip_tac >- rw[Once syneq_exp_cases] >>
+ strip_tac >- (rw[] >> rw[Once syneq_exp_cases]) >>
  strip_tac >- (
    rw[] >>
    rw[Once syneq_exp_cases] >>
@@ -2814,7 +2814,16 @@ val Cevaluate_determ = store_thm("Cevaluate_determ",
   ``(∀s env exp res. Cevaluate s env exp res ⇒ ∀res'. Cevaluate s env exp res' ⇒ (res' = res)) ∧
     (∀s env exps ress. Cevaluate_list s env exps ress ⇒ ∀ress'. Cevaluate_list s env exps ress' ⇒ (ress' = ress))``,
   ho_match_mp_tac Cevaluate_ind >>
-  strip_tac >- rw[] >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once Cevaluate_cases] >>
+    fsrw_tac[DNF_ss][FORALL_PROD] >>
+    res_tac >> fs[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[Once Cevaluate_cases] >>
+    fsrw_tac[DNF_ss][FORALL_PROD] >>
+    res_tac >> fs[] ) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     rw[Once Cevaluate_cases] >>
