@@ -104,13 +104,17 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "4 handle x => 3 + 4"
                                                         (Ast_Lit (IntLit 3)))
                                                (Ast_Lit (IntLit 4)))``)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE``
-                   "if raise f then 2 else 3 handle f => 23"
-                   (SOME ``Ast_If (Ast_Raise Bind_error)
+                   "if raise IntError 4 then 2 else 3 handle f => 23"
+                   (SOME ``Ast_If (Ast_Raise (Int_error 4))
                                   (Ast_Lit (IntLit 2))
                                   (Ast_Handle
                                      (Ast_Lit (IntLit 3))
                                      "f"
                                      (Ast_Lit (IntLit 23)))``);
+val _ = parsetest ``nE`` ``ptree_Expr nE``
+                  "f x handle e => case e of Div => raise Div\n\
+                  \                        | Bind => 10\n\
+                  \                        | IntError(n) => n + 1"
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "C(3)"
                    (SOME ``Ast_Con (Short "C") [Ast_Lit (IntLit 3)]``)
 

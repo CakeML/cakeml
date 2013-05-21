@@ -472,6 +472,23 @@ val mkAst_App_def = Define`
      | _ => Ast_App a1 a2
 `
 
+val ptree_Exn_def = Define`
+  ptree_Exn (Lf _) = NONE ∧
+  ptree_Exn (Nd nt subs) =
+    if nt <> mkNT nExn then NONE
+    else
+      case subs of
+          [bd] => if bd = Lf (TOK (AlphaT "Bind")) then SOME Bind_error
+                  else if bd = Lf (TOK (AlphaT "Div")) then SOME Div_error
+                  else NONE
+        | [ie; ipt] =>
+          do
+            assert(ie = Lf (TOK (AlphaT "IntError")));
+            OPTION_MAP Int_error (destIntT ' (destTOK ' (destLf ipt)))
+          od
+        | _ => NONE
+`;
+
 val ptree_Expr_def = Define`
   ptree_Expr ent (Lf _) = NONE ∧
   ptree_Expr ent (Nd nt subs) =
@@ -661,8 +678,8 @@ val ptree_Expr_def = Define`
           | [raiset; ept] =>
             do
               assert(raiset = Lf (TOK RaiseT));
-              e <- ptree_Expr nE ept;
-              SOME(Ast_Raise Bind_error) (* bogus *)
+              e <- ptree_Exn ept;
+              SOME(Ast_Raise e)
             od
           | [fnt; vnt; arrowt; ent] =>
             do

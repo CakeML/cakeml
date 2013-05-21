@@ -232,6 +232,12 @@ val mmlPEG_def = zDefine`
                                        (Nd (mkNT nVlist1) [LAST l])
                                        (FRONT l)]));
               (mkNT nFQV, choicel [pegf (pnt nV) (bindNT nFQV); peg_longV]);
+              (mkNT nExn,
+               pegf (choicel
+                       [tokeq (AlphaT "Bind");
+                        tokeq (AlphaT "Div");
+                        seql [tokeq (AlphaT "IntError"); tok isInt mktokLf] I])
+                    (bindNT nExn));
               (mkNT nEapp, peg_Eapp);
               (mkNT nEtuple,
                seql [tokeq LparT; pnt nElist2; tokeq RparT] (bindNT nEtuple));
@@ -287,7 +293,7 @@ val mmlPEG_def = zDefine`
                                 pnt nE] I)] (bindNT nEhandle)
               );
               (mkNT nE,
-               choicel [seql [tokeq RaiseT; pnt nE] (bindNT nE);
+               choicel [seql [tokeq RaiseT; pnt nExn] (bindNT nE);
                         pegf (pnt nEhandle) (bindNT nE);
                         seql [tokeq IfT; pnt nE; tokeq ThenT; pnt nE;
                               tokeq ElseT; pnt nE]
@@ -558,7 +564,7 @@ in
   th::acc
 end;
 
-val topo_nts = [``nV``, ``nTypeDec``, ``nDecl``, ``nVlist1``,
+val topo_nts = [``nExn``, ``nV``, ``nTypeDec``, ``nDecl``, ``nVlist1``,
                 ``nUQTyOp``, ``nUQConstructorName``,
                 ``nConstructorName``, ``nTypeName``, ``nTyOp``, ``nDType``,
                 ``nStarTypes``, ``nStarTypesP``,

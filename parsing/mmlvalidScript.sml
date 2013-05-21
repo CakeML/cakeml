@@ -97,6 +97,16 @@ val int_rwt = prove(
     od = SOME ()``,
   Cases_on `l` >> rw[] >> Cases_on `h` >> rw[]  >> Cases_on `a` >> rw[])
 
+val inttl_rwt = prove(
+  ``(?i. l = [e; TK (IntT i)]) ⇔
+    do
+      assert(LENGTH l = 2 ∧ HD l = e);
+      tok <- destTOK (LAST l);
+      assert (isInt tok)
+    od = SOME()``,
+  Cases_on `l` >> rw[] >> Cases_on `t` >> rw[] >>
+  Cases_on `h'` >> rw[] >> Cases_on `t'` >> rw[] >> Cases_on `a` >> rw[])
+
 val tyvar_rwt = prove(
   ``(?s. l = [TK (TyvarT s)]) ⇔
     do
@@ -181,7 +191,7 @@ val _ = diminish_srw_ss ["TEMP"]
 
 val onecon_rwts =
     [mmlG_def, alpha_rwt, symbol_rwt, solosymbol_rwt, soloalpha_rwt,
-     int_rwt, tyvar_rwt, typename_rwt, tyvarlist_rwt, longid_rwt,
+     int_rwt, inttl_rwt, tyvar_rwt, typename_rwt, tyvarlist_rwt, longid_rwt,
      solo_longid_rwt]
 fun onecon t = let
   val _ = print ("onecon: " ^ term_to_string t ^ "\n")
