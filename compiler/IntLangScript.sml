@@ -129,26 +129,24 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val doPrim2_def = Define `
 
-(doPrim2 b ty op (CLitv (IntLit x)) (CLitv (IntLit y)) =  
-(if b /\ (y = i0) then Cexc (Craise CDiv_excv)
-  else Cval (CLitv (ty (op x y)))))
+(doPrim2 ty op (CLitv (IntLit x)) (CLitv (IntLit y)) = (Cval (CLitv (ty (op x y)))))
 /\
-(doPrim2 _ _ _ _ _ = (Cexc Ctype_error))`;
+(doPrim2 _ _ _ _ = (Cexc Ctype_error))`;
 
 
  val CevalPrim2_def = Define `
 
-(CevalPrim2 CAdd = ( doPrim2 F IntLit int_add))
+(CevalPrim2 CAdd = ( doPrim2 IntLit int_add))
 /\
-(CevalPrim2 CSub = ( doPrim2 F IntLit (int_sub)))
+(CevalPrim2 CSub = ( doPrim2 IntLit (int_sub)))
 /\
-(CevalPrim2 CMul = ( doPrim2 F IntLit int_mul))
+(CevalPrim2 CMul = ( doPrim2 IntLit int_mul))
 /\
-(CevalPrim2 CDiv = ( doPrim2 T IntLit int_div))
+(CevalPrim2 CDiv = ( doPrim2 IntLit int_div))
 /\
-(CevalPrim2 CMod = ( doPrim2 T IntLit int_mod))
+(CevalPrim2 CMod = ( doPrim2 IntLit int_mod))
 /\
-(CevalPrim2 CLt = ( doPrim2 F Bool int_lt))
+(CevalPrim2 CLt = ( doPrim2 Bool int_lt))
 /\
 (CevalPrim2 CEq = (\ v1 v2 .
   if no_closures v1 /\ no_closures v2
@@ -327,7 +325,8 @@ Cevaluate s env (CPrim1 uop e) (s', Cexc err))
 
 /\
 (! s env p2 e1 e2 s' v1 v2.
-(Cevaluate_list s env [e1;e2] (s', Cval [v1;v2]))
+(Cevaluate_list s env [e1;e2] (s', Cval [v1;v2]) /\
+((v2 = CLitv (IntLit i0)) ==> p2 <> CDiv /\ p2 <> CMod))
 ==>
 Cevaluate s env (CPrim2 p2 e1 e2) (s', CevalPrim2 p2 v1 v2))
 /\

@@ -274,6 +274,7 @@ val _ = export_rewrites
 ,"free_labs_def","no_labs_def","all_labs_def","Printer.lookup_ct_def","Printer.lookup_cc_def"
 ,"IntLang.CDiv_excv_def","IntLang.CBind_excv_def"
 ,"IntLang.CDiv_exc_def","IntLang.CBind_exc_def"
+,"ToIntLang.opn_to_prim2_def"
 ,"CompilerLib.the_def","CompilerLib.fapply_def"];
 
 val _ = export_theory()

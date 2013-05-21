@@ -1341,8 +1341,8 @@ val no_closures_syneq_equal = store_thm("no_closures_syneq_equal",
 val doPrim2_syneq = store_thm(
 "doPrim2_syneq",
 ``∀v1 v2. syneq v1 v2 ⇒
-    ∀b ty op v. (doPrim2 b ty op v v1 = doPrim2 b ty op v v2) ∧
-                (doPrim2 b ty op v1 v = doPrim2 b ty op v2 v)``,
+    ∀ty op v. (doPrim2 ty op v v1 = doPrim2 ty op v v2) ∧
+              (doPrim2 ty op v1 v = doPrim2 ty op v2 v)``,
 ho_match_mp_tac Cv_ind >>
 rw[] >> pop_assum mp_tac >>
 simp[Once syneq_cases] >> rw[] >>
@@ -1830,7 +1830,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     rw[Once Cevaluate_cases] >>
     fsrw_tac[DNF_ss][EXISTS_PROD] >>
     disj1_tac >>
-    metis_tac[CevalPrim2_syneq] ) >>
+    metis_tac[CevalPrim2_syneq,syneq_lit_loc] ) >>
   strip_tac >- (
     rw[] >>
     rator_x_assum`syneq_exp`mp_tac >>
@@ -1965,8 +1965,8 @@ val _ = export_rewrites["Cclosed_lit_loc"]
 
 val doPrim2_closed = store_thm(
 "doPrim2_closed",
-``∀b ty op v1 v2. every_Cresult Cclosed Cclosed (doPrim2 b ty op v1 v2)``,
-ntac 3 gen_tac >>
+``∀ty op v1 v2. every_Cresult Cclosed Cclosed (doPrim2 ty op v1 v2)``,
+ntac 2 gen_tac >>
 Cases >> TRY (Cases_on `l`) >>
 Cases >> TRY (Cases_on `l`) >>
 rw[] >> rw[Cclosed_cases])
