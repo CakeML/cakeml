@@ -1,1 +1,5 @@
 INCLUDES = .. ../../semantics
+
+ifdef POLY
+HOL_HEAP = ../parsing-heap
+endif
