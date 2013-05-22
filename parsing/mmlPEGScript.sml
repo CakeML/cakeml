@@ -289,8 +289,9 @@ val mmlPEG_def = zDefine`
                           (tokeq OrelseT));
               (mkNT nEhandle,
                seql [pnt nElogicOR;
-                     try (seql [tokeq HandleT; pnt nV; tokeq DarrowT;
-                                pnt nE] I)] (bindNT nEhandle)
+                     try (seql [tokeq HandleT; tokeq (AlphaT "IntError"); pnt nV;
+                                tokeq DarrowT; pnt nE] I)]
+                    (bindNT nEhandle)
               );
               (mkNT nE,
                choicel [seql [tokeq RaiseT; pnt nExn] (bindNT nE);

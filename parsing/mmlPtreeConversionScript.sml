@@ -664,9 +664,10 @@ val ptree_Expr_def = Define`
       else if nt = mkNT nEhandle then
         case subs of
             [pt] => ptree_Expr nElogicOR pt
-          | [e1pt; handlet; vpt; arrowt; e2pt] =>
+          | [e1pt; handlet; interrort; vpt; arrowt; e2pt] =>
             do
-              assert(handlet = Lf (TOK HandleT) ∧ arrowt = Lf (TOK DarrowT));
+              assert(handlet = Lf (TOK HandleT) ∧ arrowt = Lf (TOK DarrowT) ∧
+                     interrort = Lf (TOK (AlphaT "IntError")));
               e1 <- ptree_Expr nElogicOR e1pt;
               v <- ptree_V vpt;
               e2 <- ptree_Expr nE e2pt;
