@@ -2072,7 +2072,7 @@ val compile_val = store_thm("compile_val",
         qexists_tac`bc0++REVERSE cc++[PopExc]`>>simp[SUM_APPEND,FILTER_APPEND] ) >>
       simp[bc_eval1_def,Abbr`bs2`] ) >>
     simp[] >>
-    fs[Cenv_bs_def]
+    fs[Cenv_bs_def] >>
     fs[s_refs_def,good_rd_def] ) >>
   strip_tac >- (
     simp[compile_def] >>
@@ -2083,8 +2083,68 @@ val compile_val = store_thm("compile_val",
     simp[Once SWAP_REVERSE] >> strip_tac >>
     first_x_assum(qspecl_then[`rd`,`cs`,`cenv`,`sz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE cc`,`PopExc::Return::bc1`,`TCNonTail`]mp_tac) >>
     simp[]) >>
+  strip_tac >- (
+    simp[compile_def] >>
+    rpt gen_tac >> strip_tac >>
+    rpt gen_tac >>
+    Q.PAT_ABBREV_TAC`cs0 = compiler_result_out_fupd (K (PushExc::Y::Z)) U` >>
+    qspecl_then[`cenv`,`TCNonTail`,`sz`,`cs0`,`exp`](Q.X_CHOOSE_THEN`cc`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
+    Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd (K (Label X::Y::Z)) U` >>
+    qspecl_then[`cenv`,`t`,`sz`,`e2`,`0`,`cs1`,`1`](Q.X_CHOOSE_THEN`cb`strip_assume_tac)(CONJUNCT1 (CONJUNCT2 compile_append_out)) >>
+    Q.PAT_ABBREV_TAC`cs2 = compiler_result_out_fupd X Y` >>
+    qspecl_then[`t`,`cs2`](Q.X_CHOOSE_THEN`cp`strip_assume_tac)pushret_append_out >> pop_assum kall_tac >>
+    simp[Abbr`cs2`,Abbr`cs1`,Abbr`cs0`,Once SWAP_REVERSE] >>
+    strip_tac >>
+    qmatch_assum_abbrev_tac`(compile cenv TCNonTail sz cs0 exp).out = cc ++ cs0.out` >>
+    `bc_fetch bs = SOME (PushPtr (Lab cs.next_label))` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`bc0`>>simp[] ) >>
+    `bc_next bs (bump_pc bs with stack := CodePtr (next_addr bs.inst_length (TAKE (LENGTH bc0 + 2 + LENGTH cc + 4) bs.code))::bs.stack)` by (
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[bc_state_component_equality,bc_find_loc_def] >>
+      match_mp_tac bc_find_loc_aux_append_code >>
+      match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+      qexists_tac`LENGTH bc0 + LENGTH cc + 5` >>
+      simp[TAKE_APPEND1,TAKE_APPEND2,EL_APPEND1,EL_APPEND2,EL_CONS,PRE_SUB1,FILTER_APPEND,SUM_APPEND] >>
+      fs[FILTER_REVERSE,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
+      fsrw_tac[DNF_ss][EVERY_MEM,between_def,is_Label_rwt,MEM_FILTER,MEM_MAP,Abbr`cs0`] >>
+      rpt(first_x_assum(qspec_then`rd`kall_tac)) >>
+      rpt(qpat_assum`X.out = Y`kall_tac) >>
+      rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
+    qmatch_assum_abbrev_tac`bc_next bs bs1` >>
+    `bc_fetch bs1 = SOME PushExc` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs1`,bump_pc_def] >>
+      qexists_tac`bc0 ++ [PushPtr (Lab cs.next_label)]` >>
+      simp[FILTER_APPEND,SUM_APPEND] ) >>
+    `bc_next bs1 (bump_pc bs1 with <| stack := StackPtr bs.handler::bs1.stack; handler := LENGTH bs1.stack |>)` by (
+      simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+      simp[bc_state_component_equality,Abbr`bs1`,bump_pc_def] ) >>
+    qmatch_assum_abbrev_tac`bc_next bs1 bs2` >>
+    `bc_next^* bs bs2` by metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] >>
+    pop_assum mp_tac >>
+    qpat_assum`code = X`(assume_tac o SYM) >>
+    simp[Abbr`bs2`,bump_pc_def,Abbr`bs1`,ADD1] >>
+    rpt(qpat_assum`bc_next X Y`kall_tac) >>
+    rpt(qpat_assum`bc_fetch X = Y`kall_tac) >>
+    strip_tac >>
+    qmatch_assum_abbrev_tac`bc_next^* bs bs0` >>
+    qpat_assum`X = code`(mp_tac o SYM) >>
+    simp_tac std_ss [GSYM APPEND_ASSOC] >>
+    qmatch_abbrev_tac`(code = X::Y::(REVERSE cc ++ Z)) ⇒ U` >> qunabbrev_tac`U` >> strip_tac >>
+    first_x_assum(qspecl_then[`rd`,`cs0`,`cenv`,`sz`,`bs0`,`bce`,`bcr`,`bc0++[X;Y]`,`REVERSE cc`,`Z ++ bc1`,`TCNonTail`]mp_tac) >>
+    discharge_hyps >- (
+      simp[Abbr`X`,Abbr`Y`,Abbr`bs0`] >>
+      simp[SUM_APPEND,FILTER_APPEND,Abbr`cs0`] >>
+      conj_tac >- (
+        Cenv_bs_imp_incsz
 
-  strip_tac >- cheat >>
+    simp[]
+    qid_spec_tac`t` >>
+    simp[FORALL_AND_THM] >>
+    conj_asm1_tac >- (
+      simp[code_for_push_def]
+
   strip_tac >- cheat >>
   strip_tac >- cheat >>
   strip_tac >- (
