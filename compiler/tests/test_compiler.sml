@@ -504,3 +504,9 @@ val SOME 1 = intML.toInt i;
 val e76 = ``Handle (App (Opn Divide) (Lit (IntLit 1)) (Lit (IntLit 0))) "x" (Var(Short "x"))``
 val (m,[bv]) = mst_run_exp_exc e76
 val true = (OConv ("Div",[])) = bv_to_ov m bv;
+val e77 = ``Let "x" (Lit (IntLit 0)) (Handle (App (Opn Modulo) (Lit (IntLit 1)) (Var (Short "x"))) "x" (Var (Short "x")))``
+val (m,[bv]) = mst_run_exp_exc e77
+val true = (OConv ("Div",[])) = bv_to_ov m bv;
+val e78 = ``Let "x" (Lit (IntLit 1)) (Handle (App (Opn Modulo) (Lit (IntLit 0)) (Var (Short "x"))) "x" (Var (Short "x")))``
+val (m,[Number i]) = mst_run_exp e78
+val SOME 0 = intML.toInt i;

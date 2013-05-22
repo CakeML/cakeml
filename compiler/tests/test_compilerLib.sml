@@ -39,6 +39,7 @@ fun term_to_opn tm =
   | "Plus" => Plus
   | "Times" => Times
   | "Divide" => Divide
+  | "Modulo" => Modulo
   | s => raise Fail s
 fun term_to_op_ tm = let
   val (f,x) = dest_comb tm
