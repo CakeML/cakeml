@@ -101,12 +101,30 @@ in
     val _ = (abbrev_defs := abbrev_def::(!abbrev_defs))
     in () end
   fun finish_decl_abbreviation () = let
-    val tm = (!decl_term)
-    val lemma = time (QCONV (REWRITE_CONV (SNOC::(!abbrev_defs)))) tm
+    fun expand_abbrevs [] = REFL (!decl_term)
+      | expand_abbrevs [th] =
+          (th |> CONV_RULE (RAND_CONV (REWR_CONV (SNOC_APPEND)))
+           handle HOL_ERR _ => th)
+      | expand_abbrevs (rw::rws) = let
+          val th = expand_abbrevs rws
+          in CONV_RULE ((RAND_CONV o RAND_CONV) (REWR_CONV th) THENC
+                       RAND_CONV (REWR_CONV (SNOC_APPEND))) rw end
+    val append_lemma = GSYM APPEND_ASSOC
+    val append_nil = APPEND |> CONJUNCT1
+    val append_cons = APPEND |> CONJUNCT2
+    fun eval_append_conv tm = let
+      val th = REWR_CONV append_cons tm
+      in CONV_RULE ((RAND_CONV o RAND_CONV) eval_append_conv) th end
+      handle HOL_ERR _ => (REWR_CONV append_nil ORELSEC ALL_CONV) tm
+    val c = REPEATC
+             (REWR_CONV append_lemma THENC
+              RAND_CONV eval_append_conv) THENC
+            eval_append_conv
+    val lemma = expand_abbrevs (!abbrev_defs) |> CONV_RULE (RAND_CONV c)
     val rhs = lemma |> concl |> rand
     val name = get_module_name () ^ "_decls"
     val abbrev_def = new_definition(name,mk_eq(mk_var(name,``:decs``),rhs))
-    val new_rw = REWRITE_RULE [lemma |> RW [GSYM abbrev_def]]
+    val new_rw = RW [lemma |> CONV_RULE (RAND_CONV (REWR_CONV (SYM abbrev_def)))]
     val _ = map_cert_memory (fn (n,tm,th,pre) => (n,tm,new_rw th,pre))
     val _ = (decl_term := (abbrev_def |> concl |> dest_eq |> fst))
     val _ = (decl_abbrev := abbrev_def)
