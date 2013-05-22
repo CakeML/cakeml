@@ -1974,7 +1974,7 @@ val code_env_cd_def = Define`
 
 val compile_val = store_thm("compile_val",
   ``(∀s env exp res. Cevaluate s env exp res ⇒
-      ∀rd s' beh cs cenv sz bs bce bcr bc0.
+      ∀rd s' beh cs cenv sz bs bce bcr bc0 code bc1 t.
         BIGUNION (IMAGE all_Clocs (set env)) ⊆ count (LENGTH s) ∧
         BIGUNION (IMAGE all_Clocs (set s)) ⊆ count (LENGTH s) ∧
         (res = (s', beh)) ∧
@@ -1984,40 +1984,31 @@ val compile_val = store_thm("compile_val",
         EVERY (code_env_cd bce) (free_labs (LENGTH env) exp) ∧
         (∀cd. cd ∈ vlabs_list s ⇒ code_env_cd bce cd) ∧
         (∀cd. cd ∈ vlabs_list env ⇒ code_env_cd bce cd) ∧
+        (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         set (free_vars exp) ⊆ count (LENGTH cenv) ∧
         Cenv_bs rd s env cenv sz (bs with code := bce) ∧
         ALL_DISTINCT (FILTER is_Label bc0) ∧
-        EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0)
+        EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧
+        ((compile cenv t sz cs exp).out = REVERSE code ++ cs.out)
         ⇒
-      (∀v. (beh = Cval v) ⇒
-        (∀code bc1.
-          ((compile cenv TCNonTail sz cs exp).out = REVERSE code ++ cs.out) ∧
-          (bs.code = bc0 ++ code ++ bc1)
-         ⇒
+      (∀v. (beh = Cval v) ∧ (t = TCNonTail) ⇒
          code_for_push rd bs bce bc0 code s s' env [v] cenv sz) ∧
-        (∀code bc1 az lz.
-          ((compile cenv (TCTail az lz) sz cs exp).out = REVERSE code ++ cs.out) ∧
-          (bs.code = bc0 ++ code ++ bc1)
-          ⇒
-          ∀env0 defs vs klvs blvs benv ret args cl st.
-          (az = LENGTH args) ∧ (lz = LENGTH klvs) ∧
-          (env = klvs ++ REVERSE vs ++ env0) ∧
-          EVERY2 (Cv_bv (mk_pp rd (bs with code := bce))) vs args ∧
-          EVERY2 (Cv_bv (mk_pp rd (bs with code := bce))) klvs blvs ∧
-          (bs.stack = blvs++benv::CodePtr ret::(REVERSE args)++cl::st)
-          ⇒
-          code_for_return rd bs bce st ret bs.handler v s s')) ∧
-      (∀v. (beh = Cexc (Craise v)) ⇒
-         ∀code bc1 t.
-           ((compile cenv t sz cs exp).out = REVERSE code ++ cs.out) ∧
-           (bs.code = bc0 ++ code ++ bc1)
+      (∀v az lz env0 defs vs klvs blvs benv ret args cl st.
+         (beh = Cval v) ∧ (t = TCTail az lz) ∧
+         (az = LENGTH args) ∧ (lz = LENGTH klvs) ∧
+         (env = klvs ++ REVERSE vs ++ env0) ∧
+         EVERY2 (Cv_bv (mk_pp rd (bs with code := bce))) vs args ∧
+         EVERY2 (Cv_bv (mk_pp rd (bs with code := bce))) klvs blvs ∧
+         (bs.stack = blvs++benv::CodePtr ret::(REVERSE args)++cl::st)
            ⇒
-           ∀ig sp hdl st.
-           (bs.stack = ig++(StackPtr sp)::CodePtr hdl::st) ∧
-           (bs.handler = LENGTH st + 1)
+         code_for_return rd bs bce st ret bs.handler v s s') ∧
+      (∀v ig sp hdl st.
+         (beh = Cexc (Craise v)) ∧
+         (bs.stack = ig++(StackPtr sp)::CodePtr hdl::st) ∧
+         (bs.handler = LENGTH st + 1)
            ⇒
-           code_for_return rd bs bce st hdl sp v s s')) ∧
+         code_for_return rd bs bce st hdl sp v s s')) ∧
     (∀s env exps ress. Cevaluate_list s env exps ress ⇒
       ∀rd s' beh cs cenv sz bs bce bcr bc0 code bc1.
         BIGUNION (IMAGE all_Clocs (set env)) ⊆ count (LENGTH s) ∧
@@ -2034,18 +2025,65 @@ val compile_val = store_thm("compile_val",
         set (free_vars_list exps) ⊆ count (LENGTH cenv) ∧
         Cenv_bs rd s env cenv sz (bs with code := bce) ∧
         ALL_DISTINCT (FILTER is_Label bc0) ∧
-        EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0)
+        EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧
+        ((compile_nts cenv sz cs exps).out = REVERSE code ++ cs.out)
         ⇒
       (∀vs. (beh = Cval vs) ⇒
-       (((compile_nts cenv sz cs exps).out = REVERSE code ++ cs.out) ⇒
-         code_for_push rd bs bce bc0 code s s' env vs cenv sz)) ∧
-      (∀v. (beh = Cexc (Craise v)) ⇒
-        ∀code bc1 ig sp hdl st.
-          ((compile_nts cenv sz cs exps).out = REVERSE code ++ cs.out) ⇒
-          code_for_return rd bs bce st hdl sp v s s'))``,
+         code_for_push rd bs bce bc0 code s s' env vs cenv sz) ∧
+      (∀v ig sp hdl st.
+        (beh = Cexc (Craise v)) ∧
+        (bs.stack = ig++(StackPtr sp)::CodePtr hdl::st) ∧
+        (bs.handler = LENGTH st + 1)
+          ⇒
+        code_for_return rd bs bce st hdl sp v s s'))``,
   ho_match_mp_tac Cevaluate_strongind >>
-  strip_tac >- cheat >>
-  strip_tac >- cheat >>
+  strip_tac >- (
+    simp[compile_def] >>
+    rpt gen_tac >> strip_tac >>
+    rpt gen_tac >>
+    qspecl_then[`cenv`,`TCNonTail`,`sz`,`cs`,`exp`]mp_tac(CONJUNCT1 compile_append_out)>>
+    disch_then(Q.X_CHOOSE_THEN`cc`strip_assume_tac) >>
+    simp[Once SWAP_REVERSE] >> strip_tac >>
+    first_x_assum(qspecl_then[`rd`,`cs`,`cenv`,`sz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE cc`,`PopExc::Return::bc1`,`TCNonTail`]mp_tac) >>
+    simp[] >>
+    simp[code_for_push_def,code_for_return_def] >>
+    simp_tac(srw_ss()++DNF_ss)[] >>
+    map_every qx_gen_tac[`rf`,`rd'`,`ig`,`sp`,`hdl`,`st`,`ev`] >> strip_tac >>
+    strip_tac >>
+    map_every qexists_tac[`ev`,`rf`,`rd'`] >>
+    conj_tac >- (
+      match_mp_tac(SIMP_RULE std_ss [transitive_def] RTC_TRANSITIVE) >>
+      HINT_EXISTS_TAC >> simp[] >>
+      simp[RTC_eq_NRC] >>
+      qexists_tac`SUC(SUC 0)` >>
+      simp[NRC] >>
+      qmatch_abbrev_tac`∃bs2. bc_next bs1 bs2 ∧ bc_next bs2 bs3` >>
+      `bc_fetch bs1 = SOME PopExc` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs1`] >>
+        qexists_tac`bc0++REVERSE cc`>>simp[] ) >>
+      simp[bc_eval1_thm] >>
+      simp[Once bc_eval1_def,Abbr`bs1`,EL_REVERSE,PRE_SUB1,EL_APPEND1,EL_APPEND2,bump_pc_def] >>
+      simp[REVERSE_APPEND,TAKE_APPEND1,TAKE_APPEND2] >>
+      qmatch_abbrev_tac`bc_eval1 bs2 = SOME bs3` >>
+      `bc_fetch bs2 = SOME Return` by (
+        match_mp_tac bc_fetch_next_addr >>
+        simp[Abbr`bs2`] >>
+        qexists_tac`bc0++REVERSE cc++[PopExc]`>>simp[SUM_APPEND,FILTER_APPEND] ) >>
+      simp[bc_eval1_def,Abbr`bs2`] ) >>
+    simp[] >>
+    fs[Cenv_bs_def]
+    fs[s_refs_def,good_rd_def] ) >>
+  strip_tac >- (
+    simp[compile_def] >>
+    rpt gen_tac >> strip_tac >>
+    rpt gen_tac >>
+    qspecl_then[`cenv`,`TCNonTail`,`sz`,`cs`,`exp`]mp_tac(CONJUNCT1 compile_append_out)>>
+    disch_then(Q.X_CHOOSE_THEN`cc`strip_assume_tac) >>
+    simp[Once SWAP_REVERSE] >> strip_tac >>
+    first_x_assum(qspecl_then[`rd`,`cs`,`cenv`,`sz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE cc`,`PopExc::Return::bc1`,`TCNonTail`]mp_tac) >>
+    simp[]) >>
+
   strip_tac >- cheat >>
   strip_tac >- cheat >>
   strip_tac >- cheat >>
