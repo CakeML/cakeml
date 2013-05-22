@@ -102,7 +102,7 @@ in
     in () end
   fun finish_decl_abbreviation () = let
     val tm = (!decl_term)
-    val lemma = tm |> QCONV (REWRITE_CONV (SNOC::(!abbrev_defs)))
+    val lemma = time (QCONV (REWRITE_CONV (SNOC::(!abbrev_defs)))) tm
     val rhs = lemma |> concl |> rand
     val name = get_module_name () ^ "_decls"
     val abbrev_def = new_definition(name,mk_eq(mk_var(name,``:decs``),rhs))
@@ -205,6 +205,8 @@ in
         (DISCH_ALL th |> RW1 [new_pre] |> UNDISCH_ALL, TRUTH)
     val _ = map_cert_memory (fn (f,x,th,pre) =>
               if f = fname then (fname,c,th1,pre1) else (f,x,th,pre))
+    val _ = if not pre_is_true then () else
+              (print ("Precondition for " ^ fname ^ " proved.\n"))
     in new_pre end
   (* store/load to/from a single thm *)
   fun pack_certs () = let
@@ -1744,29 +1746,6 @@ fun apply_Eval_Fun v th fix = let
                    else MATCH_MP Eval_Fun (GEN ``v:v`` (FORCE_GEN v th1))
   in th2 end;
 
-(*
-
-JUNK:
-
-val th = Eval_Var_SIMP
-val tm = ``lookup "a" (("b",v)::[])``
-
-  val lookup_cons = lookup_def |> CONJUNCTS |> last |> SPEC_ALL
-  val lookup_pat = lookup_cons |> concl |> dest_eq |> fst
-  val IF_T = prove(``(if T then x else y) = x:'a``, SIMP_TAC std_ss [])
-  val IF_F = prove(``(if F then x else y) = y:'a``, SIMP_TAC std_ss [])
-
-  fun lookup_cons_conv tm = let
-    val (s,i) = match_term lookup_pat tm
-    val lemma = INST s (INST_TYPE i lookup_cons)
-    val c = stringLib.string_EQ_CONV
-    val c = (RAND_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV) c
-    val c = c THENC RAND_CONV (REWR_CONV IF_T ORELSEC REWR_CONV IF_F)
-    val lemma = CONV_RULE c lemma
-    in lemma end handle HOL_ERR _ => NO_CONV tm
-
-*)
-
 fun apply_Eval_Recclosure recc fname v th = let
   val vname = fst (dest_var v)
   val vname_str = stringLib.fromMLstring vname
@@ -1878,8 +1857,6 @@ val MAP_pattern = ``MAP (f:'a->'b)``
 
 (*
 val tm = rhs
-
-val tm = tm |> rand |> rator |> rand |> rand
 *)
 
 fun hol2deep tm =
@@ -2042,12 +2019,6 @@ fun hol2val tm = let
   val res = mk_comb(rand (concl th_rhs),mk_var("v",``:v``))
             |> EVAL |> SIMP_RULE std_ss [] |> concl |> rand |> rand
   in res end;
-
-(*
-val tm = f
-val tm = rhs
-val tm = z
-*)
 
 (* collect precondition *)
 
@@ -2230,7 +2201,13 @@ fun all_distinct [] = []
   | all_distinct (x::xs) =
       if mem x xs then all_distinct xs else x :: all_distinct xs
 
-fun remove_Eq th rev_params = let
+fun remove_Eq th = let
+  val pat = ``Arrow (Eq a (x:'a)) (b:'b->v->bool)``
+  fun dest_EqArrows tm =
+    if can (match_term pat) tm
+    then (rand o rand o rator) tm :: dest_EqArrows (rand tm)
+    else []
+  val rev_params = th |> concl |> rand |> rator |> dest_EqArrows |> rev
   fun f (v,th) =
     HO_MATCH_MP Eval_FUN_FORALL (GEN v th) |> SIMP_RULE std_ss [FUN_QUANT_SIMP]
   in foldr f th rev_params end handle HOL_ERR _ => th
@@ -2255,46 +2232,15 @@ fun abbrev_code (fname,def,th,v) = let
   val th = CONV_RULE ((RATOR_CONV o RAND_CONV) (K (GSYM code_def))) th
   in (code_def,(fname,def,th,v)) end
 
-(*
-val def = SUM;
-val def = APPEND;
-val def = optionTheory.THE_DEF;
-val def = Define `add5 n = n + 5`;
-val def = ZIP;
-
-val def = LENGTH;
-
-Parse.hide "even";
-Parse.hide "odd";
-
-val ODD_EVEN = Define `
-  (even 0 k = T) /\
-  (even (SUC n) k = odd n k) /\
-  (odd 0 k = F) /\
-  (odd (SUC n) (k:num) = even n k)`;
-
-val even_ind = fetch "-" "even_ind";
-val def = ODD_EVEN;
-(*  *)
-val (fname,lhs,tm,_) = hd info
-
-val tm = z
-val tm = rand tm
-<
-hol2deep tm
-
-compile_top_def
-
-type_of
-
-val def = alphavars_def
-
-*)
+fun auto_prove proof_name (goal,tac) = let
+  val (rest,validation) = tac ([],goal) handle Empty => fail()
+  in if length rest = 0 then validation [] else let
+  in failwith("auto_prove failed for " ^ proof_name) end end
 
 val find_def_for_const =
   ref ((fn const => raise UnableToTranslate const) : term -> thm);
 
-fun translate def = let
+fun translate def = (let
   val original_def = def
   fun the (SOME x) = x | the _ = failwith("the of NONE")
   (* preprocessing: reformulate def, read off info and register types *)
@@ -2313,15 +2259,11 @@ fun translate def = let
     handle UnableToTranslate tm => let
       val _ = is_const tm orelse raise (UnableToTranslate tm)
       val _ = translate ((!find_def_for_const) tm)
-              handle e => let
-                val _ = print ("Failed translation: " ^ msg ^ "\n")
-                val _ = map (fn (_,_,rhs,_) => (print_term rhs; print "\n")) info
-                in raise e end
       in loop info end
 (*
-val (fname,lhs,rhs,def) = hd info
-get_rec_patterns()
-val tm = ((hol2deep rhs; hd []) handle UnableToTranslate c => c)
+val _ = map (fn (fname,lhs,_,_) => install_rec_pattern lhs fname) info
+val (fname,lhs,rhs,def) = el 1 info
+hol2deep rhs
 *)
 
   val thms = loop info
@@ -2344,11 +2286,14 @@ val tm = ((hol2deep rhs; hd []) handle UnableToTranslate c => c)
   val thms = map optimise_and_abstract thms
   (* final phase: extract precondition, perform induction, store cert *)
 
+(*
+val _ = (max_print_depth := 2)
+*)
+
   val th = if not is_rec then let
     (* non-recursive case *)
     val _ = length thms = 1 orelse failwith "multiple non-rec definitions"
     val (code_def,(fname,def,th,v)) = abbrev_code (hd thms)
-
     (* remove parameters *)
     val th = D (clean_assumptions th)
     val th = CONV_RULE (QCONV (DEPTH_CONV ETA_CONV)) th
@@ -2361,7 +2306,7 @@ val tm = ((hol2deep rhs; hd []) handle UnableToTranslate c => c)
     val pre_var = get_pre_var lhs fname
     val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
     val (th,pre) = extract_precondition_non_rec th pre_var
-    val th = remove_Eq th rev_params
+    val th = remove_Eq th
     (* simpliy EqualityType *)
     val th = SIMP_EqualityType_ASSUMS th
     (* abbreviate code *)
@@ -2421,28 +2366,59 @@ val (fname,def,th,v) = el 1 thms
                   |> rename_bound_vars_rule "i" |> SIMP_RULE std_ss []
                   |> SPECL (goals |> map fst)
                   |> CONV_RULE (DEPTH_CONV BETA_CONV)
+    fun POP_MP_TACs ([],gg) = ALL_TAC ([],gg)
+      | POP_MP_TACs (ws,gg) =
+          POP_ASSUM (fn th => (POP_MP_TACs THEN MP_TAC th)) (ws,gg)
 
     (*
       set_goal([],goal)
     *)
-    val lemma = prove(goal,cheat)
- (*   STRIP_TAC
-      \\ SIMP_TAC std_ss [FORALL_PROD]
-      \\ (MATCH_MP_TAC ind_thm ORELSE
-          MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
-      \\ REPEAT STRIP_TAC
-      THENL (map MATCH_MP_TAC (map (fst o snd) goals))
-      \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
-      \\ REPEAT STRIP_TAC
-      \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
-      \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP]
-      \\ METIS_TAC []); *)
+    val lemma =
+      auto_prove "ind" (goal,
+        STRIP_TAC
+        \\ MATCH_MP_TAC ind_thm
+        \\ REPEAT STRIP_TAC
+        \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
+        \\ REPEAT STRIP_TAC
+        \\ POP_MP_TACs
+        \\ SIMP_TAC (srw_ss()) [ADD1,TRUE_def,FALSE_def]
+        \\ SIMP_TAC std_ss [UNCURRY_SIMP]
+        \\ METIS_TAC [])
+      handle HOL_ERR _ =>
+      auto_prove "ind" (goal,
+        STRIP_TAC
+        \\ SIMP_TAC std_ss [FORALL_PROD]
+        \\ (MATCH_MP_TAC ind_thm ORELSE
+            MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
+        \\ REPEAT STRIP_TAC
+        \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
+        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
+        \\ REPEAT STRIP_TAC
+        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
+        \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP]
+        \\ METIS_TAC [])
+      handle HOL_ERR _ =>
+      auto_prove "ind" (goal,
+        STRIP_TAC
+        \\ SIMP_TAC std_ss [FORALL_PROD]
+        \\ (MATCH_MP_TAC ind_thm ORELSE
+            MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
+        \\ REPEAT STRIP_TAC
+        THENL (map MATCH_MP_TAC (map (fst o snd) goals))
+        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
+        \\ REPEAT STRIP_TAC
+        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
+        \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP]
+        \\ METIS_TAC [])
     val results = UNDISCH lemma |> CONJUNCTS |> map SPEC_ALL
+
+(*
+val (th,(fname,def,_,pre)) = hd (zip results thms)
+*)
     (* clean up *)
     fun fix (th,(fname,def,_,pre)) = let
       val th = RW [PreImp_def] th |> UNDISCH_ALL
-      val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
-      val th = remove_Eq th rev_params
+      val th = remove_Eq th
       val th = SIMP_EqualityType_ASSUMS th
       val th = th |> DISCH_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
       in (fname,def,th,pre) end
@@ -2492,7 +2468,14 @@ val (fname,def,th,v) = el 1 thms
     val _ = print "\n\nwhich has type:\n\n"
     val _ = print_type (type_of tm)
     val _ = print "\n\n"
-    in raise UnableToTranslate tm end;
+    in raise UnableToTranslate tm end)
+  handle e => let
+   val names =
+     def |> SPEC_ALL |> CONJUNCTS
+         |> map (fst o dest_const o repeat rator o fst o dest_eq o concl o SPEC_ALL)
+         |> all_distinct handle HOL_ERR _ => ["<unknown name>"]
+   val _ = print ("Failed translation: " ^ comma names ^ "\n")
+   in raise e end;
 
 val _ = set_translator translate;
 

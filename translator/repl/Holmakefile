@@ -17,6 +17,7 @@ PRE_BARE_THYS = AstTheory \
 
 BARE_THYS = $(patsubst %,../../semantics/%,$(PRE_BARE_THYS)) \
             ../ml_translatorLib \
+            ../std_preludeTheory \
             ../../parsing/mmlParseTheory \
             ../../compiler/compilerTerminationTheory \
             ../../implementation/inferTheory \
