@@ -604,7 +604,26 @@ val t_walkstar_ind = Q.store_thm("t_walkstar_ind",
           (!ts tt a. (t_walk s t = Infer_Tapp ts tt) /\ MEM a ts ==> P a) ==>
           P t) ==>
        !t. P t`,
-cheat);
+  rw[] >>
+  `wfs (encode_infer_t o_f s)` by fs[t_wfs_def] >>
+  imp_res_tac(GEN_ALL (DISCH_ALL walkstar_ind)) >>
+  qsuff_tac
+    `(λx. (∀u. (x = encode_infer_t u) ⇒ P u) ∧
+          (∀tag us. (x = Pair (Const (TC_tag tag)) (encode_infer_ts us)) ⇒ EVERY P us) ∧
+          (∀u us. (x = Pair (encode_infer_t u) (encode_infer_ts us)) ⇒ EVERY P (u::us)))
+     (encode_infer_t t)` >- (
+    simp[decode_left_inverse] >> PROVE_TAC[] ) >>
+  pop_assum match_mp_tac >> simp[] >>
+  rw[decode_left_inverse] >- (
+    rfs[encode_walk] >>
+    first_x_assum match_mp_tac >> rw[] >>
+    fs[t_walk_eqn,encode_infer_t_def] >>
+    fs[EVERY_MEM] >> PROVE_TAC[] ) >>
+  rfs[encode_walk] >- (
+    Cases_on`us`>>fs[encode_infer_t_def] >>
+    metis_tac[] ) >>
+  Cases_on`us`>>fs[encode_infer_t_def] >>
+  metis_tac[])
 
 val t_collapse_def = zDefine `
 t_collapse s = 
