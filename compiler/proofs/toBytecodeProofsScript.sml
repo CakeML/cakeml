@@ -2434,6 +2434,85 @@ val compile_val = store_thm("compile_val",
       fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,MEM_MAP,between_def] >>
       fsrw_tac[ARITH_ss][Abbr`cs0`] >>
       rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
+
+    strip_tac >>
+    qpat_assum`A = code`(assume_tac o SYM) >>
+    simp[Abbr`U`] >>
+    Cases_on`beh`>>simp[]>-(
+      `t = TCNonTail ⇒ cp = []` by (
+        rw[] >>
+        qpat_assum`(pushret TCNonTail A).out = B`mp_tac >>
+        simp[pushret_def] >> rw[] ) >>
+      qho_match_abbrev_tac`(t = TCNonTail ⇒ P cp) ∧ Q` >>
+      `P []` by (
+        simp[Abbr`P`,code_for_push_def] >>
+
+        simp_tac(srw_ss()++DNF_ss)[] >>
+        map_every qx_gen_tac[`rf'`,`rd''`,`br`] >>
+        strip_tac >>
+        map_every qexists_tac[`rf'`,`rd''`,`br`] >>
+        conj_tac >- (
+          `bc_next^* (bs with code := bc0 ++ code) (bs2 with code := bc0 ++ code)` by (
+            match_mp_tac RTC_bc_next_append_code >>
+            map_every qexists_tac[`bss`,`bs2`] >>
+            simp[Abbr`bss`,bc_state_component_equality,Abbr`bs2`] >>
+            rw[Abbr`U`,Abbr`Z`] ) >>
+          match_mp_tac(SIMP_RULE std_ss [transitive_def] RTC_TRANSITIVE) >>
+          HINT_EXISTS_TAC >> simp[] >> pop_assum kall_tac >> fs[] >>
+          qmatch_assum_abbrev_tac`bc_next^* bs3 bs4` >>
+          `bc_next^* (bs3 with code := bc0 ++ code) (bs4 with code := bc0 ++ code)` by (
+            match_mp_tac RTC_bc_next_append_code >>
+            map_every qexists_tac[`bs3`,`bs4`] >>
+            simp[Abbr`bs3`,Abbr`bs4`,bc_state_component_equality] >>
+            rw[Abbr`U`,Abbr`Z`] ) >>
+          `bs3 with code := bc0 ++ code = bs2 with code := bc0 ++ code` by rw[Abbr`bs3`] >> fs[] >>
+          match_mp_tac(SIMP_RULE std_ss [transitive_def] RTC_TRANSITIVE) >>
+          HINT_EXISTS_TAC >> simp[] >> ntac 2 (pop_assum kall_tac) >>
+          fs[Abbr`bs3`,Abbr`bs4`] >>
+          simp[Abbr`bs2`,Abbr`bss0`,Abbr`bss`] >>
+          ntac 8 (pop_assum kall_tac) >> rw[] >>
+          ntac 9 (pop_assum kall_tac) >>
+          qpat_assum`(pushret TCNonTail A).out = B`mp_tac >>
+          simp[pushret_def] >> rw[] >>
+          match_mp_tac RTC_SUBSET >>
+          qmatch_abbrev_tac`bc_next bs1 bs2` >>
+          `bc_fetch bs1 = SOME (Stack (Pops 1))` by (
+            match_mp_tac bc_fetch_next_addr >>
+            simp[Abbr`bs1`] >>
+            rw[Abbr`U`,Abbr`Z`] >>
+            CONV_TAC SWAP_EXISTS_CONV >>
+            qexists_tac`Label (cs.next_label + 1)::[]` >>
+            simp[] ) >>
+          simp[bc_eval1_thm,bc_eval1_def,Abbr`bs1`,bump_pc_def,bc_eval_stack_def] >>
+          simp[Abbr`bs2`,bc_state_component_equality] >>
+          rw[Abbr`U`] >>
+          simp[SUM_APPEND,FILTER_APPEND,Abbr`X`,Abbr`Y`,Abbr`Z`] ) >>
+        fs[Abbr`bs2`,Abbr`bss0`,Abbr`bss`] >>
+        reverse conj_tac >- metis_tac[IS_PREFIX_TRANS,SUBMAP_TRANS] >>
+        match_mp_tac Cenv_bs_imp_incsz >>
+        qexists_tac`bs with <| refs := rf'; code := bce|>` >>
+        simp[bc_state_component_equality] >>
+        match_mp_tac Cenv_bs_pops >>
+        qexists_tac`[br;bv]` >> simp[] >>
+        qmatch_assum_abbrev_tac`Cenv_bs rd'' s'' (v::env) (CTLet(sz+1)::cenv) (sz+2) bs0` >>
+        qexists_tac`bs0` >>
+        simp[Abbr`bs0`,bc_state_component_equality] >>
+        reverse conj_tac >- metis_tac[Cenv_bs_CTLet_bound] >>
+        `env = TL (v::env) ∧ cenv = TL (CTLet (sz+1)::cenv)` by simp[] >>
+        ntac 2 (pop_assum SUBST1_TAC) >>
+        match_mp_tac Cenv_bs_DOMSUB >> simp[] ) >>
+      strip_tac >>
+      rpt gen_tac >>
+      strip_tac >>
+      first_x_assum(qspecl_then[`env0`,`vs`,`v::klvs`,`bv::blvs`,`benv`,`ret`,`args`,`cl`,`st`]mp_tac) >>
+      discharge_hyps >- (
+        simp[Abbr`bs2`] >>
+        simp[Abbr`bss0`,Abbr`bss`] >>
+
+Cv_bv_SUBMAP
+        Cv_bv_not_env
+
+    code_for_push_def
     ...
 
   strip_tac >- cheat >>
