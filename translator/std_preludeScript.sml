@@ -284,6 +284,36 @@ val Eval_FEMPTY = prove(
   |> MATCH_MP (MATCH_MP Eval_WEAKEN NIL_eval)
   |> store_eval_thm;
 
+val AMAP_def = Define `
+  (AMAP f [] = []) /\
+  (AMAP f ((x:'a,y:'b)::xs) = (x,(f y):'c) :: AMAP f xs)`;
+val AMAP_eval = translate AMAP_def;
+
+val ALOOKUP_AMAP = prove(
+  ``!l. ALOOKUP (AMAP f l) a =
+        case ALOOKUP l a of NONE => NONE | SOME x => SOME (f x)``,
+  Induct THEN SIMP_TAC std_ss [AMAP_def,ALOOKUP_def,FORALL_PROD]
+  THEN SRW_TAC [] []);
+
+val FMAP_EQ_ALIST_o_f = prove(
+  ``FMAP_EQ_ALIST m l ==> FMAP_EQ_ALIST (x o_f m) (AMAP x l)``,
+  SIMP_TAC std_ss [FMAP_EQ_ALIST_def,FUN_EQ_THM,FLOOKUP_DEF,
+    o_f_DEF,ALOOKUP_AMAP] THEN REPEAT STRIP_TAC THEN SRW_TAC [] []);
+
+val Eval_o_f = prove(
+  ``!v. (((b --> c) --> LIST_TYPE (PAIR_TYPE (a:'a->v->bool) (b:'b->v->bool)) -->
+          LIST_TYPE (PAIR_TYPE a (c:'c->v->bool))) AMAP) v ==>
+        (((b --> c) --> FMAP_TYPE a b --> FMAP_TYPE a c) $o_f) v``,
+  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,FMAP_TYPE_def,
+    PULL_EXISTS] THEN REPEAT STRIP_TAC
+  THEN RES_TAC THEN Q.EXISTS_TAC `u` THEN FULL_SIMP_TAC std_ss []
+  THEN REPEAT STRIP_TAC THEN RES_TAC
+  THEN Q.MATCH_ASSUM_RENAME_TAC `LIST_TYPE (PAIR_TYPE a c) (AMAP x l) u1` []
+  THEN Q.LIST_EXISTS_TAC [`u1`,`AMAP x l`]
+  THEN FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_o_f])
+  |> MATCH_MP (MATCH_MP Eval_WEAKEN AMAP_eval)
+  |> store_eval_thm;
+
 (* while, owhile and least *)
 
 val IS_SOME_OWHILE_THM = prove(

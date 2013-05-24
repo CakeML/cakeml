@@ -2021,8 +2021,11 @@ fun hol2deep tm =
      \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
      \\ FULL_SIMP_TAC (srw_ss()) [And_def])
     val thi = RW [LIST_TYPE_And] thi
-    val thi = MATCH_MP And_IMP_Eq thi |> SIMP_RULE std_ss [EVERY_MEM]
-    val thi = thi |> CONV_RULE ((RATOR_CONV o RAND_CONV) (REWR_CONV (GSYM PRECONDITION_def)))
+    val EVERY_MEM_CONTAINER = prove(
+      ``!P l. EVERY P l <=> !e. CONTAINER (MEM e l) ==> P (e:'a)``,
+      SIMP_TAC std_ss [EVERY_MEM,CONTAINER_def]);
+    val thi = MATCH_MP And_IMP_Eq thi
+    val thi = SIMP_RULE std_ss [EVERY_MEM_CONTAINER] thi
     val result = thi |> UNDISCH_ALL
     in check_inv "map" tm result end handle HOL_ERR _ =>
   (* normal function applications *)
@@ -2111,7 +2114,7 @@ fun extract_precondition_non_rec th pre_var =
 
 fun extract_precondition_rec thms = let
   fun rephrase_pre (fname,def,th) = let
-    val (lhs,rhs) = dest_eq (concl def)
+    val (lhs,_) = dest_eq (concl def)
     val pre_var = get_pre_var lhs fname
     val th = SIMP_RULE bool_ss [CONTAINER_NOT_ZERO] th
     val th = ex_rename_bound_vars_rule th
@@ -2125,6 +2128,10 @@ fun extract_precondition_rec thms = let
     val tm2 = QCONV (REWRITE_CONV [rw2,PreImp_def]) tm |> concl |> rand
     in (fname,def,th,pre_var,tm1,tm2,rw2) end
   val thms = map rephrase_pre thms
+(*
+val (fname,def,th) = hd thms
+*)
+
   (* check whether the precondition is T *)
   fun get_subst (fname,def,th,pre_var,tm1,tm2,rw2) = let
     val pre_v = repeat rator pre_var
@@ -2273,7 +2280,7 @@ fun auto_prove proof_name (goal,tac) = let
 val find_def_for_const =
   ref ((fn const => raise UnableToTranslate const) : term -> thm);
 
-val IMP_PreImp = prove(
+val IMP_PreImp_THM = prove(
   ``(b ==> PreImp x y) ==> ((x ==> b) ==> PreImp x y)``,
   Cases_on `b` \\ FULL_SIMP_TAC std_ss [PreImp_def,PRECONDITION_def]);
 
@@ -2283,8 +2290,8 @@ fun translate def = (let
   val original_def = def
   fun the (SOME x) = x | the _ = failwith("the of NONE")
   (* preprocessing: reformulate def, read off info and register types *)
-  val _ = register_term_types (concl def)
   val (is_rec,defs,ind) = preprocess_def def
+  val _ = register_term_types (concl (defs |> LIST_CONJ))
   val info = map get_info defs
   val msg = comma (map (fn (fname,_,_,_) => fname) info)
   (* derive deep embedding *)
@@ -2470,7 +2477,7 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
     (* clean up *)
     fun fix (th,(fname,def,_,pre)) = let
       val th = let
-        val thi = MATCH_MP IMP_PreImp th
+        val thi = MATCH_MP IMP_PreImp_THM th
         val thi = CONV_RULE ((RATOR_CONV o RAND_CONV)
                     (ONCE_REWRITE_CONV [force_thm_the pre] THENC
                      SIMP_CONV std_ss [PRECONDITION_def])) thi

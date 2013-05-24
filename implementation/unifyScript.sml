@@ -597,6 +597,15 @@ rw [encode_infer_t_def, decode_infer_t_def, decode_left_inverse, encode_vwalk] >
  cases_on `t_vwalk s n` >>
      rw [encode_infer_t_def, decode_infer_t_def, ts_walkstar_thm]]);
 
+val t_walkstar_ind = Q.store_thm("t_walkstar_ind",
+`!s. t_wfs s ==>
+     !P.
+       (!t.
+          (!ts tt a. (t_walk s t = Infer_Tapp ts tt) /\ MEM a ts ==> P a) ==>
+          P t) ==>
+       !t. P t`,
+cheat);
+
 val t_collapse_def = zDefine `
 t_collapse s = 
   decode_infer_t o_f collapse (encode_infer_t o_f s)`;

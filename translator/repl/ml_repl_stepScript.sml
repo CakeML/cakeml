@@ -24,6 +24,10 @@ val NOT_NIL_AND_LEMMA = prove(
   ``(b <> [] /\ x) = if b = [] then F else x``,
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
 
+val OPTION_BIND_THM = prove(
+  ``!x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i``,
+  Cases THEN SRW_TAC [] []);
+
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
 fun def_of_const tm = let
@@ -116,10 +120,6 @@ val res = translate
 
 (* parsing: ptree converstion *)
 
-val OPTION_BIND_THM = prove(
-  ``!x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i``,
-  Cases THEN SRW_TAC [] []);
-
 val _ = (extra_preprocessing :=
   [MEMBER_INTRO,MAP,OPTION_BIND_THM,monad_unitbind_assert]);
 
@@ -142,109 +142,73 @@ val parse_top_side_def = prove(
   |> update_precondition;
 
 
-(* type inference *)
+(* type inference: t_walkstar *)
 
 val PRECONDITION_INTRO = prove(
   ``(b ==> (x = y)) ==> (x = if PRECONDITION b then y else x)``,
   Cases_on `b` THEN SIMP_TAC std_ss [PRECONDITION_def]);
 
-val vwalk_ind = store_thm("vwalk_ind",
+val t_vwalk_ind = store_thm("t_vwalk_ind",
   ``!P.
       (!s v.
-        (!v1 u. FLOOKUP s v = SOME v1 /\ v1 = Var u ==> P s u) ==>
+        (!v1 u. FLOOKUP s v = SOME v1 /\ v1 = Infer_Tuvar u ==> P s u) ==>
         P s v) ==>
-      (!s v. wfs s ==> P s v)``,
+      (!s v. t_wfs s ==> P s v)``,
   NTAC 3 STRIP_TAC
-  THEN Cases_on `wfs s` THEN FULL_SIMP_TAC std_ss []
-  THEN HO_MATCH_MP_TAC (walkTheory.vwalk_ind |> Q.SPEC `P (s:'a subst)`
+  THEN Cases_on `t_wfs s` THEN FULL_SIMP_TAC std_ss []
+  THEN HO_MATCH_MP_TAC (unifyTheory.t_vwalk_ind |> Q.SPEC `P (s:num |-> infer_t)`
        |> DISCH_ALL |> RW [AND_IMP_INTRO])
   THEN FULL_SIMP_TAC std_ss []);
 
-val res = translate
-  (walkTheory.vwalk_def
+val _ = translate
+  (unifyTheory.t_vwalk_eqn
     |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL
     |> MATCH_MP PRECONDITION_INTRO);
 
-val vwalk_side_def = store_thm("vwalk_side_def",
-  ``!s v. vwalk_side s v <=> wfs s``,
-  STRIP_TAC THEN Cases_on `wfs s` THEN FULL_SIMP_TAC std_ss []
-  THEN1 (IMP_RES_TAC (walkTheory.vwalk_ind |> DISCH_ALL)
-         THEN POP_ASSUM HO_MATCH_MP_TAC THEN REPEAT STRIP_TAC
-         THEN ONCE_REWRITE_TAC [fetch "-" "vwalk_side_cases"]
-         THEN FULL_SIMP_TAC std_ss [PULL_FORALL])
-  THEN ONCE_REWRITE_TAC [fetch "-" "vwalk_side_cases"]
-  THEN FULL_SIMP_TAC std_ss [])
-  |> update_precondition;
-
-val res = translate (def_of_const ``walk``)
-
-val oc_ind = store_thm("oc_ind",
-  ``!P.
-      (!s t v.
-        (!t1 t2. walk s t = Pair t1 t2 ==> P s t1 v /\ P s t2 v) ==>
-        P s t v) ==>
-      (!s t v. wfs s ==> P (s:'a subst) (t:'a term) (v:num))``,
-  REPEAT STRIP_TAC THEN Q.SPEC_TAC (`t`,`t`)
-  THEN HO_MATCH_MP_TAC walkstarTheory.walkstar_ind
-  THEN REPEAT STRIP_TAC THEN METIS_TAC []);
-
-val res = translate
-  (walkstarTheory.oc_walking |> MATCH_MP PRECONDITION_INTRO)
-
-val oc_side_lemma = prove(
-  ``!s t v. wfs s ==> wfs s ==> oc_side s t v``,
-  HO_MATCH_MP_TAC oc_ind THEN REPEAT STRIP_TAC
-  THEN FULL_SIMP_TAC std_ss [AND_IMP_INTRO]
-  THEN ONCE_REWRITE_TAC [fetch "-" "oc_side_cases"]
-  THEN ASM_SIMP_TAC std_ss [fetch "-" "walk_side_def",PULL_FORALL]
-  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) [])
-  |> SIMP_RULE std_ss [];
-
-val oc_side_def = store_thm("oc_side_def",
-  ``!s t v. oc_side s t v <=> wfs s``,
-  STRIP_TAC THEN Cases_on `wfs s` THEN FULL_SIMP_TAC std_ss [oc_side_lemma]
-  THEN ONCE_REWRITE_TAC [fetch "-" "oc_side_cases"]
-  THEN FULL_SIMP_TAC std_ss [])
-  |> update_precondition;
-
-val unify_ind = store_thm("unify_ind",
-  ``!P.
-     (!s t1 t2.
-        (!t1a t1d t2a t2d sx.
-           walk s t1 = Pair t1a t1d /\ walk s t2 = Pair t2a t2d /\
-           unify s t1a t2a = SOME sx ==>
-           P sx t1d t2d) /\
-        (!t1a t1d t2a t2d.
-           walk s t1 = Pair t1a t1d /\ walk s t2 = Pair t2a t2d ==>
-           P s t1a t2a) ==>
-        P s t1 t2) ==>
-     !s t1 t2. wfs s ==> P s t1 t2``,
-  NTAC 2 STRIP_TAC THEN HO_MATCH_MP_TAC unifDefTheory.unify_ind
+val t_vwalk_side_def = store_thm("t_vwalk_side_def",
+  ``!s v. t_vwalk_side s v <=> t_wfs s``,
+  STRIP_TAC THEN REVERSE (Cases_on `t_wfs s`) THEN FULL_SIMP_TAC std_ss []
+  THEN1 (ONCE_REWRITE_TAC [fetch "-" "t_vwalk_side_cases"]
+         THEN FULL_SIMP_TAC std_ss [])
+  THEN STRIP_TAC THEN POP_ASSUM (fn th => MP_TAC th THEN MP_TAC th)
+  THEN Q.SPEC_TAC (`v`,`v`) THEN Q.SPEC_TAC (`s`,`s`)
+  THEN HO_MATCH_MP_TAC t_vwalk_ind
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss []
-  THEN Q.PAT_ASSUM `!s1 t1 t2. bbb ==> bbbb` MATCH_MP_TAC
-  THEN REPEAT STRIP_TAC
-  THEN METIS_TAC [unifDefTheory.unify_uP |> RW [def_of_const ``uP``]]);
+  THEN ONCE_REWRITE_TAC [fetch "-" "t_vwalk_side_cases"]
+  THEN FULL_SIMP_TAC std_ss [PULL_FORALL])
+  |> update_precondition;
 
-val res = translate
-  (def_of_const ``unify``
-    |> SIMP_RULE std_ss [OPTION_BIND_THM, def_of_const ``ext_s_check``]
+val _ = translate unifyTheory.t_walk_eqn;
+
+val t_walkstar_ind = store_thm("t_walkstar_ind",
+  ``!P.
+      (!s t.
+         (!ts tc0 a. t_walk s t = Infer_Tapp ts tc0 /\ MEM a ts ==> P s a) ==>
+         P s t) ==>
+      !s t. t_wfs s ==> P s t``,
+  METIS_TAC [unifyTheory.t_walkstar_ind]);
+
+val expand_lemma = prove(
+  ``t_walkstar s = \x. t_walkstar s x``,
+  SIMP_TAC std_ss [FUN_EQ_THM]);
+
+val _ = translate
+  (unifyTheory.t_walkstar_eqn
+    |> RW1 [expand_lemma] |> SIMP_RULE std_ss [PULL_FORALL]
     |> SPEC_ALL |> MATCH_MP PRECONDITION_INTRO)
 
-val unify_side_lemma = prove(
-  ``!s t v. wfs s ==> wfs s ==> unify_side s t v``,
-  HO_MATCH_MP_TAC unify_ind THEN REPEAT STRIP_TAC
-  THEN FULL_SIMP_TAC std_ss [AND_IMP_INTRO]
-  THEN ONCE_REWRITE_TAC [fetch "-" "unify_side_cases"]
-  THEN ASM_SIMP_TAC std_ss [fetch "-" "walk_side_def",PULL_FORALL]
-  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) []
-  THEN METIS_TAC [unifDefTheory.unify_uP |> RW [def_of_const ``uP``]])
-  |> SIMP_RULE std_ss [];
-
-val unify_side_def = store_thm("unify_side_def",
-  ``!s t v. unify_side s t v <=> wfs s``,
-  STRIP_TAC THEN Cases_on `wfs s` THEN FULL_SIMP_TAC std_ss [unify_side_lemma]
-  THEN ONCE_REWRITE_TAC [fetch "-" "unify_side_cases"]
-  THEN FULL_SIMP_TAC std_ss [])
+val t_walkstar_side_def = store_thm("t_walkstar_side_def",
+  ``!s v. t_walkstar_side s v <=> t_wfs s``,
+  STRIP_TAC THEN REVERSE (Cases_on `t_wfs s`) THEN FULL_SIMP_TAC std_ss []
+  THEN1 (ONCE_REWRITE_TAC [fetch "-" "t_walkstar_side_cases"]
+         THEN FULL_SIMP_TAC std_ss [])
+  THEN STRIP_TAC THEN POP_ASSUM (fn th => MP_TAC th THEN MP_TAC th)
+  THEN Q.SPEC_TAC (`v`,`v`) THEN Q.SPEC_TAC (`s`,`s`)
+  THEN HO_MATCH_MP_TAC t_walkstar_ind THEN REPEAT STRIP_TAC
+  THEN ONCE_REWRITE_TAC [fetch "-" "t_walkstar_side_cases"]
+  THEN FULL_SIMP_TAC std_ss [fetch "-" "t_walk_side_def"]
+  THEN METIS_TAC [])
   |> update_precondition;
+
 
 val _ = export_theory();
