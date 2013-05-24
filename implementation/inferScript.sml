@@ -159,6 +159,8 @@ val generalise_def = Define `
     (1, Infer_Tvar_db n)
   else
     (0, Infer_Tuvar uv)) ∧
+(generalise m n (Infer_Tvar_db k) =
+    (0, Infer_Tvar_db k)) ∧
 (generalise_list m n [] = 
   (0,[])) ∧
 (generalise_list m n (t::ts) =
@@ -169,7 +171,8 @@ val generalise_def = Define `
 val infer_type_subst_def = tDefine "infer_type_subst" `
 (infer_type_subst s (Tvar tv) =
   case lookup tv s of 
-   | SOME t => t) ∧
+   | SOME t => t
+   | NONE => Infer_Tvar_db 0) ∧ (* should not happen *)
 (infer_type_subst s (Tvar_db n) =
   Infer_Tvar_db n) ∧
 (infer_type_subst s (Tapp ts tn) =

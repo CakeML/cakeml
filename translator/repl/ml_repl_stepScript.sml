@@ -210,5 +210,50 @@ val t_walkstar_side_def = store_thm("t_walkstar_side_def",
   THEN METIS_TAC [])
   |> update_precondition;
 
+(*
+
+unifyTheory.t_ext_s_check_eqn
+unifyTheory.t_oc_eqn
+unifyTheory.t_unify_eqn
+
+*)
+
+(* type inference: rest *)
+
+val _ = (extra_preprocessing :=
+  [MEMBER_INTRO, MAP, OPTION_BIND_THM, st_ex_bind_def,
+   st_ex_return_def, failwith_def, guard_def, read_def, write_def]);
+
+val _ = translate (def_of_const ``id_to_string``)
+val _ = translate (def_of_const ``lookup_st_ex``)
+val _ = translate (def_of_const ``fresh_uvar``)
+val _ = translate (def_of_const ``n_fresh_uvar``)
+val _ = translate (def_of_const ``init_infer_state``)
+val _ = translate (def_of_const ``init_state``)
+val _ = translate (def_of_const ``get_next_uvar``)
+val _ = translate (def_of_const ``apply_subst``)
+val _ = translate (def_of_const ``apply_subst_list``)
+val _ = translate (def_of_const ``infer_type_subst``)
+val _ = translate (def_of_const ``infer_deBruijn_subst``)
+val _ = translate (def_of_const ``generalise``)
+
+(*
+
+val res = translate (def_of_const ``add_constraint``)
+val res = translate (def_of_const ``add_constraints``)
+val res = translate (def_of_const ``infer_p``)
+val res = translate (def_of_const ``constrain_uop``)
+val res = translate (def_of_const ``constrain_op``)
+val res = translate (def_of_const ``infer_e``)
+val res = translate (def_of_const ``infer_d``)
+val res = translate (def_of_const ``infer_ds``)
+val res = translate (def_of_const ``t_to_freevars``)
+val res = translate (def_of_const ``check_specs``)
+val res = translate (def_of_const ``check_weakC``)
+val res = translate (def_of_const ``check_weakE``)
+val res = translate (def_of_const ``check_signature``)
+val res = translate (def_of_const ``infer_top``)
+
+*)
 
 val _ = export_theory();
