@@ -320,9 +320,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   let (s,n1) = ( get_label s) in
   let s = ( emit s [PushPtr (Lab n0); PushExc]) in
   let s = (compile env TCNonTail (sz +2) s e1) in
-  let s = ( emit s [PopExc; Stack (Pops 1); Jump (Lab n1); Label n0]) in
+  let s = ( pushret t (emit s [PopExc; Stack (Pops 1)])) in
+  let s = ( emit s [Jump (Lab n1); Label n0]) in
   let s = (compile_bindings env t sz e2 0 s 1) in
-  pushret t (emit s [Label n1])))
+  emit s [Label n1]))
 /\
 (compile _ t _ s (CLit (IntLit i)) =  
 (
