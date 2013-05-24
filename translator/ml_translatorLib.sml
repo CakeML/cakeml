@@ -1845,9 +1845,12 @@ in
   fun get_rec_patterns () = (!rec_patterns)
 end
 
+val check_inv_fail = ref T;
+
 fun check_inv name tm result = let
   val tm2 = result |> concl |> rand |> rand
   in if aconv tm2 tm then result else let
+    val _ = (check_inv_fail := tm)
     val _ = (show_types_verbosely := true)
     val _ = print ("\n\nhol2deep failed at '" ^ name ^ "'\n\ntarget:\n\n")
     val _ = print_term tm
@@ -2290,8 +2293,9 @@ fun translate def = (let
   val original_def = def
   fun the (SOME x) = x | the _ = failwith("the of NONE")
   (* preprocessing: reformulate def, read off info and register types *)
+  val _ = register_term_types (concl def)
   val (is_rec,defs,ind) = preprocess_def def
-  val _ = register_term_types (concl (defs |> LIST_CONJ))
+  val _ = register_term_types (concl (LIST_CONJ defs))
   val info = map get_info defs
   val msg = comma (map (fn (fname,_,_,_) => fname) info)
   (* derive deep embedding *)
@@ -2309,9 +2313,8 @@ fun translate def = (let
 (*
 val _ = map (fn (fname,lhs,_,_) => install_rec_pattern lhs fname) info
 val (fname,lhs,rhs,def) = el 1 info
-hol2deep rhs
+can (find_term is_arb) (rhs |> rand |> rator)
 *)
-
   val thms = loop info
   val _ = print ("Translating " ^ msg ^ "\n")
   (* postprocess raw certificates *)
@@ -2333,7 +2336,7 @@ hol2deep rhs
   (* final phase: extract precondition, perform induction, store cert *)
 
 (*
-val _ = (max_print_depth := 2)
+val _ = (max_print_depth := 20)
 *)
 
   val th = if not is_rec then let
