@@ -1590,8 +1590,9 @@ fun mutual_to_single_line_def def = let
                               (filter (fn (x,_,_,_) => c = x) cs))) cnames
            |> map (fn (c,x) => (c,hd (map (fn (x,y,z) => x) x),
                                 map (fn (x,y,z) => (y,z)) x))
-  fun goal_line (c,_,[(args,body)]) =
-        list_mk_abs(args,mk_eq(list_mk_comb(c,args),body))
+  fun goal_line (c,_,[(args,body)]) = let
+        val gg = mk_eq(list_mk_comb(c,args),body)
+        in (list_mk_abs(args,gg),gg) end
     | goal_line (c,args,pats) = let
     fun transpose [] = []
       | transpose ([]::xs) = []
@@ -1606,11 +1607,14 @@ fun mutual_to_single_line_def def = let
     val ss = filter (not o fst) (zip ts (zip us args)) |> map snd
              |> map (fn (x,y) => y |-> hd x)
     val args = map (subst ss) args
-    in list_mk_abs(args,mk_eq(list_mk_comb(c,args),rhs)) end
-  val goals = map goal_line cs
+    val gg = mk_eq(list_mk_comb(c,args),rhs)
+    in (list_mk_abs(args,gg),gg) end
+  val gs = map goal_line cs
+  val target = map snd gs |> list_mk_conj
+  in if concl def = target then (def |> CONJUNCTS,SOME ind) else let
+  val goals = map fst gs
   val lemma = SPECL goals ind
   val goal = lemma |> concl |> dest_imp |> fst
-
 (*
 def |> CONJUNCTS |>
 mk_thm([],goal) |> SPEC_ALL |> CONJUNCTS |> map concl
@@ -1624,7 +1628,7 @@ goals  |> filter (can (find_term is_arb))
   val def2 = MP lemma lemma1
              |> CONV_RULE (DEPTH_CONV BETA_CONV)
              |> CONJUNCTS |> map SPEC_ALL
-  in (def2,SOME ind) end handle HOL_ERR _ => let
+  in (def2,SOME ind) end end handle HOL_ERR _ => let
   val (def,ind) = single_line_def def
   in ([def],ind) end
 
@@ -1872,6 +1876,10 @@ fun rm_fix res = let
   in tm2 end
 
 val MAP_pattern = ``MAP (f:'a->'b)``
+val is_precond = can (match_term ``PRECONDITION b``)
+
+val IF_TAKEN = prove(
+  ``!b x y. b ==> ((if b then x else y) = x:'unlikely)``, SIMP_TAC std_ss []);
 
 (*
 val tm = rhs
@@ -1966,14 +1974,21 @@ fun hol2deep tm =
     val result = MATCH_MP Eval_Equality (CONJ th1 th2) |> UNDISCH
     in check_inv "equal" tm result end else
   (* if statements *)
-  if is_cond tm then let
-    val (x1,x2,x3) = dest_cond tm
-    val th1 = hol2deep x1
-    val th2 = hol2deep x2
-    val th3 = hol2deep x3
-    val th = MATCH_MP Eval_If (LIST_CONJ [D th1, D th2, D th3])
-    val result = UNDISCH th
-    in check_inv "if" tm result end else
+  if is_cond tm then
+    if is_precond (tm |> rator |> rator |> rand) then let
+      val (x1,x2,x3) = dest_cond tm
+      val th2 = hol2deep x2
+      val lemma = IF_TAKEN |> SPEC x1 |> ISPEC x2 |> SPEC x3 |> UNDISCH |> SYM
+      val result = th2 |> CONV_RULE ((RAND_CONV o RAND_CONV) (K lemma))
+      in check_inv "if" tm result end
+    else let
+      val (x1,x2,x3) = dest_cond tm
+      val th1 = hol2deep x1
+      val th2 = hol2deep x2
+      val th3 = hol2deep x3
+      val th = MATCH_MP Eval_If (LIST_CONJ [D th1, D th2, D th3])
+      val result = UNDISCH th
+      in check_inv "if" tm result end else
   (* let expressions *)
   if can dest_let tm andalso is_abs (fst (dest_let tm)) then let
     val (x,y) = dest_let tm
@@ -2258,6 +2273,12 @@ fun auto_prove proof_name (goal,tac) = let
 val find_def_for_const =
   ref ((fn const => raise UnableToTranslate const) : term -> thm);
 
+val IMP_PreImp = prove(
+  ``(b ==> PreImp x y) ==> ((x ==> b) ==> PreImp x y)``,
+  Cases_on `b` \\ FULL_SIMP_TAC std_ss [PreImp_def,PRECONDITION_def]);
+
+fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
+
 fun translate def = (let
   val original_def = def
   fun the (SOME x) = x | the _ = failwith("the of NONE")
@@ -2380,6 +2401,7 @@ val (fname,def,th,v) = el 1 thms
     val hs = goals |> map (fst o snd o snd) |> flatten
                    |> all_distinct |> list_mk_conj
     val goal = mk_imp(hs,gs)
+
     val ind_thm = (the ind)
                   |> rename_bound_vars_rule "i" |> SIMP_RULE std_ss []
                   |> SPECL (goals |> map fst)
@@ -2428,6 +2450,18 @@ val (fname,def,th,v) = el 1 thms
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
         \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP]
         \\ METIS_TAC [])
+      handle HOL_ERR _ =>
+(*
+set_goal([],mk_imp(hs,ind_thm |> concl |> rand))
+*)
+      auto_prove "ind" (mk_imp(hs,ind_thm |> concl |> rand),
+        STRIP_TAC
+        \\ MATCH_MP_TAC ind_thm
+        \\ REPEAT STRIP_TAC
+        \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
+        \\ REPEAT STRIP_TAC
+        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
+        \\ METIS_TAC [])
     val results = UNDISCH lemma |> CONJUNCTS |> map SPEC_ALL
 
 (*
@@ -2435,6 +2469,13 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
 *)
     (* clean up *)
     fun fix (th,(fname,def,_,pre)) = let
+      val th = let
+        val thi = MATCH_MP IMP_PreImp th
+        val thi = CONV_RULE ((RATOR_CONV o RAND_CONV)
+                    (ONCE_REWRITE_CONV [force_thm_the pre] THENC
+                     SIMP_CONV std_ss [PRECONDITION_def])) thi
+        val thi = MP thi TRUTH
+        in thi end handle HOL_ERR _ => th
       val th = RW [PreImp_def] th |> UNDISCH_ALL
       val th = remove_Eq th
       val th = SIMP_EqualityType_ASSUMS th
@@ -2468,7 +2509,6 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
     val _ = code_defs |> map
               (delete_const o fst o dest_const o fst o dest_eq o concl)
     (* store certificate for later use *)
-    fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
     val pres = map (fn (fname,def,th,pre) => force_thm_the pre) thms
     val th = store_cert th pres |> CONJUNCTS
                                 |> map (UNDISCH_ALL o Q.SPEC `env`)
