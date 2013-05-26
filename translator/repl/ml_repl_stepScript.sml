@@ -142,7 +142,7 @@ val parse_top_side_def = prove(
   |> update_precondition;
 
 
-(* type inference: t_walkstar *)
+(* type inference: t_walkstar and t_unify *)
 
 val PRECONDITION_INTRO = prove(
   ``(b ==> (x = y)) ==> (x = if PRECONDITION b then y else x)``,
@@ -210,13 +210,109 @@ val t_walkstar_side_def = store_thm("t_walkstar_side_def",
   THEN METIS_TAC [])
   |> update_precondition;
 
-(*
+val t_oc_ind = store_thm("t_oc_ind",
+  ``!P.
+      (!s t v.
+        (!ts tt a. t_walk s t = Infer_Tapp ts tt /\ MEM a ts ==> P s a v) ==>
+        P s t v) ==>
+      (!s t v. t_wfs s ==> P (s:num |-> infer_t) (t:infer_t) (v:num))``,
+  REPEAT STRIP_TAC THEN Q.SPEC_TAC (`t`,`t`)
+  THEN IMP_RES_TAC unifyTheory.t_walkstar_ind 
+  THEN POP_ASSUM HO_MATCH_MP_TAC THEN METIS_TAC []);
 
-unifyTheory.t_ext_s_check_eqn
-unifyTheory.t_oc_eqn
-unifyTheory.t_unify_eqn
+val EXISTS_LEMMA = prove(
+  ``!xs P. EXISTS P xs = EXISTS I (MAP P xs)``,
+  Induct THEN SRW_TAC [] []);
 
-*)
+val _ = translate
+  (unifyTheory.t_oc_eqn
+    |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL 
+    |> RW1 [EXISTS_LEMMA] |> MATCH_MP PRECONDITION_INTRO)
+
+val t_oc_side_lemma = prove(
+  ``!s t v. t_wfs s ==> t_wfs s ==> t_oc_side s t v``,
+  HO_MATCH_MP_TAC t_oc_ind THEN REPEAT STRIP_TAC
+  THEN FULL_SIMP_TAC std_ss [AND_IMP_INTRO]
+  THEN ONCE_REWRITE_TAC [fetch "-" "t_oc_side_cases"]
+  THEN ASM_SIMP_TAC std_ss [fetch "-" "t_walk_side_def",PULL_FORALL]
+  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) [])
+  |> SIMP_RULE std_ss [];
+
+val t_oc_side_def = store_thm("t_oc_side_def",
+  ``!s t v. t_oc_side s t v <=> t_wfs s``,
+  STRIP_TAC THEN Cases_on `t_wfs s`
+  THEN FULL_SIMP_TAC std_ss [t_oc_side_lemma]
+  THEN ONCE_REWRITE_TAC [fetch "-" "t_oc_side_cases"]
+  THEN FULL_SIMP_TAC std_ss [])
+  |> update_precondition;
+
+val _ = translate unifyTheory.t_ext_s_check_eqn;
+
+val t_unify_lemma = prove(
+  ``t_wfs s ==>
+    (t_unify s t1 t2 =
+       case (t_walk s t1,t_walk s t2) of
+       | (Infer_Tvar_db n1,Infer_Tvar_db n2) =>
+           if n1 = n2 then SOME s else NONE
+       | (Infer_Tvar_db n1,Infer_Tapp v23 v24) => NONE
+       | (Infer_Tvar_db n1,Infer_Tuvar v25) =>
+           t_ext_s_check s v25 (Infer_Tvar_db n1)
+       | (Infer_Tapp ts1 tc1,Infer_Tvar_db v30) => NONE
+       | (Infer_Tapp ts1 tc1,Infer_Tapp ts2 tc2) =>
+           if tc1 = tc2 then ts_unify s ts1 ts2 else NONE
+       | (Infer_Tapp ts1 tc1,Infer_Tuvar v33) =>
+           t_ext_s_check s v33 (Infer_Tapp ts1 tc1)
+       | (Infer_Tuvar v1,Infer_Tvar_db v42) =>
+           t_ext_s_check s v1 (Infer_Tvar_db v42)
+       | (Infer_Tuvar v1,Infer_Tapp v43 v44) =>
+           t_ext_s_check s v1 (Infer_Tapp v43 v44)
+       | (Infer_Tuvar v1,Infer_Tuvar v2) =>
+           SOME (if v1 = v2 then s else s |+ (v1,Infer_Tuvar v2))) /\
+    (ts_unify s ts1 ts2 = 
+       case (ts1,ts2) of
+       | ([],[]) => SOME s
+       | (t1::ts1,t2::ts2) => (case t_unify s t1 t2 of
+                               | NONE => NONE
+                               | SOME s' => ts_unify s' ts1 ts2) 
+       | _ => NONE)``,
+  REPEAT STRIP_TAC
+  THEN1 ASM_SIMP_TAC std_ss [unifyTheory.t_unify_eqn]
+  THEN Cases_on `ts1` THEN Cases_on `ts2`
+  THEN ASM_SIMP_TAC (srw_ss()) [unifyTheory.ts_unify_def])
+  |> UNDISCH |> CONJUNCTS 
+  |> map (MATCH_MP PRECONDITION_INTRO o DISCH_ALL) |> LIST_CONJ
+
+val _ = translate t_unify_lemma
+
+val t_unify_side_rw = fetch "-" "t_unify_side_def"
+
+val t_unify_side_lemma = prove(
+  ``(!s t v. t_wfs s ==> t_wfs s ==> t_unify_side s t v) /\ 
+    (!s ts v. t_wfs s ==> t_wfs s ==> ts_unify_side s ts v)``,
+  HO_MATCH_MP_TAC unifyTheory.t_unify_ind THEN REPEAT STRIP_TAC
+  THEN FULL_SIMP_TAC std_ss [AND_IMP_INTRO]
+  THEN ONCE_REWRITE_TAC [fetch "-" "t_unify_side_def"]
+  THEN ASM_SIMP_TAC std_ss [fetch "-" "t_walk_side_def",
+         fetch "-" "t_ext_s_check_side_def", PULL_FORALL]
+  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) []
+  THEN METIS_TAC [unifyTheory.t_unify_unifier]) |> SIMP_RULE std_ss [];
+
+val t_unify_side_def = store_thm("t_unify_side_def",
+  ``!s t v. t_unify_side s t v <=> t_wfs s``,
+  STRIP_TAC THEN Cases_on `t_wfs s` 
+  THEN FULL_SIMP_TAC std_ss [t_unify_side_lemma]
+  THEN ONCE_REWRITE_TAC [t_unify_side_rw]
+  THEN FULL_SIMP_TAC std_ss [])
+  |> update_precondition;
+
+val ts_unify_side_def = store_thm("ts_unify_side_def",
+  ``!s t v. ts_unify_side s t v <=> t_wfs s``,
+  STRIP_TAC THEN Cases_on `t_wfs s` 
+  THEN FULL_SIMP_TAC std_ss [t_unify_side_lemma]
+  THEN ONCE_REWRITE_TAC [t_unify_side_rw]
+  THEN FULL_SIMP_TAC std_ss [])
+  |> update_precondition;
+
 
 (* type inference: rest *)
 
@@ -237,10 +333,13 @@ val _ = translate (def_of_const ``infer_type_subst``)
 val _ = translate (def_of_const ``infer_deBruijn_subst``)
 val _ = translate (def_of_const ``generalise``)
 
+val s = SIMP_RULE std_ss [FUN_EQ_THM]
+
+val res = translate (def_of_const ``add_constraint`` |> s)
+
 (*
 
-val res = translate (def_of_const ``add_constraint``)
-val res = translate (def_of_const ``add_constraints``)
+val res = translate (def_of_const ``add_constraints`` |> s)
 val res = translate (def_of_const ``infer_p``)
 val res = translate (def_of_const ``constrain_uop``)
 val res = translate (def_of_const ``constrain_op``)

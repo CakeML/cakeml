@@ -528,6 +528,26 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_def, decode_left_inverse,
       metis_tac [FUPDATE_PURGE], 
       metis_tac [FUPDATE_PURGE]]]);
 
+val t_unify_ind = store_thm("t_unify_ind",
+  ``!P0 P1.
+      (!s t1 t2.
+         (!ts1 ts2 tc2.
+            t_walk s t1 = Infer_Tapp ts1 tc2 /\
+            t_walk s t2 = Infer_Tapp ts2 tc2 ==>
+            P1 s ts1 ts2) ==>
+         P0 s t1 t2) /\
+      (!s ts1 ts2.
+         (!t1 ts1' t2 ts2' s'.
+            (ts1 = t1::ts1' /\ ts2 = t2::ts2') /\
+            t_unify s t1 t2 = SOME s' ==>
+            P1 s' ts1' ts2') /\
+         (!t1 ts1' t2 ts2'.
+            ts1 = t1::ts1' /\ ts2 = t2::ts2' ==> P0 s t1 t2) ==>
+         P1 s ts1 ts2) ==>
+      (!s t1 t2. t_wfs s ==> P0 s t1 t2) /\
+      (!s ts1 ts2. t_wfs s ==> P1 s ts1 ts2)``,
+  cheat);
+
 val encode_infer_t_inj = Q.prove(
 `(!t1 t2. (encode_infer_t t1 = encode_infer_t t2) ==> (t1 = t2)) /\
  (∀t1s t2s. (encode_infer_ts t1s = encode_infer_ts t2s) ⇒ (t1s = t2s))`,

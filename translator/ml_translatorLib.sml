@@ -169,7 +169,7 @@ in
     val decl_assum = (th |> hyp |> first (can (match_term ``DeclAssum ds env``)))
     val decl = (decl_assum |> rator |> rand |> rator |> rand)
     val _ = snoc_decl decl
-    val thms = th |> CONJUNCTS
+    val thms = th |> CONJUNCTS |> map UNDISCH_ALL
     val pres = pres
     fun process_thm (th,pre) = let
       val th = Q.GEN `env` (DISCH decl_assum th)
@@ -2134,7 +2134,6 @@ fun extract_precondition_rec thms = let
 (*
 val (fname,def,th) = hd thms
 *)
-
   (* check whether the precondition is T *)
   fun get_subst (fname,def,th,pre_var,tm1,tm2,rw2) = let
     val pre_v = repeat rator pre_var
@@ -2156,9 +2155,7 @@ val (fname,def,th) = hd thms
                                 (RATOR_CONV o RAND_CONV) (REWRITE_CONV []))
       in (fname,def,th5,NONE) end
     in map remove_pre_var thms end else let
-  (* define precondition *)
-  val _ = length thms = 1 orelse failwith "mutrec not supported"
-  val (fname,def,th,pre_var,tm1,tm2,_) = hd thms
+  (* helper functions *)
   fun list_dest_forall tm = let
     val (v,tm) = dest_forall tm
     val (vs,tm) = list_dest_forall tm
@@ -2168,9 +2165,6 @@ val (fname,def,th) = hd thms
   fun list_dest f tm = let val (x,y) = f tm
                        in list_dest f x @ list_dest f y end handle HOL_ERR _ => [tm]
   val list_dest_conj = list_dest dest_conj
-  val tms = list_dest_conj tm2
-  val tm = first is_forall tms handle HOL_ERR _ => first is_imp tms
-  val others = my_list_mk_conj (filter (fn x => x <> tm) tms)
   val pat = ``CONTAINER (x = y:'a) ==> z``
   fun dest_container_eq_imp tm = let
     val _ = match_term pat tm
@@ -2184,49 +2178,79 @@ val (fname,def,th) = hd thms
              |> map dest_container_eq_imp
     val ys = map (fn (x,y,z) => map (cons_fst (x,y)) (dest_forall_match z)) xs
     in Lib.flatten ys end handle HOL_ERR _ => [([],tm)]
-  val vs = dest_args pre_var
-  val ws = map (fn v => (v,mk_var(fst (dest_var v) ^ "AA",type_of v))) vs
-  val xs = map (fn (x,y) => (x,y,others)) (dest_forall_match tm @ [(ws,T)])
-  fun process_line (x,y,z) = let
-    val (x1,x2) = foldl (fn ((x1,x2),(z1,z2)) => (subst [x1 |-> x2] z1, subst [x1 |-> x2] z2)) (pre_var,z) x
-    fun simp tm = QCONV (SIMP_CONV (srw_ss()) [PRECONDITION_def]) tm |> concl |> rand
-    in mk_eq(x1,simp(mk_conj(y,x2))) end
-  val def_tm = list_mk_conj (map process_line xs)
-  fun alternative_definition_of_pre pre_var tm2 = let
-    val rw = QCONV (REWRITE_CONV [PRECONDITION_def,CONTAINER_def]) tm2
-    val gg = rw |> concl |> dest_eq |> snd
-    val gg = (mk_imp(gg,pre_var))
-    val (_,_,pre_def) = Hol_reln [ANTIQUOTE gg]
-    val const = pre_def |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
-    val v = repeat rator pre_var
-    in subst [v|->const] tm2 |> (REWR_CONV rw THENC REWR_CONV (GSYM pre_def))
-       |> GSYM end
+  (* define precondition *)
+  fun first_definition_of_pre (fname,def,th,pre_var,tm1,tm2,_) = let
+    val tms = list_dest_conj tm2
+    val tm = first is_forall tms handle HOL_ERR _ => first is_imp tms
+    val others = my_list_mk_conj (filter (fn x => x <> tm) tms)
+    val vs = dest_args pre_var
+    val ws = map (fn v => (v,mk_var(fst (dest_var v) ^ "AA",type_of v))) vs
+    val xs = map (fn (x,y) => (x,y,others)) (dest_forall_match tm @ [(ws,T)])
+    fun process_line (x,y,z) = let
+      val (x1,x2) = foldl (fn ((x1,x2),(z1,z2)) => (subst [x1 |-> x2] z1, subst [x1 |-> x2] z2)) (pre_var,z) x
+      fun simp tm = QCONV (SIMP_CONV (srw_ss()) [PRECONDITION_def]) tm |> concl |> rand
+      in mk_eq(x1,simp(mk_conj(y,x2))) end
+    in map process_line xs end
+  val def_tm = my_list_mk_conj (flatten (map first_definition_of_pre thms))
+  fun alternative_definition_of_pre thms = let
+    fun line_of_alt_pre (fname,def,th,pre_var,tm1,tm2,_) = let
+      val rw = QCONV (REWRITE_CONV [PRECONDITION_def,CONTAINER_def]) tm2
+      val gg = rw |> concl |> dest_eq |> snd
+      val gg = (mk_imp(gg,pre_var))
+      in (gg,rw) end;
+    val xs = map line_of_alt_pre thms
+    val gs = map fst xs
+    val rws = map snd xs
+    val (_,_,pre_def) = Hol_reln [ANTIQUOTE (my_list_mk_conj gs)]
+    val consts = pre_def |> CONJUNCTS 
+    val name = consts |> hd 
+      |> (repeat rator o fst o dest_eq o concl o SPEC_ALL) |> dest_const |> fst
+    val _ = save_thm(name ^ "_def",pre_def)
+    fun line_of_alt_pre2 (pre_def_line,(rw,(_,_,_,pre_var,_,tm2,_))) = let
+      val const = pre_def_line |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
+      val v = repeat rator pre_var
+      val lemma = subst [v|->const] tm2 |> (REWR_CONV rw)
+      val lemma2 = (SPEC_ALL pre_def_line)
+      val tm = lemma |> concl |> rand
+      val tm2 = lemma2 |> concl |> rand
+      val lemma = INST (fst (match_term tm tm2)) lemma
+                  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM lemma2))) |> SYM
+      in lemma end
+    in LIST_CONJ (map line_of_alt_pre2 (zip consts (zip rws thms))) end 
   val pre_def = quietDefine [ANTIQUOTE def_tm]
                 handle HOL_ERR _ =>
-                alternative_definition_of_pre pre_var tm2
+                alternative_definition_of_pre thms
   val pre_def = fst (single_line_def pre_def)
-  val pre_const = pre_def |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
-  val pre_v = pre_var |> repeat rator
-  (* prove pre is sufficient *)
-  val s = subst [pre_v|->pre_const]
-  val goal = mk_imp(s pre_var, s tm2)
-  val pre_thm = prove(goal,
-    CONV_TAC (RATOR_CONV (PURE_ONCE_REWRITE_CONV [pre_def]))
-    THEN REPEAT BasicProvers.FULL_CASE_TAC
-    THEN FULL_SIMP_TAC (srw_ss()) [PULL_FORALL,CONTAINER_def,
-      PRECONDITION_def,PreImp_def])
-  (* simplify main thm *)
-  val goal_lhs = mk_conj(subst [pre_v|->pre_const] tm1,
-                     subst [pre_v|->pre_const] pre_var)
-  val th = INST [pre_v|->pre_const] th
-  val tm = concl th |> dest_imp |> fst
-  val goal = mk_imp(goal_lhs,tm)
-  val lemma = prove(goal,STRIP_TAC THEN IMP_RES_TAC pre_thm THEN METIS_TAC [])
-  val th = MP th (UNDISCH lemma)
-  val th = th |> DISCH goal_lhs
-  val th = MATCH_MP IMP_PreImp th
-  val pre_def = clean_precondition pre_def
-  in [(fname,def,th,SOME pre_def)] end end
+  val pre_defs = pre_def |> CONJUNCTS
+  val thms2 = zip pre_defs thms
+  fun new_ss (pre_def,(fname,def,th,pre_var,tm1,tm2,_)) = let
+    val pre_const = pre_def |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
+    val pre_v = pre_var |> repeat rator
+    in pre_v|->pre_const end
+  val ss = subst (map new_ss thms2)
+  val II = INST (map new_ss thms2)
+  fun get_result (pre_def,(fname,def,th,pre_var,tm1,tm2,_)) = let
+    val pre_const = pre_def |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
+    val pre_v = pre_var |> repeat rator
+    (* prove pre is sufficient *)
+    val goal = mk_imp(ss pre_var, ss tm2)
+    val pre_thm = prove(goal,
+      CONV_TAC (RATOR_CONV (PURE_ONCE_REWRITE_CONV [pre_def]))
+      THEN REPEAT BasicProvers.FULL_CASE_TAC
+      THEN FULL_SIMP_TAC (srw_ss()) [PULL_FORALL,CONTAINER_def,
+        PRECONDITION_def,PreImp_def])
+    (* simplify main thm *)
+    val goal_lhs = mk_conj(ss tm1, ss pre_var)
+    val th = II th
+    val tm = concl th |> dest_imp |> fst
+    val goal = mk_imp(goal_lhs,tm)
+    val lemma = prove(goal,STRIP_TAC THEN IMP_RES_TAC pre_thm THEN METIS_TAC [])
+    val th = MP th (UNDISCH lemma)
+    val th = th |> DISCH goal_lhs
+    val th = MATCH_MP IMP_PreImp th
+    val pre_def = clean_precondition pre_def
+    in (fname,def,th,SOME pre_def) end 
+  in map get_result thms2 end end
 
 
 (* main translation routines *)
@@ -2461,9 +2485,6 @@ val (fname,def,th,v) = el 1 thms
         \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP]
         \\ METIS_TAC [])
       handle HOL_ERR _ =>
-(*
-set_goal([],mk_imp(hs,ind_thm |> concl |> rand))
-*)
       auto_prove "ind" (mk_imp(hs,ind_thm |> concl |> rand),
         STRIP_TAC
         \\ MATCH_MP_TAC ind_thm
@@ -2497,23 +2518,33 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
     val recs = recc |> rand |> rator |> rand |> listSyntax.dest_list |> fst
     val Ps = results |> map (fn (_,_,th,_) => th |> concl |> rand)
     val Precs = zip Ps recs |> map (pairSyntax.mk_pair)
+                |> map (fn tm => pairSyntax.mk_pair(genvar(``:bool``),tm))
     val Precs_tm = listSyntax.mk_list(Precs,type_of (hd Precs))
+
     (* introduce letrec declaration *)
     val lemma =
       SPEC Precs_tm DeclAssum_Dletrec_INTRO_ALT
       |> REWRITE_RULE [EVERY_DEF]
       |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)
-      |> REWRITE_RULE [GSYM CONJ_ASSOC,MAP]
+      |> REWRITE_RULE [GSYM CONJ_ASSOC,MAP,o_THM]
     val ss = subst [``env1:envE``|->``env:envE``,``env:envE``|->``cl_env:envE``]
     val ts = lemma |> concl |> dest_imp |> fst
                    |> dest_forall |> snd |> dest_forall |> snd
                    |> ss |> dest_imp |> fst
                    |> list_dest dest_conj |> tl
-    val th = results |> map (fn (_,_,th,_) => th) |> LIST_CONJ
+    val th = results |> map (fn (_,_,th,_) => let
+               val hs = hyp th |> filter (can (match_term ``PRECONDITION p``)) 
+               val th = foldr (uncurry DISCH) th hs
+               val th = REWRITE_RULE [AND_IMP_INTRO] th
+               val imp = th |> concl |> is_imp
+               val th = if imp then th else DISCH T th
+               val th = CONV_RULE (REWR_CONV (GSYM CONTAINER_def)) th
+               in th end) |> LIST_CONJ
     val th = foldr (fn (x,th) => DISCH x th) th ts
                    |> DISCH (ss (get_DeclAssum ()))
                    |> PURE_REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
                    |> Q.GEN `cl_env` |> Q.GEN `env`
+                   |> PURE_REWRITE_RULE [CONTAINER_def]
     val th = MATCH_MP lemma th |> Q.SPEC `env` |> DISCH_ALL
              |> PURE_ONCE_REWRITE_RULE code_defs |> UNDISCH_ALL
     val _ = code_defs |> map

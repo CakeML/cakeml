@@ -896,13 +896,13 @@ val DeclAssum_Dletrec_INTRO_ALT = store_thm("DeclAssum_Dletrec_INTRO_ALT",
   ``!funs.
       (!env1 env.
         DeclAssum ds env /\
-        EVERY ( \ (P,(v,rest)).
-          LOOKUP_VAR v env1 (Recclosure env (MAP SND funs) v)) funs ==>
-        EVERY ( \ (P,(v,rest)).
-          Eval env1 (Var (Short v)) P) funs) ==>
-      !env. DeclAssum (SNOC (Dletrec (MAP SND funs)) ds) env ==>
-            EVERY ( \ (P,(v,rest)).
-              Eval env (Var (Short v)) P) funs``,
+        EVERY ( \ (b,P,(v,rest)).
+          LOOKUP_VAR v env1 (Recclosure env (MAP (SND o SND) funs) v)) funs ==>
+        EVERY ( \ (b,P,(v,rest)).
+          b ==> Eval env1 (Var (Short v)) P) funs) ==>
+      !env. DeclAssum (SNOC (Dletrec (MAP (SND o SND) funs)) ds) env ==>
+            EVERY ( \ (b,P,(v,rest)).
+              b ==> Eval env (Var (Short v)) P) funs``,
   STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [DeclAssum_def,SNOC_APPEND,Decls_APPEND,Decls_Dletrec,
        MAP,ALL_DISTINCT,MEM,PULL_EXISTS,build_rec_env_def,FOLDR,bind_def,
@@ -912,15 +912,16 @@ val DeclAssum_Dletrec_INTRO_ALT = store_thm("DeclAssum_Dletrec_INTRO_ALT",
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL,AND_IMP_INTRO]
   \\ Q.PAT_ASSUM `!env1.bbb` MATCH_MP_TAC
   \\ Q.LIST_EXISTS_TAC [`env2`,`s2`,`cenv2'`] \\ FULL_SIMP_TAC std_ss []
-  \\ Q.LIST_EXISTS_TAC [`p_1''`,`p_2`]
+  \\ Q.MATCH_ASSUM_RENAME_TAC `MEM (T,P1,v1,rest1,rest2) funs` []
+  \\ Q.LIST_EXISTS_TAC [`rest1`,`rest2`]
   \\ FULL_SIMP_TAC std_ss [merge_def,emp_def,APPEND_NIL,LOOKUP_VAR_def]
-  \\ NTAC 5 STRIP_TAC
-  \\ Q.MATCH_ASSUM_RENAME_TAC `MEM (P,v,x,y) funs` []
-  \\ Q.SPEC_TAC (`Recclosure env2 (MAP SND funs)`,`recc`) \\ STRIP_TAC
+  \\ NTAC 6 STRIP_TAC
+  \\ Q.MATCH_ASSUM_RENAME_TAC `MEM (b,P,v,x,y) funs` []
+  \\ Q.SPEC_TAC (`Recclosure env2 (MAP (SND o SND) funs)`,`recc`) \\ STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ REPEAT (POP_ASSUM (K ALL_TAC))
   \\ Induct_on `funs` \\ FULL_SIMP_TAC std_ss [MEM,FORALL_PROD,MAP,FOLDR]
   \\ NTAC 4 STRIP_TAC
-  \\ Cases_on `(v = p_1')` \\ FULL_SIMP_TAC std_ss []
+  \\ Cases_on `(v = p_1'')` \\ FULL_SIMP_TAC std_ss []
   \\ STRIP_TAC \\ EVAL_TAC \\ FULL_SIMP_TAC std_ss []
   \\ REPEAT (POP_ASSUM MP_TAC)
   \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ SIMP_TAC std_ss []);
@@ -932,7 +933,7 @@ val DeclAssum_Dletrec_INTRO = store_thm("DeclAssum_Dletrec_INTRO",
       Eval env1 (Var (Short v)) P) ==>
     !env. DeclAssum (SNOC (Dletrec [(v,xs,f)]) ds) env ==>
           Eval env (Var (Short v)) P``,
-  (DeclAssum_Dletrec_INTRO_ALT |> Q.SPEC `[(P,v,xs,f)]`
+  (DeclAssum_Dletrec_INTRO_ALT |> Q.SPEC `[(T,P,v,xs,f)]`
     |> SIMP_RULE std_ss [EVERY_DEF,MAP] |> ASSUME_TAC)
   \\ FULL_SIMP_TAC std_ss []);
 
