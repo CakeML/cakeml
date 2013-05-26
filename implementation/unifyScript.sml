@@ -528,6 +528,28 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_def, decode_left_inverse,
       metis_tac [FUPDATE_PURGE], 
       metis_tac [FUPDATE_PURGE]]]);
 
+val encode_infer_t_inj = Q.prove(
+`(!t1 t2. (encode_infer_t t1 = encode_infer_t t2) ==> (t1 = t2)) /\
+ (∀t1s t2s. (encode_infer_ts t1s = encode_infer_ts t2s) ⇒ (t1s = t2s))`,
+ ho_match_mp_tac(TypeBase.induction_of``:infer_t``)>>
+ simp[encode_infer_t_def] >>
+ strip_tac >- (
+   gen_tac >> Cases >> simp[encode_infer_t_def] ) >>
+ strip_tac >- (
+   gen_tac >> strip_tac >>
+   gen_tac >> Cases >> simp[encode_infer_t_def] ) >>
+ strip_tac >- (
+   gen_tac >> Cases >> simp[encode_infer_t_def] ) >>
+ strip_tac >- (
+   Cases >> simp[encode_infer_t_def] ) >>
+ rpt gen_tac >> strip_tac >>
+ Cases >> simp[encode_infer_t_def])
+
+val encode_infer_t_inj_rwt = Q.prove(
+`(!t1 t2. (encode_infer_t t1 = encode_infer_t t2) <=> (t1 = t2)) /\
+ (∀t1s t2s. (encode_infer_ts t1s = encode_infer_ts t2s) ⇔ (t1s = t2s))`,
+ metis_tac[encode_infer_t_inj])
+
 val t_unify_ind = store_thm("t_unify_ind",
   ``!P0 P1.
       (!s t1 t2.
@@ -546,24 +568,81 @@ val t_unify_ind = store_thm("t_unify_ind",
          P1 s ts1 ts2) ==>
       (!s t1 t2. t_wfs s ==> P0 s t1 t2) /\
       (!s ts1 ts2. t_wfs s ==> P1 s ts1 ts2)``,
-  cheat);
-
-val encode_infer_t_inj = Q.prove(
-`(!t1 t2. (encode_infer_t t1 = encode_infer_t t2) ==> (t1 = t2)) /\
- (∀t1s t2s. (encode_infer_ts t1s = encode_infer_ts t2s) ⇒ (t1s = t2s))`,
- ho_match_mp_tac(TypeBase.induction_of``:infer_t``)>>
- simp[encode_infer_t_def] >>
- strip_tac >- (
-   gen_tac >> Cases >> simp[encode_infer_t_def] ) >>
- strip_tac >- (
-   gen_tac >> strip_tac >>
-   gen_tac >> Cases >> simp[encode_infer_t_def] ) >>
- strip_tac >- (
-   gen_tac >> Cases >> simp[encode_infer_t_def] ) >>
- strip_tac >- (
-   Cases >> simp[encode_infer_t_def] ) >>
- rpt gen_tac >> strip_tac >>
- Cases >> simp[encode_infer_t_def])
+  rpt gen_tac >> strip_tac >>
+  Q.ISPEC_THEN`λs t1 t2.
+    (∀us u1 u2. wfs s ∧ (s = encode_infer_t o_f us) ∧ (t1 = encode_infer_t u1) ∧ (t2 = encode_infer_t u2) ⇒ P0 us u1 u2) ∧
+    (∀us tag u1 u2.
+       wfs s ∧ (s = encode_infer_t o_f us) ∧
+       (t1 = Pair (Const (TC_tag tag)) (encode_infer_ts u1)) ∧
+       (t2 = Pair (Const (TC_tag tag)) (encode_infer_ts u2))
+         ⇒ P1 us u1 u2) ∧
+    (∀us v1 u1 v2 u2.
+       wfs s ∧ (s = encode_infer_t o_f us) ∧
+       (t1 = Pair (encode_infer_t v1) (encode_infer_ts u1)) ∧
+       (t2 = Pair (encode_infer_t v2) (encode_infer_ts u2))
+         ⇒ P0 us v1 v2 ∧
+          (∀usx. (unify s (encode_infer_t v1) (encode_infer_t v2) = SOME (encode_infer_t o_f usx))
+                 ⇒ P1 usx u1 u2))`
+  strip_assume_tac unify_ind >>
+  qmatch_assum_abbrev_tac`P ⇒ Q` >> qunabbrev_tac`Q` >>
+  `P` by (
+    qpat_assum`P ⇒ Q`kall_tac >>
+    qunabbrev_tac`P` >>
+    CONV_TAC (DEPTH_CONV BETA_CONV) >>
+    rpt gen_tac >>
+    strip_tac >>
+    conj_tac >- (
+      rw[] >>
+      first_x_assum match_mp_tac >>
+      rw[] >>
+      fs[encode_walk,t_wfs_def,encode_infer_t_def] ) >>
+    conj_tac >- (
+      rw[] >>
+      first_x_assum match_mp_tac >>
+      fs[] >>
+      conj_tac >- (
+        rw[] >>
+        fs[encode_infer_t_def,encode_infer_t_inj_rwt] >>
+        first_x_assum(qspec_then`us`kall_tac) >>
+        first_x_assum(qspec_then`us`mp_tac) >>
+        simp[] >> disch_then (qspec_then`s'`mp_tac o CONJUNCT2) >>
+        simp[option_map_def,t_wfs_def,SIMP_RULE(srw_ss())[]encode_unify] ) >>
+      rw[] >>
+      fs[encode_infer_t_def,SIMP_RULE(srw_ss())[]encode_unify,t_wfs_def,encode_infer_t_inj_rwt] ) >>
+    rw[] >>
+    first_x_assum match_mp_tac >>
+    imp_res_tac wfs_unify >>
+    fs[encode_infer_t_inj_rwt] >>
+    conj_tac >- (
+      rw[] >>
+      fs[encode_infer_t_def,encode_infer_t_inj_rwt] >>
+      first_x_assum(qspec_then`us`kall_tac) >>
+      first_x_assum(qspec_then`us`kall_tac) >>
+      first_x_assum(qspec_then`us`kall_tac) >>
+      first_x_assum(qspec_then`usx`mp_tac) >>
+      simp[option_map_def,t_wfs_def,SIMP_RULE(srw_ss())[]encode_unify] ) >>
+    rw[] >>
+    fs[encode_infer_t_def,encode_infer_t_inj_rwt] ) >>
+  qmatch_assum_abbrev_tac`P ⇒ Q` >>
+  `Q` by metis_tac[] >>
+  qunabbrev_tac`P` >>
+  qunabbrev_tac`Q` >>
+  pop_assum mp_tac >>
+  rpt (pop_assum kall_tac) >>
+  CONV_TAC (DEPTH_CONV BETA_CONV) >>
+  strip_tac >>
+  rw[] >- (
+    first_x_assum(qspecl_then[`encode_infer_t o_f s`,`encode_infer_t t1`,`encode_infer_t t2`]mp_tac) >>
+    strip_tac >>
+    first_x_assum match_mp_tac >>
+    fs[t_wfs_def] ) >>
+  first_x_assum(qspecl_then[`encode_infer_t o_f s`
+                           ,`Pair (Const (DB_tag 0)) (encode_infer_ts ts1)`
+                           ,`Pair (Const (DB_tag 0)) (encode_infer_ts ts2)`]mp_tac) >>
+  simp[encode_infer_t_inj_rwt] >> strip_tac >>
+  first_x_assum(qspecl_then[`s`,`Infer_Tvar_db 0`,`Infer_Tvar_db 0`]mp_tac) >>
+  simp[encode_infer_t_def] >>
+  fs[t_wfs_def]);
 
 val apply_subst_t_def = zDefine `
 apply_subst_t s t = decode_infer_t (subst_APPLY (encode_infer_t o_f s) (encode_infer_t t))`;
