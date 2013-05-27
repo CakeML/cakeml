@@ -39,8 +39,6 @@ val _ = new_theory "ToIntLang"
 (let n = ( LENGTH defs) in
   lunion (free_vars_defs n defs) (lshift n (free_vars e))))
 /\
-(free_vars (CFun def) = (free_vars_def 1 def))
-/\
 (free_vars (CCall e es) = ( lunion (free_vars e) (free_vars_list es)))
 /\
 (free_vars (CPrim1 _ e) = (free_vars e))
@@ -89,9 +87,6 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     (case cb of   (SOME _,_) => cb | (NONE,(az,b)) => (NONE,(az,mkshift f (k +ns +az) b)) ))
     defs) in
   CLetrec defs (mkshift f (k +ns) b)))
-/\
-(mkshift f k (CFun cb) = (CFun
-  ((case cb of   (SOME _,_) => cb | (NONE,(az,b)) => (NONE,(az,mkshift f (k +1 +az) b)) ))))
 /\
 (mkshift f k (CCall e es) = (CCall (mkshift f k e) ( MAP (mkshift f k) es)))
 /\
@@ -192,7 +187,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (remove_mat_var _ [] = (CRaise CBind_exc))
 /\
 (remove_mat_var v ((p,sk)::pes) =  
-(CLet (CFun (NONE, (0,shift 1 0 (remove_mat_var v pes))))
+(CLetrec [(NONE, (0,shift 1 0 (remove_mat_var v pes)))]
     (remove_mat_vp 0 (shift 1 (Cpat_vars p) sk) (v +1) p)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn remove_mat_var_defn;
@@ -234,7 +229,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (exp_to_Cexp _ (Var (Long _ _)) = (CRaise CBind_exc))
 /\
 (exp_to_Cexp m (Fun vn e) =  
-(CFun (NONE,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))))
+(CLetrec [(NONE,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))] (CVar 0)))
 /\
 (exp_to_Cexp m (App (Opn opn) e1 e2) =  
 (let Ce1 = (exp_to_Cexp m e1) in

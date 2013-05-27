@@ -61,7 +61,6 @@ val _ = Hol_datatype `
   | CProj of Cexp => num
   | CLet of Cexp => Cexp
   | CLetrec of (( (num # (ccenv # ceenv))option) # (num # Cexp)) list => Cexp
-  | CFun of (( (num # (ccenv # ceenv))option) # (num # Cexp))
   | CCall of Cexp => Cexp list
   | CPrim1 of Cprim1 => Cexp
   | CPrim2 of Cprim2 => Cexp => Cexp
@@ -273,12 +272,6 @@ Cevaluate s env (CLet e b) (s', Cexc err))
 Cevaluate s env (CLetrec defs b) r)
 
 /\
-(! s env def.
-T
-==>
-Cevaluate s env (CFun def) (s, Cval (CRecClos env [def] 0)))
-
-/\
 (! s env e es s' cenv defs n def b env'' s'' vs r.
 (Cevaluate s env e (s', Cval (CRecClos cenv defs n)) /\
 n < LENGTH defs /\ ( EL  n  defs = def) /\
@@ -471,12 +464,6 @@ syneq_exp (ez1 +( LENGTH defs1)) (ez2 +( LENGTH defs2))
 ==>
 syneq_exp ez1 ez2 V (CLetrec defs1 b1) (CLetrec defs2 b2))
 /\
-(! ez1 ez2 V cb1 cb2 V'.
-(syneq_defs ez1 ez2 V [cb1] [cb2] V' /\
-V' 0 0)
-==>
-syneq_exp ez1 ez2 V (CFun cb1) (CFun cb2))
-/\
 (! ez1 ez2 V e1 e2 es1 es2.
 (syneq_exp ez1 ez2 V e1 e2 /\ EVERY2 (syneq_exp ez1 ez2 V) es1 es2)
 ==>
@@ -565,8 +552,6 @@ syneq (CLoc n) (CLoc n))`;
 /\
 (no_labs (CLetrec defs e) = (no_labs_defs defs /\ no_labs e))
 /\
-(no_labs (CFun def) = (no_labs_def def))
-/\
 (no_labs (CCall e es) = (no_labs e /\ no_labs_list es))
 /\
 (no_labs (CPrim2 _ e1 e2) = (no_labs e1 /\ no_labs e2))
@@ -610,8 +595,6 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (all_labs (CLet e b) = (all_labs e /\ all_labs b))
 /\
 (all_labs (CLetrec defs e) = (all_labs_defs defs /\ all_labs e))
-/\
-(all_labs (CFun def) = (all_labs_def def))
 /\
 (all_labs (CCall e es) = (all_labs e /\ all_labs_list es))
 /\

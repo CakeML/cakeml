@@ -64,14 +64,6 @@ label_closures ez j (CLetrec defs e) =
   let (e,j) = label_closures (ez+nz) j e in
   (CLetrec defs e, j)
 and
-label_closures ez j (CFun (None, def)) =
-  let (defs,j) = label_closures_defs ez j 1 0 [def] in
-  (CFun (match defs with def::_ -> def
-         | [] -> (Some (0,([],([],[]))),def) (* should not happen *) end)
-  , j)
-and
-label_closures _ j (CFun (Some x,y)) = (CFun (Some x,y),j) (* should not happen *)
-and
 label_closures ez j (CCall e es) =
   let (e,j) = label_closures ez j e in
   let (es,j) = label_closures_list ez j es in
@@ -304,9 +296,6 @@ compile env t sz s (CLetrec defs eb) =
   let s = compile_closures env sz s defs in
   compile_bindings env t sz eb 0 s (List.length defs)
 and
-compile env t sz s (CFun cb) =
-  pushret t (compile_closures env sz s [cb])
-and
 compile env t sz s (CCall e es) =
   let n = List.length es in
   let s = compile_nts env sz s (e::es) in
@@ -393,8 +382,6 @@ and
 free_labs ez (CLetrec defs e) =
   free_labs_defs ez (List.length defs) 0 defs @
   free_labs (ez+List.length defs) e
-and
-free_labs ez (CFun def) = free_labs_def ez 1 0 def
 and
 free_labs ez (CCall e es) = free_labs ez e @ free_labs_list ez es
 and

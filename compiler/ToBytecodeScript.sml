@@ -78,14 +78,6 @@ val _ = new_theory "ToBytecode"
   let (e,j) = (label_closures (ez +nz) j e) in
   (CLetrec defs e, j)))
 /\
-(label_closures ez j (CFun (NONE, def)) =  
-(let (defs,j) = (label_closures_defs ez j 1 0 [def]) in
-  (CFun ((case defs of def::_ => def
-         | [] => (SOME (0,([],([],[]))),def) (* should not happen *) ))
-  , j)))
-/\
-(label_closures _ j (CFun (SOME x,y)) = (CFun (SOME x,y),j)) (* should not happen *)
-/\
 (label_closures ez j (CCall e es) =  
 (let (e,j) = (label_closures ez j e) in
   let (es,j) = (label_closures_list ez j es) in
@@ -361,10 +353,6 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (let s = ( compile_closures env sz s defs) in
   compile_bindings env t sz eb 0 s ( LENGTH defs)))
 /\
-(compile env t sz s (CFun cb) =  
-(
-  pushret t (compile_closures env sz s [cb])))
-/\
 (compile env t sz s (CCall e es) =  
 (let n = ( LENGTH es) in
   let s = (compile_nts env sz s (e ::es)) in
@@ -457,8 +445,6 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (free_labs ez (CLetrec defs e) =  
 (free_labs_defs ez ( LENGTH defs) 0 defs ++
   free_labs (ez + LENGTH defs) e))
-/\
-(free_labs ez (CFun def) = (free_labs_def ez 1 0 def))
 /\
 (free_labs ez (CCall e es) = (free_labs ez e ++ free_labs_list ez es))
 /\

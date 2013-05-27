@@ -25,8 +25,6 @@ free_vars (CLetrec defs e) =
   let n = List.length defs in
   lunion (free_vars_defs n defs) (lshift n (free_vars e))
 and
-free_vars (CFun def) = free_vars_def 1 def
-and
 free_vars (CCall e es) = lunion (free_vars e) (free_vars_list es)
 and
 free_vars (CPrim1 _ e) = free_vars e
@@ -72,9 +70,6 @@ mkshift f k (CLetrec defs b) =
     match cb with | (Some _,_) -> cb | (None,(az,b)) -> (None,(az,mkshift f (k+ns+az) b)) end)
     defs in
   CLetrec defs (mkshift f (k+ns) b)
-and
-mkshift f k (CFun cb) = CFun
-  (match cb with | (Some _,_) -> cb | (None,(az,b)) -> (None,(az,mkshift f (k+1+az) b)) end)
 and
 mkshift f k (CCall e es) = CCall (mkshift f k e) (List.map (mkshift f k) es)
 and
@@ -157,7 +152,7 @@ let rec
 remove_mat_var _ [] = CRaise CBind_exc
 and
 remove_mat_var v ((p,sk)::pes) =
-  CLet (CFun (None, (0,shift 1 0 (remove_mat_var v pes))))
+  CLetrec [(None, (0,shift 1 0 (remove_mat_var v pes)))]
     (remove_mat_vp 0 (shift 1 (Cpat_vars p) sk) (v+1) p)
 
 let rec
@@ -194,7 +189,7 @@ and
 exp_to_Cexp _ (Var (Long _ _)) = CRaise CBind_exc
 and
 exp_to_Cexp m (Fun vn e) =
-  CFun (None,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))
+  CLetrec [(None,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))] (CVar 0)
 and
 exp_to_Cexp m (App (Opn opn) e1 e2) =
   let Ce1 = exp_to_Cexp m e1 in

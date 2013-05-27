@@ -37,7 +37,6 @@ type Cexp =
   | CProj of Cexp * num
   | CLet of Cexp * Cexp
   | CLetrec of list ((option (num * (ccenv * ceenv))) * (num * Cexp)) * Cexp
-  | CFun of ((option (num * (ccenv * ceenv))) * (num * Cexp))
   | CCall of Cexp * list Cexp
   | CPrim1 of Cprim1 * Cexp
   | CPrim2 of Cprim2 * Cexp * Cexp
@@ -215,12 +214,6 @@ Cevaluate s
   b r
 ==>
 Cevaluate s env (CLetrec defs b) r
-
-and
-forall s env def.
-true
-==>
-Cevaluate s env (CFun def) (s, Cval (CRecClos env [def] 0))
 
 and
 forall s env e es s' cenv defs n def b env'' s'' vs r.
@@ -418,12 +411,6 @@ syneq_exp (ez1+(List.length defs1)) (ez2+(List.length defs2))
 ==>
 syneq_exp ez1 ez2 V (CLetrec defs1 b1) (CLetrec defs2 b2)
 and
-forall ez1 ez2 V cb1 cb2 V'.
-syneq_defs ez1 ez2 V [cb1] [cb2] V' &&
-V' 0 0
-==>
-syneq_exp ez1 ez2 V (CFun cb1) (CFun cb2)
-and
 forall ez1 ez2 V e1 e2 es1 es2.
 syneq_exp ez1 ez2 V e1 e2 &&
 List.for_all2 (syneq_exp ez1 ez2 V) es1 es2
@@ -518,8 +505,6 @@ no_labs (CLet e b) = no_labs e && no_labs b
 and
 no_labs (CLetrec defs e) = no_labs_defs defs && no_labs e
 and
-no_labs (CFun def) = no_labs_def def
-and
 no_labs (CCall e es) = no_labs e && no_labs_list es
 and
 no_labs (CPrim2 _ e1 e2) = no_labs e1 && no_labs e2
@@ -560,8 +545,6 @@ and
 all_labs (CLet e b) = all_labs e && all_labs b
 and
 all_labs (CLetrec defs e) = all_labs_defs defs && all_labs e
-and
-all_labs (CFun def) = all_labs_def def
 and
 all_labs (CCall e es) = all_labs e && all_labs_list es
 and

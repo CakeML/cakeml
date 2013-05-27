@@ -146,7 +146,6 @@ val zero_vars_def = tDefine "zero_vars"`
   (zero_vars (CProj e n) = CProj (zero_vars e) n) ∧
   (zero_vars (CLet e1 e2) = CLet (zero_vars e1) (zero_vars e2)) ∧
   (zero_vars (CLetrec defs e) = CLetrec (zero_vars_defs defs) (zero_vars e)) ∧
-  (zero_vars (CFun def) = CFun (zero_vars_def def)) ∧
   (zero_vars (CCall e es) = CCall (zero_vars e) (zero_vars_list es)) ∧
   (zero_vars (CPrim1 p1 e2) = CPrim1 p1 (zero_vars e2)) ∧
   (zero_vars (CPrim2 p2 e1 e2) = CPrim2 p2 (zero_vars e1) (zero_vars e2)) ∧
