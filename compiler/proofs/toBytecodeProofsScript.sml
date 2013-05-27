@@ -3576,7 +3576,7 @@ val compile_val = store_thm("compile_val",
         Q.PAT_ABBREV_TAC`cenv1 = ls ++ cenv` >>
         `cenv1 = cenv'` by simp[Abbr`cenv1`,Abbr`cenv'`,LIST_EQ_REWRITE] >>
         simp[] >> strip_tac >>
-        first_x_assum(qspecl_then[`rd'`,`ccs`,`cenv'`,`sz+(LENGTH defs)`,`bs1`,`bce`,`bcr`,`bc0++cc`,`REVERSE ce`]mp_tac)
+        first_x_assum(qspecl_then[`rd'`,`ccs`,`cenv'`,`sz+(LENGTH defs)`,`bs1`,`bce`,`bcr`,`bc0++cc`,`REVERSE ce`]mp_tac) >>
         simp[] >>
         discharge_hyps >- (
           rpt (BasicProvers.VAR_EQ_TAC) >>
@@ -3775,7 +3775,7 @@ val compile_val = store_thm("compile_val",
     Q.PAT_ABBREV_TAC`cenv1 = ls ++ cenv` >>
     `cenv1 = cenv'` by simp[Abbr`cenv1`,Abbr`cenv'`,LIST_EQ_REWRITE] >>
     simp[] >> strip_tac >> strip_tac >>
-    first_x_assum(qspecl_then[`rd'`,`ccs`,`cenv'`,`sz+(LENGTH defs)`,`bs1`,`bce`,`bcr`,`bc0++cc`,`REVERSE ce`]mp_tac)
+    first_x_assum(qspecl_then[`rd'`,`ccs`,`cenv'`,`sz+(LENGTH defs)`,`bs1`,`bce`,`bcr`,`bc0++cc`,`REVERSE ce`]mp_tac) >>
     simp[] >>
     discharge_hyps >- (
       rpt (BasicProvers.VAR_EQ_TAC) >>
@@ -3793,6 +3793,7 @@ val compile_val = store_thm("compile_val",
     reverse conj_tac >- (
       `rd'.sm = rd.sm` by simp[Abbr`rd'`] >>
       reverse conj_tac >- metis_tac[IS_PREFIX_TRANS,SUBMAP_TRANS] >>
+      match_mp_tac SUBMAP_TRANS >> HINT_EXISTS_TAC >>
       simp[SUBMAP_DEF,FDOM_DRESTRICT,FDOM_FUPDATE_LIST] >>
       simp[DRESTRICT_DEF,FDOM_FUPDATE_LIST] >>
       rw[] >>
