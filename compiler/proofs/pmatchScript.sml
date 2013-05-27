@@ -85,7 +85,7 @@ val free_vars_remove_mat_var_SUBSET = store_thm(
 ``∀v pes. set (free_vars (remove_mat_var v pes)) ⊆ {v} ∪ BIGUNION (IMAGE (λ(p,e). set (lshift (Cpat_vars p) (free_vars e))) (set pes))``,
 ho_match_mp_tac remove_mat_var_ind >>
 strip_tac >- rw[remove_mat_var_def] >>
-srw_tac[DNF_ss][remove_mat_var_def,SUBSET_DEF] >-
+srw_tac[DNF_ss][remove_mat_var_def,SUBSET_DEF,LET_THM] >-
   metis_tac[] >>
 qspecl_then[`p`,`0`,`shift 1 (Cpat_vars p) sk`,`v + 1`]mp_tac(CONJUNCT1 free_vars_remove_mat_vp_SUBSET) >>
 rw[SUBSET_DEF] >>
@@ -1146,7 +1146,7 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
   rw[remove_mat_var_def,LET_THM] >>
   qspecl_then [`p`,`v`] mp_tac (CONJUNCT1 Cpnomatch_remove_mat) >>
   rw[] >>
-  Q.PAT_ABBREV_TAC`ex = CLet X Y` >>
+  Q.PAT_ABBREV_TAC`ex = CLetrec X Y` >>
   qsuff_tac `∀r0. (case mr of NONE => (r0 = (s,Cexc (Craise CBind_excv)))
                    | SOME e => Cevaluate s (menv ++ env) e r0)
                    ⇒ ∃r. Cevaluate s env ex r ∧
