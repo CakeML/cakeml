@@ -1402,13 +1402,6 @@ val compile_append_out = store_thm("compile_append_out",
     fs[GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
     rw[] >> fs[]) >>
   strip_tac >- (
-    rw[compile_def] >>
-    Q.ISPECL_THEN[`env`,`sz`,`cs`,`[cb]`]mp_tac compile_closures_thm >>
-    simp[] >> strip_tac >>
-    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
-    qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
-    fs[LET_THM,GSYM FILTER_EQ_NIL,combinTheory.o_DEF,FILTER_APPEND,ALL_DISTINCT_REVERSE,FILTER_REVERSE] >> rw[] >> fs[zero_exists_lemma]) >>
-  strip_tac >- (
     rw[compile_def,LET_THM,UNCURRY] >>
     BasicProvers.EVERY_CASE_TAC >> rw[] >>
     srw_tac[ARITH_ss][] >>
