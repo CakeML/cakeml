@@ -221,7 +221,7 @@ strip_tac >- (
 strip_tac >- rw[exp_to_Cexp_def] >>
 strip_tac >- (
   rw[exp_to_Cexp_def] >>
-  fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1,ADD1] >>
+  fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1,ADD1,Abbr`n`] >>
   rw[] >>
   fsrw_tac[ARITH_ss][lem] >>
   res_tac >> fsrw_tac[ARITH_ss][] ) >>
@@ -678,16 +678,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   strip_tac >- rw[] >>
   strip_tac >- (
     rw[exp_to_Cexp_def,v_to_Cv_def,env_to_Cenv_MAP,LET_THM] >>
-    rw[Once syneq_cases] >>
-    qexists_tac`λv1 v2. v1 < LENGTH env ∧ (v2 = v1)` >>
-    qexists_tac`λv1 v2. v1 < 1 ∧ (v2 = v1)` >>
-    simp[] >>
-    simp[Once syneq_exp_cases] >>
-    disj2_tac >>
-    AP_TERM_TAC >>
-    qmatch_abbrev_tac`exp_to_Cexp z' e = exp_to_Cexp z e` >>
-    Q.ISPECL_THEN[`m.bvars`,`z`,`e`]mp_tac exp_to_Cexp_append_bvars >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,lem,Abbr`z`] ) >>
+    simp[Once Cevaluate_cases]) >>
   strip_tac >- (
     rw[exp_to_Cexp_def,LET_THM] >> fs[] >>
     rw[Once Cevaluate_cases] >>
@@ -2307,9 +2298,8 @@ val remove_mat_var_syneq = store_thm("remove_mat_var_syneq",
   simp[remove_mat_var_def] >>
   rpt gen_tac >> strip_tac >>
   simp[Once syneq_exp_cases] >>
+  qexists_tac`λx y. x = 0 ∧ y = 0` >>
   conj_tac >- (
-    simp[Once syneq_exp_cases] >>
-    qexists_tac`λx y. (x = 0) ∧ (y = 0)` >>
     simp[Once syneq_exp_cases] >>
     simp[syneq_cb_aux_def] >>
     simp[shift_def] >>
@@ -2501,11 +2491,12 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
   strip_tac >- (
     rw[exp_to_Cexp_def] >>
     rw[Once syneq_exp_cases] >>
-    rw[Once syneq_exp_cases] >>
     qexists_tac`λv1 v2. (v1 = 0) ∧ (v2 = v1)` >>
     simp[] >>
+    simp[Once syneq_exp_cases] >>
     simp[syneq_cb_aux_def] >>
     simp[shift_def] >>
+    reverse conj_tac >- simp[Once syneq_exp_cases] >>
     match_mp_tac syneq_exp_trans_matchable >>
     Q.PAT_ABBREV_TAC`e1 = exp_to_Cexp X exp` >>
     map_every qexists_tac[`LENGTH bvs + LENGTH bvs1 + 1`,`e1`,`inv (λx y. ((x = 0) ∧ (y = 0)) ∨ (x ≠ 0) ∧ (y = x + 1))`] >>
