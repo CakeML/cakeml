@@ -577,11 +577,11 @@ type_specs mn cenv tenv (Stype td :: specs) cenv' tenv')
 
 /\
 
-(! mn cenv tenv tn specs cenv' tenv'. ( EVERY (\p . 
+(! mn cenv tenv tn specs cenv' tenv' tvs. ( ALL_DISTINCT tvs /\ EVERY (\p . 
   (case (p ) of ( (_,(_,_,tn')) ) => mk_id mn tn <> tn' )) cenv /\
 type_specs mn cenv tenv specs cenv' tenv')
 ==>
-type_specs mn cenv tenv (Stype_opq tn :: specs) cenv' tenv')`;
+type_specs mn cenv tenv (Stype_opq tvs tn :: specs) cenv' tenv')`;
 
 val _ = Define `
  (weakE tenv_impl tenv_spec =  
@@ -658,7 +658,6 @@ check_signature (SOME mn) cenv' tenv' spec cenv'' tenv'' /\
 type_prog (bind mn tenv'' menv) (merge cenv'' cenv) tenv ds2 menv'' cenv''' tenv''')
 ==>
 type_prog menv cenv tenv (Tmod mn spec ds1 :: ds2) (merge menv'' [(mn,tenv'')]) (merge cenv''' cenv'') tenv''')`;
-
 
 (*val init_tenv : tenvE*)
 val _ = Define `

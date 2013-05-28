@@ -92,7 +92,7 @@ type ast_decs = list ast_dec
 type ast_spec =
   | Ast_Sval of varN * ast_t
   | Ast_Stype of ast_type_def
-  | Ast_Stype_opq of typeN
+  | Ast_Stype_opq of list tvarN * typeN
 
 type ast_specs = list ast_spec
 
@@ -254,8 +254,8 @@ elab_spec type_bound (Ast_Stype td :: spec) =
   let type_bound' = List.map (fun (tvs,tn,ctors) -> tn) td in
     Stype (List.map (elab_td (type_bound' @ type_bound)) td) :: elab_spec (type_bound' @ type_bound) spec
 and
-elab_spec type_bound (Ast_Stype_opq tn::spec) =
-  Stype_opq tn :: elab_spec (tn::type_bound) spec
+elab_spec type_bound (Ast_Stype_opq tvs tn::spec) =
+  Stype_opq tvs tn :: elab_spec (tn::type_bound) spec
 
 let rec
 elab_top type_bound ctors (Ast_Tdec d) =

@@ -153,7 +153,7 @@ type decs = list dec
 type spec =
   | Sval of varN * t
   | Stype of type_def
-  | Stype_opq of typeN
+  | Stype_opq of list tvarN * typeN
 
 type specs = list spec
 

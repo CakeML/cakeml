@@ -520,11 +520,12 @@ type_specs mn cenv tenv (Stype td :: specs) cenv' tenv'
 
 and
 
-forall mn cenv tenv tn specs cenv' tenv'.
+forall mn cenv tenv tn specs cenv' tenv' tvs.
+all_distinct tvs &&
 List.for_all (fun (_,(_,_,tn')) -> mk_id mn tn <> tn') cenv &&
 type_specs mn cenv tenv specs cenv' tenv'
 ==>
-type_specs mn cenv tenv (Stype_opq tn :: specs) cenv' tenv'
+type_specs mn cenv tenv (Stype_opq tvs tn :: specs) cenv' tenv'
 
 let weakE tenv_impl tenv_spec =
   forall x.

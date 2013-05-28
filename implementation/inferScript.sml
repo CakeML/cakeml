@@ -476,8 +476,9 @@ val check_specs_def = Define `
   do () <- guard (check_ctor_tenv mn cenv td) "Bad type definition";
      check_specs mn (merge (build_ctor_tenv mn td) cenv) env specs
   od) ∧
-(check_specs mn cenv env (Stype_opq tn :: specs) =
+(check_specs mn cenv env (Stype_opq tvs tn :: specs) =
   do () <- guard (EVERY (\(cn,(x,y,tn')). mk_id mn tn ≠ tn') cenv) "Duplicate type definition";
+     () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
      check_specs mn cenv env specs
   od)`;
 

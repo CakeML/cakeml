@@ -887,11 +887,11 @@ val ptree_SpecLine_def = Define`
             td <- ptree_TypeDec td_pt;
             SOME(Ast_Stype td)
           od
-        | [typetok; tname_pt] =>
+        | [typetok; tynm_pt] =>
           do
             assert(typetok = Lf (TOK TypeT));
-            tname <- ptree_V tname_pt;
-            SOME(Ast_Stype_opq tname)
+            tynm <- ptree_TypeName tynm_pt;
+            SOME(Ast_Stype_opq (FST tynm) (SND tynm))
           od
         | [valtok; vname_pt; coltok; type_pt] =>
           do

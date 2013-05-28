@@ -114,7 +114,7 @@ val _ = Hol_datatype `
  ast_spec =
     Ast_Sval of varN => ast_t
   | Ast_Stype of ast_type_def
-  | Ast_Stype_opq of typeN`;
+  | Ast_Stype_opq of tvarN list => typeN`;
 
 
 val _ = type_abbrev( "ast_specs" , ``: ast_spec list``);
@@ -300,8 +300,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (let type_bound' = ( MAP (\ (tvs,tn,ctors) . tn) td) in
     Stype ( MAP (elab_td (type_bound' ++ type_bound)) td) :: elab_spec (type_bound' ++ type_bound) spec))
 /\
-(elab_spec type_bound (Ast_Stype_opq tn::spec) =  
-(Stype_opq tn :: elab_spec (tn ::type_bound) spec))`;
+(elab_spec type_bound (Ast_Stype_opq tvs tn::spec) =  
+(Stype_opq tvs tn :: elab_spec (tn ::type_bound) spec))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_spec_defn;
 
