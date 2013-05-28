@@ -398,9 +398,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (let s = (compile env TCNonTail sz s e1) in
   let (s,n0) = ( get_label s) in
   let (s,n1) = ( get_label s) in
+  let (s,n2) = ( get_label s) in
   let s = ( emit s [(JumpIf (Lab n0)); (Jump (Lab n1)); Label n0]) in
   let s = (compile env t sz s e2) in
-  let (s,n2) = ( get_label s) in
   let s = ( emit s [Jump (Lab n2); Label n1]) in
   let s = (compile env t sz s e3) in
   emit s [Label n2]))
