@@ -587,7 +587,9 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
   map_every qx_gen_tac[`Cs'`,`Cv`] >> strip_tac >>
   qspecl_then[`Cs`,`Cenv`,`Ce`,`(Cs',Cval Cv)`]mp_tac(CONJUNCT1 compile_val) >> simp[] >>
   disch_then(qspecl_then[`rd`,`cce`,`renv`,`LENGTH rs.rbvars + 2`,`bs1`
-    ,`bc0 ++ [PushPtr(Lab l1);PushExc]++c0`,`DROP (LENGTH bc0 + 2 + LENGTH c0) bs.code`,`bc0 ++ [PushPtr(Lab l1);PushExc] ++ c0`]mp_tac) >>
+    ,`bc0 ++ [PushPtr(Lab l1);PushExc]++c0`,`DROP (LENGTH bc0 + 2 + LENGTH c0) bs.code`
+    ,`bc0 ++ [PushPtr(Lab l1);PushExc]++c0`,`REVERSE bc1`]mp_tac) >>
+  simp[DROP_APPEND1,DROP_APPEND2,DROP_LENGTH_NIL_rwt] >>
   discharge_hyps >- (
     simp[Abbr`bs1`,DROP_APPEND1,DROP_APPEND2,DROP_LENGTH_NIL] >>
     conj_asm1_tac >- (
@@ -628,7 +630,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     strip_tac >>
     fsrw_tac[DNF_ss,ARITH_ss][EVERY_MEM,between_def,MEM_MAP,FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,MEM_GENLIST,Abbr`l1`] >>
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
-  disch_then(qspecl_then[`REVERSE bc1`]mp_tac o CONJUNCT1) >>
+  disch_then(mp_tac o CONJUNCT1) >>
   simp[Abbr`bs1`] >>
   simp_tac(srw_ss()++DNF_ss)[code_for_push_def,LET_THM] >>
   map_every qx_gen_tac[`rf`,`rd'`,`bv`] >> strip_tac >>
