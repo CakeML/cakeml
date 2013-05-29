@@ -359,10 +359,21 @@ val Cenv_bs_pc_handler = store_thm("Cenv_bs_pc_handler",
   ``∀rd s env env0 sz0 bs' bs p h. Cenv_bs rd s env env0 sz0 bs' ∧ (bs = bs' with <| pc := p; handler := h |>) ⇒ Cenv_bs rd s env env0 sz0 bs``,
   rw[Cenv_bs_with_pc] >> fs[Cenv_bs_def,s_refs_def,good_rd_def])
 
+val err_to_Cerr = Define`
+  (err_to_Cerr (Rraise Bind_error) = Craise CBind_excv) ∧
+  (err_to_Cerr (Rraise Div_error) = Craise CDiv_excv) ∧
+  (err_to_Cerr (Rraise (Int_error n)) = Craise (CLitv (IntLit n))) ∧
+  (err_to_Cerr (Rtype_error) = Ctype_error)`
+val _ = export_rewrites["err_to_Cerr_def"]
+
 val err_bv_def = Define`
   (err_bv Div_error bv ⇔ bv = Block (block_tag+div_exc_cn) []) ∧
   (err_bv Bind_error bv ⇔ bv = Block (block_tag+bind_exc_cn) []) ∧
   (err_bv (Int_error n) bv ⇔ bv = Number n)`
+
+val Cmap_result_Rerr = store_thm("Cmap_result_Rerr",
+ ``Cmap_result f (Rerr err) = Cexc (err_to_Cerr err)``,
+ Cases_on`err`>>simp[]>>Cases_on`e`>>simp[])
 
 val compile_fake_exp_val = store_thm("compile_fake_exp_val",
   ``∀rs vars expf menv tup cenv s env exp s' beh rs' bc rd vv0 vv1 bc0 bs.
@@ -998,6 +1009,27 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     qpat_assum`∀n. n < LENGTH rs.rbvars ⇒ X`(qspec_then`n - LENGTH vv1`mp_tac) >>
     simp[Abbr`renv`,CompilerLibTheory.el_check_def] >>
     simp[EL_CONS,PRE_SUB1]) >>
+  rfs[Cmap_result_Rerr] >>
+  BasicProvers.VAR_EQ_TAC >>
+  fs[] >>
+  disch_then(qspec_then`TCNonTail`mp_tac) >>
+  simp[Abbr`bs1`] >>
+  strip_tac >> gen_tac >> strip_tac >>
+  BasicProvers.VAR_EQ_TAC >>
+  BasicProvers.VAR_EQ_TAC >>
+  `∃v. e'' = Craise v` by (
+    Cases_on`e''`>>fs[]>>
+    Cases_on`err`>>fs[] ) >>
+  fs[] >>
+  first_x_assum(qspec_then`[]`mp_tac) >>
+  simp[ADD1] >>
+  simp[code_for_return_def] >>
+  disch_then(qx_choosel_then[`bv`,`rf`,`rd'`]strip_assume_tac) >>
+  map_every qexists_tac[`bv`,`rf`,`rd'`] >>
+  simp[CONJ_ASSOC] >>
+  reverse conj_tac >- (
+
+    cheat ) >>
   cheat)
 
 (* TODO: move?*)
