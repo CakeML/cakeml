@@ -97,8 +97,15 @@ val tytest = parsetest ``nType`` ``ptree_Type``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
-val _ = parsetest ``nREPLPhrase`` ``ptree_REPLPhrase``
-                  "structure s :> sig type 'a t end = struct end;"
+val _ = parsetest0 ``nREPLPhrase`` ``ptree_REPLPhrase``
+                   "structure s :> sig type 'a t type ('b,'c) u val z : 'a t end = struct end;"
+                   (SOME ``[Ast_Tmod "s"
+                                     (SOME [Ast_Stype_opq ["'a"] "t";
+                                            Ast_Stype_opq ["'b"; "'c"] "u";
+                                            Ast_Sval "z"
+                                                     (Ast_Tapp [Ast_Tvar "'a"]
+                                                               (Short "t"))])
+                                     []]``)
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "4 handle IntError x => 3 + 4"
                    (SOME ``Ast_Handle (Ast_Lit (IntLit 4))
