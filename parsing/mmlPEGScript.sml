@@ -384,7 +384,7 @@ val mmlPEG_def = zDefine`
               (mkNT nSpecLine,
                choicel [seql [tokeq ValT; pnt nV; tokeq ColonT; pnt nType]
                              (bindNT nSpecLine);
-                        seql [tokeq TypeT; pnt nV] (bindNT nSpecLine);
+                        seql [tokeq TypeT; pnt nTypeName] (bindNT nSpecLine);
                         pegf (pnt nTypeDec) (bindNT nSpecLine)]);
               (mkNT nSpecLineList,
                choicel [seql [pnt nSpecLine; pnt nSpecLineList]

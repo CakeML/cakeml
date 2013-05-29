@@ -165,7 +165,7 @@ val mmlG_def = mk_grammar_def ginfo
 
  (* modules *)
  SpecLine ::= "val" V ":" Type
-           |  "type" V
+           |  "type" TypeName
            |  TypeDec ;
  SpecLineList ::= SpecLine SpecLineList | ";" SpecLineList | ;
  SignatureValue ::= "sig" SpecLineList "end" ;
