@@ -658,7 +658,6 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     strip_tac >>
     fsrw_tac[DNF_ss,ARITH_ss][EVERY_MEM,between_def,MEM_MAP,FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,MEM_GENLIST,Abbr`l1`] >>
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
-
   Cases_on`beh`>>fs[Abbr`G`]>- (
     disch_then(strip_assume_tac o CONJUNCT1) >>
     gen_tac >> ntac 2 strip_tac >> fs[] >>
@@ -1209,7 +1208,8 @@ val compile_dec_val = store_thm("compile_dec_val",
         let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := (Number i1)::bv::bs.stack; refs := rf|> in
         bc_next^*bs bs' ∧
         err_bv err bv ∧
-        env_rs cenv env rs' rd' s (bs' with stack := bs.stack)``,
+        env_rs cenv env rs' rd' s' (bs' with stack := bs.stack)
+      | (s',Rerr Rtype_error) => T``,
   ho_match_mp_tac evaluate_dec_ind >>
   strip_tac >- (
     rpt gen_tac >>
@@ -1246,8 +1246,8 @@ val compile_dec_val = store_thm("compile_dec_val",
     qspecl_then[`rs`,`pat_bindings p []`,`λb. Mat e [(p,b)]`,`menv`,`tup`,`cenv`,`s`,`env`]mp_tac compile_fake_exp_val >>
     simp[] >>
     REWRITE_TAC[GSYM MAP_APPEND] >>
-    disch_then(qspecl_then[`s2`,`vs`,`rd`,`bc0`,`bs`]mp_tac) >>
-    simp[] >>
+    disch_then(qspecl_then[`s2`,`Rval (Conv (Short "") vs)`,`rd`,`bc0`,`bs`]mp_tac) >>
+    simp[AND_IMP_INTRO] >>
     discharge_hyps >- (
       fs[PARTITION_DEF,markerTheory.Abbrev_def,FV_list_MAP] >>
       imp_res_tac PART_MEM >>
@@ -1324,15 +1324,23 @@ val compile_dec_val = store_thm("compile_dec_val",
       fs[LibTheory.emp_def] >> strip_tac >>
       simp[Once pmatch_nil]) >>
     qmatch_assum_abbrev_tac`evaluate menv ((Short "",tup)::cenv) s env Mexp (s2,Rerr (Rraise Bind_error))` >>
-
     qspecl_then[`rs`,`pat_bindings p []`,`λb. Mat e [(p,b)]`,`menv`,`tup`,`cenv`,`s`,`env`]mp_tac compile_fake_exp_val >>
-
     simp[] >>
     REWRITE_TAC[GSYM MAP_APPEND] >>
-
+    disch_then(qspecl_then[`s2`,`Rerr (Rraise Bind_error)`,`rd`,`bc0`,`bs`]mp_tac) >>
+    simp[AND_IMP_INTRO] >>
+    discharge_hyps >- (
+      fs[PARTITION_DEF,markerTheory.Abbrev_def,FV_list_MAP] >>
+      imp_res_tac PART_MEM >>
+      imp_res_tac PART_LENGTH >>
+      reverse conj_tac >- (fs[] >> metis_tac[]) >>
+      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    simp[err_bv_def] ) >>
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
-  strip_tac >- rw[] >>
+  strip_tac >- (
+    cheat ) >>
   strip_tac >- (
     rpt gen_tac >>
     simp[compile_dec_def,FST_triple] >>
@@ -1362,8 +1370,8 @@ val compile_dec_val = store_thm("compile_dec_val",
     qspecl_then[`rs`,`MAP FST funs`,`λb. Letrec funs b`,`menv`,`tup`,`cenv`,`s`,`env`]mp_tac compile_fake_exp_val >>
     simp[] >>
     REWRITE_TAC[GSYM MAP_APPEND] >>
-    disch_then(qspecl_then[`s`,`vs`,`rd`,`bc0`,`bs`]mp_tac) >>
-    simp[] >>
+    disch_then(qspecl_then[`s`,`Rval (Conv (Short "") vs)`,`rd`,`bc0`,`bs`]mp_tac) >>
+    simp[AND_IMP_INTRO] >>
     discharge_hyps >- (
       fs[PARTITION_DEF,markerTheory.Abbrev_def,FV_list_MAP] >>
       imp_res_tac PART_MEM >>
