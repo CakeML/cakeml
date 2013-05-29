@@ -367,7 +367,6 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       closed_under_menv menv env s ∧
       closed_under_cenv cenv menv env s ∧
       (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
-      LENGTH s' ≤ LENGTH rd.sm ∧
       env_rs cenv env rs rd s (bs with code := bc0) ∧
       ALL_DISTINCT vars ∧ (LENGTH vars = LENGTH vs) ∧
       (PARTITION (λv. MEM v rs.rbvars) vars = (vv0,vv1)) ∧
@@ -1159,7 +1158,6 @@ val compile_dec_val = store_thm("compile_dec_val",
       closed_under_cenv cenv menv env s ∧
       closed_under_menv menv env s ∧
       (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
-      LENGTH s' ≤ LENGTH rd.sm ∧
       env_rs cenv env rs rd s (bs with code := bc0) ∧
       (compile_dec rs dec = (rs',bc ++ [Stop])) ∧
       (bs.code = bc0 ++ bc ++ [Stop]) ∧
