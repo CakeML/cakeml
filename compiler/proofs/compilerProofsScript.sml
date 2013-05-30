@@ -383,6 +383,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       FV exp ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
       closed_under_menv menv env s ∧
       closed_under_cenv cenv menv env s ∧
+      all_cns_exp exp ⊆ set (MAP FST ((Short "",tup)::cenv)) ∧
       (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
       env_rs cenv env rs rd s (bs with code := bc0) ∧
       ALL_DISTINCT vars ∧
@@ -411,7 +412,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
   simp[GSYM AND_IMP_INTRO] >>
   Q.PAT_ABBREV_TAC`Ce0 = exp_to_Cexp X (expf Y)` >>
   Q.PAT_ABBREV_TAC`p = label_closures Y X Ce0` >>
-  PairCases_on`p`>>simp[]>> ntac 15 strip_tac >>
+  PairCases_on`p`>>simp[]>> ntac 16 strip_tac >>
   qpat_assum`Abbrev(Ce0 = X)`mp_tac >>
   Q.PAT_ABBREV_TAC`exp' = expf X` >>
   `exp' = exp` by (
