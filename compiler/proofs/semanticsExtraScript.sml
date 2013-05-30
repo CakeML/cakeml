@@ -661,6 +661,10 @@ val all_cns_defs_MAP = store_thm("all_cns_defs_MAP",
   ``∀ds. all_cns_defs ds = BIGUNION (IMAGE all_cns_exp (set (MAP (SND o SND) ds)))``,
   Induct >>simp[]>>qx_gen_tac`x`>>PairCases_on`x`>>simp[])
 
+val all_cns_pes_MAP = store_thm("all_cns_pes_MAP",
+  ``∀ps. all_cns_pes ps = BIGUNION (IMAGE all_cns_exp (set (MAP SND ps)))``,
+  Induct >>simp[]>>qx_gen_tac`x`>>PairCases_on`x`>>simp[])
+
 val do_app_all_cns = store_thm("do_app_all_cns",
   ``∀cns s env op v1 v2 s' env' exp.
       all_cns v1 ⊆ cns ∧ all_cns v2 ⊆ cns ∧
