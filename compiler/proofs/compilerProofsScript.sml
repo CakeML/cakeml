@@ -1430,7 +1430,34 @@ val compile_dec_val = store_thm("compile_dec_val",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- (
-    cheat ) >>
+    rpt gen_tac >>
+    simp[compile_dec_def] >>
+    strip_tac >> rpt gen_tac >> strip_tac >>
+    qabbrev_tac`vv = PARTITION (λv. MEM v rs.rbvars) (pat_bindings p [])` >>
+    PairCases_on`vv` >>
+    qabbrev_tac`exp = Con (Short "") (MAP (Var o Short) (vv0 ++ vv1))` >>
+    `Short "" ∉ set (MAP FST cenv)` by ( fs[env_rs_def]) >>
+    Cases_on`err=Rtype_error`>>simp[]>>
+    `evaluate menv ((Short "",(LENGTH vv0 + LENGTH vv1,ARB))::cenv) s env (Mat e [(p,exp)])
+        (s',Rerr err)` by (
+      simp[Once evaluate_cases] >>
+      disj2_tac >>
+      match_mp_tac(MP_CANON (CONJUNCT1 evaluate_extend_cenv)) >>
+      simp[] ) >>
+    qmatch_assum_abbrev_tac`evaluate menv ((Short "",tup)::cenv) s env Mexp (s',Rerr err)` >>
+    qspecl_then[`rs`,`pat_bindings p []`,`λb. Mat e [(p,b)]`,`menv`,`tup`,`cenv`,`s`,`env`]mp_tac compile_fake_exp_val >>
+    simp[] >>
+    REWRITE_TAC[GSYM MAP_APPEND] >>
+    disch_then(qspecl_then[`s'`,`Rerr err`,`rd`,`bc0`,`bs`]mp_tac) >>
+    simp[AND_IMP_INTRO] >>
+    discharge_hyps >- (
+      fs[PARTITION_DEF,markerTheory.Abbrev_def,FV_list_MAP] >>
+      imp_res_tac PART_MEM >>
+      imp_res_tac PART_LENGTH >>
+      reverse conj_tac >- (fs[] >> metis_tac[]) >>
+      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    Cases_on`err`>>simp[] ) >>
   strip_tac >- (
     rpt gen_tac >>
     simp[compile_dec_def,FST_triple] >>
