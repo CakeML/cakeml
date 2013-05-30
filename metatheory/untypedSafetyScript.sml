@@ -95,30 +95,28 @@ rw [GSYM small_big_exp_equiv] >|
      metis_tac [] >-
      metis_tac [] >-
      metis_tac [] >-
+     metis_tac [] >-
      metis_tac [] >>
      fs [GSYM untyped_safety_exp] >>
      PairCases_on `r` >>
      fs [] >>
      cases_on `r1` >>
+     fs [] >>
+     cases_on `ALL_DISTINCT (pat_bindings p [])` >>
      fs [] >|
-     [cases_on `ALL_DISTINCT (pat_bindings p [])` >>
+     [cases_on `pmatch cenv r0 p a emp` >>
           fs [] >|
-          [cases_on `pmatch cenv r0 p a emp` >>
-               fs [] >|
-               [qexists_tac `(r0, Rerr (Rraise Bind_error))` >>
-                    rw [] >>
-                    metis_tac [],
-                qexists_tac `(r0, Rerr Rtype_error)` >>
-                    rw [] >>
-                    metis_tac [],
-                fs [merge_def, emp_def] >-
-                    metis_tac [] >>
-                    `?r. evaluate_decs mn menv cenv r0 (l ++ env) ds r` by metis_tac [] >>
-                    PairCases_on `r` >>
-                    metis_tac [APPEND]],
+          [qexists_tac `(r0, Rerr (Rraise Bind_error))` >>
+               rw [] >>
+               metis_tac [],
            qexists_tac `(r0, Rerr Rtype_error)` >>
                rw [] >>
-               metis_tac []],
+               metis_tac [],
+           fs [merge_def, emp_def] >-
+               metis_tac [] >>
+               `?r. evaluate_decs mn menv cenv r0 (l ++ env) ds r` by metis_tac [] >>
+               PairCases_on `r` >>
+               metis_tac [APPEND]],
       qexists_tac `(r0,Rerr e')` >>
           rw []],
  metis_tac [],

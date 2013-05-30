@@ -867,7 +867,7 @@ every_case_tac >>
 rw [] >>
 metis_tac []);
 
-
+(*
 val infer_e_sound = Q.prove (
 `(!menv cenv env e st st' ext tenv t extra_constraints s.
     (infer_e menv cenv env e st = (Success t, st')) ∧
