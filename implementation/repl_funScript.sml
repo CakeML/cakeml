@@ -61,18 +61,20 @@ val initial_repl_fun_state = Define`
     top := (Tmod "" NONE []) |>`
 
 val print_result_def = Define `
-  print_result s bs =
+  print_result ss sf bs =
     if HD bs.stack = (Number 0) then
       (bs with <| stack := TL bs.stack |>
-      ,case s.top of
+      ,ss
+      ,case ss.top of
        | Tmod _ _ _ => "module"
        | Tdec dec =>
            simple_printer
-            (preprint_dec s.rcompiler_state dec)
-            (cpam s.rcompiler_state) (TL bs.stack)
+            (preprint_dec ss.rcompiler_state dec)
+            (cpam ss.rcompiler_state) (TL bs.stack)
       )
     else
       (bs with <| stack := TL (TL bs.stack) |> (* TODO: depends on how exception handlers are represented *)
+      ,sf
       ,"Exception" (* TODO: simple_print the actual exception at HD (TL bs.stack) *)
       )`
 
@@ -101,8 +103,8 @@ val parse_elaborate_infertype_compile_def = Define `
           | Failure _ => Failure "<type error>"
             (* type found, type safe! *)
           | Success is =>
-             let (cs,code) = compile_top s.rcompiler_state top in
-               Success (code,update_state s es is cs top)`
+             let (cs,cf,code) = compile_top s.rcompiler_state top in
+               Success (code,update_state s es is css top,update_state s es is csf top)`
 
 val install_code_def = Define `
   install_code code bs =
@@ -135,13 +137,13 @@ val main_loop_def = tDefine "main_loop" `
           (* case: cannot turn into code, print error message, continue *)
           Failure error_msg => Result error_msg (main_loop (bs,s) rest_of_input)
         | (* case: new code generated, install, run, print and continue *)
-          Success (code,new_s) =>
+          Success (code,new_s_val,new_s_exc) =>
             case bc_eval (install_code code bs) of
               (* case: evaluation of code does not terminate *)
               NONE => Diverge
             | (* case: evaluation terminated, print result and continue *)
               SOME new_bs =>
-                let (new_bs,output) = print_result new_s new_bs in
+                let (new_bs,new_s,output) = print_result new_s_val new_s_exc new_bs in
                 Result output (main_loop (new_bs,new_s) rest_of_input) ` tac ;
 
 val repl_fun_def = Define`

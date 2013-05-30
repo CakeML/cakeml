@@ -110,16 +110,18 @@ val _ = Define `
                    ; Label l1; Stack (PushInt i1); Label l2; Stop]) in
   (( rs with<| rbvars := ( REVERSE news) ++rs.rbvars
     ; rnext_label := cs.next_label |>)
+  ,( rs with<| rnext_label := cs.next_label |>)
   , REVERSE cs.out)))`;
 
 
  val compile_dec_def = Define `
 
-(compile_dec rs (Dtype ts) =
-  (( rs with<| contab := FOLDL
-        (\ct p . (case (ct ,p ) of ( ct , (_,_,cs) ) => number_constructors cs ct ))
-        rs.contab ts |>)
-  ,[Stack (PushInt i0); Stop]))
+(compile_dec rs (Dtype ts) =  
+(let rs =    
+(( rs with<| contab := FOLDL
+         (\ct p . (case (ct ,p ) of ( ct , (_,_,cs) ) => number_constructors cs ct ))
+         rs.contab ts |>)) in
+  (rs,rs,[Stack (PushInt i0); Stop])))
 /\
 (compile_dec rs (Dletrec defs) =  
 (let vs = ( MAP (\p . 

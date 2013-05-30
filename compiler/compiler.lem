@@ -75,15 +75,17 @@ let compile_fake_exp rs vs e =
                    ; Label l1; Stack (PushInt i1); Label l2; Stop] in
   (<| rs with rbvars = (List.rev news)@rs.rbvars
     ; rnext_label = cs.next_label |>
+  ,<| rs with rnext_label = cs.next_label |>
   ,List.rev cs.out)
 
 let rec
 compile_dec rs (Dtype ts) =
-  (<| rs with contab =
-      List.fold_left
-        (fun ct (_,_,cs) -> number_constructors cs ct)
-        rs.contab ts |>
-  ,[Stack (PushInt i0); Stop])
+  let rs =
+    <| rs with contab =
+       List.fold_left
+         (fun ct (_,_,cs) -> number_constructors cs ct)
+         rs.contab ts |> in
+  (rs,rs,[Stack (PushInt i0); Stop])
 and
 compile_dec rs (Dletrec defs) =
   let vs = List.map (fun (n,_,_) -> n) defs in

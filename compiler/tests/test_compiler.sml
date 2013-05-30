@@ -266,7 +266,7 @@ val e43 = ``Letrec [("o","n",
        (Var (Short "o"))
        (App (Opn Minus) (Var (Short "n")) (Lit (IntLit 1)))))]
   (App Opapp (Var (Short "o")) (Lit (IntLit 1000)))``
-val (bs43,_) = prep_exp inits e43
+val (bs43,_,_) = prep_exp inits e43
 val SOME s43 = bc_eval_limit 12 bs43
 val [Number z, Number i] = bc_state_stack s43
 val SOME 0 = intML.toInt i;

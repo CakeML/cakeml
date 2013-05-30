@@ -127,24 +127,26 @@ fun add_code c bs = bc_state_code_fupd
 
 fun run_decs (bs,rs) [] = (bs,rs)
   | run_decs (bs,rs) (d::ds) = let
-      val (rs,c) = compile_dec rs (term_to_dec d)
+      val (rss,(rsf,c)) = compile_dec rs (term_to_dec d)
       val bs = add_code c bs
       val SOME bs = bc_eval bs
+      val rs = if List.hd (bc_state_stack bs) = Number i0 then rss else rsf
       val bs = bump_pc (bc_state_stack_fupd List.tl bs)
     in run_decs (bs,rs) ds end
 
 fun prep_exp (bs,rs) e = let
-  val (rs,c) = compile_dec rs (term_to_dec ``Dlet (Pvar "it") ^e``)
-in (add_code c bs,rs) end
+  val (rss,(rsf,c)) = compile_dec rs (term_to_dec ``Dlet (Pvar "it") ^e``)
+in (add_code c bs,rss,rsf) end
 
 val inits = (init_bc_state, init_compiler_state)
 
 fun mst_run_decs_exp_gen test (ds,e) = let
   val (bs,rs) = run_decs inits ds
-  val (bs,rs) = prep_exp (bs,rs) e
+  val (bs,rss,rsf) = prep_exp (bs,rs) e
   val (SOME bs) = bc_eval bs
   val Number x::st = bc_state_stack bs
   val true = test x
+  val rs = if x = i0 then rss else rsf
 in (cpam rs, st) end
 
 fun valt x = intML.toInt x = SOME 0
