@@ -615,10 +615,12 @@ val build_rec_env_MAP = store_thm("build_rec_env_MAP",
 
 val all_cns_pat_def = Define`
   (all_cns_pat (Pvar _) = {}) ∧
+  (all_cns_pat (Plit _) = {}) ∧
   (all_cns_pat (Pcon cn ps) = cn INSERT all_cns_pats ps) ∧
   (all_cns_pat (Pref p) = all_cns_pat p) ∧
   (all_cns_pats [] = {}) ∧
   (all_cns_pats (p::ps) = all_cns_pat p ∪ all_cns_pats ps)`
+val _ = export_rewrites["all_cns_pat_def"]
 
 val all_cns_exp_def = tDefine "all_cns_exp"`
   (all_cns_exp (Raise er) = {}) ∧

@@ -1275,13 +1275,32 @@ val FLAT_MAP_MAP_lemma = store_thm("FLAT_MAP_MAP_lemma",
     MAP (Short o FST) (FLAT (MAP (SND o SND) tds))``,
   simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY])
 
-(*
+val pat_to_Cpat_SUBMAP = store_thm("pat_to_Cpat_SUBMAP",
+  ``(∀p m m'. all_cns_pat p ⊆ FDOM m.cnmap ∧ m.cnmap ⊑ m'.cnmap ∧ (m'.bvars = m.bvars) ⇒ (SND (pat_to_Cpat m' p) = SND (pat_to_Cpat m p))) ∧
+    (∀ps m m'. all_cns_pats ps ⊆ FDOM m.cnmap ∧ m.cnmap ⊑ m'.cnmap ∧ (m'.bvars = m.bvars) ⇒ (SND (pats_to_Cpats m' ps) = SND (pats_to_Cpats m ps)))``,
+  ho_match_mp_tac(TypeBase.induction_of``:pat``)>>
+  simp[ToIntLangTheory.pat_to_Cpat_def,UNCURRY] >>
+  simp[pat_to_Cpat_cnmap] >>
+  conj_tac >- rw[SUBMAP_DEF] >>
+  rw[] >>
+  first_x_assum match_mp_tac >>
+  simp[pat_to_Cpat_cnmap] >>
+  simp[FST_pat_to_Cpat_bvars])
+
 val exp_to_Cexp_SUBMAP = store_thm("exp_to_Cexp_SUBMAP",
-  ``(∀m exp. all_cns
-  enveq
-  all_cns_def
-  exp_to_Cexp_def
-  exp_to_Cexp_ind
+  ``(∀m exp m'. all_cns_exp exp ⊆ FDOM m.cnmap ∧ m.cnmap ⊑ m'.cnmap ∧ (m'.bvars = m.bvars) ⇒ (exp_to_Cexp m' exp = exp_to_Cexp m exp)) ∧
+    (∀m ds m'. all_cns_defs ds ⊆ FDOM m.cnmap ∧ m.cnmap ⊑ m'.cnmap ∧ (m'.bvars = m.bvars) ⇒ (defs_to_Cdefs m' ds = defs_to_Cdefs m ds)) ∧
+    (∀m pes m'. all_cns_pes pes ⊆ FDOM m.cnmap ∧ m.cnmap ⊑ m'.cnmap ∧ (m'.bvars = m.bvars) ⇒ (pes_to_Cpes m' pes = pes_to_Cpes m pes)) ∧
+    (∀m es m'. all_cns_list es ⊆ FDOM m.cnmap ∧ m.cnmap ⊑ m'.cnmap ∧ (m'.bvars = m.bvars) ⇒ (exps_to_Cexps m' es = exps_to_Cexps m es))``,
+  ho_match_mp_tac exp_to_Cexp_ind >>
+  simp[exp_to_Cexp_def] >>
+  conj_tac >- rw[SUBMAP_DEF] >>
+  simp[UNCURRY] >>
+  simp[pat_to_Cpat_SUBMAP] >>
+  rw[] >>
+  first_x_assum (match_mp_tac o MP_CANON) >>
+  simp[pat_to_Cpat_cnmap,FST_pat_to_Cpat_bvars] >>
+  Cases_on`pat_to_Cpat m p`>>simp[])
 
 val v_to_Cv_SUBMAP = store_thm("v_to_Cv_SUBMAP",
   ``(∀m v m'. all_cns v ⊆ (FDOM m) ∧ m ⊑ m' ⇒ v_to_Cv m' v = v_to_Cv m v) ∧
@@ -1289,8 +1308,9 @@ val v_to_Cv_SUBMAP = store_thm("v_to_Cv_SUBMAP",
     (∀m env m'. BIGUNION (IMAGE all_cns (env_range env)) ⊆ FDOM m ∧ m ⊑ m' ⇒ env_to_Cenv m' env = env_to_Cenv m env)``,
   ho_match_mp_tac v_to_Cv_ind >> simp[v_to_Cv_def] >>
   conj_tac >- rw[SUBMAP_DEF] >>
-  conj_tac
-*)
+  simp[exp_to_Cexp_SUBMAP] >>
+  rw[] >> AP_TERM_TAC >>
+  simp[exp_to_Cexp_SUBMAP])
 
 val compile_dec_val = store_thm("compile_dec_val",
   ``∀mn menv cenv s env dec res. evaluate_dec mn menv cenv s env dec res ⇒
