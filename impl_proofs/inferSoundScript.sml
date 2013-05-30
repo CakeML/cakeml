@@ -1034,40 +1034,34 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      metis_tac [convert_t_subst, rich_listTheory.LENGTH_COUNT_LIST, LENGTH_MAP,
                 MAP_MAP_o, combinTheory.o_DEF],
  (* Fun *)
-
-     `t_wfs s` by metis_tac [stupid_record_thing,sub_completion_wfs, infer_e_wfs] >>
-     rw [t_walkstar_eqn1, convert_t_def, Tfn_def] >|
-
-
- (*
-     `tenv_inv s ((x,0,Infer_Tuvar st.next_uvar)::env) 
+     `t_wfs s ∧ t_wfs st'.subst` by metis_tac [stupid_record_thing,sub_completion_wfs, infer_e_wfs] >>
+     rw [t_walkstar_eqn1, convert_t_def, Tfn_def] >>
+     imp_res_tac infer_e_next_uvar_mono >>
+     fs [] >>
+     `st.next_uvar < st'.next_uvar` by decide_tac >|
+     [fs [sub_completion_def, SUBSET_DEF] >>
+          metis_tac [check_t_to_check_freevars],
+      `tenv_inv s ((x,0,Infer_Tuvar st.next_uvar)::env) 
                  (Bind_name x 0 
                             (convert_t (t_walkstar s (Infer_Tuvar st.next_uvar))) 
                             tenv)`
              by (fs [tenv_inv_def, lookup_tenv_def] >>
                  rw [deBruijn_inc0, infer_deBruijn_inc0] >>
                  rw [infer_deBruijn_inc0_id, o_f_id] >>
-                 fs [sub_completion_def, check_t_def] >>
+                 fs [sub_completion_def, SUBSET_DEF, check_t_def] >>
                  metis_tac []) >>
-     `num_tvs tenv = num_tvs (Bind_name x 0 (convert_t (t_walkstar s (Infer_Tapp [] TC_int))) tenv)`
-             by rw [num_tvs_def] >>
-     rw [bind_tenv_def] >>
-     binop_tac,
-     *)
-     all_tac,
+          metis_tac [num_tvs_def, stupid_record_thing, bind_tenv_def]],
  (* Opref *)
      rw [type_uop_cases, Tref_def] >>
      binop_tac,
  (* Opderef *)
-     all_tac,
-     (*
      rw [type_uop_cases, Tref_def] >>
      imp_res_tac t_unify_apply >>
      imp_res_tac sub_completion_unify >>
      imp_res_tac sub_completion_apply >>
-     fs [apply_subst_t_eqn] >>
+     `t_wfs s` by metis_tac [sub_completion_wfs, infer_e_wfs] >>
+     fs [t_walkstar_eqn1] >>
      metis_tac [convert_t_def, MAP],
-     *)
  (* Opn *)
      binop_tac,
  (* Opb *)
