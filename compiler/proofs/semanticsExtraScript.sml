@@ -613,6 +613,13 @@ val build_rec_env_MAP = store_thm("build_rec_env_MAP",
   Induct >> rw[bind_def] >>
   PairCases_on`h` >> rw[])
 
+val all_cns_pat_def = Define`
+  (all_cns_pat (Pvar _) = {}) ∧
+  (all_cns_pat (Pcon cn ps) = cn INSERT all_cns_pats ps) ∧
+  (all_cns_pat (Pref p) = all_cns_pat p) ∧
+  (all_cns_pats [] = {}) ∧
+  (all_cns_pats (p::ps) = all_cns_pat p ∪ all_cns_pats ps)`
+
 val all_cns_exp_def = tDefine "all_cns_exp"`
   (all_cns_exp (Raise er) = {}) ∧
   (all_cns_exp (Handle e1 _ e2) = all_cns_exp e1 ∪ all_cns_exp e2) ∧
@@ -632,7 +639,7 @@ val all_cns_exp_def = tDefine "all_cns_exp"`
   (all_cns_defs [] = {}) ∧
   (all_cns_defs ((_,_,e)::defs) = all_cns_exp e ∪ all_cns_defs defs) ∧
   (all_cns_pes [] = {}) ∧
-  (all_cns_pes ((_,e)::pes) = all_cns_exp e ∪ all_cns_pes pes)`
+  (all_cns_pes ((p,e)::pes) = all_cns_pat p ∪ all_cns_exp e ∪ all_cns_pes pes)`
 (WF_REL_TAC`inv_image $<
   (λx. case x of INL e => exp_size e
                | INR (INL es) => exp6_size es
@@ -662,8 +669,8 @@ val all_cns_defs_MAP = store_thm("all_cns_defs_MAP",
   Induct >>simp[]>>qx_gen_tac`x`>>PairCases_on`x`>>simp[])
 
 val all_cns_pes_MAP = store_thm("all_cns_pes_MAP",
-  ``∀ps. all_cns_pes ps = BIGUNION (IMAGE all_cns_exp (set (MAP SND ps)))``,
-  Induct >>simp[]>>qx_gen_tac`x`>>PairCases_on`x`>>simp[])
+  ``∀ps. all_cns_pes ps = BIGUNION (IMAGE all_cns_pat (set (MAP FST ps))) ∪ BIGUNION (IMAGE all_cns_exp (set (MAP SND ps)))``,
+  Induct >>simp[]>>qx_gen_tac`x`>>PairCases_on`x`>>simp[] >> metis_tac[UNION_COMM,UNION_ASSOC])
 
 val do_app_all_cns = store_thm("do_app_all_cns",
   ``∀cns s env op v1 v2 s' env' exp.
