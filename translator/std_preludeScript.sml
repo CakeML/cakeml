@@ -108,24 +108,27 @@ val res = translate (splitAtPki_DEF |> REWRITE_RULE [SUC_LEMMA])
 
 val FRONT_side_def = prove(
   ``!xs. FRONT_side xs = ~(xs = [])``,
-  Induct THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "FRONT_side_def",CONTAINER_def])
+  Induct THEN ONCE_REWRITE_TAC [fetch "-" "FRONT_side_def"]
+  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
   |> update_precondition;
 
 val ZIP_side_def = prove(
   ``!x. ZIP_side x = (LENGTH (FST x) = LENGTH (SND x))``,
   Cases THEN Q.SPEC_TAC (`r`,`r`) THEN Induct_on `q` THEN Cases_on `r`
-  THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "ZIP_side_def"])
+  THEN ONCE_REWRITE_TAC [fetch "-" "ZIP_side_def"]
+  THEN FULL_SIMP_TAC (srw_ss()) [])
   |> update_precondition;
 
 val EL_side_def = prove(
   ``!n xs. EL_side n xs = (n < LENGTH xs)``,
-  Induct THEN Cases_on `xs` THEN FULL_SIMP_TAC (srw_ss())
-    [fetch "-" "EL_side_def",CONTAINER_def])
+  Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "EL_side_def"]
+  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
   |> update_precondition;
 
 val LAST_side_def = prove(
   ``!xs. LAST_side xs = ~(xs = [])``,
-  Induct THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "LAST_side_def",CONTAINER_def])
+  Induct THEN ONCE_REWRITE_TAC [fetch "-" "LAST_side_def"] 
+  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
   |> update_precondition;
 
 (* sorting *)

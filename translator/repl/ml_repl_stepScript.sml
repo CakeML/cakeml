@@ -7,7 +7,6 @@ open repl_funTheory CompilerTheory CompilerLibTheory;
 open ToIntLangTheory ToBytecodeTheory terminationTheory ElabTheory;
 open compilerTerminationTheory inferTheory CompilerPrimitivesTheory;
 open BytecodeTheory mmlParseTheory mmlPEGTheory;
-
 open arithmeticTheory listTheory finite_mapTheory pred_setTheory;
 open ml_translatorLib ml_translatorTheory std_preludeTheory;
 
@@ -36,7 +35,6 @@ fun def_of_const tm = let
   val name = (#Name res)
   fun def_from_thy thy name =
     DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
-    DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy name
   val def = def_from_thy "termination" name handle HOL_ERR _ =>
@@ -50,7 +48,6 @@ fun def_of_const tm = let
   in def end
 
 val _ = (find_def_for_const := def_of_const);
-
 
 (* compiler *)
 
@@ -141,7 +138,6 @@ val parse_top_side_def = prove(
   THEN CONV_TAC (DEPTH_CONV ETA_CONV) THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;
 
-
 (* type inference: t_walkstar and t_unify *)
 
 val PRECONDITION_INTRO = prove(
@@ -168,13 +164,13 @@ val _ = translate
 val t_vwalk_side_def = store_thm("t_vwalk_side_def",
   ``!s v. t_vwalk_side s v <=> t_wfs s``,
   STRIP_TAC THEN REVERSE (Cases_on `t_wfs s`) THEN FULL_SIMP_TAC std_ss []
-  THEN1 (ONCE_REWRITE_TAC [fetch "-" "t_vwalk_side_cases"]
+  THEN1 (ONCE_REWRITE_TAC [fetch "-" "t_vwalk_side_def"]
          THEN FULL_SIMP_TAC std_ss [])
   THEN STRIP_TAC THEN POP_ASSUM (fn th => MP_TAC th THEN MP_TAC th)
   THEN Q.SPEC_TAC (`v`,`v`) THEN Q.SPEC_TAC (`s`,`s`)
   THEN HO_MATCH_MP_TAC t_vwalk_ind
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss []
-  THEN ONCE_REWRITE_TAC [fetch "-" "t_vwalk_side_cases"]
+  THEN ONCE_REWRITE_TAC [fetch "-" "t_vwalk_side_def"]
   THEN FULL_SIMP_TAC std_ss [PULL_FORALL])
   |> update_precondition;
 
@@ -200,12 +196,12 @@ val _ = translate
 val t_walkstar_side_def = store_thm("t_walkstar_side_def",
   ``!s v. t_walkstar_side s v <=> t_wfs s``,
   STRIP_TAC THEN REVERSE (Cases_on `t_wfs s`) THEN FULL_SIMP_TAC std_ss []
-  THEN1 (ONCE_REWRITE_TAC [fetch "-" "t_walkstar_side_cases"]
+  THEN1 (ONCE_REWRITE_TAC [fetch "-" "t_walkstar_side_def"]
          THEN FULL_SIMP_TAC std_ss [])
   THEN STRIP_TAC THEN POP_ASSUM (fn th => MP_TAC th THEN MP_TAC th)
   THEN Q.SPEC_TAC (`v`,`v`) THEN Q.SPEC_TAC (`s`,`s`)
   THEN HO_MATCH_MP_TAC t_walkstar_ind THEN REPEAT STRIP_TAC
-  THEN ONCE_REWRITE_TAC [fetch "-" "t_walkstar_side_cases"]
+  THEN ONCE_REWRITE_TAC [fetch "-" "t_walkstar_side_def"]
   THEN FULL_SIMP_TAC std_ss [fetch "-" "t_walk_side_def"]
   THEN METIS_TAC [])
   |> update_precondition;
@@ -217,7 +213,7 @@ val t_oc_ind = store_thm("t_oc_ind",
         P s t v) ==>
       (!s t v. t_wfs s ==> P (s:num |-> infer_t) (t:infer_t) (v:num))``,
   REPEAT STRIP_TAC THEN Q.SPEC_TAC (`t`,`t`)
-  THEN IMP_RES_TAC unifyTheory.t_walkstar_ind 
+  THEN IMP_RES_TAC unifyTheory.t_walkstar_ind
   THEN POP_ASSUM HO_MATCH_MP_TAC THEN METIS_TAC []);
 
 val EXISTS_LEMMA = prove(
@@ -226,14 +222,14 @@ val EXISTS_LEMMA = prove(
 
 val _ = translate
   (unifyTheory.t_oc_eqn
-    |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL 
+    |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL
     |> RW1 [EXISTS_LEMMA] |> MATCH_MP PRECONDITION_INTRO)
 
 val t_oc_side_lemma = prove(
   ``!s t v. t_wfs s ==> t_wfs s ==> t_oc_side s t v``,
   HO_MATCH_MP_TAC t_oc_ind THEN REPEAT STRIP_TAC
   THEN FULL_SIMP_TAC std_ss [AND_IMP_INTRO]
-  THEN ONCE_REWRITE_TAC [fetch "-" "t_oc_side_cases"]
+  THEN ONCE_REWRITE_TAC [fetch "-" "t_oc_side_def"]
   THEN ASM_SIMP_TAC std_ss [fetch "-" "t_walk_side_def",PULL_FORALL]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) [])
   |> SIMP_RULE std_ss [];
@@ -242,7 +238,7 @@ val t_oc_side_def = store_thm("t_oc_side_def",
   ``!s t v. t_oc_side s t v <=> t_wfs s``,
   STRIP_TAC THEN Cases_on `t_wfs s`
   THEN FULL_SIMP_TAC std_ss [t_oc_side_lemma]
-  THEN ONCE_REWRITE_TAC [fetch "-" "t_oc_side_cases"]
+  THEN ONCE_REWRITE_TAC [fetch "-" "t_oc_side_def"]
   THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;
 
@@ -268,18 +264,18 @@ val t_unify_lemma = prove(
            t_ext_s_check s v1 (Infer_Tapp v43 v44)
        | (Infer_Tuvar v1,Infer_Tuvar v2) =>
            SOME (if v1 = v2 then s else s |+ (v1,Infer_Tuvar v2))) /\
-    (ts_unify s ts1 ts2 = 
+    (ts_unify s ts1 ts2 =
        case (ts1,ts2) of
        | ([],[]) => SOME s
        | (t1::ts1,t2::ts2) => (case t_unify s t1 t2 of
                                | NONE => NONE
-                               | SOME s' => ts_unify s' ts1 ts2) 
+                               | SOME s' => ts_unify s' ts1 ts2)
        | _ => NONE)``,
   REPEAT STRIP_TAC
   THEN1 ASM_SIMP_TAC std_ss [unifyTheory.t_unify_eqn]
   THEN Cases_on `ts1` THEN Cases_on `ts2`
   THEN ASM_SIMP_TAC (srw_ss()) [unifyTheory.ts_unify_def])
-  |> UNDISCH |> CONJUNCTS 
+  |> UNDISCH |> CONJUNCTS
   |> map (MATCH_MP PRECONDITION_INTRO o DISCH_ALL) |> LIST_CONJ
 
 val _ = translate t_unify_lemma
@@ -287,7 +283,7 @@ val _ = translate t_unify_lemma
 val t_unify_side_rw = fetch "-" "t_unify_side_def"
 
 val t_unify_side_lemma = prove(
-  ``(!s t v. t_wfs s ==> t_wfs s ==> t_unify_side s t v) /\ 
+  ``(!s t v. t_wfs s ==> t_wfs s ==> t_unify_side s t v) /\
     (!s ts v. t_wfs s ==> t_wfs s ==> ts_unify_side s ts v)``,
   HO_MATCH_MP_TAC unifyTheory.t_unify_ind THEN REPEAT STRIP_TAC
   THEN FULL_SIMP_TAC std_ss [AND_IMP_INTRO]
@@ -299,7 +295,7 @@ val t_unify_side_lemma = prove(
 
 val t_unify_side_def = store_thm("t_unify_side_def",
   ``!s t v. t_unify_side s t v <=> t_wfs s``,
-  STRIP_TAC THEN Cases_on `t_wfs s` 
+  STRIP_TAC THEN Cases_on `t_wfs s`
   THEN FULL_SIMP_TAC std_ss [t_unify_side_lemma]
   THEN ONCE_REWRITE_TAC [t_unify_side_rw]
   THEN FULL_SIMP_TAC std_ss [])
@@ -307,7 +303,7 @@ val t_unify_side_def = store_thm("t_unify_side_def",
 
 val ts_unify_side_def = store_thm("ts_unify_side_def",
   ``!s t v. ts_unify_side s t v <=> t_wfs s``,
-  STRIP_TAC THEN Cases_on `t_wfs s` 
+  STRIP_TAC THEN Cases_on `t_wfs s`
   THEN FULL_SIMP_TAC std_ss [t_unify_side_lemma]
   THEN ONCE_REWRITE_TAC [t_unify_side_rw]
   THEN FULL_SIMP_TAC std_ss [])
@@ -320,7 +316,6 @@ val _ = (extra_preprocessing :=
   [MEMBER_INTRO, MAP, OPTION_BIND_THM, st_ex_bind_def,
    st_ex_return_def, failwith_def, guard_def, read_def, write_def]);
 
-val _ = translate (def_of_const ``id_to_string``)
 val _ = translate (def_of_const ``lookup_st_ex``)
 val _ = translate (def_of_const ``fresh_uvar``)
 val _ = translate (def_of_const ``n_fresh_uvar``)
@@ -333,26 +328,110 @@ val _ = translate (def_of_const ``infer_type_subst``)
 val _ = translate (def_of_const ``infer_deBruijn_subst``)
 val _ = translate (def_of_const ``generalise``)
 
-val s = SIMP_RULE std_ss [FUN_EQ_THM]
+val _ = translate rich_listTheory.COUNT_LIST_AUX_def
+val _ = translate rich_listTheory.COUNT_LIST_compute
 
-val res = translate (def_of_const ``add_constraint`` |> s)
+val pair_abs_hack = prove(
+  ``(\(v2:string,v1:infer_t). (v2,0,v1)) =
+    (\v3. case v3 of (v2,v1) => (v2,0:num,v1))``,
+  SIMP_TAC (srw_ss()) [FUN_EQ_THM,FORALL_PROD]);
 
-(*
+fun fix_infer_induction_thm def = let
+  val const = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL |> concl
+                  |> dest_eq |> fst |> repeat rator
+  val cname = const |> dest_const |> fst
+  val ind_name = cname ^ "_ind"
+  val ind = fetch "infer" ind_name
+  val s_var = mk_var("state", ``: (num |-> infer_t) infer_st``)
+  val cs = ind |> SPEC_ALL |> UNDISCH_ALL |> CONJUNCTS |> map concl
+               |> map (fn tm => let val xs = list_dest dest_forall tm
+                                    val vs = butlast xs
+                                    val body = repeat rator (last xs)
+                                    in (vs,body) end)
+  fun list_dest_fun_type ty = let
+    val (ty1,ty2) = dest_fun_type ty
+    in ty1 :: list_dest_fun_type ty2 end handle HOL_ERR _ => [ty]
+  fun new_P_inst (vs,P) = let
+    val (Pname,ty) = dest_var P
+    val tys = list_dest_fun_type ty
+    val tys1 = butlast tys @ [type_of s_var, last tys]
+    val Pnew = mk_var(Pname,list_mk_fun_type tys1)
+    val tm = mk_forall(s_var,list_mk_comb(Pnew,vs @ [s_var]))
+    in (Pnew,list_mk_abs(vs,tm)) end
+  val ps = map new_P_inst cs
+  val ind = ind |> SPECL (map snd ps) |> CONV_RULE (DEPTH_CONV BETA_CONV)
+                |> GENL (map fst ps) |> PURE_REWRITE_RULE [pair_abs_hack]
+  val _ = print ("Improved induction theorem: " ^ ind_name ^ "\n")
+  val _ = save_thm(ind_name,ind)
+  in () end handle HOL_ERR _ => ();
 
-val res = translate (def_of_const ``add_constraints`` |> s)
-val res = translate (def_of_const ``infer_p``)
-val res = translate (def_of_const ``constrain_uop``)
-val res = translate (def_of_const ``constrain_op``)
-val res = translate (def_of_const ``infer_e``)
-val res = translate (def_of_const ``infer_d``)
-val res = translate (def_of_const ``infer_ds``)
-val res = translate (def_of_const ``t_to_freevars``)
-val res = translate (def_of_const ``check_specs``)
-val res = translate (def_of_const ``check_weakC``)
-val res = translate (def_of_const ``check_weakE``)
-val res = translate (def_of_const ``check_signature``)
-val res = translate (def_of_const ``infer_top``)
+val if_apply = prove(
+  ``!b. (if b then x1 else x2) x = if b then x1 x else x2 x``,
+  Cases THEN SRW_TAC [] []);
 
-*)
+val option_case_apply = prove(
+  ``!oo. option_CASE oo x1 x2 x = option_CASE oo (x1 x) (\y. x2 y x)``,
+  Cases THEN SRW_TAC [] []);
+
+val uop_apply = prove(
+  ``!uop. uop_CASE uop x1 x2 x = uop_CASE uop (x1 x) (x2 x)``,
+  Cases THEN SRW_TAC [] []);
+
+val op_apply = prove(
+  ``!op. (op_CASE op x1 x2 x3 x4 x5) y =
+         (op_CASE op (\x. x1 x y) (\x. x2 x y) (x3 y) (x4 y) (x5 y))``,
+  Cases THEN SRW_TAC [] []);
+
+fun infer_def const = let
+  val def = def_of_const const
+            |> RW1 [FUN_EQ_THM]
+            |> RW [op_apply,uop_apply,if_apply,option_case_apply]
+            |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)
+  val def = let
+    val s_var = mk_var("state", ``: (num |-> infer_t) infer_st``)
+    val s = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL |> concl
+                |> dest_eq |> fst |> rand |> type_of
+    val def = INST_TYPE (match_type s (type_of s_var)) def
+    in def end handle HOL_ERR _ => def
+  val () = fix_infer_induction_thm def
+  in def end
+
+val _ = translate (infer_def ``add_constraint``);
+val _ = translate (infer_def ``add_constraints``)
+val _ = translate (infer_def ``constrain_uop``);
+val _ = translate (infer_def ``constrain_op``);
+val _ = translate (infer_def ``t_to_freevars``);
+val _ = translate (infer_def ``bind``);
+val _ = translate (infer_def ``merge``);
+val _ = translate (infer_def ``check_weakC``)
+
+val EVERY_INTRO = prove(
+  ``(!x::set s. P x) = EVERY P s``,
+  SIMP_TAC std_ss [res_quanTheory.RES_FORALL,EVERY_MEM]);
+
+val EVERY_EQ_EVERY = prove(
+  ``!xs. EVERY P xs = EVERY I (MAP P xs)``,
+  Induct THEN SRW_TAC [] []);
+
+val _ = translate (infer_def ``check_freevars``
+                   |> RW1 [EVERY_EQ_EVERY])
+
+val _ = translate (infer_def ``check_dup_ctors``
+                   |> SIMP_RULE std_ss [EVERY_INTRO,LET_DEF])
+
+val _ = translate (infer_def ``check_ctor_tenv``)
+
+val _ = translate (infer_def ``is_value``
+            |> RW1 [prove(``~b <=> (b = F)``,SIMP_TAC std_ss [])]
+            |> RW1 [EVERY_EQ_EVERY])
+
+val _ = translate (infer_def ``infer_p``)
+val _ = translate (infer_def ``infer_e``)
+val _ = translate (infer_def ``infer_d``)
+val _ = translate (infer_def ``infer_ds``)
+val _ = translate (infer_def ``check_weakE``)
+val _ = translate (infer_def ``check_specs``)
+val _ = translate (infer_def ``check_signature``)
+val _ = translate (infer_def ``infer_top``)
 
 val _ = export_theory();

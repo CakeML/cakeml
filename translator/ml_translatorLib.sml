@@ -2115,6 +2115,53 @@ fun extract_precondition_non_rec th pre_var =
     val pre_def = clean_precondition pre_def
     in (th,SOME pre_def) end end
 
+val IMP_PreImp_LEMMA = prove(
+  ``!b1 b2 b3. (b1 ==> b3 ==> b2) ==> b3 ==> PreImp b1 b2``,
+  REPEAT Cases THEN REWRITE_TAC [PreImp_def,PRECONDITION_def]);
+
+local
+  val PRE_IMP = prove(``T /\ PRECONDITION b ==> PRECONDITION b``,EVAL_TAC)
+  val PreImp_IMP = prove(``PreImp b1 b2 /\ T ==> PreImp b1 b2``,EVAL_TAC)
+  val CONJ_IMP = prove(
+    ``!b1 b2 b12 b3 b4 b34.
+        (b1 /\ b2 ==> b12) /\ (b3 /\ b4 ==> b34) ==>
+        ((b1 /\ b3) /\ (b2 /\ b4) ==> b12 /\ b34)``,
+      REPEAT Cases THEN EVAL_TAC) |> SPEC_ALL;
+  val IMP_SPLIT = prove(
+    ``!b12 b3 b4 b34.
+        (b12 = b12) /\ (b3 /\ b4 ==> b34) ==>
+        ((b12 ==> b3) /\ (b12 ==> b4) ==> (b12 ==> b34))``,
+    REPEAT Cases THEN EVAL_TAC) |> SPEC_ALL;
+  val FORALL_SPLIT = prove(
+    ``(!x. P1 x /\ P2 x ==> P (x:'a)) ==>
+      ($! P1 ) /\ ($! P2 ) ==> $! P ``,
+    FULL_SIMP_TAC std_ss [FORALL_THM]);
+  val DEFAULT_IMP = prove(``!b1. b1 /\ b1 ==> b1``,SIMP_TAC std_ss []);
+in
+  fun derive_split tm = 
+    if can (match_term (PRE_IMP |> concl |> rand)) tm then let
+      val m = fst (match_term (PRE_IMP |> concl |> rand) tm)
+      in INST m PRE_IMP end else
+    if can (match_term (PreImp_IMP |> concl |> rand)) tm then let
+      val m = fst (match_term (PreImp_IMP |> concl |> rand) tm)
+      in INST m PreImp_IMP end else
+    if is_conj tm then let
+      val (x1,x2) = dest_conj tm
+      in MATCH_MP CONJ_IMP (CONJ (derive_split x1) (derive_split x2)) end else
+    if is_imp tm then let
+      val (x1,x2) = dest_imp tm
+      val th1 = REFL x1
+      val th2 = derive_split x2
+      in MATCH_MP IMP_SPLIT (CONJ th1 th2) end else
+    if is_forall tm then let
+      val (v,body) = dest_forall tm
+      val th = derive_split body
+      val th = CONV_RULE (RAND_CONV (UNBETA_CONV v) THENC
+                 (RATOR_CONV o RAND_CONV) (BINOP_CONV (UNBETA_CONV v))) th
+      in MATCH_MP FORALL_SPLIT (GEN v th) end else
+    SPEC tm DEFAULT_IMP 
+end
+
 fun extract_precondition_rec thms = let
   fun rephrase_pre (fname,def,th) = let
     val (lhs,_) = dest_eq (concl def)
@@ -2155,102 +2202,59 @@ val (fname,def,th) = hd thms
                                 (RATOR_CONV o RAND_CONV) (REWRITE_CONV []))
       in (fname,def,th5,NONE) end
     in map remove_pre_var thms end else let
-  (* helper functions *)
-  fun list_dest_forall tm = let
-    val (v,tm) = dest_forall tm
-    val (vs,tm) = list_dest_forall tm
-    in (v::vs,tm) end handle HOL_ERR _ => ([],tm)
-  fun my_list_mk_conj [] = T
-    | my_list_mk_conj xs = list_mk_conj xs
-  fun list_dest f tm = let val (x,y) = f tm
-                       in list_dest f x @ list_dest f y end handle HOL_ERR _ => [tm]
-  val list_dest_conj = list_dest dest_conj
-  val pat = ``CONTAINER (x = y:'a) ==> z``
-  fun dest_container_eq_imp tm = let
-    val _ = match_term pat tm
-    val (xy,z) = dest_imp tm
-    val (x,y) = dest_eq (rand xy)
-    val _ = dest_var x
-    in (x,y,z) end
-  fun cons_fst x (y,z) = (x::y,z)
-  fun dest_forall_match tm = let
-    val xs = list_dest_conj (snd (list_dest_forall tm))
-             |> map dest_container_eq_imp
-    val ys = map (fn (x,y,z) => map (cons_fst (x,y)) (dest_forall_match z)) xs
-    in Lib.flatten ys end handle HOL_ERR _ => [([],tm)]
-  (* define precondition *)
-  fun first_definition_of_pre (fname,def,th,pre_var,tm1,tm2,_) = let
-    val tms = list_dest_conj tm2
-    val tm = first is_forall tms handle HOL_ERR _ => first is_imp tms
-    val others = my_list_mk_conj (filter (fn x => x <> tm) tms)
-    val vs = dest_args pre_var
-    val ws = map (fn v => (v,mk_var(fst (dest_var v) ^ "AA",type_of v))) vs
-    val xs = map (fn (x,y) => (x,y,others)) (dest_forall_match tm @ [(ws,T)])
-    fun process_line (x,y,z) = let
-      val (x1,x2) = foldl (fn ((x1,x2),(z1,z2)) => (subst [x1 |-> x2] z1, subst [x1 |-> x2] z2)) (pre_var,z) x
-      fun simp tm = QCONV (SIMP_CONV (srw_ss()) [PRECONDITION_def]) tm |> concl |> rand
-      in mk_eq(x1,simp(mk_conj(y,x2))) end
-    in map process_line xs end
-  val def_tm = my_list_mk_conj (flatten (map first_definition_of_pre thms))
-  fun alternative_definition_of_pre thms = let
-    fun line_of_alt_pre (fname,def,th,pre_var,tm1,tm2,_) = let
-      val rw = QCONV (REWRITE_CONV [PRECONDITION_def,CONTAINER_def]) tm2
-      val gg = rw |> concl |> dest_eq |> snd
-      val gg = (mk_imp(gg,pre_var))
-      in (gg,rw) end;
-    val xs = map line_of_alt_pre thms
-    val gs = map fst xs
-    val rws = map snd xs
-    val (_,_,pre_def) = Hol_reln [ANTIQUOTE (my_list_mk_conj gs)]
-    val consts = pre_def |> CONJUNCTS 
-    val name = consts |> hd 
-      |> (repeat rator o fst o dest_eq o concl o SPEC_ALL) |> dest_const |> fst
-    val _ = save_thm(name ^ "_def",pre_def)
-    fun line_of_alt_pre2 (pre_def_line,(rw,(_,_,_,pre_var,_,tm2,_))) = let
-      val const = pre_def_line |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
-      val v = repeat rator pre_var
-      val lemma = subst [v|->const] tm2 |> (REWR_CONV rw)
-      val lemma2 = (SPEC_ALL pre_def_line)
-      val tm = lemma |> concl |> rand
-      val tm2 = lemma2 |> concl |> rand
-      val lemma = INST (fst (match_term tm tm2)) lemma
-                  |> CONV_RULE (RAND_CONV (REWR_CONV (SYM lemma2))) |> SYM
-      in lemma end
-    in LIST_CONJ (map line_of_alt_pre2 (zip consts (zip rws thms))) end 
-  val pre_def = quietDefine [ANTIQUOTE def_tm]
-                handle HOL_ERR _ =>
-                alternative_definition_of_pre thms
-  val pre_def = fst (single_line_def pre_def)
-  val pre_defs = pre_def |> CONJUNCTS
-  val thms2 = zip pre_defs thms
-  fun new_ss (pre_def,(fname,def,th,pre_var,tm1,tm2,_)) = let
-    val pre_const = pre_def |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
-    val pre_v = pre_var |> repeat rator
-    in pre_v|->pre_const end
-  val ss = subst (map new_ss thms2)
-  val II = INST (map new_ss thms2)
-  fun get_result (pre_def,(fname,def,th,pre_var,tm1,tm2,_)) = let
-    val pre_const = pre_def |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
-    val pre_v = pre_var |> repeat rator
-    (* prove pre is sufficient *)
-    val goal = mk_imp(ss pre_var, ss tm2)
-    val pre_thm = prove(goal,
-      CONV_TAC (RATOR_CONV (PURE_ONCE_REWRITE_CONV [pre_def]))
-      THEN REPEAT BasicProvers.FULL_CASE_TAC
-      THEN FULL_SIMP_TAC (srw_ss()) [PULL_FORALL,CONTAINER_def,
-        PRECONDITION_def,PreImp_def])
-    (* simplify main thm *)
-    val goal_lhs = mk_conj(ss tm1, ss pre_var)
-    val th = II th
-    val tm = concl th |> dest_imp |> fst
-    val goal = mk_imp(goal_lhs,tm)
-    val lemma = prove(goal,STRIP_TAC THEN IMP_RES_TAC pre_thm THEN METIS_TAC [])
-    val th = MP th (UNDISCH lemma)
-    val th = th |> DISCH goal_lhs
-    val th = MATCH_MP IMP_PreImp th
-    val pre_def = clean_precondition pre_def
-    in (fname,def,th,SOME pre_def) end 
-  in map get_result thms2 end end
+  val combine_lemma = prove(
+    ``!b1 b2 b3 b4. (b1 /\ b2 ==> b3) /\ (b3 ==> b4) ==> b2 ==> b1 ==> b4``,
+    REPEAT Cases THEN SIMP_TAC std_ss [])
+
+(*
+  val (fname,def,th,pre_var,tm1,tm2,rw2) = hd thms
+*)
+  fun separate_pre (fname,def,th,pre_var,tm1,tm2,rw2) = let
+    val lemma = derive_split (th |> concl |> dest_imp |> fst)
+    val lemma = MATCH_MP combine_lemma (CONJ lemma th)
+                |> CONV_RULE ((RATOR_CONV o RAND_CONV) 
+                     (PURE_REWRITE_CONV [PRECONDITION_def]))
+    in (fname,def,lemma,pre_var) end;
+  val thms2 = map separate_pre thms
+  fun diff [] ys = []
+    | diff (x::xs) ys = if mem x ys then diff xs ys else x :: diff xs ys  
+  val all_pre_vars = map (fn (fname,def,lemma,pre_var) => 
+                            repeat rator pre_var) thms2
+(*
+val (fname,def,lemma,pre_var) = hd thms2
+*)
+  val all_pres = map (fn (fname,def,lemma,pre_var) => let
+    val tm = lemma |> concl |> dest_imp |> fst
+    val vs = diff (free_vars tm) all_pre_vars
+    in list_mk_forall(vs,mk_imp(tm,pre_var)) end) thms2
+    |> list_mk_conj
+  val (_,_,pre_def) = Hol_reln [ANTIQUOTE all_pres]
+  val clean_pre_def = pre_def |> PURE_REWRITE_RULE [CONTAINER_def]
+  val name = clean_pre_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
+               |> concl |> dest_eq |> fst |> repeat rator |> dest_const |> fst
+  val _ = delete_binding (name ^ "_rules") handle NotFound => ()
+  val _ = delete_binding (name ^ "_ind") handle NotFound => ()
+  val _ = delete_binding (name ^ "_strongind") handle NotFound => ()
+  val _ = delete_binding (name ^ "_cases") handle NotFound => ()
+  val _ = save_thm(name ^ "_def", clean_pre_def)  
+  val pre_defs = pre_def |> CONJUNCTS |> map SPEC_ALL
+  val thms3 = zip pre_defs thms2
+  fun get_sub (pre,(fname,def,lemma,pre_var)) = let
+    val x = pre_var |> repeat rator
+    val y = pre |> concl |> dest_eq |> fst |> repeat rator
+    in x |-> y end
+  val ss = map get_sub thms3
+(*
+val (pre,(fname,def,lemma,pre_var)) = hd thms3
+*)     
+  fun compact_pre (pre,(fname,def,lemma,pre_var)) = let
+    val c = (RATOR_CONV o RAND_CONV) (REWR_CONV (SYM pre))
+    val lemma = lemma |> INST ss |> CONV_RULE c
+                      |> MATCH_MP IMP_PreImp_LEMMA
+    val pre = pre |> PURE_REWRITE_RULE [CONTAINER_def]
+    in (fname,def,lemma,SOME pre) end
+  val thms4 = map compact_pre thms3
+  in thms4 end end  
 
 
 (* main translation routines *)
@@ -2360,7 +2364,7 @@ can (find_term is_arb) (rhs |> rand |> rator)
   (* final phase: extract precondition, perform induction, store cert *)
 
 (*
-val _ = (max_print_depth := 20)
+val _ = (max_print_depth := 25)
 *)
 
   val th = if not is_rec then let
@@ -2397,6 +2401,10 @@ val _ = (max_print_depth := 20)
     in th end
     else (* is_rec *) let
 
+(*
+max_print_depth := 1
+*)
+
     (* abbreviate code *)
     val (code_defs,thms) = let val x = map abbrev_code thms
                            in (map fst x, map snd x) end
@@ -2415,11 +2423,8 @@ val _ = (max_print_depth := 20)
                |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV std_ss [EVAL_T_F]))
       val th = clean_assumptions th
       in (fname,def,th) end
-(*
-val (fname,def,th,v) = el 1 thms
-*)
-
     val thms = map apply_recc thms
+
     (* collect precondition *)
     val thms = extract_precondition_rec thms
     (* apply induction *)
@@ -2435,7 +2440,6 @@ val (fname,def,th,v) = el 1 thms
     val hs = goals |> map (fst o snd o snd) |> flatten
                    |> all_distinct |> list_mk_conj
     val goal = mk_imp(hs,gs)
-
     val ind_thm = (the ind)
                   |> rename_bound_vars_rule "i" |> SIMP_RULE std_ss []
                   |> SPECL (goals |> map fst)
@@ -2457,6 +2461,7 @@ val (fname,def,th,v) = el 1 thms
         \\ POP_MP_TACs
         \\ SIMP_TAC (srw_ss()) [ADD1,TRUE_def,FALSE_def]
         \\ SIMP_TAC std_ss [UNCURRY_SIMP]
+        \\ SIMP_TAC std_ss [GSYM FORALL_PROD]
         \\ METIS_TAC [])
       handle HOL_ERR _ =>
       auto_prove "ind" (goal,
