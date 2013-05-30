@@ -376,7 +376,7 @@ val Cmap_result_Rerr = store_thm("Cmap_result_Rerr",
  Cases_on`err`>>simp[]>>Cases_on`e`>>simp[])
 
 val compile_fake_exp_val = store_thm("compile_fake_exp_val",
-  ``∀rs vars expf menv tup cenv s env exp s' beh rs' bc rd vv0 vv1 bc0 bs.
+  ``∀rs vars expf menv tup cenv s env exp s' beh rss rsf bc rd vv0 vv1 bc0 bs.
       evaluate menv ((Short "",tup)::cenv) s env exp (s', beh) ∧
       is_null menv ∧
       FV exp ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
@@ -386,7 +386,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       env_rs cenv env rs rd s (bs with code := bc0) ∧
       ALL_DISTINCT vars ∧
       (PARTITION (λv. MEM v rs.rbvars) vars = (vv0,vv1)) ∧
-      (compile_fake_exp rs vars expf = (rs',bc ++ [Stop])) ∧
+      (compile_fake_exp rs vars expf = (rss,rsf,bc ++ [Stop])) ∧
       (exp = expf (Con (Short "") (MAP (Var o Short) (vv0++vv1)))) ∧
       (bs.code = bc0 ++ bc ++ [Stop]) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
@@ -398,13 +398,13 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
         let env' = ZIP(vv0++vv1,vs) ++ env in
         let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := (Number i0)::st; refs := rf|> in
         bc_next^* bs bs' ∧
-        env_rs cenv env' rs' rd' s' (bs' with stack := st)) ∧
+        env_rs cenv env' rss rd' s' (bs' with stack := st)) ∧
       (∀err. (beh = Rerr (Rraise err)) ⇒
         ∃bv rf rd'.
         let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := (Number i1)::bv::bs.stack; refs := rf|> in
         bc_next^* bs bs' ∧
         err_bv err bv ∧
-        env_rs cenv env rs' rd' s' (bs' with stack := bs.stack))``,
+        env_rs cenv env rsf rd' s' (bs' with stack := bs.stack))``,
   rpt gen_tac >>
   simp[compile_fake_exp_def,compile_Cexp_def,GSYM LEFT_FORALL_IMP_THM] >>
   simp[GSYM AND_IMP_INTRO] >>
@@ -1212,7 +1212,7 @@ val check_dup_ctors_NOT_MEM = store_thm("check_dup_ctors_NOT_MEM",
 
 val compile_dec_val = store_thm("compile_dec_val",
   ``∀mn menv cenv s env dec res. evaluate_dec mn menv cenv s env dec res ⇒
-     ∀rs rs' rd bc bs bc0.
+     ∀rs rss rsf rd bc bs bc0.
       (mn = NONE) ∧ is_null menv ∧
       EVERY (closed menv) s ∧
       EVERY (closed menv) (MAP SND env) ∧
@@ -1224,7 +1224,7 @@ val compile_dec_val = store_thm("compile_dec_val",
       closed_under_menv menv env s ∧
       (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
       env_rs cenv env rs rd s (bs with code := bc0) ∧
-      (compile_dec rs dec = (rs',bc ++ [Stop])) ∧
+      (compile_dec rs dec = (rss,rsf,bc ++ [Stop])) ∧
       (bs.code = bc0 ++ bc ++ [Stop]) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       ALL_DISTINCT (FILTER is_Label bc0) ∧
@@ -1234,13 +1234,13 @@ val compile_dec_val = store_thm("compile_dec_val",
         ∃st rf rd'.
         let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := (Number i0)::st; refs := rf|> in
         bc_next^* bs bs' ∧
-        env_rs (cenv'++cenv) (env'++env) rs' rd' s' (bs' with stack := st)
+        env_rs (cenv'++cenv) (env'++env) rss rd' s' (bs' with stack := st)
       | (s',Rerr(Rraise err)) =>
         ∃bv rf rd'.
         let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := (Number i1)::bv::bs.stack; refs := rf|> in
         bc_next^*bs bs' ∧
         err_bv err bv ∧
-        env_rs cenv env rs' rd' s' (bs' with stack := bs.stack)
+        env_rs cenv env rsf rd' s' (bs' with stack := bs.stack)
       | (s',Rerr Rtype_error) => T``,
   ho_match_mp_tac evaluate_dec_ind >>
   strip_tac >- (
