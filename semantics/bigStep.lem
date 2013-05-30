@@ -461,7 +461,7 @@ val prog_diverges : envM -> envC -> store -> envE -> prog -> bool
 
 let dec_diverges menv cenv st env d =
   match d with
-    | Dlet p e -> e_diverges menv cenv st env e
+    | Dlet p e -> all_distinct (pat_bindings p []) && e_diverges menv cenv st env e
     | Dletrec funs -> false
     | Dtype tds -> false
   end

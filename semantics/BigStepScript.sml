@@ -477,7 +477,7 @@ evaluate_prog menv cenv s env (Tmod mn specs ds1 ::ds2) (s, Rerr Rtype_error))`;
 val _ = Define `
  (dec_diverges menv cenv st env d =  
 ((case d of
-      Dlet p e => e_diverges menv cenv st env e
+      Dlet p e => ALL_DISTINCT (pat_bindings p []) /\ e_diverges menv cenv st env e
     | Dletrec funs => F
     | Dtype tds => F
   )))`;
