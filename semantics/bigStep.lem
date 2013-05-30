@@ -337,22 +337,23 @@ and
 
 forall mn menv cenv env p e v s1 s2.
 evaluate menv cenv s1 env e (s2, Rval v) &&
+all_distinct (pat_bindings p []) &&
 (pmatch cenv s2 p v emp = Match_type_error)
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr Rtype_error)
 
 and
 
-forall mn menv cenv env p e v s1 s2.
-evaluate menv cenv s1 env e (s2, Rval v) &&
+forall mn menv cenv env p e s.
 not (all_distinct (pat_bindings p []))
 ==>
-evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr Rtype_error)
+evaluate_dec mn menv cenv s env (Dlet p e) (s, Rerr Rtype_error)
 
 and
 
 forall mn menv cenv env p e err s s'.
-evaluate menv cenv s env e (s', Rerr err)
+evaluate menv cenv s env e (s', Rerr err) &&
+all_distinct (pat_bindings p [])
 ==>
 evaluate_dec mn menv cenv s env (Dlet p e) (s', Rerr err)
 
