@@ -87,7 +87,7 @@ val update_state_def = Define`
           |>`
 
 val compile_top_def = Define `
-  (compile_top cs (Tmod _ _ _) = (cs,[])) /\ (* fix! *)
+  (compile_top cs (Tmod _ _ _) = (cs,cs,[])) /\ (* fix! *)
   (compile_top cs (Tdec dec) = compile_dec cs dec)`;
 
 val parse_elaborate_infertype_compile_def = Define `
@@ -103,7 +103,7 @@ val parse_elaborate_infertype_compile_def = Define `
           | Failure _ => Failure "<type error>"
             (* type found, type safe! *)
           | Success is =>
-             let (cs,cf,code) = compile_top s.rcompiler_state top in
+             let (css,csf,code) = compile_top s.rcompiler_state top in
                Success (code,update_state s es is css top,update_state s es is csf top)`
 
 val install_code_def = Define `
@@ -120,7 +120,7 @@ val initial_bc_state_def =  Define`
       refs := FEMPTY;
       handler := 0;
       inst_length := K 0 |> in
-  let bs = THE (bc_eval (install_code (SND compile_primitives) bs)) in
+  let bs = THE (bc_eval (install_code (SND (SND compile_primitives)) bs)) in
   bs with stack := TL bs.stack`
 
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` THEN REPEAT STRIP_TAC
