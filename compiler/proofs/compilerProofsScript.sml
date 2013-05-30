@@ -154,6 +154,7 @@ val code_env_cd_append = store_thm("code_env_cd_append",
 
 val good_contab_def = Define`
   good_contab ((m,w,n):contab) ⇔
+    ALL_DISTINCT (MAP FST w) ∧
     ALL_DISTINCT (MAP SND w) ∧
     EVERY (combin$C $< n) (MAP FST w) ∧
     set (MAP SND w) ⊆ (IMAGE id_to_string (FDOM m)) ∧
@@ -1539,6 +1540,11 @@ val compile_dec_val = store_thm("compile_dec_val",
       fs[good_cmap_def,cmap_linv_def] >>
       conj_asm1_tac >- (
         simp[MAP_REVERSE,ALL_DISTINCT_REVERSE,ALL_DISTINCT_APPEND,MAP_GENLIST,ALL_DISTINCT_GENLIST] >>
+        fsrw_tac[DNF_ss][EVERY_MEM] >>
+        simp[MEM_GENLIST] >>
+        rw[] >> spose_not_then strip_assume_tac >> res_tac >> simp[] ) >>
+      conj_asm1_tac >- (
+        simp[MAP_REVERSE,ALL_DISTINCT_REVERSE,ALL_DISTINCT_APPEND,MAP_GENLIST,ALL_DISTINCT_GENLIST] >>
         simp[MEM_GENLIST,MEM_MAP,FORALL_PROD] >>
         imp_res_tac check_dup_ctors_ALL_DISTINCT >>
         fs[EL_ALL_DISTINCT_EL_EQ,EL_MAP] >>
@@ -1548,18 +1554,142 @@ val compile_dec_val = store_thm("compile_dec_val",
           simp[MEM_EL,EL_MAP,GSYM LEFT_FORALL_IMP_THM] >>
           simp[FORALL_PROD] ) >>
         imp_res_tac check_dup_ctors_NOT_MEM >>
+        qx_gen_tac`z` >> strip_tac >>
+        first_x_assum(qspec_then`z`mp_tac) >>
+        simp[AstTheory.mk_id_def] >>
+        qpat_assum`X = FDOM p0`mp_tac >>
+        simp[EXTENSION] >>
         rpt strip_tac >>
-        fs[EXTENSION] >>
         fs[SUBSET_DEF] >>
-        res_tac >>
-        res_tac >- (
-          rw[] >>
-          fsrw_tac[DNF_ss][MEM_MAP,FORALL_PROD,EXISTS_PROD,MEM_FLAT,PrinterTheory.id_to_string_def] ) >>
-        rw[] >>
-        qmatch_assum_rename_tac`MEM z (MAP FST cenv)`[] >> fs[] >>
+        `∃y. z = id_to_string y ∧ y ∈ FDOM p0` by PROVE_TAC[] >>
+        qsuff_tac`¬(MEM y (MAP FST cenv) ∨ y = Short "")`>-metis_tac[]>>
+        simp[] >>
         Cases_on`z`>>fs[PrinterTheory.id_to_string_def,AstTheory.mk_id_def] >>
-        res_tac >> fs[is_null_def] >> rw[] >> fs[] ) >>
+        Cases_on`y`>>fs[PrinterTheory.id_to_string_def,AstTheory.mk_id_def] >>
+        res_tac >> fs[is_null_def] >> rw[] >> fs[] >> metis_tac[]) >>
+      conj_asm1_tac >- (
+        simp[EVERY_MAP,EVERY_REVERSE,EVERY_GENLIST] >>
+        fs[EVERY_MAP,EVERY_MEM] >>
+        rw[] >> res_tac >> simp[] ) >>
+      conj_asm1_tac >- (
+        simp[FDOM_FUPDATE_LIST] >>
+        fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_GENLIST,PrinterTheory.id_to_string_def] ) >>
+      simp[FDOM_FUPDATE_LIST] >>
+      gen_tac >> strip_tac >- (
+        match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
+        fsrw_tac[ARITH_ss][] >>
+        simp[MEM_GENLIST] >>
+        res_tac >>
+        imp_res_tac ALOOKUP_MEM >>
+        disj2_tac >>
+        qmatch_abbrev_tac`MEM (A,y) p1` >>
+        qsuff_tac`A = p0 ' x`>-(simp[Abbr`A`] >> PROVE_TAC[]) >>
+        simp[Abbr`A`] >>
+        match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM >>
+        simp[MAP_GENLIST,MEM_GENLIST] >>
+        gen_tac >>
+        spose_not_then strip_assume_tac >>
+        `p0 ' x < p2` by (
+          fs[EVERY_MAP,EVERY_MEM] >>
+          res_tac >> fs[] ) >>
+        qmatch_assum_abbrev_tac`x = Short (FST (EL m ls))` >>
+        qmatch_assum_abbrev_tac`x = Short z` >>
+        `MEM z (MAP FST ls)` by metis_tac[MEM_MAP,MEM_EL] >>
+        `mk_id mn z ∉ set (MAP FST cenv)` by metis_tac[check_dup_ctors_NOT_MEM] >>
+        pop_assum mp_tac >>
+        simp[AstTheory.mk_id_def] >>
+        fs[EXTENSION] >>
+        qsuff_tac`Short z ≠ Short ""`>-metis_tac[] >>
+        spose_not_then strip_assume_tac >>
+        fs[PrinterTheory.id_to_string_def] ) >>
+      match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
+      fsrw_tac[ARITH_ss][] >>
+      simp[MEM_GENLIST] >>
+      disj1_tac >>
+      pop_assum mp_tac >>
+      simp[MEM_MAP,MEM_GENLIST] >>
+      strip_tac >>
+      qexists_tac`i` >>
+      simp[PrinterTheory.id_to_string_def] >>
+      qmatch_abbrev_tac`((p0 |++ ls) ' k) = z` >>
+      qho_match_abbrev_tac`P ((p0 |++ ls) ' k)` >>
+      match_mp_tac FUPDATE_LIST_ALL_DISTINCT_APPLY_MEM >>
+      simp[Abbr`P`,Abbr`ls`,MEM_GENLIST,Abbr`k`] >>
+      reverse conj_tac >- metis_tac[] >>
+      fsrw_tac[DNF_ss][MAP_REVERSE,ALL_DISTINCT_REVERSE,ALL_DISTINCT_APPEND] >>
+      qmatch_abbrev_tac`ALL_DISTINCT ls` >>
+      qmatch_assum_abbrev_tac`ALL_DISTINCT (MAP SND (GENLIST X Y))` >>
+      `ls = MAP Short (MAP SND (GENLIST X Y))` by (
+        simp[Abbr`ls`,Abbr`X`,Abbr`Y`,MAP_MAP_o,MAP_GENLIST,combinTheory.o_DEF] ) >>
+      pop_assum SUBST1_TAC >>
+      match_mp_tac ALL_DISTINCT_MAP_INJ >>
+      simp[] ) >>
+    conj_tac >- (
+      fs[good_cmap_def] >>
+      simp[number_constructors_thm] >>
       cheat ) >>
+    conj_tac >- (
+      fs[EXTENSION,number_constructors_thm,FDOM_FUPDATE_LIST] >>
+      qx_gen_tac`x` >>
+      qabbrev_tac`p = rs.contab` >>
+      PairCases_on`p` >> fs[] >>
+      Cases_on`x=Short""`>-metis_tac[]>>simp[]>>
+      Cases_on`MEM x (MAP FST cenv)`>-metis_tac[]>>simp[]>>
+      Cases_on`x ∈ FDOM p0`>-metis_tac[]>>simp[]>>
+      simp[MEM_MAP,MEM_GENLIST,MEM_FLAT,EXISTS_PROD,UNCURRY]>>
+      simp_tac(srw_ss()++DNF_ss)[MEM_MAP,EXISTS_PROD]>>
+      qmatch_abbrev_tac`A ⇔ B` >>
+      qsuff_tac`A ⇔ ∃y. MEM y (FLAT (MAP (SND o SND) tds)) ∧ (x = Short (FST y))`>-metis_tac[MEM_EL]>>
+      simp[Abbr`A`,Abbr`B`,MEM_FLAT,EXISTS_PROD,MEM_MAP] >>
+      simp_tac(srw_ss()++DNF_ss)[EXISTS_PROD]>>
+      metis_tac[] ) >>
+    conj_tac >- (
+      fsrw_tac[DNF_ss][MEM_MAP,MEM_FLAT,FORALL_PROD] >>
+      metis_tac[] ) >>
+    conj_tac >- (
+      simp[number_constructors_thm] >>
+      qabbrev_tac`p = rs.contab` >>
+      PairCases_on`p` >> fs[] >>
+      fs[FLOOKUP_DEF,FDOM_FUPDATE_LIST] >>
+      qx_gen_tac`id` >>
+      qmatch_abbrev_tac`(P ∨ Q) ∧ A ⇒ R` >>
+      fs[good_contab_def,cmap_linv_def] >>
+      qmatch_assum_abbrev_tac`Abbrev(A ⇔ (((p0 |++ ls) ' id) = ((p0 |++ ls) ' (Short ""))))` >>
+      `MEM (p0 ' (Short ""), id_to_string (Short "")) p1` by (
+        match_mp_tac ALOOKUP_MEM >>
+        first_x_assum match_mp_tac >>
+        fs[EXTENSION] >> metis_tac[] ) >>
+      `MEM (p0 ' (Short "")) (MAP FST p1)` by (simp[MEM_MAP,EXISTS_PROD] >> metis_tac[]) >>
+      `p0 ' (Short "") < p2` by fs[EVERY_MEM] >>
+      `(p0 |++ ls) ' (Short "") = p0 ' (Short "")` by (
+        match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM >>
+        simp[Abbr`ls`,MEM_MAP,MEM_GENLIST,FORALL_PROD] >>
+        metis_tac[MEM_EL,LENGTH_MAP,MEM_MAP] ) >>
+      `ALL_DISTINCT (MAP FST ls)` by (
+        imp_res_tac check_dup_ctors_ALL_DISTINCT >>
+        qmatch_assum_abbrev_tac`ALL_DISTINCT ls2` >>
+        `MAP FST ls = MAP Short ls2` by (
+          simp[Abbr`ls`,Abbr`ls2`,MAP_GENLIST,LIST_EQ_REWRITE,EL_MAP] ) >>
+        pop_assum SUBST1_TAC >>
+        match_mp_tac ALL_DISTINCT_MAP_INJ >>
+        simp[] ) >>
+      Cases_on`Q=T` >- (
+        fs[Abbr`P`,Abbr`A`,Abbr`R`,Abbr`Q`] >> strip_tac >>
+        spose_not_then strip_assume_tac >>
+        `(λv. MEM v (MAP SND ls)) (p0 ' (Short ""))` by (
+          qpat_assum`X = p0 ' Y`(SUBST1_TAC o SYM) >>
+          match_mp_tac FUPDATE_LIST_ALL_DISTINCT_APPLY_MEM >>
+          fs[MEM_MAP,EXISTS_PROD] >>
+          metis_tac[] ) >>
+        pop_assum mp_tac >>
+        simp[Abbr`ls`,MEM_MAP,MEM_GENLIST,FORALL_PROD] ) >>
+      fs[Abbr`P`,Abbr`Q`,Abbr`R`,Abbr`A`] >>
+      strip_tac >>
+      `(p0 |++ ls) ' id = p0 ' id` by (
+        match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM >>
+        simp[] ) >>
+      fs[] ) >>
+    fs[LET_THM] >>
     cheat) >>
   strip_tac >- rw[])
 
