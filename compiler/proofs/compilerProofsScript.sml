@@ -1269,6 +1269,28 @@ val check_dup_ctors_NOT_MEM = store_thm("check_dup_ctors_NOT_MEM",
   first_x_assum (match_mp_tac o MP_CANON) >>
   simp[] >> metis_tac[])
 
+val FLAT_MAP_MAP_lemma = store_thm("FLAT_MAP_MAP_lemma",
+  ``MAP FST (FLAT (MAP (λ(tvs,tn,condefs). (MAP (λ(conN,ts). (Short conN,LENGTH ts,Short tn)) condefs)) tds)) =
+    MAP (Short o FST) (FLAT (MAP (SND o SND) tds))``,
+  simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY])
+
+(*
+val exp_to_Cexp_SUBMAP = store_thm("exp_to_Cexp_SUBMAP",
+  ``(∀m exp. all_cns
+  enveq
+  all_cns_def
+  exp_to_Cexp_def
+  exp_to_Cexp_ind
+
+val v_to_Cv_SUBMAP = store_thm("v_to_Cv_SUBMAP",
+  ``(∀m v m'. all_cns v ⊆ (FDOM m) ∧ m ⊑ m' ⇒ v_to_Cv m' v = v_to_Cv m v) ∧
+    (∀m vs m'. BIGUNION (IMAGE all_cns (set vs)) ⊆ FDOM m ∧ m ⊑ m' ⇒ vs_to_Cvs m' vs = vs_to_Cvs m vs) ∧
+    (∀m env m'. BIGUNION (IMAGE all_cns (env_range env)) ⊆ FDOM m ∧ m ⊑ m' ⇒ env_to_Cenv m' env = env_to_Cenv m env)``,
+  ho_match_mp_tac v_to_Cv_ind >> simp[v_to_Cv_def] >>
+  conj_tac >- rw[SUBMAP_DEF] >>
+  conj_tac
+*)
+
 val compile_dec_val = store_thm("compile_dec_val",
   ``∀mn menv cenv s env dec res. evaluate_dec mn menv cenv s env dec res ⇒
      ∀rs rss rsf rd bc bs bc0.
@@ -1627,7 +1649,131 @@ val compile_dec_val = store_thm("compile_dec_val",
     conj_tac >- (
       fs[good_cmap_def] >>
       simp[number_constructors_thm] >>
-      cheat ) >>
+      conj_asm1_tac >- (
+        simp[ALL_DISTINCT_APPEND] >>
+        conj_tac >- (
+          imp_res_tac check_dup_ctors_ALL_DISTINCT >>
+          qmatch_assum_abbrev_tac`ALL_DISTINCT ls2` >>
+          simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+          qmatch_abbrev_tac`ALL_DISTINCT ls` >>
+          `ls = MAP Short ls2` by (
+            simp[Abbr`ls`,Abbr`ls2`,MAP_GENLIST,MAP_MAP_o,MAP_FLAT] >>
+            simp[combinTheory.o_DEF]) >>
+          pop_assum SUBST1_TAC >>
+          match_mp_tac ALL_DISTINCT_MAP_INJ >>
+          simp[] ) >>
+        imp_res_tac check_dup_ctors_NOT_MEM >>
+        pop_assum mp_tac >>
+        simp[AstTheory.mk_id_def] >>
+        simp_tac(srw_ss()++DNF_ss)[MEM_MAP,MEM_FLAT,EXISTS_PROD] >>
+        metis_tac[] ) >>
+      rpt gen_tac >>
+      simp[FDOM_FUPDATE_LIST] >>
+      Q.PAT_ABBREV_TAC`ls:((string id) list) = MAP FST (GENLIST X Y)` >>
+      Q.PAT_ABBREV_TAC`al:((string id#num) list) = X` >>
+      qabbrev_tac`p = rs.contab` >> PairCases_on`p`>>fs[] >>
+      Q.PAT_ABBREV_TAC`ls3:((string id#num#string id) list) = FLAT (MAP X tds)` >>
+      `∀x. MEM x ls3 ⇒ MEM (FST x) ls` by (
+        gen_tac >> strip_tac >>
+        `MEM (FST x) (MAP FST ls3)` by metis_tac[MEM_MAP] >>
+        fs[Abbr`ls3`,FLAT_MAP_MAP_lemma] >>
+        simp[Abbr`ls`,Abbr`al`] >>
+        pop_assum mp_tac >>
+        simp[MEM_MAP,MEM_GENLIST] >>
+        simp[MEM_EL] >>
+        strip_tac >> simp[] >>
+        simp_tac(srw_ss()++DNF_ss)[] >>
+        metis_tac[] ) >>
+      `∀x. x ∈ FDOM p0 ⇒ (p0 |++ al) ' x = p0 ' x` by (
+        gen_tac >> strip_tac >>
+        match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM >>
+        simp[Abbr`al`,Abbr`ls`,MAP_GENLIST,MEM_GENLIST] >>
+        imp_res_tac check_dup_ctors_NOT_MEM >>
+        pop_assum mp_tac >>
+        simp[MEM_MAP,AstTheory.mk_id_def,GSYM LEFT_FORALL_IMP_THM] >>
+        simp[Once MEM_EL,GSYM LEFT_FORALL_IMP_THM] >> strip_tac >>
+        spose_not_then strip_assume_tac >>
+        first_x_assum(qspec_then`m`mp_tac) >>
+        simp[] >> fs[EXTENSION] >>
+        Cases_on`MEM x (MAP FST cenv)` >- (
+          fs[MEM_MAP] >> metis_tac[] ) >>
+        `x = Short ""` by metis_tac[] >>
+        qsuff_tac`F`>-rw[] >>
+        qpat_assum`"" ∉ X`mp_tac >>
+        simp[MEM_MAP] >>
+        simp[MEM_EL] >>
+        simp[EXISTS_PROD] >>
+        CONV_TAC SWAP_EXISTS_CONV >>
+        qexists_tac`m` >> simp[] >>
+        Cases_on`EL m (FLAT (MAP (SND o SND) tds))`>>fs[]) >>
+      `ALL_DISTINCT ls` by (
+        simp[Abbr`ls`,Abbr`al`] >>
+        imp_res_tac check_dup_ctors_ALL_DISTINCT >>
+        qmatch_assum_abbrev_tac`ALL_DISTINCT ls2` >>
+        simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+        qmatch_abbrev_tac`ALL_DISTINCT ls` >>
+        `ls = MAP Short ls2` by (
+          simp[Abbr`ls`,Abbr`ls2`,MAP_GENLIST,LIST_EQ_REWRITE,combinTheory.o_DEF,EL_MAP] ) >>
+        pop_assum SUBST1_TAC >>
+        match_mp_tac ALL_DISTINCT_MAP_INJ >>
+        simp[] ) >>
+      `∀x. MEM x cenv ⇒ (FST x) ∈ FDOM p0` by (
+        fs[EXTENSION,MEM_MAP] >> metis_tac[] ) >>
+      `∀k1 k2 v v. MEM (k1,v) al ∧ MEM (k2,v) al ⇒ k1 = k2` by (
+        simp[Abbr`al`,MEM_GENLIST] >>
+        rpt gen_tac >> strip_tac >> fs[] ) >>
+      `∀x. MEM x ls ⇒ MEM (x, (p0 |++ al) ' x) al` by (
+        simp[Abbr`ls`] >> gen_tac >> strip_tac >>
+        qsuff_tac `(λv. MEM (x,v) al) ((p0 |++ al) ' x)` >- rw[] >>
+        match_mp_tac FUPDATE_LIST_ALL_DISTINCT_APPLY_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >> metis_tac[] ) >>
+      `∀k v1 v2. MEM (k,v1) ls3 ∧ MEM (k,v2) ls3 ⇒ v1 = v2` by (
+        fs[ALL_DISTINCT_APPEND] >>
+        qpat_assum`ALL_DISTINCT (MAP_FST ls3)`mp_tac >>
+        simp[EL_ALL_DISTINCT_EL_EQ] >>
+        simp_tac std_ss [MEM_EL,EL_MAP] >>
+        strip_tac >>
+        simp_tac(srw_ss()++DNF_ss)[] >>
+        ntac 3 gen_tac >>
+        map_every qx_gen_tac[`n1`,`n2`] >> strip_tac >>
+        first_x_assum(qspecl_then[`n1`,`n2`]mp_tac) >>
+        rpt (qpat_assum`X = EL Y ls3`(mp_tac o SYM)) >>
+        rw[] >> fs[] ) >>
+      `∀x. MEM x ls ⇒ x ∉ FDOM p0` by (
+        simp[Abbr`ls`,Abbr`al`,MEM_GENLIST,EXISTS_PROD,MEM_MAP] >>
+        ntac 8 (pop_assum kall_tac) >>
+        qmatch_assum_rename_tac`Abbrev((p0,w,n) = rs.contab)`[] >>
+        imp_res_tac check_dup_ctors_NOT_MEM >>
+        gen_tac >> strip_tac >>
+        fs[AstTheory.mk_id_def,EXTENSION] >>
+        spose_not_then strip_assume_tac >>
+        Cases_on`MEM x (MAP FST cenv)` >- (
+          pop_assum mp_tac >> simp[] >>
+          first_x_assum match_mp_tac >>
+          simp[MEM_MAP,EXISTS_PROD] >>
+          simp[MEM_EL] >>
+          CONV_TAC SWAP_EXISTS_CONV >>
+          qexists_tac`i`>>simp[] >>
+          Cases_on`EL i (FLAT (MAP (SND o SND) tds))`>>simp[] ) >>
+        `x = Short ""` by metis_tac[] >> fs[] >>
+        fs[MEM_MAP] >>
+        fs[MEM_EL] >>
+        metis_tac[] ) >>
+      `∀x y z. MEM (x,y) al ∧ z ∈ FDOM p0 ⇒ y ≠ (p0 ' z)` by (
+        simp[Abbr`al`,MEM_GENLIST] >>
+        ntac 9 (pop_assum kall_tac) >>
+        gen_tac >> spose_not_then strip_assume_tac >>
+        fs[good_contab_def,cmap_linv_def,EVERY_MAP] >>
+        res_tac >> imp_res_tac ALOOKUP_MEM >>
+        fs[EVERY_MEM,MEM_MAP] >> res_tac >>
+        fsrw_tac[ARITH_ss][] ) >>
+      strip_tac >- (
+        res_tac >> simp[] >>
+        Cases_on`p1`>>Cases_on`p2`>>fs[] >>
+        metis_tac[] )
+      >- ( res_tac >> simp[] >> metis_tac[] )
+      >- ( res_tac >> simp[] >> metis_tac[] ) >>
+      metis_tac[] ) >>
     conj_tac >- (
       fs[EXTENSION,number_constructors_thm,FDOM_FUPDATE_LIST] >>
       qx_gen_tac`x` >>
@@ -1690,6 +1836,25 @@ val compile_dec_val = store_thm("compile_dec_val",
         simp[] ) >>
       fs[] ) >>
     fs[LET_THM] >>
+    map_every qexists_tac[`Cenv`,`Cs`] >>
+    simp[] >>
+    simp[number_constructors_thm] >>
+    simp[CONJ_ASSOC] >>
+    reverse conj_tac >- (
+      qmatch_abbrev_tac`Cenv_bs rd Cs Cenv renv rsz bs0` >>
+      match_mp_tac Cenv_bs_append_code >>
+      qexists_tac`bs0 with code := bc0` >>
+      simp[bc_state_component_equality,Abbr`bs0`] >>
+      match_mp_tac Cenv_bs_with_irr >>
+      HINT_EXISTS_TAC >> simp[] ) >>
+    reverse conj_tac >- (
+      rpt strip_tac >>
+      match_mp_tac  code_env_cd_append >>
+      simp[FILTER_APPEND] ) >>
+    reverse conj_tac >- (
+      rpt strip_tac >>
+      match_mp_tac  code_env_cd_append >>
+      simp[FILTER_APPEND] ) >>
     cheat) >>
   strip_tac >- rw[])
 
