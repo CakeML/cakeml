@@ -932,6 +932,14 @@ val ALIST_REL_trans = store_thm("ALIST_REL_trans",
   ``(∀x y z. R x y ∧ R y z ⇒ R x z) ⇒ ∀x y z. ALIST_REL R x y ∧ ALIST_REL R y z ⇒ ALIST_REL R x z``,
   PROVE_TAC[ALIST_REL_fmap_rel,fmap_rel_trans])
 
+val ALIST_REL_APPEND = store_thm("ALIST_REL_APPEND",
+  ``ALIST_REL R l1 l2 ∧ ALIST_REL R l3 l4 ⇒ ALIST_REL R (l1 ++ l3) (l2 ++ l4)``,
+  rw[ALIST_REL_def,ALOOKUP_APPEND] >>
+  fs[optionTheory.OPTREL_def] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  metis_tac[optionTheory.NOT_SOME_NONE,optionTheory.SOME_11])
+
 val (enveq_rules,enveq_ind,enveq_cases) = Hol_reln`
   (enveq (Litv l) (Litv l)) ∧
   (EVERY2 enveq vs1 vs2 ⇒ enveq (Conv cn vs1) (Conv cn vs2)) ∧
@@ -1008,6 +1016,101 @@ val do_uapp_enveq = store_thm("do_uapp_enveq",
   ntac 2 gen_tac >> Cases >>
   rw[Once enveq_cases] >> rw[] >> fs[EVERY2_EVERY] >> rfs[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
   spose_not_then strip_assume_tac >> fs[])
+
+val enveq_contains_closure = store_thm("enveq_contains_closure",
+  ``∀v1 v2. enveq v1 v2 ⇒ (contains_closure v1 ⇔ contains_closure v2)``,
+  ho_match_mp_tac enveq_ind >>
+  simp[contains_closure_def] >>
+  simp[EVERY2_EVERY,EXISTS_MEM,EVERY_MEM,FORALL_PROD] >>
+  rw[] >> rfs[MEM_ZIP] >> simp[MEM_EL] >> metis_tac[])
+
+val LIST_REL_enveq_contains_closure = store_thm("LIST_REL_enveq_contains_closure",
+  ``LIST_REL enveq v1 v2 ⇒ LIST_REL (λv1 v2. contains_closure v1 ⇔ contains_closure v2) v1 v2``,
+  match_mp_tac EVERY2_mono >> simp[enveq_contains_closure])
+
+val enveq_lit_loc = store_thm("enveq_lit_loc",
+  ``(enveq (Litv l) v ⇔ (v = Litv l)) ∧
+    (enveq v (Litv l) ⇔ (v = Litv l)) ∧
+    (enveq v (Loc n) ⇔ (v = Loc n)) ∧
+    (enveq (Loc n) v ⇔ (v = Loc n))``,
+  simp[enveq_cases])
+val _ = export_rewrites["enveq_lit_loc"]
+
+val enveq_conv = store_thm("enveq_conv",
+  ``(enveq (Conv n ls) v = (∃ls'. v = Conv n ls' ∧ EVERY2 enveq ls ls')) ∧
+    (enveq v (Conv n ls) = (∃ls'. v = Conv n ls' ∧ EVERY2 enveq ls' ls))``,
+  simp[Once enveq_cases] >> rw[] >>
+  simp[Once enveq_cases] >> rw[])
+
+val enveq_no_closures_equal = store_thm("enveq_no_closures_equal",
+  ``∀v1 v2. enveq v1 v2 ⇒ ¬contains_closure v1 ⇒ (v2 = v1)``,
+  ho_match_mp_tac enveq_ind >>
+  simp[contains_closure_def] >>
+  rw[LIST_EQ_REWRITE,EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+  metis_tac[MEM_EL])
+
+val ALIST_REL_EVERY2 = store_thm("ALIST_REL_EVERY2",
+  ``∀R l1 l2. (MAP FST l1 = MAP FST l2) ∧ EVERY2 R (MAP SND l1) (MAP SND l2) ⇒ ALIST_REL R l1 l2``,
+  gen_tac >> Induct >> simp[] >- simp[ALIST_REL_def,optionTheory.OPTREL_def] >>
+  Cases >> Cases >> simp[] >> rw[] >>
+  Cases_on`h` >> fs[] >>
+  match_mp_tac ALIST_REL_CONS_SAME >> simp[] )
+
+val do_app_SOME_enveq = store_thm("do_app_SOME_enveq",
+  ``∀s env op v1 v2 s' env' exp' sq sq' envq envq' v1q v2q.
+      do_app s env op v1 v2 = SOME (s',env',exp') ∧
+      enveq v1 v1q ∧ enveq v2 v2q ∧
+      LIST_REL enveq s sq ∧
+      ALIST_REL enveq env envq
+      ⇒
+      ∃sq' envq'.
+        do_app sq envq op v1q v2q = SOME (sq',envq',exp') ∧
+        LIST_REL enveq s' sq' ∧
+        ALIST_REL enveq env' envq'``,
+  ntac 2 gen_tac >> Cases >>
+  Cases >> TRY(Cases_on`l:lit`) >>
+  Cases >> TRY(Cases_on`l:lit`) >>
+  simp[do_app_def] >>
+  rw[] >> fs[enveq_conv] >> rw[] >>
+  fs[contains_closure_def,store_assign_def] >>
+  TRY (
+    imp_res_tac enveq_contains_closure >>
+    imp_res_tac LIST_REL_enveq_contains_closure >>
+    fs[EVERY2_EVERY] >> rfs[EVERY_MEM,MEM_ZIP,FORALL_PROD] >>
+    fs[GSYM LEFT_FORALL_IMP_THM,MEM_EL] >>
+    NO_TAC)  >>
+  TRY (
+    qmatch_abbrev_tac`a ∧ b ⇔ a ∧ c` >>
+    Cases_on`a`>>simp[]>>
+    unabbrev_all_tac >>
+    qmatch_rename_tac`l1 = l2 ⇔ l3 = l4`[] >>
+    fs[LIST_EQ_REWRITE,EVERY2_EVERY] >>
+    rfs[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
+    Cases_on`LENGTH l1 = LENGTH l2`>>simp[]>>
+    metis_tac[enveq_no_closures_equal,MEM_EL] ) >>
+  TRY (
+    fs[Once enveq_cases,bind_def] >>
+    match_mp_tac ALIST_REL_CONS_SAME >>
+    simp[] >> simp[enveq_conv] >>
+    simp[Once enveq_cases] >> NO_TAC) >>
+  TRY (
+    fs[Once enveq_cases] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    BasicProvers.CASE_TAC >> fs[bind_def] >> rw[] >>
+    match_mp_tac ALIST_REL_CONS_SAME >>
+    simp[Once enveq_cases,build_rec_env_MAP] >>
+    match_mp_tac ALIST_REL_APPEND >> simp[] >>
+    match_mp_tac ALIST_REL_EVERY2 >>
+    simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+    simp[Once enveq_cases] >> NO_TAC) >>
+  TRY (
+    rw[] >> fs[] >>
+    fs[EVERY2_EVERY] >>
+    rw[] >> rfs[EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+    rw[EL_LUPDATE] >>
+    rw[enveq_conv,EVERY2_EVERY,EVERY_MEM,MEM_ZIP,UNCURRY] >> rw[] >>
+    NO_TAC))
 
 val evaluate_enveq = store_thm("evaluate_enveq",
   ``(∀menv (cenv:envC) s env exp res. evaluate menv cenv s env exp res ⇒
