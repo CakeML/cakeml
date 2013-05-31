@@ -987,6 +987,28 @@ val ALOOKUP_CONS_SAME = store_thm("ALOOKUP_CONS_SAME",
   ``(ALOOKUP env1 = ALOOKUP env2) ⇒ (ALOOKUP (x::env1) = ALOOKUP (x::env2))``,
   Cases_on`x`>>rw[FUN_EQ_THM])
 
+val do_uapp_enveq = store_thm("do_uapp_enveq",
+  ``∀s uop v s' v' v1 s1.
+    do_uapp s uop v = SOME (s',v') ∧
+    enveq v v1 ∧
+    LIST_REL enveq s s1 ⇒
+    ∃s1' v1'.
+    do_uapp s1 uop v1 = SOME (s1',v1') ∧
+    LIST_REL enveq s' s1' ∧
+    enveq v' v1'``,
+  gen_tac >> Cases >> Cases >> TRY (Cases_on`l`) >> simp[do_uapp_def,store_alloc_def,store_lookup_def] >>
+  TRY (
+    rw[Once enveq_cases] >> TRY (fs[EVERY2_EVERY] >> NO_TAC) >>
+    match_mp_tac EVERY2_APPEND_suff >> simp[] >> NO_TAC) >>
+  TRY (
+    rw[Once enveq_cases] >>
+    TRY(rw[Once enveq_cases] >> fs[EVERY2_EVERY] >> NO_TAC) >>
+    match_mp_tac EVERY2_APPEND_suff >> fs[] >>
+    rw[Once enveq_cases] ) >>
+  ntac 2 gen_tac >> Cases >>
+  rw[Once enveq_cases] >> rw[] >> fs[EVERY2_EVERY] >> rfs[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
+  spose_not_then strip_assume_tac >> fs[])
+
 val evaluate_enveq = store_thm("evaluate_enveq",
   ``(∀menv (cenv:envC) s env exp res. evaluate menv cenv s env exp res ⇒
       ∀s' env'. (ALIST_REL enveq env env') ∧ (LIST_REL enveq s s') ⇒
@@ -1053,11 +1075,27 @@ val evaluate_enveq = store_thm("evaluate_enveq",
     simp[FORALL_PROD,EXISTS_PROD] >> rw[] >>
     rw[Once enveq_cases] ) >>
   strip_tac >- (
-    ntac 3 gen_tac >>
-    Cases >> simp[FORALL_PROD,EXISTS_PROD] >> rw[] >>
-    rw[Once evaluate_cases] >>
+    rw[] >>
+    qspecl_then[`s2`,`uop`,`v`,`s3`,`v'`]mp_tac do_uapp_enveq >>
+    simp[Once evaluate_cases] >>
+    fsrw_tac[DNF_ss][EXISTS_PROD] >>
+    first_x_assum(qspecl_then[`s'`,`env'`]mp_tac) >>
+    rw[] >> metis_tac[] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once evaluate_cases] >>
+    fsrw_tac[DNF_ss][EXISTS_PROD] >>
+    Cases_on`uop`>>Cases_on`v`>>fs[do_uapp_def,store_alloc_def,store_assign_def,store_lookup_def,LET_THM] >>
+    fs[Once enveq_cases] >>
     fsrw_tac[DNF_ss][] >>
-    cheat ) >>
+    disj1_tac >>
+    first_x_assum(qspecl_then[`s'`,`env'`]mp_tac) >>
+    simp[] >> disch_then(Q.X_CHOOSE_THEN`s1`strip_assume_tac) >>
+    qexists_tac`s1` >> HINT_EXISTS_TAC >>
+    simp[] >>
+    rw[]>>fs[EVERY2_EVERY] )
+  strip_tac >- (
+    rw[] >> rw[Once evaluate_cases] >>
+    fsrw_tac[DNF_ss][FORALL_PROD,EXISTS_PROD] ) >>
   cheat )
 
 val _ = export_theory()
