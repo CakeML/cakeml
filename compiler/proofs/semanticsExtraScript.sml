@@ -1148,6 +1148,105 @@ val do_if_enveq = store_thm("do_if_enveq",
   ``∀v1 e1 e2 v2. enveq v1 v2 ⇒ do_if v2 e1 e2 = do_if v1 e1 e2``,
   Cases >> rw[do_if_def,enveq_conv] >> rw[] >> fs[Once enveq_cases])
 
+val pmatch_enveq = store_thm("pmatch_enveq",
+  ``(∀cenv:envC s p v env sq vq envq.
+       LIST_REL enveq s sq ∧
+       enveq v vq ∧
+       ALIST_REL enveq env envq ⇒
+       (∀env'. pmatch cenv s p v env = Match env' ⇒
+         ∃env'q. pmatch cenv sq p vq envq = Match env'q ∧
+                 ALIST_REL enveq env' env'q) ∧
+       (∀env'. pmatch cenv s p v env = No_match ⇒
+         pmatch cenv sq p vq envq = No_match) ∧
+       (∀env'. pmatch cenv s p v env = Match_type_error ⇒
+         pmatch cenv sq p vq envq = Match_type_error)) ∧
+    (∀cenv:envC s p v env sq vq envq.
+       LIST_REL enveq s sq ∧
+       LIST_REL enveq v vq ∧
+       ALIST_REL enveq env envq ⇒
+       (∀env'. pmatch_list cenv s p v env = Match env' ⇒
+         ∃env'q. pmatch_list cenv sq p vq envq = Match env'q ∧
+                 ALIST_REL enveq env' env'q) ∧
+       (∀env'. pmatch_list cenv s p v env = No_match ⇒
+         pmatch_list cenv sq p vq envq = No_match) ∧
+       (∀env'. pmatch_list cenv s p v env = Match_type_error ⇒
+         pmatch_list cenv sq p vq envq = Match_type_error))``,
+  ho_match_mp_tac pmatch_ind >>
+  strip_tac >- (
+    rw[pmatch_def,bind_def] >>
+    match_mp_tac ALIST_REL_CONS_SAME >> rw[] ) >>
+  strip_tac >- rw[pmatch_def] >>
+  strip_tac >- (
+    simp[] >>
+    rpt gen_tac >> strip_tac >>
+    simp[pmatch_def,enveq_conv] >>
+    rpt gen_tac >> strip_tac >>
+    Cases_on`ALOOKUP cenv n`>>fs[] >- (
+      rw[] >> rw[pmatch_def] ) >>
+    Cases_on`ALOOKUP cenv n'`>>fs[] >- (
+      rw[] >> rw[pmatch_def] ) >>
+    Cases_on`x`>>fs[]>>
+    Cases_on`x'`>>fs[]>>
+    conj_tac >- (
+      rw[pmatch_def] >>
+      fs[EVERY2_EVERY] ) >>
+    conj_tac >- (
+      rw[pmatch_def] >>
+      fs[EVERY2_EVERY] ) >>
+    rw[pmatch_def] >>
+    fs[EVERY2_EVERY] ) >>
+  strip_tac >- (
+    simp[] >>
+    rpt gen_tac >> strip_tac >>
+    simp[pmatch_def] >>
+    Cases_on`store_lookup lnum s`>>fs[] >- (
+      fs[store_lookup_def,EVERY2_EVERY] >> rw[] >> fs[] ) >>
+    fs[store_lookup_def] >>
+    fs[EVERY2_EVERY] >>
+    rpt gen_tac >> strip_tac >> fs[] >>
+    fsrw_tac[DNF_ss][] >>
+    rw[] >> first_x_assum (match_mp_tac o MP_CANON) >> fs[] >>
+    rfs[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] ) >>
+  strip_tac >- (
+    rw[pmatch_def,enveq_conv] >>
+    rw[pmatch_def] ) >>
+  strip_tac >- ( rw[pmatch_def] >> fs[Once enveq_cases] >> rw[pmatch_def] ) >>
+  strip_tac >- ( rw[pmatch_def] >> fs[Once enveq_cases] >> rw[pmatch_def] ) >>
+  strip_tac >- ( rw[pmatch_def] >> fs[Once enveq_cases] >> rw[pmatch_def] ) >>
+  strip_tac >- ( rw[pmatch_def] >> fs[Once enveq_cases] >> rw[pmatch_def] ) >>
+  strip_tac >- ( rw[pmatch_def] >> fs[Once enveq_cases] >> rw[pmatch_def] ) >>
+  strip_tac >- ( rw[pmatch_def] >> fs[Once enveq_cases] >> rw[pmatch_def] ) >>
+  strip_tac >- ( rw[pmatch_def] >> fs[Once enveq_cases] >> rw[pmatch_def] ) >>
+  strip_tac >- ( rw[pmatch_def] >> fs[Once enveq_cases] >> rw[pmatch_def] ) >>
+  strip_tac >- ( rw[pmatch_def] >> fs[Once enveq_cases] >> rw[pmatch_def] ) >>
+  strip_tac >- ( rw[pmatch_def] >> fs[Once enveq_cases] >> rw[pmatch_def] ) >>
+  strip_tac >- ( rw[pmatch_def] >> fs[Once enveq_cases] >> rw[pmatch_def] ) >>
+  strip_tac >- ( rw[pmatch_def] >> fs[Once enveq_cases] >> rw[pmatch_def] ) >>
+  strip_tac >- (
+    simp[] >>
+    rpt gen_tac >> strip_tac >>
+    rpt gen_tac >> strip_tac >>
+    BasicProvers.VAR_EQ_TAC >>
+    conj_tac >- (
+      rw[pmatch_def] >>
+      pop_assum mp_tac >>
+      BasicProvers.CASE_TAC >> fs[] >> strip_tac >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      TRY (res_tac >> fs[] >> NO_TAC) >>
+      cheat ) >>
+    rw[pmatch_def] >>
+    pop_assum mp_tac >>
+    BasicProvers.CASE_TAC >> fs[] >> strip_tac >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    TRY (res_tac >> fs[] >> NO_TAC) >>
+    cheat ) >>
+  strip_tac >- (
+    rw[] >>
+    rw[pmatch_def] >>
+    fs[pmatch_def] ) >>
+  simp[pmatch_def] >>
+  rw[] >> rw[pmatch_def])
+
 val evaluate_enveq = store_thm("evaluate_enveq",
   ``(∀menv (cenv:envC) s env exp res. evaluate menv cenv s env exp res ⇒
       ∀s' env'. (ALIST_REL enveq env env') ∧ (LIST_REL enveq s s') ⇒
@@ -1308,6 +1407,72 @@ val evaluate_enveq = store_thm("evaluate_enveq",
     simp[FORALL_PROD,EXISTS_PROD] >>
     rw[] >> srw_tac[DNF_ss][Once evaluate_cases] >>
     metis_tac[EVERY2_enveq_trans,ALIST_REL_enveq_trans] ) >>
-  cheat )
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD,bind_def] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases,bind_def] >>
+    disj1_tac >>
+    last_x_assum(qspecl_then[`s''`,`env'`]mp_tac) >> simp[] >>
+    disch_then(qx_choosel_then[`sa`,`va`]strip_assume_tac) >>
+    last_x_assum(qspecl_then[`sa`,`(n,v')::env'`]mp_tac) >> simp[] >>
+    discharge_hyps >- (
+      match_mp_tac ALIST_REL_CONS_SAME >>
+      simp[] ) >>
+    disch_then(qx_choosel_then[`sb`,`vb`]strip_assume_tac) >>
+    metis_tac[EVERY2_enveq_trans,ALIST_REL_enveq_trans] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD,bind_def] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases,bind_def] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD,build_rec_env_MAP] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases,build_rec_env_MAP] >>
+    Q.PAT_ABBREV_TAC`env'' = MAP X Y ++ env'` >>
+    last_x_assum(qspecl_then[`s'`,`env''`]mp_tac) >> simp[] >>
+    discharge_hyps >- (
+      simp[Abbr`env''`] >>
+      match_mp_tac ALIST_REL_APPEND >> simp[] >>
+      match_mp_tac ALIST_REL_EVERY2 >>
+      simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+      simp[Once enveq_cases]) >>
+    metis_tac[EVERY2_enveq_trans,ALIST_REL_enveq_trans] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD,build_rec_env_MAP] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases,build_rec_env_MAP] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases] >>
+    fsrw_tac[DNF_ss][] >>
+    last_x_assum(qspecl_then[`s''`,`env'`]mp_tac) >> simp[] >>
+    disch_then(qx_choosel_then[`sa`,`va`]strip_assume_tac) >>
+    metis_tac[EVERY2_enveq_trans,ALIST_REL_enveq_trans] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases] >>
+    fsrw_tac[DNF_ss][] >>
+    metis_tac[EVERY2_enveq_trans,ALIST_REL_enveq_trans] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases] >>
+    qspecl_then[`cenv`,`s`,`p`,`v`,`env`]mp_tac(CONJUNCT1 pmatch_enveq) >> simp[] >>
+    disch_then(qspecl_then[`s'`,`v'`,`env''`]mp_tac) >> simp[] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases] >>
+    qspecl_then[`cenv`,`s`,`p`,`v`,`env`]mp_tac(CONJUNCT1 pmatch_enveq) >> simp[] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases] >>
+    qspecl_then[`cenv`,`s`,`p`,`v`,`env`]mp_tac(CONJUNCT1 pmatch_enveq) >> simp[] ) >>
+  simp[FORALL_PROD,EXISTS_PROD] >>
+  rw[] >> srw_tac[DNF_ss][Once evaluate_cases])
 
 val _ = export_theory()
