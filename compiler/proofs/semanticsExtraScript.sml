@@ -1112,6 +1112,34 @@ val do_app_SOME_enveq = store_thm("do_app_SOME_enveq",
     rw[enveq_conv,EVERY2_EVERY,EVERY_MEM,MEM_ZIP,UNCURRY] >> rw[] >>
     NO_TAC))
 
+val do_app_NONE_enveq = store_thm("do_app_NONE_enveq",
+  ``∀s env op v1 v2 sq sq' envq envq' v1q v2q.
+      do_app s env op v1 v2 = NONE ∧
+      enveq v1 v1q ∧ enveq v2 v2q ∧
+      LIST_REL enveq s sq ∧
+      ALIST_REL enveq env envq
+      ⇒
+      do_app sq envq op v1q v2q = NONE``,
+  ntac 2 gen_tac >> Cases >>
+  Cases >> TRY(Cases_on`l:lit`) >>
+  Cases >> TRY(Cases_on`l:lit`) >>
+  simp[do_app_def] >>
+  rw[] >> fs[enveq_conv] >> rw[] >>
+  fs[contains_closure_def,store_assign_def] >>
+  fs[Once enveq_cases,contains_closure_def] >>
+  TRY (
+    imp_res_tac LIST_REL_enveq_contains_closure >>
+    fs[EVERY2_EVERY,EVERY_MEM,EXISTS_MEM,FORALL_PROD] >>
+    rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+    fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+    fsrw_tac[DNF_ss][MEM_EL] >>
+    metis_tac[] ) >>
+  TRY (
+    BasicProvers.CASE_TAC >> fs[] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    NO_TAC ) >>
+  BasicProvers.CASE_TAC >> fs[EVERY2_EVERY] )
+
 val evaluate_enveq = store_thm("evaluate_enveq",
   ``(∀menv (cenv:envC) s env exp res. evaluate menv cenv s env exp res ⇒
       ∀s' env'. (ALIST_REL enveq env env') ∧ (LIST_REL enveq s s') ⇒
@@ -1195,10 +1223,51 @@ val evaluate_enveq = store_thm("evaluate_enveq",
     simp[] >> disch_then(Q.X_CHOOSE_THEN`s1`strip_assume_tac) >>
     qexists_tac`s1` >> HINT_EXISTS_TAC >>
     simp[] >>
-    rw[]>>fs[EVERY2_EVERY] )
+    rw[]>>fs[EVERY2_EVERY] ) >>
   strip_tac >- (
     rw[] >> rw[Once evaluate_cases] >>
     fsrw_tac[DNF_ss][FORALL_PROD,EXISTS_PROD] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >> rw[] >>
+    srw_tac[DNF_ss][Once evaluate_cases] >>
+    disj1_tac >>
+    fsrw_tac[DNF_ss][] >>
+    qspecl_then[`s3`,`env`,`op`,`v1`,`v2`]mp_tac do_app_SOME_enveq >>
+    simp[] >> strip_tac >>
+    last_x_assum(qspecl_then[`s'''`,`env''`]mp_tac) >> simp[] >>
+    disch_then(qx_choosel_then[`sa`,`va`]strip_assume_tac) >>
+    last_x_assum(qspecl_then[`sa`,`env''`]mp_tac) >> simp[] >>
+    disch_then(qx_choosel_then[`sb`,`vb`]strip_assume_tac) >>
+    first_x_assum(qspecl_then[`sb`,`env''`,`va`,`vb`]mp_tac) >> simp[] >>
+    disch_then(qx_choosel_then[`sc`,`envc`]strip_assume_tac) >>
+    first_x_assum(qspecl_then[`sc`,`envc`]mp_tac) >> simp[] >>
+    disch_then(qx_choosel_then[`sd`,`envd`]strip_assume_tac) >>
+    map_every qexists_tac [`sd`,`envd`,`va`,`vb`,`envc`,`exp''`,`sa`,`sb`,`sc`] >>
+    simp[] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >> rw[] >>
+    srw_tac[DNF_ss][Once evaluate_cases] >>
+    disj2_tac >> disj1_tac >>
+    fsrw_tac[DNF_ss][] >>
+    last_x_assum(qspecl_then[`s''`,`env'`]mp_tac) >> simp[] >>
+    disch_then(qx_choosel_then[`sa`,`va`]strip_assume_tac) >>
+    last_x_assum(qspecl_then[`sa`,`env'`]mp_tac) >> simp[] >>
+    disch_then(qx_choosel_then[`sb`,`vb`]strip_assume_tac) >>
+    map_every qexists_tac [`sb`,`va`,`vb`,`sa`] >> simp[] >>
+    imp_res_tac do_app_NONE_enveq ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >> rw[] >>
+    srw_tac[DNF_ss][Once evaluate_cases] >>
+    disj2_tac >> disj2_tac >> disj1_tac >>
+    fsrw_tac[DNF_ss][] >>
+    last_x_assum(qspecl_then[`s''`,`env'`]mp_tac) >> simp[] >>
+    disch_then(qx_choosel_then[`sa`,`va`]strip_assume_tac) >>
+    last_x_assum(qspecl_then[`sa`,`env'`]mp_tac) >> simp[] >>
+    disch_then(qx_choosel_then[`sb`]strip_assume_tac) >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >> rw[] >>
+    srw_tac[DNF_ss][Once evaluate_cases] ) >>
   cheat )
 
 val _ = export_theory()
