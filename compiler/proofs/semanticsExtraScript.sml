@@ -1160,8 +1160,8 @@ val evaluate_enveq = store_thm("evaluate_enveq",
                EVERY2 enveq (FST res) (FST res') ∧
                result_rel (EVERY2 enveq) (SND res) (SND res')) ∧
     (∀menv (cenv:envC) s env v pes res. evaluate_match menv cenv s env v pes res ⇒
-      ∀s' env'. (ALIST_REL enveq env env') ∧ (LIST_REL enveq s s') ⇒
-        ∃res'. evaluate_match menv cenv s' env' v pes res' ∧
+      ∀s' env' v'. (ALIST_REL enveq env env') ∧ (LIST_REL enveq s s') ∧ enveq v v' ⇒
+        ∃res'. evaluate_match menv cenv s' env' v' pes res' ∧
                EVERY2 enveq (FST res) (FST res') ∧
                result_rel enveq (SND res) (SND res'))``,
   ho_match_mp_tac evaluate_ind >>
@@ -1300,6 +1300,14 @@ val evaluate_enveq = store_thm("evaluate_enveq",
     simp[FORALL_PROD,EXISTS_PROD] >>
     rw[] >> srw_tac[DNF_ss][Once evaluate_cases] >>
     metis_tac[do_if_enveq,EVERY2_enveq_trans,ALIST_REL_enveq_trans] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases] >>
+    metis_tac[EVERY2_enveq_trans,ALIST_REL_enveq_trans] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases] >>
+    metis_tac[EVERY2_enveq_trans,ALIST_REL_enveq_trans] ) >>
   cheat )
 
 val _ = export_theory()
