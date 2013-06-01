@@ -1,5 +1,6 @@
 INCLUDES = .. ../../semantics ../../parsing ../../compiler \
            ../../compiler/bytecode ../../implementation \
+	   ../../impl_proofs \
            $(HOLDIR)/examples/unification/triangular/first-order \
            $(HOLDIR)/examples/parsing
 OPTIONS = QUIT_ON_FAILURE
@@ -21,7 +22,8 @@ BARE_THYS = $(patsubst %,../../semantics/%,$(PRE_BARE_THYS)) \
             ../../parsing/mmlParseTheory \
             ../../compiler/compilerTerminationTheory \
             ../../implementation/inferTheory \
-            ../../implementation/repl_funTheory
+            ../../implementation/repl_funTheory \
+            ../../impl_proofs/inferSoundTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

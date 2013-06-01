@@ -186,7 +186,11 @@ val infer_type_subst_def = tDefine "infer_type_subst" `
 
 val infer_deBruijn_subst_def = tDefine "infer_deBruijn_subst" `
 (infer_deBruijn_subst s (Infer_Tvar_db n) =
-  EL n s) ∧
+  if n < LENGTH s then
+    EL n s 
+  else 
+    (* should not happen *) 
+    Infer_Tvar_db (n - LENGTH s)) ∧
 (infer_deBruijn_subst s (Infer_Tapp ts tn) =
   Infer_Tapp (MAP (infer_deBruijn_subst s) ts) tn) ∧
 (infer_deBruijn_subst s (Infer_Tuvar n) =

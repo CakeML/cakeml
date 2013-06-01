@@ -37,7 +37,7 @@ val t_unify_apply2 = Q.prove (
   (t_walkstar s2 t1 = t_walkstar s2 t2)`,
 cheat);
 
-val t_unify_wfs = Q.prove (
+val t_unify_wfs = Q.store_thm ("t_unify_wfs",
 `!s1 t1 t2 s2.
   t_wfs s1 ∧
   (t_unify s1 t1 t2 = SOME s2)
@@ -148,7 +148,7 @@ rw [st_ex_return_def, st_ex_bind_def, LET_THM, apply_subst_def, read_def] >>
 eq_tac >>
 rw []);
 
-val add_constraint_success = Q.prove (
+val add_constraint_success = Q.store_thm ("add_constraint_success",
 `!t1 t2 st st' x.
   (add_constraint t1 t2 st = (Success x, st'))
   =
@@ -296,6 +296,8 @@ val success_eqns =
              get_next_uvar_success, apply_subst_list_success, guard_success,
              read_def];
 
+val _ = save_thm ("success_eqns", success_eqns);
+
 val check_t_def = tDefine "check_t" `
 (check_t n uvars (Infer_Tuvar v) = (v ∈ uvars)) ∧
 (check_t n uvars (Infer_Tvar_db n') = 
@@ -441,7 +443,7 @@ fs [] >>
 TRY (cases_on `v'`) >>
 prove_tac [pure_add_constraints_append, pure_add_constraints_def, infer_p_constraints]);
 
-val pure_add_constraints_wfs = Q.prove (
+val pure_add_constraints_wfs = Q.store_thm ("pure_add_constraints_wfs",
 `!s1 ts s2.
   t_wfs s1 ∧
   pure_add_constraints s1 ts s2
@@ -454,7 +456,7 @@ PairCases_on `h` >>
 fs [pure_add_constraints_def] >>
 metis_tac [t_unify_wfs]);
 
-val infer_p_wfs = Q.prove (
+val infer_p_wfs = Q.store_thm ("infer_p_wfs",
 `(!cenv p st t env st'.
     t_wfs st.subst ∧
     (infer_p cenv p st = (Success (t,env), st'))
@@ -472,7 +474,7 @@ res_tac >>
 fs [] >>
 prove_tac [pure_add_constraints_wfs]);
 
-val infer_e_wfs = Q.prove (
+val infer_e_wfs = Q.store_thm ("infer_e_wfs",
 `(!menv cenv env e st st' t.
     (infer_e menv cenv env e st = (Success t, st')) ∧
     t_wfs st.subst
