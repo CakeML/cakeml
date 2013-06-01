@@ -1233,13 +1233,15 @@ val pmatch_enveq = store_thm("pmatch_enveq",
       BasicProvers.CASE_TAC >> fs[] >> strip_tac >>
       BasicProvers.CASE_TAC >> fs[] >>
       TRY (res_tac >> fs[] >> NO_TAC) >>
-      cheat ) >>
+      last_x_assum(qspecl_then[`sq`,`y`,`envq`]mp_tac) >>
+      simp[]) >>
     rw[pmatch_def] >>
     pop_assum mp_tac >>
     BasicProvers.CASE_TAC >> fs[] >> strip_tac >>
     BasicProvers.CASE_TAC >> fs[] >>
     TRY (res_tac >> fs[] >> NO_TAC) >>
-    cheat ) >>
+    last_x_assum(qspecl_then[`sq`,`y`,`envq`]mp_tac) >>
+    simp[]) >>
   strip_tac >- (
     rw[] >>
     rw[pmatch_def] >>
