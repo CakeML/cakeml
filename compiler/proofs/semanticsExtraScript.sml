@@ -1144,6 +1144,10 @@ val do_log_enveq = store_thm("do_log_enveq",
   ``∀op v1 e v2. enveq v1 v2 ⇒ do_log op v2 e = do_log op v1 e``,
   Cases >> Cases >> rw[do_log_def,enveq_conv] >> rw[] >> fs[Once enveq_cases])
 
+val do_if_enveq = store_thm("do_if_enveq",
+  ``∀v1 e1 e2 v2. enveq v1 v2 ⇒ do_if v2 e1 e2 = do_if v1 e1 e2``,
+  Cases >> rw[do_if_def,enveq_conv] >> rw[] >> fs[Once enveq_cases])
+
 val evaluate_enveq = store_thm("evaluate_enveq",
   ``(∀menv (cenv:envC) s env exp res. evaluate menv cenv s env exp res ⇒
       ∀s' env'. (ALIST_REL enveq env env') ∧ (LIST_REL enveq s s') ⇒
@@ -1284,6 +1288,18 @@ val evaluate_enveq = store_thm("evaluate_enveq",
   strip_tac >- (
     simp[FORALL_PROD,EXISTS_PROD] >>
     rw[] >> srw_tac[DNF_ss][Once evaluate_cases] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases] >>
+    metis_tac[do_if_enveq,EVERY2_enveq_trans,ALIST_REL_enveq_trans] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases] >>
+    metis_tac[do_if_enveq,EVERY2_enveq_trans,ALIST_REL_enveq_trans] ) >>
+  strip_tac >- (
+    simp[FORALL_PROD,EXISTS_PROD] >>
+    rw[] >> srw_tac[DNF_ss][Once evaluate_cases] >>
+    metis_tac[do_if_enveq,EVERY2_enveq_trans,ALIST_REL_enveq_trans] ) >>
   cheat )
 
 val _ = export_theory()
