@@ -277,7 +277,7 @@ bc_next s ((bump_pc s with<| handler := sp; stack := x ::l2|>)))
 /\
 (! s x xs ptr.
 ((
-bc_fetch s = SOME Ref) /\ (s.stack = x ::xs) /\ (ptr = LEAST (\ ptr . ~  ( ptr IN FDOM  s.refs))))
+bc_fetch s = SOME Ref) /\ (s.stack = x ::xs) /\ (ptr = $LEAST (\ ptr . ~  ( ptr IN FDOM  s.refs))))
 ==>
 bc_next s ((bump_pc s with<| stack := (RefPtr ptr) ::xs; refs := FUPDATE  s.refs ( ptr, x)|>)))
 /\
