@@ -58,4 +58,4 @@ lshift n ls =
 
 let rec the _ (Some x) = x and the x None = x
 
-let fapply d x f = if Pmap.mem x f then Pmap.find x f else d
+let fapply d x f = match Hol.FLOOKUP f x with Some d -> d | None -> d end

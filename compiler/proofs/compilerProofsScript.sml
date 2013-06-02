@@ -1285,7 +1285,7 @@ val pat_to_Cpat_SUBMAP = store_thm("pat_to_Cpat_SUBMAP",
   ``(∀p m m'. all_cns_pat p ⊆ FDOM m.cnmap ∧ m.cnmap ⊑ m'.cnmap ∧ (m'.bvars = m.bvars) ⇒ (SND (pat_to_Cpat m' p) = SND (pat_to_Cpat m p))) ∧
     (∀ps m m'. all_cns_pats ps ⊆ FDOM m.cnmap ∧ m.cnmap ⊑ m'.cnmap ∧ (m'.bvars = m.bvars) ⇒ (SND (pats_to_Cpats m' ps) = SND (pats_to_Cpats m ps)))``,
   ho_match_mp_tac(TypeBase.induction_of``:pat``)>>
-  simp[ToIntLangTheory.pat_to_Cpat_def,UNCURRY] >>
+  simp[ToIntLangTheory.pat_to_Cpat_def,UNCURRY,FLOOKUP_DEF] >>
   simp[pat_to_Cpat_cnmap] >>
   conj_tac >- rw[SUBMAP_DEF] >>
   rw[] >>
@@ -1300,7 +1300,7 @@ val exp_to_Cexp_SUBMAP = store_thm("exp_to_Cexp_SUBMAP",
     (∀m es m'. all_cns_list es ⊆ FDOM m.cnmap ∧ m.cnmap ⊑ m'.cnmap ∧ (m'.bvars = m.bvars) ⇒ (exps_to_Cexps m' es = exps_to_Cexps m es))``,
   ho_match_mp_tac exp_to_Cexp_ind >>
   simp[exp_to_Cexp_def] >>
-  conj_tac >- rw[SUBMAP_DEF] >>
+  conj_tac >- rw[SUBMAP_DEF,FLOOKUP_DEF] >>
   simp[UNCURRY] >>
   simp[pat_to_Cpat_SUBMAP] >>
   rw[] >>
@@ -1313,7 +1313,7 @@ val v_to_Cv_SUBMAP = store_thm("v_to_Cv_SUBMAP",
     (∀m vs m'. BIGUNION (IMAGE all_cns (set vs)) ⊆ FDOM m ∧ m ⊑ m' ⇒ vs_to_Cvs m' vs = vs_to_Cvs m vs) ∧
     (∀m env m'. BIGUNION (IMAGE all_cns (env_range env)) ⊆ FDOM m ∧ m ⊑ m' ⇒ env_to_Cenv m' env = env_to_Cenv m env)``,
   ho_match_mp_tac v_to_Cv_ind >> simp[v_to_Cv_def] >>
-  conj_tac >- rw[SUBMAP_DEF] >>
+  conj_tac >- rw[SUBMAP_DEF,FLOOKUP_DEF] >>
   simp[exp_to_Cexp_SUBMAP] >>
   rw[] >> AP_TERM_TAC >>
   simp[exp_to_Cexp_SUBMAP])

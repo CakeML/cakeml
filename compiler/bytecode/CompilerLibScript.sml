@@ -85,7 +85,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 
 val _ = Define `
- (fapply d x f = (if  x IN FDOM  f then FAPPLY  f  x else d))`;
+ (fapply d x f = ((case FLOOKUP f x of SOME d => d | NONE => d )))`;
 
 val _ = export_theory()
 

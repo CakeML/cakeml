@@ -97,7 +97,7 @@ val v_to_Cv_ov = store_thm("v_to_Cv_ov",
     (∀m vs w s. (BIGUNION (IMAGE all_cns (set vs)) ⊆ FDOM m) ∧ cmap_linv m w ==> (MAP (Cv_to_ov w s) (vs_to_Cvs m vs) = MAP (v_to_ov s) vs)) ∧
     (∀(m:(conN id)|->num) (env:envE). T)``,
   ho_match_mp_tac v_to_Cv_ind >>
-  rw[v_to_Cv_def] >> rw[Cv_to_ov_def] >>
+  rw[v_to_Cv_def,FLOOKUP_DEF] >> rw[Cv_to_ov_def] >>
   srw_tac[ETA_ss][cmap_linv_FAPPLY])
 
 (* free vars lemmas *)
@@ -425,12 +425,13 @@ val v_to_Cv_inj = store_thm(
     ¬EXISTS contains_closure vs1 ∧ ¬EXISTS contains_closure vs2 ∧
     (vs_to_Cvs s vs1 = vs_to_Cvs s vs2) ⇒ (vs1 = vs2)) ∧
   (∀(s:string id|->num) (env1:envE).T)``,
-ho_match_mp_tac v_to_Cv_ind >> rw[v_to_Cv_def,LET_THM,vs_to_Cvs_MAP,env_to_Cenv_MAP] >>
-TRY (Cases_on`v2`>>fs[v_to_Cv_def,LET_THM]>>NO_TAC)
+ho_match_mp_tac v_to_Cv_ind >> rw[FLOOKUP_DEF,v_to_Cv_def,LET_THM,vs_to_Cvs_MAP,env_to_Cenv_MAP] >>
+TRY (Cases_on`v2`>>fs[FLOOKUP_DEF,v_to_Cv_def,LET_THM]>>NO_TAC)
 >- (
-  Cases_on`v2`>>fs[v_to_Cv_def,vs_to_Cvs_MAP,MAP_EQ_EVERY2,EVERY2_EVERY,LET_THM] >>
+  Cases_on`v2`>>fs[FLOOKUP_DEF,v_to_Cv_def,vs_to_Cvs_MAP,MAP_EQ_EVERY2,EVERY2_EVERY,LET_THM] >>
   fsrw_tac[ETA_ss][good_cmap_def,MEM_MAP,EXISTS_PROD,contains_closure_def] >>
   fs[FORALL_PROD] >>
+  BasicProvers.EVERY_CASE_TAC>>fs[]>>
   metis_tac[] )
 >- (
   fs[good_cmap_def,MEM_MAP] >>
@@ -2476,9 +2477,8 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
     rw[Once syneq_exp_cases] >>
     rw[Once syneq_exp_cases] ) >>
   strip_tac >- (
-    simp[exp_to_Cexp_def] >>
+    simp[exp_to_Cexp_def,FLOOKUP_DEF] >>
     rpt gen_tac >> strip_tac >>
-    Q.PAT_ABBREV_TAC`cm = if X then Y else 0:num` >>
     rw[Once syneq_exp_cases] >>
     simp[exps_to_Cexps_MAP] >>
     simp[EVERY2_MAP] >>

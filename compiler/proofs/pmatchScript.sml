@@ -517,7 +517,7 @@ val pmatch_Cpnomatch = store_thm("pmatch_Cpnomatch",
     qmatch_assum_rename_tac `ALOOKUP cenv n' = SOME p`[] >>
     PairCases_on `p` >> fs[] >>
     rw[] >> pop_assum mp_tac >> rw[] >>
-    simp[pat_to_Cpat_def] >> simp[v_to_Cv_def] >>
+    simp[pat_to_Cpat_def] >> simp[v_to_Cv_def,FLOOKUP_DEF] >>
     `n ∈ FDOM m.cnmap` by (
       imp_res_tac ALOOKUP_MEM >>
       fs[good_cmap_def,FORALL_PROD] >>
