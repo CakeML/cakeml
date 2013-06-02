@@ -135,7 +135,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 
 val _ = Define `
- (stack_index cs v = ( the 0 (find_index v cs.rbvars 0)))`;
+ (stack_index cs v = ( the 0 (find_index (Short v) cs.rbvars 0)))`;
 
 
  val preprint_dec_def = Define `

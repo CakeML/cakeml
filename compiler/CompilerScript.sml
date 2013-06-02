@@ -27,7 +27,11 @@ val _ = type_abbrev( "contab" , ``: (( conN id), num)fmap # (num # string) list 
 val _ = Hol_datatype `
  compiler_state =
   <| contab : contab
-   ; rbvars : string list
+   ; rbvars : ( string id) list
+  (*
+   ; rbvars : list (string * num)
+   ; rmvars : Pmap.map string (list (string * num))
+   *)
    ; rnext_label : num
    |>`;
 
@@ -37,10 +41,35 @@ val _ = Hol_datatype `
  (cpam s = ((case s.contab of (_,w,_) => w )))`;
 
 
+val _ = Define `
+ (menv_cons mv mn s =  
+((case FLOOKUP mv mn of
+    NONE => FUPDATE  mv ( mn, [s])
+  | SOME ls => FUPDATE  mv ( mn, (s ::ls))
+  )))`;
+
+
 (*val etC : compiler_state -> exp_to_Cexp_state*)
 val _ = Define `
- (etC rs = (<| bvars := rs.rbvars; cnmap := ( cmap rs.contab) |>))`;
+ (etC rs =  
+(let (bv,mv) = ( FOLDL
+    (\ (bv,mv) id .
+      (case id of
+        Short s => ((s ::bv),mv)
+      | Long mn s => (bv,menv_cons mv mn s)
+      ))
+    ([], FEMPTY) rs.rbvars) in
+ <| bvars := bv
+  ; mvars := mv
+  ; cnmap := ( cmap rs.contab)
+  |>))`;
 
+ (*
+ <| bvars = List.map fst rs.rbvars
+  ; mvars = Hol.o_f (List.map fst) rs.rmvars
+  ; cnmap = cmap rs.contab
+  |>
+  *)
 
 val _ = Define `
  init_compiler_state =  
@@ -57,13 +86,19 @@ val _ = Define `
 
 val _ = Define `
  (compile_Cexp rs Ce =  
-(let rsz = ( LENGTH rs.rbvars) in
+(let (rsz,menv,env) = ( FOLDL
+    (\ (i,menv,env) id .
+      (case id of
+        Short _ => ((i +1),menv,(CTLet i ::env))
+      | Long mn _ => ((i +1),menv_cons menv mn (CTLet i),env)
+      ))
+    (0, FEMPTY,[]) rs.rbvars) in
   let (Ce,n) = ( label_closures rsz rs.rnext_label Ce) in
   let cs = (<| out := []; next_label := n |>) in
   let (cs,l) = ( get_label cs) in
   let cs = ( emit cs [PushPtr (Lab l); PushExc]) in
-  let cs = ( compile_code_env cs Ce) in
-  (l, compile ( GENLIST (\ i . CTLet (rsz - i)) rsz) TCNonTail (rsz +2) cs Ce)))`;
+  let cs = ( compile_code_env menv cs Ce) in
+  (l, compile menv env TCNonTail (rsz +2) cs Ce)))`;
 
 
  val number_constructors_defn = Hol_defn "number_constructors" `
@@ -80,7 +115,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (compile_shadows bvs cs i [] = cs)
 /\
 (compile_shadows bvs cs i (v::vs) =  
-(let j = ( the 0 (find_index v bvs 1)) in
+(let j = ( the 0 (find_index (Short v) bvs 1)) in
   let cs = ( emit cs ( MAP Stack [Load 0; El i; Store j])) in
   compile_shadows bvs cs (i +1) vs))`;
 
@@ -90,7 +125,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (compile_news cs i [] = cs)
 /\
-(compile_news cs i (v::vs) =  
+(compile_news cs i (_::vs) =  
 (let cs = ( emit cs ( MAP Stack [Load 0; Load 0; El i; Store 1])) in
   compile_news cs (i +1) vs))`;
 
@@ -99,7 +134,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = Define `
  (compile_fake_exp rs vs e =  
 (let m = ( etC rs) in
-  let (shadows,news) = ( PARTITION (\ v . MEM v rs.rbvars) vs) in
+  let (shadows,news) = ( PARTITION (\ v . MEM (Short v) rs.rbvars) vs) in
   let Ce = ( exp_to_Cexp m (e (Con (Short "") ( MAP (\ v . Var (Short v)) (shadows ++news))))) in
   let (l1,cs) = ( compile_Cexp rs Ce) in
   let cs = ( emit cs [PopExc; Stack (Pops 1)]) in
@@ -108,7 +143,7 @@ val _ = Define `
   let (cs,l2) = ( get_label cs) in
   let cs = ( emit cs [Stack Pop; Stack (PushInt i0); Jump (Lab l2)
                    ; Label l1; Stack (PushInt i1); Label l2; Stop]) in
-  (( rs with<| rbvars := ( REVERSE news) ++rs.rbvars
+  (( rs with<| rbvars := ( REVERSE ( MAP Short news)) ++rs.rbvars
     ; rnext_label := cs.next_label |>)
   ,( rs with<| rnext_label := cs.next_label |>)
   , REVERSE cs.out)))`;

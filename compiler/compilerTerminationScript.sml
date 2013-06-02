@@ -110,9 +110,9 @@ val (exp_to_Cexp_def,exp_to_Cexp_ind) = register "exp_to_Cexp" (
 val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
   tprove_no_defn ((v_to_Cv_def,v_to_Cv_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
-    | INL (_,v) => v_size v
-    | INR (INL (_, vs)) => v3_size vs
-    | INR (INR (_, env)) => v1_size env)`))
+    | INL (_,_,v) => v_size v
+    | INR (INL (_,_, vs)) => v3_size vs
+    | INR (INR (_,_, env)) => v1_size env)`))
 
 val (compile_envref_def, compile_envref_ind) = register "compile_envref" (
   tprove_no_defn ((compile_envref_def, compile_envref_ind),
@@ -121,10 +121,10 @@ val (compile_envref_def, compile_envref_ind) = register "compile_envref" (
 val (compile_def, compile_ind) = register "compile" (
   tprove_no_defn ((compile_def, compile_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
-       | INL (env,t,sz,s,e) => (Cexp_size e, 3:num)
-       | INR (INL (env,t,sz,e,n,s,0))=> (Cexp_size e, 4)
-       | INR (INL (env,t,sz,e,n,s,ns))=> (Cexp_size e + ns, 1)
-       | INR (INR (env,sz,s,es))=> (SUM (MAP Cexp_size es), 3 + LENGTH es)) ` >>
+       | INL (_,env,t,sz,s,e) => (Cexp_size e, 3:num)
+       | INR (INL (_,env,t,sz,e,n,s,0))=> (Cexp_size e, 4)
+       | INR (INL (_,env,t,sz,e,n,s,ns))=> (Cexp_size e + ns, 1)
+       | INR (INR (_,env,sz,s,es))=> (SUM (MAP Cexp_size es), 3 + LENGTH es)) ` >>
   srw_tac[ARITH_ss][] >>
   srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm,Cexp_size_def,list_size_thm,SUM_MAP_Cexp3_size_thm] >>
   BasicProvers.CASE_TAC >> fsrw_tac[ARITH_ss][] >>
@@ -139,7 +139,7 @@ val _ = register "num_fold" (
 val zero_vars_def = tDefine "zero_vars"`
   (zero_vars (CRaise e) = CRaise (zero_vars e)) ∧
   (zero_vars (CHandle e1 e2) = CHandle (zero_vars e1) (zero_vars e2)) ∧
-  (zero_vars (CVar _) = CVar 0) ∧
+  (zero_vars (CVar _) = CVar (Short 0)) ∧
   (zero_vars (CLit c) = CLit c) ∧
   (zero_vars (CCon cn es) = CCon cn (zero_vars_list es)) ∧
   (zero_vars (CTagEq e n) = CTagEq (zero_vars e) n) ∧
