@@ -85,6 +85,7 @@ val defs = map EmitML.DEFN
 , shift_def
 , cbv_def
 , cmap_def
+, menv_cons_def
 , etC_def
 , error_to_int_def
 , get_label_def

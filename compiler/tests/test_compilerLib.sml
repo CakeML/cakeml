@@ -176,7 +176,8 @@ val print_Cexp = let fun
 | f d (CCall (e,es)) = (sp d)^(f 0 e)^"("^(fs es)^")"
 | f d (CPrim2 (p2,e1,e2)) = (f d e1)^"\n"^sp(d+2)^(print_prim2 p2)^"\n"^(f d e2)
 | f d (CIf (e1,e2,e3)) = (sp d)^"if\n"^(f (d+2) e1)^"\n"^(sp d)^"then\n"^(f (d+2) e2)^"\n"^(sp d)^"else\n"^(f (d+2) e3)
-| f d (CVar n) = (sp d)^"v"^(numML.toString n)
+| f d (CVar (Short n)) = (sp d)^"v"^(numML.toString n)
+| f d (CVar (Long (mn,n))) = (sp d)^mn^"."^(numML.toString n)
 | f d (CRaise err) = (sp d)^"raise "^(PolyML.makestring err)
 | f d x = (PolyML.print x; raise Match)
 and
