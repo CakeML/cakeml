@@ -249,7 +249,7 @@ val ds = dest_list I (get_decls())
 val t = hol2deep ``QSORT (λx y. x ≤ y) [9;8;7;6;2;3;4;5:num]``
 val e31 = h t;
 val (m,st) = mst_run_decs_exp (ds,e31)
-val [res,clQSORT,clPARTITION,clPART,clAPPEND] = st
+val [res,clQSORT,clAPPEND,clPARTITION,clPART] = st
 val tm = bv_to_ov m res
 val true = tm = term_to_ov(hol2val ``[2;3;4;5;6;7;8;9:num]``);
 val d = ``

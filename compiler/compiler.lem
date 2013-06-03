@@ -12,10 +12,6 @@ let rec cmap (m,_,_) = m
 type compiler_state =
   <| contab : contab
    ; rbvars : list (id string)
-  (*
-   ; rbvars : list (string * num)
-   ; rmvars : Pmap.map string (list (string * num))
-   *)
    ; rnext_label : num
    |>
 
@@ -28,25 +24,18 @@ let menv_cons mv mn s =
   | Some ls -> Pmap.add mn (s::ls) mv
   end
 
-val etC : compiler_state -> exp_to_Cexp_state
+val etC : compiler_state -> exp_to_Cexp_state * num * Pmap.map string (list ctbind) * list ctbind
 let etC rs =
-  let (bv,mv) = List.fold_left
-    (fun (bv,mv) id ->
+  let rsz = List.length rs.rbvars in
+  let (_,mvars,menv,bvars,env) = List.fold_left
+    (fun (i,mvars,menv,bvars,env) id ->
       match id with
-      | Short s -> (s::bv,mv)
-      | Long mn s -> (bv,menv_cons mv mn s)
+      | Short s -> (i-1,mvars,menv,s::bvars,(CTLet i)::env)
+      | Long mn s -> (i-1,menv_cons mvars mn s,menv_cons menv mn (CTLet i),bvars,env)
       end)
-    ([],Pmap.empty) rs.rbvars in
- <| bvars = bv
-  ; mvars = mv
-  ; cnmap = cmap rs.contab
-  |>
- (*
- <| bvars = List.map fst rs.rbvars
-  ; mvars = Hol.o_f (List.map fst) rs.rmvars
-  ; cnmap = cmap rs.contab
-  |>
-  *)
+    (rsz,Pmap.empty,Pmap.empty,[],[]) rs.rbvars in
+  (<| bvars = bvars ; mvars = mvars ; cnmap = cmap rs.contab |>
+  ,rsz,menv,env)
 
 let init_compiler_state =
   <| contab = (Pmap.add (Short "Div") div_exc_cn
@@ -59,15 +48,8 @@ let init_compiler_state =
    ; rnext_label = 0
    |>
 
-let compile_Cexp rs Ce =
-  let (rsz,menv,env) = List.fold_left
-    (fun (i,menv,env) id ->
-      match id with
-      | Short _ -> (i+1,menv,CTLet i::env)
-      | Long mn _ -> (i+1,menv_cons menv mn (CTLet i),env)
-      end)
-    (0,Pmap.empty,[]) rs.rbvars in
-  let (Ce,n) = label_closures rsz rs.rnext_label Ce in
+let compile_Cexp rsz menv env nl Ce =
+  let (Ce,n) = label_closures rsz nl Ce in
   let cs = <| out = []; next_label = n |> in
   let (cs,l) = get_label cs in
   let cs = emit cs [PushPtr (Lab l); PushExc] in
@@ -96,10 +78,10 @@ compile_news cs i (_::vs) =
   compile_news cs (i+1) vs
 
 let compile_fake_exp rs vs e =
-  let m = etC rs in
+  let (m,rsz,menv,env) = etC rs in
   let (shadows,news) = Hol.PARTITION (fun v -> List.mem (Short v) rs.rbvars) vs in
   let Ce = exp_to_Cexp m (e (Con (Short "") (List.map (fun v -> Var (Short v)) (shadows@news)))) in
-  let (l1,cs) = compile_Cexp rs Ce in
+  let (l1,cs) = compile_Cexp rsz menv env rs.rnext_label Ce in
   let cs = emit cs [PopExc; Stack (Pops 1)] in
   let cs = compile_shadows rs.rbvars cs 0 shadows in
   let cs = compile_news cs (List.length shadows) news in
