@@ -28,7 +28,7 @@ rw [] >|
  PairCases_on `x1` >>
      metis_tac [infer_p_wfs]]);
 
-val helper_tac = 
+val helper_tac =
   imp_res_tac infer_e_wfs >>
   imp_res_tac t_unify_wfs >>
   rw [] >>
@@ -53,7 +53,6 @@ TRY (imp_res_tac infer_e_wfs >>
 [match_mp_tac add_constraints_side_thm >>
      rw [] >>
      prove_tac [infer_e_wfs],
- cheat,
  cases_on `generalise st.next_uvar 0 (t_walkstar x60.subst x62)` >>
      fs [] >>
      imp_res_tac infer_e_wfs >>
@@ -63,7 +62,10 @@ TRY (imp_res_tac infer_e_wfs >>
      rw [] >>
      imp_res_tac infer_e_wfs >>
      fs [],
- cheat,
+ imp_res_tac infer_e_wfs >>
+     imp_res_tac t_unify_wfs >>
+     imp_res_tac pure_add_constraints_wfs >>
+     rw [],
  qpat_assum `!env st. t_wfs st.subst ⇒ infer_e_side a b c d st` match_mp_tac >>
      rw [] >>
      imp_res_tac pure_add_constraints_wfs >>
@@ -147,7 +149,9 @@ rw [add_constraint_side_def, apply_subst_list_side_def] >>
      rw [] >>
      imp_res_tac infer_e_wfs >>
      fs [],
- cheat]); 
+ imp_res_tac pure_add_constraints_wfs >>
+     imp_res_tac infer_e_wfs >>
+     fs []]);
 
 val infer_ds_side_thm = Q.store_thm ("infer_ds_side_thm",
 `!mn menv cenv env ds st. infer_ds_side mn menv cenv env ds st`,
@@ -179,4 +183,4 @@ val infer_top_side_thm = Q.store_thm ("infer_top_side_thm",
 rw [infer_top_side_def, infer_ds_side_thm, infer_d_side_thm,
     check_signature_side_thm]);
 
-val _ = export_theory (); 
+val _ = export_theory ();

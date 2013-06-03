@@ -322,11 +322,9 @@ val _ = translate (def_of_const ``n_fresh_uvar``)
 val _ = translate (def_of_const ``init_infer_state``)
 val _ = translate (def_of_const ``init_state``)
 val _ = translate (def_of_const ``get_next_uvar``)
-val _ = translate (def_of_const ``apply_subst``)
-val _ = translate (def_of_const ``apply_subst_list``)
-val _ = translate (def_of_const ``infer_type_subst``)
 val _ = translate (def_of_const ``infer_deBruijn_subst``)
 val _ = translate (def_of_const ``generalise``)
+val _ = translate (def_of_const ``infer_type_subst``)
 
 val _ = translate rich_listTheory.COUNT_LIST_AUX_def
 val _ = translate rich_listTheory.COUNT_LIST_compute
@@ -396,6 +394,8 @@ fun infer_def const = let
   val () = fix_infer_induction_thm def
   in def end
 
+val _ = translate (infer_def ``apply_subst``)
+val _ = translate (infer_def ``apply_subst_list``)
 val _ = translate (infer_def ``add_constraint``);
 val _ = translate (infer_def ``add_constraints``)
 val _ = translate (infer_def ``constrain_uop``);
