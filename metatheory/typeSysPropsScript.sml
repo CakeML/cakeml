@@ -734,7 +734,7 @@ val lookup_tenv_subst_none = Q.prove (
 induct_on `e` >>
 rw [deBruijn_subst_tenvE_def, lookup_tenv_def]);
 
-val deBruijn_inc_deBruijn_inc = Q.prove (
+val deBruijn_inc_deBruijn_inc = Q.store_thm ("deBruijn_inc_deBruijn_inc",
 `!sk i2 t i1. 
   deBruijn_inc sk i1 (deBruijn_inc sk i2 t) = deBruijn_inc sk (i1 + i2) t`,
 ho_match_mp_tac deBruijn_inc_ind >>
