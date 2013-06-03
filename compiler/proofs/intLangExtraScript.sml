@@ -1437,22 +1437,22 @@ val CevalUpd_syneq = store_thm(
   PROVE_TAC[EVERY2_EVERY])
 
 val Cevaluate_syneq = store_thm("Cevaluate_syneq",
-  ``(∀s1 env1 exp1 res1. Cevaluate s1 env1 exp1 res1 ⇒
+  ``(∀menv s1 env1 exp1 res1. Cevaluate menv s1 env1 exp1 res1 ⇒
       ∀ez1 ez2 V s2 env2 exp2 res2.
         syneq_exp (LENGTH env1) (LENGTH env2) V exp1 exp2
       ∧ (∀v1 v2. V v1 v2 ∧ v1 < LENGTH env1 ∧ v2 < LENGTH env2 ⇒ syneq (EL v1 env1) (EL v2 env2))
       ∧ EVERY2 (syneq) s1 s2
       ⇒ ∃res2.
-        Cevaluate s2 env2 exp2 res2 ∧
+        Cevaluate menv s2 env2 exp2 res2 ∧
         EVERY2 (syneq) (FST res1) (FST res2) ∧
         Cresult_rel syneq syneq (SND res1) (SND res2)) ∧
-    (∀s1 env1 es1 res1. Cevaluate_list s1 env1 es1 res1 ⇒
+    (∀menv s1 env1 es1 res1. Cevaluate_list menv s1 env1 es1 res1 ⇒
       ∀ez1 ez2 V s2 env2 es2 res2.
         EVERY2 (syneq_exp (LENGTH env1) (LENGTH env2) V) es1 es2
       ∧ (∀v1 v2. V v1 v2 ∧ v1 < LENGTH env1 ∧ v2 < LENGTH env2 ⇒ syneq (EL v1 env1) (EL v2 env2))
       ∧ EVERY2 (syneq) s1 s2
       ⇒ ∃res2.
-        Cevaluate_list s2 env2 es2 res2 ∧
+        Cevaluate_list menv s2 env2 es2 res2 ∧
         EVERY2 (syneq) (FST res1) (FST res2) ∧
         Cresult_rel (EVERY2 (syneq)) syneq (SND res1) (SND res2))``,
   ho_match_mp_tac Cevaluate_strongind >>
@@ -1521,6 +1521,11 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     rator_x_assum`syneq_exp`mp_tac >>
     simp[Once (syneq_exp_cases)] >>
     rw[] >> simp[] >> metis_tac[]) >>
+  strip_tac >- (
+    rw[] >>
+    rator_x_assum`syneq_exp`mp_tac >>
+    simp[Once (syneq_exp_cases)] >>
+    rw[Once Cevaluate_cases]) >>
   strip_tac >- (
     simp[Once syneq_exp_cases] >>
     rw[] >> rw[] ) >>
@@ -1895,7 +1900,7 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
     last_x_assum(qspecl_then[`V`,`s2`,`env2`,`e12`]mp_tac) >>
     simp[GSYM AND_IMP_INTRO] >> disch_then(mp_tac o UNDISCH_ALL) >>
     rw[] >>
-    qmatch_assum_abbrev_tac`Cevaluate s2 env2 e12 (s3,Cval (CLitv (Bool b)))` >>
+    qmatch_assum_abbrev_tac`Cevaluate menv s2 env2 e12 (s3,Cval (CLitv (Bool b)))` >>
     CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
     map_every qexists_tac[`b`,`s3`] >>
     simp[Abbr`b`] >>
@@ -1952,17 +1957,17 @@ val Cevaluate_syneq = store_thm("Cevaluate_syneq",
   metis_tac[] )
 
 val Cevaluate_any_syneq_store = store_thm("Cevaluate_any_syneq_store",
-  ``∀s s' env exp res. Cevaluate s env exp res ∧ EVERY2 (syneq) s s' ⇒
-      ∃res'. Cevaluate s' env exp res' ∧ EVERY2 (syneq) (FST res) (FST res') ∧ Cresult_rel syneq syneq (SND res) (SND res')``,
+  ``∀menv s s' env exp res. Cevaluate menv s env exp res ∧ EVERY2 (syneq) s s' ⇒
+      ∃res'. Cevaluate menv s' env exp res' ∧ EVERY2 (syneq) (FST res) (FST res') ∧ Cresult_rel syneq syneq (SND res) (SND res')``,
     rw[] >>
-    qspecl_then[`s`,`env`,`exp`,`res`]mp_tac (CONJUNCT1 Cevaluate_syneq) >> simp[] >>
+    qspecl_then[`menv`,`s`,`env`,`exp`,`res`]mp_tac (CONJUNCT1 Cevaluate_syneq) >> simp[] >>
     disch_then(qspecl_then[`$=`,`s'`,`env`,`exp`]mp_tac) >> simp[syneq_exp_refl])
 
 val Cevaluate_list_any_syneq_any = store_thm("Cevaluate_list_any_syneq_any",
-  ``∀s1 s2 env1 env2 e res. Cevaluate_list s1 env1 e res ∧ EVERY2 (syneq) s1 s2 ∧ EVERY2 (syneq) env1 env2 ⇒
-      ∃res2. Cevaluate_list s2 env2 e res2 ∧ EVERY2 (syneq) (FST res) (FST res2) ∧ Cresult_rel (EVERY2 (syneq)) syneq (SND res) (SND res2)``,
+  ``∀menv s1 s2 env1 env2 e res. Cevaluate_list menv s1 env1 e res ∧ EVERY2 (syneq) s1 s2 ∧ EVERY2 (syneq) env1 env2 ⇒
+      ∃res2. Cevaluate_list menv s2 env2 e res2 ∧ EVERY2 (syneq) (FST res) (FST res2) ∧ Cresult_rel (EVERY2 (syneq)) syneq (SND res) (SND res2)``,
     rw[] >>
-    qspecl_then[`s1`,`env1`,`e`,`res`]mp_tac (CONJUNCT2 Cevaluate_syneq) >> simp[] >>
+    qspecl_then[`menv`,`s1`,`env1`,`e`,`res`]mp_tac (CONJUNCT2 Cevaluate_syneq) >> simp[] >>
     `LENGTH env1 = LENGTH env2` by fs[EVERY2_EVERY] >>
     disch_then(qspecl_then[`$=`,`s2`,`env2`,`e`]mp_tac) >> simp[syneq_exp_refl] >>
     discharge_hyps >- (
