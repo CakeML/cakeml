@@ -434,4 +434,10 @@ val _ = translate (infer_def ``check_specs``)
 val _ = translate (infer_def ``check_signature``)
 val _ = translate (infer_def ``infer_top``)
 
+
+(* tip of translation *)
+
+val _ = translate repl_funTheory.parse_elaborate_infertype_compile_def
+
+
 val _ = export_theory();
