@@ -64,10 +64,6 @@ val free_uvars_def = tDefine "free_uvars" `
  res_tac >>
  decide_tac);
 
-val t_walkstar_FEMPTY = Q.prove (
-`!t. t_walkstar FEMPTY t = t`,
-cheat);
-
 val t_unify_apply = Q.prove (
 `!s1 s2 t1 t2.
   (t_unify s1 t1 t2 = SOME s2)
@@ -100,18 +96,6 @@ val walkstar_inc = Q.prove (
   t_wfs s ⇒
   (t_walkstar (infer_deBruijn_inc tvs o_f s) (Infer_Tuvar n) =
    infer_deBruijn_inc tvs (t_walkstar s (Infer_Tuvar n)))`,
-cheat);
-
-val unify_inc = Q.prove (
-`!s1 t1 t2 s2 inc.
-  t_wfs s1 ∧
-  (t_unify s1 t1 t2 = SOME s2)
-  ⇒
-  (t_unify (infer_deBruijn_inc inc o_f s1) (infer_deBruijn_inc inc t1) (infer_deBruijn_inc inc t2) = SOME (infer_deBruijn_inc inc o_f s2))`,
-cheat);
-
-val wfs_thms = Q.prove (
-`t_wfs s ⇒ t_wfs (s |+ (n,Infer_Tvar_db n'))`,
 cheat);
 
 val flookup_thm = Q.prove (
@@ -749,37 +733,6 @@ ho_match_mp_tac (fetch "-" "infer_deBruijn_inc_ind") >>
 rw [check_t_def, infer_deBruijn_inc_def] >>
 fs [EVERY_MAP, EVERY_MEM]);
 
-val pure_add_constraints_deBruijn_inc = Q.prove (
-`!s1 ts s2 inc.
-  t_wfs s1 ∧
-  pure_add_constraints s1 ts s2
-  ⇒
-  pure_add_constraints (infer_deBruijn_inc inc o_f s1) 
-                       (MAP (\(t1,t2). (infer_deBruijn_inc inc t1, infer_deBruijn_inc inc t2)) ts)
-                       (infer_deBruijn_inc inc o_f s2)`,
-induct_on `ts` >>
-rw [pure_add_constraints_def] >>
-PairCases_on `h` >>
-fs [pure_add_constraints_def] >>
-qexists_tac `infer_deBruijn_inc inc o_f s2'` >>
-rw [] >>
-metis_tac [t_unify_wfs, unify_inc]);
-
-val sub_completion_deBruijn_inc = Q.prove (
-`!tvs next_uvar s1 ts s2 inc.
-  t_wfs s1 ∧
-  sub_completion tvs next_uvar s1 ts s2
-  ⇒
-  sub_completion (inc + tvs) next_uvar 
-                 (infer_deBruijn_inc inc o_f s1)
-                 (MAP (\(t1,t2). (infer_deBruijn_inc inc t1, infer_deBruijn_inc inc t2)) ts)
-                 (infer_deBruijn_inc inc o_f s2)`,
-rw [sub_completion_def] >-
-metis_tac [pure_add_constraints_deBruijn_inc] >>
-imp_res_tac pure_add_constraints_wfs >>
-rw [walkstar_inc] >>
-metis_tac [check_t_deBruijn_inc2]);
-
 val infer_deBruijn_inc0 = Q.prove (
 `!(n:num) t. infer_deBruijn_inc 0 t = t`,
 ho_match_mp_tac (fetch "-" "infer_deBruijn_inc_ind") >>
@@ -909,33 +862,6 @@ rw [check_freevars_def, convert_t_def, type_subst_def, infer_type_subst_def] >|
      metis_tac [optionTheory.SOME_11],
  metis_tac []]);
 
-val deBruijn_inc_infer_deBruijn_inc = Q.prove (
-`(!t tvs tvs' inc s.
-    t_wfs s ∧
-    (∀uv. uv ∈ FDOM s ⇒ check_t tvs' ∅ (t_walkstar s (Infer_Tuvar uv))) ∧
-    check_t tvs (FDOM s) t ⇒
-    (deBruijn_inc tvs inc
-      (convert_t (t_walkstar (infer_deBruijn_inc tvs o_f s) t)) =
-     convert_t
-      (t_walkstar (infer_deBruijn_inc tvs o infer_deBruijn_inc inc o_f s) t))) ∧
- (!ts tvs tvs' inc s.
-    t_wfs s ∧
-    (∀uv. uv ∈ FDOM s ⇒ check_t tvs' ∅ (t_walkstar s (Infer_Tuvar uv))) ∧
-    EVERY (check_t tvs (FDOM s)) ts ⇒
-    (MAP (deBruijn_inc tvs inc o convert_t o t_walkstar (infer_deBruijn_inc tvs o_f s)) ts =
-     MAP (convert_t o t_walkstar (infer_deBruijn_inc tvs o infer_deBruijn_inc inc o_f s)) ts))`,
-Induct >>
-rw [check_t_def] >>
-`infer_deBruijn_inc tvs o infer_deBruijn_inc inc = infer_deBruijn_inc (tvs+inc)`
-         by metis_tac [infer_deBruijn_inc_inc] >>
-rw [] >>
-imp_res_tac inc_wfs >>
-rw [t_walkstar_eqn1, convert_t_def, deBruijn_inc_def, MAP_MAP_o, walkstar_inc] >-
-metis_tac [] >>
-res_tac >>
-imp_res_tac convert_inc >>
-srw_tac [ARITH_ss] [deBruijn_inc_inc]);
-
 val tenv_inv_def = Define `
 tenv_inv s env tenv =
   (!x tvs t.
@@ -950,33 +876,6 @@ ho_match_mp_tac (fetch "-" "infer_deBruijn_inc_ind") >>
 rw [check_t_def, infer_deBruijn_inc_def] >>
 induct_on `ts` >>
 rw []);
-
-val tenv_inv_extend = Q.prove (
-`!s env tenv inc tvs.
-  t_wfs s ∧
-  (∀uv. uv ∈ FDOM s ⇒ check_t tvs ∅ (t_walkstar s (Infer_Tuvar uv))) ∧
-  tenv_inv s env tenv
-  ⇒
-  tenv_inv (infer_deBruijn_inc inc o_f s) env (bind_tvar inc tenv)`,
-rw [tenv_inv_def] >>
-res_tac >>
-rw [bind_tvar_rewrites] >>
-imp_res_tac lookup_tenv_inc >>
-pop_assum (ASSUME_TAC o Q.SPEC `inc`) >>
-fs [] >>
-metis_tac [deBruijn_inc_infer_deBruijn_inc]);
-
-val tenv_inv_extend2 = Q.prove (
-`!s x tvs t env t' tenv s_inc.
-  check_t tvs (FDOM s) t ∧
-  tenv_inv s env tenv 
-  ⇒
-  tenv_inv s ((x,tvs,t)::env) (bind_tenv x tvs (convert_t (t_walkstar (infer_deBruijn_inc tvs o_f s) t)) tenv)`,
-rw [tenv_inv_def] >>
-every_case_tac >>
-rw [] >>
-rw [lookup_tenv_def, bind_tenv_def, deBruijn_inc0] >>
-metis_tac []);
 
 val check_menv_lookup = Q.prove (
 `!menv mn n env tvs t.
@@ -1015,208 +914,30 @@ every_case_tac >>
 rw [] >>
 metis_tac []);
 
-val ok_s_def = Define `
-ok_s s = (!t. t ∈ FRANGE s ⇒ check_t 0 UNIV t)`;
-
-val t_unify_ok_s = Q.prove (
-`!s1 t1 t2 s2.
-  (t_unify s1 t1 t2 = SOME s2) ∧
-  ok_s s1 ∧
-  check_t 0 UNIV t1 ∧
-  check_t 0 UNIV t2
+val tenv_inv_extend = Q.prove (
+`!s x tvs t env t' tenv.
+  check_t tvs (FDOM s) t ∧
+  tenv_inv s env tenv 
   ⇒
-  ok_s s2`,
-cheat);
-
-val infer_p_ok_s = Q.prove (
-`(!cenv p st t env st'.
-    ok_s st.subst ∧
-    (infer_p cenv p st = (Success (t,env), st'))
-    ⇒
-    check_t 0 UNIV t ∧
-    ok_s st'.subst) ∧
- (!cenv ps st ts env st'.
-    ok_s st.subst ∧
-    (infer_ps cenv ps st = (Success (ts,env), st'))
-    ⇒
-    EVERY (check_t 0 UNIV) ts ∧
-    ok_s st'.subst)`,
-cheat);
-(*
-ho_match_mp_tac infer_p_ind >>
-rw [infer_p_def, success_eqns, remove_pair_lem, GSYM FORALL_PROD] >>
-rw [check_t_def] >>
-res_tac >>
-fs [check_t_def] >>
-prove_tac [pure_add_constraints_wfs]);
-*)
-
-val infer_e_ok_s = Q.prove (
-`(!menv cenv env e st st' t.
-    (infer_e menv cenv env e st = (Success t, st')) ∧
-    ok_s st.subst
-    ⇒
-    check_t 0 UNIV t ∧
-    ok_s st'.subst) ∧
- (!menv cenv env es st st' ts.
-    (infer_es menv cenv env es st = (Success ts, st')) ∧
-    ok_s st.subst
-    ⇒
-    EVERY (check_t 0 UNIV) ts ∧
-    ok_s st'.subst) ∧
- (!menv cenv env pes t1 t2 st st'.
-    (infer_pes menv cenv env pes t1 t2 st = (Success (), st')) ∧
-    ok_s st.subst
-    ⇒
-    ok_s st'.subst) ∧
- (!menv cenv env funs st st' ts'.
-    (infer_funs menv cenv env funs st = (Success ts', st')) ∧
-    ok_s st.subst
-    ⇒
-    EVERY (check_t 0 UNIV) ts ∧
-    ok_s st'.subst)`,
-cheat);
-(*
-ho_match_mp_tac infer_e_ind >>
-rw [infer_e_def, success_eqns, remove_pair_lem, GSYM FORALL_PROD] >>
-fs [] >>
-res_tac >>
-imp_res_tac t_unify_wfs >>
-fs [] >>
-imp_res_tac pure_add_constraints_wfs >>
-fs [] >>
-cases_on `v'` >>
-imp_res_tac infer_p_wfs >>
-fs []);
-*)
-
-val deBruijn_inc_ok_s = Q.prove (
-`!inc s.
-  ok_s s 
-  ⇒
-  (infer_deBruijn_inc inc o_f s = s)`,
-cheat);
-
-val lem = Q.prove (
-`!x f. (\(x,y,z). f x y z) x = f (FST x) (FST (SND x)) (SND (SND x))`,
+  tenv_inv s ((x,tvs,t)::env) (bind_tenv x tvs (convert_t (t_walkstar (infer_deBruijn_inc tvs o_f s) t)) tenv)`,
+rw [tenv_inv_def] >>
+every_case_tac >>
 rw [] >>
-PairCases_on `x` >>
-rw []);
+rw [lookup_tenv_def, bind_tenv_def, deBruijn_inc0] >>
+metis_tac []);
 
-val generalise_subst = Q.prove (
-`(!t m n s tvs s' t'.
-  t_wfs s ∧
-  (generalise m n s t = (tvs, s', t'))
+val tenv_inv_extend0 = Q.prove (
+`!s x t env tenv.
+  check_t 0 (FDOM s) t ∧
+  tenv_inv s env tenv 
   ⇒
-  t_wfs s' ∧
-  (s SUBMAP s') ∧
-  (FDOM s' = FDOM s ∪ { uv | uv ∈ free_uvars t ∧ m ≤ uv }) ∧
-  (!uv. uv ∈ FDOM s' DIFF FDOM s ⇒ ∃tv. (FAPPLY s' uv = Infer_Tvar_db tv) ∧ n ≤ tv ∧ tv < tvs + n) ∧
-  (t_walkstar s' t = t_walkstar s t')) ∧
- (!ts m n s tvs s' ts'.
-  t_wfs s ∧
-  (generalise_list m n s ts = (tvs, s', ts'))
-  ⇒
-  t_wfs s' ∧
-  (s SUBMAP s') ∧
-  (FDOM s' = FDOM s ∪ { uv | uv ∈ BIGUNION (set (MAP free_uvars ts)) ∧ m ≤ uv }) ∧
-  (!uv. uv ∈ FDOM s' DIFF FDOM s ⇒ ∃tv. (FAPPLY s' uv = Infer_Tvar_db tv) ∧ n ≤ tv ∧ tv < tvs + n) ∧
-  (MAP (t_walkstar s') ts = MAP (t_walkstar s) ts'))`,
-Induct >>
-SIMP_TAC (srw_ss()) [free_uvars_def, generalise_def] >|
-[REPEAT GEN_TAC  >>
-     STRIP_TAC >>
-     `?tvs s' ts'. generalise_list m n s ts = (tvs, s', ts')`
-               by (cases_on `generalise_list m n s ts` >>
-                   rw [] >>
-                   cases_on `r` >>
-                   fs []) >>
-     fs [LET_THM] >>
-     rw [] >>
-     res_tac >>
-     rw [EXTENSION, t_walkstar_eqn1] >>
-     metis_tac [],
- rw [] >>
-     every_case_tac >>
-     fs [] >>
-     rw [] >>
-     `t_wfs (s |+ (n, Infer_Tvar_db n'))` by metis_tac [wfs_thms] >>
-     rw [FLOOKUP_DEF, EXTENSION] >>
-     TRY (EQ_TAC) >>
-     rw [] >>
-     fs [FLOOKUP_DEF] >|
-     [rw [t_walkstar_eqn, t_walk_eqn, Once t_vwalk_eqn, FLOOKUP_DEF],
-      rw [t_walkstar_eqn, t_walk_eqn, Once t_vwalk_eqn, FLOOKUP_DEF] >>
-          cases_on `s ' n` >>
-          rw [t_walk_eqn],
-      rw [t_walkstar_eqn, t_walk_eqn, Once t_vwalk_eqn, FLOOKUP_DEF] >>
-          cases_on `s ' n` >>
-          rw [t_walk_eqn]],
- REPEAT GEN_TAC >>
-     STRIP_TAC >>
-     `?tvs s' t'. generalise m n s t = (tvs, s', t')`
-               by (cases_on `generalise m n s t` >>
-                   rw [] >>
-                   cases_on `r` >>
-                   fs []) >>
-     fs [LET_THM] >>
-     `?tvs s' ts'. generalise_list m (tvs'+n) s'' ts = (tvs, s', ts')`
-               by (cases_on `generalise_list m (tvs'+n) s'' ts` >>
-                   rw [] >>
-                   cases_on `r` >>
-                   fs []) >>
-     fs [LET_THM] >>
-     qpat_assum `!m'. P m'`
-           (mp_tac o Q.SPECL [`m`, `tvs'+n`, `s''`, `tvs''`, `s'''`, `ts''`]) >>
-     qpat_assum `!m'. P m'`
-           (mp_tac o Q.SPECL [`m`, `n`, `s`, `tvs'`, `s''`, `t'`]) >>
-     rw [INTER_UNION] >|
-     [metis_tac [SUBMAP_TRANS],
-      rw [EXTENSION] >>
-          metis_tac [],
-      `uv ∈ FDOM s''` by fs [] >>
-          res_tac >>
-          qexists_tac `tv` >>
-          rw [INTER_UNION] >>
-          fs [SUBMAP_DEF] >-
-          metis_tac [] >>
-          decide_tac,
-      cases_on `uv ∈ {uv | uv ∈ free_uvars t ∧ m ≤ uv}` >>
-          full_simp_tac (srw_ss()++ARITH_ss) [] >|
-          [`uv ∈ FDOM s''` by fs [] >>
-               res_tac >>
-               qexists_tac `tv` >>
-               fs [SUBMAP_DEF] >>
-               rw [] >-
-               metis_tac [] >>
-               full_simp_tac (srw_ss()++ARITH_ss) [],
-           `uv ∈ FDOM s'` by (fs [] >> metis_tac []) >>
-               res_tac >>
-               qexists_tac `tv'''` >>
-               rw [] >>
-               decide_tac,
-           metis_tac []],
-     cheat,
-     cheat]]); 
-
-val generalise_subst_empty = Q.prove (
-`(!t m n s tvs s' t'.
-  (generalise m n FEMPTY t = (tvs, s', t'))
-  ⇒
-  t_wfs s' ∧
-  (FDOM s' = { uv | uv ∈ free_uvars t ∧ m ≤ uv }) ∧
-  (!uv. uv ∈ FDOM s' ⇒ ∃tv. (FAPPLY s' uv = Infer_Tvar_db tv) ∧ n ≤ tv ∧ tv < tvs + n) ∧
-  (t_walkstar s' t = t'))`,
+  tenv_inv s ((x,0,t)::env) (bind_tenv x 0 (convert_t (t_walkstar s t)) tenv)`,
 rw [] >>
-imp_res_tac generalise_subst >>
-fs [EXTENSION] >>
-`t_wfs FEMPTY` by fs [t_wfs_def] >>
-rw [] >>
-metis_tac [t_walkstar_FEMPTY]);
+`infer_deBruijn_inc 0 o_f s = s` by rw [GSYM fmap_EQ_THM, infer_deBruijn_inc0] >>
+metis_tac [tenv_inv_extend]);
 
 val binop_tac =
 imp_res_tac infer_e_wfs >>
-imp_res_tac infer_e_ok_s >>
 fs [] >>
 imp_res_tac sub_completion_unify2 >>
 imp_res_tac sub_completion_infer >>
@@ -1227,19 +948,16 @@ imp_res_tac t_unify_apply >>
 imp_res_tac sub_completion_apply >>
 fs [] >>
 imp_res_tac t_unify_wfs >>
-imp_res_tac t_unify_ok_s >>
 imp_res_tac sub_completion_wfs >>
 fs [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t_def] >>
 rw [type_op_cases, 
     Tint_def, Tbool_def, Tref_def, Tfn_def, Tunit_def] >>
 metis_tac [MAP];
 
-(*
 val infer_e_sound = Q.prove (
 `(!menv cenv env e st st' ext tenv t extra_constraints s.
     (infer_e menv cenv env e st = (Success t, st')) ∧
     t_wfs st.subst ∧
-    ok_s st.subst ∧
     check_menv menv ∧
     check_cenv cenv ∧
     sub_completion (num_tvs tenv) st'.next_uvar st'.subst extra_constraints s ∧
@@ -1250,7 +968,6 @@ val infer_e_sound = Q.prove (
  (!menv cenv env es st st' ext tenv ts extra_constraints s.
     (infer_es menv cenv env es st = (Success ts, st')) ∧
     t_wfs st.subst ∧
-    ok_s st.subst ∧
     check_menv menv ∧
     check_cenv cenv ∧
     sub_completion (num_tvs tenv) st'.next_uvar st'.subst extra_constraints s ∧
@@ -1260,7 +977,6 @@ val infer_e_sound = Q.prove (
             (MAP (convert_t o t_walkstar s) ts)) ∧
  (!menv cenv env pes t1 t2 st st' tenv ext extra_constraints s.
     (infer_pes menv cenv env pes t1 t2 st = (Success (), st')) ∧
-    ok_s st.subst ∧
     t_wfs st.subst ∧
     check_menv menv ∧
     check_cenv cenv ∧
@@ -1270,7 +986,6 @@ val infer_e_sound = Q.prove (
     T) ∧
  (!menv cenv env funs st st' ext tenv extra_constraints s ts.
     (infer_funs menv cenv env funs st = (Success ts, st')) ∧
-    ok_s st.subst ∧
     t_wfs st.subst ∧
     check_menv menv ∧
     check_cenv cenv ∧
@@ -1294,17 +1009,14 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
  (* Handle *)
      `tenv_inv s
                  ((x,0,Infer_Tapp [] TC_int)::env) 
-                 (Bind_name x 0 
+                 (bind_tenv x 0 
                             (convert_t (t_walkstar s (Infer_Tapp [] TC_int))) 
                             tenv)`
-             by (fs [tenv_inv_def, lookup_tenv_def] >>
-                 rw [deBruijn_inc0, infer_deBruijn_inc0] >>
-                 rw [infer_deBruijn_inc0_id, o_f_id] >>
-                 fs [sub_completion_def, check_t_def] >>
-                 metis_tac []) >>
-     `num_tvs tenv = num_tvs (Bind_name x 0 (convert_t (t_walkstar s (Infer_Tapp [] TC_int))) tenv)`
-             by rw [num_tvs_def] >>
-     rw [bind_tenv_def] >>
+             by (match_mp_tac tenv_inv_extend0 >>
+                 rw [check_t_def]) >>
+     `num_tvs tenv = num_tvs (bind_tenv x 0 (convert_t (t_walkstar s (Infer_Tapp [] TC_int))) tenv)`
+             by rw [bind_tenv_def, num_tvs_def] >>
+     fs [bind_tenv_def] >>
      binop_tac,
  (* Lit bool *)
      binop_tac,
@@ -1415,14 +1127,12 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
           metis_tac [check_t_to_check_freevars],
       `tenv_inv s
                  ((x,0,Infer_Tuvar st.next_uvar)::env) 
-                 (Bind_name x 0 
+                 (bind_tenv x 0 
                             (convert_t (t_walkstar s (Infer_Tuvar st.next_uvar))) 
                             tenv)`
-             by (fs [tenv_inv_def, lookup_tenv_def] >>
-                 rw [deBruijn_inc0, infer_deBruijn_inc0] >>
-                 rw [infer_deBruijn_inc0_id, o_f_id] >>
-                 fs [sub_completion_def, SUBSET_DEF, check_t_def] >>
-                 metis_tac []) >>
+             by (match_mp_tac tenv_inv_extend0 >>
+                 fs [check_t_def, SUBSET_DEF, sub_completion_def]) >>
+          fs [bind_tenv_def] >>
           metis_tac [num_tvs_def, stupid_record_thing, bind_tenv_def]],
  (* Opref *)
      rw [type_uop_cases, Tref_def] >>
@@ -1443,7 +1153,6 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      binop_tac, 
  (* Opapp *)
      `t_wfs st''.subst` by metis_tac [infer_e_wfs] >>
-     `ok_s st''.subst` by metis_tac [infer_e_ok_s] >>
      imp_res_tac sub_completion_unify >>
      imp_res_tac sub_completion_infer >>
      fs [] >>
@@ -1456,7 +1165,6 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      imp_res_tac sub_completion_apply >>
      fs [] >>
      imp_res_tac t_unify_wfs >>
-     imp_res_tac t_unify_ok_s >>
      imp_res_tac sub_completion_wfs >>
      fs [t_walkstar_eqn, t_walk_eqn, convert_t_def] >>
      metis_tac [],
@@ -1476,75 +1184,27 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      binop_tac,
  (* Match *)
      all_tac,
- (* Let value *)
-(*
-     disj1_tac >>
-     Q.ABBREV_TAC `gen = generalise st.next_uvar 0 FEMPTY (t_walkstar st'''.subst t1)` >>
-     `?tvs_gen s_gen t1_gen. gen = (tvs_gen, s_gen, t1_gen)` 
-                   by (cases_on `gen` >> 
-                       fs [] >>
-                       cases_on `r` >>
-                       fs []) >>
-     rw [] >>
-     Q.ABBREV_TAC `s_inc = infer_deBruijn_inc tvs_gen o_f s` >>
-     `t_wfs st'''.subst` by metis_tac [infer_e_wfs] >>
-     `ok_s st'''.subst` by metis_tac [infer_e_ok_s] >>
-     qexists_tac `convert_t (t_walkstar s_inc t1_gen)` >>
-     qexists_tac `tvs_gen` >>
+ (* Let *)
+     disj2_tac >>
+     imp_res_tac sub_completion_infer >>
+     fs [] >>
+     imp_res_tac sub_completion_unify >>
+     qexists_tac `convert_t (t_walkstar s (Infer_Tuvar st''.next_uvar))` >>
      rw [] >|
-     [`t_wfs s_gen ∧
-       (FDOM s_gen = {uv | uv ∈ free_uvars (t_walkstar st'''.subst t1) ∧ st.next_uvar ≤ uv}) ∧
-       (!uv. uv ∈ FDOM s_gen ⇒ ?tv. s_gen ' uv = Infer_Tvar_db tv ∧ 0 ≤ tv ∧ tv < tvs_gen + 0) ∧
-       (t_walkstar s_gen (t_walkstar st'''.subst t1) = t1_gen)`
-                    by metis_tac [generalise_subst_empty] >>
-          fs []
-
-     `?s_gen ts_gen. 
-          pure_add_constraints FEMPTY ts_gen s_gen ∧
-          (t_walkstar s_gen (t_walkstar st'''.subst t1) = t1_gen)`
-                   by metis_tac [generalise_subst] >>
-
-
-     `?s' extra_constraints. 
-        sub_completion (num_tvs (bind_tvar tvs_gen tenv)) st'''.next_uvar st'''.subst extra_constraints s' ∧ 
-        tenv_inv s' env (bind_tvar tvs_gen tenv) ∧
-        (t_walkstar s' t1 = t_walkstar s_inc t1_gen)`
-                by cheat >>
-          metis_tac []
-
-          (*
-      `?gen_constraints s_gen. 
-          pure_add_constraints s_inc gen_constraints s_gen ∧
-          (t_walkstar s_gen (t_walkstar st'''.subst t1) = t1')`
-                     by metis_tac [generalise_subst] >>
-          `t_wfs s` by metis_tac [infer_e_wfs, sub_completion_wfs] >>
-          `tenv_inv s_inc env (bind_tvar num_gen tenv)`
-                   by (fs [sub_completion_def] >>
-                       metis_tac [tenv_inv_extend]) >>
-          `?ts. sub_completion (num_tvs (bind_tvar num_gen tenv))
-                               st'''.next_uvar (infer_deBruijn_inc num_gen o_f st'''.subst) ts s_inc`
-                   by (imp_res_tac sub_completion_infer >>
-                       rw [bind_tvar_rewrites] >>
-                       metis_tac [sub_completion_deBruijn_inc]) >>
-          `(infer_deBruijn_inc num_gen o_f st'''.subst) = st'''.subst` 
-                         by metis_tac [deBruijn_inc_ok_s] >>
-          `type_e (convert_menv menv) cenv (bind_tvar num_gen tenv) e (convert_t (t_walkstar s_inc t1))`
-                   by metis_tac [] >>
-     *)
-     all_tac,
-     `?ts'. sub_completion (num_tvs (bind_tenv x tvs_gen (convert_t (t_walkstar s_inc t1_gen)) tenv))
-                           st'.next_uvar st'.subst ts' s` 
-               by (fs [bind_tenv_def, num_tvs_def] >>
-                   imp_res_tac sub_completion_infer >>
-                   metis_tac []) >>
-         `check_t tvs_gen (FDOM s) t1_gen` by cheat >>
-         `tenv_inv s ((x,tvs_gen,t1_gen)::env) (bind_tenv x tvs_gen (convert_t (t_walkstar s_inc t1_gen)) tenv)`
-                   by (metis_tac [tenv_inv_extend2]) >>
-         metis_tac [FST, SND],
-     *)
-     all_tac,
- (* Let not value *)
-     all_tac,
+     [`type_e (convert_menv menv) cenv tenv e (convert_t (t_walkstar s t1))` by metis_tac [] >>
+          imp_res_tac t_unify_apply >>
+          imp_res_tac sub_completion_apply >>
+          fs [],
+      `t_wfs st''.subst` by metis_tac [infer_e_wfs] >>
+          imp_res_tac t_unify_wfs >>
+          `tenv_inv s ((x,0,Infer_Tuvar st''.next_uvar)::env) 
+                      (bind_tenv x 0 (convert_t (t_walkstar s (Infer_Tuvar st''.next_uvar))) tenv)` 
+                 by (match_mp_tac tenv_inv_extend0 >>
+                     rw [check_t_def] >>
+                     fs [sub_completion_def, SUBSET_DEF]) >>
+          `num_tvs (bind_tenv x 0 (convert_t (t_walkstar s (Infer_Tuvar st''.next_uvar))) tenv) = num_tvs tenv` 
+                 by (rw [num_tvs_def, bind_tenv_def]) >>
+          metis_tac [stupid_record_thing]],
  (* Letrec *)
      all_tac,
  all_tac,
@@ -1552,70 +1212,5 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
  all_tac]
 
  *)
-
-
-
-(*
-
-∀extra_constraints' s'.
-  infer_e menv cenv env e st = (Success t1,st''') ∧
-  t_wfs st.subst ∧ 
-  ok_s st.subst ∧
-  sub_completion (num_tvs (bind_tvar tvs_gen tenv)) st'''.next_uvar st'''.subst extra_constraints' s' ∧ 
-  tenv_inv s' env (bind_tvar tvs_gen tenv) 
-  ⇒
-  type_e (convert_menv menv) cenv (bind_tvar tvs_gen tenv) e (convert_t (t_walkstar s' t1))
-
-  *)
-
-
-
- (*
-(* Fn case *)
-rw [Tfn_def]
- 
-(* Poly LET case (r 15;) *)
-`?tvs t_gen. generalise n 0 t1' = (tvs,t_gen)` 
-        by (cases_on `generalise n 0 t1'` >>
-            rw []) >>
-DISJ1_TAC >>
-fs [apply_subst_thm, get_next_uvar_def] >>
-rw [] >>
-fs [st_ex_bind_success] >>
-rw [] >>
-qexists_tac `convert_t (apply_subst_t sub t1)` >>
-qexists_tac `tvs` >>
-rw [] >|
-[qpat_assum `∀st''''' st'''''' sub' tenv' t'.
-        (infer_e menv cenv env e st''''' = (Success t',st'''''')) ∧
-        tenv_rel sub' env tenv' ∧ infer_invariant st'''''' sub' ⇒
-        type_e (convert_menv menv) cenv tenv' e
-          (convert_t (apply_subst_t sub' t'))`
-            match_mp_tac >>
-     qexists_tac `st` >>
-     qexists_tac `st'''` >>
-     rw [] >|
-     [all_tac,
-      fs [get_next_uvar_def] >>
-          rw [] >>
-          fs [st_ex_bind_success] >>
-          imp_res_tac apply_subst_st >>
-          rw []
-
- qpat_assum `∀num_gen t1'' st''''' st'''''' sub' tenv' t'.
-        (infer_e menv cenv (bind x (num_gen,t1'') env) e' st''''' =
-         (Success t',st'''''')) ∧
-        tenv_rel sub' (bind x (num_gen,t1'') env) tenv' ∧
-        infer_invariant st'''''' sub' ⇒
-        type_e (convert_menv menv) cenv tenv' e'
-          (convert_t (apply_subst_t sub' t'))` match_mp_tac >>
-     qexists_tac `tvs` >>
-     qexists_tac `t_gen` >>
-     qexists_tac `st''''` >>
-     qexists_tac `st'` >>
-     rw [] >>
-     fs [st_ex_bind_success] >>
-     rw [Once tenv_rel_cases, bind_def, bind_tenv_def]
-     *)
 
 val _ = export_theory ();

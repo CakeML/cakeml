@@ -355,6 +355,7 @@ val infer_e_def = tDefine "infer_e" `
        return t2
   od) ∧
 (infer_e menv cenv env (Let x e1 e2) =
+(* Don't do polymorphism for non-top-level lets 
   if is_value e1 then
     do n <- get_next_uvar;
        t1 <- infer_e menv cenv env e1;
@@ -364,10 +365,14 @@ val infer_e_def = tDefine "infer_e" `
        return t2
     od
   else
+    *)
     do t1 <- infer_e menv cenv env e1;
-       t2 <- infer_e menv cenv (bind x (0,t1) env) e2;
-       return t2
+       t2 <- fresh_uvar;
+       () <- add_constraint t1 t2;
+       t3 <- infer_e menv cenv (bind x (0,t2) env) e2;
+       return t3
     od) ∧
+(* Don't do polymorphism for non-top-level let recs
 (infer_e menv cenv env (Letrec funs e) =
   do next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
@@ -377,6 +382,19 @@ val infer_e_def = tDefine "infer_e" `
      ts <- apply_subst_list uvars;
      (num_gen,s,ts') <- return (generalise_list next 0 FEMPTY ts);
      env'' <- return (merge (list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts') env);
+     t <- infer_e menv cenv env'' e;
+     return t
+  od) ∧
+  *)
+(infer_e menv cenv env (Letrec funs e) =
+  do uvars <- n_fresh_uvar (LENGTH funs);
+     env' <- return (merge (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars) env);
+     funs_ts <- infer_funs menv cenv env' funs;
+     () <- add_constraints uvars funs_ts;
+     ts <- apply_subst_list uvars;
+     ts' <- n_fresh_uvar (LENGTH funs);
+     () <- add_constraints ts' ts;
+     env'' <- return (merge (list$MAP2 (\(f,x,e) t. (f,(0,t))) funs ts') env);
      t <- infer_e menv cenv env'' e;
      return t
   od) ∧
@@ -393,7 +411,9 @@ val infer_e_def = tDefine "infer_e" `
   do (t1', env') <- infer_p cenv p;
      () <- guard (ALL_DISTINCT (MAP FST env')) "Duplicate pattern variable";
      () <- add_constraint t1 t1';
-     t2' <- infer_e menv cenv (merge (MAP (\(n,t). (n,(0,t))) env') env) e;
+     ts <- n_fresh_uvar (LENGTH env');
+     () <- add_constraints ts (MAP SND env');
+     t2' <- infer_e menv cenv (merge (list$MAP2 (\(n,t) t'. (n,(0,t'))) env' ts) env) e;
      () <- add_constraint t2 t2';
      () <- infer_pes menv cenv env pes t1 t2;
      return ()
