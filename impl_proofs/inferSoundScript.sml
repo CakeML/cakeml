@@ -954,6 +954,7 @@ rw [type_op_cases,
     Tint_def, Tbool_def, Tref_def, Tfn_def, Tunit_def] >>
 metis_tac [MAP];
 
+(*
 val infer_e_sound = Q.prove (
 `(!menv cenv env e st st' ext tenv t extra_constraints s.
     (infer_e menv cenv env e st = (Success t, st')) ∧
