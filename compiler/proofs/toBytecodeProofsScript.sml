@@ -198,17 +198,22 @@ val s_refs_with_stack = store_thm("s_refs_with_stack",
   ``s_refs rd s (bs with stack := p) = s_refs rd s bs``,
   rw[s_refs_def,good_rd_def])
 
-val Cenv_bs_def = Define`
-  Cenv_bs rd s Cenv (renv:ctenv) sz bs ⇔
+val env_renv_def = Define`
+  env_renv rd sz bs Cenv renv ⇔
     (EVERY2
        (λCv b. case lookup_ct sz bs.stack (DRESTRICT bs.refs (FDOM rd.cls)) b of NONE => F
              | SOME bv => Cv_bv (mk_pp rd bs) Cv bv)
-     Cenv renv) ∧
+     Cenv renv)`
+
+val Cenv_bs_def = Define`
+  Cenv_bs rd Cmenv s Cenv (menv:string|->ctenv) (renv:ctenv) sz bs ⇔
+    env_renv rd sz bs Cenv renv ∧
+    fmap_rel (env_renv rd sz bs) Cmenv menv ∧
     s_refs rd s bs`
 
 val Cenv_bs_syneq_store = store_thm("Cenv_bs_syneq_store",
-  ``∀rd s Cenv renv sz bs s'. LIST_REL (syneq) s s' ∧ Cenv_bs rd s Cenv renv sz bs ⇒
-           Cenv_bs rd s' Cenv renv sz bs``,
+  ``∀rd s Cmnv Cenv mnv renv sz bs s'. LIST_REL (syneq) s s' ∧ Cenv_bs rd Cmnv s Cenv mnv renv sz bs ⇒
+           Cenv_bs rd Cmnv s' Cenv mnv renv sz bs``,
   rw[Cenv_bs_def] >>
   fs[s_refs_def] >>
   conj_asm1_tac >- metis_tac[EVERY2_EVERY] >>
@@ -1321,21 +1326,21 @@ val _ = export_rewrites["pushret_next_label"]
 val zero_exists_lemma = store_thm("zero_exists_lemma", ``(∃m. n = m + n) ∧ (∃m. n = n + m)``, rw[]>>qexists_tac`0`>>rw[])
 
 val compile_append_out = store_thm("compile_append_out",
-  ``(∀env t sz cs exp.
-      ∃bc. ((compile env t sz cs exp).out = bc ++ cs.out) ∧
-           cs.next_label ≤ (compile env t sz cs exp).next_label ∧
+  ``(∀menv env t sz cs exp.
+      ∃bc. ((compile menv env t sz cs exp).out = bc ++ cs.out) ∧
+           cs.next_label ≤ (compile menv env t sz cs exp).next_label ∧
            ALL_DISTINCT (FILTER is_Label bc) ∧
-           EVERY (between cs.next_label (compile env t sz cs exp).next_label) (MAP dest_Label (FILTER is_Label bc))) ∧
-    (∀env t sz exp n cs xs.
-      ∃bc. ((compile_bindings env t sz exp n cs xs).out = bc ++ cs.out) ∧
-           cs.next_label ≤ (compile_bindings env t sz exp n cs xs).next_label ∧
+           EVERY (between cs.next_label (compile menv env t sz cs exp).next_label) (MAP dest_Label (FILTER is_Label bc))) ∧
+    (∀menv env t sz exp n cs xs.
+      ∃bc. ((compile_bindings menv env t sz exp n cs xs).out = bc ++ cs.out) ∧
+           cs.next_label ≤ (compile_bindings menv env t sz exp n cs xs).next_label ∧
            ALL_DISTINCT (FILTER is_Label bc) ∧
-           EVERY (between cs.next_label (compile_bindings env t sz exp n cs xs).next_label) (MAP dest_Label (FILTER is_Label bc))) ∧
-    (∀env sz cs exps.
-      ∃bc. ((compile_nts env sz cs exps).out = bc ++ cs.out) ∧
-           cs.next_label ≤ (compile_nts env sz cs exps).next_label ∧
+           EVERY (between cs.next_label (compile_bindings menv env t sz exp n cs xs).next_label) (MAP dest_Label (FILTER is_Label bc))) ∧
+    (∀menv env sz cs exps.
+      ∃bc. ((compile_nts menv env sz cs exps).out = bc ++ cs.out) ∧
+           cs.next_label ≤ (compile_nts menv env sz cs exps).next_label ∧
            ALL_DISTINCT (FILTER is_Label bc) ∧
-           EVERY (between cs.next_label (compile_nts env sz cs exps).next_label) (MAP dest_Label (FILTER is_Label bc)))``,
+           EVERY (between cs.next_label (compile_nts menv env sz cs exps).next_label) (MAP dest_Label (FILTER is_Label bc)))``,
   ho_match_mp_tac compile_ind >>
   strip_tac >- (
     simp[compile_def] >> rw[] >> rw[] ) >>
@@ -1818,8 +1823,8 @@ val code_for_push_return = store_thm("code_for_push_return",
     simp[bc_state_component_equality])
 
 val compile_labels_lemma = store_thm("compile_labels_lemma",
-  ``∀env t sz cs exp bc0 cs1 cls1 code.
-    (cs1 = compile env t sz cs exp) ∧
+  ``∀menv env t sz cs exp bc0 cs1 cls1 code.
+    (cs1 = compile menv env t sz cs exp) ∧
     (cs1.out = REVERSE code ++ cs.out) ∧
     (cls1 = bc0 ++ code) ∧
     ALL_DISTINCT (FILTER is_Label bc0) ∧
@@ -1830,7 +1835,7 @@ val compile_labels_lemma = store_thm("compile_labels_lemma",
     EVERY (combin$C $< cs1.next_label o dest_Label)
       (FILTER is_Label cls1)``,
   rpt gen_tac >> strip_tac >>
-  qspecl_then[`env`,`t`,`sz`,`cs`,`exp`]mp_tac(CONJUNCT1 compile_append_out) >>
+  qspecl_then[`menv`,`env`,`t`,`sz`,`cs`,`exp`]mp_tac(CONJUNCT1 compile_append_out) >>
   disch_then(Q.X_CHOOSE_THEN`bc`strip_assume_tac) >>
   rpt BasicProvers.VAR_EQ_TAC >>
   fsrw_tac[DNF_ss][FILTER_APPEND,EVERY_MEM,MEM_FILTER,is_Label_rwt,
@@ -1849,9 +1854,9 @@ val Cv_bv_not_env = store_thm("Cv_bv_not_env",
   gen_tac >> ho_match_mp_tac Cv_bv_only_ind >> simp[])
 
 val compile_bindings_thm = store_thm("compile_bindings_thm",
-  ``∀env t sz e n s m bc cc.
-    ((compile_bindings env t sz e n s m).out = bc ++ s.out) ∧
-    ((compile
+  ``∀menv env t sz e n s m bc cc.
+    ((compile_bindings menv env t sz e n s m).out = bc ++ s.out) ∧
+    ((compile menv
        ((REVERSE(GENLIST(λi. CTLet (sz+n+1+i))m))++env)
        (case t of TCTail j k => TCTail j (k+(m+n)) | _ => t)
        (sz+(m+n))
@@ -1862,8 +1867,8 @@ val compile_bindings_thm = store_thm("compile_bindings_thm",
     Cases_on`t`>>fs[]>>
     rw[]>>fs[]) >>
   rw[compile_def,GENLIST_CONS,combinTheory.o_DEF] >>
-  qmatch_assum_abbrev_tac`(compile_bindings env0 t sz e n0 s m).out = bc ++ s.out` >>
-  first_x_assum(qspecl_then[`env0`,`t`,`sz`,`e`,`n0`,`s`,`bc`,`cc`]mp_tac) >>
+  qmatch_assum_abbrev_tac`(compile_bindings menv env0 t sz e n0 s m).out = bc ++ s.out` >>
+  first_x_assum(qspecl_then[`menv`,`env0`,`t`,`sz`,`e`,`n0`,`s`,`bc`,`cc`]mp_tac) >>
   simp[ADD1,Abbr`n0`] >>
   disch_then match_mp_tac >>
   unabbrev_all_tac >>
@@ -1966,10 +1971,10 @@ val good_cd_def = Define`
     ∃e e'. (cc,(recs,envs),e') = (bind_fv (az,e) nz ix)`
 
 val code_env_cd_def = Define`
-  code_env_cd code (x,(l,ccenv,ce),(az,b)) ⇔
+  code_env_cd menv code (x,(l,ccenv,ce),(az,b)) ⇔
     good_cd (x,(l,ccenv,ce),(az,b)) ∧
     ∃cs bc0 cc bc1.
-      ((compile (MAP CTEnv ccenv) (TCTail az 0) 0 cs b).out = cc ++ cs.out) ∧
+      ((compile menv (MAP CTEnv ccenv) (TCTail az 0) 0 cs b).out = cc ++ cs.out) ∧
       EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧ l < cs.next_label ∧
       (code = bc0 ++ Label l :: (REVERSE cc) ++ bc1)`
 
@@ -2026,8 +2031,8 @@ val MEM_APPEND_lemma = store_thm("MEM_APPEND_lemma",
   fs[APPEND_EQ_SING])
 
 val compile_val = store_thm("compile_val",
-  ``(∀s env exp res. Cevaluate s env exp res ⇒
-      ∀rd s' beh cs cenv sz bs bce bcr bc0 code bc1.
+  ``(∀menv s env exp res. Cevaluate menv s env exp res ⇒
+      ∀rd s' beh cmnv cs cenv sz bs bce bcr bc0 code bc1.
         BIGUNION (IMAGE all_Clocs (set env)) ⊆ count (LENGTH s) ∧
         BIGUNION (IMAGE all_Clocs (set s)) ⊆ count (LENGTH s) ∧
         (res = (s', beh)) ∧
@@ -2040,18 +2045,18 @@ val compile_val = store_thm("compile_val",
         (bs.pc = next_addr bs.inst_length bc0) ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
         set (free_vars exp) ⊆ count (LENGTH cenv) ∧
-        Cenv_bs rd s env cenv sz (bs with code := bce) ∧
+        Cenv_bs rd menv s env cmnv cenv sz (bs with code := bce) ∧
         ALL_DISTINCT (FILTER is_Label bc0) ∧
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0)
         ⇒
       (∀v.
          (beh = Cval v) ∧
-         ((compile cenv TCNonTail sz cs exp).out = REVERSE code ++ cs.out)
+         ((compile cmnv cenv TCNonTail sz cs exp).out = REVERSE code ++ cs.out)
            ⇒
          code_for_push rd bs bce bc0 code s s' env [v] cenv sz) ∧
       (∀v az lz env0 defs vs klvs blvs benv ret args cl st.
          (beh = Cval v) ∧
-         ((compile cenv (TCTail az lz) sz cs exp).out = REVERSE code ++ cs.out) ∧
+         ((compile cmnv cenv (TCTail az lz) sz cs exp).out = REVERSE code ++ cs.out) ∧
          (az = LENGTH args) ∧ (lz = LENGTH klvs) ∧
          (env = klvs ++ REVERSE vs ++ env0) ∧
          EVERY2 (Cv_bv (mk_pp rd (bs with code := bce))) vs args ∧
@@ -2061,7 +2066,7 @@ val compile_val = store_thm("compile_val",
          code_for_return rd bs bce st ret bs.handler v s s') ∧
       (∀t v ig sp hdl st.
          (beh = Cexc (Craise v)) ∧
-         ((compile cenv t sz cs exp).out = REVERSE code ++ cs.out) ∧
+         ((compile cmnv cenv t sz cs exp).out = REVERSE code ++ cs.out) ∧
          (case t of TCTail az lz => ∃blvs benv ret args cl ig'.
            (ig = blvs++benv::CodePtr ret::(REVERSE args)++cl::ig') ∧
            (az = LENGTH args) ∧ (lz = LENGTH blvs) | TCNonTail => T) ∧
@@ -2069,8 +2074,8 @@ val compile_val = store_thm("compile_val",
          (bs.handler = LENGTH st + 1)
            ⇒
          code_for_return rd bs bce st hdl sp v s s')) ∧
-    (∀s env exps ress. Cevaluate_list s env exps ress ⇒
-      ∀rd s' beh cs cenv sz bs bce bcr bc0 code bc1.
+    (∀menv s env exps ress. Cevaluate_list menv s env exps ress ⇒
+      ∀rd s' beh cmnv cs cenv sz bs bce bcr bc0 code bc1.
         BIGUNION (IMAGE all_Clocs (set env)) ⊆ count (LENGTH s) ∧
         BIGUNION (IMAGE all_Clocs (set s)) ⊆ count (LENGTH s) ∧
         (ress = (s', beh)) ∧
@@ -2083,10 +2088,10 @@ val compile_val = store_thm("compile_val",
         (bs.pc = next_addr bs.inst_length bc0) ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
         set (free_vars_list exps) ⊆ count (LENGTH cenv) ∧
-        Cenv_bs rd s env cenv sz (bs with code := bce) ∧
+        Cenv_bs rd menv s env cmnv cenv sz (bs with code := bce) ∧
         ALL_DISTINCT (FILTER is_Label bc0) ∧
         EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧
-        ((compile_nts cenv sz cs exps).out = REVERSE code ++ cs.out)
+        ((compile_nts cmnv cenv sz cs exps).out = REVERSE code ++ cs.out)
         ⇒
       (∀vs. (beh = Cval vs) ⇒
          code_for_push rd bs bce bc0 code s s' env vs cenv sz) ∧
