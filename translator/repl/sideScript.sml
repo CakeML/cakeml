@@ -53,11 +53,6 @@ TRY (imp_res_tac infer_e_wfs >>
 [match_mp_tac add_constraints_side_thm >>
      rw [] >>
      prove_tac [infer_e_wfs],
- cases_on `generalise st.next_uvar 0 (t_walkstar x60.subst x62)` >>
-     fs [] >>
-     imp_res_tac infer_e_wfs >>
-     imp_res_tac t_unify_wfs >>
-     rw [],
  match_mp_tac add_constraints_side_thm >>
      rw [] >>
      imp_res_tac infer_e_wfs >>
@@ -103,8 +98,8 @@ TRY (imp_res_tac infer_e_wfs >>
      fs []]);
 
 val generalise_list_length = Q.prove (
-`!min start x.
-  LENGTH x = LENGTH (SND (generalise_list min start (MAP SND x)))`,
+`!min start s x.
+  LENGTH x = LENGTH (SND (SND (generalise_list min start s (MAP SND x))))`,
 induct_on `x` >>
 rw [generalise_def] >>
 rw [] >>

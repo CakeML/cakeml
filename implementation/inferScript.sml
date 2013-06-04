@@ -149,24 +149,28 @@ apply_subst_list ts =
   od`;
 
 (* Generalise the unification variables greater than m, starting at deBruijn index n.
- * Return how many were generalised and the generalised type *)
+ * Return how many were generalised, the generalised type, and a substitution
+ * that describes the generalisation *)
 val generalise_def = Define `
-(generalise m n (Infer_Tapp ts tc) =
-  let (num_gen, ts') = generalise_list m n ts in
-    (num_gen, Infer_Tapp ts' tc)) ∧
-(generalise m n (Infer_Tuvar uv) =
-  if m ≤ uv then
-    (1, Infer_Tvar_db n)
-  else
-    (0, Infer_Tuvar uv)) ∧
-(generalise m n (Infer_Tvar_db k) =
-    (0, Infer_Tvar_db k)) ∧
-(generalise_list m n [] = 
-  (0,[])) ∧
-(generalise_list m n (t::ts) =
-  let (num_gen, t') = generalise m n t in
-  let (num_gen', ts') = generalise_list m (num_gen + n) ts in
-    (num_gen+num_gen', t'::ts'))`;
+(generalise m n s (Infer_Tapp ts tc) =
+  let (num_gen, s', ts') = generalise_list m n s ts in
+    (num_gen, s', Infer_Tapp ts' tc)) ∧
+(generalise m n s (Infer_Tuvar uv) =
+  case FLOOKUP s uv of
+    | SOME t => (0, s, t)
+    | NONE =>
+        if m ≤ uv then
+          (1, s|+(uv,Infer_Tvar_db n), Infer_Tvar_db n)
+        else
+          (0, s, Infer_Tuvar uv)) ∧
+(generalise m n s (Infer_Tvar_db k) =
+    (0, s, Infer_Tvar_db k)) ∧
+(generalise_list m n s [] = 
+  (0,s,[])) ∧
+(generalise_list m n s (t::ts) =
+  let (num_gen, s', t') = generalise m n s t in
+  let (num_gen', s'', ts') = generalise_list m (num_gen + n) s' ts in
+    (num_gen+num_gen', s'', t'::ts'))`;
 
 val infer_type_subst_def = tDefine "infer_type_subst" `
 (infer_type_subst s (Tvar tv) =
@@ -355,7 +359,7 @@ val infer_e_def = tDefine "infer_e" `
     do n <- get_next_uvar;
        t1 <- infer_e menv cenv env e1;
        t1' <- apply_subst t1;
-       (num_gen,t1'') <- return (generalise n 0 t1');
+       (num_gen,s,t1'') <- return (generalise n 0 FEMPTY t1');
        t2 <- infer_e menv cenv (bind x (num_gen,t1'') env) e2;
        return t2
     od
@@ -371,7 +375,7 @@ val infer_e_def = tDefine "infer_e" `
      funs_ts <- infer_funs menv cenv env' funs;
      () <- add_constraints uvars funs_ts;
      ts <- apply_subst_list uvars;
-     (num_gen,ts') <- return (generalise_list next 0 ts);
+     (num_gen,s,ts') <- return (generalise_list next 0 FEMPTY ts);
      env'' <- return (merge (list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts') env);
      t <- infer_e menv cenv env'' e;
      return t
@@ -416,7 +420,7 @@ val infer_d_def = Define `
        (t2,env') <- infer_p cenv p;
        () <- guard (ALL_DISTINCT (MAP FST env')) "Duplicate pattern variable";
        () <- add_constraint t1 t2;
-       (num_tvs, ts) <- return (generalise_list n 0 (MAP SND env'));
+       (num_tvs, s, ts) <- return (generalise_list n 0 FEMPTY (MAP SND env'));
        return ([], ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts))
     od
   else
@@ -435,7 +439,7 @@ val infer_d_def = Define `
      funs_ts <- infer_funs menv cenv env' funs;
      () <- add_constraints uvars funs_ts;
      ts <- apply_subst_list uvars;
-     (num_gen,ts') <- return (generalise_list next 0 ts);
+     (num_gen,s,ts') <- return (generalise_list next 0 FEMPTY ts);
      return ([], list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts')
   od) ∧
 (infer_d mn menv cenv env (Dtype tdecs) =
