@@ -40,7 +40,7 @@ val compile_correct = new_axiom("compile_correct",
   ``∀ck exp cr. evaluate_clock ck exp cr ⇒ bc_eval_clock (bc_clock ck) (compile exp) cr``)
 
 val bc_clock_unbounded = new_axiom("bc_clock_unbounded",
-  ``∀n. ∃m. n < bc_clock m``)
+  ``∀n. ∃m. n ≤ bc_clock m``)
 
 val evaluate_clock_sound = new_axiom("evaluate_clock_sound",
   ``∀ck exp res. evaluate_clock ck exp (Complete res) ⇒ evaluate exp res``)
@@ -77,9 +77,9 @@ val lem = prove(
   spose_not_then strip_assume_tac >>
   `!ck. bc_eval_clock (bc_clock ck) (compile exp) Timeout` by
     metis_tac[compile_correct] >>
-  `?ck'. (ck < bc_clock ck')` by metis_tac [bc_clock_unbounded] >>
+  `?ck'. (ck <= bc_clock ck')` by metis_tac [bc_clock_unbounded] >>
+  `!x (y:num). x ≤ y = x < y ∨ (x = y)` by decide_tac >>
   metis_tac [bc_less_time]);
-
 
 val th2 = store_thm("th2",
   ``∀exp. (!res. ¬evaluate exp res) ⇒ (∀res. ¬bc_eval (compile exp) res)``,
