@@ -145,6 +145,8 @@ val mmlG_def = mk_grammar_def ginfo
  Ehandle ::= ElogicOR | ElogicOR "handle" "IntError" V "=>" E ;  (* should be a PEs *)
  E ::= "if" E "then" E "else" E | "case" E "of" PEs | "fn" V "=>" E | "raise" Exn
     |  Ehandle;
+ E' ::= "if" E "then" E "else" E' | "fn" V "=>" E' | "raise" Exn | Ehandle' ;
+ Ehandle' ::= ElogicOR | ElogicOR "handle" "IntError" V "=>" E' ;
 
  (* function and value declarations *)
  FDecl ::= V Vlist1 "=" E ;
@@ -161,7 +163,8 @@ val mmlG_def = mk_grammar_def ginfo
  PatternList2 ::= Pattern "," PatternList1;
  PatternList1 ::= Pattern | PatternList1 "," Pattern;
  PE ::= Pattern "=>" E;
- PEs ::= PE | PEs "|" PE;
+ PE' ::= Pattern "=>" E';
+ PEs ::= PE | PE' "|" PEs;
 
  (* modules *)
  SpecLine ::= "val" V ":" Type

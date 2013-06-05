@@ -674,6 +674,19 @@ val ptree_Expr_def = Define`
               SOME(Ast_Handle e1 v e2)
             od
           | _ => NONE
+      else if nt = mkNT nEhandle' then
+        case subs of
+            [pt] => ptree_Expr nElogicOR pt
+          | [e1pt; handlet; interrort; vpt; arrowt; e2pt] =>
+            do
+              assert(handlet = Lf (TOK HandleT) ∧ arrowt = Lf (TOK DarrowT) ∧
+                     interrort = Lf (TOK (AlphaT "IntError")));
+              e1 <- ptree_Expr nElogicOR e1pt;
+              v <- ptree_V vpt;
+              e2 <- ptree_Expr nE' e2pt;
+              SOME(Ast_Handle e1 v e2)
+            od
+          | _ => NONE
       else if nt = mkNT nE then
         case subs of
           | [t] => ptree_Expr nEhandle t
@@ -701,6 +714,31 @@ val ptree_Expr_def = Define`
               a1 <- ptree_Expr nE g;
               a2 <- ptree_Expr nE te;
               a3 <- ptree_Expr nE ee;
+              SOME(Ast_If a1 a2 a3)
+            od
+          | _ => NONE
+      else if nt = mkNT nE' then
+        case subs of
+          | [t] => ptree_Expr nEhandle' t
+          | [raiset; ept] =>
+            do
+              assert(raiset = Lf (TOK RaiseT));
+              e <- ptree_Exn ept;
+              SOME(Ast_Raise e)
+            od
+          | [fnt; vnt; arrowt; ent] =>
+            do
+              assert (fnt = Lf (TOK FnT) ∧ arrowt = Lf (TOK DarrowT));
+              v <- ptree_V vnt;
+              e <- ptree_Expr nE' ent;
+              SOME(Ast_Fun v e)
+            od
+          | [ift;g;thent;te;elset;ee] => do
+              assert(ift = Lf (TOK IfT) ∧ thent = Lf (TOK ThenT) ∧
+                     elset = Lf (TOK ElseT));
+              a1 <- ptree_Expr nE g;
+              a2 <- ptree_Expr nE te;
+              a3 <- ptree_Expr nE' ee;
               SOME(Ast_If a1 a2 a3)
             od
           | _ => NONE
@@ -787,12 +825,12 @@ val ptree_Expr_def = Define`
             pe <- ptree_PE single;
             SOME [pe]
           od
-        | [pes_pt; bartok; pe_pt] =>
+        | [pe'_pt; bartok; pes_pt] =>
           do
             assert(bartok = Lf (TOK BarT));
             pes <- ptree_PEs pes_pt;
-            pe <- ptree_PE pe_pt;
-            SOME(pes ++ [pe])
+            pe <- ptree_PE' pe'_pt;
+            SOME(pe::pes)
           od
         | _ => NONE) ∧
   (ptree_PE (Lf _) = NONE) ∧
@@ -805,6 +843,19 @@ val ptree_Expr_def = Define`
              assert(arrow = Lf (TOK DarrowT));
              p <- ptree_Pattern nPattern p_pt;
              e <- ptree_Expr nE e_pt;
+             SOME(p,e)
+           od
+         | _ => NONE) ∧
+  (ptree_PE' (Lf _) = NONE) ∧
+  (ptree_PE' (Nd nt args) =
+     if nt <> mkNT nPE' then NONE
+     else
+       case args of
+           [p_pt; arrow; e'_pt] =>
+           do
+             assert(arrow = Lf (TOK DarrowT));
+             p <- ptree_Pattern nPattern p_pt;
+             e <- ptree_Expr nE' e'_pt;
              SOME(p,e)
            od
          | _ => NONE) ∧

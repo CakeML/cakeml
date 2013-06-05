@@ -98,6 +98,16 @@ val tytest = parsetest ``nType`` ``ptree_Type``
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
 val _ = parsetest0 ``nREPLPhrase`` ``ptree_REPLPhrase``
+          "case g of C p1 => e1 | p2 => e2;"
+          (SOME ``[Ast_Tdec
+                     (Ast_Dlet
+                        (Ast_Pvar "it")
+                        (Ast_Mat (Ast_Var (Short "g"))
+                                 [(Ast_Pcon (Short "C") [Ast_Pvar "p1"],
+                                   Ast_Var (Short "e1"));
+                                  (Ast_Pvar "p2", Ast_Var (Short "e2"))]))]``)
+
+val _ = parsetest0 ``nREPLPhrase`` ``ptree_REPLPhrase``
                    "structure s :> sig type 'a t type ('b,'c) u val z : 'a t end = struct end;"
                    (SOME ``[Ast_Tmod "s"
                                      (SOME [Ast_Stype_opq ["'a"] "t";

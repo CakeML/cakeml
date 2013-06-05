@@ -293,6 +293,11 @@ val mmlPEG_def = zDefine`
                                 tokeq DarrowT; pnt nE] I)]
                     (bindNT nEhandle)
               );
+              (mkNT nEhandle',
+               seql [pnt nElogicOR;
+                     try (seql [tokeq HandleT; tokeq (AlphaT "IntError"); pnt nV;
+                                tokeq DarrowT; pnt nE'] I)]
+                    (bindNT nEhandle'));
               (mkNT nE,
                choicel [seql [tokeq RaiseT; pnt nExn] (bindNT nE);
                         pegf (pnt nEhandle) (bindNT nE);
@@ -303,9 +308,20 @@ val mmlPEG_def = zDefine`
                              (bindNT nE);
                         seql [tokeq CaseT; pnt nE; tokeq OfT; pnt nPEs]
                              (bindNT nE)]);
-              (mkNT nPEs, peg_linfix (mkNT nPEs) (pnt nPE) (tokeq BarT));
+              (mkNT nE',
+               choicel [seql [tokeq RaiseT; pnt nExn] (bindNT nE');
+                        pegf (pnt nEhandle') (bindNT nE');
+                        seql [tokeq IfT; pnt nE; tokeq ThenT; pnt nE;
+                              tokeq ElseT; pnt nE'] (bindNT nE');
+                        seql [tokeq FnT; pnt nV; tokeq DarrowT; pnt nE']
+                             (bindNT nE')]);
+              (mkNT nPEs,
+               choicel [seql [pnt nPE'; tokeq BarT; pnt nPEs] (bindNT nPEs);
+                        pegf (pnt nPE) (bindNT nPEs)]);
               (mkNT nPE, seql [pnt nPattern; tokeq DarrowT; pnt nE]
                               (bindNT nPE));
+              (mkNT nPE', seql [pnt nPattern; tokeq DarrowT; pnt nE']
+                               (bindNT nPE'));
               (mkNT nAndFDecls,
                peg_linfix (mkNT nAndFDecls) (pnt nFDecl) (tokeq AndT));
               (mkNT nFDecl,
@@ -570,11 +586,12 @@ val topo_nts = [``nExn``, ``nV``, ``nTypeDec``, ``nDecl``, ``nVlist1``,
                 ``nConstructorName``, ``nTypeName``, ``nTyOp``, ``nDType``,
                 ``nStarTypes``, ``nStarTypesP``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``, ``nPE``,
-                ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``, ``nFQV``,
+                ``nPE'``, ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``,
+                ``nFQV``,
                 ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nErel``,
                 ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``,
-                ``nElogicOR``, ``nEhandle``, ``nE``, ``nType``,
+                ``nElogicOR``, ``nEhandle``, ``nEhandle'``, ``nE``, ``nE'``, ``nType``,
                 ``nPatternList1``, ``nPatternList2``,
                 ``nEtuple``, ``nEseq``, ``nElist1``, ``nElist2``, ``nDtypeDecl``,
                 ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,
