@@ -35,7 +35,8 @@ val _ = Hol_datatype `
 val _ = Hol_datatype `
  error_result =
     Rtype_error
-  | Rraise of error`;
+  | Rraise of error
+  | Rtimeout_error`;
 
 
 val _ = Hol_datatype `

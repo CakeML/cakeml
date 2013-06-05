@@ -212,7 +212,9 @@ val _ = Define `
 (small_eval menv cenv s env e c (s', Rerr Rtype_error) =  
 (? env' e' c'.
     ( RTC e_step_reln) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',e',c') /\
-    (e_step (menv,cenv,s',env',e',c') = Etype_error)))`;
+    (e_step (menv,cenv,s',env',e',c') = Etype_error)))
+/\
+(small_eval menv cenv s env e c (s', Rerr Rtimeout_error) = F)`;
 
 
 (*val e_diverges : envM -> envC -> store -> envE -> exp -> bool*)

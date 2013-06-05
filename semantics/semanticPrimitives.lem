@@ -20,6 +20,7 @@ type v =
 type error_result =
   | Rtype_error
   | Rraise of error
+  | Rtimeout_error
 
 type result 'a =
   | Rval of 'a

@@ -3,7 +3,7 @@ open preamble BigStepTheory
 val _ = new_theory "evaluateEquations"
 
 (* functional equations for evaluate *)
-
+(*
 val evaluate_raise = Q.store_thm (
 "evaluate_raise",
 `!menv cenv s env err bv.
@@ -65,6 +65,7 @@ val evaluate_app = store_thm(
 rw[Once evaluate_cases] >>
 metis_tac [])
 
+*)
 (*
 val evaluate'_raise = store_thm(
 "evaluate'_raise",
