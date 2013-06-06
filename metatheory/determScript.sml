@@ -5,17 +5,17 @@ val _ = new_theory "determ";
 (* ------------------------- Big step determinacy ----------------------- *)
 
 val big_exp_determ = Q.store_thm ("big_exp_determ",
-`(∀(menv : envM) (cenv : envC) s env e r1.
-   evaluate menv cenv s env e r1 ⇒
-   ∀r2. evaluate menv cenv s env e r2 ⇒
+`(∀ck (menv : envM) (cenv : envC) s env e r1.
+   evaluate ck menv cenv s env e r1 ⇒
+   ∀r2. evaluate ck menv cenv s env e r2 ⇒
    (r1 = r2)) ∧
- (∀(menv : envM) (cenv : envC) s env es r1.
-   evaluate_list menv cenv s env es r1 ⇒
-   ∀r2. evaluate_list menv cenv s env es r2 ⇒
+ (∀ck (menv : envM) (cenv : envC) s env es r1.
+   evaluate_list ck menv cenv s env es r1 ⇒
+   ∀r2. evaluate_list ck menv cenv s env es r2 ⇒
    (r1 = r2)) ∧
- (∀(menv : envM) (cenv : envC) s env v pes r1.
-   evaluate_match menv cenv s env v pes r1 ⇒
-   ∀r2. evaluate_match menv cenv s env v pes r2 ⇒
+ (∀ck (menv : envM) (cenv : envC) s env v pes r1.
+   evaluate_match ck menv cenv s env v pes r1 ⇒
+   ∀r2. evaluate_match ck menv cenv s env v pes r2 ⇒
    (r1 = r2))`,
 HO_MATCH_MP_TAC evaluate_ind >>
 rw [] >>

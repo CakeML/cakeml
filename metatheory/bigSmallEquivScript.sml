@@ -1,6 +1,6 @@
 open preamble;
 open LibTheory SemanticPrimitivesTheory BigStepTheory SmallStepTheory;
-open BigSmallInvariantsTheory;
+open BigSmallInvariantsTheory bigClockTheory;
 
 val _ = new_theory "bigSmallEquiv";
 
@@ -498,6 +498,11 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
       metis_tac [APPEND, e_step_add_ctxt, transitive_RTC,
                  transitive_def, e_single_error_add_ctxt],
  fs [small_eval_def] >>
+     `e_step_reln^* (menv,cenv,SND s,env,Exp e,[(Chandle () var e2,env)]) (menv,cenv,SND s2,env',e',c'++[(Chandle () var e2,env)])` 
+                by metis_tac [APPEND,e_step_add_ctxt] >>
+      metis_tac [APPEND, e_step_add_ctxt, transitive_RTC,
+                 transitive_def, e_single_error_add_ctxt],
+ fs [small_eval_def] >>
      `e_step_reln^* (menv,cenv,SND s,env,Exp e,[(Chandle () var e2,env)]) (menv,cenv,SND s2,env',Exp (Raise Bind_error),[(Chandle () var e2,env)])` 
                 by metis_tac [APPEND,e_step_add_ctxt] >>
      `e_step_reln (menv,cenv,SND s2,env',Exp (Raise Bind_error),[(Chandle () var e2,env)]) (menv,cenv,SND s2,env',Exp (Raise Bind_error),[])`
@@ -755,7 +760,7 @@ rw [Once evaluate_cases]);
 
 val tac1 =
 fs [evaluate_state_cases] >>
-ONCE_REWRITE_TAC [evaluate_ctxts_cases] >>
+ONCE_REWRITE_TAC [evaluate_ctxts_cases, evaluate_ctxt_cases] >>
 rw [] >>
 metis_tac [oneTheory.one]
 
@@ -781,18 +786,33 @@ fs [] >|
 [cases_on `e''` >>
      fs [push_def, return_def] >>
      rw [] >|
-     [cheat, (*cases_on `c` >>
-          fs [] >>
+     [cases_on `c` >>
+          fs [evaluate_state_cases] >>
+          rw [] >>
           PairCases_on `h` >>
           cases_on `h0` >>
           fs [] >>
-          rw [] >-
-          (every_case_tac >>
-               fs [] >>
-               rw [] >>
-               tac1) >>
-          tac1,*)
-      cheat (*fs [evaluate_state_cases] >>
+          rw [] >>
+          rw [evaluate_ctxts_cons, evaluate_ctxt_cases, oneTheory.one] >-
+          (rw [Once evaluate_cases] >>
+           cases_on `e` >>
+           fs [] >>
+           rw [] >>
+           TRY (qpat_assum `evaluate F menv cenv (0,s) env (Raise e) (s2,res)`
+                     (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once evaluate_cases])) >>
+           rw [] >>
+           metis_tac []) >>
+          qexists_tac `res` >>
+          qexists_tac `s2` >>
+          rw [] >>
+          TRY (qpat_assum `evaluate F menv cenv (0,s) env (Raise e) (s2,res)`
+                     (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once evaluate_cases])) >>
+          rw [] >>
+          cases_on `e` >>
+          fs [] >>
+          rw [] >>
+          rw [Once evaluate_cases],
+      fs [evaluate_state_cases] >>
           ONCE_REWRITE_TAC [evaluate_cases] >>
           rw [] >>
           fs [evaluate_ctxts_cons, evaluate_ctxt_cases] >>
@@ -801,10 +821,10 @@ fs [] >|
            cases_on `err` >>
                fs [] >-
                metis_tac [] >>
-               cases_on `e'` >>
+               TRY (cases_on `e'`) >>
                fs [] >>
                metis_tac [],
-           metis_tac []]*),
+           metis_tac []],
       tac3,
       every_case_tac >>
           fs [] >>
@@ -946,7 +966,8 @@ rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
 rw [evaluate_state_cases, Once evaluate_ctxts_cases]);
 
 val small_big_exp_equiv = Q.store_thm ("small_big_exp_equiv",
-`!menv cenv s env e r. small_eval menv cenv s env e [] (remove_count r) = evaluate F menv cenv (0,s) env e r`,
+`!menv cenv s env e r count. 
+  small_eval menv cenv s env e [] (remove_count r) = evaluate F menv cenv (count,s) env e r`,
 rw [] >>
 cases_on `r` >>
 rw [remove_count_def] >>
@@ -957,7 +978,7 @@ rw [small_eval_def] >>
 cheat >>
 EQ_TAC >>
 rw [] >>
-metis_tac [small_exp_to_big_exp, big_exp_to_small_exp,
+metis_tac [small_exp_to_big_exp, big_exp_to_small_exp, big_unclocked,
            evaluate_state_no_ctxt, small_eval_def, evaluate_raise,
            one_step_backward_type_error, evaluate_state_val_no_ctxt]);
 

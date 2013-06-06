@@ -4,6 +4,10 @@ This directory contains theorems about the semantics.
 bigBigEquivScript.sml
     The equivalence between the bigStep and altBigStep semantics
 
+bigClockScript.sml
+    Various theorems about the clocked big step semantics, and how it relates
+    to the unclocked one.
+
 bigSmallEquivScript.sml
     The equivalence between the big-step and small-step semantics
 
