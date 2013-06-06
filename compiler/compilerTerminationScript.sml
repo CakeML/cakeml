@@ -270,7 +270,7 @@ val _ = export_rewrites
 ,"ToIntLang.Cpat_vars_def"
 ,"CompilerPrimitives.map_result_def","CompilerPrimitives.every_result_def"
 ,"IntLang.doPrim2_def","IntLang.CevalPrim2_def","IntLang.CevalUpd_def","IntLang.CevalPrim1_def"
-,"free_labs_def","no_labs_def","all_labs_def","Printer.lookup_ct_def","Printer.lookup_cc_def"
+,"free_labs_def","no_labs_def","all_labs_def"
 ,"IntLang.CDiv_excv_def","IntLang.CBind_excv_def"
 ,"IntLang.CDiv_exc_def","IntLang.CBind_exc_def"
 ,"ToIntLang.opn_to_prim2_def"

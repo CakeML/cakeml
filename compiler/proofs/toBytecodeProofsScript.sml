@@ -198,6 +198,24 @@ val s_refs_with_stack = store_thm("s_refs_with_stack",
   ``s_refs rd s (bs with stack := p) = s_refs rd s bs``,
   rw[s_refs_def,good_rd_def])
 
+val lookup_cc_def = Define`
+  lookup_cc sz st rs (CCArg n) = el_check (sz + n) st ∧
+  lookup_cc sz st rs (CCEnv n) =
+    OPTION_BIND (el_check sz st)
+    (λv. case v of Block 0 vs => el_check n vs | _ => NONE) ∧
+  lookup_cc sz st rs (CCRef n) =
+    OPTION_BIND (el_check sz st)
+    (λv. case v of Block 0 vs =>
+       OPTION_BIND (el_check n vs)
+       (λv. case v of RefPtr p => FLOOKUP rs p | _ => NONE)
+     | _ => NONE)`
+
+val lookup_ct_def = Define`
+  (lookup_ct sz st rs (CTLet n) = if sz < n then NONE else el_check (sz - n) st) ∧
+  lookup_ct sz st rs (CTDec n) = el_check n (REVERSE st) ∧
+  lookup_ct sz st rs (CTEnv cc) = lookup_cc sz st rs cc`
+val _ = export_rewrites["lookup_cc_def","lookup_ct_def"]
+
 val env_renv_def = Define`
   env_renv rd sz bs Cenv renv ⇔
     (EVERY2

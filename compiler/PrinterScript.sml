@@ -107,33 +107,6 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (*open Compiler*)
 
-(* TODO: these two don't belong here *)
-
- val lookup_cc_def = Define `
-
-(lookup_cc sz st rs (CCArg n) = ( el_check (sz + n) st))
-/\
-(lookup_cc sz st rs (CCEnv n) =  
-(
-  OPTION_BIND (el_check sz st)
-  (\ v . (case v of Block 0 vs => el_check n vs | _ => NONE ))))
-/\
-(lookup_cc sz st rs (CCRef n) =  
-(
-  OPTION_BIND (el_check sz st)
-  (\ v . (case v of Block 0 vs =>
-     OPTION_BIND (el_check n vs)
-     (\ v . (case v of RefPtr p => FLOOKUP rs p | _ => NONE ))
-   | _ => NONE ))))`;
-
-
- val lookup_ct_def = Define `
-
-(lookup_ct sz st rs (CTLet n) = (if sz < n then NONE else el_check (sz - n) st))
-/\
-(lookup_ct sz st rs (CTEnv cc) = ( lookup_cc sz st rs cc))`;
-
-
 val _ = Define `
  (stack_index cs v = ( the 0 (find_index (Short v) cs.rbvars 0)))`;
 

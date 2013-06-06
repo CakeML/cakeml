@@ -78,27 +78,6 @@ ov_to_string OError = "<error>"
 
 open Compiler
 
-(* TODO: these two don't belong here *)
-
-let rec
-lookup_cc sz st rs (CCArg n) = el_check (sz + n) st
-and
-lookup_cc sz st rs (CCEnv n) =
-  Hol.OPTION_BIND (el_check sz st)
-  (fun v -> match v with Block 0 vs -> el_check n vs | _ -> None end)
-and
-lookup_cc sz st rs (CCRef n) =
-  Hol.OPTION_BIND (el_check sz st)
-  (fun v -> match v with Block 0 vs ->
-     Hol.OPTION_BIND (el_check n vs)
-     (fun v -> match v with RefPtr p -> Hol.FLOOKUP rs p | _ -> None end)
-   | _ -> None end)
-
-let rec
-lookup_ct sz st rs (CTLet n) = if sz < n then None else el_check (sz - n) st
-and
-lookup_ct sz st rs (CTEnv cc) = lookup_cc sz st rs cc
-
 let stack_index cs v = the 0 (find_index (Short v) cs.rbvars 0)
 
 let rec
