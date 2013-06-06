@@ -26,14 +26,13 @@ let menv_cons mv mn s =
 
 val etC : compiler_state -> exp_to_Cexp_state * num * Pmap.map string (list ctbind) * list ctbind
 let etC rs =
-  let rsz = List.length rs.rbvars in
-  let (_,mvars,menv,bvars,env) = List.fold_left
+  let (rsz,mvars,menv,bvars,env) = List.fold_left
     (fun (i,mvars,menv,bvars,env) id ->
       match id with
-      | Short s -> (i-1,mvars,menv,s::bvars,(CTLet i)::env)
-      | Long mn s -> (i-1,menv_cons mvars mn s,menv_cons menv mn (CTLet i),bvars,env)
+      | Short s -> (i+1,mvars,menv,s::bvars,(CTDec i)::env)
+      | Long mn s -> (i+1,menv_cons mvars mn s,menv_cons menv mn (CTDec i),bvars,env)
       end)
-    (rsz,Pmap.empty,Pmap.empty,[],[]) rs.rbvars in
+    (0,Pmap.empty,Pmap.empty,[],[]) (List.rev rs.rbvars) in
   (<| bvars = bvars ; mvars = mvars ; cnmap = cmap rs.contab |>
   ,rsz,menv,env)
 

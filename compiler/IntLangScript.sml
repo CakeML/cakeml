@@ -40,9 +40,10 @@ val _ = Hol_datatype `
  ccbind = CCArg of num | CCRef of num | CCEnv of num`;
 
 val _ = Hol_datatype `
- ctbind = CTLet of num | CTEnv of ccbind`;
+ ctbind = CTLet of num | CTDec of num | CTEnv of ccbind`;
 
 (* CTLet n means stack[sz - n]
+   CTDec n means rev(stack)[n]
    CCArg n means stack[sz + n]
    CCEnv n means El n of the environment, which is at stack[sz]
    CCRef n means El n of the environment, but it's a ref pointer *)

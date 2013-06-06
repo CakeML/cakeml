@@ -151,6 +151,8 @@ compile_envref sz s (CCRef n) = emit (compile_envref sz s (CCEnv n)) [Deref]
 let rec
 compile_varref sz s (CTLet n) = emit s [Stack (Load (sz - n))]
 and
+compile_varref sz s (CTDec n) = emit s [Stack (LoadRev n)]
+and
 compile_varref sz s (CTEnv x) = compile_envref sz s x
 
 (* calling convention:

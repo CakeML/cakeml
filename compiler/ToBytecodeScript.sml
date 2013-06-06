@@ -183,6 +183,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (compile_varref sz s (CTLet n) = ( emit s [Stack (Load (sz - n))]))
 /\
+(compile_varref sz s (CTDec n) = ( emit s [Stack (LoadRev n)]))
+/\
 (compile_varref sz s (CTEnv x) = ( compile_envref sz s x))`;
 
 
