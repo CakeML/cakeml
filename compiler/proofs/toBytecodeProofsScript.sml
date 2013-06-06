@@ -2163,9 +2163,9 @@ val compile_val = store_thm("compile_val",
         (bce ++ bcr = bc0 ++ code ++ bc1) ∧
         ALL_DISTINCT (FILTER is_Label bce) ∧
         all_vlabs_list s ∧ all_vlabs_list env ∧ all_labs exp ∧
-        EVERY (code_env_cd bce) (free_labs (LENGTH env) exp) ∧
-        (∀cd. cd ∈ vlabs_list s ⇒ code_env_cd bce cd) ∧
-        (∀cd. cd ∈ vlabs_list env ⇒ code_env_cd bce cd) ∧
+        EVERY (code_env_cd cmnv bce) (free_labs (LENGTH env) exp) ∧
+        (∀cd. cd ∈ vlabs_list s ⇒ code_env_cd cmnv bce cd) ∧
+        (∀cd. cd ∈ vlabs_list env ⇒ code_env_cd cmnv bce cd) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
         set (free_vars exp) ⊆ count (LENGTH cenv) ∧
@@ -2177,7 +2177,7 @@ val compile_val = store_thm("compile_val",
          (beh = Cval v) ∧
          ((compile cmnv cenv TCNonTail sz cs exp).out = REVERSE code ++ cs.out)
            ⇒
-         code_for_push rd bs bce bc0 code s s' env [v] cenv sz) ∧
+         code_for_push rd menv bs bce bc0 code s s' env [v] cmnv cenv sz) ∧
       (∀v az lz env0 defs vs klvs blvs benv ret args cl st.
          (beh = Cval v) ∧
          ((compile cmnv cenv (TCTail az lz) sz cs exp).out = REVERSE code ++ cs.out) ∧
@@ -2206,9 +2206,9 @@ val compile_val = store_thm("compile_val",
         (bce ++ bcr = bc0 ++ code ++ bc1) ∧
         ALL_DISTINCT (FILTER is_Label bce) ∧
         all_vlabs_list s ∧ all_vlabs_list env ∧ all_labs_list exps ∧
-        EVERY (code_env_cd bce) (free_labs_list (LENGTH env) exps) ∧
-        (∀cd. cd ∈ vlabs_list s ⇒ code_env_cd bce cd) ∧
-        (∀cd. cd ∈ vlabs_list env ⇒ code_env_cd bce cd) ∧
+        EVERY (code_env_cd cmnv bce) (free_labs_list (LENGTH env) exps) ∧
+        (∀cd. cd ∈ vlabs_list s ⇒ code_env_cd cmnv bce cd) ∧
+        (∀cd. cd ∈ vlabs_list env ⇒ code_env_cd cmnv bce cd) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
         set (free_vars_list exps) ⊆ count (LENGTH cenv) ∧
@@ -2218,7 +2218,7 @@ val compile_val = store_thm("compile_val",
         ((compile_nts cmnv cenv sz cs exps).out = REVERSE code ++ cs.out)
         ⇒
       (∀vs. (beh = Cval vs) ⇒
-         code_for_push rd bs bce bc0 code s s' env vs cenv sz) ∧
+         code_for_push rd menv bs bce bc0 code s s' env vs cmnv cenv sz) ∧
       (∀v ig sp hdl st.
         (beh = Cexc (Craise v)) ∧
         (bs.stack = ig++(StackPtr sp)::CodePtr hdl::st) ∧
@@ -2230,11 +2230,11 @@ val compile_val = store_thm("compile_val",
     simp[compile_def] >>
     rpt gen_tac >> strip_tac >>
     rpt gen_tac >>
-    qspecl_then[`cenv`,`TCNonTail`,`sz`,`cs`,`exp`]mp_tac(CONJUNCT1 compile_append_out)>>
+    qspecl_then[`cmnv`,`cenv`,`TCNonTail`,`sz`,`cs`,`exp`]mp_tac(CONJUNCT1 compile_append_out)>>
     disch_then(Q.X_CHOOSE_THEN`cc`strip_assume_tac) >>
     simp[Once SWAP_REVERSE] >> strip_tac >>
     map_every qx_gen_tac[`t`,`ig`,`sp`,`hdl`,`st`] >> strip_tac >>
-    first_x_assum(qspecl_then[`rd`,`cs`,`cenv`,`sz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE cc`,`[PopExc;Return]++bc1`]mp_tac) >>
+    first_x_assum(qspecl_then[`rd`,`cmnv`,`cs`,`cenv`,`sz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE cc`,`[PopExc;Return]++bc1`]mp_tac) >>
     simp[] >>
     disch_then (mp_tac o CONJUNCT1) >>
     simp[code_for_push_def,code_for_return_def] >>
@@ -2265,6 +2265,7 @@ val compile_val = store_thm("compile_val",
     simp[] >>
     fs[Cenv_bs_def] >>
     fs[s_refs_def,good_rd_def] ) >>
+
   strip_tac >- (
     simp[compile_def] >>
     rpt gen_tac >> strip_tac >>
