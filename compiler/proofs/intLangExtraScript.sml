@@ -159,7 +159,8 @@ val all_vlabs_list_MAP = store_thm("all_vlabs_list_MAP",
   Induct >> rw[])
 val _ = export_rewrites["no_vlabs_list_MAP","all_vlabs_list_MAP"]
 
-val _ = Parse.overload_on("vlabs_menv",``λmenv. BIGUNION (IMAGE vlabs_list (FRANGE menv))``)
+val vlabs_menv_def = Define
+  `vlabs_menv menv = BIGUNION (IMAGE vlabs_list (FRANGE menv))`
 
 val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
   ``(∀menv s env exp res. Cevaluate menv s env exp res ⇒
@@ -180,7 +181,7 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
     srw_tac[DNF_ss][EVERY_MEM,MEM_EL,SUBSET_DEF,vlabs_list_MAP] >>
     PROVE_TAC[] ) >>
   strip_tac >- (
-    srw_tac[DNF_ss][EVERY_MEM,MEM_EL,SUBSET_DEF,IN_FRANGE,FLOOKUP_DEF,vlabs_list_MAP] >>
+    srw_tac[DNF_ss][EVERY_MEM,MEM_EL,SUBSET_DEF,IN_FRANGE,FLOOKUP_DEF,vlabs_list_MAP,vlabs_menv_def] >>
     PROVE_TAC[] ) >>
   strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
   strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
