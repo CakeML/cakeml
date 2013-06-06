@@ -281,7 +281,7 @@ compile menv env t sz s (CVar id) = pushret t
   (compile_varref sz s
     (match match id with
            | Short vn -> el_check vn env
-           | Long mn vn -> el_check vn (fapply [] mn menv)
+           | Long mn vn -> Hol.OPTION_MAP CTDec (el_check vn (fapply [] mn menv))
            end
      with Some x -> x
      | None -> CTLet 0 (* should not happen *) end))

@@ -335,7 +335,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   (compile_varref sz s
     ((case (case id of
              Short vn => el_check vn env
-           | Long mn vn => el_check vn (fapply [] mn menv)
+           | Long mn vn => OPTION_MAP CTDec (el_check vn (fapply [] mn menv))
            )
      of SOME x => x
      | NONE => CTLet 0 (* should not happen *) )))))

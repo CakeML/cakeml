@@ -45,14 +45,14 @@ val _ = Define `
   )))`;
 
 
-(*val etC : compiler_state -> exp_to_Cexp_state * num * Pmap.map string (list ctbind) * list ctbind*)
+(*val etC : compiler_state -> exp_to_Cexp_state * num * Pmap.map string (list num) * list ctbind*)
 val _ = Define `
  (etC rs =  
 (let (rsz,mvars,menv,bvars,env) = ( FOLDL
     (\ (i,mvars,menv,bvars,env) id .
       (case id of
         Short s => ((i +1),mvars,menv,(s ::bvars),((CTDec i) ::env))
-      | Long mn s => ((i +1),menv_cons mvars mn s,menv_cons menv mn (CTDec i),bvars,env)
+      | Long mn s => ((i +1),menv_cons mvars mn s,menv_cons menv mn i,bvars,env)
       ))
     (0, FEMPTY, FEMPTY,[],[]) ( REVERSE rs.rbvars)) in
   (<| bvars := bvars ; mvars := mvars ; cnmap := ( cmap rs.contab) |>

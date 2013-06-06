@@ -24,13 +24,13 @@ let menv_cons mv mn s =
   | Some ls -> Pmap.add mn (s::ls) mv
   end
 
-val etC : compiler_state -> exp_to_Cexp_state * num * Pmap.map string (list ctbind) * list ctbind
+val etC : compiler_state -> exp_to_Cexp_state * num * Pmap.map string (list num) * list ctbind
 let etC rs =
   let (rsz,mvars,menv,bvars,env) = List.fold_left
     (fun (i,mvars,menv,bvars,env) id ->
       match id with
       | Short s -> (i+1,mvars,menv,s::bvars,(CTDec i)::env)
-      | Long mn s -> (i+1,menv_cons mvars mn s,menv_cons menv mn (CTDec i),bvars,env)
+      | Long mn s -> (i+1,menv_cons mvars mn s,menv_cons menv mn i,bvars,env)
       end)
     (0,Pmap.empty,Pmap.empty,[],[]) (List.rev rs.rbvars) in
   (<| bvars = bvars ; mvars = mvars ; cnmap = cmap rs.contab |>

@@ -16,4 +16,5 @@ val IS_SOME : forall 'a. 'a -> bool
 val IS_NONE : forall 'a. 'a -> bool
 val THE : forall 'a 'b. 'a -> 'b
 val OPTION_BIND : forall 'a 'b 'c. 'a -> ('b -> 'c) -> 'c
+val OPTION_MAP : forall 'a 'b 'c 'd. ('a -> 'b) -> 'c -> 'd
 val FLOOKUP : forall 'a 'b 'c. 'a -> 'b -> 'c
