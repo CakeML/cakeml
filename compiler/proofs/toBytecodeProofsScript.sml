@@ -224,9 +224,9 @@ val env_renv_def = Define`
      Cenv renv)`
 
 val Cenv_bs_def = Define`
-  Cenv_bs rd Cmenv s Cenv (menv:string|->ctenv) (renv:ctenv) sz mz bs ⇔
+  Cenv_bs rd Cmenv s Cenv (menv:string|->ctenv) (renv:ctenv) sz bs ⇔
     env_renv rd sz bs Cenv renv ∧
-    fmap_rel (env_renv rd (sz+mz) bs) Cmenv menv ∧
+    fmap_rel (env_renv rd 0 bs) Cmenv menv ∧
     s_refs rd s bs`
 
 val Cenv_bs_syneq_store = store_thm("Cenv_bs_syneq_store",
@@ -579,12 +579,13 @@ val _ = export_rewrites["compile_varref_next_label_inc"]
 val lookup_ct_incsz = store_thm("lookup_ct_incsz",
   ``(lookup_ct (sz+1) (x::st) refs b =
      if (b = CTLet (sz+1)) then SOME x else
+     if (b = CTDec (LENGTH st)) then SOME x else
      lookup_ct sz st refs b)``,
   fs[GSYM ADD1] >>
   Cases_on `b` >> rw[] >>
   fsrw_tac[ARITH_ss][el_check_def] >>
   rw[SUB,GSYM ADD_SUC] >>
-  fsrw_tac[ARITH_ss][] >>
+  fsrw_tac[ARITH_ss][EL_APPEND1,EL_APPEND2] >>
   Cases_on`c`>>rw[el_check_def]>>
   fsrw_tac[ARITH_ss][EL_CONS,PRE_SUB1,ADD1])
 
@@ -593,7 +594,7 @@ val lookup_ct_imp_incsz = store_thm("lookup_ct_imp_incsz",
     (lookup_ct (sz+1) (x::st) refs b = SOME v)``,
   fs[GSYM ADD1] >>
   Cases_on `b` >> rw[el_check_def] >>
-  fsrw_tac[ARITH_ss][EL_CONS,PRE_SUB1,ADD1] >>
+  fsrw_tac[ARITH_ss][EL_CONS,PRE_SUB1,ADD1,EL_APPEND1] >>
   Cases_on`c`>>rw[el_check_def] >>
   fsrw_tac[ARITH_ss][EL_CONS,PRE_SUB1,ADD1,el_check_def])
 
@@ -1486,7 +1487,8 @@ val env_renv_imp_decsz = store_thm("env_renv_imp_decsz",
   ``∀rd rsz bs env renv bs'.
     env_renv rd (rsz+1) bs env renv ∧
     (∃v p e. bs = bs' with <| stack := v::bs'.stack; pc := p; handler := e |>) ∧
-    (CTLet (rsz+1) ∉ set renv)
+    (CTLet (rsz+1) ∉ set renv) ∧
+    (CTDec (LENGTH bs'.stack) ∉ set renv)
     ⇒
     env_renv rd rsz bs' env renv``,
   rw[env_renv_def] >> fs[] >>
@@ -1501,8 +1503,8 @@ val env_renv_imp_decsz = store_thm("env_renv_imp_decsz",
 val Cenv_bs_imp_decsz = store_thm("Cenv_bs_imp_decsz",
   ``∀rd menv s env rmenv renv rsz bs bs'.
     Cenv_bs rd menv s env rmenv renv (rsz+1) bs ∧
-      (CTLet (rsz+1) ∉ set renv) ∧
-      (CTLet (rsz+1) ∉ BIGUNION (IMAGE set (FRANGE rmenv))) ∧
+      (CTLet (rsz+1) ∉ set renv ∪ BIGUNION (IMAGE set (FRANGE rmenv))) ∧
+      (CTDec (LENGTH bs'.stack) ∉ set renv ∪ BIGUNION (IMAGE set (FRANGE rmenv))) ∧
       (∃v p e. bs = bs' with <| stack := v::bs'.stack; pc := p; handler := e |>) ⇒
     Cenv_bs rd menv s env rmenv renv rsz bs'``,
   rw[Cenv_bs_def,fmap_rel_def,s_refs_def,FDOM_DRESTRICT,good_rd_def] >> fs[] >>
@@ -1521,17 +1523,33 @@ val env_renv_CTLet_bound = store_thm("env_renv_CTLet_bound",
   simp[el_check_def] >>
   srw_tac[ARITH_ss][])
 
+val env_renv_CTDec_bound = store_thm("env_renv_CTDec_bound",
+  ``env_renv rd rsz bs env renv ∧ CTDec n ∈ set renv ⇒ n < LENGTH bs.stack``,
+  rw[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,env_renv_def] >>
+  rfs[MEM_ZIP,MEM_EL] >> fsrw_tac[DNF_ss][] >>
+  qmatch_assum_abbrev_tac `z < LENGTH E`>>
+  first_x_assum (qspec_then `z` mp_tac) >>
+  qpat_assum`CTDec n = X`(assume_tac o SYM) >>
+  simp[el_check_def] >>
+  srw_tac[ARITH_ss][])
+
 val Cenv_bs_CTLet_bound = store_thm("Cenv_bs_CTLet_bound",
   ``Cenv_bs rd menv s env rmenv renv rsz bs ∧ (CTLet n) ∈ set renv ∪ BIGUNION (IMAGE set (FRANGE rmenv)) ⇒ n ≤ rsz``,
   rw[Cenv_bs_def,fmap_rel_def,IN_FRANGE] >>
   match_mp_tac (GEN_ALL env_renv_CTLet_bound) >>
   metis_tac[])
 
+val Cenv_bs_CTDec_bound = store_thm("Cenv_bs_CTDec_bound",
+  ``Cenv_bs rd menv s env rmenv renv rsz bs ∧ (CTDec n) ∈ set renv ∪ BIGUNION (IMAGE set (FRANGE rmenv)) ⇒ n < LENGTH bs.stack``,
+  rw[Cenv_bs_def,fmap_rel_def,IN_FRANGE] >>
+  match_mp_tac (GEN_ALL env_renv_CTDec_bound) >>
+  metis_tac[])
+
 val Cenv_bs_pops = store_thm("Cenv_bs_pops",
   ``∀vs rd menv s env rmenv renv rsz bs bs'.
     Cenv_bs rd menv s env rmenv renv (rsz + LENGTH vs) bs ∧
-    (∀n. MEM (CTLet n) renv ⇒ n ≤ rsz) ∧
-    (∀n. (CTLet n) ∈ BIGUNION (IMAGE set (FRANGE rmenv)) ⇒ n ≤ rsz) ∧
+    (∀n. (CTLet n) ∈ set renv ∪ BIGUNION (IMAGE set (FRANGE rmenv)) ⇒ n ≤ rsz) ∧
+    (∀n. (CTDec n) ∈ set renv ∪ BIGUNION (IMAGE set (FRANGE rmenv)) ⇒ n < LENGTH bs'.stack) ∧
     (∃p e. bs = bs' with <| stack := vs ++ bs'.stack; pc := p; handler := e|>)
     ⇒ Cenv_bs rd menv s env rmenv renv rsz bs'``,
   Induct >> rw[] >- ( fs[Cenv_bs_def,s_refs_def,good_rd_def,fmap_rel_def,env_renv_def] >> fs[]) >>
@@ -1544,7 +1562,7 @@ val Cenv_bs_pops = store_thm("Cenv_bs_pops",
   qexists_tac`y` >>
   unabbrev_all_tac >>
   fsrw_tac[ARITH_ss][ADD1,bc_state_component_equality] >>
-  conj_tac >>
+  conj_tac >> conj_tac >>
   spose_not_then strip_assume_tac >>
   TRY(BasicProvers.VAR_EQ_TAC) >>
   res_tac >> fsrw_tac[ARITH_ss][] )
@@ -1938,8 +1956,8 @@ val compile_bindings_thm = store_thm("compile_bindings_thm",
   simp[FUN_EQ_THM])
 
 val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
-  ``∀menv rmenv cenv ccenv benv bve ret bvs a st fenv defs ix recs envs env pp rd rsz bs s vs az e l e'.
-    fmap_rel (env_renv rd rsz bs) menv rmenv ∧ rsz ≤ LENGTH st ∧
+  ``∀menv rmenv cenv ccenv benv bve ret bvs a st fenv defs ix recs envs env pp rd bs s vs az e l e'.
+    fmap_rel (env_renv rd 0 bs) menv rmenv ∧
     (cenv = MAP CTEnv ccenv) ∧
     (benv = Block 0 bve) ∧
     (bs.stack = benv::CodePtr ret::(REVERSE bvs)++(Block closure_tag [CodePtr a;benv])::st) ∧
