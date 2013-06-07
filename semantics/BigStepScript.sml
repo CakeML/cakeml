@@ -170,6 +170,7 @@ evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) /\
 (
 do_app s3 env op v1 v2 = SOME (s4, env', e3)) /\
 (count = 0) /\
+(op = Opapp) /\
 ck)
 ==>
 evaluate ck menv cenv s1 env (App op e1 e2) ((0,s4), Rerr Rtimeout_error))
