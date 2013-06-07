@@ -1,4 +1,4 @@
-open preamble SemanticPrimitivesTheory BigStepTheory bigSmallEquivTheory;
+open preamble SemanticPrimitivesTheory BigStepTheory bigSmallEquivTheory bigClockTheory;
 
 val _ = new_theory "determ";
 
@@ -80,6 +80,9 @@ val small_exp_determ = Q.store_thm ("small_exp_determ",
   small_eval menv cenv s env e [] r1 ∧ small_eval menv cenv s env e [] r2
   ⇒
   (r1 = r2)`,
-metis_tac [big_exp_determ, small_big_exp_equiv]);
+rw [] >>
+PairCases_on `r1` >>
+PairCases_on `r2` >>
+metis_tac [big_exp_determ, small_big_exp_equiv, PAIR_EQ]);
 
 val _ = export_theory ();

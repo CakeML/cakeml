@@ -1,7 +1,7 @@
 open preamble;
 open LibTheory AstTheory BigStepTheory SmallStepTheory SemanticPrimitivesTheory
 open evaluateEquationsTheory determTheory bigSmallEquivTheory
-open terminationTheory metaTerminationTheory
+open terminationTheory metaTerminationTheory bigClockTheory;
 
 val _ = new_theory "untypedSafety";
 
@@ -88,15 +88,14 @@ val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
 `!mn menv cenv s env d. (∃r. evaluate_dec mn menv cenv s env d r) = ~dec_diverges menv cenv s env d`,
 rw [Once evaluate_dec_cases, dec_diverges_def] >>
 cases_on `d` >>
-rw [GSYM small_big_exp_equiv] >|
+rw [] >|
 [eq_tac >>
      rw [GSYM untyped_safety_exp] >-
-     metis_tac [] >-
-     metis_tac [] >-
-     metis_tac [] >-
-     metis_tac [] >-
-     metis_tac [] >-
-     metis_tac [] >>
+     metis_tac [small_big_exp_equiv, big_unclocked] >-
+     metis_tac [small_big_exp_equiv, big_unclocked] >-
+     metis_tac [small_big_exp_equiv, big_unclocked] >-
+     metis_tac [small_big_exp_equiv, big_unclocked] >-
+     metis_tac [small_big_exp_equiv, big_unclocked] >-
      fs [GSYM untyped_safety_exp] >>
      PairCases_on `r` >>
      fs [] >>
@@ -108,17 +107,18 @@ rw [GSYM small_big_exp_equiv] >|
           fs [] >|
           [qexists_tac `(r0, Rerr (Rraise Bind_error))` >>
                rw [] >>
-               metis_tac [],
+               metis_tac [small_big_exp_equiv, big_unclocked],
            qexists_tac `(r0, Rerr Rtype_error)` >>
                rw [] >>
-               metis_tac [],
+               metis_tac [small_big_exp_equiv, big_unclocked],
            fs [merge_def, emp_def] >-
-               metis_tac [] >>
+               metis_tac [small_big_exp_equiv, big_unclocked] >>
                `?r. evaluate_decs mn menv cenv r0 (l ++ env) ds r` by metis_tac [] >>
                PairCases_on `r` >>
-               metis_tac [APPEND]],
+               metis_tac [APPEND, small_big_exp_equiv, big_unclocked]],
       qexists_tac `(r0,Rerr e')` >>
-          rw []],
+          rw [] >>
+          metis_tac [small_big_exp_equiv, big_unclocked]],
  metis_tac [],
  metis_tac []]);
 

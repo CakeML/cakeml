@@ -157,7 +157,7 @@ evaluate ck menv cenv s env (Uapp uop e) (s', Rerr err))
 evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) /\
 (
 do_app s3 env op v1 v2 = SOME (s4, env', e3)) /\
-(ck ==> count <> 0) /\
+(ck /\ (op = Opapp) ==> count <> 0) /\
 evaluate ck menv cenv ((if ck then dec_count op count else count),s4) env' e3 bv)
 ==>
 evaluate ck menv cenv s1 env (App op e1 e2) bv)

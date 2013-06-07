@@ -3,7 +3,7 @@ open LibTheory AstTheory TypeSystemTheory SemanticPrimitivesTheory;
 open SmallStepTheory BigStepTheory;
 open terminationTheory;
 open weakeningTheory typeSysPropsTheory bigSmallEquivTheory;
-open TypeSoundInvariantsTheory;
+open TypeSoundInvariantsTheory bigClockTheory;
 open metaTerminationTheory;
 
 val _ = new_theory "typeSound";
@@ -353,63 +353,6 @@ rw [] >>
 cases_on `e` >>
 cases_on `c` >>
 rw [final_state_def]);
-
-val do_app_cases = Q.prove (
-`!st env op v1 v2 st' env' v3.
-  (do_app st env op v1 v2 = SOME (st',env',v3))
-  =
-  ((?op' n1 n2. 
-    (op = Opn op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
-    ((((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧ 
-     (st' = st) ∧ (env' = env) ∧ (v3 = Raise Div_error) ∨
-     ~(((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧
-     (st' = st) ∧ (env' = env) ∧ (v3 = Lit (IntLit (opn_lookup op' n1 n2))))) ∨
-  (?op' n1 n2.
-    (op = Opb op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
-    (st = st') ∧ (env = env') ∧ (v3 = Lit (Bool (opb_lookup op' n1 n2)))) ∨
-  ((op = Equality) ∧ ¬contains_closure v1 ∧ ~contains_closure v2 ∧ 
-   (st = st') ∧ (env = env') ∧ (v3 = Lit (Bool (v1 = v2)))) ∨
-  (∃env'' n e.
-    (op = Opapp) ∧ (v1 = Closure env'' n e) ∧
-    (st' = st) ∧ (env' = bind n v2 env'') ∧ (v3 = e)) ∨
-  (?env'' funs n' n'' e.
-    (op = Opapp) ∧ (v1 = Recclosure env'' funs n') ∧
-    (find_recfun n' funs = SOME (n'',e)) ∧
-    (st = st') ∧ (env' = bind n'' v2 (build_rec_env funs env'' env'')) ∧ (v3 = e)) ∨
-  (?lnum.
-    (op = Opassign) ∧ (v1 = Loc lnum) ∧ (store_assign lnum v2 st = SOME st') ∧
-    (env' = env) ∧ (v3 = Lit Unit)))`,
-SIMP_TAC (srw_ss()) [do_app_def] >>
-cases_on `op` >>
-rw [] >|
-[cases_on `v1` >>
-     rw [] >>
-     cases_on `v2` >>
-     rw [] >>
-     cases_on `l` >> 
-     rw [] >>
-     cases_on `l'` >> 
-     rw [] >>
-     metis_tac [],
- cases_on `v1` >>
-     rw [] >>
-     cases_on `v2` >>
-     rw [] >>
-     cases_on `l` >> 
-     rw [] >>
-     cases_on `l'` >> 
-     rw [] >>
-     metis_tac [],
- metis_tac [],
- cases_on `v1` >>
-     rw [] >-
-     metis_tac [] >>
-     every_case_tac >>
-     metis_tac [],
- cases_on `v1` >>
-     rw [] >>
-     every_case_tac >>
-     metis_tac []]);
 
 (* A well-typed expression state is either a value with no continuation, or it
  * can step to another state, or it steps to a BindError. *)
@@ -1598,7 +1541,7 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
 rw [METIS_PROVE [] ``(x ∨ y) = (~x ⇒ y)``] >>
 fs [type_d_cases] >>
 rw [] >>
-fs [dec_diverges_def, merge_def, emp_def, evaluate_dec_cases, GSYM small_big_exp_equiv] >>
+fs [dec_diverges_def, merge_def, emp_def, evaluate_dec_cases] >>
 fs [] >|
 [`∃st2 r tenvS'. r ≠ Rerr Rtype_error ∧ small_eval menv cenv st env e [] (st2,r) ∧
                 type_s tenvM tenvC tenvS' st2 ∧ 
@@ -1615,7 +1558,7 @@ fs [] >|
           [qexists_tac `st2` >>
                qexists_tac `Rerr (Rraise Bind_error)` >>
                rw [] >>
-               metis_tac [],
+               metis_tac [small_big_exp_equiv],
            qexists_tac `st2` >>
                qexists_tac `Rval ([],new_env)` >>
                rw [] >>
@@ -1627,12 +1570,13 @@ fs [] >|
                             by metis_tac [merge_def, APPEND, APPEND_NIL,type_v_weakening, weakM_refl, weakC_refl,
                                           store_type_extension_weakS, pmatch_type_preservation] >>
                fs [merge_def, disjoint_env_def] >>
-               metis_tac [bvl2_to_bvl]],
+               metis_tac [bvl2_to_bvl, small_big_exp_equiv]],
       qexists_tac `st2` >>
           qexists_tac `Rerr e'` >>
           rw [] >>
           qexists_tac `tenvS` >>
-          rw [store_type_extension_def, merge_def]],
+          rw [store_type_extension_def, merge_def] >>
+          metis_tac [small_big_exp_equiv]],
  `∃st2 r tenvS'. r ≠ Rerr Rtype_error ∧ small_eval menv cenv st env e [] (st2,r) ∧
                 type_s tenvM tenvC tenvS' st2 ∧ 
                 store_type_extension tenvS tenvS' ∧
@@ -1648,7 +1592,7 @@ fs [] >|
           [qexists_tac `st2` >>
                qexists_tac `Rerr (Rraise Bind_error)` >>
                rw [] >>
-               metis_tac [],
+               metis_tac [small_big_exp_equiv],
            qexists_tac `st2` >>
                qexists_tac `Rval ([],new_env)` >>
                rw [] >>
@@ -1660,12 +1604,13 @@ fs [] >|
                         by metis_tac [merge_def, APPEND, APPEND_NIL, type_v_weakening, weakM_refl, weakC_refl,
                                       store_type_extension_weakS, pmatch_type_preservation] >>
                fs [merge_def, disjoint_env_def] >>
-               metis_tac [bvl2_to_bvl]],
+               metis_tac [bvl2_to_bvl, small_big_exp_equiv]],
       qexists_tac `st2` >>
           qexists_tac `Rerr e'` >>
           rw [] >>
           qexists_tac `tenvS` >>
-          rw [store_type_extension_def, merge_def]],
+          rw [store_type_extension_def, merge_def] >>
+          metis_tac [small_big_exp_equiv]],
  imp_res_tac type_recfun_env >>
      imp_res_tac type_env_merge_lem1 >>
      qexists_tac `st` >>

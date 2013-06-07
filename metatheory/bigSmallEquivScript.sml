@@ -966,20 +966,16 @@ rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
 rw [evaluate_state_cases, Once evaluate_ctxts_cases]);
 
 val small_big_exp_equiv = Q.store_thm ("small_big_exp_equiv",
-`!menv cenv s env e r count. 
-  small_eval menv cenv s env e [] (remove_count r) = evaluate F menv cenv (count,s) env e r`,
+`!menv cenv s env e s' r count. 
+  small_eval menv cenv s env e [] (s',r) = evaluate F menv cenv (count,s) env e ((count,s'),r)`,
 rw [] >>
-cases_on `r` >>
-rw [remove_count_def] >>
-cases_on `r'` >|
+cases_on `r` >|
 [all_tac,
  cases_on `e'`] >>
 rw [small_eval_def] >>
-cheat >>
-EQ_TAC >>
-rw [] >>
 metis_tac [small_exp_to_big_exp, big_exp_to_small_exp, big_unclocked,
            evaluate_state_no_ctxt, small_eval_def, evaluate_raise,
-           one_step_backward_type_error, evaluate_state_val_no_ctxt]);
+           one_step_backward_type_error, evaluate_state_val_no_ctxt,
+           remove_count_def, SND]);
 
 val _ = export_theory ();
