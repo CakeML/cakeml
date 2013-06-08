@@ -3,7 +3,7 @@ open SatisfySimps miscLib BigStepTheory terminationTheory semanticsExtraTheory m
 val _ = new_theory"compilerProofs"
 
 val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
-  ``∀c s. let s' = FOLDL cce_aux s c in
+  ``∀menv c s. let s' = FOLDL (cce_aux menv) s c in
      ALL_DISTINCT (MAP (FST o FST) c) ∧
      EVERY (combin$C $< s.next_label) (MAP (FST o FST) c)
       ⇒
@@ -17,21 +17,21 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
      ∀i. i < LENGTH c ⇒ let ((l,ccenv,ce),(az,body)) = EL i c in
          s.next_label ≤ (cs i).next_label ∧
          (∀j. j < i ⇒ (cs j).next_label ≤ (cs i).next_label) ∧
-         ∃cc. ((compile (MAP CTEnv ccenv) (TCTail az 0) 0 (cs i) body).out = cc ++ (cs i).out) ∧
+         ∃cc. ((compile menv (MAP CTEnv ccenv) (TCTail az 0) 0 (cs i) body).out = cc ++ (cs i).out) ∧
               l < (cs i).next_label ∧
               ∃bc0 bc1. (code = bc0 ++ Label l::REVERSE cc ++ bc1) ∧
                         EVERY (combin$C $< (cs i).next_label o dest_Label)
                           (FILTER is_Label bc0)``,
-   Induct >- ( simp[Once SWAP_REVERSE] ) >>
+   gen_tac >> Induct >- ( simp[Once SWAP_REVERSE] ) >>
    simp[] >>
    qx_gen_tac`p`>> PairCases_on`p` >>
    rpt gen_tac >>
    simp[cce_aux_def] >>
    strip_tac >>
    Q.PAT_ABBREV_TAC`s0 = s with out := X::y` >>
-   qspecl_then[`MAP CTEnv p1`,`TCTail p3 0`,`0`,`s0`,`p4`]
+   qspecl_then[`menv`,`MAP CTEnv p1`,`TCTail p3 0`,`0`,`s0`,`p4`]
      strip_assume_tac(CONJUNCT1 compile_append_out) >>
-   Q.PAT_ABBREV_TAC`s1 = compile X Y Z A B` >>
+   Q.PAT_ABBREV_TAC`s1 = compile menv X Y Z A B` >>
    first_x_assum(qspecl_then[`s1`]mp_tac) >>
    simp[] >>
    discharge_hyps >- (
@@ -71,7 +71,7 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
    rw[] >> res_tac >> DECIDE_TAC)
 
 val compile_code_env_thm = store_thm("compile_code_env_thm",
-  ``∀ez s e. let s' = compile_code_env s e in
+  ``∀ez menv s e. let s' = compile_code_env menv s e in
       ALL_DISTINCT (MAP (FST o FST o SND) (free_labs ez e)) ∧
       EVERY (combin$C $< s.next_label) (MAP (FST o FST o SND) (free_labs ez e)) ∧
       EVERY good_cd (free_labs ez e)
@@ -88,12 +88,12 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
         ALL_DISTINCT (FILTER is_Label bc0) ∧
         (∀l1 l2. MEM l1 (MAP dest_Label (FILTER is_Label bc0)) ∧ ((l2 = s.next_label) ∨ MEM l2 (MAP (FST o FST o SND) (free_labs ez e))) ⇒ l1 < l2)
         ⇒
-        EVERY (code_env_cd (bc0++code)) (free_labs ez e) ∧
+        EVERY (code_env_cd menv (bc0++code)) (free_labs ez e) ∧
         bc_next bs (bs with pc := next_addr bs.inst_length (bc0++code))``,
   rw[compile_code_env_def] >> rw[] >>
   `MAP SND (free_labs 0 e) = MAP SND (free_labs ez e)` by metis_tac[MAP_SND_free_labs_any_ez] >>
   fs[] >>
-  Q.ISPECL_THEN[`MAP SND (free_labs ez e)`,`s''`]mp_tac FOLDL_cce_aux_thm >>
+  Q.ISPECL_THEN[`menv`,`MAP SND (free_labs ez e)`,`s''`]mp_tac FOLDL_cce_aux_thm >>
   simp[Abbr`s''`] >>
   discharge_hyps >- (
     fsrw_tac[ARITH_ss][EVERY_MEM,MAP_MAP_o] >>
@@ -146,7 +146,7 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
   res_tac >> fsrw_tac[ARITH_ss][])
 
 val code_env_cd_append = store_thm("code_env_cd_append",
-  ``∀code cd code'. code_env_cd code cd ∧ ALL_DISTINCT (FILTER is_Label (code ++ code')) ⇒ code_env_cd (code ++ code') cd``,
+  ``∀menv code cd code'. code_env_cd menv code cd ∧ ALL_DISTINCT (FILTER is_Label (code ++ code')) ⇒ code_env_cd menv (code ++ code') cd``,
   rw[] >> PairCases_on`cd` >>
   fs[code_env_cd_def] >>
   HINT_EXISTS_TAC>>simp[]>>
@@ -161,7 +161,7 @@ val good_contab_def = Define`
     cmap_linv m w`
 
 val env_rs_def = Define`
-  env_rs cenv env rs rd s bs ⇔
+  env_rs menv cenv env rs rd s bs ⇔
     good_contab rs.contab ∧
     good_cmap cenv (cmap rs.contab) ∧
     (({Short ""} ∪ set (MAP FST cenv)) = FDOM (cmap rs.contab)) ∧
@@ -172,14 +172,15 @@ val env_rs_def = Define`
     let Cs0 = MAP (v_to_Cv (cmap rs.contab)) s in
     let Cenv0 = env_to_Cenv (cmap rs.contab) (MAP (λv. (v,THE (ALOOKUP env v))) rs.rbvars) in
     let rsz = LENGTH rs.rbvars in
-    ∃Cenv Cs.
+    ∃Cmenv Cenv Cs.
     LIST_REL syneq Cs0 Cs ∧ LIST_REL syneq Cenv0 Cenv ∧
     (BIGUNION (IMAGE all_Clocs (set Cs)) ⊆ count (LENGTH Cs)) ∧
     (BIGUNION (IMAGE all_Clocs (set Cenv)) ⊆ count (LENGTH Cs)) ∧
     EVERY all_vlabs Cs ∧ EVERY all_vlabs Cenv ∧
     (∀cd. cd ∈ vlabs_list Cs ⇒ code_env_cd bs.code cd) ∧
     (∀cd. cd ∈ vlabs_list Cenv ⇒ code_env_cd bs.code cd) ∧
-    Cenv_bs rd Cs Cenv (GENLIST (λi. CTLet (rsz - i)) rsz) rsz bs`
+    ???
+    Cenv_bs rd Cmenv Cs Cenv (GENLIST (λi. CTLet (rsz - i)) rsz) rsz bs`
 
 val compile_shadows_thm = store_thm("compile_shadows_thm",
   ``∀vs bvs cs i. let cs' = compile_shadows bvs cs i vs in
@@ -385,7 +386,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       closed_under_cenv cenv menv env s ∧
       all_cns_exp exp ⊆ set (MAP FST ((Short "",tup)::cenv)) ∧
       (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
-      env_rs cenv env rs rd s (bs with code := bc0) ∧
+      env_rs menv cenv env rs rd s (bs with code := bc0) ∧
       ALL_DISTINCT vars ∧
       (PARTITION (λv. MEM v rs.rbvars) vars = (vv0,vv1)) ∧
       (compile_fake_exp rs vars expf = (rss,rsf,bc ++ [Stop])) ∧
@@ -400,13 +401,13 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
         let env' = ZIP(vv0++vv1,vs) ++ env in
         let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := (Number i0)::st; refs := rf|> in
         bc_next^* bs bs' ∧
-        env_rs cenv env' rss rd' s' (bs' with stack := st)) ∧
+        env_rs menv cenv env' rss rd' s' (bs' with stack := st)) ∧
       (∀err. (beh = Rerr (Rraise err)) ⇒
         ∃bv rf rd'.
         let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := (Number i1)::bv::bs.stack; refs := rf|> in
         bc_next^* bs bs' ∧
         err_bv err bv ∧
-        env_rs cenv env rsf rd' s' (bs' with stack := bs.stack))``,
+        env_rs menv cenv env rsf rd' s' (bs' with stack := bs.stack))``,
   rpt gen_tac >>
   simp[compile_fake_exp_def,compile_Cexp_def,GSYM LEFT_FORALL_IMP_THM] >>
   simp[GSYM AND_IMP_INTRO] >>
