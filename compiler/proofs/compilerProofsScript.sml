@@ -167,20 +167,24 @@ val env_rs_def = Define`
     (({Short ""} ∪ set (MAP FST cenv)) = FDOM (cmap rs.contab)) ∧
     Short "" ∉ set (MAP FST cenv) ∧
     (∀id. (FLOOKUP (cmap rs.contab) id = SOME ((cmap rs.contab) ' (Short ""))) ⇒ (id = Short "")) ∧
-    (set rs.rbvars = set (MAP FST env)) ∧
-    ALL_DISTINCT rs.rbvars ∧
-    let Cs0 = MAP (v_to_Cv (cmap rs.contab)) s in
-    let Cenv0 = env_to_Cenv (cmap rs.contab) (MAP (λv. (v,THE (ALOOKUP env v))) rs.rbvars) in
-    let rsz = LENGTH rs.rbvars in
+    (FILTER is_Short rs.rbvars = (MAP (Short o FST) env)) ∧
+    EVERY (λ(mn,env). FILTER (λid. ∃x. id = Long mn x) rs.rbvars = MAP (Long mn o FST) env) menv ∧
+    let fmv = alist_to_fmap menv in
+    let mv = MAP FST o_f fmv in
+    let Cs0 = MAP (v_to_Cv mv (cmap rs.contab)) s in
+    let Cenv0 = env_to_Cenv mv (cmap rs.contab) env in
+    let Cmenv0 = env_to_Cenv mv (cmap rs.contab) o_f fmv in
+    let (rsz,cmnv,cenv) = SND (etC rs) in
     ∃Cmenv Cenv Cs.
-    LIST_REL syneq Cs0 Cs ∧ LIST_REL syneq Cenv0 Cenv ∧
+    LIST_REL syneq Cs0 Cs ∧ LIST_REL syneq Cenv0 Cenv ∧ fmap_rel (LIST_REL syneq) Cmenv0 Cmenv ∧
+    (BIGUNION (IMAGE (BIGUNION o IMAGE all_Clocs o set) (FRANGE Cmenv)) ⊆ count (LENGTH Cs)) ∧
     (BIGUNION (IMAGE all_Clocs (set Cs)) ⊆ count (LENGTH Cs)) ∧
     (BIGUNION (IMAGE all_Clocs (set Cenv)) ⊆ count (LENGTH Cs)) ∧
-    EVERY all_vlabs Cs ∧ EVERY all_vlabs Cenv ∧
-    (∀cd. cd ∈ vlabs_list Cs ⇒ code_env_cd bs.code cd) ∧
-    (∀cd. cd ∈ vlabs_list Cenv ⇒ code_env_cd bs.code cd) ∧
-    ???
-    Cenv_bs rd Cmenv Cs Cenv (GENLIST (λi. CTLet (rsz - i)) rsz) rsz bs`
+    EVERY all_vlabs Cs ∧ EVERY all_vlabs Cenv ∧ all_vlabs_menv Cmenv ∧
+    (∀cd. cd ∈ vlabs_list Cs ⇒ code_env_cd cmnv bs.code cd) ∧
+    (∀cd. cd ∈ vlabs_list Cenv ⇒ code_env_cd cmnv bs.code cd) ∧
+    (∀cd. cd ∈ vlabs_menv Cmenv ⇒ code_env_cd cmnv bs.code cd) ∧
+    Cenv_bs rd Cmenv Cs Cenv cmnv cenv rsz rsz bs`
 
 val compile_shadows_thm = store_thm("compile_shadows_thm",
   ``∀vs bvs cs i. let cs' = compile_shadows bvs cs i vs in
