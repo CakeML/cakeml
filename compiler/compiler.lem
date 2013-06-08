@@ -62,14 +62,6 @@ number_constructors ((c,_)::cs) (m,w,n) =
   number_constructors cs (Pmap.add (Short c) n m, (n,c)::w, n+1)
 
 let rec
-compile_shadows bvs cs i [] = cs
-and
-compile_shadows bvs cs i (v::vs) =
-  let j = the 0 (find_index (Short v) bvs 1) in
-  let cs = emit cs (List.map Stack [Load 0; El i; Store j]) in
-  compile_shadows bvs cs (i+1) vs
-
-let rec
 compile_news cs i [] = cs
 and
 compile_news cs i (_::vs) =
@@ -78,16 +70,14 @@ compile_news cs i (_::vs) =
 
 let compile_fake_exp rs vs e =
   let (m,rsz,menv,env) = etC rs in
-  let (shadows,news) = Hol.PARTITION (fun v -> List.mem (Short v) rs.rbvars) vs in
-  let Ce = exp_to_Cexp m (e (Con (Short "") (List.map (fun v -> Var (Short v)) (shadows@news)))) in
+  let Ce = exp_to_Cexp m (e (Con (Short "") (List.map (fun v -> Var (Short v)) vs))) in
   let (l1,cs) = compile_Cexp rsz menv env rs.rnext_label Ce in
   let cs = emit cs [PopExc; Stack (Pops 1)] in
-  let cs = compile_shadows rs.rbvars cs 0 shadows in
-  let cs = compile_news cs (List.length shadows) news in
+  let cs = compile_news cs 0 vs in
   let (cs,l2) = get_label cs in
   let cs = emit cs [Stack Pop; Stack (PushInt i0); Jump (Lab l2)
                    ; Label l1; Stack (PushInt i1); Label l2; Stop] in
-  (<| rs with rbvars = (List.rev (List.map Short news))@rs.rbvars
+  (<| rs with rbvars = (List.rev (List.map Short vs))@rs.rbvars
     ; rnext_label = cs.next_label |>
   ,<| rs with rnext_label = cs.next_label |>
   ,List.rev cs.out)

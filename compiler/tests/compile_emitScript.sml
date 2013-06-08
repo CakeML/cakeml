@@ -125,7 +125,6 @@ val defs = map EmitML.DEFN
 , compile_Cexp_def
 , number_constructors_def
 , AstTheory.pat_bindings_def
-, compile_shadows_def
 , compile_news_def
 , compile_fake_exp_def
 , compile_dec_def

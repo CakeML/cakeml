@@ -91,17 +91,6 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn number_constructors_defn;
 
- val compile_shadows_defn = Hol_defn "compile_shadows" `
-
-(compile_shadows bvs cs i [] = cs)
-/\
-(compile_shadows bvs cs i (v::vs) =  
-(let j = ( the 0 (find_index (Short v) bvs 1)) in
-  let cs = ( emit cs ( MAP Stack [Load 0; El i; Store j])) in
-  compile_shadows bvs cs (i +1) vs))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_shadows_defn;
-
  val compile_news_defn = Hol_defn "compile_news" `
 
 (compile_news cs i [] = cs)
@@ -115,16 +104,14 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = Define `
  (compile_fake_exp rs vs e =  
 (let (m,rsz,menv,env) = ( etC rs) in
-  let (shadows,news) = ( PARTITION (\ v . MEM (Short v) rs.rbvars) vs) in
-  let Ce = ( exp_to_Cexp m (e (Con (Short "") ( MAP (\ v . Var (Short v)) (shadows ++news))))) in
+  let Ce = ( exp_to_Cexp m (e (Con (Short "") ( MAP (\ v . Var (Short v)) vs)))) in
   let (l1,cs) = ( compile_Cexp rsz menv env rs.rnext_label Ce) in
   let cs = ( emit cs [PopExc; Stack (Pops 1)]) in
-  let cs = ( compile_shadows rs.rbvars cs 0 shadows) in
-  let cs = ( compile_news cs ( LENGTH shadows) news) in
+  let cs = ( compile_news cs 0 vs) in
   let (cs,l2) = ( get_label cs) in
   let cs = ( emit cs [Stack Pop; Stack (PushInt i0); Jump (Lab l2)
                    ; Label l1; Stack (PushInt i1); Label l2; Stop]) in
-  (( rs with<| rbvars := ( REVERSE ( MAP Short news)) ++rs.rbvars
+  (( rs with<| rbvars := ( REVERSE ( MAP Short vs)) ++rs.rbvars
     ; rnext_label := cs.next_label |>)
   ,( rs with<| rnext_label := cs.next_label |>)
   , REVERSE cs.out)))`;

@@ -285,18 +285,18 @@ val d0 = paird
 val d1 = ``Dlet (Pcon (Short "Pair_type") [Pvar "x";Pvar "y"]) (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])``
 val d2 = ``Dlet (Pvar "x") (Lit (IntLit 3))``
 val e45 = ``Con (Short "Pair_type") [Var (Short "x");Var (Short "y")]``
-val [Block (_,[Number xb,Number yb]),Number y,Number x] = run_decs_exp ([d0,d1,d2],e45)
+val [Block (_,[Number xb,Number yb]),Number x2,Number x1,Number y] = run_decs_exp ([d0,d1,d2],e45)
 val SOME 3 = intML.toInt xb
 val SOME 2 = intML.toInt yb
-val true = xb = x
+val true = xb = x2
 val true = yb = y;
 val d1 = ``Dlet (Pcon (Short "Pair_type") [Pvar "y";Pvar "x"]) (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])``
 val d2 = ``Dlet (Pvar "x") (Lit (IntLit 3))``
 val e46 = ``Con (Short "Pair_type") [Var (Short "x");Var (Short "y")]``
-val [Block (_,[Number xb,Number yb]),Number x,Number y] = run_decs_exp ([d0,d1,d2],e46)
+val [Block (_,[Number xb,Number yb]),Number x2,Number y,Number x1] = run_decs_exp ([d0,d1,d2],e46)
 val SOME 3 = intML.toInt xb
 val SOME 1 = intML.toInt yb
-val true = x = xb
+val true = x2 = xb
 val true = y = yb;
 val d0 = paird
 val d1 = ``Dlet (Pcon (Short "Pair_type") [Pvar "x";Pvar "y"]) (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])``
@@ -306,9 +306,9 @@ val e47 = ``Con (Short "Pair_type") [
               Con (Short "Pair_type") [Var (Short "x"); Var (Short "y")];
               Let "x" (Fun "x" (App (Opn Plus) (Var (Short "x")) (Var (Short "y"))))
                 (App Opapp (Var (Short "x")) (Var (Short "y")))]``
-val [Block (_,[Block (_,[Number x3,Number y4]),Number yy]),Number y,Number x] = run_decs_exp([d0,d1,d2,d3],e47)
-val SOME 4 = intML.toInt y
-val SOME 3 = intML.toInt x
+val [Block (_,[Block (_,[Number x3,Number y4]),Number yy]),Number y2,Number x2,Number x1,Number y1] = run_decs_exp([d0,d1,d2,d3],e47)
+val SOME 4 = intML.toInt y2
+val SOME 3 = intML.toInt x2
 val SOME 3 = intML.toInt x3
 val SOME 4 = intML.toInt y4
 val SOME 8 = intML.toInt yy;
@@ -320,13 +320,13 @@ val SOME 0 = intML.toInt xd;
 val d0 = ``Dlet (Pvar "x") (Let "x" (Lit (IntLit 1)) (App (Opn Minus) (Var (Short "x")) (Var (Short "x"))))``
 val d1 = ``Dlet (Pvar "x") (App (Opn Minus) (Var (Short "x")) (Let "x" (Lit (IntLit 1)) (Var (Short "x"))))``
 val e49 = ``App (Opn Times) (Var (Short "x")) (Let "x" (Lit (IntLit (-1))) (Var (Short "x")))``
-val [Number r,Number x] = run_decs_exp([d0,d1],e49)
-val SOME ~1 = intML.toInt x
+val [Number r,Number x2,Number x1] = run_decs_exp([d0,d1],e49)
+val SOME ~1 = intML.toInt x2
 val SOME 1 = intML.toInt r;
 val d0 = paird
 val d1 = ``Dlet (Pcon (Short "Pair_type") [Pvar "y";Pvar "x"]) (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])``
 val e50 = ``Var (Short "y")``
-val [Number r, Number x, Number y] = run_decs_exp([d0,d1],e50)
+val [Number r, Number y, Number x] = run_decs_exp([d0,d1],e50)
 val SOME 2 = intML.toInt x
 val SOME 1 = intML.toInt y
 val true = r = y;
@@ -335,9 +335,9 @@ val d1 = ``Dtype [([],"unit",[("()",[])])]``
 val d2 = ``Dlet (Pvar "f") (Fun " " (Mat (Var (Short " ")) [(Pcon (Short "()") [],App (Opn Plus) (Var (Short "x")) (Lit (IntLit 1)))]))``
 val d3 = ``Dlet (Pvar "x") (Lit (IntLit 100))``
 val e51 = ``App Opapp (Var (Short "f")) (Con (Short "()") [])``
-val [Number r, _, Number x] = run_decs_exp([d0,d1,d2,d3],e51)
+val [Number r, Number x2, _, Number x1] = run_decs_exp([d0,d1,d2,d3],e51)
 val SOME 2 = intML.toInt r
-val SOME 100 = intML.toInt x;
+val SOME 100 = intML.toInt x2;
 val d0 = paird
 val e52 = ``Let "x" (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])
   (Mat (Var (Short "x"))
