@@ -761,17 +761,16 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
         simp[Abbr`bs6`,bc_state_component_equality] >>
         match_mp_tac s_refs_with_irr >>
         qexists_tac`bs with code := bc0` >> simp[] ) >>
-      match_mp_tac s_refs_with_irr
+      match_mp_tac s_refs_with_irr >>
       qmatch_assum_abbrev_tac`s_refs rd' Cs' bs6` >>
-      qexists_tac`bs6` >> simp[Abbr`bs6`] )
+      qexists_tac`bs6` >> simp[Abbr`bs6`] ) >>
     Q.PAT_ABBREV_TAC`bs6:bc_state = X Z` >>
-    match_mp_tac fmap_rel_env_renv_with_irr
+    match_mp_tac fmap_rel_env_renv_with_irr >>
     qexists_tac `bs6 with handler := rs.rsz + 1` >>
     simp[Abbr`bs6`] >>
     match_mp_tac fmap_rel_env_renv_CTDec >>
     HINT_EXISTS_TAC >>
     simp[Abbr`bsc`,bc_state_component_equality] ) >>
-
   rfs[Cmap_result_Rerr] >>
   BasicProvers.VAR_EQ_TAC >>
   fs[] >>
@@ -791,21 +790,26 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
   map_every qexists_tac[`bv`,`rf`,`rd'`] >>
   simp[CONJ_ASSOC] >>
   reverse conj_tac >- (
-    map_every qexists_tac[`Cenv`,`Cs'`] >>
+    map_every qexists_tac[`Cmenv`,`Cenv`,`Cs'`] >>
     simp[GSYM CONJ_ASSOC] >>
     conj_tac >- PROVE_TAC[EVERY2_syneq_trans] >>
-    qspecl_then[`Cs`,`Cenv`,`Ce`,`Cs',Cexc (Craise v)`]mp_tac(CONJUNCT1 Cevaluate_Clocs) >>
+    qspecl_then[`Cmenv`,`Cs`,`Cenv`,`Ce`,`Cs',Cexc (Craise v)`]mp_tac(CONJUNCT1 Cevaluate_Clocs) >>
     simp[] >> strip_tac >>
-    qspecl_then[`Cs`,`Cenv`,`Ce`,`Cs',Cexc (Craise v)`]mp_tac(CONJUNCT1 Cevaluate_store_SUBSET) >>
+    qspecl_then[`Cmenv`,`Cs`,`Cenv`,`Ce`,`Cs',Cexc (Craise v)`]mp_tac(CONJUNCT1 Cevaluate_store_SUBSET) >>
     simp[] >> strip_tac >>
     conj_tac >- (
       fsrw_tac[DNF_ss][SUBSET_DEF] >>
       rw[] >> res_tac >> DECIDE_TAC ) >>
-    qspecl_then[`Cs`,`Cenv`,`Ce`,`Cs',Cexc (Craise v)`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
+    conj_tac >- (
+      fsrw_tac[DNF_ss][SUBSET_DEF] >>
+      rw[] >> res_tac >> DECIDE_TAC ) >>
+    qspecl_then[`Cmenv`,`Cs`,`Cenv`,`Ce`,`Cs',Cexc (Craise v)`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
     simp[] >> strip_tac >>
-    qspecl_then[`Cs`,`Cenv`,`Ce`,`Cs',Cexc (Craise v)`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
+    qspecl_then[`Cmenv`,`Cs`,`Cenv`,`Ce`,`Cs',Cexc (Craise v)`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
     simp[] >> strip_tac >>
     qpat_assum`bs.code = X`(assume_tac o SYM) >> simp[] >>
+    rfs[MAP_EQ_EVERY2] >>
+    conj_tac >- (fsrw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM] >> metis_tac[code_env_cd_append,APPEND_ASSOC]) >>
     conj_tac >- (fsrw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM] >> metis_tac[code_env_cd_append,APPEND_ASSOC]) >>
     conj_tac >- (fsrw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM] >> metis_tac[code_env_cd_append,APPEND_ASSOC]) >>
     match_mp_tac Cenv_bs_with_irr >>
