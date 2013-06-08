@@ -56,7 +56,7 @@ val _ = Define `
 
 val _ = Define `
  (compile_Cexp rsz menv env nl Ce =  
-(let (Ce,n) = ( label_closures rsz nl Ce) in
+(let (Ce,n) = ( label_closures ( LENGTH env) nl Ce) in
   let cs = (<| out := []; next_label := n |>) in
   let (cs,l) = ( get_label cs) in
   let cs = ( emit cs [PushPtr (Lab l); PushExc]) in
