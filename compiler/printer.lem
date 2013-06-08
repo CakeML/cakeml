@@ -78,7 +78,7 @@ ov_to_string OError = "<error>"
 
 open Compiler
 
-let stack_index cs v = the 0 (find_index (Short v) cs.rbvars 0)
+let stack_index cs v = cs.rsz - (the 0 (Lib.lookup v cs.renv)) - 1
 
 let rec
 preprint_dec _ (Dtype _) = []

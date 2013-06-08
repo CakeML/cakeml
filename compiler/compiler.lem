@@ -11,30 +11,14 @@ let rec cmap (m,_,_) = m
 
 type compiler_state =
   <| contab : contab
-   ; rbvars : list (id string)
+   ; renv : list (string * num)
+   ; rmenv : Pmap.map string (list (string * num))
+   ; rsz : num
    ; rnext_label : num
    |>
 
 val cpam : compiler_state -> list (num * string)
 let rec cpam s = match s.contab with (_,w,_) -> w end
-
-let menv_cons mv mn s =
-  match Hol.FLOOKUP mv mn with
-  | None -> Pmap.add mn [s] mv
-  | Some ls -> Pmap.add mn (s::ls) mv
-  end
-
-val etC : compiler_state -> exp_to_Cexp_state * num * Pmap.map string (list num) * list ctbind
-let etC rs =
-  let (rsz,mvars,menv,bvars,env) = List.fold_left
-    (fun (i,mvars,menv,bvars,env) id ->
-      match id with
-      | Short s -> (i+1,mvars,menv,s::bvars,(CTDec i)::env)
-      | Long mn s -> (i+1,menv_cons mvars mn s,menv_cons menv mn i,bvars,env)
-      end)
-    (0,Pmap.empty,Pmap.empty,[],[]) (List.rev rs.rbvars) in
-  (<| bvars = bvars ; mvars = mvars ; cnmap = cmap rs.contab |>
-  ,rsz,menv,env)
 
 let init_compiler_state =
   <| contab = (Pmap.add (Short "Div") div_exc_cn
@@ -43,7 +27,9 @@ let init_compiler_state =
               (* TODO: don't need to store n, use length of list? *)
               ,[(tuple_cn,"");(bind_exc_cn,"Bind");(div_exc_cn,"Div")]
               ,3)
-   ; rbvars = []
+   ; renv = []
+   ; rmenv = Pmap.empty
+   ; rsz = 0
    ; rnext_label = 0
    |>
 
@@ -69,15 +55,23 @@ compile_news cs i (_::vs) =
   compile_news cs (i+1) vs
 
 let compile_fake_exp rs vs e =
-  let (m,rsz,menv,env) = etC rs in
+  let m = <| bvars = List.map fst rs.renv
+           ; mvars = Hol.o_f (List.map fst) rs.rmenv
+           ; cnmap = cmap rs.contab
+           |> in
   let Ce = exp_to_Cexp m (e (Con (Short "") (List.map (fun v -> Var (Short v)) vs))) in
-  let (l1,cs) = compile_Cexp rsz menv env rs.rnext_label Ce in
+  let menv = Hol.o_f (List.map snd) rs.rmenv in
+  let env = List.map (Hol.o CTDec snd) rs.renv in
+  let (l1,cs) = compile_Cexp rs.rsz menv env rs.rnext_label Ce in
   let cs = emit cs [PopExc; Stack (Pops 1)] in
   let cs = compile_news cs 0 vs in
   let (cs,l2) = get_label cs in
   let cs = emit cs [Stack Pop; Stack (PushInt i0); Jump (Lab l2)
                    ; Label l1; Stack (PushInt i1); Label l2; Stop] in
-  (<| rs with rbvars = (List.rev (List.map Short vs))@rs.rbvars
+  let n = List.length vs in
+  (<| rs with
+      renv = (genlist (fun i -> (List.nth vs i, rs.rsz+i)) n)@rs.renv
+    ; rsz = rs.rsz + n
     ; rnext_label = cs.next_label |>
   ,<| rs with rnext_label = cs.next_label |>
   ,List.rev cs.out)

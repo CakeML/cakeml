@@ -27,7 +27,9 @@ val _ = type_abbrev( "contab" , ``: (( conN id), num)fmap # (num # string) list 
 val _ = Hol_datatype `
  compiler_state =
   <| contab : contab
-   ; rbvars : ( string id) list
+   ; renv : (string # num) list
+   ; rmenv : (string, ( (string # num)list))fmap
+   ; rsz : num
    ; rnext_label : num
    |>`;
 
@@ -38,28 +40,6 @@ val _ = Hol_datatype `
 
 
 val _ = Define `
- (menv_cons mv mn s =  
-((case FLOOKUP mv mn of
-    NONE => FUPDATE  mv ( mn, [s])
-  | SOME ls => FUPDATE  mv ( mn, (s ::ls))
-  )))`;
-
-
-(*val etC : compiler_state -> exp_to_Cexp_state * num * Pmap.map string (list num) * list ctbind*)
-val _ = Define `
- (etC rs =  
-(let (rsz,mvars,menv,bvars,env) = ( FOLDL
-    (\ (i,mvars,menv,bvars,env) id .
-      (case id of
-        Short s => ((i +1),mvars,menv,(s ::bvars),((CTDec i) ::env))
-      | Long mn s => ((i +1),menv_cons mvars mn s,menv_cons menv mn i,bvars,env)
-      ))
-    (0, FEMPTY, FEMPTY,[],[]) ( REVERSE rs.rbvars)) in
-  (<| bvars := bvars ; mvars := mvars ; cnmap := ( cmap rs.contab) |>
-  ,rsz,menv,env)))`;
-
-
-val _ = Define `
  init_compiler_state =  
 (<| contab := ( FUPDATE 
                ( FUPDATE 
@@ -67,7 +47,9 @@ val _ = Define `
               (* TODO: don't need to store n, use length of list? *)
               ,[(tuple_cn,"");(bind_exc_cn,"Bind");(div_exc_cn,"Div")]
               ,3)
-   ; rbvars := []
+   ; renv := []
+   ; rmenv := FEMPTY
+   ; rsz := 0
    ; rnext_label := 0
    |>)`;
 
@@ -103,15 +85,23 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Define `
  (compile_fake_exp rs vs e =  
-(let (m,rsz,menv,env) = ( etC rs) in
+(let m = (<| bvars := ( MAP FST rs.renv)
+           ; mvars := ( (o_f) ( MAP FST) rs.rmenv)
+           ; cnmap := ( cmap rs.contab)
+           |>) in
   let Ce = ( exp_to_Cexp m (e (Con (Short "") ( MAP (\ v . Var (Short v)) vs)))) in
-  let (l1,cs) = ( compile_Cexp rsz menv env rs.rnext_label Ce) in
+  let menv = ( (o_f) ( MAP SND) rs.rmenv) in
+  let env = ( MAP ((o) CTDec SND) rs.renv) in
+  let (l1,cs) = ( compile_Cexp rs.rsz menv env rs.rnext_label Ce) in
   let cs = ( emit cs [PopExc; Stack (Pops 1)]) in
   let cs = ( compile_news cs 0 vs) in
   let (cs,l2) = ( get_label cs) in
   let cs = ( emit cs [Stack Pop; Stack (PushInt i0); Jump (Lab l2)
                    ; Label l1; Stack (PushInt i1); Label l2; Stop]) in
-  (( rs with<| rbvars := ( REVERSE ( MAP Short vs)) ++rs.rbvars
+  let n = ( LENGTH vs) in
+  (( rs with<|
+      renv := ( GENLIST (\ i . ( EL  i  vs, (rs.rsz +i))) n) ++rs.renv
+    ; rsz := rs.rsz + n
     ; rnext_label := cs.next_label |>)
   ,( rs with<| rnext_label := cs.next_label |>)
   , REVERSE cs.out)))`;
