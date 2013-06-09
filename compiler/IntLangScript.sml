@@ -40,9 +40,10 @@ val _ = Hol_datatype `
  ccbind = CCArg of num | CCRef of num | CCEnv of num`;
 
 val _ = Hol_datatype `
- ctbind = CTLet of num | CTEnv of ccbind`;
+ ctbind = CTLet of num | CTDec of num | CTEnv of ccbind`;
 
 (* CTLet n means stack[sz - n]
+   CTDec n means rev(stack)[n]
    CCArg n means stack[sz + n]
    CCEnv n means El n of the environment, which is at stack[sz]
    CCRef n means El n of the environment, but it's a ref pointer *)
@@ -54,7 +55,7 @@ val _ = Hol_datatype `
  Cexp =
     CRaise of Cexp
   | CHandle of Cexp => Cexp
-  | CVar of num
+  | CVar of num id
   | CLit of lit
   | CCon of num => Cexp list
   | CTagEq of Cexp => num
@@ -177,105 +178,113 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 
 val _ = Hol_reln `
-(! s env exp s' v.
-(Cevaluate s env exp (s', Cval v))
+(! menv s env exp s' v.
+(Cevaluate menv s env exp (s', Cval v))
 ==>
-Cevaluate s env (CRaise exp) (s', Cexc (Craise v)))
+Cevaluate menv s env (CRaise exp) (s', Cexc (Craise v)))
 
 /\
-(! s env exp s' err.
-(Cevaluate s env exp (s', Cexc err))
+(! menv s env exp s' err.
+(Cevaluate menv s env exp (s', Cexc err))
 ==>
-Cevaluate s env (CRaise exp) (s', Cexc err))
+Cevaluate menv s env (CRaise exp) (s', Cexc err))
 
 /\
-(! s1 env e1 e2 s2 v.
-(Cevaluate s1 env e1 (s2, Cval v))
+(! menv s1 env e1 e2 s2 v.
+(Cevaluate menv s1 env e1 (s2, Cval v))
 ==>
-Cevaluate s1 env (CHandle e1 e2) (s2, Cval v))
+Cevaluate menv s1 env (CHandle e1 e2) (s2, Cval v))
 /\
-(! s1 env e1 e2 s2 v res.
-(Cevaluate s1 env e1 (s2, Cexc (Craise v)) /\
-Cevaluate s2 (v ::env) e2 res)
+(! menv s1 env e1 e2 s2 v res.
+(Cevaluate menv s1 env e1 (s2, Cexc (Craise v)) /\
+Cevaluate menv s2 (v ::env) e2 res)
 ==>
-Cevaluate s1 env (CHandle e1 e2) res)
+Cevaluate menv s1 env (CHandle e1 e2) res)
 /\
-(! s1 env e1 e2 s2.
-(Cevaluate s1 env e1 (s2, Cexc Ctype_error))
+(! menv s1 env e1 e2 s2.
+(Cevaluate menv s1 env e1 (s2, Cexc Ctype_error))
 ==>
-Cevaluate s1 env (CHandle e1 e2) (s2, Cexc Ctype_error))
+Cevaluate menv s1 env (CHandle e1 e2) (s2, Cexc Ctype_error))
 
 /\
-(! s env n.
+(! menv s env n.
 (n < LENGTH env)
 ==>
-Cevaluate s env (CVar n) (s, Cval ( EL  n  env)))
+Cevaluate menv s env (CVar (Short n)) (s, Cval ( EL  n  env)))
 
 /\
-(! s env l.
+(! menv s env mn n mnenv.
+((
+FLOOKUP menv mn = SOME mnenv) /\
+n < LENGTH mnenv)
+==>
+Cevaluate menv s env (CVar (Long mn n)) (s, Cval ( EL  n  mnenv)))
+
+/\
+(! menv s env l.
 T
 ==>
-Cevaluate s env (CLit l) (s, Cval (CLitv l)))
+Cevaluate menv s env (CLit l) (s, Cval (CLitv l)))
 
 /\
-(! s env n es s' vs.
-(Cevaluate_list s env es (s', Cval vs))
+(! menv s env n es s' vs.
+(Cevaluate_list menv s env es (s', Cval vs))
 ==>
-Cevaluate s env (CCon n es) (s', Cval (CConv n vs)))
+Cevaluate menv s env (CCon n es) (s', Cval (CConv n vs)))
 /\
-(! s env n es s' err.
-(Cevaluate_list s env es (s', Cexc err))
+(! menv s env n es s' err.
+(Cevaluate_list menv s env es (s', Cexc err))
 ==>
-Cevaluate s env (CCon n es) (s', Cexc err))
+Cevaluate menv s env (CCon n es) (s', Cexc err))
 
 /\
-(! s env e n m s' vs.
-(Cevaluate s env e (s', Cval (CConv m vs)))
+(! menv s env e n m s' vs.
+(Cevaluate menv s env e (s', Cval (CConv m vs)))
 ==>
-Cevaluate s env (CTagEq e n) (s', Cval (CLitv (Bool (n = m)))))
+Cevaluate menv s env (CTagEq e n) (s', Cval (CLitv (Bool (n = m)))))
 /\
-(! s env e n s' err.
-(Cevaluate s env e (s', Cexc err))
+(! menv s env e n s' err.
+(Cevaluate menv s env e (s', Cexc err))
 ==>
-Cevaluate s env (CTagEq e n) (s', Cexc err))
+Cevaluate menv s env (CTagEq e n) (s', Cexc err))
 
 /\
-(! s env e n m s' vs.
-(Cevaluate s env e (s', Cval (CConv m vs)) /\
+(! menv s env e n m s' vs.
+(Cevaluate menv s env e (s', Cval (CConv m vs)) /\
 n < LENGTH vs)
 ==>
-Cevaluate s env (CProj e n) (s', Cval ( EL  n  vs)))
+Cevaluate menv s env (CProj e n) (s', Cval ( EL  n  vs)))
 /\
-(! s env e n s' err.
-(Cevaluate s env e (s', Cexc err))
+(! menv s env e n s' err.
+(Cevaluate menv s env e (s', Cexc err))
 ==>
-Cevaluate s env (CProj e n) (s', Cexc err))
+Cevaluate menv s env (CProj e n) (s', Cexc err))
 
 /\
-(! s env e b s' v r.
-(Cevaluate s env e (s', Cval v) /\
-Cevaluate s' (v ::env) b r)
+(! menv s env e b s' v r.
+(Cevaluate menv s env e (s', Cval v) /\
+Cevaluate menv s' (v ::env) b r)
 ==>
-Cevaluate s env (CLet e b) r)
+Cevaluate menv s env (CLet e b) r)
 /\
-(! s env e b s' err.
-(Cevaluate s env e (s', Cexc err))
+(! menv s env e b s' err.
+(Cevaluate menv s env e (s', Cexc err))
 ==>
-Cevaluate s env (CLet e b) (s', Cexc err))
+Cevaluate menv s env (CLet e b) (s', Cexc err))
 
 /\
-(! s env defs b r.
-(Cevaluate s
+(! menv s env defs b r.
+(Cevaluate menv s
   ( APPEND ( GENLIST (CRecClos env defs) ( LENGTH defs)) env)
   b r)
 ==>
-Cevaluate s env (CLetrec defs b) r)
+Cevaluate menv s env (CLetrec defs b) r)
 
 /\
-(! s env e es s' cenv defs n def b env'' s'' vs r.
-(Cevaluate s env e (s', Cval (CRecClos cenv defs n)) /\
+(! menv s env e es s' cenv defs n def b env'' s'' vs r.
+(Cevaluate menv s env e (s', Cval (CRecClos cenv defs n)) /\
 n < LENGTH defs /\ ( EL  n  defs = def) /\
-Cevaluate_list s' env es (s'', Cval vs) /\
+Cevaluate_list menv s' env es (s'', Cval vs) /\
 ((T, LENGTH vs,env'',b) =
   (case def of
     (NONE,(k,b)) =>
@@ -289,90 +298,90 @@ Cevaluate_list s' env es (s'', Cval vs) /\
     , ( REVERSE vs ++(((CRecClos cenv defs n) :: MAP (CRecClos cenv defs) recs) ++ MAP (\n. EL n  cenv) envs))
     ,b)
   )) /\
-Cevaluate s'' env'' b r)
+Cevaluate menv s'' env'' b r)
 ==>
-Cevaluate s env (CCall e es) r)
+Cevaluate menv s env (CCall e es) r)
 /\
-(! s env e s' v es s'' err.
-(Cevaluate s env e (s', Cval v) /\
-Cevaluate_list s' env es (s'', Cexc err))
+(! menv s env e s' v es s'' err.
+(Cevaluate menv s env e (s', Cval v) /\
+Cevaluate_list menv s' env es (s'', Cexc err))
 ==>
-Cevaluate s env (CCall e es) (s'', Cexc err))
+Cevaluate menv s env (CCall e es) (s'', Cexc err))
 
 /\
-(! s env e es s' err.
-(Cevaluate s env e (s', Cexc err))
+(! menv s env e es s' err.
+(Cevaluate menv s env e (s', Cexc err))
 ==>
-Cevaluate s env (CCall e es) (s', Cexc err))
+Cevaluate menv s env (CCall e es) (s', Cexc err))
 
 /\
-(! s env uop e s' v.
-(Cevaluate s env e (s', Cval v))
+(! menv s env uop e s' v.
+(Cevaluate menv s env e (s', Cval v))
 ==>
-Cevaluate s env (CPrim1 uop e) (CevalPrim1 uop s' v))
+Cevaluate menv s env (CPrim1 uop e) (CevalPrim1 uop s' v))
 /\
-(! s env uop e s' err.
-(Cevaluate s env e (s', Cexc err))
+(! menv s env uop e s' err.
+(Cevaluate menv s env e (s', Cexc err))
 ==>
-Cevaluate s env (CPrim1 uop e) (s', Cexc err))
+Cevaluate menv s env (CPrim1 uop e) (s', Cexc err))
 
 /\
-(! s env p2 e1 e2 s' v1 v2.
-(Cevaluate_list s env [e1;e2] (s', Cval [v1;v2]) /\
+(! menv s env p2 e1 e2 s' v1 v2.
+(Cevaluate_list menv s env [e1;e2] (s', Cval [v1;v2]) /\
 ((v2 = CLitv (IntLit i0)) ==> p2 <> CDiv /\ p2 <> CMod))
 ==>
-Cevaluate s env (CPrim2 p2 e1 e2) (s', CevalPrim2 p2 v1 v2))
+Cevaluate menv s env (CPrim2 p2 e1 e2) (s', CevalPrim2 p2 v1 v2))
 /\
-(! s env p2 e1 e2 s' err.
-(Cevaluate_list s env [e1;e2] (s', Cexc err))
+(! menv s env p2 e1 e2 s' err.
+(Cevaluate_list menv s env [e1;e2] (s', Cexc err))
 ==>
-Cevaluate s env (CPrim2 p2 e1 e2) (s', Cexc err))
+Cevaluate menv s env (CPrim2 p2 e1 e2) (s', Cexc err))
 
 /\
-(! s env e1 e2 s' v1 v2.
-(Cevaluate_list s env [e1;e2] (s', Cval [v1;v2]))
+(! menv s env e1 e2 s' v1 v2.
+(Cevaluate_list menv s env [e1;e2] (s', Cval [v1;v2]))
 ==>
-Cevaluate s env (CUpd e1 e2) (CevalUpd s' v1 v2))
+Cevaluate menv s env (CUpd e1 e2) (CevalUpd s' v1 v2))
 /\
-(! s env e1 e2 s' err.
-(Cevaluate_list s env [e1;e2] (s', Cexc err))
+(! menv s env e1 e2 s' err.
+(Cevaluate_list menv s env [e1;e2] (s', Cexc err))
 ==>
-Cevaluate s env (CUpd e1 e2) (s', Cexc err))
+Cevaluate menv s env (CUpd e1 e2) (s', Cexc err))
 
 /\
-(! s env e1 e2 e3 s' b1 r.
-(Cevaluate s env e1 (s', Cval (CLitv (Bool b1))) /\
-Cevaluate s' env (if b1 then e2 else e3) r)
+(! menv s env e1 e2 e3 s' b1 r.
+(Cevaluate menv s env e1 (s', Cval (CLitv (Bool b1))) /\
+Cevaluate menv s' env (if b1 then e2 else e3) r)
 ==>
-Cevaluate s env (CIf e1 e2 e3) r)
+Cevaluate menv s env (CIf e1 e2 e3) r)
 /\
-(! s env e1 e2 e3 s' err.
-(Cevaluate s env e1 (s', Cexc err))
+(! menv s env e1 e2 e3 s' err.
+(Cevaluate menv s env e1 (s', Cexc err))
 ==>
-Cevaluate s env (CIf e1 e2 e3) (s', Cexc err))
+Cevaluate menv s env (CIf e1 e2 e3) (s', Cexc err))
 
 /\
-(! s env.
+(! menv s env.
 T
 ==>
-Cevaluate_list s env [] (s, Cval []))
+Cevaluate_list menv s env [] (s, Cval []))
 /\
-(! s env e es s' v s'' vs.
-(Cevaluate s env e (s', Cval v) /\
-Cevaluate_list s' env es (s'', Cval vs))
+(! menv s env e es s' v s'' vs.
+(Cevaluate menv s env e (s', Cval v) /\
+Cevaluate_list menv s' env es (s'', Cval vs))
 ==>
-Cevaluate_list s env (e ::es) (s'', Cval (v ::vs)))
+Cevaluate_list menv s env (e ::es) (s'', Cval (v ::vs)))
 /\
-(! s env e es s' err.
-(Cevaluate s env e (s', Cexc err))
+(! menv s env e es s' err.
+(Cevaluate menv s env e (s', Cexc err))
 ==>
-Cevaluate_list s env (e ::es) (s', Cexc err))
+Cevaluate_list menv s env (e ::es) (s', Cexc err))
 /\
-(! s env e es s' v s'' err.
-(Cevaluate s env e (s', Cval v) /\
-Cevaluate_list s' env es (s'', Cexc err))
+(! menv s env e es s' v s'' err.
+(Cevaluate menv s env e (s', Cval v) /\
+Cevaluate_list menv s' env es (s'', Cexc err))
 ==>
-Cevaluate_list s env (e ::es) (s'', Cexc err))`;
+Cevaluate_list menv s env (e ::es) (s'', Cexc err))`;
 
 (* Equivalence relations on expressions and values *)
 
@@ -428,7 +437,12 @@ syneq_exp ez1 ez2 V (CHandle e1 b1) (CHandle e2 b2))
 ((v1 < ez1 /\ v2 < ez2 /\ V v1 v2) \/
 (ez1 <= v1 /\ ez2 <= v2 /\ (v1 = v2)))
 ==>
-syneq_exp ez1 ez2 V (CVar v1) (CVar v2))
+syneq_exp ez1 ez2 V (CVar (Short v1)) (CVar (Short v2)))
+/\
+(! ez1 ez2 V mn vn.
+T
+==>
+syneq_exp ez1 ez2 V (CVar (Long mn vn)) (CVar (Long mn vn)))
 /\
 (! ez1 ez2 V lit.
 T

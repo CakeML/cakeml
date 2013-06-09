@@ -223,7 +223,7 @@ val e34 = ``App Opapp (App Opapp (Var (Short "APPEND")) (Con (Short "Nil") []))
 val (m,st) = mst_run_decs_exp (ds,e34)
 val [r,cl] = st
 val tm = bv_to_ov m r
-val true = tm = OConv ("Nil",[])
+val true = tm = OConv (Short"Nil",[])
 val tm = bv_to_ov m cl
 val true = tm = OFn;
 fun h t = hd(tl(snd(strip_comb(concl t))))
@@ -238,7 +238,7 @@ val e32 = h t
 val (m,st) = mst_run_decs_exp (ds,e32)
 val [res,cl] = st
 val tm = bv_to_ov m res
-val true = tm = OConv ("Cons",[OLit (IntLit (intML.fromInt 4)), OConv ("Nil",[])]);
+val true = tm = OConv (Short"Cons",[OLit (IntLit (intML.fromInt 4)), OConv (Short"Nil",[])]);
 val _ = reset_translation()
 val _ = translate sortingTheory.PART_DEF
 val _ = translate sortingTheory.PARTITION_DEF
@@ -249,7 +249,7 @@ val ds = dest_list I (get_decls())
 val t = hol2deep ``QSORT (λx y. x ≤ y) [9;8;7;6;2;3;4;5:num]``
 val e31 = h t;
 val (m,st) = mst_run_decs_exp (ds,e31)
-val [res,clQSORT,clPARTITION,clPART,clAPPEND] = st
+val [res,clQSORT,clAPPEND,clPARTITION,clPART] = st
 val tm = bv_to_ov m res
 val true = tm = term_to_ov(hol2val ``[2;3;4;5;6;7;8;9:num]``);
 val d = ``
@@ -285,18 +285,18 @@ val d0 = paird
 val d1 = ``Dlet (Pcon (Short "Pair_type") [Pvar "x";Pvar "y"]) (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])``
 val d2 = ``Dlet (Pvar "x") (Lit (IntLit 3))``
 val e45 = ``Con (Short "Pair_type") [Var (Short "x");Var (Short "y")]``
-val [Block (_,[Number xb,Number yb]),Number y,Number x] = run_decs_exp ([d0,d1,d2],e45)
+val [Block (_,[Number xb,Number yb]),Number x2,Number x1,Number y] = run_decs_exp ([d0,d1,d2],e45)
 val SOME 3 = intML.toInt xb
 val SOME 2 = intML.toInt yb
-val true = xb = x
+val true = xb = x2
 val true = yb = y;
 val d1 = ``Dlet (Pcon (Short "Pair_type") [Pvar "y";Pvar "x"]) (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])``
 val d2 = ``Dlet (Pvar "x") (Lit (IntLit 3))``
 val e46 = ``Con (Short "Pair_type") [Var (Short "x");Var (Short "y")]``
-val [Block (_,[Number xb,Number yb]),Number x,Number y] = run_decs_exp ([d0,d1,d2],e46)
+val [Block (_,[Number xb,Number yb]),Number x2,Number y,Number x1] = run_decs_exp ([d0,d1,d2],e46)
 val SOME 3 = intML.toInt xb
 val SOME 1 = intML.toInt yb
-val true = x = xb
+val true = x2 = xb
 val true = y = yb;
 val d0 = paird
 val d1 = ``Dlet (Pcon (Short "Pair_type") [Pvar "x";Pvar "y"]) (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])``
@@ -306,9 +306,9 @@ val e47 = ``Con (Short "Pair_type") [
               Con (Short "Pair_type") [Var (Short "x"); Var (Short "y")];
               Let "x" (Fun "x" (App (Opn Plus) (Var (Short "x")) (Var (Short "y"))))
                 (App Opapp (Var (Short "x")) (Var (Short "y")))]``
-val [Block (_,[Block (_,[Number x3,Number y4]),Number yy]),Number y,Number x] = run_decs_exp([d0,d1,d2,d3],e47)
-val SOME 4 = intML.toInt y
-val SOME 3 = intML.toInt x
+val [Block (_,[Block (_,[Number x3,Number y4]),Number yy]),Number y2,Number x2,Number x1,Number y1] = run_decs_exp([d0,d1,d2,d3],e47)
+val SOME 4 = intML.toInt y2
+val SOME 3 = intML.toInt x2
 val SOME 3 = intML.toInt x3
 val SOME 4 = intML.toInt y4
 val SOME 8 = intML.toInt yy;
@@ -320,13 +320,13 @@ val SOME 0 = intML.toInt xd;
 val d0 = ``Dlet (Pvar "x") (Let "x" (Lit (IntLit 1)) (App (Opn Minus) (Var (Short "x")) (Var (Short "x"))))``
 val d1 = ``Dlet (Pvar "x") (App (Opn Minus) (Var (Short "x")) (Let "x" (Lit (IntLit 1)) (Var (Short "x"))))``
 val e49 = ``App (Opn Times) (Var (Short "x")) (Let "x" (Lit (IntLit (-1))) (Var (Short "x")))``
-val [Number r,Number x] = run_decs_exp([d0,d1],e49)
-val SOME ~1 = intML.toInt x
+val [Number r,Number x2,Number x1] = run_decs_exp([d0,d1],e49)
+val SOME ~1 = intML.toInt x2
 val SOME 1 = intML.toInt r;
 val d0 = paird
 val d1 = ``Dlet (Pcon (Short "Pair_type") [Pvar "y";Pvar "x"]) (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])``
 val e50 = ``Var (Short "y")``
-val [Number r, Number x, Number y] = run_decs_exp([d0,d1],e50)
+val [Number r, Number y, Number x] = run_decs_exp([d0,d1],e50)
 val SOME 2 = intML.toInt x
 val SOME 1 = intML.toInt y
 val true = r = y;
@@ -335,9 +335,9 @@ val d1 = ``Dtype [([],"unit",[("()",[])])]``
 val d2 = ``Dlet (Pvar "f") (Fun " " (Mat (Var (Short " ")) [(Pcon (Short "()") [],App (Opn Plus) (Var (Short "x")) (Lit (IntLit 1)))]))``
 val d3 = ``Dlet (Pvar "x") (Lit (IntLit 100))``
 val e51 = ``App Opapp (Var (Short "f")) (Con (Short "()") [])``
-val [Number r, _, Number x] = run_decs_exp([d0,d1,d2,d3],e51)
+val [Number r, Number x2, _, Number x1] = run_decs_exp([d0,d1,d2,d3],e51)
 val SOME 2 = intML.toInt r
-val SOME 100 = intML.toInt x;
+val SOME 100 = intML.toInt x2;
 val d0 = paird
 val e52 = ``Let "x" (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])
   (Mat (Var (Short "x"))
@@ -491,22 +491,22 @@ val (m,[r]) = mst_run_exp e71
 val true = (OLit (Bool true) = bv_to_ov m r);
 val e72 = ``Raise Bind_error``
 val (m,[bv]) = mst_run_exp_exc e72
-val true = (OConv ("Bind",[])) = bv_to_ov m bv;
+val true = (OConv (Short"Bind",[])) = bv_to_ov m bv;
 val e73 = ``Handle (Raise (Int_error 42)) "x" (Var(Short "x"))``
 val [Number i] = run_exp e73
 val SOME 42 = intML.toInt i;
 val e74 = ``Mat (Lit (Bool F)) [Plit (Bool T),Lit (IntLit 0)]``
 val (m,[bv]) = mst_run_exp_exc e74
-val true = (OConv ("Bind",[])) = bv_to_ov m bv;
+val true = (OConv (Short"Bind",[])) = bv_to_ov m bv;
 val e75 = ``Handle (App (Opn Divide) (Lit (IntLit 1)) (Raise (Int_error 1))) "x" (Var(Short "x"))``
 val (m,[Number i]) = mst_run_exp e75
 val SOME 1 = intML.toInt i;
 val e76 = ``Handle (App (Opn Divide) (Lit (IntLit 1)) (Lit (IntLit 0))) "x" (Var(Short "x"))``
 val (m,[bv]) = mst_run_exp_exc e76
-val true = (OConv ("Div",[])) = bv_to_ov m bv;
+val true = (OConv (Short"Div",[])) = bv_to_ov m bv;
 val e77 = ``Let "x" (Lit (IntLit 0)) (Handle (App (Opn Modulo) (Lit (IntLit 1)) (Var (Short "x"))) "x" (Var (Short "x")))``
 val (m,[bv]) = mst_run_exp_exc e77
-val true = (OConv ("Div",[])) = bv_to_ov m bv;
+val true = (OConv (Short"Div",[])) = bv_to_ov m bv;
 val e78 = ``Let "x" (Lit (IntLit 1)) (Handle (App (Opn Modulo) (Lit (IntLit 0)) (Var (Short "x"))) "x" (Var (Short "x")))``
 val (m,[Number i]) = mst_run_exp e78
 val SOME 0 = intML.toInt i;

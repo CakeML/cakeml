@@ -5,75 +5,73 @@ open ToIntLang
 open ToBytecode
 open Bytecode
 
-type contab = Pmap.map (id conN) num * list (num * string) * num
+type contab = Pmap.map (id conN) num * list (num * id conN) * num
 val cmap : contab -> Pmap.map (id conN) num
 let rec cmap (m,_,_) = m
 
 type compiler_state =
   <| contab : contab
-   ; rbvars : list string
+   ; renv : list (string * num)
+   ; rmenv : Pmap.map string (list (string * num))
+   ; rsz : num
    ; rnext_label : num
    |>
 
-val cpam : compiler_state -> list (num * string)
+val cpam : compiler_state -> list (num * id conN)
 let rec cpam s = match s.contab with (_,w,_) -> w end
-
-val etC : compiler_state -> exp_to_Cexp_state
-let etC rs = <| bvars = rs.rbvars; cnmap = cmap rs.contab |>
 
 let init_compiler_state =
   <| contab = (Pmap.add (Short "Div") div_exc_cn
                (Pmap.add (Short "Bind") bind_exc_cn
                 (Pmap.add (Short "") tuple_cn Pmap.empty))
               (* TODO: don't need to store n, use length of list? *)
-              ,[(tuple_cn,"");(bind_exc_cn,"Bind");(div_exc_cn,"Div")]
+              ,[(tuple_cn,Short "");(bind_exc_cn,Short "Bind");(div_exc_cn,Short "Div")]
               ,3)
-   ; rbvars = []
+   ; renv = []
+   ; rmenv = Pmap.empty
+   ; rsz = 0
    ; rnext_label = 0
    |>
 
-let compile_Cexp rs Ce =
-  let rsz = List.length rs.rbvars in
-  let (Ce,n) = label_closures rsz rs.rnext_label Ce in
+let compile_Cexp rsz menv env nl Ce =
+  let (Ce,n) = label_closures (List.length env) nl Ce in
   let cs = <| out = []; next_label = n |> in
   let (cs,l) = get_label cs in
   let cs = emit cs [PushPtr (Lab l); PushExc] in
-  let cs = compile_code_env cs Ce in
-  (l, compile (genlist (fun i -> CTLet (rsz-i)) rsz) TCNonTail (rsz+2) cs Ce)
+  let cs = compile_code_env menv cs Ce in
+  (l, compile menv env TCNonTail (rsz+2) cs Ce)
 
 let rec
 number_constructors [] ct = ct
 and
 number_constructors ((c,_)::cs) (m,w,n) =
-  number_constructors cs (Pmap.add (Short c) n m, (n,c)::w, n+1)
-
-let rec
-compile_shadows bvs cs i [] = cs
-and
-compile_shadows bvs cs i (v::vs) =
-  let j = the 0 (find_index v bvs 1) in
-  let cs = emit cs (List.map Stack [Load 0; El i; Store j]) in
-  compile_shadows bvs cs (i+1) vs
+  number_constructors cs (Pmap.add (Short c) n m, (n,Short c)::w, n+1)
 
 let rec
 compile_news cs i [] = cs
 and
-compile_news cs i (v::vs) =
+compile_news cs i (_::vs) =
   let cs = emit cs (List.map Stack [Load 0; Load 0; El i; Store 1]) in
   compile_news cs (i+1) vs
 
 let compile_fake_exp rs vs e =
-  let m = etC rs in
-  let (shadows,news) = Hol.PARTITION (fun v -> List.mem v rs.rbvars) vs in
-  let Ce = exp_to_Cexp m (e (Con (Short "") (List.map (fun v -> Var (Short v)) (shadows@news)))) in
-  let (l1,cs) = compile_Cexp rs Ce in
+  let m = <| bvars = List.map fst rs.renv
+           ; mvars = Hol.o_f (List.map fst) rs.rmenv
+           ; cnmap = cmap rs.contab
+           |> in
+  let Ce = exp_to_Cexp m (e (Con (Short "") (List.map (fun v -> Var (Short v)) vs))) in
+  let menv = Hol.o_f (List.map snd) rs.rmenv in
+  let env = List.map (Hol.o CTDec snd) rs.renv in
+  let (l1,cs) = compile_Cexp rs.rsz menv env rs.rnext_label Ce in
   let cs = emit cs [PopExc; Stack (Pops 1)] in
-  let cs = compile_shadows rs.rbvars cs 0 shadows in
-  let cs = compile_news cs (List.length shadows) news in
+  let cs = compile_news cs 0 vs in
   let (cs,l2) = get_label cs in
   let cs = emit cs [Stack Pop; Stack (PushInt i0); Jump (Lab l2)
                    ; Label l1; Stack (PushInt i1); Label l2; Stop] in
-  (<| rs with rbvars = (List.rev news)@rs.rbvars
+  let n = List.length vs in
+  (<| rs with
+      renv = (genlist (fun i -> (List.nth vs i, rs.rsz+i)) n)@rs.renv
+    ; rsz = rs.rsz + n
     ; rnext_label = cs.next_label |>
   ,<| rs with rnext_label = cs.next_label |>
   ,List.rev cs.out)

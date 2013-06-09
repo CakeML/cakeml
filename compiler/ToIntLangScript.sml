@@ -23,7 +23,9 @@ val _ = new_theory "ToIntLang"
 /\
 (free_vars (CHandle e1 e2) = ( lunion (free_vars e1) (lshift 1 (free_vars e2))))
 /\
-(free_vars (CVar n) = ([n]))
+(free_vars (CVar (Short n)) = ([n]))
+/\
+(free_vars (CVar (Long _ _)) = ([]))
 /\
 (free_vars (CLit _) = ([]))
 /\
@@ -69,7 +71,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (mkshift f k (CHandle e1 e2) = (CHandle (mkshift f k e1) (mkshift f (k +1) e2)))
 /\
-(mkshift f k (CVar v) = (CVar (if v < k then v else (f (v - k)) +k)))
+(mkshift f k (CVar (Short v)) = (CVar (Short (if v < k then v else (f (v - k)) +k))))
+/\
+(mkshift f k (CVar lid) = (CVar lid))
 /\
 (mkshift _ _ (CLit l) = (CLit l))
 /\
@@ -107,7 +111,11 @@ val _ = Define `
 (* remove pattern-matching using continuations *)
 
 val _ = Hol_datatype `
- exp_to_Cexp_state = <| bvars : string list ; cnmap : (( conN id), num)fmap |>`;
+ exp_to_Cexp_state =
+ <| bvars : string list
+  ; mvars : (string, ( string list))fmap
+  ; cnmap : (( conN id), num)fmap
+  |>`;
 
  val cbv_def = Define `
  (cbv m v = (( m with<| bvars := v ::m.bvars |>)))`;
@@ -155,19 +163,19 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  val remove_mat_vp_defn = Hol_defn "remove_mat_vp" `
 
 (remove_mat_vp _ sk v CPvar =  
-(CLet (CVar v) sk))
+(CLet (CVar (Short v)) sk))
 /\
 (remove_mat_vp fk sk v (CPlit l) =  
-(CIf (CPrim2 CEq (CVar v) (CLit l))
-    sk (CCall (CVar fk) [])))
+(CIf (CPrim2 CEq (CVar (Short v)) (CLit l))
+    sk (CCall (CVar (Short fk)) [])))
 /\
 (remove_mat_vp fk sk v (CPcon cn ps) =  
-(CIf (CTagEq (CVar v) cn)
+(CIf (CTagEq (CVar (Short v)) cn)
     (remove_mat_con fk sk v 0 ps)
-    (CCall (CVar fk) [])))
+    (CCall (CVar (Short fk)) [])))
 /\
 (remove_mat_vp fk sk v (CPref p) =  
-(CLet (CPrim1 CDer (CVar v))
+(CLet (CPrim1 CDer (CVar (Short v)))
     (remove_mat_vp (fk +1) (shift 1 (Cpat_vars p) sk) 0 p)))
 /\
 (remove_mat_con _ sk _ _ [] = sk)
@@ -175,7 +183,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (remove_mat_con fk sk v n (p::ps) =  
 (let p1 = ( Cpat_vars p) in
   let p2 = ( Cpat_vars_list ps) in
-  CLet (CProj (CVar v) n)
+  CLet (CProj (CVar (Short v)) n)
     (remove_mat_vp (fk +1)
       (remove_mat_con (fk +1 +p1) (shift 1 (p2 +p1) sk) (v +1 +p1) (n +1) ps)
       0 p)))`;
@@ -209,8 +217,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (exp_to_Cexp m (Handle e x b) =  
 (CHandle (exp_to_Cexp m e)
-    (CIf (CPrim2 CEq (CVar 0) CBind_exc) (CRaise CBind_exc)
-         (CIf (CPrim2 CEq (CVar 0) CDiv_exc) (CRaise CDiv_exc)
+    (CIf (CPrim2 CEq (CVar (Short 0)) CBind_exc) (CRaise CBind_exc)
+         (CIf (CPrim2 CEq (CVar (Short 0)) CDiv_exc) (CRaise CDiv_exc)
               (exp_to_Cexp (cbv m x) b)))))
 /\
 (exp_to_Cexp _ (Raise Bind_error) = (CRaise CBind_exc))
@@ -224,12 +232,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (exp_to_Cexp m (Con cn es) =  
 (CCon (fapply 0 cn m.cnmap) (exps_to_Cexps m es)))
 /\
-(exp_to_Cexp m (Var (Short vn)) = (CVar (the 0 (find_index vn m.bvars 0))))
+(exp_to_Cexp m (Var (Short vn)) = (CVar (Short (the 0 (find_index vn m.bvars 0)))))
 /\
-(exp_to_Cexp _ (Var (Long _ _)) = (CRaise CBind_exc))
+(exp_to_Cexp m (Var (Long mn vn)) = (CVar (Long mn (the 0 (find_index vn (fapply [] mn m.mvars) 0)))))
 /\
 (exp_to_Cexp m (Fun vn e) =  
-(CLetrec [(NONE,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))] (CVar 0)))
+(CLetrec [(NONE,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))] (CVar (Short 0))))
 /\
 (exp_to_Cexp m (App (Opn opn) e1 e2) =  
 (let Ce1 = (exp_to_Cexp m e1) in
@@ -239,9 +247,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   | INR p2 =>
     CLet Ce1
       (CLet (shift 1 0 Ce2)
-        (CIf (CPrim2 CEq (CVar 0) (CLit (IntLit i0)))
+        (CIf (CPrim2 CEq (CVar (Short 0)) (CLit (IntLit i0)))
              (CRaise CDiv_exc)
-             (CPrim2 p2 (CVar 1) (CVar 0))))
+             (CPrim2 p2 (CVar (Short 1)) (CVar (Short 0)))))
   )))
 /\
 (exp_to_Cexp m (App (Opb opb) e1 e2) =  
@@ -254,8 +262,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       CLet Ce1 (
         CLet (shift 1 0 Ce2) (
           (case opb of
-            Gt =>  CPrim2 CLt (CVar 0) (CVar 1)
-          | Geq => CPrim2 CLt (CPrim2 CSub (CVar 0) (CVar 1)) (CLit (IntLit i1))
+            Gt =>  CPrim2 CLt (CVar (Short 0)) (CVar (Short 1))
+          | Geq => CPrim2 CLt (CPrim2 CSub (CVar (Short 0)) (CVar (Short 1))) (CLit (IntLit i1))
           | _ => CRaise CBind_exc (* should not happen *)
           )))
   )))
@@ -340,36 +348,36 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val v_to_Cv_defn = Hol_defn "v_to_Cv" `
 
-(v_to_Cv _ (Litv l) = (CLitv l))
+(v_to_Cv _ _ (Litv l) = (CLitv l))
 /\
-(v_to_Cv m (Conv cn vs) =  
-(CConv (fapply 0 cn m) (vs_to_Cvs m vs)))
+(v_to_Cv mv m (Conv cn vs) =  
+(CConv (fapply 0 cn m) (vs_to_Cvs mv m vs)))
 /\
-(v_to_Cv m (Closure env vn e) =  
-(let Cenv = (env_to_Cenv m env) in
-  let m = (<| bvars := ( MAP FST env) ; cnmap := m |>) in
+(v_to_Cv mv m (Closure env vn e) =  
+(let Cenv = (env_to_Cenv mv m env) in
+  let m = (<| bvars := ( MAP FST env) ; mvars := mv; cnmap := m |>) in
   let Ce = ( exp_to_Cexp (cbv m vn) e) in
   CRecClos Cenv [(NONE, (1,shift 1 1 Ce))] 0))
 /\
-(v_to_Cv m (Recclosure env defs vn) =  
-(let Cenv = (env_to_Cenv m env) in
-  let m = (<| bvars := ( MAP FST env) ; cnmap := m |>) in
+(v_to_Cv mv m (Recclosure env defs vn) =  
+(let Cenv = (env_to_Cenv mv m env) in
+  let m = (<| bvars := ( MAP FST env) ; mvars := mv; cnmap := m |>) in
   let fns = ( MAP (\p . 
   (case (p ) of ( (n,_,_) ) => n )) defs) in
   let m = (( m with<| bvars := fns ++ m.bvars |>)) in
   let Cdefs = ( defs_to_Cdefs m defs) in
   CRecClos Cenv Cdefs (the 0 (find_index vn fns 0))))
 /\
-(v_to_Cv _ (Loc n) = (CLoc n))
+(v_to_Cv _ _ (Loc n) = (CLoc n))
 /\
-(vs_to_Cvs _ [] = ([]))
+(vs_to_Cvs _ _ [] = ([]))
 /\
-(vs_to_Cvs m (v::vs) = (v_to_Cv m v :: vs_to_Cvs m vs))
+(vs_to_Cvs mv m (v::vs) = (v_to_Cv mv m v :: vs_to_Cvs mv m vs))
 /\
-(env_to_Cenv _ [] = ([]))
+(env_to_Cenv _ _ [] = ([]))
 /\
-(env_to_Cenv m ((_,v)::env) =  
-((v_to_Cv m v) ::(env_to_Cenv m env)))`;
+(env_to_Cenv mv m ((_,v)::env) =  
+((v_to_Cv mv m v) ::(env_to_Cenv mv m env)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn v_to_Cv_defn;
 val _ = export_theory()

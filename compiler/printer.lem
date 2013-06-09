@@ -8,7 +8,7 @@ open Bytecode
 
 type ov =
   | OLit of lit
-  | OConv of string * list ov
+  | OConv of id conN * list ov
   | OFn
   | OLoc of num (* machine, not semantic, address *)
   | OError (* internal machine value (pointer) that should not appear *)
@@ -21,7 +21,7 @@ id_to_string (Long x y) = x^"."^y
 let rec
 v_to_ov _ (Litv l) = OLit l
 and
-v_to_ov s (Conv cn vs) = OConv (id_to_string cn) (List.map (v_to_ov s) vs)
+v_to_ov s (Conv cn vs) = OConv cn (List.map (v_to_ov s) vs)
 and
 v_to_ov _ (Closure _ _ _) = OFn
 and
@@ -32,7 +32,7 @@ v_to_ov s (Loc n) = OLoc (List.nth s n)
 let rec
 Cv_to_ov _ _ (CLitv l) = OLit l
 and
-Cv_to_ov m s (CConv cn vs) = OConv (the "?" (Lib.lookup cn m)) (List.map (Cv_to_ov m s) vs)
+Cv_to_ov m s (CConv cn vs) = OConv (the (Short "?") (Lib.lookup cn m)) (List.map (Cv_to_ov m s) vs)
 and
 Cv_to_ov _ _ (CRecClos _ _ _) = OFn
 and
@@ -46,7 +46,7 @@ bv_to_ov m (Block n vs) =
   if n = (bool_to_tag true) then OLit (Bool true) else
   if n = unit_tag then OLit Unit else
   if n = closure_tag then OFn else
-  OConv (the "?" (Lib.lookup (n-block_tag) m)) (List.map (bv_to_ov m) vs)
+  OConv (the (Short "?") (Lib.lookup (n-block_tag) m)) (List.map (bv_to_ov m) vs)
 and
 bv_to_ov _ (RefPtr n) = OLoc n
 and
@@ -64,7 +64,7 @@ and
 ov_to_string (OLit Unit) = "()"
 and
 ov_to_string (OConv cn vs) =
-  cn^" "^
+  (id_to_string cn)^" "^
   match intersperse ", " (List.map ov_to_string vs) with
   | [s] -> s
   | ls -> "("^Hol.FLAT ls^")"
@@ -78,28 +78,7 @@ ov_to_string OError = "<error>"
 
 open Compiler
 
-(* TODO: these two don't belong here *)
-
-let rec
-lookup_cc sz st rs (CCArg n) = el_check (sz + n) st
-and
-lookup_cc sz st rs (CCEnv n) =
-  Hol.OPTION_BIND (el_check sz st)
-  (fun v -> match v with Block 0 vs -> el_check n vs | _ -> None end)
-and
-lookup_cc sz st rs (CCRef n) =
-  Hol.OPTION_BIND (el_check sz st)
-  (fun v -> match v with Block 0 vs ->
-     Hol.OPTION_BIND (el_check n vs)
-     (fun v -> match v with RefPtr p -> Hol.FLOOKUP rs p | _ -> None end)
-   | _ -> None end)
-
-let rec
-lookup_ct sz st rs (CTLet n) = if sz < n then None else el_check (sz - n) st
-and
-lookup_ct sz st rs (CTEnv cc) = lookup_cc sz st rs cc
-
-let stack_index cs v = the 0 (find_index v cs.rbvars 0)
+let stack_index cs v = cs.rsz - (the 0 (Lib.lookup v cs.renv)) - 1
 
 let rec
 preprint_dec _ (Dtype _) = []

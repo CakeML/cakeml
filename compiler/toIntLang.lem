@@ -9,7 +9,9 @@ free_vars (CRaise e) = free_vars e
 and
 free_vars (CHandle e1 e2) = lunion (free_vars e1) (lshift 1 (free_vars e2))
 and
-free_vars (CVar n) = [n]
+free_vars (CVar (Short n)) = [n]
+and
+free_vars (CVar (Long _ _)) = []
 and
 free_vars (CLit _) = []
 and
@@ -52,7 +54,9 @@ mkshift f k (CRaise e) = CRaise (mkshift f k e)
 and
 mkshift f k (CHandle e1 e2) = CHandle (mkshift f k e1) (mkshift f (k+1) e2)
 and
-mkshift f k (CVar v) = CVar (if v < k then v else (f (v-k))+k)
+mkshift f k (CVar (Short v)) = CVar (Short (if v < k then v else (f (v-k))+k))
+and
+mkshift f k (CVar lid) = CVar lid
 and
 mkshift _ _ (CLit l) = CLit l
 and
@@ -85,7 +89,11 @@ let shift n = mkshift (fun v -> v+n)
 
 (* remove pattern-matching using continuations *)
 
-type exp_to_Cexp_state = <| bvars : list string ; cnmap : Pmap.map (id conN) num |>
+type exp_to_Cexp_state =
+ <| bvars : list string
+  ; mvars : Pmap.map string (list string)
+  ; cnmap : Pmap.map (id conN) num
+  |>
 let rec cbv m v = <| m with bvars = v::m.bvars |>
 
 let rec
@@ -123,19 +131,19 @@ Cpat_vars_list (p::ps) = (Cpat_vars p)+(Cpat_vars_list ps)
 
 let rec
 remove_mat_vp _ sk v CPvar =
-  CLet (CVar v) sk
+  CLet (CVar (Short v)) sk
 and
 remove_mat_vp fk sk v (CPlit l) =
-  CIf (CPrim2 CEq (CVar v) (CLit l))
-    sk (CCall (CVar fk) [])
+  CIf (CPrim2 CEq (CVar (Short v)) (CLit l))
+    sk (CCall (CVar (Short fk)) [])
 and
 remove_mat_vp fk sk v (CPcon cn ps) =
-  CIf (CTagEq (CVar v) cn)
+  CIf (CTagEq (CVar (Short v)) cn)
     (remove_mat_con fk sk v 0 ps)
-    (CCall (CVar fk) [])
+    (CCall (CVar (Short fk)) [])
 and
 remove_mat_vp fk sk v (CPref p) =
-  CLet (CPrim1 CDer (CVar v))
+  CLet (CPrim1 CDer (CVar (Short v)))
     (remove_mat_vp (fk+1) (shift 1 (Cpat_vars p) sk) 0 p)
 and
 remove_mat_con _ sk _ _ [] = sk
@@ -143,7 +151,7 @@ and
 remove_mat_con fk sk v n (p::ps) =
   let p1 = Cpat_vars p in
   let p2 = Cpat_vars_list ps in
-  CLet (CProj (CVar v) n)
+  CLet (CProj (CVar (Short v)) n)
     (remove_mat_vp (fk+1)
       (remove_mat_con (fk+1+p1) (shift 1 (p2+p1) sk) (v+1+p1) (n+1) ps)
       0 p)
@@ -169,8 +177,8 @@ opn_to_prim2 Modulo = Inr CMod
 let rec
 exp_to_Cexp m (Handle e x b) =
   CHandle (exp_to_Cexp m e)
-    (CIf (CPrim2 CEq (CVar 0) CBind_exc) (CRaise CBind_exc)
-         (CIf (CPrim2 CEq (CVar 0) CDiv_exc) (CRaise CDiv_exc)
+    (CIf (CPrim2 CEq (CVar (Short 0)) CBind_exc) (CRaise CBind_exc)
+         (CIf (CPrim2 CEq (CVar (Short 0)) CDiv_exc) (CRaise CDiv_exc)
               (exp_to_Cexp (cbv m x) b)))
 and
 exp_to_Cexp _ (Raise Bind_error) = CRaise CBind_exc
@@ -184,12 +192,12 @@ and
 exp_to_Cexp m (Con cn es) =
   CCon (fapply 0 cn m.cnmap) (exps_to_Cexps m es)
 and
-exp_to_Cexp m (Var (Short vn)) = CVar (the 0 (find_index vn m.bvars 0))
+exp_to_Cexp m (Var (Short vn)) = CVar (Short (the 0 (find_index vn m.bvars 0)))
 and
-exp_to_Cexp _ (Var (Long _ _)) = CRaise CBind_exc
+exp_to_Cexp m (Var (Long mn vn)) = CVar (Long mn (the 0 (find_index vn (fapply [] mn m.mvars) 0)))
 and
 exp_to_Cexp m (Fun vn e) =
-  CLetrec [(None,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))] (CVar 0)
+  CLetrec [(None,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))] (CVar (Short 0))
 and
 exp_to_Cexp m (App (Opn opn) e1 e2) =
   let Ce1 = exp_to_Cexp m e1 in
@@ -199,9 +207,9 @@ exp_to_Cexp m (App (Opn opn) e1 e2) =
   | Inr p2 ->
     CLet Ce1
       (CLet (shift 1 0 Ce2)
-        (CIf (CPrim2 CEq (CVar 0) (CLit (IntLit i0)))
+        (CIf (CPrim2 CEq (CVar (Short 0)) (CLit (IntLit i0)))
              (CRaise CDiv_exc)
-             (CPrim2 p2 (CVar 1) (CVar 0))))
+             (CPrim2 p2 (CVar (Short 1)) (CVar (Short 0)))))
   end
 and
 exp_to_Cexp m (App (Opb opb) e1 e2) =
@@ -214,8 +222,8 @@ exp_to_Cexp m (App (Opb opb) e1 e2) =
       CLet Ce1 (
         CLet (shift 1 0 Ce2) (
           match opb with
-          | Gt ->  CPrim2 CLt (CVar 0) (CVar 1)
-          | Geq -> CPrim2 CLt (CPrim2 CSub (CVar 0) (CVar 1)) (CLit (IntLit i1))
+          | Gt ->  CPrim2 CLt (CVar (Short 0)) (CVar (Short 1))
+          | Geq -> CPrim2 CLt (CPrim2 CSub (CVar (Short 0)) (CVar (Short 1))) (CLit (IntLit i1))
           | _ -> CRaise CBind_exc (* should not happen *)
           end))
   end
@@ -296,32 +304,32 @@ exps_to_Cexps m (e::es) =
 open SemanticPrimitives
 
 let rec
-v_to_Cv _ (Litv l) = CLitv l
+v_to_Cv _ _ (Litv l) = CLitv l
 and
-v_to_Cv m (Conv cn vs) =
-  CConv (fapply 0 cn m) (vs_to_Cvs m vs)
+v_to_Cv mv m (Conv cn vs) =
+  CConv (fapply 0 cn m) (vs_to_Cvs mv m vs)
 and
-v_to_Cv m (Closure env vn e) =
-  let Cenv = env_to_Cenv m env in
-  let m = <| bvars = List.map fst env ; cnmap = m |> in
+v_to_Cv mv m (Closure env vn e) =
+  let Cenv = env_to_Cenv mv m env in
+  let m = <| bvars = List.map fst env ; mvars = mv; cnmap = m |> in
   let Ce = exp_to_Cexp (cbv m vn) e in
   CRecClos Cenv [(None, (1,shift 1 1 Ce))] 0
 and
-v_to_Cv m (Recclosure env defs vn) =
-  let Cenv = env_to_Cenv m env in
-  let m = <| bvars = List.map fst env ; cnmap = m |> in
+v_to_Cv mv m (Recclosure env defs vn) =
+  let Cenv = env_to_Cenv mv m env in
+  let m = <| bvars = List.map fst env ; mvars = mv; cnmap = m |> in
   let fns = List.map (fun (n,_,_) -> n) defs in
   let m = <| m with bvars = fns @ m.bvars |> in
   let Cdefs = defs_to_Cdefs m defs in
   CRecClos Cenv Cdefs (the 0 (find_index vn fns 0))
 and
-v_to_Cv _ (Loc n) = CLoc n
+v_to_Cv _ _ (Loc n) = CLoc n
 and
-vs_to_Cvs _ [] = []
+vs_to_Cvs _ _ [] = []
 and
-vs_to_Cvs m (v::vs) = v_to_Cv m v :: vs_to_Cvs m vs
+vs_to_Cvs mv m (v::vs) = v_to_Cv mv m v :: vs_to_Cvs mv m vs
 and
-env_to_Cenv _ [] = []
+env_to_Cenv _ _ [] = []
 and
-env_to_Cenv m ((_,v)::env) =
-  (v_to_Cv m v)::(env_to_Cenv m env)
+env_to_Cenv mv m ((_,v)::env) =
+  (v_to_Cv mv m v)::(env_to_Cenv mv m env)

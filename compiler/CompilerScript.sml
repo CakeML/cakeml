@@ -18,7 +18,7 @@ val _ = new_theory "Compiler"
 (*open ToBytecode*)
 (*open Bytecode*)
 
-val _ = type_abbrev( "contab" , ``: (( conN id), num)fmap # (num # string) list # num``);
+val _ = type_abbrev( "contab" , ``: (( conN id), num)fmap # (num # conN id) list # num``);
 (*val cmap : contab -> Pmap.map (id conN) num*)
  val cmap_def = Define `
  (cmap (m,_,_) = m)`;
@@ -27,19 +27,16 @@ val _ = type_abbrev( "contab" , ``: (( conN id), num)fmap # (num # string) list 
 val _ = Hol_datatype `
  compiler_state =
   <| contab : contab
-   ; rbvars : string list
+   ; renv : (string # num) list
+   ; rmenv : (string, ( (string # num)list))fmap
+   ; rsz : num
    ; rnext_label : num
    |>`;
 
 
-(*val cpam : compiler_state -> list (num * string)*)
+(*val cpam : compiler_state -> list (num * id conN)*)
  val cpam_def = Define `
  (cpam s = ((case s.contab of (_,w,_) => w )))`;
-
-
-(*val etC : compiler_state -> exp_to_Cexp_state*)
-val _ = Define `
- (etC rs = (<| bvars := rs.rbvars; cnmap := ( cmap rs.contab) |>))`;
 
 
 val _ = Define `
@@ -48,22 +45,23 @@ val _ = Define `
                ( FUPDATE 
                 ( FUPDATE FEMPTY ( (Short ""), tuple_cn)) ( (Short "Bind"), bind_exc_cn)) ( (Short "Div"), div_exc_cn)
               (* TODO: don't need to store n, use length of list? *)
-              ,[(tuple_cn,"");(bind_exc_cn,"Bind");(div_exc_cn,"Div")]
+              ,[(tuple_cn,Short "");(bind_exc_cn,Short "Bind");(div_exc_cn,Short "Div")]
               ,3)
-   ; rbvars := []
+   ; renv := []
+   ; rmenv := FEMPTY
+   ; rsz := 0
    ; rnext_label := 0
    |>)`;
 
 
 val _ = Define `
- (compile_Cexp rs Ce =  
-(let rsz = ( LENGTH rs.rbvars) in
-  let (Ce,n) = ( label_closures rsz rs.rnext_label Ce) in
+ (compile_Cexp rsz menv env nl Ce =  
+(let (Ce,n) = ( label_closures ( LENGTH env) nl Ce) in
   let cs = (<| out := []; next_label := n |>) in
   let (cs,l) = ( get_label cs) in
   let cs = ( emit cs [PushPtr (Lab l); PushExc]) in
-  let cs = ( compile_code_env cs Ce) in
-  (l, compile ( GENLIST (\ i . CTLet (rsz - i)) rsz) TCNonTail (rsz +2) cs Ce)))`;
+  let cs = ( compile_code_env menv cs Ce) in
+  (l, compile menv env TCNonTail (rsz +2) cs Ce)))`;
 
 
  val number_constructors_defn = Hol_defn "number_constructors" `
@@ -71,26 +69,15 @@ val _ = Define `
 (number_constructors [] ct = ct)
 /\
 (number_constructors ((c,_)::cs) (m,w,n) =  
-(number_constructors cs ( FUPDATE  m ( (Short c), n), ((n,c) ::w), (n +1))))`;
+(number_constructors cs ( FUPDATE  m ( (Short c), n), ((n,Short c) ::w), (n +1))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn number_constructors_defn;
-
- val compile_shadows_defn = Hol_defn "compile_shadows" `
-
-(compile_shadows bvs cs i [] = cs)
-/\
-(compile_shadows bvs cs i (v::vs) =  
-(let j = ( the 0 (find_index v bvs 1)) in
-  let cs = ( emit cs ( MAP Stack [Load 0; El i; Store j])) in
-  compile_shadows bvs cs (i +1) vs))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_shadows_defn;
 
  val compile_news_defn = Hol_defn "compile_news" `
 
 (compile_news cs i [] = cs)
 /\
-(compile_news cs i (v::vs) =  
+(compile_news cs i (_::vs) =  
 (let cs = ( emit cs ( MAP Stack [Load 0; Load 0; El i; Store 1])) in
   compile_news cs (i +1) vs))`;
 
@@ -98,17 +85,23 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Define `
  (compile_fake_exp rs vs e =  
-(let m = ( etC rs) in
-  let (shadows,news) = ( PARTITION (\ v . MEM v rs.rbvars) vs) in
-  let Ce = ( exp_to_Cexp m (e (Con (Short "") ( MAP (\ v . Var (Short v)) (shadows ++news))))) in
-  let (l1,cs) = ( compile_Cexp rs Ce) in
+(let m = (<| bvars := ( MAP FST rs.renv)
+           ; mvars := ( (o_f) ( MAP FST) rs.rmenv)
+           ; cnmap := ( cmap rs.contab)
+           |>) in
+  let Ce = ( exp_to_Cexp m (e (Con (Short "") ( MAP (\ v . Var (Short v)) vs)))) in
+  let menv = ( (o_f) ( MAP SND) rs.rmenv) in
+  let env = ( MAP ((o) CTDec SND) rs.renv) in
+  let (l1,cs) = ( compile_Cexp rs.rsz menv env rs.rnext_label Ce) in
   let cs = ( emit cs [PopExc; Stack (Pops 1)]) in
-  let cs = ( compile_shadows rs.rbvars cs 0 shadows) in
-  let cs = ( compile_news cs ( LENGTH shadows) news) in
+  let cs = ( compile_news cs 0 vs) in
   let (cs,l2) = ( get_label cs) in
   let cs = ( emit cs [Stack Pop; Stack (PushInt i0); Jump (Lab l2)
                    ; Label l1; Stack (PushInt i1); Label l2; Stop]) in
-  (( rs with<| rbvars := ( REVERSE news) ++rs.rbvars
+  let n = ( LENGTH vs) in
+  (( rs with<|
+      renv := ( GENLIST (\ i . ( EL  i  vs, (rs.rsz +i))) n) ++rs.renv
+    ; rsz := rs.rsz + n
     ; rnext_label := cs.next_label |>)
   ,( rs with<| rnext_label := cs.next_label |>)
   , REVERSE cs.out)))`;

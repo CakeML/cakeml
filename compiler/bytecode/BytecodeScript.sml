@@ -23,8 +23,9 @@ val _ = Hol_datatype `
   | Shift of num => num      (* shift top n elements down k places *)
   | PushInt of int          (* push int onto stack *)
   | Cons of num => num       (* push new cons with tag m and n elements *)
-  | Load of num             (* push stack[n+1] *)
-  | Store of num            (* pop and store in stack[n+1] *)
+  | Load of num             (* push stack[n] *)
+  | Store of num            (* pop and store in stack[n] *)
+  | LoadRev of num          (* push rev(stack)[n] *)
   | El of num               (* read field n of cons block *)
   | TagEq of num            (* test tag of block *)
   | Equal                   (* test equality *)
@@ -185,6 +186,9 @@ bc_stack_op (Load k) xs ( EL  k  xs ::xs))
 /\
 (! y ys x xs. T ==>
 bc_stack_op (Store ( LENGTH ys)) (y ::ys ++x ::xs) (ys ++y ::xs))
+/\
+(! k xs. (k < LENGTH xs) ==>
+bc_stack_op (LoadRev k) xs ( EL  k  ( REVERSE xs) ::xs))
 /\
 (! k tag ys xs. (k < LENGTH ys) ==>
 bc_stack_op (El k) ((Block tag ys) ::xs) ( EL  k  ys ::xs))

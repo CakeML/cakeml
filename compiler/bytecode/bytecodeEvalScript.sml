@@ -27,6 +27,8 @@ val bc_eval_stack_def = Define`
 ∧ (bc_eval_stack (Store k) (y::xs) =
    if k < LENGTH xs ∧ 0 < LENGTH xs
    then SOME (TAKE k xs ++ y :: (DROP (k+1) xs)) else NONE)
+∧ (bc_eval_stack (LoadRev k) xs =
+   if k < LENGTH xs then SOME (EL k (REVERSE xs)::xs) else NONE)
 ∧ (bc_eval_stack (El k) ((Block tag ys)::xs) =
    if k < LENGTH ys then SOME (EL k ys::xs) else NONE)
 ∧ (bc_eval_stack (TagEq t) ((Block tag ys)::xs) =

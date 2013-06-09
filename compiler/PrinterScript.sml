@@ -22,7 +22,7 @@ val _ = new_theory "Printer"
 val _ = Hol_datatype `
  ov =
     OLit of lit
-  | OConv of string => ov list
+  | OConv of conN id => ov list
   | OFn
   | OLoc of num (* machine, not semantic, address *)
   | OError`;
@@ -39,7 +39,7 @@ val _ = Hol_datatype `
 
 (v_to_ov _ (Litv l) = (OLit l))
 /\
-(v_to_ov s (Conv cn vs) = (OConv (id_to_string cn) ( MAP (v_to_ov s) vs)))
+(v_to_ov s (Conv cn vs) = (OConv cn ( MAP (v_to_ov s) vs)))
 /\
 (v_to_ov _ (Closure _ _ _) = OFn)
 /\
@@ -53,7 +53,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (Cv_to_ov _ _ (CLitv l) = (OLit l))
 /\
-(Cv_to_ov m s (CConv cn vs) = (OConv (the "?" (Lib$lookup cn m)) ( MAP (Cv_to_ov m s) vs)))
+(Cv_to_ov m s (CConv cn vs) = (OConv (the (Short "?") (Lib$lookup cn m)) ( MAP (Cv_to_ov m s) vs)))
 /\
 (Cv_to_ov _ _ (CRecClos _ _ _) = OFn)
 /\
@@ -70,7 +70,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   if n = (bool_to_tag T) then OLit (Bool T) else
   if n = unit_tag then OLit Unit else
   if n = closure_tag then OFn else
-  OConv (the "?" (Lib$lookup (n - block_tag) m)) ( MAP (bv_to_ov m) vs)))
+  OConv (the (Short "?") (Lib$lookup (n - block_tag) m)) ( MAP (bv_to_ov m) vs)))
 /\
 (bv_to_ov _ (RefPtr n) = (OLoc n))
 /\
@@ -91,7 +91,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (ov_to_string (OLit Unit) = "()")
 /\
 (ov_to_string (OConv cn vs) = ( STRCAT 
-  cn ( STRCAT  " " 
+  (id_to_string cn) ( STRCAT  " " 
   (case intersperse ", " ( MAP ov_to_string vs) of
     [s] => s
   | ls => STRCAT  "(" ( STRCAT(FLAT ls) ")")
@@ -107,35 +107,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (*open Compiler*)
 
-(* TODO: these two don't belong here *)
-
- val lookup_cc_def = Define `
-
-(lookup_cc sz st rs (CCArg n) = ( el_check (sz + n) st))
-/\
-(lookup_cc sz st rs (CCEnv n) =  
-(
-  OPTION_BIND (el_check sz st)
-  (\ v . (case v of Block 0 vs => el_check n vs | _ => NONE ))))
-/\
-(lookup_cc sz st rs (CCRef n) =  
-(
-  OPTION_BIND (el_check sz st)
-  (\ v . (case v of Block 0 vs =>
-     OPTION_BIND (el_check n vs)
-     (\ v . (case v of RefPtr p => FLOOKUP rs p | _ => NONE ))
-   | _ => NONE ))))`;
-
-
- val lookup_ct_def = Define `
-
-(lookup_ct sz st rs (CTLet n) = (if sz < n then NONE else el_check (sz - n) st))
-/\
-(lookup_ct sz st rs (CTEnv cc) = ( lookup_cc sz st rs cc))`;
-
-
 val _ = Define `
- (stack_index cs v = ( the 0 (find_index v cs.rbvars 0)))`;
+ (stack_index cs v = (cs.rsz - (the 0 (Lib$lookup v cs.renv)) - 1))`;
 
 
  val preprint_dec_def = Define `

@@ -44,5 +44,12 @@ val _ = new_theory "CompilerPrimitives"
 /\
 (num_to_bool _ = T)`;
 
+
+ val is_Short_def = Define `
+
+(is_Short (Short _) = T)
+/\
+(is_Short _ = F)`;
+
 val _ = export_theory()
 
