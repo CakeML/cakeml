@@ -86,10 +86,10 @@ val no_vlabs_v_to_Cv = store_thm("no_vlabs_v_to_Cv",
 val _ = export_rewrites["no_vlabs_v_to_Cv"]
 
 val cmap_linv_def = Define`
-  cmap_linv m w ⇔ ∀x. x ∈ FDOM m ⇒ (ALOOKUP w (FAPPLY m x) = SOME (id_to_string x))`
+  cmap_linv m w ⇔ ∀x. x ∈ FDOM m ⇒ (ALOOKUP w (FAPPLY m x) = SOME x)`
 
 val cmap_linv_FAPPLY = store_thm("cmap_linv_FAPPLY",
-  ``cmap_linv f g ∧ x ∈ FDOM f ⇒ (the d (ALOOKUP g (FAPPLY f x)) = (id_to_string x))``,
+  ``cmap_linv f g ∧ x ∈ FDOM f ⇒ (the d (ALOOKUP g (FAPPLY f x)) = x)``,
   rw[cmap_linv_def,IN_FRANGE])
 
 val v_to_Cv_ov = store_thm("v_to_Cv_ov",
