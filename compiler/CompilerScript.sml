@@ -18,7 +18,7 @@ val _ = new_theory "Compiler"
 (*open ToBytecode*)
 (*open Bytecode*)
 
-val _ = type_abbrev( "contab" , ``: (( conN id), num)fmap # (num # string) list # num``);
+val _ = type_abbrev( "contab" , ``: (( conN id), num)fmap # (num # conN id) list # num``);
 (*val cmap : contab -> Pmap.map (id conN) num*)
  val cmap_def = Define `
  (cmap (m,_,_) = m)`;
@@ -34,7 +34,7 @@ val _ = Hol_datatype `
    |>`;
 
 
-(*val cpam : compiler_state -> list (num * string)*)
+(*val cpam : compiler_state -> list (num * id conN)*)
  val cpam_def = Define `
  (cpam s = ((case s.contab of (_,w,_) => w )))`;
 
@@ -45,7 +45,7 @@ val _ = Define `
                ( FUPDATE 
                 ( FUPDATE FEMPTY ( (Short ""), tuple_cn)) ( (Short "Bind"), bind_exc_cn)) ( (Short "Div"), div_exc_cn)
               (* TODO: don't need to store n, use length of list? *)
-              ,[(tuple_cn,"");(bind_exc_cn,"Bind");(div_exc_cn,"Div")]
+              ,[(tuple_cn,Short "");(bind_exc_cn,Short "Bind");(div_exc_cn,Short "Div")]
               ,3)
    ; renv := []
    ; rmenv := FEMPTY
@@ -69,7 +69,7 @@ val _ = Define `
 (number_constructors [] ct = ct)
 /\
 (number_constructors ((c,_)::cs) (m,w,n) =  
-(number_constructors cs ( FUPDATE  m ( (Short c), n), ((n,c) ::w), (n +1))))`;
+(number_constructors cs ( FUPDATE  m ( (Short c), n), ((n,Short c) ::w), (n +1))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn number_constructors_defn;
 

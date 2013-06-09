@@ -223,7 +223,7 @@ val e34 = ``App Opapp (App Opapp (Var (Short "APPEND")) (Con (Short "Nil") []))
 val (m,st) = mst_run_decs_exp (ds,e34)
 val [r,cl] = st
 val tm = bv_to_ov m r
-val true = tm = OConv ("Nil",[])
+val true = tm = OConv (Short"Nil",[])
 val tm = bv_to_ov m cl
 val true = tm = OFn;
 fun h t = hd(tl(snd(strip_comb(concl t))))
@@ -238,7 +238,7 @@ val e32 = h t
 val (m,st) = mst_run_decs_exp (ds,e32)
 val [res,cl] = st
 val tm = bv_to_ov m res
-val true = tm = OConv ("Cons",[OLit (IntLit (intML.fromInt 4)), OConv ("Nil",[])]);
+val true = tm = OConv (Short"Cons",[OLit (IntLit (intML.fromInt 4)), OConv (Short"Nil",[])]);
 val _ = reset_translation()
 val _ = translate sortingTheory.PART_DEF
 val _ = translate sortingTheory.PARTITION_DEF
@@ -491,22 +491,22 @@ val (m,[r]) = mst_run_exp e71
 val true = (OLit (Bool true) = bv_to_ov m r);
 val e72 = ``Raise Bind_error``
 val (m,[bv]) = mst_run_exp_exc e72
-val true = (OConv ("Bind",[])) = bv_to_ov m bv;
+val true = (OConv (Short"Bind",[])) = bv_to_ov m bv;
 val e73 = ``Handle (Raise (Int_error 42)) "x" (Var(Short "x"))``
 val [Number i] = run_exp e73
 val SOME 42 = intML.toInt i;
 val e74 = ``Mat (Lit (Bool F)) [Plit (Bool T),Lit (IntLit 0)]``
 val (m,[bv]) = mst_run_exp_exc e74
-val true = (OConv ("Bind",[])) = bv_to_ov m bv;
+val true = (OConv (Short"Bind",[])) = bv_to_ov m bv;
 val e75 = ``Handle (App (Opn Divide) (Lit (IntLit 1)) (Raise (Int_error 1))) "x" (Var(Short "x"))``
 val (m,[Number i]) = mst_run_exp e75
 val SOME 1 = intML.toInt i;
 val e76 = ``Handle (App (Opn Divide) (Lit (IntLit 1)) (Lit (IntLit 0))) "x" (Var(Short "x"))``
 val (m,[bv]) = mst_run_exp_exc e76
-val true = (OConv ("Div",[])) = bv_to_ov m bv;
+val true = (OConv (Short"Div",[])) = bv_to_ov m bv;
 val e77 = ``Let "x" (Lit (IntLit 0)) (Handle (App (Opn Modulo) (Lit (IntLit 1)) (Var (Short "x"))) "x" (Var (Short "x")))``
 val (m,[bv]) = mst_run_exp_exc e77
-val true = (OConv ("Div",[])) = bv_to_ov m bv;
+val true = (OConv (Short"Div",[])) = bv_to_ov m bv;
 val e78 = ``Let "x" (Lit (IntLit 1)) (Handle (App (Opn Modulo) (Lit (IntLit 0)) (Var (Short "x"))) "x" (Var (Short "x")))``
 val (m,[Number i]) = mst_run_exp e78
 val SOME 0 = intML.toInt i;
