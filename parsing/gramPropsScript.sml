@@ -8,12 +8,26 @@ open pred_setTheory
 open mmlvalidTheory
 
 fun dsimp thl = asm_simp_tac (srw_ss() ++ DNF_ss) thl
+fun asimp thl = asm_simp_tac (srw_ss() ++ ARITH_ss) thl
 
 fun qispl_then [] ttac = ttac
   | qispl_then (q::qs) ttac = Q.ISPEC_THEN q (qispl_then qs ttac)
 fun qxchl [] ttac = ttac
   | qxchl (q::qs) ttac = Q.X_CHOOSE_THEN q (qxchl qs ttac)
 val rveq = rpt BasicProvers.VAR_EQ_TAC
+
+fun erule k th = let
+  fun c th = let
+    val (vs, body) = strip_forall (concl th)
+  in
+    if is_imp body then
+      first_assum (c o MATCH_MP th) ORELSE
+      first_assum (c o MATCH_MP th o SYM)
+    else k th
+  end
+in
+  c th
+end
 
 val MAP_EQ_SING = grammarTheory.MAP_EQ_SING
 val APPEND_EQ_SING' = CONV_RULE (LAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
@@ -35,6 +49,7 @@ val NT_rank_def = Define`
       | INR _ => 0n
       | INL n =>
         if n = nElist1                 then 15
+        else if n = nEseq               then 15
         else if n = nE                 then 14
         else if n = nEhandle           then 13
         else if n = nElogicOR          then 12
@@ -62,6 +77,20 @@ val NT_rank_def = Define`
         else if n = nTyOp              then  2
         else if n = nTypeName          then  2
         else if n = nUQTyOp            then  1
+        else if n = nTopLevelDecs      then  4
+        else if n = nTopLevelDec       then  3
+        else if n = nStructure         then  2
+        else if n = nDecl              then  2
+        else if n = nTypeDec           then  1
+        else if n = nSpecLineList      then  3
+        else if n = nSpecLine          then  2
+        else if n = nPbase             then  3
+        else if n = nPattern           then  4
+        else if n = nPatternList1      then  5
+        else if n = nPEs               then  2
+        else if n = nPE                then  1
+        else if n = nLetDecs           then  2
+        else if n = nLetDec            then  1
         else 0
 `
 
@@ -124,6 +153,12 @@ end
 val nullable_V = prove_nullable ``nV``
 val nullable_Vlist1 = prove_nullable ``nVlist1``
 val nullable_UQTyOp = prove_nullable ``nUQTyOp``
+val nullable_DType = prove_nullable ``nDType``
+val nullable_SpecLine = prove_nullable ``nSpecLine``
+val nullable_ConstructorName = prove_nullable ``nConstructorName``
+val nullable_Ptuple = prove_nullable ``nPtuple``
+val nullable_Pbase = prove_nullable ``nPbase``
+val nullable_LetDec = prove_nullable ``nLetDec``
 
 val len_assum =
     first_x_assum
@@ -158,6 +193,31 @@ val fringe_length_ptree = store_thm(
   `MAP TOK i = ptree_fringe pt` by simp[Abbr`pt`] >> simp[] >>
   match_mp_tac grammarTheory.valid_ptree_derive >> simp[Abbr`pt`]);
 
+val fringe_length_not_nullable = store_thm(
+  "fringe_length_not_nullable",
+  ``∀G s. ¬nullable G [s] ⇒
+          ∀pt. ptree_head pt = s ⇒ valid_ptree G pt ⇒
+               0 < LENGTH (ptree_fringe pt)``,
+  spose_not_then strip_assume_tac >>
+  `LENGTH (ptree_fringe pt) = 0` by decide_tac >>
+  fs[listTheory.LENGTH_NIL] >>
+  erule mp_tac grammarTheory.valid_ptree_derive >>
+  fs[NTpropertiesTheory.nullable_def]);
+
+val DType_fringe_length = MATCH_MP fringe_length_not_nullable nullable_DType
+val V_fringe_length = MATCH_MP fringe_length_not_nullable nullable_V
+val Vlist1_fringe_length = MATCH_MP fringe_length_not_nullable nullable_Vlist1
+val nullable_TopLevelDec = prove_nullable ``nTopLevelDec``
+val TopLevelDec_fringe_length =
+    MATCH_MP fringe_length_not_nullable nullable_TopLevelDec
+val nullable_TopLevelDecs = prove_nullable ``nTopLevelDecs``
+val SpecLine_fringe_length =
+    MATCH_MP fringe_length_not_nullable nullable_SpecLine
+val ConstructorName_fringe_length = MATCH_MP fringe_length_not_nullable nullable_ConstructorName
+val Ptuple_fringe_length = MATCH_MP fringe_length_not_nullable nullable_Ptuple
+val Pbase_fringe_length = MATCH_MP fringe_length_not_nullable nullable_Pbase
+val LetDec_fringe_length = MATCH_MP fringe_length_not_nullable nullable_LetDec
+
 val derives_singleTOK = store_thm(
   "derives_singleTOK",
   ``derives G [TOK t] l ⇔ (l = [TOK t])``,
@@ -186,7 +246,6 @@ fun mkelim_th t = prove(
 
 val elimV_thm = mkelim_th ``nV``
 val elimUQTyop_thm = mkelim_th ``nUQTyOp``
-
 fun elim_tac th q = let
   fun c1 eqth = let
     val th' = MATCH_MP th eqth handle HOL_ERR _ => MATCH_MP th (SYM eqth)
@@ -199,6 +258,8 @@ in
                                (qxchl [q] assume_tac)) >>
   fs[MAP_EQ_SING] >> rveq
 end
+
+
 
 val elimV_tac = elim_tac elimV_thm
 
@@ -236,19 +297,305 @@ val head_TOK = prove(
   ``∀pt t. ptree_head pt = TOK t ⇒ mmlvalid pt ⇒ pt = Lf (TOK t)``,
   Cases >> simp[]);
 
-fun erule k th = let
-  fun c th = let
-    val (vs, body) = strip_forall (concl th)
-  in
-    if is_imp body then
-      first_assum (c o MATCH_MP th)
-    else k th
-  end
+val elimTyOp_thm = prove(
+  ``∀pt. ptree_head pt = NN nTyOp ⇒ mmlvalid pt ⇒
+         LENGTH (ptree_fringe pt) = 1``,
+  gen_tac >> Cases_on `pt` >> simp[mmlvalid_def] >> rw[] >>
+  fs(MAP_EQ_SING::mmlG_FDOM::mmlG_applied) >> rveq >> fs[]
+  >- (fs[mmlvalid_SYM] >> elim_tac elimUQTyop_thm `t`) >>
+  fs[mmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[]);
+
+val balance_def = Define`
+  balance stk l r [] = SOME stk ∧
+  balance stk l r (c::cs) =
+    if c = l then balance (l::stk) l r cs
+    else if c = r then
+      if stk ≠ [] ∧ HD stk = l then balance (TL stk) l r cs
+      else NONE
+    else balance stk l r cs
+`
+val _ = export_rewrites ["balance_def"]
+
+val balance_APPEND = store_thm(
+  "balance_APPEND",
+  ``∀stk.
+      balance stk l r (s1 ++ s2) =
+      case balance stk l r s1 of
+          NONE => NONE
+        | SOME stk' => balance stk' l r s2``,
+  Induct_on `s1` >> rw[])
+val _ = overload_on("balanced", ``λstk l r s. balance stk l r s = SOME []``)
+
+val balanced_APPEND = store_thm(
+  "balanced_APPEND",
+  ``∀stk. balanced stk l r s1 ∧ balanced [] l r s2 ⇒
+          balanced stk l r (s1 ++ s2)``,
+  simp[balance_APPEND]);
+
+val balance_APPEND_stack = store_thm(
+  "balance_APPEND_stack",
+  ``∀s stk stk' stk2.
+       (balance stk l r s = SOME stk') ⇒
+       (balance (stk ++ stk2) l r s = SOME (stk' ++ stk2))``,
+  Induct_on `s` >> simp[] >> qx_gen_tac `h` >> Cases_on `h = l` >> simp[]
+  >- metis_tac [listTheory.APPEND] >>
+  Cases_on `h = r` >> simp[] >> qx_gen_tac `stk` >>
+  `stk = [] ∨ ∃h2 t. stk = h2 :: t` by (Cases_on `stk` >> simp[]) >> simp[] >>
+  Cases_on `h2 = l` >> simp[]);
+
+val balanced_APPEND_safe1 = store_thm(
+  "balanced_APPEND_safe1",
+  ``∀stk. balanced [] l r s1 ⇒
+          (balanced stk l r (s1 ++ s2) ⇔ balanced stk l r s2)``,
+  simp[balance_APPEND] >> gen_tac >>
+  qispl_then [`s1`, `[]`, `[]`] mp_tac balance_APPEND_stack >> simp[]);
+
+
+val protected_by_def = Define`
+  protected_by t gds s =
+    ∀i. i < LENGTH s ∧ EL i s = t ⇒
+        ∃gli gri. gli < i ∧ i < gri ∧ gri < LENGTH s ∧
+                  (EL gli s,EL gri s) ∈ gds ∧
+                  balanced [] (EL gli s) (EL gri s)
+                           (TAKE (gri - gli - 1) (DROP (gli + 1) s))
+`
+
+val protected_by_APPEND = store_thm(
+  "protected_by_APPEND",
+  ``protected_by t gds s1 ∧ protected_by t gds s2 ⇒
+    protected_by t gds (s1 ++ s2)``,
+  simp[protected_by_def] >> rw[] >>
+  Cases_on `i < LENGTH s1`
+  >- (first_x_assum (fn th => qspec_then `i` mp_tac th >>
+                              CHANGED_TAC (ASM_REWRITE_TAC [])) >>
+      first_x_assum (qspec_then `i` (K ALL_TAC)) >>
+      simp[rich_listTheory.EL_APPEND1] >>
+      disch_then (qxchl [`gli`, `gri`] strip_assume_tac) >>
+      map_every qexists_tac [`gli`, `gri`] >>
+      asimp[rich_listTheory.EL_APPEND1, rich_listTheory.DROP_APPEND1,
+            rich_listTheory.TAKE_APPEND1]) >>
+  fs[DECIDE ``¬(x:num < y) ⇔ y ≤ x``] >>
+  first_x_assum
+    (fn th => qspec_then `i - LENGTH s1` mp_tac th >>
+              CHANGED_TAC (asimp[rich_listTheory.EL_APPEND2])) >>
+  first_x_assum (qspec_then `i` (K ALL_TAC)) >>
+  disch_then (qxchl [`gli`, `gri`] strip_assume_tac) >>
+  map_every qexists_tac [`gli + LENGTH s1`, `gri + LENGTH s1`] >>
+  asimp[rich_listTheory.EL_APPEND2, rich_listTheory.TAKE_APPEND2,
+        rich_listTheory.DROP_APPEND2]);
+
+val protected_by_SING = store_thm(
+  "protected_by_SING",
+  ``protected_by t1 gds [t2] ⇔ t1 ≠ t2``,
+  simp[protected_by_def, DECIDE ``i < 1n ⇔ i = 0``] >> metis_tac[]);
+val _ = export_rewrites ["protected_by_SING"]
+
+val protected_by_NIL = store_thm(
+  "protected_by_NIL",
+  ``protected_by t gds [] = T``,
+  simp[protected_by_def]);
+val _ = export_rewrites ["protected_by_NIL"]
+
+val protects_def = Define`
+  protects N toks guards =
+    ∀pt. mmlvalid pt ∧ ptree_head pt = NN N ⇒
+         (∀t. t ∈ toks ⇒ protected_by t guards (ptree_fringe pt)) ∧
+         (∀gl gr. (gl,gr) ∈ guards ⇒ balanced [] gl gr (ptree_fringe pt))
+`
+
+fun loseC c =
+    first_x_assum
+      (K ALL_TAC o assert (can (find_term (same_const c)) o concl))
+
+val lose_rank = loseC ``NT_rank``
+
+val mmlvalid_Lf = store_thm(
+  "mmlvalid_Lf",
+  ``mmlvalid (Lf s)``,
+  simp[mmlvalid_def])
+val _ = export_rewrites ["mmlvalid_Lf"]
+
+val parsing_ind =
+    relationTheory.WF_INDUCTION_THM
+      |> Q.ISPEC `inv_image
+                    (measure (LENGTH:(token,MMLnonT)symbol list -> num) LEX
+                     measure (λn. case n of TOK _ => 0 | NT n => NT_rank n))
+                    (λpt. (ptree_fringe pt, ptree_head pt))`
+      |> SIMP_RULE (srw_ss()) [pairTheory.WF_LEX, relationTheory.WF_inv_image]
+      |> SIMP_RULE (srw_ss()) [relationTheory.inv_image_def,
+                               pairTheory.LEX_DEF]
+
+val ptree_head_t = ``ptree_head``
+val NT_rank_t = ``NT_rank``
+fun single_rank_tac (asl,g) = let
+  fun filter_this t =
+    is_eq t andalso same_const ptree_head_t (rator (lhs t))
 in
-  c th
-end
+  case filter filter_this asl of
+      [t] =>
+      let
+        val pt_t = rand (lhs t)
+      in
+        first_x_assum (mp_tac o SPEC pt_t o
+                       assert (can (find_term (same_const NT_rank_t)) o
+                               concl)) >>
+        simp[NT_rank_def]
+      end
+    | _ => NO_TAC
+end (asl,g)
 
 (*
+val allpar_balanced = store_thm(
+  "allpar_balanced",
+  ``∀pt N. ptree_head pt = NN N ⇒ mmlvalid pt ⇒
+           balanced [] (TK LparT) (TK RparT) (ptree_fringe pt)``,
+  ho_match_mp_tac parsing_ind >> qx_gen_tac `pt` >> strip_tac >>
+  qx_gen_tac `N` >> fs[mmlvalid_def] >>
+  rpt strip_tac >>
+  `(∃s. pt = Lf s) ∨ (∃N' subs. pt = Nd N' subs)` by (Cases_on `pt` >> simp[])>>
+  fs[] >> rveq >>
+  Cases_on `N` >> fs(mmlG_FDOM::MAP_EQ_CONS::mmlG_applied) >> rveq >>
+  fs[DISJ_IMP_THM, FORALL_AND_THM] >>
+  TRY single_rank_tac >>
+  TRY (fs[mmlvalid_SYM] >>
+       rpt (erule SUBST_ALL_TAC head_TOK >> fs[]) >>
+       asimp[balanced_APPEND, balanced_APPEND_safe1] >> NO_TAC)
+  >- (lose_rank >> erule assume_tac V_fringe_length >>
+      erule assume_tac Vlist1_fringe_length >> asimp[balanced_APPEND])
+  >- (erule assume_tac TopLevelDec_fringe_length >>
+      match_mp_tac balanced_APPEND >> conj_tac
+      >- (asm_match `ptree_head tlpt = NN nTopLevelDec` >>
+          asm_match `ptree_head tlspt = NN nTopLevelDecs` >>
+          Cases_on `ptree_fringe tlspt`
+          >- first_x_assum (fn th => qspec_then `tlpt` mp_tac th >>
+                                     simp[NT_rank_def]) >>
+          asimp[]) >>
+      asimp[])
+  >- (fs[mmlvalid_SYM] >> rpt (erule SUBST_ALL_TAC head_TOK >> fs[]) >>
+      lose_rank >> rw[] >> rpt (match_mp_tac balanced_APPEND >> conj_tac) >>
+      asimp[])
+  >- (erule assume_tac SpecLine_fringe_length >>
+      match_mp_tac balanced_APPEND >> conj_tac
+      >- (asm_match `ptree_head sllpt = NN nSpecLineList` >>
+          Cases_on `ptree_fringe sllpt`
+          >- (asm_match `ptree_head slpt = NN nSpecLine` >>
+              first_x_assum (fn th => qspec_then `slpt` mp_tac th >>
+                                      simp[NT_rank_def]>> NO_TAC)) >>
+          asimp[]) >>
+      asimp[])
+  >- (erule assume_tac ConstructorName_fringe_length >>
+      erule assume_tac Ptuple_fringe_length >>
+      asimp[balanced_APPEND])
+  >- (erule assume_tac ConstructorName_fringe_length >>
+      erule assume_tac Pbase_fringe_length >> asimp[balanced_APPEND])
+  >- (erule assume_tac LetDec_fringe_length >>
+      match_mp_tac balanced_APPEND >> conj_tac
+      >- (asm_match `ptree_head lds = NN nLetDecs` >>
+          Cases_on `ptree_fringe lds`
+          >- (asm_match `ptree_head ld = NN nLetDec` >>
+              first_x_assum (fn th => qspec_then `ld` mp_tac th >>
+                                      simp[NT_rank_def])) >>
+          asimp[]) >>
+      asimp[])
+  >-
+)))
+
+
+
+
+res_tac) >>
+  >- (fs[mmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[]) >>
+  >- (fs[mmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[]) >>
+
+
+
+
+
+
+fun mkpar_balanced_t t =
+  ``∀pt. ptree_head pt = NN ^t ⇒ mmlvalid pt ⇒
+         balanced [] (TK LparT) (TK RparT) (ptree_fringe pt)``
+
+
+val Type_protects_comma = store_thm(
+  "Type_protects_comma",
+  ``(∀n. n ∈ {nType; nDType; nTyOp} ⇒
+         protects n {TOK CommaT} {(TOK LparT, TOK RparT)}) ∧
+    (∀pt. mmlvalid pt ∧ ptree_head pt = NN nTypeList ⇒
+          balanced [] (TK LparT) (TK RparT) (ptree_fringe pt))``,
+  simp[protects_def, GSYM RIGHT_FORALL_IMP_THM] >>
+  CONV_TAC (LAND_CONV SWAP_VARS_CONV) >>
+  simp[GSYM FORALL_AND_THM] >>
+  Q.ISPEC_THEN
+    `inv_image
+        (measure (LENGTH:(token,MMLnonT)symbol list -> num) LEX
+         measure (λn. case n of TOK _ => 0 | NT n => NT_rank n))
+        (λpt. (ptree_fringe pt, ptree_head pt))`
+    (HO_MATCH_MP_TAC o
+     SIMP_RULE (srw_ss()) [pairTheory.WF_LEX, relationTheory.WF_inv_image])
+    relationTheory.WF_INDUCTION_THM >>
+  simp[relationTheory.inv_image_def, pairTheory.LEX_DEF] >>
+  qx_gen_tac `pt` >> strip_tac >>
+  Cases_on `pt`
+  >- simp[DECIDE ``i < 1n ⇔ i = 0``] >>
+  conj_tac >| [ntac 3 strip_tac, ALL_TAC] >>
+  rveq >> fs[mmlvalid_def] >> rveq >>
+  fs(MAP_EQ_CONS::mmlG_FDOM::mmlG_applied) >> rveq >> fs[]
+  >- simp[NT_rank_def]
+  >- (fs[DISJ_IMP_THM, FORALL_AND_THM, mmlvalid_SYM] >>
+      erule SUBST_ALL_TAC head_TOK >> fs[] >> rw[] >> lose_rank
+      >- simp[protected_by_APPEND] >>
+      simp[balanced_APPEND])
+  >- (fs[mmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[])
+  >- simp[NT_rank_def]
+  >- (fs[DISJ_IMP_THM, FORALL_AND_THM, AND_IMP_INTRO, IMP_CONJ_THM] >>
+      rpt lose_rank >> rpt (loseC ``nType``) >>
+      erule assume_tac DType_fringe_length >>
+      fs[mmlvalid_SYM] >> erule assume_tac elimTyOp_thm >> fs[] >>
+      asimp[protected_by_APPEND, balanced_APPEND])
+  >- (fs[DISJ_IMP_THM, FORALL_AND_THM, AND_IMP_INTRO, IMP_CONJ_THM] >>
+      rpt lose_rank >> rpt (loseC ``nType``) >> rpt (loseC ``nDType``) >>
+      fs[mmlvalid_SYM] >>
+      rpt (erule SUBST_ALL_TAC head_TOK >> fs[]) >>
+      asm_match `ptree_head tlpt = NN nTypeList` >>
+      `balanced [] (TK LparT) (TK RparT) (ptree_fringe tlpt)` by asimp[] >>
+      conj_tac
+      >- (REWRITE_TAC [listTheory.APPEND |> GSYM |> CONJUNCT2] >>
+          match_mp_tac protected_by_APPEND >> asimp[] >>
+          simp[protected_by_def] >> qx_gen_tac `i` >> rpt strip_tac >>
+          map_every qexists_tac [`0`, `SUC (LENGTH (ptree_fringe tlpt))`] >>
+          asimp[rich_listTheory.TAKE_APPEND2, rich_listTheory.EL_APPEND2] >>
+          `i ≠ 0` by (strip_tac >> fs[]) >> asimp[] >>
+          spose_not_then strip_assume_tac >>
+          `i = SUC (LENGTH (ptree_fringe tlpt))` by decide_tac >> rveq >>
+          fs[rich_listTheory.EL_APPEND2]) >>
+      match_mp_tac balanced_APPEND >> asimp[] >>
+      simp[balanced_APPEND_safe1])
+  >- (fs[DISJ_IMP_THM, FORALL_AND_THM, AND_IMP_INTRO, IMP_CONJ_THM] >>
+      rpt lose_rank >> rpt (loseC ``nTyOp``) >> rpt (loseC ``nDType``) >>
+      fs[mmlvalid_SYM] >>
+      rpt (erule SUBST_ALL_TAC head_TOK >> fs[]) >>
+      asm_match `ptree_head typt = NN nType` >>
+      `protected_by (TK CommaT) {(TK LparT, TK RparT)} (ptree_fringe typt)`
+        by asimp[] >> REWRITE_TAC [listTheory.APPEND |> GSYM |> CONJUNCT2] >>
+      conj_tac
+      >- (match_mp_tac protected_by_APPEND >> simp[] >>
+          `TK LparT :: ptree_fringe typt = [TK LparT] ++ ptree_fringe typt`
+            by simp[] >>
+          pop_assum SUBST_ALL_TAC >>
+          match_mp_tac protected_by_APPEND >> simp[]) >>
+      asimp[balanced_APPEND_safe1])
+  >- (fs[mmlvalid_SYM] >> elim_tac elimUQTyop_thm `t` >>
+      fs(mmlvalid_def::mmlG_FDOM::mmlG_applied))
+  >- (fs[mmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[]) >>
+  strip_tac >> rveq >> fs[] >>
+  fs (MAP_EQ_CONS::mmlG_applied) >> rveq >> fs[]
+  >- simp[NT_rank_def] >>
+  fs[DISJ_IMP_THM, FORALL_AND_THM, AND_IMP_INTRO, IMP_CONJ_THM] >>
+  rpt lose_rank >> rpt (loseC ``nTyOp``) >> rpt (loseC ``nDType``) >>
+  fs[mmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> fs[] >>
+  asimp[balanced_APPEND])
+
 val unambiguous = store_thm(
   "unambiguous",
   ``∀i N p1 p2.
@@ -319,6 +666,13 @@ val unambiguous = store_thm(
       rpt (erule SUBST_ALL_TAC head_TOK >> fs[MAP_EQ_SING]) >>
       pop_assum (assume_tac o SYM) >> fs[] >>
       elim_tac elimUQTyop_thm `t1` >> fs[MAP_EQ_CONS])
+  >- ((* nTypeList *)
+      Cases_on `p1` >> fs[MAP_EQ_SING] >> rveq >>
+      Cases_on `p2` >> fs[MAP_EQ_SING] >> rveq >>
+      fs[mmlvalid_thm, mml_okrule_eval_th, MAP_EQ_CONS] >> rveq >>
+      fs[]
+      >- (rank_assum >> simp[NT_rank_def])
+      >- (erule SUBST_ALL_TAC head_TOK)
 
 
 *)
