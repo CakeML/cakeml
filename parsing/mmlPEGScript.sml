@@ -613,6 +613,18 @@ val subexprs_pnt = prove(
   ``subexprs (pnt n) = {pnt n}``,
   simp[pegTheory.subexprs_def, pnt_def]);
 
+val PEG_exprs = save_thm(
+  "PEG_exprs",
+  ``Gexprs mmlPEG``
+    |> SIMP_CONV (srw_ss())
+         [pegTheory.Gexprs_def, pegTheory.subexprs_def,
+          subexprs_pnt, peg_start, peg_range, choicel_def, tokeq_def, try_def,
+          seql_def, pegf_def, peg_Eapp_def, peg_V_def, peg_nonfix_def,
+          peg_Type_def, peg_DType_def, peg_longV_def, peg_linfix_def,
+          peg_TypeName_def, peg_TypeDec_def, peg_UQConstructorName_def,
+          pred_setTheory.INSERT_UNION_EQ
+         ])
+
 val PEG_wellformed = store_thm(
   "PEG_wellformed",
   ``wfG mmlPEG``,
