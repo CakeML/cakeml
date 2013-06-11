@@ -84,6 +84,7 @@ val _ = Hol_datatype `
 val _ = Hol_datatype `
  Ce =
     Ctype_error
+  | Ctimeout_error
   | Craise of Cv`;
 
 
