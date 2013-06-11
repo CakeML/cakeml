@@ -96,14 +96,14 @@ val (evaluate_match_with_rules,evaluate_match_with_ind,evaluate_match_with_cases
      strip_comb |> fst |> same_const ``evaluate_match``) *)
    `(evaluate_match_with P (cenv:envC) (cs:count_store) env v [] (cs,Rerr (Rraise Bind_error))) ∧
     (ALL_DISTINCT (pat_bindings p []) ∧
-     (pmatch cenv s p v env = Match env') ∧ P cenv (cnt,s) env' (p,e) bv ⇒
-     evaluate_match_with P cenv (cnt,s) env v ((p,e)::pes) bv) ∧
+     (pmatch cenv (SND cs) p v env = Match env') ∧ P cenv cs env' (p,e) bv ⇒
+     evaluate_match_with P cenv cs env v ((p,e)::pes) bv) ∧
     (ALL_DISTINCT (pat_bindings p []) ∧
-     (pmatch cenv s p v env = No_match) ∧
-     evaluate_match_with P cenv (cnt,s) env v pes bv ⇒
-     evaluate_match_with P cenv (cnt,s) env v ((p,e)::pes) bv) ∧
-    ((pmatch cenv s p v env = Match_type_error) ⇒
-     evaluate_match_with P cenv (cnt,s) env v ((p,e)::pes) ((cnt,s),Rerr Rtype_error)) ∧
+     (pmatch cenv (SND cs) p v env = No_match) ∧
+     evaluate_match_with P cenv cs env v pes bv ⇒
+     evaluate_match_with P cenv cs env v ((p,e)::pes) bv) ∧
+    ((pmatch cenv (SND cs) p v env = Match_type_error) ⇒
+     evaluate_match_with P cenv cs env v ((p,e)::pes) (cs,Rerr Rtype_error)) ∧
     (¬ALL_DISTINCT (pat_bindings p []) ⇒
      evaluate_match_with P cenv cs env v ((p,e)::pes) (cs,Rerr Rtype_error))`
 
@@ -114,9 +114,10 @@ simp_tac std_ss [FUN_EQ_THM,FORALL_PROD] >>
 ntac 5 gen_tac >>
 Induct >-
   rw[Once evaluate_cases,Once evaluate_match_with_cases] >>
+Cases >>
 rw[Once evaluate_cases] >>
 rw[Once evaluate_match_with_cases,SimpRHS] >>
-PROVE_TAC[])
+fs[])
 
 val evaluate_nicematch_strongind = save_thm(
 "evaluate_nicematch_strongind",
