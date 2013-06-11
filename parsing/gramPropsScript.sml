@@ -100,18 +100,37 @@ val MAP_EQ_CONS = store_thm(
   Cases_on `l` >> simp[])
 
 
-val mmlG_applied = let
-  val cs = TypeBase.constructors_of ``:MMLnonT``
-  fun mkrule c = let
-    val t = ``mmlG.rules ' (mkNT ^c)``
-  in
-    SIMP_CONV (srw_ss()) [mmlG_def, finite_mapTheory.FAPPLY_FUPDATE_THM] t
-  end
+val rules_t = ``mmlG.rules``
+fun ty2frag ty = let
+  open simpLib
+  val {convs,rewrs} = TypeBase.simpls_of ty
 in
-  map mkrule cs
+  merge_ss (rewrites rewrs :: map conv_ss convs)
+end
+val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β)grammar``)
+                      [mmlG_def, combinTheory.K_DEF,
+                       finite_mapTheory.FUPDATE_LIST_THM] rules_t
+val cmlG_applied = let
+  val app0 = finite_mapSyntax.fapply_t
+  val theta =
+      Type.match_type (type_of app0 |> dom_rng |> #1) (type_of rules_t)
+  val app = inst theta app0
+  val app_rules = AP_TERM app rules
+  val sset = bool_ss ++ ty2frag ``:'a + 'b`` ++ ty2frag ``:MMLnonT``
+  fun mkrule t =
+      (print ("cmlG_applied: " ^ term_to_string t ^"\n");
+       AP_THM app_rules ``mkNT ^t``
+              |> SIMP_RULE sset
+                  [finite_mapTheory.FAPPLY_FUPDATE_THM,
+                   pred_setTheory.INSERT_UNION_EQ,
+                   pred_setTheory.UNION_EMPTY])
+  val ths = TypeBase.constructors_of ``:MMLnonT`` |> map mkrule
+in
+    save_thm("cmlG_applied", LIST_CONJ ths)
 end
 
-val mmlG_FDOM = SIMP_CONV (srw_ss()) [mmlG_def] ``FDOM mmlG.rules``
+val cmlG_FDOM = save_thm("cmlG_FDOM",
+  SIMP_CONV (srw_ss()) [mmlG_def] ``FDOM mmlG.rules``)
 
 val paireq = prove(
   ``(x,y) = z ⇔ x = FST z ∧ y = SND z``, Cases_on `z` >> simp[])
@@ -143,7 +162,7 @@ val nullconv =
        ([GSPEC_INTER,RIGHT_INTER_OVER_UNION,combinTheory.o_ABS_R,
          combinTheory.S_ABS_R, combinTheory.S_ABS_L, GSPEC_applied,
          pairTheory.o_UNCURRY_R, pairTheory.S_UNCURRY_R, INSERT_INTER,
-         nullableML_def, c1, condc, mmlG_FDOM] @ mmlG_applied);
+         nullableML_def, c1, condc, cmlG_FDOM, cmlG_applied]);
 
 fun prove_nullable t = let
   val th = nullconv ``nullableNT mmlG (mkNT ^t)``
@@ -229,15 +248,15 @@ val fringe_lengths_V = store_thm(
   "fringe_lengths_V",
   ``fringe_lengths mmlG [NT (mkNT nV)] = {1}``,
   simp[fringe_lengths_def] >>
-  simp[Once relationTheory.RTC_CASES1, MAP_EQ_SING, mmlG_FDOM] >>
-  dsimp(MAP_EQ_SING::mmlG_applied) >>
+  simp[Once relationTheory.RTC_CASES1, MAP_EQ_SING, cmlG_FDOM] >>
+  dsimp[MAP_EQ_SING,cmlG_applied] >>
   simp[EXTENSION, EQ_IMP_THM] >> qx_gen_tac `t` >> rpt strip_tac >>
   fs[] >> qexists_tac `[AlphaT "foo"]` >>
   simp[stringTheory.isUpper_def]);
 
 val mkelim_tac =
   gen_tac >> Cases_on `pt` >> simp[mmlvalid_def] >> rw[] >>
-  fs(mmlG_FDOM::mmlG_applied) >> Cases_on `l` >> fs[] >>
+  fs[cmlG_FDOM,cmlG_applied] >> Cases_on `l` >> fs[] >>
   Cases_on `h` >> fs[]
 fun mkelim_th t = prove(
   ``∀pt. ptree_head pt = NN ^t ⇒ mmlvalid pt ⇒
@@ -301,7 +320,7 @@ val elimTyOp_thm = prove(
   ``∀pt. ptree_head pt = NN nTyOp ⇒ mmlvalid pt ⇒
          LENGTH (ptree_fringe pt) = 1``,
   gen_tac >> Cases_on `pt` >> simp[mmlvalid_def] >> rw[] >>
-  fs(MAP_EQ_SING::mmlG_FDOM::mmlG_applied) >> rveq >> fs[]
+  fs[MAP_EQ_SING,cmlG_FDOM,cmlG_applied] >> rveq >> fs[]
   >- (fs[mmlvalid_SYM] >> elim_tac elimUQTyop_thm `t`) >>
   fs[mmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[]);
 
@@ -454,7 +473,7 @@ val allpar_balanced = store_thm(
   rpt strip_tac >>
   `(∃s. pt = Lf s) ∨ (∃N' subs. pt = Nd N' subs)` by (Cases_on `pt` >> simp[])>>
   fs[] >> rveq >>
-  Cases_on `N` >> fs(mmlG_FDOM::MAP_EQ_CONS::mmlG_applied) >> rveq >>
+  Cases_on `N` >> fs[cmlG_FDOM,MAP_EQ_CONS,cmlG_applied] >> rveq >>
   fs[DISJ_IMP_THM, FORALL_AND_THM] >>
   TRY single_rank_tac >>
   TRY (fs[mmlvalid_SYM] >>
@@ -540,7 +559,7 @@ val Type_protects_comma = store_thm(
   >- simp[DECIDE ``i < 1n ⇔ i = 0``] >>
   conj_tac >| [ntac 3 strip_tac, ALL_TAC] >>
   rveq >> fs[mmlvalid_def] >> rveq >>
-  fs(MAP_EQ_CONS::mmlG_FDOM::mmlG_applied) >> rveq >> fs[]
+  fs(MAP_EQ_CONS::cmlG_FDOM::cmlG_applied) >> rveq >> fs[]
   >- simp[NT_rank_def]
   >- (fs[DISJ_IMP_THM, FORALL_AND_THM, mmlvalid_SYM] >>
       erule SUBST_ALL_TAC head_TOK >> fs[] >> rw[] >> lose_rank
@@ -586,10 +605,10 @@ val Type_protects_comma = store_thm(
           match_mp_tac protected_by_APPEND >> simp[]) >>
       asimp[balanced_APPEND_safe1])
   >- (fs[mmlvalid_SYM] >> elim_tac elimUQTyop_thm `t` >>
-      fs(mmlvalid_def::mmlG_FDOM::mmlG_applied))
+      fs(mmlvalid_def::cmlG_FDOM::cmlG_applied))
   >- (fs[mmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[]) >>
   strip_tac >> rveq >> fs[] >>
-  fs (MAP_EQ_CONS::mmlG_applied) >> rveq >> fs[]
+  fs (MAP_EQ_CONS::cmlG_applied) >> rveq >> fs[]
   >- simp[NT_rank_def] >>
   fs[DISJ_IMP_THM, FORALL_AND_THM, AND_IMP_INTRO, IMP_CONJ_THM] >>
   rpt lose_rank >> rpt (loseC ``nTyOp``) >> rpt (loseC ``nDType``) >>
@@ -633,7 +652,7 @@ val unambiguous = store_thm(
   >- ((* nTypeName *)
       Cases_on `p1` >> fs[MAP_EQ_SING] >> rw[] >>
       Cases_on `p2` >>
-      fs(MAP_EQ_SING::mmlvalid_def::mmlG_FDOM::mmlG_applied) >>
+      fs[MAP_EQ_SING,mmlvalid_def,cmlG_FDOM,cmlG_applied] >>
       rveq >> fs[mmlvalid_SYM, MAP_EQ_CONS] >> rveq >>
       fs[DISJ_IMP_THM, FORALL_AND_THM]
       >- (elim_tac elimUQTyop_thm `t1` >> elim_tac elimUQTyop_thm `t2`)
