@@ -1509,4 +1509,32 @@ val evaluate_enveq = store_thm("evaluate_enveq",
   rw[] >> srw_tac[DNF_ss][Once evaluate_cases])
 *)
 
+val evaluate_raise = Q.store_thm (
+"evaluate_raise",
+`!ck menv cenv s env err bv.
+  (evaluate ck menv cenv s env (Raise err) bv = (bv = (s, Rerr (Rraise err))))`,
+rw [Once evaluate_cases]);
+
+val evaluate_lit = Q.store_thm(
+"evaluate_lit",
+`!ck menv cenv s env l r.
+  (evaluate ck menv cenv s env (Lit l) r = (r = (s,Rval (Litv l))))`,
+rw [Once evaluate_cases]);
+
+val evaluate_var = store_thm(
+"evaluate_var",
+``∀ck menv cenv s env n r. evaluate ck menv cenv s env (Var n) r =
+  (∃v topt. (lookup_var_id n menv env = SOME v) ∧ (r = (s, Rval v))) ∨
+  ((lookup_var_id n menv env = NONE) ∧ (r = (s, Rerr Rtype_error)))``,
+rw [Once evaluate_cases] >>
+metis_tac [])
+
+val evaluate_fun = store_thm(
+"evaluate_fun",
+``∀ck menv cenv s env n e r.
+  evaluate ck menv cenv s env (Fun n e) r = (r = (s, Rval (Closure env n e)))``,
+rw [Once evaluate_cases])
+
+val _ = export_rewrites["evaluate_raise","evaluate_lit","evaluate_fun"];
+
 val _ = export_theory()

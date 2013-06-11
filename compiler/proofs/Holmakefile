@@ -1,4 +1,4 @@
-INCLUDES= .. ../../semantics ../bytecode ../../metatheory
+INCLUDES= .. ../../semantics ../bytecode
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -6,7 +6,7 @@ HOLHEAP = heap
 PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../../semantics/terminationTheory ../../metatheory/evaluateEquationsTheory ../bytecode/bytecodeTerminationTheory ../compilerTerminationTheory
+BARE_THYS = ../../semantics/terminationTheory ../bytecode/bytecodeTerminationTheory ../compilerTerminationTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
