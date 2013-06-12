@@ -39,6 +39,7 @@ type
   | Deref                   (* dereference a ref cell *)
   | Update                  (* update a ref cell *)
   | Stop                    (* halt execution *)
+  | Tick                    (* use fuel *)
 
 (* --- Semantics --- *)
 
@@ -61,7 +62,8 @@ type
       refs : Pmap.map num bc_value;
       handler : num;
       (* artificial state components *)
-      inst_length : bc_inst -> num
+      inst_length : bc_inst -> num;
+      clock : option num
    |>
 
 let rec
@@ -254,3 +256,10 @@ bc_fetch s = Some Update
 && Pmap.mem ptr s.refs
 ==>
 bc_next s (<|bump_pc s with stack = xs; refs = Pmap.add ptr x s.refs|>)
+and
+forall s.
+bc_fetch s = Some Tick
+&& (forall n. s.clock = Some n --> n > 0)
+==>
+bc_next s (<|bump_pc s with clock = Hol.OPTION_MAP Hol.PRE s.clock|>)
+

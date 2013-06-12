@@ -20,7 +20,8 @@ val init_bc_state_def =  Define`
     pc := 0;
     refs := FEMPTY;
     handler := 0;
-    inst_length := λi. 0 |>`
+    inst_length := λi. 0;
+    clock := NONE |>`
 
 val defs = map EmitML.DEFN [
 optionTheory.OPTION_BIND_def,

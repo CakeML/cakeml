@@ -56,8 +56,9 @@ val _ = Hol_datatype `
   | Ref                     (* create a new ref cell *)
   | Deref                   (* dereference a ref cell *)
   | Update                  (* update a ref cell *)
-  | Stop`;
-                    (* halt execution *)
+  | Stop                    (* halt execution *)
+  | Tick`;
+                    (* use fuel *)
 
 (* --- Semantics --- *)
 
@@ -83,7 +84,8 @@ val _ = Hol_datatype `
       refs : (num, bc_value)fmap;
       handler : num;
       (* artificial state components *)
-      inst_length : bc_inst -> num
+      inst_length : bc_inst -> num;
+      clock : num option
    |>`;
 
 
@@ -295,6 +297,13 @@ bc_next s ((bump_pc s with<| stack := FAPPLY  s.refs  ptr ::xs|>)))
 ((
 bc_fetch s = SOME Update) /\ (s.stack = x ::(RefPtr ptr) ::xs) /\  ptr IN FDOM  s.refs)
 ==>
-bc_next s ((bump_pc s with<| stack := xs; refs := FUPDATE  s.refs ( ptr, x)|>)))`;
+bc_next s ((bump_pc s with<| stack := xs; refs := FUPDATE  s.refs ( ptr, x)|>)))
+/\
+(! s.
+((
+bc_fetch s = SOME Tick) /\ (! n. (s.clock = SOME n) ==> n > 0))
+==>
+bc_next s ((bump_pc s with<| clock := OPTION_MAP PRE s.clock|>)))`;
+
 val _ = export_theory()
 

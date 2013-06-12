@@ -1,6 +1,6 @@
 open HolKernel bossLib boolLib boolSimps listTheory relationTheory arithmeticTheory lcsymtacs
 open miscTheory bytecodeTerminationTheory bytecodeEvalTheory rich_listTheory
-val _ = intLib.deprecate_int()
+val _ = numLib.prefer_num()
 val _ = new_theory"bytecodeExtra"
 
 val bc_fetch_with_stack = store_thm("bc_fetch_with_stack",
@@ -226,11 +226,25 @@ val bc_next_append_code = store_thm("bc_next_append_code",
     imp_res_tac bc_find_loc_append_code >>
     rw[bc_eval1_def,LET_THM] >>
     rw[bump_pc_def]) >>
+  strip_tac >- (
+    rw[bc_eval1_thm] >>
+    imp_res_tac bc_fetch_append_code >>
+    imp_res_tac bc_find_loc_append_code >>
+    rw[bc_eval1_def,LET_THM] >>
+    rw[bump_pc_def]) >>
+  strip_tac >- (
+    rw[bc_eval1_thm] >>
+    imp_res_tac bc_fetch_append_code >>
+    imp_res_tac bc_find_loc_append_code >>
+    rw[bc_eval1_def,LET_THM] >>
+    rw[bump_pc_def]) >>
   rw[bc_eval1_thm] >>
   imp_res_tac bc_fetch_append_code >>
   imp_res_tac bc_find_loc_append_code >>
   rw[bc_eval1_def,LET_THM] >>
-  rw[bump_pc_def])
+  rw[bump_pc_def] >>
+  BasicProvers.CASE_TAC >>
+  simp[bc_state_component_equality])
 
 val bc_next_preserves_code = store_thm("bc_next_preserves_code",
   ``∀bs1 bs2. bc_next bs1 bs2 ⇒ (bs2.code = bs1.code)``,

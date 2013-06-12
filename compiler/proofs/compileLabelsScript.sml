@@ -154,7 +154,11 @@ val bc_next_MAP_replace_lab = store_thm("bc_next_MAP_replace_lab",
     lrw[REVERSE_APPEND,EL_APPEND2,TAKE_APPEND2,bump_pc_def]) >>
   strip_tac >- tac >>
   strip_tac >- tac >>
-  strip_tac >- tac )
+  strip_tac >- tac >>
+  strip_tac >- (
+    tac >>
+    BasicProvers.CASE_TAC >>
+    simp[bc_state_component_equality]))
 
 val bc_fetch_MEM = store_thm("bc_fetch_MEM",
   ``(bc_fetch s1 = SOME i) ⇒ (MEM i s1.code)``,
@@ -203,7 +207,9 @@ val bc_next_FILTER_labels = store_thm("bc_next_FILTER_labels",
   TRY (Cases_on `l`) >> fs[bc_find_loc_def] >>
   rw[bc_fetch_with_stack] >>
   srw_tac[ARITH_ss][] >>
-  lrw[TAKE_APPEND2,REVERSE_APPEND,EL_APPEND2])
+  lrw[TAKE_APPEND2,REVERSE_APPEND,EL_APPEND2] >>
+  BasicProvers.CASE_TAC >>
+  simp[bc_state_component_equality])
 
 val bc_next_compile_labels = store_thm("bc_next_compile_labels",
   ``∀s1 s2. bc_next s1 s2 ⇒

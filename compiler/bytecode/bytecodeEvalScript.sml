@@ -199,6 +199,10 @@ val bc_eval1_def = Define`
         SOME (bump_pc s with <| stack := xs ;
                                 refs := s.refs |+ (ptr,x) |>)
       else NONE
+  | (Tick, _) =>
+    (case s.clock of
+     | NONE => SOME (bump_pc s)
+     | SOME n => if n > 0 then SOME (bump_pc s with <| clock := SOME (n-1) |>) else NONE)
   | _ => NONE)`
 
 val bc_eval1_SOME = store_thm(
@@ -269,7 +273,12 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   Cases_on `t` >> fs [] >>
   qmatch_assum_rename_tac `s1.stack = x::y::t` [] >>
   Cases_on `y` >> fs [] >>
-  rw[bc_next_cases] ))
+  rw[bc_next_cases] )
+>- (
+  pop_assum mp_tac >>
+  BasicProvers.EVERY_CASE_TAC >>
+  rw[bc_next_cases,PRE_SUB1] >>
+  rw[BytecodeTheory.bc_state_component_equality,bump_pc_def]))
 
 val bc_next_bc_eval1 = store_thm(
 "bc_next_bc_eval1",
@@ -280,8 +289,11 @@ fs[bc_eval_stack_thm] >>
 unabbrev_all_tac >> rw[] >>
 fsrw_tac[ARITH_ss][] >>
 lrw[REVERSE_APPEND,rich_listTheory.EL_APPEND2,rich_listTheory.TAKE_APPEND1] >>
-pop_assum (assume_tac o SYM) >>
-lrw[rich_listTheory.TAKE_REVERSE,rich_listTheory.LASTN_LENGTH_ID])
+TRY(
+  pop_assum (assume_tac o SYM) >>
+  lrw[rich_listTheory.TAKE_REVERSE,rich_listTheory.LASTN_LENGTH_ID]) >>
+BasicProvers.EVERY_CASE_TAC >> fs[PRE_SUB1] >>
+rw[BytecodeTheory.bc_state_component_equality,bump_pc_def])
 
 val bc_eval1_thm = store_thm("bc_eval1_thm",
   ``!s1 s2. bc_next s1 s2 = (bc_eval1 s1 = SOME s2)``,
