@@ -1,6 +1,6 @@
 open preamble;
 open LibTheory AstTheory BigStepTheory SmallStepTheory SemanticPrimitivesTheory
-open evaluateEquationsTheory determTheory bigSmallEquivTheory
+open determTheory bigSmallEquivTheory
 open terminationTheory metaTerminationTheory bigClockTheory;
 
 val _ = new_theory "untypedSafety";
