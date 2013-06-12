@@ -464,6 +464,7 @@ val free_vars_defs_MAP = store_thm("free_vars_defs_MAP",
 val Cexc_rel_def = Define`
   (Cexc_rel R (Craise v1) (Craise v2) = R v1 v2) ∧
   (Cexc_rel R Ctype_error Ctype_error = T) ∧
+  (Cexc_rel R Ctimeout_error Ctimeout_error = T) ∧
   (Cexc_rel _ _ _ = F)`
 val _ = export_rewrites["Cexc_rel_def"]
 
@@ -483,7 +484,11 @@ val Cexc_rel_Ctype_error = store_thm("Cexc_rel_Ctype_error",
   ``(Cexc_rel R Ctype_error e = (e = Ctype_error)) ∧
     (Cexc_rel R e Ctype_error = (e = Ctype_error))``,
   Cases_on`e`>>rw[])
-val _ = export_rewrites["Cexc_rel_Craise1","Cexc_rel_Craise2","Cexc_rel_Ctype_error"]
+val Cexc_rel_Ctimeout_error = store_thm("Cexc_rel_Ctimeout_error",
+  ``(Cexc_rel R Ctimeout_error e = (e = Ctimeout_error)) ∧
+    (Cexc_rel R e Ctimeout_error = (e = Ctimeout_error))``,
+  Cases_on`e`>>rw[])
+val _ = export_rewrites["Cexc_rel_Craise1","Cexc_rel_Craise2","Cexc_rel_Ctype_error","Cexc_rel_Ctimeout_error"]
 
 val Cresult_rel_Cval = store_thm(
 "Cresult_rel_Cval",
@@ -536,7 +541,7 @@ rw[] >> Cases_on `x` >> fs[Cexc_rel_sym])
 val every_Cresult_def = Define`
   (every_Cresult P1 P2 (Cval v) = P1 v) ∧
   (every_Cresult P1 P2 (Cexc (Craise v)) = P2 v) ∧
-  (every_Cresult P1 P2 (Cexc Ctype_error) = T)`
+  (every_Cresult P1 P2 (Cexc _) = T)`
 val _ = export_rewrites["every_Cresult_def"]
 
 val every_Cresult_P1 = store_thm("every_Cresult_P1",
@@ -549,7 +554,8 @@ val Cmap_result_def = Define`
   (Cmap_result f (Rerr (Rraise Bind_error)) = Cexc (Craise CBind_excv)) ∧
   (Cmap_result f (Rerr (Rraise Div_error)) = Cexc (Craise CDiv_excv)) ∧
   (Cmap_result f (Rerr (Rraise (Int_error n))) = Cexc (Craise (CLitv (IntLit n)))) ∧
-  (Cmap_result f (Rerr Rtype_error) = Cexc Ctype_error)`
+  (Cmap_result f (Rerr Rtype_error) = Cexc Ctype_error) ∧
+  (Cmap_result f (Rerr Rtimeout_error) = Cexc Ctimeout_error)`
 val _ = export_rewrites["Cmap_result_def"]
 
 (* Cevaluate functional equations *)

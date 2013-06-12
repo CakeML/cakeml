@@ -1,35 +1,10 @@
-open preamble SemanticPrimitivesTheory BigStepTheory bigSmallEquivTheory;
+open preamble SemanticPrimitivesTheory BigStepTheory bigSmallEquivTheory bigClockTheory;
 
 val _ = new_theory "determ";
 
 (* ------------------------- Big step determinacy ----------------------- *)
 
-val big_exp_determ = Q.store_thm ("big_exp_determ",
-`(∀(menv : envM) (cenv : envC) s env e r1.
-   evaluate menv cenv s env e r1 ⇒
-   ∀r2. evaluate menv cenv s env e r2 ⇒
-   (r1 = r2)) ∧
- (∀(menv : envM) (cenv : envC) s env es r1.
-   evaluate_list menv cenv s env es r1 ⇒
-   ∀r2. evaluate_list menv cenv s env es r2 ⇒
-   (r1 = r2)) ∧
- (∀(menv : envM) (cenv : envC) s env v pes r1.
-   evaluate_match menv cenv s env v pes r1 ⇒
-   ∀r2. evaluate_match menv cenv s env v pes r2 ⇒
-   (r1 = r2))`,
-HO_MATCH_MP_TAC evaluate_ind >>
-rw [] >>
-pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once evaluate_cases]) >>
-fs [] >>
-rw [] >>
-fs [] >>
-res_tac >>
-fs [] >>
-rw [] >>
-res_tac >>
-fs [] >>
-rw [] >> 
-metis_tac []);
+(* big_exp_determ moved to bigClockScript.sml *)
 
 val dec_determ = Q.store_thm ("dec_determ",
 `!mn menv (cenv : envC) s env d r1.
@@ -80,6 +55,9 @@ val small_exp_determ = Q.store_thm ("small_exp_determ",
   small_eval menv cenv s env e [] r1 ∧ small_eval menv cenv s env e [] r2
   ⇒
   (r1 = r2)`,
-metis_tac [big_exp_determ, small_big_exp_equiv]);
+rw [] >>
+PairCases_on `r1` >>
+PairCases_on `r2` >>
+metis_tac [big_exp_determ, small_big_exp_equiv, PAIR_EQ]);
 
 val _ = export_theory ();

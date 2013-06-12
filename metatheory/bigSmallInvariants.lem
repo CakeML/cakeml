@@ -6,9 +6,9 @@ open BigStep
 
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 
-val evaluate_ctxt : envM -> envC -> store -> envE -> ctxt_frame -> v -> store * result v -> bool
-val evaluate_ctxts : envM -> envC -> store -> list ctxt -> result v -> store * result v -> bool
-val evaluate_state : state -> store * result v -> bool
+val evaluate_ctxt : envM -> envC -> count_store -> envE -> ctxt_frame -> v -> count_store * result v -> bool
+val evaluate_ctxts : envM -> envC -> count_store -> list ctxt -> result v -> count_store * result v -> bool
+val evaluate_state : state -> count_store * result v -> bool
 
 indreln
 
@@ -19,62 +19,62 @@ evaluate_ctxt menv cenv s env (Chandle () var e2) v1 (s, Rval v1)
 
 and
 
-forall menv cenv env op e2 v1 v2 env' e3 bv s1 s2 s3.
-evaluate menv cenv s1 env e2 (s2, Rval v2) &&
+forall menv cenv env op e2 v1 v2 env' e3 bv s1 s2 count s3.
+evaluate false menv cenv s1 env e2 ((count,s2), Rval v2) &&
 do_app s2 env op v1 v2 = Some (s3,env', e3) &&
-evaluate menv cenv s3 env' e3 bv
+evaluate false menv cenv (count, s3) env' e3 bv
 ==>
 evaluate_ctxt menv cenv s1 env (Capp1 op () e2) v1 bv
 
 and
 
-forall menv cenv env op e2 v1 v2 s1 s2.
-evaluate menv cenv s1 env e2 (s2, Rval v2) &&
+forall menv cenv env op e2 v1 v2 s1 s2 count.
+evaluate false menv cenv s1 env e2 ((count,s2), Rval v2) &&
 do_app s2 env op v1 v2 = None
 ==>
-evaluate_ctxt menv cenv s1 env (Capp1 op () e2) v1 (s2, Rerr Rtype_error)
+evaluate_ctxt menv cenv s1 env (Capp1 op () e2) v1 ((count, s2), Rerr Rtype_error)
 
 and
 
 forall menv cenv env op e2 v1 err s s'.
-evaluate menv cenv s env e2 (s', Rerr err)
+evaluate false menv cenv s env e2 (s', Rerr err)
 ==>
 evaluate_ctxt menv cenv s env (Capp1 op () e2) v1 (s', Rerr err)
 
 and
 
-forall menv cenv env op v1 v2 env' e3 bv s1 s2.
+forall menv cenv env op v1 v2 env' e3 bv s1 s2 count.
 do_app s1 env op v1 v2 = Some (s2, env', e3) &&
-evaluate menv cenv s2 env' e3 bv
+evaluate false menv cenv (count, s2) env' e3 bv
 ==>
-evaluate_ctxt menv cenv s1 env (Capp2 op v1 ()) v2 bv
+evaluate_ctxt menv cenv (count,s1) env (Capp2 op v1 ()) v2 bv
 
 and
 
-forall menv cenv env op v1 v2 s.
+forall menv cenv env op v1 v2 s count.
 (do_app s env op v1 v2 = None)
 ==>
-evaluate_ctxt menv cenv s env (Capp2 op v1 ()) v2 (s, Rerr Rtype_error)
+evaluate_ctxt menv cenv (count,s) env (Capp2 op v1 ()) v2 ((count, s), Rerr Rtype_error)
 
 and
 
-forall menv cenv env uop v v' s1 s2.
+forall menv cenv env uop v v' s1 s2 count.
 (do_uapp s1 uop v = Some (s2,v'))
 ==>
-evaluate_ctxt menv cenv s1 env (Cuapp uop ()) v (s2, Rval v')
+evaluate_ctxt menv cenv (count,s1) env (Cuapp uop ()) v ((count,s2), Rval v')
 
 and
 
-forall menv cenv env uop v s.
+forall menv cenv env uop v s count.
 (do_uapp s uop v = None)
 ==>
-evaluate_ctxt menv cenv s env (Cuapp uop ()) v (s, Rerr Rtype_error)
+evaluate_ctxt menv cenv (count,s) env (Cuapp uop ()) v ((count,s), Rerr Rtype_error)
 
 and
 
 forall menv cenv env op e2 v e' bv s.
 do_log op v e2 = Some e' &&
-evaluate menv cenv s env e' bv
+evaluate false menv cenv s env e' bv
 ==>
 evaluate_ctxt menv cenv s env (Clog op () e2) v bv
 
@@ -88,7 +88,7 @@ evaluate_ctxt menv cenv s env (Clog op () e2) v (s, Rerr Rtype_error)
 and
 forall menv cenv env e2 e3 v e' bv s.
 do_if v e2 e3 = Some e' &&
-evaluate menv cenv s env e' bv
+evaluate false menv cenv s env e' bv
 ==>
 evaluate_ctxt menv cenv s env (Cif () e2 e3) v bv
 
@@ -102,14 +102,14 @@ evaluate_ctxt menv cenv s env (Cif () e2 e3) v (s, Rerr Rtype_error)
 and
 
 forall menv cenv env pes v bv s.
-evaluate_match menv cenv s env v pes bv
+evaluate_match false menv cenv s env v pes bv
 ==>
 evaluate_ctxt menv cenv s env (Cmat () pes) v bv
 
 and
 
 forall menv cenv env n e2 v bv s.
-evaluate menv cenv s (bind n v env) e2 bv
+evaluate false menv cenv s (bind n v env) e2 bv
 ==>
 evaluate_ctxt menv cenv s env (Clet n () e2) v bv
 
@@ -117,7 +117,7 @@ and
 
 forall menv cenv env cn es vs v vs' s1 s2.
 do_con_check cenv cn (List.length vs + List.length es + 1) &&
-evaluate_list menv cenv s1 env es (s2, Rval vs')
+evaluate_list false menv cenv s1 env es (s2, Rval vs')
 ==>
 evaluate_ctxt menv cenv s1 env (Ccon cn vs () es) v (s2, Rval (Conv cn (List.rev vs @ [v] @ vs')))
 
@@ -132,7 +132,7 @@ and
 
 forall menv cenv env cn es vs v err s s'.
 do_con_check cenv cn (List.length vs + List.length es + 1) &&
-evaluate_list menv cenv s env es (s', Rerr err)
+evaluate_list false menv cenv s env es (s', Rerr err)
 ==>
 evaluate_ctxt menv cenv s env (Ccon cn vs () es) v (s', Rerr err)
 
@@ -163,7 +163,7 @@ evaluate_ctxts menv cenv s ((c,env)::cs) (Rerr err) bv
 and
 
 forall menv cenv cs env s s' var res1 res2 i e'.
-evaluate menv cenv s (bind var (Litv (IntLit i)) env) e' (s', res1) &&
+evaluate false menv cenv s (bind var (Litv (IntLit i)) env) e' (s', res1) &&
 evaluate_ctxts menv cenv s' cs res1 res2
 ==>
 evaluate_ctxts menv cenv s ((Chandle () var e',env)::cs) (Rerr (Rraise (Int_error i))) res2
@@ -171,7 +171,7 @@ evaluate_ctxts menv cenv s ((Chandle () var e',env)::cs) (Rerr (Rraise (Int_erro
 indreln
 
 forall menv cenv env e c res bv s1 s2.
-evaluate menv cenv s1 env e (s2, res) &&
+evaluate false menv cenv (0,s1) env e (s2, res) &&
 evaluate_ctxts menv cenv s2 c res bv
 ==>
 evaluate_state (menv, cenv, s1, env, Exp e, c) bv
@@ -179,6 +179,6 @@ evaluate_state (menv, cenv, s1, env, Exp e, c) bv
 and
 
 forall menv cenv s env v c bv.
-evaluate_ctxts menv cenv s c (Rval v) bv
+evaluate_ctxts menv cenv (0,s) c (Rval v) bv
 ==>
 evaluate_state (menv, cenv, s, env, Val v, c) bv

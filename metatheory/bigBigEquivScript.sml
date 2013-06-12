@@ -2,7 +2,7 @@ open preamble
 open SemanticPrimitivesTheory AltBigStepTheory BigStepTheory TypeSystemTheory;
 open bigSmallEquivTheory determTheory untypedSafetyTheory;
 open typeSoundTheory;
-open terminationTheory;
+open terminationTheory bigClockTheory;
 
 val _ = new_theory "bigBigEquiv"
 
@@ -42,21 +42,29 @@ rw [pmatch_def, pmatch'_def] >|
 
 val eval'_to_eval = Q.prove (
 `(!s env e r. evaluate' s env e r ⇒
-   !menv (cenv : envC). (!s'. ¬evaluate menv cenv s env e (s', Rerr Rtype_error)) ⇒
-   evaluate menv cenv s env e r) ∧
+   !menv (cenv : envC) count s1 r1. 
+     (r = (s1,r1)) ∧
+     (!s'. ¬evaluate F menv cenv (count,s) env e ((count,s'), Rerr Rtype_error)) ⇒
+     evaluate F menv cenv (count,s) env e ((count,s1),r1)) ∧
  (!s env es r. evaluate_list' s env es r ⇒
-   !menv (cenv : envC). (!s'. ¬evaluate_list menv cenv s env es (s', Rerr Rtype_error)) ⇒
-   evaluate_list menv cenv s env es r) ∧
+   !menv (cenv : envC) count s1 r1. 
+     (r = (s1,r1)) ∧
+     (!s'. ¬evaluate_list F menv cenv (count,s) env es ((count,s'), Rerr Rtype_error)) ⇒
+     evaluate_list F menv cenv (count,s) env es ((count,s1),r1)) ∧
  (!s env v p r. evaluate_match' s env v p r ⇒
-   !menv (cenv : envC). (!s'. ¬evaluate_match menv cenv s env v p (s', Rerr Rtype_error)) ⇒
-   evaluate_match menv cenv s env v p r)`,
+   !menv (cenv : envC) count s1 r1. 
+     (r = (s1,r1)) ∧
+     (!s'. ¬evaluate_match F menv cenv (count,s) env v p ((count,s'), Rerr Rtype_error)) ⇒
+     evaluate_match F menv cenv (count,s) env v p ((count,s1),r1))`,
 ho_match_mp_tac evaluate'_ind >>
 rw [] >>
 SIMP_TAC (srw_ss()) [Once evaluate_cases] >>
 fs [] >>
-pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once evaluate_cases]) >>
+TRY (qpat_assum `!s. ~evaluate F a0 b0 c0 d0 e0 f0` (assume_tac o SIMP_RULE (srw_ss()) [Once evaluate_cases])) >>
+TRY (qpat_assum `!s. ~evaluate_match F a0 b0 c0 d0 e0 f0 g0` (assume_tac o SIMP_RULE (srw_ss()) [Once evaluate_cases])) >>
+TRY (qpat_assum `!s. ~evaluate_list F a0 b0 c0 d0 e0 f0` (assume_tac o SIMP_RULE (srw_ss()) [Once evaluate_cases])) >>
 fs [lookup_var_id_def] >>
-metis_tac [pmatch_pmatch', match_result_distinct]);
+metis_tac [pmatch_pmatch', match_result_distinct, big_unclocked]);
 
 val type_no_error = Q.prove (
 `∀tenvM tenvC tenvS tenv st e t menv cenv env tvs.
@@ -67,12 +75,13 @@ val type_no_error = Q.prove (
   type_env tenvM tenvC tenvS env tenv ∧ 
   type_s tenvM tenvC tenvS st ∧
   type_e tenvM tenvC tenv e t ⇒
-  (!st'. ¬evaluate menv cenv st env e (st', Rerr Rtype_error))`,
-rw [GSYM small_big_exp_equiv] >>
-metis_tac [bind_tvar_def, untyped_safety_exp, small_exp_determ, exp_type_soundness, PAIR_EQ]);
+  (!st' count. ¬evaluate F menv cenv (count,st) env e (st', Rerr Rtype_error))`,
+rw [] >>
+cases_on `st'` >>
+metis_tac [exp_type_soundness, bind_tvar_def, big_unclocked,small_big_exp_equiv, untyped_safety_exp, small_exp_determ, PAIR_EQ]);
 
 val eval'_to_eval_thm = Q.store_thm ("eval'_to_eval_thm",
-`∀tenvM tenvC tenvS tenv st e t menv cenv env tvs r.
+`∀tenvM tenvC tenvS tenv st e t menv cenv env tvs s' r' count.
   tenvM_ok tenvM ∧ 
   tenvC_ok tenvC ∧
   consistent_mod_env tenvS tenvC menv tenvM ∧
@@ -80,7 +89,7 @@ val eval'_to_eval_thm = Q.store_thm ("eval'_to_eval_thm",
   type_env tenvM tenvC tenvS env tenv ∧ 
   type_s tenvM tenvC tenvS st ∧
   type_e tenvM tenvC tenv e t ⇒
-  (evaluate' st env e r ⇒ evaluate menv cenv st env e r)`,
+  (evaluate' st env e (s',r') ⇒ evaluate F menv cenv (count,st) env e ((count, s'), r'))`,
 metis_tac [type_no_error, eval'_to_eval]);
 
 val eval_dec'_to_eval_dec = Q.prove (

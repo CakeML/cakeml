@@ -7,318 +7,345 @@ open SemanticPrimitives
 open SmallStep
 
 (* ------------------------ Big step semantics -------------------------- *)
-val evaluate : envM -> envC -> store -> envE -> exp -> store * result v -> bool
-val evaluate_list : envM -> envC -> store -> envE -> list exp -> store * result (list v) -> bool
-val evaluate_match : envM -> envC -> store -> envE -> v -> list (pat * exp) -> store * result v -> bool
+
+(* If the first argument is true, the big step semantics counts down how many
+   functions applications have happened, and raises an exception when the counter
+   runs out. *)
+
+type count_store = num * store
+
+val evaluate : bool -> envM -> envC -> count_store -> envE -> exp -> count_store * result v -> bool
+val evaluate_list : bool -> envM -> envC -> count_store -> envE -> list exp -> count_store * result (list v) -> bool
+val evaluate_match : bool -> envM -> envC -> count_store -> envE -> v -> list (pat * exp) -> count_store * result v -> bool
 val evaluate_dec : option modN -> envM -> envC -> store -> envE -> dec -> store * result (envC * envE) -> bool
 val evaluate_decs : option modN -> envM -> envC -> store -> envE -> list dec -> store * result (envC * envE) -> bool
 val evaluate_prog : envM -> envC -> store -> envE -> prog -> store * result (envM * envC * envE) -> bool
 
+val dec_count : op -> num -> num
+let dec_count op count = 
+  if op = Opapp then
+    count - 1
+  else
+    count
+
 indreln
 
-forall menv cenv env l s.
+forall ck menv cenv env l s.
 true
 ==>
-evaluate menv cenv s env (Lit l) (s, Rval (Litv l))
+evaluate ck menv cenv s env (Lit l) (s, Rval (Litv l))
 
 and
 
-forall menv cenv env err s.
+forall ck menv cenv env err s.
 true
 ==>
-evaluate menv cenv s env (Raise err) (s, Rerr (Rraise err))
+evaluate ck menv cenv s env (Raise err) (s, Rerr (Rraise err))
 
 and
 
-forall menv cenv s1 s2 env e1 e2 v var.
-evaluate menv cenv s1 env e1 (s2, Rval v)
+forall ck menv cenv s1 s2 env e1 e2 v var.
+evaluate ck menv cenv s1 env e1 (s2, Rval v)
 ==>
-evaluate menv cenv s1 env (Handle e1 var e2) (s2, Rval v)
+evaluate ck menv cenv s1 env (Handle e1 var e2) (s2, Rval v)
 
 and
 
-forall menv cenv s1 s2 env e1 e2 n var bv.
-evaluate menv cenv s1 env e1 (s2, Rerr (Rraise (Int_error n))) &&
-evaluate menv cenv s2 (bind var (Litv (IntLit n)) env) e2 bv
+forall ck menv cenv s1 s2 env e1 e2 n var bv.
+evaluate ck menv cenv s1 env e1 (s2, Rerr (Rraise (Int_error n))) &&
+evaluate ck menv cenv s2 (bind var (Litv (IntLit n)) env) e2 bv
 ==>
-evaluate menv cenv s1 env (Handle e1 var e2) bv
+evaluate ck menv cenv s1 env (Handle e1 var e2) bv
 
 and
 
-forall menv cenv s1 s2 env e1 e2 var err.
-evaluate menv cenv s1 env e1 (s2, Rerr err) &&
-(err = Rtype_error || err = Rraise Bind_error || err = Rraise Div_error)
+forall ck menv cenv s1 s2 env e1 e2 var err.
+evaluate ck menv cenv s1 env e1 (s2, Rerr err) &&
+(err = Rtimeout_error || err = Rtype_error || err = Rraise Bind_error || err = Rraise Div_error)
 ==>
-evaluate menv cenv s1 env (Handle e1 var e2) (s2, Rerr err)
+evaluate ck menv cenv s1 env (Handle e1 var e2) (s2, Rerr err)
 
 and
 
-forall menv cenv env cn es vs s s'.
+forall ck menv cenv env cn es vs s s'.
 do_con_check cenv cn (List.length es) &&
-evaluate_list menv cenv s env es (s', Rval vs)
+evaluate_list ck menv cenv s env es (s', Rval vs)
 ==>
-evaluate menv cenv s env (Con cn es) (s', Rval (Conv cn vs))
+evaluate ck menv cenv s env (Con cn es) (s', Rval (Conv cn vs))
 
 and
 
-forall menv cenv env cn es s.
+forall ck menv cenv env cn es s.
 not (do_con_check cenv cn (List.length es))
 ==>
-evaluate menv cenv s env (Con cn es) (s, Rerr Rtype_error)
+evaluate ck menv cenv s env (Con cn es) (s, Rerr Rtype_error)
 
 and
 
-forall menv cenv env cn es err s s'.
+forall ck menv cenv env cn es err s s'.
 do_con_check cenv cn (List.length es) &&
-evaluate_list menv cenv s env es (s', Rerr err)
+evaluate_list ck menv cenv s env es (s', Rerr err)
 ==>
-evaluate menv cenv s env (Con cn es) (s', Rerr err)
+evaluate ck menv cenv s env (Con cn es) (s', Rerr err)
 
 and
 
-forall menv cenv env n v s.
+forall ck menv cenv env n v s.
 (lookup_var_id n menv env = Some v)
 ==>
-evaluate menv cenv s env (Var n) (s, Rval v)
+evaluate ck menv cenv s env (Var n) (s, Rval v)
 
 and
 
-forall menv cenv env n s.
+forall ck menv cenv env n s.
 (lookup_var_id n menv env = None)
 ==>
-evaluate menv cenv s env (Var n) (s, Rerr Rtype_error)
+evaluate ck menv cenv s env (Var n) (s, Rerr Rtype_error)
 
 and
 
-forall menv cenv env n e s.
+forall ck menv cenv env n e s.
 true
 ==>
-evaluate menv cenv s env (Fun n e) (s, Rval (Closure env n e))
+evaluate ck menv cenv s env (Fun n e) (s, Rval (Closure env n e))
 
 and
 
-forall menv cenv env uop e v v' s1 s2 s3.
-evaluate menv cenv s1 env e (s2, Rval v) &&
+forall ck menv cenv env uop e v v' s1 s2 count s3.
+evaluate ck menv cenv s1 env e ((count,s2), Rval v) &&
 do_uapp s2 uop v = Some (s3,v')
 ==>
-evaluate menv cenv s1 env (Uapp uop e) (s3, Rval v')
+evaluate ck menv cenv s1 env (Uapp uop e) ((count,s3), Rval v')
 
 and
 
-forall menv cenv env uop e v s1 s2.
-evaluate menv cenv s1 env e (s2, Rval v) &&
+forall ck menv cenv env uop e v s1 s2 count.
+evaluate ck menv cenv s1 env e ((count,s2), Rval v) &&
 do_uapp s2 uop v = None
 ==>
-evaluate menv cenv s1 env (Uapp uop e) (s2, Rerr Rtype_error)
+evaluate ck menv cenv s1 env (Uapp uop e) ((count,s2), Rerr Rtype_error)
 
 and
 
-forall menv cenv env uop e err s s'.
-evaluate menv cenv s env e (s', Rerr err)
+forall ck menv cenv env uop e err s s'.
+evaluate ck menv cenv s env e (s', Rerr err)
 ==>
-evaluate menv cenv s env (Uapp uop e) (s', Rerr err)
+evaluate ck menv cenv s env (Uapp uop e) (s', Rerr err)
 
 and
 
-forall menv cenv env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 s4.
-evaluate menv cenv s1 env e1 (s2, Rval v1) &&
-evaluate menv cenv s2 env e2 (s3, Rval v2) &&
+forall ck menv cenv env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
+evaluate ck menv cenv s1 env e1 (s2, Rval v1) &&
+evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) &&
 do_app s3 env op v1 v2 = Some (s4, env', e3) &&
-evaluate menv cenv s4 env' e3 bv
+(ck && op = Opapp --> count <> 0) &&
+evaluate ck menv cenv ((if ck then dec_count op count else count),s4) env' e3 bv
 ==>
-evaluate menv cenv s1 env (App op e1 e2) bv
+evaluate ck menv cenv s1 env (App op e1 e2) bv
 
 and
 
-forall menv cenv env op e1 e2 v1 v2 s1 s2 s3.
-evaluate menv cenv s1 env e1 (s2, Rval v1) &&
-evaluate menv cenv s2 env e2 (s3, Rval v2) &&
+forall ck menv cenv env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4.
+evaluate ck menv cenv s1 env e1 (s2, Rval v1) &&
+evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) &&
+do_app s3 env op v1 v2 = Some (s4, env', e3) &&
+count = 0 &&
+op = Opapp &&
+ck
+==>
+evaluate ck menv cenv s1 env (App op e1 e2) ((0,s4), Rerr Rtimeout_error)
+
+and
+
+forall ck menv cenv env op e1 e2 v1 v2 s1 s2 s3 count.
+evaluate ck menv cenv s1 env e1 (s2, Rval v1) &&
+evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) &&
 do_app s3 env op v1 v2 = None
 ==>
-evaluate menv cenv s1 env (App op e1 e2) (s3, Rerr Rtype_error)
+evaluate ck menv cenv s1 env (App op e1 e2) ((count,s3), Rerr Rtype_error)
 
 and
 
-forall menv cenv env op e1 e2 v1 err s1 s2 s3.
-evaluate menv cenv s1 env e1 (s2, Rval v1) &&
-evaluate menv cenv s2 env e2 (s3, Rerr err)
+forall ck menv cenv env op e1 e2 v1 err s1 s2 s3.
+evaluate ck menv cenv s1 env e1 (s2, Rval v1) &&
+evaluate ck menv cenv s2 env e2 (s3, Rerr err)
 ==>
-evaluate menv cenv s1 env (App op e1 e2) (s3, Rerr err)
+evaluate ck menv cenv s1 env (App op e1 e2) (s3, Rerr err)
 
 and
 
-forall menv cenv env op e1 e2 err s s'.
-evaluate menv cenv s env e1 (s', Rerr err)
+forall ck menv cenv env op e1 e2 err s s'.
+evaluate ck menv cenv s env e1 (s', Rerr err)
 ==>
-evaluate menv cenv s env (App op e1 e2) (s', Rerr err)
+evaluate ck menv cenv s env (App op e1 e2) (s', Rerr err)
 
 and
 
-forall menv cenv env op e1 e2 v e' bv s1 s2.
-evaluate menv cenv s1 env e1 (s2, Rval v) &&
+forall ck menv cenv env op e1 e2 v e' bv s1 s2.
+evaluate ck menv cenv s1 env e1 (s2, Rval v) &&
 do_log op v e2 = Some e' &&
-evaluate menv cenv s2 env e' bv
+evaluate ck menv cenv s2 env e' bv
 ==>
-evaluate menv cenv s1 env (Log op e1 e2) bv
+evaluate ck menv cenv s1 env (Log op e1 e2) bv
 
 and
 
-forall menv cenv env op e1 e2 v s1 s2.
-evaluate menv cenv s1 env e1 (s2, Rval v) &&
+forall ck menv cenv env op e1 e2 v s1 s2.
+evaluate ck menv cenv s1 env e1 (s2, Rval v) &&
 do_log op v e2 = None
 ==>
-evaluate menv cenv s1 env (Log op e1 e2) (s2, Rerr Rtype_error)
+evaluate ck menv cenv s1 env (Log op e1 e2) (s2, Rerr Rtype_error)
 
 and
 
-forall menv cenv env op e1 e2 err s s'.
-evaluate menv cenv s env e1 (s', Rerr err)
+forall ck menv cenv env op e1 e2 err s s'.
+evaluate ck menv cenv s env e1 (s', Rerr err)
 ==>
-evaluate menv cenv s env (Log op e1 e2) (s', Rerr err)
+evaluate ck menv cenv s env (Log op e1 e2) (s', Rerr err)
 
 and
 
-forall menv cenv env e1 e2 e3 v e' bv s1 s2.
-evaluate menv cenv s1 env e1 (s2, Rval v) &&
+forall ck menv cenv env e1 e2 e3 v e' bv s1 s2.
+evaluate ck menv cenv s1 env e1 (s2, Rval v) &&
 do_if v e2 e3 = Some e' &&
-evaluate menv cenv s2 env e' bv
+evaluate ck menv cenv s2 env e' bv
 ==>
-evaluate menv cenv s1 env (If e1 e2 e3) bv
+evaluate ck menv cenv s1 env (If e1 e2 e3) bv
 
 and
 
-forall menv cenv env e1 e2 e3 v s1 s2.
-evaluate menv cenv s1 env e1 (s2, Rval v) &&
+forall ck menv cenv env e1 e2 e3 v s1 s2.
+evaluate ck menv cenv s1 env e1 (s2, Rval v) &&
 do_if v e2 e3 = None
 ==>
-evaluate menv cenv s1 env (If e1 e2 e3) (s2, Rerr Rtype_error)
+evaluate ck menv cenv s1 env (If e1 e2 e3) (s2, Rerr Rtype_error)
 
 and
 
-forall menv cenv env e1 e2 e3 err s s'.
-evaluate menv cenv s env e1 (s', Rerr err)
+forall ck menv cenv env e1 e2 e3 err s s'.
+evaluate ck menv cenv s env e1 (s', Rerr err)
 ==>
-evaluate menv cenv s env (If e1 e2 e3) (s', Rerr err)
+evaluate ck menv cenv s env (If e1 e2 e3) (s', Rerr err)
 
 and
 
-forall menv cenv env e pes v bv s1 s2.
-evaluate menv cenv s1 env e (s2, Rval v) &&
-evaluate_match menv cenv s2 env v pes bv
+forall ck menv cenv env e pes v bv s1 s2.
+evaluate ck menv cenv s1 env e (s2, Rval v) &&
+evaluate_match ck menv cenv s2 env v pes bv
 ==>
-evaluate menv cenv s1 env (Mat e pes) bv
+evaluate ck menv cenv s1 env (Mat e pes) bv
 
 and
 
-forall menv cenv env e pes err s s'.
-evaluate menv cenv s env e (s', Rerr err)
+forall ck menv cenv env e pes err s s'.
+evaluate ck menv cenv s env e (s', Rerr err)
 ==>
-evaluate menv cenv s env (Mat e pes) (s', Rerr err)
+evaluate ck menv cenv s env (Mat e pes) (s', Rerr err)
 
 and
 
-forall menv cenv env n e1 e2 v bv s1 s2.
-evaluate menv cenv s1 env e1 (s2, Rval v) &&
-evaluate menv cenv s2 (bind n v env) e2 bv
+forall ck menv cenv env n e1 e2 v bv s1 s2.
+evaluate ck menv cenv s1 env e1 (s2, Rval v) &&
+evaluate ck menv cenv s2 (bind n v env) e2 bv
 ==>
-evaluate menv cenv s1 env (Let n e1 e2) bv
+evaluate ck menv cenv s1 env (Let n e1 e2) bv
 
 and
 
-forall menv cenv env n e1 e2 err s s'.
-evaluate menv cenv s env e1 (s', Rerr err)
+forall ck menv cenv env n e1 e2 err s s'.
+evaluate ck menv cenv s env e1 (s', Rerr err)
 ==>
-evaluate menv cenv s env (Let n e1 e2) (s', Rerr err)
+evaluate ck menv cenv s env (Let n e1 e2) (s', Rerr err)
 
 and
 
-forall menv cenv env funs e bv s.
+forall ck menv cenv env funs e bv s.
 all_distinct (List.map (fun (x,y,z) -> x) funs) &&
-evaluate menv cenv s (build_rec_env funs env env) e bv
+evaluate ck menv cenv s (build_rec_env funs env env) e bv
 ==>
-evaluate menv cenv s env (Letrec funs e) bv
+evaluate ck menv cenv s env (Letrec funs e) bv
 
 and
 
-forall menv cenv env funs e s.
+forall ck menv cenv env funs e s.
 not (all_distinct (List.map (fun (x,y,z) -> x) funs))
 ==>
-evaluate menv cenv s env (Letrec funs e) (s, Rerr Rtype_error)
+evaluate ck menv cenv s env (Letrec funs e) (s, Rerr Rtype_error)
 
 and
 
-forall menv cenv env s.
+forall ck menv cenv env s.
 true
 ==>
-evaluate_list menv cenv s env [] (s, Rval [])
+evaluate_list ck menv cenv s env [] (s, Rval [])
 
 and
 
-forall menv cenv env e es v vs s1 s2 s3.
-evaluate menv cenv s1 env e (s2, Rval v) &&
-evaluate_list menv cenv s2 env es (s3, Rval vs)
+forall ck menv cenv env e es v vs s1 s2 s3.
+evaluate ck menv cenv s1 env e (s2, Rval v) &&
+evaluate_list ck menv cenv s2 env es (s3, Rval vs)
 ==>
-evaluate_list menv cenv s1 env (e::es) (s3, Rval (v::vs))
+evaluate_list ck menv cenv s1 env (e::es) (s3, Rval (v::vs))
 
 and
 
-forall menv cenv env e es err s s'.
-evaluate menv cenv s env e (s', Rerr err)
+forall ck menv cenv env e es err s s'.
+evaluate ck menv cenv s env e (s', Rerr err)
 ==>
-evaluate_list menv cenv s env (e::es) (s', Rerr err)
+evaluate_list ck menv cenv s env (e::es) (s', Rerr err)
 
 and
 
-forall menv cenv env e es v err s1 s2 s3.
-evaluate menv cenv s1 env e (s2, Rval v) &&
-evaluate_list menv cenv s2 env es (s3, Rerr err)
+forall ck menv cenv env e es v err s1 s2 s3.
+evaluate ck menv cenv s1 env e (s2, Rval v) &&
+evaluate_list ck menv cenv s2 env es (s3, Rerr err)
 ==>
-evaluate_list menv cenv s1 env (e::es) (s3, Rerr err)
+evaluate_list ck menv cenv s1 env (e::es) (s3, Rerr err)
 
 and
 
-forall menv cenv env v s.
+forall ck menv cenv env v s.
 true
 ==>
-evaluate_match menv cenv s env v [] (s, Rerr (Rraise Bind_error))
+evaluate_match ck menv cenv s env v [] (s, Rerr (Rraise Bind_error))
 
 and
 
-forall menv cenv env v p e pes env' bv s.
+forall ck menv cenv env v p e pes env' bv s count.
 all_distinct (pat_bindings p []) &&
 (pmatch cenv s p v env = Match env') &&
-evaluate menv cenv s env' e bv
+evaluate ck menv cenv (count,s) env' e bv
 ==>
-evaluate_match menv cenv s env v ((p,e)::pes) bv
+evaluate_match ck menv cenv (count,s) env v ((p,e)::pes) bv
 
 and
 
-forall menv cenv env v p e pes bv s.
+forall ck menv cenv env v p e pes bv s count.
 all_distinct (pat_bindings p []) &&
 (pmatch cenv s p v env = No_match) &&
-evaluate_match menv cenv s env v pes bv
+evaluate_match ck menv cenv (count,s) env v pes bv
 ==>
-evaluate_match menv cenv s env v ((p,e)::pes) bv
+evaluate_match ck menv cenv (count,s) env v ((p,e)::pes) bv
 
 and
 
-forall menv cenv env v p e pes s.
+forall ck menv cenv env v p e pes s count.
 (pmatch cenv s p v env = Match_type_error)
 ==>
-evaluate_match menv cenv s env v ((p,e)::pes) (s, Rerr Rtype_error)
+evaluate_match ck menv cenv (count,s) env v ((p,e)::pes) ((count,s), Rerr Rtype_error)
 
 and
 
-forall menv cenv env v p e pes s.
+forall ck menv cenv env v p e pes s.
 not (all_distinct (pat_bindings p []))
 ==>
-evaluate_match menv cenv s env v ((p,e)::pes) (s, Rerr Rtype_error)
+evaluate_match ck menv cenv s env v ((p,e)::pes) (s, Rerr Rtype_error)
 
 
 indreln
 
-forall mn menv cenv env p e v env' s1 s2.
-evaluate menv cenv s1 env e (s2, Rval v) &&
+forall mn menv cenv env p e v env' s1 s2 count.
+evaluate false menv cenv (0,s1) env e ((count,s2), Rval v) &&
 all_distinct (pat_bindings p []) &&
 (pmatch cenv s2 p v emp = Match env')
 ==>
@@ -326,8 +353,8 @@ evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rval (emp, env'))
 
 and
 
-forall mn menv cenv env p e v s1 s2.
-evaluate menv cenv s1 env e (s2, Rval v) &&
+forall mn menv cenv env p e v s1 s2 count.
+evaluate false menv cenv (0,s1) env e ((count,s2), Rval v) &&
 all_distinct (pat_bindings p []) &&
 (pmatch cenv s2 p v emp = No_match)
 ==>
@@ -335,8 +362,8 @@ evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr (Rraise Bind_error))
 
 and
 
-forall mn menv cenv env p e v s1 s2.
-evaluate menv cenv s1 env e (s2, Rval v) &&
+forall mn menv cenv env p e v s1 s2 count.
+evaluate false menv cenv (0,s1) env e ((count,s2), Rval v) &&
 all_distinct (pat_bindings p []) &&
 (pmatch cenv s2 p v emp = Match_type_error)
 ==>
@@ -351,8 +378,8 @@ evaluate_dec mn menv cenv s env (Dlet p e) (s, Rerr Rtype_error)
 
 and
 
-forall mn menv cenv env p e err s s'.
-evaluate menv cenv s env e (s', Rerr err) &&
+forall mn menv cenv env p e err s count s'.
+evaluate false menv cenv (0,s) env e ((count,s'), Rerr err) &&
 all_distinct (pat_bindings p [])
 ==>
 evaluate_dec mn menv cenv s env (Dlet p e) (s', Rerr err)
