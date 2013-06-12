@@ -475,15 +475,17 @@ in
     ths
 end
 
-val peg_dom =
-    SIMP_CONV (srw_ss()) [mmlPEG_def,
-                          finite_mapTheory.FRANGE_FUPDATE_DOMSUB,
-                          finite_mapTheory.DOMSUB_FUPDATE_THM,
-                          finite_mapTheory.FUPDATE_LIST_THM] ``FDOM mmlPEG.rules``
+val FDOM_cmlPEG = save_thm(
+  "FDOM_cmlPEG",
+  SIMP_CONV (srw_ss()) [mmlPEG_def,
+                        finite_mapTheory.FRANGE_FUPDATE_DOMSUB,
+                        finite_mapTheory.DOMSUB_FUPDATE_THM,
+                        finite_mapTheory.FUPDATE_LIST_THM]
+            ``FDOM mmlPEG.rules``);
 
 val spec0 =
     peg_nt_thm |> Q.GEN `G`  |> Q.ISPEC `mmlPEG`
-               |> SIMP_RULE (srw_ss()) [peg_dom]
+               |> SIMP_RULE (srw_ss()) [FDOM_cmlPEG]
                |> Q.GEN `n`
 
 val mkNT = ``mkNT``
@@ -507,7 +509,7 @@ val frange_image = prove(
 
 val peg_range =
     SIMP_CONV (srw_ss())
-              (peg_dom :: frange_image :: mmlpeg_rules_applied)
+              (FDOM_cmlPEG :: frange_image :: mmlpeg_rules_applied)
               ``FRANGE mmlPEG.rules``
 
 val peg_start = SIMP_CONV(srw_ss()) [mmlPEG_def]``mmlPEG.start``
@@ -549,7 +551,7 @@ fun pegnt(t,acc) = let
   val th =
       prove(``¬peg0 mmlPEG (pnt ^t)``,
             simp(pegnt_case_ths @ mmlpeg_rules_applied @
-                 [peg_dom, peg_V_def, peg_UQConstructorName_def, peg_TypeName_def,
+                 [FDOM_cmlPEG, peg_V_def, peg_UQConstructorName_def, peg_TypeName_def,
                   peg_TypeDec_def, choicel_def, seql_def, peg_longV_def,
                   pegf_def, peg_linfix_def,
                   peg_DType_def, peg_Eapp_def]) >>
@@ -570,12 +572,13 @@ val npeg0_rwts =
 fun wfnt(t,acc) = let
   val th =
     prove(``wfpeg mmlPEG (pnt ^t)``,
-          SIMP_TAC (srw_ss()) (mmlpeg_rules_applied @
-                               [wfpeg_pnt, peg_dom, try_def, peg_longV_def,
-                                seql_def, peg_TypeDec_def, peg_V_def, peg_Type_def,
-                                peg_UQConstructorName_def, peg_TypeName_def,
-                                peg_DType_def, peg_nonfix_def,
-                                tokeq_def, peg_linfix_def, peg_Eapp_def]) THEN
+          SIMP_TAC (srw_ss())
+                   (mmlpeg_rules_applied @
+                    [wfpeg_pnt, FDOM_cmlPEG, try_def, peg_longV_def,
+                     seql_def, peg_TypeDec_def, peg_V_def, peg_Type_def,
+                     peg_UQConstructorName_def, peg_TypeName_def,
+                     peg_DType_def, peg_nonfix_def,
+                     tokeq_def, peg_linfix_def, peg_Eapp_def]) THEN
           simp(wfpeg_rwts @ npeg0_rwts @ peg0_rwts @ acc))
 in
   th::acc
