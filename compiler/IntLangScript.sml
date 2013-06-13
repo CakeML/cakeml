@@ -62,7 +62,7 @@ val _ = Hol_datatype `
   | CProj of Cexp => num
   | CLet of Cexp => Cexp
   | CLetrec of (( (num # (ccenv # ceenv))option) # (num # Cexp)) list => Cexp
-  | CCall of Cexp => Cexp list
+  | CCall of bool => Cexp => Cexp list
   | CPrim1 of Cprim1 => Cexp
   | CPrim2 of Cprim2 => Cexp => Cexp
   | CUpd of Cexp => Cexp
@@ -282,10 +282,11 @@ Cevaluate menv s env (CLet e b) (s', Cexc err))
 Cevaluate menv s env (CLetrec defs b) r)
 
 /\
-(! menv s env e es s' cenv defs n def b env'' s'' vs r.
+(! menv s env ck e es s' cenv defs n def b env'' count s'' vs r.
 (Cevaluate menv s env e (s', Cval (CRecClos cenv defs n)) /\
 n < LENGTH defs /\ ( EL  n  defs = def) /\
-Cevaluate_list menv s' env es (s'', Cval vs) /\
+Cevaluate_list menv s' env es ((count,s''), Cval vs) /\
+(ck ==> count > 0) /\
 ((T, LENGTH vs,env'',b) =
   (case def of
     (NONE,(k,b)) =>
@@ -299,27 +300,38 @@ Cevaluate_list menv s' env es (s'', Cval vs) /\
     , ( REVERSE vs ++(((CRecClos cenv defs n) :: MAP (CRecClos cenv defs) recs) ++ MAP (\n. EL n  cenv) envs))
     ,b)
   )) /\
-Cevaluate menv s'' env'' b r)
+Cevaluate menv ((if ck then count - 1 else count),s'') env'' b r)
 ==>
-Cevaluate menv s env (CCall e es) r)
+Cevaluate menv s env (CCall ck e es) r)
+
 /\
-(! menv s env e s' v es s'' err.
+(! menv s env ck e es s' cenv defs n def count s'' vs.
+(Cevaluate menv s env e (s', Cval (CRecClos cenv defs n)) /\
+n < LENGTH defs /\ ( EL  n  defs = def) /\
+Cevaluate_list menv s' env es ((count,s''), Cval vs) /\
+ck /\ (count = 0))
+==>
+Cevaluate menv s env (CCall ck e es) ((count,s''), Cexc Ctimeout_error))
+
+/\
+(! menv s env ck e s' v es s'' err.
 (Cevaluate menv s env e (s', Cval v) /\
 Cevaluate_list menv s' env es (s'', Cexc err))
 ==>
-Cevaluate menv s env (CCall e es) (s'', Cexc err))
+Cevaluate menv s env (CCall ck e es) (s'', Cexc err))
 
 /\
-(! menv s env e es s' err.
+(! menv s env ck e es s' err.
 (Cevaluate menv s env e (s', Cexc err))
 ==>
-Cevaluate menv s env (CCall e es) (s', Cexc err))
+Cevaluate menv s env (CCall ck e es) (s', Cexc err))
 
 /\
-(! menv s env uop e s' v.
-(Cevaluate menv s env e (s', Cval v))
+(! menv s env uop e count s' v s'' res.
+(Cevaluate menv s env e ((count,s'), Cval v) /\
+((s'',res) = CevalPrim1 uop s' v))
 ==>
-Cevaluate menv s env (CPrim1 uop e) (CevalPrim1 uop s' v))
+Cevaluate menv s env (CPrim1 uop e) ((count,s''),res))
 /\
 (! menv s env uop e s' err.
 (Cevaluate menv s env e (s', Cexc err))
@@ -339,10 +351,11 @@ Cevaluate menv s env (CPrim2 p2 e1 e2) (s', CevalPrim2 p2 v1 v2))
 Cevaluate menv s env (CPrim2 p2 e1 e2) (s', Cexc err))
 
 /\
-(! menv s env e1 e2 s' v1 v2.
-(Cevaluate_list menv s env [e1;e2] (s', Cval [v1;v2]))
+(! menv s env e1 e2 count s' v1 v2 s'' res.
+(Cevaluate_list menv s env [e1;e2] ((count,s'), Cval [v1;v2]) /\
+((s'',res) = CevalUpd s' v1 v2))
 ==>
-Cevaluate menv s env (CUpd e1 e2) (CevalUpd s' v1 v2))
+Cevaluate menv s env (CUpd e1 e2) ((count,s''),res))
 /\
 (! menv s env e1 e2 s' err.
 (Cevaluate_list menv s env [e1;e2] (s', Cexc err))
@@ -479,10 +492,10 @@ syneq_exp (ez1 +( LENGTH defs1)) (ez2 +( LENGTH defs2))
 ==>
 syneq_exp ez1 ez2 V (CLetrec defs1 b1) (CLetrec defs2 b2))
 /\
-(! ez1 ez2 V e1 e2 es1 es2.
+(! ez1 ez2 V ck e1 e2 es1 es2.
 (syneq_exp ez1 ez2 V e1 e2 /\ EVERY2 (syneq_exp ez1 ez2 V) es1 es2)
 ==>
-syneq_exp ez1 ez2 V (CCall e1 es1) (CCall e2 es2))
+syneq_exp ez1 ez2 V (CCall ck e1 es1) (CCall ck e2 es2))
 /\
 (! ez1 ez2 V p1 e1 e2.
 (syneq_exp ez1 ez2 V e1 e2)
@@ -567,7 +580,7 @@ syneq (CLoc n) (CLoc n))`;
 /\
 (no_labs (CLetrec defs e) = (no_labs_defs defs /\ no_labs e))
 /\
-(no_labs (CCall e es) = (no_labs e /\ no_labs_list es))
+(no_labs (CCall _ e es) = (no_labs e /\ no_labs_list es))
 /\
 (no_labs (CPrim2 _ e1 e2) = (no_labs e1 /\ no_labs e2))
 /\
@@ -611,7 +624,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (all_labs (CLetrec defs e) = (all_labs_defs defs /\ all_labs e))
 /\
-(all_labs (CCall e es) = (all_labs e /\ all_labs_list es))
+(all_labs (CCall _ e es) = (all_labs e /\ all_labs_list es))
 /\
 (all_labs (CPrim2 _ e1 e2) = (all_labs e1 /\ all_labs e2))
 /\

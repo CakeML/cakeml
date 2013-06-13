@@ -27,7 +27,7 @@ free_vars (CLetrec defs e) =
   let n = List.length defs in
   lunion (free_vars_defs n defs) (lshift n (free_vars e))
 and
-free_vars (CCall e es) = lunion (free_vars e) (free_vars_list es)
+free_vars (CCall _ e es) = lunion (free_vars e) (free_vars_list es)
 and
 free_vars (CPrim1 _ e) = free_vars e
 and
@@ -75,7 +75,7 @@ mkshift f k (CLetrec defs b) =
     defs in
   CLetrec defs (mkshift f (k+ns) b)
 and
-mkshift f k (CCall e es) = CCall (mkshift f k e) (List.map (mkshift f k) es)
+mkshift f k (CCall ck e es) = CCall ck (mkshift f k e) (List.map (mkshift f k) es)
 and
 mkshift f k (CPrim1 p1 e) = CPrim1 p1 (mkshift f k e)
 and
@@ -135,12 +135,12 @@ remove_mat_vp _ sk v CPvar =
 and
 remove_mat_vp fk sk v (CPlit l) =
   CIf (CPrim2 CEq (CVar (Short v)) (CLit l))
-    sk (CCall (CVar (Short fk)) [])
+    sk (CCall false (CVar (Short fk)) [])
 and
 remove_mat_vp fk sk v (CPcon cn ps) =
   CIf (CTagEq (CVar (Short v)) cn)
     (remove_mat_con fk sk v 0 ps)
-    (CCall (CVar (Short fk)) [])
+    (CCall false (CVar (Short fk)) [])
 and
 remove_mat_vp fk sk v (CPref p) =
   CLet (CPrim1 CDer (CVar (Short v)))
@@ -236,7 +236,7 @@ and
 exp_to_Cexp m (App Opapp e1 e2) =
   let Ce1 = exp_to_Cexp m e1 in
   let Ce2 = exp_to_Cexp m e2 in
-  CCall Ce1 [Ce2]
+  CCall true Ce1 [Ce2]
 and
 exp_to_Cexp m (App Opassign e1 e2) =
   let Ce1 = exp_to_Cexp m e1 in

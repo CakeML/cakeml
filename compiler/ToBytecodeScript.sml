@@ -78,10 +78,10 @@ val _ = new_theory "ToBytecode"
   let (e,j) = (label_closures (ez +nz) j e) in
   (CLetrec defs e, j)))
 /\
-(label_closures ez j (CCall e es) =  
+(label_closures ez j (CCall ck e es) =  
 (let (e,j) = (label_closures ez j e) in
   let (es,j) = (label_closures_list ez j es) in
-  (CCall e es,j)))
+  (CCall ck e es,j)))
 /\
 (label_closures ez j (CPrim1 p1 e) =  
 (let (e,j) = (label_closures ez j e) in
@@ -359,7 +359,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (let s = ( compile_closures env sz s defs) in
   compile_bindings menv env t sz eb 0 s ( LENGTH defs)))
 /\
-(compile menv env t sz s (CCall e es) =  
+(compile menv env t sz s (CCall ck e es) =  
 (let n = ( LENGTH es) in
   let s = (compile_nts menv env sz s (e ::es)) in
   (case t of
@@ -369,7 +369,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     (* env, argn, ..., arg1, Block 0 [CodePtr c; env], *)
     let s = ( emit s [Stack (Load (n +1)); Stack (El 0)]) in
     (* CodePtr c, env, argn, ..., arg1, Block 0 [CodePtr c; env], *)
-    emit s [CallPtr]
+    emit (if ck then emit s [Tick] else s) [CallPtr]
     (* before: env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env], *)
     (* after:  retval, *)
   | TCTail j k =>
@@ -385,7 +385,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     (* CodePtr c, env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
      * vk, ..., v1, env1, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c1; env1], *)
     let s = ( emit s [Stack (Shift (1 +1 +1 +n +1) (k +1 +1 +j +1))]) in
-    emit s [JumpPtr]
+    emit (if ck then emit s [Tick] else s) [JumpPtr]
   )))
 /\
 (compile menv env t sz s (CPrim1 uop e) =  
@@ -452,7 +452,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (free_labs_defs ez ( LENGTH defs) 0 defs ++
   free_labs (ez + LENGTH defs) e))
 /\
-(free_labs ez (CCall e es) = (free_labs ez e ++ free_labs_list ez es))
+(free_labs ez (CCall _ e es) = (free_labs ez e ++ free_labs_list ez es))
 /\
 (free_labs ez (CPrim2 _ e1 e2) = (free_labs ez e1 ++ free_labs ez e2))
 /\

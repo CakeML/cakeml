@@ -41,7 +41,7 @@ val _ = new_theory "ToIntLang"
 (let n = ( LENGTH defs) in
   lunion (free_vars_defs n defs) (lshift n (free_vars e))))
 /\
-(free_vars (CCall e es) = ( lunion (free_vars e) (free_vars_list es)))
+(free_vars (CCall _ e es) = ( lunion (free_vars e) (free_vars_list es)))
 /\
 (free_vars (CPrim1 _ e) = (free_vars e))
 /\
@@ -92,7 +92,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     defs) in
   CLetrec defs (mkshift f (k +ns) b)))
 /\
-(mkshift f k (CCall e es) = (CCall (mkshift f k e) ( MAP (mkshift f k) es)))
+(mkshift f k (CCall ck e es) = (CCall ck (mkshift f k e) ( MAP (mkshift f k) es)))
 /\
 (mkshift f k (CPrim1 p1 e) = (CPrim1 p1 (mkshift f k e)))
 /\
@@ -167,12 +167,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (remove_mat_vp fk sk v (CPlit l) =  
 (CIf (CPrim2 CEq (CVar (Short v)) (CLit l))
-    sk (CCall (CVar (Short fk)) [])))
+    sk (CCall F (CVar (Short fk)) [])))
 /\
 (remove_mat_vp fk sk v (CPcon cn ps) =  
 (CIf (CTagEq (CVar (Short v)) cn)
     (remove_mat_con fk sk v 0 ps)
-    (CCall (CVar (Short fk)) [])))
+    (CCall F (CVar (Short fk)) [])))
 /\
 (remove_mat_vp fk sk v (CPref p) =  
 (CLet (CPrim1 CDer (CVar (Short v)))
@@ -276,7 +276,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (exp_to_Cexp m (App Opapp e1 e2) =  
 (let Ce1 = (exp_to_Cexp m e1) in
   let Ce2 = (exp_to_Cexp m e2) in
-  CCall Ce1 [Ce2]))
+  CCall T Ce1 [Ce2]))
 /\
 (exp_to_Cexp m (App Opassign e1 e2) =  
 (let Ce1 = (exp_to_Cexp m e1) in
