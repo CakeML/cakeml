@@ -90,6 +90,7 @@ val NT_rank_def = Define`
         else if n = nPbase             then  3
         else if n = nPattern           then  4
         else if n = nPatternList1      then  5
+        else if n = nPatternList2      then  5
         else if n = nPEs               then  2
         else if n = nPE                then  1
         else if n = nLetDecs           then  2
