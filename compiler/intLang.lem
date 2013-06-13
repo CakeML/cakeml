@@ -146,10 +146,11 @@ Cevaluate menv s2 (v::env) e2 res
 ==>
 Cevaluate menv s1 env (CHandle e1 e2) res
 and
-forall menv s1 env e1 e2 s2.
-Cevaluate menv s1 env e1 (s2, Cexc Ctype_error)
+forall menv s1 env e1 e2 s2 err.
+Cevaluate menv s1 env e1 (s2, Cexc err) &&
+(forall v. not (err = Craise v))
 ==>
-Cevaluate menv s1 env (CHandle e1 e2) (s2, Cexc Ctype_error)
+Cevaluate menv s1 env (CHandle e1 e2) (s2, Cexc err)
 
 and
 forall menv s env n.

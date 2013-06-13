@@ -202,10 +202,11 @@ Cevaluate menv s2 (v ::env) e2 res)
 ==>
 Cevaluate menv s1 env (CHandle e1 e2) res)
 /\
-(! menv s1 env e1 e2 s2.
-(Cevaluate menv s1 env e1 (s2, Cexc Ctype_error))
+(! menv s1 env e1 e2 s2 err.
+(Cevaluate menv s1 env e1 (s2, Cexc err) /\
+(! v. ~  (err = Craise v)))
 ==>
-Cevaluate menv s1 env (CHandle e1 e2) (s2, Cexc Ctype_error))
+Cevaluate menv s1 env (CHandle e1 e2) (s2, Cexc err))
 
 /\
 (! menv s env n.
