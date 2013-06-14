@@ -4,6 +4,8 @@ open gramTheory pegexecTheory
 
 local open monadsyntax in end
 
+fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
+
 val _ = new_theory "mmlPEG"
 
 
@@ -556,6 +558,9 @@ fun pegnt(t,acc) = let
                   pegf_def, peg_linfix_def,
                   peg_DType_def, peg_Eapp_def]) >>
             simp(peg0_rwts @ acc))
+  val nm = "peg0_" ^ term_to_string t
+  val th' = save_thm(nm, SIMP_RULE bool_ss [pnt_def] th)
+  val _ = export_rewrites [nm]
 in
   th::acc
 end
@@ -564,10 +569,63 @@ val npeg0_rwts =
     List.foldl pegnt []
                [``nTypeDec``, ``nDecl``, ``nV``, ``nVlist1``, ``nUQTyOp``,
                 ``nUQConstructorName``, ``nConstructorName``, ``nTypeName``,
+                ``nDtypeDecl``, ``nDconstructor``,
                 ``nTyOp``, ``nDType``, ``nStarTypes``, ``nStarTypesP``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``, ``nLetDec``,
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
                 ``nSpecLine``, ``nStructure``, ``nTopLevelDec``]
+
+val pegfail_empty = Store_thm(
+  "pegfail_empty",
+  ``pegfail G (empty r) = F``,
+  simp[Once pegTheory.peg0_cases]);
+
+val peg0_empty = Store_thm(
+  "peg0_empty",
+  ``peg0 G (empty r) = T``,
+  simp[Once pegTheory.peg0_cases]);
+
+val peg0_not = Store_thm(
+  "peg0_not",
+  ``peg0 G (not s r) ⇔ pegfail G s``,
+  simp[Once pegTheory.peg0_cases, SimpLHS]);
+
+val peg0_choice = Store_thm(
+  "peg0_choice",
+  ``peg0 G (choice s1 s2 f) ⇔ peg0 G s1 ∨ pegfail G s1 ∧ peg0 G s2``,
+  simp[Once pegTheory.peg0_cases, SimpLHS]);
+
+val peg0_choicel = Store_thm(
+  "peg0_choicel",
+  ``(peg0 G (choicel []) = F) ∧
+    (peg0 G (choicel (h::t)) ⇔ peg0 G h ∨ pegfail G h ∧ peg0 G (choicel t))``,
+  simp[choicel_def])
+
+val peg0_seq = Store_thm(
+  "peg0_seq",
+  ``peg0 G (seq s1 s2 f) ⇔ peg0 G s1 ∧ peg0 G s2``,
+  simp[Once pegTheory.peg0_cases, SimpLHS])
+
+val peg0_pegf = Store_thm(
+  "peg0_pegf",
+  ``peg0 G (pegf s f) = peg0 G s``,
+  simp[pegf_def])
+
+val peg0_seql = Store_thm(
+  "peg0_seql",
+  ``(peg0 G (seql [] f) ⇔ T) ∧
+    (peg0 G (seql (h::t) f) ⇔ peg0 G h ∧ peg0 G (seql t I))``,
+  simp[seql_def])
+
+val peg0_tok = Store_thm(
+  "peg0_tok",
+  ``peg0 G (tok P f) = F``,
+  simp[Once pegTheory.peg0_cases])
+
+val peg0_tokeq = Store_thm(
+  "peg0_tokeq",
+  ``peg0 G (tokeq t) = F``,
+  simp[tokeq_def])
 
 fun wfnt(t,acc) = let
   val th =
