@@ -707,7 +707,7 @@ val Cpmatch_closed = store_thm("Cpmatch_closed",
 val Cpmatch_strongind = theorem"Cpmatch_strongind"
 
 val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
-  ``(∀p v menv. Cpmatch s p v menv ⇒
+  ``(∀p v menv. Cpmatch (SND s) p v menv ⇒
        ∀mod env x fk e r0.
          (el_check x env = SOME v) ∧
          set (free_vars e) ⊆ count (Cpat_vars p + LENGTH env) ∧
@@ -715,9 +715,10 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
          no_labs e ∧
          Cevaluate mod s (menv ++ env) e r0
        ⇒ ∃r. Cevaluate mod s env (remove_mat_vp fk e x p) r ∧
-             EVERY2 (syneq) (FST r0) (FST r) ∧
+             FST (FST r0) = FST (FST r) ∧
+             EVERY2 (syneq) (SND (FST r0)) (SND (FST r)) ∧
              Cresult_rel syneq syneq (SND r0) (SND r)) ∧
-    (∀ps vs menv. Cpmatch_list s ps vs menv ⇒
+    (∀ps vs menv. Cpmatch_list (SND s) ps vs menv ⇒
        ∀mod env x c vs0 menv0 fk e r0.
          (el_check x (menv0 ++ env) = SOME (CConv c (vs0++vs))) ∧
          set (free_vars e) ⊆ count (LENGTH (menv ++ menv0 ++ env)) ∧
@@ -725,7 +726,8 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
          no_labs e ∧
          Cevaluate mod s (menv ++ menv0 ++ env) e r0
        ⇒ ∃r. Cevaluate mod s (menv0 ++ env) (remove_mat_con fk e x (LENGTH vs0) ps) r ∧
-             EVERY2 (syneq) (FST r0) (FST r) ∧
+             FST (FST r0) = FST (FST r) ∧
+             EVERY2 (syneq) (SND (FST r0)) (SND (FST r)) ∧
              Cresult_rel syneq syneq (SND r0) (SND r))``,
   ho_match_mp_tac Cpmatch_strongind >>
   strip_tac >- (
@@ -757,7 +759,7 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
     qspecl_then[`mod`,`s`,`menv++env`,`e`,`r0`]mp_tac(CONJUNCT1 Cevaluate_syneq) >>
     simp[] >>
     disch_then(qspecl_then[`λv1 v2. if v1 < LENGTH menv then (v2 = v1) else (v2 = v1+1)`
-                          ,`mod`,`s`,`menv++(EL n s::env)`,`shift 1 (Cpat_vars p) e`]mp_tac) >>
+                          ,`mod`,`s`,`menv++(EL n (SND s)::env)`,`shift 1 (Cpat_vars p) e`]mp_tac) >>
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
       unabbrev_all_tac >> simp[] >>
@@ -769,7 +771,7 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
     simp[] >>
     map_every qunabbrev_tac[`P`,`Q`,`R`] >> fs[] >>
     disch_then(Q.X_CHOOSE_THEN`r1`strip_assume_tac) >>
-    first_x_assum(qspecl_then[`mod`,`EL n s::env`,`0`,`fk+1`,`shift 1 (Cpat_vars p) e`,`r1`]mp_tac) >>
+    first_x_assum(qspecl_then[`mod`,`EL n (SND s)::env`,`0`,`fk+1`,`shift 1 (Cpat_vars p) e`,`r1`]mp_tac) >>
     simp[] >>
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
@@ -779,7 +781,8 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
       res_tac >>
       fsrw_tac[ARITH_ss][] ) >>
     map_every qunabbrev_tac[`P`,`Q`,`R`] >> fs[] >>
-    PROVE_TAC[Cresult_rel_syneq_trans,EVERY2_syneq_trans] ) >>
+    Cases_on`s`>>asm_simp_tac(srw_ss()++DNF_ss)[FORALL_PROD] >> fs[] >>
+    metis_tac[Cresult_rel_syneq_trans,EVERY2_syneq_trans,FST,SND] ) >>
   strip_tac >- (
     rw[] >>
     rw[Once Cevaluate_cases] >>
@@ -885,23 +888,25 @@ val Cpmatch_remove_mat = store_thm("Cpmatch_remove_mat",
 val Cpnomatch_strongind = theorem"Cpnomatch_strongind"
 
 val Cpnomatch_remove_mat = store_thm("Cpnomatch_remove_mat",
-  ``(∀p v. Cpnomatch s p v ⇒
+  ``(∀p v. Cpnomatch (SND s) p v ⇒
        ∀env x fk e r0.
          (el_check x env = SOME v) ∧ fk < LENGTH env ∧
          set (free_vars e) ⊆ count (Cpat_vars p + LENGTH env) ∧
          no_labs e ∧
-         Cevaluate mod s env (CCall (CVar (Short fk)) []) r0
+         Cevaluate mod s env (CCall F (CVar (Short fk)) []) r0
          ⇒ ∃r. Cevaluate mod s env (remove_mat_vp fk e x p) r ∧
-               EVERY2 (syneq) (FST r0) (FST r) ∧
+               FST (FST r0) = FST (FST r) ∧
+               EVERY2 (syneq) (SND (FST r0)) (SND (FST r)) ∧
                Cresult_rel syneq syneq (SND r0) (SND r)) ∧
-    (∀ps vs. Cpnomatch_list s ps vs ⇒
+    (∀ps vs. Cpnomatch_list (SND s) ps vs ⇒
        ∀env x c vs0 fk e r0.
          (el_check x env = SOME (CConv c (vs0 ++ vs))) ∧ fk < LENGTH env ∧
          set (free_vars e) ⊆ count (Cpat_vars_list ps + LENGTH env) ∧
          no_labs e ∧
-         Cevaluate mod s env (CCall (CVar (Short fk)) []) r0
+         Cevaluate mod s env (CCall F (CVar (Short fk)) []) r0
          ⇒ ∃r. Cevaluate mod s env (remove_mat_con fk e x (LENGTH vs0) ps) r ∧
-               EVERY2 (syneq) (FST r0) (FST r) ∧
+               FST (FST r0) = FST (FST r) ∧
+               EVERY2 (syneq) (SND (FST r0)) (SND (FST r)) ∧
                Cresult_rel syneq syneq (SND r0) (SND r))``,
   ho_match_mp_tac Cpnomatch_ind >>
   strip_tac >- (
@@ -931,9 +936,9 @@ val Cpnomatch_remove_mat = store_thm("Cpnomatch_remove_mat",
     disj1_tac >>
     rw[Once Cevaluate_cases,LET_THM] >>
     fs[el_check_def] >> rw[] >>
-    qspecl_then[`mod`,`s`,`env`,`CCall (CVar (Short fk)) []`,`r0`]mp_tac(CONJUNCT1 Cevaluate_syneq)>>
+    qspecl_then[`mod`,`s`,`env`,`CCall F (CVar (Short fk)) []`,`r0`]mp_tac(CONJUNCT1 Cevaluate_syneq)>>
     simp[] >>
-    disch_then(qspecl_then[`λv1 v2. v2 = v1 + 1`,`mod`,`s`,`EL n s::env`,`CCall (CVar (Short (fk+1))) []`]mp_tac) >>
+    disch_then(qspecl_then[`λv1 v2. v2 = v1 + 1`,`mod`,`s`,`EL n (SND s)::env`,`CCall F (CVar (Short (fk+1))) []`]mp_tac) >>
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
       map_every qunabbrev_tac[`P`,`Q`,`R`] >>
@@ -946,7 +951,7 @@ val Cpnomatch_remove_mat = store_thm("Cpnomatch_remove_mat",
     map_every qunabbrev_tac[`P`,`Q`,`R`] >>
     pop_assum kall_tac >>
     disch_then(Q.X_CHOOSE_THEN`r1`strip_assume_tac) >>
-    first_x_assum(qspecl_then[`EL n s::env`,`0`,`fk+1`,`shift 1 (Cpat_vars p) e`,`r1`]mp_tac) >>
+    first_x_assum(qspecl_then[`EL n (SND s)::env`,`0`,`fk+1`,`shift 1 (Cpat_vars p) e`,`r1`]mp_tac) >>
     simp[] >>
     fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,ADD1] >>
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
@@ -954,7 +959,11 @@ val Cpnomatch_remove_mat = store_thm("Cpnomatch_remove_mat",
       simp[Abbr`P`] >>
       srw_tac[ARITH_ss][] >>
       res_tac >> simp[] ) >>
-    PROVE_TAC[Cresult_rel_syneq_trans,EVERY2_syneq_trans] ) >>
+    simp[] >>
+    map_every qunabbrev_tac[`P`,`Q`,`R`] >>
+    pop_assum kall_tac >>
+    Cases_on`s`>>asm_simp_tac(srw_ss()++DNF_ss)[FORALL_PROD] >> fs[] >>
+    metis_tac[Cresult_rel_syneq_trans,EVERY2_syneq_trans,FST,SND] ) >>
   strip_tac >- (
     rw[el_check_def] >>
     rw[Once Cevaluate_cases] >>
@@ -973,9 +982,9 @@ val Cpnomatch_remove_mat = store_thm("Cpnomatch_remove_mat",
     REWRITE_TAC[GSYM APPEND_ASSOC] >>
     lrw[EL_APPEND2] >>
     Q.PAT_ABBREV_TAC`e' = remove_mat_con X Y Z A B` >>
-    qspecl_then[`mod`,`s`,`env`,`CCall (CVar (Short fk)) []`,`r0`]mp_tac(CONJUNCT1 Cevaluate_syneq)>>
+    qspecl_then[`mod`,`s`,`env`,`CCall F (CVar (Short fk)) []`,`r0`]mp_tac(CONJUNCT1 Cevaluate_syneq)>>
     simp[] >>
-    disch_then(qspecl_then[`λv1 v2. v2 = v1 + 1`,`mod`,`s`,`[v]++env`,`CCall (CVar (Short (fk+1))) []`]mp_tac) >>
+    disch_then(qspecl_then[`λv1 v2. v2 = v1 + 1`,`mod`,`s`,`[v]++env`,`CCall F (CVar (Short (fk+1))) []`]mp_tac) >>
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     `P` by (
       map_every qunabbrev_tac[`P`,`Q`,`R`] >>
@@ -1010,9 +1019,9 @@ val Cpnomatch_remove_mat = store_thm("Cpnomatch_remove_mat",
   fsrw_tac[DNF_ss,ARITH_ss][] >>
   REWRITE_TAC[GSYM APPEND_ASSOC] >>
   lrw[EL_APPEND2] >>
-  qspecl_then[`mod`,`s`,`env'`,`CCall (CVar (Short fk)) []`,`r0`]mp_tac(CONJUNCT1 Cevaluate_syneq)>>
+  qspecl_then[`mod`,`s`,`env'`,`CCall F (CVar (Short fk)) []`,`r0`]mp_tac(CONJUNCT1 Cevaluate_syneq)>>
   simp[] >>
-  disch_then(qspecl_then[`λv1 v2. v2 = v1+(Cpat_vars p+1)`,`mod`,`s`,`env++[v]++env'`,`CCall (CVar (Short (fk+(Cpat_vars p+1)))) []`]mp_tac) >>
+  disch_then(qspecl_then[`λv1 v2. v2 = v1+(Cpat_vars p+1)`,`mod`,`s`,`env++[v]++env'`,`CCall F (CVar (Short (fk+(Cpat_vars p+1)))) []`]mp_tac) >>
   qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
   `P` by (
     map_every qunabbrev_tac[`P`,`Q`,`R`] >>
@@ -1086,18 +1095,20 @@ val Cevaluate_match_NONE_NIL = store_thm("Cevaluate_match_NONE_NIL",
   ho_match_mp_tac Cevaluate_match_ind >> rw[])
 
 val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
-  ``∀pes menv mr. Cevaluate_match s v pes menv mr ⇒
+  ``∀pes menv mr. Cevaluate_match (SND s) v pes menv mr ⇒
       ∀env x. (el_check x env = SOME v) ∧
               EVERY (λ(p,e). set (free_vars e) ⊆ count (Cpat_vars p + LENGTH env) ∧ no_labs e) pes
       ⇒
        case mr of
        | NONE =>
            ∃r. Cevaluate mod s env (remove_mat_var x pes) r ∧
-               EVERY2 (syneq) s (FST r) ∧
+               FST s = FST (FST r) ∧
+               EVERY2 (syneq) (SND s) (SND (FST r)) ∧
                (SND r = Cexc (Craise CBind_excv))
        | SOME e => ∀r0. Cevaluate mod s (menv ++ env) e r0 ⇒
            ∃r. Cevaluate mod s env (remove_mat_var x pes) r ∧
-               EVERY2 (syneq) (FST r0) (FST r) ∧
+               FST (FST r0) = FST (FST r) ∧
+               EVERY2 (syneq) (SND (FST r0)) (SND (FST r)) ∧
                Cresult_rel syneq syneq (SND r0) (SND r)``,
   ho_match_mp_tac Cevaluate_match_strongind >>
   strip_tac >- (
@@ -1150,10 +1161,11 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
   qsuff_tac `∀r0. (case mr of NONE => (r0 = (s,Cexc (Craise CBind_excv)))
                    | SOME e => Cevaluate mod s (menv ++ env) e r0)
                    ⇒ ∃r. Cevaluate mod s env ex r ∧
-                         EVERY2 (syneq) (FST r0) (FST r) ∧
+                         FST (FST r0) = FST (FST r) ∧
+                         EVERY2 syneq (SND (FST r0)) (SND (FST r)) ∧
                          Cresult_rel syneq syneq (SND r0) (SND r)` >- (
     Cases_on `mr` >> fs[EXISTS_PROD,FORALL_PROD] >>
-    srw_tac[DNF_ss][Once syneq_cases] >> metis_tac[] ) >>
+    Cases_on`s`>>srw_tac[DNF_ss][Once syneq_cases] >> metis_tac[] ) >>
   qx_gen_tac `r0` >>
   strip_tac >>
   qunabbrev_tac`ex` >>
@@ -1167,7 +1179,7 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
   simp[Once Cevaluate_cases] >>
   simp[Once(CONJUNCT2 Cevaluate_cases)] >>
   qho_match_abbrev_tac`(∀r. P r ⇒ Q r) ⇒ R` >>
-  qsuff_tac`∃r. P r ∧ EVERY2 (syneq) (FST r0) (FST r)
+  qsuff_tac`∃r. P r ∧ FST (FST r0) = FST (FST r) ∧ EVERY2 syneq (SND (FST r0)) (SND (FST r))
                     ∧ Cresult_rel syneq syneq (SND r0) (SND r)` >- (
     rw[Abbr`R`,Abbr`Q`] >>
     metis_tac[EVERY2_syneq_trans,Cresult_rel_syneq_trans] ) >>
@@ -1181,7 +1193,8 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
     res_tac >> simp[] ) >>
   qsuff_tac`
       ∃r. Cevaluate mod s env (remove_mat_var x pes) r ∧
-          EVERY2 (syneq) (FST r0) (FST r) ∧
+          FST (FST r0) = FST (FST r) ∧
+          EVERY2 (syneq) (SND (FST r0)) (SND (FST r)) ∧
           Cresult_rel syneq syneq (SND r0) (SND r)` >- (
     disch_then(Q.X_CHOOSE_THEN`r1`strip_assume_tac) >>
     qspecl_then[`mod`,`s`,`env`,`remove_mat_var x pes`,`r1`]mp_tac(CONJUNCT1 Cevaluate_syneq) >>
@@ -1189,7 +1202,10 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
     Q.PAT_ABBREV_TAC`f = CRecClos env A B` >>
     disch_then(qspecl_then[`λv1 v2. v2 = v1 + 1`,`mod`,`s`,`f::env`,`shift 1 0 (remove_mat_var x pes)`]mp_tac) >>
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
-    qsuff_tac`P` >- metis_tac[Cresult_rel_syneq_trans,EVERY2_syneq_trans] >>
+    qsuff_tac`P` >- (
+      unabbrev_all_tac >>
+      Cases_on`s`>>fs[] >>
+      metis_tac[Cresult_rel_syneq_trans,EVERY2_syneq_trans] ) >>
     map_every qunabbrev_tac[`P`,`Q`,`R`] >>
     simp[shift_def,ADD1,EL_CONS,PRE_SUB1] >>
     match_mp_tac mkshift_thm >>
