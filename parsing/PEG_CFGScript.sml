@@ -153,119 +153,8 @@ val peg_eval_seql_CONS = store_thm(
 
 val not_peg0_LENGTH_decreases = store_thm(
   "not_peg0_LENGTH_decreases",
-  ``¬peg0 G s ∧ peg_eval G (i0, s) (SOME(i,r)) ⇒ LENGTH i < LENGTH i0``,
-  strip_tac >> `i ≠ i0` by metis_tac [pegTheory.lemma4_1a] >>
-  metis_tac[pegTheory.peg_eval_suffix'])
-
-val pegfail_empty = Store_thm(
-  "pegfail_empty",
-  ``pegfail G (empty r) = F``,
-  simp[Once pegTheory.peg0_cases]);
-
-val peg0_empty = Store_thm(
-  "peg0_empty",
-  ``peg0 G (empty r) = T``,
-  simp[Once pegTheory.peg0_cases]);
-
-val peg0_not = Store_thm(
-  "peg0_not",
-  ``peg0 G (not s r) ⇔ pegfail G s``,
-  simp[Once pegTheory.peg0_cases, SimpLHS]);
-
-val peg0_choice = Store_thm(
-  "peg0_choice",
-  ``peg0 G (choice s1 s2 f) ⇔ peg0 G s1 ∨ pegfail G s1 ∧ peg0 G s2``,
-  simp[Once pegTheory.peg0_cases, SimpLHS]);
-
-val peg0_choicel = Store_thm(
-  "peg0_choicel",
-  ``(peg0 G (choicel []) = F) ∧
-    (peg0 G (choicel (h::t)) ⇔ peg0 G h ∨ pegfail G h ∧ peg0 G (choicel t))``,
-  simp[choicel_def])
-
-val peg0_seq = Store_thm(
-  "peg0_seq",
-  ``peg0 G (seq s1 s2 f) ⇔ peg0 G s1 ∧ peg0 G s2``,
-  simp[Once pegTheory.peg0_cases, SimpLHS])
-
-val peg0_pegf = Store_thm(
-  "peg0_pegf",
-  ``peg0 G (pegf s f) = peg0 G s``,
-  simp[pegf_def])
-
-val peg0_seql = Store_thm(
-  "peg0_seql",
-  ``(peg0 G (seql [] f) ⇔ T) ∧
-    (peg0 G (seql (h::t) f) ⇔ peg0 G h ∧ peg0 G (seql t I))``,
-  simp[seql_def])
-
-val peg0_tok = Store_thm(
-  "peg0_tok",
-  ``peg0 G (tok P f) = F``,
-  simp[Once pegTheory.peg0_cases])
-
-val peg0_tokeq = Store_thm(
-  "peg0_tokeq",
-  ``peg0 G (tokeq t) = F``,
-  simp[tokeq_def])
-
-val peg0_nStructure = Store_thm(
-  "peg0_nStructure",
-  ``peg0 mmlPEG (nt (mkNT nStructure) f) = F``,
-  simp[Once pegTheory.peg0_cases, mmlpeg_rules_applied, FDOM_cmlPEG]);
-
-val peg0_nTypeDec = Store_thm(
-  "peg0_nTypeDec",
-  ``peg0 mmlPEG (nt (mkNT nTypeDec) f) = F``,
-  simp[Once pegTheory.peg0_cases, mmlpeg_rules_applied, FDOM_cmlPEG,
-       peg_TypeDec_def]);
-
-val peg0_nDecl = Store_thm(
-  "peg0_nDecl",
-  ``peg0 mmlPEG (nt (mkNT nDecl) f) = F``,
-  simp[Once pegTheory.peg0_cases, mmlpeg_rules_applied, FDOM_cmlPEG,
-       pnt_def])
-
-val peg0_nTopLevelDec = Store_thm(
-  "peg0_nTopLevelDec",
-  ``¬peg0 mmlPEG (nt (mkNT nTopLevelDec) f)``,
-  simp[Once pegTheory.peg0_cases, mmlpeg_rules_applied, FDOM_cmlPEG, pnt_def])
-
-val peg0_nV = Store_thm(
-  "peg0_nV",
-  ``¬peg0 mmlPEG (nt (mkNT nV) f)``,
-  simp[Once pegTheory.peg0_cases, mmlpeg_rules_applied, FDOM_cmlPEG, peg_V_def])
-
-val peg0_nSpecLine = Store_thm(
-  "peg0_nSpecLine",
-  ``¬peg0 mmlPEG (nt (mkNT nSpecLine) f)``,
-  simp[Once pegTheory.peg0_cases, mmlpeg_rules_applied, FDOM_cmlPEG, pnt_def])
-
-val peg0_nLetDec = Store_thm(
-  "peg0_nLetDec",
-  ``¬peg0 mmlPEG (nt (mkNT nLetDec) f)``,
-  simp[Once pegTheory.peg0_cases, mmlpeg_rules_applied, FDOM_cmlPEG, pnt_def])
-
-val peg0_nUQConstructorName = Store_thm(
-  "peg0_nUQConstructorName",
-  ``¬peg0 mmlPEG (nt (mkNT nUQConstructorName) f)``,
-  simp[Once pegTheory.peg0_cases, mmlpeg_rules_applied, FDOM_cmlPEG,
-       peg_UQConstructorName_def])
-
-val peg0_nConstructorName = Store_thm(
-  "peg0_nConstructorName",
-  ``¬peg0 mmlPEG (nt (mkNT nConstructorName) f)``,
-  simp[Once pegTheory.peg0_cases, mmlpeg_rules_applied, FDOM_cmlPEG, pnt_def])
-
-val peg0_nPbase = Store_thm(
-  "peg0_nPbase",
-  ``¬peg0 mmlPEG (nt (mkNT nPbase) f)``,
-  simp[Once pegTheory.peg0_cases, mmlpeg_rules_applied, FDOM_cmlPEG, pnt_def]);
-
-val peg0_nPattern = Store_thm(
-  "peg0_nPattern",
-  ``¬peg0 mmlPEG (nt (mkNT nPattern) f)``,
-  simp[Once pegTheory.peg0_cases, mmlpeg_rules_applied, FDOM_cmlPEG, pnt_def])
+  ``¬peg0 G s ⇒ peg_eval G (i0, s) (SOME(i,r)) ⇒ LENGTH i < LENGTH i0``,
+  metis_tac[pegTheory.peg_eval_suffix', pegTheory.lemma4_1a])
 
 val peg_eval_TypeDec_wrongtok = store_thm(
   "peg_eval_TypeDec_wrongtok",
@@ -356,6 +245,11 @@ val peg_linfix_correct_lemma = store_thm(
     by fs[SUBSET_DEF] >>
   simp[]);
 
+val _ = augment_srw_ss [rewrites [
+  peg_eval_seql_CONS, peg_eval_tok_SOME, tokeq_def, bindNT_def, mktokLf_def,
+  peg_eval_choicel_CONS, pegf_def, peg_eval_seq_SOME, pnt_def, peg_eval_try,
+  try_def]]
+
 (*
 val peg_correct = store_thm(
   "peg_correct",
@@ -375,22 +269,19 @@ val peg_correct = store_thm(
   map_every qx_gen_tac [`N`, `i0`, `i`, `pts`] >> strip_tac >>
   simp[peg_eval_NT_SOME, mmlPEGTheory.FDOM_cmlPEG] >>
   disch_then (CONJUNCTS_THEN2 strip_assume_tac mp_tac) >> rveq >>
-  simp[mmlPEGTheory.mmlpeg_rules_applied, pnt_def, peg_eval_choicel_CONS,
-       tokeq_def]
+  simp[mmlPEGTheory.mmlpeg_rules_applied]
   >- (print_tac "nREPLTop">>
       `NT_rank (mkNT nE) < NT_rank (mkNT nREPLTop) ∧
        NT_rank (mkNT nTopLevelDec) < NT_rank (mkNT nREPLTop)`
           by simp[NT_rank_def] >>
-      simp[peg_eval_seql_CONS, peg_eval_tok_SOME, tokeq_def,
-           bindNT_def, mktokLf_def] >> strip_tac >> rveq >> simp[] >>
+      strip_tac >> rveq >> simp[] >>
       first_x_assum (erule strip_assume_tac) >> rveq >>
       dsimp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nREPLPhrase" >>
       `NT_rank (mkNT nE) < NT_rank (mkNT nREPLPhrase) ∧
        NT_rank (mkNT nTopLevelDecs) < NT_rank (mkNT nREPLPhrase)`
           by simp[NT_rank_def] >>
-      simp[peg_eval_seql_CONS, peg_eval_tok_SOME, tokeq_def, bindNT_def,
-           mktokLf_def] >> strip_tac >> rveq >> simp[] >>
+      strip_tac >> rveq >> simp[] >>
       first_x_assum (erule strip_assume_tac) >> rveq >>
       dsimp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nTopLevelDecs" >>
@@ -426,17 +317,13 @@ val peg_correct = store_thm(
       disch_then (qxchl [`d_pt`] strip_assume_tac) >> simp[] >>
       dsimp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nTopLevelDec" >>
-      simp[peg_eval_choicel_CONS, pegf_def, peg_eval_seql_CONS,
-           peg_eval_seq_SOME, bindNT_def] >>
       `NT_rank (mkNT nStructure) < NT_rank (mkNT nTopLevelDec) ∧
        NT_rank (mkNT nDecl) < NT_rank (mkNT nTopLevelDec)`
         by simp[NT_rank_def] >>
       strip_tac >>
       first_x_assum (erule mp_tac) >>
       strip_tac >> simp[cmlG_FDOM, cmlG_applied])
-  >- (print_tac "nStructure" >>
-      simp[peg_eval_seql_CONS, peg_eval_seq_SOME, bindNT_def,
-           peg_eval_tok_SOME, mktokLf_def] >> strip_tac >> rveq >>
+  >- (print_tac "nStructure" >> strip_tac >> rveq >>
       simp[DISJ_IMP_THM, FORALL_AND_THM, cmlG_FDOM, cmlG_applied] >>
       loseC ``NT_rank`` >> fs[] >>
       asm_match `peg_eval mmlPEG (vi, nt (mkNT nV) I) (SOME(opti,vt))` >>
@@ -453,24 +340,17 @@ val peg_correct = store_thm(
                      DECIDE``x:num ≤ y ⇔ x < y ∨ x = y``] >> fs[] >>
       `LENGTH di < SUC (LENGTH vi)` by decide_tac >>
       first_x_assum (erule strip_assume_tac) >> rveq >> simp[])
-  >- (print_tac "nOptionalSignatureAscription" >>
-      simp[peg_eval_seql_CONS, bindNT_def, pegf_def, peg_eval_seq_SOME,
-           peg_eval_try, peg_eval_tok_SOME, mktokLf_def] >> strip_tac >>
-      rveq >> simp[cmlG_applied, cmlG_FDOM] >> dsimp[] >>
+  >- (print_tac "nOptionalSignatureAscription" >> strip_tac >> rveq >>
+      simp[cmlG_applied, cmlG_FDOM] >> dsimp[] >>
       loseC ``NT_rank`` >> dsimp[MAP_EQ_SING] >> csimp[] >> fs[] >>
       metis_tac [DECIDE ``x < SUC x``])
   >- (print_tac "nSignatureValue" >>
-      simp[peg_eval_seql_CONS, bindNT_def, peg_eval_tok_SOME, mktokLf_def] >>
       strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >>
       dsimp[] >> csimp[] >>
-      asm_match `peg_eval mmlPEG (slli, nt (mkNT nSpecLineList) I)
-                          (SOME (EndT::i, r))` >>
-      first_x_assum (qspecl_then [`mkNT nSpecLineList`, `slli`, `EndT::i`, `r`]
-                                 mp_tac) >> dsimp[])
-  >- (print_tac "nSpecLineList" >>
-      simp[peg_eval_seql_CONS, bindNT_def, peg_eval_tok_SOME, mktokLf_def,
-           pegf_def, peg_eval_seq_SOME] >>
-      strip_tac >> simp[cmlG_applied, cmlG_FDOM]
+      first_x_assum (fn patth =>
+        first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+      dsimp[])
+  >- (print_tac "nSpecLineList" >> strip_tac >> simp[cmlG_applied, cmlG_FDOM]
       >- (`NT_rank (mkNT nSpecLine) < NT_rank (mkNT nSpecLineList)`
              by simp[NT_rank_def] >>
           first_x_assum (erule mp_tac) >>
@@ -482,10 +362,8 @@ val peg_correct = store_thm(
       >- (dsimp[MAP_EQ_SING] >> csimp[]>>fs[] >> metis_tac[DECIDE``x < SUC x``])
       >> fs[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> dsimp[] >> csimp[] >>
           metis_tac[DECIDE``x< SUC x``])
-  >- (print_tac "nSpecLine" >>
-      simp[peg_eval_seql_CONS, bindNT_def, peg_eval_tok_SOME, mktokLf_def,
-           pegf_def, peg_eval_seq_SOME] >>
-      strip_tac >> rveq >> fs[cmlG_applied, cmlG_FDOM, peg_eval_TypeDec_wrongtok]
+  >- (print_tac "nSpecLine" >> strip_tac >> rveq >>
+      fs[cmlG_applied, cmlG_FDOM, peg_eval_TypeDec_wrongtok]
       >- (asm_match
             `peg_eval mmlPEG (i1, nt (mkNT nV) I) (SOME(ColonT::i2,r))` >>
           `LENGTH i1 < SUC (LENGTH i1)` by DECIDE_TAC >>
@@ -499,8 +377,6 @@ val peg_correct = store_thm(
          by simp[NT_rank_def] >>
       first_x_assum (erule strip_assume_tac) >> rveq >> simp[])
   >- (print_tac "nDecls" >>
-      simp[peg_eval_seql_CONS, bindNT_def, peg_eval_tok_SOME, mktokLf_def,
-           pegf_def, peg_eval_seq_SOME, peg_eval_tok_SOME] >>
       `NT_rank (mkNT nDecl) < NT_rank (mkNT nDecls)`
         by simp[NT_rank_def] >>
       strip_tac >> rveq >> fs[cmlG_applied, cmlG_FDOM]
@@ -514,8 +390,7 @@ val peg_correct = store_thm(
       >- (dsimp[MAP_EQ_SING] >> csimp[] >> metis_tac[DECIDE``x<SUC x``]) >>
       dsimp[MAP_EQ_SING] >> csimp[] >> metis_tac[DECIDE``x<SUC x``])
   >- (print_tac "nDecl" >>
-      simp[peg_eval_seql_CONS, bindNT_def, peg_eval_tok_SOME, mktokLf_def,
-           pegf_def] >> rpt strip_tac >> rveq >> fs[peg_eval_TypeDec_wrongtok]
+      rpt strip_tac >> rveq >> fs[peg_eval_TypeDec_wrongtok]
       >- (asm_match `peg_eval mmlPEG (i1, nt (mkNT nPattern) I)
                               (SOME(EqualsT::i2,r))` >>
           `LENGTH i1 < SUC (LENGTH i1)` by decide_tac >>
@@ -532,9 +407,7 @@ val peg_correct = store_thm(
         by simp[NT_rank_def] >>
       first_x_assum (erule strip_assume_tac) >>
       dsimp[cmlG_FDOM, cmlG_applied])
-  >- (print_tac "nLetDecs" >>
-      simp[peg_eval_seql_CONS, bindNT_def, peg_eval_tok_SOME, mktokLf_def,
-           pegf_def, peg_eval_seq_SOME] >> rpt strip_tac >> rveq >>
+  >- (print_tac "nLetDecs" >> rpt strip_tac >> rveq >>
       simp[cmlG_applied, cmlG_FDOM] >> fs[peg_eval_LetDec_wrongtok]
       >- (simp[] >>
           `NT_rank (mkNT nLetDec) < NT_rank (mkNT nLetDecs)`
@@ -544,7 +417,6 @@ val peg_correct = store_thm(
           metis_tac[not_peg0_LENGTH_decreases, peg0_nLetDec]) >>
       dsimp[MAP_EQ_SING] >> csimp[] >> metis_tac[DECIDE ``x < SUC x``])
   >- (print_tac "nLetDec" >>
-      simp[peg_eval_seql_CONS, peg_eval_tok_SOME, mktokLf_def, bindNT_def] >>
       rpt strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> fs[]
       >- (dsimp[listTheory.APPEND_EQ_CONS, MAP_EQ_SING] >> csimp[] >>
           asm_match`peg_eval mmlPEG (i1,nt (mkNT nV) I) (SOME(EqualsT::i2,r))` >>
@@ -563,7 +435,6 @@ val peg_correct = store_thm(
            SUBSET_DEF, EXTENSION, peg_eval_tok_SOME, mktokLf_def,
            pegsym_to_sym_def])
   >- (print_tac "nPatternList2" >>
-      simp[peg_eval_seql_CONS, peg_eval_tok_SOME, bindNT_def, mktokLf_def] >>
       strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM] >>
       dsimp[listTheory.APPEND_EQ_CONS, MAP_EQ_SING] >> csimp[] >>
       `NT_rank (mkNT nPattern) < NT_rank (mkNT nPatternList2)`
@@ -572,7 +443,6 @@ val peg_correct = store_thm(
       metis_tac [not_peg0_LENGTH_decreases, peg0_nPattern, listTheory.LENGTH,
                  DECIDE ``SUC x < y ⇒ x < y``])
   >- (print_tac "nPtuple" >>
-      simp[peg_eval_seql_CONS, peg_eval_tok_SOME, bindNT_def, mktokLf_def] >>
       strip_tac >> rveq >> fs[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >>
       dsimp[] >> csimp[] >>
       first_x_assum
@@ -583,8 +453,7 @@ val peg_correct = store_thm(
       `NT_rank (mkNT nConstructorName) < NT_rank (mkNT nPattern) ∧
        NT_rank (mkNT nPbase) < NT_rank (mkNT nPattern)`
         by simp[NT_rank_def] >>
-      simp[peg_eval_choicel_CONS, peg_eval_seql_CONS, bindNT_def, pegf_def,
-           bindNT_def, peg_eval_seq_SOME] >> strip_tac >> rveq >> simp[] >>
+      strip_tac >> rveq >> simp[] >>
       first_x_assum (erule strip_assume_tac) >> rveq >>
       dsimp[cmlG_applied, cmlG_FDOM, MAP_EQ_SING] >> csimp[] >>
       metis_tac[not_peg0_LENGTH_decreases, peg0_nConstructorName])
@@ -592,8 +461,6 @@ val peg_correct = store_thm(
       `NT_rank (mkNT nV) < NT_rank (mkNT nPbase) ∧
        NT_rank (mkNT nConstructorName) < NT_rank (mkNT nPbase)`
         by simp[NT_rank_def] >>
-      simp[peg_eval_choicel_CONS, peg_eval_seql_CONS, bindNT_def, pegf_def,
-           bindNT_def, peg_eval_seq_SOME, peg_eval_tok_SOME, mktokLf_def] >>
       strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >>
       TRY (first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >>
            NO_TAC) >>
@@ -603,6 +470,122 @@ val peg_correct = store_thm(
         (fn patth => first_assum
              (fn th => mp_tac (PART_MATCH (lhand o rand) patth (concl th)))) >>
       dsimp[])
+  >- (print_tac "nConstructorName" >>
+      simp[pairTheory.EXISTS_PROD, gramTheory.assert_def] >>
+      `NT_rank (mkNT nUQConstructorName) < NT_rank (mkNT nConstructorName)`
+        by simp[NT_rank_def] >>
+      strip_tac >> rveq >> simp[]
+      >- (first_x_assum (erule strip_assume_tac) >> rveq >>
+          simp[cmlG_applied, cmlG_FDOM] >> NO_TAC) >>
+      simp[cmlG_FDOM, cmlG_applied] >>
+      asm_match `destLongidT t = SOME(m,v)` >> Cases_on `t` >> fs[])
+  >- (print_tac "nUQConstructorName" >>
+      simp[peg_UQConstructorName_def] >>
+      disch_then (qxchl [`t`] strip_assume_tac) >> rveq >> simp[] >>
+      Cases_on `t` >> fs[gramTheory.assert_def, cmlG_applied, cmlG_FDOM])
+  >- (print_tac "nDconstructor" >>
+      `NT_rank (mkNT nUQConstructorName) < NT_rank (mkNT nDconstructor)`
+        by simp[NT_rank_def] >>
+      strip_tac >>
+      rveq >> simp[cmlG_FDOM, cmlG_applied, listTheory.APPEND_EQ_CONS,
+                   MAP_EQ_SING] >>
+      first_x_assum (erule strip_assume_tac) >> simp[] >> rveq >> dsimp[] >>
+      csimp[] >>
+      first_x_assum
+        (fn patth => first_assum
+             (fn th => mp_tac (PART_MATCH (lhand o rand) patth (concl th)))) >>
+      metis_tac[not_peg0_LENGTH_decreases, peg0_nUQConstructorName,
+                listTheory.LENGTH, DECIDE``SUC x < y ⇒ x < y``])
+  >- (print_tac "nDtypeDecl" >>
+      `NT_rank (mkNT nTypeName) < NT_rank (mkNT nDtypeDecl)`
+        by simp[NT_rank_def] >>
+      strip_tac >> rveq >>
+      dsimp[cmlG_applied, cmlG_FDOM, listTheory.APPEND_EQ_CONS, MAP_EQ_SING] >>
+      csimp[] >>
+      first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >> csimp[] >>
+      `∀x:mlptree.
+         NN nDtypeCons = ptree_head x ⇔ ptree_head x = NN nDtypeCons`
+        by simp[EQ_SYM_EQ] >>
+      pop_assum (fn th => simp[th]) >>
+      first_x_assum (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
+      simp[DISJ_IMP_THM, FORALL_AND_THM, peg_eval_tok_SOME, pegsym_to_sym_def,
+           mktokLf_def, cmlG_applied, cmlG_FDOM, SUBSET_DEF] >>
+      (peg0_nTypeName |> Q.INST[`f` |-> `I`] |> assume_tac) >>
+      erule mp_tac (GEN_ALL not_peg0_LENGTH_decreases)>>
+      simp[])
+  >- (print_tac "nTypeDec" >> simp[peg_TypeDec_def] >> strip_tac >> rveq >>
+      dsimp[cmlG_FDOM, cmlG_applied, mktokLf_def, MAP_EQ_SING] >> csimp[] >>
+      fs[] >> pop_assum (mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
+      simp[pegsym_to_sym_def, cmlG_applied, cmlG_FDOM, SUBSET_DEF,
+           DISJ_IMP_THM, FORALL_AND_THM] >> strip_tac >> rveq >> simp[])
+  >- (print_tac "nTypeName" >>
+      simp[peg_TypeName_def] >> strip_tac >> rveq >>
+      dsimp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING]
+      >- (first_x_assum (fn patth =>
+           first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+          simp[NT_rank_def] >> strip_tac >> rveq >> dsimp[])
+      >- (dsimp[listTheory.APPEND_EQ_CONS, MAP_EQ_SING] >>
+          first_x_assum (mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
+          simp[DISJ_IMP_THM, peg_eval_tok_SOME, pegsym_to_sym_def,
+               FORALL_AND_THM, cmlG_applied, cmlG_FDOM, SUBSET_DEF,
+               mktokLf_def] >> dsimp[] >>
+          disch_then (fn th => SUBGOAL_THEN (lhand (concl th))
+                                            (strip_assume_tac o MP th))
+          >- (qx_gen_tac `tt` >> Cases_on `tt` >> simp[]) >>
+          rveq >> simp[] >> csimp[] >> fs[] >>
+          first_assum (mp_tac o Q.AP_TERM `LENGTH`) >> simp[] >> asimp[] >>
+          strip_tac >> asm_match `LENGTH i1 = LENGTH PT + (LENGTH i2 + 1)` >>
+          `LENGTH i2 < SUC (LENGTH i1)` by decide_tac >>
+          metis_tac [])
+      >- (first_x_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+          simp[] >> strip_tac >> rveq >> simp[] >> asm_match `isTyvarT HH` >>
+          qpat_assum `isTyvarT HH` mp_tac >> Cases_on `HH` >> simp[])
+      >- (fs[] >> rveq >> fs[])
+      >- (fs[] >> rveq >> fs[]) >>
+      fs[] >> rveq >> fs[])
+  >- (print_tac "nStarTypesP" >>
+      strip_tac >> rveq >>
+      dsimp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> csimp[] >>
+      first_x_assum (fn patth =>
+         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+      simp[NT_rank_def] >> strip_tac >> rveq >> simp[])
+  >- (print_tac "nStarTypes" >>
+      disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
+      simp[DISJ_IMP_THM, FORALL_AND_THM, cmlG_applied, cmlG_FDOM,
+           pegsym_to_sym_def, SUBSET_DEF] >>
+      rpt strip_tac >>
+      first_x_assum (fn patth =>
+         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+      simp[NT_rank_def])
+  >- (print_tac "nUQTyOp" >> dsimp[cmlG_FDOM, cmlG_applied] >>
+      qx_gen_tac `h` >> Cases_on `h` >> simp[])
+  >- (print_tac "nTyOp" >> strip_tac >> rveq >>
+      dsimp[cmlG_applied, cmlG_FDOM, MAP_EQ_SING]
+      >- (first_x_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+          simp[NT_rank_def] >> strip_tac >> rveq >> simp[]) >>
+      asm_match `isLongidT h` >> Cases_on `h` >> fs[])
+  >- (print_tac "nDType" >> simp[peg_DType_def, peg_eval_choice] >>
+      strip_tac >> rveq >> simp[sumID_def] >>
+      >- (qpat_assum `peg_eval mmlPEG (i1, rpt X Y) Z` mp_tac >>
+          dsimp[peg_eval_rpt] >> qx_gen_tac `tyops` >> strip_tac >> rveq >>
+          asm_match `peg_eval_list mmlPEG (i1, nt (mkNT nTyOp) I) (i,tyops)`>>
+          pop_assum mp_tac >>
+          `∃i2. LENGTH i2 < SUC (LENGTH i1) ∧ i1 = i2` by simp[] >>
+          pop_assum SUBST1_TAC >> pop_assum mp_tac >>
+          map_every qid_spec_tac [`i2`, `i`, `tyops`] >> Induct
+          >- (simp[Once pegTheory.peg_eval_cases] >>
+              simp[cmlG_FDOM, cmlG_applied] >> asm_match `isTyvarT t` >>
+              Cases_on `t` >> fs[]) >>
+          simp[Once pegTheory.peg_eval_cases] >> rpt strip_tac >>
+          fs[] >> first_x_assum (erule strip_assume_tac) >> rveq >>
+          simp[]
+
+
+
+)
+
 
 
 

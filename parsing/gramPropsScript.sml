@@ -95,6 +95,7 @@ val NT_rank_def = Define`
         else if n = nPE                then  1
         else if n = nLetDecs           then  2
         else if n = nLetDec            then  1
+        else if n = nDtypeDecl         then  3
         else 0
 `
 
