@@ -374,7 +374,8 @@ val infer_e_def = tDefine "infer_e" `
     od) ∧
 (* Don't do polymorphism for non-top-level let recs
 (infer_e menv cenv env (Letrec funs e) =
-  do next <- get_next_uvar;
+  do () <- guard (ALL_DISTINCT (MAP FST funs)) "Duplicate function name variable";
+     next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
      env' <- return (merge (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars) env);
      funs_ts <- infer_funs menv cenv env' funs;
@@ -387,15 +388,12 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
   *)
 (infer_e menv cenv env (Letrec funs e) =
-  do uvars <- n_fresh_uvar (LENGTH funs);
+  do () <- guard (ALL_DISTINCT (MAP FST funs)) "Duplicate function name variable";
+     uvars <- n_fresh_uvar (LENGTH funs);
      env' <- return (merge (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars) env);
      funs_ts <- infer_funs menv cenv env' funs;
      () <- add_constraints uvars funs_ts;
-     ts <- apply_subst_list uvars;
-     ts' <- n_fresh_uvar (LENGTH funs);
-     () <- add_constraints ts' ts;
-     env'' <- return (merge (list$MAP2 (\(f,x,e) t. (f,(0,t))) funs ts') env);
-     t <- infer_e menv cenv env'' e;
+     t <- infer_e menv cenv env' e;
      return t
   od) ∧
 (infer_es menv cenv env [] =
