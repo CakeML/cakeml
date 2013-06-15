@@ -275,7 +275,7 @@ val peg_eval_nTyOp_wrongtok = store_thm(
   ``¬peg_eval mmlPEG (LparT::i, nt (mkNT nTyOp) f) (SOME x)``,
   simp[Once pegTheory.peg_eval_cases, mmlpeg_rules_applied, FDOM_cmlPEG] >>
   simp[Once pegTheory.peg_eval_cases, mmlpeg_rules_applied, FDOM_cmlPEG]);
-
+(*
 val peg_correct = store_thm(
   "peg_correct",
   ``∀N i0 s i pts.
@@ -861,28 +861,6 @@ val peg_correct = store_thm(
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``ElseT``) o concl)) >>
           simp_tac (srw_ss())[] >> ASM_REWRITE_TAC[] >> asimp[]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-)
-
-
-
-
-
-
-
 
 
 *)
