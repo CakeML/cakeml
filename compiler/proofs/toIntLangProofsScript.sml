@@ -1460,8 +1460,50 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       simp[EL_LUPDATE,EL_MAP] >>
       rw[] >>
       metis_tac[syneq_trans,EL_MAP])) >>
-
-  strip_tac >- rw[] >>
+  strip_tac >- (
+    rw[] >> fs[] >>
+    qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`exp`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+    simp[] >> strip_tac >>
+    qspecl_then[`T`,`menv`,`cenv`,`cs'`,`env`,`exp'`,`((0,s3),Rval v2)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+    simp[] >> strip_tac >>
+    Q.ISPECL_THEN[`menv`,`s3`,`s4`,`env`,`Opapp`,`v1`,`v2`,`env'`,`e3`]mp_tac do_app_closed >>
+    simp[] >> strip_tac >> fs[] >>
+    `closed_under_cenv cenv menv env (SND cs')` by (
+      qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`exp`,`(cs',Rval v1)`]mp_tac(evaluate_closed_under_cenv) >>
+      qspecl_then[`T`,`menv`,`cenv`,`cs'`,`env`,`exp'`,`((0,s3),Rval v2)`]mp_tac(evaluate_closed_under_cenv) >>
+      rpt(first_x_assum(qspec_then`cm`kall_tac)) >>
+      simp[]) >> fs[] >>
+    rpt (first_x_assum (qspec_then `cm` mp_tac)) >>
+    simp[EXISTS_PROD] >>
+    simp_tac(srw_ss()++DNF_ss)[] >>
+    map_every qx_gen_tac [`sa`,`w1`,`sb`,`w2`] >>
+    strip_tac >> strip_tac >>
+    simp[exp_to_Cexp_def] >>
+    srw_tac[DNF_ss][Once Cevaluate_cases] >>
+    disj2_tac >> disj1_tac >>
+    `s4 = s3` by fs[do_app_Opapp_SOME] >> rw[] >>
+    `∃cenv defs n. w1 = CRecClos cenv defs n ∧ n < LENGTH defs` by (
+      fs[do_app_Opapp_SOME] >> rw[] >> fs[v_to_Cv_def,LET_THM] >>
+      qpat_assum`syneq X w1`mp_tac >> simp[Once syneq_cases] >> rw[] >>
+      qsuff_tac`F`>-rw[] >>
+      qpat_assum`LENGTH (defs_to_Cdefs X Y) ≤ Z`mp_tac >>
+      simp[NOT_LESS_EQUAL] >>
+      qmatch_abbrev_tac `X < Y` >>
+      qsuff_tac`(λx. x < Y) X` >- rw[] >>
+      unabbrev_all_tac >>
+      match_mp_tac the_find_index_suff >>
+      simp[] >>
+      imp_res_tac ALOOKUP_MEM >>
+      simp[MEM_MAP,EXISTS_PROD,defs_to_Cdefs_MAP] >>
+      PROVE_TAC[] ) >>
+    simp[Once(CONJUNCT2 Cevaluate_cases)] >>
+    simp[Once(CONJUNCT2 Cevaluate_cases)] >>
+    simp_tac(srw_ss()++DNF_ss)[] >>
+    qmatch_assum_abbrev_tac`Cevaluate menvc sc envc expc (sc',Cval w2)` >>
+    qspecl_then[`menvc`,`sc`,`FST cs',sa`,`envc`,`expc`,`(sc',Cval w2)`]mp_tac Cevaluate_any_syneq_store >>
+    simp[Abbr`sc`,EXISTS_PROD,Abbr`sc'`] >>
+    srw_tac[DNF_ss][] >>
+    metis_tac[EVERY2_syneq_trans] ) >>
   strip_tac >- rw[] >>
   strip_tac >- (
     ntac 4 gen_tac >>
@@ -1479,29 +1521,31 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         rw[Once(CONJUNCT2 Cevaluate_cases)] >>
         rw[Once(CONJUNCT2 Cevaluate_cases)] >>
         fsrw_tac[DNF_ss][] >>
-        qspecl_then[`ck`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
-        qspecl_then[`ck`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(evaluate_closed_under_cenv) >>
+        qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+        qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(evaluate_closed_under_cenv) >>
         simp[] >> strip_tac >> fs[] >> strip_tac >> fs[] >>
         rpt (first_x_assum (qspec_then `cm` mp_tac)) >>
         rw[] >>
         disj2_tac >>
         qmatch_assum_abbrev_tac `syneq (v_to_Cv mv cm v1) w1` >> pop_assum kall_tac >>
-        qmatch_assum_abbrev_tac `Cevaluate Cmenv sb enva e2a (sc,er)`>>
+        qmatch_assum_abbrev_tac `Cevaluate Cmenv (FST cs',sb) enva e2a ((FST s3,sc),er)`>>
         pop_assum kall_tac >> pop_assum kall_tac >>
         qmatch_assum_rename_tac `EVERY2 (syneq) sb sd`[] >>
-        qspecl_then[`Cmenv`,`sb`,`sd`,`enva`,`e2a`,`(sc,er)`]mp_tac Cevaluate_any_syneq_store >>
+        qspecl_then[`Cmenv`,`FST cs',sb`,`FST cs',sd`,`enva`,`e2a`,`((FST s3,sc),er)`]mp_tac Cevaluate_any_syneq_store >>
         simp[] >>
         fsrw_tac[DNF_ss][FORALL_PROD] >>
         qx_gen_tac`se` >> strip_tac >> strip_tac >>
         CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
-        map_every qexists_tac[`w1`,`sd`] >> simp[] >>
-        Cases_on`err`>>fs[]>>
-        Cases_on`e`>>fs[] >>
-        fs[Q.SPEC`CConv X []`syneq_cases] >>
-        rw[] >> fs[] >> fs[Q.SPEC`CConv X []`syneq_cases] >>
-        metis_tac[EVERY2_syneq_trans]) >>
+        map_every qexists_tac[`w1`,`FST cs',sd`] >> simp[] >>
+        Cases_on`err`>>fs[]>-(
+          Cases_on`e`>>fs[] >>
+          fs[Q.SPEC`CConv X []`syneq_cases] >>
+          rw[] >> fs[] >> fs[Q.SPEC`CConv X []`syneq_cases] >>
+          metis_tac[EVERY2_syneq_trans]) >>
+        rw[] >> fs[] >> rw[] >>
+        metis_tac[EVERY2_syneq_trans] ) >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >> fs[] >>
-      qspecl_then[`ck`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+      qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
       simp[] >> strip_tac >> fs[] >>
       `closed_under_cenv cenv menv env (SND cs')` by (
         imp_res_tac evaluate_closed_under_cenv >> fs[] ) >> fs[] >>
@@ -1509,16 +1553,16 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       rw[] >>
       qmatch_assum_abbrev_tac `syneq (v_to_Cv mv cm v1) w1` >> pop_assum kall_tac >>
       qmatch_assum_rename_tac`SND r1 = Cval w1`[] >>
-      qmatch_assum_abbrev_tac`Cevaluate Cmenv sa enva e1a r1` >>
-      qmatch_assum_abbrev_tac`Cevaluate Cmenv sb enva e2a r2` >>
+      qmatch_assum_abbrev_tac`Cevaluate Cmenv (FST cs,sa) enva e1a r1` >>
+      qmatch_assum_abbrev_tac`Cevaluate Cmenv (FST cs',sb) enva e2a r2` >>
       pop_assum kall_tac >>
       PairCases_on`r1`>>fs[] >>
       qmatch_assum_rename_tac `EVERY2 syneq sb sd`[] >>
       CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
-      map_every qexists_tac[`w1`,`sd`] >>
+      map_every qexists_tac[`w1`,`FST cs',sd`] >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >> disj2_tac >>
-      qspecl_then[`Cmenv`,`sb`,`enva`,`e2a`,`r2`]mp_tac (CONJUNCT1 Cevaluate_syneq) >> simp[] >>
-      disch_then(qspecl_then[`λx y. y = x + 1`,`Cmenv`,`sd`,`w1::enva`,`shift 1 0 e2a`]mp_tac) >>
+      qspecl_then[`Cmenv`,`FST cs',sb`,`enva`,`e2a`,`r2`]mp_tac (CONJUNCT1 Cevaluate_syneq) >> simp[] >>
+      disch_then(qspecl_then[`λx y. y = x + 1`,`Cmenv`,`FST cs',sd`,`w1::enva`,`shift 1 0 e2a`]mp_tac) >>
       discharge_hyps >- (
         simp[shift_def,ADD1,EL_CONS,PRE_SUB1] >>
         match_mp_tac mkshift_thm >>
@@ -1531,24 +1575,25 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       fsrw_tac[DNF_ss][FORALL_PROD] >>
       map_every qx_gen_tac[`s2`,`u2`] >> strip_tac >>
       Cases_on`err`>>fs[]>>
-      Cases_on`e`>>fs[] >>
+      TRY(Cases_on`e`>>fs[])>>
       fs[Q.SPEC`CConv X []`syneq_cases] >>
       rw[] >> fs[] >> rfs[] >> fs[Q.SPEC`CConv X []`syneq_cases] >>
+      rw[EXISTS_PROD] >>
       metis_tac[EVERY2_syneq_trans])
     >- (
       fs[] >>
-      qspecl_then[`ck`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
-      qspecl_then[`ck`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(evaluate_closed_under_cenv) >>
+      qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+      qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(evaluate_closed_under_cenv) >>
       simp[]>> rpt strip_tac >> fs[] >>
       fsrw_tac[DNF_ss][EXISTS_PROD]>>
       rpt (first_x_assum (qspec_then `cm` mp_tac)) >>
       rw[] >>
       qmatch_assum_rename_tac `syneq (v_to_Cv mv m v1) w1`[] >>
-      qmatch_assum_abbrev_tac `Cevaluate Cmenv sa enva e1a (sd,Cval w1)` >>
+      qmatch_assum_abbrev_tac `Cevaluate Cmenv (FST cs,sa) enva e1a ((FST cs',sd),Cval w1)` >>
       pop_assum kall_tac >>
-      qmatch_assum_abbrev_tac `Cevaluate Cmenv sb enva e2a (sc,er)` >>
+      qmatch_assum_abbrev_tac `Cevaluate Cmenv (FST cs',sb) enva e2a ((FST s3,sc),er)` >>
       pop_assum kall_tac >> pop_assum kall_tac >>
-      qspecl_then[`Cmenv`,`sb`,`sd`,`enva`,`e2a`,`(sc,er)`]mp_tac Cevaluate_any_syneq_store >>
+      qspecl_then[`Cmenv`,`FST cs',sb`,`FST cs',sd`,`enva`,`e2a`,`((FST s3,sc),er)`]mp_tac Cevaluate_any_syneq_store >>
       fsrw_tac[DNF_ss][EXISTS_PROD] >>
       map_every qx_gen_tac[`se`,`er2`]>>strip_tac >>
       `EVERY2 (syneq) (MAP (v_to_Cv mv m) (SND s3)) se` by PROVE_TAC[EVERY2_syneq_trans] >>
@@ -1563,19 +1608,19 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         srw_tac[DNF_ss][] >>
         disj2_tac >>
         Cases_on`err`>>fs[]>>
-        Cases_on`e`>>fs[] >>
+        TRY(Cases_on`e`)>>fs[] >>
         fs[Q.SPEC`CConv X []`syneq_cases] >>
         rw[] >> fs[] >> rfs[] >> fs[Q.SPEC`CConv X []`syneq_cases] >>
         metis_tac[EVERY2_syneq_trans])
       >- (
         disj1_tac >>
         CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
-        map_every qexists_tac[`w1`,`sd`] >> fs[] >>
+        map_every qexists_tac[`w1`,`FST cs',sd`] >> fs[] >>
         rw[Once Cevaluate_cases] >>
         srw_tac[DNF_ss][] >>
         disj2_tac >>
-        qspecl_then[`Cmenv`,`sb`,`enva`,`e2a`,`sc,er`]mp_tac(CONJUNCT1 Cevaluate_syneq) >> simp[] >>
-        disch_then(qspecl_then[`λv1 v2. v2 = v1 + 1`,`Cmenv`,`sd`,`w1::enva`,`shift 1 0 e2a`]mp_tac) >>
+        qspecl_then[`Cmenv`,`FST cs',sb`,`enva`,`e2a`,`(FST s3,sc),er`]mp_tac(CONJUNCT1 Cevaluate_syneq) >> simp[] >>
+        disch_then(qspecl_then[`λv1 v2. v2 = v1 + 1`,`Cmenv`,`FST cs',sd`,`w1::enva`,`shift 1 0 e2a`]mp_tac) >>
         simp[EXISTS_PROD] >>
         discharge_hyps >- (
           conj_tac >- (
@@ -1588,7 +1633,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
             rw[] >> rfs[] >> res_tac >> fs[] >> metis_tac[]) >>
           simp[ADD1,Abbr`enva`,env_to_Cenv_MAP,EL_CONS,PRE_SUB1] ) >>
         Cases_on`err`>>fs[]>>
-        Cases_on`e`>>fs[] >>
+        TRY(Cases_on`e`>>fs[])>>
         fs[Q.SPEC`CConv X []`syneq_cases] >>
         rw[] >> fs[] >> rfs[] >> fs[Q.SPEC`CConv X []`syneq_cases] >>
         metis_tac[EVERY2_syneq_trans])
@@ -1606,19 +1651,19 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         srw_tac[DNF_ss][] >>
         disj2_tac >>
         Cases_on`err`>>fs[]>>
-        Cases_on`e`>>fs[] >>
+        TRY(Cases_on`e`>>fs[])>>
         fs[Q.SPEC`CConv X []`syneq_cases] >>
         rw[] >> fs[] >> rfs[] >> fs[Q.SPEC`CConv X []`syneq_cases] >>
         metis_tac[EVERY2_syneq_trans])
       >- (
         disj1_tac >>
         CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
-        map_every qexists_tac[`w1`,`sd`] >> fs[] >>
+        map_every qexists_tac[`w1`,`FST cs',sd`] >> fs[] >>
         rw[Once Cevaluate_cases] >>
         srw_tac[DNF_ss][] >>
         disj2_tac >>
-        qspecl_then[`Cmenv`,`sb`,`enva`,`e2a`,`sc,er`]mp_tac(CONJUNCT1 Cevaluate_syneq) >> simp[] >>
-        disch_then(qspecl_then[`λv1 v2. v2 = v1 + 1`,`Cmenv`,`sd`,`w1::enva`,`shift 1 0 e2a`]mp_tac) >>
+        qspecl_then[`Cmenv`,`FST cs',sb`,`enva`,`e2a`,`(FST s3,sc),er`]mp_tac(CONJUNCT1 Cevaluate_syneq) >> simp[] >>
+        disch_then(qspecl_then[`λv1 v2. v2 = v1 + 1`,`Cmenv`,`FST cs',sd`,`w1::enva`,`shift 1 0 e2a`]mp_tac) >>
         simp[EXISTS_PROD] >>
         discharge_hyps >- (
           conj_tac >- (
@@ -1631,7 +1676,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
             rw[] >> rfs[] >> res_tac >> fs[] >> metis_tac[]) >>
           simp[ADD1,Abbr`enva`,env_to_Cenv_MAP,EL_CONS,PRE_SUB1] ) >>
         Cases_on`err`>>fs[]>>
-        Cases_on`e`>>fs[] >>
+        TRY(Cases_on`e`>>fs[])>>
         fs[Q.SPEC`CConv X []`syneq_cases] >>
         rw[] >> fs[] >> rfs[] >> fs[Q.SPEC`CConv X []`syneq_cases] >>
         PROVE_TAC[EVERY2_syneq_trans]))
@@ -1644,42 +1689,42 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       rw[Once(CONJUNCT2 Cevaluate_cases)] >>
       srw_tac[DNF_ss][]>>
       disj2_tac >>
-      qspecl_then[`ck`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
-      qspecl_then[`ck`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(evaluate_closed_under_cenv) >>
+      qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+      qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(evaluate_closed_under_cenv) >>
       simp[]>>rpt strip_tac>>fs[]>>
       rpt (first_x_assum (qspec_then `cm` mp_tac)) >> rw[] >>
       qmatch_assum_rename_tac `syneq (v_to_Cv mv m v1) w1`[] >>
-      qmatch_assum_abbrev_tac `Cevaluate Cmenv sa enva e1a (sd,Cval w1)` >>
+      qmatch_assum_abbrev_tac `Cevaluate Cmenv (FST cs,sa) enva e1a ((FST cs',sd),Cval w1)` >>
       pop_assum kall_tac >>
-      qmatch_assum_abbrev_tac `Cevaluate Cmenv sb enva e2a (sc,er)` >>
+      qmatch_assum_abbrev_tac `Cevaluate Cmenv (FST cs',sb) enva e2a ((FST s3,sc),er)` >>
       pop_assum kall_tac >> pop_assum kall_tac >>
-      qspecl_then[`Cmenv`,`sb`,`sd`,`enva`,`e2a`,`(sc,er)`]mp_tac Cevaluate_any_syneq_store >>
+      qspecl_then[`Cmenv`,`FST cs',sb`,`FST cs',sd`,`enva`,`e2a`,`((FST s3,sc),er)`]mp_tac Cevaluate_any_syneq_store >>
       fsrw_tac[DNF_ss][EXISTS_PROD] >>
       Cases_on`err`>>fs[]>>
-      Cases_on`e`>>fs[] >>
+      TRY(Cases_on`e`>>fs[])>>
       fs[Q.SPEC`CConv X []`syneq_cases] >>
       rw[] >> fs[] >> rfs[] >> fs[Q.SPEC`CConv X []`syneq_cases] >>
       metis_tac[EVERY2_syneq_trans])
     >- (
       rw[Once Cevaluate_cases] >>
       fsrw_tac[DNF_ss][] >>
-      disj2_tac >> disj1_tac >>
+      disj2_tac >> disj2_tac >> disj1_tac >>
       fsrw_tac[DNF_ss][EXISTS_PROD] >>
       rw[Once(CONJUNCT2 Cevaluate_cases)] >>
       rw[Once(CONJUNCT2 Cevaluate_cases)] >>
-      qspecl_then[`ck`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
-      qspecl_then[`ck`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(evaluate_closed_under_cenv) >>
+      qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+      qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(evaluate_closed_under_cenv) >>
       simp[]>>rpt strip_tac>>fs[]>>
       rpt (first_x_assum (qspec_then `cm` mp_tac)) >> rw[] >>
       qmatch_assum_rename_tac `syneq (v_to_Cv mv m v1) w1`[] >>
-      qmatch_assum_abbrev_tac `Cevaluate Cmenv sa enva e1a (sd,Cval w1)` >>
+      qmatch_assum_abbrev_tac `Cevaluate Cmenv (FST cs,sa) enva e1a ((FST cs',sd),Cval w1)` >>
       pop_assum kall_tac >>
-      qmatch_assum_abbrev_tac `Cevaluate Cmenv sb enva e2a (sc,er)` >>
+      qmatch_assum_abbrev_tac `Cevaluate Cmenv (FST cs',sb) enva e2a ((FST s3,sc),er)` >>
       pop_assum kall_tac >> pop_assum kall_tac >>
-      qspecl_then[`Cmenv`,`sb`,`sd`,`enva`,`e2a`,`(sc,er)`]mp_tac Cevaluate_any_syneq_store >>
+      qspecl_then[`Cmenv`,`FST cs',sb`,`FST cs',sd`,`enva`,`e2a`,`((FST s3,sc),er)`]mp_tac Cevaluate_any_syneq_store >>
       fsrw_tac[DNF_ss][EXISTS_PROD] >>
       Cases_on`err`>>fs[]>>
-      Cases_on`e`>>fs[] >>
+      TRY(Cases_on`e`>>fs[])>>
       fs[Q.SPEC`CConv X []`syneq_cases] >>
       rw[] >> fs[] >> rfs[] >> fs[Q.SPEC`CConv X []`syneq_cases] >>
       metis_tac[EVERY2_syneq_trans])
@@ -1692,19 +1737,19 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       rw[Once(CONJUNCT2 Cevaluate_cases)] >>
       srw_tac[DNF_ss][] >>
       disj2_tac >>
-      qspecl_then[`ck`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
-      qspecl_then[`ck`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(evaluate_closed_under_cenv) >>
+      qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+      qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(evaluate_closed_under_cenv) >>
       simp[]>>rpt strip_tac>>fs[]>>
       rpt (first_x_assum (qspec_then `cm` mp_tac)) >> rw[] >>
       qmatch_assum_rename_tac `syneq (v_to_Cv mv m v1) w1`[] >>
-      qmatch_assum_abbrev_tac `Cevaluate Cmenv sa enva e1a (sd,Cval w1)` >>
+      qmatch_assum_abbrev_tac `Cevaluate Cmenv (FST cs,sa) enva e1a ((FST cs',sd),Cval w1)` >>
       pop_assum kall_tac >>
-      qmatch_assum_abbrev_tac `Cevaluate Cmenv sb enva e2a (sc,er)` >>
+      qmatch_assum_abbrev_tac `Cevaluate Cmenv (FST cs',sb) enva e2a ((FST s3,sc),er)` >>
       pop_assum kall_tac >> pop_assum kall_tac >>
-      qspecl_then[`Cmenv`,`sb`,`sd`,`enva`,`e2a`,`(sc,er)`]mp_tac Cevaluate_any_syneq_store >>
+      qspecl_then[`Cmenv`,`FST cs',sb`,`FST cs',sd`,`enva`,`e2a`,`((FST s3,sc),er)`]mp_tac Cevaluate_any_syneq_store >>
       fsrw_tac[DNF_ss][EXISTS_PROD] >>
       Cases_on`err`>>fs[]>>
-      Cases_on`e`>>fs[] >>
+      TRY(Cases_on`e`>>fs[])>>
       fs[Q.SPEC`CConv X []`syneq_cases] >>
       rw[] >> fs[] >> rfs[] >> fs[Q.SPEC`CConv X []`syneq_cases] >>
       PROVE_TAC[EVERY2_syneq_trans])) >>
@@ -1780,11 +1825,16 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       Cases_on`e`>>
       fs[Q.SPEC`CConv X []`syneq_cases] )
     >- (
+      rw[Once Cevaluate_cases] >>
+      fsrw_tac[DNF_ss][EXISTS_PROD] >>
+      disj2_tac >>
+      rw[Once(CONJUNCT2 Cevaluate_cases)] >>
+      rw[Once(CONJUNCT2 Cevaluate_cases)] >>
+      rw[Once(CONJUNCT2 Cevaluate_cases)] >>
+      fsrw_tac[DNF_ss][] >>
       Cases_on`err`>>fs[]>>
       Cases_on`e`>>
-      fs[Q.SPEC`CConv X []`syneq_cases] >>
-      rw[Once Cevaluate_cases] >>
-      fsrw_tac[DNF_ss][EXISTS_PROD])
+      fs[Q.SPEC`CConv X []`syneq_cases] )
     >- (
       rw[Once Cevaluate_cases] >>
       fsrw_tac[DNF_ss][EXISTS_PROD] >>
@@ -1801,18 +1851,18 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     fsrw_tac[DNF_ss][EXISTS_PROD] >>
     imp_res_tac do_log_FV >>
     `FV exp' ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv` by PROVE_TAC[SUBSET_TRANS] >>
-    qspecl_then[`ck`,`menv`,`cenv`,`cs`,`env`,`exp`,`(cs',Rval v)`]mp_tac(CONJUNCT1 evaluate_closed) >>
-    qspecl_then[`ck`,`menv`,`cenv`,`cs`,`env`,`exp`,`(cs',Rval v)`]mp_tac(evaluate_closed_under_cenv) >>
+    qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`exp`,`(cs',Rval v)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+    qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`exp`,`(cs',Rval v)`]mp_tac(evaluate_closed_under_cenv) >>
     simp[]>>rpt strip_tac>>fs[]>>
     `all_cns_exp exp' ⊆ set (MAP FST cenv)` by (
       match_mp_tac do_log_all_cns >> metis_tac[] ) >> fs[] >>
     rpt (first_x_assum (qspec_then`cm` mp_tac)) >> rw[] >>
     qmatch_assum_rename_tac`syneq (v_to_Cv mv m v) w`[] >>
-    qmatch_assum_abbrev_tac `Cevaluate Cmenv sa enva e1a (sd,Cval w)` >>
+    qmatch_assum_abbrev_tac `Cevaluate Cmenv (FST cs,sa) enva e1a ((FST cs',sd),Cval w)` >>
     pop_assum kall_tac >>
-    qmatch_assum_abbrev_tac `Cevaluate Cmenv sb enva e2a (sc,w2)` >>
+    qmatch_assum_abbrev_tac `Cevaluate Cmenv (FST cs',sb) enva e2a ((FST (FST res),sc),w2)` >>
     ntac 2 (pop_assum kall_tac) >>
-    qspecl_then[`Cmenv`,`sb`,`sd`,`enva`,`e2a`,`(sc,w2)`]mp_tac Cevaluate_any_syneq_store >>
+    qspecl_then[`Cmenv`,`FST cs',sb`,`FST cs',sd`,`enva`,`e2a`,`((FST (FST res),sc),w2)`]mp_tac Cevaluate_any_syneq_store >>
     fsrw_tac[DNF_ss][EXISTS_PROD] >>
     map_every qx_gen_tac[`se`,`w3`] >>strip_tac >>
     Cases_on `op` >> Cases_on `v` >> fs[do_log_def] >>
@@ -1820,7 +1870,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     rw[Once Cevaluate_cases] >>
     fsrw_tac[DNF_ss][] >> disj1_tac >>
     CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
-    map_every qexists_tac [`b`,`sd`] >> fs[] >>
+    map_every qexists_tac [`b`,`FST cs',sd`] >> fs[] >>
     rw[] >> fs[] >> rw[] >>
     fs[evaluate_lit] >> rw[v_to_Cv_def] >>
     PROVE_TAC[Cresult_rel_syneq_trans,EVERY2_syneq_trans] ) >>
@@ -1840,8 +1890,8 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     `FV exp' ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv` by (
       fsrw_tac[DNF_ss][SUBSET_DEF] >>
       PROVE_TAC[]) >> fs[] >>
-    qspecl_then[`ck`,`menv`,`cenv`,`cs`,`env`,`exp`,`(cs',Rval v)`]mp_tac(CONJUNCT1 evaluate_closed) >>
-    qspecl_then[`ck`,`menv`,`cenv`,`cs`,`env`,`exp`,`(cs',Rval v)`]mp_tac(evaluate_closed_under_cenv) >>
+    qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`exp`,`(cs',Rval v)`]mp_tac(CONJUNCT1 evaluate_closed) >>
+    qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`exp`,`(cs',Rval v)`]mp_tac(evaluate_closed_under_cenv) >>
     simp[]>>rpt strip_tac>>fs[]>>
     rw[Once Cevaluate_cases] >>
     fsrw_tac[DNF_ss][] >>
@@ -1850,15 +1900,16 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       match_mp_tac do_if_all_cns >> metis_tac[] ) >>
     rpt (first_x_assum (qspec_then`cm` mp_tac)) >> rw[] >>
     qmatch_assum_rename_tac`syneq (v_to_Cv mv m v) w`[] >>
-    qmatch_assum_abbrev_tac `Cevaluate Cmenv sa enva e1a (sd,Cval w)` >>
+    qmatch_assum_abbrev_tac `Cevaluate Cmenv (FST cs,sa) enva e1a ((FST cs',sd),Cval w)` >>
     pop_assum kall_tac >>
-    qmatch_assum_abbrev_tac `Cevaluate Cmenv sb enva e2a (sc,w2)` >>
+    qmatch_assum_abbrev_tac `Cevaluate Cmenv (FST cs',sb) enva e2a ((FST (FST res),sc),w2)` >>
     ntac 2 (pop_assum kall_tac) >>
-    qspecl_then[`Cmenv`,`sb`,`sd`,`enva`,`e2a`,`(sc,w2)`]mp_tac Cevaluate_any_syneq_store >>
+    qspecl_then[`Cmenv`,`FST cs',sb`,`FST cs',sd`,`enva`,`e2a`,`((FST (FST res),sc),w2)`]mp_tac Cevaluate_any_syneq_store >>
     fsrw_tac[DNF_ss][EXISTS_PROD] >>
     map_every qx_gen_tac[`se`,`w3`] >>strip_tac >>
     CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
     CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`sd` >>
+    CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`FST cs'` >>
     CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`w3` >>
     CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`se` >>
     qpat_assum `do_if v e2 e3 = X` mp_tac >>
@@ -1875,6 +1926,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     Cases_on`err`>>fs[]>>
     Cases_on`e`>>fs[] >>
     fs[Q.SPEC`CConv X []`syneq_cases]) >>
+
   strip_tac >- (
     rpt strip_tac >> fs[] >>
     fsrw_tac[DNF_ss][EXISTS_PROD,LET_THM] >>
