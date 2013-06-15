@@ -184,11 +184,12 @@ val Cv_bv_syneq = store_thm("Cv_bv_syneq",
 
 val s_refs_def = Define`
   s_refs rd s bs ⇔
+  (∀n. bs.clock = SOME n ⇒ n = FST s) ∧
   good_rd rd bs ∧
-  (LENGTH rd.sm = LENGTH s) ∧
+  (LENGTH rd.sm = LENGTH (SND s)) ∧
   EVERY (λp. p ∈ FDOM bs.refs) rd.sm ∧
   ALL_DISTINCT rd.sm ∧
-  EVERY2 (Cv_bv (mk_pp rd bs)) s (MAP (FAPPLY bs.refs) rd.sm)`
+  EVERY2 (Cv_bv (mk_pp rd bs)) (SND s) (MAP (FAPPLY bs.refs) rd.sm)`
 
 val s_refs_with_pc = store_thm("s_refs_with_pc",
   ``s_refs rd s (bs with pc := p) = s_refs rd s bs``,
@@ -231,10 +232,12 @@ val Cenv_bs_def = Define`
     s_refs rd s bs`
 
 val Cenv_bs_syneq_store = store_thm("Cenv_bs_syneq_store",
-  ``∀rd s Cmnv Cenv mnv renv sz csz bs s'. LIST_REL (syneq) s s' ∧ Cenv_bs rd Cmnv s Cenv mnv renv sz csz bs ⇒
+  ``∀rd s Cmnv Cenv mnv renv sz csz bs s'. FST s = FST s' ∧ LIST_REL (syneq) (SND s) (SND s') ∧ Cenv_bs rd Cmnv s Cenv mnv renv sz csz bs ⇒
            Cenv_bs rd Cmnv s' Cenv mnv renv sz csz bs``,
   rw[Cenv_bs_def] >>
-  fs[s_refs_def] >>
+  full_simp_tac pure_ss [s_refs_def] >>
+  simp_tac std_ss [] >>
+  conj_tac >- metis_tac[] >>
   conj_asm1_tac >- metis_tac[EVERY2_EVERY] >>
   fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
   rfs[MEM_ZIP] >> fs[MEM_ZIP] >>
@@ -478,19 +481,19 @@ val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
   metis_tac[FLOOKUP_SUBMAP,ADD_SYM])
 
 val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
-  ``∀rd op s v1 s' v bs bc0 bc1 bce st bv1.
+  ``∀rd op ck s v1 s' v bs bc0 bc1 bce st bv1.
     (bs.code = bc0 ++ [prim1_to_bc op] ++ bc1) ∧
     (bs.pc = next_addr bs.inst_length bc0) ∧
     (CevalPrim1 op s v1 = (s', Cval v)) ∧
     Cv_bv (mk_pp rd (bs with code := bce)) v1 bv1 ∧
     (bs.stack = bv1::st) ∧
-    s_refs rd s (bs with code := bce)
+    s_refs rd (ck,s) (bs with code := bce)
     ⇒ ∃bv rf sm'.
       let bs' = bs with <|stack := bv::st; refs := rf; pc := next_addr bs.inst_length (bc0 ++ [prim1_to_bc op])|> in
       let rd' = rd with sm := sm' in
       bc_next bs bs' ∧
       Cv_bv (mk_pp rd' (bs' with <| code := bce |>)) v bv ∧
-      s_refs rd' s' (bs' with code := bce) ∧
+      s_refs rd' (ck,s') (bs' with code := bce) ∧
       DRESTRICT bs.refs (COMPL (set rd.sm)) ⊑ DRESTRICT rf (COMPL (set sm')) ∧
       rd.sm ≼ sm'``,
   simp[] >> rw[] >>
@@ -1471,7 +1474,7 @@ val compile_append_out = store_thm("compile_append_out",
 
 val s_refs_with_irr = store_thm("s_refs_with_irr",
   ``∀rd s bs bs'.
-    s_refs rd s bs ∧ (bs'.refs = bs.refs) ∧ (bs'.inst_length = bs.inst_length) ∧ (bs'.code = bs.code)
+    s_refs rd s bs ∧ (bs'.refs = bs.refs) ∧ (bs'.inst_length = bs.inst_length) ∧ (bs'.code = bs.code) ∧ (bs'.clock = bs.clock)
     ⇒
     s_refs rd s bs'``,
   rw[s_refs_def,good_rd_def])
@@ -1498,7 +1501,8 @@ val Cenv_bs_with_irr = store_thm("Cenv_bs_with_irr",
   ``∀rd menv s env rmenv cenv sz csz bs bs'.
     Cenv_bs rd menv s env rmenv cenv sz csz bs ∧
     (bs'.stack = bs.stack) ∧ (bs'.refs = bs.refs) ∧
-    (bs'.code = bs.code) ∧ (bs'.inst_length = bs.inst_length)
+    (bs'.code = bs.code) ∧ (bs'.inst_length = bs.inst_length) ∧
+    (bs'.clock = bs.clock)
     ⇒
     Cenv_bs rd menv s env rmenv cenv sz csz bs'``,
   rw[Cenv_bs_def,s_refs_def,good_rd_def,env_renv_def,fmap_rel_def] >>
@@ -2193,7 +2197,7 @@ val CTDec_bound_lemma =
 val Cenv_bs_imp_incsz_irr = store_thm("Cenv_bs_imp_incsz_irr",
   ``∀rd menv s env rmenv renv rsz csz bs bs' v.
     Cenv_bs rd menv s env rmenv renv rsz csz bs ∧
-    bs'.refs = bs.refs ∧ bs'.code = bs.code ∧ bs'.inst_length = bs.inst_length ∧ bs'.stack = v::bs.stack
+    bs'.refs = bs.refs ∧ bs'.code = bs.code ∧ bs'.inst_length = bs.inst_length ∧ bs'.stack = v::bs.stack ∧ bs'.clock = bs.clock
     ⇒
     Cenv_bs rd menv s env rmenv renv (rsz+1) csz bs'``,
   rw[] >>
@@ -2212,19 +2216,20 @@ val prefix_exists_lemma = store_thm("prefix_exists_lemma",
 val compile_val = store_thm("compile_val",
   ``(∀menv s env exp res. Cevaluate menv s env exp res ⇒
       ∀rd s' beh cmnv cs cenv sz csz bs bce bcr bc0 code bc1.
-        BIGUNION (IMAGE (BIGUNION o IMAGE all_Clocs o set) (FRANGE menv)) ⊆ count (LENGTH s) ∧
-        BIGUNION (IMAGE all_Clocs (set env)) ⊆ count (LENGTH s) ∧
-        BIGUNION (IMAGE all_Clocs (set s)) ⊆ count (LENGTH s) ∧
+        BIGUNION (IMAGE (BIGUNION o IMAGE all_Clocs o set) (FRANGE menv)) ⊆ count (LENGTH (SND s)) ∧
+        BIGUNION (IMAGE all_Clocs (set env)) ⊆ count (LENGTH (SND s)) ∧
+        BIGUNION (IMAGE all_Clocs (set (SND s))) ⊆ count (LENGTH (SND s)) ∧
         (res = (s', beh)) ∧
         (bce ++ bcr = bc0 ++ code ++ bc1) ∧
         ALL_DISTINCT (FILTER is_Label bce) ∧
-        all_vlabs_menv menv ∧ all_vlabs_list s ∧ all_vlabs_list env ∧ all_labs exp ∧
+        all_vlabs_menv menv ∧ all_vlabs_list (SND s) ∧ all_vlabs_list env ∧ all_labs exp ∧
         EVERY (code_env_cd cmnv bce) (free_labs (LENGTH env) exp) ∧
-        (∀cd. cd ∈ vlabs_list s ⇒ code_env_cd cmnv bce cd) ∧
+        (∀cd. cd ∈ vlabs_list (SND s) ⇒ code_env_cd cmnv bce cd) ∧
         (∀cd. cd ∈ vlabs_list env ⇒ code_env_cd cmnv bce cd) ∧
         (∀cd. cd ∈ vlabs_menv menv ⇒ code_env_cd cmnv bce cd) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
+        (bs.clock = SOME (FST s)) ∧
         set (free_vars exp) ⊆ count (LENGTH cenv) ∧
         Cenv_bs rd menv s env cmnv cenv sz csz (bs with code := bce) ∧
         ALL_DISTINCT (FILTER is_Label bc0) ∧
@@ -2256,22 +2261,28 @@ val compile_val = store_thm("compile_val",
          (bs.handler = LENGTH st + 1) ∧
          csz ≤ LENGTH st
            ⇒
-         code_for_return rd bs bce st hdl sp v s s')) ∧
+         code_for_return rd bs bce st hdl sp v s s') ∧
+      (∀t.
+        (beh = Cexc Ctimeout_error) ∧
+        ((compile cmnv cenv t sz cs exp).out = REVERSE code ++ cs.out)
+          ⇒
+        ∃bs'. bc_next^* bs bs' ∧ (bs'.clock = SOME 0) ∧ (bc_fetch bs' = SOME Tick))) ∧
     (∀menv s env exps ress. Cevaluate_list menv s env exps ress ⇒
       ∀rd s' beh cmnv cs cenv sz csz bs bce bcr bc0 code bc1.
-        BIGUNION (IMAGE (BIGUNION o IMAGE all_Clocs o set) (FRANGE menv)) ⊆ count (LENGTH s) ∧
-        BIGUNION (IMAGE all_Clocs (set env)) ⊆ count (LENGTH s) ∧
-        BIGUNION (IMAGE all_Clocs (set s)) ⊆ count (LENGTH s) ∧
+        BIGUNION (IMAGE (BIGUNION o IMAGE all_Clocs o set) (FRANGE menv)) ⊆ count (LENGTH (SND s)) ∧
+        BIGUNION (IMAGE all_Clocs (set env)) ⊆ count (LENGTH (SND s)) ∧
+        BIGUNION (IMAGE all_Clocs (set (SND s))) ⊆ count (LENGTH (SND s)) ∧
         (ress = (s', beh)) ∧
         (bce ++ bcr = bc0 ++ code ++ bc1) ∧
         ALL_DISTINCT (FILTER is_Label bce) ∧
-        all_vlabs_menv menv ∧ all_vlabs_list s ∧ all_vlabs_list env ∧ all_labs_list exps ∧
+        all_vlabs_menv menv ∧ all_vlabs_list (SND s) ∧ all_vlabs_list env ∧ all_labs_list exps ∧
         EVERY (code_env_cd cmnv bce) (free_labs_list (LENGTH env) exps) ∧
-        (∀cd. cd ∈ vlabs_list s ⇒ code_env_cd cmnv bce cd) ∧
+        (∀cd. cd ∈ vlabs_list (SND s) ⇒ code_env_cd cmnv bce cd) ∧
         (∀cd. cd ∈ vlabs_list env ⇒ code_env_cd cmnv bce cd) ∧
         (∀cd. cd ∈ vlabs_menv menv ⇒ code_env_cd cmnv bce cd) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         (bs.code = bc0 ++ code ++ bc1) ∧
+        (bs.clock = SOME (FST s)) ∧
         set (free_vars_list exps) ⊆ count (LENGTH cenv) ∧
         Cenv_bs rd menv s env cmnv cenv sz csz (bs with code := bce) ∧
         ALL_DISTINCT (FILTER is_Label bc0) ∧
@@ -2286,7 +2297,11 @@ val compile_val = store_thm("compile_val",
         (bs.handler = LENGTH st + 1) ∧
         csz ≤ LENGTH st
           ⇒
-        code_for_return rd bs bce st hdl sp v s s'))``,
+        code_for_return rd bs bce st hdl sp v s s') ∧
+      ((beh = Cexc Ctimeout_error) ∧
+       ((compile_nts cmnv cenv sz cs exps).out = REVERSE code ++ cs.out)
+         ⇒
+       ∃bs'. bc_next^* bs bs' ∧ (bs'.clock = SOME 0) ∧ (bc_fetch bs' = SOME Tick)))``,
   ho_match_mp_tac Cevaluate_strongind >>
   strip_tac >- (
     simp[compile_def] >>
