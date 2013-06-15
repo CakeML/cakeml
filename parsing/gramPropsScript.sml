@@ -53,6 +53,8 @@ val NT_rank_def = Define`
         else if n = nREPLTop           then 15
         else if n = nREPLPhrase        then 15
         else if n = nE                 then 14
+        else if n = nE'                then 14
+        else if n = nEhandle'          then 13
         else if n = nEhandle           then 13
         else if n = nElogicOR          then 12
         else if n = nElogicAND         then 11
@@ -92,11 +94,14 @@ val NT_rank_def = Define`
         else if n = nPattern           then  4
         else if n = nPatternList1      then  5
         else if n = nPatternList2      then  5
-        else if n = nPEs               then  2
-        else if n = nPE                then  1
+        else if n = nPEs               then  6
+        else if n = nPE                then  5
+        else if n = nPE'               then  5
         else if n = nLetDecs           then  2
         else if n = nLetDec            then  1
         else if n = nDtypeDecl         then  3
+        else if n = nAndFDecls         then  3
+        else if n = nFDecl             then  2
         else 0
 `
 

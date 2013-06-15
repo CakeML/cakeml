@@ -545,7 +545,7 @@ val npeg0_rwts =
     List.foldl pegnt []
                [``nTypeDec``, ``nDecl``, ``nV``, ``nVlist1``, ``nUQTyOp``,
                 ``nUQConstructorName``, ``nConstructorName``, ``nTypeName``,
-                ``nDtypeDecl``, ``nDconstructor``,
+                ``nDtypeDecl``, ``nDconstructor``, ``nFDecl``,
                 ``nTyOp``, ``nDType``, ``nStarTypes``, ``nStarTypesP``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``, ``nLetDec``,
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
