@@ -117,29 +117,48 @@ val ptree_Type_def = Define`
            | [lpart; tl; rpart; opn] =>
              do
                 assert(lpart = Lf (TK LparT) ∧ rpart = Lf (TK RparT));
-                tylist <- ptree_Typelist tl;
+                tylist <- ptree_Typelist2 tl;
                 opname <- ptree_Tyop opn;
                 SOME(Ast_Tapp tylist opname)
              od
            | _ => NONE
         else NONE
       | _ => NONE) ∧
-  (ptree_Typelist ptree : ast_t list option =
+  (ptree_Typelist2 ptree : ast_t list option =
      case ptree of
        Lf _ => NONE
      | Nd nt args =>
-       if nt <> mkNT nTypeList then NONE
+       if nt <> mkNT nTypeList2 then NONE
        else
          case args of
-             [dt] => do ty <- ptree_Type dt; SOME[ty] od
            | [dt; commat; tl'] =>
              do
                assert(commat = Lf (TK CommaT));
                ty <- ptree_Type dt;
-               tylist <- ptree_Typelist tl';
+               tylist <- ptree_TypeList1 tl';
                SOME(ty::tylist)
              od
-           | _ => NONE)
+           | _ => NONE) ∧
+  (ptree_TypeList1 ptree : ast_t list option =
+    case ptree of
+        Lf _ => NONE
+      | Nd nt args =>
+        if nt <> mkNT nTypeList1 then NONE
+        else
+          case args of
+              [dt] =>
+              do
+                ty <- ptree_Type dt;
+                SOME([ty])
+              od
+            | [dt; commat; tl] =>
+              do
+                assert(commat = Lf (TK CommaT));
+                ty <- ptree_Type dt;
+                tl <- ptree_TypeList1 tl;
+                SOME(ty::tl)
+              od
+            | _ => NONE)
 `;
 
 val ptree_TypeName_def = Define`

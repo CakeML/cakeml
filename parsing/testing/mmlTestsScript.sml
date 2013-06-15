@@ -93,10 +93,28 @@ in
 end
 
 fun parsetest t1 t2 s = parsetest0 t1 t2 s NONE
+fun tytest0 s r = parsetest0 ``nType`` ``ptree_Type`` s (SOME r)
 val tytest = parsetest ``nType`` ``ptree_Type``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
+val _ = tytest "'a"
+val _ = tytest "'a -> bool"
+val _ = tytest "'a -> bool -> foo"
+val _ = tytest "('a)"
+val _ = tytest0 "('a)list" ``Ast_Tapp [Ast_Tvar "'a"] (Short "list")``
+val _ = tytest "('a->bool)list"
+val _ = tytest "'a->bool list"
+val _ = tytest "('a->bool)->bool"
+val _ = tytest0 "('a,foo)bar"
+                ``Ast_Tapp [Ast_Tvar "'a"; Ast_Tapp [] (Short "foo")]
+                           (Short "bar")``
+val _ = tytest "('a) list list"
+val _ = tytest "('a,'b) foo list"
+val _ = tytest "'a list"
+val _ = tytest "'a list list"
+val _ = tytest "bool list list"
+val _ = tytest "('a,bool list)++"
 val _ = parsetest0 ``nREPLPhrase`` ``ptree_REPLPhrase``
           "case g of C p1 => e1 | p2 => e2;"
           (SOME ``[Ast_Tdec
@@ -197,21 +215,6 @@ val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x)"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x,D)"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x,D(1),true)"
 
-val _ = tytest "'a"
-val _ = tytest "'a -> bool"
-val _ = tytest "'a -> bool -> foo"
-val _ = tytest "('a)"
-val _ = tytest "('a)list"
-val _ = tytest "('a->bool)list"
-val _ = tytest "'a->bool list"
-val _ = tytest "('a->bool)->bool"
-val _ = tytest "('a,foo)bar"
-val _ = tytest "('a) list list"
-val _ = tytest "('a,'b) foo list"
-val _ = tytest "'a list"
-val _ = tytest "'a list list"
-val _ = tytest "bool list list"
-val _ = tytest "('a,bool list)++"
 val _ = parsetest ``nStarTypes`` ``ptree_StarTypes F`` "'a"
 val _ = parsetest ``nStarTypesP`` ``ptree_StarTypes T`` "'a * bool"
 val _ = parsetest ``nStarTypesP`` ``ptree_StarTypes T`` "('a * bool)"

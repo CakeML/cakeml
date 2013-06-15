@@ -100,58 +100,6 @@ val peg_Type_def = Define`
                           [Nd (mkNT nType) [ah; b1; b2]])
 `;
 
-val calcTyOp_def = Define`
-  calcTyOp a b =
-    if b = [Lf (TK RparT)] then
-      (case a of
-           [] => []
-         | ah::_ => [Nd (mkNT nDType) [Lf (TK LparT); ah; Lf (TK RparT)]])
-    else if b ≠ [] /\ HD b = Lf (TK RparT) then
-      let ops = TL b in
-        FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
-              [Lf (TK LparT); Nd (mkNT nTypeList) a; Lf (TK RparT)]
-              ops
-    else let (tylist, paren_ops) = splitAtPki (K ((=) (Lf (TK RparT)))) (,) b
-         in
-           case (a,paren_ops) of
-               ([],_) => []  (* shouldn't happen *)
-             | (_,[]) => []  (* shouldn't happen *)
-             | (ah::_,_::pt) =>
-               let tylist_n = mk_rinfix (mkNT nTypeList) (ah :: tylist)
-               in
-                 FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
-                       [Lf (TK LparT); tylist_n; Lf (TK RparT)]
-                       pt
-`;
-
-val peg_DType_def = Define`
-  (* TyvarT | TyOp | "(" Type ( ")" TyOp* | ("," Type)* ")" TyOp TyOp* ) *)
-  peg_DType =
-    choice
-      (seq (tok isTyvarT (λx. [Nd (mkNT nDType) (mktokLf x)]))
-           (rpt (pnt nTyOp) FLAT)
-           (λa ops. FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
-                          a ops))
-      (choice
-        (seq (pegf (pnt nTyOp) (bindNT nDType))
-             (rpt (pnt nTyOp) FLAT)
-             (λa ops. FOLDL (λacc opn. [Nd (mkNT nDType) (acc ++ [opn])])
-                            a ops))
-        (seq (tokeq LparT)
-             (seq (pnt nType)
-                  (choice
-                     (* ")" TyOp* *)
-                     (seql [tokeq RparT; rpt (pnt nTyOp) FLAT] I)
-                     (* ("," Type)* ")" TyOp TyOp* *)
-                     (seql [rpt (seql [tokeq CommaT; pnt nType] I) FLAT;
-                            tokeq RparT; pnt nTyOp; rpt (pnt nTyOp) FLAT] I)
-                     sumID)
-                  calcTyOp)
-             (λa b. b))
-        sumID)
-      sumID
-`;
-
 val peg_TypeName_def = Define`
   peg_TypeName =
     choicel [pegf (pnt nUQTyOp) (bindNT nTypeName);
@@ -330,7 +278,36 @@ val mmlPEG_def = zDefine`
                seql [pnt nV; pnt nVlist1; tokeq EqualsT; pnt nE]
                     (bindNT nFDecl));
               (mkNT nType, peg_Type);
-              (mkNT nDType, peg_DType);
+              (mkNT nDType,
+               choicel [
+                 seql [pegf
+                         (choicel [
+                             tok isTyvarT mktokLf;
+                             pnt nTyOp;
+                             seql [tokeq LparT; pnt nType; tokeq RparT] I
+                         ]) (bindNT nDType);
+                       rpt (pnt nTyOp) FLAT]
+                      (λsubs.
+                         case subs of
+                             [] => [] (* can't happen *)
+                           | h::t =>
+                             [FOLDL (\a tyop. Nd (mkNT nDType) [a; tyop]) h t]);
+                 seql [tokeq LparT; pnt nTypeList2; tokeq RparT;
+                       pnt nTyOp; rpt (pnt nTyOp) FLAT]
+                      (λsubs.
+                         case subs of
+                             (lp::tyl::rp::tyop::rest) =>
+                             [FOLDL (\a tyop. Nd (mkNT nDType) [a; tyop])
+                                    (Nd (mkNT nDType) [lp;tyl;rp;tyop])
+                                    rest]
+                           | _ => [] (* can't happen *))
+               ]);
+              (mkNT nTypeList2,
+               seql [pnt nType; tokeq CommaT; pnt nTypeList1]
+                    (bindNT nTypeList2));
+              (mkNT nTypeList1,
+               seql [pnt nType; try (seql [tokeq CommaT; pnt nTypeList1] I)]
+                    (bindNT nTypeList1));
               (mkNT nTyOp,
                pegf (choicel [pnt nUQTyOp; tok isLongidT mktokLf])
                     (bindNT nTyOp));
@@ -555,8 +532,7 @@ fun pegnt(t,acc) = let
             simp(pegnt_case_ths @ mmlpeg_rules_applied @
                  [FDOM_cmlPEG, peg_V_def, peg_UQConstructorName_def, peg_TypeName_def,
                   peg_TypeDec_def, choicel_def, seql_def, peg_longV_def,
-                  pegf_def, peg_linfix_def,
-                  peg_DType_def, peg_Eapp_def]) >>
+                  pegf_def, peg_linfix_def, peg_Eapp_def]) >>
             simp(peg0_rwts @ acc))
   val nm = "peg0_" ^ term_to_string t
   val th' = save_thm(nm, SIMP_RULE bool_ss [pnt_def] th)
@@ -635,7 +611,7 @@ fun wfnt(t,acc) = let
                     [wfpeg_pnt, FDOM_cmlPEG, try_def, peg_longV_def,
                      seql_def, peg_TypeDec_def, peg_V_def, peg_Type_def,
                      peg_UQConstructorName_def, peg_TypeName_def,
-                     peg_DType_def, peg_nonfix_def,
+                     peg_nonfix_def,
                      tokeq_def, peg_linfix_def, peg_Eapp_def]) THEN
           simp(wfpeg_rwts @ npeg0_rwts @ peg0_rwts @ acc))
 in
@@ -652,7 +628,8 @@ val topo_nts = [``nExn``, ``nV``, ``nTypeDec``, ``nDecl``, ``nVlist1``,
                 ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nErel``,
                 ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``,
-                ``nElogicOR``, ``nEhandle``, ``nEhandle'``, ``nE``, ``nE'``, ``nType``,
+                ``nElogicOR``, ``nEhandle``, ``nEhandle'``, ``nE``, ``nE'``,
+                ``nType``, ``nTypeList1``, ``nTypeList2``,
                 ``nPatternList1``, ``nPatternList2``,
                 ``nEtuple``, ``nEseq``, ``nElist1``, ``nElist2``, ``nDtypeDecl``,
                 ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,
@@ -681,7 +658,7 @@ val PEG_exprs = save_thm(
          [pegTheory.Gexprs_def, pegTheory.subexprs_def,
           subexprs_pnt, peg_start, peg_range, choicel_def, tokeq_def, try_def,
           seql_def, pegf_def, peg_Eapp_def, peg_V_def, peg_nonfix_def,
-          peg_Type_def, peg_DType_def, peg_longV_def, peg_linfix_def,
+          peg_Type_def, peg_longV_def, peg_linfix_def,
           peg_TypeName_def, peg_TypeDec_def, peg_UQConstructorName_def,
           pred_setTheory.INSERT_UNION_EQ
          ])
@@ -694,7 +671,7 @@ val PEG_wellformed = store_thm(
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
        peg_linfix_def, peg_UQConstructorName_def, peg_TypeDec_def,
        peg_TypeName_def, peg_V_def, peg_Eapp_def, peg_nonfix_def, peg_Type_def,
-       peg_DType_def, peg_longV_def] >>
+       peg_longV_def] >>
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
 
 val parse_REPLTop_total = save_thm(
