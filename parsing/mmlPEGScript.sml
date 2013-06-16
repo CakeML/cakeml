@@ -532,7 +532,7 @@ fun pegnt(t,acc) = let
             simp(pegnt_case_ths @ mmlpeg_rules_applied @
                  [FDOM_cmlPEG, peg_V_def, peg_UQConstructorName_def, peg_TypeName_def,
                   peg_TypeDec_def, choicel_def, seql_def, peg_longV_def,
-                  pegf_def, peg_linfix_def, peg_Eapp_def]) >>
+                  pegf_def, peg_nonfix_def, peg_linfix_def, peg_Eapp_def]) >>
             simp(peg0_rwts @ acc))
   val nm = "peg0_" ^ term_to_string t
   val th' = save_thm(nm, SIMP_RULE bool_ss [pnt_def] th)
@@ -549,6 +549,9 @@ val npeg0_rwts =
                 ``nTyOp``, ``nDType``, ``nStarTypes``, ``nStarTypesP``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``, ``nLetDec``,
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
+                ``nEmult``, ``nEadd``, ``nErel``, ``nEcomp``, ``nEbefore``,
+                ``nEtyped``, ``nElogicAND``, ``nElogicOR``, ``nEhandle``,
+                ``nE``,
                 ``nSpecLine``, ``nStructure``, ``nTopLevelDec``]
 
 val pegfail_empty = Store_thm(

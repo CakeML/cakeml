@@ -17,11 +17,16 @@ fun asm_match q = Q.MATCH_ASSUM_ABBREV_TAC q >>
                   REPEAT (POP_ASSUM (K ALL_TAC o
                                      assert (same_const ``Abbrev`` o
                                              rator o concl)))
+
 fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
 
 fun dsimp thl = asm_simp_tac (srw_ss() ++ DNF_ss) thl
 fun asimp thl = asm_simp_tac (srw_ss() ++ ARITH_ss) thl
 fun csimp thl = asm_simp_tac (srw_ss() ++ CONJ_ss) thl
+
+val kill_asm_guard =
+    disch_then (fn th => SUBGOAL_THEN (lhand (concl th))
+                                      (MP_TAC o MATCH_MP th)) >- asimp[]
 
 fun qispl_then [] ttac = ttac
   | qispl_then (q::qs) ttac = Q.ISPEC_THEN q (qispl_then qs ttac)
@@ -240,14 +245,14 @@ val peg_linfix_correct_lemma = store_thm(
   `LENGTH i1 < LENGTH i0` by metis_tac[not_peg0_LENGTH_decreases] >>
   `LENGTH i1' < LENGTH i0` by decide_tac >>
   first_assum (qspecl_then [`i1'`, `i2'`, `sep_r`, `sepsym`] mp_tac) >>
-  simp_tac(srw_ss()) [] >> ASM_REWRITE_TAC[] >>
+  rpt kill_asm_guard >>
   disch_then (qxchl [`sep_pt`] strip_assume_tac) >> rveq >>
   `LENGTH i2' ≤ LENGTH i1'`
     by metis_tac[pegTheory.peg_eval_suffix',
                  DECIDE``x:num ≤ y ⇔ x = y ∨ x < y``] >>
   `LENGTH i2' < LENGTH i0` by decide_tac >>
   first_x_assum (qspecl_then [`i2'`, `i3'`, `sym_r`, `sym`] mp_tac) >>
-  simp_tac(srw_ss()) [] >> ASM_REWRITE_TAC[] >>
+  rpt kill_asm_guard >>
   disch_then (qxchl [`sym_pt`] strip_assume_tac) >> rveq >>
   simp[mk_linfix_def] >>
   `LENGTH i3' < LENGTH i2'` by metis_tac[not_peg0_LENGTH_decreases] >>
@@ -275,6 +280,7 @@ val peg_eval_nTyOp_wrongtok = store_thm(
   ``¬peg_eval mmlPEG (LparT::i, nt (mkNT nTyOp) f) (SOME x)``,
   simp[Once pegTheory.peg_eval_cases, mmlpeg_rules_applied, FDOM_cmlPEG] >>
   simp[Once pegTheory.peg_eval_cases, mmlpeg_rules_applied, FDOM_cmlPEG]);
+
 (*
 val peg_correct = store_thm(
   "peg_correct",
@@ -691,7 +697,7 @@ val peg_correct = store_thm(
           loseC ``NT_rank`` >>
           first_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
-          simp_tac(srw_ss()) [] >> ASM_REWRITE_TAC[] >>
+          rpt kill_asm_guard >>
           disch_then (qxchl [`type_pt`] strip_assume_tac) >> rveq >> simp[] >>
           erule mp_tac
             (length_no_greater |> Q.GEN `sym` |> Q.ISPEC `nt (mkNT nType) I`
@@ -736,7 +742,7 @@ val peg_correct = store_thm(
         first_assum (fn patth =>
           first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                        assert (free_in ``nTypeList2``) o concl)) >>
-        simp_tac(srw_ss())[] >> ASM_REWRITE_TAC[] >>
+        rpt kill_asm_guard >>
         disch_then (qxchl [`tyl2_pt`] strip_assume_tac) >> rveq >> simp[] >>
         asm_match `peg_eval mmlPEG (i2, nt(mkNT nTyOp) I) (SOME(i3,r))` >>
         first_assum (mp_tac o MATCH_MP length_no_greater o
@@ -839,7 +845,7 @@ val peg_correct = store_thm(
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``nPEs``) o concl)) >>
       asimp[] >> strip_tac >> rveq >> dsimp[])
-  >- (print_tac "nE'" >> strip_tac >> rveq >> simp[]
+  >- (print_tac "nE'" >> strip_tac >> rveq >> simp[] >> fs[]
       >- ((* raise case *)
           loseC ``NT_rank`` >>
           first_x_assum (fn patth =>
@@ -855,12 +861,230 @@ val peg_correct = store_thm(
           first_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``ThenT``) o concl)) >>
-          simp_tac (srw_ss())[] >> ASM_REWRITE_TAC[] >>
-          strip_tac >> rveq >> simp[]
+          rpt kill_asm_guard >> strip_tac >> rveq >> simp[] >>
+          first_assum (assume_tac o MATCH_MP length_no_greater o
+                       assert (free_in ``ThenT`` o concl)) >> fs[] >>
           first_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``ElseT``) o concl)) >>
-          simp_tac (srw_ss())[] >> ASM_REWRITE_TAC[] >> asimp[]
+          rpt kill_asm_guard >> strip_tac >> rveq >> simp[] >>
+          first_assum (assume_tac o MATCH_MP length_no_greater o
+                       assert (free_in ``ElseT`` o concl)) >> fs[] >>
+          first_x_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                         assert (free_in ``nE'``) o concl)) >>
+          rpt kill_asm_guard >> strip_tac >> rveq >>
+          dsimp[cmlG_applied, cmlG_FDOM])
+      >- ((* fn x => e case *) loseC ``NT_rank`` >>
+          rpt (qpat_assum `peg_eval G X NONE` (K ALL_TAC)) >>
+          first_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                         assert (free_in ``nV``) o concl)) >>
+          rpt kill_asm_guard >> strip_tac >> rveq >>
+          first_assum (assume_tac o MATCH_MP length_no_greater o
+                       assert (free_in ``nV`` o concl)) >> fs[] >>
+          first_x_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                         assert (free_in ``nE'``) o concl)) >>
+          asimp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]) >>
+      (* bogus raise Ehandle' case *)
+      loseC ``LENGTH`` >> first_x_assum (fn patth =>
+        first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+      simp[NT_rank_def] >> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
+  >- (print_tac "nE" >> strip_tac >> rveq >> simp[] >> fs[]
+      >- ((* raise E case *)
+          loseC ``NT_rank`` >>
+          first_x_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+          simp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied])
+      >- ((* handle case *)
+          loseC ``LENGTH`` >>
+          first_x_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+          simp[NT_rank_def] >> strip_tac >> rveq >>
+          dsimp[cmlG_FDOM, cmlG_applied])
+      >- ((* if then else case *)
+          first_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                         assert (free_in ``ThenT``) o concl)) >>
+          rpt kill_asm_guard >> strip_tac >> rveq >> simp[] >>
+          first_assum (assume_tac o MATCH_MP length_no_greater o
+                       assert (free_in ``ThenT`` o concl)) >> fs[] >>
+          first_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                         assert (free_in ``ElseT``) o concl)) >>
+          rpt kill_asm_guard >> strip_tac >> rveq >> simp[] >>
+          first_assum (assume_tac o MATCH_MP length_no_greater o
+                       assert (free_in ``ElseT`` o concl)) >> fs[] >>
+          dsimp[cmlG_applied, cmlG_FDOM, MAP_EQ_SING] >> csimp[] >>
+          qpat_assum `peg_eval mmlPEG X (SOME(ThenT::Y,Z))` (K ALL_TAC) >>
+          qpat_assum `peg_eval mmlPEG X (SOME(ElseT::Y,Z))` (K ALL_TAC) >>
+          loseC ``NT_rank`` >>
+          first_x_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+          asimp[] >> metis_tac[])
+      >- ((* fn x => e case *) loseC ``NT_rank`` >>
+          rpt (qpat_assum `peg_eval G X NONE` (K ALL_TAC)) >>
+          first_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                         assert (free_in ``nV``) o concl)) >>
+          rpt kill_asm_guard >> strip_tac >> rveq >>
+          first_assum (assume_tac o MATCH_MP length_no_greater o
+                       assert (free_in ``nV`` o concl)) >> fs[] >>
+          first_x_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                         assert (free_in ``nE``) o concl)) >>
+          asimp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied])
+      >- ((* "case" E "of" PEs case *) loseC ``NT_rank`` >>
+          rpt (qpat_assum `peg_eval G X NONE` (K ALL_TAC)) >>
+          first_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                         assert (free_in ``nE``) o concl)) >>
+          rpt kill_asm_guard >> strip_tac >> rveq >> simp[] >>
+          first_x_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                         assert (free_in ``nPEs``) o concl)) >>
+          first_assum (assume_tac o MATCH_MP length_no_greater o
+                       assert (free_in ``nE`` o concl)) >> fs[] >>
+          asimp[] >> strip_tac >> rveq >> dsimp[cmlG_applied, cmlG_FDOM]) >>
+      (* raise-ehandle case *)
+      loseC ``LENGTH`` >> first_x_assum (fn patth =>
+        first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+      simp[NT_rank_def] >> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
+  >- (print_tac "nEhandle'" >>
+      `NT_rank (mkNT nElogicOR) < NT_rank (mkNT nEhandle')`
+        by simp[NT_rank_def] >>
+      strip_tac >> rveq >> simp[] >>
+      first_x_assum (erule strip_assume_tac) >> rveq >>
+      dsimp[cmlG_FDOM, cmlG_applied] >>
+      first_assum (assume_tac o MATCH_MP length_no_greater o
+                   assert (free_in ``nElogicOR`` o concl)) >> fs[] >>
+      first_assum (fn patth =>
+         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                      assert (free_in ``nV``) o concl)) >>
+      rpt kill_asm_guard >> strip_tac >> rveq >>
+      first_assum (assume_tac o MATCH_MP length_no_greater o
+                   assert (free_in ``nV`` o concl)) >> fs[] >>
+      first_x_assum (fn patth =>
+         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                      assert (free_in ``nE'``) o concl)) >>
+      asimp[] >> strip_tac >> rveq >> simp[])
+  >- (print_tac "nEhandle" >>
+      `NT_rank (mkNT nElogicOR) < NT_rank (mkNT nEhandle)`
+        by simp[NT_rank_def] >>
+      strip_tac >> rveq >> simp[] >>
+      first_x_assum (erule strip_assume_tac) >> rveq >>
+      dsimp[cmlG_FDOM, cmlG_applied] >>
+      first_assum (assume_tac o MATCH_MP length_no_greater o
+                   assert (free_in ``nElogicOR`` o concl)) >> fs[] >>
+      first_assum (fn patth =>
+         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                      assert (free_in ``nV``) o concl)) >>
+      rpt kill_asm_guard >> strip_tac >> rveq >>
+      first_assum (assume_tac o MATCH_MP length_no_greater o
+                   assert (free_in ``nV`` o concl)) >> fs[] >>
+      first_x_assum (fn patth =>
+         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                      assert (free_in ``nE``) o concl)) >>
+      asimp[] >> strip_tac >> rveq >> simp[])
+  >- (print_tac "nElogicOR" >>
+      disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
+      simp[cmlG_applied, cmlG_FDOM, pegsym_to_sym_def, DISJ_IMP_THM,
+           FORALL_AND_THM, SUBSET_DEF] >> simp[NT_rank_def])
+  >- (print_tac "nElogicAND" >>
+      disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
+      simp[cmlG_applied, cmlG_FDOM, pegsym_to_sym_def, DISJ_IMP_THM,
+           FORALL_AND_THM, SUBSET_DEF] >> simp[NT_rank_def])
+  >- (print_tac "nEtyped" >>
+      `NT_rank (mkNT nEbefore) < NT_rank (mkNT nEtyped)`
+        by simp[NT_rank_def] >> strip_tac >> rveq >>
+      simp[cmlG_FDOM, cmlG_applied] >>
+      first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >>
+      first_x_assum (assume_tac o MATCH_MP length_no_greater o
+                     assert (free_in ``nEbefore`` o concl)) >> fs[] >>
+      first_x_assum (fn patth =>
+         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                      assert (free_in ``nType``) o concl)) >> asimp[] >>
+      strip_tac >> rveq >> dsimp[])
+  >- (print_tac "nEbefore" >>
+      disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
+      simp[cmlG_applied, cmlG_FDOM, pegsym_to_sym_def, DISJ_IMP_THM,
+           FORALL_AND_THM, SUBSET_DEF] >> simp[NT_rank_def])
+  >- (print_tac "nEcomp" >>
+      disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
+      simp[cmlG_applied, cmlG_FDOM, pegsym_to_sym_def, DISJ_IMP_THM,
+           FORALL_AND_THM, SUBSET_DEF] >> simp[NT_rank_def])
+  >- (print_tac "nErel" >> simp[peg_nonfix_def] >>
+      `NT_rank (mkNT nEadd) < NT_rank (mkNT nErel)` by simp[NT_rank_def]>>
+      strip_tac >> rveq >> simp[] >>
+      first_x_assum (erule strip_assume_tac) >> rveq >>
+      dsimp[cmlG_FDOM, cmlG_applied] >>
+      first_x_assum
+        (assume_tac o
+         MATCH_MP (GEN_ALL (MATCH_MP not_peg0_LENGTH_decreases peg0_nEadd)) o
+         assert (free_in ``NIL : mlptree list`` o concl)) >>
+      first_assum (fn patth =>
+         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                      assert (free_in ``nRelOps``) o concl)) >>
+      rpt kill_asm_guard >> strip_tac >> rveq >> dsimp[] >>
+      first_x_assum (assume_tac o MATCH_MP length_no_greater o
+                     assert (free_in ``nRelOps`` o concl)) >> fs[] >>
+      first_x_assum (fn patth =>
+         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                      assert (free_in ``nEadd``) o concl)) >>
+      rpt kill_asm_guard >> strip_tac >> rveq >> simp[])
+  >- (print_tac "nEadd" >>
+      disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
+      simp[cmlG_applied, cmlG_FDOM, pegsym_to_sym_def, DISJ_IMP_THM,
+           FORALL_AND_THM, SUBSET_DEF] >> simp[NT_rank_def])
+  >- (print_tac "nEmult" >>
+      disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
+      simp[cmlG_applied, cmlG_FDOM, pegsym_to_sym_def, DISJ_IMP_THM,
+           FORALL_AND_THM, SUBSET_DEF] >> simp[NT_rank_def])
+  >- (print_tac "nEseq" >>
+      disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
+      simp[cmlG_applied, cmlG_FDOM, pegsym_to_sym_def, DISJ_IMP_THM,
+           FORALL_AND_THM, SUBSET_DEF] >> simp[NT_rank_def])
+  >- (print_tac "nEbase" >>
+      `NT_rank (mkNT nFQV) < NT_rank (mkNT nEbase) ∧
+       NT_rank (mkNT nConstructorName) < NT_rank (mkNT nEbase)`
+        by simp[NT_rank_def] >> strip_tac >> rveq >>
+      simp[cmlG_FDOM, cmlG_applied] >> fs[] >>
+      rpt (qpat_assum `peg_eval G X NONE` (K ALL_TAC))
+      >- (asm_match `isInt h` >> Cases_on `h` >> fs[])
+      >- (first_x_assum (erule strip_assume_tac) >> rveq >> simp[])
+      >- (first_x_assum (erule strip_assume_tac) >> rveq >> simp[])
+      >- dsimp[] (* "(" ")" case *)
+      >- ((*seq case *) rpt (loseC ``NT_rank``) >>
+          first_x_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+          simp[] >> strip_tac >> rveq >> dsimp[])
+      >- ((* "let" ... "in" ... "end" case *)
+          rpt (loseC ``NT_rank``) >>
+          first_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                         assert (free_in ``nLetDecs``) o concl)) >>
+          rpt kill_asm_guard >> strip_tac >> rveq >> dsimp[] >>
+          first_x_assum (assume_tac o MATCH_MP length_no_greater o
+                         assert (free_in ``nLetDecs`` o concl)) >> fs[] >>
+          first_x_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+          rpt kill_asm_guard >> strip_tac >> rveq >> dsimp[]) >>
+      (* eseq in parens case *) rveq >>
+      first_x_assum (fn patth =>
+        first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+      rpt kill_asm_guard >> strip_tac >> rveq >> dsimp[])
+  >- (print_tac "nCompOps">> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
+  >- (print_tac "nRelOps" >> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
+  >- (print_tac "nAddOps" >> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
+  >- (print_tac "nMultOps">> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
+  >- (print_tac "nElist1" >>
+      disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
+      simp[cmlG_applied, cmlG_FDOM, pegsym_to_sym_def, DISJ_IMP_THM,
+           FORALL_AND_THM, SUBSET_DEF] >> simp[NT_rank_def])
+
+
+
 
 
 *)
