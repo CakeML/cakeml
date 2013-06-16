@@ -367,10 +367,8 @@ val infer_e_def = tDefine "infer_e" `
   else
     *)
     do t1 <- infer_e menv cenv env e1;
-       t2 <- fresh_uvar;
-       () <- add_constraint t1 t2;
-       t3 <- infer_e menv cenv (bind x (0,t2) env) e2;
-       return t3
+       t2 <- infer_e menv cenv (bind x (0,t1) env) e2;
+       return t2
     od) ∧
 (* Don't do polymorphism for non-top-level let recs
 (infer_e menv cenv env (Letrec funs e) =
@@ -409,9 +407,7 @@ val infer_e_def = tDefine "infer_e" `
   do (t1', env') <- infer_p cenv p;
      () <- guard (ALL_DISTINCT (MAP FST env')) "Duplicate pattern variable";
      () <- add_constraint t1 t1';
-     ts <- n_fresh_uvar (LENGTH env');
-     () <- add_constraints ts (MAP SND env');
-     t2' <- infer_e menv cenv (merge (list$MAP2 (\(n,t) t'. (n,(0,t'))) env' ts) env) e;
+     t2' <- infer_e menv cenv (merge (MAP (\(n,t). (n,(0,t))) env') env) e;
      () <- add_constraint t2 t2';
      () <- infer_pes menv cenv env pes t1 t2;
      return ()
