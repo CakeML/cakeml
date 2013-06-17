@@ -157,10 +157,10 @@ val generalise_def = Define `
     (num_gen, s', Infer_Tapp ts' tc)) ∧
 (generalise m n s (Infer_Tuvar uv) =
   case FLOOKUP s uv of
-    | SOME t => (0, s, t)
+    | SOME n => (0, s, Infer_Tvar_db n)
     | NONE =>
         if m ≤ uv then
-          (1, s|+(uv,Infer_Tvar_db n), Infer_Tvar_db n)
+          (1, s|+(uv,n), Infer_Tvar_db n)
         else
           (0, s, Infer_Tuvar uv)) ∧
 (generalise m n s (Infer_Tvar_db k) =
@@ -427,24 +427,17 @@ val infer_e_def = tDefine "infer_e" `
 
 val infer_d_def = Define `
 (infer_d mn menv cenv env (Dlet p e) = 
-  if is_value e then
-    do () <- init_state;
-       n <- get_next_uvar;
-       t1 <- infer_e menv cenv env e;
-       (t2,env') <- infer_p cenv p;
-       () <- guard (ALL_DISTINCT (MAP FST env')) "Duplicate pattern variable";
-       () <- add_constraint t1 t2;
-       (num_tvs, s, ts) <- return (generalise_list n 0 FEMPTY (MAP SND env'));
-       return ([], ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts))
-    od
-  else
-    do () <- init_state;
-       t1 <- infer_e menv cenv env e;
-       (t2,env') <- infer_p cenv p;
-       () <- guard (ALL_DISTINCT (MAP FST env')) "Duplicate pattern variable";
-       () <- add_constraint t1 t2;
-       return ([],MAP (λ(n,t). (n,(0,t))) env')
-    od) ∧
+  do () <- init_state;
+     n <- get_next_uvar;
+     t1 <- infer_e menv cenv env e;
+     (t2,env') <- infer_p cenv p;
+     () <- guard (ALL_DISTINCT (MAP FST env')) "Duplicate pattern variable";
+     () <- add_constraint t1 t2;
+     ts <- apply_subst_list (MAP SND env');
+     (num_tvs, s, ts') <- return (generalise_list n 0 FEMPTY ts);
+     () <- guard (num_tvs = 0 ∨ is_value e) "Value restriction violated";
+     return ([], ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts'))
+  od) ∧
 (infer_d mn menv cenv env (Dletrec funs) =
   do () <- init_state;
      next <- get_next_uvar;
