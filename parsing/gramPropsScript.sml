@@ -52,6 +52,7 @@ val NT_rank_def = Define`
         else if n = nEseq              then 15
         else if n = nREPLTop           then 15
         else if n = nREPLPhrase        then 15
+        else if n = nElist2            then 15
         else if n = nE                 then 14
         else if n = nE'                then 14
         else if n = nEhandle'          then 13

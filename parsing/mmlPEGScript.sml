@@ -142,7 +142,7 @@ val peg_V_def = Define`
           (tok (λt.
                   do s <- destSymbolT t;
                      assert(s ∉ {"+"; "-"; "/"; "<"; ">"; "<="; ">="; "<>";
-                                 ":="})
+                                 ":="; "*"})
                   od = SOME ())
                mktokLf)
           (bindNT nV o sumID)
@@ -176,11 +176,7 @@ val mmlPEG_def = zDefine`
     rules := FEMPTY |++
              [(mkNT nV, peg_V);
               (mkNT nVlist1,
-               seql [pnt nV; rpt (pnt nV) FLAT]
-                    (λl. if l = [] then []
-                         else [FOLDR (λe acc. Nd (mkNT nVlist1) [e; acc])
-                                       (Nd (mkNT nVlist1) [LAST l])
-                                       (FRONT l)]));
+               seql [pnt nV; try (pnt nVlist1)] (bindNT nVlist1));
               (mkNT nFQV, choicel [pegf (pnt nV) (bindNT nFQV); peg_longV]);
               (mkNT nExn,
                pegf (choicel
