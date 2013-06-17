@@ -4296,7 +4296,6 @@ val compile_val = store_thm("compile_val",
       rw[] ) >>
     disch_then(mp_tac o SIMP_RULE(srw_ss()++DNF_ss)[code_for_push_def,LET_THM]) >>
     disch_then(qx_choosel_then[`bvs`,`rfs`,`rd''`,`ck''`]strip_assume_tac) >>
-
     let
       fun tac0 t =
         qmatch_assum_abbrev_tac`Cv_bv (ps',l2a) cl bf` >>
@@ -4593,7 +4592,7 @@ val compile_val = store_thm("compile_val",
         BasicProvers.VAR_EQ_TAC >>
         qmatch_assum_abbrev_tac`bc_next^* bs bs05` >>
         qmatch_assum_abbrev_tac`bc_next^* bs05 bs3`
-      val tac23 =
+      fun tac23 st =
         fs[el_check_def] >>
         qmatch_assum_rename_tac`EL n defs = (SOME (l,ccenv,recs,envs),azb)`[]>>
         qmatch_assum_abbrev_tac`EL n defs = (SOME cc,azb)`>>
@@ -4755,7 +4754,7 @@ val compile_val = store_thm("compile_val",
         map_every qunabbrev_tac[`X`,`bs3`,`bs1`] >>
         pop_assum kall_tac >>
         qho_match_abbrev_tac `∃rf bv sm ck. bc_next^* bs1 (bs2 rf ck bv) ∧ P rf bv ck sm` >>
-        tac23
+        tac23 st
     in
       `∀a. (FOLDL (λs i. s with out := i::s.out) a mtk).out = mtk ++ a.out` by (
         simp[Abbr`mtk`] >> rw[] ) >>
@@ -4926,7 +4925,7 @@ val compile_val = store_thm("compile_val",
       map_every qunabbrev_tac[`X`,`bs3`,`bs1`] >>
       pop_assum kall_tac >>
       qho_match_abbrev_tac `∃bs'. bc_next^* bs1 bs' ∧ P bs'` >>
-      tac23 >>
+      tac23 `ig'++[StackPtr sp;CodePtr hdl]++st` >>
       disch_then(qspec_then`TCTail azb0 0`mp_tac) >> simp[] >>
       disch_then(qspec_then`st`mp_tac o CONV_RULE (RESORT_FORALL_CONV List.rev)) >>
       simp[Abbr`bs1`] >>
@@ -4936,6 +4935,145 @@ val compile_val = store_thm("compile_val",
         fs[EVERY2_EVERY] ) >>
       simp[code_for_return_def,Abbr`P`]
     end ) >>
+  strip_tac >- (
+    simp[] >> ntac 6 gen_tac >> qx_gen_tac `fenv` >> rpt gen_tac >> strip_tac >>
+    rpt gen_tac >>
+    simp[compile_def,FOLDL_UNION_BIGUNION] >>
+    simp_tac(srw_ss()++ETA_ss)[] >>
+    strip_tac >> rfs[] >> fs[] >>
+    qspecl_then[`cmnv`,`cenv`,`TCNonTail`,`sz`,`cs`,`exp`](Q.X_CHOOSE_THEN`cx`strip_assume_tac)(CONJUNCT1 compile_append_out) >> fs[] >>
+    Q.PAT_ABBREV_TAC`cs0 = compile cmnv cenv X sz cs exp` >>
+    qspecl_then[`cmnv`,`cenv`,`sz+1`,`cs0`,`exps`](Q.X_CHOOSE_THEN`cxs`strip_assume_tac)(CONJUNCT2 (CONJUNCT2 compile_append_out)) >> fs[] >>
+    reverse(Cases_on`∃bc10. code = REVERSE cx ++ REVERSE cxs ++ bc10`) >- (
+      fsrw_tac[DNF_ss][] >>
+      rpt conj_tac >> rpt gen_tac >>
+      rw[Once SWAP_REVERSE] >>
+      TRY(Cases_on`t`)>>fs[Once SWAP_REVERSE]) >> fs[] >>
+    reverse(Cases_on`bs.code = bc0 ++ REVERSE cx ++ REVERSE cxs ++ bc10 ++ bc1`) >- fs[] >>
+    last_x_assum(qspecl_then[`rd`,`cmnv`,`cs`,`cenv`,`sz`,`csz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE cx`]mp_tac) >>
+    `LENGTH (SND s) ≤ LENGTH (SND s') ∧ LENGTH (SND s') ≤ LENGTH s''` by
+      metis_tac[Cevaluate_store_SUBSET,FST,SND] >>
+    simp[] >>
+    disch_then(mp_tac o SIMP_RULE(srw_ss()++DNF_ss)[code_for_push_def,LET_THM] o CONJUNCT1) >>
+    disch_then(qx_choosel_then[`rf`,`rd'`,`ck'`,`bf`]strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+    last_x_assum(qspecl_then[`rd'`,`cmnv`,`cs0`,`cenv`,`sz+1`,`csz`,`bs1`,`bce`,`bcr`,`bc0 ++ REVERSE cx`,`REVERSE cxs`]mp_tac) >>
+    simp[Abbr`bs1`] >>
+    discharge_hyps >- (
+      simp[Abbr`cs0`] >>
+      conj_tac >- metis_tac[SUBSET_DEF,IN_COUNT,LESS_LESS_EQ_TRANS] >>
+      conj_tac >- metis_tac[SUBSET_DEF,IN_COUNT,LESS_LESS_EQ_TRANS] >>
+      conj_tac >- metis_tac[Cevaluate_Clocs,FST] >>
+      fsrw_tac[DNF_ss][] >>
+      qspecl_then[`menv`,`s`,`env`,`exp`,`s',Cval(CRecClos fenv defs n)`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
+      simp[] >> strip_tac >>
+      qspecl_then[`menv`,`s`,`env`,`exp`,`s',Cval(CRecClos fenv defs n)`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
+      simp[] >> strip_tac >>
+      conj_tac >- (  fsrw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM] >> metis_tac[] ) >>
+      conj_tac >- (
+        imp_res_tac RTC_bc_next_clock_less >>
+        rfs[Cenv_bs_def,s_refs_def,optionTheory.OPTREL_def]) >>
+      match_mp_tac compile_labels_lemma >>
+      map_every qexists_tac [`cmnv`,`cenv`,`TCNonTail`,`sz`,`cs`,`exp`,`bc0`,`REVERSE cx`] >>
+      rw[] ) >>
+    disch_then(mp_tac o SIMP_RULE(srw_ss()++DNF_ss)[code_for_push_def,LET_THM]) >>
+    disch_then(qx_choosel_then[`bvs`,`rfs`,`rd''`,`ck''`]strip_assume_tac) >>
+    `ck''=SOME 0` by(
+      imp_res_tac RTC_bc_next_clock_less >>
+      rfs[optionTheory.OPTREL_def,Cenv_bs_def,s_refs_def] ) >>
+    BasicProvers.VAR_EQ_TAC >>
+    qmatch_assum_abbrev_tac`Cv_bv (ps',l2a) cl bf` >>
+    `Cv_bv (rd'', l2a) cl bf` by (
+      match_mp_tac (MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_SUBMAP)))) >> simp[] >>
+      qexists_tac`rd'` >>
+      rw[] >>
+      fs[Cenv_bs_def,s_refs_def,good_rd_def,FEVERY_DEF,UNCURRY,SUBMAP_DEF,SUBSET_DEF]) >>
+    pop_assum mp_tac >>
+    simp[Abbr`cl`,Once Cv_bv_cases,el_check_def] >>
+    disch_then(qx_choosel_then[`a`,`azb`,`bve`,`cd`,`envs`,`l`,`recs`]strip_assume_tac) >>
+    Cases >> simp[Once SWAP_REVERSE] >> rpt strip_tac >>
+    qho_match_abbrev_tac`∃bs'. bc_next^* bs bs' ∧ P bs'` >>
+    qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+    qmatch_assum_abbrev_tac`bc_next^* bs1' bs2` >>
+    `bs1' = bs1` by (
+      simp[bc_state_component_equality,Abbr`bs1`,Abbr`bs1'`] >>
+      imp_res_tac RTC_bc_next_clock_less >>
+      rfs[optionTheory.OPTREL_def,Cenv_bs_def,s_refs_def] ) >>
+    (qsuff_tac`∃bs'. bc_next^* bs2 bs' ∧ P bs'` >- metis_tac[RTC_TRANSITIVE,transitive_def]) >>
+    fs[Abbr`bs1`,Abbr`bs1'`] >> pop_assum kall_tac >>
+    `bc_fetch bs2 = SOME (EL 0 bc10)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs2`] >>
+      qexists_tac`bc0 ++ REVERSE cx ++ REVERSE cxs ++ TAKE 0 bc10` >>
+      simp[SUM_APPEND,FILTER_APPEND] ) >>
+    simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj2_tac >>
+    simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
+    `LENGTH exps = LENGTH bvs` by (
+      imp_res_tac Cevaluate_list_LENGTH >>
+      fs[EVERY2_EVERY] ) >>
+    simp[Abbr`bs2`] >>
+    qho_match_abbrev_tac`∃bs'. bc_next^* bs2 bs' ∧ P bs'` >>
+    qpat_assum`bc_fetch X = Y`kall_tac >>
+    `bc_fetch bs2 = SOME (EL 1 bc10)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs2`] >>
+      qexists_tac`bc0 ++ REVERSE cx ++ REVERSE cxs ++ TAKE 1 bc10` >>
+      simp[SUM_APPEND,FILTER_APPEND] ) >>
+    simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj2_tac >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs2`,EL_APPEND1,EL_APPEND2,EL_CONS,PRE_SUB1,bc_eval_stack_def] >>
+    qho_match_abbrev_tac`∃bs'. bc_next^* bs2 bs' ∧ P bs'` >>
+    qpat_assum`bc_fetch X = Y`kall_tac >>
+    `bc_fetch bs2 = SOME (EL 2 bc10)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs2`] >>
+      qexists_tac`bc0 ++ REVERSE cx ++ REVERSE cxs ++ TAKE 2 bc10` >>
+      simp[SUM_APPEND,FILTER_APPEND] ) >>
+    simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj2_tac >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs2`,EL_CONS,PRE_SUB1,EL_APPEND1,EL_APPEND2,bc_eval_stack_def] >>
+    qho_match_abbrev_tac`∃bs'. bc_next^* bs2 bs' ∧ P bs'` >>
+    qpat_assum`bc_fetch X = Y`kall_tac >>
+    `bc_fetch bs2 = SOME (EL 3 bc10)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs2`] >>
+      qexists_tac`bc0 ++ REVERSE cx ++ REVERSE cxs ++ TAKE 3 bc10` >>
+      simp[SUM_APPEND,FILTER_APPEND] ) >>
+    simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj2_tac >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs2`,bc_eval_stack_def,EL_CONS,PRE_SUB1,EL_APPEND2,EL_APPEND1] >>
+    qho_match_abbrev_tac`∃bs'. bc_next^* bs2 bs' ∧ P bs'` >>
+    qpat_assum`bc_fetch X = Y`kall_tac >>
+    `bc_fetch bs2 = SOME (EL 4 bc10)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs2`] >>
+      qexists_tac`bc0 ++ REVERSE cx ++ REVERSE cxs ++ TAKE 4 bc10` >>
+      simp[SUM_APPEND,FILTER_APPEND] ) >>
+    TRY (
+      simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj1_tac >>
+      simp[Abbr`P`,Abbr`bs2`] >> NO_TAC) >>
+    simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj2_tac >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs2`,EL_CONS,bc_eval_stack_def] >>
+    qho_match_abbrev_tac`∃bs'. bc_next^* bs2 bs' ∧ P bs'` >>
+    qpat_assum`bc_fetch X = Y`kall_tac >>
+    `bc_fetch bs2 = SOME (EL 5 bc10)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs2`] >>
+      qexists_tac`bc0 ++ REVERSE cx ++ REVERSE cxs ++ TAKE 5 bc10` >>
+      simp[SUM_APPEND,FILTER_APPEND]) >>
+    simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj2_tac >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs2`,bc_eval_stack_def,TAKE_APPEND2,TAKE_APPEND2,DROP_APPEND2,DROP_APPEND1,TAKE_LENGTH_ID_rwt,DROP_LENGTH_NIL_rwt] >>
+    qho_match_abbrev_tac`∃bs'. bc_next^* bs2 bs' ∧ P bs'` >>
+    qpat_assum`bc_fetch X = Y`kall_tac >>
+    `bc_fetch bs2 = SOME (EL 6 bc10)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs2`] >>
+      qexists_tac`bc0 ++ REVERSE cx ++ REVERSE cxs ++ TAKE 6 bc10` >>
+      simp[SUM_APPEND,FILTER_APPEND]) >>
+    simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj1_tac >>
+    simp[Abbr`P`,Abbr`bs2`]) >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
@@ -4955,10 +5093,10 @@ val compile_val = store_thm("compile_val",
     fs[Once SWAP_REVERSE] >>
     fs[Once SWAP_REVERSE] >>
     last_x_assum(qspecl_then[`rd`,`cmnv`,`cs`,`cenv`,`sz`,`csz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE cx`]mp_tac) >>
-    `LENGTH s ≤ LENGTH s' ∧ LENGTH s' ≤ LENGTH s''` by PROVE_TAC[Cevaluate_store_SUBSET,FST] >>
+    `LENGTH (SND s) ≤ LENGTH (SND s') ∧ LENGTH (SND s') ≤ LENGTH (SND s'')` by PROVE_TAC[Cevaluate_store_SUBSET,FST] >>
     simp[] >>
     disch_then(mp_tac o SIMP_RULE(srw_ss()++DNF_ss)[code_for_push_def,LET_THM] o CONJUNCT1) >>
-    disch_then(qx_choosel_then[`rf`,`rd'`,`bf`]strip_assume_tac) >>
+    disch_then(qx_choosel_then[`rf`,`rd'`,`ck'`,`bf`]strip_assume_tac) >>
     qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
     last_x_assum(qspecl_then[`rd'`,`cmnv`,`cs0`,`cenv`,`sz+1`,`csz`,`bs1`,`bce`,`bcr`,`bc0 ++ REVERSE cx`,`REVERSE cxs`]mp_tac) >>
     simp[Abbr`bs1`] >>
@@ -4973,16 +5111,24 @@ val compile_val = store_thm("compile_val",
       qspecl_then[`menv`,`s`,`env`,`exp`,`s',Cval(v)`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
       simp[] >> strip_tac >>
       conj_tac >- (  fsrw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM] >> metis_tac[] ) >>
+      conj_tac >- (
+        imp_res_tac RTC_bc_next_clock_less >>
+        rfs[Cenv_bs_def,s_refs_def,optionTheory.OPTREL_def]) >>
       match_mp_tac compile_labels_lemma >>
       map_every qexists_tac [`cmnv`,`cenv`,`TCNonTail`,`sz`,`cs`,`exp`,`bc0`,`REVERSE cx`] >>
       rw[] ) >>
     strip_tac >>
     rpt gen_tac >> strip_tac >>
-    first_x_assum(qspecl_then[`v'`,`bf::ig`,`sp`,`hdl`,`st`]mp_tac) >>
+    first_x_assum(qspecl_then[`bf::ig`,`sp`,`hdl`,`st`]mp_tac) >>
     simp[] >>
+    `ck' = SOME (FST s')` by (
+      imp_res_tac RTC_bc_next_clock_less >>
+      rfs[Cenv_bs_def,s_refs_def,optionTheory.OPTREL_def]) >>
+    Cases_on`err`>>simp[]>-(
+      metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
     simp[code_for_return_def] >>
-    disch_then(qx_choosel_then[`bv`,`rf'`,`rd''`]strip_assume_tac) >>
-    map_every qexists_tac[`bv`,`rf'`,`rd''`] >>
+    disch_then(qx_choosel_then[`bv`,`rf'`,`rd''`,`ck''`]strip_assume_tac) >>
+    map_every qexists_tac[`bv`,`rf'`,`rd''`,`ck''`] >>
     simp[] >>
     reverse conj_tac >- metis_tac[IS_PREFIX_TRANS,SUBMAP_TRANS] >>
     metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
@@ -4998,18 +5144,19 @@ val compile_val = store_thm("compile_val",
     qspecl_then[`cmnv`,`cenv`,`sz+1`,`cs0`,`es`](Q.X_CHOOSE_THEN`cxs`strip_assume_tac)(CONJUNCT2 (CONJUNCT2 compile_append_out)) >> fs[] >>
     reverse(Cases_on`∃bc10. code = REVERSE cx ++ REVERSE cxs ++ bc10`) >- (
       fsrw_tac[DNF_ss][] >>
-      rpt gen_tac >>
-      Cases_on`t`>>fs[Once SWAP_REVERSE]) >> fs[] >>
+      conj_tac >> rpt gen_tac >>
+      Cases_on`t`>>rw[]>>fs[Once SWAP_REVERSE]) >> fs[] >>
     reverse(Cases_on`bs.code = bc0 ++ REVERSE cx ++ REVERSE cxs ++ bc10 ++ bc1`) >- fs[] >>
     fs[Once SWAP_REVERSE] >>
     fs[Once SWAP_REVERSE] >>
     last_x_assum(qspecl_then[`rd`,`cmnv`,`cs`,`cenv`,`sz`,`csz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE cx`]mp_tac) >>
-    `LENGTH s ≤ LENGTH s'` by PROVE_TAC[Cevaluate_store_SUBSET,FST] >>
+    `LENGTH (SND s) ≤ LENGTH (SND s')` by PROVE_TAC[Cevaluate_store_SUBSET,FST] >>
     simp[] >>
     strip_tac >>
     rpt gen_tac >> strip_tac >>
-    first_x_assum(qspecl_then[`TCNonTail`,`v`,`ig`,`sp`,`hdl`,`st`]mp_tac) >>
+    first_x_assum(qspecl_then[`TCNonTail`,`ig`,`sp`,`hdl`,`st`]mp_tac) >>
     simp[]) >>
+
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     simp[compile_def,pushret_def] >>
