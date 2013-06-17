@@ -266,4 +266,26 @@ val RTC_bc_next_append_code = store_thm("RTC_bc_next_append_code",
   imp_res_tac bc_next_append_code >> fs[] >>
   metis_tac[bc_next_preserves_code])
 
+val bc_next_clock_less = store_thm("bc_next_clock_less",
+  ``∀bs1 bs2. bc_next bs1 bs2 ⇒ OPTREL $>= bs1.clock bs2.clock``,
+  ho_match_mp_tac bc_next_ind >>
+  simp[bump_pc_def] >>
+  conj_tac >- ( rw[] >> BasicProvers.CASE_TAC >> rw[] ) >>
+  rw[] >>
+  Cases_on`bs1.clock`>>fs[]>>
+  simp[optionTheory.OPTREL_def])
+
+val RTC_bc_next_clock_less = store_thm("RTC_bc_next_clock_less",
+  ``∀bs1 bs2. RTC bc_next bs1 bs2 ⇒
+    OPTREL $>= bs1.clock bs2.clock``,
+  rw[] >> (
+     RTC_lifts_reflexive_transitive_relations
+  |> Q.GEN`R` |> Q.ISPEC `bc_next`
+  |> Q.GEN`Q` |> Q.ISPEC `OPTREL $>=`
+  |> Q.GEN`f` |> Q.ISPEC `bc_state_clock`
+  |> strip_assume_tac) >> fs[] >> pop_assum (match_mp_tac o MP_CANON) >>
+  rw[reflexive_def,transitive_def] >- (
+    match_mp_tac bc_next_clock_less >> rw[] ) >>
+  fs[optionTheory.OPTREL_def] >> rw[] >> simp[])
+
 val _ = export_theory()

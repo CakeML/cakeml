@@ -312,7 +312,7 @@ compile menv env t sz s (CCall ck e es) =
     (* env, argn, ..., arg1, Block 0 [CodePtr c; env], *)
     let s = emit s [Stack (Load (n+1)); Stack (El 0)] in
     (* CodePtr c, env, argn, ..., arg1, Block 0 [CodePtr c; env], *)
-    emit (if ck then emit s [Tick] else s) [CallPtr]
+    emit s ((if ck then [Tick] else [])@[CallPtr])
     (* before: env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env], *)
     (* after:  retval, *)
   | TCTail j k ->
@@ -328,7 +328,7 @@ compile menv env t sz s (CCall ck e es) =
     (* CodePtr c, env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
      * vk, ..., v1, env1, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c1; env1], *)
     let s = emit s [Stack (Shift (1+1+1+n+1) (k+1+1+j+1))] in
-    emit (if ck then emit s [Tick] else s) [JumpPtr]
+    emit s ((if ck then [Tick] else [])@[JumpPtr])
   end
 and
 compile menv env t sz s (CPrim1 uop e) =

@@ -369,7 +369,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     (* env, argn, ..., arg1, Block 0 [CodePtr c; env], *)
     let s = ( emit s [Stack (Load (n +1)); Stack (El 0)]) in
     (* CodePtr c, env, argn, ..., arg1, Block 0 [CodePtr c; env], *)
-    emit (if ck then emit s [Tick] else s) [CallPtr]
+    emit s ((if ck then [Tick] else []) ++[CallPtr])
     (* before: env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env], *)
     (* after:  retval, *)
   | TCTail j k =>
@@ -385,7 +385,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     (* CodePtr c, env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
      * vk, ..., v1, env1, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c1; env1], *)
     let s = ( emit s [Stack (Shift (1 +1 +1 +n +1) (k +1 +1 +j +1))]) in
-    emit (if ck then emit s [Tick] else s) [JumpPtr]
+    emit s ((if ck then [Tick] else []) ++[JumpPtr])
   )))
 /\
 (compile menv env t sz s (CPrim1 uop e) =  
