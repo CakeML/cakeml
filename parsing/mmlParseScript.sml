@@ -1,6 +1,7 @@
 open HolKernel Parse boolLib bossLib
 
-open mmlPEGTheory mmlPtreeConversionTheory
+open mmlPEGTheory mmlPtreeConversionTheory PEG_CFGTheory
+open lcsymtacs
 open monadsyntax
 
 local open mmlvalidTheory in end
@@ -42,7 +43,7 @@ val mmlParseREPLPhrase_def = Define`
    mmlvalid and mmlvalidL are mutually recursive in this presentation.
 *)
 
-val mmlParseREPLTop_def = Define`
+val mmlParseREPLTop_def = zDefine`
   mmlParseREPLTop doValidation toks = do
     (toks', pts) <- destResult (mmlpegexec nREPLTop toks);
     pt <- oHD pts;
@@ -52,6 +53,33 @@ val mmlParseREPLTop_def = Define`
     SOME(toks',ast)
   od
 `
+
+val mmlpeg_executed =
+    pegexecTheory.peg_eval_executed
+      |> Q.GEN `G` |> Q.ISPEC `mmlPEG`
+      |> SIMP_RULE (srw_ss()) [mmlPEGTheory.PEG_wellformed]
+      |> Q.GEN `s` |> Q.GEN `r` |> Q.GEN `e` |> GSYM
+
+val mmlParseREPLTop_thm = store_thm(
+  "mmlParseREPLTop_thm",
+  ``mmlParseREPLTop doV toks = do
+      (toks', pts) <- destResult (mmlpegexec nREPLTop toks);
+      pt <- oHD pts;
+      ast <- ptree_REPLTop pt;
+      SOME(toks',ast)
+    od``,
+  simp[mmlParseREPLTop_def] >>
+  Cases_on `mmlpegexec nREPLTop toks` >> simp[destResult_def] >>
+  Q.MATCH_ASSUM_RENAME_TAC `X = Result opt` ["X"] >> Cases_on `opt` >> simp[] >>
+  Q.MATCH_ASSUM_RENAME_TAC `X = Result (SOME pair)` ["X"] >>
+  `∃i r. pair = (i,r)` by (Cases_on `pair` >> simp[]) >> rw[] >>
+  qspec_then `nt (mkNT nREPLTop) I`
+    ((fn th => fs[th,pnt_def]) o SIMP_RULE (srw_ss()) [PEG_exprs,pnt_def])
+    mmlpeg_executed >>
+  pop_assum (strip_assume_tac o MATCH_MP peg_correct) >>
+  simp[oHD_def, mmlvalidTheory.mmlvalid_def, gramTheory.assert_def,
+       optionTheory.OPTION_IGNORE_BIND_def]);
+
 
 (* This function parses declarations, no junk is allowed at the end. *)
 val parse_def = Define `

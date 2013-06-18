@@ -126,7 +126,7 @@ val _ = translate (def_of_const ``ptree_REPLTop``);
 
 (* parsing: top-level parser *)
 
-val _ = translate (RW [monad_unitbind_assert,mmlParseREPLTop_def] parse_top_def);
+val _ = translate (RW [monad_unitbind_assert,mmlParseREPLTop_thm] parse_top_def);
 
 val parse_top_side_def = prove(
   ``!x. parse_top_side x = T``,
