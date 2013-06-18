@@ -96,10 +96,11 @@ val free_uvars_def = tDefine "free_uvars" `
 
 val t_unify_apply = Q.prove (
 `!s1 s2 t1 t2.
+  t_wfs s1 ∧
   (t_unify s1 t1 t2 = SOME s2)
   ⇒
   (t_walkstar s2 t1 = t_walkstar s2 t2)`,
-cheat);
+metis_tac [t_unify_unifier]);
 
 val t_unify_apply2 = Q.prove (
 `!s1 s2 t1' t2' t1 t2.
@@ -115,7 +116,7 @@ val t_unify_wfs = Q.store_thm ("t_unify_wfs",
   (t_unify s1 t1 t2 = SOME s2)
   ⇒
   t_wfs s2`,
-cheat);
+metis_tac [t_unify_unifier]);
 
 val inc_wfs = Q.prove (
 `!tvs s. t_wfs s ⇒ t_wfs (infer_deBruijn_inc tvs o_f s)`,
@@ -130,6 +131,17 @@ cheat);
 
 val walkstar_empty = Q.prove (
 `!t. t_walkstar FEMPTY t = t`,
+(*
+`t_wfs FEMPTY` by rw [t_wfs_def] >>
+imp_res_tac t_walkstar_ind >>
+pop_assum ho_match_mp_tac >>
+rw [] >>
+cases_on `t` >|
+[rw [t_walkstar_eqn, t_walk_eqn],
+ all_tac,
+ rw [t_walkstar_eqn, t_walk_eqn] >>
+     rw [Once t_vwalk_eqn]]
+     *)
 cheat);
 
 val flookup_thm = Q.prove (
@@ -177,6 +189,9 @@ val stupid_record_thing = Q.prove (
  (!st s. (st with subst := s).subst = s) ∧
  (!st s. (st with subst := s).next_uvar = st.next_uvar) ∧
  (!st uv. (st with next_uvar := uv).subst = st.subst)`,
+rw [] >>
+cases_on `st` >>
+rw [] >>
 cheat);
 
 val count_list_sub1 = Q.prove (
@@ -256,6 +271,7 @@ metis_tac [t_unify_apply2]);
 
 val pure_add_constraints_apply = Q.prove (
 `!s1 ts s2.
+  t_wfs s1 ∧
   pure_add_constraints s1 ts s2
   ⇒
   MAP (t_walkstar s2 o FST) ts = MAP (t_walkstar s2 o SND) ts`,
@@ -263,7 +279,7 @@ induct_on `ts` >>
 rw [pure_add_constraints_def] >>
 PairCases_on `h` >>
 fs [pure_add_constraints_def] >>
-metis_tac [t_unify_apply, pure_add_constraints_append2]);
+metis_tac [t_unify_apply, pure_add_constraints_append2, t_unify_wfs]);
 
 val pure_add_constraints_append = Q.prove (
 `!s1 ts1 s3 ts2. 
@@ -1488,7 +1504,10 @@ rw [t_walkstar_eqn1, convert_t_def, Tbool_def, Tint_def, Tunit_def] >|
          EVERY_MAP, LENGTH_COUNT_LIST] >>
      fs [] >-
      metis_tac [sub_completion_check] >>
+     `t_wfs st'''.subst` by metis_tac [infer_p_wfs] >>
      imp_res_tac pure_add_constraints_apply >>
+     pop_assum (fn _ => all_tac) >>
+     pop_assum (fn _ => all_tac) >>
      pop_assum mp_tac >>
      rw [MAP_ZIP] >>
      imp_res_tac sub_completion_apply_list >>
@@ -1713,6 +1732,7 @@ rw [] >|
 
 val binop_tac =
 imp_res_tac infer_e_wfs >>
+imp_res_tac t_unify_wfs >>
 fs [] >>
 imp_res_tac sub_completion_unify2 >>
 imp_res_tac sub_completion_infer >>
@@ -1725,8 +1745,7 @@ fs [] >>
 imp_res_tac t_unify_wfs >>
 imp_res_tac sub_completion_wfs >>
 fs [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t_def] >>
-rw [type_op_cases, 
-    Tint_def, Tbool_def, Tref_def, Tfn_def, Tunit_def] >>
+rw [type_op_cases, Tint_def, Tbool_def, Tref_def, Tfn_def, Tunit_def] >>
 metis_tac [MAP, infer_e_next_uvar_mono, check_env_more];
 
 val infer_e_sound = Q.prove (
@@ -1799,7 +1818,18 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      `check_env (count (st'' with subst := s').next_uvar) env`
                 by (fs [] >>
                     metis_tac [check_env_more, infer_e_next_uvar_mono]) >>
-     binop_tac,
+     `t_wfs st''.subst` by metis_tac [infer_e_wfs] >>
+     imp_res_tac sub_completion_unify2 >>
+     `t_wfs (st'' with subst := s').subst`
+                  by (rw [] >> metis_tac [t_unify_wfs]) >>
+     `type_e (convert_menv menv) cenv (Bind_name x 0 (convert_t (t_walkstar s (Infer_Tapp [] TC_int))) tenv) e'
+             (convert_t (t_walkstar s t2))` 
+                   by metis_tac [] >>
+     `t_wfs st''''.subst` by metis_tac [infer_e_wfs] >>
+     `t_wfs s` by metis_tac [t_unify_wfs, sub_completion_wfs] >>
+     imp_res_tac t_unify_apply >>
+     imp_res_tac sub_completion_apply >>
+     fs [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t_def],
  (* Lit bool *)
      binop_tac,
  (* Lit int *)
@@ -1893,7 +1923,10 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
                                    by metis_tac [sub_completion_more_vars] >>
                  imp_res_tac sub_completion_infer_es >>
                  metis_tac []) >>
+     `t_wfs st'''.subst` by metis_tac [infer_e_wfs] >>
      imp_res_tac pure_add_constraints_apply >>
+     pop_assum (fn _ => all_tac) >>
+     pop_assum (fn _ => all_tac) >>
      pop_assum mp_tac >>
      rw [MAP_ZIP] >>
      imp_res_tac sub_completion_apply_list >>
@@ -1929,6 +1962,7 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      binop_tac,
  (* Opderef *)
      rw [type_uop_cases, Tref_def] >>
+     `t_wfs st''.subst` by metis_tac [infer_e_wfs] >>
      imp_res_tac t_unify_apply >>
      imp_res_tac sub_completion_unify >>
      imp_res_tac sub_completion_apply >>
@@ -1953,6 +1987,7 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      rw [type_op_cases, Tint_def, Tbool_def, Tref_def, Tfn_def, Tunit_def] >>
      qexists_tac `convert_t (t_walkstar s t2)` >>
      rw [] >>
+     `t_wfs st'''.subst` by metis_tac [infer_e_wfs] >>
      imp_res_tac t_unify_apply >>
      imp_res_tac sub_completion_apply >>
      fs [] >>
@@ -1985,6 +2020,7 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      `?ts. sub_completion (num_tvs tenv) st'''''.next_uvar st'''''.subst ts s` 
                by metis_tac [sub_completion_unify2] >>
      `type_e (convert_menv menv) cenv tenv e'' (convert_t (t_walkstar s t3))` by metis_tac [] >>
+     imp_res_tac infer_e_wfs >>
      imp_res_tac t_unify_apply >>
      imp_res_tac sub_completion_apply >>
      metis_tac [],
@@ -2070,6 +2106,7 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      `tenv' = MAP2 (λ(x,y,z) t. (x,convert_t (t_walkstar s t))) funs funs_ts`
                  by (Q.UNABBREV_TAC `tenv'` >>
                      match_mp_tac letrec_lemma >>
+                     imp_res_tac infer_e_wfs >>
                      imp_res_tac pure_add_constraints_apply >>
                      `LENGTH funs = LENGTH funs_ts` by metis_tac [LENGTH_COUNT_LIST] >>
                      fs [GSYM MAP_MAP_o, MAP_ZIP, LENGTH_COUNT_LIST, LENGTH_MAP] >>
@@ -2115,6 +2152,8 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
           metis_tac [APPEND_NIL],
       qexists_tac `(convert_env s env')` >>
            rw [] >>
+           imp_res_tac infer_p_wfs >>
+           imp_res_tac infer_e_wfs >>
            imp_res_tac t_unify_apply >>
            metis_tac [sub_completion_apply],
       `t_wfs (st'''' with subst := s'').subst`
@@ -2350,7 +2389,9 @@ fs [emp_def] >|
      `type_p (num_tvs tenv') cenv p (convert_t (t_walkstar last_sub t)) (convert_env last_sub env'')`
              by metis_tac [infer_p_sound] >>
      `t_walkstar last_sub t = t_walkstar last_sub t1`
-             by metis_tac [sub_completion_apply, t_unify_apply] >>
+             by (imp_res_tac infer_e_wfs >>
+                 imp_res_tac infer_p_wfs >>
+                 metis_tac [sub_completion_apply, t_unify_apply]) >>
      cases_on `num_tvs tenv' = 0` >>
      rw [] >|
      [disj2_tac >>
@@ -2435,6 +2476,8 @@ fs [emp_def] >|
                  qexists_tac `init_infer_state with next_uvar := LENGTH l` >>
                  rw [] >>
                  metis_tac [num_tvs_bind_var_list]) >>
+     `t_wfs (init_infer_state with next_uvar := LENGTH l).subst` by rw [] >>
+     `t_wfs st''''.subst` by metis_tac [infer_e_wfs] >>
      imp_res_tac pure_add_constraints_apply >>
      qexists_tac `(MAP2 (λ(f,x,e) t. (f,t)) l (MAP (λn. convert_t (t_walkstar last_sub (Infer_Tuvar (0 + n)))) (COUNT_LIST (LENGTH l))))` >>
      qexists_tac `tvs` >>
