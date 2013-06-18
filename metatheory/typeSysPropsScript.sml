@@ -1459,7 +1459,7 @@ val build_tdefs_cons = Q.prove (
         ctors) ++ build_tdefs mn tds`,
 rw [build_tdefs_def]);
 
-val check_dup_ctors_cons = Q.prove (
+val check_dup_ctors_cons = Q.store_thm ("check_dup_ctors_cons",
 `!tvs ts ctors tds tenvC.
   check_dup_ctors mn tenvC ((tvs,ts,ctors)::tds)
   ⇒
