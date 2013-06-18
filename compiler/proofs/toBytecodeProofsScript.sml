@@ -6358,7 +6358,7 @@ val label_closures_thm = store_thm("label_closures_thm",
     HINT_EXISTS_TAC >>
     simp[]) >>
   strip_tac >- (
-    ntac 2 gen_tac >>
+    ntac 3 gen_tac >>
     map_every qx_gen_tac[`e`,`es`] >>
     rpt strip_tac >>
     qabbrev_tac`p = label_closures ez j e` >> PairCases_on`p`>>fs[LET_THM] >>
