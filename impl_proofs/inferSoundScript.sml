@@ -2152,7 +2152,95 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
       imp_res_tac infer_funs_length >>
           rw [lookup_notin, MAP2_MAP, LENGTH_MAP2, MAP_MAP_o, combinTheory.o_DEF, map_zip_lem]]]);
 
-(*
+val tenv_inv_merge2 = Q.prove (
+`!env tenv env'' s tvs.
+  tenv_inv FEMPTY env tenv 
+  ⇒
+  tenv_inv FEMPTY
+    (merge (MAP (λx. (FST x,tvs,t_walkstar s (SND x))) env'') env)
+    (bind_var_list2 (MAP (λx. (FST x,tvs, convert_t (t_walkstar s (SND x)))) env'') tenv)`,
+induct_on `env''` >>
+rw [bind_var_list2_def, merge_def] >>
+PairCases_on `h` >>
+rw [bind_var_list2_def, merge_def] >>
+res_tac >>
+fs [merge_def, tenv_inv_def, bind_tenv_def, lookup_tenv_def] >>
+rw [deBruijn_inc0, walkstar_empty] >>
+metis_tac [walkstar_empty]);
+
+val letrec_lemma = Q.prove (
+`!funs_ts l l' s s'.
+ (!t1 t2. t_walkstar s t1 = t_walkstar s t2 ⇒  t_walkstar s' t1 = t_walkstar s' t2) ∧
+ (LENGTH funs_ts = LENGTH l) ∧
+ (LENGTH funs_ts = LENGTH l') ∧
+ MAP (λn. t_walkstar s (Infer_Tuvar n)) l' = MAP (t_walkstar s) funs_ts
+ ⇒
+ (MAP2 (λ(f,x,e) t. (f,t)) l (MAP (λn. convert_t (t_walkstar s' (Infer_Tuvar n))) l')
+  =
+  MAP2 (λ(x,y,z) t. (x,convert_t (t_walkstar s' t))) l funs_ts)`,
+induct_on `funs_ts` >>
+cases_on `l` >>
+cases_on `l'` >>
+rw [] >>
+fs [] >|
+[PairCases_on `h` >>
+     rw [] >>
+     metis_tac [],
+ metis_tac []]);
+
+val tenv_inv_merge3 = Q.prove (
+`!l l' env tenv s tvs.
+(LENGTH l = LENGTH l') ∧
+tenv_inv FEMPTY env tenv
+⇒
+tenv_inv FEMPTY
+  (merge
+     (MAP2 (λ(f,x,e) t. (f,tvs,t)) l
+        (MAP (λx. t_walkstar s (Infer_Tuvar x))
+           l')) env)
+  (bind_var_list2
+     (MAP (λ(x,tvs,t). (x,tvs,convert_t t))
+        (MAP2 (λ(f,x,e) t. (f,tvs,t)) l
+           (MAP (λx. t_walkstar s (Infer_Tuvar x))
+              l'))) tenv)`,
+induct_on `l` >>
+rw [] >>
+cases_on `l'` >>
+rw [merge_def, bind_var_list2_def] >>
+fs [] >>
+PairCases_on `h` >>
+fs [merge_def, bind_var_list2_def] >>
+fs [merge_def, tenv_inv_def, bind_tenv_def, lookup_tenv_def] >>
+rw [deBruijn_inc0, walkstar_empty] >>
+fs [walkstar_empty] >>
+res_tac >>
+metis_tac []);
+
+val helper_lemma = Q.prove (
+`!l1 l2 n.
+  (LENGTH l1 = LENGTH l2) ∧
+  check_env (count n) (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) l1 (MAP (λn. Infer_Tuvar n) l2))
+  ⇒
+  check_env (count (SUC n)) (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) l1 (MAP (λn. Infer_Tuvar n) (MAP SUC l2)))`,
+induct_on `l1` >>
+rw [] >>
+Cases_on `l2` >>
+fs [check_env_def] >>
+PairCases_on `h` >>
+fs [check_t_def]);
+
+val check_env_letrec = Q.prove (
+`!l.
+  check_env (count (LENGTH l)) (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) l (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH l))))`,
+induct_on `l` >>
+rw [COUNT_LIST_def] >>
+rw [COUNT_LIST_def, check_env_def] >|
+[PairCases_on `h` >>
+     rw [check_t_def],
+ fs [GSYM check_env_def] >>
+     fs [MAP2_MAP, COUNT_LIST_def] >>
+     metis_tac [helper_lemma, LENGTH_COUNT_LIST]]);
+
 val infer_d_sound = Q.prove (
 `!mn menv cenv env d st1 st2 cenv' env' tenv.
   infer_d mn menv cenv env d st1 = (Success (cenv',env'), st2) ∧
@@ -2164,7 +2252,6 @@ val infer_d_sound = Q.prove (
   ⇒
   type_d mn (convert_menv menv) cenv tenv d cenv' (MAP (\(x,tvs,t). (x,tvs,convert_t t)) env') ∧
   tenv_inv init_infer_state.subst (merge env' env) (bind_var_list2 (MAP (\(x,tvs,t). (x,tvs,convert_t t)) env') tenv)`,
-
 cases_on `d` >>
 REPEAT GEN_TAC >>
 STRIP_TAC >>
@@ -2245,12 +2332,109 @@ fs [emp_def] >|
                 imp_res_tac infer_p_bindings >>
                     fs []]],
       rw [ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
-          all_tac],
- all_tac,
+          metis_tac [tenv_inv_merge2]],
+ fs [success_eqns] >>
+     `?tvs s ts. generalise_list st'''.next_uvar 0 FEMPTY (MAP (t_walkstar st'''''.subst) (MAP (λn. Infer_Tuvar (st'''.next_uvar + n)) (COUNT_LIST (LENGTH l)))) = (tvs,s,ts)`
+                 by (cases_on `generalise_list st'''.next_uvar 0 FEMPTY (MAP (t_walkstar st'''''.subst) (MAP (λn. Infer_Tuvar (st'''.next_uvar + n)) (COUNT_LIST (LENGTH l))))` >>
+                     rw [] >>
+                     cases_on `r` >>
+                     metis_tac []) >>
+     fs [] >>
+     rw [] >>
+     fs [success_eqns] >>
+     Q.ABBREV_TAC `tenv' = bind_tvar tvs tenv` >>
+     fs [init_state_def] >>
+     rw [] >>
+     `t_wfs init_infer_state.subst` by rw [init_infer_state_def, t_wfs_def] >>
+     `(init_infer_state:(num |-> infer_t) infer_st).next_uvar = 0` 
+                 by (fs [init_infer_state_def] >> rw []) >>
+     fs [] >>
+     rw [] >>
+     fs [] >>
+     imp_res_tac generalise_subst_empty >>
+     fs [] >-
+     (cases_on `l` >>
+          fs [COUNT_LIST_def] >>
+          rw [Once type_e_cases, tenv_add_tvs_def]) >>
+     `?ec1 last_sub. 
+         t_wfs last_sub ∧
+         sub_completion (num_tvs tenv') st''''.next_uvar st'''''.subst ec1 last_sub ∧
+         (!t. infer_subst s (t_walkstar st'''''.subst t) = t_walkstar last_sub t)`
+                by cheat >>
+     imp_res_tac sub_completion_add_constraints >>
+     rw [] >>
+     `(init_infer_state:(num |-> infer_t) infer_st).subst = FEMPTY` by fs [init_infer_state_def] >>
+     `tenv_inv FEMPTY env tenv'` by metis_tac [tenv_inv_extend_tvar_empty_subst] >>
+     `tenv_inv last_sub env tenv'` by metis_tac [tenv_inv_empty_to] >>
+     Q.ABBREV_TAC `tenv'' = 
+                   bind_var_list 0 (MAP2 (λ(f,x,e) t. (f,t)) l (MAP (λn. convert_t (t_walkstar last_sub (Infer_Tuvar (0 + n)))) (COUNT_LIST (LENGTH l)))) 
+                                 tenv'` >> 
+     Q.ABBREV_TAC `env'' = merge (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) l (MAP (λn. Infer_Tuvar (0 + n)) (COUNT_LIST (LENGTH l)))) env` >>
+     `tenv_inv last_sub env'' tenv''` by metis_tac [tenv_inv_letrec_merge] >>
+     fs [] >>
+     `check_env (count (LENGTH l)) env''` 
+                 by (Q.UNABBREV_TAC `env''` >>
+                     rw [MAP2_MAP, check_env_merge, check_env_letrec] >>
+                     metis_tac [check_env_more, COUNT_ZERO, DECIDE ``0<=x:num``]) >> 
+     `type_funs (convert_menv menv) cenv tenv'' l (MAP2 (λ(x,y,z) t. (x,(convert_t o t_walkstar last_sub) t)) l funs_ts)`
+             by (match_mp_tac (List.nth (CONJUNCTS infer_e_sound, 3)) >>
+                 rw [] >>
+                 qexists_tac `env''` >>
+                 qexists_tac `init_infer_state with next_uvar := LENGTH l` >>
+                 rw [] >>
+                 metis_tac [num_tvs_bind_var_list]) >>
+     imp_res_tac pure_add_constraints_apply >|
+     [qexists_tac `(MAP2 (λ(f,x,e) t. (f,t)) l (MAP (λn. convert_t (t_walkstar last_sub (Infer_Tuvar (0 + n)))) (COUNT_LIST (LENGTH l))))` >>
+          qexists_tac `tvs` >>
+          rw [] >|
+          [rw [LENGTH_MAP, LENGTH_COUNT_LIST, MAP2_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
+               REPEAT (pop_assum (fn _ => all_tac)) >> 
+               induct_on `l` >>
+               rw [COUNT_LIST_def, tenv_add_tvs_def, convert_env_def] >-
+               (PairCases_on `h` >> rw []) >>
+               rw [MAP_MAP_o, MAP2_MAP, ZIP_MAP, LENGTH_COUNT_LIST, combinTheory.o_DEF, remove_pair_lem],
+           `LENGTH l = LENGTH funs_ts` by fs [LENGTH_COUNT_LIST] >>
+               fs [MAP_ZIP, LENGTH_COUNT_LIST, MAP_MAP_o, combinTheory.o_DEF] >>
+               metis_tac [letrec_lemma, LENGTH_COUNT_LIST, LENGTH_MAP, sub_completion_apply]],
+      cases_on `funs_ts` >>
+          fs [] >>
+          cases_on `l` >>
+          fs [COUNT_LIST_def, merge_def, bind_var_list2_def],
+      rw [MAP_MAP_o, combinTheory.o_DEF] >>
+          metis_tac [tenv_inv_merge3, LENGTH_COUNT_LIST]],
  full_case_tac >>
      fs [success_eqns] >>
-     rw [bind_var_list2_def, merge_def]]
+     rw [bind_var_list2_def, merge_def]]);
 
-*)
+(*
+val infer_ds_sound = Q.prove (
+`!mn menv cenv env ds st1 cenv' env' st2 tenv.
+  infer_ds mn menv cenv env ds st1 = (Success (cenv',env'), st2) ∧
+  check_menv menv ∧
+  check_cenv cenv ∧
+  check_env (count (init_infer_state:(num |-> infer_t) infer_st).next_uvar) env ∧
+  (num_tvs tenv = 0) ∧
+  tenv_inv init_infer_state.subst env tenv
+  ⇒
+  type_ds mn (convert_menv menv) cenv tenv ds cenv' (MAP (\(x,tvs,t). (x,tvs,convert_t t)) env') ∧
+  tenv_inv init_infer_state.subst (merge env' env) (bind_var_list2 (MAP (\(x,tvs,t). (x,tvs,convert_t t)) env') tenv)`,
+
+induct_on `ds` >>
+rw [infer_ds_def, success_eqns] >|
+[rw [Once type_ds_cases, emp_def],
+ rw [merge_def, bind_var_list2_def],
+ PairCases_on `v'` >>
+     fs [success_eqns] >>
+     PairCases_on `v'` >>
+     fs [success_eqns] >>
+     rw [Once type_ds_cases] >>
+     `check_cenv (v'0 ++ cenv)` by cheat >>
+     `check_env (count init_infer_state.next_uvar) (v'1 ++ env)` by cheat >>
+     `num_tvs 
+     metis_tac [infer_d_sound, merge_def]
+     *)
+
+
+
 
 val _ = export_theory ();

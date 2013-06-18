@@ -386,7 +386,7 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
   *)
 (infer_e menv cenv env (Letrec funs e) =
-  do () <- guard (ALL_DISTINCT (MAP FST funs)) "Duplicate function name variable";
+  do () <- guard (ALL_DISTINCT (MAP FST funs)) "Duplicate function name";
      uvars <- n_fresh_uvar (LENGTH funs);
      env' <- return (merge (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars) env);
      funs_ts <- infer_funs menv cenv env' funs;
@@ -439,7 +439,8 @@ val infer_d_def = Define `
      return ([], ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts'))
   od) ∧
 (infer_d mn menv cenv env (Dletrec funs) =
-  do () <- init_state;
+  do () <- guard (ALL_DISTINCT (MAP FST funs)) "Duplicate function name";
+     () <- init_state;
      next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
      env' <- return (merge (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars) env);
