@@ -121,15 +121,82 @@ val t_unify_wfs = Q.store_thm ("t_unify_wfs",
   t_wfs s2`,
 metis_tac [t_unify_unifier]);
 
+val t_vars_inc = Q.prove (
+`!tvs t. t_vars (infer_deBruijn_inc tvs t) = t_vars t`,
+ho_match_mp_tac (fetch "-" "infer_deBruijn_inc_ind") >>
+rw [t_vars_def, encode_infer_t_def, infer_deBruijn_inc_def] >>
+induct_on `ts` >>
+rw [encode_infer_t_def]);
+
 val inc_wfs = Q.prove (
 `!tvs s. t_wfs s ⇒ t_wfs (infer_deBruijn_inc tvs o_f s)`,
-cheat);
+rw [t_wfs_eqn] >>
+`t_vR s = t_vR (infer_deBruijn_inc tvs o_f s)`
+       by (rw [FLOOKUP_o_f, FUN_EQ_THM, t_vR_eqn] >>
+           full_case_tac  >>
+           rw [t_vars_inc]) >>
+metis_tac []);
+
+val vwalk_inc = Q.prove (
+`!s tvs n.
+  t_wfs s
+  ⇒
+  t_vwalk (infer_deBruijn_inc tvs o_f s) n = infer_deBruijn_inc tvs (t_vwalk s n)`,
+rw [] >>
+imp_res_tac (DISCH_ALL t_vwalk_ind) >>
+`t_wfs (infer_deBruijn_inc tvs o_f s)` by metis_tac [inc_wfs] >>
+rw [] >>
+Q.SPEC_TAC (`n`, `n`) >>
+qpat_assum `!P. (!v. Q v ⇒ P v) ⇒ !v. P v` ho_match_mp_tac >>
+rw [] >>
+imp_res_tac t_vwalk_eqn >>
+ONCE_ASM_REWRITE_TAC [] >>
+pop_assum (fn _ => all_tac) >>
+pop_assum (fn _ => all_tac) >>
+cases_on `FLOOKUP s n` >>
+rw [FLOOKUP_o_f, infer_deBruijn_inc_def] >>
+cases_on `x` >>
+rw [infer_deBruijn_inc_def]);
 
 val walkstar_inc = Q.prove (
-`!tvs s n.
+`!tvs s t.
   t_wfs s ⇒
-  (t_walkstar (infer_deBruijn_inc tvs o_f s) (Infer_Tuvar n) =
-   infer_deBruijn_inc tvs (t_walkstar s (Infer_Tuvar n)))`,
+  (t_walkstar (infer_deBruijn_inc tvs o_f s) t =
+   infer_deBruijn_inc tvs (t_walkstar s t))`,
+(*
+rw [] >>
+imp_res_tac inc_wfs >>
+imp_res_tac t_walkstar_ind >>
+Q.SPEC_TAC (`t`, `t`) >>
+pop_assum ho_match_mp_tac >>
+rw [] >>
+rw [t_walkstar_eqn] >>
+cases_on `t_walk s t` >>
+rw [infer_deBruijn_inc_def] >|
+[full_case_tac >>
+     fs [t_walk_eqn] >>
+     cases_on `t` >>
+     fs [t_walk_eqn] >>
+
+
+fs [t_walk_eqn] >>
+cases_on `t_vwalk s n` >>
+rw [infer_deBruijn_inc_def] >>
+imp_res_tac vwalk_inc >>
+fs [infer_deBruijn_inc_def]
+
+
+full_case_tac >>
+full_case_tac >>
+fs [t_walk_eqn, infer_deBruijn_inc_def] >>
+
+
+fs [MAP_MAP_o]
+rw []
+
+fs [combinTheory.o_DEF]
+*)
+
 cheat);
 
 val flookup_thm = Q.prove (
@@ -179,8 +246,7 @@ val stupid_record_thing = Q.prove (
  (!st uv. (st with next_uvar := uv).subst = st.subst)`,
 rw [] >>
 cases_on `st` >>
-rw [] >>
-cheat);
+rw [infer_st_component_equality]);
 
 val count_list_sub1 = Q.prove (
 `!n. (n ≠ 0) ⇒ (COUNT_LIST n = 0::MAP SUC (COUNT_LIST (n - 1)))`,

@@ -24,6 +24,8 @@ infer_t =
 
 val infer_t_size_def = fetch "-" "infer_t_size_def";
 val infer_t_induction = fetch "-" "infer_t_induction";
+val infer_t_distinct = fetch "-" "infer_t_distinct";
+val infer_t_11 = fetch "-" "infer_t_11";
 
 val _ = Hol_datatype `
 atom = 
@@ -127,10 +129,10 @@ rw [t_walk_def, walk_def, t_vwalk_def, encode_infer_t_def,
 val t_oc_def = zDefine `
 t_oc s t v = oc (encode_infer_t o_f s) (encode_infer_t t) v`;
 
-(*
 val t_vars_def = Define `
 t_vars t = vars (encode_infer_t t)`;
 
+(*
 val t_oc_ind' = Q.prove (
 `∀s oc'.
   t_wfs s ∧
@@ -792,5 +794,25 @@ rw [t_walkstar_def] >>
  walkstar (encode_infer_t o_f s2) (walkstar (encode_infer_t o_f s1) (encode_infer_t t))` 
        by metis_tac [walkstar_SUBMAP] >>
 rw [encode_walkstar, decode_left_inverse]);
+
+val t_vR_def = Define `
+t_vR s = vR (encode_infer_t o_f s)`;
+
+val t_vR_eqn = Q.store_thm ("t_vR_eqn",
+`!s x y. t_vR s y x = case FLOOKUP s x of SOME t => y IN t_vars t | _ => F`,
+rw [t_vR_def, vR_def] >>
+every_case_tac >>
+fs [FLOOKUP_o_f, t_vars_def]);
+
+val t_wfs_eqn = Q.store_thm ("t_wfs_eqn",
+`!s. t_wfs s = WF (t_vR s)`,
+rw [wfs_def, t_wfs_def, t_vR_eqn, WF_DEF, vR_def, FLOOKUP_o_f, t_vars_def] >>
+eq_tac >>
+rw [] >>
+res_tac >>
+cases_on `FLOOKUP s min` >>
+fs [] >>
+qexists_tac `min` >>
+rw []);
 
 val _ = export_theory ();
