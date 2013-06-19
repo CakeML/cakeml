@@ -182,7 +182,7 @@ val mmlPEG_def = zDefine`
                pegf (choicel
                        [tokeq (AlphaT "Bind");
                         tokeq (AlphaT "Div");
-                        seql [tokeq (AlphaT "IntError"); tok isInt mktokLf] I])
+                        seql [tok isInt mktokLf] I])
                     (bindNT nExn));
               (mkNT nEapp, peg_Eapp);
               (mkNT nEtuple,
@@ -235,13 +235,13 @@ val mmlPEG_def = zDefine`
                           (tokeq OrelseT));
               (mkNT nEhandle,
                seql [pnt nElogicOR;
-                     try (seql [tokeq HandleT; tokeq (AlphaT "IntError"); pnt nV;
+                     try (seql [tokeq HandleT; pnt nV;
                                 tokeq DarrowT; pnt nE] I)]
                     (bindNT nEhandle)
               );
               (mkNT nEhandle',
                seql [pnt nElogicOR;
-                     try (seql [tokeq HandleT; tokeq (AlphaT "IntError"); pnt nV;
+                     try (seql [tokeq HandleT; pnt nV;
                                 tokeq DarrowT; pnt nE'] I)]
                     (bindNT nEhandle'));
               (mkNT nE,

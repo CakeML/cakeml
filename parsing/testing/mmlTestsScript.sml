@@ -135,14 +135,14 @@ val _ = parsetest0 ``nREPLPhrase`` ``ptree_REPLPhrase``
                                                                (Short "t"))])
                                      []]``)
 
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "4 handle IntError x => 3 + 4"
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "4 handle x => 3 + 4"
                    (SOME ``Ast_Handle (Ast_Lit (IntLit 4))
                                       "x"
                                       (Ast_App (Ast_App (Ast_Var (Short "+"))
                                                         (Ast_Lit (IntLit 3)))
                                                (Ast_Lit (IntLit 4)))``)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE``
-                   "if raise IntError 4 then 2 else 3 handle IntError f => 23"
+                   "if raise 4 then 2 else 3 handle f => 23"
                    (SOME ``Ast_If (Ast_Raise (Int_error 4))
                                   (Ast_Lit (IntLit 2))
                                   (Ast_Handle
@@ -150,7 +150,7 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE``
                                      "f"
                                      (Ast_Lit (IntLit 23)))``);
 val _ = parsetest ``nE`` ``ptree_Expr nE``
-                  "f x handle IntError n => case n of 0 => raise Div\n\
+                  "f x handle n => case n of 0 => raise Div\n\
                   \                        | 1 => raise Bind\n\
                   \                        | _ => n - 2"
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "C(3)"
