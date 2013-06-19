@@ -1,5 +1,5 @@
 open preamble;
-open repl_funTheory replTheory lexer_implTheory;
+open lexer_funTheory repl_funTheory replTheory lexer_implTheory compilerProofsTheory;
 
 val _ = new_theory "replCorrect";
 
@@ -13,8 +13,20 @@ lex_impl_all input =
  metis_tac [lex_until_toplevel_semicolon_LESS]);
 
 val lexer_correct = Q.prove (
-`!input. split_top_level_semi (lexer_fun input) = lex_impl_all input`,
-cheat);
+  `!input. split_top_level_semi (lexer_fun input) = lex_impl_all input`,
+  gen_tac
+  >> completeInduct_on`LENGTH input` >> rw[]
+  >> rw[Once split_top_level_semi_def]
+  >> rw[Once lex_impl_all_def]
+  >> rw[lex_until_toplevel_semicolon_def]
+  >> rw[Once lexer_fun_def]
+  >> rw[Once lex_aux_def]
+  >> Cases_on`next_token input` >> rw[]
+  >- (
+    rw[toplevel_semi_dex_def]
+    cheat (* false! *)
+    )
+  >> cheat)
 
 val parser_correct = Q.prove (
 `!toks. parse_top toks = parse toks`,
