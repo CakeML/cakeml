@@ -104,11 +104,14 @@ metis_tac [t_unify_unifier]);
 
 val t_unify_apply2 = Q.prove (
 `!s1 s2 t1' t2' t1 t2.
+  t_wfs s1 ∧
   (t_unify s1 t1' t2' = SOME s2) ∧
   (t_walkstar s1 t1 = t_walkstar s1 t2)
   ⇒
   (t_walkstar s2 t1 = t_walkstar s2 t2)`,
-cheat);
+rw [] >>
+`t_wfs s2 ∧ s1 SUBMAP s2` by metis_tac [t_unify_unifier] >>
+metis_tac [t_walkstar_SUBMAP]);
 
 val t_unify_wfs = Q.store_thm ("t_unify_wfs",
 `!s1 t1 t2 s2.
@@ -127,21 +130,6 @@ val walkstar_inc = Q.prove (
   t_wfs s ⇒
   (t_walkstar (infer_deBruijn_inc tvs o_f s) (Infer_Tuvar n) =
    infer_deBruijn_inc tvs (t_walkstar s (Infer_Tuvar n)))`,
-cheat);
-
-val walkstar_empty = Q.prove (
-`!t. t_walkstar FEMPTY t = t`,
-(*
-`t_wfs FEMPTY` by rw [t_wfs_def] >>
-imp_res_tac t_walkstar_ind >>
-pop_assum ho_match_mp_tac >>
-rw [] >>
-cases_on `t` >|
-[rw [t_walkstar_eqn, t_walk_eqn],
- all_tac,
- rw [t_walkstar_eqn, t_walk_eqn] >>
-     rw [Once t_vwalk_eqn]]
-     *)
 cheat);
 
 val flookup_thm = Q.prove (
@@ -258,6 +246,7 @@ val pure_add_constraints_ind = fetch "-" "pure_add_constraints_ind";
 
 val pure_add_constraints_append2 = Q.prove (
 `!s1 ts s2 t1 t2.
+  t_wfs s1 ∧
   pure_add_constraints s1 ts s2 ∧
   (t_walkstar s1 t1 = t_walkstar s1 t2)
   ⇒
@@ -267,7 +256,7 @@ rw [pure_add_constraints_def] >>
 rw [] >>
 PairCases_on `h` >>
 fs [pure_add_constraints_def] >>
-metis_tac [t_unify_apply2]);
+metis_tac [t_unify_wfs, t_unify_apply2]);
 
 val pure_add_constraints_apply = Q.prove (
 `!s1 ts s2.
@@ -776,6 +765,7 @@ metis_tac [sub_completion_more_vars, APPEND_ASSOC]);
 
 val sub_completion_apply = Q.prove (
 `!n uvars s1 ts s2 t1 t2.
+  t_wfs s1 ∧
   (t_walkstar s1 t1 = t_walkstar s1 t2) ∧
   sub_completion n uvars s1 ts s2 
   ⇒
@@ -785,6 +775,7 @@ pop_assum (fn _ => all_tac) >>
 pop_assum (fn _ => all_tac) >>
 pop_assum mp_tac >>
 pop_assum mp_tac >>
+pop_assum mp_tac >>
 Q.SPEC_TAC (`s1`, `s1`) >>
 induct_on `ts` >>
 rw [pure_add_constraints_def] >-
@@ -792,10 +783,11 @@ metis_tac [] >>
 cases_on `h` >>
 fs [pure_add_constraints_def] >>
 fs [] >>
-metis_tac [t_unify_apply2]);
+metis_tac [t_unify_apply2, t_unify_wfs]);
 
 val sub_completion_apply_list = Q.prove (
 `!n uvars s1 ts s2 ts1 ts2.
+  t_wfs s1 ∧
   (MAP (t_walkstar s1) ts1 = MAP (t_walkstar s1) ts2) ∧
   sub_completion n uvars s1 ts s2 
   ⇒
@@ -1045,7 +1037,7 @@ fs [] >>
 cases_on `h0 = x` >>
 fs [] >>
 rw [GSYM check_t_subst] >>
-metis_tac [walkstar_empty]);
+metis_tac [t_walkstar_FEMPTY]);
 
 val check_t_deBruijn_inc = Q.prove (
 `!inc t. check_t 0 UNIV t ⇒ (infer_deBruijn_inc inc t = t)`,
@@ -1302,7 +1294,7 @@ fs [tenv_inv_def] >>
 rw [] >>
 PairCases_on `h` >>
 rw [bind_tvar_def, lookup_tenv_def] >>
-fs [walkstar_empty] >>
+fs [t_walkstar_FEMPTY] >>
 res_tac >>
 imp_res_tac lookup_tenv_inc >>
 fs [] >>
@@ -1510,7 +1502,9 @@ rw [t_walkstar_eqn1, convert_t_def, Tbool_def, Tint_def, Tunit_def] >|
      pop_assum (fn _ => all_tac) >>
      pop_assum mp_tac >>
      rw [MAP_ZIP] >>
+     `t_wfs st'.subst` by metis_tac [pure_add_constraints_wfs] >>
      imp_res_tac sub_completion_apply_list >>
+     NTAC 6 (pop_assum (fn _ => all_tac)) >>
      pop_assum mp_tac >>
      rw [subst_infer_subst_swap] >>
      `EVERY (check_freevars 0 tvs') ts'` by metis_tac [check_cenv_lookup] >>
@@ -1544,30 +1538,6 @@ val infer_subst_def = tDefine "infer_subst" `
  srw_tac[ARITH_ss] [infer_t_size_def] >>
  res_tac >>
  decide_tac);
-
-val infer_subst_submap = Q.prove (
-`(!t s1 s2 m. 
-    s1 SUBMAP s2 ∧
-    {uv | uv ∈ free_uvars t ∧ m ≤ uv} ⊆ FDOM s1 ∧
-    (!uv. uv ∈ FDOM s2 DIFF FDOM s1 ⇒ m ≤ uv)
-    ⇒
-    (infer_subst s1 t = infer_subst s2 t)) ∧
- (!ts s1 s2 m. 
-    s1 SUBMAP s2 ∧
-    {uv | ?s. uv ∈ s ∧ MEM s (MAP free_uvars ts) ∧ m ≤ uv} ⊆ FDOM s1 ∧
-    (!uv. uv ∈ FDOM s2 DIFF FDOM s1 ⇒ m ≤ uv)
-    ⇒
-    (MAP (infer_subst s1) ts = MAP (infer_subst s2) ts))`,
-ho_match_mp_tac infer_t_induction >>
-rw [SUBSET_DEF, infer_subst_def, free_uvars_def] >|
-[metis_tac [],
- full_case_tac >>
-     full_case_tac >>
-     rw [] >>
-     fs [SUBMAP_DEF, FLOOKUP_DEF] >>
-     metis_tac [],
- metis_tac [],              
- metis_tac []]);
 
 val infer_subst_FEMPTY = Q.prove (
 `(!t. infer_subst FEMPTY t = t) ∧
@@ -1748,6 +1718,7 @@ fs [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t_def] >>
 rw [type_op_cases, Tint_def, Tbool_def, Tref_def, Tfn_def, Tunit_def] >>
 metis_tac [MAP, infer_e_next_uvar_mono, check_env_more];
 
+(*
 val infer_e_sound = Q.prove (
 `(!menv cenv env e st st' tenv t extra_constraints s.
     (infer_e menv cenv env e st = (Success t, st')) ∧
@@ -1828,7 +1799,8 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      `t_wfs st''''.subst` by metis_tac [infer_e_wfs] >>
      `t_wfs s` by metis_tac [t_unify_wfs, sub_completion_wfs] >>
      imp_res_tac t_unify_apply >>
-     imp_res_tac sub_completion_apply >>
+     `t_wfs s''` by metis_tac [t_unify_wfs] >>
+     `t_walkstar s t = t_walkstar s t2` by metis_tac [sub_completion_apply] >>
      fs [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t_def],
  (* Lit bool *)
      binop_tac,
@@ -1929,7 +1901,16 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      pop_assum (fn _ => all_tac) >>
      pop_assum mp_tac >>
      rw [MAP_ZIP] >>
-     imp_res_tac sub_completion_apply_list >>
+     `t_wfs st'.subst` by metis_tac [pure_add_constraints_wfs] >>
+     `MAP (t_walkstar s) ts'' =
+       MAP (t_walkstar s)
+         (MAP
+            (infer_type_subst
+               (ZIP
+                  (tvs,
+                   MAP (λn. Infer_Tuvar (st'''.next_uvar + n))
+                     (COUNT_LIST (LENGTH tvs))))) ts)`
+                 by metis_tac [sub_completion_apply_list] >>
      pop_assum mp_tac >>
      rw [subst_infer_subst_swap] >>
      `EVERY (check_freevars 0 tvs) ts` by metis_tac [check_cenv_lookup] >>
@@ -1965,6 +1946,7 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      `t_wfs st''.subst` by metis_tac [infer_e_wfs] >>
      imp_res_tac t_unify_apply >>
      imp_res_tac sub_completion_unify >>
+     `t_wfs s'` by metis_tac [t_unify_wfs] >>
      imp_res_tac sub_completion_apply >>
      `t_wfs s` by metis_tac [sub_completion_wfs, infer_e_wfs] >>
      fs [t_walkstar_eqn1] >>
@@ -2220,8 +2202,8 @@ PairCases_on `h` >>
 rw [bind_var_list2_def, merge_def] >>
 res_tac >>
 fs [merge_def, tenv_inv_def, bind_tenv_def, lookup_tenv_def] >>
-rw [deBruijn_inc0, walkstar_empty] >>
-metis_tac [walkstar_empty]);
+rw [deBruijn_inc0, t_walkstar_FEMPTY] >>
+metis_tac [t_walkstar_FEMPTY]);
 
 val letrec_lemma = Q.prove (
 `!funs_ts l l' s s'.
@@ -2266,8 +2248,8 @@ fs [] >>
 PairCases_on `h` >>
 fs [merge_def, bind_var_list2_def] >>
 fs [merge_def, tenv_inv_def, bind_tenv_def, lookup_tenv_def] >>
-rw [deBruijn_inc0, walkstar_empty] >>
-fs [walkstar_empty] >>
+rw [deBruijn_inc0, t_walkstar_FEMPTY] >>
+fs [t_walkstar_FEMPTY] >>
 res_tac >>
 metis_tac []);
 
@@ -2307,10 +2289,10 @@ PairCases_on `h` >>
 fs [lookup_def] >>
 every_case_tac >>
 fs [] >>
-rw [walkstar_empty, deBruijn_inc0, lookup_tenv_def, bind_tenv_def, lookup_def, bind_var_list2_def] >>
+rw [t_walkstar_FEMPTY, deBruijn_inc0, lookup_tenv_def, bind_tenv_def, lookup_def, bind_var_list2_def] >>
 fs [tenv_inv_def] >>
 res_tac >>
-fs [walkstar_empty] >>
+fs [t_walkstar_FEMPTY] >>
 metis_tac [convert_env2_def]);
 
 val generalise_complete = Q.prove (
@@ -2592,5 +2574,5 @@ rw [infer_ds_def, success_eqns] >|
      res_tac >>
      fs [convert_env2_def, merge_def, bvl2_append] >>
      metis_tac []]);
-
+     *)
 val _ = export_theory ();

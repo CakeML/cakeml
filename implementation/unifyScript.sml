@@ -1,5 +1,6 @@
 open preamble finite_mapTheory optionTheory LibTheory AstTheory; 
 open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory;
+open substTheory;
 
 val option_bind_thm = Q.prove (
 `!x f. OPTION_BIND x f =
@@ -747,5 +748,49 @@ val t_unify_unifier = store_thm("t_unify_unifier",
   simp[t_wfs_def,t_walkstar_def] >>
   fs[SUBMAP_DEF] >>
   metis_tac[encode_infer_t_inj,o_f_FAPPLY])
+
+val encode_walkstar = Q.prove (
+`!s t.
+  t_wfs s ⇒
+  walkstar (encode_infer_t o_f s) (encode_infer_t t) = 
+  encode_infer_t (t_walkstar s t)`,
+rw [] >>
+imp_res_tac t_walkstar_ind >>
+Q.SPEC_TAC (`t`,`t`) >>
+pop_assum ho_match_mp_tac >>
+rw [] >>
+rw [Once t_walkstar_eqn] >>
+`wfs (encode_infer_t o_f s)` by fs [t_wfs_def] >>
+rw [Once walkstar_def] >>
+rw [Once encode_walk] >>
+cases_on `t_walk s t` >>
+rw [encode_infer_t_def] >>
+pop_assum mp_tac >>
+pop_assum (fn _ => all_tac) >>
+induct_on `l` >>
+rw [encode_infer_t_def] >>
+rw [Once walkstar_def]);
+
+val t_walkstar_FEMPTY = Q.store_thm ("t_walkstar_FEMPTY",
+`!t.(t_walkstar FEMPTY t = t)`,
+rw [t_walkstar_def, decode_left_inverse]);
+
+val t_wfs_SUBMAP = Q.store_thm ("t_wfs_SUBMAP",
+`!s1 s2. t_wfs s2 ∧ s1 ⊑ s2 ⇒ t_wfs s1`,
+rw [t_wfs_def] >>
+`encode_infer_t o_f s1 SUBMAP encode_infer_t o_f s2` 
+         by (fs [SUBMAP_DEF]) >>
+metis_tac [wfs_SUBMAP]);
+
+val t_walkstar_SUBMAP = Q.store_thm ("t_walkstar_SUBMAP",
+`!s1 s2 t. s1 SUBMAP s2 ∧ t_wfs s2 ⇒ (t_walkstar s2 t = t_walkstar s2 (t_walkstar s1 t))`,
+rw [t_walkstar_def] >>
+`wfs (encode_infer_t o_f s2)` by fs [t_wfs_def] >>
+`t_wfs s1` by metis_tac [t_wfs_SUBMAP] >>
+`encode_infer_t o_f s1 SUBMAP encode_infer_t o_f s2` by fs [SUBMAP_DEF] >>
+`walkstar (encode_infer_t o_f s2) (encode_infer_t t) = 
+ walkstar (encode_infer_t o_f s2) (walkstar (encode_infer_t o_f s1) (encode_infer_t t))` 
+       by metis_tac [walkstar_SUBMAP] >>
+rw [encode_walkstar, decode_left_inverse]);
 
 val _ = export_theory ();
