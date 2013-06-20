@@ -47,7 +47,7 @@ val _ = run_print_save "ex4" input
 
   val new_bs = time EVAL ``bc_eval ^bs`` |> concl |> rhs |> rand
 
-  val (new_bs,res) = time EVAL ``print_result ^new_s ^new_bs`` |> concl |> rhs |> pairSyntax.dest_pair
+  val (new_bs,res) = time EVAL ``print_fun ^new_s ^new_bs`` |> concl |> rhs |> pairSyntax.dest_pair
 
   val input = rest_of_input
   val s = new_s

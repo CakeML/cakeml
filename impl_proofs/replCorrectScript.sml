@@ -1,5 +1,5 @@
-open preamble;
-open lexer_funTheory repl_funTheory replTheory lexer_implTheory compilerProofsTheory;
+open preamble boolSimps;
+open lexer_funTheory repl_funTheory replTheory lexer_implTheory BigStepTheory compilerProofsTheory;
 
 val _ = new_theory "replCorrect";
 
@@ -24,7 +24,7 @@ val lexer_correct = Q.prove (
   >> Cases_on`next_token input` >> rw[]
   >- (
     rw[toplevel_semi_dex_def]
-    cheat (* false! *)
+    >> cheat (* false! *)
     )
   >> cheat)
 
@@ -40,14 +40,12 @@ val get_type_error_mask_def = Define `
   (r = "<type error>")::get_type_error_mask rs)`;
 
 
-(*
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
   ast_repl repl_state
     (get_type_error_mask (main_loop (bc_state,repl_fun_state) input))
     (MAP parse (split_top_level_semi (lexer_fun input)))
     (main_loop (bc_state,repl_fun_state) input)`,
-
 
 completeInduct_on `LENGTH input` >>
 rw [lexer_correct, Once lex_impl_all_def] >>
@@ -59,7 +57,7 @@ metis_tac [ast_repl_rules] >>
         by (cases_on `x` >>
             metis_tac []) >>
 rw [] >>
-`(parse tok' = NONE) ∨ ∃ast. parse tok' = SOME ast` 
+`(parse tok' = NONE) ∨ ∃ast. parse tok' = SOME ast`
         by (cases_on `parse tok'` >>
             metis_tac []) >>
 rw [] >>
@@ -82,8 +80,9 @@ rw [get_type_error_mask_def] >-
 ((* A type error *)
  `LENGTH input_rest < LENGTH input` by metis_tac [lex_until_toplevel_semicolon_LESS] >>
      metis_tac [lexer_correct]) >>
-`?new_bc_state code. compile_top repl_fun_state'.rcompiler_state ast' = (new_bc_state, code)`
+`?new_bc_success new_bc_failure code. compile_top repl_fun_state'.rcompiler_state ast' = (new_bc_success, new_bc_failure, code)`
          by (cases_on `compile_top repl_fun_state'.rcompiler_state ast'` >>
+             Cases_on`r` >>
              metis_tac []) >>
 rw [] >>
 cases_on `bc_eval (install_code code bc_state')` >>
@@ -91,15 +90,24 @@ rw [get_type_error_mask_def] >|
 [(* Divergence *)
  cheat,
 
- *) 
+ disj1_tac >>
+ rw[update_state_def] >>
 
-  (*
+ simp[Once evaluate_prog_cases] >>
+ qabbrev_tac`est = repl_fun_state'.relaborator_state` >>
+ PairCases_on`est` >>
+ qabbrev_tac`elab_res = elab_top est0 est1 ast` >>
+ PairCases_on`elab_res` >>
+ fs[elaborate_top_def,LET_THM] >>
+ cheat
+
+])
+
 val replCorrect = Q.store_thm ("replCorrect",
-`!input output. 
-  (repl_fun input = output) ⇒ 
+`!input output.
+  (repl_fun input = output) ⇒
   (repl (get_type_error_mask output) input output)`,
-rw [repl_fun_def, repl_def]
-*)
+rw [repl_fun_def, repl_def] >>
+rw[replCorrect_lem])
 
 val _ = export_theory ();
-

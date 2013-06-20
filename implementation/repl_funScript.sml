@@ -60,8 +60,8 @@ val initial_repl_fun_state = Define`
     rcompiler_state   := FST compile_primitives;
     top := (Tmod "" NONE []) |>`
 
-val print_result_def = Define `
-  print_result ss sf bs =
+val print_fun_def = Define `
+  print_fun ss sf bs =
     if HD bs.stack = (Number 0) then
       (bs with <| stack := TL bs.stack |>
       ,ss
@@ -143,7 +143,7 @@ val main_loop_def = tDefine "main_loop" `
               NONE => Diverge
             | (* case: evaluation terminated, print result and continue *)
               SOME new_bs =>
-                let (new_bs,new_s,output) = print_result new_s_val new_s_exc new_bs in
+                let (new_bs,new_s,output) = print_fun new_s_val new_s_exc new_bs in
                 Result output (main_loop (new_bs,new_s) rest_of_input) ` tac ;
 
 val repl_fun_def = Define`
