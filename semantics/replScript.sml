@@ -1,7 +1,7 @@
 open preamble;
 open ASCIInumbersTheory;
 open BigStepTheory TypeSystemTheory AstTheory ElabTheory lexer_funTheory;
-open gramTheory;
+open gramTheory cmlPtreeConversionTheory;
 
 val _ = new_theory "repl";
 
@@ -42,8 +42,6 @@ val split_top_level_semi_def = tDefine "split_top_level_semi" `
  cases_on `h` >>
  fs [] >>
  metis_tac [toplevel_semi_dex_non0, DECIDE ``0 < 1:num``, DECIDE ``!x:num. 0 < x + 1``]);
-
-val _ = new_constant("parse", ``:token list -> ast_top option``);
 
 val _ = Hol_datatype `
 repl_state = <| (* Elaborator state *)
@@ -155,6 +153,15 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
   ast_repl state type_errors asts rest
   ⇒
   ast_repl state (x::type_errors) (NONE::asts) (Result "<parse error>" rest))`;
+
+val parse_def = Define`
+  parse toks =
+    case some pt. valid_ptree mmlG pt ∧ ptree_head pt = NT (mkNT nREPLTop) ∧
+                  ptree_fringe pt = MAP TOK toks
+    of
+       NONE => NONE
+     | SOME p => ptree_REPLTop p
+`
 
 val repl_def = Define `
 repl type_errors input = ast_repl init_repl_state type_errors (MAP parse (split_top_level_semi (lexer_fun input)))`; 
