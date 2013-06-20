@@ -120,7 +120,7 @@ val mmlG_def = mk_grammar_def ginfo
       |  ^(``{LongidT str s | str,s |
               s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s))}``) ;
  Vlist1 ::= V Vlist1 | V;
- Exn ::= "Bind" | "Div" | <IntT>;
+ Exn ::= "Bind" | "Div" | "IntError" <IntT>;
  Ebase ::= "(" Eseq ")" | "(" ")" | FQV | ConstructorName | <IntT>
         |  "let" LetDecs "in" Eseq "end";
  Eseq ::= Eseq ";" E | E;
@@ -143,11 +143,11 @@ val mmlG_def = mk_grammar_def ginfo
  Etyped ::= Ebefore | Ebefore ":" Type;
  ElogicAND ::= ElogicAND "andalso" Etyped | Etyped;
  ElogicOR ::= ElogicOR "orelse" ElogicAND | ElogicAND;
- Ehandle ::= ElogicOR | ElogicOR "handle" V "=>" E ;  (* should be a PEs *)
+ Ehandle ::= ElogicOR | ElogicOR "handle" "IntError" V "=>" E ;  (* should be a PEs *)
  E ::= "if" E "then" E "else" E | "case" E "of" PEs | "fn" V "=>" E | "raise" Exn
     |  Ehandle;
  E' ::= "if" E "then" E "else" E' | "fn" V "=>" E' | "raise" Exn | Ehandle' ;
- Ehandle' ::= ElogicOR | ElogicOR "handle" V "=>" E' ;
+ Ehandle' ::= ElogicOR | ElogicOR "handle" "IntError" V "=>" E' ;
 
  (* function and value declarations *)
  FDecl ::= V Vlist1 "=" E ;

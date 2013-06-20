@@ -499,8 +499,12 @@ val ptree_Exn_def = Define`
       case subs of
           [bd] => if bd = Lf (TOK (AlphaT "Bind")) then SOME Bind_error
                   else if bd = Lf (TOK (AlphaT "Div")) then SOME Div_error
-                  else
-                    OPTION_MAP Int_error (destIntT ' (destTOK ' (destLf bd)))
+                  else NONE
+        | [ie; ipt] =>
+          do
+            assert(ie = Lf (TOK (AlphaT "IntError")));
+            OPTION_MAP Int_error (destIntT ' (destTOK ' (destLf ipt)))
+          od
         | _ => NONE
 `;
 
@@ -679,9 +683,10 @@ val ptree_Expr_def = Define`
       else if nt = mkNT nEhandle then
         case subs of
             [pt] => ptree_Expr nElogicOR pt
-          | [e1pt; handlet; vpt; arrowt; e2pt] =>
+          | [e1pt; handlet; interrort; vpt; arrowt; e2pt] =>
             do
-              assert(handlet = Lf (TOK HandleT) ∧ arrowt = Lf (TOK DarrowT));
+              assert(handlet = Lf (TOK HandleT) ∧ arrowt = Lf (TOK DarrowT) ∧
+                     interrort = Lf (TOK (AlphaT "IntError")));
               e1 <- ptree_Expr nElogicOR e1pt;
               v <- ptree_V vpt;
               e2 <- ptree_Expr nE e2pt;
