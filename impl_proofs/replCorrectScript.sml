@@ -1,5 +1,5 @@
 open preamble boolSimps;
-open lexer_funTheory repl_funTheory replTheory lexer_implTheory BigStepTheory compilerProofsTheory;
+open lexer_funTheory repl_funTheory replTheory lexer_implTheory mmlParseTheory BigStepTheory compilerProofsTheory;
 
 val _ = new_theory "replCorrect";
 
@@ -29,7 +29,11 @@ val lexer_correct = Q.prove (
   >> cheat)
 
 val parser_correct = Q.prove (
-`!toks. parse_top toks = parse toks`,
+`!toks. parse_top toks = repl$parse toks`,
+  rw[parse_top_def,replTheory.parse_def] >>
+  rw[mmlParseREPLTop_thm] >>
+  qspec_then`toks`strip_assume_tac mmlPEGTheory.parse_REPLTop_total >>
+  simp[destResult_def] >>
 cheat);
 
 val get_type_error_mask_def = Define `
