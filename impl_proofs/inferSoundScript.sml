@@ -3,6 +3,9 @@ open rich_listTheory;
 open LibTheory TypeSystemTheory AstTheory SemanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open typeSysPropsTheory;
 
+(* Remove automatic rewrites that break the proofs in this file *)
+val _ = diminish_srw_ss ["semanticsExtra"];
+
 val o_f_id = Q.prove (
 `!m. (\x.x) o_f m = m`,
 rw [fmap_EXT]);

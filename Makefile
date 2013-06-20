@@ -1,5 +1,6 @@
 test:
 	cd semantics; Holmake
+	cd parsing; Holmake
 	cd implementation; Holmake
 	cd metatheory; Holmake
 	cd impl_proofs; Holmake
@@ -11,6 +12,7 @@ test:
 clean:
 	cd metatheory; Holmake cleanAll
 	cd semantics; Holmake cleanAll
+	cd parsing; Holmake cleanAll
 	cd implementation; Holmake cleanAll
 	cd impl_proofs; Holmake cleanAll
 	cd translator; Holmake cleanAll
