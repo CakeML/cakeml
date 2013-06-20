@@ -44,8 +44,16 @@ val get_type_error_mask_def = Define `
   (r = "<type error>")::get_type_error_mask rs)`;
 
 
+val invariant_def = Define`
+  invariant rs rfs bs ⇔
+    rfs.relaborator_state = (rs.type_bindings, rs.ctors)
+    (* ∧ rfs.rinferencer_state = ??? ∧ *)
+    ∧ ∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs
+    (* ∧ rfs.top = ??? *)`
+
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
+  invariant repl_state repl_fun_state bc_state ⇒
   ast_repl repl_state
     (get_type_error_mask (main_loop (bc_state,repl_fun_state) input))
     (MAP parse (split_top_level_semi (lexer_fun input)))
@@ -63,55 +71,66 @@ metis_tac [ast_repl_rules] >>
 rw [] >>
 `(parse tok' = NONE) ∨ ∃ast. parse tok' = SOME ast`
         by (cases_on `parse tok'` >>
-            metis_tac []) >>
-rw [] >>
-rw [Once ast_repl_cases, parse_elaborate_infertype_compile_def, parser_correct,
-    get_type_error_mask_def] >-
+            metis_tac []) >-
 ((* A parse error *)
+  rw [] >>
+  rw [Once ast_repl_cases, parse_elaborate_infertype_compile_def, parser_correct,
+      get_type_error_mask_def] >>
  `LENGTH input_rest < LENGTH input` by metis_tac [lex_until_toplevel_semicolon_LESS] >>
-     metis_tac [lexer_correct]) >>
-`?new_repl_fun_elab_state ast'.
-    elaborate_top repl_fun_state'.relaborator_state ast = (new_repl_fun_elab_state, ast')`
-          by (cases_on `elaborate_top repl_fun_state'.relaborator_state ast` >>
-              metis_tac []) >>
+ metis_tac [lexer_correct]) >>
+rw[parse_elaborate_infertype_compile_def,parser_correct] >>
+qmatch_assum_rename_tac`elaborate_top st.relaborator_state top0 = (new_elab_state, top)`[] >>
+qmatch_assum_rename_tac`invariant rs st bs`[] >>
+
 rw [] >>
+  rw [Once ast_repl_cases, parse_elaborate_infertype_compile_def, parser_correct,
+      get_type_error_mask_def] >>
 `?error_msg new_repl_run_infer_state.
-  infertype_top repl_fun_state'.rinferencer_state ast' = Failure error_msg ∨ 
-  infertype_top repl_fun_state'.rinferencer_state ast' = Success new_repl_run_infer_state`
-         by (cases_on `infertype_top repl_fun_state'.rinferencer_state ast'` >>
+  infertype_top st.rinferencer_state top = Failure error_msg ∨ 
+  infertype_top st.rinferencer_state top = Success new_repl_run_infer_state`
+         by (cases_on `infertype_top st.rinferencer_state top` >>
              metis_tac []) >>
 rw [get_type_error_mask_def] >-
 ((* A type error *)
  `LENGTH input_rest < LENGTH input` by metis_tac [lex_until_toplevel_semicolon_LESS] >>
      metis_tac [lexer_correct]) >>
-`?new_bc_success new_bc_failure code. compile_top repl_fun_state'.rcompiler_state ast' = (new_bc_success, new_bc_failure, code)`
-         by (cases_on `compile_top repl_fun_state'.rcompiler_state ast'` >>
+`?new_bc_success new_bc_failure code. compile_top st.rcompiler_state top = (new_bc_success, new_bc_failure, code)`
+         by (cases_on `compile_top st.rcompiler_state top` >>
              Cases_on`r` >>
              metis_tac []) >>
 rw [] >>
 cases_on `bc_eval (install_code code bc_state')` >>
-rw [get_type_error_mask_def] >|
-[(* Divergence *)
- cheat,
+rw [get_type_error_mask_def] >- (
+ (* Divergence *)
+ cheat ) >>
 
  disj1_tac >>
  rw[update_state_def] >>
 
+ qabbrev_tac`est = st.relaborator_state` >> PairCases_on`est` >>
+ qabbrev_tac`elab_res = elab_top est0 est1 ast` >> PairCases_on`elab_res` >>
+ fs[elaborate_top_def,LET_THM] >>
+
+ Cases_on`top0` >- (
+   (* Module *)
+   cheat ) >>
+
  simp[Once evaluate_prog_cases] >>
- qabbrev_tac`est = repl_fun_state'.relaborator_state` >>
- PairCases_on`est` >>
- qabbrev_tac`elab_res = elab_top est0 est1 ast` >>
- PairCases_on`elab_res` >>
  fs[elaborate_top_def,LET_THM] >>
  cheat
 
-])
+)
+
+val initial_invariant = prove(
+  ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
+  cheat)
 
 val replCorrect = Q.store_thm ("replCorrect",
 `!input output.
   (repl_fun input = output) ⇒
   (repl (get_type_error_mask output) input output)`,
 rw [repl_fun_def, repl_def] >>
-rw[replCorrect_lem])
+match_mp_tac replCorrect_lem >>
+rw[initial_invariant])
 
 val _ = export_theory ();
