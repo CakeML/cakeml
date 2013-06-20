@@ -1,12 +1,12 @@
 open HolKernel Parse boolLib bossLib
 
-open gramTheory
+open gramTheory tokenUtilsTheory
 
 open monadsyntax lcsymtacs
 
 local open ElabTheory in end (* for "ast" type *)
 
-val _ = new_theory "mmlPtreeConversion"
+val _ = new_theory "cmlPtreeConversion"
 
 (* ----------------------------------------------------------------------
     Parse trees to abstract syntax
