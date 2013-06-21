@@ -32,6 +32,7 @@ val _ = type_abbrev( "count_store" , ``: num # store``);
 (*val evaluate_match : bool -> envM -> envC -> count_store -> envE -> v -> list (pat * exp) -> count_store * result v -> bool*)
 (*val evaluate_dec : option modN -> envM -> envC -> store -> envE -> dec -> store * result (envC * envE) -> bool*)
 (*val evaluate_decs : option modN -> envM -> envC -> store -> envE -> list dec -> store * result (envC * envE) -> bool*)
+(*val evaluate_top : envM -> envC -> store -> envE -> top -> store * result (envM * envC * envE) -> bool*)
 (*val evaluate_prog : envM -> envC -> store -> envE -> prog -> store * result (envM * envC * envE) -> bool*)
 
 (*val dec_count : op -> num -> num*)
@@ -453,6 +454,41 @@ evaluate_decs mn menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, r))
 ==>
 evaluate_decs mn menv cenv s1 env (d ::ds) (s3, combine_dec_result new_tds new_env r))`;
 
+val _ = Hol_reln `
+
+(! menv cenv s1 s2 env d new_tds new_env.
+(
+evaluate_dec NONE menv cenv s1 env d (s2, Rval (new_tds, new_env)))
+==>
+evaluate_top menv cenv s1 env (Tdec d) (s2, Rval (emp, new_tds, new_env)))
+
+/\
+
+(! menv cenv s1 s2 env d err.
+(
+evaluate_dec NONE menv cenv s1 env d (s2, Rerr err))
+==>
+evaluate_top menv cenv s1 env (Tdec d) (s2, Rerr err))
+
+/\
+
+(! menv cenv s1 s2 env ds mn specs new_tds new_env. ( ~  ( MEM mn ( MAP FST menv)) /\
+evaluate_decs (SOME mn) menv cenv s1 env ds (s2, Rval (new_tds, new_env)))
+==>
+evaluate_top menv cenv s1 env (Tmod mn specs ds) (s2, Rval ([(mn,new_env)], new_tds, emp)))
+
+/\
+
+(! menv cenv s1 s2 env ds mn specs err. ( ~  ( MEM mn ( MAP FST menv)) /\
+evaluate_decs (SOME mn) menv cenv s1 env ds (s2, Rerr err))
+==>
+evaluate_top menv cenv s1 env (Tmod mn specs ds) (s2, Rerr err))
+
+/\
+
+(! menv cenv s env mn specs ds. ( MEM mn ( MAP FST menv))
+==>
+evaluate_top menv cenv s env (Tmod mn specs ds) (s, Rerr Rtype_error))`;
 
 val _ = Hol_reln `
 
@@ -463,45 +499,24 @@ evaluate_prog menv cenv s env [] (s, Rval (emp, emp, emp)))
 
 /\
 
-(! menv cenv s1 s2 s3 env d ds new_tds new_env r.
+(! menv cenv s1 s2 s3 env top tops new_mods new_tds new_env r.
 (
-evaluate_dec NONE menv cenv s1 env d (s2, Rval (new_tds,new_env)) /\
-evaluate_prog menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, r))
+evaluate_top menv cenv s1 env top (s2, Rval (new_mods,new_tds,new_env)) /\
+evaluate_prog (merge new_mods menv) (merge new_tds cenv) s2 (merge new_env env) tops (s3, r))
 ==>
-evaluate_prog menv cenv s1 env (Tdec d ::ds) (s3, combine_mod_result emp new_tds new_env r))
+evaluate_prog menv cenv s1 env (top ::tops) (s3, combine_mod_result new_mods new_tds new_env r))
 
 /\
 
-(! menv cenv s1 s2 env d ds e.
+(! menv cenv s1 s2 env top tops err.
 (
-evaluate_dec NONE menv cenv s1 env d (s2, Rerr e))
+evaluate_top menv cenv s1 env top (s2, Rerr err))
 ==>
-evaluate_prog menv cenv s1 env (Tdec d ::ds) (s2, Rerr e))
-
-/\
-
-(! menv cenv s1 s2 s3 env ds1 ds2 mn specs new_tds new_env r. ( ~  ( MEM mn ( MAP FST menv)) /\
-evaluate_decs (SOME mn) menv cenv s1 env ds1 (s2, Rval (new_tds,new_env)) /\
-evaluate_prog (bind mn new_env menv) (merge new_tds cenv) s2 env ds2 (s3, r))
-==>
-evaluate_prog menv cenv s1 env (Tmod mn specs ds1 ::ds2) (s3, combine_mod_result [(mn,new_env)] new_tds emp r))
-
-/\
-
-(! menv cenv s1 s2 env mn specs ds1 ds2 e. ( ~  ( MEM mn ( MAP FST menv)) /\
-evaluate_decs (SOME mn) menv cenv s1 env ds1 (s2, Rerr e))
-==>
-evaluate_prog menv cenv s1 env (Tmod mn specs ds1 ::ds2) (s2, Rerr e))
-
-/\
-
-(! menv cenv s env mn specs ds1 ds2. ( MEM mn ( MAP FST menv))
-==>
-evaluate_prog menv cenv s env (Tmod mn specs ds1 ::ds2) (s, Rerr Rtype_error))`;
-
+evaluate_prog menv cenv s1 env (top ::tops) (s2, Rerr err))`;
 
 (*val dec_diverges : envM -> envC -> store -> envE -> dec -> bool*)
 (*val decs_diverges : option modN -> envM -> envC -> store -> envE -> decs -> bool*)
+(*val top_diverges : envM -> envC -> store -> envE -> top -> bool*)
 (*val prog_diverges : envM -> envC -> store -> envE -> prog -> bool*)
 
 val _ = Define `
@@ -532,34 +547,34 @@ decs_diverges mn menv cenv s1 env (d ::ds))`;
 
 val _ = Hol_reln `
 
-(! menv cenv st env d ds.
+(! menv cenv st env d.
 (
 dec_diverges menv cenv st env d)
 ==>
-prog_diverges menv cenv st env (Tdec d ::ds))
+top_diverges menv cenv st env (Tdec d))
 
 /\
 
-(! menv cenv s1 s2 env d ds new_tds new_env.
+(! menv cenv s1 env ds mn specs. ( ~  ( MEM mn ( MAP FST menv)) /\
+decs_diverges (SOME mn) menv cenv s1 env ds)
+==>
+top_diverges menv cenv s1 env (Tmod mn specs ds))`;
+
+val _ = Hol_reln `
+
+(! menv cenv st env top tops.
 (
-evaluate_dec NONE menv cenv s1 env d (s2, Rval (new_tds, new_env)) /\
-prog_diverges menv (merge new_tds cenv) s2 (merge new_env env) ds)
+top_diverges menv cenv st env top)
 ==>
-prog_diverges menv cenv s1 env (Tdec d ::ds)) 
+prog_diverges menv cenv st env (top ::tops))
 
 /\
 
-(! menv cenv s1 env ds1 ds2 mn specs. ( ~  ( MEM mn ( MAP FST menv)) /\
-decs_diverges (SOME mn) menv cenv s1 env ds1)
+(! menv cenv s1 s2 env top tops new_mods new_tds new_env.
+(
+evaluate_top menv cenv s1 env top (s2, Rval (new_mods, new_tds, new_env)) /\
+prog_diverges (merge new_mods menv) (merge new_tds cenv) s2 (merge new_env env) tops)
 ==>
-prog_diverges menv cenv s1 env (Tmod mn specs ds1 ::ds2))
-
-/\
-
-(! menv cenv s1 s2 env ds1 ds2 mn specs new_tds new_env. ( ~  ( MEM mn ( MAP FST menv)) /\
-evaluate_decs (SOME mn) menv cenv s1 env ds1 (s2, Rval (new_tds,new_env)) /\
-prog_diverges (bind mn new_env menv) (merge new_tds cenv) s2 env ds2)
-==>
-prog_diverges menv cenv s1 env (Tmod mn specs ds1 ::ds2))`;
+prog_diverges menv cenv s1 env (top ::tops))`;
 val _ = export_theory()
 

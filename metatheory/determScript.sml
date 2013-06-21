@@ -32,6 +32,18 @@ rw [] >>
 metis_tac [dec_determ, result_11, result_distinct,PAIR_EQ,
            match_result_11, match_result_distinct, optionTheory.SOME_11]);
 
+val top_determ = Q.store_thm ("top_determ",
+`!menv (cenv : envC) s env top r1.
+  evaluate_top menv cenv s env top r1 ⇒
+  !r2.
+    evaluate_top menv cenv s env top r2
+    ⇒
+    (r1 = r2)`,
+rw [evaluate_top_cases] >>
+metis_tac [dec_determ, result_11, result_distinct,PAIR_EQ,
+           match_result_11, match_result_distinct, optionTheory.SOME_11,
+           decs_determ]);
+
 val prog_determ = Q.store_thm ("prog_determ",
 `!menv (cenv : envC) s env ds r1.
   evaluate_prog menv cenv s env ds r1 ⇒
@@ -44,9 +56,8 @@ rw [] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once evaluate_prog_cases]) >>
 fs [] >>
 rw [] >>
-metis_tac [dec_determ, result_11, result_distinct,PAIR_EQ,
-           match_result_11, match_result_distinct, optionTheory.SOME_11,
-           decs_determ]);
+metis_tac [top_determ, result_11, result_distinct,PAIR_EQ,
+           match_result_11, match_result_distinct, optionTheory.SOME_11]);
 
 (* ---------------------- Small step determinacy ------------------------- *)
 

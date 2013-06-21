@@ -140,9 +140,20 @@ pop_assum mp_tac >>
 rw [] >>
 metis_tac [untyped_safety_dec, pair_CASES, result_nchotomy]);
 
+val untyped_safety_top = Q.store_thm ("untyped_safety_top",
+`!menv cenv s env top. (?r. evaluate_top menv cenv s env top r) = ~top_diverges menv cenv s env top`,
+rw [evaluate_top_cases, top_diverges_cases] >>
+eq_tac >>
+rw [] >>
+rw [] >>
+CCONTR_TAC >> 
+fs [] >>
+rw [] >>
+metis_tac [top_nchotomy, untyped_safety_decs, untyped_safety_dec, pair_CASES, result_nchotomy]);
+
 val untyped_safety_prog = Q.store_thm ("untyped_safety_prog",
-`!menv cenv s env ds. (?r. evaluate_prog menv cenv s env ds r) = ~prog_diverges menv cenv s env ds`,
-induct_on `ds` >>
+`!menv cenv s env tops. (?r. evaluate_prog menv cenv s env tops r) = ~prog_diverges menv cenv s env tops`,
+induct_on `tops` >>
 rw [] >-
 rw [Once evaluate_prog_cases, Once prog_diverges_cases] >>
 rw [Once evaluate_prog_cases, Once prog_diverges_cases] >>
@@ -151,12 +162,11 @@ rw [] >>
 rw [] >>
 CCONTR_TAC >> 
 fs [] >>
-imp_res_tac dec_determ >>
-imp_res_tac decs_determ >>
+imp_res_tac top_determ >>
 fs [] >>
 rw [] >>
 pop_assum mp_tac >>
 rw [] >>
-metis_tac [top_nchotomy, untyped_safety_decs, untyped_safety_dec, pair_CASES, result_nchotomy]);
+metis_tac [top_nchotomy, untyped_safety_top, pair_CASES, result_nchotomy]);
 
 val _ = export_theory ();

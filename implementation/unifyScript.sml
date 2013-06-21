@@ -815,4 +815,14 @@ fs [] >>
 qexists_tac `min` >>
 rw []);
 
+val t_rangevars_def = Define `
+t_rangevars s = rangevars (encode_infer_t o_f s)`;
+
+val t_rangevars_eqn = Q.store_thm ("t_rangevars_eqn",
+`!s. t_rangevars s = BIGUNION (IMAGE t_vars (FRANGE s))`,
+rw [t_rangevars_def, rangevars_def, EXTENSION] >>
+EQ_TAC >>
+rw [t_vars_def, FRANGE_DEF, o_f_FAPPLY] >>
+metis_tac [o_f_FAPPLY]);
+
 val _ = export_theory ();

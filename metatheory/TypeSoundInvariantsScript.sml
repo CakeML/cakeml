@@ -45,32 +45,23 @@ val _ = type_abbrev( "tenvS" , ``: (num, t) env``);
 
 (* Type programs without imposing signatures.  This is needed for the type
  * soundness proof *)
-(*val type_prog_ignore_sig : tenvM -> tenvC -> tenvE -> list top -> tenvM -> tenvC -> env varN (num * t) -> bool*)
+(*val type_top_ignore_sig : tenvM -> tenvC -> tenvE -> top -> tenvM -> tenvC -> env varN (num * t) -> bool*)
 
 
 val _ = Hol_reln `
 
-(! menv cenv tenv.
-T
-==>
-type_prog_ignore_sig menv cenv tenv [] emp emp emp)
-
-/\
-
-(! menv cenv tenv d ds cenv' tenv' menv'' cenv'' tenv''.
+(! menv cenv tenv d cenv' tenv'.
 (
-type_d NONE menv cenv tenv d cenv' tenv' /\
-type_prog_ignore_sig menv (merge cenv' cenv) (bind_var_list2 tenv' tenv) ds menv'' cenv'' tenv'')
+type_d NONE menv cenv tenv d cenv' tenv')
 ==>
-type_prog_ignore_sig menv cenv tenv (Tdec d :: ds) menv'' (merge cenv'' cenv') (merge tenv'' tenv'))
+type_top_ignore_sig menv cenv tenv (Tdec d) emp cenv' tenv')
 
 /\
 
-(! menv cenv tenv mn spec ds1 ds2 cenv' menv'' tenv' cenv'' tenv''. ( ~  ( MEM mn ( MAP FST menv)) /\
-type_ds (SOME mn) menv cenv tenv ds1 cenv' tenv' /\
-type_prog_ignore_sig (bind mn tenv' menv) (merge cenv' cenv) tenv ds2 menv'' cenv'' tenv'')
+(! menv cenv tenv mn spec ds cenv' tenv'. ( ~  ( MEM mn ( MAP FST menv)) /\
+type_ds (SOME mn) menv cenv tenv ds cenv' tenv')
 ==>
-type_prog_ignore_sig menv cenv tenv (Tmod mn spec ds1 :: ds2) (merge menv'' [(mn,tenv')]) (merge cenv'' cenv') tenv'')`;
+type_top_ignore_sig menv cenv tenv (Tmod mn spec ds) [(mn,tenv')] cenv' emp)`;
 
 
 val _ = Hol_reln `

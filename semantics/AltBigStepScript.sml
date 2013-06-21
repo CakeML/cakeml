@@ -451,6 +451,42 @@ evaluate_decs' mn menv cenv s1 env (d ::ds) (s3, combine_dec_result new_tds new_
 
 val _ = Hol_reln `
 
+(! menv cenv s1 s2 env d new_tds new_env.
+(
+evaluate_dec' NONE menv cenv s1 env d (s2, Rval (new_tds, new_env)))
+==>
+evaluate_top' menv cenv s1 env (Tdec d) (s2, Rval (emp, new_tds, new_env)))
+
+/\
+
+(! menv cenv s1 s2 env d err.
+(
+evaluate_dec' NONE menv cenv s1 env d (s2, Rerr err))
+==>
+evaluate_top' menv cenv s1 env (Tdec d) (s2, Rerr err))
+
+/\
+
+(! menv cenv s1 s2 env ds mn specs new_tds new_env. ( ~  ( MEM mn ( MAP FST menv)) /\
+evaluate_decs' (SOME mn) menv cenv s1 env ds (s2, Rval (new_tds, new_env)))
+==>
+evaluate_top' menv cenv s1 env (Tmod mn specs ds) (s2, Rval ([(mn,new_env)], new_tds, emp)))
+
+/\
+
+(! menv cenv s1 s2 env ds mn specs err. ( ~  ( MEM mn ( MAP FST menv)) /\
+evaluate_decs' (SOME mn) menv cenv s1 env ds (s2, Rerr err))
+==>
+evaluate_top' menv cenv s1 env (Tmod mn specs ds) (s2, Rerr err))
+
+/\
+
+(! menv cenv s env mn specs ds. ( MEM mn ( MAP FST menv))
+==>
+evaluate_top' menv cenv s env (Tmod mn specs ds) (s, Rerr Rtype_error))`;
+
+val _ = Hol_reln `
+
 (! menv cenv s env.
 T
 ==>
@@ -458,40 +494,19 @@ evaluate_prog' menv cenv s env [] (s, Rval (emp, emp, emp)))
 
 /\
 
-(! menv cenv s1 s2 s3 env d ds new_tds new_env r.
+(! menv cenv s1 s2 s3 env top tops new_mods new_tds new_env r.
 (
-evaluate_dec' NONE menv cenv s1 env d (s2, Rval (new_tds,new_env)) /\
-evaluate_prog' menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, r))
+evaluate_top' menv cenv s1 env top (s2, Rval (new_mods,new_tds,new_env)) /\
+evaluate_prog' (merge new_mods menv) (merge new_tds cenv) s2 (merge new_env env) tops (s3, r))
 ==>
-evaluate_prog' menv cenv s1 env (Tdec d ::ds) (s3, combine_mod_result emp new_tds new_env r))
+evaluate_prog' menv cenv s1 env (top ::tops) (s3, combine_mod_result new_mods new_tds new_env r))
 
 /\
 
-(! menv cenv s1 s2 env d ds e.
+(! menv cenv s1 s2 env top tops err.
 (
-evaluate_dec' NONE menv cenv s1 env d (s2, Rerr e))
+evaluate_top' menv cenv s1 env top (s2, Rerr err))
 ==>
-evaluate_prog' menv cenv s1 env (Tdec d ::ds) (s2, Rerr e))
-
-/\
-
-(! menv cenv s1 s2 s3 env ds1 ds2 mn specs new_tds new_env r. ( ~  ( MEM mn ( MAP FST menv)) /\
-evaluate_decs' (SOME mn) menv cenv s1 env ds1 (s2, Rval (new_tds,new_env)) /\
-evaluate_prog' (bind mn new_env menv) (merge new_tds cenv) s2 env ds2 (s3, r))
-==>
-evaluate_prog' menv cenv s1 env (Tmod mn specs ds1 ::ds2) (s3, combine_mod_result [(mn,new_env)] new_tds emp r))
-
-/\
-
-(! menv cenv s1 s2 env mn specs ds1 ds2 e. ( ~  ( MEM mn ( MAP FST menv)) /\
-evaluate_decs' (SOME mn) menv cenv s1 env ds1 (s2, Rerr e))
-==>
-evaluate_prog' menv cenv s1 env (Tmod mn specs ds1 ::ds2) (s2, Rerr e))
-
-/\
-
-(! menv cenv s env mn specs ds1 ds2. ( MEM mn ( MAP FST menv))
-==>
-evaluate_prog' menv cenv s env (Tmod mn specs ds1 ::ds2) (s, Rerr Rtype_error))`;
+evaluate_prog' menv cenv s1 env (top ::tops) (s2, Rerr err))`;
 val _ = export_theory()
 

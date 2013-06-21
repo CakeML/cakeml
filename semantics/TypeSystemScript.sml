@@ -636,6 +636,22 @@ check_signature mn cenv tenv (SOME specs) cenv' tenv')`;
 
 val _ = Hol_reln `
 
+(! menv cenv tenv d cenv' tenv'.
+(
+type_d NONE menv cenv tenv d cenv' tenv')
+==>
+type_top menv cenv tenv (Tdec d) emp cenv' tenv')
+
+/\
+
+(! menv cenv tenv mn spec ds cenv' tenv' cenv'' tenv''. ( ~  ( MEM mn ( MAP FST menv)) /\
+type_ds (SOME mn) menv cenv tenv ds cenv' tenv' /\
+check_signature (SOME mn) cenv' tenv' spec cenv'' tenv'')
+==>
+type_top menv cenv tenv (Tmod mn spec ds) [(mn,tenv'')] cenv'' emp)`;
+
+val _ = Hol_reln `
+
 (! menv cenv tenv.
 T
 ==>
@@ -643,21 +659,12 @@ type_prog menv cenv tenv [] emp emp emp)
 
 /\
 
-(! menv cenv tenv d ds cenv' tenv' menv'' cenv'' tenv''.
+(! menv cenv tenv top tops menv' cenv' tenv' menv'' cenv'' tenv''.
 (
-type_d NONE menv cenv tenv d cenv' tenv' /\
-type_prog menv (merge cenv' cenv) (bind_var_list2 tenv' tenv) ds menv'' cenv'' tenv'')
+type_top menv cenv tenv top menv' cenv' tenv' /\
+type_prog (merge menv' menv) (merge cenv' cenv) (bind_var_list2 tenv' tenv) tops menv'' cenv'' tenv'')
 ==>
-type_prog menv cenv tenv (Tdec d :: ds) menv'' (merge cenv'' cenv') (merge tenv'' tenv'))
-
-/\
-
-(! menv cenv tenv mn spec ds1 ds2 cenv' menv'' tenv' cenv'' tenv'' cenv''' tenv'''. ( ~  ( MEM mn ( MAP FST menv)) /\
-type_ds (SOME mn) menv cenv tenv ds1 cenv' tenv' /\
-check_signature (SOME mn) cenv' tenv' spec cenv'' tenv'' /\
-type_prog (bind mn tenv'' menv) (merge cenv'' cenv) tenv ds2 menv'' cenv''' tenv''')
-==>
-type_prog menv cenv tenv (Tmod mn spec ds1 :: ds2) (merge menv'' [(mn,tenv'')]) (merge cenv''' cenv'') tenv''')`;
+type_prog menv cenv tenv (top :: tops) (merge menv'' menv') (merge cenv'' cenv') (merge tenv'' tenv'))`;
 
 (*val init_tenv : tenvE*)
 val _ = Define `

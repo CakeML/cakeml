@@ -1746,7 +1746,7 @@ val generalise_subst_empty = Q.prove (
   (generalise_list 0 0 FEMPTY ts = (tvs, s, ts'))
   ⇒
   (FDOM s = { uv | uv ∈ BIGUNION (set (MAP free_uvars ts)) }) ∧
-  (!uv. uv ∈ FDOM s DIFF FDOM FEMPTY ⇒ ∃tv. (FAPPLY s uv = tv) ∧ tv < tvs) ∧
+  (!uv. uv ∈ FDOM s ⇒ ∃tv. (FAPPLY s uv = tv) ∧ tv < tvs) ∧
   (BIGUNION (set (MAP free_uvars ts')) = {}) ∧
   (ts' = MAP (infer_subst s) ts)`,
 rw [] >>
@@ -2372,6 +2372,7 @@ metis_tac [convert_env2_def]);
 
 val generalise_complete = Q.prove (
 `!s l tvs s' ts tvs next_uvar.
+  t_wfs s ∧
   EVERY (\t. check_t 0 (count next_uvar) t) l ∧
   (generalise_list 0 0 FEMPTY (MAP (t_walkstar s) l) = (tvs,s',ts))
   ⇒
@@ -2381,17 +2382,34 @@ val generalise_complete = Q.prove (
     sub_completion tvs next_uvar s ec1 last_sub`,
 cheat);
 
-(*
+    (*
 rw [] >>
 imp_res_tac generalise_subst_empty >>
 rw [sub_completion_def] >>
+Q.ABBREV_TAC `unconstrained = (t_rangevars s ∪ count next_uvar) DIFF (FDOM s ∪ FDOM s')` >>
 `?ts. s' = FEMPTY |++ ts` by metis_tac [fmap_to_list] >>
 rw [] >>
-
-qexists_tac `MAP (\(uv,tv). (Infer_Tuvar uv, Infer_Tvar_db tv)) ts` >>
-qexists_tac `s |++ (MAP (\(uv,tv). (uv, Infer_Tvar_db tv)) ts)` >>
+`FINITE unconstrained` by metis_tac [FINITE_COUNT, FINITE_DIFF] >>
+`?ts2. (FUN_FMAP (\x. Infer_Tapp [] TC_unit) unconstrained) = FEMPTY |++ ts2` by metis_tac [fmap_to_list] >>
+qexists_tac `(MAP (\(uv,tv). (Infer_Tuvar uv, Infer_Tvar_db tv)) ts) ++ 
+             (MAP (\(uv,t). (Infer_Tuvar uv, t)) ts2)` >>
+qexists_tac `s |++ (MAP (\(uv,tv). (uv, Infer_Tvar_db tv)) ts) |++ ts2` >>
 rw [] >|
-*)
+[all_tac,
+ all_tac,
+ all_tac,
+ all_tac,
+ all_tac]
+
+ fs [t_wfs_eqn] >>
+     `t_vR s = t_vR (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts |++ ts2)`
+             by (rw [t_vR_eqn, FUN_EQ_THM] >>
+                 cases_on `x' ∈ unconstrained` >>
+                 Q.UNABBREV_TAC `unconstrained` >>
+                 rw [] >>
+                 fs [FDOM_FUPDATE_LIST] >>
+                 all_tac)
+                 *)
 
 val infer_d_sound = Q.prove (
 `!mn menv cenv env d st1 st2 cenv' env' tenv.
@@ -2428,7 +2446,11 @@ fs [emp_def] >|
      fs [] >>
      imp_res_tac infer_p_check_t >>
      fs [every_shim] >>
-     imp_res_tac generalise_complete >>
+     `t_wfs s` by metis_tac [t_unify_wfs, infer_p_wfs] >>
+     `?last_sub ec1. sub_completion tvs st''''.next_uvar s ec1 last_sub ∧
+                     t_wfs last_sub ∧
+                     (ts = MAP (t_walkstar last_sub) (MAP SND env''))`
+                          by metis_tac [generalise_complete] >>
      `num_tvs tenv' = tvs` 
                   by (Q.UNABBREV_TAC `tenv'` >>
                       fs [bind_tvar_def] >> 
@@ -2506,7 +2528,11 @@ fs [emp_def] >|
                      imp_res_tac infer_e_next_uvar_mono >>
                      fs [] >>
                      decide_tac) >>
-     imp_res_tac generalise_complete >>
+     `t_wfs st'''''.subst` by metis_tac [pure_add_constraints_wfs, infer_e_wfs, stupid_record_thing] >>
+     `?last_sub ec1. sub_completion tvs st''''.next_uvar st'''''.subst ec1 last_sub ∧
+                     t_wfs last_sub ∧
+                     (ts = MAP (t_walkstar last_sub) (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH l))))`
+                          by metis_tac [generalise_complete] >>
      imp_res_tac sub_completion_add_constraints >>
      rw [] >>
      `(init_infer_state:(num |-> infer_t) infer_st).subst = FEMPTY` by fs [init_infer_state_def] >>
@@ -2597,6 +2623,7 @@ fs [emp_def] >|
      fs [] >>
      imp_res_tac infer_p_check_t >>
      fs [every_shim] >>
+     cheat >>
      imp_res_tac generalise_complete >>
      rw [ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF, EVERY_MAP] >>
      fs [EVERY_MAP] >>
@@ -2620,6 +2647,7 @@ fs [emp_def] >|
                      decide_tac) >>
      `st'''.next_uvar = 0` by (fs [init_state_def, init_infer_state_def] >> rw []) >>
      fs [] >>
+     cheat >>
      imp_res_tac generalise_complete >>
      rw [] >>
      fs [sub_completion_def] >>
@@ -2652,5 +2680,27 @@ rw [infer_ds_def, success_eqns] >|
      res_tac >>
      fs [convert_env2_def, merge_def, bvl2_append] >>
      metis_tac []]);
+
+val infer_top_sound = Q.store_thm ("infer_top_sound",
+`!menv cenv env top st1 menv' cenv' env' st2.
+  (infer_top menv cenv env top st1 = (Success (menv', cenv', env'), st2)) ∧
+  check_menv menv ∧
+  check_cenv cenv ∧
+  check_env {} env
+  ⇒
+  type_top (convert_menv menv) cenv (bind_var_list2 (convert_env2 env) Empty) top (convert_menv menv') cenv' (convert_env2 env')`,
+cheat);
+
+val infer_top_invariant = Q.store_thm ("infer_top_invariant",
+`!menv cenv env top st1 menv' cenv' env' st2.
+  (infer_top menv cenv env top st1 = (Success (menv', cenv', env'), st2)) ∧
+  check_menv menv ∧
+  check_cenv cenv ∧
+  check_env {} env
+  ⇒
+  check_menv menv' ∧
+  check_cenv cenv' ∧
+  check_env {} env'`,
+cheat);
 
 val _ = export_theory ();

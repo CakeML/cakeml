@@ -140,6 +140,31 @@ val eval_decs'_to_eval_decs_thm = Q.store_thm ("eval_decs'_to_eval_decs_thm",
   evaluate_decs mn menv cenv st env ds r`,
 metis_tac [eval_decs'_to_eval_decs, decs_type_soundness, untyped_safety_decs, decs_determ, PAIR_EQ]);
 
+val eval_top'_to_eval_top = Q.prove (
+`!menv (cenv : envC) st env top r.
+  evaluate_top' menv cenv st env top r ⇒
+  (!st'. ¬evaluate_top menv cenv st env top (st', Rerr Rtype_error)) ⇒
+  evaluate_top menv cenv st env top r`,
+rw [evaluate_top_cases, evaluate_top'_cases] >>
+metis_tac [eval_dec'_to_eval_dec, eval_decs'_to_eval_decs, result_case_def, result_nchotomy,
+           result_distinct, result_11, pair_case_def, PAIR_EQ, pair_CASES]);
+
+           (*
+val eval_top'_to_eval_top_thm = Q.store_thm ("eval_top'_to_eval_top_thm",
+`!menv (cenv : envC) st env top r tenvM tenvC tenvS tenv tenvM' tenvC' tenv'.
+  tenvM_ok tenvM ∧ 
+  tenvC_ok tenvC ∧
+  (num_tvs tenv = 0) ∧
+  consistent_mod_env tenvS tenvC menv tenvM ∧
+  consistent_con_env cenv tenvC ∧
+  type_env tenvM tenvC tenvS env tenv ∧ 
+  type_s tenvM tenvC tenvS st ∧
+  type_top tenvM tenvC tenv top tenvM' tenvC' tenv' ∧
+  evaluate_top' menv cenv st env top r ⇒
+  evaluate_top menv cenv st env top r`,
+metis_tac [eval_top'_to_eval_top, top_type_soundness, untyped_safety_top, top_determ, PAIR_EQ]);
+*)
+
 val eval_prog'_to_eval_prog = Q.prove (
 `!menv (cenv : envC) st env prog r.
   evaluate_prog' menv cenv st env prog r ⇒
@@ -150,8 +175,22 @@ rw [] >>
 rw [Once evaluate_prog_cases] >>
 pop_assum (MP_TAC o SIMP_RULE (srw_ss()) [Once evaluate_prog_cases]) >>
 rw [combine_mod_result_def] >>
-metis_tac [eval_dec'_to_eval_dec, eval_decs'_to_eval_decs, result_case_def, result_nchotomy,
+metis_tac [eval_top'_to_eval_top, result_case_def, result_nchotomy,
            result_distinct, result_11, pair_case_def, PAIR_EQ, pair_CASES]);
+(*
+val eval_prog'_to_eval_prog = Q.prove (
+`!menv (cenv : envC) st env prog r.
+  evaluate_prog' menv cenv st env prog r ⇒
+  (!st'. ¬evaluate_prog menv cenv st env prog (st', Rerr Rtype_error)) ⇒
+  evaluate_prog menv cenv st env prog r`,
+ho_match_mp_tac evaluate_prog'_ind >>
+rw [] >>
+rw [Once evaluate_prog_cases] >>
+pop_assum (MP_TAC o SIMP_RULE (srw_ss()) [Once evaluate_prog_cases]) >>
+rw [combine_mod_result_def] >>
+metis_tac [eval_top'_to_eval_top, result_case_def, result_nchotomy,
+           result_distinct, result_11, pair_case_def, PAIR_EQ, pair_CASES]);
+
 
 val eval_prog'_to_eval_prog_thm = Q.store_thm ("eval_prog'_to_eval_prog_thm",
 `!menv (cenv : envC) st env prog r tenvM tenvC tenvS tenv tenvM' tenvC' tenv'.
@@ -166,5 +205,6 @@ val eval_prog'_to_eval_prog_thm = Q.store_thm ("eval_prog'_to_eval_prog_thm",
   evaluate_prog' menv cenv st env prog r ⇒
   evaluate_prog menv cenv st env prog r`,
 metis_tac [eval_prog'_to_eval_prog, prog_type_soundness, untyped_safety_prog, prog_determ, PAIR_EQ]);
+*)
 
 val _ = export_theory ();

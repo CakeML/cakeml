@@ -576,6 +576,22 @@ check_signature mn cenv tenv (Some specs) cenv' tenv'
 
 indreln
 
+forall menv cenv tenv d cenv' tenv'.
+type_d None menv cenv tenv d cenv' tenv'
+==>
+type_top menv cenv tenv (Tdec d) emp cenv' tenv'
+
+and
+
+forall menv cenv tenv mn spec ds cenv' tenv' cenv'' tenv''.
+not (List.mem mn (List.map fst menv)) &&
+type_ds (Some mn) menv cenv tenv ds cenv' tenv' &&
+check_signature (Some mn) cenv' tenv' spec cenv'' tenv''
+==>
+type_top menv cenv tenv (Tmod mn spec ds) [(mn,tenv'')] cenv'' emp
+
+indreln
+
 forall menv cenv tenv.
 true
 ==>
@@ -583,21 +599,11 @@ type_prog menv cenv tenv [] emp emp emp
 
 and
 
-forall menv cenv tenv d ds cenv' tenv' menv'' cenv'' tenv''.
-type_d None menv cenv tenv d cenv' tenv' &&
-type_prog menv (merge cenv' cenv) (bind_var_list2 tenv' tenv) ds menv'' cenv'' tenv''
+forall menv cenv tenv top tops menv' cenv' tenv' menv'' cenv'' tenv''.
+type_top menv cenv tenv top menv' cenv' tenv' &&
+type_prog (merge menv' menv) (merge cenv' cenv) (bind_var_list2 tenv' tenv) tops menv'' cenv'' tenv''
 ==>
-type_prog menv cenv tenv (Tdec d :: ds) menv'' (merge cenv'' cenv') (merge tenv'' tenv')
-
-and
-
-forall menv cenv tenv mn spec ds1 ds2 cenv' menv'' tenv' cenv'' tenv'' cenv''' tenv'''.
-not (List.mem mn (List.map fst menv)) &&
-type_ds (Some mn) menv cenv tenv ds1 cenv' tenv' &&
-check_signature (Some mn) cenv' tenv' spec cenv'' tenv'' &&
-type_prog (bind mn tenv'' menv) (merge cenv'' cenv) tenv ds2 menv'' cenv''' tenv'''
-==>
-type_prog menv cenv tenv (Tmod mn spec ds1 :: ds2) (merge menv'' [(mn,tenv'')]) (merge cenv''' cenv'') tenv'''
+type_prog menv cenv tenv (top :: tops) (merge menv'' menv') (merge cenv'' cenv') (merge tenv'' tenv')
 
 val init_tenv : tenvE
 let init_tenv =

@@ -52,12 +52,26 @@ val invariant_def = Define`
     ∧ check_menv (FST rfs.rinferencer_state)
     ∧ check_cenv (FST (SND rfs.rinferencer_state))
     ∧ check_env {} (SND (SND rfs.rinferencer_state))
-    (* ∧ rfs.tenvE *)
-    ∧ (FST (SND rfs.rinferencer_state)) = rs.tenvC
-    (* ∧ rfs.tenvM *)
+    ∧ (rs.tenvM = convert_menv (FST rfs.rinferencer_state))
+    ∧ (rs.tenvC = FST (SND rfs.rinferencer_state))
+    ∧ (rs.tenv = (bind_var_list2 (convert_env2 (SND (SND rfs.rinferencer_state))) Empty))
 
     ∧ ∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs
     (* ∧ rfs.top = ??? *)`
+
+val infer_to_type = Q.prove (
+`!rs st bs menv cenv env top new_menv new_cenv new_env st2.
+  invariant rs st bs ∧
+  (infer_top menv cenv env top init_infer_state =
+      (Success (new_menv,new_cenv,new_env),st2)) ∧
+  (st.rinferencer_state = (menv,cenv,env))
+  ⇒
+  type_top rs.tenvM rs.tenvC rs.tenv top
+           (convert_menv new_menv) new_cenv (convert_env2 new_env)`,
+rw [invariant_def] >>
+fs [] >>
+rw [] >>
+metis_tac [infer_top_sound]);
 
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
@@ -89,13 +103,12 @@ rw [] >>
 rw[parse_elaborate_infertype_compile_def,parser_correct] >>
 qmatch_assum_rename_tac`elaborate_top st.relaborator_state top0 = (new_elab_state, top)`[] >>
 qmatch_assum_rename_tac`invariant rs st bs`[] >>
-
 rw [] >>
-  rw [Once ast_repl_cases, parse_elaborate_infertype_compile_def, parser_correct,
-      get_type_error_mask_def] >>
-`?error_msg new_repl_run_infer_state.
+rw [Once ast_repl_cases, parse_elaborate_infertype_compile_def, parser_correct,
+    get_type_error_mask_def] >>
+`?error_msg next_repl_run_infer_state.
   infertype_top st.rinferencer_state top = Failure error_msg ∨ 
-  infertype_top st.rinferencer_state top = Success new_repl_run_infer_state`
+  infertype_top st.rinferencer_state top = Success next_repl_run_infer_state`
          by (cases_on `infertype_top st.rinferencer_state top` >>
              metis_tac []) >>
 rw [get_type_error_mask_def] >-
@@ -107,6 +120,27 @@ rw [get_type_error_mask_def] >-
              Cases_on`r` >>
              metis_tac []) >>
 rw [] >>
+`?infer_menv infer_cenv infer_env. 
+  st.rinferencer_state = (infer_menv,infer_cenv,infer_env)`
+            by metis_tac [pair_CASES] >>
+fs [infertype_top_def] >>
+rw [] >>
+`?res infer_st2. infer_top infer_menv infer_cenv infer_env top init_infer_state = (res,infer_st2)`
+        by metis_tac [pair_CASES] >>
+fs [] >>
+cases_on `res` >>
+rw [] >>
+fs [] >>
+`∃new_infer_menv new_infer_cenv new_infer_env.  a = (new_infer_menv,new_infer_cenv,new_infer_env)`
+        by metis_tac [pair_CASES] >>
+fs [] >>
+rw [] >>
+imp_res_tac infer_to_type >>
+
+
+
+
+fs [invariant_def]
 
 cases_on `bc_eval (install_code code bs)` >>
 rw [get_type_error_mask_def] >>
