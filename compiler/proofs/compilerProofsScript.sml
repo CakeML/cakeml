@@ -327,7 +327,7 @@ val env_renv_append_code = store_thm("env_renv_append_code",
   rw[] >> metis_tac[bc_find_loc_aux_append_code])
 
 val compile_fake_exp_val = store_thm("compile_fake_exp_val",
-  ``∀rs vars expf menv tup cenv s env exp s' beh rss rsf bc rd vv0 vv1 bc0 bs.
+  ``∀rs vars expf menv tup cenv s env exp s' beh bdgs nl bc rd vv0 vv1 bc0 bs.
       evaluate T menv ((Short "",tup)::cenv) s env exp (s', beh) ∧
       FV exp ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
       closed_under_menv menv env (SND s) ∧
@@ -336,7 +336,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       (∀v. v ∈ env_range env ∨ MEM v (SND s) ⇒ all_locs v ⊆ count (LENGTH (SND s))) ∧
       env_rs menv cenv env rs rd s (bs with code := bc0) ∧
       ALL_DISTINCT vars ∧
-      (compile_fake_exp rs vars expf = (rss,rsf,bc ++ [Stop])) ∧
+      (compile_fake_exp rs vars expf = (rs.contab,bdgs,nl,bc ++ [Stop])) ∧
       (exp = expf (Con (Short "") (MAP (Var o Short) vars))) ∧
       (bs.code = bc0 ++ bc ++ [Stop]) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
@@ -348,14 +348,16 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
         ∃st rf rd' ck.
         let env' = ZIP(vars,vs) ++ env in
         let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := (Number i0)::st; refs := rf; clock := ck|> in
+        let rs' = rs with <| renv := bdgs ++ rs.renv; rsz := rs.rsz + LENGTH bdgs; rnext_label := nl |> in
         bc_next^* bs bs' ∧
-        env_rs menv cenv env' rss rd' s' (bs' with stack := st)) ∧
+        env_rs menv cenv env' rs' rd' s' (bs' with stack := st)) ∧
       (∀err. (beh = Rerr (Rraise err)) ⇒
         ∃bv rf rd' ck.
         let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := (Number i1)::bv::bs.stack; refs := rf; clock := ck|> in
+        let rs' = rs with rnext_label := nl in
         bc_next^* bs bs' ∧
         err_bv err bv ∧
-        env_rs menv cenv env rsf rd' s' (bs' with stack := bs.stack)) ∧
+        env_rs menv cenv env rs' rd' s' (bs' with stack := bs.stack)) ∧
       ((beh = Rerr Rtimeout_error) ⇒
         ∃bs'. bc_next^* bs bs' ∧ (bs'.clock = SOME 0) ∧ bc_fetch bs' = SOME Tick)``,
   rpt gen_tac >>
@@ -1004,10 +1006,11 @@ val ALL_DISTINCT_PERM_ALOOKUP_ZIP = store_thm("ALL_DISTINCT_PERM_ALOOKUP_ZIP",
 *)
 
 val number_constructors_thm = store_thm("number_constructors_thm",
-  ``∀cs ct. number_constructors cs ct = (FST ct |++ GENLIST (λi. (Short (FST (EL i cs)), (SND(SND ct))+i)) (LENGTH cs)
-                                        ,REVERSE (GENLIST (λi. ((SND(SND ct))+i,Short(FST(EL i cs)))) (LENGTH cs)) ++ (FST(SND ct))
-                                        ,(SND(SND ct)) + LENGTH cs)``,
-  Induct >- simp[number_constructors_def,FUPDATE_LIST_THM] >>
+  ``∀mn cs ct. number_constructors mn cs ct =
+    (FST ct |++ GENLIST (λi. (mk_id mn (FST (EL i cs)), (SND(SND ct))+i)) (LENGTH cs)
+    ,REVERSE (GENLIST (λi. ((SND(SND ct))+i,mk_id mn(FST(EL i cs)))) (LENGTH cs)) ++ (FST(SND ct))
+    ,(SND(SND ct)) + LENGTH cs)``,
+  gen_tac >> Induct >- simp[number_constructors_def,FUPDATE_LIST_THM] >>
   qx_gen_tac`p` >> PairCases_on`p` >>
   qx_gen_tac`q` >> PairCases_on`q` >>
   simp[number_constructors_def] >>
@@ -1019,15 +1022,15 @@ val number_constructors_thm = store_thm("number_constructors_thm",
   simp[LIST_EQ_REWRITE])
 
 val number_constructors_append = store_thm("number_constructors_append",
-  ``∀l1 l2 ct. number_constructors (l1 ++ l2) ct = number_constructors l2 (number_constructors l1 ct)``,
+  ``∀l1 l2 mn ct. number_constructors mn (l1 ++ l2) ct = number_constructors mn l2 (number_constructors mn l1 ct)``,
   Induct >> simp[number_constructors_def] >>
   qx_gen_tac`p` >> PairCases_on`p` >>
-  gen_tac >> qx_gen_tac`q` >> PairCases_on`q` >>
+  ntac 2 gen_tac >> qx_gen_tac`q` >> PairCases_on`q` >>
   simp[number_constructors_def])
 
 val FOLDL_number_constructors_thm = store_thm("FOLDL_number_constructors_thm",
-  ``∀tds ct. FOLDL (λct p. case p of (x,y,cs) => number_constructors cs ct) ct tds =
-    number_constructors (FLAT (MAP (SND o SND) tds)) ct``,
+  ``∀tds mn ct. FOLDL (λct p. case p of (x,y,cs) => number_constructors mn cs ct) ct tds =
+    number_constructors mn (FLAT (MAP (SND o SND) tds)) ct``,
   Induct >- (simp[number_constructors_thm,FUPDATE_LIST_THM]) >>
   simp[] >>
   qx_gen_tac`p` >> PairCases_on`p` >>
@@ -1106,9 +1109,10 @@ val v_to_Cv_SUBMAP = store_thm("v_to_Cv_SUBMAP",
   rw[] >> AP_TERM_TAC >>
   simp[exp_to_Cexp_SUBMAP])
 
+(*
 val compile_dec_val = store_thm("compile_dec_val",
   ``∀mn menv cenv s env dec res. evaluate_dec mn menv cenv s env dec res ⇒
-     ∃ck. ∀rs rss rsf rd bc bs bc0.
+     ∃ck. ∀rs ct bdgs nl rd bc bs bc0.
       (mn = NONE) ∧
       EVERY (closed menv) s ∧
       EVERY (closed menv) (MAP SND env) ∧
@@ -1121,7 +1125,7 @@ val compile_dec_val = store_thm("compile_dec_val",
       dec_cns dec ⊆ set (MAP FST cenv) ∧
       (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
       env_rs menv cenv env rs rd (ck,s) (bs with code := bc0) ∧
-      (compile_dec rs dec = (rss,rsf,bc ++ [Stop])) ∧
+      (compile_dec rs dec = (ct,bdgs,nl,bc ++ [Stop])) ∧
       (bs.code = bc0 ++ bc ++ [Stop]) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       IS_SOME bs.clock ∧
@@ -1767,5 +1771,6 @@ val compile_dec_val = store_thm("compile_dec_val",
       fs[] >> metis_tac[EL_MAP] ) >>
     metis_tac[] ) >>
   strip_tac >- rw[])
+*)
 
 val _ = export_theory()
