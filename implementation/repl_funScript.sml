@@ -86,10 +86,6 @@ val update_state_def = Define`
           ; top               := t
           |>`
 
-val compile_top_def = Define `
-  (compile_top cs (Tmod _ _ _) = (cs,cs,[])) /\ (* fix! *)
-  (compile_top cs (Tdec dec) = compile_dec cs dec)`;
-
 val parse_elaborate_infertype_compile_def = Define `
   parse_elaborate_infertype_compile tokens s =
     case parse_top tokens of

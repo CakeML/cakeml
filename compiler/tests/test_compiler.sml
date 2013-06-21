@@ -116,6 +116,9 @@ Dtype
     [("Cons",[Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]); ("Nil",[])])]
 ``
 val e22 = ``Con (Short "Cons") [Lit (Bool T); Con (Short "Nil") []]``
+
+val (bs,rs) = run_decs inits [listd]
+
 val (m,[Block (t1,[v,Block (t2,[])])]) = mst_run_decs_exp ([listd],e22)
 val true = valOf(numML.toInt t1) > 2;
 val true = valOf(numML.toInt t2) > valOf(numML.toInt t1);

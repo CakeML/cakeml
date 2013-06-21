@@ -66,10 +66,10 @@ val _ = Define `
 
  val number_constructors_defn = Hol_defn "number_constructors" `
 
-(number_constructors [] ct = ct)
+(number_constructors _ [] ct = ct)
 /\
-(number_constructors ((c,_)::cs) (m,w,n) =  
-(number_constructors cs ( FUPDATE  m ( (Short c), n), ((n,Short c) ::w), (n +1))))`;
+(number_constructors mn ((c,_)::cs) (m,w,n) =  
+(number_constructors mn cs ( FUPDATE  m ( (mk_id mn c), n), ((n,mk_id mn c) ::w), (n +1))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn number_constructors_defn;
 
@@ -98,32 +98,45 @@ val _ = Define `
   let (cs,l2) = ( get_label cs) in
   let cs = ( emit cs [Stack Pop; Stack (PushInt i0); Jump (Lab l2)
                    ; Label l1; Stack (PushInt i1); Label l2; Stop]) in
-  let n = ( LENGTH vs) in
-  (( rs with<|
-      renv := ( GENLIST (\ i . ( EL  i  vs, (rs.rsz +i))) n) ++rs.renv
-    ; rsz := rs.rsz + n
-    ; rnext_label := cs.next_label |>)
-  ,( rs with<| rnext_label := cs.next_label |>)
-  , REVERSE cs.out)))`;
+  (rs.contab
+  , GENLIST (\ i . ( EL  i  vs, (rs.rsz +i))) ( LENGTH vs)
+  ,cs.next_label
+  , REVERSE cs.out
+  )))`;
 
 
  val compile_dec_def = Define `
 
-(compile_dec rs (Dtype ts) =  
-(let rs =    
-(( rs with<| contab := FOLDL
-         (\ct p . (case (ct ,p ) of ( ct , (_,_,cs) ) => number_constructors cs ct ))
-         rs.contab ts |>)) in
-  (rs,rs,[Stack (PushInt i0); Stop])))
+(compile_dec mn rs (Dtype ts) =  
+(let ct = ( FOLDL
+      (\ct p . (case (ct ,p ) of ( ct , (_,_,cs) ) => number_constructors mn cs ct ))
+      rs.contab ts) in
+  (ct,[],rs.rnext_label,[Stack (PushInt i0); Stop])))
 /\
-(compile_dec rs (Dletrec defs) =  
+(compile_dec _ rs (Dletrec defs) =  
 (let vs = ( MAP (\p . 
   (case (p ) of ( (n,_,_) ) => n )) defs) in
   compile_fake_exp rs vs (\ b . Letrec defs b)))
 /\
-(compile_dec rs (Dlet p e) =  
+(compile_dec _ rs (Dlet p e) =  
 (let vs = ( pat_bindings p []) in
   compile_fake_exp rs vs (\ b . Mat e [(p,b)])))`;
+
+
+ val compile_top_def = Define `
+
+(compile_top rs (Tmod mn _ decs) = (rs,rs,[])) (* TODO *)
+/\
+(compile_top rs (Tdec dec) =  
+(let (ct,env,nl,code) = ( compile_dec NONE rs dec) in
+  let n = ( LENGTH env) in
+  (( rs with<|
+      contab := ct
+    ; renv := env ++rs.renv
+    ; rsz := rs.rsz + n
+    ; rnext_label := nl |>)
+  ,( rs with<| rnext_label := nl |>)
+  ,code)))`;
 
 val _ = export_theory()
 

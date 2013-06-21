@@ -127,7 +127,7 @@ fun add_code c bs = bc_state_code_fupd
 
 fun run_decs (bs,rs) [] = (bs,rs)
   | run_decs (bs,rs) (d::ds) = let
-      val (rss,(rsf,c)) = compile_dec rs (term_to_dec d)
+      val (rss,(rsf,c)) = compile_top rs (Tdec (term_to_dec d))
       val bs = add_code c bs
       val SOME bs = bc_eval bs
       val rs = if List.hd (bc_state_stack bs) = Number i0 then rss else rsf
@@ -135,7 +135,7 @@ fun run_decs (bs,rs) [] = (bs,rs)
     in run_decs (bs,rs) ds end
 
 fun prep_exp (bs,rs) e = let
-  val (rss,(rsf,c)) = compile_dec rs (term_to_dec ``Dlet (Pvar "it") ^e``)
+  val (rss,(rsf,c)) = compile_top rs (Tdec (term_to_dec ``Dlet (Pvar "it") ^e``))
 in (add_code c bs,rss,rsf) end
 
 val inits = (init_bc_state, init_compiler_state)

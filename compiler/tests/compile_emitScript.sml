@@ -16,6 +16,8 @@ val _ = Parse.disable_tyabbrev_printing "ceenv"
 val _ = Parse.disable_tyabbrev_printing "alist"
 val _ = Parse.disable_tyabbrev_printing "def"
 val _ = Parse.disable_tyabbrev_printing "contab"
+val _ = Parse.disable_tyabbrev_printing "decs"
+val _ = Parse.disable_tyabbrev_printing "specs"
 val _ = Parse.hide "toList"
 val _ = Feedback.set_trace "Greek tyvars" 0 (* EmitML should do this *)
 
@@ -54,6 +56,8 @@ val data = map
   , AstTheory.datatype_tc0
   , AstTheory.datatype_t
   , AstTheory.datatype_dec
+  , AstTheory.datatype_spec
+  , AstTheory.datatype_top
   , datatype_Cprim1
   , datatype_Cprim2
   , datatype_Cpat
@@ -121,11 +125,13 @@ val defs = map EmitML.DEFN
 , underscore_rule remove_mat_var_def
 , underscore_rule exp_to_Cexp_def
 , compile_Cexp_def
+, AstTheory.mk_id_def
 , number_constructors_def
 , AstTheory.pat_bindings_def
 , compile_news_def
 , compile_fake_exp_def
 , compile_dec_def
+, compile_top_def
 , id_to_string_def
 , LibTheory.lookup_def
 , v_to_ov_def

@@ -233,7 +233,7 @@ val _ = register "all_labs" (
 
 val (number_constructors_def,number_constructors_ind) = register "number_constructors" (
   tprove_no_defn ((number_constructors_def,number_constructors_ind),
-  WF_REL_TAC `measure (LENGTH o FST)` >> rw[]))
+  WF_REL_TAC `measure (LENGTH o FST o SND)` >> rw[]))
 
 val (bv_to_ov_def,bv_to_ov_ind) = register "bv_to_ov" (
   tprove_no_defn ((bv_to_ov_def,bv_to_ov_ind),

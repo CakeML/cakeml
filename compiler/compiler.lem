@@ -42,10 +42,10 @@ let compile_Cexp rsz menv env nl Ce =
   (l, compile menv env TCNonTail (rsz+2) cs Ce)
 
 let rec
-number_constructors [] ct = ct
+number_constructors _ [] ct = ct
 and
-number_constructors ((c,_)::cs) (m,w,n) =
-  number_constructors cs (Pmap.add (Short c) n m, (n,Short c)::w, n+1)
+number_constructors mn ((c,_)::cs) (m,w,n) =
+  number_constructors mn cs (Pmap.add (mk_id mn c) n m, (n,mk_id mn c)::w, n+1)
 
 let rec
 compile_news cs i [] = cs
@@ -68,27 +68,38 @@ let compile_fake_exp rs vs e =
   let (cs,l2) = get_label cs in
   let cs = emit cs [Stack Pop; Stack (PushInt i0); Jump (Lab l2)
                    ; Label l1; Stack (PushInt i1); Label l2; Stop] in
-  let n = List.length vs in
-  (<| rs with
-      renv = (genlist (fun i -> (List.nth vs i, rs.rsz+i)) n)@rs.renv
-    ; rsz = rs.rsz + n
-    ; rnext_label = cs.next_label |>
-  ,<| rs with rnext_label = cs.next_label |>
-  ,List.rev cs.out)
+  (rs.contab
+  ,genlist (fun i -> (List.nth vs i, rs.rsz+i)) (List.length vs)
+  ,cs.next_label
+  ,List.rev cs.out
+  )
 
 let rec
-compile_dec rs (Dtype ts) =
-  let rs =
-    <| rs with contab =
-       List.fold_left
-         (fun ct (_,_,cs) -> number_constructors cs ct)
-         rs.contab ts |> in
-  (rs,rs,[Stack (PushInt i0); Stop])
+compile_dec mn rs (Dtype ts) =
+  let ct =
+    List.fold_left
+      (fun ct (_,_,cs) -> number_constructors mn cs ct)
+      rs.contab ts in
+  (ct,[],rs.rnext_label,[Stack (PushInt i0); Stop])
 and
-compile_dec rs (Dletrec defs) =
+compile_dec _ rs (Dletrec defs) =
   let vs = List.map (fun (n,_,_) -> n) defs in
   compile_fake_exp rs vs (fun b -> Letrec defs b)
 and
-compile_dec rs (Dlet p e) =
+compile_dec _ rs (Dlet p e) =
   let vs = pat_bindings p [] in
   compile_fake_exp rs vs (fun b -> Mat e [(p,b)])
+
+let rec
+compile_top rs (Tmod mn _ decs) = (rs,rs,[]) (* TODO *)
+and
+compile_top rs (Tdec dec) =
+  let (ct,env,nl,code) = compile_dec None rs dec in
+  let n = List.length env in
+  (<| rs with
+      contab = ct
+    ; renv = env@rs.renv
+    ; rsz = rs.rsz + n
+    ; rnext_label = nl |>
+  ,<| rs with rnext_label = nl |>
+  ,code)
