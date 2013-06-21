@@ -1,5 +1,5 @@
 open preamble boolSimps;
-open lexer_funTheory repl_funTheory replTheory lexer_implTheory mmlParseTheory BigStepTheory compilerProofsTheory;
+open lexer_funTheory repl_funTheory replTheory lexer_implTheory mmlParseTheory BigStepTheory ElabTheory compilerProofsTheory;
 
 val _ = new_theory "replCorrect";
 
@@ -101,28 +101,53 @@ rw [get_type_error_mask_def] >-
 rw [] >>
 cases_on `bc_eval (install_code code bc_state')` >>
 rw [get_type_error_mask_def] >- (
- (* Divergence *)
- cheat ) >>
+  (* Divergence *)
+  cheat ) >>
 
- disj1_tac >>
- rw[update_state_def] >>
+disj1_tac >>
+rw[update_state_def] >>
 
- qabbrev_tac`est = st.relaborator_state` >> PairCases_on`est` >>
- qabbrev_tac`elab_res = elab_top est0 est1 ast` >> PairCases_on`elab_res` >>
- fs[elaborate_top_def,LET_THM] >>
+qabbrev_tac`est = st.relaborator_state` >> PairCases_on`est` >>
+qabbrev_tac`elab_res = elab_top est0 est1 ast` >> PairCases_on`elab_res` >>
+fs[elaborate_top_def,LET_THM] >>
 
- Cases_on`top0` >- (
+Cases_on`top0` >- (
    (* Module *)
-   cheat ) >>
+  cheat ) >>
 
- simp[Once evaluate_prog_cases] >>
- fs[elaborate_top_def,LET_THM] >>
- cheat
+fs[elab_top_def,LET_THM] >>
+qabbrev_tac`p = elab_dec NONE est0 est1 a` >>
+PairCases_on`p` >> fs[] >>
+BasicProvers.VAR_EQ_TAC >>
+fs[compile_top_def] >>
+
+simp[Once evaluate_prog_cases] >>
+fs[elaborate_top_def,LET_THM] >>
+cheat
 
 )
 
+val good_compile_primitives = prove(
+  ``good_contab (FST compile_primitives).contab ∧
+    good_cmap [] (cmap (FST compile_primitives).contab) (* ∧ not true
+    {Short ""} = FDOM (cmap (FST compile_primitives).contab) *)
+    ``,
+  rw[compile_primitives_def] >>
+  rw[CompilerTheory.compile_dec_def] >>
+  rw[CompilerTheory.compile_fake_exp_def] >>
+  rw[good_contab_def,intLangExtraTheory.good_cmap_def] >>
+  rw[CompilerTheory.init_compiler_state_def,good_contab_def] >>
+  rw[IntLangTheory.tuple_cn_def,IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def] >>
+  rw[toIntLangProofsTheory.cmap_linv_def,FAPPLY_FUPDATE_THM])
+
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
+  rw[invariant_def,initial_repl_fun_state_def,initial_elaborator_state_def,init_repl_state_def] >>
+
+  (* env_rs proof: *)
+  simp[env_rs_def,good_compile_primitives] >>
+  EVAL``FDOM (cmap (FST compile_primitives).contab)``
+
   cheat)
 
 val replCorrect = Q.store_thm ("replCorrect",
