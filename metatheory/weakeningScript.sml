@@ -724,7 +724,6 @@ val type_top_ignore_sig_weakening = Q.store_thm ("type_top_ignore_sig_weakening"
     weakM tenvM'' tenvM ∧ 
     weakC tenvC'' tenvC ∧
     weakC_mods tenvC'' tenvC ⊆ set (MAP SOME (MAP FST tenvM)) ∧
-    (num_tvs tenv = 0) ∧
     (MAP FST tenvM = MAP FST tenvM'') ∧
     (tenvC_ok tenvC'') ∧
     (tenvC_ok tenvC)
@@ -806,23 +805,34 @@ val type_top_type_top_ignore_sig = Q.store_thm ("type_top_type_top_ignore_sig",
   tenvC_ok tenvC ∧
   (num_tvs tenv = 0) ∧
   tenvM_ok tenvM ⇒
-  ?tenvM'' tenvC'' tenv''. type_top_ignore_sig tenvM tenvC tenv top tenvM'' tenvC'' tenv''`,
+  ?tenvM'' tenvC'' tenv''. 
+    type_top_ignore_sig tenvM tenvC tenv top tenvM'' tenvC'' tenv'' ∧
+    tenvC_ok tenvC'' ∧
+    tenvM_ok tenvM'' ∧
+    (MAP FST tenvM'' = MAP FST tenvM') ∧
+    weakM tenvM'' tenvM' ∧
+    weakC tenvC'' tenvC'`,
 rw [type_top_ignore_sig_cases, type_top_cases] >>
-metis_tac []);
-
-(*
 imp_res_tac type_ds_tenvC_ok >>
-imp_res_tac type_d_tenvC_ok >>
+imp_res_tac type_d_tenvC_ok >|
+[rw [tenvM_ok_def, weakM_def, emp_def] >>
+     metis_tac [weakC_refl],
  fs [check_signature_cases] >>
-     `tenv_ok (bind_var_list2 emp Empty)` by rw [emp_def, bind_var_list2_def, tenv_ok_def] >>
      `tenv_ok (bind_var_list2 tenv'' Empty)` by metis_tac [type_ds_tenv_ok, type_specs_tenv_ok] >>
-     `tenvM_ok (bind mn tenv'' tenvM)` 
-                by (fs [tenvM_ok_def, bind_def] >>
+     `tenvM_ok [(mn,tenv'')]` 
+                by (fs [tenvM_ok_def] >>
                     metis_tac []) >-
-     metis_tac [] >>
+     prove_tac [MAP, FST, weakC_refl, weakM_refl, bind_def] >>
      fs [] >>
      rw [] >>
+     qexists_tac `[(mn,tenv'')]` >>
+     qexists_tac `cenv'` >>
      rw [] >>
+     `tenvM_ok ([]:tenvM)` by rw [tenvM_ok_def] >>
+     metis_tac [bind_def, weakM_bind3]]);
+
+     (*
+     `tenv_ok (bind_var_list2 emp Empty)` by rw [emp_def, bind_var_list2_def, tenv_ok_def] >>
      `MAP FST (bind mn tenv'' tenvM) = MAP FST (bind mn tenv' tenvM)` by rw [bind_def] >>
      `disjoint_env cenv' tenvC` by metis_tac [type_ds_tenvC_ok] >>
      `tenvC_ok (emp:tenvC)` by rw [emp_def, tenvC_ok_def] >>

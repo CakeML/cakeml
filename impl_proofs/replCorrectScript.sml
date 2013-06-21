@@ -1,6 +1,7 @@
 open preamble boolSimps;
 open lexer_funTheory repl_funTheory replTheory
 open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compilerProofsTheory;
+open typeSoundTheory weakeningTheory;
 
 val _ = new_theory "replCorrect";
 
@@ -49,12 +50,27 @@ val invariant_def = Define`
   invariant rs rfs bs ⇔
     rfs.relaborator_state = (rs.type_bindings, rs.ctors)
 
+    (* The type inferencer *)
     ∧ check_menv (FST rfs.rinferencer_state)
     ∧ check_cenv (FST (SND rfs.rinferencer_state))
     ∧ check_env {} (SND (SND rfs.rinferencer_state))
     ∧ (rs.tenvM = convert_menv (FST rfs.rinferencer_state))
     ∧ (rs.tenvC = FST (SND rfs.rinferencer_state))
     ∧ (rs.tenv = (bind_var_list2 (convert_env2 (SND (SND rfs.rinferencer_state))) Empty))
+
+    (* For using the type soundess theorem *)
+    ∧ (?tenvS tenvM tenvC. 
+         tenvM_ok tenvM ∧ 
+         tenvC_ok tenvC ∧
+         tenvC_ok rs.tenvC ∧
+         weakC_mods tenvC rs.tenvC ⊆ set (MAP SOME (MAP FST tenvM)) ∧
+         (MAP FST tenvM = MAP FST rs.tenvM) ∧
+         consistent_mod_env tenvS tenvC rs.envM tenvM ∧
+         consistent_con_env rs.envC tenvC ∧
+         type_env tenvM tenvC tenvS rs.envE rs.tenv ∧
+         type_s tenvM tenvC tenvS rs.store ∧
+         weakM tenvM rs.tenvM ∧
+         weakC tenvC rs.tenvC)
 
     ∧ ∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs
     (* ∧ rfs.top = ??? *)`
@@ -72,6 +88,35 @@ rw [invariant_def] >>
 fs [] >>
 rw [] >>
 metis_tac [infer_top_sound]);
+
+val type_to_eval = Q.prove (
+`!rs st bs top tenvM tenvC tenv.
+  invariant rs st bs ∧
+  type_top rs.tenvM rs.tenvC rs.tenv top tenvM tenvC tenv ∧
+  ¬top_diverges rs.envM rs.envC rs.store rs.envE top ⇒
+  ?r st'. (r ≠ Rerr Rtype_error) ∧
+      evaluate_top rs.envM rs.envC rs.store rs.envE top (st',r)`,
+rw [invariant_def] >>
+`num_tvs rs.tenv = 0` by metis_tac [type_v_freevars] >>
+`tenvM_ok rs.tenvM` by cheat >>
+`?tenvM'' tenvC'' tenv''.
+ type_top_ignore_sig rs.tenvM rs.tenvC rs.tenv top tenvM'' tenvC'' tenv'' ∧
+ tenvC_ok tenvC'' ∧
+ tenvM_ok tenvM'' ∧
+ (MAP FST tenvM'' = MAP FST tenvM) ∧
+ weakM tenvM'' tenvM ∧
+ weakC tenvC'' tenvC`
+         by metis_tac [type_top_type_top_ignore_sig] >>
+ `type_top_ignore_sig tenvM' tenvC' rs.tenv top tenvM'' tenvC'' tenv''`
+         by metis_tac [type_top_ignore_sig_weakening] >>
+ metis_tac [top_type_soundness_no_sig]);
+
+val printer_not_confused = Q.prove (
+`!ds cs stack. simple_printer ds cs stack ≠ "<type error>"`,
+induct_on `ds` >>
+rw [PrinterTheory.simple_printer_def] >>
+cases_on `h` >>
+rw []);
 
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
@@ -136,11 +181,11 @@ fs [] >>
 fs [] >>
 rw [] >>
 imp_res_tac infer_to_type >>
-
-
-
-
-fs [invariant_def]
+`¬top_diverges rs.envM rs.envC rs.store rs.envE top ⇒
+ ∃r st'.
+   r ≠ Rerr Rtype_error ∧
+   evaluate_top rs.envM rs.envC rs.store rs.envE top (st',r)`
+              by metis_tac [type_to_eval] >>
 
 cases_on `bc_eval (install_code code bs)` >>
 rw [get_type_error_mask_def] >>
@@ -153,13 +198,74 @@ qabbrev_tac`el = elab_top rs.type_bindings rs.ctors top0` >> PairCases_on`el` >>
 fs[] >> qmatch_assum_rename_tac`xxxxxxxx = top`[] >> BasicProvers.VAR_EQ_TAC >- (
 
   (* Divergence *)
+    MAP_EVERY qexists_tac [`convert_menv new_infer_menv`,`new_infer_cenv`,`convert_env2 new_infer_env`] >>
+    rw [] >>
 
 
   cheat ) >>
 
 disj1_tac >>
-rw[update_state_def] >>
+(* SO cheat: I think the semantics can't diverge because (bc_eval install_code
+ * code bs) = SOME x).  I think this should come from the compiler proof. *)
+`¬top_diverges rs.envM rs.envC rs.store rs.envE top` by cheat >>
+fs [] >>
+(* SO cheat: We need to prove that lex_until_top_level_semicolon must consume
+ * some input *)
+`STRLEN input_rest < STRLEN input` by cheat >>
+rw [update_state_def, print_fun_def] >>
+MAP_EVERY qexists_tac [`convert_menv new_infer_menv`, 
+                       `new_infer_cenv`, 
+                       `convert_env2 new_infer_env`,
+                       `st'`, 
+                       `r`] >>
+rw [] >|
+[(* Non-type errors don't print "<type error>" *)
+ cases_on `top` >>
+     rw [printer_not_confused],
+ (* SO cheat: This is the case for the delaration evaluating to a value.  We
+  * must prove that the right thing is printed.  I think this should come from
+  * the compiler correctness proof *)
+ cheat,
+ qabbrev_tac `new_repl_state = update_repl_state rs el0 el1 (convert_menv new_infer_menv) 
+                                                    new_infer_cenv (convert_env2 new_infer_env) 
+                                                    st' r` >>
+     qabbrev_tac `new_repl_fun_state = 
+          <|relaborator_state :=
+             (elab_res0 ++ rs.type_bindings,elab_res1 ++ rs.ctors);
+           rinferencer_state :=
+             (new_infer_menv ++ infer_menv,new_infer_cenv ++ infer_cenv,
+              new_infer_env ++ infer_env);
+           rcompiler_state := new_bc_success; top := top|>` >>
+     qabbrev_tac `new_bc_state = (x with stack := TL x.stack)` >>
+     res_tac >>
+     pop_assum (ASSUME_TAC o Q.SPEC `input_rest`) >>
+     fs [] >>
+     pop_assum (ASSUME_TAC o Q.SPECL [`new_repl_state`, `new_repl_fun_state`, `new_bc_state`]) >>
+     (* SO cheat: The invariant must be preserved.  I'm working on lemmas for
+      * the type system and semantics parts of it, but there will be compiler
+      * parts too *)
+     `invariant new_repl_state new_repl_fun_state new_bc_state` by cheat >>
+     fs [] >>
+     metis_tac [lexer_correct],
+ (* SO cheat: The case where an exception makes it to the top level.
+  * The goal is "Exception" = print_result r, but print result tells you what
+  * exception you got as print_result (Rerr (Rraise e)) = STRCAT (STRCAT "raise
+  * " (print_error e)).  I think the implementation needs to be updated to match
+  * the semantics, but it would be possible to change the semantics to not tell
+  * you which exception. *)
+ cheat,
+ (* SO cheat: The exception case, but for the induction.  Because HD x.stack ≠
+ * Number 0, I think the compiler proof should let us conclude that the
+ * semantics raises an exception *)
+ `?err. r = Rerr err` by cheat >>
+     rw [update_repl_state_def] >>
+     (* SO cheat: This looks false.  The implementation appears to update the
+      * inferencer and elaborator state even though an error was raised.  The
+      * semantics doesn't update the state of the bindings, it only updates the
+      * store.
+     cheat]);
 
+     (*
 Cases_on`top0` >- (
    (* Module *)
   cheat ) >>
@@ -176,6 +282,7 @@ fs[elaborate_top_def,LET_THM] >>
 cheat
 
 )
+*)
 
 val good_compile_primitives = prove(
   ``good_contab (FST compile_primitives).contab ∧
