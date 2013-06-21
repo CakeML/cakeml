@@ -1065,11 +1065,13 @@ val v_to_Cv_SUBMAP = store_thm("v_to_Cv_SUBMAP",
   rw[] >> AP_TERM_TAC >>
   simp[exp_to_Cexp_SUBMAP])
 
-(*
+val compile_fake_exp_contab = store_thm("compile_fake_exp_contab",
+  ``(compile_fake_exp rs vs e = (ct,b,n,c)) ⇒ ct = rs.contab``,
+  rw[compile_fake_exp_def,LET_THM])
+
 val compile_dec_val = store_thm("compile_dec_val",
   ``∀mn menv cenv s env dec res. evaluate_dec mn menv cenv s env dec res ⇒
      ∃ck. ∀rs ct bdgs nl rd bc bs bc0.
-      (mn = NONE) ∧
       EVERY (closed menv) s ∧
       EVERY (closed menv) (MAP SND env) ∧
       EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
@@ -1081,8 +1083,8 @@ val compile_dec_val = store_thm("compile_dec_val",
       dec_cns dec ⊆ set (MAP FST cenv) ∧
       (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
       env_rs menv cenv env rs rd (ck,s) (bs with code := bc0) ∧
-      (compile_dec rs dec = (ct,bdgs,nl,bc ++ [Stop])) ∧
-      (bs.code = bc0 ++ bc ++ [Stop]) ∧
+      (compile_dec mn rs dec = (ct,bdgs,nl,REVERSE bc)) ∧
+      (bs.code = bc0 ++ bc) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       IS_SOME bs.clock ∧
       ALL_DISTINCT (FILTER is_Label bc0) ∧
@@ -1090,15 +1092,17 @@ val compile_dec_val = store_thm("compile_dec_val",
       ⇒
       case res of (s',Rval(cenv',env')) =>
         ∃st rf rd'.
-        let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := (Number i0)::st; refs := rf; clock := SOME 0|> in
+        let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := st; refs := rf; clock := SOME 0|> in
+        let rs' = rs with <|renv := bdgs ++ rs.renv; rsz := rs.rsz + LENGTH bdgs; rnext_label := nl|> in
         bc_next^* bs bs' ∧
-        env_rs menv (cenv'++cenv) (env'++env) rss rd' (0,s') (bs' with stack := st)
+        env_rs menv (cenv'++cenv) (env'++env) rs' rd' (0,s') bs'
       | (s',Rerr(Rraise err)) =>
         ∃bv rf rd'.
-        let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := (Number i1)::bv::bs.stack; refs := rf; clock := SOME 0|> in
+        let bs' = bs with <|pc := 0; stack := bv::bs.stack; refs := rf; clock := SOME 0|> in
+        let rs' = rs with <|rnext_label := nl|> in
         bc_next^*bs bs' ∧
         err_bv err bv ∧
-        env_rs menv cenv env rsf rd' (0,s') (bs' with stack := bs.stack)
+        env_rs menv cenv env rs' rd' (0,s') (bs' with stack := bs.stack)
       | (s',_) => T``,
   ho_match_mp_tac evaluate_dec_ind >>
   strip_tac >- (
@@ -1140,7 +1144,7 @@ val compile_dec_val = store_thm("compile_dec_val",
       qunabbrev_tac`vars` >>
       fs[markerTheory.Abbrev_def,FV_list_MAP] >>
       fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,EXISTS_PROD,all_cns_list_MAP] >>
-      metis_tac[] ) >>
+      metis_tac[compile_fake_exp_contab] ) >>
     disch_then(qx_choosel_then[`st`,`rf`,`rd'`,`ck'`]strip_assume_tac) >>
     map_every qexists_tac[`st`,`rf`,`rd'`] >>
     `ck' = SOME 0` by (
@@ -1196,7 +1200,7 @@ val compile_dec_val = store_thm("compile_dec_val",
       qunabbrev_tac`vars` >>
       fs[markerTheory.Abbrev_def,FV_list_MAP] >>
       fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,EXISTS_PROD,all_cns_list_MAP] >>
-      metis_tac[] ) >>
+      metis_tac[compile_fake_exp_contab] ) >>
     strip_tac >>
     `ck = SOME 0` by (
       imp_res_tac RTC_bc_next_clock_less >>
@@ -1234,7 +1238,7 @@ val compile_dec_val = store_thm("compile_dec_val",
       qunabbrev_tac`vars` >>
       fs[markerTheory.Abbrev_def,FV_list_MAP] >>
       fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,EXISTS_PROD,all_cns_list_MAP] >>
-      metis_tac[] ) >>
+      metis_tac[compile_fake_exp_contab] ) >>
     Cases_on`err`>>simp[] >>
     strip_tac >>
     `ck = SOME 0` by (
@@ -1274,7 +1278,7 @@ val compile_dec_val = store_thm("compile_dec_val",
     discharge_hyps >- (
       fs[markerTheory.Abbrev_def,FV_list_MAP,LET_THM] >>
       fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,EXISTS_PROD,all_cns_list_MAP] >>
-      metis_tac[] ) >>
+      metis_tac[compile_fake_exp_contab] ) >>
     disch_then(qx_choosel_then[`st`,`rf`,`rd'`,`ck`]strip_assume_tac) >>
     map_every qexists_tac[`st`,`rf`,`rd'`] >>
     `ck = SOME 0` by (
@@ -1299,22 +1303,19 @@ val compile_dec_val = store_thm("compile_dec_val",
     simp[compile_dec_def] >>
     rpt gen_tac >> strip_tac >>
     qexists_tac`0` >>
+    simp[Once SWAP_REVERSE] >>
     rpt gen_tac >> strip_tac >>
     map_every qexists_tac[`bs.stack`,`bs.refs`,`rd`] >>
     conj_tac >- (
       simp[RTC_eq_NRC] >>
-      qexists_tac`SUC 0` >> simp[] >>
-      rw[bc_eval1_thm] >>
-      `bc_fetch bs = SOME (Stack (PushInt i0))` by (
-        match_mp_tac bc_fetch_next_addr >>
-        qexists_tac`bc0`>>simp[] ) >>
-      rw[bc_eval1_def,bump_pc_def,bc_eval_stack_def] >>
+      qexists_tac`0` >> simp[] >>
       simp[bc_state_component_equality,SUM_APPEND,FILTER_APPEND] >>
       fs[env_rs_def,Cenv_bs_def,s_refs_def,LET_THM] >>
       Cases_on`bs.clock`>>fs[]) >>
     fs[FOLDL_number_constructors_thm,SemanticPrimitivesTheory.build_tdefs_def,LibTheory.emp_def,AstTheory.mk_id_def] >>
     fs[env_rs_def] >>
     conj_tac >- (
+      cheat (*
       fs[number_constructors_thm] >>
       qabbrev_tac`p = rs.contab` >>
       PairCases_on`p` >>
@@ -1404,8 +1405,9 @@ val compile_dec_val = store_thm("compile_dec_val",
       `ls = (MAP SND (GENLIST X Y))` by (
         simp[Abbr`ls`,Abbr`X`,Abbr`Y`,MAP_MAP_o,MAP_GENLIST,combinTheory.o_DEF] ) >>
       pop_assum SUBST1_TAC >>
-      simp[] ) >>
+      simp[] *) ) >>
     conj_tac >- (
+      cheat (* 
       fs[good_cmap_def] >>
       simp[number_constructors_thm] >>
       conj_asm1_tac >- (
@@ -1532,8 +1534,9 @@ val compile_dec_val = store_thm("compile_dec_val",
         metis_tac[] )
       >- ( res_tac >> simp[] >> metis_tac[] )
       >- ( res_tac >> simp[] >> metis_tac[] ) >>
-      metis_tac[] ) >>
+      metis_tac[] *) ) >>
     conj_tac >- (
+      cheat (* 
       fs[EXTENSION,number_constructors_thm,FDOM_FUPDATE_LIST] >>
       qx_gen_tac`x` >>
       qabbrev_tac`p = rs.contab` >>
@@ -1547,7 +1550,8 @@ val compile_dec_val = store_thm("compile_dec_val",
       qsuff_tac`A ⇔ ∃y. MEM y (FLAT (MAP (SND o SND) tds)) ∧ (x = Short (FST y))`>-metis_tac[MEM_EL]>>
       simp[Abbr`A`,Abbr`B`,MEM_FLAT,EXISTS_PROD,MEM_MAP] >>
       simp_tac(srw_ss()++DNF_ss)[EXISTS_PROD]>>
-      metis_tac[] ) >>
+      metis_tac[] *) ) >>
+    (*
     conj_tac >- (
       fsrw_tac[DNF_ss][MEM_MAP,MEM_FLAT,FORALL_PROD] >>
       metis_tac[] ) >>
@@ -1594,21 +1598,20 @@ val compile_dec_val = store_thm("compile_dec_val",
         match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM >>
         simp[] ) >>
       fs[] ) >>
+    *)
     fs[LET_THM] >>
     map_every qexists_tac[`Cmenv`,`Cenv`,`Cs`] >>
     simp[] >>
     simp[number_constructors_thm] >>
     simp[CONJ_ASSOC] >>
     reverse conj_tac >- (
-      qmatch_abbrev_tac`Cenv_bs rd Cmenv (0,Cs) Cenv cmnv renv rsz rsz bs0` >>
-      match_mp_tac Cenv_bs_append_code >>
-      qexists_tac`bs0 with code := bc0` >>
-      simp[bc_state_component_equality,Abbr`bs0`] >>
       match_mp_tac Cenv_bs_with_irr >>
-      BasicProvers.VAR_EQ_TAC >>
-      HINT_EXISTS_TAC >> simp[] >>
+      simp[] >> rfs[] >>
+      HINT_EXISTS_TAC >>
+      simp[] >>
       fs[env_rs_def,Cenv_bs_def,s_refs_def,LET_THM] >>
       Cases_on`bs.clock`>>fs[]) >>
+    (*
     reverse conj_tac >- (
       rpt strip_tac >>
       match_mp_tac  code_env_cd_append >>
@@ -1621,10 +1624,11 @@ val compile_dec_val = store_thm("compile_dec_val",
       rpt strip_tac >>
       match_mp_tac  code_env_cd_append >>
       simp[FILTER_APPEND] ) >>
+    *)
     reverse conj_tac >- (
       match_mp_tac (GEN_ALL (MP_CANON fmap_rel_trans)) >>
       HINT_EXISTS_TAC >> simp[] >>
-      conj_tac >- metis_tac[EVERY2_syneq_trans] >>
+      metis_tac[EVERY2_syneq_trans] (* >>
       simp[fmap_rel_def] >> gen_tac >> strip_tac >>
       qmatch_abbrev_tac`EVERY2 syneq ls1 ls2` >>
       qsuff_tac`ls1 = ls2`>-rw[] >>
@@ -1657,12 +1661,12 @@ val compile_dec_val = store_thm("compile_dec_val",
       simp[combinTheory.o_DEF] >> fs[EXTENSION,MEM_EL] >>
       Cases_on`x' = Short ""` >- (
         fs[] >> metis_tac[EL_MAP] ) >>
-      metis_tac[EL_MAP] ) >>
+      metis_tac[EL_MAP] *) ) >>
     conj_tac >- (
       match_mp_tac EVERY2_syneq_trans >>
       qmatch_assum_abbrev_tac`EVERY2 syneq X Cs` >>
       qexists_tac`X` >>
-      simp[Abbr`X`] >>
+      simp[Abbr`X`] (* >>
       qmatch_abbrev_tac`EVERY2 syneq ls1 ls2` >>
       qsuff_tac`ls1 = ls2`>-rw[] >>
       simp[Abbr`ls1`,Abbr`ls2`,MAP_EQ_f] >>
@@ -1686,11 +1690,11 @@ val compile_dec_val = store_thm("compile_dec_val",
       simp[combinTheory.o_DEF] >> fs[EXTENSION,MEM_EL] >>
       Cases_on`x = Short ""` >- (
         fs[] >> metis_tac[EL_MAP] ) >>
-      metis_tac[] ) >>
+      metis_tac[] *) ) >>
     match_mp_tac EVERY2_syneq_trans >>
     qmatch_assum_abbrev_tac`LIST_REL syneq X Cenv` >>
     qexists_tac`X` >>
-    simp[Abbr`X`] >>
+    simp[Abbr`X`] (* >>
     qmatch_abbrev_tac`EVERY2 syneq ls1 ls2` >>
     qsuff_tac`ls1 = ls2`>-rw[] >>
     simp[Abbr`ls1`,Abbr`ls2`,MAP_EQ_f,env_to_Cenv_MAP] >>
@@ -1725,8 +1729,7 @@ val compile_dec_val = store_thm("compile_dec_val",
     simp[combinTheory.o_DEF] >> fs[EXTENSION,MEM_EL] >>
     Cases_on`x = Short ""` >- (
       fs[] >> metis_tac[EL_MAP] ) >>
-    metis_tac[] ) >>
+    metis_tac[] *) ) >>
   strip_tac >- rw[])
-*)
 
 val _ = export_theory()
