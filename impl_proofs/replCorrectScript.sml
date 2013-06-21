@@ -1,5 +1,6 @@
 open preamble boolSimps;
-open lexer_funTheory repl_funTheory replTheory lexer_implTheory mmlParseTheory BigStepTheory ElabTheory compilerProofsTheory;
+open lexer_funTheory repl_funTheory replTheory
+open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compilerProofsTheory;
 
 val _ = new_theory "replCorrect";
 
@@ -47,7 +48,14 @@ val get_type_error_mask_def = Define `
 val invariant_def = Define`
   invariant rs rfs bs ⇔
     rfs.relaborator_state = (rs.type_bindings, rs.ctors)
-    (* ∧ rfs.rinferencer_state = ??? ∧ *)
+
+    ∧ check_menv (FST rfs.rinferencer_state)
+    ∧ check_cenv (FST (SND rfs.rinferencer_state))
+    ∧ check_env {} (SND (SND rfs.rinferencer_state))
+    (* ∧ rfs.tenvE *)
+    ∧ (FST (SND rfs.rinferencer_state)) = rs.tenvC
+    (* ∧ rfs.tenvM *)
+
     ∧ ∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs
     (* ∧ rfs.top = ??? *)`
 
@@ -99,26 +107,34 @@ rw [get_type_error_mask_def] >-
              Cases_on`r` >>
              metis_tac []) >>
 rw [] >>
-cases_on `bc_eval (install_code code bc_state')` >>
-rw [get_type_error_mask_def] >- (
+
+cases_on `bc_eval (install_code code bs)` >>
+rw [get_type_error_mask_def] >>
+qabbrev_tac`est = st.relaborator_state` >> PairCases_on`est` >>
+qabbrev_tac`elab_res = elab_top est0 est1 top0` >> PairCases_on`elab_res` >>
+`est0 = rs.type_bindings ∧ est1 = rs.ctors` by fs[invariant_def] >>
+rpt BasicProvers.VAR_EQ_TAC >>
+fs[elaborate_top_def,LET_THM] >>
+qabbrev_tac`el = elab_top rs.type_bindings rs.ctors top0` >> PairCases_on`el` >>
+fs[] >> qmatch_assum_rename_tac`xxxxxxxx = top`[] >> BasicProvers.VAR_EQ_TAC >- (
+
   (* Divergence *)
+
+
   cheat ) >>
 
 disj1_tac >>
 rw[update_state_def] >>
-
-qabbrev_tac`est = st.relaborator_state` >> PairCases_on`est` >>
-qabbrev_tac`elab_res = elab_top est0 est1 ast` >> PairCases_on`elab_res` >>
-fs[elaborate_top_def,LET_THM] >>
 
 Cases_on`top0` >- (
    (* Module *)
   cheat ) >>
 
 fs[elab_top_def,LET_THM] >>
-qabbrev_tac`p = elab_dec NONE est0 est1 a` >>
+qabbrev_tac`p = elab_dec NONE rs.type_bindings rs.ctors a` >>
 PairCases_on`p` >> fs[] >>
-BasicProvers.VAR_EQ_TAC >>
+fs[markerTheory.Abbrev_def] >>
+rpt BasicProvers.VAR_EQ_TAC >>
 fs[compile_top_def] >>
 
 simp[Once evaluate_prog_cases] >>
@@ -143,10 +159,11 @@ val good_compile_primitives = prove(
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
   rw[invariant_def,initial_repl_fun_state_def,initial_elaborator_state_def,init_repl_state_def] >>
+  rw[check_menv_def,initial_inferencer_state_def,check_cenv_def,check_env_def]
+  >- EVAL_TAC >>
 
   (* env_rs proof: *)
   simp[env_rs_def,good_compile_primitives] >>
-  EVAL``FDOM (cmap (FST compile_primitives).contab)``
 
   cheat)
 
