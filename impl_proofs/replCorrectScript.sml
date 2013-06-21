@@ -262,7 +262,7 @@ rw [] >|
      (* SO cheat: This looks false.  The implementation appears to update the
       * inferencer and elaborator state even though an error was raised.  The
       * semantics doesn't update the state of the bindings, it only updates the
-      * store.
+      * store. *)
      cheat]);
 
      (*
