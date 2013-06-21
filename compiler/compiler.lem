@@ -34,8 +34,8 @@ let init_compiler_state =
    |>
 
 let compile_Cexp rsz menv env nl Ce =
-  let (Ce,n) = label_closures (List.length env) nl Ce in
-  let cs = <| out = []; next_label = n |> in
+  let (Ce,nl) = label_closures (List.length env) nl Ce in
+  let cs = <| out = []; next_label = nl |> in
   let cs = emit cs [PushPtr (Addr 0); PushExc] in
   let cs = compile_code_env menv cs Ce in
   compile menv env TCNonTail (rsz+2) cs Ce
@@ -103,11 +103,10 @@ compile_decs mn (dec::decs) (rs,code) =
 let rec
 compile_top rs (Tmod mn _ decs) =
   let (mrs,code) = compile_decs mn decs (rs,[]) in
-  let env = Hol.BUTLASTN (List.length rs.renv) rs.renv in
+  let env = Hol.BUTLASTN (List.length rs.renv) mrs.renv in
   (<| mrs with
       renv = rs.renv
-    ; rmenv = Pmap.add mn env rs.rmenv
-    ; rsz = rs.rsz + List.length env |>
+    ; rmenv = Pmap.add mn env rs.rmenv |>
   ,<| rs with rnext_label = mrs.rnext_label |>
   ,List.rev (Stop::code))
 and

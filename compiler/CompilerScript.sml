@@ -56,8 +56,8 @@ val _ = Define `
 
 val _ = Define `
  (compile_Cexp rsz menv env nl Ce =  
-(let (Ce,n) = ( label_closures ( LENGTH env) nl Ce) in
-  let cs = (<| out := []; next_label := n |>) in
+(let (Ce,nl) = ( label_closures ( LENGTH env) nl Ce) in
+  let cs = (<| out := []; next_label := nl |>) in
   let cs = ( emit cs [PushPtr (Addr 0); PushExc]) in
   let cs = ( compile_code_env menv cs Ce) in
   compile menv env TCNonTail (rsz +2) cs Ce))`;
@@ -140,11 +140,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (compile_top rs (Tmod mn _ decs) =  
 (let (mrs,code) = ( compile_decs mn decs (rs,[])) in
-  let env = ( BUTLASTN ( LENGTH rs.renv) rs.renv) in
+  let env = ( BUTLASTN ( LENGTH rs.renv) mrs.renv) in
   (( mrs with<|
       renv := rs.renv
-    ; rmenv := FUPDATE  rs.rmenv ( mn, env)
-    ; rsz := rs.rsz + LENGTH env |>)
+    ; rmenv := FUPDATE  rs.rmenv ( mn, env) |>)
   ,( rs with<| rnext_label := mrs.rnext_label |>)
   , REVERSE (Stop ::code))))
 /\

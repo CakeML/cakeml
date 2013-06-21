@@ -257,6 +257,10 @@ val _ = register "ov_to_string" (
   Q.ISPEC_THEN`ov_size`imp_res_tac SUM_MAP_MEM_bound>>
   fsrw_tac[ARITH_ss][]))
 
+val _ = register "compile_decs" (
+  tprove_no_defn((compile_decs_def,compile_decs_ind),
+  WF_REL_TAC`measure (LENGTH o FST o SND)` >> simp[]))
+
 (* export rewrites *)
 
 val _ = export_rewrites

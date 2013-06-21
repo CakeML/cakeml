@@ -512,3 +512,15 @@ val true = (OConv (Short"Div",[])) = bv_to_ov m bv;
 val e78 = ``Let "x" (Lit (IntLit 1)) (Handle (App (Opn Modulo) (Lit (IntLit 0)) (Var (Short "x"))) "x" (Var (Short "x")))``
 val (m,[Number i]) = mst_run_exp e78
 val SOME 0 = intML.toInt i;
+val m = ``[Dlet (Pvar "x") (Lit (IntLit 1))]``
+val (bs,rs) = run_top inits (mk_Tmod "M" m)
+val (bs,rs) = run_top (bs,rs) (mk_Texp ``Var(Long"M""x")``)
+val [x,mx] = bc_state_stack bs
+val true = (OLit(IntLit(intML.fromInt 1))) = bv_to_ov (cpam rs) x andalso x = mx;
+val bsrs = run_top inits (mk_Tdec ``Dlet (Pvar "x") (Lit (IntLit 2))``)
+val (bs,rs) = run_top bsrs (mk_Tmod "M" m)
+val (bs,rs) = run_top (bs,rs) (mk_Texp ``App (Opn Minus) (Var (Short "x")) (Var (Long"M""x"))``)
+val [r,mx,x] = bc_state_stack bs
+val true = (OLit(IntLit(intML.fromInt 1))) = bv_to_ov (cpam rs) r
+    andalso(OLit(IntLit(intML.fromInt 2))) = bv_to_ov (cpam rs) x
+    andalso mx = r;
