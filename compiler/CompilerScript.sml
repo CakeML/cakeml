@@ -58,10 +58,9 @@ val _ = Define `
  (compile_Cexp rsz menv env nl Ce =  
 (let (Ce,n) = ( label_closures ( LENGTH env) nl Ce) in
   let cs = (<| out := []; next_label := n |>) in
-  let (cs,l) = ( get_label cs) in
-  let cs = ( emit cs [PushPtr (Lab l); PushExc]) in
+  let cs = ( emit cs [PushPtr (Addr 0); PushExc]) in
   let cs = ( compile_code_env menv cs Ce) in
-  (l, compile menv env TCNonTail (rsz +2) cs Ce)))`;
+  compile menv env TCNonTail (rsz +2) cs Ce))`;
 
 
  val number_constructors_defn = Hol_defn "number_constructors" `
@@ -92,16 +91,14 @@ val _ = Define `
   let Ce = ( exp_to_Cexp m (e (Con (Short "") ( MAP (\ v . Var (Short v)) vs)))) in
   let menv = ( (o_f) ( MAP SND) rs.rmenv) in
   let env = ( MAP ((o) CTDec SND) rs.renv) in
-  let (l1,cs) = ( compile_Cexp rs.rsz menv env rs.rnext_label Ce) in
+  let cs = ( compile_Cexp rs.rsz menv env rs.rnext_label Ce) in
   let cs = ( emit cs [PopExc; Stack (Pops 1)]) in
   let cs = ( compile_news cs 0 vs) in
-  let (cs,l2) = ( get_label cs) in
-  let cs = ( emit cs [Stack Pop; Stack (PushInt i0); Jump (Lab l2)
-                   ; Label l1; Stack (PushInt i1); Label l2; Stop]) in
+  let cs = ( emit cs [Stack Pop]) in
   (rs.contab
   , GENLIST (\ i . ( EL  i  vs, (rs.rsz +i))) ( LENGTH vs)
   ,cs.next_label
-  , REVERSE cs.out
+  ,cs.out
   )))`;
 
 
@@ -111,7 +108,7 @@ val _ = Define `
 (let ct = ( FOLDL
       (\ct p . (case (ct ,p ) of ( ct , (_,_,cs) ) => number_constructors mn cs ct ))
       rs.contab ts) in
-  (ct,[],rs.rnext_label,[Stack (PushInt i0); Stop])))
+  (ct,[],rs.rnext_label,[])))
 /\
 (compile_dec _ rs (Dletrec defs) =  
 (let vs = ( MAP (\p . 
@@ -123,20 +120,43 @@ val _ = Define `
   compile_fake_exp rs vs (\ b . Mat e [(p,b)])))`;
 
 
+ val compile_decs_defn = Hol_defn "compile_decs" `
+
+(compile_decs _ [] ac = ac)
+/\
+(compile_decs mn (dec::decs) (rs,code) =  
+(let (ct,env,nl,code) = ( compile_dec (SOME mn) rs dec) in
+  compile_decs mn decs
+    (( rs with<|
+        contab := ct
+      ; renv := env ++rs.renv
+      ; rsz := rs.rsz + LENGTH env
+      ; rnext_label := nl |>)
+    ,code)))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_decs_defn;
+
  val compile_top_def = Define `
 
-(compile_top rs (Tmod mn _ decs) = (rs,rs,[])) (* TODO *)
+(compile_top rs (Tmod mn _ decs) =  
+(let (mrs,code) = ( compile_decs mn decs (rs,[])) in
+  let env = ( BUTLASTN ( LENGTH rs.renv) rs.renv) in
+  (( mrs with<|
+      renv := rs.renv
+    ; rmenv := FUPDATE  rs.rmenv ( mn, env)
+    ; rsz := rs.rsz + LENGTH env |>)
+  ,( rs with<| rnext_label := mrs.rnext_label |>)
+  , REVERSE (Stop ::code))))
 /\
 (compile_top rs (Tdec dec) =  
 (let (ct,env,nl,code) = ( compile_dec NONE rs dec) in
-  let n = ( LENGTH env) in
   (( rs with<|
       contab := ct
     ; renv := env ++rs.renv
-    ; rsz := rs.rsz + n
+    ; rsz := rs.rsz + LENGTH env
     ; rnext_label := nl |>)
   ,( rs with<| rnext_label := nl |>)
-  ,code)))`;
+  , REVERSE (Stop ::code))))`;
 
 val _ = export_theory()
 

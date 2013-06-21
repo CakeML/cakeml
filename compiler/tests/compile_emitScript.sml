@@ -131,6 +131,7 @@ val defs = map EmitML.DEFN
 , compile_news_def
 , compile_fake_exp_def
 , compile_dec_def
+, compile_decs_def
 , compile_top_def
 , id_to_string_def
 , LibTheory.lookup_def

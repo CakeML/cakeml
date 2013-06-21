@@ -121,17 +121,17 @@ in case fst(dest_const f) of
 end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
 val term_to_ov = v_to_ov [] o term_to_v
 
-fun add_code c bs = bc_state_code_fupd
-  (compile_labels (bc_state_inst_length bs) o (C append c))
-  bs
+fun add_code c bs = bc_state_pc_fupd (K (numML.fromInt (List.length (bc_state_code bs))))
+  (bc_state_code_fupd
+    (compile_labels (bc_state_inst_length bs) o (C append c))
+    bs)
 
 fun run_decs (bs,rs) [] = (bs,rs)
   | run_decs (bs,rs) (d::ds) = let
       val (rss,(rsf,c)) = compile_top rs (Tdec (term_to_dec d))
       val bs = add_code c bs
       val SOME bs = bc_eval bs
-      val rs = if List.hd (bc_state_stack bs) = Number i0 then rss else rsf
-      val bs = bump_pc (bc_state_stack_fupd List.tl bs)
+      val rs = if numML.toInt (bc_state_pc bs) = SOME 0 then rsf else rss
     in run_decs (bs,rs) ds end
 
 fun prep_exp (bs,rs) e = let
@@ -144,13 +144,11 @@ fun mst_run_decs_exp_gen test (ds,e) = let
   val (bs,rs) = run_decs inits ds
   val (bs,rss,rsf) = prep_exp (bs,rs) e
   val (SOME bs) = bc_eval bs
-  val Number x::st = bc_state_stack bs
-  val true = test x
-  val rs = if x = i0 then rss else rsf
-in (cpam rs, st) end
+  val (true,rs) = test bs rss rsf
+in (cpam rs, bc_state_stack bs) end
 
-fun valt x = intML.toInt x = SOME 0
-fun exct x = intML.toInt x = SOME 1
+fun valt bs rs _ = (not(numML.toInt (bc_state_pc bs) = SOME 0), rs)
+fun exct bs _ rs = (numML.toInt (bc_state_pc bs) = SOME 0, rs)
 
 val mst_run_decs_exp = mst_run_decs_exp_gen valt
 val run_decs_exp = snd o mst_run_decs_exp
