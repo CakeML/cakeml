@@ -2127,4 +2127,104 @@ qexists_tac `[]` >>
 rw []);
                     *)
 
+(* For using the type soundess theorem, we have to know there are good
+ * constructor and module type environments that don't have bits hidden by a
+ * signature. *)
+val type_sound_invariants_def = Define `
+type_sound_invariants (tenvM,tenvC,tenv,envM,envC,envE,store) ⇔
+  ?tenvS tenvM_no_sig tenvC_no_sig. 
+    tenvM_ok tenvM_no_sig ∧ 
+    tenvC_ok tenvC_no_sig ∧
+    tenvC_ok tenvC ∧
+    tenvM_ok tenvM ∧
+    weakC_mods tenvC_no_sig tenvC ⊆ set (MAP SOME (MAP FST tenvM_no_sig)) ∧
+    (MAP FST tenvM_no_sig = MAP FST tenvM) ∧
+    consistent_mod_env tenvS tenvC_no_sig envM tenvM_no_sig ∧
+    consistent_con_env envC tenvC_no_sig ∧
+    type_env tenvM_no_sig tenvC_no_sig tenvS envE tenv ∧
+    type_s tenvM_no_sig tenvC_no_sig tenvS store ∧
+    weakM tenvM_no_sig tenvM ∧
+    weakC tenvC_no_sig tenvC`;
+
+val update_type_sound_inv_def = Define `
+update_type_sound_inv (tenvM,tenvC,tenv,envM,envC,envE,store) tenvM' tenvC' tenv' store' r =
+  case r of
+     | Rval (envM',envC',envE') => 
+         (tenvM'++tenvM,tenvC'++tenvC,bind_var_list2 tenv' tenv,
+          envM'++envM,envC'++envC,envE'++envE,store')
+     | Rerr _ => (tenvM,tenvC,tenv,envM,envC,envE,store')`;
+
+val top_type_soundness = Q.store_thm ("top_type_soundness",
+`!tenvM tenvC tenv envM envC envE store1 tenvM' tenvC' tenv' top.
+  type_sound_invariants (tenvM,tenvC,tenv,envM,envC,envE,store1) ∧
+  type_top tenvM tenvC tenv top tenvM' tenvC' tenv' ∧
+  ¬top_diverges envM envC store1 envE top ⇒
+  ?r store2. 
+      (r ≠ Rerr Rtype_error) ∧
+      evaluate_top envM envC store1 envE top (store2,r) ∧
+      type_sound_invariants (update_type_sound_inv (tenvM,tenvC,tenv,envM,envC,envE,store1) tenvM' tenvC' tenv' store2 r)`,
+
+rw [type_sound_invariants_def] >>
+`num_tvs tenv = 0` by metis_tac [type_v_freevars] >>
+`?tenvM_no_sig' tenvC_no_sig'.
+  type_top_ignore_sig tenvM tenvC tenv top tenvM_no_sig'
+         tenvC_no_sig' tenv' ∧
+  tenvC_ok tenvC_no_sig' ∧
+  tenvC_ok tenvC' ∧
+  disjoint_env tenvC_no_sig' tenvC ∧
+  disjoint_env tenvC' tenvC ∧
+  tenvM_ok tenvM_no_sig' ∧
+  MAP FST tenvM_no_sig' = MAP FST tenvM' ∧
+  weakM tenvM_no_sig' tenvM' ∧
+  weakC tenvC_no_sig' tenvC'`
+         by metis_tac [type_top_type_top_ignore_sig] >>
+`type_top_ignore_sig tenvM_no_sig tenvC_no_sig tenv top tenvM_no_sig' tenvC_no_sig' tenv'`
+         by metis_tac [type_top_ignore_sig_weakening] >>
+`∃r st' tenvS'.
+  r ≠ Rerr Rtype_error ∧
+  evaluate_top envM envC store1 envE top (st',r) ∧
+  store_type_extension tenvS tenvS' ∧
+  ∀menv' cenv' env'.
+    r = Rval (menv',cenv',env') ⇒
+    consistent_mod_env tenvS' (tenvC_no_sig' ++ tenvC_no_sig)
+      (menv' ++ envM) (tenvM_no_sig' ++ tenvM_no_sig) ∧
+    consistent_con_env (cenv' ++ envC)
+      (tenvC_no_sig' ++ tenvC_no_sig) ∧
+    disjoint_env tenvC_no_sig tenvC_no_sig' ∧
+    type_s (tenvM_no_sig' ++ tenvM_no_sig)
+      (tenvC_no_sig' ++ tenvC_no_sig) tenvS' st' ∧
+    type_env (tenvM_no_sig' ++ tenvM_no_sig)
+      (tenvC_no_sig' ++ tenvC_no_sig) tenvS' (env' ++ envE)
+      (bind_var_list2 tenv' tenv)`
+            by metis_tac [top_type_soundness_no_sig] >>
+qexists_tac `r` >>
+`(?err. r = Rerr err) ∨ (?menv' cenv' env'. r = Rval (menv',cenv',env'))` 
+              by (cases_on `r` >>
+                  metis_tac [pair_CASES]) >>
+rw [] >>
+qexists_tac `st'` >>
+rw [update_type_sound_inv_def, type_sound_invariants_def] >|
+[MAP_EVERY qexists_tac [`tenvS'`, `tenvM_no_sig`, `tenvC_no_sig`] >>
+     rw [] >|
+     [metis_tac [weakC_refl, consistent_mod_env_weakening, store_type_extension_weakS],
+      metis_tac [weakC_refl, weakM_refl, type_v_weakening, store_type_extension_weakS],
+      (* SO cheat: We need to strengthen type soundness to know that the store
+       * is well typed after an exception since we can continue on to the next
+       * input expression *)
+      cheat],
+ MAP_EVERY qexists_tac [`tenvS'`, `tenvM_no_sig' ++ tenvM_no_sig`, `merge tenvC_no_sig' tenvC_no_sig`] >>
+     rw [] >|
+     [fs [tenvM_ok_def],
+      rw [tenvC_ok_merge] >>
+          metis_tac [disjoint_env_def, DISJOINT_SYM],
+      rw [tenvC_ok_merge, GSYM merge_def],
+      cheat,
+      cheat,
+      metis_tac [merge_def],
+      metis_tac [merge_def],
+      metis_tac [merge_def],
+      metis_tac [merge_def],
+      cheat,
+      cheat]]);
+
 val _ = export_theory ();

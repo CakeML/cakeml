@@ -805,16 +805,16 @@ val type_top_type_top_ignore_sig = Q.store_thm ("type_top_type_top_ignore_sig",
   tenvC_ok tenvC ∧
   (num_tvs tenv = 0) ∧
   tenvM_ok tenvM ⇒
-  ?tenvM'' tenvC'' tenv''. 
-    type_top_ignore_sig tenvM tenvC tenv top tenvM'' tenvC'' tenv'' ∧
-    tenvC_ok tenvC'' ∧
+  ?tenvM_no_sig tenvC_no_sig. 
+    type_top_ignore_sig tenvM tenvC tenv top tenvM_no_sig tenvC_no_sig tenv' ∧
+    tenvC_ok tenvC_no_sig ∧
     tenvC_ok tenvC' ∧
-    disjoint_env tenvC'' tenvC ∧
+    disjoint_env tenvC_no_sig tenvC ∧
     disjoint_env tenvC' tenvC ∧
-    tenvM_ok tenvM'' ∧
-    (MAP FST tenvM'' = MAP FST tenvM') ∧
-    weakM tenvM'' tenvM' ∧
-    weakC tenvC'' tenvC'`,
+    tenvM_ok tenvM_no_sig ∧
+    (MAP FST tenvM_no_sig = MAP FST tenvM') ∧
+    weakM tenvM_no_sig tenvM' ∧
+    weakC tenvC_no_sig tenvC'`,
 rw [type_top_ignore_sig_cases, type_top_cases] >>
 imp_res_tac type_ds_tenvC_ok >>
 imp_res_tac type_d_tenvC_ok >|
