@@ -155,7 +155,7 @@ fun mst_run_decs_exp_gen test (ds,e) = let
   val (bs,rss,rsf) = prep_exp (bs,rs) e
   val (SOME bs) = bc_eval bs
   val (true,rs) = test bs rss rsf
-in (cpam rs, bc_state_stack bs) end
+in ((bind_exc_cn,Short "Bind")::(div_exc_cn,Short"Div")::cpam rs, bc_state_stack bs) end
 
 fun excp bs = numML.toInt (bc_state_pc bs) = SOME 0
 
