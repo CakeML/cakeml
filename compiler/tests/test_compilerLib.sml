@@ -18,7 +18,13 @@ fun dest_pair f1 f2 = (f1 ## f2) o pairSyntax.dest_pair
 fun term_to_int tm = intML.fromString((Parse.term_to_string tm)^"i")
 fun term_to_num tm = numML.fromString(Parse.term_to_string tm)
 fun term_to_bool tm = tm = boolSyntax.T
-fun fromId tm = fromHOLstring(rand(tm))
+fun term_to_id tm = let
+  val (f,xs) = strip_comb tm
+in case fst(dest_const f) of
+  "Short" => let val [x] = xs in Short (fromHOLstring x) end
+| "Long" => let val [m,x] = xs in Long(fromHOLstring m,fromHOLstring x) end
+| s => raise Fail s
+end
 fun term_to_lit tm = let
   val (f,x) = dest_comb tm
 in case fst(dest_const f) of
@@ -58,7 +64,7 @@ fun term_to_pat tm = let
 in case fst(dest_const f) of
     "Pvar" => let val [x1] = xs in Pvar (fromHOLstring x1) end
   | "Plit" => let val [x1] = xs in Plit (term_to_lit x1) end
-  | "Pcon" => let val [x1,x2] = xs in Pcon (Short(fromId x1), dest_list term_to_pat x2) end
+  | "Pcon" => let val [x1,x2] = xs in Pcon (term_to_id x1, dest_list term_to_pat x2) end
   | s => raise Fail s
 end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
 fun term_to_error tm = let
@@ -74,7 +80,7 @@ fun term_to_v tm = let
 in case fst(dest_const f) of
     "Litv" => let val [x1] = xs in Litv (term_to_lit x1) end
   | "Closure" => let val [x1,x2,x3] = xs in Closure (dest_list (dest_pair fromHOLstring term_to_v) x1,fromHOLstring x2,term_to_exp x3) end
-  | "Conv" => let val [x1,x2] = xs in Conv (Short(fromId x1),dest_list term_to_v x2) end
+  | "Conv" => let val [x1,x2] = xs in Conv (term_to_id x1,dest_list term_to_v x2) end
   | s => raise Fail s
 end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
 and term_to_exp tm = let
@@ -84,10 +90,10 @@ in case fst(dest_const f) of
   | "If"  => let val [x1,x2,x3] = xs in If (term_to_exp x1, term_to_exp x2, term_to_exp x3) end
   | "App" => let val [x1,x2,x3] = xs in App (term_to_op_ x1, term_to_exp x2, term_to_exp x3) end
   | "Fun" => let val [x1,x3] = xs in Fun (fromHOLstring x1, term_to_exp x3) end
-  | "Var" => let val [x1] = xs in Var (Short(fromId x1)) end
+  | "Var" => let val [x1] = xs in Var (term_to_id x1) end
   | "Let" => let val [x2,x4,x5] = xs in Let (fromHOLstring x2,term_to_exp x4,term_to_exp x5) end
   | "Mat" => let val [x1,x2] = xs in Mat (term_to_exp x1,dest_list (dest_pair term_to_pat term_to_exp) x2) end
-  | "Con" => let val [x1,x2] = xs in Con (Short(fromId x1),dest_list term_to_exp x2) end
+  | "Con" => let val [x1,x2] = xs in Con (term_to_id x1,dest_list term_to_exp x2) end
   | "Letrec" => let val [x1,x2] = xs in Letrec (dest_list (dest_pair fromHOLstring (dest_pair fromHOLstring term_to_exp)) x1,term_to_exp x2) end
   | "Raise" => let val [x1] = xs in compileML.Raise (term_to_error x1) end
   | "Handle" => let val [x1,x2,x3] = xs in compileML.Handle (term_to_exp x1, fromHOLstring x2, term_to_exp x3) end
@@ -96,7 +102,7 @@ end handle (Fail s) => raise Fail s | _ => raise Fail ((Parse.term_to_string tm)
 fun term_to_tc tm = let
   val (f,xs) = strip_comb tm
 in case fst(dest_const f) of
-    "TC_name" => let val [x1] = xs in TC_name (Short(fromId x1)) end
+    "TC_name" => let val [x1] = xs in TC_name (term_to_id x1) end
   | "TC_int" => TC_int
   | "TC_bool" => TC_bool
   | "TC_unit" => TC_unit
@@ -121,21 +127,25 @@ in case fst(dest_const f) of
 end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
 val term_to_ov = v_to_ov [] o term_to_v
 
-fun add_code c bs = bc_state_code_fupd
-  (compile_labels (bc_state_inst_length bs) o (C append c))
-  bs
+fun add_code c bs = bc_state_pc_fupd (K (numML.fromInt (List.length (bc_state_code bs))))
+  (bc_state_code_fupd
+    (compile_labels (bc_state_inst_length bs) o (C append c))
+    bs)
+
+fun mk_Tmod mn ds = Tmod(mn,NONE,dest_list term_to_dec ds)
+fun mk_Texp e = Tdec (term_to_dec ``Dlet (Pvar "it") ^e``)
+fun mk_Tdec d = Tdec (term_to_dec d)
 
 fun run_decs (bs,rs) [] = (bs,rs)
   | run_decs (bs,rs) (d::ds) = let
-      val (rss,(rsf,c)) = compile_dec rs (term_to_dec d)
+      val (rss,(rsf,c)) = compile_top rs (mk_Tdec d)
       val bs = add_code c bs
       val SOME bs = bc_eval bs
-      val rs = if List.hd (bc_state_stack bs) = Number i0 then rss else rsf
-      val bs = bump_pc (bc_state_stack_fupd List.tl bs)
+      val rs = if numML.toInt (bc_state_pc bs) = SOME 0 then rsf else rss
     in run_decs (bs,rs) ds end
 
 fun prep_exp (bs,rs) e = let
-  val (rss,(rsf,c)) = compile_dec rs (term_to_dec ``Dlet (Pvar "it") ^e``)
+  val (rss,(rsf,c)) = compile_top rs (mk_Texp e)
 in (add_code c bs,rss,rsf) end
 
 val inits = (init_bc_state, init_compiler_state)
@@ -144,13 +154,19 @@ fun mst_run_decs_exp_gen test (ds,e) = let
   val (bs,rs) = run_decs inits ds
   val (bs,rss,rsf) = prep_exp (bs,rs) e
   val (SOME bs) = bc_eval bs
-  val Number x::st = bc_state_stack bs
-  val true = test x
-  val rs = if x = i0 then rss else rsf
-in (cpam rs, st) end
+  val (true,rs) = test bs rss rsf
+in (cpam rs, bc_state_stack bs) end
 
-fun valt x = intML.toInt x = SOME 0
-fun exct x = intML.toInt x = SOME 1
+fun excp bs = numML.toInt (bc_state_pc bs) = SOME 0
+
+fun run_top (bs,rs) t = let
+  val (rss,(rsf,c)) = compile_top rs t
+  val bs = add_code c bs
+  val (SOME bs) = bc_eval bs
+in (bs,if excp bs then rsf else rss) end
+
+fun valt bs rs _ = (not(excp bs), rs)
+fun exct bs _ rs = (excp bs, rs)
 
 val mst_run_decs_exp = mst_run_decs_exp_gen valt
 val run_decs_exp = snd o mst_run_decs_exp

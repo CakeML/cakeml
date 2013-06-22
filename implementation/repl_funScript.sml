@@ -37,8 +37,8 @@ val _ = Hol_datatype`repl_fun_state = <|
 
 val compile_primitives_def = Define`
   compile_primitives =
-    compile_dec init_compiler_state
-    (Dletrec
+    compile_top init_compiler_state
+    (Tdec (Dletrec
     [("+"  ,"x",Fun"y"(App(Opn Plus  )(Var(Short"x"))(Var(Short"y"))))
     ;("-"  ,"x",Fun"y"(App(Opn Minus )(Var(Short"x"))(Var(Short"y"))))
     ;("*"  ,"x",Fun"y"(App(Opn Times )(Var(Short"x"))(Var(Short"y"))))
@@ -51,7 +51,7 @@ val compile_primitives_def = Define`
     ;("="  ,"x",Fun"y"(App(Equality  )(Var(Short"x"))(Var(Short"y"))))
     ;(":=" ,"x",Fun"y"(App(Opassign  )(Var(Short"x"))(Var(Short"y"))))
     ;("!"  ,"x",Uapp(Opderef)(Var(Short"x")))
-    ;("ref","x",Uapp(Opref  )(Var(Short"x")))])`
+    ;("ref","x",Uapp(Opref  )(Var(Short"x")))]))`
 
 val initial_repl_fun_state = Define`
   initial_repl_fun_state = <|
@@ -86,10 +86,6 @@ val update_state_def = Define`
           ; top               := t
           |>`
 
-val compile_top_def = Define `
-  (compile_top cs (Tmod _ _ _) = (cs,cs,[])) /\ (* fix! *)
-  (compile_top cs (Tdec dec) = compile_dec cs dec)`;
-
 val parse_elaborate_infertype_compile_def = Define `
   parse_elaborate_infertype_compile tokens s =
     case parse_top tokens of
@@ -115,7 +111,7 @@ val initial_bc_state_def =  Define`
   initial_bc_state =
   let bs =
     <|stack := [];
-      code := [];
+      code := [Stop];
       pc := 0;
       refs := FEMPTY;
       handler := 0;

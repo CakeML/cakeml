@@ -11,6 +11,7 @@ val num_to_dec_string : num -> string
 val Num : int -> num
 val int_neg : int -> int
 val FLAT : list string -> string
+val BUTLASTN : forall 'a. num -> list 'a -> list 'a
 (* TODO: lem library can't handle option type *)
 val o_f : forall 'a 'b 'c 'd. ('b -> 'c) -> 'a -> 'd
 val IS_SOME : forall 'a. 'a -> bool

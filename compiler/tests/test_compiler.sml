@@ -116,6 +116,9 @@ Dtype
     [("Cons",[Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]); ("Nil",[])])]
 ``
 val e22 = ``Con (Short "Cons") [Lit (Bool T); Con (Short "Nil") []]``
+
+val (bs,rs) = run_decs inits [listd]
+
 val (m,[Block (t1,[v,Block (t2,[])])]) = mst_run_decs_exp ([listd],e22)
 val true = valOf(numML.toInt t1) > 2;
 val true = valOf(numML.toInt t2) > valOf(numML.toInt t1);
@@ -268,9 +271,8 @@ val e43 = ``Letrec [("o","n",
   (App Opapp (Var (Short "o")) (Lit (IntLit 1000)))``
 val (bs43,_,_) = prep_exp inits e43
 val SOME s43 = bc_eval_limit 12 bs43
-val [Number z, Number i] = bc_state_stack s43
-val SOME 0 = intML.toInt i;
-val true = i = z;
+val [Number z] = bc_state_stack s43
+val SOME 0 = intML.toInt z;
 val d = ``Dletrec
 [("o","n",
   If (App Equality (Var (Short "n")) (Lit (IntLit 0)))
@@ -510,3 +512,15 @@ val true = (OConv (Short"Div",[])) = bv_to_ov m bv;
 val e78 = ``Let "x" (Lit (IntLit 1)) (Handle (App (Opn Modulo) (Lit (IntLit 0)) (Var (Short "x"))) "x" (Var (Short "x")))``
 val (m,[Number i]) = mst_run_exp e78
 val SOME 0 = intML.toInt i;
+val m = ``[Dlet (Pvar "x") (Lit (IntLit 1))]``
+val (bs,rs) = run_top inits (mk_Tmod "M" m)
+val (bs,rs) = run_top (bs,rs) (mk_Texp ``Var(Long"M""x")``)
+val [x,mx] = bc_state_stack bs
+val true = (OLit(IntLit(intML.fromInt 1))) = bv_to_ov (cpam rs) x andalso x = mx;
+val bsrs = run_top inits (mk_Tdec ``Dlet (Pvar "x") (Lit (IntLit 2))``)
+val (bs,rs) = run_top bsrs (mk_Tmod "M" m)
+val (bs,rs) = run_top (bs,rs) (mk_Texp ``App (Opn Minus) (Var (Short "x")) (Var (Long"M""x"))``)
+val [r,mx,x] = bc_state_stack bs
+val true = (OLit(IntLit(intML.fromInt 1))) = bv_to_ov (cpam rs) r
+    andalso(OLit(IntLit(intML.fromInt 2))) = bv_to_ov (cpam rs) x
+    andalso mx = r;

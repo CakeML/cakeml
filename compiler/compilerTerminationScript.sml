@@ -233,7 +233,7 @@ val _ = register "all_labs" (
 
 val (number_constructors_def,number_constructors_ind) = register "number_constructors" (
   tprove_no_defn ((number_constructors_def,number_constructors_ind),
-  WF_REL_TAC `measure (LENGTH o FST)` >> rw[]))
+  WF_REL_TAC `measure (LENGTH o FST o SND)` >> rw[]))
 
 val (bv_to_ov_def,bv_to_ov_ind) = register "bv_to_ov" (
   tprove_no_defn ((bv_to_ov_def,bv_to_ov_ind),
@@ -256,6 +256,10 @@ val _ = register "ov_to_string" (
   srw_tac[ARITH_ss][ov1_size_thm]>>
   Q.ISPEC_THEN`ov_size`imp_res_tac SUM_MAP_MEM_bound>>
   fsrw_tac[ARITH_ss][]))
+
+val _ = register "compile_decs" (
+  tprove_no_defn((compile_decs_def,compile_decs_ind),
+  WF_REL_TAC`measure (LENGTH o FST o SND)` >> simp[]))
 
 (* export rewrites *)
 
