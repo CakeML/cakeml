@@ -32,8 +32,7 @@ initial_inferencer_state : inferencer_state = ([], [], infer$init_type_env)`;
 val _ = Hol_datatype`repl_fun_state = <|
   relaborator_state : elaborator_state;
   rinferencer_state : inferencer_state;
-  rcompiler_state  : compiler_state;
-  top : top |>`
+  rcompiler_state  : compiler_state |>`
 
 val compile_primitives_def = Define`
   compile_primitives =
@@ -57,33 +56,13 @@ val initial_repl_fun_state = Define`
   initial_repl_fun_state = <|
     relaborator_state := initial_elaborator_state;
     rinferencer_state := initial_inferencer_state;
-    rcompiler_state   := FST compile_primitives;
-    top := (Tmod "" NONE []) |>`
-
-val print_fun_def = Define `
-  print_fun ss sf bs =
-    if HD bs.stack = (Number 0) then
-      (bs with <| stack := TL bs.stack |>
-      ,ss
-      ,case ss.top of
-       | Tmod _ _ _ => "module"
-       | Tdec dec =>
-           simple_printer
-            (preprint_dec ss.rcompiler_state dec)
-            (cpam ss.rcompiler_state) (TL bs.stack)
-      )
-    else
-      (bs with <| stack := TL (TL bs.stack) |> (* TODO: depends on how exception handlers are represented *)
-      ,sf
-      ,"Exception" (* TODO: simple_print the actual exception at HD (TL bs.stack) *)
-      )`
+    rcompiler_state   := FST compile_primitives |>`
 
 val update_state_def = Define`
-  update_state s es is cs t =
+  update_state s es is cs =
   s with <| relaborator_state := es
           ; rinferencer_state := is
           ; rcompiler_state   := cs
-          ; top               := t
           |>`
 
 val parse_elaborate_infertype_compile_def = Define `
@@ -100,12 +79,16 @@ val parse_elaborate_infertype_compile_def = Define `
             (* type found, type safe! *)
           | Success is =>
              let (css,csf,code) = compile_top s.rcompiler_state top in
-               Success (code,update_state s es is css top,update_state s es is csf top)`
+               Success (code,update_state s es is css,s with rcompiler_state := csf)`
 
 val install_code_def = Define `
-  install_code code bs =
+  install_code m code bs =
     let code = compile_labels bs.inst_length (bs.code ++ code) in
-    bs with <| code := code ; pc := next_addr bs.inst_length bs.code |>`;
+    bs with <| code   := code
+             ; pc     := next_addr bs.inst_length bs.code
+             ; output := ""
+             ; cons_names := m
+             |>`;
 
 val initial_bc_state_def =  Define`
   initial_bc_state =
@@ -116,9 +99,9 @@ val initial_bc_state_def =  Define`
       refs := FEMPTY;
       handler := 0;
       clock := NONE;
-      output := [];
+      output := "";
       inst_length := K 0 |> in
-  let bs = THE (bc_eval (install_code (SND (SND compile_primitives)) bs)) in
+  let bs = THE (bc_eval (install_code [] (SND (SND compile_primitives)) bs)) in
   bs with stack := TL bs.stack`
 
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` THEN REPEAT STRIP_TAC
@@ -135,14 +118,14 @@ val main_loop_def = tDefine "main_loop" `
           (* case: cannot turn into code, print error message, continue *)
           Failure error_msg => Result error_msg (main_loop (bs,s) rest_of_input)
         | (* case: new code generated, install, run, print and continue *)
-          Success (code,new_s_val,new_s_exc) =>
-            case bc_eval (install_code code bs) of
+          Success (code,s,s_exc) =>
+            case bc_eval (install_code (cpam s.rcompiler_state) code bs) of
               (* case: evaluation of code does not terminate *)
               NONE => Diverge
-            | (* case: evaluation terminated, print result and continue *)
+            | (* case: evaluation terminated, analyse result and continue *)
               SOME new_bs =>
-                let (new_bs,new_s,output) = print_fun new_s_val new_s_exc new_bs in
-                Result output (main_loop (new_bs,new_s) rest_of_input) ` tac ;
+                let new_s = if new_bs.pc = 0 then s_exc else s in
+                Result (REVERSE new_bs.output) (main_loop (new_bs,new_s) rest_of_input) ` tac ;
 
 val repl_fun_def = Define`
   repl_fun input = main_loop (initial_bc_state,initial_repl_fun_state) input`;
