@@ -40,7 +40,7 @@ val _ = Hol_datatype `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn v_to_ov_defn;
 
- val ov_to_string_defn = Hol_defn "ov_to_string" `
+ val ov_to_string_def = Define `
 
 (ov_to_string (OLit (IntLit (i:int))) =  
 (if int_lt i i0 then STRCAT  "-" ( num_to_dec_string ( Num ( int_neg i)))
@@ -52,12 +52,15 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (ov_to_string (OLit Unit) = "()")
 /\
-(ov_to_string (OConv cn vs) = ( STRCAT 
-  (id_to_string cn) ( STRCAT  " " 
-  (case intersperse ", " ( MAP ov_to_string vs) of
-    [s] => s
-  | ls => STRCAT  "(" ( STRCAT(FLAT ls) ")")
-  ))))
+(ov_to_string (OConv _ _) = "<constructor>")
+(*
+ov_to_string (OConv cn vs) =
+  (id_to_string cn)^" "^
+  match intersperse ", " (List.map ov_to_string vs) with
+  | [s] -> s
+  | ls -> "("^Hol.FLAT ls^")"
+  end
+*)
 /\
 (ov_to_string (OLoc _) = "<ref>")
 /\
@@ -65,7 +68,6 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (ov_to_string OError = "<error>")`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn ov_to_string_defn;
 
 (*
 open Compiler

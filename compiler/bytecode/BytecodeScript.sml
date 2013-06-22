@@ -87,7 +87,7 @@ val _ = Hol_datatype `
       pc : num;
       refs : (num, bc_value)fmap;
       handler : num;
-      output : char list;
+      output : string;
       cons_names : (num # conN id) list;
       (* artificial state components *)
       inst_length : bc_inst -> num;
@@ -333,12 +333,14 @@ bc_next s ((bump_pc s with<| clock := OPTION_MAP PRE s.clock|>)))
 bc_fetch s = SOME Print) /\ (s.stack = x ::xs))
 ==>
 bc_next s ((bump_pc s with<| stack := xs;
-  output := REVERSE(EXPLODE(ov_to_string (bv_to_ov s.cons_names x))) ++s.output|>)))
+  output := STRCAT
+           (IMPLODE( REVERSE(EXPLODE(ov_to_string (bv_to_ov s.cons_names x)))))
+           (s.output)|>)))
 /\
 (! s c.
 (
 bc_fetch s = SOME (PrintC c))
 ==>
-bc_next s ((bump_pc s with<| output := c ::s.output|>)))`;
+bc_next s ((bump_pc s with<| output := STRING c s.output|>)))`;
 val _ = export_theory()
 

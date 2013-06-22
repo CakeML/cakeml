@@ -33,12 +33,15 @@ ov_to_string (OLit (Bool false)) = "false"
 and
 ov_to_string (OLit Unit) = "()"
 and
+ov_to_string (OConv _ _) = "<constructor>"
+(*
 ov_to_string (OConv cn vs) =
   (id_to_string cn)^" "^
   match intersperse ", " (List.map ov_to_string vs) with
   | [s] -> s
   | ls -> "("^Hol.FLAT ls^")"
   end
+*)
 and
 ov_to_string (OLoc _) = "<ref>"
 and

@@ -250,12 +250,14 @@ val _ = register "replace_labels" (
   tprove_no_defn ((replace_labels_def,replace_labels_ind),
   WF_REL_TAC `measure (LENGTH o SND o SND)` >> rw[]))
 
+(*
 val _ = register "ov_to_string" (
   tprove_no_defn((ov_to_string_def,ov_to_string_ind),
   WF_REL_TAC`measure ov_size`>>
   srw_tac[ARITH_ss][ov1_size_thm]>>
   Q.ISPEC_THEN`ov_size`imp_res_tac SUM_MAP_MEM_bound>>
   fsrw_tac[ARITH_ss][]))
+*)
 
 val _ = register "compile_decs" (
   tprove_no_defn((compile_decs_def,compile_decs_ind),
