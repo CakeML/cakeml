@@ -2227,4 +2227,63 @@ rw [update_type_sound_inv_def, type_sound_invariants_def] >|
       cheat,
       cheat]]);
 
+val type_env_eqn = Q.prove (
+`(!tenvM tenvC tenvS.
+   type_env tenvM tenvC tenvS [] Empty = T) ∧
+ (!tenvM tenvC tenvS n v n' tvs t envE tenv.
+   type_env tenvM tenvC tenvS ((n,v)::envE) (Bind_name n' tvs t tenv) = 
+     ((n = n') ∧ type_v tvs tenvM tenvC tenvS v t ∧ 
+      type_env tenvM tenvC tenvS envE tenv))`,
+rw [] >-
+rw [Once type_v_cases, emp_def] >>
+rw [Once type_v_cases, bind_def, bind_tenv_def] >>
+metis_tac []);
+
+val tac2 =
+rw [Once type_v_cases, type_env_eqn, Tfn_def, Tint_def, Tbool_def] >>
+NTAC 6 (rw [Once type_e_cases, check_freevars_def, num_tvs_def, bind_tenv_def,
+            lookup_tenv_def, bind_tvar_def, Tfn_def, Tint_def, type_op_def, 
+            type_uop_def, t_lookup_var_id_def, deBruijn_inc_def, deBruijn_subst_def,
+            METIS_PROVE [] ``(?x. P ∧ Q x) = (P ∧ ?x. Q x)``, Tbool_def,
+            Tref_def]) >>
+full_simp_tac (srw_ss()++ARITH_ss) [];
+
+val tac = 
+ac2 >>
+metis_tac [type_env_eqn, EVERY_DEF, LENGTH, DECIDE ``~(0<0:num)``];
+
+val initial_type_sound_invariants = Q.store_thm ("initial_type_sound_invariant",
+`type_sound_invariants ([],[],init_tenv,[],[],init_env,[])`,
+rw [type_sound_invariants_def, 
+    tenvM_ok_def, tenvC_ok_def, weakM_def, weakC_def, type_s_def,
+    store_lookup_def, lookup_def] >>
+MAP_EVERY qexists_tac [`[]`, `[]`] >>
+rw [consistent_con_env_def, weakC_mods_def] >>
+rw [init_env_def, init_tenv_def, type_env_eqn] >|
+[tac,
+ tac,
+ tac,
+ tac,
+ tac,
+ tac,
+ tac,
+ tac,
+ tac,
+ tac,
+ tac2 >>
+     qexists_tac `Empty` >>
+         rw [type_env_eqn] >>
+         qexists_tac `Tapp [Tvar_db 0] TC_ref` >>
+         rw [] >>
+         qexists_tac `[]` >>
+         rw [],
+ tac2 >>
+     qexists_tac `Empty` >>
+         rw [type_env_eqn] >>
+         qexists_tac `Tapp [Tvar_db 0] TC_ref` >>
+         rw [] >>
+         qexists_tac `[]` >>
+         rw [],
+ tac]);
+
 val _ = export_theory ();
