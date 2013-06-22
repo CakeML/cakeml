@@ -299,3 +299,7 @@ let init_env =
    ("!", Closure [] "x" (Uapp Opderef (Var (Short "x"))));
    ("ref", Closure [] "x" (Uapp Opref (Var (Short "x"))))]
 
+let rec
+id_to_string (Short s) = s
+and
+id_to_string (Long x y) = x^"."^y

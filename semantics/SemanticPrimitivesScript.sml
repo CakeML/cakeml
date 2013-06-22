@@ -361,5 +361,11 @@ val _ = Define `
    ("ref", Closure [] "x" (Uapp Opref (Var (Short "x"))))])`;
 
 
+ val id_to_string_def = Define `
+
+(id_to_string (Short s) = s)
+/\
+(id_to_string (Long x y) = ( STRCAT  x ( STRCAT  "." y)))`;
+
 val _ = export_theory()
 

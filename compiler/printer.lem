@@ -14,11 +14,6 @@ type ov =
   | OError (* internal machine value (pointer) that should not appear *)
 
 let rec
-id_to_string (Short s) = s
-and
-id_to_string (Long x y) = x^"."^y
-
-let rec
 v_to_ov _ (Litv l) = OLit l
 and
 v_to_ov s (Conv cn vs) = OConv cn (List.map (v_to_ov s) vs)

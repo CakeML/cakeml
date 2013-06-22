@@ -81,10 +81,6 @@ update_repl_state state type_bindings ctors tenvM tenvC tenv store r =
 val print_envM_def = Define `
 print_envM envM = CONCAT (MAP (λ(x,m). "module " ++ x ++ " = <structure>\n") envM)`;
 
-val id_to_string_def = Define `
-(id_to_string (Short x) = x) ∧
-(id_to_string (Long x y) = x ++ "." ++ y)`;
-
 val print_envC_def = Define `
 print_envC envC = CONCAT (MAP (λ(x,c). id_to_string x ++ " = <constructor>") envC)`;
 
