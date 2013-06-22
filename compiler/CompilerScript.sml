@@ -41,11 +41,8 @@ val _ = Hol_datatype `
 
 val _ = Define `
  init_compiler_state =  
-(<| contab := ( FUPDATE 
-               ( FUPDATE 
-                ( FUPDATE FEMPTY ( (Short ""), tuple_cn)) ( (Short "Bind"), bind_exc_cn)) ( (Short "Div"), div_exc_cn)
-              (* TODO: don't need to store n, use length of list? *)
-              ,[(tuple_cn,Short "");(bind_exc_cn,Short "Bind");(div_exc_cn,Short "Div")]
+(<| contab := ( FUPDATE FEMPTY ( (Short ""), tuple_cn)
+              ,[(tuple_cn,Short "")]
               ,3)
    ; renv := []
    ; rmenv := FEMPTY

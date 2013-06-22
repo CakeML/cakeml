@@ -21,11 +21,8 @@ val cpam : compiler_state -> list (num * id conN)
 let rec cpam s = match s.contab with (_,w,_) -> w end
 
 let init_compiler_state =
-  <| contab = (Pmap.add (Short "Div") div_exc_cn
-               (Pmap.add (Short "Bind") bind_exc_cn
-                (Pmap.add (Short "") tuple_cn Pmap.empty))
-              (* TODO: don't need to store n, use length of list? *)
-              ,[(tuple_cn,Short "");(bind_exc_cn,Short "Bind");(div_exc_cn,Short "Div")]
+  <| contab = (Pmap.add (Short "") tuple_cn Pmap.empty
+              ,[(tuple_cn,Short "")]
               ,3)
    ; renv = []
    ; rmenv = Pmap.empty

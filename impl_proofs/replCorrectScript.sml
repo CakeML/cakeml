@@ -405,10 +405,17 @@ cheat
 )
 *)
 
+val FST_compile_fake_exp_contab = store_thm("FST_compile_fake_exp_contab",
+  ``FST (compile_fake_exp rs vs e) = rs.contab``,
+  qabbrev_tac`p = compile_fake_exp rs vs e` >>
+  PairCases_on`p` >> fs[markerTheory.Abbrev_def] >>
+  metis_tac[compile_fake_exp_contab])
+
 val good_compile_primitives = prove(
   ``good_contab (FST compile_primitives).contab ∧
-    good_cmap [] (cmap (FST compile_primitives).contab) (* ∧ not true
-    {Short ""} = FDOM (cmap (FST compile_primitives).contab) *)
+    good_cmap [] (cmap (FST compile_primitives).contab) ∧
+    {Short ""} = FDOM (cmap (FST compile_primitives).contab) ∧
+    (∀id. FLOOKUP (cmap (FST compile_primitives).contab) id = SOME (cmap (FST compile_primitives).contab ' (Short "")) ⇒ id = Short "")
     ``,
   rw[compile_primitives_def] >>
   rw[CompilerTheory.compile_top_def,CompilerTheory.compile_dec_def] >>
@@ -416,7 +423,27 @@ val good_compile_primitives = prove(
   rw[good_contab_def,intLangExtraTheory.good_cmap_def] >>
   rw[CompilerTheory.init_compiler_state_def,good_contab_def] >>
   rw[IntLangTheory.tuple_cn_def,IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def] >>
-  rw[toIntLangProofsTheory.cmap_linv_def,FAPPLY_FUPDATE_THM])
+  rw[toIntLangProofsTheory.cmap_linv_def,FAPPLY_FUPDATE_THM] >>
+  fs[CompilerTheory.compile_top_def,CompilerTheory.compile_dec_def,LET_THM,UNCURRY,FST_compile_fake_exp_contab] >>
+  fs[CompilerTheory.init_compiler_state_def,FLOOKUP_UPDATE])
+
+val compile_primitives_menv = store_thm("compile_primitives_menv",
+  ``(FST compile_primitives).rmenv = FEMPTY``,
+  rw[compile_primitives_def,CompilerTheory.compile_top_def] >>
+  rw[CompilerTheory.init_compiler_state_def])
+
+val compile_primitives_renv = store_thm("compile_primitives_renv",
+  ``((FST compile_primitives).renv = GENLIST (λi. (FST(EL i init_env), i)) (LENGTH init_env)) ∧
+    ((FST compile_primitives).rsz = LENGTH init_env)``,
+  rw[compile_primitives_def,CompilerTheory.compile_top_def] >>
+  rw[CompilerTheory.init_compiler_state_def] >>
+  fs[CompilerTheory.compile_dec_def,LET_THM] >>
+  fs[CompilerTheory.compile_fake_exp_def,LET_THM] >>
+  rw[CompilerTheory.init_compiler_state_def] >>
+  rw[LIST_EQ_REWRITE,SemanticPrimitivesTheory.init_env_def] >>
+  `x ∈ count 13` by rw[] >>
+  pop_assum mp_tac >> EVAL_TAC >>
+  rw[] >> simp[])
 
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
@@ -444,7 +471,12 @@ val initial_invariant = prove(
     *) ) >>
 
   (* env_rs proof: *)
-  simp[env_rs_def,good_compile_primitives] >>
+  simp[env_rs_def,good_compile_primitives,compile_primitives_menv,compile_primitives_renv] >>
+
+  simp[MAP_GENLIST,combinTheory.o_DEF] >>
+  Q.PAT_ABBREV_TAC`Cenv = env_to_Cenv FEMPTY X Y` >>
+  CONV_TAC(RESORT_EXISTS_CONV(List.rev))>>
+
   cheat)
 
 val replCorrect = Q.store_thm ("replCorrect",
