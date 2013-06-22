@@ -411,8 +411,8 @@ val good_compile_primitives = prove(
     {Short ""} = FDOM (cmap (FST compile_primitives).contab) *)
     ``,
   rw[compile_primitives_def] >>
-  rw[CompilerTheory.compile_dec_def] >>
-  rw[CompilerTheory.compile_fake_exp_def] >>
+  rw[CompilerTheory.compile_top_def,CompilerTheory.compile_dec_def] >>
+  imp_res_tac compile_fake_exp_contab >>
   rw[good_contab_def,intLangExtraTheory.good_cmap_def] >>
   rw[CompilerTheory.init_compiler_state_def,good_contab_def] >>
   rw[IntLangTheory.tuple_cn_def,IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def] >>
@@ -422,11 +422,29 @@ val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
   rw[invariant_def,initial_repl_fun_state_def,initial_elaborator_state_def,init_repl_state_def] >>
   rw[check_menv_def,initial_inferencer_state_def,check_cenv_def,check_env_def]
-  >- EVAL_TAC >>
+  >- EVAL_TAC
+  >- (* type_sound_invariants proof *) (
+    rw[type_sound_invariants_def] >>
+    map_every qexists_tac[`[]`,`[]`] >>
+    rw[tenvM_ok_def,tenvC_ok_def,weakC_mods_def,consistent_con_env_def,weakM_def,weakC_def
+      ,TypeSoundInvariantsTheory.type_s_def,SemanticPrimitivesTheory.store_lookup_def] >>
+    cheat (*
+    rw[Once TypeSoundInvariantsTheory.type_v_cases] >>
+    rw[SemanticPrimitivesTheory.init_env_def,TypeSystemTheory.init_tenv_def
+      ,TypeSystemTheory.bind_tenv_def,LibTheory.bind_def] >>
+    rw[Once TypeSoundInvariantsTheory.type_v_cases] >- (
+      rw[Once TypeSoundInvariantsTheory.type_v_cases]
+      map_every qexists_tac [`Empty`,`Tint`,`Tfn Tint Tint`] >>
+      rw[TypeSystemTheory.bind_tenv_def,LibTheory.bind_def,LibTheory.emp_def
+        ,terminationTheory.check_freevars_def] >- cheat >>
+      rw[Once TypeSystemTheory.type_e_cases] >>
+      map_every qexists_tac[`Tint`,`Tint`] >>
+      rw[terminationTheory.check_freevars_def] >- cheat >>
+      rw[Once TypeSystemTheory.type_e_cases] >>
+    *) ) >>
 
   (* env_rs proof: *)
   simp[env_rs_def,good_compile_primitives] >>
-
   cheat)
 
 val replCorrect = Q.store_thm ("replCorrect",
