@@ -7,7 +7,7 @@ val _ = numLib.prefer_num();
 
 
 
-open CompilerPrimitivesTheory BytecodeTheory CompilerLibTheory SemanticPrimitivesTheory AstTheory LibTheory
+open CompilerPrimitivesTheory BytecodeTheory PrinterTheory CompilerLibTheory SemanticPrimitivesTheory AstTheory LibTheory
 
 val _ = new_theory "IntLang"
 
@@ -648,5 +648,19 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (all_labs_def (NONE,_) = F)`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn all_labs_defn;
+
+(*open Printer*)
+
+ val Cv_to_ov_defn = Hol_defn "Cv_to_ov" `
+
+(Cv_to_ov _ _ (CLitv l) = (OLit l))
+/\
+(Cv_to_ov m s (CConv cn vs) = (OConv (the (Short "?") (Lib$lookup cn m)) ( MAP (Cv_to_ov m s) vs)))
+/\
+(Cv_to_ov _ _ (CRecClos _ _ _) = OFn)
+/\
+(Cv_to_ov _ s (CLoc n) = (OLoc ( EL  n  s)))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn Cv_to_ov_defn;
 val _ = export_theory()
 

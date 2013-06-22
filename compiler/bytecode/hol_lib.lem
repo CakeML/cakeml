@@ -1,3 +1,5 @@
+type char
+val EXPLODE : string -> list char
 val LEAST : (num -> bool) -> num
 val IMAGE : forall 'a 'b. ('a -> 'b) -> set 'a -> set 'b
 val PRE : num -> num

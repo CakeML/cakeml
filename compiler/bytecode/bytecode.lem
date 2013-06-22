@@ -1,4 +1,6 @@
+open Ast
 open CompilerLib
+open Printer
 
 (* --- Syntax --- *)
 
@@ -40,6 +42,8 @@ type
   | Update                  (* update a ref cell *)
   | Stop                    (* halt execution *)
   | Tick                    (* use fuel *)
+  | Print                   (* print top of stack *)
+  | PrintC of Hol.char      (* print a character *)
 
 (* --- Semantics --- *)
 
@@ -61,6 +65,8 @@ type
       pc : num;
       refs : Pmap.map num bc_value;
       handler : num;
+      output : list Hol.char;
+      cons_names : list (num * id conN);
       (* artificial state components *)
       inst_length : bc_inst -> num;
       clock : option num
@@ -115,6 +121,20 @@ let rec
 bc_find_loc _ (Addr n) = Some n
 and
 bc_find_loc s (Lab l) = bc_find_loc_aux s.code s.inst_length l 0
+
+let rec
+bv_to_ov _ (Number i) = OLit (IntLit i)
+and
+bv_to_ov m (Block n vs) =
+  if n = (bool_to_tag false) then OLit (Bool false) else
+  if n = (bool_to_tag true) then OLit (Bool true) else
+  if n = unit_tag then OLit Unit else
+  if n = closure_tag then OFn else
+  OConv (the (Short "?") (Lib.lookup (n-block_tag) m)) (List.map (bv_to_ov m) vs)
+and
+bv_to_ov _ (RefPtr n) = OLoc n
+and
+bv_to_ov _ _ = OError
 
 (* next state relation *)
 
@@ -262,4 +282,15 @@ bc_fetch s = Some Tick
 && (forall n. s.clock = Some n --> n > 0)
 ==>
 bc_next s (<|bump_pc s with clock = Hol.OPTION_MAP Hol.PRE s.clock|>)
-
+and
+forall s x xs.
+bc_fetch s = Some Print
+&& (s.stack = x::xs)
+==>
+bc_next s (<|bump_pc s with stack = xs;
+  output = List.rev(Hol.EXPLODE(ov_to_string (bv_to_ov s.cons_names x)))@s.output|>)
+and
+forall s c.
+bc_fetch s = Some (PrintC c)
+==>
+bc_next s (<|bump_pc s with output = c::s.output|>)

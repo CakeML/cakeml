@@ -203,6 +203,10 @@ val bc_eval1_def = Define`
     (case s.clock of
      | NONE => SOME (bump_pc s)
      | SOME n => if n > 0 then SOME (bump_pc s with <| clock := SOME (n-1) |>) else NONE)
+  | (Print, x::xs) =>
+    SOME (bump_pc s with <| stack := xs; output := REVERSE(EXPLODE(ov_to_string(bv_to_ov s.cons_names x)))++s.output |>)
+  | (PrintC c,_) =>
+    SOME (bump_pc s with <| output := c::s.output |>)
   | _ => NONE)`
 
 val bc_eval1_SOME = store_thm(
@@ -278,7 +282,11 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   pop_assum mp_tac >>
   BasicProvers.EVERY_CASE_TAC >>
   rw[bc_next_cases,PRE_SUB1] >>
-  rw[BytecodeTheory.bc_state_component_equality,bump_pc_def]))
+  rw[BytecodeTheory.bc_state_component_equality,bump_pc_def])
+>- (
+  Cases_on `s1.stack` >> fs[LET_THM] >>
+  rw[bc_next_cases] )
+>- ( rw[bc_next_cases] ))
 
 val bc_next_bc_eval1 = store_thm(
 "bc_next_bc_eval1",

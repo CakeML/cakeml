@@ -116,6 +116,7 @@ val initial_bc_state_def =  Define`
       refs := FEMPTY;
       handler := 0;
       clock := NONE;
+      output := [];
       inst_length := K 0 |> in
   let bs = THE (bc_eval (install_code (SND (SND compile_primitives)) bs)) in
   bs with stack := TL bs.stack`

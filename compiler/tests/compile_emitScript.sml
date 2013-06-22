@@ -42,14 +42,12 @@ fun fix_compile_bindings_suc th = let
 
 val data = map
   (fn th => EmitML.DATATYPE [QUOTE (datatype_thm_to_string th)])
-  [ AstTheory.datatype_lit
-  , AstTheory.datatype_error
+  [ AstTheory.datatype_error
   , AstTheory.datatype_opb
   , AstTheory.datatype_opn
   , AstTheory.datatype_op
   , AstTheory.datatype_uop
   , AstTheory.datatype_lop
-  , AstTheory.datatype_id
   , AstTheory.datatype_pat
   , AstTheory.datatype_exp
   , SemanticPrimitivesTheory.datatype_v
@@ -68,7 +66,6 @@ val data = map
   , datatype_call_context
   , datatype_compiler_result
   , datatype_compiler_state
-  , datatype_ov
   ]
 
 val defs = map EmitML.DEFN
@@ -77,12 +74,10 @@ val defs = map EmitML.DEFN
 , Cpat_vars_def
 , lunion_def
 , lshift_def
-, the_def
 , el_check_def
 , fapply_def
 , free_vars_def
 , emit_def
-, i0_def
 , i1_def
 , i2_def
 , mkshift_def
@@ -133,10 +128,7 @@ val defs = map EmitML.DEFN
 , compile_dec_def
 , compile_decs_def
 , compile_top_def
-, id_to_string_def
-, LibTheory.lookup_def
 , v_to_ov_def
-, bv_to_ov_def
 , cpam_def
 ]
 

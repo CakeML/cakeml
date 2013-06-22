@@ -7,11 +7,13 @@ val _ = numLib.prefer_num();
 
 
 
-open CompilerLibTheory
+open PrinterTheory CompilerLibTheory SemanticPrimitivesTheory AstTheory LibTheory
 
 val _ = new_theory "Bytecode"
 
+(*open Ast*)
 (*open CompilerLib*)
+(*open Printer*)
 
 (* --- Syntax --- *)
 
@@ -57,8 +59,10 @@ val _ = Hol_datatype `
   | Deref                   (* dereference a ref cell *)
   | Update                  (* update a ref cell *)
   | Stop                    (* halt execution *)
-  | Tick`;
-                    (* use fuel *)
+  | Tick                    (* use fuel *)
+  | Print                   (* print top of stack *)
+  | PrintC of char`;
+      (* print a character *)
 
 (* --- Semantics --- *)
 
@@ -83,6 +87,8 @@ val _ = Hol_datatype `
       pc : num;
       refs : (num, bc_value)fmap;
       handler : num;
+      output : char list;
+      cons_names : (num # conN id) list;
       (* artificial state components *)
       inst_length : bc_inst -> num;
       clock : num option
@@ -164,6 +170,23 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (bc_find_loc s (Lab l) = ( bc_find_loc_aux s.code s.inst_length l 0))`;
 
+
+ val bv_to_ov_defn = Hol_defn "bv_to_ov" `
+
+(bv_to_ov _ (Number i) = (OLit (IntLit i)))
+/\
+(bv_to_ov m (Block n vs) =  
+(if n = (bool_to_tag F) then OLit (Bool F) else
+  if n = (bool_to_tag T) then OLit (Bool T) else
+  if n = unit_tag then OLit Unit else
+  if n = closure_tag then OFn else
+  OConv (the (Short "?") (Lib$lookup (n - block_tag) m)) ( MAP (bv_to_ov m) vs)))
+/\
+(bv_to_ov _ (RefPtr n) = (OLoc n))
+/\
+(bv_to_ov _ _ = OError)`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn bv_to_ov_defn;
 
 (* next state relation *)
 
@@ -303,7 +326,19 @@ bc_next s ((bump_pc s with<| stack := xs; refs := FUPDATE  s.refs ( ptr, x)|>)))
 ((
 bc_fetch s = SOME Tick) /\ (! n. (s.clock = SOME n) ==> n > 0))
 ==>
-bc_next s ((bump_pc s with<| clock := OPTION_MAP PRE s.clock|>)))`;
-
+bc_next s ((bump_pc s with<| clock := OPTION_MAP PRE s.clock|>)))
+/\
+(! s x xs.
+((
+bc_fetch s = SOME Print) /\ (s.stack = x ::xs))
+==>
+bc_next s ((bump_pc s with<| stack := xs;
+  output := REVERSE(EXPLODE(ov_to_string (bv_to_ov s.cons_names x))) ++s.output|>)))
+/\
+(! s c.
+(
+bc_fetch s = SOME (PrintC c))
+==>
+bc_next s ((bump_pc s with<| output := c ::s.output|>)))`;
 val _ = export_theory()
 

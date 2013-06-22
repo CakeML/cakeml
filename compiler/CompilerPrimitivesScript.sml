@@ -7,7 +7,7 @@ val _ = numLib.prefer_num();
 
 
 
-open BytecodeTheory CompilerLibTheory SemanticPrimitivesTheory AstTheory LibTheory
+open BytecodeTheory PrinterTheory CompilerLibTheory SemanticPrimitivesTheory AstTheory LibTheory
 
 val _ = new_theory "CompilerPrimitives"
 

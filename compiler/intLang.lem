@@ -595,3 +595,14 @@ and
 all_labs_def (Some _,(_,b)) = all_labs b
 and
 all_labs_def (None,_) = false
+
+open Printer
+
+let rec
+Cv_to_ov _ _ (CLitv l) = OLit l
+and
+Cv_to_ov m s (CConv cn vs) = OConv (the (Short "?") (Lib.lookup cn m)) (List.map (Cv_to_ov m s) vs)
+and
+Cv_to_ov _ _ (CRecClos _ _ _) = OFn
+and
+Cv_to_ov _ s (CLoc n) = OLoc (List.nth s n)

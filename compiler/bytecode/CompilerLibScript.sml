@@ -7,6 +7,8 @@ val _ = numLib.prefer_num();
 
 
 
+open SemanticPrimitivesTheory AstTheory LibTheory
+
 val _ = new_theory "CompilerLib"
 
 (* TODO: these should be in the lem library *)
