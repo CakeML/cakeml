@@ -1382,7 +1382,7 @@ val compile_dec_val = store_thm("compile_dec_val",
         qsuff_tac`¬(MEM (mk_id mn z) (MAP FST cenv) ∨ (mk_id mn z) = Short "")`>-metis_tac[]>>
         simp[] >>
         Cases_on`mn`>>fs[AstTheory.mk_id_def] >>
-        fs[PrinterTheory.id_to_string_def] >>
+        fs[SemanticPrimitivesTheory.id_to_string_def] >>
         res_tac >> fs[] >> rw[] >> fs[] >> metis_tac[]) >>
       conj_asm1_tac >- (
         simp[EVERY_MAP,EVERY_REVERSE,EVERY_GENLIST] >>
@@ -1390,7 +1390,7 @@ val compile_dec_val = store_thm("compile_dec_val",
         rw[] >> res_tac >> simp[] ) >>
       conj_asm1_tac >- (
         simp[FDOM_FUPDATE_LIST] >>
-        fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_GENLIST,PrinterTheory.id_to_string_def] ) >>
+        fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_GENLIST,SemanticPrimitivesTheory.id_to_string_def] ) >>
       simp[FDOM_FUPDATE_LIST] >>
       gen_tac >> strip_tac >- (
         match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
@@ -1419,7 +1419,7 @@ val compile_dec_val = store_thm("compile_dec_val",
         qsuff_tac`mk_id mn z ≠ Short ""`>-metis_tac[] >>
         Cases_on`mn`>>fs[AstTheory.mk_id_def] >>
         spose_not_then strip_assume_tac >>
-        fs[PrinterTheory.id_to_string_def] ) >>
+        fs[SemanticPrimitivesTheory.id_to_string_def] ) >>
       match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
       fsrw_tac[ARITH_ss][] >>
       simp[MEM_GENLIST] >>
@@ -1428,7 +1428,7 @@ val compile_dec_val = store_thm("compile_dec_val",
       simp[MEM_MAP,MEM_GENLIST] >>
       strip_tac >>
       qexists_tac`i` >>
-      simp[PrinterTheory.id_to_string_def] >>
+      simp[SemanticPrimitivesTheory.id_to_string_def] >>
       qmatch_abbrev_tac`((p0 |++ ls) ' k) = z` >>
       qho_match_abbrev_tac`P ((p0 |++ ls) ' k)` >>
       match_mp_tac FUPDATE_LIST_ALL_DISTINCT_APPLY_MEM >>

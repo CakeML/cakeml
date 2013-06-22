@@ -158,7 +158,9 @@ val bc_next_MAP_replace_lab = store_thm("bc_next_MAP_replace_lab",
   strip_tac >- (
     tac >>
     BasicProvers.CASE_TAC >>
-    simp[bc_state_component_equality]))
+    simp[bc_state_component_equality]) >>
+  strip_tac >- tac >>
+  strip_tac >- tac)
 
 val bc_fetch_MEM = store_thm("bc_fetch_MEM",
   ``(bc_fetch s1 = SOME i) ⇒ (MEM i s1.code)``,
