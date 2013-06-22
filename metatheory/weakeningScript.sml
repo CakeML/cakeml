@@ -781,7 +781,7 @@ rw [emp_def] >-
 rw [tenvC_one_mod_def] >>
 metis_tac [tenvC_one_mod_merge, type_d_mod]);
 
-val weakC_disjoint = Q.prove (
+val weakC_disjoint = Q.store_thm ("weakC_disjoint",
 `!tenvC1 tenvC2 tenvC3.
   weakC tenvC1 tenvC2 ∧
   disjoint_env tenvC1 tenvC3
@@ -808,6 +808,9 @@ val type_top_type_top_ignore_sig = Q.store_thm ("type_top_type_top_ignore_sig",
   ?tenvM'' tenvC'' tenv''. 
     type_top_ignore_sig tenvM tenvC tenv top tenvM'' tenvC'' tenv'' ∧
     tenvC_ok tenvC'' ∧
+    tenvC_ok tenvC' ∧
+    disjoint_env tenvC'' tenvC ∧
+    disjoint_env tenvC' tenvC ∧
     tenvM_ok tenvM'' ∧
     (MAP FST tenvM'' = MAP FST tenvM') ∧
     weakM tenvM'' tenvM' ∧
@@ -829,7 +832,8 @@ imp_res_tac type_d_tenvC_ok >|
      qexists_tac `cenv'` >>
      rw [] >>
      `tenvM_ok ([]:tenvM)` by rw [tenvM_ok_def] >>
-     metis_tac [bind_def, weakM_bind3]]);
+     `tenvC_ok ([]:tenvC)` by rw [tenvC_ok_def] >>
+     metis_tac [emp_def, bind_def, weakM_bind3,type_specs_tenvC_ok, weakC_disjoint]]);
 
      (*
      `tenv_ok (bind_var_list2 emp Empty)` by rw [emp_def, bind_var_list2_def, tenv_ok_def] >>

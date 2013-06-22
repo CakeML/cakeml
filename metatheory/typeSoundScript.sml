@@ -1344,7 +1344,7 @@ store_type_extension tenvS1 tenvS2 =
   ?tenvS'. (tenvS2 = merge tenvS' tenvS1) ∧ 
            (!l. (lookup l tenvS' = NONE) ∨ (lookup l tenvS1 = NONE))`;
 
-val store_type_extension_weakS = Q.prove (
+val store_type_extension_weakS = Q.store_thm ("store_type_extension_weakS",
 `!tenvS1 tenvS2.
   store_type_extension tenvS1 tenvS2 ⇒ weakS tenvS2 tenvS1`,
 rw [store_type_extension_def, weakS_def, lookup_append, merge_def] >>

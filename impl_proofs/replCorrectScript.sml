@@ -1,7 +1,7 @@
 open preamble boolSimps;
 open lexer_funTheory repl_funTheory replTheory
 open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compilerProofsTheory;
-open typeSoundTheory weakeningTheory;
+open TypeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory;
 
 val _ = new_theory "replCorrect";
 
@@ -45,35 +45,64 @@ val get_type_error_mask_def = Define `
 (get_type_error_mask (Result r rs) =
   (r = "<type error>")::get_type_error_mask rs)`;
 
+val type_infer_invariants_def = Define `
+type_infer_invariants rs rinf_st ⇔
+      check_menv (FST rinf_st)
+    ∧ check_cenv (FST (SND rinf_st))
+    ∧ check_env {} (SND (SND rinf_st))
+    ∧ (rs.tenvM = convert_menv (FST rinf_st))
+    ∧ (rs.tenvC = FST (SND rinf_st))
+    ∧ (rs.tenv = (bind_var_list2 (convert_env2 (SND (SND rinf_st))) Empty))`;
+
+(* For using the type soundess theorem, we have to know there are good
+ * constructor and module type environments that don't have bits hidden by a
+ * signature. *)
+val type_sound_invariants_def = Define `
+type_sound_invariants rs ⇔
+  ?tenvS tenvM tenvC. 
+    tenvM_ok tenvM ∧ 
+    tenvC_ok tenvC ∧
+    tenvC_ok rs.tenvC ∧
+    weakC_mods tenvC rs.tenvC ⊆ set (MAP SOME (MAP FST tenvM)) ∧
+    (MAP FST tenvM = MAP FST rs.tenvM) ∧
+    consistent_mod_env tenvS tenvC rs.envM tenvM ∧
+    consistent_con_env rs.envC tenvC ∧
+    type_env tenvM tenvC tenvS rs.envE rs.tenv ∧
+    type_s tenvM tenvC tenvS rs.store ∧
+    weakM tenvM rs.tenvM ∧
+    weakC tenvC rs.tenvC`;
 
 val invariant_def = Define`
   invariant rs rfs bs ⇔
     rfs.relaborator_state = (rs.type_bindings, rs.ctors)
 
-    (* The type inferencer *)
-    ∧ check_menv (FST rfs.rinferencer_state)
-    ∧ check_cenv (FST (SND rfs.rinferencer_state))
-    ∧ check_env {} (SND (SND rfs.rinferencer_state))
-    ∧ (rs.tenvM = convert_menv (FST rfs.rinferencer_state))
-    ∧ (rs.tenvC = FST (SND rfs.rinferencer_state))
-    ∧ (rs.tenv = (bind_var_list2 (convert_env2 (SND (SND rfs.rinferencer_state))) Empty))
-
-    (* For using the type soundess theorem *)
-    ∧ (?tenvS tenvM tenvC. 
-         tenvM_ok tenvM ∧ 
-         tenvC_ok tenvC ∧
-         tenvC_ok rs.tenvC ∧
-         weakC_mods tenvC rs.tenvC ⊆ set (MAP SOME (MAP FST tenvM)) ∧
-         (MAP FST tenvM = MAP FST rs.tenvM) ∧
-         consistent_mod_env tenvS tenvC rs.envM tenvM ∧
-         consistent_con_env rs.envC tenvC ∧
-         type_env tenvM tenvC tenvS rs.envE rs.tenv ∧
-         type_s tenvM tenvC tenvS rs.store ∧
-         weakM tenvM rs.tenvM ∧
-         weakC tenvC rs.tenvC)
+    ∧ type_infer_invariants rs rfs.rinferencer_state 
+    ∧ type_sound_invariants rs
 
     ∧ ∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs
-    (* ∧ rfs.top = ??? *)`
+    (* ∧ rfs.top = ??? *)`;
+
+val check_menv_to_tenvM_ok = Q.prove (
+`!menv. check_menv menv ⇒ tenvM_ok (convert_menv menv)`,
+Induct >>
+rw [EVERY_MAP,
+    check_menv_def, typeSysPropsTheory.tenvM_ok_def, convert_menv_def] >|
+[PairCases_on `h` >>
+     fs [] >>
+     REPEAT (pop_assum mp_tac) >>
+     induct_on `h1` >>
+     rw [tenv_ok_def, terminationTheory.bind_var_list2_def] >>
+     PairCases_on `h` >>
+     fs [terminationTheory.bind_var_list2_def, bind_tenv_def,
+         tenv_ok_def, num_tvs_bvl2, num_tvs_def] >>
+     metis_tac [check_t_to_check_freevars],
+ fs [check_menv_def, tenvM_ok_def] >>
+     REPEAT (pop_assum mp_tac) >>
+     induct_on `menv` >>
+     rw [] >>
+     PairCases_on `h` >>
+     rw [] >>
+     fs [convert_menv_def, EVERY_MAP]]);
 
 val infer_to_type = Q.prove (
 `!rs st bs menv cenv env top new_menv new_cenv new_env st2.
@@ -82,34 +111,104 @@ val infer_to_type = Q.prove (
       (Success (new_menv,new_cenv,new_env),st2)) ∧
   (st.rinferencer_state = (menv,cenv,env))
   ⇒
+  tenvM_ok (convert_menv menv) ∧
   type_top rs.tenvM rs.tenvC rs.tenv top
            (convert_menv new_menv) new_cenv (convert_env2 new_env)`,
-rw [invariant_def] >>
+rw [invariant_def, type_infer_invariants_def, type_sound_invariants_def] >>
 fs [] >>
 rw [] >>
-metis_tac [infer_top_sound]);
+metis_tac [infer_top_sound, check_menv_to_tenvM_ok]);
 
 val type_to_eval = Q.prove (
-`!rs st bs top tenvM tenvC tenv.
+`!rs st bs top tenvM tenvC tenv el0 el1.
   invariant rs st bs ∧
+  tenvM_ok rs.tenvM ∧
   type_top rs.tenvM rs.tenvC rs.tenv top tenvM tenvC tenv ∧
   ¬top_diverges rs.envM rs.envC rs.store rs.envE top ⇒
   ?r st'. (r ≠ Rerr Rtype_error) ∧
-      evaluate_top rs.envM rs.envC rs.store rs.envE top (st',r)`,
-rw [invariant_def] >>
+      evaluate_top rs.envM rs.envC rs.store rs.envE top (st',r) ∧
+      type_sound_invariants (update_repl_state rs el0 el1 tenvM tenvC tenv st' r)`,
+rw [invariant_def, type_sound_invariants_def] >>
 `num_tvs rs.tenv = 0` by metis_tac [type_v_freevars] >>
-`tenvM_ok rs.tenvM` by cheat >>
 `?tenvM'' tenvC'' tenv''.
- type_top_ignore_sig rs.tenvM rs.tenvC rs.tenv top tenvM'' tenvC'' tenv'' ∧
- tenvC_ok tenvC'' ∧
- tenvM_ok tenvM'' ∧
- (MAP FST tenvM'' = MAP FST tenvM) ∧
- weakM tenvM'' tenvM ∧
- weakC tenvC'' tenvC`
+   type_top_ignore_sig rs.tenvM rs.tenvC rs.tenv top tenvM'' tenvC'' tenv'' ∧
+   tenvC_ok tenvC'' ∧
+   tenvM_ok tenvM'' ∧
+   (MAP FST tenvM'' = MAP FST tenvM) ∧
+   weakM tenvM'' tenvM ∧
+   weakC tenvC'' tenvC`
          by metis_tac [type_top_type_top_ignore_sig] >>
- `type_top_ignore_sig tenvM' tenvC' rs.tenv top tenvM'' tenvC'' tenv''`
+`type_top_ignore_sig tenvM' tenvC' rs.tenv top tenvM'' tenvC'' tenv''`
          by metis_tac [type_top_ignore_sig_weakening] >>
- metis_tac [top_type_soundness_no_sig]);
+rw [update_repl_state_def] >>
+`∃r st' tenvS'.
+ r ≠ Rerr Rtype_error ∧
+ evaluate_top rs.envM rs.envC rs.store rs.envE top (st',r) ∧
+ store_type_extension tenvS tenvS' ∧
+ ∀menv' cenv' env'.
+   r = Rval (menv',cenv',env') ⇒
+   consistent_mod_env tenvS' (tenvC'' ++ tenvC')
+     (menv' ++ rs.envM) (tenvM'' ++ tenvM') ∧
+   consistent_con_env (cenv' ++ rs.envC) (tenvC'' ++ tenvC') ∧
+   disjoint_env tenvC' tenvC'' ∧
+   type_s (tenvM'' ++ tenvM') (tenvC'' ++ tenvC') tenvS' st' ∧
+   type_env (tenvM'' ++ tenvM') (tenvC'' ++ tenvC') tenvS'
+     (env' ++ rs.envE) (bind_var_list2 tenv'' rs.tenv)`
+            by metis_tac [top_type_soundness_no_sig] >>
+qexists_tac `r` >>
+`(?err. r = Rerr err) ∨ (?menv' cenv' env'. r = Rval (menv',cenv',env'))` 
+              by (cases_on `r` >>
+                  metis_tac [pair_CASES]) >>
+rw [] >>
+qexists_tac `st'` >>
+rw [] >|
+[MAP_EVERY qexists_tac [`tenvS'`, `tenvM'`, `tenvC'`] >>
+     rw [] >|
+     [metis_tac [weakC_refl, consistent_mod_env_weakening, store_type_extension_weakS],
+      metis_tac [weakC_refl, weakM_refl, type_v_weakening, store_type_extension_weakS],
+      (* SO cheat: We need to strengthen type soundness to know that the store
+       * is well typed after an exception since we can continue on to the next
+       * input expression *)
+      cheat],
+ MAP_EVERY qexists_tac [`tenvS'`, `tenvM'' ++ tenvM'`, `merge tenvC'' tenvC'`] >>
+     rw [] >|
+     [fs [tenvM_ok_def],
+      rw [tenvC_ok_merge] >>
+          metis_tac [disjoint_env_def, DISJOINT_SYM],
+      rw [tenvC_ok_merge, GSYM LibTheory.merge_def] >>
+          (* SO cheat: TODO *)
+          cheat,
+      (* SO cheat: TODO *)
+      cheat,
+      metis_tac [LibTheory.merge_def],
+      metis_tac [LibTheory.merge_def],
+      (* SO cheat: TODO *)
+      cheat,
+      metis_tac [LibTheory.merge_def],
+      (* SO cheat: TODO *)
+      cheat,
+      (* SO cheat: TODO *)
+      cheat]]);
+
+val type_invariants_pres = Q.prove (
+`!rs rfs.
+  type_infer_invariants rs (infer_menv,infer_cenv,infer_env) ∧
+  infer_top infer_menv infer_cenv infer_env top init_infer_state = 
+          (Success (new_infer_menv,new_infer_cenv,new_infer_env), infer_st2)
+  ⇒
+  type_infer_invariants (update_repl_state rs el0 el1 (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st' 
+                                     (Rval (envM,envC,envE)))
+                  (new_infer_menv ++ infer_menv, new_infer_cenv ++ infer_cenv,new_infer_env ++ infer_env)`,
+rw [update_repl_state_def, type_infer_invariants_def] >>
+`check_menv new_infer_menv ∧
+ check_cenv new_infer_cenv ∧
+ check_env {} new_infer_env` 
+           by metis_tac [infer_top_invariant] >|
+[fs [check_menv_def],
+ fs [check_cenv_def],
+ fs [check_env_def],
+ rw [convert_menv_def],
+ rw [bvl2_append, convert_env2_def]]);
 
 val printer_not_confused = Q.prove (
 `!ds cs stack. simple_printer ds cs stack ≠ "<type error>"`,
@@ -181,11 +280,6 @@ fs [] >>
 fs [] >>
 rw [] >>
 imp_res_tac infer_to_type >>
-`¬top_diverges rs.envM rs.envC rs.store rs.envE top ⇒
- ∃r st'.
-   r ≠ Rerr Rtype_error ∧
-   evaluate_top rs.envM rs.envC rs.store rs.envE top (st',r)`
-              by metis_tac [type_to_eval] >>
 
 cases_on `bc_eval (install_code code bs)` >>
 rw [get_type_error_mask_def] >>
@@ -195,7 +289,19 @@ qabbrev_tac`elab_res = elab_top est0 est1 top0` >> PairCases_on`elab_res` >>
 rpt BasicProvers.VAR_EQ_TAC >>
 fs[elaborate_top_def,LET_THM] >>
 qabbrev_tac`el = elab_top rs.type_bindings rs.ctors top0` >> PairCases_on`el` >>
-fs[] >> qmatch_assum_rename_tac`xxxxxxxx = top`[] >> BasicProvers.VAR_EQ_TAC >- (
+fs[] >> 
+
+`rs.tenvM = convert_menv infer_menv` by fs [invariant_def, type_infer_invariants_def] >>
+`¬top_diverges rs.envM rs.envC rs.store rs.envE top ⇒
+ ∃r st'.
+   r ≠ Rerr Rtype_error ∧
+   evaluate_top rs.envM rs.envC rs.store rs.envE top (st',r) ∧
+   type_sound_invariants (update_repl_state rs el0 el1 (convert_menv new_infer_menv) 
+                         new_infer_cenv (convert_env2 new_infer_env) st' r)`
+              by metis_tac [type_to_eval] >>
+
+
+qmatch_assum_rename_tac`xxxxxxxx = top`[] >> BasicProvers.VAR_EQ_TAC >- (
 
   (* Divergence *)
     MAP_EVERY qexists_tac [`convert_menv new_infer_menv`,`new_infer_cenv`,`convert_env2 new_infer_env`] >>
@@ -241,10 +347,25 @@ rw [] >|
      pop_assum (ASSUME_TAC o Q.SPEC `input_rest`) >>
      fs [] >>
      pop_assum (ASSUME_TAC o Q.SPECL [`new_repl_state`, `new_repl_fun_state`, `new_bc_state`]) >>
+     (* SO cheat: Because HD x.stack = Number 0, I think the compiler proof
+      * should guarantee that the semantics evaluate to a value *)
+     `?v. r = Rval (envM,envC,envE)` by cheat >>
+     rw [] >>
+     `type_infer_invariants new_repl_state (new_infer_menv ++ infer_menv,
+                                      new_infer_cenv ++ infer_cenv,
+                                      new_infer_env ++ infer_env)`
+                          by metis_tac [type_invariants_pres, invariant_def] >>
+     
      (* SO cheat: The invariant must be preserved.  I'm working on lemmas for
       * the type system and semantics parts of it, but there will be compiler
       * parts too *)
-     `invariant new_repl_state new_repl_fun_state new_bc_state` by cheat >>
+     `invariant new_repl_state new_repl_fun_state new_bc_state` 
+                 by (rw [invariant_def] >>
+                     UNABBREV_ALL_TAC >>
+                     fs [update_repl_state_def] >-
+                     metis_tac [] >>
+                     (* SO cheat: This is the env_rs part of the invariant *)
+                     cheat) >>
      fs [] >>
      metis_tac [lexer_correct],
  (* SO cheat: The case where an exception makes it to the top level.

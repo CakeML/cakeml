@@ -883,7 +883,7 @@ PairCases_on `h` >>
 fs [pure_add_constraints_def] >>
 metis_tac [t_unify_wfs]);
 
-val check_t_to_check_freevars = Q.prove (
+val check_t_to_check_freevars = Q.store_thm ("check_t_to_check_freevars",
 `!tvs (n:num set) t. check_t tvs {} t ⇒ check_freevars tvs [] (convert_t t)`,
 ho_match_mp_tac (fetch "-" "check_t_ind") >>
 rw [check_t_def, check_freevars_def, convert_t_def, EVERY_MAP] >>
