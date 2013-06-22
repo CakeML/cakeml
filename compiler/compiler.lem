@@ -1,3 +1,4 @@
+open SemanticPrimitives
 open Ast
 open CompilerLib
 open IntLang
@@ -38,19 +39,26 @@ let compile_Cexp rsz menv env nl Ce =
   compile menv env TCNonTail (rsz+2) cs Ce
 
 let rec
-number_constructors _ [] ct = ct
+number_constructors _ [] ac = ac
 and
-number_constructors mn ((c,_)::cs) (m,w,n) =
-  number_constructors mn cs (Pmap.add (mk_id mn c) n m, (n,mk_id mn c)::w, n+1)
+number_constructors mn ((c,_)::cs) ((m,w,n),ls) =
+  number_constructors mn cs ((Pmap.add (mk_id mn c) n m, (n,mk_id mn c)::w, n+1)
+                            ,(Hol.CONCAT[id_to_string(mk_id mn c);" = <constructor>"])::ls)
 
 let rec
-compile_news cs i [] = cs
+compile_news _ cs i [] = cs
 and
-compile_news cs i (_::vs) =
-  let cs = emit cs (List.map Stack [Load 0; Load 0; El i; Store 1]) in
-  compile_news cs (i+1) vs
+compile_news print cs i (v::vs) =
+  let cs = emit cs (List.map Stack [Load 0; Load 0; El i]) in
+  let cs = if print then
+      let cs = emit cs (List.map PrintC (Hol.EXPLODE (Hol.CONCAT["val ";v;" = "]))) in
+      let cs = emit cs [Stack(Load 0); Print] in
+      emit cs (List.map PrintC (Hol.EXPLODE "\n"))
+    else cs in
+  let cs = emit cs [Stack (Store 1)] in
+  compile_news print cs (i+1) vs
 
-let compile_fake_exp rs vs e =
+let compile_fake_exp print rs vs e =
   let m = <| bvars = List.map fst rs.renv
            ; mvars = Hol.o_f (List.map fst) rs.rmenv
            ; cnmap = cmap rs.contab
@@ -60,7 +68,7 @@ let compile_fake_exp rs vs e =
   let env = List.map (Hol.o CTDec snd) rs.renv in
   let cs = compile_Cexp rs.rsz menv env rs.rnext_label Ce in
   let cs = emit cs [PopExc; Stack (Pops 1)] in
-  let cs = compile_news cs 0 vs in
+  let cs = compile_news print cs 0 vs in
   let cs = emit cs [Stack Pop] in
   (rs.contab
   ,genlist (fun i -> (List.nth vs i, rs.rsz+i)) (List.length vs)
@@ -70,19 +78,19 @@ let compile_fake_exp rs vs e =
 
 let rec
 compile_dec mn rs (Dtype ts) =
-  let ct =
+  let (ct,ls) =
     List.fold_left
-      (fun ct (_,_,cs) -> number_constructors mn cs ct)
-      rs.contab ts in
-  (ct,[],rs.rnext_label,[])
+      (fun ac (_,_,cs) -> number_constructors mn cs ac)
+      (rs.contab,[]) ts in
+  (ct,[],rs.rnext_label,List.rev(List.map PrintC (Hol.EXPLODE (Hol.CONCAT (List.rev ls)))))
 and
-compile_dec _ rs (Dletrec defs) =
+compile_dec mn rs (Dletrec defs) =
   let vs = List.map (fun (n,_,_) -> n) defs in
-  compile_fake_exp rs vs (fun b -> Letrec defs b)
+  compile_fake_exp (Hol.IS_NONE mn) rs vs (fun b -> Letrec defs b)
 and
-compile_dec _ rs (Dlet p e) =
+compile_dec mn rs (Dlet p e) =
   let vs = pat_bindings p [] in
-  compile_fake_exp rs vs (fun b -> Mat e [(p,b)])
+  compile_fake_exp (Hol.IS_NONE mn) rs vs (fun b -> Mat e [(p,b)])
 
 let rec
 compile_decs _ [] ac = ac
@@ -101,11 +109,12 @@ let rec
 compile_top rs (Tmod mn _ decs) =
   let (mrs,code) = compile_decs mn decs (rs,[]) in
   let env = Hol.BUTLASTN (List.length rs.renv) mrs.renv in
+  let str = Hol.CONCAT["structure ";mn;" = <structure>\n"] in
   (<| mrs with
       renv = rs.renv
     ; rmenv = Pmap.add mn env rs.rmenv |>
   ,<| rs with rnext_label = mrs.rnext_label |>
-  ,List.rev (Stop::code))
+  ,List.rev (Stop::(List.rev (List.map PrintC (Hol.EXPLODE str)))@code))
 and
 compile_top rs (Tdec dec) =
   let (ct,env,nl,code) = compile_dec None rs dec in

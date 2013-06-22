@@ -1,7 +1,7 @@
 type char
 val EXPLODE : string -> list char
 val IMPLODE : list char -> string
-val STRCAT : string -> string -> string
+val CONCAT : list string -> string
 val STRING : char -> string -> string
 val LEAST : (num -> bool) -> num
 val IMAGE : forall 'a 'b. ('a -> 'b) -> set 'a -> set 'b

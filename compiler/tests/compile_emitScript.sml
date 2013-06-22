@@ -40,6 +40,10 @@ fun fix_compile_bindings_suc th = let
   val th = GEN_ALL (mk_thm([],mk_eq(mk_comb(rator l,n),mk_cond(mk_eq(n,numSyntax.zero_tm),rz,mk_comb(rs,numSyntax.mk_pre n)))))
   in LIST_CONJ(th::cs) end
 
+val _ = new_constant("CONCAT",``:string list -> string``)
+val _ = ConstMapML.prim_insert(``CONCAT``,(false,"","CONCAT",type_of``CONCAT``))
+val CONCAT_RULE = PURE_REWRITE_RULE[mk_thm([],mk_eq(``FLAT:string list -> string``,``CONCAT``))]
+
 val data = map
   (fn th => EmitML.DATATYPE [QUOTE (datatype_thm_to_string th)])
   [ AstTheory.datatype_error
@@ -121,13 +125,13 @@ val defs = map EmitML.DEFN
 , underscore_rule exp_to_Cexp_def
 , compile_Cexp_def
 , AstTheory.mk_id_def
-, number_constructors_def
+, CONCAT_RULE number_constructors_def
 , AstTheory.pat_bindings_def
-, compile_news_def
+, CONCAT_RULE compile_news_def
 , compile_fake_exp_def
-, compile_dec_def
+, CONCAT_RULE compile_dec_def
 , compile_decs_def
-, compile_top_def
+, CONCAT_RULE compile_top_def
 , v_to_ov_def
 , cpam_def
 ]
@@ -152,6 +156,7 @@ val _ = EmitML.eSML "compile" (
 ::(EmitML.MLSIG "type ov = bytecodeML.ov")
 ::(EmitML.MLSIG "val num_to_bool : num -> bool")
 ::(EmitML.DEFN_NOSIG num_to_bool)
+::(EmitML.MLSTRUCT "val CONCAT = String.concat;")
 ::data@defs)
 
 val _ = export_theory ();

@@ -11,6 +11,7 @@ open ToBytecodeTheory ToIntLangTheory IntLangTheory CompilerPrimitivesTheory Byt
 
 val _ = new_theory "Compiler"
 
+(*open SemanticPrimitives*)
 (*open Ast*)
 (*open CompilerLib*)
 (*open IntLang*)
@@ -62,25 +63,32 @@ val _ = Define `
 
  val number_constructors_defn = Hol_defn "number_constructors" `
 
-(number_constructors _ [] ct = ct)
+(number_constructors _ [] ac = ac)
 /\
-(number_constructors mn ((c,_)::cs) (m,w,n) =  
-(number_constructors mn cs ( FUPDATE  m ( (mk_id mn c), n), ((n,mk_id mn c) ::w), (n +1))))`;
+(number_constructors mn ((c,_)::cs) ((m,w,n),ls) =  
+(number_constructors mn cs (( FUPDATE  m ( (mk_id mn c), n), ((n,mk_id mn c) ::w), (n +1))
+                            ,((CONCAT[id_to_string(mk_id mn c);" = <constructor>"]) ::ls))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn number_constructors_defn;
 
  val compile_news_defn = Hol_defn "compile_news" `
 
-(compile_news cs i [] = cs)
+(compile_news _ cs i [] = cs)
 /\
-(compile_news cs i (_::vs) =  
-(let cs = ( emit cs ( MAP Stack [Load 0; Load 0; El i; Store 1])) in
-  compile_news cs (i +1) vs))`;
+(compile_news print cs i (v::vs) =  
+(let cs = ( emit cs ( MAP Stack [Load 0; Load 0; El i])) in
+  let cs = (if print then
+      let cs = ( emit cs ( MAP PrintC (EXPLODE (CONCAT["val ";v;" = "])))) in
+      let cs = ( emit cs [Stack(Load 0); Print]) in
+      emit cs ( MAP PrintC (EXPLODE "\n"))
+    else cs) in
+  let cs = ( emit cs [Stack (Store 1)]) in
+  compile_news print cs (i +1) vs))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_news_defn;
 
 val _ = Define `
- (compile_fake_exp rs vs e =  
+ (compile_fake_exp print rs vs e =  
 (let m = (<| bvars := ( MAP FST rs.renv)
            ; mvars := ( (o_f) ( MAP FST) rs.rmenv)
            ; cnmap := ( cmap rs.contab)
@@ -90,7 +98,7 @@ val _ = Define `
   let env = ( MAP ((o) CTDec SND) rs.renv) in
   let cs = ( compile_Cexp rs.rsz menv env rs.rnext_label Ce) in
   let cs = ( emit cs [PopExc; Stack (Pops 1)]) in
-  let cs = ( compile_news cs 0 vs) in
+  let cs = ( compile_news print cs 0 vs) in
   let cs = ( emit cs [Stack Pop]) in
   (rs.contab
   , GENLIST (\ i . ( EL  i  vs, (rs.rsz +i))) ( LENGTH vs)
@@ -102,19 +110,19 @@ val _ = Define `
  val compile_dec_def = Define `
 
 (compile_dec mn rs (Dtype ts) =  
-(let ct = ( FOLDL
-      (\ct p . (case (ct ,p ) of ( ct , (_,_,cs) ) => number_constructors mn cs ct ))
-      rs.contab ts) in
-  (ct,[],rs.rnext_label,[])))
+(let (ct,ls) = ( FOLDL
+      (\ac p . (case (ac ,p ) of ( ac , (_,_,cs) ) => number_constructors mn cs ac ))
+      (rs.contab,[]) ts) in
+  (ct,[],rs.rnext_label, REVERSE( MAP PrintC (EXPLODE (CONCAT ( REVERSE ls)))))))
 /\
-(compile_dec _ rs (Dletrec defs) =  
+(compile_dec mn rs (Dletrec defs) =  
 (let vs = ( MAP (\p . 
   (case (p ) of ( (n,_,_) ) => n )) defs) in
-  compile_fake_exp rs vs (\ b . Letrec defs b)))
+  compile_fake_exp (IS_NONE mn) rs vs (\ b . Letrec defs b)))
 /\
-(compile_dec _ rs (Dlet p e) =  
+(compile_dec mn rs (Dlet p e) =  
 (let vs = ( pat_bindings p []) in
-  compile_fake_exp rs vs (\ b . Mat e [(p,b)])))`;
+  compile_fake_exp (IS_NONE mn) rs vs (\ b . Mat e [(p,b)])))`;
 
 
  val compile_decs_defn = Hol_defn "compile_decs" `
@@ -138,11 +146,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (compile_top rs (Tmod mn _ decs) =  
 (let (mrs,code) = ( compile_decs mn decs (rs,[])) in
   let env = ( BUTLASTN ( LENGTH rs.renv) mrs.renv) in
+  let str = ( CONCAT["structure ";mn;" = <structure>\n"]) in
   (( mrs with<|
       renv := rs.renv
     ; rmenv := FUPDATE  rs.rmenv ( mn, env) |>)
   ,( rs with<| rnext_label := mrs.rnext_label |>)
-  , REVERSE (Stop ::code))))
+  , REVERSE (Stop ::( REVERSE ( MAP PrintC (EXPLODE str))) ++code))))
 /\
 (compile_top rs (Tdec dec) =  
 (let (ct,env,nl,code) = ( compile_dec NONE rs dec) in

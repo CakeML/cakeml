@@ -288,9 +288,9 @@ bc_fetch s = Some Print
 && (s.stack = x::xs)
 ==>
 bc_next s (<|bump_pc s with stack = xs;
-  output = Hol.STRCAT
-           (Hol.IMPLODE(List.rev(Hol.EXPLODE(ov_to_string (bv_to_ov s.cons_names x)))))
-           (s.output)|>)
+  output = Hol.CONCAT
+           [Hol.IMPLODE(List.rev(Hol.EXPLODE(ov_to_string (bv_to_ov s.cons_names x))))
+           ;s.output]|>)
 and
 forall s c.
 bc_fetch s = Some (PrintC c)
