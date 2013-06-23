@@ -89,7 +89,7 @@ val print_envM_def = Define `
 print_envM envM = CONCAT (MAP (λ(x,m). "module " ++ x ++ " = <structure>\n") envM)`;
 
 val print_envC_def = Define `
-print_envC envC = CONCAT (MAP (λ(x,c). id_to_string x ++ " = <constructor>") envC)`;
+print_envC envC = CONCAT (MAP (λ(x,c). id_to_string x ++ " = <constructor>\n") envC)`;
 
 val int_to_string_def = Define `
 int_to_string (i:int) =
@@ -120,10 +120,10 @@ val print_error_def = Define `
 (print_error (Int_error i) = "<" ++ int_to_string i ++ ">")`;
 
 val print_result_def = Define `
-(print_result envC (Rval (envM,envE)) = 
-  print_envM envM ++ print_envC envC ++ print_envE envE) ∧
-(print_result envC (Rerr Rtype_error) = print_envC envC ++ "raise <type error>\n") ∧
-(print_result envC (Rerr (Rraise e)) = print_envC envC ++ "raise " ++ print_error e ++ "\n")`;
+(print_result (Tdec _) envC (Rval (envM,envE)) = print_envC envC ++ print_envE envE) ∧
+(print_result (Tmod mn _ _) _ (Rval _) = "structure "++mn++" = <structure>\n") ∧
+(print_result _ _ (Rerr Rtype_error) = "raise <type error>\n") ∧
+(print_result _ _ (Rerr (Rraise e)) = "raise " ++ print_error e ++ "\n")`;
 
 val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 
@@ -137,7 +137,7 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
   evaluate_top state.envM state.envC state.store state.envE top (store',envC',r) ∧
   ast_repl (update_repl_state state type_bindings' ctors' tenvM' tenvC' tenv' store' envC' r) type_errors asts rest
   ⇒
-  ast_repl state (F::type_errors) (SOME ast::asts) (Result (print_result envC' r) rest)) ∧
+  ast_repl state (F::type_errors) (SOME ast::asts) (Result (print_result top envC' r) rest)) ∧
 
 (!state type_errors ast asts top type_bindings' ctors' tenvM' tenvC' tenv'.
   (elab_top state.type_bindings state.ctors ast = 
