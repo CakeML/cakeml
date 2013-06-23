@@ -117,7 +117,7 @@ metis_tac [eval_dec'_to_eval_dec, dec_type_soundness, untyped_safety_dec, dec_de
 val eval_decs'_to_eval_decs = Q.prove (
 `!mn menv (cenv : envC) st env ds r.
   evaluate_decs' mn menv cenv st env ds r ⇒
-  (!st'. ¬evaluate_decs mn menv cenv st env ds (st', Rerr Rtype_error)) ⇒
+  (!st' cenv'. ¬evaluate_decs mn menv cenv st env ds (st', cenv', Rerr Rtype_error)) ⇒
   evaluate_decs mn menv cenv st env ds r`,
 ho_match_mp_tac evaluate_decs'_ind >>
 rw [] >>
@@ -138,12 +138,16 @@ val eval_decs'_to_eval_decs_thm = Q.store_thm ("eval_decs'_to_eval_decs_thm",
   type_ds mn tenvM tenvC tenv ds tenvC' tenv' ∧
   evaluate_decs' mn menv cenv st env ds r ⇒
   evaluate_decs mn menv cenv st env ds r`,
-metis_tac [eval_decs'_to_eval_decs, decs_type_soundness, untyped_safety_decs, decs_determ, PAIR_EQ]);
+rw [] >>
+imp_res_tac eval_decs'_to_eval_decs >>
+pop_assum match_mp_tac >>
+rw [] >>
+metis_tac [decs_type_soundness, untyped_safety_decs, decs_determ, PAIR_EQ]);
 
 val eval_top'_to_eval_top = Q.prove (
 `!menv (cenv : envC) st env top r.
   evaluate_top' menv cenv st env top r ⇒
-  (!st'. ¬evaluate_top menv cenv st env top (st', Rerr Rtype_error)) ⇒
+  (!cenv' st'. ¬evaluate_top menv cenv st env top (st', cenv', Rerr Rtype_error)) ⇒
   evaluate_top menv cenv st env top r`,
 rw [evaluate_top_cases, evaluate_top'_cases] >>
 metis_tac [eval_dec'_to_eval_dec, eval_decs'_to_eval_decs, result_case_def, result_nchotomy,
@@ -168,7 +172,7 @@ metis_tac [eval_top'_to_eval_top, top_type_soundness, untyped_safety_top, top_de
 val eval_prog'_to_eval_prog = Q.prove (
 `!menv (cenv : envC) st env prog r.
   evaluate_prog' menv cenv st env prog r ⇒
-  (!st'. ¬evaluate_prog menv cenv st env prog (st', Rerr Rtype_error)) ⇒
+  (!cenv' st'. ¬evaluate_prog menv cenv st env prog (st', cenv', Rerr Rtype_error)) ⇒
   evaluate_prog menv cenv st env prog r`,
 ho_match_mp_tac evaluate_prog'_ind >>
 rw [] >>
@@ -177,6 +181,7 @@ pop_assum (MP_TAC o SIMP_RULE (srw_ss()) [Once evaluate_prog_cases]) >>
 rw [combine_mod_result_def] >>
 metis_tac [eval_top'_to_eval_top, result_case_def, result_nchotomy,
            result_distinct, result_11, pair_case_def, PAIR_EQ, pair_CASES]);
+
 (*
 val eval_prog'_to_eval_prog = Q.prove (
 `!menv (cenv : envC) st env prog r.

@@ -558,7 +558,7 @@ val Eval_Equality = store_thm("Eval_Equality",
 
 val Decls_def = Define `
   Decls mn (menv1 : envM) cenv1 s1 env1 ds cenv2 s2 env2 =
-    evaluate_decs' mn menv1 cenv1 s1 env1 ds (s2,Rval (cenv2,env2))`;
+    evaluate_decs' mn menv1 cenv1 s1 env1 ds (s2,cenv2, Rval env2)`;
 
 val DeclAssum_def = Define `
   DeclAssum ds env = ?s2 cenv2. Decls NONE [] [] empty_store [] ds cenv2 s2 env`;
@@ -761,14 +761,14 @@ val evaluate_list'_empty_store = prove(
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
 val combine_dec_result_rval = Q.prove (
-  `!new_tds new_env cenv env.
-     combine_dec_result new_tds new_env (Rval (cenv, env)) =
-     Rval (merge cenv new_tds, merge env new_env)`,
+  `!new_env cenv env.
+     combine_dec_result new_env (Rval env) =
+     Rval (merge env new_env)`,
   rw [combine_dec_result_def]);
 
 val combine_dec_result_rerr = Q.prove (
-  `!new_tds new_env err.
-     combine_dec_result new_tds new_env (Rerr err) = Rerr err`,
+  `!new_env err.
+     combine_dec_result new_env (Rerr err) = Rerr err`,
   rw [combine_dec_result_def]);
 
 val Decls_APPEND = store_thm("Decls_APPEND",
@@ -795,9 +795,10 @@ val Decls_APPEND = store_thm("Decls_APPEND",
        Cases_on `a` >>
        fs [combine_dec_result_rval, combine_dec_result_rerr] >>
        qexists_tac `s2'` >>
-       qexists_tac `new_tds` >>
+       qexists_tac `cenv3` >>
+       qexists_tac `merge cenv3 q` >>
        qexists_tac `new_env` >>
-       qexists_tac `Rval (merge cenv3 q,merge env3 r)` >>
+       qexists_tac `Rval (merge env3 r)` >>
        rw [combine_dec_result_rval, merge_def] >>
        metis_tac [merge_def],
    rw [] >>

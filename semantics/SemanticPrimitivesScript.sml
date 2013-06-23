@@ -325,21 +325,21 @@ val _ = Define `
   if T then n :: x2 else x2)  x2  condefs)  x2  tds)))`;
 
 
-(*val combine_dec_result : forall 'a 'b 'c 'd. env 'a 'b -> env 'c 'd -> result (env 'a 'b * env 'c 'd) -> result (env 'a 'b * env 'c 'd)*)
+(*val combine_dec_result : forall 'a 'b. env 'a 'b -> result (env 'a 'b) -> result (env 'a 'b)*)
 val _ = Define `
- (combine_dec_result cenv env r =  
+ (combine_dec_result env r =  
 ((case r of
       Rerr e => Rerr e
-    | Rval (cenv',env') => Rval (merge cenv' cenv, merge env' env)
+    | Rval env' => Rval (merge env' env)
   )))`;
 
 
-(*val combine_mod_result : forall 'a 'b 'c 'd 'e 'f. env 'a 'b -> env 'c 'd -> env 'e 'f -> result (env 'a 'b * env 'c 'd * env 'e 'f) -> result (env 'a 'b * env 'c 'd * env 'e 'f)*)
+(*val combine_mod_result : forall 'a 'b 'c 'd. env 'a 'b -> env 'c 'd -> result (env 'a 'b * env 'c 'd) -> result (env 'a 'b * env 'c 'd)*)
 val _ = Define `
- (combine_mod_result menv cenv env r =  
+ (combine_mod_result menv env r =  
 ((case r of
       Rerr e => Rerr e
-    | Rval (menv',cenv',env') => Rval (merge menv' menv, merge cenv' cenv, merge env' env)
+    | Rval (menv',env') => Rval (merge menv' menv, merge env' env)
   )))`;
 
 

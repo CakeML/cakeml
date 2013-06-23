@@ -425,12 +425,13 @@ evaluate_dec' mn menv cenv s env (Dtype tds) (s, Rval (build_tdefs mn tds, emp))
 ==>
 evaluate_dec' mn menv cenv s env (Dtype tds) (s, Rerr Rtype_error))`;
 
+
 val _ = Hol_reln `
 
 (! mn menv cenv s env.
 T
 ==>
-evaluate_decs' mn menv cenv s env [] (s, Rval (emp, emp)))
+evaluate_decs' mn menv cenv s env [] (s, emp, Rval emp))
 
 /\
 
@@ -438,16 +439,16 @@ evaluate_decs' mn menv cenv s env [] (s, Rval (emp, emp)))
 (
 evaluate_dec' mn menv cenv s1 env d (s2, Rerr e))
 ==>
-evaluate_decs' mn menv cenv s1 env (d ::ds) (s2, Rerr e))
+evaluate_decs' mn menv cenv s1 env (d ::ds) (s2, emp, Rerr e))
 
 /\
 
-(! mn menv cenv s1 s2 s3 env d ds new_tds new_env r.
+(! mn menv cenv s1 s2 s3 env d ds new_tds' new_tds new_env r.
 (
 evaluate_dec' mn menv cenv s1 env d (s2, Rval (new_tds,new_env)) /\
-evaluate_decs' mn menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, r))
+evaluate_decs' mn menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, new_tds', r))
 ==>
-evaluate_decs' mn menv cenv s1 env (d ::ds) (s3, combine_dec_result new_tds new_env r))`;
+evaluate_decs' mn menv cenv s1 env (d ::ds) (s3, merge new_tds' new_tds, combine_dec_result new_env r))`;
 
 val _ = Hol_reln `
 
@@ -455,7 +456,7 @@ val _ = Hol_reln `
 (
 evaluate_dec' NONE menv cenv s1 env d (s2, Rval (new_tds, new_env)))
 ==>
-evaluate_top' menv cenv s1 env (Tdec d) (s2, Rval (emp, new_tds, new_env)))
+evaluate_top' menv cenv s1 env (Tdec d) (s2, new_tds, Rval (emp, new_env)))
 
 /\
 
@@ -463,50 +464,52 @@ evaluate_top' menv cenv s1 env (Tdec d) (s2, Rval (emp, new_tds, new_env)))
 (
 evaluate_dec' NONE menv cenv s1 env d (s2, Rerr err))
 ==>
-evaluate_top' menv cenv s1 env (Tdec d) (s2, Rerr err))
+evaluate_top' menv cenv s1 env (Tdec d) (s2, emp, Rerr err))
 
 /\
 
 (! menv cenv s1 s2 env ds mn specs new_tds new_env. ( ~  ( MEM mn ( MAP FST menv)) /\
-evaluate_decs' (SOME mn) menv cenv s1 env ds (s2, Rval (new_tds, new_env)))
+evaluate_decs' (SOME mn) menv cenv s1 env ds (s2, new_tds, Rval new_env))
 ==>
-evaluate_top' menv cenv s1 env (Tmod mn specs ds) (s2, Rval ([(mn,new_env)], new_tds, emp)))
+evaluate_top' menv cenv s1 env (Tmod mn specs ds) (s2, new_tds, Rval ([(mn,new_env)], emp)))
 
 /\
 
-(! menv cenv s1 s2 env ds mn specs err. ( ~  ( MEM mn ( MAP FST menv)) /\
-evaluate_decs' (SOME mn) menv cenv s1 env ds (s2, Rerr err))
+(! menv cenv s1 s2 env ds mn specs new_tds err. ( ~  ( MEM mn ( MAP FST menv)) /\
+evaluate_decs' (SOME mn) menv cenv s1 env ds (s2, new_tds, Rerr err))
 ==>
-evaluate_top' menv cenv s1 env (Tmod mn specs ds) (s2, Rerr err))
+evaluate_top' menv cenv s1 env (Tmod mn specs ds) (s2, new_tds, Rerr err))
 
 /\
 
 (! menv cenv s env mn specs ds. ( MEM mn ( MAP FST menv))
 ==>
-evaluate_top' menv cenv s env (Tmod mn specs ds) (s, Rerr Rtype_error))`;
+evaluate_top' menv cenv s env (Tmod mn specs ds) (s, emp, Rerr Rtype_error))`;
 
 val _ = Hol_reln `
 
 (! menv cenv s env.
 T
 ==>
-evaluate_prog' menv cenv s env [] (s, Rval (emp, emp, emp)))
+evaluate_prog' menv cenv s env [] (s, emp, Rval (emp, emp)))
 
 /\
 
-(! menv cenv s1 s2 s3 env top tops new_mods new_tds new_env r.
+(! menv cenv s1 s2 s3 env top tops new_mods new_tds new_tds' new_env r.
 (
-evaluate_top' menv cenv s1 env top (s2, Rval (new_mods,new_tds,new_env)) /\
-evaluate_prog' (merge new_mods menv) (merge new_tds cenv) s2 (merge new_env env) tops (s3, r))
+evaluate_top' menv cenv s1 env top (s2, new_tds, Rval (new_mods,new_env)) /\
+evaluate_prog' (merge new_mods menv) (merge new_tds cenv) s2 (merge new_env env) tops (s3, new_tds', r))
 ==>
-evaluate_prog' menv cenv s1 env (top ::tops) (s3, combine_mod_result new_mods new_tds new_env r))
+evaluate_prog' menv cenv s1 env (top ::tops) (s3, merge new_tds' new_tds, combine_mod_result new_mods new_env r))
 
 /\
 
-(! menv cenv s1 s2 env top tops err.
+(! menv cenv s1 s2 env top tops err new_tds.
 (
-evaluate_top' menv cenv s1 env top (s2, Rerr err))
+evaluate_top' menv cenv s1 env top (s2, new_tds, Rerr err))
 ==>
-evaluate_prog' menv cenv s1 env (top ::tops) (s2, Rerr err))`;
+evaluate_prog' menv cenv s1 env (top ::tops) (s2, new_tds, Rerr err))`;
+
+
 val _ = export_theory()
 

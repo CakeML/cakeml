@@ -62,10 +62,14 @@ repl_result =
   | Diverge
   | Result of string => repl_result`;
 
+val strip_mod_env_def = Define `
+strip_mod_env tenvM =
+  MAP (\(n,tenv). (n,[])) tenvM`;
+
 val update_repl_state_def = Define `
-update_repl_state state type_bindings ctors tenvM tenvC tenv store r =
+update_repl_state state type_bindings ctors tenvM tenvC tenv store envC r =
   case r of
-    | Rval (envM,envC,envE) =>
+    | Rval (envM,envE) =>
         <| type_bindings := type_bindings ++ state.type_bindings;
            ctors := ctors ++ state.ctors;
            tenvM := tenvM ++ state.tenvM;
@@ -76,7 +80,10 @@ update_repl_state state type_bindings ctors tenvM tenvC tenv store r =
            envC := envC ++ state.envC;
            envE := envE ++ state.envE |>
     | Rerr _ => 
-        state with <| store := store |>`;
+        state with <| store := store; 
+                      envC := envC ++ state.envC; 
+                      envM := strip_mod_env tenvM ++ state.envM;
+                      tenvM := strip_mod_env tenvM ++ state.tenvM |>`;
 
 val print_envM_def = Define `
 print_envM envM = CONCAT (MAP (λ(x,m). "module " ++ x ++ " = <structure>\n") envM)`;
@@ -113,24 +120,24 @@ val print_error_def = Define `
 (print_error (Int_error i) = "<" ++ int_to_string i ++ ">")`;
 
 val print_result_def = Define `
-(print_result (Rval (envM,envC,envE)) = 
+(print_result envC (Rval (envM,envE)) = 
   print_envM envM ++ print_envC envC ++ print_envE envE) ∧
-(print_result (Rerr Rtype_error) = "raise <type error>\n") ∧
-(print_result (Rerr (Rraise e)) = "raise " ++ print_error e ++ "\n")`;
+(print_result envC (Rerr Rtype_error) = print_envC envC ++ "raise <type error>\n") ∧
+(print_result envC (Rerr (Rraise e)) = print_envC envC ++ "raise " ++ print_error e ++ "\n")`;
 
 val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 
 (!state. 
   ast_repl state [] [] Terminate) ∧
 
-(!state type_errors ast asts top rest type_bindings' ctors' tenvM' tenvC' tenv' store' r.
+(!state type_errors ast asts top rest type_bindings' ctors' tenvM' tenvC' tenv' store' envC' r.
   (elab_top state.type_bindings state.ctors ast = 
    (type_bindings', ctors', top)) ∧
   (type_top state.tenvM state.tenvC state.tenv top tenvM' tenvC' tenv') ∧
-  evaluate_top state.envM state.envC state.store state.envE top (store',r) ∧
-  ast_repl (update_repl_state state type_bindings' ctors' tenvM' tenvC' tenv' store' r) type_errors asts rest
+  evaluate_top state.envM state.envC state.store state.envE top (store',envC',r) ∧
+  ast_repl (update_repl_state state type_bindings' ctors' tenvM' tenvC' tenv' store' envC' r) type_errors asts rest
   ⇒
-  ast_repl state (F::type_errors) (SOME ast::asts) (Result (print_result r) rest)) ∧
+  ast_repl state (F::type_errors) (SOME ast::asts) (Result (print_result envC' r) rest)) ∧
 
 (!state type_errors ast asts top type_bindings' ctors' tenvM' tenvC' tenv'.
   (elab_top state.type_bindings state.ctors ast = 
