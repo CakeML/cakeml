@@ -26,6 +26,12 @@ val _ = Hol_datatype `
   | OError`;
  (* internal machine value (pointer) that should not appear *)
 
+val _ = Define `
+ (string_of_int i =  
+(if int_lt i i0 then STRCAT  "~" ( num_to_dec_string ( Num ( int_neg i)))
+  else num_to_dec_string ( Num i)))`;
+
+
  val v_to_ov_defn = Hol_defn "v_to_ov" `
 
 (v_to_ov _ (Litv l) = (OLit l))
@@ -42,9 +48,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val ov_to_string_def = Define `
 
-(ov_to_string (OLit (IntLit (i:int))) =  
-(if int_lt i i0 then STRCAT  "~" ( num_to_dec_string ( Num ( int_neg i)))
-  else num_to_dec_string ( Num i)))
+(ov_to_string (OLit (IntLit (i:int))) = ( string_of_int i))
 /\
 (ov_to_string (OLit (Bool T)) = "true")
 /\

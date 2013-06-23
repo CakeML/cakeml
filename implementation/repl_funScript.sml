@@ -94,7 +94,7 @@ val initial_bc_state_def =  Define`
   initial_bc_state =
   let bs =
     <|stack := [];
-      code := [Stop];
+      code := [PrintE;Stop];
       pc := 0;
       refs := FEMPTY;
       handler := 0;
@@ -124,7 +124,7 @@ val main_loop_def = tDefine "main_loop" `
               NONE => Diverge
             | (* case: evaluation terminated, analyse result and continue *)
               SOME new_bs =>
-                let new_s = if new_bs.pc = 0 then s_exc else s in
+                let new_s = if new_bs.pc = 1 then s_exc else s in
                 Result (REVERSE new_bs.output) (main_loop (new_bs,new_s) rest_of_input) ` tac ;
 
 val repl_fun_def = Define`

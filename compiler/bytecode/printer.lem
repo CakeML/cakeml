@@ -11,6 +11,10 @@ type ov =
   | OLoc of num (* machine, not semantic, address *)
   | OError (* internal machine value (pointer) that should not appear *)
 
+let string_of_int i =
+  if Int.(<) i i0 then "~"^(string_of_num (num_of_int (neg i)))
+  else string_of_num (num_of_int i)
+
 let rec
 v_to_ov _ (Litv l) = OLit l
 and
@@ -23,9 +27,7 @@ and
 v_to_ov s (Loc n) = OLoc (List.nth s n)
 
 let rec
-ov_to_string (OLit (IntLit (i:int))) =
-  if Int.(<) i i0 then "~"^(string_of_num (num_of_int (neg i)))
-  else string_of_num (num_of_int i)
+ov_to_string (OLit (IntLit (i:int))) = string_of_int i
 and
 ov_to_string (OLit (Bool true)) = "true"
 and

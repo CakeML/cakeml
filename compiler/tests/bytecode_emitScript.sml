@@ -33,10 +33,14 @@ val init_bc_state_def =  Define`
 
 val _ = new_constant("STRING",``:char -> string -> string``)
 val _ = ConstMapML.prim_insert(``STRING``,(false,"","STRING",type_of``STRING``))
+val _ = new_constant("CONCAT",``:string list -> string``)
+val _ = ConstMapML.prim_insert(``CONCAT``,(false,"","CONCAT",type_of``CONCAT``))
+val CONCAT_RULE = PURE_REWRITE_RULE[mk_thm([],mk_eq(``FLAT:string list -> string``,``CONCAT``))]
 
 val defs = map EmitML.DEFN [
 optionTheory.OPTION_BIND_def,
 i0_def,
+string_of_int_def,
 SemanticPrimitivesTheory.id_to_string_def,
 the_def,
 LibTheory.lookup_def,
@@ -48,7 +52,7 @@ bump_pc_def,bool_to_tag_def,unit_tag_def,closure_tag_def,block_tag_def,
 bool_to_val_def,unit_val_def,isNumber_def,
 bv_to_ov_def,
 bc_eval_stack_def,
-CONV_RULE(PURE_REWRITE_CONV[mk_thm([],mk_eq(``CONS:char -> string -> string``,``STRING``))]) bc_eval1_def,
+CONCAT_RULE(CONV_RULE(PURE_REWRITE_CONV[mk_thm([],mk_eq(``CONS:char -> string -> string``,``STRING``))]) bc_eval1_def),
 bc_eval_def,
 init_bc_state_def]
 
@@ -58,6 +62,7 @@ val _ = EmitML.eSML "bytecode" (
 ::(EmitML.MLSIG "type int = intML.int")
 ::(EmitML.MLSIG "type ('a,'b) fmap = ('a,'b) fmapML.fmap")
 ::(EmitML.MLSTRUCT "fun STRING c s = String.^(Char.toString c,s);")
+::(EmitML.MLSTRUCT "val CONCAT = String.concat;")
 ::data@defs)
 
 val _ = export_theory ();

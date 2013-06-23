@@ -60,7 +60,8 @@ val _ = Hol_datatype `
   | Update                  (* update a ref cell *)
   | Stop                    (* halt execution *)
   | Tick                    (* use fuel *)
-  | Print                   (* print top of stack *)
+  | Print                   (* print value at top of stack *)
+  | PrintE                  (* print exception at top of stack *)
   | PrintC of char`;
       (* print a character *)
 
@@ -335,6 +336,17 @@ bc_fetch s = SOME Print) /\ (s.stack = x ::xs))
 bc_next s ((bump_pc s with<| stack := xs;
   output := CONCAT
            [IMPLODE( REVERSE(EXPLODE(ov_to_string (bv_to_ov s.cons_names x))))
+           ;s.output]|>)))
+/\
+(! s x xs str.
+((
+bc_fetch s = SOME PrintE) /\ (s.stack = x ::xs) /\ (? i. (x = Number i) /\ (str = string_of_int i) \/
+    (x = Block (block_tag +1) []) /\ (str = "Bind") \/
+    (x = Block (block_tag +2) []) /\ (str = "Div")))
+==>
+bc_next s ((bump_pc s with<| stack := xs;
+  output := CONCAT
+           [IMPLODE( REVERSE(EXPLODE(CONCAT["raise <";str;">\n"])))
            ;s.output]|>)))
 /\
 (! s c.
