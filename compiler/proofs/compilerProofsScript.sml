@@ -1163,7 +1163,7 @@ val number_constructors_thm = store_thm("number_constructors_thm",
     ((FST(FST ac) |++ GENLIST (λi. (mk_id mn (FST (EL i cs)), (SND(SND(FST ac)))+i)) (LENGTH cs)
      ,REVERSE (GENLIST (λi. ((SND(SND(FST ac)))+i,mk_id mn(FST(EL i cs)))) (LENGTH cs)) ++ (FST(SND(FST ac)))
      ,(SND(SND(FST ac))) + LENGTH cs)
-    ,(REVERSE (MAP (combin$C STRCAT " = <constructor>" o id_to_string o mk_id mn o FST) cs))++SND ac)``,
+    ,(REVERSE (MAP (combin$C STRCAT " = <constructor>\n" o id_to_string o mk_id mn o FST) cs))++SND ac)``,
   gen_tac >> Induct >- simp[number_constructors_def,FUPDATE_LIST_THM] >>
   qx_gen_tac`p` >> PairCases_on`p` >>
   qx_gen_tac`q` >> PairCases_on`q` >>
