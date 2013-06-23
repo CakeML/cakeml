@@ -43,7 +43,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  val ov_to_string_def = Define `
 
 (ov_to_string (OLit (IntLit (i:int))) =  
-(if int_lt i i0 then STRCAT  "-" ( num_to_dec_string ( Num ( int_neg i)))
+(if int_lt i i0 then STRCAT  "~" ( num_to_dec_string ( Num ( int_neg i)))
   else num_to_dec_string ( Num i)))
 /\
 (ov_to_string (OLit (Bool T)) = "true")

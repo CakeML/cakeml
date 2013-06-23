@@ -24,7 +24,7 @@ v_to_ov s (Loc n) = OLoc (List.nth s n)
 
 let rec
 ov_to_string (OLit (IntLit (i:int))) =
-  if Int.(<) i i0 then "-"^(string_of_num (num_of_int (neg i)))
+  if Int.(<) i i0 then "~"^(string_of_num (num_of_int (neg i)))
   else string_of_num (num_of_int i)
 and
 ov_to_string (OLit (Bool true)) = "true"
