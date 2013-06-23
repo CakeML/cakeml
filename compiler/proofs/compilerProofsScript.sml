@@ -1524,19 +1524,38 @@ val compile_dec_val = store_thm("compile_dec_val",
     simp[compile_dec_def] >>
     rpt gen_tac >> strip_tac >>
     qexists_tac`0` >>
+    fs[FOLDL_number_constructors_thm,SemanticPrimitivesTheory.build_tdefs_def,LibTheory.emp_def] >>
     simp[Once SWAP_REVERSE] >>
     rpt gen_tac >> strip_tac >>
     map_every qexists_tac[`bs.stack`,`bs.refs`,`rd`] >>
     conj_tac >- (
-      simp[RTC_eq_NRC] >>
-      qexists_tac`0` >> simp[] >>
-      simp[bc_state_component_equality,SUM_APPEND,FILTER_APPEND] >>
-      fs[env_rs_def,Cenv_bs_def,s_refs_def,LET_THM] >>
-      Cases_on`bs.clock`>>fs[]) >>
-    fs[FOLDL_number_constructors_thm,SemanticPrimitivesTheory.build_tdefs_def,LibTheory.emp_def] >>
+      reverse(Cases_on`mn`)>>fs[]>-(
+        simp[RTC_eq_NRC] >>
+        qexists_tac`0` >> simp[] >>
+        simp[bc_state_component_equality,SUM_APPEND,FILTER_APPEND] >>
+        fs[number_constructors_thm,env_rs_def,Cenv_bs_def,s_refs_def,LET_THM] >>
+        Cases_on`bs.clock`>>fs[] >>
+        fs[Once SWAP_REVERSE] >> rw[] ) >>
+      fs[number_constructors_thm,env_rs_def,Cenv_bs_def,s_refs_def,LET_THM] >>
+      simp[print_envE_def] >>
+      match_mp_tac MAP_PrintC_thm >>
+      fs[IMPLODE_EXPLODE_I] >>
+      qmatch_assum_abbrev_tac`MAP PrintC ls = bc` >>
+      qexists_tac`ls` >>
+      BasicProvers.VAR_EQ_TAC >>
+      qexists_tac`bc0` >>
+      simp[bc_state_component_equality] >>
+      Cases_on`bs.clock`>>fs[] >>
+      simp[Abbr`ls`,print_envC_def] >>
+      AP_TERM_TAC >>
+      simp[MAP_FLAT] >>
+      AP_TERM_TAC >>
+      simp[MAP_MAP_o] >>
+      simp[MAP_EQ_f,FORALL_PROD,MAP_MAP_o] ) >>
     fs[env_rs_def] >>
     conj_tac >- (
       fs[number_constructors_thm] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
       qabbrev_tac`p = rs.contab` >>
       PairCases_on`p` >>
       fs[good_contab_def] >>
@@ -1629,7 +1648,8 @@ val compile_dec_val = store_thm("compile_dec_val",
       simp[] ) >>
     conj_tac >- (
       fs[good_cmap_def] >>
-      simp[number_constructors_thm] >>
+      fs[number_constructors_thm] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
       conj_asm1_tac >- (
         simp[ALL_DISTINCT_APPEND] >>
         conj_tac >- (
@@ -1758,10 +1778,12 @@ val compile_dec_val = store_thm("compile_dec_val",
       >- ( res_tac >> simp[] >> metis_tac[] ) >>
       metis_tac[] ) >>
     conj_tac >- (
-      fs[EXTENSION,number_constructors_thm,FDOM_FUPDATE_LIST] >>
+      fs[EXTENSION,number_constructors_thm,FDOM_FUPDATE_LIST,LET_THM] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
       qx_gen_tac`x` >>
       qabbrev_tac`p = rs.contab` >>
       PairCases_on`p` >> fs[] >>
+      simp[FDOM_FUPDATE_LIST] >>
       Cases_on`x=Short""`>-metis_tac[]>>simp[]>>
       Cases_on`MEM x (MAP FST cenv)`>-metis_tac[]>>simp[]>>
       Cases_on`x ∈ FDOM p0`>-metis_tac[]>>simp[]>>
@@ -1777,7 +1799,8 @@ val compile_dec_val = store_thm("compile_dec_val",
       Cases_on`mn`>>fs[AstTheory.mk_id_def] >>
       metis_tac[] ) >>
     conj_tac >- (
-      simp[number_constructors_thm] >>
+      fs[number_constructors_thm] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
       qabbrev_tac`p = rs.contab` >>
       PairCases_on`p` >> fs[] >>
       fs[FLOOKUP_DEF,FDOM_FUPDATE_LIST] >>
@@ -1823,16 +1846,27 @@ val compile_dec_val = store_thm("compile_dec_val",
     fs[LET_THM] >>
     map_every qexists_tac[`Cmenv`,`Cenv`,`Cs`] >>
     simp[] >>
-    simp[number_constructors_thm] >>
+    fs[number_constructors_thm] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
     simp[CONJ_ASSOC] >>
     reverse conj_tac >- (
+      Q.PAT_ABBREV_TAC`bs0 = X:bc_state`>>
+      match_mp_tac Cenv_bs_append_code >>
+      qexists_tac`bs0 with code := bc0` >>
+      qexists_tac`bc` >>
+      simp[bc_state_component_equality,Abbr`bs0`] >>
       match_mp_tac Cenv_bs_with_irr >>
       simp[] >> rfs[] >>
       HINT_EXISTS_TAC >>
       simp[] >>
       fs[env_rs_def,Cenv_bs_def,s_refs_def,LET_THM] >>
       Cases_on`bs.clock`>>fs[]) >>
-    (*
+    `FILTER is_Label bc = []` by (
+      Cases_on`mn`>>fs[]>>rw[FILTER_EQ_NIL,EVERY_MAP]>>fs[Once SWAP_REVERSE]) >>
+    reverse conj_tac >- (
+      rpt strip_tac >>
+      match_mp_tac  code_env_cd_append >>
+      simp[FILTER_APPEND,ALL_DISTINCT_APPEND] ) >>
     reverse conj_tac >- (
       rpt strip_tac >>
       match_mp_tac  code_env_cd_append >>
@@ -1841,11 +1875,6 @@ val compile_dec_val = store_thm("compile_dec_val",
       rpt strip_tac >>
       match_mp_tac  code_env_cd_append >>
       simp[FILTER_APPEND] ) >>
-    reverse conj_tac >- (
-      rpt strip_tac >>
-      match_mp_tac  code_env_cd_append >>
-      simp[FILTER_APPEND] ) >>
-    *)
     reverse conj_tac >- (
       match_mp_tac (GEN_ALL (MP_CANON fmap_rel_trans)) >>
       HINT_EXISTS_TAC >> simp[] >>
