@@ -2006,16 +2006,18 @@ val compile_top_thm = store_thm("compile_top_thm",
       ALL_DISTINCT (FILTER is_Label bc0) ∧
       EVERY (combin$C $< rs.rnext_label o dest_Label) (FILTER is_Label bc0)
       ⇒
-      case res of (s',Rval(menv',cenv',env')) =>
+      case res of (s',cenv',Rval(menv',env')) =>
         ∃bs' rd'.
         bc_next^* bs bs' ∧
         bs'.pc = next_addr bs'.inst_length (bc0 ++ bc) ∧
+        bs'.output = REVERSE (print_result top cenv' (Rval(menv',env')))++bs.output ∧
         env_rs (menv'++menv) (cenv'++cenv) (env'++env) rss rd' (0,s') bs'
-      | (s',Rerr(Rraise err)) =>
+      | (s',cenv',Rerr(Rraise err)) =>
         ∃bv bs' rd'.
         bc_next^*bs bs' ∧
         bs'.stack = bv::bs.stack ∧
         bs'.pc = 0 ∧
+        bs'.output = bs.output ∧
         err_bv err bv ∧
         env_rs menv cenv env rsf rd' (0,s') (bs' with stack := bs.stack)
       | (s',_) => T``,
@@ -2039,8 +2041,8 @@ val compile_top_thm = store_thm("compile_top_thm",
     rw[] >>
     HINT_EXISTS_TAC >>
     rw[LibTheory.emp_def] >>
-    simp[] >>
-    metis_tac[] ) >>
+    simp[print_result_def] >>
+    metis_tac[]) >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
