@@ -219,6 +219,8 @@ val MAP_PrintC_thm = store_thm("MAP_PrintC_thm",
   qexists_tac`bc0 ++ [PrintC h]` >>
   simp[FILTER_APPEND,SUM_APPEND])
 
+val _ = Parse.overload_on("print_bv_list",``λm vs ws. FLAT (REVERSE (MAP (REVERSE o (UNCURRY (print_bv_str m))) (ZIP (vs,ws))))``)
+
 val compile_news_thm = store_thm("compile_news_thm",
   ``∀vs pr cs i. let cs' = compile_news pr cs i vs in
       ∃code.
@@ -453,8 +455,50 @@ val env_renv_append_code = store_thm("env_renv_append_code",
   qexists_tac `mk_pp rd bs` >>
   rw[] >> metis_tac[bc_find_loc_aux_append_code])
 
+val print_envE_cons = store_thm("print_envE_cons",
+  ``print_envE (x::xs) = print_envE[x]++print_envE xs``,
+  rw[print_envE_def])
+
+val print_v_ov = store_thm("print_v_ov",
+  ``(∀v cm m sm mv. ov_to_string (Cv_to_ov m sm (v_to_Cv mv cm v)) = print_v v)
+    ∧ (∀x:envE. T)
+    ∧ (∀y:string#v. T)
+    ∧ (∀vs:v list. T)``,
+  ho_match_mp_tac(TypeBase.induction_of``:v``) >>
+  simp[print_v_def,v_to_Cv_def,PrinterTheory.ov_to_string_def] >>
+  Cases >> simp[PrinterTheory.ov_to_string_def,print_lit_def] >- (
+    EVAL_TAC >> rw[] ) >>
+  Cases_on`b`>>simp[PrinterTheory.ov_to_string_def,print_lit_def])
+
+val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
+  ``∀mv pp vars vs cm m Cvs bvs.
+    EVERY2 syneq (MAP (v_to_Cv mv cm) vs) Cvs ∧ EVERY2 (Cv_bv pp) Cvs bvs ∧ LENGTH vars = LENGTH vs
+    ⇒
+    print_bv_list m vars bvs = REVERSE (print_envE (ZIP (vars,vs)))``,
+  ntac 2 gen_tac >>
+  Induct >- ( Cases >> simp[print_envE_def] ) >>
+  qx_gen_tac`x`>>
+  qx_gen_tac`ws`>>
+  ntac 2 gen_tac >>
+  map_every qx_gen_tac[`wvs`,`wbs`] >>
+  strip_tac >>
+  `∃v vs. ws = v::vs` by ( Cases_on`ws`>>fs[] ) >>
+  `∃Cv Cvs. wvs = Cv::Cvs` by ( Cases_on`wvs`>>fs[EVERY2_EVERY] ) >>
+  `∃bv bvs. wbs = bv::bvs` by ( Cases_on`wbs`>>fs[EVERY2_EVERY] ) >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  simp[Once print_envE_cons] >>
+  first_x_assum(qspecl_then[`vs`,`cm`,`m`,`Cvs`,`bvs`]mp_tac) >>
+  discharge_hyps >- fs[EVERY2_EVERY] >> rw[] >>
+  rw[print_envE_def,print_bv_str_def] >>
+  fs[EVERY2_EVERY] >>
+  imp_res_tac Cv_bv_ov >>
+  `bv_to_ov m bv = Cv_to_ov m (FST pp).sm (v_to_Cv mv cm v)` by
+    metis_tac[syneq_ov] >>
+  pop_assum SUBST1_TAC >>
+  simp[print_v_ov])
+
 val compile_fake_exp_val = store_thm("compile_fake_exp_val",
-  ``∀rs vars expf menv tup cenv s env exp s' beh bdgs nl bc rd vv0 vv1 bc0 bs.
+  ``∀pr rs vars expf menv tup cenv s env exp s' beh bdgs nl bc rd vv0 vv1 bc0 bs.
       evaluate T menv ((Short "",tup)::cenv) s env exp (s', beh) ∧
       FV exp ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
       closed_under_menv menv env (SND s) ∧
@@ -463,7 +507,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       (∀v. v ∈ env_range env ∨ MEM v (SND s) ⇒ all_locs v ⊆ count (LENGTH (SND s))) ∧
       env_rs menv cenv env rs rd s (bs with code := bc0) ∧
       ALL_DISTINCT vars ∧
-      (compile_fake_exp rs vars expf = (rs.contab,bdgs,nl,REVERSE bc)) ∧
+      (compile_fake_exp pr rs vars expf = (rs.contab,bdgs,nl,REVERSE bc)) ∧
       (exp = expf (Con (Short "") (MAP (Var o Short) vars))) ∧
       (bs.code = bc0 ++ bc) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
@@ -474,7 +518,8 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       (∀vs. (beh = Rval (Conv (Short "") vs)) ∧ (LENGTH vars = LENGTH vs) ⇒
         ∃st rf rd' ck.
         let env' = ZIP(vars,vs) ++ env in
-        let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := st; refs := rf; clock := ck|> in
+        let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := st; refs := rf; clock := ck
+                           ;output := if pr then REVERSE(print_envE (ZIP(vars,vs))) ++ bs.output else bs.output|> in
         let rs' = rs with <| renv := bdgs ++ rs.renv; rsz := rs.rsz + LENGTH bdgs; rnext_label := nl |> in
         bc_next^* bs bs' ∧
         env_rs menv cenv env' rs' rd' s' bs') ∧
@@ -553,7 +598,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
   Q.PAT_ABBREV_TAC`sz = LENGTH rs.renv + X` >>
   qspecl_then[`cmnv`,`renv`,`TCNonTail`,`sz`,`cce`,`Ce`](Q.X_CHOOSE_THEN`bc1`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
   Q.PAT_ABBREV_TAC`cmp = compile cmnv renv X Y Z A with out := U` >>
-  Q.ISPECL_THEN[`vars`,`cmp`,`0:num`]mp_tac compile_news_thm >>
+  Q.ISPECL_THEN[`vars`,`pr`,`cmp`,`0:num`]mp_tac compile_news_thm >>
   simp[] >> disch_then(Q.X_CHOOSE_THEN`c1`strip_assume_tac) >>
   simp[] >> rw[Abbr`s0`,Once SWAP_REVERSE] >>
   fs[Abbr`cmp`] >>
@@ -625,9 +670,9 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,MEM_MAP,MEM_GENLIST,between_def] >>
       rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
     rfs[MAP_EQ_EVERY2] >>
-    conj_tac >- PROVE_TAC[code_env_cd_append,APPEND_ASSOC] >>
-    conj_tac >- PROVE_TAC[code_env_cd_append,APPEND_ASSOC] >>
-    conj_tac >- PROVE_TAC[code_env_cd_append,APPEND_ASSOC] >>
+    conj_tac >- metis_tac[code_env_cd_append,APPEND_ASSOC] >>
+    conj_tac >- metis_tac[code_env_cd_append,APPEND_ASSOC] >>
+    conj_tac >- metis_tac[code_env_cd_append,APPEND_ASSOC] >>
     conj_tac >- (
       qunabbrev_tac`G` >>
       rfs[Cenv_bs_def,s_refs_def] >>
@@ -673,6 +718,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     Q.PAT_ABBREV_TAC`mv:string |-> string list = X` >>
     Q.PAT_ABBREV_TAC`cocd = code_env_cd cmnv X` >>
     rpt BasicProvers.VAR_EQ_TAC >>
+    Q.PAT_ABBREV_TAC`outp = if pr then X else bs.output` >>
     `∃u Cvs. (Cv = Cval(CConv u Cvs)) ∧ EVERY2 syneq (MAP (v_to_Cv mv cm) vs) Cvs` by (
       rator_x_assum`syneq`mp_tac >>
       simp[v_to_Cv_def,Once IntLangTheory.syneq_cases] >>
@@ -751,7 +797,8 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       qexists_tac`(SUC 0)` >>
       simp[NRC] >>
       simp[Abbr`bs4`,Abbr`bs3'`,Abbr`bs2`] >>
-      ntac 13 (pop_assum kall_tac) >>
+      qpat_assum`EVERY2 X Cvs bvs`mp_tac >>
+      ntac 13 (pop_assum kall_tac) >> strip_tac >>
       Q.PAT_ABBREV_TAC`st:bc_value list = X ++ Y` >>
       simp[bc_eval1_thm] >>
       simp[TAKE_APPEND1,TAKE_APPEND2,REVERSE_APPEND] >>
@@ -763,7 +810,10 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       simp[bc_eval1_def,bump_pc_def] >>
       simp[Abbr`bs6`,bc_eval_stack_def] >>
       simp[Abbr`z`] >>
-      simp[bc_state_component_equality,SUM_APPEND,FILTER_APPEND,Abbr`cd`,TAKE_APPEND1,TAKE_APPEND2] ) >>
+      simp[bc_state_component_equality,SUM_APPEND,FILTER_APPEND,Abbr`cd`,TAKE_APPEND1,TAKE_APPEND2] >>
+      Cases_on`pr`>>simp[Abbr`outp`] >>
+      match_mp_tac print_bv_list_print_envE >>
+      metis_tac[]) >>
     qunabbrev_tac`bs3'` >>
     ntac 5 (pop_assum kall_tac) >>
     conj_tac >- metis_tac[EVERY2_syneq_trans] >>
@@ -867,7 +917,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       qexists_tac`bs6` >> simp[Abbr`bs6`] ) >>
     Q.PAT_ABBREV_TAC`bs6:bc_state = X Z` >>
     match_mp_tac fmap_rel_env_renv_with_irr >>
-    qexists_tac `bs6 with handler := rs.rsz + 1` >>
+    qexists_tac `bs6 with <| handler := rs.rsz + 1; output := bs.output |>` >>
     simp[Abbr`bs6`] >>
     match_mp_tac fmap_rel_env_renv_CTDec >>
     HINT_EXISTS_TAC >>
