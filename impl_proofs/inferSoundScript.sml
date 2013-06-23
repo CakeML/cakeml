@@ -2693,6 +2693,32 @@ rw [infer_ds_def, success_eqns] >|
      fs [convert_env2_def, merge_def, bvl2_append] >>
      metis_tac []]);
 
+val check_weakE_sound = Q.prove (
+`!tenvC1 tenvC2 st st2.
+  (check_weakE tenvC1 tenvC2 st = (Success (), st2))
+  ⇒
+  weakE (convert_env2 tenvC1) (convert_env2 tenvC2)`,
+ho_match_mp_tac check_weakE_ind >>
+rw [convert_env2_def, check_weakE_def, weakE_def, success_eqns] >>
+cases_on `lookup n tenvC1` >>
+fs [success_eqns] >>
+PairCases_on `x'` >>
+fs [success_eqns] >>
+rw [] >>
+`lookup n (MAP (λ(x,y). (x,(λ(tvs,t). (tvs, convert_t t)) y)) tenvC1) = SOME ((λ(tvs,t). (tvs, convert_t t)) (x'0,x'1))`
+        by metis_tac [lookup_map] >>
+fs [remove_pair_lem] >>
+`(λ(x,y). (x,FST y,convert_t (SND y))) = (λ(x,tvs:num,t). (x,tvs,convert_t t))`
+                by (rw [FUN_EQ_THM] >>
+                    PairCases_on `y` >>
+                    rw []) >>
+rw [] >>
+fs [init_state_def, init_infer_state_def] >>
+rw [] >|
+[cheat,
+ metis_tac[]]);
+
+
 val infer_top_sound = Q.store_thm ("infer_top_sound",
 `!menv cenv env top st1 menv' cenv' env' st2.
   (infer_top menv cenv env top st1 = (Success (menv', cenv', env'), st2)) ∧
@@ -2715,9 +2741,18 @@ rw [emp_def] >>
              by metis_tac [infer_ds_sound] >>
      MAP_EVERY qexists_tac [`v'0`, `convert_env2 v'1`] >>
      rw [] >|
-     [cheat,
+     [rw [MAP_MAP_o, combinTheory.o_DEF, remove_pair_lem] >>
+          metis_tac [],
       metis_tac [convert_menv_def, convert_env2_def],
-      cheat],
+      cases_on `o'` >>
+          rw [] >>
+          fs [check_signature_cases, check_signature_def, success_eqns] >-
+          rw [convert_env2_def] >>
+          PairCases_on `v'` >>
+          fs [success_eqns] >>
+          rw [] >-
+          metis_tac [check_weakE_sound, convert_env2_def] >>
+          cheat],
  rw [convert_menv_def],
  metis_tac [infer_d_sound]]);
 

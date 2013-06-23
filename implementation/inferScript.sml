@@ -540,6 +540,7 @@ val infer_top_def = Define `
   od) ∧
 (infer_top menv cenv env (Tmod mn spec ds1) =
   do
+    () <- guard (~MEM mn (MAP FST menv)) ("Duplicate module: " ++ mn);
     (cenv',env') <- infer_ds (SOME mn) menv cenv env ds1;
     (cenv'',env'') <- check_signature (SOME mn) cenv' env' spec;
     return ([(mn,env'')], cenv'', emp)
