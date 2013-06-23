@@ -1159,10 +1159,11 @@ val ALL_DISTINCT_PERM_ALOOKUP_ZIP = store_thm("ALL_DISTINCT_PERM_ALOOKUP_ZIP",
 *)
 
 val number_constructors_thm = store_thm("number_constructors_thm",
-  ``∀mn cs ct. number_constructors mn cs ct =
-    (FST ct |++ GENLIST (λi. (mk_id mn (FST (EL i cs)), (SND(SND ct))+i)) (LENGTH cs)
-    ,REVERSE (GENLIST (λi. ((SND(SND ct))+i,mk_id mn(FST(EL i cs)))) (LENGTH cs)) ++ (FST(SND ct))
-    ,(SND(SND ct)) + LENGTH cs)``,
+  ``∀mn cs ac. number_constructors mn cs ac =
+    ((FST(FST ac) |++ GENLIST (λi. (mk_id mn (FST (EL i cs)), (SND(SND(FST ac)))+i)) (LENGTH cs)
+     ,REVERSE (GENLIST (λi. ((SND(SND(FST ac)))+i,mk_id mn(FST(EL i cs)))) (LENGTH cs)) ++ (FST(SND(FST ac)))
+     ,(SND(SND(FST ac))) + LENGTH cs)
+    ,(REVERSE (MAP (combin$C STRCAT " = <constructor>" o id_to_string o mk_id mn o FST) cs))++SND ac)``,
   gen_tac >> Induct >- simp[number_constructors_def,FUPDATE_LIST_THM] >>
   qx_gen_tac`p` >> PairCases_on`p` >>
   qx_gen_tac`q` >> PairCases_on`q` >>
@@ -1263,7 +1264,7 @@ val v_to_Cv_SUBMAP = store_thm("v_to_Cv_SUBMAP",
   simp[exp_to_Cexp_SUBMAP])
 
 val compile_fake_exp_contab = store_thm("compile_fake_exp_contab",
-  ``(compile_fake_exp rs vs e = (ct,b,n,c)) ⇒ ct = rs.contab``,
+  ``(compile_fake_exp pr rs vs e = (ct,b,n,c)) ⇒ ct = rs.contab``,
   rw[compile_fake_exp_def,LET_THM])
 
 val mk_id_inj = store_thm("mk_id_inj",
