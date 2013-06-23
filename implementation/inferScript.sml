@@ -536,13 +536,13 @@ val infer_top_def = Define `
 (infer_top menv cenv env (Tdec d) =
   do
     (cenv',env') <- infer_d NONE menv cenv env d;
-    return (menv, cenv', env')
+    return (emp, cenv', env')
   od) ∧
 (infer_top menv cenv env (Tmod mn spec ds1) =
   do
     (cenv',env') <- infer_ds (SOME mn) menv cenv env ds1;
     (cenv'',env'') <- check_signature (SOME mn) cenv' env' spec;
-    return ((mn,env'')::menv, cenv'', env'')
+    return ([(mn,env'')], cenv'', emp)
   od)`;
 
 val infer_prog_def = Define `

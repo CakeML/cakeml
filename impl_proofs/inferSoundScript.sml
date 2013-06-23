@@ -2063,7 +2063,19 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      `t_wfs s` by metis_tac [sub_completion_wfs] >>
      fs [t_walkstar_eqn, t_walk_eqn, convert_t_def],
  (* If *)
-     cheat,
+     `t_wfs (st'' with subst := s').subst` 
+                by (rw [] >>
+                    metis_tac [t_unify_wfs, infer_e_wfs]) >>
+     `st.next_uvar ≤ (st'' with subst := s').next_uvar` 
+                by (imp_res_tac infer_e_next_uvar_mono >>
+                    fs [] >>
+                    decide_tac) >>
+     `check_env (count (st'' with subst := s').next_uvar) env` 
+                by (metis_tac [check_env_more]) >>
+     `?ts. sub_completion (num_tvs tenv) st'''''.next_uvar st'''''.subst ts s` 
+               by metis_tac [sub_completion_unify2] >>
+     imp_res_tac sub_completion_infer >>
+     metis_tac [],
  (* If *)
      `t_wfs (st'' with subst := s').subst` 
                 by (rw [] >>
@@ -2689,7 +2701,25 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
   check_env {} env
   ⇒
   type_top (convert_menv menv) cenv (bind_var_list2 (convert_env2 env) Empty) top (convert_menv menv') cenv' (convert_env2 env')`,
-cheat);
+cases_on `top` >>
+rw [infer_top_def, success_eqns, type_top_cases] >>
+PairCases_on `v'` >>
+fs [success_eqns] >>
+rw [emp_def] >>
+`count (init_infer_state:(num |-> infer_t) infer_st).next_uvar = {}`
+                by rw [init_infer_state_def] >|
+[PairCases_on `v'` >>
+     fs [success_eqns] >>
+     rw [emp_def, convert_menv_def, convert_env2_def] >>
+     `type_ds (SOME s) (convert_menv menv) cenv (bind_var_list2 (convert_env2 env) Empty) l v'0 (convert_env2 v'1)`
+             by metis_tac [infer_ds_sound] >>
+     MAP_EVERY qexists_tac [`v'0`, `convert_env2 v'1`] >>
+     rw [] >|
+     [cheat,
+      metis_tac [convert_menv_def, convert_env2_def],
+      cheat],
+ rw [convert_menv_def],
+ metis_tac [infer_d_sound]]);
 
 val infer_top_invariant = Q.store_thm ("infer_top_invariant",
 `!menv cenv env top st1 menv' cenv' env' st2.
@@ -2701,6 +2731,43 @@ val infer_top_invariant = Q.store_thm ("infer_top_invariant",
   check_menv menv' ∧
   check_cenv cenv' ∧
   check_env {} env'`,
-cheat);
+cases_on `top` >>
+`count (init_infer_state:(num |-> infer_t) infer_st).next_uvar = {}`
+                by rw [init_infer_state_def] >|
+[cases_on `o'` >|
+     [rw [infer_top_def, success_eqns] >>
+          PairCases_on `v'` >>
+          fs [success_eqns] >>
+          PairCases_on `v'` >>
+          fs [success_eqns] >>
+          fs [check_signature_def, success_eqns] >>
+          rw [] >>
+          cheat,
+      rw [infer_top_def, success_eqns] >>
+          PairCases_on `v'` >>
+          fs [success_eqns] >>
+          PairCases_on `v'` >>
+          fs [success_eqns] >>
+          fs [check_signature_def, success_eqns] >>
+          rw [] >>
+          PairCases_on `v'` >>
+          fs [success_eqns] >>
+          rw [] >>
+          cheat],
+ rw [infer_top_def, success_eqns] >>
+     PairCases_on `v'` >>
+     fs [success_eqns] >>
+     rw [] >>
+     metis_tac [infer_d_check]]);
+
+val infer_init_thm = Q.store_thm ("infer_init_thm",
+`check_menv [] ∧ check_cenv [] ∧ check_env {} init_type_env ∧
+ (convert_menv [] = []) ∧
+ (bind_var_list2 (convert_env2 init_type_env) Empty = init_tenv)`,
+rw [check_t_def, check_menv_def, check_cenv_def, check_env_def, init_type_env_def,
+    Infer_Tfn_def, Infer_Tint_def, Infer_Tbool_def, Infer_Tunit_def, 
+    Infer_Tref_def, init_tenv_def, bind_var_list2_def, convert_env2_def,
+    convert_t_def, convert_menv_def, bind_tenv_def, Tfn_def, Tint_def, Tbool_def,
+    Tunit_def, Tref_def]);
 
 val _ = export_theory ();
