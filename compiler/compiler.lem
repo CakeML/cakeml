@@ -43,7 +43,7 @@ number_constructors _ [] ac = ac
 and
 number_constructors mn ((c,_)::cs) ((m,w,n),ls) =
   number_constructors mn cs ((Pmap.add (mk_id mn c) n m, (n,mk_id mn c)::w, n+1)
-                            ,(Hol.CONCAT[id_to_string(mk_id mn c);" = <constructor>"])::ls)
+                            ,(Hol.CONCAT[id_to_string(mk_id mn c);" = <constructor>\n"])::ls)
 
 let rec
 compile_news _ cs i [] = cs
@@ -82,7 +82,8 @@ compile_dec mn rs (Dtype ts) =
     List.fold_left
       (fun ac (_,_,cs) -> number_constructors mn cs ac)
       (rs.contab,[]) ts in
-  (ct,[],rs.rnext_label,List.rev(List.map PrintC (Hol.EXPLODE (Hol.CONCAT (List.rev ls)))))
+  (ct,[],rs.rnext_label
+  ,if (Hol.IS_NONE mn) then List.rev(List.map PrintC (Hol.EXPLODE (Hol.CONCAT (List.rev ls)))) else [])
 and
 compile_dec mn rs (Dletrec defs) =
   let vs = List.map (fun (n,_,_) -> n) defs in

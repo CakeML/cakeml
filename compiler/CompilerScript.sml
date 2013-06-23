@@ -67,7 +67,7 @@ val _ = Define `
 /\
 (number_constructors mn ((c,_)::cs) ((m,w,n),ls) =  
 (number_constructors mn cs (( FUPDATE  m ( (mk_id mn c), n), ((n,mk_id mn c) ::w), (n +1))
-                            ,((CONCAT[id_to_string(mk_id mn c);" = <constructor>"]) ::ls))))`;
+                            ,((CONCAT[id_to_string(mk_id mn c);" = <constructor>\n"]) ::ls))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn number_constructors_defn;
 
@@ -113,7 +113,8 @@ val _ = Define `
 (let (ct,ls) = ( FOLDL
       (\ac p . (case (ac ,p ) of ( ac , (_,_,cs) ) => number_constructors mn cs ac ))
       (rs.contab,[]) ts) in
-  (ct,[],rs.rnext_label, REVERSE( MAP PrintC (EXPLODE (CONCAT ( REVERSE ls)))))))
+  (ct,[],rs.rnext_label
+  ,(if (IS_NONE mn) then REVERSE( MAP PrintC (EXPLODE (CONCAT ( REVERSE ls)))) else []))))
 /\
 (compile_dec mn rs (Dletrec defs) =  
 (let vs = ( MAP (\p . 
