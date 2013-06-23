@@ -792,30 +792,19 @@ val Decls_APPEND = store_thm("Decls_APPEND",
   [rw [] >>
        Cases_on `r` >>
        fs [combine_dec_result_rval, combine_dec_result_rerr] >>
-       Cases_on `a` >>
-       fs [combine_dec_result_rval, combine_dec_result_rerr] >>
        qexists_tac `s2'` >>
-       qexists_tac `cenv3` >>
-       qexists_tac `merge cenv3 q` >>
+       qexists_tac `merge cenv3 new_tds'` >>
+       qexists_tac `new_tds` >>
        qexists_tac `new_env` >>
-       qexists_tac `Rval (merge env3 r)` >>
+       qexists_tac `Rval (merge env3 a)` >>
        rw [combine_dec_result_rval, merge_def] >>
+       fs [merge_def] >>
        metis_tac [merge_def],
    rw [] >>
        Cases_on `r` >>
        fs [combine_dec_result_rval, combine_dec_result_rerr] >>
-       Cases_on `a` >>
-       fs [combine_dec_result_rval, combine_dec_result_rerr] >>
        res_tac >>
-       qexists_tac `cenv2++new_tds` >>
-       qexists_tac `s2'` >>
-       qexists_tac `env2++new_env` >>
-       qexists_tac `cenv3` >>
-       qexists_tac `env3` >>
-       qexists_tac `s2` >>
-       qexists_tac `new_tds` >>
-       qexists_tac `new_env` >>
-       qexists_tac `Rval (cenv2,env2)` >>
+       rw [] >>
        metis_tac [APPEND_ASSOC, combine_dec_result_rval, merge_def]]);
 
 val Decls_CONS = save_thm("Decls_CONS",
