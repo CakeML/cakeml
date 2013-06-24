@@ -2428,7 +2428,7 @@ val infer_d_sound = Q.prove (
   infer_d mn menv cenv env d st1 = (Success (cenv',env'), st2) ∧
   check_menv menv ∧
   check_cenv cenv ∧
-  check_env (count (init_infer_state:(num |-> infer_t) infer_st).next_uvar) env
+  check_env {} env
   ⇒
   type_d mn (convert_menv menv) cenv (bind_var_list2 (convert_env2 env) Empty) d cenv' (convert_env2 env')`,
 cases_on `d` >>
@@ -2449,10 +2449,10 @@ fs [emp_def] >|
      Q.ABBREV_TAC `tenv' = bind_tvar tvs (bind_var_list2 (convert_env2 env) Empty)` >>
      fs [init_state_def] >>
      `t_wfs init_infer_state.subst` by rw [init_infer_state_def, t_wfs_def] >>
-     `check_t 0 (count st'''.next_uvar) t1` by metis_tac [infer_e_check_t] >>
-     `t_wfs st'''.subst` by metis_tac [infer_e_wfs] >>
      `(init_infer_state:(num |-> infer_t) infer_st).next_uvar = 0` 
                  by (fs [init_infer_state_def] >> rw []) >>
+     `check_t 0 (count st'''.next_uvar) t1` by metis_tac [infer_e_check_t, COUNT_ZERO] >>
+     `t_wfs st'''.subst` by metis_tac [infer_e_wfs] >>
      fs [] >>
      rw [] >>
      fs [] >>
@@ -2611,10 +2611,10 @@ val infer_d_check = Q.prove (
   infer_d mn menv cenv env d st1 = (Success (cenv',env'), st2) ∧
   check_menv menv ∧
   check_cenv cenv ∧
-  check_env (count (init_infer_state:(num |-> infer_t) infer_st).next_uvar) env
+  check_env {} env
   ⇒
   check_cenv cenv' ∧
-  check_env (count (init_infer_state:(num |-> infer_t) infer_st).next_uvar) env'`,
+  check_env {} env'`,
 cases_on `d` >>
 REPEAT GEN_TAC >>
 STRIP_TAC >>
@@ -2674,7 +2674,7 @@ val infer_ds_sound = Q.prove (
   infer_ds mn menv cenv env ds st1 = (Success (cenv',env'), st2) ∧
   check_menv menv ∧
   check_cenv cenv ∧
-  check_env (count (init_infer_state:(num |-> infer_t) infer_st).next_uvar) env
+  check_env {} env
   ⇒
   type_ds mn (convert_menv menv) cenv (bind_var_list2 (convert_env2 env) Empty) ds cenv' (convert_env2 env')`,
 induct_on `ds` >>
@@ -2685,27 +2685,58 @@ rw [infer_ds_def, success_eqns] >|
      PairCases_on `v'` >>
      fs [success_eqns] >>
      rw [Once type_ds_cases] >>
+     fs [init_infer_state_def] >>
      imp_res_tac infer_d_check >>
      `check_cenv (v'0 ++ cenv)` by fs [check_cenv_def] >>
-     `check_env (count (init_infer_state:(num |-> infer_t) infer_st).next_uvar) (v'1 ++ env)` by fs [check_env_def] >>
+     `check_env {} (v'1 ++ env)` 
+                     by fs [check_env_def, init_infer_state_def] >>
      imp_res_tac infer_d_sound >>
      res_tac >>
      fs [convert_env2_def, merge_def, bvl2_append] >>
      metis_tac []]);
 
-val check_weakE_sound = Q.prove (
-`!tenvC1 tenvC2 st st2.
-  (check_weakE tenvC1 tenvC2 st = (Success (), st2))
+val infer_ds_check = Q.prove (
+`!mn menv cenv env ds st1 st2 cenv' env' tenv.
+  infer_ds mn menv cenv env ds st1 = (Success (cenv',env'), st2) ∧
+  check_menv menv ∧
+  check_cenv cenv ∧
+  check_env {} env
   ⇒
-  weakE (convert_env2 tenvC1) (convert_env2 tenvC2)`,
+  check_cenv cenv' ∧
+  check_env {} env'`,
+induct_on `ds` >>
+rw [infer_ds_def, success_eqns] >|
+[rw [check_cenv_def],
+ rw [check_env_def],
+ all_tac,
+ all_tac] >>
+PairCases_on `v'` >>
+fs [success_eqns] >>
+PairCases_on `v'` >>
+fs [success_eqns] >>
+rw [] >>
+`check_env {} v'1 ∧ check_cenv v'0` by metis_tac [infer_d_check] >>
+`check_env {} (v'1 ++ env) ∧ check_cenv (v'0 ++ cenv)` 
+           by fs [check_env_def, check_cenv_def] >>
+`check_env {} v'1' ∧ check_cenv v'0'` by metis_tac [] >>
+fs [check_cenv_def, check_env_def]);
+
+val check_weakE_sound = Q.prove (
+`!tenv1 tenv2 st st2.
+  check_env {} tenv1 ∧
+  check_env {} tenv2 ∧
+  (check_weakE tenv1 tenv2 st = (Success (), st2))
+  ⇒
+  weakE (convert_env2 tenv1) (convert_env2 tenv2)`,
 ho_match_mp_tac check_weakE_ind >>
-rw [convert_env2_def, check_weakE_def, weakE_def, success_eqns] >>
-cases_on `lookup n tenvC1` >>
+rw [convert_env2_def, check_weakE_def, weakE_def, success_eqns, 
+    SIMP_RULE (srw_ss()) [bind_def] check_env_bind] >>
+cases_on `lookup n tenv1` >>
 fs [success_eqns] >>
 PairCases_on `x'` >>
 fs [success_eqns] >>
 rw [] >>
-`lookup n (MAP (λ(x,y). (x,(λ(tvs,t). (tvs, convert_t t)) y)) tenvC1) = SOME ((λ(tvs,t). (tvs, convert_t t)) (x'0,x'1))`
+`lookup n (MAP (λ(x,y). (x,(λ(tvs,t). (tvs, convert_t t)) y)) tenv1) = SOME ((λ(tvs,t). (tvs, convert_t t)) (x'0,x'1))`
         by metis_tac [lookup_map] >>
 fs [remove_pair_lem] >>
 `(λ(x,y). (x,FST y,convert_t (SND y))) = (λ(x,tvs:num,t). (x,tvs,convert_t t))`
@@ -2715,9 +2746,108 @@ fs [remove_pair_lem] >>
 rw [] >>
 fs [init_state_def, init_infer_state_def] >>
 rw [] >|
-[cheat,
+[fs [] >>
+     `t_wfs FEMPTY` by rw [t_wfs_def] >>
+     imp_res_tac t_unify_apply >>
+     imp_res_tac check_env_lookup >>
+     qexists_tac `MAP (\n. convert_t (t_walkstar s (Infer_Tuvar n))) (COUNT_LIST x'0)` >>
+     rw [LENGTH_COUNT_LIST, check_t_to_check_freevars, EVERY_MAP] >|
+     [cheat,
+      cheat],
  metis_tac[]]);
 
+val check_weakC_sound = Q.prove (
+`!(tenvC1:tenvC) (tenvC2:tenvC).
+  check_weakC tenvC1 tenvC2
+  ⇒
+  weakC tenvC1 tenvC2`,
+induct_on `tenvC2` >>
+fs [check_weakC_def, weakC_def, success_eqns] >>
+rw [] >>
+PairCases_on `h` >>
+fs [] >>
+rw [] >>
+cases_on `lookup cn tenvC1` >>
+fs []);
+
+val check_freevars_more = Q.prove (
+`(!t x fvs1 fvs2.
+  check_freevars x fvs1 t ⇒
+  check_freevars x (fvs2++fvs1) t ∧
+  check_freevars x (fvs1++fvs2) t) ∧
+ (!ts x fvs1 fvs2.
+  EVERY (check_freevars x fvs1) ts ⇒
+  EVERY (check_freevars x (fvs2++fvs1)) ts ∧
+  EVERY (check_freevars x (fvs1++fvs2)) ts)`,
+Induct >>
+rw [check_freevars_def] >>
+metis_tac []);
+
+val t_to_freevars_check = Q.prove (
+`(!t st fvs st'.
+   (t_to_freevars t (st:'a) = (Success fvs, st'))
+   ⇒
+   check_freevars 0 fvs t) ∧
+ (!ts st fvs st'.
+   (ts_to_freevars ts (st:'a) = (Success fvs, st'))
+   ⇒
+   EVERY (check_freevars 0 fvs) ts)`,
+Induct >>
+rw [t_to_freevars_def, success_eqns, check_freevars_def] >>
+rw [] >>
+metis_tac [check_freevars_more]);
+
+val check_freevars_nub = Q.prove (
+`(!t x fvs.
+  check_freevars x fvs t ⇒
+  check_freevars x (nub fvs) t) ∧
+ (!ts x fvs.
+  EVERY (check_freevars x fvs) ts ⇒
+  EVERY (check_freevars x (nub fvs)) ts)`,
+Induct >>
+rw [check_freevars_def, GSYM nub_set] >>
+metis_tac []);
+
+val check_specs_sound = Q.prove (
+`!mn cenv env specs st cenv' env' st'.
+  (check_specs mn cenv env specs st = (Success (cenv',env'), st'))
+  ⇒
+  type_specs mn cenv (convert_env2 env) specs cenv' (convert_env2 env')`,
+ho_match_mp_tac check_specs_ind >>
+rw [check_specs_def, success_eqns] >|
+[rw [Once type_specs_cases],
+ rw [Once type_specs_cases] >>
+     res_tac >>
+     `check_freevars 0 fvs t` by metis_tac [t_to_freevars_check] >>
+     `check_freevars 0 (nub fvs) t` by metis_tac [check_freevars_nub] >>
+     qexists_tac `nub fvs` >>
+     rw [] >>
+     fs [LENGTH_MAP, convert_t_subst, bind_def, convert_env2_def, LENGTH_COUNT_LIST] >>
+     fs [MAP_MAP_o, combinTheory.o_DEF, convert_t_def] >>
+     metis_tac [],
+ rw [Once type_specs_cases] >>
+     metis_tac [],
+ rw [Once type_specs_cases] >|
+     [fs [EVERY_MEM] >>
+          rw [] >>
+          PairCases_on `p` >>
+          rw [] >>
+          res_tac >>
+          fs [],
+      metis_tac []]]);
+
+val check_specs_check = Q.prove (
+`!mn cenv env specs st cenv' env' st'.
+  check_cenv cenv ∧
+  check_env {} env ∧
+  (check_specs mn cenv env specs st = (Success (cenv',env'), st'))
+  ⇒
+  check_cenv cenv' ∧
+  check_env {} env'`,
+ho_match_mp_tac check_specs_ind >>
+rw [check_specs_def, success_eqns, bind_def] >>
+rw [] >>
+cheat);
 
 val infer_top_sound = Q.store_thm ("infer_top_sound",
 `!menv cenv env top st1 menv' cenv' env' st2.
@@ -2731,9 +2861,7 @@ cases_on `top` >>
 rw [infer_top_def, success_eqns, type_top_cases] >>
 PairCases_on `v'` >>
 fs [success_eqns] >>
-rw [emp_def] >>
-`count (init_infer_state:(num |-> infer_t) infer_st).next_uvar = {}`
-                by rw [init_infer_state_def] >|
+rw [emp_def] >|
 [PairCases_on `v'` >>
      fs [success_eqns] >>
      rw [emp_def, convert_menv_def, convert_env2_def] >>
@@ -2750,9 +2878,13 @@ rw [emp_def] >>
           rw [convert_env2_def] >>
           PairCases_on `v'` >>
           fs [success_eqns] >>
-          rw [] >-
-          metis_tac [check_weakE_sound, convert_env2_def] >>
-          cheat],
+          rw [] >>
+          `check_cenv [] ∧ check_env {} ([]:(tvarN, num # infer_t) env)` by rw [check_env_def, check_cenv_def] >>
+          `check_env {} v'1 ∧ check_env {} v'1'` by metis_tac [infer_ds_check, check_specs_check] >-
+          metis_tac [check_weakE_sound, convert_env2_def] >-
+          metis_tac [check_weakC_sound] >>
+          imp_res_tac check_specs_sound >>
+          fs [convert_env2_def, emp_def]],
  rw [convert_menv_def],
  metis_tac [infer_d_sound]]);
 
@@ -2766,9 +2898,7 @@ val infer_top_invariant = Q.store_thm ("infer_top_invariant",
   check_menv menv' ∧
   check_cenv cenv' ∧
   check_env {} env'`,
-cases_on `top` >>
-`count (init_infer_state:(num |-> infer_t) infer_st).next_uvar = {}`
-                by rw [init_infer_state_def] >|
+cases_on `top` >|
 [cases_on `o'` >|
      [rw [infer_top_def, success_eqns] >>
           PairCases_on `v'` >>
@@ -2777,7 +2907,9 @@ cases_on `top` >>
           fs [success_eqns] >>
           fs [check_signature_def, success_eqns] >>
           rw [] >>
-          cheat,
+          `check_cenv cenv' ∧ check_env {} v'1` by metis_tac [infer_ds_check] >>
+          rw [check_menv_def, check_env_def, emp_def] >>
+          fs [check_env_def],
       rw [infer_top_def, success_eqns] >>
           PairCases_on `v'` >>
           fs [success_eqns] >>
@@ -2788,7 +2920,10 @@ cases_on `top` >>
           PairCases_on `v'` >>
           fs [success_eqns] >>
           rw [] >>
-          cheat],
+          `check_cenv [] ∧ check_env {} ([]:(tvarN, num # infer_t) env)` by rw [check_env_def, check_cenv_def] >>
+          `check_cenv cenv' ∧ check_env {} v'1'` by metis_tac [check_specs_check] >>
+          rw [check_menv_def, check_env_def, emp_def] >>
+          fs [check_env_def]],
  rw [infer_top_def, success_eqns] >>
      PairCases_on `v'` >>
      fs [success_eqns] >>

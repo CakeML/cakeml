@@ -12,13 +12,13 @@ val nub_def = Define `
   else
     x :: nub l)`;
 
-val nub_set = Q.prove (
+val nub_set = Q.store_thm ("nub_set",
 `!l. set l = set (nub l)`,
 Induct >>
 rw [nub_def, EXTENSION] >>
 metis_tac []);
 
-val all_distinct_nub = Q.prove (
+val all_distinct_nub = Q.store_thm ("all_distinct_nub",
 `!l. ALL_DISTINCT (nub l)`,
 Induct >>
 rw [nub_def] >>
