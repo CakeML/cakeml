@@ -406,7 +406,7 @@ val initial_invariant = prove(
       map_every qexists_tac[`Tint`,`Tint`] >>
       rw[terminationTheory.check_freevars_def] >- cheat >>
       rw[Once TypeSystemTheory.type_e_cases] >>
-    *) ) >>
+    *) )
   >- (
     simp[SemanticPrimitivesTheory.init_env_def,semanticsExtraTheory.closed_cases] >>
     simp[SUBSET_DEF] >> metis_tac[] )
