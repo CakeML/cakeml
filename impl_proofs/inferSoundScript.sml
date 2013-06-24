@@ -2793,6 +2793,7 @@ cases_on `top` >>
      PairCases_on `v'` >>
      fs [success_eqns] >>
      rw [] >>
+     TRY(rw[check_menv_def,emp_def]>>NO_TAC)>>
      metis_tac [infer_d_check]]);
 
 val infer_init_thm = Q.store_thm ("infer_init_thm",
