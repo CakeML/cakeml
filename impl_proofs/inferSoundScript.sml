@@ -6,6 +6,39 @@ open typeSysPropsTheory;
 (* Remove automatic rewrites that break the proofs in this file *)
 val _ = diminish_srw_ss ["semanticsExtra"];
 
+val map_fst = Q.prove (
+`!l f. MAP FST (MAP (\(x,y). (x, f y)) l) = MAP FST l`,
+induct_on `l` >>
+rw [] >>
+PairCases_on `h` >>
+fs []);
+
+val flookup_update_list_none = Q.prove (
+`!x m l.
+  (FLOOKUP (m |++ l) x = NONE)
+  =
+  ((FLOOKUP m x = NONE) ∧ (lookup x l = NONE))`,
+induct_on `l` >>
+rw [FUPDATE_LIST_THM] >>
+PairCases_on `h` >>
+rw [FLOOKUP_DEF]);
+
+val flookup_update_list_some = Q.prove (
+`!x m l y. 
+  (FLOOKUP (m |++ l) x = SOME y)
+  =
+  ((lookup x (REVERSE l) = SOME y) ∨
+   ((lookup x l = NONE) ∧ (FLOOKUP m x = SOME y)))`,
+Induct_on `l` >>
+rw [FUPDATE_LIST_THM] >>
+PairCases_on `h` >>
+rw [lookup_append, FLOOKUP_UPDATE] >|
+[cases_on `lookup h0 (REVERSE l)` >>
+     rw [] >>
+     metis_tac [lookup_reverse_none, optionTheory.NOT_SOME_NONE],
+ cases_on `lookup x (REVERSE l)` >>
+     rw []]);
+ 
 val every_count_list = Q.prove (
 `!P n. EVERY P (COUNT_LIST n) = (!m. m < n ⇒ P m)`,
 induct_on `n` >>
@@ -2452,39 +2485,75 @@ Q.ABBREV_TAC `unconstrained = (t_rangevars s ∪ count next_uvar) DIFF (FDOM s �
 `?ts. s' = FEMPTY |++ ts` by metis_tac [fmap_to_list] >>
 rw [] >>
 `FINITE unconstrained` by metis_tac [FINITE_COUNT, FINITE_DIFF, FINITE_UNION, finite_t_rangevars] >>
-`?ts2. (FUN_FMAP (\x. Infer_Tapp [] TC_unit) unconstrained) = FEMPTY |++ ts2` by metis_tac [fmap_to_list] >>
+`?ts2. FEMPTY |++ ts2 = (FUN_FMAP (\x. Infer_Tapp [] TC_unit) unconstrained)` by metis_tac [fmap_to_list] >>
 `DISJOINT (FDOM s) (FDOM (FEMPTY |++ ts))` by cheat >>
-`DISJOINT (FDOM s) (FDOM (FEMPTY |++ ts2))` by cheat >>
+`DISJOINT (FDOM s) (FDOM (FEMPTY |++ ts2))` 
+             by (rw [EXTENSION, DISJOINT_DEF] >>
+                 Q.UNABBREV_TAC `unconstrained` >>
+                 rw [] >>
+                 CCONTR_TAC >>
+                 fs [] >>
+                 fs []) >>
+                 
+(*
 `DISJOINT (FDOM (FEMPTY |++ ts)) (FDOM (FEMPTY |++ ts2))` by cheat >>
 `!t. infer_subst (FEMPTY |++ ts) (t_walkstar s t) = t_walkstar (s |++ (MAP (\(uv,tv). (uv, Infer_Tvar_db tv)) ts)) t` by cheat >>
+*)
 qexists_tac `(MAP (\(uv,tv). (Infer_Tuvar uv, Infer_Tvar_db tv)) ts) ++ 
              (MAP (\(uv,t). (Infer_Tuvar uv, t)) ts2)` >>
 qexists_tac `s |++ (MAP (\(uv,tv). (uv, Infer_Tvar_db tv)) ts) |++ ts2` >>
 rw [] >|
 [unfinished,
- fs [t_wfs_eqn] >>
-     `t_vR s = t_vR (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts |++ ts2)`
+ `t_vR s = t_vR (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts |++ ts2)`
              by (rw [t_vR_eqn, FUN_EQ_THM] >>
-                 cases_on `x' ∈ unconstrained` >>
-                 Q.UNABBREV_TAC `unconstrained` >>
-                 rw [] >>
-                 fs [FDOM_FUPDATE_LIST] >>
-                 cheat) >>
+                 cases_on `FLOOKUP (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts |++ ts2) x'` >>
+                 rw [flookup_update_list_some, flookup_update_list_none] >-
+                 fs [flookup_update_list_none] >>
+                 pop_assum mp_tac >>
+                 rw [flookup_update_list_some] >|
+                 [imp_res_tac lookup_in2 >>
+                      pop_assum mp_tac >>
+                      rw [MAP_REVERSE] >>
+                      `x' ∈ FDOM (FEMPTY |++ ts2)` by metis_tac [FDOM_FUPDATE_LIST, IN_UNION] >>
+                      `x' ∉ FDOM s` by (fs [DISJOINT_DEF, EXTENSION] >> metis_tac []) >>
+                      `FLOOKUP s x' = NONE` by metis_tac [FLOOKUP_DEF] >>
+                      rw [] >>
+                      `FLOOKUP (FEMPTY |++ ts2) x' = SOME x''` by rw [flookup_update_list_some] >>
+                      pop_assum mp_tac >>
+                      rw [FLOOKUP_FUN_FMAP, t_vars_def] >>
+                      rw [encode_infer_t_def],
+                 imp_res_tac lookup_in2 >>
+                      pop_assum mp_tac >>
+                      rw [MEM_MAP, MAP_REVERSE] >>
+                      PairCases_on `y'` >>
+                      rw [] >>
+                      `MEM y'0 (MAP FST ts)` by (rw [MEM_MAP] >> metis_tac [FST]) >>
+                      `y'0 ∈ FDOM (FEMPTY |++ ts)` by metis_tac [FDOM_FUPDATE_LIST, IN_UNION] >>
+                      `y'0 ∉ FDOM s` by (fs [DISJOINT_DEF, EXTENSION] >> metis_tac []) >>
+                      `FLOOKUP s y'0 = NONE` by metis_tac [FLOOKUP_DEF] >>
+                      rw [] >>
+                      fs [] >>
+                      `FLOOKUP (FEMPTY |++ (MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts)) y'0 = SOME x''` by rw [flookup_update_list_some] >>
+                      imp_res_tac lookup_in >>
+                      fs [MEM_MAP] >>
+                      rw [] >>
+                      PairCases_on `y''` >>
+                      rw [] >>
+                      rw [t_vars_def, encode_infer_t_def],
+                  rw []]) >>
+     fs [t_wfs_eqn] >>
      metis_tac [],
  unfinished,
- fs [FDOM_FUPDATE_LIST, SUBSET_DEF] >>
-     Q.UNABBREV_TAC `unconstrained` >>
-     rw [MAP_MAP_o, combinTheory.o_DEF] >>
-     `FDOM (FEMPTY |++ ts2) =
-      FDOM (FUN_FMAP (λx. Infer_Tapp [] TC_unit) (t_rangevars s ∪ count next_uvar DIFF (FDOM s ∪ set (MAP FST ts))))`
-               by metis_tac [] >>
-     pop_assum mp_tac >>
-     rw [FDOM_FUPDATE_LIST, FDOM_FMAP] >-
-     metis_tac [] >>
+ rw [FDOM_FUPDATE_LIST, SUBSET_DEF] >>
      CCONTR_TAC >>
      fs [] >>
-     fs [MAP_MAP_o, combinTheory.o_DEF] >>
-     unfinished,
+     `x ∉ FDOM (FEMPTY |++ ts2)` by metis_tac [FDOM_FUPDATE_LIST, IN_UNION, FDOM_FEMPTY, NOT_IN_EMPTY] >>
+     pop_assum mp_tac >>
+     rw [FLOOKUP_FUN_FMAP] >>
+     `x ∉ set (MAP FST ts)` by metis_tac [map_fst] >>
+     `x ∉ FDOM (FEMPTY |++ ts)` by metis_tac [FDOM_FUPDATE_LIST, IN_UNION, FDOM_FEMPTY, NOT_IN_EMPTY] >>
+     Q.UNABBREV_TAC `unconstrained` >>
+     rw [],
  unfinished]);
 
 val infer_d_sound = Q.prove (
