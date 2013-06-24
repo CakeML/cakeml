@@ -191,10 +191,10 @@ imp_res_tac infer_to_type >>
               (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,
                rs.store) (convert_menv new_infer_menv) new_infer_cenv
               (convert_env2 new_infer_env) store2 envC2 r)`
-          by metis_tac [top_type_soundness]
+          by metis_tac [top_type_soundness] >>
 
 
-rw[update_state_def]
+rw[update_state_def] >>
 rw [get_type_error_mask_def] >>
 
 qabbrev_tac`est = st.relaborator_state` >> PairCases_on`est` >>
@@ -280,8 +280,7 @@ rw [] >|
   * " (print_error e)).  I think the implementation needs to be updated to match
   * the semantics, but it would be possible to change the semantics to not tell
   * you which exception. *)
- cheat,
- (*
+ cheat(*,
  (* SO cheat: The exception case, but for the induction.  Because HD x.stack ≠
  * Number 0, I think the compiler proof should let us conclude that the
  * semantics raises an exception *)
@@ -291,8 +290,7 @@ rw [] >|
       * inferencer and elaborator state even though an error was raised.  The
       * semantics doesn't update the state of the bindings, it only updates the
       * store. *)
-  *)
-     cheat]);
+     cheat*)]);
 
      (*
 Cases_on`top0` >- (
