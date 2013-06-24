@@ -183,23 +183,22 @@ rw [get_type_error_mask_def] >-
  rw[Once ast_repl_cases] >>
      metis_tac [lexer_correct]) >>
 simp[] >>
-`?infer_menv infer_cenv infer_env. 
+`?infer_menv infer_cenv infer_env.
   st.rinferencer_state = (infer_menv,infer_cenv,infer_env)`
             by metis_tac [pair_CASES] >>
 fs [infertype_top_def] >>
-rw [] >>
+
 `?res infer_st2. infer_top infer_menv infer_cenv infer_env top init_infer_state = (res,infer_st2)`
         by metis_tac [pair_CASES] >>
 fs [] >>
 cases_on `res` >>
-rw [] >>
 fs [] >>
 `∃new_infer_menv new_infer_cenv new_infer_env.  a = (new_infer_menv,new_infer_cenv,new_infer_env)`
         by metis_tac [pair_CASES] >>
 fs [] >>
-rw [] >>
+BasicProvers.VAR_EQ_TAC >>
 imp_res_tac infer_to_type >>
-`type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store)` 
+`type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store)`
         by fs [invariant_def] >>
 `¬top_diverges rs.envM rs.envC rs.store rs.envE top ⇒
        ∃r envC2 store2.
@@ -212,7 +211,7 @@ imp_res_tac infer_to_type >>
               (convert_env2 new_infer_env) store2 envC2 r)`
           by metis_tac [top_type_soundness] >>
 
-rw[update_state_def] >>
+simp[update_state_def] >>
 
 qabbrev_tac`est = st.relaborator_state` >> PairCases_on`est` >>
 pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])>>fs[]>>
@@ -262,7 +261,7 @@ conj_tac >- (
  res_tac >>
  pop_assum (ASSUME_TAC o Q.SPEC `input_rest`) >> fs [] >>
  pop_assum (ASSUME_TAC o Q.SPECL [`new_repl_state`, `new_repl_fun_state`, `new_bc_state`]) >>
- Cases_on`new_bc_state.pc = 1`>-(
+ Cases_on`bc_fetch bs = SOME Stop`>-(
    (* Exception *)
    cheat) >>
  fs[] >>

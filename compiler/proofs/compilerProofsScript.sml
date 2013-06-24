@@ -1996,7 +1996,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       top_cns top ⊆ set (MAP FST cenv) ∧
       (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
       env_rs menv cenv env rs rd (ck,s) (bs with code := bc0) ∧
-      (compile_top rs top = (rss,rsf,bc ++ [Stop])) ∧
+      (compile_top rs top = (rss,rsf,bc)) ∧
       (bs.code = bc0 ++ bc) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       IS_SOME bs.clock ∧

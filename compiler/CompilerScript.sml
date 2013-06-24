@@ -151,7 +151,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       renv := rs.renv
     ; rmenv := FUPDATE  rs.rmenv ( mn, env) |>)
   ,( rs with<| rnext_label := mrs.rnext_label |>)
-  , REVERSE (Stop ::( REVERSE ( MAP PrintC (EXPLODE str))) ++code))))
+  ,(( REVERSE code) ++( MAP PrintC (EXPLODE str))))))
 /\
 (compile_top rs (Tdec dec) =  
 (let (ct,env,nl,code) = ( compile_dec NONE rs dec) in
@@ -161,7 +161,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     ; rsz := rs.rsz + LENGTH env
     ; rnext_label := nl |>)
   ,( rs with<| rnext_label := nl |>)
-  , REVERSE (Stop ::code))))`;
+  , REVERSE code)))`;
 
 val _ = export_theory()
 

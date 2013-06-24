@@ -114,7 +114,7 @@ compile_top rs (Tmod mn _ decs) =
       renv = rs.renv
     ; rmenv = Pmap.add mn env rs.rmenv |>
   ,<| rs with rnext_label = mrs.rnext_label |>
-  ,List.rev (Stop::(List.rev (List.map PrintC (Hol.EXPLODE str)))@code))
+  ,(List.rev code)@(List.map PrintC (Hol.EXPLODE str)))
 and
 compile_top rs (Tdec dec) =
   let (ct,env,nl,code) = compile_dec None rs dec in
@@ -124,4 +124,4 @@ compile_top rs (Tdec dec) =
     ; rsz = rs.rsz + List.length env
     ; rnext_label = nl |>
   ,<| rs with rnext_label = nl |>
-  ,List.rev (Stop::code))
+  ,List.rev code)
