@@ -241,7 +241,7 @@ metis_tac [mrg_all_perm, APPEND]);
 (* Simplify the side conditions on the generated certificate theorems, based on
  * the verification invariant. *)
 
-val add_seg_side_cases = fetch "-" "add_seg_side_cases"
+val add_seg_side_cases = fetch "-" "add_seg_side_def"
 
 val add_seg_side = Q.prove (
 `!leq size segs n seg.
@@ -261,4 +261,3 @@ rw [fetch "-" "add_side_def"] >>
 metis_tac [add_seg_side]);
 
 val _ = export_theory();
-

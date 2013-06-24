@@ -298,18 +298,16 @@ srw_tac [bagLib.BAG_ss]
 (* Simplify the side conditions on the generated certificate theorems *)
 
 val delete_min_side_def = fetch "-" "delete_min_side_def"
-val delete_min_side_ind = fetch "-" "delete_min_side_ind"
 val find_min_side_def = fetch "-" "find_min_side_def"
-val find_min_side_ind = fetch "-" "find_min_side_ind"
 
 val delete_min_side = Q.prove (
 `!h. delete_min_side h = (h ≠ Empty)`,
-recInduct delete_min_side_ind >>
-rw [delete_min_side_def]);
+recInduct delete_min_ind THEN REPEAT STRIP_TAC
+THEN ONCE_REWRITE_TAC [delete_min_side_def] THEN SRW_TAC [] []);
 
 val find_min_side = Q.prove (
 `!h. find_min_side h = (h ≠ Empty)`,
-recInduct find_min_side_ind >>
-rw [find_min_side_def]);
+recInduct find_min_ind THEN REPEAT STRIP_TAC
+THEN ONCE_REWRITE_TAC [find_min_side_def] THEN SRW_TAC [] []);
 
 val _ = export_theory()
