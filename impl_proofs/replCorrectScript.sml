@@ -1,4 +1,4 @@
-open preamble boolSimps;
+open preamble boolSimps miscLib;
 open lexer_funTheory repl_funTheory replTheory
 open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compileLabelsTheory compilerProofsTheory;
 open TypeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory;
@@ -58,10 +58,22 @@ val invariant_def = Define`
   invariant rs rfs bs ⇔
     rfs.relaborator_state = (rs.type_bindings, rs.ctors)
 
-    ∧ type_infer_invariants rs rfs.rinferencer_state 
+    ∧ type_infer_invariants rs rfs.rinferencer_state
     ∧ type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store)
 
-    ∧ ∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs`;
+    ∧ EVERY (closed rs.envM) rs.store
+    ∧ EVERY (closed rs.envM) (MAP SND rs.envE)
+    ∧ EVERY (EVERY (closed rs.envM) o MAP SND) (MAP SND rs.envM)
+    ∧ (∀mn n. MEM (Long mn n) (MAP FST rs.envC) ⇒ MEM mn (MAP FST rs.envM))
+    ∧ closed_under_cenv rs.envC rs.envM rs.envE rs.store
+    ∧ closed_under_menv rs.envM rs.envE rs.store
+    ∧ (∀v. MEM v (MAP SND rs.envE) ∨ MEM v rs.store ⇒ all_locs v ⊆ count (LENGTH rs.store))
+    ∧ ∃code. let bs' = bs with code := code in
+        bs.code = compile_labels bs.inst_length code
+      ∧ (∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs')
+      ∧ ALL_DISTINCT (FILTER is_Label bs'.code)
+      ∧ EVERY (combin$C $< rfs.rcompiler_state.rnext_label o dest_Label) (FILTER is_Label bs'.code)
+    `;
 
 (*
 val check_menv_to_tenvM_ok = Q.prove (
@@ -256,14 +268,33 @@ simp[] >>
   disch_then(Q.X_CHOOSE_THEN`ck`mp_tac) >>
   disch_then(qspec_then`st.rcompiler_state`mp_tac) >>
   simp[] >>
-  `∃rd clk. env_rs rs.envM rs.envC rs.envE st.rcompiler_state rd (clk,rs.store) bs` by (
-    fs[invariant_def] >> metis_tac[] ) >>
-  (* do we need ck = clk? that's probably not true...
-     Probably need some principle for changing the clock (and making the bs match),
-     while still leading to the same result...? *)
-  qmatch_assum_abbrev_tac`bc_eval bs0 = SOME bs1` >>
-  disch_then(qspecl_then[`rd`,`bs with <| code := bs.code ++ code; clock := SOME ck|>`]mp_tac) >>
+  fs[invariant_def] >>
+  fs[LET_THM] >>
+  disch_then(qspecl_then[`rd`,`bs with <| code := code' ++ code; pc := next_addr bs.inst_length code'; clock := SOME ck|>`]mp_tac) >>
   simp[] >>
+  discharge_hyps >- (
+    conj_tac >- cheat (* RK cheat: type checker guarantees this? *)
+    conj_tac >- cheat (* RK cheat: type checker guarantees this? *)
+    conj_tac >- metis_tac[] >>
+    conj_tac >- cheat (* RK cheat: type checker guarantees this? *)
+    conj_tac >- metis_tac[] >>
+    fs[env_rs_def,LET_THM] >>
+    HINT_EXISTS_TAC >>
+    HINT_EXISTS_TAC >>
+    HINT_EXISTS_TAC >>
+    simp[] >>
+    conj_tac >- metis_tac[] >>
+    conj_tac >- metis_tac[] >>
+    conj_tac >- metis_tac[] >>
+    rfs[] >>
+    match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
+    map_every qexists_tac[`rd`,`(c,Cs)`,`bs with <|code := code'; pc := next_addr bs.inst_length code'|>`,`bs.refs`,`SOME ck`] >>
+    simp[BytecodeTheory.bc_state_component_equality]
+    conj_tac >- (
+      match_mp_tac toBytecodeProofsTheory.Cenv_bs_with_irr >>
+      HINT_EXISTS_TAC >> simp[] ) >>
+    fs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
+
   disch_then kall_tac (* abandon, since cheating *) >>
 
 conj_tac >- (
