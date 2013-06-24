@@ -61,8 +61,7 @@ val invariant_def = Define`
     ∧ type_infer_invariants rs rfs.rinferencer_state 
     ∧ type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store)
 
-    ∧ ∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs
-    (* ∧ rfs.top = ??? *)`;
+    ∧ ∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs`;
 
 (*
 val check_menv_to_tenvM_ok = Q.prove (
@@ -121,6 +120,26 @@ rw [update_repl_state_def, type_infer_invariants_def] >>
  fs [check_env_def],
  rw [convert_menv_def],
  rw [bvl2_append, convert_env2_def]]);
+
+val print_envC_not_type_error = prove(``ls ≠ "<type error>" ⇒ print_envC envc ++ ls ≠ "<type error>"``,
+Induct_on`envc`>>
+simp[print_envC_def]>>
+Cases>>simp[]>>
+Induct_on`q`>>simp[SemanticPrimitivesTheory.id_to_string_def]>>
+lrw[LIST_EQ_REWRITE])
+
+val print_envE_not_type_error = prove(``print_envE en ≠ "<type error>"``,
+Induct_on`en`>>simp[print_envE_def]>>
+Cases>>simp[])
+
+val print_result_not_type_error = prove(``r ≠ Rerr Rtype_error ⇒ print_result top envc r ≠ "<type error>"``,
+  Cases_on`r`>>
+  TRY(Cases_on`e`)>>
+  TRY(PairCases_on`a`)>>
+  simp[print_result_def]>>
+  Cases_on`top`>>simp[print_result_def]>>
+  match_mp_tac print_envC_not_type_error >>
+  simp[print_envE_not_type_error])
 
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
@@ -193,9 +212,7 @@ imp_res_tac infer_to_type >>
               (convert_env2 new_infer_env) store2 envC2 r)`
           by metis_tac [top_type_soundness] >>
 
-
 rw[update_state_def] >>
-rw [get_type_error_mask_def] >>
 
 qabbrev_tac`est = st.relaborator_state` >> PairCases_on`est` >>
 pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])>>fs[]>>
@@ -205,111 +222,71 @@ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])>>fs[]>>
 rpt BasicProvers.VAR_EQ_TAC >>
 fs[elaborate_top_def,LET_THM] >>
 qmatch_assum_rename_tac`xxxxxxxx = top`[] >> rpt BasicProvers.VAR_EQ_TAC >>
-cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
 
+cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
   (* Divergence *)
   rw[Once ast_repl_cases,get_type_error_mask_def] >>
   MAP_EVERY qexists_tac [`convert_menv new_infer_menv`,`new_infer_cenv`,`convert_env2 new_infer_env`] >>
   rw [] >>
-
+  qpat_assum`X ⇒ Y`kall_tac >>
+  qpat_assum`∀m. X ⇒ Y`kall_tac >>
+  rw[top_diverges_cases] >>
+  Cases_on`top`>>fs[] >- (
+    (* Module *)
+    cheat ) >>
   cheat ) >>
 
 (* SO cheat: I think the semantics can't diverge because (bc_eval install_code
  * code bs) = SOME x).  I think this should come from the compiler proof. *)
 `¬top_diverges rs.envM rs.envC rs.store rs.envE top` by cheat >>
 fs [] >>
-(* SO cheat: We need to prove that lex_until_top_level_semicolon must consume
- * some input *)
-`STRLEN input_rest < STRLEN input` by cheat >>
+`STRLEN input_rest < STRLEN input` by metis_tac[lex_until_toplevel_semicolon_LESS] >>
 simp[Once ast_repl_cases,get_type_error_mask_def] >>
 disj1_tac >>
-MAP_EVERY qexists_tac [`convert_menv new_infer_menv`, 
+MAP_EVERY qexists_tac [`convert_menv new_infer_menv`,
                        `new_infer_cenv`, 
                        `convert_env2 new_infer_env`,
                        `store2`, 
                        `envC2`,
                        `r`] >>
-rw [] >|
-[(* Non-type errors don't print "<type error>" *)
- cheat,
- (* SO cheat: This is the case for the delaration evaluating to a value.  We
-  * must prove that the right thing is printed.  I think this should come from
-  * the compiler correctness proof *)
- cheat,
- cheat
- (*
- qabbrev_tac `new_repl_state = update_repl_state rs el0 el1 (convert_menv new_infer_menv) 
-                                                    new_infer_cenv (convert_env2 new_infer_env) 
-                                                    st' r` >>
-     qabbrev_tac `new_repl_fun_state = 
-          <|relaborator_state :=
-             (elab_res0 ++ rs.type_bindings,elab_res1 ++ rs.ctors);
-           rinferencer_state :=
-             (new_infer_menv ++ infer_menv,new_infer_cenv ++ infer_cenv,
-              new_infer_env ++ infer_env);
-           rcompiler_state := new_bc_success; top := top|>` >>
-     qabbrev_tac `new_bc_state = (x with stack := TL x.stack)` >>
-     res_tac >>
-     pop_assum (ASSUME_TAC o Q.SPEC `input_rest`) >>
-     fs [] >>
-     pop_assum (ASSUME_TAC o Q.SPECL [`new_repl_state`, `new_repl_fun_state`, `new_bc_state`]) >>
-     (* SO cheat: Because HD x.stack = Number 0, I think the compiler proof
-      * should guarantee that the semantics evaluate to a value *)
-     `?v. r = Rval (envM,envC,envE)` by cheat >>
-     rw [] >>
-     `type_infer_invariants new_repl_state (new_infer_menv ++ infer_menv,
-                                      new_infer_cenv ++ infer_cenv,
-                                      new_infer_env ++ infer_env)`
-                          by metis_tac [type_invariants_pres, invariant_def] >>
-     
-     (* SO cheat: The invariant must be preserved.  I'm working on lemmas for
-      * the type system and semantics parts of it, but there will be compiler
-      * parts too *)
-     `invariant new_repl_state new_repl_fun_state new_bc_state` 
-                 by (rw [invariant_def] >>
-                     UNABBREV_ALL_TAC >>
-                     fs [update_repl_state_def] >-
-                     metis_tac [] >>
-                     (* SO cheat: This is the env_rs part of the invariant *)
-                     cheat) >>
-     fs [] >>
-     metis_tac [lexer_correct] *),
- (* SO cheat: The case where an exception makes it to the top level.
-  * The goal is "Exception" = print_result r, but print result tells you what
-  * exception you got as print_result (Rerr (Rraise e)) = STRCAT (STRCAT "raise
-  * " (print_error e)).  I think the implementation needs to be updated to match
-  * the semantics, but it would be possible to change the semantics to not tell
-  * you which exception. *)
- cheat(*,
- (* SO cheat: The exception case, but for the induction.  Because HD x.stack ≠
- * Number 0, I think the compiler proof should let us conclude that the
- * semantics raises an exception *)
- `?err. r = Rerr err` by cheat >>
-     rw [update_repl_state_def] >>
-     (* SO cheat: This looks false.  The implementation appears to update the
-      * inferencer and elaborator state even though an error was raised.  The
-      * semantics doesn't update the state of the bindings, it only updates the
-      * store. *)
-     cheat*)]);
-
-     (*
-Cases_on`top0` >- (
-   (* Module *)
+conj_asm2_tac >- metis_tac[print_result_not_type_error] >>
+simp[] >>
+conj_tac >- (
+  (* printed output is correct *)
+  (* use compile_top_thm *)
   cheat ) >>
 
-fs[elab_top_def,LET_THM] >>
-qabbrev_tac`p = elab_dec NONE rs.type_bindings rs.ctors a` >>
-PairCases_on`p` >> fs[] >>
-fs[markerTheory.Abbrev_def] >>
-rpt BasicProvers.VAR_EQ_TAC >>
-fs[compile_top_def] >>
-
-simp[Once evaluate_prog_cases] >>
-fs[elaborate_top_def,LET_THM] >>
-cheat
-
-)
-*)
+ Q.PAT_ABBREV_TAC`new_repl_state = update_repl_state X Y Z a b c de e f` >>
+ Q.PAT_ABBREV_TAC`new_repl_fun_state = if X then Y else Z:repl_fun_state` >>
+ qmatch_assum_rename_tac`bc_eval X = SOME new_bc_state`["X"] >>
+ res_tac >>
+ pop_assum (ASSUME_TAC o Q.SPEC `input_rest`) >> fs [] >>
+ pop_assum (ASSUME_TAC o Q.SPECL [`new_repl_state`, `new_repl_fun_state`, `new_bc_state`]) >>
+ Cases_on`new_bc_state.pc = 1`>-(
+   (* Exception *)
+   cheat) >>
+ fs[] >>
+ (* SO cheat: Because new_bc_state.pc ≠ 1, I think the compiler proof
+  * should guarantee that the semantics evaluate to a value *)
+ `?envM envE. r = Rval (envM,envE)` by cheat >>
+ rw [] >>
+ `type_infer_invariants new_repl_state (new_infer_menv ++ infer_menv,
+                                  new_infer_cenv ++ infer_cenv,
+                                  new_infer_env ++ infer_env)`
+                      by metis_tac [type_invariants_pres, invariant_def] >>
+ (* SO cheat: The invariant must be preserved.  I'm working on lemmas for
+  * the type system and semantics parts of it, but there will be compiler
+  * parts too *)
+ `invariant new_repl_state new_repl_fun_state new_bc_state` 
+             by (rw [invariant_def] >>
+                 UNABBREV_ALL_TAC >>
+                 fs [update_repl_state_def] >-
+                   (* RK cheat: This is the type system part of the invariant *)
+                   cheat (* metis_tac [] - fails *) >>
+                 (* SO cheat: This is the env_rs part of the invariant *)
+                 cheat) >>
+ fs [] >>
+ metis_tac [lexer_correct]);
 
 val FST_compile_fake_exp_contab = store_thm("FST_compile_fake_exp_contab",
   ``FST (compile_fake_exp pr rs vs e) = rs.contab``,
