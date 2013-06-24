@@ -268,15 +268,20 @@ simp[] >>
   disch_then(Q.X_CHOOSE_THEN`ck`mp_tac) >>
   disch_then(qspec_then`st.rcompiler_state`mp_tac) >>
   simp[] >>
-  fs[invariant_def] >>
-  fs[LET_THM] >>
+  `∃code' rd c.
+    bs.code = compile_labels bs.inst_length code' ∧
+    env_rs rs.envM rs.envC rs.envE st.rcompiler_state rd (c,rs.store) (bs with code := code') ∧
+    ALL_DISTINCT (FILTER is_Label code') ∧
+    EVERY (combin$C $< st.rcompiler_state.rnext_label o dest_Label) (FILTER is_Label code')` by (
+    fs[invariant_def,LET_THM] >> metis_tac[] ) >>
   disch_then(qspecl_then[`rd`,`bs with <| code := code' ++ code; pc := next_addr bs.inst_length code'; clock := SOME ck|>`]mp_tac) >>
   simp[] >>
   discharge_hyps >- (
-    conj_tac >- cheat (* RK cheat: type checker guarantees this? *)
-    conj_tac >- cheat (* RK cheat: type checker guarantees this? *)
+    fs[invariant_def,LET_THM] >>
+    conj_tac >- cheat >> (* RK cheat: type checker guarantees this? *)
+    conj_tac >- cheat >> (* RK cheat: type checker guarantees this? *)
     conj_tac >- metis_tac[] >>
-    conj_tac >- cheat (* RK cheat: type checker guarantees this? *)
+    conj_tac >- cheat >> (* RK cheat: type checker guarantees this? *)
     conj_tac >- metis_tac[] >>
     fs[env_rs_def,LET_THM] >>
     HINT_EXISTS_TAC >>
@@ -288,8 +293,8 @@ simp[] >>
     conj_tac >- metis_tac[] >>
     rfs[] >>
     match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
-    map_every qexists_tac[`rd`,`(c,Cs)`,`bs with <|code := code'; pc := next_addr bs.inst_length code'|>`,`bs.refs`,`SOME ck`] >>
-    simp[BytecodeTheory.bc_state_component_equality]
+    map_every qexists_tac[`rd`,`(c,Cs')`,`bs with <|code := code'; pc := next_addr bs.inst_length code'|>`,`bs.refs`,`SOME ck`] >>
+    simp[BytecodeTheory.bc_state_component_equality] >>
     conj_tac >- (
       match_mp_tac toBytecodeProofsTheory.Cenv_bs_with_irr >>
       HINT_EXISTS_TAC >> simp[] ) >>
@@ -301,12 +306,13 @@ conj_tac >- (
   (* printed output is correct *)
   cheat ) >>
 
- Q.PAT_ABBREV_TAC`new_repl_state = update_repl_state X Y Z a b c de e f` >>
+ Q.PAT_ABBREV_TAC`new_repl_state = update_repl_state X Y Z a b cd de e f` >>
  Q.PAT_ABBREV_TAC`new_repl_fun_state = if X then Y else Z:repl_fun_state` >>
  qmatch_assum_rename_tac`bc_eval X = SOME new_bc_state`["X"] >>
- res_tac >>
- pop_assum (ASSUME_TAC o Q.SPEC `input_rest`) >> fs [] >>
- pop_assum (ASSUME_TAC o Q.SPECL [`new_repl_state`, `new_repl_fun_state`, `new_bc_state`]) >>
+ first_x_assum(qspec_then`STRLEN input_rest`mp_tac) >>
+ simp[] >>
+ disch_then (Q.SPEC_THEN `input_rest` strip_assume_tac) >> fs [] >>
+ pop_assum (ASSUME_TAC o Q.SPECL [`new_repl_state`, `new_bc_state`,`new_repl_fun_state`]) >>
  Cases_on`bc_fetch bs = SOME Stop`>-(
    (* Exception *)
    cheat) >>
@@ -322,12 +328,15 @@ conj_tac >- (
  (* SO cheat: The invariant must be preserved.  I'm working on lemmas for
   * the type system and semantics parts of it, but there will be compiler
   * parts too *)
+
  `invariant new_repl_state new_repl_fun_state new_bc_state` 
-             by (rw [invariant_def] >>
+             by (simp [invariant_def] >>
                  UNABBREV_ALL_TAC >>
-                 fs [update_repl_state_def] >-
-                   (* RK cheat: This is the type system part of the invariant *)
-                   cheat (* metis_tac [] - fails *) >>
+                 fs [update_repl_state_def] >>
+
+                 (* RK cheat: This is the type system part of the invariant *)
+                 conj_tac >- cheat (* metis_tac[] *) >>
+
                  (* SO cheat: This is the env_rs part of the invariant *)
                  cheat) >>
  fs [] >>
