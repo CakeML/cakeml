@@ -1,6 +1,6 @@
 open preamble boolSimps;
 open lexer_funTheory repl_funTheory replTheory
-open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compilerProofsTheory;
+open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compileLabelsTheory compilerProofsTheory;
 open TypeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory;
 
 val _ = new_theory "replCorrect";
@@ -250,9 +250,24 @@ MAP_EVERY qexists_tac [`convert_menv new_infer_menv`,
                        `r`] >>
 conj_asm2_tac >- metis_tac[print_result_not_type_error] >>
 simp[] >>
+
+  qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`(store2,envC2,r)`]mp_tac compile_top_thm >>
+  simp[] >>
+  disch_then(Q.X_CHOOSE_THEN`ck`mp_tac) >>
+  disch_then(qspec_then`st.rcompiler_state`mp_tac) >>
+  simp[] >>
+  `∃rd clk. env_rs rs.envM rs.envC rs.envE st.rcompiler_state rd (clk,rs.store) bs` by (
+    fs[invariant_def] >> metis_tac[] ) >>
+  (* do we need ck = clk? that's probably not true...
+     Probably need some principle for changing the clock (and making the bs match),
+     while still leading to the same result...? *)
+  qmatch_assum_abbrev_tac`bc_eval bs0 = SOME bs1` >>
+  disch_then(qspecl_then[`rd`,`bs with <| code := bs.code ++ code; clock := SOME ck|>`]mp_tac) >>
+  simp[] >>
+  disch_then kall_tac (* abandon, since cheating *) >>
+
 conj_tac >- (
   (* printed output is correct *)
-  (* use compile_top_thm *)
   cheat ) >>
 
  Q.PAT_ABBREV_TAC`new_repl_state = update_repl_state X Y Z a b c de e f` >>
