@@ -11,8 +11,8 @@ val _ = computeLib.stoppers := let
 val compile_decs = Define`
   compile_decs cs [] acc = acc ∧
   compile_decs cs (d::ds) acc =
-  let (cs,code) = compile_dec cs d in
-  compile_decs cs ds (stop_CONS code acc)`
+  let (css,csf,code) = compile_top cs (Tdec d) in
+  compile_decs css ds (stop_CONS code acc)`
 
 val _ = computeLib.add_funs[ml_repl_step_decls]
 
