@@ -1,5 +1,5 @@
-open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory alistTheory finite_mapTheory lcsymtacs
-open miscTheory bytecodeTerminationTheory ToBytecodeTheory compilerTerminationTheory bytecodeEvalTheory bytecodeExtraTheory
+open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory alistTheory finite_mapTheory relationTheory lcsymtacs
+open miscLib miscTheory bytecodeTerminationTheory ToBytecodeTheory compilerTerminationTheory bytecodeEvalTheory bytecodeExtraTheory
 val _ = numLib.prefer_num()
 val _ = new_theory"compileLabels"
 
@@ -214,6 +214,67 @@ val bc_next_FILTER_labels = store_thm("bc_next_FILTER_labels",
   BasicProvers.CASE_TAC >>
   simp[bc_state_component_equality])
 
+val bc_fetch_insert_labels = store_thm("bc_fetch_insert_labels",
+  ``s.code = FILTER ($~ o is_Label) c ⇒ bc_fetch (s with code := c) = bc_fetch s``,
+  Induct_on`c` >- simp[bc_fetch_def] >>
+  simp[bc_fetch_def] >>
+  qx_gen_tac`i` >>
+  Cases_on`is_Label i`>>simp[])
+
+val bc_find_loc_aux_SOME_MEM = store_thm("bc_find_loc_aux_SOME_MEM",
+  ``bc_find_loc_aux ls il l n = SOME m ⇒ MEM (Label l) ls``,
+  metis_tac[bc_find_loc_aux_MEM,optionTheory.NOT_SOME_NONE])
+
+val tac =
+  rw[bc_eval1_thm,bc_eval1_def,bc_fetch_insert_labels,bc_eval_stack_thm,bump_pc_def,bc_state_component_equality]
+
+val tac2 =
+  rw[bc_eval1_thm,bc_eval1_def,bc_fetch_insert_labels,LET_THM,bump_pc_def,bc_fetch_with_stack] >>
+  Cases_on`l`>>fs[bc_find_loc_def] >>
+  imp_res_tac bc_find_loc_aux_SOME_MEM >>
+  fs[MEM_FILTER]
+
+val tac3 =
+  rw[bc_eval1_thm,bc_eval1_def,bc_fetch_insert_labels,LET_THM,bump_pc_def,bc_fetch_with_stack] >>
+  simp[EL_REVERSE,arithmeticTheory.PRE_SUB1,EL_APPEND1,EL_APPEND2,bc_state_component_equality] >>
+  simp[TAKE_APPEND2,TAKE_APPEND1] >>
+  BasicProvers.CASE_TAC >>
+  simp[bc_state_component_equality]
+
+val bc_next_FILTER_labels_iff = store_thm("bc_next_FILTER_labels_iff",
+  ``∀s1 s2. EVERY addrs_only s1.code ⇒
+      let c = FILTER ($~ o is_Label) s1.code in
+      bc_next s1 s2 ⇔ s2.code = s1.code ∧ bc_next (s1 with <| code := c |>) (s2 with <| code := c |>)``,
+  rw[] >>
+  EQ_TAC >- metis_tac[bc_next_FILTER_labels,bc_next_preserves_code] >>
+  qsuff_tac`∀s1 s2. bc_next s1 s2 ⇒ ∀c. EVERY addrs_only c ∧ s1.code = FILTER ($~ o is_Label) c ⇒ bc_next (s1 with code := c) (s2 with code := c)` >- (
+    rw[] >> res_tac >>
+    pop_assum(qspec_then`s1.code`mp_tac) >>
+    simp_tac(srw_ss())[Abbr`c`] >>
+    first_x_assum(qspec_then`bs`kall_tac) >>
+    simp[] >> fs[] >>
+    `∀x. x with code := x.code = x` by rw[bc_state_component_equality] >>
+    metis_tac[] ) >>
+  rpt (pop_assum kall_tac) >>
+  ho_match_mp_tac bc_next_ind >>
+  strip_tac >- tac >>
+  strip_tac >- tac2 >>
+  strip_tac >- tac2 >>
+  strip_tac >- tac2 >>
+  strip_tac >- tac >>
+  strip_tac >- tac >>
+  strip_tac >- tac2 >>
+  strip_tac >- tac >>
+  strip_tac >- tac >>
+  strip_tac >- tac3 >>
+  strip_tac >- tac >>
+  strip_tac >- tac >>
+  strip_tac >- tac >>
+  strip_tac >- tac3 >>
+  strip_tac >- tac >>
+  strip_tac >- tac3 >>
+  strip_tac >- tac)
+
 val bc_next_compile_labels = store_thm("bc_next_compile_labels",
   ``∀s1 s2. bc_next s1 s2 ⇒
       (good_il s1.inst_length ∧
@@ -279,5 +340,155 @@ val bc_next_compile_labels = store_thm("bc_next_compile_labels",
    |> SIMP_RULE (srw_ss()) []
    |> MP_CANON |> match_mp_tac ) >>
   fs[])
+
+val replace_labels_addrs_only = store_thm("replace_labels_addrs_only",
+  ``∀m a ls. EVERY addrs_only a ⇒ EVERY addrs_only (replace_labels m a ls)``,
+  simp[replace_labels_thm,EVERY_REVERSE,EVERY_MAP])
+
+val addrs_only_compile_labels = store_thm("addrs_only_compile_labels",
+  ``EVERY addrs_only (compile_labels il ls)``,
+  rw[compile_labels_def] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  rw[replace_labels_addrs_only])
+
+(* TODO: move 
+val TC_RINTER = store_thm("TC_RINTER",
+  ``!R1 R2. TC (R1 RINTER R2) = TC R1 RINTER TC R2``,
+  ntac 2 gen_tac >>
+  simp[FUN_EQ_THM,EQ_IMP_THM,FORALL_AND_THM] >>
+  conj_tac >- (
+    match_mp_tac TC_INDUCT >>
+    simp[RINTER] >>
+    simp[TC_SUBSET] >>
+    metis_tac[TC_TRANSITIVE,transitive_def] ) >>
+  simp[RINTER,GSYM AND_IMP_INTRO] >>
+  ho_match_mp_tac TC_INDUCT >>
+  rw[]
+  simp[RINTER]
+  RIGHT_FORALL_IMP_THM
+    conj_tac >-
+    DB.find"RTC"
+    RTC_TC
+*)
+
+(* TODO: move *)
+val RTC_RINTER = store_thm("RTC_RINTER",
+  ``!R1 R2 x y. RTC (R1 RINTER R2) x y ⇒ ((RTC R1) RINTER (RTC R2)) x y``,
+  ntac 2 gen_tac >>
+  match_mp_tac RTC_INDUCT >>
+  simp[RINTER] >>
+  metis_tac[RTC_CASES1] )
+
+val RTC_invariant = store_thm("RTC_invariant",
+  ``!R P. (!x y. P x /\ R x y ==> P y) ==> !x y. RTC R x y ==> P x ==> RTC (R RINTER (\x y. P x /\ P y)) x y``,
+  rpt gen_tac >> strip_tac >>
+  ho_match_mp_tac RTC_INDUCT >>
+  rw[] >> res_tac >> fs[] >>
+  simp[Once RTC_CASES1] >>
+  disj2_tac >>
+  HINT_EXISTS_TAC >>
+  simp[RINTER])
+
+val RTC_RSUBSET = store_thm("RTC_RSUBSET",
+  ``!R1 R2. R1 RSUBSET R2 ==> (RTC R1) RSUBSET (RTC R2)``,
+  simp[RSUBSET] >> rpt gen_tac >> strip_tac >>
+  ho_match_mp_tac RTC_INDUCT >>
+  simp[] >>
+  metis_tac[RTC_CASES1])
+
+val RTC_bc_next_FILTER_labels = store_thm("RTC_bc_next_FILTER_labels",
+  ``∀s1 s2. EVERY addrs_only s1.code ⇒
+    let c = FILTER ($~ o is_Label) s1.code in
+      bc_next^* s1 s2 ⇔ s2.code = s1.code ∧ bc_next^* (s1 with code := c) (s2 with code := c)``,
+  rw[EQ_IMP_THM] >- metis_tac[RTC_bc_next_preserves] >- (
+    mp_tac(Q.ISPECL[`bc_next RINTER (λs1 s2. EVERY addrs_only s1.code)`,`λx. x with code := FILTER ($~ o is_Label) x.code`]
+      (Q.GENL[`f`,`R`]RTC_lifts_monotonicities)) >>
+    simp[] >>
+    discharge_hyps >- (
+      simp[RINTER,EVERY_MEM,MEM_FILTER] >>
+      metis_tac[SIMP_RULE(srw_ss())[LET_THM]bc_next_FILTER_labels,EVERY_MEM,bc_next_preserves_code] ) >>
+    disch_then(qspecl_then[`s1`,`s2`]mp_tac) >>
+    discharge_hyps >- (
+      match_mp_tac (MP_CANON (SIMP_RULE std_ss [RSUBSET] RTC_RSUBSET)) >>
+      qexists_tac`bc_next RINTER (λs1 s2. EVERY addrs_only s1.code ∧ EVERY addrs_only s2.code)` >>
+      conj_tac >- simp[RINTER] >>
+      ho_match_mp_tac (MP_CANON RTC_invariant) >>
+      simp[] >>
+      metis_tac[bc_next_preserves_code] ) >>
+    strip_tac >>
+    imp_res_tac RTC_RINTER >>
+    fs[RINTER,Abbr`c`] >>
+    metis_tac[RTC_bc_next_preserves] ) >>
+  qunabbrev_tac`c` >>
+  qsuff_tac`∀x y. bc_next^* x y ⇒ ∀a b. a.code = b.code ∧ (x = a with code := FILTER ($~ o is_Label) a.code) ∧ (y = b with code := FILTER ($~ o is_Label) a.code)
+    ∧ EVERY addrs_only a.code ⇒ bc_next^* a b` >- simp[] >>
+  rpt (pop_assum kall_tac) >>
+  ho_match_mp_tac RTC_INDUCT >>
+  simp[] >>
+  conj_tac >- (
+    rw[] >>
+    simp[Once RTC_CASES1] >>
+    disj1_tac >>
+    fs[bc_state_component_equality] ) >>
+  rw[] >>
+  rw[Once RTC_CASES1] >> disj2_tac >>
+  qspecl_then[`a`,`x' with code := a.code`]mp_tac bc_next_FILTER_labels_iff >>
+  simp[EQ_IMP_THM] >> strip_tac >>
+  qexists_tac`x' with code := b.code` >>
+  `!x. x with code := x.code = x` by rw[bc_state_component_equality] >>
+  `!x c. (x with code := c).code = c` by rw[] >>
+  conj_tac >>
+  first_x_assum match_mp_tac >>
+  simp[bc_state_component_equality] >>
+  metis_tac[bc_next_preserves_code] )
+
+val RTC_bc_next_compile_labels = store_thm("RTC_bc_next_compile_labels",
+  ``∀bs1 bs2. bc_next^* bs1 bs2 ∧ good_il bs1.inst_length ∧ ALL_DISTINCT (FILTER is_Label bs1.code) ⇒
+    let c = compile_labels bs1.inst_length bs1.code in
+    bc_next^* (bs1 with <| code := c |>) (bs2 with <| code := c |>)``,
+  rw[] >>
+  qsuff_tac`bc_next^* (bs1 with code := FILTER ($~ o is_Label) c) (bs2 with code := FILTER ($~ o is_Label) c)` >- (
+    rw[] >>
+    qspecl_then[`bs1 with code := c`,`bs2 with code := c`]mp_tac RTC_bc_next_FILTER_labels >>
+    discharge_hyps >- (
+      simp[Abbr`c`] >>
+      simp[addrs_only_compile_labels] ) >>
+    simp[] ) >>
+  mp_tac(Q.ISPECL
+    [`bc_next RINTER (λs1 s2. good_il s1.inst_length ∧ ALL_DISTINCT (FILTER is_Label s1.code))`
+    ,`λbs. bs with code := FILTER ($~ o is_Label) (compile_labels bs.inst_length bs.code)`]
+    (Q.GENL[`f`,`R`]RTC_lifts_monotonicities)) >>
+  simp[] >>
+  discharge_hyps >- (
+    rpt gen_tac >> strip_tac >>
+    fs[RINTER] >>
+    reverse conj_tac >- (
+      simp[FILTER_FILTER] >>
+      qmatch_abbrev_tac`ALL_DISTINCT ls` >>
+      qsuff_tac`ls=[]`>-rw[]>>
+      simp[Abbr`ls`,FILTER_EQ_NIL]) >>
+    qspecl_then[`x`,`y`]mp_tac bc_next_compile_labels >>
+    simp[] >> strip_tac >>
+    qmatch_assum_abbrev_tac`bc_next b1 b2` >>
+    qspecl_then[`b1`,`b2`]mp_tac bc_next_FILTER_labels >>
+    simp[] >>
+    discharge_hyps >- simp[Abbr`b1`,addrs_only_compile_labels] >>
+    simp[Abbr`b1`,Abbr`b2`] >>
+    imp_res_tac bc_next_preserves_code >>
+    imp_res_tac bc_next_preserves_inst_length >>
+    simp[] ) >>
+  disch_then(qspecl_then[`bs1`,`bs2`]mp_tac) >>
+  discharge_hyps >- (
+    qho_match_abbrev_tac`(R RINTER (λs1 s2. P s1))^* bs1 bs2` >>
+    match_mp_tac (MP_CANON (SIMP_RULE std_ss [RSUBSET] RTC_RSUBSET)) >>
+    qexists_tac`R RINTER (λs1 s2. P s1 ∧ P s2)` >>
+    conj_tac >- simp[RINTER] >>
+    ho_match_mp_tac (MP_CANON RTC_invariant) >>
+    simp[Abbr`P`,Abbr`R`] >>
+    metis_tac[bc_next_preserves_inst_length,bc_next_preserves_code] ) >>
+  strip_tac >>
+  imp_res_tac RTC_RINTER >>
+  fs[RINTER,Abbr`c`] >>
+  metis_tac[RTC_bc_next_preserves] )
 
 val _ = export_theory()

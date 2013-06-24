@@ -252,6 +252,17 @@ val bc_next_preserves_code = store_thm("bc_next_preserves_code",
   rw[bump_pc_def] >>
   BasicProvers.EVERY_CASE_TAC >> rw[])
 
+val bc_next_preserves_inst_length = store_thm("bc_next_preserves_inst_length",
+  ``∀bs1 bs2. bc_next bs1 bs2 ⇒ (bs2.inst_length = bs1.inst_length)``,
+  ho_match_mp_tac bc_next_ind >>
+  rw[bump_pc_def] >>
+  BasicProvers.EVERY_CASE_TAC >> rw[])
+
+val RTC_bc_next_preserves = store_thm("RTC_bc_next_preserves",
+  ``∀bs1 bs2. bc_next^* bs1 bs2 ⇒ (bs2.code = bs1.code) ∧ (bs2.inst_length = bs1.inst_length)``,
+  assume_tac(Q.ISPECL[`bc_next`,`λs. (s.code,s.inst_length)`](Q.GENL[`f`,`R`]RTC_lifts_equalities)) >>
+  fs[] >> metis_tac[bc_next_preserves_code,bc_next_preserves_inst_length])
+
 val RTC_bc_next_append_code = store_thm("RTC_bc_next_append_code",
   ``∀bs1 bs2 bs1c bs2c c. RTC bc_next bs1 bs2 ∧
     (bs1c = bs1 with code := bs1.code ++ c) ∧
