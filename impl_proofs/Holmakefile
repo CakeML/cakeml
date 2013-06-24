@@ -1,4 +1,4 @@
-INCLUDES=.. ../semantics ../implementation ../metatheory #../compiler/proofs
+INCLUDES=.. ../semantics ../implementation ../metatheory ../compiler/proofs
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -11,12 +11,12 @@ SEM_BARE_THYS = AstTheory SemanticPrimitivesTheory terminationTheory TypeSystemT
 
 META_BARE_THYS = typeSysPropsTheory
 
-#COMPILER_BARE_THYS = compilerProofsTheory
+COMPILER_BARE_THYS = compilerProofsTheory
 
 BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS))\
 	    $(patsubst %,../implementation/%,$(IMPL_BARE_THYS))\
-	    $(patsubst %,../metatheory/%,$(META_BARE_THYS))#\
-#	    $(patsubst %,../compiler/proofs/%,$(COMPILER_BARE_THYS))
+	    $(patsubst %,../metatheory/%,$(META_BARE_THYS))\
+	    $(patsubst %,../compiler/proofs/%,$(COMPILER_BARE_THYS))
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
