@@ -100,7 +100,7 @@ val _ = Define `
   let cs = ( compile_news print cs 0 vs) in
   let cs = ( emit cs [Stack Pop]) in
   (rs.contab
-  , GENLIST (\ i . ( EL  i  vs, (rs.rsz +i))) ( LENGTH vs)
+  , ZIP ( vs, ( GENLIST(\ i . rs.rsz +i)( LENGTH vs)))
   ,cs.next_label
   ,cs.out
   )))`;

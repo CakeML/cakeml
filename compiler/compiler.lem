@@ -70,7 +70,7 @@ let compile_fake_exp print rs vs e =
   let cs = compile_news print cs 0 vs in
   let cs = emit cs [Stack Pop] in
   (rs.contab
-  ,genlist (fun i -> (List.nth vs i, rs.rsz+i)) (List.length vs)
+  ,List.combine vs (genlist(fun i -> rs.rsz+i)(List.length vs))
   ,cs.next_label
   ,cs.out
   )

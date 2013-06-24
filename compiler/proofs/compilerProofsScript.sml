@@ -883,7 +883,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
         simp[EVERY2_MAP,CompilerLibTheory.el_check_def,REVERSE_APPEND] >>
         simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP] >>
         simp[GSYM LEFT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-        simp[EL_REVERSE,EL_APPEND1,EL_APPEND2] >>
+        simp[EL_REVERSE,EL_APPEND1,EL_APPEND2,EL_REVERSE,EL_ZIP] >>
         rfs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] ) >>
       match_mp_tac env_renv_imp_incsz_many >>
       rator_x_assum`Cenv_bs`mp_tac >>
