@@ -376,7 +376,7 @@ val compile_primitives_renv = store_thm("compile_primitives_renv",
 (* Use InferSoundTheory.infer_init_thm and TypeSoundTheory.initial_type_sound_invariants *)
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
-  rw[invariant_def,initial_repl_fun_state_def,initial_elaborator_state_def,init_repl_state_def] >>
+  rw[invariant_def,initial_repl_fun_state_def,initial_elaborator_state_def,init_repl_state_def,LET_THM] >>
   rw[check_menv_def,initial_inferencer_state_def,check_cenv_def,check_env_def]
   >- EVAL_TAC
   >- (* type_sound_invariants proof *) (
@@ -398,13 +398,23 @@ val initial_invariant = prove(
       rw[terminationTheory.check_freevars_def] >- cheat >>
       rw[Once TypeSystemTheory.type_e_cases] >>
     *) ) >>
+  >- (
+    simp[SemanticPrimitivesTheory.init_env_def,semanticsExtraTheory.closed_cases] >>
+    simp[SUBSET_DEF] >> metis_tac[] )
+  >- (
+    simp[SemanticPrimitivesTheory.init_env_def,toIntLangProofsTheory.closed_under_cenv_def] >>
+    rw[] >> rw[semanticsExtraTheory.all_cns_def] )
+  >- (
+    simp[SemanticPrimitivesTheory.init_env_def,compilerProofsTheory.closed_under_menv_def] >>
+    simp[semanticsExtraTheory.closed_cases] >>
+    simp[SUBSET_DEF] >> metis_tac[] )
+  >- (
+    fs[SemanticPrimitivesTheory.init_env_def] ) >>
 
-  (* env_rs proof: *)
   simp[env_rs_def,good_compile_primitives,compile_primitives_menv,compile_primitives_renv] >>
 
   simp[MAP_GENLIST,combinTheory.o_DEF] >>
   Q.PAT_ABBREV_TAC`Cenv = env_to_Cenv FEMPTY X Y` >>
-  CONV_TAC(RESORT_EXISTS_CONV(List.rev))>>
 
   cheat)
 
