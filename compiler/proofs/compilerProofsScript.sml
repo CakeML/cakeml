@@ -188,7 +188,7 @@ val env_rs_def = Define`
     Cenv_bs rd Cmenv (FST s, Cs) Cenv cmnv (MAP (CTDec o SND) rs.renv) rs.rsz rs.rsz bs`
 
 val _ = Parse.overload_on("print_bv",``λm. ov_to_string o bv_to_ov m``)
-val print_bv_str_def = Define`print_bv_str m v w = "val "++v++" = "++(print_bv m w)++"\n"`
+val print_bv_str_def = Define`print_bv_str m v w = "val "++v++" = "++(print_bv m w)`
 
 val FOLDL_emit_thm = store_thm("FOLDL_emit_thm",
   ``∀ls s. FOLDL (λs i. s with out := i::s.out) s ls = s with out := REVERSE ls ++ s.out``,
@@ -336,16 +336,13 @@ val compile_news_thm = store_thm("compile_news_thm",
     pop_assum kall_tac >>
     simp[Abbr`bs1`] >>
     qmatch_abbrev_tac`bc_next^* bs1 bs3` >>
-    match_mp_tac MAP_PrintC_thm >>
-    qexists_tac`"\n"` >>
-    simp[bc_state_component_equality,Abbr`bs1`,Abbr`bs3`,IMPLODE_EXPLODE_I] >>
-    CONV_TAC SWAP_EXISTS_CONV >>
-    qexists_tac`LAST c1::c0` >>
-    simp[Abbr`c1`] >>
-    simp[SUM_APPEND,FILTER_APPEND,Abbr`bs'`] >>
-    simp[BUTLASTN_APPEND1,BUTLASTN_APPEND2] >>
-    REWRITE_TAC[BUTLASTN_compute] >>
-    simp[SUM_APPEND,FILTER_APPEND] ) >>
+    `bs1 = bs3` by (
+      simp[bc_state_component_equality,Abbr`bs1`,Abbr`bs3`,IMPLODE_EXPLODE_I] >>
+      simp[SUM_APPEND,FILTER_APPEND,Abbr`bs'`] >>
+      simp[BUTLASTN_APPEND1,BUTLASTN_APPEND2] >>
+      REWRITE_TAC[BUTLASTN_compute] >>
+      simp[TAKE_APPEND1,TAKE_APPEND2,Abbr`c2`,Abbr`c1`,SUM_APPEND,FILTER_APPEND,Abbr`c3`]) >>
+    rw[] ) >>
   qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
   qsuff_tac`bc_next^* bs2 bs'` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
   qpat_assum`bc_next^* bs1 X`kall_tac >> qunabbrev_tac`bs1` >>
@@ -1163,7 +1160,7 @@ val number_constructors_thm = store_thm("number_constructors_thm",
     ((FST(FST ac) |++ GENLIST (λi. (mk_id mn (FST (EL i cs)), (SND(SND(FST ac)))+i)) (LENGTH cs)
      ,REVERSE (GENLIST (λi. ((SND(SND(FST ac)))+i,mk_id mn(FST(EL i cs)))) (LENGTH cs)) ++ (FST(SND(FST ac)))
      ,(SND(SND(FST ac))) + LENGTH cs)
-    ,(REVERSE (MAP (combin$C STRCAT " = <constructor>\n" o id_to_string o mk_id mn o FST) cs))++SND ac)``,
+    ,(REVERSE (MAP (combin$C STRCAT " = <constructor>" o id_to_string o mk_id mn o FST) cs))++SND ac)``,
   gen_tac >> Induct >- simp[number_constructors_def,FUPDATE_LIST_THM] >>
   qx_gen_tac`p` >> PairCases_on`p` >>
   qx_gen_tac`q` >> PairCases_on`q` >>

@@ -302,7 +302,7 @@ bc_fetch s = Some PrintE
 ==>
 bc_next s (<|bump_pc s with stack = xs;
   output = Hol.CONCAT
-           [Hol.IMPLODE(List.rev(Hol.EXPLODE(Hol.CONCAT["raise <";str;">\n"])))
+           [Hol.IMPLODE(List.rev(Hol.EXPLODE(Hol.CONCAT["raise <";str;">"])))
            ;s.output]|>)
 and
 forall s c.

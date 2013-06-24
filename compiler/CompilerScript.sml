@@ -67,7 +67,7 @@ val _ = Define `
 /\
 (number_constructors mn ((c,_)::cs) ((m,w,n),ls) =  
 (number_constructors mn cs (( FUPDATE  m ( (mk_id mn c), n), ((n,mk_id mn c) ::w), (n +1))
-                            ,((CONCAT[id_to_string(mk_id mn c);" = <constructor>\n"]) ::ls))))`;
+                            ,((CONCAT[id_to_string(mk_id mn c);" = <constructor>"]) ::ls))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn number_constructors_defn;
 
@@ -79,8 +79,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (let cs = ( emit cs ( MAP Stack [Load 0; Load 0; El i])) in
   let cs = (if print then
       let cs = ( emit cs ( MAP PrintC (EXPLODE (CONCAT["val ";v;" = "])))) in
-      let cs = ( emit cs [Stack(Load 0); Print]) in
-      emit cs ( MAP PrintC (EXPLODE "\n"))
+      emit cs [Stack(Load 0); Print]
     else cs) in
   let cs = ( emit cs [Stack (Store 1)]) in
   compile_news print cs (i +1) vs))`;
@@ -147,7 +146,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (compile_top rs (Tmod mn _ decs) =  
 (let (mrs,code) = ( compile_decs mn decs (rs,[])) in
   let env = ( BUTLASTN ( LENGTH rs.renv) mrs.renv) in
-  let str = ( CONCAT["structure ";mn;" = <structure>\n"]) in
+  let str = ( CONCAT["structure ";mn;" = <structure>"]) in
   (( mrs with<|
       renv := rs.renv
     ; rmenv := FUPDATE  rs.rmenv ( mn, env) |>)

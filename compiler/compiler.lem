@@ -43,7 +43,7 @@ number_constructors _ [] ac = ac
 and
 number_constructors mn ((c,_)::cs) ((m,w,n),ls) =
   number_constructors mn cs ((Pmap.add (mk_id mn c) n m, (n,mk_id mn c)::w, n+1)
-                            ,(Hol.CONCAT[id_to_string(mk_id mn c);" = <constructor>\n"])::ls)
+                            ,(Hol.CONCAT[id_to_string(mk_id mn c);" = <constructor>"])::ls)
 
 let rec
 compile_news _ cs i [] = cs
@@ -52,8 +52,7 @@ compile_news print cs i (v::vs) =
   let cs = emit cs (List.map Stack [Load 0; Load 0; El i]) in
   let cs = if print then
       let cs = emit cs (List.map PrintC (Hol.EXPLODE (Hol.CONCAT["val ";v;" = "]))) in
-      let cs = emit cs [Stack(Load 0); Print] in
-      emit cs (List.map PrintC (Hol.EXPLODE "\n"))
+      emit cs [Stack(Load 0); Print]
     else cs in
   let cs = emit cs [Stack (Store 1)] in
   compile_news print cs (i+1) vs
@@ -110,7 +109,7 @@ let rec
 compile_top rs (Tmod mn _ decs) =
   let (mrs,code) = compile_decs mn decs (rs,[]) in
   let env = Hol.BUTLASTN (List.length rs.renv) mrs.renv in
-  let str = Hol.CONCAT["structure ";mn;" = <structure>\n"] in
+  let str = Hol.CONCAT["structure ";mn;" = <structure>"] in
   (<| mrs with
       renv = rs.renv
     ; rmenv = Pmap.add mn env rs.rmenv |>

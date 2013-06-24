@@ -346,7 +346,7 @@ bc_fetch s = SOME PrintE) /\ (s.stack = x ::xs) /\ (? i. (x = Number i) /\ (str 
 ==>
 bc_next s ((bump_pc s with<| stack := xs;
   output := CONCAT
-           [IMPLODE( REVERSE(EXPLODE(CONCAT["raise <";str;">\n"])))
+           [IMPLODE( REVERSE(EXPLODE(CONCAT["raise <";str;">"])))
            ;s.output]|>)))
 /\
 (! s c.

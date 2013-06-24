@@ -206,12 +206,12 @@ val bc_eval1_def = Define`
   | (Print, x::xs) =>
     SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE(ov_to_string(bv_to_ov s.cons_names x))))) s.output |>)
   | (PrintE, Number i::xs) =>
-    SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE(CONCAT["raise <";string_of_int i;">\n"])))) s.output |>)
+    SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE(CONCAT["raise <";string_of_int i;">"])))) s.output |>)
   | (PrintE, Block n []::xs) =>
     if n = 5 ∧ n = 5 then
-    SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE("raise <Bind>\n")))) s.output |>)
+    SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE("raise <Bind>")))) s.output |>)
     else if n = 6 then
-    SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE("raise <Div>\n")))) s.output |>)
+    SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE("raise <Div>")))) s.output |>)
     else NONE
   | (PrintC c,_) =>
     SOME (bump_pc s with <| output := STRING c s.output |>)
