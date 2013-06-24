@@ -72,7 +72,6 @@ val _ = computeLib.add_funs
   ,CompilerLibTheory.lshift_def
   ,pat_bindings_def
   ,compile_news_def
-  ,compile_shadows_def
   ,ToBytecodeTheory.compile_varref_def
   ,CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)compile_def
   ,label_closures_def
@@ -132,14 +131,15 @@ val _ = computeLib.del_funs[compile_primitives_def]
 val _ = computeLib.add_funs[eval_compile_primitives]
 val eval_initial_repl_fun_state = EVAL ``initial_repl_fun_state``
 val _ = PolyML.fullGC();
+(* too slow!
 val eval_initial_bc_state = EVAL ``initial_bc_state``
+*)
 val _ = computeLib.del_funs[initial_repl_fun_state_def,initial_bc_state_def]
-val _ = computeLib.add_funs[eval_initial_repl_fun_state,eval_initial_bc_state]
+val _ = computeLib.add_funs[eval_initial_repl_fun_state(*,eval_initial_bc_state*)]
 
 val C_main_loop_def = Define`C_main_loop i (s,bs) = main_loop (s,bs) i`
 val eval_C_main_loop = EVAL``C_main_loop i (s,bs)``
 val _ = computeLib.del_funs[main_loop_def]
-bc_eval1_def
 val _ = computeLib.add_funs[GSYM C_main_loop_def]
 val _ = computeLib.set_skip computeLib.the_compset ``C_main_loop`` (SOME 1)
 end
