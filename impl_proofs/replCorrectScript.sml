@@ -64,7 +64,7 @@ val invariant_def = Define`
     ∧ ∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs
     (* ∧ rfs.top = ??? *)`;
 
-    (*
+(*
 val check_menv_to_tenvM_ok = Q.prove (
 `!menv. check_menv menv ⇒ tenvM_ok (convert_menv menv)`,
 Induct >>
@@ -109,7 +109,7 @@ val type_invariants_pres = Q.prove (
           (Success (new_infer_menv,new_infer_cenv,new_infer_env), infer_st2)
   ⇒
   type_infer_invariants (update_repl_state rs el0 el1 (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st' 
-                                     (Rval (envM,envC,envE)))
+                                     envC (Rval (envM,envE)))
                   (new_infer_menv ++ infer_menv, new_infer_cenv ++ infer_cenv,new_infer_env ++ infer_env)`,
 rw [update_repl_state_def, type_infer_invariants_def] >>
 `check_menv new_infer_menv ∧
@@ -121,13 +121,6 @@ rw [update_repl_state_def, type_infer_invariants_def] >>
  fs [check_env_def],
  rw [convert_menv_def],
  rw [bvl2_append, convert_env2_def]]);
-
-val printer_not_confused = Q.prove (
-`!ds cs stack. simple_printer ds cs stack ≠ "<type error>"`,
-induct_on `ds` >>
-rw [PrinterTheory.simple_printer_def] >>
-cases_on `h` >>
-rw []);
 
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
@@ -160,8 +153,6 @@ rw[parse_elaborate_infertype_compile_def,parser_correct] >>
 qmatch_assum_rename_tac`elaborate_top st.relaborator_state top0 = (new_elab_state, top)`[] >>
 qmatch_assum_rename_tac`invariant rs st bs`[] >>
 rw [] >>
-rw [Once ast_repl_cases, parse_elaborate_infertype_compile_def, parser_correct,
-    get_type_error_mask_def] >>
 `?error_msg next_repl_run_infer_state.
   infertype_top st.rinferencer_state top = Failure error_msg ∨ 
   infertype_top st.rinferencer_state top = Success next_repl_run_infer_state`
@@ -170,12 +161,9 @@ rw [Once ast_repl_cases, parse_elaborate_infertype_compile_def, parser_correct,
 rw [get_type_error_mask_def] >-
 ((* A type error *)
  `LENGTH input_rest < LENGTH input` by metis_tac [lex_until_toplevel_semicolon_LESS] >>
+ rw[Once ast_repl_cases] >>
      metis_tac [lexer_correct]) >>
-`?new_bc_success new_bc_failure code. compile_top st.rcompiler_state top = (new_bc_success, new_bc_failure, code)`
-         by (cases_on `compile_top st.rcompiler_state top` >>
-             Cases_on`r` >>
-             metis_tac []) >>
-rw [] >>
+simp[] >>
 `?infer_menv infer_cenv infer_env. 
   st.rinferencer_state = (infer_menv,infer_cenv,infer_env)`
             by metis_tac [pair_CASES] >>
@@ -195,38 +183,37 @@ imp_res_tac infer_to_type >>
 `type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store)` 
         by fs [invariant_def] >>
 `¬top_diverges rs.envM rs.envC rs.store rs.envE top ⇒
-       ∃r store2.
+       ∃r envC2 store2.
          r ≠ Rerr Rtype_error ∧
-         evaluate_top rs.envM rs.envC rs.store rs.envE top (store2,r) ∧
+         evaluate_top rs.envM rs.envC rs.store rs.envE top (store2,envC2,r) ∧
          type_sound_invariants
            (update_type_sound_inv
               (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,
                rs.store) (convert_menv new_infer_menv) new_infer_cenv
-              (convert_env2 new_infer_env) store2 r)`
+              (convert_env2 new_infer_env) store2 envC2 r)`
           by metis_tac [top_type_soundness]
 
 
-cases_on `bc_eval (install_code (cpam st.rcompiler_state) code bs)` >>
+rw[update_state_def]
 rw [get_type_error_mask_def] >>
+
 qabbrev_tac`est = st.relaborator_state` >> PairCases_on`est` >>
+pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])>>fs[]>>
 qabbrev_tac`elab_res = elab_top est0 est1 top0` >> PairCases_on`elab_res` >>
+pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])>>fs[]>>
 `est0 = rs.type_bindings ∧ est1 = rs.ctors` by fs[invariant_def] >>
 rpt BasicProvers.VAR_EQ_TAC >>
 fs[elaborate_top_def,LET_THM] >>
-qabbrev_tac`el = elab_top rs.type_bindings rs.ctors top0` >> PairCases_on`el` >>
-fs[] >> 
-qmatch_assum_rename_tac`xxxxxxxx = top`[] >> BasicProvers.VAR_EQ_TAC >- (
+qmatch_assum_rename_tac`xxxxxxxx = top`[] >> rpt BasicProvers.VAR_EQ_TAC >>
+cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
 
   (* Divergence *)
-  (*
-    MAP_EVERY qexists_tac [`convert_menv new_infer_menv`,`new_infer_cenv`,`convert_env2 new_infer_env`] >>
-    rw [] >>
-    *)
-
+  rw[Once ast_repl_cases,get_type_error_mask_def] >>
+  MAP_EVERY qexists_tac [`convert_menv new_infer_menv`,`new_infer_cenv`,`convert_env2 new_infer_env`] >>
+  rw [] >>
 
   cheat ) >>
 
-disj1_tac >>
 (* SO cheat: I think the semantics can't diverge because (bc_eval install_code
  * code bs) = SOME x).  I think this should come from the compiler proof. *)
 `¬top_diverges rs.envM rs.envC rs.store rs.envE top` by cheat >>
@@ -234,20 +221,23 @@ fs [] >>
 (* SO cheat: We need to prove that lex_until_top_level_semicolon must consume
  * some input *)
 `STRLEN input_rest < STRLEN input` by cheat >>
-rw [update_state_def, print_fun_def] >>
+simp[Once ast_repl_cases,get_type_error_mask_def] >>
+disj1_tac >>
 MAP_EVERY qexists_tac [`convert_menv new_infer_menv`, 
                        `new_infer_cenv`, 
                        `convert_env2 new_infer_env`,
-                       `st'`, 
+                       `store2`, 
+                       `envC2`,
                        `r`] >>
 rw [] >|
 [(* Non-type errors don't print "<type error>" *)
- cases_on `top` >>
-     rw [printer_not_confused],
+ cheat,
  (* SO cheat: This is the case for the delaration evaluating to a value.  We
   * must prove that the right thing is printed.  I think this should come from
   * the compiler correctness proof *)
  cheat,
+ cheat
+ (*
  qabbrev_tac `new_repl_state = update_repl_state rs el0 el1 (convert_menv new_infer_menv) 
                                                     new_infer_cenv (convert_env2 new_infer_env) 
                                                     st' r` >>
@@ -283,7 +273,7 @@ rw [] >|
                      (* SO cheat: This is the env_rs part of the invariant *)
                      cheat) >>
      fs [] >>
-     metis_tac [lexer_correct],
+     metis_tac [lexer_correct] *),
  (* SO cheat: The case where an exception makes it to the top level.
   * The goal is "Exception" = print_result r, but print result tells you what
   * exception you got as print_result (Rerr (Rraise e)) = STRCAT (STRCAT "raise
@@ -291,6 +281,7 @@ rw [] >|
   * the semantics, but it would be possible to change the semantics to not tell
   * you which exception. *)
  cheat,
+ (*
  (* SO cheat: The exception case, but for the induction.  Because HD x.stack ≠
  * Number 0, I think the compiler proof should let us conclude that the
  * semantics raises an exception *)
@@ -300,6 +291,7 @@ rw [] >|
       * inferencer and elaborator state even though an error was raised.  The
       * semantics doesn't update the state of the bindings, it only updates the
       * store. *)
+  *)
      cheat]);
 
      (*
@@ -322,8 +314,8 @@ cheat
 *)
 
 val FST_compile_fake_exp_contab = store_thm("FST_compile_fake_exp_contab",
-  ``FST (compile_fake_exp rs vs e) = rs.contab``,
-  qabbrev_tac`p = compile_fake_exp rs vs e` >>
+  ``FST (compile_fake_exp pr rs vs e) = rs.contab``,
+  qabbrev_tac`p = compile_fake_exp pr rs vs e` >>
   PairCases_on`p` >> fs[markerTheory.Abbrev_def] >>
   metis_tac[compile_fake_exp_contab])
 
