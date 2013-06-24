@@ -56,7 +56,23 @@ val fapply_thm = prove(
   SRW_TAC [] [fapply_def,FLOOKUP_DEF]);
 
 val _ = translate fapply_thm;
+
+val _ = rich_listTheory.BUTLASTN_REVERSE |> Q.SPECL [`n`,`REVERSE l`]
+  |> REWRITE_RULE [REVERSE_REVERSE,LENGTH_REVERSE] |> UNDISCH
+  |> translate
+
+val BUTLASTN_side_def = prove(
+  ``!n l. BUTLASTN_side n l = (n <= LENGTH l)``,
+  SIMP_TAC std_ss [fetch "-" "BUTLASTN_side_def"])
+  |> update_precondition;
+
 val _ = translate compile_top_def;
+
+(*
+fetch "-" "compile_top_side_def"
+fetch "-" "compile_dec_side_def"
+fetch "-" "compile_fake_exp_side_def"
+*)
 
 
 (* elaborator *)

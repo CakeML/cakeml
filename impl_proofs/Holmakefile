@@ -23,4 +23,3 @@ DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b ../implementation/impl_heap -o $(HOLHEAP) $(BARE_THYS)
 endif
-
