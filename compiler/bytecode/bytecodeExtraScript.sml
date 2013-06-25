@@ -299,4 +299,9 @@ val RTC_bc_next_clock_less = store_thm("RTC_bc_next_clock_less",
     match_mp_tac bc_next_clock_less >> rw[] ) >>
   fs[optionTheory.OPTREL_def] >> rw[] >> simp[])
 
+val bc_fetch_aux_end_NONE = store_thm("bc_fetch_aux_end_NONE",
+  ``∀ls il n. next_addr il ls ≤ n ⇒ bc_fetch_aux ls il n = NONE``,
+  Induct >> simp[] >> rw[] >> fs[arithmeticTheory.ADD1] >>
+  first_x_assum match_mp_tac >> simp[])
+
 val _ = export_theory()

@@ -1,5 +1,5 @@
 open preamble boolSimps miscLib rich_listTheory;
-open lexer_funTheory repl_funTheory replTheory
+open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClockTheory bytecodeExtraTheory
 open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compileLabelsTheory compilerProofsTheory;
 open TypeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory;
 
@@ -36,6 +36,8 @@ val parser_correct = Q.prove (
   rw[mmlParseREPLTop_thm] >>
   qspec_then`toks`strip_assume_tac mmlPEGTheory.parse_REPLTop_total >>
   simp[destResult_def] >>
+  (* this may be impossible to prove, until the grammar is proved unambiguous *)
+  (* alternative would be to make parse a relation *)
 cheat);
 
 val get_type_error_mask_def = Define `
@@ -112,6 +114,9 @@ val invariant_def = Define`
     ∧ (∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs)
     ∧ ALL_DISTINCT (FILTER is_Label bs.code)
     ∧ EVERY (combin$C $< rfs.rcompiler_state.rnext_label o dest_Label) (FILTER is_Label bs.code)
+
+    ∧ bs.clock = NONE
+    ∧ (∃ls. bs.code = PrintE::Stop::ls)
     `;
 
 (*
@@ -238,13 +243,81 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
   rw[Once ast_repl_cases,get_type_error_mask_def] >>
   MAP_EVERY qexists_tac [`convert_menv new_infer_menv`,`new_infer_cenv`,`convert_env2 new_infer_env`] >>
   rw [] >>
-  qpat_assum`X ⇒ Y`kall_tac >>
   qpat_assum`∀m. X ⇒ Y`kall_tac >>
-  rw[top_diverges_cases] >>
-  Cases_on`top`>>fs[] >- (
-    (* Module *)
-    cheat ) >>
-  cheat ) >>
+  spose_not_then strip_assume_tac >> fs[] >>
+  imp_res_tac compile_top_thm >>
+  pop_assum(qspecl_then[`st.rcompiler_state`]mp_tac) >>
+  simp[] >>
+  fs[invariant_def] >>
+  qmatch_assum_abbrev_tac`bc_eval bs0 = NONE` >>
+  map_every qexists_tac[`rd`,`bs0 with clock := SOME ck`,`bs.code`] >>
+  conj_tac >- cheat >> (* RK cheat: type system should prove this *)
+  conj_tac >- cheat >> (* RK cheat: type system should prove this *)
+  conj_tac >- metis_tac[] >>
+  conj_tac >- cheat >> (* RK cheat: type system should prove this *)
+  conj_tac >- metis_tac[] >>
+  conj_tac >- (
+    fs[env_rs_def,LET_THM] >>
+    rpt HINT_EXISTS_TAC >> simp[] >>
+    conj_tac >- metis_tac[] >>
+    conj_tac >- metis_tac[] >>
+    conj_tac >- metis_tac[] >>
+    simp[Abbr`bs0`,install_code_def]>>
+    rfs[] >>
+    match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
+    map_every qexists_tac[`rd`,`(c,Cs)`,`bs with <|pc := next_addr bs.inst_length bs.code; output := ""; cons_names := cpam css|>`,`bs.refs`,`SOME ck`] >>
+    simp[BytecodeTheory.bc_state_component_equality] >>
+    conj_tac >- (
+      match_mp_tac toBytecodeProofsTheory.Cenv_bs_with_irr >>
+      HINT_EXISTS_TAC >> simp[] ) >>
+    fs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
+  conj_tac >- simp[Abbr`bs0`,install_code_def] >>
+  conj_tac >- simp[Abbr`bs0`,install_code_def] >>
+  simp[] >>
+  let
+    val tac =
+      `∀bs1. bc_next^* bs0 bs1 ⇒ ∃bs2. bc_next bs1 bs2` by (
+        rw[] >>
+        spose_not_then strip_assume_tac >>
+        metis_tac[bytecodeEvalTheory.RTC_bc_next_bc_eval,optionTheory.NOT_SOME_NONE] ) >>
+      spose_not_then strip_assume_tac >>
+      imp_res_tac RTC_bc_next_can_be_unclocked >>
+      fs[] >>
+      `bs0 with clock := NONE = bs0` by rw[BytecodeTheory.bc_state_component_equality,Abbr`bs0`,install_code_def] >>
+      fs[] >>
+      qmatch_assum_rename_tac`bc_next^* bs0 (bs1 with clock := NONE)`[]>>
+      `(bs1 with clock := NONE).code = bs0.code` by metis_tac[RTC_bc_next_preserves] in
+  reverse(Cases_on`r`>>fs[])>-(
+    reverse(Cases_on`e`>>fs[])>-(
+      metis_tac[bigClockTheory.top_evaluate_not_timeout] ) >>
+    tac >>
+    `∃ls1. bs1.code = PrintE::Stop::ls1` by (
+      rfs[Abbr`bs0`,install_code_def] ) >>
+    `bc_fetch bs1 = SOME PrintE` by (
+      simp[BytecodeTheory.bc_fetch_def,bytecodeTerminationTheory.bc_fetch_aux_def] ) >>
+    `∃bs2. bc_next (bs1 with clock := NONE) bs2 ∧ bc_fetch bs2 = SOME Stop` by (
+      simp[bytecodeEvalTheory.bc_eval1_thm] >>
+      `(∃n. bv = Number n) ∨ (bv = Block (4 + bind_exc_cn) []) ∨ (bv = Block (4 + div_exc_cn) [])` by (
+        qmatch_assum_rename_tac`err_bv xx bv`[] >>
+        Cases_on`xx`>>fs[compilerProofsTheory.err_bv_def] ) >>
+      simp[Once bytecodeEvalTheory.bc_eval1_def,bc_fetch_with_clock,BytecodeTheory.bump_pc_def] >>
+      simp[IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def] >>
+      qpat_assum`X = bs0.code`(assume_tac o SYM) >> fs[] >>
+      simp[BytecodeTheory.bc_fetch_def,bytecodeTerminationTheory.bc_fetch_aux_def] ) >>
+    `bc_next^* bs0 bs2` by metis_tac[RTC_CASES2] >>
+    `∃bs3. bc_next bs2 bs3` by metis_tac[] >>
+    pop_assum mp_tac >>
+    simp[bytecodeEvalTheory.bc_eval1_thm,bytecodeEvalTheory.bc_eval1_def] ) >>
+  PairCases_on`a` >> simp[] >>
+  tac >>
+  `∃bs3. bc_next (bs1 with clock := NONE) bs3` by metis_tac[] >>
+  pop_assum mp_tac >>
+  `bc_fetch (bs1 with clock := NONE) = NONE` by (
+    simp[BytecodeTheory.bc_fetch_def] >>
+    match_mp_tac bc_fetch_aux_end_NONE >>
+    fs[Abbr`bs0`,install_code_def] ) >>
+  simp[bytecodeEvalTheory.bc_eval1_thm,bytecodeEvalTheory.bc_eval1_def]
+  end ) >>
 
 (* SO cheat: I think the semantics can't diverge because (bc_eval install_code
  * code bs) = SOME x).  I think this should come from the compiler proof. *)
@@ -298,7 +371,7 @@ simp[] >>
     conj_tac >- (
       match_mp_tac toBytecodeProofsTheory.Cenv_bs_with_irr >>
       HINT_EXISTS_TAC >> simp[] ) >>
-    fs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
+    rfs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
 
 (* WIP
   Cases_on `r` >> simp[] >- (
@@ -409,7 +482,9 @@ val compile_primitives_renv = store_thm("compile_primitives_renv",
 val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   ``(initial_bc_state.inst_length = K 0) ∧
     (ALL_DISTINCT (FILTER is_Label initial_bc_state.code)) ∧
-    (EVERY (combin$C $< (FST compile_primitives).rnext_label o dest_Label) (FILTER is_Label initial_bc_state.code))``,
+    (EVERY (combin$C $< (FST compile_primitives).rnext_label o dest_Label) (FILTER is_Label initial_bc_state.code)) ∧
+    (initial_bc_state.clock = NONE) ∧
+    (∃ls. initial_bc_state.code = PrintE::Stop::ls)``,
   simp[initial_bc_state_def] >>
   Q.PAT_ABBREV_TAC`bs = install_code X Y Z` >>
   (* cheat: repl setup terminates *)
@@ -417,6 +492,8 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   simp[] >>
   imp_res_tac bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next >>
   imp_res_tac bytecodeExtraTheory.RTC_bc_next_preserves >>
+  imp_res_tac bytecodeExtraTheory.RTC_bc_next_clock_less >>
+  `bs1.clock = NONE` by rfs[optionTheory.OPTREL_def,Abbr`bs`,install_code_def] >>
   simp[Abbr`bs`,install_code_def] >>
   (* cheat: compile_top version of compile_append_out *)
   cheat)
