@@ -1,5 +1,12 @@
 The CakeML project.  See http://cakeml.org.
 
+A verified implementation of a significant subset of Standard ML in the HOL4
+theorem prover (http://hol.sourceforge.net).
+
+NB: We develop this using the head of the HOL4 development version in Github
+(https://github.com/mn200/HOL), and it might or might not work on official HOL
+releases.
+
 Directory structure:
 
 - semantics
@@ -38,7 +45,7 @@ Directory structure:
       - (steps towards) a compiler from bytecode to x86 machine code
 
 - impl_proofs
-    A proof of soundness for the type inferencer.
+    The correctness proof for the REPL implementation
 
 - translator
     A proof-producing translator from HOL functions to CakeML.
@@ -62,7 +69,5 @@ Directory structure:
 - translator/other-examples/auxiliary
     A copying GC, 91 function, regular expression matched and SLR parser
     generator taken from other places, and ollected here for the translator.
-
-- lexer
 
 - computability

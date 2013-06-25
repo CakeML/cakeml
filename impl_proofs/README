@@ -1,0 +1,8 @@
+The top-level correctness proofs for the CakeML REPL
+
+inferSoundScript.sml
+    Soundness of the type inference algorithm
+
+replCorrectnessScript.sml
+    Proof that anything the REPL implementation function does is permitted by
+    the semantics.

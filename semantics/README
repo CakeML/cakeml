@@ -1,7 +1,11 @@
 The semantics of CakeML
 
+The *.lem files are specified in Lem source
+(http://www.cs.kent.ac.uk/~sao/lem/), and the corresponding *Script.sml files
+are the HOL source generated from them by Lem.
+
 lexer_funScript.sml
-    A functional specification of a lexing function from strings to token lists
+    A functional specification of a lexing from strings to token lists
 
 tokens.lem
     The tokens
@@ -10,12 +14,16 @@ tokenUtilsScript.sml
     Some theorems about tokens that the grammar needs
 
 gramScript.sml
-    The grammar that specifies how token lists should be converted to parsing
-    ASTs
+    The grammar that specifies how token lists should be converted to concrete
+    syntax trees
+
+cmlPtreeConversionScript.sml
+    Functions to convert the concrete syntax tree into a parsing AST.  Removes
+    some syntactic sugar. 
 
 elab.lem
     Defines parsing ASTs, and an elaboration function that converts into the
-    main AST by resolving references to primitives and module bindings.
+    main AST by resolving references to datatype constructors and types.
 
 ast.lem
     Defines the AST
@@ -45,5 +53,5 @@ altBigStep.lem
 terminationScript.sml
     Termination proofs for recursive functions defined in the .lem files
 
-replScript.
+replScript.sml
     Pulls everything together into a semantics for the CakeML repl
