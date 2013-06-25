@@ -1,5 +1,5 @@
 open preamble boolSimps miscLib rich_listTheory;
-open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClockTheory bytecodeExtraTheory
+open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory
 open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compileLabelsTheory compilerProofsTheory;
 open TypeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory;
 
@@ -279,7 +279,7 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
       `∀bs1. bc_next^* bs0 bs1 ⇒ ∃bs2. bc_next bs1 bs2` by (
         rw[] >>
         spose_not_then strip_assume_tac >>
-        metis_tac[bytecodeEvalTheory.RTC_bc_next_bc_eval,optionTheory.NOT_SOME_NONE] ) >>
+        metis_tac[RTC_bc_next_bc_eval,optionTheory.NOT_SOME_NONE] ) >>
       spose_not_then strip_assume_tac >>
       imp_res_tac RTC_bc_next_can_be_unclocked >>
       fs[] >>
@@ -296,18 +296,18 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
     `bc_fetch bs1 = SOME PrintE` by (
       simp[BytecodeTheory.bc_fetch_def,bytecodeTerminationTheory.bc_fetch_aux_def] ) >>
     `∃bs2. bc_next (bs1 with clock := NONE) bs2 ∧ bc_fetch bs2 = SOME Stop` by (
-      simp[bytecodeEvalTheory.bc_eval1_thm] >>
+      simp[bc_eval1_thm] >>
       `(∃n. bv = Number n) ∨ (bv = Block (4 + bind_exc_cn) []) ∨ (bv = Block (4 + div_exc_cn) [])` by (
         qmatch_assum_rename_tac`err_bv xx bv`[] >>
         Cases_on`xx`>>fs[compilerProofsTheory.err_bv_def] ) >>
-      simp[Once bytecodeEvalTheory.bc_eval1_def,bc_fetch_with_clock,BytecodeTheory.bump_pc_def] >>
+      simp[Once bc_eval1_def,bc_fetch_with_clock,BytecodeTheory.bump_pc_def] >>
       simp[IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def] >>
       qpat_assum`X = bs0.code`(assume_tac o SYM) >> fs[] >>
       simp[BytecodeTheory.bc_fetch_def,bytecodeTerminationTheory.bc_fetch_aux_def] ) >>
     `bc_next^* bs0 bs2` by metis_tac[RTC_CASES2] >>
     `∃bs3. bc_next bs2 bs3` by metis_tac[] >>
     pop_assum mp_tac >>
-    simp[bytecodeEvalTheory.bc_eval1_thm,bytecodeEvalTheory.bc_eval1_def] ) >>
+    simp[bc_eval1_thm,bc_eval1_def] ) >>
   PairCases_on`a` >> simp[] >>
   tac >>
   `∃bs3. bc_next (bs1 with clock := NONE) bs3` by metis_tac[] >>
@@ -316,12 +316,60 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
     simp[BytecodeTheory.bc_fetch_def] >>
     match_mp_tac bc_fetch_aux_end_NONE >>
     fs[Abbr`bs0`,install_code_def] ) >>
-  simp[bytecodeEvalTheory.bc_eval1_thm,bytecodeEvalTheory.bc_eval1_def]
+  simp[bc_eval1_thm,bc_eval1_def]
   end ) >>
 
-(* SO cheat: I think the semantics can't diverge because (bc_eval install_code
- * code bs) = SOME x).  I think this should come from the compiler proof. *)
-`¬top_diverges rs.envM rs.envC rs.store rs.envE top` by cheat >>
+`¬top_diverges rs.envM rs.envC rs.store rs.envE top` by (
+  qpat_assum`X ⇒ Y`kall_tac >>
+  qpat_assum`∀m. X ⇒ Y`kall_tac >>
+  spose_not_then strip_assume_tac >>
+  `∀r. ¬evaluate_top rs.envM rs.envC rs.store rs.envE top r` by metis_tac[untyped_safety_top] >>
+  qmatch_assum_abbrev_tac`bc_eval bs0 = SOME bs1` >> pop_assum kall_tac >>
+  imp_res_tac bc_eval_SOME_RTC_bc_next >>
+  imp_res_tac RTC_bc_next_can_be_clocked >>
+  qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`]mp_tac compile_top_divergence >>
+  fs[invariant_def] >>
+  map_every qexists_tac[`st.rcompiler_state`,`rd`,`ck+1`,`bs.code`,`bs0 with clock := SOME (ck+1)`]>>
+  simp[] >>
+  conj_tac >- cheat >> (* RK cheat: closedness *)
+  conj_tac >- metis_tac[] >>
+  conj_tac >- cheat >> (* RK cheat: closedness *)
+  conj_tac >- metis_tac[] >>
+  conj_tac >- (
+    fs[Abbr`bs0`,install_code_def,env_rs_def,LET_THM] >>
+    rpt HINT_EXISTS_TAC >> simp[] >>
+    conj_tac >- metis_tac[] >>
+    conj_tac >- metis_tac[] >>
+    conj_tac >- metis_tac[] >>
+    rfs[] >>
+    match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
+    map_every qexists_tac[`rd`,`(c,Cs)`,`bs with <|pc := next_addr bs.inst_length bs.code; output := ""; cons_names := cpam css|>`,`bs.refs`,`SOME (ck+1)`] >>
+    simp[BytecodeTheory.bc_state_component_equality] >>
+    conj_tac >- (
+      match_mp_tac toBytecodeProofsTheory.Cenv_bs_with_irr >>
+      HINT_EXISTS_TAC >> simp[] ) >>
+    fs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
+  conj_tac >- simp[Abbr`bs0`,install_code_def] >>
+  conj_tac >- simp[Abbr`bs0`,install_code_def] >>
+  qspecl_then[`bs0 with clock := SOME ck`,`bs1 with clock := SOME 0`]mp_tac RTC_bc_next_add_clock >>
+  simp[] >>
+  disch_then(qspec_then`1`mp_tac) >> strip_tac >>
+  qx_gen_tac`bs3` >>
+  spose_not_then strip_assume_tac >>
+  `∀s3. ¬bc_next (bs1 with clock := SOME 1) s3` by (
+    spose_not_then strip_assume_tac >>
+    imp_res_tac bc_next_can_be_unclocked >>
+    `bs0.clock = NONE` by simp[Abbr`bs0`,install_code_def] >>
+    `bs1.clock = NONE` by (
+      imp_res_tac RTC_bc_next_clock_less >>
+      rfs[optionTheory.OPTREL_def] ) >>
+    `bs1 with clock := NONE = bs1` by rw[bc_state_component_equality] >>
+    fs[] >> metis_tac[] ) >>
+  `∀s3. ¬bc_next bs3 s3` by (
+    simp[bc_eval1_thm,bc_eval1_def] ) >>
+  qsuff_tac`bs3 = bs1 with clock := SOME 1` >- rw[bc_state_component_equality] >>
+  metis_tac[RTC_bc_next_determ]) >>
+
 fs [] >>
 `STRLEN input_rest < STRLEN input` by metis_tac[lex_until_toplevel_semicolon_LESS] >>
 simp[Once ast_repl_cases,get_type_error_mask_def] >>
@@ -490,7 +538,7 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   (* cheat: repl setup terminates *)
   `∃bs1. bc_eval bs = SOME bs1` by cheat >>
   simp[] >>
-  imp_res_tac bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next >>
+  imp_res_tac bc_eval_SOME_RTC_bc_next >>
   imp_res_tac bytecodeExtraTheory.RTC_bc_next_preserves >>
   imp_res_tac bytecodeExtraTheory.RTC_bc_next_clock_less >>
   `bs1.clock = NONE` by rfs[optionTheory.OPTREL_def,Abbr`bs`,install_code_def] >>

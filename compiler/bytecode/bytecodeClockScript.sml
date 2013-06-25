@@ -70,4 +70,15 @@ val RTC_bc_next_can_be_unclocked = store_thm("RTC_bc_next_can_be_unclocked",
   match_mp_tac RTC_lifts_monotonicities >>
   simp[bc_next_can_be_unclocked,Abbr`R`,Abbr`f`])
 
+val RTC_bc_next_determ = store_thm("RTC_bc_next_determ",
+  ``∀s1 s2. bc_next^* s1 s2 ⇒ (∀s4. ¬bc_next s2 s4) ⇒ ∀s3. bc_next^* s1 s3 ∧ (∀s4. ¬bc_next s3 s4) ⇒ s2 = s3``,
+  ho_match_mp_tac RTC_INDUCT >>
+  reverse conj_tac >- (
+    rw[] >> fs[] >>
+    qpat_assum`bc_next^* s1 s3`mp_tac >>
+    simp[Once RTC_CASES1] >>
+    Cases_on`s1 = s3`>>fs[] >>
+    fs[bc_eval1_thm] ) >>
+  rw[Once RTC_CASES1])
+
 val _ = export_theory()
