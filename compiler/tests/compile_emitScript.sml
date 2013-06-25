@@ -79,7 +79,6 @@ val defs = map EmitML.DEFN
 , lunion_def
 , lshift_def
 , el_check_def
-, fapply_def
 , free_vars_def
 , emit_def
 , i1_def
@@ -109,9 +108,6 @@ val defs = map EmitML.DEFN
 , free_labs_def
 , cce_aux_def
 , compile_code_env_def
-, calculate_labels_def
-, replace_labels_def
-, compile_labels_def
 , IntLangTheory.tuple_cn_def
 , IntLangTheory.bind_exc_cn_def
 , IntLangTheory.div_exc_cn_def

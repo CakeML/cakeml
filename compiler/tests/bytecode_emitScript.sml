@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib EmitTeX basis_emitTheory
-open CompilerLibTheory PrinterTheory BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory
+open CompilerLibTheory PrinterTheory BytecodeTheory LabelsTheory bytecodeTerminationTheory bytecodeEvalTheory
 val _ = new_theory "bytecode_emit"
 
 val _ = Parse.temp_type_abbrev("string",``:char list``)
@@ -39,6 +39,7 @@ val CONCAT_RULE = PURE_REWRITE_RULE[mk_thm([],mk_eq(``FLAT:string list -> string
 
 val defs = map EmitML.DEFN [
 optionTheory.OPTION_BIND_def,
+fapply_def,
 i0_def,
 string_of_int_def,
 SemanticPrimitivesTheory.id_to_string_def,
@@ -54,7 +55,11 @@ bv_to_ov_def,
 bc_eval_stack_def,
 CONCAT_RULE(CONV_RULE(PURE_REWRITE_CONV[mk_thm([],mk_eq(``CONS:char -> string -> string``,``STRING``))]) bc_eval1_def),
 bc_eval_compute,
-init_bc_state_def]
+init_bc_state_def
+, calculate_labels_def
+, replace_labels_def
+, compile_labels_def
+]
 
 val _ = EmitML.eSML "bytecode" (
   (EmitML.OPEN ["int","fmap","string"])

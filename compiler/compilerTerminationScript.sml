@@ -242,14 +242,6 @@ val (bv_to_ov_def,bv_to_ov_ind) = register "bv_to_ov" (
   Q.ISPEC_THEN `bc_value_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
 
-val _ = register "calculate_labels" (
-  tprove_no_defn ((calculate_labels_def,calculate_labels_ind),
-  WF_REL_TAC `measure (LENGTH o SND o SND o SND o SND)` >> rw[]))
-
-val _ = register "replace_labels" (
-  tprove_no_defn ((replace_labels_def,replace_labels_ind),
-  WF_REL_TAC `measure (LENGTH o SND o SND)` >> rw[]))
-
 (*
 val _ = register "ov_to_string" (
   tprove_no_defn((ov_to_string_def,ov_to_string_ind),
@@ -279,7 +271,6 @@ val _ = export_rewrites
 ,"free_labs_def","no_labs_def","all_labs_def"
 ,"IntLang.CDiv_excv_def","IntLang.CBind_excv_def"
 ,"IntLang.CDiv_exc_def","IntLang.CBind_exc_def"
-,"ToIntLang.opn_to_prim2_def"
-,"CompilerLib.the_def","CompilerLib.fapply_def"];
+,"ToIntLang.opn_to_prim2_def"];
 
 val _ = export_theory()

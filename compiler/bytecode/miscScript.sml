@@ -5,7 +5,7 @@ val _ = new_theory "misc"
 (* TODO: move/categorize *)
 
 val PERM_PART = store_thm("PERM_PART",
-  ``∀P L l1 l2 p q. (p,q) = PART P L l1 l2 ⇒ PERM (L ++ (l1 ++ l2)) (p++q)``,
+  ``∀P L l1 l2 p q. ((p,q) = PART P L l1 l2) ⇒ PERM (L ++ (l1 ++ l2)) (p++q)``,
   GEN_TAC THEN Induct >>
   simp[PART_DEF] >> rw[] >- (
     first_x_assum(qspecl_then[`h::l1`,`l2`,`p`,`q`]mp_tac) >>

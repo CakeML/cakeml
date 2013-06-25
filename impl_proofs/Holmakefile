@@ -1,4 +1,4 @@
-INCLUDES=.. ../semantics ../implementation ../metatheory ../compiler ../compiler/proofs
+INCLUDES=.. ../semantics ../implementation ../metatheory ../compiler/bytecode ../compiler/proofs
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

@@ -20,7 +20,7 @@ HOLHEAP = heap
 PARENT_HOLHEAP = ../semantics/sem_heap
 POLY_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../semantics/terminationTheory ./bytecode/bytecodeTerminationTheory
+BARE_THYS = ../semantics/terminationTheory ./bytecode/bytecodeExtraTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

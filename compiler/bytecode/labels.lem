@@ -1,0 +1,36 @@
+open CompilerLib
+open Bytecode
+
+(* replace labels in bytecode with addresses *)
+
+let rec
+calculate_labels _ m n a [] = (m,n,a)
+and
+calculate_labels il m n a (Label l::lbc) =
+  calculate_labels il (Pmap.add l n m) n a lbc
+and
+calculate_labels il m n a (i::lbc) =
+  calculate_labels il m (n + il i + 1) (i::a) lbc
+
+let rec
+replace_labels _ a [] = a
+and
+replace_labels m a (Jump (Lab l)::bc) =
+  replace_labels m (Jump (Addr (fapply 0 l m))::a) bc
+and
+replace_labels m a (JumpIf (Lab l)::bc) =
+  replace_labels m (JumpIf (Addr (fapply 0 l m))::a) bc
+and
+replace_labels m a (Call (Lab l)::bc) =
+  replace_labels m (Call (Addr (fapply 0 l m))::a) bc
+and
+replace_labels m a (PushPtr (Lab l)::bc) =
+  replace_labels m (PushPtr (Addr (fapply 0 l m))::a) bc
+and
+replace_labels m a (i::bc) =
+  replace_labels m (i::a) bc
+
+let rec
+compile_labels il lbc =
+  let (m,_,bc) = calculate_labels il Pmap.empty 0 [] lbc in
+    replace_labels m [] bc

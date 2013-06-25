@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory alistTheory finite_mapTheory relationTheory lcsymtacs
-open miscLib miscTheory bytecodeTerminationTheory ToBytecodeTheory compilerTerminationTheory bytecodeEvalTheory bytecodeExtraTheory
+open miscLib miscTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory
 val _ = numLib.prefer_num()
 val _ = new_theory"compileLabels"
 
@@ -281,7 +281,7 @@ val bc_next_compile_labels = store_thm("bc_next_compile_labels",
        ALL_DISTINCT (FILTER is_Label s1.code)) ⇒
       let c = compile_labels s1.inst_length s1.code in
       bc_next (s1 with <| code := c |>) (s2 with <| code := c |>)``,
-  rw[compile_labels_def,replace_labels_thm] >>
+  rw[LabelsTheory.compile_labels_def,replace_labels_thm] >>
   imp_res_tac calculate_labels_thm >>
   rpt BasicProvers.VAR_EQ_TAC >>
   qunabbrev_tac`c` >>
@@ -347,7 +347,7 @@ val replace_labels_addrs_only = store_thm("replace_labels_addrs_only",
 
 val addrs_only_compile_labels = store_thm("addrs_only_compile_labels",
   ``EVERY addrs_only (compile_labels il ls)``,
-  rw[compile_labels_def] >>
+  rw[LabelsTheory.compile_labels_def] >>
   BasicProvers.EVERY_CASE_TAC >>
   rw[replace_labels_addrs_only])
 

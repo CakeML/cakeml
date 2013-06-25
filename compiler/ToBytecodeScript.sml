@@ -491,49 +491,5 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   let s = ( FOLDL (cce_aux menv) s ( MAP SND (free_labs 0 e))) in
   emit s [Label l]))`;
 
-
-(* replace labels in bytecode with addresses *)
-
- val calculate_labels_defn = Hol_defn "calculate_labels" `
-
-(calculate_labels _ m n a [] = (m,n,a))
-/\
-(calculate_labels il m n a (Label l::lbc) =  
-(calculate_labels il ( FUPDATE  m ( l, n)) n a lbc))
-/\
-(calculate_labels il m n a (i::lbc) =  
-(calculate_labels il m (n + il i + 1) (i ::a) lbc))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn calculate_labels_defn;
-
- val replace_labels_defn = Hol_defn "replace_labels" `
-
-(replace_labels _ a [] = a)
-/\
-(replace_labels m a (Jump (Lab l)::bc) =  
-(replace_labels m (Jump (Addr (fapply 0 l m)) ::a) bc))
-/\
-(replace_labels m a (JumpIf (Lab l)::bc) =  
-(replace_labels m (JumpIf (Addr (fapply 0 l m)) ::a) bc))
-/\
-(replace_labels m a (Call (Lab l)::bc) =  
-(replace_labels m (Call (Addr (fapply 0 l m)) ::a) bc))
-/\
-(replace_labels m a (PushPtr (Lab l)::bc) =  
-(replace_labels m (PushPtr (Addr (fapply 0 l m)) ::a) bc))
-/\
-(replace_labels m a (i::bc) =  
-(replace_labels m (i ::a) bc))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn replace_labels_defn;
-
- val compile_labels_def = Define `
-
-(compile_labels il lbc = 
-  ((case calculate_labels il FEMPTY 0 [] lbc of
-       (m,_,bc) =>
-   replace_labels m [] bc
-   )))`;
-
 val _ = export_theory()
 
