@@ -1,4 +1,4 @@
-open preamble boolSimps miscLib;
+open preamble boolSimps miscLib rich_listTheory;
 open lexer_funTheory repl_funTheory replTheory
 open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compileLabelsTheory compilerProofsTheory;
 open TypeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory;
@@ -45,6 +45,26 @@ val get_type_error_mask_def = Define `
 (get_type_error_mask (Result r rs) =
   (r = "<type error>")::get_type_error_mask rs)`;
 
+val print_envC_not_type_error = prove(``ls ≠ "<type error>" ⇒ print_envC envc ++ ls ≠ "<type error>"``,
+Induct_on`envc`>>
+simp[print_envC_def]>>
+Cases>>simp[]>>
+Induct_on`q`>>simp[SemanticPrimitivesTheory.id_to_string_def]>>
+lrw[LIST_EQ_REWRITE])
+
+val print_envE_not_type_error = prove(``print_envE en ≠ "<type error>"``,
+Induct_on`en`>>simp[print_envE_def]>>
+Cases>>simp[])
+
+val print_result_not_type_error = prove(``r ≠ Rerr Rtype_error ⇒ print_result top envc r ≠ "<type error>"``,
+  Cases_on`r`>>
+  TRY(Cases_on`e`)>>
+  TRY(PairCases_on`a`)>>
+  simp[print_result_def]>>
+  Cases_on`top`>>simp[print_result_def]>>
+  match_mp_tac print_envC_not_type_error >>
+  simp[print_envE_not_type_error])
+
 val type_infer_invariants_def = Define `
 type_infer_invariants rs rinf_st ⇔
       check_menv (FST rinf_st)
@@ -53,6 +73,26 @@ type_infer_invariants rs rinf_st ⇔
     ∧ (rs.tenvM = convert_menv (FST rinf_st))
     ∧ (rs.tenvC = FST (SND rinf_st))
     ∧ (rs.tenv = (bind_var_list2 (convert_env2 (SND (SND rinf_st))) Empty))`;
+
+val type_invariants_pres = Q.prove (
+`!rs rfs.
+  type_infer_invariants rs (infer_menv,infer_cenv,infer_env) ∧
+  infer_top infer_menv infer_cenv infer_env top init_infer_state =
+          (Success (new_infer_menv,new_infer_cenv,new_infer_env), infer_st2)
+  ⇒
+  type_infer_invariants (update_repl_state rs el0 el1 (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st'
+                                     envC (Rval (envM,envE)))
+                  (new_infer_menv ++ infer_menv, new_infer_cenv ++ infer_cenv,new_infer_env ++ infer_env)`,
+rw [update_repl_state_def, type_infer_invariants_def] >>
+`check_menv new_infer_menv ∧
+ check_cenv new_infer_cenv ∧
+ check_env {} new_infer_env`
+           by metis_tac [infer_top_invariant] >|
+[fs [check_menv_def],
+ fs [check_cenv_def],
+ fs [check_env_def],
+ rw [convert_menv_def],
+ rw [bvl2_append, convert_env2_def]]);
 
 val invariant_def = Define`
   invariant rs rfs bs ⇔
@@ -68,6 +108,7 @@ val invariant_def = Define`
     ∧ closed_under_cenv rs.envC rs.envM rs.envE rs.store
     ∧ closed_under_menv rs.envM rs.envE rs.store
     ∧ (∀v. MEM v (MAP SND rs.envE) ∨ MEM v rs.store ⇒ all_locs v ⊆ count (LENGTH rs.store))
+    ∧ good_il bs.inst_length
     ∧ ∃code. let bs' = bs with code := code in
         bs.code = compile_labels bs.inst_length code
       ∧ (∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs')
@@ -112,46 +153,6 @@ rw [invariant_def, type_infer_invariants_def, type_sound_invariants_def] >>
 fs [] >>
 rw [] >>
 metis_tac [infer_top_sound]);
-
-val type_invariants_pres = Q.prove (
-`!rs rfs.
-  type_infer_invariants rs (infer_menv,infer_cenv,infer_env) ∧
-  infer_top infer_menv infer_cenv infer_env top init_infer_state = 
-          (Success (new_infer_menv,new_infer_cenv,new_infer_env), infer_st2)
-  ⇒
-  type_infer_invariants (update_repl_state rs el0 el1 (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st' 
-                                     envC (Rval (envM,envE)))
-                  (new_infer_menv ++ infer_menv, new_infer_cenv ++ infer_cenv,new_infer_env ++ infer_env)`,
-rw [update_repl_state_def, type_infer_invariants_def] >>
-`check_menv new_infer_menv ∧
- check_cenv new_infer_cenv ∧
- check_env {} new_infer_env` 
-           by metis_tac [infer_top_invariant] >|
-[fs [check_menv_def],
- fs [check_cenv_def],
- fs [check_env_def],
- rw [convert_menv_def],
- rw [bvl2_append, convert_env2_def]]);
-
-val print_envC_not_type_error = prove(``ls ≠ "<type error>" ⇒ print_envC envc ++ ls ≠ "<type error>"``,
-Induct_on`envc`>>
-simp[print_envC_def]>>
-Cases>>simp[]>>
-Induct_on`q`>>simp[SemanticPrimitivesTheory.id_to_string_def]>>
-lrw[LIST_EQ_REWRITE])
-
-val print_envE_not_type_error = prove(``print_envE en ≠ "<type error>"``,
-Induct_on`en`>>simp[print_envE_def]>>
-Cases>>simp[])
-
-val print_result_not_type_error = prove(``r ≠ Rerr Rtype_error ⇒ print_result top envc r ≠ "<type error>"``,
-  Cases_on`r`>>
-  TRY(Cases_on`e`)>>
-  TRY(PairCases_on`a`)>>
-  simp[print_result_def]>>
-  Cases_on`top`>>simp[print_result_def]>>
-  match_mp_tac print_envC_not_type_error >>
-  simp[print_envE_not_type_error])
 
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
@@ -300,6 +301,30 @@ simp[] >>
       HINT_EXISTS_TAC >> simp[] ) >>
     fs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
 
+(* WIP
+
+  Cases_on `r` >> simp[] >- (
+    (* successful declaration *)
+    PairCases_on`a` >> simp[] >>
+    disch_then(qx_choosel_then[`bs'`,`rd'`]strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`bc_next^* bsa bs'` >>
+    qspecl_then[`bsa`,`bs'`]mp_tac RTC_bc_next_compile_labels >>
+    discharge_hyps >- (
+      simp[] >>
+      simp[Abbr`bsa`] >>
+      conj_tac >- fs[invariant_def] >>
+      simp[FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+      `ALL_DISTINCT (FILTER is_Label code) ∧
+       EVERY ($<= st.rcompiler_state.rnext_label)
+         (MAP dest_Label (FILTER is_Label code))` by (
+        cheat (* lift compile_append_out to compile_top *) ) >>
+      simp[] >>
+      fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,MEM_FILTER,bytecodeExtraTheory.is_Label_rwt] >>
+      rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
+    simp[Abbr`bsa`] >>
+    strip_tac >>
+*)
+
   disch_then kall_tac (* abandon, since cheating *) >>
 
 conj_tac >- (
@@ -382,31 +407,16 @@ val compile_primitives_renv = store_thm("compile_primitives_renv",
   pop_assum mp_tac >> EVAL_TAC >>
   rw[] >> simp[])
 
-(* Use InferSoundTheory.infer_init_thm and TypeSoundTheory.initial_type_sound_invariants *)
+val initial_bc_state_inst_length = store_thm("initial_bc_state_inst_length",
+  ``initial_bc_state.inst_length = K 0``,
+  cheat) (* needs proof that the repl setup terminates, and relationship between bc_eval and bc_next^* *)
+
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
   rw[invariant_def,initial_repl_fun_state_def,initial_elaborator_state_def,init_repl_state_def,LET_THM] >>
-  rw[check_menv_def,initial_inferencer_state_def,check_cenv_def,check_env_def]
+  rw[initial_inferencer_state_def]
   >- EVAL_TAC
-  >- (* type_sound_invariants proof *) (
-    rw[type_sound_invariants_def] >>
-    map_every qexists_tac[`[]`,`[]`] >>
-    rw[tenvM_ok_def,tenvC_ok_def,weakC_mods_def,consistent_con_env_def,weakM_def,weakC_def
-      ,TypeSoundInvariantsTheory.type_s_def,SemanticPrimitivesTheory.store_lookup_def] >>
-    cheat (*
-    rw[Once TypeSoundInvariantsTheory.type_v_cases] >>
-    rw[SemanticPrimitivesTheory.init_env_def,TypeSystemTheory.init_tenv_def
-      ,TypeSystemTheory.bind_tenv_def,LibTheory.bind_def] >>
-    rw[Once TypeSoundInvariantsTheory.type_v_cases] >- (
-      rw[Once TypeSoundInvariantsTheory.type_v_cases]
-      map_every qexists_tac [`Empty`,`Tint`,`Tfn Tint Tint`] >>
-      rw[TypeSystemTheory.bind_tenv_def,LibTheory.bind_def,LibTheory.emp_def
-        ,terminationTheory.check_freevars_def] >- cheat >>
-      rw[Once TypeSystemTheory.type_e_cases] >>
-      map_every qexists_tac[`Tint`,`Tint`] >>
-      rw[terminationTheory.check_freevars_def] >- cheat >>
-      rw[Once TypeSystemTheory.type_e_cases] >>
-    *) )
+  >- simp[typeSoundTheory.initial_type_sound_invariant]
   >- (
     simp[SemanticPrimitivesTheory.init_env_def,semanticsExtraTheory.closed_cases] >>
     simp[SUBSET_DEF] >> metis_tac[] )
@@ -417,8 +427,8 @@ val initial_invariant = prove(
     simp[SemanticPrimitivesTheory.init_env_def,compilerProofsTheory.closed_under_menv_def] >>
     simp[semanticsExtraTheory.closed_cases] >>
     simp[SUBSET_DEF] >> metis_tac[] )
-  >- (
-    fs[SemanticPrimitivesTheory.init_env_def] ) >>
+  >- ( fs[SemanticPrimitivesTheory.init_env_def] )
+  >- ( simp[good_il_def,initial_bc_state_inst_length] ) >>
 
   simp[env_rs_def,good_compile_primitives,compile_primitives_menv,compile_primitives_renv] >>
 
