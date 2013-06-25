@@ -1,4 +1,4 @@
-open HolKernel relationTheory lcsymtacs
+open HolKernel boolLib bossLib relationTheory lcsymtacs
 open BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory
 
 val _ = new_theory"bytecodeClock"
@@ -15,8 +15,6 @@ val bool_to_tag_equals = store_thm("bool_to_tag_equals",
   ``((1 = bool_to_tag b) ⇔ (b = T)) ∧
     ((0 = bool_to_tag b) ⇔ (b = F))``,
   Cases_on`b`>>rw[])
-  DB.find"bc_fetch_with"
-  bc_fetch_with_stack
 
 val bc_next_can_be_clocked = store_thm("bc_next_can_be_clocked",
   ``∀s1 s2. bc_next s1 s2 ⇒ ∃ck. bc_next (s1 with clock := SOME ck) (s2 with clock := SOME 0)``,
