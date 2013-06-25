@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib Parse lcsymtacs
-open bytecodeTerminationTheory arithmeticTheory listTheory finite_mapTheory integerTheory
+open bytecodeTerminationTheory arithmeticTheory listTheory finite_mapTheory integerTheory whileTheory relationTheory
 val _ = new_theory "bytecodeEval";
 
 val isNumber_def = Define`
@@ -327,7 +327,28 @@ val bc_eval_def = Define`bc_eval = OWHILE (IS_SOME o bc_eval1) (THE o bc_eval1)`
 val bc_eval_compute = store_thm("bc_eval_compute",
   ``∀s. bc_eval s = case bc_eval1 s of NONE => SOME s | SOME s => bc_eval s``,
   rw[bc_eval_def] >>
-  rw[Once whileTheory.OWHILE_THM] >>
+  rw[Once OWHILE_THM] >>
   BasicProvers.CASE_TAC >> fs[])
+
+val bc_eval_SOME_RTC_bc_next = store_thm("bc_eval_SOME_RTC_bc_next",
+  ``∀s1 s2. bc_eval s1 = SOME s2 ⇒ bc_next^* s1 s2 ∧ ∀s3. ¬bc_next s2 s3``,
+  simp[bc_eval_def] >>
+  ho_match_mp_tac OWHILE_IND >>
+  simp[bc_eval1_thm] >>
+  rw[] >> Cases_on`bc_eval1 s1`>>fs[] >>
+  metis_tac[bc_eval1_thm,RTC_CASES1])
+
+val RTC_bc_next_bc_eval = store_thm("RTC_bc_next_bc_eval",
+  ``∀s1 s2. bc_next^* s1 s2 ⇒ (∀s3. ¬bc_next s2 s3) ⇒ bc_eval s1 = SOME s2``,
+  ho_match_mp_tac RTC_INDUCT >>
+  rw[] >- (
+    simp[bc_eval_def] >>
+    simp[Once OWHILE_THM] >>
+    rw[] >> fs[bc_eval1_thm] >>
+    Cases_on`bc_eval1 s1`>>fs[]) >>
+  fs[bc_eval_def] >>
+  simp[Once OWHILE_THM] >>
+  rw[] >>
+  Cases_on`bc_eval1 s1`>>fs[bc_eval1_thm])
 
 val _ = export_theory();
