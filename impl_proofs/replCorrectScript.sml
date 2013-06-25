@@ -109,11 +109,9 @@ val invariant_def = Define`
     ∧ closed_under_menv rs.envM rs.envE rs.store
     ∧ (∀v. MEM v (MAP SND rs.envE) ∨ MEM v rs.store ⇒ all_locs v ⊆ count (LENGTH rs.store))
     ∧ good_il bs.inst_length
-    ∧ ∃code. let bs' = bs with code := code in
-        bs.code = compile_labels bs.inst_length code
-      ∧ (∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs')
-      ∧ ALL_DISTINCT (FILTER is_Label bs'.code)
-      ∧ EVERY (combin$C $< rfs.rcompiler_state.rnext_label o dest_Label) (FILTER is_Label bs'.code)
+    ∧ (∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs)
+    ∧ ALL_DISTINCT (FILTER is_Label bs.code)
+    ∧ EVERY (combin$C $< rfs.rcompiler_state.rnext_label o dest_Label) (FILTER is_Label bs.code)
     `;
 
 (*
@@ -269,16 +267,17 @@ simp[] >>
   disch_then(Q.X_CHOOSE_THEN`ck`mp_tac) >>
   disch_then(qspec_then`st.rcompiler_state`mp_tac) >>
   simp[] >>
-  `∃code' rd c.
-    bs.code = compile_labels bs.inst_length code' ∧
-    env_rs rs.envM rs.envC rs.envE st.rcompiler_state rd (c,rs.store) (bs with code := code') ∧
-    ALL_DISTINCT (FILTER is_Label code') ∧
-    EVERY (combin$C $< st.rcompiler_state.rnext_label o dest_Label) (FILTER is_Label code')` by (
+  `∃rd c.
+    env_rs rs.envM rs.envC rs.envE st.rcompiler_state rd (c,rs.store) bs ∧
+    ALL_DISTINCT (FILTER is_Label bs.code) ∧
+    EVERY (combin$C $< st.rcompiler_state.rnext_label o dest_Label) (FILTER is_Label bs.code)` by (
     fs[invariant_def,LET_THM] >> metis_tac[] ) >>
-  disch_then(qspecl_then[`rd`,`bs with <| code := code' ++ code; pc := next_addr bs.inst_length code'; clock := SOME ck|>`]mp_tac) >>
+  qmatch_assum_abbrev_tac`bc_eval bs0 = SOME bs1` >>
+  disch_then(qspecl_then[`rd`,`bs0 with clock := SOME ck`]mp_tac) >>
+  `bs0.code = bs.code ++ code` by fs[install_code_def,Abbr`bs0`] >>
   simp[] >>
   discharge_hyps >- (
-    fs[invariant_def,LET_THM] >>
+    fs[invariant_def,LET_THM,Abbr`bs0`,install_code_def] >>
     conj_tac >- cheat >> (* RK cheat: type checker guarantees this? *)
     conj_tac >- cheat >> (* RK cheat: type checker guarantees this? *)
     conj_tac >- metis_tac[] >>
@@ -294,7 +293,7 @@ simp[] >>
     conj_tac >- metis_tac[] >>
     rfs[] >>
     match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
-    map_every qexists_tac[`rd`,`(c,Cs')`,`bs with <|code := code'; pc := next_addr bs.inst_length code'|>`,`bs.refs`,`SOME ck`] >>
+    map_every qexists_tac[`rd`,`(c,Cs')`,`bs with <|pc := next_addr bs.inst_length bs.code; output := ""; cons_names := cpam css|>`,`bs.refs`,`SOME ck`] >>
     simp[BytecodeTheory.bc_state_component_equality] >>
     conj_tac >- (
       match_mp_tac toBytecodeProofsTheory.Cenv_bs_with_irr >>
@@ -302,11 +301,11 @@ simp[] >>
     fs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
 
 (* WIP
-
   Cases_on `r` >> simp[] >- (
     (* successful declaration *)
     PairCases_on`a` >> simp[] >>
     disch_then(qx_choosel_then[`bs'`,`rd'`]strip_assume_tac) >>
+
     qmatch_assum_abbrev_tac`bc_next^* bsa bs'` >>
     qspecl_then[`bsa`,`bs'`]mp_tac RTC_bc_next_compile_labels >>
     discharge_hyps >- (
@@ -407,14 +406,25 @@ val compile_primitives_renv = store_thm("compile_primitives_renv",
   pop_assum mp_tac >> EVAL_TAC >>
   rw[] >> simp[])
 
-val initial_bc_state_inst_length = store_thm("initial_bc_state_inst_length",
-  ``initial_bc_state.inst_length = K 0``,
-  cheat) (* needs proof that the repl setup terminates, and relationship between bc_eval and bc_next^* *)
+val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
+  ``(initial_bc_state.inst_length = K 0) ∧
+    (ALL_DISTINCT (FILTER is_Label initial_bc_state.code)) ∧
+    (EVERY (combin$C $< (FST compile_primitives).rnext_label o dest_Label) (FILTER is_Label initial_bc_state.code))``,
+  simp[initial_bc_state_def] >>
+  Q.PAT_ABBREV_TAC`bs = install_code X Y Z` >>
+  (* cheat: repl setup terminates *)
+  `∃bs1. bc_eval bs = SOME bs1` by cheat >>
+  simp[] >>
+  imp_res_tac bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next >>
+  imp_res_tac bytecodeExtraTheory.RTC_bc_next_preserves >>
+  simp[Abbr`bs`,install_code_def] >>
+  (* cheat: compile_top version of compile_append_out *)
+  cheat)
 
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
   rw[invariant_def,initial_repl_fun_state_def,initial_elaborator_state_def,init_repl_state_def,LET_THM] >>
-  rw[initial_inferencer_state_def]
+  rw[initial_inferencer_state_def,initial_bc_state_invariant]
   >- EVAL_TAC
   >- simp[typeSoundTheory.initial_type_sound_invariant]
   >- (
@@ -428,8 +438,9 @@ val initial_invariant = prove(
     simp[semanticsExtraTheory.closed_cases] >>
     simp[SUBSET_DEF] >> metis_tac[] )
   >- ( fs[SemanticPrimitivesTheory.init_env_def] )
-  >- ( simp[good_il_def,initial_bc_state_inst_length] ) >>
+  >- ( simp[good_il_def] ) >>
 
+  (* env_rs stuff *)
   simp[env_rs_def,good_compile_primitives,compile_primitives_menv,compile_primitives_renv] >>
 
   simp[MAP_GENLIST,combinTheory.o_DEF] >>

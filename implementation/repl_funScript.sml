@@ -83,8 +83,7 @@ val parse_elaborate_infertype_compile_def = Define `
 
 val install_code_def = Define `
   install_code m code bs =
-    let code = compile_labels bs.inst_length (bs.code ++ code) in
-    bs with <| code   := code
+    bs with <| code   := bs.code ++ code
              ; pc     := next_addr bs.inst_length bs.code
              ; output := ""
              ; cons_names := m
