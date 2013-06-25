@@ -53,7 +53,7 @@ bool_to_val_def,unit_val_def,isNumber_def,
 bv_to_ov_def,
 bc_eval_stack_def,
 CONCAT_RULE(CONV_RULE(PURE_REWRITE_CONV[mk_thm([],mk_eq(``CONS:char -> string -> string``,``STRING``))]) bc_eval1_def),
-bc_eval_def,
+bc_eval_compute,
 init_bc_state_def]
 
 val _ = EmitML.eSML "bytecode" (

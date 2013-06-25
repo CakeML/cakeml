@@ -322,12 +322,12 @@ val bc_eval1_thm = store_thm("bc_eval1_thm",
   ``!s1 s2. bc_next s1 s2 = (bc_eval1 s1 = SOME s2)``,
 rw[] >> EQ_TAC >> rw[bc_eval1_SOME,bc_next_bc_eval1])
 
-val bc_eval_exists = prove(
-``∃bc_eval. ∀s. bc_eval s = case bc_eval1 s of NONE => SOME s | SOME s => bc_eval s``,
-qexists_tac `λs. OWHILE (IS_SOME o bc_eval1) (THE o bc_eval1) s` >>
-rw[] >>
-Cases_on `bc_eval1 s` >>
-rw[Once whileTheory.OWHILE_THM])
-val bc_eval_def = new_specification("bc_eval_def",["bc_eval"],bc_eval_exists)
+val bc_eval_def = Define`bc_eval = OWHILE (IS_SOME o bc_eval1) (THE o bc_eval1)`
+
+val bc_eval_compute = store_thm("bc_eval_compute",
+  ``∀s. bc_eval s = case bc_eval1 s of NONE => SOME s | SOME s => bc_eval s``,
+  rw[bc_eval_def] >>
+  rw[Once whileTheory.OWHILE_THM] >>
+  BasicProvers.CASE_TAC >> fs[])
 
 val _ = export_theory();
