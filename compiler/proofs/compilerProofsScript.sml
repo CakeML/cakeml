@@ -2071,4 +2071,97 @@ val compile_top_thm = store_thm("compile_top_thm",
     cheat ) >>
   simp[])
 
+val compile_dec_divergence = store_thm("compile_dec_divergence",
+  ``∀mn menv cenv ck s env d rd bs bc0 rs ct bdgs nl bc. (∀r. ¬evaluate_dec mn menv cenv s env d r) ∧
+      EVERY (closed menv) s ∧ EVERY (closed menv) (MAP SND env) ∧
+      EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
+      FV_dec d ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+      (∀mn n.  MEM (Long mn n) (MAP FST cenv) ⇒ MEM mn (MAP FST menv)) ∧
+      closed_under_cenv cenv menv env s ∧
+      closed_under_menv menv env s ∧
+      dec_cns d ⊆ set (MAP FST cenv) ∧
+      (∀v. MEM v (MAP SND env) ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
+      env_rs menv cenv env rs rd (ck,s) (bs with code := bc0) ∧
+      (compile_dec mn rs d = (ct,bdgs,nl,REVERSE bc)) ∧
+      (bs.code = bc0 ++ bc) ∧
+      (bs.pc = next_addr bs.inst_length bc0) ∧
+      IS_SOME bs.clock ∧
+      ALL_DISTINCT (FILTER is_Label bc0) ∧
+      EVERY (combin$C $< rs.rnext_label o dest_Label) (FILTER is_Label bc0)
+      ⇒
+      ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0``,
+    rw[] >>
+    Cases_on`∃ts. d = Dtype ts` >- (
+      rw[] >> fs[Once evaluate_dec_cases,FORALL_PROD] >>
+      metis_tac[] ) >>
+    Cases_on`d`>>fs[]>>rw[]>>fs[Once evaluate_dec_cases,FORALL_PROD] >- (
+      Cases_on`ALL_DISTINCT (pat_bindings p [])`>>fs[] >>
+      Cases_on`∃r. evaluate F menv cenv (0,s) env e r` >> fs[] >- (
+        PairCases_on`r` >>
+        Cases_on`r2`>>fs[] >- (
+          Cases_on`pmatch cenv r1 p a emp`>>fs[] >>
+          metis_tac[] ) >>
+        metis_tac[] ) >>
+      fs[big_clocked_unclocked_equiv_timeout] >>
+      fs[compile_dec_def,LET_THM] >>
+      pop_assum(qspec_then`ck`strip_assume_tac) >>
+      qabbrev_tac`vars = pat_bindings p[]` >>
+      qabbrev_tac`exp = Con (Short "") (MAP (Var o Short) vars)` >>
+      `Short "" ∉ set (MAP FST cenv)` by ( fs[env_rs_def]) >>
+      `evaluate T menv ((Short "",(LENGTH vars,ARB))::cenv) (ck,s) env (Mat e [(p,exp)]) ((0,s'),Rerr Rtimeout_error)` by (
+        rw[Once evaluate_cases] >> disj2_tac >>
+        imp_res_tac evaluate_extend_cenv >> rw[] ) >>
+      qspecl_then[`mn = NONE`,`rs`,`vars`,`λb. Mat e [(p,b)]`,`menv`,`(LENGTH vars,ARB)`,`cenv`,`(ck,s)`,`env`]mp_tac compile_fake_exp_val >>
+      simp[] >>
+      disch_then(qspecl_then[`0,s'`,`Rerr Rtimeout_error`]mp_tac) >>
+      simp[] >>
+      disch_then(qspecl_then[`rd`,`bc0`,`bs`]mp_tac) >>
+      simp[] >>
+      discharge_hyps >- (
+        imp_res_tac compile_fake_exp_contab >> simp[] >>
+        qunabbrev_tac`vars` >>
+        fs[markerTheory.Abbrev_def,FV_list_MAP] >>
+        fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,EXISTS_PROD,all_cns_list_MAP] >>
+        metis_tac[] ) >>
+      metis_tac[] ) >>
+    Cases_on`ALL_DISTINCT (MAP (λ(x,y,z). x) l)`>>fs[])
+
+val compile_top_divergence = store_thm("compile_top_divergence",
+  ``∀menv cenv s env top rs rd ck bc0 bs ss sf code. (∀res. ¬evaluate_top menv cenv s env top res) ∧
+      EVERY (closed menv) s ∧ EVERY (closed menv) (MAP SND env) ∧
+      EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
+      FV_top top ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+      (∀mn n.  MEM (Long mn n) (MAP FST cenv) ⇒ MEM mn (MAP FST menv)) ∧
+      closed_under_cenv cenv menv env s ∧
+      closed_under_menv menv env s ∧
+      top_cns top ⊆ set (MAP FST cenv) ∧
+      (∀v.  MEM v (MAP SND env) ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
+      env_rs menv cenv env rs rd (ck,s) (bs with code := bc0) ∧
+      (compile_top rs top = (ss,sf,code)) ∧
+      bs.code = bc0 ++ code ∧
+      bs.pc = next_addr bs.inst_length bc0 ∧
+      IS_SOME bs.clock ∧
+      ALL_DISTINCT (FILTER is_Label bc0) ∧
+      EVERY (combin$C $< rs.rnext_label o dest_Label) (FILTER is_Label bc0)
+      ⇒
+      ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0``,
+    rw[] >>
+    Cases_on`top`>- (
+      (* Modules *)
+      cheat ) >>
+    fs[Once evaluate_top_cases] >>
+    Cases_on`∃r. evaluate_dec NONE menv cenv s env d r`>>fs[]>-(
+      PairCases_on`r`>>fs[]>>
+      Cases_on`r1`>>fs[]>>
+      TRY(PairCases_on`a`)>>fs[FORALL_PROD]>>
+      metis_tac[] ) >>
+    qspecl_then[`NONE`,`menv`,`cenv`,`ck`,`s`,`env`,`d`]mp_tac compile_dec_divergence >>
+    simp[] >>
+    disch_then(qspecl_then[`rd`,`bs`,`bc0`,`rs`]mp_tac) >>
+    simp[]>>
+    qabbrev_tac`p = compile_dec NONE rs d`>>PairCases_on`p` >>
+    fs[compile_top_def,LET_THM,Once SWAP_REVERSE] >>
+    disch_then match_mp_tac >>
+    metis_tac[])
+
 val _ = export_theory()
