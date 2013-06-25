@@ -580,4 +580,26 @@ rw [] >|
                 result_distinct,result_11, error_result_distinct,result_nchotomy, error_result_nchotomy],
  metis_tac [big_exp_determ, pair_CASES, PAIR_EQ, big_unclocked, add_clock]]);
 
+val dec_evaluate_not_timeout = Q.store_thm ("dec_evaluate_not_timeout",
+`!mn menv (cenv:envC) s env d s' r.
+  evaluate_dec mn menv cenv s env d (s', r) ⇒ r ≠ Rerr Rtimeout_error`,
+rw [evaluate_dec_cases] >>
+metis_tac [big_unclocked]);
+
+val decs_evaluate_not_timeout = Q.store_thm ("decs_evaluate_not_timeout",
+`!mn menv (cenv:envC) s env ds r.
+  evaluate_decs mn menv cenv s env ds r ⇒
+    !s' cenv' r'. r = (s', cenv', r') ⇒ r' ≠ Rerr Rtimeout_error`,
+ho_match_mp_tac evaluate_decs_ind >>
+rw [] >-
+metis_tac [dec_evaluate_not_timeout] >>
+cases_on `r` >>
+rw [combine_dec_result_def]);
+
+val top_evaluate_not_timeout = Q.store_thm ("top_evaluate_not_timeout",
+`!mn menv (cenv:envC) s env top s' cenv' r.
+  evaluate_top menv cenv s env top (s', cenv', r) ⇒ r ≠ Rerr Rtimeout_error`,
+rw [evaluate_top_cases] >>
+metis_tac [dec_evaluate_not_timeout, decs_evaluate_not_timeout]);
+
 val _ = export_theory ();
