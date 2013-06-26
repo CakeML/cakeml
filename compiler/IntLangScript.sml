@@ -13,6 +13,7 @@ val _ = new_theory "IntLang"
 
 (* Intermediate language *)
 
+(*open Lib*)
 (*open CompilerLib*)
 (*open Ast*)
 (*open SemanticPrimitives*)
@@ -342,7 +343,7 @@ Cevaluate menv s env (CPrim1 uop e) (s', Cexc err))
 /\
 (! menv s env p2 e1 e2 s' v1 v2.
 (Cevaluate_list menv s env [e1;e2] (s', Cval [v1;v2]) /\
-((v2 = CLitv (IntLit i0)) ==> p2 <> CDiv /\ p2 <> CMod))
+((v2 = CLitv (IntLit ( & 0))) ==> p2 <> CDiv /\ p2 <> CMod))
 ==>
 Cevaluate menv s env (CPrim2 p2 e1 e2) (s', CevalPrim2 p2 v1 v2))
 /\

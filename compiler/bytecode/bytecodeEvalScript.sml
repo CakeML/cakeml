@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib Parse lcsymtacs
-open bytecodeTerminationTheory arithmeticTheory listTheory finite_mapTheory integerTheory whileTheory relationTheory
+open SemanticPrimitivesTheory bytecodeTerminationTheory arithmeticTheory listTheory finite_mapTheory integerTheory whileTheory relationTheory
 val _ = new_theory "bytecodeEval";
 
 val isNumber_def = Define`
@@ -206,7 +206,7 @@ val bc_eval1_def = Define`
   | (Print, x::xs) =>
     SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE(ov_to_string(bv_to_ov s.cons_names x))))) s.output |>)
   | (PrintE, Number i::xs) =>
-    SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE(CONCAT["raise <";string_of_int i;">"])))) s.output |>)
+    SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE(CONCAT["raise <";int_to_string i;">"])))) s.output |>)
   | (PrintE, Block n []::xs) =>
     if n = 5 ∧ n = 5 then
     SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE("raise <Bind>")))) s.output |>)

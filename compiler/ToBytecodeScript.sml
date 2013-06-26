@@ -13,6 +13,7 @@ val _ = new_theory "ToBytecode"
 
 (* Intermediate Language to Bytecode *)
 
+(*open Lib*)
 (*open Ast*)
 (*open CompilerLib*)
 (*open CompilerPrimitives*)
@@ -272,7 +273,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (compile_closures env sz s defs =  
 (let nk = ( LENGTH defs) in
-  let s = ( num_fold (\ s . emit s [Stack (PushInt i0); Ref]) s nk) in
+  let s = ( num_fold (\ s . emit s [Stack (PushInt ( & 0)); Ref]) s nk) in
   (* RefPtr_1 0, ..., RefPtr_nk 0, *)
   let (s,ecs) = ( FOLDL push_lab (s,[]) ( REVERSE defs)) in
   (* CodePtr 1, ..., CodePtr nk, RefPtr_1 0, ..., RefPtr_nk 0, *)

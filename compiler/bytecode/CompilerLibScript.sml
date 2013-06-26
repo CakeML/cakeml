@@ -21,24 +21,6 @@ val _ = new_theory "CompilerLib"
 
 (*val least : (num -> bool) -> num*)
 
-(*val int_of_num : num -> int*)
-
-(*val num_of_int : int -> num*)
-
-(*val string_of_num : num -> string*)
-
-(*val neg : int -> int*)
-
-val _ = Define `
- i0 = ( int_of_num 0)`;
-
-val _ = Define `
- i1 = ( int_of_num 1)`;
-
-val _ = Define `
- i2 = ( int_of_num 2)`;
-
-
  val find_index_defn = Hol_defn "find_index" `
 
 (find_index _ [] _ = NONE)

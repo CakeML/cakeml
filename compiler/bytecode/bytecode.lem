@@ -1,3 +1,4 @@
+open Lib
 open Ast
 open CompilerLib
 open Printer
@@ -185,10 +186,10 @@ and
 forall n m xs. true ==>
 bc_stack_op Mult (Number n::Number m::xs) (Number (Int.( * ) m n)::xs)
 and
-forall n m xs. not (n = int_of_num 0) ==>
+forall n m xs. not (n = i 0) ==>
 bc_stack_op Div  (Number n::Number m::xs) (Number (Int.(/) m n)::xs)
 and
-forall n m xs. not (n = int_of_num 0) ==>
+forall n m xs. not (n = i 0) ==>
 bc_stack_op Mod  (Number n::Number m::xs) (Number (Int.(%) m n)::xs)
 
 indreln
@@ -296,7 +297,7 @@ and
 forall s x xs str.
 bc_fetch s = Some PrintE
 && (s.stack = x::xs)
-&& (exists i. x = Number i && str = string_of_int i ||
+&& (exists i. x = Number i && str = SemanticPrimitives.int_to_string i ||
     x = Block (block_tag+1) [] && str = "Bind" ||
     x = Block (block_tag+2) [] && str = "Div")
 ==>

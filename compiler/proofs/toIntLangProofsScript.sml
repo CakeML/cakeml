@@ -824,13 +824,13 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         qpat_assum`Cevaluate Cmenv X enva (exp_to_Cexp Y Z) R`mp_tac >>
         BasicProvers.CASE_TAC >- (
           simp[exp_to_Cexp_def] >>
-          fs[i0_def] >> fs[]) >>
+          fs[] >> fs[]) >>
         simp[exp_to_Cexp_def] >> strip_tac >>
-        simp[i0_def] >>
+        simp[] >>
         simp[Abbr`cnt'`,BigStepTheory.dec_count_def] >>
         fs[v_to_Cv_def] >> rw[] >>
         Cases_on`opn`>>fs[]>>
-        fs[v_to_Cv_def,opn_lookup_def,i0_def] >>
+        fs[v_to_Cv_def,opn_lookup_def] >>
         rw[]>>fs[v_to_Cv_def] >>
         metis_tac[EVERY2_syneq_trans]) >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >> fs[] >>
@@ -876,14 +876,14 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         srw_tac[DNF_ss][Once Cevaluate_cases] >>
         srw_tac[DNF_ss][Once Cevaluate_cases] >>
         fs[do_app_Opn_SOME] >>
-        rw[] >> fs[v_to_Cv_def,i0_def] >>
+        rw[] >> fs[v_to_Cv_def] >>
         Cases_on`opn`>>fs[Abbr`cnt'`,BigStepTheory.dec_count_def]>>
         metis_tac[EVERY2_syneq_trans] ) >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
       simp[Once Cevaluate_cases] >>
-      fs[do_app_Opn_SOME] >> rw[] >> fs[v_to_Cv_def,i0_def,Abbr`cnt'`,BigStepTheory.dec_count_def] >>
+      fs[do_app_Opn_SOME] >> rw[] >> fs[v_to_Cv_def,Abbr`cnt'`,BigStepTheory.dec_count_def] >>
       Cases_on`opn`>>Cases_on`n2=0`>>fs[] >>rw[]>>fs[]>>rw[v_to_Cv_def,opn_lookup_def]>>
       metis_tac[EVERY2_syneq_trans] )
     >- (
@@ -1004,7 +1004,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         qx_gen_tac`sf` >> strip_tac >>
         qexists_tac`sf`>>
         reverse conj_tac >- metis_tac[EVERY2_syneq_trans] >>
-        rw[CompilerLibTheory.i1_def] >> ARITH_TAC )
+        rw[] >> ARITH_TAC )
       >- (
         rw[Once Cevaluate_cases] >>
         srw_tac[DNF_ss][] >>
@@ -1038,7 +1038,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         rw[Once (CONJUNCT2 Cevaluate_cases)] >>
         rw[Once (CONJUNCT2 Cevaluate_cases)] >>
         fs[] >>
-        lrw[ADD1,CompilerLibTheory.i1_def] >- ARITH_TAC >>
+        lrw[ADD1] >- ARITH_TAC >>
         metis_tac[EVERY2_syneq_trans]) )
     >- (
       rw[Once Cevaluate_cases] >>

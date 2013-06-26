@@ -91,13 +91,6 @@ print_envM envM = CONCAT (MAP (λ(x,m). "module " ++ x ++ " = <structure>") envM
 val print_envC_def = Define `
 print_envC envC = CONCAT (MAP (λ(x,c). id_to_string x ++ " = <constructor>") envC)`;
 
-val int_to_string_def = Define `
-int_to_string (i:int) =
-  if i < 0 then
-    "~" ++ toString (Num (0 - i))
-  else
-    toString (Num i)`;
-
 val print_lit_def = Define `
 (print_lit (IntLit i) = int_to_string i) ∧
 (print_lit (Bool T) = "true") ∧

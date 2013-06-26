@@ -1,6 +1,15 @@
 val i : num -> Int.int
 let inline {hol} i = Hol.(&)
 
+val int_to_num : int -> num
+let inline {hol} int_to_num = Hol.Num
+
+val num_to_string : num -> string
+let inline {hol} num_to_string = Hol.num_to_dec_string
+
+val neg : int -> int
+let inline {hol} neg = Hol.int_neg
+
 val all_distinct : forall 'a. list 'a -> bool
 let inline {hol} all_distinct = Hol.ALL_DISTINCT
 

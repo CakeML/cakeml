@@ -11,6 +11,7 @@ open BytecodeTheory PrinterTheory CompilerLibTheory SemanticPrimitivesTheory Ast
 
 val _ = new_theory "CompilerPrimitives"
 
+(*open Lib*)
 (*open Ast*)
 (*open SemanticPrimitives*)
 (*open CompilerLib*)
@@ -31,11 +32,11 @@ val _ = new_theory "CompilerPrimitives"
 
  val error_to_int_def = Define `
 
-(error_to_int Bind_error = i0)
+(error_to_int Bind_error = ( & 0))
 /\
-(error_to_int Div_error = i1)
+(error_to_int Div_error = ( & 1))
 /\
-(error_to_int (Int_error n) = ( int_add i2 n))`;
+(error_to_int (Int_error n) = ( int_add ( & 2) n))`;
 
 
  val num_to_bool_def = Define `

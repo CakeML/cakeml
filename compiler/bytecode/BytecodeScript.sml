@@ -11,6 +11,7 @@ open PrinterTheory CompilerLibTheory SemanticPrimitivesTheory AstTheory LibTheor
 
 val _ = new_theory "Bytecode"
 
+(*open Lib*)
 (*open Ast*)
 (*open CompilerLib*)
 (*open Printer*)
@@ -237,10 +238,10 @@ bc_stack_op Sub  (Number n ::Number m ::xs) (Number ( (int_sub) m n) ::xs))
 (! n m xs. T ==>
 bc_stack_op Mult (Number n ::Number m ::xs) (Number ( int_mul m n) ::xs))
 /\
-(! n m xs. ( ~  (n = int_of_num 0)) ==>
+(! n m xs. ( ~  (n = & 0)) ==>
 bc_stack_op Div  (Number n ::Number m ::xs) (Number ( int_div m n) ::xs))
 /\
-(! n m xs. ( ~  (n = int_of_num 0)) ==>
+(! n m xs. ( ~  (n = & 0)) ==>
 bc_stack_op Mod  (Number n ::Number m ::xs) (Number ( int_mod m n) ::xs))`;
 
 val _ = Hol_reln `
@@ -340,7 +341,7 @@ bc_next s ((bump_pc s with<| stack := xs;
 /\
 (! s x xs str.
 ((
-bc_fetch s = SOME PrintE) /\ (s.stack = x ::xs) /\ (? i. (x = Number i) /\ (str = string_of_int i) \/
+bc_fetch s = SOME PrintE) /\ (s.stack = x ::xs) /\ (? i. (x = Number i) /\ (str = SemanticPrimitives$int_to_string i) \/
     (x = Block (block_tag +1) []) /\ (str = "Bind") \/
     (x = Block (block_tag +2) []) /\ (str = "Div")))
 ==>

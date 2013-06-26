@@ -1,5 +1,6 @@
 (* Intermediate Language to Bytecode *)
 
+open Lib
 open Ast
 open CompilerLib
 open CompilerPrimitives
@@ -226,7 +227,7 @@ update_refptr nk (s,k) =
 let rec
 compile_closures env sz s defs =
   let nk = List.length defs in
-  let s = num_fold (fun s -> emit s [Stack (PushInt i0); Ref]) s nk in
+  let s = num_fold (fun s -> emit s [Stack (PushInt (i 0)); Ref]) s nk in
   (* RefPtr_1 0, ..., RefPtr_nk 0, *)
   let (s,ecs) = List.fold_left push_lab (s,[]) (List.rev defs) in
   (* CodePtr 1, ..., CodePtr nk, RefPtr_1 0, ..., RefPtr_nk 0, *)

@@ -10,11 +10,8 @@ val count : num -> set num
 val QSORT : forall 'a. ('a -> 'a -> bool) -> list 'a -> list 'a
 val SUM : list num -> num
 val o : forall 'a 'b 'c. ('b -> 'c) -> ('a -> 'b) -> ('a -> 'c)
-val int_of_num : num -> int
 val GENLIST : forall 'a. (num -> 'a) -> num -> list 'a
-val num_to_dec_string : num -> string
 val Num : int -> num
-val int_neg : int -> int
 val FLAT : list string -> string
 val BUTLASTN : forall 'a. num -> list 'a -> list 'a
 (* TODO: lem library can't handle option type *)

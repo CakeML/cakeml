@@ -1,3 +1,4 @@
+open Lib
 open Ast
 open SemanticPrimitives
 open CompilerLib
@@ -13,11 +14,11 @@ and
 every_result P (Rval v) = P v
 
 let rec
-error_to_int Bind_error = i0
+error_to_int Bind_error = (i 0)
 and
-error_to_int Div_error = i1
+error_to_int Div_error = (i 1)
 and
-error_to_int (Int_error n) = Int.(+) i2 n
+error_to_int (Int_error n) = Int.(+) (i 2) n
 
 let rec
 num_to_bool 0 = false

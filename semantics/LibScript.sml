@@ -11,6 +11,12 @@ val _ = new_theory "Lib"
 
 (*val i : num -> Int.int*)
 
+(*val int_to_num : int -> num*)
+
+(*val num_to_string : num -> string*)
+
+(*val neg : int -> int*)
+
 (*val all_distinct : forall 'a. list 'a -> bool*)
 
 (*val rtc : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)*)

@@ -463,8 +463,7 @@ val print_v_ov = store_thm("print_v_ov",
     ∧ (∀vs:v list. T)``,
   ho_match_mp_tac(TypeBase.induction_of``:v``) >>
   simp[print_v_def,v_to_Cv_def,PrinterTheory.ov_to_string_def] >>
-  Cases >> simp[PrinterTheory.ov_to_string_def,print_lit_def] >- (
-    EVAL_TAC >> rw[] ) >>
+  Cases >> simp[PrinterTheory.ov_to_string_def,print_lit_def] >>
   Cases_on`b`>>simp[PrinterTheory.ov_to_string_def,print_lit_def])
 
 val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",

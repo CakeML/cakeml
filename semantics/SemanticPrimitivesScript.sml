@@ -367,5 +367,11 @@ val _ = Define `
 /\
 (id_to_string (Long x y) = ( STRCAT  x ( STRCAT  "." y)))`;
 
+
+val _ = Define `
+ (int_to_string z =  
+(if int_lt z ( & 0) then STRCAT  "~" ( num_to_dec_string ( Num ( int_neg z)))
+  else num_to_dec_string ( Num z)))`;
+
 val _ = export_theory()
 

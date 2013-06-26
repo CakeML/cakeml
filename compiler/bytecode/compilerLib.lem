@@ -12,22 +12,6 @@ let inline {hol} drop = Hol.DROP
 val least : (num -> bool) -> num
 let inline {hol} least = Hol.LEAST
 
-val int_of_num : num -> int
-let inline {hol} int_of_num = Hol.int_of_num
-
-val num_of_int : int -> num
-let inline {hol} num_of_int = Hol.Num
-
-val string_of_num : num -> string
-let inline {hol} string_of_num = Hol.num_to_dec_string
-
-val neg : int -> int
-let inline {hol} neg = Hol.int_neg
-
-let i0 = int_of_num 0
-let i1 = int_of_num 1
-let i2 = int_of_num 2
-
 let rec
 find_index _ [] _ = None
 and

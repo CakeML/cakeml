@@ -386,7 +386,7 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
   ``∀op v1 v2 v bs bc0 bc1 st bv1 bv2 pp.
     (bs.code = bc0 ++ [Stack (prim2_to_bc op)] ++ bc1) ∧
     (bs.pc = next_addr bs.inst_length bc0) ∧
-    (v2 = CLitv(IntLit i0) ⇒ (op ≠ CDiv) ∧ (op ≠ CMod)) ∧
+    (v2 = CLitv(IntLit &0) ⇒ (op ≠ CDiv) ∧ (op ≠ CMod)) ∧
     (CevalPrim2 op v1 v2 = Cval v) ∧
     Cv_bv pp v1 bv1 ∧ Cv_bv pp v2 bv2 ∧
     (bs.stack = bv2::bv1::st) ∧
@@ -410,7 +410,7 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
   Cases_on `v2` >> TRY (Cases_on `l`) >>
   fs[] >> rw[] >> fs[Once Cv_bv_cases] >> rw[] >>
   BasicProvers.EVERY_CASE_TAC >>
-  rw[bc_eval_stack_def] >> fs[i0_def] >>
+  rw[bc_eval_stack_def] >> fs[] >>
   TRY (Cases_on `b` >> rw[]) >>
   TRY (Cases_on `b'` >> rw[]) >>
   srw_tac[ARITH_ss][] >>
@@ -1200,7 +1200,7 @@ val compile_closures_thm = store_thm("compile_closures_thm",
                   ; refs := bs.refs |++ ZIP(rs,bvs)
                   |>)``,
   rw[compile_closures_def] >>
-  qspecl_then[`i0`,`nk`,`s`]mp_tac num_fold_make_ref_thm >>
+  qspecl_then[`&0`,`nk`,`s`]mp_tac num_fold_make_ref_thm >>
   simp[] >> disch_then(Q.X_CHOOSE_THEN`bmr`strip_assume_tac) >>
   qpat_assum`Abbrev (s' = X)`kall_tac >>
   qspecl_then[`REVERSE defs`,`s'`,`[]`,`s''`,`ecs`]mp_tac FOLDL_push_lab_thm >>

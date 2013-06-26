@@ -13,6 +13,7 @@ val _ = new_theory "ToIntLang"
 
 (* Translation from CakeML to Intermediate Language *)
 
+(*open Lib*)
 (*open CompilerLib*)
 (*open IntLang*)
 (*open Ast*)
@@ -247,7 +248,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   | INR p2 =>
     CLet Ce1
       (CLet (shift 1 0 Ce2)
-        (CIf (CPrim2 CEq (CVar (Short 0)) (CLit (IntLit i0)))
+        (CIf (CPrim2 CEq (CVar (Short 0)) (CLit (IntLit ( & 0))))
              (CRaise CDiv_exc)
              (CPrim2 p2 (CVar (Short 1)) (CVar (Short 0)))))
   )))
@@ -257,13 +258,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   let Ce2 = (exp_to_Cexp m e2) in
   (case opb of
     Lt => CPrim2 CLt Ce1 Ce2
-  | Leq => CPrim2 CLt (CPrim2 CSub Ce1 Ce2) (CLit (IntLit i1))
+  | Leq => CPrim2 CLt (CPrim2 CSub Ce1 Ce2) (CLit (IntLit ( & 1)))
   | opb =>
       CLet Ce1 (
         CLet (shift 1 0 Ce2) (
           (case opb of
             Gt =>  CPrim2 CLt (CVar (Short 0)) (CVar (Short 1))
-          | Geq => CPrim2 CLt (CPrim2 CSub (CVar (Short 0)) (CVar (Short 1))) (CLit (IntLit i1))
+          | Geq => CPrim2 CLt (CPrim2 CSub (CVar (Short 0)) (CVar (Short 1))) (CLit (IntLit ( & 1)))
           | _ => CRaise CBind_exc (* should not happen *)
           )))
   )))
