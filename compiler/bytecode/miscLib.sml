@@ -1,6 +1,6 @@
 structure miscLib = struct
 open HolKernel boolLib bossLib lcsymtacs
-val _ = set_trace"goalstack print goal at top"0
+(* val _ = set_trace"goalstack print goal at top"0 *)
 fun RATOR_X_ASSUM t ttac (g as (asl,w)) = UNDISCH_THEN (first (can (match_term t) o fst o strip_comb) asl) ttac g
 fun rator_x_assum q ttac = Q_TAC (C RATOR_X_ASSUM ttac) q
 fun RATOR_ASSUM t ttac (g as (asl,w)) = ttac (ASSUME (first (can (match_term t) o fst o strip_comb) asl)) g
