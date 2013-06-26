@@ -79,7 +79,7 @@ val mmlParseREPLTop_thm = store_thm(
   pop_assum (strip_assume_tac o MATCH_MP peg_correct) >>
   simp[oHD_def, mmlvalidTheory.mmlvalid_def, gramTheory.assert_def,
        optionTheory.OPTION_IGNORE_BIND_def]);
-
+val _ = computeLib.add_persistent_funs ["mmlParseREPLTop_thm"]
 
 (* This function parses declarations, no junk is allowed at the end. *)
 val parse_def = Define `
