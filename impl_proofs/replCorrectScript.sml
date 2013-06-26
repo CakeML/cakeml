@@ -401,51 +401,85 @@ simp[] >>
       HINT_EXISTS_TAC >> simp[] ) >>
     rfs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
 
-(* WIP
   Cases_on `r` >> simp[] >- (
     (* successful declaration *)
     PairCases_on`a` >> simp[] >>
-    disch_then(qx_choosel_then[`bs'`,`rd'`]strip_assume_tac) >>
-
-    qmatch_assum_abbrev_tac`bc_next^* bsa bs'` >>
-    qspecl_then[`bsa`,`bs'`]mp_tac RTC_bc_next_compile_labels >>
-    discharge_hyps >- (
-      simp[] >>
-      simp[Abbr`bsa`] >>
-      conj_tac >- fs[invariant_def] >>
-      simp[FILTER_APPEND,ALL_DISTINCT_APPEND] >>
-      `ALL_DISTINCT (FILTER is_Label code) ∧
-       EVERY ($<= st.rcompiler_state.rnext_label)
-         (MAP dest_Label (FILTER is_Label code))` by (
-        cheat (* lift compile_append_out to compile_top *) ) >>
-      simp[] >>
-      fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,MEM_FILTER,bytecodeExtraTheory.is_Label_rwt] >>
-      rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
-    simp[Abbr`bsa`] >>
+    disch_then(qx_choosel_then[`bs2`,`rd2`]strip_assume_tac) >>
+    qspecl_then[`bs0 with clock := SOME ck`,`bs2`]mp_tac RTC_bc_next_can_be_unclocked >>
+    simp[] >> strip_tac >>
+    `bc_fetch bs2 = NONE` by (
+      simp[BytecodeTheory.bc_fetch_def] >>
+      match_mp_tac bc_fetch_aux_end_NONE >>
+      imp_res_tac RTC_bc_next_preserves >>
+      fs[Abbr`bs0`,install_code_def] ) >>
+    `∀s3. ¬bc_next (bs2 with clock := NONE) s3` by (
+      simp[bc_eval1_thm,bc_eval1_def,bc_fetch_with_clock] ) >>
+    `bs0 with clock := NONE = bs0` by (
+      simp[bc_state_component_equality,Abbr`bs0`,install_code_def] >>
+      fs[invariant_def] ) >>
+    qspecl_then[`bs0`,`bs2 with clock := NONE`]mp_tac RTC_bc_next_bc_eval >>
+    fs[] >> strip_tac >>
+    `bs0.output = ""` by fs[Abbr`bs0`,install_code_def] >> simp[] >>
+    simp[bc_fetch_with_clock] >>
+    first_x_assum(qspec_then`STRLEN input_rest`mp_tac) >>
+    simp[] >> disch_then(qspec_then`input_rest`mp_tac) >> simp[] >>
     strip_tac >>
-*)
+    Q.PAT_ABBREV_TAC`new_bc_state = bs2 with clock := NONE` >>
+    Q.PAT_ABBREV_TAC`new_repl_state = update_repl_state X Y Z a b cd de e f` >>
+    Q.PAT_ABBREV_TAC`new_repl_fun_state = X:repl_fun_state` >>
+    first_x_assum(qspecl_then[`new_repl_state`,`new_bc_state`,`new_repl_fun_state`]mp_tac) >>
+    simp[lexer_correct] >>
+    disch_then match_mp_tac >>
+    (* invariant preservation *)
+    cheat ) >>
 
-  disch_then kall_tac (* abandon, since cheating *) >>
+  reverse(Cases_on`e`>>fs[])>-(
+    metis_tac[bigClockTheory.top_evaluate_not_timeout] ) >>
 
-conj_tac >- (
-  (* printed output is correct *)
-  cheat ) >>
+  disch_then(qx_choosel_then[`bv`,`bs2`,`rd2`]strip_assume_tac) >>
+  qmatch_assum_rename_tac`err_bv err bv`[] >>
+  qmatch_abbrev_tac`X = PR ∧ Y` >>
+  `∃bs3. bc_next bs2 bs3 ∧ REVERSE bs3.output = PR ∧ bc_fetch bs3 = SOME Stop` by (
+    `∃ls2. bs2.code = PrintE::Stop::ls2` by (
+      imp_res_tac RTC_bc_next_preserves >>
+      fs[Abbr`bs0`,install_code_def] >>
+      fs[invariant_def] ) >>
+    `bc_fetch bs2 = SOME PrintE` by (
+      simp[BytecodeTheory.bc_fetch_def] ) >>
+    simp[print_result_def,Abbr`PR`] >>
+    `bs0.output = ""` by fs[Abbr`bs0`,install_code_def] >>
+    simp[bc_eval1_thm,bc_eval1_def,BytecodeTheory.bump_pc_def] >>
+    Cases_on`err`>>fs[compilerProofsTheory.err_bv_def,print_error_def] >>
+    simp[IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def] >>
+    simp[BytecodeTheory.bc_fetch_def,bytecodeTerminationTheory.bc_fetch_aux_def] >>
+    simp[IMPLODE_EXPLODE_I] ) >>
+  `∀s3. ¬bc_next (bs3 with clock := NONE) s3` by (
+    simp[bc_eval1_thm,bc_eval1_def,bc_fetch_with_clock] ) >>
+  qspecl_then[`bs0 with clock := SOME ck`,`bs3`]mp_tac RTC_bc_next_can_be_unclocked >>
+  discharge_hyps >- metis_tac[RTC_CASES2] >>
+  strip_tac >>
+  `bs0.clock = NONE` by fs[Abbr`bs0`,install_code_def,invariant_def] >>
+  `bs0 with clock := NONE = bs0` by simp[bc_state_component_equality] >>
+  fs[Abbr`X`,Abbr`PR`,Abbr`Y`] >>
+  imp_res_tac RTC_bc_next_bc_eval >>
+  fs[] >>
+  BasicProvers.VAR_EQ_TAC >>
+  simp[] >>
+  simp[bc_fetch_with_clock] >>
+  first_x_assum(qspec_then`STRLEN input_rest`mp_tac) >>
+  simp[] >> disch_then(qspec_then`input_rest`mp_tac) >> simp[] >>
+  strip_tac >>
+  Q.PAT_ABBREV_TAC`new_bc_state = bs3 with clock := NONE` >>
+  Q.PAT_ABBREV_TAC`new_repl_state = update_repl_state X Y Z a b cd de e f` >>
+  Q.PAT_ABBREV_TAC`new_repl_fun_state = X:repl_fun_state` >>
+  first_x_assum(qspecl_then[`new_repl_state`,`new_bc_state`,`new_repl_fun_state`]mp_tac) >>
+  simp[lexer_correct] >>
+  disch_then match_mp_tac >>
+  (* invariant preservation *)
+  cheat )
 
- Q.PAT_ABBREV_TAC`new_repl_state = update_repl_state X Y Z a b cd de e f` >>
- Q.PAT_ABBREV_TAC`new_repl_fun_state = if X then Y else Z:repl_fun_state` >>
- qmatch_assum_rename_tac`bc_eval X = SOME new_bc_state`["X"] >>
- first_x_assum(qspec_then`STRLEN input_rest`mp_tac) >>
- simp[] >>
- disch_then (Q.SPEC_THEN `input_rest` strip_assume_tac) >> fs [] >>
- pop_assum (ASSUME_TAC o Q.SPECL [`new_repl_state`, `new_bc_state`,`new_repl_fun_state`]) >>
- Cases_on`bc_fetch bs = SOME Stop`>-(
-   (* Exception *)
-   cheat) >>
- fs[] >>
- (* SO cheat: Because new_bc_state.pc ≠ 1, I think the compiler proof
-  * should guarantee that the semantics evaluate to a value *)
- `?envM envE. r = Rval (envM,envE)` by cheat >>
- rw [] >>
+(* WIP on invariant preservation
+
  `type_infer_invariants new_repl_state (new_infer_menv ++ infer_menv,
                                   new_infer_cenv ++ infer_cenv,
                                   new_infer_env ++ infer_env)`
@@ -498,10 +532,8 @@ conj_tac >- (
                  imp_res_tac bc_eval_SOME_RTC_bc_next >>
                  imp_res_tac RTC_bc_next_preserves >>
                  fs[install_code_def] >>
-                 rfs[invariant_def]) >>
-
- fs [] >>
- metis_tac [lexer_correct]);
+                 rfs[invariant_def])
+*)
 
 val FST_compile_fake_exp_contab = store_thm("FST_compile_fake_exp_contab",
   ``FST (compile_fake_exp pr rs vs e) = rs.contab``,
