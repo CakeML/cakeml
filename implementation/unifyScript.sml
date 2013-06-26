@@ -556,15 +556,15 @@ val encode_infer_t_inj_rwt = Q.prove(
 val t_unify_ind = store_thm("t_unify_ind",
   ``!P0 P1.
       (!s t1 t2.
+         t_wfs s ∧
          (!ts1 ts2 tc2.
-            t_wfs s ∧
             t_walk s t1 = Infer_Tapp ts1 tc2 /\
             t_walk s t2 = Infer_Tapp ts2 tc2 ==>
             P1 s ts1 ts2) ==>
          P0 s t1 t2) /\
       (!s ts1 ts2.
+         t_wfs s ∧
          (!t1 ts1' t2 ts2' s'.
-            t_wfs s ∧
             (ts1 = t1::ts1' /\ ts2 = t2::ts2') /\
             t_unify s t1 t2 = SOME s' ==>
             P1 s' ts1' ts2') /\
@@ -573,6 +573,8 @@ val t_unify_ind = store_thm("t_unify_ind",
          P1 s ts1 ts2) ==>
       (!s t1 t2. t_wfs s ==> P0 s t1 t2) /\
       (!s ts1 ts2. t_wfs s ==> P1 s ts1 ts2)``,
+cheat);
+      (*
   rpt gen_tac >> strip_tac >>
   Q.ISPEC_THEN`λs t1 t2.
     (∀us u1 u2. wfs s ∧ (s = encode_infer_t o_f us) ∧ (t1 = encode_infer_t u1) ∧ (t2 = encode_infer_t u2) ⇒ P0 us u1 u2) ∧
@@ -648,6 +650,7 @@ val t_unify_ind = store_thm("t_unify_ind",
   first_x_assum(qspecl_then[`s`,`Infer_Tvar_db 0`,`Infer_Tvar_db 0`]mp_tac) >>
   simp[encode_infer_t_def] >>
   fs[t_wfs_def]);
+  *)
 
 val apply_subst_t_def = zDefine `
 apply_subst_t s t = decode_infer_t (subst_APPLY (encode_infer_t o_f s) (encode_infer_t t))`;
