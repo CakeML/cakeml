@@ -557,12 +557,14 @@ val t_unify_ind = store_thm("t_unify_ind",
   ``!P0 P1.
       (!s t1 t2.
          (!ts1 ts2 tc2.
+            t_wfs s ∧
             t_walk s t1 = Infer_Tapp ts1 tc2 /\
             t_walk s t2 = Infer_Tapp ts2 tc2 ==>
             P1 s ts1 ts2) ==>
          P0 s t1 t2) /\
       (!s ts1 ts2.
          (!t1 ts1' t2 ts2' s'.
+            t_wfs s ∧
             (ts1 = t1::ts1' /\ ts2 = t2::ts2') /\
             t_unify s t1 t2 = SOME s' ==>
             P1 s' ts1' ts2') /\
@@ -824,5 +826,47 @@ rw [t_rangevars_def, rangevars_def, EXTENSION] >>
 EQ_TAC >>
 rw [t_vars_def, FRANGE_DEF, o_f_FAPPLY] >>
 metis_tac [o_f_FAPPLY]);
+
+val t_vars_eqn = Q.store_thm ("t_vars_eqn",
+`(!x. t_vars (Infer_Tvar_db x) = {}) ∧
+ (!ts tc. t_vars (Infer_Tapp ts tc) = BIGUNION (set (MAP t_vars ts))) ∧
+ (!u. t_vars (Infer_Tuvar u) = {u})`,
+rw [t_vars_def, encode_infer_t_def] >>
+induct_on `ts` >>
+rw [encode_infer_t_def, t_vars_def]);
+
+val t_vwalk_to_var = Q.store_thm("t_vwalk_to_var",
+`t_wfs s ==> !v u. (t_vwalk s v = Infer_Tuvar u) ==> u NOTIN FDOM s`,
+rw [t_wfs_def, t_vwalk_def] >>
+imp_res_tac vwalk_to_var >>
+fs [] >>
+pop_assum match_mp_tac >>
+qexists_tac `v` >>
+`encode_infer_t (decode_infer_t (vwalk (encode_infer_t o_f s) v)) = encode_infer_t (Infer_Tuvar u)`
+               by metis_tac [] >>
+fs [encode_infer_t_def] >>
+`t_wfs s` by metis_tac [t_wfs_def] >>
+fs [encode_vwalk, decode_left_inverse]);
+
+val t_walkstar_vars = Q.store_thm ("t_walkstar_vars",
+`!s. t_wfs s ⇒
+  !t x. x ∈ t_vars (t_walkstar s t) ⇒ x ∉ FDOM s`,
+STRIP_TAC >>
+STRIP_TAC >>
+imp_res_tac t_walkstar_ind >>
+pop_assum ho_match_mp_tac >>
+STRIP_TAC >>
+ASM_SIMP_TAC (srw_ss()) [t_walkstar_eqn] >>
+cases_on `t_walk s t` >>
+rw [] >|
+[fs [t_vars_eqn],
+ fs [MEM_MAP, t_vars_eqn] >>
+     rw [] >>
+     res_tac >>
+     pop_assum mp_tac >>
+     rw [GSYM t_walkstar_eqn],
+ cases_on `t` >>
+     fs [t_walk_eqn, t_vars_eqn] >>
+     metis_tac [t_vwalk_to_var]]);
 
 val _ = export_theory ();
