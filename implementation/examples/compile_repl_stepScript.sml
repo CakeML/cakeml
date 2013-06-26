@@ -35,6 +35,7 @@ val many_o10 = EVAL ``GENLIST (K ^Dlet_o) 10`` |> concl |> rhs
 val many_o20 = EVAL ``GENLIST (K ^Dlet_o) 20`` |> concl |> rhs
 val many_o40 = EVAL ``GENLIST (K ^Dlet_o) 40`` |> concl |> rhs
 val many_o80 = EVAL ``GENLIST (K ^Dlet_o) 80`` |> concl |> rhs
+val many_o160 = EVAL ``GENLIST (K ^Dlet_o) 160`` |> concl |> rhs
 
 val _ = PolyML.fullGC();
 val _ = time EVAL ``compile_decs init_compiler_state ^many_o10 stop_NIL``
@@ -44,6 +45,8 @@ val _ = PolyML.fullGC();
 val _ = time EVAL ``compile_decs init_compiler_state ^many_o40 stop_NIL``
 val _ = PolyML.fullGC();
 val _ = time EVAL ``compile_decs init_compiler_state ^many_o80 stop_NIL``
+val _ = PolyML.fullGC();
+val _ = time EVAL ``compile_decs init_compiler_state ^many_o160 stop_NIL``
 
 val _ = computeLib.stoppers := NONE
 val num_compset = reduceLib.num_compset()
