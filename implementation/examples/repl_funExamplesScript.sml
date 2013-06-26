@@ -8,6 +8,8 @@ fun run_print_save name input = let
   val _ = print"\n"
 in save_thm(name,thm) end
 
+(* val _ = computeLib.add_persistent_funs ["while.OWHILE_THM"] *)
+
 val input = ``"val x = true; val y = 2;"``
 val _ = run_print_save "ex1" input
 
