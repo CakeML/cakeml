@@ -1269,6 +1269,21 @@ val mk_id_inj = store_thm("mk_id_inj",
   rw[AstTheory.mk_id_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[])
 
+val closed_context_def = Define`
+  closed_context menv cenv s env ⇔
+    EVERY (closed menv) s ∧
+    EVERY (closed menv) (MAP SND env) ∧
+    EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
+    (∀mn n. MEM (Long mn n) (MAP FST cenv) ⇒ MEM mn (MAP FST menv)) ∧
+    closed_under_cenv cenv menv env s ∧
+    closed_under_menv menv env s ∧
+    (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s))`
+
+val good_labels_def = Define`
+  good_labels nl code ⇔
+    ALL_DISTINCT (FILTER is_Label code) ∧
+    EVERY (combin$C $< nl o dest_Label) (FILTER is_Label code)`
+
 val tac =
   rpt BasicProvers.VAR_EQ_TAC >>
   qmatch_abbrev_tac`env_rs menv cenv renv rs1 rd1 s1 bs1`>>
@@ -1280,23 +1295,16 @@ val tac =
 val compile_dec_val = store_thm("compile_dec_val",
   ``∀mn menv cenv s env dec res. evaluate_dec mn menv cenv s env dec res ⇒
      ∃ck. ∀rs ct bdgs nl rd bc bs bc0.
-      EVERY (closed menv) s ∧
-      EVERY (closed menv) (MAP SND env) ∧
-      EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
+      closed_context menv cenv s env ∧
       FV_dec dec ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
       ("" ∉ new_dec_cns dec) ∧
-      (∀mn n. MEM (Long mn n) (MAP FST cenv) ⇒ MEM mn (MAP FST menv)) ∧
-      closed_under_cenv cenv menv env s ∧
-      closed_under_menv menv env s ∧
       dec_cns dec ⊆ set (MAP FST cenv) ∧
-      (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
       env_rs menv cenv env rs rd (ck,s) (bs with code := bc0) ∧
       (compile_dec mn rs dec = (ct,bdgs,nl,REVERSE bc)) ∧
       (bs.code = bc0 ++ bc) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       IS_SOME bs.clock ∧
-      ALL_DISTINCT (FILTER is_Label bc0) ∧
-      EVERY (combin$C $< rs.rnext_label o dest_Label) (FILTER is_Label bc0)
+      good_labels rs.rnext_label bc0
       ⇒
       case res of (s',Rval(cenv',env')) =>
         ∃st rf rd'.
@@ -1313,6 +1321,7 @@ val compile_dec_val = store_thm("compile_dec_val",
         err_bv err bv ∧
         env_rs menv cenv env rs' rd' (0,s') (bs' with stack := bs.stack)
       | (s',_) => T``,
+  PURE_REWRITE_TAC[closed_context_def,good_labels_def] >>
   ho_match_mp_tac evaluate_dec_ind >>
   strip_tac >- (
     rpt gen_tac >>
@@ -1982,26 +1991,23 @@ val compile_dec_val = store_thm("compile_dec_val",
     metis_tac[] ) >>
   strip_tac >- rw[])
 
+val closed_top_def = Define`
+  closed_top menv cenv s env top ⇔
+    closed_context menv cenv s env ∧
+    FV_top top ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+    top_cns top ⊆ set (MAP FST cenv)`
+
 val compile_top_thm = store_thm("compile_top_thm",
   ``∀menv cenv s env top res. evaluate_top menv cenv s env top res ⇒
      ∃ck. ∀rs rss rsf rd bc bs bc0.
-      EVERY (closed menv) s ∧
-      EVERY (closed menv) (MAP SND env) ∧
-      EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
-      FV_top top ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+      closed_top menv cenv s env top ∧
       "" ∉ new_top_cns top ∧
-      (∀mn n. MEM (Long mn n) (MAP FST cenv) ⇒ MEM mn (MAP FST menv)) ∧
-      closed_under_cenv cenv menv env s ∧
-      closed_under_menv menv env s ∧
-      top_cns top ⊆ set (MAP FST cenv) ∧
-      (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
       env_rs menv cenv env rs rd (ck,s) (bs with code := bc0) ∧
       (compile_top rs top = (rss,rsf,bc)) ∧
       (bs.code = bc0 ++ bc) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       IS_SOME bs.clock ∧
-      ALL_DISTINCT (FILTER is_Label bc0) ∧
-      EVERY (combin$C $< rs.rnext_label o dest_Label) (FILTER is_Label bc0)
+      good_labels rs.rnext_label bc0
       ⇒
       case res of (s',cenv',Rval(menv',env')) =>
         ∃bs' rd'.
@@ -2018,6 +2024,7 @@ val compile_top_thm = store_thm("compile_top_thm",
         err_bv err bv ∧
         env_rs menv cenv env rsf rd' (0,s') (bs' with stack := bs.stack)
       | (s',_) => T``,
+  PURE_REWRITE_TAC[closed_top_def] >>
   ho_match_mp_tac evaluate_top_ind >>
   strip_tac >- (
     simp[] >>
@@ -2073,24 +2080,18 @@ val compile_top_thm = store_thm("compile_top_thm",
 
 val compile_dec_divergence = store_thm("compile_dec_divergence",
   ``∀mn menv cenv ck s env d rd bs bc0 rs ct bdgs nl bc. (∀r. ¬evaluate_dec mn menv cenv s env d r) ∧
-      EVERY (closed menv) s ∧ EVERY (closed menv) (MAP SND env) ∧
-      EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
+      closed_context menv cenv s env ∧
       FV_dec d ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-      (∀mn n.  MEM (Long mn n) (MAP FST cenv) ⇒ MEM mn (MAP FST menv)) ∧
-      closed_under_cenv cenv menv env s ∧
-      closed_under_menv menv env s ∧
       dec_cns d ⊆ set (MAP FST cenv) ∧
-      (∀v. MEM v (MAP SND env) ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
       env_rs menv cenv env rs rd (ck,s) (bs with code := bc0) ∧
       (compile_dec mn rs d = (ct,bdgs,nl,REVERSE bc)) ∧
       (bs.code = bc0 ++ bc) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       IS_SOME bs.clock ∧
-      ALL_DISTINCT (FILTER is_Label bc0) ∧
-      EVERY (combin$C $< rs.rnext_label o dest_Label) (FILTER is_Label bc0)
+      good_labels rs.rnext_label bc0
       ⇒
       ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0``,
-    rw[] >>
+    rw[closed_context_def,good_labels_def] >>
     Cases_on`∃ts. d = Dtype ts` >- (
       rw[] >> fs[Once evaluate_dec_cases,FORALL_PROD] >>
       metis_tac[] ) >>
@@ -2128,24 +2129,16 @@ val compile_dec_divergence = store_thm("compile_dec_divergence",
 
 val compile_top_divergence = store_thm("compile_top_divergence",
   ``∀menv cenv s env top rs rd ck bc0 bs ss sf code. (∀res. ¬evaluate_top menv cenv s env top res) ∧
-      EVERY (closed menv) s ∧ EVERY (closed menv) (MAP SND env) ∧
-      EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
-      FV_top top ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-      (∀mn n.  MEM (Long mn n) (MAP FST cenv) ⇒ MEM mn (MAP FST menv)) ∧
-      closed_under_cenv cenv menv env s ∧
-      closed_under_menv menv env s ∧
-      top_cns top ⊆ set (MAP FST cenv) ∧
-      (∀v.  MEM v (MAP SND env) ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
+      closed_top menv cenv s env top ∧
       env_rs menv cenv env rs rd (ck,s) (bs with code := bc0) ∧
       (compile_top rs top = (ss,sf,code)) ∧
       bs.code = bc0 ++ code ∧
       bs.pc = next_addr bs.inst_length bc0 ∧
       IS_SOME bs.clock ∧
-      ALL_DISTINCT (FILTER is_Label bc0) ∧
-      EVERY (combin$C $< rs.rnext_label o dest_Label) (FILTER is_Label bc0)
+      good_labels rs.rnext_label bc0
       ⇒
       ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0``,
-    rw[] >>
+    rw[closed_top_def] >>
     Cases_on`top`>- (
       (* Modules *)
       cheat ) >>

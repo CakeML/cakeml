@@ -103,17 +103,10 @@ val invariant_def = Define`
     ∧ type_infer_invariants rs rfs.rinferencer_state
     ∧ type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store)
 
-    ∧ EVERY (closed rs.envM) rs.store
-    ∧ EVERY (closed rs.envM) (MAP SND rs.envE)
-    ∧ EVERY (EVERY (closed rs.envM) o MAP SND) (MAP SND rs.envM)
-    ∧ (∀mn n. MEM (Long mn n) (MAP FST rs.envC) ⇒ MEM mn (MAP FST rs.envM))
-    ∧ closed_under_cenv rs.envC rs.envM rs.envE rs.store
-    ∧ closed_under_menv rs.envM rs.envE rs.store
-    ∧ (∀v. MEM v (MAP SND rs.envE) ∨ MEM v rs.store ⇒ all_locs v ⊆ count (LENGTH rs.store))
+    ∧ closed_context rs.envM rs.envC rs.store rs.envE
     ∧ good_il bs.inst_length
     ∧ (∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs)
-    ∧ ALL_DISTINCT (FILTER is_Label bs.code)
-    ∧ EVERY (combin$C $< rfs.rcompiler_state.rnext_label o dest_Label) (FILTER is_Label bs.code)
+    ∧ good_labels rfs.rcompiler_state.rnext_label bs.code
 
     ∧ bs.clock = NONE
     ∧ (∃ls. bs.code = PrintE::Stop::ls)
@@ -253,9 +246,6 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
   map_every qexists_tac[`rd`,`bs0 with clock := SOME ck`,`bs.code`] >>
   conj_tac >- cheat >> (* RK cheat: type system should prove this *)
   conj_tac >- cheat >> (* RK cheat: type system should prove this *)
-  conj_tac >- metis_tac[] >>
-  conj_tac >- cheat >> (* RK cheat: type system should prove this *)
-  conj_tac >- metis_tac[] >>
   conj_tac >- (
     fs[env_rs_def,LET_THM] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
@@ -286,7 +276,8 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
       `bs0 with clock := NONE = bs0` by rw[BytecodeTheory.bc_state_component_equality,Abbr`bs0`,install_code_def] >>
       fs[] >>
       qmatch_assum_rename_tac`bc_next^* bs0 (bs1 with clock := NONE)`[]>>
-      `(bs1 with clock := NONE).code = bs0.code` by metis_tac[RTC_bc_next_preserves] in
+      `(bs1 with clock := NONE).code = bs0.code` by metis_tac[RTC_bc_next_preserves]
+    in
   reverse(Cases_on`r`>>fs[])>-(
     reverse(Cases_on`e`>>fs[])>-(
       metis_tac[bigClockTheory.top_evaluate_not_timeout] ) >>
@@ -332,9 +323,6 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
   map_every qexists_tac[`st.rcompiler_state`,`rd`,`ck+1`,`bs.code`,`bs0 with clock := SOME (ck+1)`]>>
   simp[] >>
   conj_tac >- cheat >> (* RK cheat: closedness *)
-  conj_tac >- metis_tac[] >>
-  conj_tac >- cheat >> (* RK cheat: closedness *)
-  conj_tac >- metis_tac[] >>
   conj_tac >- (
     fs[Abbr`bs0`,install_code_def,env_rs_def,LET_THM] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
@@ -389,9 +377,7 @@ simp[] >>
   disch_then(qspec_then`st.rcompiler_state`mp_tac) >>
   simp[] >>
   `∃rd c.
-    env_rs rs.envM rs.envC rs.envE st.rcompiler_state rd (c,rs.store) bs ∧
-    ALL_DISTINCT (FILTER is_Label bs.code) ∧
-    EVERY (combin$C $< st.rcompiler_state.rnext_label o dest_Label) (FILTER is_Label bs.code)` by (
+    env_rs rs.envM rs.envC rs.envE st.rcompiler_state rd (c,rs.store) bs` by (
     fs[invariant_def,LET_THM] >> metis_tac[] ) >>
   qmatch_assum_abbrev_tac`bc_eval bs0 = SOME bs1` >>
   disch_then(qspecl_then[`rd`,`bs0 with clock := SOME ck`]mp_tac) >>
@@ -401,14 +387,8 @@ simp[] >>
     fs[invariant_def,LET_THM,Abbr`bs0`,install_code_def] >>
     conj_tac >- cheat >> (* RK cheat: type checker guarantees this? *)
     conj_tac >- cheat >> (* RK cheat: type checker guarantees this? *)
-    conj_tac >- metis_tac[] >>
-    conj_tac >- cheat >> (* RK cheat: type checker guarantees this? *)
-    conj_tac >- metis_tac[] >>
     fs[env_rs_def,LET_THM] >>
-    HINT_EXISTS_TAC >>
-    HINT_EXISTS_TAC >>
-    HINT_EXISTS_TAC >>
-    simp[] >>
+    rpt HINT_EXISTS_TAC >> simp[] >>
     conj_tac >- metis_tac[] >>
     conj_tac >- metis_tac[] >>
     conj_tac >- metis_tac[] >>
@@ -470,6 +450,7 @@ conj_tac >- (
                                   new_infer_cenv ++ infer_cenv,
                                   new_infer_env ++ infer_env)`
                       by metis_tac [type_invariants_pres, invariant_def] >>
+
  (* SO cheat: The invariant must be preserved.  I'm working on lemmas for
   * the type system and semantics parts of it, but there will be compiler
   * parts too *)
@@ -479,11 +460,46 @@ conj_tac >- (
                  UNABBREV_ALL_TAC >>
                  fs [update_repl_state_def] >>
 
+                 conj_tac >- (
+                   (* elaborator invariant *)
+                   cheat ) >>
+
                  (* RK cheat: This is the type system part of the invariant *)
                  conj_tac >- cheat (* metis_tac[] *) >>
 
-                 (* SO cheat: This is the env_rs part of the invariant *)
-                 cheat) >>
+                 conj_tac >- (
+                   (*  also type system *)
+                   cheat ) >>
+
+                 conj_tac >- (
+                   (* new context is closed *)
+                   cheat ) >>
+
+                 conj_tac >- (
+                   imp_res_tac bc_eval_SOME_RTC_bc_next >>
+                   imp_res_tac RTC_bc_next_preserves >>
+                   fs[install_code_def] >>
+                   metis_tac[invariant_def] ) >>
+
+                 conj_tac >- (
+                   (* SO cheat: This is the env_rs part of the invariant *)
+                   cheat) >>
+
+                 conj_tac >- (
+                   (* new labels still distinct etc. *)
+                   cheat ) >>
+
+                 conj_tac >- (
+                   imp_res_tac bc_eval_SOME_RTC_bc_next >>
+                   imp_res_tac RTC_bc_next_clock_less >>
+                   fs[install_code_def,optionTheory.OPTREL_def,invariant_def] >>
+                   rfs[]) >>
+
+                 imp_res_tac bc_eval_SOME_RTC_bc_next >>
+                 imp_res_tac RTC_bc_next_preserves >>
+                 fs[install_code_def] >>
+                 rfs[invariant_def]) >>
+
  fs [] >>
  metis_tac [lexer_correct]);
 
@@ -529,8 +545,7 @@ val compile_primitives_renv = store_thm("compile_primitives_renv",
 
 val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   ``(initial_bc_state.inst_length = K 0) ∧
-    (ALL_DISTINCT (FILTER is_Label initial_bc_state.code)) ∧
-    (EVERY (combin$C $< (FST compile_primitives).rnext_label o dest_Label) (FILTER is_Label initial_bc_state.code)) ∧
+    good_labels (FST compile_primitives).rnext_label initial_bc_state.code ∧
     (initial_bc_state.clock = NONE) ∧
     (∃ls. initial_bc_state.code = PrintE::Stop::ls)``,
   simp[initial_bc_state_def] >>
@@ -553,16 +568,13 @@ val initial_invariant = prove(
   >- EVAL_TAC
   >- simp[typeSoundTheory.initial_type_sound_invariant]
   >- (
+    simp[closed_context_def] >>
     simp[SemanticPrimitivesTheory.init_env_def,semanticsExtraTheory.closed_cases] >>
-    simp[SUBSET_DEF] >> metis_tac[] )
-  >- (
     simp[SemanticPrimitivesTheory.init_env_def,toIntLangProofsTheory.closed_under_cenv_def] >>
-    rw[] >> rw[semanticsExtraTheory.all_cns_def] )
-  >- (
     simp[SemanticPrimitivesTheory.init_env_def,compilerProofsTheory.closed_under_menv_def] >>
     simp[semanticsExtraTheory.closed_cases] >>
+    rw[] >> rw[semanticsExtraTheory.all_cns_def] >>
     simp[SUBSET_DEF] >> metis_tac[] )
-  >- ( fs[SemanticPrimitivesTheory.init_env_def] )
   >- ( simp[good_il_def] ) >>
 
   (* env_rs stuff *)
