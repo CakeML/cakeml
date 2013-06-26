@@ -150,17 +150,28 @@ fs [] >>
 rw [] >>
 metis_tac [infer_top_sound]);
 
+val closed_SUBSET = store_thm("closed_SUBSET",
+  ``∀v. closed menv v ⇒ ∀menv'. menv_dom menv ⊆ menv_dom menv' ⇒ closed menv' v``,
+  ho_match_mp_tac semanticsExtraTheory.closed_ind >>
+  simp[] >> rw[] >- fs[EVERY_MEM] >>
+  simp[Once semanticsExtraTheory.closed_cases] >>
+  fs[EVERY_MEM] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF] >>
+  metis_tac[])
+
 val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
   ``evaluate_dec mn menv cenv s env d (s',res) ∧
     closed_context menv cenv s env ∧
     FV_dec d ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-    dec_cns d ⊆ set (MAP FST cenv)
+    dec_cns d ⊆ set (MAP FST cenv) ∧
+    LENGTH s ≤ LENGTH s' ∧
+    (∀v. MEM v s' ⇒ all_locs v ⊆ count (LENGTH s'))
     ⇒
-    let (cenv',env') = case res of Rval(c,e)=>(c++cenv,e++env) | _ => (cenv,env) in
+    let (cenv',env',b) = case res of Rval(c,e)=>(c++cenv,e++env,∀v. MEM v (MAP SND e) ⇒ all_locs v ⊆ count (LENGTH s')) | _ => (cenv,env,T) in
     let menv' = case (mn,d) of (SOME mod,Dtype _) => ((mod,[])::menv) | _ => menv in
-    closed_context menv' cenv' s' env'``,
+    b ⇒ closed_context menv' cenv' s' env'``,
   Cases_on`d`>>simp[Once evaluate_dec_cases]>>
-  Cases_on`res`>>simp[]>>strip_tac>>rpt BasicProvers.VAR_EQ_TAC>>simp[LibTheory.emp_def]>>
+  Cases_on`res`>>simp[]>>strip_tac>>rpt BasicProvers.VAR_EQ_TAC>>simp[LibTheory.emp_def]>>TRY(strip_tac)>>
   TRY (
     fs[closed_context_def] >>
     qmatch_assum_abbrev_tac`evaluate ck menv cenv s0 env e res` >>
@@ -169,7 +180,8 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
     UNABBREV_ALL_TAC >> simp[] >> strip_tac >> strip_tac >>
     conj_tac >- metis_tac[] >>
     conj_tac >- fs[closed_under_menv_def] >>
-    cheat (* RK cheat: need locations to remain in the domain of the store *) )
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS])
   >- (
     fs[closed_context_def] >>
     qmatch_assum_abbrev_tac`evaluate ck menv cenv s0 env e res` >>
@@ -187,7 +199,8 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
       fsrw_tac[DNF_ss][SUBSET_DEF,LibTheory.emp_def] >>
       metis_tac[] ) >>
     conj_tac >- fs[closed_under_menv_def] >>
-    cheat (* RK cheat: need locations to remain in the domain of the store *) )
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS])
   >- (
     simp[semanticsExtraTheory.build_rec_env_MAP] >>
     fs[closed_context_def] >>
@@ -238,19 +251,68 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
       fsrw_tac[DNF_ss][SUBSET_DEF] >>
       metis_tac[] ) >>
     fs[closed_context_def] >>
-    cheat (* RK cheat: want all these closed things to allow adding a module name to the menv *) ) >>
+    Q.PAT_ABBREV_TAC`menv' = X::menv` >>
+    `menv_dom menv ⊆ menv_dom menv'` by (
+      srw_tac[DNF_ss][SUBSET_DEF,Abbr`menv'`] ) >>
+    fs[EVERY_MEM] >>
+    conj_tac >- metis_tac[closed_SUBSET] >>
+    conj_tac >- metis_tac[closed_SUBSET] >>
+    conj_tac >- metis_tac[closed_SUBSET] >>
+    conj_tac >- (
+      simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,MEM_FLAT] >>
+      fsrw_tac[DNF_ss][MEM_MAP] >> metis_tac[] ) >>
+    conj_tac >- (
+      fs[toIntLangProofsTheory.closed_under_cenv_def,Abbr`menv'`] >>
+      simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+      fsrw_tac[DNF_ss][MEM_MAP,SUBSET_DEF] >>
+      metis_tac[] ) >>
+    conj_tac >- (
+      fs[closed_under_menv_def] >>
+      fs[EVERY_MEM] >>
+      conj_tac >- metis_tac[closed_SUBSET] >>
+      conj_tac >- metis_tac[closed_SUBSET] >>
+      simp[Abbr`menv'`] >>
+      srw_tac[DNF_ss][] >>
+      metis_tac[closed_SUBSET] ) >>
+    metis_tac[] ) >>
   Cases_on`mn`>>fs[] >>
-  cheat (* RK cheat: want all these closed things to allow adding a module name to the menv *))
+  fs[closed_context_def] >>
+  Q.PAT_ABBREV_TAC`menv' = X::menv` >>
+  `menv_dom menv ⊆ menv_dom menv'` by (
+    srw_tac[DNF_ss][SUBSET_DEF,Abbr`menv'`] ) >>
+  fs[EVERY_MEM] >>
+  conj_tac >- metis_tac[closed_SUBSET] >>
+  conj_tac >- metis_tac[closed_SUBSET] >>
+  conj_tac >- metis_tac[closed_SUBSET] >>
+  conj_tac >- (
+    simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,MEM_FLAT] >>
+    fsrw_tac[DNF_ss][MEM_MAP] >> metis_tac[] ) >>
+  conj_tac >- (
+    fs[toIntLangProofsTheory.closed_under_cenv_def,Abbr`menv'`] >>
+    simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+    fsrw_tac[DNF_ss][MEM_MAP,SUBSET_DEF] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    fs[closed_under_menv_def] >>
+    fs[EVERY_MEM] >>
+    conj_tac >- metis_tac[closed_SUBSET] >>
+    conj_tac >- metis_tac[closed_SUBSET] >>
+    simp[Abbr`menv'`] >>
+    srw_tac[DNF_ss][] >>
+    metis_tac[closed_SUBSET] ) >>
+  metis_tac[] )
 
 val evaluate_top_closed_context = store_thm("evaluate_top_closed_context",
   ``∀menv cenv s env top s' cenv' res.
     evaluate_top menv cenv s env top (s',cenv',res) ∧
     closed_context menv cenv s env ∧
     FV_top top ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-    top_cns top ⊆ set (MAP FST cenv)
+    top_cns top ⊆ set (MAP FST cenv) ∧
+    LENGTH s ≤ LENGTH s' ∧
+    (∀v. MEM v s' ⇒ all_locs v ⊆ count (LENGTH s'))
     ⇒
-    let (menv',env') = case res of Rval (m,e) => (m ++ menv,e ++ env) | _ => (menv,env) in
-    closed_context menv' (cenv'++cenv) s' env'``,
+    let (menv',env',b) = case res of Rval (m,e) => (m ++ menv,e ++ env,∀v. MEM v (MAP SND e) ⇒ all_locs v ⊆ count (LENGTH s')) | _ => (menv,env,T) in
+    b ⇒ closed_context menv' (cenv'++cenv) s' env'``,
   rpt gen_tac >>
   Cases_on`top`>>simp[Once evaluate_top_cases]>>
   Cases_on`res`>>simp[]>>strip_tac>>rpt BasicProvers.VAR_EQ_TAC>>simp[LibTheory.emp_def]
@@ -563,8 +625,13 @@ simp[] >>
       qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`store2`,`envC2`,`Rval (a0,a1)`]mp_tac evaluate_top_closed_context >>
       simp[] >>
       simp[Abbr`new_repl_state`,update_repl_state_def] >>
-      disch_then match_mp_tac >>
-      cheat (* RK cheat: type system should guarantee this?  *) ) >>
+      disch_then (match_mp_tac o MP_CANON) >>
+      simp[GSYM CONJ_ASSOC] >>
+      conj_tac >- cheat (* RK cheat: type system should guarantee this?  *) >>
+      conj_tac >- cheat (* RK cheat: type system should guarantee this?  *) >>
+      fs[type_sound_invariants_def,update_type_sound_inv_def] >>
+      cheat (* RK cheat: use type_s and type_env somehow *)
+      ) >>
     conj_tac >- (
       imp_res_tac RTC_bc_next_preserves >>
       fs[Abbr`bs0`,install_code_def] ) >>
