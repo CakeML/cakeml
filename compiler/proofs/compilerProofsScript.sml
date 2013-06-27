@@ -1273,10 +1273,10 @@ val closed_context_def = Define`
     EVERY (closed menv) s ∧
     EVERY (closed menv) (MAP SND env) ∧
     EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
-    (∀mn n. MEM (Long mn n) (MAP FST cenv) ⇒ MEM mn (MAP FST menv)) ∧
+(*    (∀mn n. MEM (Long mn n) (MAP FST cenv) ⇒ MEM mn (MAP FST menv)) ∧ *)
     closed_under_cenv cenv menv env s ∧
     closed_under_menv menv env s ∧
-    (∀v. v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s))`
+    (∀v. v ∈ menv_range menv ∨ v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s))`
 
 val good_labels_def = Define`
   good_labels nl code ⇔
