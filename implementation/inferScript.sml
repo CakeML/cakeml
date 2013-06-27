@@ -105,7 +105,7 @@ n_fresh_uvar (n:num) =
     od`;
 
 val init_infer_state_def = Define `
-  init_infer_state = <| next_uvar := 0; subst := FEMPTY |>`;
+  (init_infer_state : (num |-> infer_t) infer_st) = <| next_uvar := 0; subst := FEMPTY |>`;
 
 val init_state_def = Define `
 init_state =
