@@ -65,6 +65,13 @@ val update_state_def = Define`
           ; rcompiler_state   := cs
           |>`
 
+val update_state_err_def = Define`
+  update_state_err s is cs =
+  let (m0,c,e) = s.rinferencer_state in
+  s with <| rinferencer_state := (BUTLASTN (LENGTH m0) (strip_mod_env (FST is)) ++ m0,c,e)
+          ; rcompiler_state   := cs
+          |>`
+
 val parse_elaborate_infertype_compile_def = Define `
   parse_elaborate_infertype_compile tokens s =
     case parse_top tokens of
@@ -79,7 +86,7 @@ val parse_elaborate_infertype_compile_def = Define `
             (* type found, type safe! *)
           | Success is =>
              let (css,csf,code) = compile_top s.rcompiler_state top in
-               Success (code,update_state s es is css,s with rcompiler_state := csf)`
+               Success (code,update_state s es is css,update_state_err s is csf)`
 
 val install_code_def = Define `
   install_code m code bs =
