@@ -159,38 +159,6 @@ val closed_SUBSET = store_thm("closed_SUBSET",
   fsrw_tac[DNF_ss][SUBSET_DEF] >>
   metis_tac[])
 
-(*
-val closed_context_menv_cons = store_thm("closed_context_menv_cons",
-  ``∀menv cenv s env x.
-    closed_context menv cenv s env ⇒
-     closed_context ((x,[])::menv) cenv s env``,
-  rw[] >> fs[closed_context_def] >>
-  Q.PAT_ABBREV_TAC`menv' = X::menv` >>
-  `menv_dom menv ⊆ menv_dom menv'` by (
-    srw_tac[DNF_ss][SUBSET_DEF,Abbr`menv'`] ) >>
-  fs[EVERY_MEM] >>
-  conj_tac >- metis_tac[closed_SUBSET] >>
-  conj_tac >- metis_tac[closed_SUBSET] >>
-  conj_tac >- metis_tac[closed_SUBSET] >>
-  conj_tac >- (
-    simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,MEM_FLAT] >>
-    fsrw_tac[DNF_ss][MEM_MAP] >> metis_tac[] ) >>
-  conj_tac >- (
-    fs[toIntLangProofsTheory.closed_under_cenv_def,Abbr`menv'`] >>
-    simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
-    fsrw_tac[DNF_ss][MEM_MAP,SUBSET_DEF] >>
-    metis_tac[] ) >>
-  conj_tac >- (
-    fs[closed_under_menv_def] >>
-    fs[EVERY_MEM] >>
-    conj_tac >- metis_tac[closed_SUBSET] >>
-    conj_tac >- metis_tac[closed_SUBSET] >>
-    simp[Abbr`menv'`] >>
-    srw_tac[DNF_ss][] >>
-    metis_tac[closed_SUBSET] ) >>
-  metis_tac[] )
-*)
-
 val tac =
   rpt gen_tac >> ntac 2 strip_tac >> fs[LibTheory.bind_def] >>
   qpat_assum`P ⇒ Q`mp_tac >>
@@ -454,6 +422,26 @@ val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
   conj_tac >- ( fs[closed_under_menv_def] ) >>
   metis_tac[] )
 
+val closed_context_shift_menv = store_thm("closed_context_shift_menv",
+  ``closed_context menv cenv s (env' ++ env) ⇒
+    closed_context ((m,env')::menv) cenv s env``,
+  strip_tac >>
+  fs[closed_context_def] >>
+  fs[EVERY_MEM] >>
+  `menv_dom menv ⊆ menv_dom ((m,env')::menv)` by rw[SUBSET_DEF] >>
+  conj_tac >- metis_tac[closed_SUBSET] >>
+  conj_tac >- metis_tac[closed_SUBSET] >>
+  conj_tac >- metis_tac[closed_SUBSET] >>
+  conj_tac >- (
+    fs[toIntLangProofsTheory.closed_under_cenv_def] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rator_x_assum`closed_under_menv`mp_tac >>
+    simp[closed_under_menv_def] >>
+    simp[EVERY_MEM] >>
+    metis_tac[closed_SUBSET] ) >>
+  metis_tac[])
+
 val evaluate_top_closed_context = store_thm("evaluate_top_closed_context",
   ``∀menv cenv s env top s' cenv' res.
     evaluate_top menv cenv s env top (s',cenv',res) ∧
@@ -466,8 +454,13 @@ val evaluate_top_closed_context = store_thm("evaluate_top_closed_context",
   rpt gen_tac >>
   Cases_on`top`>>simp[Once evaluate_top_cases]>>
   Cases_on`res`>>simp[]>>strip_tac>>rpt BasicProvers.VAR_EQ_TAC>>simp[LibTheory.emp_def]
-  >- ( (* need evaluate_decs_closed *) cheat )
-  >- ( (* need evaluate_decs_closed *) cheat )
+  >- (
+    imp_res_tac evaluate_decs_closed_context >>
+    fs[LET_THM] >>
+    metis_tac[closed_context_shift_menv] )
+  >- (
+    imp_res_tac evaluate_decs_closed_context >>
+    fs[LET_THM] )
   >- (
     imp_res_tac evaluate_dec_closed_context >>
     fs[] >> fs[LET_THM] >>
