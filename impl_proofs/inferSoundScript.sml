@@ -21,6 +21,13 @@ val fupdate_list_map = Q.prove (
      simp[FOLDL_SNOC,FORALL_PROD,FAPPLY_FUPDATE_THM,FDOM_FUPDATE_LIST,MAP_SNOC,miscTheory.FUPDATE_LIST_SNOC] >>
      rw[] >> rw[])
 
+val fupdate_list_map = Q.prove (
+`!l f x y.
+  x ∈ FDOM (FEMPTY |++ l)
+ ⇒
+  ((FEMPTY |++ MAP (\(a,b). (a, f b)) l) ' x = f ((FEMPTY |++ l) ' x))`,
+cheat);
+
 val map_fst = Q.prove (
 `!l f. MAP FST (MAP (\(x,y). (x, f y)) l) = MAP FST l`,
 induct_on `l` >>
