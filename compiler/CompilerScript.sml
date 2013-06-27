@@ -130,14 +130,14 @@ val _ = Define `
 (compile_decs _ [] ac = ac)
 /\
 (compile_decs mn (dec::decs) (rs,code) =  
-(let (ct,env,nl,code) = ( compile_dec (SOME mn) rs dec) in
+(let (ct,env,nl,code') = ( compile_dec (SOME mn) rs dec) in
   compile_decs mn decs
     (( rs with<|
         contab := ct
       ; renv := env ++rs.renv
       ; rsz := rs.rsz + LENGTH env
       ; rnext_label := nl |>)
-    ,code)))`;
+    ,(code' ++code))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_decs_defn;
 

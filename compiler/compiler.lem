@@ -96,14 +96,14 @@ let rec
 compile_decs _ [] ac = ac
 and
 compile_decs mn (dec::decs) (rs,code) =
-  let (ct,env,nl,code) = compile_dec (Some mn) rs dec in
+  let (ct,env,nl,code') = compile_dec (Some mn) rs dec in
   compile_decs mn decs
     (<| rs with
         contab = ct
       ; renv = env@rs.renv
       ; rsz = rs.rsz + List.length env
       ; rnext_label = nl |>
-    ,code)
+    ,code'@code)
 
 let rec
 compile_top rs (Tmod mn _ decs) =

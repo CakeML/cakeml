@@ -437,9 +437,6 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
       metis_tac[] ) >>
     metis_tac[] ))
 
-val _ = Parse.overload_on("FV_decs",``λds. BIGUNION (IMAGE FV_dec (set ds))``)
-val _ = Parse.overload_on("dec_cns_list",``λds. BIGUNION (IMAGE dec_cns (set ds))``)
-
 val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
   ``∀mn menv cenv s env ds res. evaluate_decs mn menv cenv s env ds res ⇒
       closed_context menv cenv s env ∧
@@ -623,6 +620,7 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
   simp[] >>
   fs[invariant_def] >>
   qmatch_assum_abbrev_tac`bc_eval bs0 = NONE` >>
+  gen_tac >>
   map_every qexists_tac[`rd`,`bs0 with clock := SOME ck`,`bs.code`] >>
   conj_tac >- cheat >> (* RK cheat: type system should prove this *)
   conj_tac >- cheat >> (* RK cheat: type system should prove this *)
@@ -753,8 +751,8 @@ simp[] >>
 
   qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`(store2,envC2,r)`]mp_tac compile_top_thm >>
   simp[] >>
-  disch_then(Q.X_CHOOSE_THEN`ck`mp_tac) >>
   disch_then(qspec_then`st.rcompiler_state`mp_tac) >>
+  disch_then(Q.X_CHOOSE_THEN`ck`mp_tac) >>
   simp[] >>
   `∃rd c.
     env_rs rs.envM rs.envC rs.envE st.rcompiler_state rd (c,rs.store) bs` by (
@@ -849,7 +847,7 @@ simp[] >>
       simp[BytecodeTheory.bc_state_component_equality] >>
       rfs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
     conj_tac >- (
-      (* good_labels preservation; need compile_top version of compile_append_out? *)
+      (* need compile_top version of compile_dec_append_code *)
       cheat ) >>
     simp[Abbr`new_bc_state`] >>
     imp_res_tac RTC_bc_next_preserves >>
@@ -947,7 +945,7 @@ simp[] >>
     *)
     ) >>
   conj_tac >- (
-    (* good_labels preservation; need compile_top version of compile_append_out? *)
+    (* need compile_top version of compile_dec_append_code *)
     cheat ) >>
   simp[Abbr`new_bc_state`] >>
   imp_res_tac RTC_bc_next_preserves >>
