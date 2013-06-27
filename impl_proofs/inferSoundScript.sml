@@ -6,19 +6,27 @@ open typeSysPropsTheory;
 (* Remove automatic rewrites that break the proofs in this file *)
 val _ = diminish_srw_ss ["semanticsExtra"];
 
+val fupdate_list_map = Q.prove (
+`!l f x y.
+  x ∈ FDOM ((FEMPTY:α|->β) |++ l)
+   ⇒
+     (((FEMPTY:α|->β) |++ MAP (\(a,b). (a, f b)) l) ' x = f ((FEMPTY |++ l) ' x))`,
+     rpt gen_tac >>
+     Q.ISPECL_THEN[`FST`,`f o SND`,`l`,`FEMPTY`]mp_tac(GSYM miscTheory.FOLDL_FUPDATE_LIST) >>
+     simp[LAMBDA_PROD] >>
+     disch_then kall_tac >>
+     qid_spec_tac`l` >>
+     ho_match_mp_tac SNOC_INDUCT >>
+     simp[FUPDATE_LIST_THM] >>
+     simp[FOLDL_SNOC,FORALL_PROD,FAPPLY_FUPDATE_THM,FDOM_FUPDATE_LIST,MAP_SNOC,miscTheory.FUPDATE_LIST_SNOC] >>
+     rw[] >> rw[])
+
 val map_fst = Q.prove (
 `!l f. MAP FST (MAP (\(x,y). (x, f y)) l) = MAP FST l`,
 induct_on `l` >>
 rw [] >>
 PairCases_on `h` >>
 fs []);
-
-val fupdate_list_map = Q.prove (
-`!l f x y. 
-  x ∈ FDOM (FEMPTY |++ l)
- ⇒ 
-  ((FEMPTY |++ MAP (\(a,b). (a, f b)) l) ' x = f ((FEMPTY |++ l) ' x))`,
-cheat);
 
 val flookup_update_list_none = Q.prove (
 `!x m l.
