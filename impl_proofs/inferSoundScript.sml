@@ -13,6 +13,13 @@ rw [] >>
 PairCases_on `h` >>
 fs []);
 
+val fupdate_list_map = Q.prove (
+`!l f x y. 
+  x ∈ FDOM (FEMPTY |++ l)
+ ⇒ 
+  ((FEMPTY |++ MAP (\(a,b). (a, f b)) l) ' x = f ((FEMPTY |++ l) ' x))`,
+cheat);
+
 val flookup_update_list_none = Q.prove (
 `!x m l.
   (FLOOKUP (m |++ l) x = NONE)
@@ -38,7 +45,7 @@ rw [lookup_append, FLOOKUP_UPDATE] >|
      metis_tac [lookup_reverse_none, optionTheory.NOT_SOME_NONE],
  cases_on `lookup x (REVERSE l)` >>
      rw []]);
- 
+
 val every_count_list = Q.prove (
 `!P n. EVERY P (COUNT_LIST n) = (!m. m < n ⇒ P m)`,
 induct_on `n` >>
@@ -1256,12 +1263,11 @@ metis_tac []);
 
 val t_vwalk_check = Q.prove (
 `!s. t_wfs s ⇒ 
-  !n tvs next_uvar t. 
-    (t_vwalk s n = t) ∧ 
-    n < next_uvar ∧ 
-    check_s tvs (count next_uvar) s
+  !n tvs uvs t. 
+    n ∈ uvs ∧ 
+    check_s tvs uvs s
     ⇒
-    check_t tvs (count next_uvar) t`,
+    check_t tvs uvs (t_vwalk s n)`,
 NTAC 2 STRIP_TAC >>
 imp_res_tac (DISCH_ALL t_vwalk_ind) >>
 pop_assum ho_match_mp_tac >>
@@ -1271,22 +1277,16 @@ cases_on `FLOOKUP s n` >>
 rw [check_t_def] >>
 cases_on `x` >>
 rw [check_t_def] >>
-fs [check_s_def] >|
-[fs [FLOOKUP_DEF] >>
-     metis_tac [check_t_def, DECIDE ``!x. ~(x:num < 0)``],
- fs [FLOOKUP_DEF] >>
-     metis_tac [check_t_def, DECIDE ``!x. ~(x:num < 0)``],
- fs [FLOOKUP_DEF] >>
-     `n' ∈ count next_uvar` by metis_tac [check_t_def] >>
-     fs []]);
+fs [check_s_def, FLOOKUP_DEF] >>
+metis_tac [check_t_def, IN_UNION]);
 
-val t_walkstar_check = Q.prove (
+val t_walkstar_check' = Q.prove (
 `!s. t_wfs s ⇒
   !t tvs uvs. 
-    check_s tvs (count uvs) s ∧
-    check_t tvs (count uvs) t
+    check_s tvs (uvs ∪ FDOM s) s ∧
+    check_t tvs (uvs ∪ FDOM s) t
     ⇒
-    check_t tvs (count uvs) (t_walkstar s t)`,
+    check_t tvs uvs (t_walkstar s t)`,
 NTAC 2 STRIP_TAC >>
 imp_res_tac t_walkstar_ind >>
 pop_assum ho_match_mp_tac >>
@@ -1300,27 +1300,44 @@ rw [check_t_def, EVERY_MAP] >|
      rw [] >>
      fs [t_walk_eqn],
  fs [t_walk_eqn] >>
-     `check_t tvs (count uvs) (t_vwalk s n)`
-             by metis_tac [t_vwalk_check] >>
+     `check_t tvs (uvs ∪ FDOM s) (t_vwalk s n)`
+             by metis_tac [t_vwalk_check,  IN_UNION] >>
      cases_on `t_vwalk s n` >>
      fs [check_t_def, EVERY_MAP] >>
-     fs [EVERY_MEM]]);
+     fs [EVERY_MEM] >>
+     metis_tac [t_vwalk_to_var],
+ fs [t_walk_eqn] >>
+     `check_t tvs (uvs ∪ FDOM s) (t_vwalk s n)`
+             by metis_tac [t_vwalk_check,  IN_UNION] >>
+     cases_on `t_vwalk s n` >>
+     fs [check_t_def, EVERY_MAP] >>
+     fs [EVERY_MEM] >>
+     metis_tac [t_vwalk_to_var]]);
+
+val t_walkstar_check = Q.prove (
+`!s t tvs uvs. 
+    t_wfs s ∧
+    check_s tvs (uvs ∪ FDOM s) s ∧
+    check_t tvs (uvs ∪ FDOM s) t
+    ⇒
+    check_t tvs uvs (t_walkstar s t)`,
+metis_tac [t_walkstar_check']);
 
 val t_unify_check_s_help = Q.prove (
 `(!s t1 t2. t_wfs s ⇒ 
-    !n tvs s'. check_s tvs (count n) s ∧
-           check_t tvs (count n) t1 ∧
-           check_t tvs (count n) t2 ∧
+    !tvs uvs s'. check_s tvs uvs s ∧
+           check_t tvs uvs t1 ∧
+           check_t tvs uvs t2 ∧
            (t_unify s t1 t2 = SOME s')
            ⇒
-           check_s tvs (count n) s') ∧
+           check_s tvs uvs s') ∧
  (!s ts1 ts2. t_wfs s ⇒ 
-    !n tvs s'. check_s tvs (count n) s ∧
-           EVERY (check_t tvs (count n)) ts1 ∧
-           EVERY (check_t tvs (count n)) ts2 ∧
+    !tvs uvs s'. check_s tvs uvs s ∧
+           EVERY (check_t tvs uvs) ts1 ∧
+           EVERY (check_t tvs uvs) ts2 ∧
            (ts_unify s ts1 ts2 = SOME s')
            ⇒
-           check_s tvs (count n) s')`,
+           check_s tvs uvs s')`,
 ho_match_mp_tac t_unify_strongind >>
 rw [] >|
 [qpat_assum `t_unify s t1 t2 = SOME s'` mp_tac >>
@@ -1328,37 +1345,37 @@ rw [] >|
      cases_on `t1` >>
      cases_on `t2` >>
      fs [t_walk_eqn, t_ext_s_check_eqn, check_t_def] >|
-     [`check_t tvs (count n) (t_vwalk s n'')` by metis_tac [t_vwalk_check] >>
-          cases_on `t_vwalk s n''` >>
+     [`check_t tvs uvs (t_vwalk s n')` by metis_tac [t_vwalk_check] >>
+          cases_on `t_vwalk s n'` >>
           fs [check_t_def] >>
           fs [check_s_def] >>
           rw [check_t_def] >>
           rw [check_t_def, FAPPLY_FUPDATE_THM],
       metis_tac [],
-      `check_t tvs (count n) (t_vwalk s n')` by metis_tac [t_vwalk_check] >>
-          cases_on `t_vwalk s n'` >>
+      `check_t tvs uvs (t_vwalk s n)` by metis_tac [t_vwalk_check] >>
+          cases_on `t_vwalk s n` >>
           fs [check_t_def] >-
           metis_tac [] >>
           fs [check_s_def] >>
           rw [check_t_def] >>
           rw [check_t_def, FAPPLY_FUPDATE_THM],
-      `check_t tvs (count n) (t_vwalk s n')` by metis_tac [t_vwalk_check] >>
-          cases_on `t_vwalk s n'` >>
+      `check_t tvs uvs (t_vwalk s n)` by metis_tac [t_vwalk_check] >>
+          cases_on `t_vwalk s n` >>
           fs [check_t_def] >>
           fs [check_s_def] >>
           rw [check_t_def] >>
           rw [check_t_def, FAPPLY_FUPDATE_THM],
-      `check_t tvs (count n) (t_vwalk s n')` by metis_tac [t_vwalk_check] >>
-          cases_on `t_vwalk s n'` >>
+      `check_t tvs uvs (t_vwalk s n)` by metis_tac [t_vwalk_check] >>
+          cases_on `t_vwalk s n` >>
           fs [check_t_def] >-
           metis_tac [] >>
           fs [check_s_def] >>
           rw [check_t_def] >>
           rw [check_t_def, FAPPLY_FUPDATE_THM],
-      `check_t tvs (count n) (t_vwalk s n')` by metis_tac [t_vwalk_check] >>
+      `check_t tvs uvs (t_vwalk s n)` by metis_tac [t_vwalk_check] >>
+          cases_on `t_vwalk s n` >>
+          `check_t tvs uvs (t_vwalk s n')` by metis_tac [t_vwalk_check] >>
           cases_on `t_vwalk s n'` >>
-          `check_t tvs (count n) (t_vwalk s n'')` by metis_tac [t_vwalk_check] >>
-          cases_on `t_vwalk s n''` >>
           fs [check_t_def] >>
           TRY (fs [check_s_def] >>
                rw [check_t_def, FAPPLY_FUPDATE_THM] >>
@@ -1377,12 +1394,12 @@ rw [] >|
 val t_unify_check_s = Q.prove (
 `!s1 tvs uvs t1 t2 s2.
   t_wfs s1 ∧
-  check_s tvs (count uvs) s1 ∧ 
-  check_t tvs (count uvs) t1 ∧
-  check_t tvs (count uvs) t2 ∧
+  check_s tvs uvs s1 ∧ 
+  check_t tvs uvs t1 ∧
+  check_t tvs uvs t2 ∧
   (t_unify s1 t1 t2 = SOME s2)
   ⇒
-  check_s tvs (count uvs) s2`,
+  check_s tvs uvs s2`,
 metis_tac [t_unify_check_s_help]);
 
 val pure_add_constraints_check_s = Q.prove (
@@ -2684,6 +2701,18 @@ res_tac >>
 fs [t_walkstar_FEMPTY] >>
 metis_tac [convert_env2_def]);
 
+val generalise_complete_lemma = Q.prove (
+`!tvs ts.
+  (∀uv. uv ∈ FDOM (FEMPTY |++ ts) ⇒ ∃tv. (FEMPTY |++ ts) ' uv = tv ∧ tv < tvs)
+  ⇒
+  (∀uv. uv ∈ FDOM (FEMPTY |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts) ⇒ ∃tv. (FEMPTY |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts) ' uv = Infer_Tvar_db tv ∧ tv < tvs)`,
+rw [FDOM_FUPDATE_LIST, MEM_MAP] >>
+PairCases_on `y'` >>
+fs [] >>
+`y'0 ∈ FDOM (FEMPTY |++ ts)` 
+        by (rw [FDOM_FUPDATE_LIST, MEM_MAP] >> metis_tac [FST]) >>
+metis_tac [FST, fupdate_list_map]);
+
 val unfinished = cheat;
 val generalise_complete = Q.prove (
 `!s l tvs s' ts tvs next_uvar.
@@ -2716,7 +2745,7 @@ rw [] >>
                  fs [MEM_MAP] >>
                  rw [EXTENSION, DISJOINT_DEF] >>
                  fs [] >>
-                 metis_tac [t_walkstar_vars]) >>
+                 metis_tac [t_walkstar_vars_notin]) >>
 `t_wfs (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts |++ ts2)` 
       by (`t_vR s = t_vR (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts |++ ts2)`
              by (rw [t_vR_eqn, FUN_EQ_THM] >>
@@ -2757,6 +2786,17 @@ rw [] >>
                   rw []]) >>
          fs [t_vars_eqn, t_wfs_eqn] >>
          metis_tac []) >>
+`count next_uvar ⊆ FDOM (s |++ (MAP (\(uv,tv). (uv, Infer_Tvar_db tv)) ts) |++ ts2)`
+      by (rw [FDOM_FUPDATE_LIST, SUBSET_DEF] >>
+          CCONTR_TAC >>
+          fs [] >>
+          `x ∉ FDOM (FEMPTY |++ ts2)` by metis_tac [FDOM_FUPDATE_LIST, IN_UNION, FDOM_FEMPTY, NOT_IN_EMPTY] >>
+          pop_assum mp_tac >>
+          rw [FLOOKUP_FUN_FMAP] >>
+          `x ∉ set (MAP FST ts)` by metis_tac [map_fst] >>
+          `x ∉ FDOM (FEMPTY |++ ts)` by metis_tac [FDOM_FUPDATE_LIST, IN_UNION, FDOM_FEMPTY, NOT_IN_EMPTY] >>
+          Q.UNABBREV_TAC `unconstrained` >>
+          rw []) >>
 (*
 `DISJOINT (FDOM (FEMPTY |++ ts)) (FDOM (FEMPTY |++ ts2))` by cheat >>
 `!t. infer_subst (FEMPTY |++ ts) (t_walkstar s t) = t_walkstar (s |++ (MAP (\(uv,tv). (uv, Infer_Tvar_db tv)) ts)) t` by cheat >>
@@ -2767,17 +2807,26 @@ qexists_tac `s |++ (MAP (\(uv,tv). (uv, Infer_Tvar_db tv)) ts) |++ ts2` >>
 rw [] >|
 [unfinished,
  unfinished,
- rw [FDOM_FUPDATE_LIST, SUBSET_DEF] >>
-     CCONTR_TAC >>
-     fs [] >>
-     `x ∉ FDOM (FEMPTY |++ ts2)` by metis_tac [FDOM_FUPDATE_LIST, IN_UNION, FDOM_FEMPTY, NOT_IN_EMPTY] >>
+ ONCE_REWRITE_TAC [GSYM COUNT_ZERO] >>
+     match_mp_tac t_walkstar_check >>
+     rw [check_t_def, check_s_def] >>
+     `FLOOKUP (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts |++ ts2) uv' = SOME ((s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts |++ ts2) ' uv')` 
+                    by rw [FLOOKUP_DEF] >>
      pop_assum mp_tac >>
-     rw [FLOOKUP_FUN_FMAP] >>
-     `x ∉ set (MAP FST ts)` by metis_tac [map_fst] >>
-     `x ∉ FDOM (FEMPTY |++ ts)` by metis_tac [FDOM_FUPDATE_LIST, IN_UNION, FDOM_FEMPTY, NOT_IN_EMPTY] >>
-     Q.UNABBREV_TAC `unconstrained` >>
-     rw [],
- unfinished]);
+     rw [flookup_update_list_some] >>
+     Q.ABBREV_TAC `last_sub = s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts |++ ts2` >|
+     [`FLOOKUP (FEMPTY |++ ts2) uv' = SOME (last_sub ' uv')` by metis_tac [flookup_update_list_some] >>
+          pop_assum mp_tac >>
+          rw [FLOOKUP_FUN_FMAP] >>
+          metis_tac [check_t_def, EVERY_DEF],
+      `FLOOKUP (FEMPTY |++ (MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts)) uv' = SOME (last_sub ' uv')`
+                    by metis_tac [flookup_update_list_some] >>
+          `(!uv. uv ∈ FDOM (FEMPTY |++ (MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts)) ⇒ ∃tv. (FEMPTY |++ (MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts)) ' uv = Infer_Tvar_db tv ∧ tv < tvs)`
+                   by metis_tac [generalise_complete_lemma] >>
+          fs [FLOOKUP_DEF] >>
+          metis_tac [check_t_def],
+      fs [check_s_def, FLOOKUP_DEF] >>
+          metis_tac [check_t_more2, check_t_more5, arithmeticTheory.ADD_0]]]);
 
 val check_build_ctor_tenv = Q.prove (
 `!mn cenv l. check_ctor_tenv mn cenv l ⇒ check_cenv (build_ctor_tenv mn l)`,
@@ -3220,13 +3269,19 @@ rw [] >|
      imp_res_tac t_unify_wfs >>
      imp_res_tac t_unify_apply >>
      imp_res_tac check_env_lookup >>
-     qexists_tac `MAP (\n. convert_t (t_walkstar s (Infer_Tuvar n))) (COUNT_LIST tvs_impl)` >>
+     qexists_tac `MAP (\n. convert_t (if n ∈ FDOM s then t_walkstar s (Infer_Tuvar n) else Infer_Tapp [] TC_unit)) (COUNT_LIST tvs_impl)` >>
      rw [LENGTH_COUNT_LIST, check_t_to_check_freevars, EVERY_MAP] >|
      [rw [EVERY_MEM] >>
-          `check_t tvs_spec {} (t_walkstar s (Infer_Tuvar n'))`
-                     by (match_mp_tac (hd (CONJUNCTS check_t_walkstar)) >>
+          `check_t tvs_spec {} (if n' ∈ FDOM s then t_walkstar s (Infer_Tuvar n') else Infer_Tapp [] TC_unit)`
+                     by (rw [check_t_def] >>
+                         match_mp_tac t_walkstar_check >>
                          rw [check_t_def] >>
-                         cheat) >>
+                         match_mp_tac t_unify_check_s >>
+                         MAP_EVERY qexists_tac [`FEMPTY`, `t_spec`,
+                                                `(infer_deBruijn_subst (MAP (λn. Infer_Tuvar n) (COUNT_LIST tvs_impl)) t_impl)`] >>
+                         rw [check_s_def] >-
+                         metis_tac [check_t_more] >>
+                         cheat) >>            
           rw [check_t_to_check_freevars],
       cheat],
  metis_tac[]]);

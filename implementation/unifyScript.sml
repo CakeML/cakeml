@@ -69,6 +69,13 @@ val decode_left_inverse_I = Q.prove (
 rw [FUN_EQ_THM] >>
 metis_tac [decode_left_inverse]);
 
+val decode_right_inverse = Q.prove (
+`(!t. (?t'. t = encode_infer_t t') ⇒ (encode_infer_t (decode_infer_t t) = t)) ∧
+ (!ts. (?ts'. ts = encode_infer_ts ts') ⇒ (encode_infer_ts (decode_infer_ts ts) = ts))`,
+Induct  >>
+rw [encode_infer_t_def, decode_infer_t_def] >>
+rw [decode_left_inverse]);
+
 val t_wfs_def = zDefine `
 t_wfs s = wfs (encode_infer_t o_f s)`;
 
@@ -878,7 +885,7 @@ fs [encode_infer_t_def] >>
 `t_wfs s` by metis_tac [t_wfs_def] >>
 fs [encode_vwalk, decode_left_inverse]);
 
-val t_walkstar_vars = Q.store_thm ("t_walkstar_vars",
+val t_walkstar_vars_notin = Q.store_thm ("t_walkstar_vars_notin",
 `!s. t_wfs s ⇒
   !t x. x ∈ t_vars (t_walkstar s t) ⇒ x ∉ FDOM s`,
 STRIP_TAC >>
@@ -898,5 +905,16 @@ rw [] >|
  cases_on `t` >>
      fs [t_walk_eqn, t_vars_eqn] >>
      metis_tac [t_vwalk_to_var]]);
+
+val t_walkstar_vars_in = Q.store_thm("t_walkstar_vars_in",
+`!s. t_wfs s ⇒ ∀t. t_vars (t_walkstar s t) SUBSET t_vars t UNION BIGUNION (FRANGE (t_vars o_f s))`,
+rw [t_walkstar_def, t_vars_def, t_wfs_def] >>
+imp_res_tac vars_walkstar >>
+fs [SUBSET_DEF] >>
+rw [] >>
+`t_vars = vars o encode_infer_t`
+        by metis_tac [FUN_EQ_THM, t_vars_def, combinTheory.o_DEF] >>
+metis_tac [decode_right_inverse, decode_left_inverse, t_wfs_def,
+           encode_walkstar]);
 
 val _ = export_theory ();
