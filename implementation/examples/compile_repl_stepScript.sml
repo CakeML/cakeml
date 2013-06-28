@@ -8,7 +8,7 @@ val _ = computeLib.stoppers := let
   val stoppers = [stop_CONS ,``Dlet``,``Dletrec``,``Dtype``]
   in SOME (fn tm => mem tm stoppers) end
 
-val compile_decs = Define`
+val compile_decs_def = Define`
   compile_decs cs [] acc = acc ∧
   compile_decs cs (d::ds) acc =
   let (css,csf,code) = compile_top cs (Tdec d) in
@@ -16,8 +16,74 @@ val compile_decs = Define`
 
 val _ = computeLib.add_funs[ml_repl_step_decls]
 
+val compile_dec1_def = Define`
+  compile_dec1 (a,cs) d =
+    let (css,csf,code) = compile_top cs (Tdec d)
+    in
+      (stop_CONS code a, css)
+`
+
+val compile_decs_FOLDL = store_thm(
+  "compile_decs_FOLDL",
+  ``∀cs acc.
+      compile_decs (cs:compiler_state) ds acc =
+      FST (FOLDL compile_dec1 (acc,cs) ds)``,
+  Induct_on `ds` >> rw[compile_decs_def, compile_dec1_def]);
+
+fun listlength acc t =
+    if listSyntax.is_nil t then acc
+    else listlength (acc + 1) (rand t)
+
+fun chunkify_CONV n t = let
+  val n_t = numSyntax.mk_numeral (Arbnum.fromInt n)
+  val td = listTheory.TAKE_DROP |> SPEC n_t |> GSYM
+  fun recurse t =
+    if listlength 0 t < n then raise UNCHANGED
+    else
+      (REWR_CONV td THENC LAND_CONV ListConv1.FIRSTN_CONV THENC
+       RAND_CONV (ListConv1.BUTFIRSTN_CONV THENC chunkify_CONV n)) t
+in
+  recurse t
+end
+
+fun foldl_append_CONV t = let
+  fun core t = (PolyML.fullGC(); EVAL t)
+in
+  REWR_CONV rich_listTheory.FOLDL_APPEND THENC
+  RATOR_CONV (RAND_CONV core)
+end t
+
+fun iterate n t = let
+  fun recurse m th =
+      if m < 1 then th
+      else
+        let
+          val _ = print (Int.toString (n - m) ^ ": ")
+          val th' = time foldl_append_CONV (rhs (concl th))
+        in
+          recurse (m - 1) (TRANS th th')
+        end
+in
+  recurse n (REFL t)
+end
+
+
 (*
 val _ = Globals.max_print_depth := 20
+
+fun mk_initial_split n =
+  ``FOLDL compile_dec1 (stop_NIL, init_compiler_state) ml_repl_step_decls``
+     |> (RAND_CONV (EVAL THENC chunkify_CONV n) THENC
+         RATOR_CONV (RAND_CONV EVAL))
+
+val initial_split20 = mk_initial_split 20
+val initial_split10 = time mk_initial_split 10
+
+val thm150 = CONV_RULE (RAND_CONV (iterate 15)) initial_split10
+
+val thm120 = CONV_RULE (RAND_CONV (iterate 6)) initial_split20
+val thm140 = CONV_RULE (RAND_CONV (iterate 1)) thm120
+val thm160 = CONV_RULE (RAND_CONV (iterate 1)) thm140
 
 val _ = PolyML.fullGC();
 val res = time EVAL
