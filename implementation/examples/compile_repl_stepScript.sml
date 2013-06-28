@@ -30,9 +30,10 @@ val compile_decs_FOLDL = store_thm(
       FST (FOLDL compile_dec1 (acc,cs) ds)``,
   Induct_on `ds` >> rw[compile_decs_def, compile_dec1_def]);
 
-fun listlength acc t =
-    if listSyntax.is_nil t then acc
-    else listlength (acc + 1) (rand t)
+fun rbinop_size acc t =
+    if is_const t orelse is_var t then acc else rbinop_size (acc + 1) (rand t)
+fun lbinop_size acc t =
+    if is_const t orelse is_var t then acc else lbinop_size (acc + 1) (lhand t)
 
 fun chunkify_CONV n t = let
   val n_t = numSyntax.mk_numeral (Arbnum.fromInt n)
@@ -65,6 +66,48 @@ fun iterate n t = let
         end
 in
   recurse n (REFL t)
+end
+
+fun fmkeys fm_t = let
+  val kv = rand fm_t
+in
+  lhand kv :: fmkeys (lhand fm_t)
+end handle HOL_ERR _ => []
+
+val FLOOKUP_t = prim_mk_const { Thy = "finite_map", Name = "FLOOKUP"}
+val lookup_fmty = #1 (dom_rng (type_of FLOOKUP_t))
+fun mk_flookup_eqn fm k =
+    EVAL (mk_comb(mk_icomb(FLOOKUP_t, fm), k))
+
+val mk_def = let
+  val iref = ref 0
+in
+  fn t => let
+    val i = !iref
+    val _ = iref := !iref + 1;
+    val nm = "internal" ^ Int.toString (!iref)
+  in
+    new_definition(nm ^ "_def", mk_eq(mk_var(nm, type_of t), t))
+  end
+end
+
+fun extract_fmap sz t = let
+  fun test t = finite_mapSyntax.is_fupdate t andalso lbinop_size 0 t > sz
+  val fm = find_term test t
+  val lookup_t = inst (match_type lookup_fmty (type_of fm)) FLOOKUP_t
+  val def = mk_def fm
+  val def' = SYM def
+  val fl_def' = AP_TERM lookup_t def
+  val c_t = lhs (concl def)
+  val keys = fmkeys fm
+  fun fulleqn k = let
+    val th0 = AP_THM fl_def' k
+  in
+    CONV_RULE (RAND_CONV EVAL) th0
+  end
+  val eqns = map fulleqn keys
+in
+  (ONCE_DEPTH_CONV (REWR_CONV def') t, eqns)
 end
 
 
