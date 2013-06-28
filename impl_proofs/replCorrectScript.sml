@@ -527,10 +527,34 @@ val strip_mod_env_length = store_thm("strip_mod_env_length",
   ``LENGTH (strip_mod_env ls) = LENGTH ls``,
   rw[strip_mod_env_def])
 
+(* TODO: move, and things above probably too *)
+val o_f_FUNION = store_thm("o_f_FUNION",
+  ``f o_f (f1 ⊌ f2) = (f o_f f1) ⊌ (f o_f f2)``,
+  simp[GSYM fmap_EQ_THM,FUNION_DEF] >>
+  rw[o_f_FAPPLY])
+
 (*
 val env_rs_strip_mod_env = store_thm("env_rs_strip_mod_env",
-  ``env_rs menv cenv env cs rd s bs ⇒
+  ``closed_context menv cenv (SND s) env ∧
+    DISJOINT (set (MAP FST menv')) (set (MAP FST menv)) ∧
+    env_rs menv cenv env cs rd s bs ⇒
     env_rs (strip_mod_env menv' ++ menv) cenv env cs rd s bs``,
+  rw[env_rs_def] >>
+  fs[LET_THM] >>
+  qmatch_assum_abbrev_tac`LIST_REL syneq Cs00 Cs` >>
+  `Cs00 = Cs0` by (
+    UNABBREV_ALL_TAC >>
+    simp[MAP_EQ_f] >>
+    fs[closed_context_def] >>
+    rw[] >>
+    simp[o_f_FUNION] >>
+    simp[GSYM miscTheory.alist_to_fmap_MAP_values,strip_mod_env_def,MAP_MAP_o,UNCURRY,combinTheory.o_DEF]
+
+  compilerTerminationTheory.v_to_Cv_def
+    DB.find"v_to_Cv"
+
+    DB.find"v_to_Cv_def"
+    simp[Abbr`Cs00
   simp[env_rs_def] >> strip_tac >>
 *)
 
@@ -933,24 +957,24 @@ simp[] >>
     fs[update_type_sound_inv_def,Abbr`new_repl_state`,update_repl_state_def] ) >>
   `FV_top top ⊆ set (MAP (Short o FST) rs.envE) ∪ menv_dom rs.envM ∧
    top_cns top ⊆ set (MAP FST rs.envC)` by cheat (* RK cheat: type system should prove this *) >>
+  qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`store2`,`envC2`,`Rerr (Rraise err)`]mp_tac evaluate_top_closed_context >>
+  simp[] >> strip_tac >>
   conj_tac >- (
-    qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`store2`,`envC2`,`Rerr (Rraise err)`]mp_tac evaluate_top_closed_context >>
-    simp[] >>
     simp[Abbr`new_repl_state`,update_repl_state_def] >>
-    strip_tac >>
     match_mp_tac closed_context_strip_mod_env >>
     simp[] ) >>
   conj_tac >- (
     imp_res_tac RTC_bc_next_preserves >>
     fs[Abbr`bs0`,install_code_def] ) >>
   conj_tac >- (
-    simp[Abbr`new_repl_state`,update_repl_state_def,Abbr`new_bc_state`] >>
+    fs[Abbr`new_repl_state`,update_repl_state_def,Abbr`new_bc_state`] >>
     simp[Abbr`new_repl_fun_state`] >>
     qexists_tac`rd2` >>
+    qexists_tac`ARB` >>
+
     (* implementation may be broken here? or need to prove that the env_rs we have implies the one with extra module/constructor env stuff *)
     cheat
     (*
-    qexists_tac`ARB` >>
     fs[env_rs_def,LET_THM] >>
     rpt HINT_EXISTS_TAC >>
     simp[] >>
