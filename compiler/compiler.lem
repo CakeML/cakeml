@@ -113,7 +113,9 @@ compile_top rs (Tmod mn _ decs) =
   (<| mrs with
       renv = rs.renv
     ; rmenv = Pmap.add mn env rs.rmenv |>
-  ,<| rs with rnext_label = mrs.rnext_label |>
+  ,<| mrs with
+      renv = rs.renv
+    ; rmenv = Pmap.add mn [] rs.rmenv |>
   ,(List.rev code)@(List.map PrintC (Hol.EXPLODE str)))
 and
 compile_top rs (Tdec dec) =

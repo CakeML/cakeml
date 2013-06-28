@@ -150,7 +150,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   (( mrs with<|
       renv := rs.renv
     ; rmenv := FUPDATE  rs.rmenv ( mn, env) |>)
-  ,( rs with<| rnext_label := mrs.rnext_label |>)
+  ,( mrs with<|
+      renv := rs.renv
+    ; rmenv := FUPDATE  rs.rmenv ( mn, []) |>)
   ,(( REVERSE code) ++( MAP PrintC (EXPLODE str))))))
 /\
 (compile_top rs (Tdec dec) =  
