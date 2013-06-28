@@ -2721,6 +2721,52 @@ fs [] >>
         by (rw [FDOM_FUPDATE_LIST, MEM_MAP] >> metis_tac [FST]) >>
 metis_tac [FST, fupdate_list_map]);
 
+val oc_tvar_db = Q.prove (
+`!s uv tvs. t_wfs s ⇒ ~t_oc s (Infer_Tvar_db tvs) uv`,
+rw [] >>
+imp_res_tac t_oc_eqn >>
+pop_assum (fn _ => all_tac) >>
+pop_assum (fn _ => all_tac) >>
+pop_assum (ASSUME_TAC o Q.SPECL [`uv`, `Infer_Tvar_db tvs`]) >>
+rw [t_walk_eqn]);
+
+val oc_unit = Q.prove (
+`!s uv tc. t_wfs s ⇒ ~t_oc s (Infer_Tapp [] tc) uv`,
+rw [] >>
+imp_res_tac t_oc_eqn >>
+pop_assum (fn _ => all_tac) >>
+pop_assum (fn _ => all_tac) >>
+pop_assum (ASSUME_TAC o Q.SPECL [`uv`, `Infer_Tapp [] tc'`]) >>
+rw [t_walk_eqn]);
+
+val generalise_complete_lemma2 = Q.prove (
+`!s ts.
+  t_wfs s ∧
+  ALL_DISTINCT (MAP FST ts) ∧
+  EVERY (\t. t = Infer_Tapp [] TC_unit ∨ ?tvs. t = Infer_Tvar_db tvs) (MAP SND ts) ∧
+  DISJOINT (FDOM s) (FDOM (FEMPTY |++ ts))
+  ⇒
+  pure_add_constraints s (MAP (\(uv,t). (Infer_Tuvar uv, t)) ts) (s |++ ts)`,
+induct_on `ts` >>
+rw [pure_add_constraints_def, FUPDATE_LIST_THM] >>
+PairCases_on `h` >>
+rw [pure_add_constraints_def] >>
+`t_unify s (Infer_Tuvar h0) h1 = SOME (s |+ (h0,h1))` 
+           by (rw [t_unify_eqn] >>
+               rw [Once t_walk_eqn] >>
+               rw [Once t_vwalk_eqn, FLOOKUP_DEF] >|
+               [fs [DISJOINT_DEF, EXTENSION, FDOM_FUPDATE_LIST] >>
+                    metis_tac [],
+                fs [] >>
+                    rw [t_walk_eqn, t_ext_s_check_eqn, oc_tvar_db, oc_unit]]) >>
+`t_wfs (s |+ (h0,h1))` by metis_tac [t_unify_wfs] >>
+qexists_tac `s |+ (h0,h1)` >>
+rw [] >>
+`DISJOINT (FDOM (s |+ (h0,h1))) (FDOM (FEMPTY |++ ts))`
+         by (fs [DISJOINT_DEF, EXTENSION, FDOM_FUPDATE_LIST] >>
+             metis_tac []) >>
+metis_tac []);
+
 val unfinished = cheat;
 val generalise_complete = Q.prove (
 `!s l tvs s' ts tvs next_uvar.
