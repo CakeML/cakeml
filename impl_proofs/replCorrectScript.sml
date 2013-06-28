@@ -527,6 +527,13 @@ val strip_mod_env_length = store_thm("strip_mod_env_length",
   ``LENGTH (strip_mod_env ls) = LENGTH ls``,
   rw[strip_mod_env_def])
 
+(*
+val env_rs_strip_mod_env = store_thm("env_rs_strip_mod_env",
+  ``env_rs menv cenv env cs rd s bs ⇒
+    env_rs (strip_mod_env menv' ++ menv) cenv env cs rd s bs``,
+  simp[env_rs_def] >> strip_tac >>
+*)
+
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
   invariant repl_state repl_fun_state bc_state ⇒
@@ -822,12 +829,12 @@ simp[] >>
       fs[type_infer_invariants_def,Abbr`new_repl_fun_state`] ) >>
     conj_tac >- (
       fs[update_type_sound_inv_def,Abbr`new_repl_state`,update_repl_state_def] ) >>
+    `FV_top top ⊆ set (MAP (Short o FST) rs.envE) ∪ menv_dom rs.envM ∧
+     top_cns top ⊆ set (MAP FST rs.envC)` by cheat (* RK cheat: type system should prove this *) >>
     conj_tac >- (
       qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`store2`,`envC2`,`Rval (a0,a1)`]mp_tac evaluate_top_closed_context >>
       simp[] >>
-      simp[Abbr`new_repl_state`,update_repl_state_def] >>
-      disch_then (match_mp_tac o MP_CANON) >>
-      cheat (* RK cheat: type system should prove this *)) >>
+      simp[Abbr`new_repl_state`,update_repl_state_def]) >>
     conj_tac >- (
       imp_res_tac RTC_bc_next_preserves >>
       fs[Abbr`bs0`,install_code_def] ) >>
@@ -847,8 +854,19 @@ simp[] >>
       simp[BytecodeTheory.bc_state_component_equality] >>
       rfs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
     conj_tac >- (
-      (* need compile_top version of compile_dec_append_code *)
-      cheat ) >>
+      qspecl_then[`menv_dom rs.envM`,`st.rcompiler_state`,`top`]mp_tac compile_top_append_code >>
+      discharge_hyps >- (
+        `MAP (Short o FST) st.rcompiler_state.renv = MAP (Short o FST) rs.envE` by (
+          fs[env_rs_def,LET_THM,GSYM MAP_MAP_o] ) >>
+        simp[] >>
+        simp[MEM_FLAT,MEM_MAP,EXISTS_PROD] >> rw[] >>
+        fs[MEM_MAP] ) >>
+      imp_res_tac RTC_bc_next_preserves >>
+      qpat_assum`bs.code = X::Y`kall_tac >>
+      simp[between_labels_def,good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+      fs[good_labels_def] >> strip_tac >>
+      fsrw_tac[DNF_ss][EVERY_MEM,miscTheory.between_def,MEM_FILTER,MEM_MAP,is_Label_rwt,Abbr`new_repl_fun_state`] >>
+      rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC) >>
     simp[Abbr`new_bc_state`] >>
     imp_res_tac RTC_bc_next_preserves >>
     fs[]) >>
@@ -913,24 +931,25 @@ simp[] >>
     fs[type_infer_invariants_def,Abbr`new_repl_fun_state`] ) >>
   conj_tac >- (
     fs[update_type_sound_inv_def,Abbr`new_repl_state`,update_repl_state_def] ) >>
+  `FV_top top ⊆ set (MAP (Short o FST) rs.envE) ∪ menv_dom rs.envM ∧
+   top_cns top ⊆ set (MAP FST rs.envC)` by cheat (* RK cheat: type system should prove this *) >>
   conj_tac >- (
     qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`store2`,`envC2`,`Rerr (Rraise err)`]mp_tac evaluate_top_closed_context >>
     simp[] >>
     simp[Abbr`new_repl_state`,update_repl_state_def] >>
     strip_tac >>
     match_mp_tac closed_context_strip_mod_env >>
-    pop_assum match_mp_tac >>
-    cheat (* RK cheat: type system should prove this *)) >>
+    simp[] ) >>
   conj_tac >- (
     imp_res_tac RTC_bc_next_preserves >>
     fs[Abbr`bs0`,install_code_def] ) >>
   conj_tac >- (
     simp[Abbr`new_repl_state`,update_repl_state_def,Abbr`new_bc_state`] >>
     simp[Abbr`new_repl_fun_state`] >>
+    qexists_tac`rd2` >>
     (* implementation may be broken here? or need to prove that the env_rs we have implies the one with extra module/constructor env stuff *)
     cheat
     (*
-    qexists_tac`rd2` >>
     qexists_tac`ARB` >>
     fs[env_rs_def,LET_THM] >>
     rpt HINT_EXISTS_TAC >>
@@ -945,8 +964,19 @@ simp[] >>
     *)
     ) >>
   conj_tac >- (
-    (* need compile_top version of compile_dec_append_code *)
-    cheat ) >>
+    qspecl_then[`menv_dom rs.envM`,`st.rcompiler_state`,`top`]mp_tac compile_top_append_code >>
+    discharge_hyps >- (
+      `MAP (Short o FST) st.rcompiler_state.renv = MAP (Short o FST) rs.envE` by (
+        fs[env_rs_def,LET_THM,GSYM MAP_MAP_o] ) >>
+      simp[] >>
+      simp[MEM_FLAT,MEM_MAP,EXISTS_PROD] >> rw[] >>
+      fs[MEM_MAP] ) >>
+    imp_res_tac RTC_bc_next_preserves >>
+    qpat_assum`bs.code = X::Y`kall_tac >>
+    simp[between_labels_def,good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+    fs[good_labels_def] >> strip_tac >>
+    fsrw_tac[DNF_ss][EVERY_MEM,miscTheory.between_def,MEM_FILTER,MEM_MAP,is_Label_rwt,Abbr`new_repl_fun_state`] >>
+    rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC) >>
   simp[Abbr`new_bc_state`] >>
   imp_res_tac RTC_bc_next_preserves >>
   fs[])
@@ -1006,8 +1036,17 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   imp_res_tac bytecodeExtraTheory.RTC_bc_next_clock_less >>
   `bs1.clock = NONE` by rfs[optionTheory.OPTREL_def,Abbr`bs`,install_code_def] >>
   simp[Abbr`bs`,install_code_def] >>
-  (* cheat: compile_top version of compile_append_out *)
-  cheat)
+  qspecl_then[`{}`,`init_compiler_state`]mp_tac compile_top_append_code >>
+  disch_then(mp_tac o SPEC(rand(rhs(concl(compile_primitives_def))))) >>
+  discharge_hyps >- (
+    simp[] >>
+    simp[CompilerTheory.init_compiler_state_def] >>
+    simp[EXTENSION] >>
+    metis_tac[] ) >>
+  simp[GSYM compile_primitives_def] >>
+  simp[good_labels_def,between_labels_def] >>
+  strip_tac >>
+  fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP])
 
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,

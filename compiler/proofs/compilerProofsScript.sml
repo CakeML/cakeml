@@ -2103,6 +2103,29 @@ val compile_decs_append_code = store_thm("compile_decs_append_code",
   fsrw_tac[DNF_ss][MEM_FILTER,EVERY_MEM,MEM_MAP,between_def,is_Label_rwt] >>
   rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC)
 
+val compile_top_append_code = store_thm("compile_top_append_code",
+  ``∀ss rs top.
+      FV_top top ⊆ set (MAP (Short o FST) rs.renv) ∪ ss ∧
+      (∀x. x ∈ ss ⇒ ∃mn v. x = Long mn v)
+      ⇒
+      between_labels (SND(SND(compile_top rs top))) rs.rnext_label (FST(compile_top rs top)).rnext_label ∧
+      ((FST(SND(compile_top rs top))).rnext_label = (FST(compile_top rs top)).rnext_label)``,
+   ntac 2 gen_tac >> Cases >> strip_tac >>
+   simp[compile_top_def,UNCURRY] >- (
+     qmatch_assum_rename_tac`FV_top(Tmod mn spec ds) ⊆ X`["X"] >>
+     qspecl_then[`mn`,`ss`,`ds`,`rs,[]`]mp_tac compile_decs_append_code >>
+     discharge_hyps >- fs[] >>
+     simp[] >> strip_tac >>
+     fs[between_labels_def,IMPLODE_EXPLODE_I] >>
+     simp_tac std_ss [FILTER_APPEND] >>
+     Q.PAT_ABBREV_TAC`ls = FILTER is_Label (X::Y)` >>
+     `ls = []` by (
+       simp[Abbr`ls`,FILTER_EQ_NIL,EVERY_MAP] ) >>
+     simp[FILTER_REVERSE,ALL_DISTINCT_REVERSE,MAP_REVERSE,EVERY_REVERSE] ) >>
+   qspecl_then[`NONE`,`rs`,`d`,`ss`]mp_tac compile_dec_append_code >>
+   fs[] >>
+   simp[between_labels_def,FILTER_REVERSE,ALL_DISTINCT_REVERSE,MAP_REVERSE,EVERY_REVERSE])
+
 val compile_decs_val = store_thm("compile_decs_val",
   ``∀mno menv cenv s env dec res. evaluate_decs mno menv cenv s env dec res ⇒
      ∀mn rs. ∃ck. ∀rs' bc00 rd bc bs bc0.
