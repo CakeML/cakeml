@@ -142,9 +142,14 @@ fun mk_initial_split n =
 val initial_split20 = mk_initial_split 20
 val initial_split10 = time mk_initial_split 10
 
+val thm120 = CONV_RULE (RAND_CONV (iterate 6)) initial_split20
+
+val (fmreplace, eqns) = extract_fmap 50 (rhs (concl thm120))
+
+
+
 val thm150 = CONV_RULE (RAND_CONV (iterate 15)) initial_split10
 
-val thm120 = CONV_RULE (RAND_CONV (iterate 6)) initial_split20
 val thm140 = CONV_RULE (RAND_CONV (iterate 1)) thm120
 val thm160 = CONV_RULE (RAND_CONV (iterate 1)) thm140
 
