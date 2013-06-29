@@ -452,6 +452,22 @@ val tenv_names_bind_var_list = store_thm("tenv_names_bind_var_list",
   metis_tac[])
 
 val _ = Parse.overload_on("tmenv_dom",``λmenv:tenvM.  set (FLAT (MAP (λx. MAP (Long (FST x) o FST) (SND x)) menv))``)
+val _ = Parse.overload_on("tmenv_sdom",``λmenv:tenvM.  set (FLAT (MAP (λx. MAP (Short o FST) (SND x)) menv))``)
+
+val type_p_closed = store_thm("type_p_closed",
+  ``(∀tvs tcenv p t tenv.
+       type_p tvs tcenv p t tenv ⇒
+       pat_bindings p [] = MAP FST tenv ∧
+       all_cns_pat p ⊆ set (MAP FST tcenv)) ∧
+    (∀tvs cenv ps ts tenv.
+      type_ps tvs cenv ps ts tenv ⇒
+      pats_bindings ps [] = MAP FST tenv ∧
+      all_cns_pats ps ⊆ set (MAP FST cenv))``,
+  ho_match_mp_tac type_p_ind >>
+  simp[AstTheory.pat_bindings_def,pats_bindings_MAP] >>
+  rw[] >> fs[SUBSET_DEF] >>
+  imp_res_tac alistTheory.ALOOKUP_MEM >>
+  simp[MEM_MAP,EXISTS_PROD] >> metis_tac[])
 
 val type_e_closed = store_thm("type_e_closed",
   ``(∀tmenv tcenv tenv e t.
@@ -508,7 +524,13 @@ val type_e_closed = store_thm("type_e_closed",
     simp[RES_FORALL_THM,FORALL_PROD,tenv_names_bind_var_list] >>
     rpt gen_tac >> strip_tac >>
     simp[FV_pes_MAP,all_cns_pes_MAP] >>
-    cheat ) >>
+    simp_tac(srw_ss()++DNF_ss)[SUBSET_DEF,UNCURRY,FORALL_PROD,MEM_MAP] >>
+    rw[] >> res_tac >>
+    qmatch_assum_rename_tac`MEM (p1,p2) pes`[] >>
+    first_x_assum(qspecl_then[`p1`,`p2`]mp_tac) >>
+    simp[EXISTS_PROD] >> disch_then(Q.X_CHOOSE_THEN`tv`strip_assume_tac) >>
+    imp_res_tac type_p_closed >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD,FORALL_PROD] >> metis_tac[]) >>
   strip_tac >- (
     simp[] >>
     srw_tac[DNF_ss][SUBSET_DEF,bind_tvar_def,bind_tenv_def] >>
@@ -552,12 +574,12 @@ val type_d_closed = store_thm("type_d_closed",
     rpt gen_tac >>
     Cases_on`tvs=0`>>simp[]>>strip_tac>>
     imp_res_tac (CONJUNCT1 type_e_closed) >> fs[] >>
-    cheat ) >>
+    imp_res_tac (CONJUNCT1 type_p_closed) >> fs[]) >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
     imp_res_tac (CONJUNCT1 type_e_closed) >> fs[] >>
-    cheat ) >>
+    imp_res_tac (CONJUNCT1 type_p_closed) >> fs[]) >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
@@ -575,21 +597,44 @@ val type_d_closed = store_thm("type_d_closed",
     fs[SUBSET_DEF] >> metis_tac[] ) >>
   simp[])
 
+val tenv_names_bind_var_list2 = store_thm("tenv_names_bind_var_list2",
+  ``∀l1 tenv. tenv_names (bind_var_list2 l1 tenv) = set (MAP FST l1) ∪ tenv_names tenv``,
+  Induct >> TRY(qx_gen_tac`p`>>PairCases_on`p`) >> simp[bind_var_list2_def,bind_tenv_def] >>
+  simp[EXTENSION] >> metis_tac[])
+
+val type_ds_closed = store_thm("type_ds_closed",
+  ``∀mn tmenv cenv tenv ds y z. type_ds mn tmenv cenv tenv ds y z ⇒
+      FV_decs ds ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv ∪ set (MAP (Short o FST) z) ∧
+      dec_cns_list ds ⊆ set (MAP FST cenv) ∪ set (MAP FST y)``,
+  ho_match_mp_tac type_ds_ind >>
+  simp[] >>
+  rpt gen_tac >> strip_tac >>
+  imp_res_tac type_d_closed >>
+  fs[LibTheory.merge_def,tenv_names_bind_var_list2] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP] >>
+  metis_tac[])
+
 val type_top_closed = store_thm("type_top_closed",
-  ``∀tmenv tcenv tenv top x y z.
-      type_top tmenv tcenv tenv top x y z
+  ``∀tmenv tcenv tenv top tm' tc' te'.
+      type_top tmenv tcenv tenv top tm' tc' te'
       ⇒
-      FV_top top ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv ∧
-      top_cns top ⊆ set (MAP FST tcenv)``,
+      let mn = case top of Tmod n _ _ => Long n | _ => Short in
+      FV_top top ⊆ (IMAGE Short (tenv_names tenv)) ∪ set (MAP (Short o FST) te') ∪ tmenv_dom tmenv ∪ tmenv_sdom tm' ∧
+      top_cns top ⊆ set (MAP FST tcenv) ∪ set (MAP FST tc')``,
   ho_match_mp_tac type_top_ind >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
     imp_res_tac type_d_closed >>
-    simp[] ) >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,LibTheory.emp_def] >>
+    metis_tac[]) >>
   simp[] >>
   rpt gen_tac >> strip_tac >>
-  cheat )
+  imp_res_tac type_ds_closed >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,LibTheory.emp_def,check_signature_cases] >>
+  fsrw_tac[DNF_ss][MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+  (* I don't know if the theorem statement is correct *)
+  cheat)
 
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
