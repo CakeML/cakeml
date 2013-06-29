@@ -1,7 +1,7 @@
 open preamble boolSimps miscLib rich_listTheory;
 open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory
 open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compileLabelsTheory compilerProofsTheory;
-open TypeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory;
+open SemanticPrimitivesTheory terminationTheory TypeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory;
 
 val _ = new_theory "replCorrect";
 
@@ -51,7 +51,7 @@ val print_envC_not_type_error = prove(``ls ≠ "<type error>" ⇒ print_envC env
 Induct_on`envc`>>
 simp[print_envC_def]>>
 Cases>>simp[]>>
-Induct_on`q`>>simp[SemanticPrimitivesTheory.id_to_string_def]>>
+Induct_on`q`>>simp[id_to_string_def]>>
 lrw[LIST_EQ_REWRITE])
 
 val print_envE_not_type_error = prove(``print_envE en ≠ "<type error>"``,
@@ -212,20 +212,117 @@ val closed_context_strip_mod_env = store_thm("closed_context_strip_mod_env",
   rw[]>>TRY(metis_tac[])>>
   fsrw_tac[DNF_ss][strip_mod_env_def,MEM_FLAT,MEM_MAP,UNCURRY])
 
-val tac =
-  rpt gen_tac >> ntac 2 strip_tac >> fs[LibTheory.bind_def] >>
-  qpat_assum`P ⇒ Q`mp_tac >>
-  discharge_hyps >- (
-    rw[] >> rw[semanticsExtraTheory.all_locs_def] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF] >>
-    metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS,arithmeticTheory.LESS_EQ_TRANS] ) >>
-  strip_tac >>
-  fsrw_tac[DNF_ss][SUBSET_DEF] >>
-  metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS,arithmeticTheory.LESS_EQ_TRANS]
-
 val MAP_FST_funs = store_thm("MAP_FST_funs",
   ``MAP (λ(x,y,z). x) funs = MAP FST funs``,
   lrw[MAP_EQ_f,FORALL_PROD])
+
+val do_uapp_locs = store_thm("do_uapp_locs",
+  ``∀s uop v s' v'.
+    (∀v. MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
+    all_locs v ⊆ count (LENGTH s) ∧ do_uapp s uop v = SOME (s',v') ⇒
+    LENGTH s ≤ LENGTH s' ∧
+    (∀v. MEM v s' ⇒ all_locs v ⊆ count (LENGTH s')) ∧
+    all_locs v' ⊆ count (LENGTH s')``,
+  rpt gen_tac >> simp[do_uapp_def] >>
+  BasicProvers.CASE_TAC >> simp[] >>
+  BasicProvers.CASE_TAC >> simp[store_alloc_def] >> strip_tac >>
+  rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+  TRY (
+    pop_assum mp_tac >> BasicProvers.CASE_TAC >>
+    fs[store_lookup_def] >> strip_tac >>
+    rpt BasicProvers.VAR_EQ_TAC >> simp[]) >>
+  rw[] >> fsrw_tac[DNF_ss][SUBSET_DEF] >>
+  TRY (rw[] >> res_tac >> simp[] >> NO_TAC) >>
+  fs[MEM_EL] >> metis_tac[])
+
+val do_app_locs = store_thm("do_app_locs",
+  ``∀s env op v1 v2 s' env' e.
+    (∀v. MEM v (MAP SND env) ∨ v = v1 ∨ v = v2 ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s)) ∧
+    do_app s env op v1 v2 = SOME (s',env',e)
+    ⇒
+    LENGTH s ≤ LENGTH s' ∧
+    (∀v. MEM v (MAP SND env') ∨ MEM v s' ⇒ all_locs v ⊆ count (LENGTH s'))``,
+  rpt gen_tac >> simp[do_app_def] >>
+  Cases_on`op`>>Cases_on`v1`>>TRY(Cases_on`l:lit`)>>Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
+  TRY(Cases_on`l':lit`)>>
+  simp[contains_closure_def,LibTheory.bind_def]>>
+  rw[AstTheory.opn_lookup_def,AstTheory.opb_lookup_def] >> simp[] >> fs[] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF] >>
+  TRY(metis_tac[]) >>
+  TRY(qpat_assum`X = SOME Y` mp_tac >> BasicProvers.CASE_TAC >> simp[] >> BasicProvers.CASE_TAC >>rw[]) >>
+  fs[semanticsExtraTheory.build_rec_env_MAP]>> rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+  rfs[store_assign_def] >> rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+  imp_res_tac miscTheory.MEM_LUPDATE >> fs[] >>
+  TRY(metis_tac[]) >>
+  fs[MEM_MAP,UNCURRY] >> rpt BasicProvers.VAR_EQ_TAC >> fs[] >> fs[MEM_MAP] >> metis_tac[])
+
+val pmatch_locs = store_thm("pmatch_locs",
+  ``(∀(cenv:envC) s p w env env'.
+        pmatch cenv s p w env = Match env' ∧
+        (∀v. MEM v (MAP SND env) ∨ v = w ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s))
+        ⇒
+        (∀v. MEM v (MAP SND env') ⇒ all_locs v ⊆ count (LENGTH s))) ∧
+    (∀(cenv:envC) s ps ws env env'.
+        pmatch_list cenv s ps ws env = Match env' ∧
+        (∀v. MEM v (MAP SND env) ∨ MEM v ws ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s))
+        ⇒
+        (∀v. MEM v (MAP SND env') ⇒ all_locs v ⊆ count (LENGTH s)))``,
+    ho_match_mp_tac pmatch_ind >>
+    strip_tac >- (rw[pmatch_def,LibTheory.bind_def] >> fs[]) >>
+    strip_tac >- (rw[pmatch_def]) >>
+    strip_tac >- (
+      simp[pmatch_def] >>
+      rpt gen_tac >> strip_tac >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      TRY(BasicProvers.CASE_TAC >> fs[]) >>
+      TRY(BasicProvers.CASE_TAC >> fs[]) >>
+      TRY(BasicProvers.CASE_TAC >> fs[]) >>
+      TRY(BasicProvers.CASE_TAC >> fs[]) >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] >>
+      metis_tac[] ) >>
+    strip_tac >- (
+      simp[pmatch_def,store_lookup_def] >>
+      rpt gen_tac >> strip_tac >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      fsrw_tac[DNF_ss][] >>
+      metis_tac[MEM_EL] ) >>
+    strip_tac >- rw[pmatch_def] >>
+    strip_tac >- rw[pmatch_def] >>
+    strip_tac >- rw[pmatch_def] >>
+    strip_tac >- rw[pmatch_def] >>
+    strip_tac >- rw[pmatch_def] >>
+    strip_tac >- rw[pmatch_def] >>
+    strip_tac >- rw[pmatch_def] >>
+    strip_tac >- rw[pmatch_def] >>
+    strip_tac >- rw[pmatch_def] >>
+    strip_tac >- rw[pmatch_def] >>
+    strip_tac >- rw[pmatch_def] >>
+    strip_tac >- rw[pmatch_def] >>
+    strip_tac >- rw[pmatch_def] >>
+    strip_tac >- (
+      simp[pmatch_def] >>
+      rpt gen_tac >> strip_tac >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      metis_tac[] ) >>
+    strip_tac >- rw[pmatch_def] >>
+    strip_tac >- rw[pmatch_def])
+
+val tac1 =
+    rw[] >> rw[semanticsExtraTheory.all_locs_def] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS,arithmeticTheory.LESS_EQ_TRANS]
+
+val tac0 =
+  qpat_assum`P ⇒ Q`mp_tac >>
+  discharge_hyps >- tac1 >>
+  strip_tac
+
+val tac =
+  rpt gen_tac >> ntac 2 strip_tac >> fs[LibTheory.bind_def] >>
+  tac0 >>
+  fsrw_tac[DNF_ss][SUBSET_DEF] >>
+  metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS,arithmeticTheory.LESS_EQ_TRANS]
 
 val evaluate_locs = store_thm("evaluate_locs",
   ``(∀ck menv (cenv:envC) cs env e res. evaluate ck menv cenv cs env e res ⇒
@@ -272,7 +369,7 @@ val evaluate_locs = store_thm("evaluate_locs",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- (
-    rw[SemanticPrimitivesTheory.lookup_var_id_def] >>
+    rw[lookup_var_id_def] >>
     BasicProvers.EVERY_CASE_TAC >> fs[] >>
     imp_res_tac alistTheory.ALOOKUP_MEM >>
     fsrw_tac[DNF_ss][MEM_MAP,EXISTS_PROD,MEM_FLAT] >>
@@ -283,21 +380,31 @@ val evaluate_locs = store_thm("evaluate_locs",
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
     metis_tac[] ) >>
   strip_tac >- (
-    rpt gen_tac >> ntac 2 strip_tac >> fs[] >> rw[] >>
-    cheat ) >>
+    rpt gen_tac >> ntac 2 strip_tac >> fs[] >>
+    tac0 >>
+    qspecl_then[`s2`,`uop`,`v`,`s3`,`v'`]mp_tac do_uapp_locs >>
+    simp[]) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >> fs[] >>
-    cheat ) >>
+    tac0 >> simp[]) >>
   strip_tac >- rw[] >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >> fs[] >>
-    cheat ) >>
+    last_x_assum mp_tac >> discharge_hyps >- tac1 >> strip_tac >>
+    last_x_assum mp_tac >> discharge_hyps >- tac1 >> strip_tac >>
+    qspecl_then[`s3`,`env`,`op`,`v1`,`v2`,`s4`,`env'`,`e''`]mp_tac do_app_locs >>
+    discharge_hyps >- tac1 >> strip_tac >>
+    tac0 >> simp[]) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >> fs[] >>
-    cheat ) >>
+    last_x_assum mp_tac >> discharge_hyps >- tac1 >> strip_tac >>
+    last_x_assum mp_tac >> discharge_hyps >- tac1 >> strip_tac >>
+    qspecl_then[`s3`,`env`,`op`,`v1`,`v2`,`s4`,`env'`,`e3`]mp_tac do_app_locs >>
+    discharge_hyps >- tac1 >> strip_tac >>
+    simp[]) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >> fs[] >>
-    cheat ) >>
+    tac0 >> tac0 >> simp[]) >>
   strip_tac >- tac >>
   strip_tac >- rw[] >>
   strip_tac >- tac >>
@@ -333,7 +440,12 @@ val evaluate_locs = store_thm("evaluate_locs",
     discharge_hyps >- (
       rw[] >> rw[semanticsExtraTheory.all_locs_def] >>
       fsrw_tac[DNF_ss][SUBSET_DEF] >>
-      cheat) >>
+      qspecl_then[`cenv`,`s`,`p`,`w`,`env`,`env'`]mp_tac(CONJUNCT1 pmatch_locs)>>
+      discharge_hyps >- (
+        fsrw_tac[DNF_ss][SUBSET_DEF] >>
+        metis_tac[] ) >>
+      simp[SUBSET_DEF] >>
+      metis_tac[]) >>
     strip_tac >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
     metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS,arithmeticTheory.LESS_EQ_TRANS] ) >>
@@ -348,7 +460,6 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
     dec_cns d ⊆ set (MAP FST cenv)
     ⇒
     let (cenv',env') = case res of Rval(c,e)=>(c++cenv,e++env) | _ => (cenv,env) in
-    (* let menv' = case (mn,d) of (SOME mod,Dtype _) => ((mod,[])::menv) | _ => menv in *)
     closed_context menv cenv' s' env'``,
   rpt gen_tac >>
   Cases_on`d`>>simp[Once evaluate_dec_cases]>>
@@ -386,7 +497,14 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
     conj_tac >- fs[closed_under_menv_def] >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
     conj_tac >- metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS] >>
-    conj_tac >- cheat >>
+    conj_tac >- (
+      qspecl_then[`cenv`,`s'`,`p`,`v`,`emp`,`env'`]mp_tac(CONJUNCT1 pmatch_locs) >>
+      discharge_hyps >- (
+        simp[] >>
+        fsrw_tac[DNF_ss][LibTheory.emp_def,SUBSET_DEF] >>
+        metis_tac[] ) >>
+      simp[SUBSET_DEF] >>
+      metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS]) >>
     metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS])
   >- (
     simp[semanticsExtraTheory.build_rec_env_MAP] >>
@@ -421,7 +539,7 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
     fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,MEM_MAP] >>
     metis_tac[] )
   >> (
-    simp[SemanticPrimitivesTheory.build_tdefs_def] >>
+    simp[build_tdefs_def] >>
     Cases_on`mn`>>fs[AstTheory.mk_id_def] >- (
       fs[closed_context_def] >>
       fs[toIntLangProofsTheory.closed_under_cenv_def] >>
@@ -452,7 +570,7 @@ val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
     rpt gen_tac >> rpt strip_tac >>
     imp_res_tac evaluate_dec_closed_context >>
     fs[] >> fs[LET_THM] ) >>
-  simp[SemanticPrimitivesTheory.combine_dec_result_def,LibTheory.merge_def] >>
+  simp[combine_dec_result_def,LibTheory.merge_def] >>
   rpt gen_tac >> rpt strip_tac >>
   qspecl_then[`mn`,`menv`,`cenv`,`s`,`env`,`d`,`s'`,`Rval (new_tds,new_env)`]mp_tac evaluate_dec_closed_context >>
   simp[] >> strip_tac >>
@@ -1040,7 +1158,7 @@ val compile_primitives_renv = store_thm("compile_primitives_renv",
   fs[CompilerTheory.compile_dec_def,LET_THM] >>
   fs[CompilerTheory.compile_fake_exp_def,LET_THM] >>
   rw[CompilerTheory.init_compiler_state_def] >>
-  rw[LIST_EQ_REWRITE,SemanticPrimitivesTheory.init_env_def] >>
+  rw[LIST_EQ_REWRITE,init_env_def] >>
   `x ∈ count 13` by rw[] >>
   pop_assum mp_tac >> EVAL_TAC >>
   rw[] >> simp[])
@@ -1080,9 +1198,9 @@ val initial_invariant = prove(
   >- simp[typeSoundTheory.initial_type_sound_invariant]
   >- (
     simp[closed_context_def] >>
-    simp[SemanticPrimitivesTheory.init_env_def,semanticsExtraTheory.closed_cases] >>
-    simp[SemanticPrimitivesTheory.init_env_def,toIntLangProofsTheory.closed_under_cenv_def] >>
-    simp[SemanticPrimitivesTheory.init_env_def,compilerProofsTheory.closed_under_menv_def] >>
+    simp[init_env_def,semanticsExtraTheory.closed_cases] >>
+    simp[init_env_def,toIntLangProofsTheory.closed_under_cenv_def] >>
+    simp[init_env_def,compilerProofsTheory.closed_under_menv_def] >>
     simp[semanticsExtraTheory.closed_cases] >>
     rw[] >> rw[semanticsExtraTheory.all_cns_def] >>
     simp[SUBSET_DEF] >> metis_tac[] )
