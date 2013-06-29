@@ -67,25 +67,25 @@ end
 fun chunkify_CONV n t =
     TRY_CONV (onechunk n THENC RAND_CONV (chunkify_CONV n)) t
 
-fun foldl_append_CONV t = let
-  fun core t = (PolyML.fullGC(); EVAL t)
+fun foldl_append_CONV d t = let
+  fun core t = (PolyML.fullGC(); (RAND_CONV (K d) THENC EVAL) t)
 in
   REWR_CONV rich_listTheory.FOLDL_APPEND THENC
   RATOR_CONV (RAND_CONV core)
 end t
 
-fun iterate n t = let
-  fun recurse m th =
-      if m < 1 then th
+fun iterate n defs t = let
+  fun recurse m defs th =
+      if m < 1 orelse null defs then th
       else
         let
           val _ = print (Int.toString (n - m) ^ ": ")
-          val th' = time foldl_append_CONV (rhs (concl th))
+          val th' = time (foldl_append_CONV (hd defs)) (rhs (concl th))
         in
-          recurse (m - 1) (TRANS th th')
+          recurse (m - 1) (tl defs) (TRANS th th')
         end
 in
-  recurse n (REFL t)
+  recurse n defs (REFL t)
 end
 
 fun fmkeys fm_t = let
@@ -140,11 +140,27 @@ fun mk_initial_split n =
          RATOR_CONV (RAND_CONV EVAL))
 
 val initial_split20 = mk_initial_split 20
-val initial_split10 = time mk_initial_split 10
 
-val thm120 = CONV_RULE (RAND_CONV (iterate 6)) initial_split20
+val (initial', defs) = let
+  val r = rhs (concl initial_split20)
+  val r' = rand r
+  val lists = spine_binop (Lib.total listSyntax.dest_append) r'
+  val defs = map mk_def lists
+  fun replace ths t =
+    case ths of
+      []=> ALL_CONV t
+    | [d] => SYM d
+    | d::ds => (LAND_CONV (K (SYM d)) THENC RAND_CONV (replace ds)) t
+in
+  (CONV_RULE (RAND_CONV (RAND_CONV (replace defs))) initial_split20, defs)
+end
 
-val (fmreplace, eqns) = extract_fmap 50 (rhs (concl thm120))
+(* val initial_split10 = time mk_initial_split 10 *)
+
+val thm140 = CONV_RULE (RAND_CONV (iterate 7 defs)) initial'
+(* val thm160 = CONV_RULE (RAND_CONV (iterate 8 defs)) initial' *)
+
+val (fmreplace, eqns) = extract_fmap 50 (rhs (concl thm140))
 
 
 
