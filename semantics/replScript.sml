@@ -66,6 +66,10 @@ val strip_mod_env_def = Define `
 strip_mod_env tenvM =
   MAP (\(n,tenv). (n,[])) tenvM`;
 
+val tenvC_to_envC_def = Define `
+tenvC_to_envC tenvC =
+  MAP (λ(cn,(tvs, ts, t)). (cn, (LENGTH ts, t))) tenvC`;
+
 val update_repl_state_def = Define `
 update_repl_state state type_bindings ctors tenvM tenvC tenv store envC r =
   case r of
@@ -80,6 +84,17 @@ update_repl_state state type_bindings ctors tenvM tenvC tenv store envC r =
            envC := envC ++ state.envC;
            envE := envE ++ state.envE |>
     | Rerr _ => 
+        (* We need to record the attempted module names (if any), so that it
+        * can't be defined later.  To avoid the situation where a failing module
+        * defines some datatype constructors and puts them into the store before
+        * failing.  Then a later same-name module could redefine the constructos
+        * with different types.  But its bindings aren't available, so strip
+        * them out.  For similar reasons we must remember the constructors that
+        * have been defined in the operational semantics (but not the type
+        * system).  Here we use all of the constructors from the module, but we
+        * could also just use the ones whose definitions were reached.  Since
+        * they don't go in the constructor type environment, the programmer
+        * can't refer to any of them, so it doesn't matter much. *)
         state with <| store := store; 
                       envC := envC ++ state.envC; 
                       envM := strip_mod_env tenvM ++ state.envM;
