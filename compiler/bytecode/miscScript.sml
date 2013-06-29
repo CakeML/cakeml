@@ -4,6 +4,10 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val MAP_FST_funs = store_thm("MAP_FST_funs",
+  ``MAP (λ(x,y,z). x) funs = MAP FST funs``,
+  lrw[MAP_EQ_f,FORALL_PROD])
+
 val PERM_PART = store_thm("PERM_PART",
   ``∀P L l1 l2 p q. ((p,q) = PART P L l1 l2) ⇒ PERM (L ++ (l1 ++ l2)) (p++q)``,
   GEN_TAC THEN Induct >>
