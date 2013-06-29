@@ -35,17 +35,37 @@ fun rbinop_size acc t =
 fun lbinop_size acc t =
     if is_const t orelse is_var t then acc else lbinop_size (acc + 1) (lhand t)
 
-fun chunkify_CONV n t = let
-  val n_t = numSyntax.mk_numeral (Arbnum.fromInt n)
-  val td = listTheory.TAKE_DROP |> SPEC n_t |> GSYM
-  fun recurse t =
-    if listlength 0 t < n then raise UNCHANGED
+fun term_lsplit_after n t = let
+  fun recurse acc n t =
+    if n <= 0 then (List.rev acc, t)
     else
-      (REWR_CONV td THENC LAND_CONV ListConv1.FIRSTN_CONV THENC
-       RAND_CONV (ListConv1.BUTFIRSTN_CONV THENC chunkify_CONV n)) t
+      let val (fx,y) = dest_comb t
+          val (f,x) = dest_comb fx
+      in
+        recurse (x::acc) (n - 1) y
+      end handle HOL_ERR _ => (List.rev acc, t)
 in
-  recurse t
+  recurse [] n t
 end
+
+val (app_nil, app_cons) = CONJ_PAIR listTheory.APPEND
+fun APP_CONV t = (* don't eta-convert *)
+    ((REWR_CONV app_cons THENC RAND_CONV APP_CONV) ORELSEC
+     REWR_CONV app_nil) t
+
+fun onechunk n t = let
+  val (pfx, sfx) = term_lsplit_after n t
+in
+  if null pfx orelse listSyntax.is_nil sfx then raise UNCHANGED
+  else let
+    val pfx_t = listSyntax.mk_list(pfx, type_of (hd pfx))
+  in
+    APP_CONV (listSyntax.mk_append(pfx_t, sfx)) |> SYM
+  end
+end
+
+fun chunkify_CONV n t =
+    TRY_CONV (onechunk n THENC RAND_CONV (chunkify_CONV n)) t
 
 fun foldl_append_CONV t = let
   fun core t = (PolyML.fullGC(); EVAL t)
