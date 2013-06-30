@@ -378,24 +378,22 @@ evaluate_dec' mn menv cenv s1 env (Dlet p e) (s2, Rerr (Rraise Bind_error)))
 
 (! mn menv cenv env p e v s1 s2.
 (
-evaluate' s1 env e (s2, Rval v) /\
+evaluate' s1 env e (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
 (pmatch' s2 p v emp = Match_type_error))
 ==>
 evaluate_dec' mn menv cenv s1 env (Dlet p e) (s2, Rerr Rtype_error))
 
 /\
 
-(! mn menv cenv env p e v s1 s2.
-(
-evaluate' s1 env e (s2, Rval v) /\ ~  ( ALL_DISTINCT (pat_bindings p [])))
+(! mn menv cenv env p e s. ( ~  ( ALL_DISTINCT (pat_bindings p [])))
 ==>
-evaluate_dec' mn menv cenv s1 env (Dlet p e) (s2, Rerr Rtype_error))
+evaluate_dec' mn (menv:envM) (cenv:envC) s env (Dlet p e) (s, Rerr Rtype_error))
 
 /\
 
 (! mn menv cenv env p e err s s'.
 (
-evaluate' s env e (s', Rerr err))
+evaluate' s env e (s', Rerr err) /\ ALL_DISTINCT (pat_bindings p []))
 ==>
 evaluate_dec' mn menv cenv s env (Dlet p e) (s', Rerr err))
 

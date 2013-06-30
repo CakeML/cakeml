@@ -1,10 +1,37 @@
 open preamble
 open SemanticPrimitivesTheory AltBigStepTheory BigStepTheory TypeSystemTheory;
 open bigSmallEquivTheory determTheory untypedSafetyTheory;
-open typeSoundTheory;
+open typeSysPropsTheory typeSoundTheory;
 open terminationTheory bigClockTheory;
 
 val _ = new_theory "bigBigEquiv"
+
+val big_exp_determ' = Q.store_thm ("big_exp_determ'",
+`(∀s env e r1.
+   evaluate' s env e r1 ⇒
+   ∀r2. evaluate' s env e r2 ⇒
+   (r1 = r2)) ∧
+ (∀s env es r1.
+   evaluate_list' s env es r1 ⇒
+   ∀r2. evaluate_list' s env es r2 ⇒
+   (r1 = r2)) ∧
+ (∀s env v pes r1.
+   evaluate_match' s env v pes r1 ⇒
+   ∀r2. evaluate_match' s env v pes r2 ⇒
+   (r1 = r2))`,
+HO_MATCH_MP_TAC evaluate'_ind >>
+rw [] >>
+pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once evaluate'_cases]) >>
+fs [] >>
+rw [] >>
+fs [] >>
+res_tac >>
+fs [] >>
+rw [] >>
+res_tac >>
+fs [] >>
+rw [] >> 
+metis_tac []);
 
 val pmatch_pmatch' = Q.prove (
 `(!(cenv : envC)  (s:store) p v env. (pmatch cenv s p v env ≠ Match_type_error) ⇒
@@ -198,21 +225,22 @@ val eval_prog'_to_eval_prog_thm = Q.store_thm ("eval_prog'_to_eval_prog_thm",
 metis_tac [eval_prog'_to_eval_prog, prog_type_soundness, untyped_safety_prog, prog_determ, PAIR_EQ]);
 *)
 
-val atomic_pat_def = Define `
-(atomic_pat (Pvar x) = T) ∧
-(atomic_pat (Plit x) = T)`;
+val var_pat_def = Define `
+(var_pat (Pvar x) = T) ∧
+(var_pat _ = F)`;
 
 val check_ctors_p_def = Define `
-(check_ctors_p cenv t (Pvar x) = T) ∧
-(check_ctors_p cenv t (Plit l) = T) ∧
-(check_ctors_p cenv t (Pcon cn ps) =
+(check_ctors_p cenv NONE (Pvar x) = T) ∧
+(check_ctors_p cenv NONE (Plit l) = T) ∧
+(check_ctors_p cenv (SOME t) (Pcon cn ps) =
   case lookup cn cenv of
      | NONE => F
      | SOME (len, tn) =>
-         (t = SOME tn) ∧
+         (t = tn) ∧
          (len = LENGTH ps) ∧
-         EVERY atomic_pat ps) ∧
-(check_ctors_p cenv t (Pref p) = atomic_pat p)`;
+         EVERY var_pat ps) ∧
+(check_ctors_p cenv NONE (Pref p) = var_pat p) ∧
+(check_ctors_p cenv _ _ = F)`;
 
 val get_pat_type_def = Define `
 (get_pat_type cenv (Pvar x) = NONE) ∧
@@ -222,6 +250,24 @@ val get_pat_type_def = Define `
   case lookup cn cenv of
      | NONE => NONE
      | SOME (len, tn) => SOME tn)`;
+
+val get_pat_type_thm = Q.prove (
+`!cenv p1 p2.
+  check_ctors_p cenv (get_pat_type cenv p1) p2
+  ⇒
+  (get_pat_type cenv p1 = get_pat_type cenv p2)`,
+cases_on `p1` >>
+rw [get_pat_type_def, check_ctors_p_def] >>
+cases_on `p2` >>
+fs [get_pat_type_def, check_ctors_p_def] >>
+cases_on `lookup i cenv` >>
+fs [] >>
+TRY (PairCases_on `x`) >>
+fs [check_ctors_p_def] >>
+cases_on `lookup i' cenv` >>
+fs [] >>
+PairCases_on `x` >>
+fs []);
 
 val check_ctors_def = tDefine "check_ctors" `
 (check_ctors (cenv:envC) (Raise e) = T) ∧
@@ -285,144 +331,504 @@ srw_tac [ARITH_ss] [AstTheory.exp_size_def, v_size_def] >>
 res_tac >>
 decide_tac);
 
-(*
-val eval_check_ctors_pres = Q.prove (
-`(∀ck (menv : envM) (cenv : envC) s env e r.
-   evaluate ck menv cenv s env e r ⇒
-   !count s1 r1 v.
-     (r = ((count,s1), Rval v)) ⇒
-     check_ctors_v cenv v) ∧
- (∀ck (menv : envM) (cenv : envC) s env es r.
-   evaluate_list ck menv cenv s env es r ⇒
-   !count s1 r1 v.
-     (r = ((count,s1), Rval v)) ⇒
-     EVERY (check_ctors_v cenv) v) ∧
- (∀ck (menv : envM) (cenv : envC) s env v pes r.
-   evaluate_match ck menv cenv s env v pes r ⇒
-   !count s1 r1 v.
-     (r = ((count,s1), Rval v)) ⇒
-     check_ctors_v cenv v)`,
+val check_var_pat = Q.prove (
+`(!p. var_pat p ⇒ check_ctors_p cenv NONE p) ∧
+ (!ps. EVERY var_pat ps ⇒ EVERY (check_ctors_p cenv NONE) ps)`,
+Induct >>
+rw [var_pat_def, check_ctors_p_def] >>
+metis_tac []);
 
-ho_match_mp_tac evaluate_ind >>
-rw [check_ctors_v_def] >|
-[fs [do_con_check_def] >>
-     every_case_tac >>
-     rw []
-     *)
+val eval_ctor_inv_def = Define `
+eval_ctor_inv cenv s env =
+  (EVERY (check_ctors_v cenv) s ∧
+   EVERY (\(x,v). check_ctors_v cenv v) env)`;
 
-     (*
-val pmatch'_pmatch2 = Q.prove (
-`(!(cenv : envC) (s:store) p v env t. 
-   EVERY (check_ctors_v cenv) s ∧ check_ctors_p cenv t p ∧ check_ctors_v cenv v ⇒
-   (pmatch' s p v env = pmatch cenv s p v env)) ∧
- (!(cenv : envC) (s:store) ps vs env env' t. 
-    EVERY (check_ctors_v cenv) s ∧ EVERY (check_ctors_p cenv t) ps ∧ EVERY (check_ctors_v cenv) vs ⇒
-   (pmatch_list' s ps vs env = pmatch_list cenv s ps vs env))`,
-cheat)
-ho_match_mp_tac pmatch_ind >>
-rw [pmatch_def, pmatch'_def, check_ctors_p_def, check_ctors_v_def] >|
-[Cases_on `lookup n cenv` >>
-     fs [do_con_check_def] >>
-     Cases_on `x` >>
-     fs [] >>
-     metis_tac [],
- Cases_on `lookup n cenv` >>
-     fs [do_con_check_def] >>
-     Cases_on `x` >>
-     fs [] >>
-     metis_tac [],
- Cases_on `lookup n cenv` >>
-     fs [do_con_check_def] >>
-     Cases_on `x` >>
-     fs [] >>
-     every_case_tac >>
-     fs [] >>
-     rw [] >>
-     all_tac,
- every_case_tac >>
-     fs [store_lookup_def, EVERY_EL] >>
-     metis_tac [],
- every_case_tac >>
-     fs []]);
+val eval_ctor_inv_bind_env = Q.prove (
+`!cenv s x v env.
+  eval_ctor_inv cenv s (bind x v env) =
+  (check_ctors_v cenv v ∧ eval_ctor_inv cenv s env)`,
+rw [eval_ctor_inv_def, LibTheory.bind_def, eval_ctor_inv_def] >>
+metis_tac []);
 
-val unfinished = all_tac;
-val eval'_to_eval2 = Q.prove (
-`(!s env e r. evaluate' s env e r ⇒
-   !menv cenv count s1 r1. (r = (s1,r1)) ∧ check_ctors cenv e ⇒
-   evaluate F menv cenv (count,s) env e ((count,s1),r1)) ∧
- (!s env es r. evaluate_list' s env es r ⇒
-   !menv cenv count s1 r1. (r = (s1,r1)) ∧ EVERY (check_ctors cenv) es ⇒
-   evaluate_list F menv cenv (count,s) env es ((count,s1),r1)) ∧
- (!s env v pes r. evaluate_match' s env v pes r ⇒
-   !menv (cenv:envC) count s1 r1. (r = (s1,r1)) ∧
-   EVERY (\(p,e). check_ctors_p cenv (get_pat_type cenv (FST (HD pes))) p ∧ check_ctors cenv e) pes ⇒
-   evaluate_match F menv cenv (count,s) env v pes ((count,s1),r1))`,
+val eval_ctor_inv_lookup = Q.prove (
+`!cenv s env n v.
+  eval_ctor_inv cenv s env ∧
+  (lookup n env = SOME v) ⇒
+  check_ctors_v cenv v`,
+rw [eval_ctor_inv_def, LibTheory.bind_def, eval_ctor_inv_def] >>
+imp_res_tac lookup_in >>
+fs [GSYM PEXISTS_THM, GSYM PFORALL_THM, LAMBDA_PROD, MEM_MAP, EVERY_MEM] >>
+rw [] >>
+metis_tac []);
 
-ho_match_mp_tac evaluate'_ind >>
+val eval_ctor_inv_do_uapp = Q.prove (
+`!s1 uop v1 s2 v2.
+  (do_uapp s1 uop v1 = SOME (s2, v2)) ∧
+  eval_ctor_inv cenv s1 env ∧
+  check_ctors_v cenv v1
+  ⇒
+  check_ctors_v cenv v2 ∧
+  eval_ctor_inv cenv s2 env`,
+rw [do_uapp_def, eval_ctor_inv_def, check_ctors_v_def] >>
+cases_on `uop` >>
+cases_on `v1` >>
+fs [check_ctors_v_def, LET_THM, store_alloc_def] >>
+rw [check_ctors_v_def] >>
+cases_on `store_lookup n s1` >>
+fs [store_lookup_def, EVERY_MEM, LAMBDA_PROD, GSYM PFORALL_THM] >>
+metis_tac [MEM_EL]);
+
+val eval_ctor_build_rec_env = Q.prove (
+`!cenv s funs1 funs2 cl_env add_to_env.
+  eval_ctor_inv cenv s add_to_env ∧
+  eval_ctor_inv cenv s cl_env ∧
+  EVERY (λ(f,x,e). check_ctors cenv e) funs1
+  ⇒
+  eval_ctor_inv cenv s ( FOLDR (λ(f,x,e) env'. bind f (Recclosure cl_env funs1 f) env') add_to_env funs2)`,
+induct_on `funs2` >>
+rw [] >>
+PairCases_on `h` >>
+fs [eval_ctor_inv_bind_env, build_rec_env_def, check_ctors_v_def] >>
+fs [eval_ctor_inv_def]);
+
+val eval_ctor_inv_do_app = Q.prove (
+`!s1 env1 op v1 v2 s2 env2 e.
+  (do_app s1 env1 op v1 v2 = SOME (s2,env2,e)) ∧
+  eval_ctor_inv cenv s1 env1 ∧
+  check_ctors_v cenv v1 ∧
+  check_ctors_v cenv v2
+  ⇒
+  check_ctors cenv e ∧
+  eval_ctor_inv cenv s2 env2`,
+rw [do_app_cases] >>
 rw [check_ctors_def] >>
+fs [check_ctors_v_def, eval_ctor_inv_bind_env] >|
+[fs [eval_ctor_inv_def],
+ induct_on `funs` >>
+     rw [Once find_recfun_def] >>
+     PairCases_on `h` >>
+     fs [] >>
+     cases_on `h0 = n'` >>
+     fs [] >>
+     metis_tac [],
+ rw [build_rec_env_def] >>
+     match_mp_tac eval_ctor_build_rec_env >>
+     fs [eval_ctor_inv_def],
+ fs [store_assign_def, eval_ctor_inv_def] >>
+     fs [EVERY_EL] >>
+     rw [EL_LUPDATE]]);
+
+val eval_ctor_inv_do_log = Q.prove (
+`!op v e1 e2.
+  (do_log op v e1 = SOME e2) ∧
+  check_ctors_v cenv v ∧
+  check_ctors cenv e1 
+  ⇒
+  check_ctors cenv e2`, 
+rw [do_log_def] >>
+cases_on `v` >>
+fs [] >>
+cases_on `l` >>
+fs [] >>
+cases_on `b` >>
+fs [] >>
+cases_on `op` >>
+fs [] >>
+rw [] >>
+fs [check_ctors_def]);
+
+val eval_ctor_inv_do_if = Q.prove (
+`!v e1 e2 e3.
+  (do_if v e1 e2 = SOME e3) ∧
+  check_ctors_v cenv v ∧
+  check_ctors cenv e1 ∧
+  check_ctors cenv e2 
+  ⇒
+  check_ctors cenv e3`, 
+rw [do_if_def] >>
+metis_tac []);
+
+val check_ctors_result_def = Define `
+(check_ctors_result cenv (Rval v) = check_ctors_v cenv v) ∧
+(check_ctors_result cenv _ = T)`;
+
+val check_ctors_result2_def = Define `
+(check_ctors_result2 cenv n (Rval vs) = ((LENGTH vs = n) ∧ EVERY (check_ctors_v cenv) vs)) ∧
+(check_ctors_result2 cenv n _ = T)`;
+
+val check_ctors_match_result_def = Define `
+(check_ctors_match_result cenv s (Match env) = 
+  eval_ctor_inv cenv s env) ∧
+(check_ctors_match_result cenv s _ = T)`;
+
+val get_val_type_def = Define `
+(get_val_type cenv (Conv cn vs) = 
+  case lookup cn cenv of
+     | NONE => NONE
+     | SOME (len, tn) => SOME tn) ∧
+(get_val_type cenv _ = NONE)`;
+
+val pmatch'_pmatch2_lem = Q.prove (
+`!ps vs env.
+  (LENGTH ps = LENGTH vs) ∧
+  EVERY var_pat ps ∧
+  EVERY (check_ctors_v cenv) vs ∧
+  eval_ctor_inv cenv s env
+  ⇒
+  (pmatch_list' s ps vs env = pmatch_list cenv s ps vs env) ∧
+  check_ctors_match_result cenv s (pmatch_list cenv s ps vs env)`,
+Induct >>
+rw [] >>
+cases_on `vs` >>
+fs [pmatch_def, pmatch'_def, check_ctors_match_result_def, var_pat_def] >>
+cases_on `h` >>
+fs [pmatch_def, pmatch'_def, check_ctors_match_result_def, var_pat_def] >>
+metis_tac [eval_ctor_inv_bind_env]);
+
+val pmatch'_pmatch2 = Q.prove (
+`!(cenv : envC) (s:store) p v env (menv : envM) t. 
+  eval_ctor_inv cenv s env ∧ 
+  check_ctors_p cenv t p ∧ 
+  check_ctors_v cenv v 
+  ⇒
+  check_ctors_match_result cenv s (pmatch cenv s p v env) ∧
+  ((pmatch' s p v env = pmatch cenv s p v env) ∨
+   (?t1 t2. 
+      pmatch' s p v env = No_match ∧
+      pmatch cenv s p v env = Match_type_error ∧
+      (get_pat_type cenv p = SOME t1) ∧ 
+      (get_val_type cenv v = SOME t2) ∧ 
+      t1 ≠ t2))`,
+cases_on `p` >>
+cases_on `v` >>
+cases_on `t` >>
+fs [pmatch_def, pmatch'_def, check_ctors_p_def, check_ctors_v_def, eval_ctor_inv_bind_env,
+    check_ctors_match_result_def, get_pat_type_def, get_val_type_def] >-
+rw [check_ctors_match_result_def] >|
+[NTAC 5 strip_tac >>
+     Cases_on `lookup i cenv` >>
+     fs [] >>
+     Cases_on `x'` >>
+     fs [] >>
+     Cases_on `lookup i' cenv` >>
+     fs [do_con_check_def, check_ctors_p_def] >>
+     Cases_on `x'` >>
+     fs [check_ctors_p_def, check_ctors_match_result_def] >>
+     rw [check_ctors_match_result_def] >>
+     fs [] >>
+     metis_tac [pmatch'_pmatch2_lem],
+ NTAC 5 STRIP_TAC >>
+     every_case_tac >>
+     fs [store_lookup_def, EVERY_EL] >>
+     fs [check_ctors_p_def, EVERY_EL, eval_ctor_inv_def, check_ctors_match_result_def] >>
+     cases_on `p'` >>
+     fs [var_pat_def, pmatch_def, pmatch'_def, check_ctors_match_result_def,
+         eval_ctor_inv_bind_env] >>
+     fs [eval_ctor_inv_def, EVERY_EL] >>
+     metis_tac []]);
+
+val pmatch'_wrong_type = Q.prove (
+`!cenv p v t1 t2 p'.
+  (get_pat_type cenv p = SOME t1) ∧
+  (get_val_type cenv v = SOME t2) ∧
+  t1 ≠ t2 ∧
+  check_ctors_p cenv (get_pat_type cenv p) p'
+  ⇒
+  pmatch' s p' v env = No_match`,
+cases_on `p` >>
+cases_on `v` >>
+rw [get_pat_type_def, get_val_type_def] >>
+every_case_tac >>
+fs [] >>
+cases_on `p'` >>
+fs [check_ctors_p_def, pmatch'_def, get_pat_type_def, get_val_type_def] >>
+rw [] >>
+cases_on `lookup i' cenv` >>
+fs []);
+
+val eval'_to_eval2_lem = Q.prove (
+`!pes cenv p v t1 t2 s env count.
+  (get_pat_type cenv p = SOME t1) ∧
+  (get_val_type cenv v = SOME t2) ∧
+  t1 ≠ t2 ∧
+  (∀e. MEM e pes ⇒
+        (λ(p',e').
+           check_ctors_p cenv (get_pat_type cenv p) p' ∧
+           check_ctors cenv e') e)
+  ⇒
+  evaluate_match' s env v pes (s, Rerr (Rraise Bind_error)) ∨
+  evaluate_match' s env v pes (s, Rerr Rtype_error)`,
+induct_on `pes` >>
+rw [] >>
+ONCE_REWRITE_TAC [evaluate_cases, evaluate'_cases] >>
+rw [] >>
+`(λ(p',e'). check_ctors_p cenv (get_pat_type cenv p) p' ∧ check_ctors cenv e') h`
+        by metis_tac [] >>
+PairCases_on `h` >>
+fs [] >>
+cases_on `ALL_DISTINCT (pat_bindings h0 [])` >>
+fs [] >>
+`pmatch' s h0 v env = No_match` by metis_tac [pmatch'_wrong_type] >>
+rw [] >>
+`evaluate_match' s env v pes (s,Rerr (Rraise Bind_error)) ∨
+ evaluate_match' s env v pes (s,Rerr Rtype_error)`
+         by metis_tac [] >>
+rw [] >>
+metis_tac []);
+
+val eval'_to_eval_simple_pat = Q.store_thm ("eval'_to_eval_simple_pat",
+`(!s env e r. evaluate' s env e r ⇒
+   !menv cenv count s1 r1. (r = (s1,r1)) ∧ r1 ≠ Rerr (Rraise Bind_error) ∧ check_ctors cenv e ∧
+      eval_ctor_inv cenv s env ⇒
+      eval_ctor_inv cenv s1 env ∧
+      check_ctors_result cenv r1 ∧
+      evaluate F menv cenv (count,s) env e ((count,s1),r1)) ∧
+ (!s env es r. evaluate_list' s env es r ⇒
+   !menv cenv count s1 r1. (r = (s1,r1)) ∧ r1 ≠ Rerr (Rraise Bind_error) ∧ EVERY (check_ctors cenv) es ∧
+      eval_ctor_inv cenv s env ⇒
+      eval_ctor_inv cenv s1 env ∧
+      check_ctors_result2 cenv (LENGTH es) r1 ∧
+      evaluate_list F menv cenv (count,s) env es ((count,s1),r1)) ∧
+ (!s env v pes r. evaluate_match' s env v pes r ⇒
+   !menv (cenv:envC) count s1 r1. (r = (s1,r1)) ∧ r1 ≠ Rerr (Rraise Bind_error) ∧
+      check_ctors_v cenv v ∧
+      EVERY (\(p,e). check_ctors_p cenv (get_pat_type cenv (FST (HD pes))) p ∧ check_ctors cenv e) pes ∧
+      eval_ctor_inv cenv s env ⇒
+      eval_ctor_inv cenv s1 env ∧
+      check_ctors_result cenv r1 ∧
+      evaluate_match F menv cenv (count,s) env v pes ((count,s1),r1))`,
+ho_match_mp_tac evaluate'_strongind >>
+REPEAT CONJ_TAC >>
+REPEAT GEN_TAC >>
+REPEAT DISCH_TAC >>
+REPEAT GEN_TAC >>
+STRIP_TAC >>
 SIMP_TAC (srw_ss()) [Once evaluate_cases] >>
 fs [] >>
-fs [lookup_var_id_def, EVERY_MEM] >|
-[metis_tac [],
- metis_tac [],
- metis_tac [],
-(* `check_ctors cenv e''`
-            by (fs [do_app_cases] >>
-                rw [check_ctors_def])
-                *)
- unfinished,
- metis_tac [],
- metis_tac [],
- `check_ctors cenv e'`
-            by (fs [do_log_def] >>
-                rw [] >>
-                cases_on `v` >>
-                fs [] >>
-                cases_on `l` >>
-                fs [] >>
-                every_case_tac >>
-                rw [check_ctors_def]) >>
+fs [lookup_var_id_def, EVERY_MEM, check_ctors_result_def, check_ctors_v_def, check_ctors_def] >|
+[metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def, eval_ctor_inv_bind_env],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ res_tac >>
+     fs [do_con_check_def, check_ctors_result_def, check_ctors_v_def, check_ctors_result2_def] >>
+     rw [check_ctors_result_def, check_ctors_v_def, do_con_check_def] >>
+     every_case_tac >>
+     fs [] >>
      metis_tac [],
- metis_tac [],
- `check_ctors cenv e'`
-            by (fs [do_if_def] >>
-                rw [] >>
-                every_case_tac >>
-                rw [check_ctors_def]) >>
-     metis_tac [],
- metis_tac [],
- induct_on `pes` >>
-     rw [] >>
-     fs [check_ctors_def] >>
-     `?p e. h = (p,e)` by metis_tac [pair_CASES] >>
-     rw [] >>
-     fs [check_ctors_def, LET_THM] >>
-     disj1_tac >>
-     qexists_tac `v` >>
-     qexists_tac `(count',s')` >>
-     rw [] >>
-     pop_assum match_mp_tac >>
-     rw [] >>
-     rw [] >>
-     `?p e. e'' = (p,e)` by metis_tac [pair_CASES] >>
-     rw [] >>
-     fs [EVERY_MEM] >>
-     res_tac >>
-     fs [],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [eval_ctor_inv_lookup, check_ctors_result_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def, eval_ctor_inv_def],
+ metis_tac [check_ctors_result_def, eval_ctor_inv_do_uapp],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ `check_ctors cenv e'' ∧
+  eval_ctor_inv cenv s'' env'`
+        by prove_tac [eval_ctor_inv_do_app] >>
+     rw [] >|
+     [fs [eval_ctor_inv_def] >>
+          metis_tac [],
+      metis_tac []],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, eval_ctor_inv_do_log],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, eval_ctor_inv_do_if],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
  cases_on `pes` >>
      fs [check_ctors_def] >>
      `?p e. h = (p,e)` by metis_tac [pair_CASES] >>
      rw [] >>
-     fs [check_ctors_def, LET_THM],
- metis_tac [],
- metis_tac [],
- metis_tac [],
- unfinished,
- unfinished,
- unfinished]
+     fs [check_ctors_def, LET_THM, EVERY_MEM, LAMBDA_PROD, GSYM PFORALL_THM,
+         GSYM PEXISTS_THM] >>
+     metis_tac [],
+ cases_on `pes` >>
+     fs [check_ctors_def] >>
+     `?p e. h = (p,e)` by metis_tac [pair_CASES] >>
+     rw [] >>
+     fs [check_ctors_def, LET_THM, EVERY_MEM, LAMBDA_PROD, GSYM PFORALL_THM,
+         GSYM PEXISTS_THM] >>
+     metis_tac [],
+ metis_tac [check_ctors_result_def, check_ctors_v_def, eval_ctor_inv_bind_env],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ `eval_ctor_inv cenv s (build_rec_env funs env env)` 
+            by (rw [build_rec_env_def] >>
+                match_mp_tac eval_ctor_build_rec_env >>
+                fs [eval_ctor_inv_def, EVERY_MEM]) >>
+     rw [] >>
+     fs [eval_ctor_inv_def, EVERY_MEM] >>
+     metis_tac [],
+ metis_tac [check_ctors_result_def, check_ctors_v_def],
+ rw [check_ctors_result2_def],
+ rw [check_ctors_result2_def] >>
+     metis_tac [check_ctors_result2_def, check_ctors_result_def],
+ rw [check_ctors_result2_def] >>
+     metis_tac [check_ctors_result2_def, check_ctors_result_def],
+ metis_tac [check_ctors_result2_def, check_ctors_result_def],
+ metis_tac [check_ctors_result2_def, check_ctors_result_def],
+ `pmatch cenv s p v env = Match env' ∧ eval_ctor_inv cenv s env'` 
+         by metis_tac [pmatch'_pmatch2, match_result_distinct, check_ctors_match_result_def] >>
+     rw [] >>
+     fs [eval_ctor_inv_def] >>
+     metis_tac [],
+ `(pmatch cenv s p v env = No_match) ∨ 
+  ((pmatch cenv s p v env = Match_type_error) ∧
+   ?t1 t2. get_pat_type cenv p = SOME t1 ∧ get_val_type cenv v = SOME t2 ∧ t1 ≠ t2)`
+             by metis_tac [pmatch'_pmatch2, match_result_distinct] >|
+     [`(pes = []) ∨ ?p' e' pes'. pes = (p',e')::pes'` 
+            by (cases_on `pes` >>
+                rw [] >>
+                cases_on `h` >>
+                metis_tac []) >>
+          fs [] >>
+          `get_pat_type cenv p' = get_pat_type cenv p` 
+                    by (rw [] >>
+                        fs [LAMBDA_PROD, GSYM PFORALL_THM] >>
+                        metis_tac [get_pat_type_thm]) >>
+          metis_tac [],
+      `evaluate_match' s env v pes (s,Rerr (Rraise Bind_error)) ∨
+       evaluate_match' s env v pes (s,Rerr Rtype_error)`
+                 by metis_tac [eval'_to_eval2_lem] >>
+          imp_res_tac big_exp_determ' >>
+          fs [check_ctors_result_def]],
+ `pmatch cenv s p v env = Match_type_error` by metis_tac [pmatch'_pmatch2, match_result_distinct] >>
+     rw [check_ctors_result_def],
+ metis_tac [check_ctors_result_def, check_ctors_v_def]]);
 
+val check_ctors_dec_def = Define `
+(check_ctors_dec cenv (Dlet p e) = (check_ctors_p cenv (get_pat_type cenv p) p ∧ check_ctors cenv e)) ∧
+(check_ctors_dec cenv (Dletrec funs) = EVERY (λ(f,x,e). check_ctors cenv e) funs) ∧
+(check_ctors_dec cenv (Dtype _) = T)`;
 
- *) 
+val check_ctors_result3_def = Define `
+(check_ctors_result3 cenv (Rval (cenv',env)) = 
+  EVERY (λ(x,v). check_ctors_v cenv v) env) ∧
+(check_ctors_result3 cenv _ = T)`;
 
+val eval_dec'_to_eval_dec_simple_pat = Q.store_thm ("eval_dec'_to_eval_dec_simple_pat",
+`!mn menv cenv s env d s' r.
+   (r ≠ Rerr (Rraise Bind_error)) ∧
+   check_ctors_dec cenv d ∧ 
+   eval_ctor_inv cenv s env ∧
+   evaluate_dec' mn menv cenv s env d (s',r)
+   ⇒
+   evaluate_dec mn menv cenv s env d (s',r) ∧
+   eval_ctor_inv cenv s' env ∧
+   check_ctors_result3 cenv r`,
+rw [evaluate_dec_cases, evaluate_dec'_cases] >>
+fs [check_ctors_dec_def, check_ctors_result3_def] >|
+[`evaluate F menv cenv (0,s) env e ((0,s'), Rval v) ∧
+  eval_ctor_inv cenv s' env ∧
+  check_ctors_result cenv (Rval v)`
+        by metis_tac [eval'_to_eval_simple_pat, result_distinct] >>
+     fs [check_ctors_result_def] >>
+     `eval_ctor_inv cenv s' (emp:(string,v) env)`
+                 by fs [eval_ctor_inv_def, LibTheory.emp_def] >>
+     metis_tac [pmatch'_pmatch2, match_result_distinct],
+ metis_tac [eval'_to_eval_simple_pat, result_distinct],
+ `evaluate F menv cenv (0,s) env e ((0,s'), Rval v) ∧
+  eval_ctor_inv cenv s' env ∧
+  check_ctors_result cenv (Rval v)`
+        by metis_tac [eval'_to_eval_simple_pat, result_distinct] >>
+     fs [check_ctors_result_def] >>
+     `eval_ctor_inv cenv s' (emp:(string,v) env)`
+                 by fs [eval_ctor_inv_def, LibTheory.emp_def] >>
+     metis_tac [check_ctors_match_result_def, pmatch'_pmatch2, match_result_distinct, eval_ctor_inv_def],
+ `evaluate F menv cenv (0,s) env e ((0,s'), Rval v) ∧
+  eval_ctor_inv cenv s' env ∧
+  check_ctors_result cenv (Rval v)`
+        by metis_tac [eval'_to_eval_simple_pat, result_distinct] >>
+     fs [check_ctors_result_def] >>
+     `eval_ctor_inv cenv s' (emp:(string,v) env)`
+                 by fs [eval_ctor_inv_def, LibTheory.emp_def] >>
+     metis_tac [check_ctors_match_result_def, pmatch'_pmatch2, match_result_distinct, eval_ctor_inv_def],
+ metis_tac [eval'_to_eval_simple_pat, result_distinct],
+ metis_tac [eval'_to_eval_simple_pat, result_distinct, error_result_distinct, result_11],
+ metis_tac [eval'_to_eval_simple_pat, result_distinct, error_result_distinct, result_11],
+ fs [LibTheory.emp_def, eval_ctor_inv_def] >>
+     metis_tac [SIMP_RULE (srw_ss()) [eval_ctor_inv_def] eval_ctor_build_rec_env, EVERY_DEF,
+                build_rec_env_def],
+ fs [LibTheory.emp_def]]);
 
+ (*
+val check_ctors_result4_def = Define `
+(check_ctors_result4 cenv (Rval env) = 
+  EVERY (λ(x,v). check_ctors_v cenv v) env) ∧
+(check_ctors_result4 cenv _ = T)`;
+
+val eval_decs'_to_eval_decs_simple_pat = Q.store_thm ("eval_decs'_to_eval_decs_simple_pat",
+`!mn menv cenv s env ds s' r cenv'.
+   (r ≠ Rerr (Rraise Bind_error)) ∧
+   EVERY (check_ctors_dec cenv) ds ∧ 
+   eval_ctor_inv cenv s env ∧
+   evaluate_decs' mn menv cenv s env ds (s',cenv',r)
+   ⇒
+   evaluate_decs mn menv cenv s env ds (s',cenv',r) ∧
+   eval_ctor_inv (cenv'++cenv) s' env ∧
+   check_ctors_result4 (cenv'++cenv) r`,
+induct_on `ds` >>
+REPEAT GEN_TAC >>
+rw [Once evaluate_decs_cases, Once evaluate_decs'_cases, LibTheory.emp_def,
+    check_ctors_result4_def] >>
+rw [check_ctors_result4_def] >-
+metis_tac [eval_dec'_to_eval_dec_simple_pat, result_distinct, error_result_distinct, result_11] >-
+ metis_tac [eval_dec'_to_eval_dec_simple_pat, result_distinct, error_result_distinct, result_11] >>
+`evaluate_dec mn menv cenv s env h (s2,(Rval (new_tds,new_env))) ∧
+ eval_ctor_inv cenv s2 env ∧ 
+ check_ctors_result3 cenv (Rval (new_tds,new_env))`
+       by metis_tac [eval_dec'_to_eval_dec_simple_pat, result_distinct, error_result_distinct, result_11] >>
+fs [LibTheory.merge_def, check_ctors_result3_def] >>
+`eval_ctor_inv (new_tds ++ cenv) s2 (new_env++env)` by cheat >>
+`EVERY (check_ctors_dec (new_tds ++ cenv)) ds` by cheat >>
+`evaluate_decs mn menv (new_tds ++ cenv) s2 (new_env ++ env) ds (s',new_tds',r') ∧
+ eval_ctor_inv (new_tds' ++ new_tds ++ cenv) s' (new_env ++ env) ∧
+ check_ctors_result4 (new_tds' ++ new_tds ++ cenv) r'`
+       by (cases_on `r'` >>
+           fs [combine_dec_result_def] >>
+           metis_tac [APPEND_ASSOC, result_distinct, error_result_distinct, result_11]) >-
+metis_tac [] >-
+fs [eval_ctor_inv_def] >>
+cases_on `r'` >>
+fs [combine_dec_result_def, check_ctors_result4_def, LibTheory.merge_def, eval_ctor_inv_def]);
+
+val check_ctors_top_def = Define `
+(check_ctors_top cenv (Tdec d) =
+  check_ctors_dec cenv d) ∧
+(check_ctors_top cenv (Tmod mn specs ds)  =
+  EVERY (check_ctors_dec cenv) ds)`;
+
+val check_ctors_result5_def = Define `
+(check_ctors_result5 cenv (Rval (menv,env)) = 
+  EVERY (λ(x,v). check_ctors_v cenv v) env) ∧
+(check_ctors_result5 cenv _ = T)`;
+
+val eval_top'_to_eval_top_simple_pat = Q.store_thm ("eval_top'_to_eval_top_simple_pat",
+`!menv cenv s env top s' cenv' r.
+   (r ≠ Rerr (Rraise Bind_error)) ∧
+   check_ctors_top cenv top ∧ 
+   eval_ctor_inv cenv s env ∧
+   evaluate_top' menv cenv s env top (s',cenv',r)
+   ⇒
+   evaluate_top menv cenv s env top (s',cenv',r) ∧
+   eval_ctor_inv (cenv'++cenv) s' env ∧
+   check_ctors_result5 (cenv'++cenv) r`,
+
+rw [evaluate_top_cases, evaluate_top'_cases] >>
+fs [check_ctors_top_def, check_ctors_result5_def] >>
+
+metis_tac [eval_decs'_to_eval_decs_simple_pat, eval_dec'_to_eval_dec_simple_pat, 
+           eval_ctor_inv_def, result_distinct, error_result_distinct, result_11] >>
+
+           *)
+      
 val _ = export_theory ();
