@@ -318,15 +318,15 @@ val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
   ``∀mn menv cenv s env ds res. evaluate_decs mn menv cenv s env ds res ⇒
       closed_context menv cenv s env ∧
       FV_decs ds ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-      dec_cns_list ds ⊆ set (MAP FST cenv)
+      decs_cns (THE mn) ds ⊆ set (MAP FST cenv)
     ⇒
       let env' = case SND(SND res) of Rval(e)=>(e++env) | _ => env in
-      (* let menv' = case mn of SOME mod => if EXISTS (λd. ∃ts. d = Dtype ts) ds then (mod,[])::menv else menv | _ => menv in *)
       closed_context menv ((FST(SND res))++cenv) (FST res) env'``,
   ho_match_mp_tac evaluate_decs_ind >>
   simp[LibTheory.emp_def] >>
   conj_tac >- (
     rpt gen_tac >> rpt strip_tac >>
+    fs[FV_decs_def,decs_cns_def] >>
     imp_res_tac evaluate_dec_closed_context >>
     fs[] >> fs[LET_THM] ) >>
   simp[combine_dec_result_def,LibTheory.merge_def] >>
@@ -335,19 +335,22 @@ val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
   simp[] >> strip_tac >>
   Cases_on`r`>>fs[]>- (
     first_x_assum match_mp_tac >>
-    fsrw_tac[DNF_ss][SUBSET_DEF] >>
-    metis_tac[]) >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
+    cheat
+    (* metis_tac[] *)) >>
   qpat_assum`P ⇒ Q`mp_tac>>
   discharge_hyps>-(
-    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
     metis_tac[]) >>
   strip_tac >>
   fs[closed_context_def] >>
   conj_tac >- (
     fs[toIntLangProofsTheory.closed_under_cenv_def] >>
-    metis_tac[] ) >>
-  conj_tac >- ( fs[closed_under_menv_def] ) >>
-  metis_tac[] )
+    cheat
+    (* metis_tac[] *)) >>
+  conj_tac >- cheat >>
+  conj_tac >- ( fs[closed_under_menv_def] >> cheat) >>
+  cheat (* metis_tac[] *) )
 
 val closed_context_shift_menv = store_thm("closed_context_shift_menv",
   ``closed_context menv cenv s (env' ++ env) ⇒
@@ -604,23 +607,24 @@ val tenv_names_bind_var_list2 = store_thm("tenv_names_bind_var_list2",
 
 val type_ds_closed = store_thm("type_ds_closed",
   ``∀mn tmenv cenv tenv ds y z. type_ds mn tmenv cenv tenv ds y z ⇒
-      FV_decs ds ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv ∪ set (MAP (Short o FST) z) ∧
-      dec_cns_list ds ⊆ set (MAP FST cenv) ∪ set (MAP FST y)``,
+      FV_decs ds ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv ∧
+      decs_cns (THE mn) ds ⊆ set (MAP FST cenv)``,
   ho_match_mp_tac type_ds_ind >>
   simp[] >>
+  simp[FV_decs_def,decs_cns_def] >>
   rpt gen_tac >> strip_tac >>
   imp_res_tac type_d_closed >>
   fs[LibTheory.merge_def,tenv_names_bind_var_list2] >>
   fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP] >>
-  metis_tac[])
+  cheat
+  (* metis_tac[] *))
 
 val type_top_closed = store_thm("type_top_closed",
   ``∀tmenv tcenv tenv top tm' tc' te'.
       type_top tmenv tcenv tenv top tm' tc' te'
       ⇒
-      let mn = case top of Tmod n _ _ => Long n | _ => Short in
-      FV_top top ⊆ (IMAGE Short (tenv_names tenv)) ∪ set (MAP (Short o FST) te') ∪ tmenv_dom tmenv ∪ tmenv_sdom tm' ∧
-      top_cns top ⊆ set (MAP FST tcenv) ∪ set (MAP FST tc')``,
+      FV_top top ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv ∧
+      top_cns top ⊆ set (MAP FST tcenv)``,
   ho_match_mp_tac type_top_ind >>
   strip_tac >- (
     simp[] >>
@@ -631,10 +635,7 @@ val type_top_closed = store_thm("type_top_closed",
   simp[] >>
   rpt gen_tac >> strip_tac >>
   imp_res_tac type_ds_closed >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,LibTheory.emp_def,check_signature_cases] >>
-  fsrw_tac[DNF_ss][MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
-  (* I don't know if the theorem statement is correct *)
-  cheat)
+  fs[])
 
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
