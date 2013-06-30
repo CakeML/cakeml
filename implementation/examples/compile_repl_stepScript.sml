@@ -164,6 +164,23 @@ val (fmreplace100, eqns100, fmdef100) = extract_fmap 50 (rhs (concl thm100))
 
 val _ = computeLib.add_funs eqns100
 
+fun doit1 (lastfm_def, defs, th) = let
+  val (defs', th20_0) = iterate 1 defs (rhs (concl th))
+  val th20 = CONV_RULE (RAND_CONV (K th20_0)) th
+  val th20_fm = CONV_RULE (PURE_REWRITE_CONV [lastfm_def]) th20
+  val (new_th, fm_eqns, new_fmdef) = extract_fmap 20 (rhs (concl th20_fm))
+  val _ = computeLib.add_funs fm_eqns
+in
+  (new_fmdef, defs', new_th)
+end
+
+val x120 = doit1 (fmdef100, defs', fmreplace100)
+val x140 = doit1 x120
+val x160 = doit1 x140
+val x180 = doit1 x160  (* fine up to here on telemachus *)
+
+
+
 val (defs'', thm120_0) = iterate 1 defs' (rhs (concl fmreplace100))
 val thm120 = CONV_RULE (RAND_CONV (K thm120_0)) fmreplace100
 val thm120_fm = CONV_RULE (PURE_REWRITE_CONV [fmdef100]) thm120
@@ -172,7 +189,8 @@ val (fmreplace120, eqns120, fmdef120) = extract_fmap 20 (rhs (concl thm120_fm))
 val _ = computeLib.add_funs eqns120
 
 val (defs140, thm140_0) = iterate 1 defs'' (rhs (concl fmreplace120))
-
+val thm140 = CONV_RULE (RAND_CONV (K thm140_0)) fmreplace120
+val thm140_fm
 
 
 val thm150 = CONV_RULE (RAND_CONV (iterate 15)) initial_split10
