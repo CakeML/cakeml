@@ -177,26 +177,10 @@ end
 val x120 = doit1 (fmdef100, defs', fmreplace100)
 val x140 = doit1 x120
 val x160 = doit1 x140
-val x180 = doit1 x160  (* fine up to here on telemachus *)
-
-
-
-val (defs'', thm120_0) = iterate 1 defs' (rhs (concl fmreplace100))
-val thm120 = CONV_RULE (RAND_CONV (K thm120_0)) fmreplace100
-val thm120_fm = CONV_RULE (PURE_REWRITE_CONV [fmdef100]) thm120
-val (fmreplace120, eqns120, fmdef120) = extract_fmap 20 (rhs (concl thm120_fm))
-
-val _ = computeLib.add_funs eqns120
-
-val (defs140, thm140_0) = iterate 1 defs'' (rhs (concl fmreplace120))
-val thm140 = CONV_RULE (RAND_CONV (K thm140_0)) fmreplace120
-val thm140_fm
-
-
-val thm150 = CONV_RULE (RAND_CONV (iterate 15)) initial_split10
-
-val thm140 = CONV_RULE (RAND_CONV (iterate 1)) thm120
-val thm160 = CONV_RULE (RAND_CONV (iterate 1)) thm140
+val x180 = doit1 x160
+val x200 = doit1 x180
+val x220 = doit1 x200
+val x240 = doit1 x220  (* just manages this far on telemachus *)
 
 val _ = PolyML.fullGC();
 val res = time EVAL
