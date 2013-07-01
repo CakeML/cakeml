@@ -40,8 +40,7 @@ val CONCAT_RULE = PURE_REWRITE_RULE[mk_thm([],mk_eq(``FLAT:string list -> string
 val defs = map EmitML.DEFN [
 optionTheory.OPTION_BIND_def,
 fapply_def,
-i0_def,
-string_of_int_def,
+SemanticPrimitivesTheory.int_to_string_def,
 SemanticPrimitivesTheory.id_to_string_def,
 the_def,
 LibTheory.lookup_def,

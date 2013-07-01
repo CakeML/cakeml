@@ -81,8 +81,6 @@ val defs = map EmitML.DEFN
 , el_check_def
 , free_vars_def
 , emit_def
-, i1_def
-, i2_def
 , mkshift_def
 , shift_def
 , cbv_def
@@ -122,6 +120,8 @@ val defs = map EmitML.DEFN
 , compile_Cexp_def
 , AstTheory.mk_id_def
 , CONCAT_RULE number_constructors_def
+, dec_to_contab_def
+, decs_to_contab_def
 , AstTheory.pat_bindings_def
 , CONCAT_RULE compile_news_def
 , compile_fake_exp_def
