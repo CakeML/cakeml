@@ -67,12 +67,51 @@ end
 fun chunkify_CONV n t =
     TRY_CONV (onechunk n THENC RAND_CONV (chunkify_CONV n)) t
 
-fun foldl_append_CONV d t = let
-  fun core t = (PolyML.fullGC(); (RAND_CONV (K d) THENC EVAL) t)
+val Dlet_t = prim_mk_const{Thy = "Ast", Name = "Dlet"}
+val Dletrec_t = prim_mk_const{Thy = "Ast", Name = "Dletrec"}
+val Dtype_t = prim_mk_const{Thy = "Ast", Name = "Dtype"}
+fun declstring t = let
+  val (f, args) = strip_comb t
+in
+  if same_const f Dlet_t then "val " ^ Literal.dest_string_lit (rand (hd args))
+  else if same_const f Dletrec_t then
+    let
+      val (fdecs,_) = listSyntax.dest_list (hd args)
+    in
+      "fun " ^ Literal.dest_string_lit (hd (pairSyntax.strip_pair (hd fdecs))) ^
+      (if length fdecs > 1 then "*" else "")
+    end
+  else if same_const f Dtype_t then
+    let
+      val (tydecs,_) = listSyntax.dest_list (hd args)
+    in
+      "datatype " ^
+      Literal.dest_string_lit (hd (tl (pairSyntax.strip_pair (hd tydecs)))) ^
+      (if length tydecs > 1 then "*" else "")
+    end
+  else "??"
+end
+
+val (FOLDL_NIL, FOLDL_CONS) = CONJ_PAIR listTheory.FOLDL
+val FOLDL_EVAL = let
+  (* t is of form FOLDL f acc [e1; e2; e3; .. ] and f is evaluated with EVAL. *)
+  fun eval n t = (PolyML.fullGC(); print ("(" ^ declstring (rand t) ^ ")");
+                  EVAL t before print (Int.toString n ^ " "))
+  fun recurse n t =
+      (REWR_CONV FOLDL_NIL ORELSEC
+       (REWR_CONV FOLDL_CONS THENC RATOR_CONV (RAND_CONV (eval n)) THENC
+        recurse (n + 1))) t
+in
+  recurse 0
+end
+
+
+fun foldl_append_CONV d = let
+  val core = RAND_CONV (K d) THENC FOLDL_EVAL
 in
   REWR_CONV rich_listTheory.FOLDL_APPEND THENC
   RATOR_CONV (RAND_CONV core)
-end t
+end
 
 fun iterate n defs t = let
   fun recurse m defs th =
@@ -116,9 +155,7 @@ fun extract_fmap sz t = let
   val fm = find_term test t
   val lookup_t = inst (match_type lookup_fmty (type_of fm)) FLOOKUP_t
   val def = mk_def fm
-  val def' = SYM def
   val fl_def' = AP_TERM lookup_t def
-  val c_t = lhs (concl def)
   val keys = fmkeys fm
   fun fulleqn k = let
     val th0 = AP_THM fl_def' k
@@ -127,9 +164,26 @@ fun extract_fmap sz t = let
   end
   val eqns = map fulleqn keys
 in
-  (ONCE_DEPTH_CONV (REWR_CONV def') t, eqns, def)
+  (ONCE_DEPTH_CONV (REWR_CONV (SYM def)) t, eqns, def)
 end
 
+fun doit i (lastfm_def, defs, th) = let
+  val list_t = rand (rhs (concl th))
+  val nstr = listSyntax.mk_length list_t |> (PURE_REWRITE_CONV defs THENC EVAL)
+               |> concl |> rhs |> term_to_string
+  val _ = print (nstr^" declarations still to go\n")
+  val (defs', th20_0) = iterate i defs (rhs (concl th))
+  val th20 = CONV_RULE (RAND_CONV (K th20_0)) th
+  val th20_fm = CONV_RULE (PURE_REWRITE_CONV [lastfm_def]) th20
+  val _ = print "  extracting finite-map "
+  val _ = PolyML.fullGC()
+  val (new_th0, fm_eqns, new_fmdef) = time (extract_fmap 20) (rhs (concl th20_fm))
+  val new_th = TRANS th20_fm new_th0
+  val _ = computeLib.add_funs fm_eqns
+  val _ = PolyML.fullGC()
+in
+  (new_fmdef, defs', new_th)
+end
 
 (*
 val _ = Globals.max_print_depth := 15
@@ -141,7 +195,7 @@ fun mk_initial_split n =
 
 val initial_split20 = mk_initial_split 20
 
-val (initial', defs) = let
+val (initial', decllist_defs) = let
   val r = rhs (concl initial_split20)
   val r' = rand r
   val lists = spine_binop (Lib.total listSyntax.dest_append) r'
@@ -155,32 +209,15 @@ in
   (CONV_RULE (RAND_CONV (RAND_CONV (replace defs))) initial_split20, defs)
 end
 
-(* val initial_split10 = time mk_initial_split 10 *)
 
-val (defs', thm100_0) = iterate 5 defs (rhs (concl initial'))
-val thm100 = CONV_RULE (RAND_CONV (K thm100_0)) initial'
-
-val (fmreplace100, eqns100, fmdef100) = extract_fmap 50 (rhs (concl thm100))
-
-val _ = computeLib.add_funs eqns100
-
-fun doit1 (lastfm_def, defs, th) = let
-  val (defs', th20_0) = iterate 1 defs (rhs (concl th))
-  val th20 = CONV_RULE (RAND_CONV (K th20_0)) th
-  val th20_fm = CONV_RULE (PURE_REWRITE_CONV [lastfm_def]) th20
-  val (new_th, fm_eqns, new_fmdef) = extract_fmap 20 (rhs (concl th20_fm))
-  val _ = computeLib.add_funs fm_eqns
-in
-  (new_fmdef, defs', new_th)
-end
-
-val x120 = doit1 (fmdef100, defs', fmreplace100)
-val x140 = doit1 x120
-val x160 = doit1 x140
-val x180 = doit1 x160
-val x200 = doit1 x180
-val x220 = doit1 x200
-val x240 = doit1 x220  (* just manages this far on telemachus *)
+val x100 = doit 5 (TRUTH, decllist_defs, initial')
+val x140 = doit 2 x100
+val x180 = doit 2 x140
+val x220 = doit 2 x180
+val x240 = doit 1 x220
+val x260 = doit 1 x240
+val x280 = doit 1 x260  (* manages this far on telemachus *)
+val x300 = doit 1 x280
 
 val _ = PolyML.fullGC();
 val res = time EVAL
