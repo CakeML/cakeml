@@ -2099,7 +2099,8 @@ val compile_decs_append_code = store_thm("compile_decs_append_code",
         between_labels c (FST ac).rnext_label (FST(compile_decs mn ds ac)).rnext_label ∧
         (FST(compile_decs mn ds ac)).renv = env ++ (FST ac).renv ∧
         (FST(compile_decs mn ds ac)).rmenv = (FST ac).rmenv ∧
-        (FST(compile_decs mn ds ac)).rsz = (FST ac).rsz + LENGTH env
+        (FST(compile_decs mn ds ac)).rsz = (FST ac).rsz + LENGTH env ∧
+        (FST ac).rnext_label ≤ (FST(compile_decs mn ds ac)).rnext_label
         (* ∧ (FST(compile_decs mn ds ac)).contab ?? (FST ac).contab *)
         ``,
   ntac 2 gen_tac >> Induct >>
@@ -2165,6 +2166,17 @@ val env_rs_append_code = store_thm("env_rs_append_code",
     metis_tac[])) >>
   match_mp_tac Cenv_bs_append_code >>
   metis_tac[])
+
+val env_rs_with_irr = store_thm("env_rs_with_irr",
+  ``∀menv cenv env rs rd cs bs rs' nl.
+    env_rs menv cenv env rs rd cs bs ∧
+    rs'.contab = rs.contab ∧
+    rs'.rsz = rs.rsz ∧
+    rs'.renv = rs.renv ∧
+    rs'.rmenv = rs.rmenv
+    ⇒
+    env_rs menv cenv env rs' rd cs bs``,
+  simp[env_rs_def])
 
 val compile_decs_val = store_thm("compile_decs_val",
   ``∀mno menv cenv s env dec res. evaluate_decs mno menv cenv s env dec res ⇒
