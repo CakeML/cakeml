@@ -605,19 +605,57 @@ val tenv_names_bind_var_list2 = store_thm("tenv_names_bind_var_list2",
   Induct >> TRY(qx_gen_tac`p`>>PairCases_on`p`) >> simp[bind_var_list2_def,bind_tenv_def] >>
   simp[EXTENSION] >> metis_tac[])
 
+val fst_lem = Q.prove (
+`FST = λ(x,y). x`,
+rw [FUN_EQ_THM] >>
+PairCases_on `x` >>
+fs []);
+
+val type_d_new_dec_vs = Q.prove (
+`!mn tenvM tenvC tenv d tenvC' tenv'.
+  type_d mn tenvM tenvC tenv d tenvC' tenv'
+  ⇒
+  new_dec_vs d = set (MAP FST tenv')`,
+rw [type_d_cases, new_dec_vs_def, LibTheory.emp_def] >>
+rw [new_dec_vs_def] >>
+imp_res_tac type_p_closed >>
+imp_res_tac type_e_closed >>
+rw [tenv_add_tvs_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+fs [LET_THM, LIST_TO_SET_MAP, GSYM fst_lem, IMAGE_COMPOSE] >>
+metis_tac [IMAGE_11, AstTheory.id_11]);
+
+val type_d_dec_cns = Q.prove (
+`!mn tenvM tenvC tenv d tenvC' tenv'.
+  type_d (SOME mn) tenvM tenvC tenv d tenvC' tenv'
+  ⇒
+  IMAGE (Long mn) (new_dec_cns d) = set (MAP FST tenvC')`,
+rw [type_d_cases, new_dec_cns_def, LibTheory.emp_def] >>
+rw [new_dec_cns_def, build_ctor_tenv_def, MAP_FLAT, MAP_MAP_o,
+    combinTheory.o_DEF, AstTheory.mk_id_def, LAMBDA_PROD] >>
+fs [GSYM LIST_TO_SET_MAP, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]);
+
 val type_ds_closed = store_thm("type_ds_closed",
   ``∀mn tmenv cenv tenv ds y z. type_ds mn tmenv cenv tenv ds y z ⇒
+      !mn'. (mn = SOME mn') ⇒
       FV_decs ds ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv ∧
-      decs_cns (THE mn) ds ⊆ set (MAP FST cenv)``,
-  ho_match_mp_tac type_ds_ind >>
-  simp[] >>
-  simp[FV_decs_def,decs_cns_def] >>
-  rpt gen_tac >> strip_tac >>
-  imp_res_tac type_d_closed >>
-  fs[LibTheory.merge_def,tenv_names_bind_var_list2] >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP] >>
-  cheat
-  (* metis_tac[] *))
+      decs_cns mn' ds ⊆ set (MAP FST cenv)``,
+ho_match_mp_tac type_ds_ind >>
+rw [FV_decs_def,decs_cns_def] >>
+imp_res_tac type_d_closed >>
+fs [tenv_names_bind_var_list2] >>
+rw [SUBSET_DEF] >|
+[`x ∈ IMAGE Short (set (MAP FST tenv')) ∪ IMAGE Short (tenv_names tenv) ∪ tmenv_dom tmenv`
+         by fs [SUBSET_DEF] >>
+     fs [] >>
+     rw [] >>
+     metis_tac [type_d_new_dec_vs],
+ `x ∈ set (MAP FST (merge cenv' cenv))`
+         by fs [SUBSET_DEF] >>
+     fs [LibTheory.merge_def] >>
+     imp_res_tac type_d_dec_cns >>
+     pop_assum (ASSUME_TAC o GSYM) >>
+     fs [] >>
+     rw []]);
 
 val type_top_closed = store_thm("type_top_closed",
   ``∀tmenv tcenv tenv top tm' tc' te'.
@@ -637,6 +675,123 @@ val type_top_closed = store_thm("type_top_closed",
   imp_res_tac type_ds_closed >>
   fs[])
 
+val type_env_dom = Q.prove (
+`!tenvM tenvC tenvS env tenv. 
+  type_env tenvM tenvC tenvS env tenv ⇒ 
+  (set (MAP (Short o FST) env) = IMAGE Short (tenv_names tenv))`,
+induct_on `env` >>
+ONCE_REWRITE_TAC [TypeSoundInvariantsTheory.type_v_cases] >>
+fs [LibTheory.emp_def, tenv_names_def] >>
+fs [bind_tenv_def, LibTheory.bind_def, tenv_names_def] >>
+rw [] >>
+rw [] >>
+metis_tac []);
+
+(* This isn't quite true.  We need distinctness conditions *) 
+val weakM_dom = Q.prove (
+`!tenvM1 tenvM2.
+  weakM tenvM1 tenvM2
+  ⇒
+  tmenv_dom tenvM2 ⊆ tmenv_dom tenvM1`,
+rw [weakM_def, SUBSET_DEF] >>
+fs [MEM_FLAT, MEM_MAP] >>
+rw [] >>
+fs [MEM_MAP] >>
+rw [] >>
+`ALOOKUP tenvM2 (FST x') = SOME (SND x')` by cheat >>
+res_tac >>
+imp_res_tac alistTheory.ALOOKUP_MEM >>
+fs [weakE_def] >>
+`ALOOKUP (SND x') (FST y) = SOME (SND y)` by cheat >>
+res_tac >>
+qpat_assum `!x. P x` (mp_tac o Q.SPEC `FST (y:(tvarN # num # t))`) >>
+rw [] >>
+PairCases_on `y` >>
+fs [] >>
+cases_on `ALOOKUP tenv'' y0` >>
+fs [] >>
+PairCases_on `x` >>
+fs [] >>
+qexists_tac `MAP (Long (FST x') o FST) tenv` >>
+rw [MEM_MAP] >|
+[qexists_tac `(FST x', tenv)` >>
+     rw [],
+ imp_res_tac alistTheory.ALOOKUP_MEM >>
+     metis_tac [FST]]);
+
+val weakC_dom = Q.prove (
+`!tenvC1 tenvC2.
+  weakC tenvC1 tenvC2
+  ⇒
+  set (MAP FST tenvC2) ⊆ set (MAP FST tenvC1)`,
+rw [weakC_def, SUBSET_DEF] >>
+first_x_assum (mp_tac o Q.SPEC `x`) >>
+rw [] >>
+every_case_tac >>
+fs [alistTheory.ALOOKUP_NONE] >>
+imp_res_tac alistTheory.ALOOKUP_MEM >>
+rw [MEM_MAP] >>
+metis_tac [FST]);
+
+val type_env_dom2 = Q.prove (
+`!mn tenvM tenvC tenvS env tenv. 
+  type_env tenvM tenvC tenvS env (bind_var_list2 tenv Empty) ⇒ 
+  (set (MAP (Long mn o FST) env) = set (MAP (Long mn o FST) tenv))`,
+induct_on `env` >>
+ONCE_REWRITE_TAC [TypeSoundInvariantsTheory.type_v_cases] >>
+fs [bind_var_list2_def, LibTheory.emp_def, tenv_names_def] >>
+fs [bind_tenv_def, LibTheory.bind_def, tenv_names_def] >>
+rw [] >>
+rw [] >>
+cases_on `tenv` >>
+TRY (PairCases_on `h`) >>
+fs [bind_var_list2_def, bind_tenv_def] >>
+metis_tac []);
+
+val consistent_mod_env_dom = Q.prove (
+`!tenvS tenvC envM tenvM.
+  consistent_mod_env tenvS tenvC envM tenvM
+  ⇒
+  (tmenv_dom tenvM = menv_dom envM)`,
+ho_match_mp_tac metaTerminationTheory.consistent_mod_env_ind >>
+rw [] >>
+imp_res_tac type_env_dom2 >>
+metis_tac []);
+
+val consistent_con_env_dom = Q.prove (
+`!envC tenvC.
+  consistent_con_env envC tenvC
+  ⇒
+  (set (MAP FST envC) = set (MAP FST tenvC))`,
+ho_match_mp_tac typeSysPropsTheory.consistent_con_env_ind >>
+rw [typeSysPropsTheory.consistent_con_env_def]);
+
+val type_sound_inv_closed = Q.prove (
+`∀top rs new_tenvM new_tenvC new_tenv new_st envC r.
+  type_top rs.tenvM rs.tenvC rs.tenv top new_tenvM new_tenvC new_tenv ∧
+  type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store)
+  ⇒
+  FV_top top ⊆ set (MAP (Short o FST) rs.envE) ∪ menv_dom rs.envM ∧
+  top_cns top ⊆ set (MAP FST rs.envC)`,
+rw [] >>
+imp_res_tac type_top_closed >>
+`(?err. r = Rerr err) ∨ (?menv env. r = Rval (menv,env))` 
+        by (cases_on `r` >>
+            rw [] >>
+            PairCases_on `a` >>
+            fs [])  >>
+fs [type_sound_invariants_def, update_type_sound_inv_def] >>
+rw [] >>
+imp_res_tac type_env_dom >>
+imp_res_tac consistent_mod_env_dom >>
+imp_res_tac weakM_dom >>
+imp_res_tac weakC_dom >>
+imp_res_tac consistent_con_env_dom >>
+fs [SUBSET_DEF] >>
+rw [] >>
+metis_tac []);
+
+ 
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
   invariant repl_state repl_fun_state bc_state ⇒
@@ -733,10 +888,10 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
   gen_tac >>
   map_every qexists_tac[`rd`,`bs0 with clock := SOME ck`,`bs.code`] >>
   conj_tac >- (
-    fs[closed_top_def] >> (* RK cheat: type system should prove this *)
-    cheat
+    fs[closed_top_def] >>
+    metis_tac [type_sound_inv_closed]
     ) >>
-  conj_tac >- cheat >> (* RK cheat: type system should prove this *)
+  conj_tac >- cheat >> (* RK cheat: Syntactic check: No constructors named "" *)
   conj_tac >- (
     fs[env_rs_def,LET_THM] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
@@ -813,7 +968,10 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
   fs[invariant_def] >>
   map_every qexists_tac[`st.rcompiler_state`,`rd`,`ck+1`,`bs.code`,`bs0 with clock := SOME (ck+1)`]>>
   simp[] >>
-  conj_tac >- cheat >> (* RK cheat: type system should prove this *)
+  conj_tac >- (
+    fs[closed_top_def] >>
+    metis_tac [type_sound_inv_closed]
+    ) >>
   conj_tac >- (
     fs[Abbr`bs0`,install_code_def,env_rs_def,LET_THM] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
@@ -876,8 +1034,11 @@ simp[] >>
   simp[] >>
   discharge_hyps >- (
     fs[invariant_def,LET_THM,Abbr`bs0`,install_code_def] >>
-    conj_tac >- cheat >> (* RK cheat: type checker guarantees this? *)
-    conj_tac >- cheat >> (* RK cheat: type checker guarantees this? *)
+    conj_tac >- (
+      fs[closed_top_def] >>
+      metis_tac [type_sound_inv_closed]
+    ) >>
+    conj_tac >- cheat >> (* RK cheat: Syntactic check: No constructors named "" *)
     fs[env_rs_def,LET_THM] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
     conj_tac >- metis_tac[] >>
@@ -936,7 +1097,8 @@ simp[] >>
     conj_tac >- (
       fs[update_type_sound_inv_def,Abbr`new_repl_state`,update_repl_state_def] ) >>
     `FV_top top ⊆ set (MAP (Short o FST) rs.envE) ∪ menv_dom rs.envM ∧
-     top_cns top ⊆ set (MAP FST rs.envC)` by cheat (* RK cheat: type system should prove this *) >>
+     top_cns top ⊆ set (MAP FST rs.envC)` 
+             by (fs[closed_top_def] >> metis_tac [type_sound_inv_closed]) >>
     conj_tac >- (
       qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`store2`,`envC2`,`Rval (a0,a1)`]mp_tac evaluate_top_closed_context >>
       simp[] >>
@@ -1038,7 +1200,8 @@ simp[] >>
   conj_tac >- (
     fs[update_type_sound_inv_def,Abbr`new_repl_state`,update_repl_state_def] ) >>
   `FV_top top ⊆ set (MAP (Short o FST) rs.envE) ∪ menv_dom rs.envM ∧
-   top_cns top ⊆ set (MAP FST rs.envC)` by cheat (* RK cheat: type system should prove this *) >>
+   top_cns top ⊆ set (MAP FST rs.envC)` 
+              by (fs[closed_top_def] >> metis_tac [type_sound_inv_closed]) >>
   qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`store2`,`envC2`,`Rerr (Rraise err)`]mp_tac evaluate_top_closed_context >>
   simp[] >> strip_tac >>
   conj_tac >- (
