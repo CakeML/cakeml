@@ -115,6 +115,7 @@ compile_top rs (Tmod mn _ decs) =
     ; rmenv = Pmap.add mn env rs.rmenv |>
   ,<| mrs with
       renv = rs.renv
+    ; rsz  = rs.rsz
     ; rmenv = Pmap.add mn [] rs.rmenv |>
   ,(List.rev code)@(List.map PrintC (Hol.EXPLODE str)))
 and
