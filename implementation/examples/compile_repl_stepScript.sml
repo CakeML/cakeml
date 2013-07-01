@@ -230,8 +230,9 @@ val x300 = doit 1 x280;
 val x320 = doit 1 x300;
 val x340 = doit 1 x320;  (* manages this far on telemachus *)
 val x356 = doit 1 x340;
+val (_,_,th) = x356;
 
-val compiled = save_thm("compiled", x356);
+val compiled = save_thm("compiled", th);
 
 (*
 
