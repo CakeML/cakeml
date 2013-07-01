@@ -1254,6 +1254,12 @@ val compile_fake_exp_contab = store_thm("compile_fake_exp_contab",
   ``(compile_fake_exp pr rs vs e = (ct,b,n,c)) ⇒ ct = rs.contab``,
   rw[compile_fake_exp_def,LET_THM])
 
+val FST_compile_fake_exp_contab = store_thm("FST_compile_fake_exp_contab",
+  ``FST (compile_fake_exp pr rs vs e) = rs.contab``,
+  qabbrev_tac`p = compile_fake_exp pr rs vs e` >>
+  PairCases_on`p` >> fs[markerTheory.Abbrev_def] >>
+  metis_tac[compile_fake_exp_contab])
+
 val mk_id_inj = store_thm("mk_id_inj",
   ``mk_id mn n1 = mk_id mn n2 ⇒ n1 = n2``,
   rw[AstTheory.mk_id_def] >>

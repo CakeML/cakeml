@@ -1253,12 +1253,6 @@ simp[] >>
   imp_res_tac RTC_bc_next_preserves >>
   fs[])
 
-val FST_compile_fake_exp_contab = store_thm("FST_compile_fake_exp_contab",
-  ``FST (compile_fake_exp pr rs vs e) = rs.contab``,
-  qabbrev_tac`p = compile_fake_exp pr rs vs e` >>
-  PairCases_on`p` >> fs[markerTheory.Abbrev_def] >>
-  metis_tac[compile_fake_exp_contab])
-
 val good_compile_primitives = prove(
   ``good_contab (FST compile_primitives).contab ∧
     good_cmap [] (cmap (FST compile_primitives).contab) ∧
