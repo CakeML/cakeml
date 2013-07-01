@@ -2097,7 +2097,11 @@ val compile_decs_append_code = store_thm("compile_decs_append_code",
     ∃c env.
         SND(compile_decs mn ds ac) = c++(SND ac) ∧
         between_labels c (FST ac).rnext_label (FST(compile_decs mn ds ac)).rnext_label ∧
-        (FST(compile_decs mn ds ac)).renv = env ++ (FST ac).renv``,
+        (FST(compile_decs mn ds ac)).renv = env ++ (FST ac).renv ∧
+        (FST(compile_decs mn ds ac)).rmenv = (FST ac).rmenv ∧
+        (FST(compile_decs mn ds ac)).rsz = (FST ac).rsz + LENGTH env
+        (* ∧ (FST(compile_decs mn ds ac)).contab ?? (FST ac).contab *)
+        ``,
   ntac 2 gen_tac >> Induct >>
   simp[compile_decs_def,UNCURRY] >- (
     simp[between_labels_def] ) >>
@@ -2143,6 +2147,24 @@ val compile_top_append_code = store_thm("compile_top_append_code",
    qspecl_then[`NONE`,`rs`,`d`,`ss`]mp_tac compile_dec_append_code >>
    fs[] >>
    simp[between_labels_def,FILTER_REVERSE,ALL_DISTINCT_REVERSE,MAP_REVERSE,EVERY_REVERSE])
+
+val env_rs_append_code = store_thm("env_rs_append_code",
+  ``∀menv cenv env rs rd cs bs bs' c.
+    env_rs menv cenv env rs rd cs bs ∧
+    bs' = bs with code := bs.code ++ c ∧
+    ALL_DISTINCT (FILTER is_Label (bs.code ++ c))
+    ⇒
+    env_rs menv cenv env rs rd cs bs'``,
+  simp[env_rs_def] >>
+  rpt gen_tac >> strip_tac  >>
+  rpt HINT_EXISTS_TAC >>
+  simp[] >>
+  rpt (conj_tac >- (
+    rpt strip_tac >>
+    match_mp_tac code_env_cd_append >>
+    metis_tac[])) >>
+  match_mp_tac Cenv_bs_append_code >>
+  metis_tac[])
 
 val compile_decs_val = store_thm("compile_decs_val",
   ``∀mno menv cenv s env dec res. evaluate_decs mno menv cenv s env dec res ⇒
@@ -2207,10 +2229,10 @@ val compile_decs_val = store_thm("compile_decs_val",
     simp[LibTheory.emp_def] >>
     qmatch_assum_abbrev_tac`compile_decs mn ds ac = ac'` >>
     qspecl_then[`mn`,`menv_dom menv`,`ds`,`ac`]mp_tac compile_decs_append_code >>
+    `MAP (Short o FST) rs.renv = MAP (Short o FST) env` by (
+      fs[env_rs_def,GSYM MAP_MAP_o,LET_THM] ) >>
     discharge_hyps >- (
       simp[Abbr`ac`] >>
-      `MAP (Short o FST) rs.renv = MAP (Short o FST) env` by (
-        fs[env_rs_def,GSYM MAP_MAP_o,LET_THM] ) >>
       simp[] >>
       fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def] >>
       reverse conj_tac >- (
@@ -2234,7 +2256,21 @@ val compile_decs_val = store_thm("compile_decs_val",
       qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
       map_every qexists_tac[`bs1`,`bs2`] >>
       simp[Abbr`bs1`,Abbr`bs2`,bc_state_component_equality] ) >>
-    (* env_rs append code and increase label, and need lemmas about compile_decs to change rs' into rs *)
+    first_x_assum(qspec_then`menv_dom menv`mp_tac) >>
+    discharge_hyps >- (
+      fs[FV_decs_def] >>
+      simp_tac(srw_ss()++DNF_ss)[MEM_FLAT,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] ) >>
+    strip_tac >>
+    match_mp_tac env_rs_append_code >>
+    Q.PAT_ABBREV_TAC`bs0 = bc_state_stack_fupd X Y` >>
+    qexists_tac`bs0 with code := bc0 ++ REVERSE p5` >>
+    simp[bc_state_component_equality,Abbr`bs0`] >>
+    reverse conj_tac >- (
+      simp[FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE] >>
+      fs[between_labels_def,good_labels_def]
+      fsrw_tac[DNF_ss][MEM_FILTER,is_Label_rwt,EVERY_MEM,between_def,MEM_MAP] >>
+      rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
+    (* env_rs increase label and whatever needed to change rs' into rs *)
     cheat ) >>
   simp[] >>
   rpt gen_tac >> strip_tac >>
