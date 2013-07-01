@@ -76,7 +76,7 @@ end t
 
 fun iterate n defs t = let
   fun recurse m defs th =
-      if m < 1 orelse null defs then th
+      if m < 1 orelse null defs then (defs, th)
       else
         let
           val _ = print (Int.toString (n - m) ^ ": ")
@@ -127,12 +127,12 @@ fun extract_fmap sz t = let
   end
   val eqns = map fulleqn keys
 in
-  (ONCE_DEPTH_CONV (REWR_CONV def') t, eqns)
+  (ONCE_DEPTH_CONV (REWR_CONV def') t, eqns, def)
 end
 
 
 (*
-val _ = Globals.max_print_depth := 20
+val _ = Globals.max_print_depth := 15
 
 fun mk_initial_split n =
   ``FOLDL compile_dec1 (stop_NIL, init_compiler_state) ml_repl_step_decls``
@@ -157,17 +157,30 @@ end
 
 (* val initial_split10 = time mk_initial_split 10 *)
 
-val thm140 = CONV_RULE (RAND_CONV (iterate 7 defs)) initial'
-(* val thm160 = CONV_RULE (RAND_CONV (iterate 8 defs)) initial' *)
+val (defs', thm100_0) = iterate 5 defs (rhs (concl initial'))
+val thm100 = CONV_RULE (RAND_CONV (K thm100_0)) initial'
 
-val (fmreplace, eqns) = extract_fmap 50 (rhs (concl thm140))
+val (fmreplace100, eqns100, fmdef100) = extract_fmap 50 (rhs (concl thm100))
 
+val _ = computeLib.add_funs eqns100
 
+fun doit1 (lastfm_def, defs, th) = let
+  val (defs', th20_0) = iterate 1 defs (rhs (concl th))
+  val th20 = CONV_RULE (RAND_CONV (K th20_0)) th
+  val th20_fm = CONV_RULE (PURE_REWRITE_CONV [lastfm_def]) th20
+  val (new_th, fm_eqns, new_fmdef) = extract_fmap 20 (rhs (concl th20_fm))
+  val _ = computeLib.add_funs fm_eqns
+in
+  (new_fmdef, defs', new_th)
+end
 
-val thm150 = CONV_RULE (RAND_CONV (iterate 15)) initial_split10
-
-val thm140 = CONV_RULE (RAND_CONV (iterate 1)) thm120
-val thm160 = CONV_RULE (RAND_CONV (iterate 1)) thm140
+val x120 = doit1 (fmdef100, defs', fmreplace100)
+val x140 = doit1 x120
+val x160 = doit1 x140
+val x180 = doit1 x160
+val x200 = doit1 x180
+val x220 = doit1 x200
+val x240 = doit1 x220  (* just manages this far on telemachus *)
 
 val _ = PolyML.fullGC();
 val res = time EVAL
