@@ -1826,12 +1826,12 @@ type_sound_invariants (tenvM,tenvC,tenv,envM,envC,envE,store) ⇔
     weakC tenvC_no_sig tenvC`;
 
 val update_type_sound_inv_def = Define `
-update_type_sound_inv (tenvM:tenvM,tenvC:tenvC,tenv:tenvE,envM:envM,envC:envC,envE:envE,store) tenvM' tenvC' tenv' store' envC' r =
+update_type_sound_inv top (tenvM:tenvM,tenvC:tenvC,tenv:tenvE,envM:envM,envC:envC,envE:envE,store) tenvM' tenvC' tenv' store' envC' r =
   case r of
      | Rval (envM',envE') => 
          (tenvM'++tenvM,tenvC'++tenvC,bind_var_list2 tenv' tenv,
           envM'++envM,envC'++envC,envE'++envE,store')
-     | Rerr _ => (strip_mod_env tenvM'++tenvM,tenvC,tenv,strip_mod_env tenvM'++envM,envC'++envC,envE,store')`;
+     | Rerr _ => (strip_mod_env tenvM'++tenvM,tenvC,tenv,strip_mod_env tenvM'++envM,top_to_cenv top++envC,envE,store')`;
 
 val weakM_bind' = Q.prove (
 `!mn tenv' tenvM' tenv tenvM.
@@ -1925,20 +1925,19 @@ rw [Once type_v_cases, emp_def] >>
 rw [Once type_v_cases, bind_def, bind_tenv_def] >>
 metis_tac []);
 
-val tenvC_to_env_consistent = Q.prove (
-`!tenvC1 tenvC2 envC.
-  consistent_con_env envC tenvC2 
-  ⇒
-  consistent_con_env (tenvC_to_envC tenvC1 ++ envC) (tenvC1 ++ tenvC2)`,
-Induct_on `tenvC1` >>
-rw [consistent_con_env_def, tenvC_to_envC_def] >>
-PairCases_on `h` >>
-rw [consistent_con_env_def, tenvC_to_envC_def] >>
-metis_tac [tenvC_to_envC_def]);
+val consistent_con_env_decs_to_cenv = Q.prove (
+`!mn tenvM tenvC tenv ds tenvC' tenv'.
+  type_ds mn tenvM tenvC tenv ds tenvC' tenv' ⇒
+  !tenvC'' envC.
+    consistent_con_env envC tenvC''
+    ⇒
+    consistent_con_env (decs_to_cenv mn ds ++ envC) (tenvC' ++ tenvC'')`,
+ho_match_mp_tac type_ds_ind >>
+rw [consistent_con_env_def, decs_to_cenv_def, emp_def] >>
+cases_on `d` >>
+fs [type_d_cases, dec_to_cenv_def, emp_def, merge_def] >>
+metis_tac [extend_consistent_con, APPEND_ASSOC]);
 
-(* Aborted attempt at adding all of the constructors when a module fails *)
-(*
-val unfinished = all_tac;
 val top_type_soundness = Q.store_thm ("top_type_soundness",
 `!tenvM tenvC tenv envM envC envE store1 tenvM' tenvC' tenv' top.
   type_sound_invariants (tenvM,tenvC,tenv,envM,envC,envE,store1) ∧
@@ -1947,7 +1946,7 @@ val top_type_soundness = Q.store_thm ("top_type_soundness",
   ?r cenv2 store2. 
     (r ≠ Rerr Rtype_error) ∧
     evaluate_top envM envC store1 envE top (store2,cenv2,r) ∧
-    type_sound_invariants (update_type_sound_inv (tenvM,tenvC,tenv,envM,envC,envE,store1) tenvM' tenvC' tenv' store2 cenv2 r)`,
+    type_sound_invariants (update_type_sound_inv top (tenvM,tenvC,tenv,envM,envC,envE,store1) tenvM' tenvC' tenv' store2 cenv2 r)`,
 rw [type_sound_invariants_def] >>
 `num_tvs tenv = 0` by metis_tac [type_v_freevars] >>
 fs [type_top_cases, top_diverges_cases] >>
@@ -1973,22 +1972,15 @@ rw [evaluate_top_cases] >|
                 by (cases_on `r` >> metis_tac [pair_CASES]) >>
      rw [] >|
      [MAP_EVERY qexists_tac [`Rerr err`, `emp`, `store2`] >>
-          imp_res_tac type_d_mod >>
-          imp_res_tac type_d_tenvC_ok >>
           rw [type_sound_invariants_def, update_type_sound_inv_def] >>
-          MAP_EVERY qexists_tac [`tenvS'`, `tenvM_no_sig`, `tenvC' ++ tenvC_no_sig`] >>
-          rw [type_sound_invariants_def, update_type_sound_inv_def] >>
-          `weakC (tenvC'++tenvC_no_sig) tenvC_no_sig`
-                     by metis_tac [merge_def, disjoint_env_weakC] >>
+          MAP_EVERY qexists_tac [`tenvS'`, `tenvM_no_sig`, `tenvC_no_sig`] >>
           rw [replTheory.strip_mod_env_def, emp_def] >|
-          [rw [GSYM merge_def, tenvC_ok_merge],
-           unfinished,
-           metis_tac [consistent_mod_env_weakening, store_type_extension_weakS,
+          [metis_tac [consistent_mod_env_weakening, store_type_extension_weakS,
                       weakC_refl],
-           metis_tac [tenvC_to_env_consistent],
-           metis_tac [type_v_weakening, store_type_extension_weakS, weakC_refl, weakM_refl],
-           metis_tac [type_s_weakening, weakM_refl],
-           metis_tac [weakC_trans]],
+           rw [top_to_cenv_def] >>
+               cases_on `d` >>
+               fs [evaluate_dec_cases, dec_to_cenv_def],
+           metis_tac [type_v_weakening, store_type_extension_weakS, weakC_refl, weakM_refl]],
       MAP_EVERY qexists_tac [`Rval (emp,env')`,`cenv'`, `store2`] >>
           imp_res_tac type_d_mod >>
           imp_res_tac type_d_tenvC_ok >>
@@ -2058,22 +2050,15 @@ rw [evaluate_top_cases] >|
                fs [merge_def],
            rw [replTheory.strip_mod_env_def] >>
                fs [tenvM_ok_def, bind_var_list2_def, tenv_ok_def],
-           unfinished,
-           (*
-           imp_res_tac type_ds_mod >>
-               fs [weak_other_mods_def, bind_def, tenvC_one_mod_def, weakC_mods_def, SUBSET_DEF, lookup_append] >>
+           fs [weak_other_mods_def, bind_def, tenvC_one_mod_def, weakC_mods_def, SUBSET_DEF, lookup_append] >>
                rw [] >>
-               full_case_tac >>
-               fs [] >-
-               metis_tac [] >>
-               cases_on `lookup (mk_id x cn) tenvC1` >>
+               every_case_tac >>
                fs [] >>
                metis_tac [optionTheory.option_case_def],
-               *)
            rw [replTheory.strip_mod_env_def],
            rw [replTheory.strip_mod_env_def, bind_var_list2_def, type_env_eqn] >>
                metis_tac [consistent_mod_env_weakening, store_type_extension_weakS],
-           unfinished,
+           metis_tac [top_to_cenv_def, consistent_con_env_decs_to_cenv],
            metis_tac [type_v_weakening, consistent_mod_env_weakening, store_type_extension_weakS],
            metis_tac [type_s_weakening, store_type_extension_weakS, merge_def, APPEND_ASSOC],
            rw [replTheory.strip_mod_env_def] >>
@@ -2122,9 +2107,17 @@ rw [evaluate_top_cases] >|
                metis_tac [bind_def, weakM_bind'],
            `weakC cenv' tenvC'` by (fs [check_signature_cases] >> metis_tac [weakC_refl]) >>
                metis_tac [weakC_merge']]]]);
-               *)
 
-val top_type_soundness = Q.store_thm ("top_type_soundness",
+(* This version is for only putting seen constructors into the envC on a failed module *)
+val update_type_sound_inv'_def = Define `
+update_type_sound_inv' (tenvM:tenvM,tenvC:tenvC,tenv:tenvE,envM:envM,envC:envC,envE:envE,store) tenvM' tenvC' tenv' store' envC' r =
+  case r of
+     | Rval (envM',envE') => 
+         (tenvM'++tenvM,tenvC'++tenvC,bind_var_list2 tenv' tenv,
+          envM'++envM,envC'++envC,envE'++envE,store')
+     | Rerr _ => (strip_mod_env tenvM'++tenvM,tenvC,tenv,strip_mod_env tenvM'++envM,envC'++envC,envE,store')`;
+
+val top_type_soundness' = Q.store_thm ("top_type_soundness'",
 `!tenvM tenvC tenv envM envC envE store1 tenvM' tenvC' tenv' top.
   type_sound_invariants (tenvM,tenvC,tenv,envM,envC,envE,store1) ∧
   type_top tenvM tenvC tenv top tenvM' tenvC' tenv' ∧
@@ -2132,7 +2125,7 @@ val top_type_soundness = Q.store_thm ("top_type_soundness",
   ?r cenv2 store2. 
     (r ≠ Rerr Rtype_error) ∧
     evaluate_top envM envC store1 envE top (store2,cenv2,r) ∧
-    type_sound_invariants (update_type_sound_inv (tenvM,tenvC,tenv,envM,envC,envE,store1) tenvM' tenvC' tenv' store2 cenv2 r)`,
+    type_sound_invariants (update_type_sound_inv' (tenvM,tenvC,tenv,envM,envC,envE,store1) tenvM' tenvC' tenv' store2 cenv2 r)`,
 rw [type_sound_invariants_def] >>
 `num_tvs tenv = 0` by metis_tac [type_v_freevars] >>
 fs [type_top_cases, top_diverges_cases] >>
@@ -2158,7 +2151,7 @@ rw [evaluate_top_cases] >|
                 by (cases_on `r` >> metis_tac [pair_CASES]) >>
      rw [] >|
      [MAP_EVERY qexists_tac [`Rerr err`, `emp`, `store2`] >>
-          rw [type_sound_invariants_def, update_type_sound_inv_def] >>
+          rw [type_sound_invariants_def, update_type_sound_inv'_def] >>
           MAP_EVERY qexists_tac [`tenvS'`, `tenvM_no_sig`, `tenvC_no_sig`] >>
           rw [replTheory.strip_mod_env_def, emp_def] >|
           [metis_tac [consistent_mod_env_weakening, store_type_extension_weakS,
@@ -2167,7 +2160,7 @@ rw [evaluate_top_cases] >|
       MAP_EVERY qexists_tac [`Rval (emp,env')`,`cenv'`, `store2`] >>
           imp_res_tac type_d_mod >>
           imp_res_tac type_d_tenvC_ok >>
-          rw [type_sound_invariants_def, update_type_sound_inv_def] >>
+          rw [type_sound_invariants_def, update_type_sound_inv'_def] >>
           `weakC (tenvC'++tenvC_no_sig) tenvC_no_sig`
                      by metis_tac [merge_def, disjoint_env_weakC] >>
           MAP_EVERY qexists_tac [`tenvS'`, `tenvM_no_sig`, `tenvC' ++ tenvC_no_sig`] >>
@@ -2209,7 +2202,7 @@ rw [evaluate_top_cases] >|
                 by (cases_on `r` >> metis_tac []) >>
      rw [] >|
      [MAP_EVERY qexists_tac [`Rerr err`, `cenv''`, `store2`] >>
-          rw [type_sound_invariants_def, update_type_sound_inv_def] >-
+          rw [type_sound_invariants_def, update_type_sound_inv'_def] >-
           metis_tac [consistent_mod_env_dom] >>
           `weakM (bind mn [] tenvM_no_sig) tenvM_no_sig`
                        by (match_mp_tac weakM_bind >>
@@ -2249,7 +2242,7 @@ rw [evaluate_top_cases] >|
       MAP_EVERY qexists_tac [`Rval ([(mn,env'')],emp)`, `cenv''`, `store2`] >>
           imp_res_tac type_ds_mod >>
           imp_res_tac type_ds_tenvC_ok >>
-          rw [type_sound_invariants_def, update_type_sound_inv_def] >-
+          rw [type_sound_invariants_def, update_type_sound_inv'_def] >-
           metis_tac [consistent_mod_env_dom] >>
           `tenvM_ok (bind mn tenv'' tenvM_no_sig)`
                     by metis_tac [tenvM_ok_pres, type_v_freevars] >>

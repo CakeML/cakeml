@@ -66,12 +66,20 @@ val strip_mod_env_def = Define `
 strip_mod_env tenvM =
   MAP (\(n,tenv). (n,[])) tenvM`;
 
-val tenvC_to_envC_def = Define `
-tenvC_to_envC tenvC =
-  MAP (λ(cn,(tvs, ts, t)). (cn, (LENGTH ts, t))) tenvC`;
+val dec_to_cenv_def = Define `
+(dec_to_cenv mn (Dtype tds) = build_tdefs mn tds) ∧
+(dec_to_cenv mn _ = [])`;
+
+val decs_to_cenv_def = Define `
+(decs_to_cenv mn [] = []) ∧
+(decs_to_cenv mn (d::ds) = decs_to_cenv mn ds ++ dec_to_cenv mn d)`;
+
+val top_to_cenv_def = Define `
+(top_to_cenv (Tdec d) = dec_to_cenv NONE d) ∧
+(top_to_cenv (Tmod mn _ ds) = decs_to_cenv (SOME mn) ds)`;
 
 val update_repl_state_def = Define `
-update_repl_state state type_bindings ctors tenvM tenvC tenv store envC r =
+update_repl_state ast state type_bindings ctors tenvM tenvC tenv store envC r =
   case r of
     | Rval (envM,envE) =>
         <| type_bindings := type_bindings ++ state.type_bindings;
@@ -96,7 +104,7 @@ update_repl_state state type_bindings ctors tenvM tenvC tenv store envC r =
         * they don't go in the constructor type environment, the programmer
         * can't refer to any of them, so it doesn't matter much. *)
         state with <| store := store; 
-                      envC := envC ++ state.envC; 
+                      envC := top_to_cenv ast ++ state.envC; 
                       envM := strip_mod_env tenvM ++ state.envM;
                       tenvM := strip_mod_env tenvM ++ state.tenvM |>`;
 
@@ -144,7 +152,7 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
    (type_bindings', ctors', top)) ∧
   (type_top state.tenvM state.tenvC state.tenv top tenvM' tenvC' tenv') ∧
   evaluate_top state.envM state.envC state.store state.envE top (store',envC',r) ∧
-  ast_repl (update_repl_state state type_bindings' ctors' tenvM' tenvC' tenv' store' envC' r) type_errors asts rest
+  ast_repl (update_repl_state top state type_bindings' ctors' tenvM' tenvC' tenv' store' envC' r) type_errors asts rest
   ⇒
   ast_repl state (F::type_errors) (SOME ast::asts) (Result (print_result top envC' r) rest)) ∧
 
