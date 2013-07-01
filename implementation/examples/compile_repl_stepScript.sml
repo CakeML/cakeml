@@ -114,15 +114,26 @@ in
 end
 
 fun iterate n defs t = let
-  fun recurse m defs th =
-      if m < 1 orelse null defs then (defs, th)
-      else
-        let
-          val _ = print (Int.toString (n - m) ^ ": ")
-          val th' = time (foldl_append_CONV (hd defs)) (rhs (concl th))
-        in
-          recurse (m - 1) (tl defs) (TRANS th th')
-        end
+  fun recurse m defs th = let
+    val t = rhs (concl th)
+  in
+    if m < 1 orelse null defs then (defs, th)
+    else if listSyntax.is_append (rand t) then
+      let
+        val _ = print (Int.toString (n - m) ^ ": ")
+        val th' = time (foldl_append_CONV (hd defs)) (rhs (concl th))
+      in
+        recurse (m - 1) (tl defs) (TRANS th th')
+      end
+    else
+      let
+        val _ = print (Int.toString (n - m) ^ ": ")
+        val th' = time (RAND_CONV (K (hd defs)) THENC FOLDL_EVAL)
+                       (rhs (concl th))
+      in
+        (tl defs, TRANS th th')
+      end
+  end
 in
   recurse n defs (REFL t)
 end
@@ -185,7 +196,6 @@ in
   (new_fmdef, defs', new_th)
 end
 
-(*
 val _ = Globals.max_print_depth := 15
 
 fun mk_initial_split n =
@@ -209,15 +219,21 @@ in
   (CONV_RULE (RAND_CONV (RAND_CONV (replace defs))) initial_split20, defs)
 end
 
-
 val x100 = doit 5 (TRUTH, decllist_defs, initial')
-val x140 = doit 2 x100
+val x140 = doit 2 x100;
 val x180 = doit 2 x140
-val x220 = doit 2 x180
-val x240 = doit 1 x220
-val x260 = doit 1 x240
-val x280 = doit 1 x260  (* manages this far on telemachus *)
-val x300 = doit 1 x280
+val x220 = doit 2 x180;
+val x240 = doit 1 x220;
+val x260 = doit 1 x240;
+val x280 = doit 1 x260;
+val x300 = doit 1 x280;
+val x320 = doit 1 x300;
+val x340 = doit 1 x320;  (* manages this far on telemachus *)
+val x356 = doit 1 x340;
+
+val compiled = save_thm("compiled", x356);
+
+(*
 
 val _ = PolyML.fullGC();
 val res = time EVAL
