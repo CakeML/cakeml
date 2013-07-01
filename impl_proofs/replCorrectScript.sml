@@ -82,7 +82,7 @@ val type_invariants_pres = Q.prove (
   infer_top infer_menv infer_cenv infer_env top init_infer_state =
           (Success (new_infer_menv,new_infer_cenv,new_infer_env), infer_st2)
   ⇒
-  type_infer_invariants (update_repl_state rs el0 el1 (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st'
+  type_infer_invariants (update_repl_state top rs el0 el1 (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st'
                                      envC (Rval (envM,envE)))
                   (new_infer_menv ++ infer_menv, new_infer_cenv ++ infer_cenv,new_infer_env ++ infer_env)`,
 rw [update_repl_state_def, type_infer_invariants_def] >>
@@ -102,7 +102,7 @@ val type_invariants_pres_err = Q.prove (
   infer_top infer_menv infer_cenv infer_env top init_infer_state =
           (Success (new_infer_menv,new_infer_cenv,new_infer_env), infer_st2)
   ⇒
-  type_infer_invariants (update_repl_state rs el0 el1 (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st'
+  type_infer_invariants (update_repl_state top rs el0 el1 (convert_menv new_infer_menv) new_infer_cenv (convert_env2 new_infer_env) st'
                                      envC (Rerr err))
                   ((strip_mod_env new_infer_menv) ++ infer_menv, infer_cenv,infer_env)`,
 rw [update_repl_state_def, type_infer_invariants_def] >>
@@ -701,7 +701,7 @@ imp_res_tac infer_to_type >>
          r ≠ Rerr Rtype_error ∧
          evaluate_top rs.envM rs.envC rs.store rs.envE top (store2,envC2,r) ∧
          type_sound_invariants
-           (update_type_sound_inv
+           (update_type_sound_inv top
               (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,
                rs.store) (convert_menv new_infer_menv) new_infer_cenv
               (convert_env2 new_infer_env) store2 envC2 r)`
@@ -916,7 +916,7 @@ simp[] >>
     simp[] >> disch_then(qspec_then`input_rest`mp_tac) >> simp[] >>
     strip_tac >>
     Q.PAT_ABBREV_TAC`new_bc_state = bs2 with clock := NONE` >>
-    Q.PAT_ABBREV_TAC`new_repl_state = update_repl_state X Y Z a b cd de e f` >>
+    Q.PAT_ABBREV_TAC`new_repl_state = update_repl_state top X Y Z a b cd de e f` >>
     Q.PAT_ABBREV_TAC`new_repl_fun_state = X:repl_fun_state` >>
     first_x_assum(qspecl_then[`new_repl_state`,`new_bc_state`,`new_repl_fun_state`]mp_tac) >>
     simp[lexer_correct] >>
@@ -1014,7 +1014,7 @@ simp[] >>
   simp[] >> disch_then(qspec_then`input_rest`mp_tac) >> simp[] >>
   strip_tac >>
   Q.PAT_ABBREV_TAC`new_bc_state = bs3 with clock := NONE` >>
-  Q.PAT_ABBREV_TAC`new_repl_state = update_repl_state X Y Z a b cd de e f` >>
+  Q.PAT_ABBREV_TAC`new_repl_state = update_repl_state top X Y Z a b cd de e f` >>
   Q.PAT_ABBREV_TAC`new_repl_fun_state = X:repl_fun_state` >>
   first_x_assum(qspecl_then[`new_repl_state`,`new_bc_state`,`new_repl_fun_state`]mp_tac) >>
   simp[lexer_correct] >>
@@ -1044,7 +1044,10 @@ simp[] >>
   conj_tac >- (
     simp[Abbr`new_repl_state`,update_repl_state_def] >>
     match_mp_tac closed_context_strip_mod_env >>
-    simp[] ) >>
+    simp[] >>
+    cheat (* SO: It looks like evaluate_top_closed_context is designed for the
+    old some-of-the constructors way, rather than the new all of the
+    constructors way *)) >>
   conj_tac >- (
     imp_res_tac RTC_bc_next_preserves >>
     fs[Abbr`bs0`,install_code_def] ) >>
