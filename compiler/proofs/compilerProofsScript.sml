@@ -2267,7 +2267,7 @@ val compile_decs_val = store_thm("compile_decs_val",
     simp[bc_state_component_equality,Abbr`bs0`] >>
     reverse conj_tac >- (
       simp[FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE] >>
-      fs[between_labels_def,good_labels_def]
+      fs[between_labels_def,good_labels_def] >>
       fsrw_tac[DNF_ss][MEM_FILTER,is_Label_rwt,EVERY_MEM,between_def,MEM_MAP] >>
       rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
     (* env_rs increase label and whatever needed to change rs' into rs *)
