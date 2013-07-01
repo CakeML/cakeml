@@ -106,12 +106,26 @@ val _ = Define `
   )))`;
 
 
+ val dec_to_contab_def = Define `
+
+(dec_to_contab mn ct (Dtype ts) = ( FOLDL (\ac p . 
+  (case (ac ,p ) of ( ac , (_,_,cs) ) => number_constructors mn cs ac )) (ct,[]) ts))
+/\
+(dec_to_contab _ ct _ = (ct,[]))`;
+
+
+ val decs_to_contab_defn = Hol_defn "decs_to_contab" `
+
+(decs_to_contab mn ct [] = ct)
+/\
+(decs_to_contab mn ct (d::ds) = (decs_to_contab mn ( FST (dec_to_contab (SOME mn) ct d)) ds))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn decs_to_contab_defn;
+
  val compile_dec_def = Define `
 
 (compile_dec mn rs (Dtype ts) =  
-(let (ct,ls) = ( FOLDL
-      (\ac p . (case (ac ,p ) of ( ac , (_,_,cs) ) => number_constructors mn cs ac ))
-      (rs.contab,[]) ts) in
+(let (ct,ls) = ( dec_to_contab mn rs.contab (Dtype ts)) in
   (ct,[],rs.rnext_label
   ,(if (IS_NONE mn) then REVERSE( MAP PrintC (EXPLODE (CONCAT ( REVERSE ls)))) else []))))
 /\
@@ -150,9 +164,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   (( mrs with<|
       renv := rs.renv
     ; rmenv := FUPDATE  rs.rmenv ( mn, env) |>)
-  ,( mrs with<|
-      renv := rs.renv
-    ; rsz  := rs.rsz
+  ,( rs with<|
+      contab := decs_to_contab mn rs.contab decs
+    ; rnext_label := mrs.rnext_label
     ; rmenv := FUPDATE  rs.rmenv ( mn, []) |>)
   ,(( REVERSE code) ++( MAP PrintC (EXPLODE str))))))
 /\
