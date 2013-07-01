@@ -84,7 +84,7 @@ dec_to_contab _ ct _ = (ct,[])
 let rec
 decs_to_contab mn ct [] = ct
 and
-decs_to_contab mn ct (d::ds) = decs_to_contab mn (fst (dec_to_contab (Some mn) ct d)) ds
+decs_to_contab mn ct (d::ds) = decs_to_contab mn (fst (dec_to_contab mn ct d)) ds
 
 let rec
 compile_dec mn rs (Dtype ts) =
@@ -122,7 +122,7 @@ compile_top rs (Tmod mn _ decs) =
       renv = rs.renv
     ; rmenv = Pmap.add mn env rs.rmenv |>
   ,<| rs with
-      contab = decs_to_contab mn rs.contab decs
+      contab = decs_to_contab (Some mn) rs.contab decs
     ; rnext_label = mrs.rnext_label
     ; rmenv = Pmap.add mn [] rs.rmenv |>
   ,(List.rev code)@(List.map PrintC (Hol.EXPLODE str)))

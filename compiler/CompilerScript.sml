@@ -118,7 +118,7 @@ val _ = Define `
 
 (decs_to_contab mn ct [] = ct)
 /\
-(decs_to_contab mn ct (d::ds) = (decs_to_contab mn ( FST (dec_to_contab (SOME mn) ct d)) ds))`;
+(decs_to_contab mn ct (d::ds) = (decs_to_contab mn ( FST (dec_to_contab mn ct d)) ds))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn decs_to_contab_defn;
 
@@ -165,7 +165,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       renv := rs.renv
     ; rmenv := FUPDATE  rs.rmenv ( mn, env) |>)
   ,( rs with<|
-      contab := decs_to_contab mn rs.contab decs
+      contab := decs_to_contab (SOME mn) rs.contab decs
     ; rnext_label := mrs.rnext_label
     ; rmenv := FUPDATE  rs.rmenv ( mn, []) |>)
   ,(( REVERSE code) ++( MAP PrintC (EXPLODE str))))))
