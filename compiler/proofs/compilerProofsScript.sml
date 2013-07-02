@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory pred_setTheory relationTheory arithmeticTheory whileTheory pairTheory quantHeuristicsLib lcsymtacs sortingTheory finite_mapTheory alistTheory optionTheory stringTheory
-open SatisfySimps miscLib BigStepTheory terminationTheory semanticsExtraTheory miscTheory ToBytecodeTheory CompilerTheory compilerTerminationTheory intLangExtraTheory pmatchTheory toIntLangProofsTheory toBytecodeProofsTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory bigClockTheory replTheory
+open SatisfySimps miscLib BigStepTheory terminationTheory semanticsExtraTheory miscTheory ToBytecodeTheory CompilerTheory compilerTerminationTheory intLangExtraTheory pmatchTheory toIntLangProofsTheory toBytecodeProofsTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory bigClockTheory replTheory bytecodeClockTheory
 val _ = new_theory"compilerProofs"
 
 val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
@@ -2627,13 +2627,19 @@ val compile_decs_val = store_thm("compile_decs_val",
   Q.PAT_ABBREV_TAC`p = compile_dec (SOME mn) rs d` >>
   PairCases_on`p` >> fs[] >>
   imp_res_tac compile_dec_val >>
-  qexists_tac`ck` >> rpt gen_tac >>
+  Q.PAT_ABBREV_TAC`cs = compiler_state_contab_fupd X Y` >>
+  first_x_assum(qspecl_then[`mn`,`cs`]mp_tac) >>
+  disch_then(Q.X_CHOOSE_THEN`cks`strip_assume_tac) >>
+  qexists_tac`ck + cks` >> rpt gen_tac >>
   strip_tac >>
-  first_x_assum(qspecl_then[`rs`,`p0,p1,p2`,`p3`,`p4`,`rd`,`REVERSE p5`,`bs with code := bc0 ++ REVERSE p5`]mp_tac) >>
+  first_x_assum(qspecl_then[`rs`,`p0,p1,p2`,`p3`,`p4`,`rd`,`REVERSE p5`,`bs with <| code := bc0 ++ REVERSE p5; clock := SOME ck |>`]mp_tac) >>
   simp[] >>
   discharge_hyps >- (
     fs[FV_decs_def,decs_cns_def] >>
-    metis_tac[] ) >>
+    conj_tac >- metis_tac[] >>
+    match_mp_tac env_rs_change_clock >>
+    simp[] >> qexists_tac`(ck+cks,s)` >>
+    simp[] >> HINT_EXISTS_TAC >> simp[]) >>
   strip_tac >>
   qmatch_assum_abbrev_tac`compile_decs mn dec ac = ac'` >>
   qspecl_then[`mn`,`menv_dom menv`,`dec`,`ac`]mp_tac compile_decs_append_code >>
@@ -2648,8 +2654,8 @@ val compile_decs_val = store_thm("compile_decs_val",
     reverse conj_tac >- (
       simp[MEM_FLAT,MEM_MAP,EXISTS_PROD] >>
       rw[] >> fs[MEM_MAP] ) >>
+    fs[Abbr`cs`] >>
     qmatch_assum_abbrev_tac`∀x. x ∈ FV_dec d ⇒ MEM x X ∨ MEM x Y` >>
-    last_x_assum(qspec_then`ss`kall_tac) >>
     last_x_assum(qspec_then`ss`kall_tac) >>
     last_x_assum(qspec_then`set Y`mp_tac) >>
     discharge_hyps >- (
@@ -2663,13 +2669,11 @@ val compile_decs_val = store_thm("compile_decs_val",
   simp[Once SWAP_REVERSE_SYM] >>
   strip_tac >>
   qmatch_assum_abbrev_tac`compile_decs mn dec ac = ac'` >>
-  first_x_assum(qspecl_then[`mn`,`FST ac`]mp_tac) >>
-  simp[LibTheory.merge_def] >>
-  disch_then(Q.X_CHOOSE_THEN`ck'`strip_assume_tac) >>
+  fs[LibTheory.merge_def] >>
   first_x_assum(qspecl_then[`FST ac'`,`SND ac`,`rd'`]mp_tac) >>
   simp[Abbr`ac`,Abbr`ac'`,Once SWAP_REVERSE] >>
   qmatch_assum_abbrev_tac`env_rs menv cenv1 env1 rs1 rd' (0,s') bs1` >>
-  disch_then(qspecl_then[`bs1 with <| clock := SOME ck'; code := bc0 ++ REVERSE p5 ++ REVERSE c|>`]mp_tac) >>
+  disch_then(qspecl_then[`bs1 with <| clock := SOME cks; code := bc0 ++ REVERSE p5 ++ REVERSE c|>`]mp_tac) >>
   simp[Abbr`bs1`] >>
   discharge_hyps >- (
     conj_tac >- (
@@ -2683,7 +2687,7 @@ val compile_decs_val = store_thm("compile_decs_val",
       simp_tac(srw_ss()++DNF_ss)[MEM_FLAT,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] ) >>
     strip_tac >>
     `MAP FST new_env = MAP FST p3` by (
-      fs[env_rs_def,GSYM MAP_MAP_o,LET_THM,Abbr`env1`,Abbr`rs1`] ) >>
+      fs[env_rs_def,GSYM MAP_MAP_o,LET_THM,Abbr`env1`,Abbr`rs1`,Abbr`cs`] ) >>
     `MAP (Short o FST) new_env = MAP (Short o FST) p3` by (
       fs[env_rs_def,GSYM MAP_MAP_o,LET_THM] ) >>
     conj_tac >- (
@@ -2710,13 +2714,53 @@ val compile_decs_val = store_thm("compile_decs_val",
       qexists_tac`0,s'` >>
       HINT_EXISTS_TAC >>
       simp[bc_state_component_equality] ) >>
-    fs[good_labels_def,FILTER_APPEND,FILTER_REVERSE,EVERY_REVERSE,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE] >>
+    fs[good_labels_def,FILTER_APPEND,FILTER_REVERSE,EVERY_REVERSE,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE,Abbr`rs1`,Abbr`cs`] >>
     fsrw_tac[DNF_ss][between_labels_def,EVERY_MEM,MEM_MAP,between_def,MEM_FILTER,is_Label_rwt] >>
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
   Cases_on`r`>>simp[SemanticPrimitivesTheory.combine_dec_result_def,LibTheory.merge_def] >- (
-    cheat) >>
+    qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
+    `bc_next^* (bs0 with code := bs.code) (bs1 with code := bs.code)` by (
+      match_mp_tac RTC_bc_next_append_code >>
+      map_every qexists_tac[`bs0`,`bs1`] >>
+      simp[Abbr`bs0`,Abbr`bs1`] >>
+      simp[bc_state_component_equality] ) >>
+    map_every qunabbrev_tac[`bs0`,`bs1`] >>
+    qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
+    `bc_next^* (bs0 with clock := bs.clock) (bs1 with clock := SOME cks)` by (
+      qspecl_then[`bs0`,`bs1`]mp_tac RTC_bc_next_add_clock >>
+      simp[] >>
+      disch_then(qspec_then`cks`mp_tac) >>
+      qmatch_abbrev_tac`bc_next^* x y ⇒ bc_next^* u v` >>
+      `x = u` by (
+        simp[Abbr`x`,Abbr`u`,Abbr`bs0`,bc_state_component_equality] >>
+        fs[env_rs_def,LET_THM,Cenv_bs_def,s_refs_def,good_rd_def] >>
+        Cases_on`bs.clock`>>fs[] ) >>
+      `y = v` by (
+        simp[Abbr`y`,Abbr`v`,Abbr`bs1`,bc_state_component_equality] ) >>
+      simp[] ) >>
+    map_every qunabbrev_tac[`bs0`,`bs1`] >>
+    fs[] >>
+    qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
+    `bs0 = bs` by simp[bc_state_component_equality,Abbr`bs0`] >>
+    qunabbrev_tac`bs0`>>fs[]>>
+    disch_then(qx_choosel_then[`st1`,`rf1`,`rd1`]strip_assume_tac) >>
+    map_every qexists_tac[`st1`,`rf1`,`rd1`] >>
+    conj_tac >- (
+      match_mp_tac (SIMP_RULE std_ss [transitive_def]RTC_TRANSITIVE) >>
+      qexists_tac`bs1` >> simp[] >>
+      qmatch_assum_abbrev_tac`bc_next^* bs1' bs2` >>
+      `bs1' = bs1` by (
+        simp[Abbr`bs1'`,Abbr`bs1`,bc_state_component_equality] ) >>
+      qmatch_abbrev_tac`bc_next^* bs1 bs2'` >>
+      `bs2' = bs2` by (
+        simp[Abbr`bs2'`,Abbr`bs2`,bc_state_component_equality] ) >>
+      PROVE_TAC[] ) >>
+    qmatch_abbrev_tac`X bss` >>
+    qmatch_assum_abbrev_tac`X bs'` >>
+    `bss = bs'` by simp[Abbr`bss`,Abbr`bs'`,bc_state_component_equality] >>
+    simp[] ) >>
   Cases_on`e`>>simp[]>>
-  simp[decs_to_cenv_def] >>
+  simp[decs_to_cenv_def,Abbr`rs1`] >>
   cheat )
 
 val closed_top_def = Define`
