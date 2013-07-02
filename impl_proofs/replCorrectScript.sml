@@ -703,6 +703,106 @@ fs [SUBSET_DEF] >>
 rw [] >>
 metis_tac []);
 
+val check_dup_ctors_names_lem1 = Q.prove (
+`!tds acc. 
+  FOLDR (λ(tvs,tn,condefs) x2. FOLDR (λ(n,ts) x2. n::x2) x2 condefs) acc tds
+  =
+  MAP FST (FLAT (MAP (SND o SND) tds)) ++ acc`,
+induct_on `tds` >>
+rw [] >>
+PairCases_on `h` >>
+fs [FOLDR_APPEND] >>
+pop_assum (fn _ => all_tac) >>
+induct_on `h2` >>
+rw [] >>
+PairCases_on `h` >>
+fs []);
+
+val check_dup_ctors_eqn = Q.store_thm ("check_dup_ctors_eqn",
+`!tds.
+  check_dup_ctors mn cenv tds
+  =
+  (ALL_DISTINCT (MAP FST (FLAT (MAP (SND o SND) tds))) ∧
+   (!e. MEM e (MAP FST (FLAT (MAP (SND o SND) tds))) ⇒ mk_id mn e ∉ set (MAP FST cenv)))`, 
+SIMP_TAC (srw_ss()) [LET_THM,RES_FORALL,check_dup_ctors_def, check_dup_ctors_names_lem1] >>
+induct_on `tds` >>
+rw [] >>
+`?tvs ts ctors. h = (tvs,ts,ctors)` by metis_tac [pair_CASES] >>
+rw [] >>
+fs [ALL_DISTINCT_APPEND] >>
+rw [] >>
+eq_tac >>
+rw [] >>
+fs [alistTheory.ALOOKUP_NONE] >> 
+fs [] >>
+rw [] >|
+[qpat_assum `!x. x = (tvs,ts,ctors) ∨ MEM x tds ⇒ P x` (mp_tac o Q.SPEC `(tvs,ts,ctors)`) >>
+     rw [] >>
+     `?v. ALOOKUP ctors e = SOME v` 
+              by metis_tac [alistTheory.ALOOKUP_NONE, optionTheory.NOT_SOME_NONE, optionTheory.option_nchotomy] >>
+     imp_res_tac alistTheory.ALOOKUP_MEM >>
+     res_tac >>
+     fs [],
+ PairCases_on `x` >>
+     fs [] >>
+     metis_tac [MEM_MAP, FST]]);
+
+val type_ds_dup_ctors = Q.prove (
+`!mn tenvM tenvC tenv ds tenvC' tenv'.
+  type_ds mn tenvM tenvC tenv ds tenvC' tenv' ⇒
+  !i ts tenvC_no_sig.
+    i < LENGTH ds ∧ (EL i ds = Dtype ts)
+    ⇒
+    ALL_DISTINCT (MAP FST (FLAT (MAP (SND o SND) ts))) ∧
+    (!e. MEM e (MAP FST (FLAT (MAP (SND o SND) ts)))
+         ⇒
+         mk_id mn e ∉ set (MAP FST (decs_to_cenv mn (TAKE i ds))) ∧
+         mk_id mn e ∉ set (MAP FST tenvC))`,
+ho_match_mp_tac type_ds_ind >>
+REPEAT GEN_TAC >>
+STRIP_TAC >>
+REPEAT GEN_TAC >>
+STRIP_TAC >>
+REPEAT GEN_TAC >>
+cases_on `i = 0` >>
+fs [] >|
+[fs [type_d_cases] >>
+     rw [] >>
+     fs [check_ctor_tenv_def, check_dup_ctors_eqn, decs_to_cenv_def],
+ `0 < i` by decide_tac >>
+     fs [EL_CONS] >>
+     STRIP_TAC >>
+     `PRE i < LENGTH ds` 
+               by (cases_on `i` >>
+                  fs []) >>
+     `i - 1 = PRE i` by decide_tac >>
+     rw [decs_to_cenv_def] >>
+     res_tac >>
+     fs [LibTheory.merge_def] >>
+     fs [type_d_cases, dec_to_cenv_def] >>
+     rw [] >>
+     fs [GSYM alistTheory.ALOOKUP_NONE, SIMP_RULE (srw_ss()) [] lookup_none]]);
+
+val type_sound_inv_dup_ctors = Q.prove (
+`∀mn spec ds rs new_tenvM new_tenvC new_tenv new_st envC r i ts.
+  type_top rs.tenvM rs.tenvC rs.tenv (Tmod mn spec ds) new_tenvM new_tenvC new_tenv  ∧
+  type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store) ∧
+  i < LENGTH ds ∧ (EL i ds = Dtype ts)
+  ⇒
+  check_dup_ctors (SOME mn) (decs_to_cenv (SOME mn) (TAKE i ds) ++ rs.envC) ts`,
+rw [type_sound_invariants_def, type_top_cases, top_to_cenv_def] >>
+imp_res_tac consistent_con_env_dom >>
+rw [check_dup_ctors_eqn] >-
+metis_tac [type_ds_dup_ctors] >-
+metis_tac [type_ds_dup_ctors] >>
+`mk_id (SOME mn) e ∉ set (MAP FST rs.tenvC)` by metis_tac [type_ds_dup_ctors] >>
+imp_res_tac weakC_not_SOME >>
+imp_res_tac consistent_mod_env_distinct >>
+imp_res_tac weakM_dom >>
+res_tac >>
+fs [SUBSET_DEF] >>
+fs [weak_other_mods_def, GSYM alistTheory.ALOOKUP_NONE]);
+
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
   invariant repl_state repl_fun_state bc_state ⇒
@@ -803,7 +903,7 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
     metis_tac [type_sound_inv_closed]
     ) >>
   conj_tac >- cheat >> (* RK cheat: Syntactic check: No constructors named "" *)
-  conj_tac >- cheat >> (* RK cheat: check_dup_ctors ensured by type system *)
+  conj_tac >- metis_tac [type_sound_inv_dup_ctors] >>
   conj_tac >- (
     fs[env_rs_def,LET_THM] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
@@ -951,7 +1051,7 @@ simp[] >>
       metis_tac [type_sound_inv_closed]
     ) >>
     conj_tac >- cheat >> (* RK cheat: Syntactic check: No constructors named "" *)
-    conj_tac >- cheat >> (* RK cheat: check_dup_ctors ensured by type system *)
+    conj_tac >- metis_tac [type_sound_inv_dup_ctors] >>
     fs[env_rs_def,LET_THM] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
     conj_tac >- metis_tac[] >>
