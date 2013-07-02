@@ -585,10 +585,10 @@ rw [] >>
 rw [] >>
 metis_tac []);
 
-(* This isn't quite true.  We need distinctness conditions *) 
 val weakM_dom = Q.prove (
 `!tenvM1 tenvM2.
-  weakM tenvM1 tenvM2
+  weakM tenvM1 tenvM2 ∧
+  ALL_DISTINCT (MAP FST tenvM2)
   ⇒
   tmenv_dom tenvM2 ⊆ tmenv_dom tenvM1`,
 rw [weakM_def, SUBSET_DEF] >>
@@ -596,23 +596,27 @@ fs [MEM_FLAT, MEM_MAP] >>
 rw [] >>
 fs [MEM_MAP] >>
 rw [] >>
-`ALOOKUP tenvM2 (FST x') = SOME (SND x')` by cheat >>
+`?mn tenv. x' = (mn,tenv)` by metis_tac [pair_CASES] >>
+rw [] >>
+imp_res_tac alistTheory.ALOOKUP_ALL_DISTINCT_MEM >>
 res_tac >>
 imp_res_tac alistTheory.ALOOKUP_MEM >>
 fs [weakE_def] >>
-`ALOOKUP (SND x') (FST y) = SOME (SND y)` by cheat >>
-res_tac >>
-qpat_assum `!x. P x` (mp_tac o Q.SPEC `FST (y:(tvarN # num # t))`) >>
+`?n tvs t. y = (n,(tvs,t))` by metis_tac [pair_CASES] >>
 rw [] >>
-PairCases_on `y` >>
-fs [] >>
-cases_on `ALOOKUP tenv'' y0` >>
+`ALOOKUP tenv n ≠ NONE` by metis_tac [alistTheory.ALOOKUP_NONE, FST, MEM_MAP] >>
+`?tvs2 t2. ALOOKUP tenv n = SOME (tvs2,t2)` 
+            by metis_tac [pair_CASES, optionTheory.option_nchotomy] >>
+res_tac >>
+qpat_assum `!x. P x` (mp_tac o Q.SPEC `n`) >>
+rw [] >>
+cases_on `ALOOKUP tenv''' n` >>
 fs [] >>
 PairCases_on `x` >>
 fs [] >>
-qexists_tac `MAP (Long (FST x') o FST) tenv` >>
+qexists_tac `MAP (Long mn o FST) tenv'` >>
 rw [MEM_MAP] >|
-[qexists_tac `(FST x', tenv)` >>
+[qexists_tac `(mn, tenv')` >>
      rw [],
  imp_res_tac alistTheory.ALOOKUP_MEM >>
      metis_tac [FST]]);
@@ -656,6 +660,15 @@ rw [] >>
 imp_res_tac type_env_dom2 >>
 metis_tac []);
 
+val consistent_mod_env_distinct = Q.prove (
+`!tenvS tenvC envM tenvM.
+  consistent_mod_env tenvS tenvC envM tenvM
+  ⇒
+  ALL_DISTINCT (MAP FST tenvM)`,
+ho_match_mp_tac metaTerminationTheory.consistent_mod_env_ind >>
+rw [] >>
+metis_tac []);
+
 val consistent_con_env_dom = Q.prove (
 `!envC tenvC.
   consistent_con_env envC tenvC
@@ -682,6 +695,7 @@ fs [type_sound_invariants_def, update_type_sound_inv_def] >>
 rw [] >>
 imp_res_tac type_env_dom >>
 imp_res_tac consistent_mod_env_dom >>
+imp_res_tac consistent_mod_env_distinct >>
 imp_res_tac weakM_dom >>
 imp_res_tac weakC_dom >>
 imp_res_tac consistent_con_env_dom >>
