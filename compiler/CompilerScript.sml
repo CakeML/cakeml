@@ -53,12 +53,12 @@ val _ = Define `
 
 
 val _ = Define `
- (compile_Cexp rsz menv env nl Ce =  
+ (compile_Cexp ex rsz menv env nl Ce =  
 (let (Ce,nl) = ( label_closures ( LENGTH env) nl Ce) in
   let cs = (<| out := []; next_label := nl |>) in
-  let cs = ( emit cs [PushPtr (Addr 0); PushExc]) in
+  let cs = (if ex then emit cs [PushPtr (Addr 0); PushExc] else cs) in
   let cs = ( compile_code_env menv cs Ce) in
-  compile menv env TCNonTail (rsz +2) cs Ce))`;
+  compile menv env TCNonTail (if ex then rsz +2 else rsz) cs Ce))`;
 
 
  val number_constructors_defn = Hol_defn "number_constructors" `
@@ -87,7 +87,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_news_defn;
 
 val _ = Define `
- (compile_fake_exp print rs vs e =  
+ (compile_fake_exp top rs vs e =  
 (let m = (<| bvars := ( MAP FST rs.renv)
            ; mvars := ( (o_f) ( MAP FST) rs.rmenv)
            ; cnmap := ( cmap rs.contab)
@@ -95,9 +95,9 @@ val _ = Define `
   let Ce = ( exp_to_Cexp m (e (Con (Short "") ( MAP (\ v . Var (Short v)) vs)))) in
   let menv = ( (o_f) ( MAP SND) rs.rmenv) in
   let env = ( MAP ((o) CTDec SND) rs.renv) in
-  let cs = ( compile_Cexp rs.rsz menv env rs.rnext_label Ce) in
-  let cs = ( emit cs [PopExc; Stack (Pops 1)]) in
-  let cs = ( compile_news print cs 0 vs) in
+  let cs = ( compile_Cexp top rs.rsz menv env rs.rnext_label Ce) in
+  let cs = (if top then emit cs [PopExc; Stack (Pops 1)] else cs) in
+  let cs = ( compile_news top cs 0 vs) in
   let cs = ( emit cs [Stack Pop]) in
   (rs.contab
   , ZIP ( vs, ( GENLIST(\ i . rs.rsz +i)( LENGTH vs)))
@@ -158,17 +158,19 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  val compile_top_def = Define `
 
 (compile_top rs (Tmod mn _ decs) =  
-(let (mrs,code) = ( compile_decs mn decs (rs,[])) in
+(let (mrs,code) = ( compile_decs mn decs ((rs with<| rsz := rs.rsz +2|>),[PushExc; PushPtr (Addr 0)])) in
   let env = ( BUTLASTN ( LENGTH rs.renv) mrs.renv) in
   let str = ( CONCAT["structure ";mn;" = <structure>"]) in
+  let clean1 = ([Stack (Cons tuple_cn ( LENGTH env));PopExc;Stack(Pops 1)]) in
+  let clean2 = ( REVERSE(compile_news F <|out := []; next_label := 0|> 0 ( MAP FST env)).out) in
   (( mrs with<|
       renv := rs.renv
-    ; rmenv := FUPDATE  rs.rmenv ( mn, env) |>)
+    ; rmenv := FUPDATE  rs.rmenv ( mn, ( MAP (\ (x,i) . (x,(i - 2))) env)) |>)
   ,( rs with<|
       contab := decs_to_contab (SOME mn) rs.contab decs
     ; rnext_label := mrs.rnext_label
     ; rmenv := FUPDATE  rs.rmenv ( mn, []) |>)
-  ,(( REVERSE code) ++( MAP PrintC (EXPLODE str))))))
+  ,(( REVERSE code) ++(clean1 ++(clean2 ++(Stack Pop) ::( MAP PrintC (EXPLODE str))))))))
 /\
 (compile_top rs (Tdec dec) =  
 (let (ct,env,nl,code) = ( compile_dec NONE rs dec) in
