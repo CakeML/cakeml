@@ -100,19 +100,6 @@ val peg_Type_def = Define`
                           [Nd (mkNT nType) [ah; b1; b2]])
 `;
 
-val peg_TypeName_def = Define`
-  peg_TypeName =
-    choicel [pegf (pnt nUQTyOp) (bindNT nTypeName);
-             seql [tokeq LparT;
-                   peg_linfix (mkNT nTyVarList)
-                              (tok isTyvarT mktokLf)
-                              (tokeq CommaT);
-                   tokeq RparT;
-                   pnt nUQTyOp] (bindNT nTypeName);
-             seql [tok isTyvarT mktokLf; pnt nUQTyOp] (bindNT nTypeName)
-            ]
-`;
-
 val peg_UQConstructorName_def = Define`
   peg_UQConstructorName =
     tok (λt. do s <- destAlphaT t ;
@@ -314,7 +301,16 @@ val mmlPEG_def = zDefine`
                choicel [seql [tokeq LparT; pnt nStarTypes; tokeq RparT]
                              (bindNT nStarTypesP);
                         pegf (pnt nStarTypes) (bindNT nStarTypesP)]);
-              (mkNT nTypeName, peg_TypeName);
+              (mkNT nTypeName,
+               choicel [pegf (pnt nUQTyOp) (bindNT nTypeName);
+                        seql [tokeq LparT; pnt nTyVarList;
+                              tokeq RparT; pnt nUQTyOp] (bindNT nTypeName);
+                        seql [tok isTyvarT mktokLf; pnt nUQTyOp]
+                             (bindNT nTypeName)
+                       ]);
+              (mkNT nTyVarList,
+               peg_linfix (mkNT nTyVarList)
+                          (tok isTyvarT mktokLf) (tokeq CommaT));
               (mkNT nTypeDec, peg_TypeDec);
               (mkNT nDtypeDecl,
                seql [pnt nTypeName;
@@ -526,7 +522,7 @@ fun pegnt(t,acc) = let
   val th =
       prove(``¬peg0 mmlPEG (pnt ^t)``,
             simp(pegnt_case_ths @ mmlpeg_rules_applied @
-                 [FDOM_cmlPEG, peg_V_def, peg_UQConstructorName_def, peg_TypeName_def,
+                 [FDOM_cmlPEG, peg_V_def, peg_UQConstructorName_def,
                   peg_TypeDec_def, choicel_def, seql_def, peg_longV_def,
                   pegf_def, peg_nonfix_def, peg_linfix_def, peg_Eapp_def]) >>
             simp(peg0_rwts @ acc))
@@ -609,8 +605,7 @@ fun wfnt(t,acc) = let
                    (mmlpeg_rules_applied @
                     [wfpeg_pnt, FDOM_cmlPEG, try_def, peg_longV_def,
                      seql_def, peg_TypeDec_def, peg_V_def, peg_Type_def,
-                     peg_UQConstructorName_def, peg_TypeName_def,
-                     peg_nonfix_def,
+                     peg_UQConstructorName_def, peg_nonfix_def,
                      tokeq_def, peg_linfix_def, peg_Eapp_def]) THEN
           simp(wfpeg_rwts @ npeg0_rwts @ peg0_rwts @ acc))
 in
@@ -619,8 +614,8 @@ end;
 
 val topo_nts = [``nExn``, ``nV``, ``nTypeDec``, ``nDecl``, ``nVlist1``,
                 ``nUQTyOp``, ``nUQConstructorName``,
-                ``nConstructorName``, ``nTypeName``, ``nTyOp``, ``nDType``,
-                ``nStarTypes``, ``nStarTypesP``,
+                ``nConstructorName``, ``nTyVarList``, ``nTypeName``, ``nTyOp``,
+                ``nDType``, ``nStarTypes``, ``nStarTypesP``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``, ``nPE``,
                 ``nPE'``, ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``,
                 ``nFQV``,
@@ -658,7 +653,7 @@ val PEG_exprs = save_thm(
           subexprs_pnt, peg_start, peg_range, choicel_def, tokeq_def, try_def,
           seql_def, pegf_def, peg_Eapp_def, peg_V_def, peg_nonfix_def,
           peg_Type_def, peg_longV_def, peg_linfix_def,
-          peg_TypeName_def, peg_TypeDec_def, peg_UQConstructorName_def,
+          peg_TypeDec_def, peg_UQConstructorName_def,
           pred_setTheory.INSERT_UNION_EQ
          ])
 
@@ -669,7 +664,7 @@ val PEG_wellformed = store_thm(
        subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
        peg_linfix_def, peg_UQConstructorName_def, peg_TypeDec_def,
-       peg_TypeName_def, peg_V_def, peg_Eapp_def, peg_nonfix_def, peg_Type_def,
+       peg_V_def, peg_Eapp_def, peg_nonfix_def, peg_Type_def,
        peg_longV_def] >>
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
 

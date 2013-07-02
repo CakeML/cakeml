@@ -179,7 +179,8 @@ val nullconv =
 fun prove_nullable t = let
   val th = nullconv ``nullableNT mmlG (mkNT ^t)``
 in
-  EQT_ELIM th handle HOL_ERR _ => EQF_ELIM th
+  save_thm("nullable_" ^ String.extract(term_to_string t,1,NONE),
+           EQT_ELIM th handle HOL_ERR _ => EQF_ELIM th)
 end
 val nullable_V = prove_nullable ``nV``
 val nullable_Vlist1 = prove_nullable ``nVlist1``
@@ -190,6 +191,7 @@ val nullable_ConstructorName = prove_nullable ``nConstructorName``
 val nullable_Ptuple = prove_nullable ``nPtuple``
 val nullable_Pbase = prove_nullable ``nPbase``
 val nullable_LetDec = prove_nullable ``nLetDec``
+val nullable_TyVarList = prove_nullable ``nTyVarList``
 
 val len_assum =
     first_x_assum
@@ -446,15 +448,16 @@ val mmlvalid_Lf = store_thm(
   simp[mmlvalid_def])
 val _ = export_rewrites ["mmlvalid_Lf"]
 
-val parsing_ind =
-    relationTheory.WF_INDUCTION_THM
-      |> Q.ISPEC `inv_image
-                    (measure (LENGTH:(token,MMLnonT)symbol list -> num) LEX
-                     measure (λn. case n of TOK _ => 0 | NT n => NT_rank n))
-                    (λpt. (ptree_fringe pt, ptree_head pt))`
-      |> SIMP_RULE (srw_ss()) [pairTheory.WF_LEX, relationTheory.WF_inv_image]
-      |> SIMP_RULE (srw_ss()) [relationTheory.inv_image_def,
-                               pairTheory.LEX_DEF]
+val parsing_ind = save_thm(
+  "parsing_ind",
+  relationTheory.WF_INDUCTION_THM
+    |> Q.ISPEC `inv_image
+                  (measure (LENGTH:(token,MMLnonT)symbol list -> num) LEX
+                   measure (λn. case n of TOK _ => 0 | NT n => NT_rank n))
+                  (λpt. (ptree_fringe pt, ptree_head pt))`
+    |> SIMP_RULE (srw_ss()) [pairTheory.WF_LEX, relationTheory.WF_inv_image]
+    |> SIMP_RULE (srw_ss()) [relationTheory.inv_image_def,
+                             pairTheory.LEX_DEF]);
 
 val ptree_head_t = ``ptree_head``
 val NT_rank_t = ``NT_rank``

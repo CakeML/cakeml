@@ -283,7 +283,7 @@ val peg_eval_nTyOp_wrongtok = store_thm(
 
 val peg_correct = store_thm(
   "peg_correct",
-  ``∀N i0 s i pts.
+  ``∀N i0 i pts.
        peg_eval mmlPEG (i0,nt N I) (SOME(i,pts)) ⇒
        ∃pt. pts = [pt] ∧ ptree_head pt = NT N ∧
             valid_ptree mmlG pt ∧
@@ -548,25 +548,30 @@ val peg_correct = store_thm(
       fs[] >> pop_assum (mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
       simp[pegsym_to_sym_def, cmlG_applied, cmlG_FDOM, SUBSET_DEF,
            DISJ_IMP_THM, FORALL_AND_THM] >> strip_tac >> rveq >> simp[])
+  >- (print_tac "nTyVarList" >> strip_tac >>
+      first_x_assum (mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
+      simp[DISJ_IMP_THM, pegsym_to_sym_def, cmlG_FDOM, cmlG_applied,
+           SUBSET_DEF, FORALL_AND_THM, mktokLf_def] >> dsimp[] >>
+      disch_then match_mp_tac >> Cases >> simp[])
   >- (print_tac "nTypeName" >>
-      simp[peg_TypeName_def] >> strip_tac >> rveq >>
+      simp[] >> strip_tac >> rveq >>
       dsimp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING]
       >- (first_x_assum (fn patth =>
            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
           simp[NT_rank_def] >> strip_tac >> rveq >> dsimp[])
-      >- (dsimp[listTheory.APPEND_EQ_CONS, MAP_EQ_SING] >>
-          first_x_assum (mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
-          simp[DISJ_IMP_THM, peg_eval_tok_SOME, pegsym_to_sym_def,
-               FORALL_AND_THM, cmlG_applied, cmlG_FDOM, SUBSET_DEF,
-               mktokLf_def] >> dsimp[] >>
-          disch_then (fn th => SUBGOAL_THEN (lhand (concl th))
-                                            (strip_assume_tac o MP th))
-          >- (qx_gen_tac `tt` >> Cases_on `tt` >> simp[]) >>
-          rveq >> simp[] >> csimp[] >> fs[] >>
-          first_assum (mp_tac o Q.AP_TERM `LENGTH`) >> simp[] >> asimp[] >>
-          strip_tac >> asm_match `LENGTH i1 = LENGTH PT + (LENGTH i2 + 1)` >>
-          `LENGTH i2 < SUC (LENGTH i1)` by decide_tac >>
-          metis_tac [])
+      >- (simp[listTheory.APPEND_EQ_CONS] >> dsimp[MAP_EQ_CONS] >>
+          csimp[] >> loseC ``NT_rank`` >>
+          first_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                         assert (free_in ``nTyVarList``) o concl)) >>
+          rpt kill_asm_guard >>
+          disch_then (qxchl [`tyvl_pt`] strip_assume_tac) >>
+          rveq >> simp[] >>
+          first_x_assum (assume_tac o MATCH_MP length_no_greater o
+                         assert (free_in ``nTyVarList`` o concl)) >> fs[] >>
+          first_x_assum (fn patth =>
+            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+          rpt kill_asm_guard >> metis_tac[])
       >- (first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
           simp[] >> strip_tac >> rveq >> simp[] >> asm_match `isTyvarT HH` >>
@@ -1203,4 +1208,201 @@ val peg_correct = store_thm(
   asm_match `destSymbolT mytok = SOME symstring` >>
   Cases_on `mytok` >>fs[])
 
+val stoppers_def = Define`
+  (stoppers nSpecLine = {ValT; DatatypeT; TypeT}) ∧
+  (stoppers nV = UNIV) ∧
+  (stoppers _ = {})
+`;
+val _ = export_rewrites ["stoppers_def"]
+
+val has_length = assert (can (find_term (same_const listSyntax.length_tm)) o
+                         concl)
+
+val peg_eval_choice_NONE =
+  ``peg_eval G (i, choice s1 s2 f) NONE``
+    |> SIMP_CONV (srw_ss()) [Once pegTheory.peg_eval_cases]
+
+val peg_eval_tok_NONE =
+  ``peg_eval G (i, tok P f) NONE``
+    |> SIMP_CONV (srw_ss()) [Once pegTheory.peg_eval_cases]
+
+val peg_eval_seq_NONE =
+  ``peg_eval G (i, seq s1 s2 f) NONE``
+    |> SIMP_CONV (srw_ss()) [Once pegTheory.peg_eval_cases]
+
+val disjImpI = prove(``~p \/ q ⇔ p ⇒ q``, DECIDE_TAC)
+
+val ptree_head_eq_tok0 = prove(
+  ``(ptree_head pt = TOK tk) ⇔ (pt = Lf (TOK tk))``,
+  Cases_on `pt` >> simp[]);
+val ptree_head_eq_tok = save_thm(
+  "ptree_head_eq_tok",
+  CONJ ptree_head_eq_tok0
+       (CONV_RULE (LAND_CONV (REWR_CONV EQ_SYM_EQ)) ptree_head_eq_tok0))
+val _ = export_rewrites ["ptree_head_eq_tok"]
+
+val firstSet_def = Define`
+  firstSet G sf = { t | ∃rest. derives G sf (TOK t :: rest) }
+`;
+
+val firstSet_nonempty_fringe = store_thm(
+  "firstSet_nonempty_fringe",
+  ``∀pt t rest. ptree_fringe pt = TOK t :: rest ∧ valid_ptree G pt ⇒
+                t ∈ firstSet G [ptree_head pt]``,
+  simp[firstSet_def] >> metis_tac [grammarTheory.valid_ptree_derive]);
+
+val IN_firstSet = store_thm(
+  "IN_firstSet",
+  ``t ∈ firstSet G [sym] ⇒
+    ∃pt rest. ptree_head pt = sym ∧ valid_ptree G pt ∧
+              ptree_fringe pt = TOK t :: rest``,
+  simp[firstSet_def] >>
+  metis_tac [grammarTheory.ptrees_derive_extensible
+               |> Q.SPECL [`Lf sym`, `TOK t :: rest`]
+               |> SIMP_RULE (srw_ss()) []]);
+
+val firstSet_nTyVarList = store_thm(
+  "firstSet_nTyVarList",
+  ``firstSet mmlG [NT (mkNT nTyVarList)] = { TyvarT s | T }``,
+  dsimp[EXTENSION, EQ_IMP_THM] >> rpt strip_tac
+  >- (imp_res_tac IN_firstSet >>
+      qpat_assum `X IN Y` kall_tac >>
+      rpt (pop_assum mp_tac) >> map_every qid_spec_tac [`rest`, `pt`] >>
+      ho_match_mp_tac grammarTheory.ptree_ind >>
+      simp[cmlG_applied, cmlG_FDOM, MAP_EQ_CONS] >>
+      rpt strip_tac >> rveq >> fs[] >> rveq >> simp[] >>
+      fs[listTheory.APPEND_EQ_CONS] >>
+      `0 < LENGTH (ptree_fringe e)`
+        by metis_tac [fringe_length_not_nullable,
+                      nullable_TyVarList] >>
+      pop_assum mp_tac >> simp[]) >>
+  simp[firstSet_def] >> qexists_tac `[]` >>
+  match_mp_tac relationTheory.RTC_SUBSET >>
+  simp[cmlG_FDOM, cmlG_applied]);
+
+(*
+val completeness = store_thm(
+  "completeness",
+  ``∀N i0.
+       peg_eval mmlPEG (i0,nt N I) NONE ⇒
+       ∀pt. ptree_head pt = NT N ∧ valid_ptree mmlG pt ⇒ ~(ptree_fringe pt <<= MAP TOK i0)``,
+  ntac 2 gen_tac >> `?iN. iN = (i0,N)` by simp[] >> pop_assum mp_tac >>
+  map_every qid_spec_tac [`i0`, `N`, `iN`] >>
+  qispl_then [`measure (LENGTH:token list->num) LEX measure NT_rank`]
+             (ho_match_mp_tac o
+              SIMP_RULE (srw_ss()) [pairTheory.WF_LEX,
+                                    prim_recTheory.WF_measure])
+             relationTheory.WF_INDUCTION_THM >>
+  dsimp[pairTheory.LEX_DEF] >>
+  map_every qx_gen_tac [`N`, `i0`, `pt`] >> strip_tac >>
+  simp[Once pegTheory.peg_eval_cases] >>
+  fs[AND_IMP_INTRO] >> rpt strip_tac >>
+  `∃subs. pt = Nd N subs`
+    by (Cases_on `pt` >> simp[] >> fs[] >> rw[] >> fs[MAP_EQ_SING] >>
+        Cases_on `i0` >> fs[]) >>
+  rveq >> fs[] >>
+  `∃N'. N = mkNT N'` by (Cases_on `N` >> fs[cmlG_FDOM]) >> rveq >>
+  rpt (first_x_assum (mp_tac o assert (free_in ``mmlG.rules`` o concl))) >>
+  rpt (first_x_assum (mp_tac o assert (free_in ``mmlPEG.rules`` o concl))) >>
+  Cases_on `N'` >>
+  simp[cmlG_applied, cmlG_FDOM, mmlpeg_rules_applied, FDOM_cmlPEG]
+  >- (print_tac "nVlist1" >>
+      rpt strip_tac >> fs[MAP_EQ_CONS] >> rveq >>
+      fs[DISJ_IMP_THM, FORALL_AND_THM] >>
+      TRY (erule assume_tac rich_listTheory.IS_PREFIX_APPEND1) >>
+      `NT_rank (mkNT nV) < NT_rank (mkNT nVlist1)` by simp[NT_rank_def] >>
+      metis_tac[])
+  >- (print_tac "nV" >>
+      simp[peg_V_def, peg_eval_choice_NONE, peg_eval_tok_NONE,
+           gramTheory.assert_def, disjImpI] >>
+      disch_then (fn th => rpt strip_tac >> fs[MAP_EQ_SING] >> rveq >> fs[] >>
+                            assume_tac th) >>
+      Cases_on `i0` >> pop_assum (fn th => fs[] >> assume_tac th) >> rveq >>
+      fs[] >> metis_tac[])
+  >- (print_tac "nUQTyOp" >> simp[peg_eval_tok_NONE] >> rpt strip_tac >>
+      rveq >> fs[MAP_EQ_SING] >> rveq >> fs[])
+  >- (print_tac "nUQConstructorName" >>
+      simp[peg_UQConstructorName_def, peg_eval_tok_NONE, gramTheory.assert_def,
+           disjImpI] >> rpt strip_tac >> rveq >> fs[MAP_EQ_SING] >> rveq >>
+      fs[] >> metis_tac[])
+  >- (print_tac "nTypeName" >>
+      simp[peg_TypeName_def, peg_eval_tok_NONE, peg_eval_seq_NONE,
+           peg_linfix_def] >>
+      `NT_rank (mkNT nUQTyOp) < NT_rank (mkNT nTypeName)` by simp[NT_rank_def] >>
+      Cases_on `i0 = []`
+      >- (fs[] >> dsimp[MAP_EQ_CONS, disjImpI] >> rpt strip_tac >> fs[] >>
+          metis_tac[]) >> simp[] >>
+      rpt strip_tac >> rveq >> fs[MAP_EQ_SING, MAP_EQ_CONS] >> rveq >> fs[] >>
+      rveq >> fs[]
+      >- metis_tac[]
+      >- metis_tac[]
+      >- metis_tac[DECIDE ``x < SUC x``]
+      >- metis_tac[]
+      >- (fs[DISJ_IMP_THM, FORALL_AND_THM] >>
+          asm_match `ptree_head pt = NN nTyVarList` >>
+          Cases_on `ptree_fringe pt` >> fs[]
+          >- (`0 < LENGTH (ptree_fringe pt)`
+                by metis_tac[fringe_length_not_nullable,nullable_TyVarList] >>
+              pop_assum mp_tac >> simp[]) >>
+          rveq >> asm_match `¬isTyvarT tt` >>
+          `tt ∈ firstSet mmlG [NN nTyVarList]`
+            by metis_tac [firstSet_nonempty_fringe] >>
+          fs[firstSet_nTyVarList] >> rveq >> fs[])
+      >- metis_tac[]
+      >- fs[rich_listTheory.IS_PREFIX_NIL]
+      >- metis_tac[]
+      >- (fs[peg_eval_rpt] >> rveq
+
+
+
+
+
+
+val completeness = store_thm(
+  "completeness",
+  ``∀pt N pfx sfx.
+      valid_ptree mmlG pt ∧ ptree_head pt = NT (mkNT N) ∧
+      (sfx ≠ [] ⇒ HD sfx ∈ stoppers N) ∧ ptree_fringe pt = MAP TOK pfx ⇒
+      peg_eval mmlPEG (pfx ++ sfx, nt (mkNT N) I)
+                      (SOME(sfx, [pt]))``,
+  ho_match_mp_tac parsing_ind >> qx_gen_tac `pt` >>
+  disch_then (strip_assume_tac o SIMP_RULE (srw_ss() ++ DNF_ss) []) >>
+  RULE_ASSUM_TAC (SIMP_RULE (srw_ss() ++ CONJ_ss) [AND_IMP_INTRO]) >>
+  map_every qx_gen_tac [`N`, `pfx`, `sfx`] >> strip_tac >> fs[] >>
+  `∃subs. pt = Nd (mkNT N) subs`
+    by (Cases_on `pt` >> simp[] >> fs[] >> rw[] >> fs[MAP_EQ_SING]) >>
+  rveq >> fs[] >>
+  rpt (first_x_assum (mp_tac o assert (free_in ``mmlG.rules`` o concl))) >>
+  Cases_on `N` >> simp[cmlG_applied, cmlG_FDOM]
+  >- (print_tac "nVlist1" >>
+      dsimp[MAP_EQ_CONS] >>
+      simp[peg_eval_NT_SOME] >>
+      simp[mmlpeg_rules_applied, FDOM_cmlPEG] >>
+      conj_tac
+      >- ((* nV nVlist1 *)
+          map_every qx_gen_tac [`vpt`, `vlist1pt`] >> strip_tac >>
+          rveq >> fs[DISJ_IMP_THM, FORALL_AND_THM] >>
+          fs[grammarTheory.MAP_EQ_APPEND] >>
+          asm_match `ptree_fringe vpt = MAP TK vtks` >>
+          asm_match `ptree_fringe vlist1pt = MAP TK vltks` >>
+          map_every qexists_tac [`[vpt]`, `vltks ++ sfx`, `[vlist1pt]`] >>
+          simp[] >> conj_tac
+          >- (first_x_assum (qspecl_then [`vpt`, `nV`, `vtks`, `vltks ++ sfx`]
+                                         mp_tac o has_length) >>
+              simp[] >> disch_then match_mp_tac >>
+              erule mp_tac
+                (MATCH_MP fringe_length_not_nullable nullable_Vlist1) >>
+              simp[]) >>
+          first_x_assum (qspecl_then [`vlist1pt`, `nVlist1`, `vltks`, `sfx`]
+                                     mp_tac o has_length) >>
+          simp[] >> disch_then match_mp_tac >>
+          erule mp_tac
+            (MATCH_MP fringe_length_not_nullable nullable_V) >> simp[]) >>
+      (* nV *)
+      qx_gen_tac `vpt` >> strip_tac >>rveq >> fs[] >>
+
+
+                grammarTheory.valid_ptree_def
+
+*)
 val _ = export_theory();
