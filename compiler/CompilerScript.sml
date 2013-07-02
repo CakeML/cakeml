@@ -55,8 +55,7 @@ val _ = Define `
 val _ = Define `
  (compile_Cexp ex rsz menv env nl Ce =  
 (let (Ce,nl) = ( label_closures ( LENGTH env) nl Ce) in
-  let cs = (<| out := []; next_label := nl |>) in
-  let cs = (if ex then emit cs [PushPtr (Addr 0); PushExc] else cs) in
+  let cs = (<| out := (if ex then [PushExc; PushPtr (Addr 0)] else []); next_label := nl |>) in
   let cs = ( compile_code_env menv cs Ce) in
   compile menv env TCNonTail (if ex then rsz +2 else rsz) cs Ce))`;
 
