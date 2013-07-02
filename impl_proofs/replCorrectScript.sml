@@ -212,108 +212,6 @@ val closed_context_strip_mod_env = store_thm("closed_context_strip_mod_env",
   rw[]>>TRY(metis_tac[])>>
   fsrw_tac[DNF_ss][strip_mod_env_def,MEM_FLAT,MEM_MAP,UNCURRY])
 
-val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
-  ``∀mn menv cenv s env d s' res. evaluate_dec mn menv cenv s env d (s',res) ∧
-    closed_context menv cenv s env ∧
-    FV_dec d ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-    dec_cns d ⊆ set (MAP FST cenv)
-    ⇒
-    let (cenv',env') = case res of Rval(c,e)=>(c++cenv,e++env) | _ => (cenv,env) in
-    closed_context menv cenv' s' env'``,
-  rpt gen_tac >>
-  Cases_on`d`>>simp[Once evaluate_dec_cases]>>
-  Cases_on`res`>>simp[]>>strip_tac>>rpt BasicProvers.VAR_EQ_TAC>>simp[LibTheory.emp_def]>>TRY(strip_tac)>>
-  TRY (
-    fs[closed_context_def] >>
-    qmatch_assum_abbrev_tac`evaluate ck menv cenv s0 env e res` >>
-    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac(CONJUNCT1 semanticsExtraTheory.evaluate_closed) >>
-    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac toIntLangProofsTheory.evaluate_closed_under_cenv >>
-    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac (CONJUNCT1 evaluate_locs) >>
-    UNABBREV_ALL_TAC >> simp[] >> ntac 3 strip_tac >>
-    qpat_assum`P ⇒ Q`mp_tac >>
-    discharge_hyps >- metis_tac[] >> strip_tac >>
-    conj_tac >- fs[closed_under_menv_def] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF] >>
-    metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS])
-  >- (
-    fs[closed_context_def] >>
-    qmatch_assum_abbrev_tac`evaluate ck menv cenv s0 env e res` >>
-    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac(CONJUNCT1 semanticsExtraTheory.evaluate_closed) >>
-    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac toIntLangProofsTheory.evaluate_closed_under_cenv >>
-    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac (CONJUNCT1 evaluate_locs) >>
-    UNABBREV_ALL_TAC >> simp[] >> ntac 3 strip_tac >>
-    qpat_assum`P ⇒ Q`mp_tac >>
-    discharge_hyps >- metis_tac[] >> strip_tac >>
-    qspecl_then[`cenv`,`s'`,`p`,`v`,`emp`]mp_tac(CONJUNCT1 semanticsExtraTheory.pmatch_closed) >>
-    simp[] >> disch_then(qspec_then`menv`mp_tac) >>
-    simp[LibTheory.emp_def] >> strip_tac >>
-    conj_tac >- (
-      fs[toIntLangProofsTheory.closed_under_cenv_def] >>
-      qx_gen_tac`z` >> strip_tac >> TRY(metis_tac[]) >>
-      imp_res_tac (CONJUNCT1 semanticsExtraTheory.pmatch_all_cns) >>
-      fsrw_tac[DNF_ss][SUBSET_DEF,LibTheory.emp_def] >>
-      metis_tac[] ) >>
-    conj_tac >- fs[closed_under_menv_def] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF] >>
-    conj_tac >- metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS] >>
-    conj_tac >- (
-      qspecl_then[`cenv`,`s'`,`p`,`v`,`emp`,`env'`]mp_tac(CONJUNCT1 pmatch_locs) >>
-      discharge_hyps >- (
-        simp[] >>
-        fsrw_tac[DNF_ss][LibTheory.emp_def,SUBSET_DEF] >>
-        metis_tac[] ) >>
-      simp[SUBSET_DEF] >>
-      metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS]) >>
-    metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS])
-  >- (
-    simp[semanticsExtraTheory.build_rec_env_MAP] >>
-    fs[closed_context_def,miscTheory.MAP_FST_funs] >>
-    simp[EVERY_MAP,UNCURRY] >>
-    conj_tac >- (
-      simp[Once semanticsExtraTheory.closed_cases] >>
-      simp[EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD] >>
-      fs[] >> rpt gen_tac >> strip_tac >> conj_tac >- metis_tac[] >>
-      fs[semanticsExtraTheory.FV_defs_MAP] >>
-      fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD] >>
-      metis_tac[] ) >>
-    conj_tac >- (
-      fs[toIntLangProofsTheory.closed_under_cenv_def] >>
-      qx_gen_tac`z` >> strip_tac >> TRY(metis_tac[]) >>
-      pop_assum mp_tac >>
-      simp[MEM_MAP,EXISTS_PROD] >> strip_tac >>
-      simp[] >>
-      fsrw_tac[DNF_ss][SUBSET_DEF] >>
-      metis_tac[] ) >>
-    conj_tac >- (
-      fs[closed_under_menv_def,EVERY_MAP,UNCURRY] >>
-      simp[Once semanticsExtraTheory.closed_cases] >>
-      fs[EVERY_MEM] >>
-      fs[FORALL_PROD,MEM_MAP,EXISTS_PROD] >>
-      rpt gen_tac >> strip_tac >> conj_tac >- metis_tac[] >>
-      fs[semanticsExtraTheory.FV_defs_MAP] >>
-      fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD] >>
-      metis_tac[] ) >>
-    gen_tac >> strip_tac >> TRY(metis_tac[]) >>
-    fs[MEM_MAP,UNCURRY] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,MEM_MAP] >>
-    metis_tac[] )
-  >> (
-    simp[build_tdefs_def] >>
-    Cases_on`mn`>>fs[AstTheory.mk_id_def] >- (
-      fs[closed_context_def] >>
-      fs[toIntLangProofsTheory.closed_under_cenv_def] >>
-      reverse conj_tac >- metis_tac[] >>
-      fs[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
-      fsrw_tac[DNF_ss][SUBSET_DEF] >>
-      metis_tac[] ) >>
-    fs[closed_context_def] >>
-    conj_tac >- (
-      fs[toIntLangProofsTheory.closed_under_cenv_def] >>
-      simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
-      fsrw_tac[DNF_ss][MEM_MAP,SUBSET_DEF] >>
-      metis_tac[] ) >>
-    metis_tac[] ))
-
 val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
   ``∀mn menv cenv s env ds res. evaluate_decs mn menv cenv s env ds res ⇒
       closed_context menv cenv s env ∧
@@ -628,7 +526,7 @@ val type_d_dec_cns = Q.prove (
 `!mn tenvM tenvC tenv d tenvC' tenv'.
   type_d (SOME mn) tenvM tenvC tenv d tenvC' tenv'
   ⇒
-  IMAGE (Long mn) (new_dec_cns d) = set (MAP FST tenvC')`,
+  IMAGE (Long mn) (set (new_dec_cns d)) = set (MAP FST tenvC')`,
 rw [type_d_cases, new_dec_cns_def, LibTheory.emp_def] >>
 rw [new_dec_cns_def, build_ctor_tenv_def, MAP_FLAT, MAP_MAP_o,
     combinTheory.o_DEF, AstTheory.mk_id_def, LAMBDA_PROD] >>
@@ -791,7 +689,6 @@ fs [SUBSET_DEF] >>
 rw [] >>
 metis_tac []);
 
- 
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
   invariant repl_state repl_fun_state bc_state ⇒
@@ -892,6 +789,7 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
     metis_tac [type_sound_inv_closed]
     ) >>
   conj_tac >- cheat >> (* RK cheat: Syntactic check: No constructors named "" *)
+  conj_tac >- cheat >> (* RK cheat: check_dup_ctors ensured by type system *)
   conj_tac >- (
     fs[env_rs_def,LET_THM] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
@@ -1039,6 +937,7 @@ simp[] >>
       metis_tac [type_sound_inv_closed]
     ) >>
     conj_tac >- cheat >> (* RK cheat: Syntactic check: No constructors named "" *)
+    conj_tac >- cheat >> (* RK cheat: check_dup_ctors ensured by type system *)
     fs[env_rs_def,LET_THM] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
     conj_tac >- metis_tac[] >>
