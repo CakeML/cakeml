@@ -30,9 +30,9 @@ metis_tac [DECIDE ``!x:num. 0 < x + 1``] >-
 metis_tac [DECIDE ``!x:num. 0 < x + 1``]);
 
 val split_top_level_semi_def = tDefine "split_top_level_semi" `
-(split_top_level_semi toks = 
+(split_top_level_semi toks =
   case toplevel_semi_dex 0 F [] toks of
-    | NONE => [toks]
+    | NONE => if toks = [] then [] else [toks ++ [SemicolonT]]
     | SOME i =>
         TAKE (i+1) toks :: split_top_level_semi (DROP (i+1) toks))`
 (wf_rel_tac `measure LENGTH` >>
@@ -57,7 +57,7 @@ val init_repl_state_def = Define`
                        envM := []; envC := []; store := []; envE := init_env |>`
 
 val _ = Hol_datatype `
-repl_result = 
+repl_result =
     Terminate
   | Diverge
   | Result of string => repl_result`;
@@ -91,7 +91,7 @@ update_repl_state ast state type_bindings ctors tenvM tenvC tenv store envC r =
            envM := envM ++ state.envM;
            envC := envC ++ state.envC;
            envE := envE ++ state.envE |>
-    | Rerr _ => 
+    | Rerr _ =>
         (* We need to record the attempted module names (if any), so that it
         * can't be defined later.  To avoid the situation where a failing module
         * defines some datatype constructors and puts them into the store before
@@ -103,8 +103,8 @@ update_repl_state ast state type_bindings ctors tenvM tenvC tenv store envC r =
         * could also just use the ones whose definitions were reached.  Since
         * they don't go in the constructor type environment, the programmer
         * can't refer to any of them, so it doesn't matter much. *)
-        state with <| store := store; 
-                      envC := top_to_cenv ast ++ state.envC; 
+        state with <| store := store;
+                      envC := top_to_cenv ast ++ state.envC;
                       envM := strip_mod_env tenvM ++ state.envM;
                       tenvM := strip_mod_env tenvM ++ state.tenvM |>`;
 
@@ -144,11 +144,11 @@ val print_result_def = Define `
 
 val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 
-(!state. 
+(!state.
   ast_repl state [] [] Terminate) ∧
 
 (!state type_errors ast asts top rest type_bindings' ctors' tenvM' tenvC' tenv' store' envC' r.
-  (elab_top state.type_bindings state.ctors ast = 
+  (elab_top state.type_bindings state.ctors ast =
    (type_bindings', ctors', top)) ∧
   (type_top state.tenvM state.tenvC state.tenv top tenvM' tenvC' tenv') ∧
   evaluate_top state.envM state.envC state.store state.envE top (store',envC',r) ∧
@@ -157,7 +157,7 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
   ast_repl state (F::type_errors) (SOME ast::asts) (Result (print_result top envC' r) rest)) ∧
 
 (!state type_errors ast asts top type_bindings' ctors' tenvM' tenvC' tenv'.
-  (elab_top state.type_bindings state.ctors ast = 
+  (elab_top state.type_bindings state.ctors ast =
    (type_bindings', ctors', top)) ∧
   (type_top state.tenvM state.tenvC state.tenv top tenvM' tenvC' tenv') ∧
   top_diverges state.envM state.envC state.store state.envE top
@@ -169,7 +169,7 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
   ⇒
   ast_repl state (T::type_errors) (SOME ast::asts) (Result "<type error>" rest)) ∧
 
-(!state x type_errors asts rest. 
+(!state x type_errors asts rest.
   ast_repl state type_errors asts rest
   ⇒
   ast_repl state (x::type_errors) (NONE::asts) (Result "<parse error>" rest))`;
@@ -184,6 +184,6 @@ val parse_def = Define`
 `
 
 val repl_def = Define `
-repl type_errors input = ast_repl init_repl_state type_errors (MAP parse (split_top_level_semi (lexer_fun input)))`; 
+repl type_errors input = ast_repl init_repl_state type_errors (MAP parse (split_top_level_semi (lexer_fun input)))`;
 
 val _ = export_theory ();

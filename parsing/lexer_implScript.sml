@@ -12,8 +12,8 @@ val _ = Hol_datatype`semihider = SH_END | SH_PAR`
 val lex_aux_def = tDefine "lex_aux" `
   lex_aux acc error stk input =
     case next_token input of
-    | (* case: end of input and no final semicolon, discard acc *)
-      NONE => NONE
+    | (* case: end of input *)
+      NONE => if acc = [] then NONE else SOME (REVERSE acc,"")
     | (* case: token found *)
       SOME (token, rest) =>
         if token = SemicolonT /\ (stk = [] \/ error) then SOME (REVERSE (token::acc), rest)
