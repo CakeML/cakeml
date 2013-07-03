@@ -6,7 +6,7 @@ open SemanticPrimitivesTheory semanticsExtraTheory TypeSystemTheory typeSoundThe
 val _ = new_theory "replCorrect";
 
 val lex_impl_all_def = tDefine "lex_impl_all" `
-lex_impl_all input = 
+lex_impl_all input =
   case lex_until_toplevel_semicolon input of
     | NONE => []
     | SOME (t,input') => t::lex_impl_all input'`
@@ -14,21 +14,144 @@ lex_impl_all input =
  rw [] >>
  metis_tac [lex_until_toplevel_semicolon_LESS]);
 
-val lexer_correct = Q.prove (
-  `!input. split_top_level_semi (lexer_fun input) = lex_impl_all input`,
-  gen_tac
-  >> completeInduct_on`LENGTH input` >> rw[]
-  >> rw[Once split_top_level_semi_def]
-  >> rw[Once lex_impl_all_def]
-  >> rw[lex_until_toplevel_semicolon_def]
-  >> rw[Once lexer_fun_def]
-  >> rw[Once lex_aux_def]
-  >> Cases_on`next_token input` >> rw[]
-  >- (
-    rw[toplevel_semi_dex_def]
-    >> cheat (* false! *)
-    )
-  >> cheat)
+val lex_aux_tokens_def = Define `
+  lex_aux_tokens acc error stk input =
+     case input of
+       [] => NONE
+     | token::rest =>
+         if token = SemicolonT /\ (stk = [] \/ error) then
+           SOME (REVERSE (token::acc),rest)
+         else
+           (let new_acc = token::acc
+            in
+              if error then lex_aux_tokens new_acc error stk rest
+              else if token = LetT then
+                lex_aux_tokens new_acc F (SH_END::stk) rest
+              else if token = StructT then
+                lex_aux_tokens new_acc F (SH_END::stk) rest
+              else if token = SigT then
+                lex_aux_tokens new_acc F (SH_END::stk) rest
+              else if token = LparT then
+                lex_aux_tokens new_acc F (SH_PAR::stk) rest
+              else if token = EndT then
+                case stk of
+                  [] => lex_aux_tokens new_acc T [] rest
+                | SH_END::stk' => lex_aux_tokens new_acc F stk' rest
+                | SH_PAR::stk' => lex_aux_tokens new_acc T [] rest
+              else if token = RparT then
+                case stk of
+                  [] => lex_aux_tokens new_acc T [] rest
+                | SH_END::stk' => lex_aux_tokens new_acc T [] rest
+                | SH_PAR::stk' => lex_aux_tokens new_acc F stk' rest
+              else lex_aux_tokens new_acc F stk rest)`
+
+val lex_until_toplevel_semicolon_tokens_def = Define `
+  lex_until_toplevel_semicolon_tokens input = lex_aux_tokens [] F [] input`;
+
+val lex_aux_tokens_LESS = prove(
+  ``!acc error stk input.
+      (lex_aux_tokens acc error stk input = SOME (t,rest)) ==>
+      (if acc = [] then LENGTH rest < LENGTH input
+                   else LENGTH rest <= LENGTH input)``,
+  Induct_on `input`
+  THEN1 (EVAL_TAC >> SRW_TAC [] [LENGTH] >> SRW_TAC [] [LENGTH])
+  >> SIMP_TAC (srw_ss()) [Once lex_aux_tokens_def,LET_DEF]
+  >> SRW_TAC [] [] >> RES_TAC
+  >> FULL_SIMP_TAC std_ss [NOT_CONS_NIL]
+  >> TRY (Cases_on `stk`) >> RES_TAC
+  >> TRY (Cases_on `h`) >> RES_TAC
+  >> FULL_SIMP_TAC (srw_ss()) [] >> RES_TAC
+  >> FULL_SIMP_TAC (srw_ss()) [] >> RES_TAC
+  >> DECIDE_TAC);
+
+val lex_impl_all_tokens_def = tDefine "lex_impl_all_tokens" `
+  lex_impl_all_tokens input =
+     case lex_until_toplevel_semicolon_tokens input of
+       NONE => []
+     | SOME (t,input) => t::lex_impl_all_tokens input`
+  (WF_REL_TAC `measure LENGTH`
+   >> SIMP_TAC std_ss [lex_until_toplevel_semicolon_tokens_def]
+   >> METIS_TAC [lex_aux_tokens_LESS])
+
+val lex_aux_tokens_thm = prove(
+  ``!input acc error stk res1 res2.
+      (lex_aux_tokens acc error stk (lexer_fun input) = res1) /\
+      (lex_aux acc error stk input = res2) ==>
+      (case res2 of NONE => (res1 = NONE)
+                  | SOME (ts,rest) => (res1 = SOME (ts,lexer_fun rest)))``,
+  HO_MATCH_MP_TAC lexer_fun_ind >> SIMP_TAC std_ss []
+  >> REPEAT STRIP_TAC >> SIMP_TAC std_ss [Once lex_aux_def]
+  >> ONCE_REWRITE_TAC [lexer_fun_def]
+  >> ONCE_REWRITE_TAC [lex_aux_tokens_def]
+  >> Cases_on `next_token input` >> ASM_SIMP_TAC (srw_ss()) []
+  >> Cases_on `x`
+  >> Q.MATCH_ASSUM_RENAME_TAC `next_token input = SOME (t,rest)` []
+  >> FULL_SIMP_TAC (srw_ss()) []
+  >> SRW_TAC [] []
+  THEN1 (METIS_TAC [lexer_fun_def])
+  THEN1 (METIS_TAC [lexer_fun_def])
+  >> SRW_TAC [] []
+  >> ASM_SIMP_TAC std_ss [GSYM lexer_fun_def]
+  >> Cases_on `stk`
+  >> ASM_SIMP_TAC (srw_ss()) [GSYM lexer_fun_def]
+  >> Cases_on `h`
+  >> ASM_SIMP_TAC (srw_ss()) [GSYM lexer_fun_def]) |> SIMP_RULE std_ss [];
+
+val lex_impl_all_tokens_thm = prove(
+  ``!input. lex_impl_all input =
+            lex_impl_all_tokens (lexer_fun input)``,
+  HO_MATCH_MP_TAC (fetch "-" "lex_impl_all_ind") >> REPEAT STRIP_TAC
+  >> SIMP_TAC std_ss [Once lex_impl_all_def,Once lex_impl_all_tokens_def]
+  >> FULL_SIMP_TAC std_ss [lex_until_toplevel_semicolon_tokens_def]
+  >> FULL_SIMP_TAC std_ss [lex_until_toplevel_semicolon_def]
+  >> MP_TAC (lex_aux_tokens_thm |> Q.SPECL [`input`,`[]`,`F`,`[]`])
+  >> Cases_on `lex_aux [] F [] input` >> FULL_SIMP_TAC std_ss []
+  >> Cases_on `x` >> FULL_SIMP_TAC (srw_ss()) []
+  >> REPEAT STRIP_TAC >> RES_TAC);
+
+val lex_aux_tokens_thm = prove(
+  ``!input stk error acc.
+      (res = lex_aux_tokens acc error stk input) ==>
+      case res of
+        NONE => (toplevel_semi_dex (LENGTH acc) error stk input = NONE)
+      | SOME (toks,rest) =>
+          (toplevel_semi_dex (LENGTH acc) error stk input = SOME (LENGTH toks)) /\
+          (REVERSE acc ++ input = toks ++ rest)``,
+  Induct
+  >> SIMP_TAC (srw_ss()) [Once lex_aux_tokens_def]
+  >> ONCE_REWRITE_TAC [toplevel_semi_dex_def]
+  >> SIMP_TAC std_ss [LET_DEF] >> Cases
+  >> FULL_SIMP_TAC (srw_ss()) []
+  >> Cases_on `error` >> ASM_SIMP_TAC std_ss []
+  >> REPEAT STRIP_TAC >> RES_TAC
+  >> POP_ASSUM MP_TAC
+  >> POP_ASSUM (ASSUME_TAC o GSYM)
+  >> ASM_REWRITE_TAC []
+  >> Cases_on `res` >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
+  >> Cases_on `stk` >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
+  >> TRY (Cases_on `h`) >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
+  >> TRY (Cases_on `x`) >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
+  >> SIMP_TAC std_ss [Once EQ_SYM_EQ]
+  >> FULL_SIMP_TAC std_ss []
+  >> REPEAT STRIP_TAC >> RES_TAC
+  >> FULL_SIMP_TAC (srw_ss()) [LENGTH,arithmeticTheory.ADD1])
+  |> Q.SPECL [`input`,`[]`,`F`,`[]`] |> Q.GEN `res` |> SIMP_RULE std_ss [LENGTH];
+
+val split_top_level_semi_thm = prove(
+  ``!input. split_top_level_semi input = lex_impl_all_tokens input``,
+  HO_MATCH_MP_TAC split_top_level_semi_ind >> REPEAT STRIP_TAC
+  >> SIMP_TAC std_ss [Once split_top_level_semi_def,Once lex_impl_all_tokens_def,
+      Once lex_until_toplevel_semicolon_tokens_def]
+  >> MP_TAC lex_aux_tokens_thm
+  >> Cases_on `lex_aux_tokens [] F [] input` >> FULL_SIMP_TAC std_ss []
+  >> Cases_on `x` >> FULL_SIMP_TAC (srw_ss()) []
+  >> FULL_SIMP_TAC std_ss [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]
+  >> STRIP_TAC >> RES_TAC >> POP_ASSUM MP_TAC
+  >> FULL_SIMP_TAC std_ss [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]);
+
+val lexer_correct = prove(
+  ``!input. split_top_level_semi (lexer_fun input) = lex_impl_all input``,
+  SIMP_TAC std_ss [lex_impl_all_tokens_thm,split_top_level_semi_thm]);
 
 val parser_correct = Q.prove (
 `!toks. parse_top toks = repl$parse toks`,
@@ -574,8 +697,8 @@ val type_top_closed = store_thm("type_top_closed",
   fs[])
 
 val type_env_dom = Q.prove (
-`!tenvM tenvC tenvS env tenv. 
-  type_env tenvM tenvC tenvS env tenv ⇒ 
+`!tenvM tenvC tenvS env tenv.
+  type_env tenvM tenvC tenvS env tenv ⇒
   (set (MAP (Short o FST) env) = IMAGE Short (tenv_names tenv))`,
 induct_on `env` >>
 ONCE_REWRITE_TAC [TypeSoundInvariantsTheory.type_v_cases] >>
@@ -605,7 +728,7 @@ fs [weakE_def] >>
 `?n tvs t. y = (n,(tvs,t))` by metis_tac [pair_CASES] >>
 rw [] >>
 `ALOOKUP tenv n ≠ NONE` by metis_tac [alistTheory.ALOOKUP_NONE, FST, MEM_MAP] >>
-`?tvs2 t2. ALOOKUP tenv n = SOME (tvs2,t2)` 
+`?tvs2 t2. ALOOKUP tenv n = SOME (tvs2,t2)`
             by metis_tac [pair_CASES, optionTheory.option_nchotomy] >>
 res_tac >>
 qpat_assum `!x. P x` (mp_tac o Q.SPEC `n`) >>
@@ -636,8 +759,8 @@ rw [MEM_MAP] >>
 metis_tac [FST]);
 
 val type_env_dom2 = Q.prove (
-`!mn tenvM tenvC tenvS env tenv. 
-  type_env tenvM tenvC tenvS env (bind_var_list2 tenv Empty) ⇒ 
+`!mn tenvM tenvC tenvS env tenv.
+  type_env tenvM tenvC tenvS env (bind_var_list2 tenv Empty) ⇒
   (set (MAP (Long mn o FST) env) = set (MAP (Long mn o FST) tenv))`,
 induct_on `env` >>
 ONCE_REWRITE_TAC [TypeSoundInvariantsTheory.type_v_cases] >>
@@ -686,7 +809,7 @@ val type_sound_inv_closed = Q.prove (
   top_cns top ⊆ set (MAP FST rs.envC)`,
 rw [] >>
 imp_res_tac type_top_closed >>
-`(?err. r = Rerr err) ∨ (?menv env. r = Rval (menv,env))` 
+`(?err. r = Rerr err) ∨ (?menv env. r = Rval (menv,env))`
         by (cases_on `r` >>
             rw [] >>
             PairCases_on `a` >>
@@ -704,7 +827,7 @@ rw [] >>
 metis_tac []);
 
 val check_dup_ctors_names_lem1 = Q.prove (
-`!tds acc. 
+`!tds acc.
   FOLDR (λ(tvs,tn,condefs) x2. FOLDR (λ(n,ts) x2. n::x2) x2 condefs) acc tds
   =
   MAP FST (FLAT (MAP (SND o SND) tds)) ++ acc`,
@@ -723,7 +846,7 @@ val check_dup_ctors_eqn = Q.store_thm ("check_dup_ctors_eqn",
   check_dup_ctors mn cenv tds
   =
   (ALL_DISTINCT (MAP FST (FLAT (MAP (SND o SND) tds))) ∧
-   (!e. MEM e (MAP FST (FLAT (MAP (SND o SND) tds))) ⇒ mk_id mn e ∉ set (MAP FST cenv)))`, 
+   (!e. MEM e (MAP FST (FLAT (MAP (SND o SND) tds))) ⇒ mk_id mn e ∉ set (MAP FST cenv)))`,
 SIMP_TAC (srw_ss()) [LET_THM,RES_FORALL,check_dup_ctors_def, check_dup_ctors_names_lem1] >>
 induct_on `tds` >>
 rw [] >>
@@ -733,12 +856,12 @@ fs [ALL_DISTINCT_APPEND] >>
 rw [] >>
 eq_tac >>
 rw [] >>
-fs [alistTheory.ALOOKUP_NONE] >> 
+fs [alistTheory.ALOOKUP_NONE] >>
 fs [] >>
 rw [] >|
 [qpat_assum `!x. x = (tvs,ts,ctors) ∨ MEM x tds ⇒ P x` (mp_tac o Q.SPEC `(tvs,ts,ctors)`) >>
      rw [] >>
-     `?v. ALOOKUP ctors e = SOME v` 
+     `?v. ALOOKUP ctors e = SOME v`
               by metis_tac [alistTheory.ALOOKUP_NONE, optionTheory.NOT_SOME_NONE, optionTheory.option_nchotomy] >>
      imp_res_tac alistTheory.ALOOKUP_MEM >>
      res_tac >>
@@ -772,7 +895,7 @@ fs [] >|
  `0 < i` by decide_tac >>
      fs [EL_CONS] >>
      STRIP_TAC >>
-     `PRE i < LENGTH ds` 
+     `PRE i < LENGTH ds`
                by (cases_on `i` >>
                   fs []) >>
      `i - 1 = PRE i` by decide_tac >>
@@ -835,7 +958,7 @@ qmatch_assum_rename_tac`elaborate_top st.relaborator_state top0 = (new_elab_stat
 qmatch_assum_rename_tac`invariant rs st bs`[] >>
 rw [] >>
 `?error_msg next_repl_run_infer_state.
-  infertype_top st.rinferencer_state top = Failure error_msg ∨ 
+  infertype_top st.rinferencer_state top = Failure error_msg ∨
   infertype_top st.rinferencer_state top = Success next_repl_run_infer_state`
          by (cases_on `infertype_top st.rinferencer_state top` >>
              metis_tac []) >>
@@ -1024,9 +1147,9 @@ fs [] >>
 simp[Once ast_repl_cases,get_type_error_mask_def] >>
 disj1_tac >>
 MAP_EVERY qexists_tac [`convert_menv new_infer_menv`,
-                       `new_infer_cenv`, 
+                       `new_infer_cenv`,
                        `convert_env2 new_infer_env`,
-                       `store2`, 
+                       `store2`,
                        `envC2`,
                        `r`] >>
 conj_asm2_tac >- metis_tac[print_result_not_type_error] >>
@@ -1110,7 +1233,7 @@ simp[] >>
     conj_tac >- (
       fs[update_type_sound_inv_def,Abbr`new_repl_state`,update_repl_state_def] ) >>
     `FV_top top ⊆ set (MAP (Short o FST) rs.envE) ∪ menv_dom rs.envM ∧
-     top_cns top ⊆ set (MAP FST rs.envC)` 
+     top_cns top ⊆ set (MAP FST rs.envC)`
              by (fs[closed_top_def] >> metis_tac [type_sound_inv_closed]) >>
     conj_tac >- (
       qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`store2`,`envC2`,`Rval (a0,a1)`]mp_tac evaluate_top_closed_context >>
@@ -1213,7 +1336,7 @@ simp[] >>
   conj_tac >- (
     fs[update_type_sound_inv_def,Abbr`new_repl_state`,update_repl_state_def] ) >>
   `FV_top top ⊆ set (MAP (Short o FST) rs.envE) ∪ menv_dom rs.envM ∧
-   top_cns top ⊆ set (MAP FST rs.envC)` 
+   top_cns top ⊆ set (MAP FST rs.envC)`
               by (fs[closed_top_def] >> metis_tac [type_sound_inv_closed]) >>
   qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`store2`,`envC2`,`Rerr (Rraise err)`]mp_tac evaluate_top_closed_context >>
   simp[] >> strip_tac >>

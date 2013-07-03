@@ -347,11 +347,11 @@ val lexer_fun_def = tDefine "lexer_fun" `
 val _ = Hol_datatype`semihider = SH_END | SH_PAR`
 (* extend with SH_BRACE and SH_BRACKET when records and lists
    are part of the syntax *)
- 
+
 val toplevel_semi_dex_def = Define`
   toplevel_semi_dex (i:num) error stk [] = NONE ∧
   toplevel_semi_dex i error stk (h::t) =
-    if h = SemicolonT ∧ (stk = [] ∨ error) then SOME i
+    if h = SemicolonT ∧ (stk = [] ∨ error) then SOME (i+1)
     else if error then toplevel_semi_dex (i + 1) error stk t
     else if h = LetT then toplevel_semi_dex (i + 1) F (SH_END::stk) t
     else if h = StructT then toplevel_semi_dex (i + 1) F (SH_END::stk) t
