@@ -42,9 +42,9 @@ val call_decl_thm = store_thm("call_decl_thm",
                       |> in
   bc_eval bs0 = SOME bs1 ∧
   env_rs [] cenv env rs rd (0,[]) bs1 ∧
-  ∀bs ret mid barg cenv env arg v.
+  ∀bs ret mid barg cenv arg v.
     bs.code = [CallPtr] ∧
-    bs.pc = 0 ∧
+    bs.pc = 0 ∧            (* it would be nice if possible to have [] instead of mid++st *)
     bs.stack = CodePtr ptr::benv::barg::cl::mid++st ∧
     bs.handler = h ∧
     bs.clock = NONE ∧
@@ -52,7 +52,10 @@ val call_decl_thm = store_thm("call_decl_thm",
       the call stuff on the stack gets in the way, and
       the rs.renv probably needs to know about "x", and
       need to connect cenv to Cenv and env to rs.renv *)
-    evaluate F [] cenv (0,[]) env (App Opapp (Var (Short fun)) (Var(Short "x"))) ((0,[]),Rval v)
+    evaluate F [] cenv (0,[]) (("x",arg)::env) (App Opapp (Var (Short fun)) (Var(Short "x"))) ((0,[]),Rval v)
+                (* this should provably be the same as [("x",arg);(fun,lookup fun env)] *)
+   (* use do_app instead of evaluate? *)
+   (* just need something that says: lookup fun env applied to arg returns v, semantically *)
     ⇒
     ∃bv rf'.
     let bs' = bs with <| stack := bv::mid++st
