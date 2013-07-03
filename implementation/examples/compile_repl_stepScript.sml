@@ -5,11 +5,11 @@ val _ = computeLib.stoppers := let
   val stoppers = [`Dlet``,``Dletrec``,``Dtype``]
   in SOME (fn tm => mem tm stoppers) end
 
-val compile_decs_def = Define`
-  compile_decs cs [] acc = acc ∧
-  compile_decs cs (d::ds) acc =
+val fold_compile_top_def = Define`
+  fold_compile_top cs [] acc = acc ∧
+  fold_compile_top cs (d::ds) acc =
   let (css,csf,code) = compile_top cs (Tdec d) in
-  compile_decs css ds (code::acc)`
+  fold_compile_top css ds (code::acc)`
 
 val _ = computeLib.add_funs[ml_repl_step_decls]
 
@@ -18,12 +18,12 @@ val compile_dec1_def = Define`
     let (css,csf,code) = compile_top cs (Tdec d)
     in (code::a, css)`
 
-val compile_decs_FOLDL = store_thm(
-  "compile_decs_FOLDL",
+val fold_compile_top_FOLDL = store_thm(
+  "fold_compile_top_FOLDL",
   ``∀cs acc.
-      compile_decs (cs:compiler_state) ds acc =
+      fold_compile_top (cs:compiler_state) ds acc =
       FST (FOLDL compile_dec1 (acc,cs) ds)``,
-  Induct_on `ds` >> rw[compile_decs_def, compile_dec1_def]);
+  Induct_on `ds` >> rw[fold_compile_top_def, compile_dec1_def]);
 
 fun rbinop_size acc t =
     if is_const t orelse is_var t then acc else rbinop_size (acc + 1) (rand t)
@@ -233,12 +233,12 @@ val compiled = save_thm("compiled", th);
 
 val _ = PolyML.fullGC();
 val res = time EVAL
-  ``compile_decs init_compiler_state (TAKE 100 ml_repl_step_decls) stop_NIL``
+  ``fold_compile_top init_compiler_state (TAKE 100 ml_repl_step_decls) stop_NIL``
 *)
 
 (*
 EVAL ``TAKE 20 (DROP 100 ml_repl_step_decls)``
-val _ = time EVAL ``compile_decs init_compiler_state ml_repl_step_decls stop_NIL``
+val _ = time EVAL ``fold_compile_top init_compiler_state ml_repl_step_decls stop_NIL``
 *)
 
 (*
@@ -250,15 +250,15 @@ val many_o80 = EVAL ``GENLIST (K ^Dlet_o) 80`` |> concl |> rhs
 val many_o160 = EVAL ``GENLIST (K ^Dlet_o) 160`` |> concl |> rhs
 
 val _ = PolyML.fullGC();
-val _ = time EVAL ``compile_decs init_compiler_state ^many_o10 stop_NIL``
+val _ = time EVAL ``fold_compile_top init_compiler_state ^many_o10 stop_NIL``
 val _ = PolyML.fullGC();
-val _ = time EVAL ``compile_decs init_compiler_state ^many_o20 stop_NIL``
+val _ = time EVAL ``fold_compile_top init_compiler_state ^many_o20 stop_NIL``
 val _ = PolyML.fullGC();
-val _ = time EVAL ``compile_decs init_compiler_state ^many_o40 stop_NIL``
+val _ = time EVAL ``fold_compile_top init_compiler_state ^many_o40 stop_NIL``
 val _ = PolyML.fullGC();
-val _ = time EVAL ``compile_decs init_compiler_state ^many_o80 stop_NIL``
+val _ = time EVAL ``fold_compile_top init_compiler_state ^many_o80 stop_NIL``
 val _ = PolyML.fullGC();
-val _ = time EVAL ``compile_decs init_compiler_state ^many_o160 stop_NIL``
+val _ = time EVAL ``fold_compile_top init_compiler_state ^many_o160 stop_NIL``
 
 val _ = computeLib.stoppers := NONE
 val num_compset = reduceLib.num_compset()
