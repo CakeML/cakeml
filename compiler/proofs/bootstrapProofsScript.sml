@@ -1,6 +1,17 @@
-open HolKernel boolLib bossLib
-open CompilerTheory compilerTerminationTheory
+open HolKernel boolLib bossLib lcsymtacs
+open finite_mapTheory
+open CompilerTheory compilerTerminationTheory toBytecodeProofsTheory compilerProofsTheory
 val _ = new_theory"bootstrapProofs"
+
+val env_rs_empty = store_thm("env_rs_empty",
+  ``bs.stack = [] ∧ bs.clock = NONE ∧ rd.sm = [] ∧ rd.cls = FEMPTY ⇒
+    env_rs [] [] [] init_compiler_state rd (ck,[]) bs``,
+  simp[env_rs_def,init_compiler_state_def,intLangExtraTheory.good_cmap_def,FLOOKUP_UPDATE
+      ,good_contab_def,IntLangTheory.tuple_cn_def,toIntLangProofsTheory.cmap_linv_def] >>
+  simp[pmatchTheory.env_to_Cenv_MAP,intLangExtraTheory.all_vlabs_menv_def
+      ,intLangExtraTheory.vlabs_menv_def,pred_setTheory.SUM_IMAGE_THM] >>
+  strip_tac >>
+  simp[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_DEF])
 
 (*
 val call_decl_thm = store_thm("call_decl_thm",
