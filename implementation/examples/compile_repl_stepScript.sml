@@ -1,8 +1,11 @@
 open preamble repl_computeLib ml_repl_stepTheory
 val _ = new_theory"compile_repl_step"
 
+val stop_APPEND_def = Define`
+  stop_APPEND (l1:bc_inst list) l2 = l1 ++ l2`
+
 val _ = computeLib.stoppers := let
-  val stoppers = [``Dlet``,``Dletrec``,``Dtype``]
+  val stoppers = [``Dlet``,``Dletrec``,``Dtype``,``stop_APPEND``]
   in SOME (fn tm => mem tm stoppers) end
 
 val _ = computeLib.add_funs[ml_repl_step_decls]
@@ -11,7 +14,7 @@ val compile_dec1_def = Define`
   compile_dec1 (rs,code) d =
     let (ct,env,nl,code') = compile_dec (SOME "CakeML") rs d in
       (rs with <| contab := ct; renv := env ++ rs.renv; rsz := rs.rsz + LENGTH env; rnext_label := nl |>
-      ,code' ++ code)`
+      ,stop_APPEND code' code)`
 
 val compile_decs_FOLDL = store_thm(
   "compile_decs_FOLDL",
@@ -19,7 +22,7 @@ val compile_decs_FOLDL = store_thm(
       compile_decs "CakeML" ds acc =
       FOLDL compile_dec1 acc ds``,
   Induct_on `ds` >> Cases_on`acc`>>
-  rw[compile_decs_def, compile_dec1_def]);
+  rw[compile_decs_def, compile_dec1_def, stop_APPEND_def]);
 
 fun rbinop_size acc t =
     if is_const t orelse is_var t then acc else rbinop_size (acc + 1) (rand t)
