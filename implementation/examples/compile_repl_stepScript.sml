@@ -1,27 +1,22 @@
 open preamble repl_computeLib ml_repl_stepTheory
 val _ = new_theory"compile_repl_step"
 
-val _ = Hol_datatype`stop_list = stop_NIL | stop_CONS of 'a => stop_list`
-
 val _ = computeLib.stoppers := let
-  val stop_CONS = inst[alpha|->``:bc_inst list``]``stop_CONS``
-  val stoppers = [stop_CONS ,``Dlet``,``Dletrec``,``Dtype``]
+  val stoppers = [`Dlet``,``Dletrec``,``Dtype``]
   in SOME (fn tm => mem tm stoppers) end
 
 val compile_decs_def = Define`
   compile_decs cs [] acc = acc ∧
   compile_decs cs (d::ds) acc =
   let (css,csf,code) = compile_top cs (Tdec d) in
-  compile_decs css ds (stop_CONS code acc)`
+  compile_decs css ds (code::acc)`
 
 val _ = computeLib.add_funs[ml_repl_step_decls]
 
 val compile_dec1_def = Define`
   compile_dec1 (a,cs) d =
     let (css,csf,code) = compile_top cs (Tdec d)
-    in
-      (stop_CONS code a, css)
-`
+    in (code::a, css)`
 
 val compile_decs_FOLDL = store_thm(
   "compile_decs_FOLDL",
