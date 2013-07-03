@@ -612,6 +612,8 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       bs2.inst_length = bs.inst_length ∧
       bs2.clock = bs.clock ∧
       bs2.refs = bs.refs ∧
+      bs2.cons_names = bs.cons_names ∧
+      bs2.output = bs.output ∧
       (if pr then ig = [] else bs2.stack = bs.stack)` by (
     reverse(Cases_on`pr`)>>fs[Abbr`pout`,Abbr`pout1`]>-(
       qexists_tac`bs` >> simp[] >>
@@ -767,7 +769,12 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     `∃bs3. bc_next^* bs2 bs3
       ∧ bs3.stack = bv::bs.stack
       ∧ bs3.pc = next_addr bs.inst_length (bc0 ++ REVERSE pout ++ c0 ++ REVERSE bc1 ++ pout1)
-      ∧ bs3.inst_length = bs.inst_length` by (
+      ∧ bs3.inst_length = bs.inst_length
+      ∧ bs3.cons_names = bs.cons_names
+      ∧ bs3.output = bs.output
+      ∧ bs3.handler = bs.handler
+      ∧ bs3.clock = ck''
+      ∧ bs3.refs = rf` by (
       reverse(Cases_on`pr`)>>fs[]>-(
         qexists_tac`bs2` >>
         simp[Abbr`bs2`,FILTER_APPEND,SUM_APPEND,Abbr`pout`,Abbr`pout1`] ) >>
@@ -803,15 +810,14 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       qexists_tac`bs2''` >>
       simp[Abbr`bs2''`,Abbr`bs2`,Abbr`pout`,Abbr`pout1`] >>
       simp[SUM_APPEND,FILTER_APPEND] ) >>
-
-    last_x_assum(qspecl_then[`bs2 with code := TAKE (LENGTH bc0 + LENGTH pout + LENGTH bc1 + LENGTH c0 + LENGTH pout1 + LENGTH c1) bs.code`
-                            ,`TAKE (LENGTH bc0 + LENGTH pout + LENGTH bc1 + LENGTH c0 + LENGTH pout1) bs.code`,`block_tag+u`,`bvs`,`bs.stack`]mp_tac) >>
+    last_x_assum(qspecl_then[`bs3 with code := TAKE (LENGTH bc0 + LENGTH pout + LENGTH bc1 + LENGTH c0 + LENGTH pout1 + LENGTH c1) bs22.code`
+                            ,`TAKE (LENGTH bc0 + LENGTH pout + LENGTH bc1 + LENGTH c0 + LENGTH pout1) bs22.code`,`block_tag+u`,`bvs`,`bs.stack`]mp_tac) >>
     discharge_hyps >- (
-      simp[Abbr`bs2`,TAKE_APPEND1,TAKE_APPEND2,SUM_APPEND,FILTER_APPEND] >>
+      simp[TAKE_APPEND1,TAKE_APPEND2,SUM_APPEND,FILTER_APPEND] >>
       fs[EVERY2_EVERY]) >>
     strip_tac >>
     qmatch_assum_abbrev_tac`bc_next^* bs2' bs3'` >>
-    `bc_next^* (bs2' with code := bs.code) (bs3' with code := bs.code)` by (
+    `bc_next^* (bs2' with code := bs22.code) (bs3' with code := bs22.code)` by (
       match_mp_tac RTC_bc_next_append_code >>
       map_every qexists_tac[`bs2'`,`bs3'`] >>
       simp[Abbr`bs2'`,Abbr`bs3'`,bc_state_component_equality] >>
@@ -819,24 +825,25 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     map_every qexists_tac[`TL bs3'.stack`,`rf`,`rd'`,`ck''`,`Cmenv`,`Cvs ++ Cenv`,`Cs'`] >>
     conj_tac >- (
       match_mp_tac (SIMP_RULE std_ss [transitive_def]RTC_TRANSITIVE) >>
-      qmatch_assum_abbrev_tac`bc_next^* bs bs0` >>
-      qmatch_assum_abbrev_tac`bc_next bs0' bs1` >>
-      `bs0' = bs0` by (
-        simp[Abbr`bs0`,Abbr`bs0'`,bc_state_component_equality] >>
-        simp[SUM_APPEND,FILTER_APPEND] ) >>
-      qexists_tac`bs2` >>
+      qexists_tac`bs3` >>
       conj_tac >- metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] >>
-      qmatch_assum_abbrev_tac`bc_next^* bs3 bs4` >>
-      `bs3 = bs2` by (
-        simp[Abbr`bs2`,Abbr`bs3`,bc_state_component_equality,Abbr`bs2'`] ) >>
+      qmatch_assum_abbrev_tac`bc_next^* bsx bs4` >>
+      `bsx = bs3` by (
+        simp[Abbr`bsx`,bc_state_component_equality,Abbr`bs2'`] >>
+        imp_res_tac RTC_bc_next_preserves >>
+        `bs1.code = bs22.code` by simp[Abbr`bs1`] >>
+        metis_tac[]) >>
       match_mp_tac (SIMP_RULE std_ss [transitive_def]RTC_TRANSITIVE) >>
       qexists_tac`bs4` >> pop_assum(SUBST1_TAC o SYM) >> simp[] >>
       simp[RTC_eq_NRC] >>
       qexists_tac`(SUC 0)` >>
       simp[NRC] >>
-      simp[Abbr`bs4`,Abbr`bs3'`,Abbr`bs2`] >>
+      simp[Abbr`bs4`,Abbr`bs3'`] >>
       qpat_assum`EVERY2 X Cvs bvs`mp_tac >>
-      ntac 13 (pop_assum kall_tac) >> strip_tac >>
+      ntac 4 (pop_assum kall_tac) >>
+      ntac 8 (pop_assum mp_tac) >>
+      ntac 9 (pop_assum kall_tac) >>
+      rpt strip_tac >>
       Q.PAT_ABBREV_TAC`st:bc_value list = X ++ Y` >>
       simp[bc_eval1_thm] >>
       simp[TAKE_APPEND1,TAKE_APPEND2,REVERSE_APPEND] >>
@@ -849,11 +856,13 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       simp[Abbr`bs6`,bc_eval_stack_def] >>
       simp[Abbr`z`] >>
       simp[bc_state_component_equality,SUM_APPEND,FILTER_APPEND,Abbr`cd`,TAKE_APPEND1,TAKE_APPEND2] >>
+      `bs.code = bs22.code` by metis_tac[RTC_bc_next_preserves] >> rfs[] >>
+      conj_tac >- simp[SUM_APPEND,FILTER_APPEND] >>
       Cases_on`pr`>>simp[Abbr`outp`] >>
       match_mp_tac print_bv_list_print_envE >>
       metis_tac[]) >>
     qunabbrev_tac`bs3'` >>
-    ntac 5 (pop_assum kall_tac) >>
+    ntac 3 (pop_assum kall_tac) >>
     conj_tac >- metis_tac[EVERY2_syneq_trans] >>
     simp[] >>
     conj_tac >- (
@@ -876,19 +885,36 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     simp[] >> strip_tac >>
     qspecl_then[`Cmenv`,`ck,Cs`,`Cenv`,`Ce`,`(ck',Cs'),Cv`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
     simp[SUBSET_DEF,Abbr`cocd`] >>
-    SUBST1_TAC(prove(``bc0 ++ PushPtr (Lab l1)::PushExc::(c0 ++ REVERSE bc1) = bc0 ++ [PushPtr (Lab l1);PushExc] ++ c0 ++ REVERSE bc1``,simp[])) >>
     Q.PAT_ABBREV_TAC`cd:bc_inst list = X++Y` >>
-    qmatch_assum_abbrev_tac`ALL_DISTINCT (FILTER is_Label cd)` >>
+    `ALL_DISTINCT (FILTER is_Label cd)` by (
+      imp_res_tac RTC_bc_next_preserves >> rfs[] >>
+      BasicProvers.VAR_EQ_TAC >>
+      `FILTER is_Label pout1 = []` by (
+        Cases_on`pr`>>simp[Abbr`pout1`] ) >>
+      simp[ALL_DISTINCT_APPEND,FILTER_APPEND,FILTER_REVERSE,ALL_DISTINCT_REVERSE] >>
+      fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,between_def,MEM_MAP] >>
+      `FILTER is_Label c1 = []` by (
+        simp[FILTER_EQ_NIL,EVERY_MEM,is_Label_rwt] >>
+        metis_tac[] ) >>
+      simp[] >>
+      fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,between_def,MEM_MAP,MEM_GENLIST,Abbr`s0`] >>
+      rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
     strip_tac >>
+    `∃ls. bc0 ++ REVERSE pout ++ c0 ++ ls = cd` by (
+      imp_res_tac RTC_bc_next_preserves >> rfs[] >>
+      BasicProvers.VAR_EQ_TAC >> simp[] ) >>
     conj_tac >- (
       fs[MAP_EQ_EVERY2,EVERY_MEM] >>
+      rw[] >> res_tac >>
       metis_tac[code_env_cd_append,APPEND_ASSOC] ) >>
     conj_tac >- (
       simp[vlabs_list_APPEND] >>
       fs[MAP_EQ_EVERY2,EVERY_MEM] >>
+      rw[] >> res_tac >>
       metis_tac[code_env_cd_append,APPEND_ASSOC] ) >>
     conj_tac >- (
       fs[MAP_EQ_EVERY2,EVERY_MEM] >>
+      rw[] >> res_tac >>
       metis_tac[code_env_cd_append,APPEND_ASSOC] ) >>
     conj_tac >- (
       simp[MAP_ZIP,MAP_GENLIST,combinTheory.o_DEF] >>
@@ -898,14 +924,17 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
       fs[markerTheory.Abbrev_def] >>
       simp[] ) >>
     qunabbrev_tac`cd` >>
-    ntac 7 (pop_assum kall_tac) >>
+    pop_assum mp_tac >>
+    ntac 8 (pop_assum kall_tac) >>
+    strip_tac >>
     conj_asm1_tac >- fs[EVERY2_EVERY] >>
     Q.PAT_ABBREV_TAC`bsc:bc_state = X Y` >>
     match_mp_tac Cenv_bs_append_code >>
-    qexists_tac`bsc with code := bc0 ++ [PushPtr(Addr 0); PushExc] ++ c0` >>
+    qexists_tac`bsc with code := bc0 ++ REVERSE pout ++ c0` >>
     simp[bc_state_component_equality,Abbr`bsc`] >>
+    fs[] >> BasicProvers.VAR_EQ_TAC >> simp[] >>
     qmatch_abbrev_tac`Cenv_bs rd' Cmenv sCs' X cmnv Y Z Z bsc` >>
-    qsuff_tac`Cenv_bs rd' Cmenv sCs' X cmnv Y Z Z (bsc with pc := next_addr bs.inst_length (bc0 ++ [PushPtr(Addr 0);PushExc] ++ c0 ++ REVERSE bc1))`
+    qsuff_tac`Cenv_bs rd' Cmenv sCs' X cmnv Y Z Z (bsc with pc := next_addr bs.inst_length (bc0 ++ REVERSE pout ++ c0 ++ REVERSE bc1))`
       >- (strip_tac >> match_mp_tac Cenv_bs_with_irr >> HINT_EXISTS_TAC >> simp[bc_state_component_equality]) >>
     rator_x_assum`Cenv_bs`mp_tac >>
     simp[Abbr`X`,Abbr`sz`,Abbr`Z`] >>
@@ -913,7 +942,8 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     strip_tac >>
     simp[CONJ_ASSOC] >>
     reverse conj_tac >- (
-      fs[s_refs_def,good_rd_def,Abbr`bsc`] ) >>
+      fs[s_refs_def,good_rd_def,Abbr`bsc`] >> rfs[]) >>
+
     conj_tac >- (
       simp[Abbr`bsc`] >>
       fs[EVERY2_EVERY] >>
