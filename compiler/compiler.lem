@@ -31,21 +31,25 @@ let init_compiler_state =
    ; rnext_label = 0
    |>
 
-let compile_Cexp ex rsz menv env nl Ce =
-  let (Ce,nl) = label_closures (List.length env) nl Ce in
-  let cs = <| out = if ex then [PushExc; PushPtr (Addr 0)] else []; next_label = nl |> in
-  let cs = compile_code_env menv cs Ce in
-  compile menv env TCNonTail (if ex then rsz+2 else rsz) cs Ce
-
 let rec
-number_constructors _ [] ac = ac
+number_constructors _ [] ct = ct
 and
-number_constructors mn ((c,_)::cs) ((m,w,n),ls) =
-  number_constructors mn cs ((Pmap.add (mk_id mn c) n m, (n,mk_id mn c)::w, n+1)
-                            ,(Hol.CONCAT[id_to_string(mk_id mn c);" = <constructor>"])::ls)
+number_constructors mn ((c,_)::cs) (m,w,n) =
+  number_constructors mn cs (Pmap.add (mk_id mn c) n m, (n,mk_id mn c)::w, n+1)
 
 let rec
-compile_news _ cs i [] = cs
+dec_to_contab mn ct (Dtype ts) =
+  List.fold_left (fun ct (_,_,cs) -> number_constructors mn cs ct) ct ts
+and
+dec_to_contab _ ct _ = ct
+
+let rec
+decs_to_contab _ ct [] = ct
+and
+decs_to_contab mn ct (d::ds) = decs_to_contab mn (dec_to_contab mn ct d) ds
+
+let rec
+compile_news _ cs _ [] = emit cs [Stack Pop]
 and
 compile_news print cs i (v::vs) =
   let cs = emit cs (List.map Stack [Load 0; Load 0; El i]) in
@@ -56,84 +60,98 @@ compile_news print cs i (v::vs) =
   let cs = emit cs [Stack (Store 1)] in
   compile_news print cs (i+1) vs
 
-let compile_fake_exp top rs vs e =
+let compile_Cexp menv env rsz cs Ce =
+  let (Ce,nl) = label_closures (List.length env) cs.next_label Ce in
+  let cs = compile_code_env menv <| cs with next_label = nl |> Ce in
+  compile menv env TCNonTail rsz cs Ce
+
+let compile_fake_exp menv m env rsz cs vs e =
+  let Ce = exp_to_Cexp m (e (Con (Short "") (List.map (fun v -> Var (Short v)) vs))) in
+  compile_Cexp menv env rsz cs Ce
+
+let rec
+compile_dec _ _ _ _ cs (Dtype _) = (None, emit cs [Stack (Cons tuple_cn 0)])
+and
+compile_dec menv m env rsz cs (Dletrec defs) =
+  let vs = List.map (fun (n,_,_) -> n) defs in
+  (Some vs, compile_fake_exp menv m env rsz cs vs (fun b -> Letrec defs b))
+and
+compile_dec menv m env rsz cs (Dlet p e) =
+  let vs = pat_bindings p [] in
+  (Some vs, compile_fake_exp menv m env rsz cs vs (fun b -> Mat e [(p,b)]))
+
+let rec
+compile_decs _ _ ct m _ rsz cs [] = (ct,m,rsz,cs)
+and
+compile_decs mn menv ct m env rsz cs (dec::decs) =
+  let (vso,cs) = compile_dec menv m env rsz cs dec in
+  let ct = dec_to_contab mn ct dec in
+  let (m,env,rsz,cs) =
+    match vso with
+    | None -> (<|m with cnmap = cmap ct|>,env,rsz,cs)
+    | Some vs ->
+        let n = List.length vs in
+        (<|m with bvars = vs@m.bvars|>
+        ,(genlist (fun i -> CTDec (rsz+i)) n)@env
+        ,rsz + n
+        ,match mn with None -> cs | _ -> compile_news false cs 0 vs end)
+    end in
+  compile_decs mn menv ct m env rsz cs decs
+
+let compile_decs_wrap mn rs decs =
+  let cs = <| out = []; next_label = rs.rnext_label |> in
+  let cs = emit cs [PushPtr (Addr 0); PushExc] in
+  let menv = Hol.o_f (List.map snd) rs.rmenv in
   let m = <| bvars = List.map fst rs.renv
            ; mvars = Hol.o_f (List.map fst) rs.rmenv
            ; cnmap = cmap rs.contab
            |> in
-  let Ce = exp_to_Cexp m (e (Con (Short "") (List.map (fun v -> Var (Short v)) vs))) in
-  let menv = Hol.o_f (List.map snd) rs.rmenv in
   let env = List.map (Hol.o CTDec snd) rs.renv in
-  let cs = compile_Cexp top rs.rsz menv env rs.rnext_label Ce in
-  let cs = if top then emit cs [PopExc; Stack (Pops 1)] else cs in
-  let cs = compile_news top cs 0 vs in
-  let cs = emit cs [Stack Pop] in
-  (rs.contab
-  ,List.combine vs (genlist(fun i -> rs.rsz+i)(List.length vs))
-  ,cs.next_label
-  ,cs.out
-  )
+  let (ct,m,rsz,cs) = compile_decs mn menv rs.contab m env (rs.rsz+2) cs decs in
+  let n = rsz-2-rs.rsz in
+  let news = Hol.TAKE n m.bvars in
+  let cs = if Hol.IS_NONE mn then cs else emit cs [Stack (Cons tuple_cn n)] in
+  let cs = emit cs [PopExc; Stack(Pops 1)] in
+  let cs = compile_news (Hol.IS_NONE mn) cs 0 news in
+  let env = List.combine news (genlist (fun i -> rs.rsz+i) n) in
+  let (renv,rmenv) =
+    match mn with
+    | None -> (env@rs.renv,rs.rmenv)
+    | Some mn -> (rs.renv,Pmap.add mn env rs.rmenv)
+    end in
+  (<|rs with
+     rsz = rs.rsz+n
+    ;renv = renv
+    ;rmenv = rmenv
+    ;rnext_label = cs.next_label
+    ;contab = ct
+    |>
+  ,cs.out)
 
 let rec
-dec_to_contab mn ct (Dtype ts) =
-  List.fold_left (fun ac (_,_,cs) -> number_constructors mn cs ac) (ct,[]) ts
+compile_print_dec (Dtype ts) code =
+  List.fold_left (fun code (_,_,cs) ->
+    List.fold_left (fun code (c,_) ->
+      (List.rev(List.map PrintC (Hol.EXPLODE (Hol.CONCAT [c;" = <constructor>"]))))@code)
+    code cs) code ts
 and
-dec_to_contab _ ct _ = (ct,[])
-
-let rec
-decs_to_contab mn ct [] = ct
-and
-decs_to_contab mn ct (d::ds) = decs_to_contab mn (fst (dec_to_contab mn ct d)) ds
-
-let rec
-compile_dec mn rs (Dtype ts) =
-  let (ct,ls) = dec_to_contab mn rs.contab (Dtype ts) in
-  (ct,[],rs.rnext_label
-  ,if (Hol.IS_NONE mn) then List.rev(List.map PrintC (Hol.EXPLODE (Hol.CONCAT (List.rev ls)))) else [])
-and
-compile_dec mn rs (Dletrec defs) =
-  let vs = List.map (fun (n,_,_) -> n) defs in
-  compile_fake_exp (Hol.IS_NONE mn) rs vs (fun b -> Letrec defs b)
-and
-compile_dec mn rs (Dlet p e) =
-  let vs = pat_bindings p [] in
-  compile_fake_exp (Hol.IS_NONE mn) rs vs (fun b -> Mat e [(p,b)])
-
-let rec
-compile_decs _ [] ac = ac
-and
-compile_decs mn (dec::decs) (rs,code) =
-  let (ct,env,nl,code') = compile_dec (Some mn) rs dec in
-  compile_decs mn decs
-    (<| rs with
-        contab = ct
-      ; renv = env@rs.renv
-      ; rsz = rs.rsz + List.length env
-      ; rnext_label = nl |>
-    ,code'@code)
+compile_print_dec _ code = code
 
 let rec
 compile_top rs (Tmod mn _ decs) =
-  let (mrs,code) = compile_decs mn decs (<|rs with rsz = rs.rsz+2|>,[PushExc; PushPtr (Addr 0)]) in
-  let env = Hol.BUTLASTN (List.length rs.renv) mrs.renv in
+  let (rss,code) = compile_decs_wrap (Some mn) rs decs in
   let str = Hol.CONCAT["structure ";mn;" = <structure>"] in
-  let clean1 = [Stack (Cons tuple_cn (List.length env));PopExc;Stack(Pops 1)] in
-  let clean2 = List.rev(compile_news false <|out = []; next_label = 0|> 0 (List.map fst env)).out in
-  (<| mrs with
-      renv = rs.renv
-    ; rmenv = Pmap.add mn (List.map (fun (x,i) -> (x,i-2)) env) rs.rmenv |>
+  (rss
   ,<| rs with
-      contab = decs_to_contab (Some mn) rs.contab decs
-    ; rnext_label = mrs.rnext_label
+      contab = rss.contab
+    ; rnext_label = rss.rnext_label
     ; rmenv = Pmap.add mn [] rs.rmenv |>
-  ,(List.rev code)@clean1@clean2@(Stack Pop)::(List.map PrintC (Hol.EXPLODE str)))
+  ,List.rev((List.rev(List.map PrintC (Hol.EXPLODE str)))@code))
 and
 compile_top rs (Tdec dec) =
-  let (ct,env,nl,code) = compile_dec None rs dec in
-  (<| rs with
-      contab = ct
-    ; renv = env@rs.renv
-    ; rsz = rs.rsz + List.length env
-    ; rnext_label = nl |>
-  ,<| rs with rnext_label = nl |>
-  ,List.rev code)
+  let (rss,code) = compile_decs_wrap None rs [dec] in
+  (rss
+  ,<| rs with
+      contab = rss.contab
+    ; rnext_label = rss.rnext_label |>
+  ,List.rev(compile_print_dec dec code))

@@ -52,27 +52,34 @@ val _ = Define `
    |>)`;
 
 
-val _ = Define `
- (compile_Cexp ex rsz menv env nl Ce =  
-(let (Ce,nl) = ( label_closures ( LENGTH env) nl Ce) in
-  let cs = (<| out := (if ex then [PushExc; PushPtr (Addr 0)] else []); next_label := nl |>) in
-  let cs = ( compile_code_env menv cs Ce) in
-  compile menv env TCNonTail (if ex then rsz +2 else rsz) cs Ce))`;
-
-
  val number_constructors_defn = Hol_defn "number_constructors" `
 
-(number_constructors _ [] ac = ac)
+(number_constructors _ [] ct = ct)
 /\
-(number_constructors mn ((c,_)::cs) ((m,w,n),ls) =  
-(number_constructors mn cs (( FUPDATE  m ( (mk_id mn c), n), ((n,mk_id mn c) ::w), (n +1))
-                            ,((CONCAT[id_to_string(mk_id mn c);" = <constructor>"]) ::ls))))`;
+(number_constructors mn ((c,_)::cs) (m,w,n) =  
+(number_constructors mn cs ( FUPDATE  m ( (mk_id mn c), n), ((n,mk_id mn c) ::w), (n +1))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn number_constructors_defn;
 
+ val dec_to_contab_def = Define `
+
+(dec_to_contab mn ct (Dtype ts) = ( FOLDL (\ct p . 
+  (case (ct ,p ) of ( ct , (_,_,cs) ) => number_constructors mn cs ct )) ct ts))
+/\
+(dec_to_contab _ ct _ = ct)`;
+
+
+ val decs_to_contab_defn = Hol_defn "decs_to_contab" `
+
+(decs_to_contab _ ct [] = ct)
+/\
+(decs_to_contab mn ct (d::ds) = (decs_to_contab mn (dec_to_contab mn ct d) ds))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn decs_to_contab_defn;
+
  val compile_news_defn = Hol_defn "compile_news" `
 
-(compile_news _ cs i [] = cs)
+(compile_news _ cs _ [] = ( emit cs [Stack Pop]))
 /\
 (compile_news print cs i (v::vs) =  
 (let cs = ( emit cs ( MAP Stack [Load 0; Load 0; El i])) in
@@ -86,100 +93,123 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_news_defn;
 
 val _ = Define `
- (compile_fake_exp top rs vs e =  
-(let m = (<| bvars := ( MAP FST rs.renv)
-           ; mvars := ( (o_f) ( MAP FST) rs.rmenv)
-           ; cnmap := ( cmap rs.contab)
-           |>) in
-  let Ce = ( exp_to_Cexp m (e (Con (Short "") ( MAP (\ v . Var (Short v)) vs)))) in
-  let menv = ( (o_f) ( MAP SND) rs.rmenv) in
-  let env = ( MAP ((o) CTDec SND) rs.renv) in
-  let cs = ( compile_Cexp top rs.rsz menv env rs.rnext_label Ce) in
-  let cs = (if top then emit cs [PopExc; Stack (Pops 1)] else cs) in
-  let cs = ( compile_news top cs 0 vs) in
-  let cs = ( emit cs [Stack Pop]) in
-  (rs.contab
-  , ZIP ( vs, ( GENLIST(\ i . rs.rsz +i)( LENGTH vs)))
-  ,cs.next_label
-  ,cs.out
-  )))`;
+ (compile_Cexp menv env rsz cs Ce =  
+(let (Ce,nl) = ( label_closures ( LENGTH env) cs.next_label Ce) in
+  let cs = ( compile_code_env menv ( cs with<| next_label := nl |>) Ce) in
+  compile menv env TCNonTail rsz cs Ce))`;
 
 
- val dec_to_contab_def = Define `
+val _ = Define `
+ (compile_fake_exp menv m env rsz cs vs e =  
+(let Ce = ( exp_to_Cexp m (e (Con (Short "") ( MAP (\ v . Var (Short v)) vs)))) in
+  compile_Cexp menv env rsz cs Ce))`;
 
-(dec_to_contab mn ct (Dtype ts) = ( FOLDL (\ac p . 
-  (case (ac ,p ) of ( ac , (_,_,cs) ) => number_constructors mn cs ac )) (ct,[]) ts))
-/\
-(dec_to_contab _ ct _ = (ct,[]))`;
-
-
- val decs_to_contab_defn = Hol_defn "decs_to_contab" `
-
-(decs_to_contab mn ct [] = ct)
-/\
-(decs_to_contab mn ct (d::ds) = (decs_to_contab mn ( FST (dec_to_contab mn ct d)) ds))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn decs_to_contab_defn;
 
  val compile_dec_def = Define `
 
-(compile_dec mn rs (Dtype ts) =  
-(let (ct,ls) = ( dec_to_contab mn rs.contab (Dtype ts)) in
-  (ct,[],rs.rnext_label
-  ,(if (IS_NONE mn) then REVERSE( MAP PrintC (EXPLODE (CONCAT ( REVERSE ls)))) else []))))
+(compile_dec _ _ _ _ cs (Dtype _) = (NONE, emit cs [Stack (Cons tuple_cn 0)]))
 /\
-(compile_dec mn rs (Dletrec defs) =  
+(compile_dec menv m env rsz cs (Dletrec defs) =  
 (let vs = ( MAP (\p . 
   (case (p ) of ( (n,_,_) ) => n )) defs) in
-  compile_fake_exp (IS_NONE mn) rs vs (\ b . Letrec defs b)))
+  (SOME vs, compile_fake_exp menv m env rsz cs vs (\ b . Letrec defs b))))
 /\
-(compile_dec mn rs (Dlet p e) =  
+(compile_dec menv m env rsz cs (Dlet p e) =  
 (let vs = ( pat_bindings p []) in
-  compile_fake_exp (IS_NONE mn) rs vs (\ b . Mat e [(p,b)])))`;
+  (SOME vs, compile_fake_exp menv m env rsz cs vs (\ b . Mat e [(p,b)]))))`;
 
 
  val compile_decs_defn = Hol_defn "compile_decs" `
 
-(compile_decs _ [] ac = ac)
+(compile_decs _ _ ct m _ rsz cs [] = (ct,m,rsz,cs))
 /\
-(compile_decs mn (dec::decs) (rs,code) =  
-(let (ct,env,nl,code') = ( compile_dec (SOME mn) rs dec) in
-  compile_decs mn decs
-    (( rs with<|
-        contab := ct
-      ; renv := env ++rs.renv
-      ; rsz := rs.rsz + LENGTH env
-      ; rnext_label := nl |>)
-    ,(code' ++code))))`;
+(compile_decs mn menv ct m env rsz cs (dec::decs) =  
+(let (vso,cs) = ( compile_dec menv m env rsz cs dec) in
+  let ct = ( dec_to_contab mn ct dec) in
+  let (m,env,rsz,cs) =    
+((case vso of
+      NONE => ((m with<| cnmap := cmap ct|>),env,rsz,cs)
+    | SOME vs =>
+        let n = ( LENGTH vs) in
+        ((m with<| bvars := vs ++m.bvars|>)
+        ,(( GENLIST (\ i . CTDec (rsz +i)) n) ++env)
+        ,(rsz + n)
+        ,(case mn of NONE => cs | _ => compile_news F cs 0 vs ))
+    )) in
+  compile_decs mn menv ct m env rsz cs decs))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_decs_defn;
+
+val _ = Define `
+ (compile_decs_wrap mn rs decs =  
+(let cs = (<| out := []; next_label := rs.rnext_label |>) in
+  let cs = ( emit cs [PushPtr (Addr 0); PushExc]) in
+  let menv = ( (o_f) ( MAP SND) rs.rmenv) in
+  let m = (<| bvars := ( MAP FST rs.renv)
+           ; mvars := ( (o_f) ( MAP FST) rs.rmenv)
+           ; cnmap := ( cmap rs.contab)
+           |>) in
+  let env = ( MAP ((o) CTDec SND) rs.renv) in
+  let (ct,m,rsz,cs) = ( compile_decs mn menv rs.contab m env (rs.rsz +2) cs decs) in
+  let n = (rsz - 2 - rs.rsz) in
+  let news = ( TAKE n m.bvars) in
+  let cs = (if IS_NONE mn then cs else emit cs [Stack (Cons tuple_cn n)]) in
+  let cs = ( emit cs [PopExc; Stack(Pops 1)]) in
+  let cs = ( compile_news (IS_NONE mn) cs 0 news) in
+  let env = ( ZIP ( news, ( GENLIST (\ i . rs.rsz +i) n))) in
+  let (renv,rmenv) =    
+((case mn of
+      NONE => ((env ++rs.renv),rs.rmenv)
+    | SOME mn => (rs.renv, FUPDATE  rs.rmenv ( mn, env))
+    )) in
+  ((rs with<|
+     rsz := rs.rsz +n
+    ;renv := renv
+    ;rmenv := rmenv
+    ;rnext_label := cs.next_label
+    ;contab := ct
+    |>)
+  ,cs.out)))`;
+
+
+ val compile_print_dec_def = Define `
+
+(compile_print_dec (Dtype ts) code = ( FOLDL (\code p . 
+  (case (code ,p ) of
+      ( code , (_,_,cs) ) => FOLDL
+                               (\code p . (case (code ,p ) of
+                                              ( code , (c,_) ) =>
+                                          ( REVERSE
+                                              ( MAP PrintC
+                                                  (EXPLODE
+                                                     (CONCAT
+                                                        [c;" = <constructor>"])))) ++
+                                          code
+                                          )) code cs
+  )) code ts))
+/\
+(compile_print_dec _ code = code)`;
+
 
  val compile_top_def = Define `
 
 (compile_top rs (Tmod mn _ decs) =  
-(let (mrs,code) = ( compile_decs mn decs ((rs with<| rsz := rs.rsz +2|>),[PushExc; PushPtr (Addr 0)])) in
-  let env = ( BUTLASTN ( LENGTH rs.renv) mrs.renv) in
+(let (rss,code) = ( compile_decs_wrap (SOME mn) rs decs) in
   let str = ( CONCAT["structure ";mn;" = <structure>"]) in
-  let clean1 = ([Stack (Cons tuple_cn ( LENGTH env));PopExc;Stack(Pops 1)]) in
-  let clean2 = ( REVERSE(compile_news F <|out := []; next_label := 0|> 0 ( MAP FST env)).out) in
-  (( mrs with<|
-      renv := rs.renv
-    ; rmenv := FUPDATE  rs.rmenv ( mn, ( MAP (\ (x,i) . (x,(i - 2))) env)) |>)
+  (rss
   ,( rs with<|
-      contab := decs_to_contab (SOME mn) rs.contab decs
-    ; rnext_label := mrs.rnext_label
+      contab := rss.contab
+    ; rnext_label := rss.rnext_label
     ; rmenv := FUPDATE  rs.rmenv ( mn, []) |>)
-  ,(( REVERSE code) ++(clean1 ++(clean2 ++(Stack Pop) ::( MAP PrintC (EXPLODE str))))))))
+  , REVERSE(( REVERSE( MAP PrintC (EXPLODE str))) ++code))))
 /\
 (compile_top rs (Tdec dec) =  
-(let (ct,env,nl,code) = ( compile_dec NONE rs dec) in
-  (( rs with<|
-      contab := ct
-    ; renv := env ++rs.renv
-    ; rsz := rs.rsz + LENGTH env
-    ; rnext_label := nl |>)
-  ,( rs with<| rnext_label := nl |>)
-  , REVERSE code)))`;
+(let (rss,code) = ( compile_decs_wrap NONE rs [dec]) in
+  (rss
+  ,( rs with<|
+      contab := rss.contab
+    ; rnext_label := rss.rnext_label |>)
+  , REVERSE(compile_print_dec dec code))))`;
 
 val _ = export_theory()
 
