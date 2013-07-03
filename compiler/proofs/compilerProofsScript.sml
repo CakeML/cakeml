@@ -603,7 +603,6 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
   qspecl_then[`cmnv`,`renv`,`TCNonTail`,`sz`,`cce`,`Ce`](Q.X_CHOOSE_THEN`bc1`strip_assume_tac)(CONJUNCT1 compile_append_out) >>
   Q.ISPECL_THEN[`vars`,`pr`,`cmp`,`0:num`]mp_tac compile_news_thm >>
   simp[] >> disch_then(Q.X_CHOOSE_THEN`c1`strip_assume_tac) >>
-
   `∃bs2 ig.
       bc_next^* bs bs2 ∧
       bs2.stack = ig++StackPtr h0::CodePtr 0::st0 ∧ bs2.handler = LENGTH st0 + 1 ∧
@@ -737,7 +736,6 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     strip_tac >>
     fsrw_tac[DNF_ss,ARITH_ss][EVERY_MEM,between_def,MEM_MAP,FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,MEM_GENLIST,Abbr`s0`] >>
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] ) >>
-
   Cases_on`beh`>>fs[Abbr`G`]>- (
     Q.PAT_ABBREV_TAC`rsz = LENGTH rs.renv + X` >>
     disch_then(strip_assume_tac o CONJUNCT1) >>
@@ -765,7 +763,6 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     rator_x_assum`Cv_bv`mp_tac >>
     simp[Once Cv_bv_cases] >>
     disch_then(Q.X_CHOOSE_THEN`bvs`strip_assume_tac) >>
-
     `∃bs3. bc_next^* bs2 bs3
       ∧ bs3.stack = bv::bs.stack
       ∧ bs3.pc = next_addr bs.inst_length (bc0 ++ REVERSE pout ++ c0 ++ REVERSE bc1 ++ pout1)
@@ -937,13 +934,12 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     qsuff_tac`Cenv_bs rd' Cmenv sCs' X cmnv Y Z Z (bsc with pc := next_addr bs.inst_length (bc0 ++ REVERSE pout ++ c0 ++ REVERSE bc1))`
       >- (strip_tac >> match_mp_tac Cenv_bs_with_irr >> HINT_EXISTS_TAC >> simp[bc_state_component_equality]) >>
     rator_x_assum`Cenv_bs`mp_tac >>
-    simp[Abbr`X`,Abbr`sz`,Abbr`Z`] >>
+    simp[Abbr`X`,Abbr`Z`] >>
     simp[Cenv_bs_def,ADD1] >>
     strip_tac >>
     simp[CONJ_ASSOC] >>
     reverse conj_tac >- (
       fs[s_refs_def,good_rd_def,Abbr`bsc`] >> rfs[]) >>
-
     conj_tac >- (
       simp[Abbr`bsc`] >>
       fs[EVERY2_EVERY] >>
@@ -980,16 +976,47 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
         simp[Abbr`bs6`,bc_state_component_equality] >>
         match_mp_tac s_refs_with_irr >>
         qexists_tac`bs with code := bc0` >> simp[] ) >>
+      rfs[] >>
       match_mp_tac s_refs_with_irr >>
       qmatch_assum_abbrev_tac`s_refs rd' sCs' bs6` >>
       qexists_tac`bs6` >> simp[Abbr`bs6`] ) >>
+    qpat_assum`LENGTH bs.stack = rs.rsz`(assume_tac o SYM) >>
+    Q.PAT_ABBREV_TAC`L = DROP X bsc.stack` >>
+    `L = bsc.stack` by ( simp[Abbr`L`,Abbr`bsc`] ) >>
+    qunabbrev_tac`L` >> pop_assum SUBST1_TAC >>
+    `rs.rsz < LENGTH ig + (LENGTH st0 + 3)` by (
+      qsuff_tac`rs.rsz ≠ LENGTH ig + (LENGTH st0 + 3)`>-(
+        spose_not_then strip_assume_tac >> DECIDE_TAC ) >>
+      spose_not_then strip_assume_tac >>
+      qpat_assum`if B then C else X = bs.stack`mp_tac>>
+      reverse(Cases_on`pr`)>>simp[]>-(
+        spose_not_then strip_assume_tac >>
+        pop_assum(assume_tac o SYM) >>
+        ntac 3 (pop_assum mp_tac) >>
+        rpt (pop_assum kall_tac) >>
+        rpt strip_tac  >>
+        fsrw_tac[ARITH_ss][] ) >>
+      spose_not_then strip_assume_tac >>
+      BasicProvers.VAR_EQ_TAC >> fs[] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      fs[] ) >>
     Q.PAT_ABBREV_TAC`bs6:bc_state = X Z` >>
     match_mp_tac fmap_rel_env_renv_with_irr >>
-    qexists_tac `bs6 with <| handler := rs.rsz + 1; output := bs.output |>` >>
+    rator_x_assum`fmap_rel`mp_tac >>
+    Q.PAT_ABBREV_TAC`stt = if X then A else Z:bc_value list` >>
+    `stt = bs.stack` by (
+      simp[Abbr`stt`] >>
+      Cases_on`pr`>>fs[]>>
+      simp[Abbr`sz`] >>
+      qpat_assum`X = bs.stack`(assume_tac o SYM) >> fs[] ) >>
+    qunabbrev_tac`stt` >> pop_assum SUBST1_TAC >>
+    strip_tac >>
+    qexists_tac `bs6 with <| handler := LENGTH st0 + 1; output := bs.output |>` >>
     simp[Abbr`bs6`] >>
     match_mp_tac fmap_rel_env_renv_CTDec >>
     HINT_EXISTS_TAC >>
-    simp[Abbr`bsc`,bc_state_component_equality] ) >>
+    simp[Abbr`bsc`,bc_state_component_equality]) >>
+
   rfs[Cmap_result_Rerr] >>
   BasicProvers.VAR_EQ_TAC >>
   fs[] >>
