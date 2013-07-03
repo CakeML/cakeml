@@ -1,8 +1,15 @@
 open HolKernel boolLib bossLib
+open CompilerTheory compilerTerminationTheory
 val _ = new_theory"bootstrapProofs"
 
+val fold_compile_top_def = Define`
+  fold_compile_top cs [] acc = acc ∧
+  fold_compile_top cs (d::ds) acc =
+  let (css,csf,code) = compile_top cs (Tdec d) in
+  fold_compile_top css ds (code::acc)`
+
 (*
-let code = unStopCons (compile_decs init_compiler_state (decls++[Dlet (Pvar fname) (Fun ...)]) stop_NIL) in
+let code = (fold_compile_top init_compiler_state (decls++[Dlet (Pvar fname) (Fun ...)]) []) in
   bs0.code = code ∧
   bs0.pc = 0 ∧
   bs0.stack = [] ∧

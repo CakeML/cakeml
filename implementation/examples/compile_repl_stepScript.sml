@@ -5,12 +5,6 @@ val _ = computeLib.stoppers := let
   val stoppers = [`Dlet``,``Dletrec``,``Dtype``]
   in SOME (fn tm => mem tm stoppers) end
 
-val fold_compile_top_def = Define`
-  fold_compile_top cs [] acc = acc ∧
-  fold_compile_top cs (d::ds) acc =
-  let (css,csf,code) = compile_top cs (Tdec d) in
-  fold_compile_top css ds (code::acc)`
-
 val _ = computeLib.add_funs[ml_repl_step_decls]
 
 val compile_dec1_def = Define`
