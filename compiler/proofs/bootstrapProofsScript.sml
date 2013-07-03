@@ -13,42 +13,55 @@ val env_rs_empty = store_thm("env_rs_empty",
   strip_tac >>
   simp[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_DEF])
 
-(*
+val closed_context_empty = store_thm("closed_context_empty",
+  ``closed_context [] [] [] []``,
+  simp[closed_context_def,toIntLangProofsTheory.closed_under_cenv_def,closed_under_menv_def])
+
 val call_decl_thm = store_thm("call_decl_thm",
-``
-  let code = (compile_decs init_compiler_state (decls++[Dlet (Pvar fname) (Fun arg body)]) []) in
+``let decs = ds++[Dlet (Pvar fun) (Fun _a _b)] in
+  evaluate_decs (SOME mn) [] [] [] [] decs ([],cenv,Rval env) ∧
+  FV_decs decs = {} ∧
+  "" ∉ new_decs_cns decs ∧
+  decs_cns mn decs = {} ∧
+  (∀i tds.
+    i < LENGTH decs ∧ EL i decs = Dtype tds ⇒
+    check_dup_ctors (SOME mn) (decs_to_cenv (SOME mn) (TAKE i decs)) tds) ∧
+  compile_decs mn decs (init_compiler_state,[]) = (rs,REVERSE code) ∧
   bs0.code = code ∧
   bs0.pc = 0 ∧
   bs0.stack = [] ∧
   bs0.clock = NONE
 ⇒
-  ∃ptr env st str rf h.
-  let cl = Block closure_tag [CodePtr ptr;env] in
+  ∃ptr benv st str rf h rd.
+  let cl = Block closure_tag [CodePtr ptr;benv] in
   let bs1 = bs0 with <| pc := next_addr bs0.inst_length bs0.code
-                      ; stack := cl::st (* or wherever fname is *)
+                      ; stack := cl::st
                       ; output := str
                       ; refs := rf
                       ; handler := h
                       |> in
   bc_eval bs0 = SOME bs1 ∧
-  refs_ok ?? rf ∧
-  ∀bs ret mid arg cenv env v.
+  env_rs [] cenv env rs rd (0,[]) bs1 ∧
+  ∀bs ret mid barg cenv env arg v.
     bs.code = [CallPtr] ∧
     bs.pc = 0 ∧
-    bs.stack = CodePtr ptr::env::arg::cl::mid++st ∧
+    bs.stack = CodePtr ptr::benv::barg::cl::mid++st ∧
     bs.handler = h ∧
-    refs_ok ?? bs.refs ∧
-    Cv_bv (v_to_Cv ??? (lookup "x" in env)) arg ∧ (* should be for everything in env, not just x *)
-    evaluate [] cenv [] env (App Opapp (Var (Short fname)) (Var(Short "x"))) ([],Rval v)
+    bs.clock = NONE ∧
+    Cenv_bs rd FEMPTY (0,[]) Cenv FEMPTY (MAP (CTDec o SND) rs.renv) rs.rsz rs.rsz bs ∧ (* not true!
+      the call stuff on the stack gets in the way, and
+      the rs.renv probably needs to know about "x", and
+      need to connect cenv to Cenv and env to rs.renv *)
+    evaluate F [] cenv (0,[]) env (App Opapp (Var (Short fun)) (Var(Short "x"))) ((0,[]),Rval v)
     ⇒
     ∃bv rf'.
     let bs' = bs with <| stack := bv::mid++st
                        ; pc := next_addr bs.inst_length bs.code
                        ; refs := rf'
                        |> in
-    refs_ok ?? rf' ∧
+    Cenv_bs rd FEMPTY (0,[]) Cenv FEMPTY (MAP (CTDec o SND) rs.renv) rs.rsz rs.rsz bs' ∧
     bc_eval bs = SOME bs' ∧
-    Cv_bv (v_to_Cv ??? v) bv
-*)
+    Cv_bv (mk_pp rd bs') (v_to_Cv FEMPTY (cmap rs.contab) v) bv``,
+cheat)
 
 val _ = export_theory()
