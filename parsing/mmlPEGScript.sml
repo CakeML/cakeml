@@ -162,6 +162,7 @@ val mmlPEG_def = zDefine`
     start := pnt nREPLTop;
     rules := FEMPTY |++
              [(mkNT nV, peg_V);
+              (mkNT nTyvarN, pegf (tok isTyvarT mktokLf) (bindNT nTyvarN));
               (mkNT nVlist1,
                seql [pnt nV; try (pnt nVlist1)] (bindNT nVlist1));
               (mkNT nFQV, choicel [pegf (pnt nV) (bindNT nFQV); peg_longV]);
@@ -309,8 +310,7 @@ val mmlPEG_def = zDefine`
                              (bindNT nTypeName)
                        ]);
               (mkNT nTyVarList,
-               peg_linfix (mkNT nTyVarList)
-                          (tok isTyvarT mktokLf) (tokeq CommaT));
+               peg_linfix (mkNT nTyVarList) (pnt nTyvarN) (tokeq CommaT));
               (mkNT nTypeDec, peg_TypeDec);
               (mkNT nDtypeDecl,
                seql [pnt nTypeName;
@@ -537,7 +537,7 @@ val npeg0_rwts =
     List.foldl pegnt []
                [``nTypeDec``, ``nDecl``, ``nV``, ``nVlist1``, ``nUQTyOp``,
                 ``nUQConstructorName``, ``nConstructorName``, ``nTypeName``,
-                ``nDtypeDecl``, ``nDconstructor``, ``nFDecl``,
+                ``nDtypeDecl``, ``nDconstructor``, ``nFDecl``, ``nTyvarN``,
                 ``nTyOp``, ``nDType``, ``nStarTypes``, ``nStarTypesP``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``, ``nLetDec``,
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
@@ -612,8 +612,8 @@ in
   th::acc
 end;
 
-val topo_nts = [``nExn``, ``nV``, ``nTypeDec``, ``nDecl``, ``nVlist1``,
-                ``nUQTyOp``, ``nUQConstructorName``,
+val topo_nts = [``nExn``, ``nV``, ``nTyvarN``, ``nTypeDec``, ``nDecl``,
+                ``nVlist1``, ``nUQTyOp``, ``nUQConstructorName``,
                 ``nConstructorName``, ``nTyVarList``, ``nTypeName``, ``nTyOp``,
                 ``nDType``, ``nStarTypes``, ``nStarTypesP``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``, ``nPE``,

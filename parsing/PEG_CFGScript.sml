@@ -547,10 +547,11 @@ val peg_correct = store_thm(
       simp[pegsym_to_sym_def, cmlG_applied, cmlG_FDOM, SUBSET_DEF,
            DISJ_IMP_THM, FORALL_AND_THM] >> strip_tac >> rveq >> simp[])
   >- (print_tac "nTyVarList" >> strip_tac >>
+      `NT_rank (mkNT nTyvarN) < NT_rank (mkNT nTyVarList)`
+        by simp[NT_rank_def] >>
       first_x_assum (mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
       simp[DISJ_IMP_THM, pegsym_to_sym_def, cmlG_FDOM, cmlG_applied,
-           SUBSET_DEF, FORALL_AND_THM, mktokLf_def] >> dsimp[] >>
-      disch_then match_mp_tac >> Cases >> simp[])
+           SUBSET_DEF, FORALL_AND_THM, mktokLf_def] >> dsimp[])
   >- (print_tac "nTypeName" >>
       simp[] >> strip_tac >> rveq >>
       dsimp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING]
@@ -1198,7 +1199,9 @@ val peg_correct = store_thm(
                   |> MATCH_MP)) >>
       first_x_assum (fn patth =>
         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
-      rpt kill_asm_guard >> strip_tac >> rveq >> simp[]) >>
+      rpt kill_asm_guard >> strip_tac >> rveq >> simp[])
+  >- (print_tac "nTyvarN" >> rw[] >> simp[cmlG_FDOM, cmlG_applied] >>
+      asm_match `isTyvarT h` >> Cases_on `h` >> fs[]) >>
   print_tac "nV" >>
   simp[peg_V_def, peg_eval_choice, sumID_def, gramTheory.assert_def] >>
   strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]
@@ -1295,14 +1298,19 @@ val firstSet_nTyVarList = store_thm(
       ho_match_mp_tac grammarTheory.ptree_ind >>
       simp[cmlG_applied, cmlG_FDOM, MAP_EQ_CONS] >>
       rpt strip_tac >> rveq >> fs[] >> rveq >> simp[] >>
-      fs[listTheory.APPEND_EQ_CONS] >>
-      `0 < LENGTH (ptree_fringe e)`
+      fs[listTheory.APPEND_EQ_CONS]
+      >- (asm_match `ptree_head pt = NN nTyvarN` >>
+          Cases_on `pt` >> fs[] >> rw[] >>
+          fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >> rw[] >> fs[] >> rw[]) >>
+      rw[] >> asm_match `ptree_head pt = NN nTyVarList` >>
+      `0 < LENGTH (ptree_fringe pt)`
         by metis_tac [fringe_length_not_nullable,
                       nullable_TyVarList] >>
       pop_assum mp_tac >> simp[]) >>
   simp[firstSet_def] >> qexists_tac `[]` >>
-  match_mp_tac relationTheory.RTC_SUBSET >>
-  simp[cmlG_FDOM, cmlG_applied]);
+  match_mp_tac (relationTheory.RTC_RULES |> SPEC_ALL |> CONJUNCT2)>>
+  qexists_tac `[NN nTyvarN]` >>
+  simp[grammarTheory.derive_def, cmlG_applied, cmlG_FDOM]);
 
 val firstSet_nUQTyOp = store_thm(
   "firstSet_nUQTyOp",
@@ -1629,6 +1637,9 @@ val completeness = store_thm(
       simp[mmlpeg_rules_applied, FDOM_cmlPEG, peg_UQConstructorName_def,
            gramTheory.assert_def] >>
       strip_tac >> rveq >> fs[MAP_EQ_SING])
+  >- (print_tac "nTyvarN" >> dsimp[MAP_EQ_SING] >> simp[peg_eval_NT_SOME] >>
+      simp[mmlpeg_rules_applied, FDOM_cmlPEG] >> rpt strip_tac >>
+      fs[MAP_EQ_SING])
   >- (print_tac "nTypeName" >>
       simp[peg_eval_NT_SOME] >>
       simp[mmlpeg_rules_applied, FDOM_cmlPEG] >>
@@ -1719,7 +1730,16 @@ val completeness = store_thm(
       simp[mmlpeg_rules_applied, FDOM_cmlPEG] >>
       disch_then assume_tac >>
       match_mp_tac (peg_linfix_complete
-                      |> Q.INST [`C` |-> `TK (Tyvar
+                      |> Q.INST [`C` |-> `NN nTyvarN`, `SEP` |-> `TK CommaT`,
+                                 `P` |-> `nTyVarList`,
+                                 `master` |-> `pfx`]
+                      |> SIMP_RULE (srw_ss() ++ DNF_ss)
+                             [sym2peg_def, cmlG_applied, cmlG_FDOM, EXTENSION,
+                              DISJ_COMM, AND_IMP_INTRO]) >>
+      simp[MAP_EQ_SING] >> simp[cmlG_FDOM, cmlG_applied] >>
+      `NT_rank (mkNT nTyvarN) < NT_rank (mkNT nTyVarList)`
+        by simp[NT_rank_def]>> simp[] >> fs[])
+
 
 
 

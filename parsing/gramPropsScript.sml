@@ -103,7 +103,9 @@ val NT_rank_def = Define`
         else if n = nDtypeDecl         then  3
         else if n = nAndFDecls         then  3
         else if n = nFDecl             then  2
-        else 0
+        else if n = nTyVarList         then  2
+        else if n = nTyvarN            then  1
+        else                                 0
 `
 
 val MAP_EQ_CONS = store_thm(
@@ -185,6 +187,7 @@ in
 end
 val nullable_V = prove_nullable ``nV``
 val nullable_Vlist1 = prove_nullable ``nVlist1``
+val nullable_TyvarN = prove_nullable ``nTyvarN``
 val nullable_UQTyOp = prove_nullable ``nUQTyOp``
 val nullable_DType = prove_nullable ``nDType``
 val nullable_SpecLine = prove_nullable ``nSpecLine``
