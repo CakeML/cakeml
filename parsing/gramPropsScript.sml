@@ -178,9 +178,10 @@ val nullconv =
 
 fun prove_nullable t = let
   val th = nullconv ``nullableNT mmlG (mkNT ^t)``
+  val nm = "nullable_" ^ String.extract(term_to_string t,1,NONE)
 in
-  save_thm("nullable_" ^ String.extract(term_to_string t,1,NONE),
-           EQT_ELIM th handle HOL_ERR _ => EQF_ELIM th)
+  save_thm(nm, EQT_ELIM th handle HOL_ERR _ => EQF_ELIM th) before
+  export_rewrites [nm]
 end
 val nullable_V = prove_nullable ``nV``
 val nullable_Vlist1 = prove_nullable ``nVlist1``
@@ -192,6 +193,7 @@ val nullable_Ptuple = prove_nullable ``nPtuple``
 val nullable_Pbase = prove_nullable ``nPbase``
 val nullable_LetDec = prove_nullable ``nLetDec``
 val nullable_TyVarList = prove_nullable ``nTyVarList``
+val nullable_DtypeDecl = prove_nullable ``nDtypeDecl``
 
 val len_assum =
     first_x_assum
