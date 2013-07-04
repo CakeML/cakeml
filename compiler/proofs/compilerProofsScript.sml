@@ -902,9 +902,9 @@ val new_dec_cns_def = Define`
 val _ = export_rewrites["new_dec_cns_def"]
 
 val new_dec_vs_def = Define`
-  (new_dec_vs (Dtype _) = {}) ∧
-  (new_dec_vs (Dlet p e) = pat_vars p) ∧
-  (new_dec_vs (Dletrec funs) = set (MAP FST funs))`
+  (new_dec_vs (Dtype _) = []) ∧
+  (new_dec_vs (Dlet p e) = pat_bindings p []) ∧
+  (new_dec_vs (Dletrec funs) = MAP FST funs)`
 val _ = export_rewrites["new_dec_vs_def"]
 
 val pmatch_extend_cenv = store_thm("pmatch_extend_cenv",
@@ -1625,7 +1625,7 @@ val compile_dec_append_out = store_thm("compile_dec_append_out",
     LENGTH renv = LENGTH m.bvars ∧ {x | Short x ∈ FV_dec dec} ⊆ set m.bvars
     ⇒
     ∃code. cs'.out = REVERSE code ++ cs.out ∧ between_labels code cs.next_label cs'.next_label ∧
-    case vso of NONE => new_dec_vs dec = {} | SOME vs => new_dec_vs dec = set vs``,
+    case vso of NONE => new_dec_vs dec = [] | SOME vs => new_dec_vs dec = vs``,
   ntac 5 gen_tac >> reverse Cases >> simp[compile_dec_def] >- (
     simp[Once SWAP_REVERSE,between_labels_def] ) >>
   Q.PAT_ABBREV_TAC`vars:string list = X Z Y` >>
@@ -1639,7 +1639,7 @@ val compile_dec_append_out = store_thm("compile_dec_append_out",
   strip_tac >> simp[] >>
   first_x_assum(qspec_then`X`kall_tac) >>
   simp[Abbr`vars`] >>
-  AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >>
+  AP_THM_TAC >> AP_TERM_TAC >>
   simp[FUN_EQ_THM,FORALL_PROD])
 
 val evaluate_dec_decs = store_thm("evaluate_dec_decs",
@@ -1946,7 +1946,89 @@ val compile_dec_thm = store_thm("compile_dec_thm",
     simp[bc_state_component_equality] ) >>
   simp[])
 
+val compile_decs_contab = store_thm("compile_decs_contab",
+  ``∀decs mn menv ct m env rsz cs.
+    FST(compile_decs mn menv ct m env rsz cs decs) = decs_to_contab mn ct decs``,
+  Induct >> simp[compile_decs_def,decs_to_contab_def] >>
+  Cases>>fs[compile_dec_def,decs_to_contab_def,dec_to_contab_def,LET_THM])
+
+val FV_decs_def = Define`
+  (FV_decs [] = {}) ∧
+  (FV_decs (d::ds) = FV_dec d ∪ ((FV_decs ds) DIFF (set (MAP Short (new_dec_vs d)))))`
+
 ---8<---
+
+val compile_decs_append_out = store_thm("compile_decs_append_out",
+  ``∀decs mn menv ct m env rsz cs.
+    let (ct',m',rsz',cs') = compile_decs mn menv ct m env rsz cs decs in
+    LENGTH env = LENGTH m.bvars ∧ {x | Short x ∈ FV_decs decs} ⊆ set m.bvars ⇒
+    ∃code. cs'.out = REVERSE code ++ cs.out ∧ between_labels code cs.next_label cs'.next_label ∧
+    m'.bvars = FLAT (MAP new_dec_vs decs) ++ m.bvars``,
+  Induct >> simp[compile_decs_def,Once SWAP_REVERSE] >- simp[between_labels_def] >>
+  qx_gen_tac`dec` >>
+  rpt gen_tac >>
+  qabbrev_tac`p = compile_dec menv m env rsz cs dec` >> PairCases_on`p` >> simp[] >>
+  Q.PAT_ABBREV_TAC`(q:(exp_to_Cexp_state#ctenv#num#compiler_result) = X)` >>
+  PairCases_on`q`>>fs[] >>
+  Q.PAT_ABBREV_TAC`^(mk_var("r",(funpow 8 (snd o dom_rng)(type_of``compile_decs``)))) = X` >>
+  PairCases_on`r`>>fs[] >>
+  strip_tac >>
+  first_x_assum(qspecl_then[`mn`,`menv`,`dec_to_contab mn ct dec`,`q0`,`q1`,`q2`,`q3`]mp_tac) >>
+  qpat_assum`Abbrev(X = Y)`mp_tac >> simp[markerTheory.Abbrev_def] >>
+  disch_then(assume_tac o SYM) >> simp[] >>
+  discharge_hyps >- (
+    Cases_on`p0`>>fs[markerTheory.Abbrev_def,FV_decs_def] >>
+    Cases_on`dec`>> fsrw_tac[DNF_ss][SUBSET_DEF,compile_dec_def,LET_THM,dec_to_contab_def,MEM_MAP,FV_defs_MAP,FORALL_PROD] >>
+    TRY(metis_tac[]) >>
+    rw[] >> res_tac >>
+    qmatch_abbrev_tac`a ∨ b` >>
+    Cases_on`b`>>fs[EXISTS_PROD] ) >>
+  rw[] >>
+  Cases_on`p0`>>fs[markerTheory.Abbrev_def] >- (
+    rw[] >>
+    Cases_on`dec`>>fs[compile_dec_def,LET_THM] >>
+    simp[Once SWAP_REVERSE] >> rw[] >> fs[] >>
+    fs[between_labels_def] ) >>
+  Cases_on`mn`>>rw[]>>fs[]
+
+  compile_decs_def
+  compile_dec_append_out
+
+val compile_decs_thm = store_thm("compile_decs_thm",
+  ``∀mn menv cenv s env decs res.
+    evaluate_decs mn menv cenv s env decs res ⇒
+    ∃ck. ∀rmenv ct 
+    compile_decs_def
+
+  ``∀mno menv cenv s env dec res. evaluate_decs mno menv cenv s env dec res ⇒
+     ∀mn rs. ∃ck. ∀rs' bc00 rd bc bs bc0.
+      (mno = SOME mn) ∧
+      closed_context menv cenv s env ∧
+      FV_decs dec ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+      ("" ∉ new_decs_cns dec) ∧
+      decs_cns mn dec ⊆ set (MAP FST cenv) ∧
+      (∀i tds. i < LENGTH dec ∧ (EL i dec = Dtype tds) ⇒ check_dup_ctors mno (decs_to_cenv mno (TAKE i dec) ++ cenv) tds) ∧
+      env_rs menv cenv env rs rd (ck,s) (bs with code := bc0) ∧
+      (compile_decs mn dec (rs,bc00) = (rs',(REVERSE bc)++bc00)) ∧
+      (bs.code = bc0 ++ bc) ∧
+      (bs.pc = next_addr bs.inst_length bc0) ∧
+      IS_SOME bs.clock ∧
+      good_labels rs.rnext_label bc0
+      ⇒
+      case res of (s',cenv',Rval(env')) =>
+        ∃st rf rd'.
+        let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := st; refs := rf; clock := SOME 0|> in
+        bc_next^* bs bs' ∧
+        env_rs menv (cenv'++cenv) (env'++env) rs' rd' (0,s') bs'
+      | (s',_emp,Rerr(Rraise err)) =>
+        ∃bv rf rd'.
+        let cenv' = decs_to_cenv mno dec in
+        let bs' = bs with <|pc := 0; stack := bv::bs.stack; refs := rf; clock := SOME 0|> in
+        bc_next^*bs bs' ∧
+        err_bv err bv ∧
+        env_rs menv (cenv'++cenv) env (rs with contab := decs_to_contab mno rs.contab dec) rd' (0,s') (bs' with stack := bs.stack)
+      | (s',_) => T``,
+  ho_match_mp_tac evaluate_decs_strongind >>
 
 val compile_dec_contab_thm = store_thm("compile_dec_contab_thm",
   ``∀mn rs dec menv cenv env rd cs bs cenv' rs'.
@@ -2337,10 +2419,6 @@ val compile_dec_append_code = store_thm("compile_dec_append_code",
   simp[Abbr`vs`] >>
   AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >>
   simp[FUN_EQ_THM,FORALL_PROD])
-
-val FV_decs_def = Define`
-  (FV_decs [] = {}) ∧
-  (FV_decs (d::ds) = FV_dec d ∪ ((FV_decs ds) DIFF (IMAGE Short (new_dec_vs d))))`
 
 val FV_top_def = Define`
   (FV_top (Tdec d) = FV_dec d) ∧
