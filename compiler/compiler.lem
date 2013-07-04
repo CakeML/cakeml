@@ -70,7 +70,7 @@ let compile_fake_exp menv m env rsz cs vs e =
   compile_Cexp menv env rsz cs Ce
 
 let rec
-compile_dec _ _ _ _ cs (Dtype _) = (None, emit cs [Stack (Cons tuple_cn 0)])
+compile_dec _ _ _ _ cs (Dtype _) = (None, emit cs [Stack (Cons (block_tag+tuple_cn) 0)])
 and
 compile_dec menv m env rsz cs (Dletrec defs) =
   let vs = List.map (fun (n,_,_) -> n) defs in

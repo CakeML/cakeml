@@ -1929,74 +1929,22 @@ val compile_dec_thm = store_thm("compile_dec_thm",
       match_mp_tac RTC_SUBSET >>
       simp[bc_eval1_thm] >>
       fs[Once SWAP_REVERSE] >>
-
-    simp[]
-
-
-    qspecl_then[`mn`,`rs`,`Dtype tds`,`menv`,`cenv`,`env`,`rd`,`0,s`,`bs with code := bc0`]mp_tac compile_dec_contab_thm >>
-    simp[compile_dec_def,dec_to_cenv_def,LibTheory.emp_def,dec_to_contab_def] >>
-    simp[Once evaluate_dec_cases,closed_context_def] >>
-    discharge_hyps >- metis_tac[] >>
-    strip_tac >>
-    fs[FOLDL_number_constructors_thm,SemanticPrimitivesTheory.build_tdefs_def] >>
-    map_every qexists_tac[`bs.stack`,`bs.refs`,`rd`] >>
-    conj_tac >- (
-      reverse(Cases_on`mn`)>>fs[]>-(
-        simp[RTC_eq_NRC] >>
-        qexists_tac`0` >> simp[] >>
-        simp[bc_state_component_equality,SUM_APPEND,FILTER_APPEND] >>
-        fs[number_constructors_thm,env_rs_def,Cenv_bs_def,s_refs_def,LET_THM] >>
-        Cases_on`bs.clock`>>fs[] >>
-        fs[Once SWAP_REVERSE] >> rw[] ) >>
-      fs[number_constructors_thm,env_rs_def,Cenv_bs_def,s_refs_def,LET_THM] >>
-      simp[print_envE_def] >>
-      match_mp_tac MAP_PrintC_thm >>
-      fs[IMPLODE_EXPLODE_I] >>
-      qmatch_assum_abbrev_tac`MAP PrintC ls = bc` >>
-      qexists_tac`ls` >>
-      BasicProvers.VAR_EQ_TAC >>
-      qexists_tac`bc0` >>
+      `bc_fetch bs = SOME (Stack (Cons (block_tag + tuple_cn) 0))` by (
+        match_mp_tac bc_fetch_next_addr >>
+        qexists_tac`bc0`>>simp[] ) >>
+      simp[bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
       simp[bc_state_component_equality] >>
-      Cases_on`bs.clock`>>fs[] >>
-      simp[Abbr`ls`,print_envC_def] >>
-      AP_TERM_TAC >>
-      simp[MAP_FLAT] >>
-      AP_TERM_TAC >>
-      simp[MAP_MAP_o] >>
-      simp[MAP_EQ_f,FORALL_PROD,MAP_MAP_o] ) >>
-    fs[env_rs_def] >>
-    fs[LET_THM] >>
-    map_every qexists_tac[`Cmenv'`,`Cenv'`,`Cs'`] >>
+      simp[FILTER_APPEND,SUM_APPEND] >>
+      Cases_on`bs.clock`>>fs[Cenv_bs_def,s_refs_def] ) >>
+    fs[Cenv_bs_def] >>
+    match_mp_tac s_refs_with_irr >>
+    qexists_tac`bs with code := bc0 ++ code` >>
     simp[] >>
-    fs[number_constructors_thm] >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    simp[CONJ_ASSOC] >>
-    reverse conj_tac >- (
-      Q.PAT_ABBREV_TAC`bs0 = X:bc_state`>>
-      match_mp_tac Cenv_bs_append_code >>
-      qexists_tac`bs0 with code := bc0` >>
-      qexists_tac`bc` >>
-      simp[bc_state_component_equality,Abbr`bs0`] >>
-      match_mp_tac Cenv_bs_with_irr >>
-      simp[] >> rfs[] >>
-      HINT_EXISTS_TAC >>
-      simp[] >>
-      fs[env_rs_def,Cenv_bs_def,s_refs_def,LET_THM] >>
-      Cases_on`bs.clock`>>fs[]) >>
-    `FILTER is_Label bc = []` by (
-      Cases_on`mn`>>fs[]>>rw[FILTER_EQ_NIL,EVERY_MAP]>>fs[Once SWAP_REVERSE]) >>
-    reverse conj_tac >- (
-      rpt strip_tac >>
-      match_mp_tac  code_env_cd_append >>
-      simp[FILTER_APPEND,ALL_DISTINCT_APPEND] ) >>
-    reverse conj_tac >- (
-      rpt strip_tac >>
-      match_mp_tac  code_env_cd_append >>
-      simp[FILTER_APPEND] ) >>
-    rpt strip_tac >>
-    match_mp_tac  code_env_cd_append >>
-    simp[FILTER_APPEND] ) >>
-  strip_tac >- rw[])
+    reverse conj_tac >- (Cases_on`bs.clock`>>fs[s_refs_def]) >>
+    match_mp_tac s_refs_append_code >>
+    HINT_EXISTS_TAC >>
+    simp[bc_state_component_equality] ) >>
+  simp[])
 
 ---8<---
 

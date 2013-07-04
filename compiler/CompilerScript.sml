@@ -107,7 +107,7 @@ val _ = Define `
 
  val compile_dec_def = Define `
 
-(compile_dec _ _ _ _ cs (Dtype _) = (NONE, emit cs [Stack (Cons tuple_cn 0)]))
+(compile_dec _ _ _ _ cs (Dtype _) = (NONE, emit cs [Stack (Cons (block_tag +tuple_cn) 0)]))
 /\
 (compile_dec menv m env rsz cs (Dletrec defs) =  
 (let vs = ( MAP (\p . 
