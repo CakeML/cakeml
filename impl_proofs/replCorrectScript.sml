@@ -1387,7 +1387,7 @@ simp[] >>
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC) >>
   simp[Abbr`new_bc_state`] >>
   imp_res_tac RTC_bc_next_preserves >>
-  fs[])
+  fs[]);
 
 val good_compile_primitives = prove(
   ``good_contab (FST compile_primitives).contab ∧
@@ -1395,7 +1395,7 @@ val good_compile_primitives = prove(
     {Short ""} = FDOM (cmap (FST compile_primitives).contab) ∧
     (∀id. FLOOKUP (cmap (FST compile_primitives).contab) id = SOME (cmap (FST compile_primitives).contab ' (Short "")) ⇒ id = Short "")
     ``,
-  rw[compile_primitives_def] >>
+  rw[compile_primitives_def, initial_program_def] >>
   rw[CompilerTheory.compile_top_def,CompilerTheory.compile_dec_def] >>
   imp_res_tac compile_fake_exp_contab >>
   rw[good_contab_def,intLangExtraTheory.good_cmap_def] >>
@@ -1407,13 +1407,13 @@ val good_compile_primitives = prove(
 
 val compile_primitives_menv = store_thm("compile_primitives_menv",
   ``(FST compile_primitives).rmenv = FEMPTY``,
-  rw[compile_primitives_def,CompilerTheory.compile_top_def] >>
+  rw[compile_primitives_def,CompilerTheory.compile_top_def, initial_program_def] >>
   rw[CompilerTheory.init_compiler_state_def])
 
 val compile_primitives_renv = store_thm("compile_primitives_renv",
   ``((FST compile_primitives).renv = GENLIST (λi. (FST(EL i init_env), i)) (LENGTH init_env)) ∧
     ((FST compile_primitives).rsz = LENGTH init_env)``,
-  rw[compile_primitives_def,CompilerTheory.compile_top_def] >>
+  rw[compile_primitives_def,CompilerTheory.compile_top_def, initial_program_def] >>
   rw[CompilerTheory.init_compiler_state_def] >>
   fs[CompilerTheory.compile_dec_def,LET_THM] >>
   fs[CompilerTheory.compile_fake_exp_def,LET_THM] >>
@@ -1442,13 +1442,24 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   disch_then(mp_tac o SPEC(rand(rhs(concl(compile_primitives_def))))) >>
   discharge_hyps >- (
     simp[] >>
-    simp[CompilerTheory.init_compiler_state_def] >>
+    simp[CompilerTheory.init_compiler_state_def, initial_program_def] >>
     simp[EXTENSION] >>
     metis_tac[] ) >>
-  simp[GSYM compile_primitives_def] >>
+  simp[GSYM compile_primitives_def, initial_program_def] >>
   simp[good_labels_def,between_labels_def] >>
   strip_tac >>
   fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP])
+
+(* We want to show that evaluating the initial program gives you the initial
+ * state, but because the initial program uses letrec, the recursive closures
+ * all have all of the initial bindings in them, which complicates things. *)
+(*
+val eval_initial_program = Q.prove (
+`evaluate_top [] [] [] [] initial_program ([], [], Rval ([], init_env))`,
+rw [initial_program_def, init_env_def, evaluate_top_cases, LibTheory.emp_def,
+    evaluate_dec_cases] >>
+EVAL_TAC
+*)
 
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,

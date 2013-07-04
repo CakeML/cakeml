@@ -34,10 +34,9 @@ val _ = Hol_datatype`repl_fun_state = <|
   rinferencer_state : inferencer_state;
   rcompiler_state  : compiler_state |>`
 
-val compile_primitives_def = Define`
-  compile_primitives =
-    compile_top init_compiler_state
-    (Tdec (Dletrec
+val initial_program_def = Define `
+initial_program = 
+(Tdec (Dletrec
     [("+"  ,"x",Fun"y"(App(Opn Plus  )(Var(Short"x"))(Var(Short"y"))))
     ;("-"  ,"x",Fun"y"(App(Opn Minus )(Var(Short"x"))(Var(Short"y"))))
     ;("*"  ,"x",Fun"y"(App(Opn Times )(Var(Short"x"))(Var(Short"y"))))
@@ -50,7 +49,11 @@ val compile_primitives_def = Define`
     ;("="  ,"x",Fun"y"(App(Equality  )(Var(Short"x"))(Var(Short"y"))))
     ;(":=" ,"x",Fun"y"(App(Opassign  )(Var(Short"x"))(Var(Short"y"))))
     ;("!"  ,"x",Uapp(Opderef)(Var(Short"x")))
-    ;("ref","x",Uapp(Opref  )(Var(Short"x")))]))`
+    ;("ref","x",Uapp(Opref  )(Var(Short"x")))]))`;
+
+val compile_primitives_def = Define`
+  compile_primitives =
+    compile_top init_compiler_state initial_program`;
 
 val initial_repl_fun_state = Define`
   initial_repl_fun_state = <|
