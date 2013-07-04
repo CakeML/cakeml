@@ -996,17 +996,29 @@ val evaluate_match_SKIP = store_thm("evaluate_match_SKIP",
 
 (* Connecting to evaluate_dec instead of evaluate_dec' *)
 
-val Decls2_def = Define `
-  Decls2 mn (menv1 : envM) cenv1 s1 env1 ds cenv2 s2 env2 =
+val DeclsC_def = Define `
+  DeclsC mn (menv1 : envM) cenv1 s1 env1 ds cenv2 s2 env2 =
     evaluate_decs mn menv1 cenv1 s1 env1 ds (s2,cenv2, Rval env2)`;
 
-val DeclAssum2_def = Define `
-  DeclAssum2 ds env = ?s2 cenv2. Decls2 NONE [] [] empty_store [] ds cenv2 s2 env`;
+val DeclAssumC_def = Define `
+  DeclAssumC ds cenv env =
+     ?s2. DeclsC NONE [] [] empty_store [] ds cenv s2 env`;
 
-val DeclAssum2_thm = Q.store_thm ("DeclAssum2_thm",
-`!ds env. check_ctors_decs NONE [] ds ∧ DeclAssum ds env ⇒ DeclAssum2 ds env`,
-rw [DeclAssum_def, DeclAssum2_def, Decls_def, Decls2_def] >>
-metis_tac [result_distinct, eval_decs'_to_eval_decs_simple_pat, EVERY_DEF, 
-           eval_ctor_inv_def, empty_store_def]);
+val DeclAssumC_thm = store_thm ("DeclAssumC_thm",
+  ``!ds env. check_ctors_decs NONE [] ds /\ DeclAssum ds env ==>
+             ?cenv. DeclAssumC ds cenv env``,
+  rw [DeclAssum_def, DeclAssumC_def, Decls_def, DeclsC_def] >>
+  metis_tac [result_distinct, eval_decs'_to_eval_decs_simple_pat, EVERY_DEF,
+             eval_ctor_inv_def, empty_store_def]);
+
+val EvalC_def = Define `
+  EvalC cenv env exp P =
+    ?res.
+      evaluate F [] (cenv:envC) (0,[]) env exp ((0,[]),Rval res) /\ P (res:v)`;
+
+val Eval_IMP_EvalC = store_thm("Eval_IMP_EvalC",
+  ``check_ctors_decs NONE [] ds /\ DeclAssumC ds cenv env ==>
+    !exp P. Eval env exp P ==> EvalC cenv env exp P``,
+  cheat);
 
 val _ = export_theory();
