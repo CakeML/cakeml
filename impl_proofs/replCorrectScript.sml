@@ -1450,15 +1450,56 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   strip_tac >>
   fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP])
 
-(* We want to show that evaluating the initial program gives you the initial
- * state, but because the initial program uses letrec, the recursive closures
- * all have all of the initial bindings in them, which complicates things. *)
-(*
+  (*
+val lemma1 = Q.prove (
+`(?new_env r. Rval l = (case r of Rval env' => Rval (merge env' new_env) | Rerr e => Rerr e) ∧ P new_env r)
+ =
+ ?new_env env. l = (merge env new_env) ∧ P new_env (Rval env)`,
+eq_tac >>
+rw [] >|
+[cases_on `r` >>
+     fs [] >>
+     metis_tac [],
+ qexists_tac `new_env` >>
+     rw [] >>
+     qexists_tac `Rval env` >>
+     rw []]);
+
+val lemma2 = Q.prove (
+`(l = merge env (bind n v l2)) = (REVERSE l = REVERSE l2 ++ REVERSE [(n,v)] ++ REVERSE env)`,
+rw [LibTheory.merge_def, LibTheory.bind_def] >>
+metis_tac [REVERSE_APPEND, miscTheory.REVERSE_INV, APPEND_ASSOC, APPEND, REVERSE_REVERSE, REVERSE_DEF]);
+
+val lemma3 = Q.prove (
+`(?env. l = REVERSE env ∧ P env)
+ =
+ P (REVERSE l)`,
+ metis_tac [REVERSE_REVERSE]);
+
+(* Annoying to do this by hand.  With the clocked evaluate, it shouldn't be 
+ * too hard to set up a clocked interpreter function for the semantics and 
+ * do this automatically *)
 val eval_initial_program = Q.prove (
-`evaluate_top [] [] [] [] initial_program ([], [], Rval ([], init_env))`,
-rw [initial_program_def, init_env_def, evaluate_top_cases, LibTheory.emp_def,
-    evaluate_dec_cases] >>
-EVAL_TAC
+`evaluate_decs NONE [] [] [] [] initial_program ([], [], Rval init_env)`,
+
+rw [init_env_def, initial_program_def] >>
+
+rw [Once evaluate_decs_cases, LibTheory.merge_def, LibTheory.emp_def] >>
+rw [LibTheory.emp_def, evaluate_dec_cases, AstTheory.pat_bindings_def, combine_dec_result_def, lemma1] >>
+rw [pmatch_def] >>
+rw [lemma2,lemma3]
+
+rw [LibTheory.bind_def]
+match [] ``(REVERSE x = REVERSE y) = (x = y)``
+find "REVERSE_11"
+
+MAP_EVERY qexists_tac [`[]`, `Rval x`]
+
+REWRITE_TAC []
+
+rw []
+
+EVAL_TAC >>
 *)
 
 val initial_invariant = prove(
