@@ -235,16 +235,21 @@ val compile_news_thm = store_thm("compile_news_thm",
           ⇒
           let bs' =
           bs with <| pc := next_addr bs.inst_length (bc0 ++ code)
-                   ; stack := Block u ws::(REVERSE (DROP i ws))++st
+                   ; stack := (REVERSE (DROP i ws))++st
                    ; output := if pr then
                      FLAT (REVERSE (MAP (REVERSE o (UNCURRY (print_bv_str bs.cons_names))) (ZIP (vs, DROP i ws)))) ++ bs.output
                      else bs.output
                    |> in
           bc_next^* bs bs'``,
   Induct >- (
-    simp[compile_news_def,Once SWAP_REVERSE] >> rw[] >>
-    simp[Once RTC_CASES1] >> disj1_tac >>
-    simp[bc_state_component_equality,DROP_LENGTH_NIL]) >>
+    simp[compile_news_def,Once SWAP_REVERSE,DROP_LENGTH_NIL] >> rw[] >>
+    match_mp_tac RTC_SUBSET >>
+    simp[bc_eval1_thm] >>
+    `bc_fetch bs = SOME(Stack Pop)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`bc0`>>simp[] ) >>
+    simp[bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
+    simp[bc_state_component_equality,FILTER_APPEND,SUM_APPEND]) >>
   qx_gen_tac`v` >>
   simp[compile_news_def,FOLDL_emit_thm] >>
   rpt gen_tac >>
