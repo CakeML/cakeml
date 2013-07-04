@@ -183,6 +183,7 @@ val env_rs_def = Define`
     good_contab rs.contab ∧
     good_cmap cenv (cmap rs.contab) ∧
     (({Short ""} ∪ set (MAP FST cenv)) = FDOM (cmap rs.contab)) ∧
+    (cmap rs.contab ' (Short "") = tuple_cn) ∧
     Short "" ∉ set (MAP FST cenv) ∧
     (∀id. (FLOOKUP (cmap rs.contab) id = SOME ((cmap rs.contab) ' (Short ""))) ⇒ (id = Short "")) ∧
     let fmv = alist_to_fmap menv in
@@ -1440,6 +1441,14 @@ val decs_contab_thm = store_thm("decs_contab_thm",
     simp_tac(srw_ss()++DNF_ss)[EXISTS_PROD]>>
     metis_tac[] ) >>
   conj_tac >- (
+    simp[number_constructors_thm] >>
+    ho_match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM_matchable >>
+    qabbrev_tac`p = rs.contab` >> PairCases_on`p`>>fs[] >>
+    simp[MAP_GENLIST,MEM_GENLIST] >>
+    Cases_on`mn`>>simp[AstTheory.mk_id_def] >>
+    fs[MEM_EL] >>
+    metis_tac[EL_MAP] ) >>
+  conj_tac >- (
     fsrw_tac[DNF_ss][MEM_MAP,MEM_FLAT,FORALL_PROD] >>
     Cases_on`mn`>>fs[AstTheory.mk_id_def] >>
     metis_tac[] ) >>
@@ -1474,6 +1483,8 @@ val decs_contab_thm = store_thm("decs_contab_thm",
       simp[] >> metis_tac[mk_id_inj] ) >>
     Cases_on`Q=T` >- (
       fs[Abbr`P`,Abbr`A`,Abbr`R`,Abbr`Q`] >> strip_tac >>
+      qpat_assum`p0 ' X = tuple_cn`(assume_tac o SYM) >> fs[] >>
+      pop_assum kall_tac >>
       spose_not_then strip_assume_tac >>
       `(λv. MEM v (MAP SND ls)) (p0 ' (Short ""))` by (
         qpat_assum`X = p0 ' Y`(SUBST1_TAC o SYM) >>
