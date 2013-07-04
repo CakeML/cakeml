@@ -160,6 +160,11 @@ val good_contab_def = Define`
     set (MAP SND w) ⊆ (FDOM m) ∧
     cmap_linv m w`
 
+val good_labels_def = Define`
+  good_labels nl code ⇔
+    ALL_DISTINCT (FILTER is_Label code) ∧
+    EVERY (combin$C $< nl o dest_Label) (FILTER is_Label code)`
+
 val closed_Clocs_def = Define`
   closed_Clocs Cmenv Cenv Cs ⇔
     (BIGUNION (IMAGE (BIGUNION o IMAGE all_Clocs o set) (FRANGE Cmenv)) ⊆ count (LENGTH Cs)) ∧
@@ -522,16 +527,15 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     ∀menv s env res rd csz bs bc0 st hdl sp ig.
       Cevaluate menv s env exp res
     ∧ closed_Clocs menv env (SND s)
-    ∧ Cenv_bs rd menv s env rmenv renv rsz csz (bs with code := bc0)
     ∧ closed_vlabs menv env (SND s) rmenv bc0
+    ∧ Cenv_bs rd menv s env rmenv renv rsz csz (bs with code := bc0)
     ∧ bs.code = bc0 ++ c0 ++ code
     ∧ bs.pc = next_addr bs.inst_length bc0
     ∧ bs.clock = SOME (FST s)
     ∧ bs.stack = ig++StackPtr sp::CodePtr hdl::st
     ∧ bs.handler = LENGTH st + 1
     ∧ csz ≤ LENGTH st
-    ∧ ALL_DISTINCT (FILTER is_Label bc0)
-    ∧ EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0)
+    ∧ good_labels cs.next_label bc0
     ⇒
     case SND res of
     | Cval v =>
@@ -568,7 +572,7 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
   discharge_hyps >- (
     simp[MEM_MAP,MEM_GENLIST,MEM_FILTER,is_Label_rwt] >>
     simp_tac(srw_ss()++DNF_ss)[] >>
-    fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt] >>
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,good_labels_def] >>
     rw[] >> res_tac >> DECIDE_TAC ) >>
   strip_tac >>
   `LENGTH renv = LENGTH env` by (
@@ -590,7 +594,7 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     qmatch_abbrev_tac`(A ∧ B) ∧ C` >>
     `B ∧ C` by (
       simp[Abbr`A`,Abbr`B`,Abbr`C`,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
-      fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,MEM_MAP,MEM_GENLIST,between_def] >>
+      fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,MEM_MAP,MEM_GENLIST,between_def,good_labels_def] >>
       rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
     simp[Abbr`A`,Abbr`B`,Abbr`C`,GSYM CONJ_ASSOC] >>
     fs[closed_vlabs_def] >>
@@ -646,52 +650,54 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
   simp[] )
 
 val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
-  ``∀rmenv m renv rsz cs vars expf menv env.
+  ``∀rmenv m renv rsz cs vars expf.
     let exp = expf (Con (Short "") (MAP (Var o Short) vars)) in
-    FV exp ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv
-    ∧ m.bvars = MAP FST env
-    ∧ LENGTH renv = LENGTH env
+    SFV exp ⊆ set m.bvars
+    ∧ LENGTH renv = LENGTH m.bvars
     ⇒
     let cs' = compile_fake_exp rmenv m renv rsz cs vars expf in
     ∃code. cs'.out = REVERSE code ++ cs.out ∧ between_labels code cs.next_label cs'.next_label ∧
-    ∀tup cenv0 cenv env0 s s' beh rs0 rs rd bs bc0 ig h0 sp st0.
+    ∀menv tup cenv0 cenv env env0 s s' beh rs0 rs rd bs bc0 ig h0 sp st0.
     evaluate T menv ((Short "",tup)::cenv) s env exp (s',beh)
     ∧ closed_under_menv menv env (SND s)
     ∧ closed_under_cenv cenv menv env (SND s)
     ∧ all_cns_exp exp ⊆ set (MAP FST ((Short "",tup)::cenv))
+    ∧ FV exp ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv
+    ∧ ALL_DISTINCT vars
     ∧ env_rs menv cenv0 env0 rs0 (LENGTH st0) rd s (bs with <| code := bc0; stack := st0 |>)
     ∧ env_rs menv cenv env rs (LENGTH st0) rd s (bs with code := bc0)
-    ∧ m.cnmap = cmap rs.contab
+    ∧ m.bvars = MAP FST env
     ∧ m.mvars = MAP FST o_f alist_to_fmap menv
+    ∧ m.cnmap = cmap rs.contab
     ∧ rmenv = MAP SND o_f rs.rmenv
     ∧ renv = MAP (CTDec o SND) rs.renv
     ∧ rs.rnext_label = cs.next_label
     ∧ rsz = rs.rsz
     ∧ rs0.rmenv = rs.rmenv
     ∧ rs0.rsz = LENGTH st0
-    ∧ ALL_DISTINCT vars
     ∧ bs.code = bc0 ++ code
     ∧ bs.pc = next_addr bs.inst_length bc0
     ∧ bs.stack = ig++StackPtr h0::CodePtr sp::st0
     ∧ bs.handler = LENGTH st0 + 1
     ∧ IS_SOME bs.clock
-    ∧ ALL_DISTINCT (FILTER is_Label bc0)
-    ∧ EVERY (combin$C $< rs.rnext_label o dest_Label) (FILTER is_Label bc0)
+    ∧ good_labels rs.rnext_label bc0
     ⇒
     (∀vs. (beh = Rval (Conv (Short "") vs)) ∧ (LENGTH vars = LENGTH vs) ⇒
-      ∃Cws bvs rf rd' ck.
+      ∃Cws bvs rf rd' ck Cs'.
       let tt = block_tag + (cmap rs.contab) ' (Short "") in
-      let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ code); stack := (Block tt bvs)::bs.stack; refs := rf; clock := ck|> in
+      let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ code); stack := (Block tt bvs)::bs.stack; refs := rf; clock := SOME ck|> in
       bc_next^* bs bs' ∧
       LIST_REL syneq (vs_to_Cvs (MAP FST o_f rs.rmenv) (cmap rs.contab) vs) Cws ∧
+      LIST_REL syneq (vs_to_Cvs (MAP FST o_f rs.rmenv) (cmap rs.contab) (SND s')) Cs' ∧
       LIST_REL (Cv_bv (mk_pp rd' bs')) Cws bvs ∧
-      env_rs menv cenv env rs (LENGTH st0) rd' s' (bs' with stack := bs.stack)) ∧
+      s_refs rd' (ck,Cs') bs') ∧
     (∀err. (beh = Rerr (Rraise err)) ⇒
-      ∃bv rf rd' ck.
-      let bs' = bs with <|pc := sp; stack := bv::st0; handler := h0; refs := rf; clock := ck|> in
+      ∃bv rf rd' ck Cs'.
+      let bs' = bs with <|pc := sp; stack := bv::st0; handler := h0; refs := rf; clock := SOME ck|> in
       bc_next^* bs bs' ∧
+      LIST_REL syneq (vs_to_Cvs (MAP FST o_f rs.rmenv) (cmap rs.contab) (SND s')) Cs' ∧
       err_bv err bv ∧
-      env_rs menv cenv0 env0 rs0 (LENGTH st0) rd' s' (bs' with stack := st0)) ∧
+      s_refs rd' (ck,Cs') bs') ∧
     ((beh = Rerr Rtimeout_error) ⇒
       ∃bs'. bc_next^* bs bs' ∧ (bs'.clock = SOME 0) ∧ bc_fetch bs' = SOME Tick)``,
   rw[] >>
@@ -706,8 +712,7 @@ val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
   discharge_hyps >- (
     simp[] >>
     match_mp_tac free_vars_exp_to_Cexp_matchable >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD,GSYM LEFT_FORALL_IMP_THM,MEM_FLAT] >>
-    rw[] >> res_tac >> fs[] >> PROVE_TAC[]) >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD,GSYM LEFT_FORALL_IMP_THM,MEM_FLAT]) >>
   simp[] >>
   disch_then(qx_choosel_then[`c0`,`c1`]strip_assume_tac) >>
   qexists_tac`c0 ++ c1` >>
@@ -812,9 +817,16 @@ val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
     rator_x_assum`Cv_bv`mp_tac >>
     simp[Once Cv_bv_cases] >>
     disch_then(Q.X_CHOOSE_THEN`bvs`strip_assume_tac) >>
-    map_every qexists_tac[`Cws`,`bvs`,`rf`,`rd'`,`ck`] >>
-    BasicProvers.VAR_EQ_TAC >>
+    `ck = SOME (FST s')` by (
+      fs[Cenv_bs_def,s_refs_def] >>
+      imp_res_tac RTC_bc_next_clock_less >>
+      Cases_on`bs.clock`>>rfs[optionTheory.OPTREL_def] ) >>
+    map_every qexists_tac[`Cws`,`bvs`,`rf`,`rd'`,`FST s'`,`Cs1`] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
     simp[] >>
+    conj_tac >- (
+      simp[vs_to_Cvs_MAP] >>
+      metis_tac[EVERY2_syneq_trans] ) >>
     conj_tac >- (
       fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
       rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
@@ -826,7 +838,10 @@ val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
       rpt strip_tac >>
       match_mp_tac bc_find_loc_aux_append_code >>
       simp[]) >>
-    cheat)
+    fs[Cenv_bs_def] >>
+    match_mp_tac s_refs_append_code >>
+    HINT_EXISTS_TAC >>
+    simp[bc_state_component_equality]) >>
   fs[Cmap_result_Rerr] >>
   BasicProvers.VAR_EQ_TAC >>
   fs[] >>
@@ -849,24 +864,81 @@ val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
   rator_x_assum`code_for_return`mp_tac >>
   simp[code_for_return_def] >>
   disch_then(qx_choosel_then[`bw`,`rf`,`rd'`,`ck`]strip_assume_tac) >>
-  map_every qexists_tac[`bw`,`rf`,`rd'`,`ck`] >>
+  `ck = SOME (FST s')` by (
+    fs[s_refs_def] >>
+    imp_res_tac RTC_bc_next_clock_less >>
+    Cases_on`bs.clock`>>fs[optionTheory.OPTREL_def] ) >>
+  map_every qexists_tac[`bw`,`rf`,`rd'`,`FST s'`,`Cs1`] >>
+  BasicProvers.VAR_EQ_TAC >>
   simp[] >>
+  conj_tac >- (
+    simp[vs_to_Cvs_MAP] >>
+    metis_tac[EVERY2_syneq_trans] ) >>
   conj_tac >- (
     Cases_on`err`>>fs[err_bv_def]>>BasicProvers.VAR_EQ_TAC>>
     fs[Once IntLangTheory.syneq_cases]>>BasicProvers.VAR_EQ_TAC>>
     fs[Once Cv_bv_cases]>>simp[]) >>
-  rator_x_assum`env_rs`mp_tac >>
-  rator_x_assum`s_refs`mp_tac >>
-  `LIST_REL syneq (Csf (SND s')) Cs1` by metis_tac[EVERY2_syneq_trans] >>
-  pop_assum mp_tac >>
-  simp[Abbr`Csf`] >>
-  rw[env_rs_def,LET_THM] >>
-  rpt HINT_EXISTS_TAC >>
-  (* need rs.contab to be compatible with (probably an extension of) rs0.contab  *)
-  cheat )
+  match_mp_tac s_refs_append_code >>
+  HINT_EXISTS_TAC >>
+  simp[bc_state_component_equality])
 
----8<---
+val compile_dec_append_out = store_thm("compile_dec_append_out",
+  ``∀rmenv m renv rsz cs dec.
+    let (vso,cs') = compile_dec rmenv m renv rsz cs dec in
+    LENGTH renv = LENGTH m.bvars ∧ {x | Short x ∈ FV_dec dec} ⊆ set m.bvars
+    ⇒
+    ∃code. cs'.out = REVERSE code ++ cs.out ∧ between_labels code cs.next_label cs'.next_label ∧
+    case vso of NONE => new_dec_vs dec = {} | SOME vs => new_dec_vs dec = set vs``,
+  ntac 5 gen_tac >> reverse Cases >> simp[compile_dec_def] >- (
+    simp[Once SWAP_REVERSE,between_labels_def] ) >>
+  Q.PAT_ABBREV_TAC`vars:string list = X Z Y` >>
+  Q.PAT_ABBREV_TAC`expf:exp->exp = Y` >>
+  strip_tac >>
+  qspecl_then[`rmenv`,`m`,`renv`,`rsz`,`cs`,`vars`,`expf`]mp_tac compile_fake_exp_thm >>
+  simp[Abbr`expf`] >>
+  (discharge_hyps >- (
+     fsrw_tac[DNF_ss][SUBSET_DEF,FV_defs_MAP,FORALL_PROD,FV_list_MAP,MEM_MAP,Abbr`vars`] >>
+     metis_tac[])) >>
+  strip_tac >> simp[] >>
+  first_x_assum(qspec_then`X`kall_tac) >>
+  simp[Abbr`vars`] >>
+  AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >>
+  simp[FUN_EQ_THM,FORALL_PROD])
 
+val compile_dec_thm = store_thm("compile_dec_thm",
+  ``∀mn menv cenv s env dec res.
+     evaluate_dec mn menv cenv s env dec res ⇒
+
+     ∃ck. ∀rs ct bdgs nl rd bc bs bc0.
+      closed_context menv cenv s env ∧
+      FV_dec dec ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+      ("" ∉ set (new_dec_cns dec)) ∧
+      dec_cns dec ⊆ set (MAP FST cenv) ∧
+      env_rs menv cenv env rs rd (ck,s) (bs with code := bc0) ∧
+      (compile_dec mn rs dec = (ct,bdgs,nl,REVERSE bc)) ∧
+      (bs.code = bc0 ++ bc) ∧
+      (bs.pc = next_addr bs.inst_length bc0) ∧
+      IS_SOME bs.clock ∧
+      good_labels rs.rnext_label bc0
+      ⇒
+      case res of (s',Rval(cenv',env')) =>
+        ∃st rf rd'.
+        let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := st; refs := rf; clock := SOME 0
+                           ;output := if IS_NONE mn then REVERSE(print_envC cenv' ++ print_envE env')++bs.output else bs.output|> in
+        let rs' = rs with <|contab := ct; renv := bdgs ++ rs.renv; rsz := rs.rsz + LENGTH bdgs; rnext_label := nl|> in
+        bc_next^* bs bs' ∧
+        env_rs menv (cenv'++cenv) (env'++env) rs' rd' (0,s') bs'
+      | (s',Rerr(Rraise err)) =>
+        ∃bv rf rd'.
+        let bs' = bs with <|pc := 0; stack := bv::bs.stack; refs := rf; clock := SOME 0|> in
+        let rs' = rs with <|rnext_label := nl|> in
+        bc_next^*bs bs' ∧
+        err_bv err bv ∧
+        env_rs menv cenv env rs' rd' (0,s') (bs' with stack := bs.stack)
+      | (s',_) => T``,
+compile_dec_def
+
+(*
 val compile_fake_exp_val = store_thm("compile_fake_exp_val",
   ``∀pr rs vars expf menv tup cenv s env exp s' beh bdgs nl bc rd vv0 vv1 bc0 bs h0 st0.
       evaluate T menv ((Short "",tup)::cenv) s env exp (s', beh) ∧
@@ -1480,6 +1552,7 @@ val compile_fake_exp_val = store_thm("compile_fake_exp_val",
     simp[Abbr`bs3`,Abbr`bs5`,bc_state_component_equality] ) >>
   qsuff_tac`bs6 = bs4` >- metis_tac[RTC_CASES1] >>
   simp[Abbr`bs6`,Abbr`bs4`,bc_state_component_equality])
+*)
 
 (* TODO: move?*)
 val FV_dec_def = Define`
@@ -1620,10 +1693,9 @@ val ALL_DISTINCT_PERM_ALOOKUP_ZIP = store_thm("ALL_DISTINCT_PERM_ALOOKUP_ZIP",
 
 val number_constructors_thm = store_thm("number_constructors_thm",
   ``∀mn cs ac. number_constructors mn cs ac =
-    ((FST(FST ac) |++ GENLIST (λi. (mk_id mn (FST (EL i cs)), (SND(SND(FST ac)))+i)) (LENGTH cs)
-     ,REVERSE (GENLIST (λi. ((SND(SND(FST ac)))+i,mk_id mn(FST(EL i cs)))) (LENGTH cs)) ++ (FST(SND(FST ac)))
-     ,(SND(SND(FST ac))) + LENGTH cs)
-    ,(REVERSE (MAP (combin$C STRCAT " = <constructor>" o id_to_string o mk_id mn o FST) cs))++SND ac)``,
+    ((FST(ac) |++ GENLIST (λi. (mk_id mn (FST (EL i cs)), (SND(SND(ac)))+i)) (LENGTH cs)
+     ,REVERSE (GENLIST (λi. ((SND(SND(ac)))+i,mk_id mn(FST(EL i cs)))) (LENGTH cs)) ++ (FST(SND(ac)))
+     ,(SND(SND(ac))) + LENGTH cs))``,
   gen_tac >> Induct >- simp[number_constructors_def,FUPDATE_LIST_THM] >>
   qx_gen_tac`p` >> PairCases_on`p` >>
   qx_gen_tac`q` >> PairCases_on`q` >>
@@ -1723,16 +1795,6 @@ val v_to_Cv_SUBMAP = store_thm("v_to_Cv_SUBMAP",
   rw[] >> AP_TERM_TAC >>
   simp[exp_to_Cexp_SUBMAP])
 
-val compile_fake_exp_contab = store_thm("compile_fake_exp_contab",
-  ``(compile_fake_exp pr rs vs e = (ct,b,n,c)) ⇒ ct = rs.contab``,
-  rw[compile_fake_exp_def,LET_THM])
-
-val FST_compile_fake_exp_contab = store_thm("FST_compile_fake_exp_contab",
-  ``FST (compile_fake_exp pr rs vs e) = rs.contab``,
-  qabbrev_tac`p = compile_fake_exp pr rs vs e` >>
-  PairCases_on`p` >> fs[markerTheory.Abbrev_def] >>
-  metis_tac[compile_fake_exp_contab])
-
 val mk_id_inj = store_thm("mk_id_inj",
   ``mk_id mn n1 = mk_id mn n2 ⇒ n1 = n2``,
   rw[AstTheory.mk_id_def] >>
@@ -1746,11 +1808,6 @@ val closed_context_def = Define`
     closed_under_cenv cenv menv env s ∧
     closed_under_menv menv env s ∧
     (∀v. v ∈ menv_range menv ∨ v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s))`
-
-val good_labels_def = Define`
-  good_labels nl code ⇔
-    ALL_DISTINCT (FILTER is_Label code) ∧
-    EVERY (combin$C $< nl o dest_Label) (FILTER is_Label code)`
 
 val with_same_contab = store_thm("with_same_contab",
  ``rs with contab := rs.contab = rs``,
