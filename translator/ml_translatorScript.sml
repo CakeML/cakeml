@@ -2,6 +2,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "ml_translator";
 
 open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
 open terminationTheory;
+open bigBigEquivTheory;
 open arithmeticTheory listTheory combinTheory pairTheory;
 open integerTheory;
 open lcsymtacs;
@@ -992,5 +993,20 @@ val evaluate_match_SKIP = store_thm("evaluate_match_SKIP",
         ((Pcon (Short s2) pats2,exp2)::pats) (x,Rval res)``,
   SRW_TAC [] []
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,pmatch'_def]);
+
+(* Connecting to evaluate_dec instead of evaluate_dec' *)
+
+val Decls2_def = Define `
+  Decls2 mn (menv1 : envM) cenv1 s1 env1 ds cenv2 s2 env2 =
+    evaluate_decs mn menv1 cenv1 s1 env1 ds (s2,cenv2, Rval env2)`;
+
+val DeclAssum2_def = Define `
+  DeclAssum2 ds env = ?s2 cenv2. Decls2 NONE [] [] empty_store [] ds cenv2 s2 env`;
+
+val DeclAssum2_thm = Q.store_thm ("DeclAssum2_thm",
+`!ds env. check_ctors_decs NONE [] ds ∧ DeclAssum ds env ⇒ DeclAssum2 ds env`,
+rw [DeclAssum_def, DeclAssum2_def, Decls_def, Decls2_def] >>
+metis_tac [result_distinct, eval_decs'_to_eval_decs_simple_pat, EVERY_DEF, 
+           eval_ctor_inv_def, empty_store_def]);
 
 val _ = export_theory();
