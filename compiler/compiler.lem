@@ -94,7 +94,7 @@ compile_decs mn menv ct m env rsz cs (dec::decs) =
         (<|m with bvars = vs@m.bvars|>
         ,(genlist (fun i -> CTDec (rsz+i)) n)@env
         ,rsz + n
-        ,match mn with None -> cs | _ -> compile_news false cs 0 vs end)
+        ,compile_news false cs 0 vs)
     end in
   compile_decs mn menv ct m env rsz cs decs
 
@@ -110,7 +110,7 @@ let compile_decs_wrap mn rs decs =
   let (ct,m,rsz,cs) = compile_decs mn menv rs.contab m env (rs.rsz+2) cs decs in
   let n = rsz-2-rs.rsz in
   let news = Hol.TAKE n m.bvars in
-  let cs = if Hol.IS_NONE mn then cs else emit cs [Stack (Cons tuple_cn n)] in
+  let cs = emit cs [Stack (Cons tuple_cn n)] in
   let cs = emit cs [PopExc; Stack(Pops 1)] in
   let cs = compile_news (Hol.IS_NONE mn) cs 0 news in
   let env = List.combine news (genlist (fun i -> rs.rsz+i) n) in

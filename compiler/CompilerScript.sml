@@ -134,7 +134,7 @@ val _ = Define `
         ((m with<| bvars := vs ++m.bvars|>)
         ,(( GENLIST (\ i . CTDec (rsz +i)) n) ++env)
         ,(rsz + n)
-        ,(case mn of NONE => cs | _ => compile_news F cs 0 vs ))
+        ,compile_news F cs 0 vs)
     )) in
   compile_decs mn menv ct m env rsz cs decs))`;
 
@@ -153,7 +153,7 @@ val _ = Define `
   let (ct,m,rsz,cs) = ( compile_decs mn menv rs.contab m env (rs.rsz +2) cs decs) in
   let n = (rsz - 2 - rs.rsz) in
   let news = ( TAKE n m.bvars) in
-  let cs = (if IS_NONE mn then cs else emit cs [Stack (Cons tuple_cn n)]) in
+  let cs = ( emit cs [Stack (Cons tuple_cn n)]) in
   let cs = ( emit cs [PopExc; Stack(Pops 1)]) in
   let cs = ( compile_news (IS_NONE mn) cs 0 news) in
   let env = ( ZIP ( news, ( GENLIST (\ i . rs.rsz +i) n))) in
