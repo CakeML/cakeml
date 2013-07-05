@@ -98,10 +98,9 @@ val mmlG_def = mk_grammar_def ginfo
 
  (* type declarations *)
  StarTypes ::= StarTypes "*" DType | DType;
- StarTypesP ::= "(" StarTypes ")" | StarTypes;
  TypeName ::= UQTyOp | "(" TyVarList ")" UQTyOp | <TyvarT> UQTyOp ;
  TyVarList ::= TyvarN | TyVarList "," TyvarN;
- Dconstructor ::= UQConstructorName "of" StarTypesP | UQConstructorName;
+ Dconstructor ::= UQConstructorName "of" StarTypes | UQConstructorName;
  DtypeCons ::= Dconstructor | DtypeCons "|" Dconstructor;
  DtypeDecl ::= TypeName "=" DtypeCons ;
  DtypeDecls ::= DtypeDecl | DtypeDecls "and" DtypeDecl;

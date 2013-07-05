@@ -520,12 +520,6 @@ val peg_sound = store_thm(
       >- (fs[] >> rveq >> fs[])
       >- (fs[] >> rveq >> fs[]) >>
       fs[] >> rveq >> fs[])
-  >- (print_tac "nStarTypesP" >>
-      strip_tac >> rveq >>
-      dsimp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> csimp[] >>
-      first_x_assum (fn patth =>
-         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
-      simp[NT_rank_def] >> strip_tac >> rveq >> simp[])
   >- (print_tac "nStarTypes" >>
       disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
       simp[DISJ_IMP_THM, FORALL_AND_THM, cmlG_applied, cmlG_FDOM,

@@ -77,7 +77,6 @@ val NT_rank_def = Define`
         else if n = nTypeList1         then  5
         else if n = nTypeList2         then  5
         else if n = nType              then  4
-        else if n = nStarTypesP        then  5
         else if n = nStarTypes         then  4
         else if n = nDType             then  3
         else if n = nTyOp              then  2

@@ -195,29 +195,21 @@ val ptree_TypeName_def = Define`
 `;
 
 val ptree_StarTypes_def = Define`
-  ptree_StarTypes p pt : ast_t list option =
+  ptree_StarTypes pt : ast_t list option =
     case pt of
         Lf _ => NONE
       | Nd nt args =>
-        if p ∧ (nt = mkNT nStarTypesP) then
-          case args of
-              [pt0] => ptree_StarTypes F pt0
-            | [lp; pt0; rp] => do assert (lp = Lf (TK LparT)) ;
-                                  assert (rp = Lf (TK RparT)) ;
-                                  ptree_StarTypes F pt0
-                               od
-            | _ => NONE
-        else if ¬p ∧ (nt = mkNT nStarTypes) then
+        if nt <> mkNT nStarTypes then NONE
+        else
           case args of
               [pt0] => do ty <- ptree_Type pt0; SOME([ty]) od
             | [pt1; star; pt2] => do
                  assert(star = Lf (TK StarT));
-                 pfx <- ptree_StarTypes F pt1;
+                 pfx <- ptree_StarTypes pt1;
                  ty <- ptree_Type pt2;
                  SOME(list$APPEND pfx [ty: ast_t])
               od
             | _ => NONE
-        else NONE
 `;
 
 val ptree_UQConstructorName_def = Define`
@@ -265,7 +257,7 @@ val ptree_Dconstructor_def = Define`
                                [] => SOME []
                              | [oft; startys] =>
                                if oft = Lf (TK OfT) then
-                                 ptree_StarTypes T startys
+                                 ptree_StarTypes startys
                                else NONE
                              | _ => NONE;
                  SOME(cname, types)
