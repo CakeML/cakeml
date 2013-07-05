@@ -126,16 +126,12 @@ val _ = Define `
 (compile_decs mn menv ct m env rsz cs (dec::decs) =  
 (let (vso,cs) = ( compile_dec menv m env rsz cs dec) in
   let ct = ( dec_to_contab mn ct dec) in
-  let (m,env,rsz,cs) =    
-((case vso of
-      NONE => ((m with<| cnmap := cmap ct|>),env,rsz,cs)
-    | SOME vs =>
-        let n = ( LENGTH vs) in
-        ((m with<| bvars := vs ++m.bvars|>)
-        ,(( GENLIST (\ i . CTDec (rsz +i)) n) ++env)
-        ,(rsz + n)
-        ,compile_news F cs 0 vs)
-    )) in
+  let vs = ((case vso of NONE => [] | SOME vs => vs )) in
+  let n = ( LENGTH vs) in
+  let m = (( m with<| cnmap := cmap ct; bvars := vs ++m.bvars |>)) in
+  let env = (( GENLIST(\ i . CTDec (rsz +i))n) ++env) in
+  let rsz = (rsz +n) in
+  let cs = ( compile_news F cs 0 vs) in
   compile_decs mn menv ct m env rsz cs decs))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_decs_defn;

@@ -86,16 +86,12 @@ and
 compile_decs mn menv ct m env rsz cs (dec::decs) =
   let (vso,cs) = compile_dec menv m env rsz cs dec in
   let ct = dec_to_contab mn ct dec in
-  let (m,env,rsz,cs) =
-    match vso with
-    | None -> (<|m with cnmap = cmap ct|>,env,rsz,cs)
-    | Some vs ->
-        let n = List.length vs in
-        (<|m with bvars = vs@m.bvars|>
-        ,(genlist (fun i -> CTDec (rsz+i)) n)@env
-        ,rsz + n
-        ,compile_news false cs 0 vs)
-    end in
+  let vs = match vso with None -> [] | Some vs -> vs end in
+  let n = List.length vs in
+  let m = <| m with cnmap = cmap ct; bvars = vs@m.bvars |> in
+  let env = (genlist(fun i -> CTDec (rsz+i))n)@env in
+  let rsz = rsz+n in
+  let cs = compile_news false cs 0 vs in
   compile_decs mn menv ct m env rsz cs decs
 
 let compile_decs_wrap mn rs decs =
