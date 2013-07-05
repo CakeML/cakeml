@@ -199,6 +199,7 @@ strip_tac >- (
   rw[pmatch_def] >>
   BasicProvers.CASE_TAC >>
   fs[] ) >>
+strip_tac >- cheat >>
 strip_tac >- rw[pmatch_def] >>
 strip_tac >- rw[pmatch_def] >>
 strip_tac >- rw[pmatch_def] >>
@@ -227,6 +228,13 @@ strip_tac >- (
   pop_assum(qspec_then`LENGTH l`mp_tac) >>
   simp_tac(srw_ss())[TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND] ) >>
 strip_tac >- rw[pmatch_def] >>
+NTAC 2 (strip_tac >- (
+  rw[pmatch_def] >>
+  pop_assum (qspec_then`n`mp_tac) >>
+  Cases_on `pmatch cenv s p v (TAKE n env)`>>fs[] >>
+  strip_tac >> res_tac >>
+  pop_assum(qspec_then`LENGTH l`mp_tac) >>
+  simp_tac(srw_ss())[TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND] )) >>
 strip_tac >- rw[pmatch_def])
 
 val pmatch_plit = store_thm(
@@ -279,7 +287,7 @@ val (closed_rules,closed_ind,closed_cases) = Hol_reln`
  (∀d x b. MEM (d,x,b) defs ⇒
           FV b ⊆ set (MAP (Short o FST) env) ∪ set (MAP (Short o FST) defs) ∪ {Short x} ∪ menv_dom menv)
 ⇒ closed menv (Recclosure env defs d)) ∧
-(closed menv (Loc n))`
+(closed menv (Loc n))`;
 
 val closed_lit = save_thm(
 "closed_lit",
@@ -365,7 +373,7 @@ ntac 4 gen_tac >> Cases
   fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,FORALL_PROD] >>
   rw[] >>
   fs[store_assign_def] >> rw[] >>
-  PROVE_TAC[MEM_LUPDATE,closed_lit,closed_conv,EVERY_MEM,closed_loc]))
+  PROVE_TAC[MEM_LUPDATE,closed_lit,closed_conv,EVERY_MEM,closed_loc]));
 
 val pmatch_closed = store_thm("pmatch_closed",
   ``(∀(cenv:envC) s p v env env' (menv:envM).
@@ -403,6 +411,7 @@ val pmatch_closed = store_thm("pmatch_closed",
     Cases_on `store_lookup lnum s`>>
     fsrw_tac[DNF_ss][store_lookup_def,EVERY_MEM,MEM_EL] >>
     metis_tac[]) >>
+  strip_tac >- cheat >>
   strip_tac >- rw[pmatch_def] >>
   strip_tac >- rw[pmatch_def] >>
   strip_tac >- rw[pmatch_def] >>
@@ -415,6 +424,8 @@ val pmatch_closed = store_thm("pmatch_closed",
   strip_tac >- rw[pmatch_def] >>
   strip_tac >- rw[pmatch_def] >>
   strip_tac >- rw[pmatch_def] >>
+  strip_tac >- (rw[pmatch_def,pat_bindings_def] >> rw[]) >>
+  strip_tac >- (rw[pmatch_def,pat_bindings_def] >> rw[]) >>
   strip_tac >- (rw[pmatch_def,pat_bindings_def] >> rw[]) >>
   strip_tac >- (
     rpt gen_tac >>
