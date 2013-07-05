@@ -1018,10 +1018,10 @@ val EvalC_def = Define `
 
 val Eval_IMP_EvalC = store_thm("Eval_IMP_EvalC",
   ``check_ctors_decs NONE [] ds /\ DeclAssumC ds cenv env ==>
-    !exp P. Eval env exp P ==> EvalC cenv env exp P``,
-rw [Eval_def, EvalC_def, DeclAssumC_def, DeclsC_def, empty_store_def] >>
-`check_ctors cenv exp` by cheat >>
-`eval_ctor_inv cenv [] env` by cheat >>
-metis_tac [eval'_to_eval_simple_pat, result_distinct]);
+    !n P. Eval env (Var n) P ==> EvalC cenv env (Var n) P``,
+  rw [Eval_def, EvalC_def, DeclAssumC_def, DeclsC_def, empty_store_def] >>
+  `check_ctors cenv (Var n)` by EVAL_TAC >>
+  `eval_ctor_inv cenv [] env` by cheat >>
+  metis_tac [eval'_to_eval_simple_pat, result_distinct]);
 
 val _ = export_theory();
