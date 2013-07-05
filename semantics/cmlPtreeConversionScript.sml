@@ -44,6 +44,16 @@ val ptree_UQTyop_def = Define`
         | _ => NONE
 `;
 
+val ptree_TyvarN_def = Define`
+  ptree_TyvarN (Lf _) = NONE ∧
+  ptree_TyvarN (Nd nt args) =
+    if nt <> mkNT nTyvarN then NONE
+    else
+      case args of
+          [tyv] => destTyvarPT tyv
+        | _ => NONE
+`;
+
 val _ = temp_overload_on ("'", ``λf a. OPTION_BIND a f``);
 
 val ptree_Tyop_def = Define`
@@ -175,7 +185,7 @@ val ptree_TypeName_def = Define`
                         od
         | [lp; tyvl; rp; opt] =>
           if lp = Lf (TK LparT) ∧ rp = Lf (TK RparT) then do
-              tyvnms <- ptree_linfix nTyVarList CommaT destTyvarPT tyvl;
+              tyvnms <- ptree_linfix nTyVarList CommaT ptree_TyvarN tyvl;
               opn <- ptree_UQTyop opt;
               SOME(tyvnms, opn)
             od
