@@ -20,7 +20,7 @@ val _ = new_theory "Printer"
 val _ = Hol_datatype `
  ov =
     OLit of lit
-  | OConv of conN id => ov list
+  | OConv of ( conN id) option => ov list
   | OFn
   | OLoc of num (* machine, not semantic, address *)
   | OError`;

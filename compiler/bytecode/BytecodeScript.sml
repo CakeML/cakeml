@@ -90,7 +90,7 @@ val _ = Hol_datatype `
       refs : (num, bc_value)fmap;
       handler : num;
       output : string;
-      cons_names : (num # conN id) list;
+      cons_names : (num # ( conN id) option) list;
       (* artificial state components *)
       inst_length : bc_inst -> num;
       clock : num option
@@ -173,6 +173,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (bc_find_loc s (Lab l) = ( bc_find_loc_aux s.code s.inst_length l 0))`;
 
 
+(*val bv_to_ov : list (num * option (id conN)) -> bc_value -> ov*)
  val bv_to_ov_defn = Hol_defn "bv_to_ov" `
 
 (bv_to_ov _ (Number i) = (OLit (IntLit i)))
@@ -182,7 +183,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   if n = (bool_to_tag T) then OLit (Bool T) else
   if n = unit_tag then OLit Unit else
   if n = closure_tag then OFn else
-  OConv (the (Short "?") (Lib$lookup (n - block_tag) m)) ( MAP (bv_to_ov m) vs)))
+  OConv (the NONE (Lib$lookup (n - block_tag) m)) ( MAP (bv_to_ov m) vs)))
 /\
 (bv_to_ov _ (RefPtr n) = (OLoc n))
 /\

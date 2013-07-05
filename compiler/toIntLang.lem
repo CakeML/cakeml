@@ -93,7 +93,7 @@ let shift n = mkshift (fun v -> v+n)
 type exp_to_Cexp_state =
  <| bvars : list string
   ; mvars : Pmap.map string (list string)
-  ; cnmap : Pmap.map (id conN) num
+  ; cnmap : Pmap.map (option (id conN)) num
   |>
 let rec cbv m v = <| m with bvars = v::m.bvars |>
 

@@ -68,7 +68,7 @@ type
       refs : Pmap.map num bc_value;
       handler : num;
       output : string;
-      cons_names : list (num * id conN);
+      cons_names : list (num * option (id conN));
       (* artificial state components *)
       inst_length : bc_inst -> num;
       clock : option num
@@ -124,6 +124,7 @@ bc_find_loc _ (Addr n) = Some n
 and
 bc_find_loc s (Lab l) = bc_find_loc_aux s.code s.inst_length l 0
 
+val bv_to_ov : list (num * option (id conN)) -> bc_value -> ov
 let rec
 bv_to_ov _ (Number i) = OLit (IntLit i)
 and
@@ -132,7 +133,7 @@ bv_to_ov m (Block n vs) =
   if n = (bool_to_tag true) then OLit (Bool true) else
   if n = unit_tag then OLit Unit else
   if n = closure_tag then OFn else
-  OConv (the (Short "?") (Lib.lookup (n-block_tag) m)) (List.map (bv_to_ov m) vs)
+  OConv (the None (Lib.lookup (n-block_tag) m)) (List.map (bv_to_ov m) vs)
 and
 bv_to_ov _ (RefPtr n) = OLoc n
 and

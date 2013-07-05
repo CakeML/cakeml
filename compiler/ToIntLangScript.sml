@@ -115,7 +115,7 @@ val _ = Hol_datatype `
  exp_to_Cexp_state =
  <| bvars : string list
   ; mvars : (string, ( string list))fmap
-  ; cnmap : (( conN id), num)fmap
+  ; cnmap : (( ( conN id)option), num)fmap
   |>`;
 
  val cbv_def = Define `
