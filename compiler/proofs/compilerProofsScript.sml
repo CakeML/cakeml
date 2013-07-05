@@ -518,7 +518,6 @@ val compile_news_thm = store_thm("compile_news_thm",
     simp[Once SWAP_REVERSE] ) >>
   metis_tac[])
 
-
 val Cevaluate_closed_vlabs = store_thm("Cevaluate_closed_vlabs",
   ``∀menv s env exp res cmnv code.
     closed_vlabs menv env (SND s) cmnv code ∧
@@ -2170,41 +2169,35 @@ val compile_decs_append_out = store_thm("compile_decs_append_out",
   qx_gen_tac`dec` >>
   rpt gen_tac >>
   qabbrev_tac`p = compile_dec menv m env rsz cs dec` >> PairCases_on`p` >> simp[] >>
-  Q.PAT_ABBREV_TAC`(q:(exp_to_Cexp_state#ctenv#num#compiler_result) = X)` >>
-  PairCases_on`q`>>fs[] >>
-  Q.PAT_ABBREV_TAC`^(mk_var("r",(funpow 8 (snd o dom_rng)(type_of``compile_decs``)))) = X` >>
+  Q.PAT_ABBREV_TAC`vs:string list = option_CASE X Y Z` >>
+  qspecl_then[`vs`,`F`,`p1`,`0`]mp_tac compile_news_thm >>
+  simp[] >> rw[] >>
+  qabbrev_tac`q = compile_news F p1 0 vs` >>
+  Q.PAT_ABBREV_TAC`m' = exp_to_Cexp_state_bvars_fupd X Y` >>
+  Q.PAT_ABBREV_TAC`renv' = GENLIST X Y ++ env` >>
+  qabbrev_tac`r = compile_decs mn menv (dec_to_contab mn ct dec) m' renv' (rsz + LENGTH vs) q decs` >>
   PairCases_on`r`>>fs[] >>
   strip_tac >>
-  first_x_assum(qspecl_then[`mn`,`menv`,`dec_to_contab mn ct dec`,`q0`,`q1`,`q2`,`q3`]mp_tac) >>
-  qpat_assum`Abbrev(X = Y)`mp_tac >> simp[markerTheory.Abbrev_def] >>
-  disch_then(assume_tac o SYM) >> simp[] >>
+  first_x_assum(qspecl_then[`mn`,`menv`,`dec_to_contab mn ct dec`,`m'`,`renv'`,`rsz + LENGTH vs`,`q`]mp_tac) >>
+  simp[] >>
   discharge_hyps >- (
-    Cases_on`p0`>>fs[markerTheory.Abbrev_def,FV_decs_def] >>
-    Cases_on`dec`>> fsrw_tac[DNF_ss][SUBSET_DEF,compile_dec_def,LET_THM,dec_to_contab_def,MEM_MAP,FV_defs_MAP,FORALL_PROD] >>
-    TRY(metis_tac[]) >>
+    simp[Abbr`renv'`,Abbr`m'`] >>
+    fs[FV_decs_def] >>
+    Cases_on`dec`>> fsrw_tac[DNF_ss][SUBSET_DEF,compile_dec_def,LET_THM,dec_to_contab_def,MEM_MAP,FV_defs_MAP,FORALL_PROD,markerTheory.Abbrev_def] >>
     rw[] >> res_tac >>
     qmatch_abbrev_tac`a ∨ b` >>
-    Cases_on`b`>>fs[EXISTS_PROD] ) >>
-  rw[] >>
-  Cases_on`p0`>>fs[markerTheory.Abbrev_def] >- (
-    rw[] >>
-    Cases_on`dec`>>fs[compile_dec_def,LET_THM] >>
-    simp[Once SWAP_REVERSE] >> rw[] >> fs[] >>
-    fs[between_labels_def] ) >>
-  qspecl_then[`x`,`F`,`p1`,`0`]mp_tac compile_news_thm >>
-  simp[] >> rw[] >>
-  simp[] >>
+    Cases_on`b`>>fs[EXISTS_PROD,MEM_MAP] ) >>
+  strip_tac >>
   qspecl_then[`menv`,`m`,`env`,`rsz`,`cs`,`dec`]mp_tac compile_dec_append_out >>
-  simp[] >>
-  last_x_assum(assume_tac o SYM) >>
   simp[] >>
   discharge_hyps >- (
     fsrw_tac[DNF_ss][FV_decs_def,SUBSET_DEF] ) >>
   rw[] >> simp[Once SWAP_REVERSE] >>
   fsrw_tac[DNF_ss][between_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND,EVERY_MEM,MEM_MAP,is_Label_rwt,MEM_FILTER] >>
-  `FILTER is_Label code' = []` by (simp[FILTER_EQ_NIL,EVERY_MEM,is_Label_rwt] >> metis_tac[]) >>
+  `FILTER is_Label code = []` by (simp[FILTER_EQ_NIL,EVERY_MEM,is_Label_rwt] >> metis_tac[]) >>
   simp[] >>
-  fsrw_tac[DNF_ss][between_def] >>
+  fsrw_tac[DNF_ss][between_def,Abbr`m'`,Abbr`vs`] >>
+  reverse conj_tac >- (Cases_on`p0`>>fs[])>>
   rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC)
 
 val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
