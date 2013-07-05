@@ -230,9 +230,9 @@ val var_pat_def = Define `
 (var_pat _ = F)`;
 
 val check_ctors_p_def = Define `
-(check_ctors_p cenv NONE (Pvar x) = T) ∧
+(check_ctors_p (cenv:envC) NONE (Pvar x) = T) ∧
 (check_ctors_p cenv NONE (Plit l) = T) ∧
-(check_ctors_p cenv (SOME t) (Pcon cn ps) =
+(check_ctors_p cenv (SOME t) (Pcon (SOME cn) ps) =
   case lookup cn cenv of
      | NONE => F
      | SOME (len, tn) =>
@@ -243,13 +243,15 @@ val check_ctors_p_def = Define `
 (check_ctors_p cenv _ _ = F)`;
 
 val get_pat_type_def = Define `
-(get_pat_type cenv (Pvar x) = NONE) ∧
+(get_pat_type (cenv:envC) (Pvar x) = NONE) ∧
 (get_pat_type cenv (Plit x) = NONE) ∧
 (get_pat_type cenv (Pref x) = NONE) ∧
-(get_pat_type cenv (Pcon cn ps) = 
+(get_pat_type cenv (Pcon (SOME cn) ps) = 
   case lookup cn cenv of
      | NONE => NONE
-     | SOME (len, tn) => SOME tn)`;
+     | SOME (len, tn) => SOME tn) ∧
+(get_pat_type cenv (Pcon NONE ps) =
+  NONE)`;
 
 val get_pat_type_thm = Q.prove (
 `!cenv p1 p2.
@@ -260,13 +262,17 @@ cases_on `p1` >>
 rw [get_pat_type_def, check_ctors_p_def] >>
 cases_on `p2` >>
 fs [get_pat_type_def, check_ctors_p_def] >>
-cases_on `lookup i cenv` >>
+cases_on `o'` >>
+fs [get_pat_type_def, check_ctors_p_def] >>
+cases_on `lookup x cenv` >>
 fs [] >>
-TRY (PairCases_on `x`) >>
+TRY (PairCases_on `x'`) >>
 fs [check_ctors_p_def] >>
-cases_on `lookup i' cenv` >>
+cases_on `o''` >>
+fs [get_pat_type_def, check_ctors_p_def] >>
+cases_on `lookup x' cenv` >>
 fs [] >>
-PairCases_on `x` >>
+PairCases_on `x''` >>
 fs []);
 
 val check_ctors_def = tDefine "check_ctors" `
@@ -274,9 +280,10 @@ val check_ctors_def = tDefine "check_ctors" `
 (check_ctors cenv (Handle e1 x e2) = 
   (check_ctors cenv e1 ∧ check_ctors cenv e2)) ∧
 (check_ctors cenv (Lit l) = T) ∧
-(check_ctors cenv (Con cn es) = 
-  (do_con_check cenv cn (LENGTH es) ∧
+(check_ctors cenv (Con (SOME cn) es) = 
+  (do_con_check cenv (SOME cn) (LENGTH es) ∧
    EVERY (check_ctors cenv) es)) ∧
+(check_ctors cenv (Con NONE es) = F) ∧
 (check_ctors cenv (Var id) = T) ∧
 (check_ctors cenv (Fun x e) = 
   check_ctors cenv e) ∧
@@ -311,9 +318,10 @@ decide_tac);
 
 val check_ctors_v_def = tDefine "check_ctors_v" `
 (check_ctors_v cenv (Litv l) = T) ∧
-(check_ctors_v cenv (Conv cn vs) =
-  (do_con_check cenv cn (LENGTH vs) ∧
+(check_ctors_v cenv (Conv (SOME cn) vs) =
+  (do_con_check cenv (SOME cn) (LENGTH vs) ∧
    EVERY (check_ctors_v cenv) vs)) ∧
+(check_ctors_v cenv (Conv NONE vs) = F) ∧
 (check_ctors_v cenv (Closure env x e) =
   (EVERY (\(x,v). check_ctors_v cenv v) env ∧
    check_ctors cenv e)) ∧
@@ -462,7 +470,7 @@ val check_ctors_match_result_def = Define `
 (check_ctors_match_result cenv s _ = T)`;
 
 val get_val_type_def = Define `
-(get_val_type cenv (Conv cn vs) = 
+(get_val_type (cenv:envC) (Conv (SOME cn) vs) = 
   case lookup cn cenv of
      | NONE => NONE
      | SOME (len, tn) => SOME tn) ∧
@@ -505,19 +513,25 @@ cases_on `t` >>
 fs [pmatch_def, pmatch'_def, check_ctors_p_def, check_ctors_v_def, eval_ctor_inv_bind_env,
     check_ctors_match_result_def, get_pat_type_def, get_val_type_def] >-
 rw [check_ctors_match_result_def] >|
-[NTAC 5 strip_tac >>
-     Cases_on `lookup i cenv` >>
-     fs [] >>
-     Cases_on `x'` >>
-     fs [] >>
-     Cases_on `lookup i' cenv` >>
-     fs [do_con_check_def, check_ctors_p_def] >>
-     Cases_on `x'` >>
-     fs [check_ctors_p_def, check_ctors_match_result_def] >>
-     rw [check_ctors_match_result_def] >>
-     fs [] >>
-     metis_tac [pmatch'_pmatch2_lem],
- NTAC 5 STRIP_TAC >>
+[NTAC 4 strip_tac >>
+     cases_on `o'` >>
+     cases_on `o''` >>
+     fs [check_ctors_p_def, pmatch_def] >>
+     Cases_on `lookup x' cenv` >>
+     fs [] >|
+     [Cases_on `x''` >>
+          fs [check_ctors_v_def, get_pat_type_def, get_val_type_def],
+      PairCases_on `x'''` >>
+          fs [] >>
+          Cases_on `lookup x'' cenv` >>
+          fs [do_con_check_def, check_ctors_p_def, get_pat_type_def,
+              get_val_type_def, check_ctors_v_def] >>
+          PairCases_on `x'''` >>
+          fs [] >>
+          rw [check_ctors_match_result_def] >>
+          fs [] >>
+          metis_tac [pmatch'_pmatch2_lem]],
+ NTAC 4 STRIP_TAC >>
      every_case_tac >>
      fs [store_lookup_def, EVERY_EL] >>
      fs [check_ctors_p_def, EVERY_EL, eval_ctor_inv_def, check_ctors_match_result_def] >>
@@ -540,11 +554,19 @@ cases_on `v` >>
 rw [get_pat_type_def, get_val_type_def] >>
 every_case_tac >>
 fs [] >>
+cases_on `o'` >>
+cases_on `o''` >>
 cases_on `p'` >>
 fs [check_ctors_p_def, pmatch'_def, get_pat_type_def, get_val_type_def] >>
 rw [] >>
-cases_on `lookup i' cenv` >>
-fs []);
+cases_on `lookup x cenv` >>
+fs [] >>
+cases_on `lookup x' cenv` >>
+fs [] >>
+PairCases_on `x''` >>
+fs [] >>
+PairCases_on `x'''` >>
+fs [check_ctors_p_def]);
 
 val eval'_to_eval2_lem = Q.prove (
 `!pes cenv p v t1 t2 s env count.
@@ -615,13 +637,18 @@ fs [lookup_var_id_def, EVERY_MEM, check_ctors_result_def, check_ctors_v_def, che
  metis_tac [check_ctors_result_def, check_ctors_v_def],
  metis_tac [check_ctors_result_def, check_ctors_v_def],
  metis_tac [check_ctors_result_def, check_ctors_v_def],
- res_tac >>
-     fs [do_con_check_def, check_ctors_result_def, check_ctors_v_def, check_ctors_result2_def] >>
+ cases_on `cn` >>
+     fs [check_ctors_def, do_con_check_def, check_ctors_result_def, check_ctors_v_def, check_ctors_result2_def] >>
      rw [check_ctors_result_def, check_ctors_v_def, do_con_check_def] >>
      every_case_tac >>
-     fs [] >>
+     fs [EVERY_MEM] >>
      metis_tac [],
- metis_tac [check_ctors_result_def, check_ctors_v_def],
+ cases_on `cn` >>
+     fs [check_ctors_def, do_con_check_def, check_ctors_result_def, check_ctors_v_def, check_ctors_result2_def] >>
+     rw [check_ctors_result_def, check_ctors_v_def, do_con_check_def] >>
+     every_case_tac >>
+     fs [EVERY_MEM] >>
+     metis_tac [],
  metis_tac [eval_ctor_inv_lookup, check_ctors_result_def],
  metis_tac [check_ctors_result_def, check_ctors_v_def],
  metis_tac [check_ctors_result_def, check_ctors_v_def],
@@ -766,6 +793,8 @@ val check_ctors_p_weakening = Q.prove (
   check_ctors_p (cenv2++cenv1) (get_pat_type (cenv2++cenv1) p) p)`,
 cases_on `p` >>
 rw [check_ctors_p_def, get_pat_type_def, lookup_append] >>
+cases_on `o'` >>
+fs [check_ctors_p_def, get_pat_type_def, lookup_append] >>
 every_case_tac >>
 fs [check_ctors_p_def] >>
 rw [lookup_append] >>
@@ -801,19 +830,23 @@ rw [check_ctors_def, EVERY_MEM, do_con_check_def, lookup_append] >|
      cases_on `e''0` >>
      cases_on `p` >> 
      fs [check_ctors_p_def, get_pat_type_def] >>
-     cases_on `lookup i cenv1` >>
+     cases_on `o'` >>
+     fs [check_ctors_p_def, get_pat_type_def] >>
+     cases_on `lookup x cenv1` >>
      fs [] >>
-     TRY (PairCases_on `x`) >>
+     TRY (PairCases_on `x'`) >>
      fs [check_ctors_p_def] >>
+     cases_on `o''` >>
+     fs [get_pat_type_def] >>
      every_case_tac >>
      fs [lookup_append] >>
      every_case_tac >>
-     fs [check_ctors_p_def] >>
-     rw [lookup_append] >>
-     cases_on `lookup i cenv2` >>
+     cases_on `lookup x cenv2` >>
      fs [] >>
      imp_res_tac lookup_in2 >>
-     fs [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+     fs [disjoint_env_def, DISJOINT_DEF, EXTENSION, check_ctors_p_def] >>
+     rw [] >>
+     fs [lookup_append] >>
      metis_tac [],
  PairCases_on `e'` >>
      fs [] >>
@@ -972,5 +1005,5 @@ metis_tac [eval_decs'_to_eval_decs_simple_pat, eval_dec'_to_eval_dec_simple_pat,
            eval_ctor_inv_def, result_distinct, error_result_distinct, result_11] >>
 
            *)
-      
+
 val _ = export_theory ();
