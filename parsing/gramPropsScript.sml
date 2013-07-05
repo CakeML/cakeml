@@ -197,6 +197,7 @@ val nullable_Pbase = prove_nullable ``nPbase``
 val nullable_LetDec = prove_nullable ``nLetDec``
 val nullable_TyVarList = prove_nullable ``nTyVarList``
 val nullable_DtypeDecl = prove_nullable ``nDtypeDecl``
+val nullable_Decl = prove_nullable ``nDecl``
 
 val len_assum =
     first_x_assum

@@ -48,4 +48,16 @@ in
   if is_resolvable th then c th else NO_TAC
 end
 
+fun print_tac s (g as (asl,w)) = let
+  fun mmlnt_test t = is_const t andalso type_of t = ``:MMLnonT``
+in
+  case get_first (Lib.total (find_term mmlnt_test)) asl of
+      NONE => raise Fail "No MMLnonT in goal"
+    | SOME t => if term_to_string t = s then
+                  (print ("print_tac: "^s^"\n"); ALL_TAC g)
+                else raise Fail ("MMLnonT not "^s)
+end
+
+
+
 end

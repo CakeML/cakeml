@@ -21,5 +21,6 @@ sig
   val rveq : tactic
 
   val erule : thm_tactic -> thm_tactic
+  val print_tac : string -> tactic
 
 end
