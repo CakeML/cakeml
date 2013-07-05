@@ -253,7 +253,14 @@ List.length ts' = List.length tvs' &&
 type_ps tvs cenv ps (List.map (type_subst (List.combine tvs' ts')) ts) tenv &&
 lookup cn cenv = Some (tvs', ts, tn)
 ==>
-type_p tvs cenv (Pcon cn ps) (Tapp ts' (TC_name tn)) tenv
+type_p tvs cenv (Pcon (Some cn) ps) (Tapp ts' (TC_name tn)) tenv
+
+and
+
+forall tvs cenv ps ts tenv.
+type_ps tvs cenv ps ts tenv
+==>
+type_p tvs cenv (Pcon None ps) (Tapp ts TC_tup) tenv
 
 and
 
@@ -321,7 +328,14 @@ List.length tvs = List.length ts' &&
 type_es menv cenv tenv es (List.map (type_subst (List.combine tvs ts')) ts) &&
 lookup cn cenv = Some (tvs, ts, tn)
 ==>
-type_e menv cenv tenv (Con cn es) (Tapp ts' (TC_name tn))
+type_e menv cenv tenv (Con (Some cn) es) (Tapp ts' (TC_name tn))
+
+and
+
+forall menv cenv tenv es ts.
+type_es menv cenv tenv es ts
+==>
+type_e menv cenv tenv (Con None es) (Tapp ts TC_tup)
 
 and
 

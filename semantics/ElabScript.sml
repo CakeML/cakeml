@@ -134,7 +134,7 @@ val _ = type_abbrev( "ast_prog" , ``: ast_top list``);
 /\
 (elab_p (Ast_Plit l) = (Plit l))
 /\
-(elab_p (Ast_Pcon cn ps) = (Pcon cn (elab_ps ps)))
+(elab_p (Ast_Pcon cn ps) = (Pcon (SOME cn) (elab_ps ps)))
 /\
 (elab_p (Ast_Pref p) = (Pref (elab_p p)))
 /\
@@ -171,14 +171,14 @@ val _ = type_abbrev( "ctor_env" , ``: (conN, ( conN id)) env``);
 (Var id))
 /\
 (elab_e ctors (Ast_Con (Long mn cn) es) =  
-(Con (Long mn cn) ( MAP (elab_e ctors) es)))
+(Con (SOME (Long mn cn)) ( MAP (elab_e ctors) es)))
 /\
 (elab_e ctors (Ast_Con (Short cn) es) =  
 ((case lookup cn ctors of
       SOME cid =>
-        Con cid ( MAP (elab_e ctors) es)
+        Con (SOME cid) ( MAP (elab_e ctors) es)
     | NONE =>
-        Con (Short cn) ( MAP (elab_e ctors) es)
+        Con (SOME (Short cn)) ( MAP (elab_e ctors) es)
   )))
 /\
 (elab_e ctors (Ast_Fun n e) =  

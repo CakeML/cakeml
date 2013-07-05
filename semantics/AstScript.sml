@@ -111,7 +111,8 @@ val _ = Hol_datatype `
   | TC_bool
   | TC_unit
   | TC_ref
-  | TC_fn`;
+  | TC_fn
+  | TC_tup`;
 
 
 val _ = Hol_datatype `
@@ -144,7 +145,7 @@ val _ = Hol_datatype `
     Pvar of varN
   | Plit of lit
   (* Constructor applications. *)
-  | Pcon of conN id => pat list
+  | Pcon of ( conN id) option => pat list
   | Pref of pat`;
 
 
@@ -154,6 +155,7 @@ val _ = Hol_datatype `
  error =
     Bind_error
   | Div_error
+  | Eq_error
   | Int_error of int`;
 
 
@@ -166,7 +168,7 @@ val _ = Hol_datatype `
   | Handle of exp => varN => exp
   | Lit of lit
   (* Constructor application. *)
-  | Con of conN id => exp list
+  | Con of ( conN id) option => exp list
   | Var of varN id
   | Fun of varN => exp
   (* Application of a unary operator *)

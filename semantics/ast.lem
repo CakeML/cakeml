@@ -78,6 +78,7 @@ type tc =
   | TC_unit
   | TC_ref
   | TC_fn
+  | TC_tup
 
 type t =
   | Tvar of tvarN
@@ -96,7 +97,7 @@ type pat =
   | Pvar of varN
   | Plit of lit
   (* Constructor applications. *)
-  | Pcon of id conN * list pat
+  | Pcon of option (id conN) * list pat
   | Pref of pat
 
 (* Runtime errors.  Temporary: later on we want to move to SML-style declared
@@ -104,6 +105,7 @@ type pat =
 type error =
   | Bind_error
   | Div_error
+  | Eq_error
   | Int_error of int
 
 (* Expressions *)
@@ -114,7 +116,7 @@ type exp =
   | Handle of exp * varN * exp
   | Lit of lit
   (* Constructor application. *)
-  | Con of id conN * list exp
+  | Con of option (id conN) * list exp
   | Var of id varN
   | Fun of varN * exp
   (* Application of a unary operator *)

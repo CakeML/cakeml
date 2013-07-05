@@ -33,7 +33,7 @@ val _ = Hol_datatype `
   | Clet of varN => unit => exp
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
-  | Ccon of conN id => v list => unit => exp list
+  | Ccon of ( conN id) option => v list => unit => exp list
   | Cuapp of uop => unit`;
 
 val _ = type_abbrev( "ctxt" , ``: ctxt_frame # envE``);

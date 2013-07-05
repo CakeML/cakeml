@@ -108,7 +108,7 @@ elab_p (Ast_Pvar n) = Pvar n
 and
 elab_p (Ast_Plit l) = Plit l
 and
-elab_p (Ast_Pcon cn ps) = Pcon cn (elab_ps ps)
+elab_p (Ast_Pcon cn ps) = Pcon (Some cn) (elab_ps ps)
 and
 elab_p (Ast_Pref p) = Pref (elab_p p)
 and
@@ -142,14 +142,14 @@ elab_e ctors (Ast_Var id) =
   Var id
 and
 elab_e ctors (Ast_Con (Long mn cn) es) =
-  Con (Long mn cn) (List.map (elab_e ctors) es)
+  Con (Some (Long mn cn)) (List.map (elab_e ctors) es)
 and
 elab_e ctors (Ast_Con (Short cn) es) =
   match lookup cn ctors with
     | Some cid ->
-        Con cid (List.map (elab_e ctors) es)
+        Con (Some cid) (List.map (elab_e ctors) es)
     | None ->
-        Con (Short cn) (List.map (elab_e ctors) es)
+        Con (Some (Short cn)) (List.map (elab_e ctors) es)
   end
 and
 elab_e ctors (Ast_Fun n e) =

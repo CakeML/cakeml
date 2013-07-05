@@ -303,7 +303,14 @@ type_ps tvs cenv ps ( MAP (type_subst ( ZIP ( tvs', ts'))) ts) tenv /\
 (
 lookup cn cenv = SOME (tvs', ts, tn)))
 ==>
-type_p tvs cenv (Pcon cn ps) (Tapp ts' (TC_name tn)) tenv)
+type_p tvs cenv (Pcon (SOME cn) ps) (Tapp ts' (TC_name tn)) tenv)
+
+/\
+
+(! tvs cenv ps ts tenv.
+(type_ps tvs cenv ps ts tenv)
+==>
+type_p tvs cenv (Pcon NONE ps) (Tapp ts TC_tup) tenv)
 
 /\
 
@@ -371,7 +378,14 @@ type_es menv cenv tenv es ( MAP (type_subst ( ZIP ( tvs, ts'))) ts) /\
 (
 lookup cn cenv = SOME (tvs, ts, tn)))
 ==>
-type_e menv cenv tenv (Con cn es) (Tapp ts' (TC_name tn)))
+type_e menv cenv tenv (Con (SOME cn) es) (Tapp ts' (TC_name tn)))
+
+/\
+
+(! menv cenv tenv es ts.
+(type_es menv cenv tenv es ts)
+==>
+type_e menv cenv tenv (Con NONE es) (Tapp ts TC_tup))
 
 /\
 

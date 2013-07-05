@@ -19,7 +19,7 @@ val _ = Hol_datatype `
  v =
     Litv of lit
   (* Constructor application. *)
-  | Conv of conN id => v list 
+  | Conv of ( conN id) option => v list 
   (* Function closures
      The environment is used for the free variables in the function *)
   | Closure of (varN, v) env => varN => exp
@@ -101,12 +101,16 @@ val _ = Define `
 
 (* Other primitives *)
 (* Check that a constructor is properly applied *)
-(*val do_con_check : envC -> id conN -> num -> bool*)
+(*val do_con_check : envC -> option (id conN) -> num -> bool*)
 val _ = Define `
- (do_con_check cenv n l =  
-((case lookup n cenv of
-      NONE => F
-    | SOME (l',ns) => l = l'
+ (do_con_check cenv n_opt l =  
+((case n_opt of
+      NONE => T
+    | SOME n =>
+        (case lookup n cenv of
+            NONE => F
+          | SOME (l',ns) => l = l'
+        )
   )))`;
 
 
@@ -149,7 +153,7 @@ val _ = Hol_datatype `
   else
     Match_type_error))
 /\
-(pmatch envC s (Pcon n ps) (Conv n' vs) env =  
+(pmatch envC s (Pcon (SOME n) ps) (Conv (SOME n') vs) env =  
 ((case (lookup n envC, lookup n' envC) of
       (SOME (l, t), SOME (l', t')) =>
         if (t = t') /\ ( LENGTH ps = l) /\ ( LENGTH vs = l') then
@@ -161,6 +165,12 @@ val _ = Hol_datatype `
           Match_type_error
     | (_, _) => Match_type_error
   )))
+/\
+(pmatch envC s (Pcon NONE ps) (Conv NONE vs) env =  
+(if LENGTH ps = LENGTH vs then
+    pmatch_list envC s ps vs env
+  else
+    Match_type_error))
 /\
 (pmatch envC s (Pref p) (Loc lnum) env =  
 ((case store_lookup lnum s of
@@ -263,7 +273,7 @@ val _ = Define `
         SOME (s, env', Lit (Bool (opb_lookup op n1 n2)))
     | (Equality, v1, v2) =>
         if contains_closure v1 \/ contains_closure v2 then
-          NONE
+          SOME (s, env', Raise Eq_error)
         else
           SOME (s, env', Lit (Bool (v1 = v2)))
     | (Opassign, (Loc lnum), v) =>
