@@ -1958,6 +1958,154 @@ val FV_decs_def = Define`
 
 ---8<---
 
+  compile_decs_def
+  compile_dec_append_out
+
+val decs_cns_def = Define`
+  (decs_cns _ [] = {}) ∧
+  (decs_cns mn (d::ds) = dec_cns d ∪ (decs_cns mn ds DIFF (IMAGE (mk_id mn) (set (new_dec_cns d)))))`
+
+val evaluate_dec_err_cenv_emp = store_thm("evaluate_dec_err_cenv_emp",
+  ``∀mn menv cenv s env d res. evaluate_dec mn menv cenv s env d res ⇒
+    ∀err. SND res = Rerr err ∧ err ≠ Rtype_error ⇒ dec_to_cenv mn d = []``,
+  ho_match_mp_tac evaluate_dec_ind >> simp[dec_to_cenv_def])
+
+val evaluate_dec_new_dec_cns = store_thm("evaluate_dec_new_dec_cns",
+  ``∀mn menv cenv s env d res. evaluate_dec mn menv cenv s env d res ⇒
+    ∀tds env. SND res = Rval (tds,env) ⇒
+    MAP (mk_id mn) (new_dec_cns d) = (MAP FST tds)``,
+  ho_match_mp_tac evaluate_dec_ind >>
+  simp[LibTheory.emp_def,SemanticPrimitivesTheory.build_tdefs_def] >>
+  rw[] >>
+  simp[MAP_MAP_o,MAP_FLAT] >> AP_TERM_TAC >>
+  simp[MAP_EQ_f,FORALL_PROD,MAP_MAP_o])
+
+val evaluate_dec_dec_to_cenv = store_thm("evaluate_dec_dec_to_cenv",
+  ``∀mn menv cenv s env d res. evaluate_dec mn menv cenv s env d res ⇒
+    ∀tds env. SND res = Rval (tds,env) ⇒
+    tds = dec_to_cenv mn d``,
+  ho_match_mp_tac evaluate_dec_ind >>
+  simp[LibTheory.emp_def,dec_to_cenv_def])
+
+val compile_decs_thm = store_thm("compile_decs_thm",
+  ``∀mn menv cenv s env decs res.
+    evaluate_decs mn menv cenv s env decs res ⇒
+    ∃ck. ∀rmenv ct m renv rsz cs ct' m' rsz' cs' code cenv0 env0 rs0 rs rd bs bc0 ig h0 sp st0.
+    compile_decs mn rmenv ct m renv rsz cs decs = (ct',m',rsz',cs')
+    ∧ cs'.out = REVERSE code ++ cs.out
+    ∧ closed_context menv cenv s env
+    ∧ FV_decs decs ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv
+    ∧ "" ∉ new_decs_cns decs
+    ∧ decs_cns mn decs ⊆ set (MAP FST cenv)
+    ∧ env_rs menv cenv0 env0 rs0 (LENGTH st0) rd (ck,s) (bs with <|code := bc0; stack := st0|>)
+    ∧ env_rs menv cenv env rs (LENGTH st0) rd (ck,s) (bs with code := bc0)
+    ∧ rs.rsz = rsz
+    ∧ rs.rnext_label = cs.next_label
+    ∧ rs.contab = ct
+    ∧ bs.code = bc0 ++ code
+    ∧ bs.pc = next_addr bs.inst_length bc0
+    ∧ bs.stack = ig ++ StackPtr h0::CodePtr sp::st0
+    ∧ bs.handler = LENGTH st0 + 1
+    ∧ IS_SOME bs.clock
+    ∧ good_labels rs.rnext_label bc0
+    ⇒
+    case SND(SND res) of
+    | Rval env' =>
+      ∃bvs rf rd'.
+      let s' = FST res in
+      let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ code); stack := bvs++bs.stack; refs := rf; clock := SOME 0|> in
+      let n = rsz' - rsz in
+      let rs' = rs with <|rnext_label := cs'.next_label
+                         ;contab := ct'
+                         ;renv := ZIP(TAKE n m'.bvars,GENLIST (λi. rsz+i) n) ++ rs.renv
+                         ;rsz := rsz'
+                         |> in
+      bc_next^* bs bs'
+      ∧ env_rs menv (FST(SND res)++cenv) (env'++env) rs' (LENGTH st0) rd' (0,s') bs'
+      ∧ env_rs menv cenv0 env0 rs0 (LENGTH st0) rd' (0,s') (bs' with stack := st0)
+    | Rerr(Rraise err) =>
+      ∃bv rf rd'.
+      let s' = FST res in
+      let bs' = bs with <|pc := sp; stack := bv::st0; handler := h0; refs := rf; clock := SOME 0|> in
+      let rs0' = rs0 with contab := decs_to_contab mn rs0.contab decs in
+      bc_next^* bs bs'
+      ∧ err_bv err bv
+      ∧ env_rs menv (FST(SND res)++cenv0) env0 rs0' (LENGTH st0) rd' (0,s') (bs' with stack := st0)
+    | _ => T``,
+  ho_match_mp_tac evaluate_decs_ind >>
+  strip_tac >- (
+    simp[compile_decs_def] >>
+    simp[decs_cns_def,FV_decs_def,Once SWAP_REVERSE,LibTheory.emp_def] >>
+    rpt gen_tac >>
+    qexists_tac`0` >>
+    rpt gen_tac >>
+    strip_tac >>
+    map_every qexists_tac [`[]`,`bs.refs`,`rd`] >>
+    simp[] >>
+    `bs.clock = SOME 0` by (
+      Cases_on`bs.clock`>>fs[env_rs_def,LET_THM,Cenv_bs_def,s_refs_def] ) >>
+    conj_tac >- (
+      simp[Once RTC_CASES1] >>
+      disj1_tac >>
+      simp[bc_state_component_equality] ) >>
+    conj_tac >- (
+      qmatch_abbrev_tac`env_rs menv cenv env rs' rsz rd cks bs'` >>
+      `rs' = rs ∧ bs' = bs` by (
+        simp[Abbr`rs'`,Abbr`bs'`,bc_state_component_equality,compiler_state_component_equality] ) >>
+      simp[] ) >>
+    qmatch_abbrev_tac`env_rs menv cenv0 env0 rs0 rsz rd cks bs'` >>
+    `bs' = bs with stack := st0` by (
+      simp[Abbr`bs'`,bc_state_component_equality] ) >>
+    simp[] ) >>
+  strip_tac >- (
+    simp[compile_decs_def] >>
+    rpt gen_tac >> strip_tac >>
+    imp_res_tac compile_dec_thm >>
+    qexists_tac`ck` >>
+    rpt gen_tac >>
+    qabbrev_tac`p = compile_dec rmenv m renv rs.rsz cs d` >>
+    PairCases_on`p`>>fs[]>>
+    Cases_on`e = Rtype_error`>>simp[]>>
+    `∃vs. p0 = SOME vs` by (
+      Cases_on`d`>>fs[compile_dec_def,LET_THM,markerTheory.Abbrev_def]>>
+      last_x_assum mp_tac >>
+      simp[Once evaluate_dec_cases] ) >>
+    simp[]
+
+      match_mp_tac R
+
+    compile_decs_def
+
+  ``∀mno menv cenv s env dec res. evaluate_decs mno menv cenv s env dec res ⇒
+     ∀mn rs. ∃ck. ∀rs' bc00 rd bc bs bc0.
+      (mno = SOME mn) ∧
+      closed_context menv cenv s env ∧
+      FV_decs dec ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+      ("" ∉ new_decs_cns dec) ∧
+      decs_cns mn dec ⊆ set (MAP FST cenv) ∧
+      (∀i tds. i < LENGTH dec ∧ (EL i dec = Dtype tds) ⇒ check_dup_ctors mno (decs_to_cenv mno (TAKE i dec) ++ cenv) tds) ∧
+      env_rs menv cenv env rs rd (ck,s) (bs with code := bc0) ∧
+      (compile_decs mn dec (rs,bc00) = (rs',(REVERSE bc)++bc00)) ∧
+      (bs.code = bc0 ++ bc) ∧
+      (bs.pc = next_addr bs.inst_length bc0) ∧
+      IS_SOME bs.clock ∧
+      good_labels rs.rnext_label bc0
+      ⇒
+      case res of (s',cenv',Rval(env')) =>
+        ∃st rf rd'.
+        let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := st; refs := rf; clock := SOME 0|> in
+        bc_next^* bs bs' ∧
+        env_rs menv (cenv'++cenv) (env'++env) rs' rd' (0,s') bs'
+      | (s',_emp,Rerr(Rraise err)) =>
+        ∃bv rf rd'.
+        let cenv' = decs_to_cenv mno dec in
+        let bs' = bs with <|pc := 0; stack := bv::bs.stack; refs := rf; clock := SOME 0|> in
+        bc_next^*bs bs' ∧
+        err_bv err bv ∧
+        env_rs menv (cenv'++cenv) env (rs with contab := decs_to_contab mno rs.contab dec) rd' (0,s') (bs' with stack := bs.stack)
+      | (s',_) => T``,
+  ho_match_mp_tac evaluate_decs_strongind >>
+
 val compile_decs_append_out = store_thm("compile_decs_append_out",
   ``∀decs mn menv ct m env rsz cs.
     let (ct',m',rsz',cs') = compile_decs mn menv ct m env rsz cs decs in
@@ -1990,45 +2138,6 @@ val compile_decs_append_out = store_thm("compile_decs_append_out",
     simp[Once SWAP_REVERSE] >> rw[] >> fs[] >>
     fs[between_labels_def] ) >>
   Cases_on`mn`>>rw[]>>fs[]
-
-  compile_decs_def
-  compile_dec_append_out
-
-val compile_decs_thm = store_thm("compile_decs_thm",
-  ``∀mn menv cenv s env decs res.
-    evaluate_decs mn menv cenv s env decs res ⇒
-    ∃ck. ∀rmenv ct 
-    compile_decs_def
-
-  ``∀mno menv cenv s env dec res. evaluate_decs mno menv cenv s env dec res ⇒
-     ∀mn rs. ∃ck. ∀rs' bc00 rd bc bs bc0.
-      (mno = SOME mn) ∧
-      closed_context menv cenv s env ∧
-      FV_decs dec ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-      ("" ∉ new_decs_cns dec) ∧
-      decs_cns mn dec ⊆ set (MAP FST cenv) ∧
-      (∀i tds. i < LENGTH dec ∧ (EL i dec = Dtype tds) ⇒ check_dup_ctors mno (decs_to_cenv mno (TAKE i dec) ++ cenv) tds) ∧
-      env_rs menv cenv env rs rd (ck,s) (bs with code := bc0) ∧
-      (compile_decs mn dec (rs,bc00) = (rs',(REVERSE bc)++bc00)) ∧
-      (bs.code = bc0 ++ bc) ∧
-      (bs.pc = next_addr bs.inst_length bc0) ∧
-      IS_SOME bs.clock ∧
-      good_labels rs.rnext_label bc0
-      ⇒
-      case res of (s',cenv',Rval(env')) =>
-        ∃st rf rd'.
-        let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ bc); stack := st; refs := rf; clock := SOME 0|> in
-        bc_next^* bs bs' ∧
-        env_rs menv (cenv'++cenv) (env'++env) rs' rd' (0,s') bs'
-      | (s',_emp,Rerr(Rraise err)) =>
-        ∃bv rf rd'.
-        let cenv' = decs_to_cenv mno dec in
-        let bs' = bs with <|pc := 0; stack := bv::bs.stack; refs := rf; clock := SOME 0|> in
-        bc_next^*bs bs' ∧
-        err_bv err bv ∧
-        env_rs menv (cenv'++cenv) env (rs with contab := decs_to_contab mno rs.contab dec) rd' (0,s') (bs' with stack := bs.stack)
-      | (s',_) => T``,
-  ho_match_mp_tac evaluate_decs_strongind >>
 
 val compile_dec_contab_thm = store_thm("compile_dec_contab_thm",
   ``∀mn rs dec menv cenv env rd cs bs cenv' rs'.
@@ -2425,10 +2534,6 @@ val FV_top_def = Define`
   (FV_top (Tmod mn _ ds) = FV_decs ds)`
 val _ = export_rewrites["FV_top_def"]
 
-val decs_cns_def = Define`
-  (decs_cns _ [] = {}) ∧
-  (decs_cns mn (d::ds) = dec_cns d ∪ (decs_cns mn ds DIFF (IMAGE (Long mn) (set (new_dec_cns d)))))`
-
 val top_cns_def = Define`
   (top_cns (Tdec d) = dec_cns d) ∧
   (top_cns (Tmod mn _ ds) = decs_cns mn ds)`
@@ -2526,11 +2631,6 @@ val env_rs_with_irr = store_thm("env_rs_with_irr",
     ⇒
     env_rs menv cenv env rs' rd cs bs``,
   simp[env_rs_def])
-
-val evaluate_dec_err_cenv_emp = store_thm("evaluate_dec_err_cenv_emp",
-  ``∀mn menv cenv s env d res. evaluate_dec mn menv cenv s env d res ⇒
-    ∀err. SND res = Rerr err ∧ err ≠ Rtype_error ⇒ dec_to_cenv mn d = []``,
-  ho_match_mp_tac evaluate_dec_ind >> simp[dec_to_cenv_def])
 
 (*
 val compile_fake_exp_val = store_thm("compile_fake_exp_val",
@@ -3309,23 +3409,6 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
       fsrw_tac[DNF_ss][MEM_MAP,SUBSET_DEF] >>
       metis_tac[] ) >>
     metis_tac[] ))
-
-val evaluate_dec_new_dec_cns = store_thm("evaluate_dec_new_dec_cns",
-  ``∀mn menv cenv s env d res. evaluate_dec mn menv cenv s env d res ⇒
-    ∀tds env. SND res = Rval (tds,env) ⇒
-    MAP (mk_id mn) (new_dec_cns d) = (MAP FST tds)``,
-  ho_match_mp_tac evaluate_dec_ind >>
-  simp[LibTheory.emp_def,SemanticPrimitivesTheory.build_tdefs_def] >>
-  rw[] >>
-  simp[MAP_MAP_o,MAP_FLAT] >> AP_TERM_TAC >>
-  simp[MAP_EQ_f,FORALL_PROD,MAP_MAP_o])
-
-val evaluate_dec_dec_to_cenv = store_thm("evaluate_dec_dec_to_cenv",
-  ``∀mn menv cenv s env d res. evaluate_dec mn menv cenv s env d res ⇒
-    ∀tds env. SND res = Rval (tds,env) ⇒
-    tds = dec_to_cenv mn d``,
-  ho_match_mp_tac evaluate_dec_ind >>
-  simp[LibTheory.emp_def,dec_to_cenv_def])
 
 val env_rs_change_clock = store_thm("env_rs_change_clock",
   ``∀menv cenv env rs rd cs bs cs' ck' bs'.
