@@ -36,7 +36,11 @@ val (pat_to_tok_tree_def, pat_to_tok_tree_ind) =
   wf_rel_tac `measure pat_size` >>
   rw [] >|
   [decide_tac,
-   induct_on `v7` >>
+   induct_on `v8` >>
+       rw [] >>
+       fs [pat_size_def] >>
+       decide_tac,
+   induct_on `ps` >>
        rw [] >>
        fs [pat_size_def] >>
        decide_tac]);
@@ -51,7 +55,7 @@ val (exp_to_tok_tree_def, exp_to_tok_tree_ind) =
   TRY (induct_on `funs`) >>
   TRY (induct_on `pes`) >>
   TRY (induct_on `es`) >>
-  TRY (induct_on `v40`) >>
+  TRY (induct_on `v41`) >>
   rw [exp_size_def] >>
   fs [exp_size_def] >>
   rw [exp_size_def] >>

@@ -769,7 +769,7 @@ fun define_ref_inv tys = let
       val tm = if ys = [] then T else list_mk_conj ys
       val str = stringLib.fromMLstring tag
       val vs = listSyntax.mk_list(map (fn (_,z) => z) vars,``:v``)
-      val tm = mk_conj(``v = Conv (Short (^str)) ^vs``,tm)
+      val tm = mk_conj(``v = Conv (SOME (Short (^str))) ^vs``,tm)
       val tm = list_mk_exists (map (fn (_,z) => z) vars, tm)
       val tm = subst [input |-> x] (mk_eq(lhs,tm))
       (* val vs = filter (fn x => x <> def_name) (free_vars tm) *)
@@ -989,7 +989,7 @@ fun derive_thms_for_type ty = let
       val str = stringSyntax.fromMLstring str
       val vars = map (fn (x,n,v) => ``Pvar ^n``) xs
       val vars = listSyntax.mk_list(vars,``:pat``)
-      in ``(Pcon (Short ^str) ^vars, ^exp)`` end) ts
+      in ``(Pcon (SOME (Short ^str)) ^vars, ^exp)`` end) ts
     val patterns = listSyntax.mk_list(patterns,``:pat # exp``)
     val ret_inv = get_type_inv ret_ty
     val result = mk_comb(ret_inv,exp)
@@ -1036,8 +1036,8 @@ fun derive_thms_for_type ty = let
       ``evaluate' empty_store env (Mat ^exp_var pats) (empty_store,Rval res)``
       |> (ONCE_REWRITE_CONV [evaluate'_cases] THENC SIMP_CONV (srw_ss()) [])
     val evaluate_match_Conv =
-      ``evaluate_match' empty_store env (Conv (Short s) args)
-           ((Pcon (Short s) pats,exp2)::pats2) (x,Rval y)``
+      ``evaluate_match' empty_store env (Conv (SOME (Short s)) args)
+           ((Pcon (SOME (Short s)) pats,exp2)::pats2) (x,Rval y)``
       |> (ONCE_REWRITE_CONV [evaluate'_cases] THENC
           SIMP_CONV (srw_ss()) [pmatch'_def])
     val IF_T = prove(``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
@@ -1085,7 +1085,7 @@ fun derive_thms_for_type ty = let
     val str = stringLib.fromMLstring tag
     val exps_tm = listSyntax.mk_list(map snd exps,``:exp``)
     val inv = inv_lhs |> rator |> rator
-    val result = ``Eval env (Con (Short ^str) ^exps_tm) (^inv ^tm)``
+    val result = ``Eval env (Con (SOME (Short ^str)) ^exps_tm) (^inv ^tm)``
     fun find_inv tm =
       if type_of tm = ty then (mk_comb(rator (rator inv_lhs),tm)) else
         (mk_comb(get_type_inv (type_of tm),tm))

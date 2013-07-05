@@ -224,9 +224,9 @@ val Eval_Bool_Not = store_thm("Eval_Bool_Not",
   SIMP_TAC std_ss [Eval_def,NUM_def,BOOL_def] \\ SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ Q.EXISTS_TAC `(Litv (Bool b1))`
-  \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
-  \\ Q.LIST_EXISTS_TAC [`Litv (Bool F)`,`empty_store`]
+  \\ FULL_SIMP_TAC (srw_ss()) [bigClockTheory.do_app_cases]
+  \\ Q.LIST_EXISTS_TAC [`(Litv (Bool b1))`, `Litv (Bool F)`, `Lit (Bool ~b1)`,
+                        `empty_store`, `empty_store`]
   \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
   \\ SIMP_TAC std_ss [contains_closure_def]);
@@ -548,7 +548,8 @@ val Eval_Equality = store_thm("Eval_Equality",
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
   \\ Q.LIST_EXISTS_TAC [`res`,`res'`]
-  \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [bigClockTheory.do_app_cases]
+  \\ Q.EXISTS_TAC `Lit (Bool (res = res'))` 
   \\ REPEAT (Q.EXISTS_TAC `empty_store`) \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases]
   \\ FULL_SIMP_TAC (srw_ss()) [EqualityType_def]
@@ -983,14 +984,14 @@ val MEMBER_INTRO = store_thm("MEMBER_INTRO",
   FULL_SIMP_TAC std_ss [FUN_EQ_THM,MEM_EQ_MEMBER]);
 
 val evaluate_match_SKIP = store_thm("evaluate_match_SKIP",
-  ``evaluate_match' empty_store env (Conv (Short s1) args1)
-      ((Pcon (Short s2) pats2,exp2)::pats) (x,Rval res) <=>
+  ``evaluate_match' empty_store env (Conv (SOME (Short s1)) args1)
+      ((Pcon (SOME (Short s2)) pats2,exp2)::pats) (x,Rval res) <=>
     if s1 <> s2 then
-      ALL_DISTINCT (pat_bindings (Pcon (Short s2) pats2) []) /\
-      evaluate_match' empty_store env (Conv (Short s1) args1) pats (x,Rval res)
+      ALL_DISTINCT (pat_bindings (Pcon (SOME (Short s2)) pats2) []) /\
+      evaluate_match' empty_store env (Conv (SOME (Short s1)) args1) pats (x,Rval res)
     else
-      evaluate_match' empty_store env (Conv (Short s1) args1)
-        ((Pcon (Short s2) pats2,exp2)::pats) (x,Rval res)``,
+      evaluate_match' empty_store env (Conv (SOME (Short s1)) args1)
+        ((Pcon (SOME (Short s2)) pats2,exp2)::pats) (x,Rval res)``,
   SRW_TAC [] []
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,pmatch'_def]);
 
