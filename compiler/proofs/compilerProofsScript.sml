@@ -524,7 +524,10 @@ val Cevaluate_closed_vlabs = store_thm("Cevaluate_closed_vlabs",
     Cevaluate menv s env exp res ∧ all_labs exp ∧
     (∀cd. MEM cd (free_labs (LENGTH env) exp) ⇒ code_env_cd cmnv code cd)
     ⇒
-    closed_vlabs menv env (SND(FST res)) cmnv code``,
+    closed_vlabs menv env (SND(FST res)) cmnv code ∧
+    (∀v. SND res = Cval v ∨ SND res = Cexc (Craise v) ⇒
+      all_vlabs v ∧
+      vlabs v ⊆ vlabs_menv menv ∪ vlabs_list (SND s) ∪ vlabs_list env ∪ set (free_labs (LENGTH env) exp))``,
   rpt gen_tac >>
   simp[closed_vlabs_def] >>
   strip_tac >>
@@ -539,7 +542,8 @@ val Cevaluate_closed_Clocs = store_thm("Cevaluate_closed_Clocs",
     closed_Clocs menv env (SND s) ∧
     Cevaluate menv s env exp res
     ⇒
-    closed_Clocs menv env (SND(FST res))``,
+    closed_Clocs menv env (SND(FST res)) ∧
+    (∀v. SND res = Cval v ∨ SND res = Cexc (Craise v) ⇒ all_Clocs v ⊆ count (LENGTH (SND (FST res))))``,
   rw[closed_Clocs_def] >>
   TRY (
     match_mp_tac SUBSET_TRANS >>
@@ -572,6 +576,7 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     case SND res of
     | Cval v =>
         ∃s' w. syneq v w ∧ LIST_REL syneq (SND(FST res)) s' ∧ closed_vlabs menv env s' rmenv (bc0++c0) ∧ closed_Clocs menv env s' ∧
+        all_Clocs w ⊆ count (LENGTH s') ∧ all_vlabs w ∧ (∀cd. cd ∈ vlabs w ⇒ code_env_cd rmenv (bc0++c0) cd) ∧
         code_for_push rd menv bs (bc0++c0) bc0 (c0++code) s (FST(FST res),s') env [w] rmenv renv rsz csz
     | Cexc (Craise err) =>
         ∃s' w. syneq err w ∧ LIST_REL syneq (SND(FST res)) s' ∧ closed_vlabs menv env s' rmenv (bc0++c0) ∧ closed_Clocs menv env s' ∧
@@ -656,8 +661,17 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
         fsrw_tac[DNF_ss][good_labels_def,MEM_FILTER,is_Label_rwt,MEM_MAP,MEM_GENLIST,between_def,EVERY_MEM] >>
         rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
       metis_tac[code_env_cd_append] ) >>
+    simp[] >> strip_tac >>
+    conj_tac >- (
+      fs[closed_vlabs_def,SUBSET_DEF] >>
+      fs[EVERY_MEM] >>
+      rw[] >> res_tac >> TRY(metis_tac[]) >>
+      match_mp_tac code_env_cd_append >>
+      simp[FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+      fsrw_tac[DNF_ss][good_labels_def,MEM_FILTER,is_Label_rwt,MEM_MAP,MEM_GENLIST,between_def,EVERY_MEM] >>
+      rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
     rw[] >>
-    ntac 3 (pop_assum kall_tac) >>
+    ntac 6 (pop_assum kall_tac) >>
     pop_assum mp_tac >>
     simp[code_for_push_def] >>
     simp_tac(srw_ss()++DNF_ss)[]>>
@@ -746,8 +760,11 @@ val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
       LIST_REL syneq (vs_to_Cvs (MAP FST o_f rs.rmenv) (cmap rs.contab) vs) Cws ∧
       LIST_REL (Cv_bv (mk_pp rd' bs')) Cws bvs ∧
       LIST_REL syneq (vs_to_Cvs (MAP FST o_f rs.rmenv) (cmap rs.contab) (SND s')) Cs' ∧
-      EVERY all_vlabs Cs' ∧ BIGUNION (IMAGE all_Clocs (set Cs')) ⊆ count (LENGTH Cs') ∧
+      EVERY all_vlabs Cs' ∧ EVERY all_vlabs Cws
+      ∧ BIGUNION (IMAGE all_Clocs (set Cws)) ⊆ count (LENGTH Cs')
+      ∧ BIGUNION (IMAGE all_Clocs (set Cs')) ⊆ count (LENGTH Cs') ∧
       (∀cd. cd ∈ vlabs_list Cs' ⇒ code_env_cd rmenv (bc0 ++ code) cd) ∧
+      (∀cd. cd ∈ vlabs_list Cws ⇒ code_env_cd rmenv (bc0 ++ code) cd) ∧
       LENGTH (SND s) ≤ LENGTH (SND s') ∧
       s_refs rd' (FST s',Cs') bs' ∧
       DRESTRICT bs.refs (COMPL (set rd.sm)) ⊑ DRESTRICT rf (COMPL (set rd'.sm)) ∧
@@ -905,6 +922,12 @@ val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
       simp[vs_to_Cvs_MAP] >>
       metis_tac[EVERY2_syneq_trans] ) >>
     fs[closed_vlabs_def,closed_Clocs_def] >>
+    fsrw_tac[ETA_ss][] >>
+    conj_tac >- (
+      rw[] >>
+      match_mp_tac code_env_cd_append >> rw[] >>
+      fsrw_tac[DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,between_labels_def,good_labels_def,MEM_FILTER,between_def,EVERY_MEM,MEM_MAP,is_Label_rwt] >>
+      rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
     conj_tac >- (
       rw[] >>
       match_mp_tac code_env_cd_append >> rw[] >>
@@ -1704,8 +1727,11 @@ val compile_dec_thm = store_thm("compile_dec_thm",
         ∧ LIST_REL syneq (vs_to_Cvs mv cm (MAP SND env')) Cws
         ∧ LIST_REL (Cv_bv (mk_pp rd' bs')) Cws bvs
         ∧ LIST_REL syneq (vs_to_Cvs mv cm s') Cs'
+        ∧ EVERY all_vlabs Cws
         ∧ EVERY all_vlabs Cs'
+        ∧ BIGUNION (IMAGE all_Clocs (set Cws)) ⊆ count (LENGTH Cs')
         ∧ BIGUNION (IMAGE all_Clocs (set Cs')) ⊆ count (LENGTH Cs')
+        ∧ (∀cd. cd ∈ vlabs_list Cws ⇒ code_env_cd rmenv (bc0 ++ code) cd)
         ∧ (∀cd. cd ∈ vlabs_list Cs' ⇒ code_env_cd rmenv (bc0 ++ code) cd)
         ∧ LENGTH s ≤ LENGTH s'
         ∧ s_refs rd' (0,Cs') bs'
@@ -2719,12 +2745,54 @@ val compile_decs_thm = store_thm("compile_decs_thm",
     reverse conj_tac >- (
       fs[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
       metis_tac[] ) >>
-
-    (* split: either new_tds is empty or new_env is *)
-    (* use decs_contab_thm for one case. probably have to expand the other case *)
+    Cases_on`new_tds = []` >- (
+      simp[] >>
+      `ct1 = rs.contab` by (
+        simp[Abbr`ct1`] >>
+        Cases_on`d`>>fs[dec_to_contab_def] >>
+        fs[Once evaluate_dec_cases] >>
+        qpat_assum`[] = X`mp_tac >>
+        simp[SemanticPrimitivesTheory.build_tdefs_def,FLAT_EQ_NIL,EVERY_MEM,MEM_MAP,FORALL_PROD,UNCURRY,EXISTS_PROD] >>
+        simp_tac(srw_ss()++DNF_ss)[] >>
+        simp[FOLDL_number_constructors_thm] >>
+        Q.PAT_ABBREV_TAC`ll = FLAT (MAP (SND o SND) l)` >>
+        strip_tac >>
+        `ll = []` by (
+          simp[Abbr`ll`,FLAT_EQ_NIL,EVERY_MEM,MEM_MAP,EXISTS_PROD] >>
+          metis_tac[] ) >>
+        simp[number_constructors_def] ) >>
+      simp[] >>
+      fs[env_rs_def,LET_THM] >>
+      rfs[] >> fs[] >>
+      qexists_tac`Cmenv` >>
+      simp[MAP_ZIP] >>
+      simp[Abbr`rsz1`] >>
+      simp[TAKE_APPEND1,TAKE_LENGTH_ID_rwt] >>
+      qexists_tac`Cws ++ Cenv` >>
+      qexists_tac`Cs'` >>
+      fs[vs_to_Cvs_MAP] >>
+      conj_tac >- (
+        match_mp_tac EVERY2_APPEND_suff >>
+        simp[] >>
+        simp[env_to_Cenv_MAP] >>
+        fs[MAP_MAP_o] ) >>
+      conj_tac >- (
+        fs[closed_Clocs_def] >>
+        `LENGTH Cs ≤ LENGTH Cs'` by (
+          fs[EVERY2_EVERY] >> metis_tac[] ) >>
+        full_simp_tac list_ss [SUBSET_DEF,IN_COUNT] >>
+        metis_tac[LESS_LESS_EQ_TRANS] ) >>
+      conj_tac >- (
+        fs[closed_vlabs_def,vlabs_list_APPEND] >>
+        rw[] >> TRY(metis_tac[]) >>
+        match_mp_tac code_env_cd_append >>
+        fs[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] ) >>
+      (* Cenv_bs_incsz_many? *)
+      cheat ) >>
+    (* new_env = [] *)
+    (* use decs_contab_thm *)
     (* also may need to do env_rs_change_store *)
-
-    cheat ) >>
+    cheat )
   Cases_on`r`>>fs[] >- (
     simp[LibTheory.merge_def,Abbr`G`,SemanticPrimitivesTheory.combine_dec_result_def] >>
     cheat ) >>
