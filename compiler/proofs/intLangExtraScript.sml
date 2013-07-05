@@ -1116,8 +1116,8 @@ val good_cmap_def = Define`
     ALL_DISTINCT (MAP FST cenv) ∧
     ∀p1 p2.
       MEM p1 cenv ∧ MEM p2 cenv ⇒
-      (FST p1) ∈ FDOM m ∧ (FST p2) ∈ FDOM m ∧
-      ((FAPPLY m (FST p1) = FAPPLY m (FST p2)) ⇒ (p1 = p2))`
+      SOME (FST p1) ∈ FDOM m ∧ SOME (FST p2) ∈ FDOM m ∧
+      ((FAPPLY m (SOME (FST p1)) = FAPPLY m (SOME (FST p2))) ⇒ (p1 = p2))`
 
 val Cevaluate_list_LENGTH = store_thm("Cevaluate_list_LENGTH",
   ``∀exps menv s env s' vs. Cevaluate_list menv s env exps (s', Cval vs) ⇒ (LENGTH vs = LENGTH exps)``,

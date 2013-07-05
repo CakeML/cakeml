@@ -625,7 +625,7 @@ Cases_on `x` >> fs[] >> rw[] >> fs[] >> PROVE_TAC[])
 val result_rel_sym = store_thm(
 "result_rel_sym",
 ``(∀x y. R x y ⇒ R y x) ⇒ (∀x y. result_rel R x y ⇒ result_rel R y x)``,
-rw[] >> Cases_on `x` >> fs[])
+rw[] >> Cases_on `x` >> fs[]);
 
 (* TODO: categorise *)
 
@@ -697,7 +697,7 @@ val all_cns_defs_MAP = store_thm("all_cns_defs_MAP",
 
 val all_cns_pes_MAP = store_thm("all_cns_pes_MAP",
   ``∀ps. all_cns_pes ps = BIGUNION (IMAGE all_cns_pat (set (MAP FST ps))) ∪ BIGUNION (IMAGE all_cns_exp (set (MAP SND ps)))``,
-  Induct >>simp[]>>qx_gen_tac`x`>>PairCases_on`x`>>simp[] >> metis_tac[UNION_COMM,UNION_ASSOC])
+  Induct >>simp[]>>qx_gen_tac`x`>>PairCases_on`x`>>simp[] >> metis_tac[UNION_COMM,UNION_ASSOC]);
 
 val do_app_all_cns = store_thm("do_app_all_cns",
   ``∀cns s env op v1 v2 s' env' exp.
@@ -736,7 +736,7 @@ val do_app_all_cns = store_thm("do_app_all_cns",
   rw[] >>
   imp_res_tac ALOOKUP_MEM >>
   fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,all_cns_defs_MAP,MEM_MAP] >>
-  metis_tac[])
+  metis_tac[]);
 
 val pmatch_all_cns = store_thm("pmatch_all_cns",
   ``(∀(cenv:envC) s p v env env'. (pmatch cenv s p v env = Match env') ⇒
@@ -757,7 +757,7 @@ val pmatch_all_cns = store_thm("pmatch_all_cns",
   TRY(pop_assum mp_tac >> BasicProvers.CASE_TAC >> rw[]) >>
   rfs[] >>
   fsrw_tac[DNF_ss][SUBSET_DEF,store_lookup_def,FORALL_PROD,EXISTS_PROD] >>
-  rw[] >> metis_tac[MEM_EL])
+  rw[] >> metis_tac[MEM_EL]);
 
 val do_uapp_all_cns = store_thm("do_uapp_all_cns",
   ``∀cns s uop v s' v'.
@@ -780,23 +780,26 @@ val do_if_all_cns = store_thm("do_if_all_cns",
   ``∀cns v e1 e2 e3. all_cns v ⊆ cns ∧ all_cns_exp e1 ⊆ cns ∧ all_cns_exp e2 ⊆ cns ∧ (do_if v e1 e2 = SOME e3) ⇒ all_cns_exp e3 ⊆ cns``,
   gen_tac >> Cases >> rw[do_if_def] >> fs[])
 
+val cenv_dom = Define `
+cenv_dom cenv = NONE INSERT set (MAP (SOME o FST) cenv)`;
+
 val evaluate_all_cns = store_thm("evaluate_all_cns",
   ``(∀ck menv (cenv:envC) s env exp res. evaluate ck menv cenv s env exp res ⇒
-       all_cns_exp exp ⊆ set (MAP FST cenv) ∧
-       (∀v. v ∈ menv_range menv ∨ v ∈ env_range env ∨ MEM v (SND s) ⇒ all_cns v ⊆ set (MAP FST cenv)) ⇒
-       every_result (λv. all_cns v ⊆ set (MAP FST cenv)) (SND res) ∧
-       (∀v. MEM v (SND (FST res)) ⇒ all_cns v ⊆ set (MAP FST cenv))) ∧
+       all_cns_exp exp ⊆ cenv_dom cenv ∧
+       (∀v. v ∈ menv_range menv ∨ v ∈ env_range env ∨ MEM v (SND s) ⇒ all_cns v ⊆ cenv_dom cenv) ⇒
+       every_result (λv. all_cns v ⊆ cenv_dom cenv) (SND res) ∧
+       (∀v. MEM v (SND (FST res)) ⇒ all_cns v ⊆ cenv_dom cenv)) ∧
     (∀ck menv (cenv:envC) s env exps ress. evaluate_list ck menv cenv s env exps ress ⇒
-       all_cns_list exps ⊆ set (MAP FST cenv) ∧
-       (∀v. v ∈ menv_range menv ∨ v ∈ env_range env ∨ MEM v (SND s) ⇒ all_cns v ⊆ set (MAP FST cenv)) ⇒
-       every_result (EVERY (λv. all_cns v ⊆ set (MAP FST cenv))) (SND ress) ∧
-       (∀v. MEM v (SND (FST ress)) ⇒ all_cns v ⊆ set (MAP FST cenv))) ∧
+       all_cns_list exps ⊆ cenv_dom cenv ∧
+       (∀v. v ∈ menv_range menv ∨ v ∈ env_range env ∨ MEM v (SND s) ⇒ all_cns v ⊆ cenv_dom cenv) ⇒
+       every_result (EVERY (λv. all_cns v ⊆ cenv_dom cenv)) (SND ress) ∧
+       (∀v. MEM v (SND (FST ress)) ⇒ all_cns v ⊆ cenv_dom cenv)) ∧
     (∀ck menv (cenv:envC) s env v pes res. evaluate_match ck menv cenv s env v pes res ⇒
-      all_cns_pes pes ⊆ set (MAP FST cenv) ∧
-      (∀v. v ∈ menv_range menv ∨ v ∈ env_range env ∨ MEM v (SND s) ⇒ all_cns v ⊆ set (MAP FST cenv)) ∧
-      all_cns v ⊆ set (MAP FST cenv) ⇒
-      every_result (λw. all_cns w ⊆ set (MAP FST cenv)) (SND res) ∧
-      (∀v. MEM v (SND (FST res)) ⇒ all_cns v ⊆ set (MAP FST cenv)))``,
+      all_cns_pes pes ⊆ cenv_dom cenv ∧
+      (∀v. v ∈ menv_range menv ∨ v ∈ env_range env ∨ MEM v (SND s) ⇒ all_cns v ⊆ cenv_dom cenv) ∧
+      all_cns v ⊆ cenv_dom cenv ⇒
+      every_result (λw. all_cns w ⊆ cenv_dom cenv) (SND res) ∧
+      (∀v. MEM v (SND (FST res)) ⇒ all_cns v ⊆ cenv_dom cenv))``,
   ho_match_mp_tac evaluate_ind >>
   strip_tac (* Lit *) >- rw[] >>
   strip_tac (* Raise *) >- rw[] >>
@@ -829,7 +832,7 @@ val evaluate_all_cns = store_thm("evaluate_all_cns",
   strip_tac (* Uapp *) >- (
     rpt gen_tac >> ntac 2 strip_tac >> fs[] >>
     qmatch_assum_rename_tac`do_uapp s0 uop v = SOME (s',v')`[] >>
-    Q.ISPECL_THEN[`set (MAP FST cenv)`,`s0`,`uop`,`v`,`s'`,`v'`]mp_tac(do_uapp_all_cns) >>
+    Q.ISPECL_THEN[`cenv_dom cenv`,`s0`,`uop`,`v`,`s'`,`v'`]mp_tac(do_uapp_all_cns) >>
     simp[BIGUNION_IMAGE_set_SUBSET] >> metis_tac[]) >>
   strip_tac >- ( rpt gen_tac >> ntac 2 strip_tac >> fs[] >> PROVE_TAC[] ) >>
   strip_tac >- rw[] >>
@@ -838,13 +841,13 @@ val evaluate_all_cns = store_thm("evaluate_all_cns",
     first_x_assum match_mp_tac >> fs[] >>
     fsrw_tac[DNF_ss][] >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
-    Q.ISPECL_THEN[`set (MAP FST cenv)`,`s3`,`env`,`op`,`v1`,`v2`,`s4`,`env'`,`exp''`]
+    Q.ISPECL_THEN[`cenv_dom cenv`,`s3`,`env`,`op`,`v1`,`v2`,`s4`,`env'`,`exp''`]
       (mp_tac o SIMP_RULE(srw_ss()++DNF_ss)[SUBSET_DEF]) do_app_all_cns >>
     metis_tac[]) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-    Q.ISPECL_THEN[`set (MAP FST cenv)`,`s3`,`env`,`Opapp`,`v1`,`v2`,`s4`,`env'`,`e3`] mp_tac do_app_all_cns >>
+    Q.ISPECL_THEN[`cenv_dom cenv`,`s3`,`env`,`Opapp`,`v1`,`v2`,`s4`,`env'`,`e3`] mp_tac do_app_all_cns >>
     discharge_hyps >- (
       conj_tac >- metis_tac[] >>
       conj_tac >- metis_tac[] >>
@@ -990,8 +993,9 @@ val pmatch_locs = store_thm("pmatch_locs",
       simp[pmatch_def,store_lookup_def] >>
       rpt gen_tac >> strip_tac >>
       BasicProvers.CASE_TAC >> fs[] >>
-      fsrw_tac[DNF_ss][] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] >>
       metis_tac[MEM_EL] ) >>
+    strip_tac >- cheat >>
     strip_tac >- rw[pmatch_def] >>
     strip_tac >- rw[pmatch_def] >>
     strip_tac >- rw[pmatch_def] >>
@@ -1011,7 +1015,9 @@ val pmatch_locs = store_thm("pmatch_locs",
       BasicProvers.CASE_TAC >> fs[] >>
       metis_tac[] ) >>
     strip_tac >- rw[pmatch_def] >>
-    strip_tac >- rw[pmatch_def])
+    strip_tac >- cheat >>
+    strip_tac >- rw[pmatch_def] >-
+    rw [pmatch_def])
 
 val tac1 =
     rw[] >> rw[all_locs_def] >>
