@@ -153,59 +153,53 @@ val _ = Define `
   let cs = ( emit cs [PopExc; Stack(Pops 1)]) in
   let cs = ( compile_news (IS_NONE mn) cs 0 news) in
   let env = ( ZIP ( news, ( GENLIST (\ i . rs.rsz +i) n))) in
-  let (renv,rmenv) =    
-((case mn of
-      NONE => ((env ++rs.renv),rs.rmenv)
-    | SOME mn => (rs.renv, FUPDATE  rs.rmenv ( mn, env))
-    )) in
-  ((rs with<|
-     rsz := rs.rsz +n
-    ;renv := renv
-    ;rmenv := rmenv
-    ;rnext_label := cs.next_label
-    ;contab := ct
-    |>)
-  ,cs.out)))`;
+  (ct,env,cs)))`;
 
 
  val compile_print_dec_def = Define `
 
-(compile_print_dec (Dtype ts) code = ( FOLDL (\code p . 
-  (case (code ,p ) of
-      ( code , (_,_,cs) ) => FOLDL
-                               (\code p . (case (code ,p ) of
-                                              ( code , (c,_) ) =>
-                                          ( REVERSE
-                                              ( MAP PrintC
-                                                  (EXPLODE
-                                                     (CONCAT
-                                                        [c;" = <constructor>"])))) ++
-                                          code
-                                          )) code cs
-  )) code ts))
+(compile_print_dec (Dtype ts) s = ( FOLDL (\s p . 
+  (case (s ,p ) of
+      ( s , (_,_,cs) ) => FOLDL
+                            (\s p . (case (s ,p ) of
+                                        ( s , (c,_) ) =>
+                                    emit s
+                                      ( MAP PrintC
+                                          (EXPLODE
+                                             (CONCAT [c;" = <constructor>"])))
+                                    )) s cs
+  )) s ts))
 /\
-(compile_print_dec _ code = code)`;
+(compile_print_dec _ s = s)`;
 
 
  val compile_top_def = Define `
 
 (compile_top rs (Tmod mn _ decs) =  
-(let (rss,code) = ( compile_decs_wrap (SOME mn) rs decs) in
+(let (ct,env,cs) = ( compile_decs_wrap (SOME mn) rs decs) in
   let str = ( CONCAT["structure ";mn;" = <structure>"]) in
-  (rss
+  (( rs with<|
+      contab := ct
+    ; rnext_label := cs.next_label
+    ; rmenv := FUPDATE  rs.rmenv ( mn, env)
+    ; rsz := rs.rsz + LENGTH env |>)
   ,( rs with<|
-      contab := rss.contab
-    ; rnext_label := rss.rnext_label
+      contab := ct
+    ; rnext_label := cs.next_label
     ; rmenv := FUPDATE  rs.rmenv ( mn, []) |>)
-  , REVERSE(( REVERSE( MAP PrintC (EXPLODE str))) ++code))))
+  ,(emit cs ( MAP PrintC (EXPLODE str))).out)))
 /\
 (compile_top rs (Tdec dec) =  
-(let (rss,code) = ( compile_decs_wrap NONE rs [dec]) in
-  (rss
+(let (ct,env,cs) = ( compile_decs_wrap NONE rs [dec]) in
+  (( rs with<|
+      contab := ct
+    ; rnext_label := cs.next_label
+    ; renv := env ++rs.renv
+    ; rsz := rs.rsz + LENGTH env |>)
   ,( rs with<|
-      contab := rss.contab
-    ; rnext_label := rss.rnext_label |>)
-  , REVERSE(compile_print_dec dec code))))`;
+      contab := ct
+    ; rnext_label := cs.next_label |>)
+  ,(compile_print_dec dec cs).out)))`;
 
 val _ = export_theory()
 

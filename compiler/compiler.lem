@@ -110,44 +110,40 @@ let compile_decs_wrap mn rs decs =
   let cs = emit cs [PopExc; Stack(Pops 1)] in
   let cs = compile_news (Hol.IS_NONE mn) cs 0 news in
   let env = List.combine news (genlist (fun i -> rs.rsz+i) n) in
-  let (renv,rmenv) =
-    match mn with
-    | None -> (env@rs.renv,rs.rmenv)
-    | Some mn -> (rs.renv,Pmap.add mn env rs.rmenv)
-    end in
-  (<|rs with
-     rsz = rs.rsz+n
-    ;renv = renv
-    ;rmenv = rmenv
-    ;rnext_label = cs.next_label
-    ;contab = ct
-    |>
-  ,cs.out)
+  (ct,env,cs)
 
 let rec
-compile_print_dec (Dtype ts) code =
-  List.fold_left (fun code (_,_,cs) ->
-    List.fold_left (fun code (c,_) ->
-      (List.rev(List.map PrintC (Hol.EXPLODE (Hol.CONCAT [c;" = <constructor>"]))))@code)
-    code cs) code ts
+compile_print_dec (Dtype ts) s =
+  List.fold_left (fun s (_,_,cs) ->
+    List.fold_left (fun s (c,_) ->
+      emit s (List.map PrintC (Hol.EXPLODE (Hol.CONCAT [c;" = <constructor>"]))))
+    s cs) s ts
 and
-compile_print_dec _ code = code
+compile_print_dec _ s = s
 
 let rec
 compile_top rs (Tmod mn _ decs) =
-  let (rss,code) = compile_decs_wrap (Some mn) rs decs in
+  let (ct,env,cs) = compile_decs_wrap (Some mn) rs decs in
   let str = Hol.CONCAT["structure ";mn;" = <structure>"] in
-  (rss
+  (<| rs with
+      contab = ct
+    ; rnext_label = cs.next_label
+    ; rmenv = Pmap.add mn env rs.rmenv
+    ; rsz = rs.rsz + List.length env |>
   ,<| rs with
-      contab = rss.contab
-    ; rnext_label = rss.rnext_label
+      contab = ct
+    ; rnext_label = cs.next_label
     ; rmenv = Pmap.add mn [] rs.rmenv |>
-  ,List.rev((List.rev(List.map PrintC (Hol.EXPLODE str)))@code))
+  ,(emit cs (List.map PrintC (Hol.EXPLODE str))).out)
 and
 compile_top rs (Tdec dec) =
-  let (rss,code) = compile_decs_wrap None rs [dec] in
-  (rss
+  let (ct,env,cs) = compile_decs_wrap None rs [dec] in
+  (<| rs with
+      contab = ct
+    ; rnext_label = cs.next_label
+    ; renv = env@rs.renv
+    ; rsz = rs.rsz+List.length env |>
   ,<| rs with
-      contab = rss.contab
-    ; rnext_label = rss.rnext_label |>
-  ,List.rev(compile_print_dec dec code))
+      contab = ct
+    ; rnext_label = cs.next_label |>
+  ,(compile_print_dec dec cs).out)
