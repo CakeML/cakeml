@@ -105,16 +105,25 @@ val _ = Define `
  div_exc_cn = 2`;
 
 val _ = Define `
+ eq_exc_cn = 3`;
+
+val _ = Define `
  CBind_exc = (CCon bind_exc_cn [])`;
 
 val _ = Define `
  CDiv_exc = (CCon div_exc_cn [])`;
 
 val _ = Define `
+ CEq_exc = (CCon eq_exc_cn [])`;
+
+val _ = Define `
  CBind_excv = (CConv bind_exc_cn [])`;
 
 val _ = Define `
  CDiv_excv = (CConv div_exc_cn [])`;
+
+val _ = Define `
+ CEq_excv = (CConv eq_exc_cn [])`;
 
 
  val no_closures_defn = Hol_defn "no_closures" `

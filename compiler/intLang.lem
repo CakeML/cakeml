@@ -67,10 +67,13 @@ type Cresult 'a =
 let tuple_cn = 0
 let bind_exc_cn = 1
 let div_exc_cn = 2
+let eq_exc_cn = 3
 let CBind_exc = CCon bind_exc_cn []
 let CDiv_exc = CCon div_exc_cn []
+let CEq_exc = CCon eq_exc_cn []
 let CBind_excv = CConv bind_exc_cn []
 let CDiv_excv = CConv div_exc_cn []
+let CEq_excv = CConv eq_exc_cn []
 
 let rec
 no_closures (CLitv _) = true

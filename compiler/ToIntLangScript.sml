@@ -220,11 +220,14 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (CHandle (exp_to_Cexp m e)
     (CIf (CPrim2 CEq (CVar (Short 0)) CBind_exc) (CRaise CBind_exc)
          (CIf (CPrim2 CEq (CVar (Short 0)) CDiv_exc) (CRaise CDiv_exc)
-              (exp_to_Cexp (cbv m x) b)))))
+              (CIf (CPrim2 CEq (CVar (Short 0)) CEq_exc) (CRaise CEq_exc)
+                   (exp_to_Cexp (cbv m x) b))))))
 /\
 (exp_to_Cexp _ (Raise Bind_error) = (CRaise CBind_exc))
 /\
 (exp_to_Cexp _ (Raise Div_error) = (CRaise CDiv_exc))
+/\
+(exp_to_Cexp _ (Raise Eq_error) = (CRaise CEq_exc))
 /\
 (exp_to_Cexp _ (Raise (Int_error n)) = (CRaise (CLit (IntLit n))))
 /\

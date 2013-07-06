@@ -180,11 +180,14 @@ exp_to_Cexp m (Handle e x b) =
   CHandle (exp_to_Cexp m e)
     (CIf (CPrim2 CEq (CVar (Short 0)) CBind_exc) (CRaise CBind_exc)
          (CIf (CPrim2 CEq (CVar (Short 0)) CDiv_exc) (CRaise CDiv_exc)
-              (exp_to_Cexp (cbv m x) b)))
+              (CIf (CPrim2 CEq (CVar (Short 0)) CEq_exc) (CRaise CEq_exc)
+                   (exp_to_Cexp (cbv m x) b))))
 and
 exp_to_Cexp _ (Raise Bind_error) = CRaise CBind_exc
 and
 exp_to_Cexp _ (Raise Div_error) = CRaise CDiv_exc
+and
+exp_to_Cexp _ (Raise Eq_error) = CRaise CEq_exc
 and
 exp_to_Cexp _ (Raise (Int_error n)) = CRaise (CLit (IntLit n))
 and
