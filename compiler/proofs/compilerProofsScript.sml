@@ -2439,8 +2439,7 @@ val Cenv_bs_perm = store_thm("Cenv_bs_perm",
   fs[EVERY_MEM] >>
   metis_tac[PERM_MEM_EQ])
 
----8<---
-
+(*TODO: MOVE *)
 val PERM_ZIP = store_thm("PERM_ZIP",
   ``∀l1 l2. PERM l1 l2 ⇒ ∀a b c d. l1 = ZIP(a,b) ∧ l2 = ZIP(c,d) ∧ LENGTH a = LENGTH b ∧ LENGTH c = LENGTH d ⇒
     PERM a c ∧ PERM b d``,
@@ -2520,6 +2519,7 @@ val PERM_BIJ = store_thm("PERM_BIJ",
   qexists_tac`g' o g` >>
   simp[combinTheory.o_DEF] )
 
+(*
 val PERM_BIJ_IFF = store_thm("PERM_BIJ_IFF",
   ``∀l1 f l2. BIJ f (count(LENGTH l1)) (count(LENGTH l1)) ∧ l2 = GENLIST (λi. EL (f i) l1) (LENGTH l1)⇒
              PERM l1 l2``,
@@ -2584,6 +2584,22 @@ val env_rs_perm = store_thm("env_rs_perm",
   conj_tac >- metis_tac[] >>
   simp[LIST_EQ_REWRITE,EL_ZIP,EL_MAP] >>
   fs[LIST_EQ_REWRITE] >> rfs[EL_ZIP] )
+*)
+
+val new_decs_renv_def = Define`
+  (new_decs_renv _ [] = []) ∧
+  (new_decs_renv z (d::ds) =
+   let vs = new_dec_vs d in
+   let n = LENGTH vs in
+    new_decs_renv (z+n) ds ++ ZIP(vs,GENLIST($+ z)n))`
+
+val evaluate_dec_new_dec_vs = store_thm("evaluate_dec_new_dec_vs",
+  ``∀mn menv (cenv:envC) s env dec res.
+    evaluate_dec mn menv cenv s env dec res ⇒
+    ∀tds vs. (SND res = Rval (tds,vs)) ⇒ MAP FST vs = new_dec_vs dec``,
+  ho_match_mp_tac evaluate_dec_ind >>
+  simp[LibTheory.emp_def] >> rw[] >>
+  imp_res_tac pmatch_dom >> fs[])
 
 val compile_decs_thm = store_thm("compile_decs_thm",
   ``∀mn menv cenv s env decs res.
@@ -2620,7 +2636,7 @@ val compile_decs_thm = store_thm("compile_decs_thm",
       let n = rsz' - rsz in
       let rs' = rs with <|rnext_label := cs'.next_label
                          ;contab := ct'
-                         ;renv := ZIP(TAKE n m'.bvars,GENLIST (λi. rsz+i) n) ++ rs.renv
+                         ;renv := new_decs_renv rsz decs ++ rs.renv
                          ;rsz := rsz'
                          |> in
       bc_next^* bs bs'
@@ -2651,6 +2667,7 @@ val compile_decs_thm = store_thm("compile_decs_thm",
     strip_tac >>
     map_every qexists_tac [`[]`,`bs.refs`,`rd`] >>
     simp[] >>
+    simp[new_decs_renv_def] >>
     `bs.clock = SOME 0` by (
       Cases_on`bs.clock`>>fs[env_rs_def,LET_THM,Cenv_bs_def,s_refs_def] ) >>
     conj_tac >- (
@@ -2813,7 +2830,7 @@ val compile_decs_thm = store_thm("compile_decs_thm",
   strip_tac >>
   first_x_assum(qspecl_then[`m1`,`cs1`]mp_tac) >>
   qabbrev_tac`rs1 = rs with <|contab := ct1
-                             ;renv := ZIP(TAKE n m1.bvars,GENLIST (λi. i + rs.rsz) n)++rs.renv
+                             ;renv := ZIP(vs,GENLIST (λi. i + rs.rsz) n)++rs.renv
                              ;rsz := rsz1
                              ;rnext_label := cs1.next_label|>` >>
   disch_then(qspec_then`rs1`mp_tac o CONV_RULE(RESORT_FORALL_CONV((op@) o List.partition (equal "rs" o fst o dest_var)))) >>
@@ -3088,31 +3105,15 @@ val compile_decs_thm = store_thm("compile_decs_thm",
     qmatch_assum_abbrev_tac`env_rs menv xcenv xenv yrs xzz rd2 xcs ybs` >>
     `xbs = ybs` by (
       simp[Abbr`ybs`,Abbr`xbs`,bc_state_component_equality] ) >>
-    simp[] >>
-    match_mp_tac env_rs_perm >>
-
-
-    `yrs = xrs` by (
+    `xrs = yrs` by (
       simp[Abbr`yrs`,Abbr`xrs`,compiler_state_component_equality,Abbr`rsz1`] >>
-      simp[Abbr`m1`,Abbr`n`,TAKE_APPEND1,TAKE_LENGTH_ID_rwt] >>
-      Q.PAT_ABBREV_TAC`lf:string list = FLAT X` >>
-      qmatch_abbrev_tac`ZIP(la,GENLIST X (LENGTH la))++ZIP(lc,ld)=ZIP (la++lc,le)` >>
-      qabbrev_tac`lb = GENLIST X (LENGTH la)` >>
-      `LENGTH la = LENGTH lb ∧ LENGTH lc = LENGTH ld` by (
-        simp[Abbr`la`,Abbr`lb`,Abbr`lc`,Abbr`ld`] ) >>
-      simp[ZIP_APPEND] >>
-      rpt AP_TERM_TAC >>
-      simp[Abbr`lb`,Abbr`ld`,Abbr`X`] >>
-
-      `(λi. i + rs.rsz) = $+ rs.rsz` by simp[FUN_EQ_THM] >>
-      pop_assum SUBST1_TAC >>
-      GENLIST_PLUS_APPEND
-      print_apropos``GENLIST x (y+z)``
-      simp[Abbr`la`,Abbr`lf`] >>
-      CONV_TAC(RAND_CONV(RAND_CONV(REWRITE_CONV[Once ADD_SYM]))) >>
-      simp[GENLIST_APPEND,Abbr`le`] >>
-
-    cheat ) >>
+      simp[new_decs_renv_def] >>
+      imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
+      `n = LENGTH (new_dec_vs d)` by fs[Abbr`n`,LIST_EQ_REWRITE] >>
+      simp[] >>
+      rpt AP_TERM_TAC >> rpt AP_THM_TAC >> rpt AP_TERM_TAC >>
+      simp[FUN_EQ_THM]) >>
+    simp[] ) >>
   Cases_on`e`>>simp[Abbr`G`,SemanticPrimitivesTheory.combine_dec_result_def] >>
   disch_then(qx_choosel_then[`bv`,`rf2`,`rd2`,`Cs2`]strip_assume_tac) >>
   map_every qexists_tac[`bv`,`rf2`,`rd2`,`Cs2`] >>
@@ -3155,7 +3156,7 @@ val compile_decs_thm = store_thm("compile_decs_thm",
     simp[Abbr`bs25`,Abbr`bs2'`,Abbr`bs3`,Abbr`bs3'`,bc_state_component_equality] ) >>
   metis_tac[RTC_TRANSITIVE,transitive_def] )
 
---->8---
+---8<---
 
 val FV_top_def = Define`
   (FV_top (Tdec d) = FV_dec d) ∧
