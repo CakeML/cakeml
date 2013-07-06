@@ -4,6 +4,7 @@ open lcsymtacs boolSimps
 open gramTheory
 open NTpropertiesTheory
 open pred_setTheory
+open parsingPreamble
 
 open mmlvalidTheory
 
@@ -107,12 +108,6 @@ val NT_rank_def = Define`
         else                                 0
 `
 
-val MAP_EQ_CONS = store_thm(
-  "MAP_EQ_CONS",
-  ``(MAP f l = h::t) ⇔ ∃e es. l = e::es ∧ f e = h ∧ MAP f es = t``,
-  Cases_on `l` >> simp[])
-
-
 val rules_t = ``mmlG.rules``
 fun ty2frag ty = let
   open simpLib
@@ -197,6 +192,12 @@ val nullable_LetDec = prove_nullable ``nLetDec``
 val nullable_TyVarList = prove_nullable ``nTyVarList``
 val nullable_DtypeDecl = prove_nullable ``nDtypeDecl``
 val nullable_Decl = prove_nullable ``nDecl``
+val nullable_TypeDec = prove_nullable ``nTypeDec``
+val _ = map prove_nullable [
+          ``nFQV``, ``nEbase``, ``nEapp``, ``nEmult``, ``nEadd``, ``nErel``,
+          ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``, ``nElogicOR``,
+          ``nEhandle``, ``nE``, ``nE'``, ``nEhandle'``,
+          ``nConstructorName``, ``nPattern``]
 
 val len_assum =
     first_x_assum

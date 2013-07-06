@@ -9,6 +9,10 @@ val APPEND_ASSOC = listTheory.APPEND_ASSOC
 val FDOM_cmlPEG = mmlPEGTheory.FDOM_cmlPEG
 val mmlpeg_rules_applied = mmlPEGTheory.mmlpeg_rules_applied
 
+val MAP_EQ_CONS = prove(
+  ``(MAP f l = h::t) ⇔ ∃e es. l = e::es ∧ f e = h ∧ MAP f es = t``,
+  Cases_on `l` >> simp[])
+
 fun loseC c =
     first_x_assum
       (K ALL_TAC o assert (can (find_term (same_const c)) o concl))
