@@ -2023,7 +2023,8 @@ val _ = export_rewrites["doPrim2_closed"];
 val CevalPrim2_closed = store_thm(
 "CevalPrim2_closed",
 ``∀p2 v1 v2. every_Cresult Cclosed Cclosed (CevalPrim2 p2 v1 v2)``,
-Cases >> rw[])
+Cases >> rw [Cclosed_cases])
+
 val _ = export_rewrites["CevalPrim2_closed"];
 
 val CevalPrim1_closed = store_thm(

@@ -1121,16 +1121,13 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_all_cns) >>
         qspecl_then[`T`,`menv`,`cenv`,`cs'`,`env`,`e2`,`((cnte,s3),Rval v2)`]mp_tac(CONJUNCT1 evaluate_all_cns) >>
         fsrw_tac[DNF_ss][closed_under_cenv_def] ) >>
-      (* SO: This is the case where one of the arguments to the equality
-       * primitive contains a closure, Cevaluate raises a type exception here,
-       * but evaluate raises an Eq_error. *)
-      `contains_closure v1 ∨ contains_closure v2` by cheat >>   
+      `contains_closure v1 ∨ contains_closure v2` 
+               by metis_tac[syneq_no_closures, no_closures_contains_closure] >>   
       fs [] >>
       rw [] >>
       `SND res = Rerr (Rraise Eq_error)`
              by (fs [Once BigStepTheory.evaluate_cases]) >>
-      rw [Cresult_rel_def, v_to_Cv_def] >>
-      cheat)
+      rw [])
     >- (
       rw[Once Cevaluate_cases] >>
       srw_tac[DNF_ss][] >>
