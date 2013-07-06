@@ -157,6 +157,77 @@ val peg_longV_def = Define`
                   (bindNT nFQV o mktokLf)
 `
 
+val patConsApplied_def = Define`
+  patConsApplied l =
+    case l of
+        [c] => [Nd (mkNT nPattern) [Nd (mkNT nPbase) [c]]]
+      | [c; pb] => [Nd (mkNT nPattern) [c; pb]]
+      | [c; lp; rp] => [Nd (mkNT nPattern) [c; Nd (mkNT nPbase) [lp; rp]]]
+      | [c; lp; pat; rp] => [Nd (mkNT nPattern) [
+                                c;
+                                Nd (mkNT nPbase) [lp; pat; rp]
+                              ]]
+      | [c; lp; pat; com; pl1; rp] =>
+        [Nd (mkNT nPattern) [
+            c;
+            Nd (mkNT nPtuple) [lp; Nd (mkNT nPatternList2) [pat; com; pl1]; rp]
+          ]]
+      | _ => []
+`;
+
+(* "pbase with parens *)
+val peg_pbaseP_def = Define`
+  peg_pbaseP =
+    choicel [
+      seql [tokeq LparT; tokeq RparT] (bindNT nPbase);
+      seql [tokeq LparT; pnt nPattern; tokeq RparT] (bindNT nPbase)
+    ]
+`;
+
+(* "pbase without constructor or parens" *)
+val peg_pbasewocp_def = Define`
+  peg_pbasewocp =
+    choicel [
+      tok isInt (bindNT nPbase o mktokLf);
+      pegf (pnt nV) (bindNT nPbase);
+      pegf (tokeq UnderbarT) (bindNT nPbase)
+    ]
+`;
+
+(* "pbase without constructor *)
+val peg_pbasewoc_def = Define`
+  peg_pbasewoc = choicel [peg_pbasewocp; peg_pbaseP]
+`;
+
+
+val peg_Pattern_def = Define`
+  peg_Pattern =
+    choicel [
+      seql [
+        pnt nConstructorName;
+        choicel [
+          seql [
+            tokeq LparT;
+            choicel [
+              tokeq RparT;
+              seql [
+                pnt nPattern;
+                choicel [
+                  seql [tokeq CommaT; pnt nPatternList1; tokeq RparT] I;
+                  tokeq RparT
+                ]
+              ] I
+            ]
+          ] I;
+          pegf (pnt nConstructorName) (bindNT nPbase);
+          peg_pbasewocp;
+          empty []
+        ]
+      ] patConsApplied;
+      pegf peg_pbasewoc (bindNT nPattern)
+    ]
+`
+
 val mmlPEG_def = zDefine`
   mmlPEG = <|
     start := pnt nREPLTop;
@@ -327,19 +398,7 @@ val mmlPEG_def = zDefine`
                                    isUpper (HD s))
                           od = SOME ())
                      (bindNT nConstructorName o mktokLf)]);
-              (mkNT nPbase,
-               pegf (choicel [pnt nV;
-                              pnt nConstructorName;
-                              tok isInt mktokLf;
-                              tokeq UnderbarT;
-                              seql [tokeq LparT; tokeq RparT] I;
-                              seql [tokeq LparT; pnt nPattern; tokeq RparT] I])
-                    (bindNT nPbase));
-              (mkNT nPattern,
-               pegf (choicel [seql [pnt nConstructorName;
-                                    choicel [pnt nPtuple; pnt nPbase]] I;
-                              pnt nPbase])
-                    (bindNT nPattern));
+              (mkNT nPattern, peg_Pattern);
               (mkNT nPtuple, seql [tokeq LparT; pnt nPatternList2; tokeq RparT]
                                   (bindNT nPtuple));
               (mkNT nPatternList2,
@@ -509,6 +568,19 @@ val peg0_rwts = pegTheory.peg0_cases
                             (RAND_CONV (SIMP_CONV (srw_ss())
                                                   [tokeq_def])))
 
+val pegfail_t = ``pegfail``
+val peg0_rwts = let
+  fun filterthis th = let
+    val c = concl th
+    val (l,r) = dest_eq c
+    val (f,_) = strip_comb l
+  in
+    not (same_const pegfail_t f) orelse is_const r
+  end
+in
+  List.filter filterthis peg0_rwts
+end
+
 val pegnt_case_ths = pegTheory.peg0_cases
                       |> ISPEC ``mmlPEG`` |> CONJUNCTS
                       |> map (Q.SPEC `pnt n`)
@@ -520,7 +592,9 @@ fun pegnt(t,acc) = let
             simp(pegnt_case_ths @ mmlpeg_rules_applied @
                  [FDOM_cmlPEG, peg_V_def, peg_UQConstructorName_def,
                   peg_TypeDec_def, choicel_def, seql_def, peg_longV_def,
-                  pegf_def, peg_nonfix_def, peg_linfix_def, peg_Eapp_def]) >>
+                  pegf_def, peg_nonfix_def, peg_linfix_def, peg_Eapp_def,
+                  peg_Pattern_def, peg_pbasewocp_def, peg_pbasewoc_def,
+                  peg_pbaseP_def]) >>
             simp(peg0_rwts @ acc))
   val nm = "peg0_" ^ term_to_string t
   val th' = save_thm(nm, SIMP_RULE bool_ss [pnt_def] th)
@@ -535,7 +609,7 @@ val npeg0_rwts =
                 ``nUQConstructorName``, ``nConstructorName``, ``nTypeName``,
                 ``nDtypeDecl``, ``nDconstructor``, ``nFDecl``, ``nTyvarN``,
                 ``nTyOp``, ``nDType``, ``nStarTypes``,
-                ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``, ``nLetDec``,
+                ``nRelOps``, ``nPtuple``, ``nPattern``, ``nLetDec``,
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nErel``, ``nEcomp``, ``nEbefore``,
                 ``nEtyped``, ``nElogicAND``, ``nElogicOR``, ``nEhandle``,
@@ -602,7 +676,9 @@ fun wfnt(t,acc) = let
                     [wfpeg_pnt, FDOM_cmlPEG, try_def, peg_longV_def,
                      seql_def, peg_TypeDec_def, peg_V_def, peg_Type_def,
                      peg_UQConstructorName_def, peg_nonfix_def,
-                     tokeq_def, peg_linfix_def, peg_Eapp_def]) THEN
+                     peg_Pattern_def, tokeq_def, peg_linfix_def,
+                     peg_Eapp_def, peg_pbasewocp_def, peg_pbasewoc_def,
+                     peg_pbaseP_def]) THEN
           simp(wfpeg_rwts @ npeg0_rwts @ peg0_rwts @ acc))
 in
   th::acc
@@ -612,7 +688,7 @@ val topo_nts = [``nExn``, ``nV``, ``nTyvarN``, ``nTypeDec``, ``nDecl``,
                 ``nVlist1``, ``nUQTyOp``, ``nUQConstructorName``,
                 ``nConstructorName``, ``nTyVarList``, ``nTypeName``, ``nTyOp``,
                 ``nDType``, ``nStarTypes``,
-                ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``, ``nPE``,
+                ``nRelOps``, ``nPtuple``, ``nPattern``, ``nPE``,
                 ``nPE'``, ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``,
                 ``nFQV``,
                 ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
@@ -648,8 +724,9 @@ val PEG_exprs = save_thm(
          [pegTheory.Gexprs_def, pegTheory.subexprs_def,
           subexprs_pnt, peg_start, peg_range, choicel_def, tokeq_def, try_def,
           seql_def, pegf_def, peg_Eapp_def, peg_V_def, peg_nonfix_def,
-          peg_Type_def, peg_longV_def, peg_linfix_def,
+          peg_Type_def, peg_longV_def, peg_linfix_def, peg_Pattern_def,
           peg_TypeDec_def, peg_UQConstructorName_def,
+          peg_pbasewocp_def, peg_pbasewoc_def, peg_pbaseP_def,
           pred_setTheory.INSERT_UNION_EQ
          ])
 
@@ -661,7 +738,8 @@ val PEG_wellformed = store_thm(
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
        peg_linfix_def, peg_UQConstructorName_def, peg_TypeDec_def,
        peg_V_def, peg_Eapp_def, peg_nonfix_def, peg_Type_def,
-       peg_longV_def] >>
+       peg_longV_def, peg_Pattern_def, peg_pbasewocp_def, peg_pbasewoc_def,
+       peg_pbaseP_def] >>
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
 
 val parse_REPLTop_total = save_thm(
