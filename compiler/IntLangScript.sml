@@ -665,7 +665,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (Cv_to_ov _ _ (CLitv l) = (OLit l))
 /\
-(Cv_to_ov m s (CConv cn vs) = (OConv (Lib$lookup cn m) ( MAP (Cv_to_ov m s) vs)))
+(Cv_to_ov m s (CConv cn vs) = (OConv (the NONE (Lib$lookup cn m)) ( MAP (Cv_to_ov m s) vs)))
 /\
 (Cv_to_ov _ _ (CRecClos _ _ _) = OFn)
 /\
