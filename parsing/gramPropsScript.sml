@@ -193,10 +193,11 @@ val nullable_TyVarList = prove_nullable ``nTyVarList``
 val nullable_DtypeDecl = prove_nullable ``nDtypeDecl``
 val nullable_Decl = prove_nullable ``nDecl``
 val nullable_TypeDec = prove_nullable ``nTypeDec``
-val _ = map prove_nullable [``nFQV``, ``nEbase``, ``nEapp``, ``nEmult``,
-                            ``nEadd``, ``nErel``, ``nEcomp``, ``nEbefore``,
-                            ``nEtyped``, ``nElogicAND``, ``nElogicOR``,
-                            ``nEhandle``, ``nE``, ``nE'``, ``nEhandle'``]
+val _ = map prove_nullable [
+          ``nFQV``, ``nEbase``, ``nEapp``, ``nEmult``, ``nEadd``, ``nErel``,
+          ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``, ``nElogicOR``,
+          ``nEhandle``, ``nE``, ``nE'``, ``nEhandle'``,
+          ``nConstructorName``, ``nPattern``]
 
 val len_assum =
     first_x_assum
