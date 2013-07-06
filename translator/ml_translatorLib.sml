@@ -362,6 +362,22 @@ end
 
 (* misc *)
 
+fun clean_lowercase s = let
+  fun f c = if #"a" <= c andalso c <= #"z" then implode [c] else
+            if #"A" <= c andalso c <= #"Z" then implode [chr (ord c + 32)] else
+            if #"0" <= c andalso c <= #"9" then implode [c] else
+            if c = #"," then "pair" else
+            if mem c [#"_",#"'"] then implode [c] else ""
+  in String.translate f s end;
+
+fun clean_uppercase s = let
+  fun f c = if #"a" <= c andalso c <= #"z" then implode [chr (ord c - 32)] else
+            if #"A" <= c andalso c <= #"Z" then implode [c] else
+            if #"0" <= c andalso c <= #"9" then implode [c] else
+            if c = #"," then "PAIR" else
+            if mem c [#"_",#"'"] then implode [c] else ""
+  in String.translate f s end;
+
 fun get_unique_name str = let
   val names = get_names()
   fun find_name str n = let
@@ -369,7 +385,7 @@ fun get_unique_name str = let
     in if mem new_name names then find_name str (n+1) else new_name end
   fun find_new_name str =
     if mem str names then find_name str 1 else str
-  in find_new_name str end
+  in find_new_name (clean_lowercase str) end
 
 fun dest_args tm =
   let val (x,y) = dest_comb tm in dest_args x @ [y] end
@@ -613,22 +629,6 @@ register_type ty
 val _ = Hol_datatype `BTREE = BLEAF of ('a TREE) | BBRANCH of BTREE => BTREE`;
 val ty = ``:'a BTREE``
 *)
-
-fun clean_lowercase s = let
-  fun f c = if #"a" <= c andalso c <= #"z" then implode [c] else
-            if #"A" <= c andalso c <= #"Z" then implode [chr (ord c + 32)] else
-            if #"0" <= c andalso c <= #"9" then implode [c] else
-            if c = #"," then "pair" else
-            if mem c [#"_",#"'"] then implode [c] else ""
-  in String.translate f s end;
-
-fun clean_uppercase s = let
-  fun f c = if #"a" <= c andalso c <= #"z" then implode [chr (ord c - 32)] else
-            if #"A" <= c andalso c <= #"Z" then implode [c] else
-            if #"0" <= c andalso c <= #"9" then implode [c] else
-            if c = #"," then "PAIR" else
-            if mem c [#"_",#"'"] then implode [c] else ""
-  in String.translate f s end;
 
 fun tag_name type_name const_name = let
   val x = clean_lowercase type_name
@@ -1806,8 +1806,7 @@ fun apply_Eval_Recclosure recc fname v th = let
   fun replace_conv tm = let
     val (i,t) = match_term lemma_lhs tm
     val th9 = INST i (INST_TYPE t lemma)
-    val name = lemma_lhs |> inst t |> rator |> rand |> subst i
-                         |> dest_const |> fst |> stringLib.fromMLstring
+    val name = lemma_lhs |> inst t |> subst i |> rand |> rand
     in INST [``name:string``|->name] th9 end handle HOL_ERR _ => NO_CONV tm
   val th4 = CONV_RULE (QCONV (DEPTH_CONV replace_conv)) th3
   in th4 end
@@ -2138,7 +2137,7 @@ local
     FULL_SIMP_TAC std_ss [FORALL_THM]);
   val DEFAULT_IMP = prove(``!b1. b1 /\ b1 ==> b1``,SIMP_TAC std_ss []);
 in
-  fun derive_split tm = 
+  fun derive_split tm =
     if can (match_term (PRE_IMP |> concl |> rand)) tm then let
       val m = fst (match_term (PRE_IMP |> concl |> rand) tm)
       in INST m PRE_IMP end else
@@ -2159,7 +2158,7 @@ in
       val th = CONV_RULE (RAND_CONV (UNBETA_CONV v) THENC
                  (RATOR_CONV o RAND_CONV) (BINOP_CONV (UNBETA_CONV v))) th
       in MATCH_MP FORALL_SPLIT (GEN v th) end else
-    SPEC tm DEFAULT_IMP 
+    SPEC tm DEFAULT_IMP
 end
 
 fun extract_precondition_rec thms = let
@@ -2212,13 +2211,13 @@ val (fname,def,th) = hd thms
   fun separate_pre (fname,def,th,pre_var,tm1,tm2,rw2) = let
     val lemma = derive_split (th |> concl |> dest_imp |> fst)
     val lemma = MATCH_MP combine_lemma (CONJ lemma th)
-                |> CONV_RULE ((RATOR_CONV o RAND_CONV) 
+                |> CONV_RULE ((RATOR_CONV o RAND_CONV)
                      (PURE_REWRITE_CONV [PRECONDITION_def]))
     in (fname,def,lemma,pre_var) end;
   val thms2 = map separate_pre thms
   fun diff [] ys = []
-    | diff (x::xs) ys = if mem x ys then diff xs ys else x :: diff xs ys  
-  val all_pre_vars = map (fn (fname,def,lemma,pre_var) => 
+    | diff (x::xs) ys = if mem x ys then diff xs ys else x :: diff xs ys
+  val all_pre_vars = map (fn (fname,def,lemma,pre_var) =>
                             repeat rator pre_var) thms2
 (*
 val (fname,def,lemma,pre_var) = hd thms2
@@ -2236,7 +2235,7 @@ val (fname,def,lemma,pre_var) = hd thms2
   val _ = delete_binding (name ^ "_ind") handle NotFound => ()
   val _ = delete_binding (name ^ "_strongind") handle NotFound => ()
   val _ = delete_binding (name ^ "_cases") handle NotFound => ()
-  val _ = save_thm(name ^ "_def", clean_pre_def)  
+  val _ = save_thm(name ^ "_def", clean_pre_def)
   val pre_defs = pre_def |> CONJUNCTS |> map SPEC_ALL
   val thms3 = zip pre_defs thms2
   fun get_sub (pre,(fname,def,lemma,pre_var)) = let
@@ -2246,7 +2245,7 @@ val (fname,def,lemma,pre_var) = hd thms2
   val ss = map get_sub thms3
 (*
 val (pre,(fname,def,lemma,pre_var)) = hd thms3
-*)     
+*)
   fun compact_pre (pre,(fname,def,lemma,pre_var)) = let
     val c = (RATOR_CONV o RAND_CONV) (REWR_CONV (SYM pre))
     val lemma = lemma |> INST ss |> CONV_RULE c
@@ -2254,7 +2253,7 @@ val (pre,(fname,def,lemma,pre_var)) = hd thms3
     val pre = pre |> PURE_REWRITE_RULE [CONTAINER_def]
     in (fname,def,lemma,SOME pre) end
   val thms4 = map compact_pre thms3
-  in thms4 end end  
+  in thms4 end end
 
 
 (* main translation routines *)
@@ -2538,7 +2537,7 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
                    |> ss |> dest_imp |> fst
                    |> list_dest dest_conj |> tl
     val th = results |> map (fn (_,_,th,_) => let
-               val hs = hyp th |> filter (can (match_term ``PRECONDITION p``)) 
+               val hs = hyp th |> filter (can (match_term ``PRECONDITION p``))
                val th = foldr (uncurry DISCH) th hs
                val th = REWRITE_RULE [AND_IMP_INTRO] th
                val imp = th |> concl |> is_imp
