@@ -446,7 +446,11 @@ val pmatch_Cpmatch = store_thm("pmatch_Cpmatch",
     simp[v_to_Cv_def] >>
     rw[Once Cpmatch_cases] >>
     rw[pat_to_Cpat_cnmap]) >>
-  strip_tac >- cheat >>
+  strip_tac >- (
+    rw [pmatch_def, pat_to_Cpat_def] >>
+    rw [v_to_Cv_def] >>
+    rw [Once Cpmatch_cases] >>
+    metis_tac [SND, pat_to_Cpat_cnmap, FST]) >>
   strip_tac >- (
     fs[pmatch_def] >>
     rpt gen_tac >> strip_tac >>
@@ -558,7 +562,11 @@ val pmatch_Cpnomatch = store_thm("pmatch_Cpnomatch",
     fs[good_cmap_def,FORALL_PROD] >>
     imp_res_tac ALOOKUP_MEM >>
     metis_tac[]) >>
-  strip_tac >- cheat >>
+  strip_tac >- (
+    rw [pmatch_def, pat_to_Cpat_def] >>
+    rw [v_to_Cv_def] >>
+    rw [Once Cpnomatch_cases] >>
+    metis_tac [SND, pat_to_Cpat_cnmap, FST]) >>
   strip_tac >- (
     rw[pmatch_def] >>
     Cases_on `store_lookup lnum s` >> fs[] >>

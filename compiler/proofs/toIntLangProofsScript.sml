@@ -622,8 +622,6 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     rw[Once Cevaluate_cases] >>
     fsrw_tac[DNF_ss][] >>
     PROVE_TAC[]) >>
-  strip_tac >- cheat >>
-  (*
   strip_tac >- (
     rw[exp_to_Cexp_def] >> fs[bind_def] >>
     rw[Once Cevaluate_cases] >>
@@ -651,10 +649,9 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     srw_tac[DNF_ss][Once Cevaluate_cases] >>
     srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
     ntac 6 (srw_tac[DNF_ss][Once Cevaluate_cases]) >>
+    srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
+    ntac 6 (srw_tac[DNF_ss][Once Cevaluate_cases]) >>
     metis_tac[Cresult_rel_syneq_trans,EVERY2_syneq_trans]) >>
-    *)
-  strip_tac >- cheat >>
-  (*
   strip_tac >- (
     rpt gen_tac >> simp[] >>
     rw[exp_to_Cexp_def] >>
@@ -662,7 +659,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     fsrw_tac[DNF_ss][EXISTS_PROD] >>
     fs[Once syneq_cases] >>
     CONV_TAC (RESORT_EXISTS_CONV List.rev) >|
-      [qexists_tac`CBind_excv`,qexists_tac`CDiv_excv`] >>
+      [qexists_tac`CBind_excv`,qexists_tac`CDiv_excv`,qexists_tac`CEq_excv`] >>
     first_x_assum(qspec_then`cm`mp_tac) >> simp[] >>
     disch_then(Q.X_CHOOSE_THEN`s3`strip_assume_tac) >>
     map_every qexists_tac[`s3`,`FST s2`] >> simp[] >>
@@ -670,7 +667,6 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
     ntac 6 (srw_tac[DNF_ss][Once Cevaluate_cases]) >>
     srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
     rpt (srw_tac[DNF_ss][Once Cevaluate_cases])) >>
-    *)
   strip_tac >- (
     rw[exp_to_Cexp_def,v_to_Cv_def,
        exps_to_Cexps_MAP,vs_to_Cvs_MAP,
@@ -1064,10 +1060,9 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       simp[]>>strip_tac >>
       Q.ISPECL_THEN[`menv`,`s3`,`s4`,`env`,`Equality`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
       simp[]>>strip_tac>> fs[] >>
-      `¬(contains_closure v1 ∨ contains_closure v2)` by cheat >>
       `closed_under_cenv cenv menv env' s4 ∧ closed_under_cenv cenv menv env (SND cs')` by (
         fs[do_app_def] >> imp_res_tac evaluate_closed_under_cenv >> rfs[] >>
-        rw[] >> rfs[] >> rw[] >> fs[] >> metis_tac[FST]) >> fs[] >>
+        rw[] >> rfs[] >> rw[] >> fs[] >> metis_tac[FST, optionTheory.SOME_11, PAIR_EQ]) >> fs[] >>
       `all_cns_exp exp'' ⊆ cenv_dom cenv` by (
         qspecl_then[`cenv_dom cenv`,`s3`,`env`,`Equality`,`v1`,`v2`]mp_tac do_app_all_cns >>
         simp[] >> discharge_hyps >- (
@@ -1096,6 +1091,12 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       map_every qexists_tac[`sf`,`w1`,`w3`,`FST cs'`,`sd`] >>
       simp[] >>
       fs[do_app_def] >>
+      `(s3 = s4) ∧ (env = env')` by metis_tac [optionTheory.SOME_11, PAIR_EQ] >>
+      `(FST res = (cnt',s4))` 
+                by (Cases_on `contains_closure v1 ∨ contains_closure v2` >>
+                    fs [] >>
+                    rw [] >>
+                    fs [Once BigStepTheory.evaluate_cases]) >>
       rpt BasicProvers.VAR_EQ_TAC >>
       fs[] >>
       rpt BasicProvers.VAR_EQ_TAC >>
@@ -1107,7 +1108,12 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         `w3 = w2` by metis_tac[no_closures_syneq_equal] >>
         `w2 = v_to_Cv mv m v2` by metis_tac[no_closures_syneq_equal,syneq_no_closures] >>
         `w1 = v_to_Cv mv m v1` by metis_tac[no_closures_syneq_equal,syneq_no_closures] >>
-        rw[] >>
+        `~contains_closure v1 ∧ ~contains_closure v2` by metis_tac [no_closures_contains_closure] >>
+        fs [] >>
+        rw [] >>
+        `SND res = Rval (Litv (Bool (v1 = v2)))`
+                by (fs [Once BigStepTheory.evaluate_cases]) >>
+        rw [Cresult_rel_def, v_to_Cv_def] >>
         reverse EQ_TAC >- rw[] >>
         strip_tac >>
         match_mp_tac (MP_CANON(CONJUNCT1 v_to_Cv_inj)) >>
@@ -1115,7 +1121,16 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_all_cns) >>
         qspecl_then[`T`,`menv`,`cenv`,`cs'`,`env`,`e2`,`((cnte,s3),Rval v2)`]mp_tac(CONJUNCT1 evaluate_all_cns) >>
         fsrw_tac[DNF_ss][closed_under_cenv_def] ) >>
-      metis_tac[no_closures_contains_closure,syneq_no_closures])
+      (* SO: This is the case where one of the arguments to the equality
+       * primitive contains a closure, Cevaluate raises a type exception here,
+       * but evaluate raises an Eq_error. *)
+      `contains_closure v1 ∨ contains_closure v2` by cheat >>   
+      fs [] >>
+      rw [] >>
+      `SND res = Rerr (Rraise Eq_error)`
+             by (fs [Once BigStepTheory.evaluate_cases]) >>
+      rw [Cresult_rel_def, v_to_Cv_def] >>
+      cheat)
     >- (
       rw[Once Cevaluate_cases] >>
       srw_tac[DNF_ss][] >>

@@ -199,7 +199,10 @@ strip_tac >- (
   rw[pmatch_def] >>
   BasicProvers.CASE_TAC >>
   fs[] ) >>
-strip_tac >- cheat >>
+strip_tac >- (
+  rw[pmatch_def] >>
+  BasicProvers.CASE_TAC >>
+  fs[] ) >>
 strip_tac >- rw[pmatch_def] >>
 strip_tac >- rw[pmatch_def] >>
 strip_tac >- rw[pmatch_def] >>
@@ -411,7 +414,11 @@ val pmatch_closed = store_thm("pmatch_closed",
     Cases_on `store_lookup lnum s`>>
     fsrw_tac[DNF_ss][store_lookup_def,EVERY_MEM,MEM_EL] >>
     metis_tac[]) >>
-  strip_tac >- cheat >>
+  strip_tac >- (
+    rw[pmatch_def,pat_bindings_def] >>
+    Cases_on `store_lookup lnum s`>>
+    fsrw_tac[DNF_ss][store_lookup_def,EVERY_MEM,MEM_EL] >>
+    metis_tac[]) >>
   strip_tac >- rw[pmatch_def] >>
   strip_tac >- rw[pmatch_def] >>
   strip_tac >- rw[pmatch_def] >>
@@ -995,7 +1002,12 @@ val pmatch_locs = store_thm("pmatch_locs",
       BasicProvers.CASE_TAC >> fs[] >>
       fsrw_tac[DNF_ss][SUBSET_DEF] >>
       metis_tac[MEM_EL] ) >>
-    strip_tac >- cheat >>
+    strip_tac >- (
+      simp[pmatch_def,store_lookup_def] >>
+      rpt gen_tac >> strip_tac >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] >>
+      metis_tac[MEM_EL] ) >>
     strip_tac >- rw[pmatch_def] >>
     strip_tac >- rw[pmatch_def] >>
     strip_tac >- rw[pmatch_def] >>
@@ -1015,7 +1027,11 @@ val pmatch_locs = store_thm("pmatch_locs",
       BasicProvers.CASE_TAC >> fs[] >>
       metis_tac[] ) >>
     strip_tac >- rw[pmatch_def] >>
-    strip_tac >- cheat >>
+    strip_tac >- (
+      simp[pmatch_def] >>
+      rpt gen_tac >> strip_tac >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      metis_tac[] ) >>
     strip_tac >- rw[pmatch_def] >-
     rw [pmatch_def])
 
