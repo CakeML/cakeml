@@ -162,7 +162,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (CevalPrim2 CEq = (\ v1 v2 .
   if no_closures v1 /\ no_closures v2
   then Cval (CLitv (Bool (v1 = v2)))
-  else Cexc Ctype_error))`;
+  else Cexc (Craise CEq_excv)))`;
 
 
  val CevalUpd_def = Define `
