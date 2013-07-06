@@ -66,7 +66,7 @@ let compile_Cexp menv env rsz cs Ce =
   compile menv env TCNonTail rsz cs Ce
 
 let compile_fake_exp menv m env rsz cs vs e =
-  let Ce = exp_to_Cexp m (e (Con (Short "") (List.map (fun v -> Var (Short v)) vs))) in
+  let Ce = exp_to_Cexp m (e (Con (Short "") (List.map (fun v -> Var (Short v)) (List.rev vs)))) in
   compile_Cexp menv env rsz cs Ce
 
 let rec
@@ -89,7 +89,7 @@ compile_decs mn menv ct m env rsz cs (dec::decs) =
   let vs = match vso with None -> [] | Some vs -> vs end in
   let n = List.length vs in
   let m = <| m with cnmap = cmap ct; bvars = vs@m.bvars |> in
-  let env = (genlist(fun i -> CTDec (rsz+i))n)@env in
+  let env = (genlist(fun i -> CTDec (rsz+n-1-i))n)@env in
   let rsz = rsz+n in
   let cs = compile_news false cs 0 vs in
   compile_decs mn menv ct m env rsz cs decs
@@ -109,7 +109,7 @@ let compile_decs_wrap mn rs decs =
   let cs = emit cs [Stack (Cons tuple_cn n)] in
   let cs = emit cs [PopExc; Stack(Pops 1)] in
   let cs = compile_news (Hol.IS_NONE mn) cs 0 news in
-  let env = List.combine news (genlist (fun i -> rs.rsz+i) n) in
+  let env = List.combine news (genlist (fun i -> rs.rsz+n-1-i) n) in
   (ct,env,cs)
 
 let rec

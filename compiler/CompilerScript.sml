@@ -101,7 +101,7 @@ val _ = Define `
 
 val _ = Define `
  (compile_fake_exp menv m env rsz cs vs e =  
-(let Ce = ( exp_to_Cexp m (e (Con (Short "") ( MAP (\ v . Var (Short v)) vs)))) in
+(let Ce = ( exp_to_Cexp m (e (Con (Short "") ( MAP (\ v . Var (Short v)) ( REVERSE vs))))) in
   compile_Cexp menv env rsz cs Ce))`;
 
 
@@ -129,7 +129,7 @@ val _ = Define `
   let vs = ((case vso of NONE => [] | SOME vs => vs )) in
   let n = ( LENGTH vs) in
   let m = (( m with<| cnmap := cmap ct; bvars := vs ++m.bvars |>)) in
-  let env = (( GENLIST(\ i . CTDec (rsz +i))n) ++env) in
+  let env = (( GENLIST(\ i . CTDec (rsz +n - 1 - i))n) ++env) in
   let rsz = (rsz +n) in
   let cs = ( compile_news F cs 0 vs) in
   compile_decs mn menv ct m env rsz cs decs))`;
@@ -152,7 +152,7 @@ val _ = Define `
   let cs = ( emit cs [Stack (Cons tuple_cn n)]) in
   let cs = ( emit cs [PopExc; Stack(Pops 1)]) in
   let cs = ( compile_news (IS_NONE mn) cs 0 news) in
-  let env = ( ZIP ( news, ( GENLIST (\ i . rs.rsz +i) n))) in
+  let env = ( ZIP ( news, ( GENLIST (\ i . rs.rsz +n - 1 - i) n))) in
   (ct,env,cs)))`;
 
 

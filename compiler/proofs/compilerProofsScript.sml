@@ -724,7 +724,7 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
 
 val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
   ``∀rmenv m renv rsz cs vars expf.
-    let exp = expf (Con (Short "") (MAP (Var o Short) vars)) in
+    let exp = expf (Con (Short "") (MAP (Var o Short) (REVERSE vars))) in
     SFV exp ⊆ set m.bvars
     ∧ LENGTH renv = LENGTH m.bvars
     ⇒
@@ -752,12 +752,12 @@ val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
     ∧ IS_SOME bs.clock
     ∧ good_labels rs.rnext_label bc0
     ⇒
-    (∀vs. (beh = Rval (Conv (Short "") vs)) ∧ (LENGTH vars = LENGTH vs) ⇒
+    (∀vs. (beh = Rval (Conv (Short "") (REVERSE vs))) ∧ (LENGTH vars = LENGTH vs) ⇒
       ∃Cws bvs rf rd' Cs'.
       let tt = block_tag + (cmap rs.contab) ' (Short "") in
       let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ code); stack := (Block tt bvs)::bs.stack; refs := rf; clock := SOME (FST s')|> in
       bc_next^* bs bs' ∧
-      LIST_REL syneq (vs_to_Cvs (MAP FST o_f rs.rmenv) (cmap rs.contab) vs) Cws ∧
+      LIST_REL syneq (vs_to_Cvs (MAP FST o_f rs.rmenv) (cmap rs.contab) (REVERSE vs)) Cws ∧
       LIST_REL (Cv_bv (mk_pp rd' bs')) Cws bvs ∧
       LIST_REL syneq (vs_to_Cvs (MAP FST o_f rs.rmenv) (cmap rs.contab) (SND s')) Cs' ∧
       EVERY all_vlabs Cs' ∧ EVERY all_vlabs Cws
@@ -1690,6 +1690,18 @@ val evaluate_dec_decs = store_thm("evaluate_dec_decs",
   simp[LibTheory.emp_def,LibTheory.merge_def] >>
   Cases_on`a`>>simp[])
 
+val tac1 =
+  rpt gen_tac >>
+  simp[compile_dec_def] >>
+  strip_tac >>
+  `count' = 0` by metis_tac[big_unclocked] >> BasicProvers.VAR_EQ_TAC >>
+  fs[big_clocked_unclocked_equiv] >>
+  qexists_tac`count'` >>
+  rpt gen_tac >> strip_tac >>
+  qabbrev_tac`vars = pat_bindings p[]` >>
+  qabbrev_tac`exp = Con (Short "") (MAP (Var o Short) (REVERSE vars))` >>
+  `Short "" ∉ set (MAP FST cenv)` by ( fs[env_rs_def])
+
 val compile_dec_thm = store_thm("compile_dec_thm",
   ``∀mn menv cenv s env dec res.
      evaluate_dec mn menv cenv s env dec res ⇒
@@ -1724,7 +1736,7 @@ val compile_dec_thm = store_thm("compile_dec_thm",
         let bs' = bs with <|pc := next_addr bs.inst_length (bc0 ++ code); stack := (Block tt bvs)::bs.stack; refs := rf; clock := SOME 0|> in
         bc_next^* bs bs'
         ∧ vso = (if ∃ts. dec = Dtype ts then NONE else SOME (MAP FST env'))
-        ∧ LIST_REL syneq (vs_to_Cvs mv cm (MAP SND env')) Cws
+        ∧ LIST_REL syneq (vs_to_Cvs mv cm (REVERSE (MAP SND env'))) Cws
         ∧ LIST_REL (Cv_bv (mk_pp rd' bs')) Cws bvs
         ∧ LIST_REL syneq (vs_to_Cvs mv cm s') Cs'
         ∧ EVERY all_vlabs Cws
@@ -1755,18 +1767,9 @@ val compile_dec_thm = store_thm("compile_dec_thm",
       | _ => T``,
   ho_match_mp_tac evaluate_dec_ind >>
   strip_tac >- (
-    rpt gen_tac >>
-    simp[compile_dec_def] >>
-    strip_tac >>
-    `count' = 0` by metis_tac[big_unclocked] >> BasicProvers.VAR_EQ_TAC >>
-    fs[big_clocked_unclocked_equiv] >>
-    qexists_tac`count'` >>
-    rpt gen_tac >> strip_tac >>
-    qabbrev_tac`vars = pat_bindings p[]` >>
-    qabbrev_tac`exp = Con (Short "") (MAP (Var o Short) vars)` >>
-    `Short "" ∉ set (MAP FST cenv)` by ( fs[env_rs_def]) >>
+    tac1 >>
     `evaluate T menv ((Short "",(LENGTH vars,ARB))::cenv) (count',s) env (Mat e [(p,exp)])
-        ((0,s2),Rval (Conv (Short "") (MAP (THE o ALOOKUP (env' ++ env)) vars)))` by (
+        ((0,s2),Rval (Conv (Short "") (MAP (THE o ALOOKUP (env' ++ env)) (REVERSE vars))))` by (
       simp[Once evaluate_cases] >>
       map_every qexists_tac[`v`,`0,s2`] >>
       conj_tac >- (
@@ -1802,6 +1805,7 @@ val compile_dec_thm = store_thm("compile_dec_thm",
       fs[closed_context_def] >>
       simp[Abbr`Mexp`,Abbr`exp`,Abbr`vars`,FV_list_MAP] >>
       fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,all_cns_list_MAP] ) >>
+    simp[Once SWAP_REVERSE] >>
     discharge_hyps >- simp[Abbr`vars`,Abbr`vs`] >>
     qspecl_then[`cenv`,`s2`,`p`,`v`,`emp`,`env'`,`menv`]mp_tac(CONJUNCT1 pmatch_closed) >>
     discharge_hyps >- (
@@ -1811,10 +1815,10 @@ val compile_dec_thm = store_thm("compile_dec_thm",
       simp[] >> fs[closed_context_def]) >>
     simp[LibTheory.emp_def,Abbr`vars`] >>
     strip_tac >>
-    `MAP SND env' = vs` by (
+    `REVERSE (MAP SND env') = vs` by (
       pop_assum (assume_tac o SYM) >>
       simp[Abbr`vs`] >>
-      simp[MAP_MAP_o,MAP_EQ_f,ALOOKUP_APPEND,FORALL_PROD] >>
+      simp[MAP_MAP_o,MAP_EQ_f,ALOOKUP_APPEND,FORALL_PROD,MAP_REVERSE] >>
       pop_assum (assume_tac o SYM) >>
       rw[] >>
       imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
@@ -1822,16 +1826,7 @@ val compile_dec_thm = store_thm("compile_dec_thm",
     simp[] >>
     metis_tac[] ) >>
   strip_tac >- (
-    rpt gen_tac >>
-    simp[compile_dec_def] >>
-    strip_tac >>
-    `count' = 0` by metis_tac[big_unclocked] >> BasicProvers.VAR_EQ_TAC >>
-    fs[big_clocked_unclocked_equiv] >>
-    qexists_tac`count'` >>
-    rpt gen_tac >> strip_tac >>
-    qabbrev_tac`vars = pat_bindings p[]` >>
-    qabbrev_tac`exp = Con (Short "") (MAP (Var o Short) vars)` >>
-    `Short "" ∉ set (MAP FST cenv)` by ( fs[env_rs_def]) >>
+    tac1 >>
     `evaluate T menv ((Short "",(LENGTH vars,ARB))::cenv) (count',s) env (Mat e [(p,exp)])
         ((0,s2),Rerr (Rraise Bind_error))` by (
       simp[Once evaluate_cases] >>
@@ -1870,16 +1865,7 @@ val compile_dec_thm = store_thm("compile_dec_thm",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- (
-    rpt gen_tac >>
-    simp[compile_dec_def] >>
-    strip_tac >>
-    `count' = 0` by metis_tac[big_unclocked] >> BasicProvers.VAR_EQ_TAC >>
-    fs[big_clocked_unclocked_equiv] >>
-    qexists_tac`count'` >>
-    rpt gen_tac >> strip_tac >>
-    qabbrev_tac`vars = pat_bindings p[]` >>
-    qabbrev_tac`exp = Con (Short "") (MAP (Var o Short) vars)` >>
-    `Short "" ∉ set (MAP FST cenv)` by ( fs[env_rs_def]) >>
+    tac1 >>
     Cases_on`err=Rtype_error`>>simp[]>>
     `evaluate T menv ((Short "",(LENGTH vars,ARB))::cenv) (count',s) env (Mat e [(p,exp)])
         ((0,s'),Rerr err)` by (
@@ -1918,10 +1904,10 @@ val compile_dec_thm = store_thm("compile_dec_thm",
       BasicProvers.CASE_TAC ) >>
     pop_assum SUBST1_TAC >> qunabbrev_tac`MFF` >>
     strip_tac >>
-    qabbrev_tac`exp = Con (Short "") (MAP (Var o Short) (MAP FST funs))` >>
+    qabbrev_tac`exp = Con (Short "") (MAP (Var o Short) (REVERSE (MAP FST funs)))` >>
     `Short "" ∉ set (MAP FST cenv)` by ( fs[env_rs_def]) >>
     `evaluate T menv ((Short "",(LENGTH funs,ARB))::cenv) (0,s) env (Letrec funs exp)
-        ((0,s),Rval (Conv (Short "") (MAP (THE o (ALOOKUP (build_rec_env funs env env))) (MAP FST funs))))` by (
+        ((0,s),Rval (Conv (Short "") (MAP (THE o (ALOOKUP (build_rec_env funs env env))) (REVERSE (MAP FST funs)))))` by (
       simp[Once evaluate_cases,FST_triple] >>
       simp[Once evaluate_cases,Abbr`exp`] >>
       simp[SemanticPrimitivesTheory.do_con_check_def] >>
@@ -1948,9 +1934,11 @@ val compile_dec_thm = store_thm("compile_dec_thm",
       simp[Abbr`Mexp`,Abbr`exp`,Abbr`vars`,FV_list_MAP,FV_defs_MAP] >>
       fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,all_cns_list_MAP,FV_defs_MAP] >>
       metis_tac[]) >>
+    simp[Once SWAP_REVERSE] >>
     discharge_hyps >- simp[Abbr`vars`,Abbr`vs`] >>
-    `build_rec_env funs env [] = ZIP (vars,vs)` by (
+    `build_rec_env funs env [] = ZIP (vars,REVERSE vs)` by (
       simp[build_rec_env_MAP,LIST_EQ_REWRITE,Abbr`vs`,EL_MAP,UNCURRY,EL_ZIP,Abbr`vars`] >>
+      simp[MAP_REVERSE,EL_MAP] >>
       simp[ALOOKUP_APPEND] >> rw[] >>
       Q.PAT_ABBREV_TAC`al:(string#v)list = MAP X funs` >>
       `MEM (FST (EL x funs), Recclosure env funs (FST (EL x funs))) al` by (
@@ -2601,6 +2589,17 @@ val evaluate_dec_new_dec_vs = store_thm("evaluate_dec_new_dec_vs",
   simp[LibTheory.emp_def] >> rw[] >>
   imp_res_tac pmatch_dom >> fs[])
 
+val EVERY2_REVERSE1 = store_thm("EVERY2_REVERSE1",
+  ``∀l1 l2. EVERY2 R l1 (REVERSE l2) ⇔ EVERY2 R (REVERSE l1) l2``,
+  rpt gen_tac >> EQ_TAC >>
+  simp[EVERY2_EVERY] >> rpt strip_tac >>
+  ONCE_REWRITE_TAC[GSYM EVERY_REVERSE] >>
+  simp[REVERSE_ZIP])
+
+val vlabs_list_REVERSE = store_thm("vlabs_list_REVERSE",
+  ``∀ls. vlabs_list (REVERSE ls) = vlabs_list ls``,
+  Induct >> simp[vlabs_list_APPEND] >> metis_tac[UNION_COMM])
+
 val compile_decs_thm = store_thm("compile_decs_thm",
   ``∀mn menv cenv s env decs res.
     evaluate_decs mn menv cenv s env decs res ⇒
@@ -2636,7 +2635,7 @@ val compile_decs_thm = store_thm("compile_decs_thm",
       let n = rsz' - rsz in
       let rs' = rs with <|rnext_label := cs'.next_label
                          ;contab := ct'
-                         ;renv := new_decs_renv rsz decs ++ rs.renv
+                         ;renv := ZIP(TAKE n m'.bvars,GENLIST(λi. rsz+n-1-i)n) ++ rs.renv
                          ;rsz := rsz'
                          |> in
       bc_next^* bs bs'
@@ -2830,7 +2829,7 @@ val compile_decs_thm = store_thm("compile_decs_thm",
   strip_tac >>
   first_x_assum(qspecl_then[`m1`,`cs1`]mp_tac) >>
   qabbrev_tac`rs1 = rs with <|contab := ct1
-                             ;renv := ZIP(vs,GENLIST (λi. i + rs.rsz) n)++rs.renv
+                             ;renv := ZIP(vs,GENLIST (λi. rs.rsz+n-1-i) n)++rs.renv
                              ;rsz := rsz1
                              ;rnext_label := cs1.next_label|>` >>
   disch_then(qspec_then`rs1`mp_tac o CONV_RULE(RESORT_FORALL_CONV((op@) o List.partition (equal "rs" o fst o dest_var)))) >>
@@ -2945,14 +2944,15 @@ val compile_decs_thm = store_thm("compile_decs_thm",
       simp[MAP_ZIP] >>
       simp[Abbr`rsz1`] >>
       simp[TAKE_APPEND1,TAKE_LENGTH_ID_rwt] >>
-      qexists_tac`Cws ++ Cenv` >>
+      qexists_tac`REVERSE Cws ++ Cenv` >>
       qexists_tac`Cs'` >>
       fs[vs_to_Cvs_MAP] >>
       conj_tac >- (
         match_mp_tac EVERY2_APPEND_suff >>
         simp[] >>
         simp[env_to_Cenv_MAP] >>
-        fs[MAP_MAP_o] ) >>
+        fs[MAP_MAP_o,MAP_REVERSE] >>
+        metis_tac[EVERY2_REVERSE1]) >>
       conj_tac >- (
         fs[closed_Clocs_def] >>
         `LENGTH Cs ≤ LENGTH Cs'` by (
@@ -2960,12 +2960,13 @@ val compile_decs_thm = store_thm("compile_decs_thm",
         full_simp_tac list_ss [SUBSET_DEF,IN_COUNT] >>
         metis_tac[LESS_LESS_EQ_TRANS] ) >>
       conj_tac >- (
-        fs[closed_vlabs_def,vlabs_list_APPEND] >>
+        fs[closed_vlabs_def,vlabs_list_APPEND,EVERY_REVERSE,vlabs_list_REVERSE] >>
         rw[] >> TRY(metis_tac[]) >>
         match_mp_tac code_env_cd_append >>
         fs[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] ) >>
       qunabbrev_tac`renv1` >>
       Q.PAT_ABBREV_TAC`renw:ctenv = GENLIST X n` >>
+      (*
       match_mp_tac Cenv_bs_perm >>
       map_every qexists_tac [`REVERSE Cws ++ Cenv`,`REVERSE renw ++ renv`] >>
       reverse conj_tac >- (
@@ -2986,18 +2987,21 @@ val compile_decs_thm = store_thm("compile_decs_thm",
         REWRITE_TAC[CONJUNCT2 PERM_APPEND_IFF] >>
         map_every qunabbrev_tac[`A`,`C`] >>
         metis_tac[REVERSE_ZIP,PERM_REVERSE_EQ,PERM_REFL] ) >>
+      *)
       match_mp_tac Cenv_bs_FUPDATE_LIST_CTDec >>
       simp[Abbr`renw`] >>
       map_every qexists_tac[`REVERSE Cws`,`Cenv`,`renv`,`LENGTH bs.stack`] >>
-      simp[] >>
+      simp[REVERSE_GENLIST,PRE_SUB1] >>
       Q.PAT_ABBREV_TAC`bs0 = bc_state_stack_fupd x y` >>
       qexists_tac`bs0 with stack := bs.stack` >>
       simp[Abbr`bs0`,bc_state_component_equality] >>
       `n = LENGTH Cws` by ( simp[Abbr`n`] >> fs[EVERY2_EVERY] ) >>
       simp[] >>
       reverse conj_tac >- (
-        match_mp_tac EVERY2_REVERSE >>
-        simp[] ) >>
+        conj_tac >- (
+          match_mp_tac EVERY2_REVERSE >>
+          simp[] ) >>
+        simp[LIST_EQ_REWRITE] ) >>
       match_mp_tac Cenv_bs_with_irr >>
       qexists_tac`bs with <|code := bc0 ++ c0; refs := rf; clock := SOME ck|>` >>
       simp[] >>
@@ -3107,12 +3111,12 @@ val compile_decs_thm = store_thm("compile_decs_thm",
       simp[Abbr`ybs`,Abbr`xbs`,bc_state_component_equality] ) >>
     `xrs = yrs` by (
       simp[Abbr`yrs`,Abbr`xrs`,compiler_state_component_equality,Abbr`rsz1`] >>
-      simp[new_decs_renv_def] >>
-      imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
-      `n = LENGTH (new_dec_vs d)` by fs[Abbr`n`,LIST_EQ_REWRITE] >>
-      simp[] >>
-      rpt AP_TERM_TAC >> rpt AP_THM_TAC >> rpt AP_TERM_TAC >>
-      simp[FUN_EQ_THM]) >>
+      simp[TAKE_APPEND1,TAKE_APPEND2] >>
+      Q.PAT_ABBREV_TAC`fd:string list =  FLAT X` >>
+      simp[GENLIST_APPEND] >>
+      simp[ZIP_APPEND] >>
+      simp[Abbr`m1`,TAKE_APPEND1] >>
+      simp[Abbr`n`,TAKE_LENGTH_ID_rwt]) >>
     simp[] ) >>
   Cases_on`e`>>simp[Abbr`G`,SemanticPrimitivesTheory.combine_dec_result_def] >>
   disch_then(qx_choosel_then[`bv`,`rf2`,`rd2`,`Cs2`]strip_assume_tac) >>
