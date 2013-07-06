@@ -3158,6 +3158,40 @@ val compile_decs_thm = store_thm("compile_decs_thm",
 
 ---8<---
 
+val compile_decs_wrap_thm = store_thm("compile_decs_wrap_thm",
+  ``∀mn menv cenv s env decs res.
+    evaluate_decs mn menv cenv s env decs res ⇒
+    ∀rs. ∃ck ct renv cs. compile_decs_wrap mn rs decs = (ct,renv,cs) ∧
+    ∀rd bs bc0.
+    let code = REVERSE cs.out in
+    env_rs menv cenv env rs (LENGTH bs.stack) rd (ck,s) bs
+    ∧ bs.code = bc0 ++ code
+    ∧ bs.pc = next_addr bs.inst_length bc0
+    ∧ IS_SOME bs.clock
+    ⇒
+    case SND (SND res) of
+    | Rval env' =>
+      ∃bvs rf rd'.
+      let s' = FST res in
+      let cenv' = FST (SND res) in
+      let bs' = bs with <|pc := next_addr bs.inst_length bs.code; stack := bvs++bs.stack; refs := rf; clock := SOME 0|> in
+      let rs' = rs with <|contab := ct; rnext_label := cs.next_label; renv := renv@rs.renv; rsz = rs.rsz+LENGTH renv
+                         ;output := if IS_NONE mn then REVERSE(print_envE env')++bs.output else bs.output|>
+      bc_next^* bs bs'
+      ∧ env_rs menv (cenv'++cenv) (env'++env) rs' (LENGTH bs.stack) rd' (0,s') bs'
+    | Rerr (Rraise err) =>
+      ∃bv rf rd'.
+      let s' = FST res in
+      let bs' = bs with <|pc := 0; stack := bv::bs.stack; refs := rf; clock := SOME 0|> in
+      let rs' = rs with <|contab := ct; rnext_label := cs.next_label|> in
+      bc_next^* bs bs'
+      ∧ env_rs menv cenv env rsf (LENGTH bs.stack) rd' (0,s') bs'
+    | _ => T``,
+  rpt gen_tac >> strip_tac >>
+  rpt gen_tac >>
+  imp_res_tac compile_decs_thm >>
+  simp[compile_decs_wrap_def]
+
 val FV_top_def = Define`
   (FV_top (Tdec d) = FV_dec d) ∧
   (FV_top (Tmod mn _ ds) = FV_decs ds)`
