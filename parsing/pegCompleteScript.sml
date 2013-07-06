@@ -97,13 +97,42 @@ val firstSet_nTypeDec = Store_thm(
   ``firstSet mmlG [NT (mkNT nTypeDec)] = {DatatypeT}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]);
 
-val firstSet_nFQV = Store_thm(
+val firstSet_nFQV = store_thm(
   "firstSet_nFQV",
   ``firstSet mmlG [NT (mkNT nFQV)] =
       firstSet mmlG [NT (mkNT nV)] ∪
       { LongidT m i | (m,i) | i ≠ "" ∧ (isAlpha (HD i) ⇒ ¬isUpper (HD i))}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION]);
+
+val firstSetML_nConstructorName = Store_thm(
+  "firstSetML_nConstructorName",
+  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ⇒
+    (firstSetML mmlG sn (NN nConstructorName::rest) =
+     firstSet mmlG [NN nConstructorName])``,
+  simp[firstSetML_eqn] >>
+  ntac 2 (simp[firstSetML_def] >> simp[cmlG_applied, cmlG_FDOM]) >>
+  strip_tac >> simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[firstSetML_def]);
+
+val _ =
+    firstSetML_def |> CONJUNCTS |> (fn l => List.take(l,2)) |> rewrites
+                   |> (fn ss => augment_srw_ss [ss])
+
+val firstSetML_nV = Store_thm(
+  "firstSetML_nV",
+  ``mkNT nV ∉ sn ⇒
+    (firstSetML mmlG sn (NN nV::rest) = firstSet mmlG [NN nV])``,
+  simp[firstSetML_eqn] >> simp[firstSetML_def] >>
+  simp[cmlG_FDOM, cmlG_applied] >> strip_tac >>
+  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
+
+val firstSetML_nFQV = Store_thm(
+  "firstSetML_nFQV",
+  ``mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ⇒
+    (firstSetML mmlG sn (NN nFQV::rest) = firstSet mmlG [NN nFQV])``,
+  simp[firstSetML_eqn] >>
+  ntac 2 (simp[firstSetML_def] >> simp[cmlG_FDOM, cmlG_applied]) >>
+  strip_tac >> simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
 val firstSet_nEbase = Store_thm(
   "firstSet_nEbase",
@@ -113,32 +142,224 @@ val firstSet_nEbase = Store_thm(
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION] >> gen_tac >> eq_tac >> rw[] >> simp[]);
 
-
-val _ =
-    firstSetML_def |> CONJUNCTS |> (fn l => List.take(l,2)) |> rewrites
-                   |> (fn ss => augment_srw_ss [ss])
+val firstSetML_nEbase = Store_thm(
+  "firstSetML_nEbase",
+  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
+    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ⇒
+    firstSetML mmlG sn (NT (mkNT nEbase)::rest) =
+    firstSet mmlG [NT (mkNT nEbase)]``,
+  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >> strip_tac >>
+  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
 val firstSet_nEapp = Store_thm(
   "firstSet_nEapp",
   ``firstSet mmlG [NT (mkNT nEapp)] = firstSet mmlG [NT (mkNT nEbase)]``,
-  simp[firstSetML_eqn, firstSetML_def] >> simp[cmlG_applied, cmlG_FDOM] >>
-  simp[firstSetML_def] >> simp[cmlG_FDOM, cmlG_applied] >>
-  simp[cmlG_FDOM, cmlG_applied, firstSetML_eqn] >>
-  simp[Once EXTENSION] >> dsimp[] >>
-  simp[firstSetML_def, cmlG_FDOM, cmlG_applied] >> dsimp[] >> gen_tac >>
-  eq_tac >> rw[]);
+  simp[Once firstSetML_eqn, SimpLHS] >>
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
+  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
+
+val firstSetML_nEapp = Store_thm(
+  "firstSetML_nEapp",
+  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
+    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ⇒
+    firstSetML mmlG sn (NT (mkNT nEapp) :: rest) =
+    firstSet mmlG [NT(mkNT nEbase)]``,
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
+  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
 val firstSet_nEmult = Store_thm(
   "firstSet_nEmult",
-  ``firstSet mmlG [NT (mkNT nEmult)] = firstSet mmlG [NT (mkNT nEapp)]``,
-  simp[SimpRHS] >>
-  simp[firstSetML_eqn, firstSetML_def] >> simp[cmlG_applied, cmlG_FDOM] >>
-  simp[firstSetML_def] >> simp[cmlG_FDOM, cmlG_applied] >>
-  simp[firstSetML_def] >> simp[cmlG_FDOM, cmlG_applied] >>
-  simp[firstSetML_def] >> simp[cmlG_FDOM, cmlG_applied] >>
-  dsimp[Once EXTENSION] >>
-  simp[firstSetML_def] >> simp[cmlG_FDOM, cmlG_applied] >> dsimp[] >>
-  gen_tac >> eq_tac >> rw[]);
+  ``firstSet mmlG [NT (mkNT nEmult)] = firstSet mmlG [NT (mkNT nEbase)]``,
+  simp[SimpLHS, firstSetML_eqn] >>
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSetML_nEmult = Store_thm(
+  "firstSetML_nEmult",
+  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
+    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
+    mkNT nEmult ∉ sn ⇒
+    firstSetML mmlG sn (NT (mkNT nEmult) :: rest) =
+    firstSet mmlG [NT (mkNT nEbase)]``,
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSet_nEadd = Store_thm(
+  "firstSet_nEadd",
+  ``firstSet mmlG [NT (mkNT nEadd)] = firstSet mmlG [NT (mkNT nEbase)]``,
+  simp[SimpLHS, firstSetML_eqn] >>
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSetML_nEadd = Store_thm(
+  "firstSetML_nEadd",
+  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
+    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
+    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ⇒
+    firstSetML mmlG sn (NT (mkNT nEadd) :: rest) =
+    firstSet mmlG [NT(mkNT nEbase)]``,
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSet_nErel = Store_thm(
+  "firstSet_nErel",
+  ``firstSet mmlG (NT(mkNT nErel)::rest) = firstSet mmlG [NT (mkNT nEbase)]``,
+  simp[SimpLHS, firstSetML_eqn] >>
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSetML_nErel = Store_thm(
+  "firstSetML_nErel",
+  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
+    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
+    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ⇒
+    firstSetML mmlG sn (NT (mkNT nErel) :: rest) = firstSet mmlG [NN nEbase]``,
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSet_nEcomp = Store_thm(
+  "firstSet_nEcomp",
+  ``firstSet mmlG (NT(mkNT nEcomp)::rest) = firstSet mmlG [NT (mkNT nEbase)]``,
+  simp[SimpLHS, firstSetML_eqn] >>
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSetML_nEcomp = Store_thm(
+  "firstSetML_nEcomp",
+  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
+    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
+    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ⇒
+    firstSetML mmlG sn (NT (mkNT nEcomp) :: rest) = firstSet mmlG [NN nEbase]``,
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSet_nEbefore = Store_thm(
+  "firstSet_nEbefore",
+  ``firstSet mmlG (NT(mkNT nEbefore)::rest) =
+      firstSet mmlG [NT (mkNT nEbase)]``,
+  simp[SimpLHS, firstSetML_eqn] >>
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSetML_nEbefore = Store_thm(
+  "firstSetML_nEbefore",
+  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
+    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
+    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
+    mkNT nEbefore ∉ sn ⇒
+    firstSetML mmlG sn (NT (mkNT nEbefore)::rest) = firstSet mmlG [NN nEbase]``,
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSet_nEtyped = Store_thm(
+  "firstSet_nEtyped",
+  ``firstSet mmlG (NT(mkNT nEtyped)::rest) = firstSet mmlG [NT (mkNT nEbase)]``,
+  simp[SimpLHS, firstSetML_eqn] >>
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSetML_nEtyped = Store_thm(
+  "firstSetML_nEtyped",
+  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
+    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
+    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
+    mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ⇒
+    firstSetML mmlG sn (NT (mkNT nEtyped)::rest) = firstSet mmlG [NN nEbase]``,
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSet_nElogicAND = Store_thm(
+  "firstSet_nElogicAND",
+  ``firstSet mmlG (NT(mkNT nElogicAND)::rest) = firstSet mmlG [NT (mkNT nEbase)]``,
+  simp[SimpLHS, firstSetML_eqn] >>
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSetML_nElogicAND = Store_thm(
+  "firstSetML_nElogicAND",
+  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
+    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
+    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
+    mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ⇒
+    firstSetML mmlG sn (NT (mkNT nElogicAND)::rest) =
+      firstSet mmlG [NN nEbase]``,
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSet_nElogicOR = Store_thm(
+  "firstSet_nElogicOR",
+  ``firstSet mmlG (NT(mkNT nElogicOR)::rest) = firstSet mmlG [NT (mkNT nEbase)]``,
+  simp[SimpLHS, firstSetML_eqn] >>
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSetML_nElogicOR = Store_thm(
+  "firstSetML_nElogicOR",
+  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
+    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
+    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
+    mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
+    mkNT nElogicOR ∉ sn ⇒
+    firstSetML mmlG sn (NT (mkNT nElogicOR)::rest) =
+      firstSet mmlG [NN nEbase]``,
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSet_nEhandle = Store_thm(
+  "firstSet_nEhandle",
+  ``firstSet mmlG (NT(mkNT nEhandle)::rest) = firstSet mmlG [NT (mkNT nEbase)]``,
+  simp[SimpLHS, firstSetML_eqn] >>
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSetML_nEhandle = Store_thm(
+  "firstSetML_nEhandle",
+  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
+    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
+    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
+    mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
+    mkNT nElogicOR ∉ sn ∧ mkNT nEhandle ∉ sn ⇒
+    firstSetML mmlG sn (NT (mkNT nEhandle)::rest) =
+      firstSet mmlG [NN nEbase]``,
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSet_nEhandle' = Store_thm(
+  "firstSet_nEhandle'",
+  ``firstSet mmlG (NT(mkNT nEhandle')::rest) = firstSet mmlG [NT (mkNT nEbase)]``,
+  simp[SimpLHS, firstSetML_eqn] >>
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSetML_nEhandle' = Store_thm(
+  "firstSetML_nEhandle'",
+  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
+    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
+    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
+    mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
+    mkNT nElogicOR ∉ sn ∧ mkNT nEhandle' ∉ sn ⇒
+    firstSetML mmlG sn (NT (mkNT nEhandle')::rest) =
+      firstSet mmlG [NN nEbase]``,
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+val firstSet_nE = Store_thm(
+  "firstSet_nE",
+  ``firstSet mmlG (NT(mkNT nE)::rest) =
+      firstSet mmlG [NT (mkNT nEbase)] ∪ {IfT; CaseT; FnT; RaiseT}``,
+  simp[SimpLHS, firstSetML_eqn] >>
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
+  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
+
+val firstSetML_nE = Store_thm(
+  "firstSetML_nE",
+  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
+    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
+    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
+    mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
+    mkNT nElogicOR ∉ sn ∧ mkNT nEhandle ∉ sn ∧ mkNT nE ∉ sn ⇒
+    firstSetML mmlG sn (NT (mkNT nE)::rest) = firstSet mmlG [NN nE]``,
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
+  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
+
+val firstSet_nE' = Store_thm(
+  "firstSet_nE'",
+  ``firstSet mmlG (NT(mkNT nE')::rest) =
+      firstSet mmlG [NT (mkNT nEbase)] ∪ {IfT; FnT; RaiseT}``,
+  simp[SimpLHS, firstSetML_eqn] >>
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
+  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
+
+val firstSetML_nE' = Store_thm(
+  "firstSetML_nE'",
+  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
+    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
+    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
+    mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
+    mkNT nElogicOR ∉ sn ∧ mkNT nEhandle' ∉ sn ∧ mkNT nE' ∉ sn ⇒
+    firstSetML mmlG sn (NT (mkNT nE')::rest) = firstSet mmlG [NN nE']``,
+  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
+  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
 val mmlPEG_total =
     pegTheory.peg_eval_total |> Q.GEN `G` |> Q.ISPEC `mmlPEG`
