@@ -49,16 +49,12 @@ and
 decs_to_contab mn ct (d::ds) = decs_to_contab mn (dec_to_contab mn ct d) ds
 
 let rec
-compile_news _ cs _ [] = emit cs [Stack Pop]
+compile_news cs _ [] = emit cs [Stack Pop]
 and
-compile_news print cs i (v::vs) =
+compile_news cs i (v::vs) =
   let cs = emit cs (List.map Stack [Load 0; Load 0; El i]) in
-  let cs = if print then
-      let cs = emit cs (List.map PrintC (Hol.EXPLODE (Hol.CONCAT["val ";v;" = "]))) in
-      emit cs [Stack(Load 0); Print]
-    else cs in
   let cs = emit cs [Stack (Store 1)] in
-  compile_news print cs (i+1) vs
+  compile_news cs (i+1) vs
 
 let compile_Cexp menv env rsz cs Ce =
   let (Ce,nl) = label_closures (List.length env) cs.next_label Ce in
@@ -91,7 +87,7 @@ compile_decs mn menv ct m env rsz cs (dec::decs) =
   let m = <| m with cnmap = cmap ct; bvars = vs@m.bvars |> in
   let env = (genlist(fun i -> CTDec (rsz+n-1-i))n)@env in
   let rsz = rsz+n in
-  let cs = compile_news false cs 0 vs in
+  let cs = compile_news cs 0 vs in
   compile_decs mn menv ct m env rsz cs decs
 
 let compile_decs_wrap mn rs decs =
@@ -108,9 +104,17 @@ let compile_decs_wrap mn rs decs =
   let news = Hol.TAKE n m.bvars in
   let cs = emit cs [Stack (Cons tuple_cn n)] in
   let cs = emit cs [PopExc; Stack(Pops 1)] in
-  let cs = compile_news (Hol.IS_NONE mn) cs 0 news in
+  let cs = compile_news cs 0 news in
   let env = List.combine news (genlist (fun i -> rs.rsz+n-1-i) n) in
   (ct,env,cs)
+
+let rec
+compile_print_vals _ [] s = s
+and
+compile_print_vals n (v::vs) s =
+  let s = emit s (List.map PrintC (Hol.EXPLODE (Hol.CONCAT ["val ";v;" = "]))) in
+  let s = emit s [Stack(Load n); Print] in
+  compile_print_vals (n+1) vs s
 
 let rec
 compile_print_dec (Dtype ts) s =
@@ -119,7 +123,11 @@ compile_print_dec (Dtype ts) s =
       emit s (List.map PrintC (Hol.EXPLODE (Hol.CONCAT [c;" = <constructor>"]))))
     s cs) s ts
 and
-compile_print_dec _ s = s
+compile_print_dec (Dlet p e) s =
+  compile_print_vals 0 (pat_bindings p []) s
+and
+compile_print_dec (Dletrec defs) s =
+  compile_print_vals 0 (List.map (fun (n,_,_) -> n) defs) s
 
 let rec
 compile_top rs (Tmod mn _ decs) =

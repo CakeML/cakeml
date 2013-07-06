@@ -79,16 +79,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val compile_news_defn = Hol_defn "compile_news" `
 
-(compile_news _ cs _ [] = ( emit cs [Stack Pop]))
+(compile_news cs _ [] = ( emit cs [Stack Pop]))
 /\
-(compile_news print cs i (v::vs) =  
+(compile_news cs i (v::vs) =  
 (let cs = ( emit cs ( MAP Stack [Load 0; Load 0; El i])) in
-  let cs = (if print then
-      let cs = ( emit cs ( MAP PrintC (EXPLODE (CONCAT["val ";v;" = "])))) in
-      emit cs [Stack(Load 0); Print]
-    else cs) in
   let cs = ( emit cs [Stack (Store 1)]) in
-  compile_news print cs (i +1) vs))`;
+  compile_news cs (i +1) vs))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_news_defn;
 
@@ -131,7 +127,7 @@ val _ = Define `
   let m = (( m with<| cnmap := cmap ct; bvars := vs ++m.bvars |>)) in
   let env = (( GENLIST(\ i . CTDec (rsz +n - 1 - i))n) ++env) in
   let rsz = (rsz +n) in
-  let cs = ( compile_news F cs 0 vs) in
+  let cs = ( compile_news cs 0 vs) in
   compile_decs mn menv ct m env rsz cs decs))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_decs_defn;
@@ -151,10 +147,21 @@ val _ = Define `
   let news = ( TAKE n m.bvars) in
   let cs = ( emit cs [Stack (Cons tuple_cn n)]) in
   let cs = ( emit cs [PopExc; Stack(Pops 1)]) in
-  let cs = ( compile_news (IS_NONE mn) cs 0 news) in
+  let cs = ( compile_news cs 0 news) in
   let env = ( ZIP ( news, ( GENLIST (\ i . rs.rsz +n - 1 - i) n))) in
   (ct,env,cs)))`;
 
+
+ val compile_print_vals_defn = Hol_defn "compile_print_vals" `
+
+(compile_print_vals _ [] s = s)
+/\
+(compile_print_vals n (v::vs) s =  
+(let s = ( emit s ( MAP PrintC (EXPLODE (CONCAT ["val ";v;" = "])))) in
+  let s = ( emit s [Stack(Load n); Print]) in
+  compile_print_vals (n +1) vs s))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_print_vals_defn;
 
  val compile_print_dec_def = Define `
 
@@ -170,7 +177,14 @@ val _ = Define `
                                     )) s cs
   )) s ts))
 /\
-(compile_print_dec _ s = s)`;
+(compile_print_dec (Dlet p e) s =  
+(
+  compile_print_vals 0 (pat_bindings p []) s))
+/\
+(compile_print_dec (Dletrec defs) s =  
+(
+  compile_print_vals 0 ( MAP (\p . 
+  (case (p ) of ( (n,_,_) ) => n )) defs) s))`;
 
 
  val compile_top_def = Define `
