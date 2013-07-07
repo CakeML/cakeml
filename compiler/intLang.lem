@@ -102,6 +102,10 @@ do_Ceq (CConv cn1 vs1) (CConv cn2 vs2) =
   else
     Eq_val false
 and
+do_Ceq (CLitv l1) (CConv cn2 vs2) = Eq_val false
+and
+do_Ceq (CConv cn1 vs1) (CLitv l2) = Eq_val false
+and
 do_Ceq (CRecClos _ _ _) (CRecClos _ _ _) = Eq_closure
 and
 do_Ceq _ _ = Eq_type_error

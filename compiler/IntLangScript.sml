@@ -159,6 +159,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   else
     Eq_val F))
 /\
+(do_Ceq (CLitv l1) (CConv cn2 vs2) = (Eq_val F))
+/\
+(do_Ceq (CConv cn1 vs1) (CLitv l2) = (Eq_val F))
+/\
 (do_Ceq (CRecClos _ _ _) (CRecClos _ _ _) = Eq_closure)
 /\
 (do_Ceq _ _ = Eq_type_error)
