@@ -205,42 +205,48 @@ let do_uapp s uop v =
           Some (s', Loc n)
   end
 
-val do_eq : v -> v -> option bool
+type eq_result = 
+  | Eq_val of bool
+  | Eq_closure
+  | Eq_type_error
+
+val do_eq : v -> v -> eq_result
 let rec 
 do_eq (Litv l1) (Litv l2) = 
-  Some (l1 = l2)
+  Eq_val (l1 = l2)
+and
+do_eq (Loc l1) (Loc l2) = Eq_val (l1 = l2)
 and
 do_eq (Conv cn1 vs1) (Conv cn2 vs2) =
   if cn1 = cn2 then
     do_eq_list vs1 vs2
   else
-    Some false
+    Eq_val false
 and
-do_eq (Closure _ _ _) _ = None
+do_eq (Closure _ _ _) (Closure _ _ _) = Eq_closure
 and
-do_eq _ (Closure _ _ _) = None
+do_eq (Closure _ _ _) (Recclosure _ _ _) = Eq_closure
 and
-do_eq _ (Recclosure _ _ _) = None
+do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_closure
 and
-do_eq (Recclosure _ _ _) _ = None
+do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_closure
 and
-do_eq (Loc l1) (Loc l2) = Some (l1 = l2)
+do_eq _ _ = Eq_type_error
 and
-do_eq _ _ = Some false
-and
-do_eq_list [] [] = Some true
+do_eq_list [] [] = Eq_val true
 and
 do_eq_list (v1::vs1) (v2::vs2) = 
   match do_eq v1 v2 with
-    | None -> None
-    | Some r -> 
+    | Eq_closure -> Eq_closure
+    | Eq_type_error -> Eq_type_error
+    | Eq_val r -> 
         if not r then
-          Some false
+          Eq_val false
         else
           do_eq_list vs1 vs2
   end
 and
-do_eq_list _ _ = Some false
+do_eq_list _ _ = Eq_type_error
 
 (* Do an application *)
 val do_app : store -> envE -> op -> v -> v -> option (store * envE * exp)
@@ -262,8 +268,9 @@ let do_app s env' op v1 v2 =
         Some (s, env', Lit (Bool (opb_lookup op n1 n2)))
     | (Equality, v1, v2) ->
         match do_eq v1 v2 with
-          | None -> Some (s, env', Raise Eq_error)
-          | Some b -> Some (s, env', Lit (Bool b))
+          | Eq_type_error -> None
+          | Eq_closure -> Some (s, env', Raise Eq_error)
+          | Eq_val b -> Some (s, env', Lit (Bool b))
         end
     | (Opassign, (Loc lnum), v) ->
         match store_assign lnum v s with

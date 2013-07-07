@@ -252,41 +252,51 @@ val _ = Define `
   )))`;
 
 
-(*val do_eq : v -> v -> option bool*)
+val _ = Hol_datatype `
+ eq_result = 
+    Eq_val of bool
+  | Eq_closure
+  | Eq_type_error`;
+
+
+(*val do_eq : v -> v -> eq_result*)
  val do_eq_defn = Hol_defn "do_eq" `
  
 (do_eq (Litv l1) (Litv l2) =  
- (SOME (l1 = l2)))
+ (Eq_val (l1 = l2)))
+/\
+(do_eq (Loc l1) (Loc l2) = (Eq_val (l1 = l2)))
 /\
 (do_eq (Conv cn1 vs1) (Conv cn2 vs2) =  
 (if cn1 = cn2 then
     do_eq_list vs1 vs2
   else
-    SOME F))
+    Eq_val F))
 /\
-(do_eq (Closure _ _ _) _ = NONE)
+(do_eq (Closure _ _ _) (Closure _ _ _) = Eq_closure)
 /\
-(do_eq _ (Closure _ _ _) = NONE)
+(do_eq (Closure _ _ _) (Recclosure _ _ _) = Eq_closure)
 /\
-(do_eq _ (Recclosure _ _ _) = NONE)
+(do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_closure)
 /\
-(do_eq (Recclosure _ _ _) _ = NONE)
+(do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_closure)
 /\
-(do_eq (Loc l1) (Loc l2) = (SOME (l1 = l2)))
+(do_eq _ _ = Eq_type_error)
 /\
-(do_eq _ _ = (SOME F))
-/\
-(do_eq_list [] [] = (SOME T))
+(do_eq_list [] [] = (Eq_val T))
 /\
 (do_eq_list (v1::vs1) (v2::vs2) =  
  ((case do_eq v1 v2 of
-      NONE => NONE
-    | SOME r => 
+      Eq_closure => Eq_closure
+    | Eq_type_error => Eq_type_error
+    | Eq_val r => 
         if ~  r then
-          SOME F
+          Eq_val F
         else
           do_eq_list vs1 vs2
-  )))`;
+  )))
+/\
+(do_eq_list _ _ = Eq_type_error)`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_defn;
 
@@ -311,8 +321,9 @@ val _ = Define `
         SOME (s, env', Lit (Bool (opb_lookup op n1 n2)))
     | (Equality, v1, v2) =>
         (case do_eq v1 v2 of
-            NONE => SOME (s, env', Raise Eq_error)
-          | SOME b => SOME (s, env', Lit (Bool b))
+            Eq_type_error => NONE
+          | Eq_closure => SOME (s, env', Raise Eq_error)
+          | Eq_val b => SOME (s, env', Lit (Bool b))
         )
     | (Opassign, (Loc lnum), v) =>
         (case store_assign lnum v s of
