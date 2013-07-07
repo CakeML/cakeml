@@ -89,6 +89,38 @@ doPrim2 ty op (CLitv (IntLit x)) (CLitv (IntLit y)) = Cval (CLitv (ty (op x y)))
 and
 doPrim2 _ _ _ _ = Cexc Ctype_error
 
+val do_Ceq : Cv -> Cv -> eq_result
+let rec 
+do_Ceq (CLitv l1) (CLitv l2) = 
+  Eq_val (l1 = l2)
+and
+do_Ceq (CLoc l1) (CLoc l2) = Eq_val (l1 = l2)
+and
+do_Ceq (CConv cn1 vs1) (CConv cn2 vs2) =
+  if cn1 = cn2 then
+    do_Ceq_list vs1 vs2
+  else
+    Eq_val false
+and
+do_Ceq (CRecClos _ _ _) (CRecClos _ _ _) = Eq_closure
+and
+do_Ceq _ _ = Eq_type_error
+and
+do_Ceq_list [] [] = Eq_val true
+and
+do_Ceq_list (v1::vs1) (v2::vs2) = 
+  match do_Ceq v1 v2 with
+    | Eq_closure -> Eq_closure
+    | Eq_type_error -> Eq_type_error
+    | Eq_val r -> 
+        if not r then
+          Eq_val false
+        else
+          do_Ceq_list vs1 vs2
+  end
+and
+  do_Ceq_list _ _ = Eq_val false
+
 let rec
 CevalPrim2 CAdd = doPrim2 IntLit Int.(+)
 and
@@ -103,9 +135,11 @@ and
 CevalPrim2 CLt = doPrim2 Bool Int.(<)
 and
 CevalPrim2 CEq = fun v1 v2 ->
-  if no_closures v1 && no_closures v2
-  then Cval (CLitv (Bool (v1 = v2)))
-  else Cval (CLitv (IntLit (i 0)))
+  match do_Ceq v1 v2 with
+    | Eq_val b -> Cval (CLitv (Bool b))
+    | Eq_closure -> Cval (CLitv (IntLit (i 0)))
+    | Eq_type_error -> Cexc Ctype_error
+  end
 
 let rec
 CevalUpd s (CLoc n) (v:Cv) =

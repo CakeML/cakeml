@@ -145,6 +145,41 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (doPrim2 _ _ _ _ = (Cexc Ctype_error))`;
 
 
+(*val do_Ceq : Cv -> Cv -> eq_result*)
+ val do_Ceq_defn = Hol_defn "do_Ceq" `
+ 
+(do_Ceq (CLitv l1) (CLitv l2) =  
+ (Eq_val (l1 = l2)))
+/\
+(do_Ceq (CLoc l1) (CLoc l2) = (Eq_val (l1 = l2)))
+/\
+(do_Ceq (CConv cn1 vs1) (CConv cn2 vs2) =  
+(if cn1 = cn2 then
+    do_Ceq_list vs1 vs2
+  else
+    Eq_val F))
+/\
+(do_Ceq (CRecClos _ _ _) (CRecClos _ _ _) = Eq_closure)
+/\
+(do_Ceq _ _ = Eq_type_error)
+/\
+(do_Ceq_list [] [] = (Eq_val T))
+/\
+(do_Ceq_list (v1::vs1) (v2::vs2) =  
+ ((case do_Ceq v1 v2 of
+      Eq_closure => Eq_closure
+    | Eq_type_error => Eq_type_error
+    | Eq_val r => 
+        if ~  r then
+          Eq_val F
+        else
+          do_Ceq_list vs1 vs2
+  )))
+/\
+  (do_Ceq_list _ _ = (Eq_val F))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_Ceq_defn;
+
  val CevalPrim2_def = Define `
 
 (CevalPrim2 CAdd = ( doPrim2 IntLit int_add))
@@ -160,9 +195,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (CevalPrim2 CLt = ( doPrim2 Bool int_lt))
 /\
 (CevalPrim2 CEq = (\ v1 v2 .
-  if no_closures v1 /\ no_closures v2
-  then Cval (CLitv (Bool (v1 = v2)))
-  else Cval (CLitv (IntLit ( & 0)))))`;
+  (case do_Ceq v1 v2 of
+      Eq_val b => Cval (CLitv (Bool b))
+    | Eq_closure => Cval (CLitv (IntLit ( & 0)))
+    | Eq_type_error => Cexc Ctype_error
+  )))`;
 
 
  val CevalUpd_def = Define `
