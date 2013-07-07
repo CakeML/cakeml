@@ -4,6 +4,7 @@ open lcsymtacs boolSimps
 open gramTheory
 open NTpropertiesTheory
 open pred_setTheory
+open parsingPreamble
 
 open mmlvalidTheory
 
@@ -77,7 +78,6 @@ val NT_rank_def = Define`
         else if n = nTypeList1         then  5
         else if n = nTypeList2         then  5
         else if n = nType              then  4
-        else if n = nStarTypesP        then  5
         else if n = nStarTypes         then  4
         else if n = nDType             then  3
         else if n = nTyOp              then  2
@@ -103,14 +103,10 @@ val NT_rank_def = Define`
         else if n = nDtypeDecl         then  3
         else if n = nAndFDecls         then  3
         else if n = nFDecl             then  2
-        else 0
+        else if n = nTyVarList         then  2
+        else if n = nTyvarN            then  1
+        else                                 0
 `
-
-val MAP_EQ_CONS = store_thm(
-  "MAP_EQ_CONS",
-  ``(MAP f l = h::t) ⇔ ∃e es. l = e::es ∧ f e = h ∧ MAP f es = t``,
-  Cases_on `l` >> simp[])
-
 
 val rules_t = ``mmlG.rules``
 fun ty2frag ty = let
@@ -178,12 +174,14 @@ val nullconv =
 
 fun prove_nullable t = let
   val th = nullconv ``nullableNT mmlG (mkNT ^t)``
+  val nm = "nullable_" ^ String.extract(term_to_string t,1,NONE)
 in
-  save_thm("nullable_" ^ String.extract(term_to_string t,1,NONE),
-           EQT_ELIM th handle HOL_ERR _ => EQF_ELIM th)
+  save_thm(nm, EQT_ELIM th handle HOL_ERR _ => EQF_ELIM th) before
+  export_rewrites [nm]
 end
 val nullable_V = prove_nullable ``nV``
 val nullable_Vlist1 = prove_nullable ``nVlist1``
+val nullable_TyvarN = prove_nullable ``nTyvarN``
 val nullable_UQTyOp = prove_nullable ``nUQTyOp``
 val nullable_DType = prove_nullable ``nDType``
 val nullable_SpecLine = prove_nullable ``nSpecLine``
@@ -192,6 +190,14 @@ val nullable_Ptuple = prove_nullable ``nPtuple``
 val nullable_Pbase = prove_nullable ``nPbase``
 val nullable_LetDec = prove_nullable ``nLetDec``
 val nullable_TyVarList = prove_nullable ``nTyVarList``
+val nullable_DtypeDecl = prove_nullable ``nDtypeDecl``
+val nullable_Decl = prove_nullable ``nDecl``
+val nullable_TypeDec = prove_nullable ``nTypeDec``
+val _ = map prove_nullable [
+          ``nFQV``, ``nEbase``, ``nEapp``, ``nEmult``, ``nEadd``, ``nErel``,
+          ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``, ``nElogicOR``,
+          ``nEhandle``, ``nE``, ``nE'``, ``nEhandle'``,
+          ``nConstructorName``, ``nPattern``]
 
 val len_assum =
     first_x_assum

@@ -1,4 +1,4 @@
-INCLUDES = ../semantics
+INCLUDES = ../semantics ../parsing ../metatheory
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -6,16 +6,23 @@ HOLHEAP = local-hol-heap
 PARENT_HOLHEAP = ../semantics/sem_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-PRE_BARE_THYS = AstTheory \
+PRE_BARE_THYS1 = AstTheory \
 		TokensTheory \
 		LibTheory \
 		SemanticPrimitivesTheory \
 		AltBigStepTheory
 
-BARE_THYS =  $(patsubst %,../semantics/%,$(PRE_BARE_THYS))
+PRE_BARE_THYS2 = mmlParseTheory lexer_implTheory
+
+PRE_BARE_THYS3 = bigBigEquivTheory
+
+BARE_THYS1 =  $(patsubst %,../semantics/%,$(PRE_BARE_THYS1))
+BARE_THYS2 =  $(patsubst %,../parsing/%,$(PRE_BARE_THYS2))
+BARE_THYS3 =  $(patsubst %,../metatheory/%,$(PRE_BARE_THYS3))
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS1) $(BARE_THYS2) $(BARE_THYS3)
+
 endif

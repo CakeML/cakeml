@@ -15,7 +15,7 @@ val _ = finalise_translation ();
 
 (* using the certificte theorem *)
 
-val (qsort_eval,_) = get_cert "QSORT"
+val (qsort_eval,_) = get_cert "qsort"
 
 val Eval_Var_lemma = prove(
   ``(lookup name env = SOME x) /\ P x ==> Eval env (Var (Short name)) P``,
@@ -45,7 +45,7 @@ val ML_QSORT_CORRECT = store_thm ("ML_QSORT_CORRECT",
       ==>
       ?l' xs'.
         evaluate' empty_store env
-            (App Opapp (App Opapp (Var (Short "QSORT"))
+            (App Opapp (App Opapp (Var (Short "qsort"))
                                   (Var (Short "R")))
                                   (Var (Short "xs")))
             (empty_store,Rval xs') /\

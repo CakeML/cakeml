@@ -89,6 +89,7 @@ val ginfo = { tokmap = tokmap,
 val mmlG_def = mk_grammar_def ginfo
 `(* types *)
  UQTyOp ::= <AlphaT> | <SymbolT>;
+ TyvarN ::= <TyvarT>;
  TyOp ::= UQTyOp | <LongidT>;
  TypeList1 ::= Type | Type "," TypeList1;
  TypeList2 ::= Type "," TypeList1;
@@ -97,10 +98,9 @@ val mmlG_def = mk_grammar_def ginfo
 
  (* type declarations *)
  StarTypes ::= StarTypes "*" DType | DType;
- StarTypesP ::= "(" StarTypes ")" | StarTypes;
  TypeName ::= UQTyOp | "(" TyVarList ")" UQTyOp | <TyvarT> UQTyOp ;
- TyVarList ::= <TyvarT> | TyVarList "," <TyvarT>;
- Dconstructor ::= UQConstructorName "of" StarTypesP | UQConstructorName;
+ TyVarList ::= TyvarN | TyVarList "," TyvarN;
+ Dconstructor ::= UQConstructorName "of" StarTypes | UQConstructorName;
  DtypeCons ::= Dconstructor | DtypeCons "|" Dconstructor;
  DtypeDecl ::= TypeName "=" DtypeCons ;
  DtypeDecls ::= DtypeDecl | DtypeDecls "and" DtypeDecl;

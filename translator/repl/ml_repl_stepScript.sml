@@ -61,9 +61,9 @@ val _ = rich_listTheory.BUTLASTN_REVERSE |> Q.SPECL [`n`,`REVERSE l`]
   |> REWRITE_RULE [REVERSE_REVERSE,LENGTH_REVERSE] |> UNDISCH
   |> translate
 
-val BUTLASTN_side_def = prove(
-  ``!n l. BUTLASTN_side n l = (n <= LENGTH l)``,
-  SIMP_TAC std_ss [fetch "-" "BUTLASTN_side_def"])
+val butlastn_side_def = prove(
+  ``!n l. butlastn_side n l = (n <= LENGTH l)``,
+  SIMP_TAC std_ss [fetch "-" "butlastn_side_def"])
   |> update_precondition;
 
 val _ = translate compile_top_def;

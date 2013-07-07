@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib
 
-open mmlPEGTheory gramTheory mmlPtreeConversionTheory
+open mmlPEGTheory gramTheory cmlPtreeConversionTheory
      mmlvalidTheory grammarTheory lexer_funTheory
 
 local open ASCIInumbersLib in end
@@ -215,11 +215,8 @@ val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x)"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x,D)"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x,D(1),true)"
 
-val _ = parsetest ``nStarTypes`` ``ptree_StarTypes F`` "'a"
-val _ = parsetest ``nStarTypesP`` ``ptree_StarTypes T`` "'a * bool"
-val _ = parsetest ``nStarTypesP`` ``ptree_StarTypes T`` "('a * bool)"
-val _ = parsetest ``nStarTypesP`` ``ptree_StarTypes T``
-                  "('a * bool * (bool -> bool))"
+val _ = parsetest ``nStarTypes`` ``ptree_StarTypes`` "'a"
+val _ = parsetest ``nStarTypes`` ``ptree_StarTypes`` "'a * bool"
 val _ = parsetest ``nTypeName`` ``ptree_TypeName`` "bool"
 val _ = parsetest ``nTypeName`` ``ptree_TypeName``
                   "'a list"

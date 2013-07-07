@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib
 
-open mmlPEGTheory cmlPtreeConversionTheory PEG_CFGTheory
+open mmlPEGTheory cmlPtreeConversionTheory pegSoundTheory
 open lcsymtacs
 open monadsyntax
 
@@ -76,7 +76,7 @@ val mmlParseREPLTop_thm = store_thm(
   qspec_then `nt (mkNT nREPLTop) I`
     ((fn th => fs[th,pnt_def]) o SIMP_RULE (srw_ss()) [PEG_exprs,pnt_def])
     mmlpeg_executed >>
-  pop_assum (strip_assume_tac o MATCH_MP peg_correct) >>
+  pop_assum (strip_assume_tac o MATCH_MP peg_sound) >>
   simp[oHD_def, mmlvalidTheory.mmlvalid_def, gramTheory.assert_def,
        optionTheory.OPTION_IGNORE_BIND_def]);
 val _ = computeLib.add_persistent_funs ["mmlParseREPLTop_thm"]

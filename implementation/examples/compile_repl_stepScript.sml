@@ -1,34 +1,28 @@
 open preamble repl_computeLib ml_repl_stepTheory
 val _ = new_theory"compile_repl_step"
 
-val _ = Hol_datatype`stop_list = stop_NIL | stop_CONS of 'a => stop_list`
+val stop_APPEND_def = Define`
+  stop_APPEND (l1:bc_inst list) l2 = l1 ++ l2`
 
 val _ = computeLib.stoppers := let
-  val stop_CONS = inst[alpha|->``:bc_inst list``]``stop_CONS``
-  val stoppers = [stop_CONS ,``Dlet``,``Dletrec``,``Dtype``]
+  val stoppers = [``Dlet``,``Dletrec``,``Dtype``,``stop_APPEND``]
   in SOME (fn tm => mem tm stoppers) end
-
-val compile_decs_def = Define`
-  compile_decs cs [] acc = acc ∧
-  compile_decs cs (d::ds) acc =
-  let (css,csf,code) = compile_top cs (Tdec d) in
-  compile_decs css ds (stop_CONS code acc)`
 
 val _ = computeLib.add_funs[ml_repl_step_decls]
 
 val compile_dec1_def = Define`
-  compile_dec1 (a,cs) d =
-    let (css,csf,code) = compile_top cs (Tdec d)
-    in
-      (stop_CONS code a, css)
-`
+  compile_dec1 (rs,code) d =
+    let (ct,env,nl,code') = compile_dec (SOME "CakeML") rs d in
+      (rs with <| contab := ct; renv := env ++ rs.renv; rsz := rs.rsz + LENGTH env; rnext_label := nl |>
+      ,stop_APPEND code' code)`
 
 val compile_decs_FOLDL = store_thm(
   "compile_decs_FOLDL",
-  ``∀cs acc.
-      compile_decs (cs:compiler_state) ds acc =
-      FST (FOLDL compile_dec1 (acc,cs) ds)``,
-  Induct_on `ds` >> rw[compile_decs_def, compile_dec1_def]);
+  ``∀acc.
+      compile_decs "CakeML" ds acc =
+      FOLDL compile_dec1 acc ds``,
+  Induct_on `ds` >> Cases_on`acc`>>
+  rw[compile_decs_def, compile_dec1_def, stop_APPEND_def]);
 
 fun rbinop_size acc t =
     if is_const t orelse is_var t then acc else rbinop_size (acc + 1) (rand t)
@@ -199,7 +193,7 @@ end
 val _ = Globals.max_print_depth := 15
 
 fun mk_initial_split n =
-  ``FOLDL compile_dec1 (stop_NIL, init_compiler_state) ml_repl_step_decls``
+  ``FOLDL compile_dec1 (init_compiler_state,[]) ml_repl_step_decls``
      |> (RAND_CONV (EVAL THENC chunkify_CONV n) THENC
          RATOR_CONV (RAND_CONV EVAL))
 
@@ -238,12 +232,12 @@ val compiled = save_thm("compiled", th);
 
 val _ = PolyML.fullGC();
 val res = time EVAL
-  ``compile_decs init_compiler_state (TAKE 100 ml_repl_step_decls) stop_NIL``
+  ``compile_decs "CakeML" (TAKE 100 ml_repl_step_decls) (init_compiler_state,[])``
 *)
 
 (*
 EVAL ``TAKE 20 (DROP 100 ml_repl_step_decls)``
-val _ = time EVAL ``compile_decs init_compiler_state ml_repl_step_decls stop_NIL``
+val _ = time EVAL ``compile_decs "CakeML" ml_repl_step_decls (init_compiler_state,[])``
 *)
 
 (*
@@ -255,15 +249,15 @@ val many_o80 = EVAL ``GENLIST (K ^Dlet_o) 80`` |> concl |> rhs
 val many_o160 = EVAL ``GENLIST (K ^Dlet_o) 160`` |> concl |> rhs
 
 val _ = PolyML.fullGC();
-val _ = time EVAL ``compile_decs init_compiler_state ^many_o10 stop_NIL``
+val _ = time EVAL ``compile_decs "CakeML" ^many_o10 (init_compiler_state,[])``
 val _ = PolyML.fullGC();
-val _ = time EVAL ``compile_decs init_compiler_state ^many_o20 stop_NIL``
+val _ = time EVAL ``compile_decs "CakeML" ^many_o20 (init_compiler_state,[])``
 val _ = PolyML.fullGC();
-val _ = time EVAL ``compile_decs init_compiler_state ^many_o40 stop_NIL``
+val _ = time EVAL ``compile_decs "CakeML" ^many_o40 (init_compiler_state,[])``
 val _ = PolyML.fullGC();
-val _ = time EVAL ``compile_decs init_compiler_state ^many_o80 stop_NIL``
+val _ = time EVAL ``compile_decs "CakeML" ^many_o80 (init_compiler_state,[])``
 val _ = PolyML.fullGC();
-val _ = time EVAL ``compile_decs init_compiler_state ^many_o160 stop_NIL``
+val _ = time EVAL ``compile_decs "CakeML" ^many_o160 (init_compiler_state,[])``
 
 val _ = computeLib.stoppers := NONE
 val num_compset = reduceLib.num_compset()

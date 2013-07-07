@@ -6,7 +6,7 @@ open finite_mapTheory pred_setTheory;
 open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
 open terminationTheory alistTheory;
 
-open ml_translatorLib ml_translatorTheory mini_preludeTheory;;
+open ml_translatorLib ml_translatorTheory mini_preludeTheory;
 
 val _ = translation_extends "mini_prelude"; (* HD, TL, APPEND, REV, REVERSE *)
 
@@ -36,15 +36,15 @@ val res = translate IS_SOME_DEF;
 val res = translate OPTION_MAP_DEF;
 val res = translate OPTION_MAP2_DEF;
 
-val THE_side_def = prove(
-  ``THE_side = IS_SOME``,
+val the_side_def = prove(
+  ``the_side = IS_SOME``,
   FULL_SIMP_TAC std_ss [FUN_EQ_THM] THEN Cases
-  THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "THE_side_def"])
+  THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "the_side_def"])
   |> update_precondition;
 
-val OPTION_MAP2_side_def = prove(
-  ``!f x y. OPTION_MAP2_side f x y = T``,
-  FULL_SIMP_TAC (srw_ss()) [fetch "-" "OPTION_MAP2_side_def",THE_side_def])
+val option_map2_side_def = prove(
+  ``!f x y. option_map2_side f x y = T``,
+  FULL_SIMP_TAC (srw_ss()) [fetch "-" "option_map2_side_def",the_side_def])
   |> update_precondition;
 
 (* sum *)
@@ -55,16 +55,16 @@ val res = translate OUTL;
 val res = translate OUTR;
 val res = translate SUM_MAP_def;
 
-val OUTL_side_def = prove(
-  ``OUTL_side = ISL``,
+val outl_side_def = prove(
+  ``outl_side = ISL``,
   FULL_SIMP_TAC std_ss [FUN_EQ_THM] THEN Cases
-  THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "OUTL_side_def"])
+  THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "outl_side_def"])
   |> update_precondition;
 
-val OUTR_side_def = prove(
-  ``OUTR_side = ISR``,
+val outr_side_def = prove(
+  ``outr_side = ISR``,
   FULL_SIMP_TAC std_ss [FUN_EQ_THM] THEN Cases
-  THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "OUTR_side_def"])
+  THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "outr_side_def"])
   |> update_precondition;
 
 (* list *)
@@ -106,28 +106,28 @@ val res = translate EL;
 val res = translate LAST_DEF;
 val res = translate (splitAtPki_DEF |> REWRITE_RULE [SUC_LEMMA])
 
-val FRONT_side_def = prove(
-  ``!xs. FRONT_side xs = ~(xs = [])``,
-  Induct THEN ONCE_REWRITE_TAC [fetch "-" "FRONT_side_def"]
+val front_side_def = prove(
+  ``!xs. front_side xs = ~(xs = [])``,
+  Induct THEN ONCE_REWRITE_TAC [fetch "-" "front_side_def"]
   THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
   |> update_precondition;
 
-val ZIP_side_def = prove(
-  ``!x. ZIP_side x = (LENGTH (FST x) = LENGTH (SND x))``,
+val zip_side_def = prove(
+  ``!x. zip_side x = (LENGTH (FST x) = LENGTH (SND x))``,
   Cases THEN Q.SPEC_TAC (`r`,`r`) THEN Induct_on `q` THEN Cases_on `r`
-  THEN ONCE_REWRITE_TAC [fetch "-" "ZIP_side_def"]
+  THEN ONCE_REWRITE_TAC [fetch "-" "zip_side_def"]
   THEN FULL_SIMP_TAC (srw_ss()) [])
   |> update_precondition;
 
-val EL_side_def = prove(
-  ``!n xs. EL_side n xs = (n < LENGTH xs)``,
-  Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "EL_side_def"]
+val el_side_def = prove(
+  ``!n xs. el_side n xs = (n < LENGTH xs)``,
+  Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "el_side_def"]
   THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
   |> update_precondition;
 
-val LAST_side_def = prove(
-  ``!xs. LAST_side xs = ~(xs = [])``,
-  Induct THEN ONCE_REWRITE_TAC [fetch "-" "LAST_side_def"] 
+val last_side_def = prove(
+  ``!xs. last_side xs = ~(xs = [])``,
+  Induct THEN ONCE_REWRITE_TAC [fetch "-" "last_side_def"]
   THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
   |> update_precondition;
 
@@ -450,9 +450,9 @@ val FUNPOW_LEMMA = prove(
   ``!n m. FUNPOW (\x. x + 1) n m = n + m``,
   Induct THEN FULL_SIMP_TAC std_ss [FUNPOW,ADD1,AC ADD_COMM ADD_ASSOC]);
 
-val LEAST_side_thm = prove(
-  ``!s. LEAST_side s = ~(s = {})``,
-  SIMP_TAC std_ss [fetch "-" "LEAST_side_def"]
+val least_side_thm = prove(
+  ``!s. least_side s = ~(s = {})``,
+  SIMP_TAC std_ss [fetch "-" "least_side_def"]
   THEN FULL_SIMP_TAC std_ss [OWHILE_def,FUNPOW_LEMMA,FUN_EQ_THM,EMPTY_DEF]
   THEN METIS_TAC [IS_SOME_DEF])
   |> update_precondition;

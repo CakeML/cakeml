@@ -6,7 +6,7 @@ open SemanticPrimitivesTheory semanticsExtraTheory TypeSystemTheory typeSoundThe
 val _ = new_theory "replCorrect";
 
 val lex_impl_all_def = tDefine "lex_impl_all" `
-lex_impl_all input = 
+lex_impl_all input =
   case lex_until_toplevel_semicolon input of
     | NONE => []
     | SOME (t,input') => t::lex_impl_all input'`
@@ -14,21 +14,144 @@ lex_impl_all input =
  rw [] >>
  metis_tac [lex_until_toplevel_semicolon_LESS]);
 
-val lexer_correct = Q.prove (
-  `!input. split_top_level_semi (lexer_fun input) = lex_impl_all input`,
-  gen_tac
-  >> completeInduct_on`LENGTH input` >> rw[]
-  >> rw[Once split_top_level_semi_def]
-  >> rw[Once lex_impl_all_def]
-  >> rw[lex_until_toplevel_semicolon_def]
-  >> rw[Once lexer_fun_def]
-  >> rw[Once lex_aux_def]
-  >> Cases_on`next_token input` >> rw[]
-  >- (
-    rw[toplevel_semi_dex_def]
-    >> cheat (* false! *)
-    )
-  >> cheat)
+val lex_aux_tokens_def = Define `
+  lex_aux_tokens acc error stk input =
+     case input of
+       [] => NONE
+     | token::rest =>
+         if token = SemicolonT /\ (stk = [] \/ error) then
+           SOME (REVERSE (token::acc),rest)
+         else
+           (let new_acc = token::acc
+            in
+              if error then lex_aux_tokens new_acc error stk rest
+              else if token = LetT then
+                lex_aux_tokens new_acc F (SH_END::stk) rest
+              else if token = StructT then
+                lex_aux_tokens new_acc F (SH_END::stk) rest
+              else if token = SigT then
+                lex_aux_tokens new_acc F (SH_END::stk) rest
+              else if token = LparT then
+                lex_aux_tokens new_acc F (SH_PAR::stk) rest
+              else if token = EndT then
+                case stk of
+                  [] => lex_aux_tokens new_acc T [] rest
+                | SH_END::stk' => lex_aux_tokens new_acc F stk' rest
+                | SH_PAR::stk' => lex_aux_tokens new_acc T [] rest
+              else if token = RparT then
+                case stk of
+                  [] => lex_aux_tokens new_acc T [] rest
+                | SH_END::stk' => lex_aux_tokens new_acc T [] rest
+                | SH_PAR::stk' => lex_aux_tokens new_acc F stk' rest
+              else lex_aux_tokens new_acc F stk rest)`
+
+val lex_until_toplevel_semicolon_tokens_def = Define `
+  lex_until_toplevel_semicolon_tokens input = lex_aux_tokens [] F [] input`;
+
+val lex_aux_tokens_LESS = prove(
+  ``!acc error stk input.
+      (lex_aux_tokens acc error stk input = SOME (t,rest)) ==>
+      (if acc = [] then LENGTH rest < LENGTH input
+                   else LENGTH rest <= LENGTH input)``,
+  Induct_on `input`
+  THEN1 (EVAL_TAC >> SRW_TAC [] [LENGTH] >> SRW_TAC [] [LENGTH])
+  >> SIMP_TAC (srw_ss()) [Once lex_aux_tokens_def,LET_DEF]
+  >> SRW_TAC [] [] >> RES_TAC
+  >> FULL_SIMP_TAC std_ss [NOT_CONS_NIL]
+  >> TRY (Cases_on `stk`) >> RES_TAC
+  >> TRY (Cases_on `h`) >> RES_TAC
+  >> FULL_SIMP_TAC (srw_ss()) [] >> RES_TAC
+  >> FULL_SIMP_TAC (srw_ss()) [] >> RES_TAC
+  >> DECIDE_TAC);
+
+val lex_impl_all_tokens_def = tDefine "lex_impl_all_tokens" `
+  lex_impl_all_tokens input =
+     case lex_until_toplevel_semicolon_tokens input of
+       NONE => []
+     | SOME (t,input) => t::lex_impl_all_tokens input`
+  (WF_REL_TAC `measure LENGTH`
+   >> SIMP_TAC std_ss [lex_until_toplevel_semicolon_tokens_def]
+   >> METIS_TAC [lex_aux_tokens_LESS])
+
+val lex_aux_tokens_thm = prove(
+  ``!input acc error stk res1 res2.
+      (lex_aux_tokens acc error stk (lexer_fun input) = res1) /\
+      (lex_aux acc error stk input = res2) ==>
+      (case res2 of NONE => (res1 = NONE)
+                  | SOME (ts,rest) => (res1 = SOME (ts,lexer_fun rest)))``,
+  HO_MATCH_MP_TAC lexer_fun_ind >> SIMP_TAC std_ss []
+  >> REPEAT STRIP_TAC >> SIMP_TAC std_ss [Once lex_aux_def]
+  >> ONCE_REWRITE_TAC [lexer_fun_def]
+  >> ONCE_REWRITE_TAC [lex_aux_tokens_def]
+  >> Cases_on `next_token input` >> ASM_SIMP_TAC (srw_ss()) []
+  >> Cases_on `x`
+  >> Q.MATCH_ASSUM_RENAME_TAC `next_token input = SOME (t,rest)` []
+  >> FULL_SIMP_TAC (srw_ss()) []
+  >> SRW_TAC [] []
+  THEN1 (METIS_TAC [lexer_fun_def])
+  THEN1 (METIS_TAC [lexer_fun_def])
+  >> SRW_TAC [] []
+  >> ASM_SIMP_TAC std_ss [GSYM lexer_fun_def]
+  >> Cases_on `stk`
+  >> ASM_SIMP_TAC (srw_ss()) [GSYM lexer_fun_def]
+  >> Cases_on `h`
+  >> ASM_SIMP_TAC (srw_ss()) [GSYM lexer_fun_def]) |> SIMP_RULE std_ss [];
+
+val lex_impl_all_tokens_thm = prove(
+  ``!input. lex_impl_all input =
+            lex_impl_all_tokens (lexer_fun input)``,
+  HO_MATCH_MP_TAC (fetch "-" "lex_impl_all_ind") >> REPEAT STRIP_TAC
+  >> SIMP_TAC std_ss [Once lex_impl_all_def,Once lex_impl_all_tokens_def]
+  >> FULL_SIMP_TAC std_ss [lex_until_toplevel_semicolon_tokens_def]
+  >> FULL_SIMP_TAC std_ss [lex_until_toplevel_semicolon_def]
+  >> MP_TAC (lex_aux_tokens_thm |> Q.SPECL [`input`,`[]`,`F`,`[]`])
+  >> Cases_on `lex_aux [] F [] input` >> FULL_SIMP_TAC std_ss []
+  >> Cases_on `x` >> FULL_SIMP_TAC (srw_ss()) []
+  >> REPEAT STRIP_TAC >> RES_TAC);
+
+val lex_aux_tokens_thm = prove(
+  ``!input stk error acc.
+      (res = lex_aux_tokens acc error stk input) ==>
+      case res of
+        NONE => (toplevel_semi_dex (LENGTH acc) error stk input = NONE)
+      | SOME (toks,rest) =>
+          (toplevel_semi_dex (LENGTH acc) error stk input = SOME (LENGTH toks)) /\
+          (REVERSE acc ++ input = toks ++ rest)``,
+  Induct
+  >> SIMP_TAC (srw_ss()) [Once lex_aux_tokens_def]
+  >> ONCE_REWRITE_TAC [toplevel_semi_dex_def]
+  >> SIMP_TAC std_ss [LET_DEF] >> Cases
+  >> FULL_SIMP_TAC (srw_ss()) []
+  >> Cases_on `error` >> ASM_SIMP_TAC std_ss []
+  >> REPEAT STRIP_TAC >> RES_TAC
+  >> POP_ASSUM MP_TAC
+  >> POP_ASSUM (ASSUME_TAC o GSYM)
+  >> ASM_REWRITE_TAC []
+  >> Cases_on `res` >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
+  >> Cases_on `stk` >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
+  >> TRY (Cases_on `h`) >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
+  >> TRY (Cases_on `x`) >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
+  >> SIMP_TAC std_ss [Once EQ_SYM_EQ]
+  >> FULL_SIMP_TAC std_ss []
+  >> REPEAT STRIP_TAC >> RES_TAC
+  >> FULL_SIMP_TAC (srw_ss()) [LENGTH,arithmeticTheory.ADD1])
+  |> Q.SPECL [`input`,`[]`,`F`,`[]`] |> Q.GEN `res` |> SIMP_RULE std_ss [LENGTH];
+
+val split_top_level_semi_thm = prove(
+  ``!input. split_top_level_semi input = lex_impl_all_tokens input``,
+  HO_MATCH_MP_TAC split_top_level_semi_ind >> REPEAT STRIP_TAC
+  >> SIMP_TAC std_ss [Once split_top_level_semi_def,Once lex_impl_all_tokens_def,
+      Once lex_until_toplevel_semicolon_tokens_def]
+  >> MP_TAC lex_aux_tokens_thm
+  >> Cases_on `lex_aux_tokens [] F [] input` >> FULL_SIMP_TAC std_ss []
+  >> Cases_on `x` >> FULL_SIMP_TAC (srw_ss()) []
+  >> FULL_SIMP_TAC std_ss [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]
+  >> STRIP_TAC >> RES_TAC >> POP_ASSUM MP_TAC
+  >> FULL_SIMP_TAC std_ss [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]);
+
+val lexer_correct = prove(
+  ``!input. split_top_level_semi (lexer_fun input) = lex_impl_all input``,
+  SIMP_TAC std_ss [lex_impl_all_tokens_thm,split_top_level_semi_thm]);
 
 val parser_correct = Q.prove (
 `!toks. parse_top toks = repl$parse toks`,
@@ -574,8 +697,8 @@ val type_top_closed = store_thm("type_top_closed",
   fs[])
 
 val type_env_dom = Q.prove (
-`!tenvM tenvC tenvS env tenv. 
-  type_env tenvM tenvC tenvS env tenv ⇒ 
+`!tenvM tenvC tenvS env tenv.
+  type_env tenvM tenvC tenvS env tenv ⇒
   (set (MAP (Short o FST) env) = IMAGE Short (tenv_names tenv))`,
 induct_on `env` >>
 ONCE_REWRITE_TAC [TypeSoundInvariantsTheory.type_v_cases] >>
@@ -605,7 +728,7 @@ fs [weakE_def] >>
 `?n tvs t. y = (n,(tvs,t))` by metis_tac [pair_CASES] >>
 rw [] >>
 `ALOOKUP tenv n ≠ NONE` by metis_tac [alistTheory.ALOOKUP_NONE, FST, MEM_MAP] >>
-`?tvs2 t2. ALOOKUP tenv n = SOME (tvs2,t2)` 
+`?tvs2 t2. ALOOKUP tenv n = SOME (tvs2,t2)`
             by metis_tac [pair_CASES, optionTheory.option_nchotomy] >>
 res_tac >>
 qpat_assum `!x. P x` (mp_tac o Q.SPEC `n`) >>
@@ -636,8 +759,8 @@ rw [MEM_MAP] >>
 metis_tac [FST]);
 
 val type_env_dom2 = Q.prove (
-`!mn tenvM tenvC tenvS env tenv. 
-  type_env tenvM tenvC tenvS env (bind_var_list2 tenv Empty) ⇒ 
+`!mn tenvM tenvC tenvS env tenv.
+  type_env tenvM tenvC tenvS env (bind_var_list2 tenv Empty) ⇒
   (set (MAP (Long mn o FST) env) = set (MAP (Long mn o FST) tenv))`,
 induct_on `env` >>
 ONCE_REWRITE_TAC [TypeSoundInvariantsTheory.type_v_cases] >>
@@ -686,7 +809,7 @@ val type_sound_inv_closed = Q.prove (
   top_cns top ⊆ set (MAP FST rs.envC)`,
 rw [] >>
 imp_res_tac type_top_closed >>
-`(?err. r = Rerr err) ∨ (?menv env. r = Rval (menv,env))` 
+`(?err. r = Rerr err) ∨ (?menv env. r = Rval (menv,env))`
         by (cases_on `r` >>
             rw [] >>
             PairCases_on `a` >>
@@ -702,6 +825,106 @@ imp_res_tac consistent_con_env_dom >>
 fs [SUBSET_DEF] >>
 rw [] >>
 metis_tac []);
+
+val check_dup_ctors_names_lem1 = Q.prove (
+`!tds acc.
+  FOLDR (λ(tvs,tn,condefs) x2. FOLDR (λ(n,ts) x2. n::x2) x2 condefs) acc tds
+  =
+  MAP FST (FLAT (MAP (SND o SND) tds)) ++ acc`,
+induct_on `tds` >>
+rw [] >>
+PairCases_on `h` >>
+fs [FOLDR_APPEND] >>
+pop_assum (fn _ => all_tac) >>
+induct_on `h2` >>
+rw [] >>
+PairCases_on `h` >>
+fs []);
+
+val check_dup_ctors_eqn = Q.store_thm ("check_dup_ctors_eqn",
+`!tds.
+  check_dup_ctors mn cenv tds
+  =
+  (ALL_DISTINCT (MAP FST (FLAT (MAP (SND o SND) tds))) ∧
+   (!e. MEM e (MAP FST (FLAT (MAP (SND o SND) tds))) ⇒ mk_id mn e ∉ set (MAP FST cenv)))`,
+SIMP_TAC (srw_ss()) [LET_THM,RES_FORALL,check_dup_ctors_def, check_dup_ctors_names_lem1] >>
+induct_on `tds` >>
+rw [] >>
+`?tvs ts ctors. h = (tvs,ts,ctors)` by metis_tac [pair_CASES] >>
+rw [] >>
+fs [ALL_DISTINCT_APPEND] >>
+rw [] >>
+eq_tac >>
+rw [] >>
+fs [alistTheory.ALOOKUP_NONE] >>
+fs [] >>
+rw [] >|
+[qpat_assum `!x. x = (tvs,ts,ctors) ∨ MEM x tds ⇒ P x` (mp_tac o Q.SPEC `(tvs,ts,ctors)`) >>
+     rw [] >>
+     `?v. ALOOKUP ctors e = SOME v`
+              by metis_tac [alistTheory.ALOOKUP_NONE, optionTheory.NOT_SOME_NONE, optionTheory.option_nchotomy] >>
+     imp_res_tac alistTheory.ALOOKUP_MEM >>
+     res_tac >>
+     fs [],
+ PairCases_on `x` >>
+     fs [] >>
+     metis_tac [MEM_MAP, FST]]);
+
+val type_ds_dup_ctors = Q.prove (
+`!mn tenvM tenvC tenv ds tenvC' tenv'.
+  type_ds mn tenvM tenvC tenv ds tenvC' tenv' ⇒
+  !i ts tenvC_no_sig.
+    i < LENGTH ds ∧ (EL i ds = Dtype ts)
+    ⇒
+    ALL_DISTINCT (MAP FST (FLAT (MAP (SND o SND) ts))) ∧
+    (!e. MEM e (MAP FST (FLAT (MAP (SND o SND) ts)))
+         ⇒
+         mk_id mn e ∉ set (MAP FST (decs_to_cenv mn (TAKE i ds))) ∧
+         mk_id mn e ∉ set (MAP FST tenvC))`,
+ho_match_mp_tac type_ds_ind >>
+REPEAT GEN_TAC >>
+STRIP_TAC >>
+REPEAT GEN_TAC >>
+STRIP_TAC >>
+REPEAT GEN_TAC >>
+cases_on `i = 0` >>
+fs [] >|
+[fs [type_d_cases] >>
+     rw [] >>
+     fs [check_ctor_tenv_def, check_dup_ctors_eqn, decs_to_cenv_def],
+ `0 < i` by decide_tac >>
+     fs [EL_CONS] >>
+     STRIP_TAC >>
+     `PRE i < LENGTH ds`
+               by (cases_on `i` >>
+                  fs []) >>
+     `i - 1 = PRE i` by decide_tac >>
+     rw [decs_to_cenv_def] >>
+     res_tac >>
+     fs [LibTheory.merge_def] >>
+     fs [type_d_cases, dec_to_cenv_def] >>
+     rw [] >>
+     fs [GSYM alistTheory.ALOOKUP_NONE, SIMP_RULE (srw_ss()) [] lookup_none]]);
+
+val type_sound_inv_dup_ctors = Q.prove (
+`∀mn spec ds rs new_tenvM new_tenvC new_tenv new_st envC r i ts.
+  type_top rs.tenvM rs.tenvC rs.tenv (Tmod mn spec ds) new_tenvM new_tenvC new_tenv  ∧
+  type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store) ∧
+  i < LENGTH ds ∧ (EL i ds = Dtype ts)
+  ⇒
+  check_dup_ctors (SOME mn) (decs_to_cenv (SOME mn) (TAKE i ds) ++ rs.envC) ts`,
+rw [type_sound_invariants_def, type_top_cases, top_to_cenv_def] >>
+imp_res_tac consistent_con_env_dom >>
+rw [check_dup_ctors_eqn] >-
+metis_tac [type_ds_dup_ctors] >-
+metis_tac [type_ds_dup_ctors] >>
+`mk_id (SOME mn) e ∉ set (MAP FST rs.tenvC)` by metis_tac [type_ds_dup_ctors] >>
+imp_res_tac weakC_not_SOME >>
+imp_res_tac consistent_mod_env_distinct >>
+imp_res_tac weakM_dom >>
+res_tac >>
+fs [SUBSET_DEF] >>
+fs [weak_other_mods_def, GSYM alistTheory.ALOOKUP_NONE]);
 
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
@@ -735,7 +958,7 @@ qmatch_assum_rename_tac`elaborate_top st.relaborator_state top0 = (new_elab_stat
 qmatch_assum_rename_tac`invariant rs st bs`[] >>
 rw [] >>
 `?error_msg next_repl_run_infer_state.
-  infertype_top st.rinferencer_state top = Failure error_msg ∨ 
+  infertype_top st.rinferencer_state top = Failure error_msg ∨
   infertype_top st.rinferencer_state top = Success next_repl_run_infer_state`
          by (cases_on `infertype_top st.rinferencer_state top` >>
              metis_tac []) >>
@@ -803,7 +1026,7 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
     metis_tac [type_sound_inv_closed]
     ) >>
   conj_tac >- cheat >> (* RK cheat: Syntactic check: No constructors named "" *)
-  conj_tac >- cheat >> (* RK cheat: check_dup_ctors ensured by type system *)
+  conj_tac >- metis_tac [type_sound_inv_dup_ctors] >>
   conj_tac >- (
     fs[env_rs_def,LET_THM] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
@@ -924,9 +1147,9 @@ fs [] >>
 simp[Once ast_repl_cases,get_type_error_mask_def] >>
 disj1_tac >>
 MAP_EVERY qexists_tac [`convert_menv new_infer_menv`,
-                       `new_infer_cenv`, 
+                       `new_infer_cenv`,
                        `convert_env2 new_infer_env`,
-                       `store2`, 
+                       `store2`,
                        `envC2`,
                        `r`] >>
 conj_asm2_tac >- metis_tac[print_result_not_type_error] >>
@@ -951,7 +1174,7 @@ simp[] >>
       metis_tac [type_sound_inv_closed]
     ) >>
     conj_tac >- cheat >> (* RK cheat: Syntactic check: No constructors named "" *)
-    conj_tac >- cheat >> (* RK cheat: check_dup_ctors ensured by type system *)
+    conj_tac >- metis_tac [type_sound_inv_dup_ctors] >>
     fs[env_rs_def,LET_THM] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
     conj_tac >- metis_tac[] >>
@@ -1010,7 +1233,7 @@ simp[] >>
     conj_tac >- (
       fs[update_type_sound_inv_def,Abbr`new_repl_state`,update_repl_state_def] ) >>
     `FV_top top ⊆ set (MAP (Short o FST) rs.envE) ∪ menv_dom rs.envM ∧
-     top_cns top ⊆ set (MAP FST rs.envC)` 
+     top_cns top ⊆ set (MAP FST rs.envC)`
              by (fs[closed_top_def] >> metis_tac [type_sound_inv_closed]) >>
     conj_tac >- (
       qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`store2`,`envC2`,`Rval (a0,a1)`]mp_tac evaluate_top_closed_context >>
@@ -1113,7 +1336,7 @@ simp[] >>
   conj_tac >- (
     fs[update_type_sound_inv_def,Abbr`new_repl_state`,update_repl_state_def] ) >>
   `FV_top top ⊆ set (MAP (Short o FST) rs.envE) ∪ menv_dom rs.envM ∧
-   top_cns top ⊆ set (MAP FST rs.envC)` 
+   top_cns top ⊆ set (MAP FST rs.envC)`
               by (fs[closed_top_def] >> metis_tac [type_sound_inv_closed]) >>
   qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`store2`,`envC2`,`Rerr (Rraise err)`]mp_tac evaluate_top_closed_context >>
   simp[] >> strip_tac >>
@@ -1164,7 +1387,7 @@ simp[] >>
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC) >>
   simp[Abbr`new_bc_state`] >>
   imp_res_tac RTC_bc_next_preserves >>
-  fs[])
+  fs[]);
 
 val good_compile_primitives = prove(
   ``good_contab (FST compile_primitives).contab ∧
@@ -1172,7 +1395,7 @@ val good_compile_primitives = prove(
     {Short ""} = FDOM (cmap (FST compile_primitives).contab) ∧
     (∀id. FLOOKUP (cmap (FST compile_primitives).contab) id = SOME (cmap (FST compile_primitives).contab ' (Short "")) ⇒ id = Short "")
     ``,
-  rw[compile_primitives_def] >>
+  rw[compile_primitives_def, initial_program_def] >>
   rw[CompilerTheory.compile_top_def,CompilerTheory.compile_dec_def] >>
   imp_res_tac compile_fake_exp_contab >>
   rw[good_contab_def,intLangExtraTheory.good_cmap_def] >>
@@ -1184,13 +1407,13 @@ val good_compile_primitives = prove(
 
 val compile_primitives_menv = store_thm("compile_primitives_menv",
   ``(FST compile_primitives).rmenv = FEMPTY``,
-  rw[compile_primitives_def,CompilerTheory.compile_top_def] >>
+  rw[compile_primitives_def,CompilerTheory.compile_top_def, initial_program_def] >>
   rw[CompilerTheory.init_compiler_state_def])
 
 val compile_primitives_renv = store_thm("compile_primitives_renv",
   ``((FST compile_primitives).renv = GENLIST (λi. (FST(EL i init_env), i)) (LENGTH init_env)) ∧
     ((FST compile_primitives).rsz = LENGTH init_env)``,
-  rw[compile_primitives_def,CompilerTheory.compile_top_def] >>
+  rw[compile_primitives_def,CompilerTheory.compile_top_def, initial_program_def] >>
   rw[CompilerTheory.init_compiler_state_def] >>
   fs[CompilerTheory.compile_dec_def,LET_THM] >>
   fs[CompilerTheory.compile_fake_exp_def,LET_THM] >>
@@ -1219,13 +1442,65 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   disch_then(mp_tac o SPEC(rand(rhs(concl(compile_primitives_def))))) >>
   discharge_hyps >- (
     simp[] >>
-    simp[CompilerTheory.init_compiler_state_def] >>
+    simp[CompilerTheory.init_compiler_state_def, initial_program_def] >>
     simp[EXTENSION] >>
     metis_tac[] ) >>
-  simp[GSYM compile_primitives_def] >>
+  simp[GSYM compile_primitives_def, initial_program_def] >>
   simp[good_labels_def,between_labels_def] >>
   strip_tac >>
   fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP])
+
+  (*
+val lemma1 = Q.prove (
+`(?new_env r. Rval l = (case r of Rval env' => Rval (merge env' new_env) | Rerr e => Rerr e) ∧ P new_env r)
+ =
+ ?new_env env. l = (merge env new_env) ∧ P new_env (Rval env)`,
+eq_tac >>
+rw [] >|
+[cases_on `r` >>
+     fs [] >>
+     metis_tac [],
+ qexists_tac `new_env` >>
+     rw [] >>
+     qexists_tac `Rval env` >>
+     rw []]);
+
+val lemma2 = Q.prove (
+`(l = merge env (bind n v l2)) = (REVERSE l = REVERSE l2 ++ REVERSE [(n,v)] ++ REVERSE env)`,
+rw [LibTheory.merge_def, LibTheory.bind_def] >>
+metis_tac [REVERSE_APPEND, miscTheory.REVERSE_INV, APPEND_ASSOC, APPEND, REVERSE_REVERSE, REVERSE_DEF]);
+
+val lemma3 = Q.prove (
+`(?env. l = REVERSE env ∧ P env)
+ =
+ P (REVERSE l)`,
+ metis_tac [REVERSE_REVERSE]);
+
+(* Annoying to do this by hand.  With the clocked evaluate, it shouldn't be 
+ * too hard to set up a clocked interpreter function for the semantics and 
+ * do this automatically *)
+val eval_initial_program = Q.prove (
+`evaluate_decs NONE [] [] [] [] initial_program ([], [], Rval init_env)`,
+
+rw [init_env_def, initial_program_def] >>
+
+rw [Once evaluate_decs_cases, LibTheory.merge_def, LibTheory.emp_def] >>
+rw [LibTheory.emp_def, evaluate_dec_cases, AstTheory.pat_bindings_def, combine_dec_result_def, lemma1] >>
+rw [pmatch_def] >>
+rw [lemma2,lemma3]
+
+rw [LibTheory.bind_def]
+match [] ``(REVERSE x = REVERSE y) = (x = y)``
+find "REVERSE_11"
+
+MAP_EVERY qexists_tac [`[]`, `Rval x`]
+
+REWRITE_TAC []
+
+rw []
+
+EVAL_TAC >>
+*)
 
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,

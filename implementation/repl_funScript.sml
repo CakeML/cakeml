@@ -34,6 +34,22 @@ val _ = Hol_datatype`repl_fun_state = <|
   rinferencer_state : inferencer_state;
   rcompiler_state  : compiler_state |>`
 
+val initial_program_def = Define `
+initial_program = 
+  [Dlet (Pvar "ref") (Fun "x" (Uapp Opref (Var(Short"x"))));
+   Dlet (Pvar "!") (Fun "x" (Uapp Opderef (Var(Short"x"))));
+   Dlet (Pvar ":=") (Fun "x" (Fun"y"(App Opassign (Var(Short"x"))(Var(Short"y")))));
+   Dlet (Pvar "=") (Fun "x" (Fun"y"(App Equality(Var(Short"x"))(Var(Short"y")))));
+   Dlet (Pvar ">=") (Fun "x" (Fun"y"(App(Opb Geq)(Var(Short"x"))(Var(Short"y")))));
+   Dlet (Pvar "<=") (Fun "x" (Fun"y"(App(Opb Leq)(Var(Short"x"))(Var(Short"y")))));
+   Dlet (Pvar ">") (Fun "x" (Fun"y"(App(Opb Gt)(Var(Short"x"))(Var(Short"y")))));
+   Dlet (Pvar "<") (Fun "x" (Fun"y"(App(Opb Lt)(Var(Short"x"))(Var(Short"y")))));
+   Dlet (Pvar "mod") (Fun "x" (Fun"y"(App(Opn Modulo)(Var(Short"x"))(Var(Short"y")))));
+   Dlet (Pvar "div") (Fun "x" (Fun"y"(App(Opn Divide)(Var(Short"x"))(Var(Short"y")))));
+   Dlet (Pvar "*") (Fun "x" (Fun"y"(App(Opn Times)(Var(Short"x"))(Var(Short"y")))));
+   Dlet (Pvar "-") (Fun "x" (Fun"y"(App(Opn Minus)(Var(Short"x"))(Var(Short"y")))));
+   Dlet (Pvar "+") (Fun "x" (Fun"y"(App(Opn Plus)(Var(Short"x"))(Var(Short"y")))))]`;
+
 val compile_primitives_def = Define`
   compile_primitives =
     compile_top init_compiler_state
@@ -50,7 +66,7 @@ val compile_primitives_def = Define`
     ;("="  ,"x",Fun"y"(App(Equality  )(Var(Short"x"))(Var(Short"y"))))
     ;(":=" ,"x",Fun"y"(App(Opassign  )(Var(Short"x"))(Var(Short"y"))))
     ;("!"  ,"x",Uapp(Opderef)(Var(Short"x")))
-    ;("ref","x",Uapp(Opref  )(Var(Short"x")))]))`
+    ;("ref","x",Uapp(Opref  )(Var(Short"x")))]))`;
 
 val initial_repl_fun_state = Define`
   initial_repl_fun_state = <|

@@ -2,6 +2,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "ml_translator";
 
 open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
 open terminationTheory;
+open bigBigEquivTheory;
 open arithmeticTheory listTheory combinTheory pairTheory;
 open integerTheory;
 open lcsymtacs;
@@ -992,5 +993,38 @@ val evaluate_match_SKIP = store_thm("evaluate_match_SKIP",
         ((Pcon (Short s2) pats2,exp2)::pats) (x,Rval res)``,
   SRW_TAC [] []
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,pmatch'_def]);
+
+(* Connecting to evaluate_dec instead of evaluate_dec' *)
+
+val DeclsC_def = Define `
+  DeclsC mn (menv1 : envM) cenv1 s1 env1 ds cenv2 s2 env2 =
+    evaluate_decs mn menv1 cenv1 s1 env1 ds (s2,cenv2, Rval env2)`;
+
+val DeclAssumC_def = Define `
+  DeclAssumC ds cenv env =
+     ?s2. DeclsC NONE [] [] empty_store [] ds cenv s2 env`;
+
+val DeclAssumC_thm = store_thm ("DeclAssumC_thm",
+  ``!ds env. check_ctors_decs NONE [] ds /\ DeclAssum ds env ==>
+             ?cenv. DeclAssumC ds cenv env``,
+  rw [DeclAssum_def, DeclAssumC_def, Decls_def, DeclsC_def] >>
+  metis_tac [result_distinct, eval_decs'_to_eval_decs_simple_pat, EVERY_DEF,
+             eval_ctor_inv_def, empty_store_def]);
+
+val EvalC_def = Define `
+  EvalC cenv env exp P =
+    ?res.
+      evaluate F [] (cenv:envC) (0,[]) env exp ((0,[]),Rval res) /\ P (res:v)`;
+
+val Eval_IMP_EvalC = store_thm("Eval_IMP_EvalC",
+  ``check_ctors_decs NONE [] ds /\ DeclAssumC ds cenv env ==>
+    !n P. Eval env (Var n) P ==> EvalC cenv env (Var n) P``,
+  rw [Eval_def, EvalC_def, DeclAssumC_def, DeclsC_def, empty_store_def]
+  \\ `check_ctors cenv (Var n)` by EVAL_TAC
+  \\ Q.PAT_ASSUM `evaluate' [] env (Var n) ([],Rval res)` MP_TAC
+  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
+  \\ REPEAT STRIP_TAC \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases]
+  \\ Q.EXISTS_TAC `res` \\ FULL_SIMP_TAC (srw_ss()) [lookup_var_id_def]
+  \\ metis_tac [eval'_to_eval_simple_pat, result_distinct]);
 
 val _ = export_theory();
