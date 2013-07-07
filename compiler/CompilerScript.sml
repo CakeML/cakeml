@@ -200,7 +200,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   ,( rs with<|
       contab := ct
     ; rnext_label := cs.next_label
-    ; rmenv := FUPDATE  rs.rmenv ( mn, []) |>)
+    |>)
   ,(emit cs ( MAP PrintC (EXPLODE str))).out)))
 /\
 (compile_top rs (Tdec dec) =  

@@ -141,7 +141,7 @@ compile_top rs (Tmod mn _ decs) =
   ,<| rs with
       contab = ct
     ; rnext_label = cs.next_label
-    ; rmenv = Pmap.add mn [] rs.rmenv |>
+    |>
   ,(emit cs (List.map PrintC (Hol.EXPLODE str))).out)
 and
 compile_top rs (Tdec dec) =

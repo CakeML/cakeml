@@ -4109,7 +4109,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       rw[] >> res_tac >> fs[MEM_FLAT,MEM_MAP] >> rw[] >> fs[MEM_MAP] >>
       fs[env_rs_def,LET_THM] >> metis_tac[MEM_MAP] ) >>
     strip_tac >>
-    labels_tac )
+    labels_tac ) >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
@@ -4253,17 +4253,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[MEM_FILTER,is_Label_rwt] >>
       fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,MEM_MAP,between_def] >>
       rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
-    simp[top_to_cenv_def] >>
-
-    imp_res_tac evaluate_decs_to_cenv
-
-    evaluate_decs_new_decs_vs
-    evaluate_dec_new_dec_cns
-    simp[FILTER_APPEND]
-
-    (* need evaluate_decs to agree with decs_to_cenv *)
-    (* and show shift new module name with empty decs is ok for env_rs *)
-    cheat ) >>
+    simp[top_to_cenv_def]) >>
   simp[])
 
 val compile_dec_divergence = store_thm("compile_dec_divergence",
