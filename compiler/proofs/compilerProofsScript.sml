@@ -3603,6 +3603,7 @@ val compile_decs_wrap_append_out = store_thm("compile_decs_wrap_append_out",
     srw_tac[DNF_ss][FILTER_EQ_NIL,EVERY_MEM,is_Label_rwt] ) >>
   simp[])
 
+(*
 val compile_top_append_code = store_thm("compile_top_append_code",
   ``∀rs top.
       {x | Short x ∈ FV_top top} ⊆ set (MAP FST rs.renv)
@@ -3635,6 +3636,7 @@ val compile_top_append_code = store_thm("compile_top_append_code",
    PairCases_on`p`>> simp[] >>
    fs[FV_decs_def] >>
    cheat)
+*)
 
 val closed_top_def = Define`
   closed_top menv cenv s env top ⇔
@@ -3789,6 +3791,44 @@ val labels_tac =
                   ,MEM_FILTER,EVERY_MEM,between_def,MEM_MAP,is_Label_rwt] >>
   rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC
 
+val Cenv_bs_change_csz = store_thm("Cenv_bs_change_csz",
+  ``∀rd menv s env rmenv renv rsz csz bs csz'.
+     Cenv_bs rd menv s env rmenv renv rsz csz bs
+     ∧ csz' ≤ LENGTH bs.stack
+     ∧ (∀env x. env ∈ FRANGE rmenv ∧ MEM x env ⇒
+         el_check x (REVERSE (DROP (LENGTH bs.stack - csz) bs.stack)) =
+         el_check x (REVERSE (DROP (LENGTH bs.stack - csz') bs.stack)))
+     ⇒
+     Cenv_bs rd menv s env rmenv renv rsz csz' bs``,
+  rw[Cenv_bs_def] >>
+  fs[fmap_rel_def] >> rw[] >>
+  first_x_assum(qspec_then`x`mp_tac) >>
+  rw[] >>
+  fs[env_renv_def,option_case_NONE_F] >>
+  rfs[EVERY2_EVERY] >>
+  fs[EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+  rw[] >>
+  first_x_assum(qspecl_then[`rmenv ' x`,`EL n (rmenv ' x)`]mp_tac) >>
+  discharge_hyps >- (
+    simp[IN_FRANGE,MEM_EL] >>
+    metis_tac[] ) >>
+  rfs[EL_MAP] >> metis_tac[])
+
+val env_rs_change_csz = store_thm("env_rs_change_csz",
+  ``∀menv cenv env rs cz rd cs bs cz'.
+     env_rs menv cenv env rs cz rd cs bs
+     ∧ cz' ≤ LENGTH bs.stack
+     ∧ (∀env x. env ∈ FRANGE (MAP SND o_f rs.rmenv) ∧ MEM x env ⇒
+         el_check x (REVERSE (DROP (LENGTH bs.stack - cz) bs.stack)) =
+         el_check x (REVERSE (DROP (LENGTH bs.stack - cz') bs.stack)))
+     ⇒
+     env_rs menv cenv env rs cz' rd cs bs``,
+  rw[env_rs_def] >> fs[LET_THM] >>
+  rpt HINT_EXISTS_TAC >>
+  qexists_tac`Cs` >>
+  simp[] >>
+  match_mp_tac Cenv_bs_change_csz >>
+  simp[] >> metis_tac[])
 
 val compile_top_thm = store_thm("compile_top_thm",
   ``∀menv cenv s env top res. evaluate_top menv cenv s env top res ⇒
@@ -3879,73 +3919,100 @@ val compile_top_thm = store_thm("compile_top_thm",
         `FILTER is_Label c2 = []` by (
           simp[FILTER_EQ_NIL] >> fs[EVERY_MEM] ) >>
         labels_tac ) >>
-      qmatch_assum_abbrev_tac`env_rs menv cenvx envx rsx zx rd' cx bsx`
-      (* need a way to increase the csz in env_rs (i.e. Cenv_bs) *)
-      env_rs_def
-      Cenv_bs_def
-      match_mp_tac env_rs_with_bs_irr >>
-
-      HINT_EXISTS_TAC
-
-    conj_tac >- (
-      simp[Abbr`bs3`] >>
-      last_x_assum mp_tac >>
-      simp[Once evaluate_decs_cases] >>
-      simp[Once evaluate_decs_cases] >>
-      simp[LibTheory.emp_def,LibTheory.merge_def,SemanticPrimitivesTheory.combine_dec_result_def] >>
-      strip_tac >>
-      imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
-      rator_x_assum`evaluate_dec`mp_tac >>
-      Cases_on`d`>>simp[Once evaluate_dec_cases,LibTheory.emp_def] >> rw[] >>
-      TRY (
-        simp[print_envC_def] >>
-        match_mp_tac print_bv_list_print_envE >>
-        fs[new_dec_vs_def] >>
-        rator_x_assum`env_rs`mp_tac >>
-        simp[env_rs_def] >>
-        strip_tac >>
-        fs[env_to_Cenv_MAP] >>
-        qmatch_assum_abbrev_tac`EVERY2 syneq (MAP (v_to_Cv mv cm) s2) Cs` >>
-        map_every qexists_tac[`mv`,`mk_pp rd' bs2'`,`MAP SND new_env`,`cm`,`TAKE (LENGTH new_env) Cenv`] >>
-        qpat_assum`MAP FST new_env = X`(assume_tac o SYM) >> simp[] >>
-        simp[CONJ_ASSOC] >>
-        reverse conj_asm2_tac >- (
-          match_mp_tac LIST_EQ_MAP_PAIR >>
-          simp[MAP_ZIP] ) >>
+      qmatch_assum_abbrev_tac`env_rs menv cenvx envx rsx zx rd' cx bsx` >>
+      qmatch_abbrev_tac`env_rs menv cenvx envx rsx yx rd' cx bsy` >>
+      match_mp_tac env_rs_change_csz >>
+      qexists_tac`zx` >>
+      reverse conj_tac >- (
         conj_tac >- (
-          simp[MAP_MAP_o] >>
-          qmatch_assum_abbrev_tac`EVERY2 R (l1 ++ l2) Cenv` >>
-          `Cenv = (TAKE (LENGTH new_env) Cenv) ++ DROP (LENGTH new_env) Cenv` by metis_tac[TAKE_DROP] >>
-          qmatch_assum_abbrev_tac`Cenv = l3 ++ l4` >>
-          `LENGTH l1 = LENGTH l3 ∧ LENGTH l2 = LENGTH l4` by (
-            unabbrev_all_tac >> simp[] >>
-            fs[EVERY2_EVERY] >> simp[] ) >>
-          metis_tac[EVERY2_APPEND] ) >>
+          unabbrev_all_tac >> simp[] ) >>
+        simp[Abbr`bsy`] >>
+        simp[Abbr`rsx`] >>
+        simp[Abbr`zx`,Abbr`yx`,DROP_APPEND1,DROP_LENGTH_NIL_rwt] >>
+        simp[IN_FRANGE,GSYM AND_IMP_INTRO,GSYM LEFT_FORALL_IMP_THM] >>
+        rator_x_assum`env_rs`mp_tac >>
+        simp[env_rs_def] >> strip_tac >>
         rator_x_assum`Cenv_bs`mp_tac >>
-        simp[Cenv_bs_def,env_renv_def,option_case_NONE_F] >>
+        simp[Cenv_bs_def] >> strip_tac >>
+        rator_x_assum`fmap_rel`mp_tac >>
+        simp[fmap_rel_def] >> strip_tac >>
+        rpt gen_tac >> strip_tac >>
+        first_x_assum(qspec_then`k`mp_tac) >>
+        simp[] >>
+        simp[env_renv_def,option_case_NONE_F,MAP_MAP_o] >>
+        strip_tac >> simp[MEM_EL] >> strip_tac >>
+        rator_x_assum`EVERY2`mp_tac >>
+        simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
         strip_tac >>
-        qmatch_assum_abbrev_tac`EVERY2 R Cenv (l1 ++ l2)` >>
+        disch_then(qspec_then`n`mp_tac) >>
+        simp[] >> simp[EL_MAP] >>
+        simp[Abbr`bsx`,DROP_APPEND1,DROP_LENGTH_NIL_rwt] >>
+        strip_tac >>
+        fs[CompilerLibTheory.el_check_def] >>
+        simp[REVERSE_APPEND,EL_APPEND1] ) >>
+      match_mp_tac env_rs_with_bs_irr >>
+      HINT_EXISTS_TAC >>
+      simp[Abbr`bsx`,Abbr`bsy`] ) >>
+
+    simp[Abbr`bs3`] >>
+    last_x_assum mp_tac >>
+    simp[Once evaluate_decs_cases] >>
+    simp[Once evaluate_decs_cases] >>
+    simp[LibTheory.emp_def,LibTheory.merge_def,SemanticPrimitivesTheory.combine_dec_result_def] >>
+    strip_tac >>
+
+    imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
+    rator_x_assum`evaluate_dec`mp_tac >>
+    Cases_on`d`>>simp[Once evaluate_dec_cases,LibTheory.emp_def] >> rw[] >>
+    TRY (
+      simp[print_envC_def] >>
+      match_mp_tac print_bv_list_print_envE >>
+      fs[new_dec_vs_def] >>
+      rator_x_assum`env_rs`mp_tac >>
+      simp[env_rs_def] >>
+      strip_tac >>
+      fs[env_to_Cenv_MAP] >>
+      qmatch_assum_abbrev_tac`EVERY2 syneq (MAP (v_to_Cv mv cm) s2) Cs` >>
+      map_every qexists_tac[`mv`,`mk_pp rd' bs2'`,`MAP SND new_env`,`cm`,`TAKE (LENGTH new_env) Cenv`] >>
+      qpat_assum`MAP FST new_env = X`(assume_tac o SYM) >> simp[] >>
+      simp[CONJ_ASSOC] >>
+      reverse conj_asm2_tac >- (
+        match_mp_tac LIST_EQ_MAP_PAIR >>
+        simp[MAP_ZIP] ) >>
+      conj_tac >- (
+        simp[MAP_MAP_o] >>
+        qmatch_assum_abbrev_tac`EVERY2 R (l1 ++ l2) Cenv` >>
         `Cenv = (TAKE (LENGTH new_env) Cenv) ++ DROP (LENGTH new_env) Cenv` by metis_tac[TAKE_DROP] >>
         qmatch_assum_abbrev_tac`Cenv = l3 ++ l4` >>
         `LENGTH l1 = LENGTH l3 ∧ LENGTH l2 = LENGTH l4` by (
           unabbrev_all_tac >> simp[] >>
-          fs[EVERY2_EVERY] >> simp[] >>
-          fs[LIST_EQ_REWRITE] >> rfs[] >> fs[] >>
-          fs[LET_THM,env_rs_def,LIST_EQ_REWRITE] >>
-          fsrw_tac[ARITH_ss][]) >>
-        `LIST_REL R l3 l1` by metis_tac[EVERY2_APPEND] >>
-        pop_assum mp_tac >>
-        `LENGTH l3 = LENGTH bvs` by (
-          fs[Abbr`bs2'`] >>
-          qpat_assum`x + y = LENGTH bvs + z`mp_tac >>
-          fs[env_rs_def,LET_THM] >>
-          simp[Abbr`l3`] >>
-          metis_tac[LENGTH_MAP] ) >>
-        simp[Abbr`R`,Abbr`l1`,EVERY2_EVERY,EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
-        rpt strip_tac >>
-        first_x_assum(qspec_then`n`mp_tac) >>
-        `LENGTH renv = LENGTH bvs` by metis_tac[LENGTH_MAP] >>
-        simp[EL_MAP] >>
+          fs[EVERY2_EVERY] >> simp[] ) >>
+        metis_tac[EVERY2_APPEND] ) >>
+      rator_x_assum`Cenv_bs`mp_tac >>
+      simp[Cenv_bs_def,env_renv_def,option_case_NONE_F] >>
+      strip_tac >>
+      qmatch_assum_abbrev_tac`EVERY2 R Cenv (l1 ++ l2)` >>
+      `Cenv = (TAKE (LENGTH new_env) Cenv) ++ DROP (LENGTH new_env) Cenv` by metis_tac[TAKE_DROP] >>
+      qmatch_assum_abbrev_tac`Cenv = l3 ++ l4` >>
+      `LENGTH l1 = LENGTH l3 ∧ LENGTH l2 = LENGTH l4` by (
+        unabbrev_all_tac >> simp[] >>
+        fs[EVERY2_EVERY] >> simp[] >>
+        fs[LIST_EQ_REWRITE] >> rfs[] >> fs[] >>
+        fs[LET_THM,env_rs_def,LIST_EQ_REWRITE] >>
+        fsrw_tac[ARITH_ss][]) >>
+      `LIST_REL R l3 l1` by metis_tac[EVERY2_APPEND] >>
+      pop_assum mp_tac >>
+      `LENGTH l3 = LENGTH bvs` by (
+        fs[Abbr`bs2'`] >>
+        qpat_assum`x + y = LENGTH bvs + z`mp_tac >>
+        fs[env_rs_def,LET_THM] >>
+        simp[Abbr`l3`] >>
+        metis_tac[LENGTH_MAP] ) >>
+      simp[Abbr`R`,Abbr`l1`,EVERY2_EVERY,EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
+      rpt strip_tac >>
+      first_x_assum(qspec_then`n`mp_tac) >>
+      `LENGTH renv = LENGTH bvs` by metis_tac[LENGTH_MAP] >>
+      simp[EL_MAP] >>
 
         fs[compile_decs_wrap_def,LET_THM,UNCURRY]
         compile_decs_wrap_append_out
