@@ -849,11 +849,18 @@ fun define_ref_inv tys = let
         \\ (Induct ORELSE Cases)
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
         \\ REPEAT STRIP_TAC \\ RES_TAC)
+      \\ STRIP_TAC
       THEN1
        (REPEAT (Q.PAT_ASSUM `!x1 x2. bbb ==> bbbb` (K ALL_TAC))
         \\ (Induct ORELSE Cases)
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
         \\ Cases_on `x2` \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
+        \\ REPEAT STRIP_TAC \\ METIS_TAC []) 
+      THEN1
+       (REPEAT (Q.PAT_ASSUM `!x1 x2. bbb ==> bbbb` (K ALL_TAC))
+        \\ (Induct ORELSE Cases)
+        \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
+        \\ Cases_on `x2` \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS, types_match_def]
         \\ REPEAT STRIP_TAC \\ METIS_TAC []))
     (* check that the result does not mention itself *)
     val (tm1,tm2) = dest_imp goal
