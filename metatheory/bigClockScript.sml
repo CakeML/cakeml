@@ -17,8 +17,8 @@ val do_app_cases = Q.store_thm ("do_app_cases",
     (op = Opb op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
     (st = st') ∧ (env = env') ∧ (v3 = Lit (Bool (opb_lookup op' n1 n2)))) ∨
   ((op = Equality) ∧ (st = st') ∧ (env = env') ∧
-      ((¬contains_closure v1 ∧ ~contains_closure v2 ∧ (v3 = Lit (Bool (v1 = v2)))) ∨
-       ((contains_closure v1 ∨ contains_closure v2) ∧ (v3 = Raise Eq_error)))) ∨
+      ((?b. (do_eq v1 v2 = SOME b) ∧ (v3 = Lit (Bool b))) ∨
+       ((do_eq v1 v2 = NONE) ∧ (v3 = Raise Eq_error)))) ∨
   (∃env'' n e.
     (op = Opapp) ∧ (v1 = Closure env'' n e) ∧
     (st' = st) ∧ (env' = bind n v2 env'') ∧ (v3 = e)) ∨
@@ -50,9 +50,9 @@ rw [] >|
      cases_on `l'` >> 
      rw [] >>
      metis_tac [],
- metis_tac [],
- metis_tac [],
- metis_tac [],
+ cases_on `do_eq v1 v2` >>
+     rw [] >>
+     metis_tac [],
  cases_on `v1` >>
      rw [] >-
      metis_tac [] >>

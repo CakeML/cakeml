@@ -252,6 +252,44 @@ val _ = Define `
   )))`;
 
 
+(*val do_eq : v -> v -> option bool*)
+ val do_eq_defn = Hol_defn "do_eq" `
+ 
+(do_eq (Litv l1) (Litv l2) =  
+ (SOME (l1 = l2)))
+/\
+(do_eq (Conv cn1 vs1) (Conv cn2 vs2) =  
+(if cn1 = cn2 then
+    do_eq_list vs1 vs2
+  else
+    SOME F))
+/\
+(do_eq (Closure _ _ _) _ = NONE)
+/\
+(do_eq _ (Closure _ _ _) = NONE)
+/\
+(do_eq _ (Recclosure _ _ _) = NONE)
+/\
+(do_eq (Recclosure _ _ _) _ = NONE)
+/\
+(do_eq (Loc l1) (Loc l2) = (SOME (l1 = l2)))
+/\
+(do_eq _ _ = (SOME F))
+/\
+(do_eq_list [] [] = (SOME T))
+/\
+(do_eq_list (v1::vs1) (v2::vs2) =  
+ ((case do_eq v1 v2 of
+      NONE => NONE
+    | SOME r => 
+        if ~  r then
+          SOME F
+        else
+          do_eq_list vs1 vs2
+  )))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_defn;
+
 (* Do an application *)
 (*val do_app : store -> envE -> op -> v -> v -> option (store * envE * exp)*)
 val _ = Define `
@@ -272,10 +310,10 @@ val _ = Define `
     | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) =>
         SOME (s, env', Lit (Bool (opb_lookup op n1 n2)))
     | (Equality, v1, v2) =>
-        if contains_closure v1 \/ contains_closure v2 then
-          SOME (s, env', Raise Eq_error)
-        else
-          SOME (s, env', Lit (Bool (v1 = v2)))
+        (case do_eq v1 v2 of
+            NONE => SOME (s, env', Raise Eq_error)
+          | SOME b => SOME (s, env', Lit (Bool b))
+        )
     | (Opassign, (Loc lnum), v) =>
         (case store_assign lnum v s of
           SOME st => SOME (st, env', Lit Unit)

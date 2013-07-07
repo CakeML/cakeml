@@ -464,8 +464,7 @@ rw [] >|
           fs [] >>
           imp_res_tac type_funs_find_recfun >>
           fs [],
-      (* Type soundness fails until we implement equality types *)
-      cases_on `~contains_closure v' ∧ ~contains_closure v` >>
+      cases_on `do_eq v' v` >>
           fs [],
       qpat_assum `type_v a tenvM tenvC senv (Loc n) z` 
               (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
@@ -1245,12 +1244,6 @@ fs [e_step_def] >>
                fs [Tint_def] >>
                metis_tac [],
            fs [Tbool_def] >>
-               rw [] >>
-               rw [Once type_e_cases] >>
-               qexists_tac `tenvS` >>
-               rw [] >>
-               metis_tac [check_freevars_def, EVERY_DEF],
-            fs [Tbool_def] >>
                rw [] >>
                rw [Once type_e_cases] >>
                qexists_tac `tenvS` >>
