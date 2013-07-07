@@ -17,7 +17,8 @@ val data = map
    datatype_ov,
    datatype_bc_inst,
    datatype_bc_value,
-   datatype_bc_state]
+   datatype_bc_state,
+   datatype_bc_equality_result]
 
 val init_bc_state_def =  Define`
   init_bc_state = <|
@@ -46,11 +47,13 @@ the_def,
 LibTheory.lookup_def,
 intersperse_def,
 ov_to_string_def,
-is_Label_def,bc_fetch_aux_def,bc_fetch_def,
+is_Block_def,is_Label_def,bc_fetch_aux_def,bc_fetch_def,
 bc_find_loc_aux_def,bc_find_loc_def,
 bump_pc_def,bool_to_tag_def,unit_tag_def,closure_tag_def,block_tag_def,
 bool_to_val_def,unit_val_def,isNumber_def,
+bc_equality_result_to_val_def,
 bv_to_ov_def,
+bc_equal_def,
 bc_eval_stack_def,
 CONCAT_RULE(CONV_RULE(PURE_REWRITE_CONV[mk_thm([],mk_eq(``CONS:char -> string -> string``,``STRING``))]) bc_eval1_def),
 bc_eval_compute,

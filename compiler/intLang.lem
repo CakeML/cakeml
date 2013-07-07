@@ -8,7 +8,7 @@ open SemanticPrimitives
 (* Syntax *)
 
 (* pure applicative primitives with bytecode counterparts *)
-type Cprim1 = CRef | CDer
+type Cprim1 = CRef | CDer | CIsBool
 type Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq
 
 type Cpat =
@@ -105,7 +105,7 @@ and
 CevalPrim2 CEq = fun v1 v2 ->
   if no_closures v1 && no_closures v2
   then Cval (CLitv (Bool (v1 = v2)))
-  else Cexc (Craise CEq_excv)
+  else Cval (CLitv (IntLit (i 0)))
 
 let rec
 CevalUpd s (CLoc n) (v:Cv) =
@@ -123,6 +123,9 @@ CevalPrim1 CDer s (CLoc n) =
       | None -> Cexc Ctype_error
       | Some v -> Cval v
       end)
+and
+CevalPrim1 CIsBool s (CLitv l) =
+  (s, Cval (CLitv (Bool (match l with Bool _ -> true | _ -> false end))))
 and
 CevalPrim1 _ s _ = (s, Cexc Ctype_error)
 

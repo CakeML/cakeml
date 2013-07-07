@@ -12,6 +12,8 @@ val isNumber_exists_thm = store_thm(
 ``∀x. isNumber x = ∃n. x = Number n``,
 Cases >> rw[]);
 
+val _ = export_rewrites["Bytecode.is_Block_def","Bytecode.bc_equality_result_to_val_def"]
+
 val bc_eval_stack_def = Define`
   (bc_eval_stack Pop (x::xs) = SOME xs)
 ∧ (bc_eval_stack (Pops k) (x::xs) =
@@ -33,8 +35,13 @@ val bc_eval_stack_def = Define`
    if k < LENGTH ys then SOME (EL k ys::xs) else NONE)
 ∧ (bc_eval_stack (TagEq t) ((Block tag ys)::xs) =
    SOME (bool_to_val (tag = t)::xs))
+∧ (bc_eval_stack IsBlock (Block _ _::xs) = SOME (bool_to_val T::xs))
+∧ (bc_eval_stack IsBlock (CodePtr _ ::xs) = NONE)
+∧ (bc_eval_stack IsBlock (StackPtr _ ::xs) = NONE)
+∧ (bc_eval_stack IsBlock (x::xs) = SOME (bool_to_val F::xs))
 ∧ (bc_eval_stack Equal (x2::x1::xs) =
-   SOME (bool_to_val (x1 = x2)::xs))
+   case bc_equal x1 x2 of Eqinvalid => NONE
+   | res => SOME ((bc_equality_result_to_val res)::xs))
 ∧ (bc_eval_stack Less (Number n :: Number m :: xs) =
    SOME (bool_to_val (m < n)::xs))
 ∧ (bc_eval_stack Add (Number n :: Number m :: xs) =
@@ -61,10 +68,13 @@ srw_tac[ARITH_ss][GSYM arithmeticTheory.ADD1] >- (
   PROVE_TAC [ADD_COMM, APPEND_ASSOC,
     arithmeticTheory.LESS_EQ_ADD, LENGTH_APPEND,
     rich_listTheory.BUTFIRSTN_BUTFIRSTN,
-    rich_listTheory.BUTFIRSTN_LENGTH_APPEND]
-) >>
-Induct_on `ys` >>
-rw[rich_listTheory.BUTFIRSTN])
+    rich_listTheory.BUTFIRSTN_LENGTH_APPEND])
+>- (
+  Induct_on `ys` >>
+  rw[rich_listTheory.BUTFIRSTN])
+>- (
+  Cases_on`x`>>simp[bc_eval_stack_def]>>fs[] ) >>
+BasicProvers.CASE_TAC>>fs[])
 
 val bc_eval_stack_thm2 = prove(
 ``∀op xs ys. (bc_eval_stack op xs = SOME ys) ⇒ bc_stack_op op xs ys``,
@@ -115,9 +125,13 @@ fs[bc_eval_stack_def,bc_stack_op_cases,isNumber_exists_thm] >> rw[]
 >- (
   qmatch_assum_rename_tac `bc_eval_stack (TagEq n) (h::t) = SOME ys` [] >>
   Cases_on `h` >> fs[bc_eval_stack_def] )
+>- ( Cases_on `h` >> fs[bc_eval_stack_def] )
+>- ( Cases_on `h` >> fs[bc_eval_stack_def] )
+>- ( Cases_on `h` >> fs[bc_eval_stack_def] )
 >- (
-  qmatch_assum_rename_tac `bc_eval_stack Equal (h::t) = SOME ys` [] >>
-  Cases_on `h` >> Cases_on `t` >> fs[bc_eval_stack_def] )
+  qmatch_assum_rename_tac `bc_eval_stack Equal (a::t) = SOME ys` [] >>
+  Cases_on`t`>>fs[bc_eval_stack_def] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[])
 >- (
   qmatch_assum_rename_tac `bc_eval_stack Add (h::t) = SOME ys` [] >>
   Cases_on `h` >> Cases_on `HD t` >> Cases_on `t` >> fs[bc_eval_stack_def] )

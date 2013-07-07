@@ -31,6 +31,7 @@ val _ = Hol_datatype `
   | LoadRev of num          (* push rev(stack)[n] *)
   | El of num               (* read field n of cons block *)
   | TagEq of num            (* test tag of block *)
+  | IsBlock                 (* test for a block *)
   | Equal                   (* test equality *)
   | Add | Sub | Mult | Div | Mod | Less`;
   (* arithmetic *)
@@ -119,6 +120,71 @@ val _ = Define `
 
 val _ = Define `
  unit_val = (Block unit_tag [])`;
+
+
+ val is_Block_def = Define `
+
+(is_Block (Block _ _) = T)
+/\
+(is_Block _ = F)`;
+
+
+(* comparing bc_values for equality *)
+
+val _ = Hol_datatype `
+
+  bc_equality_result =
+    Eqresult of bool
+  | Eqclosure
+  | Eqinvalid`;
+
+
+ val bc_equal_defn = Hol_defn "bc_equal" `
+
+(bc_equal (CodePtr _) _ = Eqinvalid)
+/\
+(bc_equal _ (CodePtr _) = Eqinvalid)
+/\
+(bc_equal (StackPtr _) _ = Eqinvalid)
+/\
+(bc_equal _ (StackPtr _) = Eqinvalid)
+/\
+(bc_equal (Number n1) (Number n2) = (Eqresult (n1 = n2)))
+/\
+(bc_equal (Number _) _ = (Eqresult F))
+/\
+(bc_equal _ (Number _) = (Eqresult F))
+/\
+(bc_equal (RefPtr n1) (RefPtr n2) = (Eqresult (n1 = n2)))
+/\
+(bc_equal (RefPtr _) _ = (Eqresult F))
+/\
+(bc_equal _ (RefPtr _) = (Eqresult F))
+/\
+(bc_equal (Block t1 l1) (Block t2 l2) =  
+(if (t1 = closure_tag) \/ (t2 = closure_tag) then Eqclosure else
+    if t1 = t2 then bc_equal_list l1 l2 else Eqresult F))
+/\
+(bc_equal_list [] [] = (Eqresult T))
+/\
+(bc_equal_list (v1::vs1) (v2::vs2) =  
+((case bc_equal v1 v2 of
+    Eqresult T => bc_equal_list vs1 vs2
+  | Eqresult F => Eqresult F
+  | bad => bad
+  )))
+/\
+(bc_equal_list _ _ = (Eqresult F))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn bc_equal_defn;
+
+ val bc_equality_result_to_val_def = Define `
+
+(bc_equality_result_to_val (Eqresult b) = ( bool_to_val b))
+/\
+(bc_equality_result_to_val Eqclosure = (Number ( & 0)))
+/\
+(bc_equality_result_to_val Eqinvalid = (Number ( & 1)))`;
 
 
 (* fetching the next instruction from the code *)
@@ -224,8 +290,11 @@ bc_stack_op (El k) ((Block tag ys) ::xs) ( EL  k  ys ::xs))
 (! t tag ys xs. T ==>
 bc_stack_op (TagEq t) ((Block tag ys) ::xs) (bool_to_val (tag = t) ::xs))
 /\
-(! x2 x1 xs. T ==>
-bc_stack_op Equal (x2 ::x1 ::xs) (bool_to_val (x1 = x2) ::xs))
+(! x xs. (! n. ~  (x = CodePtr n) /\ ~  (x = StackPtr n)) ==>
+bc_stack_op IsBlock (x ::xs) ((bool_to_val (is_Block x)) ::xs))
+/\
+(! x2 x1 xs. ( ~  (bc_equal x1 x2 = Eqinvalid)) ==>
+bc_stack_op Equal (x2 ::x1 ::xs) (bc_equality_result_to_val (bc_equal x1 x2) ::xs))
 /\
 (! n m xs. T ==>
 bc_stack_op Less (Number n ::Number m ::xs) (bool_to_val ( int_lt m n) ::xs))

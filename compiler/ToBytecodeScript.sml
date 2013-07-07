@@ -141,7 +141,9 @@ val _ = Hol_datatype `
 
 (prim1_to_bc CRef = Ref)
 /\
-(prim1_to_bc CDer = Deref)`;
+(prim1_to_bc CDer = Deref)
+/\
+(prim1_to_bc CIsBool = (Stack IsBlock))`;
 
 
  val prim2_to_bc_def = Define `
