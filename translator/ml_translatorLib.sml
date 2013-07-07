@@ -279,7 +279,7 @@ in
     if ty = ``:int`` then ``Tapp [] TC_int`` else
     if ty = ``:num`` then ``Tapp [] TC_int`` else
     if can dest_vartype ty then
-      mk_comb(``Tvar``,stringSyntax.fromMLstring (string_tl (dest_vartype ty)))
+      mk_comb(``Tvar``,stringSyntax.fromMLstring ((* string_tl *) (dest_vartype ty)))
     else let
       val (lhs,rhs) = find_type_mapping ty
       val i = match_type lhs ty
@@ -379,7 +379,7 @@ fun clean_uppercase s = let
   in String.translate f s end;
 
 fun get_unique_name str = let
-  val names = get_names()
+  val names = get_names() @ ["o","+","-","*","div","mod","<",">","<=",">=","ref"]
   fun find_name str n = let
     val new_name = str ^ "_" ^ (int_to_string n)
     in if mem new_name names then find_name str (n+1) else new_name end
@@ -928,7 +928,7 @@ fun derive_thms_for_type ty = let
     val lines = listSyntax.mk_list(map mk_line xs,``:tvarN # t list``)
     val (name,ts) = dest_type (type_of y)
     fun string_tl s = s |> explode |> tl |> implode
-    val ts = map (stringSyntax.fromMLstring o string_tl o dest_vartype) ts
+    val ts = map (stringSyntax.fromMLstring o (* string_tl o *) dest_vartype) ts
     val ts_tm = listSyntax.mk_list(ts,``:string``)
     val name_tm = stringSyntax.fromMLstring name
     val dtype = ``(^ts_tm,^name_tm,^lines)``
