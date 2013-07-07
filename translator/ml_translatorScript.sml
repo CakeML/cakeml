@@ -524,16 +524,9 @@ val no_closures_def = tDefine "no_closures" `
 
 val types_match_def = tDefine "types_match" `
 (types_match (Litv l1) (Litv l2) = T) ∧
-(types_match (Loc loc1) (Loc loc2) = T) ∧
+(types_match (Loc l1) (Loc l2) = T) ∧
 (types_match (Conv cn1 vs1) (Conv cn2 vs2) = 
-  if cn1 = cn2 then
-    types_match_list vs1 vs2
-  else
-    F) ∧
-(types_match (Closure env1 x1 e1) (Closure env2 x2 e2) = F) ∧
-(types_match (Closure env1 x1 e1) (Recclosure env2 funs2 x2) = F) ∧
-(types_match (Recclosure env1 funs1 x1) (Closure env2 x2 e2) = F) ∧
-(types_match (Recclosure env1 funs1 x1) (Recclosure env2 funs2 x2) = F) ∧
+  ((cn1 ≠ cn2) ∨ types_match_list vs1 vs2)) ∧
 (types_match _ _ = F) ∧
 (types_match_list [] [] = T) ∧
 (types_match_list (v1::vs1) (v2::vs2) = 
