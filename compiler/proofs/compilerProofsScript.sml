@@ -2539,7 +2539,6 @@ val PERM_BIJ_IFF = store_thm("PERM_BIJ_IFF",
   rw[GENLIST_CONS,combinTheory.o_DEF] >>
   simp[PERM_CONS_EQ_APPEND] >>
   qexists_tac`EL (f 0) (h::l1)::GENLIST (λi. EL (? i) l1) (LENGTH l1)
-  cheat )
 
 val env_rs_perm = store_thm("env_rs_perm",
   ``∀menv cenv env rs csz rd cs bs env' rs' renv'.
@@ -3640,7 +3639,6 @@ val compile_top_append_code = store_thm("compile_top_append_code",
    qabbrev_tac`p  = compile_decs_wrap NONE rs [d]` >>
    PairCases_on`p`>> simp[] >>
    fs[FV_decs_def] >>
-   cheat)
 *)
 
 val closed_top_def = Define`
@@ -3751,6 +3749,57 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     simp[print_bv_str_def]) >>
   metis_tac[RTC_TRANSITIVE,transitive_def] )
 
+val _ = Parse.overload_on("print_ctor",``λx. STRCAT (id_to_string (Short x)) " = <constructor>"``)
+val _ = Parse.overload_on("print_ctors",``λls. FLAT (MAP (λ(x,y). print_ctor x) ls)``)
+clear_overloads_on"print_ctors"
+
+val compile_print_ctors_thm = store_thm("compile_print_ctors_thm",
+  ``∀ls cs. let cs' = compile_print_ctors ls cs in
+    ∃code. cs'.out = REVERSE code ++ cs.out
+      ∧ EVERY ($~ o is_Label) code
+      ∧ cs'.next_label = cs.next_label ∧
+      ∀bs bc0.
+      bs.code = bc0 ++ code
+      ∧ bs.pc = next_addr bs.inst_length bc0
+      ⇒
+      let bs' = bs with <|pc := next_addr bs.inst_length bs.code
+           ; output := STRCAT (REVERSE (print_ctors ls)) bs.output|> in
+      bc_next^* bs bs'``,
+  Induct >- (
+    simp[compile_print_ctors_def,Once SWAP_REVERSE] >>
+    rw[] >> simp[Once RTC_CASES1] >> simp[bc_state_component_equality] ) >>
+  qx_gen_tac`x` >> PairCases_on`x` >>
+  simp[compile_print_ctors_def,FOLDL_emit_thm,IMPLODE_EXPLODE_I] >>
+  rw[] >>
+  Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd x y` >>
+  first_x_assum(qspec_then`cs1`mp_tac) >>
+  simp[] >>
+  disch_then(Q.X_CHOOSE_THEN`c1`strip_assume_tac) >>
+  simp[Abbr`cs1`,Once SWAP_REVERSE,EVERY_MAP] >> fs[] >>
+  qmatch_assum_abbrev_tac`(compile_print_ctors ls cs1).next_label = X` >>
+  qmatch_abbrev_tac`((compile_print_ctors ls cs1').next_label = X) ∧ Y` >>
+  `cs1' = cs1` by (
+    simp[Abbr`cs1`,Abbr`cs1'`,compiler_result_component_equality] ) >>
+  simp[Abbr`X`,Abbr`Y`] >>
+  rpt strip_tac >>
+  qmatch_assum_abbrev_tac`bs.code = bc0 ++ l1 ++ l2 ++ c1` >>
+  `bc_next^* bs (bs with <|pc := next_addr bs.inst_length (bc0++l1++l2)
+                          ;output := REVERSE (x0++" = <constructor>") ++ bs.output|>)` by (
+    match_mp_tac MAP_PrintC_thm >>
+    qexists_tac`x0 ++ " = <constructor>"` >>
+    qexists_tac`bc0` >>
+    simp[Abbr`l1`,Abbr`l2`] ) >>
+  qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+  first_x_assum(qspecl_then[`bs1`,`bc0++l1++l2`]mp_tac) >>
+  simp[Abbr`bs1`] >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
+  qmatch_abbrev_tac`bc_next^* bs bs3` >>
+  `bs2 = bs3` by (
+    simp[Abbr`bs2`,Abbr`bs3`,bc_state_component_equality,SemanticPrimitivesTheory.id_to_string_def] ) >>
+  metis_tac[RTC_TRANSITIVE,transitive_def])
+
 val compile_print_dec_thm = store_thm("compile_print_dec_thm",
   ``∀d cs. let cs' = compile_print_dec d cs in
       ∃code. cs'.out = REVERSE code ++ cs.out
@@ -3788,8 +3837,47 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       simp[Abbr`vs`,MAP_EQ_f,FORALL_PROD] ) >>
     simp[TAKE_LENGTH_ID_rwt]) >>
   simp[] >>
-  (* split that fold out as a separate function *)
-  cheat )
+  simp[compile_print_dec_def] >>
+  Induct_on`l` >- (
+    simp[compile_print_types_def,Once SWAP_REVERSE] >>
+    simp[print_envC_def,SemanticPrimitivesTheory.build_tdefs_def,LENGTH_NIL] >>
+    rw[] >> simp[Once RTC_CASES1] >> simp[bc_state_component_equality] ) >>
+  qx_gen_tac`x` >> PairCases_on`x` >>
+  simp[compile_print_types_def] >>
+  gen_tac >>
+  qspecl_then[`x2`,`cs`]mp_tac (INST_TYPE[alpha|->``:t list``]compile_print_ctors_thm) >>
+  simp[] >>
+  disch_then(qx_choosel_then[`c1`]strip_assume_tac) >>
+  first_x_assum(qspec_then`compile_print_ctors x2 cs`mp_tac) >>
+  simp[] >>
+  disch_then(qx_choosel_then[`c2`]strip_assume_tac) >>
+  simp[] >>
+  simp[Once SWAP_REVERSE] >>
+  rpt strip_tac >>
+  last_x_assum(qspecl_then[`bs with code := bc0 ++ c1`,`bc0`]mp_tac) >>
+  simp[] >> strip_tac >>
+  qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
+  `bc_next^* bs (bs1 with code := bs.code)` by (
+    match_mp_tac RTC_bc_next_append_code >>
+    map_every qexists_tac[`bs0`,`bs1`] >>
+    simp[Abbr`bs0`,Abbr`bs1`,bc_state_component_equality] ) >>
+  first_x_assum(qspecl_then[`bs1 with code := bs.code`]mp_tac) >>
+  simp[Abbr`bs1`] >>
+  simp[LENGTH_NIL] >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1' bs2` >>
+  qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
+  `bs1' = bs1` by (
+    simp[Abbr`bs1`,Abbr`bs1'`] ) >>
+  qmatch_abbrev_tac`bc_next^* bs bs2'` >>
+  `bs2' = bs2` by (
+    simp[Abbr`bs2`,Abbr`bs2'`] >>
+    simp[bc_state_component_equality] >>
+    simp[SemanticPrimitivesTheory.build_tdefs_def,print_envC_def] >>
+    simp[MAP_MAP_o,combinTheory.o_DEF] >>
+    simp[UNCURRY,AstTheory.mk_id_def] >>
+    simp[LAMBDA_PROD] ) >>
+  metis_tac[RTC_TRANSITIVE,transitive_def])
 
 val labels_tac =
   fsrw_tac[DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE,FILTER_REVERSE,good_labels_def,between_labels_def

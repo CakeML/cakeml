@@ -242,6 +242,14 @@ val (bv_to_ov_def,bv_to_ov_ind) = register "bv_to_ov" (
   Q.ISPEC_THEN `bc_value_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
 
+val _ = register "compile_print_types" (
+tprove_no_defn((compile_print_types_def,compile_print_types_ind),
+(WF_REL_TAC`measure (LENGTH o FST)`>>simp[])))
+
+val _ = register "compile_print_ctors" (
+tprove_no_defn((compile_print_ctors_def,compile_print_ctors_ind),
+(WF_REL_TAC`measure (LENGTH o FST)`>>simp[])))
+
 (* export rewrites *)
 
 val _ = export_rewrites

@@ -117,11 +117,20 @@ compile_print_vals n (v::vs) s =
   compile_print_vals (n+1) vs s
 
 let rec
-compile_print_dec (Dtype ts) s =
-  List.fold_left (fun s (_,_,cs) ->
-    List.fold_left (fun s (c,_) ->
-      emit s (List.map PrintC (Hol.EXPLODE (Hol.CONCAT [c;" = <constructor>"]))))
-    s cs) s ts
+compile_print_ctors [] s = s
+and
+compile_print_ctors ((c,_)::cs) s =
+  compile_print_ctors cs
+    (emit s (List.map PrintC (Hol.EXPLODE (Hol.CONCAT [c;" = <constructor>"]))))
+
+let rec
+compile_print_types [] s = s
+and
+compile_print_types ((_,_,cs)::ts) s =
+  compile_print_types ts (compile_print_ctors cs s)
+
+let rec
+compile_print_dec (Dtype ts) s = compile_print_types ts s
 and
 compile_print_dec (Dlet p e) s =
   compile_print_vals 0 (pat_bindings p []) s

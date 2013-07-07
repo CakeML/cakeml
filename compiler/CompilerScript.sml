@@ -163,19 +163,28 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_print_vals_defn;
 
+ val compile_print_ctors_defn = Hol_defn "compile_print_ctors" `
+
+(compile_print_ctors [] s = s)
+/\
+(compile_print_ctors ((c,_)::cs) s =  
+(compile_print_ctors cs
+    (emit s ( MAP PrintC (EXPLODE (CONCAT [c;" = <constructor>"]))))))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_print_ctors_defn;
+
+ val compile_print_types_defn = Hol_defn "compile_print_types" `
+
+(compile_print_types [] s = s)
+/\
+(compile_print_types ((_,_,cs)::ts) s =  
+(compile_print_types ts (compile_print_ctors cs s)))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_print_types_defn;
+
  val compile_print_dec_def = Define `
 
-(compile_print_dec (Dtype ts) s = ( FOLDL (\s p . 
-  (case (s ,p ) of
-      ( s , (_,_,cs) ) => FOLDL
-                            (\s p . (case (s ,p ) of
-                                        ( s , (c,_) ) =>
-                                    emit s
-                                      ( MAP PrintC
-                                          (EXPLODE
-                                             (CONCAT [c;" = <constructor>"])))
-                                    )) s cs
-  )) s ts))
+(compile_print_dec (Dtype ts) s = ( compile_print_types ts s))
 /\
 (compile_print_dec (Dlet p e) s =  
 (
