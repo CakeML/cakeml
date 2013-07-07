@@ -2034,7 +2034,7 @@ val CevalPrim1_closed = store_thm(
   every_Cresult Cclosed Cclosed (SND (CevalPrim1 uop s v))``,
 Cases >> rw[LET_THM,Cclosed_rules] >> rw[]
 >- ( Cases_on`v`>>fs[] )
->- ( Cases_on`v`>>fs[] >>
+>> ( Cases_on`v`>>fs[] >>
   rw[el_check_def] >>
   fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL]))
 

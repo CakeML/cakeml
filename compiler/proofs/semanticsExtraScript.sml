@@ -138,12 +138,7 @@ val do_prim_app_FV = store_thm(
   (op ≠ Opapp) ∧
   (do_app s env op v1 v2 = SOME (s',env',exp)) ⇒
   (FV exp = {})``,
-ntac 2 gen_tac >> Cases >>
-Cases >> TRY (Cases_on `l`) >>
-Cases >> TRY (Cases_on `l`) >>
-rw[do_app_def] >> rw[] >>
-fs[store_assign_def] >>
-pop_assum mp_tac >> rw[] >> fs[])
+rw[bigClockTheory.do_app_cases] >> rw[])
 
 val do_log_FV = store_thm(
 "do_log_FV",
@@ -351,9 +346,9 @@ ntac 4 gen_tac >> Cases
   rw[do_app_def] >>
   fs[closed_cases])
 >- (
-  Cases >> TRY (Cases_on `l`) >>
-  Cases >> TRY (Cases_on `l`) >>
-  rw[do_app_def] >> fs[])
+  fs [bigClockTheory.do_app_cases] >>
+  rw [] >>
+  fs [])
 >- (
   Cases >> Cases >> rw[do_app_def,bind_def] >> fs[closed_cases] >>
   fs[] >> rw[] >>
@@ -716,34 +711,21 @@ val do_app_all_cns = store_thm("do_app_all_cns",
       BIGUNION (IMAGE all_cns (set s')) ⊆ cns ∧
       BIGUNION (IMAGE all_cns (env_range env')) ⊆ cns ∧
       all_cns_exp exp ⊆ cns``,
-  ntac 3 gen_tac >> Cases >>
-  Cases >> TRY (Cases_on`l`) >>
-  Cases >> TRY (Cases_on`l`) >>
-  rw[do_app_def] >> rw[] >> fs[bind_def] >>
-  TRY (
-    pop_assum mp_tac >>
-    BasicProvers.CASE_TAC >>
-    PairCases_on`x`>>rw[]>>
-    rw[] >>
-    TRY(PairCases_on`h`) >>
+ rw [bigClockTheory.do_app_cases] >>
+ fs [all_cns_def, bind_def] >- (
     rw[build_rec_env_MAP,LIST_TO_SET_MAP,GSYM IMAGE_COMPOSE,combinTheory.o_DEF,LAMBDA_PROD] >>
     fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,MEM_MAP] >>
-    metis_tac[]) >>
-  TRY (
-    pop_assum mp_tac >>
-    BasicProvers.CASE_TAC >>
-    rw[] >> fs[store_assign_def] >> rw[] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD] >> rw[] >>
-    imp_res_tac MEM_LUPDATE >> fs[] >> rw[] >>
-    TRY (qmatch_assum_rename_tac`MEM z t`[]>>PairCases_on`z`>>fs[]) >>
-    metis_tac[]) >>
-  pop_assum mp_tac >>
-  BasicProvers.CASE_TAC >>
-  BasicProvers.CASE_TAC >>
-  rw[] >>
-  imp_res_tac ALOOKUP_MEM >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,all_cns_defs_MAP,MEM_MAP] >>
-  metis_tac[]);
+    metis_tac[]) 
+ >- (
+     imp_res_tac ALOOKUP_MEM >>
+     fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,all_cns_defs_MAP,MEM_MAP] >>
+     metis_tac[]) 
+ >- (
+     rw[] >> fs[store_assign_def] >> rw[] >>
+     fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD] >> rw[] >>
+     imp_res_tac MEM_LUPDATE >> fs[] >> rw[] >>
+     TRY (qmatch_assum_rename_tac`MEM z t`[]>>PairCases_on`z`>>fs[]) >>
+     metis_tac[]));
 
 val pmatch_all_cns = store_thm("pmatch_all_cns",
   ``(∀(cenv:envC) s p v env env'. (pmatch cenv s p v env = Match env') ⇒
@@ -957,9 +939,7 @@ val do_app_locs = store_thm("do_app_locs",
     ⇒
     LENGTH s ≤ LENGTH s' ∧
     (∀v. MEM v (MAP SND env') ∨ MEM v s' ⇒ all_locs v ⊆ count (LENGTH s'))``,
-  rpt gen_tac >> simp[do_app_def] >>
-  Cases_on`op`>>Cases_on`v1`>>TRY(Cases_on`l:lit`)>>Cases_on`v2`>>TRY(Cases_on`l:lit`)>>
-  TRY(Cases_on`l':lit`)>>
+  rw [bigClockTheory.do_app_cases, SUBSET_DEF] >>
   simp[contains_closure_def,LibTheory.bind_def]>>
   rw[AstTheory.opn_lookup_def,AstTheory.opb_lookup_def] >> simp[] >> fs[] >>
   fsrw_tac[DNF_ss][SUBSET_DEF] >>
@@ -967,7 +947,7 @@ val do_app_locs = store_thm("do_app_locs",
   TRY(qpat_assum`X = SOME Y` mp_tac >> BasicProvers.CASE_TAC >> simp[] >> BasicProvers.CASE_TAC >>rw[]) >>
   fs[build_rec_env_MAP]>> rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
   rfs[store_assign_def] >> rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-  imp_res_tac miscTheory.MEM_LUPDATE >> fs[] >>
+  imp_res_tac miscTheory.MEM_LUPDATE >> fs[bind_def] >>
   TRY(metis_tac[]) >>
   fs[MEM_MAP,UNCURRY] >> rpt BasicProvers.VAR_EQ_TAC >> fs[] >> fs[MEM_MAP] >> metis_tac[])
 
