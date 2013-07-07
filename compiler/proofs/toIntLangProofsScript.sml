@@ -1048,6 +1048,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         metis_tac[EVERY2_syneq_trans]) )
     >- (
       rw[Once Cevaluate_cases] >>
+      rw[Once Cevaluate_cases] >>
       srw_tac[DNF_ss][] >>
       disj1_tac >>
       rw[Once(CONJUNCT2 Cevaluate_cases)] >>
@@ -1061,7 +1062,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       Q.ISPECL_THEN[`menv`,`s3`,`s4`,`env`,`Equality`,`v1`,`v2`,`env'`,`exp''`]mp_tac do_app_closed >>
       simp[]>>strip_tac>> fs[] >>
       `closed_under_cenv cenv menv env' s4 ∧ closed_under_cenv cenv menv env (SND cs')` by (
-        fs[do_app_def] >> imp_res_tac evaluate_closed_under_cenv >> rfs[] >>
+        fs[bigClockTheory.do_app_cases] >> imp_res_tac evaluate_closed_under_cenv >> rfs[] >>
         rw[] >> rfs[] >> rw[] >> fs[] >> metis_tac[FST, optionTheory.SOME_11, PAIR_EQ]) >> fs[] >>
       `all_cns_exp exp'' ⊆ cenv_dom cenv` by (
         qspecl_then[`cenv_dom cenv`,`s3`,`env`,`Equality`,`v1`,`v2`]mp_tac do_app_all_cns >>
@@ -1088,12 +1089,16 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       disch_then(qspecl_then[`$=`,`Cmenv`,`FST cs',sd`,`enva`,`e2a`]mp_tac) >> simp[syneq_exp_refl] >>
       fsrw_tac[DNF_ss][EXISTS_PROD,FORALL_PROD,Abbr`X`] >>
       map_every qx_gen_tac[`sf`,`w3`] >> strip_tac >>
+      fs[do_app_def] >>
+      (*
       map_every qexists_tac[`sf`,`w1`,`w3`,`FST cs'`,`sd`] >>
       simp[] >>
-      fs[do_app_def] >>
-      `(s3 = s4) ∧ (env = env')` by metis_tac [optionTheory.SOME_11, PAIR_EQ] >>
+      *)
+      `(s3 = s4) ∧ (env = env')` 
+                 by (Cases_on `do_eq v1 v2` >>
+                     fs []) >>
       `(FST res = (cnt',s4))` 
-                by (Cases_on `contains_closure v1 ∨ contains_closure v2` >>
+                by (Cases_on `do_eq v1 v2` >>
                     fs [] >>
                     rw [] >>
                     fs [Once BigStepTheory.evaluate_cases]) >>
