@@ -399,11 +399,6 @@ val mmlPEG_def = zDefine`
                           od = SOME ())
                      (bindNT nConstructorName o mktokLf)]);
               (mkNT nPattern, peg_Pattern);
-              (mkNT nPtuple, seql [tokeq LparT; pnt nPatternList2; tokeq RparT]
-                                  (bindNT nPtuple));
-              (mkNT nPatternList2,
-               seql [pnt nPattern; tokeq CommaT; pnt nPatternList1]
-                    (bindNT nPatternList2));
               (mkNT nPatternList1,
                peg_linfix (mkNT nPatternList1) (pnt nPattern) (tokeq CommaT));
               (mkNT nLetDec,
@@ -609,7 +604,7 @@ val npeg0_rwts =
                 ``nUQConstructorName``, ``nConstructorName``, ``nTypeName``,
                 ``nDtypeDecl``, ``nDconstructor``, ``nFDecl``, ``nTyvarN``,
                 ``nTyOp``, ``nDType``, ``nStarTypes``,
-                ``nRelOps``, ``nPtuple``, ``nPattern``, ``nLetDec``,
+                ``nRelOps``, ``nPattern``, ``nLetDec``,
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nErel``, ``nEcomp``, ``nEbefore``,
                 ``nEtyped``, ``nElogicAND``, ``nElogicOR``, ``nEhandle``,
@@ -688,7 +683,7 @@ val topo_nts = [``nExn``, ``nV``, ``nTyvarN``, ``nTypeDec``, ``nDecl``,
                 ``nVlist1``, ``nUQTyOp``, ``nUQConstructorName``,
                 ``nConstructorName``, ``nTyVarList``, ``nTypeName``, ``nTyOp``,
                 ``nDType``, ``nStarTypes``,
-                ``nRelOps``, ``nPtuple``, ``nPattern``, ``nPE``,
+                ``nRelOps``, ``nPattern``, ``nPE``,
                 ``nPE'``, ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``,
                 ``nFQV``,
                 ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
@@ -696,7 +691,7 @@ val topo_nts = [``nExn``, ``nV``, ``nTyvarN``, ``nTypeDec``, ``nDecl``,
                 ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``,
                 ``nElogicOR``, ``nEhandle``, ``nEhandle'``, ``nE``, ``nE'``,
                 ``nType``, ``nTypeList1``, ``nTypeList2``,
-                ``nPatternList1``, ``nPatternList2``,
+                ``nPatternList1``,
                 ``nEtuple``, ``nEseq``, ``nElist1``, ``nElist2``, ``nDtypeDecl``,
                 ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,
                 ``nSpecLineList``, ``nSignatureValue``,

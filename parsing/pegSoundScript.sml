@@ -445,21 +445,6 @@ val peg_sound = store_thm(
       simp[DISJ_IMP_THM, FORALL_AND_THM, cmlG_applied, cmlG_FDOM, NT_rank_def,
            SUBSET_DEF, EXTENSION, peg_eval_tok_SOME, mktokLf_def,
            pegsym_to_sym_def])
-  >- (print_tac "nPatternList2" >>
-      strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM] >>
-      dsimp[listTheory.APPEND_EQ_CONS, MAP_EQ_SING] >> csimp[] >>
-      `NT_rank (mkNT nPattern) < NT_rank (mkNT nPatternList2)`
-        by simp[NT_rank_def] >>
-      first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[] >>
-      metis_tac [not_peg0_LENGTH_decreases, peg0_nPattern, listTheory.LENGTH,
-                 DECIDE ``SUC x < y ⇒ x < y``])
-  >- (print_tac "nPtuple" >>
-      strip_tac >> rveq >> fs[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >>
-      dsimp[] >> csimp[] >>
-      first_x_assum
-        (fn patth => first_assum
-             (fn th => mp_tac (PART_MATCH (lhand o rand) patth (concl th)))) >>
-      dsimp[])
   >- (print_tac "nPattern" >>
       simp_tac std_ss [peg_Pattern_def, Once peg_eval_choicel_CONS] >>
       reverse strip_tac
