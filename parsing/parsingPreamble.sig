@@ -6,8 +6,6 @@ sig
   val MAP_EQ_APPEND : thm
   val MAP_EQ_CONS : thm
   val APPEND_ASSOC : thm
-  val FDOM_cmlPEG : thm
-  val mmlpeg_rules_applied : thm
 
   val loseC : term -> tactic
   val asm_match : term quotation -> tactic

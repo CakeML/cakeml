@@ -6,9 +6,6 @@ val MAP_EQ_SING = grammarTheory.MAP_EQ_SING
 val MAP_EQ_APPEND = grammarTheory.MAP_EQ_APPEND
 val APPEND_ASSOC = listTheory.APPEND_ASSOC
 
-val FDOM_cmlPEG = mmlPEGTheory.FDOM_cmlPEG
-val mmlpeg_rules_applied = mmlPEGTheory.mmlpeg_rules_applied
-
 val MAP_EQ_CONS = prove(
   ``(MAP f l = h::t) ⇔ ∃e es. l = e::es ∧ f e = h ∧ MAP f es = t``,
   Cases_on `l` >> simp[])
