@@ -17,8 +17,8 @@ val do_app_cases = Q.store_thm ("do_app_cases",
     (op = Opb op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
     (st = st') ∧ (env = env') ∧ (v3 = Lit (Bool (opb_lookup op' n1 n2)))) ∨
   ((op = Equality) ∧ (st = st') ∧ (env = env') ∧
-      ((?b. (do_eq v1 v2 = SOME b) ∧ (v3 = Lit (Bool b))) ∨
-       ((do_eq v1 v2 = NONE) ∧ (v3 = Raise Eq_error)))) ∨
+      ((?b. (do_eq v1 v2 = Eq_val b) ∧ (v3 = Lit (Bool b))) ∨
+       ((do_eq v1 v2 = Eq_closure) ∧ (v3 = Raise Eq_error)))) ∨
   (∃env'' n e.
     (op = Opapp) ∧ (v1 = Closure env'' n e) ∧
     (st' = st) ∧ (env' = bind n v2 env'') ∧ (v3 = e)) ∨

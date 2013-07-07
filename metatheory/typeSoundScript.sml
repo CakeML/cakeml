@@ -374,6 +374,46 @@ cases_on `e` >>
 cases_on `c` >>
 rw [final_state_def]);
 
+val eq_same_type = Q.prove (
+`(!v1 v2 tvs tenvM tenvC tenvS t.
+  type_v tvs tenvM tenvC tenvS v1 t ∧
+  type_v tvs tenvM tenvC tenvS v2 t 
+  ⇒
+  do_eq v1 v2 ≠ Eq_type_error) ∧
+(!vs1 vs2 tvs tenvM tenvC tenvS ts.
+  type_vs tvs tenvM tenvC tenvS vs1 ts ∧
+  type_vs tvs tenvM tenvC tenvS vs2 ts 
+  ⇒
+  do_eq_list vs1 vs2 ≠ Eq_type_error)`,
+ ho_match_mp_tac do_eq_ind >>
+ rw [do_eq_def] >>
+ rw [hd (CONJUNCTS type_v_cases)] >>
+ rw [Tbool_def, Tint_def, Tref_def, Tunit_def, Tfn_def] >>
+ CCONTR_TAC >>
+ fs [] >>
+ rw [] >>
+ imp_res_tac type_funs_Tfn >>
+ fs [Tfn_def] >-
+ (fs [hd (CONJUNCTS type_v_cases)] >>
+  rw [] >>
+  fs [] >>
+  metis_tac []) >>
+ fs [Once (hd (tl (CONJUNCTS type_v_cases)))] >>
+ rw [] >>
+ cases_on `do_eq v1 v2` >>
+ fs [] >-
+ (cases_on `b` >>
+      fs [] >>
+      qpat_assum `!x. P x` (mp_tac o Q.SPECL [`tvs`, `tenvM`, `tenvC`, `tenvS`, `ts'`]) >>
+      rw [METIS_PROVE [] ``(a ∨ b) = (~a ⇒ b)``] >>
+      cases_on `vs1` >>
+      fs [] >-
+      fs [Once (hd (tl (CONJUNCTS type_v_cases)))] >>
+      cases_on `ts'` >>
+      fs [] >>
+      fs [Once (hd (tl (CONJUNCTS type_v_cases)))]) >>
+ metis_tac []);
+
 (* A well-typed expression state is either a value with no continuation, or it
  * can step to another state, or it steps to a BindError. *)
 val exp_type_progress = Q.prove (
@@ -465,7 +505,9 @@ rw [] >|
           imp_res_tac type_funs_find_recfun >>
           fs [],
       cases_on `do_eq v' v` >>
-          fs [],
+           fs [Once context_invariant_cases] >>
+           srw_tac [ARITH_ss] [] >> 
+          metis_tac [eq_same_type],
       qpat_assum `type_v a tenvM tenvC senv (Loc n) z` 
               (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
           fs [type_s_def] >>
