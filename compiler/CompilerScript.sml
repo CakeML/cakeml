@@ -81,7 +81,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (compile_news cs _ [] = ( emit cs [Stack Pop]))
 /\
-(compile_news cs i (v::vs) =  
+(compile_news cs i (_::vs) =  
 (let cs = ( emit cs ( MAP Stack [Load 0; Load 0; El i])) in
   let cs = ( emit cs [Stack (Store 1)]) in
   compile_news cs (i +1) vs))`;

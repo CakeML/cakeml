@@ -51,7 +51,7 @@ decs_to_contab mn ct (d::ds) = decs_to_contab mn (dec_to_contab mn ct d) ds
 let rec
 compile_news cs _ [] = emit cs [Stack Pop]
 and
-compile_news cs i (v::vs) =
+compile_news cs i (_::vs) =
   let cs = emit cs (List.map Stack [Load 0; Load 0; El i]) in
   let cs = emit cs [Stack (Store 1)] in
   compile_news cs (i+1) vs
