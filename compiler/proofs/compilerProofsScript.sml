@@ -3197,7 +3197,20 @@ val new_decs_renv_vs = store_thm("new_decs_renv_vs",
   ``∀decs rsz. MAP FST (new_decs_renv rsz decs) = new_decs_vs decs``,
   Induct >> simp[new_decs_renv_def] >> simp[MAP_ZIP])
 
----8<---
+val env_renv_shift = store_thm("env_renv_shift",
+  ``∀rd sz bs env renv sz' bs' renv' st' ls ls'.
+      env_renv rd sz bs env renv
+      ∧ bs' = bs with stack := st'
+      ∧ renv = MAP CTDec ls
+      ∧ renv' = MAP CTDec ls'
+      ∧ EVERY2 (λi i'. i < LENGTH bs.stack ⇒ i' < LENGTH st' ∧ EL i' (REVERSE st') = EL i (REVERSE bs.stack)) ls ls'
+      ⇒
+      env_renv rd sz' bs' env renv'``,
+  rw[env_renv_def] >>
+  fs[EVERY2_EVERY,EVERY_MEM] >>
+  rpt(qpat_assum`X = Y`mp_tac) >> ntac 2 strip_tac >>
+  fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+  fs[CompilerLibTheory.el_check_def,option_case_NONE_F])
 
 val compile_decs_wrap_thm = store_thm("compile_decs_wrap_thm",
   ``∀mn menv cenv s env decs res.
@@ -3453,8 +3466,37 @@ val compile_decs_wrap_thm = store_thm("compile_decs_wrap_thm",
     qunabbrev_tac`renv2` >>
     Q.PAT_ABBREV_TAC`renv2:ctenv = GENLIST X Y` >>
     simp[Abbr`st0`] >>
-    (* prove env_renv_shift as separate thm *)
-    cheat ) >>
+    strip_tac >>
+    `∀n. MEM (CTDec n) renv ⇒ n < LENGTH (bs with code := bc0).stack` by (
+      rpt strip_tac >>
+      match_mp_tac (GEN_ALL Cenv_bs_CTDec_bound) >>
+      rator_x_assum`env_rs`mp_tac >>
+      simp[env_rs_def,Abbr`renv`] >>
+      fs[MEM_MAP,GSYM MAP_MAP_o] >>
+      metis_tac[MEM_MAP] ) >>
+    match_mp_tac env_renv_shift >>
+    qmatch_assum_abbrev_tac`env_renv rd2 sz2 bss2 Cenv (renv1++renv)` >>
+    map_every qexists_tac [`sz2`,`bss2`,`renv1++renv`] >>
+    simp[bc_state_component_equality,Abbr`bss2`] >>
+    qunabbrev_tac`renv` >>
+    qunabbrev_tac`renv1` >>
+    qunabbrev_tac`renv2` >>
+    simp[GSYM MAP_MAP_o,GSYM MAP_GENLIST] >>
+    REWRITE_TAC[GSYM MAP_APPEND] >>
+    Q.PAT_ABBREV_TAC`ls:num list = GENLIST X Y ++ Z` >>
+    Q.PAT_ABBREV_TAC`ls':num list = GENLIST X Y ++ Z` >>
+    map_every qexists_tac[`ls`,`ls'`] >> simp[] >>
+    fs[MEM_MAP] >>
+    simp[Abbr`ls`,Abbr`ls'`,EVERY2_EVERY,EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+    qx_gen_tac`z` >> strip_tac >>
+    `rs.rsz = LENGTH bs.stack` by fs[env_rs_def,LET_THM] >>
+    Cases_on`z<LENGTH bvs`>>simp[EL_APPEND1,EL_APPEND2,REVERSE_APPEND,Abbr`sz2`,Abbr`hdl`,EL_MAP] >- (
+      simp[EL_CONS,PRE_SUB1] ) >>
+    fsrw_tac[DNF_ss][MEM_EL,Abbr`m`] >>
+    Q.PAT_ABBREV_TAC`m = z - X` >>
+    `m < LENGTH rs.renv` by simp[Abbr`m`] >>
+    res_tac >>
+    simp[EL_APPEND1]) >>
   Cases_on`e`>>fs[] >>
   map_every qexists_tac[`bv`,`rf`,`rd''`] >>
   qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
@@ -3513,7 +3555,7 @@ val compile_decs_wrap_thm = store_thm("compile_decs_wrap_thm",
   HINT_EXISTS_TAC >>
   simp[])
 
---->8---
+---8<---
       (*
         fs[Abbr`n`] >>
         simp[TAKE_APPEND1,TAKE_LENGTH_ID_rwt] >>
