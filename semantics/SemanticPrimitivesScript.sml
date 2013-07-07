@@ -296,7 +296,7 @@ val _ = Hol_datatype `
           do_eq_list vs1 vs2
   )))
 /\
-(do_eq_list _ _ = Eq_type_error)`;
+(do_eq_list _ _ = (Eq_val F))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_defn;
 

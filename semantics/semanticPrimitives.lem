@@ -246,7 +246,7 @@ do_eq_list (v1::vs1) (v2::vs2) =
           do_eq_list vs1 vs2
   end
 and
-do_eq_list _ _ = Eq_type_error
+do_eq_list _ _ = Eq_val false
 
 (* Do an application *)
 val do_app : store -> envE -> op -> v -> v -> option (store * envE * exp)
