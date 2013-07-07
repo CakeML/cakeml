@@ -239,6 +239,8 @@ do_eq_list (v1::vs1) (v2::vs2) =
         else
           do_eq_list vs1 vs2
   end
+and
+do_eq_list _ _ = Some false
 
 (* Do an application *)
 val do_app : store -> envE -> op -> v -> v -> option (store * envE * exp)
