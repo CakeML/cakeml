@@ -3248,6 +3248,7 @@ val compile_decs_wrap_thm = store_thm("compile_decs_wrap_thm",
       let bs' = bs with <|pc := 0; stack := bv::bs.stack; refs := rf; clock := SOME 0|> in
       let rs' = rs with <|contab := ct; rnext_label := cs.next_label|> in
       bc_next^* bs bs'
+      ∧ err_bv err bv
       ∧ env_rs menv (cenv'++cenv) env rs' (LENGTH bs.stack) rd' (0,s') (bs' with stack := bs.stack)
     | _ => T``,
   rpt gen_tac >> strip_tac >>
@@ -3500,7 +3501,7 @@ val compile_decs_wrap_thm = store_thm("compile_decs_wrap_thm",
     res_tac >>
     simp[EL_APPEND1]) >>
   Cases_on`e`>>fs[] >>
-  map_every qexists_tac[`bv`,`rf`,`rd''`] >>
+  map_every qexists_tac[`bv`,`rf`,`rd''`] >> simp[] >>
   qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
   `bc_next^* (bs1 with code := bs.code) (bs2 with code := bs.code)` by (
     match_mp_tac RTC_bc_next_append_code >>
@@ -3834,6 +3835,27 @@ val env_rs_change_csz = store_thm("env_rs_change_csz",
   match_mp_tac Cenv_bs_change_csz >>
   simp[] >> metis_tac[])
 
+(*
+val env_rs_add_empty_menv = store_thm("env_rs_add_empty_menv",
+  ``∀menv cenv env rs cz rd cs bs mn.
+     env_rs menv cenv env rs cz rd cs bs
+     ∧ mn ∉ FDOM rs.rmenv
+     ⇒
+     env_rs menv cenv env (rs with rmenv := rs.rmenv |+ (mn,[])) cz rd cs bs``,
+  rw[env_rs_def] >> fs[LET_THM] >>
+  rpt HINT_EXISTS_TAC >>
+  qexists_tac`Cs` >>
+  simp[] >> rfs[] >> fs[] >>
+  `cmnv = (MAP SND o_f rs.rmenv) |+ (mn,[])` by (
+    qunabbrev_tac`cmnv` >>
+    REWRITE_TAC[GSYM o_f_DOMSUB] >>
+    metis_tac[FUPDATE_PURGE] ) >>
+  conj_tac >- (
+    fs[closed_vlabs_def] >>
+    code_env_cd_def
+    (* this looks hard ! *)
+*)
+
 val compile_top_thm = store_thm("compile_top_thm",
   ``∀menv cenv s env top res. evaluate_top menv cenv s env top res ⇒
       closed_top menv cenv s env top
@@ -3862,7 +3884,7 @@ val compile_top_thm = store_thm("compile_top_thm",
         bs'.pc = 0 ∧
         bs'.output = bs.output ∧
         err_bv err bv ∧
-        env_rs menv (cenv'++cenv) env rsf (LENGTH bs.stack) rd' (0,s') (bs' with stack := bs.stack)
+        env_rs menv (top_to_cenv top++cenv) env rsf (LENGTH bs.stack) rd' (0,s') (bs' with stack := bs.stack)
       | (s',_) => T``,
   PURE_REWRITE_TAC[closed_top_def] >>
   ho_match_mp_tac evaluate_top_ind >>
@@ -4042,77 +4064,203 @@ val compile_top_thm = store_thm("compile_top_thm",
     `rs.rsz = LENGTH bs.stack` by fs[env_rs_def,LET_THM] >>
     simp[] >>
     simp[Abbr`bs2`] )) >>
-
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
-
-    imp_res_tac compile_dec_val >>
-    pop_assum mp_tac >> simp[] >> strip_tac >>
-    gen_tac >> qexists_tac`ck` >> rpt gen_tac >> strip_tac >>
-    fs[] >>
-    Cases_on`err`>>fs[] >>
-    first_x_assum(qspec_then`rs`mp_tac) >>
-    fs[compile_top_def] >>
-    qabbrev_tac`p = compile_dec NONE rs d` >>
-    PairCases_on`p`>>fs[LET_THM] >>
-    disch_then(qspecl_then[`rd`,`bc`,`bs`,`bc0`]mp_tac) >>
-    simp[LibTheory.emp_def] >>
+    strip_tac >> gen_tac >>
+    Cases_on`err=Rtype_error`>>simp[] >>
+    imp_res_tac evaluate_dec_err_cenv_emp >>
+    fs[evaluate_dec_decs] >>
+    qspecl_then[`NONE`,`menv`,`cenv`,`s`,`env`,`[d]`,`s2,[],Rerr err`]mp_tac compile_decs_wrap_thm >>
+    simp[] >>
     discharge_hyps >- (
-      simp[Once SWAP_REVERSE] >>
-      metis_tac[] ) >>
-    rw[] >>
-    HINT_EXISTS_TAC >>
-    HINT_EXISTS_TAC >>
-    rw[] >>
-    HINT_EXISTS_TAC >>
-    simp[]) >>
-  strip_tac >- (
-    simp[] >>
-    rpt gen_tac >> strip_tac >>
-    imp_res_tac compile_decs_val >>
-    gen_tac >>
-    pop_assum(qspecl_then[`rs`,`mn`]mp_tac) >>
-    simp[] >> strip_tac >>
+      simp[FV_decs_def,decs_cns_def,decs_to_cenv_def] >>
+      rw[] >> fs[Once evaluate_decs_cases] >>
+      fs[Once evaluate_dec_cases] ) >>
+    disch_then(qspec_then`rs`strip_assume_tac) >>
     qexists_tac`ck` >> rpt gen_tac >> strip_tac >>
-    fs[] >>
-    qabbrev_tac`p = compile_decs mn ds (rs,[])` >>
-    PairCases_on`p`>>
-    fs[compile_top_def,LET_THM] >>
-    qmatch_assum_abbrev_tac`REVERSE p1 ++ X  ++ Y= bc` >>
-    first_x_assum(qspecl_then[`p0`,`[]`]mp_tac) >>
-    disch_then(qspecl_then[`rd`,`REVERSE p1`,`bs with code := bc0 ++ REVERSE p1`,`bc0`]mp_tac) >>
-    simp[LibTheory.emp_def] >>
-    rw[] >>
-    (* printing, and shift top of env into the menv *)
-    cheat ) >>
-  strip_tac >- (
+    rfs[compile_top_def,LET_THM] >>
+    qspecl_then[`d`,`cs`]mp_tac compile_print_dec_thm >>
     simp[] >>
-    rpt gen_tac >> strip_tac >>
-    imp_res_tac compile_decs_val >>
-    gen_tac >>
-    pop_assum(qspecl_then[`rs`,`mn`]mp_tac) >>
-    simp[] >> strip_tac >>
-    Cases_on`err`>>fs[]>>
-    qexists_tac`ck` >> rpt gen_tac >> strip_tac >>
-    fs[] >>
-    qabbrev_tac`p = compile_decs mn ds (rs,[])` >>
-    PairCases_on`p`>>
-    fs[compile_top_def,LET_THM] >>
-    qmatch_assum_abbrev_tac`REVERSE p1 ++ X  ++ Y= bc` >>
-    first_x_assum(qspecl_then[`p0`,`[]`]mp_tac) >>
-    disch_then(qspecl_then[`rd`,`REVERSE p1`,`bs with code := bc0 ++ REVERSE p1`,`bc0`]mp_tac) >>
+    disch_then(qx_choosel_then[`c2`]strip_assume_tac) >>
+    rw[] >> fs[] >>
+    first_x_assum(qspecl_then[`rd`,`bs with code := bc0 ++ REVERSE cs.out`,`bc0`]mp_tac) >>
     simp[LibTheory.emp_def] >>
-    rw[] >>
+    Cases_on`err`>>simp[]>>
+    disch_then(qx_choosel_then[`bv`,`rf`,`rd'`]strip_assume_tac) >>
     qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
+    `bc_next^* bs (bs2 with code := bs.code)` by (
+      match_mp_tac RTC_bc_next_append_code >>
+      map_every qexists_tac[`bs1`,`bs2`] >>
+      simp[Abbr`bs1`,bc_state_component_equality,Abbr`bs2`] ) >>
     map_every qexists_tac[`bv`,`bs2 with code := bs.code`,`rd'`] >>
     simp[Abbr`bs2`] >>
-    conj_tac >- (
+    simp[top_to_cenv_def] >>
+    rfs[decs_to_cenv_def] >>
+    match_mp_tac env_rs_append_code >>
+    HINT_EXISTS_TAC >>
+    simp[bc_state_component_equality] >>
+    `FILTER is_Label c2 = []` by (
+      fsrw_tac[DNF_ss][FILTER_EQ_NIL,EVERY_MEM,is_Label_rwt] ) >>
+    qspecl_then[`NONE`,`rs`,`[d]`]mp_tac compile_decs_wrap_append_out >>
+    simp[] >>
+    discharge_hyps >- (
+      fsrw_tac[DNF_ss][FV_decs_def,SUBSET_DEF,MEM_MAP] >>
+      rw[] >> res_tac >> fs[MEM_FLAT,MEM_MAP] >> rw[] >> fs[MEM_MAP] >>
+      fs[env_rs_def,LET_THM] >> metis_tac[MEM_MAP] ) >>
+    strip_tac >>
+    labels_tac )
+  strip_tac >- (
+    simp[] >>
+    rpt gen_tac >> strip_tac >>
+    strip_tac >> gen_tac >>
+    qspecl_then[`SOME mn`,`menv`,`cenv`,`s`,`env`,`ds`,`s2,new_tds,Rval new_env`]mp_tac compile_decs_wrap_thm >>
+    simp[] >>
+    disch_then(qspec_then`rs`strip_assume_tac) >>
+    qexists_tac`ck` >> rpt gen_tac >> strip_tac >>
+    rfs[compile_top_def,LET_THM] >>
+    rw[] >> fs[FOLDL_emit_thm] >>
+    qmatch_assum_abbrev_tac`bs.code = bc0 ++ REVERSE cs.out ++ ppc1 ++ ppc2` >>
+    first_x_assum(qspecl_then[`rd`,`bs with code := bc0 ++ REVERSE cs.out`,`bc0`]mp_tac) >>
+    simp[LibTheory.emp_def] >>
+    disch_then(qx_choosel_then[`bvs`,`rf`,`rd'`]strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
+    `bc_next^* bs (bs2 with code := bs.code)` by (
       match_mp_tac RTC_bc_next_append_code >>
-      qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
       map_every qexists_tac[`bs1`,`bs2`] >>
-      simp[Abbr`bs1`,bc_state_component_equality] >>
-      simp[Abbr`bs2`] ) >>
+      simp[Abbr`bs1`,Abbr`bs2`,bc_state_component_equality] ) >>
+    qmatch_assum_abbrev_tac`bc_next^* bs bs3` >>
+    `bc_next^* bs3 (bs3 with <| pc := next_addr bs.inst_length bs.code; output := STRCAT (REVERSE ("structure "++mn++" = <structure>")) bs.output|>)` by (
+      match_mp_tac MAP_PrintC_thm >>
+      simp[Abbr`bs3`] >>
+      CONV_TAC SWAP_EXISTS_CONV >>
+      qexists_tac`bc0++REVERSE cs.out` >>
+      simp[Abbr`ppc1`,Abbr`ppc2`] >>
+      CONV_TAC SWAP_EXISTS_CONV >>
+      qexists_tac`[]` >>
+      simp[] >>
+      simp[Abbr`bs2`,bc_state_component_equality] >>
+      simp[Once SWAP_REVERSE,IMPLODE_EXPLODE_I] >>
+      rpt AP_TERM_TAC  >>
+      simp[] ) >>
+    qmatch_assum_abbrev_tac`bc_next^* bs3 bs4` >>
+    qexists_tac`bs4` >>
+    qexists_tac`rd'` >>
+    conj_tac >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
+    conj_tac >- (
+      simp[Abbr`bs4`,Abbr`ppc1`,Abbr`ppc2`,Abbr`bs3`,Abbr`bs2`] >>
+      REWRITE_TAC[FILTER_APPEND,SUM_APPEND,IMPLODE_EXPLODE_I,REVERSE_APPEND,FILTER_REVERSE,MAP_APPEND,MAP_REVERSE,SUM_REVERSE] >>
+      EVAL_TAC >>
+      simp[] ) >>
+    reverse conj_asm2_tac >- (
+      match_mp_tac env_rs_append_code >>
+      qexists_tac`bs4 with code := bs2.code` >>
+      simp[Abbr`bs4`,Abbr`bs2`,Abbr`bs3`,bc_state_component_equality] >>
+      reverse conj_tac >- (
+        qspecl_then[`SOME mn`,`rs`,`ds`]mp_tac compile_decs_wrap_append_out >>
+        simp[] >>
+        discharge_hyps >- (
+          fsrw_tac[DNF_ss][FV_decs_def,SUBSET_DEF,MEM_MAP] >>
+          rw[] >> res_tac >> fs[MEM_FLAT,MEM_MAP] >> rw[] >> fs[MEM_MAP] >>
+          fs[env_rs_def,LET_THM] >> metis_tac[MEM_MAP] ) >>
+        strip_tac >>
+        `FILTER is_Label ppc1 = [] ∧ FILTER is_Label ppc2 = []` by (
+          simp[FILTER_EQ_NIL,Abbr`ppc1`,Abbr`ppc2`] >> fs[EVERY_MEM,MEM_MAP,is_Label_rwt,GSYM LEFT_FORALL_IMP_THM] ) >>
+        labels_tac ) >>
+      ntac 2 (pop_assum kall_tac) >>
+      cheat ) >>
+    simp[print_result_def,Abbr`bs4`]
+
+      (* need theorem for shifting module environment into the menv *)
+      (* then also env_rs_change_csz and env_rs_with_bs_irr *)
+   (*
+      qmatch_assum_abbrev_tac`env_rs menv cenvx envx rsx zx rd' cx bsx` >>
+      qmatch_abbrev_tac`env_rs menv cenvx envx rsx yx rd' cx bsy` >>
+      match_mp_tac env_rs_change_csz >>
+      qexists_tac`zx` >>
+      reverse conj_tac >- (
+        conj_tac >- (
+          unabbrev_all_tac >> simp[] ) >>
+        simp[Abbr`bsy`] >>
+        simp[Abbr`rsx`] >>
+        simp[Abbr`zx`,Abbr`yx`,DROP_APPEND1,DROP_LENGTH_NIL_rwt] >>
+        simp[IN_FRANGE,GSYM AND_IMP_INTRO,GSYM LEFT_FORALL_IMP_THM] >>
+        rator_x_assum`env_rs`mp_tac >>
+        simp[env_rs_def] >> strip_tac >>
+        rator_x_assum`Cenv_bs`mp_tac >>
+        simp[Cenv_bs_def] >> strip_tac >>
+        rator_x_assum`fmap_rel`mp_tac >>
+        simp[fmap_rel_def] >> strip_tac >>
+        rpt gen_tac >> strip_tac >>
+        first_x_assum(qspec_then`k`mp_tac) >>
+        simp[] >>
+        simp[env_renv_def,option_case_NONE_F,MAP_MAP_o] >>
+        strip_tac >> simp[MEM_EL] >> strip_tac >>
+        rator_x_assum`EVERY2`mp_tac >>
+        simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
+        strip_tac >>
+        disch_then(qspec_then`n`mp_tac) >>
+        simp[] >> simp[EL_MAP] >>
+        simp[Abbr`bsx`,DROP_APPEND1,DROP_LENGTH_NIL_rwt] >>
+        strip_tac >>
+        fs[CompilerLibTheory.el_check_def] >>
+        simp[REVERSE_APPEND,EL_APPEND1] ) >>
+      match_mp_tac env_rs_with_bs_irr >>
+    *)
+
+    ) >>
+  strip_tac >- (
+    simp[] >>
+    rpt gen_tac >> ntac 2 strip_tac >> gen_tac >>
+    qspecl_then[`SOME mn`,`menv`,`cenv`,`s`,`env`,`ds`,`s2,new_tds,Rerr err`]mp_tac compile_decs_wrap_thm >>
+    simp[] >>
+    disch_then(qspec_then`rs`strip_assume_tac) >>
+    qexists_tac`ck` >> rpt gen_tac >> strip_tac >>
+    Cases_on`err`>>fs[]>>
+    rfs[compile_top_def,LET_THM] >>
+    rw[] >> fs[FOLDL_emit_thm] >>
+    first_x_assum(qspecl_then[`rd`,`bs with code := bc0 ++ REVERSE cs.out`,`bc0`]mp_tac) >>
+    simp[LibTheory.emp_def] >>
+    disch_then(qx_choosel_then[`bv`,`rf`,`rd'`]strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
+    `bc_next^* bs (bs2 with code := bs.code)` by (
+      match_mp_tac RTC_bc_next_append_code >>
+      map_every qexists_tac[`bs1`,`bs2`] >>
+      simp[Abbr`bs1`,Abbr`bs2`,bc_state_component_equality] ) >>
+    map_every qexists_tac[`bv`,`bs2 with code := bs.code`,`rd'`] >>
+    simp[Abbr`bs2`] >>
+    match_mp_tac env_rs_append_code >>
+    Q.PAT_ABBREV_TAC`bs0 = bc_state_stack_fupd x y` >>
+    qexists_tac`bs0 with code := bc0 ++ REVERSE cs.out` >>
+    simp[Abbr`bs0`,bc_state_component_equality] >>
+    reverse conj_tac >- (
+      REWRITE_TAC[FILTER_APPEND] >>
+      EVAL_TAC >>
+      REWRITE_TAC[FILTER_MAP,IMPLODE_EXPLODE_I] >>
+      Q.PAT_ABBREV_TAC`l1 = MAP PrintC ls` >>
+      `l1 = []` by (
+        simp[MAP_EQ_NIL,Abbr`l1`,FILTER_EQ_NIL] ) >>
+      simp[REV_REVERSE_LEM,FILTER_REVERSE] >>
+      simp[ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE] >>
+      qspecl_then[`SOME mn`,`rs`,`ds`]mp_tac compile_decs_wrap_append_out >>
+      simp[] >>
+      discharge_hyps >- (
+        fsrw_tac[DNF_ss][FV_decs_def,SUBSET_DEF,MEM_MAP] >>
+        rw[] >> res_tac >> fs[MEM_FLAT,MEM_MAP] >> rw[] >> fs[MEM_MAP] >>
+        fs[env_rs_def,LET_THM] >> metis_tac[MEM_MAP] ) >>
+      strip_tac >>
+      fs[between_labels_def,good_labels_def] >>
+      simp[MEM_FILTER,is_Label_rwt] >>
+      fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,MEM_MAP,between_def] >>
+      rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
+    simp[top_to_cenv_def] >>
+
+    imp_res_tac evaluate_decs_to_cenv
+
+    evaluate_decs_new_decs_vs
+    evaluate_dec_new_dec_cns
+    simp[FILTER_APPEND]
+
     (* need evaluate_decs to agree with decs_to_cenv *)
     (* and show shift new module name with empty decs is ok for env_rs *)
     cheat ) >>
