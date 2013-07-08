@@ -4516,6 +4516,46 @@ print_apropos``FOLDL f a (TAKE n l)``
 *)
 
 
+val evaluate_decs_divergence = store_thm("evaluate_decs_divergence",
+  ``∀ds mn menv cenv s env.
+    (∀res. ¬ evaluate_decs mn menv cenv s env ds res)
+    ⇒
+    ∃d ds'.
+    d ::ds' = ds ∧
+    ∀res. evaluate_dec mn menv cenv s env d res ⇒
+    ∃s' cenv' env'. res = (s',Rval (cenv',env')) ∧
+    ∀res. ¬ evaluate_decs mn menv (cenv'++cenv) s' (env'++env) ds' res``,
+  Induct >> simp[Once evaluate_decs_cases] >>
+  qx_gen_tac`d` >> rpt strip_tac >>
+  PairCases_on`res`>>fs[] >>
+  Cases_on`res1`>>fs[]>-(
+    PairCases_on`a`>>fs[]>>
+    fsrw_tac[DNF_ss][] >>
+    fs[LibTheory.merge_def,FORALL_PROD] >>
+    metis_tac[] ) >>
+  metis_tac[])
+
+val evaluate_dec_determ = store_thm("evaluate_dec_determ",
+  ``∀mn menv (cenv:envC) s env d r1.
+    evaluate_dec mn menv cenv s env d r1 ⇒
+    ∀r2. evaluate_dec mn menv cenv s env d r2 ⇒ r2 = r1``,
+  ho_match_mp_tac evaluate_dec_ind >>
+  rpt conj_tac >>
+  rw[Once evaluate_dec_cases] >>
+  imp_res_tac big_exp_determ >> fs[] )
+
+val evaluate_decs_determ = store_thm("evaluate_decs_determ",
+  ``∀mn menv cenv s env ds res.
+    evaluate_decs mn menv cenv s env ds res ⇒
+    ∀r2. evaluate_decs mn menv cenv s env ds r2 ⇒ r2 = res``,
+  ho_match_mp_tac evaluate_decs_ind >>
+  rpt conj_tac >>
+  rpt gen_tac >> strip_tac >>
+  rw[Once evaluate_decs_cases] >>
+  imp_res_tac evaluate_dec_determ >> fs[] >>
+  fs[LibTheory.merge_def,SemanticPrimitivesTheory.combine_dec_result_def] >>
+  res_tac >> fs[])
+
 val compile_decs_divergence = store_thm("compile_decs_divergence",
   ``∀decs mn rmenv ct m renv rsz cs.
     let (ct',m',rsz',cs') = compile_decs mn rmenv ct m renv rsz cs decs in
@@ -4591,6 +4631,18 @@ val compile_decs_divergence = store_thm("compile_decs_divergence",
     match_mp_tac bc_fetch_aux_append_code >>
     match_mp_tac bc_fetch_aux_append_code >>
     imp_res_tac RTC_bc_next_preserves >> fs[] ) >>
+  fs[Once SWAP_REVERSE_SYM] >>
+  imp_res_tac evaluate_decs_divergence >>
+  fs[] >> rpt BasicProvers.VAR_EQ_TAC >>
+  first_x_assum(qspec_then`res`mp_tac) >> simp[] >>
+  PairCases_on`res`>>simp[] >> strip_tac >>
+  disch_then(qspecl_then[`menv`,`cenv'++cenv`,`res0`,`env'++env`]mp_tac) >> simp[] >>
+  qspecl_then[`mn`,`menv`,`cenv`,`s`,`env`,`d`,`res0,res1`]mp_tac compile_dec_thm >>
+  simp[] >>
+  disch_then(qx_choosel_then[`ck2`]strip_assume_tac) >>
+  first_x_assum(qspecl_then[`m`,`cs`,`p0`,`p1`,`rs`,`rd`,`bs with <|code := bc0 ++ c2; clock := SOME ck2|>`,`bc0`]mp_tac) >> simp[] >>
+  disch_then(qspec_then`csz`mp_tac)>>simp[] >>
+  cheat )
 
 (*
   fs[] >> rfs[]
