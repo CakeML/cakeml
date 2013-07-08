@@ -4563,12 +4563,15 @@ val compile_decs_divergence = store_thm("compile_decs_divergence",
     (∀res. ¬evaluate_decs mn menv cenv s env decs res)
     ∧ cs'.out = REVERSE code ++ cs.out
     ∧ FV_decs decs ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv
+    ∧ (∀i tds. i < LENGTH decs ∧ (EL i decs = Dtype tds) ⇒ check_dup_ctors mn (decs_to_cenv mn (TAKE i decs) ++ cenv) tds)
     ∧ decs_cns mn decs ⊆ set (MAP FST cenv)
+    ∧ "" ∉ new_decs_cns decs
     ∧ closed_context menv cenv s env
     ∧ env_rs menv cenv env rs csz rd (ck,s) (bs with code := bc0)
     ∧ rmenv = MAP SND o_f rs.rmenv
     ∧ renv = MAP (CTDec o SND) rs.renv
     ∧ rsz = rs.rsz
+    ∧ ct = rs.contab
     ∧ m.bvars = MAP FST env
     ∧ m.mvars = MAP FST o_f alist_to_fmap menv
     ∧ m.cnmap = cmap rs.contab
@@ -4642,43 +4645,264 @@ val compile_decs_divergence = store_thm("compile_decs_divergence",
   disch_then(qx_choosel_then[`ck2`]strip_assume_tac) >>
   first_x_assum(qspecl_then[`m`,`cs`,`p0`,`p1`,`rs`,`rd`,`bs with <|code := bc0 ++ c2; clock := SOME ck2|>`,`bc0`]mp_tac) >> simp[] >>
   disch_then(qspec_then`csz`mp_tac)>>simp[] >>
-  cheat )
-
-(*
-  fs[] >> rfs[]
-  simp[compile_decs_def,UNCURRY]
-  reverse Cases
-  >- (
-    simp[Once evaluate_decs_cases] >>
-    simp[Once evaluate_dec_cases] >>
-    simp[Once evaluate_dec_cases] >>
-    rpt gen_tac >>
-    simp[UNCURRY] >>
-    rpt gen_tac >> strip_tac >>
-    Cases_on`check_dup_ctors mn cenv l`>>fs[]>>
-    fs[LibTheory.emp_def,LibTheory.merge_def] >>
-    fs[compile_decs_def] >>
-    fs[compile_dec_def] >>
-    qabbrev_tac`ct' = dec_to_contab mn ct (Dtype l)` >>
-    qpat_assum`x.out = y ++ z`mp_tac >>
-    Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd x y` >> strip_tac >>
-    first_x_assum(qspecl_then[`mn`,`rmenv`,`ct'`,`m with cnmap := cmap ct'`,`renv`,`rsz`,`compile_news cs1 0 ([]:string list)`]mp_tac) >>
-    simp[UNCURRY] >>
-    fs[LET_THM] >>
-    qmatch_assum_abbrev_tac`X.out = Y` >>
-    Q.PAT_ABBREV_TAC`X':compiler_result = z` >>
-    `X' = X` by (
-      simp[Abbr`X'`,Abbr`X`] >>
-      rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
-      simp[ToIntLangTheory.exp_to_Cexp_state_component_equality] ) >>
-    simp[Abbr`Y`] >>
-    simp[compile_news_def,Abbr`cs1`] >>
-    simp[Once SWAP_REVERSE_SYM] >>
-    disch_then(qspecl_then[`menv`,`build_tdefs mn l ++ cenv`,`env`]mp_tac) >>
-    simp[]
-
-    rw[]
-*)
+  discharge_hyps >- (
+    fs[FV_decs_def,decs_cns_def] >>
+    conj_tac >- metis_tac[] >>
+    match_mp_tac env_rs_change_clock >>
+    qexists_tac`ck,s` >> simp[] >>
+    HINT_EXISTS_TAC >> simp[bc_state_component_equality] ) >>
+  disch_then(qx_choosel_then[`Cvs`,`bvs`,`rf`,`rd2`,`Cs2`]strip_assume_tac) >>
+  qabbrev_tac`rs1 = rs with <|contab := ct1
+                             ;renv := ZIP(vs,GENLIST (λi. rs.rsz+(LENGTH vs)-1-i) (LENGTH vs))++rs.renv
+                             ;rsz := rsz1
+                             ;rnext_label := p1.next_label|>` >>
+  qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
+  first_x_assum(qspecl_then[`bs1 with code := bc0++c2++c1`,`bc0++c2`]mp_tac) >>
+  simp[Abbr`bs1`] >>
+  imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
+  `LENGTH bvs = LENGTH vs` by (
+    fs[EVERY2_EVERY,vs_to_Cvs_MAP] >>
+    Cases_on`p0`>>fs[Abbr`vs`] >> rfs[] >> fs[] >>
+    fs[LIST_EQ_REWRITE] ) >>
+  rfs[] >>
+  simp[] >> strip_tac >>
+  qmatch_assum_abbrev_tac`bc_next^* bs2 bs3` >>
+  disch_then(qspecl_then[`rs1`,`csz`,`rd2`,`ck`,`bs3 with <|code := bs.code; clock := SOME ck|>`,`bc0++c2++c1`]mp_tac) >>
+  simp[Abbr`bs3`] >>
+  discharge_hyps >- (
+    (* this whole thing should be pulled out as a separate theorem, and re-used from compile_decs_thm *)
+    simp[Abbr`m1`] >>
+    conj_tac >- (
+      fsrw_tac[DNF_ss][FV_decs_def,SUBSET_DEF,MEM_MAP,MEM_FLAT,EXISTS_PROD] >>
+      Cases>>simp[]>>
+      strip_tac >> res_tac >> fs[] >>
+      qpat_assum`MAP FST env' = X`(assume_tac o SYM)>>fs[MEM_MAP,FORALL_PROD] >>
+      metis_tac[] ) >>
+    conj_tac >- (
+      rpt strip_tac >>
+      last_x_assum(qspec_then`SUC i`mp_tac) >>
+      simp[decs_to_cenv_def] >>
+      imp_res_tac evaluate_dec_dec_to_cenv >>
+      fs[] ) >>
+    conj_tac >- (
+      fsrw_tac[DNF_ss][SUBSET_DEF,decs_cns_def] >>
+      rpt strip_tac >> res_tac >>
+      imp_res_tac evaluate_dec_new_dec_cns >> fs[] >>
+      metis_tac[MEM_MAP] ) >>
+    conj_tac >- metis_tac[] >>
+    conj_tac >- (
+      qspecl_then[`mn`,`menv`,`cenv`,`s`,`env`,`d`,`res0`,`Rval(cenv',env')`]mp_tac evaluate_dec_closed_context >>
+      simp[] >>
+      disch_then match_mp_tac >>
+      fs[FV_decs_def,decs_cns_def] ) >>
+    simp[CONJ_ASSOC] >>
+    reverse conj_asm2_tac >- (
+      fsrw_tac[DNF_ss][good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND,between_labels_def,MEM_FILTER,is_Label_rwt,EVERY_MEM,between_def,MEM_MAP] >>
+      `FILTER is_Label c1 = []` by (simp[FILTER_EQ_NIL,EVERY_MEM,is_Label_rwt] >> metis_tac[] ) >>
+      rw[Abbr`rs1`] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
+    reverse conj_tac >- simp[Abbr`rs1`] >>
+    reverse conj_tac >- simp[Abbr`rs1`] >>
+    reverse conj_tac >- ( simp[Abbr`vs`] >> Cases_on`d`>>simp[] ) >>
+    reverse conj_tac >- simp[Abbr`rs1`] >>
+    reverse conj_tac >- (
+      simp[Abbr`rs1`,Abbr`renv1`] >>
+      simp[MAP_ZIP,MAP_GENLIST,combinTheory.o_DEF,Abbr`rsz1`] ) >>
+    reverse conj_tac >- (
+      simp[Abbr`rs1`,Abbr`renv1`] >>
+      simp[MAP_ZIP,MAP_GENLIST,combinTheory.o_DEF,Abbr`rsz1`] ) >>
+    reverse conj_tac >- (
+      simp[Abbr`rs1`,Abbr`renv1`] >>
+      simp[MAP_ZIP,MAP_GENLIST,combinTheory.o_DEF,Abbr`rsz1`] ) >>
+    rator_x_assum`env_rs`mp_tac >>
+    rator_x_assum`s_refs`mp_tac >>
+    simp[] >>
+    pop_assum mp_tac >> pop_assum kall_tac >>
+    rpt strip_tac >>
+    match_mp_tac env_rs_append_code >>
+    qunabbrev_tac`bs0` >>
+    Q.PAT_ABBREV_TAC`bs0 = bc_state_stack_fupd X Y` >>
+    qexists_tac`bs0 with code := bc0 ++ c2` >>
+    simp[bc_state_component_equality,Abbr`bs0`] >>
+    reverse conj_tac >- (
+      fs[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+      metis_tac[] ) >>
+    Cases_on`cenv' = []` >- (
+      simp[] >>
+      `ct1 = rs.contab` by (
+        simp[Abbr`ct1`] >>
+        Cases_on`d`>>fs[dec_to_contab_def] >>
+        fs[Once evaluate_dec_cases,LibTheory.emp_def] >>
+        qpat_assum`[] = X`mp_tac >>
+        simp[SemanticPrimitivesTheory.build_tdefs_def,FLAT_EQ_NIL,EVERY_MEM,MEM_MAP,FORALL_PROD,UNCURRY,EXISTS_PROD] >>
+        simp_tac(srw_ss()++DNF_ss)[] >>
+        simp[FOLDL_number_constructors_thm] >>
+        Q.PAT_ABBREV_TAC`ll = FLAT (MAP (SND o SND) l)` >>
+        strip_tac >>
+        `ll = []` by (
+          simp[Abbr`ll`,FLAT_EQ_NIL,EVERY_MEM,MEM_MAP,EXISTS_PROD] >>
+          metis_tac[] ) >>
+        simp[number_constructors_def] ) >>
+      simp[] >>
+      fs[env_rs_def,LET_THM] >>
+      rfs[Abbr`rs1`] >> fs[] >>
+      qexists_tac`Cmenv` >>
+      simp[MAP_ZIP] >>
+      simp[Abbr`rsz1`] >>
+      simp[TAKE_APPEND1,TAKE_LENGTH_ID_rwt] >>
+      qexists_tac`REVERSE Cvs ++ Cenv` >>
+      qexists_tac`Cs2` >>
+      fs[vs_to_Cvs_MAP] >>
+      conj_tac >- (
+        match_mp_tac EVERY2_APPEND_suff >>
+        simp[] >>
+        simp[env_to_Cenv_MAP] >>
+        fs[MAP_MAP_o,MAP_REVERSE] >>
+        metis_tac[EVERY2_REVERSE1]) >>
+      conj_tac >- (
+        fs[closed_Clocs_def] >>
+        `LENGTH Cs ≤ LENGTH Cs2` by (
+          fs[EVERY2_EVERY] >> metis_tac[] ) >>
+        full_simp_tac list_ss [SUBSET_DEF,IN_COUNT] >>
+        metis_tac[LESS_LESS_EQ_TRANS] ) >>
+      conj_tac >- (
+        fs[closed_vlabs_def,vlabs_list_APPEND,EVERY_REVERSE,vlabs_list_REVERSE] >>
+        rw[] >> TRY(metis_tac[]) >>
+        match_mp_tac code_env_cd_append >>
+        fs[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] ) >>
+      qunabbrev_tac`renv1` >>
+      conj_asm1_tac >- (
+        simp[Abbr`vs`] >>
+        Cases_on`d`>>simp[] ) >>
+      simp[MAP_GENLIST] >>
+      Q.PAT_ABBREV_TAC`renw:ctenv = GENLIST X y` >>
+      match_mp_tac Cenv_bs_FUPDATE_LIST_CTDec >>
+      simp[Abbr`renw`] >>
+      map_every qexists_tac[`REVERSE Cvs`,`Cenv`,`renv`,`LENGTH bs.stack`] >>
+      simp[REVERSE_GENLIST,PRE_SUB1] >>
+      Q.PAT_ABBREV_TAC`bs0 = bc_state_stack_fupd x y` >>
+      qexists_tac`bs0 with stack := bs.stack` >>
+      simp[Abbr`bs0`,bc_state_component_equality] >>
+      `LENGTH (new_dec_vs d) = LENGTH Cvs` by ( simp[] >> fs[EVERY2_EVERY] ) >>
+      simp[] >>
+      reverse conj_tac >- (
+        conj_tac >- (
+          match_mp_tac EVERY2_REVERSE >>
+          simp[] ) >>
+        simp[LIST_EQ_REWRITE] ) >>
+      match_mp_tac Cenv_bs_with_irr >>
+      qexists_tac`bs with <|code := bc0 ++ c2; refs := rf; clock := SOME ck|>` >>
+      simp[] >>
+      match_mp_tac Cenv_bs_change_store >>
+      map_every qexists_tac[`rd`,`ck,Cs`,`bs with code := bc0 ++ c2`,`rf`,`SOME ck`] >>
+      simp[bc_state_component_equality] >>
+      conj_tac >- (
+        match_mp_tac Cenv_bs_append_code >>
+        qexists_tac`bs with code := bc0` >>
+        simp[bc_state_component_equality] >>
+        fsrw_tac[ARITH_ss][] ) >>
+      fs[s_refs_def,good_rd_def] ) >>
+    `env' = []` by (
+      Cases_on`d`>>fs[Once evaluate_dec_cases,LibTheory.emp_def] ) >>
+    simp[] >>
+    match_mp_tac env_rs_change_store >>
+    Q.PAT_ABBREV_TAC`bs0 = bc_state_stack_fupd X Y` >>
+    map_every qexists_tac[`rd`,`ck,s`,`bs0 with <|refs:=bs.refs;clock:=SOME ck|>`] >>
+    simp[Abbr`bs0`,bc_state_component_equality] >>
+    qexists_tac`Cs2`>>simp[] >>
+    reverse conj_tac >- (
+      conj_tac >- (
+        match_mp_tac s_refs_with_irr >>
+        Q.PAT_ABBREV_TAC`bs1 = bc_state_stack_fupd x y` >>
+        qmatch_assum_abbrev_tac`s_refs rd2 (0,Cs2) bs0` >>
+        qexists_tac`bs0 with <| code := bc0 ++ c2; clock := SOME ck|>` >>
+        simp[Abbr`bs0`,Abbr`bs1`] >>
+        fs[s_refs_def,good_rd_def] ) >>
+      simp[Abbr`rs1`] >>
+      qmatch_abbrev_tac `EVERY2 syneq vs1 Cs2` >>
+      qmatch_assum_abbrev_tac `EVERY2 syneq vs2 Cs'` >>
+      qsuff_tac`vs1 = vs2` >- rw[] >>
+      unabbrev_all_tac >>
+      match_mp_tac(CONJUNCT1(CONJUNCT2 v_to_Cv_SUBMAP)) >>
+      imp_res_tac evaluate_dec_all_cns >>
+      rfs[decs_cns_def] >>
+      pop_assum mp_tac >>
+      discharge_hyps >- fs[closed_context_def,closed_under_cenv_def] >>
+      strip_tac >>
+      `set (MAP FST cenv) ⊆ FDOM (cmap rs.contab)` by (
+        fs[env_rs_def,SET_EQ_SUBSET,SUBSET_DEF] ) >>
+      conj_tac >- (
+        simp_tac(srw_ss()++DNF_ss)[SUBSET_DEF] >>
+        fs[SUBSET_DEF] >> metis_tac[] ) >>
+      qspecl_then[`[d]`,`mn`,`rs.contab`,`cenv`,`{Short ""}`]mp_tac decs_to_contab_cmap_SUBMAP >>
+      simp[decs_to_contab_def] >>
+      disch_then match_mp_tac >>
+      fs[env_rs_def,SET_EQ_SUBSET,SUBSET_DEF,decs_to_cenv_def] >>
+      last_x_assum(qspec_then`0`mp_tac) >>
+      simp[decs_to_cenv_def] >> strip_tac >>
+      Cases_on`mn`>>fs[AstTheory.mk_id_def] >> metis_tac[] ) >>
+    match_mp_tac env_rs_with_bs_irr >>
+    qexists_tac`bs with code := bc0 ++ c2` >>
+    simp[] >> fs[] >>
+    `vs = []` by (
+      simp[Abbr`vs`] >>
+      Cases_on`d`>>simp_tac(srw_ss())[] ) >>
+    `bvs = []` by (
+      rfs[EVERY2_EVERY] >>
+      metis_tac[LENGTH_NIL] ) >>
+    fs[LENGTH_NIL] >>
+    simp[Abbr`rsz1`] >>
+    `bs.clock = SOME ck` by (
+      Cases_on`bs.clock`>>fs[]>>
+      fs[env_rs_def,LET_THM,Cenv_bs_def,s_refs_def] ) >>
+    simp[] >>
+    match_mp_tac env_rs_with_irr >>
+    qexists_tac`rs with contab := ct1` >>
+    qpat_assum`[] = x`(assume_tac o SYM) >>
+    simp[Abbr`rs1`] >>
+    match_mp_tac env_rs_append_code >>
+    qexists_tac`bs with code := bc0` >>
+    simp[bc_state_component_equality] >>
+    fs[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+    match_mp_tac decs_contab_thm >>
+    map_every qexists_tac [`mn`,`[d]`,`cenv`,`rs`] >>
+    simp[decs_to_cenv_def,Abbr`ct1`,decs_to_contab_def] >>
+    imp_res_tac evaluate_dec_dec_to_cenv >> fs[] >>
+    last_x_assum(qspec_then`0`mp_tac) >>
+    simp[decs_to_cenv_def] >> strip_tac >>
+    Cases_on`mn`>>fs[AstTheory.mk_id_def] >> metis_tac[] ) >>
+  disch_then(qx_choosel_then[`bs3`]strip_assume_tac) >>
+  qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
+  `bc_next^* (bs with <|clock := SOME (ck+ck2)|>) (bs2 with <| code := bs.code; clock := SOME ck|>)` by (
+    qspecl_then[`bs0`,`bs1`]mp_tac RTC_bc_next_add_clock >> simp[] >>
+    disch_then(qspec_then`ck`mp_tac) >>
+    strip_tac >>
+    match_mp_tac RTC_bc_next_append_code >>
+    qmatch_assum_abbrev_tac`bc_next^* x y` >>
+    map_every qexists_tac[`x`,`y`] >>
+    simp[Abbr`x`,Abbr`y`] >>
+    simp[Abbr`bs0`,Abbr`bs1`,bc_state_component_equality,Abbr`bs2`] ) >>
+  qmatch_assum_abbrev_tac`bc_next^* bs4 bs3` >>
+  `bc_next^* (bs2 with <|code := bs.code; clock := SOME ck|>) bs4` by (
+    qmatch_assum_abbrev_tac`bc_next^* bs2 bs5` >>
+    qspecl_then[`bs2`,`bs5`]mp_tac RTC_bc_next_add_clock >> simp[] >>
+    disch_then(qspec_then`ck`strip_assume_tac) >>
+    match_mp_tac RTC_bc_next_append_code >>
+    qmatch_assum_abbrev_tac`bc_next^* x y` >>
+    map_every qexists_tac[`x`,`y`] >>
+    simp[Abbr`x`,Abbr`y`] >>
+    simp[Abbr`bs2`,Abbr`bs4`,Abbr`bs5`,bc_state_component_equality] ) >>
+  `bc_next^* (bs with <|clock := SOME (ck+ck2)|>) bs3` by metis_tac[RTC_TRANSITIVE,transitive_def] >>
+  `bc_eval (bs with clock := SOME (ck+ck2)) = SOME bs3` by (
+    match_mp_tac (MP_CANON RTC_bc_next_bc_eval) >>
+    simp[] >> simp[bc_eval1_thm,bc_eval1_def] ) >>
+  qspecl_then[`bs with clock := SOME (ck+ck2)`,`bs3`]mp_tac RTC_bc_next_less_timeout >>
+  simp[] >>
+  disch_then(qspec_then`ck`mp_tac) >>
+  simp[] >>
+  `bs with clock := SOME ck = bs` by (
+    simp[bc_state_component_equality] >>
+    Cases_on`bs.clock`>>fs[env_rs_def,LET_THM,Cenv_bs_def,s_refs_def] ) >>
+  metis_tac[])
 
 (*
 
