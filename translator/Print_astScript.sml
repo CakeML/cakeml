@@ -78,7 +78,7 @@ val _ = Define `
 /\
 (tok_to_string (LongidT mn id) s = ( space_append (if mn = "" then id else STRCAT  mn ( STRCAT  "." id)) s))
 /\
-(tok_to_string (TyvarT tv) s = ( space_append ( STRCAT "'"  tv) s))
+(tok_to_string (TyvarT tv) s = ( space_append tv s))
 /\
 (tok_to_string AndT s = ( STRCAT  "and "  s))
 /\
