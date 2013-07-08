@@ -40,7 +40,7 @@ val bc_eval_stack_def = Define`
 ∧ (bc_eval_stack IsBlock (StackPtr _ ::xs) = NONE)
 ∧ (bc_eval_stack IsBlock (x::xs) = SOME (bool_to_val F::xs))
 ∧ (bc_eval_stack Equal (x2::x1::xs) =
-   case bc_equal x1 x2 of Eqinvalid => NONE
+   case bc_equal x1 x2 of Eq_type_error => NONE
    | res => SOME ((bc_equality_result_to_val res)::xs))
 ∧ (bc_eval_stack Less (Number n :: Number m :: xs) =
    SOME (bool_to_val (m < n)::xs))

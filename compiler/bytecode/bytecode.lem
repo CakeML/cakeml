@@ -1,5 +1,6 @@
 open Lib
 open Ast
+open SemanticPrimitives
 open CompilerLib
 open Printer
 
@@ -94,54 +95,48 @@ is_Block _ = false
 
 (* comparing bc_values for equality *)
 
-type
-  bc_equality_result =
-  | Eqresult of bool
-  | Eqclosure
-  | Eqinvalid
-
 let rec
-bc_equal (CodePtr _) _ = Eqinvalid
+bc_equal (CodePtr _) _ = Eq_type_error
 and
-bc_equal _ (CodePtr _) = Eqinvalid
+bc_equal _ (CodePtr _) = Eq_type_error
 and
-bc_equal (StackPtr _) _ = Eqinvalid
+bc_equal (StackPtr _) _ = Eq_type_error
 and
-bc_equal _ (StackPtr _) = Eqinvalid
+bc_equal _ (StackPtr _) = Eq_type_error
 and
-bc_equal (Number n1) (Number n2) = Eqresult (n1 = n2)
+bc_equal (Number n1) (Number n2) = Eq_val (n1 = n2)
 and
-bc_equal (Number _) _ = Eqresult false
+bc_equal (Number _) _ = Eq_val false
 and
-bc_equal _ (Number _) = Eqresult false
+bc_equal _ (Number _) = Eq_val false
 and
-bc_equal (RefPtr n1) (RefPtr n2) = Eqresult (n1 = n2)
+bc_equal (RefPtr n1) (RefPtr n2) = Eq_val (n1 = n2)
 and
-bc_equal (RefPtr _) _ = Eqresult false
+bc_equal (RefPtr _) _ = Eq_val false
 and
-bc_equal _ (RefPtr _) = Eqresult false
+bc_equal _ (RefPtr _) = Eq_val false
 and
 bc_equal (Block t1 l1) (Block t2 l2) =
-  if t1 = closure_tag || t2 = closure_tag then Eqclosure else
-    if t1 = t2 then bc_equal_list l1 l2 else Eqresult false
+  if t1 = closure_tag || t2 = closure_tag then Eq_closure else
+    if t1 = t2 then bc_equal_list l1 l2 else Eq_val false
 and
-bc_equal_list [] [] = Eqresult true
+bc_equal_list [] [] = Eq_val true
 and
 bc_equal_list (v1::vs1) (v2::vs2) =
   match bc_equal v1 v2 with
-  | Eqresult true -> bc_equal_list vs1 vs2
-  | Eqresult false -> Eqresult false
+  | Eq_val true -> bc_equal_list vs1 vs2
+  | Eq_val false -> Eq_val false
   | bad -> bad
   end
 and
-bc_equal_list _ _ = Eqresult false
+bc_equal_list _ _ = Eq_val false
 
 let rec
-bc_equality_result_to_val (Eqresult b) = bool_to_val b
+bc_equality_result_to_val (Eq_val b) = bool_to_val b
 and
-bc_equality_result_to_val Eqclosure = Number (i 0)
+bc_equality_result_to_val Eq_closure = Number (i 0)
 and
-bc_equality_result_to_val Eqinvalid = Number (i 1)
+bc_equality_result_to_val Eq_type_error = Number (i 1)
 
 (* fetching the next instruction from the code *)
 
@@ -232,7 +227,7 @@ and
 forall x xs. (forall n. not (x = CodePtr n) && not (x = StackPtr n)) ==>
 bc_stack_op IsBlock (x::xs) ((bool_to_val (is_Block x))::xs)
 and
-forall x2 x1 xs. not (bc_equal x1 x2 = Eqinvalid) ==>
+forall x2 x1 xs. not (bc_equal x1 x2 = Eq_type_error) ==>
 bc_stack_op Equal (x2::x1::xs) (bc_equality_result_to_val (bc_equal x1 x2)::xs)
 and
 forall n m xs. true ==>
