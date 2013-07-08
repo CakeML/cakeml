@@ -357,21 +357,30 @@ val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
   Cases_on`r`>>fs[]>- (
     first_x_assum match_mp_tac >>
     fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
-    cheat
-    (* metis_tac[] *)) >>
+    imp_res_tac evaluate_dec_new_dec_cns >> fs[] >>
+    pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string id list -> string id set``) >>
+    imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
+    pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string list -> string set``) >>
+    fsrw_tac[DNF_ss][MEM_MAP,EXTENSION] >>
+    metis_tac[]) >>
   qpat_assum`P ⇒ Q`mp_tac>>
   discharge_hyps>-(
     fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
     metis_tac[]) >>
   strip_tac >>
-  fs[closed_context_def] >>
-  conj_tac >- (
-    fs[toIntLangProofsTheory.closed_under_cenv_def] >>
-    cheat
-    (* metis_tac[] *)) >>
-  conj_tac >- cheat >>
-  conj_tac >- ( fs[closed_under_menv_def] >> cheat) >>
-  cheat (* metis_tac[] *) )
+  qsuff_tac`closed_context menv (new_tds' ++ new_tds ++ cenv) s3 (new_env ++ env)` >- (
+    rw[closed_context_def] >> fs[] >>
+    fs[toIntLangProofsTheory.closed_under_cenv_def,closed_under_menv_def] >>
+    metis_tac[] ) >>
+  first_x_assum match_mp_tac >>
+  fs[] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
+  imp_res_tac evaluate_dec_new_dec_cns >> fs[] >>
+  pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string id list -> string id set``) >>
+  imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
+  pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string list -> string set``) >>
+  fsrw_tac[DNF_ss][MEM_MAP,EXTENSION] >>
+  metis_tac[])
 
 val closed_context_shift_menv = store_thm("closed_context_shift_menv",
   ``closed_context menv cenv s (env' ++ env) ⇒
