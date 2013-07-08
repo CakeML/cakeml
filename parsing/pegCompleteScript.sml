@@ -984,11 +984,26 @@ val nE'_bar_nE = store_thm(
   asm_simp_tac list_ss [Once peg_eval_choicel_CONS] >>
   full_simp_tac list_ss [pnt_def, pegf_def, peg_eval_seq_SOME, peg_eval_seq_NONE,
                          peg_eval_empty] >>
-
-
-
-
-
+  pop_assum mp_tac >>
+  asm_simp_tac list_ss [elim_disjineq, Once peg_eval_choicel_CONS] >> strip_tac
+  >- ((* fn v => e *)
+      pop_assum mp_tac >>
+      asm_simp_tac list_ss [peg_eval_seql_CONS, tokeq_def, peg_eval_tok_SOME] >>
+      strip_tac >> rveq >>
+      asm_simp_tac list_ss [peg_eval_choicel_CONS, peg_eval_seql_CONS,
+                            peg_eval_tok_NONE, peg_eval_tok_SOME] >>
+      simp[disjImpI, elim_disjineq] >>
+      asm_match `peg_eval mmlPEG (i1, nt (mkNT nV) I) (SOME(DarrowT::i2,r1))` >>
+      `peg_eval mmlPEG (FnT::i1, nt (mkNT nEhandle') I) NONE`
+        by simp[firstSet_nFQV, peg_respects_firstSets] >>
+      rpt (first_x_assum (assume_tac o MATCH_MP peg_det)) >> simp[] >>
+      rpt strip_tac >> rveq >>
+      rpt (first_x_assum (assume_tac o MATCH_MP elim_det)) >>
+      asm_match `peg_eval mmlPEG (i2, nt(mkNT nE) I) (SOME(i3,r3))` >>
+      asm_match `peg_eval mmlPEG (i2, nt(mkNT nE') I) (SOME(i4,r4))` >>
+      first_x_assum (qspecl_then [`i2`, `i3`, `i4`, `r3`, `r4`] mp_tac) >>
+      simp[] >> fs[peg_eval_seql_NIL] >> rveq >>
+      imp_res_tac length_no_greater >> fs[] >> asimp[])
 
 
 val completeness = store_thm(
