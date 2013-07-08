@@ -1118,13 +1118,11 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
     fs[closed_top_def] >>
     metis_tac [type_sound_inv_closed]
     ) >>
+  conj_tac >- cheat >> (* RK cheat: Syntactic check: No constructors named "" *)
+  conj_tac >- metis_tac [type_sound_inv_dup_ctors] >>
   conj_tac >- (
-    fs[Abbr`bs0`,install_code_def,env_rs_def,LET_THM] >>
+    fs[Abbr`bs0`,install_code_def,env_rs_def,LET_THM] >> rfs[] >> fs[] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- metis_tac[] >>
-    rfs[] >>
     match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
     map_every qexists_tac[`rd`,`(c,Cs)`,`bs with <|pc := next_addr bs.inst_length bs.code; output := ""; cons_names := cpam css|>`,`bs.refs`,`SOME (ck+1)`] >>
     simp[BytecodeTheory.bc_state_component_equality] >>
@@ -1168,30 +1166,27 @@ simp[] >>
 
   qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`(store2,envC2,r)`]mp_tac compile_top_thm >>
   simp[] >>
+  discharge_hyps >- (
+    conj_tac >- (
+      fs[closed_top_def] >>
+      reverse conj_tac >- metis_tac [type_sound_inv_closed] >>
+      fs[invariant_def] ) >>
+    conj_tac >- cheat >> (* RK cheat: Syntactic check: No constructors named "" *)
+    metis_tac [type_sound_inv_dup_ctors]) >>
   disch_then(qspec_then`st.rcompiler_state`mp_tac) >>
   disch_then(Q.X_CHOOSE_THEN`ck`mp_tac) >>
   simp[] >>
   `∃rd c.
-    env_rs rs.envM rs.envC rs.envE st.rcompiler_state rd (c,rs.store) bs` by (
+    env_rs rs.envM rs.envC rs.envE st.rcompiler_state (LENGTH bs.stack) rd (c,rs.store) bs` by (
     fs[invariant_def,LET_THM] >> metis_tac[] ) >>
   qmatch_assum_abbrev_tac`bc_eval bs0 = SOME bs1` >>
   disch_then(qspecl_then[`rd`,`bs0 with clock := SOME ck`]mp_tac) >>
-  `bs0.code = bs.code ++ code` by fs[install_code_def,Abbr`bs0`] >>
+  `bs0.code = bs.code ++ REVERSE code` by fs[install_code_def,Abbr`bs0`] >>
   simp[] >>
   discharge_hyps >- (
     fs[invariant_def,LET_THM,Abbr`bs0`,install_code_def] >>
-    conj_tac >- (
-      fs[closed_top_def] >>
-      metis_tac [type_sound_inv_closed]
-    ) >>
-    conj_tac >- cheat >> (* RK cheat: Syntactic check: No constructors named "" *)
-    conj_tac >- metis_tac [type_sound_inv_dup_ctors] >>
-    fs[env_rs_def,LET_THM] >>
+    fs[env_rs_def,LET_THM] >> rfs[] >> fs[] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- metis_tac[] >>
-    rfs[] >>
     match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
     map_every qexists_tac[`rd`,`(c,Cs')`,`bs with <|pc := next_addr bs.inst_length bs.code; output := ""; cons_names := cpam css|>`,`bs.refs`,`SOME ck`] >>
     simp[BytecodeTheory.bc_state_component_equality] >>
@@ -1210,7 +1205,8 @@ simp[] >>
       simp[BytecodeTheory.bc_fetch_def] >>
       match_mp_tac bc_fetch_aux_end_NONE >>
       imp_res_tac RTC_bc_next_preserves >>
-      fs[Abbr`bs0`,install_code_def] ) >>
+      fs[Abbr`bs0`,install_code_def] >>
+      simp[FILTER_APPEND,SUM_APPEND,FILTER_REVERSE,SUM_REVERSE,MAP_REVERSE]) >>
     `∀s3. ¬bc_next (bs2 with clock := NONE) s3` by (
       simp[bc_eval1_thm,bc_eval1_def,bc_fetch_with_clock] ) >>
     `bs0 with clock := NONE = bs0` by (
@@ -1258,17 +1254,15 @@ simp[] >>
       simp[Abbr`new_repl_fun_state`] >>
       qexists_tac`rd2` >>
       qexists_tac`ARB` >>
-      fs[env_rs_def,LET_THM] >>
+      fs[env_rs_def,LET_THM] >> rfs[] >> fs[] >>
       rpt HINT_EXISTS_TAC >>
       simp[] >>
-      conj_tac >- metis_tac[] >>
-      conj_tac >- metis_tac[] >>
-      conj_tac >- metis_tac[] >>
       match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
       map_every qexists_tac[`rd2`,`(0,Cs'')`,`bs2`,`bs2.refs`,`NONE`] >>
       simp[BytecodeTheory.bc_state_component_equality] >>
       rfs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
     conj_tac >- (
+      cheat (* RK: haven't proved new version of compile_top_append_code yet
       qspecl_then[`menv_dom rs.envM`,`st.rcompiler_state`,`top`]mp_tac compile_top_append_code >>
       discharge_hyps >- (
         `MAP (Short o FST) st.rcompiler_state.renv = MAP (Short o FST) rs.envE` by (
@@ -1281,18 +1275,19 @@ simp[] >>
       simp[between_labels_def,good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
       fs[good_labels_def] >> strip_tac >>
       fsrw_tac[DNF_ss][EVERY_MEM,miscTheory.between_def,MEM_FILTER,MEM_MAP,is_Label_rwt,Abbr`new_repl_fun_state`] >>
-      rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC) >>
+      rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC*)) >>
     simp[Abbr`new_bc_state`] >>
     imp_res_tac RTC_bc_next_preserves >>
     fs[]) >>
 
+  (* exception *)
   reverse(Cases_on`e`>>fs[])>-(
     metis_tac[bigClockTheory.top_evaluate_not_timeout] ) >>
 
   disch_then(qx_choosel_then[`bv`,`bs2`,`rd2`]strip_assume_tac) >>
   qmatch_assum_rename_tac`err_bv err bv`[] >>
   qmatch_abbrev_tac`X = PR ∧ Y` >>
-  `∃bs3. bc_next bs2 bs3 ∧ REVERSE bs3.output = PR ∧ bc_fetch bs3 = SOME Stop` by (
+  `∃bs3. bc_next bs2 bs3 ∧ REVERSE bs3.output = PR ∧ bc_fetch bs3 = SOME Stop ∧ bs3.stack = bs0.stack ∧ bs3.refs = bs2.refs` by (
     `∃ls2. bs2.code = PrintE::Stop::ls2` by (
       imp_res_tac RTC_bc_next_preserves >>
       fs[Abbr`bs0`,install_code_def] >>
@@ -1366,8 +1361,16 @@ simp[] >>
     simp[Abbr`new_repl_fun_state`] >>
     qexists_tac`rd2` >>
     qexists_tac`ARB` >>
+    match_mp_tac env_rs_with_bs_irr >>
+    qexists_tac`bs2 with <|stack := bs0.stack; clock := NONE|>` >>
+    simp[] >>
+    imp_res_tac bc_next_preserves_code >>
+    imp_res_tac bc_next_preserves_inst_length >>
+    simp[] >>
 
-    (* implementation may be broken here? or need to prove that the env_rs we have implies the one with extra module/constructor env stuff *)
+    (* need to show that adding the extra module name with an empty environment is harmless *)
+    (* this might be impossible since the compiler doesn't do that, and the invariant is quite strong *)
+    (* so probably need to make the compiler add the empty module too, and then try to prove this... *)
     cheat
     (*
     fs[env_rs_def,LET_THM] >>
@@ -1383,6 +1386,7 @@ simp[] >>
     *)
     ) >>
   conj_tac >- (
+    cheat (* RK: don't have compile_top_append_code yet
     qspecl_then[`menv_dom rs.envM`,`st.rcompiler_state`,`top`]mp_tac compile_top_append_code >>
     discharge_hyps >- (
       `MAP (Short o FST) st.rcompiler_state.renv = MAP (Short o FST) rs.envE` by (
@@ -1395,11 +1399,12 @@ simp[] >>
     simp[between_labels_def,good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
     fs[good_labels_def] >> strip_tac >>
     fsrw_tac[DNF_ss][EVERY_MEM,miscTheory.between_def,MEM_FILTER,MEM_MAP,is_Label_rwt,Abbr`new_repl_fun_state`] >>
-    rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC) >>
+    rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC*)) >>
   simp[Abbr`new_bc_state`] >>
   imp_res_tac RTC_bc_next_preserves >>
   fs[]);
 
+(*
 val good_compile_primitives = prove(
   ``good_contab (FST compile_primitives).contab ∧
     good_cmap [] (cmap (FST compile_primitives).contab) ∧
@@ -1408,13 +1413,16 @@ val good_compile_primitives = prove(
     ``,
   rw[compile_primitives_def, initial_program_def] >>
   rw[CompilerTheory.compile_top_def,CompilerTheory.compile_dec_def] >>
+  cheat (* need to update for new compiler interface *)
+  (*
   imp_res_tac compile_fake_exp_contab >>
   rw[good_contab_def,intLangExtraTheory.good_cmap_def] >>
   rw[CompilerTheory.init_compiler_state_def,good_contab_def] >>
   rw[IntLangTheory.tuple_cn_def,IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def] >>
   rw[toIntLangProofsTheory.cmap_linv_def,FAPPLY_FUPDATE_THM] >>
   fs[CompilerTheory.compile_top_def,CompilerTheory.compile_dec_def,LET_THM,UNCURRY,FST_compile_fake_exp_contab] >>
-  fs[CompilerTheory.init_compiler_state_def,FLOOKUP_UPDATE])
+  fs[CompilerTheory.init_compiler_state_def,FLOOKUP_UPDATE]*)
+  )
 
 val compile_primitives_menv = store_thm("compile_primitives_menv",
   ``(FST compile_primitives).rmenv = FEMPTY``,
@@ -1433,6 +1441,7 @@ val compile_primitives_renv = store_thm("compile_primitives_renv",
   `x ∈ count 13` by rw[] >>
   pop_assum mp_tac >> EVAL_TAC >>
   rw[] >> simp[])
+*)
 
 val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   ``(initial_bc_state.inst_length = K 0) ∧
@@ -1449,6 +1458,7 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   imp_res_tac bytecodeExtraTheory.RTC_bc_next_clock_less >>
   `bs1.clock = NONE` by rfs[optionTheory.OPTREL_def,Abbr`bs`,install_code_def] >>
   simp[Abbr`bs`,install_code_def] >>
+  cheat (* RK: don't have compile_top_append_code 
   qspecl_then[`{}`,`init_compiler_state`]mp_tac compile_top_append_code >>
   disch_then(mp_tac o SPEC(rand(rhs(concl(compile_primitives_def))))) >>
   discharge_hyps >- (
@@ -1459,7 +1469,7 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   simp[GSYM compile_primitives_def, initial_program_def] >>
   simp[good_labels_def,between_labels_def] >>
   strip_tac >>
-  fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP])
+  fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP]*))
 
   (*
 val lemma1 = Q.prove (
@@ -1530,11 +1540,8 @@ val initial_invariant = prove(
   >- ( simp[good_il_def] ) >>
 
   (* env_rs stuff *)
-  simp[env_rs_def,good_compile_primitives,compile_primitives_menv,compile_primitives_renv] >>
-
-  simp[MAP_GENLIST,combinTheory.o_DEF] >>
-  Q.PAT_ABBREV_TAC`Cenv = env_to_Cenv FEMPTY X Y` >>
-
+  (* want to get this from evaluating the initial program from empty and using
+  the normal invariant preservation theorem *)
   cheat)
 
 val replCorrect = Q.store_thm ("replCorrect",
