@@ -1025,25 +1025,24 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
   rw [] >>
   qpat_assum`∀m. X ⇒ Y`kall_tac >>
   spose_not_then strip_assume_tac >> fs[] >>
-  imp_res_tac compile_top_thm >>
-  pop_assum(qspecl_then[`st.rcompiler_state`]mp_tac) >>
+  qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`store2,envC2,r`]mp_tac compile_top_thm >>
   simp[] >>
-  fs[invariant_def] >>
+  conj_tac >- (
+    conj_tac >- (
+      fs[closed_top_def] >>
+      reverse conj_tac >- metis_tac [type_sound_inv_closed] >>
+      fs[invariant_def] ) >>
+    conj_tac >- cheat >> (* RK cheat: Syntactic check: No constructors named "" *)
+    metis_tac [type_sound_inv_dup_ctors] ) >>
+  qexists_tac`st.rcompiler_state` >> strip_tac >>
+  simp[] >>
   qmatch_assum_abbrev_tac`bc_eval bs0 = NONE` >>
-  gen_tac >>
+  fs[invariant_def] >>
   map_every qexists_tac[`rd`,`bs0 with clock := SOME ck`,`bs.code`] >>
+  simp[] >>
   conj_tac >- (
-    fs[closed_top_def] >>
-    metis_tac [type_sound_inv_closed]
-    ) >>
-  conj_tac >- cheat >> (* RK cheat: Syntactic check: No constructors named "" *)
-  conj_tac >- metis_tac [type_sound_inv_dup_ctors] >>
-  conj_tac >- (
-    fs[env_rs_def,LET_THM] >>
+    fs[env_rs_def,LET_THM] >> rfs[] >> fs[] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- metis_tac[] >>
     simp[Abbr`bs0`,install_code_def]>>
     rfs[] >>
     match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
@@ -1099,7 +1098,8 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
     simp[BytecodeTheory.bc_fetch_def] >>
     match_mp_tac bc_fetch_aux_end_NONE >>
     fs[Abbr`bs0`,install_code_def] ) >>
-  simp[bc_eval1_thm,bc_eval1_def]
+  simp[bc_eval1_thm,bc_eval1_def] >>
+  simp[FILTER_APPEND,SUM_APPEND,FILTER_REVERSE,SUM_REVERSE,MAP_REVERSE]
   end ) >>
 
 `¬top_diverges rs.envM rs.envC rs.store rs.envE top` by (
