@@ -2386,10 +2386,6 @@ val env_rs_change_clock = store_thm("env_rs_change_clock",
   simp[BytecodeTheory.bc_state_component_equality] >>
   fs[Cenv_bs_def,s_refs_def,good_rd_def])
 
-val EL_LENGTH_APPEND_rwt = store_thm("EL_LENGTH_APPEND_rwt",
-  ``¬NULL l2 ∧ n = LENGTH l1 ⇒  EL n (l1++l2) = HD l2``,
-  metis_tac[EL_LENGTH_APPEND])
-
 val Cenv_bs_FUPDATE_CTDec = store_thm("Cenv_bs_FUPDATE_CTDec",
   ``∀rd menv s env rmenv renv rsz csz bs v bv bs' n.
     Cenv_bs rd menv s env rmenv renv rsz csz bs ∧
@@ -5031,47 +5027,107 @@ val compile_decs_wrap_divergence = store_thm("compile_decs_wrap_divergence",
   simp[] >>
   metis_tac[RTC_TRANSITIVE,transitive_def])
 
+val EXISTS_LIST_EQ_MAP = store_thm("EXISTS_LIST_EQ_MAP",
+  ``∀ls f. EVERY (λx. ∃y. x = f y) ls ⇒ ∃l. ls = MAP f l``,
+  Induct >> simp[] >> rw[] >> res_tac >> qexists_tac`y::l`>>simp[])
 
-(*
 val compile_top_divergence = store_thm("compile_top_divergence",
   ``∀menv cenv s env top rs rd ck bc0 bs ss sf code. (∀res. ¬evaluate_top menv cenv s env top res) ∧
       closed_top menv cenv s env top ∧
-      env_rs menv cenv env rs rd (ck,s) (bs with code := bc0) ∧
+      "" ∉ new_top_cns top ∧
+      (∀mn spec ds.  top = Tmod mn spec ds ⇒
+         ∀i ts.  i < LENGTH ds ∧ EL i ds = Dtype ts ⇒ check_dup_ctors (SOME mn) (decs_to_cenv (SOME mn) (TAKE i ds) ++ cenv) ts) ∧
+      env_rs menv cenv env rs (LENGTH bs.stack) rd (ck,s) (bs with code := bc0) ∧
       (compile_top rs top = (ss,sf,code)) ∧
-      bs.code = bc0 ++ code ∧
+      bs.code = bc0 ++ REVERSE code ∧
       bs.pc = next_addr bs.inst_length bc0 ∧
       IS_SOME bs.clock ∧
       good_labels rs.rnext_label bc0
       ⇒
       ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0``,
-    rw[closed_top_def] >>
-    Cases_on`top`>- (
-      (* Modules *)
-      fs[Once evaluate_top_cases] >>
-      qmatch_assum_rename_tac`decs_cns mn ds ⊆ X`["X"] >>
-      Cases_on`∃r. evaluate_decs (SOME mn) menv cenv s env ds r`>>fs[]>-(
-        PairCases_on`r`>>fs[]>>
-        Cases_on`r2`>>fs[]>>
-        TRY(PairCases_on`a`)>>fs[FORALL_PROD]>>
-        metis_tac[] ) >>
-      (* need compile_decs_divergence *)
-      cheat ) >>
+  rw[closed_top_def] >>
+  Cases_on`top`>- (
     fs[Once evaluate_top_cases] >>
-    Cases_on`∃r. evaluate_dec NONE menv cenv s env d r`>>fs[]>-(
+    qmatch_assum_rename_tac`compile_top rs (Tmod mn specs ds) = X`["X"] >>
+    Cases_on`∃r. evaluate_decs (SOME mn) menv cenv s env ds r`>>fs[]>-(
       PairCases_on`r`>>fs[]>>
-      Cases_on`r1`>>fs[]>>
+      Cases_on`r2`>>fs[]>>
       TRY(PairCases_on`a`)>>fs[FORALL_PROD]>>
       metis_tac[] ) >>
-    qspecl_then[`NONE`,`menv`,`cenv`,`ck`,`s`,`env`,`d`]mp_tac compile_dec_divergence >>
+    qabbrev_tac`p = compile_decs_wrap (SOME mn) rs ds` >>
+    PairCases_on`p` >>
+    fs[compile_top_def,LET_THM] >>
+    fs[FOLDL_emit_thm] >>
+    qspecl_then[`SOME mn`,`menv`,`cenv`,`s`,`env`,`ds`,`rs`]mp_tac compile_decs_wrap_divergence >>
     simp[] >>
-    disch_then(qspecl_then[`rd`,`bs`,`bc0`,`rs`]mp_tac) >>
-    simp[]>>
-    qabbrev_tac`p = compile_dec NONE rs d`>>PairCases_on`p` >>
-    fs[compile_top_def,LET_THM,Once SWAP_REVERSE] >>
-    disch_then match_mp_tac >>
-    metis_tac[])
-
-*)
+    qmatch_assum_abbrev_tac`pc ++ p4.out = code` >>
+    disch_then(qspecl_then[`ck`,`bs with code := bc0 ++ REVERSE p4.out`,`bc0`]mp_tac) >>
+    simp[] >>
+    disch_then(qspecl_then[`rd`]mp_tac) >>
+    simp[] >>
+    disch_then(qx_choosel_then[`bs1`]strip_assume_tac) >>
+    `bc_next^* bs (bs1 with code := bs.code)` by (
+      match_mp_tac RTC_bc_next_append_code >>
+      qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
+      map_every qexists_tac[`bs0`,`bs1`] >>
+      simp[bc_state_component_equality,Abbr`bs0`] >>
+      BasicProvers.VAR_EQ_TAC >> simp[] >>
+      imp_res_tac RTC_bc_next_preserves >> fs[] ) >>
+    HINT_EXISTS_TAC >> simp[] >>
+    fs[bc_fetch_def] >>
+    BasicProvers.VAR_EQ_TAC >>
+    imp_res_tac RTC_bc_next_preserves >> fs[] >>
+    simp[REVERSE_APPEND] >>
+    match_mp_tac bc_fetch_aux_append_code >>
+    simp[] ) >>
+  fs[Once evaluate_top_cases] >>
+  Cases_on`∃r. evaluate_decs NONE menv cenv s env [d] r`>>fs[]>-(
+    `∃res. r = (FST r,(case res of Rval (x,y) => x | Rerr _ => []),map_result SND res)` by (
+      PairCases_on`r`>>simp[]>>
+      Cases_on`r2` >- (
+        qexists_tac`Rval (r1,a)` >> simp[] ) >>
+      qexists_tac`Rerr e` >> simp[] >>
+      Cases_on`d`>>fs[Once evaluate_decs_cases,LibTheory.emp_def,LibTheory.merge_def] >>
+      fs[Once evaluate_decs_cases,LibTheory.merge_def,LibTheory.emp_def] >>
+      fs[Once evaluate_dec_cases,LibTheory.merge_def,LibTheory.emp_def] >>
+      fs[SemanticPrimitivesTheory.combine_dec_result_def] ) >>
+    `evaluate_dec NONE menv cenv s env d (FST r,res)` by metis_tac[evaluate_dec_decs] >>
+    Cases_on`res`>>fs[] >>
+    TRY(PairCases_on`a`)>>fs[FORALL_PROD]>>
+    metis_tac[] ) >>
+  qabbrev_tac`p = compile_decs_wrap NONE rs [d]` >>
+  PairCases_on`p` >>
+  fs[compile_top_def,LET_THM] >>
+  qspecl_then[`NONE`,`menv`,`cenv`,`s`,`env`,`[d]`,`rs`]mp_tac compile_decs_wrap_divergence >>
+  simp[] >>
+  qspecl_then[`d`,`p4`]mp_tac compile_print_dec_thm >>
+  simp[] >> strip_tac >>
+  qmatch_assum_abbrev_tac`code = pc ++ p4.out` >>
+  disch_then(qspecl_then[`ck`,`bs with code := bc0 ++ REVERSE p4.out`,`bc0`]mp_tac) >>
+  simp[] >>
+  disch_then(qspecl_then[`rd`]mp_tac) >>
+  simp[FV_decs_def] >>
+  discharge_hyps >- (
+    simp[decs_to_cenv_def,decs_cns_def] >> rw[] >>
+    fs[Once evaluate_dec_cases] >>
+    spose_not_then strip_assume_tac >> fs[] >>
+    fs[Once evaluate_decs_cases] >>
+    fs[Once evaluate_dec_cases] ) >>
+  disch_then(qx_choosel_then[`bs1`]strip_assume_tac) >>
+  `bc_next^* bs (bs1 with code := bs.code)` by (
+    match_mp_tac RTC_bc_next_append_code >>
+    qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
+    map_every qexists_tac[`bs0`,`bs1`] >>
+    simp[bc_state_component_equality,Abbr`bs0`] >>
+    BasicProvers.VAR_EQ_TAC >> simp[] >>
+    imp_res_tac RTC_bc_next_preserves >> fs[] ) >>
+  HINT_EXISTS_TAC >> simp[] >>
+  fs[bc_fetch_def] >>
+  BasicProvers.VAR_EQ_TAC >>
+  imp_res_tac RTC_bc_next_preserves >> fs[] >>
+  simp[REVERSE_APPEND] >>
+  match_mp_tac bc_fetch_aux_append_code >>
+  simp[] )
 
 (*
 val env_rs_ALOOKUP_same = store_thm("env_rs_ALOOKUP_same",

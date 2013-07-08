@@ -143,6 +143,7 @@ val Cevaluate_list_MAP_Var_rwt = store_thm("Cevaluate_list_MAP_Var_rwt",
   metis_tac[Cevaluate_list_MAP_Var,intLangExtraTheory.Cevaluate_determ])
 
 (* to relate to source language call, show that Cevaluate CCall T is the same as CCall F, if it yields a value *)
+(*
 val compile_call_val = store_thm("compile_call_val",
   ``Cevaluate FEMPTY (ck,[]) env (CCall F (CVar(Short f)) (MAP (CVar o Short) xs)) ((ck,[]),Cval v)
     ∧ el_check f env = SOME (CRecClos clenv [(SOME cd,LENGTH es,b)] 0)
@@ -220,6 +221,7 @@ val compile_call_val = store_thm("compile_call_val",
       qexists_tac`ue` >>
       simp[Abbr`env0`,Abbr`defs`] >>
       simp[s_refs_def,good_rd_def]
+*)
 
 (*
 val CCall_thm = store_thm("CCall_thm",
