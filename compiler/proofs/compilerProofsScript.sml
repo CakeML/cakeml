@@ -3960,6 +3960,40 @@ val env_rs_add_empty_menv = store_thm("env_rs_add_empty_menv",
     (* this looks hard ! *)
 *)
 
+val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
+  ``∀menv cenv env rs cz rd cs bs mn new old rnew rold rs' menv'.
+     env_rs menv cenv env rs cz rd cs bs
+     ∧ mn ∉ FDOM rs.rmenv
+     ∧ env = new ++ old
+     ∧ rs.renv = rnew ++ rold
+     ∧ LENGTH old = LENGTH rold
+     ∧ rs' = rs with <| rmenv := rs.rmenv |+ (mn,rnew); renv := rold |>
+     ∧ menv' = ((mn,new)::menv)
+     ⇒
+     env_rs menv' cenv old rs' cz rd cs bs``,
+  rw[env_rs_def] >> fs[LET_THM] >>
+  fs[env_to_Cenv_MAP] >> rfs[] >>
+  qmatch_assum_abbrev_tac`EVERY2 syneq (l1 ++ l2) Cenv` >>
+  `MAP FST rnew = MAP FST new ∧ MAP FST rold = MAP FST old` by (
+    metis_tac[APPEND_LENGTH_EQ,LENGTH_MAP,APPEND_11_LENGTH] ) >>
+  `Cenv = TAKE (LENGTH new) Cenv ++ DROP (LENGTH new) Cenv` by metis_tac[TAKE_DROP] >>
+  qmatch_assum_abbrev_tac`Cenv = l3 ++ l4` >>
+  cheat
+  (*
+  qexists_tac`DROP (LENGTH new) Cenv` >>
+  qexists_tac`Cs` >> simp[] >>
+  `LENGTH Cenv = LENGTH new + LENGTH old` by (
+    qpat_assum`Cenv = X`kall_tac >>
+    fs[EVERY2_EVERY] >>
+    qpat_assum`X = LENGTH Cenv`(SUBST1_TAC o SYM) >>
+    simp[Abbr`l1`] >> simp[Abbr`Cenv0`] ) >>
+  `LENGTH l1 = LENGTH l2 ∧ LENGTH l3 = LENGTH Cenv0` by (
+    simp[Abbr`l1`,Abbr`l2`] >>
+    simp[Abbr`l3`,Abbr`Cenv0`] ) >>
+  `LIST_REL syneq Cenv0 l3 ∧ LIST_REL syneq l1 l2` by metis_tac[EVERY2_APPEND] >>
+  simp[]
+  simp[] *))
+
 val compile_top_thm = store_thm("compile_top_thm",
   ``∀menv cenv s env top res. evaluate_top menv cenv s env top res ⇒
       closed_top menv cenv s env top
@@ -4272,22 +4306,26 @@ val compile_top_thm = store_thm("compile_top_thm",
           simp[FILTER_EQ_NIL,Abbr`ppc1`,Abbr`ppc2`] >> fs[EVERY_MEM,MEM_MAP,is_Label_rwt,GSYM LEFT_FORALL_IMP_THM] ) >>
         labels_tac ) >>
       ntac 2 (pop_assum kall_tac) >>
-      cheat ) >>
-    simp[print_result_def,Abbr`bs4`]
-
-      (* need theorem for shifting module environment into the menv *)
-      (* then also env_rs_change_csz and env_rs_with_bs_irr *)
-   (*
-      qmatch_assum_abbrev_tac`env_rs menv cenvx envx rsx zx rd' cx bsx` >>
-      qmatch_abbrev_tac`env_rs menv cenvx envx rsx yx rd' cx bsy` >>
-      match_mp_tac env_rs_change_csz >>
-      qexists_tac`zx` >>
+      Q.PAT_ABBREV_TAC`bs0 = bc_state_stack_fupd x y` >>
+      match_mp_tac env_rs_with_bs_irr >>
+      qexists_tac`bs0 with <|output := bs.output; pc := next_addr bs.inst_length (bc0 ++ REVERSE cs.out)|>` >>
+      simp[Abbr`bs0`] >>
+      match_mp_tac env_rs_shift_to_menv >>
+      simp[] >>
+      rator_x_assum`env_rs`mp_tac >>
+      Q.PAT_ABBREV_TAC`rs1 = compiler_state_contab_fupd x y` >>
+      strip_tac >>
+      qexists_tac`rs1` >>
+      qexists_tac`renv` >>
+      simp[Abbr`rs1`,compiler_state_component_equality] >>
       reverse conj_tac >- (
-        conj_tac >- (
-          unabbrev_all_tac >> simp[] ) >>
-        simp[Abbr`bsy`] >>
-        simp[Abbr`rsx`] >>
-        simp[Abbr`zx`,Abbr`yx`,DROP_APPEND1,DROP_LENGTH_NIL_rwt] >>
+        fs[env_rs_def,LET_THM,LIST_EQ_REWRITE] >>
+        fs[GSYM fmap_EQ] ) >>
+      match_mp_tac env_rs_change_csz >>
+      qexists_tac`LENGTH bs.stack` >>
+      simp[] >>
+      reverse conj_tac >- (
+        simp[DROP_APPEND1,DROP_LENGTH_NIL_rwt] >>
         simp[IN_FRANGE,GSYM AND_IMP_INTRO,GSYM LEFT_FORALL_IMP_THM] >>
         rator_x_assum`env_rs`mp_tac >>
         simp[env_rs_def] >> strip_tac >>
@@ -4305,15 +4343,14 @@ val compile_top_thm = store_thm("compile_top_thm",
         strip_tac >>
         disch_then(qspec_then`n`mp_tac) >>
         simp[] >> simp[EL_MAP] >>
-        simp[Abbr`bsx`,DROP_APPEND1,DROP_LENGTH_NIL_rwt] >>
+        simp[DROP_APPEND1,DROP_LENGTH_NIL_rwt] >>
         strip_tac >>
         fs[CompilerLibTheory.el_check_def] >>
         simp[REVERSE_APPEND,EL_APPEND1] ) >>
       match_mp_tac env_rs_with_bs_irr >>
-    *)
-
-
-    ) >>
+      HINT_EXISTS_TAC >>
+      simp[] ) >>
+    simp[print_result_def,Abbr`bs4`]) >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> ntac 2 strip_tac >> gen_tac >>
@@ -4465,6 +4502,7 @@ val evaluate_decs_divergence = store_thm("evaluate_decs_divergence",
   simp[Once evaluate_decs_cases,LibTheory.emp_def,LibTheory.merge_def] >>
   metis_tac[] )
 
+(*
 ---8<---
 
 val compile_decs_divergence = store_thm("compile_decs_divergence",
