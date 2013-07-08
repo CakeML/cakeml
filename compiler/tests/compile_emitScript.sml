@@ -127,6 +127,11 @@ val defs = map EmitML.DEFN
 , compile_fake_exp_def
 , CONCAT_RULE compile_dec_def
 , compile_decs_def
+, compile_decs_wrap_def
+, CONCAT_RULE compile_print_ctors_def
+, CONCAT_RULE compile_print_types_def
+, CONCAT_RULE compile_print_vals_def
+, CONCAT_RULE compile_print_dec_def
 , CONCAT_RULE compile_top_def
 , v_to_ov_def
 , cpam_def

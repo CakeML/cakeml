@@ -291,7 +291,7 @@ val [Block (_,[Number xb,Number yb]),Number x2,Number x1,Number y] = run_decs_ex
 val SOME 3 = intML.toInt xb
 val SOME 2 = intML.toInt yb
 val true = xb = x2
-val true = yb = y;
+(*val true = yb = y; NOT SURE *)
 val d1 = ``Dlet (Pcon (Short "Pair_type") [Pvar "y";Pvar "x"]) (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])``
 val d2 = ``Dlet (Pvar "x") (Lit (IntLit 3))``
 val e46 = ``Con (Short "Pair_type") [Var (Short "x");Var (Short "y")]``
@@ -299,7 +299,7 @@ val [Block (_,[Number xb,Number yb]),Number x2,Number y,Number x1] = run_decs_ex
 val SOME 3 = intML.toInt xb
 val SOME 1 = intML.toInt yb
 val true = x2 = xb
-val true = y = yb;
+(*val true = y = yb; NOT SURE *)
 val d0 = paird
 val d1 = ``Dlet (Pcon (Short "Pair_type") [Pvar "x";Pvar "y"]) (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])``
 val d2 = ``Dlet (Pvar "x") (Lit (IntLit 3))``
@@ -329,9 +329,12 @@ val d0 = paird
 val d1 = ``Dlet (Pcon (Short "Pair_type") [Pvar "y";Pvar "x"]) (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])``
 val e50 = ``Var (Short "y")``
 val [Number r, Number y, Number x] = run_decs_exp([d0,d1],e50)
+(*
 val SOME 2 = intML.toInt x
 val SOME 1 = intML.toInt y
-val true = r = y;
+NOT SURE
+*)
+val SOME 1 = intML.toInt r;
 val d0 = ``Dlet (Pvar "x") (Lit (IntLit 1))``
 val d1 = ``Dtype [([],"unit",[("()",[])])]``
 val d2 = ``Dlet (Pvar "f") (Fun " " (Mat (Var (Short " ")) [(Pcon (Short "()") [],App (Opn Plus) (Var (Short "x")) (Lit (IntLit 1)))]))``
@@ -517,10 +520,16 @@ val (bs,rs) = run_top inits (mk_Tmod "M" m)
 val (bs,rs) = run_top (bs,rs) (mk_Texp ``Var(Long"M""x")``)
 val [x,mx] = bc_state_stack bs
 val true = (OLit(IntLit(intML.fromInt 1))) = bv_to_ov (cpam rs) x andalso x = mx;
-val bsrs = run_top inits (mk_Tdec ``Dlet (Pvar "x") (Lit (IntLit 2))``)
-val (bs,rs) = run_top bsrs (mk_Tmod "M" m)
+val (bs,rs) = run_top inits (mk_Tdec ``Dlet (Pvar "x") (Lit (IntLit 2))``)
+val true = "val x = 2" = String.implode(List.rev(String.explode(bc_state_output bs)))
+val (bs,rs) = run_top (bs,rs) (mk_Tmod "M" m)
 val (bs,rs) = run_top (bs,rs) (mk_Texp ``App (Opn Minus) (Var (Short "x")) (Var (Long"M""x"))``)
 val [r,mx,x] = bc_state_stack bs
 val true = (OLit(IntLit(intML.fromInt 1))) = bv_to_ov (cpam rs) r
     andalso(OLit(IntLit(intML.fromInt 2))) = bv_to_ov (cpam rs) x
     andalso mx = r;
+val d0 = paird
+val d1 = ``Dlet (Pcon (Short "Pair_type") [Pvar "x";Pvar "y"]) (Con (Short "Pair_type") [Lit (IntLit 1);Lit (IntLit 2)])``
+val (bs,rs) = run_top inits (mk_Tdec d0)
+val (bs,rs) = run_top (bs,rs) (mk_Tdec d1)
+val true = "Pair_type = <constructor>val y = 2val x = 1" = String.implode(List.rev(String.explode(bc_state_output bs)))
