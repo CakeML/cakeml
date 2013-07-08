@@ -3,6 +3,7 @@ open finite_mapTheory
 open CompilerTheory compilerTerminationTheory toBytecodeProofsTheory compilerProofsTheory
 val _ = new_theory"bootstrapProofs"
 
+(*
 val env_rs_empty = store_thm("env_rs_empty",
   ``bs.stack = [] ∧ bs.clock = NONE ∧ rd.sm = [] ∧ rd.cls = FEMPTY ⇒
     env_rs [] [] [] init_compiler_state rd (ck,[]) bs``,
@@ -66,5 +67,6 @@ val call_decl_thm = store_thm("call_decl_thm",
     bc_eval bs = SOME bs' ∧
     Cv_bv (mk_pp rd bs') (v_to_Cv FEMPTY (cmap rs.contab) v) bv``,
 cheat)
+*)
 
 val _ = export_theory()

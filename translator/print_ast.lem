@@ -59,7 +59,7 @@ tok_to_string (IntT i) s = space_append (int_to_string i) s
 and
 tok_to_string (LongidT mn id) s = space_append (if mn = "" then id else mn^"."^id) s
 and
-tok_to_string (TyvarT tv) s = space_append ("'" ^ tv) s
+tok_to_string (TyvarT tv) s = space_append tv s
 and
 tok_to_string AndT s = "and " ^ s
 and

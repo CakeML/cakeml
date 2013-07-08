@@ -2,6 +2,7 @@ open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory pred_setTheo
 open SatisfySimps miscLib BigStepTheory terminationTheory semanticsExtraTheory miscTheory ToBytecodeTheory CompilerTheory compilerTerminationTheory intLangExtraTheory pmatchTheory toIntLangProofsTheory toBytecodeProofsTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory bigClockTheory replTheory bytecodeClockTheory
 val _ = new_theory"compilerProofs"
 
+(*
 val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
   ``∀menv c s. let s' = FOLDL (cce_aux menv) s c in
      ALL_DISTINCT (MAP (FST o FST) c) ∧
@@ -2981,5 +2982,6 @@ val compile_top_divergence = store_thm("compile_top_divergence",
     fs[compile_top_def,LET_THM,Once SWAP_REVERSE] >>
     disch_then match_mp_tac >>
     metis_tac[])
+    *)
 
 val _ = export_theory()

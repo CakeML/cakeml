@@ -236,8 +236,9 @@ rw [update_repl_state_def, type_infer_invariants_def] >>
 rw[strip_mod_env_def] >> rw[convert_menv_def] >- (
   fs[check_menv_def,EVERY_MEM,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
   rw[] >> fs[] >> metis_tac[] ) >>
-simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY])
+simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY]);
 
+(*
 val invariant_def = Define`
   invariant rs rfs bs ⇔
     rfs.relaborator_state = (rs.type_bindings, rs.ctors)
@@ -291,6 +292,7 @@ rw [invariant_def, type_infer_invariants_def, type_sound_invariants_def] >>
 fs [] >>
 rw [] >>
 metis_tac [infer_top_sound]);
+*)
 
 val closed_SUBSET = store_thm("closed_SUBSET",
   ``∀v. closed menv v ⇒ ∀menv'. menv_dom menv ⊆ menv_dom menv' ⇒ closed menv' v``,
@@ -301,6 +303,7 @@ val closed_SUBSET = store_thm("closed_SUBSET",
   fsrw_tac[DNF_ss][SUBSET_DEF] >>
   metis_tac[])
 
+  (*
 val closed_context_strip_mod_env = store_thm("closed_context_strip_mod_env",
   ``∀menv cenv s env menv'.
     closed_context menv cenv s env ⇒
@@ -420,6 +423,7 @@ val evaluate_top_closed_context = store_thm("evaluate_top_closed_context",
     imp_res_tac evaluate_dec_closed_context >>
     fs[] >> fs[LET_THM] >>
     Cases_on`d`>>fs[] ))
+    *)
 
 val strip_mod_env_append = store_thm("strip_mod_env_append",
   ``strip_mod_env (ls ++ l2) = strip_mod_env ls ++ strip_mod_env l2``,
@@ -482,35 +486,37 @@ val type_p_closed = store_thm("type_p_closed",
   ``(∀tvs tcenv p t tenv.
        type_p tvs tcenv p t tenv ⇒
        pat_bindings p [] = MAP FST tenv ∧
-       all_cns_pat p ⊆ set (MAP FST tcenv)) ∧
+       all_cns_pat p ⊆ cenv_dom tcenv) ∧
     (∀tvs cenv ps ts tenv.
       type_ps tvs cenv ps ts tenv ⇒
       pats_bindings ps [] = MAP FST tenv ∧
-      all_cns_pats ps ⊆ set (MAP FST cenv))``,
+      all_cns_pats ps ⊆ cenv_dom cenv)``,
   ho_match_mp_tac type_p_ind >>
   simp[AstTheory.pat_bindings_def,pats_bindings_MAP] >>
   rw[] >> fs[SUBSET_DEF] >>
   imp_res_tac alistTheory.ALOOKUP_MEM >>
-  simp[MEM_MAP,EXISTS_PROD] >> metis_tac[])
+  simp[MEM_MAP,EXISTS_PROD] >> 
+  fs [cenv_dom_def, MEM_MAP] >>
+  metis_tac[FST])
 
 val type_e_closed = store_thm("type_e_closed",
   ``(∀tmenv tcenv tenv e t.
       type_e tmenv tcenv tenv e t
       ⇒
       FV e ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv ∧
-      all_cns_exp e ⊆ set (MAP FST tcenv)) ∧
+      all_cns_exp e ⊆ cenv_dom tcenv) ∧
     (∀tmenv tcenv tenv es ts.
       type_es tmenv tcenv tenv es ts
       ⇒
       FV_list es ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv ∧
-      all_cns_list es ⊆ set (MAP FST tcenv)) ∧
+      all_cns_list es ⊆ cenv_dom tcenv) ∧
     (∀tmenv tcenv tenv funs ts.
       type_funs tmenv tcenv tenv funs ts ⇒
       let ds = set (MAP (Short o FST) funs) in
       let fs = set (MAP (Short o FST) ts) in
       fs = ds ∧
       FV_defs ds funs ⊆ ((IMAGE Short (tenv_names tenv)) DIFF fs) ∪ tmenv_dom tmenv ∧
-      all_cns_defs funs ⊆ set (MAP FST tcenv))``,
+      all_cns_defs funs ⊆ cenv_dom tcenv)``,
   ho_match_mp_tac type_e_ind >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
@@ -520,11 +526,17 @@ val type_e_closed = store_thm("type_e_closed",
     simp[] >>
     srw_tac[DNF_ss][SUBSET_DEF,bind_tenv_def] >>
     metis_tac[]) >>
-  strip_tac >- (
+ strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
     imp_res_tac alistTheory.ALOOKUP_MEM >>
-    simp[MEM_MAP,EXISTS_PROD] >>
+    simp[MEM_MAP,EXISTS_PROD, cenv_dom_def] >>
+    metis_tac[] ) >>
+ strip_tac >- (
+    simp[] >>
+    rpt gen_tac >> strip_tac >>
+    imp_res_tac alistTheory.ALOOKUP_MEM >>
+    simp[MEM_MAP,EXISTS_PROD, cenv_dom_def] >>
     metis_tac[] ) >>
   strip_tac >- (
     simp[t_lookup_var_id_def] >>
@@ -587,6 +599,7 @@ val type_e_closed = store_thm("type_e_closed",
   fsrw_tac[DNF_ss][FV_defs_MAP,UNCURRY] >>
   metis_tac[] )
 
+  (*
 val type_d_closed = store_thm("type_d_closed",
   ``∀mno tmenv tcenv tenv d y z.
       type_d mno tmenv tcenv tenv d y z ⇒
@@ -620,6 +633,7 @@ val type_d_closed = store_thm("type_d_closed",
       metis_tac[] ) >>
     fs[SUBSET_DEF] >> metis_tac[] ) >>
   simp[])
+  *)
 
 val tenv_names_bind_var_list2 = store_thm("tenv_names_bind_var_list2",
   ``∀l1 tenv. tenv_names (bind_var_list2 l1 tenv) = set (MAP FST l1) ∪ tenv_names tenv``,
@@ -631,6 +645,20 @@ val fst_lem = Q.prove (
 rw [FUN_EQ_THM] >>
 PairCases_on `x` >>
 fs []);
+
+(*
+val type_d_new_dec_vs = Q.prove (
+`!mn tenvM tenvC tenv d tenvC' tenv'.
+  type_d mn tenvM tenvC tenv d tenvC' tenv'
+  ⇒
+  new_dec_vs d = set (MAP FST tenv')`,
+rw [type_d_cases, new_dec_vs_def, LibTheory.emp_def] >>
+rw [new_dec_vs_def] >>
+imp_res_tac type_p_closed >>
+imp_res_tac type_e_closed >>
+rw [tenv_add_tvs_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+fs [LET_THM, LIST_TO_SET_MAP, GSYM fst_lem, IMAGE_COMPOSE] >>
+metis_tac [IMAGE_11, AstTheory.id_11]);
 
 val type_d_new_dec_vs = Q.prove (
 `!mn tenvM tenvC tenv d tenvC' tenv'.
@@ -695,6 +723,7 @@ val type_top_closed = store_thm("type_top_closed",
   rpt gen_tac >> strip_tac >>
   imp_res_tac type_ds_closed >>
   fs[])
+  *)
 
 val type_env_dom = Q.prove (
 `!tenvM tenvC tenvS env tenv.
@@ -800,6 +829,7 @@ val consistent_con_env_dom = Q.prove (
 ho_match_mp_tac typeSysPropsTheory.consistent_con_env_ind >>
 rw [typeSysPropsTheory.consistent_con_env_def]);
 
+(*
 val type_sound_inv_closed = Q.prove (
 `∀top rs new_tenvM new_tenvC new_tenv new_st envC r.
   type_top rs.tenvM rs.tenvC rs.tenv top new_tenvM new_tenvC new_tenv ∧
@@ -825,6 +855,7 @@ imp_res_tac consistent_con_env_dom >>
 fs [SUBSET_DEF] >>
 rw [] >>
 metis_tac []);
+*)
 
 val check_dup_ctors_names_lem1 = Q.prove (
 `!tds acc.
@@ -926,6 +957,7 @@ res_tac >>
 fs [SUBSET_DEF] >>
 fs [weak_other_mods_def, GSYM alistTheory.ALOOKUP_NONE]);
 
+(*
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
   invariant repl_state repl_fun_state bc_state ⇒
@@ -1388,7 +1420,9 @@ simp[] >>
   simp[Abbr`new_bc_state`] >>
   imp_res_tac RTC_bc_next_preserves >>
   fs[]);
+  *)
 
+  (*
 val good_compile_primitives = prove(
   ``good_contab (FST compile_primitives).contab ∧
     good_cmap [] (cmap (FST compile_primitives).contab) ∧
@@ -1404,6 +1438,7 @@ val good_compile_primitives = prove(
   rw[toIntLangProofsTheory.cmap_linv_def,FAPPLY_FUPDATE_THM] >>
   fs[CompilerTheory.compile_top_def,CompilerTheory.compile_dec_def,LET_THM,UNCURRY,FST_compile_fake_exp_contab] >>
   fs[CompilerTheory.init_compiler_state_def,FLOOKUP_UPDATE])
+  *)
 
 val compile_primitives_menv = store_thm("compile_primitives_menv",
   ``(FST compile_primitives).rmenv = FEMPTY``,
@@ -1423,6 +1458,7 @@ val compile_primitives_renv = store_thm("compile_primitives_renv",
   pop_assum mp_tac >> EVAL_TAC >>
   rw[] >> simp[])
 
+  (*
 val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   ``(initial_bc_state.inst_length = K 0) ∧
     good_labels (FST compile_primitives).rnext_label initial_bc_state.code ∧
@@ -1449,59 +1485,18 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   simp[good_labels_def,between_labels_def] >>
   strip_tac >>
   fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP])
-
-  (*
-val lemma1 = Q.prove (
-`(?new_env r. Rval l = (case r of Rval env' => Rval (merge env' new_env) | Rerr e => Rerr e) ∧ P new_env r)
- =
- ?new_env env. l = (merge env new_env) ∧ P new_env (Rval env)`,
-eq_tac >>
-rw [] >|
-[cases_on `r` >>
-     fs [] >>
-     metis_tac [],
- qexists_tac `new_env` >>
-     rw [] >>
-     qexists_tac `Rval env` >>
-     rw []]);
-
-val lemma2 = Q.prove (
-`(l = merge env (bind n v l2)) = (REVERSE l = REVERSE l2 ++ REVERSE [(n,v)] ++ REVERSE env)`,
-rw [LibTheory.merge_def, LibTheory.bind_def] >>
-metis_tac [REVERSE_APPEND, miscTheory.REVERSE_INV, APPEND_ASSOC, APPEND, REVERSE_REVERSE, REVERSE_DEF]);
-
-val lemma3 = Q.prove (
-`(?env. l = REVERSE env ∧ P env)
- =
- P (REVERSE l)`,
- metis_tac [REVERSE_REVERSE]);
+  *)
 
 (* Annoying to do this by hand.  With the clocked evaluate, it shouldn't be 
  * too hard to set up a clocked interpreter function for the semantics and 
  * do this automatically *)
 val eval_initial_program = Q.prove (
-`evaluate_decs NONE [] [] [] [] initial_program ([], [], Rval init_env)`,
+`evaluate_dec NONE [] [] [] [] initial_program ([], Rval ([], init_env))`,
+rw [init_env_def, initial_program_def, evaluate_dec_cases, LibTheory.emp_def, pmatch_def] >>
+NTAC 15 (rw [Once evaluate_cases]) >>
+rw [do_con_check_def, AstTheory.pat_bindings_def, pmatch_def, LibTheory.bind_def]);
 
-rw [init_env_def, initial_program_def] >>
-
-rw [Once evaluate_decs_cases, LibTheory.merge_def, LibTheory.emp_def] >>
-rw [LibTheory.emp_def, evaluate_dec_cases, AstTheory.pat_bindings_def, combine_dec_result_def, lemma1] >>
-rw [pmatch_def] >>
-rw [lemma2,lemma3]
-
-rw [LibTheory.bind_def]
-match [] ``(REVERSE x = REVERSE y) = (x = y)``
-find "REVERSE_11"
-
-MAP_EVERY qexists_tac [`[]`, `Rval x`]
-
-REWRITE_TAC []
-
-rw []
-
-EVAL_TAC >>
-*)
-
+(*
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
   rw[invariant_def,initial_repl_fun_state_def,initial_elaborator_state_def,init_repl_state_def,LET_THM] >>
@@ -1533,5 +1528,5 @@ val replCorrect = Q.store_thm ("replCorrect",
 rw [repl_fun_def, repl_def] >>
 match_mp_tac replCorrect_lem >>
 rw[initial_invariant])
-
+*)
 val _ = export_theory ();
