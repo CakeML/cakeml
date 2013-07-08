@@ -633,11 +633,10 @@ val do_Ceq_to_bc_equal = Q.prove (
   >- ((* The IsBlock instruction *)
     Cases_on `v1` >> fs [] >>
     rw [] >>
-    fs [Once Cv_bv_cases] >>
-    rw [bc_eval_stack_def, bc_state_component_equality] >|
-    [qexists_tac `rd.sm`, qexists_tac `rd.sm`, all_tac] >>
-    simp [] >>
-    cheat))
+    Cases_on`l`>>fs[Once Cv_bv_cases] >>
+    simp[bc_eval_stack_def,bc_state_component_equality] >>
+    fs[s_refs_def] >> simp[SUM_APPEND,FILTER_APPEND] >>
+    TRY(qexists_tac`rd.sm`) >> simp[] >> fs[good_rd_def]))
 
 ;val compile_envref_next_label_inc = store_thm("compile_envref_next_label_inc",
   ``∀sz cs b. (compile_envref sz cs b).next_label = cs.next_label``,

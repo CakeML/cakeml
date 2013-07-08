@@ -22,7 +22,7 @@ val _ = new_theory "IntLang"
 
 (* pure applicative primitives with bytecode counterparts *)
 val _ = Hol_datatype `
- Cprim1 = CRef | CDer | CIsBool`;
+ Cprim1 = CRef | CDer | CIsBlock`;
 
 val _ = Hol_datatype `
  Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq`;
@@ -226,8 +226,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       | SOME v => Cval v
       )))
 /\
-(CevalPrim1 CIsBool s (CLitv l) =
-  (s, Cval (CLitv (Bool ((case l of Bool _ => T | _ => F ))))))
+(CevalPrim1 CIsBlock s (CLitv l) =
+  (s, Cval (CLitv (Bool ((case l of IntLit _ => F | _ => T ))))))
 /\
 (CevalPrim1 _ s _ = (s, Cexc Ctype_error))`;
 

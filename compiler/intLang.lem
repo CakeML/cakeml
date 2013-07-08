@@ -8,7 +8,7 @@ open SemanticPrimitives
 (* Syntax *)
 
 (* pure applicative primitives with bytecode counterparts *)
-type Cprim1 = CRef | CDer | CIsBool
+type Cprim1 = CRef | CDer | CIsBlock
 type Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq
 
 type Cpat =
@@ -162,8 +162,8 @@ CevalPrim1 CDer s (CLoc n) =
       | Some v -> Cval v
       end)
 and
-CevalPrim1 CIsBool s (CLitv l) =
-  (s, Cval (CLitv (Bool (match l with Bool _ -> true | _ -> false end))))
+CevalPrim1 CIsBlock s (CLitv l) =
+  (s, Cval (CLitv (Bool (match l with IntLit _ -> false | _ -> true end))))
 and
 CevalPrim1 _ s _ = (s, Cexc Ctype_error)
 

@@ -276,7 +276,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (let Ce1 = (exp_to_Cexp m e1) in
   let Ce2 = (exp_to_Cexp m e2) in
   CLet (CPrim2 CEq Ce1 Ce2)
-    (CIf (CPrim1 CIsBool (CVar (Short 0))) (CVar (Short 0)) (CRaise CEq_exc))))
+    (CIf (CPrim1 CIsBlock (CVar (Short 0))) (CVar (Short 0)) (CRaise CEq_exc))))
 /\
 (exp_to_Cexp m (App Opapp e1 e2) =  
 (let Ce1 = (exp_to_Cexp m e1) in
