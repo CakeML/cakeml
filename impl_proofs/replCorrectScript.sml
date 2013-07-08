@@ -247,7 +247,7 @@ val invariant_def = Define`
 
     ∧ closed_context rs.envM rs.envC rs.store rs.envE
     ∧ good_il bs.inst_length
-    ∧ (∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs)
+    ∧ (∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state (LENGTH bs.stack) rd (c,rs.store) bs)
     ∧ good_labels rfs.rcompiler_state.rnext_label bs.code
 
     ∧ bs.clock = NONE
@@ -339,7 +339,7 @@ val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
   ``∀mn menv cenv s env ds res. evaluate_decs mn menv cenv s env ds res ⇒
       closed_context menv cenv s env ∧
       FV_decs ds ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-      decs_cns (THE mn) ds ⊆ set (MAP FST cenv)
+      decs_cns mn ds ⊆ set (MAP FST cenv)
     ⇒
       let env' = case SND(SND res) of Rval(e)=>(e++env) | _ => env in
       closed_context menv ((FST(SND res))++cenv) (FST res) env'``,
@@ -636,7 +636,7 @@ val type_d_new_dec_vs = Q.prove (
 `!mn tenvM tenvC tenv d tenvC' tenv'.
   type_d mn tenvM tenvC tenv d tenvC' tenv'
   ⇒
-  new_dec_vs d = set (MAP FST tenv')`,
+  set (new_dec_vs d) = set (MAP FST tenv')`,
 rw [type_d_cases, new_dec_vs_def, LibTheory.emp_def] >>
 rw [new_dec_vs_def] >>
 imp_res_tac type_p_closed >>
@@ -657,9 +657,9 @@ fs [GSYM LIST_TO_SET_MAP, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD])
 
 val type_ds_closed = store_thm("type_ds_closed",
   ``∀mn tmenv cenv tenv ds y z. type_ds mn tmenv cenv tenv ds y z ⇒
-      !mn'. (mn = SOME mn') ⇒
+     !mn'. mn = SOME mn' ⇒
       FV_decs ds ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv ∧
-      decs_cns mn' ds ⊆ set (MAP FST cenv)``,
+      decs_cns mn ds ⊆ set (MAP FST cenv)``,
 ho_match_mp_tac type_ds_ind >>
 rw [FV_decs_def,decs_cns_def] >>
 imp_res_tac type_d_closed >>
@@ -669,14 +669,16 @@ rw [SUBSET_DEF] >|
          by fs [SUBSET_DEF] >>
      fs [] >>
      rw [] >>
-     metis_tac [type_d_new_dec_vs],
+     fs[MEM_MAP] >>
+     metis_tac [type_d_new_dec_vs,MEM_MAP],
  `x ∈ set (MAP FST (merge cenv' cenv))`
          by fs [SUBSET_DEF] >>
      fs [LibTheory.merge_def] >>
      imp_res_tac type_d_dec_cns >>
      pop_assum (ASSUME_TAC o GSYM) >>
      fs [] >>
-     rw []]);
+     rw [] >>
+     fs[AstTheory.mk_id_def] ]);
 
 val type_top_closed = store_thm("type_top_closed",
   ``∀tmenv tcenv tenv top tm' tc' te'.
