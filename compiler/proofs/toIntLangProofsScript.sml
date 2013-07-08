@@ -563,6 +563,76 @@ val no_closures_contains_closure = store_thm("no_closures_contains_closure",
   simp[contains_closure_def,v_to_Cv_def,no_closures_def] >>
   simp_tac(srw_ss()++DNF_ss)[EVERY_MEM,vs_to_Cvs_MAP,MEM_MAP])
 
+val do_eq_to_do_Ceq = Q.prove (
+`good_cmap cenv m ⇒
+ (!v1 v2.
+    all_cns v1 ⊆ cenv_dom cenv ∧ all_cns v2 ⊆ cenv_dom cenv ⇒
+    (!b. (do_eq v1 v2 = Eq_val b) ⇒ (do_Ceq (v_to_Cv mv m v1) (v_to_Cv mv m v2) = Eq_val b)) ∧
+    ((do_eq v1 v2 = Eq_closure) ⇒ (do_Ceq (v_to_Cv mv m v1) (v_to_Cv mv m v2) = Eq_closure))) ∧
+ (!vs1 vs2.
+    BIGUNION (IMAGE all_cns (set vs1)) ⊆ cenv_dom cenv ∧ BIGUNION (IMAGE all_cns (set vs2)) ⊆ cenv_dom cenv ⇒
+    (!b. (do_eq_list vs1 vs2 = Eq_val b) ⇒ (do_Ceq_list (vs_to_Cvs mv m vs1) (vs_to_Cvs mv m vs2) = Eq_val b)) ∧
+    ((do_eq_list vs1 vs2 = Eq_closure) ⇒ (do_Ceq_list (vs_to_Cvs mv m vs1) (vs_to_Cvs mv m vs2) = Eq_closure)))`,
+ strip_tac >>
+ ho_match_mp_tac do_eq_ind >>
+ rw [do_eq_def, v_to_Cv_def] >> 
+ rw [] >- (
+   Cases_on `FLOOKUP m cn1` >>
+   Cases_on `FLOOKUP m cn2` >>
+   fs [] >>
+   rw [] >>
+   fs [FLOOKUP_DEF, MEM_MAP, SUBSET_DEF, good_cmap_def, cenv_dom_def] >>
+   metis_tac []) >>
+ Cases_on `do_eq v1 v2` >>
+ fs [] >>
+ metis_tac []);
+
+val do_Ceq_syneq1 = Q.prove (
+`!w1 w2. syneq w1 w2  ⇒ 
+  ∀w3. do_Ceq w1 w3 = do_Ceq w2 w3`,
+ ho_match_mp_tac syneq_ind >>
+ rw [] >>
+ Cases_on `w3` >>
+ fs [] >>
+ Cases_on `n = cn` >>
+ fs [] >>
+ rpt (pop_assum mp_tac) >>
+ Q.SPEC_TAC (`vs1`, `vs1`) >>
+ Q.SPEC_TAC (`vs2`, `vs2`) >>
+ Induct_on `l` >>
+ rw [] >>
+ Cases_on `vs2` >>
+ fs [] >>
+ rw [] >>
+ fs [] >>
+ Cases_on `do_Ceq h' h` >>
+ fs [] >>
+ Cases_on `b` >>
+ fs []);
+
+val do_Ceq_syneq2 = Q.prove (
+`!w2 w3. syneq w2 w3  ⇒ 
+  ∀w1. do_Ceq w1 w2 = do_Ceq w1 w3`,
+ ho_match_mp_tac syneq_ind >>
+ rw [] >>
+ Cases_on `w1` >>
+ fs [] >>
+ Cases_on `n = cn` >>
+ fs [] >>
+ rpt (pop_assum mp_tac) >>
+ Q.SPEC_TAC (`vs1`, `vs1`) >>
+ Q.SPEC_TAC (`vs2`, `vs2`) >>
+ Induct_on `l` >>
+ rw [] >>
+ Cases_on `vs2` >>
+ fs [] >>
+ rw [] >>
+ fs [] >>
+ Cases_on `do_Ceq h h'` >>
+ fs [] >>
+ Cases_on `b` >>
+ fs []);
+
 val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   ``(∀ck menv (cenv:envC) cs env exp res. evaluate ck menv cenv cs env exp res ⇒
      ck ∧ FV exp ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
@@ -875,21 +945,25 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
-      reverse(srw_tac[DNF_ss][Once Cevaluate_cases]) >- (
-        fs[do_app_Opn_SOME] >> rfs[v_to_Cv_def] ) >>
-      srw_tac[DNF_ss][Once Cevaluate_cases] >- (
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >>
+      fs [do_app_Opn_SOME] >>
+      rw [] >>
+      fs [v_to_Cv_def] >>
+      rw [] >>
+      `u2 = CLitv (IntLit n2)` by fs [syneq_cases] >>
+      rw [] >- (
         srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
-        srw_tac[DNF_ss][Once Cevaluate_cases] >>
-        srw_tac[DNF_ss][Once Cevaluate_cases] >>
-        fs[do_app_Opn_SOME] >>
-        rw[] >> fs[v_to_Cv_def] >>
+        srw_tac[DNF_ss][Once Cevaluate_cases] >> 
+        srw_tac[DNF_ss][Once Cevaluate_cases] >> 
         Cases_on`opn`>>fs[Abbr`cnt'`,BigStepTheory.dec_count_def]>>
         metis_tac[EVERY2_syneq_trans] ) >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
-      srw_tac[DNF_ss][Once Cevaluate_cases] >>
-      srw_tac[DNF_ss][Once Cevaluate_cases] >>
-      simp[Once Cevaluate_cases] >>
-      fs[do_app_Opn_SOME] >> rw[] >> fs[v_to_Cv_def,Abbr`cnt'`,BigStepTheory.dec_count_def] >>
+      srw_tac[DNF_ss][Once Cevaluate_cases] >> 
+      srw_tac[DNF_ss][Once Cevaluate_cases] >> 
+      srw_tac[DNF_ss][Once Cevaluate_cases] >-
+      decide_tac >>
+      rw[] >> fs[v_to_Cv_def,Abbr`cnt'`,BigStepTheory.dec_count_def] >>
       Cases_on`opn`>>Cases_on`n2=0`>>fs[] >>rw[]>>fs[]>>rw[v_to_Cv_def,opn_lookup_def]>>
       metis_tac[EVERY2_syneq_trans] )
     >- (
@@ -1090,10 +1164,6 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       fsrw_tac[DNF_ss][EXISTS_PROD,FORALL_PROD,Abbr`X`] >>
       map_every qx_gen_tac[`sf`,`w3`] >> strip_tac >>
       fs[do_app_def] >>
-      (*
-      map_every qexists_tac[`sf`,`w1`,`w3`,`FST cs'`,`sd`] >>
-      simp[] >>
-      *)
       `(s3 = s4) ∧ (env = env')` 
                  by (Cases_on `do_eq v1 v2` >>
                      fs []) >>
@@ -1105,35 +1175,34 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       rpt BasicProvers.VAR_EQ_TAC >>
       fs[] >>
       rpt BasicProvers.VAR_EQ_TAC >>
-      fs[v_to_Cv_def] >> fs[exp_to_Cexp_def,Abbr`cnt'`,BigStepTheory.dec_count_def] >>
-      conj_tac >- metis_tac[EVERY2_syneq_trans] >>
-      BasicProvers.CASE_TAC >- (
-        fs[] >>
-        `no_closures w2` by metis_tac[syneq_no_closures] >>
-        `w3 = w2` by metis_tac[no_closures_syneq_equal] >>
-        `w2 = v_to_Cv mv m v2` by metis_tac[no_closures_syneq_equal,syneq_no_closures] >>
-        `w1 = v_to_Cv mv m v1` by metis_tac[no_closures_syneq_equal,syneq_no_closures] >>
-        `~contains_closure v1 ∧ ~contains_closure v2` by metis_tac [no_closures_contains_closure] >>
-        fs [] >>
-        rw [] >>
-        `SND res = Rval (Litv (Bool (v1 = v2)))`
-                by (fs [Once BigStepTheory.evaluate_cases]) >>
-        rw [Cresult_rel_def, v_to_Cv_def] >>
-        reverse EQ_TAC >- rw[] >>
-        strip_tac >>
-        match_mp_tac (MP_CANON(CONJUNCT1 v_to_Cv_inj)) >>
-        map_every qexists_tac[`mv`,`m`] >>
-        qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval v1)`]mp_tac(CONJUNCT1 evaluate_all_cns) >>
-        qspecl_then[`T`,`menv`,`cenv`,`cs'`,`env`,`e2`,`((cnte,s3),Rval v2)`]mp_tac(CONJUNCT1 evaluate_all_cns) >>
-        fsrw_tac[DNF_ss][closed_under_cenv_def] ) >>
-      `contains_closure v1 ∨ contains_closure v2` 
-               by metis_tac[syneq_no_closures, no_closures_contains_closure] >>   
+      Cases_on `do_eq v1 v2` >>
       fs [] >>
-      rw [] >>
-      `SND res = Rerr (Rraise Eq_error)`
-             by (fs [Once BigStepTheory.evaluate_cases]) >>
-      rw [])
-    >- (
+      rpt BasicProvers.VAR_EQ_TAC >>
+      `all_cns v2 ⊆ cenv_dom cenv ∧ all_cns v1 ⊆ cenv_dom cenv` 
+                 by (imp_res_tac evaluate_closed_under_cenv >>
+                     fs []  >>
+                     rw [every_result_rwt]) >- (
+        map_every qexists_tac [`sf`, `Cval (CLitv (Bool b))`, `cnte`, `sf`, `CLitv (Bool b)`, `w1`, `w3`, `FST cs'`, `sd`] >>
+        fs [] >>
+        `do_Ceq w1 w3 = Eq_val b` by metis_tac [do_eq_to_do_Ceq, do_Ceq_syneq1, do_Ceq_syneq2] >>
+        fs [] >>
+        simp [Once Cevaluate_cases, v_to_Cv_def] >>
+        simp [Once Cevaluate_cases] >>
+        fs[exp_to_Cexp_def,Abbr`cnt'`,BigStepTheory.dec_count_def]  >>
+        metis_tac[EVERY2_syneq_trans]) >>
+      map_every qexists_tac [`sf`, `Cexc (Craise CEq_excv)`, `cnte`, `sf`, `CLitv (IntLit 0)`, `w1`, `w3`, `FST cs'`, `sd`] >>
+      fs [] >>
+      `do_Ceq w1 w3 = Eq_closure` by metis_tac [do_eq_to_do_Ceq, do_Ceq_syneq1, do_Ceq_syneq2] >>
+      fs [] >>
+      simp [Once Cevaluate_cases] >>
+      `LIST_REL syneq sc sf` by metis_tac [EVERY2_syneq_trans] >>
+      simp [] >> disj1_tac >>
+      simp [Once Cevaluate_cases] >>
+      simp [Once Cevaluate_cases] >> disj1_tac >>
+      simp [Once Cevaluate_cases] >>
+      simp [Once Cevaluate_cases] >>
+      fs[exp_to_Cexp_def,Abbr`cnt'`,BigStepTheory.dec_count_def])
+  >- (
       rw[Once Cevaluate_cases] >>
       srw_tac[DNF_ss][] >>
       disj1_tac >>
@@ -1712,6 +1781,9 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       rw[Once Cevaluate_cases] >>
       fsrw_tac[DNF_ss][EXISTS_PROD] >>
       disj2_tac >>
+      rw[Once Cevaluate_cases] >>
+      fsrw_tac[DNF_ss][EXISTS_PROD] >>
+      disj2_tac >>
       rw[Once(CONJUNCT2 Cevaluate_cases)] >>
       rw[Once(CONJUNCT2 Cevaluate_cases)] >>
       rw[Once(CONJUNCT2 Cevaluate_cases)] >>
@@ -1842,6 +1914,9 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       Cases_on`e`>>
       fs[Q.SPEC`CConv X []`syneq_cases] )
     >- (
+      rw[Once Cevaluate_cases] >>
+      fsrw_tac[DNF_ss][EXISTS_PROD] >>
+      disj2_tac >>
       rw[Once Cevaluate_cases] >>
       fsrw_tac[DNF_ss][EXISTS_PROD] >>
       disj2_tac >>
