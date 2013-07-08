@@ -92,6 +92,48 @@ val compile_decs_from_empty = store_thm("compile_decs_from_empty",
   simp[Abbr`cs'`] >>
   simp[Abbr`bs'`,bc_state_component_equality])
 
+val compile_body_val = store_thm("compile_body_val",
+  ``let cd = (l,ccenv,(recs,envs)) in
+    let def = (SOME cd,az,b) in
+    let env' = REVERSE vs ++ (CRecClos cenv defs n::MAP (CRecClos cenv defs) recs ++ MAP (combin$C EL cenv) envs) in
+    let renv = MAP CTEnv ccenv in
+    el_check n defs = SOME def
+    ∧ good_cd (x,ann)
+    ∧ Cevaluate menv s env' b (s',Cval v)
+    ∧ set (free_vars b) ⊆ count (LENGTH renv)
+    ∧ Cenv_bs rd menv s env' rmenv renv 0 csz (bs with code := bce)
+    ∧ EVERY (code_env_cd rmenv bce) (free_labs (LENGTH env') b)
+    ∧ closed_vlabs menv env' (SND s) rmenv bce
+    ∧ closed_Clocs menv env' (SND s)
+    ∧ all_labs b
+    ∧ (compile rmenv renv (TCTail az 0) 0 cs b).out = cc ++ cs.out
+    ∧ bs.code = bce ++ bcr
+    ∧ bs.code = bc0 ++ Label l::REVERSE cc ++ bc1
+    ∧ bs.pc = next_addr bs.inst_length (bc0 ++ [Label l])
+    ∧ bs.clock = SOME (FST s)
+    ∧ bs.stack = [benv;CodePtr ret] ++ REVERSE bvs ++ [cl] ++ st
+    ∧ LENGTH bvs = az
+    ∧ LIST_REL (Cv_bv (mk_pp rd (bs with code := bce))) vs bvs
+    ∧ csz ≤ LENGTH st
+    ∧ good_labels cs.next_label (bc0 ++ [Label l])
+    ∧ ALL_DISTINCT (FILTER is_Label bce)
+    ⇒
+    code_for_return rd bs bce st ret bs.handler v s s'``,
+  rw[] >>
+  qspecl_then[`menv`,`s`,`env'`,`b`,`s',Cval v`]mp_tac(CONJUNCT1 compile_val) >> simp[] >>
+  disch_then(qspecl_then[`rd`,`rmenv`,`cs`,`renv`,`0`,`csz`,`bs`,`bce`,`bcr`,`bc0 ++ [Label l]`,`REVERSE cc`]mp_tac) >>
+  simp[] >>
+  discharge_hyps >- (
+    fs[closed_Clocs_def] >>
+    fs[closed_vlabs_def] >>
+    fs[good_labels_def] ) >>
+  disch_then(match_mp_tac o CONJUNCT2) >>
+  simp[] >>
+  CONV_TAC(RESORT_EXISTS_CONV(List.rev)) >>
+  qexists_tac`bvs` >> simp[] >>
+  qexists_tac`vs` >> simp[Abbr`env'`])
+
+
 (*
 val CCall_thm = store_thm("CCall_thm",
   ``Cevaluate menv cs env exp (cs',Cval v)
