@@ -606,11 +606,6 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
         ∃s' w. syneq err w ∧ LIST_REL syneq (SND(FST res)) s' ∧ closed_vlabs menv env s' rmenv (bc0++c0) ∧ closed_Clocs menv env s' ∧
         code_for_return rd bs (bc0++c0) st hdl sp w s (FST(FST res),s')
     | Cexc Ctimeout_error =>
-      ∀st hdl sp ig. (* need a handler for timeout exceptions only because compile_val doesn't separate this case out; could strengthen it *)
-        bs.stack = ig++StackPtr sp::CodePtr hdl::st
-      ∧ bs.handler = LENGTH st + 1
-      ∧ csz ≤ LENGTH st
-      ⇒
       ∃bs'. bc_next^* bs bs' ∧ bs'.clock = SOME 0 ∧ bc_fetch bs' = SOME Tick
     | _ => T``,
   rw[compile_Cexp_def] >>
@@ -717,9 +712,6 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
   BasicProvers.CASE_TAC >> fs[] >- (
     first_x_assum(qspec_then`TCNonTail`mp_tac) >>
     simp[Abbr`bs0`] >>
-    strip_tac >> rpt gen_tac >> strip_tac >>
-    first_x_assum(qspec_then`ig`mp_tac) >>
-    simp[] >>
     metis_tac[RTC_SUBSET,RTC_TRANSITIVE,transitive_def] ) >>
   rpt gen_tac >> strip_tac >>
   rpt HINT_EXISTS_TAC >>
@@ -816,11 +808,6 @@ val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
       DRESTRICT bs.refs (COMPL (set rd.sm)) ⊑ DRESTRICT rf (COMPL (set rd'.sm)) ∧
       rd.sm ≼ rd'.sm ∧ rd.cls ⊑ rd'.cls) ∧
     ((beh = Rerr Rtimeout_error) ⇒
-      ∀ig h0 sp st0.
-        bs.stack = ig++StackPtr h0::CodePtr sp::st0
-      ∧ bs.handler = LENGTH st0 + 1
-      ∧ csz ≤ LENGTH st0
-      ⇒
       ∃bs'. bc_next^* bs bs' ∧ (bs'.clock = SOME 0) ∧ bc_fetch bs' = SOME Tick)``,
   rw[] >>
   pop_assum mp_tac >>
@@ -4375,20 +4362,19 @@ val compile_top_thm = store_thm("compile_top_thm",
   simp[])
 
 val compile_dec_divergence = store_thm("compile_dec_divergence",
-  ``∀mn menv cenv ck s env d rd csz bs bc0 rs vso cs'. (∀r. ¬evaluate_dec mn menv cenv s env d r) ∧
+  ``∀mn menv cenv s env d rs csz rd ck bs bc0 m cs vso cs' code. (∀r. ¬evaluate_dec mn menv cenv s env d r) ∧
       closed_context menv cenv s env ∧
       FV_dec d ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
       dec_cns d ⊆ set (MAP FST cenv) ∧
-      env_rs menv cenv env rs (LENGTH st0) csz (ck,s) (bs with code := bc0) ∧
-      (compile_dec rmenv m renv rsz cs d = (vso,cs')) ∧
-      (bs.code = bc0 ++ REVERSE cs.out) ∧
+      env_rs menv cenv env rs csz rd (ck,s) (bs with code := bc0)
+      ∧ m.bvars = MAP FST env
+      ∧ m.mvars = MAP FST o_f alist_to_fmap menv
+      ∧ m.cnmap = cmap rs.contab
+      ∧ rs.rnext_label = cs.next_label ∧
+      (compile_dec (MAP SND o_f rs.rmenv) m (MAP (CTDec o SND) rs.renv) rs.rsz cs d = (vso,cs')) ∧
+      (cs'.out = REVERSE code ++ cs.out) ∧
+      (bs.code = bc0 ++ code) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
-      (*
-
-      lots more hypotheses ∧
-      *)
-
-
       IS_SOME bs.clock ∧
       good_labels rs.rnext_label bc0
       ⇒
@@ -4414,18 +4400,26 @@ val compile_dec_divergence = store_thm("compile_dec_divergence",
       `evaluate T menv ((Short "",(LENGTH vars,ARB))::cenv) (ck,s) env (Mat e [(p,exp)]) ((0,s'),Rerr Rtimeout_error)` by (
         rw[Once evaluate_cases] >> disj2_tac >>
         imp_res_tac evaluate_extend_cenv >> rw[] ) >>
-      qspecl_then[`rmenv`,`m`,`renv`,`rsz`,`cs`,`vars`,`λb. Mat e [(p,b)]`]mp_tac compile_fake_exp_thm >>
-      simp[] >>
-      disch_then(qspecl_then[`0,s'`,`Rerr Rtimeout_error`]mp_tac) >>
-      simp[] >>
-      disch_then(qspecl_then[`rd`,`bc0`,`bs`]mp_tac) >>
+      qabbrev_tac`rmenv = (MAP SND o_f rs.rmenv)` >>
+      qabbrev_tac`renv = (MAP (CTDec o SND) rs.renv)` >>
+      qspecl_then[`rmenv`,`m`,`renv`,`rs.rsz`,`cs`,`vars`,`λb. Mat e [(p,b)]`]mp_tac compile_fake_exp_thm >>
       simp[] >>
       discharge_hyps >- (
-        imp_res_tac compile_fake_exp_contab >> simp[] >>
+        fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT] >>
+        conj_tac >- (
+          rw[] >> res_tac >> fs[Abbr`exp`,FV_list_MAP,MEM_MAP] >> rw[] >> fs[] >> metis_tac[] ) >>
+        simp[Abbr`renv`] >>
+        fs[env_rs_def,LET_THM,LIST_EQ_REWRITE] ) >>
+      strip_tac >>
+      first_x_assum(qspecl_then[`menv`,`LENGTH vars,ARB`,`cenv`,`env`,`ck,s`,`0,s'`,`Rerr Rtimeout_error`]mp_tac) >>
+      simp[] >>
+      disch_then(qspecl_then[`rs`,`csz`,`rd`,`bs`,`bc0`]mp_tac) >>
+      simp[] >>
+      discharge_hyps >- (
         qunabbrev_tac`vars` >>
         fs[markerTheory.Abbrev_def,FV_list_MAP] >>
         fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,EXISTS_PROD,all_cns_list_MAP] >>
-        metis_tac[] ) >>
+        fs[good_labels_def] >> rfs[]) >>
       metis_tac[] ) >>
     Cases_on`ALL_DISTINCT (MAP (λ(x,y,z). x) l)`>>fs[])
 
@@ -4471,12 +4465,28 @@ val evaluate_decs_divergence = store_thm("evaluate_decs_divergence",
   simp[Once evaluate_decs_cases,LibTheory.emp_def,LibTheory.merge_def] >>
   metis_tac[] )
 
+---8<---
+
 val compile_decs_divergence = store_thm("compile_decs_divergence",
-  ``∀
-  ``∀mn menv cenv s env decs rs ct renv cs bs bc0.
-      (∀res. ¬evaluate_decs mn menv cenv s env decs res)
-      compile_decs_def
-      compile_decs_ind
+  ``∀decs mn rmenv ct m renv rsz cs.
+    let (ct',m',rsz',cs') = compile_decs mn rmenv ct m renv rsz cs decs in
+    ∀menv cenv env bs bc0 code.
+    (∀res. ¬evaluate_decs mn menv cenv s env decs res)
+    ∧ cs'.out = REVERSE code ++ cs.out
+    ∧ FV_decs decs ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv
+    ∧ env_rs menv cenv env rs csz rd (ck,s) (bs with code := bc0)
+    ∧ rs.rnext_label = cs.next_label
+    ∧ bs.code = bc0 ++ code
+    ∧ bs.pc = next_addr bs.inst_length bc0
+    ∧ IS_SOME bs.clock
+    ∧ good_labels rs.rnext_label bc0
+    ⇒
+    ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0``,
+  Induct >- (
+    simp[Once evaluate_decs_cases,UNCURRY] ) >>
+  Cases
+  compile_decs_def
+
       compile_decs_thm
 
 val compile_decs_wrap_divergence = store_thm("compile_decs_wrap_divergence",
