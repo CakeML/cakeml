@@ -481,7 +481,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (L (LongidT "" "unit")))
 /\
 (tc_to_tok_tree TC_ref =  
-(L (LongidT "" "ref")))`;
+(L (LongidT "" "ref")))
+/\
+(tc_to_tok_tree (TC_name n) =  
+ ( 
+  id_to_tok_tree n))`;
 
 
  val type_to_tok_tree_defn = Hol_defn "type_to_tok_tree" `

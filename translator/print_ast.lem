@@ -407,6 +407,9 @@ tc_to_tok_tree TC_unit =
 and
 tc_to_tok_tree TC_ref =
   L (LongidT "" "ref")
+and
+tc_to_tok_tree (TC_name n) = 
+  id_to_tok_tree n
 
 let rec
 type_to_tok_tree (Tvar tn) =

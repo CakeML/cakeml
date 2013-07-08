@@ -40,8 +40,8 @@ List.app (fn d => let val res = test_printer d in
          std_prelude_asts;
 
 (*
-error: 0
-error: 1
+0
+1
 2
 3
 4
@@ -58,13 +58,13 @@ error: 11
 15
 error: 16
 17
-error: 18
+18
 19
 error: 20
 error: 21
 error: 22
 error: 23
-error: 24
+24
 25
 26
 27
@@ -82,5 +82,12 @@ error: 36
 error: 39
 error: 40
 41
+42
+43
+error: 44
+error: 45
+error: 46
+error: 47
+error: 48
 ^CException- Interrupt raised
 *) 
