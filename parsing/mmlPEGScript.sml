@@ -441,19 +441,19 @@ val mmlPEG_def = zDefine`
                     (bindNT nStructure));
               (mkNT nTopLevelDec,
                pegf (choicel [pnt nStructure; pnt nDecl]) (bindNT nTopLevelDec));
-              (mkNT nTopLevelDecs,
+(*            (mkNT nTopLevelDecs,
                rpt (pnt nTopLevelDec)
                    (λtds. [FOLDR
                              (λtd acc.
                                   Nd (mkNT nTopLevelDecs)
                                      (case td of
-                                          [] => [acc] (* should't happen *)
+                                          [] => [acc] (* shouldn't happen *)
                                         | tdh::_ => [tdh; acc]))
                              (Nd (mkNT nTopLevelDecs) []) tds]));
               (mkNT nREPLPhrase,
                choicel [seql [pnt nE; tokeq SemicolonT] (bindNT nREPLPhrase);
                         seql [pnt nTopLevelDecs; tokeq SemicolonT]
-                             (bindNT nREPLPhrase)]);
+                             (bindNT nREPLPhrase)]); *)
               (mkNT nREPLTop,
                choicel [seql [pnt nE; tokeq SemicolonT] (bindNT nREPLTop);
                         seql [pnt nTopLevelDec; tokeq SemicolonT]
@@ -608,7 +608,7 @@ val npeg0_rwts =
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nErel``, ``nEcomp``, ``nEbefore``,
                 ``nEtyped``, ``nElogicAND``, ``nElogicOR``, ``nEhandle``,
-                ``nE``,
+                ``nE``, ``nEhandle'``, ``nE'``,
                 ``nSpecLine``, ``nStructure``, ``nTopLevelDec``]
 
 val pegfail_empty = Store_thm(
@@ -696,7 +696,8 @@ val topo_nts = [``nExn``, ``nV``, ``nTyvarN``, ``nTypeDec``, ``nDecl``,
                 ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,
                 ``nSpecLineList``, ``nSignatureValue``,
                 ``nOptionalSignatureAscription``, ``nStructure``,
-                ``nTopLevelDec``, ``nTopLevelDecs``, ``nREPLPhrase``, ``nREPLTop``]
+                ``nTopLevelDec``, (* ``nTopLevelDecs``, ``nREPLPhrase``, *)
+                ``nREPLTop``]
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",
@@ -750,5 +751,39 @@ val coreloop_REPLTop_total = save_thm(
 val owhile_REPLTop_total = save_thm(
   "owhile_REPLTop_total",
   SIMP_RULE (srw_ss()) [coreloop_def] coreloop_REPLTop_total);
+
+local
+  val c = concl FDOM_cmlPEG
+  val r = rhs c
+  fun recurse acc t =
+      case Lib.total pred_setSyntax.dest_insert t of
+          SOME(e,t') => recurse (e :: acc) t'
+        | NONE => acc
+  val nts = recurse [] r
+in
+val FDOM_cmlPEG_nts = let
+  fun p t = prove(``^t ∈ FDOM mmlPEG.rules``, simp[FDOM_cmlPEG])
+in
+  save_thm("FDOM_cmlPEG_nts", LIST_CONJ (map p nts)) before
+  export_rewrites ["FDOM_cmlPEG_nts"]
+end
+val NTS_in_PEG_exprs = let
+  val exprs_th' = REWRITE_RULE [pnt_def] PEG_exprs
+  val exprs_t = rhs (concl exprs_th')
+  fun p t = let
+    val _ = print ("PEGexpr: "^term_to_string t^"\n")
+    val th0 = prove(``nt ^t I ∈ ^exprs_t``, simp[pnt_def])
+              handle e => (print("Failed on "^term_to_string t^"\n");
+                           raise e)
+  in
+    CONV_RULE (RAND_CONV (K (SYM exprs_th'))) th0
+  end
+  val th = LIST_CONJ (map p nts)
+in
+  save_thm("NTS_in_PEG_exprs", th) before export_rewrites ["NTS_in_PEG_exprs"]
+end
+
+end (* local *)
+
 
 val _ = export_theory()

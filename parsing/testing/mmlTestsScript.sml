@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib
 
 open mmlPEGTheory gramTheory cmlPtreeConversionTheory
-     mmlvalidTheory grammarTheory lexer_funTheory
+     grammarTheory lexer_funTheory
 
 local open ASCIInumbersLib in end
 
@@ -69,20 +69,15 @@ in
                     else die ("Sem. failure", rt)
                   end
           val _ = diag ("Semantics ("^term_to_string sem^") to ", ptree_res)
-          val _ = if not (optionSyntax.is_none ptree_res) then
-                    case opt of
-                        NONE => ()
-                      | SOME t => if aconv t ptree_res then
-                                    print "Semantic output as expected\n"
-                                  else
-                                    die ("Semantics not required ", t)
-                  else ()
-          val valid_t = ``valid_ptree mmlG ^res``
-          val vth = time EVAL valid_t
-          val vres = rhs (concl vth)
         in
-          if aconv boolSyntax.T vres then print "Valid\n"
-          else die ("Invalid parse-tree: ", vres)
+          if not (optionSyntax.is_none ptree_res) then
+            case opt of
+                NONE => ()
+              | SOME t => if aconv t ptree_res then
+                            print "Semantic output as expected\n"
+                          else
+                            die ("Semantics not required ", t)
+          else ()
         end
         else die ("Fringe not preserved!", ttoks)
       end
@@ -115,25 +110,25 @@ val _ = tytest "'a list"
 val _ = tytest "'a list list"
 val _ = tytest "bool list list"
 val _ = tytest "('a,bool list)++"
-val _ = parsetest0 ``nREPLPhrase`` ``ptree_REPLPhrase``
+val _ = parsetest0 ``nREPLTop`` ``ptree_REPLTop``
           "case g of C p1 => e1 | p2 => e2;"
-          (SOME ``[Ast_Tdec
+          (SOME ``Ast_Tdec
                      (Ast_Dlet
                         (Ast_Pvar "it")
                         (Ast_Mat (Ast_Var (Short "g"))
                                  [(Ast_Pcon (Short "C") [Ast_Pvar "p1"],
                                    Ast_Var (Short "e1"));
-                                  (Ast_Pvar "p2", Ast_Var (Short "e2"))]))]``)
+                                  (Ast_Pvar "p2", Ast_Var (Short "e2"))]))``)
 
-val _ = parsetest0 ``nREPLPhrase`` ``ptree_REPLPhrase``
+val _ = parsetest0 ``nREPLTop`` ``ptree_REPLTop``
                    "structure s :> sig type 'a t type ('b,'c) u val z : 'a t end = struct end;"
-                   (SOME ``[Ast_Tmod "s"
+                   (SOME ``Ast_Tmod "s"
                                      (SOME [Ast_Stype_opq ["'a"] "t";
                                             Ast_Stype_opq ["'b"; "'c"] "u";
                                             Ast_Sval "z"
                                                      (Ast_Tapp [Ast_Tvar "'a"]
                                                                (Short "t"))])
-                                     []]``)
+                                     []``)
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "4 handle IntError x => 3 + 4"
                    (SOME ``Ast_Handle (Ast_Lit (IntLit 4))
@@ -156,13 +151,12 @@ val _ = parsetest ``nE`` ``ptree_Expr nE``
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "C(3)"
                    (SOME ``Ast_Con (Short "C") [Ast_Lit (IntLit 3)]``)
 
-val _ = parsetest ``nREPLPhrase`` ``ptree_REPLPhrase``
+val _ = parsetest ``nREPLTop`` ``ptree_REPLTop``
                   "val x = z : S.ty -> bool;"
-val _ = parsetest ``nREPLPhrase`` ``ptree_REPLPhrase``
+val _ = parsetest ``nREPLTop`` ``ptree_REPLTop``
                   "val S.C x = z;"
-val _ = parsetest ``nREPLPhrase`` ``ptree_REPLPhrase`` "val x = str.y;"
-val _ = parsetest ``nREPLPhrase`` ``ptree_REPLPhrase`` "val x = 10 val y = 3;"
-val _ = parsetest ``nREPLPhrase`` ``ptree_REPLPhrase`` "x + 10;"
+val _ = parsetest ``nREPLTop`` ``ptree_REPLTop`` "val x = str.y;"
+val _ = parsetest ``nREPLTop`` ``ptree_REPLTop`` "x + 10;"
 val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec``
                   "structure s = struct val x = 3 end"
 val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec``
@@ -203,9 +197,7 @@ val _ = parsetest ``nDecls`` ``ptree_Decls`` "val C(x,y) = foo"
 val _ = parsetest ``nDecl`` ``ptree_Decl`` "fun f x = x"
 val _ = parsetest ``nDecls`` ``ptree_Decls`` "datatype foo = C | D"
 val _ = parsetest ``nDecls`` ``ptree_Decls`` "datatype foo = C | D val x = y"
-val _ = parsetest ``nPbase`` ``ptree_Pattern nPbase`` "3"
-val _ = parsetest ``nPbase`` ``ptree_Pattern nPbase`` "x"
-val _ = parsetest ``nPbase`` ``ptree_Pattern nPbase`` "C"
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "3"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "x"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "(3)"

@@ -288,7 +288,7 @@ val peg_sound = store_thm(
       strip_tac >> rveq >> simp[] >>
       first_x_assum (erule strip_assume_tac) >> rveq >>
       dsimp[cmlG_applied, cmlG_FDOM])
-  >- (print_tac "nREPLPhrase" >>
+  (*>- (print_tac "nREPLPhrase" >>
       `NT_rank (mkNT nE) < NT_rank (mkNT nREPLPhrase) ∧
        NT_rank (mkNT nTopLevelDecs) < NT_rank (mkNT nREPLPhrase)`
           by simp[NT_rank_def] >>
@@ -326,7 +326,7 @@ val peg_sound = store_thm(
       first_x_assum (erule mp_tac) >>
       disch_then (qxchl [`ds_pt`] strip_assume_tac) >>
       disch_then (qxchl [`d_pt`] strip_assume_tac) >> simp[] >>
-      dsimp[cmlG_applied, cmlG_FDOM])
+      dsimp[cmlG_applied, cmlG_FDOM]) *)
   >- (print_tac "nTopLevelDec" >>
       `NT_rank (mkNT nStructure) < NT_rank (mkNT nTopLevelDec) ∧
        NT_rank (mkNT nDecl) < NT_rank (mkNT nTopLevelDec)`
