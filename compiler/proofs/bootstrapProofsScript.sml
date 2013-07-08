@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib lcsymtacs miscLib
-open finite_mapTheory
-open CompilerTheory compilerTerminationTheory toBytecodeProofsTheory compilerProofsTheory
+open finite_mapTheory listTheory rich_listTheory relationTheory pred_setTheory
+open IntLangTheory CompilerTheory compilerTerminationTheory toBytecodeProofsTheory compilerProofsTheory
 open BytecodeTheory bytecodeExtraTheory bytecodeClockTheory bytecodeEvalTheory
 val _ = new_theory"bootstrapProofs"
 
@@ -93,7 +93,8 @@ val compile_decs_from_empty = store_thm("compile_decs_from_empty",
   simp[Abbr`bs'`,bc_state_component_equality])
 
 val compile_body_val = store_thm("compile_body_val",
-  ``  Cevaluate menv s env' b (s',Cval v)
+  ``∀menv s env' b s' v vs renv env rmenv csz bs bce bcr rd bc0 l cc bc1 st bvs ret az cl benv cs.
+    Cevaluate menv s env' b (s',Cval v)
     ∧ set (free_vars b) ⊆ count (LENGTH renv)
     ∧ env' = REVERSE vs ++ env
     ∧ Cenv_bs rd menv s env' rmenv renv 0 csz (bs with code := bce)
@@ -103,20 +104,20 @@ val compile_body_val = store_thm("compile_body_val",
     ∧ EVERY (code_env_cd rmenv bce) (free_labs (LENGTH env') b)
     ∧ (compile rmenv renv (TCTail az 0) 0 cs b).out = cc ++ cs.out
     ∧ bs.code = bce ++ bcr
-    ∧ bs.code = bc0 ++ Label l::REVERSE cc ++ bc1
-    ∧ bs.pc = next_addr bs.inst_length (bc0 ++ [Label l])
+    ∧ bs.code = bc0 ++ REVERSE cc ++ bc1
+    ∧ bs.pc = next_addr bs.inst_length bc0
     ∧ bs.clock = SOME (FST s)
     ∧ bs.stack = benv::(CodePtr ret)::REVERSE bvs++cl::st
     ∧ LENGTH bvs = az
     ∧ LIST_REL (Cv_bv (mk_pp rd (bs with code := bce))) vs bvs
     ∧ csz ≤ LENGTH st
-    ∧ good_labels cs.next_label (bc0 ++ [Label l])
+    ∧ good_labels cs.next_label bc0
     ∧ ALL_DISTINCT (FILTER is_Label bce)
     ⇒
     code_for_return rd bs bce st ret bs.handler v s s'``,
   rw[] >>
   qspecl_then[`menv`,`s`,`REVERSE vs ++ env`,`b`,`s',Cval v`]mp_tac(CONJUNCT1 compile_val) >> simp[] >>
-  disch_then(qspecl_then[`rd`,`rmenv`,`cs`,`renv`,`0`,`csz`,`bs`,`bce`,`bcr`,`bc0 ++ [Label l]`,`REVERSE cc`]mp_tac) >>
+  disch_then(qspecl_then[`rd`,`rmenv`,`cs`,`renv`,`0`,`csz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE cc`]mp_tac) >>
   simp[] >>
   discharge_hyps >- (
     fs[closed_Clocs_def] >>
@@ -129,6 +130,67 @@ val compile_body_val = store_thm("compile_body_val",
   qexists_tac`bvs` >> simp[] >>
   qexists_tac`vs` >> simp[])
 
+
+val Cevaluate_list_MAP_Var = store_thm("Cevaluate_list_MAP_Var",
+  ``∀vs menv s env. set vs ⊆ count (LENGTH env) ⇒
+      Cevaluate_list menv s env (MAP (CVar o Short) vs) (s,Cval (MAP (combin$C EL env) vs))``,
+  Induct >> simp[Once Cevaluate_cases])
+
+val Cevaluate_list_MAP_Var_rwt = store_thm("Cevaluate_list_MAP_Var_rwt",
+  ``∀vs menv s env res. set vs ⊆ count (LENGTH env) ⇒
+      (Cevaluate_list menv s env (MAP (CVar o Short) vs) res ⇔
+       res = (s,Cval (MAP (combin$C EL env) vs)))``,
+  metis_tac[Cevaluate_list_MAP_Var,intLangExtraTheory.Cevaluate_determ])
+
+val compile_call_val = store_thm("compile_call_val",
+  ``Cevaluate menv s env (CCall T (CVar(Short f)) (MAP (CVar o Short) xs)) (s',Cval v)
+    ∧ el_check f env = SOME (CRecClos clenv [(SOME cd,LENGTH es,b)] 0)
+    ∧ MAP (combin$C el_check env) xs = MAP SOME vs
+    ∧ (compile rmenv renv (TCTail (LENGTH es) 0) 0 cs b).out = REVERSE cc ++ cs.out
+    (* need some Cenv_bs, closed_Clocs, and closed_vlabs hypotheses .. *)
+    ∧ bs.code = bce ++ bcr
+    ∧ bs.code = bc0 ++ Label l::cc ++ bc1 ++ [CallPtr]
+    ∧ bs.pc = next_addr bs.inst_length (bc0 ++ Label l::cc ++ bc1)
+    ∧ bs.stack = CodePtr ptr::benv::REVERSE bvs++[cl]
+    ∧ LENGTH bvs = LENGTH es
+    ∧ LIST_REL (Cv_bv (mk_pp rd (bs with code := bce))) vs bvs
+    ∧ good_labels cs.next_label (bc0++[Label l])
+    ∧ ALL_DISTINCT (FILTER is_Label bce)
+    ⇒
+    ∃bv rf rd' ck.
+    let bs' = bs with <|stack := [bv]; pc := next_addr bs.inst_length bs.code; refs := rf; clock := ck |> in
+    bc_next^* bs bs'
+    ∧ Cv_bv (mk_pp rd' (bs' with code := bce)) v bv
+    ∧ s_refs rd' s' (bs' with code := bce)
+    ∧ DRESTRICT bs.refs (COMPL (set rd.sm)) ⊑ DRESTRICT rf (COMPL (set rd'.sm))
+    ∧ rd.sm ≼ rd'.sm ∧ rd.cls ⊑ rd'.cls``,
+  rw[] >>
+  `bc_fetch bs = SOME CallPtr` by (
+    match_mp_tac bc_fetch_next_addr >>
+    CONV_TAC SWAP_EXISTS_CONV >>
+    qexists_tac`[]`>>simp[] >>
+    simp[SUM_APPEND,FILTER_APPEND] ) >>
+  simp[markerTheory.Abbrev_def] >>
+  qho_match_abbrev_tac`∃bv rf rd' ck. bc_next^* bs (bs2 bv rf ck) ∧ P bv rf rd' ck` >>
+  qsuff_tac`∃bs1. bc_next bs bs1 ∧ ∃bv rf rd' ck. bc_next^* bs1 (bs2 bv rf ck) ∧ P bv rf rd' ck`
+    >- metis_tac[RTC_CASES1] >>
+  simp[bc_eval1_thm,bc_eval1_def] >>
+  rator_x_assum`Cevaluate`mp_tac >>
+  simp[Once Cevaluate_cases] >>
+  last_x_assum mp_tac >>
+  simp[CompilerLibTheory.el_check_def] >> strip_tac >>
+  `set xs ⊆ count (LENGTH env)` by (
+    fs[SUBSET_DEF,LIST_EQ_REWRITE,MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+    rw[] >> res_tac >> fs[EL_MAP,CompilerLibTheory.el_check_def] >>
+    rfs[EL_MAP] ) >>
+  simp[Cevaluate_list_MAP_Var_rwt] >>
+  PairCases_on`s`>>simp[]>>
+  PairCases_on`cd`>>simp[]>>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`Cevaluate menv s env' b (s',Cval v)` >>
+  qspecl_then[`menv`,`s`,`env'`,`b`,`s'`,`v`]mp_tac compile_body_val >>
+  simp[Abbr`env'`] >>
+  disch_then(qspec_then`MAP (combin$C EL env) xs`mp_tac)>>simp[]
 
 (*
 val CCall_thm = store_thm("CCall_thm",

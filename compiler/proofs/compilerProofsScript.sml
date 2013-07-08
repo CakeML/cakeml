@@ -4680,6 +4680,7 @@ val compile_decs_divergence = store_thm("compile_decs_divergence",
     rw[]
 *)
 
+(*
 
 val compile_decs_wrap_divergence = store_thm("compile_decs_wrap_divergence",
   ``∀mn menv cenv s env decs rs ct renv cs bs bc0.
