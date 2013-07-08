@@ -106,7 +106,7 @@ val parse_elaborate_infertype_compile_def = Define `
 
 val install_code_def = Define `
   install_code m code bs =
-    bs with <| code   := bs.code ++ code
+    bs with <| code   := bs.code ++ REVERSE code
              ; pc     := next_addr bs.inst_length bs.code
              ; output := ""
              ; cons_names := m
