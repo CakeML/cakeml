@@ -860,7 +860,6 @@ val nE'_nE = store_thm(
   IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
   simp[firstSet_nFQV, firstSet_nV, firstSet_nConstructorName])
 
-(*
 val nE'_bar_nE = store_thm(
   "nE'_bar_nPE",
   ``∀i0 i i' r r'.
@@ -1003,7 +1002,17 @@ val nE'_bar_nE = store_thm(
       asm_match `peg_eval mmlPEG (i2, nt(mkNT nE') I) (SOME(i4,r4))` >>
       first_x_assum (qspecl_then [`i2`, `i3`, `i4`, `r3`, `r4`] mp_tac) >>
       simp[] >> fs[peg_eval_seql_NIL] >> rveq >>
-      imp_res_tac length_no_greater >> fs[] >> asimp[])
+      imp_res_tac length_no_greater >> fs[] >> asimp[]) >>
+  pop_assum mp_tac >>
+  asm_simp_tac list_ss [peg_eval_choicel_SING, peg_eval_seql_CONS,
+                        peg_eval_seql_NIL, peg_eval_tok_SOME, tokeq_def] >>
+  rpt strip_tac >> rveq >> fs[] >>
+  asm_match `peg_eval mmlPEG (CaseT::i1, nt(mkNT nEhandle') I) (SOME(i2,r1))` >>
+  `peg_eval mmlPEG (CaseT::i1, nt(mkNT nEhandle') I) NONE`
+    by simp[firstSet_nFQV, firstSet_nV, firstSet_nConstructorName,
+            peg_respects_firstSets] >>
+  pop_assum (assume_tac o MATCH_MP peg_det) >> fs[])
+
 
 
 val completeness = store_thm(
