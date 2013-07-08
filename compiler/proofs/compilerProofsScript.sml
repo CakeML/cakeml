@@ -4904,24 +4904,135 @@ val compile_decs_divergence = store_thm("compile_decs_divergence",
     Cases_on`bs.clock`>>fs[env_rs_def,LET_THM,Cenv_bs_def,s_refs_def] ) >>
   metis_tac[])
 
-(*
-
 val compile_decs_wrap_divergence = store_thm("compile_decs_wrap_divergence",
-  ``∀mn menv cenv s env decs rs ct renv cs bs bc0.
+  ``∀mn menv cenv s env decs rs uct urenv cs' ck bs bc0 csz rd.
       (∀res. ¬evaluate_decs mn menv cenv s env decs res)
-      ∧ compile_decs_wrap mn rs decs = (ct,renv,cs)
-      ∧ bs.code = bc0 ++ REVERSE cs.out
+      ∧ compile_decs_wrap mn rs decs = (uct,urenv,cs')
+      ∧ FV_decs decs ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv
+      ∧ (∀i tds.  i < LENGTH decs ∧ EL i decs = Dtype tds ⇒ check_dup_ctors mn (decs_to_cenv mn (TAKE i decs) ++ cenv) tds)
+      ∧ closed_context menv cenv s env
+      ∧ "" ∉ new_decs_cns decs
+      ∧ decs_cns mn decs ⊆ set (MAP FST cenv)
+      ∧ env_rs menv cenv env rs (LENGTH bs.stack) rd (ck,s) (bs with code := bc0)
+      ∧ bs.code = bc0 ++ REVERSE cs'.out
       ∧ bs.pc = next_addr bs.inst_length bc0
       ∧ IS_SOME bs.clock
       ∧ good_labels rs.rnext_label bc0
       ⇒
       ∃bs'.
       bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0``,
-  simp[compile_decs_wrap_def]
-  rw[] >>
-  imp_res_tac evaluate_decs_divergence >>
-      compile_decs_wrap_thm
+  rpt gen_tac >>
+  simp[compile_decs_wrap_def] >>
+  Q.PAT_ABBREV_TAC`rmenv = MAP SND o_f rs.rmenv` >>
+  Q.PAT_ABBREV_TAC`m = exp_to_Cexp_state_bvars_fupd x y` >>
+  Q.PAT_ABBREV_TAC`renv:ctenv = MAP X Y` >>
+  Q.PAT_ABBREV_TAC`rsz = rs.rsz+x` >>
+  Q.PAT_ABBREV_TAC`cs = compiler_result_out_fupd (K [x;z]) y` >>
+  Q.PAT_ABBREV_TAC`ct = rs.contab` >>
+  `LENGTH renv = LENGTH m.bvars` by (
+    simp[Abbr`renv`,Abbr`m`] ) >>
+  qabbrev_tac`p = compile_decs mn rmenv ct m renv rsz cs decs` >>
+  PairCases_on`p`>>simp[] >>
+  Q.PAT_ABBREV_TAC`ct' = (p0,p1,p2)` >>
+  Q.PAT_ABBREV_TAC`renv':(string,num)alist = ZIP X` >>
+  Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd X p5` >>
+  Q.PAT_ABBREV_TAC`cs2 = compile_news Y 0 Z` >>
+  strip_tac >>
+  mp_tac(SPEC_ALL compile_decs_divergence) >>
+  simp[] >>
+  disch_then(qspecl_then[`menv`,`cenv`,`s`,`env`]mp_tac) >>
+  simp[] >>
+  qmatch_abbrev_tac`G` >>
+  qspecl_then[`decs`,`mn`,`rmenv`,`ct`,`m`,`renv`,`rsz`,`cs`]mp_tac compile_decs_append_out >>
+  `{x | Short x ∈ FV_decs decs} ⊆ set m.bvars` by (
+    simp[Abbr`m`,Abbr`G`] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD,MEM_FLAT] >>
+    rw[] >> res_tac >> fs[] >>
+    fs[env_rs_def,LET_THM] >>
+    metis_tac[MEM_MAP,FST,pairTheory.PAIR_EQ,pairTheory.pair_CASES] ) >>
+  simp[] >>
+  disch_then(qx_choosel_then[`c1`]strip_assume_tac) >>
+  qspecl_then[`TAKE (p4-rsz) p3.bvars`,`cs1`,`0`]mp_tac (INST_TYPE[alpha|->``:string``]compile_news_thm) >>
+  simp[] >>
+  disch_then(qx_choosel_then[`c3`]strip_assume_tac) >>
+  qabbrev_tac`c0 = [PushPtr (Addr 0);PushExc]` >>
+  qmatch_assum_abbrev_tac`p4 = rsz + n` >>
+  qabbrev_tac`c2 = [Stack (Cons tuple_cn n); PopExc; Stack (Pops 1)]` >>
+  `bs.code = bc0 ++ c0 ++ c1 ++ c2 ++ c3` by (
+    simp[Abbr`cs1`,Abbr`cs`,Abbr`c0`,Abbr`c2`] ) >>
+  pop_assum mp_tac >>
+  qpat_assum`bs.code = X`kall_tac >>
+  strip_tac >>
+  qabbrev_tac`hdl = LENGTH bs.stack+1` >>
+  qabbrev_tac`h0 = bs.handler` >>
+  qabbrev_tac`bs0 = bs with <| pc := next_addr bs.inst_length (bc0++c0); stack := StackPtr h0::CodePtr 0::bs.stack; handler := hdl |>` >>
+  `bc_next^* bs bs0` by (
+    simp[RTC_eq_NRC] >>
+    qexists_tac`SUC(SUC 0)` >>
+    simp[NRC] >>
+    `bc_fetch bs = SOME (PushPtr (Addr 0))` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`bc0 ++ TAKE 0 c0` >>
+      simp[Abbr`c0`] ) >>
+    simp[Once bc_eval1_thm] >>
+    simp[bc_eval1_def,bc_find_loc_def,bump_pc_def] >>
+    qmatch_abbrev_tac`bc_next bs1 bs0` >>
+    `bc_fetch bs1 = SOME PushExc` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`bc0 ++ TAKE 1 c0` >>
+      simp[Abbr`bs1`,Abbr`c0`,SUM_APPEND,FILTER_APPEND] ) >>
+    simp[bc_eval1_thm] >>
+    simp[bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs1`,Abbr`bs0`,bc_state_component_equality,Abbr`hdl`,Abbr`c0`,SUM_APPEND,FILTER_APPEND] ) >>
+  simp[Abbr`G`] >>
+  disch_then(qspecl_then[`rs with rsz := rsz`,`LENGTH bs.stack`,`rd`,`ck`,`bs0 with code := bc0++c0++c1`,`bc0 ++ c0`]mp_tac) >>
+  simp[Abbr`bs0`] >>
+  `good_labels rs.rnext_label (bc0 ++ c0)` by (
+    fs[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND,Abbr`c0`] ) >>
+  discharge_hyps >- (
+    simp[Abbr`cs`,Abbr`m`] >>
+    conj_asm1_tac >- (
+      match_mp_tac env_rs_with_bs_irr >>
+      qexists_tac`bs with <|code := bc0++c0; stack := StackPtr h0::CodePtr 0::bs.stack|>` >>
+      simp[] >>
+      match_mp_tac env_rs_append_code >>
+      qexists_tac`bs with <|code := bc0; stack := StackPtr h0::CodePtr 0::bs.stack|>` >>
+      simp[bc_state_component_equality] >>
+      fs[good_labels_def] >>
+      rator_x_assum`env_rs`mp_tac >>
+      qunabbrev_tac`rsz` >>
+      rpt(pop_assum kall_tac) >>
+      simp[env_rs_def] >> rw[] >>
+      rpt HINT_EXISTS_TAC >>
+      simp[] >>
+      REWRITE_TAC[TWO,ADD1,ADD_ASSOC] >>
+      match_mp_tac Cenv_bs_imp_incsz >>
+      qexists_tac`bs with <|stack:=CodePtr 0::bs.stack;code:= bc0|>` >>
+      simp[bc_state_component_equality] >>
+      match_mp_tac Cenv_bs_imp_incsz >>
+      qexists_tac`bs with <|code:= bc0|>` >>
+      simp[bc_state_component_equality] >>
+      rfs[] ) >>
+    fs[env_rs_def,LET_THM] ) >>
+  disch_then(qx_choosel_then[`bs2`]strip_assume_tac) >>
+  qmatch_assum_abbrev_tac`bc_next^* bs bs0` >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
+  `bc_next^* bs0 (bs2 with code := bs.code)` by (
+    match_mp_tac RTC_bc_next_append_code >>
+    map_every qexists_tac[`bs1`,`bs2`] >>
+    simp[bc_state_component_equality,Abbr`bs0`,Abbr`bs1`] >>
+    imp_res_tac RTC_bc_next_preserves >> fs[] ) >>
+  `bc_fetch (bs2 with code := bs.code) = SOME Tick` by (
+    fs[bc_fetch_def] >>
+    match_mp_tac bc_fetch_aux_append_code >>
+    match_mp_tac bc_fetch_aux_append_code >>
+    imp_res_tac RTC_bc_next_preserves >> fs[Abbr`bs1`] ) >>
+  qexists_tac`bs2 with code := bs.code` >>
+  simp[] >>
+  metis_tac[RTC_TRANSITIVE,transitive_def])
 
+
+(*
 val compile_top_divergence = store_thm("compile_top_divergence",
   ``∀menv cenv s env top rs rd ck bc0 bs ss sf code. (∀res. ¬evaluate_top menv cenv s env top res) ∧
       closed_top menv cenv s env top ∧
