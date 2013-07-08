@@ -1,4 +1,4 @@
-INCLUDES = .. ../../semantics ../../parsing ../../compiler \
+INCLUDES = .. ../.. ../../semantics ../../parsing ../../compiler \
            ../../compiler/bytecode ../../implementation \
 	   ../../impl_proofs \
            $(HOLDIR)/examples/unification/triangular/first-order \

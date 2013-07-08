@@ -153,10 +153,10 @@ rw [] >>
 rw [Once check_specs_side_def, rich_listTheory.LENGTH_COUNT_LIST]);
 
 val check_weakE_side_thm = Q.store_thm ("check_weakE_side_thm",
-`!env specs st. check_weakE_side env specs st`,
+`!env specs st. check_weake_side env specs st`,
 induct_on `specs` >>
 rw [] >>
-rw [add_constraint_side_def, Once check_weakE_side_def] >>
+rw [add_constraint_side_def, Once check_weake_side_def] >>
 fs [success_eqns, init_state_def] >>
 rw [] >>
 fs [init_infer_state_def, unifyTheory.t_wfs_def]);
