@@ -122,9 +122,9 @@ val initial_bc_state_def =  Define`
       handler := 0;
       clock := NONE;
       output := "";
+      cons_names := [];
       inst_length := K 0 |> in
-  let bs = THE (bc_eval (install_code [] (SND (SND compile_primitives)) bs)) in
-  bs with stack := TL bs.stack`
+  THE (bc_eval (install_code [] (SND (SND compile_primitives)) bs))`
 
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` THEN REPEAT STRIP_TAC
            THEN IMP_RES_TAC lex_until_toplevel_semicolon_LESS);
