@@ -18,8 +18,7 @@ val code_labels_ok_def = Define `
 
 val initial_bc_state_side_def = Define `
   initial_bc_state_side =
-    let bs1 = <| stack := []; code := [PrintE; Stop]; pc := 0; refs := FEMPTY;
-                 handler := 0; clock := NONE; output := ""; inst_length := K 0|> in
+    let bs1 = ^(rand(rhs(concl(initial_bc_state_def)))) in
     let bs2 = install_code [] (SND (SND compile_primitives)) bs1 in
     let bs3 = bc_eval bs2 in
     let bs4 = THE bs3 in
@@ -120,7 +119,7 @@ val main_loop_alt'_def = tDefine "main_loop_alt'" `
           case bc_eval s1 of
           | NONE => (Diverge,code_assert)
           | SOME new_bs =>
-            let new_bs = (if state = NONE then new_bs with stack := TL new_bs.stack
+            let new_bs = (if state = NONE then new_bs
                                           else new_bs) in
             let new_s = (bc_fetch new_bs = SOME Stop) in
             let out = if state = NONE then I else Result (REVERSE new_bs.output) in
@@ -449,22 +448,19 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
   THEN1 (FULL_SIMP_TAC (srw_ss()) [strip_labels_def])
   \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
-  \\ Q.ABBREV_TAC `bs = x with stack := TL x.stack`
-  \\ `x.code = bs.code` by (Q.UNABBREV_TAC `bs` \\ FULL_SIMP_TAC (srw_ss()) [])
-  \\ POP_ASSUM MP_TAC \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
   \\ Q.PAT_ASSUM `main_loop' (bs,initial_repl_fun_state) input = (res,T)` MP_TAC
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [Once main_loop'_def]
-  \\ `bs.inst_length = inst_length` by ALL_TAC THEN1
+  \\ `x.inst_length = inst_length` by ALL_TAC THEN1
    (UNABBREV_ALL_TAC \\ ASM_SIMP_TAC (srw_ss()) []
     \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
     \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
     \\ FULL_SIMP_TAC std_ss [])
   \\ `(2 + code_length inst_length (REVERSE (SND (SND compile_primitives))) =
-       code_length inst_length bs.code) /\
+       code_length inst_length x.code) /\
       (collect_labels (REVERSE (SND (SND compile_primitives)))  2 inst_length =
-       all_labels inst_length bs.code)` by ALL_TAC THEN1
-   (`bs.code = [PrintE; Stop] ++ (REVERSE (SND (SND compile_primitives)))` by ALL_TAC THEN1
+       all_labels inst_length x.code)` by ALL_TAC THEN1
+   (`x.code = [PrintE; Stop] ++ (REVERSE (SND (SND compile_primitives)))` by ALL_TAC THEN1
      (UNABBREV_ALL_TAC
       \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
       \\ FULL_SIMP_TAC (srw_ss()) [install_code_def,empty_bc_state_def])
@@ -486,15 +482,12 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
   \\ FULL_SIMP_TAC std_ss [PAIR_I]
   \\ Q.SPEC_TAC (`res`,`res`)
   \\ HO_MATCH_MP_TAC temp_INTRO
-  \\ `(strip_labels x with stack := TL (strip_labels x).stack) =
-       strip_labels bs` by ALL_TAC
-  THEN1 (Q.UNABBREV_TAC `bs` \\ SIMP_TAC (srw_ss()) [strip_labels_def])
   \\ FULL_SIMP_TAC std_ss []
-  \\ `(bc_fetch (strip_labels bs) = SOME Stop) =
-      (bc_fetch bs = SOME Stop)` by ALL_TAC
+  \\ `(bc_fetch (strip_labels x) = SOME Stop) =
+      (bc_fetch x = SOME Stop)` by ALL_TAC
   THEN1 (FULL_SIMP_TAC std_ss [bc_fetch_strip_labels])
-  \\ MP_TAC (Q.SPECL [`r'`,`q'`,`bc_fetch bs = SOME Stop`,
-        `initial_repl_fun_state`,`initial_repl_fun_state`,`bs`] main_loop_alt_eq)
+  \\ MP_TAC (Q.SPECL [`r'`,`q'`,`bc_fetch x = SOME Stop`,
+        `initial_repl_fun_state`,`initial_repl_fun_state`,`x`] main_loop_alt_eq)
   \\ FULL_SIMP_TAC std_ss []);
 
 val _ = delete_const "temp";

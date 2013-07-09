@@ -22,10 +22,7 @@ val inst_length_def = Define `
   inst_length (x:bc_inst) = 0:num`; (* fix me *)
 
 val empty_bc_state_def = Define `
-  empty_bc_state =
-    <| stack := []; code := [PrintE; Stop]; pc := 0;
-       refs := FEMPTY; handler := 0; clock := NONE; output := "";
-       inst_length := K 0 |>`;
+  empty_bc_state = ^(rand(rhs(concl(initial_bc_state_def))))`;
 
 val repl_step_def = Define `
   repl_step state =
