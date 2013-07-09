@@ -197,7 +197,8 @@ val _ = map prove_nullable [
           ``nFQV``, ``nEbase``, ``nEapp``, ``nEmult``, ``nEadd``, ``nErel``,
           ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``, ``nElogicOR``,
           ``nEhandle``, ``nE``, ``nE'``, ``nEhandle'``,
-          ``nConstructorName``, ``nPattern``]
+          ``nConstructorName``, ``nPattern``, ``nRelOps``, ``nMultOps``,
+          ``nAddOps``]
 
 val len_assum =
     first_x_assum

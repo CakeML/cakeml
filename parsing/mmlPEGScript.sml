@@ -604,7 +604,7 @@ val npeg0_rwts =
                 ``nUQConstructorName``, ``nConstructorName``, ``nTypeName``,
                 ``nDtypeDecl``, ``nDconstructor``, ``nFDecl``, ``nTyvarN``,
                 ``nTyOp``, ``nDType``, ``nStarTypes``,
-                ``nRelOps``, ``nPattern``, ``nLetDec``,
+                ``nRelOps``, ``nPattern``, ``nLetDec``, ``nMultOps``,
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nErel``, ``nEcomp``, ``nEbefore``,
                 ``nEtyped``, ``nElogicAND``, ``nElogicOR``, ``nEhandle``,
@@ -737,6 +737,7 @@ val PEG_wellformed = store_thm(
        peg_longV_def, peg_Pattern_def, peg_pbasewocp_def, peg_pbasewoc_def,
        peg_pbaseP_def] >>
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
+val _ = export_rewrites ["PEG_wellformed"]
 
 val parse_REPLTop_total = save_thm(
   "parse_REPLTop_total",
