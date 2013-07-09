@@ -1483,16 +1483,17 @@ val decs_contab_thm = store_thm("decs_contab_thm",
     Cases_on`x=NONE`>-metis_tac[]>>simp[]>>
     `?y. x = SOME y` by (Cases_on `x` >> fs []) >>
     rw [] >>
-    cheat (*
-    Cases_on`MEM y (MAP FST cenv)`>-metis_tac[]>>simp[]>>
-    Cases_on`x ∈ FDOM p0`>-metis_tac[]>>simp[]>>
+    Cases_on`SOME y ∈ FDOM p0`>>simp[] >-
+      metis_tac[optionTheory.NOT_SOME_NONE,optionTheory.SOME_11] >>
+    Cases_on`MEM y (MAP FST cenv)`>-metis_tac[MEM_MAP]>>simp[]>>
     simp[MEM_MAP,MEM_GENLIST,MEM_FLAT,EXISTS_PROD,UNCURRY]>>
     simp_tac(srw_ss()++DNF_ss)[MEM_MAP,EXISTS_PROD]>>
     qmatch_abbrev_tac`A ⇔ B` >>
-    qsuff_tac`A ⇔ ∃y. MEM y (FLAT (MAP (SND o SND) tds)) ∧ (x = mk_id mn (FST y))`>-metis_tac[MEM_EL]>>
+    qsuff_tac`A ⇔ ∃z. MEM z (FLAT (MAP (SND o SND) tds)) ∧ (y = mk_id mn (FST z))`>-metis_tac[MEM_EL]>>
     simp[Abbr`A`,Abbr`B`,MEM_FLAT,EXISTS_PROD,MEM_MAP] >>
     simp_tac(srw_ss()++DNF_ss)[EXISTS_PROD]>>
-    metis_tac[]*) ) >>
+    fs[MEM_MAP,FORALL_PROD] >>
+    metis_tac[] ) >>
   conj_tac >- (
     simp[number_constructors_thm] >>
     ho_match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM_matchable >>
