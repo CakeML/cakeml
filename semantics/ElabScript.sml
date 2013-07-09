@@ -43,7 +43,7 @@ val _ = Hol_datatype `
     (* C(x,y) *)
     (* D *)
     (* E x *)
-  | Ast_Pcon of conN id => ast_pat list
+  | Ast_Pcon of ( conN id) option => ast_pat list
     (* ref x *)
   | Ast_Pref of ast_pat`;
 
@@ -63,7 +63,7 @@ val _ = Hol_datatype `
     (* C(x,y) *)
     (* D *)
     (* E x *)
-  | Ast_Con of conN id => ast_exp list
+  | Ast_Con of ( conN id) option => ast_exp list
     (* fn x => e *)
   | Ast_Fun of varN => ast_exp
     (* e e *)
@@ -134,7 +134,7 @@ val _ = type_abbrev( "ast_prog" , ``: ast_top list``);
 /\
 (elab_p (Ast_Plit l) = (Plit l))
 /\
-(elab_p (Ast_Pcon cn ps) = (Pcon (SOME cn) (elab_ps ps)))
+(elab_p (Ast_Pcon cn ps) = (Pcon cn (elab_ps ps)))
 /\
 (elab_p (Ast_Pref p) = (Pref (elab_p p)))
 /\
@@ -170,16 +170,16 @@ val _ = type_abbrev( "ctor_env" , ``: (conN, ( conN id)) env``);
 (elab_e ctors (Ast_Var id) =  
 (Var id))
 /\
-(elab_e ctors (Ast_Con (Long mn cn) es) =  
-(Con (SOME (Long mn cn)) ( MAP (elab_e ctors) es)))
-/\
-(elab_e ctors (Ast_Con (Short cn) es) =  
+(elab_e ctors (Ast_Con (SOME (Short cn)) es) =  
 ((case lookup cn ctors of
       SOME cid =>
         Con (SOME cid) ( MAP (elab_e ctors) es)
     | NONE =>
         Con (SOME (Short cn)) ( MAP (elab_e ctors) es)
   )))
+/\
+(elab_e ctors (Ast_Con cn es) =  
+(Con cn ( MAP (elab_e ctors) es)))
 /\
 (elab_e ctors (Ast_Fun n e) =  
 (Fun n (elab_e ctors e)))

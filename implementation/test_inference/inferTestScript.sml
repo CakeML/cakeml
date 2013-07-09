@@ -32,7 +32,7 @@ val infer_test_main_loop_def = tDefine "main_loop" `
           Failure error_msg => Result error_msg (main_loop (bs,s) rest_of_input)
         | (* case: new code generated, install, run, print and continue *)
           Success (s) =>
-            Result "<type checks>" (infer_test_main_loop (bs,s) rest_of_input) ` tac ;
+            (infer_test_main_loop (bs,s) rest_of_input) ` tac ;
 
 val infer_test_repl_fun_def = Define`
   infer_test_repl_fun input = infer_test_main_loop (initial_bc_state,initial_repl_fun_state) input`;

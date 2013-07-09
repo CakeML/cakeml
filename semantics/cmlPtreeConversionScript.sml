@@ -383,7 +383,7 @@ val ptree_Pattern_def = Define`
              else if cname = Short "false" then
                SOME(Ast_Plit (Bool F))
              else
-               SOME(Ast_Pcon cname [])
+               SOME(Ast_Pcon (SOME cname) [])
           od ++
           do
              vname <- ptree_V vic;
@@ -417,10 +417,10 @@ val ptree_Pattern_def = Define`
               if cn = Short "ref" then
                 SOME(Ast_Pref pb)
               else
-                SOME (Ast_Pcon cn [pb])
+                SOME (Ast_Pcon (SOME cn) [pb])
              od ++ do
               args <- ptree_Ptuple nPtuple p;
-              SOME (Ast_Pcon cn args)
+              SOME (Ast_Pcon (SOME cn) args)
             od)
           od
         | _ => NONE
@@ -488,7 +488,7 @@ val Eseq_encode_def = Define`
 val mkAst_App_def = Define`
   mkAst_App a1 a2 =
    case a1 of
-       Ast_Con (Short "ref") [] => Ast_App (Ast_Var (Short "ref")) a2
+       Ast_Con (SOME (Short "ref")) [] => Ast_App (Ast_Var (Short "ref")) a2
      | Ast_Con s [] => Ast_Con s [a2]
      | _ => Ast_App a1 a2
 `
@@ -540,7 +540,7 @@ val ptree_Expr_def = Define`
                  else if cname = Short "false" then
                    SOME (Ast_Lit (Bool F))
                  else
-                   SOME (Ast_Con cname [])
+                   SOME (Ast_Con (SOME cname) [])
               od
           | [lp;rp] => if lp = Lf (TK LparT) ∧ rp = Lf (TK RparT) then
                          SOME (Ast_Lit Unit)
@@ -569,7 +569,7 @@ val ptree_Expr_def = Define`
                         do
                           cname <- ptree_ConstructorName t1;
                           cargs <- ptree_Expr nEtuple t2;
-                          updAst_Conname cname cargs
+                          updAst_Conname (SOME cname) cargs
                         od
           | [t] => ptree_Expr nEbase t
           | _ => NONE
@@ -592,7 +592,7 @@ val ptree_Expr_def = Define`
           | _ => NONE
       else if nt = mkNT nElist1 then
         case subs of
-            [sing] => do e <- ptree_Expr nE sing; SOME(Ast_Con (Short "") [e]) od
+            [sing] => do e <- ptree_Expr nE sing; SOME(Ast_Con NONE [e]) od
           | [el1;ct;e] =>
             if ct = Lf (TOK CommaT) then
               do

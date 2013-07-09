@@ -29,7 +29,7 @@ type ast_pat =
     (* C(x,y) *)
     (* D *)
     (* E x *)
-  | Ast_Pcon of id conN * list ast_pat
+  | Ast_Pcon of option (id conN) * list ast_pat
     (* ref x *)
   | Ast_Pref of ast_pat
 
@@ -47,7 +47,7 @@ type ast_exp =
     (* C(x,y) *)
     (* D *)
     (* E x *)
-  | Ast_Con of id conN * list ast_exp
+  | Ast_Con of option (id conN) * list ast_exp
     (* fn x => e *)
   | Ast_Fun of varN * ast_exp
     (* e e *)
@@ -108,7 +108,7 @@ elab_p (Ast_Pvar n) = Pvar n
 and
 elab_p (Ast_Plit l) = Plit l
 and
-elab_p (Ast_Pcon cn ps) = Pcon (Some cn) (elab_ps ps)
+elab_p (Ast_Pcon cn ps) = Pcon cn (elab_ps ps)
 and
 elab_p (Ast_Pref p) = Pref (elab_p p)
 and
@@ -141,16 +141,16 @@ and
 elab_e ctors (Ast_Var id) =
   Var id
 and
-elab_e ctors (Ast_Con (Long mn cn) es) =
-  Con (Some (Long mn cn)) (List.map (elab_e ctors) es)
-and
-elab_e ctors (Ast_Con (Short cn) es) =
+elab_e ctors (Ast_Con (Some (Short cn)) es) =
   match lookup cn ctors with
     | Some cid ->
         Con (Some cid) (List.map (elab_e ctors) es)
     | None ->
         Con (Some (Short cn)) (List.map (elab_e ctors) es)
   end
+and
+elab_e ctors (Ast_Con cn es) =
+  Con cn (List.map (elab_e ctors) es)
 and
 elab_e ctors (Ast_Fun n e) =
   Fun n (elab_e ctors e)
