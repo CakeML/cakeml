@@ -160,6 +160,7 @@ val compile_call_val = store_thm("compile_call_val",
     ∧ bs.clock = SOME ck
     ∧ LENGTH bvs = LENGTH es
     ∧ rd.sm = []
+    ∧ s_refs rd (ck,[]) (bs with code := bce)
     ∧ benv_bvs (mk_pp rd (bs with code := bce)) benv (SND(SND cd)) clenv [(SOME cd,LENGTH es,b)]
     ∧ LIST_REL (Cv_bv (mk_pp rd (bs with code := bce))) vs bvs
     ∧ good_labels cs.next_label bc0
@@ -220,7 +221,17 @@ val compile_call_val = store_thm("compile_call_val",
       simp[] >>
       qexists_tac`ue` >>
       simp[Abbr`env0`,Abbr`defs`] >>
-      simp[s_refs_def,good_rd_def]
+      conj_tac >- (
+        match_mp_tac s_refs_with_irr >>
+        HINT_EXISTS_TAC >>
+        simp[] ) >>
+      qsuff_tac`MAP (combin$C EL env) xs = vs`>-rw[] >>
+      qpat_assum`MAP x y = MAP c d`mp_tac >>
+      simp[LIST_EQ_REWRITE,EL_MAP] >> strip_tac >>
+      pop_assum mp_tac >>
+      simp[EL_MAP,CompilerLibTheory.el_check_def] ) >>
+    conj_tac >- (
+      simp[closed_Clocs_def,Abbr`menv`,Abbr`CRC`,Abbr`envs`,Abbr`recs`] >>
 *)
 
 (*
