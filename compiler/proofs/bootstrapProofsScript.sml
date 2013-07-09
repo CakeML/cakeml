@@ -5,8 +5,8 @@ open BytecodeTheory bytecodeExtraTheory bytecodeClockTheory bytecodeEvalTheory
 val _ = new_theory"bootstrapProofs"
 
 val env_rs_empty = store_thm("env_rs_empty",
-  ``bs.stack = [] ∧ (∀n. bs.clock = SOME n ⇒ n = ck) ∧ rd.sm = [] ∧ rd.cls = FEMPTY ⇒
-    env_rs [] [] [] init_compiler_state 0 rd (ck,[]) bs``,
+  ``bs.stack = [] ∧ (∀n. bs.clock = SOME n ⇒ n = ck) ∧ rd.sm = [] ∧ rd.cls = FEMPTY ∧ cs = init_compiler_state ⇒
+    env_rs [] [] [] cs 0 rd (ck,[]) bs``,
   simp[env_rs_def,init_compiler_state_def,intLangExtraTheory.good_cmap_def,FLOOKUP_UPDATE
       ,good_contab_def,IntLangTheory.tuple_cn_def,toIntLangProofsTheory.cmap_linv_def] >>
   simp[pmatchTheory.env_to_Cenv_MAP,intLangExtraTheory.all_vlabs_menv_def
@@ -32,7 +32,81 @@ val env_rs_remove_clock = store_thm("env_rs_remove_clock",
   simp[bc_state_component_equality] >> rfs[] >>
   fs[Cenv_bs_def,s_refs_def,good_rd_def])
 
+val tac =
+  strip_tac >>
+  imp_res_tac RTC_bc_next_can_be_unclocked >>
+  rator_x_assum`env_rs`mp_tac >>
+  Q.PAT_ABBREV_TAC`rs = compiler_state_contab_fupd x y` >>
+  strip_tac >>
+  map_every qexists_tac[`bvs`,`rf`,`rs`,`rd'`] >>
+  conj_tac >- (
+    qmatch_abbrev_tac`bc_eval bs = SOME bs1` >>
+    qmatch_assum_abbrev_tac`bc_next^* bs' bs1'` >>
+    `bs' = bs ∧ bs1' = bs1` by (
+      simp[Abbr`bs'`,Abbr`bs1'`,Abbr`bs1`,bc_state_component_equality] ) >>
+    match_mp_tac (MP_CANON RTC_bc_next_bc_eval) >> fs[] >>
+    simp[bc_eval1_thm] >>
+    `bc_fetch bs1 = NONE` by (
+      simp[bc_fetch_def] >>
+      match_mp_tac bc_fetch_aux_end_NONE >>
+      simp[Abbr`bs1`] ) >>
+    simp[bc_eval1_def] ) >>
+  match_mp_tac env_rs_remove_clock >>
+  qmatch_assum_abbrev_tac`env_rs [] cenv env rs 0 rd' cs' bs'` >>
+  map_every qexists_tac[`cs'`,`bs'`,`0`] >>
+  simp[Abbr`cs'`] >>
+  simp[Abbr`bs'`,bc_state_component_equality]
+
 val compile_decs_from_empty = store_thm("compile_decs_from_empty",
+  ``∀decs cenv env. evaluate_decs NONE [] [] [] [] decs ([],cenv,Rval env)
+    ∧ FV_decs decs = {}
+    ∧ (∀i tds.  i < LENGTH decs ∧ EL i decs = Dtype tds ⇒ check_dup_ctors NONE (decs_to_cenv NONE (TAKE i decs)) tds)
+    ∧ "" ∉ new_decs_cns decs
+    ∧ decs_cns NONE decs = {}
+    ⇒
+    ∃ct m rsz cs.
+    compile_decs NONE FEMPTY
+      init_compiler_state.contab
+      <|bvars:=[];mvars:=FEMPTY;cnmap:=cmap(init_compiler_state.contab)|>
+      [] 0 <|out:=[];next_label:=0|> decs
+    = (ct,m,rsz,cs) ∧
+    ∀bs.
+    bs.code = REVERSE cs.out
+    ∧ bs.pc = 0
+    ∧ bs.stack = []
+    ∧ bs.clock = NONE
+    ∧ bs.output = ""
+    ⇒
+    ∃st rf rs rd.
+    let bs' = bs with <| pc    := next_addr bs.inst_length bs.code
+                       ; stack := st
+                       ; refs  := rf
+                       |> in
+    bc_eval bs = SOME bs'
+    ∧ env_rs [] cenv env rs 0 rd (0,[]) bs'``,
+  rw[] >>
+  qspecl_then[`NONE`,`[]`,`[]`,`[]`,`[]`,`decs`,`[],cenv,Rval env`]mp_tac compile_decs_thm >>
+  simp[closed_context_empty] >>
+  disch_then(Q.X_CHOOSE_THEN`ck`strip_assume_tac) >>
+  Q.PAT_ABBREV_TAC`m = exp_to_Cexp_state_bvars_fupd x y` >>
+  Q.PAT_ABBREV_TAC`cs = compiler_result_out_fupd x y` >>
+  Q.PAT_ABBREV_TAC`ct = init_compiler_state.contab` >>
+  Q.PAT_ABBREV_TAC`p = compile_decs a b ct m d e f g` >> PairCases_on`p` >> simp[] >>
+  rpt strip_tac >>
+  first_x_assum(qspecl_then[`m`,`cs`]mp_tac) >>
+  disch_then(qspec_then`<|rmenv:=FEMPTY;renv:=[];rsz:=0;contab:=ct;rnext_label:=cs.next_label|>`mp_tac o
+    CONV_RULE(RESORT_FORALL_CONV(fn l => List.drop(l,5)@List.take(l,5)))) >> fs[] >>
+  disch_then(qspecl_then[`0`,`<|cls := FEMPTY; sm := []|>`,`bs with clock := SOME ck`,`[]`]mp_tac) >>
+  simp[markerTheory.Abbrev_def] >>
+  discharge_hyps >- (
+    qspecl_then[`decs`,`NONE`,`FEMPTY`,`ct`,`m`,`[]`,`0`,`cs`]mp_tac compile_decs_append_out >>
+    simp[Abbr`m`,Abbr`cs`] >> strip_tac >>
+    simp[good_labels_def] >>
+    match_mp_tac env_rs_empty >>
+    simp[compiler_state_component_equality,init_compiler_state_def]) >>
+  tac)
+
+val compile_decs_wrap_from_empty = store_thm("compile_decs_wrap_from_empty",
   ``∀decs cenv env. evaluate_decs NONE [] [] [] [] decs ([],cenv,Rval env)
     ∧ FV_decs decs = {}
     ∧ (∀i tds.  i < LENGTH decs ∧ EL i decs = Dtype tds ⇒ check_dup_ctors NONE (decs_to_cenv NONE (TAKE i decs)) tds)
@@ -67,30 +141,8 @@ val compile_decs_from_empty = store_thm("compile_decs_from_empty",
   discharge_hyps >- (
     simp[good_labels_def] >>
     match_mp_tac env_rs_empty >>
-    simp[] ) >>
-  strip_tac >>
-  imp_res_tac RTC_bc_next_can_be_unclocked >>
-  rator_x_assum`env_rs`mp_tac >>
-  Q.PAT_ABBREV_TAC`rs = compiler_state_contab_fupd x y` >>
-  strip_tac >>
-  map_every qexists_tac[`bvs`,`rf`,`rs`,`rd'`] >>
-  conj_tac >- (
-    qmatch_abbrev_tac`bc_eval bs = SOME bs1` >>
-    qmatch_assum_abbrev_tac`bc_next^* bs' bs1'` >>
-    `bs' = bs ∧ bs1' = bs1` by (
-      simp[Abbr`bs'`,Abbr`bs1'`,Abbr`bs1`,bc_state_component_equality] ) >>
-    match_mp_tac (MP_CANON RTC_bc_next_bc_eval) >> fs[] >>
-    simp[bc_eval1_thm] >>
-    `bc_fetch bs1 = NONE` by (
-      simp[bc_fetch_def] >>
-      match_mp_tac bc_fetch_aux_end_NONE >>
-      simp[Abbr`bs1`] ) >>
-    simp[bc_eval1_def] ) >>
-  match_mp_tac env_rs_remove_clock >>
-  qmatch_assum_abbrev_tac`env_rs [] cenv env rs 0 rd' cs' bs'` >>
-  map_every qexists_tac[`cs'`,`bs'`,`0`] >>
-  simp[Abbr`cs'`] >>
-  simp[Abbr`bs'`,bc_state_component_equality])
+    simp[compiler_state_component_equality,init_compiler_state_def]) >>
+  tac)
 
 val compile_body_val = store_thm("compile_body_val",
   ``∀menv s env' b s' v vs rd renv env rmenv csz bs bc0 cc bc1 st cs bce bcr bvs ret az cl benv.
@@ -129,7 +181,6 @@ val compile_body_val = store_thm("compile_body_val",
   CONV_TAC(RESORT_EXISTS_CONV(List.rev)) >>
   qexists_tac`bvs` >> simp[] >>
   qexists_tac`vs` >> simp[])
-
 
 val Cevaluate_list_MAP_Var = store_thm("Cevaluate_list_MAP_Var",
   ``∀vs menv s env. set vs ⊆ count (LENGTH env) ⇒
