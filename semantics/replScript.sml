@@ -117,6 +117,7 @@ print_envE envE = CONCAT (MAP (\(x,v). "val " ++ x ++ " = " ++ print_v v) envE)`
 val print_error_def = Define `
 (print_error Bind_error = "<Bind>") ∧
 (print_error Div_error = "<Div>") ∧
+(print_error Eq_error = "<Eq_closure>") ∧
 (print_error (Int_error i) = "<" ++ int_to_string i ++ ">")`;
 
 val print_result_def = Define `
