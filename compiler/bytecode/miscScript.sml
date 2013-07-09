@@ -4,6 +4,10 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val EL_LENGTH_APPEND_rwt = store_thm("EL_LENGTH_APPEND_rwt",
+  ``¬NULL l2 ∧ (n = LENGTH l1) ⇒  (EL n (l1++l2) = HD l2)``,
+  metis_tac[EL_LENGTH_APPEND])
+
 val MAP_FST_funs = store_thm("MAP_FST_funs",
   ``MAP (λ(x,y,z). x) funs = MAP FST funs``,
   lrw[MAP_EQ_f,FORALL_PROD])

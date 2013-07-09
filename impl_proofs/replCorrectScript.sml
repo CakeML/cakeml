@@ -238,7 +238,6 @@ rw[strip_mod_env_def] >> rw[convert_menv_def] >- (
   rw[] >> fs[] >> metis_tac[] ) >>
 simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY]);
 
-(*
 val invariant_def = Define`
   invariant rs rfs bs ⇔
     rfs.relaborator_state = (rs.type_bindings, rs.ctors)
@@ -248,7 +247,7 @@ val invariant_def = Define`
 
     ∧ closed_context rs.envM rs.envC rs.store rs.envE
     ∧ good_il bs.inst_length
-    ∧ (∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state rd (c,rs.store) bs)
+    ∧ (∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state (LENGTH bs.stack) rd (c,rs.store) bs)
     ∧ good_labels rfs.rcompiler_state.rnext_label bs.code
 
     ∧ bs.clock = NONE
@@ -292,7 +291,6 @@ rw [invariant_def, type_infer_invariants_def, type_sound_invariants_def] >>
 fs [] >>
 rw [] >>
 metis_tac [infer_top_sound]);
-*)
 
 val closed_SUBSET = store_thm("closed_SUBSET",
   ``∀v. closed menv v ⇒ ∀menv'. menv_dom menv ⊆ menv_dom menv' ⇒ closed menv' v``,
@@ -303,7 +301,6 @@ val closed_SUBSET = store_thm("closed_SUBSET",
   fsrw_tac[DNF_ss][SUBSET_DEF] >>
   metis_tac[])
 
-  (*
 val closed_context_strip_mod_env = store_thm("closed_context_strip_mod_env",
   ``∀menv cenv s env menv'.
     closed_context menv cenv s env ⇒
@@ -336,13 +333,13 @@ val closed_context_strip_mod_env = store_thm("closed_context_strip_mod_env",
       simp_tac(srw_ss()++DNF_ss)[] ) >>
     metis_tac[closed_SUBSET] ) >>
   rw[]>>TRY(metis_tac[])>>
-  fsrw_tac[DNF_ss][strip_mod_env_def,MEM_FLAT,MEM_MAP,UNCURRY])
+  fsrw_tac[DNF_ss][strip_mod_env_def,MEM_FLAT,MEM_MAP,UNCURRY]);
 
 val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
   ``∀mn menv cenv s env ds res. evaluate_decs mn menv cenv s env ds res ⇒
       closed_context menv cenv s env ∧
       FV_decs ds ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-      decs_cns (THE mn) ds ⊆ set (MAP FST cenv)
+      decs_cns mn ds ⊆ cenv_dom cenv
     ⇒
       let env' = case SND(SND res) of Rval(e)=>(e++env) | _ => env in
       closed_context menv ((FST(SND res))++cenv) (FST res) env'``,
@@ -360,21 +357,30 @@ val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
   Cases_on`r`>>fs[]>- (
     first_x_assum match_mp_tac >>
     fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
-    cheat
-    (* metis_tac[] *)) >>
+    imp_res_tac evaluate_dec_new_dec_cns >> fs[] >>
+    pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string id list -> string id set``) >>
+    imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
+    pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string list -> string set``) >>
+    fsrw_tac[DNF_ss][MEM_MAP,EXTENSION, cenv_dom_def] >>
+    metis_tac[]) >>
   qpat_assum`P ⇒ Q`mp_tac>>
   discharge_hyps>-(
     fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
     metis_tac[]) >>
   strip_tac >>
-  fs[closed_context_def] >>
-  conj_tac >- (
-    fs[toIntLangProofsTheory.closed_under_cenv_def] >>
-    cheat
-    (* metis_tac[] *)) >>
-  conj_tac >- cheat >>
-  conj_tac >- ( fs[closed_under_menv_def] >> cheat) >>
-  cheat (* metis_tac[] *) )
+  qsuff_tac`closed_context menv (new_tds' ++ new_tds ++ cenv) s3 (new_env ++ env)` >- (
+    rw[closed_context_def] >> fs[] >>
+    fs[toIntLangProofsTheory.closed_under_cenv_def,closed_under_menv_def] >>
+    metis_tac[] ) >>
+  first_x_assum match_mp_tac >>
+  fs[] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
+  imp_res_tac evaluate_dec_new_dec_cns >> fs[] >>
+  pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string id list -> string id set``) >>
+  imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
+  pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string list -> string set``) >>
+  fsrw_tac[DNF_ss][cenv_dom_def,MEM_MAP,EXTENSION] >>
+  metis_tac[]);
 
 val closed_context_shift_menv = store_thm("closed_context_shift_menv",
   ``closed_context menv cenv s (env' ++ env) ⇒
@@ -394,14 +400,14 @@ val closed_context_shift_menv = store_thm("closed_context_shift_menv",
     simp[closed_under_menv_def] >>
     simp[EVERY_MEM] >>
     metis_tac[closed_SUBSET] ) >>
-  metis_tac[])
+  metis_tac[]);
 
 val evaluate_top_closed_context = store_thm("evaluate_top_closed_context",
   ``∀menv cenv s env top s' cenv' res.
     evaluate_top menv cenv s env top (s',cenv',res) ∧
     closed_context menv cenv s env ∧
     FV_top top ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-    top_cns top ⊆ set (MAP FST cenv)
+    top_cns top ⊆ cenv_dom cenv
     ⇒
     let (menv',env') = case res of Rval (m,e) => (m ++ menv,e ++ env) | _ => (menv,env) in
     closed_context menv' (cenv'++cenv) s' env'``,
@@ -422,8 +428,17 @@ val evaluate_top_closed_context = store_thm("evaluate_top_closed_context",
   >- (
     imp_res_tac evaluate_dec_closed_context >>
     fs[] >> fs[LET_THM] >>
-    Cases_on`d`>>fs[] ))
-    *)
+    Cases_on`d`>>fs[] ));
+
+
+val closed_context_extend_cenv = store_thm("closed_context_extend_cenv",
+  ``∀menv cenv s env cenv'.
+      closed_context menv cenv s env ⇒
+      closed_context menv (cenv'++cenv) s env``,
+  rw[closed_context_def] >> fs[] >>
+  fs[toIntLangProofsTheory.closed_under_cenv_def] >>
+  fsrw_tac[DNF_ss][cenv_dom_def, SUBSET_DEF] >>
+  metis_tac[]);
 
 val strip_mod_env_append = store_thm("strip_mod_env_append",
   ``strip_mod_env (ls ++ l2) = strip_mod_env ls ++ strip_mod_env l2``,
@@ -436,7 +451,7 @@ val strip_mod_env_length = store_thm("strip_mod_env_length",
 val o_f_FUNION = store_thm("o_f_FUNION",
   ``f o_f (f1 ⊌ f2) = (f o_f f1) ⊌ (f o_f f2)``,
   simp[GSYM fmap_EQ_THM,FUNION_DEF] >>
-  rw[o_f_FAPPLY])
+  rw[o_f_FAPPLY]);
 
 (*
 val env_rs_strip_mod_env = store_thm("env_rs_strip_mod_env",
@@ -599,12 +614,11 @@ val type_e_closed = store_thm("type_e_closed",
   fsrw_tac[DNF_ss][FV_defs_MAP,UNCURRY] >>
   metis_tac[] )
 
-  (*
 val type_d_closed = store_thm("type_d_closed",
   ``∀mno tmenv tcenv tenv d y z.
       type_d mno tmenv tcenv tenv d y z ⇒
         FV_dec d ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv ∧
-        dec_cns d ⊆ set (MAP FST tcenv)``,
+        dec_cns d ⊆ cenv_dom tcenv``,
   ho_match_mp_tac type_d_ind >>
   strip_tac >- (
     simp[bind_tvar_def] >>
@@ -633,7 +647,7 @@ val type_d_closed = store_thm("type_d_closed",
       metis_tac[] ) >>
     fs[SUBSET_DEF] >> metis_tac[] ) >>
   simp[])
-  *)
+
 
 val tenv_names_bind_var_list2 = store_thm("tenv_names_bind_var_list2",
   ``∀l1 tenv. tenv_names (bind_var_list2 l1 tenv) = set (MAP FST l1) ∪ tenv_names tenv``,
@@ -646,25 +660,11 @@ rw [FUN_EQ_THM] >>
 PairCases_on `x` >>
 fs []);
 
-(*
 val type_d_new_dec_vs = Q.prove (
 `!mn tenvM tenvC tenv d tenvC' tenv'.
   type_d mn tenvM tenvC tenv d tenvC' tenv'
   ⇒
-  new_dec_vs d = set (MAP FST tenv')`,
-rw [type_d_cases, new_dec_vs_def, LibTheory.emp_def] >>
-rw [new_dec_vs_def] >>
-imp_res_tac type_p_closed >>
-imp_res_tac type_e_closed >>
-rw [tenv_add_tvs_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-fs [LET_THM, LIST_TO_SET_MAP, GSYM fst_lem, IMAGE_COMPOSE] >>
-metis_tac [IMAGE_11, AstTheory.id_11]);
-
-val type_d_new_dec_vs = Q.prove (
-`!mn tenvM tenvC tenv d tenvC' tenv'.
-  type_d mn tenvM tenvC tenv d tenvC' tenv'
-  ⇒
-  new_dec_vs d = set (MAP FST tenv')`,
+  set (new_dec_vs d) = set (MAP FST tenv')`,
 rw [type_d_cases, new_dec_vs_def, LibTheory.emp_def] >>
 rw [new_dec_vs_def] >>
 imp_res_tac type_p_closed >>
@@ -685,9 +685,9 @@ fs [GSYM LIST_TO_SET_MAP, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD])
 
 val type_ds_closed = store_thm("type_ds_closed",
   ``∀mn tmenv cenv tenv ds y z. type_ds mn tmenv cenv tenv ds y z ⇒
-      !mn'. (mn = SOME mn') ⇒
+     !mn'. mn = SOME mn' ⇒
       FV_decs ds ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv ∧
-      decs_cns mn' ds ⊆ set (MAP FST cenv)``,
+      decs_cns mn ds ⊆ cenv_dom cenv``,
 ho_match_mp_tac type_ds_ind >>
 rw [FV_decs_def,decs_cns_def] >>
 imp_res_tac type_d_closed >>
@@ -697,21 +697,24 @@ rw [SUBSET_DEF] >|
          by fs [SUBSET_DEF] >>
      fs [] >>
      rw [] >>
-     metis_tac [type_d_new_dec_vs],
- `x ∈ set (MAP FST (merge cenv' cenv))`
-         by fs [SUBSET_DEF] >>
+     fs[MEM_MAP] >>
+     metis_tac [type_d_new_dec_vs,MEM_MAP],
+ fs [cenv_dom_def] >>
+     `x ∈ NONE INSERT set (MAP (SOME o FST) (merge cenv' cenv))` by fs [SUBSET_DEF] >>
      fs [LibTheory.merge_def] >>
      imp_res_tac type_d_dec_cns >>
      pop_assum (ASSUME_TAC o GSYM) >>
      fs [] >>
-     rw []]);
+     rw [] >>
+     fs[AstTheory.mk_id_def, EXTENSION, MEM_MAP] >>
+     metis_tac [] ]);
 
 val type_top_closed = store_thm("type_top_closed",
   ``∀tmenv tcenv tenv top tm' tc' te'.
       type_top tmenv tcenv tenv top tm' tc' te'
       ⇒
       FV_top top ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv ∧
-      top_cns top ⊆ set (MAP FST tcenv)``,
+      top_cns top ⊆ cenv_dom tcenv``,
   ho_match_mp_tac type_top_ind >>
   strip_tac >- (
     simp[] >>
@@ -723,7 +726,6 @@ val type_top_closed = store_thm("type_top_closed",
   rpt gen_tac >> strip_tac >>
   imp_res_tac type_ds_closed >>
   fs[])
-  *)
 
 val type_env_dom = Q.prove (
 `!tenvM tenvC tenvS env tenv.
@@ -829,14 +831,13 @@ val consistent_con_env_dom = Q.prove (
 ho_match_mp_tac typeSysPropsTheory.consistent_con_env_ind >>
 rw [typeSysPropsTheory.consistent_con_env_def]);
 
-(*
 val type_sound_inv_closed = Q.prove (
 `∀top rs new_tenvM new_tenvC new_tenv new_st envC r.
   type_top rs.tenvM rs.tenvC rs.tenv top new_tenvM new_tenvC new_tenv ∧
   type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store)
   ⇒
   FV_top top ⊆ set (MAP (Short o FST) rs.envE) ∪ menv_dom rs.envM ∧
-  top_cns top ⊆ set (MAP FST rs.envC)`,
+  top_cns top ⊆ cenv_dom rs.envC`,
 rw [] >>
 imp_res_tac type_top_closed >>
 `(?err. r = Rerr err) ∨ (?menv env. r = Rval (menv,env))`
@@ -852,10 +853,9 @@ imp_res_tac consistent_mod_env_distinct >>
 imp_res_tac weakM_dom >>
 imp_res_tac weakC_dom >>
 imp_res_tac consistent_con_env_dom >>
-fs [SUBSET_DEF] >>
+fs [SUBSET_DEF, cenv_dom_def, MEM_MAP, EXTENSION] >>
 rw [] >>
 metis_tac []);
-*)
 
 val check_dup_ctors_names_lem1 = Q.prove (
 `!tds acc.
@@ -957,7 +957,50 @@ res_tac >>
 fs [SUBSET_DEF] >>
 fs [weak_other_mods_def, GSYM alistTheory.ALOOKUP_NONE]);
 
-(*
+val evaluate_decs_to_cenv = store_thm("evaluate_decs_to_cenv",
+  ``∀mn menv cenv s env decs res.
+     evaluate_decs mn menv cenv s env decs res ⇒
+     ∃cenv'. decs_to_cenv mn decs = cenv' ++ (FST(SND res))``,
+   HO_MATCH_MP_TAC evaluate_decs_ind >>
+   simp[LibTheory.emp_def] >> rw[] >>
+   imp_res_tac evaluate_dec_dec_to_cenv >>
+   fs[] >> simp[decs_to_cenv_def,LibTheory.merge_def])
+
+val evaluate_top_to_cenv = store_thm("evaluate_top_to_cenv",
+  ``∀menv cenv store env top res.
+    evaluate_top menv cenv store env top res ⇒
+    SND (SND res) ≠ Rerr Rtype_error ⇒
+    ∃cenv'. top_to_cenv top = cenv' ++ (FST(SND res))``,
+  HO_MATCH_MP_TAC evaluate_top_ind >> simp[] >>
+  strip_tac >- (
+    simp[top_to_cenv_def] >> rw[] >>
+    imp_res_tac evaluate_dec_dec_to_cenv >> fs[] ) >>
+  strip_tac >- (
+    simp[top_to_cenv_def] >> rw[] >>
+    imp_res_tac evaluate_dec_err_cenv_emp >> fs[LibTheory.emp_def] ) >>
+  strip_tac >- (
+    simp[top_to_cenv_def] >> rw[] >>
+    imp_res_tac evaluate_decs_to_cenv >> fs[] ) >>
+  rw[] >>
+  simp[top_to_cenv_def] >>
+  imp_res_tac evaluate_decs_to_cenv >>
+  fs[])
+
+val labels_tac =
+  qspecl_then[`st.rcompiler_state`,`top`]mp_tac compile_top_append_code >>
+  discharge_hyps >- (
+    `MAP FST st.rcompiler_state.renv = MAP FST rs.envE` by (
+      fs[env_rs_def,LET_THM,GSYM MAP_MAP_o] ) >>
+    simp[] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD,MEM_FLAT] >>
+    rw[] >> res_tac >> fs[MEM_MAP] >> metis_tac[] ) >>
+  imp_res_tac RTC_bc_next_preserves >>
+  qpat_assum`bs.code = X::Y`kall_tac >>
+  simp[between_labels_def,good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+  fs[good_labels_def] >> strip_tac >>
+  fsrw_tac[DNF_ss][EVERY_MEM,miscTheory.between_def,MEM_FILTER,MEM_MAP,is_Label_rwt,Abbr`new_repl_fun_state`,FILTER_REVERSE,ALL_DISTINCT_REVERSE] >>
+  rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC
+
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
   invariant repl_state repl_fun_state bc_state ⇒
@@ -1046,25 +1089,23 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
   rw [] >>
   qpat_assum`∀m. X ⇒ Y`kall_tac >>
   spose_not_then strip_assume_tac >> fs[] >>
-  imp_res_tac compile_top_thm >>
-  pop_assum(qspecl_then[`st.rcompiler_state`]mp_tac) >>
+  qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`store2,envC2,r`]mp_tac compile_top_thm >>
   simp[] >>
-  fs[invariant_def] >>
+  conj_tac >- (
+    conj_tac >- (
+      fs[closed_top_def] >>
+      reverse conj_tac >- metis_tac [type_sound_inv_closed] >>
+      fs[invariant_def] ) >>
+    metis_tac [type_sound_inv_dup_ctors] ) >>
+  qexists_tac`st.rcompiler_state` >> strip_tac >>
+  simp[] >>
   qmatch_assum_abbrev_tac`bc_eval bs0 = NONE` >>
-  gen_tac >>
+  fs[invariant_def] >>
   map_every qexists_tac[`rd`,`bs0 with clock := SOME ck`,`bs.code`] >>
+  simp[] >>
   conj_tac >- (
-    fs[closed_top_def] >>
-    metis_tac [type_sound_inv_closed]
-    ) >>
-  conj_tac >- cheat >> (* RK cheat: Syntactic check: No constructors named "" *)
-  conj_tac >- metis_tac [type_sound_inv_dup_ctors] >>
-  conj_tac >- (
-    fs[env_rs_def,LET_THM] >>
+    fs[env_rs_def,LET_THM] >> rfs[] >> fs[] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- metis_tac[] >>
     simp[Abbr`bs0`,install_code_def]>>
     rfs[] >>
     match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
@@ -1101,13 +1142,15 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
       simp[BytecodeTheory.bc_fetch_def,bytecodeTerminationTheory.bc_fetch_aux_def] ) >>
     `∃bs2. bc_next (bs1 with clock := NONE) bs2 ∧ bc_fetch bs2 = SOME Stop` by (
       simp[bc_eval1_thm] >>
-      `(∃n. bv = Number n) ∨ (bv = Block (4 + bind_exc_cn) []) ∨ (bv = Block (4 + div_exc_cn) [])` by (
+      `(∃n. bv = Number n) ∨ (bv = Block (4 + bind_exc_cn) []) ∨ (bv = Block (4 + div_exc_cn) []) ∨ (bv = Block (4 + eq_exc_cn) [])` by (
         qmatch_assum_rename_tac`err_bv xx bv`[] >>
         Cases_on`xx`>>fs[compilerProofsTheory.err_bv_def] ) >>
       simp[Once bc_eval1_def,bc_fetch_with_clock,BytecodeTheory.bump_pc_def] >>
-      simp[IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def] >>
+      simp[IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def, IntLangTheory.eq_exc_cn_def] >>
       qpat_assum`X = bs0.code`(assume_tac o SYM) >> fs[] >>
-      simp[BytecodeTheory.bc_fetch_def,bytecodeTerminationTheory.bc_fetch_aux_def] ) >>
+      fs[BytecodeTheory.bc_fetch_def,bytecodeTerminationTheory.bc_fetch_aux_def] >>
+      (* SO: There doesn't seem to be code for printing an Eq_error result *)
+      cheat) >>
     `bc_next^* bs0 bs2` by metis_tac[RTC_CASES2] >>
     `∃bs3. bc_next bs2 bs3` by metis_tac[] >>
     pop_assum mp_tac >>
@@ -1120,7 +1163,8 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
     simp[BytecodeTheory.bc_fetch_def] >>
     match_mp_tac bc_fetch_aux_end_NONE >>
     fs[Abbr`bs0`,install_code_def] ) >>
-  simp[bc_eval1_thm,bc_eval1_def]
+  simp[bc_eval1_thm,bc_eval1_def] >>
+  simp[FILTER_APPEND,SUM_APPEND,FILTER_REVERSE,SUM_REVERSE,MAP_REVERSE]
   end ) >>
 
 `¬top_diverges rs.envM rs.envC rs.store rs.envE top` by (
@@ -1139,13 +1183,10 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
     fs[closed_top_def] >>
     metis_tac [type_sound_inv_closed]
     ) >>
+  conj_tac >- metis_tac [type_sound_inv_dup_ctors] >>
   conj_tac >- (
-    fs[Abbr`bs0`,install_code_def,env_rs_def,LET_THM] >>
+    fs[Abbr`bs0`,install_code_def,env_rs_def,LET_THM] >> rfs[] >> fs[] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- metis_tac[] >>
-    rfs[] >>
     match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
     map_every qexists_tac[`rd`,`(c,Cs)`,`bs with <|pc := next_addr bs.inst_length bs.code; output := ""; cons_names := cpam css|>`,`bs.refs`,`SOME (ck+1)`] >>
     simp[BytecodeTheory.bc_state_component_equality] >>
@@ -1189,30 +1230,26 @@ simp[] >>
 
   qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`(store2,envC2,r)`]mp_tac compile_top_thm >>
   simp[] >>
+  discharge_hyps >- (
+    conj_tac >- (
+      fs[closed_top_def] >>
+      reverse conj_tac >- metis_tac [type_sound_inv_closed] >>
+      fs[invariant_def] ) >>
+    metis_tac [type_sound_inv_dup_ctors]) >>
   disch_then(qspec_then`st.rcompiler_state`mp_tac) >>
   disch_then(Q.X_CHOOSE_THEN`ck`mp_tac) >>
   simp[] >>
   `∃rd c.
-    env_rs rs.envM rs.envC rs.envE st.rcompiler_state rd (c,rs.store) bs` by (
+    env_rs rs.envM rs.envC rs.envE st.rcompiler_state (LENGTH bs.stack) rd (c,rs.store) bs` by (
     fs[invariant_def,LET_THM] >> metis_tac[] ) >>
   qmatch_assum_abbrev_tac`bc_eval bs0 = SOME bs1` >>
   disch_then(qspecl_then[`rd`,`bs0 with clock := SOME ck`]mp_tac) >>
-  `bs0.code = bs.code ++ code` by fs[install_code_def,Abbr`bs0`] >>
+  `bs0.code = bs.code ++ REVERSE code` by fs[install_code_def,Abbr`bs0`] >>
   simp[] >>
   discharge_hyps >- (
     fs[invariant_def,LET_THM,Abbr`bs0`,install_code_def] >>
-    conj_tac >- (
-      fs[closed_top_def] >>
-      metis_tac [type_sound_inv_closed]
-    ) >>
-    conj_tac >- cheat >> (* RK cheat: Syntactic check: No constructors named "" *)
-    conj_tac >- metis_tac [type_sound_inv_dup_ctors] >>
-    fs[env_rs_def,LET_THM] >>
+    fs[env_rs_def,LET_THM] >> rfs[] >> fs[] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- metis_tac[] >>
-    rfs[] >>
     match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
     map_every qexists_tac[`rd`,`(c,Cs')`,`bs with <|pc := next_addr bs.inst_length bs.code; output := ""; cons_names := cpam css|>`,`bs.refs`,`SOME ck`] >>
     simp[BytecodeTheory.bc_state_component_equality] >>
@@ -1231,7 +1268,8 @@ simp[] >>
       simp[BytecodeTheory.bc_fetch_def] >>
       match_mp_tac bc_fetch_aux_end_NONE >>
       imp_res_tac RTC_bc_next_preserves >>
-      fs[Abbr`bs0`,install_code_def] ) >>
+      fs[Abbr`bs0`,install_code_def] >>
+      simp[FILTER_APPEND,SUM_APPEND,FILTER_REVERSE,SUM_REVERSE,MAP_REVERSE]) >>
     `∀s3. ¬bc_next (bs2 with clock := NONE) s3` by (
       simp[bc_eval1_thm,bc_eval1_def,bc_fetch_with_clock] ) >>
     `bs0 with clock := NONE = bs0` by (
@@ -1265,7 +1303,7 @@ simp[] >>
     conj_tac >- (
       fs[update_type_sound_inv_def,Abbr`new_repl_state`,update_repl_state_def] ) >>
     `FV_top top ⊆ set (MAP (Short o FST) rs.envE) ∪ menv_dom rs.envM ∧
-     top_cns top ⊆ set (MAP FST rs.envC)`
+     top_cns top ⊆ cenv_dom rs.envC`
              by (fs[closed_top_def] >> metis_tac [type_sound_inv_closed]) >>
     conj_tac >- (
       qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`store2`,`envC2`,`Rval (a0,a1)`]mp_tac evaluate_top_closed_context >>
@@ -1279,41 +1317,27 @@ simp[] >>
       simp[Abbr`new_repl_fun_state`] >>
       qexists_tac`rd2` >>
       qexists_tac`ARB` >>
-      fs[env_rs_def,LET_THM] >>
+      fs[env_rs_def,LET_THM] >> rfs[] >> fs[] >>
       rpt HINT_EXISTS_TAC >>
       simp[] >>
-      conj_tac >- metis_tac[] >>
-      conj_tac >- metis_tac[] >>
-      conj_tac >- metis_tac[] >>
       match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
       map_every qexists_tac[`rd2`,`(0,Cs'')`,`bs2`,`bs2.refs`,`NONE`] >>
       simp[BytecodeTheory.bc_state_component_equality] >>
       rfs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
-    conj_tac >- (
-      qspecl_then[`menv_dom rs.envM`,`st.rcompiler_state`,`top`]mp_tac compile_top_append_code >>
-      discharge_hyps >- (
-        `MAP (Short o FST) st.rcompiler_state.renv = MAP (Short o FST) rs.envE` by (
-          fs[env_rs_def,LET_THM,GSYM MAP_MAP_o] ) >>
-        simp[] >>
-        simp[MEM_FLAT,MEM_MAP,EXISTS_PROD] >> rw[] >>
-        fs[MEM_MAP] ) >>
-      imp_res_tac RTC_bc_next_preserves >>
-      qpat_assum`bs.code = X::Y`kall_tac >>
-      simp[between_labels_def,good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
-      fs[good_labels_def] >> strip_tac >>
-      fsrw_tac[DNF_ss][EVERY_MEM,miscTheory.between_def,MEM_FILTER,MEM_MAP,is_Label_rwt,Abbr`new_repl_fun_state`] >>
-      rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC) >>
+    (* SO: don't know why labels_tac doesn't work *)
+    conj_tac >- cheat (*( labels_tac  ) *) >>
     simp[Abbr`new_bc_state`] >>
     imp_res_tac RTC_bc_next_preserves >>
     fs[]) >>
 
+  (* exception *)
   reverse(Cases_on`e`>>fs[])>-(
     metis_tac[bigClockTheory.top_evaluate_not_timeout] ) >>
 
   disch_then(qx_choosel_then[`bv`,`bs2`,`rd2`]strip_assume_tac) >>
   qmatch_assum_rename_tac`err_bv err bv`[] >>
   qmatch_abbrev_tac`X = PR ∧ Y` >>
-  `∃bs3. bc_next bs2 bs3 ∧ REVERSE bs3.output = PR ∧ bc_fetch bs3 = SOME Stop` by (
+  `∃bs3. bc_next bs2 bs3 ∧ REVERSE bs3.output = PR ∧ bc_fetch bs3 = SOME Stop ∧ bs3.stack = bs0.stack ∧ bs3.refs = bs2.refs` by (
     `∃ls2. bs2.code = PrintE::Stop::ls2` by (
       imp_res_tac RTC_bc_next_preserves >>
       fs[Abbr`bs0`,install_code_def] >>
@@ -1324,9 +1348,11 @@ simp[] >>
     `bs0.output = ""` by fs[Abbr`bs0`,install_code_def] >>
     simp[bc_eval1_thm,bc_eval1_def,BytecodeTheory.bump_pc_def] >>
     Cases_on`err`>>fs[compilerProofsTheory.err_bv_def,print_error_def] >>
-    simp[IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def] >>
+    simp[IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def,IntLangTheory.eq_exc_cn_def] >>
     simp[BytecodeTheory.bc_fetch_def,bytecodeTerminationTheory.bc_fetch_aux_def] >>
-    simp[IMPLODE_EXPLODE_I] ) >>
+    simp[IMPLODE_EXPLODE_I] >>
+    (* SO: printing for Eq_error again *)
+    cheat ) >>
   `∀s3. ¬bc_next (bs3 with clock := NONE) s3` by (
     simp[bc_eval1_thm,bc_eval1_def,bc_fetch_with_clock] ) >>
   qspecl_then[`bs0 with clock := SOME ck`,`bs3`]mp_tac RTC_bc_next_can_be_unclocked >>
@@ -1349,8 +1375,8 @@ simp[] >>
   first_x_assum(qspecl_then[`new_repl_state`,`new_bc_state`,`new_repl_fun_state`]mp_tac) >>
   simp[lexer_correct] >>
   disch_then match_mp_tac >>
-  (* invariant preservation *)
 
+  (* invariant preservation *)
   pop_assum mp_tac >>
   simp[strip_mod_env_append,strip_mod_env_length,BUTLASTN_APPEND1,BUTLASTN] >>
   strip_tac >>
@@ -1368,17 +1394,15 @@ simp[] >>
   conj_tac >- (
     fs[update_type_sound_inv_def,Abbr`new_repl_state`,update_repl_state_def] ) >>
   `FV_top top ⊆ set (MAP (Short o FST) rs.envE) ∪ menv_dom rs.envM ∧
-   top_cns top ⊆ set (MAP FST rs.envC)`
+   top_cns top ⊆ cenv_dom rs.envC`
               by (fs[closed_top_def] >> metis_tac [type_sound_inv_closed]) >>
   qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`store2`,`envC2`,`Rerr (Rraise err)`]mp_tac evaluate_top_closed_context >>
   simp[] >> strip_tac >>
   conj_tac >- (
     simp[Abbr`new_repl_state`,update_repl_state_def] >>
     match_mp_tac closed_context_strip_mod_env >>
-    simp[] >>
-    cheat (* SO: It looks like evaluate_top_closed_context is designed for the
-    old some-of-the constructors way, rather than the new all of the
-    constructors way *)) >>
+    imp_res_tac evaluate_top_to_cenv >> fs[] >>
+    metis_tac[closed_context_extend_cenv,APPEND_ASSOC]) >>
   conj_tac >- (
     imp_res_tac RTC_bc_next_preserves >>
     fs[Abbr`bs0`,install_code_def] ) >>
@@ -1387,8 +1411,16 @@ simp[] >>
     simp[Abbr`new_repl_fun_state`] >>
     qexists_tac`rd2` >>
     qexists_tac`ARB` >>
+    match_mp_tac env_rs_with_bs_irr >>
+    qexists_tac`bs2 with <|stack := bs0.stack; clock := NONE|>` >>
+    simp[] >>
+    imp_res_tac bc_next_preserves_code >>
+    imp_res_tac bc_next_preserves_inst_length >>
+    simp[] >>
 
-    (* implementation may be broken here? or need to prove that the env_rs we have implies the one with extra module/constructor env stuff *)
+    (* need to show that adding the extra module name with an empty environment is harmless *)
+    (* this might be impossible since the compiler doesn't do that, and the invariant is quite strong *)
+    (* so probably need to make the compiler add the empty module too, and then try to prove this... *)
     cheat
     (*
     fs[env_rs_def,LET_THM] >>
@@ -1403,42 +1435,27 @@ simp[] >>
     rfs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def]
     *)
     ) >>
-  conj_tac >- (
-    qspecl_then[`menv_dom rs.envM`,`st.rcompiler_state`,`top`]mp_tac compile_top_append_code >>
-    discharge_hyps >- (
-      `MAP (Short o FST) st.rcompiler_state.renv = MAP (Short o FST) rs.envE` by (
-        fs[env_rs_def,LET_THM,GSYM MAP_MAP_o] ) >>
-      simp[] >>
-      simp[MEM_FLAT,MEM_MAP,EXISTS_PROD] >> rw[] >>
-      fs[MEM_MAP] ) >>
-    imp_res_tac RTC_bc_next_preserves >>
-    qpat_assum`bs.code = X::Y`kall_tac >>
-    simp[between_labels_def,good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
-    fs[good_labels_def] >> strip_tac >>
-    fsrw_tac[DNF_ss][EVERY_MEM,miscTheory.between_def,MEM_FILTER,MEM_MAP,is_Label_rwt,Abbr`new_repl_fun_state`] >>
-    rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC) >>
+  conj_tac >- labels_tac >>
   simp[Abbr`new_bc_state`] >>
   imp_res_tac RTC_bc_next_preserves >>
   fs[]);
-  *)
 
   (*
 val good_compile_primitives = prove(
   ``good_contab (FST compile_primitives).contab ∧
     good_cmap [] (cmap (FST compile_primitives).contab) ∧
-    {Short ""} = FDOM (cmap (FST compile_primitives).contab) ∧
-    (∀id. FLOOKUP (cmap (FST compile_primitives).contab) id = SOME (cmap (FST compile_primitives).contab ' (Short "")) ⇒ id = Short "")
+    {} = FDOM (cmap (FST compile_primitives).contab)
     ``,
   rw[compile_primitives_def, initial_program_def] >>
   rw[CompilerTheory.compile_top_def,CompilerTheory.compile_dec_def] >>
+  (* need to update for new compiler interface *)
   imp_res_tac compile_fake_exp_contab >>
   rw[good_contab_def,intLangExtraTheory.good_cmap_def] >>
   rw[CompilerTheory.init_compiler_state_def,good_contab_def] >>
-  rw[IntLangTheory.tuple_cn_def,IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def] >>
+  rw[IntLangTheory.tuple_cn_def,IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def, IntLangTheory.eq_exc_cn_def] >>
   rw[toIntLangProofsTheory.cmap_linv_def,FAPPLY_FUPDATE_THM] >>
   fs[CompilerTheory.compile_top_def,CompilerTheory.compile_dec_def,LET_THM,UNCURRY,FST_compile_fake_exp_contab] >>
   fs[CompilerTheory.init_compiler_state_def,FLOOKUP_UPDATE])
-  *)
 
 val compile_primitives_menv = store_thm("compile_primitives_menv",
   ``(FST compile_primitives).rmenv = FEMPTY``,
@@ -1457,8 +1474,8 @@ val compile_primitives_renv = store_thm("compile_primitives_renv",
   `x ∈ count 13` by rw[] >>
   pop_assum mp_tac >> EVAL_TAC >>
   rw[] >> simp[])
+  *)
 
-  (*
 val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   ``(initial_bc_state.inst_length = K 0) ∧
     good_labels (FST compile_primitives).rnext_label initial_bc_state.code ∧
@@ -1474,7 +1491,7 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   imp_res_tac bytecodeExtraTheory.RTC_bc_next_clock_less >>
   `bs1.clock = NONE` by rfs[optionTheory.OPTREL_def,Abbr`bs`,install_code_def] >>
   simp[Abbr`bs`,install_code_def] >>
-  qspecl_then[`{}`,`init_compiler_state`]mp_tac compile_top_append_code >>
+  qspecl_then[`init_compiler_state`]mp_tac compile_top_append_code >>
   disch_then(mp_tac o SPEC(rand(rhs(concl(compile_primitives_def))))) >>
   discharge_hyps >- (
     simp[] >>
@@ -1484,9 +1501,9 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   simp[GSYM compile_primitives_def, initial_program_def] >>
   simp[good_labels_def,between_labels_def] >>
   strip_tac >>
-  fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP])
-  *)
+  fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP,FILTER_REVERSE,ALL_DISTINCT_REVERSE])
 
+  
 (* Annoying to do this by hand.  With the clocked evaluate, it shouldn't be 
  * too hard to set up a clocked interpreter function for the semantics and 
  * do this automatically *)
@@ -1496,7 +1513,6 @@ rw [init_env_def, initial_program_def, evaluate_dec_cases, LibTheory.emp_def, pm
 NTAC 15 (rw [Once evaluate_cases]) >>
 rw [do_con_check_def, AstTheory.pat_bindings_def, pmatch_def, LibTheory.bind_def]);
 
-(*
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
   rw[invariant_def,initial_repl_fun_state_def,initial_elaborator_state_def,init_repl_state_def,LET_THM] >>
@@ -1514,11 +1530,8 @@ val initial_invariant = prove(
   >- ( simp[good_il_def] ) >>
 
   (* env_rs stuff *)
-  simp[env_rs_def,good_compile_primitives,compile_primitives_menv,compile_primitives_renv] >>
-
-  simp[MAP_GENLIST,combinTheory.o_DEF] >>
-  Q.PAT_ABBREV_TAC`Cenv = env_to_Cenv FEMPTY X Y` >>
-
+  (* want to get this from evaluating the initial program from empty and using
+  the normal invariant preservation theorem *)
   cheat)
 
 val replCorrect = Q.store_thm ("replCorrect",
@@ -1528,5 +1541,5 @@ val replCorrect = Q.store_thm ("replCorrect",
 rw [repl_fun_def, repl_def] >>
 match_mp_tac replCorrect_lem >>
 rw[initial_invariant])
-*)
+
 val _ = export_theory ();

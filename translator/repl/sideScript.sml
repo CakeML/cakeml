@@ -152,7 +152,7 @@ ho_match_mp_tac check_specs_ind >>
 rw [] >>
 rw [Once check_specs_side_def, rich_listTheory.LENGTH_COUNT_LIST]);
 
-val check_weakE_side_thm = Q.store_thm ("check_weakE_side_thm",
+val check_weake_side_thm = Q.store_thm ("check_weake_side_thm",
 `!env specs st. check_weake_side env specs st`,
 induct_on `specs` >>
 rw [] >>
@@ -163,7 +163,7 @@ fs [init_infer_state_def, unifyTheory.t_wfs_def]);
 
 val check_signature_side_thm = Q.store_thm ("check_signature_side_thm",
 `!mn cenv env specs st. check_signature_side mn cenv env specs st`,
-rw [check_signature_side_def, check_specs_side_thm, check_weakE_side_thm]);
+rw [check_signature_side_def, check_specs_side_thm ,check_weake_side_thm]);
 
 val infer_top_side_thm = Q.store_thm ("infer_top_side_thm",
 `!menv cenv env top st. infer_top_side menv cenv env top st`,

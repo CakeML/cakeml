@@ -136,7 +136,7 @@ val term_to_ov = v_to_ov [] o term_to_v
 
 fun add_code c bs = bc_state_pc_fupd (K (numML.fromInt (List.length (bc_state_code bs))))
   (bc_state_code_fupd
-    (compile_labels (bc_state_inst_length bs) o (C append c))
+    (compile_labels (bc_state_inst_length bs) o (C append (List.rev c)))
     bs)
 
 fun mk_Tmod mn ds = Tmod(mn,NONE,dest_list term_to_dec ds)

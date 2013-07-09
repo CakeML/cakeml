@@ -1,7 +1,7 @@
 open preamble repl_computeLib ml_repl_stepTheory
 val _ = new_theory"compile_repl_step"
 
-val stop_APPEND_def = Define`
+val stop_APPEND_def = zDefine`
   stop_APPEND (l1:bc_inst list) l2 = l1 ++ l2`
 
 val _ = computeLib.stoppers := let
@@ -11,18 +11,28 @@ val _ = computeLib.stoppers := let
 val _ = computeLib.add_funs[ml_repl_step_decls]
 
 val compile_dec1_def = Define`
-  compile_dec1 (rs,code) d =
-    let (ct,env,nl,code') = compile_dec (SOME "CakeML") rs d in
-      (rs with <| contab := ct; renv := env ++ rs.renv; rsz := rs.rsz + LENGTH env; rnext_label := nl |>
-      ,stop_APPEND code' code)`
+  compile_dec1 mn menv (ct,m,env,rsz,cs) dec =
+    let (vso,cs) = compile_dec menv m env rsz cs dec in
+    let ct = dec_to_contab mn ct dec in
+    let vs = case vso of NONE => [] | SOME vs => vs in
+    let n = LENGTH vs in
+    let m = m with <|cnmap := cmap ct; bvars := vs ++ m.bvars|> in
+    let env = GENLIST (λi. CTDec (rsz+n-1-i)) n ++ env in
+    let rsz = rsz + n in
+    let cs = compile_news cs 0 vs in
+    (ct,m,env,rsz,cs)`
 
 val compile_decs_FOLDL = store_thm(
   "compile_decs_FOLDL",
-  ``∀acc.
-      compile_decs "CakeML" ds acc =
-      FOLDL compile_dec1 acc ds``,
-  Induct_on `ds` >> Cases_on`acc`>>
-  rw[compile_decs_def, compile_dec1_def, stop_APPEND_def]);
+  ``∀mn menv ct m env rsz cs decs.
+      compile_decs mn menv ct m env rsz cs decs =
+      let (ct,m,env,rsz,cs) = FOLDL (compile_dec1 mn menv) (ct,m,env,rsz,cs) decs in
+      (ct,m,rsz,cs)``,
+  Induct_on `decs` >- rw[compile_decs_def] >>
+  fs[LET_THM] >>
+  simp[compile_dec1_def] >>
+  simp[compile_decs_def] >>
+  simp[UNCURRY]);
 
 fun rbinop_size acc t =
     if is_const t orelse is_var t then acc else rbinop_size (acc + 1) (rand t)
@@ -192,8 +202,11 @@ end
 
 val _ = Globals.max_print_depth := 15
 
+val ct = ``init_compiler_state.contab``
+val m = ``<|bvars:=[];mvars:=FEMPTY;cnmap:=cmap(^ct)|>``
+val cs = ``<|out:=[];next_label:=0|>``
 fun mk_initial_split n =
-  ``FOLDL compile_dec1 (init_compiler_state,[]) ml_repl_step_decls``
+  ``FOLDL (compile_dec1 NONE FEMPTY) (^ct,^m,[],0,^cs) ml_repl_step_decls``
      |> (RAND_CONV (EVAL THENC chunkify_CONV n) THENC
          RATOR_CONV (RAND_CONV EVAL))
 
@@ -223,8 +236,9 @@ val x280 = doit 1 x260;
 val x300 = doit 1 x280;
 val x320 = doit 1 x300;
 val x340 = doit 1 x320;  (* manages this far on telemachus *)
-val x356 = doit 1 x340;
-val (_,_,th) = x356;
+val x360 = doit 1 x340;
+val x367 = doit 1 x360;
+val (_,_,th) = x367;
 
 val compiled = save_thm("compiled", th);
 

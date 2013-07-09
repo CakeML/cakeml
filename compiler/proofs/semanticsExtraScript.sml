@@ -373,6 +373,67 @@ ntac 4 gen_tac >> Cases
   fs[store_assign_def] >> rw[] >>
   PROVE_TAC[MEM_LUPDATE,closed_lit,closed_conv,EVERY_MEM,closed_loc]));
 
+val pmatch_dom = store_thm("pmatch_dom",
+  ``(∀(cenv:envC) s p v env env' (menv:envM).
+      (pmatch cenv s p v env = Match env') ⇒
+      (MAP FST env' = pat_bindings p [] ++ (MAP FST env))) ∧
+    (∀(cenv:envC) s ps vs env env' (menv:envM).
+      (pmatch_list cenv s ps vs env = Match env') ⇒
+      (MAP FST env' = pats_bindings ps [] ++ MAP FST env))``,
+  ho_match_mp_tac pmatch_ind >>
+  strip_tac >- (
+    rw[pmatch_def,bind_def,pat_bindings_def] >>
+    rw[] >> rw[EXTENSION] ) >>
+  strip_tac >- (
+    rw[pmatch_def,pat_bindings_def] >> rw[] ) >>
+  strip_tac >- (
+    rpt gen_tac >> fs[] >>
+    Cases_on `ALOOKUP cenv n` >> fs[] >- (
+      rw[pmatch_def] ) >>
+    qmatch_assum_rename_tac `ALOOKUP cenv n = SOME p`[] >>
+    PairCases_on `p` >> fs[] >>
+    Cases_on `ALOOKUP cenv n'` >> fs[] >- (
+      rw[pmatch_def] ) >>
+    qmatch_assum_rename_tac `ALOOKUP cenv n' = SOME p`[] >>
+    PairCases_on `p` >> fs[] >>
+    rw[pmatch_def,pat_bindings_def] >>
+    srw_tac[ETA_ss][] >> fsrw_tac[SATISFY_ss][] ) >>
+  strip_tac >- (
+    rw[pmatch_def,pat_bindings_def] >>
+    Cases_on `store_lookup lnum s`>>
+    fsrw_tac[DNF_ss][store_lookup_def,EVERY_MEM,MEM_EL] >>
+    metis_tac[]) >>
+  strip_tac >- (
+    rw[pmatch_def,pat_bindings_def] >>
+    Cases_on `store_lookup lnum s`>>
+    fsrw_tac[DNF_ss][store_lookup_def,EVERY_MEM,MEM_EL] >>
+    metis_tac[]) >>
+  strip_tac >- rw[pmatch_def] >>
+  strip_tac >- rw[pmatch_def] >>
+  strip_tac >- rw[pmatch_def] >>
+  strip_tac >- rw[pmatch_def] >>
+  strip_tac >- rw[pmatch_def] >>
+  strip_tac >- rw[pmatch_def] >>
+  strip_tac >- ( rw[pmatch_def] >> rw[] ) >>
+  strip_tac >- rw[pmatch_def] >>
+  strip_tac >- rw[pmatch_def] >>
+  strip_tac >- rw[pmatch_def] >>
+  strip_tac >- rw[pmatch_def] >>
+  strip_tac >- rw[pmatch_def] >>
+  strip_tac >- (rw[pmatch_def,pat_bindings_def] >> rw[]) >>
+  strip_tac >- (rw[pmatch_def,pat_bindings_def] >> rw[]) >>
+  strip_tac >- (rw[pmatch_def,pat_bindings_def] >> rw[]) >>
+  strip_tac >- (
+    rpt gen_tac >>
+    strip_tac >>
+    simp_tac(srw_ss())[pmatch_def,pat_bindings_def] >>
+    Cases_on `pmatch cenv s p v env` >> fs[] >>
+    qmatch_assum_rename_tac `pmatch cenv s p v env = Match env0`[] >>
+    Cases_on `pmatch_list cenv s ps vs env0` >> fs[] >>
+    simp[Once pat_bindings_acc,SimpRHS] >>
+    metis_tac[APPEND_ASSOC]) >>
+  rw[pmatch_def])
+
 val pmatch_closed = store_thm("pmatch_closed",
   ``(∀(cenv:envC) s p v env env' (menv:envM).
       EVERY (closed menv) (MAP SND env) ∧ closed menv v ∧

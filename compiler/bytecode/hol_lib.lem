@@ -11,6 +11,7 @@ val QSORT : forall 'a. ('a -> 'a -> bool) -> list 'a -> list 'a
 val SUM : list num -> num
 val o : forall 'a 'b 'c. ('b -> 'c) -> ('a -> 'b) -> ('a -> 'c)
 val GENLIST : forall 'a. (num -> 'a) -> num -> list 'a
+val TAKE : forall 'a. num -> list 'a -> list 'a
 val Num : int -> num
 val FLAT : list string -> string
 val BUTLASTN : forall 'a. num -> list 'a -> list 'a
