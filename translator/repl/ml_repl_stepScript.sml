@@ -454,6 +454,6 @@ val _ = translate (infer_def ``infer_top``)
 (* tip of translation *)
 
 val _ = translate repl_funTheory.parse_elaborate_infertype_compile_def
-
+val _ = translate repl_fun_altTheory.repl_step_def
 
 val _ = export_theory();
