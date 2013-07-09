@@ -29,7 +29,7 @@ val infer_test_main_loop_def = tDefine "main_loop" `
       SOME (tokens, rest_of_input) =>
         case parse_elaborate_infertype tokens s of
           (* case: cannot turn into code, print error message, continue *)
-          Failure error_msg => Result error_msg (main_loop (bs,s) rest_of_input)
+          Failure error_msg => Result error_msg Terminate
         | (* case: new code generated, install, run, print and continue *)
           Success (s) =>
             (infer_test_main_loop (bs,s) rest_of_input) ` tac ;

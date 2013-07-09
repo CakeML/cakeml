@@ -17,3 +17,17 @@ fun sum x =
 
 val l2 = sum (Cons(1,Nil));
 
+datatype 'a option = NONE | SOME of 'a;
+datatype ('a,'b) pair = Pair of 'a * 'b;
+
+fun assoc k l = 
+  case l of
+      Nil => NONE
+    | Cons (Pair(a,b),c) =>
+        if k = l then
+          SOME b
+        else
+          assoc k c;
+        
+
+

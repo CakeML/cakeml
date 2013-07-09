@@ -14,19 +14,19 @@ fun do_test filename =
       SOME res
   end;
 
+computeLib.monitoring := SOME (same_const ``check_specs``)
 
 fun do_all_tests files =
 let val x = ref 0 in
 List.app (fn d => (x := (!x) + 1;
                    (case do_test d of 
-                        SOME tm => print (": error " ^ term_to_string tm ^ " ")
-                      | NONE => ());
-                    print ((Int.toString (!x)) ^ "\n")))
+                        SOME tm => print (Int.toString (!x) ^ ": error " ^ term_to_string tm ^ "\n")
+                      | NONE => print (Int.toString (!x) ^ ": ok\n"))))
         files
-end
+end;
 
-do_all_tests 
-["test3.ml"]
+do_all_tests ["test3.ml"]
+
 
 ["test1.ml", 
  "test2.ml", 
