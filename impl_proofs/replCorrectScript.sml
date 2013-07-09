@@ -1326,7 +1326,7 @@ simp[] >>
       simp[BytecodeTheory.bc_state_component_equality] >>
       rfs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
     (* SO: don't know why labels_tac doesn't work *)
-    conj_tac >- cheat (*( labels_tac  ) *) >>
+    conj_tac >- ( labels_tac  ) >>
     simp[Abbr`new_bc_state`] >>
     imp_res_tac RTC_bc_next_preserves >>
     fs[]) >>
@@ -1419,7 +1419,8 @@ simp[] >>
     imp_res_tac bc_next_preserves_inst_length >>
     simp[] >>
 
-    (* need to show that adding the extra module name with an empty environment is harmless *)
+    (* need to show that adding the extra module name with an empty environment
+    * is harmless *)>
     (* this might be impossible since the compiler doesn't do that, and the invariant is quite strong *)
     (* so probably need to make the compiler add the empty module too, and then try to prove this... *)
     cheat
