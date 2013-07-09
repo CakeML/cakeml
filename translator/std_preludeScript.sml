@@ -317,6 +317,41 @@ val Eval_o_f = prove(
   |> MATCH_MP (MATCH_MP Eval_WEAKEN AMAP_eval)
   |> store_eval_thm;
 
+val ALOOKUP_APPEND = prove(
+  ``!l1 l2 x.
+      ALOOKUP (l1 ++ l2) x =
+      case ALOOKUP l1 x of NONE => ALOOKUP l2 x
+                         | SOME y => SOME y``,
+  Induct THEN FULL_SIMP_TAC std_ss [APPEND,ALOOKUP_def,FORALL_PROD]
+  THEN SRW_TAC [] []);
+
+val APPEND_eval = ``x ++ (y:('a # 'b) list)``
+  |> repeat rator |> hol2deep
+  |> DISCH_ALL |> Q.INST [`shaddow_env`|->`env`]
+  |> REWRITE_RULE [] |> UNDISCH_ALL
+
+val Eval_FUNION = prove(
+  ``!v. (LIST_TYPE (PAIR_TYPE a b) --> LIST_TYPE (PAIR_TYPE a b) -->
+         LIST_TYPE (PAIR_TYPE a b)) APPEND v ==>
+        (FMAP_TYPE a b --> FMAP_TYPE a b --> FMAP_TYPE a b) $FUNION v``,
+  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,FMAP_TYPE_def,
+    PULL_EXISTS,FMAP_EQ_ALIST_def]
+  THEN REPEAT STRIP_TAC
+  THEN RES_TAC THEN Q.EXISTS_TAC `u` THEN FULL_SIMP_TAC std_ss []
+  THEN Q.MATCH_ASSUM_RENAME_TAC `LIST_TYPE (PAIR_TYPE a b) l1 v1` []
+  THEN REPEAT STRIP_TAC
+  THEN Q.MATCH_ASSUM_RENAME_TAC `LIST_TYPE (PAIR_TYPE a b) l2 v2` []
+  THEN Q.PAT_ASSUM `!x v. bbb` (MP_TAC o Q.SPECL [`l2`,`v2`])
+  THEN FULL_SIMP_TAC std_ss [] THEN STRIP_TAC
+  THEN Q.LIST_EXISTS_TAC [`u'`,`l1 ++ l2`]
+  THEN FULL_SIMP_TAC std_ss []
+  THEN FULL_SIMP_TAC std_ss [ALOOKUP_APPEND,FUN_EQ_THM]
+  THEN FULL_SIMP_TAC std_ss [FLOOKUP_DEF,FUNION_DEF,IN_UNION]
+  THEN REPEAT STRIP_TAC THEN SRW_TAC [] [] THEN FULL_SIMP_TAC std_ss [])
+  |> MATCH_MP (MATCH_MP Eval_WEAKEN APPEND_eval)
+  |> store_eval_thm;
+
+
 (* while, owhile and least *)
 
 val IS_SOME_OWHILE_THM = prove(
