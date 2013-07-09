@@ -19,7 +19,7 @@ val _ = Hol_datatype `
  v =
     Litv of lit
   (* Constructor application. *)
-  | Conv of conN id => v list 
+  | Conv of ( conN id) option => v list 
   (* Function closures
      The environment is used for the free variables in the function *)
   | Closure of (varN, v) env => varN => exp
@@ -101,12 +101,16 @@ val _ = Define `
 
 (* Other primitives *)
 (* Check that a constructor is properly applied *)
-(*val do_con_check : envC -> id conN -> num -> bool*)
+(*val do_con_check : envC -> option (id conN) -> num -> bool*)
 val _ = Define `
- (do_con_check cenv n l =  
-((case lookup n cenv of
-      NONE => F
-    | SOME (l',ns) => l = l'
+ (do_con_check cenv n_opt l =  
+((case n_opt of
+      NONE => T
+    | SOME n =>
+        (case lookup n cenv of
+            NONE => F
+          | SOME (l',ns) => l = l'
+        )
   )))`;
 
 
@@ -149,7 +153,7 @@ val _ = Hol_datatype `
   else
     Match_type_error))
 /\
-(pmatch envC s (Pcon n ps) (Conv n' vs) env =  
+(pmatch envC s (Pcon (SOME n) ps) (Conv (SOME n') vs) env =  
 ((case (lookup n envC, lookup n' envC) of
       (SOME (l, t), SOME (l', t')) =>
         if (t = t') /\ ( LENGTH ps = l) /\ ( LENGTH vs = l') then
@@ -161,6 +165,12 @@ val _ = Hol_datatype `
           Match_type_error
     | (_, _) => Match_type_error
   )))
+/\
+(pmatch envC s (Pcon NONE ps) (Conv NONE vs) env =  
+(if LENGTH ps = LENGTH vs then
+    pmatch_list envC s ps vs env
+  else
+    Match_type_error))
 /\
 (pmatch envC s (Pref p) (Loc lnum) env =  
 ((case store_lookup lnum s of
@@ -242,6 +252,54 @@ val _ = Define `
   )))`;
 
 
+val _ = Hol_datatype `
+ eq_result = 
+    Eq_val of bool
+  | Eq_closure
+  | Eq_type_error`;
+
+
+(*val do_eq : v -> v -> eq_result*)
+ val do_eq_defn = Hol_defn "do_eq" `
+ 
+(do_eq (Litv l1) (Litv l2) =  
+ (Eq_val (l1 = l2)))
+/\
+(do_eq (Loc l1) (Loc l2) = (Eq_val (l1 = l2)))
+/\
+(do_eq (Conv cn1 vs1) (Conv cn2 vs2) =  
+(if cn1 = cn2 then
+    do_eq_list vs1 vs2
+  else
+    Eq_val F))
+/\
+(do_eq (Closure _ _ _) (Closure _ _ _) = Eq_closure)
+/\
+(do_eq (Closure _ _ _) (Recclosure _ _ _) = Eq_closure)
+/\
+(do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_closure)
+/\
+(do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_closure)
+/\
+(do_eq _ _ = Eq_type_error)
+/\
+(do_eq_list [] [] = (Eq_val T))
+/\
+(do_eq_list (v1::vs1) (v2::vs2) =  
+ ((case do_eq v1 v2 of
+      Eq_closure => Eq_closure
+    | Eq_type_error => Eq_type_error
+    | Eq_val r => 
+        if ~  r then
+          Eq_val F
+        else
+          do_eq_list vs1 vs2
+  )))
+/\
+(do_eq_list _ _ = (Eq_val F))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_defn;
+
 (* Do an application *)
 (*val do_app : store -> envE -> op -> v -> v -> option (store * envE * exp)*)
 val _ = Define `
@@ -262,10 +320,11 @@ val _ = Define `
     | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) =>
         SOME (s, env', Lit (Bool (opb_lookup op n1 n2)))
     | (Equality, v1, v2) =>
-        if contains_closure v1 \/ contains_closure v2 then
-          NONE
-        else
-          SOME (s, env', Lit (Bool (v1 = v2)))
+        (case do_eq v1 v2 of
+            Eq_type_error => NONE
+          | Eq_closure => SOME (s, env', Raise Eq_error)
+          | Eq_val b => SOME (s, env', Lit (Bool b))
+        )
     | (Opassign, (Loc lnum), v) =>
         (case store_assign lnum v s of
           SOME st => SOME (st, env', Lit Unit)

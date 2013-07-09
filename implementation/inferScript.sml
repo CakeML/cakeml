@@ -217,13 +217,19 @@ val infer_p_def = tDefine "infer_p" `
   return (Infer_Tapp [] TC_int, [])) ∧
 (infer_p cenv (Plit Unit) =
   return (Infer_Tapp [] TC_unit, [])) ∧
-(infer_p cenv (Pcon cn ps) =
-  do (tvs',ts,tn) <- lookup_st_ex id_to_string cn cenv;
-     (ts'',tenv) <- infer_ps cenv ps;
-     ts' <- n_fresh_uvar (LENGTH tvs');
-     () <- add_constraints ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
-       return (Infer_Tapp ts' (TC_name tn), tenv)
-  od) ∧
+(infer_p cenv (Pcon cn_opt ps) =
+  case cn_opt of 
+    | NONE =>
+        do (ts,tenv) <- infer_ps cenv ps;
+           return (Infer_Tapp ts TC_tup, tenv)
+        od
+    | SOME cn =>
+        do (tvs',ts,tn) <- lookup_st_ex id_to_string cn cenv;
+           (ts'',tenv) <- infer_ps cenv ps;
+           ts' <- n_fresh_uvar (LENGTH tvs');
+           () <- add_constraints ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
+           return (Infer_Tapp ts' (TC_name tn), tenv)
+        od) ∧
 (infer_p cenv (Pref p) =
   do (t,tenv) <- infer_p cenv p;
     return (Infer_Tapp [t] TC_ref, tenv)
@@ -307,13 +313,19 @@ val infer_e_def = tDefine "infer_e" `
      uvs <- n_fresh_uvar tvs;
      return (infer_deBruijn_subst uvs t)
   od) ∧
-(infer_e menv cenv env (Con cn es) =
-  do (tvs',ts,tn) <- lookup_st_ex id_to_string cn cenv;
-     ts'' <- infer_es menv cenv env es;
-     ts' <- n_fresh_uvar (LENGTH tvs');
-     () <- add_constraints ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
-       return (Infer_Tapp ts' (TC_name tn))
-  od) ∧
+(infer_e menv cenv env (Con cn_opt es) =
+  case cn_opt of
+    | NONE =>
+       do ts <- infer_es menv cenv env es;
+          return (Infer_Tapp ts TC_tup)
+       od
+    | SOME cn =>
+       do (tvs',ts,tn) <- lookup_st_ex id_to_string cn cenv;
+          ts'' <- infer_es menv cenv env es;
+          ts' <- n_fresh_uvar (LENGTH tvs');
+          () <- add_constraints ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
+          return (Infer_Tapp ts' (TC_name tn))
+       od) ∧
 (infer_e menv cenv env (Fun x e) =
   do t1 <- fresh_uvar;
      t2 <- infer_e menv cenv (bind x (0,t1) env) e;

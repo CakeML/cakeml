@@ -80,7 +80,14 @@ List.length tvs' = List.length ts' &&
 type_vs tvs menv cenv senv vs (List.map (type_subst (List.combine tvs' ts')) ts) &&
 lookup cn cenv = Some (tvs', ts, tn)
 ==>
-type_v tvs menv cenv senv (Conv cn vs) (Tapp ts' (TC_name tn))
+type_v tvs menv cenv senv (Conv (Some cn) vs) (Tapp ts' (TC_name tn))
+
+and
+
+forall tvs menv cenv senv vs ts.
+type_vs tvs menv cenv senv vs ts
+==>
+type_v tvs menv cenv senv (Conv None vs) (Tapp ts TC_tup)
 
 and
 
@@ -305,8 +312,17 @@ type_vs tvs menv cenv senv (List.rev vs)
 type_es menv cenv (bind_tvar tvs tenv) es (List.map (type_subst (List.combine tvs' ts')) ts2) &&
 lookup cn cenv = Some (tvs', ts1@[t]@ts2, tn)
 ==>
-type_ctxt tvs menv cenv senv tenv (Ccon cn vs () es) (type_subst (List.combine tvs' ts') t)
+type_ctxt tvs menv cenv senv tenv (Ccon (Some cn) vs () es) (type_subst (List.combine tvs' ts') t)
           (Tapp ts' (TC_name tn))
+
+and
+
+forall tvs menv cenv senv tenv vs es t ts1 ts2.
+check_freevars tvs [] t &&
+type_vs tvs menv cenv senv (List.rev vs) ts1 &&
+type_es menv cenv (bind_tvar tvs tenv) es ts2
+==>
+type_ctxt tvs menv cenv senv tenv (Ccon None vs () es) t (Tapp (ts1@[t]@ts2) TC_tup)
 
 let poly_context cs = 
   match cs with

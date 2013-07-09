@@ -482,6 +482,7 @@ rw [check_freevars_def, bind_tenv_def, num_tvs_def, type_uop_cases, type_op_case
 fs [check_freevars_def] >|
 [metis_tac [deBruijn_subst_check_freevars],
  metis_tac [type_e_freevars_lem4, arithmeticTheory.ADD],
+ metis_tac [type_e_freevars_lem4, arithmeticTheory.ADD],
  cases_on `pes` >>
      fs [RES_FORALL, num_tvs_bind_var_list] >>
      qpat_assum `!x. P x` (ASSUME_TAC o Q.SPEC `(FST h, SND h)`) >>
@@ -958,6 +959,7 @@ rw [deBruijn_subst_def, option_map_eqns, Tint_def,
      rw [] >>
      metis_tac [check_freevars_lem, EVERY_MEM],
  metis_tac [type_subst_deBruijn_subst_list, lookup_con_ok],
+ metis_tac [],
  metis_tac []]); 
 
 val deBruijn_subst_E_bind_var_list = Q.store_thm ("deBruijn_subst_E_bind_var_list",
@@ -1050,6 +1052,7 @@ fs [deBruijn_subst_def, deBruijn_subst_tenvE_def,
  fs [EVERY_MAP, EVERY_MEM] >>
      rw [] >>
      metis_tac [check_freevars_lem, EVERY_MEM],
+ metis_tac [type_subst_deBruijn_subst_list, lookup_con_ok],
  metis_tac [type_subst_deBruijn_subst_list, lookup_con_ok],
  cases_on `n` >>
      fs [t_lookup_var_id_def] >|

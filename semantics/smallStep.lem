@@ -19,7 +19,7 @@ type ctxt_frame =
   | Clet of varN * unit * exp
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
-  | Ccon of id conN * list v * unit * list exp
+  | Ccon of option (id conN) * list v * unit * list exp
   | Cuapp of uop * unit
 type ctxt = ctxt_frame * envE
 

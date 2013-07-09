@@ -93,7 +93,7 @@ let shift n = mkshift (fun v -> v+n)
 type exp_to_Cexp_state =
  <| bvars : list string
   ; mvars : Pmap.map string (list string)
-  ; cnmap : Pmap.map (id conN) num
+  ; cnmap : Pmap.map (option (id conN)) num
   |>
 let rec cbv m v = <| m with bvars = v::m.bvars |>
 
@@ -180,11 +180,14 @@ exp_to_Cexp m (Handle e x b) =
   CHandle (exp_to_Cexp m e)
     (CIf (CPrim2 CEq (CVar (Short 0)) CBind_exc) (CRaise CBind_exc)
          (CIf (CPrim2 CEq (CVar (Short 0)) CDiv_exc) (CRaise CDiv_exc)
-              (exp_to_Cexp (cbv m x) b)))
+              (CIf (CPrim2 CEq (CVar (Short 0)) CEq_exc) (CRaise CEq_exc)
+                   (exp_to_Cexp (cbv m x) b))))
 and
 exp_to_Cexp _ (Raise Bind_error) = CRaise CBind_exc
 and
 exp_to_Cexp _ (Raise Div_error) = CRaise CDiv_exc
+and
+exp_to_Cexp _ (Raise Eq_error) = CRaise CEq_exc
 and
 exp_to_Cexp _ (Raise (Int_error n)) = CRaise (CLit (IntLit n))
 and
@@ -232,7 +235,8 @@ and
 exp_to_Cexp m (App Equality e1 e2) =
   let Ce1 = exp_to_Cexp m e1 in
   let Ce2 = exp_to_Cexp m e2 in
-  CPrim2 CEq Ce1 Ce2
+  CLet (CPrim2 CEq Ce1 Ce2)
+    (CIf (CPrim1 CIsBlock (CVar (Short 0))) (CVar (Short 0)) (CRaise CEq_exc))
 and
 exp_to_Cexp m (App Opapp e1 e2) =
   let Ce1 = exp_to_Cexp m e1 in

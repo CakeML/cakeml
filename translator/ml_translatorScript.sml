@@ -224,12 +224,12 @@ val Eval_Bool_Not = store_thm("Eval_Bool_Not",
   SIMP_TAC std_ss [Eval_def,NUM_def,BOOL_def] \\ SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ Q.EXISTS_TAC `(Litv (Bool b1))`
-  \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
-  \\ Q.LIST_EXISTS_TAC [`Litv (Bool F)`,`empty_store`]
+  \\ FULL_SIMP_TAC (srw_ss()) [bigClockTheory.do_app_cases]
+  \\ Q.LIST_EXISTS_TAC [`(Litv (Bool b1))`, `Litv (Bool F)`, `Lit (Bool ~b1)`,
+                        `empty_store`, `empty_store`]
   \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ SIMP_TAC std_ss [contains_closure_def]);
+  \\ SIMP_TAC (srw_ss ()) [do_eq_def]);
 
 val Eval_Implies = store_thm("Eval_Implies",
   ``Eval env x1 (BOOL b1) ==>
@@ -522,15 +522,30 @@ val no_closures_def = tDefine "no_closures" `
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) [MEM,v_size_def]
   \\ DECIDE_TAC)
 
+val types_match_def = tDefine "types_match" `
+(types_match (Litv l1) (Litv l2) = T) ∧
+(types_match (Loc l1) (Loc l2) = T) ∧
+(types_match (Conv cn1 vs1) (Conv cn2 vs2) = 
+  ((cn1 ≠ cn2) ∨ types_match_list vs1 vs2)) ∧
+(types_match _ _ = F) ∧
+(types_match_list [] [] = T) ∧
+(types_match_list (v1::vs1) (v2::vs2) = 
+  (types_match v1 v2 ∧ types_match_list vs1 vs2)) ∧
+(* We could change this case to T, or change the semantics to have a type error
+ * when equality reaches unequal-length lists *)
+(types_match_list _ _ = F)` (
+ WF_REL_TAC `measure (\x. case x of INL (v1,v2) => v_size v1 | INR (vs1,vs2) => v3_size vs1)`);
+
 val EqualityType_def = Define `
   EqualityType (abs:'a->v->bool) <=>
     (!x1 v1. abs x1 v1 ==> no_closures v1) /\
-    (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> ((v1 = v2) = (x1 = x2)))`;
+    (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> ((v1 = v2) = (x1 = x2))) ∧
+    (!x1 v1 x2 v2. abs x1 v1 ∧ abs x2 v2 ⇒ types_match v1 v2)`;
 
 val EqualityType_NUM_BOOL = store_thm("EqualityType_NUM_BOOL",
   ``EqualityType NUM /\ EqualityType INT /\
     EqualityType BOOL /\ EqualityType UNIT_TYPE``,
-  EVAL_TAC \\ FULL_SIMP_TAC (srw_ss()) [no_closures_def]);
+  EVAL_TAC \\ FULL_SIMP_TAC (srw_ss()) [no_closures_def, types_match_def]);
 
 val no_closures_IMP_NOT_contains_closure = prove(
   ``!res. no_closures res ==> ~contains_closure res``,
@@ -540,6 +555,21 @@ val no_closures_IMP_NOT_contains_closure = prove(
   \\ SIMP_TAC std_ss [METIS_PROVE [] ``~b \/ c <=> (b ==> c)``]
   \\ REPEAT STRIP_TAC \\ RES_TAC);
 
+val type_match_implies_do_eq_succeeds = Q.prove (
+`(!v1 v2. types_match v1 v2 ⇒ (do_eq v1 v2 = Eq_val (v1 = v2))) ∧
+ (!vs1 vs2. 
+   types_match_list vs1 vs2 ⇒ (do_eq_list vs1 vs2 = Eq_val (vs1 = vs2)))`,
+ ho_match_mp_tac do_eq_ind >>
+ rw [do_eq_def, types_match_def]);
+
+val do_eq_succeeds = Q.prove (
+`(!a x1 v1 x2 v2. EqualityType a ∧ a x1 v1 ∧ a x2 v2 ⇒ (do_eq v1 v2 = Eq_val (x1 = x2)))`,
+ rw [EqualityType_def] >>
+ res_tac >>
+ imp_res_tac type_match_implies_do_eq_succeeds >>
+ Cases_on `v1 = v2` >>
+ fs []);
+
 val Eval_Equality = store_thm("Eval_Equality",
   ``Eval env x1 (a y1) /\ Eval env x2 (a y2) ==>
     EqualityType a ==>
@@ -548,12 +578,13 @@ val Eval_Equality = store_thm("Eval_Equality",
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
   \\ Q.LIST_EXISTS_TAC [`res`,`res'`]
-  \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [bigClockTheory.do_app_cases]
+  \\ Q.EXISTS_TAC `Lit (Bool (res = res'))` 
   \\ REPEAT (Q.EXISTS_TAC `empty_store`) \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases]
-  \\ FULL_SIMP_TAC (srw_ss()) [EqualityType_def]
-  \\ METIS_TAC [no_closures_IMP_NOT_contains_closure]);
-
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ IMP_RES_TAC do_eq_succeeds
+  \\ FULL_SIMP_TAC (srw_ss()) [EqualityType_def]);
 
 (* evaluation of declarations *)
 
@@ -623,6 +654,7 @@ val evaluate'_empty_store_lemma = prove(
   THEN1 (Cases_on `v` \\ FULL_SIMP_TAC (srw_ss()) []
     \\ Cases_on `store_lookup n s2` \\ FULL_SIMP_TAC (srw_ss()) [])
   \\ FULL_SIMP_TAC std_ss [IMP_DISJ_THM]
+  \\ TRY (Cases_on `do_eq v1 v2`) \\ FULL_SIMP_TAC (srw_ss()) []
   \\ TRY (Cases_on `v1`) \\ FULL_SIMP_TAC (srw_ss()) []
   \\ TRY (Cases_on `l`) \\ FULL_SIMP_TAC (srw_ss()) []
   \\ TRY (Cases_on `v2`) \\ FULL_SIMP_TAC (srw_ss()) []
@@ -983,14 +1015,14 @@ val MEMBER_INTRO = store_thm("MEMBER_INTRO",
   FULL_SIMP_TAC std_ss [FUN_EQ_THM,MEM_EQ_MEMBER]);
 
 val evaluate_match_SKIP = store_thm("evaluate_match_SKIP",
-  ``evaluate_match' empty_store env (Conv (Short s1) args1)
-      ((Pcon (Short s2) pats2,exp2)::pats) (x,Rval res) <=>
+  ``evaluate_match' empty_store env (Conv (SOME (Short s1)) args1)
+      ((Pcon (SOME (Short s2)) pats2,exp2)::pats) (x,Rval res) <=>
     if s1 <> s2 then
-      ALL_DISTINCT (pat_bindings (Pcon (Short s2) pats2) []) /\
-      evaluate_match' empty_store env (Conv (Short s1) args1) pats (x,Rval res)
+      ALL_DISTINCT (pat_bindings (Pcon (SOME (Short s2)) pats2) []) /\
+      evaluate_match' empty_store env (Conv (SOME (Short s1)) args1) pats (x,Rval res)
     else
-      evaluate_match' empty_store env (Conv (Short s1) args1)
-        ((Pcon (Short s2) pats2,exp2)::pats) (x,Rval res)``,
+      evaluate_match' empty_store env (Conv (SOME (Short s1)) args1)
+        ((Pcon (SOME (Short s2)) pats2,exp2)::pats) (x,Rval res)``,
   SRW_TAC [] []
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,pmatch'_def]);
 

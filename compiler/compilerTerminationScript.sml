@@ -250,6 +250,11 @@ val _ = register "compile_print_ctors" (
 tprove_no_defn((compile_print_ctors_def,compile_print_ctors_ind),
 (WF_REL_TAC`measure (LENGTH o FST)`>>simp[])))
 
+val (do_Ceq_def,do_Ceq_ind) = register "do_Ceq" (
+  tprove_no_defn((do_Ceq_def,do_Ceq_ind),
+  WF_REL_TAC`measure (\x. case x of INL (cv,_) => Cv_size cv | INR (cvs,_) => Cv1_size cvs)`));
+
+
 (* export rewrites *)
 
 val _ = export_rewrites
@@ -264,8 +269,9 @@ val _ = export_rewrites
 ,"CompilerPrimitives.map_result_def","CompilerPrimitives.every_result_def"
 ,"IntLang.doPrim2_def","IntLang.CevalPrim2_def","IntLang.CevalUpd_def","IntLang.CevalPrim1_def"
 ,"free_labs_def","no_labs_def","all_labs_def"
-,"IntLang.CDiv_excv_def","IntLang.CBind_excv_def"
-,"IntLang.CDiv_exc_def","IntLang.CBind_exc_def"
-,"ToIntLang.opn_to_prim2_def"];
+,"IntLang.CDiv_excv_def","IntLang.CBind_excv_def","IntLang.CEq_excv_def"
+,"IntLang.CDiv_exc_def","IntLang.CBind_exc_def","IntLang.CEq_exc_def"
+,"ToIntLang.opn_to_prim2_def"
+,"do_Ceq_def"];
 
 val _ = export_theory()

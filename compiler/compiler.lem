@@ -6,8 +6,8 @@ open ToIntLang
 open ToBytecode
 open Bytecode
 
-type contab = Pmap.map (id conN) num * list (num * id conN) * num
-val cmap : contab -> Pmap.map (id conN) num
+type contab = Pmap.map (option (id conN)) num * list (num * option (id conN)) * num
+val cmap : contab -> Pmap.map (option (id conN)) num
 let rec cmap (m,_,_) = m
 
 type compiler_state =
@@ -18,12 +18,12 @@ type compiler_state =
    ; rnext_label : num
    |>
 
-val cpam : compiler_state -> list (num * id conN)
+val cpam : compiler_state -> list (num * option (id conN))
 let rec cpam s = match s.contab with (_,w,_) -> w end
 
 let init_compiler_state =
-  <| contab = (Pmap.add (Short "") tuple_cn Pmap.empty
-              ,[(tuple_cn,Short "")]
+  <| contab = (Pmap.add None tuple_cn Pmap.empty
+              ,[(tuple_cn,None)]
               ,3)
    ; renv = []
    ; rmenv = Pmap.empty
@@ -35,7 +35,7 @@ let rec
 number_constructors _ [] ct = ct
 and
 number_constructors mn ((c,_)::cs) (m,w,n) =
-  number_constructors mn cs (Pmap.add (mk_id mn c) n m, (n,mk_id mn c)::w, n+1)
+  number_constructors mn cs (Pmap.add (Some (mk_id mn c)) n m, (n,Some (mk_id mn c))::w, n+1)
 
 let rec
 dec_to_contab mn ct (Dtype ts) =
@@ -62,7 +62,7 @@ let compile_Cexp menv env rsz cs Ce =
   compile menv env TCNonTail rsz cs Ce
 
 let compile_fake_exp menv m env rsz cs vs e =
-  let Ce = exp_to_Cexp m (e (Con (Short "") (List.map (fun v -> Var (Short v)) (List.rev vs)))) in
+  let Ce = exp_to_Cexp m (e (Con None (List.map (fun v -> Var (Short v)) (List.rev vs)))) in
   compile_Cexp menv env rsz cs Ce
 
 let rec

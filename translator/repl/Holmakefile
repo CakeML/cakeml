@@ -1,4 +1,4 @@
-INCLUDES = .. ../../semantics ../../parsing ../../compiler \
+INCLUDES = .. ../.. ../../semantics ../../parsing ../../compiler \
            ../../compiler/bytecode ../../implementation \
 	   ../../impl_proofs \
            $(HOLDIR)/examples/unification/triangular/first-order \
@@ -6,7 +6,7 @@ INCLUDES = .. ../../semantics ../../parsing ../../compiler \
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
-HOLHEAP = local-hol-heap
+#HOLHEAP = local-hol-heap
 PARENT_HOLHEAP = ../local-hol-heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 

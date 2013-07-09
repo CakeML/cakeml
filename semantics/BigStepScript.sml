@@ -77,7 +77,7 @@ evaluate ck menv cenv s1 env (Handle e1 var e2) bv)
 
 (! ck menv cenv s1 s2 env e1 e2 var err.
 (evaluate ck menv cenv s1 env e1 (s2, Rerr err) /\
-((err = Rtimeout_error) \/ (err = Rtype_error) \/ (err = Rraise Bind_error) \/ (err = Rraise Div_error)))
+((err = Rtimeout_error) \/ (err = Rtype_error) \/ (err = Rraise Bind_error) \/ (err = Rraise Div_error) \/ (err = Rraise Eq_error)))
 ==>
 evaluate ck menv cenv s1 env (Handle e1 var e2) (s2, Rerr err))
 

@@ -38,6 +38,10 @@ val _ = register "replace_labels" (
   tprove_no_defn ((replace_labels_def,replace_labels_ind),
   WF_REL_TAC `measure (LENGTH o SND o SND)` >> rw[]))
 
+val _ = register "bc_equal" (
+  tprove_no_defn ((bc_equal_def,bc_equal_ind),
+  WF_REL_TAC `measure (\x. case x of INL (v1,v2) => bc_value_size v1 | INR (vs1,vs2) => bc_value1_size vs1)`));
+
 val _ = export_rewrites["CompilerLib.the_def","CompilerLib.fapply_def"]
 
 val _ = export_theory()

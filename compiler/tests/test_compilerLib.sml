@@ -25,6 +25,13 @@ in case fst(dest_const f) of
 | "Long" => let val [m,x] = xs in Long(fromHOLstring m,fromHOLstring x) end
 | s => raise Fail s
 end
+fun term_opt_to_id_opt tm = let
+  val (f,xs) = strip_comb tm
+in case fst(dest_const f) of
+  "SOME" => let val [x] = xs in SOME (term_to_id x) end
+| "NONE" => let val [] = xs in NONE end
+| s => raise Fail s
+end
 fun term_to_lit tm = let
   val (f,x) = dest_comb tm
 in case fst(dest_const f) of
@@ -64,7 +71,7 @@ fun term_to_pat tm = let
 in case fst(dest_const f) of
     "Pvar" => let val [x1] = xs in Pvar (fromHOLstring x1) end
   | "Plit" => let val [x1] = xs in Plit (term_to_lit x1) end
-  | "Pcon" => let val [x1,x2] = xs in Pcon (term_to_id x1, dest_list term_to_pat x2) end
+  | "Pcon" => let val [x1,x2] = xs in Pcon (term_opt_to_id_opt x1, dest_list term_to_pat x2) end
   | s => raise Fail s
 end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
 fun term_to_error tm = let
@@ -80,7 +87,7 @@ fun term_to_v tm = let
 in case fst(dest_const f) of
     "Litv" => let val [x1] = xs in Litv (term_to_lit x1) end
   | "Closure" => let val [x1,x2,x3] = xs in Closure (dest_list (dest_pair fromHOLstring term_to_v) x1,fromHOLstring x2,term_to_exp x3) end
-  | "Conv" => let val [x1,x2] = xs in Conv (term_to_id x1,dest_list term_to_v x2) end
+  | "Conv" => let val [x1,x2] = xs in Conv (term_opt_to_id_opt x1,dest_list term_to_v x2) end
   | s => raise Fail s
 end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
 and term_to_exp tm = let
@@ -93,7 +100,7 @@ in case fst(dest_const f) of
   | "Var" => let val [x1] = xs in Var (term_to_id x1) end
   | "Let" => let val [x2,x4,x5] = xs in Let (fromHOLstring x2,term_to_exp x4,term_to_exp x5) end
   | "Mat" => let val [x1,x2] = xs in Mat (term_to_exp x1,dest_list (dest_pair term_to_pat term_to_exp) x2) end
-  | "Con" => let val [x1,x2] = xs in Con (term_to_id x1,dest_list term_to_exp x2) end
+  | "Con" => let val [x1,x2] = xs in Con (term_opt_to_id_opt x1,dest_list term_to_exp x2) end
   | "Letrec" => let val [x1,x2] = xs in Letrec (dest_list (dest_pair fromHOLstring (dest_pair fromHOLstring term_to_exp)) x1,term_to_exp x2) end
   | "Raise" => let val [x1] = xs in compileML.Raise (term_to_error x1) end
   | "Handle" => let val [x1,x2,x3] = xs in compileML.Handle (term_to_exp x1, fromHOLstring x2, term_to_exp x3) end
@@ -155,7 +162,7 @@ fun mst_run_decs_exp_gen test (ds,e) = let
   val (bs,rss,rsf) = prep_exp (bs,rs) e
   val (SOME bs) = bc_eval bs
   val (true,rs) = test bs rss rsf
-in ((bind_exc_cn,Short "Bind")::(div_exc_cn,Short"Div")::cpam rs, bc_state_stack bs) end
+in ((bind_exc_cn,SOME (Short "Bind"))::(div_exc_cn,SOME(Short"Div"))::cpam rs, bc_state_stack bs) end
 
 fun excp bs = numML.toInt (bc_state_pc bs) = SOME 0
 

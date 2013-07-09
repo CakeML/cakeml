@@ -514,6 +514,12 @@ rw [small_eval_app, small_eval_log, small_eval_if, small_eval_match,
      `e_step_reln (menv,cenv,SND s2,env',Exp (Raise Div_error),[(Chandle () var e2,env)]) (menv,cenv,SND s2,env',Exp (Raise Div_error),[])`
                  by (rw [e_step_reln_def, e_step_def, continue_def, return_def]) >>
      metis_tac [transitive_def, transitive_RTC, RTC_SINGLE],
+ fs [small_eval_def] >>
+     `e_step_reln^* (menv,cenv,SND s,env,Exp e,[(Chandle () var e2,env)]) (menv,cenv,SND s2,env',Exp (Raise Eq_error),[(Chandle () var e2,env)])` 
+                by metis_tac [APPEND,e_step_add_ctxt] >>
+     `e_step_reln (menv,cenv,SND s2,env',Exp (Raise Eq_error),[(Chandle () var e2,env)]) (menv,cenv,SND s2,env',Exp (Raise Eq_error),[])`
+                 by (rw [e_step_reln_def, e_step_def, continue_def, return_def]) >>
+     metis_tac [transitive_def, transitive_RTC, RTC_SINGLE],
  cases_on `es` >>
      fs [LENGTH] >>
      rw [small_eval_con] >|
@@ -876,11 +882,10 @@ fs [] >|
           rw [] >>
           metis_tac [],
       every_case_tac >>
-          full_simp_tac (srw_ss()++ARITH_ss) [],
-      every_case_tac >>
-          full_simp_tac (srw_ss()++ARITH_ss) [],
-      every_case_tac >>
-          full_simp_tac (srw_ss()++ARITH_ss) [],
+          full_simp_tac (srw_ss()++ARITH_ss) [] >>
+          ONCE_REWRITE_TAC [evaluate_cases] >>
+          rw [] >>
+          metis_tac [APPEND_ASSOC, APPEND],
       every_case_tac >>
           full_simp_tac (srw_ss()++ARITH_ss) [],
       every_case_tac >>
@@ -889,7 +894,20 @@ fs [] >|
           rw [] >>
           metis_tac [APPEND_ASSOC, APPEND],
       every_case_tac >>
-          full_simp_tac (srw_ss()++ARITH_ss) [],
+          full_simp_tac (srw_ss()++ARITH_ss) [] >>
+          ONCE_REWRITE_TAC [evaluate_cases] >>
+          rw [] >>
+          metis_tac [APPEND_ASSOC, APPEND],
+      every_case_tac >>
+          full_simp_tac (srw_ss()++ARITH_ss) [] >>
+          ONCE_REWRITE_TAC [evaluate_cases] >>
+          rw [] >>
+          metis_tac [APPEND_ASSOC, APPEND],
+      every_case_tac >>
+          full_simp_tac (srw_ss()++ARITH_ss) [] >>
+          ONCE_REWRITE_TAC [evaluate_cases] >>
+          rw [] >>
+          metis_tac [APPEND_ASSOC, APPEND],
       every_case_tac >>
           full_simp_tac (srw_ss()++ARITH_ss) [] >>
           ONCE_REWRITE_TAC [evaluate_cases] >>

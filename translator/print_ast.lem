@@ -59,7 +59,7 @@ tok_to_string (IntT i) s = space_append (int_to_string i) s
 and
 tok_to_string (LongidT mn id) s = space_append (if mn = "" then id else mn^"."^id) s
 and
-tok_to_string (TyvarT tv) s = space_append ("'" ^ tv) s
+tok_to_string (TyvarT tv) s = space_append tv s
 and
 tok_to_string AndT s = "and " ^ s
 and
@@ -212,12 +212,15 @@ pat_to_tok_tree (Pvar v) = var_to_tok_tree v
 and
 pat_to_tok_tree (Plit l) = lit_to_tok_tree l
 and
-pat_to_tok_tree (Pcon c []) = id_to_tok_tree c
+pat_to_tok_tree (Pcon (Some c) []) = id_to_tok_tree c
 and
-pat_to_tok_tree (Pcon c ps) =
+pat_to_tok_tree (Pcon (Some c) ps) =
   L LparT ^^ id_to_tok_tree c ^^ 
     L LparT ^^ join_trees (L CommaT) (List.map pat_to_tok_tree ps) ^^
     L RparT ^^ L RparT
+and
+pat_to_tok_tree (Pcon None ps) =
+    L LparT ^^ join_trees (L CommaT) (List.map pat_to_tok_tree ps) ^^ L RparT
 and
 pat_to_tok_tree (Pref p) =
   L LparT ^^ L (LongidT "" "ref") ^^ pat_to_tok_tree p ^^ L RparT
@@ -238,15 +241,20 @@ and
 exp_to_tok_tree indent (Lit l) =
   lit_to_tok_tree l
 and
-exp_to_tok_tree indent (Con c []) =
+exp_to_tok_tree indent (Con (Some c) []) =
   id_to_tok_tree c
 and
-exp_to_tok_tree indent (Con c es) =
+exp_to_tok_tree indent (Con (Some c) es) =
   L LparT ^^
   id_to_tok_tree c ^^ 
   L LparT ^^
   join_trees (L CommaT) (List.map (exp_to_tok_tree indent) es) ^^ 
   L RparT ^^ L RparT
+and
+exp_to_tok_tree indent (Con None es) =
+  L LparT ^^
+  join_trees (L CommaT) (List.map (exp_to_tok_tree indent) es) ^^ 
+  L RparT
 and
 exp_to_tok_tree indent (Var vid) =
   id_to_tok_tree vid
@@ -399,6 +407,9 @@ tc_to_tok_tree TC_unit =
 and
 tc_to_tok_tree TC_ref =
   L (LongidT "" "ref")
+and
+tc_to_tok_tree (TC_name n) = 
+  id_to_tok_tree n
 
 let rec
 type_to_tok_tree (Tvar tn) =

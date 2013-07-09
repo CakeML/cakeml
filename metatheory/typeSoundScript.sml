@@ -24,7 +24,6 @@ val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
   merge (MAP (λ(fn,n,e). (fn, Recclosure env funs fn)) funs) env'`,
 rw [build_rec_env_def, build_rec_env_help_lem]);
 
-
 val type_ctxts_freevars = Q.prove (
 `!tvs tenvM tenvC tenvS cs t1 t2.
   type_ctxts tvs tenvM tenvC tenvS cs t1 t2 ⇒
@@ -79,6 +78,8 @@ rw [check_freevars_def] >|
      rw [] >>
      metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
                 arithmeticTheory.GREATER_EQ],
+ metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
+            arithmeticTheory.GREATER_EQ],
  metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
             arithmeticTheory.GREATER_EQ]]);
 
@@ -258,6 +259,18 @@ fs [lit_same_type_def] >|
      qpat_assum `type_p b0 a b c d` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_p_cases]) >>
      every_case_tac >>
      rw [] >>
+     metis_tac [],
+ fs [Once type_p_cases, Once type_v_cases] >>
+     rw [] >>
+     imp_res_tac type_ps_length >>
+     imp_res_tac type_vs_length_lem >>
+     fs [] >>
+     cases_on `ts` >>
+     fs [],
+ qpat_assum `type_v a b c d e f` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+     qpat_assum `type_p b0 a b c d` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_p_cases]) >>
+     every_case_tac >>
+     rw [] >>
      fs [type_s_def] >>
      res_tac >>
      fs [Tref_def] >>
@@ -308,6 +321,14 @@ fs [lit_same_type_def] >|
      rw [] >>
      fs [deBruijn_subst_def, Tref_def, Tbool_def, Tunit_def, Tint_def] >>
      metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct],
+ fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
+     rw [] >>
+     fs [deBruijn_subst_def, Tref_def, Tbool_def, Tunit_def, Tint_def] >>
+     metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct],
+ fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
+     rw [] >>
+     fs [deBruijn_subst_def, Tref_def, Tbool_def, Tunit_def, Tint_def] >>
+     metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct],
  qpat_assum `type_ps tvs tenvC (p::ps) ts tenv`
          (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_p_cases]) >>
      qpat_assum `type_vs tvs temvM tenvC tenvS (v::vs) ts`
@@ -322,8 +343,7 @@ fs [lit_same_type_def] >|
      fs [] >>
      cases_on `ts` >>
      fs [],
- imp_res_tac type_ps_length >>
-     imp_res_tac type_vs_length_lem >>
+ imp_res_tac type_ps_length >> imp_res_tac type_vs_length_lem >>
      fs [] >>
      cases_on `ts` >>
      fs []]);
@@ -354,6 +374,46 @@ cases_on `e` >>
 cases_on `c` >>
 rw [final_state_def]);
 
+val eq_same_type = Q.prove (
+`(!v1 v2 tvs tenvM tenvC tenvS t.
+  type_v tvs tenvM tenvC tenvS v1 t ∧
+  type_v tvs tenvM tenvC tenvS v2 t 
+  ⇒
+  do_eq v1 v2 ≠ Eq_type_error) ∧
+(!vs1 vs2 tvs tenvM tenvC tenvS ts.
+  type_vs tvs tenvM tenvC tenvS vs1 ts ∧
+  type_vs tvs tenvM tenvC tenvS vs2 ts 
+  ⇒
+  do_eq_list vs1 vs2 ≠ Eq_type_error)`,
+ ho_match_mp_tac do_eq_ind >>
+ rw [do_eq_def] >>
+ rw [hd (CONJUNCTS type_v_cases)] >>
+ rw [Tbool_def, Tint_def, Tref_def, Tunit_def, Tfn_def] >>
+ CCONTR_TAC >>
+ fs [] >>
+ rw [] >>
+ imp_res_tac type_funs_Tfn >>
+ fs [Tfn_def] >-
+ (fs [hd (CONJUNCTS type_v_cases)] >>
+  rw [] >>
+  fs [] >>
+  metis_tac []) >>
+ fs [Once (hd (tl (CONJUNCTS type_v_cases)))] >>
+ rw [] >>
+ cases_on `do_eq v1 v2` >>
+ fs [] >-
+ (cases_on `b` >>
+      fs [] >>
+      qpat_assum `!x. P x` (mp_tac o Q.SPECL [`tvs`, `tenvM`, `tenvC`, `tenvS`, `ts'`]) >>
+      rw [METIS_PROVE [] ``(a ∨ b) = (~a ⇒ b)``] >>
+      cases_on `vs1` >>
+      fs [] >-
+      fs [Once (hd (tl (CONJUNCTS type_v_cases)))] >>
+      cases_on `ts'` >>
+      fs [] >>
+      fs [Once (hd (tl (CONJUNCTS type_v_cases)))]) >>
+ metis_tac []);
+
 (* A well-typed expression state is either a value with no continuation, or it
  * can step to another state, or it steps to a BindError. *)
 val exp_type_progress = Q.prove (
@@ -377,6 +437,22 @@ rw [] >|
           fs [return_def] >>
           imp_res_tac type_es_length >>
           fs [],
+      fs [do_con_check_def] >>
+          rw [] >>
+          fs [] >>
+          imp_res_tac consistent_con_env_thm >>
+          rw [] >>
+          every_case_tac >>
+          fs [return_def] >>
+          imp_res_tac type_es_length >>
+          fs [],
+      fs [do_con_check_def] >>
+          rw [] >>
+          fs [] >>
+          imp_res_tac consistent_con_env_thm >>
+          rw [] >>
+          fs [] >>
+          metis_tac [type_es_length, LENGTH_MAP],
       fs [do_con_check_def] >>
           rw [] >>
           fs [] >>
@@ -428,9 +504,10 @@ rw [] >|
           fs [] >>
           imp_res_tac type_funs_find_recfun >>
           fs [],
-      (* Type soundness fails until we implement equality types *)
-      `~contains_closure v' ∧ ~contains_closure v` by cheat >>
-          fs [],
+      cases_on `do_eq v' v` >>
+           fs [Once context_invariant_cases] >>
+           srw_tac [ARITH_ss] [] >> 
+          metis_tac [eq_same_type],
       qpat_assum `type_v a tenvM tenvC senv (Loc n) z` 
               (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
           fs [type_s_def] >>
@@ -450,6 +527,18 @@ rw [] >|
           fs [] >>
           metis_tac [pmatch_type_progress, match_result_distinct],
       every_case_tac >>
+          fs [] >>
+          imp_res_tac consistent_con_env_thm >>
+          imp_res_tac type_es_length >>
+          imp_res_tac type_vs_length_lem >>
+          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def],
+      every_case_tac >>
+          fs [] >>
+          imp_res_tac consistent_con_env_thm >>
+          imp_res_tac type_es_length >>
+          imp_res_tac type_vs_length_lem >>
+          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def],
+       every_case_tac >>
           fs [] >>
           imp_res_tac consistent_con_env_thm >>
           imp_res_tac type_es_length >>
@@ -509,6 +598,21 @@ rw [pmatch_def] >|
      metis_tac [],
  every_case_tac >>
      fs [],
+ cases_on `(LENGTH ps = x0) ∧ (LENGTH vs = x0)` >>
+     fs [] >>
+     fs [] >>
+     qpat_assum `type_v tvs tenvM tenvC senv vpat t`
+             (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+     fs [Once type_p_cases] >>
+     rw [] >>
+     fs [] >>
+     rw [] >>
+     cases_on `ps` >>
+     fs [] >>
+     qpat_assum `type_ps a0 a c d e`
+             (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_p_cases]) >>
+     fs [] >>
+     metis_tac [],
  fs [store_lookup_def] >>
      every_case_tac >>
      fs [] >>
@@ -744,6 +848,7 @@ rw [nil_deBruijn_inc, deBruijn_subst_check_freevars, type_subst_lem3,
      pop_assum mp_tac >>
      rw [type_subst_deBruijn_subst_list, type_subst_deBruijn_inc_list] >>
      metis_tac [],
+ metis_tac [],
  qexists_tac `tenv` >>
      rw [] >>
      match_mp_tac type_e_subst_lem >>
@@ -958,6 +1063,14 @@ fs [e_step_def] >>
                metis_tac [check_freevars_def],
            qexists_tac `tenvS` >>
                rw [] >>
+               qexists_tac `Tapp [] TC_tup` >>
+               qexists_tac `tenv` >>
+               rw [] >>
+               rw [Once type_v_cases] >>
+               rw [Once type_v_cases] >>
+               metis_tac [check_freevars_def],
+           qexists_tac `tenvS` >>
+               rw [] >>
                rw [Once type_ctxts_cases, type_ctxt_cases] >>
                qexists_tac `t''`>>
                qexists_tac `tenv`>>
@@ -978,7 +1091,26 @@ fs [e_step_def] >>
                qexists_tac `[]` >>
                qexists_tac `t'''` >>
                rw [] >>
-               metis_tac [type_v_rules, APPEND, check_freevars_def]],
+               metis_tac [type_v_rules, APPEND, check_freevars_def],
+           qexists_tac `tenvS` >>
+               rw [] >>
+               rw [Once type_ctxts_cases, type_ctxt_cases] >>
+               qexists_tac `t''`>>
+               qexists_tac `tenv`>>
+               ONCE_REWRITE_TAC [context_invariant_cases] >>
+               rw [] >>
+               qexists_tac `tvs` >>
+               rw [] >-
+               metis_tac [] >>
+               fs [is_ccon_def] >>
+               imp_res_tac ctxt_inv_not_poly >>
+               qexists_tac `tenv`>>
+               qexists_tac `Tapp (t''::ts') TC_tup`>>
+               rw [] >>
+               qexists_tac `[]` >>
+               qexists_tac `ts'` >>
+               rw [] >>
+               metis_tac [type_v_rules, EVERY_DEF, check_freevars_def]],
       qexists_tac `tenvS` >>
           rw [] >>
           every_case_tac >>
@@ -1153,6 +1285,12 @@ fs [e_step_def] >>
                rw [] >>
                fs [Tint_def] >>
                metis_tac [],
+           fs [Tbool_def] >>
+               rw [] >>
+               rw [Once type_e_cases] >>
+               qexists_tac `tenvS` >>
+               rw [] >>
+               metis_tac [check_freevars_def, EVERY_DEF],
            qpat_assum `type_v a tenvM tenvC senv (Closure l s' e) t1'`
                      (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
                fs [] >>
@@ -1238,6 +1376,18 @@ fs [e_step_def] >>
           rw [type_vs_end_lem] >>
           fs [is_ccon_def] >>
           metis_tac [ctxt_inv_not_poly, rich_listTheory.MAP_REVERSE],
+      fs [] >>    
+          rw [Once (hd (CONJUNCTS type_v_cases))] >>
+          imp_res_tac type_es_length >>
+          fs [] >>
+          `ts2 = []` by
+                  (cases_on `ts2` >>
+                   fs []) >>
+          fs [] >>
+          rw [] >>
+          rw [type_vs_end_lem] >>
+          fs [is_ccon_def] >>
+          metis_tac [ctxt_inv_not_poly, rich_listTheory.MAP_REVERSE, type_vs_end_lem],
       qpat_assum `type_es tenvM tenvC tenv' (e'::t'') ts2`
                 (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
           fs [] >>
@@ -1268,6 +1418,31 @@ fs [e_step_def] >>
           rw [] >>
           qexists_tac `tenvS` >>
           rw [] >>
+          qexists_tac `t'''` >>
+          qexists_tac `tenv'` >>
+          qexists_tac `tvs` >>
+          rw [] >>
+          fs [is_ccon_def] >>
+          qexists_tac `tenv'` >>
+          qexists_tac `Tapp (ts1 ++ [t1] ++ t'''::ts) TC_tup` >>
+          rw [] >>
+          qexists_tac `ts1++[t1]` >>
+          rw [] >>
+          `tenv_ok (bind_tvar tvs tenv') ∧ (num_tvs tenv' = 0)` 
+                        by (rw [bind_tvar_rewrites] >>
+                            metis_tac [type_v_freevars]) >>
+          `check_freevars (num_tvs (bind_tvar tvs tenv')) [] t'''` 
+                     by metis_tac [type_e_freevars] >>
+          fs [bind_tvar_rewrites] >>
+          metis_tac [type_vs_end_lem, arithmeticTheory.ADD_0],
+      qpat_assum `type_es tenvM tenvC tenv' (e'::t'') ts2`
+                (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
+          fs [] >>
+          rw [type_ctxt_cases, Once type_ctxts_cases] >>
+          ONCE_REWRITE_TAC [context_invariant_cases] >>
+          rw [] >>
+          qexists_tac `tenvS` >>
+          rw [] >>
           qexists_tac `t''''` >>
           qexists_tac `tenv'` >>
           qexists_tac `tvs` >>
@@ -1282,6 +1457,31 @@ fs [e_step_def] >>
           qexists_tac `ts1++[t''']` >>
           rw [] >>
           metis_tac [type_vs_end_lem],
+      qpat_assum `type_es tenvM tenvC tenv' (e'::t'') ts2`
+                (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
+          fs [] >>
+          rw [type_ctxt_cases, Once type_ctxts_cases] >>
+          ONCE_REWRITE_TAC [context_invariant_cases] >>
+          rw [] >>
+          qexists_tac `tenvS` >>
+          rw [] >>
+          qexists_tac `t'''` >>
+          qexists_tac `tenv'` >>
+          qexists_tac `tvs` >>
+          rw [] >>
+          fs [is_ccon_def] >>
+          qexists_tac `tenv'` >>
+          qexists_tac `Tapp (ts1 ++ [t1] ++ t'''::ts) TC_tup` >>
+          rw [] >>
+          qexists_tac `ts1++[t1]` >>
+          rw [] >>
+          `tenv_ok (bind_tvar tvs tenv') ∧ (num_tvs tenv' = 0)` 
+                        by (rw [bind_tvar_rewrites] >>
+                            metis_tac [type_v_freevars]) >>
+          `check_freevars (num_tvs (bind_tvar tvs tenv')) [] t'''` 
+                     by metis_tac [type_e_freevars] >>
+          fs [bind_tvar_rewrites] >>
+          metis_tac [type_vs_end_lem, arithmeticTheory.ADD_0],
       cases_on `u` >>
           fs [type_uop_cases, do_uapp_def, store_alloc_def, LET_THM] >>
           rw [] >|

@@ -109,8 +109,10 @@ val defs = map EmitML.DEFN
 , IntLangTheory.tuple_cn_def
 , IntLangTheory.bind_exc_cn_def
 , IntLangTheory.div_exc_cn_def
+, IntLangTheory.eq_exc_cn_def
 , IntLangTheory.CBind_exc_def
 , IntLangTheory.CDiv_exc_def
+, IntLangTheory.CEq_exc_def
 , opn_to_prim2_def
 , init_compiler_state_def
 , pat_to_Cpat_def

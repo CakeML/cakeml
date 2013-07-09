@@ -6,7 +6,7 @@ open CompilerLib
 
 type ov =
   | OLit of lit
-  | OConv of id conN * list ov
+  | OConv of option (id conN) * list ov
   | OFn
   | OLoc of num (* machine, not semantic, address *)
   | OError (* internal machine value (pointer) that should not appear *)

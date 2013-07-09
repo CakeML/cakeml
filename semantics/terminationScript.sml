@@ -208,6 +208,13 @@ srw_tac [] [exp_size_def] >>
 res_tac >>
 decide_tac);
 val _ = register "is_value" is_value_def is_value_ind;
+
+val (do_eq_def,do_eq_ind) =
+  tprove_no_defn ((do_eq_def,do_eq_ind),
+wf_rel_tac `inv_image $< (λx. case x of INL (v1,v2) => v_size v1 
+                                      | INR (vs1,vs2) => v3_size vs1)`);
+val _ = register "do_eq" do_eq_def do_eq_ind;
+
 (*
 val (deBruijn_subst_p_def,deBruijn_subst_p_ind) =
   tprove_no_defn ((deBruijn_subst_p_def,deBruijn_subst_p_ind),

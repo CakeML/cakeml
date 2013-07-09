@@ -1,5 +1,6 @@
 open Lib
 open Ast
+open SemanticPrimitives
 open CompilerLib
 open Printer
 
@@ -17,6 +18,7 @@ type
   | LoadRev of num          (* push rev(stack)[n] *)
   | El of num               (* read field n of cons block *)
   | TagEq of num            (* test tag of block *)
+  | IsBlock                 (* test for a block *)
   | Equal                   (* test equality *)
   | Add | Sub | Mult | Div | Mod | Less  (* arithmetic *)
 
@@ -68,7 +70,7 @@ type
       refs : Pmap.map num bc_value;
       handler : num;
       output : string;
-      cons_names : list (num * id conN);
+      cons_names : list (num * option (id conN));
       (* artificial state components *)
       inst_length : bc_inst -> num;
       clock : option num
@@ -85,6 +87,56 @@ let block_tag = 4
 
 let bool_to_val b = Block (bool_to_tag b) []
 let unit_val = Block unit_tag []
+
+let rec
+is_Block (Block _ _) = true
+and
+is_Block _ = false
+
+(* comparing bc_values for equality *)
+
+let rec
+bc_equal (CodePtr _) _ = Eq_type_error
+and
+bc_equal _ (CodePtr _) = Eq_type_error
+and
+bc_equal (StackPtr _) _ = Eq_type_error
+and
+bc_equal _ (StackPtr _) = Eq_type_error
+and
+bc_equal (Number n1) (Number n2) = Eq_val (n1 = n2)
+and
+bc_equal (Number _) _ = Eq_val false
+and
+bc_equal _ (Number _) = Eq_val false
+and
+bc_equal (RefPtr n1) (RefPtr n2) = Eq_val (n1 = n2)
+and
+bc_equal (RefPtr _) _ = Eq_val false
+and
+bc_equal _ (RefPtr _) = Eq_val false
+and
+bc_equal (Block t1 l1) (Block t2 l2) =
+  if t1 = closure_tag || t2 = closure_tag then Eq_closure else
+    if t1 = t2 then bc_equal_list l1 l2 else Eq_val false
+and
+bc_equal_list [] [] = Eq_val true
+and
+bc_equal_list (v1::vs1) (v2::vs2) =
+  match bc_equal v1 v2 with
+  | Eq_val true -> bc_equal_list vs1 vs2
+  | Eq_val false -> Eq_val false
+  | bad -> bad
+  end
+and
+bc_equal_list _ _ = Eq_val false
+
+let rec
+bc_equality_result_to_val (Eq_val b) = bool_to_val b
+and
+bc_equality_result_to_val Eq_closure = Number (i 0)
+and
+bc_equality_result_to_val Eq_type_error = Number (i 1)
 
 (* fetching the next instruction from the code *)
 
@@ -124,6 +176,7 @@ bc_find_loc _ (Addr n) = Some n
 and
 bc_find_loc s (Lab l) = bc_find_loc_aux s.code s.inst_length l 0
 
+val bv_to_ov : list (num * option (id conN)) -> bc_value -> ov
 let rec
 bv_to_ov _ (Number i) = OLit (IntLit i)
 and
@@ -132,7 +185,7 @@ bv_to_ov m (Block n vs) =
   if n = (bool_to_tag true) then OLit (Bool true) else
   if n = unit_tag then OLit Unit else
   if n = closure_tag then OFn else
-  OConv (the (Short "?") (Lib.lookup (n-block_tag) m)) (List.map (bv_to_ov m) vs)
+  OConv (the None (Lib.lookup (n-block_tag) m)) (List.map (bv_to_ov m) vs)
 and
 bv_to_ov _ (RefPtr n) = OLoc n
 and
@@ -171,8 +224,11 @@ and
 forall t tag ys xs. true ==>
 bc_stack_op (TagEq t) ((Block tag ys)::xs) (bool_to_val (tag = t)::xs)
 and
-forall x2 x1 xs. true ==>
-bc_stack_op Equal (x2::x1::xs) (bool_to_val (x1 = x2)::xs)
+forall x xs. (forall n. not (x = CodePtr n) && not (x = StackPtr n)) ==>
+bc_stack_op IsBlock (x::xs) ((bool_to_val (is_Block x))::xs)
+and
+forall x2 x1 xs. not (bc_equal x1 x2 = Eq_type_error) ==>
+bc_stack_op Equal (x2::x1::xs) (bc_equality_result_to_val (bc_equal x1 x2)::xs)
 and
 forall n m xs. true ==>
 bc_stack_op Less (Number n::Number m::xs) (bool_to_val (Int.(<) m n)::xs)

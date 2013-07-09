@@ -563,13 +563,21 @@ val guard_success = Q.prove (
 rw [guard_def, st_ex_return_def, failwith_def] >>
 metis_tac []);
 
+val option_case_eq = Q.prove (
+`!opt f g v st st'.
+  ((case opt of NONE => f | SOME x => g x) st = (Success v, st')) =
+  (((opt = NONE) ∧ (f st = (Success v, st'))) ∨ (?x. (opt = SOME x) ∧ (g x st = (Success v, st'))))`,
+rw [] >>
+cases_on `opt` >>
+fs []);
+
 val success_eqns = 
   LIST_CONJ [st_ex_return_success, st_ex_bind_success, fresh_uvar_success,
              apply_subst_success, add_constraint_success, lookup_st_ex_success,
              n_fresh_uvar_success, failwith_success, add_constraints_success,
              constrain_uop_success, constrain_op_success, oneTheory.one,
              get_next_uvar_success, apply_subst_list_success, guard_success,
-             read_def];
+             read_def, option_case_eq];
 
 val _ = save_thm ("success_eqns", success_eqns);
 
@@ -925,6 +933,9 @@ fs [] >|
  metis_tac [APPEND, sub_completion_more_vars],
  metis_tac [APPEND, sub_completion_more_vars],
  metis_tac [APPEND, sub_completion_more_vars],
+ PairCases_on `v'` >>
+     fs [] >>
+     metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars],
  imp_res_tac sub_completion_add_constraints >>
      PairCases_on `v''` >>
      fs [] >>
@@ -937,7 +948,7 @@ fs [] >|
      PairCases_on `v''` >>
      fs [] >>
      metis_tac [APPEND_ASSOC]]);
- 
+
 val sub_completion_infer_pes = Q.prove (
 `!menv cenv env pes t1 t2 st1 t st2 n ts2 s.
   (infer_pes menv cenv env pes t1 t2 st1 = (Success (), st2)) ∧
@@ -1469,9 +1480,20 @@ val infer_p_check_t = Q.prove (
 ho_match_mp_tac infer_p_ind >>
 rw [infer_p_def, success_eqns, remove_pair_lem] >>
 rw [check_t_def] >|
-[PairCases_on `v''` >>
+[PairCases_on `v'` >>
      fs [remove_pair_lem, EVERY_MEM] >>
      rw [] >>
+     metis_tac [check_t_more3],
+ PairCases_on `v'` >>
+     fs [] >>
+     metis_tac [],
+ PairCases_on `v''` >>
+     fs [remove_pair_lem, EVERY_MAP, EVERY_MEM, MEM_COUNT_LIST] >>
+     rw [check_t_def] >>
+     `?n. st'.next_uvar = st'''.next_uvar + n`
+                 by (imp_res_tac infer_p_next_uvar_mono >>
+                     qexists_tac `st'.next_uvar - st'''.next_uvar` >>
+                     srw_tac [ARITH_ss] []) >>
      metis_tac [check_t_more3],
  PairCases_on `v''` >>
      fs [remove_pair_lem, EVERY_MAP, EVERY_MEM, MEM_COUNT_LIST] >>
@@ -1552,6 +1574,8 @@ ho_match_mp_tac infer_p_ind >>
 rw [infer_p_def, success_eqns, remove_pair_lem] >>
 rw [] >|
 [metis_tac [check_s_more],
+ PairCases_on `v'` >>
+     metis_tac [check_s_more2, infer_p_next_uvar_mono],
  PairCases_on `v''` >>
      fs [] >>
      res_tac >>
@@ -1671,6 +1695,7 @@ fs [EVERY_MAP, check_t_def, check_env_bind, check_env_merge, check_t_infer_db_su
      imp_res_tac check_menv_lookup >>
      rw [] >>
      metis_tac [check_t_more],
+ metis_tac [check_t_more4],
  rw [EVERY_MEM, MEM_COUNT_LIST] >>
      decide_tac,
  srw_tac [ARITH_ss] [] >>
@@ -1696,7 +1721,6 @@ fs [EVERY_MAP, check_t_def, check_env_bind, check_env_merge, check_t_infer_db_su
      fs [check_t_def] >>
      metis_tac [check_env_more, check_t_more4, DECIDE ``x ≤ x + 1:num``]]);
 
-val unfinished = all_tac;
 val infer_e_check_s = Q.prove (
 `(!menv cenv env e st st' t tvs.
     (infer_e menv cenv env e st = (Success t, st')) ∧
@@ -1758,6 +1782,7 @@ rw [] >|
      `check_s tvs (count st''''.next_uvar) st''''.subst`
            by metis_tac [check_t_more2, arithmeticTheory.ADD_0, infer_st_rewrs] >>
      metis_tac [t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0, infer_st_rewrs],
+ metis_tac [check_s_more2, DECIDE ``x ≤ x + y:num``],
  metis_tac [check_s_more2, DECIDE ``x ≤ x + y:num``],
  metis_tac [check_s_more2, DECIDE ``x ≤ x + y:num``],
  res_tac >>
@@ -2160,7 +2185,10 @@ val infer_p_bindings = Q.prove (
 ho_match_mp_tac infer_p_ind >>
 rw [pat_bindings_def, infer_p_def, success_eqns, remove_pair_lem] >>
 rw [] >|
-[PairCases_on `v''` >>
+[PairCases_on `v'` >>
+     rw [] >>
+     metis_tac [],
+ PairCases_on `v''` >>
      rw [] >>
      metis_tac [],
  PairCases_on `v'` >>
@@ -2197,6 +2225,11 @@ rw [t_walkstar_eqn1, convert_t_def, Tbool_def, Tint_def, Tunit_def] >|
      fs [sub_completion_def] >>
      qpat_assum `!uv. uv ∈ FDOM s ⇒ P uv` match_mp_tac >>
      fs [count_def, SUBSET_DEF],
+ `?ts env. v' = (ts,env)` by (PairCases_on `v'` >> metis_tac []) >>
+     `t_wfs s` by metis_tac [infer_p_wfs] >>
+     rw [t_walkstar_eqn1, convert_t_def, Tref_def] >>
+     fs [convert_env_def] >>
+     metis_tac [MAP_MAP_o],
  `?ts env. v'' = (ts,env)` by (PairCases_on `v''` >> metis_tac []) >>
      `?tvs ts tn. v' = (tvs,ts,tn)` by (PairCases_on `v'` >> metis_tac []) >>
      rw [] >>
@@ -2582,6 +2615,11 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
                         res_tac >>
                         fs []) >>
           metis_tac [check_t_subst, sub_completion_wfs]],
+ (* Tup *)
+     `?ts env. v' = (ts,env)` by (PairCases_on `v'` >> metis_tac []) >>
+     `t_wfs s` by metis_tac [sub_completion_wfs, infer_e_wfs, pure_add_constraints_wfs] >>
+     rw [t_walkstar_eqn1, convert_t_def, Tref_def] >>
+     metis_tac [MAP_MAP_o],
  (* Con *)
      `?tvs ts t. v' = (tvs, ts, t)` by (PairCases_on `v'` >> rw []) >>
      rw [] >>

@@ -5,7 +5,8 @@ ifdef POLY
 HOLHEAP = proofs_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-IMPL_BARE_THYS = inferTheory unifyTheory repl_fun_altTheory
+IMPL_BARE_THYS = inferTheory unifyTheory repl_funTheory
+IMPL_BARE_THYS = inferTheory unifyTheory repl_fun_altTheory repl_funTheory
 
 SEM_BARE_THYS = AstTheory SemanticPrimitivesTheory terminationTheory TypeSystemTheory
 

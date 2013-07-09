@@ -13,6 +13,7 @@ val _ = new_theory "Bytecode"
 
 (*open Lib*)
 (*open Ast*)
+(*open SemanticPrimitives*)
 (*open CompilerLib*)
 (*open Printer*)
 
@@ -31,6 +32,7 @@ val _ = Hol_datatype `
   | LoadRev of num          (* push rev(stack)[n] *)
   | El of num               (* read field n of cons block *)
   | TagEq of num            (* test tag of block *)
+  | IsBlock                 (* test for a block *)
   | Equal                   (* test equality *)
   | Add | Sub | Mult | Div | Mod | Less`;
   (* arithmetic *)
@@ -90,7 +92,7 @@ val _ = Hol_datatype `
       refs : (num, bc_value)fmap;
       handler : num;
       output : string;
-      cons_names : (num # conN id) list;
+      cons_names : (num # ( conN id) option) list;
       (* artificial state components *)
       inst_length : bc_inst -> num;
       clock : num option
@@ -119,6 +121,63 @@ val _ = Define `
 
 val _ = Define `
  unit_val = (Block unit_tag [])`;
+
+
+ val is_Block_def = Define `
+
+(is_Block (Block _ _) = T)
+/\
+(is_Block _ = F)`;
+
+
+(* comparing bc_values for equality *)
+
+ val bc_equal_defn = Hol_defn "bc_equal" `
+
+(bc_equal (CodePtr _) _ = Eq_type_error)
+/\
+(bc_equal _ (CodePtr _) = Eq_type_error)
+/\
+(bc_equal (StackPtr _) _ = Eq_type_error)
+/\
+(bc_equal _ (StackPtr _) = Eq_type_error)
+/\
+(bc_equal (Number n1) (Number n2) = (Eq_val (n1 = n2)))
+/\
+(bc_equal (Number _) _ = (Eq_val F))
+/\
+(bc_equal _ (Number _) = (Eq_val F))
+/\
+(bc_equal (RefPtr n1) (RefPtr n2) = (Eq_val (n1 = n2)))
+/\
+(bc_equal (RefPtr _) _ = (Eq_val F))
+/\
+(bc_equal _ (RefPtr _) = (Eq_val F))
+/\
+(bc_equal (Block t1 l1) (Block t2 l2) =  
+(if (t1 = closure_tag) \/ (t2 = closure_tag) then Eq_closure else
+    if t1 = t2 then bc_equal_list l1 l2 else Eq_val F))
+/\
+(bc_equal_list [] [] = (Eq_val T))
+/\
+(bc_equal_list (v1::vs1) (v2::vs2) =  
+((case bc_equal v1 v2 of
+    Eq_val T => bc_equal_list vs1 vs2
+  | Eq_val F => Eq_val F
+  | bad => bad
+  )))
+/\
+(bc_equal_list _ _ = (Eq_val F))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn bc_equal_defn;
+
+ val bc_equality_result_to_val_def = Define `
+
+(bc_equality_result_to_val (Eq_val b) = ( bool_to_val b))
+/\
+(bc_equality_result_to_val Eq_closure = (Number ( & 0)))
+/\
+(bc_equality_result_to_val Eq_type_error = (Number ( & 1)))`;
 
 
 (* fetching the next instruction from the code *)
@@ -173,6 +232,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (bc_find_loc s (Lab l) = ( bc_find_loc_aux s.code s.inst_length l 0))`;
 
 
+(*val bv_to_ov : list (num * option (id conN)) -> bc_value -> ov*)
  val bv_to_ov_defn = Hol_defn "bv_to_ov" `
 
 (bv_to_ov _ (Number i) = (OLit (IntLit i)))
@@ -182,7 +242,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   if n = (bool_to_tag T) then OLit (Bool T) else
   if n = unit_tag then OLit Unit else
   if n = closure_tag then OFn else
-  OConv (the (Short "?") (Lib$lookup (n - block_tag) m)) ( MAP (bv_to_ov m) vs)))
+  OConv (the NONE (Lib$lookup (n - block_tag) m)) ( MAP (bv_to_ov m) vs)))
 /\
 (bv_to_ov _ (RefPtr n) = (OLoc n))
 /\
@@ -223,8 +283,11 @@ bc_stack_op (El k) ((Block tag ys) ::xs) ( EL  k  ys ::xs))
 (! t tag ys xs. T ==>
 bc_stack_op (TagEq t) ((Block tag ys) ::xs) (bool_to_val (tag = t) ::xs))
 /\
-(! x2 x1 xs. T ==>
-bc_stack_op Equal (x2 ::x1 ::xs) (bool_to_val (x1 = x2) ::xs))
+(! x xs. (! n. ~  (x = CodePtr n) /\ ~  (x = StackPtr n)) ==>
+bc_stack_op IsBlock (x ::xs) ((bool_to_val (is_Block x)) ::xs))
+/\
+(! x2 x1 xs. ( ~  (bc_equal x1 x2 = Eq_type_error)) ==>
+bc_stack_op Equal (x2 ::x1 ::xs) (bc_equality_result_to_val (bc_equal x1 x2) ::xs))
 /\
 (! n m xs. T ==>
 bc_stack_op Less (Number n ::Number m ::xs) (bool_to_val ( int_lt m n) ::xs))

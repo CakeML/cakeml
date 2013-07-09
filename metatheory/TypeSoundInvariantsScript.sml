@@ -92,7 +92,14 @@ type_vs tvs menv cenv senv vs ( MAP (type_subst ( ZIP ( tvs', ts'))) ts) /\
 (
 lookup cn cenv = SOME (tvs', ts, tn)))
 ==>
-type_v tvs menv cenv senv (Conv cn vs) (Tapp ts' (TC_name tn)))
+type_v tvs menv cenv senv (Conv (SOME cn) vs) (Tapp ts' (TC_name tn)))
+
+/\
+
+(! tvs menv cenv senv vs ts.
+(type_vs tvs menv cenv senv vs ts)
+==>
+type_v tvs menv cenv senv (Conv NONE vs) (Tapp ts TC_tup))
 
 /\
 
@@ -328,8 +335,18 @@ type_es menv cenv (bind_tvar tvs tenv) es ( MAP (type_subst ( ZIP ( tvs', ts')))
 (
 lookup cn cenv = SOME (tvs', (ts1 ++([t] ++ts2)), tn)))
 ==>
-type_ctxt tvs menv cenv senv tenv (Ccon cn vs ()  es) (type_subst ( ZIP ( tvs', ts')) t)
-          (Tapp ts' (TC_name tn)))`;
+type_ctxt tvs menv cenv senv tenv (Ccon (SOME cn) vs ()  es) (type_subst ( ZIP ( tvs', ts')) t)
+          (Tapp ts' (TC_name tn)))
+
+/\
+
+(! tvs menv cenv senv tenv vs es t ts1 ts2.
+(
+check_freevars tvs [] t /\
+type_vs tvs menv cenv senv ( REVERSE vs) ts1 /\
+type_es menv cenv (bind_tvar tvs tenv) es ts2)
+==>
+type_ctxt tvs menv cenv senv tenv (Ccon NONE vs ()  es) t (Tapp (ts1 ++([t] ++ts2)) TC_tup))`;
 
 val _ = Define `
  (poly_context cs =  

@@ -115,7 +115,7 @@ val _ = Hol_datatype `
  exp_to_Cexp_state =
  <| bvars : string list
   ; mvars : (string, ( string list))fmap
-  ; cnmap : (( conN id), num)fmap
+  ; cnmap : (( ( conN id)option), num)fmap
   |>`;
 
  val cbv_def = Define `
@@ -220,11 +220,14 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (CHandle (exp_to_Cexp m e)
     (CIf (CPrim2 CEq (CVar (Short 0)) CBind_exc) (CRaise CBind_exc)
          (CIf (CPrim2 CEq (CVar (Short 0)) CDiv_exc) (CRaise CDiv_exc)
-              (exp_to_Cexp (cbv m x) b)))))
+              (CIf (CPrim2 CEq (CVar (Short 0)) CEq_exc) (CRaise CEq_exc)
+                   (exp_to_Cexp (cbv m x) b))))))
 /\
 (exp_to_Cexp _ (Raise Bind_error) = (CRaise CBind_exc))
 /\
 (exp_to_Cexp _ (Raise Div_error) = (CRaise CDiv_exc))
+/\
+(exp_to_Cexp _ (Raise Eq_error) = (CRaise CEq_exc))
 /\
 (exp_to_Cexp _ (Raise (Int_error n)) = (CRaise (CLit (IntLit n))))
 /\
@@ -272,7 +275,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (exp_to_Cexp m (App Equality e1 e2) =  
 (let Ce1 = (exp_to_Cexp m e1) in
   let Ce2 = (exp_to_Cexp m e2) in
-  CPrim2 CEq Ce1 Ce2))
+  CLet (CPrim2 CEq Ce1 Ce2)
+    (CIf (CPrim1 CIsBlock (CVar (Short 0))) (CVar (Short 0)) (CRaise CEq_exc))))
 /\
 (exp_to_Cexp m (App Opapp e1 e2) =  
 (let Ce1 = (exp_to_Cexp m e1) in

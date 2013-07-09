@@ -121,6 +121,8 @@ let rec
 prim1_to_bc CRef = Ref
 and
 prim1_to_bc CDer = Deref
+and
+prim1_to_bc CIsBool = Stack IsBlock
 
 let rec
 prim2_to_bc CAdd = Add

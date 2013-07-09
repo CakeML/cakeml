@@ -22,7 +22,7 @@ val _ = new_theory "IntLang"
 
 (* pure applicative primitives with bytecode counterparts *)
 val _ = Hol_datatype `
- Cprim1 = CRef | CDer`;
+ Cprim1 = CRef | CDer | CIsBlock`;
 
 val _ = Hol_datatype `
  Cprim2 = CAdd | CSub | CMul | CDiv | CMod | CLt | CEq`;
@@ -105,16 +105,25 @@ val _ = Define `
  div_exc_cn = 2`;
 
 val _ = Define `
+ eq_exc_cn = 3`;
+
+val _ = Define `
  CBind_exc = (CCon bind_exc_cn [])`;
 
 val _ = Define `
  CDiv_exc = (CCon div_exc_cn [])`;
 
 val _ = Define `
+ CEq_exc = (CCon eq_exc_cn [])`;
+
+val _ = Define `
  CBind_excv = (CConv bind_exc_cn [])`;
 
 val _ = Define `
  CDiv_excv = (CConv div_exc_cn [])`;
+
+val _ = Define `
+ CEq_excv = (CConv eq_exc_cn [])`;
 
 
  val no_closures_defn = Hol_defn "no_closures" `
@@ -136,6 +145,45 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (doPrim2 _ _ _ _ = (Cexc Ctype_error))`;
 
 
+(*val do_Ceq : Cv -> Cv -> eq_result*)
+ val do_Ceq_defn = Hol_defn "do_Ceq" `
+ 
+(do_Ceq (CLitv l1) (CLitv l2) =  
+ (Eq_val (l1 = l2)))
+/\
+(do_Ceq (CLoc l1) (CLoc l2) = (Eq_val (l1 = l2)))
+/\
+(do_Ceq (CConv cn1 vs1) (CConv cn2 vs2) =  
+(if cn1 = cn2 then
+    do_Ceq_list vs1 vs2
+  else
+    Eq_val F))
+/\
+(do_Ceq (CLitv l1) (CConv cn2 vs2) = (Eq_val F))
+/\
+(do_Ceq (CConv cn1 vs1) (CLitv l2) = (Eq_val F))
+/\
+(do_Ceq (CRecClos _ _ _) (CRecClos _ _ _) = Eq_closure)
+/\
+(do_Ceq _ _ = Eq_type_error)
+/\
+(do_Ceq_list [] [] = (Eq_val T))
+/\
+(do_Ceq_list (v1::vs1) (v2::vs2) =  
+ ((case do_Ceq v1 v2 of
+      Eq_closure => Eq_closure
+    | Eq_type_error => Eq_type_error
+    | Eq_val r => 
+        if ~  r then
+          Eq_val F
+        else
+          do_Ceq_list vs1 vs2
+  )))
+/\
+  (do_Ceq_list _ _ = (Eq_val F))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_Ceq_defn;
+
  val CevalPrim2_def = Define `
 
 (CevalPrim2 CAdd = ( doPrim2 IntLit int_add))
@@ -151,9 +199,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (CevalPrim2 CLt = ( doPrim2 Bool int_lt))
 /\
 (CevalPrim2 CEq = (\ v1 v2 .
-  if no_closures v1 /\ no_closures v2
-  then Cval (CLitv (Bool (v1 = v2)))
-  else Cexc Ctype_error))`;
+  (case do_Ceq v1 v2 of
+      Eq_val b => Cval (CLitv (Bool b))
+    | Eq_closure => Cval (CLitv (IntLit ( & 0)))
+    | Eq_type_error => Cexc Ctype_error
+  )))`;
 
 
  val CevalUpd_def = Define `
@@ -175,6 +225,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
         NONE => Cexc Ctype_error
       | SOME v => Cval v
       )))
+/\
+(CevalPrim1 CIsBlock s (CLitv l) =
+  (s, Cval (CLitv (Bool ((case l of IntLit _ => F | _ => T ))))))
 /\
 (CevalPrim1 _ s _ = (s, Cexc Ctype_error))`;
 
@@ -656,7 +709,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (Cv_to_ov _ _ (CLitv l) = (OLit l))
 /\
-(Cv_to_ov m s (CConv cn vs) = (OConv (the (Short "?") (Lib$lookup cn m)) ( MAP (Cv_to_ov m s) vs)))
+(Cv_to_ov m s (CConv cn vs) = (OConv (the NONE (Lib$lookup cn m)) ( MAP (Cv_to_ov m s) vs)))
 /\
 (Cv_to_ov _ _ (CRecClos _ _ _) = OFn)
 /\

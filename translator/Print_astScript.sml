@@ -78,7 +78,7 @@ val _ = Define `
 /\
 (tok_to_string (LongidT mn id) s = ( space_append (if mn = "" then id else STRCAT  mn ( STRCAT  "." id)) s))
 /\
-(tok_to_string (TyvarT tv) s = ( space_append ( STRCAT "'"  tv) s))
+(tok_to_string (TyvarT tv) s = ( space_append tv s))
 /\
 (tok_to_string AndT s = ( STRCAT  "and "  s))
 /\
@@ -252,12 +252,15 @@ val _ = Define `
 /\
 (pat_to_tok_tree (Plit l) = ( lit_to_tok_tree l))
 /\
-(pat_to_tok_tree (Pcon c []) = ( id_to_tok_tree c))
+(pat_to_tok_tree (Pcon (SOME c) []) = ( id_to_tok_tree c))
 /\
-(pat_to_tok_tree (Pcon c ps) = (N 
+(pat_to_tok_tree (Pcon (SOME c) ps) = (N 
   (L LparT) (N ( id_to_tok_tree c) (N   
     (L LparT) (N ( join_trees (L CommaT) ( MAP pat_to_tok_tree ps)) (N  
     (L RparT)  (L RparT)))))))
+/\
+(pat_to_tok_tree (Pcon NONE ps) = (N 
+    (L LparT) (N ( join_trees (L CommaT) ( MAP pat_to_tok_tree ps))  (L RparT))))
 /\
 (pat_to_tok_tree (Pref p) = (N 
   (L LparT) (N   (L (LongidT "" "ref")) (N   (pat_to_tok_tree p)  (L RparT)))))`;
@@ -286,11 +289,11 @@ val _ = Define `
 (
   lit_to_tok_tree l))
 /\
-(exp_to_tok_tree indent (Con c []) =  
+(exp_to_tok_tree indent (Con (SOME c) []) =  
 (
   id_to_tok_tree c))
 /\
-(exp_to_tok_tree indent (Con c es) = (N 
+(exp_to_tok_tree indent (Con (SOME c) es) = (N 
   (L LparT) (N
   (
   id_to_tok_tree c) (N   
@@ -298,6 +301,12 @@ val _ = Define `
   (
   join_trees (L CommaT) ( MAP (exp_to_tok_tree indent) es)) (N   
   (L RparT)  (L RparT)))))))
+/\
+(exp_to_tok_tree indent (Con NONE es) = (N 
+  (L LparT) (N
+  (
+  join_trees (L CommaT) ( MAP (exp_to_tok_tree indent) es))  
+  (L RparT))))
 /\
 (exp_to_tok_tree indent (Var vid) =  
 (
@@ -472,7 +481,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (L (LongidT "" "unit")))
 /\
 (tc_to_tok_tree TC_ref =  
-(L (LongidT "" "ref")))`;
+(L (LongidT "" "ref")))
+/\
+(tc_to_tok_tree (TC_name n) =  
+ ( 
+  id_to_tok_tree n))`;
 
 
  val type_to_tok_tree_defn = Hol_defn "type_to_tok_tree" `

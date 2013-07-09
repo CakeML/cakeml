@@ -471,7 +471,7 @@ val Eval_OWHILE = prove(
              (If (App Opapp (Var (Short "g")) (Var (Short "x")))
                  (App Opapp (Var (Short "w"))
                    (App Opapp (Var (Short "f")) (Var (Short "x"))))
-               (Con (Short "Some") [Var (Short "x")])))] (Var (Short "w")))))
+               (Con (SOME (Short "Some")) [Var (Short "x")])))] (Var (Short "w")))))
       ((Eq (a --> BOOL) g --> Eq (a --> a) f --> Eq a x --> OPTION_TYPE a) OWHILE)``,
   tac) |> UNDISCH_ALL |> store_eval_thm;
 

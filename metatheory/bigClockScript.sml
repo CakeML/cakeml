@@ -16,8 +16,9 @@ val do_app_cases = Q.store_thm ("do_app_cases",
   (?op' n1 n2.
     (op = Opb op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
     (st = st') ∧ (env = env') ∧ (v3 = Lit (Bool (opb_lookup op' n1 n2)))) ∨
-  ((op = Equality) ∧ ¬contains_closure v1 ∧ ~contains_closure v2 ∧ 
-   (st = st') ∧ (env = env') ∧ (v3 = Lit (Bool (v1 = v2)))) ∨
+  ((op = Equality) ∧ (st = st') ∧ (env = env') ∧
+      ((?b. (do_eq v1 v2 = Eq_val b) ∧ (v3 = Lit (Bool b))) ∨
+       ((do_eq v1 v2 = Eq_closure) ∧ (v3 = Raise Eq_error)))) ∨
   (∃env'' n e.
     (op = Opapp) ∧ (v1 = Closure env'' n e) ∧
     (st' = st) ∧ (env' = bind n v2 env'') ∧ (v3 = e)) ∨
@@ -49,7 +50,9 @@ rw [] >|
      cases_on `l'` >> 
      rw [] >>
      metis_tac [],
- metis_tac [],
+ cases_on `do_eq v1 v2` >>
+     rw [] >>
+     metis_tac [],
  cases_on `v1` >>
      rw [] >-
      metis_tac [] >>
@@ -280,6 +283,7 @@ rw [Once evaluate_cases] >|
  metis_tac [],
  metis_tac [],
  metis_tac [],
+ metis_tac [],
  PairCases_on `s'` >>
      fs [] >>
      Q.ABBREV_TAC `inc = if op = Opapp then 1:num else 0` >>
@@ -468,9 +472,9 @@ rw [Once evaluate_cases] >|
           metis_tac [] >>
           `dec_count Opapp count2 < count2` by srw_tac [ARITH_ss] [dec_count_def] >>
           metis_tac [clock_monotone, arithmeticTheory.LESS_OR_EQ, arithmeticTheory.LESS_TRANS],
-      `(?l. e2 = Lit l) ∨ (e2 = Raise Div_error)`
+      `(?l. e2 = Lit l) ∨ (e2 = Raise Div_error) ∨ (e2 = Raise Eq_error)`
                   by fs [do_app_cases] >>
-      prove_tac [evaluate_rules]],
+          prove_tac [evaluate_rules]],
  (* Log *)
      `exp_size e' < exp_size (Log l e' e0) ∧
       exp_size e0 < exp_size (Log l e' e0)`

@@ -5,7 +5,7 @@ open Ast
 type v =
   | Litv of lit
   (* Constructor application. *)
-  | Conv of id conN * list v 
+  | Conv of option (id conN) * list v 
   (* Function closures
      The environment is used for the free variables in the function *)
   | Closure of env varN v * varN * exp
@@ -72,11 +72,15 @@ let lookup_var_id id menv envE =
 
 (* Other primitives *)
 (* Check that a constructor is properly applied *)
-val do_con_check : envC -> id conN -> num -> bool
-let do_con_check cenv n l =
-  match lookup n cenv with
-    | None -> false
-    | Some (l',ns) -> l = l'
+val do_con_check : envC -> option (id conN) -> num -> bool
+let do_con_check cenv n_opt l =
+  match n_opt with
+    | None -> true
+    | Some n ->
+        match lookup n cenv with
+          | None -> false
+          | Some (l',ns) -> l = l'
+        end
   end
 
 val lit_same_type : lit -> lit -> bool
@@ -113,7 +117,7 @@ pmatch envC s (Plit l) (Litv l') env =
   else
     Match_type_error
 and
-pmatch envC s (Pcon n ps) (Conv n' vs) env =
+pmatch envC s (Pcon (Some n) ps) (Conv (Some n') vs) env =
   match (lookup n envC, lookup n' envC) with
     | (Some (l, t), Some (l', t')) ->
         if t = t' && (List.length ps = l) && (List.length vs = l') then
@@ -125,6 +129,12 @@ pmatch envC s (Pcon n ps) (Conv n' vs) env =
           Match_type_error
     | (_, _) -> Match_type_error
   end
+and
+pmatch envC s (Pcon None ps) (Conv None vs) env =
+  if List.length ps = List.length vs then
+    pmatch_list envC s ps vs env
+  else
+    Match_type_error
 and
 pmatch envC s (Pref p) (Loc lnum) env =
   match store_lookup lnum s with
@@ -195,6 +205,49 @@ let do_uapp s uop v =
           Some (s', Loc n)
   end
 
+type eq_result = 
+  | Eq_val of bool
+  | Eq_closure
+  | Eq_type_error
+
+val do_eq : v -> v -> eq_result
+let rec 
+do_eq (Litv l1) (Litv l2) = 
+  Eq_val (l1 = l2)
+and
+do_eq (Loc l1) (Loc l2) = Eq_val (l1 = l2)
+and
+do_eq (Conv cn1 vs1) (Conv cn2 vs2) =
+  if cn1 = cn2 then
+    do_eq_list vs1 vs2
+  else
+    Eq_val false
+and
+do_eq (Closure _ _ _) (Closure _ _ _) = Eq_closure
+and
+do_eq (Closure _ _ _) (Recclosure _ _ _) = Eq_closure
+and
+do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_closure
+and
+do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_closure
+and
+do_eq _ _ = Eq_type_error
+and
+do_eq_list [] [] = Eq_val true
+and
+do_eq_list (v1::vs1) (v2::vs2) = 
+  match do_eq v1 v2 with
+    | Eq_closure -> Eq_closure
+    | Eq_type_error -> Eq_type_error
+    | Eq_val r -> 
+        if not r then
+          Eq_val false
+        else
+          do_eq_list vs1 vs2
+  end
+and
+do_eq_list _ _ = Eq_val false
+
 (* Do an application *)
 val do_app : store -> envE -> op -> v -> v -> option (store * envE * exp)
 let do_app s env' op v1 v2 =
@@ -214,10 +267,11 @@ let do_app s env' op v1 v2 =
     | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) ->
         Some (s, env', Lit (Bool (opb_lookup op n1 n2)))
     | (Equality, v1, v2) ->
-        if contains_closure v1 || contains_closure v2 then
-          None
-        else
-          Some (s, env', Lit (Bool (v1 = v2)))
+        match do_eq v1 v2 with
+          | Eq_type_error -> None
+          | Eq_closure -> Some (s, env', Raise Eq_error)
+          | Eq_val b -> Some (s, env', Lit (Bool b))
+        end
     | (Opassign, (Loc lnum), v) ->
         match store_assign lnum v s with
         | Some st -> Some (st, env', Lit Unit)

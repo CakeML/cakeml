@@ -36,19 +36,32 @@ val _ = Hol_datatype`repl_fun_state = <|
 
 val initial_program_def = Define `
 initial_program = 
-  [Dlet (Pvar "ref") (Fun "x" (Uapp Opref (Var(Short"x"))));
-   Dlet (Pvar "!") (Fun "x" (Uapp Opderef (Var(Short"x"))));
-   Dlet (Pvar ":=") (Fun "x" (Fun"y"(App Opassign (Var(Short"x"))(Var(Short"y")))));
-   Dlet (Pvar "=") (Fun "x" (Fun"y"(App Equality(Var(Short"x"))(Var(Short"y")))));
-   Dlet (Pvar ">=") (Fun "x" (Fun"y"(App(Opb Geq)(Var(Short"x"))(Var(Short"y")))));
-   Dlet (Pvar "<=") (Fun "x" (Fun"y"(App(Opb Leq)(Var(Short"x"))(Var(Short"y")))));
-   Dlet (Pvar ">") (Fun "x" (Fun"y"(App(Opb Gt)(Var(Short"x"))(Var(Short"y")))));
-   Dlet (Pvar "<") (Fun "x" (Fun"y"(App(Opb Lt)(Var(Short"x"))(Var(Short"y")))));
-   Dlet (Pvar "mod") (Fun "x" (Fun"y"(App(Opn Modulo)(Var(Short"x"))(Var(Short"y")))));
-   Dlet (Pvar "div") (Fun "x" (Fun"y"(App(Opn Divide)(Var(Short"x"))(Var(Short"y")))));
-   Dlet (Pvar "*") (Fun "x" (Fun"y"(App(Opn Times)(Var(Short"x"))(Var(Short"y")))));
-   Dlet (Pvar "-") (Fun "x" (Fun"y"(App(Opn Minus)(Var(Short"x"))(Var(Short"y")))));
-   Dlet (Pvar "+") (Fun "x" (Fun"y"(App(Opn Plus)(Var(Short"x"))(Var(Short"y")))))]`;
+   Dlet (Pcon NONE [Pvar "ref";
+                    Pvar "!";
+                    Pvar ":=";
+                    Pvar "="; 
+                    Pvar ">=";  
+                    Pvar "<=";  
+                    Pvar ">";  
+                    Pvar "<";  
+                    Pvar "mod";  
+                    Pvar "div";  
+                    Pvar "*";  
+                    Pvar "-";  
+                    Pvar "+"])
+        (Con NONE [(Fun "x" (Uapp Opref (Var(Short"x"))));
+                   (Fun "x" (Uapp Opderef (Var(Short"x"))));
+                   (Fun "x" (Fun"y"(App Opassign (Var(Short"x"))(Var(Short"y")))));
+                   (Fun "x" (Fun"y"(App Equality(Var(Short"x"))(Var(Short"y")))));
+                   (Fun "x" (Fun"y"(App(Opb Geq)(Var(Short"x"))(Var(Short"y")))));
+                   (Fun "x" (Fun"y"(App(Opb Leq)(Var(Short"x"))(Var(Short"y")))));
+                   (Fun "x" (Fun"y"(App(Opb Gt)(Var(Short"x"))(Var(Short"y")))));
+                   (Fun "x" (Fun"y"(App(Opb Lt)(Var(Short"x"))(Var(Short"y")))));
+                   (Fun "x" (Fun"y"(App(Opn Modulo)(Var(Short"x"))(Var(Short"y")))));
+                   (Fun "x" (Fun"y"(App(Opn Divide)(Var(Short"x"))(Var(Short"y")))));
+                   (Fun "x" (Fun"y"(App(Opn Times)(Var(Short"x"))(Var(Short"y")))));
+                   (Fun "x" (Fun"y"(App(Opn Minus)(Var(Short"x"))(Var(Short"y")))));
+                   (Fun "x" (Fun"y"(App(Opn Plus)(Var(Short"x"))(Var(Short"y")))))])`;
 
 val compile_primitives_def = Define`
   compile_primitives =

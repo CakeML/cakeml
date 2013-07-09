@@ -19,8 +19,8 @@ val _ = new_theory "Compiler"
 (*open ToBytecode*)
 (*open Bytecode*)
 
-val _ = type_abbrev( "contab" , ``: (( conN id), num)fmap # (num # conN id) list # num``);
-(*val cmap : contab -> Pmap.map (id conN) num*)
+val _ = type_abbrev( "contab" , ``: (( ( conN id)option), num)fmap # (num # ( conN id) option) list # num``);
+(*val cmap : contab -> Pmap.map (option (id conN)) num*)
  val cmap_def = Define `
  (cmap (m,_,_) = m)`;
 
@@ -35,15 +35,15 @@ val _ = Hol_datatype `
    |>`;
 
 
-(*val cpam : compiler_state -> list (num * id conN)*)
+(*val cpam : compiler_state -> list (num * option (id conN))*)
  val cpam_def = Define `
  (cpam s = ((case s.contab of (_,w,_) => w )))`;
 
 
 val _ = Define `
  init_compiler_state =  
-(<| contab := ( FUPDATE FEMPTY ( (Short ""), tuple_cn)
-              ,[(tuple_cn,Short "")]
+(<| contab := ( FUPDATE FEMPTY ( NONE, tuple_cn)
+              ,[(tuple_cn,NONE)]
               ,3)
    ; renv := []
    ; rmenv := FEMPTY
@@ -57,7 +57,7 @@ val _ = Define `
 (number_constructors _ [] ct = ct)
 /\
 (number_constructors mn ((c,_)::cs) (m,w,n) =  
-(number_constructors mn cs ( FUPDATE  m ( (mk_id mn c), n), ((n,mk_id mn c) ::w), (n +1))))`;
+(number_constructors mn cs ( FUPDATE  m ( (SOME (mk_id mn c)), n), ((n,SOME (mk_id mn c)) ::w), (n +1))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn number_constructors_defn;
 
@@ -97,7 +97,7 @@ val _ = Define `
 
 val _ = Define `
  (compile_fake_exp menv m env rsz cs vs e =  
-(let Ce = ( exp_to_Cexp m (e (Con (Short "") ( MAP (\ v . Var (Short v)) ( REVERSE vs))))) in
+(let Ce = ( exp_to_Cexp m (e (Con NONE ( MAP (\ v . Var (Short v)) ( REVERSE vs))))) in
   compile_Cexp menv env rsz cs Ce))`;
 
 
