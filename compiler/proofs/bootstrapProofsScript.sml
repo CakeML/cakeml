@@ -1,6 +1,7 @@
 open HolKernel boolLib bossLib boolSimps lcsymtacs miscLib miscTheory
 open finite_mapTheory listTheory rich_listTheory relationTheory pred_setTheory
-open IntLangTheory intLangExtraTheory  CompilerTheory compilerTerminationTheory toBytecodeProofsTheory compilerProofsTheory
+open BigStepTheory SemanticPrimitivesTheory terminationTheory bigClockTheory
+open IntLangTheory intLangExtraTheory CompilerTheory compilerTerminationTheory toIntLangProofsTheory toBytecodeProofsTheory compilerProofsTheory
 open BytecodeTheory bytecodeExtraTheory bytecodeClockTheory bytecodeEvalTheory
 val _ = new_theory"bootstrapProofs"
 
@@ -225,8 +226,8 @@ val compile_call_val = store_thm("compile_call_val",
     ∧ good_labels cs.next_label bc0
     ∧ ALL_DISTINCT (FILTER is_Label bce)
     ⇒
-    ∃bv rf rd' ck'.
-    let bs' = bs with <|stack := [bv]; pc := next_addr bs.inst_length bs.code; refs := rf; clock := ck' |> in
+    ∃bv rf rd'.
+    let bs' = bs with <|stack := [bv]; pc := next_addr bs.inst_length bs.code; refs := rf; clock := SOME 0|> in
     bc_next^* bs bs'
     ∧ Cv_bv (mk_pp rd' (bs' with code := bce)) v bv
     ∧ DRESTRICT bs.refs (COMPL (set rd.sm)) ⊑ DRESTRICT rf (COMPL (set rd'.sm))
@@ -238,8 +239,8 @@ val compile_call_val = store_thm("compile_call_val",
     qexists_tac`[]`>>simp[] >>
     simp[SUM_APPEND,FILTER_APPEND] ) >>
   simp[markerTheory.Abbrev_def] >>
-  qho_match_abbrev_tac`∃bv rf rd' ck. bc_next^* bs (bs2 bv rf ck) ∧ P bv rf rd' ck` >>
-  qsuff_tac`∃bs1. bc_next bs bs1 ∧ ∃bv rf rd' ck. bc_next^* bs1 (bs2 bv rf ck) ∧ P bv rf rd' ck`
+  qho_match_abbrev_tac`∃bv rf rd'. bc_next^* bs (bs2 bv rf) ∧ P bv rf rd'` >>
+  qsuff_tac`∃bs1. bc_next bs bs1 ∧ ∃bv rf rd'. bc_next^* bs1 (bs2 bv rf) ∧ P bv rf rd'`
     >- metis_tac[RTC_CASES1] >>
   simp[bc_eval1_thm,bc_eval1_def] >>
   rator_x_assum`Cevaluate`mp_tac >>
@@ -344,25 +345,59 @@ val compile_call_val = store_thm("compile_call_val",
     simp[Abbr`env0`] ) >>
   simp[code_for_return_def] >>
   disch_then(qx_choosel_then[`bv`,`rf`,`rd'`,`ck'`]strip_assume_tac) >>
-  map_every qexists_tac[`bv`,`rf`,`rd'`,`ck'`] >>
+  map_every qexists_tac[`bv`,`rf`,`rd'`] >>
   qmatch_assum_abbrev_tac`bc_next^* bs1 bs2'` >>
-  `bs2' = bs2 bv rf ck'` by (
+  `bs2' = bs2 bv rf` by (
     simp[Abbr`bs2`,Abbr`bs2'`,bc_state_component_equality] >>
-    simp[bump_pc_def,FILTER_APPEND,SUM_APPEND] ) >>
+    simp[bump_pc_def,FILTER_APPEND,SUM_APPEND] >>
+    imp_res_tac RTC_bc_next_clock_less >>
+    fs[Abbr`bs1`,optionTheory.OPTREL_def] >> fs[] >>
+    fs[s_refs_def,good_rd_def,Abbr`s`]) >>
   simp[Abbr`P`] >> BasicProvers.VAR_EQ_TAC >> simp[])
 
-
 (*
-val CCall_thm = store_thm("CCall_thm",
-  ``Cevaluate menv cs env exp (cs',Cval v)
-    ∧ 
-    print_find"code_env_cd"
+
+val Opapp_compiled = store_thm("Opapp_compiled",
+  ``evaluate F [] cenv (ck,[]) xenv body ((ck,[]),Rval v)
+    ∧ ct = rs.contab
+    ∧ syneq (v_to_Cv FEMPTY (cmap ct) (Closure env arg body)) Cf
+    ∧ lookup arg env = SOME a
+    ∧ all_vlabs Cf
+    ∧ (∀cd. cd ∈ vlabs Cf ⇒ code_env_cd FEMPTY bce cd)
+    ∧ bce ++ bcr = bs.code
+    ∧ Cv_bv (mk_pp rd bs) Cf bf
+    ∧ Cv_bv (mk_pp rd bs) Ca ba
+    ∧ bs.stack = ba::bf::[]
+    ∧ bs.code = bc0 ++ (MAP Stack [Load 1;El 1;Load 2;El 0]) ++ CallPtr::bc1
+    ∧ bs.pc = next_addr bs.inst_length bc0
+    ⇒
+    ∃Cv bv rf rd'.
+    let bs' = bs with <|stack := [bv]
+                       ;pc := next_addr bs.inst_length bs.code
+                       ;refs := rf
+                       |> in
+    bc_next^* bs bs'
+    ∧ syneq (v_to_Cv FEMPTY (cmap ct) v) Cv
+    ∧ Cv_bv (mk_pp rd' bs') Cv bv``,
+  simp[v_to_Cv_def] >>
+  simp[Once syneq_cases] >>
+  strip_tac >> rfs[] >>
+  qmatch_abbrev_tac`G` >>
+  rator_x_assum`syneq_defs`mp_tac >>
+  simp[Once syneq_exp_cases] >>
+  disch_then(qspecl_then[`0`,`d2`]mp_tac) >>
+  simp[] >>
+  Cevaluate_syneq
+
+  exp_to_Cexp_thm1
+  big_clocked_unclocked_equiv
+
 *)
 
 (*
-val Cenv_bs_call_thm = store_thm("Cenv_bs_call_thm",
+val Cenv_bs_Opapp = store_thm("Cenv_bs_Opapp",
   ``let f = Closure closed x body in
-    evaluate F menv cenv s ((x,a)::env) body (s,Rval v)
+    evaluate F menv cenv [] ((x,a)::env)  (s,Rval v)
 
     ∧ LIST_REL syneq (vs_to_Cvs mv m s) Cs
     ∧ LIST_REL syneq (env_to_Cenv mv m ((x,a)::env)) Cenv
@@ -375,9 +410,7 @@ val Cenv_bs_call_thm = store_thm("Cenv_bs_call_thm",
     ⇒
     bc_
   env_rs_def
-*)
 
-  (*
   ∃ptr benv st str rf h rd.
   let cl = Block closure_tag [CodePtr ptr;benv] in
   let bs1 = bs0 with <| pc := next_addr bs0.inst_length bs0.code
