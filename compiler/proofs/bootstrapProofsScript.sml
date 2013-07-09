@@ -142,28 +142,29 @@ val Cevaluate_list_MAP_Var_rwt = store_thm("Cevaluate_list_MAP_Var_rwt",
        res = (s,Cval (MAP (combin$C EL env) vs)))``,
   metis_tac[Cevaluate_list_MAP_Var,intLangExtraTheory.Cevaluate_determ])
 
-(* to relate to source language call, show that Cevaluate CCall T is the same as CCall F, if it yields a value *)
-(*
 val compile_call_val = store_thm("compile_call_val",
-  ``Cevaluate FEMPTY (ck,[]) env (CCall F (CVar(Short f)) (MAP (CVar o Short) xs)) ((ck,[]),Cval v)
+  ``Cevaluate FEMPTY (ck,[]) env (CCall F (CVar(Short f)) (MAP (CVar o Short) xs)) ((0,[]),Cval v)
     ∧ el_check f env = SOME (CRecClos clenv [(SOME cd,LENGTH es,b)] 0)
     ∧ bind_fv (LENGTH es,ue) 1 0 = (FST(SND cd),SND(SND cd),ue')
     ∧ MAP (combin$C el_check env) xs = MAP SOME vs
     ∧ (compile FEMPTY (MAP CTEnv (FST(SND cd))) (TCTail (LENGTH es) 0) 0 cs b).out = REVERSE cc ++ cs.out
     ∧ set (free_vars b) ⊆ count (LENGTH (FST(SND cd)))
     ∧ all_labs b
-    ∧ EVERY (λcd. code_env_cd FEMPTY bce cd) (free_labs (LENGTH es + LENGTH (FST(SND(SND cd))) + 1) b)
     ∧ EVERY all_vlabs clenv
     ∧ EVERY all_vlabs env
     ∧ EVERY (λv. all_Clocs v = {}) clenv
     ∧ EVERY (λv. all_Clocs v = {}) env
     ∧ EVERY (λv. (∀cd. cd ∈ vlabs v ⇒ code_env_cd FEMPTY bce cd)) clenv
     ∧ EVERY (λv. (∀cd. cd ∈ vlabs v ⇒ code_env_cd FEMPTY bce cd)) env
+    ∧ EVERY (λcd. code_env_cd FEMPTY bce cd) (free_labs (LENGTH es + LENGTH (SND(SND(SND cd))) + 1) b)
     ∧ bs.code = bce ++ bcr
+    ∧ bc3 ++ [Label (FST cd)] = bc0
+    ∧ bc3 ++ [Label (FST cd)] ++ cc ++ bc2 = bce
     ∧ bs.code = bc0 ++ cc ++ bc1 ++ [CallPtr]
     ∧ bs.pc = next_addr bs.inst_length (bc0 ++ cc ++ bc1)
-    ∧ bs.stack = CodePtr (next_addr bs.inst_length bc0)::Block 0 benv::REVERSE bvs++[Block closure_tag [CodePtr a; Block 0 benv]]
+    ∧ bs.stack = CodePtr a::Block 0 benv::REVERSE bvs++[Block closure_tag [CodePtr a; Block 0 benv]]
     ∧ bc_find_loc_aux bce bs.inst_length (FST cd) 0 = SOME a
+    ∧ next_addr bs.inst_length bc0 = a
     ∧ bs.clock = SOME ck
     ∧ LENGTH bvs = LENGTH es
     ∧ rd.sm = []
@@ -179,7 +180,7 @@ val compile_call_val = store_thm("compile_call_val",
     ∧ Cv_bv (mk_pp rd' (bs' with code := bce)) v bv
     ∧ DRESTRICT bs.refs (COMPL (set rd.sm)) ⊑ DRESTRICT rf (COMPL (set rd'.sm))
     ∧ rd.sm ≼ rd'.sm ∧ rd.cls ⊑ rd'.cls``,
-  rw[] >>
+  simp[] >> strip_tac >>
   `bc_fetch bs = SOME CallPtr` by (
     match_mp_tac bc_fetch_next_addr >>
     CONV_TAC SWAP_EXISTS_CONV >>
@@ -206,15 +207,22 @@ val compile_call_val = store_thm("compile_call_val",
   Q.PAT_ABBREV_TAC`CRC = CRecClos X Y` >>
   strip_tac >>
   Q.PAT_ABBREV_TAC`bs1 = bc_state_stack_fupd x y` >>
-  qmatch_assum_abbrev_tac`Cevaluate menv s env' b (s,Cval v)` >>
-  qspecl_then[`menv`,`s`,`env'`,`b`,`s`,`v`]mp_tac compile_body_val >>
+  qmatch_assum_abbrev_tac`Cevaluate menv Cs env' b (s,Cval v)` >>
+  qspecl_then[`menv`,`Cs`,`env'`,`b`,`s`,`v`]mp_tac compile_body_val >>
   simp[Abbr`env'`] >>
   disch_then(qspecl_then[`env0`,`rd`,`MAP CTEnv cd1`]mp_tac)>>simp[]>>
   disch_then(qspecl_then[`FEMPTY`,`0`,`bs1`,`bc0`,`REVERSE cc`]mp_tac)>>
   simp[Abbr`bs1`]>>
   disch_then(qspecl_then[`[]`,`cs`,`bce`,`bcr`]mp_tac)>>simp[] >>
-  qpat_assum`x = bce++bcr`(assume_tac o SYM) >> simp[] >> fs[] >> simp[Abbr`s`] >>
+  qpat_assum`x = bce++bcr`(assume_tac o SYM) >> simp[] >> fs[] >> simp[Abbr`Cs`] >>
   discharge_hyps >- (
+    `cd2 = []` by (
+      fs[ToBytecodeTheory.bind_fv_def,LET_THM] ) >>
+    `MAP (combin$C EL env) xs = vs` by (
+      qpat_assum`MAP x y = MAP c d`mp_tac >>
+      simp[LIST_EQ_REWRITE,EL_MAP] >> strip_tac >>
+      pop_assum mp_tac >>
+      simp[EL_MAP,CompilerLibTheory.el_check_def] ) >>
     conj_tac >- (
       match_mp_tac Cenv_bs_bind_fv >>
       simp[Abbr`menv`] >>
@@ -224,19 +232,13 @@ val compile_call_val = store_thm("compile_call_val",
       Q.PAT_ABBREV_TAC`defs:def list = X` >>
       map_every qexists_tac[`clenv`,`defs`,`0`] >>
       simp[Abbr`envs`,Abbr`recs`] >>
-      map_every qexists_tac[`cd2`,`cd3`] >>
+      map_every qexists_tac[`[]`,`cd3`] >>
       simp[] >>
       qexists_tac`ue` >>
-      simp[Abbr`env0`,Abbr`defs`] >>
-      conj_tac >- (
-        match_mp_tac s_refs_with_irr >>
-        HINT_EXISTS_TAC >>
-        simp[] ) >>
-      qsuff_tac`MAP (combin$C EL env) xs = vs`>-rw[] >>
-      qpat_assum`MAP x y = MAP c d`mp_tac >>
-      simp[LIST_EQ_REWRITE,EL_MAP] >> strip_tac >>
-      pop_assum mp_tac >>
-      simp[EL_MAP,CompilerLibTheory.el_check_def] ) >>
+      simp[Abbr`env0`,Abbr`defs`] >> fs[] >>
+      match_mp_tac s_refs_with_irr >>
+      HINT_EXISTS_TAC >>
+      simp[] ) >>
     conj_tac >- (
       simp[Abbr`menv`,closed_Clocs_def,Abbr`env0`,Abbr`CRC`,Abbr`recs`,Abbr`envs`,IMAGE_EQ_SING,MEM_MAP] >>
       simp[GSYM LEFT_FORALL_IMP_THM] >>
@@ -244,8 +246,9 @@ val compile_call_val = store_thm("compile_call_val",
       reverse conj_tac >- (
         Cases_on`cd3=[]`>>simp[] >>
         metis_tac[MEM_EL] ) >>
-      Cases_on`xs=[]`>>simp[] >>
-      fs[SUBSET_DEF] >> metis_tac[MEM_EL] ) >>
+      Cases_on`vs=[]`>>simp[] >>
+      BasicProvers.VAR_EQ_TAC >>
+      fs[MEM_MAP,SUBSET_DEF] >> metis_tac[MEM_EL] ) >>
     conj_tac >- (
       simp[closed_vlabs_def,Abbr`menv`,vlabs_menv_def,all_vlabs_menv_def] >>
       simp[vlabs_list_APPEND,vlabs_list_REVERSE,Abbr`CRC`] >>
@@ -254,12 +257,49 @@ val compile_call_val = store_thm("compile_call_val",
         fs[EVERY_MEM] >>
         fs[SUBSET_DEF] >>
         metis_tac[MEM_EL] ) >>
-      (* seems all wrong - think about this more *)
-      fs[ToBytecodeTheory.bind_fv_def,LET_THM] >>
-      rpt BasicProvers.VAR_EQ_TAC >>
-      simp_tac(srw_ss()++DNF_ss)[vlabs_list_MAP,GSYM LEFT_FORALL_IMP_THM] >>
-      simp_tac(srw_ss()++DNF_ss)[MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
-*)
+      gen_tac >> strip_tac
+      >- (
+        BasicProvers.VAR_EQ_TAC >>
+        fs[vlabs_list_MAP,MEM_MAP,SUBSET_DEF,EVERY_MEM] >>
+        metis_tac[MEM_EL] )
+      >- (
+        fs[vlabs_list_MAP,MEM_MAP,EVERY_MEM] >>
+        metis_tac[MEM_EL] )
+      >- (
+        simp[] >>
+        simp[code_env_cd_def] >>
+        conj_tac >- (
+          simp[good_cd_def] >>
+          metis_tac[] ) >>
+        qexists_tac`cs` >>
+        simp[] >>
+        qexists_tac`bc3` >>
+        qexists_tac`bc2` >>
+        simp[] >>
+        fs[good_labels_def] >>
+        qpat_assum`X = bc0`(assume_tac o SYM) >>
+        fs[FILTER_APPEND] )
+      >- ( fs[EVERY_MEM] )
+      >- (
+        BasicProvers.VAR_EQ_TAC >>
+        fs[vlabs_list_MAP,MEM_MAP] >>
+        BasicProvers.VAR_EQ_TAC >>
+        BasicProvers.VAR_EQ_TAC >>
+        fs[EVERY_MEM] >>
+        metis_tac[MEM_EL])) >>
+    conj_tac >- (
+      simp[Abbr`env0`,Abbr`envs`,Abbr`recs`] >>
+      fsrw_tac[ETA_ss][] ) >>
+    simp[Abbr`env0`] ) >>
+  simp[code_for_return_def] >>
+  disch_then(qx_choosel_then[`bv`,`rf`,`rd'`,`ck'`]strip_assume_tac) >>
+  map_every qexists_tac[`bv`,`rf`,`rd'`,`ck'`] >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1 bs2'` >>
+  `bs2' = bs2 bv rf ck'` by (
+    simp[Abbr`bs2`,Abbr`bs2'`,bc_state_component_equality] >>
+    simp[bump_pc_def,FILTER_APPEND,SUM_APPEND] ) >>
+  simp[Abbr`P`] >> BasicProvers.VAR_EQ_TAC >> simp[])
+
 
 (*
 val CCall_thm = store_thm("CCall_thm",
