@@ -1513,6 +1513,19 @@ rw [init_env_def, initial_program_def, evaluate_dec_cases, LibTheory.emp_def, pm
 NTAC 15 (rw [Once evaluate_cases]) >>
 rw [do_con_check_def, AstTheory.pat_bindings_def, pmatch_def, LibTheory.bind_def]);
 
+val empty_env_rs = Q.prove (
+`(LENGTH bc.stack = 0) ∧ (bc.clock = SOME ck) ∧ (rd.cls = FEMPTY) ∧ (rd.sm = []) ⇒ 
+ env_rs [] [] [] init_compiler_state (LENGTH bc.stack) rd (ck,[]) (bc with code := bc_inst_list)`,
+       rw [env_rs_def, CompilerTheory.init_compiler_state_def, LET_THM, good_contab_def, IntLangTheory.tuple_cn_def,
+           toIntLangProofsTheory.cmap_linv_def, intLangExtraTheory.good_cmap_def, cenv_dom_def, FLOOKUP_DEF] >>
+       qexists_tac `[]` >>
+       rw [pmatchTheory.env_to_Cenv_MAP, closed_Clocs_def, closed_vlabs_def, intLangExtraTheory.all_vlabs_menv_def,
+           intLangExtraTheory.vlabs_menv_def] >-
+       (* SO: Looks like a trivial suim I just don't know the magic for *)
+       cheat >>
+       rw [toBytecodeProofsTheory.Cenv_bs_def, toBytecodeProofsTheory.env_renv_def, toBytecodeProofsTheory.s_refs_def,
+           toBytecodeProofsTheory.good_rd_def, FEVERY_DEF]);
+
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
   rw[invariant_def,initial_repl_fun_state_def,initial_elaborator_state_def,init_repl_state_def,LET_THM] >>
@@ -1528,6 +1541,27 @@ val initial_invariant = prove(
     rw[] >> rw[semanticsExtraTheory.all_cns_def] >>
     simp[SUBSET_DEF] >> metis_tac[] )
   >- ( simp[good_il_def] ) >>
+  `evaluate_top [] [] [] [] (Tdec initial_program) ([],[],Rval ([],init_env))` 
+        by (rw [evaluate_top_cases, LibTheory.emp_def] >>
+            metis_tac [eval_initial_program]) >>
+  imp_res_tac compile_top_thm >>
+  rw [] >>
+  fs [closed_top_def, closed_context_def, toIntLangProofsTheory.closed_under_cenv_def,
+      closed_under_menv_def] >>
+  `FV_dec initial_program = {}`
+          by (rw [initial_program_def, EXTENSION] >> metis_tac []) >>
+  `dec_cns initial_program ⊆ cenv_dom ([]:envC)`
+          by (rw [initial_program_def, cenv_dom_def, SUBSET_DEF]) >>
+  fs [] >>
+  pop_assum (fn _ => all_tac) >>
+  pop_assum (fn _ => all_tac) >>
+  pop_assum (strip_assume_tac o Q.SPEC `init_compiler_state`) >>
+  pop_assum (strip_assume_tac o Q.SPECL [`FST compile_primitives`, 
+                                         `FST (SND compile_primitives)`, 
+                                         `UNKNOWN_rd`,
+                                         `SND (SND compile_primitives)`,
+                                         `initial_bc_state`,
+                                         `UNKNOWN_bc_inst_list`]) >>
 
   (* env_rs stuff *)
   (* want to get this from evaluating the initial program from empty and using
