@@ -1,6 +1,6 @@
-open HolKernel boolLib bossLib lcsymtacs miscLib
+open HolKernel boolLib bossLib boolSimps lcsymtacs miscLib miscTheory
 open finite_mapTheory listTheory rich_listTheory relationTheory pred_setTheory
-open IntLangTheory CompilerTheory compilerTerminationTheory toBytecodeProofsTheory compilerProofsTheory
+open IntLangTheory intLangExtraTheory  CompilerTheory compilerTerminationTheory toBytecodeProofsTheory compilerProofsTheory
 open BytecodeTheory bytecodeExtraTheory bytecodeClockTheory bytecodeEvalTheory
 val _ = new_theory"bootstrapProofs"
 
@@ -152,6 +152,13 @@ val compile_call_val = store_thm("compile_call_val",
     ∧ (compile FEMPTY (MAP CTEnv (FST(SND cd))) (TCTail (LENGTH es) 0) 0 cs b).out = REVERSE cc ++ cs.out
     ∧ set (free_vars b) ⊆ count (LENGTH (FST(SND cd)))
     ∧ all_labs b
+    ∧ EVERY (λcd. code_env_cd FEMPTY bce cd) (free_labs (LENGTH es + LENGTH (FST(SND(SND cd))) + 1) b)
+    ∧ EVERY all_vlabs clenv
+    ∧ EVERY all_vlabs env
+    ∧ EVERY (λv. all_Clocs v = {}) clenv
+    ∧ EVERY (λv. all_Clocs v = {}) env
+    ∧ EVERY (λv. (∀cd. cd ∈ vlabs v ⇒ code_env_cd FEMPTY bce cd)) clenv
+    ∧ EVERY (λv. (∀cd. cd ∈ vlabs v ⇒ code_env_cd FEMPTY bce cd)) env
     ∧ bs.code = bce ++ bcr
     ∧ bs.code = bc0 ++ cc ++ bc1 ++ [CallPtr]
     ∧ bs.pc = next_addr bs.inst_length (bc0 ++ cc ++ bc1)
@@ -231,7 +238,27 @@ val compile_call_val = store_thm("compile_call_val",
       pop_assum mp_tac >>
       simp[EL_MAP,CompilerLibTheory.el_check_def] ) >>
     conj_tac >- (
-      simp[closed_Clocs_def,Abbr`menv`,Abbr`CRC`,Abbr`envs`,Abbr`recs`] >>
+      simp[Abbr`menv`,closed_Clocs_def,Abbr`env0`,Abbr`CRC`,Abbr`recs`,Abbr`envs`,IMAGE_EQ_SING,MEM_MAP] >>
+      simp[GSYM LEFT_FORALL_IMP_THM] >>
+      fs[EVERY_MEM,IMAGE_EQ_SING] >>
+      reverse conj_tac >- (
+        Cases_on`cd3=[]`>>simp[] >>
+        metis_tac[MEM_EL] ) >>
+      Cases_on`xs=[]`>>simp[] >>
+      fs[SUBSET_DEF] >> metis_tac[MEM_EL] ) >>
+    conj_tac >- (
+      simp[closed_vlabs_def,Abbr`menv`,vlabs_menv_def,all_vlabs_menv_def] >>
+      simp[vlabs_list_APPEND,vlabs_list_REVERSE,Abbr`CRC`] >>
+      simp[Abbr`recs`,Abbr`envs`,EVERY_MAP,Abbr`env0`,EVERY_REVERSE] >>
+      conj_tac >- (
+        fs[EVERY_MEM] >>
+        fs[SUBSET_DEF] >>
+        metis_tac[MEM_EL] ) >>
+      (* seems all wrong - think about this more *)
+      fs[ToBytecodeTheory.bind_fv_def,LET_THM] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp_tac(srw_ss()++DNF_ss)[vlabs_list_MAP,GSYM LEFT_FORALL_IMP_THM] >>
+      simp_tac(srw_ss()++DNF_ss)[MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
 *)
 
 (*
