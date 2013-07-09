@@ -24,7 +24,7 @@ let rec cpam s = match s.contab with (_,w,_) -> w end
 let init_compiler_state =
   <| contab = (Pmap.add None tuple_cn Pmap.empty
               ,[(tuple_cn,None)]
-              ,3)
+              ,1)
    ; renv = []
    ; rmenv = Pmap.empty
    ; rsz = 0

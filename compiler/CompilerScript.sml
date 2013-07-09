@@ -44,7 +44,7 @@ val _ = Define `
  init_compiler_state =  
 (<| contab := ( FUPDATE FEMPTY ( NONE, tuple_cn)
               ,[(tuple_cn,NONE)]
-              ,3)
+              ,1)
    ; renv := []
    ; rmenv := FEMPTY
    ; rsz := 0
