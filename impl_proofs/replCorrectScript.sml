@@ -1420,7 +1420,7 @@ simp[] >>
     simp[] >>
 
     (* need to show that adding the extra module name with an empty environment
-    * is harmless *)>
+    * is harmless *)
     (* this might be impossible since the compiler doesn't do that, and the invariant is quite strong *)
     (* so probably need to make the compiler add the empty module too, and then try to prove this... *)
     cheat
