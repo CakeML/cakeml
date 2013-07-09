@@ -5,7 +5,6 @@ open IntLangTheory intLangExtraTheory CompilerTheory compilerTerminationTheory t
 open BytecodeTheory bytecodeExtraTheory bytecodeClockTheory bytecodeEvalTheory
 val _ = new_theory"bootstrapProofs"
 
-(*
 val env_rs_empty = store_thm("env_rs_empty",
   ``bs.stack = [] ∧ (∀n. bs.clock = SOME n ⇒ n = ck) ∧ rd.sm = [] ∧ rd.cls = FEMPTY ∧ cs = init_compiler_state ⇒
     env_rs [] [] [] cs 0 rd (ck,[]) bs``,
@@ -15,7 +14,7 @@ val env_rs_empty = store_thm("env_rs_empty",
       ,intLangExtraTheory.vlabs_menv_def,pred_setTheory.SUM_IMAGE_THM
       ,closed_Clocs_def,closed_vlabs_def] >>
   strip_tac >>
-  simp[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_DEF])
+  simp[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_DEF,semanticsExtraTheory.cenv_dom_def])
 
 val closed_context_empty = store_thm("closed_context_empty",
   ``closed_context [] [] [] []``,
@@ -472,7 +471,6 @@ val call_decl_thm = store_thm("call_decl_thm",
     bc_eval bs = SOME bs' ∧
     Cv_bv (mk_pp rd bs') (v_to_Cv FEMPTY (cmap rs.contab) v) bv``,
 cheat)
-*)
 
 *)
 val _ = export_theory()
