@@ -1,6 +1,7 @@
 structure repl_computeLib = struct
 open preamble repl_funTheory ASCIInumbersLib intLib
 open AstTheory inferTheory CompilerTheory compilerTerminationTheory bytecodeEvalTheory
+open repl_computeTheory;
 
 val t_unify_wfs = prove(
  ``t_wfs s ∧ (t_unify s t1 t2 = SOME sx) ==> t_wfs sx``,
@@ -137,7 +138,6 @@ val eval_initial_bc_state = EVAL ``initial_bc_state``
 val _ = computeLib.del_funs[initial_repl_fun_state_def,initial_bc_state_def]
 val _ = computeLib.add_funs[eval_initial_repl_fun_state(*,eval_initial_bc_state*)]
 
-val C_main_loop_def = Define`C_main_loop i (s,bs) = main_loop (s,bs) i`
 val eval_C_main_loop = EVAL``C_main_loop i (s,bs)``
 val _ = computeLib.del_funs[main_loop_def]
 val _ = computeLib.add_funs[GSYM C_main_loop_def]
