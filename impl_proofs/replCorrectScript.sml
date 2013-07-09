@@ -2,6 +2,7 @@ open preamble boolSimps miscLib rich_listTheory;
 open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory
 open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compileLabelsTheory compilerProofsTheory;
 open SemanticPrimitivesTheory semanticsExtraTheory TypeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory terminationTheory;
+open repl_fun_altTheory repl_fun_alt_proofTheory;
 
 val _ = new_theory "replCorrect";
 
@@ -1519,8 +1520,8 @@ val lemma3 = Q.prove (
  P (REVERSE l)`,
  metis_tac [REVERSE_REVERSE]);
 
-(* Annoying to do this by hand.  With the clocked evaluate, it shouldn't be 
- * too hard to set up a clocked interpreter function for the semantics and 
+(* Annoying to do this by hand.  With the clocked evaluate, it shouldn't be
+ * too hard to set up a clocked interpreter function for the semantics and
  * do this automatically *)
 val eval_initial_program = Q.prove (
 `evaluate_decs NONE [] [] [] [] initial_program ([], [], Rval init_env)`,
@@ -1573,5 +1574,17 @@ val replCorrect = Q.store_thm ("replCorrect",
 rw [repl_fun_def, repl_def] >>
 match_mp_tac replCorrect_lem >>
 rw[initial_invariant])
+
+val replCorrect' = Q.store_thm ("replCorrect'",
+`!input output b.
+  (repl_fun' input = (output,b)) ⇒
+  (repl (get_type_error_mask output) input output) /\ b`,
+cheat)
+
+val replCorrect_thm = Q.store_thm ("replCorrect_thm",
+`!input output.
+  (repl_fun input = output) ⇒
+  (repl (get_type_error_mask output) input output)`,
+metis_tac [replCorrect',repl_fun'_thm,PAIR])
 
 val _ = export_theory ();
