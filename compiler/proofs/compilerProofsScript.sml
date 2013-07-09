@@ -3620,40 +3620,6 @@ val compile_decs_wrap_append_out = store_thm("compile_decs_wrap_append_out",
   simp[REVERSE_GENLIST,PRE_SUB1] >>
   simp[LIST_EQ_REWRITE])
 
-(*
-val compile_top_append_code = store_thm("compile_top_append_code",
-  ``∀rs top.
-      {x | Short x ∈ FV_top top} ⊆ set (MAP FST rs.renv)
-      ⇒
-      between_labels (SND(SND(compile_top rs top))) rs.rnext_label (FST(compile_top rs top)).rnext_label ∧
-      ((FST(SND(compile_top rs top))).rnext_label = (FST(compile_top rs top)).rnext_label)``,
-   gen_tac >> Cases >> strip_tac >>
-   simp[compile_top_def,UNCURRY,FOLDL_emit_thm] >- (
-     qmatch_assum_rename_tac`{x | Short x ∈ FV_top (Tmod mn spec ds)} ⊆ X`["X"] >>
-     qspecl_then[`SOME mn`,`rs`,`ds`]mp_tac compile_decs_wrap_append_out >>
-     qabbrev_tac`p  = compile_decs_wrap (SOME mn) rs ds` >>
-     PairCases_on`p`>> simp[] >>
-     discharge_hyps >- fs[] >>
-     simp[] >> strip_tac >>
-     fs[between_labels_def,IMPLODE_EXPLODE_I] >>
-     simp_tac std_ss [REVERSE_APPEND] >>
-     simp_tac std_ss [FILTER_APPEND] >>
-     simp_tac std_ss [FILTER] >>
-     simp_tac std_ss [FILTER_REVERSE] >>
-     Q.PAT_ABBREV_TAC`ls = FILTER is_Label (X::Y)` >>
-     `ls = []` by (
-       simp[Abbr`ls`,FILTER_EQ_NIL,EVERY_MAP] ) >>
-     simp[] >>
-     Q.PAT_ABBREV_TAC`ll = FILTER is_Label X` >>
-     `ll = []` by (
-       simp[Abbr`ll`,FILTER_EQ_NIL,EVERY_MAP] ) >>
-     simp[] ) >>
-   qspecl_then[`NONE`,`rs`,`[d]`]mp_tac compile_decs_wrap_append_out >>
-   qabbrev_tac`p  = compile_decs_wrap NONE rs [d]` >>
-   PairCases_on`p`>> simp[] >>
-   fs[FV_decs_def] >>
-*)
-
 val closed_top_def = Define`
   closed_top menv cenv s env top ⇔
     closed_context menv cenv s env ∧
@@ -3890,6 +3856,44 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     simp[UNCURRY,AstTheory.mk_id_def] >>
     simp[LAMBDA_PROD] ) >>
   metis_tac[RTC_TRANSITIVE,transitive_def])
+
+val compile_top_append_code = store_thm("compile_top_append_code",
+  ``∀rs top.
+      {x | Short x ∈ FV_top top} ⊆ set (MAP FST rs.renv)
+      ⇒
+      between_labels (SND(SND(compile_top rs top))) rs.rnext_label (FST(compile_top rs top)).rnext_label ∧
+      ((FST(SND(compile_top rs top))).rnext_label = (FST(compile_top rs top)).rnext_label)``,
+   gen_tac >> Cases >> strip_tac >>
+   simp[compile_top_def,UNCURRY,FOLDL_emit_thm] >- (
+     qmatch_assum_rename_tac`{x | Short x ∈ FV_top (Tmod mn spec ds)} ⊆ X`["X"] >>
+     qspecl_then[`SOME mn`,`rs`,`ds`]mp_tac compile_decs_wrap_append_out >>
+     qabbrev_tac`p  = compile_decs_wrap (SOME mn) rs ds` >>
+     PairCases_on`p`>> simp[] >>
+     discharge_hyps >- fs[] >>
+     simp[] >> strip_tac >>
+     fs[between_labels_def,IMPLODE_EXPLODE_I] >>
+     simp_tac std_ss [REVERSE_APPEND] >>
+     simp_tac std_ss [FILTER_APPEND] >>
+     simp_tac std_ss [FILTER] >>
+     simp_tac std_ss [FILTER_REVERSE] >>
+     Q.PAT_ABBREV_TAC`ls = FILTER is_Label (X::Y)` >>
+     `ls = []` by (
+       simp[Abbr`ls`,FILTER_EQ_NIL,EVERY_MAP] ) >>
+     simp[] >>
+     Q.PAT_ABBREV_TAC`ll = FILTER is_Label X` >>
+     `ll = []` by (
+       simp[Abbr`ll`,FILTER_EQ_NIL,EVERY_MAP] ) >>
+     simp[] ) >>
+   qspecl_then[`NONE`,`rs`,`[d]`]mp_tac compile_decs_wrap_append_out >>
+   qabbrev_tac`p  = compile_decs_wrap NONE rs [d]` >>
+   PairCases_on`p`>> simp[] >>
+   fs[FV_decs_def] >>
+   qspecl_then[`d`,`p4`]mp_tac compile_print_dec_thm >>
+   simp[] >> strip_tac >> simp[] >> strip_tac >>
+   fs[between_labels_def,FILTER_APPEND,FILTER_REVERSE] >>
+   `FILTER is_Label code = []` by (
+     simp[FILTER_EQ_NIL] >> fs[EVERY_MEM] ) >>
+   simp[])
 
 val labels_tac =
   fsrw_tac[DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE,FILTER_REVERSE,good_labels_def,between_labels_def
