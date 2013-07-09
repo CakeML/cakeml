@@ -975,6 +975,21 @@ val evaluate_top_to_cenv = store_thm("evaluate_top_to_cenv",
   imp_res_tac evaluate_decs_to_cenv >>
   fs[])
 
+val labels_tac =
+  qspecl_then[`st.rcompiler_state`,`top`]mp_tac compile_top_append_code >>
+  discharge_hyps >- (
+    `MAP FST st.rcompiler_state.renv = MAP FST rs.envE` by (
+      fs[env_rs_def,LET_THM,GSYM MAP_MAP_o] ) >>
+    simp[] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD,MEM_FLAT] >>
+    rw[] >> res_tac >> fs[MEM_MAP] >> metis_tac[] ) >>
+  imp_res_tac RTC_bc_next_preserves >>
+  qpat_assum`bs.code = X::Y`kall_tac >>
+  simp[between_labels_def,good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+  fs[good_labels_def] >> strip_tac >>
+  fsrw_tac[DNF_ss][EVERY_MEM,miscTheory.between_def,MEM_FILTER,MEM_MAP,is_Label_rwt,Abbr`new_repl_fun_state`,FILTER_REVERSE,ALL_DISTINCT_REVERSE] >>
+  rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC
+
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
   invariant repl_state repl_fun_state bc_state ⇒
@@ -1299,21 +1314,7 @@ simp[] >>
       map_every qexists_tac[`rd2`,`(0,Cs'')`,`bs2`,`bs2.refs`,`NONE`] >>
       simp[BytecodeTheory.bc_state_component_equality] >>
       rfs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
-    conj_tac >- (
-      cheat (* RK: haven't proved new version of compile_top_append_code yet
-      qspecl_then[`menv_dom rs.envM`,`st.rcompiler_state`,`top`]mp_tac compile_top_append_code >>
-      discharge_hyps >- (
-        `MAP (Short o FST) st.rcompiler_state.renv = MAP (Short o FST) rs.envE` by (
-          fs[env_rs_def,LET_THM,GSYM MAP_MAP_o] ) >>
-        simp[] >>
-        simp[MEM_FLAT,MEM_MAP,EXISTS_PROD] >> rw[] >>
-        fs[MEM_MAP] ) >>
-      imp_res_tac RTC_bc_next_preserves >>
-      qpat_assum`bs.code = X::Y`kall_tac >>
-      simp[between_labels_def,good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
-      fs[good_labels_def] >> strip_tac >>
-      fsrw_tac[DNF_ss][EVERY_MEM,miscTheory.between_def,MEM_FILTER,MEM_MAP,is_Label_rwt,Abbr`new_repl_fun_state`] >>
-      rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC*)) >>
+    conj_tac >- ( labels_tac  ) >>
     simp[Abbr`new_bc_state`] >>
     imp_res_tac RTC_bc_next_preserves >>
     fs[]) >>
@@ -1421,21 +1422,7 @@ simp[] >>
     rfs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def]
     *)
     ) >>
-  conj_tac >- (
-    cheat (* RK: don't have compile_top_append_code yet
-    qspecl_then[`menv_dom rs.envM`,`st.rcompiler_state`,`top`]mp_tac compile_top_append_code >>
-    discharge_hyps >- (
-      `MAP (Short o FST) st.rcompiler_state.renv = MAP (Short o FST) rs.envE` by (
-        fs[env_rs_def,LET_THM,GSYM MAP_MAP_o] ) >>
-      simp[] >>
-      simp[MEM_FLAT,MEM_MAP,EXISTS_PROD] >> rw[] >>
-      fs[MEM_MAP] ) >>
-    imp_res_tac RTC_bc_next_preserves >>
-    qpat_assum`bs.code = X::Y`kall_tac >>
-    simp[between_labels_def,good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
-    fs[good_labels_def] >> strip_tac >>
-    fsrw_tac[DNF_ss][EVERY_MEM,miscTheory.between_def,MEM_FILTER,MEM_MAP,is_Label_rwt,Abbr`new_repl_fun_state`] >>
-    rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC*)) >>
+  conj_tac >- labels_tac >>
   simp[Abbr`new_bc_state`] >>
   imp_res_tac RTC_bc_next_preserves >>
   fs[]);
@@ -1449,7 +1436,7 @@ val good_compile_primitives = prove(
     ``,
   rw[compile_primitives_def, initial_program_def] >>
   rw[CompilerTheory.compile_top_def,CompilerTheory.compile_dec_def] >>
-  cheat (* need to update for new compiler interface *)
+  (* need to update for new compiler interface *)
   (*
   imp_res_tac compile_fake_exp_contab >>
   rw[good_contab_def,intLangExtraTheory.good_cmap_def] >>
@@ -1494,8 +1481,7 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   imp_res_tac bytecodeExtraTheory.RTC_bc_next_clock_less >>
   `bs1.clock = NONE` by rfs[optionTheory.OPTREL_def,Abbr`bs`,install_code_def] >>
   simp[Abbr`bs`,install_code_def] >>
-  cheat (* RK: don't have compile_top_append_code 
-  qspecl_then[`{}`,`init_compiler_state`]mp_tac compile_top_append_code >>
+  qspecl_then[`init_compiler_state`]mp_tac compile_top_append_code >>
   disch_then(mp_tac o SPEC(rand(rhs(concl(compile_primitives_def))))) >>
   discharge_hyps >- (
     simp[] >>
@@ -1505,7 +1491,7 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   simp[GSYM compile_primitives_def, initial_program_def] >>
   simp[good_labels_def,between_labels_def] >>
   strip_tac >>
-  fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP]*))
+  fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP,FILTER_REVERSE,ALL_DISTINCT_REVERSE])
 
   (*
 val lemma1 = Q.prove (
