@@ -430,6 +430,15 @@ val evaluate_top_closed_context = store_thm("evaluate_top_closed_context",
     fs[] >> fs[LET_THM] >>
     Cases_on`d`>>fs[] ))
 
+val closed_context_extend_cenv = store_thm("closed_context_extend_cenv",
+  ``∀menv cenv s env cenv'.
+      closed_context menv cenv s env ⇒
+      closed_context menv (cenv'++cenv) s env``,
+  rw[closed_context_def] >> fs[] >>
+  fs[toIntLangProofsTheory.closed_under_cenv_def] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF] >>
+  metis_tac[])
+
 val strip_mod_env_append = store_thm("strip_mod_env_append",
   ``strip_mod_env (ls ++ l2) = strip_mod_env ls ++ strip_mod_env l2``,
   rw[strip_mod_env_def])
@@ -937,6 +946,35 @@ res_tac >>
 fs [SUBSET_DEF] >>
 fs [weak_other_mods_def, GSYM alistTheory.ALOOKUP_NONE]);
 
+val evaluate_decs_to_cenv = store_thm("evaluate_decs_to_cenv",
+  ``∀mn menv cenv s env decs res.
+     evaluate_decs mn menv cenv s env decs res ⇒
+     ∃cenv'. decs_to_cenv mn decs = cenv' ++ (FST(SND res))``,
+   HO_MATCH_MP_TAC evaluate_decs_ind >>
+   simp[LibTheory.emp_def] >> rw[] >>
+   imp_res_tac evaluate_dec_dec_to_cenv >>
+   fs[] >> simp[decs_to_cenv_def,LibTheory.merge_def])
+
+val evaluate_top_to_cenv = store_thm("evaluate_top_to_cenv",
+  ``∀menv cenv store env top res.
+    evaluate_top menv cenv store env top res ⇒
+    SND (SND res) ≠ Rerr Rtype_error ⇒
+    ∃cenv'. top_to_cenv top = cenv' ++ (FST(SND res))``,
+  HO_MATCH_MP_TAC evaluate_top_ind >> simp[] >>
+  strip_tac >- (
+    simp[top_to_cenv_def] >> rw[] >>
+    imp_res_tac evaluate_dec_dec_to_cenv >> fs[] ) >>
+  strip_tac >- (
+    simp[top_to_cenv_def] >> rw[] >>
+    imp_res_tac evaluate_dec_err_cenv_emp >> fs[LibTheory.emp_def] ) >>
+  strip_tac >- (
+    simp[top_to_cenv_def] >> rw[] >>
+    imp_res_tac evaluate_decs_to_cenv >> fs[] ) >>
+  rw[] >>
+  simp[top_to_cenv_def] >>
+  imp_res_tac evaluate_decs_to_cenv >>
+  fs[])
+
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
   invariant repl_state repl_fun_state bc_state ⇒
@@ -1323,8 +1361,8 @@ simp[] >>
   first_x_assum(qspecl_then[`new_repl_state`,`new_bc_state`,`new_repl_fun_state`]mp_tac) >>
   simp[lexer_correct] >>
   disch_then match_mp_tac >>
-  (* invariant preservation *)
 
+  (* invariant preservation *)
   pop_assum mp_tac >>
   simp[strip_mod_env_append,strip_mod_env_length,BUTLASTN_APPEND1,BUTLASTN] >>
   strip_tac >>
@@ -1349,10 +1387,8 @@ simp[] >>
   conj_tac >- (
     simp[Abbr`new_repl_state`,update_repl_state_def] >>
     match_mp_tac closed_context_strip_mod_env >>
-    simp[] >>
-    cheat (* SO: It looks like evaluate_top_closed_context is designed for the
-    old some-of-the constructors way, rather than the new all of the
-    constructors way *)) >>
+    imp_res_tac evaluate_top_to_cenv >> fs[] >>
+    metis_tac[closed_context_extend_cenv,APPEND_ASSOC]) >>
   conj_tac >- (
     imp_res_tac RTC_bc_next_preserves >>
     fs[Abbr`bs0`,install_code_def] ) >>
