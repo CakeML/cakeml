@@ -5,6 +5,7 @@ val _ = new_theory "repl_fun_alt_proof";
 
 open arithmeticTheory relationTheory listTheory lexer_implTheory;
 open repl_funTheory repl_fun_altTheory bytecodeLabelsTheory BytecodeTheory;
+open lcsymtacs bytecodeEvalTheory bytecodeExtraTheory;
 
 infix \\ val op \\ = op THEN;
 
@@ -234,13 +235,27 @@ val bc_eval_NONE_strip_labels = prove(
   ``(bc_eval bs1 = NONE) /\ code_executes_ok bs1 /\
     length_ok bs1.inst_length ==>
     (bc_eval (strip_labels bs1) = NONE)``,
-  cheat); (* see: bc_next_strip_labels_RTC *)
+  rw[] >>
+  Cases_on`bc_eval (strip_labels bs1)`>>rw[] >>
+  imp_res_tac bc_eval_SOME_RTC_bc_next >>
+  imp_res_tac bc_next_strip_labels_RTC >>
+  rfs[strip_labels_inst_length] >>
+  `strip_labels (strip_labels bs1) = strip_labels bs1` by cheat (* RK: need strip_labels idempotent *) >>
+  fs[] >>
+  `bc_next^* bs1 x` by cheat (* RK: need ability to unstrip labels *) >>
+  `bc_eval bs1 = SOME x` by METIS_TAC[RTC_bc_next_bc_eval] >>
+  fs[]);
 
 val bc_eval_SOME_strip_labels = prove(
   ``(bc_eval bs1 = SOME bs2) /\ code_executes_ok bs1 /\
     length_ok bs1.inst_length ==>
     (bc_eval (strip_labels bs1) = SOME (strip_labels bs2))``,
-  cheat); (* see: bc_next_strip_labels_RTC *)
+  rw[] >>
+  imp_res_tac bc_eval_SOME_RTC_bc_next >>
+  imp_res_tac bc_next_strip_labels_RTC >>
+  imp_res_tac RTC_bc_next_bc_eval >>
+  first_x_assum match_mp_tac >>
+  cheat); (* RK: need ability to unstrip labels, and probably idempotence of strip_labels *)
 
 val length_ok_inst_length = prove(
   ``length_ok inst_length``,
