@@ -17,8 +17,7 @@ val data = map
    datatype_ov,
    datatype_bc_inst,
    datatype_bc_value,
-   datatype_bc_state,
-   datatype_bc_equality_result]
+   datatype_bc_state]
 
 val init_bc_state_def =  Define`
   init_bc_state = <|
