@@ -1648,6 +1648,15 @@ val compile_primitives_renv = store_thm("compile_primitives_renv",
   rw[] >> simp[])
   *)
 
+(* Annoying to do this by hand.  With the clocked evaluate, it shouldn't be
+ * too hard to set up a clocked interpreter function for the semantics and
+ * do this automatically *)
+val eval_initial_program = Q.prove (
+`evaluate_dec NONE [] [] [] [] initial_program ([], Rval ([], init_env))`,
+rw [init_env_def, initial_program_def, evaluate_dec_cases, LibTheory.emp_def, pmatch_def] >>
+NTAC 15 (rw [Once evaluate_cases]) >>
+rw [do_con_check_def, AstTheory.pat_bindings_def, pmatch_def, LibTheory.bind_def]);
+
 val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   ``(initial_bc_state.inst_length = K 0) ∧
     good_labels (FST compile_primitives).rnext_label initial_bc_state.code ∧
@@ -1655,8 +1664,61 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
     (∃ls. initial_bc_state.code = PrintE++Stop::ls)``,
   simp[initial_bc_state_def] >>
   Q.PAT_ABBREV_TAC`bs = install_code X Y Z` >>
-  (* cheat: repl setup terminates *)
-  `∃bs1. bc_eval bs = SOME bs1` by cheat >>
+  `∃bs1. bc_eval bs = SOME bs1` by (
+    `evaluate_top [] [] [] [] (Tdec initial_program) ([],[],Rval ([],init_env))` 
+          by (rw [evaluate_top_cases, LibTheory.emp_def] >>
+              metis_tac [eval_initial_program]) >>
+    qspecl_then[`[]`,`[]`,`[]`,`[]`,`Tdec initial_program`,`([],[],Rval ([],init_env))`]mp_tac compile_top_thm >>
+    simp[] >>
+    simp[closed_top_def,closed_context_def,toIntLangProofsTheory.closed_under_cenv_def,closed_under_menv_def] >>
+    `FV_dec initial_program = {}`
+            by (rw [initial_program_def, EXTENSION] >> metis_tac []) >>
+    `dec_cns initial_program ⊆ cenv_dom ([]:envC)`
+            by (rw [initial_program_def, cenv_dom_def, SUBSET_DEF]) >>
+    fs [] >>
+    disch_then(qspec_then`init_compiler_state`mp_tac) >>
+    disch_then(qx_choosel_then[`ck`]mp_tac) >>
+    qabbrev_tac`p = compile_top init_compiler_state (Tdec initial_program)` >>
+    PairCases_on`p`>>simp[] >>
+    disch_then(qspecl_then
+      [`<|sm:=[];cls:=FEMPTY|>`
+      ,`^(rand(rhs(concl(initial_bc_state_def)))) with
+        <| pc := next_addr (K 0) (PrintE++[Stop])
+         ; clock := SOME ck
+         ; code := PrintE++[Stop]++(REVERSE p2)|>`
+      ,`PrintE++[Stop]`]mp_tac) >>
+    discharge_hyps >- (
+      simp[] >>
+      assume_tac PrintE_labels >>
+      fs[good_labels_def] >>
+      conj_tac >- (
+        match_mp_tac env_rs_empty >>
+        simp[] ) >>
+      fsrw_tac[][FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+      simp[CompilerTheory.init_compiler_state_def] ) >>
+    disch_then(qx_choosel_then[`bs1`,`rd`]strip_assume_tac) >>
+    imp_res_tac RTC_bc_next_can_be_unclocked >>
+    pop_assum mp_tac >>
+    qpat_assum`bc_next^* X bs`kall_tac >>
+    strip_tac >>
+    imp_res_tac RTC_bc_next_bc_eval >>
+    qmatch_assum_abbrev_tac`bc_next^* bs3 bs2` >>
+    `bs3 = bs` by (
+      simp[Abbr`bs3`,Abbr`bs`,bc_state_component_equality] >>
+      simp[install_code_def] >>
+      simp[compile_primitives_def] ) >>
+    fs[] >>
+    qexists_tac`bs2` >>
+    first_x_assum match_mp_tac >>
+    simp[bc_eval1_thm] >>
+    `bc_fetch bs2 = NONE` by (
+      simp[bc_fetch_def] >>
+      match_mp_tac bc_fetch_aux_end_NONE >>
+      simp[Abbr`bs2`] >>
+      imp_res_tac RTC_bc_next_preserves >>
+      fs[] >>
+      simp[Abbr`bs`,SUM_APPEND,FILTER_APPEND,FILTER_REVERSE,SUM_REVERSE,MAP_REVERSE] ) >>
+    simp[bc_eval1_def] ) >>
   simp[] >>
   imp_res_tac bc_eval_SOME_RTC_bc_next >>
   imp_res_tac bytecodeExtraTheory.RTC_bc_next_preserves >>
@@ -1678,15 +1740,6 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP,FILTER_REVERSE,ALL_DISTINCT_REVERSE,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
   rw[] >> spose_not_then strip_assume_tac >> res_tac >> fs[CompilerTheory.init_compiler_state_def] >> DECIDE_TAC
   )
-
-(* Annoying to do this by hand.  With the clocked evaluate, it shouldn't be
- * too hard to set up a clocked interpreter function for the semantics and
- * do this automatically *)
-val eval_initial_program = Q.prove (
-`evaluate_dec NONE [] [] [] [] initial_program ([], Rval ([], init_env))`,
-rw [init_env_def, initial_program_def, evaluate_dec_cases, LibTheory.emp_def, pmatch_def] >>
-NTAC 15 (rw [Once evaluate_cases]) >>
-rw [do_con_check_def, AstTheory.pat_bindings_def, pmatch_def, LibTheory.bind_def]);
 
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
