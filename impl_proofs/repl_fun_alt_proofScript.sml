@@ -230,20 +230,56 @@ val temp_assum = prove(
   ``temp x y <=> (SND y ==> temp x y)``,
   SIMP_TAC std_ss [temp_def]);
 
+val strip_labels_idempotent = store_thm("strip_labels_idempotent",
+  ``!bs. strip_labels (strip_labels bs) = strip_labels bs``,
+  cheat)
+
+val unstrip_labels = store_thm("unstrip_labels",
+  ``!bs1 bs2. bc_next (strip_labels bs1) bs2 ==> ∃bs3. bc_next bs1 bs3``,
+  cheat)
+
+val bc_next_strip_labels_NRC = store_thm("bc_next_strip_labels_NRC",
+  ``!n s1 s2. length_ok s1.inst_length ∧ NRC bc_next n s1 s2 ⇒ NRC bc_next n (strip_labels s1) (strip_labels s2)``,
+  Induct>>simp[NRC]>>rw[]>>
+  qexists_tac`strip_labels z` >>
+  METIS_TAC[bc_next_strip_labels,bc_next_preserves_inst_length])
+
+val unstrip_labels_NRC = store_thm("unstrip_labels_NRC",
+  ``!n bs1 bs2. length_ok bs1.inst_length ∧ NRC bc_next n (strip_labels bs1) bs2 ==> ∃bs3. NRC bc_next n bs1 bs3``,
+  Induct >> simp[NRC] >> rw[] >>
+  imp_res_tac unstrip_labels >>
+  `z = strip_labels bs3` by METIS_TAC[bc_next_strip_labels,bc_eval1_thm,optionTheory.SOME_11] >>
+  `length_ok z.inst_length` by METIS_TAC[strip_labels_inst_length,bc_next_preserves_inst_length] >>
+  `NRC bc_next n (strip_labels bs3) (strip_labels bs2)` by METIS_TAC[bc_next_strip_labels_NRC,strip_labels_idempotent] >>
+  METIS_TAC[strip_labels_inst_length] )
+
+val NRC_bc_next_determ = store_thm("NRC_bc_next_determ",
+  ``!n s1 s2. NRC bc_next n s1 s2 ==> !s3. NRC bc_next n s1 s3 ==> s3 = s2``,
+  Induct>>simp[NRC]>>rw[]>>fs[bc_eval1_thm]>> METIS_TAC[])
+
 val bc_eval_NONE_strip_labels = prove(
   ``(bc_eval bs1 = NONE) /\ code_executes_ok bs1 /\
     length_ok bs1.inst_length ==>
     (bc_eval (strip_labels bs1) = NONE)``,
   rw[] >>
+  `∀bs2. bc_next^* bs1 bs2 ⇒ ∃bs3. bc_next bs2 bs3` by (
+    rw[] >> spose_not_then strip_assume_tac >>
+    imp_res_tac RTC_bc_next_bc_eval >>
+    fs[] ) >>
   Cases_on`bc_eval (strip_labels bs1)`>>rw[] >>
   imp_res_tac bc_eval_SOME_RTC_bc_next >>
   imp_res_tac bc_next_strip_labels_RTC >>
   rfs[strip_labels_inst_length] >>
-  `strip_labels (strip_labels bs1) = strip_labels bs1` by cheat (* RK: need strip_labels idempotent *) >>
+  `strip_labels (strip_labels bs1) = strip_labels bs1` by METIS_TAC[strip_labels_idempotent] >>
   fs[] >>
-  `bc_next^* bs1 x` by cheat (* RK: need ability to unstrip labels *) >>
-  `bc_eval bs1 = SOME x` by METIS_TAC[RTC_bc_next_bc_eval] >>
-  fs[]);
+  qsuff_tac`∃bs3. bc_next (strip_labels x) bs3` >- METIS_TAC[unstrip_labels] >>
+  `∃n. NRC bc_next n (strip_labels bs1) x` by METIS_TAC[RTC_eq_NRC] >>
+  `∃bs3. NRC bc_next n bs1 bs3` by METIS_TAC[unstrip_labels_NRC] >>
+  `NRC bc_next n (strip_labels bs1) (strip_labels bs3)` by METIS_TAC[bc_next_strip_labels_NRC] >>
+  `∃bs4. bc_next bs3 bs4` by METIS_TAC[RTC_eq_NRC] >>
+  `length_ok bs3.inst_length` by METIS_TAC[RTC_bc_next_preserves,RTC_eq_NRC] >>
+  qsuff_tac`strip_labels x = strip_labels bs3` >- METIS_TAC[bc_next_strip_labels] >>
+  METIS_TAC[NRC_bc_next_determ,strip_labels_idempotent])
 
 val bc_eval_SOME_strip_labels = prove(
   ``(bc_eval bs1 = SOME bs2) /\ code_executes_ok bs1 /\
@@ -254,7 +290,7 @@ val bc_eval_SOME_strip_labels = prove(
   imp_res_tac bc_next_strip_labels_RTC >>
   imp_res_tac RTC_bc_next_bc_eval >>
   first_x_assum match_mp_tac >>
-  cheat); (* RK: need ability to unstrip labels, and probably idempotence of strip_labels *)
+  METIS_TAC[unstrip_labels]);
 
 val length_ok_inst_length = prove(
   ``length_ok inst_length``,
