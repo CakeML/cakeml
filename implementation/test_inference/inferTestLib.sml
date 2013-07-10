@@ -14,7 +14,7 @@ fun do_test filename =
       SOME res
   end;
 
-computeLib.monitoring := SOME (same_const ``check_specs``)
+mesonLib.chatting := 0;
 
 fun do_all_tests files =
 let val x = ref 0 in
@@ -25,10 +25,9 @@ List.app (fn d => (x := (!x) + 1;
         files
 end;
 
-do_all_tests ["test3.ml"]
-
-
+do_all_tests
 ["test1.ml", 
  "test2.ml", 
- "test3.ml"]
+ "test3.ml",
+ "test4.ml"]
 
