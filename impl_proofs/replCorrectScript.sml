@@ -1,8 +1,8 @@
-open preamble boolSimps miscLib rich_listTheory;
+open preamble boolSimps miscLib rich_listTheory arithmeticTheory;
 open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory
 open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compileLabelsTheory compilerProofsTheory;
 open SemanticPrimitivesTheory semanticsExtraTheory TypeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory terminationTheory;
-open bootstrapProofsTheory repl_fun_altTheory repl_fun_alt_proofTheory;
+open BytecodeTheory bootstrapProofsTheory repl_fun_altTheory repl_fun_alt_proofTheory;
 
 val _ = new_theory "replCorrect";
 
@@ -247,12 +247,11 @@ val invariant_def = Define`
     ∧ type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store)
 
     ∧ closed_context rs.envM rs.envC rs.store rs.envE
-    ∧ good_il bs.inst_length
     ∧ (∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state (LENGTH bs.stack) rd (c,rs.store) bs)
     ∧ good_labels rfs.rcompiler_state.rnext_label bs.code
 
     ∧ bs.clock = NONE
-    ∧ (∃ls. bs.code = PrintE::Stop::ls)
+    ∧ (∃ls. bs.code = PrintE++Stop::ls)
     `;
 
 (*
@@ -996,11 +995,175 @@ val labels_tac =
     fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD,MEM_FLAT] >>
     rw[] >> res_tac >> fs[MEM_MAP] >> metis_tac[] ) >>
   imp_res_tac RTC_bc_next_preserves >>
-  qpat_assum`bs.code = X::Y`kall_tac >>
+  qpat_assum`bs.code = PrintE++Y++Z`kall_tac >>
   simp[between_labels_def,good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
   fs[good_labels_def] >> strip_tac >>
   fsrw_tac[DNF_ss][EVERY_MEM,miscTheory.between_def,MEM_FILTER,MEM_MAP,is_Label_rwt,Abbr`new_repl_fun_state`,FILTER_REVERSE,ALL_DISTINCT_REVERSE] >>
   rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC
+
+val PrintE_labels = store_thm("PrintE_labels",
+  ``good_labels 4 PrintE``, EVAL_TAC)
+
+val lem13 = prove(
+  ``13 < LENGTH PrintE ∧ EL 13 PrintE = Label 0 ∧
+    next_addr il (TAKE 14 PrintE) =
+    next_addr il (TAKE 13 PrintE)``,
+EVAL_TAC)
+
+val _ =  computeLib.add_funs[CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV NRC]
+
+val PrintE_thm = store_thm("PrintE_thm",
+  ``∀bs bv st err.
+    bs.code = PrintE
+    ∧ bs.pc = 0
+    ∧ bs.stack = bv::st
+    ∧ err_bv err bv
+    ⇒
+    let bs' = bs with <|pc:=next_addr bs.inst_length bs.code
+                       ;stack:=st
+                       ;output:=REVERSE("raise "++print_error err)++bs.output
+                       |> in
+    bc_next^* bs bs'``,
+  (*
+  It would be nice to prove this by evaluation, but it would require some tricks...
+  rw[] >>
+  simp[RTC_eq_NRC] >>
+  Cases_on`err`>>fs[err_bv_def]>>
+  TRY (
+    qmatch_assum_rename_tac`bv = Number i`[] >>
+    qexists_tac`13` >>
+    EVAL_TAC >>
+    simp[bc_eval1_thm,Abbr`bs'`] >>
+    `bs = bs with <|code:=PrintE;pc:=0;stack:=Number i::st;output:=bs.output;inst_length:=bs.inst_length|>` by (
+      simp[bc_state_component_equality] ) >>
+    pop_assum SUBST1_TAC >>
+    EVAL_TAC
+    *)
+  assume_tac PrintE_labels >>
+  fs[good_labels_def] >>
+  rw[] >>
+  qabbrev_tac`bs1 = bs with <|pc := next_addr bs.inst_length (TAKE (LENGTH "raise ") PrintE)
+                             ;output := REVERSE("raise ")++bs.output|>` >>
+  `bc_next^* bs bs1` by (
+    match_mp_tac MAP_PrintC_thm >>
+    qexists_tac`"raise "` >>
+    qexists_tac`[]` >>
+    simp[PrintE_def] >>
+    simp[Abbr`bs1`,bc_state_component_equality] >>
+    EVAL_TAC >>
+    simp[SUM_APPEND,FILTER_APPEND] ) >>
+  qabbrev_tac`bs2 = bs1 with <|pc:=next_addr bs.inst_length (TAKE 8 PrintE)
+                              ;stack := (bool_to_val (is_Block bv))::bv::st|>` >>
+  `bc_next^* bs1 bs2` by (
+    simp[RTC_eq_NRC] >>
+    qexists_tac`SUC(SUC 0)` >>
+    simp[NRC] >>
+    `bc_fetch bs1 = SOME (Stack(Load 0))` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`TAKE 6 PrintE` >>
+      qexists_tac`DROP 7 PrintE` >>
+      simp[Abbr`bs1`] >> EVAL_TAC) >>
+    simp[Once bc_eval1_thm] >>
+    simp[bc_eval1_def] >>
+    simp[bump_pc_def] >>
+    simp[Abbr`bs1`,bc_eval_stack_def] >>
+    qmatch_abbrev_tac`bc_next bs1 bs2` >>
+    `bc_fetch bs1 = SOME (Stack IsBlock)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`TAKE 7 PrintE` >>
+      qexists_tac`DROP 8 PrintE` >>
+      simp[Abbr`bs1`] >>
+      EVAL_TAC >>
+      simp[SUM_APPEND,FILTER_APPEND]) >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs1`] >>
+    Cases_on`bv`>>simp[bc_eval_stack_def,Abbr`bs2`,bc_state_component_equality] >>
+    EVAL_TAC >> simp[SUM_APPEND,FILTER_APPEND] >>
+    Cases_on`err`>>fs[compilerProofsTheory.err_bv_def] ) >>
+  `bc_fetch bs2 = SOME (JumpIf (Lab 0))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`TAKE 8 PrintE` >>
+    qexists_tac`DROP 9 PrintE` >>
+    simp[Abbr`bs2`,Abbr`bs1`] >>
+    EVAL_TAC) >>
+  Cases_on`err`>>fs[compilerProofsTheory.err_bv_def]>>
+  TRY (
+    qmatch_assum_rename_tac`bv = Number i`[] >>
+    `bc_next bs2 (bump_pc bs2 with <|stack := bv::st|>)` by (
+      simp[bc_eval1_thm,bc_eval1_def] >>
+      simp[Abbr`bs2`,bc_state_component_equality,bump_pc_with_stack] >>
+      simp[bc_find_loc_def] >>
+      qmatch_abbrev_tac`∃n. x = SOME n` >>
+      qsuff_tac`x ≠ NONE`>-(Cases_on`x`>>rw[])>>
+      simp[Abbr`x`] >> spose_not_then strip_assume_tac >>
+      imp_res_tac bc_find_loc_aux_NONE >>
+      pop_assum mp_tac >>
+      simp[Abbr`bs1`] >>
+      EVAL_TAC ) >>
+    qmatch_assum_abbrev_tac`bc_next bs2 bs3` >>
+    qabbrev_tac`bs4 = bump_pc bs3 with <|output := STRING #"<" bs3.output|>` >>
+    `bc_fetch bs3 = SOME (PrintC #"<")` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`TAKE 9 PrintE` >>
+      qexists_tac`DROP 10 PrintE` >>
+      simp[Abbr`bs3`,Abbr`bs2`,Abbr`bs1`,bump_pc_def] >>
+      EVAL_TAC >>
+      simp[SUM_APPEND,FILTER_APPEND]) >>
+    `bc_next bs3 bs4` by ( simp[bc_eval1_thm,bc_eval1_def] ) >>
+    `bc_fetch bs4 = SOME Print` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`TAKE 10 PrintE` >>
+      qexists_tac`DROP 11 PrintE` >>
+      simp[Abbr`bs4`,Abbr`bs3`,Abbr`bs2`,Abbr`bs1`,bump_pc_def] >>
+      EVAL_TAC >>
+      simp[SUM_APPEND,FILTER_APPEND]) >>
+    qabbrev_tac`bs5 = bump_pc bs4 with <|stack:=st;output := (REVERSE (int_to_string i))++bs4.output|>` >>
+    `bc_next bs4 bs5` by (
+      simp[bc_eval1_thm,bc_eval1_def] >>
+      simp[Abbr`bs4`,Abbr`bs3`,bump_pc_def,Abbr`bs5`] >>
+      simp[bc_state_component_equality,IMPLODE_EXPLODE_I] >>
+      EVAL_TAC) >>
+    qabbrev_tac`bs6 = bump_pc bs5 with <|output := STRING #">" bs5.output|>` >>
+    `bc_fetch bs5 = SOME (PrintC #">")` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`TAKE 11 PrintE` >>
+      qexists_tac`DROP 12 PrintE` >>
+      UNABBREV_ALL_TAC >>
+      simp[bump_pc_def] >>
+      EVAL_TAC >>
+      simp[SUM_APPEND,FILTER_APPEND]) >>
+    `bc_next bs5 bs6` by ( simp[bc_eval1_thm,bc_eval1_def] ) >>
+    `bc_fetch bs6 = SOME (Jump (Lab 3))` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`TAKE 12 PrintE` >>
+      qexists_tac`DROP 13 PrintE` >>
+      UNABBREV_ALL_TAC >>
+      simp[bump_pc_def] >>
+      EVAL_TAC >>
+      simp[SUM_APPEND,FILTER_APPEND]) >>
+    `bc_next bs6 bs'` by (
+      simp[bc_eval1_thm,bc_eval1_def] >>
+      simp[bc_state_component_equality] >>
+      conj_tac >- (
+        simp[bc_find_loc_def] >>
+        match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+        UNABBREV_ALL_TAC >> simp[bump_pc_def] >>
+        qexists_tac`LENGTH PrintE - 1` >>
+        EVAL_TAC ) >>
+      `bs6.output = bs'.output` by (
+        simp[Abbr`bs6`,Abbr`bs'`,print_error_def] >>
+        simp[Abbr`bs5`,Abbr`bs4`,Abbr`bs3`,Abbr`bs2`,Abbr`bs1`,bump_pc_def] ) >>
+      simp[] >>
+      UNABBREV_ALL_TAC >> simp[bump_pc_def] >> EVAL_TAC >> rw[] >> EVAL_TAC ) >>
+    rpt(qpat_assum`Abbrev(x =y)`kall_tac) >>
+    rpt(qpat_assum`bc_fetch x = y`kall_tac) >>
+    qsuff_tac`bc_next^* bs2 bs'` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
+    simp[RTC_eq_NRC] >>
+    qexists_tac`SUC(SUC(SUC(SUC(SUC 0))))` >>
+    simp[NRC] >>
+    metis_tac[] ) >>
+  fs[print_error_def] >>
+  cheat)
 
 val replCorrect_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
@@ -1137,24 +1300,26 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
     reverse(Cases_on`e`>>fs[])>-(
       metis_tac[bigClockTheory.top_evaluate_not_timeout] ) >>
     tac >>
-    `∃ls1. bs1.code = PrintE::Stop::ls1` by (
+    `∃ls1. bs1.code = PrintE++Stop::ls1` by (
       rfs[Abbr`bs0`,install_code_def] ) >>
-    `bc_fetch bs1 = SOME PrintE` by (
-      simp[BytecodeTheory.bc_fetch_def,bytecodeTerminationTheory.bc_fetch_aux_def] ) >>
-    `∃bs2. bc_next (bs1 with clock := NONE) bs2 ∧ bc_fetch bs2 = SOME Stop` by (
-      simp[bc_eval1_thm] >>
-      `(∃n. bv = Number n) ∨ (bv = Block (4 + bind_exc_cn) []) ∨ (bv = Block (4 + div_exc_cn) []) ∨ (bv = Block (4 + eq_exc_cn) [])` by (
-        qmatch_assum_rename_tac`err_bv xx bv`[] >>
-        Cases_on`xx`>>fs[compilerProofsTheory.err_bv_def] ) >>
-      simp[Once bc_eval1_def,bc_fetch_with_clock,BytecodeTheory.bump_pc_def] >>
-      simp[IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def, IntLangTheory.eq_exc_cn_def] >>
-      qpat_assum`X = bs0.code`(assume_tac o SYM) >> fs[] >>
-      fs[BytecodeTheory.bc_fetch_def,bytecodeTerminationTheory.bc_fetch_aux_def] >>
-      (* SO: There doesn't seem to be code for printing an Eq_error result *)
-      cheat) >>
-    `bc_next^* bs0 bs2` by metis_tac[RTC_CASES2] >>
-    `∃bs3. bc_next bs2 bs3` by metis_tac[] >>
+    qmatch_assum_rename_tac`err_bv err bv`[] >>
+    qspecl_then[`bs1 with <|clock := NONE; code := PrintE|>`,`bv`,`bs0.stack`,`err`]mp_tac PrintE_thm >>
+    simp[] >> spose_not_then strip_assume_tac >>
+    qmatch_assum_abbrev_tac`bc_next^* bs2 bs3` >>
+    `bc_next^* (bs1 with clock := NONE) (bs3 with code := bs1.code)` by (
+      match_mp_tac RTC_bc_next_append_code >>
+      map_every qexists_tac[`bs2`,`bs3`] >>
+      simp[Abbr`bs2`,Abbr`bs3`,bc_state_component_equality] >>
+      rfs[] ) >>
+    qmatch_assum_abbrev_tac`bc_next^* bs4 bs5` >>
+    `bc_next^* bs0 bs5` by metis_tac[RTC_TRANSITIVE,transitive_def] >>
+    `∃bs9. bc_next bs5 bs9` by metis_tac[] >>
     pop_assum mp_tac >>
+    `bc_fetch bs5 = SOME Stop` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs5`] >>
+      qexists_tac`PrintE` >>
+      simp[Abbr`bs3`,Abbr`bs4`] ) >>
     simp[bc_eval1_thm,bc_eval1_def] ) >>
   PairCases_on`a` >> simp[] >>
   tac >>
@@ -1311,9 +1476,6 @@ simp[] >>
       simp[] >>
       simp[Abbr`new_repl_state`,update_repl_state_def]) >>
     conj_tac >- (
-      imp_res_tac RTC_bc_next_preserves >>
-      fs[Abbr`bs0`,install_code_def] ) >>
-    conj_tac >- (
       simp[Abbr`new_repl_state`,update_repl_state_def,Abbr`new_bc_state`] >>
       simp[Abbr`new_repl_fun_state`] >>
       qexists_tac`rd2` >>
@@ -1325,7 +1487,6 @@ simp[] >>
       map_every qexists_tac[`rd2`,`(0,Cs'')`,`bs2`,`bs2.refs`,`NONE`] >>
       simp[BytecodeTheory.bc_state_component_equality] >>
       rfs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
-    (* SO: don't know why labels_tac doesn't work *)
     conj_tac >- ( labels_tac  ) >>
     simp[Abbr`new_bc_state`] >>
     imp_res_tac RTC_bc_next_preserves >>
@@ -1338,26 +1499,32 @@ simp[] >>
   disch_then(qx_choosel_then[`bv`,`bs2`,`rd2`]strip_assume_tac) >>
   qmatch_assum_rename_tac`err_bv err bv`[] >>
   qmatch_abbrev_tac`X = PR ∧ Y` >>
-  `∃bs3. bc_next bs2 bs3 ∧ REVERSE bs3.output = PR ∧ bc_fetch bs3 = SOME Stop ∧ bs3.stack = bs0.stack ∧ bs3.refs = bs2.refs` by (
-    `∃ls2. bs2.code = PrintE::Stop::ls2` by (
+  `∃bs3. bc_next^* bs2 bs3 ∧ REVERSE bs3.output = PR ∧ bc_fetch bs3 = SOME Stop ∧ bs3.stack = bs0.stack ∧ bs3.refs = bs2.refs` by (
+    `∃ls2. bs2.code = PrintE++Stop::ls2` by (
       imp_res_tac RTC_bc_next_preserves >>
       fs[Abbr`bs0`,install_code_def] >>
       fs[invariant_def] ) >>
-    `bc_fetch bs2 = SOME PrintE` by (
-      simp[BytecodeTheory.bc_fetch_def] ) >>
-    simp[print_result_def,Abbr`PR`] >>
-    `bs0.output = ""` by fs[Abbr`bs0`,install_code_def] >>
-    simp[bc_eval1_thm,bc_eval1_def,BytecodeTheory.bump_pc_def] >>
-    Cases_on`err`>>fs[compilerProofsTheory.err_bv_def,print_error_def] >>
-    simp[IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def,IntLangTheory.eq_exc_cn_def] >>
-    simp[BytecodeTheory.bc_fetch_def,bytecodeTerminationTheory.bc_fetch_aux_def] >>
-    simp[IMPLODE_EXPLODE_I] >>
-    (* SO: printing for Eq_error again *)
-    cheat ) >>
+    qunabbrev_tac`Y` >>
+    qspecl_then[`bs2 with <|code := PrintE|>`,`bv`,`bs0.stack`,`err`]mp_tac PrintE_thm >>
+    simp[] >> strip_tac >>
+    qmatch_assum_abbrev_tac`bc_next^* bs3 bs4` >>
+    qexists_tac`bs4 with code := bs2.code` >>
+    conj_tac >- (
+      match_mp_tac RTC_bc_next_append_code >>
+      map_every qexists_tac[`bs3`,`bs4`] >>
+      simp[Abbr`bs3`,Abbr`bs4`,bc_state_component_equality]) >>
+    simp[Abbr`bs4`] >>
+    conj_tac >- (
+      simp[Abbr`PR`,print_result_def,Abbr`bs0`] >>
+      simp[install_code_def] ) >>
+    match_mp_tac bc_fetch_next_addr >>
+    simp[] >>
+    qexists_tac`PrintE` >>
+    simp[]) >>
   `∀s3. ¬bc_next (bs3 with clock := NONE) s3` by (
     simp[bc_eval1_thm,bc_eval1_def,bc_fetch_with_clock] ) >>
   qspecl_then[`bs0 with clock := SOME ck`,`bs3`]mp_tac RTC_bc_next_can_be_unclocked >>
-  discharge_hyps >- metis_tac[RTC_CASES2] >>
+  discharge_hyps >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
   strip_tac >>
   `bs0.clock = NONE` by fs[Abbr`bs0`,install_code_def,invariant_def] >>
   `bs0 with clock := NONE = bs0` by simp[bc_state_component_equality] >>
@@ -1404,9 +1571,6 @@ simp[] >>
     match_mp_tac closed_context_strip_mod_env >>
     imp_res_tac evaluate_top_to_cenv >> fs[] >>
     metis_tac[closed_context_extend_cenv,APPEND_ASSOC]) >>
-  conj_tac >- (
-    imp_res_tac RTC_bc_next_preserves >>
-    fs[Abbr`bs0`,install_code_def] ) >>
   conj_tac >- (
     fs[Abbr`new_repl_state`,update_repl_state_def,Abbr`new_bc_state`] >>
     simp[Abbr`new_repl_fun_state`] >>
@@ -1482,7 +1646,7 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   ``(initial_bc_state.inst_length = K 0) ∧
     good_labels (FST compile_primitives).rnext_label initial_bc_state.code ∧
     (initial_bc_state.clock = NONE) ∧
-    (∃ls. initial_bc_state.code = PrintE::Stop::ls)``,
+    (∃ls. initial_bc_state.code = PrintE++Stop::ls)``,
   simp[initial_bc_state_def] >>
   Q.PAT_ABBREV_TAC`bs = install_code X Y Z` >>
   (* cheat: repl setup terminates *)
@@ -1503,7 +1667,11 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   simp[GSYM compile_primitives_def, initial_program_def] >>
   simp[good_labels_def,between_labels_def] >>
   strip_tac >>
-  fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP,FILTER_REVERSE,ALL_DISTINCT_REVERSE])
+  assume_tac PrintE_labels >>
+  fs[good_labels_def] >>
+  fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP,FILTER_REVERSE,ALL_DISTINCT_REVERSE,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+  rw[] >> spose_not_then strip_assume_tac >> res_tac >> fs[CompilerTheory.init_compiler_state_def] >> DECIDE_TAC
+  )
 
 (* Annoying to do this by hand.  With the clocked evaluate, it shouldn't be
  * too hard to set up a clocked interpreter function for the semantics and
@@ -1527,8 +1695,9 @@ val initial_invariant = prove(
     simp[init_env_def,compilerProofsTheory.closed_under_menv_def] >>
     simp[semanticsExtraTheory.closed_cases] >>
     rw[] >> rw[semanticsExtraTheory.all_cns_def] >>
-    simp[SUBSET_DEF] >> metis_tac[] )
-  >- ( simp[good_il_def] ) >>
+    simp[SUBSET_DEF] >> metis_tac[] ) >>
+  TRY (assume_tac initial_bc_state_invariant >> fs[] >> NO_TAC) >>
+
   `evaluate_top [] [] [] [] (Tdec initial_program) ([],[],Rval ([],init_env))` 
         by (rw [evaluate_top_cases, LibTheory.emp_def] >>
             metis_tac [eval_initial_program]) >>
@@ -1548,15 +1717,19 @@ val initial_invariant = prove(
   disch_then(qspecl_then
     [`<|sm:=[];cls:=FEMPTY|>`
     ,`^(rand(rhs(concl(initial_bc_state_def)))) with
-      <| pc := next_addr (K 0) [PrintE;Stop]
+      <| pc := next_addr (K 0) (PrintE++[Stop])
        ; clock := SOME ck
-       ; code := [PrintE;Stop]++(REVERSE p2)|>`
-    ,`[PrintE;Stop]`]mp_tac) >>
+       ; code := PrintE++[Stop]++(REVERSE p2)|>`
+    ,`PrintE++[Stop]`]mp_tac) >>
   discharge_hyps >- (
     simp[] >>
-    simp[good_labels_def] >>
-    match_mp_tac env_rs_empty >>
-    simp[] ) >>
+    assume_tac PrintE_labels >>
+    fs[good_labels_def] >>
+    conj_tac >- (
+      match_mp_tac env_rs_empty >>
+      simp[] ) >>
+    fsrw_tac[][FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+    simp[CompilerTheory.init_compiler_state_def] ) >>
   disch_then(qx_choosel_then[`bs`,`rd`]strip_assume_tac) >>
   map_every qexists_tac[`rd`,`0`] >>
   `FST compile_primitives = p0` by (
@@ -1572,7 +1745,8 @@ val initial_invariant = prove(
       match_mp_tac bc_fetch_aux_end_NONE >>
       imp_res_tac RTC_bc_next_preserves >> fs[] >>
       simp[SUM_REVERSE,FILTER_REVERSE,MAP_REVERSE] ) >>
-    simp[bc_eval1_def] ) >>
+    simp[bc_eval1_def] >>
+    simp[SUM_APPEND,FILTER_APPEND,SUM_REVERSE,MAP_REVERSE,FILTER_REVERSE]) >>
   strip_tac >>
   `bs with clock := NONE = initial_bc_state` by (
     simp[initial_bc_state_def] >>

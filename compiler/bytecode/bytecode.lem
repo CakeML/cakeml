@@ -46,7 +46,6 @@ type
   | Stop                    (* halt execution *)
   | Tick                    (* use fuel *)
   | Print                   (* print value at top of stack *)
-  | PrintE                  (* print exception at top of stack *)
   | PrintC of Hol.char      (* print a character *)
 
 (* --- Semantics --- *)
@@ -348,18 +347,6 @@ bc_fetch s = Some Print
 bc_next s (<|bump_pc s with stack = xs;
   output = Hol.CONCAT
            [Hol.IMPLODE(List.rev(Hol.EXPLODE(ov_to_string (bv_to_ov s.cons_names x))))
-           ;s.output]|>)
-and
-forall s x xs str.
-bc_fetch s = Some PrintE
-&& (s.stack = x::xs)
-&& (exists i. x = Number i && str = SemanticPrimitives.int_to_string i ||
-    x = Block (block_tag+1) [] && str = "Bind" ||
-    x = Block (block_tag+2) [] && str = "Div")
-==>
-bc_next s (<|bump_pc s with stack = xs;
-  output = Hol.CONCAT
-           [Hol.IMPLODE(List.rev(Hol.EXPLODE(Hol.CONCAT["raise <";str;">"])))
            ;s.output]|>)
 and
 forall s c.

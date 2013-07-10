@@ -219,14 +219,6 @@ val bc_eval1_def = Define`
      | SOME n => if n > 0 then SOME (bump_pc s with <| clock := SOME (n-1) |>) else NONE)
   | (Print, x::xs) =>
     SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE(ov_to_string(bv_to_ov s.cons_names x))))) s.output |>)
-  | (PrintE, Number i::xs) =>
-    SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE(CONCAT["raise <";int_to_string i;">"])))) s.output |>)
-  | (PrintE, Block n []::xs) =>
-    if n = 5 ∧ n = 5 then
-    SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE("raise <Bind>")))) s.output |>)
-    else if n = 6 then
-    SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE("raise <Div>")))) s.output |>)
-    else NONE
   | (PrintC c,_) =>
     SOME (bump_pc s with <| output := STRING c s.output |>)
   | _ => NONE)`
@@ -308,13 +300,6 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
   rw[bc_next_cases] )
->- (
-  Cases_on`s1.stack`>>fs[]>>
-  Cases_on`h`>>fs[]>-(
-    rw[bc_next_cases] ) >>
-  rw[bc_next_cases]>>
-  Cases_on`l`>>fs[]>>
-  Cases_on`n=5`>>fs[])
 >- ( rw[bc_next_cases] ))
 
 val bc_next_bc_eval1 = store_thm(

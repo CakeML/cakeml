@@ -3,6 +3,9 @@ open miscLib miscTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExt
 val _ = numLib.prefer_num()
 val _ = new_theory"compileLabels"
 
+(* This Theory should be deleted, but first pick out useful lemmas for miscTheory/HOL *)
+
+(*
 val el_of_addr_def = Define`
   (el_of_addr il n [] = NONE) ∧
   (el_of_addr il n (x::xs) =
@@ -490,5 +493,6 @@ val RTC_bc_next_compile_labels = store_thm("RTC_bc_next_compile_labels",
   imp_res_tac RTC_RINTER >>
   fs[RINTER,Abbr`c`] >>
   metis_tac[RTC_bc_next_preserves] )
+*)
 
 val _ = export_theory()

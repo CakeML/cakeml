@@ -2363,5 +2363,4 @@ val completeness = store_thm(
   print_tac "nAddOps" >>
   simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >> rw[] >>
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM, peg_eval_tok_NONE])
-
 val _ = export_theory();

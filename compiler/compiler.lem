@@ -28,7 +28,7 @@ let init_compiler_state =
    ; renv = []
    ; rmenv = Pmap.empty
    ; rsz = 0
-   ; rnext_label = 0
+   ; rnext_label = 4
    |>
 
 let rec
