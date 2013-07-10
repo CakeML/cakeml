@@ -196,7 +196,7 @@ val nullable_TypeDec = prove_nullable ``nTypeDec``
 val _ = map prove_nullable [
           ``nFQV``, ``nEbase``, ``nEapp``, ``nEmult``, ``nEadd``, ``nErel``,
           ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``, ``nElogicOR``,
-          ``nEhandle``, ``nE``, ``nE'``, ``nEhandle'``,
+          ``nEhandle``, ``nE``, ``nE'``, ``nEhandle'``, ``nCompOps``,
           ``nConstructorName``, ``nPattern``, ``nRelOps``, ``nMultOps``,
           ``nAddOps``]
 

@@ -87,6 +87,12 @@ val firstSet_nAddOps = Store_thm(
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM,
        INSERT_UNION_EQ]);
 
+val firstSet_nCompOps = Store_thm(
+  "firstSet_nCompOps",
+  ``firstSet mmlG (NT (mkNT nCompOps)::rest) = {AlphaT "o"; SymbolT ":="}``,
+  simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
+       INSERT_UNION_EQ])
+
 val firstSet_nUQTyOp = store_thm(
   "firstSet_nUQTyOp",
   ``firstSet mmlG [NT (mkNT nUQTyOp)] = { AlphaT l | T } ∪ { SymbolT l | T }``,
@@ -466,7 +472,7 @@ val NOTIN_firstSet_nV = Store_thm(
     FnT ∉ firstSet mmlG [NN nV] ∧ IfT ∉ firstSet mmlG [NN nV] ∧
     EqualsT ∉ firstSet mmlG [NN nV] ∧ DarrowT ∉ firstSet mmlG [NN nV] ∧
     ValT ∉ firstSet mmlG [NN nV] ∧ FunT ∉ firstSet mmlG [NN nV] ∧
-    SemicolonT ∉ firstSet mmlG [NN nV]``,
+    SemicolonT ∉ firstSet mmlG [NN nV] ∧ ColonT ∉ firstSet mmlG [NN nV]``,
   simp[firstSet_nV]);
 
 val NOTIN_firstSet_nFQV = Store_thm(
@@ -476,13 +482,14 @@ val NOTIN_firstSet_nFQV = Store_thm(
     FnT ∉ firstSet mmlG [NN nFQV] ∧ IfT ∉ firstSet mmlG [NN nFQV] ∧
     EqualsT ∉ firstSet mmlG [NN nFQV] ∧ DarrowT ∉ firstSet mmlG [NN nFQV] ∧
     ValT ∉ firstSet mmlG [NN nFQV] ∧ FunT ∉ firstSet mmlG [NN nFQV] ∧
-    SemicolonT ∉ firstSet mmlG [NN nFQV]``,
+    SemicolonT ∉ firstSet mmlG [NN nFQV] ∧ ColonT ∉ firstSet mmlG [NN nFQV]``,
   simp[firstSet_nFQV]);
 
 val NOTIN_firstSet_nConstructorName = Store_thm(
   "NOTIN_firstSet_nConstructorName",
   ``CommaT ∉ firstSet mmlG [NN nConstructorName] ∧
     LparT ∉ firstSet mmlG [NN nConstructorName] ∧
+    ColonT ∉ firstSet mmlG [NN nConstructorName] ∧
     RparT ∉ firstSet mmlG [NN nConstructorName] ∧
     FnT ∉ firstSet mmlG [NN nConstructorName] ∧
     ValT ∉ firstSet mmlG [NN nConstructorName] ∧
@@ -900,10 +907,12 @@ val nE'_bar_nE = store_thm(
 
 val nestoppers_def = Define`
   nestoppers =
-     UNIV DIFF ({AndalsoT; ArrowT; BarT; ColonT; HandleT; OrelseT} ∪
+     UNIV DIFF ({AndalsoT; ArrowT; BarT; ColonT; HandleT; OrelseT;
+                 AlphaT "before"} ∪
                 firstSet mmlG [NN nMultOps] ∪
                 firstSet mmlG [NN nRelOps] ∪
                 firstSet mmlG [NN nAddOps] ∪
+                firstSet mmlG [NN nCompOps] ∪
                 firstSet mmlG [NN nEbase])
 `;
 val _ = export_rewrites ["nestoppers_def"]
@@ -914,26 +923,58 @@ val stoppers_def = Define`
   (stoppers nDtypeDecls = UNIV DELETE AndT) ∧
   (stoppers nE = nestoppers) ∧
   (stoppers nE' = BarT INSERT nestoppers) ∧
+  (stoppers nEadd =
+     UNIV DIFF (firstSet mmlG [NN nMultOps] ∪
+                firstSet mmlG [NN nAddOps] ∪
+                firstSet mmlG [NN nEbase])) ∧
   (stoppers nEapp = UNIV DIFF firstSet mmlG [NN nEbase]) ∧
+  (stoppers nEbefore =
+     UNIV DIFF ({AlphaT "before"} ∪
+                firstSet mmlG [NN nCompOps] ∪
+                firstSet mmlG [NN nRelOps] ∪
+                firstSet mmlG [NN nMultOps] ∪
+                firstSet mmlG [NN nAddOps] ∪
+                firstSet mmlG [NN nEbase])) ∧
+  (stoppers nEcomp =
+     UNIV DIFF (firstSet mmlG [NN nCompOps] ∪
+                firstSet mmlG [NN nRelOps] ∪
+                firstSet mmlG [NN nMultOps] ∪
+                firstSet mmlG [NN nAddOps] ∪
+                firstSet mmlG [NN nEbase])) ∧
   (stoppers nEhandle = nestoppers) ∧
   (stoppers nEhandle' = BarT INSERT nestoppers) ∧
   (stoppers nElist1 = nestoppers DELETE CommaT) ∧
   (stoppers nElist2 = nestoppers DELETE CommaT) ∧
   (stoppers nElogicAND =
-     UNIV DIFF ({AndalsoT; ColonT; ArrowT} ∪
+     UNIV DIFF ({AndalsoT; ColonT; ArrowT; AlphaT "before"} ∪
+                firstSet mmlG [NN nCompOps] ∪
+                firstSet mmlG [NN nRelOps] ∪
+                firstSet mmlG [NN nMultOps] ∪
+                firstSet mmlG [NN nAddOps] ∪
                 firstSet mmlG [NN nEbase])) ∧
   (stoppers nElogicOR =
-     UNIV DIFF ({AndalsoT; ColonT; ArrowT; OrelseT} ∪
+     UNIV DIFF ({AndalsoT; ColonT; ArrowT; OrelseT; AlphaT "before"} ∪
+                firstSet mmlG [NN nCompOps] ∪
+                firstSet mmlG [NN nRelOps] ∪
+                firstSet mmlG [NN nMultOps] ∪
+                firstSet mmlG [NN nAddOps] ∪
                 firstSet mmlG [NN nEbase])) ∧
   (stoppers nEmult =
      UNIV DIFF (firstSet mmlG [NN nEbase] ∪
                 firstSet mmlG [NN nMultOps])) ∧
   (stoppers nErel =
      UNIV DIFF (firstSet mmlG [NN nRelOps] ∪
+                firstSet mmlG [NN nMultOps] ∪
+                firstSet mmlG [NN nAddOps] ∪
                 firstSet mmlG [NN nEbase])) ∧
   (stoppers nEseq = nestoppers DELETE SemicolonT) ∧
   (stoppers nEtyped =
-     UNIV DIFF ({ColonT; ArrowT} ∪ firstSet mmlG [NN nEbase])) ∧
+     UNIV DIFF ({ColonT; ArrowT; AlphaT "before"} ∪
+                firstSet mmlG [NN nCompOps] ∪
+                firstSet mmlG [NN nRelOps] ∪
+                firstSet mmlG [NN nMultOps] ∪
+                firstSet mmlG [NN nAddOps] ∪
+                firstSet mmlG [NN nEbase])) ∧
   (stoppers nFDecl = nestoppers) ∧
   (stoppers nLetDec = nestoppers) ∧
   (stoppers nLetDecs = nestoppers DIFF {FunT; ValT; SemicolonT}) ∧
@@ -1112,7 +1153,42 @@ val peg_eval_NT_NONE = save_thm(
   ``peg_eval mmlPEG (i0, nt (mkNT n) I) NONE``
      |> SIMP_CONV (srw_ss()) [Once pegTheory.peg_eval_cases])
 
-(*
+fun PULLV v t = let
+  val (bv,b) = dest_abs(rand t)
+in
+  if bv = v then ALL_CONV
+  else BINDER_CONV (PULLV v) THENC SWAP_VARS_CONV
+end t
+
+fun unify_firstconj th (g as (asl,w)) = let
+  val (exvs, body) = strip_exists w
+  val c = hd (strip_conj body)
+  val (favs, fabody) = strip_forall (concl th)
+  val con = #2 (dest_imp fabody)
+  val theta = Unify.simp_unify_terms (set_diff (free_vars c) exvs) c con
+  fun inst_exvs theta =
+      case theta of
+          [] => ALL_TAC
+        | {redex,residue} :: rest =>
+          if mem redex exvs andalso
+             null (intersect (free_vars residue) (union favs exvs))
+          then
+            CONV_TAC (PULLV redex) THEN EXISTS_TAC residue THEN
+            inst_exvs rest
+          else inst_exvs rest
+  fun inst_favs theta th =
+      case theta of
+          [] => mp_tac th
+        | {redex,residue} :: rest =>
+          if mem redex favs then
+            inst_favs rest (th |> CONV_RULE (PULLV redex) |> SPEC residue)
+          else inst_favs rest th
+in
+  inst_exvs theta THEN inst_favs theta th
+end g
+
+
+
 val completeness = store_thm(
   "completeness",
   ``∀pt N pfx sfx.
@@ -1900,7 +1976,7 @@ val completeness = store_thm(
       asm_match `ptree_head tpt = NN nType` >>
       asm_match `MAP TK tf = ptree_fringe tpt` >>
       map_every qexists_tac [`[ept]`, `tf ++ sfx`, `[tpt]`] >>
-      REWRITE_TAC [GSYM APPEND_ASSOC, listTheory.APPEND] >> asimp[])
+      REWRITE_TAC [GSYM APPEND_ASSOC, listTheory.APPEND] >> asimp[]) >>
   >- (print_tac "nEtuple" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >> rw[] >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
@@ -1932,7 +2008,14 @@ val completeness = store_thm(
           `0 < LENGTH (MAP TK rf) ∧ 0 < LENGTH (MAP TK e1f)`
             by metis_tac[fringe_length_not_nullable, nullable_Eadd,
                          nullable_RelOps] >>
-          fs[] >> REWRITE_TAC [GSYM APPEND_ASSOC] >> asimp[] >>
+          fs[] >> REWRITE_TAC [GSYM APPEND_ASSOC] >>
+          conj_tac
+          >- (first_x_assum (match_mp_tac o has_length) >> asimp[] >>
+              Cases_on `rf` >> fs[] >>
+              IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
+              simp[] >>
+              rw[] >> rw[firstSet_nFQV, firstSet_nV,
+                         firstSet_nConstructorName]) >>
           qexists_tac `e2f ++ sfx` >>
           Q.REFINE_EXISTS_TAC `[rt]` >> simp[] >>
           REWRITE_TAC [GSYM APPEND_ASSOC] >> asimp[]) >>
@@ -2032,7 +2115,105 @@ val completeness = store_thm(
       simp[] >> qexists_tac `e'f ++ sfx` >> asimp[] >>
       REWRITE_TAC [GSYM APPEND_ASSOC, listTheory.APPEND] >>
       asimp[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV])
-  >-
+  >- (print_tac "nEcomp" >> disch_then assume_tac >>
+      simp[peg_eval_NT_SOME, mmlpeg_rules_applied] >>
+      match_mp_tac (peg_linfix_complete
+                      |> Q.INST [`P` |-> `nEcomp`, `SEP` |-> `NN nCompOps`,
+                                 `C` |-> `NN nErel`, `master` |-> `pfx`]
+                      |> SIMP_RULE (srw_ss() ++ DNF_ss)
+                           [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
+                            AND_IMP_INTRO]) >>
+      simp[cmlG_applied, cmlG_FDOM] >> conj_tac
+      >- (conj_tac
+          >- simp[firstSet_nV, firstSet_nFQV, firstSet_nConstructorName,
+                  stringTheory.isUpper_def] >>
+          simp[NT_rank_def]) >>
+      fs[])
+  >- (print_tac "nEbefore" >> disch_then assume_tac >>
+      simp[peg_eval_NT_SOME, mmlpeg_rules_applied] >>
+      match_mp_tac (peg_linfix_complete
+                      |> Q.INST [`P` |-> `nEbefore`,
+                                 `SEP` |-> `TK (AlphaT "before")`,
+                                 `C` |-> `NN nEcomp`, `master` |-> `pfx`]
+                      |> SIMP_RULE (srw_ss() ++ DNF_ss)
+                           [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
+                            AND_IMP_INTRO]) >>
+      simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >>
+      conj_tac >- simp[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV,
+                       stringTheory.isUpper_def]>>
+      fs[])
+  >- (print_tac "nEbase" ...)
+  >- (print_tac "nEapp" ...)
+  >- (print_tac "nEadd" >> disch_then assume_tac >>
+      simp[peg_eval_NT_SOME, mmlpeg_rules_applied] >>
+      match_mp_tac (peg_linfix_complete
+                      |> Q.INST [`P` |-> `nEadd`, `SEP` |-> `NN nAddOps`,
+                                 `C` |-> `NN nEmult`, `master` |-> `pfx`]
+                      |> SIMP_RULE (srw_ss() ++ DNF_ss)
+                           [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
+                            AND_IMP_INTRO]) >>
+      simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >>
+      conj_tac >- simp[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV,
+                       stringTheory.isUpper_def]>>
+      fs[])
+  >- (print_tac "nE'" >>
+      simp_tac list_ss [MAP_EQ_CONS, Once peg_eval_NT_SOME,
+                        Once peg_eval_choicel_CONS,
+                        mmlpeg_rules_applied] >>
+      strip_tac >>
+      full_simp_tac list_ss [MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM,
+                             FORALL_AND_THM] >> rveq >>
+      full_simp_tac list_ss [] >>
+      RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) []) >> rveq >>
+      RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [MAP_EQ_CONS]) >> rveq
+      >- (asm_simp_tac list_ss [peg_eval_seql_CONS, peg_eval_tok_SOME,
+                                peg_eval_tok_NONE, tokeq_def, pnt_def] >>
+          RW_TAC list_ss [] >>
+          simp_tac list_ss [Once peg_eval_choicel_CONS] >> DISJ2_TAC >>
+          conj_tac >- simp[peg_respects_firstSets, pnt_def,
+                           peg_eval_seq_NONE] >>
+          simp_tac list_ss [Once peg_eval_choicel_CONS] >> DISJ1_TAC >>
+          dsimp[] >>
+          REWRITE_TAC [GSYM APPEND_ASSOC, listTheory.APPEND] >>
+          Q.REFINE_EXISTS_TAC `[somept]` >> simp[] >>
+          first_assum (unify_firstconj o has_length) >>
+          CONV_TAC (REDEPTH_CONV EXISTS_AND_CONV) >>
+          disch_then (fn th => conj_tac THENL [match_mp_tac th, ALL_TAC])
+          >- simp[firstSet_nFQV, firstSet_nV, firstSet_nConstructorName] >>
+          Q.REFINE_EXISTS_TAC `[somept]` >> simp[] >>
+          first_assum (unify_firstconj o has_length) >>
+          disch_then (fn th => conj_tac THENL [match_mp_tac th, ALL_TAC])
+          >- simp[firstSet_nFQV, firstSet_nV, firstSet_nConstructorName] >>
+          asimp[])
+      >- (asm_simp_tac list_ss [peg_eval_seql_CONS, peg_eval_tok_SOME,
+                                peg_eval_tok_NONE, tokeq_def, pnt_def] >>
+          RW_TAC list_ss [] >>
+          simp_tac list_ss [Once peg_eval_choicel_CONS] >> DISJ2_TAC >>
+          conj_tac >- simp[peg_respects_firstSets, pegf_def,
+                           peg_eval_seq_NONE] >>
+          simp_tac list_ss [Once peg_eval_choicel_CONS] >> DISJ2_TAC >>
+          dsimp[peg_eval_tok_NONE] >>
+          REWRITE_TAC [GSYM APPEND_ASSOC, listTheory.APPEND] >>
+          Q.REFINE_EXISTS_TAC `[somept]` >> simp[] >>
+          first_assum (unify_firstconj o has_length) >>
+          disch_then (fn th => conj_tac THENL [match_mp_tac th, ALL_TAC])
+          >- simp[] >> asimp[])
+      >- (DISJ1_TAC >> simp[]) >>
+      DISJ2_TAC >>
+      `0 < LENGTH (MAP TK pfx)`
+        by metis_tac [fringe_length_not_nullable, nullable_Ehandle'] >>
+      full_simp_tac list_ss [] >> conj_tac
+      >- (Cases_on `pfx` >> fs[peg_eval_tok_NONE, disjImpI] >> rw[] >>
+          IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
+          simp[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV]) >>
+      simp_tac std_ss [Once peg_eval_choicel_CONS] >> DISJ1_TAC >>
+      simp[NT_rank_def])
+
+
+
+
+
+
 
 *)
 val _ = export_theory();
