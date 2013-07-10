@@ -597,6 +597,7 @@ init_type_env =
    (">=", (0, Infer_Tfn Infer_Tint (Infer_Tfn Infer_Tint Infer_Tbool)));
    ("=", (1, Infer_Tfn (Infer_Tvar_db 0) (Infer_Tfn (Infer_Tvar_db 0) Infer_Tbool)));
    (":=", (1, Infer_Tfn (Infer_Tref (Infer_Tvar_db 0)) (Infer_Tfn (Infer_Tvar_db 0) Infer_Tunit)));
+   ("~", (0, Infer_Tfn Infer_Tint Infer_Tint));
    ("!", (1, Infer_Tfn (Infer_Tref (Infer_Tvar_db 0)) (Infer_Tvar_db 0)));
    ("ref", (1, Infer_Tfn (Infer_Tvar_db 0) (Infer_Tref (Infer_Tvar_db 0))))]`;
 

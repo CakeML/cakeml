@@ -25,7 +25,7 @@ List.app (fn d => (x := (!x) + 1;
         files
 end;
 
-do_all_tests ["test1.ml"]
+do_all_tests
 ["test1.ml", 
  "test2.ml", 
  "test3.ml",
