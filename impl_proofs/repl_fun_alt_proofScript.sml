@@ -161,8 +161,8 @@ val bc_next_output = prove(
   ``!x y. bc_next x y ==> isPREFIX x.output y.output``,
   HO_MATCH_MP_TAC bc_next_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [bump_pc_def] \\ SRW_TAC [] []
-  \\ cheat); (* not true until printing is done right,
-                waiting for bytecode to change... *)
+  \\ SRW_TAC[][rich_listTheory.IS_PREFIX_SNOC]
+  \\ rw[bc_fetch_with_stack]);
 
 val bc_next_output = prove(
   ``!x y. bc_next^* x y ==> isPREFIX x.output y.output``,
