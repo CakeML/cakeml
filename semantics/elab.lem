@@ -102,31 +102,42 @@ type ast_top =
 
 type ast_prog = list ast_top
 
-val elab_p : ast_pat -> pat
-let rec
-elab_p (Ast_Pvar n) = Pvar n
-and
-elab_p (Ast_Plit l) = Plit l
-and
-elab_p (Ast_Pcon cn ps) = Pcon cn (elab_ps ps)
-and
-elab_p (Ast_Pref p) = Pref (elab_p p)
-and
-elab_ps [] = []
-and
-elab_ps (p::ps) = elab_p p :: elab_ps ps
-
 type ctor_env = env conN (id conN)
 
-val elab_t : list typeN -> ast_t -> t
+val elab_p : ctor_env -> ast_pat -> pat
+let rec
+elab_p ctors (Ast_Pvar n) = Pvar n
+and
+elab_p ctors (Ast_Plit l) = Plit l
+and
+elab_p ctors (Ast_Pcon (Some (Short cn)) ps) =
+  match lookup cn ctors with
+    | Some cid ->
+        Pcon (Some cid) (elab_ps ctors ps)
+    | None ->
+        Pcon (Some (Short cn)) (elab_ps ctors ps)
+  end
+and
+elab_p ctors (Ast_Pcon cn ps) =
+  Pcon cn (elab_ps ctors ps)
+and
+elab_p ctors (Ast_Pref p) = Pref (elab_p ctors p)
+and
+elab_ps ctors [] = []
+and
+elab_ps ctors (p::ps) = elab_p ctors p :: elab_ps ctors ps
+
+type tdef_env = env typeN Ast.tc
+
+val elab_t : tdef_env -> ast_t -> t
 val elab_e : ctor_env -> ast_exp -> exp
 val elab_funs : ctor_env -> list (varN * varN * ast_exp) -> 
                 list (varN * varN * exp)
-val elab_dec : option modN -> list typeN -> ctor_env -> ast_dec -> list typeN * ctor_env * dec
-val elab_decs : option modN -> list typeN -> ctor_env -> list ast_dec -> list typeN * ctor_env * list dec
-val elab_spec : list typeN -> list ast_spec -> list spec
-val elab_top : list typeN -> ctor_env -> ast_top -> list typeN * ctor_env * top
-val elab_prog : list typeN -> ctor_env -> list ast_top -> list typeN * ctor_env * prog
+val elab_dec : option modN -> tdef_env -> ctor_env -> ast_dec -> tdef_env * ctor_env * dec
+val elab_decs : option modN -> tdef_env -> ctor_env -> list ast_dec -> tdef_env * ctor_env * list dec
+val elab_spec : option modN -> tdef_env -> list ast_spec -> list spec
+val elab_top : tdef_env -> ctor_env -> ast_top -> tdef_env * ctor_env * top
+val elab_prog : tdef_env -> ctor_env -> list ast_top -> tdef_env * ctor_env * prog
 
 let rec
 elab_e ctors (Ast_Raise err) =
@@ -167,7 +178,7 @@ and
 elab_e ctors (Ast_Mat e pes) =
   Mat (elab_e ctors e) 
       (List.map (fun (p,e) -> 
-                   let p' = elab_p p in
+                   let p' = elab_p ctors p in
                      (p', elab_e ctors e))
                 pes)
 and
@@ -205,13 +216,10 @@ elab_t type_bound (Ast_Tapp ts (Long m tn)) =
 and
 elab_t type_bound (Ast_Tapp ts (Short tn)) =
   let ts' = List.map (elab_t type_bound) ts in
-    if List.mem tn type_bound then
-      Tapp ts' (TC_name (Short tn))
-    else 
-      match get_prim_type tn with
-        | None -> Tapp ts' (TC_name (Short tn))
-        | Some tc -> Tapp ts' tc
-      end
+    match lookup tn type_bound with
+      | None -> Tapp ts' (TC_name (Short tn))
+      | Some tc -> Tapp ts' tc
+    end
 
 let get_ctors_bindings mn t =
   List.flatten
@@ -222,17 +230,17 @@ let elab_td type_bound (tvs,tn,ctors) =
 
 let rec
 elab_dec mn type_bound ctors (Ast_Dlet p e) =
-  let p' = elab_p p in
+  let p' = elab_p ctors p in
     ([], emp, Dlet p' (elab_e ctors e))
 and
 elab_dec mn type_bound ctors (Ast_Dletrec funs) =
   ([], emp, Dletrec (elab_funs ctors funs))
 and
 elab_dec mn type_bound ctors (Ast_Dtype t) = 
-  let type_bound' = List.map (fun (tvs,tn,ctors) -> tn) t in
+  let type_bound' = List.map (fun (tvs,tn,ctors) -> (tn, TC_name (mk_id mn tn))) t in
   (type_bound',
    merge (get_ctors_bindings mn t) ctors,
-   Dtype (List.map (elab_td (type_bound' @ type_bound)) t))
+   Dtype (List.map (elab_td (merge type_bound' type_bound)) t))
 
 let rec
 elab_decs mn type_bound ctors [] = ([],emp,[])
@@ -240,22 +248,22 @@ and
 elab_decs mn type_bound ctors (d::ds) = 
   let (type_bound', ctors', d') = elab_dec mn type_bound ctors d in
   let (type_bound'',ctors'',ds') = 
-    elab_decs mn (type_bound' @ type_bound) (merge ctors' ctors) ds 
+    elab_decs mn (merge type_bound' type_bound) (merge ctors' ctors) ds 
   in
-    (type_bound''@type_bound', merge ctors'' ctors', d'::ds')
+    (merge type_bound'' type_bound', merge ctors'' ctors', d'::ds')
 
 let rec 
-elab_spec type_bound [] = []
+elab_spec mn type_bound [] = []
 and
-elab_spec type_bound (Ast_Sval x t::spec) =
-  Sval x (elab_t type_bound t) :: elab_spec type_bound spec
+elab_spec mn type_bound (Ast_Sval x t::spec) =
+  Sval x (elab_t type_bound t) :: elab_spec mn type_bound spec
 and
-elab_spec type_bound (Ast_Stype td :: spec) =
-  let type_bound' = List.map (fun (tvs,tn,ctors) -> tn) td in
-    Stype (List.map (elab_td (type_bound' @ type_bound)) td) :: elab_spec (type_bound' @ type_bound) spec
+elab_spec mn type_bound (Ast_Stype td :: spec) =
+  let type_bound' = List.map (fun (tvs,tn,ctors) -> (tn, TC_name (mk_id mn tn))) td in
+    Stype (List.map (elab_td (merge type_bound' type_bound)) td) :: elab_spec mn (merge type_bound' type_bound) spec
 and
-elab_spec type_bound (Ast_Stype_opq tvs tn::spec) =
-  Stype_opq tvs tn :: elab_spec (tn::type_bound) spec
+elab_spec mn type_bound (Ast_Stype_opq tvs tn::spec) =
+  Stype_opq tvs tn :: elab_spec mn ((tn, TC_name (mk_id mn tn))::type_bound) spec
 
 let rec
 elab_top type_bound ctors (Ast_Tdec d) =
@@ -264,7 +272,7 @@ elab_top type_bound ctors (Ast_Tdec d) =
 and
 elab_top type_bound ctors (Ast_Tmod mn spec ds) =
   let (type_bound',ctors',ds') = elab_decs (Some mn) type_bound ctors ds in
-      (type_bound,ctors,Tmod mn (option_map (elab_spec type_bound) spec) ds')
+      (type_bound,ctors,Tmod mn (option_map (elab_spec (Some mn) type_bound) spec) ds')
 
 let rec
 elab_prog type_bound ctors [] = ([],emp,[])
@@ -272,6 +280,6 @@ and
 elab_prog type_bound ctors (top::prog) =
   let (type_bound',ctors',top') = elab_top type_bound ctors top in
   let (type_bound'',ctors'',prog') = 
-    elab_prog (type_bound' @ type_bound) (merge ctors' ctors) prog
+    elab_prog (merge type_bound' type_bound) (merge ctors' ctors) prog
   in
-    (type_bound''@type_bound', merge ctors'' ctors', top'::prog')
+    (merge type_bound'' type_bound', merge ctors'' ctors', top'::prog')

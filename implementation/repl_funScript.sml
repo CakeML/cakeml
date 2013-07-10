@@ -5,7 +5,7 @@ open lexer_implTheory mmlParseTheory AstTheory inferTheory CompilerTheory
 
 val _ = new_theory "repl_fun";
 
-val _ = type_abbrev ("elaborator_state", ``:typeN list # ctor_env``);
+val _ = type_abbrev ("elaborator_state", ``:tdef_env # ctor_env``);
 
 val elaborate_top_def = Define `
 elaborate_top ((types, constructors) : elaborator_state) ast_top =
@@ -13,7 +13,10 @@ elaborate_top ((types, constructors) : elaborator_state) ast_top =
     ((new_types++types, new_constructors ++ constructors), top)`;
 
 val initial_elaborator_state_def = Define `
-initial_elaborator_state : elaborator_state = ([], [])`;
+initial_elaborator_state : elaborator_state = ([("int", TC_int);
+                                                ("bool", TC_bool);
+                                                ("ref", TC_ref);
+                                                ("unit", TC_unit)], [])`;
 
 val _ = type_abbrev ("inferencer_state", ``:(modN, (varN, num # infer_t) env) env # tenvC # (varN, num # infer_t) env``);
 
