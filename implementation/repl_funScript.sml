@@ -41,6 +41,7 @@ val initial_program_def = Define `
 initial_program = 
    Dlet (Pcon NONE [Pvar "ref";
                     Pvar "!";
+                    Pvar "~";
                     Pvar ":=";
                     Pvar "="; 
                     Pvar ">=";  
@@ -54,6 +55,7 @@ initial_program =
                     Pvar "+"])
         (Con NONE [(Fun "x" (Uapp Opref (Var(Short"x"))));
                    (Fun "x" (Uapp Opderef (Var(Short"x"))));
+                   (Fun "x" (App (Opn Minus) (Lit (IntLit 0)) (Var(Short"x"))));
                    (Fun "x" (Fun"y"(App Opassign (Var(Short"x"))(Var(Short"y")))));
                    (Fun "x" (Fun"y"(App Equality(Var(Short"x"))(Var(Short"y")))));
                    (Fun "x" (Fun"y"(App(Opb Geq)(Var(Short"x"))(Var(Short"y")))));
