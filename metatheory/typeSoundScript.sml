@@ -1,4 +1,4 @@
-open preamble
+open preamble;
 open LibTheory AstTheory TypeSystemTheory SemanticPrimitivesTheory;
 open SmallStepTheory BigStepTheory replTheory;
 open terminationTheory;
@@ -2519,6 +2519,7 @@ rw [init_env_def, init_tenv_def, type_env_eqn] >|
          rw [] >>
          qexists_tac `[]` >>
          rw [],
+ tac,
  tac2 >>
      qexists_tac `Empty` >>
          rw [type_env_eqn] >>
