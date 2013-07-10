@@ -93,6 +93,13 @@ val tytest = parsetest ``nType`` ``ptree_Type``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
+
+val _ = parsetest ``nPatternList`` ``ptree_Plist`` "x,y"
+val _ = parsetest ``nPtuple`` ``ptree_Pattern nPtuple`` "(x,y)"
+
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C x"
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x,y)"
+val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "(x,3)"
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "(x,y,4)"
                    (SOME ``Ast_Con NONE [Ast_Var (Short "x");
                                          Ast_Var (Short "y");

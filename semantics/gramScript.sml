@@ -157,11 +157,10 @@ val mmlG_def = mk_grammar_def ginfo
  LetDecs ::= LetDec LetDecs | ";" LetDecs | ;
 
  (* patterns *)
- Pbase ::= V | ConstructorName | <IntT> | "(" Pattern ")" | "(" ")" | "_";
- Pattern ::= ConstructorName Ptuple |  ConstructorName Pbase | Pbase;
- Ptuple ::= "(" PatternList2 ")";
- PatternList2 ::= Pattern "," PatternList1;
- PatternList1 ::= Pattern | PatternList1 "," Pattern;
+ Pbase ::= V | ConstructorName | <IntT> | Ptuple | "_";
+ Pattern ::= ConstructorName Pbase | Pbase;
+ Ptuple ::= "(" ")" | "(" PatternList ")";
+ PatternList ::= Pattern | Pattern "," PatternList ;
  PE ::= Pattern "=>" E;
  PE' ::= Pattern "=>" E';
  PEs ::= PE | PE' "|" PEs;
