@@ -1188,7 +1188,7 @@ in
 end g
 
 
-
+(*
 val completeness = store_thm(
   "completeness",
   ``∀pt N pfx sfx.
@@ -2208,10 +2208,6 @@ val completeness = store_thm(
           simp[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV]) >>
       simp_tac std_ss [Once peg_eval_choicel_CONS] >> DISJ1_TAC >>
       simp[NT_rank_def])
-
-
-
-
 
 
 
