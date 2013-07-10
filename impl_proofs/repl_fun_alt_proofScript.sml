@@ -56,7 +56,7 @@ val main_loop'_def = tDefine "main_loop'" `
         | SOME new_bs =>
           let new_s = if bc_fetch new_bs = SOME Stop then s_exc else s' in
           let (res,assert) = main_loop' (new_bs,new_s) rest_of_input in
-            (Result (REVERSE new_bs.output) res, assert /\ code_assert))
+            (Result (new_bs.output) res, assert /\ code_assert))
      | Failure error_msg =>
          let (res,assert) = main_loop' (bs,s) rest_of_input in
            (Result error_msg res, assert)` tac
@@ -122,7 +122,7 @@ val main_loop_alt'_def = tDefine "main_loop_alt'" `
             let new_bs = (if state = NONE then new_bs
                                           else new_bs) in
             let new_s = (bc_fetch new_bs = SOME Stop) in
-            let out = if state = NONE then I else Result (REVERSE new_bs.output) in
+            let out = if state = NONE then I else Result (new_bs.output) in
               (case lex_until_toplevel_semicolon input of
                | NONE => (out Terminate,code_assert)
                | SOME (ts,rest) =>
@@ -277,7 +277,7 @@ val main_loop_alt_eq = prove(
                 | SOME new_bs =>
                     let s = if bc_fetch new_bs = SOME Stop then s_exc else s' in
                     let (res,assert) = main_loop' (new_bs, s) input in
-                      (Result (REVERSE new_bs.output) res, assert /\ code_assert))
+                      (Result (new_bs.output) res, assert /\ code_assert))
            | Failure error_msg =>
                let (res,assert) = main_loop' (bs,if b then s1 else s2) input in
                  (Result error_msg res, assert))``,

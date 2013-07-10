@@ -345,11 +345,9 @@ bc_fetch s = Some Print
 && (s.stack = x::xs)
 ==>
 bc_next s (<|bump_pc s with stack = xs;
-  output = Hol.CONCAT
-           [Hol.IMPLODE(List.rev(Hol.EXPLODE(ov_to_string (bv_to_ov s.cons_names x))))
-           ;s.output]|>)
+  output = Hol.CONCAT [s.output;ov_to_string (bv_to_ov s.cons_names x)]|>)
 and
 forall s c.
 bc_fetch s = Some (PrintC c)
 ==>
-bc_next s (<|bump_pc s with output = Hol.STRING c s.output|>)
+bc_next s (<|bump_pc s with output = Hol.SNOC c s.output|>)

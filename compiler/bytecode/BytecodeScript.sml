@@ -397,14 +397,12 @@ bc_next s ((bump_pc s with<| clock := OPTION_MAP PRE s.clock|>)))
 bc_fetch s = SOME Print) /\ (s.stack = x ::xs))
 ==>
 bc_next s ((bump_pc s with<| stack := xs;
-  output := CONCAT
-           [IMPLODE( REVERSE(EXPLODE(ov_to_string (bv_to_ov s.cons_names x))))
-           ;s.output]|>)))
+  output := CONCAT [s.output;ov_to_string (bv_to_ov s.cons_names x)]|>)))
 /\
 (! s c.
 (
 bc_fetch s = SOME (PrintC c))
 ==>
-bc_next s ((bump_pc s with<| output := STRING c s.output|>)))`;
+bc_next s ((bump_pc s with<| output := SNOC c s.output|>)))`;
 val _ = export_theory()
 

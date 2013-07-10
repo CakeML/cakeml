@@ -156,7 +156,7 @@ val main_loop_def = tDefine "main_loop" `
             | (* case: evaluation terminated, analyse result and continue *)
               SOME new_bs =>
                 let new_s = if bc_fetch new_bs = SOME Stop then s_exc else s in
-                Result (REVERSE new_bs.output) (main_loop (new_bs,new_s) rest_of_input) ` tac ;
+                Result new_bs.output (main_loop (new_bs,new_s) rest_of_input) ` tac ;
 
 val repl_fun_def = Define`
   repl_fun input = main_loop (initial_bc_state,initial_repl_fun_state) input`;

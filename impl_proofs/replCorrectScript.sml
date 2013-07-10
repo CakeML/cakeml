@@ -1021,7 +1021,7 @@ val PrintE_thm = store_thm("PrintE_thm",
     ⇒
     let bs' = bs with <|pc:=next_addr bs.inst_length bs.code
                        ;stack:=st
-                       ;output:=REVERSE("raise "++print_error err)++bs.output
+                       ;output:=bs.output++("raise "++print_error err)
                        |> in
     bc_next^* bs bs'``,
   (*
@@ -1043,7 +1043,7 @@ val PrintE_thm = store_thm("PrintE_thm",
   fs[good_labels_def] >>
   rw[] >>
   qabbrev_tac`bs1 = bs with <|pc := next_addr bs.inst_length (TAKE (LENGTH "raise ") PrintE)
-                             ;output := REVERSE("raise ")++bs.output|>` >>
+                             ;output := bs.output++("raise ")|>` >>
   `bc_next^* bs bs1` by (
     match_mp_tac MAP_PrintC_thm >>
     qexists_tac`"raise "` >>
@@ -1101,7 +1101,7 @@ val PrintE_thm = store_thm("PrintE_thm",
       simp[Abbr`bs1`] >>
       EVAL_TAC ) >>
     qmatch_assum_abbrev_tac`bc_next bs2 bs3` >>
-    qabbrev_tac`bs4 = bump_pc bs3 with <|output := STRING #"<" bs3.output|>` >>
+    qabbrev_tac`bs4 = bump_pc bs3 with <|output := SNOC #"<" bs3.output|>` >>
     `bc_fetch bs3 = SOME (PrintC #"<")` by (
       match_mp_tac bc_fetch_next_addr >>
       qexists_tac`TAKE 9 PrintE` >>
@@ -1117,13 +1117,13 @@ val PrintE_thm = store_thm("PrintE_thm",
       simp[Abbr`bs4`,Abbr`bs3`,Abbr`bs2`,Abbr`bs1`,bump_pc_def] >>
       EVAL_TAC >>
       simp[SUM_APPEND,FILTER_APPEND]) >>
-    qabbrev_tac`bs5 = bump_pc bs4 with <|stack:=st;output := (REVERSE (int_to_string i))++bs4.output|>` >>
+    qabbrev_tac`bs5 = bump_pc bs4 with <|stack:=st;output := bs4.output++(int_to_string i)|>` >>
     `bc_next bs4 bs5` by (
       simp[bc_eval1_thm,bc_eval1_def] >>
       simp[Abbr`bs4`,Abbr`bs3`,bump_pc_def,Abbr`bs5`] >>
       simp[bc_state_component_equality,IMPLODE_EXPLODE_I] >>
       EVAL_TAC) >>
-    qabbrev_tac`bs6 = bump_pc bs5 with <|output := STRING #">" bs5.output|>` >>
+    qabbrev_tac`bs6 = bump_pc bs5 with <|output := SNOC #">" bs5.output|>` >>
     `bc_fetch bs5 = SOME (PrintC #">")` by (
       match_mp_tac bc_fetch_next_addr >>
       qexists_tac`TAKE 11 PrintE` >>
@@ -1499,7 +1499,7 @@ simp[] >>
   disch_then(qx_choosel_then[`bv`,`bs2`,`rd2`]strip_assume_tac) >>
   qmatch_assum_rename_tac`err_bv err bv`[] >>
   qmatch_abbrev_tac`X = PR ∧ Y` >>
-  `∃bs3. bc_next^* bs2 bs3 ∧ REVERSE bs3.output = PR ∧ bc_fetch bs3 = SOME Stop ∧ bs3.stack = bs0.stack ∧ bs3.refs = bs2.refs` by (
+  `∃bs3. bc_next^* bs2 bs3 ∧ bs3.output = PR ∧ bc_fetch bs3 = SOME Stop ∧ bs3.stack = bs0.stack ∧ bs3.refs = bs2.refs` by (
     `∃ls2. bs2.code = PrintE++Stop::ls2` by (
       imp_res_tac RTC_bc_next_preserves >>
       fs[Abbr`bs0`,install_code_def] >>

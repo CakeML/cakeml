@@ -218,9 +218,9 @@ val bc_eval1_def = Define`
      | NONE => SOME (bump_pc s)
      | SOME n => if n > 0 then SOME (bump_pc s with <| clock := SOME (n-1) |>) else NONE)
   | (Print, x::xs) =>
-    SOME (bump_pc s with <| stack := xs; output := STRCAT(IMPLODE(REVERSE(EXPLODE(ov_to_string(bv_to_ov s.cons_names x))))) s.output |>)
+    SOME (bump_pc s with <| stack := xs; output := STRCAT s.output (ov_to_string(bv_to_ov s.cons_names x))|>)
   | (PrintC c,_) =>
-    SOME (bump_pc s with <| output := STRING c s.output |>)
+    SOME (bump_pc s with <| output := SNOC c s.output |>)
   | _ => NONE)`
 
 val bc_eval1_SOME = store_thm(

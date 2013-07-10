@@ -209,7 +209,7 @@ val MAP_PrintC_thm = store_thm("MAP_PrintC_thm",
   ``∀ls bs bc0 bc1 bs'.
     bs.code = bc0 ++ (MAP PrintC ls) ++ bc1 ∧
     bs.pc = next_addr bs.inst_length bc0 ∧
-    bs' = bs with <| output := REVERSE ls ++ bs.output; pc := next_addr bs.inst_length (bc0 ++ (MAP PrintC ls))|>
+    bs' = bs with <| output := bs.output ++ ls; pc := next_addr bs.inst_length (bc0 ++ (MAP PrintC ls))|>
     ⇒
     bc_next^* bs bs'``,
   Induct >- (
@@ -228,7 +228,7 @@ val MAP_PrintC_thm = store_thm("MAP_PrintC_thm",
   qexists_tac`bc0 ++ [PrintC h]` >>
   simp[FILTER_APPEND,SUM_APPEND])
 
-val _ = Parse.overload_on("print_bv_list",``λm vs ws. FLAT (REVERSE (MAP (REVERSE o (UNCURRY (print_bv_str m))) (ZIP (vs,ws))))``)
+val _ = Parse.overload_on("print_bv_list",``λm vs ws. FLAT (MAP (UNCURRY (print_bv_str m)) (ZIP (vs,ws)))``)
 
 (* TODO: move *)
 val closed_under_menv_def = Define`
@@ -315,7 +315,7 @@ val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
     EVERY2 syneq (MAP (v_to_Cv mv cm) vs) Cvs ∧ EVERY2 (Cv_bv pp) Cvs bvs ∧ LENGTH vars = LENGTH vs ∧
     env = ZIP(vars,vs)
     ⇒
-    print_bv_list m vars bvs = REVERSE (print_envE env)``,
+    print_bv_list m vars bvs = print_envE env``,
   ntac 2 gen_tac >>
   Induct >- ( Cases >> simp[print_envE_def] ) >>
   qx_gen_tac`x`>>
@@ -3588,7 +3588,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     ∧ i + LENGTH vs ≤ LENGTH bvs
     ⇒
     let bs' = bs with <|pc := next_addr bs.inst_length (bc0++code)
-                       ;output := print_bv_list bs.cons_names vs (TAKE (LENGTH vs) (DROP i bvs)) ++ bs.output|> in
+                       ;output := bs.output ++ print_bv_list bs.cons_names vs (TAKE (LENGTH vs) (DROP i bvs))|> in
     bc_next^* bs bs'``,
   Induct >> simp[compile_print_vals_def] >- (
     simp[Once SWAP_REVERSE] >> rw[] >>
@@ -3616,7 +3616,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     simp[] ) >>
   qmatch_assum_abbrev_tac`bs.code = bc0 ++ l1 ++ l2 ++ c1` >>
   `bc_next^* bs (bs with <|pc:=next_addr bs.inst_length (bc0++l1)
-                          ;output:=STRCAT(REVERSE("val "++v++" = "))bs.output|>)` by (
+                          ;output:=STRCAT bs.output ("val "++v++" = ")|>)` by (
     match_mp_tac MAP_PrintC_thm >>
     qexists_tac`"val "++v++" = "`>>
     qexists_tac`bc0` >>
@@ -3628,7 +3628,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     qexists_tac`bc0++l1` >>
     simp[Abbr`l2`] ) >>
   `bc_next^* bs1 (bs1 with <|pc:=next_addr bs.inst_length(bc0++l1++l2)
-                            ;output := STRCAT(REVERSE(print_bv bs.cons_names (EL i bvs)))bs1.output|>)` by (
+                            ;output := STRCAT bs1.output (print_bv bs.cons_names (EL i bvs))|>)` by (
     simp[RTC_eq_NRC] >>
     qexists_tac`SUC(SUC 0)` >>
     simp[NRC] >>
@@ -3691,7 +3691,7 @@ val compile_print_ctors_thm = store_thm("compile_print_ctors_thm",
       ∧ bs.pc = next_addr bs.inst_length bc0
       ⇒
       let bs' = bs with <|pc := next_addr bs.inst_length bs.code
-           ; output := STRCAT (REVERSE (print_ctors ls)) bs.output|> in
+           ; output := STRCAT bs.output (print_ctors ls)|> in
       bc_next^* bs bs'``,
   Induct >- (
     simp[compile_print_ctors_def,Once SWAP_REVERSE] >>
@@ -3712,7 +3712,7 @@ val compile_print_ctors_thm = store_thm("compile_print_ctors_thm",
   rpt strip_tac >>
   qmatch_assum_abbrev_tac`bs.code = bc0 ++ l1 ++ l2 ++ c1` >>
   `bc_next^* bs (bs with <|pc := next_addr bs.inst_length (bc0++l1++l2)
-                          ;output := REVERSE (x0++" = <constructor>") ++ bs.output|>)` by (
+                          ;output := bs.output ++ (x0++" = <constructor>")|>)` by (
     match_mp_tac MAP_PrintC_thm >>
     qexists_tac`x0 ++ " = <constructor>"` >>
     qexists_tac`bc0` >>
@@ -3722,7 +3722,9 @@ val compile_print_ctors_thm = store_thm("compile_print_ctors_thm",
   simp[Abbr`bs1`] >>
   strip_tac >>
   qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
-  qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
+  qmatch_assum_abbrev_tac`bc_next^* bs1' bs2` >>
+  `bs1' = bs1` by (
+    simp[Abbr`bs1'`,Abbr`bs1`,bc_state_component_equality] ) >>
   qmatch_abbrev_tac`bc_next^* bs bs3` >>
   `bs2 = bs3` by (
     simp[Abbr`bs2`,Abbr`bs3`,bc_state_component_equality,SemanticPrimitivesTheory.id_to_string_def] ) >>
@@ -3741,11 +3743,11 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       ⇒
       let str =
         case d of
-        | Dtype ts => REVERSE (print_envC (build_tdefs NONE ts))
+        | Dtype ts => print_envC (build_tdefs NONE ts)
         | d => print_bv_list bs.cons_names (new_dec_vs d) bvs in
       let bs' = bs with
         <|pc := next_addr bs.inst_length (bc0++code)
-         ;output := str ++ bs.output|> in
+         ;output := bs.output ++ str|> in
       bc_next^* bs bs'``,
   Cases >- (
     simp[compile_print_dec_def] >>
@@ -3962,7 +3964,7 @@ val compile_top_thm = store_thm("compile_top_thm",
         ∃bs' rd'.
         bc_next^* bs bs' ∧
         bs'.pc = next_addr bs'.inst_length (bc0 ++ bc) ∧
-        bs'.output = REVERSE (print_result top cenv' (Rval(menv',env')))++bs.output ∧
+        bs'.output = bs.output ++ (print_result top cenv' (Rval(menv',env'))) ∧
         env_rs (menv'++menv) (cenv'++cenv) (env'++env) rss (LENGTH bs'.stack) rd' (0,s') bs'
       | (s',cenv',Rerr(Rraise err)) =>
         ∃bv bs' rd'.
@@ -4217,7 +4219,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       map_every qexists_tac[`bs1`,`bs2`] >>
       simp[Abbr`bs1`,Abbr`bs2`,bc_state_component_equality] ) >>
     qmatch_assum_abbrev_tac`bc_next^* bs bs3` >>
-    `bc_next^* bs3 (bs3 with <| pc := next_addr bs.inst_length bs.code; output := STRCAT (REVERSE ("structure "++mn++" = <structure>")) bs.output|>)` by (
+    `bc_next^* bs3 (bs3 with <| pc := next_addr bs.inst_length bs.code; output := STRCAT bs.output ("structure "++mn++" = <structure>") |>)` by (
       match_mp_tac MAP_PrintC_thm >>
       simp[Abbr`bs3`] >>
       CONV_TAC SWAP_EXISTS_CONV >>
