@@ -104,7 +104,7 @@ val _ = uncurry (register "elab_e") (
 
 val _ = uncurry (register "elab_spec") (
   tprove_no_defn ((elab_spec_def,elab_spec_ind),
-  WF_REL_TAC`measure (LENGTH o SND)` >> simp[]))
+  WF_REL_TAC`measure (LENGTH o SND o SND)` >> simp[]))
 
 val _ = uncurry (register "elab_t") (
   tprove_no_defn ((elab_t_def,elab_t_ind),

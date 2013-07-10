@@ -29,14 +29,17 @@ val split_top_level_semi_def = tDefine "split_top_level_semi" `
 
 val _ = Hol_datatype `
 repl_state = <| (* Elaborator state *)
-                type_bindings : typeN list; ctors : ctor_env;
+                type_bindings : tdef_env; ctors : ctor_env;
                 (* Type system state *)
                 tenvM : tenvM; tenvC : tenvC; tenv : tenvE;
                 (* Semantics state *)
                 envM : envM; envC : envC; store : store; envE : envE |>`;
 
 val init_repl_state_def = Define`
-  init_repl_state = <| type_bindings := []; ctors := [];
+  init_repl_state = <| type_bindings := [("int", TC_int);
+                                         ("bool", TC_bool);
+                                         ("ref", TC_ref);
+                                         ("unit", TC_unit)]; ctors := [];
                        tenvM := []; tenvC := []; tenv := init_tenv;
                        envM := []; envC := []; store := []; envE := init_env |>`
 
