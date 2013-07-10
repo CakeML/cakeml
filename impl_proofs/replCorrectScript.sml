@@ -1655,6 +1655,9 @@ val eval_initial_program = Q.prove (
 `evaluate_dec NONE [] [] [] [] initial_program ([], Rval ([], init_env))`,
 rw [init_env_def, initial_program_def, evaluate_dec_cases, LibTheory.emp_def, pmatch_def] >>
 NTAC 15 (rw [Once evaluate_cases]) >>
+srw_tac[DNF_ss][] >>
+rw [do_con_check_def, AstTheory.pat_bindings_def, pmatch_def, LibTheory.bind_def] >>
+simp[ADD1] >> rw[Once evaluate_cases] >>
 rw [do_con_check_def, AstTheory.pat_bindings_def, pmatch_def, LibTheory.bind_def]);
 
 val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
