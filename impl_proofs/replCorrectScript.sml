@@ -1579,28 +1579,34 @@ simp[] >>
     match_mp_tac env_rs_with_bs_irr >>
     qexists_tac`bs2 with <|stack := bs0.stack; clock := NONE|>` >>
     simp[] >>
-    imp_res_tac bc_next_preserves_code >>
-    imp_res_tac bc_next_preserves_inst_length >>
+    imp_res_tac RTC_bc_next_preserves >>
     simp[] >>
-
-    (* need to show that adding the extra module name with an empty environment
-    * is harmless *)
-    (* this might be impossible since the compiler doesn't do that, and the invariant is quite strong *)
-    (* so probably need to make the compiler add the empty module too, and then try to prove this... *)
-    cheat
-    (*
-    fs[env_rs_def,LET_THM] >>
-    rpt HINT_EXISTS_TAC >>
+    match_mp_tac env_rs_remove_clock >>
     simp[] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- metis_tac[] >>
-    conj_tac >- metis_tac[] >>
-    match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
-    map_every qexists_tac[`rd2`,`(0,Cs'')`,`bs2`,`bs2.refs`,`NONE`] >>
-    simp[BytecodeTheory.bc_state_component_equality] >>
-    rfs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def]
-    *)
-    ) >>
+    qexists_tac`0,store2` >>
+    qexists_tac`bs2 with stack := bs0.stack` >>
+    simp[] >>
+    Cases_on`new_infer_menv=[]`>-simp[convert_menv_def,strip_mod_env_def] >>
+    match_mp_tac env_rs_shift_to_menv >>
+    qexists_tac`rs.envM` >>
+    qexists_tac`rs.envE` >>
+    qexists_tac`csf` >>
+    `∃mn en. new_infer_menv = [mn,en] ∧ mn ∉ set (MAP FST infer_menv)` by (
+      pop_assum mp_tac >>
+      qpat_assum`A = (Success Y,Z)`mp_tac >>
+      rpt (pop_assum kall_tac) >>
+      Cases_on`top`>> simp[inferTheory.infer_top_def] >>
+      EVAL_TAC >> rw[] >>
+      BasicProvers.EVERY_CASE_TAC >>
+      fs[UNCURRY] >>
+      BasicProvers.EVERY_CASE_TAC >>
+      fs[] >> rw[] ) >>
+    simp[convert_menv_def,strip_mod_env_def,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+    qexists_tac`[]` >>
+    simp[] >>
+    (* need to show that adding the extra module name with an empty environment is harmless *)
+    (* first need to make the compiler add the empty module too *)
+    cheat) >>
   conj_tac >- labels_tac >>
   simp[Abbr`new_bc_state`] >>
   imp_res_tac RTC_bc_next_preserves >>
