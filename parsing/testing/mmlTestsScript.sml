@@ -76,7 +76,7 @@ in
               | SOME t => if aconv t ptree_res then
                             print "Semantic output as expected\n"
                           else
-                            die ("Semantics not required ", t)
+                            die ("Semantics fails; is not the required ", t)
           else ()
         end
         else die ("Fringe not preserved!", ttoks)
@@ -92,6 +92,19 @@ fun tytest0 s r = parsetest0 ``nType`` ``ptree_Type`` s (SOME r)
 val tytest = parsetest ``nType`` ``ptree_Type``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
+
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "(x,y,4)"
+                   (SOME ``Ast_Con NONE [Ast_Var (Short "x");
+                                         Ast_Var (Short "y");
+                                         Ast_Lit (IntLit 4)]``);
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "C(x,3)"
+                   (SOME ``Ast_Con (SOME (Short "C"))
+                                   [Ast_Var (Short "x"); Ast_Lit (IntLit 3)]``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "f(x,3)"
+                   (SOME ``Ast_App (Ast_Var (Short "f"))
+                                   (Ast_Con NONE
+                                            [Ast_Var (Short "x");
+                                             Ast_Lit (IntLit 3)])``)
 
 val _ = tytest "'a"
 val _ = tytest "'a -> bool"
@@ -116,7 +129,7 @@ val _ = parsetest0 ``nREPLTop`` ``ptree_REPLTop``
                      (Ast_Dlet
                         (Ast_Pvar "it")
                         (Ast_Mat (Ast_Var (Short "g"))
-                                 [(Ast_Pcon (Short "C") [Ast_Pvar "p1"],
+                                 [(Ast_Pcon (SOME (Short "C")) [Ast_Pvar "p1"],
                                    Ast_Var (Short "e1"));
                                   (Ast_Pvar "p2", Ast_Var (Short "e2"))]))``)
 
@@ -149,7 +162,7 @@ val _ = parsetest ``nE`` ``ptree_Expr nE``
                   \                        | 1 => raise Bind\n\
                   \                        | _ => n - 2"
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "C(3)"
-                   (SOME ``Ast_Con (Short "C") [Ast_Lit (IntLit 3)]``)
+                   (SOME ``Ast_Con (SOME (Short "C")) [Ast_Lit (IntLit 3)]``)
 
 val _ = parsetest ``nREPLTop`` ``ptree_REPLTop``
                   "val x = z : S.ty -> bool;"
@@ -230,7 +243,6 @@ val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f true y"
 val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f true Constructor"
 val _ = parsetest ``nElist1`` ``ptree_Expr nElist1`` "x"
 val _ = parsetest ``nElist1`` ``ptree_Expr nElist1`` "x,2"
-val _ = parsetest ``nElist2`` ``ptree_Expr nElist2`` "x,2"
 val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "C (x)"
 val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "C(x, y)"
 val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "f x * 3"

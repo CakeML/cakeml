@@ -465,11 +465,6 @@ val updAst_Conname_def = Define`
   updAst_Conname _ _ = NONE
 `
 
-val backAppCon_def = Define`
-  backAppCon (Ast_Con x args) b = SOME (Ast_Con x (args ++ [b])) ∧
-  backAppCon _ _ = NONE
-`;
-
 val frontAppCon_def = Define`
   frontAppCon e (Ast_Con x args) = SOME (Ast_Con x (e::args)) ∧
   frontAppCon _ _ = NONE
@@ -489,7 +484,10 @@ val mkAst_App_def = Define`
   mkAst_App a1 a2 =
    case a1 of
        Ast_Con (SOME (Short "ref")) [] => Ast_App (Ast_Var (Short "ref")) a2
-     | Ast_Con s [] => Ast_Con s [a2]
+     | Ast_Con s [] =>
+       (case a2 of
+            Ast_Con NONE tuple => Ast_Con s tuple
+          | _ => Ast_Con s [a2])
      | _ => Ast_App a1 a2
 `
 
@@ -541,7 +539,8 @@ val ptree_Expr_def = Define`
                    SOME (Ast_Lit (Bool F))
                  else
                    SOME (Ast_Con (SOME cname) [])
-              od
+              od ++
+              ptree_Expr nEtuple single
           | [lp;rp] => if lp = Lf (TK LparT) ∧ rp = Lf (TK RparT) then
                          SOME (Ast_Lit Unit)
                        else NONE
@@ -565,11 +564,6 @@ val ptree_Expr_def = Define`
                           a1 <- ptree_Expr nEapp t1;
                           a2 <- ptree_Expr nEbase t2;
                           SOME(mkAst_App a1 a2)
-                        od ++
-                        do
-                          cname <- ptree_ConstructorName t1;
-                          cargs <- ptree_Expr nEtuple t2;
-                          updAst_Conname (SOME cname) cargs
                         od
           | [t] => ptree_Expr nEbase t
           | _ => NONE
@@ -593,12 +587,12 @@ val ptree_Expr_def = Define`
       else if nt = mkNT nElist1 then
         case subs of
             [sing] => do e <- ptree_Expr nE sing; SOME(Ast_Con NONE [e]) od
-          | [el1;ct;e] =>
+          | [e;ct;el1] =>
             if ct = Lf (TOK CommaT) then
               do
-                front <- ptree_Expr nElist1 el1 ;
-                back <- ptree_Expr nE e;
-                backAppCon front back
+                front <- ptree_Expr nE e;
+                back <- ptree_Expr nElist1 el1 ;
+                frontAppCon front back
               od
             else NONE
           | _ => NONE
@@ -890,12 +884,12 @@ val ptree_Expr_def = Define`
             e <- ptree_Expr nE single;
             SOME[e]
           od
-        | [seq_pt; semi; e_pt] =>
+        | [e_pt; semi; seq_pt] =>
           do
             assert(semi = Lf (TOK SemicolonT));
-            seq <- ptree_Eseq seq_pt;
             e <- ptree_Expr nE e_pt;
-            SOME(seq ++ [e])
+            seq <- ptree_Eseq seq_pt;
+            SOME(e::seq)
           od
         | _ => NONE)
 `;

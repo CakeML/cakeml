@@ -121,14 +121,13 @@ val mmlG_def = mk_grammar_def ginfo
               s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s))}``) ;
  Vlist1 ::= V Vlist1 | V;
  Exn ::= "Bind" | "Div" | "IntError" <IntT>;
- Ebase ::= "(" Eseq ")" | "(" ")" | FQV | ConstructorName | <IntT>
+ Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | <IntT>
         |  "let" LetDecs "in" Eseq "end";
- Eseq ::= Eseq ";" E | E;
+ Eseq ::= E ";" Eseq | E;
  Etuple ::= "(" Elist2 ")";
  Elist2 ::= E "," Elist1;
- Elist1 ::= E | Elist1 "," E;
- Eapp ::= Eapp Ebase | Ebase
-        | ConstructorName Etuple;
+ Elist1 ::= E | E "," Elist1;
+ Eapp ::= Eapp Ebase | Ebase;
 
  (* expressions - binary operators *)
  MultOps ::= ^(``{AlphaT "div"; AlphaT "mod"; StarT; SymbolT "/"}``);
