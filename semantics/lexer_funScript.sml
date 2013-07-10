@@ -89,7 +89,7 @@ val read_while_thm = prove(
   RES_TAC THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND] THEN DECIDE_TAC);
 
 val isAlphaNumPrime_def = Define`
-  isAlphaNumPrime c <=> isAlphaNum c \/ c = #"'"
+  isAlphaNumPrime c <=> isAlphaNum c \/ c = #"'" ∨ c = #"_"
 `
 
 val moduleRead_def = Define`

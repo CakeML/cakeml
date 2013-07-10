@@ -14,7 +14,7 @@ fun do_test filename =
       SOME res
   end;
 
-mesonLib.chatting := 0;
+val _ = mesonLib.chatting := 0;
 
 fun do_all_tests files =
 let val x = ref 0 in
@@ -25,7 +25,7 @@ List.app (fn d => (x := (!x) + 1;
         files
 end;
 
-do_all_tests
+do_all_tests ["test1.ml"]
 ["test1.ml", 
  "test2.ml", 
  "test3.ml",

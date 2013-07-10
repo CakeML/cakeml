@@ -18,3 +18,5 @@ val l8 = let fun even x = (x = 0) orelse (if x = 1 then false else odd (x - 1))
          end;
 
 val l9 = l8 3;
+
+val l10 = ~4;

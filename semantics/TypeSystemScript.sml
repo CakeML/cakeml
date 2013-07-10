@@ -696,6 +696,7 @@ val _ = Define `
      (">=", 0, Tfn Tint (Tfn Tint Tbool));
      ("=", 1, Tfn (Tvar_db 0) (Tfn (Tvar_db 0) Tbool));
      (":=", 1, Tfn (Tref (Tvar_db 0)) (Tfn (Tvar_db 0) Tunit));
+     ("~", 1, Tfn Tint Tint);
      ("!", 1, Tfn (Tref (Tvar_db 0)) (Tvar_db 0));
      ("ref", 1, Tfn (Tvar_db 0) (Tref (Tvar_db 0)))])`;
 
