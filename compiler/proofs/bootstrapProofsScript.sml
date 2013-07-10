@@ -69,7 +69,7 @@ val compile_decs_from_empty = store_thm("compile_decs_from_empty",
     compile_decs NONE FEMPTY
       init_compiler_state.contab
       <|bvars:=[];mvars:=FEMPTY;cnmap:=cmap(init_compiler_state.contab)|>
-      [] 0 <|out:=[];next_label:=0|> decs
+      [] 0 <|out:=[];next_label:=4|> decs
     = (ct,m,rsz,cs) ∧
     ∀bs.
     bs.code = REVERSE cs.out

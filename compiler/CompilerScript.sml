@@ -48,7 +48,7 @@ val _ = Define `
    ; renv := []
    ; rmenv := FEMPTY
    ; rsz := 0
-   ; rnext_label := 0
+   ; rnext_label := 4
    |>)`;
 
 
