@@ -8,9 +8,6 @@ val _ = translation_extends"ml_repl_step"
 
 val (Eval_peic,peic_side_def) = get_cert"parse_elaborate_infertype_compile"
 
-val FOLDL_compile_decs = SIMP_RULE(srw_ss())[LET_THM,UNCURRY]compile_decs_FOLDL 
-SIMP_RULE 
-
 val ml_repl_step_DeclAssumC =
 DeclAssumC_def
 |> Q.SPECL[`ml_repl_step_decls`,`envC`,`envE`]
@@ -18,14 +15,35 @@ DeclAssumC_def
 |> fst
 |> UNDISCH
 
-EXISTS
+val FV_decs_ml_repl_step_decls = prove(``FV_decs ml_repl_step_decls = {}``,cheat)
+val decs_cns_ml_repl_step_decls = prove(``decs_cns NONE ml_repl_step_decls = {}``,cheat)
+val check_dup_ctors_ml_repl_step_decs = prove(
+``(∀i tds. i < LENGTH ml_repl_step_decls ∧ EL i ml_repl_step_decls = Dtype tds ⇒
+     check_dup_ctors NONE (decs_to_cenv NONE (TAKE i ml_repl_step_decls)) tds)``,cheat)
 
-|> SIMP_RULE bool_ss [GSYM LEFT_FORALL_IMP_THM]
-|> Q.SPEC`[]`
+val bootstrap_result_def = Define`
+  bootstrap_result = ^(rhs(concl(compiled)))`
 
-``FV_decs ml_repl_step_decls = {}``
+val bootstrap_ct = Define`
+  bootstrap_ct = FST(bootstrap_result)`
 
-env_rs_empty
+val bootstrap_cs = Define`
+  bootstrap_cs = (SND(SND(SND(SND(bootstrap_result)))))`
+
+val bootstrap_m = Define`
+  bootstrap_m = (FST(SND(bootstrap_result)))`
+
+val bootstrap_env = Define`
+  bootstrap_env = (FST(SND(SND(bootstrap_result))))`
+
+val bootstrap_rsz = Define`
+  bootstrap_rsz = (FST(SND(SND(SND(bootstrap_result)))))`
+
+val compiled1 = ONCE_REWRITE_RULE[GSYM bootstrap_result_def]compiled
+
+val bootstrap_result_split = prove(
+  ``bootstrap_result = (bootstrap_ct,bootstrap_m,bootstrap_env,bootstrap_rsz,bootstrap_cs)``,
+  rw[bootstrap_ct,bootstrap_cs,bootstrap_m,bootstrap_env,bootstrap_rsz])
 
 val ml_repl_step_compiler_correctness1 =
 compile_decs_thm
@@ -37,21 +55,32 @@ compile_decs_thm
 |> Q.SPECL[`NONE`,`[]`,`[]`,`empty_store`,`[]`,`ml_repl_step_decls`]
 |> SIMP_RULE (srw_ss()) [GSYM DeclsC_def]
 |> UNDISCH
-|> SIMP_RULE (srw_ss()) [closed_context_def,empty_store_def,closed_under_cenv_def,closed_under_menv_def]
-
+|> SIMP_RULE (srw_ss()) [closed_context_def,empty_store_def,closed_under_cenv_def,closed_under_menv_def
+                        ,decs_cns_ml_repl_step_decls,FV_decs_ml_repl_step_decls,check_dup_ctors_ml_repl_step_decs]
 
 val (ck,t) = dest_exists(concl ml_repl_step_compiler_correctness1)
-val ml_repl_step_compiler_correctness =
+val ml_repl_step_compiler_correctness2 =
 ASSUME t
 |> Q.SPECL[`<|bvars:=[];mvars:=FEMPTY;cnmap:=cmap init_compiler_state.contab|>`,`<|out:=[];next_label:=4|>`]
 |> SIMP_RULE(srw_ss())[]
 |> CONV_RULE(RESORT_FORALL_CONV(fn ls => (List.drop(ls,5))@(List.take(ls,5))))
-|> Q.SPECL[`init_compiler_state`]
-|> SIMP_RULE(srw_ss())[CompilerTheory.init_compiler_state_def]
+|> Q.SPECL[`init_compiler_state`,`0`,`<|sm:=[];cls:=FEMPTY|>`
+          ,`bs with <|clock := SOME ck; pc := 0; stack := []; code := bootstrap_cs.out|>`,`[]`]
+|> SIMP_RULE(srw_ss())[CompilerTheory.init_compiler_state_def,good_labels_def]
+|> SIMP_RULE(srw_ss())[(SIMP_RULE(srw_ss())[CompilerTheory.init_compiler_state_def]env_rs_empty)]
+|> ONCE_REWRITE_RULE[CONV_RULE(LAND_CONV(SIMP_CONV(srw_ss())[CompilerTheory.init_compiler_state_def]))compiled1]
+|> SIMP_RULE(srw_ss())[bootstrap_result_split]
+|> ONCE_REWRITE_RULE[LET_THM]
+|> PairRules.PBETA_RULE
+|> SIMP_RULE pure_ss [PAIR_EQ]
 
-SIMP_CONV(srw_ss())[CompilerTheory.init_compiler_state_def](lhs(concl(compiled)))
-env_rs_empty
-|> CHOOSE (``s2:store``,ml_repl_step_DeclAssumC) 
+pairTheory.
+
+val ml_repl_step_compiler_correctness3 =
+ml_repl_step_compiler_correctness2
+|> SIMP_[LET_THM]
+compiled
+LET_SS
 
 hyp ml_repl_step_compiler_correctness
 ml_repl_step_DeclAssumC
@@ -123,9 +152,6 @@ DeclAssum_def
 Decls_def
 Eval_def
 
-val bootstrap_result_def = Define`
-  bootstrap_result = ^(rhs(concl(compiled)))`
-
 compile_decs_FOLDL
 val bootstrap_rs_def = Define`
   bootstrap_rs =
@@ -155,5 +181,5 @@ val env_rs_bootstrap = store_thm("env_rs_bootstrap",
 
 ``DeclAssum ml_repl_step_decls env ⇒
   
-
+*)
 val _ = export_theory()
