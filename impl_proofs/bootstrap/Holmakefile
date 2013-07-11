@@ -5,10 +5,10 @@ ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../../implementation/bootstrap/compile_repl_stepTheory\
-						../../compiler/proofs/bootstrapProofsTheory\
+BARE_THYS = ../../implementation/bootstrap/compile_oneshotTheory\
+						../../compiler/proofs/compilerProofsTheory\
 						../../translator/ml_translatorTheory\
-						../../translator/repl/ml_repl_stepTheory\
+						../../translator/repl/oneshotTheory\
 						../../translator/repl/sideTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))

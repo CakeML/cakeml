@@ -1,11 +1,11 @@
-open preamble repl_computeLib ml_repl_stepTheory
+open preamble repl_computeLib ml_repl_stepTheory oneshotTheory
 val _ = new_theory"compile_oneshot"
 
 val _ = computeLib.stoppers := let
   val stoppers = [``Dlet``,``Dletrec``,``Dtype``]
   in SOME (fn tm => mem tm stoppers) end
 
-val _ = computeLib.add_funs[ml_repl_step_decls]
+val _ = computeLib.add_funs[ml_repl_step_decls,oneshot_decs_def]
 
 val compile_dec1_def = Define`
   compile_dec1 mn menv (ct,m,env,rsz,cs) dec =
@@ -203,7 +203,7 @@ val ct = ``init_compiler_state.contab``
 val m = ``<|bvars:=["input"];mvars:=FEMPTY;cnmap:=cmap(^ct)|>``
 val cs = ``<|out:=[];next_label:=init_compiler_state.rnext_label|>``
 fun mk_initial_split n =
-  ``FOLDL (compile_dec1 NONE FEMPTY) (^ct,^m,[CTDec 0],1,^cs) ml_repl_step_decls``
+  ``FOLDL (compile_dec1 NONE FEMPTY) (^ct,^m,[CTDec 0],1,^cs) oneshot_decs``
      |> (RAND_CONV (EVAL THENC chunkify_CONV n) THENC
          RATOR_CONV (RAND_CONV EVAL))
 
@@ -222,6 +222,9 @@ val (initial', decllist_defs) = let
 in
   (CONV_RULE (RAND_CONV (RAND_CONV (replace defs))) initial_split20, defs)
 end
+
+val (lastfm_def, defs, th) = (TRUTH, decllist_defs, initial')
+val i = 5
 
 val x100 = doit 5 (TRUTH, decllist_defs, initial')
 val x140 = doit 2 x100;
