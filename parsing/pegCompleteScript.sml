@@ -9,6 +9,64 @@ open pegSoundTheory
 
 val _ = new_theory "pegComplete"
 
+val REVERSE_11 = store_thm(
+  "REVERSE_11",
+  ``(REVERSE l1 = REVERSE l2) ⇔ (l1 = l2)``,
+  METIS_TAC [listTheory.REVERSE_REVERSE])
+val _ = export_rewrites ["REVERSE_11"]
+
+fun PULLV v t = let
+  val (bv,b) = dest_abs(rand t)
+in
+  if bv = v then ALL_CONV
+  else BINDER_CONV (PULLV v) THENC SWAP_VARS_CONV
+end t
+
+fun REFINE_EXISTS_TAC t (asl, w) = let
+  val (qvar, body) = dest_exists w
+  val ctxt = free_varsl (w::asl)
+  val qvars = set_diff (free_vars t) ctxt
+  val newgoal = subst [qvar |-> t] body
+  fun chl [] ttac = ttac
+    | chl (h::t) ttac = X_CHOOSE_THEN h (chl t ttac)
+in
+  SUBGOAL_THEN
+    (list_mk_exists(rev qvars, newgoal))
+    (chl (rev qvars) (fn th => Tactic.EXISTS_TAC t THEN ACCEPT_TAC th))
+    (asl, w)
+end
+
+
+fun unify_firstconj k th (g as (asl,w)) = let
+  val (exvs, body) = strip_exists w
+  val c = hd (strip_conj body)
+  val (favs, fabody) = strip_forall (concl th)
+  val con = #2 (dest_imp fabody)
+  val theta = Unify.simp_unify_terms (set_diff (free_vars c) exvs) c con
+  fun inst_exvs theta =
+      case theta of
+          [] => ALL_TAC
+        | {redex,residue} :: rest =>
+          if mem redex exvs andalso null (intersect (free_vars residue) exvs)
+          then
+            if null (intersect (free_vars residue) favs) then
+              CONV_TAC (PULLV redex) THEN EXISTS_TAC residue THEN
+              inst_exvs rest
+            else CONV_TAC (PULLV redex) THEN REFINE_EXISTS_TAC residue THEN
+                 inst_exvs rest
+          else inst_exvs rest
+  fun inst_favs theta th =
+      case theta of
+          [] => k th
+        | {redex,residue} :: rest =>
+          if mem redex favs then
+            inst_favs rest (th |> CONV_RULE (PULLV redex) |> SPEC residue)
+          else inst_favs rest th
+in
+  inst_exvs theta THEN inst_favs theta th
+end g
+
+
 fun CHEAT g = ACCEPT_TAC (mk_thm g) g
 
 val _ = augment_srw_ss [rewrites [
@@ -629,6 +687,53 @@ val list_case_lemma = prove(
     (a ≠ [] ∧ [x] = f (HD a) (TL a))``,
   Cases_on `a` >> simp[]);
 
+val left_insert1_def = Define`
+  (left_insert1 pt (Lf x) = Lf x) ∧
+  (left_insert1 pt (Nd n subs) =
+     case subs of
+         [x] => Nd n [Nd n [pt]; x]
+       | [x; y] => Nd n [left_insert1 pt x; y]
+       | _ => Nd n subs)
+`;
+
+val left_insert1_FOLDL = store_thm(
+  "left_insert1_FOLDL",
+  ``left_insert1 pt (FOLDL (λa b. Nd (mkNT P) [a; b]) acc arg) =
+    FOLDL (λa b. Nd (mkNT P) [a; b]) (left_insert1 pt acc) arg``,
+  qid_spec_tac `acc` >> Induct_on `arg` >> simp[left_insert1_def]);
+
+val eapp_reassociated = store_thm(
+  "eapp_reassociated",
+  ``∀pt bpt pf bf.
+      valid_ptree mmlG pt ∧ ptree_head pt = NN nEapp ∧
+      ptree_fringe pt = MAP TK pf ∧
+      valid_ptree mmlG bpt ∧ ptree_head bpt = NN nEbase ∧
+      ptree_fringe bpt = MAP TK bf ⇒
+      ∃pt' bpt'.
+        valid_ptree mmlG pt' ∧ valid_ptree mmlG bpt' ∧
+        ptree_head pt' = NN nEapp ∧ ptree_head bpt' = NN nEbase ∧
+        ptree_fringe bpt' ++ ptree_fringe pt' = MAP TK (pf ++ bf) ∧
+        Nd (mkNT nEapp) [pt; bpt] = left_insert1 bpt' pt'``,
+  ho_match_mp_tac grammarTheory.ptree_ind >>
+  simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >>
+  qx_gen_tac `subs` >> strip_tac >>
+  map_every qx_gen_tac [`bpt`, `pf`, `bf`] >> strip_tac >> rveq >>
+  fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rveq
+  >- (asm_match `ptree_head pt0 = NN nEapp` >>
+      asm_match `ptree_fringe pt0 = MAP TK pf` >>
+      Q.UNDISCH_THEN `ptree_head bpt = NN nEbase` mp_tac >>
+      asm_match `ptree_head bpt0 = NN nEbase` >>
+      asm_match `ptree_fringe bpt0 = MAP TK bf0` >> strip_tac >>
+      first_x_assum (qspecl_then [`bpt0`, `pf`, `bf0`] mp_tac) >>
+      simp[] >> disch_then (qxchl [`ppt'`, `bpt'`] strip_assume_tac) >>
+      map_every qexists_tac [`Nd (mkNT nEapp) [ppt'; bpt]`, `bpt'`] >>
+      dsimp[cmlG_FDOM, cmlG_applied, left_insert1_def]) >>
+  Q.UNDISCH_THEN `ptree_head bpt = NN nEbase` mp_tac >>
+  asm_match `ptree_head bpt0 = NN nEbase` >> strip_tac >>
+  map_every qexists_tac [`Nd (mkNT nEapp) [bpt]`, `bpt0`] >>
+  dsimp[cmlG_applied, cmlG_FDOM, left_insert1_def]);
+
+
 val left_insert_def = Define`
   (left_insert (Lf x) p sep c = Lf x) ∧
   (left_insert (Nd n subs) p sep c =
@@ -692,12 +797,6 @@ val left_insert_mk_linfix = store_thm(
   `t = [] ∨ ∃h2 t2. t = h2::t2` by (Cases_on `t` >> simp[])
   >- simp[mk_linfix_def] >>
   rw[] >> simp[mk_linfix_def, left_insert_def]);
-
-val REVERSE_11 = store_thm(
-  "REVERSE_11",
-  ``(REVERSE l1 = REVERSE l2) ⇔ (l1 = l2)``,
-  METIS_TAC [listTheory.REVERSE_REVERSE])
-val _ = export_rewrites ["REVERSE_11"]
 
 val firstSets_nV_nConstructorName = store_thm(
   "firstSets_nV_nConstructorName",
@@ -1089,18 +1188,95 @@ val stoppers_def = Define`
 val _ = export_rewrites ["stoppers_def"]
 
 
-(* could generalise this slightly: allowing for nullable seps, but this would
-   require a more complicated condition on the sfx, something like
-     (sfx ≠ [] ∧ ¬nullable mmlG [SEP] ⇒ HD sfx ∉ firstSet mmlG [SEP]) ∧
-     (sfx ≠ [] ∧ nullable mmlG [SEP] ⇒ HD sfx ∉ firstSet mmlG [C])
-   and I can't be bothered with that right now. *)
-
 fun attack_asmguard (g as (asl,w)) = let
   val (l,r) = dest_imp w
   val (h,c) = dest_imp l
 in
   SUBGOAL_THEN h (fn th => DISCH_THEN (fn imp => MP_TAC (MATCH_MP imp th)))
 end g
+val normlist = REWRITE_TAC [GSYM APPEND_ASSOC, listTheory.APPEND]
+
+val eapp_complete = store_thm(
+  "eapp_complete",
+  ``(∀pt' pfx' sfx' N.
+       LENGTH pfx' < LENGTH master ∧ valid_ptree mmlG pt' ∧
+       mkNT N ∈ FDOM mmlPEG.rules ∧
+       ptree_head pt' = NN N ∧ ptree_fringe pt' = MAP TK pfx' ∧
+       (sfx' ≠ [] ⇒ HD sfx' ∈ stoppers N) ⇒
+       peg_eval mmlPEG (pfx' ++ sfx', nt (mkNT N) I) (SOME(sfx', [pt']))) ∧
+    (∀pt' sfx'.
+       valid_ptree mmlG pt' ∧ ptree_head pt' = NN nEbase ∧
+       ptree_fringe pt' = MAP TK master ∧
+       (sfx' ≠ [] ⇒ HD sfx' ∈ stoppers nEbase) ⇒
+       peg_eval mmlPEG (master ++ sfx', nt (mkNT nEbase) I) (SOME (sfx', [pt'])))
+    ⇒
+     ∀pfx apt sfx.
+       IS_SUFFIX master pfx ∧ valid_ptree mmlG apt ∧
+       ptree_head apt = NN nEapp ∧ ptree_fringe apt = MAP TK pfx ∧
+       (sfx ≠ [] ⇒ HD sfx ∈ stoppers nEapp) ⇒
+       peg_eval mmlPEG (pfx ++ sfx, nt (mkNT nEapp) I) (SOME(sfx, [apt]))``,
+  strip_tac >>
+  simp[Once peg_eval_NT_SOME, mmlpeg_rules_applied, (*list_case_lemma, *)
+       peg_eval_rpt, GSYM LEFT_EXISTS_AND_THM, GSYM RIGHT_EXISTS_AND_THM] >>
+  gen_tac >>
+  completeInduct_on `LENGTH pfx` >> qx_gen_tac `pfx` >> strip_tac >>
+  rveq >> fs[GSYM RIGHT_FORALL_IMP_THM] >>
+  map_every qx_gen_tac [`apt`, `sfx`] >> strip_tac >>
+  `∃subs. apt = Nd (mkNT nEapp) subs`
+    by (Cases_on `apt` >> fs[MAP_EQ_CONS] >> rw[]) >>
+  fs[MAP_EQ_CONS, MAP_EQ_APPEND, cmlG_FDOM, cmlG_applied] >> rw[] >>
+  fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
+  >- (asm_match `ptree_head apt = NN nEapp` >>
+      asm_match `ptree_fringe apt = MAP TK af` >>
+      asm_match `ptree_head bpt = NN nEbase` >>
+      asm_match `ptree_fringe bpt = MAP TK bf` >>
+      qspecl_then [`apt`, `bpt`, `af`, `bf`] mp_tac eapp_reassociated >>
+      simp[MAP_EQ_APPEND, GSYM LEFT_EXISTS_AND_THM, GSYM RIGHT_EXISTS_AND_THM]>>
+      disch_then (qxchl [`apt'`, `bpt'`, `bf'`, `af'`] strip_assume_tac) >>
+      simp[] >> map_every qexists_tac [`[bpt']`,`af' ++ sfx`] >>
+      CONV_TAC EXISTS_AND_CONV >>
+      `LENGTH (af ++ bf) ≤ LENGTH master`
+        by (Q.UNDISCH_THEN `af ++ bf = bf' ++ af'` SUBST_ALL_TAC >>
+            fs[rich_listTheory.IS_SUFFIX_compute] >>
+            imp_res_tac rich_listTheory.IS_PREFIX_LENGTH >> fs[]) >>
+      erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_Ebase) >>
+      erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_Eapp) >>
+      simp[] >> ntac 2 strip_tac >>
+      `LENGTH (bf' ++ af') ≤ LENGTH master` by metis_tac[] >> fs[] >>
+      conj_tac
+      >- (normlist >> first_assum (match_mp_tac o has_length) >> asimp[]) >>
+      simp[] >>
+      first_x_assum (qspecl_then [`af'`, `apt'`, `sfx`] mp_tac) >> simp[] >>
+      `LENGTH af + LENGTH bf = LENGTH bf' + LENGTH af'`
+        by metis_tac [listTheory.LENGTH_APPEND] >> asimp[] >>
+      fs[rich_listTheory.IS_SUFFIX_compute, listTheory.REVERSE_APPEND] >>
+      imp_res_tac rich_listTheory.IS_PREFIX_APPEND1 >> simp[] >>
+      disch_then (qxchl [`bpt_list`, `ii`, `blist`] strip_assume_tac) >>
+      erule mp_tac peg_sound >> disch_then (qxchl [`bpt2`] strip_assume_tac) >>
+      fs[] >> rveq >>
+      qexists_tac `[bpt2]::blist` >>
+      simp[Once pegTheory.peg_eval_cases, left_insert1_FOLDL,
+           left_insert1_def] >> metis_tac[]) >>
+  asm_match `ptree_head bpt = NN nEbase` >>
+  map_every qexists_tac [`[bpt]`, `sfx`, `[]`] >>
+  simp[left_insert1_def] >> reverse conj_tac
+  >- (simp[Once pegTheory.peg_eval_cases] >>
+      Cases_on `sfx` >>
+      fs[peg_respects_firstSets, not_peg0_peg_eval_NIL_NONE]) >>
+  first_x_assum (kall_tac o assert (is_forall o concl)) >>
+  fs[rich_listTheory.IS_SUFFIX_compute] >>
+  imp_res_tac rich_listTheory.IS_PREFIX_LENGTH >>
+  fs[DECIDE ``x:num ≤ y ⇔ x = y ∨ x < y``] >>
+  `pfx = master`
+    by metis_tac[rich_listTheory.IS_PREFIX_LENGTH_ANTI,
+                 REVERSE_11, listTheory.LENGTH_REVERSE] >>
+  rveq >> simp[]);
+
+(* could generalise this slightly: allowing for nullable seps, but this would
+   require a more complicated condition on the sfx, something like
+     (sfx ≠ [] ∧ ¬nullable mmlG [SEP] ⇒ HD sfx ∉ firstSet mmlG [SEP]) ∧
+     (sfx ≠ [] ∧ nullable mmlG [SEP] ⇒ HD sfx ∉ firstSet mmlG [C])
+   and I can't be bothered with that right now. *)
 
 val peg_linfix_complete = store_thm(
   "peg_linfix_complete",
@@ -1238,58 +1414,7 @@ val peg_eval_NT_NONE = save_thm(
   ``peg_eval mmlPEG (i0, nt (mkNT n) I) NONE``
      |> SIMP_CONV (srw_ss()) [Once pegTheory.peg_eval_cases])
 
-fun PULLV v t = let
-  val (bv,b) = dest_abs(rand t)
-in
-  if bv = v then ALL_CONV
-  else BINDER_CONV (PULLV v) THENC SWAP_VARS_CONV
-end t
 
-fun REFINE_EXISTS_TAC t (asl, w) = let
-  val (qvar, body) = dest_exists w
-  val ctxt = free_varsl (w::asl)
-  val qvars = set_diff (free_vars t) ctxt
-  val newgoal = subst [qvar |-> t] body
-  fun chl [] ttac = ttac
-    | chl (h::t) ttac = X_CHOOSE_THEN h (chl t ttac)
-in
-  SUBGOAL_THEN
-    (list_mk_exists(rev qvars, newgoal))
-    (chl (rev qvars) (fn th => Tactic.EXISTS_TAC t THEN ACCEPT_TAC th))
-    (asl, w)
-end
-
-
-fun unify_firstconj k th (g as (asl,w)) = let
-  val (exvs, body) = strip_exists w
-  val c = hd (strip_conj body)
-  val (favs, fabody) = strip_forall (concl th)
-  val con = #2 (dest_imp fabody)
-  val theta = Unify.simp_unify_terms (set_diff (free_vars c) exvs) c con
-  fun inst_exvs theta =
-      case theta of
-          [] => ALL_TAC
-        | {redex,residue} :: rest =>
-          if mem redex exvs andalso null (intersect (free_vars residue) exvs)
-          then
-            if null (intersect (free_vars residue) favs) then
-              CONV_TAC (PULLV redex) THEN EXISTS_TAC residue THEN
-              inst_exvs rest
-            else CONV_TAC (PULLV redex) THEN REFINE_EXISTS_TAC residue THEN
-                 inst_exvs rest
-          else inst_exvs rest
-  fun inst_favs theta th =
-      case theta of
-          [] => k th
-        | {redex,residue} :: rest =>
-          if mem redex favs then
-            inst_favs rest (th |> CONV_RULE (PULLV redex) |> SPEC residue)
-          else inst_favs rest th
-in
-  inst_exvs theta THEN inst_favs theta th
-end g
-
-val normlist = REWRITE_TAC [GSYM APPEND_ASSOC, listTheory.APPEND]
 val stdstart =
     simp[Once peg_eval_NT_SOME, mmlpeg_rules_applied, MAP_EQ_CONS] >> rw[] >>
     fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
@@ -2008,7 +2133,11 @@ val completeness = store_thm(
       DISJ1_TAC >> normlist >>
       first_assum (unify_firstconj kall_tac) >> asimp[] >>
       normlist >> simp[])
-  >- (print_tac "nEapp" >> CHEAT)
+  >- (print_tac "nEapp" >> disch_then assume_tac >>
+      match_mp_tac (eapp_complete
+                      |> Q.INST [`master` |-> `pfx`]
+                      |> SIMP_RULE (bool_ss ++ DNF_ss) [AND_IMP_INTRO]) >>
+      simp[cmlG_applied, cmlG_FDOM, NT_rank_def])
   >- (print_tac "nEadd" >> disch_then assume_tac >>
       simp[peg_eval_NT_SOME, mmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
