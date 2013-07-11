@@ -122,14 +122,18 @@ val ptree_Type_def = Define`
             | _ => NONE
      else if nm = nDType then
        case args of
-           [pt] =>
-                OPTION_MAP Ast_Tvar (destTyvarPT pt) ++
-                OPTION_MAP (Ast_Tapp []) (ptree_Tyop pt)
+           [pt] => ptree_Type nTbase pt
          | [dt; opn] => do
                           dty <- ptree_Type nDType dt;
                           opname <- ptree_Tyop opn;
                           SOME(Ast_Tapp [dty] opname)
                         od
+         | _ => NONE
+     else if nm = nTbase then
+       case args of
+           [pt] =>
+                OPTION_MAP Ast_Tvar (destTyvarPT pt) ++
+                OPTION_MAP (Ast_Tapp []) (ptree_Tyop pt)
          | [lpart; t; rpart] =>
               do
                 assert(lpart = Lf (TK LparT) ∧ rpart = Lf (TK RparT));

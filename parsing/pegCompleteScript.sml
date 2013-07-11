@@ -1619,6 +1619,7 @@ val completeness = store_thm(
       simp[PEG_exprs] >> strip_tac >> rw[] >>
       `StructureT ∈ firstSet mmlG [NN nDecl]`
         by metis_tac [firstSet_nonempty_fringe] >> fs[])
+  >- (print_tac "nTbase" >> CHEAT)
   >- (print_tac "nStructure" >> dsimp[MAP_EQ_CONS] >> rw[] >>
       fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS, MAP_EQ_APPEND] >>
       rw[] >> fs[] >>

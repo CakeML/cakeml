@@ -657,171 +657,66 @@ val peg_sound = store_thm(
             (length_no_greater |> Q.GEN `sym` |> Q.ISPEC `nt (mkNT nType) I`
                                |> GEN_ALL) >> fs[] >> asimp[] >>
       strip_tac >> rveq >> simp[])
-  >- (print_tac "nDType" >> strip_tac >> rveq >> simp[]
-      >- (qpat_assum `peg_eval mmlPEG (i1, rpt X Y) Z` mp_tac >>
-          simp[peg_eval_rpt] >>
-          disch_then (qxchl [`tyops`] strip_assume_tac) >> rveq >> simp[] >>
-          asm_match `peg_eval_list mmlPEG (i1, nt (mkNT nTyOp) I) (i,tyops)`>>
-          pop_assum mp_tac >>
-          `∃i2. LENGTH i2 < SUC (LENGTH i1) ∧ i1 = i2` by simp[] >>
-          pop_assum SUBST1_TAC >> pop_assum mp_tac >>
-          asm_match `isTyvarT tyv` >>
-          `∃acc.
-             MAP ptree_head acc ∈ mmlG.rules ' (mkNT nDType) ∧
-             (∀pt. MEM pt acc ⇒ valid_ptree mmlG pt) ∧
-             TK tyv::MAP TK i2 = FLAT (MAP ptree_fringe acc) ++ MAP TK i2 ∧
-             [Lf (TK tyv)] = acc`
-            by (simp[cmlG_FDOM, cmlG_applied] >> Cases_on `tyv` >> fs[]) >>
-          ntac 2 (pop_assum SUBST1_TAC) >> ntac 2 (pop_assum mp_tac) >>
-          map_every qid_spec_tac [`acc`, `i2`, `i`, `tyops`] >> Induct
-          >- (simp[Once pegTheory.peg_eval_cases] >>
-              simp[cmlG_FDOM, cmlG_applied]) >>
-          map_every qx_gen_tac [`tyop`, `i`, `i2`, `acc`] >>
-          simp[Once pegTheory.peg_eval_cases] >> ntac 3 strip_tac >>
-          disch_then (qxchl [`i3`] strip_assume_tac) >>
-          fs[] >> first_x_assum (erule mp_tac) >>
-          disch_then (qxchl [`tyop_pt`] strip_assume_tac) >> rveq >>
-          simp[] >>
-          `LENGTH i3 < LENGTH i2`
-            by metis_tac[not_peg0_LENGTH_decreases, peg0_nTyOp] >>
-          `LENGTH i3 < SUC (LENGTH i1)` by decide_tac >>
-          first_x_assum
-            (qspecl_then [`i`, `i3`, `[Nd (mkNT nDType) acc; tyop_pt]`]
-                         mp_tac)>>
-          simp[cmlG_applied, cmlG_FDOM, DISJ_IMP_THM, FORALL_AND_THM])
-      >- (`NT_rank (mkNT nTyOp) < NT_rank (mkNT nDType)` by simp[NT_rank_def] >>
-          first_x_assum (erule mp_tac) >>
-          disch_then (qxchl [`tyop_pt`] strip_assume_tac) >> rveq >> simp[] >>
-          qpat_assum `peg_eval mmlPEG XX NONE` (K ALL_TAC) >>
-          erule strip_assume_tac
-            (MATCH_MP not_peg0_LENGTH_decreases peg0_nTyOp) >>
-          qpat_assum `peg_eval mmlPEG (II, rpt XX FF) YY` mp_tac >>
-          simp[peg_eval_rpt] >> disch_then (qxchl [`tyops`] strip_assume_tac) >>
-          rveq >> simp[] >>
-          asm_match `peg_eval_list mmlPEG (i1, nt (mkNT nTyOp) I) (i,tyops)`>>
-          pop_assum mp_tac >>
-          `∃i2. LENGTH i2 < LENGTH i0 ∧ i1 = i2` by simp[] >>
-          pop_assum SUBST1_TAC >> pop_assum mp_tac >>
-          `∃acc.
-             MAP ptree_head acc ∈ mmlG.rules ' (mkNT nDType) ∧
-             (∀pt. MEM pt acc ⇒ valid_ptree mmlG pt) ∧
-             ptree_fringe tyop_pt ++ MAP TK i2 =
-               FLAT (MAP ptree_fringe acc) ++ MAP TK i2 ∧
-             [tyop_pt] = acc`
-            by (simp[cmlG_FDOM, cmlG_applied]) >>
-          ntac 2 (pop_assum SUBST1_TAC) >> ntac 2 (pop_assum mp_tac) >>
-          map_every qid_spec_tac [`acc`, `i2`, `i`, `tyops`] >> Induct
-          >- (simp[Once pegTheory.peg_eval_cases] >>
-              simp[cmlG_FDOM, cmlG_applied]) >>
-          map_every qx_gen_tac [`tyop`, `i`, `i2`, `acc`] >>
-          simp[Once pegTheory.peg_eval_cases] >> ntac 3 strip_tac >>
-          disch_then (qxchl [`i3`] strip_assume_tac) >>
-          first_x_assum (erule mp_tac) >>
-          disch_then (qxchl [`tyop_pt2`] strip_assume_tac) >> rveq >>
-          simp[] >>
-          `LENGTH i3 < LENGTH i2`
-            by metis_tac[not_peg0_LENGTH_decreases, peg0_nTyOp] >>
-          `LENGTH i3 < LENGTH i0` by decide_tac >>
-          first_x_assum
-            (qspecl_then [`i`, `i3`, `[Nd (mkNT nDType) acc; tyop_pt2]`]
-                         mp_tac)>>
-          simp[cmlG_applied, cmlG_FDOM, DISJ_IMP_THM, FORALL_AND_THM])
-      >- ((* type in parentheses followed by tyops case *)
-          rpt (qpat_assum `peg_eval mmlPEG XX NONE` (K ALL_TAC)) >>
-          asm_match
-            `peg_eval mmlPEG (i0,nt (mkNT nType) I) (SOME(RparT::i1,r))`>>
-          loseC ``NT_rank`` >>
-          first_assum (fn patth =>
-            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
-          rpt kill_asm_guard >>
-          disch_then (qxchl [`type_pt`] strip_assume_tac) >> rveq >> simp[] >>
-          erule mp_tac
-            (length_no_greater |> Q.GEN `sym` |> Q.ISPEC `nt (mkNT nType) I`
-                               |> GEN_ALL) >> simp[] >> strip_tac >>
-          fs[] >> `LENGTH i1 < SUC (LENGTH i0)` by decide_tac >>
-          qpat_assum `peg_eval mmlPEG (II, rpt XX FF) YY` mp_tac >>
-          simp[peg_eval_rpt] >> disch_then (qxchl [`tyops`] strip_assume_tac) >>
-          rveq >> simp[] >>
-          asm_match `peg_eval_list mmlPEG (i1, nt (mkNT nTyOp) I) (i,tyops)`>>
-          pop_assum mp_tac >>
-          `∃i2. LENGTH i2 < SUC (LENGTH i0) ∧ i1 = i2` by simp[] >>
-          pop_assum SUBST1_TAC >> pop_assum mp_tac >>
-          `∃acc.
-             MAP ptree_head acc ∈ mmlG.rules ' (mkNT nDType) ∧
-             (∀pt. MEM pt acc ⇒ valid_ptree mmlG pt) ∧
-             TK LparT::(ptree_fringe type_pt ++ [TK RparT] ++ MAP TK i2) =
-               FLAT (MAP ptree_fringe acc) ++ MAP TK i2 ∧
-             [Lf (TK LparT); type_pt; Lf (TK RparT)] = acc`
-            by simp[cmlG_FDOM, cmlG_applied, DISJ_IMP_THM, FORALL_AND_THM] >>
-          ntac 2 (pop_assum SUBST1_TAC) >> ntac 2 (pop_assum mp_tac) >>
-          map_every qid_spec_tac [`acc`, `i2`, `i`, `tyops`] >> Induct
-          >- (simp[Once pegTheory.peg_eval_cases] >>
-              simp[cmlG_FDOM, cmlG_applied]) >>
-          map_every qx_gen_tac [`tyop`, `i`, `i2`, `acc`] >>
-          simp[Once pegTheory.peg_eval_cases] >> ntac 3 strip_tac >>
-          disch_then (qxchl [`i3`] strip_assume_tac) >>
-          first_x_assum (erule mp_tac) >>
-          disch_then (qxchl [`tyop_pt`] strip_assume_tac) >> rveq >>
-          simp[] >>
-          `LENGTH i3 < LENGTH i2`
-            by metis_tac[not_peg0_LENGTH_decreases, peg0_nTyOp] >>
-          `LENGTH i3 < SUC(LENGTH i0)` by decide_tac >>
-          first_x_assum
-            (qspecl_then [`i`, `i3`, `[Nd (mkNT nDType) acc; tyop_pt]`]
-                         mp_tac)>>
-          simp[cmlG_applied, cmlG_FDOM, DISJ_IMP_THM, FORALL_AND_THM]) >>
-        (* tuple followed by at least one tyop case *)
-        rpt (qpat_assum `peg_eval GG XX NONE` (K ALL_TAC)) >>
-        loseC ``NT_rank`` >>
-        asm_match `peg_eval mmlPEG (i1, nt (mkNT nTypeList2) I)
-                      (SOME (RparT::i2, r))` >> fs[] >>
-        first_assum (fn patth =>
-          first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                       assert (free_in ``nTypeList2``) o concl)) >>
-        rpt kill_asm_guard >>
-        disch_then (qxchl [`tyl2_pt`] strip_assume_tac) >> rveq >> simp[] >>
-        asm_match `peg_eval mmlPEG (i2, nt(mkNT nTyOp) I) (SOME(i3,r))` >>
-        first_assum (mp_tac o MATCH_MP length_no_greater o
-                     assert (free_in ``nTypeList2`` o concl)) >> simp[] >>
-        strip_tac >> `LENGTH i2 < SUC (LENGTH i1)` by decide_tac >>
-        first_assum (erule mp_tac) >>
-        disch_then (qxchl [`tyop_pt`] strip_assume_tac) >> rveq >> simp[]>>
-        first_assum (assume_tac o MATCH_MP length_no_greater o
-                     assert (free_in ``nTyOp`` o concl) o
-                     assert (free_in ``i2 : token list`` o concl)) >>
-        `LENGTH i3 < SUC (LENGTH i1)` by decide_tac >>
-        qpat_assum `peg_eval mmlPEG (II, rpt XX FF) YY` mp_tac >>
-        simp[peg_eval_rpt] >> disch_then (qxchl [`tyops`] strip_assume_tac) >>
-        rveq >> simp[] >>
-        asm_match `peg_eval_list mmlPEG (i3, nt (mkNT nTyOp) I) (i,tyops)`>>
-        pop_assum mp_tac >>
-        `∃i4. LENGTH i4 < SUC (LENGTH i1) ∧ i3 = i4` by simp[] >>
-        pop_assum SUBST1_TAC >> pop_assum mp_tac >>
-        `∃acc.
-           MAP ptree_head acc ∈ mmlG.rules ' (mkNT nDType) ∧
-           (∀pt. MEM pt acc ⇒ valid_ptree mmlG pt) ∧
-           TK LparT::(ptree_fringe tyl2_pt ++ [TK RparT] ++
-                      ptree_fringe tyop_pt ++ MAP TK i4) =
-             FLAT (MAP ptree_fringe acc) ++ MAP TK i4 ∧
-           [Lf (TK LparT); tyl2_pt; Lf (TK RparT); tyop_pt] = acc`
-          by simp[cmlG_FDOM, cmlG_applied, DISJ_IMP_THM, FORALL_AND_THM] >>
-        ntac 2 (pop_assum SUBST1_TAC) >> ntac 2 (pop_assum mp_tac) >>
-        map_every qid_spec_tac [`acc`, `i4`, `i`, `tyops`] >> Induct
-        >- (simp[Once pegTheory.peg_eval_cases] >>
-            simp[cmlG_FDOM, cmlG_applied]) >>
-        map_every qx_gen_tac [`tyop`, `i`, `i4`, `acc`] >>
-        simp[Once pegTheory.peg_eval_cases] >> ntac 3 strip_tac >>
-        disch_then (qxchl [`i5`] strip_assume_tac) >>
-        first_x_assum (erule mp_tac) >>
-        disch_then (qxchl [`tyop_pt2`] strip_assume_tac) >> rveq >>
-        simp[] >>
-        `LENGTH i5 < LENGTH i4`
-          by metis_tac[not_peg0_LENGTH_decreases, peg0_nTyOp] >>
-        `LENGTH i5 < SUC(LENGTH i1)` by decide_tac >>
-        first_x_assum
-          (qspecl_then [`i`, `i5`, `[Nd (mkNT nDType) acc; tyop_pt2]`]
-                       mp_tac)>>
-        simp[cmlG_applied, cmlG_FDOM, DISJ_IMP_THM, FORALL_AND_THM])
+  >- (print_tac "nTbase" >> strip_tac >> rveq >>
+      fs[cmlG_FDOM, cmlG_applied, peg_eval_nTyOp_wrongtok] >>
+      rveq >> fs[]
+      >- (lrresolve X (K true) mp_tac >> simp[] >> strip_tac >> rveq >>
+          dsimp[])
+      >- (lrresolve KEEP (free_in ``nTypeList2``) mp_tac >>
+          rpt kill_asm_guard >> strip_tac >> rveq >> dsimp[] >>
+          imp_res_tac length_no_greater >>
+          lrresolve X (free_in ``nTyOp``) mp_tac >> fs[] >> asimp[] >>
+          strip_tac >> rveq >> dsimp[])
+      >- (asm_match `isTyvarT h` >> Cases_on`h` >> fs[])
+      >- (`NT_rank (mkNT nTyOp) < NT_rank (mkNT nTbase)` by simp[NT_rank_def] >>
+          first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[])
+      >- (lrresolve KEEP (free_in ``nTypeList2``) mp_tac >>
+          rpt kill_asm_guard >> strip_tac >> rveq >> simp[] >>
+          imp_res_tac length_no_greater >> fs[] >>
+          lrresolve X (free_in ``nTyOp``) mp_tac >> asimp[] >>
+          strip_tac >> rveq >> dsimp[]) >>
+      lrresolve KEEP (free_in ``nTypeList2``) mp_tac >>
+      rpt kill_asm_guard >> strip_tac >> rveq >> simp[] >>
+      imp_res_tac length_no_greater >> fs[] >>
+      lrresolve X (free_in ``nTyOp``) mp_tac >> asimp[] >>
+      strip_tac >> rveq >> dsimp[])
+  >- (print_tac "nDType" >> strip_tac >> rveq >> simp[] >>
+      `NT_rank (mkNT nTbase) < NT_rank (mkNT nDType)`
+        by simp[NT_rank_def] >>
+      first_x_assum (erule mp_tac) >>
+      disch_then (qxchl [`base_pt`] strip_assume_tac) >> rveq >> simp[] >>
+      erule strip_assume_tac
+        (MATCH_MP not_peg0_LENGTH_decreases peg0_nTbase) >>
+      qpat_assum `peg_eval mmlPEG (II, rpt XX FF) YY` mp_tac >>
+      simp[peg_eval_rpt] >> disch_then (qxchl [`tyops`] strip_assume_tac) >>
+      rveq >> simp[] >>
+      asm_match `peg_eval_list mmlPEG (i1, nt (mkNT nTyOp) I) (i,tyops)`>>
+      pop_assum mp_tac >>
+      `∃i2. LENGTH i2 < LENGTH i0 ∧ i1 = i2` by simp[] >>
+      pop_assum SUBST1_TAC >> pop_assum mp_tac >>
+      `∃acc.
+         ptree_head acc = NN nDType ∧ valid_ptree mmlG acc ∧
+         ptree_fringe base_pt ++ MAP TK i2 =
+           ptree_fringe acc ++ MAP TK i2 ∧
+         Nd (mkNT nDType) [base_pt] = acc`
+        by (simp[cmlG_FDOM, cmlG_applied]) >>
+      ntac 2 (pop_assum SUBST1_TAC) >> ntac 2 (pop_assum mp_tac) >>
+      map_every qid_spec_tac [`acc`, `i2`, `i`, `tyops`] >> Induct
+      >- (simp[Once pegTheory.peg_eval_cases] >>
+          simp[cmlG_FDOM, cmlG_applied]) >>
+      map_every qx_gen_tac [`tyop`, `i`, `i2`, `acc`] >>
+      simp[Once pegTheory.peg_eval_cases] >> ntac 3 strip_tac >>
+      disch_then (qxchl [`i3`] strip_assume_tac) >>
+      first_x_assum (erule mp_tac) >>
+      disch_then (qxchl [`tyop_pt2`] strip_assume_tac) >> rveq >>
+      simp[] >>
+      `LENGTH i3 < LENGTH i2`
+        by metis_tac[not_peg0_LENGTH_decreases, peg0_nTyOp] >>
+      `LENGTH i3 < LENGTH i0` by decide_tac >>
+      first_x_assum
+        (qspecl_then [`i`, `i3`, `Nd (mkNT nDType) [acc; tyop_pt2]`]
+                     mp_tac)>>
+      simp[cmlG_applied, cmlG_FDOM, DISJ_IMP_THM, FORALL_AND_THM])
   >- (print_tac "nType" >> simp[peg_eval_choice, sumID_def] >>
       `NT_rank (mkNT nPType) < NT_rank (mkNT nType)` by simp[NT_rank_def] >>
       strip_tac >> rveq >> simp[]

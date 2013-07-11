@@ -93,7 +93,8 @@ val mmlG_def = mk_grammar_def ginfo
  TyOp ::= UQTyOp | <LongidT>;
  TypeList1 ::= Type | Type "," TypeList1;
  TypeList2 ::= Type "," TypeList1;
- DType ::= <TyvarT> | TyOp | DType TyOp | "(" TypeList2 ")" TyOp | "(" Type ")";
+ Tbase ::= <TyvarT> | TyOp | "(" TypeList2 ")" TyOp | "(" Type ")";
+ DType ::= DType TyOp | Tbase;
  PType ::= DType "*" PType | DType;
  Type ::= PType | PType "->" Type;
 

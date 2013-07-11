@@ -268,28 +268,19 @@ val mmlPEG_def = zDefine`
                seql [pnt nPType; try (seql [tokeq ArrowT; pnt nType] I)]
                     (bindNT nType));
               (mkNT nDType,
+               seql [pnt nTbase; rpt (pnt nTyOp) FLAT]
+                    (λsubs.
+                       case subs of
+                           [] => []
+                         | h::t => [FOLDL (λa b. Nd (mkNT nDType) [a; b])
+                                          (Nd (mkNT nDType) [h]) t]));
+              (mkNT nTbase,
                choicel [
-                 seql [pegf
-                         (choicel [
-                             tok isTyvarT mktokLf;
-                             pnt nTyOp;
-                             seql [tokeq LparT; pnt nType; tokeq RparT] I
-                         ]) (bindNT nDType);
-                       rpt (pnt nTyOp) FLAT]
-                      (λsubs.
-                         case subs of
-                             [] => [] (* can't happen *)
-                           | h::t =>
-                             [FOLDL (\a tyop. Nd (mkNT nDType) [a; tyop]) h t]);
-                 seql [tokeq LparT; pnt nTypeList2; tokeq RparT;
-                       pnt nTyOp; rpt (pnt nTyOp) FLAT]
-                      (λsubs.
-                         case subs of
-                             (lp::tyl::rp::tyop::rest) =>
-                             [FOLDL (\a tyop. Nd (mkNT nDType) [a; tyop])
-                                    (Nd (mkNT nDType) [lp;tyl;rp;tyop])
-                                    rest]
-                           | _ => [] (* can't happen *))
+                 seql [tokeq LparT; pnt nType; tokeq RparT] (bindNT nTbase);
+                 seql [tokeq LparT; pnt nTypeList2; tokeq RparT; pnt nTyOp]
+                      (bindNT nTbase);
+                 tok isTyvarT (bindNT nTbase o mktokLf);
+                 pegf (pnt nTyOp) (bindNT nTbase)
                ]);
               (mkNT nTypeList2,
                seql [pnt nType; tokeq CommaT; pnt nTypeList1]
@@ -553,8 +544,8 @@ val npeg0_rwts =
                [``nTypeDec``, ``nDecl``, ``nV``, ``nVlist1``, ``nUQTyOp``,
                 ``nUQConstructorName``, ``nConstructorName``, ``nTypeName``,
                 ``nDtypeDecl``, ``nDconstructor``, ``nFDecl``, ``nTyvarN``,
-                ``nTyOp``, ``nDType``, ``nPType``, ``nType``, ``nTypeList1``,
-                ``nTypeList2``,
+                ``nTyOp``, ``nTbase``, ``nDType``, ``nPType``, ``nType``,
+                ``nTypeList1``, ``nTypeList2``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``,
                 ``nPatternList``,
                 ``nLetDec``, ``nMultOps``,
@@ -634,7 +625,7 @@ end;
 val topo_nts = [``nExn``, ``nV``, ``nTyvarN``, ``nTypeDec``, ``nDecl``,
                 ``nVlist1``, ``nUQTyOp``, ``nUQConstructorName``,
                 ``nConstructorName``, ``nTyVarList``, ``nTypeName``, ``nTyOp``,
-                ``nDType``, ``nPType``,
+                ``nTbase``, ``nDType``, ``nPType``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``,
                 ``nPatternList``, ``nPE``,
                 ``nPE'``, ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``,
