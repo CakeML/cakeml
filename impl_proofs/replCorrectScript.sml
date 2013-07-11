@@ -154,15 +154,40 @@ val lexer_correct = prove(
   ``!input. split_top_level_semi (lexer_fun input) = lex_impl_all input``,
   SIMP_TAC std_ss [lex_impl_all_tokens_thm,split_top_level_semi_thm]);
 
+open gramPropsTheory pegSoundTheory pegCompleteTheory
+
+val peg_det = pegTheory.peg_deterministic |> CONJUNCT1
 val parser_correct = Q.prove (
 `!toks. parse_top toks = repl$parse toks`,
   rw[parse_top_def,replTheory.parse_def] >>
   rw[mmlParseREPLTop_thm] >>
   qspec_then`toks`strip_assume_tac mmlPEGTheory.parse_REPLTop_total >>
   simp[destResult_def] >>
-  (* this may be impossible to prove, until the grammar is proved unambiguous *)
-  (* alternative would be to make parse a relation *)
-cheat);
+  fs[GSYM pegexecTheory.peg_eval_executed, mmlPEGTheory.pnt_def] >>
+  `r = NONE \/ ?toks' pts. r = SOME(toks',pts)`
+    by metis_tac[optionTheory.option_CASES, pairTheory.pair_CASES] >>
+  rw[]
+  >- (DEEP_INTRO_TAC optionTheory.some_intro >> simp[] >>
+      qx_gen_tac `pt` >> strip_tac >>
+      qspecl_then [`pt`, `nREPLTop`, `toks`, `[]`] mp_tac completeness >>
+      simp[] >>
+      IMP_RES_THEN mp_tac (pegTheory.peg_deterministic |> CONJUNCT1) >>
+      simp[]) >>
+  first_assum (strip_assume_tac o MATCH_MP peg_sound) >>
+  rw[cmlPtreeConversionTheory.oHD_def] >>
+  Cases_on `ptree_REPLTop pt` >> simp[]
+  >- (DEEP_INTRO_TAC optionTheory.some_intro >> simp[] >>
+      qx_gen_tac `pt2` >> strip_tac >>
+      qspecl_then [`pt2`, `nREPLTop`, `toks`, `[]`] mp_tac completeness >>
+      simp[] >> first_x_assum (assume_tac o MATCH_MP peg_det) >>
+      simp[]) >>
+  DEEP_INTRO_TAC optionTheory.some_intro >> simp[] >>
+  reverse conj_tac
+  >- (disch_then (qspec_then `pt` mp_tac) >> simp[]) >>
+  qx_gen_tac `pt2` >> strip_tac >>
+  qspecl_then [`pt2`, `nREPLTop`, `toks`, `[]`] mp_tac completeness >>
+  simp[] >> first_x_assum (assume_tac o MATCH_MP peg_det) >>
+  simp[]);
 
 val get_type_error_mask_def = Define `
 (get_type_error_mask Terminate = []) ∧
@@ -510,7 +535,7 @@ val type_p_closed = store_thm("type_p_closed",
   simp[AstTheory.pat_bindings_def,pats_bindings_MAP] >>
   rw[] >> fs[SUBSET_DEF] >>
   imp_res_tac alistTheory.ALOOKUP_MEM >>
-  simp[MEM_MAP,EXISTS_PROD] >> 
+  simp[MEM_MAP,EXISTS_PROD] >>
   fs [cenv_dom_def, MEM_MAP] >>
   metis_tac[FST])
 
@@ -1668,7 +1693,7 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   simp[initial_bc_state_def] >>
   Q.PAT_ABBREV_TAC`bs = install_code X Y Z` >>
   `∃bs1. bc_eval bs = SOME bs1` by (
-    `evaluate_top [] [] [] [] (Tdec initial_program) ([],[],Rval ([],init_env))` 
+    `evaluate_top [] [] [] [] (Tdec initial_program) ([],[],Rval ([],init_env))`
           by (rw [evaluate_top_cases, LibTheory.emp_def] >>
               metis_tac [eval_initial_program]) >>
     qspecl_then[`[]`,`[]`,`[]`,`[]`,`Tdec initial_program`,`([],[],Rval ([],init_env))`]mp_tac compile_top_thm >>
@@ -1760,7 +1785,7 @@ val initial_invariant = prove(
     simp[SUBSET_DEF] >> metis_tac[] ) >>
   TRY (assume_tac initial_bc_state_invariant >> fs[] >> NO_TAC) >>
 
-  `evaluate_top [] [] [] [] (Tdec initial_program) ([],[],Rval ([],init_env))` 
+  `evaluate_top [] [] [] [] (Tdec initial_program) ([],[],Rval ([],init_env))`
         by (rw [evaluate_top_cases, LibTheory.emp_def] >>
             metis_tac [eval_initial_program]) >>
 
