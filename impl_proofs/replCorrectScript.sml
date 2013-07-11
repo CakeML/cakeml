@@ -3,6 +3,7 @@ open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClock
 open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compileLabelsTheory compilerProofsTheory;
 open SemanticPrimitivesTheory semanticsExtraTheory TypeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory terminationTheory;
 open BytecodeTheory bootstrapProofsTheory repl_fun_altTheory repl_fun_alt_proofTheory;
+open gramPropsTheory pegSoundTheory pegCompleteTheory
 
 val _ = new_theory "replCorrect";
 
@@ -153,8 +154,6 @@ val split_top_level_semi_thm = prove(
 val lexer_correct = prove(
   ``!input. split_top_level_semi (lexer_fun input) = lex_impl_all input``,
   SIMP_TAC std_ss [lex_impl_all_tokens_thm,split_top_level_semi_thm]);
-
-open gramPropsTheory pegSoundTheory pegCompleteTheory
 
 val peg_det = pegTheory.peg_deterministic |> CONJUNCT1
 val parser_correct = Q.prove (
@@ -1611,27 +1610,30 @@ simp[] >>
     qexists_tac`0,store2` >>
     qexists_tac`bs2 with stack := bs0.stack` >>
     simp[] >>
-    Cases_on`new_infer_menv=[]`>-simp[convert_menv_def,strip_mod_env_def] >>
-    match_mp_tac env_rs_shift_to_menv >>
-    qexists_tac`rs.envM` >>
-    qexists_tac`rs.envE` >>
-    qexists_tac`csf` >>
-    `∃mn en. new_infer_menv = [mn,en] ∧ mn ∉ set (MAP FST infer_menv)` by (
-      pop_assum mp_tac >>
+    Cases_on`top`>>fs[]>-(
+      rator_x_assum`env_rs`mp_tac >>
+      Q.PAT_ABBREV_TAC`menv1 = xx::rs.envM` >>
+      Q.PAT_ABBREV_TAC`menv2 = yy++rs.envM` >>
+      `menv1 = menv2` by (
+        simp[Abbr`menv1`,Abbr`menv2`] >>
+        simp[convert_menv_def,strip_mod_env_def] >>
+        qpat_assum`A = (Success Y,Z)`mp_tac >>
+        rpt (pop_assum kall_tac) >>
+        simp[inferTheory.infer_top_def] >>
+        EVAL_TAC >> rw[] >>
+        BasicProvers.EVERY_CASE_TAC >>
+        fs[UNCURRY] >>
+        BasicProvers.EVERY_CASE_TAC >>
+        fs[] >> rw[] ) >>
+      simp[] ) >>
+    `new_infer_menv = []` by (
       qpat_assum`A = (Success Y,Z)`mp_tac >>
       rpt (pop_assum kall_tac) >>
-      Cases_on`top`>> simp[inferTheory.infer_top_def] >>
+      simp[inferTheory.infer_top_def] >>
       EVAL_TAC >> rw[] >>
       BasicProvers.EVERY_CASE_TAC >>
-      fs[UNCURRY] >>
-      BasicProvers.EVERY_CASE_TAC >>
-      fs[] >> rw[] ) >>
-    simp[convert_menv_def,strip_mod_env_def,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
-    qexists_tac`[]` >>
-    simp[] >>
-    (* need to show that adding the extra module name with an empty environment is harmless *)
-    (* first need to make the compiler add the empty module too *)
-    cheat) >>
+      fs[UNCURRY]) >>
+    simp[convert_menv_def,strip_mod_env_def]) >>
   conj_tac >- labels_tac >>
   simp[Abbr`new_bc_state`] >>
   imp_res_tac RTC_bc_next_preserves >>
