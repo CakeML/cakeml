@@ -89,11 +89,18 @@ end
 
 fun parsetest t1 t2 s = parsetest0 t1 t2 s NONE
 fun tytest0 s r = parsetest0 ``nType`` ``ptree_Type`` s (SOME r)
-val tytest = parsetest ``nType`` ``ptree_Type``
+val tytest = parsetest ``nType`` ``ptree_Type nType``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
-
+val _ = tytest "'a * bool"
+val _ = tytest "'a * bool * 'c"
+val _ = tytest "'a * bool -> 'a"
+val _ = tytest "'a * (bool * 'c)"
+val _ = tytest "(bool * int)"
+val _ = tytest "(bool list * int) * bool"
+val _ = parsetest ``nPType`` ``ptree_PType`` "'a"
+val _ = parsetest ``nPType`` ``ptree_PType`` "'a * bool"
 val _ = parsetest ``nPatternList`` ``ptree_Plist`` "x,y"
 val _ = parsetest ``nPtuple`` ``ptree_Pattern nPtuple`` "(x,y)"
 
@@ -227,8 +234,6 @@ val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x)"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x,D)"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x,D(1),true)"
 
-val _ = parsetest ``nStarTypes`` ``ptree_StarTypes`` "'a"
-val _ = parsetest ``nStarTypes`` ``ptree_StarTypes`` "'a * bool"
 val _ = parsetest ``nTypeName`` ``ptree_TypeName`` "bool"
 val _ = parsetest ``nTypeName`` ``ptree_TypeName``
                   "'a list"

@@ -94,46 +94,56 @@ val ptree_linfix_def = Define`
         else NONE
 `
 
+val tuplify_def = Define`
+  tuplify [] = NONE ∧
+  tuplify [ty] = SOME ty ∧
+  tuplify tys = SOME(Ast_Tapp tys (Short ""))
+`
+
 val ptree_Type_def = Define`
-  (ptree_Type ptree : ast_t option =
-    case ptree of
-        Nd nt args =>
-        if nt = mkNT nType then
-          case args of
-              [dt] => ptree_Type dt
-            | [dt;arrowt;rt] =>
+  (ptree_Type nt (Lf _) : ast_t option = NONE) ∧
+  (ptree_Type nm (Nd nt args) =
+     if nt <> mkNT nm then NONE
+     else if nm = nType then
+       case args of
+          [dt] =>
+          do
+            tys <- ptree_PType dt;
+            tuplify tys
+          od
+        | [dt;arrowt;rt] =>
               do
                 assert(arrowt = Lf (TOK ArrowT));
-                dty <- ptree_Type dt;
-                rty <- ptree_Type rt;
+                dtys <- ptree_PType dt;
+                dty <- tuplify dtys;
+                rty <- ptree_Type nType rt;
                 SOME(Ast_Tfn dty rty)
               od
             | _ => NONE
-        else if nt = mkNT nDType then
-          case args of
-              [pt] =>
+     else if nm = nDType then
+       case args of
+           [pt] =>
                 OPTION_MAP Ast_Tvar (destTyvarPT pt) ++
                 OPTION_MAP (Ast_Tapp []) (ptree_Tyop pt)
-            | [dt; opn] => do
-                             dty <- ptree_Type dt;
-                             opname <- ptree_Tyop opn;
-                             SOME(Ast_Tapp [dty] opname)
-                           od
-            | [lpart; t; rpart] =>
+         | [dt; opn] => do
+                          dty <- ptree_Type nDType dt;
+                          opname <- ptree_Tyop opn;
+                          SOME(Ast_Tapp [dty] opname)
+                        od
+         | [lpart; t; rpart] =>
               do
                 assert(lpart = Lf (TK LparT) ∧ rpart = Lf (TK RparT));
-                ptree_Type t
+                ptree_Type nType t
               od
-           | [lpart; tl; rpart; opn] =>
-             do
-                assert(lpart = Lf (TK LparT) ∧ rpart = Lf (TK RparT));
-                tylist <- ptree_Typelist2 tl;
-                opname <- ptree_Tyop opn;
-                SOME(Ast_Tapp tylist opname)
-             od
-           | _ => NONE
-        else NONE
-      | _ => NONE) ∧
+         | [lpart; tl; rpart; opn] =>
+           do
+              assert(lpart = Lf (TK LparT) ∧ rpart = Lf (TK RparT));
+              tylist <- ptree_Typelist2 tl;
+              opname <- ptree_Tyop opn;
+              SOME(Ast_Tapp tylist opname)
+           od
+         | _ => NONE
+     else NONE) ∧
   (ptree_Typelist2 ptree : ast_t list option =
      case ptree of
        Lf _ => NONE
@@ -144,7 +154,7 @@ val ptree_Type_def = Define`
            | [dt; commat; tl'] =>
              do
                assert(commat = Lf (TK CommaT));
-               ty <- ptree_Type dt;
+               ty <- ptree_Type nType dt;
                tylist <- ptree_TypeList1 tl';
                SOME(ty::tylist)
              od
@@ -158,17 +168,37 @@ val ptree_Type_def = Define`
           case args of
               [dt] =>
               do
-                ty <- ptree_Type dt;
+                ty <- ptree_Type nType dt;
                 SOME([ty])
               od
             | [dt; commat; tl] =>
               do
                 assert(commat = Lf (TK CommaT));
-                ty <- ptree_Type dt;
+                ty <- ptree_Type nType dt;
                 tl <- ptree_TypeList1 tl;
                 SOME(ty::tl)
               od
-            | _ => NONE)
+            | _ => NONE) ∧
+  (ptree_PType ptree : ast_t list option =
+     case ptree of
+         Lf _ => NONE
+       | Nd nt args =>
+         if nt <> mkNT nPType then NONE
+         else
+           case args of
+               [dty_pt] =>
+               do
+                 dty <- ptree_Type nDType dty_pt;
+                 SOME [dty]
+               od
+             | [dty_pt; st; pty_pt] =>
+               do
+                 assert (st = Lf (TK StarT));
+                 dty <- ptree_Type nDType dty_pt;
+                 ptys <- ptree_PType pty_pt;
+                 SOME(dty::ptys)
+               od
+             | _ => NONE)
 `;
 
 val ptree_TypeName_def = Define`
@@ -192,24 +222,6 @@ val ptree_TypeName_def = Define`
           else NONE
         | _ => NONE
       else NONE
-`;
-
-val ptree_StarTypes_def = Define`
-  ptree_StarTypes pt : ast_t list option =
-    case pt of
-        Lf _ => NONE
-      | Nd nt args =>
-        if nt <> mkNT nStarTypes then NONE
-        else
-          case args of
-              [pt0] => do ty <- ptree_Type pt0; SOME([ty]) od
-            | [pt1; star; pt2] => do
-                 assert(star = Lf (TK StarT));
-                 pfx <- ptree_StarTypes pt1;
-                 ty <- ptree_Type pt2;
-                 SOME(list$APPEND pfx [ty: ast_t])
-              od
-            | _ => NONE
 `;
 
 val ptree_UQConstructorName_def = Define`
@@ -242,6 +254,11 @@ val ptree_ConstructorName_def = Define`
             | _ => NONE
 `
 
+val detuplify_def = Define`
+  detuplify (Ast_Tapp args (Short "")) = args ∧
+  detuplify ty = [ty]
+`
+
 val ptree_Dconstructor_def = Define`
   ptree_Dconstructor ast =
     case ast of
@@ -255,9 +272,9 @@ val ptree_Dconstructor_def = Define`
                  cname <- ptree_UQConstructorName t;
                  types <- case ts of
                                [] => SOME []
-                             | [oft; startys] =>
+                             | [oft; ty_pt] =>
                                if oft = Lf (TK OfT) then
-                                 ptree_StarTypes startys
+                                 OPTION_MAP detuplify (ptree_Type nType ty_pt)
                                else NONE
                              | _ => NONE;
                  SOME(cname, types)
@@ -643,7 +660,7 @@ val ptree_Expr_def = Define`
           [t1;colon;t2] => do
             assert(colon = Lf (TOK ColonT));
             t1 <- ptree_Expr nEbefore t1;
-            t2 <- ptree_Type t2;
+            t2 <- ptree_Type nType t2;
             SOME t1 (* FIXME *)
           od
         | [t] => ptree_Expr nEbefore t
@@ -955,7 +972,7 @@ val ptree_SpecLine_def = Define`
           do
             assert(valtok = Lf (TOK ValT) ∧ coltok = Lf (TOK ColonT));
             vname <- ptree_V vname_pt;
-            ty <- ptree_Type type_pt;
+            ty <- ptree_Type nType type_pt;
             SOME(Ast_Sval vname ty)
           od
         | _ => NONE

@@ -616,14 +616,15 @@ val peg_sound = store_thm(
       >- (fs[] >> rveq >> fs[])
       >- (fs[] >> rveq >> fs[]) >>
       fs[] >> rveq >> fs[])
-  >- (print_tac "nStarTypes" >>
-      disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
-      simp[DISJ_IMP_THM, FORALL_AND_THM, cmlG_applied, cmlG_FDOM,
-           pegsym_to_sym_def, SUBSET_DEF] >>
-      rpt strip_tac >>
-      first_x_assum (fn patth =>
-         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
-      simp[NT_rank_def])
+  >- (print_tac "nPType" >>
+      `NT_rank (mkNT nDType) < NT_rank (mkNT nPType)` by simp[NT_rank_def] >>
+      strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM]
+      >- (first_x_assum (erule mp_tac) >> simp[MAP_EQ_APPEND, MAP_EQ_CONS] >>
+          strip_tac >> rveq >> lrresolve X (free_in ``nPType``) mp_tac >>
+          simp[] >> strip_tac >> rveq >> fs[MAP_EQ_APPEND, MAP_EQ_CONS] >>
+          dsimp[])
+      >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[]) >>
+      first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[])
   >- (print_tac "nUQTyOp" >> dsimp[cmlG_FDOM, cmlG_applied] >>
       qx_gen_tac `h` >> Cases_on `h` >> simp[])
   >- (print_tac "nTyOp" >> strip_tac >> rveq >>
@@ -821,15 +822,12 @@ val peg_sound = store_thm(
           (qspecl_then [`i`, `i5`, `[Nd (mkNT nDType) acc; tyop_pt2]`]
                        mp_tac)>>
         simp[cmlG_applied, cmlG_FDOM, DISJ_IMP_THM, FORALL_AND_THM])
-  >- (print_tac "nType" >> simp[peg_Type_def, peg_eval_choice, sumID_def] >>
-      `NT_rank (mkNT nDType) < NT_rank (mkNT nType)` by simp[NT_rank_def] >>
+  >- (print_tac "nType" >> simp[peg_eval_choice, sumID_def] >>
+      `NT_rank (mkNT nPType) < NT_rank (mkNT nType)` by simp[NT_rank_def] >>
       strip_tac >> rveq >> simp[]
       >- (first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >>
-          first_assum (assume_tac o MATCH_MP length_no_greater o
-                       assert (free_in ``nDType`` o concl)) >> fs[] >>
-          first_x_assum (fn patth =>
-            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                         assert (free_in ``nType``) o concl)) >>
+          fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
+          lrresolve X (free_in ``nType``) mp_tac >>
           asimp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]) >>
       first_x_assum (erule strip_assume_tac) >> rveq >>
       dsimp[cmlG_applied, cmlG_FDOM])
