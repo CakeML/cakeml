@@ -208,6 +208,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     ; rsz := rs.rsz + LENGTH env |>)
   ,( rs with<|
       contab := ct
+    ; rmenv := FUPDATE  rs.rmenv ( mn, [])
     ; rnext_label := cs.next_label
     |>)
   ,(emit cs ( MAP PrintC (EXPLODE str))).out)))

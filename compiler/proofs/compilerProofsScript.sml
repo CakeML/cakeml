@@ -3968,12 +3968,13 @@ val compile_top_thm = store_thm("compile_top_thm",
         env_rs (menv'++menv) (cenv'++cenv) (env'++env) rss (LENGTH bs'.stack) rd' (0,s') bs'
       | (s',cenv',Rerr(Rraise err)) =>
         ∃bv bs' rd'.
+        let menv' = case top of Tmod mn _ _ => (mn,[])::menv | _ => menv in
         bc_next^*bs bs' ∧
         bs'.stack = bv::bs.stack ∧
         bs'.pc = 0 ∧
         bs'.output = bs.output ∧
         err_bv err bv ∧
-        env_rs menv (top_to_cenv top++cenv) env rsf (LENGTH bs.stack) rd' (0,s') (bs' with stack := bs.stack)
+        env_rs menv' (top_to_cenv top++cenv) env rsf (LENGTH bs.stack) rd' (0,s') (bs' with stack := bs.stack)
       | (s',_) => T``,
   PURE_REWRITE_TAC[closed_top_def] >>
   ho_match_mp_tac evaluate_top_ind >>
@@ -4346,7 +4347,13 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[MEM_FILTER,is_Label_rwt] >>
       fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,MEM_MAP,between_def] >>
       rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
-    simp[top_to_cenv_def]) >>
+    simp[top_to_cenv_def] >>
+    match_mp_tac env_rs_shift_to_menv >>
+    qmatch_assum_abbrev_tac`env_rs menv cenx env rsx zx rd' csx bsx` >>
+    map_every qexists_tac[`menv`,`env`,`rsx`,`mn`,`[]`,`[]`] >>
+    simp[Abbr`rsx`,compiler_state_component_equality] >>
+    fs[env_rs_def,LET_THM,LIST_EQ_REWRITE,GSYM fmap_EQ,EXTENSION] >>
+    metis_tac[]) >>
   simp[])
 
 val compile_dec_divergence = store_thm("compile_dec_divergence",

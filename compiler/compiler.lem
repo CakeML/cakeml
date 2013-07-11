@@ -149,6 +149,7 @@ compile_top rs (Tmod mn _ decs) =
     ; rsz = rs.rsz + List.length env |>
   ,<| rs with
       contab = ct
+    ; rmenv = Pmap.add mn [] rs.rmenv
     ; rnext_label = cs.next_label
     |>
   ,(emit cs (List.map PrintC (Hol.EXPLODE str))).out)
