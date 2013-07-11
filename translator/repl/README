@@ -1,0 +1,6 @@
+ml_repl_stepScript.sml
+  Translate the CakeML compiler from HOL to CakeML
+
+sideScript.sml
+  Prove side conditions that the translator generates (mostly that the
+  inferencer only usees well-founded substitutions).

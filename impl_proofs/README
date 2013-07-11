@@ -6,3 +6,7 @@ inferSoundScript.sml
 replCorrectnessScript.sml
     Proof that anything the REPL implementation function does is permitted by
     the semantics.
+
+repl_fun_alt_proofScript.sml
+    Proofs for an alternate REPL semantics that maintains extra invariants on the
+    bytecode state needed in x86 translation

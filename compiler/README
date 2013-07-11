@@ -1,4 +1,4 @@
-bytecode
+bytecode/
   target language definition
 
 intLang.lem
@@ -11,10 +11,10 @@ toBytecode.lem
   translation from intermediate language to target language
 
 compiler.lem
-  top-level wrappers for the compiler implementation
+  top-level wrappers for the compiler implementation of declarations and modules
 
-printer.lem
-  observable values, conversions to them, and from them to strings
+compilerPrimitives.lem
+  some helper functions
 
 compilerTerminationScript.sml
   termination proofs and exporting of some rewrites

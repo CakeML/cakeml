@@ -1,13 +1,16 @@
-The CakeML project.  See http://cakeml.org.
+The CakeML project.  See http://cakeml.org and https://github.com/xrchz/vml.
 
 A verified implementation of a significant subset of Standard ML in the HOL4
 theorem prover (http://hol.sourceforge.net).
 
 NB: We develop this using the head of the HOL4 development version in Github
-(https://github.com/mn200/HOL), and it might or might not work on official HOL
-releases.
+(https://github.com/mn200/HOL), and it will not work on official HOL
+releases.  We build HOL on PolyML 5.5 (http://www.polyml.org/).
 
 Directory structure:
+
+- examples
+    Examples of running CakeML programs
 
 - semantics
     The definition of CakeML, including
@@ -30,7 +33,7 @@ Directory structure:
     The REPL implementation in HOL, including
       - the type inferencer implementation
       - definition of repl_fun : string -> repl_result
-      - examples of evaluating repl_fun in the logic
+      - the bootstrapping
 
 - parsing
     Lexer and PEG parser for CakeML.
@@ -42,7 +45,6 @@ Directory structure:
       - the compiler implementation (expressed in Lem)
       - compiler correctness proofs
       - rudimentary tests using EmitML
-      - (steps towards) a compiler from bytecode to x86 machine code
 
 - impl_proofs
     The correctness proof for the REPL implementation
@@ -50,22 +52,13 @@ Directory structure:
 - translator
     A proof-producing translator from HOL functions to CakeML.
 
+- translator/repl
+    A running the translator on the CakeML compiler
+
+- clockScript.sml
+    A proof outline of our divergence preservation technique.
+
 - hol-light
     An implementation of HOL Light (http://www.cl.cam.ac.uk/~jrh13/hol-light/)
     in CakeML.
 
---below here, refactor or describe--
-
-- translator/okasaki-examples
-    15 data structures/algorithms from Chris Okasaki's Purely Functional Data
-    Structures.  The translator is applied to them, and 12 of the 15 are
-    verified.
-
-- translator/other-examples
-    Example applications of the translator to existing examples, including AES,
-    TEA, and RC6 from HOL/examples/Crypto; the probabilistic primality checker
-    from examples/miller; and some examples in auxiliary.
-
-- translator/other-examples/auxiliary
-    A copying GC, 91 function, regular expression matched and SLR parser
-    generator taken from other places, and ollected here for the translator.
