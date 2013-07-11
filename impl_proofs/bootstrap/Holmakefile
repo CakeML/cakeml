@@ -1,4 +1,4 @@
-INCLUDES=../../implementation/bootstrap ../../compiler/proofs ../../translator/repl ../../translator
+INCLUDES=../../implementation/bootstrap ../../compiler/bytecode ../../compiler/proofs ../../translator/repl ../../translator
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
