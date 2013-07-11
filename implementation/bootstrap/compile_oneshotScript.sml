@@ -1,12 +1,8 @@
 open preamble repl_computeLib ml_repl_stepTheory
-val _ = new_theory"compile_repl_step"
-
-(*
-val stop_APPEND_def = zDefine`
-  stop_APPEND (l1:bc_inst list) l2 = l1 ++ l2`
+val _ = new_theory"compile_oneshot"
 
 val _ = computeLib.stoppers := let
-  val stoppers = [``Dlet``,``Dletrec``,``Dtype``,``stop_APPEND``]
+  val stoppers = [``Dlet``,``Dletrec``,``Dtype``]
   in SOME (fn tm => mem tm stoppers) end
 
 val _ = computeLib.add_funs[ml_repl_step_decls]
@@ -204,10 +200,10 @@ end
 val _ = Globals.max_print_depth := 15
 
 val ct = ``init_compiler_state.contab``
-val m = ``<|bvars:=[];mvars:=FEMPTY;cnmap:=cmap(^ct)|>``
+val m = ``<|bvars:=["input"];mvars:=FEMPTY;cnmap:=cmap(^ct)|>``
 val cs = ``<|out:=[];next_label:=init_compiler_state.rnext_label|>``
 fun mk_initial_split n =
-  ``FOLDL (compile_dec1 NONE FEMPTY) (^ct,^m,[],0,^cs) ml_repl_step_decls``
+  ``FOLDL (compile_dec1 NONE FEMPTY) (^ct,^m,[CTDec 0],1,^cs) ml_repl_step_decls``
      |> (RAND_CONV (EVAL THENC chunkify_CONV n) THENC
          RATOR_CONV (RAND_CONV EVAL))
 
@@ -243,41 +239,5 @@ val x400 = doit 1 x380;
 val (_,_,th) = x400;
 
 val compiled = save_thm("compiled", th);
-
-(*
-
-val _ = PolyML.fullGC();
-val res = time EVAL
-  ``compile_decs "CakeML" (TAKE 100 ml_repl_step_decls) (init_compiler_state,[])``
-*)
-
-(*
-EVAL ``TAKE 20 (DROP 100 ml_repl_step_decls)``
-val _ = time EVAL ``compile_decs "CakeML" ml_repl_step_decls (init_compiler_state,[])``
-*)
-
-(*
-val Dlet_o = time EVAL ``EL 11 ml_repl_step_decls`` |> concl |> rhs
-val many_o10 = EVAL ``GENLIST (K ^Dlet_o) 10`` |> concl |> rhs
-val many_o20 = EVAL ``GENLIST (K ^Dlet_o) 20`` |> concl |> rhs
-val many_o40 = EVAL ``GENLIST (K ^Dlet_o) 40`` |> concl |> rhs
-val many_o80 = EVAL ``GENLIST (K ^Dlet_o) 80`` |> concl |> rhs
-val many_o160 = EVAL ``GENLIST (K ^Dlet_o) 160`` |> concl |> rhs
-
-val _ = PolyML.fullGC();
-val _ = time EVAL ``compile_decs "CakeML" ^many_o10 (init_compiler_state,[])``
-val _ = PolyML.fullGC();
-val _ = time EVAL ``compile_decs "CakeML" ^many_o20 (init_compiler_state,[])``
-val _ = PolyML.fullGC();
-val _ = time EVAL ``compile_decs "CakeML" ^many_o40 (init_compiler_state,[])``
-val _ = PolyML.fullGC();
-val _ = time EVAL ``compile_decs "CakeML" ^many_o80 (init_compiler_state,[])``
-val _ = PolyML.fullGC();
-val _ = time EVAL ``compile_decs "CakeML" ^many_o160 (init_compiler_state,[])``
-
-val _ = computeLib.stoppers := NONE
-val num_compset = reduceLib.num_compset()
-*)
-*)
 
 val _ = export_theory()
