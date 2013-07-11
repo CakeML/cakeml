@@ -69,5 +69,3 @@ Directory structure:
 - translator/other-examples/auxiliary
     A copying GC, 91 function, regular expression matched and SLR parser
     generator taken from other places, and ollected here for the translator.
-
-- computability

@@ -1,1 +1,0 @@
-INCLUDES=$(HOLDIR)/examples/computability/lambda ../semantics ../translator
