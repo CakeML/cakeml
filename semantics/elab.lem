@@ -70,7 +70,7 @@ type ast_t =
     (* t *)
     (* num t *)
     (* (num,bool) t *)
-  | Ast_Tapp of list ast_t * id typeN
+  | Ast_Tapp of list ast_t * option (id typeN)
     (* t -> t *)
   | Ast_Tfn of ast_t * ast_t
 
@@ -209,12 +209,16 @@ elab_t type_bound (Ast_Tvar n) = Tvar n
 and
 elab_t type_bound (Ast_Tfn t1 t2) =
   Tfn (elab_t type_bound t1) (elab_t type_bound t2)
+    and
+elab_t type_bound (Ast_Tapp ts None) =
+  let ts' = List.map (elab_t type_bound) ts in
+    Tapp ts' TC_tup
 and
-elab_t type_bound (Ast_Tapp ts (Long m tn)) =
+elab_t type_bound (Ast_Tapp ts (Some (Long m tn))) =
   let ts' = List.map (elab_t type_bound) ts in
     Tapp ts' (TC_name (Long m tn))
 and
-elab_t type_bound (Ast_Tapp ts (Short tn)) =
+elab_t type_bound (Ast_Tapp ts (Some (Short tn))) =
   let ts' = List.map (elab_t type_bound) ts in
     match lookup tn type_bound with
       | None -> Tapp ts' (TC_name (Short tn))

@@ -92,6 +92,10 @@ val _ = uncurry (register "elab_prog") (
     simp[]))
     *)
 
+val _ = uncurry (register "elab_p") (
+  tprove_no_defn ((elab_p_def, elab_p_ind),
+  wf_rel_tac`inv_image $< (λx. case x of INL (_,p) => ast_pat_size p | INR (_,l) => ast_pat1_size l)`));
+
 val _ = uncurry (register "elab_e") (
   tprove_no_defn ((elab_e_def, elab_e_ind),
   WF_REL_TAC`inv_image $< (λx. case x of INL (_,e) => ast_exp_size e | INR (_,l) => ast_exp1_size l)` >>
