@@ -1,17 +1,18 @@
-open repl_computeLib
-val _ = new_theory"repl_funExamples"
+open repl_computeLib;
+
+val _ = new_theory"repl_funExamples";
 
 fun run_print_save name input = let
   val _ = print"\n"
   val thm = time EVAL ``repl_fun ^input``
   val _ = print(thm_to_string thm)
   val _ = print"\n"
-in save_thm(name,thm) end
+in save_thm(name,thm) end;
 
 (* val _ = computeLib.add_persistent_funs ["while.OWHILE_THM"] *)
 
-val input = ``"val x = true; val y = 2;"``
-val _ = run_print_save "ex1" input
+val input = ``"val x = true; val y = 2;"``;
+val _ = run_print_save "ex1" input;
 
 val input = ``"fun f x = x + 3; f 2;"``
 val _ = run_print_save "ex2" input

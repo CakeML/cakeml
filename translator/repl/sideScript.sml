@@ -1,5 +1,6 @@
 open preamble;
 open inferTheory inferSoundTheory ml_repl_stepTheory;
+open ml_translatorTheory;
 
 val _ = new_theory "side";
 
@@ -169,5 +170,50 @@ val infer_top_side_thm = Q.store_thm ("infer_top_side_thm",
 `!menv cenv env top st. infer_top_side menv cenv env top st`,
 rw [infer_top_side_def, infer_ds_side_thm, infer_d_side_thm,
     check_signature_side_thm]);
+
+val compile_decs_length_lemma1 = prove(
+  ``!decs mn menv ct m env rsz cs.
+     FST(SND(SND(compile_decs mn menv ct m env rsz cs decs))) =
+     rsz + LENGTH (FST(SND(compile_decs mn menv ct m env rsz cs decs))).bvars - LENGTH m.bvars``,
+Induct >> simp[CompilerTheory.compile_decs_def,UNCURRY]);
+
+val compile_decs_length_lemma2 = prove(
+  ``!decs mn menv ct m env rsz cs v1 v2 v3 v4.
+     ((compile_decs mn menv ct m env rsz cs decs) = (v1,v2,v3,v4)) ⇒
+     (v3 = rsz + LENGTH v2.bvars - LENGTH m.bvars)``,
+metis_tac [compile_decs_length_lemma1, pair_CASES, FST, SND]);
+
+val compile_top_side_thm = Q.store_thm ("compile_top_side_thm",
+`!st top res. compile_top_side st top`,
+ rw [compile_top_side_def, compile_decs_wrap_side_def] >|
+ [qsuff_tac `v9' - 2 - st.rsz  ≤ LENGTH v11.bvars` >- rw [LENGTH_TAKE],
+  qsuff_tac `v9 - 2 - st.rsz  ≤ LENGTH v11.bvars` >- rw [LENGTH_TAKE]] >>
+ imp_res_tac compile_decs_length_lemma2 >>
+ rw [] >>
+ fs [] >>
+ decide_tac);
+
+val update_state_err_side_thm = Q.store_thm ("update_state_err_side_thm",
+`∀st env cs. (LENGTH (FST st.rinferencer_state)) ≤ LENGTH (FST env) ⇒ update_state_err_side st env cs`,
+ rw [update_state_err_side_def, replTheory.strip_mod_env_def] >>
+ metis_tac [FST]);
+
+val parse_elaborate_infertype_compile_side_thm = Q.store_thm ("parse_elaborate_infertype_compile_side_thm", 
+`!toks st. parse_elaborate_infertype_compile_side toks st`,
+ rw [parse_elaborate_infertype_compile_side_def, infertype_top_side_def] >-
+ metis_tac [infer_top_side_thm] >-
+ metis_tac [compile_top_side_thm] >>
+ match_mp_tac update_state_err_side_thm >>
+ cases_on `st.rinferencer_state` >>
+ PairCases_on `r` >>
+ fs [repl_funTheory.infertype_top_def] >>
+ every_case_tac >>
+ fs [] >>
+ rw []);
+
+val repl_step_side_thm = Q.store_thm ("repl_step_side_thm",
+`!x. repl_step_side x`,
+ rw [repl_step_side_def, initial_repl_fun_state_side_def, compile_primitives_side_def] >>
+ metis_tac [compile_top_side_thm, parse_elaborate_infertype_compile_side_thm]);
 
 val _ = export_theory ();
