@@ -1237,6 +1237,210 @@ val PrintE_thm = store_thm("PrintE_thm",
     qexists_tac`DROP 17 PrintE` >>
     simp[Abbr`bs3`,Abbr`bs2`,Abbr`bs1`]>>
     EVAL_TAC ) >>
+  TRY (
+    `t=block_tag+bind_exc_cn` by (simp[Abbr`t`]>>NO_TAC) >> pop_assum kall_tac >>
+    qsuff_tac`bc_next^* bs3 bs'` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
+    simp[Once RTC_CASES1] >> disj2_tac >>
+    simp[bc_eval1_thm,bc_eval1_def] >>
+    simp[Abbr`bs3`] >>
+    simp_tac(srw_ss()++DNF_ss)[] >>
+    qexists_tac`next_addr bs.inst_length (TAKE 33 PrintE)` >>
+    conj_tac >- (
+      simp[bc_find_loc_def] >>
+      match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+      fs[Abbr`bs2`,Abbr`bs1`] >>
+      qexists_tac`32` >>
+      EVAL_TAC ) >>
+    qmatch_abbrev_tac`bc_next^* bs3 bs'` >>
+    simp[Once RTC_CASES1] >> disj2_tac >>
+    qexists_tac`bump_pc bs3 with stack := TL bs3.stack` >>
+    `bc_fetch bs3 = SOME (Stack Pop)` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`TAKE 33 PrintE` >>
+      qexists_tac`DROP 34 PrintE` >>
+      simp[Abbr`bs3`,Abbr`bs2`,Abbr`bs1`] >>
+      EVAL_TAC ) >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs3`,bc_eval_stack_def] >>
+    qmatch_abbrev_tac`bc_next^* bs3 bs'` >>
+    simp[Once RTC_CASES2] >> disj2_tac >>
+    qexists_tac`bs3 with <|stack:=st; pc := next_addr bs.inst_length (TAKE 40 PrintE); output := bs'.output|>` >>
+    conj_tac >- (
+      match_mp_tac MAP_PrintC_thm >>
+      qexists_tac`DROP (LENGTH bs.output + LENGTH "raise ") bs'.output` >>
+      qexists_tac`TAKE 34 PrintE` >>
+      qexists_tac`DROP 40 PrintE` >>
+      simp[Abbr`bs3`,Abbr`bs2`,Abbr`bs1`] >>
+      conj_tac >- (
+        EVAL_TAC >>
+        simp[Abbr`bs'`,DROP_APPEND1,miscTheory.DROP_LENGTH_NIL_rwt,DROP_APPEND2] ) >>
+      simp[bc_state_component_equality,Abbr`bs'`] >>
+      simp[DROP_APPEND1,DROP_APPEND2] >>
+      EVAL_TAC >>
+      simp[SUM_APPEND,FILTER_APPEND]) >>
+    qmatch_abbrev_tac`bc_next bs4 bs'` >>
+    `bc_fetch bs4 = SOME (Jump (Lab 3))` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`TAKE 40 PrintE` >>
+      simp[Abbr`bs4`,Abbr`bs3`,Abbr`bs2`,Abbr`bs1`] >>
+      qexists_tac`DROP 41 PrintE` >>
+      EVAL_TAC ) >>
+    simp[bc_eval1_thm,bc_eval1_def] >>
+    simp[Abbr`bs4`,bc_state_component_equality,Abbr`bs'`,Abbr`bs3`,Abbr`bs2`,Abbr`bs1`] >>
+    simp[bc_find_loc_def] >>
+    match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+    qexists_tac`LENGTH PrintE - 1` >>
+    fs[] >>
+    EVAL_TAC) >>
+  TRY (
+    `t=block_tag+div_exc_cn` by (simp[Abbr`t`]>>NO_TAC) >> pop_assum kall_tac >>
+    qsuff_tac`bc_next^* bs3 bs'` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
+    simp[Once RTC_CASES1] >> disj2_tac >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def,bc_fetch_with_stack] >>
+    simp[Abbr`bs3`] >>
+    simp_tac(srw_ss()++DNF_ss)[] >>
+    simp[Abbr`t`,IntLangTheory.bind_exc_cn_def,IntLangTheory.div_exc_cn_def,bump_pc_def] >>
+    qexists_tac`next_addr bs.inst_length (TAKE 33 PrintE)` >>
+    conj_tac >- (
+      simp[bc_find_loc_def] >>
+      match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+      fs[Abbr`bs2`,Abbr`bs1`] >>
+      qexists_tac`32` >>
+      EVAL_TAC ) >>
+    qmatch_abbrev_tac`bc_next^* bs3 bs'` >>
+    simp[Once RTC_CASES1] >> disj2_tac >>
+    qexists_tac`bump_pc bs3 with stack := (bool_to_val T)::(TL bs3.stack)` >>
+    `bc_fetch bs3 = SOME (Stack (TagEq (block_tag+div_exc_cn)))` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`TAKE 17 PrintE` >>
+      qexists_tac`DROP 18 PrintE` >>
+      simp[Abbr`bs3`,Abbr`bs2`,Abbr`bs1`] >>
+      EVAL_TAC >>
+      simp[FILTER_APPEND,SUM_APPEND]) >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs3`,bc_eval_stack_def] >>
+    conj_tac >- (
+      simp[bc_state_component_equality] >>
+      simp[IntLangTheory.div_exc_cn_def] ) >>
+    qmatch_abbrev_tac`bc_next^* bs3 bs'` >>
+    simp[Once RTC_CASES1] >> disj2_tac >>
+    qexists_tac`bump_pc bs3 with <|stack := TL bs3.stack; pc := next_addr bs.inst_length (TAKE 42 PrintE)|>` >>
+    `bc_fetch bs3 = SOME (JumpIf (Lab 2))` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`TAKE 18 PrintE` >>
+      qexists_tac`DROP 19 PrintE` >>
+      simp[Abbr`bs3`,Abbr`bs2`,Abbr`bs1`] >>
+      EVAL_TAC >>
+      simp[FILTER_APPEND,SUM_APPEND]) >>
+    simp[bump_pc_def] >>
+    simp[bc_eval1_thm,bc_eval1_def] >>
+    simp[Abbr`bs3`] >>
+    conj_tac >- (
+      simp_tac(srw_ss()++DNF_ss)[] >>
+      simp[bc_state_component_equality] >>
+      simp[bc_find_loc_def] >>
+      simp[Abbr`bs2`,Abbr`bs1`] >>
+      match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+      fs[] >>
+      qexists_tac`41` >>
+      EVAL_TAC ) >>
+    match_mp_tac MAP_PrintC_thm >>
+    qexists_tac`DROP (LENGTH bs.output + LENGTH "raise ") bs'.output` >>
+    qexists_tac`TAKE 42 PrintE` >>
+    qexists_tac`DROP 47 PrintE` >>
+    simp[Abbr`bs2`,Abbr`bs1`] >>
+    conj_tac >- (
+      EVAL_TAC >>
+      simp[Abbr`bs'`,DROP_APPEND1,miscTheory.DROP_LENGTH_NIL_rwt,DROP_APPEND2] ) >>
+    simp[bc_state_component_equality,Abbr`bs'`] >>
+    simp[DROP_APPEND1,DROP_APPEND2] >>
+    EVAL_TAC ) >>
+
+(*
+  qsuff_tac`bc_next^* bs3 bs'` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
+  simp[Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm,bc_eval1_def,bump_pc_def,bc_fetch_with_stack] >>
+  simp[Abbr`bs3`] >>
+  simp_tac(srw_ss()++DNF_ss)[] >>
+  simp[Abbr`t`,IntLangTheory.bind_exc_cn_def,IntLangTheory.eq_exc_cn_def,bump_pc_def] >>
+  qexists_tac`next_addr bs.inst_length (TAKE 33 PrintE)` >>
+  conj_tac >- (
+    simp[bc_find_loc_def] >>
+    match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+    fs[Abbr`bs2`,Abbr`bs1`] >>
+    qexists_tac`32` >>
+    EVAL_TAC ) >>
+  simp[Once RTC_CASES2] >> disj2_tac >>
+  qexists_tac`bs3 with <|stack:=st; pc := next_addr bs.inst_length (TAKE 31 PrintE); output := bs'.output|>` >>
+
+  conj_tac >- (
+    match_mp_tac MAP_PrintC_thm >>
+    qexists_tac`DROP (LENGTH bs.output + LENGTH "raise ") bs'.output` >>
+    qexists_tac`TAKE 19 PrintE` >>
+    qexists_tac`DROP 31 PrintE` >>
+    simp[Abbr`bs2`,Abbr`bs1`] >>
+    conj_tac >- (
+      EVAL_TAC >>
+      simp[Abbr`bs'`,DROP_APPEND1,miscTheory.DROP_LENGTH_NIL_rwt,DROP_APPEND2] ) >>
+    simp[bc_state_component_equality,Abbr`bs'`] >>
+
+    simp[DROP_APPEND1,DROP_APPEND2] >>
+    EVAL_TAC >>
+    simp[SUM_APPEND,FILTER_APPEND]) >>
+  qmatch_abbrev_tac`bc_next bs4 bs'` >>
+  `bc_fetch bs4 = SOME (Jump (Lab 3))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`TAKE 40 PrintE` >>
+    simp[Abbr`bs4`,Abbr`bs3`,Abbr`bs2`,Abbr`bs1`] >>
+    qexists_tac`DROP 41 PrintE` >>
+    EVAL_TAC ) >>
+  simp[bc_eval1_thm,bc_eval1_def] >>
+  simp[Abbr`bs4`,bc_state_component_equality,Abbr`bs'`,Abbr`bs3`,Abbr`bs2`,Abbr`bs1`] >>
+  simp[bc_find_loc_def] >>
+  match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+  qexists_tac`LENGTH PrintE - 1` >>
+  fs[] >>
+  EVAL_TAC) >>
+
+  qmatch_abbrev_tac`bc_next^* bs3 bs'` >>
+  simp[Once RTC_CASES1] >> disj2_tac >>
+  qexists_tac`bump_pc bs3 with stack := (bool_to_val T)::(TL bs3.stack)` >>
+  `bc_fetch bs3 = SOME (Stack (TagEq (block_tag+div_exc_cn)))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`TAKE 17 PrintE` >>
+    qexists_tac`DROP 18 PrintE` >>
+    simp[Abbr`bs3`,Abbr`bs2`,Abbr`bs1`] >>
+    EVAL_TAC >>
+    simp[FILTER_APPEND,SUM_APPEND]) >>
+  simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+  simp[Abbr`bs3`,bc_eval_stack_def] >>
+  conj_tac >- (
+    simp[bc_state_component_equality] >>
+    simp[IntLangTheory.div_exc_cn_def] ) >>
+  qmatch_abbrev_tac`bc_next^* bs3 bs'` >>
+  simp[Once RTC_CASES1] >> disj2_tac >>
+  qexists_tac`bump_pc bs3 with <|stack := TL bs3.stack; pc := next_addr bs.inst_length (TAKE 42 PrintE)|>` >>
+  `bc_fetch bs3 = SOME (JumpIf (Lab 2))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`TAKE 18 PrintE` >>
+    qexists_tac`DROP 19 PrintE` >>
+    simp[Abbr`bs3`,Abbr`bs2`,Abbr`bs1`] >>
+    EVAL_TAC >>
+    simp[FILTER_APPEND,SUM_APPEND]) >>
+  simp[bump_pc_def] >>
+  simp[bc_eval1_thm,bc_eval1_def] >>
+  simp[Abbr`bs3`] >>
+  conj_tac >- (
+    simp_tac(srw_ss()++DNF_ss)[] >>
+    simp[bc_state_component_equality] >>
+    simp[bc_find_loc_def] >>
+    simp[Abbr`bs2`,Abbr`bs1`] >>
+    match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+    fs[] >>
+    qexists_tac`41` >>
+    EVAL_TAC ) >>
+*)
+
   cheat)
 
 val replCorrect_lem = Q.prove (
