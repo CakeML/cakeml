@@ -418,13 +418,20 @@ val firstSet_nE = store_thm(
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
+val firstSet_nEseq = Store_thm(
+  "firstSet_nEseq",
+  ``firstSet mmlG (NN nEseq :: rest) = firstSet mmlG [NN nE]``,
+  simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
+  simp[firstSet_nE]);
+
 val NOTIN_firstSet_nE = Store_thm(
   "NOTIN_firstSet_nE",
   ``ValT ∉ firstSet mmlG (NT (mkNT nE) :: rest) ∧
     StructureT ∉ firstSet mmlG (NT (mkNT nE) :: rest) ∧
     FunT ∉ firstSet mmlG (NT (mkNT nE) :: rest) ∧
     DatatypeT ∉ firstSet mmlG (NT (mkNT nE) :: rest) ∧
-    SemicolonT ∉ firstSet mmlG (NT (mkNT nE) :: rest)``,
+    SemicolonT ∉ firstSet mmlG (NT (mkNT nE) :: rest) ∧
+    RparT ∉ firstSet mmlG (NN nE :: rest)``,
   simp[firstSet_nE, firstSet_nFQV] >>
   rpt (dsimp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, disjImpI]))
 
@@ -492,6 +499,11 @@ val firstSet_nPattern = Store_thm(
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
+val firstSet_nPatternList = Store_thm(
+  "firstSet_nPatternList",
+  ``firstSet mmlG (NN nPatternList :: rest) = firstSet mmlG [NN nPattern]``,
+  simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >> simp[]);
+
 val NOTIN_firstSet_nV = Store_thm(
   "NOTIN_firstSet_nV",
   ``CommaT ∉ firstSet mmlG [NN nV] ∧ LparT ∉ firstSet mmlG [NN nV] ∧
@@ -502,9 +514,12 @@ val NOTIN_firstSet_nV = Store_thm(
     EndT ∉ firstSet mmlG [NN nV] ∧
     AndT ∉ firstSet mmlG [NN nV] ∧
     FunT ∉ firstSet mmlG [NN nV] ∧
+    InT ∉ firstSet mmlG [NN nV] ∧
+    IntT i ∉ firstSet mmlG [NN nV] ∧
     ThenT ∉ firstSet mmlG [NN nV] ∧
     ElseT ∉ firstSet mmlG [NN nV] ∧
     CaseT ∉ firstSet mmlG [NN nV] ∧
+    LetT ∉ firstSet mmlG [NN nV] ∧
     OfT ∉ firstSet mmlG [NN nV] ∧
     RaiseT ∉ firstSet mmlG [NN nV] ∧
     DatatypeT ∉ firstSet mmlG [NN nV] ∧
@@ -520,9 +535,12 @@ val NOTIN_firstSet_nFQV = Store_thm(
     ValT ∉ firstSet mmlG [NN nFQV] ∧
     EndT ∉ firstSet mmlG [NN nFQV] ∧
     FunT ∉ firstSet mmlG [NN nFQV] ∧
+    InT ∉ firstSet mmlG [NN nFQV] ∧
+    IntT i ∉ firstSet mmlG [NN nFQV] ∧
     AndT ∉ firstSet mmlG [NN nFQV] ∧
     ThenT ∉ firstSet mmlG [NN nFQV] ∧
     ElseT ∉ firstSet mmlG [NN nFQV] ∧
+    LetT ∉ firstSet mmlG [NN nFQV] ∧
     CaseT ∉ firstSet mmlG [NN nFQV] ∧
     OfT ∉ firstSet mmlG [NN nFQV] ∧
     DatatypeT ∉ firstSet mmlG [NN nFQV] ∧
@@ -544,6 +562,9 @@ val NOTIN_firstSet_nConstructorName = Store_thm(
     FnT ∉ firstSet mmlG [NN nConstructorName] ∧
     FunT ∉ firstSet mmlG [NN nConstructorName] ∧
     IfT ∉ firstSet mmlG [NN nConstructorName] ∧
+    InT ∉ firstSet mmlG [NN nConstructorName] ∧
+    IntT i ∉ firstSet mmlG [NN nConstructorName] ∧
+    LetT ∉ firstSet mmlG [NN nConstructorName] ∧
     LparT ∉ firstSet mmlG [NN nConstructorName] ∧
     OfT ∉ firstSet mmlG [NN nConstructorName] ∧
     RaiseT ∉ firstSet mmlG [NN nConstructorName] ∧
@@ -972,14 +993,14 @@ val _ = export_rewrites ["nestoppers_def"]
 
 val stoppers_def = Define`
   (stoppers nAndFDecls = nestoppers DELETE AndT) ∧
-  (stoppers nDconstructor = UNIV DIFF {StarT; OfT}) ∧
+  (stoppers nDconstructor = UNIV DIFF {StarT; OfT; ArrowT}) ∧
   (stoppers nDecl = nestoppers DIFF {BarT; StarT; AndT; OfT}) ∧
   (stoppers nDecls =
      nestoppers DIFF
      {BarT; StarT; AndT; SemicolonT; FunT; ValT; DatatypeT; OfT}) ∧
-  (stoppers nDtypeCons = UNIV DIFF {BarT; StarT; OfT}) ∧
-  (stoppers nDtypeDecl = UNIV DIFF {BarT; StarT; OfT}) ∧
-  (stoppers nDtypeDecls = UNIV DIFF {AndT; BarT; StarT; OfT}) ∧
+  (stoppers nDtypeCons = UNIV DIFF {ArrowT; BarT; StarT; OfT}) ∧
+  (stoppers nDtypeDecl = UNIV DIFF {ArrowT; BarT; StarT; OfT}) ∧
+  (stoppers nDtypeDecls = UNIV DIFF {AndT; ArrowT; BarT; StarT; OfT}) ∧
   (stoppers nE = nestoppers) ∧
   (stoppers nE' = BarT INSERT nestoppers) ∧
   (stoppers nEadd =
@@ -1046,20 +1067,20 @@ val stoppers_def = Define`
   (stoppers nPE = nestoppers) ∧
   (stoppers nPE' = BarT INSERT nestoppers) ∧
   (stoppers nPEs = nestoppers) ∧
+  (stoppers nPType = UNIV DELETE StarT) ∧
   (stoppers nSpecLine = UNIV DIFF {ArrowT; AndT; BarT; StarT; OfT}) ∧
   (stoppers nSpecLineList =
      UNIV DIFF {ValT; DatatypeT; TypeT; SemicolonT;
                 ArrowT; AndT; BarT; StarT; OfT}) ∧
-  (stoppers nStarTypes = UNIV DELETE StarT) ∧
   (stoppers nTopLevelDec =
      nestoppers DIFF {BarT; StarT; AndT; OfT}) ∧
   (stoppers nTopLevelDecs =
      nestoppers DIFF
      {BarT; StarT; AndT; StructureT; OfT; ValT; FunT; DatatypeT}) ∧
-  (stoppers nType = UNIV DELETE ArrowT) ∧
-  (stoppers nTypeDec = UNIV DIFF {AndT; StarT; BarT; OfT}) ∧
-  (stoppers nTypeList1 = UNIV DIFF {CommaT; ArrowT}) ∧
-  (stoppers nTypeList2 = UNIV DIFF {CommaT; ArrowT}) ∧
+  (stoppers nType = UNIV DIFF {ArrowT; StarT}) ∧
+  (stoppers nTypeDec = UNIV DIFF {AndT; ArrowT; StarT; BarT; OfT}) ∧
+  (stoppers nTypeList1 = UNIV DIFF {CommaT; ArrowT; StarT}) ∧
+  (stoppers nTypeList2 = UNIV DIFF {CommaT; ArrowT; StarT}) ∧
   (stoppers nTyVarList = {RparT}) ∧
   (stoppers nOptionalSignatureAscription = UNIV DELETE SealT) ∧
   (stoppers nVlist1 = UNIV DIFF firstSet mmlG [NN nV]) ∧
@@ -1269,7 +1290,12 @@ in
 end g
 
 val normlist = REWRITE_TAC [GSYM APPEND_ASSOC, listTheory.APPEND]
-(*
+val stdstart =
+    simp[Once peg_eval_NT_SOME, mmlpeg_rules_applied, MAP_EQ_CONS] >> rw[] >>
+    fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
+
+fun note_tac s g = (print (s ^ "\n"); ALL_TAC g)
+
 val completeness = store_thm(
   "completeness",
   ``∀pt N pfx sfx.
@@ -1330,8 +1356,8 @@ val completeness = store_thm(
       rpt strip_tac >> rveq >> fs[]
       >- (DISJ1_TAC >> fs[MAP_EQ_SING] >> rveq >>
           asm_match `NN nUQTyOp = ptree_head pt` >>
-          first_x_assum (qspecl_then [`pt`, `nUQTyOp`, `pfx`, `sfx`] mp_tac)>>
-          simp[NT_rank_def, FDOM_cmlPEG] >> fs[])
+          first_x_assum (qspecl_then [`pt`, `nUQTyOp`, `sfx`] mp_tac)>>
+          simp[NT_rank_def] >> fs[])
       >- (DISJ2_TAC >> fs[MAP_EQ_CONS] >> simp[peg_eval_seq_NONE] >> rveq >>
           fs[] >>
           asm_match `ptree_head tyvl_pt = NN nTyVarList` >>
@@ -1361,20 +1387,13 @@ val completeness = store_thm(
       simp_tac (srw_ss() ++ ARITH_ss) [FDOM_cmlPEG] >> simp[] >> strip_tac >>
       map_every qexists_tac [`[typt]`, `lf ++ sfx`, `[tylpt]`] >>
       simp[FDOM_cmlPEG])
-  >- (print_tac "nTypeList1" >> dsimp[MAP_EQ_CONS] >>
-      simp[peg_eval_NT_SOME] >>
-      simp[mmlpeg_rules_applied, FDOM_cmlPEG, peg_eval_tok_NONE] >>
-      dsimp[] >> conj_tac
-      >- (qx_gen_tac `typt` >> rw[] >> fs[] >> DISJ2_TAC >> DISJ1_TAC >>
-                     first_x_assum (qspecl_then [`typt`, `nType`, `pfx`, `sfx`] mp_tac) >>
-                     simp[NT_rank_def, FDOM_cmlPEG] >> Cases_on `sfx` >> fs[]) >>
-      map_every qx_gen_tac [`typt`, `tylpt`] >> rw[] >>
-      fs[MAP_EQ_APPEND, MAP_EQ_CONS] >> rw[] >> DISJ1_TAC >>
-      asm_match `ptree_fringe typt = MAP TK tyf` >>
-      asm_match `MAP TK tylf = ptree_fringe tylpt` >>
-      map_every qexists_tac [`[typt]`, `tylf ++ sfx`, `[tylpt]`] >>
-      simp[] >> normlist >>
-      simp[FDOM_cmlPEG])
+  >- (print_tac "nTypeList1" >>
+      simp[Once peg_eval_NT_SOME, mmlpeg_rules_applied] >> rw[] >>
+      fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
+      fs[MAP_EQ_APPEND, MAP_EQ_CONS] >> rw[]
+      >- (first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
+          simp[peg_eval_tok_NONE] >> Cases_on `sfx` >> fs[]) >>
+      normlist >> first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def])
   >- (print_tac "nTypeDec" >> dsimp[MAP_EQ_CONS] >> qx_gen_tac `dtspt` >>
       rw[] >> fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >> rw[] >>
       simp[peg_eval_NT_SOME] >>
@@ -1388,29 +1407,13 @@ val completeness = store_thm(
                                             cmlG_applied, EXTENSION,
                                             DISJ_COMM, AND_IMP_INTRO]) >>
       simp[FDOM_cmlPEG])
-  >- (print_tac "nType" >> dsimp[MAP_EQ_CONS] >> conj_tac
-      >- (simp[peg_eval_NT_SOME] >>
-              simp[mmlpeg_rules_applied, FDOM_cmlPEG, peg_Type_def,
-                   peg_eval_choice, sumID_def, peg_eval_seq_NONE,
-                   peg_eval_tok_NONE] >> dsimp[list_case_lemma] >>
-              qx_gen_tac `dpt` >> strip_tac >> DISJ1_TAC >> rveq >> fs[] >>
-              Cases_on `sfx` >> fs[]
-              >- (first_x_assum (qspecl_then [`dpt`, `nDType`, `pfx`, `[]`]
-                                             mp_tac) >>
-                                simp[NT_rank_def, FDOM_cmlPEG]) >>
-              first_x_assum match_mp_tac >> simp[NT_rank_def, FDOM_cmlPEG]) >>
-      map_every qx_gen_tac [`dpt`, `typt`] >> rw[] >>
-      fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND, MAP_EQ_CONS] >> rw[] >>
-      simp[peg_eval_NT_SOME] >>
-      simp[mmlpeg_rules_applied, FDOM_cmlPEG, peg_Type_def] >>
-      asm_match `ptree_fringe dpt = MAP TK df` >>
-      asm_match `MAP TK tf = ptree_fringe typt` >> loseC ``NT_rank`` >>
-      map_every qexists_tac [`ArrowT::tf ++ sfx`, `[dpt]`,
-                             `[Lf (TK ArrowT); typt]`] >>
-      simp[] >>
-      normlist >>
-      asimp[FDOM_cmlPEG] >>
-      dsimp[peg_eval_choice, sumID_def] >> asimp[FDOM_cmlPEG])
+  >- (print_tac "nType" >>
+      simp[Once peg_eval_NT_SOME, mmlpeg_rules_applied, MAP_EQ_CONS] >> rw[] >>
+      fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
+      >- (first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
+          simp[peg_eval_tok_NONE] >> Cases_on `sfx` >> fs[]) >>
+      normlist >> first_assum (unify_firstconj kall_tac) >>
+      simp[])
   >- (print_tac "nTyVarList" >> simp[peg_eval_NT_SOME] >>
       simp[mmlpeg_rules_applied, FDOM_cmlPEG] >>
       disch_then assume_tac >>
@@ -1425,13 +1428,9 @@ val completeness = store_thm(
       `NT_rank (mkNT nTyvarN) < NT_rank (mkNT nTyVarList)`
       by simp[NT_rank_def]>> simp[FDOM_cmlPEG] >> fs[])
   >- (print_tac "nTyOp" >>
-      simp[peg_eval_NT_SOME, mmlpeg_rules_applied, FDOM_cmlPEG, MAP_EQ_CONS] >>
-      rw[] >> fs[MAP_EQ_CONS]
-      >- (asm_match `ptree_head pt = NN nUQTyOp` >>
-                    first_x_assum (qspecl_then [`pt`, `nUQTyOp`, `pfx`, `sfx`] mp_tac) >>
-                    simp[NT_rank_def, peg_eval_NT_SOME, mmlpeg_rules_applied,
-                         FDOM_cmlPEG]) >>
-      match_mp_tac peg_respects_firstSets >> simp[firstSet_nUQTyOp, PEG_exprs])
+      simp[Once peg_eval_NT_SOME, mmlpeg_rules_applied, MAP_EQ_CONS] >>
+      rw[] >> fs[MAP_EQ_CONS] >- simp[NT_rank_def] >>
+      simp[peg_respects_firstSets, firstSet_nUQTyOp])
   >- (print_tac "nTopLevelDecs" >> fs[FDOM_cmlPEG])
   (* (dsimp[MAP_EQ_CONS] >> conj_tac
       >- (simp[peg_eval_NT_SOME] >>
@@ -1503,18 +1502,6 @@ val completeness = store_thm(
       normlist >> first_assum (unify_firstconj kall_tac) >> simp[] >>
       normlist >> simp[] >>
       first_assum (unify_firstconj kall_tac) >> simp[])
-  >- (print_tac "nStarTypes" >> disch_then assume_tac >>
-      simp[peg_eval_NT_SOME] >>
-      simp[mmlpeg_rules_applied, FDOM_cmlPEG] >>
-      match_mp_tac
-        (peg_linfix_complete
-           |> Q.INST [`SEP` |-> `TK StarT`, `C` |-> `NT (mkNT nDType)`,
-                      `P` |-> `nStarTypes`, `master` |-> `pfx`]
-           |> SIMP_RULE (srw_ss() ++ DNF_ss)
-               [cmlG_FDOM, cmlG_applied, sym2peg_def, MAP_EQ_SING,
-                AND_IMP_INTRO]
-           |> Q.SPEC `pfx` |> SIMP_RULE (srw_ss()) [] |> Q.GEN `pfx`) >>
-      simp[] >> simp[NT_rank_def, cmlG_applied, cmlG_FDOM] >> fs[])
   >- (print_tac "nSpecLineList" >>
       simp[peg_eval_NT_SOME] >>
       simp[mmlpeg_rules_applied, FDOM_cmlPEG] >> simp[MAP_EQ_CONS] >>
@@ -1541,26 +1528,22 @@ val completeness = store_thm(
       DISJ2_TAC >> Cases_on `sfx` >> fs[peg_eval_tok_NONE]
       >- simp[not_peg0_peg_eval_NIL_NONE, PEG_exprs, PEG_wellformed] >>
       simp[peg_respects_firstSets, PEG_exprs])
-  >- (print_tac "nSpecLine" >> simp[peg_eval_NT_SOME] >>
-      simp[MAP_EQ_CONS] >> strip_tac >> rveq >>
-      fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >>
-      rveq >>
-      simp[mmlpeg_rules_applied, FDOM_cmlPEG, peg_eval_tok_NONE]
-      >- (DISJ1_TAC >> dsimp[] >>
-          asm_match `ptree_head vpt = NN nV` >>
-          asm_match `ptree_fringe vpt = MAP TK vf` >>
-          asm_match `ptree_head typt = NN nType` >>
-          asm_match `MAP TK tyf = ptree_fringe typt` >> rw[] >>
-          map_every qexists_tac [`[vpt]`, `tyf ++ sfx`, `[typt]`] >>
-          normlist >> asimp[]) >>
-      Cases_on `pfx` >> fs[]
-      >- (asm_match `ptree_fringe pt = []` >>
-          `0 < LENGTH (ptree_fringe pt)`
-            by metis_tac [fringe_length_not_nullable, nullable_TypeDec] >>
-          pop_assum mp_tac >> simp[]) >>
-      IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[] >> rw[] >>
-      REWRITE_TAC [Once (GSYM listTheory.APPEND)] >>
-      first_x_assum match_mp_tac >> simp[NT_rank_def])
+  >- (print_tac "nSpecLine" >>
+      simp[Once peg_eval_NT_SOME, mmlpeg_rules_applied, MAP_EQ_CONS] >> rw[] >>
+      fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
+      >- (DISJ1_TAC >> normlist >>
+          first_assum (unify_firstconj kall_tac o has_length) >> simp[])
+      >- simp[peg_eval_tok_NONE]
+      >- (DISJ1_TAC >>
+          erule mp_tac (MATCH_MP fringe_length_not_nullable  nullable_TypeDec)>>
+          simp[] >> Cases_on `pfx` >> fs[peg_eval_tok_NONE] >> strip_tac >>
+          rw[]>> IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
+          simp[]) >>
+      DISJ2_TAC >> simp[NT_rank_def] >> DISJ1_TAC >>
+      erule mp_tac (MATCH_MP fringe_length_not_nullable  nullable_TypeDec)>>
+      simp[] >> Cases_on `pfx` >> fs[peg_eval_tok_NONE] >> strip_tac >>
+      rw[]>> IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
+      simp[])
   >- (print_tac "nSignatureValue" >> dsimp[MAP_EQ_CONS] >>
       simp[peg_eval_NT_SOME] >> simp[FDOM_cmlPEG, mmlpeg_rules_applied] >>
       rw[] >> fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
@@ -1611,22 +1594,72 @@ val completeness = store_thm(
       simp[Once peg_eval_NT_SOME, mmlpeg_rules_applied, FDOM_cmlPEG] >>
       normlist >>
       asimp[]) *)
-  >- (print_tac "nPtuple" >> fs[FDOM_cmlPEG])
-  >- (print_tac "nPbase" >> fs[FDOM_cmlPEG])
-  >- (print_tac "nPatternList" >>
-      simp[Once peg_eval_NT_SOME, mmlpeg_rules_applied, FDOM_cmlPEG] >>
-      disch_then assume_tac >>
-      match_mp_tac (peg_linfix_complete
-                      |> Q.INST [`SEP` |-> `TK CommaT`, `C` |-> `NN nPattern`,
-                                 `P` |-> `nPatternList1`, `master` |-> `pfx`]
-                      |> SIMP_RULE (srw_ss() ++ DNF_ss)
-                           [sym2peg_def, cmlG_FDOM, cmlG_applied, INSERT_COMM,
-                            MAP_EQ_SING, AND_IMP_INTRO]
-                      |> Q.SPEC `pfx` |> SIMP_RULE (srw_ss()) []
-                      |> Q.GEN `pfx`) >>
-      simp[cmlG_applied, cmlG_FDOM] >> rpt strip_tac
-      >- simp[NT_rank_def] >> fs[])
-  >- (print_tac "nPattern" >> CHEAT)
+  >- (print_tac "nPtuple" >> stdstart
+      >- (simp[peg_eval_tok_NONE] >>
+          erule mp_tac
+            (MATCH_MP fringe_length_not_nullable nullable_PatternList) >>
+          simp[] >>
+          asm_match `ptree_fringe pt = MAP TK f` >> Cases_on `f` >> fs[] >>
+          strip_tac >> rw[] >>
+          IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[]) >>
+      normlist >> simp[])
+  >- (print_tac "nPbase" >> stdstart
+      >- simp[NT_rank_def]
+      >- (DISJ2_TAC >> reverse conj_tac >- simp[NT_rank_def] >>
+          erule mp_tac
+            (MATCH_MP fringe_length_not_nullable nullable_ConstructorName) >>
+          simp[] >> Cases_on `pfx` >> fs[] >>
+          match_mp_tac peg_respects_firstSets >> simp[] >>
+          metis_tac [firstSets_nV_nConstructorName, firstSet_nonempty_fringe])
+      >- simp[peg_respects_firstSets]
+      >- (simp[NT_rank_def] >>
+          erule mp_tac
+            (MATCH_MP fringe_length_not_nullable nullable_Ptuple) >>
+          simp[] >> Cases_on `pfx` >> fs[] >>
+          IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
+          simp[peg_respects_firstSets, peg_eval_tok_NONE]) >>
+      simp[peg_respects_firstSets, peg_eval_tok_NONE])
+  >- (print_tac "nPatternList" >> stdstart
+      >- (first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
+          Cases_on `sfx` >> fs[peg_eval_tok_NONE]) >>
+      normlist >> first_assum (unify_firstconj kall_tac o has_length) >>
+      simp[])
+  >- (print_tac "nPattern" >> stdstart
+      >- (DISJ1_TAC >>
+          erule mp_tac
+            (MATCH_MP fringe_length_not_nullable nullable_Pbase) >>
+          rw[] >> normlist >>
+          first_assum (unify_firstconj kall_tac) >> simp[] >>
+          normlist >> asimp[] >>
+          erule mp_tac
+            (MATCH_MP fringe_length_not_nullable nullable_ConstructorName) >>
+          rw[]) >>
+      DISJ2_TAC >> simp[NT_rank_def] >>
+      (* case split on possible forms of Pbase *)
+      asm_match `ptree_head bpt = NN nPbase` >>
+      `∃subs. bpt = Nd (mkNT nPbase) subs`
+        by (Cases_on `bpt` >> fs[MAP_EQ_CONS]) >> rveq >>
+      fs[cmlG_FDOM,cmlG_applied,MAP_EQ_CONS] >> rveq >> fs[]
+      >- (DISJ1_TAC >>
+          erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_V) >>
+          simp[] >> Cases_on `pfx` >> fs[] >>
+          match_mp_tac peg_respects_firstSets >> simp[] >>
+          metis_tac [firstSets_nV_nConstructorName, firstSet_nonempty_fringe])
+      >- (DISJ2_TAC >> first_assum (unify_firstconj kall_tac) >>
+          asm_match `ptree_fringe pt = MAP TK pfx` >> qexists_tac `pt` >>
+          simp[NT_rank_def] >>
+          Cases_on `sfx` >> fs[peg_respects_firstSets, not_peg0_peg_eval_NIL_NONE])
+      >- (fs[MAP_EQ_CONS] >> simp[peg_respects_firstSets])
+      >- (DISJ1_TAC >>
+          erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_Ptuple) >>
+          simp[] >> Cases_on `pfx` >> fs[] >>
+          match_mp_tac peg_respects_firstSets >> simp[] >>
+          IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[]) >>
+      fs[MAP_EQ_CONS] >> simp[peg_respects_firstSets])
+  >- (print_tac "nPType" >> stdstart
+      >- (normlist >> first_assum (unify_firstconj kall_tac) >> simp[]) >>
+      first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
+      Cases_on `sfx` >> fs[peg_eval_tok_NONE])
   >- (print_tac "nPEs" >>
       simp[MAP_EQ_CONS] >> strip_tac >> rw[] >> fs[] >> rw[]
       >- ((* single nPE *)
@@ -1752,20 +1785,11 @@ val completeness = store_thm(
       dsimp[] >> DISJ1_TAC >>
       normlist >>
       first_assum (unify_firstconj kall_tac o has_length) >> asimp[])
-  >- (print_tac "nEtuple" >>
-      simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >> rw[] >>
-      fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
-      normlist >> asimp[])
-  >- (print_tac "nEseq" >>
-      disch_then assume_tac >>
-      simp[Once peg_eval_NT_SOME, mmlpeg_rules_applied] >>
-      match_mp_tac (peg_linfix_complete
-                      |> Q.INST [`P` |-> `nEseq`, `SEP` |-> `TK SemicolonT`,
-                                 `C` |-> `NN nE`, `master` |-> `pfx`]
-                      |> SIMP_RULE (srw_ss() ++ DNF_ss)
-                           [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
-                            AND_IMP_INTRO]) >>
-      simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >> fs[])
+  >- (print_tac "nEtuple" >> fs[FDOM_cmlPEG])
+  >- (print_tac "nEseq" >> stdstart
+      >- (normlist >> first_assum (unify_firstconj kall_tac) >> simp[]) >>
+      first_assum(unify_firstconj kall_tac) >> simp[NT_rank_def] >>
+      Cases_on `sfx` >> fs[peg_eval_tok_NONE])
   >- (print_tac "nErel" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >> rw[] >>
       fs[MAP_EQ_CONS,MAP_EQ_APPEND,DISJ_IMP_THM,FORALL_AND_THM] >>
@@ -1830,25 +1854,11 @@ val completeness = store_thm(
       simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >>
       conj_tac >- simp[firstSet_nV,firstSet_nConstructorName,firstSet_nFQV] >>
       fs[])
-  >- (print_tac "nElist2" >>
-      simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >> rw[] >>
-      fs[MAP_EQ_CONS, MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >> rw[] >>
-      asm_match `ptree_head ept = NN nE` >>
-      asm_match `ptree_head elpt = NN nElist1` >>
-      asm_match `MAP TK lf = ptree_fringe elpt` >> dsimp[] >>
-      map_every qexists_tac [`[ept]`, `lf ++ sfx`, `[elpt]`] >>
-      normlist >> simp[])
-  >- (print_tac "nElist1" >>
-      disch_then assume_tac >>
-      simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >>
-      match_mp_tac (peg_linfix_complete
-                      |> Q.INST [`P` |-> `nElist1`, `SEP` |-> `TK CommaT`,
-                                 `C` |-> `NN nE`, `master` |-> `pfx`]
-                      |> SIMP_RULE (srw_ss() ++ DNF_ss)
-                           [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
-                            AND_IMP_INTRO]) >>
-      simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >>
-      dsimp[EXTENSION, EQ_IMP_THM] >> fs[])
+  >- (print_tac "nElist2" >> fs[FDOM_cmlPEG])
+  >- (print_tac "nElist1" >> stdstart
+      >- (first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
+          Cases_on `sfx` >> fs[peg_eval_tok_NONE]) >>
+      normlist >> first_assum (unify_firstconj kall_tac) >> asimp[])
   >- (print_tac "nEhandle'" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >>
       strip_tac >>
@@ -1916,7 +1926,88 @@ val completeness = store_thm(
       conj_tac >- simp[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV,
                        stringTheory.isUpper_def]>>
       fs[])
-  >- (print_tac "nEbase" >> CHEAT)
+  >- (print_tac "nEbase" >> note_tac "** Slow nEbase beginning" >> stdstart
+      >- simp[peg_eval_tok_NONE]
+      >- (simp[peg_eval_tok_NONE] >>
+          erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_Eseq) >>
+          simp[] >> asm_match `ptree_fringe pt = MAP TK f` >> Cases_on `f` >>
+          simp[] >> strip_tac >> rw[] >> fs[] >>
+          IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[])
+      >- (note_tac "Ebase:Eseq" >> DISJ1_TAC >> simp[peg_EbaseParen_def] >>
+          dsimp[] >> asm_match `ptree_head qpt = NN nEseq` >>
+          `∃subs. qpt = Nd (mkNT nEseq) subs`
+            by (Cases_on `qpt` >> fs[MAP_EQ_CONS]) >>
+          fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >> rveq >>
+          fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >>
+          rw[]
+          >- (DISJ2_TAC >> DISJ2_TAC >> normlist >>
+              first_assum (unify_firstconj kall_tac) >>
+              CONV_TAC SWAP_VARS_CONV >> Q.REFINE_EXISTS_TAC `[pt2]` >>
+              simp[peg_EbaseParenFn_def, peg_eval_tok_NONE]) >>
+          DISJ1_TAC >> normlist >> Q.REFINE_EXISTS_TAC `[pt2]` >>
+          simp[peg_EbaseParenFn_def])
+      >- (note_tac "Ebase:Etuple" >>
+          erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_Etuple) >>
+          simp[] >> Cases_on `pfx` >> simp[] >> fs[] >>
+          erule mp_tac
+            (REWRITE_RULE [GSYM AND_IMP_INTRO] firstSet_nonempty_fringe) >>
+          simp[peg_eval_tok_NONE] >> strip_tac >> rveq >>
+          asm_match `ptree_head tpt = NN nEtuple` >>
+          `∃subs. tpt = Nd (mkNT nEtuple) subs`
+            by (Cases_on `tpt` >> fs[MAP_EQ_CONS]) >>
+          fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >> rveq >>
+          fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >>
+          rveq >> asm_match `ptree_head lpt = NN nElist2` >>
+          `∃subs. lpt = Nd (mkNT nElist2) subs`
+            by (Cases_on `lpt` >> fs[MAP_EQ_CONS] >> rw[]) >>
+          fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >> rveq >>
+          fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >>
+          rveq >> conj_tac
+          >- (erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_E) >>
+              simp[] >> Q.MATCH_RENAME_TAC `0 < LENGTH f ==> X` ["X"] >>
+              Cases_on `f` >> simp[] >> strip_tac >> rveq >> fs[] >>
+              IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[]) >>
+          DISJ1_TAC >> simp[peg_EbaseParen_def] >> dsimp[] >> DISJ2_TAC >>
+          DISJ1_TAC >> normlist >> first_assum (unify_firstconj kall_tac) >>
+          CONV_TAC SWAP_VARS_CONV >> Q.REFINE_EXISTS_TAC `[pt2]` >>
+          asimp[peg_EbaseParenFn_def, peg_eval_tok_NONE])
+      >- simp[peg_eval_tok_NONE]
+      >- (erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_FQV) >>
+          simp[] >> Cases_on `pfx` >> fs[] >> DISJ2_TAC >>
+          asm_match `ptree_fringe fpt = TK h :: MAP TK t` >>
+          `¬isInt h ∧ h ≠ LparT ∧ h ≠ LetT`
+            by (IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
+                Cases_on `h` >> simp[]) >>
+          simp[peg_eval_tok_NONE] >> DISJ2_TAC >>
+          conj_tac
+          >- simp[peg_EbaseParen_def, peg_eval_tok_NONE] >>
+          DISJ1_TAC >> simp[NT_rank_def])
+      >- (erule mp_tac (MATCH_MP fringe_length_not_nullable
+                                 nullable_ConstructorName) >>
+          simp[] >> Cases_on `pfx` >> fs[] >> DISJ2_TAC >>
+          asm_match `ptree_fringe fpt = TK h :: MAP TK t` >>
+          `¬isInt h ∧ h ≠ LparT ∧ h ≠ LetT`
+            by (IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
+                Cases_on `h` >> simp[]) >>
+          simp[peg_eval_tok_NONE] >> DISJ2_TAC >>
+          conj_tac
+          >- simp[peg_EbaseParen_def, peg_eval_tok_NONE] >>
+          DISJ2_TAC >> simp[NT_rank_def] >>
+          simp[peg_eval_seq_NONE] >>
+          match_mp_tac peg_respects_firstSets >>
+          simp[firstSet_nFQV, disjImpI] >> conj_tac
+          >- metis_tac [firstSets_nV_nConstructorName,
+                        firstSet_nonempty_fringe] >>
+          `h ∈ firstSet mmlG [NN nConstructorName]`
+            by metis_tac [firstSet_nonempty_fringe] >>
+          fs[firstSet_nConstructorName])
+      >- simp[peg_eval_tok_NONE]
+      >- simp[peg_eval_tok_NONE] >>
+      note_tac "Ebase:let-in-end" >> DISJ2_TAC >> conj_tac
+      >- simp[peg_eval_tok_NONE, peg_EbaseParen_def] >>
+      DISJ1_TAC >> normlist >>
+      first_assum (unify_firstconj kall_tac) >> asimp[] >>
+      normlist >> simp[])
   >- (print_tac "nEapp" >> CHEAT)
   >- (print_tac "nEadd" >> disch_then assume_tac >>
       simp[peg_eval_NT_SOME, mmlpeg_rules_applied] >>
@@ -2051,15 +2142,10 @@ val completeness = store_thm(
         by metis_tac[fringe_length_not_nullable, nullable_TypeDec] >>
       pop_assum mp_tac >> simp[] >> Cases_on `pfx` >> fs[] >>
       IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[])
-  >- (print_tac "nDconstructor" >>
-      simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >> rw[] >>
-      fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
-      rw[]
-      >- (normlist >> first_assum (unify_firstconj kall_tac o has_length) >>
-          simp[]) >>
-      first_assum (unify_firstconj kall_tac) >>
-      simp[NT_rank_def, peg_eval_tok_NONE] >>
-      Cases_on `sfx` >> fs[disjImpI])
+  >- (print_tac "nDconstructor" >> stdstart
+      >- (normlist >> first_assum (unify_firstconj kall_tac) >> simp[]) >>
+      first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
+      Cases_on `sfx` >> fs[peg_eval_tok_NONE])
   >- (print_tac "nDType" >> CHEAT)
   >- (print_tac "nConstructorName" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >> rw[] >>
@@ -2087,5 +2173,4 @@ val completeness = store_thm(
   simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >> rw[] >>
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM, peg_eval_tok_NONE])
 
-*)
 val _ = export_theory();
