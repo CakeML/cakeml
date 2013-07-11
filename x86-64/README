@@ -12,20 +12,9 @@ x64_copying_gcScript.sml
 x64_heapScript.sml
   - based on definition in the two files above, this defines a refinement invariant
     for the CakeML heap invariant for x86-64
-
-x64_heap_basicsScript.sml
   - constructs verified implementations for numerous basic operations, e.g.
     pushing, popping, moving, copying
-
-x64_allocScript.sml
   - constructs verified implementations of primitives for Cons, Ref
     and lemmas for use by the bignum library
-
-x64_bignumScript.sml
   - proves a connection between a library for arbitrary-precision
     integer arithmetic and the CakeML heap invariant
-
-x64_bytecodeScript.sml
-  - defines a translation from CakeML bytecode into x86-64 machine
-    instructions, and proves that this implementation respects the
-    bytecode semantics
