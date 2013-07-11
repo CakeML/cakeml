@@ -8,14 +8,12 @@ open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open wordsTheory wordsLib integer_wordTheory;
 open prog_x64_extraTheory;
 
-open BytecodeTheory repl_funTheory;
+open BytecodeTheory;
 
-open ml_copying_gcTheory x64_compilerLib;
-open set_sepTheory;
-open helperLib;
-open addressTheory
-open x64_copying_gcTheory;
-open progTheory;
+open x64_compilerLib set_sepTheory helperLib addressTheory;
+open ml_copying_gcTheory x64_copying_gcTheory progTheory;
+
+open x64_heapTheory x64_allocTheory;
 
 infix \\ val op \\ = op THEN;
 
