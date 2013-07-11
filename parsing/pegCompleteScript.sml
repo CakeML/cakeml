@@ -101,6 +101,19 @@ val ptree_head_eq_tok = save_thm(
 val _ = export_rewrites ["ptree_head_eq_tok"]
 
 open NTpropertiesTheory
+val firstSet_nUQTyOp = Store_thm(
+  "firstSet_nUQTyOp",
+  ``firstSet mmlG (NN nUQTyOp::rest) = {AlphaT s | T} ∪ {SymbolT s | T}``,
+  simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
+  dsimp[Once EXTENSION, EQ_IMP_THM]);
+
+val firstSet_nTyOp = Store_thm(
+  "firstSet_nTyOp",
+  ``firstSet mmlG (NN nTyOp :: rest) =
+      {AlphaT s | T} ∪ {SymbolT s | T} ∪ {LongidT s1 s2 | T}``,
+  simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
+  dsimp[Once EXTENSION, EQ_IMP_THM]);
+
 val firstSet_nTyVarList = Store_thm(
   "firstSet_nTyVarList",
   ``firstSet mmlG [NT (mkNT nTyVarList)] = { TyvarT s | T }``,
@@ -1619,7 +1632,35 @@ val completeness = store_thm(
       simp[PEG_exprs] >> strip_tac >> rw[] >>
       `StructureT ∈ firstSet mmlG [NN nDecl]`
         by metis_tac [firstSet_nonempty_fringe] >> fs[])
-  >- (print_tac "nTbase" >> CHEAT)
+  >- (print_tac "nTbase" >> stdstart
+      >- simp[peg_eval_tok_NONE]
+      >- (DISJ1_TAC >>
+          erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_TyOp) >>
+          simp[] >> Cases_on `pfx` >> simp[peg_eval_tok_NONE] >>
+          strip_tac >> rveq >> fs[] >>
+          IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[])
+      >- (DISJ1_TAC >>
+          erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_TyOp) >>
+          simp[] >> Cases_on `pfx` >> simp[peg_eval_tok_NONE] >>
+          strip_tac >> rveq >> fs[] >>
+          IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[])
+      >- (DISJ2_TAC >> simp[NT_rank_def] >>
+          erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_TyOp) >>
+          simp[] >> Cases_on `pfx` >> simp[peg_eval_tok_NONE] >>
+          IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> dsimp[])
+      >- (DISJ2_TAC >> reverse conj_tac
+          >- (DISJ1_TAC >> normlist >> first_assum (unify_firstconj kall_tac) >>
+              simp[]) >>
+          DISJ2_TAC >> DISJ2_TAC >>
+          asm_match `ptree_head lpt = NN nTypeList2` >>
+          `∃subs. lpt = Nd (mkNT nTypeList2) subs`
+            by (Cases_on `lpt` >> fs[MAP_EQ_CONS] >> rw[]) >>
+          fs[MAP_EQ_CONS, MAP_EQ_APPEND, cmlG_FDOM, cmlG_applied] >> rw[] >>
+          fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rw[] >>
+          normlist >> first_assum (unify_firstconj kall_tac) >>
+          asm_match `ptree_head typt = NN nType` >> qexists_tac `typt` >>
+          simp[peg_eval_tok_NONE]) >>
+      DISJ1_TAC >> normlist >> simp[])
   >- (print_tac "nStructure" >> dsimp[MAP_EQ_CONS] >> rw[] >>
       fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS, MAP_EQ_APPEND] >>
       rw[] >> fs[] >>

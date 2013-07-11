@@ -184,6 +184,7 @@ val nullable_V = prove_nullable ``nV``
 val nullable_Vlist1 = prove_nullable ``nVlist1``
 val nullable_TyvarN = prove_nullable ``nTyvarN``
 val nullable_UQTyOp = prove_nullable ``nUQTyOp``
+val nullable_TyOp = prove_nullable ``nTyOp``
 val nullable_Tbase = prove_nullable ``nTbase``
 val nullable_DType = prove_nullable ``nDType``
 val nullable_SpecLine = prove_nullable ``nSpecLine``
