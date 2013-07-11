@@ -1152,6 +1152,7 @@ val PrintE_thm = store_thm("PrintE_thm",
       match_mp_tac bc_fetch_next_addr >>
       qexists_tac`TAKE 11 PrintE` >>
       qexists_tac`DROP 12 PrintE` >>
+      simp[Abbr`bs5`,bump_pc_def] >>
       UNABBREV_ALL_TAC >>
       simp[bump_pc_def] >>
       EVAL_TAC >>
@@ -1161,6 +1162,8 @@ val PrintE_thm = store_thm("PrintE_thm",
       match_mp_tac bc_fetch_next_addr >>
       qexists_tac`TAKE 12 PrintE` >>
       qexists_tac`DROP 13 PrintE` >>
+      simp[Abbr`bs6`,bump_pc_def] >>
+      simp[Abbr`bs5`,bump_pc_def] >>
       UNABBREV_ALL_TAC >>
       simp[bump_pc_def] >>
       EVAL_TAC >>
@@ -1171,13 +1174,14 @@ val PrintE_thm = store_thm("PrintE_thm",
       conj_tac >- (
         simp[bc_find_loc_def] >>
         match_mp_tac bc_find_loc_aux_ALL_DISTINCT >>
+        simp[Abbr`bs6`,Abbr`bs5`,bump_pc_def] >>
         UNABBREV_ALL_TAC >> simp[bump_pc_def] >>
         qexists_tac`LENGTH PrintE - 1` >>
         EVAL_TAC ) >>
       `bs6.output = bs'.output` by (
         simp[Abbr`bs6`,Abbr`bs'`,print_error_def] >>
         simp[Abbr`bs5`,Abbr`bs4`,Abbr`bs3`,Abbr`bs2`,Abbr`bs1`,bump_pc_def] ) >>
-      simp[] >>
+      simp[Abbr`bs6`,Abbr`bs5`,bump_pc_def] >>
       UNABBREV_ALL_TAC >> simp[bump_pc_def] >> EVAL_TAC >> rw[] >> EVAL_TAC ) >>
     rpt(qpat_assum`Abbrev(x =y)`kall_tac) >>
     rpt(qpat_assum`bc_fetch x = y`kall_tac) >>
@@ -1187,6 +1191,52 @@ val PrintE_thm = store_thm("PrintE_thm",
     simp[NRC] >>
     metis_tac[] ) >>
   fs[print_error_def] >>
+  qmatch_assum_abbrev_tac`bv = Block t []` >>
+  qabbrev_tac`bs3 = bs2 with <|stack:=(bool_to_val (t=block_tag+bind_exc_cn))::bv::st; pc := next_addr bs.inst_length (TAKE 16 PrintE)|>` >>
+  `bc_next^* bs2 bs3` by (
+    simp[RTC_eq_NRC] >>
+    qexists_tac`SUC(SUC(SUC 0))` >>
+    simp[NRC] >>
+    qho_match_abbrev_tac`∃z. bc_next bs2 z ∧ P z` >>
+    simp[bc_eval1_thm,bc_eval1_def]>>
+    simp[Abbr`bs2`,Abbr`bs3`,Abbr`bs1`] >>
+    simp_tac(srw_ss()++DNF_ss)[] >>
+    simp[bc_find_loc_def] >>
+    qexists_tac`next_addr bs.inst_length (TAKE 14 PrintE)` >>
+    conj_tac >- (match_mp_tac bc_find_loc_aux_ALL_DISTINCT>>fs[]>>qexists_tac`13`>>EVAL_TAC) >>
+    qmatch_abbrev_tac`P bs1` >>
+    `bc_fetch bs1 = SOME (Stack (Load 0))` by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs1`] >>
+      qexists_tac`TAKE 14 PrintE` >>
+      qexists_tac`DROP 15 PrintE` >>
+      EVAL_TAC ) >>
+    simp[Abbr`P`] >>
+    qho_match_abbrev_tac`∃z. bc_next bs1 z ∧ P z` >>
+    simp[bc_eval1_thm,bc_eval1_def]>>
+    simp[bump_pc_def] >>
+    simp[Abbr`bs1`,bc_eval_stack_def] >>
+    qmatch_abbrev_tac`P bs1` >>
+    `bc_fetch bs1 = SOME (Stack (TagEq (block_tag+bind_exc_cn)))`  by (
+      match_mp_tac bc_fetch_next_addr >>
+      simp[Abbr`bs1`] >>
+      qexists_tac`TAKE 15 PrintE` >>
+      qexists_tac`DROP 16 PrintE` >>
+      EVAL_TAC >>
+      simp[Abbr`t`,IntLangTheory.bind_exc_cn_def]) >>
+    simp[Abbr`P`] >>
+    simp[bc_eval1_thm,bc_eval1_def]>>
+    simp[bump_pc_def]>>
+    simp[Abbr`bs1`,bc_eval_stack_def]>>
+    simp[bc_state_component_equality]>>
+    EVAL_TAC>>
+    simp[Abbr`t`,IntLangTheory.bind_exc_cn_def] ) >>
+  `bc_fetch bs3 = SOME (JumpIf (Lab 1))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`TAKE 16 PrintE` >>
+    qexists_tac`DROP 17 PrintE` >>
+    simp[Abbr`bs3`,Abbr`bs2`,Abbr`bs1`]>>
+    EVAL_TAC ) >>
   cheat)
 
 val replCorrect_lem = Q.prove (
