@@ -88,7 +88,7 @@ val _ = Hol_datatype `
     (* t *)
     (* num t *)
     (* (num,bool) t *)
-  | Ast_Tapp of ast_t list => typeN id
+  | Ast_Tapp of ast_t list => ( typeN id) option
     (* t -> t *)
   | Ast_Tfn of ast_t => ast_t`;
 
@@ -244,12 +244,16 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (elab_t type_bound (Ast_Tfn t1 t2) =  
 (
   Tfn (elab_t type_bound t1) (elab_t type_bound t2)))
+    /\
+(elab_t type_bound (Ast_Tapp ts NONE) =  
+(let ts' = ( MAP (elab_t type_bound) ts) in
+    Tapp ts' TC_tup))
 /\
-(elab_t type_bound (Ast_Tapp ts (Long m tn)) =  
+(elab_t type_bound (Ast_Tapp ts (SOME (Long m tn))) =  
 (let ts' = ( MAP (elab_t type_bound) ts) in
     Tapp ts' (TC_name (Long m tn))))
 /\
-(elab_t type_bound (Ast_Tapp ts (Short tn)) =  
+(elab_t type_bound (Ast_Tapp ts (SOME (Short tn))) =  
 (let ts' = ( MAP (elab_t type_bound) ts) in
     (case lookup tn type_bound of
         NONE => Tapp ts' (TC_name (Short tn))

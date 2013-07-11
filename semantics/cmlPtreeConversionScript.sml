@@ -97,7 +97,7 @@ val ptree_linfix_def = Define`
 val tuplify_def = Define`
   tuplify [] = NONE ∧
   tuplify [ty] = SOME ty ∧
-  tuplify tys = SOME(Ast_Tapp tys (Short ""))
+  tuplify tys = SOME(Ast_Tapp tys NONE)
 `
 
 val ptree_Type_def = Define`
@@ -124,11 +124,11 @@ val ptree_Type_def = Define`
        case args of
            [pt] =>
                 OPTION_MAP Ast_Tvar (destTyvarPT pt) ++
-                OPTION_MAP (Ast_Tapp []) (ptree_Tyop pt)
+                OPTION_MAP (\tn. Ast_Tapp [] (SOME tn)) (ptree_Tyop pt)
          | [dt; opn] => do
                           dty <- ptree_Type nDType dt;
                           opname <- ptree_Tyop opn;
-                          SOME(Ast_Tapp [dty] opname)
+                          SOME(Ast_Tapp [dty] (SOME opname))
                         od
          | [lpart; t; rpart] =>
               do
@@ -140,7 +140,7 @@ val ptree_Type_def = Define`
               assert(lpart = Lf (TK LparT) ∧ rpart = Lf (TK RparT));
               tylist <- ptree_Typelist2 tl;
               opname <- ptree_Tyop opn;
-              SOME(Ast_Tapp tylist opname)
+              SOME(Ast_Tapp tylist (SOME opname))
            od
          | _ => NONE
      else NONE) ∧
@@ -255,7 +255,7 @@ val ptree_ConstructorName_def = Define`
 `
 
 val detuplify_def = Define`
-  detuplify (Ast_Tapp args (Short "")) = args ∧
+  detuplify (Ast_Tapp args NONE) = args ∧
   detuplify ty = [ty]
 `
 
