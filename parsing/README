@@ -1,26 +1,27 @@
-# Notes on Verified Parsing for mini ML.
+# Notes on Verified Parsing for CakeML.
 
-The ultimate objective is to create functions of the general type
+The parsing function that actually runs in the CakeML system should conform to the specification, which is the grammar in `semantics/gram`.  Here conforming means that if a sequence of tokens has a parse tree in the grammar, then the function should return that parse tree (*completeness*).  Dually, if the function returns a parse tree, it should be correct according to the grammar (*soundness*).
 
-       :token list -> (some_ast_type # token list) option
+The parsing function is one that executes a *Parsing Expression Grammar* (or PEG). PEGs provide an LL-like attack on input strings, but add the ability to do significant back-tracking if necessary.  The CakeML PEG is specified in the file mmlPEGScript.sml.  The same file includes a proof that the PEG is well-formed, which means that execution will always terminate (*totality*).  As PEG execution really is a function (`peg_exec` to be precise), we also have that execution is *deterministic*.   (The necessary background theory of PEGs is in the main HOL distribution.)
 
-The main function for user use is likely to be one that targets the type `Elab$ast_prog`.
+## MANIFEST
 
-In any case, the basic approach involves three(!) phases:
+* `conversionProps`: theory intended to contain properties of the parse-tree conversion functions in `semantics/cmlPtreeConversion`
 
-1. Use a PEG-based parser to parse the token list. The output type for this phase is a parse-tree that conforms to the context-free grammar specified in `semantics/gramTheory`.
+* `gramProps`: theory containing properties of the governing CFG.  In particular, a slew of nullability results for various non-terminals.
 
-2. Because this "concrete syntax tree" will preserve the original tokens at its leaves, it can then be checked as valid by evaluating (maybe even with `EVAL`) the truth of
+* `lexer_impl`: code for consuming tokens until a top-level semicolon is found (semicolons can be hidden in `let`-`in`-`end` blocks and between parentheses.
 
-           valid_ptree mmlG ptree
+* `mmlPEG`: theory defining the PEG for CakeML.  Includes a proof that the PEG is well-formed.
 
-3. The parse tree can be converted to a value in the appropriate `ast` type by using one of the functions with a name like `ptree_`*someType*.
-For example, `ptree_Expr` takes a parse-tree meant to correspond to an expression and generates an `ast_exp` value (strictly, an option type). The appropriate function for the REPL is ptree_REPLPhrase.
+* `mmlParse`: theory defining the overall parsing functions that go from tokens to abstract syntax trees.  (In other words, these include calls to the functions in `semantics/cmlPtreeConversion`.)  The function used in the REPL is `mmlParseREPLTop`.
 
-## Verifiability
+* `parsingPreamble`: custom HOL proof code
 
-As already discussed, this is enough to show that we have a "sound" parser because we can check whether or not we have parsed to a tree that really does match up with the original input.
-It's not yet clear to me quite what we should say when it comes to the `ptree_Expr` phase of things.
+* `pegComplete`: proof of completeness
+
+* `pegSound`: proof of soundness
+
 
 <!-- Local variables: -->
 <!-- mode: markdown -->
