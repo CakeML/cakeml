@@ -204,7 +204,7 @@ val _ = Globals.max_print_depth := 15
 
 val ct = ``init_compiler_state.contab``
 val m = ``<|bvars:=[];mvars:=FEMPTY;cnmap:=cmap(^ct)|>``
-val cs = ``<|out:=[];next_label:=0|>``
+val cs = ``<|out:=[];next_label:=init_compiler_state.rnext_label|>``
 fun mk_initial_split n =
   ``FOLDL (compile_dec1 NONE FEMPTY) (^ct,^m,[],0,^cs) ml_repl_step_decls``
      |> (RAND_CONV (EVAL THENC chunkify_CONV n) THENC
