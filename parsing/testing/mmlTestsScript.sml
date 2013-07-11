@@ -124,13 +124,13 @@ val _ = tytest "'a"
 val _ = tytest "'a -> bool"
 val _ = tytest "'a -> bool -> foo"
 val _ = tytest "('a)"
-val _ = tytest0 "('a)list" ``Ast_Tapp [Ast_Tvar "'a"] (Short "list")``
+val _ = tytest0 "('a)list" ``Ast_Tapp [Ast_Tvar "'a"] (SOME(Short "list"))``
 val _ = tytest "('a->bool)list"
 val _ = tytest "'a->bool list"
 val _ = tytest "('a->bool)->bool"
 val _ = tytest0 "('a,foo)bar"
-                ``Ast_Tapp [Ast_Tvar "'a"; Ast_Tapp [] (Short "foo")]
-                           (Short "bar")``
+                ``Ast_Tapp [Ast_Tvar "'a"; Ast_Tapp [] (SOME(Short "foo"))]
+                           (SOME (Short "bar"))``
 val _ = tytest "('a) list list"
 val _ = tytest "('a,'b) foo list"
 val _ = tytest "'a list"
@@ -149,13 +149,11 @@ val _ = parsetest0 ``nREPLTop`` ``ptree_REPLTop``
 
 val _ = parsetest0 ``nREPLTop`` ``ptree_REPLTop``
                    "structure s :> sig type 'a t type ('b,'c) u val z : 'a t end = struct end;"
-                   (SOME ``Ast_Tmod "s"
-                                     (SOME [Ast_Stype_opq ["'a"] "t";
-                                            Ast_Stype_opq ["'b"; "'c"] "u";
-                                            Ast_Sval "z"
-                                                     (Ast_Tapp [Ast_Tvar "'a"]
-                                                               (Short "t"))])
-                                     []``)
+      (SOME ``Ast_Tmod "s"
+          (SOME [Ast_Stype_opq ["'a"] "t";
+                 Ast_Stype_opq ["'b"; "'c"] "u";
+                 Ast_Sval "z" (Ast_Tapp [Ast_Tvar "'a"] (SOME (Short "t")))])
+          []``)
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "4 handle IntError x => 3 + 4"
                    (SOME ``Ast_Handle (Ast_Lit (IntLit 4))
