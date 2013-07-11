@@ -1,0 +1,27 @@
+Proof-producing translator from HOL functions into CakeML syntax
+
+ml_translatorScript.sml
+  - defines the basic predicates (esp. Eval) that the translation will use
+  - proves the key lemmas that the translator uses
+
+ml_optimiseScript.sml
+  - a simple verified optimiser for CakeML expressions, which is
+    applied once the translator has produced some CakeML syntax
+
+ml_translatorLib.sml
+  - the translator itself, the main entry point is the translate function
+
+ml_translator_demoScript.sml
+  - shows one a simple example what the translator provides
+
+mini_preludeScript.sml
+  - a minimal common starting point for translations
+
+std_preludeScript.sml
+  - a more elaborate prelude for translations to continue from
+
+Print_astScript.sml
+  - defines a function for turning CakeML syntax into concrete syntax
+
+Print_astTerminationScript.sml
+  - proves termination of the functions in the file above
