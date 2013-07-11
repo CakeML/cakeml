@@ -1,0 +1,18 @@
+INCLUDES=../../implementation/bootstrap ../../compiler/proofs ../../translator/repl ../../translator
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+BARE_THYS = ../../implementation/bootstrap/compile_repl_stepTheory\
+						../../compiler/proofs/bootstrapProofsTheory\
+						../../translator/ml_translatorTheory\
+						../../translator/repl/ml_repl_stepTheory\
+						../../translator/repl/sideTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b ../../implementation/bootstrap/heap -o $(HOLHEAP) $(BARE_THYS)
+endif
