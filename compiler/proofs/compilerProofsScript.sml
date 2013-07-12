@@ -4040,6 +4040,26 @@ val v_to_Cv_mvars_SUBMAP = store_thm("v_to_Cv_mvars_SUBMAP",
   imp_res_tac ALOOKUP_SOME_FAPPLY_alist_to_fmap >>
   fs[] )
 
+val env_renv_append_imp = store_thm("env_renv_append_imp",
+  ``∀rd sz bs l1 l2 l3 l4. env_renv rd sz bs (l1 ++ l2) (l3 ++ l4) ∧ LENGTH l1 = LENGTH l3 ∧ LENGTH l2 = LENGTH l4 ⇒
+    env_renv rd sz bs l1 l3 ∧ env_renv rd sz bs l2 l4``,
+  rw[] >>
+  fs[env_renv_def] >>
+  metis_tac[EVERY2_APPEND])
+
+(* This theorem says that the env_rs invariant holds if we shift a portion of
+the compiler's environment for unqualified variables into its environment for
+module variables, with a fresh module name, provided the analogous thing
+happens in the semantic environments. The intuition for why it is true is that
+none of the locations of the values on the stack have changed, rather, we are
+just switching the method by which we retrieve them (via a menv lookup versus
+an env lookup). Apart from many tedious details, the main complication is that
+closure bodies are required by the invariant to exist in compiled form in the
+bytecode machine already, and the required call to the compiler to produce that
+code uses the module environment before extension. But we should be able to
+prove that the compiler generates exactly the same code if the module
+environment is extended because all the module variables were bound before the
+extension already. *)
 val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
   ``∀menv cenv env rs cz rd cs bs mn new old rnew rold rs' menv'.
      env_rs menv cenv env rs cz rd cs bs
@@ -4097,6 +4117,93 @@ val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
     qexists_tac`menv` >>
     fs[closed_context_def] ) >>
   simp[] >>
+  qexists_tac`Cmenv0`>>simp[] >>
+  `env_to_Cenv mv m new = env_to_Cenv mv0 m new` by (
+    match_mp_tac (CONJUNCT2 (CONJUNCT2 v_to_Cv_mvars_SUBMAP)) >>
+    qexists_tac`menv` >>
+    fs[closed_context_def] ) >>
+  conj_tac >- (
+    fs[closed_Clocs_def] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,Abbr`Cmenv0`,Abbr`fmv`] >>
+    fs[closed_context_def] >>
+    `LENGTH (SND cs) = LENGTH Cs` by (
+      fs[Abbr`Cs0`,EVERY2_EVERY] ) >>
+    fsrw_tac[DNF_ss][env_to_Cenv_MAP,MEM_MAP,Abbr`l1`,SUBSET_DEF] >>
+    conj_tac >- (
+      rw[] >> res_tac >> fs[all_Clocs_v_to_Cv] ) >>
+    cheat) >>
+  conj_tac >- (
+    fs[closed_vlabs_def] >>
+    conj_tac >- (
+      simp[Abbr`Cmenv0`] >>
+      simp[all_vlabs_menv_def] >>
+      match_mp_tac IN_FRANGE_o_f_suff >>
+      simp[Abbr`fmv`] >>
+      cheat ) >>
+    cheat ) >>
+  conj_tac >- (
+    simp[Abbr`mv`,Abbr`fmv`] >>
+    simp[Abbr`mv0`] >>
+    ONCE_REWRITE_TAC[GSYM o_f_DOMSUB] >>
+    qpat_assum`X = Y o_f Z` SUBST1_TAC >>
+    rw[] ) >>
+  conj_tac >- (
+    simp[SUM_IMAGE_THM] >>
+    qmatch_abbrev_tac`LENGTH rnew + (b + c:num) ≤ d` >>
+    qmatch_abbrev_tac`a + (b + c) ≤ d` >>
+    qmatch_assum_abbrev_tac`a + b + e ≤ d` >>
+    qsuff_tac `c ≤ e` >- DECIDE_TAC >>
+    simp[Abbr`c`,Abbr`e`] >>
+    match_mp_tac SUM_IMAGE_SUBSET_LE >>
+    simp[] >>
+    simp[SUBSET_DEF] >>
+    metis_tac[FRANGE_DOMSUB_SUBSET,SUBSET_DEF] ) >>
+  rator_x_assum`Cenv_bs`mp_tac >>
+  simp[Cenv_bs_def] >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`env_renv rd sz bs (l3 ++ l4) (l5 ++ l6)` >>
+  qspecl_then[`rd`,`sz`,`bs`,`l3`,`l4`,`l5`,`l6`]mp_tac env_renv_append_imp >>
+  discharge_hyps >- (
+    simp[Abbr`l5`,Abbr`l6`] >>
+    qpat_assum`Cenv = X`(assume_tac o SYM) >>
+    fs[EVERY2_EVERY] >>
+    `LENGTH new ≤ LENGTH Cenv`  by (
+      fsrw_tac[ARITH_ss][Abbr`l1`] ) >>
+    simp[Abbr`l1`,Abbr`l3`] >>
+    `LENGTH old ≤ LENGTH Cenv`  by (
+      fsrw_tac[ARITH_ss][Abbr`l2`] ) >>
+    qpat_assum`LENGTH old = X`(assume_tac o SYM) >>
+    simp[Abbr`l2`,Abbr`l4`] >> fs[] >> simp[] >>
+    fs[LIST_EQ_REWRITE] ) >>
+  simp[] >> strip_tac >>
+  rator_x_assum`fmap_rel`mp_tac >>
+  simp[fmap_rel_def] >> strip_tac >>
+  conj_asm1_tac >- (
+    simp[Abbr`cmnv`,Abbr`Cmenv0`,Abbr`fmv`] >>
+    fs[fmap_rel_def] >>
+    simp[EXTENSION] >>
+    metis_tac[] ) >>
+  simp[Abbr`Cmenv0`] >>
+  simp[Abbr`fmv`] >>
+  gen_tac >> Cases_on`x=mn` >> simp[] >- (
+    simp[FAPPLY_FUPDATE_THM] >>
+    simp[Abbr`cmnv`,MAP_MAP_o] >>
+    simp[env_to_Cenv_MAP] >>
+    cheat ) >>
+  strip_tac >>
+  simp[FAPPLY_FUPDATE_THM] >>
+  simp[Abbr`cmnv`,FAPPLY_FUPDATE_THM] >>
+  REWRITE_TAC[GSYM o_f_DOMSUB] >>
+  simp[DOMSUB_FAPPLY_THM] >>
+  `x ∈ FDOM rs.rmenv` by (
+    simp[] >> fs[fmap_rel_def] ) >>
+  simp[MAP_MAP_o,env_to_Cenv_MAP] >>
+  first_x_assum(qspec_then`x`mp_tac) >>
+  rfs[] >>
+  fs[fmap_rel_def] >>
+  first_x_assum(qspec_then`x`mp_tac) >>
+  simp[] >>
+  simp[env_to_Cenv_MAP] >>
   cheat)
 
 val compile_top_thm = store_thm("compile_top_thm",
