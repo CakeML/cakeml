@@ -14,14 +14,6 @@ val compiled1 = ONCE_REWRITE_RULE[GSYM bootstrap_result_def]compiled
 val [ct,m,renv,rsz,cs] =
 compiled1 |> concl |> lhs |> rator |> rand |> strip_pair
 
-val FV_decs_oneshot_decs = prove(``FV_decs oneshot_decs = {Short "input"}``,cheat)
-val decs_cns_oneshot_decs = prove(``decs_cns NONE oneshot_decs = {}``,cheat)
-val check_dup_ctors_oneshot_decs = prove(``
-(∀i tds.
-    i < LENGTH oneshot_decs ∧ EL i oneshot_decs = Dtype tds ⇒
-        check_dup_ctors NONE (decs_to_cenv NONE (TAKE i oneshot_decs))
-              tds)``, cheat)
-
 val no_closures_all_vlabs = store_thm("no_closures_all_vlabs",
   ``∀v. ¬contains_closure v ⇒ all_vlabs (v_to_Cv mv m v)``,
   ho_match_mp_tac contains_closure_ind >>
@@ -114,14 +106,25 @@ val no_locs_Cv_bv = store_thm("no_locs_Cv_bv",
 
 val result_state = EVAL``let (ct,m,renv,rsz,cs) = bootstrap_result in (rsz,LENGTH m.bvars,m.bvars)``
 
+val ndecs = rand(rator(rhs(concl result_state)))
+
 val HD_new_vs_oneshot_decs = prove(
   ``∃xs. new_decs_vs oneshot_decs = "it"::xs``,
   simp[oneshot_decs_def] >>
   simp[pat_bindings_def])
 
+val FV_decs_oneshot_decs = ``FV_decs oneshot_decs = {Short "input"}``
+val decs_cns_oneshot_decs = ``decs_cns NONE oneshot_decs = {}``
+val check_dup_ctors_oneshot_decs = ``
+(∀i tds.
+    i < LENGTH oneshot_decs ∧ EL i oneshot_decs = Dtype tds ⇒
+        check_dup_ctors NONE (decs_to_cenv NONE (TAKE i oneshot_decs))
+              tds)``
+
 val oneshot_thm = store_thm("oneshot_thm",
   ``∀i s cenv env.
       evaluate_decs NONE [] [] [] [("input",i)] oneshot_decs (s,cenv,Rval env) ∧
+      ^FV_decs_oneshot_decs ∧ ^decs_cns_oneshot_decs ∧ ^check_dup_ctors_oneshot_decs ∧
       closed [] i ∧ all_cns i = {} ∧ all_locs i = {} ∧ ¬(contains_closure i)
       ⇒
       let (ct,m,renv,rsz,cs) = bootstrap_result in
@@ -149,7 +152,7 @@ val oneshot_thm = store_thm("oneshot_thm",
   assume_tac(prove(``init_compiler_state.renv = []``,rw[CompilerTheory.init_compiler_state_def])) >>
   simp[compiled1] >>
   disch_then(qspecl_then[`[]`,`REVERSE cs.out`]mp_tac) >>
-  simp[FV_decs_oneshot_decs,decs_cns_oneshot_decs,check_dup_ctors_oneshot_decs] >>
+  simp[] >>
   discharge_hyps >- (
     conj_tac >- (
       simp[closed_context_def,closed_under_cenv_def,closed_under_menv_def] ) >>
@@ -204,7 +207,7 @@ val oneshot_thm = store_thm("oneshot_thm",
   simp[Cenv_bs_def] >> strip_tac >>
   rator_x_assum`env_renv`mp_tac >>
   simp[env_renv_def] >>
-  `rsz = 371 ∧ LENGTH m.bvars = 371 ∧ ∃junk. m.bvars = "it"::junk` by (
+  `rsz = ^ndecs ∧ LENGTH m.bvars = ^ndecs ∧ ∃junk. m.bvars = "it"::junk` by (
     mp_tac result_state >> simp[] ) >>
   simp[MAP_ZIP,MAP_GENLIST] >>
   Cases_on`bvs`>>fs[] >>
