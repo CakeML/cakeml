@@ -3912,6 +3912,20 @@ val env_rs_add_empty_menv = store_thm("env_rs_add_empty_menv",
     (* this looks hard ! *)
 *)
 
+
+(* This theorem says that the env_rs invariant holds if we shift a portion of
+the compiler's environment for unqualified variables into its environment for
+module variables, with a fresh module name, provided the analogous thing
+happens in the semantic environments. The intuition for why it is true is that
+none of the locations of the values on the stack have changed, rather, we are
+just switching the method by which we retrieve them (via a menv lookup versus
+an env lookup). Apart from many tedious details, the main complication is that
+closure bodies are required by the invariant to exist in compiled form in the
+bytecode machine already, and the required call to the compiler to produce that
+code uses the module environment before extension. But we should be able to
+prove that the compiler generates exactly the same code if the module
+environment is extended because all the module variables were bound before the
+extension already. *)
 val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
   ``∀menv cenv env rs cz rd cs bs mn new old rnew rold rs' menv'.
      env_rs menv cenv env rs cz rd cs bs
