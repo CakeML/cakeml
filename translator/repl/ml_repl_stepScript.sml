@@ -113,22 +113,28 @@ val monad_unitbind_assert = prove(
   ``!b x. monad_unitbind (assert b) x = if b then x else NONE``,
   Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
 
+(*
 val _ = translate (mmlvalidTheory.mml_okrule_eval_th
           |> RW [monad_unitbind_assert,NOT_NIL_AND_LEMMA,if_and_lemma])
+*)
 
+(*
 val mml_okrule_side_def = prove(
   ``!x y. mml_okrule_side x y = T``,
   SIMP_TAC std_ss [fetch "-" "mml_okrule_side_def"]
   THEN FULL_SIMP_TAC std_ss [LENGTH_LEMMA]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) [])
   |> update_precondition;
+*)
 
 val _ = translate grammarTheory.ptree_head_def
 
+(*
 val res = translate
   (((mmlvalidTheory.mmlvalid_thm |> CONJUNCTS) @
     (mmlvalidTheory.mmlvalidL_def |> CONJUNCTS))
    |> map GEN_ALL |> LIST_CONJ)
+*)
 
 
 (* parsing: ptree converstion *)
