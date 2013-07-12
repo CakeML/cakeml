@@ -1,4 +1,4 @@
-The top-level correctness proofs for the CakeML REPL
+The top-level correctness proofs for the CakeML REPL (repl_fun)
 
 inferSoundScript.sml
     Soundness of the type inference algorithm

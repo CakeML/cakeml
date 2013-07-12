@@ -1,0 +1,12 @@
+Theorem about result of compiler bootstrapping
+
+oneshotProofsScript.sml
+    proves a theorem describing the action of running the bytecode
+    that implements the compiler (which was created by running the
+    compiler on the compiler itself)
+
+bootstrap_lemmaScript.sml
+    proof of a lemma that is used in the script above
+
+bootstrapScript.sml
+    old file not used anymore
