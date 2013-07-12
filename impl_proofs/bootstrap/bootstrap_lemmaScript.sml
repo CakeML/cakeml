@@ -26,7 +26,8 @@ val lookup_APPEND = prove(
          | NONE => lookup name ys
          | res => res``,
   Induct \\ SRW_TAC [] [lookup_def]
-  \\ Cases_on `h` \\ SRW_TAC [] [lookup_def]);
+  \\ Cases_on `h` \\ SRW_TAC [] [lookup_def] \\
+  METIS_TAC[alistTheory.ALOOKUP_APPEND]);
 
 val lookup_IMP_APPEND = prove(
   ``!env rest.
@@ -81,12 +82,12 @@ val lemma = prove(
     \\ ONCE_REWRITE_TAC [evaluate'_cases]
     \\ SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
     \\ IMP_RES_TAC lookup_IMP_APPEND
+    \\ IMP_RES_TAC alistTheory.ALOOKUP_prefix
     \\ FULL_SIMP_TAC std_ss [])
   \\ SIMP_TAC std_ss [Eval_def]
   \\ ONCE_REWRITE_TAC [evaluate'_cases]
   \\ SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [Eval_Var_SIMP,lookup_APPEND]
-  \\ ASM_SIMP_TAC std_ss [lookup_def])
+  \\ FULL_SIMP_TAC (srw_ss()) [Eval_Var_SIMP,alistTheory.ALOOKUP_APPEND])
   |> UNDISCH_ALL
   |> SIMP_RULE std_ss [Eval_Var_LOOKUP,PULL_EXISTS]
   |> SIMP_RULE std_ss [Decls_def]
