@@ -4,8 +4,6 @@ open mmlPEGTheory cmlPtreeConversionTheory pegSoundTheory
 open lcsymtacs
 open monadsyntax
 
-local open mmlvalidTheory in end
-
 val _ = new_theory "mmlParse"
 
 val _ = overload_on ("mmlpegexec",
@@ -34,21 +32,10 @@ val mmlParseREPLPhrase_def = Define`
   od
 `
 
-(* to translate/eval mmlvalid, use theorems
-     mmlvalidTheory.mml_okrule_eval_th
-     mmlvalidTheory.mmlvalid_thm
-     mmlvalidTheory.mmlvalidL_def
-     grammarTheory.ptree_head_def
-
-   mmlvalid and mmlvalidL are mutually recursive in this presentation.
-*)
-
 val mmlParseREPLTop_def = zDefine`
-  mmlParseREPLTop doValidation toks = do
+  mmlParseREPLTop toks = do
     (toks', pts) <- destResult (mmlpegexec nREPLTop toks);
     pt <- oHD pts;
-    (* use if-then-else to hint at short-circuit/lazy evaluation *)
-    assert(if doValidation then mmlvalid pt else T);
     ast <- ptree_REPLTop pt;
     SOME(toks',ast)
   od
@@ -59,27 +46,6 @@ val mmlpeg_executed =
       |> Q.GEN `G` |> Q.ISPEC `mmlPEG`
       |> SIMP_RULE (srw_ss()) [mmlPEGTheory.PEG_wellformed]
       |> Q.GEN `s` |> Q.GEN `r` |> Q.GEN `e` |> GSYM
-
-val mmlParseREPLTop_thm = store_thm(
-  "mmlParseREPLTop_thm",
-  ``mmlParseREPLTop doV toks = do
-      (toks', pts) <- destResult (mmlpegexec nREPLTop toks);
-      pt <- oHD pts;
-      ast <- ptree_REPLTop pt;
-      SOME(toks',ast)
-    od``,
-  simp[mmlParseREPLTop_def] >>
-  Cases_on `mmlpegexec nREPLTop toks` >> simp[destResult_def] >>
-  Q.MATCH_ASSUM_RENAME_TAC `X = Result opt` ["X"] >> Cases_on `opt` >> simp[] >>
-  Q.MATCH_ASSUM_RENAME_TAC `X = Result (SOME pair)` ["X"] >>
-  `∃i r. pair = (i,r)` by (Cases_on `pair` >> simp[]) >> rw[] >>
-  qspec_then `nt (mkNT nREPLTop) I`
-    ((fn th => fs[th,pnt_def]) o SIMP_RULE (srw_ss()) [PEG_exprs,pnt_def])
-    mmlpeg_executed >>
-  pop_assum (strip_assume_tac o MATCH_MP peg_sound) >>
-  simp[oHD_def, mmlvalidTheory.mmlvalid_def, gramTheory.assert_def,
-       optionTheory.OPTION_IGNORE_BIND_def]);
-val _ = computeLib.add_persistent_funs ["mmlParseREPLTop_thm"]
 
 (* This function parses declarations, no junk is allowed at the end. *)
 val parse_def = Define `
@@ -96,7 +62,7 @@ val parse_def = Define `
 val parse_top_def = Define `
   (parse_top : token list -> ast_top option) tokens =
     do
-      (ts,ast_top) <- mmlParseREPLTop T tokens;
+      (ts,ast_top) <- mmlParseREPLTop tokens;
       if ts <> [] then NONE else SOME ast_top
     od
 `;

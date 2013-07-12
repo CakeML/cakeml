@@ -6,8 +6,6 @@ open NTpropertiesTheory
 open pred_setTheory
 open parsingPreamble
 
-open mmlvalidTheory
-
 fun dsimp thl = asm_simp_tac (srw_ss() ++ DNF_ss) thl
 fun asimp thl = asm_simp_tac (srw_ss() ++ ARITH_ss) thl
 
@@ -36,13 +34,6 @@ val APPEND_EQ_SING' = CONV_RULE (LAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
 val _ = augment_srw_ss [rewrites [APPEND_EQ_SING']]
 
 val _ = new_theory "gramProps"
-
-val mmlvalid_not_INR = store_thm(
-  "mmlvalid_not_INR",
-  ``mmlvalid pt ∧ ptree_fringe pt = MAP TOK i ⇒ ptree_head pt ≠ NT (INR n)``,
-  Cases_on `pt` >>
-  dsimp[MAP_EQ_SING, mmlvalid_thm] >> rpt strip_tac >> rw[] >>
-  fs[mml_okrule_eval_th])
 
 val NT_rank_def = Define`
   NT_rank N =
@@ -279,6 +270,26 @@ val fringe_lengths_V = store_thm(
   fs[] >> qexists_tac `[AlphaT "foo"]` >>
   simp[stringTheory.isUpper_def]);
 
+val parsing_ind = save_thm(
+  "parsing_ind",
+  relationTheory.WF_INDUCTION_THM
+    |> Q.ISPEC `inv_image
+                  (measure (LENGTH:(token,MMLnonT)symbol list -> num) LEX
+                   measure (λn. case n of TOK _ => 0 | NT n => NT_rank n))
+                  (λpt. (ptree_fringe pt, ptree_head pt))`
+    |> SIMP_RULE (srw_ss()) [pairTheory.WF_LEX, relationTheory.WF_inv_image]
+    |> SIMP_RULE (srw_ss()) [relationTheory.inv_image_def,
+                             pairTheory.LEX_DEF]);
+
+
+(*
+val mmlvalid_not_INR = store_thm(
+  "mmlvalid_not_INR",
+  ``mmlvalid pt ∧ ptree_fringe pt = MAP TOK i ⇒ ptree_head pt ≠ NT (INR n)``,
+  Cases_on `pt` >>
+  dsimp[MAP_EQ_SING, mmlvalid_thm] >> rpt strip_tac >> rw[] >>
+  fs[mml_okrule_eval_th])
+
 val mkelim_tac =
   gen_tac >> Cases_on `pt` >> simp[mmlvalid_def] >> rw[] >>
   fs[cmlG_FDOM,cmlG_applied] >> Cases_on `l` >> fs[] >>
@@ -459,16 +470,6 @@ val mmlvalid_Lf = store_thm(
   simp[mmlvalid_def])
 val _ = export_rewrites ["mmlvalid_Lf"]
 
-val parsing_ind = save_thm(
-  "parsing_ind",
-  relationTheory.WF_INDUCTION_THM
-    |> Q.ISPEC `inv_image
-                  (measure (LENGTH:(token,MMLnonT)symbol list -> num) LEX
-                   measure (λn. case n of TOK _ => 0 | NT n => NT_rank n))
-                  (λpt. (ptree_fringe pt, ptree_head pt))`
-    |> SIMP_RULE (srw_ss()) [pairTheory.WF_LEX, relationTheory.WF_inv_image]
-    |> SIMP_RULE (srw_ss()) [relationTheory.inv_image_def,
-                             pairTheory.LEX_DEF]);
 
 val ptree_head_t = ``ptree_head``
 val NT_rank_t = ``NT_rank``
@@ -719,6 +720,8 @@ val unambiguous = store_thm(
       >- (rank_assum >> simp[NT_rank_def])
       >- (erule SUBST_ALL_TAC head_TOK)
 
+
+*)
 
 *)
 val _ = export_theory()

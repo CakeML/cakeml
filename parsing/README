@@ -14,7 +14,7 @@ The parsing function is one that executes a *Parsing Expression Grammar* (or PEG
 
 * `mmlPEG`: theory defining the PEG for CakeML.  Includes a proof that the PEG is well-formed.
 
-* `mmlParse`: theory defining the overall parsing functions that go from tokens to abstract syntax trees.  (In other words, these include calls to the functions in `semantics/cmlPtreeConversion`.)  The function used in the REPL is `mmlParseREPLTop`.
+* `mmlParse`: theory defining the overall parsing functions that go from tokens to abstract syntax trees.  (In other words, these include calls to the functions in `semantics/cmlPtreeConversion`.)  The function used in the REPL is `parse_top`.
 
 * `parsingPreamble`: custom HOL proof code
 
