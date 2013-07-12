@@ -1,7 +1,11 @@
-open HolKernel bossLib boolLib lcsymtacs ml_translatorLib ml_translatorTheory
+open HolKernel bossLib boolLib lcsymtacs
+(*
+open ml_translatorLib ml_translatorTheory
 open toIntLangProofsTheory compilerProofsTheory bootstrapProofsTheory ml_repl_stepTheory compile_repl_stepTheory sideTheory
+*)
 val _ = new_theory"bootstrap"
 
+(*
 val _ = Globals.max_print_depth := 25
 
 val _ = translation_extends"ml_repl_step"
