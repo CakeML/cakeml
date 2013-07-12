@@ -1203,6 +1203,7 @@ val mk_id_inj = store_thm("mk_id_inj",
 
 val closed_context_def = Define`
   closed_context menv cenv s env ⇔
+    ALL_DISTINCT (MAP FST menv) ∧
     EVERY (closed menv) s ∧
     EVERY (closed menv) (MAP SND env) ∧
     EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
@@ -3912,9 +3913,137 @@ val env_rs_add_empty_menv = store_thm("env_rs_add_empty_menv",
     (* this looks hard ! *)
 *)
 
+val SND_pat_to_Cpat_ignore_mvars = store_thm("SND_pat_to_Cpat_ignore_mvars",
+  ``(∀p m m'. m'.bvars = m.bvars ∧ m'.cnmap = m.cnmap ⇒ SND(pat_to_Cpat m' p) = SND(pat_to_Cpat m p)) ∧
+    (∀ps m m'. m'.bvars = m.bvars ∧ m'.cnmap = m.cnmap ⇒ SND(pats_to_Cpats m' ps) = SND(pats_to_Cpats m ps))``,
+  ho_match_mp_tac(TypeBase.induction_of``:pat``) >>
+  simp[ToIntLangTheory.pat_to_Cpat_def] >>
+  simp[UNCURRY] >>
+  rw[] >- metis_tac[pmatchTheory.pat_to_Cpat_cnmap,FST] >>
+  first_x_assum match_mp_tac >>
+  conj_tac >- metis_tac[toIntLangProofsTheory.FST_pat_to_Cpat_bvars,FST] >>
+  metis_tac[pmatchTheory.pat_to_Cpat_cnmap,FST])
+
+val FST_pat_to_Cpat_ignore_mvars = store_thm("FST_pat_to_Cpat_ignore_mvars",
+  ``(∀p m m'. m'.bvars = m.bvars ∧ m'.cnmap = m.cnmap ⇒ FST(pat_to_Cpat m' p) = FST(pat_to_Cpat m p) with mvars := m'.mvars) ∧
+    (∀ps m m'. m'.bvars = m.bvars ∧ m'.cnmap = m.cnmap ⇒ FST(pats_to_Cpats m' ps) = FST(pats_to_Cpats m ps) with mvars := m'.mvars)``,
+  ho_match_mp_tac(TypeBase.induction_of``:pat``) >>
+  simp[ToIntLangTheory.pat_to_Cpat_def] >>
+  simp[UNCURRY] >>
+  rw[ToIntLangTheory.exp_to_Cexp_state_component_equality])
+
+val exp_to_Cexp_mvars_SUBMAP = store_thm("exp_to_Cexp_mvars_SUBMAP",
+  ``(∀m exp m'.
+      (∀mn x. Long mn x ∈ FV exp ⇒ ∃menv. FLOOKUP m.mvars mn = SOME menv ∧ MEM x menv) ∧
+      m'.bvars = m.bvars ∧ m'.cnmap = m.cnmap ∧ m.mvars ⊑  m'.mvars ⇒
+            exp_to_Cexp m' exp = exp_to_Cexp m exp) ∧
+    (∀m ds m'.
+      (∀mn x. Long mn x ∈ FV_defs (set (MAP (Short o FST) ds)) ds ⇒ ∃menv. FLOOKUP m.mvars mn = SOME menv ∧ MEM x menv) ∧
+      m'.bvars = m.bvars ∧ m'.cnmap = m.cnmap ∧ m.mvars ⊑ m'.mvars ⇒
+      defs_to_Cdefs m' ds = defs_to_Cdefs m ds) ∧
+  (∀m pes m'.
+    (∀mn x. Long mn x ∈ FV_pes pes ⇒ ∃menv. FLOOKUP m.mvars mn = SOME menv ∧ MEM x menv) ∧
+     m'.bvars = m.bvars ∧
+     m'.cnmap = m.cnmap ∧
+     m.mvars ⊑ m'.mvars ⇒
+    pes_to_Cpes m' pes = pes_to_Cpes m pes) ∧
+   (∀m es m'.
+    (∀mn x. Long mn x ∈ FV_list es ⇒ ∃menv. FLOOKUP m.mvars mn = SOME menv ∧ MEM x menv) ∧
+     m'.bvars = m.bvars ∧
+     m'.cnmap = m.cnmap ∧
+     m.mvars ⊑ m'.mvars ⇒
+     exps_to_Cexps m' es = exps_to_Cexps m es)``,
+  ho_match_mp_tac exp_to_Cexp_ind >>
+  simp[exp_to_Cexp_def] >>
+  conj_tac >- (
+    rw[] >>
+    BasicProvers.CASE_TAC >>
+    imp_res_tac FLOOKUP_SUBMAP >> fs[] ) >>
+  conj_tac >- (
+    rw[] >>
+    first_x_assum match_mp_tac >>
+    simp[] >>
+    rw[] >>
+    first_x_assum match_mp_tac >>
+    simp[] >>
+    fsrw_tac[DNF_ss][FV_defs_MAP,EXISTS_PROD] >>
+    fsrw_tac[DNF_ss][MEM_MAP] ) >>
+  conj_tac >- (
+    rw[] >>
+    first_x_assum match_mp_tac >>
+    simp[] >>
+    fsrw_tac[DNF_ss][FV_defs_MAP,EXISTS_PROD,MEM_MAP] >>
+    metis_tac[] ) >>
+  rw[] >>
+  simp[UNCURRY] >>
+  conj_tac >- metis_tac[SND_pat_to_Cpat_cnmap] >>
+  first_x_assum (match_mp_tac o MP_CANON) >>
+  simp[] >>
+  qabbrev_tac`x = pat_to_Cpat m p` >>
+  PairCases_on`x`>>fs[]>>
+  conj_tac >- (
+    metis_tac[toIntLangProofsTheory.FST_pat_to_Cpat_bvars,FST] ) >>
+  metis_tac[pmatchTheory.pat_to_Cpat_cnmap,FST] )
+
+val v_to_Cv_mvars_SUBMAP = store_thm("v_to_Cv_mvars_SUBMAP",
+  ``(∀mv m v menv mv'. ALL_DISTINCT (MAP FST menv) ∧ closed menv v ∧ mv = (MAP FST o_f alist_to_fmap menv) ∧ mv ⊑ mv' ⇒ v_to_Cv mv' m v = v_to_Cv mv m v) ∧
+    (∀mv m v menv mv'. ALL_DISTINCT (MAP FST menv) ∧ EVERY (closed menv) v ∧ mv = (MAP FST o_f alist_to_fmap menv)∧ mv ⊑ mv' ⇒ vs_to_Cvs mv' m v = vs_to_Cvs mv m v) ∧
+    (∀mv m v menv mv'. ALL_DISTINCT (MAP FST menv) ∧ EVERY (closed menv) (MAP SND v) ∧ mv = (MAP FST o_f alist_to_fmap menv)∧ mv ⊑ mv' ⇒ env_to_Cenv mv' m v = env_to_Cenv mv m v)``,
+  ho_match_mp_tac v_to_Cv_ind >>
+  simp[v_to_Cv_def] >>
+  conj_tac >- (
+    rw[] >> fs[] >- (
+      first_x_assum match_mp_tac >>
+      fs[Once closed_cases] ) >>
+    AP_TERM_TAC >>
+    match_mp_tac (CONJUNCT1 exp_to_Cexp_mvars_SUBMAP) >>
+    simp[] >>
+    fs[Once closed_cases] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,FLOOKUP_DEF] >>
+    rw[] >>
+    first_x_assum(qspec_then`Long mn x`mp_tac) >>
+    simp[] >>
+    strip_tac >>
+    HINT_EXISTS_TAC >> simp[] >>
+    qexists_tac`y`>>simp[] >>
+    imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+    qmatch_assum_rename_tac`mn = FST z`[] >>
+    PairCases_on`z` >>
+    pop_assum(qspecl_then[`z1`,`z0`]mp_tac) >>
+    simp[] >> strip_tac >>
+    imp_res_tac ALOOKUP_SOME_FAPPLY_alist_to_fmap >>
+    fs[] ) >>
+  rw[] >- (
+    first_x_assum match_mp_tac >>
+    fs[Once closed_cases] ) >>
+  match_mp_tac (CONJUNCT1 (CONJUNCT2 exp_to_Cexp_mvars_SUBMAP)) >>
+  simp[] >>
+  fs[Once closed_cases] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FLAT,FLOOKUP_DEF] >>
+  rw[] >>
+  fsrw_tac[DNF_ss][FV_defs_MAP,UNCURRY] >>
+  qmatch_assum_rename_tac`MEM d defs`[] >>
+  PairCases_on`d`>>fs[] >>
+  first_x_assum(qspecl_then[`d0`,`d1`,`d2`]mp_tac) >>
+  simp[] >>
+  disch_then(qspec_then`Long mn x`mp_tac) >>
+  simp[] >>
+  strip_tac >>
+  HINT_EXISTS_TAC >> simp[] >>
+  qmatch_assum_rename_tac`x = FST z`[] >>
+  qexists_tac`z`>>simp[] >>
+  imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+  qmatch_assum_rename_tac`mn = FST w`[] >>
+  PairCases_on`w` >>
+  pop_assum(qspecl_then[`w1`,`w0`]mp_tac) >>
+  simp[] >> strip_tac >>
+  imp_res_tac ALOOKUP_SOME_FAPPLY_alist_to_fmap >>
+  fs[] )
+
 val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
   ``∀menv cenv env rs cz rd cs bs mn new old rnew rold rs' menv'.
      env_rs menv cenv env rs cz rd cs bs
+     ∧ closed_context menv cenv (SND cs) env
      ∧ mn ∉ FDOM rs.rmenv
      ∧ env = new ++ old
      ∧ rs.renv = rnew ++ rold
@@ -3925,26 +4054,50 @@ val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
      env_rs menv' cenv old rs' cz rd cs bs``,
   rw[env_rs_def] >> fs[LET_THM] >>
   fs[env_to_Cenv_MAP] >> rfs[] >>
-  qmatch_assum_abbrev_tac`EVERY2 syneq (l1 ++ l2) Cenv` >>
+  qmatch_assum_abbrev_tac`LIST_REL syneq (MAP (v_to_Cv mv0 m) (SND cs)) Cs` >>
+  `mv0 ⊑ mv` by (
+    simp[Abbr`mv0`,Abbr`mv`,Abbr`fmv`] >>
+    qpat_assum`x = MAP FST o_f y`(assume_tac o SYM) >>
+    simp[] >>
+    simp[SUBMAP_DEF] >>
+    ntac 2 strip_tac >>
+    simp[FAPPLY_FUPDATE_THM] >>
+    `x ∈ FDOM rs.rmenv` by (
+      fs[GSYM fmap_EQ] ) >>
+    rw[]>>fs[] >>
+    simp[DOMSUB_FAPPLY_THM] ) >>
+  `vs_to_Cvs mv m (SND cs) = vs_to_Cvs mv0 m (SND cs)` by (
+    match_mp_tac (CONJUNCT1 (CONJUNCT2 v_to_Cv_mvars_SUBMAP)) >>
+    qexists_tac`menv` >> simp[] >>
+    fs[closed_context_def] ) >>
+  fs[vs_to_Cvs_MAP] >>
+  CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
   `MAP FST rnew = MAP FST new ∧ MAP FST rold = MAP FST old` by (
     metis_tac[APPEND_LENGTH_EQ,LENGTH_MAP,APPEND_11_LENGTH] ) >>
+  qexists_tac`Cs` >> simp[] >>
+  qmatch_assum_abbrev_tac`EVERY2 syneq (l1 ++ l2) Cenv` >>
   `Cenv = TAKE (LENGTH new) Cenv ++ DROP (LENGTH new) Cenv` by metis_tac[TAKE_DROP] >>
   qmatch_assum_abbrev_tac`Cenv = l3 ++ l4` >>
-  cheat
-  (*
-  qexists_tac`DROP (LENGTH new) Cenv` >>
-  qexists_tac`Cs` >> simp[] >>
-  `LENGTH Cenv = LENGTH new + LENGTH old` by (
-    qpat_assum`Cenv = X`kall_tac >>
+  qexists_tac`l4` >>
+  `LENGTH l1 = LENGTH l3 ∧ LENGTH l2 = LENGTH l4` by (
+    qpat_assum`Cenv = X`(assume_tac o SYM) >>
     fs[EVERY2_EVERY] >>
-    qpat_assum`X = LENGTH Cenv`(SUBST1_TAC o SYM) >>
-    simp[Abbr`l1`] >> simp[Abbr`Cenv0`] ) >>
-  `LENGTH l1 = LENGTH l2 ∧ LENGTH l3 = LENGTH Cenv0` by (
-    simp[Abbr`l1`,Abbr`l2`] >>
-    simp[Abbr`l3`,Abbr`Cenv0`] ) >>
-  `LIST_REL syneq Cenv0 l3 ∧ LIST_REL syneq l1 l2` by metis_tac[EVERY2_APPEND] >>
-  simp[]
-  simp[] *))
+    `LENGTH new ≤ LENGTH Cenv`  by (
+      fsrw_tac[ARITH_ss][Abbr`l1`] ) >>
+    simp[Abbr`l1`,Abbr`l3`] >>
+    `LENGTH old ≤ LENGTH Cenv`  by (
+      fsrw_tac[ARITH_ss][Abbr`l2`] ) >>
+    qpat_assum`LENGTH old = X`(assume_tac o SYM) >>
+    simp[Abbr`l2`,Abbr`l4`] >> fs[] >> simp[]) >>
+  `LIST_REL syneq l1 l3 ∧ LIST_REL syneq l2 l4` by (
+    metis_tac[EVERY2_APPEND] ) >>
+  `Cenv0 = l2` by  (
+    simp[Abbr`l2`,Abbr`Cenv0`,GSYM MAP_MAP_o,GSYM vs_to_Cvs_MAP] >>
+    match_mp_tac (CONJUNCT1 (CONJUNCT2 v_to_Cv_mvars_SUBMAP)) >>
+    qexists_tac`menv` >>
+    fs[closed_context_def] ) >>
+  simp[] >>
+  cheat)
 
 val compile_top_thm = store_thm("compile_top_thm",
   ``∀menv cenv s env top res. evaluate_top menv cenv s env top res ⇒
