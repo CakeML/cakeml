@@ -3,7 +3,7 @@ open finite_mapTheory listTheory rich_listTheory relationTheory pred_setTheory
 open BigStepTheory SemanticPrimitivesTheory terminationTheory bigClockTheory
 open IntLangTheory intLangExtraTheory CompilerTheory compilerTerminationTheory toIntLangProofsTheory toBytecodeProofsTheory compilerProofsTheory
 open BytecodeTheory bytecodeExtraTheory bytecodeClockTheory bytecodeEvalTheory
-val _ = new_theory"bootstrapProofs"
+val _ = new_theory"interactive"
 
 val env_rs_empty = store_thm("env_rs_empty",
   ``bs.stack = [] ∧ (∀n. bs.clock = SOME n ⇒ n = ck) ∧ rd.sm = [] ∧ rd.cls = FEMPTY ∧ cs = init_compiler_state ⇒
