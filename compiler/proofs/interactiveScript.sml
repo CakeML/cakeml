@@ -5,33 +5,9 @@ open IntLangTheory intLangExtraTheory CompilerTheory compilerTerminationTheory t
 open BytecodeTheory bytecodeExtraTheory bytecodeClockTheory bytecodeEvalTheory
 val _ = new_theory"interactive"
 
-val env_rs_empty = store_thm("env_rs_empty",
-  ``bs.stack = [] ∧ (∀n. bs.clock = SOME n ⇒ n = ck) ∧ rd.sm = [] ∧ rd.cls = FEMPTY ∧ cs = init_compiler_state ⇒
-    env_rs [] [] [] cs 0 rd (ck,[]) bs``,
-  simp[env_rs_def,init_compiler_state_def,intLangExtraTheory.good_cmap_def,FLOOKUP_UPDATE
-      ,good_contab_def,IntLangTheory.tuple_cn_def,toIntLangProofsTheory.cmap_linv_def] >>
-  simp[pmatchTheory.env_to_Cenv_MAP,intLangExtraTheory.all_vlabs_menv_def
-      ,intLangExtraTheory.vlabs_menv_def,pred_setTheory.SUM_IMAGE_THM
-      ,closed_Clocs_def,closed_vlabs_def] >>
-  strip_tac >>
-  simp[Cenv_bs_def,env_renv_def,s_refs_def,good_rd_def,FEVERY_DEF,semanticsExtraTheory.cenv_dom_def])
-
 val closed_context_empty = store_thm("closed_context_empty",
   ``closed_context [] [] [] []``,
   simp[closed_context_def,toIntLangProofsTheory.closed_under_cenv_def,closed_under_menv_def])
-
-val env_rs_remove_clock = store_thm("env_rs_remove_clock",
-   ``∀menv cenv env rs cz rd cs bs cs' ck' bs'.
-     env_rs menv cenv env rs cz rd cs bs ∧ cs' = (ck',SND cs) ∧
-     bs' = bs with clock := NONE ⇒
-     env_rs menv cenv env rs cz rd cs' bs'``,
-  rw[env_rs_def] >> fs[LET_THM] >>
-  rpt HINT_EXISTS_TAC >>
-  qexists_tac`Cs` >> simp[] >>
-  match_mp_tac Cenv_bs_change_store >>
-  map_every qexists_tac[`rd`,`FST cs,Cs`,`bs`,`bs.refs`,`NONE`] >>
-  simp[bc_state_component_equality] >> rfs[] >>
-  fs[Cenv_bs_def,s_refs_def,good_rd_def])
 
 val tac =
   strip_tac >>
