@@ -204,7 +204,7 @@ val oneshot_thm = store_thm("oneshot_thm",
   simp[Cenv_bs_def] >> strip_tac >>
   rator_x_assum`env_renv`mp_tac >>
   simp[env_renv_def] >>
-  `rsz = 374 ∧ LENGTH m.bvars = 374 ∧ ∃junk. m.bvars = "it"::junk` by (
+  `rsz = 371 ∧ LENGTH m.bvars = 371 ∧ ∃junk. m.bvars = "it"::junk` by (
     mp_tac result_state >> simp[] ) >>
   simp[MAP_ZIP,MAP_GENLIST] >>
   Cases_on`bvs`>>fs[] >>
