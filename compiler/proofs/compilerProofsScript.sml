@@ -4131,7 +4131,25 @@ val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
     fsrw_tac[DNF_ss][env_to_Cenv_MAP,MEM_MAP,Abbr`l1`,SUBSET_DEF] >>
     conj_tac >- (
       rw[] >> res_tac >> fs[all_Clocs_v_to_Cv] ) >>
-    cheat) >>
+    rw[] >>
+    fs[fmap_rel_def] >>
+    qmatch_assum_rename_tac`l ∈ all_Clocs v`[] >>
+    qmatch_assum_rename_tac`MEM v me`[] >>
+    pop_assum mp_tac >>
+    simp[IN_FRANGE] >> strip_tac >>
+    pop_assum mp_tac >>
+    REWRITE_TAC[GSYM o_f_DOMSUB] >>
+    simp[DOMSUB_FAPPLY_THM] >>
+    first_x_assum(qspec_then`k`mp_tac) >>
+    simp[] >> rw[] >>
+    fsrw_tac[DNF_ss][MEM_FLAT,MEM_MAP,env_to_Cenv_MAP] >> rw[] >>
+    fs[all_Clocs_v_to_Cv] >>
+    qmatch_assum_rename_tac`MEM p menv`[] >>
+    PairCases_on`p`>>fs[] >>
+    imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+    imp_res_tac ALOOKUP_SOME_FAPPLY_alist_to_fmap >>
+    rw[] >> fs[] >>
+    metis_tac[SND]) >>
   conj_tac >- (
     fs[closed_vlabs_def] >>
     conj_tac >- (
@@ -4204,6 +4222,8 @@ val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
   first_x_assum(qspec_then`x`mp_tac) >>
   simp[] >>
   simp[env_to_Cenv_MAP] >>
+  rw[] >>
+
   cheat)
 
 val compile_top_thm = store_thm("compile_top_thm",
