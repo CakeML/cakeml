@@ -11,9 +11,6 @@ the logic) requires a machine with 32GB RAM.
 
 Directory structure:
 
-- examples
-    Examples of compiling and running CakeML programs in the HOL logic
-
 - semantics
     The definition of CakeML, including
     - its concrete syntax
