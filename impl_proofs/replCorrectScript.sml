@@ -2098,16 +2098,4 @@ rw [repl_fun_def, repl_def] >>
 match_mp_tac replCorrect_lem >>
 rw[initial_invariant])
 
-val replCorrect' = Q.store_thm ("replCorrect'",
-`!input output b.
-  (repl_fun' input = (output,b)) ⇒
-  (repl (get_type_error_mask output) input output) /\ b`,
-cheat)
-
-val replCorrect_thm = Q.store_thm ("replCorrect_thm",
-`!input output.
-  (repl_fun input = output) ⇒
-  (repl (get_type_error_mask output) input output)`,
-metis_tac [replCorrect',repl_fun'_thm,PAIR])
-
 val _ = export_theory ();
