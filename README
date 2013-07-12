@@ -4,13 +4,15 @@ A verified implementation of a significant subset of Standard ML in the HOL4
 theorem prover (http://hol.sourceforge.net).
 
 NB: We develop this using the head of the HOL4 development version in Github
-(https://github.com/mn200/HOL), and it will not work on official HOL
-releases.  We build HOL on PolyML 5.5 (http://www.polyml.org/).
+(https://github.com/mn200/HOL), and it will not work on official HOL releases.
+We build HOL on PolyML 5.5 (http://www.polyml.org/).  Also, a full build
+(including the bootstrapping which requires running the compiler on itself in
+the logic) requires a machine with 32GB RAM.
 
 Directory structure:
 
 - examples
-    Examples of running CakeML programs
+    Examples of compiling and running CakeML programs in the HOL logic
 
 - semantics
     The definition of CakeML, including
