@@ -1,6 +1,6 @@
 open HolKernel bossLib boolLib boolSimps lcsymtacs ml_translatorLib ml_translatorTheory miscLib rich_listTheory
 open compilerTerminationTheory toIntLangProofsTheory toBytecodeProofsTheory compilerProofsTheory ml_repl_stepTheory oneshotTheory compile_oneshotTheory sideTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeTerminationTheory bootstrap_lemmaTheory
-val _ = new_theory"oneshotProofs"
+val _ = new_theory"bootstrap"
 
 val _ = Globals.max_print_depth := 25
 
@@ -231,5 +231,206 @@ val oneshot_thm = store_thm("oneshot_thm",
   simp[] >>
   qexists_tac`rd'` >>
   simp[])
+
+val (Eval_peic,side_def) = get_cert"parse_elaborate_infertype_compile"
+
+val Eval =
+  Eval_peic
+  |>DISCH_ALL
+  |>SIMP_RULE std_ss [PRECONDITION_def,parse_elaborate_infertype_compile_side_thm]
+  |>UNDISCH_ALL
+  |>Q.GENL[`v12`,`v13`]
+  |>SIMP_RULE std_ss[Eval_FUN_FORALL_EQ]
+  |>SIMP_RULE std_ss[FUN_QUANT_SIMP]
+
+val lemma1 =
+  bootstrap_lemma1
+  |> DISCH_ALL
+  |> REWRITE_RULE[AND_IMP_INTRO]
+  |> ONCE_REWRITE_RULE[CONJ_COMM]
+  |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+
+val lemma2 =
+  Eval
+  |> DISCH``DeclAssum ml_repl_step_decls env``
+  |> Q.GEN`env`
+
+val lemma3 =
+MATCH_MP lemma1 lemma2
+|> DISCH_ALL
+|> SIMP_RULE std_ss [PRECONDITION_def,parse_elaborate_infertype_compile_side_thm,empty_store_def,Once Eq_def]
+|> funpow 4 UNDISCH
+
+val oneshot_def' = oneshot_decs_def |> REWRITE_RULE[GSYM SNOC_APPEND]
+
+(*
+val bootstrap_thm_lemma = prove(
+``^(list_mk_conj (hyp lemma3)) ∧
+  eval_ctor_inv [] [] [("input",i)] ∧
+  check_ctors_decs NONE [] oneshot_decs ∧
+  Decls NONE [] [] [] [] ml_repl_step_decls cenv2 s2 env2 ∧
+  Decls NONE [] [] [] [("input",i)] ml_repl_step_decls cenv2 s2 env2 ∧
+  lookup "input" env2 = NONE ∧ LIST_TYPE TOKEN_TYPE input i ⇒
+  ∃env cenv s v.
+   (lookup "it" env = SOME v ∧
+      (REPL_FUN_STATE_TYPE -->
+       EXC_TYPE
+         (PAIR_TYPE (LIST_TYPE BC_INST_TYPE)
+            (PAIR_TYPE REPL_FUN_STATE_TYPE REPL_FUN_STATE_TYPE))
+         (LIST_TYPE CHAR)) (parse_elaborate_infertype_compile input)
+        v) ∧
+     evaluate_decs NONE [] [] [] [("input",i)] oneshot_decs (s,cenv,Rval env) ∧
+     FV_decs oneshot_decs = {Short "input"} ∧
+     decs_cns NONE oneshot_decs = ∅ ∧
+     (∀i tds.
+        i < LENGTH oneshot_decs ∧ EL i oneshot_decs = Dtype tds ⇒
+        check_dup_ctors NONE (decs_to_cenv NONE (TAKE i oneshot_decs))
+          tds) ∧ closed [] i ∧ all_cns i = ∅ ∧ all_locs i = ∅ ∧
+     ¬contains_closure i ⇒
+     (let (ct,m,renv,rsz,cs) = bootstrap_result
+      in
+        ∀bs bi pp.
+          bs.code = REVERSE cs.out ∧ bs.pc = 0 ∧ bs.stack = [bi] ∧
+          bs.clock = NONE ∧
+          Cv_bv pp (v_to_Cv FEMPTY (cmap init_compiler_state.contab) i)
+            bi ⇒
+          ∃bs' Cv bv st rd.
+            bc_eval bs = SOME bs' ∧
+            bs'.pc = next_addr bs.inst_length bs.code ∧
+            bs'.stack = bv::st ∧
+            syneq (v_to_Cv FEMPTY (cmap ct) (THE (lookup "it" env)))
+              Cv ∧ Cv_bv (mk_pp rd bs') Cv bv)``,
+  rpt strip_tac >>
+  mp_tac (Q.INST[`env`|->`env2`]lemma3)  >>
+  rw[] >>
+  `evaluate_decs NONE [] [] [] [("input",i)] oneshot_decs (s2',cenv2',Rval env')` by (
+    fs[GSYM oneshot_def'] >>
+    metis_tac[bootstrap_lemma2,result_distinct] ) >>
+  map_every qexists_tac[`env'`,`cenv2'`,`s2'`,`v`] >>
+  rw[] >>
+  imp_res_tac oneshot_thm >>
+  fs[LET_THM] >>
+  Cases_on`bootstrap_result` >>
+  PairCases_on`r` >> fs[] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  rfs[] >>
+  first_x_assum (match_mp_tac o MP_CANON) >>
+  metis_tac[])
+*)
+
+val bootstrap_thm_lemma = prove(
+``^(list_mk_conj (hyp lemma3)) ∧
+  eval_ctor_inv [] [] [("input",i)] ∧
+  check_ctors_decs NONE [] oneshot_decs ∧
+  Decls NONE [] [] [] [] ml_repl_step_decls cenv2 s2 env2 ∧
+  Decls NONE [] [] [] [("input",i)] ml_repl_step_decls cenv2 s2 env2 ∧
+  lookup "input" env2 = NONE ∧ LIST_TYPE TOKEN_TYPE input i ⇒
+  ∃env cenv s v.
+   (lookup "it" env = SOME v ∧
+      (REPL_FUN_STATE_TYPE -->
+       EXC_TYPE
+         (PAIR_TYPE (LIST_TYPE BC_INST_TYPE)
+            (PAIR_TYPE REPL_FUN_STATE_TYPE REPL_FUN_STATE_TYPE))
+         (LIST_TYPE CHAR)) (parse_elaborate_infertype_compile input)
+        v) ∧
+     evaluate_decs NONE [] [] [] [("input",i)] oneshot_decs (s,cenv,Rval env) ∧
+   (
+     FV_decs oneshot_decs = {Short "input"} ∧
+     decs_cns NONE oneshot_decs = ∅ ∧
+     (∀i tds.
+        i < LENGTH oneshot_decs ∧ EL i oneshot_decs = Dtype tds ⇒
+        check_dup_ctors NONE (decs_to_cenv NONE (TAKE i oneshot_decs))
+          tds) ∧ closed [] i ∧ all_cns i = ∅ ∧ all_locs i = ∅ ∧
+     ¬contains_closure i ⇒
+     (let (ct,m,renv,rsz,cs) = bootstrap_result
+      in
+        ∀bs bi pp.
+          bs.code = REVERSE cs.out ∧ bs.pc = 0 ∧ bs.stack = [bi] ∧
+          bs.clock = NONE ∧
+          Cv_bv pp (v_to_Cv FEMPTY (cmap init_compiler_state.contab) i)
+            bi ⇒
+          ∃bs' Cv bv st rd.
+            bc_eval bs = SOME bs' ∧
+            bs'.pc = next_addr bs.inst_length bs.code ∧
+            bs'.stack = bv::st ∧
+            syneq (v_to_Cv FEMPTY (cmap ct) (THE (lookup "it" env)))
+              Cv ∧ Cv_bv (mk_pp rd bs') Cv bv))``,
+  rpt strip_tac >>
+  mp_tac (Q.INST[`env`|->`env2`]lemma3)  >>
+  rw[] >>
+  `evaluate_decs NONE [] [] [] [("input",i)] oneshot_decs (s2',cenv2',Rval env')` by (
+    fs[GSYM oneshot_def'] >>
+    metis_tac[bootstrap_lemma2,result_distinct] ) >>
+  map_every qexists_tac[`env'`,`cenv2'`,`s2'`,`v`] >>
+  rw[] >>
+  imp_res_tac oneshot_thm >>
+  fs[LET_THM] >>
+  Cases_on`bootstrap_result` >>
+  PairCases_on`r` >> fs[] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  rfs[] >>
+  first_x_assum (match_mp_tac o MP_CANON) >>
+  metis_tac[])
+
+val bootstrap_lemma6 =
+  bootstrap_thm_lemma
+|> SIMP_RULE std_ss [METIS_PROVE[]``(Q ==> (?x. P x)) ⇔ ?x. Q ==> P x``]
+|> SIMP_RULE (srw_ss()) [bigBigEquivTheory.eval_ctor_inv_def]
+|> SIMP_RULE std_ss [AND_IMP_INTRO]
+
+val bootstrap_thm = store_thm("bootstrap_thm",
+``
+(* These hypotheses the translator should prove automatically *)
+ EqualityType EXP_TYPE ∧
+ EqualityType (PARSETREE_TYPE TOKEN_TYPE MMLNONT_TYPE) ∧
+ EqualityType PAT_TYPE ∧ EqualityType T_TYPE ∧
+(* These hypotheses are true by evaluation, but it takes a long time to evaluate in the logic *)
+ check_ctors_decs NONE [] oneshot_decs ∧
+ Decls NONE [] [] [] [] ml_repl_step_decls cenv2 s2 env2 ∧
+ Decls NONE [] [] [] [("input",i)] ml_repl_step_decls cenv2 s2 env2 ∧
+ ALOOKUP env2 "input" = NONE ∧
+ FV_decs oneshot_decs = {Short "input"} ∧
+ decs_cns NONE oneshot_decs = ∅ ∧
+ (∀i tds.
+   i < LENGTH oneshot_decs ∧ EL i oneshot_decs = Dtype tds ⇒
+   check_dup_ctors NONE (decs_to_cenv NONE (TAKE i oneshot_decs)) tds)
+
+ ⇒
+
+∃env cenv s v.
+
+(* these are conditions on the input to the compiler: it must be a list of tokens *)
+check_ctors_v [] i ∧ LIST_TYPE TOKEN_TYPE input i ∧
+closed [] i ∧ all_cns i = ∅ ∧ all_locs i = ∅ ∧ ¬contains_closure i
+
+ ⇒
+
+(* the conclusion follows: *)
+
+     (ALOOKUP env "it" = SOME v ∧
+      (REPL_FUN_STATE_TYPE -->
+       EXC_TYPE
+         (PAIR_TYPE (LIST_TYPE BC_INST_TYPE)
+            (PAIR_TYPE REPL_FUN_STATE_TYPE REPL_FUN_STATE_TYPE))
+         (LIST_TYPE CHAR)) (parse_elaborate_infertype_compile input)
+        v) ∧
+
+     evaluate_decs NONE [] [] [] [("input",i)] oneshot_decs (s,cenv,Rval env) ∧
+
+      (let (ct,m,renv,rsz,cs) = bootstrap_result
+       in
+         ∀bs bi pp.
+           ∃bs' Cv bv st rd.
+             bs.code = REVERSE cs.out ∧ bs.pc = 0 ∧ bs.stack = [bi] ∧
+             bs.clock = NONE ∧
+             Cv_bv pp
+               (v_to_Cv FEMPTY (cmap init_compiler_state.contab) i) bi ⇒
+             bc_eval bs = SOME bs' ∧
+             bs'.pc = next_addr bs.inst_length (REVERSE cs.out) ∧
+             bs'.stack = bv::st ∧
+             syneq (v_to_Cv FEMPTY (cmap ct) (THE (ALOOKUP env "it")))
+               Cv ∧ Cv_bv (mk_pp rd bs') Cv bv)``,
+metis_tac[bootstrap_lemma6])
+
 
 val _ = export_theory()
