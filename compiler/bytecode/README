@@ -1,14 +1,30 @@
-compilerLib.lem
-  library functions used throughout the compiler
-
 bytecode.lem
   definition of bytecode language
 
+printer.lem
+  translations from CakeML values and Bytecode values to strings 
+
 bytecodeEvalScript.sml
-  functional version of the bytecode evaluation relation
+  functional implementing the deterministic bytecode evaluation relation
 
-as yet undocumented:
+bytecodeExtraScript.sml
+  metatheory
 
-benchmarking
+bytecodeClockScript.sml
+  proofs about clocked bytecode evaluation, used for the divergence
+  preservation aspect of compiler correctness
 
-hardware
+bytecodeLabelsScript.sml
+  definition and proofs about routines for replacing bytecode labels by
+  concrete addresses
+
+bytecodeTerminationScript.sml
+  termination proofs for recursive functions
+
+hol_lib.lem
+compilerLib.lem
+  library functions used throughout the compiler
+
+miscLib.sml
+miscScript.sml
+  useful theorems and tactics not specific to the compiler or bytecode

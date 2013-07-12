@@ -1,8 +1,32 @@
-open HolKernel bossLib boolLib boolSimps listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory sortingTheory lcsymtacs
+open HolKernel bossLib boolLib boolSimps listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory sortingTheory relationTheory lcsymtacs
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
+
+val RTC_RINTER = store_thm("RTC_RINTER",
+  ``!R1 R2 x y. RTC (R1 RINTER R2) x y ⇒ ((RTC R1) RINTER (RTC R2)) x y``,
+  ntac 2 gen_tac >>
+  match_mp_tac RTC_INDUCT >>
+  simp[RINTER] >>
+  metis_tac[RTC_CASES1] )
+
+val RTC_invariant = store_thm("RTC_invariant",
+  ``!R P. (!x y. P x /\ R x y ==> P y) ==> !x y. RTC R x y ==> P x ==> RTC (R RINTER (\x y. P x /\ P y)) x y``,
+  rpt gen_tac >> strip_tac >>
+  ho_match_mp_tac RTC_INDUCT >>
+  rw[] >> res_tac >> fs[] >>
+  simp[Once RTC_CASES1] >>
+  disj2_tac >>
+  HINT_EXISTS_TAC >>
+  simp[RINTER])
+
+val RTC_RSUBSET = store_thm("RTC_RSUBSET",
+  ``!R1 R2. R1 RSUBSET R2 ==> (RTC R1) RSUBSET (RTC R2)``,
+  simp[RSUBSET] >> rpt gen_tac >> strip_tac >>
+  ho_match_mp_tac RTC_INDUCT >>
+  simp[] >>
+  metis_tac[RTC_CASES1])
 
 val EL_LENGTH_APPEND_rwt = store_thm("EL_LENGTH_APPEND_rwt",
   ``¬NULL l2 ∧ (n = LENGTH l1) ⇒  (EL n (l1++l2) = HD l2)``,
