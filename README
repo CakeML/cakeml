@@ -61,3 +61,5 @@ Directory structure:
     An implementation of HOL Light (http://www.cl.cam.ac.uk/~jrh13/hol-light/)
     in CakeML.
 
+- x86-64
+    Word towards an x86-64 implementation of repl_fun from implementation
