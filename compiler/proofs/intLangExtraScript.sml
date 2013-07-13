@@ -846,6 +846,91 @@ val syneq_sym_no_vlabs = store_thm("syneq_sym_no_vlabs",
   simp[inv_DEF] >>
   PROVE_TAC[syneq_exp_sym_no_labs,no_labs_defs_MAP,EVERY_MEM,MEM_EL])
 
+val syneq_exp_sym_all_labs = store_thm("syneq_exp_sym_all_labs",
+  ``(∀ez1 ez2 V exp1 exp2. syneq_exp ez1 ez2 V exp1 exp2 ⇒ all_labs exp1 ⇒ syneq_exp ez2 ez1 (inv V) exp2 exp1) ∧
+    (∀ez1 ez2 V defs1 defs2 V'. syneq_defs ez1 ez2 V defs1 defs2 V' ⇒ all_labs_defs defs1 ⇒ syneq_defs ez2 ez1 (inv V) defs2 defs1 (inv V'))``,
+  ho_match_mp_tac syneq_exp_ind >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases]) >>
+  strip_tac >- (
+    rw[] >> rw[Once syneq_exp_cases] >>
+    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+    fs[] >> HINT_EXISTS_TAC >>
+    simp[inv_DEF] >> Cases >> simp[] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases,inv_DEF] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases,inv_DEF] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once syneq_exp_cases] >>
+    fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,inv_DEF] >>
+    rfs[MEM_ZIP] >> rw[] >>
+    fsrw_tac[DNF_ss][MEM_EL]) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once syneq_exp_cases] >>
+    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+    fs[] >> HINT_EXISTS_TAC >>
+    simp[inv_DEF] >> Cases >> simp[] ) >>
+  strip_tac >- (
+    rw[] >> rw[Once syneq_exp_cases] >>
+    qexists_tac`inv V'` >> simp[] >>
+    fs[] >>
+    match_mp_tac (MP_CANON(CONJUNCT1 syneq_exp_mono_V)) >>
+    HINT_EXISTS_TAC >> simp[] >>
+    simp[inv_DEF] >>
+    rw[] >> simp[]) >>
+  strip_tac >- (
+    rw[] >> simp[Once syneq_exp_cases] >> fs[] >>
+    fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,FORALL_PROD] >> rfs[MEM_ZIP] >>
+    fsrw_tac[DNF_ss][MEM_EL]) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  strip_tac >- ( rw[] >> rw[Once syneq_exp_cases] ) >>
+  rw[] >>
+  simp[Once syneq_exp_cases] >>
+  simp[inv_DEF] >>
+  rpt gen_tac >> strip_tac >>
+  first_x_assum(qspecl_then[`n2`,`n1`]mp_tac) >>
+  simp[] >> strip_tac >>
+  ntac 2(qpat_assum`X = Y`(mp_tac o SYM)) >>
+  ntac 2 strip_tac >> simp[] >>
+  conj_asm1_tac >- (
+    rw[] >> fs[EVERY_MEM,MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+    Cases_on`EL n2 defs1`>>fs[]>>
+    Cases_on`q`>>fs[] >>
+    `all_labs_def (NONE,r)` by PROVE_TAC[] >>
+    fs[] ) >>
+  strip_tac >> fs[inv_syneq_cb_V] >>
+  conj_tac >- (
+    first_x_assum match_mp_tac >>
+    Cases_on`EL n2 defs1`>>fs[] >>
+    Cases_on`q`>>PairCases_on`r`>>fs[syneq_cb_aux_def]>>
+    fs[EVERY_MEM,MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+    last_x_assum(qspec_then`n2`mp_tac) >> simp[] >>
+    rfs[] >> PairCases_on`x`>>fs[] >>
+    fs[syneq_cb_aux_def]) >>
+  rpt gen_tac >> strip_tac >>
+  fs[EVERY_MEM,MEM_EL,GSYM LEFT_FORALL_IMP_THM])
+
+val syneq_sym_all_vlabs = store_thm("syneq_sym_all_vlabs",
+  ``∀x y. syneq x y ⇒ all_vlabs x ⇒ syneq y x``,
+  ho_match_mp_tac syneq_ind >> rw[] >- (
+    rw[] >> simp[Once syneq_cases] >>
+    fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,FORALL_PROD] >>
+    rfs[MEM_ZIP,MEM_EL] >> PROVE_TAC[]) >>
+  rw[] >> rw[Once syneq_cases] >>
+  map_every qexists_tac[`inv V`,`inv V'`] >>
+  simp[inv_DEF] >>
+  PROVE_TAC[syneq_exp_sym_all_labs,all_labs_defs_MAP,EVERY_MEM,MEM_EL])
+
+val EVERY2_syneq_sym_all_vlabs = save_thm(
+"EVERY2_syneq_sym_all_vlabs",
+EVERY2_sym
+|> Q.GENL[`R2`,`R1`]
+|> Q.ISPECL[`λx y. all_vlabs x ∧ syneq x y`,`syneq`]
+|> SIMP_RULE std_ss[syneq_sym_all_vlabs])
+
 (*
 val result_rel_syneq_sym = save_thm(
 "result_rel_syneq_sym",

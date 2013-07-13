@@ -359,53 +359,6 @@ val closed_context_strip_mod_env = store_thm("closed_context_strip_mod_env",
   rw[]>>TRY(metis_tac[])>>
   fsrw_tac[DNF_ss][strip_mod_env_def,MEM_FLAT,MEM_MAP,UNCURRY]);
 
-val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
-  ``∀mn menv cenv s env ds res. evaluate_decs mn menv cenv s env ds res ⇒
-      closed_context menv cenv s env ∧
-      FV_decs ds ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
-      decs_cns mn ds ⊆ cenv_dom cenv
-    ⇒
-      let env' = case SND(SND res) of Rval(e)=>(e++env) | _ => env in
-      closed_context menv ((FST(SND res))++cenv) (FST res) env'``,
-  ho_match_mp_tac evaluate_decs_ind >>
-  simp[LibTheory.emp_def] >>
-  conj_tac >- (
-    rpt gen_tac >> rpt strip_tac >>
-    fs[FV_decs_def,decs_cns_def] >>
-    imp_res_tac evaluate_dec_closed_context >>
-    fs[] >> fs[LET_THM] ) >>
-  simp[combine_dec_result_def,LibTheory.merge_def] >>
-  rpt gen_tac >> rpt strip_tac >>
-  qspecl_then[`mn`,`menv`,`cenv`,`s`,`env`,`d`,`s'`,`Rval (new_tds,new_env)`]mp_tac evaluate_dec_closed_context >>
-  simp[] >> strip_tac >>
-  Cases_on`r`>>fs[]>- (
-    first_x_assum match_mp_tac >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
-    imp_res_tac evaluate_dec_new_dec_cns >> fs[] >>
-    pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string id list -> string id set``) >>
-    imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
-    pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string list -> string set``) >>
-    fsrw_tac[DNF_ss][MEM_MAP,EXTENSION, cenv_dom_def] >>
-    metis_tac[]) >>
-  qpat_assum`P ⇒ Q`mp_tac>>
-  discharge_hyps>-(
-    fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
-    metis_tac[]) >>
-  strip_tac >>
-  qsuff_tac`closed_context menv (new_tds' ++ new_tds ++ cenv) s3 (new_env ++ env)` >- (
-    rw[closed_context_def] >> fs[] >>
-    fs[toIntLangProofsTheory.closed_under_cenv_def,closed_under_menv_def] >>
-    metis_tac[] ) >>
-  first_x_assum match_mp_tac >>
-  fs[] >>
-  fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
-  imp_res_tac evaluate_dec_new_dec_cns >> fs[] >>
-  pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string id list -> string id set``) >>
-  imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
-  pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string list -> string set``) >>
-  fsrw_tac[DNF_ss][cenv_dom_def,MEM_MAP,EXTENSION] >>
-  metis_tac[]);
-
 val closed_context_shift_menv = store_thm("closed_context_shift_menv",
   ``closed_context menv cenv s (env' ++ env) ⇒
     closed_context ((m,env')::menv) cenv s env``,
@@ -453,16 +406,6 @@ val evaluate_top_closed_context = store_thm("evaluate_top_closed_context",
     imp_res_tac evaluate_dec_closed_context >>
     fs[] >> fs[LET_THM] >>
     Cases_on`d`>>fs[] ));
-
-
-val closed_context_extend_cenv = store_thm("closed_context_extend_cenv",
-  ``∀menv cenv s env cenv'.
-      closed_context menv cenv s env ⇒
-      closed_context menv (cenv'++cenv) s env``,
-  rw[closed_context_def] >> fs[] >>
-  fs[toIntLangProofsTheory.closed_under_cenv_def] >>
-  fsrw_tac[DNF_ss][cenv_dom_def, SUBSET_DEF] >>
-  metis_tac[]);
 
 val strip_mod_env_append = store_thm("strip_mod_env_append",
   ``strip_mod_env (ls ++ l2) = strip_mod_env ls ++ strip_mod_env l2``,
@@ -980,15 +923,6 @@ imp_res_tac weakM_dom >>
 res_tac >>
 fs [SUBSET_DEF] >>
 fs [weak_other_mods_def, GSYM alistTheory.ALOOKUP_NONE]);
-
-val evaluate_decs_to_cenv = store_thm("evaluate_decs_to_cenv",
-  ``∀mn menv cenv s env decs res.
-     evaluate_decs mn menv cenv s env decs res ⇒
-     ∃cenv'. decs_to_cenv mn decs = cenv' ++ (FST(SND res))``,
-   HO_MATCH_MP_TAC evaluate_decs_ind >>
-   simp[LibTheory.emp_def] >> rw[] >>
-   imp_res_tac evaluate_dec_dec_to_cenv >>
-   fs[] >> simp[decs_to_cenv_def,LibTheory.merge_def])
 
 val evaluate_top_to_cenv = store_thm("evaluate_top_to_cenv",
   ``∀menv cenv store env top res.

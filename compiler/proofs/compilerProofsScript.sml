@@ -2231,6 +2231,7 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
       metis_tac[] ) >>
     metis_tac[] ))
 
+(*
 val evaluate_decs_to_cenv = store_thm("evaluate_decs_to_cenv",
   ``∀mn menv cenv s env decs res.
     evaluate_decs mn menv cenv s env decs res ⇒
@@ -2242,6 +2243,16 @@ val evaluate_decs_to_cenv = store_thm("evaluate_decs_to_cenv",
   simp[SemanticPrimitivesTheory.combine_dec_result_def] >>
   simp[LibTheory.merge_def] >>
   metis_tac[evaluate_dec_dec_to_cenv,SND])
+*)
+
+val evaluate_decs_to_cenv = store_thm("evaluate_decs_to_cenv",
+  ``∀mn menv cenv s env decs res.
+     evaluate_decs mn menv cenv s env decs res ⇒
+     ∃cenv'. decs_to_cenv mn decs = cenv' ++ (FST(SND res))``,
+   HO_MATCH_MP_TAC evaluate_decs_ind >>
+   simp[LibTheory.emp_def] >> rw[] >>
+   imp_res_tac evaluate_dec_dec_to_cenv >>
+   fs[] >> simp[decs_to_cenv_def,LibTheory.merge_def])
 
 val evaluate_dec_all_cns = store_thm("evaluate_dec_all_cns",
   ``∀mn menv (cenv:envC) s env dec res.
@@ -2570,6 +2581,53 @@ val evaluate_dec_new_dec_vs = store_thm("evaluate_dec_new_dec_vs",
   ho_match_mp_tac evaluate_dec_ind >>
   simp[LibTheory.emp_def] >> rw[] >>
   imp_res_tac pmatch_dom >> fs[])
+
+val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
+  ``∀mn menv cenv s env ds res. evaluate_decs mn menv cenv s env ds res ⇒
+      closed_context menv cenv s env ∧
+      FV_decs ds ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+      decs_cns mn ds ⊆ cenv_dom cenv
+    ⇒
+      let env' = case SND(SND res) of Rval(e)=>(e++env) | _ => env in
+      closed_context menv ((FST(SND res))++cenv) (FST res) env'``,
+  ho_match_mp_tac evaluate_decs_ind >>
+  simp[LibTheory.emp_def] >>
+  conj_tac >- (
+    rpt gen_tac >> rpt strip_tac >>
+    fs[FV_decs_def,decs_cns_def] >>
+    imp_res_tac evaluate_dec_closed_context >>
+    fs[] >> fs[LET_THM] ) >>
+  simp[SemanticPrimitivesTheory.combine_dec_result_def,LibTheory.merge_def] >>
+  rpt gen_tac >> rpt strip_tac >>
+  qspecl_then[`mn`,`menv`,`cenv`,`s`,`env`,`d`,`s'`,`Rval (new_tds,new_env)`]mp_tac evaluate_dec_closed_context >>
+  simp[] >> strip_tac >>
+  Cases_on`r`>>fs[]>- (
+    first_x_assum match_mp_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
+    imp_res_tac evaluate_dec_new_dec_cns >> fs[] >>
+    pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string id list -> string id set``) >>
+    imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
+    pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string list -> string set``) >>
+    fsrw_tac[DNF_ss][MEM_MAP,EXTENSION, cenv_dom_def] >>
+    metis_tac[]) >>
+  qpat_assum`P ⇒ Q`mp_tac>>
+  discharge_hyps>-(
+    fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
+    metis_tac[]) >>
+  strip_tac >>
+  qsuff_tac`closed_context menv (new_tds' ++ new_tds ++ cenv) s3 (new_env ++ env)` >- (
+    rw[closed_context_def] >> fs[] >>
+    fs[toIntLangProofsTheory.closed_under_cenv_def,closed_under_menv_def] >>
+    metis_tac[] ) >>
+  first_x_assum match_mp_tac >>
+  fs[] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
+  imp_res_tac evaluate_dec_new_dec_cns >> fs[] >>
+  pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string id list -> string id set``) >>
+  imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
+  pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string list -> string set``) >>
+  fsrw_tac[DNF_ss][cenv_dom_def,MEM_MAP,EXTENSION] >>
+  metis_tac[]);
 
 val EVERY2_REVERSE1 = store_thm("EVERY2_REVERSE1",
   ``∀l1 l2. EVERY2 R l1 (REVERSE l2) ⇔ EVERY2 R (REVERSE l1) l2``,
@@ -4047,21 +4105,24 @@ val env_renv_append_imp = store_thm("env_renv_append_imp",
   fs[env_renv_def] >>
   metis_tac[EVERY2_APPEND])
 
-(* This theorem says that the env_rs invariant holds if we shift a portion of
-the compiler's environment for unqualified variables into its environment for
-module variables, with a fresh module name, provided the analogous thing
-happens in the semantic environments. The intuition for why it is true is that
-none of the locations of the values on the stack have changed, rather, we are
-just switching the method by which we retrieve them (via a menv lookup versus
-an env lookup). Apart from many tedious details, the main complication is that
-closure bodies are required by the invariant to exist in compiled form in the
-bytecode machine already, and the required call to the compiler to produce that
-code uses the module environment before extension. But we should be able to
-prove that the compiler generates exactly the same code if the module
-environment is extended because all the module variables were bound before the
-extension already. *)
+val env_renv_syneq = store_thm("env_renv_syneq",
+  ``∀rd sz bs l1 l2 l3.
+    env_renv rd sz bs l2 l3 ∧ LIST_REL syneq l2 l1
+    ⇒
+    env_renv rd sz bs l1 l3``,
+  rw[] >>
+  fs[env_renv_def,option_case_NONE_F] >> rw[] >>
+  fs[EVERY2_EVERY,EVERY_MEM] >> rfs[] >>
+  `LENGTH l2 = LENGTH l1` by metis_tac[] >>
+  fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+  rw[] >>
+  first_x_assum(qspec_then`n`mp_tac) >>
+  first_x_assum(qspec_then`n`mp_tac) >>
+  simp[] >> rw[] >> simp[] >>
+  metis_tac[Cv_bv_syneq])
+
 val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
-  ``∀menv cenv env rs cz rd cs bs mn new old rnew rold rs' menv'.
+  ``∀menv cenv env rs cz rd cs bs mn new old rnew rold rs' menv' cz'.
      env_rs menv cenv env rs cz rd cs bs
      ∧ closed_context menv cenv (SND cs) env
      ∧ mn ∉ FDOM rs.rmenv
@@ -4070,8 +4131,9 @@ val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
      ∧ LENGTH old = LENGTH rold
      ∧ rs' = rs with <| rmenv := rs.rmenv |+ (mn,rnew); renv := rold |>
      ∧ menv' = ((mn,new)::menv)
+     ∧ cz' = LENGTH bs.stack
      ⇒
-     env_rs menv' cenv old rs' cz rd cs bs``,
+     env_rs menv' cenv old rs' cz' rd cs bs``,
   rw[env_rs_def] >> fs[LET_THM] >>
   fs[env_to_Cenv_MAP] >> rfs[] >>
   qmatch_assum_abbrev_tac`LIST_REL syneq (MAP (v_to_Cv mv0 m) (SND cs)) Cs` >>
@@ -4150,7 +4212,7 @@ val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
     imp_res_tac ALOOKUP_SOME_FAPPLY_alist_to_fmap >>
     rw[] >> fs[] >>
     metis_tac[SND]) >>
-  conj_tac >- (
+  conj_asm1_tac >- (
     fs[closed_vlabs_def] >>
     conj_tac >- (
       simp[Abbr`Cmenv0`] >>
@@ -4207,7 +4269,23 @@ val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
     simp[FAPPLY_FUPDATE_THM] >>
     simp[Abbr`cmnv`,MAP_MAP_o] >>
     simp[env_to_Cenv_MAP] >>
-    cheat ) >>
+    match_mp_tac env_renv_syneq >>
+    qexists_tac`l3` >>
+    reverse conj_tac >- (
+      match_mp_tac EVERY2_syneq_sym_all_vlabs >>
+      fs[EVERY2_EVERY,EVERY_MEM] >>
+      rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+      fs[closed_vlabs_def,EVERY_MEM] >>
+      fs[all_vlabs_menv_def,env_to_Cenv_MAP,EVERY_MEM] >>
+      metis_tac[MEM_EL] ) >>
+    match_mp_tac env_renv_shift >>
+    map_every qexists_tac[`sz`,`bs`,`l5`] >>
+    simp[] >>
+    simp[bc_state_component_equality] >>
+    simp[Abbr`l5`,GSYM MAP_MAP_o] >>
+    ntac 2 (qexists_tac`MAP SND rnew`) >>
+    simp[] >>
+    simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP,EL_REVERSE,PRE_SUB1] ) >>
   strip_tac >>
   simp[FAPPLY_FUPDATE_THM] >>
   simp[Abbr`cmnv`,FAPPLY_FUPDATE_THM] >>
@@ -4223,8 +4301,33 @@ val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
   simp[] >>
   simp[env_to_Cenv_MAP] >>
   rw[] >>
-
   cheat)
+
+val closed_context_append = store_thm("closed_context_append",
+  ``∀menv cenv s env cenv' env'.
+    closed_context menv cenv s env  ∧
+    EVERY (closed menv) (MAP SND env') ∧
+    (∀v. MEM v (MAP SND env') ⇒ all_cns v ⊆ cenv_dom (cenv' ++ cenv)) ∧
+    (∀v. MEM v (MAP SND env') ⇒ all_locs v ⊆ count (LENGTH s))
+    ⇒
+    closed_context menv (cenv' ++ cenv) s (env' ++ env)``,
+  rpt gen_tac >>
+  simp[closed_context_def] >> strip_tac >>
+  fs[closed_under_cenv_def,closed_under_menv_def] >>
+  conj_tac >- (
+    `cenv_dom cenv ⊆ cenv_dom (cenv' ++ cenv)` by (
+      fsrw_tac[DNF_ss][SUBSET_DEF, cenv_dom_def] ) >>
+    metis_tac[SUBSET_TRANS] ) >>
+  metis_tac[])
+
+val closed_context_extend_cenv = store_thm("closed_context_extend_cenv",
+  ``∀menv cenv s env cenv'.
+      closed_context menv cenv s env ⇒
+      closed_context menv (cenv'++cenv) s env``,
+  rw[closed_context_def] >> fs[] >>
+  fs[toIntLangProofsTheory.closed_under_cenv_def] >>
+  fsrw_tac[DNF_ss][cenv_dom_def, SUBSET_DEF] >>
+  metis_tac[]);
 
 val compile_top_thm = store_thm("compile_top_thm",
   ``∀menv cenv s env top res. evaluate_top menv cenv s env top res ⇒
@@ -4548,37 +4651,14 @@ val compile_top_thm = store_thm("compile_top_thm",
       Q.PAT_ABBREV_TAC`rs1 = compiler_state_contab_fupd x y` >>
       strip_tac >>
       qexists_tac`rs1` >>
+      qexists_tac`LENGTH bs.stack` >>
       qexists_tac`renv` >>
       simp[Abbr`rs1`,compiler_state_component_equality] >>
       reverse conj_tac >- (
         fs[env_rs_def,LET_THM,LIST_EQ_REWRITE] >>
-        fs[GSYM fmap_EQ] ) >>
-      match_mp_tac env_rs_change_csz >>
-      qexists_tac`LENGTH bs.stack` >>
-      simp[] >>
-      reverse conj_tac >- (
-        simp[DROP_APPEND1,DROP_LENGTH_NIL_rwt] >>
-        simp[IN_FRANGE,GSYM AND_IMP_INTRO,GSYM LEFT_FORALL_IMP_THM] >>
-        rator_x_assum`env_rs`mp_tac >>
-        simp[env_rs_def] >> strip_tac >>
-        rator_x_assum`Cenv_bs`mp_tac >>
-        simp[Cenv_bs_def] >> strip_tac >>
-        rator_x_assum`fmap_rel`mp_tac >>
-        simp[fmap_rel_def] >> strip_tac >>
-        rpt gen_tac >> strip_tac >>
-        first_x_assum(qspec_then`k`mp_tac) >>
-        simp[] >>
-        simp[env_renv_def,option_case_NONE_F,MAP_MAP_o] >>
-        strip_tac >> simp[MEM_EL] >> strip_tac >>
-        rator_x_assum`EVERY2`mp_tac >>
-        simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
-        strip_tac >>
-        disch_then(qspec_then`n`mp_tac) >>
-        simp[] >> simp[EL_MAP] >>
-        simp[DROP_APPEND1,DROP_LENGTH_NIL_rwt] >>
-        strip_tac >>
-        fs[CompilerLibTheory.el_check_def] >>
-        simp[REVERSE_APPEND,EL_APPEND1] ) >>
+        fs[GSYM fmap_EQ] >>
+        qspecl_then[`SOME mn`,`menv`,`cenv`,`s`,`env`,`ds`,`s2,new_tds,Rval new_env`]mp_tac evaluate_decs_closed_context >>
+        simp[]) >>
       match_mp_tac env_rs_with_bs_irr >>
       HINT_EXISTS_TAC >>
       simp[] ) >>
@@ -4630,10 +4710,17 @@ val compile_top_thm = store_thm("compile_top_thm",
     simp[top_to_cenv_def] >>
     match_mp_tac env_rs_shift_to_menv >>
     qmatch_assum_abbrev_tac`env_rs menv cenx env rsx zx rd' csx bsx` >>
-    map_every qexists_tac[`menv`,`env`,`rsx`,`mn`,`[]`,`[]`] >>
-    simp[Abbr`rsx`,compiler_state_component_equality] >>
-    fs[env_rs_def,LET_THM,LIST_EQ_REWRITE,GSYM fmap_EQ,EXTENSION] >>
-    metis_tac[]) >>
+    map_every qexists_tac[`menv`,`env`,`rsx`,`zx`,`mn`,`[]`,`[]`] >>
+    simp[Abbr`rsx`,compiler_state_component_equality,Abbr`zx`,Abbr`bsx`] >>
+    reverse conj_tac >- (
+      fs[env_rs_def,LET_THM,LIST_EQ_REWRITE,GSYM fmap_EQ,EXTENSION] >>
+      metis_tac[]) >>
+    simp[Abbr`csx`] >>
+    imp_res_tac evaluate_decs_closed_context >>
+    fs[Abbr`cenx`,LET_THM] >>
+    imp_res_tac evaluate_decs_to_cenv >>
+    simp[] >>
+    metis_tac[closed_context_extend_cenv,APPEND_ASSOC] ) >>
   simp[])
 
 val compile_dec_divergence = store_thm("compile_dec_divergence",
