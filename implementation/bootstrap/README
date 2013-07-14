@@ -1,0 +1,7 @@
+Files which bootstrap the verified compiler
+
+compile_oneshotScript.sml
+    evaluate the compiler applied to itself
+
+compile_repl_stepScript.sml
+    older version that does the same as above but with a different setup

@@ -1,8 +1,8 @@
 open preamble boolSimps miscLib rich_listTheory arithmeticTheory;
 open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory
-open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compileLabelsTheory compilerProofsTheory;
+open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compilerProofsTheory;
 open SemanticPrimitivesTheory semanticsExtraTheory TypeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory terminationTheory;
-open BytecodeTheory bootstrapProofsTheory repl_fun_altTheory repl_fun_alt_proofTheory;
+open BytecodeTheory repl_fun_altTheory repl_fun_alt_proofTheory;
 open gramPropsTheory pegSoundTheory pegCompleteTheory
 
 val _ = new_theory "replCorrect";
@@ -159,7 +159,7 @@ val peg_det = pegTheory.peg_deterministic |> CONJUNCT1
 val parser_correct = Q.prove (
 `!toks. parse_top toks = repl$parse toks`,
   rw[parse_top_def,replTheory.parse_def] >>
-  rw[mmlParseREPLTop_thm] >>
+  rw[mmlParseREPLTop_def] >>
   qspec_then`toks`strip_assume_tac mmlPEGTheory.parse_REPLTop_total >>
   simp[destResult_def] >>
   fs[GSYM pegexecTheory.peg_eval_executed, mmlPEGTheory.pnt_def] >>
@@ -178,14 +178,14 @@ val parser_correct = Q.prove (
   >- (DEEP_INTRO_TAC optionTheory.some_intro >> simp[] >>
       qx_gen_tac `pt2` >> strip_tac >>
       qspecl_then [`pt2`, `nREPLTop`, `toks`, `[]`] mp_tac completeness >>
-      simp[] >> first_x_assum (assume_tac o MATCH_MP peg_det) >>
+      simp[] >> first_x_assum (assume_tac o MATCH_MP (CONJUNCT1 (pegTheory.peg_deterministic))) >>
       simp[]) >>
   DEEP_INTRO_TAC optionTheory.some_intro >> simp[] >>
   reverse conj_tac
   >- (disch_then (qspec_then `pt` mp_tac) >> simp[]) >>
   qx_gen_tac `pt2` >> strip_tac >>
   qspecl_then [`pt2`, `nREPLTop`, `toks`, `[]`] mp_tac completeness >>
-  simp[] >> first_x_assum (assume_tac o MATCH_MP peg_det) >>
+  simp[] >> first_x_assum (assume_tac o MATCH_MP (CONJUNCT1 (pegTheory.peg_deterministic))) >>
   simp[]);
 
 val get_type_error_mask_def = Define `
@@ -2031,17 +2031,5 @@ val replCorrect = Q.store_thm ("replCorrect",
 rw [repl_fun_def, repl_def] >>
 match_mp_tac replCorrect_lem >>
 rw[initial_invariant])
-
-val replCorrect' = Q.store_thm ("replCorrect'",
-`!input output b.
-  (repl_fun' input = (output,b)) ⇒
-  (repl (get_type_error_mask output) input output) /\ b`,
-cheat)
-
-val replCorrect_thm = Q.store_thm ("replCorrect_thm",
-`!input output.
-  (repl_fun input = output) ⇒
-  (repl (get_type_error_mask output) input output)`,
-metis_tac [replCorrect',repl_fun'_thm,PAIR])
 
 val _ = export_theory ();

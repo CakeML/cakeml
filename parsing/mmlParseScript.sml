@@ -32,7 +32,7 @@ val mmlParseREPLPhrase_def = Define`
   od
 `
 
-val mmlParseREPLTop_def = zDefine`
+val mmlParseREPLTop_def = Define`
   mmlParseREPLTop toks = do
     (toks', pts) <- destResult (mmlpegexec nREPLTop toks);
     pt <- oHD pts;

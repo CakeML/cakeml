@@ -1,5 +1,8 @@
 bytecode/
-  target language definition
+  target language definition and metatheory
+
+proofs/
+  compiler correctness proofs (and IL metatheory)
 
 intLang.lem
   intermediate language definition
@@ -19,8 +22,5 @@ compilerPrimitives.lem
 compilerTerminationScript.sml
   termination proofs and exporting of some rewrites
 
-proofs
-  semantics preservation proofs
-
-tests
+tests/
   rough testing infrastructure based on EmitML
