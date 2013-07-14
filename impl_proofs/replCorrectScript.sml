@@ -327,12 +327,14 @@ val closed_SUBSET = store_thm("closed_SUBSET",
 
 val closed_context_strip_mod_env = store_thm("closed_context_strip_mod_env",
   ``∀menv cenv s env menv'.
-    closed_context menv cenv s env ⇒
+    closed_context menv cenv s env ∧ ALL_DISTINCT (MAP FST menv') ∧ (∀m. MEM m (MAP FST menv') ⇒ m ∉ set (MAP FST menv)) ⇒
      closed_context ((strip_mod_env menv')++menv) cenv s env``,
   rw[] >> fs[closed_context_def] >>
   fs[EVERY_MEM] >>
   `menv_dom menv ⊆ menv_dom (strip_mod_env menv' ++ menv)` by (
     srw_tac[DNF_ss][SUBSET_DEF] ) >>
+  conj_tac >- (
+    simp[ALL_DISTINCT_APPEND,strip_mod_env_def,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,miscTheory.FST_pair] ) >>
   conj_tac >- metis_tac[closed_SUBSET] >>
   conj_tac >- metis_tac[closed_SUBSET] >>
   conj_tac >- (
@@ -360,7 +362,7 @@ val closed_context_strip_mod_env = store_thm("closed_context_strip_mod_env",
   fsrw_tac[DNF_ss][strip_mod_env_def,MEM_FLAT,MEM_MAP,UNCURRY]);
 
 val closed_context_shift_menv = store_thm("closed_context_shift_menv",
-  ``closed_context menv cenv s (env' ++ env) ⇒
+  ``closed_context menv cenv s (env' ++ env) ∧ m ∉ set (MAP FST menv) ⇒
     closed_context ((m,env')::menv) cenv s env``,
   strip_tac >>
   fs[closed_context_def] >>
@@ -1769,7 +1771,9 @@ simp[] >>
     simp[Abbr`new_repl_state`,update_repl_state_def] >>
     match_mp_tac closed_context_strip_mod_env >>
     imp_res_tac evaluate_top_to_cenv >> fs[] >>
-    metis_tac[closed_context_extend_cenv,APPEND_ASSOC]) >>
+    conj_tac >- metis_tac[closed_context_extend_cenv,APPEND_ASSOC] >>
+    fs[convert_menv_def,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,miscTheory.FST_pair] >>
+    cheat (* this should come from the type system? *)) >>
   conj_tac >- (
     fs[Abbr`new_repl_state`,update_repl_state_def,Abbr`new_bc_state`] >>
     simp[Abbr`new_repl_fun_state`] >>
