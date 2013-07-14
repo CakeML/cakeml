@@ -846,6 +846,13 @@ val syneq_sym_no_vlabs = store_thm("syneq_sym_no_vlabs",
   simp[inv_DEF] >>
   PROVE_TAC[syneq_exp_sym_no_labs,no_labs_defs_MAP,EVERY_MEM,MEM_EL])
 
+val EVERY2_syneq_sym_no_vlabs = save_thm(
+"EVERY2_syneq_sym_no_vlabs",
+EVERY2_sym
+|> Q.GENL[`R2`,`R1`]
+|> Q.ISPECL[`λx y. no_vlabs y ∧ syneq x y`,`syneq`]
+|> SIMP_RULE std_ss[syneq_sym_no_vlabs])
+
 val syneq_exp_sym_all_labs = store_thm("syneq_exp_sym_all_labs",
   ``(∀ez1 ez2 V exp1 exp2. syneq_exp ez1 ez2 V exp1 exp2 ⇒ all_labs exp1 ⇒ syneq_exp ez2 ez1 (inv V) exp2 exp1) ∧
     (∀ez1 ez2 V defs1 defs2 V'. syneq_defs ez1 ez2 V defs1 defs2 V' ⇒ all_labs_defs defs1 ⇒ syneq_defs ez2 ez1 (inv V) defs2 defs1 (inv V'))``,

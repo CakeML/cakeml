@@ -4179,47 +4179,46 @@ val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
     qexists_tac`menv` >>
     fs[closed_context_def] ) >>
   simp[] >>
-  qexists_tac`Cmenv0`>>simp[] >>
+  qexists_tac`Cmenv |+ (mn,TAKE (LENGTH new) Cenv)`>>simp[] >>
   `env_to_Cenv mv m new = env_to_Cenv mv0 m new` by (
     match_mp_tac (CONJUNCT2 (CONJUNCT2 v_to_Cv_mvars_SUBMAP)) >>
     qexists_tac`menv` >>
     fs[closed_context_def] ) >>
+  conj_asm1_tac >-(
+    fs[fmap_rel_def,Abbr`Cmenv0`,Abbr`fmv`] >>
+    qx_gen_tac`x` >>
+    Cases_on`x=mn`>>simp[FAPPLY_FUPDATE_THM]>-(
+      simp[env_to_Cenv_MAP])>>
+    strip_tac >>
+    first_x_assum(qspec_then`x`mp_tac) >>
+    simp[] >>
+    Q.PAT_ABBREV_TAC`ee = alist_to_fmap menv ' x` >>
+    `env_to_Cenv mv m ee = env_to_Cenv mv0 m ee` by (
+      match_mp_tac (CONJUNCT2 (CONJUNCT2 v_to_Cv_mvars_SUBMAP)) >>
+      qexists_tac`menv` >>
+      fs[closed_context_def] >>
+      fs[Abbr`ee`,EVERY_MEM] >>
+      first_x_assum match_mp_tac >>
+      simp[MEM_MAP,EXISTS_PROD] >>
+      qexists_tac`x` >>
+      match_mp_tac alist_to_fmap_FAPPLY_MEM >>
+      simp[]) >>
+    simp[] ) >>
   conj_tac >- (
     fs[closed_Clocs_def] >>
-    fsrw_tac[DNF_ss][SUBSET_DEF,Abbr`Cmenv0`,Abbr`fmv`] >>
-    fs[closed_context_def] >>
-    `LENGTH (SND cs) = LENGTH Cs` by (
-      fs[Abbr`Cs0`,EVERY2_EVERY] ) >>
-    fsrw_tac[DNF_ss][env_to_Cenv_MAP,MEM_MAP,Abbr`l1`,SUBSET_DEF] >>
-    conj_tac >- (
-      rw[] >> res_tac >> fs[all_Clocs_v_to_Cv] ) >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
     rw[] >>
-    fs[fmap_rel_def] >>
-    qmatch_assum_rename_tac`l ∈ all_Clocs v`[] >>
-    qmatch_assum_rename_tac`MEM v me`[] >>
-    pop_assum mp_tac >>
-    simp[IN_FRANGE] >> strip_tac >>
-    pop_assum mp_tac >>
-    REWRITE_TAC[GSYM o_f_DOMSUB] >>
-    simp[DOMSUB_FAPPLY_THM] >>
-    first_x_assum(qspec_then`k`mp_tac) >>
-    simp[] >> rw[] >>
-    fsrw_tac[DNF_ss][MEM_FLAT,MEM_MAP,env_to_Cenv_MAP] >> rw[] >>
-    fs[all_Clocs_v_to_Cv] >>
-    qmatch_assum_rename_tac`MEM p menv`[] >>
-    PairCases_on`p`>>fs[] >>
-    imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
-    imp_res_tac ALOOKUP_SOME_FAPPLY_alist_to_fmap >>
-    rw[] >> fs[] >>
-    metis_tac[SND]) >>
+    fs[IN_FRANGE,DOMSUB_FAPPLY_THM] >>
+    rfs[] >>
+    metis_tac[] ) >>
   conj_asm1_tac >- (
     fs[closed_vlabs_def] >>
     conj_tac >- (
-      simp[Abbr`Cmenv0`] >>
-      simp[all_vlabs_menv_def] >>
-      match_mp_tac IN_FRANGE_o_f_suff >>
-      simp[Abbr`fmv`] >>
-      cheat ) >>
+      simp[all_vlabs_menv_def,IN_FRANGE,GSYM LEFT_FORALL_IMP_THM] >>
+      fs[all_vlabs_menv_def] >>
+      qx_gen_tac`k` >>
+      Cases_on`k=mn`>>simp[FAPPLY_FUPDATE_THM] >>
+      metis_tac[IN_FRANGE] ) >>
     cheat ) >>
   conj_tac >- (
     simp[Abbr`mv`,Abbr`fmv`] >>
@@ -4263,8 +4262,6 @@ val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
     fs[fmap_rel_def] >>
     simp[EXTENSION] >>
     metis_tac[] ) >>
-  simp[Abbr`Cmenv0`] >>
-  simp[Abbr`fmv`] >>
   gen_tac >> Cases_on`x=mn` >> simp[] >- (
     simp[FAPPLY_FUPDATE_THM] >>
     simp[Abbr`cmnv`,MAP_MAP_o] >>
@@ -4291,17 +4288,19 @@ val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
   simp[Abbr`cmnv`,FAPPLY_FUPDATE_THM] >>
   REWRITE_TAC[GSYM o_f_DOMSUB] >>
   simp[DOMSUB_FAPPLY_THM] >>
-  `x ∈ FDOM rs.rmenv` by (
-    simp[] >> fs[fmap_rel_def] ) >>
-  simp[MAP_MAP_o,env_to_Cenv_MAP] >>
   first_x_assum(qspec_then`x`mp_tac) >>
   rfs[] >>
-  fs[fmap_rel_def] >>
-  first_x_assum(qspec_then`x`mp_tac) >>
+  strip_tac >>
+  match_mp_tac env_renv_shift >>
+  qexists_tac`0` >>
+  qmatch_assum_abbrev_tac`env_renv rd 0 bss xx yy` >>
+  map_every qexists_tac[`bss`,`yy`] >>
+  simp[Abbr`bss`,bc_state_component_equality] >>
+  simp[Abbr`yy`] >>
+  ntac 2 (qexists_tac`MAP SND (rs.rmenv ' x)`) >>
   simp[] >>
-  simp[env_to_Cenv_MAP] >>
-  rw[] >>
-  cheat)
+  simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP,EL_REVERSE,PRE_SUB1] >>
+  simp[EL_DROP])
 
 val closed_context_append = store_thm("closed_context_append",
   ``∀menv cenv s env cenv' env'.
