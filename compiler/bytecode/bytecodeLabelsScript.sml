@@ -413,7 +413,7 @@ val bc_find_loc_strip_labels = prove(
   \\ Cases_on `l'`
   \\ FULL_SIMP_TAC (srw_ss()) [inst_labels_def,bc_find_loc_aux_def]);
 
-val bc_next_strip_lemma = prove(
+val bc_next_strip_IMP = store_thm("bc_next_strip_IMP",
   ``!s t. length_ok s.inst_length /\ bc_next (strip_labels s) t ==>
           ?t'. bc_next s t' /\ (t = strip_labels t')``,
   REPEAT STRIP_TAC
@@ -462,7 +462,7 @@ val bc_next_strip = prove(
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] THEN1 METIS_TAC [RTC_REFL]
   \\ REPEAT STRIP_TAC
   \\ Cases_on `bc_next (strip_labels s) r'` \\ FULL_SIMP_TAC std_ss []
-  \\ IMP_RES_TAC bc_next_strip_lemma \\ FULL_SIMP_TAC std_ss []
+  \\ IMP_RES_TAC bc_next_strip_IMP \\ FULL_SIMP_TAC std_ss []
   \\ FIRST_ASSUM (MP_TAC o Q.SPEC `t'`)
   \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
   \\ METIS_TAC [RTC_RULES])
