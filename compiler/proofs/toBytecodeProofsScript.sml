@@ -2236,8 +2236,60 @@ fun filter_asms P = POP_ASSUM_LIST (MAP_EVERY ASSUME_TAC o List.rev o List.filte
     set (free_vars b) ⊆ count (LENGTH cc) ∧
     ∃e e'. (cc,(recs,envs),e') = (bind_fv (az,e) nz ix)`
 
+val mvars_def = tDefine"mvars"`
+  (mvars (CRaise e) = mvars e) ∧
+  (mvars (CHandle e1 e2) = mvars e1 ∪ mvars e2) ∧
+  (mvars (CVar (Short _)) = {}) ∧
+  (mvars (CVar (Long mn x)) = {(mn,x)}) ∧
+  (mvars (CLit _) = {}) ∧
+  (mvars (CCon _ es) = mvars_list es) ∧
+  (mvars (CTagEq e _) = mvars e) ∧
+  (mvars (CProj e _) = mvars e) ∧
+  (mvars (CLet e eb) = mvars e ∪ mvars eb) ∧
+  (mvars (CLetrec defs e) = mvars_defs defs ∪ mvars e) ∧
+  (mvars (CCall _ e es) = mvars e ∪ mvars_list es) ∧
+  (mvars (CPrim1 _ e) = mvars e) ∧
+  (mvars (CPrim2 _ e1 e2) = mvars e1 ∪ mvars e2) ∧
+  (mvars (CUpd e1 e2) = mvars e1 ∪ mvars e2) ∧
+  (mvars (CIf e1 e2 e3) = mvars e1 ∪ mvars e2 ∪ mvars e3) ∧
+  (mvars_list [] = {}) ∧
+  (mvars_list (e::es) = mvars e ∪ mvars_list es) ∧
+  (mvars_defs [] = {}) ∧
+  (mvars_defs (d::ds) = mvars_def d ∪ mvars_defs ds) ∧
+  (mvars_def (_,_,e) = mvars e)`
+  (WF_REL_TAC `inv_image $< (λx. case x of
+    | INL e => Cexp_size e
+    | INR (INL es) => Cexp4_size es
+    | INR (INR (INL (defs))) => Cexp1_size defs
+    | INR (INR (INR (def))) => Cexp2_size def)`)
+val _ = export_rewrites["mvars_def"]
+
+val compile_mvars_SUBMAP = store_thm("compile_mvars_SUBMAP",
+  ``(∀menv env t sz s e menv'.
+      menv ⊑ menv' ∧ (∀mn x. (mn,x) ∈ mvars e ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ MEM x env)
+      ⇒ compile menv' env t sz s e = compile menv env t sz s e) ∧
+    (∀menv env t sz e n cs xs menv'.
+      menv ⊑ menv' ∧ (∀mn x. (mn,x) ∈ mvars e ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ MEM x env)
+      ⇒ compile_bindings menv' env t sz e n cs xs = compile_bindings menv env t sz e n cs xs) ∧
+    (∀menv env sz cs es menv'.
+      menv ⊑ menv' ∧ (∀mn x. (mn,x) ∈ mvars_list es ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ MEM x env)
+      ⇒ compile_nts menv' env sz cs es = compile_nts menv env sz cs es)``,
+  ho_match_mp_tac compile_ind >>
+  simp[compile_def] >> rw[] >>
+  TRY (
+    first_x_assum(qspec_then`menv'`mp_tac) >>
+    discharge_hyps >- metis_tac[] >> rw[] >> NO_TAC)
+  >- (
+    BasicProvers.CASE_TAC >>
+    BasicProvers.CASE_TAC >- (
+      fs[SUBMAP_DEF,FLOOKUP_DEF] >>
+      metis_tac[] ) >>
+    fs[SUBMAP_DEF,FLOOKUP_DEF] ) >>
+  BasicProvers.CASE_TAC >> fs[])
+
 ;val code_env_cd_def = Define`
   code_env_cd menv code (x,(l,ccenv,ce),(az,b)) ⇔
+    (∀mn x. (mn,x) ∈ mvars b ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ MEM x env) ∧
     good_cd (x,(l,ccenv,ce),(az,b)) ∧
     ∃cs bc0 cc bc1.
       ((compile menv (MAP CTEnv ccenv) (TCTail az 0) 0 cs b).out = cc ++ cs.out) ∧
@@ -4439,7 +4491,7 @@ fun tac18 t =
         qunabbrev_tac`cc` >>
         PairCases_on`azb` >>
         simp[code_env_cd_def] >>
-        simp[GSYM AND_IMP_INTRO] >> strip_tac >>
+        simp[GSYM AND_IMP_INTRO] >> strip_tac >> strip_tac >>
         disch_then(qx_choosel_then[`csc`,`cb0`,`cc`,`cb1`] strip_assume_tac) >>
         pop_assum (assume_tac o SYM) >>
         first_x_assum (qspecl_then[`rd''`,`cmnv`,`csc`,`MAP CTEnv ccenv`,`0`,`csz`,`bs1`,`bce`,`bcr`,`cb0 ++ [Label l]`,`REVERSE cc`,`cb1 ++ bcr`]mp_tac) >>
@@ -4543,7 +4595,8 @@ fun tac18 t =
               fs[fmap_rel_def,env_renv_def] >>
               qx_gen_tac`mn`>>strip_tac >>
               first_x_assum(qspec_then`mn`mp_tac) >>
-              simp[] >> strip_tac >>
+              first_x_assum(qspec_then`mn`mp_tac) >>
+              simp[] >> strip_tac >> strip_tac >>
               match_mp_tac(GEN_ALL(MP_CANON(EVERY2_MEM_MONO))) >>
               HINT_EXISTS_TAC >> simp[] >>
               simp[FORALL_PROD] >> fs[EVERY2_EVERY] >>
@@ -4717,7 +4770,7 @@ fun tac18 t =
         qunabbrev_tac`cc` >>
         PairCases_on`azb` >>
         simp[code_env_cd_def] >>
-        simp[GSYM AND_IMP_INTRO] >> strip_tac >>
+        simp[GSYM AND_IMP_INTRO] >> strip_tac >> strip_tac >>
         disch_then(qx_choosel_then[`csc`,`cb0`,`cc`,`cb1`] strip_assume_tac) >>
         pop_assum (assume_tac o SYM) >>
         first_x_assum (qspecl_then[`rd''`,`cmnv`,`csc`,`MAP CTEnv ccenv`,`0`,`csz`,`bs1`,`bce`,`bcr`,`cb0 ++ [Label l]`,`REVERSE cc`,`cb1 ++ bcr`]mp_tac) >>
@@ -6065,7 +6118,6 @@ fun tac18 t =
           simp[] >>
           fs[SUBMAP_DEF,DRESTRICT_DEF,good_rd_def,s_refs_def,Cenv_bs_def,UNCURRY,FEVERY_DEF] )) >>
         tac4) >>
-
       Cases >> rpt gen_tac >> fs[] >> strip_tac >- (
         tac1 >- (
           Cases_on `b1` >> fs[] >- (
