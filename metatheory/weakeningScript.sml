@@ -99,10 +99,7 @@ rw [weak_tenvE_def]);
 val weakC_refl = Q.store_thm ("weakC_refl",
 `!tenvC. weakC tenvC tenvC`,
 rw [weakC_def] >>
-full_case_tac >>
-rw [] >>
-PairCases_on `x` >>
-rw []);
+every_case_tac);
 
 val weakE_refl = Q.store_thm ("weakE_refl",
 `!tenv. tenv_ok (bind_var_list2 tenv Empty) ⇒ weakE tenv tenv`,
@@ -128,7 +125,7 @@ val weakM_bind = Q.store_thm ("weakM_bind",
   ~MEM mn (MAP FST tenvM) ⇒
   weakM (bind mn tenv tenvM') tenvM`,
 rw [weakM_def, bind_def] >>
-full_case_tac >>
+every_case_tac >>
 metis_tac [NOT_SOME_NONE, lookup_notin]);
 
 val weakM_bind2 = Q.store_thm ("weakM_bind2",
@@ -161,7 +158,7 @@ val weakS_bind = Q.store_thm ("weakS_bind",
   (lookup l tenvS = NONE) ⇒
   weakS (bind l t tenvS) tenvS`,
 rw [weakS_def, bind_def, lookup_def] >>
-full_case_tac >>
+every_case_tac >>
 rw [] >>
 fs []);
 
@@ -224,7 +221,7 @@ val weak_tenvE_bind = Q.prove (
   weak_tenvE tenv' tenv ⇒
   weak_tenvE (bind_tenv n tvs t tenv') (bind_tenv n tvs t tenv)`,
 rw [weak_tenvE_def, num_tvs_def, bind_tenv_def, lookup_tenv_def] >>
-full_case_tac >>
+every_case_tac >>
 rw []);
 
 val weak_tenvE_bind_tvar = Q.prove (
@@ -253,7 +250,7 @@ rw [weak_tenvE_def, bind_var_list_def, num_tvs_def] >>
 PairCases_on `h` >>
 fs [bind_var_list_def, num_tvs_def, bind_tenv_def, lookup_tenv_def,
     weak_tenvE_def, num_tvs_bind_var_list] >>
-full_case_tac >>
+every_case_tac >>
 fs [] >>
 PROVE_TAC []);
 

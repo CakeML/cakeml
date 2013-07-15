@@ -807,10 +807,7 @@ val check_ctors_e_weakening = Q.prove (
   disjoint_env cenv1 cenv2 ∧ check_ctors cenv1 e ⇒ check_ctors (cenv2++cenv1) e`,
 ho_match_mp_tac (fetch "-" "check_ctors_ind") >>
 rw [check_ctors_def, EVERY_MEM, do_con_check_def, lookup_append] >|
-[full_case_tac >>
-     full_case_tac >>
-     cases_on `lookup cn cenv1` >>
-     fs [] >>
+[every_case_tac >>
      imp_res_tac lookup_in2 >>
      fs [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
      metis_tac [],
@@ -857,10 +854,7 @@ val check_ctors_v_weakening = Q.prove (
 `!cenv1 v cenv2. disjoint_env cenv1 cenv2 ⇒ check_ctors_v cenv1 v ⇒ check_ctors_v (cenv2++cenv1) v`,
 ho_match_mp_tac (fetch "-" "check_ctors_v_ind") >>
 rw [check_ctors_v_def, EVERY_MEM, do_con_check_def, lookup_append] >|
-[full_case_tac >>
-     full_case_tac >>
-     cases_on `lookup cn cenv1` >>
-     fs [] >>
+[every_case_tac >>
      imp_res_tac lookup_in2 >>
      fs [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
      metis_tac [],
