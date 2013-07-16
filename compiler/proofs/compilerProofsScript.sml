@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory pred_setTheory relationTheory arithmeticTheory whileTheory pairTheory quantHeuristicsLib lcsymtacs sortingTheory finite_mapTheory alistTheory optionTheory stringTheory
-open SatisfySimps miscLib BigStepTheory terminationTheory semanticsExtraTheory miscTheory ToBytecodeTheory CompilerTheory compilerTerminationTheory intLangExtraTheory pmatchTheory toIntLangProofsTheory toBytecodeProofsTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory bigClockTheory replTheory bytecodeClockTheory
+open SatisfySimps miscLib BigStepTheory terminationTheory semanticsExtraTheory miscTheory ToBytecodeTheory CompilerTheory compilerTerminationTheory IntLangTheory intLangExtraTheory pmatchTheory toIntLangProofsTheory toBytecodeProofsTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory bigClockTheory replTheory bytecodeClockTheory
 val _ = new_theory"compilerProofs"
 
 val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
@@ -70,6 +70,519 @@ val FOLDL_cce_aux_thm = store_thm("FOLDL_cce_aux_thm",
    asm_simp_tac(srw_ss()++ARITH_ss++DNF_ss)[EVERY_MEM] >>
    rw[] >> res_tac >> DECIDE_TAC)
 
+val mvars_list_MAP = store_thm("mvars_list_MAP",
+  ``∀ls. mvars_list ls = BIGUNION (IMAGE mvars (set ls))``,
+  Induct >> simp[])
+
+val mvars_defs_MAP = store_thm("mvars_defs_MAP",
+  ``∀ds. mvars_defs ds = BIGUNION (IMAGE mvars_def (set ds))``,
+  Induct >> simp[])
+
+val mvars_list_APPEND = store_thm("mvars_list_APPEND",
+  ``mvars_list (l1 ++ l2) = mvars_list l1 ∪ mvars_list l2``,
+  simp[mvars_list_MAP])
+
+(*
+val syneq_exp_mvars = store_thm("syneq_exp_mvars",
+  ``(∀z1 z2 V e1 e2. syneq_exp z1 z2 V e1 e2 ⇒ mvars e2 = mvars e1) ∧
+    (∀z1 z2 V d1 d2 U. syneq_defs z1 z2 V d1 d2 U ⇒ mvars_defs d2 = mvars_defs d1)``,
+  ho_match_mp_tac IntLangTheory.syneq_exp_ind >>
+  simp[] >>
+  rw[] >>
+  TRY (
+    Q.PAT_ABBREV_TAC`X = mvars_list es1`>>qunabbrev_tac`X`>>
+    fsrw_tac[DNF_ss][mvars_list_MAP,EVERY2_EVERY,EVERY_MEM,Once EXTENSION] >>
+    rfs[MEM_ZIP,FORALL_PROD,EXISTS_PROD] >>
+    metis_tac[MEM_EL] ) >>
+*)
+
+val mvars_mkshift = store_thm("mvars_mkshift",
+  ``∀f k e. mvars (mkshift f k e) = mvars e``,
+  ho_match_mp_tac mkshift_ind >>
+  simp[] >> rw[] >>
+  TRY (
+    fsrw_tac[DNF_ss,ETA_ss][mvars_list_MAP,Once EXTENSION,MEM_MAP] >>
+    metis_tac[] ) >>
+  fsrw_tac[DNF_ss][mvars_defs_MAP,Once EXTENSION,MEM_MAP,EXISTS_PROD] >>
+  rw[] >>
+  Cases_on`x ∈ mvars e`>>simp[] >>
+  EQ_TAC >> rw[] >> fs[] >- (
+    BasicProvers.EVERY_CASE_TAC >> fs[] >>
+    fsrw_tac[ARITH_ss][] >>
+    res_tac >>
+    fsrw_tac[ARITH_ss][] >>
+    metis_tac[] ) >>
+  CONV_TAC(RESORT_EXISTS_CONV(List.rev)) >>
+  qmatch_assum_rename_tac`MEM (a,b,c) defs`[] >>
+  map_every qexists_tac [`c`,`b`,`a`] >>
+  simp[] >> Cases_on`a`>>simp[])
+val _ = export_rewrites["mvars_mkshift"]
+
+;val label_closures_thm = store_thm("label_closures_thm",
+  ``(∀ez j e. (no_labs e) ∧ set (free_vars e) ⊆ count ez ⇒
+     let (e',j') = label_closures ez j e in
+     (j' = j + (LENGTH (free_labs ez e'))) ∧
+     (MAP (FST o FST o SND) (free_labs ez e') = (GENLIST ($+ j) (LENGTH (free_labs ez e')))) ∧
+     set (free_vars e') ⊆ set (free_vars e) ∧
+     all_labs e' ∧ EVERY good_cd (free_labs ez e') ∧
+     mvars e' = mvars e ∧
+     mvars_list (MAP (SND o SND o SND) (free_labs ez e')) ⊆ mvars e ∧
+     syneq_exp ez ez $= e e') ∧
+    (∀ez j es.
+     (no_labs_list es) ∧ set (free_vars_list es) ⊆ count ez ⇒
+     let (es',j') = label_closures_list ez j es in
+     (j' = j + LENGTH (free_labs_list ez es')) ∧
+     (MAP (FST o FST o SND) (free_labs_list ez es') = (GENLIST ($+ j) (LENGTH (free_labs_list ez es')))) ∧
+     set (free_vars_list es') ⊆ set (free_vars_list es) ∧
+     all_labs_list es' ∧ EVERY good_cd (free_labs_list ez es') ∧
+     mvars_list es' = mvars_list es ∧
+     mvars_list (MAP (SND o SND o SND) (free_labs_list ez es')) ⊆ mvars_list es ∧
+     EVERY2 (syneq_exp ez ez $=) es es') ∧
+    (∀ez j nz k defs ds0 ls0.
+     (no_labs_defs (ls0 ++ MAP ($, NONE) defs)) ∧
+     set (free_vars_defs nz (MAP ($, NONE) defs)) ⊆ count ez ∧
+     (LENGTH ds0 = k) ∧ (LENGTH defs = nz - k) ∧ k ≤ nz ∧ (LENGTH ls0 = k) ∧
+     syneq_defs ez ez $= (ls0 ++ MAP ($, NONE) defs) (ds0 ++ MAP ($, NONE) defs) (λv1 v2. v1 < nz ∧ (v2 = v1))
+     ⇒
+     let (defs',j') = label_closures_defs ez j nz k defs in
+     (j' = j + LENGTH (free_labs_defs ez nz k defs')) ∧
+     (MAP (FST o FST o SND) (free_labs_defs ez nz k defs') = GENLIST ($+ j) (LENGTH (free_labs_defs ez nz k defs'))) ∧
+     set (free_vars_defs nz defs') ⊆ set (free_vars_defs nz (MAP ($, NONE) defs)) ∧
+     (LENGTH defs' = LENGTH defs) ∧
+     all_labs_defs defs' ∧
+     EVERY good_cd (free_labs_defs ez nz k defs') ∧
+     mvars_defs defs' = mvars_defs (MAP ($, NONE) defs) ∧
+     mvars_list (MAP (SND o SND o SND) (free_labs_defs ez nz k defs')) ⊆ mvars_defs (MAP ($, NONE) defs) ∧
+     syneq_defs ez ez $= (ls0 ++ (MAP ($, NONE) defs)) (ds0 ++ defs') (λv1 v2. v1 < nz ∧ (v2 = v1)))``,
+  ho_match_mp_tac label_closures_ind >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >> strip_tac >>
+    fs[LET_THM,UNCURRY] >>
+    simp[Once syneq_exp_cases] ) >>
+  strip_tac >- (
+    ntac 2 gen_tac >>
+    map_every qx_gen_tac[`e1`,`e2`] >>
+    rpt strip_tac >> fs[] >>
+    `set (free_vars e2) ⊆ count (ez + 1)` by (
+      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
+      Cases>>fsrw_tac[ARITH_ss][] ) >> fs[] >>
+    qabbrev_tac`p = label_closures ez j e1` >> PairCases_on`p`>>fs[LET_THM] >>
+    qabbrev_tac`q = label_closures (ez+1) (j + LENGTH (free_labs ez p0)) e2` >> PairCases_on`q`>>fs[] >>
+    simp[LIST_EQ_REWRITE] >>
+    conj_tac >- (
+      gen_tac >>
+      Cases_on`x<LENGTH (free_labs ez p0)`>>
+      lrw[EL_APPEND1,EL_APPEND2] ) >>
+    rfs[] >>
+    conj_tac >- (
+      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
+      Cases >> rw[ADD1] >>
+      res_tac >>
+      disj2_tac >> HINT_EXISTS_TAC >>
+      fsrw_tac[ARITH_ss][] ) >>
+    simp[Once syneq_exp_cases] >>
+    conj_tac >- (
+      simp[mvars_list_APPEND]>> fs[SUBSET_DEF]) >>
+    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+    HINT_EXISTS_TAC >>
+    simp[]) >>
+  strip_tac >- (rw[] >> rw[syneq_exp_refl]) >>
+  strip_tac >- (rw[] >> rw[syneq_exp_refl]) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >> strip_tac >>
+    fs[LET_THM,UNCURRY] >>
+    simp[Once syneq_exp_cases] ) >>
+  strip_tac >- (
+    rw[] >> fs[LET_THM] >>
+    rw[Once syneq_exp_cases] >> rfs[]) >>
+  strip_tac >- (
+    rw[] >> fs[LET_THM] >>
+    rw[Once syneq_exp_cases] >> rfs[]) >>
+  strip_tac >- (
+    ntac 2 gen_tac >>
+    map_every qx_gen_tac[`e1`,`e2`] >>
+    rpt strip_tac >> fs[] >>
+    `set (free_vars e2) ⊆ count (ez + 1)` by (
+      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
+      Cases>>fsrw_tac[ARITH_ss][] ) >> fs[] >>
+    qabbrev_tac`p = label_closures ez j e1` >> PairCases_on`p`>>fs[LET_THM] >>
+    qabbrev_tac`q = label_closures (ez+1) (j + LENGTH (free_labs ez p0)) e2` >> PairCases_on`q`>>fs[] >>
+    simp[LIST_EQ_REWRITE] >>
+    conj_tac >- (
+      gen_tac >>
+      Cases_on`x<LENGTH (free_labs ez p0)`>>
+      lrw[EL_APPEND1,EL_APPEND2] ) >>
+    rfs[] >>
+    conj_tac >- (
+      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,PRE_SUB1] >>
+      Cases >> rw[ADD1] >>
+      res_tac >>
+      disj2_tac >> HINT_EXISTS_TAC >>
+      fsrw_tac[ARITH_ss][] ) >>
+    conj_tac >- (
+      simp[mvars_list_APPEND]>> fs[SUBSET_DEF]) >>
+    simp[Once syneq_exp_cases] >>
+    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+    HINT_EXISTS_TAC >>
+    simp[]) >>
+  strip_tac >- (
+    rpt strip_tac >>
+    simp[] >>
+    `FILTER (IS_NONE o FST) defs = defs` by (
+      simp[FILTER_EQ_ID] >>
+      fs[FLAT_EQ_NIL,EVERY_MAP] >>
+      fs[EVERY_MEM,FORALL_PROD] >>
+      qx_gen_tac`z` >> rpt strip_tac >>
+      res_tac >> Cases_on`z`>>fs[] ) >>
+    full_simp_tac std_ss [LET_THM] >>
+    full_simp_tac std_ss [FILTER_EQ_ID,LENGTH_MAP] >>
+    qabbrev_tac`p = label_closures_defs ez j (LENGTH defs) 0 (MAP SND defs)` >>
+    PairCases_on`p`>>
+    `no_labs e`by fs[] >>
+    `set (free_vars e) ⊆ count (ez + LENGTH defs)` by (
+      qpat_assum`set (free_vars X) ⊆ Y`mp_tac >>
+      rpt (pop_assum kall_tac) >>
+      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,LET_THM] >>
+      srw_tac[ARITH_ss][ADD1] >>
+      res_tac >> fsrw_tac[ARITH_ss][] ) >>
+    full_simp_tac std_ss [] >>
+    qabbrev_tac`q = label_closures (ez + LENGTH defs) p1 e` >>
+    PairCases_on`q` >>
+    full_simp_tac std_ss [] >>
+    `MAP ($, NONE) (MAP SND defs) = defs` by (
+      fs[EVERY_MEM] >>
+      lrw[MAP_MAP_o] >>
+      CONV_TAC(RAND_CONV(REWRITE_CONV[Once (CONJUNCT2 (GSYM MAP_ID)),SimpRHS])) >>
+      lrw[MAP_EQ_f,FORALL_PROD] >> res_tac >> fs[]) >>
+    full_simp_tac std_ss [] >>
+    first_x_assum(qspecl_then[`[]`,`[]`]mp_tac) >>
+    simp[syneq_defs_refl,EVERY_MAP] >>
+    fs[LET_THM] >>
+    strip_tac >>
+    fsrw_tac[ETA_ss][] >>
+    rfs[] >> simp[] >>
+    conj_tac >- (
+      lrw[LIST_EQ_REWRITE] >>
+      Cases_on`x < LENGTH (free_labs_defs ez (LENGTH defs) 0 p0)` >>
+      lrw[EL_APPEND1,EL_APPEND2] ) >>
+    conj_tac >- (
+      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,free_vars_defs_MAP] >>
+      gen_tac >> strip_tac >>
+      disj2_tac >>
+      qexists_tac`m` >>
+      simp[] ) >>
+    conj_tac >- (
+      simp[mvars_list_APPEND]>> fs[SUBSET_DEF]) >>
+    simp[Once syneq_exp_cases] >>
+    HINT_EXISTS_TAC >> simp[] >>
+    match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
+    HINT_EXISTS_TAC >>
+    simp[]) >>
+  strip_tac >- (
+    ntac 3 gen_tac >>
+    map_every qx_gen_tac[`e`,`es`] >>
+    rpt strip_tac >>
+    qabbrev_tac`p = label_closures ez j e` >> PairCases_on`p`>>fs[LET_THM] >>
+    qabbrev_tac`q = label_closures_list ez (j + LENGTH (free_labs ez p0)) es` >> PairCases_on`q`>>fs[] >>
+    fs[] >>
+    simp[LIST_EQ_REWRITE] >>
+    conj_tac >- (
+      gen_tac >>
+      Cases_on`x<LENGTH (free_labs ez p0)`>>
+      lrw[EL_APPEND1,EL_APPEND2] ) >>
+    rfs[] >>
+    conj_tac >- (
+      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+    conj_tac >- (
+      simp[mvars_list_APPEND]>> fs[SUBSET_DEF]) >>
+    simp[Once syneq_exp_cases]) >>
+  strip_tac >- (
+    rw[] >> fs[LET_THM] >> rfs[] >>
+    simp[Once syneq_exp_cases] ) >>
+  strip_tac >- (
+    ntac 2 gen_tac >>
+    map_every qx_gen_tac[`p2`,`e1`,`e2`] >>
+    rpt strip_tac >> fs[] >>
+    qabbrev_tac`p = label_closures ez j e1` >> PairCases_on`p`>>fs[LET_THM] >>
+    qabbrev_tac`q = label_closures ez (j + LENGTH (free_labs ez p0)) e2` >> PairCases_on`q`>>fs[] >>
+    simp[LIST_EQ_REWRITE] >>
+    conj_tac >- (
+      gen_tac >> strip_tac >>
+      Cases_on`x < LENGTH (free_labs ez p0)`>>
+      lrw[EL_APPEND1,EL_APPEND2]) >>
+    conj_tac >- (
+      rfs[] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+    conj_tac >- (
+      simp[mvars_list_APPEND]>> fs[SUBSET_DEF]) >>
+    simp[Once syneq_exp_cases]) >>
+  strip_tac >- (
+    ntac 2 gen_tac >>
+    map_every qx_gen_tac[`e1`,`e2`] >>
+    rpt strip_tac >> fs[] >>
+    qabbrev_tac`p = label_closures ez j e1` >> PairCases_on`p`>>fs[LET_THM] >>
+    qabbrev_tac`q = label_closures ez (j + LENGTH (free_labs ez p0)) e2` >> PairCases_on`q`>>fs[] >>
+    simp[LIST_EQ_REWRITE] >>
+    conj_tac >- (
+      gen_tac >> strip_tac >>
+      Cases_on`x < LENGTH (free_labs ez p0)`>>
+      lrw[EL_APPEND1,EL_APPEND2]) >>
+    conj_tac >- (
+      rfs[] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+    conj_tac >- (
+      simp[mvars_list_APPEND]>> fs[SUBSET_DEF]) >>
+    simp[Once syneq_exp_cases]) >>
+  strip_tac >- (
+    ntac 2 gen_tac >>
+    map_every qx_gen_tac[`e1`,`e2`,`e3`] >>
+    rpt strip_tac >> fs[] >>
+    qabbrev_tac`p = label_closures ez j e1` >> PairCases_on`p`>>fs[LET_THM] >>
+    qabbrev_tac`q = label_closures ez (j + LENGTH (free_labs ez p0)) e2` >> PairCases_on`q`>>fs[] >>
+    qabbrev_tac`r = label_closures ez (j + LENGTH (free_labs ez p0) + LENGTH (free_labs ez q0)) e3` >> PairCases_on`r`>>fs[] >>
+    simp[LIST_EQ_REWRITE] >>
+    conj_tac >- (
+      gen_tac >> strip_tac >>
+      Cases_on`x < LENGTH (free_labs ez p0)`>>
+      lrw[EL_APPEND1,EL_APPEND2] >>
+      Cases_on`x < LENGTH (free_labs ez p0) + LENGTH (free_labs ez q0)` >>
+      lrw[EL_APPEND1,EL_APPEND2] ) >>
+    conj_tac >- (
+      rfs[] >>
+      fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,MEM_GENLIST] ) >>
+    conj_tac >- (
+      simp[mvars_list_APPEND]>> fs[SUBSET_DEF]) >>
+    simp[Once syneq_exp_cases]) >>
+  strip_tac >- simp[] >>
+  strip_tac >- (
+    rpt strip_tac >>
+    fs[] >>
+    qabbrev_tac`p = label_closures ez j e` >>
+    PairCases_on`p`>>fs[LET_THM] >>
+    qabbrev_tac`q = label_closures_list ez (j + LENGTH (free_labs ez p0)) es` >>
+    PairCases_on`q`>>fs[] >> simp[] >> rfs[] >>
+    conj_tac >- (
+      lrw[LIST_EQ_REWRITE] >>
+      Cases_on`x < LENGTH (free_labs ez p0)`>>
+      lrw[EL_APPEND1,EL_APPEND2] ) >>
+    conj_tac >- (
+      fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,mvars_list_APPEND] ) >>
+  strip_tac >- (
+    simp[] >> rw[FUNION_FEMPTY_2] >>
+    fs[LENGTH_NIL]) >>
+  rpt gen_tac >> rpt strip_tac >>
+  full_simp_tac (std_ss++ARITH_ss) [] >>
+  last_x_assum mp_tac >>
+  last_x_assum mp_tac >>
+  simp[] >> ntac 2 strip_tac >>
+  Q.PAT_ABBREV_TAC`r = bind_fv X Y Z` >>
+  PairCases_on`r`>>fs[] >>
+  Q.PAT_ABBREV_TAC`ezz:num = az + (X + (Y + 1))` >>
+  qabbrev_tac`p = label_closures ezz (j+1) r3` >>
+  PairCases_on`p` >> full_simp_tac std_ss [] >>
+  qabbrev_tac`q = label_closures_defs ez p1 nz (k+1) defs` >>
+  PairCases_on`q` >> full_simp_tac std_ss [] >>
+  `no_labs r3` by (
+    fs[bind_fv_def,LET_THM,markerTheory.Abbrev_def] ) >>
+  `set (free_vars r3) ⊆ count ezz` by (
+    fs[bind_fv_def,LET_THM,markerTheory.Abbrev_def] >>
+    first_x_assum(qspec_then`[]`kall_tac) >>
+    qpat_assum`P⇒Q`kall_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    srw_tac[ARITH_ss][] >- (
+      qho_match_abbrev_tac`(the n (find_index x ls n)) < y` >>
+      qho_match_abbrev_tac`P (the n (find_index x ls n))` >>
+      ho_match_mp_tac the_find_index_suff >>
+      simp[Abbr`P`,Abbr`x`,Abbr`ls`,MEM_FILTER,ADD1,MEM_GENLIST,Abbr`n`,Abbr`y`] >>
+      rw[] >>
+      qmatch_abbrev_tac`m < A + B` >>
+      Cases_on`m=A`>>fsrw_tac[ARITH_ss][]>>
+      Cases_on`B=0`>>fsrw_tac[ARITH_ss][]>>
+      fs[LENGTH_NIL_SYM,FILTER_EQ_NIL,EVERY_MEM,QSORT_MEM,markerTheory.Abbrev_def] >>
+      res_tac >> fsrw_tac[ARITH_ss][]) >>
+    qho_match_abbrev_tac`(the 0 (find_index x ls n)) < y` >>
+    qho_match_abbrev_tac`P (the 0 (find_index x ls n))` >>
+    ho_match_mp_tac the_find_index_suff >>
+    `n ≤ nz` by (
+      unabbrev_all_tac >>
+      simp[GSYM ADD1] >>
+      simp[GSYM LESS_EQ] >>
+      qmatch_abbrev_tac`LENGTH (FILTER P ls) < nz` >>
+      `nz = LENGTH ls` by rw[Abbr`ls`] >> pop_assum SUBST1_TAC >>
+      match_mp_tac LENGTH_FILTER_LESS >>
+      simp[Abbr`P`,Abbr`ls`,EXISTS_MEM,MEM_GENLIST] >>
+      qexists_tac`LENGTH ls0` >>
+      simp[] ) >>
+    reverse conj_tac >- (
+      unabbrev_all_tac >>
+      simp[MEM_MAP,MEM_FILTER,sortingTheory.QSORT_MEM] >>
+      qexists_tac`v` >> simp[] ) >>
+    simp[Abbr`P`,Abbr`y`] >>
+    qx_gen_tac`m`>>strip_tac >>
+    qmatch_abbrev_tac`m + n < l1 + l2` >>
+    `l2 = LENGTH ls + 1` by rw[Abbr`l2`,Abbr`ls`] >> rw[] >>
+    qsuff_tac`n ≤ l1 + 1` >- DECIDE_TAC >>
+    simp[Abbr`n`]) >>
+  full_simp_tac std_ss [LET_THM] >>
+  Q.PAT_ABBREV_TAC`cd:def = (SOME X,az,p0)` >>
+  last_x_assum(qspecl_then[`ds0++[cd]`,`ls0++[(NONE,az,b)]`]mp_tac) >>
+  discharge_hyps >- (
+    simp[] >>
+    rator_x_assum`syneq_defs`mp_tac >>
+    simp[Once syneq_exp_cases] >>
+    simp[EVERY_MAP] >> strip_tac >>
+    simp[Once syneq_exp_cases,EVERY_MAP] >>
+    qx_gen_tac`v` >> strip_tac >>
+    first_x_assum(qspec_then`v`mp_tac) >> simp[] >>
+    REWRITE_TAC[GSYM APPEND_ASSOC] >>
+    Cases_on`v < k`>>simp[EL_APPEND1,EL_APPEND2,ADD1,EL_MAP] >- (
+      strip_tac >>
+      ntac 2 (first_x_assum (mp_tac o SYM)) >>
+      ntac 2 strip_tac >>
+      fsrw_tac[ARITH_ss][ADD1] ) >>
+    Cases_on`v=k` >- (
+      simp[Abbr`cd`] >> strip_tac >>
+      simp[syneq_cb_aux_def] >>
+      fsrw_tac[ARITH_ss][ADD1] >>
+      simp[syneq_cb_aux_def] >>
+      conj_asm1_tac >- (
+        fs[bind_fv_def,LET_THM,markerTheory.Abbrev_def] >>
+        simp[EVERY_MEM,MEM_MAP,MEM_FILTER,QSORT_MEM,MEM_FILTER,MEM_GENLIST] >>
+        simp[GSYM LEFT_FORALL_IMP_THM] >>
+        qpat_assum`Y ⊆ count ez` mp_tac >>
+        qpat_assum`Y ⊆ count ez` mp_tac >>
+        simp[SUBSET_DEF,GSYM LEFT_FORALL_IMP_THM] >>
+        srw_tac[DNF_ss,ARITH_ss][NOT_LESS] >>
+        metis_tac[] ) >>
+      qmatch_abbrev_tac`syneq_exp z1 ezz V b p0` >>
+      qsuff_tac`syneq_exp z1 ezz V b r3` >- (
+        strip_tac >>
+        `V = $= O V` by metis_tac[Id_O] >> pop_assum SUBST1_TAC >>
+        match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_trans)) >>
+        PROVE_TAC[] ) >>
+      qpat_assum`Abbrev(X = bind_fv A Y Z)`mp_tac >>
+      simp[bind_fv_def,markerTheory.Abbrev_def] >> rw[] >>
+      match_mp_tac mkshift_thm >>
+      simp[Abbr`z1`,Abbr`ezz`] >>
+      conj_tac >- simp[Abbr`V`,syneq_cb_V_def] >>
+      reverse conj_tac >- (
+        qpat_assum`Y ⊆ count ez`mp_tac >>
+        qpat_assum`Y ⊆ count ez`mp_tac >>
+        simp[SUBSET_DEF,GSYM LEFT_FORALL_IMP_THM] >>
+        srw_tac[DNF_ss,ARITH_ss][NOT_LESS] >>
+        Cases_on`az + nz ≤ x`>>simp[]) >>
+      gen_tac >> strip_tac >>
+      reverse conj_tac >- (
+        rw[] >- (
+          qho_match_abbrev_tac`the 0 (find_index a w c) < X` >>
+          qunabbrev_tac`X` >>
+          qho_match_abbrev_tac`P (the c (find_index a w c))` >>
+          match_mp_tac the_find_index_suff >>
+          reverse conj_tac >- (
+            unabbrev_all_tac >>
+            fs[SUBSET_DEF] >>
+            simp[MEM_FILTER,MEM_GENLIST] ) >>
+          simp[Abbr`w`,Abbr`c`,Abbr`P`]) >>
+        qho_match_abbrev_tac`the 0 (find_index a w c) < X` >>
+        qunabbrev_tac`X` >>
+        qho_match_abbrev_tac`P (the 0 (find_index a w c))` >>
+        match_mp_tac the_find_index_suff >>
+        reverse conj_tac >- (
+          unabbrev_all_tac >>
+          simp[MEM_MAP,MEM_FILTER,QSORT_MEM] >>
+          qexists_tac`x`>>simp[]) >>
+        simp[Abbr`w`,Abbr`c`,Abbr`P`]) >>
+      Q.PAT_ABBREV_TAC`envs:num list = MAP X (FILTER Y Z)` >>
+      `¬(x < az + nz) ⇒ MEM (x-(az+nz)) envs` by (
+        simp[Abbr`envs`,MEM_MAP,MEM_FILTER,QSORT_MEM] >>
+        strip_tac >>
+        qexists_tac`x` >> simp[] ) >>
+      Q.PAT_ABBREV_TAC`recs = LENGTH ls0::X` >>
+      `x < az + nz ⇒ MEM (x - az) recs` by (
+        simp[Abbr`recs`,MEM_FILTER,MEM_GENLIST] ) >>
+      simp[Abbr`V`] >>
+      reverse(rw[]) >- (
+        fs[] >>
+        simp[syneq_cb_V_def] >>
+        Q.PAT_ABBREV_TAC`rz = LENGTH (FILTER X Y) + 1` >>
+        Q.ISPECL_THEN[`envs`,`x-(az+nz)`,`rz`]mp_tac find_index_MEM >>
+        simp[] >> disch_then strip_assume_tac >> simp[] >>
+        simp[Abbr`rz`] ) >>
+      simp[syneq_cb_V_def] >> fs[] >>
+      Q.ISPECL_THEN[`recs`,`x-az`,`0:num`]mp_tac find_index_MEM >>
+      simp[] >> disch_then strip_assume_tac >> simp[] >>
+      Cases_on`i=0` >- (
+        simp[] >> fs[Abbr`recs`]) >>
+      simp[] >>
+      qpat_assum`EL X Y = x - def0`mp_tac >>
+      simp[Abbr`recs`,EL_CONS,PRE_SUB1] >>
+      fsrw_tac[ARITH_ss][]) >>
+    lrw[EL_CONS] >>
+    ntac 2 (qpat_assum`X = Y`(mp_tac o SYM)) >>
+    simp[PRE_SUB1,EL_MAP] >>
+    Q.PAT_ABBREV_TAC`p = EL X defs` >>
+    PairCases_on`p` >>
+    simp[syneq_cb_aux_def] >>
+    ntac 2 strip_tac >>
+    fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >>
+    fsrw_tac[ARITH_ss][ADD1] >>
+    `LENGTH defs + (LENGTH ls0 + 1) = nz` by simp[] >>
+    pop_assum SUBST1_TAC >>
+    match_mp_tac (MP_CANON(CONJUNCT1 syneq_exp_mono_V)) >>
+    HINT_EXISTS_TAC >>
+    simp[]) >>
+  simp[] >> strip_tac >>
+  simp[Abbr`cd`,ADD1]>>
+  conj_tac >- (
+    fsrw_tac[ARITH_ss][] >>
+    lrw[LIST_EQ_REWRITE,EL_CONS,ADD1] >>
+    Cases_on`x=0` >> lrw[EL_CONS,PRE_SUB1] >>
+    Cases_on`x < LENGTH (free_labs ezz p0)` >>
+    lrw[EL_APPEND1,EL_APPEND2] >>
+    Cases_on `x-1 < LENGTH (free_labs ezz p0)` >>
+    lrw[EL_APPEND1,EL_APPEND2]) >>
+  conj_tac >- (
+    rev_full_simp_tac std_ss [] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] ) >>
+  reverse conj_tac >- (
+    reverse conj_tac >- (
+      reverse conj_tac >- (
+        metis_tac[CONS_APPEND,APPEND_ASSOC] ) >>
+      fsrw_tac[DNF_ss][mvars_list_APPEND,SUBSET_DEF] >>
+      fs[bind_fv_def,LET_THM,markerTheory.Abbrev_def] ) >>
+    fs[bind_fv_def,LET_THM,markerTheory.Abbrev_def]  ) >>
+  simp[good_cd_def] >>
+  conj_tac >- (
+    fs[bind_fv_def,LET_THM,markerTheory.Abbrev_def] >>
+    simp[EVERY_MAP,EVERY_FILTER] >>
+    simp[EVERY_MEM,QSORT_MEM] >>
+    qpat_assum`Y ⊆ count ez` mp_tac >>
+    qpat_assum`Y ⊆ count ez` mp_tac >>
+    srw_tac[DNF_ss][SUBSET_DEF] >>
+    res_tac >> fsrw_tac[ARITH_ss][] ) >>
+  conj_tac >- (
+    fs[bind_fv_def,LET_THM,markerTheory.Abbrev_def] >>
+    qpat_assum`set (free_vars p0) ⊆ X`mp_tac >>
+    simp[SUBSET_DEF] >> strip_tac >>
+    gen_tac >> strip_tac >>
+    first_x_assum(qspec_then`x`mp_tac) >>
+    simp[] >> strip_tac >>
+    Cases_on`v<az`>>fsrw_tac[ARITH_ss][]>>
+    Cases_on`v<az+nz`>>fsrw_tac[ARITH_ss][]>- (
+      qho_match_abbrev_tac`the 0 (find_index a ls n) < X` >>
+      qho_match_abbrev_tac`P (the n (find_index a ls n))` >>
+      match_mp_tac the_find_index_suff >>
+      simp[Abbr`ls`,Abbr`P`,Abbr`X`,MEM_FILTER,MEM_GENLIST,Abbr`n`,Abbr`a`,MEM_MAP,QSORT_MEM] ) >>
+    rw[] >>
+    qho_match_abbrev_tac`the 0 (find_index a ls n) < X` >>
+    qho_match_abbrev_tac`P (the 0 (find_index a ls n))` >>
+    match_mp_tac the_find_index_suff >>
+    simp[Abbr`ls`,Abbr`P`,Abbr`X`,MEM_FILTER,MEM_GENLIST,Abbr`n`,Abbr`a`,MEM_MAP,QSORT_MEM] >>
+    HINT_EXISTS_TAC >> simp[] ) >>
+  map_every qexists_tac[`b`,`r3`] >>
+  simp[])
+
 val compile_code_env_thm = store_thm("compile_code_env_thm",
   ``∀ez menv s e. let s' = compile_code_env menv s e in
       ALL_DISTINCT (MAP (FST o FST o SND) (free_labs ez e)) ∧
@@ -86,7 +599,9 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
         (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
         ALL_DISTINCT (FILTER is_Label bc0) ∧
-        (∀l1 l2. MEM l1 (MAP dest_Label (FILTER is_Label bc0)) ∧ ((l2 = s.next_label) ∨ MEM l2 (MAP (FST o FST o SND) (free_labs ez e))) ⇒ l1 < l2)
+        (∀l1 l2. MEM l1 (MAP dest_Label (FILTER is_Label bc0)) ∧ ((l2 = s.next_label) ∨ MEM l2 (MAP (FST o FST o SND) (free_labs ez e))) ⇒ l1 < l2) ∧
+        (∀mn x b. (mn,x) ∈ mvars b ∧ MEM b (MAP (SND o SND o SND) (free_labs ez e)) ⇒
+         ∃env. FLOOKUP menv mn = SOME env ∧ MEM x env)
         ⇒
         EVERY (code_env_cd menv (bc0++code)) (free_labs ez e) ∧
         bc_next bs (bs with pc := next_addr bs.inst_length (bc0++code))``,
@@ -125,6 +640,12 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
     qpat_assum`∀i. P ⇒ Q`(qspec_then`i`mp_tac) >>
     simp[EL_MAP] >>
     simp[Abbr`cd`] >> strip_tac >>
+    conj_tac >- (
+      rw[] >>
+      first_x_assum match_mp_tac >>
+      HINT_EXISTS_TAC >>
+      simp[MEM_MAP,EXISTS_PROD] >>
+      metis_tac[] ) >>
     qexists_tac`cs i`>>simp[] >>
     qexists_tac`bc0++Jump (Lab s.next_label)::bc0'` >>
     simp[] >>
@@ -592,6 +1113,7 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     ∧ bs.pc = next_addr bs.inst_length bc0
     ∧ bs.clock = SOME (FST s)
     ∧ good_labels cs.next_label bc0
+    ∧ (∀mn x. (mn,x) ∈ mvars exp ⇒ ∃env. FLOOKUP rmenv mn = SOME env ∧ MEM x env)
     ⇒
     case SND res of
     | Cval v =>
@@ -632,10 +1154,14 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
   first_x_assum(qspecl_then[`bs`,`bc0`]mp_tac) >>
   simp[] >>
   discharge_hyps >- (
-    simp[MEM_MAP,MEM_GENLIST,MEM_FILTER,is_Label_rwt] >>
-    simp_tac(srw_ss()++DNF_ss)[] >>
-    fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,good_labels_def] >>
-    rw[] >> res_tac >> DECIDE_TAC ) >>
+    simp[Once CONJ_ASSOC] >>
+    conj_tac >- (
+      simp[MEM_MAP,MEM_GENLIST,MEM_FILTER,is_Label_rwt] >>
+      simp_tac(srw_ss()++DNF_ss)[] >>
+      fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,good_labels_def] >>
+      rw[] >> res_tac >> DECIDE_TAC ) >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,mvars_list_MAP] >>
+    metis_tac[]) >>
   strip_tac >>
   `LENGTH renv = LENGTH env` by (
     fs[Cenv_bs_def,env_renv_def,EVERY2_EVERY] ) >>
@@ -745,6 +1271,76 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
   disj2_tac >>
   HINT_EXISTS_TAC >>
   simp[] )
+
+val mvars_exp_to_Cexp = store_thm("mvars_exp_to_Cexp",
+  ``(∀m e. mvars (exp_to_Cexp m e) = { (mn, the 0 (find_index x (fapply [] mn m.mvars) 0)) | Long mn x ∈ FV e })``,
+  ho_match_mp_tac exp_to_Cexp_nice_ind >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >>
+    rw[Once EXTENSION] >>
+    metis_tac[] ) >>
+  strip_tac >- rw[exp_to_Cexp_def] >>
+  strip_tac >- rw[exp_to_Cexp_def] >>
+  strip_tac >- rw[exp_to_Cexp_def] >>
+  strip_tac >- rw[exp_to_Cexp_def] >>
+  strip_tac >- rw[exp_to_Cexp_def] >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >>
+    rw[mvars_list_MAP,exps_to_Cexps_MAP,FV_list_MAP] >>
+    rw[Once EXTENSION,MEM_MAP] >>
+    fs[EVERY_MEM] >>
+    fsrw_tac[DNF_ss][] >>
+    fs[Once EXTENSION] >>
+    metis_tac[] ) >>
+  strip_tac >- rw[exp_to_Cexp_def] >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >>
+    rw[Once EXTENSION] ) >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >>
+    rw[ToIntLangTheory.shift_def] ) >>
+  strip_tac >- (
+    gen_tac >> Cases >>
+    rw[exp_to_Cexp_def] >> rw[] >>
+    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    gen_tac >> Cases >>
+    rw[exp_to_Cexp_def] >> rw[] >>
+    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >> rw[] >>
+    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >> rw[] >>
+    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >> rw[] >>
+    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >> rw[]) >>
+  strip_tac >- (
+    gen_tac >> Cases >>
+    rw[exp_to_Cexp_def] >> rw[] >>
+    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >> rw[] >>
+    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    metis_tac[] ) >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >> rw[] >>
+    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+
+    remove_mat_var
+
+    metis_tac[] ) >>
+
+  cheat)
 
 val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
   ``∀rmenv m renv rsz cs vars expf.
@@ -893,7 +1489,37 @@ val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
   discharge_hyps >- (
     rfs[] >>
     fs[Cenv_bs_def,s_refs_def,good_rd_def] >>
-    Cases_on`bs.clock`>>fs[] ) >>
+    Cases_on`bs.clock`>>fs[] >>
+    simp[Abbr`Cexp`,mvars_exp_to_Cexp] >>
+    simp[GSYM LEFT_FORALL_IMP_THM] >>
+    qpat_assum`FV exp ⊆ X`mp_tac >>
+    simp[SUBSET_DEF] >> rpt strip_tac >>
+    qmatch_assum_rename_tac`Long mn v ∈ FV exp`[] >>
+    first_x_assum(qspec_then`Long mn v`mp_tac) >>
+    simp[MEM_MAP,MEM_FLAT] >>
+    srw_tac[DNF_ss][MEM_MAP] >>
+    rpt(rator_x_assum`fmap_rel`mp_tac) >>
+    simp[fmap_rel_def,Abbr`Cmenv0`] >>
+    simp[FLOOKUP_DEF] >>
+    PairCases_on`x`>>fs[MEM_MAP,EXISTS_PROD] >>
+    strip_tac >> strip_tac >>
+    conj_tac >- metis_tac[] >>
+    first_x_assum(qspec_then`x0`mp_tac) >>
+    discharge_hyps >- metis_tac[] >>
+    `x0 ∈ FDOM rs.rmenv` by (
+      simp[MEM_MAP,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    simp[o_f_FAPPLY,MAP_MAP_o] >>
+    simp[env_renv_def,option_case_NONE_F] >>
+    first_x_assum(qspec_then`x0`mp_tac) >>
+    discharge_hyps >- metis_tac[] >>
+    simp[Abbr`Cenvf`,env_to_Cenv_MAP] >>
+    rpt strip_tac >>
+    qexists_tac`FST y` >>
+    reverse BasicProvers.CASE_TAC >- metis_tac[] >>
+
+
+    ) >>
   Cases_on`beh`>>fs[]>>BasicProvers.VAR_EQ_TAC>>fs[]>>BasicProvers.VAR_EQ_TAC>-(
     disch_then(qx_choosel_then[`Cs1`,`w`]strip_assume_tac) >>
     gen_tac >> strip_tac >> BasicProvers.VAR_EQ_TAC >>
@@ -4121,6 +4747,22 @@ val env_renv_syneq = store_thm("env_renv_syneq",
   simp[] >> rw[] >> simp[] >>
   metis_tac[Cv_bv_syneq])
 
+val vlabs_menv_FUPDATE = store_thm("vlabs_menv_FUPDATE",
+  ``vlabs_menv (fm |+ kv) = vlabs_menv (fm \\ (FST kv)) ∪ vlabs_list (SND kv)``,
+  simp[vlabs_menv_def] >>
+  simp_tac(srw_ss()++DNF_ss)[Once EXTENSION,IN_FRANGE] >>
+  Cases_on`kv` >>
+  simp[DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM] >>
+  metis_tac[])
+
+val code_env_cd_SUBMAP = store_thm("code_env_cd_SUBMAP",
+  ``code_env_cd menv code cd ∧ menv ⊑ menv' ⇒
+    code_env_cd menv' code cd``,
+  PairCases_on`cd` >>
+  rw[code_env_cd_def] >>
+  good_cd_def
+  compile_mvars_SUBMAP
+
 val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
   ``∀menv cenv env rs cz rd cs bs mn new old rnew rold rs' menv' cz'.
      env_rs menv cenv env rs cz rd cs bs
@@ -4219,6 +4861,20 @@ val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
       qx_gen_tac`k` >>
       Cases_on`k=mn`>>simp[FAPPLY_FUPDATE_THM] >>
       metis_tac[IN_FRANGE] ) >>
+    fs[vlabs_list_APPEND] >>
+    simp[vlabs_menv_FUPDATE] >>
+    `Cmenv \\ mn = Cmenv` by (
+      match_mp_tac DOMSUB_NOT_IN_DOM >>
+      fs[fmap_rel_def] >>
+      fs[GSYM fmap_EQ,Abbr`mv0`] ) >>
+    simp[] >>
+
+    qsuff_tac`∀cd. code_env_cd (MAP SND o_f rs.rmenv) bs.code cd ⇒
+                   code_env_cd cmnv bs.code cd`>-metis_tac[] >>
+    simp[Abbr`cmnv`] >>
+    REWRITE_TAC[Once (GSYM o_f_DOMSUB)] >>
+    REWRITE_TAC[GSYM FUPDATE_PURGE] >>
+
     cheat ) >>
   conj_tac >- (
     simp[Abbr`mv`,Abbr`fmv`] >>
