@@ -1272,6 +1272,20 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
   HINT_EXISTS_TAC >>
   simp[] )
 
+val mvars_remove_mat_vp = store_thm("mvars_remove_mat_vp",
+  ``(∀p fk sk v. mvars (remove_mat_vp fk sk v p) = mvars sk) ∧
+    (∀ps fk sk v n. mvars (remove_mat_con fk sk v n ps) = mvars sk)``,
+  ho_match_mp_tac(TypeBase.induction_of``:Cpat``) >>
+  simp[ToIntLangTheory.remove_mat_vp_def,ToIntLangTheory.shift_def])
+val _ = export_rewrites["mvars_remove_mat_vp"]
+
+val mvars_remove_mat_var = store_thm("mvars_remove_mat_var",
+  ``∀v pes. mvars (remove_mat_var v pes) = mvars_list (MAP SND pes)``,
+  ho_match_mp_tac remove_mat_var_ind >>
+  simp[remove_mat_var_def,ToIntLangTheory.shift_def] >>
+  metis_tac[UNION_COMM])
+val _ = export_rewrites["mvars_remove_mat_var"]
+
 val mvars_exp_to_Cexp = store_thm("mvars_exp_to_Cexp",
   ``(∀m e. mvars (exp_to_Cexp m e) = { (mn, the 0 (find_index x (fapply [] mn m.mvars) 0)) | Long mn x ∈ FV e })``,
   ho_match_mp_tac exp_to_Cexp_nice_ind >>
@@ -1335,12 +1349,32 @@ val mvars_exp_to_Cexp = store_thm("mvars_exp_to_Cexp",
   strip_tac >- (
     rw[exp_to_Cexp_def] >> rw[] >>
     fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
-
-    remove_mat_var
-
+    simp[mvars_list_MAP,FV_pes_MAP,EXISTS_PROD] >>
+    simp_tac(srw_ss()++DNF_ss)[Abbr`Cpes'`,Abbr`Cpes`,pes_to_Cpes_MAP] >>
+    simp_tac(srw_ss()++DNF_ss)[MEM_MAP,LET_THM,UNCURRY] >>
+    fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD,EXISTS_PROD] >>
+    rpt gen_tac >>
+    EQ_TAC >> metis_tac[] ) >>
+  strip_tac >- (
+    rw[exp_to_Cexp_def] >>
+    rw[Once EXTENSION] >>
     metis_tac[] ) >>
-
-  cheat)
+  strip_tac >- (
+    simp[exp_to_Cexp_def] >> rw[] >>
+    fsrw_tac[DNF_ss][FV_defs_MAP,defs_to_Cdefs_MAP,mvars_defs_MAP,EVERY_MEM,FORALL_PROD,EXISTS_PROD] >>
+    simp[Once EXTENSION] >>
+    fsrw_tac[DNF_ss][MEM_MAP,EXISTS_PROD,FORALL_PROD,LAMBDA_PROD,FST_triple] >>
+    rw[] >> EQ_TAC >> strip_tac >> fsrw_tac[DNF_ss][] >- (
+      res_tac >> fs[] >> metis_tac[] )
+    >- (
+      res_tac >> fs[] >> metis_tac[] )
+    >- (
+      res_tac >> fs[Once EXTENSION] >> metis_tac[] )
+    >- (
+      res_tac >> fs[Once EXTENSION] >> metis_tac[] )) >>
+  rw[] >>
+  Cases_on`pat_to_Cpat m p`>>fs[] >>
+  metis_tac[FST_pat_to_Cpat_mvars,FST])
 
 val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
   ``∀rmenv m renv rsz cs vars expf.
