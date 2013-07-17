@@ -496,22 +496,22 @@ val (m,[r]) = mst_run_exp e71
 val true = (OLit (Bool true) = bv_to_ov m r);
 val e72 = ``Raise Bind_error``
 val (m,[bv]) = mst_run_exp_exc e72
-val true = (OConv (SOME (Short"Bind"),[])) = bv_to_ov m bv;
+val true = (OConv (SOME (Short"Bind"),[])) = bv_to_ov err_m bv;
 val e73 = ``Handle (Raise (Int_error 42)) "x" (Var(Short "x"))``
 val [Number i] = run_exp e73
 val SOME 42 = intML.toInt i;
 val e74 = ``Mat (Lit (Bool F)) [Plit (Bool T),Lit (IntLit 0)]``
 val (m,[bv]) = mst_run_exp_exc e74
-val true = (OConv (SOME (Short"Bind"),[])) = bv_to_ov m bv;
+val true = (OConv (SOME (Short"Bind"),[])) = bv_to_ov err_m bv;
 val e75 = ``Handle (App (Opn Divide) (Lit (IntLit 1)) (Raise (Int_error 1))) "x" (Var(Short "x"))``
 val (m,[Number i]) = mst_run_exp e75
 val SOME 1 = intML.toInt i;
 val e76 = ``Handle (App (Opn Divide) (Lit (IntLit 1)) (Lit (IntLit 0))) "x" (Var(Short "x"))``
 val (m,[bv]) = mst_run_exp_exc e76
-val true = (OConv (SOME (Short"Div"),[])) = bv_to_ov m bv;
+val true = (OConv (SOME (Short"Div"),[])) = bv_to_ov err_m bv;
 val e77 = ``Let "x" (Lit (IntLit 0)) (Handle (App (Opn Modulo) (Lit (IntLit 1)) (Var (Short "x"))) "x" (Var (Short "x")))``
 val (m,[bv]) = mst_run_exp_exc e77
-val true = (OConv (SOME (Short"Div"),[])) = bv_to_ov m bv;
+val true = (OConv (SOME (Short"Div"),[])) = bv_to_ov err_m bv;
 val e78 = ``Let "x" (Lit (IntLit 1)) (Handle (App (Opn Modulo) (Lit (IntLit 0)) (Var (Short "x"))) "x" (Var (Short "x")))``
 val (m,[Number i]) = mst_run_exp e78
 val SOME 0 = intML.toInt i;
@@ -521,7 +521,7 @@ val (bs,rs) = run_top (bs,rs) (mk_Texp ``Var(Long"M""x")``)
 val [x,mx] = bc_state_stack bs
 val true = (OLit(IntLit(intML.fromInt 1))) = bv_to_ov (cpam rs) x andalso x = mx;
 val (bs,rs) = run_top inits (mk_Tdec ``Dlet (Pvar "x") (Lit (IntLit 2))``)
-val true = "val x = 2" = String.implode(List.rev(String.explode(bc_state_output bs)))
+val true = "val x = 2" = bc_state_output bs
 val (bs,rs) = run_top (bs,rs) (mk_Tmod "M" m)
 val (bs,rs) = run_top (bs,rs) (mk_Texp ``App (Opn Minus) (Var (Short "x")) (Var (Long"M""x"))``)
 val [r,mx,x] = bc_state_stack bs
@@ -532,5 +532,4 @@ val d0 = paird
 val d1 = ``Dlet (Pcon (SOME (Short "Pair_type")) [Pvar "x";Pvar "y"]) (Con (SOME (Short "Pair_type")) [Lit (IntLit 1);Lit (IntLit 2)])``
 val (bs,rs) = run_top inits (mk_Tdec d0)
 val (bs,rs) = run_top (bs,rs) (mk_Tdec d1)
-val true = "Pair_type = <constructor>val y = 2val x = 1" = String.implode(List.rev(String.explode(bc_state_output bs)))
-    
+val true = "Pair_type = <constructor>val y = 2val x = 1" = bc_state_output bs

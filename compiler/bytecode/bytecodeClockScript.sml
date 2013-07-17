@@ -89,7 +89,7 @@ val bc_next_not_Tick_same_clock = store_thm("bc_next_not_Tick_same_clock",
 val bc_next_not_Tick_any_clock = store_thm("bc_next_not_Tick_any_clock",
   ``∀s1 s2. bc_next s1 s2 ⇒ bc_fetch s1 ≠ SOME Tick ⇒ ∀ck'. bc_next (s1 with clock := ck') (s2 with clock := ck')``,
   ho_match_mp_tac bc_next_ind >> rw[] >>
-  rw[bc_eval1_thm,bc_eval1_def,bc_fetch_with_clock,LET_THM] >>
+  rw[bc_eval1_thm,bc_eval1_def,bc_fetch_with_clock,LET_THM,stringTheory.IMPLODE_EXPLODE_I] >>
   rw[bump_pc_def,bc_fetch_with_clock,bc_state_component_equality,bc_find_loc_with_clock,bc_fetch_with_stack] >>
   fs[bc_eval_stack_thm,bc_find_loc_with_clock] >> simp[] >>
   simp[EL_REVERSE,PRE_SUB1,EL_APPEND1,EL_LENGTH_APPEND_rwt,bc_state_component_equality] >>

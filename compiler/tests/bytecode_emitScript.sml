@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib EmitTeX basis_emitTheory
-open CompilerLibTheory PrinterTheory BytecodeTheory LabelsTheory bytecodeTerminationTheory bytecodeEvalTheory
+open CompilerLibTheory PrinterTheory BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory
 val _ = new_theory "bytecode_emit"
 
 val _ = Parse.temp_type_abbrev("string",``:char list``)
@@ -12,6 +12,7 @@ val data = map
   (fn th => EmitML.DATATYPE [QUOTE (datatype_thm_to_string th)])
   [AstTheory.datatype_lit,
    AstTheory.datatype_id,
+   SemanticPrimitivesTheory.datatype_eq_result,
    datatype_bc_stack_op,
    datatype_loc,
    datatype_ov,
@@ -57,9 +58,11 @@ bc_eval_stack_def,
 CONCAT_RULE(CONV_RULE(PURE_REWRITE_CONV[mk_thm([],mk_eq(``CONS:char -> string -> string``,``STRING``))]) bc_eval1_def),
 bc_eval_compute,
 init_bc_state_def
-, calculate_labels_def
-, replace_labels_def
-, compile_labels_def
+,bytecodeLabelsTheory.collect_labels_def
+,bytecodeLabelsTheory.all_labels_def
+,bytecodeLabelsTheory.inst_labels_def
+,bytecodeLabelsTheory.code_labels_def
+,bytecodeLabelsTheory.strip_labels_def
 ]
 
 val _ = EmitML.eSML "bytecode" (

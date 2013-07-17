@@ -220,7 +220,7 @@ val bc_eval1_def = Define`
   | (Print, x::xs) =>
     SOME (bump_pc s with <| stack := xs; output := STRCAT s.output (ov_to_string(bv_to_ov s.cons_names x))|>)
   | (PrintC c,_) =>
-    SOME (bump_pc s with <| output := SNOC c s.output |>)
+    SOME (bump_pc s with <| output := IMPLODE (SNOC c (EXPLODE s.output)) |>)
   | _ => NONE)`
 
 val bc_eval1_SOME = store_thm(
@@ -300,7 +300,7 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
   rw[bc_next_cases] )
->- ( rw[bc_next_cases] ))
+>- ( rw[bc_next_cases,stringTheory.IMPLODE_EXPLODE_I] ))
 
 val bc_next_bc_eval1 = store_thm(
 "bc_next_bc_eval1",
@@ -310,7 +310,7 @@ rw[bc_eval1_def] >>
 fs[bc_eval_stack_thm] >>
 unabbrev_all_tac >> rw[] >>
 fsrw_tac[ARITH_ss][] >>
-lrw[REVERSE_APPEND,rich_listTheory.EL_APPEND2,rich_listTheory.TAKE_APPEND1] >>
+lrw[REVERSE_APPEND,rich_listTheory.EL_APPEND2,rich_listTheory.TAKE_APPEND1,stringTheory.IMPLODE_EXPLODE_I] >>
 TRY(
   pop_assum (assume_tac o SYM) >>
   lrw[rich_listTheory.TAKE_REVERSE,rich_listTheory.LASTN_LENGTH_ID]) >>

@@ -135,9 +135,7 @@ end handle (Fail s) => raise Fail s | _ => raise Fail (Parse.term_to_string tm)
 val term_to_ov = v_to_ov [] o term_to_v
 
 fun add_code c bs = bc_state_pc_fupd (K (numML.fromInt (List.length (bc_state_code bs))))
-  (bc_state_code_fupd
-    (compile_labels (bc_state_inst_length bs) o (C append (List.rev c)))
-    bs)
+  (strip_labels (bc_state_code_fupd (C append (List.rev c)) bs))
 
 fun mk_Tmod mn ds = Tmod(mn,NONE,dest_list term_to_dec ds)
 fun mk_Texp e = Tdec (term_to_dec ``Dlet (Pvar "it") ^e``)
@@ -162,7 +160,9 @@ fun mst_run_decs_exp_gen test (ds,e) = let
   val (bs,rss,rsf) = prep_exp (bs,rs) e
   val (SOME bs) = bc_eval bs
   val (true,rs) = test bs rss rsf
-in ((bind_exc_cn,SOME (Short "Bind"))::(div_exc_cn,SOME(Short"Div"))::cpam rs, bc_state_stack bs) end
+in (cpam rs, bc_state_stack bs) end
+
+val err_m = (eq_exc_cn,SOME(Short"Eq"))::(div_exc_cn,SOME(Short"Div"))::(bind_exc_cn,SOME(Short"Bind"))::[]
 
 fun excp bs = numML.toInt (bc_state_pc bs) = SOME 0
 

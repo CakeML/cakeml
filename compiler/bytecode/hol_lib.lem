@@ -1,6 +1,8 @@
 type char
 val EXPLODE : string -> list char
+(* val IMPLODE : list char -> string *)
 val CONCAT : list string -> string
+(* val SNOC : forall 'a. 'a -> list 'a -> list 'a *)
 val SNOC : char -> string -> string
 val LEAST : (num -> bool) -> num
 val IMAGE : forall 'a 'b. ('a -> 'b) -> set 'a -> set 'b

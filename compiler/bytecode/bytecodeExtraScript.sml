@@ -241,7 +241,7 @@ val bc_next_append_code = store_thm("bc_next_append_code",
   rw[bc_eval1_thm] >>
   imp_res_tac bc_fetch_append_code >>
   imp_res_tac bc_find_loc_append_code >>
-  rw[bc_eval1_def,LET_THM] >>
+  rw[bc_eval1_def,LET_THM,stringTheory.IMPLODE_EXPLODE_I] >>
   rw[bump_pc_def] >>
   BasicProvers.CASE_TAC >>
   simp[bc_state_component_equality])
