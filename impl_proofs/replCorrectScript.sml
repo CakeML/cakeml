@@ -985,20 +985,20 @@ val PrintE_thm = store_thm("PrintE_thm",
                        |> in
     bc_next^* bs bs'``,
   (*
-  It would be nice to prove this by evaluation, but it would require some tricks...
-  rw[] >>
-  simp[RTC_eq_NRC] >>
-  Cases_on`err`>>fs[err_bv_def]>>
-  TRY (
-    qmatch_assum_rename_tac`bv = Number i`[] >>
-    qexists_tac`13` >>
-    EVAL_TAC >>
-    simp[bc_eval1_thm,Abbr`bs'`] >>
-    `bs = bs with <|code:=PrintE;pc:=0;stack:=Number i::st;output:=bs.output;inst_length:=bs.inst_length|>` by (
-      simp[bc_state_component_equality] ) >>
-    pop_assum SUBST1_TAC >>
-    EVAL_TAC
-    *)
+    It would be nice to prove this by evaluation, but it would require some tricks...
+    rw[] >>
+    simp[RTC_eq_NRC] >>
+    Cases_on`err`>>fs[err_bv_def]>>
+    TRY (
+      qmatch_assum_rename_tac`bv = Number i`[] >>
+      qexists_tac`13` >>
+      EVAL_TAC >>
+      simp[bc_eval1_thm,Abbr`bs'`] >>
+      `bs = bs with <|code:=PrintE;pc:=0;stack:=Number i::st;output:=bs.output;inst_length:=bs.inst_length|>` by (
+        simp[bc_state_component_equality] ) >>
+      pop_assum SUBST1_TAC >>
+      EVAL_TAC
+  *)
   assume_tac PrintE_labels >>
   fs[good_labels_def] >>
   rw[] >>
@@ -1069,7 +1069,7 @@ val PrintE_thm = store_thm("PrintE_thm",
       simp[Abbr`bs3`,Abbr`bs2`,Abbr`bs1`,bump_pc_def] >>
       EVAL_TAC >>
       simp[SUM_APPEND,FILTER_APPEND]) >>
-    `bc_next bs3 bs4` by ( simp[bc_eval1_thm,bc_eval1_def] ) >>
+    `bc_next bs3 bs4` by ( simp[bc_eval1_thm,bc_eval1_def,IMPLODE_EXPLODE_I] ) >>
     `bc_fetch bs4 = SOME Print` by (
       match_mp_tac bc_fetch_next_addr >>
       qexists_tac`TAKE 10 PrintE` >>
@@ -1093,7 +1093,7 @@ val PrintE_thm = store_thm("PrintE_thm",
       simp[bump_pc_def] >>
       EVAL_TAC >>
       simp[SUM_APPEND,FILTER_APPEND]) >>
-    `bc_next bs5 bs6` by ( simp[bc_eval1_thm,bc_eval1_def] ) >>
+    `bc_next bs5 bs6` by ( simp[bc_eval1_thm,bc_eval1_def,IMPLODE_EXPLODE_I] ) >>
     `bc_fetch bs6 = SOME (Jump (Lab 3))` by (
       match_mp_tac bc_fetch_next_addr >>
       qexists_tac`TAKE 12 PrintE` >>
@@ -1291,7 +1291,6 @@ val PrintE_thm = store_thm("PrintE_thm",
     simp[bc_state_component_equality,Abbr`bs'`] >>
     simp[DROP_APPEND1,DROP_APPEND2] >>
     EVAL_TAC ) >>
-
   qsuff_tac`bc_next^* bs3 bs'` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
   simp[Once RTC_CASES1] >> disj2_tac >>
   simp[bc_eval1_thm,bc_eval1_def,bump_pc_def,bc_fetch_with_stack] >>
