@@ -2266,13 +2266,13 @@ val _ = export_rewrites["mvars_def"]
 
 val compile_mvars_SUBMAP = store_thm("compile_mvars_SUBMAP",
   ``(∀menv env t sz s e menv'.
-      menv ⊑ menv' ∧ (∀mn x. (mn,x) ∈ mvars e ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ MEM x env)
+      menv ⊑ menv' ∧ (∀mn x. (mn,x) ∈ mvars e ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ x < LENGTH env)
       ⇒ compile menv' env t sz s e = compile menv env t sz s e) ∧
     (∀menv env t sz e n cs xs menv'.
-      menv ⊑ menv' ∧ (∀mn x. (mn,x) ∈ mvars e ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ MEM x env)
+      menv ⊑ menv' ∧ (∀mn x. (mn,x) ∈ mvars e ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ x < LENGTH env)
       ⇒ compile_bindings menv' env t sz e n cs xs = compile_bindings menv env t sz e n cs xs) ∧
     (∀menv env sz cs es menv'.
-      menv ⊑ menv' ∧ (∀mn x. (mn,x) ∈ mvars_list es ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ MEM x env)
+      menv ⊑ menv' ∧ (∀mn x. (mn,x) ∈ mvars_list es ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ x < LENGTH env)
       ⇒ compile_nts menv' env sz cs es = compile_nts menv env sz cs es)``,
   ho_match_mp_tac compile_ind >>
   simp[compile_def] >> rw[] >>
@@ -2289,7 +2289,7 @@ val compile_mvars_SUBMAP = store_thm("compile_mvars_SUBMAP",
 
 ;val code_env_cd_def = Define`
   code_env_cd menv code (x,(l,ccenv,ce),(az,b)) ⇔
-    (∀mn x. (mn,x) ∈ mvars b ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ MEM x env) ∧
+    (∀mn x. (mn,x) ∈ mvars b ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ x < LENGTH env) ∧
     good_cd (x,(l,ccenv,ce),(az,b)) ∧
     ∃cs bc0 cc bc1.
       ((compile menv (MAP CTEnv ccenv) (TCTail az 0) 0 cs b).out = cc ++ cs.out) ∧
