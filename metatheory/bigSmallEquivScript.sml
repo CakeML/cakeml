@@ -31,22 +31,20 @@ cases_on `e` >>
 fs [push_def, return_def, emp_def] >>
 rw [] >>
 fs [] >>
-rw [] >|
-[ntac 3
-     (full_case_tac >> fs [] >> rw []) >>
-     every_case_tac >>
-     fs [] >>
-     rw [],
- fs [continue_def] >>
-     cases_on `c` >>
-     fs [] >>
-     cases_on `h` >>
-     fs [] >>
-     cases_on `q` >>
-     fs [] >>
-     every_case_tac >>
-     fs [push_def, return_def] >>
-     rw []]);
+rw [] >>
+every_case_tac >>
+fs [] >>
+rw [] >>
+fs [continue_def] >>
+cases_on `c` >>
+fs [] >>
+cases_on `h` >>
+fs [] >>
+cases_on `q` >>
+fs [] >>
+every_case_tac >>
+fs [push_def, return_def] >>
+rw []);
 
 val e_single_error_add_ctxt = Q.prove (
 `!menv cenv s env e c c'.

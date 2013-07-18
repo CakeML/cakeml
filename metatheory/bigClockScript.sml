@@ -165,6 +165,12 @@ val dec_count_add = Q.prove (
 rw [dec_count_def] >>
 decide_tac);
 
+val dec_count_sub = Q.prove (
+`!op count extra.
+  (extra ≤ count ⇒ dec_count Opapp (count - extra) = dec_count Opapp count - extra)`,
+rw [dec_count_def] >>
+decide_tac);
+
 val add_to_counter = Q.store_thm ("add_to_counter",
 `(∀ck (menv : envM) (cenv : envC) s env e r1.
    evaluate ck menv cenv s env e r1 ⇒
@@ -605,5 +611,66 @@ val top_evaluate_not_timeout = Q.store_thm ("top_evaluate_not_timeout",
   evaluate_top menv cenv s env top (s', cenv', r) ⇒ r ≠ Rerr Rtimeout_error`,
 rw [evaluate_top_cases] >>
 metis_tac [dec_evaluate_not_timeout, decs_evaluate_not_timeout]);
+
+val sub_from_counter = Q.store_thm ("sub_from_counter",
+`(∀ck (menv : envM) (cenv : envC) s env e r1.
+   evaluate ck menv cenv s env e r1 ⇒
+   !s0 count count' s' r'.
+   (s = (count+extra, s0)) ∧
+   (r1 = ((count'+extra,s'),r')) ∧
+   (ck = T) ⇒
+   evaluate T menv cenv (count,s0) env e ((count',s'),r')) ∧
+ (∀ck (menv : envM) (cenv : envC) s env es r1.
+   evaluate_list ck menv cenv s env es r1 ⇒
+   !s0 count count' s' r'.
+   (r1 = ((count'+extra,s'),r')) ∧
+   (s = (count+extra, s0)) ∧
+   (ck = T) ⇒
+   evaluate_list T menv cenv (count,s0) env es ((count',s'),r')) ∧
+ (∀ck (menv : envM) (cenv : envC) s env v pes r1.
+   evaluate_match ck menv cenv s env v pes r1 ⇒
+   !s0 count count' s' r'.
+   (r1 = ((count'+extra,s'),r')) ∧
+   (s = (count+extra, s0)) ∧
+   (ck = T) ⇒
+   evaluate_match T menv cenv (count,s0) env v pes ((count',s'),r'))`,
+ ho_match_mp_tac evaluate_strongind >>
+ rw [] >>
+ rw [Once evaluate_cases] >>
+ full_simp_tac (srw_ss()++ARITH_ss) []
+ >- metis_tac [dec_count_add, pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
+ >- metis_tac [dec_count_add, pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
+ >- metis_tac [dec_count_add, pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
+ >- (PairCases_on `s'` >>
+     fs [] >>
+     disj1_tac >>
+     qexists_tac `v1` >>
+     qexists_tac `v2` >>
+     qexists_tac `env'` >>
+     qexists_tac `e''` >>
+     qexists_tac `(s'0 - extra, s'1)` >>
+     qexists_tac `s3` >>
+     qexists_tac `count' - extra` >>
+     qexists_tac `s4` >>
+     cases_on `op ≠ Opapp` >-
+     metis_tac [dec_count_sub, dec_count_add, pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``] >>
+     fs [] >>
+     `s'0 ≤ count''+extra ∧ count' ≤ s'0 ∧ count'''+extra ≤ dec_count Opapp count'` by metis_tac [clock_monotone] >>
+     `count'≤ s'0` by metis_tac [clock_monotone] >>
+     fs [dec_count_def] >>
+     rw [] >>
+     full_simp_tac (srw_ss()++ARITH_ss) [] >>
+     NO_TAC) >>
+ metis_tac [dec_count_sub, dec_count_add, pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]);
+
+val clocked_min_counter = Q.store_thm ("clocked_min_counter",
+`!menv (cenv:envC) count s0 env e count' s' r'.
+evaluate T menv cenv (count,s0) env e ((count',s'),r')
+⇒
+evaluate T menv cenv (count-count',s0) env e ((0, s'), r')`,
+ rw [] >>
+ `count'' ≤ count'` by metis_tac [clock_monotone, PAIR_EQ, FST, SND, pair_CASES] >>
+ `count'' = 0 + count'' ∧ count' = (count' - count'') + count'':num` by decide_tac >>
+ metis_tac [sub_from_counter]);
 
 val _ = export_theory ();

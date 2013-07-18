@@ -682,7 +682,7 @@ val do_app_empty_store = prove(
       s3 <> empty_store ==>
       ~(do_app s3 env op v1 v2 = SOME (empty_store,env',e''))``,
   Cases \\ SIMP_TAC std_ss [do_app_def] \\ SRW_TAC [] []
-  \\ REPEAT (BasicProvers.FULL_CASE_TAC) \\ FULL_SIMP_TAC std_ss []
+  \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC std_ss [store_assign_def]
   \\ POP_ASSUM (ASSUME_TAC o GSYM)
   \\ FULL_SIMP_TAC std_ss [LENGTH_LUPDATE,empty_store_def,GSYM LENGTH_NIL]);
@@ -692,7 +692,7 @@ val do_app_lemma = prove(
       (do_app empty_store env op v1 v2 = SOME (empty_store,env',e'')) ==>
       !t. do_app t env op v1 v2 = SOME (t,env',e'')``,
   Cases \\ FULL_SIMP_TAC (srw_ss()) [do_app_def] \\ REPEAT STRIP_TAC
-  \\ REPEAT (BasicProvers.FULL_CASE_TAC) \\ FULL_SIMP_TAC std_ss []
+  \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC (srw_ss()) [store_assign_def]
   \\ POP_ASSUM MP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ TRY (Cases_on `l` \\ FULL_SIMP_TAC (srw_ss()) [])

@@ -23,17 +23,17 @@ val inst_labels_def = Define `
   (inst_labels f [] = []) /\
   (inst_labels f (Label n :: xs) = inst_labels f xs) /\
   (inst_labels f (PushPtr (Lab l) :: xs) =
-     let addr = case FLOOKUP f l of NONE => 0 | SOME a => a in
-       PushPtr (Addr addr) :: inst_labels f xs) /\
+     let addr = case FLOOKUP f l of NONE => Lab l | SOME a => Addr a in
+       PushPtr addr :: inst_labels f xs) /\
   (inst_labels f (Call (Lab l) :: xs) =
-     let addr = case FLOOKUP f l of NONE => 0 | SOME a => a in
-       Call (Addr addr) :: inst_labels f xs) /\
+     let addr = case FLOOKUP f l of NONE => Lab l | SOME a => Addr a in
+       Call addr :: inst_labels f xs) /\
   (inst_labels f (Jump (Lab l) :: xs) =
-     let addr = case FLOOKUP f l of NONE => 0 | SOME a => a in
-       Jump (Addr addr) :: inst_labels f xs) /\
+     let addr = case FLOOKUP f l of NONE => Lab l | SOME a => Addr a in
+       Jump addr :: inst_labels f xs) /\
   (inst_labels f (JumpIf (Lab l) :: xs) =
-     let addr = case FLOOKUP f l of NONE => 0 | SOME a => a in
-       JumpIf (Addr addr) :: inst_labels f xs) /\
+     let addr = case FLOOKUP f l of NONE => Lab l | SOME a => Addr a in
+       JumpIf addr :: inst_labels f xs) /\
   (inst_labels f (x::xs) = x :: inst_labels f xs)`
   |> SIMP_RULE std_ss [LET_DEF];
 
@@ -153,50 +153,73 @@ val code_length_strip_labels = store_thm("code_length_strip_labels",
   SIMP_TAC (srw_ss()) [strip_labels_def]
   \\ SIMP_TAC std_ss [code_labels_def,code_length_inst_labels])
 
-val bc_fetch_strip_labels = store_thm("bc_fetch_strip_labels",
-  ``length_ok s.inst_length ==>
-    (bc_fetch (strip_labels s) = SOME Stop <=> bc_fetch s = SOME Stop)``,
-  REPEAT STRIP_TAC \\ REVERSE EQ_TAC \\ REPEAT STRIP_TAC
-  THEN1 (IMP_RES_TAC bc_fetch_IMP \\ FULL_SIMP_TAC std_ss [inst_labels_def,HD])
+val inst_labels_SING = prove(
+  ``!h. ~is_Label h ==> (inst_labels f [h] ++ xs = HD (inst_labels f [h])::xs)``,
+  Cases \\ TRY (Cases_on `b`) \\ TRY (Cases_on `l`)
+  \\ FULL_SIMP_TAC (srw_ss()) [inst_labels_def,is_Label_def]);
+
+val bc_fetch_NOT_Label = prove(
+  ``(bc_fetch s = SOME x) ==> ~(is_Label x)``,
+  SIMP_TAC std_ss [bc_fetch_def] \\ Q.SPEC_TAC (`s.pc`,`p`)
+  \\ Q.SPEC_TAC (`s.code`,`xs`) \\ Induct
+  \\ SIMP_TAC std_ss [bc_fetch_aux_def]
+  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss [] \\ RES_TAC);
+
+val bc_fetch_strip_labels_BACK = prove(
+  ``length_ok s.inst_length /\
+    (bc_fetch (strip_labels s) = SOME x) ==>
+    ?y. (bc_fetch s = SOME y) /\
+        (x = HD (inst_labels (all_labels s.inst_length s.code) [y]))``,
+  REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [bc_fetch_aux_IFF,bc_fetch_def]
   \\ FULL_SIMP_TAC std_ss [strip_labels_inst_length,strip_labels_pc]
   \\ FULL_SIMP_TAC (srw_ss()) [strip_labels_def,code_labels_def]
   \\ Q.ABBREV_TAC `f = all_labels s.inst_length s.code`
   \\ FULL_SIMP_TAC std_ss [GSYM code_length_def,code_length_inst_labels]
-  \\ NTAC 3 (POP_ASSUM (K ALL_TAC)) \\ POP_ASSUM MP_TAC
+  \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM MP_TAC
+  \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM MP_TAC
   \\ Q.SPEC_TAC (`ys2`,`ys2`) \\ Q.SPEC_TAC (`ys1`,`ys1`)
   \\ Q.SPEC_TAC (`s.code`,`code`) \\ Induct
+  \\ FULL_SIMP_TAC std_ss [PULL_EXISTS]
   THEN1 (SRW_TAC [] [inst_labels_def]) \\ STRIP_TAC
   \\ Cases_on `is_Label h` THEN1
    (Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) [is_Label_def,inst_labels_def]
     \\ REPEAT STRIP_TAC \\ RES_TAC
-    \\ FULL_SIMP_TAC std_ss [] \\ Q.LIST_EXISTS_TAC [`Label n::ys1'`,`ys2'`]
+    \\ FULL_SIMP_TAC std_ss [] \\ Q.LIST_EXISTS_TAC [`y`,`Label n::ys1'`,`ys2'`]
     \\ FULL_SIMP_TAC std_ss [APPEND,code_length_def,MAP,SUM,
          ilength_def,is_Label_def])
   \\ `h::code = [h] ++ code` by FULL_SIMP_TAC std_ss [APPEND]
   \\ FULL_SIMP_TAC std_ss [inst_labels_APPEND]
   \\ REPEAT STRIP_TAC \\ Cases_on `ys1` THEN1
-   (Cases_on `h = Stop` THEN1
-     (FULL_SIMP_TAC std_ss [] \\ Q.EXISTS_TAC `[]`
-      \\ FULL_SIMP_TAC std_ss [APPEND,CONS_11])
-    \\ FULL_SIMP_TAC std_ss [APPEND] \\ Cases_on `h`
+   (Q.LIST_EXISTS_TAC [`h`,`[]`] \\ FULL_SIMP_TAC std_ss [APPEND,CONS_11]
+    \\ Cases_on `h`
     \\ TRY (Cases_on `b`) \\ TRY (Cases_on `l`)
     \\ FULL_SIMP_TAC (srw_ss()) [inst_labels_def,is_Label_def])
-  \\ `h'::t = [h'] ++ t` by FULL_SIMP_TAC std_ss [APPEND]
+  \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
+  \\ FULL_SIMP_TAC std_ss [inst_labels_SING,APPEND,CONS_11]
+  \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ FULL_SIMP_TAC std_ss []
-  \\ `inst_labels f [h] = [h']` by ALL_TAC THEN1
-   (Cases_on `h` \\ TRY (Cases_on `b`) \\ TRY (Cases_on `l`)
-    \\ FULL_SIMP_TAC (srw_ss()) [is_Label_def,inst_labels_def])
-  \\ FULL_SIMP_TAC std_ss [APPEND,CONS_11]
-  \\ Q.PAT_ASSUM `!xx yy. bbb`
-       (STRIP_ASSUME_TAC o REWRITE_RULE [] o Q.SPECL [`t`,`ys2`])
-  \\ FULL_SIMP_TAC std_ss []
-  \\ Q.LIST_EXISTS_TAC [`h::ys1'`,`ys2'`]
-  \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ FULL_SIMP_TAC (srw_ss()) [code_length_def,ilength_def,length_ok_def]
-  \\ Q.PAT_ASSUM `xx = [h']` (ASSUME_TAC o GSYM)
-  \\ Cases_on `h` \\ TRY (Cases_on `b`) \\ TRY (Cases_on `l`)
-  \\ FULL_SIMP_TAC (srw_ss()) [is_Label_def,inst_labels_def]);
+  \\ Q.LIST_EXISTS_TAC [`y`,`h::ys1'`,`ys2'`]
+  \\ FULL_SIMP_TAC std_ss [APPEND]
+  \\ FULL_SIMP_TAC std_ss [code_length_def,SUM,MAP]
+  \\ FULL_SIMP_TAC std_ss [length_ok_def]
+  \\ FULL_SIMP_TAC std_ss [ilength_def]
+  \\ Cases_on `h`
+  \\ TRY (Cases_on `b`) \\ TRY (Cases_on `l`)
+  \\ FULL_SIMP_TAC (srw_ss()) [inst_labels_def,is_Label_def]
+  \\ Cases_on `h'`
+  \\ TRY (Cases_on `b`) \\ TRY (Cases_on `l`)
+  \\ FULL_SIMP_TAC (srw_ss()) [inst_labels_def,is_Label_def]);
+
+val bc_fetch_strip_labels = store_thm("bc_fetch_strip_labels",
+  ``length_ok s.inst_length ==>
+    (bc_fetch (strip_labels s) = SOME Stop <=> bc_fetch s = SOME Stop)``,
+  REPEAT STRIP_TAC \\ REVERSE EQ_TAC \\ REPEAT STRIP_TAC
+  THEN1 (IMP_RES_TAC bc_fetch_IMP \\ FULL_SIMP_TAC std_ss [inst_labels_def,HD])
+  \\ IMP_RES_TAC bc_fetch_strip_labels_BACK \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
+  \\ IMP_RES_TAC bc_fetch_NOT_Label
+  \\ Cases_on `y` \\ FULL_SIMP_TAC (srw_ss()) [inst_labels_def,is_Label_def]
+  \\ Cases_on `l` \\ FULL_SIMP_TAC (srw_ss()) [inst_labels_def,is_Label_def]);
 
 val strip_labels_pc = prove(
   ``strip_labels (s1 with pc := n) = strip_labels s1 with pc := n``,
@@ -252,9 +275,16 @@ val bc_next_strip_labels = store_thm("bc_next_strip_labels",
   \\ FULL_SIMP_TAC (srw_ss()) [strip_labels_def,bump_pc_def,bool_to_val_11]
   \\ FULL_SIMP_TAC (srw_ss()) [bc_fetch_def]
   \\ FULL_SIMP_TAC std_ss [length_ok_def,length_ok_def]
+  \\ TRY
+   (Q.EXISTS_TAC `n` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def]
+    \\ FULL_SIMP_TAC (srw_ss()) [bc_find_loc_def,strip_labels_pc]
+    \\ TRY (Q.EXISTS_TAC `T` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def] \\ NO_TAC)
+    \\ TRY (Q.EXISTS_TAC `F` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def] \\ NO_TAC)
+    \\ NO_TAC)
   \\ Cases_on `s1` \\ FULL_SIMP_TAC (srw_ss()) [strip_labels_def,bump_pc_def]
   \\ TRY (Q.EXISTS_TAC `T` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def] \\ NO_TAC)
   \\ TRY (Q.EXISTS_TAC `F` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def] \\ NO_TAC)
+  \\ TRY (Q.EXISTS_TAC `ys` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def] \\ NO_TAC)
   \\ METIS_TAC []);
 
 val bc_next_strip_labels_RTC = store_thm("bc_next_strip_labels_RTC",
@@ -326,5 +356,118 @@ val code_labels_APPEND = store_thm("code_labels_APPEND",
   \\ Induct_on `c1` \\ FULL_SIMP_TAC std_ss [MEM]
   \\ Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) [collect_labels_def]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []);
+
+
+(* idempotence *)
+
+val all_labels_inst_labels = prove(
+  ``!xs f l. all_labels l (inst_labels f xs) = FEMPTY``,
+  SIMP_TAC std_ss [all_labels_def] \\ Q.SPEC_TAC (`0:num`,`k`)
+  \\ Induct_on `xs` \\ SIMP_TAC std_ss [inst_labels_def,collect_labels_def]
+  \\ Cases \\ ASM_SIMP_TAC (srw_ss()) [inst_labels_def,collect_labels_def]
+  \\ Cases_on `l` \\ ASM_SIMP_TAC (srw_ss()) [inst_labels_def,collect_labels_def]);
+
+val inst_labels_FEMPTY = prove(
+  ``!x f g. inst_labels FEMPTY (inst_labels g x) = inst_labels g x``,
+  Induct \\ SIMP_TAC std_ss [inst_labels_def]
+  \\ Cases \\ ASM_SIMP_TAC (srw_ss()) [inst_labels_def]
+  \\ Cases_on `l` \\ ASM_SIMP_TAC (srw_ss()) [inst_labels_def]
+  \\ REPEAT STRIP_TAC \\ Cases_on `FLOOKUP g n`
+  \\ FULL_SIMP_TAC (srw_ss()) [inst_labels_def]);
+
+val strip_labels_idempot = store_thm("strip_labels_idempot",
+  ``!s. strip_labels (strip_labels s) = strip_labels s``,
+  SIMP_TAC (srw_ss()) [strip_labels_def,code_labels_def]
+  \\ SIMP_TAC std_ss [all_labels_inst_labels,inst_labels_FEMPTY]);
+
+
+(* reverse simulation *)
+
+val FLOOKUP_all_labels = prove(
+  ``FLOOKUP (all_labels s.inst_length s.code) l =
+    bc_find_loc s (Lab l)``,
+  SIMP_TAC std_ss [all_labels_def,bc_find_loc_def]
+  \\ Q.SPEC_TAC (`s.inst_length`,`k`)
+  \\ Q.SPEC_TAC (`0:num`,`p`)
+  \\ Q.SPEC_TAC (`s.code`,`code`) \\ Induct
+  \\ SIMP_TAC std_ss [collect_labels_def,bc_find_loc_aux_def]
+  THEN1 (SRW_TAC [] [FLOOKUP_DEF])
+  \\ Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) [ADD_ASSOC]
+  \\ FULL_SIMP_TAC std_ss [FLOOKUP_DEF,FAPPLY_FUPDATE_THM,FDOM_FUPDATE,IN_INSERT]
+  \\ Cases_on `l = n` \\ FULL_SIMP_TAC std_ss []);
+
+val FLOOKUP_all_labels_IMP = prove(
+  ``(FLOOKUP (all_labels s.inst_length s.code) l = SOME x) ==>
+    (bc_find_loc s (Lab l) = SOME x)``,
+  SIMP_TAC std_ss [FLOOKUP_all_labels]);
+
+val bc_find_loc_strip_labels = prove(
+  ``(bc_find_loc (strip_labels s) (Lab l) = NONE)``,
+  FULL_SIMP_TAC (srw_ss()) [bc_find_loc_def,strip_labels_def,code_labels_def]
+  \\ Q.SPEC_TAC (`0:num`,`p`)
+  \\ Q.SPEC_TAC (`all_labels s.inst_length s.code`,`f`)
+  \\ Q.SPEC_TAC (`s.code`,`xs`)
+  \\ Induct \\ FULL_SIMP_TAC std_ss [inst_labels_def,bc_find_loc_aux_def]
+  \\ Cases_on `h`
+  \\ FULL_SIMP_TAC (srw_ss()) [inst_labels_def,bc_find_loc_aux_def]
+  \\ Cases_on `l'`
+  \\ FULL_SIMP_TAC (srw_ss()) [inst_labels_def,bc_find_loc_aux_def]);
+
+val bc_next_strip_IMP = store_thm("bc_next_strip_IMP",
+  ``!s t. length_ok s.inst_length /\ bc_next (strip_labels s) t ==>
+          ?t'. bc_next s t' /\ (t = strip_labels t')``,
+  REPEAT STRIP_TAC
+  \\ Q.EXISTS_TAC `t with code := s.code`
+  \\ REVERSE STRIP_TAC
+  \\ FULL_SIMP_TAC std_ss [] THEN1
+   (`bc_next^* (strip_labels s) t` by METIS_TAC [RTC_RULES]
+    \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
+    \\ FULL_SIMP_TAC (srw_ss()) [strip_labels_def] \\ Cases_on `t`
+    \\ FULL_SIMP_TAC (srw_ss()) [strip_labels_def,
+         LIST_CONJ (TypeBase.updates_of ``:bc_state``)])
+  \\ POP_ASSUM MP_TAC
+  \\ SIMP_TAC std_ss [Once bc_next_cases] \\ STRIP_TAC
+  \\ IMP_RES_TAC bc_fetch_strip_labels_BACK
+  \\ NTAC 2 (POP_ASSUM (K ALL_TAC)) \\ TRY
+   (IMP_RES_TAC bc_fetch_NOT_Label
+    \\ Cases_on `y` \\ TRY (Cases_on `l`)
+    \\ FULL_SIMP_TAC (srw_ss()) [inst_labels_def]
+    \\ ASM_SIMP_TAC (srw_ss()) [Once bc_next_cases,bump_pc_def,strip_labels_def]
+    \\ FULL_SIMP_TAC std_ss []
+    \\ Cases_on `s`
+    \\ FULL_SIMP_TAC (srw_ss()) [strip_labels_def,
+         LIST_CONJ (TypeBase.updates_of ``:bc_state``)]
+    \\ NO_TAC)
+  \\ IMP_RES_TAC bc_fetch_NOT_Label
+  \\ Cases_on `y` \\ TRY (Cases_on `l`) \\ TRY (Cases_on `l'`)
+  \\ FULL_SIMP_TAC (srw_ss()) [inst_labels_def]
+  \\ Cases_on `FLOOKUP (all_labels s.inst_length s.code) n''`
+  \\ FULL_SIMP_TAC (srw_ss()) [bc_find_loc_strip_labels]
+  \\ IMP_RES_TAC FLOOKUP_all_labels_IMP
+  \\ ASM_SIMP_TAC (srw_ss()) [Once bc_next_cases,bump_pc_def,strip_labels_def]
+  \\ FULL_SIMP_TAC std_ss [bc_find_loc_def]
+  \\ TRY (Q.EXISTS_TAC `b:bool`)
+  \\ Cases_on `s`
+  \\ FULL_SIMP_TAC (srw_ss()) [strip_labels_def,bc_fetch_def,
+       LIST_CONJ (TypeBase.updates_of ``:bc_state``)]
+  \\ TRY (Cases_on `b`)
+  \\ FULL_SIMP_TAC (srw_ss()) [strip_labels_def,bc_fetch_def,
+       LIST_CONJ (TypeBase.updates_of ``:bc_state``),length_ok_def]);
+
+val bc_next_strip = prove(
+  ``!r t. bc_next^* r t ==>
+          !s. (r = strip_labels s) /\ length_ok s.inst_length ==>
+              ?t'. bc_next^* s t'``,
+  HO_MATCH_MP_TAC RTC_INDUCT \\ CONJ_TAC
+  \\ FULL_SIMP_TAC std_ss [PULL_FORALL] THEN1 METIS_TAC [RTC_REFL]
+  \\ REPEAT STRIP_TAC
+  \\ Cases_on `bc_next (strip_labels s) r'` \\ FULL_SIMP_TAC std_ss []
+  \\ IMP_RES_TAC bc_next_strip_IMP \\ FULL_SIMP_TAC std_ss []
+  \\ FIRST_ASSUM (MP_TAC o Q.SPEC `t'`)
+  \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+  \\ METIS_TAC [RTC_RULES])
+  |> SIMP_RULE std_ss [PULL_FORALL,AND_IMP_INTRO];
+
+val _ = save_thm("bc_next_strip",bc_next_strip);
 
 val _ = export_theory();

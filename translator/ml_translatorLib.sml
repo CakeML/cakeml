@@ -1375,7 +1375,7 @@ fun single_line_def def = let
     \\ REPEAT STRIP_TAC
     \\ CONV_TAC (BINOP_CONV (REWR_CONV (GSYM CONTAINER_def)))
     \\ SRW_TAC [] []
-    \\ REPEAT BasicProvers.FULL_CASE_TAC
+    \\ BasicProvers.EVERY_CASE_TAC
     \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [def]))
     \\ SRW_TAC [] []
     \\ POP_ASSUM MP_TAC \\ REWRITE_TAC [PRECONDITION_def])
@@ -1419,7 +1419,7 @@ fun single_line_def def = let
   val goal = mk_imp(pre_tm,goal)
   val lemma = prove(goal,
     SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,TRUE_def,FALSE_def] \\ SRW_TAC [] []
-    \\ REPEAT BasicProvers.FULL_CASE_TAC
+    \\ BasicProvers.EVERY_CASE_TAC
     \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [def]))
     \\ SRW_TAC [] [] \\ CONV_TAC (DEPTH_CONV ETA_CONV)
     \\ POP_ASSUM MP_TAC \\ REWRITE_TAC [PRECONDITION_def])
