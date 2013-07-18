@@ -170,6 +170,7 @@ val Cevaluate_list_MAP_Var_rwt = store_thm("Cevaluate_list_MAP_Var_rwt",
        res = (s,Cval (MAP (combin$C EL env) vs)))``,
   metis_tac[Cevaluate_list_MAP_Var,intLangExtraTheory.Cevaluate_determ])
 
+(*
 val compile_call_val = store_thm("compile_call_val",
   ``Cevaluate FEMPTY (ck,[]) env (CCall F (CVar(Short f)) (MAP (CVar o Short) xs)) ((0,[]),Cval v)
     ∧ el_check f env = SOME (CRecClos clenv [(SOME cd,LENGTH es,b)] 0)
@@ -330,6 +331,7 @@ val compile_call_val = store_thm("compile_call_val",
     fs[Abbr`bs1`,optionTheory.OPTREL_def] >> fs[] >>
     fs[s_refs_def,good_rd_def,Abbr`s`]) >>
   simp[Abbr`P`] >> BasicProvers.VAR_EQ_TAC >> simp[])
+*)
 
 (*
 
