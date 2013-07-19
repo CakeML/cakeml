@@ -926,6 +926,38 @@ res_tac >>
 fs [SUBSET_DEF] >>
 fs [weak_other_mods_def, GSYM alistTheory.ALOOKUP_NONE]);
 
+val consistent_mod_env_dom = Q.prove (
+`!tenvS tenvC menv tenvM.
+  consistent_mod_env tenvS tenvC menv tenvM ⇒
+  (MAP FST menv = MAP FST tenvM)`,
+ho_match_mp_tac metaTerminationTheory.consistent_mod_env_ind >>
+rw [metaTerminationTheory.consistent_mod_env_def]);
+
+val consistent_mod_env_dup_modules = Q.prove (
+`!tenvM_no_sig rs. 
+  consistent_mod_env tenvS tenvC_no_sig
+        (MAP (λ(n,tenv). (n,[]))
+           (MAP
+              (λ(mn,env).
+                 (mn,MAP (λ(x,tvs,t). (x,tvs,convert_t t)) env))
+              new_infer_menv) ++ rs.envM) tenvM_no_sig
+ ⇒ 
+ ALL_DISTINCT (MAP FST new_infer_menv) ∧
+ ∀m. MEM m (MAP FST new_infer_menv) ⇒ m ∉ set (MAP FST rs.envM)`,
+ induct_on `new_infer_menv` >>
+ rw [metaTerminationTheory.consistent_mod_env_def] >>
+ PairCases_on `h` >>
+ fs [] >>
+ cases_on `tenvM_no_sig` >>
+ fs [metaTerminationTheory.consistent_mod_env_def] >>
+ PairCases_on `h` >>
+ fs [metaTerminationTheory.consistent_mod_env_def, MEM_MAP] >>
+ fs [METIS_PROVE [] ``(~a ∨ b) = (a ⇒ b)``] >>
+ rw [] >>
+ imp_res_tac consistent_mod_env_dom >>
+ fs [MAP_APPEND, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM PFORALL_THM, GSYM PEXISTS_THM] >>
+ metis_tac [fst_lem, consistent_mod_env_dom, pair_CASES, MEM_APPEND, MEM_MAP, FST]);
+
 val evaluate_top_to_cenv = store_thm("evaluate_top_to_cenv",
   ``∀menv cenv store env top res.
     evaluate_top menv cenv store env top res ⇒
@@ -1772,7 +1804,8 @@ simp[] >>
     imp_res_tac evaluate_top_to_cenv >> fs[] >>
     conj_tac >- metis_tac[closed_context_extend_cenv,APPEND_ASSOC] >>
     fs[convert_menv_def,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,miscTheory.FST_pair] >>
-    cheat (* this should come from the type system? *)) >>
+    fs [type_sound_invariants_def, update_type_sound_inv_def, strip_mod_env_def] >>
+    metis_tac [consistent_mod_env_dup_modules]) >>
   conj_tac >- (
     fs[Abbr`new_repl_state`,update_repl_state_def,Abbr`new_bc_state`] >>
     simp[Abbr`new_repl_fun_state`] >>
