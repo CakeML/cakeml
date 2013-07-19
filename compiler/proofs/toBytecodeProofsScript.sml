@@ -1452,55 +1452,59 @@ val do_Ceq_to_bc_equal = Q.prove (
   Cases >> rw[pushret_def])
 ;val _ = export_rewrites["pushret_next_label"]
 
-;val zero_exists_lemma = store_thm("zero_exists_lemma", ``(∃m. n = m + n) ∧ (∃m. n = n + m)``, rw[]>>qexists_tac`0`>>rw[])
+val tac =
+  rw[compile_def] >>
+  SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
+  qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
+  fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
+  fs[code_labels_ok_def,uses_label_thm]
+
+val tac2 =
+  rw[compile_def,LET_THM,UNCURRY] >>
+  SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
+  qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
+  fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
+  fs[code_labels_ok_def,uses_label_thm] >>
+  rw[] >> metis_tac[]
 
 ;val compile_append_out = store_thm("compile_append_out",
   ``(∀menv env t sz cs exp.
       ∃bc. ((compile menv env t sz cs exp).out = bc ++ cs.out) ∧
            cs.next_label ≤ (compile menv env t sz cs exp).next_label ∧
            ALL_DISTINCT (FILTER is_Label bc) ∧
-           EVERY (between cs.next_label (compile menv env t sz cs exp).next_label) (MAP dest_Label (FILTER is_Label bc))) ∧
+           EVERY (between cs.next_label (compile menv env t sz cs exp).next_label) (MAP dest_Label (FILTER is_Label bc))
+           ∧ (∀l. uses_label bc l ⇒ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs (LENGTH env) exp)))) ∧
     (∀menv env t sz exp n cs xs.
       ∃bc. ((compile_bindings menv env t sz exp n cs xs).out = bc ++ cs.out) ∧
            cs.next_label ≤ (compile_bindings menv env t sz exp n cs xs).next_label ∧
            ALL_DISTINCT (FILTER is_Label bc) ∧
-           EVERY (between cs.next_label (compile_bindings menv env t sz exp n cs xs).next_label) (MAP dest_Label (FILTER is_Label bc))) ∧
+           EVERY (between cs.next_label (compile_bindings menv env t sz exp n cs xs).next_label) (MAP dest_Label (FILTER is_Label bc))
+           ∧ (∀l. uses_label bc l ⇒ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs (LENGTH env + xs) exp)))) ∧
     (∀menv env sz cs exps.
       ∃bc. ((compile_nts menv env sz cs exps).out = bc ++ cs.out) ∧
            cs.next_label ≤ (compile_nts menv env sz cs exps).next_label ∧
            ALL_DISTINCT (FILTER is_Label bc) ∧
-           EVERY (between cs.next_label (compile_nts menv env sz cs exps).next_label) (MAP dest_Label (FILTER is_Label bc)))``,
+           EVERY (between cs.next_label (compile_nts menv env sz cs exps).next_label) (MAP dest_Label (FILTER is_Label bc))
+           ∧ (∀l. uses_label bc l ⇒ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs_list (LENGTH env) exps))))``,
   ho_match_mp_tac compile_ind >>
   strip_tac >- (
-    simp[compile_def] >> rw[] >> rw[] ) >>
+    simp[compile_def] >> rw[] >> rw[] >> fs[uses_label_thm]) >>
   strip_tac >- (
     simp[compile_def] >> rw[] >>
     SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
     qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
     simp[] >>
     fsrw_tac[ARITH_ss,ETA_ss,DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,EVERY_MEM,MEM_MAP,is_Label_rwt,between_def] >>
-    qpat_assum`∀j k. t = TCTail j k ⇒ X`kall_tac >>
-    rw[] >> fs[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] >>
-    `FILTER is_Label bc'' = []` by (simp[FILTER_EQ_NIL,EVERY_MEM,is_Label_rwt] >> metis_tac[]) >>
-    fs[]) >>
-  strip_tac >- (
-    rw[compile_def] >>
-    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
-    qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
-    fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
-    rw[] >> fs[] >> rw[zero_exists_lemma]) >>
-  strip_tac >- (
-    rw[compile_def] >>
-    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
-    qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
-    fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
-    rw[] >> fs[] >> rw[zero_exists_lemma]) >>
-  strip_tac >- (
-    rw[compile_def] >>
-    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
-    qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
-    fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
-    rw[] >> fs[] >> rw[zero_exists_lemma]) >>
+    simp[CONJ_ASSOC] >>
+    conj_tac >- (
+      rw[] >> fs[] >> spose_not_then strip_assume_tac >> res_tac >> fsrw_tac[ARITH_ss][] >>
+      `FILTER is_Label bc'' = []` by (simp[FILTER_EQ_NIL,EVERY_MEM,is_Label_rwt] >> metis_tac[]) >>
+      fs[]) >>
+    fs[uses_label_thm,code_labels_ok_def] >>
+    rw[] >> metis_tac[] ) >>
+  strip_tac >- tac >>
+  strip_tac >- tac >>
+  strip_tac >- tac >>
   strip_tac >- (
     rw[compile_def] >>
     Q.PAT_ABBREV_TAC`ell:ctbind = X` >>
@@ -1508,74 +1512,84 @@ val do_Ceq_to_bc_equal = Q.prove (
     SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
     qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
     rw[] >> fs[GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
-    fs[FILTER_APPEND] >> rw[zero_exists_lemma]) >>
-  strip_tac >- (
-    rw[compile_def,LET_THM,UNCURRY] >>
-    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
-    qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
-    fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
-    rw[] >> fs[zero_exists_lemma] ) >>
-  strip_tac >- (
-    rw[compile_def] >>
-    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
-    qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
-    fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
-    rw[] >> fs[zero_exists_lemma]) >>
-  strip_tac >- (
-    rw[compile_def] >>
-    SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
-    qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
-    fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
-    rw[] >> fs[zero_exists_lemma]) >>
+    fs[FILTER_APPEND] >> rw[] >>
+    fs[code_labels_ok_def,uses_label_thm]) >>
+  strip_tac >- tac2 >>
+  strip_tac >- tac2 >>
+  strip_tac >- tac2 >>
   strip_tac >- (
     rw[compile_def,LET_THM] >>
     fsrw_tac[ARITH_ss,ETA_ss,DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,EVERY_MEM,MEM_MAP,is_Label_rwt,between_def] >>
+    simp[CONJ_ASSOC] >>
+    reverse conj_tac >- (
+      fs[code_labels_ok_def,uses_label_thm] >>
+      rw[] >> metis_tac[] ) >>
     rw[] >> fs[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC ) >>
   strip_tac >- (
     simp[compile_def,LET_THM] >>
     rpt strip_tac >> fs[] >>
     Q.ISPECL_THEN[`env`,`sz`,`cs`,`defs`]mp_tac compile_closures_thm >>
     simp[] >> strip_tac >> fs[] >>
-    pop_assum kall_tac >>
+    pop_assum kall_tac >> (* need to use this assumption; may need to rework statement of compile_closures_thm *)
     simp[FILTER_APPEND,ALL_DISTINCT_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF,ALL_DISTINCT_REVERSE,FILTER_REVERSE,MAP_REVERSE,EVERY_REVERSE] >>
     fs[GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
-    rw[] >> fs[]) >>
+    fs[code_labels_ok_def,uses_label_thm,EXISTS_REVERSE] >>
+    rw[] >> TRY(metis_tac[]) >>
+    cheat) >>
   strip_tac >- (
     rw[compile_def,LET_THM,UNCURRY] >>
     BasicProvers.EVERY_CASE_TAC >> rw[] >>
     srw_tac[ARITH_ss][] >>
-    qexists_tac`0`>>rw[]) >>
+    fs[uses_label_thm]) >>
   strip_tac >- (
     rw[compile_def,LET_THM] >> fs[] >>
     SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
     qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
-    fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >> rw[] >> fs[zero_exists_lemma]) >>
+    fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >> rw[] >> fs[] >>
+    fs[code_labels_ok_def,uses_label_thm] >>
+    rw[] >> TRY(metis_tac[]) >>
+    Cases_on`uop`>>fs[]) >>
   strip_tac >- (
     rw[compile_def,LET_THM] >> fs[] >>
     SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
     qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
     fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
     fsrw_tac[DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,EVERY_MEM,between_def,MEM_MAP] >>
-    rw[] >> fs[zero_exists_lemma]) >>
+    rw[] >> fs[] >>
+    fs[code_labels_ok_def,uses_label_thm] >>
+    rw[] >> metis_tac[]) >>
   strip_tac >- (
     rw[compile_def,LET_THM] >> fs[] >>
     SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
     qspecl_then[`t`,`s`]mp_tac(pushret_append_out) >> rw[] >> fs[Abbr`s`] >>
     fs[FILTER_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
     fsrw_tac[DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,EVERY_MEM,between_def,MEM_MAP] >>
-    rw[] >> fs[zero_exists_lemma]) >>
+    rw[] >> fs[] >>
+    fs[code_labels_ok_def,uses_label_thm] >>
+    rw[] >> metis_tac[]) >>
   strip_tac >- (
     gen_tac >> Cases >> simp[compile_def] >> rw[] >> fs[] >>
     fsrw_tac[DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,EVERY_MEM,MEM_MAP,between_def] >>
-    rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC) >>
+    fs[code_labels_ok_def,uses_label_thm] >>
+    simp[CONJ_ASSOC] >> (
+    reverse conj_tac >- (
+      rw[] >> metis_tac[] ) >>
+    rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC)) >>
   strip_tac >- (
     rw[compile_def,LET_THM] >>
     BasicProvers.EVERY_CASE_TAC >> rw[] >>
-    fs[] >> rw[] >> fs[] >> qexists_tac`n+m`>>simp[]) >>
-  strip_tac >- rw[compile_def] >>
+    fs[] >> rw[] >> fs[] >>
+    fs[uses_label_thm]) >>
+  strip_tac >- (
+    rw[compile_def,uses_label_thm] >>
+    fsrw_tac[ARITH_ss][ADD1] ) >>
   strip_tac >- rw[compile_def] >>
   rw[compile_def] >> fs[] >>
   fsrw_tac[DNF_ss][FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER,is_Label_rwt,EVERY_MEM,between_def,MEM_MAP] >>
+  simp[CONJ_ASSOC] >>
+  reverse conj_tac >- (
+    fsrw_tac[ARITH_ss,DNF_ss][uses_label_thm] >>
+    rw[] >> metis_tac[] ) >>
   rw[] >> spose_not_then strip_assume_tac >> res_tac >> DECIDE_TAC)
 
 ;val s_refs_with_irr = store_thm("s_refs_with_irr",
@@ -3987,7 +4001,7 @@ fun tac18 t =
       simp[Cenv_bs_def,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,env_renv_def] >>
       simp[option_case_NONE_F] >>
       metis_tac[optionTheory.IS_SOME_DEF] ) >>
-    disch_then(Q.X_CHOOSE_THEN`rs`strip_assume_tac) >>
+    disch_then(Q.X_CHOOSE_THEN`rs`strip_assume_tac o CONJUNCT2) >>
     qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
     qabbrev_tac`rd' = rd with cls := rd.cls |++ (GENLIST (λi. (EL i rs, (env, defs, i))) (LENGTH rs))` >>
     `rd.cls ⊑ rd'.cls` by (
