@@ -22,11 +22,9 @@ val initial_bc_state_side_def = Define `
     let bs2 = install_code [] (SND (SND compile_primitives)) bs1 in
     let bs3 = bc_eval bs2 in
     let bs4 = THE bs3 in
-    let len i = if is_Label i then 0 else bs1.inst_length i + 1 in
       IS_SOME bs3 /\
       (bs4.pc = next_addr bs1.inst_length bs4.code) /\
-      (bs4.stack <> []) /\
-      code_labels_ok (SND (SND compile_primitives))`;
+      (bs4.stack <> [])`;
 
 val code_executes_ok_def = Define `
   code_executes_ok s1 =

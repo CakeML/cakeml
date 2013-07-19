@@ -2012,23 +2012,12 @@ val initial_bc_state_side_thm = store_thm("initial_bc_state_side_thm",
   rfs[] >>
   fs[Abbr`bs3`] >>
   simp[GSYM CONJ_ASSOC] >>
-  conj_tac >- (
-    metis_tac[bc_eval_SOME_RTC_bc_next] ) >>
   conj_asm1_tac >- (
     simp[Abbr`bs4`] >>
     imp_res_tac bc_eval_SOME_RTC_bc_next >>
     imp_res_tac RTC_bc_next_preserves >>
-    qpat_assum`X = bs2.code`(assume_tac o SYM) >> simp[] >>
-    `bs2.inst_length = bs1.inst_length` by (
-      simp[Abbr`bs2`,install_code_def] ) >>
-    simp[Abbr`len`] >>
-    metis_tac[lemma] ) >>
-  conj_tac >- (
-    simp[Abbr`bs4`] ) >>
-  simp[] >>
-  simp[Abbr`bs4`] >>
-  (* false? may contain labels *)
-  cheat)
+    simp[Abbr`bs2`,install_code_def]) >>
+  simp[Abbr`bs4`])
 
 val replCorrect = Q.store_thm ("replCorrect",
 `!input output.
