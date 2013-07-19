@@ -22,12 +22,9 @@ val initial_bc_state_side_def = Define `
     let bs2 = install_code [] (SND (SND compile_primitives)) bs1 in
     let bs3 = bc_eval bs2 in
     let bs4 = THE bs3 in
-    let len i = if is_Label i then 0 else bs1.inst_length i + 1 in
       IS_SOME bs3 /\
-      (bc_next^* bs2 bs4 /\ (bs4.pc = SUM (MAP len bs2.code))) /\
-      (bs4.stack <> []) /\
-      (bs4.pc = SUM (MAP (\x. bs4.inst_length x + 1) bs4.code)) /\
-      code_labels_ok (SND (SND compile_primitives))`;
+      (bs4.pc = next_addr bs1.inst_length bs4.code) /\
+      (bs4.stack <> [])`;
 
 val code_executes_ok_def = Define `
   code_executes_ok s1 =
@@ -451,6 +448,10 @@ val code_length_intro = prove(
   Induct \\ FULL_SIMP_TAC (srw_ss()) [code_length_def,ilength_def,MAP,SUM]
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC);
 
+val IS_SOME_IFF_EXISTS = prove(
+  ``!x. IS_SOME x <=> ?y. x = SOME y``,
+  Cases \\ SRW_TAC [] []);
+
 val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
   ``!input res b.
        (repl_fun' input = (res,T)) ==>
@@ -508,6 +509,8 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
   \\ `emp_bc_state.inst_length = (THE (bc_eval bs1)).inst_length` by ALL_TAC
   THEN1
    (UNABBREV_ALL_TAC \\ SIMP_TAC (srw_ss()) [install_code_def]
+    \\ Q.PAT_ASSUM `IS_SOME pat` MP_TAC
+    \\ SIMP_TAC std_ss [IS_SOME_IFF_EXISTS] \\ STRIP_TAC
     \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
     \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
     \\ FULL_SIMP_TAC (srw_ss()) [empty_bc_state_def,install_code_def])
@@ -515,10 +518,17 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
    (UNABBREV_ALL_TAC \\ SIMP_TAC (srw_ss()) [install_code_def,
       empty_bc_state_def,inst_length_def,FUN_EQ_THM])
   \\ `code_executes_ok bs1` by ALL_TAC THEN1
-   (IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
+   (Q.PAT_ASSUM `IS_SOME pat` MP_TAC
+    \\ SIMP_TAC std_ss [IS_SOME_IFF_EXISTS] \\ STRIP_TAC
+    \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+    \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
     \\ FULL_SIMP_TAC (srw_ss()) [code_executes_ok_def,LET_DEF]
     \\ DISJ1_TAC \\ Q.EXISTS_TAC `(THE (bc_eval bs1))`
-    \\ FULL_SIMP_TAC std_ss [inst_length_def])
+    \\ FULL_SIMP_TAC std_ss [inst_length_def] \\ DISJ2_TAC
+    \\ REPEAT (POP_ASSUM (K ALL_TAC))
+    \\ Q.SPEC_TAC (`bs1.code`,`xs`) \\ Induct
+    \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] []
+    \\ FULL_SIMP_TAC std_ss [])
   \\ ASSUME_TAC length_ok_inst_length
   \\ `code_executes_ok (strip_labels bs1)` by ALL_TAC THEN1
    (MATCH_MP_TAC code_executes_ok_strip_labels
@@ -544,6 +554,7 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
   \\ `PrintE ++ [Stop] ++ (REVERSE (SND (SND compile_primitives))) =
       x.code` by ALL_TAC THEN1
      (UNABBREV_ALL_TAC
+      \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
       \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
       \\ FULL_SIMP_TAC (srw_ss()) [install_code_def,empty_bc_state_def])
   \\ `(ii + code_length inst_length (REVERSE (SND (SND compile_primitives))) =
