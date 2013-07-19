@@ -1,4 +1,4 @@
-open HolKernel Parse boolLib bossLib;
+open HolKernel Parse boolLib bossLib lcsymtacs;
 
 val _ = new_theory "bytecodeLabels";
 
@@ -322,6 +322,14 @@ val collect_labels_APPEND = store_thm("collect_labels_APPEND",
        MAP,FUNION_FEMPTY_1,ilength_def,is_Label_def,AC ADD_COMM ADD_ASSOC]
   \\ FULL_SIMP_TAC std_ss [FUNION_FUPDATE_1]);
 
+val inst_uses_label_def = Define`
+  (inst_uses_label y (Call (Lab x)) ⇔ x = y) ∧
+  (inst_uses_label y (Jump (Lab x)) ⇔ x = y) ∧
+  (inst_uses_label y (JumpIf (Lab x)) ⇔ x = y) ∧
+  (inst_uses_label y (PushPtr (Lab x)) ⇔ x = y) ∧
+  (inst_uses_label y _ ⇔ F)`
+val _ = export_rewrites["inst_uses_label_def"]
+
 val uses_label_def = Define `
   uses_label code l <=>
     (MEM (Call (Lab l)) code) \/
@@ -356,7 +364,6 @@ val code_labels_APPEND = store_thm("code_labels_APPEND",
   \\ Induct_on `c1` \\ FULL_SIMP_TAC std_ss [MEM]
   \\ Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) [collect_labels_def]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []);
-
 
 (* idempotence *)
 
@@ -469,5 +476,47 @@ val bc_next_strip = prove(
   |> SIMP_RULE std_ss [PULL_FORALL,AND_IMP_INTRO];
 
 val _ = save_thm("bc_next_strip",bc_next_strip);
+
+val code_labels_ok_def = Define `
+  code_labels_ok code =
+    (!l. uses_label code l ==> MEM (Label l) code)`;
+
+val uses_label_nil = store_thm("uses_label_nil",
+  ``¬uses_label [] l``,
+  simp[uses_label_def])
+val _ = export_rewrites["uses_label_nil"]
+
+val uses_label_cons = store_thm("uses_label_cons",
+  ``uses_label (i::ls) l ⇔ inst_uses_label l i ∨ uses_label ls l``,
+  simp[uses_label_def] >>
+  Cases_on`i`>>simp[] >>
+  Cases_on`l'`>>simp[] >>
+  METIS_TAC[])
+
+val uses_label_thm = store_thm("uses_label_thm",
+  ``∀l code. uses_label code l = EXISTS (inst_uses_label l) code``,
+  gen_tac >> Induct >> simp[Once uses_label_cons])
+
+val code_labels_ok_cons = store_thm("code_labels_ok_cons",
+  ``∀i ls. code_labels_ok ls ∧ (∀l. inst_uses_label l i ⇒ MEM (Label l) ls) ⇒ code_labels_ok (i::ls)``,
+  rw[code_labels_ok_def] >> pop_assum mp_tac >>
+  ONCE_REWRITE_TAC[uses_label_cons] >> METIS_TAC[])
+
+val code_labels_ok_cons_label = store_thm("code_labels_ok_cons_label",
+  ``∀l ls. code_labels_ok (FILTER ($~ o inst_uses_label l) ls) ⇒ code_labels_ok ((Label l)::ls)``,
+  rw[code_labels_ok_def,uses_label_thm,EXISTS_MEM,MEM_FILTER] >>
+  Cases_on`l'=l`>>fs[] >>
+  first_x_assum MATCH_MP_TAC >>
+  HINT_EXISTS_TAC >> simp[] >>
+  Cases_on`e`>>fs[]>>
+  Cases_on`l''`>>fs[])
+
+val code_labels_ok_append = store_thm("code_labels_ok_append",
+  ``∀l1 l2. code_labels_ok l1 ∧ code_labels_ok l2 ⇒ code_labels_ok (l1 ++ l2)``,
+  rw[code_labels_ok_def,uses_label_thm] >> METIS_TAC[])
+
+val code_labels_ok_no_labs = store_thm("code_labels_ok_no_labs",
+  ``(∀l. ¬uses_label ls l) ⇒ code_labels_ok ls``,
+  rw[code_labels_ok_def])
 
 val _ = export_theory();

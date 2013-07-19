@@ -12,10 +12,6 @@ infix \\ val op \\ = op THEN;
 (* We start by defining a new version of repl_fun called repl_fun'
    which brings with it a proof of side conditions. *)
 
-val code_labels_ok_def = Define `
-  code_labels_ok code =
-    (!l. uses_label code l ==> MEM (Label l) code)`;
-
 val initial_bc_state_side_def = Define `
   initial_bc_state_side =
     let bs1 = ^(rand(rhs(concl(initial_bc_state_def)))) in
