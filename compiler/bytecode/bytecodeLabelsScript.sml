@@ -497,6 +497,11 @@ val uses_label_thm = store_thm("uses_label_thm",
   ``∀l code. uses_label code l = EXISTS (inst_uses_label l) code``,
   gen_tac >> Induct >> simp[Once uses_label_cons])
 
+val code_labels_ok_nil = store_thm("code_labels_ok_nil",
+  ``code_labels_ok []``,
+  rw[code_labels_ok_def])
+val _ = export_rewrites["code_labels_ok_nil"]
+
 val code_labels_ok_cons = store_thm("code_labels_ok_cons",
   ``∀i ls. code_labels_ok ls ∧ (∀l. inst_uses_label l i ⇒ MEM (Label l) ls) ⇒ code_labels_ok (i::ls)``,
   rw[code_labels_ok_def] >> pop_assum mp_tac >>
@@ -518,5 +523,14 @@ val code_labels_ok_append = store_thm("code_labels_ok_append",
 val code_labels_ok_no_labs = store_thm("code_labels_ok_no_labs",
   ``(∀l. ¬uses_label ls l) ⇒ code_labels_ok ls``,
   rw[code_labels_ok_def])
+
+val code_labels_ok_FILTER = store_thm("code_labels_ok_FILTER",
+  ``code_labels_ok ls ∧ (∀l. uses_label ls l ⇒ P (Label l)) ⇒ code_labels_ok (FILTER P ls)``,
+  rw[code_labels_ok_def,MEM_FILTER,uses_label_thm,EXISTS_MEM] >> METIS_TAC[])
+
+val code_labels_ok_REVERSE = store_thm("code_labels_ok_REVERSE",
+  ``code_labels_ok (REVERSE ls) = code_labels_ok ls``,
+  rw[code_labels_ok_def,uses_label_thm,EXISTS_REVERSE])
+val _ = export_rewrites["code_labels_ok_REVERSE"]
 
 val _ = export_theory();
