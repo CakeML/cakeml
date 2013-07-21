@@ -23,4 +23,4 @@ data Token =
   | AlphaT String
   | SymbolT String
   | LongidT String String
-  deriving Eq
+  deriving (Eq,Show)
