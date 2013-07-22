@@ -276,6 +276,9 @@ val invariant_def = Define`
 
     ∧ bs.clock = NONE
     ∧ (∃ls. bs.code = PrintE++Stop::ls)
+
+    ∧ code_labels_ok bs.code
+    ∧ code_executes_ok bs
     `;
 
 (*
@@ -978,14 +981,18 @@ val evaluate_top_to_cenv = store_thm("evaluate_top_to_cenv",
   imp_res_tac evaluate_decs_to_cenv >>
   fs[])
 
-val labels_tac =
+
+val ctac =
   qspecl_then[`st.rcompiler_state`,`top`]mp_tac compile_top_append_code >>
   discharge_hyps >- (
     `MAP FST st.rcompiler_state.renv = MAP FST rs.envE` by (
       fs[env_rs_def,LET_THM,GSYM MAP_MAP_o] ) >>
     simp[] >>
     fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD,MEM_FLAT] >>
-    rw[] >> res_tac >> fs[MEM_MAP] >> metis_tac[] ) >>
+    rw[] >> res_tac >> fs[MEM_MAP] >> metis_tac[] )
+
+val labels_tac =
+  ctac >>
   imp_res_tac RTC_bc_next_preserves >>
   qpat_assum`bs.code = PrintE++Y++Z`kall_tac >>
   simp[between_labels_def,good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
@@ -1397,20 +1404,38 @@ val PrintE_thm = store_thm("PrintE_thm",
   fs[] >>
   EVAL_TAC)
 
-val replCorrect_lem = Q.prove (
+val and_shadow_def = Define`and_shadow = $/\`
+
+val lemma = prove(``∀ls. next_addr len ls = SUM (MAP (λi. if is_Label i then 0 else len i + 1) ls)``,
+  Induct >> simp[] >> rw[] >> fs[] >> simp[ADD1] )
+
+val bc_eval_NONE_NRC = store_thm("bc_eval_NONE_NRC",
+  ``∀bs. bc_eval bs = NONE ⇒ ∀n. ∃bs'. NRC bc_next n bs bs'``,
+  gen_tac >> strip_tac >>
+  Induct >> simp[] >>
+  simp[NRC_SUC_RECURSE_LEFT] >> fs[] >>
+  CONV_TAC SWAP_EXISTS_CONV >>
+  qexists_tac`bs'` >> simp[] >>
+  spose_not_then strip_assume_tac >>
+  `bc_next^* bs bs'` by metis_tac[RTC_eq_NRC] >>
+  imp_res_tac RTC_bc_next_bc_eval >> fs[] )
+
+val replCorrect'_lem = Q.prove (
 `!repl_state error_mask bc_state repl_fun_state.
   invariant repl_state repl_fun_state bc_state ⇒
   ast_repl repl_state
-    (get_type_error_mask (main_loop (bc_state,repl_fun_state) input))
+    (get_type_error_mask (FST (main_loop' (bc_state,repl_fun_state) input)))
     (MAP parse (split_top_level_semi (lexer_fun input)))
-    (main_loop (bc_state,repl_fun_state) input)`,
+    (FST (main_loop' (bc_state,repl_fun_state) input))
+  ∧ SND (main_loop' (bc_state,repl_fun_state) input)`,
 
 completeInduct_on `LENGTH input` >>
+simp[GSYM and_shadow_def] >>
 rw [lexer_correct, Once lex_impl_all_def] >>
-ONCE_REWRITE_TAC [main_loop_def] >>
+ONCE_REWRITE_TAC [main_loop'_def] >>
 cases_on `lex_until_toplevel_semicolon input` >>
-rw [get_type_error_mask_def] >-
-metis_tac [ast_repl_rules] >>
+rw [get_type_error_mask_def] >- (
+  rw[and_shadow_def] >> metis_tac [ast_repl_rules] ) >>
 `?tok input_rest. x = (tok, input_rest)`
         by (cases_on `x` >>
             metis_tac []) >>
@@ -1423,7 +1448,8 @@ rw [] >>
   rw [Once ast_repl_cases, parse_elaborate_infertype_compile_def, parser_correct,
       get_type_error_mask_def] >>
  `LENGTH input_rest < LENGTH input` by metis_tac [lex_until_toplevel_semicolon_LESS] >>
- metis_tac [lexer_correct]) >>
+ rw[and_shadow_def] >>
+ metis_tac [lexer_correct,FST,SND]) >>
 rw[parse_elaborate_infertype_compile_def,parser_correct] >>
 qmatch_assum_rename_tac`elaborate_top st.relaborator_state top0 = (new_elab_state, top)`[] >>
 qmatch_assum_rename_tac`invariant rs st bs`[] >>
@@ -1435,10 +1461,13 @@ rw [] >>
              metis_tac []) >>
 rw [get_type_error_mask_def] >-
 ((* A type error *)
- `LENGTH input_rest < LENGTH input` by metis_tac [lex_until_toplevel_semicolon_LESS] >>
- rw[Once ast_repl_cases] >>
-     metis_tac [lexer_correct]) >>
+  `LENGTH input_rest < LENGTH input` by metis_tac [lex_until_toplevel_semicolon_LESS] >>
+  rw[Once ast_repl_cases] >>
+  rw[and_shadow_def] >>
+  rw[get_type_error_mask_def] >>
+  metis_tac [lexer_correct,FST,SND]) >>
 simp[] >>
+
 `?infer_menv infer_cenv infer_env.
   st.rinferencer_state = (infer_menv,infer_cenv,infer_env)`
             by metis_tac [pair_CASES] >>
@@ -1481,6 +1510,16 @@ qmatch_assum_rename_tac`xxxxxxxx = top`[] >> rpt BasicProvers.VAR_EQ_TAC >>
 cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
   (* Divergence *)
   rw[Once ast_repl_cases,get_type_error_mask_def] >>
+  simp[and_shadow_def] >>
+  reverse conj_tac >- (
+    fs[invariant_def] >>
+    simp[code_executes_ok_def] >>
+    disj2_tac >>
+    rw[] >>
+    imp_res_tac bc_eval_NONE_NRC >>
+    pop_assum(qspec_then`n`strip_assume_tac) >>
+    qexists_tac`bs'` >> simp[] >>
+    cheat (* need to know that no output is produced... *) ) >>
   MAP_EVERY qexists_tac [`convert_menv new_infer_menv`,`new_infer_cenv`,`convert_env2 new_infer_env`] >>
   rw [] >>
   qpat_assum`∀m. X ⇒ Y`kall_tac >>
@@ -1614,9 +1653,17 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
   metis_tac[RTC_bc_next_determ]) >>
 
 fs [] >>
+simp[UNCURRY] >>
 `STRLEN input_rest < STRLEN input` by metis_tac[lex_until_toplevel_semicolon_LESS] >>
 simp[Once ast_repl_cases,get_type_error_mask_def] >>
+simp[and_shadow_def] >>
+reverse conj_tac >- (
+  first_x_assum(qspec_then`STRLEN input_rest`mp_tac) >> simp[] >>
+  disch_then(qspec_then`input_rest`mp_tac) >> simp[] >>
+  cheat (* probably need to refactor this to reuse the proofs below? *)
+  ) >>
 disj1_tac >>
+
 MAP_EVERY qexists_tac [`convert_menv new_infer_menv`,
                        `new_infer_cenv`,
                        `convert_env2 new_infer_env`,
@@ -1685,7 +1732,8 @@ simp[] >>
     Q.PAT_ABBREV_TAC`new_repl_fun_state = X:repl_fun_state` >>
     first_x_assum(qspecl_then[`new_repl_state`,`new_bc_state`,`new_repl_fun_state`]mp_tac) >>
     simp[lexer_correct] >>
-    disch_then match_mp_tac >>
+
+    discharge_hyps >- (
 
     (* invariant preservation *)
    `type_infer_invariants new_repl_state (new_infer_menv ++ infer_menv,
@@ -1722,7 +1770,18 @@ simp[] >>
     conj_tac >- ( labels_tac  ) >>
     simp[Abbr`new_bc_state`] >>
     imp_res_tac RTC_bc_next_preserves >>
-    fs[]) >>
+    fs[] >>
+    conj_tac >- (
+      match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >> simp[] >>
+      conj_tac >- rfs[] >>
+      ctac >> simp[]) >>
+    simp[code_executes_ok_def] >>
+    disj1_tac >>
+    qexists_tac`bs2 with clock := NONE` >>
+    simp[lemma] >>
+    disj2_tac >>
+    simp[MAP_REVERSE,SUM_REVERSE,SUM_APPEND] ) >>
+  simp[] ) >>
 
   (* exception *)
   reverse(Cases_on`e`>>fs[])>-(
@@ -1774,7 +1833,7 @@ simp[] >>
   Q.PAT_ABBREV_TAC`new_repl_fun_state = X:repl_fun_state` >>
   first_x_assum(qspecl_then[`new_repl_state`,`new_bc_state`,`new_repl_fun_state`]mp_tac) >>
   simp[lexer_correct] >>
-  disch_then match_mp_tac >>
+  discharge_hyps >- (
 
   (* invariant preservation *)
   pop_assum mp_tac >>
@@ -1848,7 +1907,18 @@ simp[] >>
   conj_tac >- labels_tac >>
   simp[Abbr`new_bc_state`] >>
   imp_res_tac RTC_bc_next_preserves >>
-  fs[]);
+  fs[] >>
+  conj_tac >- (
+    match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >> simp[] >>
+    conj_tac >- rfs[] >>
+    ctac >> simp[]) >>
+  simp[code_executes_ok_def] >>
+  disj1_tac >>
+  qexists_tac`bs3 with clock := NONE` >>
+  simp[bc_fetch_with_clock] ) >>
+simp[]);
+
+val _ = delete_const"and_shadow"
 
   (*
 val good_compile_primitives = prove(
@@ -1989,7 +2059,10 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   ``(initial_bc_state.inst_length = K 0) ∧
     good_labels (FST compile_primitives).rnext_label initial_bc_state.code ∧
     (initial_bc_state.clock = NONE) ∧
-    (∃ls. initial_bc_state.code = PrintE++Stop::ls)``,
+    (∃ls. initial_bc_state.code = PrintE++Stop::ls) ∧
+    code_labels_ok initial_bc_state.code ∧
+    code_executes_ok initial_bc_state
+    ``,
   simp[initial_bc_state_def] >>
   Q.PAT_ABBREV_TAC`bs = install_code X Y Z` >>
   `∃bs1. bc_eval bs = SOME bs1` by (
@@ -2013,8 +2086,10 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   strip_tac >>
   assume_tac PrintE_labels >>
   fs[good_labels_def] >>
-  fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP,FILTER_REVERSE,ALL_DISTINCT_REVERSE,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
-  rw[] >> spose_not_then strip_assume_tac >> res_tac >> fs[CompilerTheory.init_compiler_state_def] >> DECIDE_TAC)
+  conj_asm1_tac >- (
+    fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP,FILTER_REVERSE,ALL_DISTINCT_REVERSE,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
+    rw[] >> spose_not_then strip_assume_tac >> res_tac >> fs[CompilerTheory.init_compiler_state_def] >> DECIDE_TAC) >>
+  cheat (* code_labels_ok and code_executes_ok for initial code *))
 
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
@@ -2031,10 +2106,7 @@ val initial_invariant = prove(
     rw[] >> rw[semanticsExtraTheory.all_cns_def] >>
     simp[SUBSET_DEF] >> metis_tac[] ) >>
   TRY (assume_tac initial_bc_state_invariant >> fs[] >> NO_TAC) >>
-  metis_tac[compile_primitives_terminates])
-
-val lemma = prove(``∀ls. next_addr len ls = SUM (MAP (λi. if is_Label i then 0 else len i + 1) ls)``,
-  Induct >> simp[] >> rw[] >> fs[] >> simp[ADD1] )
+  TRY (metis_tac[compile_primitives_terminates]))
 
 val initial_bc_state_side_thm = store_thm("initial_bc_state_side_thm",
   ``initial_bc_state_side``,
@@ -2052,6 +2124,7 @@ val initial_bc_state_side_thm = store_thm("initial_bc_state_side_thm",
     simp[Abbr`bs2`,install_code_def]) >>
   simp[Abbr`bs4`])
 
+(*
 val replCorrect = Q.store_thm ("replCorrect",
 `!input output.
   (repl_fun input = output) ⇒
@@ -2059,6 +2132,7 @@ val replCorrect = Q.store_thm ("replCorrect",
 rw [repl_fun_def, repl_def] >>
 match_mp_tac replCorrect_lem >>
 rw[initial_invariant])
+*)
 
 val replCorrect' = Q.store_thm ("replCorrect'",
 `!input output b.
@@ -2066,8 +2140,10 @@ val replCorrect' = Q.store_thm ("replCorrect'",
   (repl (get_type_error_mask output) input output) /\ b`,
 rpt gen_tac >> simp [repl_fun'_def, repl_def,UNCURRY] >>
 strip_tac >>
-
-cheat)
+fs[initial_bc_state_side_thm] >>
+rpt BasicProvers.VAR_EQ_TAC >>
+match_mp_tac replCorrect'_lem >>
+simp[initial_invariant])
 
 val replCorrect_thm = Q.store_thm ("replCorrect_thm",
 `!input output.
