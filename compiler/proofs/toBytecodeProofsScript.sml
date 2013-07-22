@@ -1020,13 +1020,13 @@ val do_Ceq_to_bc_equal = Q.prove (
    (s'.out = REVERSE code ++ s.out) ∧
    EVERY ($~ o is_Label) code ∧
    (s'.next_label = s.next_label) ∧
+   (∀l. uses_label code l ⇒ MEM l (MAP (FST o THE o FST) defs)) ∧
    ∀bs bc0 bc1.
      (bs.code = bc0 ++ code ++ bc1) ∧
      (bs.pc = next_addr bs.inst_length bc0) ∧
      EVERY (IS_SOME o FST) defs ∧
      EVERY (IS_SOME o bc_find_loc bs o Lab o FST o THE o FST) defs
      ⇒
-     (∀l. uses_label code l ⇒ MEM (Label l) bs.code) ∧
      (ls' = (REVERSE (MAP (SND o SND o THE o FST) defs)) ++ ls) ∧
      bc_next^* bs (bs with <| stack :=  (REVERSE (MAP (CodePtr o THE o bc_find_loc bs o Lab o FST o THE o FST) defs))++bs.stack
                             ; pc := next_addr bs.inst_length (bc0 ++ code) |>)``,
@@ -1035,10 +1035,12 @@ val do_Ceq_to_bc_equal = Q.prove (
     pop_assum(assume_tac o SYM) >> fs[] ) >>
   qx_gen_tac`def` >>
   PairCases_on`def` >>
-  Cases_on`def0`>> TRY(PairCases_on`x`)>>rw[push_lab_def] >>
+  Cases_on`def0`>> TRY(PairCases_on`x`)>>rw[push_lab_def] >- (
+    fs[] >> res_tac >> fs[] ) >>
   qmatch_assum_abbrev_tac`FOLDL push_lab (ss,lss) defs = (s',ls')` >>
   first_x_assum(qspecl_then[`ss`,`lss`,`s'`,`ls'`]mp_tac) >> simp[] >>
   strip_tac >> fs[Abbr`ss`,Once SWAP_REVERSE,Abbr`lss`] >>
+  conj_tac >- ( rw[] >> fs[uses_label_thm] ) >>
   rpt gen_tac >> strip_tac >>
   `bc_fetch bs = SOME (PushPtr (Lab x0))` by (
     match_mp_tac bc_fetch_next_addr >>
@@ -1055,15 +1057,6 @@ val do_Ceq_to_bc_equal = Q.prove (
     simp[FILTER_APPEND,SUM_APPEND,ADD1] >>
     rfs[EVERY_MEM,bc_find_loc_def] ) >>
   simp[Abbr`P`] >> strip_tac >>
-  conj_tac >- (
-    fs[uses_label_thm] >>
-    qx_gen_tac`l` >>
-    reverse(Cases_on`x0=l`)>-metis_tac[]>>simp[]>>
-    fs[bc_find_loc_def] >>
-    `MEM (Label l) bs.code` by (
-      match_mp_tac bc_find_loc_aux_MEM >>
-      metis_tac[optionTheory.NOT_SOME_NONE] ) >>
-    rfs[] ) >>
   qmatch_assum_abbrev_tac`bc_next^* bs1 bs2'` >>
   `bs2' = bs2` by (
     unabbrev_all_tac >>
@@ -1281,6 +1274,7 @@ val do_Ceq_to_bc_equal = Q.prove (
     ∃code.
       (s'.out = REVERSE code ++ s.out) ∧
       EVERY ($~ o is_Label) code ∧ (s'.next_label = s.next_label) ∧
+      (∀l. uses_label code l ⇒ MEM (Label l) code ∨ MEM l (MAP (FST o THE o FST) defs)) ∧
       ∀bs bc0 bc1 cls.
         (bs.code = bc0 ++ code ++ bc1) ∧
         (bs.pc = next_addr bs.inst_length bc0) ∧
@@ -1292,7 +1286,6 @@ val do_Ceq_to_bc_equal = Q.prove (
           EVERY (λn. n < LENGTH defs) recs)
                o SND o SND o THE o FST) defs
         ⇒
-        (∀l. uses_label code l ⇒ MEM (Label l) bs.code) ∧
         ∃rs.
         let bvs = MAP
         ((λ(l,cc,(recs,envs)). Block closure_tag
@@ -1321,6 +1314,9 @@ val do_Ceq_to_bc_equal = Q.prove (
   qspecl_then[`nk`,`k''`,`s''''`]mp_tac num_fold_store_thm >>
   simp[] >> disch_then(Q.X_CHOOSE_THEN`bsr`strip_assume_tac) >>
   simp[Once SWAP_REVERSE] >>
+  conj_tac >- (
+    strip_tac >> fs[EVERY_REVERSE,MAP_REVERSE,code_labels_ok_def,uses_label_thm] >>
+    metis_tac[] ) >>
   rpt gen_tac >> strip_tac >>
   last_x_assum(qspecl_then[`bs`,`bc0`,`bpl ++ bcc ++ bur ++ bsr ++ bc1`]mp_tac)>>
   simp[] >> disch_then(Q.X_CHOOSE_THEN`rs`strip_assume_tac) >>
@@ -1392,9 +1388,6 @@ val do_Ceq_to_bc_equal = Q.prove (
   strip_tac >>
   qmatch_assum_abbrev_tac`bc_next^* bs4 bs5` >>
   simp[markerTheory.Abbrev_def] >>
-  conj_tac >- (
-    fs[code_labels_ok_def,uses_label_thm] >>
-    metis_tac[] ) >>
   qexists_tac`rs` >> simp[] >>
   qho_match_abbrev_tac`bc_next^* bs bs6` >>
   qsuff_tac`bs5 = bs6` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
@@ -1473,19 +1466,19 @@ val tac2 =
            cs.next_label ≤ (compile menv env t sz cs exp).next_label ∧
            ALL_DISTINCT (FILTER is_Label bc) ∧
            EVERY (between cs.next_label (compile menv env t sz cs exp).next_label) (MAP dest_Label (FILTER is_Label bc))
-           ∧ (∀l. uses_label bc l ⇒ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs (LENGTH env) exp)))) ∧
+           ∧ (all_labs exp ⇒ ∀l. uses_label bc l ⇒ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs (LENGTH env) exp)))) ∧
     (∀menv env t sz exp n cs xs.
       ∃bc. ((compile_bindings menv env t sz exp n cs xs).out = bc ++ cs.out) ∧
            cs.next_label ≤ (compile_bindings menv env t sz exp n cs xs).next_label ∧
            ALL_DISTINCT (FILTER is_Label bc) ∧
            EVERY (between cs.next_label (compile_bindings menv env t sz exp n cs xs).next_label) (MAP dest_Label (FILTER is_Label bc))
-           ∧ (∀l. uses_label bc l ⇒ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs (LENGTH env + xs) exp)))) ∧
+           ∧ (all_labs exp ⇒ ∀l. uses_label bc l ⇒ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs (LENGTH env + xs) exp)))) ∧
     (∀menv env sz cs exps.
       ∃bc. ((compile_nts menv env sz cs exps).out = bc ++ cs.out) ∧
            cs.next_label ≤ (compile_nts menv env sz cs exps).next_label ∧
            ALL_DISTINCT (FILTER is_Label bc) ∧
            EVERY (between cs.next_label (compile_nts menv env sz cs exps).next_label) (MAP dest_Label (FILTER is_Label bc))
-           ∧ (∀l. uses_label bc l ⇒ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs_list (LENGTH env) exps))))``,
+           ∧ (all_labs_list exps ⇒ ∀l. uses_label bc l ⇒ MEM (Label l) bc ∨ MEM l (MAP (FST o FST o SND) (free_labs_list (LENGTH env) exps))))``,
   ho_match_mp_tac compile_ind >>
   strip_tac >- (
     simp[compile_def] >> rw[] >> rw[] >> fs[uses_label_thm]) >>
@@ -1530,12 +1523,21 @@ val tac2 =
     rpt strip_tac >> fs[] >>
     Q.ISPECL_THEN[`env`,`sz`,`cs`,`defs`]mp_tac compile_closures_thm >>
     simp[] >> strip_tac >> fs[] >>
-    pop_assum kall_tac >> (* need to use this assumption; may need to rework statement of compile_closures_thm *)
+    pop_assum kall_tac >>
     simp[FILTER_APPEND,ALL_DISTINCT_APPEND,GSYM FILTER_EQ_NIL,combinTheory.o_DEF,ALL_DISTINCT_REVERSE,FILTER_REVERSE,MAP_REVERSE,EVERY_REVERSE] >>
     fs[GSYM FILTER_EQ_NIL,combinTheory.o_DEF] >>
-    fs[code_labels_ok_def,uses_label_thm,EXISTS_REVERSE] >>
+    fs[uses_label_thm,EXISTS_REVERSE] >>
     rw[] >> TRY(metis_tac[]) >>
-    cheat) >>
+    fsrw_tac[DNF_ss][free_labs_defs_MAP,MEM_MAP,MEM_FLAT,MEM_GENLIST] >>
+    Cases_on`MEM (Label l) code`>>fs[]>>
+    res_tac >> qmatch_assum_rename_tac`MEM def defs`[]>>PairCases_on`def`>>
+    Cases_on`def0`>- (
+      fs[EVERY_MEM] >> res_tac >> fs[] ) >>
+    disj2_tac >> disj1_tac >>
+    PairCases_on`x`>>fsrw_tac[DNF_ss][MEM_EL]>>
+    pop_assum(assume_tac o SYM) >>
+    qexists_tac`n`>>simp[]>>
+    qexists_tac`0`>>simp[]) >>
   strip_tac >- (
     rw[compile_def,LET_THM,UNCURRY] >>
     BasicProvers.EVERY_CASE_TAC >> rw[] >>
@@ -4001,7 +4003,7 @@ fun tac18 t =
       simp[Cenv_bs_def,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,env_renv_def] >>
       simp[option_case_NONE_F] >>
       metis_tac[optionTheory.IS_SOME_DEF] ) >>
-    disch_then(Q.X_CHOOSE_THEN`rs`strip_assume_tac o CONJUNCT2) >>
+    disch_then(Q.X_CHOOSE_THEN`rs`strip_assume_tac) >>
     qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
     qabbrev_tac`rd' = rd with cls := rd.cls |++ (GENLIST (λi. (EL i rs, (env, defs, i))) (LENGTH rs))` >>
     `rd.cls ⊑ rd'.cls` by (
