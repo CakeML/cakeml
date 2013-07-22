@@ -463,3 +463,7 @@ init_type_env =
      ("~", (0, infer_Tfn infer_Tint infer_Tint)),
      ("!", (1, infer_Tfn (infer_Tref (Infer_Tvar_db 0)) (Infer_Tvar_db 0))),
      ("ref", (1, infer_Tfn (Infer_Tvar_db 0) (infer_Tref (Infer_Tvar_db 0))))]
+
+inferTop :: (TenvM,TenvC,Tenv) -> Top -> Either String (TenvM, TenvC, Tenv)
+inferTop (menv,cenv,env) top =
+  evalStateT (infer_top menv cenv env top) init_infer_state

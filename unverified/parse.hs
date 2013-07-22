@@ -8,6 +8,7 @@ import Data.Char as Char
 import Tokens
 import Ast
 import Data.Maybe
+import Data.Functor.Identity as DFI
 
 o f g x = f (g x)
 
@@ -457,6 +458,7 @@ nTopLevelDec =
   <|>
   fmap Ast_Tdec nDecl
 
+nREPLTop :: ParsecT [Token] u DFI.Identity Ast_top
 nREPLTop = 
   do e <- nE; 
      tokeq SemicolonT;
@@ -465,3 +467,6 @@ nREPLTop =
   do d <- nTopLevelDec;
      tokeq SemicolonT;
      return d
+
+parseTop :: [Token] -> Either ParseError Ast_top
+parseTop toks = parse nREPLTop "" toks

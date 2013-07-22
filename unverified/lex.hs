@@ -206,4 +206,5 @@ lex_aux acc error stk input =
               _ -> lex_aux new_acc True [] rest
           else lex_aux new_acc False stk rest
 
+lex_until_toplevel_semicolon :: String -> Maybe ([Token], String)
 lex_until_toplevel_semicolon input = lex_aux [] False [] input
