@@ -2133,7 +2133,18 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   conj_asm1_tac >- (
     fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP,FILTER_REVERSE,ALL_DISTINCT_REVERSE,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> fs[CompilerTheory.init_compiler_state_def] >> DECIDE_TAC) >>
-  cheat (* code_labels_ok and code_executes_ok for initial code *))
+  conj_tac >- (
+    match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >> simp[] >>
+    match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >> simp[] >>
+    conj_tac >- (
+      simp[bytecodeLabelsTheory.code_labels_ok_def] >>
+      EVAL_TAC >> metis_tac[] ) >>
+    simp[bytecodeLabelsTheory.code_labels_ok_def,bytecodeLabelsTheory.uses_label_thm] ) >>
+  simp[code_executes_ok_def] >>
+  assume_tac compile_primitives_terminates >> fs[] >> rw[] >>
+  disj1_tac >>
+  qexists_tac`initial_bc_state` >>
+  simp[lemma])
 
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
