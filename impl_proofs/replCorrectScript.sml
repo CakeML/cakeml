@@ -1404,7 +1404,7 @@ val PrintE_thm = store_thm("PrintE_thm",
   fs[] >>
   EVAL_TAC)
 
-val and_shadow_def = Define`and_shadow = $/\`
+val and_shadow_def = zDefine`and_shadow = $/\`
 
 val lemma = prove(``∀ls. next_addr len ls = SUM (MAP (λi. if is_Label i then 0 else len i + 1) ls)``,
   Induct >> simp[] >> rw[] >> fs[] >> simp[ADD1] )
