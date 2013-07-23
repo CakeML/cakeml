@@ -1195,7 +1195,7 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
         ∃s' w. syneq err w ∧ LIST_REL syneq (SND(FST res)) s' ∧ closed_vlabs menv env s' rmenv (bc0++c0) ∧ closed_Clocs menv env s' ∧
         code_for_return rd bs (bc0++c0) st hdl sp w s (FST(FST res),s')
     | Cexc Ctimeout_error =>
-      ∃bs'. bc_next^* bs bs' ∧ bs'.clock = SOME 0 ∧ bc_fetch bs' = SOME Tick
+      ∃bs'. bc_next^* bs bs' ∧ bs'.clock = SOME 0 ∧ bc_fetch bs' = SOME Tick ∧ bs'.output = bs.output
     | _ => T``,
   rw[compile_Cexp_def] >>
   qspecl_then[`LENGTH renv`,`cs.next_label`,`exp`]mp_tac (CONJUNCT1 label_closures_thm) >>
@@ -1526,7 +1526,7 @@ val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
       DRESTRICT bs.refs (COMPL (set rd.sm)) ⊑ DRESTRICT rf (COMPL (set rd'.sm)) ∧
       rd.sm ≼ rd'.sm ∧ rd.cls ⊑ rd'.cls) ∧
     ((beh = Rerr Rtimeout_error) ⇒
-      ∃bs'. bc_next^* bs bs' ∧ (bs'.clock = SOME 0) ∧ bc_fetch bs' = SOME Tick)``,
+      ∃bs'. bc_next^* bs bs' ∧ (bs'.clock = SOME 0) ∧ bc_fetch bs' = SOME Tick ∧ bs'.output = bs.output)``,
   rw[] >>
   pop_assum mp_tac >>
   simp[compile_fake_exp_def] >>
@@ -5579,7 +5579,7 @@ val compile_dec_divergence = store_thm("compile_dec_divergence",
       IS_SOME bs.clock ∧
       good_labels rs.rnext_label bc0
       ⇒
-      ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0``,
+      ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0 ∧ bs'.output = bs.output``,
     rw[closed_context_def,good_labels_def] >>
     Cases_on`∃ts. d = Dtype ts` >- (
       rw[] >> fs[Once evaluate_dec_cases,FORALL_PROD] >>
@@ -5742,7 +5742,7 @@ val compile_decs_divergence = store_thm("compile_decs_divergence",
     ∧ IS_SOME bs.clock
     ∧ good_labels rs.rnext_label bc0
     ⇒
-    ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0``,
+    ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0 ∧ bs'.output = bs.output``,
   Induct >- (
     simp[Once evaluate_decs_cases,UNCURRY] ) >>
   qx_gen_tac`d` >> rw[] >>
@@ -6061,7 +6061,10 @@ val compile_decs_divergence = store_thm("compile_decs_divergence",
   `bs with clock := SOME ck = bs` by (
     simp[bc_state_component_equality] >>
     Cases_on`bs.clock`>>fs[env_rs_def,LET_THM,Cenv_bs_def,s_refs_def] ) >>
-  metis_tac[])
+  disch_then(Q.X_CHOOSE_THEN`s2`strip_assume_tac) >>
+  qexists_tac`s2`>>simp[]>>rfs[]>>
+  imp_res_tac RTC_bc_next_output_IS_PREFIX >>
+  metis_tac[IS_PREFIX_ANTISYM])
 
 val compile_decs_wrap_divergence = store_thm("compile_decs_wrap_divergence",
   ``∀mn menv cenv s env decs rs uct urenv cs' ck bs bc0 csz rd.
@@ -6078,7 +6081,7 @@ val compile_decs_wrap_divergence = store_thm("compile_decs_wrap_divergence",
       ∧ good_labels rs.rnext_label bc0
       ⇒
       ∃bs'.
-      bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0``,
+      bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0 ∧ bs'.output = bs.output``,
   rpt gen_tac >>
   simp[compile_decs_wrap_def] >>
   Q.PAT_ABBREV_TAC`rmenv = MAP SND o_f rs.rmenv` >>
@@ -6205,7 +6208,7 @@ val compile_top_divergence = store_thm("compile_top_divergence",
       IS_SOME bs.clock ∧
       good_labels rs.rnext_label bc0
       ⇒
-      ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0``,
+      ∃bs'. bc_next^* bs bs' ∧ bc_fetch bs' = SOME Tick ∧ bs'.clock = SOME 0 ∧ bs'.output = bs.output``,
   rw[closed_top_def] >>
   Cases_on`top`>- (
     fs[Once evaluate_top_cases] >>

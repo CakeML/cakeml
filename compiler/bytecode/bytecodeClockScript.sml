@@ -101,7 +101,8 @@ val RTC_bc_next_less_timeout = store_thm("RTC_bc_next_less_timeout",
       ∀ck. s1.clock = SOME ck ∧ bc_fetch s2 = SOME Tick ∧ s2.clock = SOME 0 ⇒
          ∀ck'. ck' ≤ ck ⇒
            ∃s2'. bc_next^* (s1 with clock := SOME ck') s2' ∧
-                 bc_fetch s2' = SOME Tick ∧ s2'.clock = SOME 0``,
+                 bc_fetch s2' = SOME Tick ∧ s2'.clock = SOME 0 ∧
+                 (IS_PREFIX s2.output s2'.output)``,
   ho_match_mp_tac RTC_INDUCT >>
   conj_tac >- (
     rw[] >> fs[] >> rw[] >> fs[] >>
@@ -114,14 +115,25 @@ val RTC_bc_next_less_timeout = store_thm("RTC_bc_next_less_timeout",
   Cases_on`bc_fetch s1 = SOME Tick` >- (
     Cases_on`ck' = 0` >- (
       qexists_tac`s1 with clock := SOME 0` >>
-      simp[bc_fetch_with_clock] ) >>
+      simp[bc_fetch_with_clock] >>
+      `s2.clock = SOME (ck-1)` by (
+        fs[bc_eval1_thm,bc_eval1_def] >> rw[] >> fs[] ) >>
+      first_x_assum(qspec_then`ck-1`mp_tac) >> simp[] >>
+      disch_then(qspec_then`ck-1`mp_tac) >> simp[] >>
+      `s2 with clock := SOME (ck-1) = s2` by (
+        simp[bc_state_component_equality] ) >>
+      simp[] >>
+      disch_then(Q.X_CHOOSE_THEN`s5`strip_assume_tac) >>
+      `bc_next^* s1 s5` by metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] >>
+      `IS_PREFIX s5.output s1.output` by metis_tac[RTC_bc_next_output_IS_PREFIX] >>
+      metis_tac[IS_PREFIX_TRANS]) >>
     fs[bc_eval1_thm] >>
     fs[bc_eval1_def] >>
     rw[] >> fs[bump_pc_def] >>
     first_x_assum(qspec_then`ck'-1`mp_tac) >>
     simp[] >>
-    disch_then(Q.X_CHOOSE_THEN`s3`strip_assume_tac) >>
-    qexists_tac`s3` >> simp[] >>
+    disch_then(Q.X_CHOOSE_THEN`s5`strip_assume_tac) >>
+    qexists_tac`s5` >> simp[] >>
     simp[Once RTC_CASES1] >> disj2_tac >>
     HINT_EXISTS_TAC >> simp[] >>
     simp[bc_eval1_thm] >>

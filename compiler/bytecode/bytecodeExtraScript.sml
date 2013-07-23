@@ -304,4 +304,22 @@ val bc_fetch_aux_end_NONE = store_thm("bc_fetch_aux_end_NONE",
   Induct >> simp[] >> rw[] >> fs[arithmeticTheory.ADD1] >>
   first_x_assum match_mp_tac >> simp[])
 
+val bc_next_output_IS_PREFIX = store_thm("bc_next_output_IS_PREFIX",
+  ``∀s1 s2. bc_next s1 s2 ⇒ IS_PREFIX s2.output s1.output``,
+  ho_match_mp_tac bc_next_ind >> simp[] >> simp[bump_pc_def] >> rw[IS_PREFIX_SNOC] >>
+  BasicProvers.CASE_TAC >> rw[])
+
+val RTC_bc_next_output_IS_PREFIX = store_thm("RTC_bc_next_output_IS_PREFIX",
+  ``∀bs1 bs2. RTC bc_next bs1 bs2 ⇒
+    IS_PREFIX bs2.output bs1.output``,
+  rw[] >> (
+     RTC_lifts_reflexive_transitive_relations
+  |> Q.GEN`R` |> Q.ISPEC `bc_next`
+  |> Q.GEN`Q` |> Q.ISPEC `combin$C IS_PREFIX`
+  |> Q.GEN`f` |> Q.ISPEC `bc_state_output`
+  |> strip_assume_tac) >> fs[] >> pop_assum (match_mp_tac o MP_CANON) >>
+  rw[reflexive_def,transitive_def] >- (
+    match_mp_tac bc_next_output_IS_PREFIX >> rw[] ) >>
+  metis_tac[IS_PREFIX_TRANS])
+
 val _ = export_theory()
