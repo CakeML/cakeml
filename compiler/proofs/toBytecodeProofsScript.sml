@@ -2495,7 +2495,7 @@ fun tac18 t =
              (bs.stack = blvs++benv::CodePtr ret::(REVERSE args)++cl::st) ∧
              (az = LENGTH args) ∧ (lz = LENGTH blvs) ∧ csz ≤ LENGTH st | TCNonTail => T)
          ⇒
-          ∃bs'. bc_next^* bs bs' ∧ (bs'.clock = SOME 0) ∧ (bc_fetch bs' = SOME Tick)))) ∧
+          ∃bs'. bc_next^* bs bs' ∧ (bs'.clock = SOME 0) ∧ (bc_fetch bs' = SOME Tick) ∧ bs'.output = bs.output))) ∧
     (∀menv s env exps ress. Cevaluate_list menv s env exps ress ⇒
       ∀rd s' beh cmnv cs cenv sz csz bs bce bcr bc0 code bc1.
         BIGUNION (IMAGE (BIGUNION o IMAGE all_Clocs o set) (FRANGE menv)) ⊆ count (LENGTH (SND s)) ∧
@@ -2529,7 +2529,7 @@ fun tac18 t =
           csz ≤ LENGTH st
           ⇒ code_for_return rd bs bce st hdl sp v s s') ∧
         (err = Ctimeout_error ⇒
-         ∃bs'. bc_next^* bs bs' ∧ (bs'.clock = SOME 0) ∧ (bc_fetch bs' = SOME Tick))))``,
+         ∃bs'. bc_next^* bs bs' ∧ (bs'.clock = SOME 0) ∧ (bc_fetch bs' = SOME Tick) ∧ bs'.output = bs.output)))``,
   ho_match_mp_tac Cevaluate_strongind >>
   strip_tac >- (
     simp[compile_def] >>
@@ -3183,14 +3183,16 @@ fun tac18 t =
     disch_then(qspec_then`tt`mp_tac) >> simp[] >>
     Cases_on`err`>>simp[]>-(
       simp[Abbr`tt`] >>
-      Cases_on`t`>>simp[] >-
-        metis_tac[RTC_TRANSITIVE,transitive_def]>>
+      Cases_on`t`>>simp[] >- (
+        `bs2.output = bs.output` by simp[Abbr`bs2`,Abbr`bss0`] >>
+        metis_tac[RTC_TRANSITIVE,transitive_def])>>
       strip_tac >> strip_tac >>
       qpat_assum`p ⇒ q`mp_tac >>
       discharge_hyps >- (
         simp[Abbr`bs2`] >>
         qexists_tac`bv::blvs`>>simp[] >>
         qexists_tac`args`>>simp[] ) >>
+      `bs2.output = bs.output` by simp[Abbr`bs2`,Abbr`bss0`] >>
       metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
     strip_tac >> rpt gen_tac >> strip_tac >>
     first_x_assum(qspecl_then[`bv::ig`,`sp`,`hdl`,`st`]mp_tac) >>
@@ -3301,6 +3303,7 @@ fun tac18 t =
     disch_then(qspec_then`TCNonTail`mp_tac) >>
     simp[] >> rw[] >>
     qpat_assum`bc_next^* bs bss0`mp_tac >>
+    `bss0.output = bs.output`by simp[Abbr`bss0`] >>
     simp[Abbr`bss0`] >>
     metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
   strip_tac >- (
@@ -3867,7 +3870,7 @@ fun tac18 t =
           simp[Abbr`bs2`] ) >>
         fs[Abbr`bs2`] >>
         metis_tac[IS_PREFIX_TRANS,SUBMAP_TRANS]
-      val t2 = metis_tac[RTC_TRANSITIVE,transitive_def]
+      val t2 = `bs2.output = bs.output` by simp[Abbr`bs2`] >> metis_tac[RTC_TRANSITIVE,transitive_def]
     in
       rpt gen_tac >>
       Q.PAT_ABBREV_TAC`cs1:compiler_result = X exp` >>
@@ -5091,6 +5094,7 @@ fun tac18 t =
           qexists_tac`bvs`>>simp[] >>
           fs[EVERY2_EVERY] >>
           fs[Cenv_bs_def]) >>
+        `bs1.output = bs.output` by simp[Abbr`bs1`] >>
         metis_tac[] ) >>
       conj_tac >- (
         rpt gen_tac >> strip_tac >>
@@ -5148,6 +5152,7 @@ fun tac18 t =
       tac23 `st` >>
       disch_then(qspec_then`TCTail azb0 0`mp_tac) >> simp[] >>
       simp[Abbr`P`] >>
+      `bs1.output = bs.output` by simp[Abbr`bs1`] >> simp[] >>
       disch_then match_mp_tac >>
       simp[Abbr`bs1`] >>
       CONV_TAC(RESORT_EXISTS_CONV(List.rev)) >>
