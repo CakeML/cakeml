@@ -40,8 +40,8 @@ destIntT _ = Nothing
 destTyvarT (TyvarT tv) = Just tv
 destTyvarT _ = Nothing
 
-tok :: (Token -> Maybe a) -> Parsec [Token] u a
-tok f = token show (\t -> initialPos "Unknown") (\t -> f t)
+tok :: (Token -> Maybe a) -> Parsec [(Token,SourcePos)] u a
+tok f = token (\t -> show (fst t)) snd (\t -> f (fst t))
 
 tokeq t = tok (\x -> if t == x then Just x else Nothing)
 
@@ -458,7 +458,7 @@ nTopLevelDec =
   <|>
   fmap Ast_Tdec nDecl
 
-nREPLTop :: ParsecT [Token] u DFI.Identity Ast_top
+nREPLTop :: ParsecT [(Token,SourcePos)] u DFI.Identity Ast_top
 nREPLTop = 
   do e <- nE; 
      tokeq SemicolonT;
@@ -468,5 +468,5 @@ nREPLTop =
      tokeq SemicolonT;
      return d
 
-parseTop :: [Token] -> Either ParseError Ast_top
+parseTop :: [(Token,SourcePos)] -> Either ParseError Ast_top
 parseTop toks = parse nREPLTop "" toks
