@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib relationTheory lcsymtacs miscTheory arithmeticTheory rich_listTheory
-open BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory
+open BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory miscLib
 
 val _ = new_theory"bytecodeClock"
 
@@ -143,6 +143,37 @@ val RTC_bc_next_less_timeout = store_thm("RTC_bc_next_less_timeout",
   simp[] >> strip_tac >>
   simp[Once RTC_CASES1] >>
   imp_res_tac bc_next_not_Tick_any_clock >>
+  metis_tac[])
+
+val RTC_bc_next_uses_clock = store_thm("RTC_bc_next_uses_clock",
+  ``∀s1 s2. RTC bc_next s1 s2 ⇒ ∃sn. NRC bc_next (the 0 (OPTION_BIND s2.clock (λn2. OPTION_BIND s1.clock (λn1. SOME (n1 - n2))))) s1 sn ∧ bc_next^* sn s2``,
+  ho_match_mp_tac RTC_INDUCT >>
+  conj_tac >- ( rw[] >> Cases_on`s1.clock` >> simp[] ) >>
+  rw[] >>
+  Cases_on`s2.clock`>>fs[] >- metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] >>
+  Cases_on`s1.clock`>>fs[] >- (
+    metis_tac[RTC_eq_NRC,RTC_TRANSITIVE,transitive_def,RTC_SUBSET] ) >>
+  qmatch_assum_abbrev_tac`NRC bc_next m s1' sn` >>
+  `NRC bc_next (SUC m) s1 sn` by ( simp[NRC] >> metis_tac[] ) >>
+  reverse(Cases_on`bc_fetch s1 = SOME Tick`) >- (
+    imp_res_tac bc_next_not_Tick_same_clock >> fs[] >>
+    fs[NRC_SUC_RECURSE_LEFT] >>
+    metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] ) >>
+  `bc_next^* s1 sn` by metis_tac[RTC_eq_NRC] >>
+  `bc_next^* s1' sn` by metis_tac[RTC_eq_NRC] >>
+  imp_res_tac RTC_bc_next_clock_less >> rfs[] >>
+  fs[optionTheory.OPTREL_def] >> fs[] >> rw[] >> fs[] >>
+  fs[bc_eval1_thm,bc_eval1_def] >> rw[] >> fs[] >>
+  rator_x_assum`NRC`mp_tac >>
+  simp[Abbr`m`,ADD1] >> rw[] >>
+  pop_assum mp_tac >> simp[] >>
+  metis_tac[])
+
+val NRC_bc_next_can_be_unclocked = store_thm("NRC_bc_next_can_be_unclocked",
+  ``∀n s1 s2. NRC bc_next n s1 s2 ⇒ NRC bc_next n (s1 with clock := NONE) (s2 with clock := NONE)``,
+  Induct >> simp[] >>
+  simp[NRC] >> rw[] >>
+  imp_res_tac bc_next_can_be_unclocked >>
   metis_tac[])
 
 val _ = export_theory()
