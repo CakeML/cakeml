@@ -1681,21 +1681,21 @@ simp[UNCURRY] >>
 `STRLEN input_rest < STRLEN input` by metis_tac[lex_until_toplevel_semicolon_LESS] >>
 simp[Once ast_repl_cases,get_type_error_mask_def] >>
 simp[and_shadow_def] >>
-reverse conj_tac >- (
-  first_x_assum(qspec_then`STRLEN input_rest`mp_tac) >> simp[] >>
-  disch_then(qspec_then`input_rest`mp_tac) >> simp[] >>
-  cheat (* probably need to refactor this to reuse the proofs below? *)
-  ) >>
-disj1_tac >>
 
+qmatch_abbrev_tac`(A ∨ B) ∧ C` >>
+qsuff_tac`A ∧ C`>-rw[] >>
+map_every qunabbrev_tac[`A`,`B`,`C`] >>
+simp[GSYM LEFT_EXISTS_AND_THM] >>
 MAP_EVERY qexists_tac [`convert_menv new_infer_menv`,
                        `new_infer_cenv`,
                        `convert_env2 new_infer_env`,
                        `store2`,
                        `envC2`,
                        `r`] >>
-conj_asm2_tac >- metis_tac[print_result_not_type_error] >>
-simp[] >>
+
+qmatch_abbrev_tac`(A ∧ B) ∧ C` >>
+qsuff_tac`B ∧ C` >- metis_tac[print_result_not_type_error] >>
+map_every qunabbrev_tac[`A`,`B`,`C`] >>
 
   qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`(store2,envC2,r)`]mp_tac compile_top_thm >>
   simp[] >>
@@ -1805,7 +1805,20 @@ simp[] >>
     simp[lemma] >>
     disj2_tac >>
     simp[MAP_REVERSE,SUM_REVERSE,SUM_APPEND] ) >>
-  simp[] ) >>
+  simp[] >>
+  fs[invariant_def] >>
+  strip_tac >>
+  simp[code_executes_ok_def] >>
+  disj1_tac >>
+  qexists_tac`new_bc_state` >>
+  simp[] >>
+  fs[Abbr`new_bc_state`] >>
+  disj2_tac >>
+  simp[lemma] >>
+  `bs2.inst_length = bs0.inst_length` by (
+    imp_res_tac RTC_bc_next_preserves >> rw[]) >>
+  simp[MAP_REVERSE,SUM_REVERSE,FILTER_REVERSE,SUM_APPEND,FILTER_APPEND]
+  ) >>
 
   (* exception *)
   reverse(Cases_on`e`>>fs[])>-(
@@ -1813,7 +1826,7 @@ simp[] >>
 
   disch_then(qx_choosel_then[`bv`,`bs2`,`rd2`]strip_assume_tac) >>
   qmatch_assum_rename_tac`err_bv err bv`[] >>
-  qmatch_abbrev_tac`X = PR ∧ Y` >>
+  qmatch_abbrev_tac`(X = PR ∧ Y) ∧ A` >>
   `∃bs3. bc_next^* bs2 bs3 ∧ bs3.output = PR ∧ bc_fetch bs3 = SOME Stop ∧ bs3.stack = bs0.stack ∧ bs3.refs = bs2.refs` by (
     `∃ls2. bs2.code = PrintE++Stop::ls2` by (
       imp_res_tac RTC_bc_next_preserves >>
@@ -1911,7 +1924,7 @@ simp[] >>
       `menv1 = menv2` by (
         simp[Abbr`menv1`,Abbr`menv2`] >>
         simp[convert_menv_def,strip_mod_env_def] >>
-        qpat_assum`A = (Success Y,Z)`mp_tac >>
+        qpat_assum`B = (Success Y,Z)`mp_tac >>
         rpt (pop_assum kall_tac) >>
         simp[inferTheory.infer_top_def] >>
         EVAL_TAC >> rw[] >>
@@ -1921,7 +1934,7 @@ simp[] >>
         fs[] >> rw[] ) >>
       simp[] ) >>
     `new_infer_menv = []` by (
-      qpat_assum`A = (Success Y,Z)`mp_tac >>
+      qpat_assum`B = (Success Y,Z)`mp_tac >>
       rpt (pop_assum kall_tac) >>
       simp[inferTheory.infer_top_def] >>
       EVAL_TAC >> rw[] >>
@@ -1940,7 +1953,14 @@ simp[] >>
   disj1_tac >>
   qexists_tac`bs3 with clock := NONE` >>
   simp[bc_fetch_with_clock] ) >>
-simp[]);
+simp[] >>
+simp[Abbr`A`,Abbr`new_bc_state`,bc_fetch_with_clock] >>
+strip_tac >>
+fs[invariant_def] >>
+simp[code_executes_ok_def] >>
+disj1_tac >>
+HINT_EXISTS_TAC >>
+simp[bc_fetch_with_clock]);
 
 val _ = delete_const"and_shadow"
 
