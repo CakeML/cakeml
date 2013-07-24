@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps pairTheory alistTheory listTheory rich_listTheory pred_setTheory finite_mapTheory lcsymtacs SatisfySimps quantHeuristicsLib miscLib
-open LibTheory SemanticPrimitivesTheory AstTheory BigStepTheory TypeSystemTheory terminationTheory miscTheory
+open LibTheory SemanticPrimitivesTheory AstTheory BigStepTheory TypeSystemTheory terminationTheory bigClockTheory miscTheory
 val _ = new_theory "semanticsExtra"
 
 val lookup_ALOOKUP = store_thm(
@@ -264,6 +264,31 @@ val pmatch_nil = save_thm("pmatch_nil",
     |> Q.SPECL[`cenv`,`s`,`ps`,`vs`,`env`,`0`]
     |> SIMP_RULE(srw_ss())[]
   ])
+
+val pmatch_extend_cenv = store_thm("pmatch_extend_cenv",
+  ``(∀(cenv:envC) s p v env id x. id ∉ set (MAP FST cenv) ∧ pmatch cenv s p v env ≠ Match_type_error
+    ⇒ pmatch ((id,x)::cenv) s p v env = pmatch cenv s p v env) ∧
+    (∀(cenv:envC) s ps vs env id x. id ∉ set (MAP FST cenv) ∧ pmatch_list cenv s ps vs env ≠ Match_type_error
+    ⇒ pmatch_list ((id,x)::cenv) s ps vs env = pmatch_list cenv s ps vs env)``,
+  ho_match_mp_tac pmatch_ind >>
+  rw[pmatch_def] >> rw[] >>
+  BasicProvers.CASE_TAC >> rw[] >> rpt (pop_assum mp_tac) >>
+  TRY (BasicProvers.CASE_TAC >> rw[] >> rpt (pop_assum mp_tac)) >>
+  TRY (BasicProvers.CASE_TAC >> rw[] >> rpt (pop_assum mp_tac)) >>
+  TRY (BasicProvers.CASE_TAC) >> rw[] >>
+  TRY (
+    TRY (BasicProvers.CASE_TAC) >> rw[] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fsrw_tac[DNF_ss][MEM_MAP,FORALL_PROD] >>
+    metis_tac[]))
+
+val evaluate_list_MAP_Var = store_thm("evaluate_list_MAP_Var",
+  ``∀vs ck menv cenv s env. set vs ⊆ set (MAP FST env) ⇒ evaluate_list ck menv cenv s env (MAP (Var o Short) vs) (s,Rval (MAP (THE o ALOOKUP env) vs))``,
+  Induct >> simp[Once evaluate_cases] >>
+  rw[] >> rw[Once evaluate_cases,SemanticPrimitivesTheory.lookup_var_id_def] >>
+  Cases_on`ALOOKUP env h`>>simp[] >>
+  imp_res_tac ALOOKUP_FAILS >>
+  fsrw_tac[DNF_ss][MEM_MAP,EXISTS_PROD])
 
 val store_to_fmap_def = Define`
   store_to_fmap s = FUN_FMAP (combin$C EL s) (count (LENGTH s))`
@@ -1215,6 +1240,132 @@ val evaluate_locs = store_thm("evaluate_locs",
   strip_tac >- rw[] >>
   strip_tac >- rw[] >>
   strip_tac >- rw[])
+
+val check_dup_ctors_ALL_DISTINCT = store_thm("check_dup_ctors_ALL_DISTINCT",
+  ``check_dup_ctors menv cenv tds ⇒ ALL_DISTINCT (MAP FST (FLAT (MAP (SND o SND) tds)))``,
+  simp[SemanticPrimitivesTheory.check_dup_ctors_def] >>
+  rw[] >>
+  qmatch_assum_abbrev_tac`ALL_DISTINCT l1` >>
+  qmatch_abbrev_tac`ALL_DISTINCT l2` >>
+  qsuff_tac`l1 = l2`>- PROVE_TAC[] >>
+  unabbrev_all_tac >>
+  rpt (pop_assum kall_tac) >>
+  Induct_on`tds` >> simp[FORALL_PROD] >>
+  Induct >> simp[FORALL_PROD])
+
+val check_dup_ctors_NOT_MEM = store_thm("check_dup_ctors_NOT_MEM",
+  ``check_dup_ctors mn cenv tds ∧ MEM e (MAP FST (FLAT (MAP (SND o SND) tds))) ⇒ ¬MEM (mk_id mn e) (MAP FST cenv)``,
+  simp[SemanticPrimitivesTheory.check_dup_ctors_def] >>
+  strip_tac >>
+  qpat_assum`ALL_DISTINCT X`kall_tac >>
+  Induct_on`tds` >> simp[] >>
+  fs[FORALL_PROD,res_quanTheory.RES_FORALL] >>
+  rw[] >- (
+    fsrw_tac[DNF_ss][MEM_MAP] >>
+    qmatch_assum_rename_tac`MEM a b`[] >>
+    PairCases_on`a`>>fs[] >>
+    res_tac >>
+    imp_res_tac ALOOKUP_FAILS >>
+    simp[FORALL_PROD] >>
+    metis_tac[] ) >>
+  first_x_assum (match_mp_tac o MP_CANON) >>
+  simp[] >> metis_tac[])
+
+val mk_id_inj = store_thm("mk_id_inj",
+  ``mk_id mn n1 = mk_id mn n2 ⇒ n1 = n2``,
+  rw[AstTheory.mk_id_def] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[])
+
+val evaluate_dec_decs = store_thm("evaluate_dec_decs",
+  ``evaluate_dec mn menv cenv s env dec (s',res) =
+    evaluate_decs mn menv cenv s env [dec] (s',(case res of Rval (cenv',_) => cenv' | _ => []),map_result SND res)``,
+  simp[Once evaluate_decs_cases] >>
+  Cases_on`res`>>simp[] >>
+  simp[Once evaluate_decs_cases,SemanticPrimitivesTheory.combine_dec_result_def] >>
+  simp[LibTheory.emp_def,LibTheory.merge_def] >>
+  Cases_on`a`>>simp[])
+
+val evaluate_decs_divergence_take = store_thm("evaluate_decs_divergence_take",
+  ``∀ds mn menv cenv s env.
+    (∀res. ¬ evaluate_decs mn menv cenv s env ds res)
+    ⇒
+    ∃n s' cenv' env'.
+    n < LENGTH ds ∧
+    evaluate_decs mn menv cenv s env (TAKE n ds) (s',cenv',Rval env') ∧
+    (∀res. ¬ evaluate_dec mn menv (cenv'++cenv) s' (env'++env) (EL n ds) res)``,
+  Induct >>
+  simp[Once evaluate_decs_cases] >>
+  qx_gen_tac`d` >> rpt strip_tac >>
+  Cases_on`∃res. evaluate_dec mn menv cenv s env d res` >- (
+    fs[] >>
+    PairCases_on`res`>>fs[] >>
+    Cases_on`res1`>>fs[]>-(
+      PairCases_on`a`>>fs[]>>
+      fsrw_tac[DNF_ss][] >>
+      first_x_assum(qspecl_then[`mn`,`menv`,`merge a0 cenv`,`res0`,`merge a1 env`]mp_tac) >>
+      simp[FORALL_PROD] >>
+      discharge_hyps >- metis_tac[] >>
+      strip_tac >>
+      qexists_tac`SUC n` >>
+      simp[] >>
+      simp[Once evaluate_decs_cases] >>
+      fsrw_tac[DNF_ss][] >>
+      qexists_tac`s'` >>
+      simp[SemanticPrimitivesTheory.combine_dec_result_def] >>
+      qexists_tac`merge env' a1` >>
+      qexists_tac`res0` >>
+      qexists_tac`cenv'` >>
+      qexists_tac`a0` >>
+      qexists_tac`a1` >>
+      qexists_tac`Rval env'` >>
+      simp[] >>
+      fs[LibTheory.merge_def] ) >>
+    fsrw_tac[DNF_ss][] >>
+    metis_tac[] ) >>
+  qexists_tac`0` >>
+  simp[] >>
+  simp[Once evaluate_decs_cases,LibTheory.emp_def,LibTheory.merge_def] >>
+  metis_tac[] )
+
+val evaluate_decs_divergence = store_thm("evaluate_decs_divergence",
+  ``∀ds mn menv cenv s env.
+    (∀res. ¬ evaluate_decs mn menv cenv s env ds res)
+    ⇒
+    ∃d ds'.
+    d ::ds' = ds ∧
+    ∀res. evaluate_dec mn menv cenv s env d res ⇒
+    ∃s' cenv' env'. res = (s',Rval (cenv',env')) ∧
+    ∀res. ¬ evaluate_decs mn menv (cenv'++cenv) s' (env'++env) ds' res``,
+  Induct >> simp[Once evaluate_decs_cases] >>
+  qx_gen_tac`d` >> rpt strip_tac >>
+  PairCases_on`res`>>fs[] >>
+  Cases_on`res1`>>fs[]>-(
+    PairCases_on`a`>>fs[]>>
+    fsrw_tac[DNF_ss][] >>
+    fs[LibTheory.merge_def,FORALL_PROD] >>
+    metis_tac[] ) >>
+  metis_tac[])
+
+val evaluate_dec_determ = store_thm("evaluate_dec_determ",
+  ``∀mn menv (cenv:envC) s env d r1.
+    evaluate_dec mn menv cenv s env d r1 ⇒
+    ∀r2. evaluate_dec mn menv cenv s env d r2 ⇒ r2 = r1``,
+  ho_match_mp_tac evaluate_dec_ind >>
+  rpt conj_tac >>
+  rw[Once evaluate_dec_cases] >>
+  imp_res_tac big_exp_determ >> fs[] )
+
+val evaluate_decs_determ = store_thm("evaluate_decs_determ",
+  ``∀mn menv cenv s env ds res.
+    evaluate_decs mn menv cenv s env ds res ⇒
+    ∀r2. evaluate_decs mn menv cenv s env ds r2 ⇒ r2 = res``,
+  ho_match_mp_tac evaluate_decs_ind >>
+  rpt conj_tac >>
+  rpt gen_tac >> strip_tac >>
+  rw[Once evaluate_decs_cases] >>
+  imp_res_tac evaluate_dec_determ >> fs[] >>
+  fs[LibTheory.merge_def,SemanticPrimitivesTheory.combine_dec_result_def] >>
+  res_tac >> fs[])
 
 (*
 val ALIST_REL_def = Define`

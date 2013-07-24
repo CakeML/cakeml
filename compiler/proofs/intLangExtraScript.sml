@@ -2648,6 +2648,37 @@ val all_labs_shift = store_thm("all_labs_shift",
   simp[shift_def])
 val _ = export_rewrites["all_labs_shift"]
 
+val all_labs_free_labs = store_thm("all_labs_free_labs",
+  ``(∀e. all_labs e ⇒ ∀z. all_labs_list (MAP (SND o SND o SND) (free_labs z e))) ∧
+    (∀es. all_labs_list es ⇒ ∀z. all_labs_list (MAP (SND o SND o SND) (free_labs_list z es))) ∧
+    (∀ds. all_labs_defs ds ⇒ ∀x y z. all_labs_list (MAP (SND o SND o SND) (free_labs_defs x y z ds))) ∧
+    (∀d. all_labs_def d ⇒ ∀x y z. all_labs_list (MAP (SND o SND o SND) (free_labs_def x y z d)))``,
+  ho_match_mp_tac all_labs_ind >>
+  simp[free_labs_list_MAP,FORALL_PROD])
+
+val free_labs_free_labs = store_thm("free_labs_free_labs",
+  ``(∀z e. IMAGE (FST o FST o SND)
+             (BIGUNION (IMAGE ((λp. set (free_labs (LENGTH(FST(SND(FST p)))) (SND(SND p)))) o SND) (set (free_labs z e))))
+         ⊆ IMAGE (FST o FST o SND) (set (free_labs z e))) ∧
+    (∀z es. IMAGE (FST o FST o SND)
+             (BIGUNION (IMAGE ((λp. set (free_labs (LENGTH(FST(SND(FST p)))) (SND(SND p)))) o SND) (set (free_labs_list z es))))
+         ⊆ IMAGE (FST o FST o SND) (set (free_labs_list z es))) ∧
+    (∀x y z ds.
+           IMAGE (FST o FST o SND)
+             (BIGUNION (IMAGE ((λp. set (free_labs (LENGTH(FST(SND(FST p)))) (SND(SND p)))) o SND) (set (free_labs_defs x y z ds))))
+         ⊆ IMAGE (FST o FST o SND) (set (free_labs_defs x y z ds))) ∧
+    (∀x y z d.
+           IMAGE (FST o FST o SND)
+             (BIGUNION (IMAGE ((λp. set (free_labs (LENGTH(FST(SND(FST p)))) (SND(SND p)))) o SND) (set (free_labs_def x y z d))))
+         ⊆ IMAGE (FST o FST o SND) (set (free_labs_def x y z d)))``,
+  ho_match_mp_tac free_labs_ind >> simp[] >> rw[] >>
+  TRY(fsrw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[]) >>
+  qmatch_abbrev_tac`a ⊆ l INSERT b` >>
+  qsuff_tac`a = b`>-(rw[SUBSET_DEF]>>metis_tac[]) >>
+  unabbrev_all_tac >>
+  simp[IMAGE_COMPOSE,GSYM LIST_TO_SET_MAP] >>
+  metis_tac[MAP_SND_free_labs_any_ez])
+
 (* Cevaluate deterministic *)
 
 val Cevaluate_determ = store_thm("Cevaluate_determ",

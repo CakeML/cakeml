@@ -262,7 +262,7 @@ val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
   rw[Once Cv_bv_cases] >>
   fs[])
 
-val Cv_bv_l2a_mono_mp = MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_l2a_mono)))
+val Cv_bv_l2a_mono_mp = save_thm("Cv_bv_l2a_mono_mp",MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_l2a_mono))))
 
 val Cv_bv_not_env = store_thm("Cv_bv_not_env",
   ``∀pp Cv bv. Cv_bv pp Cv bv ⇒ ∀vs. (bv = Block 0 vs) ⇒ (vs = [])``,
@@ -446,6 +446,13 @@ val Cenv_bs_syneq_store = store_thm("Cenv_bs_syneq_store",
   fs[GSYM LEFT_FORALL_IMP_THM] >>
   metis_tac[Cv_bv_syneq,FST,SND])
 
+val env_renv_APPEND_suff = store_thm("env_renv_APPEND_suff",
+  ``∀rd sz bs l1 l2 l3 l4.
+    env_renv rd sz bs l1 l3 ∧ env_renv rd sz bs l2 l4 ⇒ env_renv rd sz bs (l1 ++ l2) (l3 ++ l4)``,
+  rw[env_renv_def] >>
+  match_mp_tac EVERY2_APPEND_suff >>
+  simp[])
+
 val env_renv_imp_incsz = store_thm("env_renv_imp_incsz",
   ``∀rd sz bs menv env bs' v. env_renv rd sz bs menv env ∧
     (bs' = bs with stack := v::bs.stack)
@@ -458,6 +465,22 @@ val env_renv_imp_incsz = store_thm("env_renv_imp_incsz",
   BasicProvers.CASE_TAC >>
   imp_res_tac lookup_ct_imp_incsz >>
   simp[])
+
+val env_renv_imp_incsz_many = store_thm("env_renv_imp_incsz_many",
+  ``∀rd sz bs l1 l2 sz' bs' ls. env_renv rd sz bs l1 l2 ∧
+    bs' = bs with stack := ls ++ bs.stack ∧
+    sz' = sz + LENGTH ls ⇒
+    env_renv rd sz' bs' l1 l2``,
+  Induct_on`ls` >- simp[] >>
+  simp[ADD1] >> rw[] >>
+  REWRITE_TAC[ADD_ASSOC] >>
+  match_mp_tac env_renv_imp_incsz >>
+  qexists_tac`bs with stack := ls++bs.stack` >>
+  simp[bc_state_component_equality] >>
+  first_x_assum match_mp_tac >>
+  qexists_tac`sz` >>
+  qexists_tac`bs` >>
+  simp[bc_state_component_equality])
 
 val Cenv_bs_imp_incsz = store_thm("Cenv_bs_imp_incsz",
   ``∀rd menv s env rmenv renv rsz csz bs bs' v.
@@ -594,6 +617,18 @@ val Cenv_bs_pops = store_thm("Cenv_bs_pops",
   spose_not_then strip_assume_tac >>
   TRY(BasicProvers.VAR_EQ_TAC) >>
   res_tac >> fsrw_tac[ARITH_ss][] )
+
+val env_renv_append_code = store_thm("env_renv_append_code",
+  ``∀rd sz bs l1 l2 bs' ls. env_renv rd sz bs l1 l2  ∧ bs' = bs with code := bs.code ++ ls ⇒
+     env_renv rd sz bs' l1 l2``,
+  rw[env_renv_def] >>
+  match_mp_tac (GEN_ALL (MP_CANON EVERY2_mono)) >>
+  HINT_EXISTS_TAC >>
+  simp[] >> rpt gen_tac >> BasicProvers.CASE_TAC >>
+  strip_tac >>
+  match_mp_tac Cv_bv_l2a_mono_mp >>
+  qexists_tac `mk_pp rd bs` >>
+  rw[] >> metis_tac[bc_find_loc_aux_append_code])
 
 val Cenv_bs_append_code = store_thm("Cenv_bs_append_code",
   ``∀rd menv s rmenv env env0 sz0 csz bs bs' ls.
@@ -2261,34 +2296,6 @@ val compile_bindings_thm = store_thm("compile_bindings_thm",
   rpt AP_TERM_TAC >> rpt AP_THM_TAC >>
   simp[FUN_EQ_THM])
 
-val mvars_def = tDefine"mvars"`
-  (mvars (CRaise e) = mvars e) ∧
-  (mvars (CHandle e1 e2) = mvars e1 ∪ mvars e2) ∧
-  (mvars (CVar (Short _)) = {}) ∧
-  (mvars (CVar (Long mn x)) = {(mn,x)}) ∧
-  (mvars (CLit _) = {}) ∧
-  (mvars (CCon _ es) = mvars_list es) ∧
-  (mvars (CTagEq e _) = mvars e) ∧
-  (mvars (CProj e _) = mvars e) ∧
-  (mvars (CLet e eb) = mvars e ∪ mvars eb) ∧
-  (mvars (CLetrec defs e) = mvars_defs defs ∪ mvars e) ∧
-  (mvars (CCall _ e es) = mvars e ∪ mvars_list es) ∧
-  (mvars (CPrim1 _ e) = mvars e) ∧
-  (mvars (CPrim2 _ e1 e2) = mvars e1 ∪ mvars e2) ∧
-  (mvars (CUpd e1 e2) = mvars e1 ∪ mvars e2) ∧
-  (mvars (CIf e1 e2 e3) = mvars e1 ∪ mvars e2 ∪ mvars e3) ∧
-  (mvars_list [] = {}) ∧
-  (mvars_list (e::es) = mvars e ∪ mvars_list es) ∧
-  (mvars_defs [] = {}) ∧
-  (mvars_defs (d::ds) = mvars_def d ∪ mvars_defs ds) ∧
-  (mvars_def (_,_,e) = mvars e)`
-  (WF_REL_TAC `inv_image $< (λx. case x of
-    | INL e => Cexp_size e
-    | INR (INL es) => Cexp4_size es
-    | INR (INR (INL (defs))) => Cexp1_size defs
-    | INR (INR (INR (def))) => Cexp2_size def)`)
-val _ = export_rewrites["mvars_def"]
-
 val compile_mvars_SUBMAP = store_thm("compile_mvars_SUBMAP",
   ``(∀menv env t sz s e menv'.
       menv ⊑ menv' ∧ (∀mn x. (mn,x) ∈ mvars e ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ x < LENGTH env)
@@ -2311,21 +2318,6 @@ val compile_mvars_SUBMAP = store_thm("compile_mvars_SUBMAP",
       metis_tac[] ) >>
     fs[SUBMAP_DEF,FLOOKUP_DEF] ) >>
   BasicProvers.CASE_TAC >> fs[])
-
-val good_cd_def = Define`
-  good_cd ((ez,nz,ix),(l,cc,recs,envs),az,b) ⇔
-    EVERY (λv. v < ez) envs ∧
-    set (free_vars b) ⊆ count (LENGTH cc) ∧
-    ∃e e'. (cc,(recs,envs),e') = (bind_fv (az,e) nz ix)`
-
-val code_env_cd_def = Define`
-  code_env_cd menv code (x,(l,ccenv,ce),(az,b)) ⇔
-    (∀mn x. (mn,x) ∈ mvars b ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ x < LENGTH env) ∧
-    good_cd (x,(l,ccenv,ce),(az,b)) ∧
-    ∃cs bc0 cc bc1.
-      ((compile menv (MAP CTEnv ccenv) (TCTail az 0) 0 cs b).out = cc ++ cs.out) ∧
-      EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧ l < cs.next_label ∧
-      (code = bc0 ++ Label l :: (REVERSE cc) ++ bc1)`
 
 val prefix_exists_lemma = store_thm("prefix_exists_lemma",
   ``∀st n. ∃ls. st = ls ++ DROP n st``,
