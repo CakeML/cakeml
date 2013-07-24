@@ -32,6 +32,10 @@ val bc_fetch_with_stack = store_thm("bc_fetch_with_stack",
   ``bc_fetch (s with stack := st) = bc_fetch s``,
   rw[bc_fetch_def])
 
+val bc_fetch_with_refs = store_thm("bc_fetch_with_refs",
+  ``bc_fetch (s with refs := st) = bc_fetch s``,
+  rw[bc_fetch_def])
+
 val bump_pc_with_stack = store_thm("bump_pc_with_stack",
   ``bump_pc (s with stack := st) = (bump_pc s) with stack := st``,
   rw[bump_pc_def,bc_fetch_with_stack] >>

@@ -4,6 +4,23 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val MEM_SING_APPEND = store_thm("MEM_SING_APPEND",
+  ``(∀a c. d ≠ a ++ [b] ++ c) ⇔ ¬MEM b d``,
+  rw[EQ_IMP_THM] >>
+  spose_not_then strip_assume_tac >>
+  fs[] >>
+  fs[MEM_EL] >>
+  first_x_assum(qspecl_then[`TAKE n d`,`DROP (n+1) d`]mp_tac) >>
+  lrw[LIST_EQ_REWRITE] >>
+  Cases_on`x<n`>>simp[EL_APPEND1,EL_TAKE]>>
+  Cases_on`x=n`>>simp[EL_APPEND1,EL_APPEND2,EL_TAKE]>>
+  simp[EL_DROP])
+
+val MEM_APPEND_lemma = store_thm("MEM_APPEND_lemma",
+  ``∀a b c d x. (a ++ [x] ++ b = c ++ [x] ++ d) ∧ x ∉ set b ∧ x ∉ set a ⇒ (a = c) ∧ (b = d)``,
+  rw[APPEND_EQ_APPEND_MID] >> fs[] >>
+  fs[APPEND_EQ_SING])
+
 val RTC_RINTER = store_thm("RTC_RINTER",
   ``!R1 R2 x y. RTC (R1 RINTER R2) x y ⇒ ((RTC R1) RINTER (RTC R2)) x y``,
   ntac 2 gen_tac >>
