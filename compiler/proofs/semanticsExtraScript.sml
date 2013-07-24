@@ -850,7 +850,7 @@ val do_if_all_cns = store_thm("do_if_all_cns",
   ``∀cns v e1 e2 e3. all_cns v ⊆ cns ∧ all_cns_exp e1 ⊆ cns ∧ all_cns_exp e2 ⊆ cns ∧ (do_if v e1 e2 = SOME e3) ⇒ all_cns_exp e3 ⊆ cns``,
   gen_tac >> Cases >> rw[do_if_def] >> fs[])
 
-val cenv_dom = Define `
+val cenv_dom_def = Define `
 cenv_dom cenv = NONE INSERT set (MAP (SOME o FST) cenv)`;
 
 val evaluate_all_cns = store_thm("evaluate_all_cns",
@@ -1992,5 +1992,312 @@ val evaluate_fun = store_thm(
 rw [Once evaluate_cases])
 
 val _ = export_rewrites["evaluate_raise","evaluate_lit","evaluate_fun"];
+
+val FV_dec_def = Define`
+  (FV_dec (Dlet p e) = FV (Mat e [(p,Lit ARB)])) ∧
+  (FV_dec (Dletrec defs) = FV (Letrec defs (Lit ARB))) ∧
+  (FV_dec (Dtype _) = {})`
+val _ = export_rewrites["FV_dec_def"]
+
+val dec_cns_def = Define`
+  (dec_cns (Dlet p e) = all_cns_pat p ∪ all_cns_exp e) ∧
+  (dec_cns (Dletrec defs) = all_cns_defs defs) ∧
+  (dec_cns (Dtype _) = {})`
+val _ = export_rewrites["dec_cns_def"]
+
+val new_dec_cns_def = Define`
+  (new_dec_cns (Dtype ts) = (MAP FST (FLAT (MAP (SND o SND) ts)))) ∧
+  (new_dec_cns _ = [])`
+val _ = export_rewrites["new_dec_cns_def"]
+
+val new_dec_vs_def = Define`
+  (new_dec_vs (Dtype _) = []) ∧
+  (new_dec_vs (Dlet p e) = pat_bindings p []) ∧
+  (new_dec_vs (Dletrec funs) = MAP FST funs)`
+val _ = export_rewrites["new_dec_vs_def"]
+
+val _ = Parse.overload_on("new_decs_vs",``λdecs. FLAT (REVERSE (MAP new_dec_vs decs))``)
+
+val closed_under_cenv_def = Define`
+  closed_under_cenv (cenv:envC) (menv:envM) env s =
+  (∀v. v ∈ menv_range menv ∨ v ∈ env_range env ∨ MEM v s ⇒ all_cns v ⊆ cenv_dom cenv)`
+
+val closed_under_menv_def = Define`
+  closed_under_menv menv env s ⇔
+    EVERY (closed menv) s ∧
+    EVERY (closed menv) (MAP SND env) ∧
+    EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv)`
+
+val closed_context_def = Define`
+  closed_context menv cenv s env ⇔
+    ALL_DISTINCT (MAP FST menv) ∧
+    EVERY (closed menv) s ∧
+    EVERY (closed menv) (MAP SND env) ∧
+    EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
+    closed_under_cenv cenv menv env s ∧
+    closed_under_menv menv env s ∧
+    (∀v. v ∈ menv_range menv ∨ v ∈ env_range env ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s))`
+
+val closed_context_append = store_thm("closed_context_append",
+  ``∀menv cenv s env cenv' env'.
+    closed_context menv cenv s env  ∧
+    EVERY (closed menv) (MAP SND env') ∧
+    (∀v. MEM v (MAP SND env') ⇒ all_cns v ⊆ cenv_dom (cenv' ++ cenv)) ∧
+    (∀v. MEM v (MAP SND env') ⇒ all_locs v ⊆ count (LENGTH s))
+    ⇒
+    closed_context menv (cenv' ++ cenv) s (env' ++ env)``,
+  rpt gen_tac >>
+  simp[closed_context_def] >> strip_tac >>
+  fs[closed_under_cenv_def,closed_under_menv_def] >>
+  conj_tac >- (
+    `cenv_dom cenv ⊆ cenv_dom (cenv' ++ cenv)` by (
+      fsrw_tac[DNF_ss][SUBSET_DEF, cenv_dom_def] ) >>
+    metis_tac[SUBSET_TRANS] ) >>
+  metis_tac[])
+
+val evaluate_closed_under_cenv = store_thm("evaluate_closed_under_cenv",
+  ``∀ck menv cenv s env exp res. closed_under_cenv cenv menv env (SND s) ∧ evaluate ck menv cenv s env exp res ∧ all_cns_exp exp ⊆ cenv_dom cenv ⇒
+    closed_under_cenv cenv menv env (SND (FST res)) ∧ every_result (λv. all_cns v ⊆ cenv_dom cenv) (SND res)``,
+  rw[] >>
+  qspecl_then[`ck`,`menv`,`cenv`,`s`,`env`,`exp`,`res`]mp_tac (CONJUNCT1 evaluate_all_cns) >>
+  fsrw_tac[DNF_ss][closed_under_cenv_def])
+
+val closed_context_extend_cenv = store_thm("closed_context_extend_cenv",
+  ``∀menv cenv s env cenv'.
+      closed_context menv cenv s env ⇒
+      closed_context menv (cenv'++cenv) s env``,
+  rw[closed_context_def] >> fs[] >>
+  fs[closed_under_cenv_def] >>
+  fsrw_tac[DNF_ss][cenv_dom_def, SUBSET_DEF] >>
+  metis_tac[]);
+
+val FV_decs_def = Define`
+  (FV_decs [] = {}) ∧
+  (FV_decs (d::ds) = FV_dec d ∪ ((FV_decs ds) DIFF (set (MAP Short (new_dec_vs d)))))`
+
+val decs_cns_def = Define`
+  (decs_cns _ [] = {}) ∧
+  (decs_cns mn (d::ds) = dec_cns d ∪ (decs_cns mn ds DIFF (IMAGE (SOME o mk_id mn) (set (new_dec_cns d)))))`
+
+val _ = Parse.overload_on("new_decs_cns",``λds. BIGUNION (IMAGE (set o new_dec_cns) (set ds))``)
+
+val FV_top_def = Define`
+  (FV_top (Tdec d) = FV_dec d) ∧
+  (FV_top (Tmod mn _ ds) = FV_decs ds)`
+val _ = export_rewrites["FV_top_def"]
+
+val top_cns_def = Define`
+  (top_cns (Tdec d) = dec_cns d) ∧
+  (top_cns (Tmod mn _ ds) = decs_cns (SOME mn) ds)`
+val _ = export_rewrites["top_cns_def"]
+
+val closed_top_def = Define`
+  closed_top menv cenv s env top ⇔
+    closed_context menv cenv s env ∧
+    FV_top top ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+    top_cns top ⊆ cenv_dom cenv`
+
+val new_top_cns_def = Define`
+  (new_top_cns (Tdec d) = set (new_dec_cns d)) ∧
+  (new_top_cns (Tmod _ _ ds) = new_decs_cns ds)`
+val _ = export_rewrites["new_top_cns_def"]
+
+val evaluate_dec_new_dec_vs = store_thm("evaluate_dec_new_dec_vs",
+  ``∀mn menv (cenv:envC) s env dec res.
+    evaluate_dec mn menv cenv s env dec res ⇒
+    ∀tds vs. (SND res = Rval (tds,vs)) ⇒ MAP FST vs = new_dec_vs dec``,
+  ho_match_mp_tac evaluate_dec_ind >>
+  simp[LibTheory.emp_def] >> rw[] >>
+  imp_res_tac pmatch_dom >> fs[])
+
+val evaluate_decs_new_decs_vs = store_thm("evaluate_decs_new_decs_vs",
+  ``∀mn menv cenv s env decs res.
+    evaluate_decs mn menv cenv s env decs res ⇒
+    ∀env'. SND (SND res) = Rval env' ⇒ MAP FST env' = new_decs_vs decs``,
+  ho_match_mp_tac evaluate_decs_ind >>
+  simp[LibTheory.emp_def,SemanticPrimitivesTheory.combine_dec_result_def] >>
+  rpt gen_tac >>
+  BasicProvers.CASE_TAC >>
+  simp[LibTheory.merge_def] >>
+  metis_tac[evaluate_dec_new_dec_vs,SND])
+
+val evaluate_dec_err_cenv_emp = store_thm("evaluate_dec_err_cenv_emp",
+  ``∀mn menv cenv s env d res. evaluate_dec mn menv cenv s env d res ⇒
+    ∀err. SND res = Rerr err ∧ err ≠ Rtype_error ⇒ dec_to_cenv mn d = []``,
+  ho_match_mp_tac evaluate_dec_ind >> simp[replTheory.dec_to_cenv_def])
+
+val evaluate_dec_new_dec_cns = store_thm("evaluate_dec_new_dec_cns",
+  ``∀mn menv cenv s env d res. evaluate_dec mn menv cenv s env d res ⇒
+    ∀tds env. SND res = Rval (tds,env) ⇒
+    MAP (mk_id mn) (new_dec_cns d) = (MAP FST tds)``,
+  ho_match_mp_tac evaluate_dec_ind >>
+  simp[LibTheory.emp_def,SemanticPrimitivesTheory.build_tdefs_def] >>
+  rw[] >>
+  simp[MAP_MAP_o,MAP_FLAT] >> AP_TERM_TAC >>
+  simp[MAP_EQ_f,FORALL_PROD,MAP_MAP_o])
+
+val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
+  ``∀mn menv cenv s env d s' res. evaluate_dec mn menv cenv s env d (s',res) ∧
+    closed_context menv cenv s env ∧
+    FV_dec d ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+    dec_cns d ⊆ cenv_dom cenv
+    ⇒
+    let (cenv',env') = case res of Rval(c,e)=>(c++cenv,e++env) | _ => (cenv,env) in
+    closed_context menv cenv' s' env'``,
+  rpt gen_tac >>
+  Cases_on`d`>>simp[Once evaluate_dec_cases]>>
+  Cases_on`res`>>simp[]>>strip_tac>>rpt BasicProvers.VAR_EQ_TAC>>simp[LibTheory.emp_def]>>TRY(strip_tac)>>
+  TRY (
+    fs[closed_context_def] >>
+    qmatch_assum_abbrev_tac`evaluate ck menv cenv s0 env e res` >>
+    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac(CONJUNCT1 evaluate_closed) >>
+    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac evaluate_closed_under_cenv >>
+    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac (CONJUNCT1 evaluate_locs) >>
+    UNABBREV_ALL_TAC >> simp[] >> ntac 3 strip_tac >>
+    qpat_assum`P ⇒ Q`mp_tac >>
+    discharge_hyps >- metis_tac[] >> strip_tac >>
+    conj_tac >- fs[closed_under_menv_def] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS])
+  >- (
+    fs[closed_context_def] >>
+    qmatch_assum_abbrev_tac`evaluate ck menv cenv s0 env e res` >>
+    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac(CONJUNCT1 evaluate_closed) >>
+    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac evaluate_closed_under_cenv >>
+    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac (CONJUNCT1 evaluate_locs) >>
+    UNABBREV_ALL_TAC >> simp[] >> ntac 3 strip_tac >>
+    qpat_assum`P ⇒ Q`mp_tac >>
+    discharge_hyps >- metis_tac[] >> strip_tac >>
+    qspecl_then[`cenv`,`s'`,`p`,`v`,`emp`]mp_tac(CONJUNCT1 pmatch_closed) >>
+    simp[] >> disch_then(qspec_then`menv`mp_tac) >>
+    simp[LibTheory.emp_def] >> strip_tac >>
+    conj_tac >- (
+      fs[closed_under_cenv_def] >>
+      qx_gen_tac`z` >> strip_tac >> TRY(metis_tac[]) >>
+      imp_res_tac (CONJUNCT1 pmatch_all_cns) >>
+      fsrw_tac[DNF_ss][SUBSET_DEF,LibTheory.emp_def] >>
+      metis_tac[] ) >>
+    conj_tac >- fs[closed_under_menv_def] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF] >>
+    conj_tac >- metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS] >>
+    conj_tac >- (
+      qspecl_then[`cenv`,`s'`,`p`,`v`,`emp`,`env'`]mp_tac(CONJUNCT1 pmatch_locs) >>
+      discharge_hyps >- (
+        simp[] >>
+        fsrw_tac[DNF_ss][LibTheory.emp_def,SUBSET_DEF] >>
+        metis_tac[] ) >>
+      simp[SUBSET_DEF] >>
+      metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS]) >>
+    metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS])
+  >- (
+    simp[build_rec_env_MAP] >>
+    fs[closed_context_def,miscTheory.MAP_FST_funs] >>
+    simp[EVERY_MAP,UNCURRY] >>
+    conj_tac >- (
+      simp[Once closed_cases] >>
+      simp[EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD] >>
+      fs[] >> rpt gen_tac >> strip_tac >> conj_tac >- metis_tac[] >>
+      fs[FV_defs_MAP] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD] >>
+      metis_tac[] ) >>
+    conj_tac >- (
+      fs[closed_under_cenv_def] >>
+      qx_gen_tac`z` >> strip_tac >> TRY(metis_tac[]) >>
+      pop_assum mp_tac >>
+      simp[MEM_MAP,EXISTS_PROD] >> strip_tac >>
+      simp[] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] >>
+      metis_tac[] ) >>
+    conj_tac >- (
+      fs[closed_under_menv_def,EVERY_MAP,UNCURRY] >>
+      simp[Once closed_cases] >>
+      fs[EVERY_MEM] >>
+      fs[FORALL_PROD,MEM_MAP,EXISTS_PROD] >>
+      rpt gen_tac >> strip_tac >> conj_tac >- metis_tac[] >>
+      fs[FV_defs_MAP] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD] >>
+      metis_tac[] ) >>
+    gen_tac >> strip_tac >> TRY(metis_tac[]) >>
+    fs[MEM_MAP,UNCURRY] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,MEM_MAP] >>
+    metis_tac[] )
+  >> (
+    simp[SemanticPrimitivesTheory.build_tdefs_def] >>
+    Cases_on`mn`>>fs[AstTheory.mk_id_def] >- (
+      fs[closed_context_def] >>
+      fs[closed_under_cenv_def] >>
+      reverse conj_tac >- metis_tac[] >>
+      fs[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF] >>
+      fs [cenv_dom_def] >>
+      metis_tac[] ) >>
+    fs[closed_context_def] >>
+    conj_tac >- (
+      fs[closed_under_cenv_def] >>
+      simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+      fsrw_tac[DNF_ss][MEM_MAP,SUBSET_DEF] >>
+      fs [cenv_dom_def] >>
+      metis_tac[] ) >>
+    metis_tac[] ))
+
+val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
+  ``∀mn menv cenv s env ds res. evaluate_decs mn menv cenv s env ds res ⇒
+      closed_context menv cenv s env ∧
+      FV_decs ds ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
+      decs_cns mn ds ⊆ cenv_dom cenv
+    ⇒
+      let env' = case SND(SND res) of Rval(e)=>(e++env) | _ => env in
+      closed_context menv ((FST(SND res))++cenv) (FST res) env'``,
+  ho_match_mp_tac evaluate_decs_ind >>
+  simp[LibTheory.emp_def] >>
+  conj_tac >- (
+    rpt gen_tac >> rpt strip_tac >>
+    fs[FV_decs_def,decs_cns_def] >>
+    imp_res_tac evaluate_dec_closed_context >>
+    fs[] >> fs[LET_THM] ) >>
+  simp[SemanticPrimitivesTheory.combine_dec_result_def,LibTheory.merge_def] >>
+  rpt gen_tac >> rpt strip_tac >>
+  qspecl_then[`mn`,`menv`,`cenv`,`s`,`env`,`d`,`s'`,`Rval (new_tds,new_env)`]mp_tac evaluate_dec_closed_context >>
+  simp[] >> strip_tac >>
+  Cases_on`r`>>fs[]>- (
+    first_x_assum match_mp_tac >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
+    imp_res_tac evaluate_dec_new_dec_cns >> fs[] >>
+    pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string id list -> string id set``) >>
+    imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
+    pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string list -> string set``) >>
+    fsrw_tac[DNF_ss][MEM_MAP,EXTENSION, cenv_dom_def] >>
+    metis_tac[]) >>
+  qpat_assum`P ⇒ Q`mp_tac>>
+  discharge_hyps>-(
+    fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
+    metis_tac[]) >>
+  strip_tac >>
+  qsuff_tac`closed_context menv (new_tds' ++ new_tds ++ cenv) s3 (new_env ++ env)` >- (
+    rw[closed_context_def] >> fs[] >>
+    fs[closed_under_cenv_def,closed_under_menv_def] >>
+    metis_tac[] ) >>
+  first_x_assum match_mp_tac >>
+  fs[] >>
+  fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
+  imp_res_tac evaluate_dec_new_dec_cns >> fs[] >>
+  pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string id list -> string id set``) >>
+  imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
+  pop_assum(assume_tac o AP_TERM``LIST_TO_SET:string list -> string set``) >>
+  fsrw_tac[DNF_ss][cenv_dom_def,MEM_MAP,EXTENSION] >>
+  metis_tac[]);
+
+val evaluate_dec_all_cns = store_thm("evaluate_dec_all_cns",
+  ``∀mn menv (cenv:envC) s env dec res.
+    evaluate_dec mn menv cenv s env dec res ⇒
+    (∀v. MEM v (FLAT (MAP (MAP SND o SND) menv)) ∨ MEM v (MAP SND env) ∨ MEM v s ⇒ all_cns v ⊆ cenv_dom cenv)
+    ∧ dec_cns dec ⊆ cenv_dom cenv
+    ⇒
+    ∀v. MEM v (FST res) ⇒ all_cns v ⊆ cenv_dom cenv``,
+  ho_match_mp_tac evaluate_dec_ind >> simp[] >>
+  rpt conj_tac >>
+  rpt strip_tac >>
+  imp_res_tac (CONJUNCT1 evaluate_all_cns) >>
+  rfs[] >> metis_tac[] )
 
 val _ = export_theory()

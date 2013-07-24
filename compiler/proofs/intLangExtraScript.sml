@@ -188,6 +188,14 @@ val _ = export_rewrites["no_vlabs_list_MAP","all_vlabs_list_MAP"]
 val vlabs_menv_def = Define
   `vlabs_menv menv = BIGUNION (IMAGE vlabs_list (FRANGE menv))`
 
+val vlabs_menv_FUPDATE = store_thm("vlabs_menv_FUPDATE",
+  ``vlabs_menv (fm |+ kv) = vlabs_menv (fm \\ (FST kv)) ∪ vlabs_list (SND kv)``,
+  simp[vlabs_menv_def] >>
+  simp_tac(srw_ss()++DNF_ss)[Once EXTENSION,IN_FRANGE] >>
+  Cases_on`kv` >>
+  simp[DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM] >>
+  metis_tac[])
+
 val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
   ``(∀menv s env exp res. Cevaluate menv s env exp res ⇒
         (vlabs_list (SND (FST res)) ⊆ vlabs_menv menv ∪ vlabs_list (SND s) ∪ vlabs_list env ∪ set (free_labs (LENGTH env) exp)) ∧

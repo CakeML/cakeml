@@ -346,7 +346,7 @@ val closed_context_strip_mod_env = store_thm("closed_context_strip_mod_env",
       simp_tac(srw_ss()++DNF_ss)[] ) >>
     metis_tac[closed_SUBSET] ) >>
   conj_tac >- (
-    fs[toIntLangProofsTheory.closed_under_cenv_def] >>
+    fs[closed_under_cenv_def] >>
     simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,strip_mod_env_def] >>
     fsrw_tac[DNF_ss][MEM_MAP,SUBSET_DEF,MEM_FLAT] >>
     metis_tac[] ) >>
@@ -375,7 +375,7 @@ val closed_context_shift_menv = store_thm("closed_context_shift_menv",
   conj_tac >- metis_tac[closed_SUBSET] >>
   conj_tac >- metis_tac[closed_SUBSET] >>
   conj_tac >- (
-    fs[toIntLangProofsTheory.closed_under_cenv_def] >>
+    fs[closed_under_cenv_def] >>
     metis_tac[] ) >>
   conj_tac >- (
     rator_x_assum`closed_under_menv`mp_tac >>
@@ -1078,14 +1078,14 @@ val PrintE_thm = store_thm("PrintE_thm",
     simp[Abbr`bs1`] >>
     Cases_on`bv`>>simp[bc_eval_stack_def,Abbr`bs2`,bc_state_component_equality] >>
     EVAL_TAC >> simp[SUM_APPEND,FILTER_APPEND] >>
-    Cases_on`err`>>fs[compilerProofsTheory.err_bv_def] ) >>
+    Cases_on`err`>>fs[err_bv_def] ) >>
   `bc_fetch bs2 = SOME (JumpIf (Lab 0))` by (
     match_mp_tac bc_fetch_next_addr >>
     qexists_tac`TAKE 8 PrintE` >>
     qexists_tac`DROP 9 PrintE` >>
     simp[Abbr`bs2`,Abbr`bs1`] >>
     EVAL_TAC) >>
-  Cases_on`err`>>fs[compilerProofsTheory.err_bv_def]>>
+  Cases_on`err`>>fs[err_bv_def]>>
   TRY (
     qmatch_assum_rename_tac`bv = Number i`[] >>
     `bc_next bs2 (bump_pc bs2 with <|stack := bv::st|>)` by (
@@ -2023,7 +2023,7 @@ val compile_primitives_terminates = store_thm("compile_primitives_terminates",
             metis_tac [eval_initial_program]) >>
   qspecl_then[`[]`,`[]`,`[]`,`[]`,`Tdec initial_program`,`([],[],Rval ([],init_env))`]mp_tac compile_top_thm >>
   simp[] >>
-  simp[closed_top_def,closed_context_def,toIntLangProofsTheory.closed_under_cenv_def,closed_under_menv_def] >>
+  simp[closed_top_def,closed_context_def,closed_under_cenv_def,closed_under_menv_def] >>
   `FV_dec initial_program = {}`
           by (rw [initial_program_def, EXTENSION] >> metis_tac []) >>
   `dec_cns initial_program ⊆ cenv_dom ([]:envC)`
@@ -2155,8 +2155,8 @@ val initial_invariant = prove(
   >- (
     simp[closed_context_def] >>
     simp[init_env_def,semanticsExtraTheory.closed_cases] >>
-    simp[init_env_def,toIntLangProofsTheory.closed_under_cenv_def] >>
-    simp[init_env_def,compilerProofsTheory.closed_under_menv_def] >>
+    simp[init_env_def,closed_under_cenv_def] >>
+    simp[init_env_def,closed_under_menv_def] >>
     simp[semanticsExtraTheory.closed_cases] >>
     rw[] >> rw[semanticsExtraTheory.all_cns_def] >>
     simp[SUBSET_DEF] >> metis_tac[] ) >>

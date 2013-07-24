@@ -1,6 +1,7 @@
 open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory sortingTheory lcsymtacs quantHeuristicsLib quantHeuristicsLibAbbrev
 open miscTheory miscLib CompilerLibTheory CompilerPrimitivesTheory IntLangTheory ToBytecodeTheory compilerTerminationTheory intLangExtraTheory toIntLangProofsTheory BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory bytecodeLabelsTheory
 val _ = numLib.prefer_num()
+val _ = Parse.bring_to_front_overload"++"{Name="APPEND",Thy="list"}
 val _ = new_theory "toBytecodeProofs"
 
 (* Cv_bv relation *)
@@ -692,6 +693,62 @@ val Cenv_bs_FUPDATE_LIST = store_thm("Cenv_bs_FUPDATE_LIST",
   HINT_EXISTS_TAC >>
   simp[])
 
+val Cenv_bs_FUPDATE_CTDec = store_thm("Cenv_bs_FUPDATE_CTDec",
+  ``∀rd menv s env rmenv renv rsz csz bs v bv bs' n.
+    Cenv_bs rd menv s env rmenv renv rsz csz bs ∧
+    Cv_bv (mk_pp rd bs') v bv ∧
+    bs' = bs with stack := bv::bs.stack ∧
+    n = LENGTH bs.stack
+    ⇒
+    Cenv_bs rd menv s (v::env) rmenv ((CTDec n)::renv) (rsz+1) csz bs'``,
+  rpt gen_tac >>
+  simp[Cenv_bs_def] >>
+  reverse(reverse(rw[Cenv_bs_def,s_refs_def]) >> fs[CompilerLibTheory.el_check_def] >- fs[good_rd_def]) >>
+  fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,env_renv_def,fmap_rel_def,CompilerLibTheory.el_check_def] >>
+  simp[EL_LENGTH_APPEND_rwt,ADD1] >>
+  rpt strip_tac >> res_tac >>
+  pop_assum mp_tac >> BasicProvers.CASE_TAC >>
+  imp_res_tac lookup_ct_imp_incsz >>
+  simp[] >>
+  qmatch_assum_rename_tac`MEM (a,b) X`["X"] >>
+  TRY(
+    map_every qexists_tac[`b`,`a`] >>
+    simp[]) >>
+  strip_tac >>
+  fs[option_case_NONE_F] >>
+  metis_tac[optionTheory.SOME_11])
+
+val Cenv_bs_FUPDATE_LIST_CTDec = store_thm("Cenv_bs_FUPDATE_LIST_CTDec",
+  ``∀vs rd menv s env rmenv cenv sz csz bs bvs bs' env' cenv' sz'.
+  Cenv_bs rd menv s env rmenv cenv sz csz bs ∧
+  (bs' = bs with stack := bvs ++ bs.stack) ∧
+  EVERY2 (Cv_bv (mk_pp rd bs')) vs bvs ∧
+  (env' = vs++env) ∧
+  (cenv' = (REVERSE(GENLIST(λm. CTDec(LENGTH bs.stack+m))(LENGTH vs)))++cenv) ∧
+  (sz' = sz + LENGTH vs)
+  ⇒
+  Cenv_bs rd menv s env' rmenv cenv' sz' csz bs'``,
+  Induct >- ( simp[LENGTH_NIL] ) >>
+  rw[] >>
+  rw[GENLIST,REVERSE_SNOC] >> simp[ADD1] >>
+  REWRITE_TAC[ADD_ASSOC] >>
+  match_mp_tac Cenv_bs_FUPDATE_CTDec >>
+  qexists_tac`bs with stack := ys ++ bs.stack` >>
+  simp[bc_state_component_equality] >>
+  conj_tac >- (
+    first_x_assum match_mp_tac >>
+    simp[] >>
+    qexists_tac`cenv`>>
+    qexists_tac`bs` >> simp[] >>
+    qexists_tac`ys` >> simp[] >>
+    match_mp_tac (MP_CANON (GEN_ALL EVERY2_mono)) >>
+    HINT_EXISTS_TAC >>
+    simp[] ) >>
+  reverse conj_tac >- fs[EVERY2_EVERY] >>
+  match_mp_tac Cv_bv_l2a_mono_mp >>
+  HINT_EXISTS_TAC >>
+  simp[])
+
 val Cenv_bs_DOMSUB = store_thm("Cenv_bs_DOMSUB",
   ``∀rd menv s env rmenv renv rsz csz bs.
     Cenv_bs rd menv s env rmenv renv rsz csz bs ∧ (env ≠ []) ∧ (renv ≠ []) ⇒
@@ -747,6 +804,80 @@ val Cenv_bs_change_store = store_thm("Cenv_bs_change_store",
   conj_tac >> match_mp_tac s_refs_with_irr >|[
     qexists_tac`bs`, qexists_tac`bs with <|refs := rfs'; clock := ck'|>`] >>
   simp[bc_state_component_equality])
+
+val Cenv_bs_perm = store_thm("Cenv_bs_perm",
+  ``∀rd menv s env rmenv cenv sz csz bs cenv' env'.
+  Cenv_bs rd menv s env rmenv cenv sz csz bs ∧
+  LENGTH env' = LENGTH env ∧
+  LENGTH cenv' = LENGTH cenv ∧
+  PERM (ZIP(env,cenv)) (ZIP(env',cenv'))
+  ⇒
+  Cenv_bs rd menv s env' rmenv cenv' sz csz bs``,
+  simp[Cenv_bs_def,env_renv_def,EVERY2_EVERY] >>
+  rw[] >>
+  fs[EVERY_MEM] >>
+  metis_tac[PERM_MEM_EQ])
+
+val Cenv_bs_change_csz = store_thm("Cenv_bs_change_csz",
+  ``∀rd menv s env rmenv renv rsz csz bs csz'.
+     Cenv_bs rd menv s env rmenv renv rsz csz bs
+     ∧ csz' ≤ LENGTH bs.stack
+     ∧ (∀env x. env ∈ FRANGE rmenv ∧ MEM x env ⇒
+         el_check x (REVERSE (DROP (LENGTH bs.stack - csz) bs.stack)) =
+         el_check x (REVERSE (DROP (LENGTH bs.stack - csz') bs.stack)))
+     ⇒
+     Cenv_bs rd menv s env rmenv renv rsz csz' bs``,
+  rw[Cenv_bs_def] >>
+  fs[fmap_rel_def] >> rw[] >>
+  first_x_assum(qspec_then`x`mp_tac) >>
+  rw[] >>
+  fs[env_renv_def,option_case_NONE_F] >>
+  rfs[EVERY2_EVERY] >>
+  fs[EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+  rw[] >>
+  first_x_assum(qspecl_then[`rmenv ' x`,`EL n (rmenv ' x)`]mp_tac) >>
+  discharge_hyps >- (
+    simp[IN_FRANGE,MEM_EL] >>
+    metis_tac[] ) >>
+  rfs[EL_MAP] >> metis_tac[])
+
+val env_renv_shift = store_thm("env_renv_shift",
+  ``∀rd sz bs env renv sz' bs' renv' st' ls ls'.
+      env_renv rd sz bs env renv
+      ∧ bs' = bs with stack := st'
+      ∧ renv = MAP CTDec ls
+      ∧ renv' = MAP CTDec ls'
+      ∧ EVERY2 (λi i'. i < LENGTH bs.stack ⇒ i' < LENGTH st' ∧ EL i' (REVERSE st') = EL i (REVERSE bs.stack)) ls ls'
+      ⇒
+      env_renv rd sz' bs' env renv'``,
+  rw[env_renv_def] >>
+  fs[EVERY2_EVERY,EVERY_MEM] >>
+  rpt(qpat_assum`X = Y`mp_tac) >> ntac 2 strip_tac >>
+  fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+  fs[CompilerLibTheory.el_check_def,option_case_NONE_F])
+
+val env_renv_append_imp = store_thm("env_renv_append_imp",
+  ``∀rd sz bs l1 l2 l3 l4. env_renv rd sz bs (l1 ++ l2) (l3 ++ l4) ∧ LENGTH l1 = LENGTH l3 ∧ LENGTH l2 = LENGTH l4 ⇒
+    env_renv rd sz bs l1 l3 ∧ env_renv rd sz bs l2 l4``,
+  rw[] >>
+  fs[env_renv_def] >>
+  metis_tac[EVERY2_APPEND])
+
+val env_renv_syneq = store_thm("env_renv_syneq",
+  ``∀rd sz bs l1 l2 l3.
+    env_renv rd sz bs l2 l3 ∧ LIST_REL syneq l2 l1
+    ⇒
+    env_renv rd sz bs l1 l3``,
+  rw[] >>
+  fs[env_renv_def,option_case_NONE_F] >> rw[] >>
+  fs[EVERY2_EVERY,EVERY_MEM] >> rfs[] >>
+  `LENGTH l2 = LENGTH l1` by metis_tac[] >>
+  fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+  rw[] >>
+  first_x_assum(qspec_then`n`mp_tac) >>
+  first_x_assum(qspec_then`n`mp_tac) >>
+  simp[] >> rw[] >> simp[] >>
+  metis_tac[Cv_bv_syneq])
 
 val Cenv_bs_bind_fv = store_thm("Cenv_bs_bind_fv",
   ``∀menv rmenv cenv ccenv benv bve ret bvs a st fenv defs ix recs envs env pp rd csz bs s vs az e l e'.
