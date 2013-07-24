@@ -1,15 +1,15 @@
-INCLUDES = ../semantics ./bytecode
+INCLUDES = ../semantics ../bytecode
 
 OPTIONS = QUIT_ON_FAILURE
 
-LIBS = ../semantics/hol_lib.lem bytecode/hol_lib.lem
+LIBS = ../semantics/hol_lib.lem ../bytecode/hol_lib.lem
 SEMANTICSI = lib ast semanticPrimitives
 BYTECODEI = compilerLib printer bytecode
 COMPILERH = compilerPrimitives intLang toIntLang toBytecode compiler
 COMPILERU = CompilerPrimitives IntLang ToIntLang ToBytecode Compiler
 GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(COMPILERU))
 
-LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,bytecode/%.lem,$(BYTECODEI))
+LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,../bytecode/%.lem,$(BYTECODEI))
 LEMH = $(patsubst %,%.lem,$(COMPILERH))
 
 $(GEN_SCRIPTS): $(LIBS) $(LEMI) $(LEMH)
@@ -20,7 +20,7 @@ HOLHEAP = heap
 PARENT_HOLHEAP = ../semantics/sem_heap
 POLY_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../semantics/terminationTheory ./bytecode/bytecodeExtraTheory
+BARE_THYS = ../semantics/terminationTheory ../bytecode/bytecodeExtraTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

@@ -37,10 +37,12 @@ Directory structure:
 - parsing
     Lexer and PEG parser for CakeML.
 
+- bytecode
+  CakeML Bytecode specification, metatheory, and evaluator
+
 - compiler
-    The middle of the compiler, translating from CakeML abstract syntax to bytecode.
+    Translator from CakeML abstract syntax to CakeML Bytecode.
     Includes:
-      - the bytecode specification and evaluator
       - the compiler implementation (expressed in Lem)
       - compiler correctness proofs
       - rudimentary tests using EmitML

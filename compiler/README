@@ -1,9 +1,3 @@
-bytecode/
-  target language definition and metatheory
-
-proofs/
-  compiler correctness proofs (and IL metatheory)
-
 intLang.lem
   intermediate language definition
 
@@ -15,6 +9,9 @@ toBytecode.lem
 
 compiler.lem
   top-level wrappers for the compiler implementation of declarations and modules
+
+proofs/
+  compiler correctness proofs (and IL metatheory)
 
 compilerPrimitives.lem
   some helper functions

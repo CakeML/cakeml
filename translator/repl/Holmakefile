@@ -1,5 +1,5 @@
 INCLUDES = .. ../.. ../../semantics ../../parsing ../../compiler \
-           ../../compiler/bytecode ../../implementation \
+           ../../bytecode ../../implementation \
 	   ../../impl_proofs \
            $(HOLDIR)/examples/unification/triangular/first-order \
            $(HOLDIR)/examples/parsing

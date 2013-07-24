@@ -1,9 +1,9 @@
-INCLUDES = ../../semantics
+INCLUDES = ../semantics
 
 OPTIONS = QUIT_ON_FAILURE
 
 BytecodeScript.sml: hol_lib.lem compilerLib.lem printer.lem bytecode.lem
-	lem -extra_level auto -hol_lib ../../semantics/hol_lib.lem $(patsubst %,-i ../../semantics/%.lem,lib ast semanticPrimitives) -hol_lib hol_lib.lem -hol compilerLib.lem -hol printer.lem -hol bytecode.lem -hol &&\
+	lem -extra_level auto -hol_lib ../semantics/hol_lib.lem $(patsubst %,-i ../semantics/%.lem,lib ast semanticPrimitives) -hol_lib hol_lib.lem -hol compilerLib.lem -hol printer.lem -hol bytecode.lem -hol &&\
 	sed 's/LEAST/$$LEAST/g' < BytecodeScript.sml > .temp &&\
 	sed 's/Hol.char/char/g' < .temp > BytecodeScript.sml &&\
 	rm -f .temp
