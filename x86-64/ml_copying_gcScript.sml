@@ -876,7 +876,7 @@ val bc_value_inv_def = tDefine "bc_value_inv" `
      if small_int i then (x = Data ((2w * n2w (Num i)):'a word)) else
        ?ptr. (x = Pointer ptr) /\
              (heap_lookup ptr heap =
-                SOME (DataOnly (i < 0) ((mw (Num i)):'b word list)))) /\
+                SOME (DataOnly (i < 0) ((mw (Num (ABS i))):'b word list)))) /\
   (bc_value_inv (CodePtr n) (x,f,heap) =
      (x = Data (n2w n)) /\ n < dimword (:'a)) /\
   (bc_value_inv (RefPtr n) (x,f,heap) =
