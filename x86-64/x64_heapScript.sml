@@ -3058,6 +3058,485 @@ val zHEAP_RAW_EQUAL = equal_full_cert
 
 val _ = x64_codegenLib.add_compiled [x64_full_gc_res];
 
+val (_,array_eq_def,array_eq_pre_def) = x64_compile `
+  array_eq (r0:word64,r14:word64,r15:word64,dm:word64 set,m:word64->word64) =
+    if r0 = 0w then let r0 = 4w:word64 in (r0,r14,r15,dm,m) else
+      let r12 = m r14 in
+      let r13 = m r15 in
+        if r12 <> r13 then
+          let r0 = 0w in (r0,r14,r15,dm,m)
+        else
+          let r0 = r0 - 1w in
+          let r14 = r14 + 8w in
+          let r15 = r15 + 8w in
+            array_eq (r0,r14,r15,dm,m)`
+
+val (num_eq_cert,num_eq_def,num_eq_pre_def) = x64_compile `
+  num_eq (r0:word64,r1,r12:word64,r13,dm:word64 set,m:word64->word64,ss) =
+    let r14 = r0 + 1w in
+    let r15 = r1 + 1w in
+    let ss = r12::ss in
+    let ss = r13::ss in
+    let r12 = m r14 in
+    let r13 = m r15 in
+      if r12 <> r13 then
+        let (r13,ss) = (HD ss, TL ss) in
+        let (r12,ss) = (HD ss, TL ss) in
+        let r0 = 0w in
+          (r0,r1,r12,r13,dm,m,ss)
+      else
+        let r0 = r12 >>> 16 in
+        let r14 = r14 + 8w in
+        let r15 = r15 + 8w in
+        let (r0,r14,r15,dm,m) = array_eq (r0,r14,r15,dm,m) in
+        let (r13,ss) = (HD ss, TL ss) in
+        let (r12,ss) = (HD ss, TL ss) in
+          (r0,r1,r12,r13,dm,m,ss)`
+
+val array_eq_thm = prove(
+  ``!xs ys a b p1 p2.
+      (LENGTH ys = LENGTH xs) /\ LENGTH xs < dimword(:64) /\
+      (a && 0x7w = 0x0w) /\ (b && 0x7w = 0x0w) /\
+      (one_list a xs * p1) (fun2set (m,dm)) /\
+      (one_list b ys * p2) (fun2set (m,dm)) ==>
+      ?r14' r15'.
+        array_eq_pre (n2w (LENGTH xs), a, b, dm, m) /\
+        (array_eq (n2w (LENGTH xs), a, b, dm, m) =
+          (if xs = ys then 4w else 0w, r14', r15', dm, m))``,
+  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1]
+  \\ ONCE_REWRITE_TAC [array_eq_def,array_eq_pre_def]
+  \\ SIMP_TAC std_ss [CONS_11,n2w_11,ZERO_LT_dimword,LET_DEF,one_list_def]
+  \\ REPEAT STRIP_TAC
+  \\ SEP_R_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ Cases_on `h' = h` \\ FULL_SIMP_TAC std_ss []
+  \\ SIMP_TAC std_ss [GSYM word_add_n2w,WORD_ADD_SUB]
+  \\ SEP_I_TAC "array_eq"
+  \\ `LENGTH xs < dimword (:64)` by DECIDE_TAC
+  \\ SEP_F_TAC \\ REPEAT STRIP_TAC
+  \\ SEP_F_TAC \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC std_ss [blast_align_lemma]);
+
+val heap_lookup_DataOnly_IMP = prove(
+  ``(x64_heap vs.current_heap heap vs.current_heap vs.current_heap *
+        one_list_exists vs.other_heap cs.heap_limit * x64_store cs vs)
+         (fun2set (vals.memory,vals.memory_domain)) /\
+    (heap_lookup ptr heap = SOME (DataOnly x y)) ==>
+    ?pp t1 t2. (x64_el (vs.current_heap + n2w (8 * ptr)) (DataOnly x y) t1 t2 * pp)
+         (fun2set (vals.memory,vals.memory_domain))``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC heap_lookup_SPLIT
+  \\ FULL_SIMP_TAC std_ss [x64_heap_APPEND,x64_heap_def,SEP_CLAUSES]
+  \\ METIS_TAC [STAR_COMM,STAR_ASSOC]);
+
+val SHIFT_LEMMA = prove(
+  ``(y << 16 + 0x2w + b2w b1 = x << 16 + 0x2w + b2w b2) /\
+    x <+ n2w (2**48) /\ y <+ n2w (2**48) ==>
+    (x = y:word64) /\ (b1 = b2)``,
+  Cases_on `b1` \\ Cases_on `b2` \\ FULL_SIMP_TAC std_ss [b2w_def]
+  \\ blastLib.BBLAST_TAC) |> SIMP_RULE std_ss [];
+
+val SHIFT_SHIFT_LEMMA = prove(
+  ``w <+ n2w (2**48) ==> (((w:word64) << 16 + 0x2w + b2w b) >>> 16 = w)``,
+  Cases_on `b` \\ FULL_SIMP_TAC std_ss [b2w_def] \\ blastLib.BBLAST_TAC)
+  |> SIMP_RULE std_ss [];
+
+val mw_thm = prove(
+  ``mw = n2mw``,
+  SIMP_TAC std_ss [FUN_EQ_THM] \\ HO_MATCH_MP_TAC mw_ind
+  \\ REPEAT STRIP_TAC \\ ONCE_REWRITE_TAC [mw_def,multiwordTheory.n2mw_def]
+  \\ SRW_TAC [] []);
+
+val zHEAP_BigNumEq = let
+  val th = num_eq_cert
+  val pc = get_pc th
+  val side = ``isNumber x1 /\ ~isSmall x1 /\ isNumber x2 /\ ~isSmall x2``
+  val target = ``~zS * zPC p * zVALS cs vals *
+      cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\
+            ^side)``
+  val (th,goal) = expand_pre th target
+  val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
+  val th = MP th lemma |> DISCH_ALL
+  val th = MATCH_MP SPEC_WEAKEN_LEMMA th
+  val th = th |> Q.SPEC
+    `zHEAP (cs,Number (if getNumber x2 = getNumber x1 then 1 else 0),
+               x2,x3,x4,refs,stack,s,NONE) * ~zS * ^pc`
+  val goal = th |> concl |> dest_imp |> fst
+(*
+gg goal
+*)
+  val lemma = prove(goal,
+    FULL_SIMP_TAC std_ss [SEP_CLAUSES]
+    \\ `?r0 r1 r12 r13 dm m ss.
+          num_eq
+            (vals.reg0,vals.reg1,vals.reg12,vals.reg13,
+             vals.memory_domain,vals.memory,vals.stack) =
+          (r0,r1,r12,r13,dm,m,ss)` by METIS_TAC [PAIR]
+    \\ FULL_SIMP_TAC std_ss [LET_DEF,SEP_CLAUSES]
+    \\ SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
+    \\ SIMP_TAC std_ss [PULL_EXISTS,PULL_FORALL] \\ NTAC 4 STRIP_TAC
+    \\ SIMP_TAC std_ss [PULL_IMP_EXISTS,PULL_EXISTS]
+    \\ Q.EXISTS_TAC `vals with <| reg0 := r0 ; reg1 := r1 ;
+         reg12 := r12 ; reg13 := r13 ; reg14 := x' ; reg15 := x ;
+         memory := m ; memory_domain := dm ; stack := ss |>`
+    \\ SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
+    \\ SIMP_TAC (srw_ss()++star_ss) [zVALS_def]
+    \\ MATCH_MP_TAC (METIS_PROVE [] ``b1 /\ b3 ==> (b1 /\ (b2 ==> b3))``)
+    \\ Cases_on `x1` \\ FULL_SIMP_TAC std_ss [isNumber_def]
+    \\ Cases_on `x2` \\ FULL_SIMP_TAC std_ss [isNumber_def]
+    \\ FULL_SIMP_TAC std_ss [getNumber_def,isSmall_def]
+    \\ Q.PAT_ASSUM `xx = yy` (MP_TAC o GSYM)
+    \\ FULL_SIMP_TAC (srw_ss()) [heap_inv_def]
+    \\ SIMP_TAC std_ss [PULL_IMP_EXISTS,PULL_EXISTS]
+    \\ Q.LIST_EXISTS_TAC [`vs`,`Data (if i = i' then 2w else 0w)`,
+         `r2`,`r3`,`r4`,`roots`,`heap`,`a`,`sp`]
+    \\ FULL_SIMP_TAC std_ss []
+    \\ `abs_ml_inv (Number (if i' = i then 1 else 0)::Number i'::x3::x4::stack)
+         refs (Data (if i = i' then 0x2w else 0x0w)::r2::r3::r4::roots,heap,a,sp)
+          cs.heap_limit` by ALL_TAC THEN1
+     (Cases_on `i' = i` \\ FULL_SIMP_TAC std_ss []
+      \\ TRY (MATCH_MP_TAC (abs_ml_inv_Num |> SPEC_ALL |> Q.INST [`n`|->`1`]
+                      |> SIMP_RULE std_ss [word_mul_n2w] |> GEN_ALL))
+      \\ TRY (MATCH_MP_TAC (abs_ml_inv_Num |> SPEC_ALL |> Q.INST [`n`|->`0`]
+                      |> SIMP_RULE std_ss [word_mul_n2w] |> GEN_ALL))
+      \\ METIS_TAC [])
+    \\ FULL_SIMP_TAC std_ss [] \\ POP_ASSUM (K ALL_TAC)
+    \\ FULL_SIMP_TAC std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,EVERY2_def]
+    \\ FULL_SIMP_TAC std_ss [bc_value_inv_def]
+    \\ IMP_RES_TAC heap_lookup_DataOnly_IMP \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
+    \\ FULL_SIMP_TAC std_ss [DataOnly_def,x64_el_def,x64_payload_def,LET_DEF]
+    \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR,x64_addr_def]
+    \\ SIMP_TAC std_ss [WORD_MUL_LSL,word_mul_n2w]
+    \\ SIMP_TAC std_ss [num_eq_pre_def,num_eq_def,LET_DEF]
+    \\ SIMP_TAC std_ss [HD,TL,NOT_CONS_NIL,WORD_SUB_ADD]
+    \\ Cases_on `vals.memory (vs.current_heap + n2w (8 * ptr)) <>
+                 vals.memory (vs.current_heap + n2w (8 * ptr'))`
+    \\ FULL_SIMP_TAC std_ss [] THEN1
+     (SEP_R_TAC \\ SIMP_TAC std_ss [blast_align_lemma,GSYM word_mul_n2w]
+      \\ FULL_SIMP_TAC std_ss [heap_vars_ok_def] \\ REPEAT STRIP_TAC
+      \\ SRW_TAC [] [])
+    \\ SEP_R_TAC \\ SIMP_TAC std_ss [blast_align_lemma,GSYM word_mul_n2w]
+    \\ FULL_SIMP_TAC std_ss [heap_vars_ok_def]
+    \\ Q.ABBREV_TAC `i1 = mw (Num (ABS i)):word64 list`
+    \\ Q.ABBREV_TAC `i2 = mw (Num (ABS i')):word64 list`
+    \\ `n2w (LENGTH i1) <+ 0x1000000000000w:word64 /\
+        n2w (LENGTH i2) <+ 0x1000000000000w:word64` by
+     (`LENGTH i1 < 18446744073709551616` by DECIDE_TAC
+      \\ `LENGTH i2 < 18446744073709551616` by DECIDE_TAC
+      \\ FULL_SIMP_TAC (srw_ss()) [WORD_LO])
+    \\ `(LENGTH i1 = LENGTH i2) /\ ((i' < 0) = (i < 0))` by ALL_TAC THEN1
+     (IMP_RES_TAC SHIFT_LEMMA \\ REPEAT (Q.PAT_ASSUM `!xx.bb` (K ALL_TAC))
+      \\ `LENGTH i1 < 18446744073709551616` by DECIDE_TAC
+      \\ `LENGTH i2 < 18446744073709551616` by DECIDE_TAC
+      \\ FULL_SIMP_TAC (srw_ss()) [WORD_LO])
+    \\ FULL_SIMP_TAC std_ss []
+    \\ `(n2w (LENGTH i2) << 16 + 0x2w + b2w (i < 0)) >>> 16 =
+        n2w (LENGTH i2):word64` by ALL_TAC THEN1
+     (MATCH_MP_TAC SHIFT_SHIFT_LEMMA
+      \\ `LENGTH i2 < 18446744073709551616` by DECIDE_TAC
+      \\ FULL_SIMP_TAC (srw_ss()) [WORD_LO])
+    \\ FULL_SIMP_TAC std_ss []
+    \\ ASSUME_TAC (array_eq_thm |> GEN_ALL)
+    \\ Q.PAT_ASSUM `LENGTH i1 = LENGTH i2` (ASSUME_TAC o GSYM)
+    \\ FULL_SIMP_TAC std_ss []
+    \\ SEP_I_TAC "array_eq"
+    \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `i2:word64 list`)
+    \\ POP_ASSUM (MP_TAC o Q.SPECL [
+         `one (vs.current_heap + n2w (8 * ptr),
+            n2w (LENGTH (i1:word64 list)) << 16 + 0x2w + b2w (i < 0)) * pp'`,
+         `one (vs.current_heap + n2w (8 * ptr'),
+            n2w (LENGTH (i2:word64 list)) << 16 + 0x2w + b2w (i < 0)) * pp`])
+    \\ MATCH_MP_TAC IMP_IMP \\ FULL_SIMP_TAC std_ss []
+    \\ STRIP_TAC THEN1
+     (FULL_SIMP_TAC (std_ss++star_ss) [blast_align_lemma,GSYM word_mul_n2w,
+        AC WORD_ADD_COMM WORD_ADD_ASSOC]
+      \\ SIMP_TAC (srw_ss()) [] \\ DECIDE_TAC)
+    \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+    \\ UNABBREV_ALL_TAC
+    \\ FULL_SIMP_TAC std_ss [mw_thm,multiwordTheory.n2mw_11]
+    \\ `(Num (ABS i) = Num (ABS i')) = (i = i')` by intLib.COOPER_TAC
+    \\ ASM_SIMP_TAC std_ss [] \\ SRW_TAC [] [])
+  val th = MP th lemma |> DISCH_ALL |> RW [AND_IMP_INTRO]
+  val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val (th,goal) = SPEC_STRENGTHEN_RULE th
+    ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p *
+      cond (^side)``
+  val lemma = prove(goal,
+    SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES]
+    \\ SIMP_TAC std_ss [AC CONJ_COMM CONJ_ASSOC,SEP_IMP_REFL])
+  val th = MP th lemma
+  val _ = x64_codegenLib.add_compiled [th];
+  in th end;
+
+
+(* recursive equality *)
+
+val (pop_all_cert,pop_all_def,pop_all_pre_def) = x64_compile `
+  pop_all (stack:bc_value list) =
+    let (x2,stack) = (HD stack, TL stack) in
+      if getNumber x2 = 0 then
+        (x2,stack)
+      else
+        let (x2,stack) = (HD stack, TL stack) in
+        let (x2,stack) = (HD stack, TL stack) in
+          pop_all stack`
+
+val (_,equal_loop_def,equal_loop_pre_def) = x64_compile `
+  equal_loop (x1:bc_value,x2,x3,x4,stack:bc_value list) =
+    let (x1,stack) = (HD stack, TL stack) in
+      if getNumber x1 = 0 then
+        let x1 = bool_to_val T in
+          (x1,x2,x3,x4,stack)
+      else
+        let (x2,stack) = (HD stack, TL stack) in
+        let (x1,stack) = (HD stack, TL stack) in
+          if isNumber x1 then (* number case *)
+            let (x1,x2) = (x2,x1) in
+            if ~(isNumber x1) then
+              let x1 = bool_to_val F in
+              let (x2,stack) = pop_all stack in
+                (x1,x2,x3,x4,stack)
+            else
+              if isSmall x1 then
+                if getNumber x1 = getNumber x2 then
+                  equal_loop (x1,x2,x3,x4,stack)
+                else
+                  let x1 = bool_to_val F in
+                  let (x2,stack) = pop_all stack in
+                    (x1,x2,x3,x4,stack)
+              else
+              let (x1,x2) = (x2,x1) in
+              if isSmall x1 then
+                let x1 = bool_to_val F in
+                let (x2,stack) = pop_all stack in
+                  (x1,x2,x3,x4,stack)
+              else
+                let x1 = Number (if getNumber x2 = getNumber x1 then 1 else 0) in
+                  if getNumber x1 = 0 then
+                    let x1 = bool_to_val F in
+                    let (x2,stack) = pop_all stack in
+                      (x1,x2,x3,x4,stack)
+                  else
+                    equal_loop (x1,x2,x3,x4,stack)
+          else if isBlock x1 then (* block case *)
+            let (x1,x2) = (x2,x1) in
+            if ~isBlock x1 then
+              let x1 = bool_to_val F in
+              let (x2,stack) = pop_all stack in
+                (x1,x2,x3,x4,stack)
+             else (* both are blocks *)
+               if getTag x1 = getTag x2 then
+                 let x3 = x1 in
+                 let x1 = Number (& (getTag x1)) in
+                 if getNumber x1 = 3 then
+                   let x1 = Number 0 in
+                   let (x2,stack) = pop_all stack in
+                     (x1,x2,x3,x4,stack)
+                 else
+                   let x1 = x3 in
+                     if LENGTH (getContent x1) = LENGTH (getContent x2) then
+                       let x4 = x2 in
+                       let (x1,x4) = (x4,x1) in
+                       let (x1,x2,x3,x4,stack) = explode_result (x1,x4,stack) in
+                         equal_loop (x1,x2,x3,x4,stack)
+                     else
+                       let x1 = bool_to_val F in
+                       let (x2,stack) = pop_all stack in
+                         (x1,x2,x3,x4,stack)
+               else
+                 let x1 = Number (& (getTag x1)) in
+                 if getNumber x1 = 3 then
+                   let x1 = Number 0 in
+                   let (x2,stack) = pop_all stack in
+                     (x1,x2,x3,x4,stack)
+                 else
+                   let x1 = x2 in
+                   let x1 = Number (& (getTag x1)) in
+                   if getNumber x1 = 3 then
+                     let x1 = Number 0 in
+                     let (x2,stack) = pop_all stack in
+                       (x1,x2,x3,x4,stack)
+                   else
+                     let x1 = bool_to_val F in
+                     let (x2,stack) = pop_all stack in
+                       (x1,x2,x3,x4,stack)
+          else (* ref case *)
+            let (x1,x2) = (x2,x1) in
+            if isNumber x1 \/ isBlock x1 then
+              let x1 = bool_to_val F in
+              let (x2,stack) = pop_all stack in
+                (x1,x2,x3,x4,stack)
+            else if RefPtrEq x1 x2 then
+              equal_loop (x1,x2,x3,x4,stack)
+            else
+              let x1 = bool_to_val F in
+              let (x2,stack) = pop_all stack in
+                (x1,x2,x3,x4,stack:bc_value list)`
+
+val (equal_full_cert,equal_full_def,equal_full_pre_def) = x64_compile `
+  equal_full (x1,x2,x3,x4,stack) =
+    let stack = x4::stack in
+    let stack = x3::stack in
+    let stack = x2::stack in
+    let x3 = Number 0 in
+    let stack = x3::stack in
+    let stack = x2::stack in
+    let stack = x1::stack in
+    let x3 = Number 1 in
+    let stack = x3::stack in
+    let (x1,x2,x3,x4,stack) = equal_loop (x1,x2,x3,x4,stack) in
+    let (x2,stack) = (HD stack, TL stack) in
+    let (x3,stack) = (HD stack, TL stack) in
+    let (x4,stack) = (HD stack, TL stack) in
+      (x1,x2,x3,x4,stack)`
+
+val eq_stack_def = Define `
+  (eq_stack [] = [Number 0]) /\
+  (eq_stack ((x,y)::xs) = Number 1 :: x :: y :: eq_stack xs)`;
+
+val pop_all_eq_stack = prove(
+  ``!xs stack. pop_all_pre (eq_stack xs ++ stack) /\
+               (pop_all (eq_stack xs ++ stack) = (Number 0,stack))``,
+  Induct \\ ONCE_REWRITE_TAC [pop_all_def,pop_all_pre_def] \\ TRY Cases
+  \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF,eq_stack_def,HD,APPEND,
+       isNumber_def,getNumber_def,TL]);
+
+val bc_equal_def = bytecodeTerminationTheory.bc_equal_def
+
+val bc_equal_list_SING = prove(
+  ``!x y. bc_equal_list [x] [y] = bc_equal x y``,
+  Cases \\ Cases \\ SIMP_TAC (srw_ss()) [bc_equal_def]
+  \\ SRW_TAC [] [] \\ Cases_on `bc_equal_list l l'` \\ SRW_TAC [] []);
+
+val bc_equal_list_ZIP = prove(
+  ``!l l' t.
+      (LENGTH l' = LENGTH l) ==>
+      ((case bc_equal_list l' l of
+          Eq_val T => bc_equal_list (MAP FST t) (MAP SND t)
+        | Eq_val F => Eq_val F
+        | Eq_closure => Eq_closure
+        | Eq_type_error => Eq_type_error) =
+       bc_equal_list (MAP FST (ZIP(l',l) ++ t)) (MAP SND (ZIP(l',l) ++ t)))``,
+  Induct \\ Cases_on `l'` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1]
+  \\ SIMP_TAC (srw_ss()) [bc_equal_def] \\ REPEAT STRIP_TAC
+  \\ Cases_on `bc_equal h h'` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `b` \\ FULL_SIMP_TAC (srw_ss()) []);
+
+val FLAT_MAP_APPEND = prove(
+  ``!xs t.
+      (FLAT (MAP (\(x,y). [Number 1; y; x]) xs) ++ eq_stack t =
+       eq_stack ((MAP (\(x,y). (y,x)) xs) ++ t))``,
+  Induct \\ ASM_SIMP_TAC (srw_ss()) [FORALL_PROD,eq_stack_def]);
+
+val MAP_ZIP_SWAP = prove(
+  ``!xs ys.
+      (LENGTH xs = LENGTH ys) ==>
+      (MAP (λ(x,y). (y,x)) (ZIP (xs,ys)) = ZIP (ys,xs))``,
+  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1,ZIP,MAP]);
+
+val bc_value1_size_APPEND = prove(
+  ``!xs ys. bc_value1_size (xs ++ ys) =
+            bc_value1_size xs + bc_value1_size ys``,
+  Induct \\ ASM_SIMP_TAC std_ss [bc_value_size_def,APPEND,ADD_ASSOC]);
+
+val equal_loop_thm = prove(
+  ``!xs res x1 x2 x3 x4 stack.
+      (bc_equal_list (MAP FST xs) (MAP SND xs) <> Eq_type_error) ==>
+      ?x2i x3i x4i.
+        equal_loop_pre (x1,x2,x3,x4,eq_stack xs ++ stack) /\
+        (equal_loop (x1,x2,x3,x4,eq_stack xs ++ stack) =
+           (bc_equality_result_to_val
+              (bc_equal_list (MAP FST xs) (MAP SND xs)),x2i,x3i,x4i,stack))``,
+  STRIP_TAC \\ completeInduct_on `bc_value1_size (MAP FST xs)`
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
+  \\ Cases_on `xs` \\ SIMP_TAC std_ss [eq_stack_def,APPEND]
+  THEN1 (ONCE_REWRITE_TAC [equal_loop_def,equal_loop_pre_def]
+    \\ SIMP_TAC std_ss [LET_DEF,HD,TL,getNumber_def,isNumber_def] \\ EVAL_TAC)
+  \\ Cases_on `h` \\ FULL_SIMP_TAC std_ss [eq_stack_def,MAP]
+  \\ ONCE_REWRITE_TAC [equal_loop_def,equal_loop_pre_def]
+  \\ SIMP_TAC std_ss [LET_DEF,HD,TL,getNumber_def,isNumber_def]
+  \\ SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def]
+  \\ Cases_on `isNumber r` \\ FULL_SIMP_TAC std_ss [] THEN1
+   (REVERSE (Cases_on `isNumber q`)
+    \\ FULL_SIMP_TAC std_ss [pop_all_eq_stack,bc_equal_def] THEN1
+     (Cases_on `r` \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def]
+      \\ Cases_on `q` \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def]
+      \\ FULL_SIMP_TAC (srw_ss()) [bc_equal_def])
+    \\ Cases_on `r` \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def]
+    \\ Cases_on `q` \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def]
+    \\ FULL_SIMP_TAC std_ss [getNumber_def,isSmall_def]
+    \\ Q.ABBREV_TAC `j = i'` \\ POP_ASSUM (K ALL_TAC)
+    \\ Cases_on `small_int j` \\ FULL_SIMP_TAC std_ss [] THEN1
+     (Cases_on `i = j` \\ FULL_SIMP_TAC (srw_ss()) [bc_equal_def]
+      \\ `bc_value1_size (MAP FST t) <
+          bc_value1_size (Number j::MAP FST t)` by ALL_TAC
+      THEN1 (EVAL_TAC \\ DECIDE_TAC)
+      \\ Q.PAT_ASSUM `!xx.bbb` (MP_TAC o Q.SPEC `t`)
+      \\ FULL_SIMP_TAC std_ss [])
+    \\ Cases_on `small_int i` \\ FULL_SIMP_TAC std_ss [] THEN1
+     (`i <> j` by ALL_TAC THEN1
+         (FULL_SIMP_TAC std_ss [small_int_def] \\ intLib.COOPER_TAC)
+      \\ FULL_SIMP_TAC std_ss [bc_equal_def] \\ EVAL_TAC)
+    \\ REVERSE (Cases_on `i = j`)
+    \\ FULL_SIMP_TAC std_ss [bc_equal_def,EVAL ``1=0:int``] THEN1 EVAL_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ SEP_I_TAC "equal_loop" \\ POP_ASSUM MP_TAC \\ ASM_SIMP_TAC std_ss []
+    \\ MATCH_MP_TAC IMP_IMP
+    \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+    \\ EVAL_TAC \\ DECIDE_TAC)
+  \\ Cases_on `isBlock r` \\ FULL_SIMP_TAC std_ss [] THEN1
+   (REVERSE (Cases_on `isBlock q`)
+    \\ FULL_SIMP_TAC std_ss [pop_all_eq_stack,bc_equal_def] THEN1
+     (Cases_on `r` \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def]
+      \\ Cases_on `q` \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def]
+      \\ FULL_SIMP_TAC (srw_ss()) [bc_equal_def,isBlock_def])
+    \\ Cases_on `r` \\ Cases_on `q`
+    \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def,isBlock_def]
+    \\ FULL_SIMP_TAC std_ss [getTag_def,getContent_def,bc_equal_def]
+    \\ REVERSE (Cases_on `n' = n`) \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
+     (Cases_on `n' = 3` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
+      \\ Cases_on `n = 3` \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC)
+    \\ Cases_on `n = 3` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
+    \\ SIMP_TAC std_ss [explode_result_def,getContent_def]
+    \\ REVERSE (Cases_on `LENGTH l' = LENGTH l`)
+    \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
+    \\ FULL_SIMP_TAC std_ss [bc_equal_list_ZIP,APPEND_ASSOC]
+    \\ FULL_SIMP_TAC std_ss [FLAT_MAP_APPEND,MAP_ZIP_SWAP]
+    \\ SEP_I_TAC "equal_loop" \\ POP_ASSUM MP_TAC
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+     (FULL_SIMP_TAC std_ss [MAP_FST_ZIP,MAP_APPEND]
+      \\ FULL_SIMP_TAC std_ss [bc_value_size_def,bc_value1_size_APPEND]
+      \\ DECIDE_TAC) \\ FULL_SIMP_TAC std_ss [])
+  \\ Cases_on `r` \\ Cases_on `q`
+  \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def,isBlock_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [bc_equal_def,pop_all_eq_stack,RefPtrEq_def]
+  \\ REVERSE (Cases_on `n' = n`) \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
+  \\ FULL_SIMP_TAC std_ss [isRefPtr_def]
+  \\ `bc_value1_size (MAP FST t) <
+      bc_value1_size (RefPtr n::MAP FST t)` by ALL_TAC
+  THEN1 (EVAL_TAC \\ DECIDE_TAC)
+  \\ Q.PAT_ASSUM `!xx.bbb` (MP_TAC o Q.SPEC `t`)
+  \\ FULL_SIMP_TAC std_ss [])
+  |> Q.SPEC `[(x1,x2)]`
+  |> SIMP_RULE std_ss [eq_stack_def,MAP,APPEND,bc_equal_list_SING]
+
+val equal_full_thm = prove(
+  ``(bc_equal x1 x2 <> Eq_type_error) ==>
+    equal_full_pre (x1,x2,x3,x4,stack) /\
+    (equal_full (x1,x2,x3,x4,stack) =
+       (bc_equality_result_to_val (bc_equal x1 x2),x2,x3,x4,stack))``,
+  SIMP_TAC std_ss [equal_full_def,equal_full_pre_def,LET_DEF]
+  \\ ASSUME_TAC (GEN_ALL equal_loop_thm) \\ SEP_I_TAC "equal_loop"
+  \\ STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) [HD,TL]);
+
+val zHEAP_RAW_EQUAL = equal_full_cert
+  |> DISCH ``bc_equal x1 x2 <> Eq_type_error``
+  |> SIMP_RULE std_ss [equal_full_thm,LET_DEF,SEP_CLAUSES]
+  |> RW [GSYM SPEC_MOVE_COND];
+
+
+(* prove that GC is no-op *)
+
+val _ = x64_codegenLib.add_compiled [x64_full_gc_res];
+
 val (x64_gc_op_res, x64_gc_op_def, x64_gc_op_pre_def) = x64_compile `
   x64_gc_op (r0,r1,r2,r3,r9:word64,ss:word64 list,dm,m) =
     let ss = r3 :: ss in
@@ -4966,6 +5445,9 @@ val thA = let
 
 (* bignum header writer *)
 
+val num_eq_def = Define `
+  num_bool x y = Number (if x = y then 1 else 0)`;
+
 val zBIGNUMS_HEADER_def = Define `
   zBIGNUMS_HEADER (xai,xsi,yai,ysi,z,za,zsi,frame) =
     zBIGNUMS (xai,xsi,yai,ysi,za,zsi,frame * one (za - 8w, z))`;
@@ -5365,303 +5847,6 @@ val zHEAP_Div = get_INT_OP ``5:num``;
 val zHEAP_Mod = get_INT_OP ``6:num``;
 val zHEAP_Dec = get_INT_OP ``7:num``;
 
-<<<<<<< HEAD
-=======
-val num_eq_def = Define `
-  num_bool x y = Number (if x = y then 1 else 0)`;
-
-val _ = x64_codegenLib.add_compiled [zHEAP_Eq |> RW [GSYM num_eq_def]];
-
-
-(* recursive equality *)
-
-val (pop_all_cert,pop_all_def,pop_all_pre_def) = x64_compile `
-  pop_all (stack:bc_value list) =
-    let (x2,stack) = (HD stack, TL stack) in
-      if getNumber x2 = 0 then
-        (x2,stack)
-      else
-        let (x2,stack) = (HD stack, TL stack) in
-        let (x2,stack) = (HD stack, TL stack) in
-          pop_all stack`
-
-val (_,equal_loop_def,equal_loop_pre_def) = x64_compile `
-  equal_loop_aux (x1,x2) =
-    let x1 = num_bool (getNumber x1) (getNumber x2) in
-      (x1,x2)`
-
-val (_,equal_loop_def,equal_loop_pre_def) = x64_compile `
-  equal_loop (x1:bc_value,x2,x3,x4,stack:bc_value list) =
-    let (x1,stack) = (HD stack, TL stack) in
-      if getNumber x1 = 0 then
-        let x1 = bool_to_val T in
-          (x1,x2,x3,x4,stack)
-      else
-        let (x2,stack) = (HD stack, TL stack) in
-        let (x1,stack) = (HD stack, TL stack) in
-          if isNumber x1 then (* number case *)
-            let (x1,x2) = (x2,x1) in
-            if ~(isNumber x1) then
-              let x1 = bool_to_val F in
-              let (x2,stack) = pop_all stack in
-                (x1,x2,x3,x4,stack)
-            else
-              if isSmall x1 then
-                if getNumber x1 = getNumber x2 then
-                  equal_loop (x1,x2,x3,x4,stack)
-                else
-                  let x1 = bool_to_val F in
-                  let (x2,stack) = pop_all stack in
-                    (x1,x2,x3,x4,stack)
-              else
-  (*                let x1 = num_bool (getNumber x1) (getNumber x2) in *)
-  (*                let (x1,x2) = equal_loop_aux (x1,x2) in *)
-  (*                if getNumber x1 = 1 then
-                    equal_loop (x1,x2,x3,x4,stack)
-                  else
-  *)
-                    let x1 = bool_to_val F in
-                    let (x2,stack) = pop_all stack in
-                      (x1,x2,x3,x4,stack)
-          else if isBlock x1 then (* block case *)
-            let (x1,x2) = (x2,x1) in
-            if ~isBlock x1 then
-              let x1 = bool_to_val F in
-              let (x2,stack) = pop_all stack in
-                (x1,x2,x3,x4,stack)
-             else (* both are blocks *)
-               if getTag x1 = getTag x2 then
-                 let x3 = x1 in
-                 let x1 = Number (& (getTag x1)) in
-                 if getNumber x1 = 3 then
-                   let x1 = Number 0 in
-                   let (x2,stack) = pop_all stack in
-                     (x1,x2,x3,x4,stack)
-                 else
-                   let x1 = x3 in
-                     if LENGTH (getContent x1) = LENGTH (getContent x2) then
-                       let x4 = x2 in
-                       let (x1,x4) = (x4,x1) in
-                       let (x1,x2,x3,x4,stack) = explode_result (x1,x4,stack) in
-                         equal_loop (x1,x2,x3,x4,stack)
-                     else
-                       let x1 = bool_to_val F in
-                       let (x2,stack) = pop_all stack in
-                         (x1,x2,x3,x4,stack)
-               else
-                 let x1 = Number (& (getTag x1)) in
-                 if getNumber x1 = 3 then
-                   let x1 = Number 0 in
-                   let (x2,stack) = pop_all stack in
-                     (x1,x2,x3,x4,stack)
-                 else
-                   let x1 = x2 in
-                   let x1 = Number (& (getTag x1)) in
-                   if getNumber x1 = 3 then
-                     let x1 = Number 0 in
-                     let (x2,stack) = pop_all stack in
-                       (x1,x2,x3,x4,stack)
-                   else
-                     let x1 = bool_to_val F in
-                     let (x2,stack) = pop_all stack in
-                       (x1,x2,x3,x4,stack)
-          else (* ref case *)
-            let (x1,x2) = (x2,x1) in
-            if isNumber x1 \/ isBlock x1 then
-              let x1 = bool_to_val F in
-              let (x2,stack) = pop_all stack in
-                (x1,x2,x3,x4,stack)
-            else if RefPtrEq x1 x2 then
-              equal_loop (x1,x2,x3,x4,stack)
-            else
-              let x1 = bool_to_val F in
-              let (x2,stack) = pop_all stack in
-                (x1,x2,x3,x4,stack:bc_value list)`
-
-val (equal_full_cert,equal_full_def,equal_full_pre_def) = x64_compile `
-  equal_full (x1,x2,x3,x4,stack) =
-    let stack = x4::stack in
-    let stack = x3::stack in
-    let stack = x2::stack in
-    let x3 = Number 0 in
-    let stack = x3::stack in
-    let stack = x2::stack in
-    let stack = x1::stack in
-    let x3 = Number 1 in
-    let stack = x3::stack in
-    let (x1,x2,x3,x4,stack) = equal_loop (x1,x2,x3,x4,stack) in
-    let (x2,stack) = (HD stack, TL stack) in
-    let (x3,stack) = (HD stack, TL stack) in
-    let (x4,stack) = (HD stack, TL stack) in
-      (x1,x2,x3,x4,stack)`
-
-val eq_stack_def = Define `
-  (eq_stack [] = [Number 0]) /\
-  (eq_stack ((x,y)::xs) = Number 1 :: x :: y :: eq_stack xs)`;
-
-val pop_all_eq_stack = prove(
-  ``!xs stack. pop_all_pre (eq_stack xs ++ stack) /\
-               (pop_all (eq_stack xs ++ stack) = (Number 0,stack))``,
-  Induct \\ ONCE_REWRITE_TAC [pop_all_def,pop_all_pre_def] \\ TRY Cases
-  \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF,eq_stack_def,HD,APPEND,
-       isNumber_def,getNumber_def,TL]);
-
-val bc_equal_def = bytecodeTerminationTheory.bc_equal_def
-
-val bc_equal_list_SING = prove(
-  ``!x y. bc_equal_list [x] [y] = bc_equal x y``,
-  Cases \\ Cases \\ SIMP_TAC (srw_ss()) [bc_equal_def]
-  \\ SRW_TAC [] [] \\ Cases_on `bc_equal_list l l'` \\ SRW_TAC [] []);
-
-val bc_equal_list_ZIP = prove(
-  ``!l l' t.
-      (LENGTH l' = LENGTH l) ==>
-      ((case bc_equal_list l' l of
-          Eq_val T => bc_equal_list (MAP FST t) (MAP SND t)
-        | Eq_val F => Eq_val F
-        | Eq_closure => Eq_closure
-        | Eq_type_error => Eq_type_error) =
-       bc_equal_list (MAP FST (ZIP(l',l) ++ t)) (MAP SND (ZIP(l',l) ++ t)))``,
-  Induct \\ Cases_on `l'` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1]
-  \\ SIMP_TAC (srw_ss()) [bc_equal_def] \\ REPEAT STRIP_TAC
-  \\ Cases_on `bc_equal h h'` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Cases_on `b` \\ FULL_SIMP_TAC (srw_ss()) []);
-
-val FLAT_MAP_APPEND = prove(
-  ``!xs t.
-      (FLAT (MAP (\(x,y). [Number 1; y; x]) xs) ++ eq_stack t =
-       eq_stack ((MAP (\(x,y). (y,x)) xs) ++ t))``,
-  Induct \\ ASM_SIMP_TAC (srw_ss()) [FORALL_PROD,eq_stack_def]);
-
-val MAP_ZIP_SWAP = prove(
-  ``!xs ys.
-      (LENGTH xs = LENGTH ys) ==>
-      (MAP (λ(x,y). (y,x)) (ZIP (xs,ys)) = ZIP (ys,xs))``,
-  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1,ZIP,MAP]);
-
-val bc_value1_size_APPEND = prove(
-  ``!xs ys. bc_value1_size (xs ++ ys) =
-            bc_value1_size xs + bc_value1_size ys``,
-  Induct \\ ASM_SIMP_TAC std_ss [bc_value_size_def,APPEND,ADD_ASSOC]);
-
-val equal_loop_thm = prove(
-  ``!xs res x1 x2 x3 x4 stack.
-      (bc_equal_list (MAP FST xs) (MAP SND xs) <> Eq_type_error) ==>
-      ?x2i x3i x4i.
-        equal_loop_pre (x1,x2,x3,x4,eq_stack xs ++ stack) /\
-        (equal_loop (x1,x2,x3,x4,eq_stack xs ++ stack) =
-           (bc_equality_result_to_val
-              (bc_equal_list (MAP FST xs) (MAP SND xs)),x2i,x3i,x4i,stack))``,
-
-  STRIP_TAC \\ completeInduct_on `bc_value1_size (MAP FST xs)`
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
-  \\ Cases_on `xs` \\ SIMP_TAC std_ss [eq_stack_def,APPEND]
-  THEN1 (ONCE_REWRITE_TAC [equal_loop_def,equal_loop_pre_def]
-    \\ SIMP_TAC std_ss [LET_DEF,HD,TL,getNumber_def,isNumber_def] \\ EVAL_TAC)
-  \\ Cases_on `h` \\ FULL_SIMP_TAC std_ss [eq_stack_def,MAP]
-  \\ ONCE_REWRITE_TAC [equal_loop_def,equal_loop_pre_def]
-  \\ SIMP_TAC std_ss [LET_DEF,HD,TL,getNumber_def,isNumber_def]
-  \\ SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def]
-  \\ Cases_on `isNumber r` \\ FULL_SIMP_TAC std_ss [] THEN1
-   (REVERSE (Cases_on `isNumber q`)
-    \\ FULL_SIMP_TAC std_ss [pop_all_eq_stack,bc_equal_def] THEN1
-     (Cases_on `r` \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def]
-      \\ Cases_on `q` \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def]
-      \\ FULL_SIMP_TAC (srw_ss()) [bc_equal_def])
-    \\ Cases_on `r` \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def]
-    \\ Cases_on `q` \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def]
-    \\ FULL_SIMP_TAC std_ss [getNumber_def,isSmall_def]
-    \\ Q.ABBREV_TAC `j = i'` \\ POP_ASSUM (K ALL_TAC)
-    \\ Cases_on `small_int j` \\ FULL_SIMP_TAC std_ss [] THEN1
-     (Cases_on `i = j` \\ FULL_SIMP_TAC (srw_ss()) [bc_equal_def]
-      \\ `bc_value1_size (MAP FST t) <
-          bc_value1_size (Number j::MAP FST t)` by ALL_TAC
-      THEN1 (EVAL_TAC \\ DECIDE_TAC)
-      \\ Q.PAT_ASSUM `!xx.bbb` (MP_TAC o Q.SPEC `t`)
-      \\ FULL_SIMP_TAC std_ss [])
-    \\ cheat)
-  \\ Cases_on `isBlock r` \\ FULL_SIMP_TAC std_ss [] THEN1
-   (REVERSE (Cases_on `isBlock q`)
-    \\ FULL_SIMP_TAC std_ss [pop_all_eq_stack,bc_equal_def] THEN1
-     (Cases_on `r` \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def]
-      \\ Cases_on `q` \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def]
-      \\ FULL_SIMP_TAC (srw_ss()) [bc_equal_def,isBlock_def])
-    \\ Cases_on `r` \\ Cases_on `q`
-    \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def,isBlock_def]
-    \\ FULL_SIMP_TAC std_ss [getTag_def,getContent_def,bc_equal_def]
-    \\ REVERSE (Cases_on `n' = n`) \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
-     (Cases_on `n' = 3` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
-      \\ Cases_on `n = 3` \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC)
-    \\ Cases_on `n = 3` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
-    \\ SIMP_TAC std_ss [explode_result_def,getContent_def]
-    \\ REVERSE (Cases_on `LENGTH l' = LENGTH l`)
-    \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
-    \\ FULL_SIMP_TAC std_ss [bc_equal_list_ZIP,APPEND_ASSOC]
-    \\ FULL_SIMP_TAC std_ss [FLAT_MAP_APPEND,MAP_ZIP_SWAP]
-    \\ SEP_I_TAC "equal_loop" \\ POP_ASSUM MP_TAC
-    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-     (FULL_SIMP_TAC std_ss [MAP_FST_ZIP,MAP_APPEND]
-      \\ FULL_SIMP_TAC std_ss [bc_value_size_def,bc_value1_size_APPEND]
-      \\ DECIDE_TAC) \\ FULL_SIMP_TAC std_ss [])
-  \\ Cases_on `r` \\ Cases_on `q`
-  \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def,isBlock_def]
-  \\ FULL_SIMP_TAC (srw_ss()) [bc_equal_def,pop_all_eq_stack,RefPtrEq_def]
-  \\ REVERSE (Cases_on `n' = n`) \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
-  \\ FULL_SIMP_TAC std_ss [isRefPtr_def]
-  \\ `bc_value1_size (MAP FST t) <
-      bc_value1_size (RefPtr n::MAP FST t)` by ALL_TAC
-  THEN1 (EVAL_TAC \\ DECIDE_TAC)
-  \\ Q.PAT_ASSUM `!xx.bbb` (MP_TAC o Q.SPEC `t`)
-  \\ FULL_SIMP_TAC std_ss [])
-  |> Q.SPEC `[(x1,x2)]`
-  |> SIMP_RULE std_ss [eq_stack_def,MAP,APPEND,bc_equal_list_SING]
-
-val equal_full_thm = prove(
-  ``(bc_equal x1 x2 <> Eq_type_error) ==>
-    equal_full_pre (x1,x2,x3,x4,stack) /\
-    (equal_full (x1,x2,x3,x4,stack) =
-       (bc_equality_result_to_val (bc_equal x1 x2),x2,x3,x4,stack))``,
-  SIMP_TAC std_ss [equal_full_def,equal_full_pre_def,LET_DEF]
-  \\ ASSUME_TAC (GEN_ALL equal_loop_thm) \\ SEP_I_TAC "equal_loop"
-  \\ STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) [HD,TL]);
-
-val zHEAP_RAW_EQUAL = equal_full_cert
-  |> DISCH ``bc_equal x1 x2 <> Eq_type_error``
-  |> SIMP_RULE std_ss [equal_full_thm,LET_DEF,SEP_CLAUSES]
-  |> RW [GSYM SPEC_MOVE_COND];
-
-
-
-
-(*
-bc_next_rules
-bc_stack_op_rules
-bc_equal_def
-bc_equality_result_to_val_def
-bool_to_val_def
-bool_to_tag_def
-*)
-
-(* max_print_depth := 25 *)
-
-
-
-(*
-
-  val (th,goal) = expand_pre th target
-  val lemma = prove(goal,
-    SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL]
-    \\ SIMP_TAC std_ss [STAR_ASSOC,SEP_IMP_def,cond_STAR]
-    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC heap_inv_IMP
-    \\ FULL_SIMP_TAC std_ss [heap_inv_def,x64_store_def,
-         one_list_def,word_arith_lemma1]
-    \\ SEP_R_TAC \\ NTAC 2 (POP_ASSUM MP_TAC)
-    \\ FULL_SIMP_TAC (std_ss++star_ss) [SEP_CLAUSES])
-
-*)
-
->>>>>>> further progress on Equal
-
 (*
 
 val SPEC_HIDE_PRE_POST = prove(
@@ -5962,64 +6147,6 @@ val x64_code_APPEND = prove(
       x64_code (p + SUM (MAP x64_length xs1)) xs2``,
   Induct \\ SIMP_TAC std_ss [APPEND,x64_code_def,MAP,SUM,WORD_ADD_0]
   \\ ASM_SIMP_TAC std_ss [APPEND_ASSOC,LEFT_ADD_DISTRIB,ADD_ASSOC]);
-
-
-(* number equality *)
-
-val (_,array_eq_def,array_eq_pre_def) = x64_compile `
-  array_eq (r0:word64,r14:word64,r15:word64,dm:word64 set,m:word64->word64) =
-    if r0 = 0w then let r0 = 4w in (r0,r14,r15,dm,m) else
-      let r12 = m r14 in
-      let r13 = m r15 in
-        if r12 <> r13 then
-          let r0 = 0w in (r0,r14,r15,dm,m)
-        else
-          let r0 = r0 - 1w in
-          let r14 = r14 + 8w in
-          let r15 = r15 + 8w in
-            array_eq (r0,r14,r15,dm,m)`
-
-val (num_eq_cert,num_eq_def,num_eq_pre_def) = x64_compile `
-  num_eq (r0:word64,r1,r12:word64,r13,dm:word64 set,m:word64->word64,ss) =
-    let r14 = r0 + 1w in
-    let r15 = r1 + 1w in
-    let ss = r12::ss in
-    let ss = r13::ss in
-    let r12 = m r14 in
-    let r13 = m r15 in
-      if r12 <> r13 then
-        let (r13,ss) = (HD ss, TL ss) in
-        let (r12,ss) = (HD ss, TL ss) in
-        let r0 = 0w in
-          (r0,r1,r12,r13,dm,m,ss)
-      else
-        let r0 = r12 >>> 16 in
-        let r14 = r14 + 8w in
-        let r15 = r15 + 8w in
-        let (r0,r14,r15,dm,m) = array_eq (r0,r14,r15,dm,m) in
-        let (r13,ss) = (HD ss, TL ss) in
-        let (r12,ss) = (HD ss, TL ss) in
-          (r0,r1,r12,r13,dm,m,ss)`
-
-val array_eq_thm = prove(
-  ``!xs ys a b p.
-      (LENGTH ys = LENGTH xs) /\ LENGTH xs < dimword(:64) /\
-      (a && 0x7w = 0x0w) /\ (b && 0x7w = 0x0w) /\
-      (one_list a xs * one_list b ys * p) (fun2set (m,dm)) ==>
-      ?r14' r15'.
-        array_eq_pre (n2w (LENGTH xs), a, b, dm, m) /\
-        (array_eq (n2w (LENGTH xs), a, b, dm, m) =
-          (if xs = ys then 4w else 0w, r14', r15', dm, m))``,
-  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1]
-  \\ ONCE_REWRITE_TAC [array_eq_def,array_eq_pre_def]
-  \\ SIMP_TAC std_ss [CONS_11,n2w_11,ZERO_LT_dimword,LET_DEF,one_list_def]
-  \\ REPEAT STRIP_TAC
-  \\ SEP_R_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ Cases_on `h' = h` \\ FULL_SIMP_TAC std_ss []
-  \\ SIMP_TAC std_ss [GSYM word_add_n2w,WORD_ADD_SUB]
-  \\ SEP_I_TAC "array_eq"
-  \\ `LENGTH xs < dimword (:64)` by DECIDE_TAC
-  \\ SEP_F_TAC \\ FULL_SIMP_TAC std_ss [blast_align_lemma]);
 
 
 val _ = export_theory();
