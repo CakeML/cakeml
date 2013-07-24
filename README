@@ -38,30 +38,32 @@ Directory structure:
     Lexer and PEG parser for CakeML.
 
 - bytecode
-  CakeML Bytecode specification, metatheory, and evaluator
+    CakeML Bytecode specification, metatheory, and evaluator.
 
 - compiler
-    Translator from CakeML abstract syntax to CakeML Bytecode.
-    Includes:
-      - the compiler implementation (expressed in Lem)
-      - compiler correctness proofs
-      - rudimentary tests using EmitML
+    Compiler from CakeML abstract syntax to CakeML Bytecode, with the
+    implementation expressed in Lem.
+- compiler/proofs
+    Verification of the compiler.
 
 - impl_proofs
-    The correctness proof for the REPL implementation
+    The correctness proof for the REPL implementation.
 
 - translator
     A proof-producing translator from HOL functions to CakeML.
-
 - translator/repl
-    A running the translator on the CakeML compiler
+    A run of the translator on the CakeML compiler.
 
-- clockScript.sml
-    A proof outline of our divergence preservation technique.
+- x86-64
+    (Work towards an) x86-64 implementation of repl_fun.
+
+- unverified
+    Unverified implementation, in Haskell, of the CakeML frontend augmented
+    with informative error messages.
 
 - hol-light
     An implementation of HOL Light (http://www.cl.cam.ac.uk/~jrh13/hol-light/)
     in CakeML.
 
-- x86-64
-    Word towards an x86-64 implementation of repl_fun from implementation
+- clockScript.sml
+    A proof outline of our divergence preservation technique.
