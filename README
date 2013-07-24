@@ -28,14 +28,13 @@ Directory structure:
     - determinism
     - equivalence of the big and small step semantics
 
-- implementation
-    The REPL implementation in HOL, including
-      - the type inferencer implementation
-      - definition of repl_fun : string -> repl_result
-      - the bootstrapping
-
 - parsing
     Lexer and PEG parser for CakeML.
+
+- inference
+    Type inferencer for CakeML.
+- inference/proofs
+    Proof of soundness for the type inferencer.
 
 - bytecode
     CakeML Bytecode specification, metatheory, and evaluator.
@@ -45,6 +44,11 @@ Directory structure:
     implementation expressed in Lem.
 - compiler/proofs
     Verification of the compiler.
+
+- implementation
+    The REPL implementation in HOL, including
+      - definition of repl_fun : string -> repl_result
+      - the bootstrapping
 
 - impl_proofs
     The correctness proof for the REPL implementation.

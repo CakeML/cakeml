@@ -1,16 +1,6 @@
 This directory contains the implementation of the CakeML REPL as a HOL
 function.
 
-unifyScript.sml
-    Defines a unification algorithm for use in the type inferencer.  Based on
-    the triangular unification algorithm in
-    HOL/examples/unification/triangular/first-order.  We encode our CakeML
-    types into the term structure used there and them bring over those definitions
-    and theorems.
-
-inferScript.sml
-    Define a type inference algorithm
-
 repl_funScript.sml
     Define the read-eval-print loop
 
@@ -23,9 +13,6 @@ repl_computeLib.sml
 repl_compiteScript.sml
     Definitions and theorems that  repl_computeLib.sml uses.
 
-test_inference:
-    Some tests that type inference accepts some programs using various features.
-    
 bootstrap:
     Evaluate the compiler on itself in the logic.
     NB, seems to require 32GB of RAM to complete.
