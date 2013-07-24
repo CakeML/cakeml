@@ -154,7 +154,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (do_Ceq (CLoc l1) (CLoc l2) = (Eq_val (l1 = l2)))
 /\
 (do_Ceq (CConv cn1 vs1) (CConv cn2 vs2) =  
-(if cn1 = cn2 then
+(if (cn1 = cn2) /\ ( LENGTH vs1 = LENGTH vs2) then
     do_Ceq_list vs1 vs2
   else
     Eq_val F))

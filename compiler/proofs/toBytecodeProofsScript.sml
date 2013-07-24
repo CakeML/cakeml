@@ -415,9 +415,9 @@ val do_Ceq_to_bc_equal = Q.prove (
  rw [] >-
  helper_tac >-
  (helper_tac >> metis_tac [ALL_DISTINCT_EL_IMP]) >-
- (helper_tac >> metis_tac []) >-
- (helper_tac >> metis_tac []) >-
- helper_tac >-
+ (helper_tac >> fs[EVERY2_EVERY] >> metis_tac []) >-
+ (helper_tac >> fs[EVERY2_EVERY] >> metis_tac []) >-
+ (helper_tac >> fs[EVERY2_EVERY]) >-
  helper_tac >-
  helper_tac >-
  helper_tac >-

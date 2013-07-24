@@ -268,7 +268,7 @@ val _ = Hol_datatype `
 (do_eq (Loc l1) (Loc l2) = (Eq_val (l1 = l2)))
 /\
 (do_eq (Conv cn1 vs1) (Conv cn2 vs2) =  
-(if cn1 = cn2 then
+(if (cn1 = cn2) /\ ( LENGTH vs1 = LENGTH vs2) then
     do_eq_list vs1 vs2
   else
     Eq_val F))

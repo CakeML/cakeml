@@ -1467,11 +1467,13 @@ val syneq_do_Ceq = Q.prove (
  fs [] >>
  pop_assum mp_tac >>
  rw [Once syneq_cases] >>
+ TRY (fs[EVERY2_EVERY] >> NO_TAC) >>
  pop_assum (assume_tac o Q.SPEC `CConv cn vs2'`) >>
  fs [] >>
  Cases_on `do_Ceq_list vs2 vs2'` >>
  rw [] >>
- fs []);
+ fs [] >>
+ fs[EVERY2_EVERY] >> rfs[]);
 
 val CevalPrim2_syneq = store_thm("CevalPrim2_syneq",
   ``∀p2 v11 v21 v12 v22.
@@ -1495,7 +1497,8 @@ val CevalPrim2_syneq = store_thm("CevalPrim2_syneq",
   rpt strip_tac >>
   srw_tac[ETA_ss][] >>
   imp_res_tac syneq_do_Ceq >>
-  rw []);
+  rw [] >>
+  fs[EVERY2_EVERY] >> rfs[]);
 
 val CevalPrim1_syneq = store_thm("CevalPrim1_syneq",
   ``∀uop s1 s2 v1 v2. EVERY2 (syneq) s1 s2 ∧ syneq v1 v2 ⇒

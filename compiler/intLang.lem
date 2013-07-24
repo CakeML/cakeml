@@ -97,7 +97,7 @@ and
 do_Ceq (CLoc l1) (CLoc l2) = Eq_val (l1 = l2)
 and
 do_Ceq (CConv cn1 vs1) (CConv cn2 vs2) =
-  if cn1 = cn2 then
+  if cn1 = cn2 && List.length vs1 = List.length vs2 then
     do_Ceq_list vs1 vs2
   else
     Eq_val false

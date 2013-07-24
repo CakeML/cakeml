@@ -575,13 +575,15 @@ val do_eq_to_do_Ceq = Q.prove (
     ((do_eq_list vs1 vs2 = Eq_closure) ⇒ (do_Ceq_list (vs_to_Cvs mv m vs1) (vs_to_Cvs mv m vs2) = Eq_closure)))`,
  strip_tac >>
  ho_match_mp_tac do_eq_ind >>
- rw [do_eq_def, v_to_Cv_def] >> 
- rw [] >- (
+ rw [do_eq_def, v_to_Cv_def] >>
+ rw [] >>
+ TRY(fs[vs_to_Cvs_MAP]>>NO_TAC)>- (
    Cases_on `FLOOKUP m cn1` >>
    Cases_on `FLOOKUP m cn2` >>
    fs [] >>
    rw [] >>
    fs [FLOOKUP_DEF, MEM_MAP, SUBSET_DEF, good_cmap_def, cenv_dom_def] >>
+   TRY(fs[vs_to_Cvs_MAP]>>NO_TAC) >>
    metis_tac []) >>
  Cases_on `do_eq v1 v2` >>
  fs [] >>
@@ -605,10 +607,12 @@ val do_Ceq_syneq1 = Q.prove (
  fs [] >>
  rw [] >>
  fs [] >>
+ TRY(fs[EVERY2_EVERY]>>NO_TAC)>>
  Cases_on `do_Ceq h' h` >>
  fs [] >>
  Cases_on `b` >>
- fs []);
+ fs [] >>
+ metis_tac[]);
 
 val do_Ceq_syneq2 = Q.prove (
 `!w2 w3. syneq w2 w3  ⇒ 
@@ -628,10 +632,12 @@ val do_Ceq_syneq2 = Q.prove (
  fs [] >>
  rw [] >>
  fs [] >>
+ TRY(fs[EVERY2_EVERY]>>NO_TAC)>>
  Cases_on `do_Ceq h h'` >>
  fs [] >>
  Cases_on `b` >>
- fs []);
+ fs [] >>
+ metis_tac[]);
 
 val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   ``(∀ck menv (cenv:envC) cs env exp res. evaluate ck menv cenv cs env exp res ⇒
