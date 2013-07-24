@@ -555,12 +555,18 @@ val no_closures_IMP_NOT_contains_closure = prove(
   \\ SIMP_TAC std_ss [METIS_PROVE [] ``~b \/ c <=> (b ==> c)``]
   \\ REPEAT STRIP_TAC \\ RES_TAC);
 
+val types_match_list_length = prove(
+``!vs1 vs2. types_match_list vs1 vs2 ==> LENGTH vs1 = LENGTH vs2``,
+Induct >> Cases_on`vs2` >> rw[types_match_def])
+
 val type_match_implies_do_eq_succeeds = Q.prove (
 `(!v1 v2. types_match v1 v2 ⇒ (do_eq v1 v2 = Eq_val (v1 = v2))) ∧
  (!vs1 vs2. 
    types_match_list vs1 vs2 ⇒ (do_eq_list vs1 vs2 = Eq_val (vs1 = vs2)))`,
  ho_match_mp_tac do_eq_ind >>
- rw [do_eq_def, types_match_def]);
+ rw [do_eq_def, types_match_def] >>
+ imp_res_tac types_match_list_length >>
+ fs[]);
 
 val do_eq_succeeds = Q.prove (
 `(!a x1 v1 x2 v2. EqualityType a ∧ a x1 v1 ∧ a x2 v2 ⇒ (do_eq v1 v2 = Eq_val (x1 = x2)))`,

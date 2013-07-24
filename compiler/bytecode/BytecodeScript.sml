@@ -154,8 +154,10 @@ val _ = Define `
 (bc_equal _ (RefPtr _) = (Eq_val F))
 /\
 (bc_equal (Block t1 l1) (Block t2 l2) =  
-(if (t1 = closure_tag) \/ (t2 = closure_tag) then Eq_closure else
-    if t1 = t2 then bc_equal_list l1 l2 else Eq_val F))
+(if (t1 = closure_tag) \/ (t2 = closure_tag)
+  then Eq_closure else
+    if (t1 = t2) /\ ( LENGTH l1 = LENGTH l2)
+    then bc_equal_list l1 l2 else Eq_val F))
 /\
 (bc_equal_list [] [] = (Eq_val T))
 /\
