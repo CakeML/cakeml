@@ -3,6 +3,31 @@ open miscTheory BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory rich
 val _ = numLib.prefer_num()
 val _ = new_theory"bytecodeExtra"
 
+val with_same_refs = store_thm("with_same_refs",
+  ``(x with refs := x.refs) = x``,
+  rw[bc_state_component_equality])
+val _ = export_rewrites["with_same_refs"]
+
+val with_same_code = store_thm("with_same_code",
+  ``(x with code := x.code) = x``,
+  rw[bc_state_component_equality])
+val _ = export_rewrites["with_same_code"]
+
+val with_same_pc = store_thm("with_same_pc",
+  ``(x with pc := x.pc) = x``,
+  rw[bc_state_component_equality])
+val _ = export_rewrites["with_same_pc"]
+
+val with_same_stack = store_thm("with_same_stack",
+  ``(x with stack := x.stack) = x``,
+  rw[bc_state_component_equality])
+val _ = export_rewrites["with_same_stack"]
+
+val with_same_handler = store_thm("with_same_handler",
+  ``(x with handler := x.handler) = x``,
+  rw[bc_state_component_equality])
+val _ = export_rewrites["with_same_handler"]
+
 val bc_fetch_with_stack = store_thm("bc_fetch_with_stack",
   ``bc_fetch (s with stack := st) = bc_fetch s``,
   rw[bc_fetch_def])

@@ -4,17 +4,6 @@ val _ = numLib.prefer_num()
 val _ = new_theory "toIntLangProofs"
 val fsd = full_simp_tac std_ss
 
-(* TODO: move? *)
-val find_index_ALL_DISTINCT_REVERSE = store_thm("find_index_ALL_DISTINCT_REVERSE",
-  ``∀ls x m j. ALL_DISTINCT ls ∧ (find_index x ls m = SOME j) ⇒ (find_index x (REVERSE ls) m = SOME (m + LENGTH ls + m - j - 1))``,
-  rw[] >> imp_res_tac find_index_ALL_DISTINCT_EL_eq >>
-  `ALL_DISTINCT (REVERSE ls)` by rw[ALL_DISTINCT_REVERSE] >>
-  simp[find_index_ALL_DISTINCT_EL_eq] >>
-  rw[] >> fsrw_tac[ARITH_ss][] >> rw[] >>
-  qmatch_assum_rename_tac`z < LENGTH ls`[] >>
-  qexists_tac`LENGTH ls - z - 1` >>
-  lrw[EL_REVERSE,PRE_SUB1])
-
 (* Nicer induction *)
 
 val exp_to_Cexp_nice_ind = save_thm(
@@ -589,12 +578,10 @@ val do_eq_to_do_Ceq = Q.prove (
  fs [] >>
  metis_tac []);
 
-val do_Ceq_syneq1 = Q.prove (
-`!w1 w2. syneq w1 w2  ⇒ 
-  ∀w3. do_Ceq w1 w3 = do_Ceq w2 w3`,
+fun tac w1 =
  ho_match_mp_tac syneq_ind >>
  rw [] >>
- Cases_on `w3` >>
+ Cases_on w1 >>
  fs [] >>
  Cases_on `n = cn` >>
  fs [] >>
@@ -608,36 +595,19 @@ val do_Ceq_syneq1 = Q.prove (
  rw [] >>
  fs [] >>
  TRY(fs[EVERY2_EVERY]>>NO_TAC)>>
- Cases_on `do_Ceq h' h` >>
+ BasicProvers.CASE_TAC >>
  fs [] >>
  Cases_on `b` >>
  fs [] >>
- metis_tac[]);
+ metis_tac[]
+
+val do_Ceq_syneq1 = Q.prove (
+`!w1 w2. syneq w1 w2  ⇒ ∀w3. do_Ceq w1 w3 = do_Ceq w2 w3`,
+tac `w3`)
 
 val do_Ceq_syneq2 = Q.prove (
-`!w2 w3. syneq w2 w3  ⇒ 
-  ∀w1. do_Ceq w1 w2 = do_Ceq w1 w3`,
- ho_match_mp_tac syneq_ind >>
- rw [] >>
- Cases_on `w1` >>
- fs [] >>
- Cases_on `n = cn` >>
- fs [] >>
- rpt (pop_assum mp_tac) >>
- Q.SPEC_TAC (`vs1`, `vs1`) >>
- Q.SPEC_TAC (`vs2`, `vs2`) >>
- Induct_on `l` >>
- rw [] >>
- Cases_on `vs2` >>
- fs [] >>
- rw [] >>
- fs [] >>
- TRY(fs[EVERY2_EVERY]>>NO_TAC)>>
- Cases_on `do_Ceq h h'` >>
- fs [] >>
- Cases_on `b` >>
- fs [] >>
- metis_tac[]);
+`!w2 w3. syneq w2 w3  ⇒ ∀w1. do_Ceq w1 w2 = do_Ceq w1 w3`,
+tac `w1`)
 
 val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
   ``(∀ck menv (cenv:envC) cs env exp res. evaluate ck menv cenv cs env exp res ⇒

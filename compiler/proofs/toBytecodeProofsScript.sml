@@ -1,42 +1,16 @@
 open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory sortingTheory lcsymtacs quantHeuristicsLib quantHeuristicsLibAbbrev
 open miscTheory miscLib CompilerLibTheory CompilerPrimitivesTheory IntLangTheory ToBytecodeTheory compilerTerminationTheory intLangExtraTheory toIntLangProofsTheory BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory bytecodeLabelsTheory
-;val _ = numLib.prefer_num()
-;val _ = new_theory "toBytecodeProofs"
+val _ = numLib.prefer_num()
+val _ = new_theory "toBytecodeProofs"
 
-(* TODO: move? *)
-;val with_same_refs = store_thm("with_same_refs",
-  ``(x with refs := x.refs) = x``,
-  rw[bc_state_component_equality])
-;val _ = export_rewrites["with_same_refs"]
+val _ = Hol_datatype`refs_data = <| sm : num list; cls : num |-> (Cv list # def list # num) |>`
 
-;val with_same_code = store_thm("with_same_code",
-  ``(x with code := x.code) = x``,
-  rw[bc_state_component_equality])
-;val _ = export_rewrites["with_same_code"]
-
-;val with_same_pc = store_thm("with_same_pc",
-  ``(x with pc := x.pc) = x``,
-  rw[bc_state_component_equality])
-;val _ = export_rewrites["with_same_pc"]
-
-;val with_same_stack = store_thm("with_same_stack",
-  ``(x with stack := x.stack) = x``,
-  rw[bc_state_component_equality])
-;val _ = export_rewrites["with_same_stack"]
-
-;val with_same_handler = store_thm("with_same_handler",
-  ``(x with handler := x.handler) = x``,
-  rw[bc_state_component_equality])
-;val _ = export_rewrites["with_same_handler"]
-
-;val _ = Hol_datatype`refs_data = <| sm : num list; cls : num |-> (Cv list # def list # num) |>`
-
-;val with_same_sm = store_thm("with_same_sm",
+val with_same_sm = store_thm("with_same_sm",
   ``rd with sm := rd.sm = rd``,
   rw[theorem"refs_data_component_equality"])
-;val _ = export_rewrites["with_same_sm"]
+val _ = export_rewrites["with_same_sm"]
 
-;val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
+val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   (Cv_bv pp (CLitv (IntLit k)) (Number k)) ∧
   (Cv_bv pp (CLitv (Bool b)) (bool_to_val b)) ∧
   (Cv_bv pp (CLitv Unit) unit_val) ∧
@@ -59,7 +33,7 @@ open miscTheory miscLib CompilerLibTheory CompilerPrimitivesTheory IntLangTheory
        x < LENGTH env ∧ Cv_bv pp (EL x env) bv)
    ⇒ benv_bvs pp bvs ce env defs)`
 
-;val Cv_bv_only_ind =
+val Cv_bv_only_ind =
   Cv_bv_ind
 |> SPEC_ALL
 |> UNDISCH
@@ -388,7 +362,7 @@ Cases_on `b1` >>
 Cases_on `b2` >>
 rw []);
 
-val helper_tac = 
+val helper_tac =
    rw [] >>
    fs [Once Cv_bv_cases] >>
    rw [bc_equal_def] >>
@@ -2366,11 +2340,6 @@ val compile_mvars_SUBMAP = store_thm("compile_mvars_SUBMAP",
   qexists_tac`bs` >>
   HINT_EXISTS_TAC >>
   simp[bc_state_component_equality])
-
-(*
-;val code_for_return_trans = store_thm("code_for_return_trans",
-  ``code_for_return rd' bs' bce st hdl sp v s s' ∧ bc_next^* bs bs'
-*)
 
 ;val MEM_SING_APPEND = store_thm("MEM_SING_APPEND",
   ``(∀a c. d ≠ a ++ [b] ++ c) ⇔ ¬MEM b d``,

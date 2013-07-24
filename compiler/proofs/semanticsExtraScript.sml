@@ -164,7 +164,14 @@ rw[MAP_MAP_o,combinTheory.o_DEF,pairTheory.LAMBDA_PROD] >>
 rw[FST_triple])
 val _ = export_rewrites["build_rec_env_dom"]
 
-(* TODO: move? *)
+val build_rec_env_MAP = store_thm("build_rec_env_MAP",
+  ``build_rec_env funs cle env = MAP (λ(f,cdr). (f, (Recclosure cle funs f))) funs ++ env``,
+  rw[build_rec_env_def] >>
+  qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
+  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
+  unabbrev_all_tac >> simp[] >>
+  Induct >> rw[bind_def] >>
+  PairCases_on`h` >> rw[])
 
 val map_match_def = Define`
   (map_match f (Match env) = Match (f env)) ∧
@@ -651,7 +658,6 @@ strip_tac (* Match *) >- rw[] >>
 strip_tac (* Match *) >- rw[] >>
 rw[])
 
-(* TODO: move? *)
 val result_rel_def = Define`
 (result_rel R (Rval v1) (Rval v2) = R v1 v2) ∧
 (result_rel R (Rerr e1) (Rerr e2) = (e1 = e2)) ∧
@@ -689,17 +695,6 @@ val result_rel_sym = store_thm(
 "result_rel_sym",
 ``(∀x y. R x y ⇒ R y x) ⇒ (∀x y. result_rel R x y ⇒ result_rel R y x)``,
 rw[] >> Cases_on `x` >> fs[]);
-
-(* TODO: categorise *)
-
-val build_rec_env_MAP = store_thm("build_rec_env_MAP",
-  ``build_rec_env funs cle env = MAP (λ(f,cdr). (f, (Recclosure cle funs f))) funs ++ env``,
-  rw[build_rec_env_def] >>
-  qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
-  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
-  unabbrev_all_tac >> simp[] >>
-  Induct >> rw[bind_def] >>
-  PairCases_on`h` >> rw[])
 
 val all_cns_pat_def = Define`
   (all_cns_pat (Pvar _) = {}) ∧
@@ -776,11 +771,11 @@ val do_app_all_cns = store_thm("do_app_all_cns",
  fs [all_cns_def, bind_def] >- (
     rw[build_rec_env_MAP,LIST_TO_SET_MAP,GSYM IMAGE_COMPOSE,combinTheory.o_DEF,LAMBDA_PROD] >>
     fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,MEM_MAP] >>
-    metis_tac[]) 
+    metis_tac[])
  >- (
      imp_res_tac ALOOKUP_MEM >>
      fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,all_cns_defs_MAP,MEM_MAP] >>
-     metis_tac[]) 
+     metis_tac[])
  >- (
      rw[] >> fs[store_assign_def] >> rw[] >>
      fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD] >> rw[] >>
@@ -1221,9 +1216,7 @@ val evaluate_locs = store_thm("evaluate_locs",
   strip_tac >- rw[] >>
   strip_tac >- rw[])
 
-
 (*
-(* TODO: move *)
 val ALIST_REL_def = Define`
   ALIST_REL R a1 a2 = ∀x. OPTION_REL R (ALOOKUP a1 x) (ALOOKUP a2 x)`
 
