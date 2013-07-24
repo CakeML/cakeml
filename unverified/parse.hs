@@ -400,11 +400,11 @@ nLetDecs =
   <|> many (fail "")
 
 nDecl =
-  do tokeq ValT;
+  do pos <- tokeq ValT;
      p <- nPattern;
      tokeq EqualsT;
      e <- nE;
-     return (Ast_Dlet p e)
+     return (Ast_Dlet p e pos)
   <|>
   (tokeq FunT >> fmap Ast_Dletrec nAndFDecls)
   <|>
@@ -462,7 +462,7 @@ nREPLTop :: ParsecT [(Token,SourcePos)] u DFI.Identity Ast_top
 nREPLTop = 
   do e <- nE; 
      pos <- tokeq SemicolonT;
-     return (Ast_Tdec (Ast_Dlet (Ast_Pvar (VarN "_" pos)) e))
+     return (Ast_Tdec (Ast_Dlet (Ast_Pvar (VarN "_" pos)) e pos))
   <|>
   do d <- nTopLevelDec;
      tokeq SemicolonT;

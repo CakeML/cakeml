@@ -140,6 +140,9 @@ instance Ord TypeN where
 instance Show TypeN where
   show (TypeN x _) = x
 
+instance HasPos TypeN where
+  getPos (TypeN _ p) = p
+
 data TvarN = TvarN String SourcePos
 
 instance HasPos TvarN where
@@ -219,7 +222,7 @@ data Exp =
 type Type_def = [([TvarN], TypeN, [(ConN, [T])])]
 
 data Dec = 
-    Dlet Pat Exp
+    Dlet Pat Exp SourcePos
   | Dletrec [(VarN, VarN, Exp)]
   | Dtype Type_def
 
@@ -274,7 +277,7 @@ data Ast_t =
 type Ast_type_def = [([TvarN], TypeN, [(ConN, [Ast_t])])]
 
 data Ast_dec =
-    Ast_Dlet Ast_pat Ast_exp
+    Ast_Dlet Ast_pat Ast_exp SourcePos
   | Ast_Dletrec [(VarN, VarN, Ast_exp)]
   | Ast_Dtype Ast_type_def
 
@@ -377,9 +380,9 @@ get_ctors_bindings mn t =
 elab_td type_bound (tvs,tn,ctors) =
   (tvs, tn, List.map (\(cn,t) -> (cn, List.map (elab_t type_bound) t)) ctors)
 
-elab_dec mn type_bound ctors (Ast_Dlet p e) =
+elab_dec mn type_bound ctors (Ast_Dlet p e pos) =
   let p' = elab_p ctors p in
-    (emp, emp, Dlet p' (elab_e ctors e))
+    (emp, emp, Dlet p' (elab_e ctors e) pos)
 elab_dec mn type_bound ctors (Ast_Dletrec funs) =
   (emp, emp, Dletrec (elab_funs ctors funs))
 elab_dec mn type_bound ctors (Ast_Dtype t) = 
@@ -415,13 +418,6 @@ elab_prog type_bound ctors (top:prog) =
   let (type_bound',ctors',top') = elab_top type_bound ctors top in
   let (type_bound'',ctors'',prog') = elab_prog (merge type_bound' type_bound) (merge ctors' ctors) prog in
     (merge type_bound'' type_bound', merge ctors'' ctors', top':prog') 
-
-check_dup_ctors :: Maybe ModN -> Env (Id ConN) a -> [([TvarN], TypeN, [(ConN, [T])])] -> Bool
-check_dup_ctors mn_opt cenv tds =
-  List.all (\(tvs,tn,condefs) ->
-               List.all (\(n,ts) -> Maybe.isNothing (Ast.lookup (mk_id mn_opt n) cenv)) condefs)
-           tds &&
-  isNothing (getDup (List.foldr (\(tvs, tn, condefs) x2 -> List.foldr (\(n, ts) x2 ->  if True then n : x2 else x2) x2 condefs) [] tds))
 
 dummy_pos = initialPos "initial_env"
 

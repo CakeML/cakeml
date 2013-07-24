@@ -33,7 +33,7 @@ print_t ctxt (Infer_Tapp ts TC_tup) =
 print_t ctxt (Infer_Tapp [] tc) = show tc
 print_t ctxt (Infer_Tapp [t] tc) = print_t Pc_app t ++ " " ++ show tc
 print_t ctxt (Infer_Tapp ts tc) = "(" ++ List.intercalate "," (List.map (print_t Pc_top) ts) ++ ") " ++ show tc
-print_t ctxt (Infer_Tuvar uv) = "v" ++ show uv
+print_t ctxt (Infer_Tuvar uv) = "'a" ++ show uv
 
 instance Show Infer_t where
   show t = print_t Pc_top t

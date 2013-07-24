@@ -286,28 +286,33 @@ is_value (Var _) = True
 is_value (Fun _ _ _) = True
 is_value _ = False
 
-check_freevars :: Integer -> [TvarN] -> T -> Bool
+check_freevars :: Integer -> [TvarN] -> T -> M_st_ex ()
 check_freevars dbmax tvs (Tvar tv) =
-  tv `elem` tvs
+  unless (tv `elem` tvs) (typeError (getPos tv) ("free type variable: " ++ show tv))
 check_freevars dbmax tvs (Tapp ts tn) =
-  List.all (check_freevars dbmax tvs) ts
-check_freevars dbmax tvs (Tvar_db n) = n < dbmax
+  mapM_ (check_freevars dbmax tvs) ts
+check_freevars dbmax tvs (Tvar_db n) = 
+  unless (n < dbmax) (error "deBruijn type variable in input")
 
-check_ctor_tenv :: Maybe ModN -> TenvC -> [([TvarN], TypeN, [(ConN, [T])])] -> Bool
+check_dup_ctors :: Maybe ModN -> Env (Id ConN) a -> [([TvarN], TypeN, [(ConN, [T])])] -> M_st_ex ()
+check_dup_ctors mn_opt cenv tds =
+  do mapM_ (\(tvs,tn,condefs) ->
+              mapM_ (\(n,ts) -> unless (isNothing (Ast.lookup (mk_id mn_opt n) cenv)) 
+                                       (typeError (getPos n) ("duplicate constructor: " ++ (show (mk_id mn_opt n))))) 
+                    condefs)
+           tds;
+     ensureDistinct "constructor" (\x -> x) (List.foldr (\(tvs, tn, condefs) x2 -> List.foldr (\(n, ts) x2 -> n : x2) x2 condefs) [] tds)
+
+check_ctor_tenv :: Maybe ModN -> TenvC -> [([TvarN], TypeN, [(ConN, [T])])] -> M_st_ex ()
 check_ctor_tenv mn tenvC tds =
-  check_dup_ctors mn tenvC tds &&
-  List.all
-    (\(tvs,tn,ctors) ->
-       isNothing (getDup tvs) &&
-       List.all
-         (\(cn,ts) -> (List.all (check_freevars 0 tvs) ts))
-         ctors)
-    tds &&
-  isNothing (getDup (List.map (\(_,tn,_) -> tn) tds)) &&
-  List.all
-    (\(tvs,tn,ctors) ->
-       envAll (\_ (_,_,tn') -> mk_id mn tn /= tn') tenvC)
-    tds
+  do check_dup_ctors mn tenvC tds;
+     mapM_ (\(tvs,tn,ctors) ->
+	      do ensureDistinct "type variable" (\x->x) tvs;
+	         mapM_ (\(cn,ts) -> mapM_ (check_freevars 0 tvs) ts) ctors)
+	   tds;
+     ensureDistinct "type name" (\(_,tn,_) -> tn) tds;
+     unless (List.all (\(tvs,tn,ctors) -> envAll (\_ (_,_,tn') -> mk_id mn tn /= tn') tenvC) tds)
+            (error "constructor with wrong module")
 
 build_ctor_tenv :: Maybe ModN -> [([TvarN], TypeN, [(ConN, [T])])] -> TenvC
 build_ctor_tenv mn tds =
@@ -319,7 +324,7 @@ build_ctor_tenv mn tds =
          tds))
 
 infer_d :: Maybe ModN -> TenvM -> TenvC -> Tenv -> Dec -> M_st_ex (TenvC, Tenv)
-infer_d mn menv cenv env (Dlet p e) = 
+infer_d mn menv cenv env (Dlet p e pos) = 
   do init_state;
      n <- get_next_uvar;
      t <- fresh_uvar;
@@ -329,7 +334,7 @@ infer_d mn menv cenv env (Dlet p e) =
      ts <- apply_subst_list (List.map (\(x,y) -> y) env');
      let (num_tvs, s, ts') = generalise_list n 0 Map.empty ts;
      unless (num_tvs == 0 || is_value e) 
-            (fail "Value restriction violated");
+            (typeError pos "Value restriction violated");
      return (emp, listToEnv (List.zip (List.map (\(x,y) -> x) env') (List.map (\t -> (num_tvs, t)) ts')))
 infer_d mn menv cenv env (Dletrec funs) =
   do ensureDistinct "function name" (\(x,y,z) -> x) funs;
@@ -342,10 +347,8 @@ infer_d mn menv cenv env (Dletrec funs) =
      let (num_gen,s,ts') = generalise_list next 0 Map.empty ts;
      return (emp, listToEnv (List.map (\((f,x,e), t) -> (f,(num_gen,t))) (List.zip funs ts')))
 infer_d mn menv cenv env (Dtype tdecs) =
-  if check_ctor_tenv mn cenv tdecs then
-    return (build_ctor_tenv mn tdecs, emp)
-  else
-    fail "Bad type definition"
+  do check_ctor_tenv mn cenv tdecs; 
+     return (build_ctor_tenv mn tdecs, emp)
 
 infer_ds :: Maybe ModN -> TenvM -> TenvC -> Tenv -> Decs -> M_st_ex (TenvC, Tenv)
 infer_ds mn menv cenv env [] =
@@ -379,35 +382,37 @@ check_specs mn cenv env (Sval x t:specs) =
      check_specs mn cenv (bind x (toInteger (List.length fvs'), 
                           infer_type_subst (listToEnv (List.zip fvs' (List.map Infer_Tvar_db [0..toInteger (List.length fvs')]))) t) env) specs
 check_specs mn cenv env (Stype td : specs) =
-  do unless (check_ctor_tenv mn cenv td) (fail "Bad type definition");
+  do check_ctor_tenv mn cenv td;
      check_specs mn (merge (build_ctor_tenv mn td) cenv) env specs
 check_specs mn cenv env (Stype_opq tvs tn : specs) =
-  do unless (envAll (\_ (x,y,tn') -> mk_id mn tn /= tn') cenv) (fail "Duplicate type definition");
+  do mapM_ (\(_, (x,y,tn')) -> 
+              unless (mk_id mn tn /= tn') 
+                     (typeError (getPos tn) ("duplicate type definition: " ++ show (mk_id mn tn)))) 
+          (envToList cenv);
      ensureDistinct "type variable" (\x -> x) tvs;
      check_specs mn cenv env specs
 
-check_weakC :: TenvC -> TenvC -> Bool
+check_weakC :: TenvC -> TenvC -> M_st_ex ()
 check_weakC cenv_impl cenv_spec =
-  envAll (\cn (tvs_spec, ts_spec, tn_spec) ->
+  mapM_ (\(cn, (tvs_spec, ts_spec, tn_spec)) ->
             case Ast.lookup cn cenv_impl of
-               Nothing -> False
+               Nothing -> typeError (getPos cn) ("Missing implementation of " ++ show cn)
                Just (tvs_impl,ts_impl,tn_impl) ->
-                  (tn_spec == tn_impl) &&
-                  (tvs_spec == tvs_impl) &&
-                  (ts_spec == ts_impl))
-         cenv_spec
+                  unless (tn_spec == tn_impl && tvs_spec == tvs_impl && ts_spec == ts_impl) 
+                         (typeError (getPos tn_spec) "datatype specification and implementation differ"))
+        (envToList cenv_spec)
 
 check_weakE :: Tenv -> Tenv -> M_st_ex ()
 check_weakE env_impl env_spec =
   mapM_ 
     (\(n, (tvs_spec, t_spec)) ->
        case Ast.lookup n env_impl of
-         Nothing -> fail "Signature mismatch"
+         Nothing -> typeError (getPos n) ("Missing implementation of " ++ show n)
          Just (tvs_impl,t_impl) ->
              do init_state;
                 uvs <- n_fresh_uvar tvs_impl;
 	        let t = (infer_deBruijn_subst uvs t_impl);
-                add_constraint (getPos n) t_spec t)
+                add_constraint (getPos n) t t_spec)
     (envToList env_spec)
     
 check_signature :: Maybe ModN -> TenvC -> Tenv -> Maybe Specs -> M_st_ex (TenvC, Tenv)
@@ -415,7 +420,7 @@ check_signature mn cenv env Nothing =
   return (cenv, env)
 check_signature mn cenv env (Just specs) =
   do (cenv', env') <- check_specs mn emp emp specs;
-     unless (check_weakC cenv cenv') (fail "Signature mismatch");
+     check_weakC cenv cenv';
      check_weakE env env';
      return (cenv',env')
 
@@ -424,7 +429,7 @@ infer_top menv cenv env (Tdec d) =
   do (cenv',env') <- infer_d Nothing menv cenv env d;
      return (emp, cenv', env')
 infer_top menv cenv env (Tmod mn spec ds1) =
-  do when (mn `envElem` menv) (fail ("Duplicate module: " ++ show mn));
+  do when (mn `envElem` menv) (typeError (getPos mn) ("Duplicate module: " ++ show mn));
      (cenv',env') <- infer_ds (Just mn) menv cenv env ds1;
      (cenv'',env'') <- check_signature (Just mn) cenv' env' spec;
      return (bind mn env'' emp, cenv'', emp)
