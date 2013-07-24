@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps listTheory relationTheory arithmeticTheory lcsymtacs
-open miscTheory bytecodeTerminationTheory bytecodeEvalTheory rich_listTheory
+open miscTheory BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory rich_listTheory
 val _ = numLib.prefer_num()
 val _ = new_theory"bytecodeExtra"
 
@@ -154,9 +154,6 @@ val bc_find_loc_append_code = store_thm("bc_find_loc_append_code",
   Cases_on `l` >> rw[bc_find_loc_def] >>
   imp_res_tac bc_find_loc_aux_append_code >>
   rw[] )
-
-val bc_state_component_equality = save_thm("bc_state_component_equality",
-DB.fetch"Bytecode""bc_state_component_equality")
 
 val bc_next_append_code = store_thm("bc_next_append_code",
   ``∀bs1 bs2. bc_next bs1 bs2 ⇒ ∀c0 c. (bs1.code = c0) ⇒ bc_next (bs1 with code := c0 ++ c) (bs2 with code := c0 ++ c)``,
