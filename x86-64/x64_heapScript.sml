@@ -181,6 +181,8 @@ val isRefPtr_def = Define `
   (isRefPtr (RefPtr i) = T) /\
   (isRefPtr _ = F)`;
 
+val getRefPtr_def = Define `(getRefPtr (RefPtr x) = x) /\ (getRefPtr _ = ARB)`;
+
 val canCompare_def = Define `
   (canCompare (Number _) = T) /\
   (canCompare (RefPtr _) = T) /\
@@ -2401,7 +2403,7 @@ val zHEAP_EXPLODE_TWO_BLOCKS = let
   val tm = push_els2_thm |> concl |> dest_imp |> fst
   val th = DISCH tm push_els2_cert
            |> SIMP_RULE std_ss [push_els2_thm,SEP_CLAUSES]
-           |> SIMP_RULE std_ss [GSYM SPEC_MOVE_COND,GSYM explode_stack_def]
+           |> SIMP_RULE std_ss [GSYM SPEC_MOVE_COND]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
     ``(~zS * zPC p * zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) *
       cond (isBlock x1 /\ isBlock x4 /\
@@ -4114,9 +4116,6 @@ gg goal
 
 (* deref *)
 
-val isRefPtr_def = Define `(isRefPtr (RefPtr x) = T) /\ (isRefPtr _ = F)`;
-val getRefPtr_def = Define `(getRefPtr (RefPtr x) = x) /\ (getRefPtr _ = ARB)`;
-
 val zHEAP_DEREF = let
   val th = compose_specs ["mov r0,[r0+9w]"]
   val pc = get_pc th
@@ -4901,13 +4900,13 @@ val (pop_all_cert,pop_all_def,pop_all_pre_def) = x64_compile `
         let (x2,stack) = (HD stack, TL stack) in
           pop_all stack`
 
-val (cert,equal_loop_def,equal_loop_pre_def) = x64_compile `
+val (_,equal_loop_def,equal_loop_pre_def) = x64_compile `
   equal_loop_aux (x1,x2) =
     let x1 = num_bool (getNumber x1) (getNumber x2) in
       (x1,x2)`
 
-val (cert,equal_loop_def,equal_loop_pre_def) = x64_compile `
-  equal_loop (x2,x3,x4,stack:bc_value list) =
+val (_,equal_loop_def,equal_loop_pre_def) = x64_compile `
+  equal_loop (x1:bc_value,x2,x3,x4,stack:bc_value list) =
     let (x1,stack) = (HD stack, TL stack) in
       if getNumber x1 = 0 then
         let x1 = bool_to_val T in
@@ -4924,7 +4923,7 @@ val (cert,equal_loop_def,equal_loop_pre_def) = x64_compile `
             else
               if isSmall x1 then
                 if getNumber x1 = getNumber x2 then
-                  equal_loop (x2,x3,x4,stack)
+                  equal_loop (x1,x2,x3,x4,stack)
                 else
                   let x1 = bool_to_val F in
                   let (x2,stack) = pop_all stack in
@@ -4932,9 +4931,10 @@ val (cert,equal_loop_def,equal_loop_pre_def) = x64_compile `
               else
   (*                let x1 = num_bool (getNumber x1) (getNumber x2) in *)
   (*                let (x1,x2) = equal_loop_aux (x1,x2) in *)
-                  if getNumber x1 = 1 then
-                    equal_loop (x2,x3,x4,stack)
+  (*                if getNumber x1 = 1 then
+                    equal_loop (x1,x2,x3,x4,stack)
                   else
+  *)
                     let x1 = bool_to_val F in
                     let (x2,stack) = pop_all stack in
                       (x1,x2,x3,x4,stack)
@@ -4954,9 +4954,15 @@ val (cert,equal_loop_def,equal_loop_pre_def) = x64_compile `
                      (x1,x2,x3,x4,stack)
                  else
                    let x1 = x3 in
-                   let x4 = x2 in
-                   let (x1,x2,x3,x4,stack) = explode_result (x1,x4,stack) in
-                     equal_loop (x2,x3,x4,stack)
+                     if LENGTH (getContent x1) = LENGTH (getContent x2) then
+                       let x4 = x2 in
+                       let (x1,x4) = (x4,x1) in
+                       let (x1,x2,x3,x4,stack) = explode_result (x1,x4,stack) in
+                         equal_loop (x1,x2,x3,x4,stack)
+                     else
+                       let x1 = bool_to_val F in
+                       let (x2,stack) = pop_all stack in
+                         (x1,x2,x3,x4,stack)
                else
                  let x1 = Number (& (getTag x1)) in
                  if getNumber x1 = 3 then
@@ -4981,7 +4987,7 @@ val (cert,equal_loop_def,equal_loop_pre_def) = x64_compile `
               let (x2,stack) = pop_all stack in
                 (x1,x2,x3,x4,stack)
             else if RefPtrEq x1 x2 then
-              equal_loop (x2,x3,x4,stack)
+              equal_loop (x1,x2,x3,x4,stack)
             else
               let x1 = bool_to_val F in
               let (x2,stack) = pop_all stack in
@@ -4998,7 +5004,7 @@ val (equal_full_cert,equal_full_def,equal_full_pre_def) = x64_compile `
     let stack = x1::stack in
     let x3 = Number 1 in
     let stack = x3::stack in
-    let (x1,x2,x3,x4,stack) = equal_loop (x2,x3,x4,stack) in
+    let (x1,x2,x3,x4,stack) = equal_loop (x1,x2,x3,x4,stack) in
     let (x2,stack) = (HD stack, TL stack) in
     let (x3,stack) = (HD stack, TL stack) in
     let (x4,stack) = (HD stack, TL stack) in
@@ -5022,14 +5028,46 @@ val bc_equal_list_SING = prove(
   Cases \\ Cases \\ SIMP_TAC (srw_ss()) [bc_equal_def]
   \\ SRW_TAC [] [] \\ Cases_on `bc_equal_list l l'` \\ SRW_TAC [] []);
 
+val bc_equal_list_ZIP = prove(
+  ``!l l' t.
+      (LENGTH l' = LENGTH l) ==>
+      ((case bc_equal_list l' l of
+          Eq_val T => bc_equal_list (MAP FST t) (MAP SND t)
+        | Eq_val F => Eq_val F
+        | Eq_closure => Eq_closure
+        | Eq_type_error => Eq_type_error) =
+       bc_equal_list (MAP FST (ZIP(l',l) ++ t)) (MAP SND (ZIP(l',l) ++ t)))``,
+  Induct \\ Cases_on `l'` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1]
+  \\ SIMP_TAC (srw_ss()) [bc_equal_def] \\ REPEAT STRIP_TAC
+  \\ Cases_on `bc_equal h h'` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `b` \\ FULL_SIMP_TAC (srw_ss()) []);
+
+val FLAT_MAP_APPEND = prove(
+  ``!xs t.
+      (FLAT (MAP (\(x,y). [Number 1; y; x]) xs) ++ eq_stack t =
+       eq_stack ((MAP (\(x,y). (y,x)) xs) ++ t))``,
+  Induct \\ ASM_SIMP_TAC (srw_ss()) [FORALL_PROD,eq_stack_def]);
+
+val MAP_ZIP_SWAP = prove(
+  ``!xs ys.
+      (LENGTH xs = LENGTH ys) ==>
+      (MAP (λ(x,y). (y,x)) (ZIP (xs,ys)) = ZIP (ys,xs))``,
+  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1,ZIP,MAP]);
+
+val bc_value1_size_APPEND = prove(
+  ``!xs ys. bc_value1_size (xs ++ ys) =
+            bc_value1_size xs + bc_value1_size ys``,
+  Induct \\ ASM_SIMP_TAC std_ss [bc_value_size_def,APPEND,ADD_ASSOC]);
+
 val equal_loop_thm = prove(
-  ``!xs res x2 x3 x4 stack.
+  ``!xs res x1 x2 x3 x4 stack.
       (bc_equal_list (MAP FST xs) (MAP SND xs) <> Eq_type_error) ==>
       ?x2i x3i x4i.
-        equal_loop_pre (x2,x3,x4,eq_stack xs ++ stack) /\
-        (equal_loop (x2,x3,x4,eq_stack xs ++ stack) =
+        equal_loop_pre (x1,x2,x3,x4,eq_stack xs ++ stack) /\
+        (equal_loop (x1,x2,x3,x4,eq_stack xs ++ stack) =
            (bc_equality_result_to_val
               (bc_equal_list (MAP FST xs) (MAP SND xs)),x2i,x3i,x4i,stack))``,
+
   STRIP_TAC \\ completeInduct_on `bc_value1_size (MAP FST xs)`
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
   \\ Cases_on `xs` \\ SIMP_TAC std_ss [eq_stack_def,APPEND]
@@ -5071,7 +5109,15 @@ val equal_loop_thm = prove(
       \\ Cases_on `n = 3` \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC)
     \\ Cases_on `n = 3` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
     \\ SIMP_TAC std_ss [explode_result_def,getContent_def]
-    \\ cheat)
+    \\ REVERSE (Cases_on `LENGTH l' = LENGTH l`)
+    \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
+    \\ FULL_SIMP_TAC std_ss [bc_equal_list_ZIP,APPEND_ASSOC]
+    \\ FULL_SIMP_TAC std_ss [FLAT_MAP_APPEND,MAP_ZIP_SWAP]
+    \\ SEP_I_TAC "equal_loop" \\ POP_ASSUM MP_TAC
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+     (FULL_SIMP_TAC std_ss [MAP_FST_ZIP,MAP_APPEND]
+      \\ FULL_SIMP_TAC std_ss [bc_value_size_def,bc_value1_size_APPEND]
+      \\ DECIDE_TAC) \\ FULL_SIMP_TAC std_ss [])
   \\ Cases_on `r` \\ Cases_on `q`
   \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def,isBlock_def]
   \\ FULL_SIMP_TAC (srw_ss()) [bc_equal_def,pop_all_eq_stack,RefPtrEq_def]
@@ -5436,6 +5482,64 @@ val x64_code_APPEND = prove(
       x64_code (p + SUM (MAP x64_length xs1)) xs2``,
   Induct \\ SIMP_TAC std_ss [APPEND,x64_code_def,MAP,SUM,WORD_ADD_0]
   \\ ASM_SIMP_TAC std_ss [APPEND_ASSOC,LEFT_ADD_DISTRIB,ADD_ASSOC]);
+
+
+(* number equality *)
+
+val (_,array_eq_def,array_eq_pre_def) = x64_compile `
+  array_eq (r0:word64,r14:word64,r15:word64,dm:word64 set,m:word64->word64) =
+    if r0 = 0w then let r0 = 4w in (r0,r14,r15,dm,m) else
+      let r12 = m r14 in
+      let r13 = m r15 in
+        if r12 <> r13 then
+          let r0 = 0w in (r0,r14,r15,dm,m)
+        else
+          let r0 = r0 - 1w in
+          let r14 = r14 + 8w in
+          let r15 = r15 + 8w in
+            array_eq (r0,r14,r15,dm,m)`
+
+val (num_eq_cert,num_eq_def,num_eq_pre_def) = x64_compile `
+  num_eq (r0:word64,r1,r12:word64,r13,dm:word64 set,m:word64->word64,ss) =
+    let r14 = r0 + 1w in
+    let r15 = r1 + 1w in
+    let ss = r12::ss in
+    let ss = r13::ss in
+    let r12 = m r14 in
+    let r13 = m r15 in
+      if r12 <> r13 then
+        let (r13,ss) = (HD ss, TL ss) in
+        let (r12,ss) = (HD ss, TL ss) in
+        let r0 = 0w in
+          (r0,r1,r12,r13,dm,m,ss)
+      else
+        let r0 = r12 >>> 16 in
+        let r14 = r14 + 8w in
+        let r15 = r15 + 8w in
+        let (r0,r14,r15,dm,m) = array_eq (r0,r14,r15,dm,m) in
+        let (r13,ss) = (HD ss, TL ss) in
+        let (r12,ss) = (HD ss, TL ss) in
+          (r0,r1,r12,r13,dm,m,ss)`
+
+val array_eq_thm = prove(
+  ``!xs ys a b p.
+      (LENGTH ys = LENGTH xs) /\ LENGTH xs < dimword(:64) /\
+      (a && 0x7w = 0x0w) /\ (b && 0x7w = 0x0w) /\
+      (one_list a xs * one_list b ys * p) (fun2set (m,dm)) ==>
+      ?r14' r15'.
+        array_eq_pre (n2w (LENGTH xs), a, b, dm, m) /\
+        (array_eq (n2w (LENGTH xs), a, b, dm, m) =
+          (if xs = ys then 4w else 0w, r14', r15', dm, m))``,
+  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1]
+  \\ ONCE_REWRITE_TAC [array_eq_def,array_eq_pre_def]
+  \\ SIMP_TAC std_ss [CONS_11,n2w_11,ZERO_LT_dimword,LET_DEF,one_list_def]
+  \\ REPEAT STRIP_TAC
+  \\ SEP_R_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ Cases_on `h' = h` \\ FULL_SIMP_TAC std_ss []
+  \\ SIMP_TAC std_ss [GSYM word_add_n2w,WORD_ADD_SUB]
+  \\ SEP_I_TAC "array_eq"
+  \\ `LENGTH xs < dimword (:64)` by DECIDE_TAC
+  \\ SEP_F_TAC \\ FULL_SIMP_TAC std_ss [blast_align_lemma]);
 
 
 val _ = export_theory();
