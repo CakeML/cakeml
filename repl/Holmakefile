@@ -2,7 +2,7 @@ INCLUDES=.. ../semantics ../parsing ../inference ../compiler ../bytecode
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
-HOLHEAP = impl_heap
+HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 SEM_BARE_THYS = AstTheory \

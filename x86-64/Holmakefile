@@ -1,5 +1,5 @@
 INCLUDES = ../bytecode/ \
-           ../implementation/ \
+           ../repl/ \
            $(HOLDIR)/examples/machine-code/x64_compiler \
            $(HOLDIR)/examples/machine-code/decompiler \
            $(HOLDIR)/examples/machine-code/hoare-triple \

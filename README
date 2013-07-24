@@ -45,18 +45,26 @@ Directory structure:
 - compiler/proofs
     Verification of the compiler.
 
-- implementation
-    The REPL implementation in HOL, including
-      - definition of repl_fun : string -> repl_result
-      - the bootstrapping
-
-- impl_proofs
-    The correctness proof for the REPL implementation.
+- repl
+    The REPL implementation in HOL.
+    Defines repl_fun : string -> repl_result.
+    Also includes some machinery for evaluating repl_fun in the logic.
+- repl/proofs
+    The correctness proof for repl_fun.
+- repl/examples
+    Examples of evaluating repl_fun in the logic.
 
 - translator
     A proof-producing translator from HOL functions to CakeML.
 - translator/repl
-    A run of the translator on the CakeML compiler.
+    A run of the translator on the translatable part of repl_fun.
+- translator/repl/proofs
+    Theorem about the correctness of the result of bootstrapping the above, as
+    done below.
+
+- bootstrap
+    Evaluation of the compiler on the deep embedding of repl_fun produced by
+    the translator.
 
 - x86-64
     (Work towards an) x86-64 implementation of repl_fun.

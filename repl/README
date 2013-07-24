@@ -11,8 +11,4 @@ repl_computeLib.sml
     Code to set up HOL's evaluation-in-the-logic for the implementation.
 
 repl_compiteScript.sml
-    Definitions and theorems that  repl_computeLib.sml uses.
-
-bootstrap:
-    Evaluate the compiler on itself in the logic.
-    NB, seems to require 32GB of RAM to complete.
+    Definitions and theorems that repl_computeLib.sml uses.
