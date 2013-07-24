@@ -2,6 +2,7 @@ module Ast where
 import Data.Map as Map
 import Data.List as List
 import Data.Maybe as Maybe
+import Text.Parsec.Pos (SourcePos, initialPos)
 
 newtype Env k v = Env (Map k v)
 
@@ -17,11 +18,11 @@ merge (Env m1) (Env m2) = Env (Map.union m1 m2)
 bind :: Ord k => k -> v -> Env k v -> Env k v
 bind k v (Env m) = Env (Map.insert k v m)
 
-distinct :: (Eq a, Ord a) => [a] -> Bool
-distinct ls = check (sort ls)
-  where check [] = True
-        check [x] = True
-        check (x:y:zs) = if x == y then False else check (y:zs)
+getDup :: (Eq a, Ord a) => [a] -> Maybe a
+getDup ls = check (sort ls)
+  where check [] = Nothing
+        check [x] = Nothing
+        check (x:y:zs) = if x == y then Just x else check (y:zs)
 
 listToEnv :: Ord k => [(k,v)] -> Env k v
 listToEnv l = Env (Map.fromList l)
@@ -57,29 +58,101 @@ opb_lookup Leq = (<=)
 opb_lookup Geq = (>=)
 
 data Op = 
-    Opn Opn
-  | Opb Opb
-  | Equality
+    Opn Opn SourcePos
+  | Opb Opb SourcePos
+  | Equality SourcePos
   | Opapp
-  | Opassign
+  | Opassign SourcePos
 
-data Uop = Opref | Opderef
+data Uop = Opref SourcePos | Opderef
 
-data Lop = And | Or
+class HasPos a where
+  getPos :: a -> SourcePos
 
-type ModN = String
+data Lop = And SourcePos | Or SourcePos
+
+instance HasPos Lop where
+  getPos (And p) = p
+  getPos (Or p) = p
+
+data ModN = ModN String SourcePos
+
+instance HasPos ModN where
+  getPos (ModN _ p) = p
+
+instance Eq ModN where
+  (==) (ModN x _) (ModN y _) = x == y
+
+instance Ord ModN where
+  compare (ModN x _) (ModN y _) = compare x y
+
+instance Show ModN where
+  show (ModN x _) = x
 
 data Id a = Short a
           | Long ModN a
   deriving (Eq, Ord)
 
-type VarN = String
+instance HasPos a => HasPos (Id a) where
+  getPos (Long m a) = getPos a
+  getPos (Short a) = getPos a
 
-type ConN = String
+instance Show a => Show (Id a) where
+  show (Short x) = show x
+  show (Long x y) = show x ++ "." ++ show y
 
-type TypeN = String
+data VarN = VarN String SourcePos
 
-type TvarN = String
+instance HasPos VarN where
+  getPos (VarN _ p) = p
+
+instance Eq VarN where
+  (==) (VarN x _) (VarN y _) = x == y
+
+instance Ord VarN where
+  compare (VarN x _) (VarN y _) = compare x y
+
+instance Show VarN where
+  show (VarN x _) = x
+
+data ConN = ConN String SourcePos
+
+instance HasPos ConN where
+  getPos (ConN _ p) = p
+
+instance Eq ConN where
+  (==) (ConN x _) (ConN y _) = x == y
+
+instance Ord ConN where
+  compare (ConN x _) (ConN y _) = compare x y
+
+instance Show ConN where
+  show (ConN x _) = x
+
+data TypeN = TypeN String SourcePos
+
+instance Eq TypeN where
+  (==) (TypeN x _) (TypeN y _) = x == y
+
+instance Ord TypeN where
+  compare (TypeN x _) (TypeN y _) = compare x y
+
+instance Show TypeN where
+  show (TypeN x _) = x
+
+data TvarN = TvarN String SourcePos
+
+instance HasPos TvarN where
+  getPos (TvarN _ p) = p
+
+instance Eq TvarN where
+  (==) (TvarN x _) (TvarN y _) = x == y
+
+instance Ord TvarN where
+  compare (TvarN x _) (TvarN y _) = compare x y
+
+instance Show TvarN where
+  show (TvarN x _) = x
 
 mk_id :: Maybe ModN -> a -> Id a
 mk_id Nothing n = Short n
@@ -95,6 +168,15 @@ data Tc =
   | TC_tup
   deriving Eq
 
+instance Show Tc where
+  show (TC_name n) = show n
+  show TC_int = "int"
+  show TC_bool = "bool"
+  show TC_unit = "unit"
+  show TC_ref = "ref"
+  show TC_fn = "->"
+  show TC_tup = "*"
+
 data T = 
     Tvar TvarN
   | Tvar_db Integer
@@ -109,9 +191,9 @@ tfn t1 t2 = Tapp [t1,t2] TC_fn
 
 data Pat = 
     Pvar VarN
-  | Plit Lit
-  | Pcon (Maybe (Id ConN)) [Pat]
-  | Pref Pat
+  | Plit Lit SourcePos
+  | Pcon (Maybe (Id ConN)) [Pat] SourcePos
+  | Pref Pat SourcePos
 
 data Error = 
     Bind_error
@@ -122,10 +204,10 @@ data Error =
 data Exp = 
     Raise Error
   | Handle Exp VarN Exp
-  | Lit Lit
-  | Con (Maybe (Id ConN)) [Exp]
+  | Lit Lit SourcePos
+  | Con (Maybe (Id ConN)) [Exp] SourcePos
   | Var (Id VarN)
-  | Fun VarN Exp
+  | Fun VarN Exp SourcePos
   | Uapp Uop Exp
   | App Op Exp Exp
   | Log Lop Exp Exp
@@ -158,25 +240,25 @@ type Prog = [Top]
 
 pat_bindings :: Pat -> [VarN] -> [VarN]
 pat_bindings (Pvar n) already_bound = n:already_bound
-pat_bindings (Plit l) already_bound = already_bound
-pat_bindings (Pcon _ ps) already_bound = pats_bindings ps already_bound
-pat_bindings (Pref p) already_bound = pat_bindings p already_bound
+pat_bindings (Plit l _) already_bound = already_bound
+pat_bindings (Pcon _ ps _) already_bound = pats_bindings ps already_bound
+pat_bindings (Pref p _) already_bound = pat_bindings p already_bound
 pats_bindings [] already_bound = already_bound
 pats_bindings (p:ps) already_bound = pats_bindings ps (pat_bindings p already_bound)
 
 data Ast_pat = 
     Ast_Pvar VarN
-  | Ast_Plit Lit
-  | Ast_Pcon (Maybe (Id ConN)) [Ast_pat]
-  | Ast_Pref Ast_pat
+  | Ast_Plit Lit SourcePos
+  | Ast_Pcon (Maybe (Id ConN)) [Ast_pat] SourcePos
+  | Ast_Pref Ast_pat SourcePos
 
 data Ast_exp =
     Ast_Raise Error
   | Ast_Handle Ast_exp VarN Ast_exp
-  | Ast_Lit Lit
+  | Ast_Lit Lit SourcePos
   | Ast_Var (Id VarN)
-  | Ast_Con (Maybe (Id ConN)) [Ast_exp]
-  | Ast_Fun VarN Ast_exp
+  | Ast_Con (Maybe (Id ConN)) [Ast_exp] SourcePos
+  | Ast_Fun VarN Ast_exp SourcePos
   | Ast_App Ast_exp Ast_exp
   | Ast_Log Lop Ast_exp Ast_exp
   | Ast_If Ast_exp Ast_exp Ast_exp
@@ -215,14 +297,14 @@ type Ctor_env = Env ConN (Id ConN)
 
 elab_p :: Ctor_env -> Ast_pat -> Pat
 elab_p ctors (Ast_Pvar n) = Pvar n
-elab_p ctors (Ast_Plit l) = Plit l
-elab_p ctors (Ast_Pcon (Just (Short cn)) ps) =
+elab_p ctors (Ast_Plit l pos) = Plit l pos
+elab_p ctors (Ast_Pcon (Just (Short cn)) ps pos) =
   case Ast.lookup cn ctors of
-     Just cid -> Pcon (Just cid) (elab_ps ctors ps)
-     Nothing -> Pcon (Just (Short cn)) (elab_ps ctors ps)
-elab_p ctors (Ast_Pcon cn ps) =
-  Pcon cn (elab_ps ctors ps)
-elab_p ctors (Ast_Pref p) = Pref (elab_p ctors p)
+     Just cid -> Pcon (Just cid) (elab_ps ctors ps) pos
+     Nothing -> Pcon (Just (Short cn)) (elab_ps ctors ps) pos
+elab_p ctors (Ast_Pcon cn ps pos) =
+  Pcon cn (elab_ps ctors ps) pos
+elab_p ctors (Ast_Pref p pos) = Pref (elab_p ctors p) pos
 elab_ps ctors [] = []
 elab_ps ctors (p:ps) = elab_p ctors p : elab_ps ctors ps
 
@@ -240,18 +322,18 @@ elab_prog :: Tdef_env -> Ctor_env -> [Ast_top] -> (Tdef_env, Ctor_env, Prog)
 elab_e ctors (Ast_Raise err) = Raise err
 elab_e ctors (Ast_Handle e1 x e2) =
   Handle (elab_e ctors e1) x (elab_e ctors e2)
-elab_e ctors (Ast_Lit l) =
-  Lit l
+elab_e ctors (Ast_Lit l pos) =
+  Lit l pos
 elab_e ctors (Ast_Var id) =
   Var id
-elab_e ctors (Ast_Con (Just (Short cn)) es) =
+elab_e ctors (Ast_Con (Just (Short cn)) es pos) =
   case Ast.lookup cn ctors of
-    Just cid -> Con (Just cid) (List.map (elab_e ctors) es)
-    Nothing -> Con (Just (Short cn)) (List.map (elab_e ctors) es)
-elab_e ctors (Ast_Con cn es) =
-  Con cn (List.map (elab_e ctors) es)
-elab_e ctors (Ast_Fun n e) =
-  Fun n (elab_e ctors e)
+    Just cid -> Con (Just cid) (List.map (elab_e ctors) es) pos
+    Nothing -> Con (Just (Short cn)) (List.map (elab_e ctors) es) pos
+elab_e ctors (Ast_Con cn es pos) =
+  Con cn (List.map (elab_e ctors) es) pos
+elab_e ctors (Ast_Fun n e pos) =
+  Fun n (elab_e ctors e) pos
 elab_e ctors (Ast_App e1 e2) =
   App Opapp (elab_e ctors e1) (elab_e ctors e2)
 elab_e ctors (Ast_Log lop e1 e2) =
@@ -339,4 +421,14 @@ check_dup_ctors mn_opt cenv tds =
   List.all (\(tvs,tn,condefs) ->
                List.all (\(n,ts) -> Maybe.isNothing (Ast.lookup (mk_id mn_opt n) cenv)) condefs)
            tds &&
-  distinct (let x2 = ([]) in List.foldr (\(tvs, tn, condefs) x2 -> List.foldr (\(n, ts) x2 ->  if True then n : x2 else x2) x2 condefs) x2 tds)
+  isNothing (getDup (List.foldr (\(tvs, tn, condefs) x2 -> List.foldr (\(n, ts) x2 ->  if True then n : x2 else x2) x2 condefs) [] tds))
+
+dummy_pos = initialPos "initial_env"
+
+init_elab_env =
+  listToEnv
+    (List.map (\(x,y) -> (TypeN x dummy_pos, y))
+      [("int", TC_int),
+       ("bool", TC_bool),
+       ("ref", TC_ref),
+       ("unit", TC_unit)])

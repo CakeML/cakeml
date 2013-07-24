@@ -24,3 +24,4 @@ data Token =
   | SymbolT String
   | LongidT String String
   deriving (Eq,Show)
+-- TODO improve Show
