@@ -40,8 +40,11 @@ data Lit =
     IntLit Integer
   | Bool Bool
   | Unit
+  deriving Eq
 
 data Opn = Plus | Minus | Times | Divide | Modulo
+  deriving Eq
+
 data Opb = Lt | Gt | Leq | Geq
 
 opn_lookup :: Opn -> Integer -> Integer -> Integer
