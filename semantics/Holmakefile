@@ -1,6 +1,14 @@
 OPTIONS = QUIT_ON_FAILURE
 INCLUDES = $(HOLDIR)/examples/parsing/ ..
 
+SRCL = lib tokens ast elab semanticPrimitives smallStep bigStep typeSystem altBigStep
+SRCU = Lib Tokens Ast Elab SemanticPrimitives SmallStep BigStep TypeSystem AltBigStep
+LEMS = $(patsubst %,%.lem,$(SRCL))
+GENS = $(patsubst %,%Script.sml,$(SRCU))
+
+$(GENS): hol_lib.lem $(LEMS)
+	lem -extra_level none -hol_lib hol_lib.lem $(patsubst %,-hol %,$(LEMS))
+
 ifdef POLY
 HOLHEAP = sem_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
