@@ -7,10 +7,10 @@ import Text.Parsec.Prim
 import Text.Parsec.Combinator
 import Text.Parsec.Char
 
-single_char_symbol = oneOf "()[];,_"
+single_char_symbol = oneOf "()[]{},;"
 
 -- TODO: symbol_char seems too permissive
-symbol_char = oneOf "!\"#$%&'*+-/:<=>?@\\^`{|}~"
+symbol_char = oneOf "!%&$#+-/:<=>?@\\~`^|*"
 
 string_char =
   (try (string "\\\\") >> return '\\')
@@ -43,11 +43,15 @@ next_token =
   do digits <- many1 digit;
      return (IntT (read digits))
   <|>
+  try (do (char '~');
+          digits <- many1 digit;
+          return (IntT (0-read digits)))
+  <|>
   do id1 <- alpha_ident;
      option (get_token_alpha id1) (char '.' >> do id2 <- ident; return (LongidT id1 id2))
   <|>
   do char '\'';
-     tvar <- many1 alphaNum;
+     tvar <- many (alphaNum <|> oneOf "'_");
      return (TyvarT ('\'':tvar))
   <|>
   fmap StringT (between (char '"') (char '"') (many string_char))

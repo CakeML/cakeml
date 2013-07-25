@@ -26,11 +26,10 @@ val read_while_def = Define `
             else (IMPLODE (REVERSE s),STRING c cs))`;
 
 val is_single_char_symbol_def = Define `
-  is_single_char_symbol c = MEM c "()[];,_"`;
+  is_single_char_symbol c = MEM c "()[]{},;"`;
 
 val isSymbol_def = Define `
-  isSymbol c = (~(isSpace c) /\ ~(isDigit c) /\ ~(isAlpha c) /\
-                ~is_single_char_symbol c /\ ORD #" " < ORD c /\ c <> #".")`;
+  isSymbol c = MEM c (CHR 96 :: "!%&$#+-/:<=>?@\\~^|*")`;
 
 val read_string_def = tDefine "read_string" `
   read_string str s =
@@ -92,6 +91,7 @@ val isAlphaNumPrime_def = Define`
   isAlphaNumPrime c <=> isAlphaNum c \/ c = #"'" ∨ c = #"_"
 `
 
+(*
 val moduleRead_def = Define`
   moduleRead initP c s =
     let (n,rest) = read_while initP s [c]
@@ -114,7 +114,6 @@ val moduleRead_def = Define`
                     (OtherS (n ++ "." ++ n2), rest'')
           else (OtherS n, rest)
 `
-
 val moduleRead_thm = store_thm(
   "moduleRead_thm",
   ``!s tk r. (moduleRead P c s = (tk, r)) ==> STRLEN r <= STRLEN s``,
@@ -146,6 +145,10 @@ val moduleRead_thm = store_thm(
     by METIS_TAC [TypeBase.nchotomy_of ``:'a # 'b``] THEN
   SRW_TAC [][] THEN IMP_RES_TAC read_while_thm THEN
   FULL_SIMP_TAC (srw_ss() ++ ARITH_ss) [])
+  *)
+
+val isLongidChar_def = Define `
+isLongidChar c = (isAlphaNumPrime c ∨ isSymbol c ∨ (c = #"."))`;
 
 val next_sym_def = tDefine "next_sym" `
   (next_sym "" = NONE) /\
@@ -155,11 +158,11 @@ val next_sym_def = tDefine "next_sym" `
      else if isDigit c then (* read number *)
        let (n,rest) = read_while isDigit str [] in
          SOME (NumberS (num_from_dec_string (c::n)), rest)
-     else if isAlpha c then (* read alpha-numeric identifier/keyword *)
-       let (n,rest) = moduleRead isAlphaNumPrime c str in
-         SOME (n, rest)
+     else if c = #"~" ∧ str ≠ "" ∧ isDigit (HD str) then (* read negative number *)
+       let (n,rest) = read_while isDigit str [] in
+         SOME (NumberS (0-num_from_dec_string n), rest)
      else if c = #"'" then (* read type variable *)
-       let (n,rest) = read_while isAlphaNum str [c] in
+       let (n,rest) = read_while isAlphaNumPrime str [c] in
          SOME (OtherS n, rest)
      else if c = #"\"" then (* read string *)
        let (t,rest) = read_string str "" in
@@ -170,15 +173,14 @@ val next_sym_def = tDefine "next_sym" `
        case skip_comment (TL str) 0 of
        | NONE => SOME (ErrorS, "")
        | SOME rest => next_sym rest
-     else if is_single_char_symbol c then (* single character tokens *)
+     else if is_single_char_symbol c then (* single character tokens, i.e. delimiters *)
        SOME (OtherS [c], str)
-     else if isSymbol c then (* read symbol identifier *)
-       let (n,rest) = moduleRead isSymbol c str in
-         SOME (n, rest)
+     else if isLongidChar c then (* read identifier *)
+       let (n,rest) = read_while isLongidChar str [c] in
+         SOME (OtherS n, rest)
      else (* input not recognised *)
        SOME (ErrorS, str))`
   (WF_REL_TAC `measure LENGTH` THEN REPEAT STRIP_TAC
-   THEN IMP_RES_TAC (GSYM moduleRead_thm)
    THEN IMP_RES_TAC (GSYM read_while_thm)
    THEN IMP_RES_TAC (GSYM read_string_thm)
    THEN IMP_RES_TAC skip_comment_thm THEN Cases_on `str`
@@ -198,7 +200,6 @@ val next_sym_LESS = prove(
   THEN TRY (POP_ASSUM MP_TAC THEN Q.PAT_ABBREV_TAC `pat = skip_comment ttt 0`
     THEN Cases_on `pat` THEN FULL_SIMP_TAC std_ss [markerTheory.Abbrev_def])
   THEN REPEAT STRIP_TAC THEN IMP_RES_TAC (GSYM skip_comment_thm)
-  THEN IMP_RES_TAC moduleRead_thm
   THEN FULL_SIMP_TAC (srw_ss()) [LENGTH]
   THEN TRY (Q.PAT_ASSUM `xx = rest` (ASSUME_TAC o GSYM))
   THEN FULL_SIMP_TAC std_ss [LENGTH] THEN DECIDE_TAC);
@@ -210,6 +211,7 @@ val next_sym_LESS = prove(
 
 *)
 
+(*
 val splitAtP_def = Define`
   splitAtP P [] k = k [] [] ∧
   splitAtP P (h::t) k = if P h then k [] (h::t)
@@ -227,6 +229,35 @@ val moduleSplit_def = Define`
                    | _::t => if MEM #"." t then LexErrorT
                              else LongidT p t)
 `
+*)
+
+val processIdent_def = Define `
+  processIdent s =
+    case s of
+       | "" => LexErrorT
+       | #"'"::_ => LexErrorT
+       | c::s => 
+           if isAlphaNum c then
+             if EVERY isAlphaNumPrime s then
+               AlphaT s
+             else
+               LexErrorT
+           else if EVERY isSymbol (c::s) then
+             SymbolT s
+           else
+             LexErrorT`;
+
+val processLongIdent_def = Define`
+  processLongIdent s =
+    let (id1,id2) = SPLITP (\c. c = #".") s in
+      case id2 of
+        | [] => processIdent id1 (* No . in s *)
+        | #"."::id2 =>
+            if (processIdent id1 = LexErrorT) ∨ (processIdent id2 = LexErrorT) then
+              LexErrorT
+            else
+              LongidT id1 id2
+        | _ => LexErrorT`;
 
 val get_token_def = Define `
   get_token s =
@@ -283,7 +314,7 @@ val get_token_def = Define `
     if s = "with" then WithT else
     if s = "withtype" then WithtypeT else
     if HD s = #"'" then TyvarT s else
-    moduleSplit s`;
+    processLongIdent s`;
 
 val token_of_sym_def = Define `
   token_of_sym s =
