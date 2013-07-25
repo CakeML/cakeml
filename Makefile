@@ -20,13 +20,3 @@ clean:
 	cd compiler; Holmake cleanAll
 	cd compiler/tests; Holmake cleanAll
 	cd compiler/proofs; Holmake cleanAll
-
-all_lem:
-	make -C semantics
-	make -C metatheory
-	make -C translator
-
-clean_lem:
-	make -C semantics clean
-	make -C metatheory clean
-	make -C translator clean
