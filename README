@@ -79,3 +79,6 @@ Directory structure:
 
 - clockScript.sml
     A proof outline of our divergence preservation technique.
+
+- COPYING
+    Copyright notice, license, and disclaimer.
