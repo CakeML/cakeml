@@ -1,6 +1,16 @@
 INCLUDES=.. ../semantics
 OPTIONS = QUIT_ON_FAILURE
 
+SEMI = lib tokens ast semanticPrimitives smallStep bigStep typeSystem
+SRCL = bigSmallInvariants typeSoundInvariants
+SRCU = BigSmallInvariants TypeSoundInvariants
+LEMI = $(patsubst %,../semantics/%.lem,$(SEMI))
+LEMS = $(patsubst %,%.lem,$(SRCL))
+GENS = $(patsubst %,%Script.sml,$(SRCU))
+
+$(GENS) : ../semantics/hol_lib.lem $(LEMI) $(LEMS)
+	lem -extra_level none -hol_lib ../semantics/hol_lib.lem $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMS))
+
 ifdef POLY
 HOLHEAP = meta_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
