@@ -1,0 +1,14 @@
+This directory contains the implementation of the CakeML REPL as a HOL
+function.
+
+repl_funScript.sml
+    Define the read-eval-print loop
+
+repl_fun_altScript.sml
+    Defines an alternate REPL that is better for machine code implementation
+
+repl_computeLib.sml
+    Code to set up HOL's evaluation-in-the-logic for the implementation.
+
+repl_compiteScript.sml
+    Definitions and theorems that repl_computeLib.sml uses.

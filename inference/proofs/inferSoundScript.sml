@@ -1767,19 +1767,18 @@ rw [] >|
  `t_wfs st''.subst ∧ t_wfs (st'' with subst := s).subst`
             by (rw [] >>
                 metis_tac [infer_e_wfs, t_unify_wfs]) >>
-     `t_wfs st''''.subst` by metis_tac [infer_e_wfs] >>
+     `t_wfs st'''.subst` by metis_tac [infer_e_wfs] >>
      `check_t 0 (count st''.next_uvar) t ∧ check_t 0 (count st''.next_uvar) (Infer_Tapp [] TC_int)` 
                 by (rw [check_t_def] >>
                     metis_tac [infer_e_check_t]) >>
      `check_env (count (st'' with subst:=s).next_uvar) (bind x (0,Infer_Tapp [] TC_int) env)`
                  by (rw [check_env_bind] >>
                      metis_tac [check_env_more, infer_e_next_uvar_mono]) >>
-     `check_t 0 (count st''''.next_uvar) t ∧ check_t 0 (count st''''.next_uvar) t2` 
+     `check_t 0 (count st'''.next_uvar) t ∧ check_t 0 (count st'''.next_uvar) t2` 
                 by metis_tac [infer_e_next_uvar_mono, check_t_more4, infer_e_check_t, infer_st_rewrs] >>
      `check_s tvs (count st''.next_uvar) st''.subst`
            by metis_tac [t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0, infer_st_rewrs] >>
-     `check_s tvs (count st''.next_uvar) s` by metis_tac [t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
-     `check_s tvs (count st''''.next_uvar) st''''.subst`
+     `check_s tvs (count st'''.next_uvar) st'''.subst`
            by metis_tac [check_t_more2, arithmeticTheory.ADD_0, infer_st_rewrs] >>
      metis_tac [t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0, infer_st_rewrs],
  metis_tac [check_s_more2, DECIDE ``x ≤ x + y:num``],
@@ -2529,20 +2528,20 @@ rw [Tbool_def, Tint_def, Tunit_def] >|
      `num_tvs tenv = num_tvs (bind_tenv x 0 (convert_t (t_walkstar s (Infer_Tapp [] TC_int))) tenv)`
              by rw [bind_tenv_def, num_tvs_def] >>
      fs [bind_tenv_def] >>
-     `check_env (count (st'' with subst := s').next_uvar) env`
+     `check_env (count st''.next_uvar) env`
                 by (fs [] >>
                     metis_tac [check_env_more, infer_e_next_uvar_mono]) >>
      `t_wfs st''.subst` by metis_tac [infer_e_wfs] >>
+     `t_wfs st'''.subst` by metis_tac [infer_e_wfs] >>
      imp_res_tac sub_completion_unify2 >>
-     `t_wfs (st'' with subst := s').subst`
+     `t_wfs (st''' with subst := s').subst`
                   by (rw [] >> metis_tac [t_unify_wfs]) >>
      `type_e (convert_menv menv) cenv (Bind_name x 0 (convert_t (t_walkstar s (Infer_Tapp [] TC_int))) tenv) e'
              (convert_t (t_walkstar s t2))` 
                    by metis_tac [] >>
-     `t_wfs st''''.subst` by metis_tac [infer_e_wfs] >>
      `t_wfs s` by metis_tac [t_unify_wfs, sub_completion_wfs] >>
      imp_res_tac t_unify_apply >>
-     `t_wfs s''` by metis_tac [t_unify_wfs] >>
+     `t_wfs s'` by metis_tac [t_unify_wfs] >>
      `t_walkstar s t = t_walkstar s t2` by metis_tac [sub_completion_apply] >>
      fs [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t_def],
  (* Lit bool *)

@@ -1,4 +1,4 @@
-INCLUDES = $(HOLDIR)/src/emit/ML ../../translator ../bytecode ..
+INCLUDES = $(HOLDIR)/src/emit/ML ../../translator ../../bytecode ..
 OPTIONS = QUIT_ON_FAILURE
 
 EXTRA_CLEANS = selftest.exe
@@ -11,7 +11,7 @@ HOLHEAP = heap
 PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../bytecode/bytecodeEvalTheory\
+BARE_THYS = ../../bytecode/bytecodeEvalTheory\
  ../compilerTerminationTheory\
  $(HOLDIR)/src/TeX/EmitTeX\
  $(HOLDIR)/src/emit/basis_emitTheory\

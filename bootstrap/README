@@ -1,4 +1,5 @@
-Files which bootstrap the verified compiler
+Files which bootstrap the verified compiler.
+NB, may require 32GB of RAM to complete.
 
 compile_oneshotScript.sml
     evaluate the compiler applied to itself

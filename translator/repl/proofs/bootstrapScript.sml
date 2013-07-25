@@ -1,10 +1,11 @@
 open HolKernel bossLib boolLib boolSimps lcsymtacs ml_translatorLib ml_translatorTheory miscLib rich_listTheory
-open compilerTerminationTheory toIntLangProofsTheory toBytecodeProofsTheory compilerProofsTheory ml_repl_stepTheory oneshotTheory compile_oneshotTheory sideTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeTerminationTheory bootstrap_lemmaTheory
+open compilerTerminationTheory semanticsExtraTheory toIntLangProofsTheory toBytecodeProofsTheory compilerProofsTheory ml_repl_stepTheory oneshotTheory sideTheory BytecodeTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeTerminationTheory bootstrap_lemmaTheory
 val _ = new_theory"bootstrap"
 
-val _ = Globals.max_print_depth := 25
-
 val _ = translation_extends"ml_repl_step"
+
+(*
+val _ = Globals.max_print_depth := 25
 
 val bootstrap_result_def = Define`
   bootstrap_result = ^(rhs(concl(compiled)))`
@@ -13,6 +14,13 @@ val compiled1 = ONCE_REWRITE_RULE[GSYM bootstrap_result_def]compiled
 
 val [ct,m,renv,rsz,cs] =
 compiled1 |> concl |> lhs |> rator |> rand |> strip_pair
+*)
+
+val ct = ``init_compiler_state.contab``
+val m = ``<|bvars:=["input"];mvars:=FEMPTY;cnmap:=cmap(^ct)|>``
+val cs = ``<|out:=[];next_label:=init_compiler_state.rnext_label|>``
+val renv = ``[CTDec 0]``
+val rsz = ``1:num``
 
 val no_closures_all_vlabs = store_thm("no_closures_all_vlabs",
   ``∀v. ¬contains_closure v ⇒ all_vlabs (v_to_Cv mv m v)``,
@@ -104,9 +112,11 @@ val no_locs_Cv_bv = store_thm("no_locs_Cv_bv",
     metis_tac[MEM_EL])
 *)
 
+(*
 val result_state = EVAL``let (ct,m,renv,rsz,cs) = bootstrap_result in (rsz,LENGTH m.bvars,m.bvars)``
 
 val ndecs = rand(rator(rhs(concl result_state)))
+*)
 
 val HD_new_vs_oneshot_decs = prove(
   ``∃xs. new_decs_vs oneshot_decs = "it"::xs``,
@@ -121,13 +131,15 @@ val check_dup_ctors_oneshot_decs = ``
         check_dup_ctors NONE (decs_to_cenv NONE (TAKE i oneshot_decs))
               tds)``
 
+val bootstrap_result = ``compile_decs NONE FEMPTY ^ct ^m ^renv ^rsz ^cs oneshot_decs``
+
 val oneshot_thm = store_thm("oneshot_thm",
   ``∀i s cenv env.
       evaluate_decs NONE [] [] [] [("input",i)] oneshot_decs (s,cenv,Rval env) ∧
       ^FV_decs_oneshot_decs ∧ ^decs_cns_oneshot_decs ∧ ^check_dup_ctors_oneshot_decs ∧
       closed [] i ∧ all_cns i = {} ∧ all_locs i = {} ∧ ¬(contains_closure i)
       ⇒
-      let (ct,m,renv,rsz,cs) = bootstrap_result in
+      let (ct,m,rsz,cs) = ^bootstrap_result in
       ∀bs bi pp.
         bs.code = REVERSE cs.out
       ∧ bs.pc = 0
@@ -142,7 +154,7 @@ val oneshot_thm = store_thm("oneshot_thm",
       ∧ Cv_bv (mk_pp rd bs') Cv bv``,
   rw[] >>
   qspecl_then[`NONE`,`[]`,`[]`,`[]`,`[("input",i)]`,`oneshot_decs`,`(s,cenv,Rval env)`]mp_tac compile_decs_thm >>
-  simp[compile_decs_FOLDL] >>
+  simp[] >>
   disch_then(CHOOSE_THEN mp_tac) >>
   disch_then(qspecl_then[`^m`,`^cs`]mp_tac) >>
   disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(fn ls => (List.drop(ls,5))@(List.take(ls,5))))) >>
@@ -150,7 +162,7 @@ val oneshot_thm = store_thm("oneshot_thm",
                         ,`bs with <|clock := SOME ck|>`]mp_tac) >>
   assume_tac(prove(``init_compiler_state.rmenv = FEMPTY``,rw[CompilerTheory.init_compiler_state_def])) >>
   assume_tac(prove(``init_compiler_state.renv = []``,rw[CompilerTheory.init_compiler_state_def])) >>
-  simp[compiled1] >>
+  simp[] >>
   disch_then(qspecl_then[`[]`,`REVERSE cs.out`]mp_tac) >>
   simp[] >>
   discharge_hyps >- (
@@ -207,10 +219,16 @@ val oneshot_thm = store_thm("oneshot_thm",
   simp[Cenv_bs_def] >> strip_tac >>
   rator_x_assum`env_renv`mp_tac >>
   simp[env_renv_def] >>
-  `rsz = ^ndecs ∧ LENGTH m.bvars = ^ndecs ∧ ∃junk. m.bvars = "it"::junk` by (
-    mp_tac result_state >> simp[] ) >>
+  `rsz = LENGTH m.bvars ∧ 2 ≤ rsz ∧ ∃junk. m.bvars = "it"::junk` by (
+    qmatch_assum_abbrev_tac`compile_decs NONE FEMPTY ct0 m0 renv0 rsz0 cs0 ds0 = X` >>
+    qspecl_then[`ds0`,`NONE`,`FEMPTY`,`ct0`,`m0`,`renv0`,`rsz0`,`cs0`]mp_tac compile_decs_append_out >>
+    simp[Abbr`X`,Abbr`m0`,Abbr`rsz0`,Abbr`renv0`] >> strip_tac >>
+    simp[] >>
+    simp[Abbr`ds0`] >>
+    simp[oneshot_decs_def,pat_bindings_def] >>
+    simp[REVERSE_APPEND]) >>
   simp[MAP_ZIP,MAP_GENLIST] >>
-  Cases_on`bvs`>>fs[] >>
+  Cases_on`bvs`>>fs[] >>rfs[]>>
   simp[EVERY2_EVERY,miscTheory.option_case_NONE_F] >>
   simp[EVERY_MEM,GSYM AND_IMP_INTRO,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
   strip_tac >>
@@ -230,7 +248,7 @@ val oneshot_thm = store_thm("oneshot_thm",
   HINT_EXISTS_TAC >>
   simp[] >>
   qexists_tac`rd'` >>
-  simp[])
+  simp[] >>fs[Abbr`bs1`])
 
 val (Eval_peic,side_def) = get_cert"parse_elaborate_infertype_compile"
 
@@ -342,7 +360,7 @@ val bootstrap_thm_lemma = prove(
         check_dup_ctors NONE (decs_to_cenv NONE (TAKE i oneshot_decs))
           tds) ∧ closed [] i ∧ all_cns i = ∅ ∧ all_locs i = ∅ ∧
      ¬contains_closure i ⇒
-     (let (ct,m,renv,rsz,cs) = bootstrap_result
+     (let (ct,m,rsz,cs) = ^bootstrap_result
       in
         ∀bs bi pp.
           bs.code = REVERSE cs.out ∧ bs.pc = 0 ∧ bs.stack = [bi] ∧
@@ -365,8 +383,10 @@ val bootstrap_thm_lemma = prove(
   rw[] >>
   imp_res_tac oneshot_thm >>
   fs[LET_THM] >>
-  Cases_on`bootstrap_result` >>
-  PairCases_on`r` >> fs[] >>
+  qmatch_assum_abbrev_tac`X Y` >>
+  Cases_on`Y` >>
+  PairCases_on`r` >> fs[markerTheory.Abbrev_def] >>
+  pop_assum(assume_tac o SYM)>>fs[]>>
   rpt BasicProvers.VAR_EQ_TAC >>
   rfs[] >>
   first_x_assum (match_mp_tac o MP_CANON) >>
@@ -417,7 +437,7 @@ closed [] i ∧ all_cns i = ∅ ∧ all_locs i = ∅ ∧ ¬contains_closure i
 
      evaluate_decs NONE [] [] [] [("input",i)] oneshot_decs (s,cenv,Rval env) ∧
 
-      (let (ct,m,renv,rsz,cs) = bootstrap_result
+      (let (ct,m,rsz,cs) = ^bootstrap_result
        in
          ∀bs bi pp.
            ∃bs' Cv bv st rd.

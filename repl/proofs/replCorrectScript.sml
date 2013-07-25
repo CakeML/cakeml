@@ -346,7 +346,7 @@ val closed_context_strip_mod_env = store_thm("closed_context_strip_mod_env",
       simp_tac(srw_ss()++DNF_ss)[] ) >>
     metis_tac[closed_SUBSET] ) >>
   conj_tac >- (
-    fs[toIntLangProofsTheory.closed_under_cenv_def] >>
+    fs[closed_under_cenv_def] >>
     simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,strip_mod_env_def] >>
     fsrw_tac[DNF_ss][MEM_MAP,SUBSET_DEF,MEM_FLAT] >>
     metis_tac[] ) >>
@@ -375,7 +375,7 @@ val closed_context_shift_menv = store_thm("closed_context_shift_menv",
   conj_tac >- metis_tac[closed_SUBSET] >>
   conj_tac >- metis_tac[closed_SUBSET] >>
   conj_tac >- (
-    fs[toIntLangProofsTheory.closed_under_cenv_def] >>
+    fs[closed_under_cenv_def] >>
     metis_tac[] ) >>
   conj_tac >- (
     rator_x_assum`closed_under_menv`mp_tac >>
@@ -1078,14 +1078,14 @@ val PrintE_thm = store_thm("PrintE_thm",
     simp[Abbr`bs1`] >>
     Cases_on`bv`>>simp[bc_eval_stack_def,Abbr`bs2`,bc_state_component_equality] >>
     EVAL_TAC >> simp[SUM_APPEND,FILTER_APPEND] >>
-    Cases_on`err`>>fs[compilerProofsTheory.err_bv_def] ) >>
+    Cases_on`err`>>fs[err_bv_def] ) >>
   `bc_fetch bs2 = SOME (JumpIf (Lab 0))` by (
     match_mp_tac bc_fetch_next_addr >>
     qexists_tac`TAKE 8 PrintE` >>
     qexists_tac`DROP 9 PrintE` >>
     simp[Abbr`bs2`,Abbr`bs1`] >>
     EVAL_TAC) >>
-  Cases_on`err`>>fs[compilerProofsTheory.err_bv_def]>>
+  Cases_on`err`>>fs[err_bv_def]>>
   TRY (
     qmatch_assum_rename_tac`bv = Number i`[] >>
     `bc_next bs2 (bump_pc bs2 with <|stack := bv::st|>)` by (
@@ -1404,7 +1404,7 @@ val PrintE_thm = store_thm("PrintE_thm",
   fs[] >>
   EVAL_TAC)
 
-val and_shadow_def = Define`and_shadow = $/\`
+val and_shadow_def = zDefine`and_shadow = $/\`
 
 val lemma = prove(``∀ls. next_addr len ls = SUM (MAP (λi. if is_Label i then 0 else len i + 1) ls)``,
   Induct >> simp[] >> rw[] >> fs[] >> simp[ADD1] )
@@ -1681,21 +1681,21 @@ simp[UNCURRY] >>
 `STRLEN input_rest < STRLEN input` by metis_tac[lex_until_toplevel_semicolon_LESS] >>
 simp[Once ast_repl_cases,get_type_error_mask_def] >>
 simp[and_shadow_def] >>
-reverse conj_tac >- (
-  first_x_assum(qspec_then`STRLEN input_rest`mp_tac) >> simp[] >>
-  disch_then(qspec_then`input_rest`mp_tac) >> simp[] >>
-  cheat (* probably need to refactor this to reuse the proofs below? *)
-  ) >>
-disj1_tac >>
 
+qmatch_abbrev_tac`(A ∨ B) ∧ C` >>
+qsuff_tac`A ∧ C`>-rw[] >>
+map_every qunabbrev_tac[`A`,`B`,`C`] >>
+simp[GSYM LEFT_EXISTS_AND_THM] >>
 MAP_EVERY qexists_tac [`convert_menv new_infer_menv`,
                        `new_infer_cenv`,
                        `convert_env2 new_infer_env`,
                        `store2`,
                        `envC2`,
                        `r`] >>
-conj_asm2_tac >- metis_tac[print_result_not_type_error] >>
-simp[] >>
+
+qmatch_abbrev_tac`(A ∧ B) ∧ C` >>
+qsuff_tac`B ∧ C` >- metis_tac[print_result_not_type_error] >>
+map_every qunabbrev_tac[`A`,`B`,`C`] >>
 
   qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`,`(store2,envC2,r)`]mp_tac compile_top_thm >>
   simp[] >>
@@ -1805,7 +1805,20 @@ simp[] >>
     simp[lemma] >>
     disj2_tac >>
     simp[MAP_REVERSE,SUM_REVERSE,SUM_APPEND] ) >>
-  simp[] ) >>
+  simp[] >>
+  fs[invariant_def] >>
+  strip_tac >>
+  simp[code_executes_ok_def] >>
+  disj1_tac >>
+  qexists_tac`new_bc_state` >>
+  simp[] >>
+  fs[Abbr`new_bc_state`] >>
+  disj2_tac >>
+  simp[lemma] >>
+  `bs2.inst_length = bs0.inst_length` by (
+    imp_res_tac RTC_bc_next_preserves >> rw[]) >>
+  simp[MAP_REVERSE,SUM_REVERSE,FILTER_REVERSE,SUM_APPEND,FILTER_APPEND]
+  ) >>
 
   (* exception *)
   reverse(Cases_on`e`>>fs[])>-(
@@ -1813,7 +1826,7 @@ simp[] >>
 
   disch_then(qx_choosel_then[`bv`,`bs2`,`rd2`]strip_assume_tac) >>
   qmatch_assum_rename_tac`err_bv err bv`[] >>
-  qmatch_abbrev_tac`X = PR ∧ Y` >>
+  qmatch_abbrev_tac`(X = PR ∧ Y) ∧ A` >>
   `∃bs3. bc_next^* bs2 bs3 ∧ bs3.output = PR ∧ bc_fetch bs3 = SOME Stop ∧ bs3.stack = bs0.stack ∧ bs3.refs = bs2.refs` by (
     `∃ls2. bs2.code = PrintE++Stop::ls2` by (
       imp_res_tac RTC_bc_next_preserves >>
@@ -1911,7 +1924,7 @@ simp[] >>
       `menv1 = menv2` by (
         simp[Abbr`menv1`,Abbr`menv2`] >>
         simp[convert_menv_def,strip_mod_env_def] >>
-        qpat_assum`A = (Success Y,Z)`mp_tac >>
+        qpat_assum`B = (Success Y,Z)`mp_tac >>
         rpt (pop_assum kall_tac) >>
         simp[inferTheory.infer_top_def] >>
         EVAL_TAC >> rw[] >>
@@ -1921,7 +1934,7 @@ simp[] >>
         fs[] >> rw[] ) >>
       simp[] ) >>
     `new_infer_menv = []` by (
-      qpat_assum`A = (Success Y,Z)`mp_tac >>
+      qpat_assum`B = (Success Y,Z)`mp_tac >>
       rpt (pop_assum kall_tac) >>
       simp[inferTheory.infer_top_def] >>
       EVAL_TAC >> rw[] >>
@@ -1940,7 +1953,14 @@ simp[] >>
   disj1_tac >>
   qexists_tac`bs3 with clock := NONE` >>
   simp[bc_fetch_with_clock] ) >>
-simp[]);
+simp[] >>
+simp[Abbr`A`,Abbr`new_bc_state`,bc_fetch_with_clock] >>
+strip_tac >>
+fs[invariant_def] >>
+simp[code_executes_ok_def] >>
+disj1_tac >>
+HINT_EXISTS_TAC >>
+simp[bc_fetch_with_clock]);
 
 val _ = delete_const"and_shadow"
 
@@ -2003,7 +2023,7 @@ val compile_primitives_terminates = store_thm("compile_primitives_terminates",
             metis_tac [eval_initial_program]) >>
   qspecl_then[`[]`,`[]`,`[]`,`[]`,`Tdec initial_program`,`([],[],Rval ([],init_env))`]mp_tac compile_top_thm >>
   simp[] >>
-  simp[closed_top_def,closed_context_def,toIntLangProofsTheory.closed_under_cenv_def,closed_under_menv_def] >>
+  simp[closed_top_def,closed_context_def,closed_under_cenv_def,closed_under_menv_def] >>
   `FV_dec initial_program = {}`
           by (rw [initial_program_def, EXTENSION] >> metis_tac []) >>
   `dec_cns initial_program ⊆ cenv_dom ([]:envC)`
@@ -2113,7 +2133,18 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   conj_asm1_tac >- (
     fsrw_tac[DNF_ss][EVERY_MEM,MEM_FILTER,is_Label_rwt,miscTheory.between_def,MEM_MAP,FILTER_REVERSE,ALL_DISTINCT_REVERSE,FILTER_APPEND,ALL_DISTINCT_APPEND] >>
     rw[] >> spose_not_then strip_assume_tac >> res_tac >> fs[CompilerTheory.init_compiler_state_def] >> DECIDE_TAC) >>
-  cheat (* code_labels_ok and code_executes_ok for initial code *))
+  conj_tac >- (
+    match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >> simp[] >>
+    match_mp_tac bytecodeLabelsTheory.code_labels_ok_append >> simp[] >>
+    conj_tac >- (
+      simp[bytecodeLabelsTheory.code_labels_ok_def] >>
+      EVAL_TAC >> metis_tac[] ) >>
+    simp[bytecodeLabelsTheory.code_labels_ok_def,bytecodeLabelsTheory.uses_label_thm] ) >>
+  simp[code_executes_ok_def] >>
+  assume_tac compile_primitives_terminates >> fs[] >> rw[] >>
+  disj1_tac >>
+  qexists_tac`initial_bc_state` >>
+  simp[lemma])
 
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
@@ -2124,8 +2155,8 @@ val initial_invariant = prove(
   >- (
     simp[closed_context_def] >>
     simp[init_env_def,semanticsExtraTheory.closed_cases] >>
-    simp[init_env_def,toIntLangProofsTheory.closed_under_cenv_def] >>
-    simp[init_env_def,compilerProofsTheory.closed_under_menv_def] >>
+    simp[init_env_def,closed_under_cenv_def] >>
+    simp[init_env_def,closed_under_menv_def] >>
     simp[semanticsExtraTheory.closed_cases] >>
     rw[] >> rw[semanticsExtraTheory.all_cns_def] >>
     simp[SUBSET_DEF] >> metis_tac[] ) >>

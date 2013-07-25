@@ -66,30 +66,5 @@ ov_to_string (OConv cn vs) =
 /\
 (ov_to_string OError = "<error>")`;
 
-
-(*
-open Compiler
-
-let stack_index cs v = cs.rsz - (the 0 (Lib.lookup v cs.renv)) - 1
-
-let rec
-preprint_dec _ (Dtype _) = []
-and
-preprint_dec cs (Dlet p _) =
-  List.map (fun v -> (stack_index cs v,v)) (pat_bindings p [])
-and
-preprint_dec cs (Dletrec defs) =
-  List.map (fun (v,_,_) -> (stack_index cs v,v)) defs
-
-let simple_printer ds cs stack =
-  Hol.FLAT
-    (List.map
-       (fun (n,v) ->
-         "val "^v^" = "^
-         (ov_to_string
-           (bv_to_ov cs
-             (List.nth stack n)))^"\n")
-       ds)
-*)
 val _ = export_theory()
 

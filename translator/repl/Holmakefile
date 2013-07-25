@@ -1,12 +1,10 @@
-INCLUDES = .. ../.. ../../semantics ../../parsing ../../compiler \
-           ../../compiler/bytecode ../../implementation \
-	   ../../impl_proofs \
+INCLUDES = .. ../.. ../../semantics ../../parsing ../../compiler ../../bytecode ../../repl ../../inference/proofs \
            $(HOLDIR)/examples/unification/triangular/first-order \
            $(HOLDIR)/examples/parsing
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
-#HOLHEAP = local-hol-heap
+HOLHEAP = heap
 PARENT_HOLHEAP = ../local-hol-heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
@@ -21,9 +19,9 @@ BARE_THYS = $(patsubst %,../../semantics/%,$(PRE_BARE_THYS)) \
             ../std_preludeTheory \
             ../../parsing/mmlParseTheory \
             ../../compiler/compilerTerminationTheory \
-            ../../implementation/inferTheory \
-            ../../implementation/repl_funTheory \
-            ../../impl_proofs/inferSoundTheory
+            ../../inference/inferTheory \
+            ../../repl/repl_funTheory \
+            ../../inference/proofs/inferSoundTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

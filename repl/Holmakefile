@@ -1,0 +1,20 @@
+INCLUDES=.. ../semantics ../parsing ../inference ../compiler ../bytecode
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+SEM_BARE_THYS = AstTheory \
+	        ElabTheory \
+	        lexer_funTheory \
+	        TypeSystemTheory
+
+BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) ../parsing/mmlParseTheory ../inference/inferTheory ../compiler/compilerTerminationTheory ../bytecode/bytecodeEvalTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b ../semantics/sem_heap -o $(HOLHEAP) $(BARE_THYS)
+endif
+

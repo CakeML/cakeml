@@ -28,38 +28,54 @@ Directory structure:
     - determinism
     - equivalence of the big and small step semantics
 
-- implementation
-    The REPL implementation in HOL, including
-      - the type inferencer implementation
-      - definition of repl_fun : string -> repl_result
-      - the bootstrapping
-
 - parsing
     Lexer and PEG parser for CakeML.
 
-- compiler
-    The middle of the compiler, translating from CakeML abstract syntax to bytecode.
-    Includes:
-      - the bytecode specification and evaluator
-      - the compiler implementation (expressed in Lem)
-      - compiler correctness proofs
-      - rudimentary tests using EmitML
+- inference
+    Type inferencer for CakeML.
+- inference/proofs
+    Proof of soundness for the type inferencer.
 
-- impl_proofs
-    The correctness proof for the REPL implementation
+- bytecode
+    CakeML Bytecode specification, metatheory, and evaluator.
+
+- compiler
+    Compiler from CakeML abstract syntax to CakeML Bytecode, with the
+    implementation expressed in Lem.
+- compiler/proofs
+    Verification of the compiler.
+
+- repl
+    The REPL implementation in HOL.
+    Defines repl_fun : string -> repl_result.
+    Also includes some machinery for evaluating repl_fun in the logic.
+- repl/proofs
+    The correctness proof for repl_fun.
+- repl/examples
+    Examples of evaluating repl_fun in the logic.
 
 - translator
     A proof-producing translator from HOL functions to CakeML.
-
 - translator/repl
-    A running the translator on the CakeML compiler
+    A run of the translator on the translatable part of repl_fun.
+- translator/repl/proofs
+    Theorem about the correctness of the result of bootstrapping the above, as
+    done below.
 
-- clockScript.sml
-    A proof outline of our divergence preservation technique.
+- bootstrap
+    Evaluation of the compiler on the deep embedding of repl_fun produced by
+    the translator.
+
+- x86-64
+    (Work towards an) x86-64 implementation of repl_fun.
+
+- unverified
+    Unverified implementation, in Haskell, of the CakeML frontend augmented
+    with informative error messages.
 
 - hol-light
     An implementation of HOL Light (http://www.cl.cam.ac.uk/~jrh13/hol-light/)
     in CakeML.
 
-- x86-64
-    Word towards an x86-64 implementation of repl_fun from implementation
+- clockScript.sml
+    A proof outline of our divergence preservation technique.

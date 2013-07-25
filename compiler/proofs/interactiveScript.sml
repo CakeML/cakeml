@@ -1,13 +1,13 @@
 open HolKernel boolLib bossLib boolSimps lcsymtacs miscLib miscTheory
 open finite_mapTheory listTheory rich_listTheory relationTheory pred_setTheory
-open BigStepTheory SemanticPrimitivesTheory terminationTheory bigClockTheory
+open BigStepTheory SemanticPrimitivesTheory terminationTheory bigClockTheory semanticsExtraTheory
 open IntLangTheory intLangExtraTheory CompilerTheory compilerTerminationTheory toIntLangProofsTheory toBytecodeProofsTheory compilerProofsTheory
 open BytecodeTheory bytecodeExtraTheory bytecodeClockTheory bytecodeEvalTheory
 val _ = new_theory"interactive"
 
 val closed_context_empty = store_thm("closed_context_empty",
   ``closed_context [] [] [] []``,
-  simp[closed_context_def,toIntLangProofsTheory.closed_under_cenv_def,closed_under_menv_def])
+  simp[closed_context_def,closed_under_cenv_def,closed_under_menv_def])
 
 val tac =
   strip_tac >>

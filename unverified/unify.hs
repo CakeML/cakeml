@@ -10,6 +10,34 @@ data Infer_t =
   | Infer_Tapp [Infer_t] Ast.Tc
   | Infer_Tuvar Uvar
 
+data T_print_ctxt =
+    Pc_fn_left
+  | Pc_fn_right
+  | Pc_tup
+  | Pc_app
+  | Pc_top
+  deriving Eq
+
+print_t ctxt (Infer_Tvar_db i) = 
+  show i
+print_t ctxt (Infer_Tapp [t1,t2] TC_fn) = 
+  if ctxt == Pc_fn_right || ctxt == Pc_top then
+    print_t Pc_fn_left t1 ++ " -> " ++ print_t Pc_fn_right t2
+  else 
+    "(" ++ print_t Pc_fn_left t1 ++ " -> " ++ print_t Pc_fn_right t2 ++ ")"
+print_t ctxt (Infer_Tapp ts TC_tup) = 
+  if ctxt == Pc_fn_left || ctxt == Pc_fn_right || ctxt == Pc_top then
+    List.intercalate "*" (List.map (print_t Pc_tup) ts)
+  else
+    "(" ++ List.intercalate "*" (List.map (print_t Pc_tup) ts) ++ ")"
+print_t ctxt (Infer_Tapp [] tc) = show tc
+print_t ctxt (Infer_Tapp [t] tc) = print_t Pc_app t ++ " " ++ show tc
+print_t ctxt (Infer_Tapp ts tc) = "(" ++ List.intercalate "," (List.map (print_t Pc_top) ts) ++ ") " ++ show tc
+print_t ctxt (Infer_Tuvar uv) = "'a" ++ show uv
+
+instance Show Infer_t where
+  show t = print_t Pc_top t
+
 type Subst = Map.Map Uvar Infer_t
 
 t_vwalk :: Subst -> Uvar -> Infer_t

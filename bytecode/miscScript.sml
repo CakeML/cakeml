@@ -1,8 +1,164 @@
-open HolKernel bossLib boolLib boolSimps listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory sortingTheory relationTheory lcsymtacs
+open HolKernel bossLib boolLib boolSimps listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory sortingTheory relationTheory lcsymtacs miscLib
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
+
+val ALOOKUP_APPEND_same = store_thm("ALOOKUP_APPEND_same",
+  ``∀l1 l2 l. (ALOOKUP l1 = ALOOKUP l2) ==> (ALOOKUP (l1 ++ l) = ALOOKUP (l2 ++ l))``,
+  rw[ALOOKUP_APPEND,FUN_EQ_THM])
+
+val ALOOKUP_ALL_DISTINCT_PERM_same = store_thm("ALOOKUP_ALL_DISTINCT_PERM_same",
+  ``∀l1 l2. ALL_DISTINCT (MAP FST l1) ∧ PERM (MAP FST l1) (MAP FST l2) ∧ (set l1 = set l2) ⇒ (ALOOKUP l1 = ALOOKUP l2)``,
+  simp[EXTENSION] >>
+  rw[FUN_EQ_THM] >>
+  Cases_on`ALOOKUP l2 x` >- (
+    imp_res_tac ALOOKUP_FAILS >>
+    imp_res_tac MEM_PERM >>
+    fs[FORALL_PROD,MEM_MAP,EXISTS_PROD] >>
+    metis_tac[ALOOKUP_FAILS] ) >>
+  qmatch_assum_rename_tac`ALOOKUP l2 x = SOME p`[] >>
+  imp_res_tac ALOOKUP_MEM >>
+  `ALL_DISTINCT (MAP FST l2)` by (
+    metis_tac[ALL_DISTINCT_PERM]) >>
+  imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+  metis_tac[])
+
+val ALL_DISTINCT_PERM_ALOOKUP_ZIP = store_thm("ALL_DISTINCT_PERM_ALOOKUP_ZIP",
+  ``∀l1 l2 l3. ALL_DISTINCT (MAP FST l1) ∧ PERM (MAP FST l1) l2
+    ⇒ (set l1 = set (ZIP (l2, MAP (THE o ALOOKUP (l1 ++ l3)) l2)))``,
+  rw[EXTENSION,FORALL_PROD,EQ_IMP_THM] >- (
+    qmatch_assum_rename_tac`MEM (x,y) l1`[] >>
+    imp_res_tac PERM_LENGTH >> fs[] >>
+    simp[MEM_ZIP] >>
+    imp_res_tac MEM_PERM >>
+    fs[MEM_MAP,EXISTS_PROD] >>
+    `MEM x l2` by metis_tac[] >>
+    `∃m. m < LENGTH l2 ∧ (x = EL m l2)` by metis_tac[MEM_EL] >>
+    qexists_tac`m`>>simp[]>>
+    simp[EL_MAP] >>
+    imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+    rw[ALOOKUP_APPEND] ) >>
+  qmatch_rename_tac`MEM (x,y) l1`[] >>
+  imp_res_tac PERM_LENGTH >>
+  fs[MEM_ZIP] >>
+  simp[EL_MAP] >>
+  imp_res_tac MEM_PERM >>
+  fs[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+  first_x_assum(qspec_then`n`mp_tac) >>
+  discharge_hyps >- simp[] >>
+  disch_then(Q.X_CHOOSE_THEN`m`strip_assume_tac) >>
+  qexists_tac`m` >>
+  simp[EL_MAP] >>
+  Cases_on`EL m l1`>>simp[ALOOKUP_APPEND] >>
+  BasicProvers.CASE_TAC >- (
+    imp_res_tac ALOOKUP_FAILS >>
+    metis_tac[MEM_EL] ) >>
+  metis_tac[MEM_EL,ALOOKUP_ALL_DISTINCT_MEM,optionTheory.THE_DEF])
+
+val PERM_ZIP = store_thm("PERM_ZIP",
+  ``∀l1 l2. PERM l1 l2 ⇒ ∀a b c d. (l1 = ZIP(a,b)) ∧ (l2 = ZIP(c,d)) ∧ (LENGTH a = LENGTH b) ∧ (LENGTH c = LENGTH d) ⇒
+    PERM a c ∧ PERM b d``,
+  ho_match_mp_tac PERM_IND >>
+  conj_tac >- (
+    Cases >> simp[LENGTH_NIL_SYM] >>
+    Cases >> simp[LENGTH_NIL_SYM] >>
+    Cases >> simp[LENGTH_NIL_SYM] ) >>
+  conj_tac >- (
+    Cases >> rpt gen_tac >> strip_tac >>
+    Cases>>simp[LENGTH_NIL_SYM] >>
+    Cases>>simp[LENGTH_NIL_SYM] >>
+    Cases>>simp[LENGTH_NIL_SYM] >>
+    Cases>>simp[LENGTH_NIL_SYM] >>
+    metis_tac[PERM_MONO]) >>
+  conj_tac >- (
+    ntac 2 Cases >> rpt gen_tac >> strip_tac >>
+    Cases>>simp[LENGTH_NIL_SYM] >>
+    Cases>>simp[LENGTH_NIL_SYM] >>
+    Cases>>simp[LENGTH_NIL_SYM] >>
+    Cases>>simp[LENGTH_NIL_SYM] >>
+    strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
+    qmatch_assum_rename_tac`LENGTH a = LENGTH b`[] >>
+    pop_assum mp_tac >>
+    qmatch_assum_rename_tac`LENGTH c = LENGTH d`[] >>
+    strip_tac >>
+    Cases_on`a`>>fs[LENGTH_NIL_SYM]>>
+    Cases_on`b`>>fs[LENGTH_NIL_SYM]>>
+    Cases_on`c`>>fs[LENGTH_NIL_SYM]>>
+    Cases_on`d`>>fs[LENGTH_NIL_SYM]>>
+    metis_tac[PERM_SWAP_AT_FRONT] ) >>
+  `∀l. l = ZIP (MAP FST l, MAP SND l)` by (
+    simp[ZIP_MAP] >>
+    simp[LIST_EQ_REWRITE,EL_MAP] ) >>
+  gen_tac >> qx_gen_tac`ll` >>
+  rpt gen_tac >> strip_tac >>
+  rpt gen_tac >> strip_tac >>
+  last_x_assum(qspecl_then[`a`,`b`,`MAP FST ll`,`MAP SND ll`]mp_tac) >>
+  simp[] >> strip_tac >>
+  last_x_assum(qspecl_then[`MAP FST ll`,`MAP SND ll`,`c`,`d`]mp_tac) >>
+  simp[] >> strip_tac >>
+  metis_tac[PERM_TRANS])
+
+val PERM_BIJ = store_thm("PERM_BIJ",
+  ``∀l1 l2. PERM l1 l2 ⇒ ∃f. (BIJ f (count(LENGTH l1)) (count(LENGTH l1)) ∧ (l2 = GENLIST (λi. EL (f i) l1) (LENGTH l1)))``,
+  ho_match_mp_tac PERM_IND >> simp[BIJ_EMPTY] >>
+  conj_tac >- (
+    simp[GENLIST_CONS] >>
+    rw[combinTheory.o_DEF] >>
+    qexists_tac`λi. case i of 0 => 0 | SUC i => SUC(f i)` >>
+    simp[EL_CONS,PRE_SUB1] >>
+    fs[BIJ_IFF_INV] >>
+    conj_tac >- ( Cases >> simp[] ) >>
+    qexists_tac`λi. case i of 0 => 0 | SUC i => SUC(g i)` >>
+    conj_tac >- ( Cases >> simp[] ) >>
+    conj_tac >- ( Cases >> simp[] ) >>
+    ( Cases >> simp[] )) >>
+  conj_tac >- (
+    simp[GENLIST_CONS] >>
+    rw[combinTheory.o_DEF] >>
+    qexists_tac`λi. case i of 0 => 1 | SUC 0 => 0 | SUC(SUC n) => SUC(SUC(f n))` >>
+    simp[PRE_SUB1,EL_CONS] >>
+    REWRITE_TAC[ONE] >> simp[] >>
+    fs[BIJ_IFF_INV] >>
+    conj_tac >- (Cases >> simp[]>> Cases_on`n`>>simp[]) >>
+    qexists_tac`λi. case i of 0 => 1 | SUC 0 => 0 | SUC(SUC n) => SUC(SUC(g n))` >>
+    simp[] >>
+    conj_tac >- (Cases >> simp[]>> Cases_on`n`>>simp[]) >>
+    conj_tac >- (Cases >> simp[]>> TRY(Cases_on`n`)>>simp[] >> REWRITE_TAC[ONE]>>simp[]) >>
+    (Cases >> simp[]>> TRY(Cases_on`n`)>>simp[] >> REWRITE_TAC[ONE]>>simp[])) >>
+  ntac 2 (rw[LENGTH_GENLIST]) >>
+  simp[LIST_EQ_REWRITE,EL_GENLIST] >>
+  fs[LENGTH_GENLIST] >>
+  qexists_tac`f o f'` >>
+  simp[combinTheory.o_DEF] >>
+  fs[BIJ_IFF_INV] >>
+  qexists_tac`g' o g` >>
+  simp[combinTheory.o_DEF] )
+
+val EXISTS_LIST_EQ_MAP = store_thm("EXISTS_LIST_EQ_MAP",
+  ``∀ls f. EVERY (λx. ∃y. x = f y) ls ⇒ ∃l. ls = MAP f l``,
+  Induct >> simp[] >> rw[] >> res_tac >> qexists_tac`y::l`>>simp[])
+
+val LIST_TO_SET_FLAT = store_thm("LIST_TO_SET_FLAT",
+  ``!ls. set (FLAT ls) = BIGUNION (set (MAP set ls))``,
+  Induct >> simp[])
+
+val MEM_SING_APPEND = store_thm("MEM_SING_APPEND",
+  ``(∀a c. d ≠ a ++ [b] ++ c) ⇔ ¬MEM b d``,
+  rw[EQ_IMP_THM] >>
+  spose_not_then strip_assume_tac >>
+  fs[] >>
+  fs[MEM_EL] >>
+  first_x_assum(qspecl_then[`TAKE n d`,`DROP (n+1) d`]mp_tac) >>
+  lrw[LIST_EQ_REWRITE] >>
+  Cases_on`x<n`>>simp[EL_APPEND1,EL_TAKE]>>
+  Cases_on`x=n`>>simp[EL_APPEND1,EL_APPEND2,EL_TAKE]>>
+  simp[EL_DROP])
+
+val MEM_APPEND_lemma = store_thm("MEM_APPEND_lemma",
+  ``∀a b c d x. (a ++ [x] ++ b = c ++ [x] ++ d) ∧ x ∉ set b ∧ x ∉ set a ⇒ (a = c) ∧ (b = d)``,
+  rw[APPEND_EQ_APPEND_MID] >> fs[] >>
+  fs[APPEND_EQ_SING])
 
 val RTC_RINTER = store_thm("RTC_RINTER",
   ``!R1 R2 x y. RTC (R1 RINTER R2) x y ⇒ ((RTC R1) RINTER (RTC R2)) x y``,
@@ -502,6 +658,13 @@ val REVERSE_ZIP = store_thm("REVERSE_ZIP",
   Induct THEN SRW_TAC[][LENGTH_NIL_SYM] THEN
   Cases_on `l2` THEN FULL_SIMP_TAC(srw_ss())[] THEN
   SRW_TAC[][GSYM ZIP_APPEND])
+
+val EVERY2_REVERSE1 = store_thm("EVERY2_REVERSE1",
+  ``∀l1 l2. EVERY2 R l1 (REVERSE l2) ⇔ EVERY2 R (REVERSE l1) l2``,
+  rpt gen_tac >> EQ_TAC >>
+  simp[EVERY2_EVERY] >> rpt strip_tac >>
+  ONCE_REWRITE_TAC[GSYM EVERY_REVERSE] >>
+  simp[REVERSE_ZIP])
 
 val LENGTH_o_REVERSE = store_thm("LENGTH_o_REVERSE",
   ``(LENGTH o REVERSE = LENGTH) /\

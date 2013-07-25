@@ -2,118 +2,75 @@ module Lex where
 import Data.List as List
 import Data.Char as Char
 import Tokens
+import Text.Parsec
+import Text.Parsec.Prim
+import Text.Parsec.Combinator
+import Text.Parsec.Char
 
+single_char_symbol = oneOf "()[];,_"
 
-data Symbol = 
-    StringS String
-  | NumberS Integer
-  | OtherS String
-  | ErrorS
+-- TODO: symbol_char seems too permissive
+symbol_char = oneOf "!\"#$%&'*+-/:<=>?@\\^`{|}~"
 
-read_while p "" s = (List.reverse s,"")
-read_while p (c:cs) s =
-  if p c then read_while p cs (c : s)
-         else (List.reverse s, c:cs)
+string_char =
+  (try (string "\\\\") >> return '\\')
+  <|>
+  (try (string "\\\"") >> return '"')
+  <|>
+  (try (string "\\n") >> return '\n')
+  <|>
+  (try (string "\\t") >> return '\t')
+  <|>
+  noneOf ['\\', '\n', '"']
 
-is_single_char_symbol c = c `elem` "()[];,_"
+skip_comment d =
+  (try (string "(*") >> skip_comment (d + 1))
+  <|>
+  (try (string "*)") >> (if d == 0 then return () else skip_comment (d - 1)))
+  <|>
+  (anyChar >> skip_comment d)
 
-isSymbol c = not (isSpace c) && not (isDigit c) && not (isAlpha c) &&
-             not (is_single_char_symbol c) && Char.ord ' ' < Char.ord c && c /= '.'
+alpha_ident =
+  do c <- letter;
+     s <- many (alphaNum <|> oneOf "'_");
+     return (c:s)
 
-read_string str s =
-  if List.null str then (ErrorS,"") else
-  if List.head str == '"' then (StringS s,List.tail str) else
-  if List.head str == '\n' then (ErrorS,List.tail str) else
-  if List.head str /= '\\' then read_string (List.tail str) (s ++ [List.head str]) else
-    case List.tail str of
-      '\\':cs -> read_string cs (s ++ "\\")
-      '"':cs -> read_string cs (s ++ "\"")
-      'n':cs -> read_string cs (s ++ "\n")
-      't':cs -> read_string cs (s ++ "\t")
-      _ -> (ErrorS,List.tail str)
+ident = alpha_ident <|> many1 symbol_char
 
-skip_comment "" d = Nothing
-skip_comment [x] d = Nothing
-skip_comment (x:y:xs) d =
-     if [x,y] == "(*" then skip_comment xs (d+1) else
-     if [x,y] == "*)" then (if d == 0 then Just xs else skip_comment xs (d-1))
-     else skip_comment (y:xs) d
+next_token =
+  (space >> next_token) 
+  <|>
+  do digits <- many1 digit;
+     return (IntT (read digits))
+  <|>
+  do id1 <- alpha_ident;
+     option (get_token_alpha id1) (char '.' >> do id2 <- ident; return (LongidT id1 id2))
+  <|>
+  do char '\'';
+     tvar <- many1 alphaNum;
+     return (TyvarT ('\'':tvar))
+  <|>
+  fmap StringT (between (char '"') (char '"') (many string_char))
+  <|>
+  (try (string "*)") >> fail "stray \"*)\"")
+  <|>
+  (try (string "(*") >> skip_comment 0 >> next_token)
+  <|>
+  fmap (\c -> get_token_sym [c]) single_char_symbol
+  <|>
+  do id1 <- many1 symbol_char ;
+     option (get_token_sym id1) (char '.' >> do id2 <- ident; return (LongidT id1 id2))
+  <?>
+  "space, digit, letter, number, symbol, or ;"
 
-isAlphaNumPrime c = Char.isAlphaNum c || c == '\'' || c == '_' 
-
-moduleRead initP c s =
-  let (n,rest) = read_while initP s [c]
-  in
-    case rest of
-      [] -> (OtherS n, rest)
-      [h] -> if h == '.' then (ErrorS, [])
-             else (OtherS n, rest)
-      h1:h2:rest' ->
-        if h1 == '.' then
-          let nextP = if isAlpha h2 then Just isAlphaNumPrime
-                      else if Lex.isSymbol h2 then Just Lex.isSymbol
-                      else Nothing
-          in
-            case nextP of
-              Nothing -> (ErrorS, rest')
-              Just p ->
-                let (n2, rest'') = read_while p rest' [h2]
-                in
-                  (OtherS (n ++ "." ++ n2), rest'')
-        else (OtherS n, rest)
-
-next_sym "" = Nothing
-next_sym (c:str) =
-  if isSpace c then
-    next_sym str
-  else if isDigit c then
-    let (n,rest) = read_while isDigit str [] in
-      Just (NumberS (read (c:n)), rest)
-  else if isAlpha c then
-    let (n,rest) = moduleRead isAlphaNumPrime c str in
-      Just (n, rest)
-  else if c == '\'' then
-    let (n,rest) = read_while Char.isAlphaNum str [c] in
-      Just (OtherS n, rest)
-  else if c == '"' then
-    let (t,rest) = read_string str "" in
-      Just (t, rest)
-  else if List.isPrefixOf "*)" (c:str) then
-    Just (ErrorS, List.tail str)
-  else if List.isPrefixOf "(*" (c:str) then
-    case skip_comment (List.tail str) 0 of
-      Nothing -> Just (ErrorS, "")
-      Just rest -> next_sym rest
-  else if is_single_char_symbol c then
-    Just (OtherS [c], str)
-  else if Lex.isSymbol c then
-    let (n,rest) = moduleRead Lex.isSymbol c str in
-      Just (n, rest)
-  else 
-    Just (ErrorS, str)
-
-splitAtP p [] k = k [] []
-splitAtP p (h:t) k = if p h then k [] (h:t)
-                     else splitAtP p t (\p -> k (h:p))
-
-moduleSplit s =
-  splitAtP (\c -> c == '.') s
-           (\p sfx ->
-             case sfx of
-               [] -> if isAlpha (List.head s) then AlphaT s
-                     else SymbolT s
-               [_] -> LexErrorT
-               _:t -> if '.' `elem` t then LexErrorT
-                       else LongidT p t)
-
-get_token s =
+get_token_sym s =
   if s == "#" then HashT else
   if s == "(" then LparT else
   if s == ")" then RparT else
   if s == "*" then StarT else
   if s == "," then CommaT else
   if s == "->" then ArrowT else
-  if s == "..." then DotsT else
+  if s == "..." then DotsT else -- TODO, can't ever get this because . is not a symbol_char
   if s == ":" then ColonT else
   if s == ":>" then SealT else
   if s == ";" then SemicolonT else
@@ -125,6 +82,9 @@ get_token s =
   if s == "{" then LbraceT else
   if s == "}" then RbraceT else
   if s == "|" then BarT else
+  SymbolT s
+
+get_token_alpha s =
   if s == "abstype" then AbstypeT else
   if s == "and" then AndT else
   if s == "andalso" then AndalsoT else
@@ -166,45 +126,37 @@ get_token s =
   if s == "while" then WhileT else
   if s == "with" then WithT else
   if s == "withtype" then WithtypeT else
-  if List.head s == '\'' then TyvarT s else
-  moduleSplit s
-
-token_of_sym s =
-  case s of
-    ErrorS    -> LexErrorT
-    StringS s -> StringT s
-    NumberS n -> IntT n
-    OtherS s  -> get_token s
-
-next_token input =
-  case next_sym input of
-    Nothing -> Nothing
-    Just (sym, rest_of_input) -> Just (token_of_sym sym, rest_of_input)
+  AlphaT s
 
 data Semihider = SH_END | SH_PAR
 
-lex_aux acc error stk input =
-  case next_token input of
-    Nothing -> Nothing
-    Just (token, rest) ->
-      if token == SemicolonT && (List.null stk || error) then 
-        Just (List.reverse (token:acc), rest)
-      else
-        let new_acc = (token:acc) in
-          if error then lex_aux new_acc error stk rest
-          else if token == LetT then lex_aux new_acc False (SH_END:stk) rest
-          else if token == StructT then lex_aux new_acc False (SH_END:stk) rest
-          else if token == SigT then lex_aux new_acc False (SH_END:stk) rest
-          else if token == LparT then lex_aux new_acc False (SH_PAR:stk) rest
-          else if token == EndT then
-            case stk of
-              SH_END : stk' -> lex_aux new_acc False stk' rest
-              _ -> lex_aux new_acc True [] rest
-          else if token == RparT then
-            case stk of
-              SH_PAR : stk' -> lex_aux new_acc False stk' rest
-              _ -> lex_aux new_acc True [] rest
-          else lex_aux new_acc False stk rest
+lex_aux acc stk =
+  do pos <- getPosition;
+     token <- next_token;
+     if token == SemicolonT && List.null stk then 
+        return (List.reverse ((token,pos):acc))
+     else
+       let new_acc = (token,pos):acc in
+         if token == LetT then lex_aux new_acc (SH_END:stk)
+         else if token == StructT then lex_aux new_acc (SH_END:stk)
+         else if token == SigT then lex_aux new_acc (SH_END:stk)
+         else if token == LparT then lex_aux new_acc (SH_PAR:stk)
+         else if token == EndT then
+           case stk of
+             SH_END : stk' -> lex_aux new_acc stk'
+             _ -> fail "stray \"end\"" 
+         else if token == RparT then
+           case stk of
+             SH_PAR : stk' -> lex_aux new_acc stk'
+             _ -> fail "stray \")\""
+         else lex_aux new_acc stk
 
-lex_until_toplevel_semicolon :: String -> Maybe ([Token], String)
-lex_until_toplevel_semicolon input = lex_aux [] False [] input
+lex_until_toplevel_semicolon :: String -> SourcePos -> Either ParseError ([(Token, SourcePos)], String, SourcePos)
+lex_until_toplevel_semicolon input pos = 
+  parse (do setPosition pos;
+            toks <- lex_aux [] [];
+            pos <- getPosition;
+            rest <- getInput;
+            return (toks, rest, pos))
+         (sourceName pos)
+         input

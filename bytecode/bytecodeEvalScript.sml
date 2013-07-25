@@ -1,18 +1,6 @@
 open HolKernel boolLib bossLib Parse lcsymtacs
-open SemanticPrimitivesTheory bytecodeTerminationTheory arithmeticTheory listTheory finite_mapTheory integerTheory whileTheory relationTheory
+open SemanticPrimitivesTheory BytecodeTheory bytecodeTerminationTheory arithmeticTheory listTheory finite_mapTheory integerTheory whileTheory relationTheory
 val _ = new_theory "bytecodeEval";
-
-val isNumber_def = Define`
-  (isNumber (Number _) = T) ∧
-  (isNumber _ = F)`
-val _ = export_rewrites["isNumber_def"]
-
-val isNumber_exists_thm = store_thm(
-"isNumber_exists_thm",
-``∀x. isNumber x = ∃n. x = Number n``,
-Cases >> rw[]);
-
-val _ = export_rewrites["Bytecode.is_Block_def","Bytecode.bc_equality_result_to_val_def"]
 
 val bc_eval_stack_def = Define`
   (bc_eval_stack Pop (x::xs) = SOME xs)
@@ -61,7 +49,7 @@ val bc_eval_stack_def = Define`
 val bc_eval_stack_thm1 = prove(
 ``∀op xs ys. bc_stack_op op xs ys ⇒ (bc_eval_stack op xs = SOME ys)``,
 ho_match_mp_tac bc_stack_op_ind >>
-rw[bc_eval_stack_def, isNumber_exists_thm,
+rw[bc_eval_stack_def,
    rich_listTheory.FIRSTN_LENGTH_APPEND,
    rich_listTheory.BUTFIRSTN_LENGTH_APPEND] >>
 srw_tac[ARITH_ss][GSYM arithmeticTheory.ADD1] >- (
@@ -95,7 +83,7 @@ TRY (
   Q.ISPECL_THEN [`TAKE (j-1) t`,`DROP (j-1) t`,`j + k - 1`] (mp_tac o GSYM)
     (Q.GEN `l1` (Q.GEN `l2` TAKE_APPEND2)) >>
   srw_tac[ARITH_ss][]) >>
-fs[bc_eval_stack_def,bc_stack_op_cases,isNumber_exists_thm] >> rw[]
+fs[bc_eval_stack_def,bc_stack_op_cases] >> rw[]
 >- (
   qmatch_assum_rename_tac `n ≤ LENGTH t` [] >>
   qexists_tac `TAKE n t` >> rw[])
