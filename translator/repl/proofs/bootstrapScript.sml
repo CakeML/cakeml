@@ -22,62 +22,6 @@ val cs = ``<|out:=[];next_label:=init_compiler_state.rnext_label|>``
 val renv = ``[CTDec 0]``
 val rsz = ``1:num``
 
-val no_closures_all_vlabs = store_thm("no_closures_all_vlabs",
-  ``∀v. ¬contains_closure v ⇒ all_vlabs (v_to_Cv mv m v)``,
-  ho_match_mp_tac contains_closure_ind >>
-  simp[contains_closure_def,compilerTerminationTheory.v_to_Cv_def] >>
-  simp[pmatchTheory.vs_to_Cvs_MAP,EVERY_MEM,MEM_MAP,GSYM LEFT_FORALL_IMP_THM])
-
-val no_closures_vlabs = store_thm("no_closures_vlabs",
-  ``∀v. ¬contains_closure v ⇒ vlabs (v_to_Cv mv m v) = {}``,
-  ho_match_mp_tac contains_closure_ind >>
-  simp[compilerTerminationTheory.v_to_Cv_def,contains_closure_def] >>
-  simp[contains_closure_def,compilerTerminationTheory.v_to_Cv_def,intLangExtraTheory.vlabs_list_MAP] >>
-  simp[pmatchTheory.vs_to_Cvs_MAP,EVERY_MEM,MEM_MAP,GSYM LEFT_FORALL_IMP_THM,miscTheory.IMAGE_EQ_SING])
-
-val no_closures_Cv_bv = store_thm("no_closures_Cv_bv",
-  ``∀Cv. no_closures Cv ⇒ ∀bv pp pp'. (FST pp').sm = (FST pp).sm ∧ Cv_bv pp Cv bv ⇒ Cv_bv pp' Cv bv``,
-  ho_match_mp_tac compilerTerminationTheory.no_closures_ind >>
-  simp[] >> rw[] >>
-  TRY (
-    simp[Once Cv_bv_cases] >>
-    fs[Once Cv_bv_cases] >>
-    NO_TAC) >>
-  REWRITE_TAC[Once Cv_bv_cases] >>
-  simp[] >>
-  pop_assum mp_tac >>
-  REWRITE_TAC[Once Cv_bv_cases] >>
-  simp[] >> rw[] >>
-  fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >>
-  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >> rw[] >>
-  first_x_assum (match_mp_tac o MP_CANON) >>
-  metis_tac[MEM_EL])
-
-val no_closures_no_locs_Cv_bv = store_thm("no_closures_no_locs_Cv_bv",
-  ``∀Cv. no_closures Cv ∧ all_Clocs Cv = {} ⇒ ∀bv pp pp'. Cv_bv pp Cv bv ⇒ Cv_bv pp' Cv bv``,
-  ho_match_mp_tac compilerTerminationTheory.no_closures_ind >>
-  simp[] >> rw[] >>
-  TRY (
-    simp[Once Cv_bv_cases] >>
-    fs[Once Cv_bv_cases] >>
-    NO_TAC) >>
-  REWRITE_TAC[Once Cv_bv_cases] >> simp[] >>
-  pop_assum mp_tac >>
-  REWRITE_TAC[Once Cv_bv_cases] >> simp[] >> rw[] >>
-  fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >>
-  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >> rw[] >>
-  first_x_assum (match_mp_tac o MP_CANON) >>
-  PairCases_on`pp`>>fs[]>>
-  fs[miscTheory.IMAGE_EQ_SING] >>
-  simp[EXISTS_PROD] >>
-  metis_tac[MEM_EL])
-
-val no_closures_v_to_Cv = store_thm("no_closures_v_to_Cv",
-  ``∀v mv m. no_closures (v_to_Cv mv m v) ⇔ ¬contains_closure v``,
-  ho_match_mp_tac contains_closure_ind >>
-  simp[v_to_Cv_def,contains_closure_def] >>
-  simp[pmatchTheory.vs_to_Cvs_MAP,EVERY_MEM,MEM_MAP,GSYM LEFT_FORALL_IMP_THM])
-
 (*
 val no_locs_Cv_bv = store_thm("no_locs_Cv_bv",
 ``∀Cv bv. all_Clocs Cv = {} ⇒ ∀bv pp pp'. (FST pp').cls = (FST pp).cls ∧ (SND pp') = SND pp ∧  Cv_bv pp Cv bv ⇒ Cv_bv pp' Cv bv``,

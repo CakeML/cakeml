@@ -74,6 +74,25 @@ val no_vlabs_v_to_Cv = store_thm("no_vlabs_v_to_Cv",
   simp[EVERY_MEM,UNCURRY])
 val _ = export_rewrites["no_vlabs_v_to_Cv"]
 
+val no_closures_all_vlabs = store_thm("no_closures_all_vlabs",
+  ``∀v. ¬contains_closure v ⇒ all_vlabs (v_to_Cv mv m v)``,
+  ho_match_mp_tac contains_closure_ind >>
+  simp[contains_closure_def,v_to_Cv_def] >>
+  simp[vs_to_Cvs_MAP,EVERY_MEM,MEM_MAP,GSYM LEFT_FORALL_IMP_THM])
+
+val no_closures_vlabs = store_thm("no_closures_vlabs",
+  ``∀v. ¬contains_closure v ⇒ vlabs (v_to_Cv mv m v) = {}``,
+  ho_match_mp_tac contains_closure_ind >>
+  simp[v_to_Cv_def,contains_closure_def] >>
+  simp[contains_closure_def,v_to_Cv_def,vlabs_list_MAP] >>
+  simp[vs_to_Cvs_MAP,EVERY_MEM,MEM_MAP,GSYM LEFT_FORALL_IMP_THM,IMAGE_EQ_SING])
+
+val no_closures_v_to_Cv = store_thm("no_closures_v_to_Cv",
+  ``∀v mv m. no_closures (v_to_Cv mv m v) ⇔ ¬contains_closure v``,
+  ho_match_mp_tac contains_closure_ind >>
+  simp[v_to_Cv_def,contains_closure_def] >>
+  simp[vs_to_Cvs_MAP,EVERY_MEM,MEM_MAP,GSYM LEFT_FORALL_IMP_THM])
+
 val cmap_linv_def = Define`
   cmap_linv m w ⇔ ∀x. x ∈ FDOM m ⇒ (ALOOKUP w (FAPPLY m x) = SOME x)`
 
