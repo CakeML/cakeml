@@ -6,7 +6,7 @@ val repl_decs_def = Define`repl_decs =
     [Dlet (Pvar"input" ) (Uapp Opref (Con (SOME(Short"None"))[]))
     ;Dlet (Pvar"output") (Uapp Opref (Con (SOME(Short"Inl"))[Con NONE [(* TODO: set this up properly *)]]))
     ;Dlet (Pvar"call_repl_step") (Fun "unit" (* (Mat (Var(Short"unit")) [Plit Unit, *)
-       App Opassign (Var(Short"output")) (App Opapp (Var(Short"repl_step")) (Uapp Opderef (Var(Short"input"))))(*])*))
+       (App Opassign (Var(Short"output")) (App Opapp (Var(Short"repl_step")) (Uapp Opderef (Var(Short"input")))))(*])*))
     ]`
 
 val call_repl_step_dec_def = Define`
