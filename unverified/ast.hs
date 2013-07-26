@@ -36,11 +36,27 @@ envAll f (Env m) = List.all (\(x,y) -> f x y) (Map.assocs m)
 envElem :: Ord k => k -> Env k v -> Bool
 envElem k (Env m) = Map.member k m
 
+show_pair (x,y) = "val " ++ show x ++ " = " ++ show y ++ ";"
+
+instance (Show k, Show v) => Show (Env k v) where
+  show (Env e) = List.intercalate "\n" (List.map show_pair (Map.assocs e))
+
 data Lit = 
     IntLit Integer
   | Bool Bool
   | Unit
   deriving Eq
+
+instance Show Lit where
+  show (IntLit i) = 
+    if i >= 0 then
+      show i
+    else
+      '~' : show (-i)
+  show (Bool True) = "true"
+  show (Bool False) = "false"
+  show Unit = "()"
+
 
 data Opn = Plus | Minus | Times | Divide | Modulo
   deriving Eq
@@ -206,6 +222,12 @@ data Error =
   | Div_error
   | Eq_error
   | Int_error Integer
+
+instance Show Error where
+  show Bind_error = "Bind"
+  show Div_error = "Div"
+  show Eq_error = "Equality_closure"
+  show (Int_error i) = "(IntError " ++ show i ++ ")"
 
 data Exp = 
     Raise Error

@@ -1,5 +1,4 @@
 module Interp where
-import Control.Monad.State.Lazy
 import Data.Maybe
 import Data.List as List
 import Ast
@@ -11,9 +10,21 @@ data V =
   | Recclosure (Env VarN V) [(VarN, VarN, Exp)] VarN
   | Loc Int
 
+instance Show V where
+  show (Litv l) = show l
+  show (Conv Nothing vs) = "(" ++ List.intercalate ", " (List.map show vs) ++ ")"
+  show (Conv (Just cn) vs) = show cn ++ "(" ++ List.intercalate ", " (List.map show vs) ++ ")"
+  show (Closure _ _ _) = "<fn>"
+  show (Recclosure _ _ _) = "<fn>"
+  show (Loc i) = "<ref>"
+
 data Error_result =
     Rtype_error
   | Rraise Error
+
+instance Show Error_result where
+  show Rtype_error = "type error" 
+  show (Rraise err) = show err
 
 data Result a =
     Rval a
@@ -49,22 +60,30 @@ type EnvE = Env VarN V
 
 type EnvM = Env ModN EnvE
 
-instance Monad Result where
-  return v = Rval v
+newtype M_st_ex s a = M_st_ex { run_M_st_ex :: (s -> (s, Result a)) }
+
+instance Monad (M_st_ex s) where
+  return v = M_st_ex (\s -> (s, Rval v))
   (>>=) v f =
-    case v of
-      Rval v -> f v
-      Rerr e -> Rerr e
+    M_st_ex (\s -> case (run_M_st_ex v) s of
+                     (s,Rval v) -> (run_M_st_ex (f v)) s
+                     (s,Rerr e) -> (s,Rerr e))
 
-newtype ResultT m a = ResultT (m (Result a))
+get :: M_st_ex s s
+get = M_st_ex (\s -> (s, Rval s))
 
-instance MonadTrans ResultT where
-  lift r = return r
+put :: s -> M_st_ex s ()
+put s = M_st_ex (\s' -> (s, Rval ()))
 
-type M_st_ex = ResultT (State Store)
+raise :: Error_result -> M_st_ex a b
+raise err = M_st_ex (\s -> (s, Rerr err))
 
-raise :: Error_result -> M_st_ex a
-raise err = lift (Rerr err)
+handle :: M_st_ex s a -> (Integer -> M_st_ex s a) -> M_st_ex s a
+handle v f =
+  M_st_ex (\s -> case run_M_st_ex v s of
+                   (s, Rerr (Rraise (Int_error i))) -> run_M_st_ex (f i) s
+                   (s,r) -> (s,r))
+      
 
 lit_same_type :: Lit -> Lit -> Bool
 lit_same_type l1 l2 =
@@ -117,7 +136,7 @@ pmatch_list envC s (p:ps) (v:vs) env =
       Match env' -> pmatch_list envC s ps vs env'
 pmatch_list envC s _ _ env = Match_type_error
 
-do_con_check :: EnvC -> Maybe (Id ConN) -> Integer -> M_st_ex ()
+do_con_check :: EnvC -> Maybe (Id ConN) -> Integer -> M_st_ex a ()
 do_con_check cenv n_opt l =
   case n_opt of
       Nothing -> return ()
@@ -242,19 +261,13 @@ do_if v e1 e2 =
       Litv (Bool False) -> Just e2
       _ -> Nothing
 
-do_handle :: EnvM -> EnvC -> EnvE -> VarN -> Exp -> Result V -> M_st_ex V
-do_handle menv cenv env var e res =
-  case res of
-    Rerr (Rraise (Int_error i)) -> run_eval menv cenv (bind var (Litv (IntLit i)) env) e
-    _ -> lift res
-
-run_eval :: EnvM -> EnvC -> EnvE -> Exp -> M_st_ex V
+run_eval :: EnvM -> EnvC -> EnvE -> Exp -> M_st_ex Store V
 run_eval menv cenv env (Lit l pos) = 
   return (Litv l)
 run_eval menv cenv env (Raise err) =
   raise (Rraise err)
 run_eval menv cenv env (Handle e1 var e2) =
-  run_eval menv cenv env e1 >>= do_handle menv cenv env var e2
+  run_eval menv cenv env e1 `handle` (\i -> run_eval menv cenv (bind var (Litv (IntLit i)) env) e2)
 run_eval menv cenv env (Con cn es pos) =
   do do_con_check cenv cn (toInteger (List.length es));
      vs <- run_eval_list menv cenv env es;
@@ -320,132 +333,90 @@ run_eval_match menv cenv env v ((p,e):pes) =
              Match env' -> run_eval menv cenv env' e
       else
         raise Rtype_error
-     
-{-
-val run_eval_dec_def = Define `
-(run_eval_dec mn menv cenv st env (Dlet p e) =
-  if ALL_DISTINCT (pat_bindings p []) then
-    case run_eval menv cenv env e st of
-       | (st', Rval v) =>
-           (case pmatch cenv (SND st') p v emp of
-              | Match env' => (st', Rval (emp, env'))
-              | No_match => (st', Rerr (Rraise Bind_error))
-              | Match_type_error => (st', Rerr Rtype_error))
-       | (st', Rerr e) => (st', Rerr e)
+
+build_tdefs :: Maybe ModN -> [([TvarN], TypeN, [(ConN, [T])])] -> EnvC
+build_tdefs mn tds =
+  listToEnv 
+  (List.concat
+    (List.map
+      (\(tvs, tn, condefs) ->
+         List.map
+           (\(conN, ts) ->
+              (mk_id mn conN, (toInteger (List.length ts), mk_id mn tn)))
+           condefs)
+      tds))
+
+run_eval_dec mn menv cenv st env (Dlet p e pos) =
+  if isNothing (getDup (pat_bindings p [])) then
+    case run_M_st_ex (run_eval menv cenv env e) st of
+         (st', Rval v) ->
+           (case pmatch cenv st' p v emp of
+                Match env' -> (st', Rval (emp, env'))
+                No_match -> (st', Rerr (Rraise Bind_error))
+                Match_type_error -> (st', Rerr Rtype_error))
+         (st', Rerr e) -> (st', Rerr e)
   else
-    (st, Rerr Rtype_error)) ∧
-(run_eval_dec mn menv cenv st env (Dletrec funs) =
-  if ALL_DISTINCT (MAP FST funs) then
+    (st, Rerr Rtype_error)
+run_eval_dec mn menv cenv st env (Dletrec funs) =
+  if isNothing (getDup (List.map (\(x,y,z) -> x) funs)) then
     (st, Rval (emp, build_rec_env funs env emp))
   else
-    (st, Rerr Rtype_error)) ∧
-(run_eval_dec mn menv cenv st env (Dtype tds) =
+    (st, Rerr Rtype_error)
+run_eval_dec mn menv cenv st env (Dtype tds) =
+  (st, Rval (build_tdefs mn tds, emp))
+{- 
   if check_dup_ctors mn cenv tds then
     (st, Rval (build_tdefs mn tds, emp))
   else
-    (st, Rerr Rtype_error))`;
-
-val run_eval_decs_def = Define `
-(run_eval_decs mn menv cenv st env [] = (st, emp, Rval emp)) ∧
-(run_eval_decs mn menv cenv st env (d::ds) =
-  case run_eval_dec mn menv cenv st env d of
-      (st', Rval (cenv',env')) =>
-         (case run_eval_decs mn menv (merge cenv' cenv) st' (merge env' env) ds of
-               (st'', cenv'', r) =>
-                 (st'', merge cenv'' cenv', combine_dec_result env' r))
-    | (st',Rerr err) => (st',emp,Rerr err))`;
-
-val run_eval_top_def = Define `
-(run_eval_top menv cenv st env (Tdec d) = 
-  case run_eval_dec Nothing menv cenv st env d of
-       (st', Rval (cenv', env')) => (st', cenv', Rval (emp, env'))
-     | (st', Rerr err) => (st', emp, Rerr err)) ∧
-(run_eval_top menv cenv st env (Tmod mn specs ds) =
-  if ~MEM mn (MAP FST menv) then
-    case run_eval_decs (Just mn) menv cenv st env ds of
-         (st', cenv', Rval env') => (st', cenv', (Rval ([(mn, env')], emp)))
-       | (st', cenv', Rerr err) => (st', cenv', Rerr err)
-  else
-    (st, emp, Rerr Rtype_error))`;
-
-val run_eval_prog_def = Define `
-(run_eval_prog menv cenv st env [] = (st, emp, Rval (emp, emp))) ∧
-(run_eval_prog menv cenv st env (top::prog) =
-  case run_eval_top menv cenv st env top of
-       (st', cenv', Rval (menv', env')) =>
-          (case run_eval_prog (merge menv' menv) (merge cenv' cenv) st' (merge env' env) prog of
-              | (st'', cenv'', Rval (menv'', env'')) =>
-                  (st'', merge cenv'' cenv', Rval (merge menv'' menv', merge env'' env'))
-              | (st'', cenv'', Rerr err) => (st'', merge cenv'' cenv', Rerr err))
-     | (st', cenv', Rerr err) => (st', cenv', Rerr err))`;
-
-val run_eval_dec_spec = Q.store_thm ("run_eval_dec_spec",
-`!mn menv cenv st env d st' r.
-  (run_eval_dec mn menv cenv st env d = (st', r)) ∧
-  r ≠ Rerr Rtimeout_error ⇒ 
-  evaluate_dec mn menv cenv (SND st) env d (SND st', r)`,
- cases_on `d` >>
- rw [evaluate_dec_cases, run_eval_dec_def, fst_lem] >>
- every_case_tac >>
- fs [GSYM evaluate_run_eval] >>
- rw [] >>
- metis_tac [big_clocked_unclocked_equiv, clocked_min_counter, SND, pair_CASES, result_distinct, result_11]);
-
-val run_eval_decs_spec = Q.store_thm ("run_eval_decs_spec",
-`!mn menv cenv st env ds st' cenv' r.
-  (run_eval_decs mn menv cenv st env ds = (st',cenv', r)) ∧
-  r ≠ Rerr Rtimeout_error ⇒ 
-  evaluate_decs mn menv cenv (SND st) env ds (SND st', cenv', r)`,
- induct_on `ds` >>
- rw [Once evaluate_decs_cases] >>
- fs [run_eval_decs_def] >>
- every_case_tac >>
- imp_res_tac run_eval_dec_spec >>
- fs [] >>
- rw [] 
- >- (cases_on `r'''` >>
-     fs [combine_dec_result_def, LibTheory.merge_def] >>
-     every_case_tac >>
-     fs [] >|
-     [MAP_EVERY qexists_tac [`SND q`, `q'''`, `q'`, `r'`, `Rval a`] >>
-          rw [],
-      disj2_tac >>
-          MAP_EVERY qexists_tac [`SND q`, `q'''`, `q'`, `r'`, `Rerr e`] >>
-          rw []] >>
-     NO_TAC) 
- >- metis_tac []);
-
-val run_eval_top_spec = Q.store_thm ("run_eval_top_spec",
-`!menv cenv st env top st' cenv' r.
-  (run_eval_top menv cenv st env top = (st',cenv', r)) ∧
-  r ≠ Rerr Rtimeout_error ⇒ 
-  evaluate_top menv cenv (SND st) env top (SND st', cenv', r)`,
- cases_on `top` >>
- rw [evaluate_top_cases, run_eval_top_def]  >>
- every_case_tac >>
- imp_res_tac run_eval_decs_spec >>
- imp_res_tac run_eval_dec_spec >>
- fs [] >>
- rw [] >>
- metis_tac []);
-
-val run_eval_prog_spec = Q.store_thm ("run_eval_prog_spec",
-`!menv cenv st env prog st' cenv' r.
-  (run_eval_prog menv cenv st env prog = (st',cenv', r)) ∧
-  r ≠ Rerr Rtimeout_error ⇒ 
-  evaluate_prog menv cenv (SND st) env prog (SND st', cenv', r)`,
- induct_on `prog` >>
- rw [run_eval_prog_def, Once evaluate_prog_cases] >>
- every_case_tac >>
- imp_res_tac run_eval_top_spec >>
- fs [] >>
- rw []
- >- (MAP_EVERY qexists_tac [`SND q`, `q''`, `q'`, `q''''`, `r'`, `Rval (q''''', r'')`] >>
-     rw [combine_mod_result_def] >>
-     NO_TAC) 
- >- (disj1_tac >>
-     MAP_EVERY qexists_tac [`SND q`, `q''`, `q'`, `q''''`, `r'`, `Rerr e`] >>
-     rw [combine_mod_result_def] >>
-     NO_TAC));
+    (st, Rerr Rtype_error)
 -}
+
+combine_dec_result :: Ord a => Env a b -> Result (Env a b) -> Result (Env a b)
+combine_dec_result env r =
+  case r of
+     Rerr e -> Rerr e
+     Rval env' -> Rval (merge env' env)
+
+run_eval_decs mn menv cenv st env [] = (st, emp, Rval emp)
+run_eval_decs mn menv cenv st env (d:ds) =
+  case run_eval_dec mn menv cenv st env d of
+      (st', Rval (cenv',env')) ->
+         (case run_eval_decs mn menv (merge cenv' cenv) st' (merge env' env) ds of
+               (st'', cenv'', r) ->
+                 (st'', merge cenv'' cenv', combine_dec_result env' r))
+      (st',Rerr err) -> (st',emp,Rerr err)
+
+run_eval_top :: EnvM -> EnvC -> Store -> EnvE -> Top -> (Store, EnvC, Result (EnvM, EnvE))
+run_eval_top menv cenv st env (Tdec d) = 
+  case run_eval_dec Nothing menv cenv st env d of
+       (st', Rval (cenv', env')) -> (st', cenv', Rval (emp, env'))
+       (st', Rerr err) -> (st', emp, Rerr err)
+run_eval_top menv cenv st env (Tmod mn specs ds) =
+  if not (envElem mn menv) then
+    case run_eval_decs (Just mn) menv cenv st env ds of
+         (st', cenv', Rval env') -> (st', cenv', (Rval (listToEnv [(mn, env')], emp)))
+         (st', cenv', Rerr err) -> (st', cenv', Rerr err)
+  else
+    (st, emp, Rerr Rtype_error)
+
+varx = Var (Short (VarN "x" dummy_pos))
+vary = Var (Short (VarN "y" dummy_pos))
+
+init_env :: EnvE
+init_env = listToEnv (List.map (\(x,y) -> (VarN x dummy_pos, Closure emp (VarN "x" dummy_pos) y))
+  [("+", (Fun (VarN "y" dummy_pos) (App (Opn Plus dummy_pos) varx vary) dummy_pos)),
+   ("-", (Fun (VarN "y" dummy_pos) (App (Opn Minus dummy_pos) varx vary) dummy_pos)),
+   ("*", (Fun (VarN "y" dummy_pos) (App (Opn Times dummy_pos) varx vary) dummy_pos)),
+   ("div", (Fun (VarN "y" dummy_pos) (App (Opn Divide dummy_pos) varx vary) dummy_pos)),
+   ("mod", (Fun (VarN "y" dummy_pos) (App (Opn Modulo dummy_pos) varx vary) dummy_pos)),
+   ("<", (Fun (VarN "y" dummy_pos) (App (Opb Lt dummy_pos) varx vary) dummy_pos)),
+   (">", (Fun (VarN "y" dummy_pos) (App (Opb Gt dummy_pos) varx vary) dummy_pos)),
+   ("<=", (Fun (VarN "y" dummy_pos) (App (Opb Leq dummy_pos) varx vary) dummy_pos)),
+   (">=", (Fun (VarN "y" dummy_pos) (App (Opb Geq dummy_pos) varx vary) dummy_pos)),
+   ("=", (Fun (VarN "y" dummy_pos) (App (Equality dummy_pos) varx vary) dummy_pos)),
+   (":=", (Fun (VarN "y" dummy_pos) (App (Opassign dummy_pos) varx vary)) dummy_pos),
+   ("~", (App (Opn Minus dummy_pos) (Lit (IntLit 0) dummy_pos) varx)),
+   ("!", (Uapp Opderef varx)),
+   ("ref", (Uapp (Opref dummy_pos) varx))])
+
 

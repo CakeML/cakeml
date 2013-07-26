@@ -1,6 +1,4 @@
-SOURCES = ast.hs lex.hs main.hs parse.hs tokens.hs typecheck.hs unify.hs
-
-cakeml_uv: $(SOURCES)
+all:
 	ghc --make Main -o cakeml_uv
 
 clean:
