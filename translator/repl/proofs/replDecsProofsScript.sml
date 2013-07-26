@@ -31,7 +31,13 @@ val compile_repl_decs_thm = store_thm("compile_repl_decs_thm",
       ∧ bs.pc = 0
       ∧ bs.stack = []
       ∧ bs.clock = NONE
-      ⇒ ∃bs' rs rd.
+      ⇒ ∃bs' rd.
+        let rs = init_compiler_state with
+          <|contab := ct
+           ;renv := ZIP(m.bvars,REVERSE(GENLIST I rsz))
+           ;rsz := rsz
+           ;rnext_label := cs.next_label
+           |> in
         bc_eval bs = SOME bs'
       ∧ bs'.pc = next_addr bs.inst_length bs.code
       ∧ env_rs [] cenv env rs 0 rd (0,s) bs'
@@ -57,6 +63,7 @@ val compile_repl_decs_thm = store_thm("compile_repl_decs_thm",
       match_mp_tac env_rs_empty >> simp[]) >>
     simp[good_labels_def] ) >>
   strip_tac >>
+  simp[markerTheory.Abbrev_def] >>
   imp_res_tac RTC_bc_next_can_be_unclocked >>
   qmatch_assum_abbrev_tac`RTC bc_next bs1 bs2` >>
   `bc_next^* (bs1 with code := bs.code) (bs2 with code := bs.code)` by (
@@ -79,14 +86,19 @@ val compile_repl_decs_thm = store_thm("compile_repl_decs_thm",
     simp[bc_eval1_thm,bc_eval1_def] ) >>
   conj_tac >- simp[Abbr`bs2`] >>
   qmatch_assum_abbrev_tac`env_rs [] cenv env rs 0 rd' (0,s) bs'` >>
-  map_every qexists_tac[`rs`,`rd'`] >>
+  Q.PAT_ABBREV_TAC`rs':compiler_state = X` >>
+  qmatch_assum_abbrev_tac`compile_decs rmn rmenv rct rm renv msz rcs rdecs = rX` >>
+  qspecl_then[`rdecs`,`rmn`,`rmenv`,`rct`,`rm`,`renv`,`msz`,`rcs`]mp_tac compile_decs_append_out >>
+  simp[Abbr`rX`,Abbr`rm`,Abbr`msz`,Abbr`renv`,Abbr`rcs`,Abbr`rs`] >> strip_tac >>
+  qmatch_assum_abbrev_tac`env_rs [] cenv env rs 0 rd' (0,s) bs'` >>
+  `rs' = rs` by (
+    simp[Abbr`rs`,Abbr`rs'`,CompilerTheory.compiler_state_component_equality] >>
+    simp[REVERSE_GENLIST,PRE_SUB1] ) >>
+  qexists_tac`rd'` >>
   conj_tac >- (
     match_mp_tac env_rs_remove_clock >>
     qexists_tac`0,s` >> simp[] >>
     qexists_tac`bs'` >> simp[]) >>
-  qmatch_assum_abbrev_tac`compile_decs rmn rmenv rct rm renv msz rcs rdecs = rX` >>
-  qspecl_then[`rdecs`,`rmn`,`rmenv`,`rct`,`rm`,`renv`,`msz`,`rcs`]mp_tac compile_decs_append_out >>
-  simp[Abbr`rX`,Abbr`rm`,Abbr`msz`,Abbr`renv`,Abbr`rcs`,Abbr`rs`] >> strip_tac >>
   fs[good_labels_def,between_labels_def] >>
   fsrw_tac[DNF_ss][EVERY_MEM,miscTheory.between_def,MEM_MAP])
 

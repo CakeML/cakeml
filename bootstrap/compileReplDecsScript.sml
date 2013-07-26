@@ -1,11 +1,5 @@
-open preamble repl_computeLib ml_repl_stepTheory oneshotTheory
-val _ = new_theory"compile_oneshot"
-
-val _ = computeLib.stoppers := let
-  val stoppers = [``Dlet``,``Dletrec``,``Dtype``]
-  in SOME (fn tm => mem tm stoppers) end
-
-val _ = computeLib.add_funs[ml_repl_step_decls,oneshot_decs_def]
+open preamble repl_computeLib ml_repl_stepTheory replDecsTheory
+val _ = new_theory"compileReplDecs"
 
 val compile_dec1_def = Define`
   compile_dec1 mn menv (ct,m,env,rsz,cs) dec =
@@ -106,7 +100,6 @@ in
   recurse 0
 end
 
-
 fun foldl_append_CONV d = let
   val core = RAND_CONV (K d) THENC FOLDL_EVAL
 in
@@ -200,10 +193,19 @@ end
 val _ = Globals.max_print_depth := 15
 
 val ct = ``init_compiler_state.contab``
-val m = ``<|bvars:=["input"];mvars:=FEMPTY;cnmap:=cmap(^ct)|>``
+val m = ``<|bvars:=[];mvars:=FEMPTY;cnmap:=cmap(^ct)|>``
 val cs = ``<|out:=[];next_label:=init_compiler_state.rnext_label|>``
+
+val compile_repl_decs_def = zDefine`
+  compile_repl_decs = FOLDL (compile_dec1 NONE FEMPTY) (^ct,^m,[],0,^cs) repl_decs`
+
+val _ = computeLib.add_funs[ml_repl_step_decls,repl_decs_def,call_repl_step_dec_def]
+val _ = computeLib.stoppers := let
+  val stoppers = [``Dlet``,``Dletrec``,``Dtype``]
+  in SOME (fn tm => mem tm stoppers) end
+
 fun mk_initial_split n =
-  ``FOLDL (compile_dec1 NONE FEMPTY) (^ct,^m,[CTDec 0],1,^cs) oneshot_decs``
+  (rhs(concl(compile_repl_decs_def)))
      |> (RAND_CONV (EVAL THENC chunkify_CONV n) THENC
          RATOR_CONV (RAND_CONV EVAL))
 
@@ -235,12 +237,12 @@ val x260 = doit 1 x240;
 val x280 = doit 1 x260;
 val x300 = doit 1 x280;
 val x320 = doit 1 x300;
-val x340 = doit 1 x320;  (* manages this far on telemachus *)
+val x340 = doit 1 x320;
 val x360 = doit 1 x340;
 val x380 = doit 1 x360;
 val x400 = doit 1 x380;
 val (_,_,th) = x400;
 
-val compiled = save_thm("compiled", th);
+val repl_decs_compiled = save_thm("repl_decs_compiled", th);
 
 val _ = export_theory()
