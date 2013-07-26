@@ -2,4 +2,6 @@ Files which bootstrap the verified compiler.
 NB, may require 16GB of RAM to complete.
 
 compileReplDecsScript.sml
-    evaluate the compiler applied to repl_decs and call_repl_step
+    evaluate the compiler on repl_decs
+compileCallReplStepDecScript.sml
+    evaluate the compiler on the call of call_repl_step
