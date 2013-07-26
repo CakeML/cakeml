@@ -5,9 +5,9 @@ theorem prover (http://hol.sourceforge.net).
 
 NB: We develop this using the head of the HOL4 development version in Github
 (https://github.com/mn200/HOL), and it will not work on official HOL releases.
-We build HOL on PolyML 5.5 (http://www.polyml.org/).  Also, a full build
-(including the bootstrapping which requires running the compiler on itself in
-the logic) requires a machine with 32GB RAM.
+We build HOL on PolyML 5.5 (http://www.polyml.org/). Also, a full build
+(including the bootstrapping which runs the compiler on itself in the logic)
+may require 16GB RAM.
 
 Directory structure:
 
