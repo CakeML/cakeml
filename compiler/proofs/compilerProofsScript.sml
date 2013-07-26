@@ -3133,6 +3133,7 @@ val compile_decs_append_out = store_thm("compile_decs_append_out",
     ∃code. cs'.out = REVERSE code ++ cs.out ∧ between_labels code cs.next_label cs'.next_label ∧
     code_labels_ok code ∧
     m'.bvars = FLAT (REVERSE (MAP new_dec_vs decs)) ++ m.bvars ∧
+    (m.cnmap = cmap ct ⇒ m'.cnmap = cmap ct') ∧
     rsz' = rsz + LENGTH (FLAT (REVERSE (MAP new_dec_vs decs)))``,
   Induct >> simp[compile_decs_def,Once SWAP_REVERSE] >- simp[between_labels_def] >>
   qx_gen_tac`dec` >>
