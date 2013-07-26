@@ -8,6 +8,3 @@ pmatchScript.sml
 in particular,
 compilerProofsScript.sml
   theorems about the compiler from top-level declarations to bytecode
-
-interactiveScript.sml
-  thoughts about making a verified call to compiled code manually
