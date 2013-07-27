@@ -108,7 +108,7 @@ fun derive_case_of ty = let
     val str = stringSyntax.fromMLstring str
     val vars = map (fn (x,n,v) => ``(Pvar ^n) : pat``) xs
     val vars = listSyntax.mk_list(vars,``:pat``)
-    in ``(Pcon (Short ^str) ^vars, ^exp)`` end) ts
+    in ``(Pcon (SOME (Short ^str)) ^vars, ^exp)`` end) ts
   val patterns = listSyntax.mk_list(patterns,``:pat # exp``)
   val ret_inv = get_type_inv ``:'return_type``
   val exp_var = mk_var("exp", ``:exp``)
@@ -573,6 +573,14 @@ fun m_translate def = let
   val th = CONV_RULE (QCONV (DEPTH_CONV ETA_CONV)) th
   val th = if is_rec then Q.INST [`shaddow_env`|->`cl_env`] th |> REWRITE_RULE []
                      else Q.INST [`shaddow_env`|->`env`] th |> REWRITE_RULE []
+  (* DeclAssumExists *)
+  val decl_assum_ex = let
+    val fs = find_term (can (match_term ``Recclosure env funs``)) (concl th) |> rand
+    val c = REWRITE_CONV [MAP] THENC EVAL
+    val th = DeclAssumExists_SNOC_Dletrec |> SPEC fs |> SPEC_ALL
+             |> CONV_RULE ((RATOR_CONV o RAND_CONV) c)
+    val th = MP th TRUTH
+    in th end handle HOL_ERR _ => DeclAssumExists_SNOC_Dlet_Fun
   (* collect precondition *)
   val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
                       (SIMP_CONV std_ss [EVAL ``CONTAINER TRUE``,
@@ -634,7 +642,7 @@ fun m_translate def = let
   val th = MATCH_MP EvalM_ArrowM_IMP th
   (* store certificate for later use *)
   val pre = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
-  val th = store_cert th [pre] |> Q.SPEC `env` |> UNDISCH_ALL
+  val th = store_cert th [pre] decl_assum_ex |> Q.SPEC `env` |> UNDISCH_ALL
   val _ = print_fname fname original_def
   in th end handle UnableToTranslate tm => let
     val _ = print "\n\nCannot translate term:  "

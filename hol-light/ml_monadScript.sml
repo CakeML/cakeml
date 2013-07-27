@@ -98,36 +98,57 @@ val LIST_TYPE_11 = prove(
        MEM x1 ts ==>
         !v1 x2 v2.
           P x1 v1 /\ P x2 v2 ==>
-          ((v1 = v2) <=> (x1 = x2))) /\
+          types_match v1 v2 /\ ((v1 = v2) <=> (x1 = x2))) /\
     LIST_TYPE P ts v1 /\ LIST_TYPE P us v2 ==>
-    ((v1 = v2) = (ts = us))``,
+    types_match v1 v2 /\ ((v1 = v2) = (ts = us))``,
   STRIP_TAC \\ Induct \\ Cases_on `us` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ SIMP_TAC (srw_ss()) [LIST_TYPE_def]
-  \\ FULL_SIMP_TAC (srw_ss()) [PULL_EXISTS] \\ METIS_TAC []);
+  \\ SIMP_TAC (srw_ss()) [LIST_TYPE_def,types_match_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [PULL_EXISTS,types_match_def]
+  \\ METIS_TAC []);
 
 val CHAR_IMP_no_closures = prove(
   ``CHAR x v ==> no_closures v``,
   SIMP_TAC std_ss [CHAR_def,NUM_def,INT_def,no_closures_def]);
 
+val EqualityType_thm = prove(
+  ``EqualityType abs <=>
+      (!x1 v1. abs x1 v1 ==> no_closures v1) /\
+      (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> types_match v1 v2 /\
+                                                (v1 = v2 ⇔ x1 = x2))``,
+  SIMP_TAC std_ss [EqualityType_def] \\ METIS_TAC []);
+
+val LIST_TYPE_CHAR_LEMMA = prove(
+  ``EqualityType (LIST_TYPE CHAR)``,
+  METIS_TAC (eq_lemmas ()));
+
 val EqualityType_HOL_TYPE = prove(
   ``EqualityType HOL_TYPE_TYPE``,
-  SIMP_TAC std_ss [EqualityType_def] \\ STRIP_TAC THEN1
+  SIMP_TAC std_ss [EqualityType_thm] \\ STRIP_TAC THEN1
    (HO_MATCH_MP_TAC hol_type_ind
     \\ FULL_SIMP_TAC std_ss [HOL_TYPE_TYPE_def]
     \\ REPEAT STRIP_TAC
     \\ FULL_SIMP_TAC std_ss [no_closures_def,EVERY_DEF]
     \\ IMP_RES_TAC (LIST_TYPE_NO_CLOSURES |> GEN_ALL)
     \\ METIS_TAC [CHAR_IMP_no_closures])
-  \\ HO_MATCH_MP_TAC hol_type_ind \\ REVERSE (REPEAT STRIP_TAC)
+  \\ HO_MATCH_MP_TAC hol_type_ind \\ REVERSE STRIP_TAC THEN1
+   (REPEAT STRIP_TAC
+    \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [HOL_TYPE_TYPE_def]
+    \\ FULL_SIMP_TAC (srw_ss()) [types_match_def]
+    \\ ASSUME_TAC LIST_TYPE_CHAR_LEMMA
+    \\ FULL_SIMP_TAC std_ss [EqualityType_def] \\ RES_TAC)
+  \\ REPEAT GEN_TAC \\ STRIP_TAC \\ REPEAT GEN_TAC \\ STRIP_TAC
   \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [HOL_TYPE_TYPE_def]
-  THEN1 (MATCH_MP_TAC (LIST_TYPE_11 |> Q.ISPEC `CHAR`)
-         \\ FULL_SIMP_TAC (srw_ss()) [CHAR_def,INT_def,NUM_def,ORD_11])
-  \\ `(v2_1 = v2_1') = (s = s')` by ALL_TAC
-  THEN1 (MATCH_MP_TAC (LIST_TYPE_11 |> Q.ISPEC `CHAR`)
-         \\ FULL_SIMP_TAC (srw_ss()) [CHAR_def,INT_def,NUM_def,ORD_11])
-  \\ FULL_SIMP_TAC std_ss [] \\ Cases_on `s = s'`
+  \\ FULL_SIMP_TAC (srw_ss()) [types_match_def]
+  \\ MATCH_MP_TAC (METIS_PROVE [] ``(b1 /\ (x1 = y1)) /\ (b2 /\ (x2 = y2)) ==>
+       (b1 /\ b2) /\ ((x1 /\ x2 <=> y1 /\ y2))``)
+  \\ STRIP_TAC THEN1
+   (ASSUME_TAC LIST_TYPE_CHAR_LEMMA
+    \\ FULL_SIMP_TAC std_ss [EqualityType_def] \\ RES_TAC
+    \\ ASM_SIMP_TAC std_ss [])
+  \\ MATCH_MP_TAC LIST_TYPE_11
+  \\ Q.EXISTS_TAC `HOL_TYPE_TYPE`
   \\ FULL_SIMP_TAC std_ss []
-  \\ IMP_RES_TAC LIST_TYPE_11 \\ METIS_TAC [])
+  \\ REPEAT STRIP_TAC \\ RES_TAC)
   |> store_eq_thm;
 
 val _ = register_type ``:hol_term``;
@@ -307,8 +328,10 @@ val HOL_STORE_EXISTS = prove(
   ``?s refs. HOL_STORE s refs``,
   SIMP_TAC std_ss [HOL_STORE_def]
   \\ STRIP_ASSUME_TAC HOL_TERM_TYPE_EXISTS
-  \\ Q.EXISTS_TAC `[Conv (Short "Nil") []; Conv (Short "Nil") [];
-                    Conv (Short "Nil") []; Conv (Short "Nil") []; v]`
+  \\ Q.EXISTS_TAC `[Conv (SOME (Short "Nil")) [];
+                    Conv (SOME (Short "Nil")) [];
+                    Conv (SOME (Short "Nil")) [];
+                    Conv (SOME (Short "Nil")) []; v]`
   \\ FULL_SIMP_TAC (srw_ss()) [LENGTH,EL,HD,TL]
   \\ Q.EXISTS_TAC `<| the_axioms := []; the_type_constants := [] ;
                       the_term_constants := []; the_definitions := [];
@@ -550,6 +573,39 @@ val evaluate'_SIMP =
   |> map (SIMP_CONV (srw_ss()) [Once evaluate'_cases])
   |> LIST_CONJ;
 
+fun get_tm_eval () = let
+  val tm = get_DeclAssum () |> rator |> rand;
+  fun get_all n =
+    fetch "-" ("ml_monad_decls_" ^ (int_to_string n)) :: get_all (n+1)
+    handle HOL_ERR _ => []
+  in tm |> REWRITE_CONV (get_all 0 @ [APPEND,SNOC_APPEND]) end
+
+val SWAP_EXISTS = METIS_PROVE [] ``(?x y. P x y) ==> (?y x. P x y)``
+
+val DeclAssumExists_SNOC_Dlet_Ref = prove(
+  ``!ds name n exp P.
+      (!env. DeclAssum ds env ==> Eval env exp P) ==>
+      DeclAssumExists ds ==>
+      DeclAssumExists (SNOC (Dlet (Pvar name) (Uapp Opref exp)) ds)``,
+  SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND,PULL_EXISTS]
+  \\ RES_TAC \\ SIMP_TAC std_ss [Decls_def] \\ ONCE_REWRITE_TAC [CONJ_COMM]
+  \\ SIMP_TAC std_ss [Once evaluate_decs'_cases]
+  \\ SIMP_TAC (srw_ss()) [CONS_11,NOT_CONS_NIL,PULL_EXISTS]
+  \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_decs'_cases]
+  \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_dec'_cases]
+  \\ SIMP_TAC std_ss [merge_def,APPEND_NIL]
+  \\ SIMP_TAC (srw_ss()) [pmatch'_def,ALL_DISTINCT,pat_bindings_def,
+       combine_dec_result_def]
+  \\ FULL_SIMP_TAC std_ss [Decls_def,Eval_def,evaluate'_empty_store_EQ]
+  \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `cenv2`
+  \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `s2`
+  \\ HO_MATCH_MP_TAC SWAP_EXISTS \\ Q.EXISTS_TAC `env`
+  \\ FULL_SIMP_TAC std_ss []
+  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases,do_uapp_def,LET_DEF,store_alloc_def]
+  \\ METIS_TAC []);
+
+
 (* ref 1 *)
 
 val lemma =
@@ -559,13 +615,7 @@ val exp = lemma |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (Uapp Opref ^exp)) : dec``
 
 val tm = get_DeclAssum () |> rator |> rand;
-val tm_eval = tm |> REWRITE_CONV (map (fetch "-") ["ml_monad_decls_5",
-                                                   "ml_monad_decls_4",
-                                                   "ml_monad_decls_3",
-                                                   "ml_monad_decls_2",
-                                                   "ml_monad_decls_1",
-                                                   "ml_monad_decls_0"] @
-                                  [APPEND,SNOC_APPEND])
+val tm_eval = get_tm_eval ()
 
 val the_type_constants_def = Define `
   the_type_constants = Loc 0`;
@@ -586,6 +636,8 @@ val th = prove(
   |> Q.INST [`n`|->`"the_type_constants"`] |> UNDISCH;
 
 val th = store_cert th [TRUTH]
+  (MATCH_MP DeclAssumExists_SNOC_Dlet_Ref
+    (Q.GEN `env` (DISCH (get_DeclAssum ()) lemma)))
 
 (* ref 2 *)
 
@@ -596,14 +648,7 @@ val exp = lemma |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (Uapp Opref ^exp)) : dec``
 
 val tm = get_DeclAssum () |> rator |> rand;
-val tm_eval = tm |> REWRITE_CONV (map (fetch "-") ["ml_monad_decls_6",
-                                                   "ml_monad_decls_5",
-                                                   "ml_monad_decls_4",
-                                                   "ml_monad_decls_3",
-                                                   "ml_monad_decls_2",
-                                                   "ml_monad_decls_1",
-                                                   "ml_monad_decls_0"] @
-                                  [APPEND,SNOC_APPEND])
+val tm_eval = get_tm_eval ()
 
 val the_term_constants_def = Define `
   the_term_constants = Loc 1`;
@@ -624,6 +669,8 @@ val th = prove(
   |> Q.INST [`n`|->`"the_term_constants"`] |> UNDISCH;
 
 val th = store_cert th [TRUTH]
+  (MATCH_MP DeclAssumExists_SNOC_Dlet_Ref
+    (Q.GEN `env` (DISCH (get_DeclAssum ()) lemma)))
 
 (* ref 3 *)
 
@@ -634,15 +681,7 @@ val exp = lemma |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (Uapp Opref ^exp)) : dec``
 
 val tm = get_DeclAssum () |> rator |> rand;
-val tm_eval = tm |> REWRITE_CONV (map (fetch "-") ["ml_monad_decls_7",
-                                                   "ml_monad_decls_6",
-                                                   "ml_monad_decls_5",
-                                                   "ml_monad_decls_4",
-                                                   "ml_monad_decls_3",
-                                                   "ml_monad_decls_2",
-                                                   "ml_monad_decls_1",
-                                                   "ml_monad_decls_0"] @
-                                  [APPEND,SNOC_APPEND])
+val tm_eval = get_tm_eval ()
 
 val the_axioms_def = Define `
   the_axioms = Loc 2`;
@@ -663,6 +702,8 @@ val th = prove(
   |> Q.INST [`n`|->`"the_axioms"`] |> UNDISCH;
 
 val th = store_cert th [TRUTH]
+  (MATCH_MP DeclAssumExists_SNOC_Dlet_Ref
+    (Q.GEN `env` (DISCH (get_DeclAssum ()) lemma)))
 
 (* ref 4 *)
 
@@ -673,16 +714,7 @@ val exp = lemma |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (Uapp Opref ^exp)) : dec``
 
 val tm = get_DeclAssum () |> rator |> rand;
-val tm_eval = tm |> REWRITE_CONV (map (fetch "-") ["ml_monad_decls_8",
-                                                   "ml_monad_decls_7",
-                                                   "ml_monad_decls_6",
-                                                   "ml_monad_decls_5",
-                                                   "ml_monad_decls_4",
-                                                   "ml_monad_decls_3",
-                                                   "ml_monad_decls_2",
-                                                   "ml_monad_decls_1",
-                                                   "ml_monad_decls_0"] @
-                                  [APPEND,SNOC_APPEND])
+val tm_eval = get_tm_eval ()
 
 val the_definitions_def = Define `
   the_definitions = Loc 3`;
@@ -703,6 +735,8 @@ val th = prove(
   |> Q.INST [`n`|->`"the_definitions"`] |> UNDISCH;
 
 val th = store_cert th [TRUTH]
+  (MATCH_MP DeclAssumExists_SNOC_Dlet_Ref
+    (Q.GEN `env` (DISCH (get_DeclAssum ()) lemma)))
 
 (* ref 5 *)
 
@@ -713,17 +747,7 @@ val exp = lemma |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (Uapp Opref ^exp)) : dec``
 
 val tm = get_DeclAssum () |> rator |> rand;
-val tm_eval = tm |> REWRITE_CONV (map (fetch "-") ["ml_monad_decls_9",
-                                                   "ml_monad_decls_8",
-                                                   "ml_monad_decls_7",
-                                                   "ml_monad_decls_6",
-                                                   "ml_monad_decls_5",
-                                                   "ml_monad_decls_4",
-                                                   "ml_monad_decls_3",
-                                                   "ml_monad_decls_2",
-                                                   "ml_monad_decls_1",
-                                                   "ml_monad_decls_0"] @
-                                  [APPEND,SNOC_APPEND])
+val tm_eval = get_tm_eval ()
 
 val the_clash_var_def = Define `
   the_clash_var = Loc 4`;
@@ -744,7 +768,8 @@ val th = prove(
   |> Q.INST [`n`|->`"the_clash_var"`] |> UNDISCH;
 
 val th = store_cert th [TRUTH]
-
+  (MATCH_MP DeclAssumExists_SNOC_Dlet_Ref
+    (Q.GEN `env` (DISCH (get_DeclAssum ()) lemma)))
 
 (* read and update refs *)
 
