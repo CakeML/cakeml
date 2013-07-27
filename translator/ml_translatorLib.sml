@@ -418,6 +418,8 @@ end
 
 (* printing output e.g. SML syntax *)
 
+val print_asts = ref false;
+
 local
   val base_filename = ref "";
   val prelude_decl_count = ref 0;
@@ -454,7 +456,7 @@ local
     case !prelude_name of
       NONE => ()
     | SOME name => append_to_file suffix ["\n(* This code extends '"^name^"'. *)\n"]
-  fun print_decls () = let
+  fun print_decls () = if not (!print_asts) then () else let
     val ds = drop (!prelude_decl_count) (current_decls ())
     val _ = print "Printing ASTs ... "
     val _ = print_prelude_comment "_ast.txt"
@@ -856,7 +858,7 @@ fun define_ref_inv tys = let
         \\ (Induct ORELSE Cases)
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
         \\ Cases_on `x2` \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
-        \\ REPEAT STRIP_TAC \\ METIS_TAC []) 
+        \\ REPEAT STRIP_TAC \\ METIS_TAC [])
       THEN1
        (REPEAT (Q.PAT_ASSUM `!x1 x2. bbb ==> bbbb` (K ALL_TAC))
         \\ (Induct ORELSE Cases)

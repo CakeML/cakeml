@@ -492,4 +492,6 @@ val least_side_thm = prove(
   THEN METIS_TAC [IS_SOME_DEF])
   |> update_precondition;
 
+val _ = (print_asts := true);
+
 val _ = export_theory();
