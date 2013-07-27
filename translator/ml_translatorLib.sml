@@ -48,6 +48,10 @@ fun pack_5tuple f1 f2 f3 f4 f5 (x1,x2,x3,x4,x5) = pack_list I [f1 x1, f2 x2, f3 
 fun unpack_5tuple f1 f2 f3 f4 f5 th =
   let val x = unpack_list I th in (f1 (el 1 x), f2 (el 2 x), f3 (el 3 x), f4 (el 4 x), f5 (el 5 x)) end
 
+fun pack_6tuple f1 f2 f3 f4 f5 f6 (x1,x2,x3,x4,x5,x6) = pack_list I [f1 x1, f2 x2, f3 x3, f4 x4, f5 x5, f6 x6]
+fun unpack_6tuple f1 f2 f3 f4 f5 f6 th =
+  let val x = unpack_list I th in (f1 (el 1 x), f2 (el 2 x), f3 (el 3 x), f4 (el 4 x), f5 (el 5 x), f6 (el 6 x)) end
+
 
 exception UnableToTranslate of term;
 exception UnsupportedType of hol_type;
@@ -64,10 +68,15 @@ local
   val decl_abbrev = ref TRUTH;
   val decl_term   = ref ``[]:dec list``;
   val cert_memory = ref ([] : (string * term * thm * thm) list);
+  val cenv_eq_thm = ref decs_to_cenv_NIL
+  val check_ctors = ref check_ctors_decs_NIL
+  val decl_exists = ref DeclAssumExists_NIL
   (* session specific state below *)
   val abbrev_counter = ref 0;
   val abbrev_defs = ref ([]:thm list);
 in
+  fun get_check_ctors_decs () = !check_ctors
+  fun get_DeclAssumExists () = !decl_exists
   fun cert_reset () =
     (module_name := "";
      decl_abbrev := TRUTH;
@@ -97,6 +106,9 @@ in
     val abbrev_def = new_definition(name,mk_eq(mk_var(name,``:decs``),rhs))
     val new_rw = REWRITE_RULE [abbrev_def |> GSYM]
     val _ = map_cert_memory (fn (n,tm,th,pre) => (n,tm,new_rw th,pre))
+    val _ = (cenv_eq_thm := new_rw (!cenv_eq_thm))
+    val _ = (check_ctors := new_rw (!check_ctors))
+    val _ = (decl_exists := new_rw (!decl_exists))
     val _ = (decl_term := (abbrev_def |> concl |> dest_eq |> fst))
     val _ = (abbrev_defs := abbrev_def::(!abbrev_defs))
     in () end
@@ -126,6 +138,9 @@ in
     val abbrev_def = new_definition(name,mk_eq(mk_var(name,``:decs``),rhs))
     val new_rw = RW [lemma |> CONV_RULE (RAND_CONV (REWR_CONV (SYM abbrev_def)))]
     val _ = map_cert_memory (fn (n,tm,th,pre) => (n,tm,new_rw th,pre))
+    val _ = (cenv_eq_thm := new_rw (!cenv_eq_thm))
+    val _ = (check_ctors := new_rw (!check_ctors))
+    val _ = (decl_exists := new_rw (!decl_exists))
     val _ = (decl_term := (abbrev_def |> concl |> dest_eq |> fst))
     val _ = (decl_abbrev := abbrev_def)
     val strs = (!abbrev_defs) |> map (fst o dest_const o fst o dest_eq o concl)
@@ -150,10 +165,33 @@ in
                 (n,tm,(MATCH_MP DeclAssum_Dtype th |> SPEC (rand decl))
                       handle HOL_ERR _ => th,pre))
             else fail()
+    (* update cenv_eq_thm *)
+    val cenv = !cenv_eq_thm
+    val d = !decl_term
+    val th = SPECL [d |> rand, d |> rator |> rand] decs_to_cenv_SNOC
+             |> CONV_RULE (RAND_CONV (RAND_CONV (REWR_CONV cenv)
+                                      THENC ((RATOR_CONV o RAND_CONV) EVAL)
+                                      THENC PURE_REWRITE_CONV [APPEND]))
+    val _ = (cenv_eq_thm := th)
+    (* update check_ctors *)
+    val d = (!decl_term) |> rator |> rand
+    val th = MATCH_MP IMP_check_ctors_decs_SNOC (!check_ctors) |> SPEC d
+    val tm = th |> concl |> dest_imp |> fst
+    val lemma = prove(tm,PURE_REWRITE_TAC [cenv] THEN EVAL_TAC)
+    val th = MP th lemma
+    val _ = (check_ctors := th)
     val _ = map_cert_memory f
     in () end;
   fun snoc_dtype_decl dtype = let
     val decl = dtype
+    val _ = let
+      val c = PURE_REWRITE_CONV [!cenv_eq_thm,check_dup_ctors_thm]
+              THENC SIMP_CONV (srw_ss()) [] THENC EVAL
+      val th = MATCH_MP DeclAssumExists_SNOC_Dtype (!decl_exists)
+               |> SPEC (decl |> rand)
+               |> CONV_RULE ((RATOR_CONV o RAND_CONV) c)
+      val th = MP th TRUTH
+      in decl_exists := th end
     val _ = snoc_decl decl
     val _ = update_decl_abbreviation ()
     in () end
@@ -165,10 +203,16 @@ in
     val n = term_to_string const
     val _ = (cert_memory := (n,const,th,TRUTH)::(!cert_memory))
     in th end;
-  fun store_cert th pres = let
+  fun store_cert th pres decl_assum_ex = let
     val decl_assum = (th |> hyp |> first (can (match_term ``DeclAssum ds env``)))
     val decl = (decl_assum |> rator |> rand |> rator |> rand)
     val _ = snoc_decl decl
+    val _ = let
+      val th = MATCH_MP decl_assum_ex (!decl_exists) |> SPEC_ALL
+      val tm = th |> concl |> rand |> rator |> rand
+      val i = fst (match_term tm decl)
+      val th = INST i th
+      in decl_exists := th end
     val thms = th |> CONJUNCTS |> map UNDISCH_ALL
     val pres = pres
     fun process_thm (th,pre) = let
@@ -229,19 +273,23 @@ in
   (* store/load to/from a single thm *)
   fun pack_certs () = let
     val _ = finish_decl_abbreviation ()
-    in pack_triple
+    in pack_6tuple
          (pack_list (pack_4tuple pack_string pack_term pack_thm pack_thm))
-         pack_thm pack_term
-           ((!cert_memory), (!decl_abbrev), (!decl_term)) end
+         pack_thm pack_term pack_thm pack_thm pack_thm
+           ((!cert_memory), (!decl_abbrev), (!decl_term),
+            (!cenv_eq_thm), (!check_ctors), (!decl_exists)) end
   fun unpack_certs th = let
-    val (cert,abbrev,t) =
-      unpack_triple
+    val (cert,abbrev,t,cenv,check,ex) =
+      unpack_6tuple
         (unpack_list (unpack_4tuple unpack_string unpack_term unpack_thm unpack_thm))
-        unpack_thm unpack_term th
+        unpack_thm unpack_term unpack_thm unpack_thm unpack_thm th
     val _ = (cert_memory := cert)
     val _ = (decl_abbrev := abbrev)
     val _ = (abbrev_defs := [abbrev])
     val _ = (decl_term := t)
+    val _ = (cenv_eq_thm := cenv)
+    val _ = (check_ctors := check)
+    val _ = (decl_exists := ex)
     in () end
 end
 
@@ -2397,6 +2445,13 @@ val _ = (max_print_depth := 25)
     val th = remove_Eq th
     (* simpliy EqualityType *)
     val th = SIMP_EqualityType_ASSUMS th
+    (* DeclAssumExists *)
+    val decl_assum_ex = let
+      val thi = PURE_REWRITE_RULE [code_def] th
+      in if length rev_params = 0 then
+           MATCH_MP DeclAssumExists_SNOC_Dlet
+             (GEN (get_DeclAssum() |> rand) (DISCH (get_DeclAssum()) thi))
+         else DeclAssumExists_SNOC_Dlet_Fun end
     (* abbreviate code *)
     val fname_str = stringLib.fromMLstring fname
     val th = th |> DISCH_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
@@ -2407,7 +2462,7 @@ val _ = (max_print_depth := 25)
     val _ = code_def |> (delete_const o fst o dest_const o fst o dest_eq o concl)
     (* store certificate for later use *)
     val pre = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
-    val th = store_cert th [pre] |> Q.SPEC `env` |> UNDISCH_ALL
+    val th = store_cert th [pre] decl_assum_ex |> Q.SPEC `env` |> UNDISCH_ALL
     val _ = print_fname fname def (* should really be original def *)
     in th end
     else (* is_rec *) let
@@ -2435,7 +2490,11 @@ max_print_depth := 1
       val th = clean_assumptions th
       in (fname,def,th) end
     val thms = map apply_recc thms
-
+    (* DeclAssumExists lemma *)
+    val c = REWRITE_CONV [MAP,FST] THENC EVAL
+    val c = RATOR_CONV (RAND_CONV c)
+    val decl_assum_x = SPEC recc DeclAssumExists_SNOC_Dletrec
+                         |> SPEC_ALL |> CONV_RULE c |> (fn th => MATCH_MP th TRUTH)
     (* collect precondition *)
     val thms = extract_precondition_rec thms
     (* apply induction *)
@@ -2563,13 +2622,13 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
                    |> PURE_REWRITE_RULE [CONTAINER_def]
     val th = MATCH_MP lemma th |> Q.SPEC `env` |> DISCH_ALL
              |> PURE_ONCE_REWRITE_RULE code_defs |> UNDISCH_ALL
+    val decl_assum_x = PURE_ONCE_REWRITE_RULE code_defs decl_assum_x
     val _ = code_defs |> map
               (delete_const o fst o dest_const o fst o dest_eq o concl)
     (* store certificate for later use *)
     val pres = map (fn (fname,def,th,pre) => force_thm_the pre) thms
-    val th = store_cert th pres |> CONJUNCTS
-                                |> map (UNDISCH_ALL o Q.SPEC `env`)
-                                |> LIST_CONJ
+    val th = store_cert th pres decl_assum_x
+                |> CONJUNCTS |> map (UNDISCH_ALL o Q.SPEC `env`) |> LIST_CONJ
     val (fname,def,_,_) = hd thms
     val _ = print_fname fname def (* should be original def *)
     in th end
