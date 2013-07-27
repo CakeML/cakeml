@@ -385,7 +385,9 @@ fun get_unique_name str = let
     in if mem new_name names then find_name str (n+1) else new_name end
   fun find_new_name str =
     if mem str names then find_name str 1 else str
-  in find_new_name (clean_lowercase str) end
+  val initial_name = clean_lowercase str
+  val initial_name = if size initial_name = 0 then "f" else initial_name
+  in find_new_name initial_name end
 
 fun dest_args tm =
   let val (x,y) = dest_comb tm in dest_args x @ [y] end
