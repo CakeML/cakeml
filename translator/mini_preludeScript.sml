@@ -21,4 +21,6 @@ val tl_side_def = prove(
   Cases THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "tl_side_def"])
   |> update_precondition;
 
+val _ = (print_asts := true);
+
 val _ = export_theory();
