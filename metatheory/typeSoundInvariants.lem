@@ -170,10 +170,10 @@ context_invariant n [] n
 
 and
 
-forall dec_tvs c x e env.
+forall dec_tvs c pes env.
 context_invariant dec_tvs c 0
 ==>
-context_invariant dec_tvs ((Chandle () x e,env) :: c) 0
+context_invariant dec_tvs ((Chandle () pes,env) :: c) 0
 
 and
 
@@ -234,10 +234,20 @@ context_invariant dec_tvs ((Cuapp op (),env) :: c) 0
 
 indreln
 
-forall tvs menv cenv senv tenv x e t.
-type_e menv cenv (bind_tenv x 0 Tint tenv) e t
+forall tvs menv cenv senv tenv t.
+check_freevars tvs [] t
+ ==>
+type_ctxt tvs menv cenv senv tenv (Craise ()) t t
+
+and
+
+forall tvs menv cenv senv tenv pes t.
+(forall ((p,e) MEM pes). exists tenv'.
+   all_distinct (pat_bindings p []) &&
+   type_p (num_tvs tenv) cenv p Texn tenv' &&
+   type_e menv cenv (bind_var_list 0 tenv' tenv) e t)
 ==>
-type_ctxt tvs menv cenv senv tenv (Chandle () x e) t t
+type_ctxt tvs menv cenv senv tenv (Chandle () pes) t t
 
 and
 

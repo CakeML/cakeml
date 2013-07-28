@@ -12,10 +12,17 @@ val evaluate_state : state -> count_store * result v -> bool
 
 indreln
 
-forall menv cenv s env v1 e2 var.
+forall menv cenv s env v.
 true
 ==>
-evaluate_ctxt menv cenv s env (Chandle () var e2) v1 (s, Rval v1)
+evaluate_ctxt menv cenv s env (Craise ()) v (s, Rerr (Rraise v))
+
+and
+
+forall menv cenv s env v pes.
+true
+==>
+evaluate_ctxt menv cenv s env (Chandle () pes) v (s, Rval v)
 
 and
 
@@ -155,18 +162,18 @@ and
 
 forall menv cenv c cs env err s bv.
 evaluate_ctxts menv cenv s cs (Rerr err) bv &&
-((forall i e'. c <> Chandle () i e') ||
- (forall i. err <> Rraise (Int_error i)))
+((forall pes. c <> Chandle () pes) ||
+ (forall v. err <> Rraise v))
 ==>
 evaluate_ctxts menv cenv s ((c,env)::cs) (Rerr err) bv
 
 and
 
-forall menv cenv cs env s s' var res1 res2 i e'.
-evaluate false menv cenv s (bind var (Litv (IntLit i)) env) e' (s', res1) &&
+forall menv cenv cs env s s' res1 res2 pes v.
+evaluate_match false menv cenv s env v (pes@[(Pvar "x", Raise (Var (Short "x")))]) (s', res1) &&
 evaluate_ctxts menv cenv s' cs res1 res2
 ==>
-evaluate_ctxts menv cenv s ((Chandle () var e',env)::cs) (Rerr (Rraise (Int_error i))) res2
+evaluate_ctxts menv cenv s ((Chandle () pes,env)::cs) (Rerr (Rraise v)) res2
 
 indreln
 

@@ -188,10 +188,10 @@ context_invariant n [] n)
 
 /\
 
-(! dec_tvs c x e env.
+(! dec_tvs c pes env.
 (context_invariant dec_tvs c 0)
 ==>
-context_invariant dec_tvs ((Chandle ()  x e,env) :: c) 0)
+context_invariant dec_tvs ((Chandle ()  pes,env) :: c) 0)
 
 /\
 
@@ -252,11 +252,20 @@ context_invariant dec_tvs ((Cuapp op () ,env) :: c) 0)`;
 
 val _ = Hol_reln `
 
-(! tvs menv cenv senv tenv x e t.
+(! tvs menv cenv senv tenv t.
 (
-type_e menv cenv (bind_tenv x 0 Tint tenv) e t)
+check_freevars tvs [] t)
+ ==>
+type_ctxt tvs menv cenv senv tenv (Craise () ) t t)
+
+/\
+
+(! tvs menv cenv senv tenv pes t.
+(! ((p,e) :: LIST_TO_SET pes). ? tenv'. ALL_DISTINCT (pat_bindings p []) /\
+   type_p (num_tvs tenv) cenv p Texn tenv' /\
+   type_e menv cenv (bind_var_list 0 tenv' tenv) e t)
 ==>
-type_ctxt tvs menv cenv senv tenv (Chandle ()  x e) t t)
+type_ctxt tvs menv cenv senv tenv (Chandle ()  pes) t t)
 
 /\
 

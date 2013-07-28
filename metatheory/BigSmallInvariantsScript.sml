@@ -25,10 +25,17 @@ val _ = new_theory "BigSmallInvariants"
 
 val _ = Hol_reln `
 
-(! menv cenv s env v1 e2 var.
+(! menv cenv s env v.
 T
 ==>
-evaluate_ctxt menv cenv s env (Chandle ()  var e2) v1 (s, Rval v1))
+evaluate_ctxt menv cenv s env (Craise () ) v (s, Rerr (Rraise v)))
+
+/\
+
+(! menv cenv s env v pes.
+T
+==>
+evaluate_ctxt menv cenv s env (Chandle ()  pes) v (s, Rval v))
 
 /\
 
@@ -180,19 +187,19 @@ evaluate_ctxts menv cenv s1 ((c,env) ::cs) (Rval v) bv)
 
 (! menv cenv c cs env err s bv.
 (evaluate_ctxts menv cenv s cs (Rerr err) bv /\
-((! i e'. c <> Chandle ()  i e') \/
- (! i. err <> Rraise (Int_error i))))
+((! pes. c <> Chandle ()  pes) \/
+ (! v. err <> Rraise v)))
 ==>
 evaluate_ctxts menv cenv s ((c,env) ::cs) (Rerr err) bv)
 
 /\
 
-(! menv cenv cs env s s' var res1 res2 i e'.
+(! menv cenv cs env s s' res1 res2 pes v.
 (
-evaluate F menv cenv s (bind var (Litv (IntLit i)) env) e' (s', res1) /\
+evaluate_match F menv cenv s env v (pes ++[(Pvar "x", Raise (Var (Short "x")))]) (s', res1) /\
 evaluate_ctxts menv cenv s' cs res1 res2)
 ==>
-evaluate_ctxts menv cenv s ((Chandle ()  var e',env) ::cs) (Rerr (Rraise (Int_error i))) res2)`;
+evaluate_ctxts menv cenv s ((Chandle ()  pes,env) ::cs) (Rerr (Rraise v)) res2)`;
 
 val _ = Hol_reln `
 
