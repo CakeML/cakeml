@@ -10,7 +10,8 @@ open SemanticPrimitives
  * The env argument contains bindings for the free variables of expressions in
      the context *)
 type ctxt_frame =
-  | Chandle of unit * varN * exp
+  | Craise of unit
+  | Chandle of unit * list (pat * exp)
   | Capp1 of op * unit * exp
   | Capp2 of op * v * unit
   | Clog of lop * unit * exp
@@ -57,7 +58,14 @@ val continue : envM -> envC -> store -> v -> list ctxt -> e_step_result
 let continue envM envC s v cs =
   match cs with
     | [] -> Estuck
-    | (Chandle () n e, env) :: c ->
+    | (Craise (), env) :: c->
+        match c with
+          | [] -> Estuck
+          | ((Chandle () pes,env') :: c) ->
+              Estep (envM,envC,s,env,Val v,(Cmat () (pes@[(Pvar "x", Raise (Var (Short "x")))]), env')::c)
+          | _::c -> Estep (envM,envC,s,env,Val v,(Craise (),env)::c)
+        end
+    | (Chandle () pes, env) :: c ->
         return envM envC s env v c
     | (Capp1 op () e, env) :: c ->
         push envM envC s env e (Capp2 op v ()) c
@@ -77,7 +85,7 @@ let continue envM envC s v cs =
           | None -> Etype_error
         end
     | (Cmat () [], env) :: c ->
-        Estep (envM, envC, s, env, Exp (Raise Bind_error), c)
+        Estep (envM, envC, s, env, Exp (Raise (Con (Some (Short "Bind")) [])), c)
     | (Cmat () ((p,e)::pes), env) :: c ->
         if all_distinct (pat_bindings p []) then
           match pmatch envC s p v env with
@@ -121,18 +129,9 @@ let e_step (envM, envC, s, env, ev, c) =
         match e with
           | Lit l -> return envM envC s env (Litv l) c
           | Raise e ->
-              match c with
-                | [] -> Estuck
-                | ((Chandle () n e',env') :: c) ->
-                     match e with
-                        | Int_error i ->
-                           Estep (envM,envC,s,(bind n (Litv (IntLit i)) env'),Exp e',c)
-                        | _ -> Estep (envM,envC,s,env,Exp (Raise e),c)
-                     end
-                | _::c -> Estep (envM,envC,s,env,Exp (Raise e),c)
-              end
-          | Handle e n e' ->
-              push envM envC s env e (Chandle () n e') c
+              push envM envC s env e (Craise ()) c
+          | Handle e pes ->
+              push envM envC s env e (Chandle () pes) c
           | Con n es ->
               if do_con_check envC n (List.length es) then
                 match es with
@@ -176,8 +175,8 @@ let rec
 small_eval menv cenv s env e c (s', Rval v) =
   exists env'. (rtc e_step_reln) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',Val v,[])
 and
-small_eval menv cenv s env e c (s', Rerr (Rraise err)) =
-  exists env'. (rtc e_step_reln) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',Exp (Raise err),[])
+small_eval menv cenv s env e c (s', Rerr (Rraise v)) =
+  exists env' env''. (rtc e_step_reln) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',Val v,[(Craise (), env'')])
 and
 small_eval menv cenv s env e c (s', Rerr Rtype_error) =
   exists env' e' c'.

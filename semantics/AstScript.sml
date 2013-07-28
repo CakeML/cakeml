@@ -112,7 +112,8 @@ val _ = Hol_datatype `
   | TC_unit
   | TC_ref
   | TC_fn
-  | TC_tup`;
+  | TC_tup
+  | TC_exn`;
 
 
 val _ = Hol_datatype `
@@ -138,6 +139,9 @@ val _ = Define `
 val _ = Define `
  (Tfn t1 t2 = (Tapp [t1;t2] TC_fn))`;
 
+val _ = Define `
+ Texn = (Tapp [] TC_exn)`;
+
 
 (* Patterns *)
 val _ = Hol_datatype `
@@ -149,23 +153,11 @@ val _ = Hol_datatype `
   | Pref of pat`;
 
 
-(* Runtime errors.  Temporary: later on we want to move to SML-style declared
- * exception constructors *)
-val _ = Hol_datatype `
- error =
-    Bind_error
-  | Div_error
-  | Eq_error
-  | Int_error of int`;
-
-
 (* Expressions *)
 val _ = Hol_datatype `
  exp =
-  (* Temporary: later on we want Raise of exp *)
-    Raise of error
-  (* Temporary: later on we want Handle of exp * list (pat * exp) *)
-  | Handle of exp => varN => exp
+    Raise of exp
+  | Handle of exp => (pat # exp) list
   | Lit of lit
   (* Constructor application. *)
   | Con of ( conN id) option => exp list
@@ -202,7 +194,8 @@ val _ = Hol_datatype `
   (* Type definition
      Defines several types, each of which has several named variants, which can
      in turn have several arguments *)
-  | Dtype of type_def`;
+  | Dtype of type_def
+  | Dexn of conN => t list`;
 
 
 val _ = type_abbrev( "decs" , ``: dec list``); 
@@ -247,6 +240,5 @@ val _ = type_abbrev( "prog" , ``: top list``);
 (pats_bindings ps (pat_bindings p already_bound)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_bindings_defn;
-              
 val _ = export_theory()
 

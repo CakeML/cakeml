@@ -24,7 +24,8 @@ val _ = new_theory "SmallStep"
      the context *)
 val _ = Hol_datatype `
  ctxt_frame =
-    Chandle of unit => varN => exp
+    Craise of unit
+  | Chandle of unit => (pat # exp) list
   | Capp1 of op => unit => exp
   | Capp2 of op => v => unit
   | Clog of lop => unit => exp
@@ -81,7 +82,14 @@ val _ = Define `
  (continue envM envC s v cs =  
 ((case cs of
       [] => Estuck
-    | (Chandle ()  n e, env) :: c =>
+    | (Craise () , env) :: c=>
+        (case c of
+            [] => Estuck
+          | ((Chandle ()  pes,env') :: c) =>
+              Estep (envM,envC,s,env,Val v,((Cmat ()  (pes ++[(Pvar "x", Raise (Var (Short "x")))]), env') ::c))
+          | _::c => Estep (envM,envC,s,env,Val v,((Craise () ,env) ::c))
+        )
+    | (Chandle ()  pes, env) :: c =>
         return envM envC s env v c
     | (Capp1 op ()  e, env) :: c =>
         push envM envC s env e (Capp2 op v () ) c
@@ -101,7 +109,7 @@ val _ = Define `
           | NONE => Etype_error
         )
     | (Cmat ()  [], env) :: c =>
-        Estep (envM, envC, s, env, Exp (Raise Bind_error), c)
+        Estep (envM, envC, s, env, Exp (Raise (Con (SOME (Short "Bind")) [])), c)
     | (Cmat ()  ((p,e)::pes), env) :: c =>
         if ALL_DISTINCT (pat_bindings p []) then
           (case pmatch envC s p v env of
@@ -147,18 +155,9 @@ val _ = Define `
         (case e of
             Lit l => return envM envC s env (Litv l) c
           | Raise e =>
-              (case c of
-                  [] => Estuck
-                | ((Chandle ()  n e',env') :: c) =>
-                     (case e of
-                          Int_error i =>
-                           Estep (envM,envC,s,(bind n (Litv (IntLit i)) env'),Exp e',c)
-                        | _ => Estep (envM,envC,s,env,Exp (Raise e),c)
-                     )
-                | _::c => Estep (envM,envC,s,env,Exp (Raise e),c)
-              )
-          | Handle e n e' =>
-              push envM envC s env e (Chandle ()  n e') c
+              push envM envC s env e (Craise () ) c
+          | Handle e pes =>
+              push envM envC s env e (Chandle ()  pes) c
           | Con n es =>
               if do_con_check envC n ( LENGTH es) then
                 (case es of
@@ -206,8 +205,8 @@ val _ = Define `
 (small_eval menv cenv s env e c (s', Rval v) =  
 (? env'. ( RTC e_step_reln) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',Val v,[])))
 /\
-(small_eval menv cenv s env e c (s', Rerr (Rraise err)) =  
-(? env'. ( RTC e_step_reln) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',Exp (Raise err),[])))
+(small_eval menv cenv s env e c (s', Rerr (Rraise v)) =  
+(? env' env''. ( RTC e_step_reln) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',Val v,[(Craise () , env'')])))
 /\
 (small_eval menv cenv s env e c (s', Rerr Rtype_error) =  
 (? env' e' c'.

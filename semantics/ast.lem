@@ -79,6 +79,7 @@ type tc =
   | TC_ref
   | TC_fn
   | TC_tup
+  | TC_exn
 
 type t =
   | Tvar of tvarN
@@ -91,6 +92,7 @@ let Tunit = Tapp [] TC_unit
 let Tbool = Tapp [] TC_bool
 let Tref t = Tapp [t] TC_ref
 let Tfn t1 t2 = Tapp [t1;t2] TC_fn
+let Texn = Tapp [] TC_exn
 
 (* Patterns *)
 type pat =
@@ -100,20 +102,10 @@ type pat =
   | Pcon of option (id conN) * list pat
   | Pref of pat
 
-(* Runtime errors.  Temporary: later on we want to move to SML-style declared
- * exception constructors *)
-type error =
-  | Bind_error
-  | Div_error
-  | Eq_error
-  | Int_error of int
-
 (* Expressions *)
 type exp =
-  (* Temporary: later on we want Raise of exp *)
-  | Raise of error
-  (* Temporary: later on we want Handle of exp * list (pat * exp) *)
-  | Handle of exp * varN * exp
+  | Raise of exp
+  | Handle of exp * list (pat * exp)
   | Lit of lit
   (* Constructor application. *)
   | Con of option (id conN) * list exp
@@ -149,6 +141,7 @@ type dec =
      Defines several types, each of which has several named variants, which can
      in turn have several arguments *)
   | Dtype of type_def
+  | Dexn of conN * list t
 
 type decs = list dec 
 
@@ -185,4 +178,3 @@ pats_bindings [] already_bound =
 and
 pats_bindings (p::ps) already_bound =
   pats_bindings ps (pat_bindings p already_bound)
-              

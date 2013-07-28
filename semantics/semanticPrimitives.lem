@@ -19,7 +19,7 @@ type v =
 (* The result of evaluation *)
 type error_result =
   | Rtype_error
-  | Rraise of error
+  | Rraise of v (* Should only be a value of type exn *)
   | Rtimeout_error
 
 type result 'a =
@@ -261,7 +261,7 @@ let do_app s env' op v1 v2 =
         end
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) ->
         if (op = Divide || op = Modulo) && n2 = i 0 then
-          Some (s, env', Raise Div_error)
+          Some (s, env', Raise (Con (Some (Short "Div")) []))
         else
           Some (s, env',Lit (IntLit (opn_lookup op n1 n2)))
     | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) ->
@@ -269,7 +269,7 @@ let do_app s env' op v1 v2 =
     | (Equality, v1, v2) ->
         match do_eq v1 v2 with
           | Eq_type_error -> None
-          | Eq_closure -> Some (s, env', Raise Eq_error)
+          | Eq_closure -> Some (s, env', Raise (Con (Some (Short "Eq")) []))
           | Eq_val b -> Some (s, env', Lit (Bool b))
         end
     | (Opassign, (Loc lnum), v) ->

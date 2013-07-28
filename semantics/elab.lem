@@ -34,10 +34,10 @@ type ast_pat =
   | Ast_Pref of ast_pat
 
 type ast_exp =
-    (* raise 4 *)
-  | Ast_Raise of error
-    (* e handle x => e *)
-  | Ast_Handle of ast_exp * varN * ast_exp
+    (* raise (E 4) *)
+  | Ast_Raise of ast_exp
+    (* e handle E x => x | F => 1 *)
+  | Ast_Handle of ast_exp * list (ast_pat * ast_exp)
     (* 1 *)
     (* true *)
     (* () *)
@@ -86,6 +86,7 @@ type ast_dec =
   | Ast_Dletrec of list (varN * varN * ast_exp)
     (* see above *)
   | Ast_Dtype of ast_type_def
+  | Ast_Dexn of conN * list ast_t
 
 type ast_decs = list ast_dec
 
@@ -140,11 +141,12 @@ val elab_top : tdef_env -> ctor_env -> ast_top -> tdef_env * ctor_env * top
 val elab_prog : tdef_env -> ctor_env -> list ast_top -> tdef_env * ctor_env * prog
 
 let rec
-elab_e ctors (Ast_Raise err) =
-  Raise err
+elab_e ctors (Ast_Raise e) =
+  Raise (elab_e ctors e)
 and
-elab_e ctors (Ast_Handle e1 x e2) =
-  Handle (elab_e ctors e1) x (elab_e ctors e2)
+elab_e ctors (Ast_Handle e pes) =
+  Handle (elab_e ctors e) 
+         (List.map (fun (p,e) -> (elab_p ctors p, elab_e ctors e)) pes)
 and
 elab_e ctors (Ast_Lit l) =
   Lit l
@@ -177,10 +179,7 @@ elab_e ctors (Ast_If e1 e2 e3) =
 and
 elab_e ctors (Ast_Mat e pes) =
   Mat (elab_e ctors e) 
-      (List.map (fun (p,e) -> 
-                   let p' = elab_p ctors p in
-                     (p', elab_e ctors e))
-                pes)
+      (List.map (fun (p,e) -> (elab_p ctors p, elab_e ctors e)) pes)
 and
 elab_e ctors (Ast_Let x e1 e2) =
   Let x (elab_e ctors e1) (elab_e ctors e2)
@@ -243,8 +242,13 @@ and
 elab_dec mn type_bound ctors (Ast_Dtype t) = 
   let type_bound' = List.map (fun (tvs,tn,ctors) -> (tn, TC_name (mk_id mn tn))) t in
   (type_bound',
-   merge (get_ctors_bindings mn t) ctors,
+   get_ctors_bindings mn t,
    Dtype (List.map (elab_td (merge type_bound' type_bound)) t))
+and
+elab_dec mn type_bound ctors (Ast_Dexn cn ts) =
+  (emp,
+   bind cn (mk_id mn cn) emp,
+   Dexn cn (List.map (elab_t type_bound) ts))
 
 let rec
 elab_decs mn type_bound ctors [] = ([],emp,[])

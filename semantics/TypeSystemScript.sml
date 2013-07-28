@@ -365,11 +365,14 @@ type_e menv cenv tenv (Raise err) t)
 
 /\
 
-(! menv cenv tenv e1 var e2 t.
-(type_e menv cenv tenv e1 t /\
-type_e menv cenv (bind_tenv var 0 Tint tenv) e2 t)
+(! menv cenv tenv e pes t.
+(type_e menv cenv tenv e t /\
+(pes <> []) /\
+(! ((p,e) :: LIST_TO_SET pes). ? tenv'. ALL_DISTINCT (pat_bindings p []) /\
+   type_p (num_tvs tenv) cenv p Texn tenv' /\
+   type_e menv cenv (bind_var_list 0 tenv' tenv) e t))
 ==>
-type_e menv cenv tenv (Handle e1 var e2) t)
+type_e menv cenv tenv (Handle e pes) t)
 
 /\
 

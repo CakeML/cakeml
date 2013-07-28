@@ -70,33 +70,40 @@ evaluate' s env (Lit l) (s, Rval (Litv l)))
 
 /\
 
-(! env err s.
-T
+(! env e s1 s2 v.
+(evaluate' s1 env e (s2, Rval v))
 ==>
-evaluate' s env (Raise err) (s, Rerr (Rraise err)))
+evaluate' s1 env (Raise e) (s2, Rerr (Rraise v)))
 
 /\
 
-(! s1 s2 env e1 e2 v var.
-(evaluate' s1 env e1 (s2, Rval v))
+(! env e s1 s2 err.
+(evaluate' s1 env e (s2, Rerr err))
 ==>
-evaluate' s1 env (Handle e1 var e2) (s2, Rval v))
+evaluate' s1 env (Raise e) (s2, Rerr err))
 
 /\
 
-(! s1 s2 env e1 e2 n var bv.
-(evaluate' s1 env e1 (s2, Rerr (Rraise (Int_error n))) /\
-evaluate' s2 (bind var (Litv (IntLit n)) env) e2 bv)
+(! s1 s2 env e v pes.
+(evaluate' s1 env e (s2, Rval v))
 ==>
-evaluate' s1 env (Handle e1 var e2) bv)
+evaluate' s1 env (Handle e pes) (s2, Rval v))
 
 /\
 
-(! s1 s2 env e1 e2 var err.
-(evaluate' s1 env e1 (s2, Rerr err) /\
-((err = Rtype_error) \/ (err = Rraise Bind_error) \/ (err = Rraise Div_error)))
+(! s1 s2 env e pes v bv.
+(evaluate' s1 env e (s2, Rerr (Rraise v)) /\
+evaluate_match' s2 env v (pes ++[(Pvar "x", Raise (Var (Short "x")))]) bv)
 ==>
-evaluate' s1 env (Handle e1 var e2) (s2, Rerr err))
+evaluate' s1 env (Handle e pes) bv)
+
+/\
+
+(! s1 s2 env e pes err.
+(evaluate' s1 env e (s2, Rerr err) /\
+((err = Rtimeout_error) \/ (err = Rtype_error)))
+==>
+evaluate' s1 env (Handle e pes) (s2, Rerr err))
 
 /\
 
@@ -325,7 +332,7 @@ evaluate_list' s1 env (e ::es) (s3, Rerr err))
 (! env v s.
 T
 ==>
-evaluate_match' s env v [] (s, Rerr (Rraise Bind_error)))
+evaluate_match' s env v [] (s, Rerr (Rraise (Conv (SOME (Short "Bind")) []))))
 
 /\
 
@@ -372,7 +379,7 @@ evaluate_dec' mn menv cenv s1 env (Dlet p e) (s2, Rval (emp, env')))
 evaluate' s1 env e (s2, Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
 (pmatch' s2 p v emp = No_match))
 ==>
-evaluate_dec' mn menv cenv s1 env (Dlet p e) (s2, Rerr (Rraise Bind_error)))
+evaluate_dec' mn menv cenv s1 env (Dlet p e) (s2, Rerr (Rraise (Conv (SOME (Short "Bind")) []))))
 
 /\
 

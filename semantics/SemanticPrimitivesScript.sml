@@ -35,7 +35,7 @@ val _ = Hol_datatype `
 val _ = Hol_datatype `
  error_result =
     Rtype_error
-  | Rraise of error
+  | Rraise of v (* Should only be a value of type exn *)
   | Rtimeout_error`;
 
 
@@ -314,7 +314,7 @@ val _ = Define `
         )
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 = & 0) then
-          SOME (s, env', Raise Div_error)
+          SOME (s, env', Raise (Con (SOME (Short "Div")) []))
         else
           SOME (s, env',Lit (IntLit (opn_lookup op n1 n2)))
     | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) =>
@@ -322,7 +322,7 @@ val _ = Define `
     | (Equality, v1, v2) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
-          | Eq_closure => SOME (s, env', Raise Eq_error)
+          | Eq_closure => SOME (s, env', Raise (Con (SOME (Short "Eq")) []))
           | Eq_val b => SOME (s, env', Lit (Bool b))
         )
     | (Opassign, (Loc lnum), v) =>

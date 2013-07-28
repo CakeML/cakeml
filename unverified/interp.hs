@@ -230,7 +230,7 @@ do_app s env' op v1 v2 =
             Nothing -> Nothing
       (Opn op pos, Litv (IntLit n1), Litv (IntLit n2)) ->
         if (op == Divide || op == Modulo) && n2 == 0 then
-          Just (s, env', Raise Div_error)
+          Just (s, env', Raise (Con (Just (Short (ConN "Div")) [])))
         else
           Just (s, env',Lit (IntLit (opn_lookup op n1 n2)) pos)
       (Opb op pos, Litv (IntLit n1), Litv (IntLit n2)) ->
@@ -238,7 +238,7 @@ do_app s env' op v1 v2 =
       (Equality pos, v1, v2) ->
         case do_eq v1 v2 of
             Eq_type_error -> Nothing
-            Eq_closure -> Just (s, env', Raise Eq_error)
+            Eq_closure -> Just (s, env', Raise (Con (Just (Short (ConN "Eq")) [])))
             Eq_val b -> Just (s, env', Lit (Bool b) pos)
       (Opassign pos, (Loc lnum), v) ->
         case store_assign lnum v s of

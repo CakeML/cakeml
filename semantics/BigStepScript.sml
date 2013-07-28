@@ -53,33 +53,40 @@ evaluate ck menv cenv s env (Lit l) (s, Rval (Litv l)))
 
 /\
 
-(! ck menv cenv env err s.
-T
+(! ck menv cenv env e s1 s2 v.
+(evaluate ck menv cenv s1 env e (s2, Rval v))
 ==>
-evaluate ck menv cenv s env (Raise err) (s, Rerr (Rraise err)))
+evaluate ck menv cenv s1 env (Raise e) (s2, Rerr (Rraise v)))
 
 /\
 
-(! ck menv cenv s1 s2 env e1 e2 v var.
-(evaluate ck menv cenv s1 env e1 (s2, Rval v))
+(! ck menv cenv env e s1 s2 err.
+(evaluate ck menv cenv s1 env e (s2, Rerr err))
 ==>
-evaluate ck menv cenv s1 env (Handle e1 var e2) (s2, Rval v))
+evaluate ck menv cenv s1 env (Raise e) (s2, Rerr err))
 
 /\
 
-(! ck menv cenv s1 s2 env e1 e2 n var bv.
-(evaluate ck menv cenv s1 env e1 (s2, Rerr (Rraise (Int_error n))) /\
-evaluate ck menv cenv s2 (bind var (Litv (IntLit n)) env) e2 bv)
+(! ck menv cenv s1 s2 env e v pes.
+(evaluate ck menv cenv s1 env e (s2, Rval v))
 ==>
-evaluate ck menv cenv s1 env (Handle e1 var e2) bv)
+evaluate ck menv cenv s1 env (Handle e pes) (s2, Rval v))
 
 /\
 
-(! ck menv cenv s1 s2 env e1 e2 var err.
-(evaluate ck menv cenv s1 env e1 (s2, Rerr err) /\
-((err = Rtimeout_error) \/ (err = Rtype_error) \/ (err = Rraise Bind_error) \/ (err = Rraise Div_error) \/ (err = Rraise Eq_error)))
+(! ck menv cenv s1 s2 env e pes v bv.
+(evaluate ck menv cenv s1 env e (s2, Rerr (Rraise v)) /\
+evaluate_match ck menv cenv s2 env v (pes ++[(Pvar "x", Raise (Var (Short "x")))]) bv)
 ==>
-evaluate ck menv cenv s1 env (Handle e1 var e2) (s2, Rerr err))
+evaluate ck menv cenv s1 env (Handle e pes) bv)
+
+/\
+
+(! ck menv cenv s1 s2 env e pes err.
+(evaluate ck menv cenv s1 env e (s2, Rerr err) /\
+((err = Rtimeout_error) \/ (err = Rtype_error)))
+==>
+evaluate ck menv cenv s1 env (Handle e pes) (s2, Rerr err))
 
 /\
 
@@ -331,7 +338,7 @@ evaluate_list ck menv cenv s1 env (e ::es) (s3, Rerr err))
 (! ck menv cenv env v s.
 T
 ==>
-evaluate_match ck menv cenv s env v [] (s, Rerr (Rraise Bind_error)))
+evaluate_match ck menv cenv s env v [] (s, Rerr (Rraise (Conv (SOME (Short "Bind")) []))))
 
 /\
 
@@ -379,7 +386,7 @@ evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rval (emp, env')))
 evaluate F menv cenv (0,s1) env e ((count,s2), Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
 (pmatch cenv s2 p v emp = No_match))
 ==>
-evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr (Rraise Bind_error)))
+evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr (Rraise (Conv (SOME (Short "Bind")) []))))
 
 /\
 
