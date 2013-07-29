@@ -13,7 +13,7 @@ open stringTheory stringLib listTheory TokensTheory ASCIInumbersTheory intLib;
 (* intermediate symbols *)
 
 val _ = Hol_datatype `symbol = StringS of string
-                             | NumberS of num
+                             | NumberS of int
                              | OtherS of string
                              | ErrorS `;
 
@@ -159,10 +159,10 @@ val next_sym_def = tDefine "next_sym" `
        next_sym str
      else if isDigit c then (* read number *)
        let (n,rest) = read_while isDigit str [] in
-         SOME (NumberS (num_from_dec_string (c::n)), rest)
+         SOME (NumberS (&(num_from_dec_string (c::n))), rest)
      else if c = #"~" ∧ str ≠ "" ∧ isDigit (HD str) then (* read negative number *)
        let (n,rest) = read_while isDigit str [] in
-         SOME (NumberS (0-num_from_dec_string n), rest)
+         SOME (NumberS (0- &(num_from_dec_string n)), rest)
      else if c = #"'" then (* read type variable *)
        let (n,rest) = read_while isAlphaNumPrime str [c] in
          SOME (OtherS n, rest)
@@ -324,7 +324,7 @@ val token_of_sym_def = Define `
     case s of
     | ErrorS    => LexErrorT
     | StringS s => StringT s
-    | NumberS n => IntT (& n)
+    | NumberS i => IntT i 
     | OtherS s  => get_token s `;
 
 val next_token_def = Define `
