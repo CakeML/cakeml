@@ -8,6 +8,10 @@
 .HOLMK
 selftest.exe
 
+# regression test logs
+regression.log
+timing.log
+
 # HOLHEAP
 *heap
 
