@@ -29,7 +29,7 @@ val _ = type_abbrev( "count_store" , ``: num # store``);
 
 (*val evaluate : bool -> envM -> envC -> count_store -> envE -> exp -> count_store * result v -> bool*)
 (*val evaluate_list : bool -> envM -> envC -> count_store -> envE -> list exp -> count_store * result (list v) -> bool*)
-(*val evaluate_match : bool -> envM -> envC -> count_store -> envE -> v -> list (pat * exp) -> count_store * result v -> bool*)
+(*val evaluate_match : bool -> envM -> envC -> count_store -> envE -> v -> list (pat * exp) -> v -> count_store * result v -> bool*)
 (*val evaluate_dec : option modN -> envM -> envC -> store -> envE -> dec -> store * result (envC * envE) -> bool*)
 (*val evaluate_decs : option modN -> envM -> envC -> store -> envE -> list dec -> store * envC * result envE -> bool*)
 (*val evaluate_top : envM -> envC -> store -> envE -> top -> store * envC * result (envM * envE) -> bool*)
@@ -76,7 +76,7 @@ evaluate ck menv cenv s1 env (Handle e pes) (s2, Rval v))
 
 (! ck menv cenv s1 s2 env e pes v bv.
 (evaluate ck menv cenv s1 env e (s2, Rerr (Rraise v)) /\
-evaluate_match ck menv cenv s2 env v (pes ++[(Pvar "x", Raise (Var (Short "x")))]) bv)
+evaluate_match ck menv cenv s2 env v pes v bv)
 ==>
 evaluate ck menv cenv s1 env (Handle e pes) bv)
 
@@ -264,7 +264,7 @@ evaluate ck menv cenv s env (If e1 e2 e3) (s', Rerr err))
 
 (! ck menv cenv env e pes v bv s1 s2.
 (evaluate ck menv cenv s1 env e (s2, Rval v) /\
-evaluate_match ck menv cenv s2 env v pes bv)
+evaluate_match ck menv cenv s2 env v pes (Conv (SOME (Short "Bind")) []) bv)
 ==>
 evaluate ck menv cenv s1 env (Mat e pes) bv)
 
@@ -335,39 +335,39 @@ evaluate_list ck menv cenv s1 env (e ::es) (s3, Rerr err))
 
 /\
 
-(! ck menv cenv env v s.
+(! ck menv cenv env v err_v s.
 T
 ==>
-evaluate_match ck menv cenv s env v [] (s, Rerr (Rraise (Conv (SOME (Short "Bind")) []))))
+evaluate_match ck menv cenv s env v [] err_v (s, Rerr (Rraise err_v)))
 
 /\
 
-(! ck menv cenv env v p e pes env' bv s count. ( ALL_DISTINCT (pat_bindings p []) /\
+(! ck menv cenv env v p e pes env' bv err_v s count. ( ALL_DISTINCT (pat_bindings p []) /\
 (pmatch cenv s p v env = Match env') /\
 evaluate ck menv cenv (count,s) env' e bv)
 ==>
-evaluate_match ck menv cenv (count,s) env v ((p,e) ::pes) bv)
+evaluate_match ck menv cenv (count,s) env v ((p,e) ::pes) err_v bv)
 
 /\
 
-(! ck menv cenv env v p e pes bv s count. ( ALL_DISTINCT (pat_bindings p []) /\
+(! ck menv cenv env v p e pes bv s count err_v. ( ALL_DISTINCT (pat_bindings p []) /\
 (pmatch cenv s p v env = No_match) /\
-evaluate_match ck menv cenv (count,s) env v pes bv)
+evaluate_match ck menv cenv (count,s) env v pes err_v bv)
 ==>
-evaluate_match ck menv cenv (count,s) env v ((p,e) ::pes) bv)
+evaluate_match ck menv cenv (count,s) env v ((p,e) ::pes) err_v bv)
 
 /\
 
-(! ck menv cenv env v p e pes s count.
+(! ck menv cenv env v p e pes s count err_v.
 (pmatch cenv s p v env = Match_type_error)
 ==>
-evaluate_match ck menv cenv (count,s) env v ((p,e) ::pes) ((count,s), Rerr Rtype_error))
+evaluate_match ck menv cenv (count,s) env v ((p,e) ::pes) err_v ((count,s), Rerr Rtype_error))
 
 /\
 
-(! ck menv cenv env v p e pes s. ( ~  ( ALL_DISTINCT (pat_bindings p [])))
+(! ck menv cenv env v p e pes s err_v. ( ~  ( ALL_DISTINCT (pat_bindings p [])))
 ==>
-evaluate_match ck menv cenv s env v ((p,e) ::pes) (s, Rerr Rtype_error))`;
+evaluate_match ck menv cenv s env v ((p,e) ::pes) err_v (s, Rerr Rtype_error))`;
 
 
 val _ = Hol_reln `

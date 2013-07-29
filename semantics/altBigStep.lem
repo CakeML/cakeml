@@ -77,7 +77,7 @@ and
 
 forall s1 s2 env e pes v bv.
 evaluate' s1 env e (s2, Rerr (Rraise v)) &&
-evaluate_match' s2 env v (pes@[(Pvar "x", Raise (Var (Short "x")))]) bv
+evaluate_match' s2 env v pes v bv
 ==>
 evaluate' s1 env (Handle e pes) bv
 
@@ -234,7 +234,7 @@ and
 
 forall env e pes v bv s1 s2.
 evaluate' s1 env e (s2, Rval v) &&
-evaluate_match' s2 env v pes bv
+evaluate_match' s2 env v pes (Conv (Some (Short "Bind")) []) bv
 ==>
 evaluate' s1 env (Mat e pes) bv
 
@@ -307,42 +307,42 @@ evaluate_list' s1 env (e::es) (s3, Rerr err)
 
 and
 
-forall env v s.
+forall env v s err_v.
 true
 ==>
-evaluate_match' s env v [] (s, Rerr (Rraise (Conv (Some (Short "Bind")) [])))
+evaluate_match' s env v [] err_v (s, Rerr (Rraise err_v))
 
 and
 
-forall env v p e pes env' bv s.
+forall env v p e pes env' bv s err_v.
 all_distinct (pat_bindings p []) &&
 (pmatch' s p v env = Match env') &&
 evaluate' s env' e bv
 ==>
-evaluate_match' s env v ((p,e)::pes) bv
+evaluate_match' s env v ((p,e)::pes) err_v bv
 
 and
 
-forall env v p e pes bv s.
+forall env v p e pes bv s err_v.
 all_distinct (pat_bindings p []) &&
 (pmatch' s p v env = No_match) &&
-evaluate_match' s env v pes bv
+evaluate_match' s env v pes err_v bv
 ==>
-evaluate_match' s env v ((p,e)::pes) bv
+evaluate_match' s env v ((p,e)::pes) err_v bv
 
 and
 
-forall env v p e pes s.
+forall env v p e pes s err_v.
 (pmatch' s p v env = Match_type_error)
 ==>
-evaluate_match' s env v ((p,e)::pes) (s, Rerr Rtype_error)
+evaluate_match' s env v ((p,e)::pes) err_v (s, Rerr Rtype_error)
 
 and
 
-forall env v p e pes s.
+forall env v p e pes s err_v.
 not (all_distinct (pat_bindings p []))
 ==>
-evaluate_match' s env v ((p,e)::pes) (s, Rerr Rtype_error)
+evaluate_match' s env v ((p,e)::pes) err_v (s, Rerr Rtype_error)
 
 indreln
 

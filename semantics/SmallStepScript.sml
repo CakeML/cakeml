@@ -30,7 +30,8 @@ val _ = Hol_datatype `
   | Capp2 of op => v => unit
   | Clog of lop => unit => exp
   | Cif of unit => exp => exp
-  | Cmat of unit => (pat # exp) list
+  (* The value is raised if none of the patterns match *)
+  | Cmat of unit => (pat # exp) list => v
   | Clet of varN => unit => exp
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
@@ -86,7 +87,7 @@ val _ = Define `
         (case c of
             [] => Estuck
           | ((Chandle ()  pes,env') :: c) =>
-              Estep (envM,envC,s,env,Val v,((Cmat ()  (pes ++[(Pvar "x", Raise (Var (Short "x")))]), env') ::c))
+              Estep (envM,envC,s,env,Val v,((Cmat ()  pes v, env') ::c))
           | _::c => Estep (envM,envC,s,env,Val v,((Craise () ,env) ::c))
         )
     | (Chandle ()  pes, env) :: c =>
@@ -108,13 +109,13 @@ val _ = Define `
             SOME e => Estep (envM, envC, s, env, Exp e, c)
           | NONE => Etype_error
         )
-    | (Cmat ()  [], env) :: c =>
-        Estep (envM, envC, s, env, Exp (Raise (Con (SOME (Short "Bind")) [])), c)
-    | (Cmat ()  ((p,e)::pes), env) :: c =>
+    | (Cmat ()  [] err_v, env) :: c =>
+        Estep (envM, envC, s, env, Val err_v, ((Craise () , env) ::c))
+    | (Cmat ()  ((p,e)::pes) err_v, env) :: c =>
         if ALL_DISTINCT (pat_bindings p []) then
           (case pmatch envC s p v env of
               Match_type_error => Etype_error
-            | No_match => Estep (envM, envC, s, env, Val v, ((Cmat ()  pes,env) ::c))
+            | No_match => Estep (envM, envC, s, env, Val v, ((Cmat ()  pes err_v,env) ::c))
             | Match env' => Estep (envM, envC, s, env', Exp e, c)
           )
         else
@@ -177,7 +178,7 @@ val _ = Define `
           | App op e1 e2 => push envM envC s env e1 (Capp1 op ()  e2) c
           | Log l e1 e2 => push envM envC s env e1 (Clog l ()  e2) c
           | If e1 e2 e3 => push envM envC s env e1 (Cif ()  e2 e3) c
-          | Mat e pes => push envM envC s env e (Cmat ()  pes) c
+          | Mat e pes => push envM envC s env e (Cmat ()  pes (Conv (SOME (Short "Bind")) [])) c
           | Let n e1 e2 => push envM envC s env e1 (Clet n ()  e2) c
           | Letrec funs e =>
               if ~  ( ALL_DISTINCT ( MAP (\ (x,y,z) . x) funs)) then

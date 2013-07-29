@@ -93,7 +93,7 @@ evaluate' s1 env (Handle e pes) (s2, Rval v))
 
 (! s1 s2 env e pes v bv.
 (evaluate' s1 env e (s2, Rerr (Rraise v)) /\
-evaluate_match' s2 env v (pes ++[(Pvar "x", Raise (Var (Short "x")))]) bv)
+evaluate_match' s2 env v pes v bv)
 ==>
 evaluate' s1 env (Handle e pes) bv)
 
@@ -258,7 +258,7 @@ evaluate' s env (If e1 e2 e3) (s', Rerr err))
 
 (! env e pes v bv s1 s2.
 (evaluate' s1 env e (s2, Rval v) /\
-evaluate_match' s2 env v pes bv)
+evaluate_match' s2 env v pes (Conv (SOME (Short "Bind")) []) bv)
 ==>
 evaluate' s1 env (Mat e pes) bv)
 
@@ -329,39 +329,39 @@ evaluate_list' s1 env (e ::es) (s3, Rerr err))
 
 /\
 
-(! env v s.
+(! env v s err_v.
 T
 ==>
-evaluate_match' s env v [] (s, Rerr (Rraise (Conv (SOME (Short "Bind")) []))))
+evaluate_match' s env v [] err_v (s, Rerr (Rraise err_v)))
 
 /\
 
-(! env v p e pes env' bv s. ( ALL_DISTINCT (pat_bindings p []) /\
+(! env v p e pes env' bv s err_v. ( ALL_DISTINCT (pat_bindings p []) /\
 (pmatch' s p v env = Match env') /\
 evaluate' s env' e bv)
 ==>
-evaluate_match' s env v ((p,e) ::pes) bv)
+evaluate_match' s env v ((p,e) ::pes) err_v bv)
 
 /\
 
-(! env v p e pes bv s. ( ALL_DISTINCT (pat_bindings p []) /\
+(! env v p e pes bv s err_v. ( ALL_DISTINCT (pat_bindings p []) /\
 (pmatch' s p v env = No_match) /\
-evaluate_match' s env v pes bv)
+evaluate_match' s env v pes err_v bv)
 ==>
-evaluate_match' s env v ((p,e) ::pes) bv)
+evaluate_match' s env v ((p,e) ::pes) err_v bv)
 
 /\
 
-(! env v p e pes s.
+(! env v p e pes s err_v.
 (pmatch' s p v env = Match_type_error)
 ==>
-evaluate_match' s env v ((p,e) ::pes) (s, Rerr Rtype_error))
+evaluate_match' s env v ((p,e) ::pes) err_v (s, Rerr Rtype_error))
 
 /\
 
-(! env v p e pes s. ( ~  ( ALL_DISTINCT (pat_bindings p [])))
+(! env v p e pes s err_v. ( ~  ( ALL_DISTINCT (pat_bindings p [])))
 ==>
-evaluate_match' s env v ((p,e) ::pes) (s, Rerr Rtype_error))`;
+evaluate_match' s env v ((p,e) ::pes) err_v (s, Rerr Rtype_error))`;
 
 val _ = Hol_reln `
 

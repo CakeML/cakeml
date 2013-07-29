@@ -223,10 +223,10 @@ context_invariant dec_tvs ((Cif ()  e1 e2,env) :: c) 0)
 
 /\
 
-(! dec_tvs c pes env.
+(! dec_tvs c pes env err_v.
 (context_invariant dec_tvs c 0)
 ==>
-context_invariant dec_tvs ((Cmat ()  pes,env) :: c) 0)
+context_invariant dec_tvs ((Cmat ()  pes err_v,env) :: c) 0)
 
 /\
 
@@ -318,13 +318,14 @@ type_ctxt tvs menv cenv senv tenv (Cif ()  e1 e2) Tbool t)
 
 /\
 
-(! tvs menv cenv senv tenv t1 t2 pes.
+(! tvs menv cenv senv tenv t1 t2 pes err_v.
 (((pes = []) ==> (check_freevars tvs [] t1 /\ check_freevars 0 [] t2)) /\
 (! ((p,e) :: LIST_TO_SET pes) . ? tenv'. ALL_DISTINCT (pat_bindings p []) /\
    type_p tvs cenv p t1 tenv' /\
-   type_e menv cenv (bind_var_list 0 tenv' tenv) e t2))
+   type_e menv cenv (bind_var_list 0 tenv' tenv) e t2) /\
+type_v 0 menv cenv senv err_v Texn)
 ==>
-type_ctxt tvs menv cenv senv tenv (Cmat ()  pes) t1 t2)
+type_ctxt tvs menv cenv senv tenv (Cmat ()  pes err_v) t1 t2)
 
 /\
 

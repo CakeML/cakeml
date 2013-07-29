@@ -129,11 +129,11 @@ evaluate_ctxt menv cenv s env (Cif ()  e2 e3) v (s, Rerr Rtype_error))
 
 /\
 
-(! menv cenv env pes v bv s.
+(! menv cenv env pes v bv s err_v.
 (
-evaluate_match F menv cenv s env v pes bv)
+evaluate_match F menv cenv s env v pes err_v bv)
 ==>
-evaluate_ctxt menv cenv s env (Cmat ()  pes) v bv)
+evaluate_ctxt menv cenv s env (Cmat ()  pes err_v) v bv)
 
 /\
 
@@ -196,7 +196,7 @@ evaluate_ctxts menv cenv s ((c,env) ::cs) (Rerr err) bv)
 
 (! menv cenv cs env s s' res1 res2 pes v.
 (
-evaluate_match F menv cenv s env v (pes ++[(Pvar "x", Raise (Var (Short "x")))]) (s', res1) /\
+evaluate_match F menv cenv s env v pes v (s', res1) /\
 evaluate_ctxts menv cenv s' cs res1 res2)
 ==>
 evaluate_ctxts menv cenv s ((Chandle ()  pes,env) ::cs) (Rerr (Rraise v)) res2)`;
