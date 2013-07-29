@@ -226,15 +226,9 @@ val mmlPEG_def = zDefine`
                           (tokeq OrelseT));
               (mkNT nEhandle,
                seql [pnt nElogicOR;
-                     try (seql [tokeq HandleT; tokeq (AlphaT "IntError"); pnt nV;
-                                tokeq DarrowT; pnt nE] I)]
+                     try (seql [tokeq HandleT; pnt nPEs] I)]
                     (bindNT nEhandle)
               );
-              (mkNT nEhandle',
-               seql [pnt nElogicOR;
-                     try (seql [tokeq HandleT; tokeq (AlphaT "IntError"); pnt nV;
-                                tokeq DarrowT; pnt nE'] I)]
-                    (bindNT nEhandle'));
               (mkNT nE,
                choicel [seql [tokeq RaiseT; pnt nExn] (bindNT nE);
                         pegf (pnt nEhandle) (bindNT nE);
@@ -247,7 +241,7 @@ val mmlPEG_def = zDefine`
                              (bindNT nE)]);
               (mkNT nE',
                choicel [seql [tokeq RaiseT; pnt nExn] (bindNT nE');
-                        pegf (pnt nEhandle') (bindNT nE');
+                        pegf (pnt nElogicOR) (bindNT nE');
                         seql [tokeq IfT; pnt nE; tokeq ThenT; pnt nE;
                               tokeq ElseT; pnt nE'] (bindNT nE');
                         seql [tokeq FnT; pnt nV; tokeq DarrowT; pnt nE']
@@ -552,7 +546,7 @@ val npeg0_rwts =
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nErel``, ``nEcomp``, ``nEbefore``,
                 ``nEtyped``, ``nElogicAND``, ``nElogicOR``, ``nEhandle``,
-                ``nE``, ``nEhandle'``, ``nE'``,
+                ``nE``, ``nE'``,
                 ``nSpecLine``, ``nStructure``, ``nTopLevelDec``]
 
 val pegfail_empty = Store_thm(
@@ -633,7 +627,7 @@ val topo_nts = [``nExn``, ``nV``, ``nTyvarN``, ``nTypeDec``, ``nDecl``,
                 ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nErel``,
                 ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``,
-                ``nElogicOR``, ``nEhandle``, ``nEhandle'``, ``nE``, ``nE'``,
+                ``nElogicOR``, ``nEhandle``, ``nE``, ``nE'``,
                 ``nType``, ``nTypeList1``, ``nTypeList2``,
                 ``nEseq``, ``nElist1``, ``nDtypeDecl``,
                 ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,

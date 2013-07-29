@@ -779,7 +779,7 @@ val peg_sound = store_thm(
           first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
           simp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied])
-      >- ((* Ehandle' case *)
+      >- ((* ElogicOR case *)
           loseC ``LENGTH`` >>
           first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
@@ -815,7 +815,7 @@ val peg_sound = store_thm(
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``nE'``) o concl)) >>
           asimp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]) >>
-      (* bogus raise Ehandle' case *)
+      (* bogus raise ElogicOR case *)
       loseC ``LENGTH`` >> first_x_assum (fn patth =>
         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
       simp[NT_rank_def] >> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
@@ -879,24 +879,6 @@ val peg_sound = store_thm(
       loseC ``LENGTH`` >> first_x_assum (fn patth =>
         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
       simp[NT_rank_def] >> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
-  >- (print_tac "nEhandle'" >>
-      `NT_rank (mkNT nElogicOR) < NT_rank (mkNT nEhandle')`
-        by simp[NT_rank_def] >>
-      strip_tac >> rveq >> simp[] >>
-      first_x_assum (erule strip_assume_tac) >> rveq >>
-      dsimp[cmlG_FDOM, cmlG_applied] >>
-      first_assum (assume_tac o MATCH_MP length_no_greater o
-                   assert (free_in ``nElogicOR`` o concl)) >> fs[] >>
-      first_assum (fn patth =>
-         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                      assert (free_in ``nV``) o concl)) >>
-      rpt kill_asm_guard >> strip_tac >> rveq >>
-      first_assum (assume_tac o MATCH_MP length_no_greater o
-                   assert (free_in ``nV`` o concl)) >> fs[] >>
-      first_x_assum (fn patth =>
-         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                      assert (free_in ``nE'``) o concl)) >>
-      asimp[] >> strip_tac >> rveq >> simp[])
   >- (print_tac "nEhandle" >>
       `NT_rank (mkNT nElogicOR) < NT_rank (mkNT nEhandle)`
         by simp[NT_rank_def] >>
@@ -907,14 +889,8 @@ val peg_sound = store_thm(
                    assert (free_in ``nElogicOR`` o concl)) >> fs[] >>
       first_assum (fn patth =>
          first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                      assert (free_in ``nV``) o concl)) >>
-      rpt kill_asm_guard >> strip_tac >> rveq >>
-      first_assum (assume_tac o MATCH_MP length_no_greater o
-                   assert (free_in ``nV`` o concl)) >> fs[] >>
-      first_x_assum (fn patth =>
-         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                      assert (free_in ``nE``) o concl)) >>
-      asimp[] >> strip_tac >> rveq >> simp[])
+                      assert (free_in ``nPEs``) o concl)) >>
+      rpt kill_asm_guard >> strip_tac >> rveq >> simp[])
   >- (print_tac "nElogicOR" >>
       disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
       simp[cmlG_applied, cmlG_FDOM, pegsym_to_sym_def, DISJ_IMP_THM,

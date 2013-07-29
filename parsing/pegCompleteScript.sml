@@ -462,23 +462,6 @@ val firstSetML_nEhandle = Store_thm(
       firstSet mmlG [NN nEbase]``,
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nEhandle' = Store_thm(
-  "firstSet_nEhandle'",
-  ``firstSet mmlG (NT(mkNT nEhandle')::rest) = firstSet mmlG [NT (mkNT nEbase)]``,
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
-
-val firstSetML_nEhandle' = Store_thm(
-  "firstSetML_nEhandle'",
-  ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
-    mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
-    mkNT nElogicOR ∉ sn ∧ mkNT nEhandle' ∉ sn ⇒
-    firstSetML mmlG sn (NT (mkNT nEhandle')::rest) =
-      firstSet mmlG [NN nEbase]``,
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
-
 val firstSet_nE = store_thm(
   "firstSet_nE",
   ``firstSet mmlG (NT(mkNT nE)::rest) =
@@ -529,7 +512,7 @@ val firstSetML_nE' = Store_thm(
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
     mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
-    mkNT nElogicOR ∉ sn ∧ mkNT nEhandle' ∉ sn ∧ mkNT nE' ∉ sn ⇒
+    mkNT nElogicOR ∉ sn ∧ mkNT nE' ∉ sn ⇒
     firstSetML mmlG sn (NT (mkNT nE')::rest) = firstSet mmlG [NN nE']``,
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM, firstSet_nE']) >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);

@@ -47,7 +47,6 @@ val NT_rank_def = Define`
         else if n = nElist2            then 15
         else if n = nE                 then 14
         else if n = nE'                then 14
-        else if n = nEhandle'          then 13
         else if n = nEhandle           then 13
         else if n = nElogicOR          then 12
         else if n = nElogicAND         then 11
@@ -190,7 +189,7 @@ val nullable_TypeDec = prove_nullable ``nTypeDec``
 val _ = map prove_nullable [
           ``nFQV``, ``nEbase``, ``nEapp``, ``nEmult``, ``nEadd``, ``nErel``,
           ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``, ``nElogicOR``,
-          ``nEhandle``, ``nE``, ``nE'``, ``nEhandle'``, ``nCompOps``,
+          ``nEhandle``, ``nE``, ``nE'``, ``nCompOps``,
           ``nConstructorName``, ``nPattern``, ``nRelOps``, ``nMultOps``,
           ``nAddOps``, ``nDconstructor``, ``nFDecl``, ``nPatternList``,
           ``nEseq``, ``nEtuple``]
