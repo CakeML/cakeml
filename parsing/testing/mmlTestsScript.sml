@@ -88,13 +88,18 @@ in
 end
 
 fun parsetest t1 t2 s = parsetest0 t1 t2 s NONE
-fun tytest0 s r = parsetest0 ``nType`` ``ptree_Type`` s (SOME r)
+fun tytest0 s r = parsetest0 ``nType`` ``ptree_Type nType`` s (SOME r)
 val tytest = parsetest ``nType`` ``ptree_Type nType``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
-val _ = tytest "'a * bool"
-val _ = tytest "'a * bool * 'c"
+val _ = tytest0 "'a * bool"
+                ``Ast_Tapp [Ast_Tvar "'a";
+                            Ast_Tapp [] (SOME (Short "bool"))] NONE``
+val _ = tytest0 "'a * bool * 'c"
+                ``Ast_Tapp [Ast_Tvar "'a";
+                            Ast_Tapp [] (SOME (Short "bool"));
+                            Ast_Tvar "'c"] NONE``
 val _ = tytest "'a * bool -> 'a"
 val _ = tytest "'a * (bool * 'c)"
 val _ = tytest "(bool * int)"
