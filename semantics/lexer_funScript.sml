@@ -148,7 +148,9 @@ val moduleRead_thm = store_thm(
   *)
 
 val isLongidChar_def = Define `
-isLongidChar c = (isAlphaNumPrime c ∨ isSymbol c ∨ (c = #"."))`;
+  isLongidChar symp c <=>
+     (¬symp ∧ isAlphaNumPrime c) ∨ (symp ∧ isSymbol c) ∨ c = #"."
+`;
 
 val next_sym_def = tDefine "next_sym" `
   (next_sym "" = NONE) /\
@@ -175,9 +177,10 @@ val next_sym_def = tDefine "next_sym" `
        | SOME rest => next_sym rest
      else if is_single_char_symbol c then (* single character tokens, i.e. delimiters *)
        SOME (OtherS [c], str)
-     else if isLongidChar c then (* read identifier *)
-       let (n,rest) = read_while isLongidChar str [c] in
+     else if isAlpha c ∨ isSymbol c then (* read identifier *)
+       let (n,rest) = read_while (isLongidChar (¬isAlpha c)) str [c] in
          SOME (OtherS n, rest)
+     else if c = #"_" then SOME (OtherS "_", str)
      else (* input not recognised *)
        SOME (ErrorS, str))`
   (WF_REL_TAC `measure LENGTH` THEN REPEAT STRIP_TAC
