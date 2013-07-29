@@ -1,5 +1,17 @@
 #!/bin/bash
 
+set -e
+
+echo -n "Running regression test on "
+git rev-parse --short HEAD
+
+status=$(git status 2> /dev/null)
+
+if [[ ! ${status} =~ "working directory clean" ]]
+then
+    echo "WARNING: working directory is dirty!"
+fi
+
 cd $(dirname "$0")/..
 
 case $(uname -a) in
