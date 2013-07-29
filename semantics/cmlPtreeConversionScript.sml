@@ -718,7 +718,7 @@ val ptree_Expr_def = Define`
           | [raiset; ept] =>
             do
               assert(raiset = Lf (TOK RaiseT));
-              e <- ptree_Expr nE ept;
+              e <- ptree_Expr nE' ept;
               SOME(Ast_Raise e)
             od
           | [fnt; vnt; arrowt; ent] =>

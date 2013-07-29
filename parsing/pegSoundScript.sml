@@ -1039,8 +1039,6 @@ val peg_sound = store_thm(
         (qspecl_then [`[Nd (mkNT nEapp) acc; ebpt]`, `i3`, `i`]
                      mp_tac) >>
       rpt kill_asm_guard >> dsimp[cmlG_FDOM, cmlG_applied])
-  >- (print_tac "nExn" >> strip_tac >> rveq >> dsimp[cmlG_applied, cmlG_FDOM]>>
-      asm_match `isInt itok` >> Cases_on `itok` >> fs[])
   >- (print_tac "nFQV" >>
       simp[peg_longV_def, pairTheory.EXISTS_PROD, gramTheory.assert_def] >>
       strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]
