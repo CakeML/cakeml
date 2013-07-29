@@ -236,14 +236,14 @@ val processIdent_def = Define `
     case s of
        | "" => LexErrorT
        | #"'"::_ => LexErrorT
-       | c::s => 
+       | c::s =>
            if isAlphaNum c then
              if EVERY isAlphaNumPrime s then
-               AlphaT s
+               AlphaT (c::s)
              else
                LexErrorT
            else if EVERY isSymbol (c::s) then
-             SymbolT s
+             SymbolT (c::s)
            else
              LexErrorT`;
 
