@@ -12,9 +12,10 @@ val _ = new_theory "untypedSafety";
 val untyped_safety_exp_step = Q.prove (
 `∀menv cenv s env e c.
   (e_step (menv,cenv, s, env, e, c) = Estuck) =
-  ((c = []) ∧ ((?v. e = Val v) ∨ (?err. e = Exp (Raise err))))`,
+  ((?v. e = Val v) ∧ ((c = []) ∨ (?env. c = [(Craise (), env)])))`,
 rw [e_step_def, continue_def, push_def, return_def] >>
-every_case_tac);
+every_case_tac >>
+metis_tac [oneTheory.one]);
 
 val e_step_cenv_same = Q.store_thm("e_step_cenv_same",
 `!menv cenv s env e c menv' cenv' s' env' e' c'.
@@ -56,9 +57,9 @@ fs [small_eval_def, e_step_reln_def] >|
             by rw [e_step_def, continue_def] >>
      metis_tac [],
  metis_tac [e_step_result_distinct],
- `∀menv'' cenv'' s'' env'' e''' c''.
-    e_step (menv,cenv,q,env',Exp (Raise e''),[]) ≠ Estep (menv'',cenv'',s'',env'',e''',c'')`
-         by rw [e_step_def, continue_def] >>
+ `∀menv'' cenv'' s'' env''' e''' c''.
+    e_step (menv,cenv,q,env',Val v,[(Craise (),env'')]) ≠ Estep (menv'',cenv'',s'',env''',e''',c'')`
+         by rw [push_def, e_step_def, continue_def] >>
      metis_tac []]);
 
 val small_exp_safety2 = Q.prove (
@@ -73,10 +74,10 @@ fs [untyped_safety_exp_step] >>
  qexists_tac `(s', Rerr Rtype_error)` >>
      rw [small_eval_def] >>
      metis_tac [],
- qexists_tac `s', Rval v` >>
+ qexists_tac `(s', Rval v)` >>
      rw [small_eval_def] >>
      metis_tac [],
- qexists_tac `(s', Rerr (Rraise err))` >>
+ qexists_tac `(s', Rerr (Rraise v))` >>
      rw [small_eval_def] >>
      metis_tac []]);
 
@@ -96,6 +97,7 @@ rw [] >|
      metis_tac [small_big_exp_equiv, big_unclocked] >-
      metis_tac [small_big_exp_equiv, big_unclocked] >-
      metis_tac [small_big_exp_equiv, big_unclocked] >-
+     metis_tac [small_big_exp_equiv, big_unclocked] >>
      fs [GSYM untyped_safety_exp] >>
      PairCases_on `r` >>
      fs [] >>
@@ -105,7 +107,7 @@ rw [] >|
      fs [] >|
      [cases_on `pmatch cenv r0 p a emp` >>
           fs [] >|
-          [qexists_tac `(r0, Rerr (Rraise Bind_error))` >>
+          [qexists_tac `(r0, Rerr (Rraise (Conv (SOME (Short "Bind")) [])))` >>
                rw [] >>
                metis_tac [small_big_exp_equiv, big_unclocked],
            qexists_tac `(r0, Rerr Rtype_error)` >>
@@ -120,7 +122,8 @@ rw [] >|
           rw [] >>
           metis_tac [small_big_exp_equiv, big_unclocked]],
  metis_tac [],
- metis_tac []]);
+ metis_tac [],
+ cheat (* TODO: Haven't defined the semantics of exception declarations yet *)]);
 
 val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
 `!mn menv cenv s env ds. (?r. evaluate_decs mn menv cenv s env ds r) = ~decs_diverges mn menv cenv s env ds`,

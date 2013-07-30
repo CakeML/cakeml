@@ -1036,19 +1036,30 @@ fs [deBruijn_subst_def, deBruijn_subst_tenvE_def,
     Tbool_def, Tint_def, Tunit_def, Tref_def, Tfn_def] >>
 `tenv_ok tenvE2` by metis_tac [tenv_ok_db_merge, bind_tvar_def, tenv_ok_def] >|
 [metis_tac [check_freevars_lem],
- qpat_assum `!tenvE1' targs' tvs'. P tenvE1' targs' tvs' ⇒
-        type_e tenvM tenvC
-          (db_merge (deBruijn_subst_tenvE targs' tenvE1')
-             (bind_tvar tvs' tenvE2))
-          e'
-          (deBruijn_subst (num_tvs tenvE1')
-             (MAP (deBruijn_inc 0 (num_tvs tenvE1')) targs') t)`
-        (MP_TAC o Q.SPECL [`Bind_name var 0 Tint tenvE1`,
-                           `targs`,
-                           `tvs`]) >>
-     rw [db_merge_def, Tint_def] >>
-     fs [EVERY_MAP, EVERY_MEM, deBruijn_subst_tenvE_def, num_tvs_def,
-         check_freevars_def, db_merge_def, deBruijn_subst_def],
+ fs [RES_FORALL] >>
+     rw [] >>
+     PairCases_on `x` >>
+     fs [MEM_MAP] >>
+     qpat_assum `!x. MEM x pes ⇒ P x` (MP_TAC o Q.SPEC `(x0,x1)`) >>
+     rw [] >>
+     qexists_tac `MAP (\(x,t). (x, deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) t))
+                      tenv'` >>
+     rw [] >-
+         (mp_tac (Q.SPECL [`num_tvs tenvE1 + LENGTH (targs:t list)`, 
+                           `tenvC:tenvC`,
+                           `x0`,
+                           `Texn`,
+                           `tenv'`] (hd (CONJUNCTS type_p_subst))) >>
+          rw [] >>
+          metis_tac [deBruijn_subst_def, MAP, Texn_def]) >>
+     pop_assum (MATCH_MP_TAC o 
+                SIMP_RULE (srw_ss()) [num_tvs_bind_var_list, deBruijn_subst_E_bind_var_list,
+                                      db_merge_bind_var_list] o
+                Q.SPECL [`bind_var_list 0 tenv' tenvE1`, `targs`, `tvs`]) >>
+     rw [] >>
+     match_mp_tac tenv_ok_bind_var_list >>
+     rw [num_tvs_db_merge, bind_tvar_rewrites] >>
+     metis_tac [type_p_freevars],
  fs [EVERY_MAP, EVERY_MEM] >>
      rw [] >>
      metis_tac [check_freevars_lem, EVERY_MEM],
