@@ -30,15 +30,6 @@ val _ = new_theory "CompilerPrimitives"
 (every_result P (Rval v) = (P v))`;
 
 
- val error_to_int_def = Define `
-
-(error_to_int Bind_error = ( & 0))
-/\
-(error_to_int Div_error = ( & 1))
-/\
-(error_to_int (Int_error n) = ( int_add ( & 2) n))`;
-
-
  val num_to_bool_def = Define `
 
 (num_to_bool 0 = F)

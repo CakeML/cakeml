@@ -193,10 +193,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val remove_mat_var_defn = Hol_defn "remove_mat_var" `
 
-(remove_mat_var _ [] = (CRaise CBind_exc))
+(remove_mat_var b v [] = (CRaise (b v)))
 /\
-(remove_mat_var v ((p,sk)::pes) =  
-(CLetrec [(NONE, (0,shift 1 0 (remove_mat_var v pes)))]
+(remove_mat_var b v ((p,sk)::pes) =  
+(CLetrec [(NONE, (0,shift 1 0 (remove_mat_var b v pes)))]
     (remove_mat_vp 0 (shift 1 (Cpat_vars p) sk) (v +1) p)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn remove_mat_var_defn;
@@ -216,20 +216,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val exp_to_Cexp_defn = Hol_defn "exp_to_Cexp" `
 
-(exp_to_Cexp m (Handle e x b) =  
-(CHandle (exp_to_Cexp m e)
-    (CIf (CPrim2 CEq (CVar (Short 0)) CBind_exc) (CRaise CBind_exc)
-         (CIf (CPrim2 CEq (CVar (Short 0)) CDiv_exc) (CRaise CDiv_exc)
-              (CIf (CPrim2 CEq (CVar (Short 0)) CEq_exc) (CRaise CEq_exc)
-                   (exp_to_Cexp (cbv m x) b))))))
+(exp_to_Cexp m (Handle e pes) =  
+(let Ce = (exp_to_Cexp m e) in
+  let Cpes = (pes_to_Cpes m pes) in
+  let Cpes = ( MAP (\ (p,e) . (p,shift 1 (Cpat_vars p) e)) Cpes) in
+  CLet Ce (remove_mat_var (\ v . CVar (Short v)) 0 Cpes)))
 /\
-(exp_to_Cexp _ (Raise Bind_error) = (CRaise CBind_exc))
-/\
-(exp_to_Cexp _ (Raise Div_error) = (CRaise CDiv_exc))
-/\
-(exp_to_Cexp _ (Raise Eq_error) = (CRaise CEq_exc))
-/\
-(exp_to_Cexp _ (Raise (Int_error n)) = (CRaise (CLit (IntLit n))))
+(exp_to_Cexp m (Raise e) = (CRaise (exp_to_Cexp m e)))
 /\
 (exp_to_Cexp _ (Lit l) = (CLit l))
 /\
@@ -313,7 +306,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (let Ce = (exp_to_Cexp m e) in
   let Cpes = (pes_to_Cpes m pes) in
   let Cpes = ( MAP (\ (p,e) . (p,shift 1 (Cpat_vars p) e)) Cpes) in
-  CLet Ce (remove_mat_var 0 Cpes)))
+  CLet Ce (remove_mat_var (\n . 
+  (case (n ) of ( _ ) => CBind_exc )) 0 Cpes)))
 /\
 (exp_to_Cexp m (Let vn e b) =  
 (let Ce = (exp_to_Cexp m e) in
