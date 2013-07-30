@@ -1036,6 +1036,7 @@ fs [deBruijn_subst_def, deBruijn_subst_tenvE_def,
     Tbool_def, Tint_def, Tunit_def, Tref_def, Tfn_def] >>
 `tenv_ok tenvE2` by metis_tac [tenv_ok_db_merge, bind_tvar_def, tenv_ok_def] >|
 [metis_tac [check_freevars_lem],
+ fs [Texn_def, deBruijn_subst_def],
  fs [RES_FORALL] >>
      rw [] >>
      PairCases_on `x` >>

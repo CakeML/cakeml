@@ -170,6 +170,13 @@ context_invariant n [] n
 
 and
 
+forall dec_tvs c env.
+context_invariant dec_tvs c 0
+==>
+context_invariant dec_tvs ((Craise (),env) :: c) 0
+
+and
+
 forall dec_tvs c pes env.
 context_invariant dec_tvs c 0
 ==>
@@ -237,7 +244,7 @@ indreln
 forall tvs menv cenv senv tenv t.
 check_freevars tvs [] t
  ==>
-type_ctxt tvs menv cenv senv tenv (Craise ()) t t
+type_ctxt tvs menv cenv senv tenv (Craise ()) Texn t
 
 and
 

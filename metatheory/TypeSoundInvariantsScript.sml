@@ -188,6 +188,13 @@ context_invariant n [] n)
 
 /\
 
+(! dec_tvs c env.
+(context_invariant dec_tvs c 0)
+==>
+context_invariant dec_tvs ((Craise () ,env) :: c) 0)
+
+/\
+
 (! dec_tvs c pes env.
 (context_invariant dec_tvs c 0)
 ==>
@@ -256,7 +263,7 @@ val _ = Hol_reln `
 (
 check_freevars tvs [] t)
  ==>
-type_ctxt tvs menv cenv senv tenv (Craise () ) t t)
+type_ctxt tvs menv cenv senv tenv (Craise () ) Texn t)
 
 /\
 

@@ -343,7 +343,13 @@ ho_match_mp_tac type_e_ind >>
 rw [] >>
 rw [Once type_e_cases] >|
 [metis_tac [weak_tenvE_freevars],
- metis_tac [weak_tenvE_bind], 
+ fs [RES_FORALL] >>
+     rw [] >>
+     PairCases_on `x` >>
+     fs [] >>
+     res_tac >>
+     fs [] >>
+     metis_tac [type_p_weakening, weak_tenvE_def, weak_tenvE_bind_var_list],
  fs [EVERY_MEM] >>
      metis_tac [weak_tenvC_lookup, weak_tenvE_freevars],
  `(?vn. n = Short vn) ∨ (?mn vn. n = Long mn vn)` by (cases_on `n` >> rw []) >>
@@ -458,18 +464,27 @@ val type_ctxt_weakening = Q.store_thm ("type_ctxt_weakening",
     weakM tenvM' tenvM ∧ weakC tenvC' tenvC ∧ weakS tenvS' tenvS ∧ weak_tenvE tenv' tenv ⇒
     type_ctxt tvs tenvM' tenvC' tenvS' tenv' c t1 t2`,
 rw [type_ctxt_cases] >|
-[metis_tac [type_e_weakening, weak_tenvE_bind],
- metis_tac [type_e_weakening, weak_tenvE_refl],
- metis_tac [type_v_weakening],
- metis_tac [type_e_weakening],
- metis_tac [type_e_weakening],
- fs [RES_FORALL] >>
+[fs [RES_FORALL] >>
      rw [] >>
      PairCases_on `x` >>
      rw [] >>
      res_tac >>
      fs [] >>
-     metis_tac [type_e_weakening, weak_tenvE_bind_var_list, type_p_weakening, DECIDE ``!x:num. x ≥ x``],
+     metis_tac [type_e_weakening, weak_tenvE_bind_var_list, type_p_weakening, DECIDE ``!x:num. x ≥ 0``],
+ metis_tac [type_e_weakening, weak_tenvE_refl],
+ metis_tac [type_v_weakening],
+ metis_tac [type_e_weakening],
+ metis_tac [type_e_weakening],
+ fs [RES_FORALL] >>
+     rw [] 
+     >- (PairCases_on `x` >>
+         rw [] >>
+         res_tac >>
+         fs [] >>
+         metis_tac [type_e_weakening, weak_tenvE_bind_var_list, type_p_weakening, DECIDE ``!x:num. x ≥ x``]) >>
+     fs [Once type_v_cases, Texn_def, Tfn_def, Tref_def] >>
+     imp_res_tac type_funs_Tfn >>
+     fs [Tfn_def],
  metis_tac [check_freevars_add, gt_0, type_e_weakening, weak_tenvE_bind],
  qexists_tac `ts1` >>
      qexists_tac `ts2` >>

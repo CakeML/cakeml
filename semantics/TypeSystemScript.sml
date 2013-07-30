@@ -357,11 +357,12 @@ type_e menv cenv tenv (Lit Unit) Tunit)
 
 /\
 
-(! menv cenv tenv err t.
+(! menv cenv tenv e t.
 (
-check_freevars (num_tvs tenv) [] t)
+check_freevars (num_tvs tenv) [] t /\
+type_e menv cenv tenv e Texn) 
 ==>
-type_e menv cenv tenv (Raise err) t)
+type_e menv cenv tenv (Raise e) t)
 
 /\
 
