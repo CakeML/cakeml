@@ -18,6 +18,8 @@ val res = translate bitTheory.SBIT_def;
 
 (* words *)
 
+(* perhaps should look at integer_wordTheory too? *)
+
 val WORD_def = Define `WORD w = NUM (w2n w)`;
 
 val EqualityType_WORD = prove(
@@ -27,6 +29,7 @@ val EqualityType_WORD = prove(
 
 val  res = translate (bitTheory.BITWISE_def)
 
+val  res = translate (bitTheory.BIT_MODIFY_def)
 
 val WORD_LSR_LEMMA = prove(
   ``!w n. (w >>> n) = n2w (w2n w DIV 2**n)``,
@@ -120,7 +123,7 @@ fun translate_word n = let
   val lemma = prove(
     ``(h--l) ^v_n = n2w (BITS (MIN h ^(numSyntax.term_of_int(n-1))) l (w2n v))``,
     `(h--l) v = (h--l) (n2w (w2n v))` by METIS_TAC [n2w_w2n]
-    THEN SRW_TAC [] [word_bits_n2w, dimindex_32]);
+    THEN SRW_TAC [] [word_bits_n2w]);
 
   val res = translate lemma;
   val res = translate (ff_n wordsTheory.word_ror)
