@@ -12,8 +12,8 @@ val run_eval_spec_lem = Q.prove (
     evaluate T menv cenv st env e (run_eval menv cenv env e st)) ∧
   (!menv (cenv:envC) env es st.
     evaluate_list T menv cenv st env es (run_eval_list menv cenv env es st)) ∧
-  (!menv (cenv:envC) env v pes st.
-    evaluate_match T menv cenv st env v pes (run_eval_match menv cenv env v pes st))`,
+  (!menv (cenv:envC) env v pes err_v st.
+    evaluate_match T menv cenv st env v pes err_v (run_eval_match menv cenv env v pes err_v st))`,
  simp [METIS_PROVE [] ``(?x y z. P x ∧ Q y ∧ R z) = ((?x. P x) ∧ (?y. Q y) ∧ (?z. R z))``,
        GSYM SKOLEM_THM] >>
  strip_tac
@@ -53,10 +53,10 @@ val evaluate_run_eval_list = Q.store_thm ("evaluate_run_eval_list",
 metis_tac [big_exp_determ, run_eval_spec]);
 
 val evaluate_run_eval_match = Q.store_thm ("evaluate_run_eval_match",
-`!menv (cenv :envC) env v pes r st. 
-  evaluate_match T menv cenv st env v pes r 
+`!menv (cenv :envC) env v pes r err_v st. 
+  evaluate_match T menv cenv st env v pes err_v r 
   = 
-  (run_eval_match menv cenv env v pes st = r)`,
+  (run_eval_match menv cenv env v pes err_v st = r)`,
 metis_tac [big_exp_determ, run_eval_spec]);
 
 val _ = type_abbrev("M", ``:count_store -> count_store # 'a result``);
@@ -106,17 +106,19 @@ val run_eval_def = Q.store_thm ("run_eval_def",
   run_eval menv cenv env (Lit l)
   =
   return (Litv l)) ∧
- (!menv cenv st env err.
-  run_eval menv cenv env (Raise err)
+ (!menv cenv st env e.
+  run_eval menv cenv env (Raise e)
   =
-  raise (Rraise err)) ∧
- (!menv cenv env e1 var e2.
-  run_eval menv cenv env (Handle e1 var e2)
+  do v1 <- run_eval menv cenv env e;
+     raise (Rraise v1)
+  od) ∧
+ (!menv cenv env e1 pes.
+  run_eval menv cenv env (Handle e1 pes)
   =
   (\st.
     case run_eval menv cenv env e1 st of
-        (st', Rerr (Rraise (Int_error n))) =>
-          run_eval menv cenv (bind var (Litv (IntLit n)) env) e2 st'
+        (st', Rerr (Rraise v)) =>
+          run_eval_match menv cenv env v pes v st'
       | (st', r) => (st',r))) ∧
  (!menv cenv env cn es.
   run_eval menv cenv env (Con cn es)
@@ -183,7 +185,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
    run_eval menv cenv env (Mat e pes)
    =
    do v <- run_eval menv cenv env e;
-      run_eval_match menv cenv env v pes
+      run_eval_match menv cenv env v pes (Conv (SOME (Short "Bind")) [])
    od) ∧
  (!menv cenv env x e1 e2.
    run_eval menv cenv env (Let x e1 e2)
@@ -209,18 +211,18 @@ val run_eval_def = Q.store_thm ("run_eval_def",
       vs <- run_eval_list menv cenv env es;
       return (v::vs)
    od) ∧
- (!menv cenv env v.
-   run_eval_match menv cenv env v [] 
+ (!menv cenv env v err_v.
+   run_eval_match menv cenv env v [] err_v
    =
-   raise (Rraise Bind_error)) ∧
- (!menv cenv env v p e pes.
-   run_eval_match menv cenv env v ((p,e)::pes) 
+   raise (Rraise err_v)) ∧
+ (!menv cenv env v p e pes err_v.
+   run_eval_match menv cenv env v ((p,e)::pes) err_v
    =
    do st <- get_store;
       if ALL_DISTINCT (pat_bindings p []) then
         case pmatch cenv st p v env of
              Match_type_error => raise Rtype_error
-           | No_match => run_eval_match menv cenv env v pes
+           | No_match => run_eval_match menv cenv env v pes err_v
            | Match env' => run_eval menv cenv env' e
       else
         raise Rtype_error
@@ -241,6 +243,17 @@ val run_eval_def = Q.store_thm ("run_eval_def",
      rw [] >>
      fs [GSYM evaluate_run_eval] >>
      metis_tac [])
+ >- (rw [dec_count_def, dec_clock_def] >>
+     every_case_tac >>
+     rw [] >>
+     fs [remove_lambda_pair] >>
+     rw [] >>
+     every_case_tac >>
+     fs [GSYM evaluate_run_eval] >>
+     rw [] >>
+     fs [do_app_cases] >>
+     rw [] >>
+     metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec])
  >- (rw [dec_count_def, dec_clock_def] >>
      every_case_tac >>
      rw [] >>
@@ -299,7 +312,7 @@ val run_eval_dec_def = Define `
        | (st', Rval v) =>
            (case pmatch cenv (SND st') p v emp of
               | Match env' => (st', Rval (emp, env'))
-              | No_match => (st', Rerr (Rraise Bind_error))
+              | No_match => (st', Rerr (Rraise (Conv (SOME (Short "Bind")) [])))
               | Match_type_error => (st', Rerr Rtype_error))
        | (st', Rerr e) => (st', Rerr e)
   else
@@ -359,6 +372,7 @@ val run_eval_dec_spec = Q.store_thm ("run_eval_dec_spec",
  every_case_tac >>
  fs [GSYM evaluate_run_eval] >>
  rw [] >>
+ cheat >> (* because Dexn isn't implemented yet *)
  metis_tac [big_clocked_unclocked_equiv, clocked_min_counter, SND, pair_CASES, result_distinct, result_11]);
 
 val run_eval_decs_spec = Q.store_thm ("run_eval_decs_spec",

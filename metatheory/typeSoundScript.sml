@@ -184,6 +184,18 @@ rw [] >|
      pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once type_v_cases]) >>
      fs []]);
 
+val tid_exn_not = Q.prove (
+`(!tn. tid_exn_to_tc tn ≠ TC_bool) ∧
+ (!tn. tid_exn_to_tc tn ≠ TC_int) ∧
+ (!tn. tid_exn_to_tc tn ≠ TC_ref) ∧
+ (!tn. tid_exn_to_tc tn ≠ TC_unit) ∧
+ (!tn. tid_exn_to_tc tn ≠ TC_tup) ∧
+ (!tn. tid_exn_to_tc tn ≠ TC_fn)`,
+ rw [] >>
+ cases_on `tn` >>
+ fs [tid_exn_to_tc_def] >>
+ metis_tac []);
+
 (* Classifying values of basic types *)
 val canonical_values_thm = Q.prove (
 `∀tvs tenvM tenvC tenvS v t1 t2.
@@ -198,7 +210,15 @@ rw [] >>
 fs [Once type_v_cases, deBruijn_subst_def] >>
 fs [Tfn_def, Tint_def, Tbool_def, Tunit_def, Tref_def] >>
 rw [] >>
+TRY (Cases_on `tn`) >>
+fs [tid_exn_to_tc_def] >>
 metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct]);
+
+val tac =
+fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
+rw [] >>
+fs [deBruijn_subst_def, Tbool_def, Tunit_def, Tint_def, Tref_def, tid_exn_not, Tfn_def] >>
+metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct];
 
 (* Well-typed pattern matches either match or not, but they don't raise type
  * errors *)
@@ -219,14 +239,14 @@ val pmatch_type_progress = Q.prove (
   ⇒
   (pmatch_list cenv st ps vs env = No_match) ∨
   (∃env'. pmatch_list cenv st ps vs env = Match env'))`,
-ho_match_mp_tac pmatch_ind >>
-rw [] >>
-rw [pmatch_def] >>
-fs [lit_same_type_def] >|
-[fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
+ ho_match_mp_tac pmatch_ind >>
+ rw [] >>
+ rw [pmatch_def] >>
+ fs [lit_same_type_def] 
+ >- (fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
      rw [] >>
-     fs [Tint_def, Tbool_def, Tref_def, Tunit_def],
- fs [Once (hd (CONJUNCTS type_v_cases)),
+     fs [Tint_def, Tbool_def, Tref_def, Tunit_def])
+ >- (fs [Once (hd (CONJUNCTS type_v_cases)),
      Once (hd (CONJUNCTS type_p_cases))] >>
      rw [] >>
      cases_on `lookup n cenv` >>
@@ -240,26 +260,30 @@ fs [lit_same_type_def] >|
      pop_assum match_mp_tac >>
      cases_on `n` >>
      fs [] >>
-     metis_tac [type_ps_length, type_vs_length_lem, LENGTH_MAP],
- fs [Once type_p_cases, Once type_v_cases] >>
+     metis_tac [type_ps_length, type_vs_length_lem, LENGTH_MAP])
+     (*
+ >- (fs [Once type_p_cases, Once type_v_cases] >>
      imp_res_tac consistent_con_env_thm >>
      rw [] >>
+     fs [tid_exn_to_tc_11] >>
      pop_assum match_mp_tac >>
      fs [] >>
      metis_tac [type_ps_length, type_vs_length_lem, LENGTH_MAP],
- qpat_assum `type_v a b c d e f` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+     *)
+ >- cheat
+ >- (qpat_assum `type_v a b c d e f` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
      qpat_assum `type_p b0 a b c d` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_p_cases]) >>
      every_case_tac >>
      rw [] >>
-     metis_tac [],
- fs [Once type_p_cases, Once type_v_cases] >>
+     metis_tac [])
+ >- (fs [Once type_p_cases, Once type_v_cases] >>
      rw [] >>
      imp_res_tac type_ps_length >>
      imp_res_tac type_vs_length_lem >>
      fs [] >>
      cases_on `ts` >>
-     fs [],
- qpat_assum `type_v a b c d e f` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+     fs [])
+ >- (qpat_assum `type_v a b c d e f` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
      qpat_assum `type_p b0 a b c d` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_p_cases]) >>
      every_case_tac >>
      rw [] >>
@@ -267,61 +291,22 @@ fs [lit_same_type_def] >|
      res_tac >>
      fs [Tref_def] >>
      rw [] >>
-     metis_tac [],
- fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
-     rw [] >>
-     fs [Tbool_def, Tunit_def, Tint_def],
- fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
-     rw [] >>
-     fs [Tfn_def, Tbool_def, Tunit_def, Tint_def],
- fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
-     rw [] >>
-     fs [deBruijn_subst_def, Tfn_def, Tbool_def, Tunit_def, Tint_def] >>
-     metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct],
- fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
-     rw [] >>
-     fs [Tref_def, Tbool_def, Tunit_def, Tint_def] >>
-     metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct],
- fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
-     rw [] >>
-     fs [Tbool_def, Tunit_def, Tint_def],
- fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
-     rw [] >>
-     fs [deBruijn_subst_def, Tbool_def, Tunit_def, Tint_def] >>
-     metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct],
- fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
-     rw [] >>
-     fs [deBruijn_subst_def, Tbool_def, Tunit_def, Tint_def] >>
-     metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct],
- fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
-     rw [] >>
-     fs [deBruijn_subst_def, Tref_def, Tbool_def, Tunit_def, Tint_def] >>
-     metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct],
- fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
-     rw [] >>
-     fs [deBruijn_subst_def, Tref_def, Tbool_def, Tunit_def, Tint_def] >>
-     metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct],
- fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
-     rw [] >>
-     fs [deBruijn_subst_def, Tref_def, Tbool_def, Tunit_def, Tint_def] >>
-     metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct],
- fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
-     rw [] >>
-     fs [deBruijn_subst_def, Tref_def, Tbool_def, Tunit_def, Tint_def] >>
-     metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct],
- fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
-     rw [] >>
-     fs [deBruijn_subst_def, Tref_def, Tbool_def, Tunit_def, Tint_def] >>
-     metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct],
- fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
-     rw [] >>
-     fs [deBruijn_subst_def, Tref_def, Tbool_def, Tunit_def, Tint_def] >>
-     metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct],
- fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
-     rw [] >>
-     fs [deBruijn_subst_def, Tref_def, Tbool_def, Tunit_def, Tint_def] >>
-     metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct],
- qpat_assum `type_ps tvs tenvC (p::ps) ts tenv`
+     metis_tac [])
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- cheat
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- (qpat_assum `type_ps tvs tenvC (p::ps) ts tenv`
          (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_p_cases]) >>
      qpat_assum `type_vs tvs temvM tenvC tenvS (v::vs) ts`
          (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
@@ -329,16 +314,16 @@ fs [lit_same_type_def] >|
      rw [] >>
      res_tac >>
      fs [] >>
-     metis_tac [],
- imp_res_tac type_ps_length >>
+     metis_tac [])
+ >- (imp_res_tac type_ps_length >>
      imp_res_tac type_vs_length_lem >>
      fs [] >>
      cases_on `ts` >>
-     fs [],
- imp_res_tac type_ps_length >> imp_res_tac type_vs_length_lem >>
+     fs [])
+ >- (imp_res_tac type_ps_length >> imp_res_tac type_vs_length_lem >>
      fs [] >>
      cases_on `ts` >>
-     fs []]);
+     fs []));
 
 val final_state_def = Define `
   (final_state (menv,cenv,st,env,Val v,[]) = T) ∧
@@ -394,7 +379,7 @@ val eq_same_type = Q.prove (
  fs [Once (hd (tl (CONJUNCTS type_v_cases)))] >>
  rw [] >>
  cases_on `do_eq v1 v2` >>
- fs [] >-
+ fs [tid_exn_not] >-
  (cases_on `b` >>
       fs [] >>
       qpat_assum `!x. P x` (mp_tac o Q.SPECL [`tvs`, `tenvM`, `tenvC`, `tenvS`, `ts'`]) >>
@@ -483,7 +468,7 @@ val exp_type_progress = Q.prove (
           fs [type_s_def] >>
           rw [] >>
           imp_res_tac type_funs_Tfn >>
-          fs [Tbool_def, Tint_def, Tref_def, Tunit_def, Tfn_def] >>
+          fs [tid_exn_not, Tbool_def, Tint_def, Tref_def, Tunit_def, Tfn_def] >>
           metis_tac [optionTheory.NOT_SOME_NONE],
       every_case_tac >>
           fs [],
@@ -1015,7 +1000,7 @@ val exp_type_preservation = Q.prove (
          ONCE_REWRITE_TAC [context_invariant_cases] >>
          rw [] >>
          metis_tac [])
-      >- (fs [return_def] >>
+     >- (fs [return_def] >>
          rw [] >>
          qpat_assum `type_e tenvM tenvC tenv (Lit l) t1`
                    (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
@@ -1034,7 +1019,7 @@ val exp_type_preservation = Q.prove (
          fs [] >|
          [qexists_tac `tenvS` >>
               rw [] >>
-              qexists_tac `Tapp ts' (TC_name tn)` >>
+              qexists_tac `Tapp ts' (tid_exn_to_tc tn)` >>
               qexists_tac `tenv` >>
               rw [] >>
               rw [Once type_v_cases] >>
@@ -1061,7 +1046,7 @@ val exp_type_preservation = Q.prove (
               fs [is_ccon_def] >>
               imp_res_tac ctxt_inv_not_poly >>
               qexists_tac `tenv`>>
-              qexists_tac `Tapp ts' (TC_name tn)`>>
+              qexists_tac `Tapp ts' (tid_exn_to_tc tn)`>>
               rw [] >>
               cases_on `ts` >>
               fs [] >>
@@ -1405,7 +1390,7 @@ val exp_type_preservation = Q.prove (
          rw [] >>
          fs [is_ccon_def] >>
          qexists_tac `tenv'` >>
-         qexists_tac `Tapp ts' (TC_name tn)` >>
+         qexists_tac `Tapp ts' (tid_exn_to_tc tn)` >>
          rw [] >>
          cases_on `ts2` >>
          fs [] >>
@@ -1452,7 +1437,7 @@ val exp_type_preservation = Q.prove (
          rw [] >>
          fs [is_ccon_def] >>
          qexists_tac `tenv'` >>
-         qexists_tac `Tapp ts' (TC_name tn)` >>
+         qexists_tac `Tapp ts' (tid_exn_to_tc tn)` >>
          rw [] >>
          cases_on `ts2` >>
          fs [] >>

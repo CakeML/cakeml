@@ -51,8 +51,12 @@ let store_assign n v st =
   else
     None
 
+type tid_or_exn = 
+  | TypeId of id typeN
+  | TypeExn
+
 (* Maps each constructor to its arity and which type it is from *)
-type envC = env (id conN) (num * id typeN)
+type envC = env (id conN) (num * tid_or_exn)
 
 type envE = env varN v
 
@@ -310,7 +314,7 @@ let build_tdefs mn tds =
       (fun (tvs, tn, condefs) ->
          List.map
            (fun (conN, ts) ->
-              (mk_id mn conN, (List.length ts, mk_id mn tn)))
+              (mk_id mn conN, (List.length ts, TypeId (mk_id mn tn))))
            condefs)
       tds)
 

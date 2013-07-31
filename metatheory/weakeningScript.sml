@@ -47,7 +47,7 @@ rw [] >>
 fs [lookup_append] >>
 PairCases_on `h` >>
 fs [] >>
-cases_on `lookup (mk_id mn' cn) (MAP (λ(cn,ts). (mk_id mn cn,h0,ts,mk_id mn h1)) h2)` >>
+cases_on `lookup (mk_id mn' cn) (MAP (λ(cn,ts). (mk_id mn cn,h0,ts,TypeId (mk_id mn h1))) h2)` >>
 fs [] >>
 rw [] >>
 pop_assum mp_tac >>
@@ -484,9 +484,15 @@ rw [type_ctxt_cases] >|
          metis_tac [type_e_weakening, weak_tenvE_bind_var_list, type_p_weakening, DECIDE ``!x:num. x ≥ x``]) >>
      fs [Once type_v_cases, Texn_def, Tfn_def, Tref_def] >>
      imp_res_tac type_funs_Tfn >>
-     fs [Tfn_def],
+     fs [Tfn_def, tid_exn_to_tc_11] >>
+     cases_on `tn` >>
+     fs [tid_exn_to_tc_def] >>
+     cases_on `tvs'` >>
+     fs [] >>
+     metis_tac [ZIP, LENGTH, weak_tenvC_lookup, type_v_weakening],
  metis_tac [check_freevars_add, gt_0, type_e_weakening, weak_tenvE_bind],
- qexists_tac `ts1` >>
+ fs [tid_exn_to_tc_11] >>
+     qexists_tac `ts1` >>
      qexists_tac `ts2` >>
      qexists_tac `t` >>
      qexists_tac `tvs'` >>
@@ -615,6 +621,8 @@ rw [] >|
      fs [] >>
      cases_on `p0` >>
      cases_on `p3` >>
+     fs [same_module_def] >>
+     cases_on `i` >>
      fs [same_module_def] >>
      cases_on `mn` >>
      fs [mk_id_def]]);

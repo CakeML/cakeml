@@ -78,8 +78,14 @@ val _ = Define `
     NONE))`;
 
 
+val _ = Hol_datatype `
+ tid_or_exn = 
+    TypeId of typeN id
+  | TypeExn`;
+
+
 (* Maps each constructor to its arity and which type it is from *)
-val _ = type_abbrev( "envC" , ``: (( conN id), (num # typeN id)) env``);
+val _ = type_abbrev( "envC" , ``: (( conN id), (num # tid_or_exn)) env``);
 
 val _ = type_abbrev( "envE" , ``: (varN, v) env``);
 
@@ -367,7 +373,7 @@ val _ = Define `
     ( MAP
       (\ (tvs, tn, condefs) . MAP
            (\ (conN, ts) .
-              (mk_id mn conN, ( LENGTH ts, mk_id mn tn)))
+              (mk_id mn conN, ( LENGTH ts, TypeId (mk_id mn tn))))
            condefs)
       tds)))`;
 

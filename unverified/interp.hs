@@ -20,7 +20,7 @@ instance Show V where
 
 data Error_result =
     Rtype_error
-  | Rraise Error
+  | Rraise V
 
 instance Show Error_result where
   show Rtype_error = "type error" 
@@ -81,7 +81,7 @@ raise err = M_st_ex (\s -> (s, Rerr err))
 handle :: M_st_ex s a -> (Integer -> M_st_ex s a) -> M_st_ex s a
 handle v f =
   M_st_ex (\s -> case run_M_st_ex v s of
-                   (s, Rerr (Rraise (Int_error i))) -> run_M_st_ex (f i) s
+                   (s, Rerr (Rraise v)) -> run_M_st_ex (f v) s
                    (s,r) -> (s,r))
       
 
@@ -264,10 +264,11 @@ do_if v e1 e2 =
 run_eval :: EnvM -> EnvC -> EnvE -> Exp -> M_st_ex Store V
 run_eval menv cenv env (Lit l pos) = 
   return (Litv l)
-run_eval menv cenv env (Raise err) =
-  raise (Rraise err)
-run_eval menv cenv env (Handle e1 var e2) =
-  run_eval menv cenv env e1 `handle` (\i -> run_eval menv cenv (bind var (Litv (IntLit i)) env) e2)
+run_eval menv cenv env (Raise e) =
+  do v1 <- run_eval menv cenv env e;
+     raise (Rraise v1)
+run_eval menv cenv env (Handle e1 pes) =
+  run_eval menv cenv env e1 `handle` (\v -> run_eval_match menv cenv env v pes v)
 run_eval menv cenv env (Con cn es pos) =
   do do_con_check cenv cn (toInteger (List.length es));
      vs <- run_eval_list menv cenv env es;
@@ -307,7 +308,7 @@ run_eval menv cenv env (If e1 e2 e3) =
            Just e' -> run_eval menv cenv env e'
 run_eval menv cenv env (Mat e pes) =
    do v <- run_eval menv cenv env e;
-      run_eval_match menv cenv env v pes
+      run_eval_match menv cenv env v pes (Conv (Just (Short "Bind") []))
 run_eval menv cenv env (Let x e1 e2) =
    do v1 <- run_eval menv cenv env e1;
       run_eval menv cenv (bind x v1 env) e2
@@ -322,14 +323,14 @@ run_eval_list menv cenv env (e:es) =
    do v <- run_eval menv cenv env e;
       vs <- run_eval_list menv cenv env es;
       return (v:vs)
-run_eval_match menv cenv env v [] =
-   raise (Rraise Bind_error)
-run_eval_match menv cenv env v ((p,e):pes) =
+run_eval_match menv cenv env v [] err_v =
+   raise (Rraise err_v)
+run_eval_match menv cenv env v ((p,e):pes) err_v =
    do st <- get;
       if isNothing (getDup (pat_bindings p [])) then
         case pmatch cenv st p v env of
              Match_type_error -> raise Rtype_error
-             No_match -> run_eval_match menv cenv env v pes
+             No_match -> run_eval_match menv cenv env v pes err_v
              Match env' -> run_eval menv cenv env' e
       else
         raise Rtype_error
@@ -352,7 +353,7 @@ run_eval_dec mn menv cenv st env (Dlet p e pos) =
          (st', Rval v) ->
            (case pmatch cenv st' p v emp of
                 Match env' -> (st', Rval (emp, env'))
-                No_match -> (st', Rerr (Rraise Bind_error))
+                No_match -> (st', Rerr (Rraise (Conv (Just (Short "Bind") []))))
                 Match_type_error -> (st', Rerr Rtype_error))
          (st', Rerr e) -> (st', Rerr e)
   else

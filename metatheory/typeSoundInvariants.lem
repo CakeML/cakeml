@@ -80,7 +80,7 @@ List.length tvs' = List.length ts' &&
 type_vs tvs menv cenv senv vs (List.map (type_subst (List.combine tvs' ts')) ts) &&
 lookup cn cenv = Some (tvs', ts, tn)
 ==>
-type_v tvs menv cenv senv (Conv (Some cn) vs) (Tapp ts' (TC_name tn))
+type_v tvs menv cenv senv (Conv (Some cn) vs) (Tapp ts' (tid_exn_to_tc tn))
 
 and
 
@@ -331,7 +331,7 @@ type_es menv cenv (bind_tvar tvs tenv) es (List.map (type_subst (List.combine tv
 lookup cn cenv = Some (tvs', ts1@[t]@ts2, tn)
 ==>
 type_ctxt tvs menv cenv senv tenv (Ccon (Some cn) vs () es) (type_subst (List.combine tvs' ts') t)
-          (Tapp ts' (TC_name tn))
+          (Tapp ts' (tid_exn_to_tc tn))
 
 and
 

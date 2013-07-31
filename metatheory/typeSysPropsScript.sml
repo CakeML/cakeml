@@ -53,9 +53,12 @@ val tenv_ok_def = Define `
 (tenv_ok (Bind_name x tvs t tenv) = 
   (check_freevars (tvs + num_tvs tenv) [] t ∧ tenv_ok tenv))`;
 
+(* Non exception constructors must be defined in the same module as the type
+ * they construct *)
 val same_module_def = Define `
-(same_module (Short x) (Short y) = T) ∧
-(same_module (Long mn1 x) (Long mn2 y) = (mn1 = mn2)) ∧
+(same_module (Short x) (TypeId (Short y)) = T) ∧
+(same_module (Long mn1 x) (TypeId (Long mn2 y)) = (mn1 = mn2)) ∧
+(same_module _ TypeExn = T) ∧
 (same_module _ _ = F)`;
 
 val tenvC_ok_def = Define `
@@ -1291,7 +1294,7 @@ val check_ctor_tenv_dups_helper1 = Q.prove (
 `∀tenvC l y z.
   (!x. MEM x l ⇒ (λ(n,ts). lookup (mk_id mn n) tenvC = NONE) x)
   ⇒
-  DISJOINT (set (MAP (λx. FST ((λ(cn,ts). (mk_id mn cn,y,ts,mk_id mn z)) x)) l))
+  DISJOINT (set (MAP (λx. FST ((λ(cn,ts). (mk_id mn cn,y,ts,TypeId (mk_id mn z))) x)) l))
            (set (MAP FST tenvC))`,
 induct_on `l` >>
 rw [] >>
@@ -1352,8 +1355,8 @@ cases_on `r` >>
 fs [] >>
 `!x. (!cn ts. MEM (cn,ts) r' ⇒ MEM (cn,ts) x) ⇒
   consistent_con_env
-  (MAP (λ(conN,ts). (mk_id mn conN,LENGTH ts,mk_id mn q')) r')
-  (MAP (λ(cn,ts). (mk_id mn cn,q,ts,mk_id mn q')) r')`
+  (MAP (λ(conN,ts). (mk_id mn conN,LENGTH ts,TypeId (mk_id mn q'))) r')
+  (MAP (λ(cn,ts). (mk_id mn cn,q,ts,TypeId (mk_id mn q'))) r')`
             by (Induct_on `r'` >>
                 rw [consistent_con_env_def] >>
                 PairCases_on `h` >>
@@ -1416,9 +1419,9 @@ rw [lookup_def,lookup_append_none]);
 
 val lookup_none_lem = Q.prove (
 `!x h0 h1 h2 h3.
-  (lookup x (MAP (λ(cn,ts). (mk_id mn cn,h0,ts,mk_id mn h1)) h2) = NONE)
+  (lookup x (MAP (λ(cn,ts). (mk_id mn cn,h0,ts,TypeId (mk_id mn h1))) h2) = NONE)
   = 
-  (lookup x (MAP (λ(conN,ts). (mk_id mn conN,LENGTH ts,mk_id mn h3)) h2) = NONE)`,
+  (lookup x (MAP (λ(conN,ts). (mk_id mn conN,LENGTH ts,TypeId (mk_id mn h3))) h2) = NONE)`,
 induct_on `h2` >>
 rw [lookup_def] >>
 PairCases_on `h` >>
@@ -1448,7 +1451,7 @@ rw [build_ctor_tenv_def]);
 val build_ctor_tenv_cons = Q.prove (
 `∀tvs tn ctors tds.
   build_ctor_tenv mn ((tvs,tn,ctors)::tds) =
-    (MAP (λ(cn,ts). (mk_id mn cn,tvs,ts,mk_id mn tn)) ctors ++ build_ctor_tenv mn tds)`,
+    (MAP (λ(cn,ts). (mk_id mn cn,tvs,ts,TypeId (mk_id mn tn))) ctors ++ build_ctor_tenv mn tds)`,
 rw [build_ctor_tenv_def]);
 
 val lemma = Q.prove (
@@ -1470,7 +1473,7 @@ metis_tac []);
 val build_tdefs_cons = Q.prove (
 `!tvs tn ctors tds.
   build_tdefs mn ((tvs,tn,ctors)::tds) =
-    (MAP (\(conN,ts). (mk_id mn conN, LENGTH ts, mk_id mn tn))
+    (MAP (\(conN,ts). (mk_id mn conN, LENGTH ts, TypeId (mk_id mn tn)))
         ctors) ++ build_tdefs mn tds`,
 rw [build_tdefs_def]);
 
@@ -1784,6 +1787,12 @@ rw [] >|
      fs [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
      metis_tac [],
  metis_tac [tenvC_ok_def, check_ctor_tenvC_ok]]);
+
+val tid_exn_to_tc_11 = Q.store_thm ("tid_exn_to_tc_11",
+`!x y. (tid_exn_to_tc x = tid_exn_to_tc y) = (x = y)`,
+cases_on `x` >>
+cases_on `y` >>
+rw [tid_exn_to_tc_def]);
 
 val _ = export_theory ();
 

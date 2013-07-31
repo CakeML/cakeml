@@ -92,7 +92,7 @@ type_vs tvs menv cenv senv vs ( MAP (type_subst ( ZIP ( tvs', ts'))) ts) /\
 (
 lookup cn cenv = SOME (tvs', ts, tn)))
 ==>
-type_v tvs menv cenv senv (Conv (SOME cn) vs) (Tapp ts' (TC_name tn)))
+type_v tvs menv cenv senv (Conv (SOME cn) vs) (Tapp ts' (tid_exn_to_tc tn)))
 
 /\
 
@@ -353,7 +353,7 @@ type_es menv cenv (bind_tvar tvs tenv) es ( MAP (type_subst ( ZIP ( tvs', ts')))
 lookup cn cenv = SOME (tvs', (ts1 ++([t] ++ts2)), tn)))
 ==>
 type_ctxt tvs menv cenv senv tenv (Ccon (SOME cn) vs ()  es) (type_subst ( ZIP ( tvs', ts')) t)
-          (Tapp ts' (TC_name tn)))
+          (Tapp ts' (tid_exn_to_tc tn)))
 
 /\
 
