@@ -47,6 +47,12 @@ val word_lsb_thm = prove(
 
 val sub_lemma = SIMP_RULE std_ss [word_2comp_def] word_sub_def
 
+val word_1comp_thm = prove(
+  ``!w. word_1comp (w:'a word) = n2w (dimword (:'a) - 1 - (w2n w) MOD dimword (:'a))``,
+  STRIP_TAC THEN
+  CONV_TAC(LAND_CONV(RAND_CONV(SIMP_CONV std_ss [Once (GSYM n2w_w2n)]))) THEN
+  SIMP_TAC std_ss [word_1comp_n2w])
+
 fun translate_word n = let
   val fcp_n = Type[QUOTE (":"^(Int.toString n))]
   val word_n = mk_type("cart",[``:bool``,fcp_n])
@@ -119,6 +125,8 @@ fun translate_word n = let
   val res = translate lemma;
   val res = translate (ff_n wordsTheory.word_ror)
   val res = translate (ff_n wordsTheory.word_rol_def)
+
+  val res = translate (ff_n word_1comp_thm)
 in () end
 
 val _ = app translate_word [4,8,16,32,64]
