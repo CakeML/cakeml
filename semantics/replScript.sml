@@ -39,9 +39,10 @@ val init_repl_state_def = Define`
   init_repl_state = <| type_bindings := [("int", TC_int);
                                          ("bool", TC_bool);
                                          ("ref", TC_ref);
+                                         ("exn", TC_ref);
                                          ("unit", TC_unit)]; ctors := [];
-                       tenvM := []; tenvC := []; tenv := init_tenv;
-                       envM := []; envC := []; store := []; envE := init_env |>`
+                       tenvM := []; tenvC := init_tenvC; tenv := init_tenv;
+                       envM := []; envC := init_envC; store := []; envE := init_env |>`
 
 val _ = Hol_datatype `
 repl_result =
@@ -55,6 +56,7 @@ strip_mod_env tenvM =
 
 val dec_to_cenv_def = Define `
 (dec_to_cenv mn (Dtype tds) = build_tdefs mn tds) ∧
+(dec_to_cenv mn (Dexn cn ts) = bind (mk_id mn cn) (LENGTH ts,TypeExn) emp) ∧
 (dec_to_cenv mn _ = [])`;
 
 val decs_to_cenv_def = Define `

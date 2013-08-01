@@ -47,6 +47,8 @@ val consistent_con_env_def = Define `
      consistent_con_env envC tenvC)) ∧
   (consistent_con_env _ _ = F)`;
 
+val consistent_con_env_ind = fetch "-" "consistent_con_env_ind";
+
 val tenv_ok_def = Define `
 (tenv_ok Empty = T) ∧
 (tenv_ok (Bind_tvar n tenv) = tenv_ok tenv) ∧
@@ -129,7 +131,7 @@ val consistent_con_env_thm = Q.store_thm ("consistent_con_env_thm",
      (∃ns. (lookup cn cenv = SOME (LENGTH ts, tn))))
   ∧
   ((lookup cn tenvC = NONE) ⇒ (lookup cn cenv = NONE))`,
-recInduct (fetch "-" "consistent_con_env_ind") >>
+recInduct consistent_con_env_ind >>
 rw [lookup_def, consistent_con_env_def] >>
 rw []);
 
@@ -1331,14 +1333,14 @@ val check_ctor_tenv_dups = Q.store_thm ("check_ctor_tenv_dups",
 rw [check_ctor_tenv_def, check_dup_ctors_def] >>
 metis_tac [check_ctor_tenv_dups_helper2, RES_FORALL]);
 
-val consistent_con_append = Q.prove (
+val consistent_con_append = Q.store_thm ("consistent_con_append",
 `!envC tenvC.
   consistent_con_env envC tenvC ⇒
     ∀envC' tenvC'.
       consistent_con_env envC' tenvC'
       ⇒
       consistent_con_env (envC++envC') (tenvC++tenvC')`,
-ho_match_mp_tac (fetch "-" "consistent_con_env_ind") >>
+ho_match_mp_tac consistent_con_env_ind >>
 rw [consistent_con_env_def] >>
 rw []);
 
@@ -1703,6 +1705,7 @@ rw [type_d_cases] >>
 imp_res_tac type_p_bvl >>
 rw [bvl2_to_bvl] >|
 [metis_tac [type_funs_tenv_ok],
+ rw [bind_var_list2_def, emp_def, tenv_ok_def],
  rw [bind_var_list2_def, emp_def, tenv_ok_def]]);
 
 val type_ds_tenv_ok = Q.store_thm ("type_ds_tenv_ok",
@@ -1733,7 +1736,10 @@ rw [bvl2_to_bvl] >|
  rw [tenvC_ok_def, emp_def],
  rw [emp_def, disjoint_env_def],
  metis_tac [check_ctor_tenvC_ok],
- metis_tac [check_ctor_tenv_dups, disjoint_env_def, DISJOINT_SYM]]);
+ metis_tac [check_ctor_tenv_dups, disjoint_env_def, DISJOINT_SYM],
+ rw [tenvC_ok_def, bind_def, emp_def, same_module_def],
+ rw [tenvC_ok_def, bind_def, emp_def, same_module_def, disjoint_env_def] >>
+     imp_res_tac lookup_notin]);
 
 val type_ds_tenvC_ok = Q.store_thm ("type_ds_tenvC_ok",
 `!tvs tenvM tenvC tenv ds tenvC' tenv'.
@@ -1760,7 +1766,7 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
   tenv_ok (bind_var_list2 tenv Empty) ⇒
   tenv_ok (bind_var_list2 tenv' Empty)`,
 ho_match_mp_tac type_specs_ind >>
-rw [] >>
+rw [bind_var_list2_def, emp_def, tenv_ok_def] >>
 qpat_assum `A ⇒ B` match_mp_tac >>
 rw [bind_def, bind_var_list2_def, bind_tenv_def, tenv_ok_def, num_tvs_bvl2,
     num_tvs_def] >>
@@ -1786,7 +1792,10 @@ rw [] >|
      imp_res_tac check_ctor_tenv_dups >>
      fs [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
      metis_tac [],
- metis_tac [tenvC_ok_def, check_ctor_tenvC_ok]]);
+ metis_tac [tenvC_ok_def, check_ctor_tenvC_ok],
+ rw [bind_def] >>
+     metis_tac [lookup_notin],
+ rw [bind_def, same_module_def]])
 
 val tid_exn_to_tc_11 = Q.store_thm ("tid_exn_to_tc_11",
 `!x y. (tid_exn_to_tc x = tid_exn_to_tc y) = (x = y)`,

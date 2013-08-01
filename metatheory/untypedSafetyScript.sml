@@ -123,7 +123,7 @@ rw [] >|
           metis_tac [small_big_exp_equiv, big_unclocked]],
  metis_tac [],
  metis_tac [],
- cheat (* TODO: Haven't defined the semantics of exception declarations yet *)]);
+ metis_tac []]);
 
 val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
 `!mn menv cenv s env ds. (?r. evaluate_decs mn menv cenv s env ds r) = ~decs_diverges mn menv cenv s env ds`,

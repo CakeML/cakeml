@@ -149,6 +149,7 @@ type spec =
   | Sval of varN * t
   | Stype of type_def
   | Stype_opq of list tvarN * typeN
+  | Sexn of conN * list t
 
 type specs = list spec
 

@@ -643,7 +643,12 @@ rw [type_d_cases] >|
             DECIDE ``!x:num. x ≥ x``],
  metis_tac [type_p_weakening, type_e_weakening, weak_tenvE_refl, 
             DECIDE ``!x:num. x ≥ x``],
- metis_tac [check_ctor_tenv_weakening]]);
+ metis_tac [check_ctor_tenv_weakening],
+ fs [weakC_def] >>
+     pop_assum (ASSUME_TAC o Q.SPEC `(mk_id mn cn)`) >>
+     every_case_tac >>
+     fs [weak_other_mods_def] >>
+     metis_tac [NOT_SOME_NONE]]);
 
 val type_ds_weakening = Q.store_thm ("type_ds_weakening",
 `!mn tenvM tenvC tenv ds tenvC' tenv'.
@@ -701,7 +706,11 @@ rw [type_d_cases, emp_def] >|
 [rw [tenvC_one_mod_def],
  rw [tenvC_one_mod_def],
  rw [tenvC_one_mod_def],
- metis_tac [build_ctor_tenv_one_mod]]);
+ metis_tac [build_ctor_tenv_one_mod],
+ rw [tenvC_one_mod_def] >>
+     fs [bind_def, mk_id_def] >>
+     every_case_tac >>
+     fs [bind_def, mk_id_def]]);
 
 val type_ds_mod = Q.store_thm ("type_ds_mod",
 `∀mn tenvM tenvC tenv ds tenvC' tenv'.

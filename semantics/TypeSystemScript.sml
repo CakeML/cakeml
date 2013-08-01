@@ -559,7 +559,14 @@ type_d mn menv cenv tenv (Dletrec funs) emp (tenv_add_tvs tvs tenv'))
 (
 check_ctor_tenv mn cenv tdecs)
 ==>
-type_d mn menv cenv tenv (Dtype tdecs) (build_ctor_tenv mn tdecs) emp)`;
+type_d mn menv cenv tenv (Dtype tdecs) (build_ctor_tenv mn tdecs) emp)
+
+/\
+
+(! mn menv cenv tenv cn ts.
+((lookup (mk_id mn cn) cenv = NONE) /\ EVERY (check_freevars 0 []) ts)
+==>
+type_d mn menv cenv tenv (Dexn cn ts) (bind (mk_id mn cn) ([], ts, TypeExn) emp) emp)`;
 
 val _ = Hol_reln `
 
@@ -601,6 +608,14 @@ check_ctor_tenv mn cenv td /\
 type_specs mn (merge (build_ctor_tenv mn td) cenv) tenv specs cenv' tenv')
 ==>
 type_specs mn cenv tenv (Stype td :: specs) cenv' tenv')
+
+/\
+
+(! mn cenv tenv cn ts specs cenv' tenv'.
+((lookup (mk_id mn cn) cenv = NONE) /\ EVERY (check_freevars 0 []) ts /\
+type_specs mn (bind (mk_id mn cn) ([], ts, TypeExn) cenv) tenv specs cenv' tenv')
+==>
+type_specs mn cenv tenv (Sexn cn ts :: specs) cenv' emp)
 
 /\
 
@@ -712,6 +727,11 @@ val _ = Define `
      ("~", 0, Tfn Tint Tint);
      ("!", 1, Tfn (Tref (Tvar_db 0)) (Tvar_db 0));
      ("ref", 1, Tfn (Tvar_db 0) (Tref (Tvar_db 0)))])`;
+
+
+(*val init_tenvC : tenvC*)
+val _ = Define `
+ init_tenvC = ( MAP (\ cn . (Short cn, ([], [], TypeExn))) ["Bind"; "Div"; "Eq"])`;
 
 val _ = export_theory()
 

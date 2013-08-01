@@ -420,6 +420,20 @@ not (check_dup_ctors mn cenv tds)
 ==>
 evaluate_dec mn menv cenv s env (Dtype tds) (s, Rerr Rtype_error)
 
+and
+
+forall mn menv cenv env cn ts s.
+(lookup (mk_id mn cn) cenv = None)
+==>
+evaluate_dec mn menv cenv s env (Dexn cn ts) (s, Rval (bind (mk_id mn cn) (List.length ts, TypeExn) emp, emp))
+
+and
+
+forall mn menv cenv env cn ts s.
+(lookup (mk_id mn cn) cenv <> None)
+==>
+evaluate_dec mn menv cenv s env (Dexn cn ts) (s, Rerr Rtype_error)
+
 indreln
 
 forall mn menv cenv s env.
@@ -510,6 +524,7 @@ let dec_diverges menv cenv st env d =
     | Dlet p e -> all_distinct (pat_bindings p []) && e_diverges menv cenv st env e
     | Dletrec funs -> false
     | Dtype tds -> false
+    | Dexn cn ts -> false
   end
 
 indreln

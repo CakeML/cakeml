@@ -427,6 +427,11 @@ val _ = Define `
    ("ref", Closure [] "x" (Uapp Opref (Var (Short "x"))))])`;
 
 
+(*val init_envC : envC*)
+val _ = Define `
+ init_envC = ( MAP (\ cn . (Short cn, (0, TypeExn))) ["Bind"; "Div"; "Eq"])`;
+
+
  val id_to_string_def = Define `
 
 (id_to_string (Short s) = s)

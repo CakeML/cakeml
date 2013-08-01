@@ -358,6 +358,10 @@ let init_env =
    ("!", Closure [] "x" (Uapp Opderef (Var (Short "x"))));
    ("ref", Closure [] "x" (Uapp Opref (Var (Short "x"))))]
 
+val init_envC : envC
+let init_envC =
+  List.map (fun cn -> (Short cn, (0, TypeExn))) ["Bind"; "Div"; "Eq"]
+
 let rec
 id_to_string (Short s) = s
 and

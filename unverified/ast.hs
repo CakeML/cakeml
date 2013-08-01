@@ -249,6 +249,7 @@ data Spec =
     Sval VarN T
   | Stype Type_def
   | Stype_opq [TvarN] TypeN
+  | Sexn ConN [T]
 
 type Specs = [Spec]
 
