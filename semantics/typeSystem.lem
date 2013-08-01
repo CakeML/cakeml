@@ -559,7 +559,7 @@ forall mn cenv tenv cn ts specs cenv' tenv'.
 List.for_all (check_freevars 0 []) ts &&
 type_specs mn (bind (mk_id mn cn) ([], ts, TypeExn) cenv) tenv specs cenv' tenv'
 ==>
-type_specs mn cenv tenv (Sexn cn ts :: specs) cenv' emp
+type_specs mn cenv tenv (Sexn cn ts :: specs) cenv' tenv'
 
 and
 

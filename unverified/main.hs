@@ -6,7 +6,7 @@ import Lex (lex_until_toplevel_semicolon)
 import Parse (parseTop)
 import Ast (elab_top, init_elab_env)
 import Ast as Ast
-import Typecheck (inferTop, TenvM, TenvC, Tenv, init_type_env)
+import Typecheck (inferTop, TenvM, TenvC, Tenv, init_type_env, init_tenvC)
 import Text.Parsec.Pos (initialPos)
 import Data.Char (isSpace)
 import Interp
@@ -74,4 +74,4 @@ main =
   do args <- getArgs;
      let name = List.head args;
      input <- readFile name;
-     runAll (input, initialPos name, init_elab_env, Ast.emp, (Ast.emp,Ast.emp,init_type_env), [], (Ast.emp, Ast.emp, init_env));
+     runAll (input, initialPos name, init_elab_env, Ast.emp, (Ast.emp,Typecheck.init_tenvC,init_type_env), [], (Ast.emp, Interp.init_envC, init_env));

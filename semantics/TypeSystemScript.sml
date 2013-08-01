@@ -615,7 +615,7 @@ type_specs mn cenv tenv (Stype td :: specs) cenv' tenv')
 ((lookup (mk_id mn cn) cenv = NONE) /\ EVERY (check_freevars 0 []) ts /\
 type_specs mn (bind (mk_id mn cn) ([], ts, TypeExn) cenv) tenv specs cenv' tenv')
 ==>
-type_specs mn cenv tenv (Sexn cn ts :: specs) cenv' emp)
+type_specs mn cenv tenv (Sexn cn ts :: specs) cenv' tenv')
 
 /\
 

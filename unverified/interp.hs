@@ -54,15 +54,6 @@ store_assign n v st =
   else
     Nothing
 
-data Tid_or_exn = 
-    TypeId (Id TypeN)
-  | TypeExn
-
-instance Eq Tid_or_exn where
-  (==) TypeExn TypeExn = True
-  (==) (TypeId tid1) (TypeId tid2) = tid1 == tid2
-  (==) _ _ = False
-
 type EnvC = Env (Id ConN) (Integer, Tid_or_exn)
 
 type EnvE = Env VarN V
@@ -434,5 +425,8 @@ init_env = listToEnv (List.map (\(x,y) -> (VarN x dummy_pos, Closure emp (VarN "
    ("~", (App (Opn Minus dummy_pos) (Lit (IntLit 0) dummy_pos) varx)),
    ("!", (Uapp Opderef varx)),
    ("ref", (Uapp (Opref dummy_pos) varx))])
+
+init_envC =
+  listToEnv (List.map (\cn -> (Short (ConN cn dummy_pos), (0, TypeExn))) ["Bind", "Div", "Eq"])
 
 

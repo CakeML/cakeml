@@ -201,6 +201,16 @@ instance Show Tc where
   show TC_tup = "*"
   show TC_exn = "exn"
 
+data Tid_or_exn = 
+    TypeId (Id TypeN)
+  | TypeExn
+
+instance Eq Tid_or_exn where
+  (==) TypeExn TypeExn = True
+  (==) (TypeId tid1) (TypeId tid2) = tid1 == tid2
+  (==) _ _ = False
+
+
 data T = 
     Tvar TvarN
   | Tvar_db Integer
