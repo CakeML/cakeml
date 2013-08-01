@@ -281,9 +281,7 @@ fs []);
 
 val check_ctors_def = tDefine "check_ctors" `
 (check_ctors (cenv:envC) (Raise e) = check_ctors cenv e) ∧
-(check_ctors cenv (Handle e1 pes) = 
-  (check_ctors cenv e1 ∧
-   EVERY (\(p,e). check_ctors_p cenv (SOME TypeExn) p ∧ check_ctors cenv e) pes)) ∧
+(check_ctors cenv (Handle e1 pes) = F) ∧
 (check_ctors cenv (Lit l) = T) ∧
 (check_ctors cenv (Con (SOME cn) es) = 
   (do_con_check cenv (SOME cn) (LENGTH es) ∧
@@ -315,7 +313,6 @@ val check_ctors_def = tDefine "check_ctors" `
 srw_tac [ARITH_ss] [] >|
 [induct_on `pes`,
  induct_on `funs`,
- induct_on `pes`,
  induct_on `es`] >>
 srw_tac [ARITH_ss] [AstTheory.exp_size_def] >>
 srw_tac [ARITH_ss] [AstTheory.exp_size_def] >>
@@ -631,6 +628,7 @@ val eval'_to_eval_simple_pat = Q.store_thm ("eval'_to_eval_simple_pat",
       check_ctors_v cenv v ∧
       EVERY (\(p,e). check_ctors_p cenv (get_pat_type cenv (FST (HD pes))) p ∧ check_ctors cenv e) pes ∧
       cenv_bind_div_eq cenv ∧
+      (err_v = Conv (SOME (Short "Bind")) []) ∧
       eval_ctor_inv cenv s env ⇒
       eval_ctor_inv cenv s1 env ∧
       check_ctors_result cenv r1 ∧
@@ -649,7 +647,6 @@ val eval'_to_eval_simple_pat = Q.store_thm ("eval'_to_eval_simple_pat",
  >- metis_tac [check_ctors_result_def, check_ctors_v_def]
  >- metis_tac [check_ctors_result_def, check_ctors_v_def]
  >- metis_tac [check_ctors_result_def, check_ctors_v_def]
- >- cheat
  >- (cases_on `cn` >>
      fs [check_ctors_def, do_con_check_def, check_ctors_result_def, check_ctors_v_def, check_ctors_result2_def] >>
      rw [check_ctors_result_def, check_ctors_v_def, do_con_check_def] >>
@@ -710,8 +707,6 @@ val eval'_to_eval_simple_pat = Q.store_thm ("eval'_to_eval_simple_pat",
      metis_tac [check_ctors_result2_def, check_ctors_result_def])
  >- metis_tac [check_ctors_result2_def, check_ctors_result_def]
  >- metis_tac [check_ctors_result2_def, check_ctors_result_def]
- >- metis_tac [check_ctors_result2_def, check_ctors_result_def]
- >- metis_tac [check_ctors_result2_def, check_ctors_result_def]
  >- (`pmatch cenv s p v env = Match env' ∧ eval_ctor_inv cenv s env'` 
          by metis_tac [pmatch'_pmatch2, match_result_distinct, check_ctors_match_result_def] >>
      rw [] >>
@@ -732,12 +727,11 @@ val eval'_to_eval_simple_pat = Q.store_thm ("eval'_to_eval_simple_pat",
                         fs [LAMBDA_PROD, GSYM PFORALL_THM] >>
                         metis_tac [get_pat_type_thm]) >>
           metis_tac [],
-      `evaluate_match' s env v pes err_v (s,Rerr (Rraise err_v)) ∨
-       evaluate_match' s env v pes err_v (s,Rerr Rtype_error)`
+      `evaluate_match' s env v pes (Conv (SOME (Short "Bind")) []) (s,Rerr (Rraise (Conv (SOME (Short "Bind")) []))) ∨
+       evaluate_match' s env v pes (Conv (SOME (Short "Bind")) []) (s,Rerr Rtype_error)`
                  by metis_tac [eval'_to_eval2_lem] >>
           imp_res_tac big_exp_determ' >>
-          fs [check_ctors_result_def] >>
-          cheat])
+          fs [check_ctors_result_def]])
  >- (`pmatch cenv s p v env = Match_type_error` by metis_tac [pmatch'_pmatch2, match_result_distinct] >>
      rw [check_ctors_result_def])
  >- metis_tac [check_ctors_result_def, check_ctors_v_def]);
@@ -797,6 +791,7 @@ fs [check_ctors_dec_def, check_ctors_result3_def] >|
  fs [LibTheory.emp_def, eval_ctor_inv_def] >>
      metis_tac [SIMP_RULE (srw_ss()) [eval_ctor_inv_def] eval_ctor_build_rec_env, EVERY_DEF,
                 build_rec_env_def],
+ fs [LibTheory.emp_def],
  fs [LibTheory.emp_def]]);
 
 val check_ctors_p_weakening = Q.prove (
@@ -834,11 +829,7 @@ val check_ctors_e_weakening = Q.prove (
   disjoint_env cenv1 cenv2 ∧ check_ctors cenv1 e ⇒ check_ctors (cenv2++cenv1) e`,
 ho_match_mp_tac (fetch "-" "check_ctors_ind") >>
 rw [check_ctors_def, EVERY_MEM, do_con_check_def, lookup_append] >|
-[res_tac >>
-     PairCases_on `e'` >>
-     fs [] >>
-     metis_tac [check_ctors_p_weakening_exn],
- every_case_tac >>
+[every_case_tac >>
      imp_res_tac lookup_in2 >>
      fs [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
      metis_tac [],
@@ -923,16 +914,18 @@ val evaluate_dec_ctor_disjoint = Q.prove (
   evaluate_dec' mn menv cenv s env d (s2,Rval (new_tds,new_env))
   ⇒
   disjoint_env cenv new_tds`,
-rw [evaluate_dec'_cases] >>
-imp_res_tac check_dup_ctors_disj >>
-fs [LibTheory.emp_def, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
-rw [] >>
-pop_assum (mp_tac o Q.SPEC `x`) >>
-rw [] >-
-metis_tac [] >>
-`lookup x (build_ctor_tenv mn tds) = NONE`
-          by metis_tac [lookup_in2, optionTheory.option_nchotomy, optionTheory.NOT_SOME_NONE] >>
-metis_tac [lookup_notin, lookup_none]);
+ rw [evaluate_dec'_cases] >>
+ imp_res_tac check_dup_ctors_disj >>
+ fs [LibTheory.emp_def, disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+ rw [] 
+ >- (pop_assum (mp_tac o Q.SPEC `x`) >>
+     rw [] >-
+     metis_tac [] >>
+     `lookup x (build_ctor_tenv mn tds) = NONE`
+               by metis_tac [lookup_in2, optionTheory.option_nchotomy, optionTheory.NOT_SOME_NONE] >>
+     metis_tac [lookup_notin, lookup_none])
+ >- (rw [LibTheory.bind_def] >>
+     metis_tac [lookup_notin]));
 
 val check_ctors_result4_def = Define `
 (check_ctors_result4 cenv (Rval env) = 
@@ -941,6 +934,7 @@ val check_ctors_result4_def = Define `
 
 val dec_to_cenv_def = Define `
 (dec_to_cenv mn (Dtype tds) = build_tdefs mn tds) ∧
+(dec_to_cenv mn (Dexn cn ts) = bind (mk_id mn cn) (LENGTH ts, TypeExn) emp) ∧
 (dec_to_cenv mn _ = [])`;
 
 val check_ctors_decs_def = Define `
@@ -954,7 +948,7 @@ val eval_dec'_to_cenv = Q.prove (
  ⇒
  dec_to_cenv mn h = new_tds`,
 rw [evaluate_dec'_cases, dec_to_cenv_def, LibTheory.emp_def] >>
-rw [dec_to_cenv_def]);
+rw [dec_to_cenv_def, LibTheory.emp_def]);
 
 val eval_decs'_to_eval_decs_simple_pat = Q.store_thm ("eval_decs'_to_eval_decs_simple_pat",
 `!mn menv cenv s env ds s' r cenv'.
@@ -990,16 +984,20 @@ fs [LibTheory.merge_def, check_ctors_result3_def] >>
                `(λ(x,v). check_ctors_v cenv v) (e0,e1)` by metis_tac [] >>
                fs [] >>
                metis_tac [LAMBDA_PROD, check_ctors_v_weakening]) >>
+`cenv_bind_div_eq (new_tds ++ cenv)` by metis_tac [lookup_disjoint, cenv_bind_div_eq_def, LibTheory.merge_def] >>
 `evaluate_decs mn menv (new_tds ++ cenv) s2 (new_env ++ env) ds (s',new_tds',r') ∧
  eval_ctor_inv (new_tds' ++ new_tds ++ cenv) s' (new_env ++ env) ∧
  check_ctors_result4 (new_tds' ++ new_tds ++ cenv) r'`
        by (cases_on `r'` >>
            fs [combine_dec_result_def] >>
-           metis_tac [eval_dec'_to_cenv, APPEND_ASSOC, result_distinct, error_result_distinct, result_11]) >-
-metis_tac [] >-
-fs [eval_ctor_inv_def] >>
-cases_on `r'` >>
-fs [combine_dec_result_def, check_ctors_result4_def, LibTheory.merge_def, eval_ctor_inv_def]);
+           metis_tac [eval_dec'_to_cenv, APPEND_ASSOC, result_distinct, error_result_distinct, result_11])
+>- metis_tac [] 
+>- (fs [eval_ctor_inv_def] >>
+    cases_on `r'` >>
+    fs [combine_dec_result_def, check_ctors_result4_def, LibTheory.merge_def, eval_ctor_inv_def])
+>- (fs [eval_ctor_inv_def] >>
+    cases_on `r'` >>
+    fs [combine_dec_result_def, check_ctors_result4_def, LibTheory.merge_def, eval_ctor_inv_def]));
 
 (*
 val check_ctors_top_def = Define `

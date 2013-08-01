@@ -428,7 +428,21 @@ evaluate_dec' mn menv cenv s env (Dtype tds) (s, Rval (build_tdefs mn tds, emp))
 
 (! mn menv cenv env tds s. ( ~  (check_dup_ctors mn cenv tds))
 ==>
-evaluate_dec' mn menv cenv s env (Dtype tds) (s, Rerr Rtype_error))`;
+evaluate_dec' mn menv cenv s env (Dtype tds) (s, Rerr Rtype_error))
+
+/\
+
+(! mn menv cenv env cn ts s.
+(lookup (mk_id mn cn) cenv = NONE)
+==>
+evaluate_dec' mn menv cenv s env (Dexn cn ts) (s, Rval (bind (mk_id mn cn) ( LENGTH ts, TypeExn) emp, emp)))
+
+/\
+
+(! mn menv cenv env cn ts s.
+(lookup (mk_id mn cn) cenv <> NONE)
+==>
+evaluate_dec' mn menv cenv s env (Dexn cn ts) (s, Rerr Rtype_error))`;
 
 
 val _ = Hol_reln `
