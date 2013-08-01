@@ -614,12 +614,14 @@ metis_tac []);
 val eval'_to_eval_simple_pat = Q.store_thm ("eval'_to_eval_simple_pat",
 `(!s env e r. evaluate' s env e r ⇒
    !menv cenv count s1 r1. (r = (s1,r1)) ∧ r1 ≠ Rerr (Rraise (Conv (SOME (Short "Bind")) [])) ∧ check_ctors cenv e ∧
+      cenv_bind_div_eq cenv ∧
       eval_ctor_inv cenv s env ⇒
       eval_ctor_inv cenv s1 env ∧
       check_ctors_result cenv r1 ∧
       evaluate F menv cenv (count,s) env e ((count,s1),r1)) ∧
  (!s env es r. evaluate_list' s env es r ⇒
    !menv cenv count s1 r1. (r = (s1,r1)) ∧ r1 ≠ Rerr (Rraise (Conv (SOME (Short "Bind")) [])) ∧ EVERY (check_ctors cenv) es ∧
+      cenv_bind_div_eq cenv ∧
       eval_ctor_inv cenv s env ⇒
       eval_ctor_inv cenv s1 env ∧
       check_ctors_result2 cenv (LENGTH es) r1 ∧
@@ -628,6 +630,7 @@ val eval'_to_eval_simple_pat = Q.store_thm ("eval'_to_eval_simple_pat",
    !menv (cenv:envC) count s1 r1. (r = (s1,r1)) ∧ r1 ≠ Rerr (Rraise (Conv (SOME (Short "Bind")) [])) ∧
       check_ctors_v cenv v ∧
       EVERY (\(p,e). check_ctors_p cenv (get_pat_type cenv (FST (HD pes))) p ∧ check_ctors cenv e) pes ∧
+      cenv_bind_div_eq cenv ∧
       eval_ctor_inv cenv s env ⇒
       eval_ctor_inv cenv s1 env ∧
       check_ctors_result cenv r1 ∧
@@ -665,16 +668,12 @@ val eval'_to_eval_simple_pat = Q.store_thm ("eval'_to_eval_simple_pat",
  >- metis_tac [check_ctors_result_def, check_ctors_v_def, eval_ctor_inv_def]
  >- metis_tac [check_ctors_result_def, eval_ctor_inv_do_uapp]
  >- metis_tac [check_ctors_result_def, check_ctors_v_def]
- >- cheat
- (*
- `check_ctors cenv e'' ∧
-  eval_ctor_inv cenv s'' env'`
-        by prove_tac [eval_ctor_inv_do_app] >>
+ >- (`check_ctors cenv e'' ∧ eval_ctor_inv cenv s'' env'`
+           by prove_tac [eval_ctor_inv_do_app] >>
      rw [] >|
      [fs [eval_ctor_inv_def] >>
           metis_tac [],
-      metis_tac []],
-      *)
+      metis_tac []])
  >- metis_tac [check_ctors_result_def, check_ctors_v_def]
  >- metis_tac [check_ctors_result_def, check_ctors_v_def]
  >- metis_tac [check_ctors_result_def, eval_ctor_inv_do_log]
@@ -759,6 +758,7 @@ val eval_dec'_to_eval_dec_simple_pat = Q.store_thm ("eval_dec'_to_eval_dec_simpl
    (r ≠ Rerr (Rraise (Conv (SOME (Short "Bind")) []))) ∧
    check_ctors_dec cenv d ∧ 
    eval_ctor_inv cenv s env ∧
+   cenv_bind_div_eq cenv ∧
    evaluate_dec' mn menv cenv s env d (s',r)
    ⇒
    evaluate_dec mn menv cenv s env d (s',r) ∧
@@ -814,12 +814,30 @@ imp_res_tac lookup_in2 >>
 fs [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
 metis_tac []);
 
+val check_ctors_p_weakening_exn = Q.prove (
+`(!p cenv1 cenv2. 
+  disjoint_env cenv1 cenv2 ∧ check_ctors_p cenv1 (SOME TypeExn) p ⇒
+  check_ctors_p (cenv2++cenv1) (SOME TypeExn) p)`,
+cases_on `p` >>
+rw [check_ctors_p_def, lookup_append] >>
+cases_on `o'` >>
+fs [check_ctors_p_def, lookup_append] >>
+every_case_tac >>
+fs [check_ctors_p_def] >>
+rw [lookup_append] >>
+imp_res_tac lookup_in2 >>
+fs [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
+metis_tac []);
+
 val check_ctors_e_weakening = Q.prove (
 `!cenv2 e cenv1. 
   disjoint_env cenv1 cenv2 ∧ check_ctors cenv1 e ⇒ check_ctors (cenv2++cenv1) e`,
 ho_match_mp_tac (fetch "-" "check_ctors_ind") >>
 rw [check_ctors_def, EVERY_MEM, do_con_check_def, lookup_append] >|
-[cheat,
+[res_tac >>
+     PairCases_on `e'` >>
+     fs [] >>
+     metis_tac [check_ctors_p_weakening_exn],
  every_case_tac >>
      imp_res_tac lookup_in2 >>
      fs [disjoint_env_def, DISJOINT_DEF, EXTENSION] >>
@@ -943,6 +961,7 @@ val eval_decs'_to_eval_decs_simple_pat = Q.store_thm ("eval_decs'_to_eval_decs_s
    (r ≠ Rerr (Rraise (Conv (SOME (Short "Bind")) []))) ∧
    check_ctors_decs mn cenv ds ∧ 
    eval_ctor_inv cenv s env ∧
+   cenv_bind_div_eq cenv ∧
    evaluate_decs' mn menv cenv s env ds (s',cenv',r)
    ⇒
    evaluate_decs mn menv cenv s env ds (s',cenv',r) ∧
