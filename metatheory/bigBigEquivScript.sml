@@ -97,6 +97,7 @@ val type_no_error = Q.prove (
 `∀tenvM tenvC tenvS tenv st e t menv cenv env tvs.
   tenvM_ok tenvM ∧ 
   tenvC_ok tenvC ∧
+  tenvC_has_exns tenvC ∧
   consistent_mod_env tenvS tenvC menv tenvM ∧
   consistent_con_env cenv tenvC ∧
   type_env tenvM tenvC tenvS env tenv ∧ 
@@ -111,6 +112,7 @@ val eval'_to_eval_thm = Q.store_thm ("eval'_to_eval_thm",
 `∀tenvM tenvC tenvS tenv st e t menv cenv env tvs s' r' count.
   tenvM_ok tenvM ∧ 
   tenvC_ok tenvC ∧
+  tenvC_has_exns tenvC ∧
   consistent_mod_env tenvS tenvC menv tenvM ∧
   consistent_con_env cenv tenvC ∧
   type_env tenvM tenvC tenvS env tenv ∧ 
@@ -132,6 +134,7 @@ val eval_dec'_to_eval_dec_thm = Q.store_thm ("eval_dec'_to_eval_dec_thm",
 `!mn menv (cenv : envC) st env d r tenvM tenvC tenvS tenv tenvC' tenv'.
   tenvM_ok tenvM ∧ 
   tenvC_ok tenvC ∧
+  tenvC_has_exns tenvC ∧
   consistent_mod_env tenvS tenvC menv tenvM ∧
   consistent_con_env cenv tenvC ∧
   type_env tenvM tenvC tenvS env tenv ∧ 
@@ -158,6 +161,7 @@ val eval_decs'_to_eval_decs_thm = Q.store_thm ("eval_decs'_to_eval_decs_thm",
 `!mn menv (cenv : envC) st env ds r tenvM tenvC tenvS tenv tenvC' tenv'.
   tenvM_ok tenvM ∧ 
   tenvC_ok tenvC ∧
+  tenvC_has_exns tenvC ∧
   consistent_mod_env tenvS tenvC menv tenvM ∧
   consistent_con_env cenv tenvC ∧
   type_env tenvM tenvC tenvS env tenv ∧ 
