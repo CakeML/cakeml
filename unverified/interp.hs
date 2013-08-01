@@ -54,7 +54,16 @@ store_assign n v st =
   else
     Nothing
 
-type EnvC = Env (Id ConN) (Integer, Id TypeN)
+data Tid_or_exn = 
+    TypeId (Id TypeN)
+  | TypeExn
+
+instance Eq Tid_or_exn where
+  (==) TypeExn TypeExn = True
+  (==) (TypeId tid1) (TypeId tid2) = tid1 == tid2
+  (==) _ _ = False
+
+type EnvC = Env (Id ConN) (Integer, Tid_or_exn)
 
 type EnvE = Env VarN V
 
@@ -343,7 +352,7 @@ build_tdefs mn tds =
       (\(tvs, tn, condefs) ->
          List.map
            (\(conN, ts) ->
-              (mk_id mn conN, (toInteger (List.length ts), mk_id mn tn)))
+              (mk_id mn conN, (toInteger (List.length ts), TypeId (mk_id mn tn))))
            condefs)
       tds))
 
@@ -371,6 +380,12 @@ run_eval_dec mn menv cenv st env (Dtype tds) =
   else
     (st, Rerr Rtype_error)
 -}
+run_eval_dec mn menv cenv st env (Dexn cn ts) =
+  if Ast.lookup (mk_id mn cn) cenv == Nothing then
+    (st, Rval (bind (mk_id mn cn) (toInteger (List.length ts), TypeExn) emp, emp))
+  else
+    (st, Rerr Rtype_error)
+
 
 combine_dec_result :: Ord a => Env a b -> Result (Env a b) -> Result (Env a b)
 combine_dec_result env r =

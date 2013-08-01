@@ -326,6 +326,11 @@ val run_eval_dec_def = Define `
   if check_dup_ctors mn cenv tds then
     (st, Rval (build_tdefs mn tds, emp))
   else
+    (st, Rerr Rtype_error)) ∧
+(run_eval_dec mn menv cenv st env (Dexn cn ts) =
+  if lookup (mk_id mn cn) cenv = NONE then
+    (st, Rval (bind (mk_id mn cn) (LENGTH ts, TypeExn) emp, emp))
+  else
     (st, Rerr Rtype_error))`;
 
 val run_eval_decs_def = Define `
@@ -372,7 +377,6 @@ val run_eval_dec_spec = Q.store_thm ("run_eval_dec_spec",
  every_case_tac >>
  fs [GSYM evaluate_run_eval] >>
  rw [] >>
- cheat >> (* because Dexn isn't implemented yet *)
  metis_tac [big_clocked_unclocked_equiv, clocked_min_counter, SND, pair_CASES, result_distinct, result_11]);
 
 val run_eval_decs_spec = Q.store_thm ("run_eval_decs_spec",
