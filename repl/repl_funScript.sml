@@ -117,14 +117,7 @@ val install_code_def = Define `
              ; cons_names := m
              |>`;
 
-val PrintE_def = Define`
-  PrintE = (MAP PrintC "raise ")++
-           [Stack(Load 0); Stack IsBlock; JumpIf (Lab 0); PrintC #"<"; Print; PrintC #">"; Jump (Lab 3);Label 0
-           ;Stack (Load 0); Stack(TagEq (block_tag+bind_exc_cn)); JumpIf (Lab 1)
-           ;Stack(TagEq (block_tag+ div_exc_cn)); JumpIf (Lab 2)]++
-           (MAP PrintC "<Eq_closure>")++(Jump(Lab 3))::(Label 1)::(Stack Pop)::
-           (MAP PrintC "<Bind>")      ++(Jump(Lab 3))::(Label 2)::
-           (MAP PrintC "<Div>")       ++[Label 3]`
+val PrintE_def = Define`PrintE = (MAP PrintC "raise ")++Print`
 
 val initial_bc_state_def =  Define`
   initial_bc_state =
