@@ -678,8 +678,8 @@ val evaluate'_empty_store_lemma = prove(
 
 val _ = temp_overload_on("has_emp_no_fail",
   ``\x. (FST x = empty_store:store) /\
-        ~(SND x = (Rerr Rtype_error):'a result) /\
-        ~(SND x = (Rerr (Rraise Bind_error)):'a result)``)
+        ~(SND x = (Rerr Rtype_error):'a result) (*/\
+        ~(SND x = (Rerr (Rraise Bind_error)):'a result)*)``)
 
 val sind = IndDefLib.derive_strong_induction(evaluate'_rules,evaluate'_ind);
 
@@ -727,9 +727,9 @@ val evaluate'_empty_store_IMP_any_store = prove(
    (!s env es r1.
       evaluate_list' s env es r1 ==> has_emp_no_fail r1 ==>
       !t. evaluate_list' t env es (t,SND r1)) /\
-   (!s env v pes r1.
-      evaluate_match' s env v pes r1 ==> has_emp_no_fail r1 ==>
-      !t. evaluate_match' t env v pes (t,SND r1))``,
+   (!s env v pes errv r1.
+      evaluate_match' s env v pes errv r1 ==> has_emp_no_fail r1 ==>
+      !t. evaluate_match' t env v pes errv (t,SND r1))``,
   HO_MATCH_MP_TAC sind \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ FULL_SIMP_TAC (srw_ss()) []
   THEN1
@@ -1022,13 +1022,13 @@ val MEMBER_INTRO = store_thm("MEMBER_INTRO",
 
 val evaluate_match_SKIP = store_thm("evaluate_match_SKIP",
   ``evaluate_match' empty_store env (Conv (SOME (Short s1)) args1)
-      ((Pcon (SOME (Short s2)) pats2,exp2)::pats) (x,Rval res) <=>
+      ((Pcon (SOME (Short s2)) pats2,exp2)::pats) errv (x,Rval res) <=>
     if s1 <> s2 then
       ALL_DISTINCT (pat_bindings (Pcon (SOME (Short s2)) pats2) []) /\
-      evaluate_match' empty_store env (Conv (SOME (Short s1)) args1) pats (x,Rval res)
+      evaluate_match' empty_store env (Conv (SOME (Short s1)) args1) pats errv (x,Rval res)
     else
       evaluate_match' empty_store env (Conv (SOME (Short s1)) args1)
-        ((Pcon (SOME (Short s2)) pats2,exp2)::pats) (x,Rval res)``,
+        ((Pcon (SOME (Short s2)) pats2,exp2)::pats) errv (x,Rval res)``,
   SRW_TAC [] []
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,pmatch'_def]);
 
