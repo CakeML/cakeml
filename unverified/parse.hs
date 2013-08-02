@@ -203,6 +203,8 @@ nE =
 nE' = 
   (tokeq RaiseT >> fmap Ast_Raise nE)
   <|>
+  nEhandle
+  <|>
   do tokeq IfT;
      e1 <- nE;
      tokeq ThenT;
@@ -210,12 +212,6 @@ nE' =
      tokeq ElseT;
      e3 <- nE';
      return (Ast_If e1 e2 e3)
-  <|>
-  do pos <- tokeq FnT;
-     x <- nV;
-     tokeq DarrowT;
-     e <- nE';
-     return (Ast_Fun x e pos)
 
 nPEs = choice [try (do pe <- nPE'; tokeq BarT; pes <- nPEs; return (pe:pes)),
                fmap (\x -> [x]) nPE]
