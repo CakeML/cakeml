@@ -599,7 +599,7 @@ val Decls_def = Define `
     evaluate_decs' mn menv1 cenv1 s1 env1 ds (s2,cenv2, Rval env2)`;
 
 val DeclAssum_def = Define `
-  DeclAssum ds env = ?s2 cenv2. Decls NONE [] [] empty_store [] ds cenv2 s2 env`;
+  DeclAssum ds env = ?s2 cenv2. Decls NONE [] init_envC empty_store [] ds cenv2 s2 env`;
 
 val Decls_Dtype = store_thm("Decls_Dtype",
   ``!mn menv cenv s env tds cenv1 s1 env1.
@@ -1040,14 +1040,15 @@ val DeclsC_def = Define `
 
 val DeclAssumC_def = Define `
   DeclAssumC ds cenv env =
-     ?s2. DeclsC NONE [] [] empty_store [] ds cenv s2 env`;
+     ?s2. DeclsC NONE [] init_envC empty_store [] ds cenv s2 env`;
 
 val DeclAssumC_thm = store_thm ("DeclAssumC_thm",
-  ``!ds env. check_ctors_decs NONE [] ds /\ DeclAssum ds env ==>
+  ``!ds env. check_ctors_decs NONE init_envC ds /\ DeclAssum ds env ==>
              ?cenv. DeclAssumC ds cenv env``,
-  rw [DeclAssum_def, DeclAssumC_def, Decls_def, DeclsC_def] >>
+  rw [DeclAssum_def, DeclAssumC_def, Decls_def, DeclsC_def, empty_store_def] >>
+  `cenv_bind_div_eq init_envC` by EVAL_TAC >>
   metis_tac [result_distinct, eval_decs'_to_eval_decs_simple_pat, EVERY_DEF,
-             eval_ctor_inv_def, empty_store_def]);
+             eval_ctor_inv_def]);
 
 val EvalC_def = Define `
   EvalC cenv env exp P =
@@ -1055,7 +1056,7 @@ val EvalC_def = Define `
       evaluate F [] (cenv:envC) (0,[]) env exp ((0,[]),Rval res) /\ P (res:v)`;
 
 val Eval_IMP_EvalC = store_thm("Eval_IMP_EvalC",
-  ``check_ctors_decs NONE [] ds /\ DeclAssumC ds cenv env ==>
+  ``check_ctors_decs NONE cenv0 ds /\ DeclAssumC ds cenv env ==>
     !n P. Eval env (Var n) P ==> EvalC cenv env (Var n) P``,
   rw [Eval_def, EvalC_def, DeclAssumC_def, DeclsC_def, empty_store_def]
   \\ `check_ctors cenv (Var n)` by EVAL_TAC
