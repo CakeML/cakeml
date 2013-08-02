@@ -1,5 +1,5 @@
-open HolKernel Parse boolLib bossLib; val _ = new_theory "ml_translator";
-
+open HolKernel Parse boolLib bossLib;
+val _ = new_theory "ml_translator";
 open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
 open terminationTheory;
 open bigBigEquivTheory;
@@ -69,9 +69,9 @@ val big_exp_determ' = store_thm("big_exp_determ'",
    (!s env es r1.
       evaluate_list' s env es r1 ==>
       !r2. evaluate_list' s env es r2 ==> (r1 = r2)) /\
-   (!s env v pes r1.
-      evaluate_match' s env v pes r1 ==>
-      !r2. evaluate_match' s env v pes r2 ==> (r1 = r2))``,
+   (!s env v pes errv r1.
+      evaluate_match' s env v pes errv r1 ==>
+      !r2. evaluate_match' s env v pes errv r2 ==> (r1 = r2))``,
   HO_MATCH_MP_TAC evaluate'_ind >> rw [] >>
   pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once evaluate'_cases]) >>
   fs [] >> rw [] >> fs [] >> res_tac >> fs [] >> rw [] >>
@@ -650,8 +650,8 @@ val evaluate'_empty_store_lemma = prove(
       evaluate' s env e r1 ==> has_emp r1 ==> (s = empty_store)) /\
    (!s env es r1.
       evaluate_list' s env es r1 ==> has_emp r1 ==> (s = empty_store)) /\
-   (!s env v pes r1.
-      evaluate_match' s env v pes r1 ==> has_emp r1 ==> (s = empty_store))``,
+   (!s env v pes errv r1.
+      evaluate_match' s env v pes errv r1 ==> has_emp r1 ==> (s = empty_store))``,
   HO_MATCH_MP_TAC evaluate'_ind >> rw [] \\ POP_ASSUM MP_TAC
   \\ TRY (Cases_on `uop`) \\ TRY (Cases_on `op`)
   \\ FULL_SIMP_TAC (srw_ss()) [do_uapp_def,do_app_def,LET_DEF,store_alloc_def]
