@@ -1,6 +1,6 @@
 open HolKernel bossLib boolLib EmitTeX
 open bytecode_emitTheory extended_emitTheory basis_emitTheory
-open CompilerLibTheory CompilerPrimitivesTheory IntLangTheory ToIntLangTheory ToBytecodeTheory CompilerTheory PrinterTheory compilerTerminationTheory
+open CompilerLibTheory IntLangTheory ToIntLangTheory ToBytecodeTheory CompilerTheory PrinterTheory compilerTerminationTheory
 val _ = new_theory "compile_emit"
 
 val _ = Parse.temp_type_abbrev("set",``:'a -> bool``)
@@ -137,10 +137,6 @@ val defs = map EmitML.DEFN
 , cpam_def
 ]
 
-val num_to_bool = prove(
-``num_to_bool n <=> n <> 0``,
-Cases_on `n` THEN SRW_TAC[][num_to_bool_def])
-
 val _ = EmitML.eSML "compile" (
   (EmitML.OPEN ["num","fmap","set","sum","bytecode","sorting"])
 ::(EmitML.MLSIG "type num = numML.num")
@@ -155,8 +151,6 @@ val _ = EmitML.eSML "compile" (
 ::(EmitML.MLSIG "type ('a) id = ('a) bytecodeML.id")
 ::(EmitML.MLSIG "type lit = bytecodeML.lit")
 ::(EmitML.MLSIG "type ov = bytecodeML.ov")
-::(EmitML.MLSIG "val num_to_bool : num -> bool")
-::(EmitML.DEFN_NOSIG num_to_bool)
 ::(EmitML.MLSTRUCT "val CONCAT = String.concat;")
 ::data@defs)
 

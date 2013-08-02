@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib Defn pairTheory pred_setTheory listTheory finite_mapTheory state_transformerTheory lcsymtacs
-open terminationTheory CompilerLibTheory CompilerPrimitivesTheory IntLangTheory ToIntLangTheory ToBytecodeTheory CompilerTheory PrinterTheory BytecodeTheory
+open terminationTheory CompilerLibTheory IntLangTheory ToIntLangTheory ToBytecodeTheory CompilerTheory PrinterTheory BytecodeTheory
 val _ = new_theory "compilerTermination"
 
 (* size helper theorems *)
@@ -266,7 +266,6 @@ val _ = export_rewrites
 ,"mkshift_def"
 ,"label_closures_def"
 ,"ToIntLang.Cpat_vars_def"
-,"CompilerPrimitives.map_result_def","CompilerPrimitives.every_result_def"
 ,"IntLang.doPrim2_def","IntLang.CevalPrim2_def","IntLang.CevalUpd_def","IntLang.CevalPrim1_def"
 ,"free_labs_def","no_labs_def","all_labs_def"
 ,"IntLang.CDiv_excv_def","IntLang.CBind_excv_def","IntLang.CEq_excv_def"
