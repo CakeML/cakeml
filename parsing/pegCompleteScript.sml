@@ -501,7 +501,7 @@ val firstSetML_nE = Store_thm(
 val firstSet_nE' = store_thm(
   "firstSet_nE'",
   ``firstSet mmlG (NT(mkNT nE')::rest) =
-      firstSet mmlG [NT (mkNT nEbase)] ∪ {IfT; FnT; RaiseT}``,
+      firstSet mmlG [NT (mkNT nEbase)] ∪ {IfT; RaiseT}``,
   simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
@@ -560,6 +560,7 @@ val NOTIN_firstSet_nV = Store_thm(
   "NOTIN_firstSet_nV",
   ``CommaT ∉ firstSet mmlG [NN nV] ∧ LparT ∉ firstSet mmlG [NN nV] ∧
     RparT ∉ firstSet mmlG [NN nV] ∧ UnderbarT ∉ firstSet mmlG [NN nV] ∧
+    BarT ∉ firstSet mmlG [NN nV] ∧
     FnT ∉ firstSet mmlG [NN nV] ∧ IfT ∉ firstSet mmlG [NN nV] ∧
     EqualsT ∉ firstSet mmlG [NN nV] ∧ DarrowT ∉ firstSet mmlG [NN nV] ∧
     ValT ∉ firstSet mmlG [NN nV] ∧
@@ -583,6 +584,7 @@ val NOTIN_firstSet_nFQV = Store_thm(
   ``CommaT ∉ firstSet mmlG [NN nFQV] ∧ LparT ∉ firstSet mmlG [NN nFQV] ∧
     RparT ∉ firstSet mmlG [NN nFQV] ∧ UnderbarT ∉ firstSet mmlG [NN nFQV] ∧
     FnT ∉ firstSet mmlG [NN nFQV] ∧ IfT ∉ firstSet mmlG [NN nFQV] ∧
+    BarT ∉ firstSet mmlG [NN nFQV] ∧
     EqualsT ∉ firstSet mmlG [NN nFQV] ∧ DarrowT ∉ firstSet mmlG [NN nFQV] ∧
     ValT ∉ firstSet mmlG [NN nFQV] ∧
     EndT ∉ firstSet mmlG [NN nFQV] ∧
@@ -603,6 +605,7 @@ val NOTIN_firstSet_nFQV = Store_thm(
 val NOTIN_firstSet_nConstructorName = Store_thm(
   "NOTIN_firstSet_nConstructorName",
   ``AndT ∉ firstSet mmlG [NN nConstructorName] ∧
+    BarT ∉ firstSet mmlG [NN nConstructorName] ∧
     ColonT ∉ firstSet mmlG [NN nConstructorName] ∧
     CaseT ∉ firstSet mmlG [NN nConstructorName] ∧
     CommaT ∉ firstSet mmlG [NN nConstructorName] ∧
@@ -895,6 +898,19 @@ val peg_seql_SOME_append = store_thm(
 
 fun has_const c = assert (Lib.can (find_term (same_const c)) o concl)
 
+val eOR_wrongtok = store_thm(
+  "eOR_wrongtok",
+  ``¬peg_eval mmlPEG (RaiseT::i0, nt (mkNT nElogicOR) I) (SOME(i,r)) ∧
+    ¬peg_eval mmlPEG (FnT::i0, nt (mkNT nElogicOR) I) (SOME(i,r)) ∧
+    ¬peg_eval mmlPEG (CaseT::i0, nt (mkNT nElogicOR) I) (SOME(i,r)) ∧
+    ¬peg_eval mmlPEG (IfT::i0, nt (mkNT nElogicOR) I) (SOME(i,r))``,
+  rpt conj_tac >>
+  qmatch_abbrev_tac `¬peg_eval mmlPEG (ttk::i0, nt (mkNT nElogicOR) I) (SOME(i,r))` >>
+  strip_tac >>
+  `peg_eval mmlPEG (ttk::i0, nt (mkNT nElogicOR) I) NONE`
+    suffices_by (first_assum (assume_tac o MATCH_MP peg_det) >> simp[]) >>
+  simp[Abbr`ttk`, peg_respects_firstSets]);
+
 val nE'_nE = store_thm(
   "nE'_nE",
   ``∀i0 i r.
@@ -905,77 +921,22 @@ val nE'_nE = store_thm(
   full_simp_tac (srw_ss() ++ DNF_ss) [AND_IMP_INTRO] >>
   simp[peg_eval_NT_SOME] >> simp[mmlpeg_rules_applied] >>
   rpt strip_tac >> rveq >> simp[peg_eval_tok_NONE] >> fs[]
-  >- metis_tac[]
+  >- (dsimp[] >> metis_tac[DECIDE``x<SUC x``])
   >- (dsimp[] >> DISJ2_TAC >> DISJ1_TAC >>
-      qpat_assum `peg_eval X Y (SOME Z)` mp_tac >> simp[peg_eval_NT_SOME] >>
+      simp[peg_eval_NT_SOME] >>
       simp_tac list_ss [mmlpeg_rules_applied] >>
       ONCE_REWRITE_TAC [peg_eval_seql_CONS] >>
-      simp_tac list_ss [pnt_def, tokeq_def] >> strip_tac >> rveq >>
-      pop_assum mp_tac >>
-      qabbrev_tac `
-        L1 = [tok ($= HandleT) mktokLf; tok ($= (AlphaT "IntError")) mktokLf;
-              nt (mkNT nV) I; tok ($= DarrowT) mktokLf]
-      ` >>
-      `∀e. L1 ++ [e] = L1 ++ [e]` by simp[] >>
-      pop_assum mp_tac >>
-      pop_assum (fn abbr =>
-        let val th = REWRITE_RULE [markerTheory.Abbrev_def] abbr
-        in
-          CONV_TAC (LAND_CONV
-                      (BINDER_CONV (LAND_CONV (REWRITE_CONV [th])))) >>
-          assume_tac abbr
-        end) >> simp_tac bool_ss [listTheory.APPEND] >>
-      disch_then kall_tac >>
-      ONCE_REWRITE_TAC [peg_eval_seql_CONS] >>
-      simp_tac (list_ss ++ DNF_ss) [try_def, peg_eval_seql_NIL] >>
-      rpt strip_tac >> rveq >> pop_assum mp_tac >>
-      ONCE_REWRITE_TAC [peg_eval_choicel_CONS] >>
-      simp_tac list_ss [peg_eval_choicel_SING, peg_eval_empty] >>
-      first_x_assum (assume_tac o MATCH_MP peg_det o
-                     assert (free_in ``nElogicOR`` o concl)) >>
-      asm_simp_tac list_ss [] >>
-      strip_tac >> rveq
-      >- (simp_tac (list_ss ++ DNF_ss) [] >> DISJ1_TAC >>
-          pop_assum mp_tac >> simp[peg_seql_SOME_append] >>
-          strip_tac >> rveq >> simp[] >>
-          first_x_assum (assume_tac o MATCH_MP peg_det o
-                         has_const ``seql``) >> simp[] >>
-          rpt (first_x_assum (assume_tac o MATCH_MP elim_det)) >>
-          imp_res_tac length_no_greater >> fs[] >>
-          first_x_assum match_mp_tac >>
-          imp_res_tac (MATCH_MP not_peg0_LENGTH_decreases
-                                peg0_nElogicOR) >>
-          asimp[] >> metis_tac[]) >>
-      simp_tac (list_ss ++ DNF_ss) [] >>
-      pop_assum mp_tac >>
-      simp[peg_seql_NONE_append, peg_seql_SOME_append] >> strip_tac >- simp[] >>
-      Q.UNDISCH_THEN `peg_eval mmlPEG (i,seql L1 I) (SOME(i',r))`
-        (assume_tac o MATCH_MP peg_det) >> simp[] >>
+      dsimp[] >>
+      first_assum (strip_assume_tac o MATCH_MP peg_det) >>
+      dsimp[] >> simp[peg_eval_tok_NONE] >> Cases_on `i` >> fs[])
+  >- (dsimp[] >> DISJ2_TAC >> simp[peg_eval_seq_NONE] >>
+      rpt (first_x_assum (assume_tac o MATCH_MP peg_det)) >>
+      simp[peg_respects_firstSets] >>
+      first_x_assum match_mp_tac >> simp[] >>
       rpt (first_x_assum (assume_tac o MATCH_MP elim_det)) >>
-      first_x_assum (mp_tac o has_const ``seql``) >>
-      simp[Abbr`L1`] >> strip_tac >> fs[])
-  >- (dsimp[] >> DISJ2_TAC >>
-      simp[peg_eval_seq_NONE, peg_respects_firstSets,
-           firstSet_nFQV] >>
-      rpt (first_x_assum (assume_tac o MATCH_MP peg_det o
-                          assert (free_in ``nE`` o concl))) >>
-      simp[] >> rpt (first_x_assum (assume_tac o MATCH_MP elim_det)) >>
-      imp_res_tac length_no_greater >>
-      first_x_assum match_mp_tac >> fs[] >> asimp[] >> metis_tac[])
-  >- (dsimp[] >> DISJ2_TAC >>
-      simp[peg_eval_seq_NONE, peg_respects_firstSets, firstSet_nFQV] >>
-      rpt (first_x_assum (assume_tac o MATCH_MP peg_det o
-                          assert (free_in ``nV`` o concl))) >>
-      simp[] >> rpt (first_x_assum (assume_tac o MATCH_MP elim_det)) >>
-      imp_res_tac length_no_greater >> fs[] >> first_x_assum match_mp_tac >>
-      asimp[] >> metis_tac[]) >>
-  dsimp[] >> imp_res_tac peg_sound >> rveq >>
-  asm_match `ptree_head pt = NN nEhandle'` >>
-  `0 < LENGTH (ptree_fringe pt)`
-    by metis_tac [nullable_Ehandle', fringe_length_not_nullable] >>
-  Cases_on `ptree_fringe pt` >> fs[] >> rveq >>
-  IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
-  simp[firstSet_nFQV, firstSet_nV, firstSet_nConstructorName])
+      imp_res_tac length_no_greater >> fs[] >> asimp[]) >>
+  fs[eOR_wrongtok]);
+
 
 val nE'_bar_nE = store_thm(
   "nE'_bar_nE",
@@ -994,88 +955,22 @@ val nE'_bar_nE = store_thm(
       simp_tac (list_ss ++ DNF_ss) [Once peg_eval_choicel_CONS] >>
       simp_tac (list_ss ++ DNF_ss) [peg_eval_seql_CONS] >>
       pop_assum (strip_assume_tac o SIMP_RULE (srw_ss()) []) >>
-      rw[] >> simp[peg_eval_tok_NONE] >>
-      first_x_assum (assume_tac o MATCH_MP peg_det) >> simp[] >>
-      metis_tac[]) >>
+      rw[] >> simp[peg_eval_tok_NONE] >> DISJ2_TAC >>
+      conj_tac
+      >- (fs[] >> metis_tac[DECIDE``x < SUC x``]) >>
+      simp[elim_disjineq] >> rpt strip_tac >> rw[] >>
+      fs[eOR_wrongtok]) >>
   first_x_assum (assume_tac o MATCH_MP peg_seql_NONE_det) >>
   qpat_assum `peg_eval mmlPEG X Y` mp_tac >>
-  simp_tac std_ss [Once peg_eval_choicel_CONS] >>
+  simp_tac std_ss [Once peg_eval_choicel_CONS, pegf_def, peg_eval_seq_SOME,
+                   peg_eval_empty, peg_eval_seq_NONE, pnt_def] >>
   strip_tac
   >- ((* handle case *)
-      asm_simp_tac (list_ss ++ DNF_ss) [Once peg_eval_choicel_CONS] >>
-      asm_simp_tac (list_ss ++ DNF_ss) [Once peg_eval_choicel_CONS] >>
-      DISJ2_TAC >> reverse conj_tac
-      >- (simp_tac (list_ss ++ DNF_ss) [Once peg_eval_choicel_CONS,
-                                        peg_eval_choicel_SING] >>
-          DISJ2_TAC >> conj_tac >>
-          simp_tac list_ss [Once peg_eval_seql_CONS] >> rpt gen_tac >>
-          DISJ1_TAC >> strip_tac >> fs[tokeq_def] >> rw[] >>
-          imp_res_tac peg_sound >> fs[] >>
-          asm_match `ptree_head pt = NN nEhandle` >>
-          `0 < LENGTH (ptree_fringe pt)`
-            by metis_tac [fringe_length_not_nullable,
-                          nullable_Ehandle] >>
-          Cases_on `ptree_fringe pt` >> fs[] >> rw[] >>
-          IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
-          simp[firstSet_nFQV]) >>
-      pop_assum mp_tac >>
-      simp[peg_eval_NT_SOME] >>
-      simp_tac list_ss [mmlpeg_rules_applied, pnt_def, try_def, tokeq_def] >>
-      ONCE_REWRITE_TAC [peg_eval_seql_CONS] >> simp_tac list_ss [] >>
-      strip_tac >> rveq >>
-      qpat_assum `peg_eval mmlPEG (i0, nt X Y) Z`
-        (assume_tac o MATCH_MP peg_det) >>
-      asm_simp_tac list_ss [] >>
-      qpat_assum `peg_eval X Y Z` mp_tac >>
-      simp_tac list_ss [peg_eval_seql_CONS, peg_eval_seql_NIL] >>
-      simp_tac list_ss [peg_eval_choicel_CONS, peg_eval_empty,
-                        elim_disjineq] >>
-      qabbrev_tac `
-        L1 = [tok ($= HandleT) mktokLf; tok ($= (AlphaT "IntError")) mktokLf;
-              nt (mkNT nV) I; tok ($= DarrowT) mktokLf]
-      ` >>
-      `∀e. L1 ++ [e] = L1 ++ [e]` by simp[] >>
-      pop_assum mp_tac >>
-      pop_assum (fn abbr =>
-        let val th = REWRITE_RULE [markerTheory.Abbrev_def] abbr
-        in
-          CONV_TAC (LAND_CONV
-                      (BINDER_CONV (LAND_CONV (REWRITE_CONV [th])))) >>
-          assume_tac abbr
-        end) >> simp_tac bool_ss [listTheory.APPEND] >>
-      disch_then kall_tac >>
-      strip_tac
-      >- (pop_assum mp_tac >> simp[peg_seql_SOME_append] >>
-          strip_tac >> rveq >>
-          first_x_assum (assume_tac o MATCH_MP peg_det o has_const ``seql``) >>
-          simp[] >> simp[elim_disjineq] >> rpt (gen_tac ORELSE DISCH_TAC) >>
-          rveq >> simp[peg_seql_NONE_append] >>
-          conj_tac
-          >- (rpt strip_tac >>
-              asm_match `peg_eval mmlPEG (badi, nt(mkNT nE) I) (SOME(i,rr))` >>
-              asm_match `peg_eval mmlPEG (badi,nt(mkNT nE') I) (SOME(i',r3))` >>
-              first_x_assum (qspecl_then [`badi`, `i`, `i'`, `rr`, `r3`] mp_tac) >>
-              simp[] >>
-              rpt (first_x_assum (assume_tac o MATCH_MP elim_det)) >>
-              imp_res_tac length_no_greater >> fs[] >>
-              IMP_RES_TAC (MATCH_MP not_peg0_LENGTH_decreases peg0_nElogicOR) >>
-              asimp[]) >>
-          DISJ2_TAC >> rpt strip_tac >>
-          rpt (first_x_assum (assume_tac o MATCH_MP elim_det)) >>
-          markerLib.UNABBREV_TAC "L1" >> fs[] >> rveq >> fs[]) >>
       rveq >> pop_assum mp_tac >>
-      simp[peg_seql_NONE_append, peg_seql_SOME_append] >>
-      strip_tac >> simp[]
-      >- (pop_assum (assume_tac o MATCH_MP peg_det o has_const ``seql``) >>
-          simp[] >> rpt strip_tac >> fs[]) >>
-      first_x_assum (assume_tac o MATCH_MP peg_det o has_const ``seql``) >>
-      simp[] >> rpt (gen_tac ORELSE DISCH_TAC) >> rveq >>
-      `i' ≠ i`  by metis_tac[] >> simp[elim_disjineq] >>
-      rpt (gen_tac ORELSE DISCH_TAC) >> rveq >>
-      first_assum (mp_tac o PART_MATCH (lhand o lhand) nE'_nE o concl) >>
-      simp[] >>
-      first_x_assum (assume_tac o MATCH_MP peg_det o has_const ``nE``) >>
-      simp[]) >>
+      simp[Once peg_eval_NT_SOME, elim_disjineq, disjImpI] >>
+      simp[mmlpeg_rules_applied] >> rw[] >> fs[eOR_wrongtok] >>
+      pop_assum (assume_tac o MATCH_MP peg_det) >> fs[] >> rw[] >>
+      fs[]) >>
   asm_simp_tac list_ss [Once peg_eval_choicel_CONS] >>
   pop_assum mp_tac >>
   asm_simp_tac list_ss [Once peg_eval_choicel_CONS] >>
@@ -1088,15 +983,13 @@ val nE'_bar_nE = store_thm(
       rpt (first_x_assum (assume_tac o MATCH_MP peg_det o has_const ``nE``)) >>
       simp[elim_disjineq, peg_eval_seq_NONE] >>
       rpt (first_x_assum (assume_tac o MATCH_MP elim_det)) >>
+      simp[eOR_wrongtok, peg_respects_firstSets] >>
+      simp[peg_eval_tok_NONE] >> rpt strip_tac >> rveq >>
+      asm_match `peg_eval mmlPEG (ii, nt (mkNT nE') I) (SOME(ii', r))` >>
       asm_match `peg_eval mmlPEG (IfT::i1, nt (mkNT nEhandle) I) NONE` >>
-      `peg_eval mmlPEG (IfT::i1, nt (mkNT nEhandle') I) NONE`
-         by simp[firstSet_nFQV, peg_respects_firstSets] >>
-      pop_assum (assume_tac o MATCH_MP peg_det) >> simp[] >>
-      rpt strip_tac >> rveq >>
-      asm_match `peg_eval mmlPEG (ii, nt (mkNT nE') I) (SOME(jj, rr))` >>
-      asm_match `peg_eval mmlPEG (ii, nt (mkNT nE) I) (SOME(kk, ss))` >>
-      first_x_assum (qspecl_then [`ii`, `kk`, `jj`, `ss`, `rr`] mp_tac) >>
-      simp[] >> imp_res_tac length_no_greater >> fs[] >> asimp[]) >>
+      fs[] >>
+      `LENGTH ii < SUC (LENGTH i1)` suffices_by metis_tac[] >>
+      imp_res_tac length_no_greater >> fs[] >> asimp[]) >>
   asm_simp_tac list_ss [Once peg_eval_choicel_CONS] >>
   full_simp_tac list_ss [pnt_def, pegf_def, peg_eval_seq_SOME, peg_eval_seq_NONE,
                          peg_eval_empty] >>
@@ -1105,30 +998,11 @@ val nE'_bar_nE = store_thm(
   >- ((* fn v => e *)
       pop_assum mp_tac >>
       asm_simp_tac list_ss [peg_eval_seql_CONS, tokeq_def, peg_eval_tok_SOME] >>
-      strip_tac >> rveq >>
-      asm_simp_tac list_ss [peg_eval_choicel_CONS, peg_eval_seql_CONS,
-                            peg_eval_tok_NONE, peg_eval_tok_SOME] >>
-      simp[disjImpI, elim_disjineq] >>
-      asm_match `peg_eval mmlPEG (i1, nt (mkNT nV) I) (SOME(DarrowT::i2,r1))` >>
-      `peg_eval mmlPEG (FnT::i1, nt (mkNT nEhandle') I) NONE`
-        by simp[firstSet_nFQV, peg_respects_firstSets] >>
-      rpt (first_x_assum (assume_tac o MATCH_MP peg_det)) >> simp[] >>
-      rpt strip_tac >> rveq >>
-      rpt (first_x_assum (assume_tac o MATCH_MP elim_det)) >>
-      asm_match `peg_eval mmlPEG (i2, nt(mkNT nE) I) (SOME(i3,r3))` >>
-      asm_match `peg_eval mmlPEG (i2, nt(mkNT nE') I) (SOME(i4,r4))` >>
-      first_x_assum (qspecl_then [`i2`, `i3`, `i4`, `r3`, `r4`] mp_tac) >>
-      simp[] >> fs[peg_eval_seql_NIL] >> rveq >>
-      imp_res_tac length_no_greater >> fs[] >> asimp[]) >>
+      strip_tac >> rveq >> simp[peg_eval_tok_NONE, eOR_wrongtok]) >>
   pop_assum mp_tac >>
   asm_simp_tac list_ss [peg_eval_choicel_SING, peg_eval_seql_CONS,
                         peg_eval_seql_NIL, peg_eval_tok_SOME, tokeq_def] >>
-  rpt strip_tac >> rveq >> fs[] >>
-  asm_match `peg_eval mmlPEG (CaseT::i1, nt(mkNT nEhandle') I) (SOME(i2,r1))` >>
-  `peg_eval mmlPEG (CaseT::i1, nt(mkNT nEhandle') I) NONE`
-    by simp[firstSet_nFQV, firstSet_nV, firstSet_nConstructorName,
-            peg_respects_firstSets] >>
-  pop_assum (assume_tac o MATCH_MP peg_det) >> fs[])
+  rpt strip_tac >> rveq >> fs[] >> simp[eOR_wrongtok]);
 
 val nestoppers_def = Define`
   nestoppers =
@@ -1178,7 +1052,6 @@ val stoppers_def = Define`
                 firstSet mmlG [NN nAddOps] ∪
                 firstSet mmlG [NN nEbase])) ∧
   (stoppers nEhandle = nestoppers) ∧
-  (stoppers nEhandle' = BarT INSERT nestoppers) ∧
   (stoppers nElist1 = nestoppers DELETE CommaT) ∧
   (stoppers nElist2 = nestoppers DELETE CommaT) ∧
   (stoppers nElogicAND =
@@ -1571,12 +1444,10 @@ val peg_linfix_complete = store_thm(
   first_x_assum (mp_tac o MATCH_MP peg_sound) >> rw[] >>
   simp[mk_linfix_def, left_insert_def]);
 
-
 val peg_eval_NT_NONE = save_thm(
   "peg_eval_NT_NONE",
   ``peg_eval mmlPEG (i0, nt (mkNT n) I) NONE``
      |> SIMP_CONV (srw_ss()) [Once pegTheory.peg_eval_cases])
-
 
 val stdstart =
     simp[Once peg_eval_NT_SOME, mmlpeg_rules_applied, MAP_EQ_CONS] >> rw[] >>
@@ -2091,9 +1962,6 @@ val completeness = store_thm(
                              `ef ++ sfx`, `[ept]`] >> asimp[] >>
       normlist >>
       asimp[])
-  >- (print_tac "nExn" >>
-      simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >> rw[] >>
-      fs[MAP_EQ_CONS, peg_eval_tok_NONE])
   >- (print_tac "nEtyped" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >> rw[] >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
@@ -2176,28 +2044,6 @@ val completeness = store_thm(
       >- (first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
           Cases_on `sfx` >> fs[peg_eval_tok_NONE]) >>
       normlist >> first_assum (unify_firstconj kall_tac) >> asimp[])
-  >- (print_tac "nEhandle'" >>
-      simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >>
-      strip_tac >>
-      fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
-      >- (asm_match `ptree_head ept = NN nElogicOR` >>
-          map_every qexists_tac [`[ept]`, `sfx`, `[]`] >>
-          conj_tac
-          >- (first_x_assum match_mp_tac >> simp[NT_rank_def] >>
-              strip_tac >>
-              fs[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV]) >>
-          simp[peg_eval_tok_NONE] >> DISJ1_TAC >>
-          Cases_on `sfx` >> simp[] >> rw[] >> fs[]) >>
-      asm_match `ptree_head ept = NN nElogicOR` >>
-      asm_match `ptree_head vpt = NN nV` >>
-      asm_match `ptree_fringe vpt = MAP TK vf` >>
-      asm_match `ptree_head e'pt = NN nE'` >>
-      asm_match `MAP TK e'f = ptree_fringe e'pt` >>
-      qexists_tac `[ept]` >> dsimp[] >>
-      map_every qexists_tac [`vf ++ DarrowT::e'f ++ sfx`, `[vpt]`] >>
-      simp[] >> qexists_tac `e'f ++ sfx` >> asimp[] >>
-      normlist >>
-      asimp[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV])
   >- (print_tac "nEhandle" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >>
       strip_tac >>
@@ -2207,14 +2053,10 @@ val completeness = store_thm(
           simp[NT_rank_def, peg_eval_tok_NONE] >> DISJ1_TAC >>
           Cases_on `sfx` >> simp[] >> strip_tac >> fs[]) >>
       asm_match `ptree_head ept = NN nElogicOR` >>
-      asm_match `ptree_head vpt = NN nV` >>
-      asm_match `ptree_fringe vpt = MAP TK vf` >>
-      asm_match `ptree_head e'pt = NN nE` >>
-      asm_match `MAP TK e'f = ptree_fringe e'pt` >>
+      asm_match `ptree_head pespt = NN nPEs` >>
+      asm_match `MAP TK pesf = ptree_fringe pespt` >>
       qexists_tac `[ept]` >> dsimp[] >>
-      map_every qexists_tac [`vf ++ DarrowT::e'f ++ sfx`, `[vpt]`] >>
-      simp[] >> qexists_tac `e'f ++ sfx` >> asimp[] >>
-      normlist >>
+      qexists_tac `pesf ++ sfx` >> normlist >>
       asimp[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV])
   >- (print_tac "nEcomp" >> disch_then assume_tac >>
       simp[peg_eval_NT_SOME, mmlpeg_rules_applied] >>
@@ -2366,28 +2208,17 @@ val completeness = store_thm(
           Q.REFINE_EXISTS_TAC `[somept]` >> simp[] >>
           first_assum (unify_firstconj kall_tac o has_length) >>
           asimp[])
-      >- (asm_simp_tac list_ss [peg_eval_seql_CONS, peg_eval_tok_SOME,
-                                peg_eval_tok_NONE, tokeq_def, pnt_def] >>
-          RW_TAC list_ss [] >>
-          simp_tac list_ss [Once peg_eval_choicel_CONS] >> DISJ2_TAC >>
-          conj_tac >- simp[peg_respects_firstSets, pegf_def,
-                           peg_eval_seq_NONE] >>
-          simp_tac list_ss [Once peg_eval_choicel_CONS] >> DISJ2_TAC >>
-          dsimp[peg_eval_tok_NONE] >>
-          normlist >>
-          Q.REFINE_EXISTS_TAC `[somept]` >> simp[] >>
-          first_assum (unify_firstconj kall_tac o has_length) >>
-          asimp[])
       >- (DISJ1_TAC >> simp[]) >>
       DISJ2_TAC >>
       `0 < LENGTH (MAP TK pfx)`
-        by metis_tac [fringe_length_not_nullable, nullable_Ehandle'] >>
+        by metis_tac [fringe_length_not_nullable, nullable_ElogicOR] >>
       full_simp_tac list_ss [] >> conj_tac
       >- (Cases_on `pfx` >> fs[peg_eval_tok_NONE, disjImpI] >> rw[] >>
           IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
           simp[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV]) >>
       simp_tac std_ss [Once peg_eval_choicel_CONS] >> DISJ1_TAC >>
-      simp[NT_rank_def])
+      simp[NT_rank_def] >> first_x_assum match_mp_tac >> simp[NT_rank_def] >>
+      rpt strip_tac >> fs[] >> pop_assum mp_tac >> simp[])
   >- (print_tac "nE" >>
       simp[Once peg_eval_NT_SOME, mmlpeg_rules_applied, MAP_EQ_CONS] >> rw[] >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
