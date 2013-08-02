@@ -46,8 +46,7 @@ val CONCAT_RULE = PURE_REWRITE_RULE[mk_thm([],mk_eq(``FLAT:string list -> string
 
 val data = map
   (fn th => EmitML.DATATYPE [QUOTE (datatype_thm_to_string th)])
-  [ AstTheory.datatype_error
-  , AstTheory.datatype_opb
+  [ AstTheory.datatype_opb
   , AstTheory.datatype_opn
   , AstTheory.datatype_op
   , AstTheory.datatype_uop
@@ -85,7 +84,6 @@ val defs = map EmitML.DEFN
 , shift_def
 , cbv_def
 , cmap_def
-, error_to_int_def
 , get_label_def
 , compile_envref_def
 , compile_varref_def

@@ -220,7 +220,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (let Ce = (exp_to_Cexp m e) in
   let Cpes = (pes_to_Cpes m pes) in
   let Cpes = ( MAP (\ (p,e) . (p,shift 1 (Cpat_vars p) e)) Cpes) in
-  CLet Ce (remove_mat_var (\ v . CVar (Short v)) 0 Cpes)))
+  CHandle Ce (remove_mat_var (\ v . CVar (Short v)) 0 Cpes)))
 /\
 (exp_to_Cexp m (Raise e) = (CRaise (exp_to_Cexp m e)))
 /\

@@ -42,13 +42,19 @@ val _ = Hol_datatype `
 
 val _ = Define `
  init_compiler_state =  
-(<| contab := ( FUPDATE FEMPTY ( NONE, tuple_cn)
-              ,[(tuple_cn,NONE)]
-              ,1)
+(<| contab := (( FUPDATE 
+               ( FUPDATE 
+               ( FUPDATE 
+               ( FUPDATE FEMPTY ( NONE, tuple_cn)) ( (SOME(Short"Bind")), bind_exc_cn)) ( (SOME(Short"Div")), div_exc_cn)) ( (SOME(Short"Eq")), eq_exc_cn))
+              ,[(eq_exc_cn,SOME(Short"Eq"))
+               ;(div_exc_cn,SOME(Short"Div"))
+               ;(bind_exc_cn,SOME(Short"Bind"))
+               ;(tuple_cn,NONE)]
+              ,4)
    ; renv := []
    ; rmenv := FEMPTY
    ; rsz := 0
-   ; rnext_label := 4
+   ; rnext_label := 0
    |>)`;
 
 
@@ -65,6 +71,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (dec_to_contab mn ct (Dtype ts) = ( FOLDL (\ct p . 
   (case (ct ,p ) of ( ct , (_,_,cs) ) => number_constructors mn cs ct )) ct ts))
+/\
+(dec_to_contab mn ct (Dexn c ts) =  
+(
+  number_constructors mn [(c,ts)] ct))
 /\
 (dec_to_contab _ ct _ = ct)`;
 
@@ -104,6 +114,8 @@ val _ = Define `
  val compile_dec_def = Define `
 
 (compile_dec _ _ _ _ cs (Dtype _) = (NONE, emit cs [Stack (Cons (block_tag +tuple_cn) 0)]))
+/\
+(compile_dec _ _ _ _ cs (Dexn _ _ ) = (NONE, emit cs [Stack (Cons (block_tag +tuple_cn) 0)]))
 /\
 (compile_dec menv m env rsz cs (Dletrec defs) =  
 (let vs = ( MAP (\p . 
@@ -185,6 +197,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  val compile_print_dec_def = Define `
 
 (compile_print_dec (Dtype ts) s = ( compile_print_types ts s))
+/\
+(compile_print_dec (Dexn c xs) s = ( compile_print_types [(([]: tvarN list),"exn",[(c,xs)])] s))
 /\
 (compile_print_dec (Dlet p e) s =  
 (
