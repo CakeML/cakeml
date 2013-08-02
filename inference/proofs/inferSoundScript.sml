@@ -2511,45 +2511,44 @@ rw [check_t_def] >>
 fs [bind_def, check_t_def, check_env_bind, check_env_merge] >>
 ONCE_REWRITE_TAC [type_e_cases] >>
 rw [Tbool_def, Tint_def, Tunit_def] >|
-[cheat,
- cheat,
- cheat,
- cheat,
- (*
- (* Raise *)
+[(* Raise *)
      fs [sub_completion_def, flookup_thm, count_add1, SUBSET_DEF] >>
-     `st.next_uvar < st.next_uvar + 1` by decide_tac >>
+     `st''.next_uvar < st''.next_uvar + 1` by decide_tac >>
      metis_tac [IN_INSERT, check_convert_freevars, prim_recTheory.LESS_REFL],
- (* Handle *)
-     binop_tac,
- (* Handle *)
-     `tenv_inv s
-                 ((x,0,Infer_Tapp [] TC_int)::env) 
-                 (bind_tenv x 0 
-                            (convert_t (t_walkstar s (Infer_Tapp [] TC_int))) 
-                            tenv)`
-             by (match_mp_tac tenv_inv_extend0 >>
-                 rw []) >>
-     `num_tvs tenv = num_tvs (bind_tenv x 0 (convert_t (t_walkstar s (Infer_Tapp [] TC_int))) tenv)`
-             by rw [bind_tenv_def, num_tvs_def] >>
-     fs [bind_tenv_def] >>
-     `check_env (count st''.next_uvar) env`
-                by (fs [] >>
-                    metis_tac [check_env_more, infer_e_next_uvar_mono]) >>
+ (* Raise *)
+     imp_res_tac sub_completion_unify >>
+     `type_e (convert_menv menv) cenv tenv e (convert_t (t_walkstar s t2))` by metis_tac [] >>
      `t_wfs st''.subst` by metis_tac [infer_e_wfs] >>
-     `t_wfs st'''.subst` by metis_tac [infer_e_wfs] >>
-     imp_res_tac sub_completion_unify2 >>
-     `t_wfs (st''' with subst := s').subst`
-                  by (rw [] >> metis_tac [t_unify_wfs]) >>
-     `type_e (convert_menv menv) cenv (Bind_name x 0 (convert_t (t_walkstar s (Infer_Tapp [] TC_int))) tenv) e'
-             (convert_t (t_walkstar s t2))` 
-                   by metis_tac [] >>
-     `t_wfs s` by metis_tac [t_unify_wfs, sub_completion_wfs] >>
      imp_res_tac t_unify_apply >>
-     `t_wfs s'` by metis_tac [t_unify_wfs] >>
-     `t_walkstar s t = t_walkstar s t2` by metis_tac [sub_completion_apply] >>
-     fs [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t_def],
-     *)
+     imp_res_tac sub_completion_apply >>
+     imp_res_tac t_unify_wfs >>
+     fs [] >>
+     rw [] >>
+     imp_res_tac sub_completion_wfs >>
+     fs [t_walkstar_eqn1, convert_t_def, Texn_def],
+ `?ts. sub_completion (num_tvs tenv) st''.next_uvar st''.subst  ts s` 
+              by (imp_res_tac sub_completion_infer_pes >>
+                  fs [] >>
+                  metis_tac [sub_completion_more_vars]) >>
+     metis_tac [],
+ `?ts. sub_completion (num_tvs tenv) st''.next_uvar st''.subst  ts s` 
+              by (imp_res_tac sub_completion_infer_pes >>
+                  fs [] >>
+                  metis_tac [sub_completion_more_vars]) >>
+     rw [RES_FORALL] >>
+     `?p e. x = (p,e)` by (PairCases_on `x` >> metis_tac []) >>
+     rw [] >>
+     `t_wfs st''.subst` by metis_tac [infer_e_wfs] >>
+     `st.next_uvar ≤ st''.next_uvar` by metis_tac [infer_e_next_uvar_mono] >>
+     `check_env (count st''.next_uvar) env` by metis_tac [check_env_more] >>
+     `type_pes (convert_menv menv) cenv tenv pes (convert_t (t_walkstar s (Infer_Tapp [] TC_exn))) (convert_t (t_walkstar s t))`
+              by metis_tac [] >>
+     fs [type_pes_def, RES_FORALL] >>
+     pop_assum (mp_tac o Q.SPEC `(p,e')`) >>
+     rw [Texn_def] >>
+     imp_res_tac sub_completion_wfs >>
+     fs [t_walkstar_eqn1, convert_t_def, Texn_def] >>
+     metis_tac [],
  (* Lit bool *)
      binop_tac,
  (* Lit int *)
