@@ -145,7 +145,7 @@ val mmlG_def = mk_grammar_def ginfo
  Ehandle ::= ElogicOR | ElogicOR "handle" PEs ;
  E ::= "if" E "then" E "else" E | "case" E "of" PEs | "fn" V "=>" E | "raise" E
     |  Ehandle;
- E' ::= "if" E "then" E "else" E' | "fn" V "=>" E' | "raise" E' | ElogicOR ;
+ E' ::= "if" E "then" E "else" E' | "raise" E' | ElogicOR ;
 
  (* function and value declarations *)
  FDecl ::= V Vlist1 "=" E ;

@@ -802,19 +802,7 @@ val peg_sound = store_thm(
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``nE'``) o concl)) >>
           rpt kill_asm_guard >> strip_tac >> rveq >>
-          dsimp[cmlG_applied, cmlG_FDOM])
-      >- ((* fn x => e case *) loseC ``NT_rank`` >>
-          rpt (qpat_assum `peg_eval G X NONE` (K ALL_TAC)) >>
-          first_assum (fn patth =>
-            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                         assert (free_in ``nV``) o concl)) >>
-          rpt kill_asm_guard >> strip_tac >> rveq >>
-          first_assum (assume_tac o MATCH_MP length_no_greater o
-                       assert (free_in ``nV`` o concl)) >> fs[] >>
-          first_x_assum (fn patth =>
-            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                         assert (free_in ``nE'``) o concl)) >>
-          asimp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]) >>
+          dsimp[cmlG_applied, cmlG_FDOM]) >>
       (* bogus raise ElogicOR case *)
       loseC ``LENGTH`` >> first_x_assum (fn patth =>
         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>

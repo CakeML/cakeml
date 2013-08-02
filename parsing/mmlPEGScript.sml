@@ -237,9 +237,7 @@ val mmlPEG_def = zDefine`
                choicel [seql [tokeq RaiseT; pnt nE'] (bindNT nE');
                         pegf (pnt nElogicOR) (bindNT nE');
                         seql [tokeq IfT; pnt nE; tokeq ThenT; pnt nE;
-                              tokeq ElseT; pnt nE'] (bindNT nE');
-                        seql [tokeq FnT; pnt nV; tokeq DarrowT; pnt nE']
-                             (bindNT nE')]);
+                              tokeq ElseT; pnt nE'] (bindNT nE')]);
               (mkNT nPEs,
                choicel [seql [pnt nPE'; tokeq BarT; pnt nPEs] (bindNT nPEs);
                         pegf (pnt nPE) (bindNT nPEs)]);
