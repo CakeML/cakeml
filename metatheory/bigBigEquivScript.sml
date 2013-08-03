@@ -932,11 +932,6 @@ val check_ctors_result4_def = Define `
   EVERY (λ(x,v). check_ctors_v cenv v) env) ∧
 (check_ctors_result4 cenv _ = T)`;
 
-val dec_to_cenv_def = Define `
-(dec_to_cenv mn (Dtype tds) = build_tdefs mn tds) ∧
-(dec_to_cenv mn (Dexn cn ts) = bind (mk_id mn cn) (LENGTH ts, TypeExn) emp) ∧
-(dec_to_cenv mn _ = [])`;
-
 val check_ctors_decs_def = Define `
 (check_ctors_decs mn cenv [] = T) ∧
 (check_ctors_decs mn cenv (d::ds) = 

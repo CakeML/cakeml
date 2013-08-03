@@ -54,19 +54,6 @@ val strip_mod_env_def = Define `
 strip_mod_env tenvM =
   MAP (\(n,tenv). (n,[])) tenvM`;
 
-val dec_to_cenv_def = Define `
-(dec_to_cenv mn (Dtype tds) = build_tdefs mn tds) ∧
-(dec_to_cenv mn (Dexn cn ts) = bind (mk_id mn cn) (LENGTH ts,TypeExn) emp) ∧
-(dec_to_cenv mn _ = [])`;
-
-val decs_to_cenv_def = Define `
-(decs_to_cenv mn [] = []) ∧
-(decs_to_cenv mn (d::ds) = decs_to_cenv mn ds ++ dec_to_cenv mn d)`;
-
-val top_to_cenv_def = Define `
-(top_to_cenv (Tdec d) = dec_to_cenv NONE d) ∧
-(top_to_cenv (Tmod mn _ ds) = decs_to_cenv (SOME mn) ds)`;
-
 val update_repl_state_def = Define `
 update_repl_state ast state type_bindings ctors tenvM tenvC tenv store envC r =
   case r of
