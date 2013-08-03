@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib miscLib boolSimps pairTheory listTheory rich_listTheory pred_setTheory finite_mapTheory relationTheory SatisfySimps arithmeticTheory quantHeuristicsLib lcsymtacs
-open miscTheory semanticsExtraTheory CompilerLibTheory CompilerPrimitivesTheory IntLangTheory ToIntLangTheory compilerTerminationTheory
+open miscTheory semanticsExtraTheory CompilerLibTheory IntLangTheory ToIntLangTheory compilerTerminationTheory
 val _ = new_theory "intLangExtra"
 
 (* compilerLibExtra *)
@@ -1158,10 +1158,10 @@ EVERY2_trans
 val result_rel_syneq_refl = save_thm(
 "result_rel_syneq_refl",
 result_rel_refl
-|> Q.GEN`R`
+|> Q.GENL[`R2`,`R1`]
 |> Q.ISPEC`syneq`
 |> SIMP_RULE std_ss [syneq_refl])
-val _ = export_rewrites["result_rel_syneq_refl"]
+(*val _ = export_rewrites["result_rel_syneq_refl"]*)
 
 val Cresult_rel_syneq_refl = save_thm(
 "Cresult_rel_syneq_refl",
@@ -1182,12 +1182,13 @@ val _ = export_rewrites["Cresult_rel_syneq_refl"]
 val result_rel_syneq_trans = save_thm(
 "result_rel_syneq_trans",
 result_rel_trans
-|> Q.GEN`R`
+|> Q.GEN`R1`
 |> Q.ISPEC`syneq`
 |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
 |> UNDISCH
 |> (fn th => PROVE_HYP (PROVE[syneq_trans](hd(hyp th))) th)
-|> SIMP_RULE std_ss [AND_IMP_INTRO])
+|> SIMP_RULE std_ss [AND_IMP_INTRO]
+|> Q.GEN`R2`)
 
 val Cresult_rel_syneq_trans = save_thm(
 "Cresult_rel_syneq_trans",
