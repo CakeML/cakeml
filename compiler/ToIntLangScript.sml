@@ -193,7 +193,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val remove_mat_var_defn = Hol_defn "remove_mat_var" `
 
-(remove_mat_var b v [] = (CRaise (b v)))
+(remove_mat_var b v [] = (CRaise (if b then CVar (Short v) else CBind_exc)))
 /\
 (remove_mat_var b v ((p,sk)::pes) =  
 (CLetrec [(NONE, (0,shift 1 0 (remove_mat_var b v pes)))]
@@ -220,7 +220,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (let Ce = (exp_to_Cexp m e) in
   let Cpes = (pes_to_Cpes m pes) in
   let Cpes = ( MAP (\ (p,e) . (p,shift 1 (Cpat_vars p) e)) Cpes) in
-  CHandle Ce (remove_mat_var (\ v . CVar (Short v)) 0 Cpes)))
+  CHandle Ce (remove_mat_var T 0 Cpes)))
 /\
 (exp_to_Cexp m (Raise e) = (CRaise (exp_to_Cexp m e)))
 /\
@@ -306,8 +306,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (let Ce = (exp_to_Cexp m e) in
   let Cpes = (pes_to_Cpes m pes) in
   let Cpes = ( MAP (\ (p,e) . (p,shift 1 (Cpat_vars p) e)) Cpes) in
-  CLet Ce (remove_mat_var (\n . 
-  (case (n ) of ( _ ) => CBind_exc )) 0 Cpes)))
+  CLet Ce (remove_mat_var F 0 Cpes)))
 /\
 (exp_to_Cexp m (Let vn e b) =  
 (let Ce = (exp_to_Cexp m e) in

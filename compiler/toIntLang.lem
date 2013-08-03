@@ -158,7 +158,7 @@ remove_mat_con fk sk v n (p::ps) =
       0 p)
 
 let rec
-remove_mat_var b v [] = CRaise (b v)
+remove_mat_var b v [] = CRaise (if b then CVar (Short v) else CBind_exc)
 and
 remove_mat_var b v ((p,sk)::pes) =
   CLetrec [(None, (0,shift 1 0 (remove_mat_var b v pes)))]
@@ -180,7 +180,7 @@ exp_to_Cexp m (Handle e pes) =
   let Ce = exp_to_Cexp m e in
   let Cpes = pes_to_Cpes m pes in
   let Cpes = List.map (fun (p,e) -> (p,shift 1 (Cpat_vars p) e)) Cpes in
-  CHandle Ce (remove_mat_var (fun v -> CVar (Short v)) 0 Cpes)
+  CHandle Ce (remove_mat_var true 0 Cpes)
 and
 exp_to_Cexp m (Raise e) = CRaise (exp_to_Cexp m e)
 and
@@ -266,7 +266,7 @@ exp_to_Cexp m (Mat e pes) =
   let Ce = exp_to_Cexp m e in
   let Cpes = pes_to_Cpes m pes in
   let Cpes = List.map (fun (p,e) -> (p,shift 1 (Cpat_vars p) e)) Cpes in
-  CLet Ce (remove_mat_var (fun _ -> CBind_exc) 0 Cpes)
+  CLet Ce (remove_mat_var false 0 Cpes)
 and
 exp_to_Cexp m (Let vn e b) =
   let Ce = exp_to_Cexp m e in
