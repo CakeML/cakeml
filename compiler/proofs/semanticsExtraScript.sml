@@ -1685,7 +1685,7 @@ val _ = export_rewrites["exc_rel_raise1","exc_rel_raise2","exc_rel_type_error","
 
 val result_rel_def = Define`
 (result_rel R1 _ (Rval v1) (Rval v2) = R1 v1 v2) ∧
-(result_rel _ R2 (Rerr e1) (Rerr e2) = R2 e1 e2) ∧
+(result_rel _ R2 (Rerr e1) (Rerr e2) = exc_rel R2 e1 e2) ∧
 (result_rel _ _ _ _ = F)`
 val _ = export_rewrites["result_rel_def"]
 
@@ -1695,11 +1695,11 @@ val result_rel_Rval = store_thm(
 Cases_on `r` >> rw[])
 val result_rel_Rerr1 = store_thm(
 "result_rel_Rerr1",
-``result_rel R1 R2 (Rerr e) r = ∃e'. (r = Rerr e') ∧ R2 e e'``,
+``result_rel R1 R2 (Rerr e) r = ∃e'. (r = Rerr e') ∧ exc_rel R2 e e'``,
 Cases_on `r` >> rw[EQ_IMP_THM])
 val result_rel_Rerr2 = store_thm(
 "result_rel_Rerr2",
-``result_rel R1 R2 r (Rerr e) = ∃e'. (r = Rerr e') ∧ R2 e' e``,
+``result_rel R1 R2 r (Rerr e) = ∃e'. (r = Rerr e') ∧ exc_rel R2 e' e``,
 Cases_on `r` >> rw[EQ_IMP_THM])
 val _ = export_rewrites["result_rel_Rval","result_rel_Rerr1","result_rel_Rerr2"]
 
