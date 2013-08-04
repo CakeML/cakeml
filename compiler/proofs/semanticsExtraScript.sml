@@ -205,11 +205,13 @@ val pmatch_tac =
     metis_tac[APPEND_ASSOC]) >>
   rw[pmatch_def]
 
+val cenv = rand ``pmatch cenv``
+
 val pmatch_dom = store_thm("pmatch_dom",
-  ``(∀(cenv:envC) s p v env env' (menv:envM).
+  ``(∀^cenv s p v env env' (menv:envM).
       (pmatch cenv s p v env = Match env') ⇒
       (MAP FST env' = pat_bindings p [] ++ (MAP FST env))) ∧
-    (∀(cenv:envC) s ps vs env env' (menv:envM).
+    (∀^cenv s ps vs env env' (menv:envM).
       (pmatch_list cenv s ps vs env = Match env') ⇒
       (MAP FST env' = pats_bindings ps [] ++ MAP FST env))``,
     pmatch_tac)
@@ -360,7 +362,7 @@ BasicProvers.EVERY_CASE_TAC >>
 rw[] >>rw[])
 
 val evaluate_dec_new_dec_vs = store_thm("evaluate_dec_new_dec_vs",
-  ``∀mn menv (cenv:envC) s env dec res.
+  ``∀mn menv cenv s env dec res.
     evaluate_dec mn menv cenv s env dec res ⇒
     ∀tds vs. (SND res = Rval (tds,vs)) ⇒ MAP FST vs = new_dec_vs dec``,
   ho_match_mp_tac evaluate_dec_ind >>
@@ -431,10 +433,10 @@ val _ = export_rewrites["map_match_def"]
 
 val pmatch_APPEND = store_thm(
 "pmatch_APPEND",
-``(∀(cenv:envC) s p v env n.
+``(∀^cenv s p v env n.
     (pmatch cenv s p v env =
      map_match (combin$C APPEND (DROP n env)) (pmatch cenv s p v (TAKE n env)))) ∧
-  (∀(cenv:envC) s ps vs env n.
+  (∀^cenv s ps vs env n.
     (pmatch_list cenv s ps vs env =
      map_match (combin$C APPEND (DROP n env)) (pmatch_list cenv s ps vs (TAKE n env))))``,
 ho_match_mp_tac pmatch_ind >>
@@ -517,9 +519,9 @@ val pmatch_nil = save_thm("pmatch_nil",
   ])
 
 val pmatch_extend_cenv = store_thm("pmatch_extend_cenv",
-  ``(∀(cenv:envC) s p v env id x. id ∉ set (MAP FST cenv) ∧ pmatch cenv s p v env ≠ Match_type_error
+  ``(∀^cenv s p v env id x. id ∉ set (MAP FST cenv) ∧ pmatch cenv s p v env ≠ Match_type_error
     ⇒ pmatch ((id,x)::cenv) s p v env = pmatch cenv s p v env) ∧
-    (∀(cenv:envC) s ps vs env id x. id ∉ set (MAP FST cenv) ∧ pmatch_list cenv s ps vs env ≠ Match_type_error
+    (∀^cenv s ps vs env id x. id ∉ set (MAP FST cenv) ∧ pmatch_list cenv s ps vs env ≠ Match_type_error
     ⇒ pmatch_list ((id,x)::cenv) s ps vs env = pmatch_list cenv s ps vs env)``,
   ho_match_mp_tac pmatch_ind >>
   rw[pmatch_def] >> rw[] >>
@@ -625,12 +627,12 @@ val do_app_all_cns = store_thm("do_app_all_cns",
      metis_tac[]));
 
 val pmatch_all_cns = store_thm("pmatch_all_cns",
-  ``(∀(cenv:envC) s p v env env'. (pmatch cenv s p v env = Match env') ⇒
+  ``(∀^cenv s p v env env'. (pmatch cenv s p v env = Match env') ⇒
     BIGUNION (IMAGE all_cns (env_range env')) ⊆
     all_cns v ∪
     BIGUNION (IMAGE all_cns (env_range env)) ∪
     BIGUNION (IMAGE all_cns (set s))) ∧
-    (∀(cenv:envC) s ps vs env env'. (pmatch_list cenv s ps vs env = Match env') ⇒
+    (∀^cenv s ps vs env env'. (pmatch_list cenv s ps vs env = Match env') ⇒
     BIGUNION (IMAGE all_cns (env_range env')) ⊆
     BIGUNION (IMAGE all_cns (set vs)) ∪
     BIGUNION (IMAGE all_cns (env_range env)) ∪
@@ -684,19 +686,19 @@ val cenv_bind_div_eq_append = store_thm("cenv_bind_div_eq_append",
   fs[MEM_MAP,FORALL_PROD] >> Cases_on`x` >> metis_tac[])
 
 val evaluate_all_cns = store_thm("evaluate_all_cns",
-  ``(∀ck menv (cenv:envC) s env exp res. evaluate ck menv cenv s env exp res ⇒
+  ``(∀ck menv cenv s env exp res. evaluate ck menv cenv s env exp res ⇒
        cenv_bind_div_eq cenv ∧
        all_cns_exp exp ⊆ cenv_dom cenv ∧
        (∀v. v ∈ menv_range menv ∨ v ∈ env_range env ∨ MEM v (SND s) ⇒ all_cns v ⊆ cenv_dom cenv) ⇒
        every_result (λv. all_cns v ⊆ cenv_dom cenv) (λv. all_cns v ⊆ cenv_dom cenv) (SND res) ∧
        (∀v. MEM v (SND (FST res)) ⇒ all_cns v ⊆ cenv_dom cenv)) ∧
-    (∀ck menv (cenv:envC) s env exps ress. evaluate_list ck menv cenv s env exps ress ⇒
+    (∀ck menv cenv s env exps ress. evaluate_list ck menv cenv s env exps ress ⇒
        cenv_bind_div_eq cenv ∧
        all_cns_list exps ⊆ cenv_dom cenv ∧
        (∀v. v ∈ menv_range menv ∨ v ∈ env_range env ∨ MEM v (SND s) ⇒ all_cns v ⊆ cenv_dom cenv) ⇒
        every_result (EVERY (λv. all_cns v ⊆ cenv_dom cenv)) (λv. all_cns v ⊆ cenv_dom cenv) (SND ress) ∧
        (∀v. MEM v (SND (FST ress)) ⇒ all_cns v ⊆ cenv_dom cenv)) ∧
-    (∀ck menv (cenv:envC) s env v pes errv res. evaluate_match ck menv cenv s env v pes errv res ⇒
+    (∀ck menv cenv s env v pes errv res. evaluate_match ck menv cenv s env v pes errv res ⇒
       cenv_bind_div_eq cenv ∧
       all_cns_pes pes ⊆ cenv_dom cenv ∧
       (∀v. v ∈ menv_range menv ∨ v ∈ env_range env ∨ MEM v (SND s) ⇒ all_cns v ⊆ cenv_dom cenv)
@@ -849,7 +851,7 @@ val evaluate_dec_new_dec_cns = store_thm("evaluate_dec_new_dec_cns",
   simp[MAP_EQ_f,FORALL_PROD,MAP_MAP_o])
 
 val evaluate_dec_all_cns = store_thm("evaluate_dec_all_cns",
-  ``∀mn menv (cenv:envC) s env dec res.
+  ``∀mn menv cenv s env dec res.
     evaluate_dec mn menv cenv s env dec res ⇒
     (∀v. MEM v (FLAT (MAP (MAP SND o SND) menv)) ∨ MEM v (MAP SND env) ∨ MEM v s ⇒ all_cns v ⊆ cenv_dom cenv)
     ∧ dec_cns dec ⊆ cenv_dom cenv
@@ -916,12 +918,12 @@ val do_app_locs = store_thm("do_app_locs",
   fs[MEM_MAP,UNCURRY] >> rpt BasicProvers.VAR_EQ_TAC >> fs[] >> fs[MEM_MAP] >> metis_tac[])
 
 val pmatch_locs = store_thm("pmatch_locs",
-  ``(∀(cenv:envC) s p w env env'.
+  ``(∀^cenv s p w env env'.
         pmatch cenv s p w env = Match env' ∧
         (∀v. MEM v (MAP SND env) ∨ v = w ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s))
         ⇒
         (∀v. MEM v (MAP SND env') ⇒ all_locs v ⊆ count (LENGTH s))) ∧
-    (∀(cenv:envC) s ps ws env env'.
+    (∀^cenv s ps ws env env'.
         pmatch_list cenv s ps ws env = Match env' ∧
         (∀v. MEM v (MAP SND env) ∨ MEM v ws ∨ MEM v s ⇒ all_locs v ⊆ count (LENGTH s))
         ⇒
@@ -996,19 +998,19 @@ val tac =
   metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS,arithmeticTheory.LESS_EQ_TRANS]
 
 val evaluate_locs = store_thm("evaluate_locs",
-  ``(∀ck menv (cenv:envC) cs env e res. evaluate ck menv cenv cs env e res ⇒
+  ``(∀ck menv ^cenv cs env e res. evaluate ck menv cenv cs env e res ⇒
        (∀v. v ∈ menv_range menv ∨ MEM v (SND cs) ∨ v ∈ env_range env ⇒ all_locs v ⊆ count (LENGTH (SND cs)))
        ⇒
        LENGTH (SND cs) ≤ LENGTH (SND (FST res)) ∧
        every_result (λv. all_locs v ⊆ count (LENGTH (SND (FST res)))) (λv. all_locs v ⊆ count (LENGTH (SND (FST res)))) (SND res) ∧
        (∀v. MEM v (SND (FST res)) ⇒ all_locs v ⊆ count (LENGTH (SND (FST res))))) ∧
-    (∀ck menv (cenv:envC) cs env e res. evaluate_list ck menv cenv cs env e res ⇒
+    (∀ck menv ^cenv cs env e res. evaluate_list ck menv cenv cs env e res ⇒
        (∀v. v ∈ menv_range menv ∨ MEM v (SND cs) ∨ v ∈ env_range env ⇒ all_locs v ⊆ count (LENGTH (SND cs)))
        ⇒
        LENGTH (SND cs) ≤ LENGTH (SND (FST res)) ∧
        every_result (EVERY (λv. all_locs v ⊆ count (LENGTH (SND (FST res))))) (λv. all_locs v ⊆ count (LENGTH (SND (FST res)))) (SND res) ∧
        (∀v. MEM v (SND (FST res)) ⇒ all_locs v ⊆ count (LENGTH (SND (FST res))))) ∧
-    (∀ck menv (cenv:envC) cs env w pes errv res. evaluate_match ck menv cenv cs env w pes errv res ⇒
+    (∀ck menv ^cenv cs env w pes errv res. evaluate_match ck menv cenv cs env w pes errv res ⇒
        (∀v. v = w ∨ v = errv ∨ v ∈ menv_range menv ∨ MEM v (SND cs) ∨ v ∈ env_range env ⇒ all_locs v ⊆ count (LENGTH (SND cs)))
        ⇒
        LENGTH (SND cs) ≤ LENGTH (SND (FST res)) ∧
@@ -1260,13 +1262,13 @@ ntac 4 gen_tac >> Cases
   PROVE_TAC[MEM_LUPDATE,closed_lit,closed_conv,EVERY_MEM,closed_loc]));
 
 val pmatch_closed = store_thm("pmatch_closed",
-  ``(∀(cenv:envC) s p v env env' (menv:envM).
+  ``(∀^cenv s p v env env' (menv:envM).
       EVERY (closed menv) (MAP SND env) ∧ closed menv v ∧
       EVERY (closed menv) s ∧
       (pmatch cenv s p v env = Match env') ⇒
       EVERY (closed menv) (MAP SND env') ∧
       (MAP FST env' = pat_bindings p [] ++ (MAP FST env))) ∧
-    (∀(cenv:envC) s ps vs env env' (menv:envM).
+    (∀^cenv s ps vs env env' (menv:envM).
       EVERY (closed menv) (MAP SND env) ∧ EVERY (closed menv) vs ∧
       EVERY (closed menv) s ∧
       (pmatch_list cenv s ps vs env = Match env') ⇒
@@ -1288,7 +1290,7 @@ val do_uapp_closed = store_thm("do_uapp_closed",
 
 val evaluate_closed = store_thm(
 "evaluate_closed",
-``(∀ck menv (cenv:envC) s env exp res.
+``(∀ck menv ^cenv s env exp res.
    evaluate ck menv cenv s env exp res ⇒
    FV exp ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
    EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
@@ -1297,7 +1299,7 @@ val evaluate_closed = store_thm(
    ⇒
    EVERY (closed menv) (SND (FST res)) ∧
    every_result (closed menv) (closed menv) (SND res)) ∧
-  (∀ck menv (cenv:envC) s env exps ress.
+  (∀ck menv ^cenv s env exps ress.
    evaluate_list ck menv cenv s env exps ress ⇒
    FV_list exps ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
    EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
@@ -1306,7 +1308,7 @@ val evaluate_closed = store_thm(
    ⇒
    EVERY (closed menv) (SND (FST ress)) ∧
    every_result (EVERY (closed menv)) (closed menv) (SND ress)) ∧
-  (∀ck menv (cenv:envC) s env v pes errv res.
+  (∀ck menv ^cenv s env v pes errv res.
    evaluate_match ck menv cenv s env v pes errv res ⇒
    FV_pes pes ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
    EVERY (EVERY (closed menv) o MAP SND) (MAP SND menv) ∧
@@ -1421,7 +1423,7 @@ strip_tac (* Match *) >- rw[] >>
 rw[])
 
 val closed_under_cenv_def = Define`
-  closed_under_cenv (cenv:envC) (menv:envM) env s =
+  closed_under_cenv cenv (menv:envM) env s =
   (∀v. v ∈ menv_range menv ∨ v ∈ env_range env ∨ MEM v s ⇒ all_cns v ⊆ cenv_dom cenv)`
 
 val closed_under_menv_def = Define`
@@ -1500,9 +1502,9 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
   TRY (
     fs[closed_context_def] >>
     qmatch_assum_abbrev_tac`evaluate ck menv cenv s0 env e res` >>
-    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac(CONJUNCT1 evaluate_closed) >>
-    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac evaluate_closed_under_cenv >>
-    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac (CONJUNCT1 evaluate_locs) >>
+    Q.ISPECL_THEN[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac(CONJUNCT1 evaluate_closed) >>
+    Q.ISPECL_THEN[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac evaluate_closed_under_cenv >>
+    Q.ISPECL_THEN[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac (CONJUNCT1 evaluate_locs) >>
     UNABBREV_ALL_TAC >> simp[] >> ntac 3 strip_tac >>
     qpat_assum`P ⇒ Q`mp_tac >>
     discharge_hyps >- metis_tac[] >> strip_tac >>
@@ -1512,13 +1514,13 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
   >- (
     fs[closed_context_def] >>
     qmatch_assum_abbrev_tac`evaluate ck menv cenv s0 env e res` >>
-    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac(CONJUNCT1 evaluate_closed) >>
-    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac evaluate_closed_under_cenv >>
-    qspecl_then[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac (CONJUNCT1 evaluate_locs) >>
+    Q.ISPECL_THEN[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac(CONJUNCT1 evaluate_closed) >>
+    Q.ISPECL_THEN[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac evaluate_closed_under_cenv >>
+    Q.ISPECL_THEN[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac (CONJUNCT1 evaluate_locs) >>
     UNABBREV_ALL_TAC >> simp[] >> ntac 3 strip_tac >>
     qpat_assum`P ⇒ Q`mp_tac >>
     discharge_hyps >- metis_tac[] >> strip_tac >>
-    qspecl_then[`cenv`,`s'`,`p`,`v`,`emp`]mp_tac(CONJUNCT1 pmatch_closed) >>
+    qspecl_then[`cenv`,`s'`,`p`,`v`,`emp`]mp_tac(INST_TYPE[alpha|->``:tid_or_exn``](CONJUNCT1 pmatch_closed)) >>
     simp[] >> disch_then(qspec_then`menv`mp_tac) >>
     simp[LibTheory.emp_def] >> strip_tac >>
     conj_tac >- (
@@ -1531,7 +1533,7 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
     conj_tac >- metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS] >>
     conj_tac >- (
-      qspecl_then[`cenv`,`s'`,`p`,`v`,`emp`,`env'`]mp_tac(CONJUNCT1 pmatch_locs) >>
+      qspecl_then[`cenv`,`s'`,`p`,`v`,`emp`,`env'`]mp_tac(INST_TYPE[alpha|->``:tid_or_exn``](CONJUNCT1 pmatch_locs)) >>
       discharge_hyps >- (
         simp[] >>
         fsrw_tac[DNF_ss][LibTheory.emp_def,SUBSET_DEF] >>

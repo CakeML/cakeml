@@ -1236,7 +1236,7 @@ val free_vars_defs_MAP = store_thm("free_vars_defs_MAP",
   gen_tac >> Induct >> simp[])
 
 val good_cmap_def = Define`
-  good_cmap (cenv:envC) m ⇔
+  good_cmap cenv m ⇔
     ALL_DISTINCT (MAP FST cenv) ∧
     NONE ∈ FDOM m ∧
     (!p1. MEM p1 cenv ⇒ FAPPLY m (SOME (FST p1)) ≠ FAPPLY m NONE) ∧
