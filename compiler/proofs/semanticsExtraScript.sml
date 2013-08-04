@@ -414,7 +414,7 @@ fs[])
 val evaluate_nicematch_strongind = save_thm(
 "evaluate_nicematch_strongind",
 evaluate_strongind
-|> INST_TYPE[alpha|->``:string id``]
+|> INST_TYPE[alpha|->``:tid_or_exn``]
 |> Q.SPECL [`P0`,`P1`,`λck menv. evaluate_match_with (λcenv cs env pe bv. P0 ck menv cenv cs env (SND pe) bv)`] |> SIMP_RULE (srw_ss()) []
 |> UNDISCH_ALL
 |> CONJUNCTS
