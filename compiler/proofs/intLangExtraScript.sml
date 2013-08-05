@@ -539,13 +539,10 @@ val every_Cresult_P1 = store_thm("every_Cresult_P1",
 val _ = export_rewrites["every_Cresult_P1"]
 
 val Cmap_result_def = Define`
-  (Cmap_result f (Rval v) = Cval (f v)) ∧
-  (Cmap_result f (Rerr (Rraise Bind_error)) = Cexc (Craise CBind_excv)) ∧
-  (Cmap_result f (Rerr (Rraise Div_error)) = Cexc (Craise CDiv_excv)) ∧
-  (Cmap_result f (Rerr (Rraise Eq_error)) = Cexc (Craise CEq_excv)) ∧
-  (Cmap_result f (Rerr (Rraise (Int_error n))) = Cexc (Craise (CLitv (IntLit n)))) ∧
-  (Cmap_result f (Rerr Rtype_error) = Cexc Ctype_error) ∧
-  (Cmap_result f (Rerr Rtimeout_error) = Cexc Ctimeout_error)`
+  (Cmap_result f1 _ (Rval v) = Cval (f1 v)) ∧
+  (Cmap_result _ f2 (Rerr (Rraise v)) = Cexc (Craise (f2 v))) ∧
+  (Cmap_result _ _ (Rerr Rtype_error) = Cexc Ctype_error) ∧
+  (Cmap_result _ _ (Rerr Rtimeout_error) = Cexc Ctimeout_error)`
 val _ = export_rewrites["Cmap_result_def"]
 
 (* Cevaluate functional equations *)
@@ -1239,6 +1236,9 @@ val good_cmap_def = Define`
   good_cmap cenv m ⇔
     ALL_DISTINCT (MAP FST cenv) ∧
     NONE ∈ FDOM m ∧
+    FLOOKUP m (SOME (Short "Bind")) = SOME bind_exc_cn ∧
+    FLOOKUP m (SOME (Short "Div")) = SOME div_exc_cn ∧
+    FLOOKUP m (SOME (Short "Eq")) = SOME eq_exc_cn ∧
     (!p1. MEM p1 cenv ⇒ FAPPLY m (SOME (FST p1)) ≠ FAPPLY m NONE) ∧
     ∀p1 p2.
       MEM p1 cenv ∧ MEM p2 cenv ⇒

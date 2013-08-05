@@ -571,7 +571,7 @@ val evaluate_match_with_matchres_closed = store_thm("evaluate_match_with_matchre
   rw[])
 
 val evaluate_match_with_matchres_all_cns = store_thm("evaluate_match_with_matchres_all_cns",
-  ``∀(pes:(pat,'a)alist) errv r. evaluate_match_with (matchres env) ^cenv s env v pes errv r ⇒
+  ``∀pes errv r. evaluate_match_with (matchres env) ^cenv s env v pes errv r ⇒
             (∀w. MEM w (SND s) ∨ MEM w (MAP SND env) ∨ (w = v) ⇒ all_cns w ⊆ cenv_dom cenv) ⇒
             (∀v. MEM v (SND (FST r)) ⇒ all_cns v ⊆ cenv_dom cenv) ∧
             every_result (λ(menv,mr). ∀v. MEM v (MAP SND menv) ⇒ all_cns v ⊆ cenv_dom cenv) (λv. v = errv) (SND r) ``,
