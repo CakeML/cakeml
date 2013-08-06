@@ -186,11 +186,12 @@ void run(inst code[]) {
 	else {
 	  block = malloc(code[pc].args.two_num.num2 * sizeof(value));
 	  for (i = 0; i < code[pc].args.two_num.num2; i++)
-		  block[i] = stack[sp-1-code[pc].args.two_num.num2+i];
+		  block[i] = stack[sp-code[pc].args.two_num.num2+i];
 	  sp -= code[pc].args.two_num.num2;
 	  stack[sp].tag = CONS + code[pc].args.two_num.num1;
 	  stack[sp].block.values = block;
 	  stack[sp].block.length = code[pc].args.two_num.num2;
+	  sp++;
 	}
 	pc++;
 	break;
@@ -216,7 +217,7 @@ void run(inst code[]) {
 	pc++;
 	break;
       case TAG_EQ_T:
-	stack[sp-1].tag = bool_to_tag(stack[sp-1].tag == code[pc].args.num);
+	stack[sp-1].tag = bool_to_tag(stack[sp-1].tag == code[pc].args.num + CONS);
 	pc++;
 	break;
       case IS_BLOCK_T:
@@ -358,9 +359,9 @@ void run(inst code[]) {
       case HALT_T:
 	return;
     }
-    fflush(stdout);
-    exit(1);
   }
+  printf("invalid instruction\n");
+  exit(1);
 }
 
 int main(int argc, char** argv) {
@@ -380,7 +381,7 @@ int main(int argc, char** argv) {
   fclose(yyin);
   prog_array = inst_list_to_array(parse_result, inst_list_length(parse_result));
   run(prog_array);
-  fflush(stdout);
 
+  printf("\n");
   return 0;
 }

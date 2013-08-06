@@ -39,7 +39,6 @@
 "mod" return MOD_T;
 "<" return LESS_T;
 
-"stack" return STACK_T;
 "label" return LABEL_T;
 "jump" return JUMP_T;
 "jumpIf" return JUMP_IF_T;
