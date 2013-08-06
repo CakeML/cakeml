@@ -388,6 +388,7 @@ val evaluate_top_closed_context = store_thm("evaluate_top_closed_context",
   ``∀menv cenv s env top s' cenv' res.
     evaluate_top menv cenv s env top (s',cenv',res) ∧
     closed_context menv cenv s env ∧
+    cenv_bind_div_eq cenv ∧
     FV_top top ⊆ set (MAP (Short o FST) env) ∪ menv_dom menv ∧
     top_cns top ⊆ cenv_dom cenv
     ⇒
@@ -402,15 +403,16 @@ val evaluate_top_closed_context = store_thm("evaluate_top_closed_context",
     metis_tac[closed_context_shift_menv] )
   >- (
     imp_res_tac evaluate_decs_closed_context >>
-    fs[LET_THM] )
+    pop_assum mp_tac >> simp[] >>
+    BasicProvers.CASE_TAC >> fs[])
   >- (
     imp_res_tac evaluate_dec_closed_context >>
     fs[] >> fs[LET_THM] >>
     Cases_on`d`>>fs[] )
   >- (
     imp_res_tac evaluate_dec_closed_context >>
-    fs[] >> fs[LET_THM] >>
-    Cases_on`d`>>fs[] ));
+    pop_assum mp_tac >> simp[] >>
+    BasicProvers.CASE_TAC >> fs[]));
 
 val strip_mod_env_append = store_thm("strip_mod_env_append",
   ``strip_mod_env (ls ++ l2) = strip_mod_env ls ++ strip_mod_env l2``,
