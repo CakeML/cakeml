@@ -45,7 +45,7 @@ inst* inst_list_to_array(inst_list *l, unsigned long length) {
 #define BLOCK_TAG 4
 
 struct value {
-  long tag;
+  long long tag;
   union { long number; struct { long length; struct value *values; } block; };
 };
 
@@ -124,8 +124,14 @@ int equal(value v1, value v2) {
     }
 }
 
-value stack[1000000];
-value refs[1000000];
+#define STACK_SIZE 1000000
+#define REF_SIZE 1000000
+
+value stack[STACK_SIZE];
+value refs[REF_SIZE];
+
+#define CHECK_STACK(sp) { if (sp >= STACK_SIZE) { printf("stack overflow\n"); exit(1); } }
+#define CHECK_REFS(next_ref) { if (next_ref >= REF_SIZE) { printf("ref overflow\n"); exit(1); } }
 
 void run(inst code[]) {
 
@@ -164,32 +170,43 @@ void run(inst code[]) {
 	pc++;
 	break;
       case PUSH_INT_T:
+	CHECK_STACK(sp);
 	stack[sp].tag = NUMBER;
 	stack[sp].number = code[pc].args.num;
 	sp++;
 	pc++;
 	break;
       case CONS_T:
-	block = malloc(code[pc].args.two_num.num2 * sizeof(value));
-	for (i = 0; i < code[pc].args.two_num.num2; i++)
-	  block[i] = stack[sp-1-code[pc].args.two_num.num2+i];
-	sp -= code[pc].args.two_num.num2;
-	stack[sp].tag = CONS + code[pc].args.two_num.num1;
-	stack[sp].block.values = block;
-	stack[sp].block.length = code[pc].args.two_num.num2;
+	if (code[pc].args.two_num.num2 == 0) {
+	  CHECK_STACK(sp);
+	  stack[sp].tag = CONS + code[pc].args.two_num.num1;
+	  stack[sp].block.length = 0;
+	  sp++;
+	}
+	else {
+	  block = malloc(code[pc].args.two_num.num2 * sizeof(value));
+	  for (i = 0; i < code[pc].args.two_num.num2; i++)
+		  block[i] = stack[sp-1-code[pc].args.two_num.num2+i];
+	  sp -= code[pc].args.two_num.num2;
+	  stack[sp].tag = CONS + code[pc].args.two_num.num1;
+	  stack[sp].block.values = block;
+	  stack[sp].block.length = code[pc].args.two_num.num2;
+	}
 	pc++;
 	break;
       case LOAD_T:
+	CHECK_STACK(sp);
 	stack[sp] = stack[sp-1-code[pc].args.num];
 	sp++;
 	pc++;
 	break;
       case STORE_T:
-	stack[sp-1-code[pc].args.num] = stack[sp-1];
+	stack[sp-2-code[pc].args.num] = stack[sp-1];
 	sp--;
 	pc++;
 	break;
       case LOAD_REV_T:
+	CHECK_STACK(sp);
 	stack[sp] = stack[code[pc].args.num];
 	sp++;
 	pc++;
@@ -263,6 +280,7 @@ void run(inst code[]) {
 	sp--;
 	break;
       case CALL_T:
+	CHECK_STACK(sp);
 	stack[sp] = stack[sp-1];
 	stack[sp-1].tag = CODE_PTR;
 	stack[sp-1].number = pc+1;
@@ -281,6 +299,7 @@ void run(inst code[]) {
 	pc = stack[sp].number;
 	break;
       case PUSH_PTR_T:
+	CHECK_STACK(sp);
 	stack[sp].tag = CODE_PTR;
 	stack[sp].tag = code[pc].args.num;
 	sp++;
@@ -292,6 +311,7 @@ void run(inst code[]) {
 	sp--;
 	break;
       case PUSH_EXC_T:
+	CHECK_STACK(sp);
 	handler = sp;
 	stack[sp].tag = STACK_PTR;
 	stack[sp].number = handler;
@@ -301,12 +321,13 @@ void run(inst code[]) {
       case POP_EXC_T:
 	tmp_frame = stack[sp-1];
 	tmp_sp1 = stack[handler].number;
-	stack[handler + 1] = tmp_frame;
-	sp = handler + 2;
+	stack[handler] = tmp_frame;
+	sp = handler + 1;
 	handler = tmp_sp1;
 	pc++;
 	break;
       case REF_T:
+	CHECK_REFS(next_ref);
 	refs[next_ref] = stack[sp-1];
 	stack[sp-1].tag = REF_PTR;
 	stack[sp-1].number = next_ref;
