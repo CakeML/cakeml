@@ -512,16 +512,23 @@ val type_e_closed = store_thm("type_e_closed",
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   strip_tac >- (
-    simp[] >>
-    srw_tac[DNF_ss][SUBSET_DEF,bind_tenv_def] >>
-    metis_tac[]) >>
- strip_tac >- (
+    simp[RES_FORALL_THM,FORALL_PROD,tenv_names_bind_var_list] >>
+    rpt gen_tac >> strip_tac >>
+    simp[FV_pes_MAP,all_cns_pes_MAP] >>
+    simp_tac(srw_ss()++DNF_ss)[SUBSET_DEF,UNCURRY,FORALL_PROD,MEM_MAP] >>
+    rw[] >> res_tac >>
+    qmatch_assum_rename_tac`MEM (p1,p2) pes`[] >>
+    first_x_assum(qspecl_then[`p1`,`p2`]mp_tac) >>
+    simp[EXISTS_PROD] >> disch_then(Q.X_CHOOSE_THEN`tv`strip_assume_tac) >>
+    imp_res_tac type_p_closed >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,EXISTS_PROD,FORALL_PROD] >> metis_tac[]) >>
+  strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
     imp_res_tac alistTheory.ALOOKUP_MEM >>
     simp[MEM_MAP,EXISTS_PROD, cenv_dom_def] >>
     metis_tac[] ) >>
- strip_tac >- (
+  strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
     imp_res_tac alistTheory.ALOOKUP_MEM >>
@@ -586,7 +593,7 @@ val type_e_closed = store_thm("type_e_closed",
   simp[] >>
   srw_tac[DNF_ss][SUBSET_DEF,bind_tenv_def] >>
   fsrw_tac[DNF_ss][FV_defs_MAP,UNCURRY] >>
-  metis_tac[] )
+  metis_tac[] );
 
 val type_d_closed = store_thm("type_d_closed",
   ``∀mno tmenv tcenv tenv d y z.
@@ -655,7 +662,8 @@ val type_d_dec_cns = Q.prove (
 rw [type_d_cases, new_dec_cns_def, LibTheory.emp_def] >>
 rw [new_dec_cns_def, build_ctor_tenv_def, MAP_FLAT, MAP_MAP_o,
     combinTheory.o_DEF, AstTheory.mk_id_def, LAMBDA_PROD] >>
-fs [GSYM LIST_TO_SET_MAP, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]);
+fs [GSYM LIST_TO_SET_MAP, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+rw [EXTENSION, MEM_MAP, LibTheory.bind_def]);
 
 val type_ds_closed = store_thm("type_ds_closed",
   ``∀mn tmenv cenv tenv ds y z. type_ds mn tmenv cenv tenv ds y z ⇒
@@ -909,7 +917,8 @@ fs [] >|
      fs [LibTheory.merge_def] >>
      fs [type_d_cases, dec_to_cenv_def] >>
      rw [] >>
-     fs [GSYM alistTheory.ALOOKUP_NONE, SIMP_RULE (srw_ss()) [] lookup_none]]);
+     fs [GSYM alistTheory.ALOOKUP_NONE, SIMP_RULE (srw_ss()) [] lookup_none] >>
+     fs [LibTheory.emp_def, LibTheory.bind_def]]);
 
 val type_sound_inv_dup_ctors = Q.prove (
 `∀mn spec ds rs new_tenvM new_tenvC new_tenv new_st envC r i ts.
@@ -981,7 +990,7 @@ val evaluate_top_to_cenv = store_thm("evaluate_top_to_cenv",
   rw[] >>
   simp[top_to_cenv_def] >>
   imp_res_tac evaluate_decs_to_cenv >>
-  fs[])
+  fs[]);
 
 
 val ctac =
@@ -1009,9 +1018,9 @@ val lem13 = prove(
   ``13 < LENGTH PrintE ∧ EL 13 PrintE = Label 0 ∧
     next_addr il (TAKE 14 PrintE) =
     next_addr il (TAKE 13 PrintE)``,
-EVAL_TAC)
+EVAL_TAC);
 
-val _ =  computeLib.add_funs[CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV NRC]
+val _ =  computeLib.add_funs[CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV NRC];
 
 val PrintE_thm = store_thm("PrintE_thm",
   ``∀bs bv st err.
