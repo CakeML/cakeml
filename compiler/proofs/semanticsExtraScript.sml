@@ -291,7 +291,8 @@ val _ = Parse.overload_on("SFV",``λe. {x | Short x ∈ FV e}``)
 val FV_dec_def = Define`
   (FV_dec (Dlet p e) = FV (Mat e [(p,Lit ARB)])) ∧
   (FV_dec (Dletrec defs) = FV (Letrec defs (Lit ARB))) ∧
-  (FV_dec (Dtype _) = {})`
+  (FV_dec (Dtype _) = {}) ∧
+  (FV_dec (Dexn _ _) = {})`
 val _ = export_rewrites["FV_dec_def"]
 
 val new_dec_vs_def = Define`
@@ -857,13 +858,13 @@ val evaluate_dec_all_cns = store_thm("evaluate_dec_all_cns",
     ∧ dec_cns dec ⊆ cenv_dom cenv
     ∧ cenv_bind_div_eq cenv
     ⇒
-    ∀v. MEM v (FST res) ⇒ all_cns v ⊆ cenv_dom cenv``,
+    ∀v. MEM v (FST res) ∨ SND res = Rerr(Rraise v) ⇒ all_cns v ⊆ cenv_dom cenv``,
   ho_match_mp_tac evaluate_dec_ind >> simp[] >>
   rpt conj_tac >>
   rpt strip_tac >>
   imp_res_tac (CONJUNCT1 evaluate_all_cns) >>
   rev_full_simp_tac pure_ss [] >>
-  rfs[] >> metis_tac[] )
+  rfs[] >> rpt BasicProvers.VAR_EQ_TAC >> rfs[] >> metis_tac[cenv_bind_div_eq_cenv_dom] )
 
 (* all_locs *)
 
@@ -1494,12 +1495,14 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
     dec_cns d ⊆ cenv_dom cenv ∧
     cenv_bind_div_eq cenv
     ⇒
-    let (cenv',env') = case res of Rval(c,e)=>(c++cenv,e++env) | _ => (cenv,env) in
-    closed_context menv cenv' s' env'``,
+    let (cenv',env',ls) = case res of Rval(c,e)=>(c++cenv,e++env,[]) | Rerr(Rraise v) => (cenv,env,[v]) | _ => (cenv,env,[]) in
+    closed_context menv cenv' s' env' ∧
+    EVERY (closed menv) ls``,
   rpt gen_tac >>
   Cases_on`d`>>simp[Once evaluate_dec_cases]>>
   Cases_on`res`>>simp[]>>strip_tac>>rpt BasicProvers.VAR_EQ_TAC>>simp[LibTheory.emp_def]>>TRY(strip_tac)>>
   TRY (
+    TRY(BasicProvers.CASE_TAC >> fs[])>>(
     fs[closed_context_def] >>
     qmatch_assum_abbrev_tac`evaluate ck menv cenv s0 env e res` >>
     Q.ISPECL_THEN[`ck`,`menv`,`cenv`,`s0`,`env`,`e`,`res`]mp_tac(CONJUNCT1 evaluate_closed) >>
@@ -1510,7 +1513,7 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
     discharge_hyps >- metis_tac[] >> strip_tac >>
     conj_tac >- fs[closed_under_menv_def] >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
-    metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS])
+    metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS]))
   >- (
     fs[closed_context_def] >>
     qmatch_assum_abbrev_tac`evaluate ck menv cenv s0 env e res` >>
@@ -1599,12 +1602,13 @@ val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
       decs_cns mn ds ⊆ cenv_dom cenv ∧
       cenv_bind_div_eq cenv
     ⇒
-      let env' = case SND(SND res) of Rval(e)=>(e++env) | _ => env in
-      closed_context menv ((FST(SND res))++cenv) (FST res) env'``,
+      let (env',ls) = case SND(SND res) of Rval(e)=>(e++env,[]) | Rerr(Rraise v) => (env,[v]) | _ => (env,[]) in
+      closed_context menv ((FST(SND res))++cenv) (FST res) env' ∧ EVERY (closed menv) ls``,
   ho_match_mp_tac evaluate_decs_ind >>
   simp[LibTheory.emp_def] >>
   conj_tac >- (
     rpt gen_tac >> rpt strip_tac >>
+    BasicProvers.CASE_TAC >>
     fs[FV_decs_def,decs_cns_def] >>
     imp_res_tac evaluate_dec_closed_context >>
     fs[] >> fs[LET_THM] ) >>
@@ -1636,10 +1640,14 @@ val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
     fsrw_tac[DNF_ss][SUBSET_DEF,FV_decs_def,decs_cns_def] >>
     metis_tac[]) >>
   strip_tac >>
-  qsuff_tac`closed_context menv (new_tds' ++ new_tds ++ cenv) s3 (new_env ++ env)` >- (
+  qho_match_abbrev_tac`P env` >>
+  qsuff_tac`P (new_env ++ env)` >- (
+    simp[Abbr`P`] >>
     rw[closed_context_def] >> fs[] >>
     fs[closed_under_cenv_def,closed_under_menv_def] >>
+    BasicProvers.CASE_TAC >> fs[] >>
     metis_tac[] ) >>
+  simp[Abbr`P`] >>
   first_x_assum match_mp_tac >>
   fs[] >>
   simp[CONJ_ASSOC] >>
