@@ -117,7 +117,7 @@ val install_code_def = Define `
              ; cons_names := m
              |>`;
 
-val PrintE_def = Define`PrintE = (MAP PrintC "raise ")++Print`
+val PrintE_def = Define`PrintE = (MAP PrintC "raise ")++[Print]`
 
 val initial_bc_state_def =  Define`
   initial_bc_state =
