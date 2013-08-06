@@ -5,7 +5,7 @@ val _ = new_theory "ml_repl_step";
 
 open repl_funTheory CompilerTheory CompilerLibTheory;
 open ToIntLangTheory ToBytecodeTheory terminationTheory ElabTheory;
-open compilerTerminationTheory inferTheory CompilerPrimitivesTheory;
+open compilerTerminationTheory inferTheory;
 open BytecodeTheory mmlParseTheory mmlPEGTheory;
 open arithmeticTheory listTheory finite_mapTheory pred_setTheory;
 open ml_translatorLib ml_translatorTheory std_preludeTheory;
