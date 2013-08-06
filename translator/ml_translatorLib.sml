@@ -554,6 +554,7 @@ end
 
 fun type_of_cases_const ty = let
   val th = TypeBase.case_def_of ty
+    handle HOL_ERR e => raise ERR "type_of_cases_const" (String.concat["For ",Parse.type_to_string ty,"\n",Feedback.format_ERR e])
   val ty = th |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
               |> concl |> dest_eq |> fst |> repeat rator |> type_of
   in ty end
