@@ -154,11 +154,13 @@ void run(inst code[]) {
 	pc++;
 	break;
       case SHIFT_T:
-	tmp_sp1 = sp - code[pc].args.two_num.num1;
-	tmp_sp2 = tmp_sp1 - code[pc].args.two_num.num2;
-	for (; tmp_sp1 < sp; tmp_sp1++, tmp_sp2++)
-	  stack[tmp_sp2-1] = stack[tmp_sp1-1];
-	sp = tmp_sp2;
+	if (code[pc].args.two_num.num2 != 0) {
+	  tmp_sp1 = sp - code[pc].args.two_num.num1;
+	  tmp_sp2 = tmp_sp1 - code[pc].args.two_num.num2;
+	  for (; tmp_sp1 < sp; tmp_sp1++, tmp_sp2++)
+	    stack[tmp_sp2] = stack[tmp_sp1];
+	  sp = tmp_sp2;
+	}
 	pc++;
 	break;
       case PUSH_INT_T:
@@ -170,7 +172,7 @@ void run(inst code[]) {
       case CONS_T:
 	block = malloc(code[pc].args.two_num.num2 * sizeof(value));
 	for (i = 0; i < code[pc].args.two_num.num2; i++)
-	  block[i] = stack[sp-i-1];
+	  block[i] = stack[sp-1-code[pc].args.two_num.num2+i];
 	sp -= code[pc].args.two_num.num2;
 	stack[sp].tag = CONS + code[pc].args.two_num.num1;
 	stack[sp].block.values = block;
@@ -183,7 +185,7 @@ void run(inst code[]) {
 	pc++;
 	break;
       case STORE_T:
-	stack[sp-code[pc].args.num] = stack[sp-1];
+	stack[sp-1-code[pc].args.num] = stack[sp-1];
 	sp--;
 	pc++;
 	break;
@@ -263,7 +265,7 @@ void run(inst code[]) {
       case CALL_T:
 	stack[sp] = stack[sp-1];
 	stack[sp-1].tag = CODE_PTR;
-	stack[sp-1].number = pc++;
+	stack[sp-1].number = pc+1;
 	pc = code[pc].args.num;
 	sp++;
 	break;
@@ -271,7 +273,7 @@ void run(inst code[]) {
 	tmp_frame = stack[sp-1];
 	stack[sp-1] = stack[sp-2];
 	stack[sp-2].tag = CODE_PTR;
-	stack[sp-2].number = pc++;
+	stack[sp-2].number = pc+1;
 	pc = tmp_frame.number;
 	break;
       case JUMP_PTR_T:
@@ -299,8 +301,8 @@ void run(inst code[]) {
       case POP_EXC_T:
 	tmp_frame = stack[sp-1];
 	tmp_sp1 = stack[handler].number;
-	stack[handler] = tmp_frame;
-	sp = handler + 1;
+	stack[handler + 1] = tmp_frame;
+	sp = handler + 2;
 	handler = tmp_sp1;
 	pc++;
 	break;
