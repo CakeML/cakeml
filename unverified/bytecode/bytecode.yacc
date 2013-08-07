@@ -6,12 +6,14 @@
 
 
 %union {
-  long num;
+  unsigned long num;
+  long integer;
   char character;
   struct inst_list *insts;
 };
 
 %token <num> NUM_T
+%token <integer> INT_T
 %token <character> CHAR_T
 %token POP_T POPS_T SHIFT_T PUSH_INT_T CONS_T LOAD_T STORE_T LOAD_REV_T 
 %token EL_T TAG_EQ_T IS_BLOCK_T EQUAL_T ADD_T SUB_T MULT_T DIV_T MOD_T LESS_T 
@@ -21,6 +23,7 @@
 %token HALT_T /* Not really a token, but we use these to tag our internal instruction representation too. */
 
 %type <insts> insts inst stack_op loc
+%type <integer> num_or_int
 
 %start insts_top
 %locations
@@ -41,6 +44,10 @@ extern int yylex(YYSTYPE * yylval_param,YYLTYPE * yylloc_param );
 
 %%
 
+num_or_int:
+   NUM_T { $$ = (long)$1 }
+ | INT_T { $$ = $1 }
+
 stack_op: 
    POP_T {
      inst_list* next = malloc(sizeof(inst_list));
@@ -60,10 +67,10 @@ stack_op:
      next->car.args.two_num.num2 = $3;
      $$ = next;
    }
- | PUSH_INT_T NUM_T {
+ | PUSH_INT_T num_or_int {
      inst_list* next = malloc(sizeof(inst_list));
      next->car.tag = PUSH_INT_T;
-     next->car.args.num = $2;
+     next->car.args.integer = $2;
      $$ = next;
    }
  | CONS_T NUM_T NUM_T {

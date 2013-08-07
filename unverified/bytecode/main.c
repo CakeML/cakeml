@@ -16,13 +16,13 @@ unsigned long inst_list_length(inst_list *l) {
 };
 
 inst* inst_list_to_array(inst_list *l, unsigned long length) {
-  int i;
+  unsigned long i;
   inst_list *next;
   inst *prog_array = malloc((length + 1) * sizeof(inst));
 
-  for (i = length - 1; i >= 0; i--) {
+  for (i = length; i > 0; i--) {
     next = l->cdr;
-    prog_array[i] = l->car;
+    prog_array[i-1] = l->car;
     free(l); 
     l = next;
   };
@@ -31,6 +31,20 @@ inst* inst_list_to_array(inst_list *l, unsigned long length) {
 
   return prog_array;
 }
+
+void check_locations(inst *prog, unsigned long num_inst) {
+  unsigned long i;
+
+  for(i = 0; i < num_inst; i++) {
+    if (prog[i].tag == JUMP_T || prog[i].tag == JUMP_IF_T || prog[i].tag == CALL_T || prog[i].tag == PUSH_PTR_T)
+      if (prog[i].args.loc.num >= num_inst) {
+	printf("instruction %lu has bad location %lu\n", i, prog[i].args.loc.num);
+	exit(1);
+      }
+  }
+  return;
+}
+
 
 /* The lower 16 bits of the value's tag indicates it's type:
  * 0 -> Number
@@ -106,7 +120,7 @@ void inline print_value(value v) {
   }
 }
 
-long inline bool_to_tag(int i) {
+unsigned long inline bool_to_tag(int i) {
   if (i)
     return TRUE_TAG + CONS;
   else
@@ -115,9 +129,9 @@ long inline bool_to_tag(int i) {
 
 int equal(value v1, value v2) {
 
-  long tag1 = GET_TAG(v1);
-  long tag2 = GET_TAG(v2);
-  int i;
+  unsigned long tag1 = GET_TAG(v1);
+  unsigned long tag2 = GET_TAG(v2);
+  unsigned long i;
 
   if (tag1 == CODE_PTR || tag1 == STACK_PTR || tag2 == CODE_PTR || tag2 == STACK_PTR)
     return 3;
@@ -155,12 +169,12 @@ value refs[REF_SIZE];
 void run(inst code[]) {
 
   /* The stack pointer sp will point to the lowest unused stack slot */
-  long sp = 0;
-  long pc = 0;
-  long handler = 0;
-  long next_ref = 0;
+  unsigned long sp = 0;
+  unsigned long pc = 0;
+  unsigned long handler = 0;
+  unsigned long next_ref = 0;
 
-  long tmp_sp1, tmp_sp2, i;
+  unsigned long tmp_sp1, tmp_sp2;
   value tmp_frame;
   value *block;
   int tmp;
@@ -202,6 +216,7 @@ void run(inst code[]) {
 	  sp++;
 	}
 	else {
+	  unsigned long i;
 	  block = malloc(code[pc].args.two_num.num2 * sizeof(value));
 	  for (i = 0; i < code[pc].args.two_num.num2; i++)
 		  block[i] = stack[sp-code[pc].args.two_num.num2+i];
@@ -384,6 +399,7 @@ void run(inst code[]) {
 int main(int argc, char** argv) {
   inst_list *parse_result;
   inst *prog_array;
+  unsigned long num_inst;
 
   if (argc != 2) {
     printf("usage: cakeml-byte filename\n");
@@ -396,7 +412,9 @@ int main(int argc, char** argv) {
   };
   yyparse(&parse_result);
   fclose(yyin);
-  prog_array = inst_list_to_array(parse_result, inst_list_length(parse_result));
+  num_inst = inst_list_length(parse_result);
+  prog_array = inst_list_to_array(parse_result, num_inst);
+  check_locations(prog_array, num_inst);
   run(prog_array);
 
   printf("\n%lu", sizeof(value));
