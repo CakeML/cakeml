@@ -458,4 +458,6 @@ init_elab_env =
       [("int", TC_int),
        ("bool", TC_bool),
        ("ref", TC_ref),
-       ("unit", TC_unit)])
+       ("unit", TC_unit),
+       ("exn", TC_exn),
+       ("list", TC_name (Short (TypeN "list" dummy_pos)))])

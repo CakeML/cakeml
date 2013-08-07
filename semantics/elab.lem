@@ -194,15 +194,6 @@ and
 elab_funs ctors ((n1,n2,e)::funs) =
   (n1,n2,elab_e ctors e) :: elab_funs ctors funs
 
-let rec get_prim_type tn =
-  match tn with
-    | "int" -> Some TC_int
-    | "bool" -> Some TC_bool
-    | "unit" -> Some TC_unit
-    | "ref" -> Some TC_ref
-    | _ -> None
-  end
-
 let rec
 elab_t type_bound (Ast_Tvar n) = Tvar n
 and

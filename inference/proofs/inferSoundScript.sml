@@ -1,6 +1,7 @@
 open preamble;
 open rich_listTheory;
 open LibTheory TypeSystemTheory AstTheory SemanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
+open InitialEnvTheory;
 open typeSysPropsTheory;
 
 (* Remove automatic rewrites that break the proofs in this file *)

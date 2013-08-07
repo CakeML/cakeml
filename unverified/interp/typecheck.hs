@@ -466,11 +466,9 @@ infer_Tbool = Infer_Tapp [] TC_bool
 infer_Tunit = Infer_Tapp [] TC_unit
 infer_Tref t = Infer_Tapp [t] TC_ref
 
-dummy_pos = initialPos "initial_env"
-
 init_type_env =
   listToEnv
-    (List.map (\(x,y) -> (VarN x Typecheck.dummy_pos,y))
+    (List.map (\(x,y) -> (VarN x dummy_pos,y))
       [("+", (0, infer_Tfn infer_Tint (infer_Tfn infer_Tint infer_Tint))),
        ("-", (0, infer_Tfn infer_Tint (infer_Tfn infer_Tint infer_Tint))),
        ("*", (0, infer_Tfn infer_Tint (infer_Tfn infer_Tint infer_Tint))),
@@ -486,8 +484,12 @@ init_type_env =
        ("!", (1, infer_Tfn (infer_Tref (Infer_Tvar_db 0)) (Infer_Tvar_db 0))),
        ("ref", (1, infer_Tfn (Infer_Tvar_db 0) (infer_Tref (Infer_Tvar_db 0))))])
 
+tic_a = TvarN "'a" dummy_pos
+
 init_tenvC =
-  listToEnv (List.map (\cn -> (Short (ConN cn Typecheck.dummy_pos) , ([], [], TypeExn))) ["Bind", "Div", "Eq"])
+  listToEnv ((Short (ConN "[]" dummy_pos), ([tic_a], [], TypeId (Short (TypeN "list" dummy_pos)))) :
+             (Short (ConN "::" dummy_pos), ([tic_a], [Tvar tic_a, Tapp [Tvar tic_a] (TC_name (Short (TypeN "list" dummy_pos)))], TypeId (Short (TypeN "list" dummy_pos)))) :
+             List.map (\cn -> (Short (ConN cn dummy_pos) , ([], [], TypeExn))) ["Bind", "Div", "Eq"])
 
 inferTop :: (TenvM,TenvC,Tenv) -> Top -> Either (SourcePos,String) (TenvM, TenvC, Tenv)
 inferTop (menv,cenv,env) top =

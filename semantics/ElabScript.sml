@@ -225,17 +225,6 @@ val _ = type_abbrev( "tdef_env" , ``: (typeN,tc0) env``);
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_e_defn;
 
- val get_prim_type_def = Define `
- (get_prim_type tn =  
-((case tn of
-      "int" => SOME TC_int
-    | "bool" => SOME TC_bool
-    | "unit" => SOME TC_unit
-    | "ref" => SOME TC_ref
-    | _ => NONE
-  )))`;
-
-
  val elab_t_defn = Hol_defn "elab_t" `
 
 (elab_t type_bound (Ast_Tvar n) = (Tvar n))

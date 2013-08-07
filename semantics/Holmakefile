@@ -1,8 +1,8 @@
 OPTIONS = QUIT_ON_FAILURE
 INCLUDES = $(HOLDIR)/examples/parsing/ ..
 
-SRCL = lib tokens ast elab semanticPrimitives smallStep bigStep typeSystem altBigStep
-SRCU = Lib Tokens Ast Elab SemanticPrimitives SmallStep BigStep TypeSystem AltBigStep
+SRCL = lib tokens ast elab semanticPrimitives smallStep bigStep typeSystem altBigStep initialEnv
+SRCU = Lib Tokens Ast Elab SemanticPrimitives SmallStep BigStep TypeSystem AltBigStep InitialEnv
 LEMS = $(patsubst %,%.lem,$(SRCL))
 GENS = $(patsubst %,%Script.sml,$(SRCU))
 

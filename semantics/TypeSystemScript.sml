@@ -707,31 +707,5 @@ type_top menv cenv tenv top menv' cenv' tenv' /\
 type_prog (merge menv' menv) (merge cenv' cenv) (bind_var_list2 tenv' tenv) tops menv'' cenv'' tenv'')
 ==>
 type_prog menv cenv tenv (top :: tops) (merge menv'' menv') (merge cenv'' cenv') (merge tenv'' tenv'))`;
-
-(*val init_tenv : tenvE*)
-val _ = Define `
- init_tenv = ( FOLDR 
-    (\ (tn,tvs,t) tenv . Bind_name tn tvs t tenv) 
-    Empty 
-    [("+", 0, Tfn Tint (Tfn Tint Tint));
-     ("-", 0, Tfn Tint (Tfn Tint Tint));
-     ("*", 0, Tfn Tint (Tfn Tint Tint));
-     ("div", 0, Tfn Tint (Tfn Tint Tint));
-     ("mod", 0, Tfn Tint (Tfn Tint Tint));
-     ("<", 0, Tfn Tint (Tfn Tint Tbool));
-     (">", 0, Tfn Tint (Tfn Tint Tbool));
-     ("<=", 0, Tfn Tint (Tfn Tint Tbool));
-     (">=", 0, Tfn Tint (Tfn Tint Tbool));
-     ("=", 1, Tfn (Tvar_db 0) (Tfn (Tvar_db 0) Tbool));
-     (":=", 1, Tfn (Tref (Tvar_db 0)) (Tfn (Tvar_db 0) Tunit));
-     ("~", 0, Tfn Tint Tint);
-     ("!", 1, Tfn (Tref (Tvar_db 0)) (Tvar_db 0));
-     ("ref", 1, Tfn (Tvar_db 0) (Tref (Tvar_db 0)))])`;
-
-
-(*val init_tenvC : tenvC*)
-val _ = Define `
- init_tenvC = ( MAP (\ cn . (Short cn, ([], [], TypeExn))) ["Bind"; "Div"; "Eq"])`;
-
 val _ = export_theory()
 

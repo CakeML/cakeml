@@ -427,6 +427,8 @@ init_env = listToEnv (List.map (\(x,y) -> (VarN x dummy_pos, Closure emp (VarN "
    ("ref", (Uapp (Opref dummy_pos) varx))])
 
 init_envC =
-  listToEnv (List.map (\cn -> (Short (ConN cn dummy_pos), (0, TypeExn))) ["Bind", "Div", "Eq"])
+  listToEnv ((Short (ConN "[]" dummy_pos), (0, TypeId (Short (TypeN "list" dummy_pos)))) :
+             (Short (ConN "::" dummy_pos), (2, TypeId (Short (TypeN "list" dummy_pos)))) :
+             List.map (\cn -> (Short (ConN cn dummy_pos), (0, TypeExn))) ["Bind", "Div", "Eq"])
 
 

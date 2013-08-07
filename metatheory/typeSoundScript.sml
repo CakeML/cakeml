@@ -3,6 +3,7 @@ open LibTheory AstTheory TypeSystemTheory SemanticPrimitivesTheory;
 open SmallStepTheory BigStepTheory replTheory;
 open terminationTheory;
 open weakeningTheory typeSysPropsTheory bigSmallEquivTheory;
+open InitialEnvTheory;
 open TypeSoundInvariantsTheory bigClockTheory;
 open metaTerminationTheory;
 
@@ -2563,40 +2564,44 @@ metis_tac [type_env_eqn, EVERY_DEF, LENGTH, DECIDE ``~(0<0:num)``];
 
 val initial_type_sound_invariants = Q.store_thm ("initial_type_sound_invariant",
 `type_sound_invariants ([],init_tenvC,init_tenv,[],init_envC,init_env,[])`,
-rw [type_sound_invariants_def, tenvC_has_exns_def,
-    tenvM_ok_def, tenvC_ok_def, weakM_def, weakC_def, type_s_def,
-    store_lookup_def, lookup_def] >>
-MAP_EVERY qexists_tac [`[]`, `init_tenvC`] >>
-rw [consistent_con_env_def, weakC_mods_def] >>
-rw [same_module_def, init_env_def, init_tenv_def, type_env_eqn, init_tenvC_def, init_envC_def] >|
-[rw [EXTENSION] >>
-     every_case_tac,
- rw [consistent_con_env_def],
- tac,
- tac,
- tac,
- tac,
- tac,
- tac,
- tac,
- tac,
- tac,
- tac,
- tac2 >>
+ rw [type_sound_invariants_def, tenvC_has_exns_def,
+     tenvM_ok_def, tenvC_ok_def, weakM_def, weakC_def, type_s_def,
+     store_lookup_def, lookup_def] >>
+ MAP_EVERY qexists_tac [`[]`, `init_tenvC`] >>
+ rw [consistent_con_env_def, weakC_mods_def] >>
+ rw [same_module_def, init_env_def, init_tenv_def, type_env_eqn, init_tenvC_def, init_envC_def]
+ >- rw [check_freevars_def]
+ >- rw [check_freevars_def]
+ >- rw [check_freevars_def]
+ >- rw [check_freevars_def]
+ >- (rw [EXTENSION] >>
+     every_case_tac)
+ >- rw [consistent_con_env_def]
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- tac
+ >- (tac2 >>
      qexists_tac `Empty` >>
-         rw [type_env_eqn] >>
-         qexists_tac `Tapp [Tvar_db 0] TC_ref` >>
-         rw [] >>
-         qexists_tac `[]` >>
-         rw [],
- tac,
- tac2 >>
+     rw [type_env_eqn] >>
+     qexists_tac `Tapp [Tvar_db 0] TC_ref` >>
+     rw [] >>
+     qexists_tac `[]` >>
+     rw [])
+ >- tac
+ >- (tac2 >>
      qexists_tac `Empty` >>
-         rw [type_env_eqn] >>
-         qexists_tac `Tapp [Tvar_db 0] TC_ref` >>
-         rw [] >>
-         qexists_tac `[]` >>
-         rw [],
- tac]);
+     rw [type_env_eqn] >>
+     qexists_tac `Tapp [Tvar_db 0] TC_ref` >>
+     rw [] >>
+     qexists_tac `[]` >>
+     rw [])
+ >- tac);
 
 val _ = export_theory ();

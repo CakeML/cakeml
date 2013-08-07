@@ -45,12 +45,16 @@ val _ = Define `
 (<| contab := (( FUPDATE 
                ( FUPDATE 
                ( FUPDATE 
-               ( FUPDATE FEMPTY ( NONE, tuple_cn)) ( (SOME(Short"Bind")), bind_exc_cn)) ( (SOME(Short"Div")), div_exc_cn)) ( (SOME(Short"Eq")), eq_exc_cn))
+               ( FUPDATE 
+               ( FUPDATE 
+               ( FUPDATE FEMPTY ( NONE, tuple_cn)) ( (SOME(Short"[]")), nil_exc_cn)) ( (SOME(Short"::")), cons_exc_cn)) ( (SOME(Short"Bind")), bind_exc_cn)) ( (SOME(Short"Div")), div_exc_cn)) ( (SOME(Short"Eq")), eq_exc_cn))
               ,[(eq_exc_cn,SOME(Short"Eq"))
                ;(div_exc_cn,SOME(Short"Div"))
                ;(bind_exc_cn,SOME(Short"Bind"))
+               ;(cons_exc_cn,SOME(Short"::"))
+               ;(nil_exc_cn,SOME(Short"[]"))
                ;(tuple_cn,NONE)]
-              ,4)
+              ,6)
    ; renv := []
    ; rmenv := FEMPTY
    ; rsz := 0

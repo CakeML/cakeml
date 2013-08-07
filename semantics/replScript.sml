@@ -1,6 +1,7 @@
 open preamble;
 open ASCIInumbersTheory;
 open BigStepTheory TypeSystemTheory AstTheory ElabTheory lexer_funTheory;
+open InitialEnvTheory;
 open gramTheory cmlPtreeConversionTheory;
 
 val _ = new_theory "repl";
@@ -36,11 +37,7 @@ repl_state = <| (* Elaborator state *)
                 envM : envM; envC : envC; store : store; envE : envE |>`;
 
 val init_repl_state_def = Define`
-  init_repl_state = <| type_bindings := [("int", TC_int);
-                                         ("bool", TC_bool);
-                                         ("ref", TC_ref);
-                                         ("exn", TC_exn);
-                                         ("unit", TC_unit)]; ctors := [];
+  init_repl_state = <| type_bindings := init_type_bindings; ctors := [];
                        tenvM := []; tenvC := init_tenvC; tenv := init_tenv;
                        envM := []; envC := init_envC; store := []; envE := init_env |>`
 

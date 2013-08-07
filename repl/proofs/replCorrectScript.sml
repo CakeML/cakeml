@@ -2,6 +2,7 @@ open preamble boolSimps miscLib rich_listTheory arithmeticTheory;
 open lexer_funTheory repl_funTheory replTheory untypedSafetyTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory
 open lexer_implTheory mmlParseTheory inferSoundTheory BigStepTheory ElabTheory compilerProofsTheory;
 open SemanticPrimitivesTheory semanticsExtraTheory TypeSystemTheory typeSoundTheory weakeningTheory typeSysPropsTheory terminationTheory;
+open InitialEnvTheory;
 open BytecodeTheory repl_fun_altTheory repl_fun_alt_proofTheory;
 open gramPropsTheory pegSoundTheory pegCompleteTheory
 
