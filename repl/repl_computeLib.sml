@@ -106,7 +106,6 @@ in
   set_skip the_compset ``opn_CASE`` (SOME 1);
   set_skip the_compset ``op_CASE`` (SOME 1);
   set_skip the_compset ``uop_CASE`` (SOME 1);
-  set_skip the_compset ``error_CASE`` (SOME 1);
   set_skip the_compset ``exp_CASE`` (SOME 1);
   set_skip the_compset ``dec_CASE`` (SOME 1);
   set_skip the_compset ``spec_CASE`` (SOME 1);
