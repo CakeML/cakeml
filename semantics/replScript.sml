@@ -39,7 +39,7 @@ val init_repl_state_def = Define`
   init_repl_state = <| type_bindings := [("int", TC_int);
                                          ("bool", TC_bool);
                                          ("ref", TC_ref);
-                                         ("exn", TC_ref);
+                                         ("exn", TC_exn);
                                          ("unit", TC_unit)]; ctors := [];
                        tenvM := []; tenvC := init_tenvC; tenv := init_tenv;
                        envM := []; envC := init_envC; store := []; envE := init_env |>`

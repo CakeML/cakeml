@@ -1854,6 +1854,8 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
 
 val initial_invariant = prove(
   ``invariant init_repl_state initial_repl_fun_state initial_bc_state``,
+
+
   rw[invariant_def,initial_repl_fun_state_def,initial_elaborator_state_def,init_repl_state_def,LET_THM] >>
   rw[initial_inferencer_state_def,initial_bc_state_invariant]
   >- EVAL_TAC
