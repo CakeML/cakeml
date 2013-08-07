@@ -1,5 +1,5 @@
-open HolKernel Parse boolLib bossLib; val _ = new_theory "ml_optimise";
-
+open HolKernel Parse boolLib bossLib;
+val _ = new_theory "ml_optimise";
 open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
 open terminationTheory;
 open arithmeticTheory listTheory combinTheory pairTheory;
@@ -32,7 +32,7 @@ val MEM_exp_size1 = prove(
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC);
 
 val MEM_exp_size2 = prove(
-  ``!ys p x. MEM (p,x) ys ==> exp_size x < exp4_size ys``,
+  ``!ys p x. MEM (p,x) ys ==> exp_size x < exp3_size ys``,
   Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def] THEN Cases
   THEN FULL_SIMP_TAC std_ss [exp_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC);
@@ -49,7 +49,9 @@ val BOTTOM_UP_OPT_def = tDefine "BOTTOM_UP_OPT" `
   (BOTTOM_UP_OPT f (If x1 x2 x3) = f (If (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2) (BOTTOM_UP_OPT f x3))) /\
   (BOTTOM_UP_OPT f (Mat x ys) = f (Mat (BOTTOM_UP_OPT f x) (MAP (\(p,x). (p,BOTTOM_UP_OPT f x)) ys))) /\
   (BOTTOM_UP_OPT f (Let name x1 x2) = f (Let name (BOTTOM_UP_OPT f x1) (BOTTOM_UP_OPT f x2))) /\
-  (BOTTOM_UP_OPT f (Handle x1 name x2) = Handle x1 name x2) /\
+  (* TODO: Handle wasn't optimised before full-blown exceptions were in the
+           language, but perhaps it should be now? *)
+  (BOTTOM_UP_OPT f (Handle x ys) = Handle x ys) /\
   (BOTTOM_UP_OPT f (Letrec z1 z2) = f (Letrec z1 z2))`
  (WF_REL_TAC `measure (exp_size o SND)` THEN REPEAT STRIP_TAC
   THEN IMP_RES_TAC MEM_exp_size1 THEN IMP_RES_TAC MEM_exp_size2 THEN DECIDE_TAC)
@@ -62,7 +64,7 @@ val BOTTOM_UP_OPT_LEMMA = prove(
   ``(!s env exp res. evaluate' s env exp res ==> isRval (SND res) ==> evaluate' s env (f exp) res) ==>
     (!s x1 x2 x3. evaluate' s x1 x2 x3 ==> isRval (SND x3) ==> evaluate' s x1 (BOTTOM_UP_OPT f x2) x3) /\
     (!s x1 x2 x3. evaluate_list' s x1 x2 x3 ==> isRval (SND x3) ==> evaluate_list' s x1 (MAP (BOTTOM_UP_OPT f) x2) x3) /\
-    (!s x1 x2 x3 x4. evaluate_match' s x1 x2 x3 x4 ==> isRval (SND x4) ==> evaluate_match' s x1 x2 (MAP (\(p,x). (p,BOTTOM_UP_OPT f x)) x3) x4)``,
+    (!s x1 x2 x3 x4 x5. evaluate_match' s x1 x2 x3 x4 x5 ==> isRval (SND x5) ==> evaluate_match' s x1 x2 (MAP (\(p,x). (p,BOTTOM_UP_OPT f x)) x3) x4 x5)``,
   STRIP_TAC \\ ONCE_REWRITE_TAC [two_assums]
   \\ HO_MATCH_MP_TAC evaluate'_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [BOTTOM_UP_OPT_def,isRval_def,AND_IMP_INTRO]

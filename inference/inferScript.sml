@@ -207,7 +207,7 @@ val infer_deBruijn_subst_def = tDefine "infer_deBruijn_subst" `
  decide_tac);
 
 val infer_p_def = tDefine "infer_p" `
-(infer_p cenv (Pvar n) =
+(infer_p (cenv:tenvC) (Pvar n) =
   do t <- fresh_uvar;
      return (t, [(n,t)])
   od) ∧
@@ -228,7 +228,7 @@ val infer_p_def = tDefine "infer_p" `
            (ts'',tenv) <- infer_ps cenv ps;
            ts' <- n_fresh_uvar (LENGTH tvs');
            () <- add_constraints ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
-           return (Infer_Tapp ts' (TC_name tn), tenv)
+           return (Infer_Tapp ts' (tid_exn_to_tc tn), tenv)
         od) ∧
 (infer_p cenv (Pref p) =
   do (t,tenv) <- infer_p cenv p;
@@ -285,16 +285,20 @@ constrain_op op t1 t2 =
        od`;
 
 val infer_e_def = tDefine "infer_e" `
-(infer_e menv cenv env (Raise err) =
-  do t <- fresh_uvar;
-     return t
-  od) ∧
-(infer_e menv cenv env (Handle e1 x e2) =
-  do t1 <- infer_e menv cenv env e1;
-     t2 <- infer_e menv cenv (bind x (0,Infer_Tapp [] TC_int) env) e2;
-     () <- add_constraint t1 t2;
+(infer_e menv (cenv : tenvC) env (Raise e) =
+  do t2 <- infer_e menv cenv env e;
+     () <- add_constraint t2 (Infer_Tapp [] TC_exn);
+     t1 <- fresh_uvar;
      return t1
   od) ∧
+(infer_e menv cenv env (Handle e pes) =
+  if pes = [] then
+    failwith "Empty pattern match"
+  else
+    do t1 <- infer_e menv cenv env e;
+       () <- infer_pes menv cenv env pes (Infer_Tapp [] TC_exn) t1;
+       return t1
+    od) ∧
 (infer_e menv cenv tenv (Lit (Bool b)) =
   return (Infer_Tapp [] TC_bool)) ∧
 (infer_e menv cenv tenv (Lit (IntLit i)) =
@@ -312,9 +316,9 @@ val infer_e_def = tDefine "infer_e" `
      uvs <- n_fresh_uvar tvs;
      return (infer_deBruijn_subst uvs t)
   od) ∧
-(infer_e menv cenv env (Con cn_opt es) =
+(infer_e menv (cenv:tenvC) env (Con cn_opt es) =
   case cn_opt of
-    | NONE =>
+      NONE =>
        do ts <- infer_es menv cenv env es;
           return (Infer_Tapp ts TC_tup)
        od
@@ -323,7 +327,7 @@ val infer_e_def = tDefine "infer_e" `
           ts'' <- infer_es menv cenv env es;
           ts' <- n_fresh_uvar (LENGTH tvs');
           () <- add_constraints ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
-          return (Infer_Tapp ts' (TC_name tn))
+          return (Infer_Tapp ts' (tid_exn_to_tc tn))
        od) ∧
 (infer_e menv cenv env (Fun x e) =
   do t1 <- fresh_uvar;
@@ -432,7 +436,7 @@ val infer_e_def = tDefine "infer_e" `
   od)`
 (WF_REL_TAC `measure (\x. case x of | INL (_,_,_,e) => exp_size e
                                     | INR (INL (_,_,_,es)) => exp6_size es
-                                    | INR (INR (INL (_,_,_,pes,_,_))) => exp4_size pes
+                                    | INR (INR (INL (_,_,_,pes,_,_))) => exp3_size pes
                                     | INR (INR (INR (_,_,_,funs))) => exp1_size funs)` >>
  rw []);
 
@@ -464,6 +468,11 @@ val infer_d_def = Define `
 (infer_d mn menv cenv env (Dtype tdecs) =
   if check_ctor_tenv mn cenv tdecs then
     return (build_ctor_tenv mn tdecs, [])
+  else
+    failwith "Bad type definition") ∧
+(infer_d mn menv cenv env (Dexn cn ts) =
+  if lookup (mk_id mn cn) cenv = NONE ∧ EVERY (check_freevars 0 []) ts then
+    return (bind (mk_id mn cn) ([], ts, TypeExn) emp, [])
   else
     failwith "Bad type definition")`;
 
@@ -503,8 +512,12 @@ val check_specs_def = Define `
   do () <- guard (check_ctor_tenv mn cenv td) "Bad type definition";
      check_specs mn (merge (build_ctor_tenv mn td) cenv) env specs
   od) ∧
-(check_specs mn cenv env (Stype_opq tvs tn :: specs) =
-  do () <- guard (EVERY (\(cn,(x,y,tn')). mk_id mn tn ≠ tn') cenv) "Duplicate type definition";
+(check_specs mn (cenv : tenvC) env (Sexn cn ts :: specs) =
+  do () <- guard ((lookup (mk_id mn cn) cenv = NONE) ∧ EVERY (check_freevars 0 []) ts) "Bad exception definition";
+     check_specs mn (bind (mk_id mn cn) ([], ts, TypeExn) cenv) env specs
+  od) ∧
+(check_specs mn (cenv : tenvC) env (Stype_opq tvs tn :: specs) =
+  do () <- guard (EVERY (\(cn,(x,y,tn')). TypeId (mk_id mn tn) ≠ tn') cenv) "Duplicate type definition";
      () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
      check_specs mn cenv env specs
   od)`;

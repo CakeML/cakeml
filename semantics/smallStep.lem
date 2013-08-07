@@ -10,12 +10,14 @@ open SemanticPrimitives
  * The env argument contains bindings for the free variables of expressions in
      the context *)
 type ctxt_frame =
-  | Chandle of unit * varN * exp
+  | Craise of unit
+  | Chandle of unit * list (pat * exp)
   | Capp1 of op * unit * exp
   | Capp2 of op * v * unit
   | Clog of lop * unit * exp
   | Cif of unit * exp * exp
-  | Cmat of unit * list (pat * exp)
+  (* The value is raised if none of the patterns match *)
+  | Cmat of unit * list (pat * exp) * v
   | Clet of varN * unit * exp
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
@@ -57,7 +59,14 @@ val continue : envM -> envC -> store -> v -> list ctxt -> e_step_result
 let continue envM envC s v cs =
   match cs with
     | [] -> Estuck
-    | (Chandle () n e, env) :: c ->
+    | (Craise (), env) :: c->
+        match c with
+          | [] -> Estuck
+          | ((Chandle () pes,env') :: c) ->
+              Estep (envM,envC,s,env,Val v,(Cmat () pes v, env')::c)
+          | _::c -> Estep (envM,envC,s,env,Val v,(Craise (),env)::c)
+        end
+    | (Chandle () pes, env) :: c ->
         return envM envC s env v c
     | (Capp1 op () e, env) :: c ->
         push envM envC s env e (Capp2 op v ()) c
@@ -76,13 +85,13 @@ let continue envM envC s v cs =
           | Some e -> Estep (envM, envC, s, env, Exp e, c)
           | None -> Etype_error
         end
-    | (Cmat () [], env) :: c ->
-        Estep (envM, envC, s, env, Exp (Raise Bind_error), c)
-    | (Cmat () ((p,e)::pes), env) :: c ->
+    | (Cmat () [] err_v, env) :: c ->
+        Estep (envM, envC, s, env, Val err_v, (Craise (), env) ::c)
+    | (Cmat () ((p,e)::pes) err_v, env) :: c ->
         if all_distinct (pat_bindings p []) then
           match pmatch envC s p v env with
             | Match_type_error -> Etype_error
-            | No_match -> Estep (envM, envC, s, env, Val v, (Cmat () pes,env)::c)
+            | No_match -> Estep (envM, envC, s, env, Val v, (Cmat () pes err_v,env)::c)
             | Match env' -> Estep (envM, envC, s, env', Exp e, c)
           end
         else
@@ -121,18 +130,9 @@ let e_step (envM, envC, s, env, ev, c) =
         match e with
           | Lit l -> return envM envC s env (Litv l) c
           | Raise e ->
-              match c with
-                | [] -> Estuck
-                | ((Chandle () n e',env') :: c) ->
-                     match e with
-                        | Int_error i ->
-                           Estep (envM,envC,s,(bind n (Litv (IntLit i)) env'),Exp e',c)
-                        | _ -> Estep (envM,envC,s,env,Exp (Raise e),c)
-                     end
-                | _::c -> Estep (envM,envC,s,env,Exp (Raise e),c)
-              end
-          | Handle e n e' ->
-              push envM envC s env e (Chandle () n e') c
+              push envM envC s env e (Craise ()) c
+          | Handle e pes ->
+              push envM envC s env e (Chandle () pes) c
           | Con n es ->
               if do_con_check envC n (List.length es) then
                 match es with
@@ -152,7 +152,7 @@ let e_step (envM, envC, s, env, ev, c) =
           | App op e1 e2 -> push envM envC s env e1 (Capp1 op () e2) c
           | Log l e1 e2 -> push envM envC s env e1 (Clog l () e2) c
           | If e1 e2 e3 -> push envM envC s env e1 (Cif () e2 e3) c
-          | Mat e pes -> push envM envC s env e (Cmat () pes) c
+          | Mat e pes -> push envM envC s env e (Cmat () pes (Conv (Some (Short "Bind")) [])) c
           | Let n e1 e2 -> push envM envC s env e1 (Clet n () e2) c
           | Letrec funs e ->
               if not (all_distinct (List.map (fun (x,y,z) -> x) funs)) then
@@ -176,8 +176,8 @@ let rec
 small_eval menv cenv s env e c (s', Rval v) =
   exists env'. (rtc e_step_reln) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',Val v,[])
 and
-small_eval menv cenv s env e c (s', Rerr (Rraise err)) =
-  exists env'. (rtc e_step_reln) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',Exp (Raise err),[])
+small_eval menv cenv s env e c (s', Rerr (Rraise v)) =
+  exists env' env''. (rtc e_step_reln) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',Val v,[(Craise (), env'')])
 and
 small_eval menv cenv s env e c (s', Rerr Rtype_error) =
   exists env' e' c'.

@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib miscLib boolSimps pairTheory listTheory rich_listTheory pred_setTheory finite_mapTheory relationTheory SatisfySimps arithmeticTheory quantHeuristicsLib lcsymtacs
-open miscTheory semanticsExtraTheory CompilerLibTheory CompilerPrimitivesTheory IntLangTheory ToIntLangTheory compilerTerminationTheory
+open miscTheory semanticsExtraTheory CompilerLibTheory IntLangTheory ToIntLangTheory compilerTerminationTheory
 val _ = new_theory "intLangExtra"
 
 (* compilerLibExtra *)
@@ -539,13 +539,10 @@ val every_Cresult_P1 = store_thm("every_Cresult_P1",
 val _ = export_rewrites["every_Cresult_P1"]
 
 val Cmap_result_def = Define`
-  (Cmap_result f (Rval v) = Cval (f v)) ∧
-  (Cmap_result f (Rerr (Rraise Bind_error)) = Cexc (Craise CBind_excv)) ∧
-  (Cmap_result f (Rerr (Rraise Div_error)) = Cexc (Craise CDiv_excv)) ∧
-  (Cmap_result f (Rerr (Rraise Eq_error)) = Cexc (Craise CEq_excv)) ∧
-  (Cmap_result f (Rerr (Rraise (Int_error n))) = Cexc (Craise (CLitv (IntLit n)))) ∧
-  (Cmap_result f (Rerr Rtype_error) = Cexc Ctype_error) ∧
-  (Cmap_result f (Rerr Rtimeout_error) = Cexc Ctimeout_error)`
+  (Cmap_result f1 _ (Rval v) = Cval (f1 v)) ∧
+  (Cmap_result _ f2 (Rerr (Rraise v)) = Cexc (Craise (f2 v))) ∧
+  (Cmap_result _ _ (Rerr Rtype_error) = Cexc Ctype_error) ∧
+  (Cmap_result _ _ (Rerr Rtimeout_error) = Cexc Ctimeout_error)`
 val _ = export_rewrites["Cmap_result_def"]
 
 (* Cevaluate functional equations *)
@@ -1158,10 +1155,10 @@ EVERY2_trans
 val result_rel_syneq_refl = save_thm(
 "result_rel_syneq_refl",
 result_rel_refl
-|> Q.GEN`R`
+|> Q.GENL[`R2`,`R1`]
 |> Q.ISPEC`syneq`
 |> SIMP_RULE std_ss [syneq_refl])
-val _ = export_rewrites["result_rel_syneq_refl"]
+(*val _ = export_rewrites["result_rel_syneq_refl"]*)
 
 val Cresult_rel_syneq_refl = save_thm(
 "Cresult_rel_syneq_refl",
@@ -1182,12 +1179,13 @@ val _ = export_rewrites["Cresult_rel_syneq_refl"]
 val result_rel_syneq_trans = save_thm(
 "result_rel_syneq_trans",
 result_rel_trans
-|> Q.GEN`R`
+|> Q.GEN`R1`
 |> Q.ISPEC`syneq`
 |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
 |> UNDISCH
 |> (fn th => PROVE_HYP (PROVE[syneq_trans](hd(hyp th))) th)
-|> SIMP_RULE std_ss [AND_IMP_INTRO])
+|> SIMP_RULE std_ss [AND_IMP_INTRO]
+|> Q.GEN`R2`)
 
 val Cresult_rel_syneq_trans = save_thm(
 "Cresult_rel_syneq_trans",
@@ -1235,9 +1233,12 @@ val free_vars_defs_MAP = store_thm("free_vars_defs_MAP",
   gen_tac >> Induct >> simp[])
 
 val good_cmap_def = Define`
-  good_cmap (cenv:envC) m ⇔
+  good_cmap cenv m ⇔
     ALL_DISTINCT (MAP FST cenv) ∧
     NONE ∈ FDOM m ∧
+    FLOOKUP m (SOME (Short "Bind")) = SOME bind_exc_cn ∧
+    FLOOKUP m (SOME (Short "Div")) = SOME div_exc_cn ∧
+    FLOOKUP m (SOME (Short "Eq")) = SOME eq_exc_cn ∧
     (!p1. MEM p1 cenv ⇒ FAPPLY m (SOME (FST p1)) ≠ FAPPLY m NONE) ∧
     ∀p1 p2.
       MEM p1 cenv ∧ MEM p2 cenv ⇒

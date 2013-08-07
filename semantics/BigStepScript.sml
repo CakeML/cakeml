@@ -29,7 +29,7 @@ val _ = type_abbrev( "count_store" , ``: num # store``);
 
 (*val evaluate : bool -> envM -> envC -> count_store -> envE -> exp -> count_store * result v -> bool*)
 (*val evaluate_list : bool -> envM -> envC -> count_store -> envE -> list exp -> count_store * result (list v) -> bool*)
-(*val evaluate_match : bool -> envM -> envC -> count_store -> envE -> v -> list (pat * exp) -> count_store * result v -> bool*)
+(*val evaluate_match : bool -> envM -> envC -> count_store -> envE -> v -> list (pat * exp) -> v -> count_store * result v -> bool*)
 (*val evaluate_dec : option modN -> envM -> envC -> store -> envE -> dec -> store * result (envC * envE) -> bool*)
 (*val evaluate_decs : option modN -> envM -> envC -> store -> envE -> list dec -> store * envC * result envE -> bool*)
 (*val evaluate_top : envM -> envC -> store -> envE -> top -> store * envC * result (envM * envE) -> bool*)
@@ -53,33 +53,40 @@ evaluate ck menv cenv s env (Lit l) (s, Rval (Litv l)))
 
 /\
 
-(! ck menv cenv env err s.
-T
+(! ck menv cenv env e s1 s2 v.
+(evaluate ck menv cenv s1 env e (s2, Rval v))
 ==>
-evaluate ck menv cenv s env (Raise err) (s, Rerr (Rraise err)))
+evaluate ck menv cenv s1 env (Raise e) (s2, Rerr (Rraise v)))
 
 /\
 
-(! ck menv cenv s1 s2 env e1 e2 v var.
-(evaluate ck menv cenv s1 env e1 (s2, Rval v))
+(! ck menv cenv env e s1 s2 err.
+(evaluate ck menv cenv s1 env e (s2, Rerr err))
 ==>
-evaluate ck menv cenv s1 env (Handle e1 var e2) (s2, Rval v))
+evaluate ck menv cenv s1 env (Raise e) (s2, Rerr err))
 
 /\
 
-(! ck menv cenv s1 s2 env e1 e2 n var bv.
-(evaluate ck menv cenv s1 env e1 (s2, Rerr (Rraise (Int_error n))) /\
-evaluate ck menv cenv s2 (bind var (Litv (IntLit n)) env) e2 bv)
+(! ck menv cenv s1 s2 env e v pes.
+(evaluate ck menv cenv s1 env e (s2, Rval v))
 ==>
-evaluate ck menv cenv s1 env (Handle e1 var e2) bv)
+evaluate ck menv cenv s1 env (Handle e pes) (s2, Rval v))
 
 /\
 
-(! ck menv cenv s1 s2 env e1 e2 var err.
-(evaluate ck menv cenv s1 env e1 (s2, Rerr err) /\
-((err = Rtimeout_error) \/ (err = Rtype_error) \/ (err = Rraise Bind_error) \/ (err = Rraise Div_error) \/ (err = Rraise Eq_error)))
+(! ck menv cenv s1 s2 env e pes v bv.
+(evaluate ck menv cenv s1 env e (s2, Rerr (Rraise v)) /\
+evaluate_match ck menv cenv s2 env v pes v bv)
 ==>
-evaluate ck menv cenv s1 env (Handle e1 var e2) (s2, Rerr err))
+evaluate ck menv cenv s1 env (Handle e pes) bv)
+
+/\
+
+(! ck menv cenv s1 s2 env e pes err.
+(evaluate ck menv cenv s1 env e (s2, Rerr err) /\
+((err = Rtimeout_error) \/ (err = Rtype_error)))
+==>
+evaluate ck menv cenv s1 env (Handle e pes) (s2, Rerr err))
 
 /\
 
@@ -257,7 +264,7 @@ evaluate ck menv cenv s env (If e1 e2 e3) (s', Rerr err))
 
 (! ck menv cenv env e pes v bv s1 s2.
 (evaluate ck menv cenv s1 env e (s2, Rval v) /\
-evaluate_match ck menv cenv s2 env v pes bv)
+evaluate_match ck menv cenv s2 env v pes (Conv (SOME (Short "Bind")) []) bv)
 ==>
 evaluate ck menv cenv s1 env (Mat e pes) bv)
 
@@ -328,39 +335,39 @@ evaluate_list ck menv cenv s1 env (e ::es) (s3, Rerr err))
 
 /\
 
-(! ck menv cenv env v s.
+(! ck menv cenv env v err_v s.
 T
 ==>
-evaluate_match ck menv cenv s env v [] (s, Rerr (Rraise Bind_error)))
+evaluate_match ck menv cenv s env v [] err_v (s, Rerr (Rraise err_v)))
 
 /\
 
-(! ck menv cenv env v p e pes env' bv s count. ( ALL_DISTINCT (pat_bindings p []) /\
+(! ck menv cenv env v p e pes env' bv err_v s count. ( ALL_DISTINCT (pat_bindings p []) /\
 (pmatch cenv s p v env = Match env') /\
 evaluate ck menv cenv (count,s) env' e bv)
 ==>
-evaluate_match ck menv cenv (count,s) env v ((p,e) ::pes) bv)
+evaluate_match ck menv cenv (count,s) env v ((p,e) ::pes) err_v bv)
 
 /\
 
-(! ck menv cenv env v p e pes bv s count. ( ALL_DISTINCT (pat_bindings p []) /\
+(! ck menv cenv env v p e pes bv s count err_v. ( ALL_DISTINCT (pat_bindings p []) /\
 (pmatch cenv s p v env = No_match) /\
-evaluate_match ck menv cenv (count,s) env v pes bv)
+evaluate_match ck menv cenv (count,s) env v pes err_v bv)
 ==>
-evaluate_match ck menv cenv (count,s) env v ((p,e) ::pes) bv)
+evaluate_match ck menv cenv (count,s) env v ((p,e) ::pes) err_v bv)
 
 /\
 
-(! ck menv cenv env v p e pes s count.
+(! ck menv cenv env v p e pes s count err_v.
 (pmatch cenv s p v env = Match_type_error)
 ==>
-evaluate_match ck menv cenv (count,s) env v ((p,e) ::pes) ((count,s), Rerr Rtype_error))
+evaluate_match ck menv cenv (count,s) env v ((p,e) ::pes) err_v ((count,s), Rerr Rtype_error))
 
 /\
 
-(! ck menv cenv env v p e pes s. ( ~  ( ALL_DISTINCT (pat_bindings p [])))
+(! ck menv cenv env v p e pes s err_v. ( ~  ( ALL_DISTINCT (pat_bindings p [])))
 ==>
-evaluate_match ck menv cenv s env v ((p,e) ::pes) (s, Rerr Rtype_error))`;
+evaluate_match ck menv cenv s env v ((p,e) ::pes) err_v (s, Rerr Rtype_error))`;
 
 
 val _ = Hol_reln `
@@ -379,7 +386,7 @@ evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rval (emp, env')))
 evaluate F menv cenv (0,s1) env e ((count,s2), Rval v) /\ ALL_DISTINCT (pat_bindings p []) /\
 (pmatch cenv s2 p v emp = No_match))
 ==>
-evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr (Rraise Bind_error)))
+evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr (Rraise (Conv (SOME (Short "Bind")) []))))
 
 /\
 
@@ -428,7 +435,21 @@ evaluate_dec mn menv cenv s env (Dtype tds) (s, Rval (build_tdefs mn tds, emp)))
 
 (! mn menv cenv env tds s. ( ~  (check_dup_ctors mn cenv tds))
 ==>
-evaluate_dec mn menv cenv s env (Dtype tds) (s, Rerr Rtype_error))`;
+evaluate_dec mn menv cenv s env (Dtype tds) (s, Rerr Rtype_error))
+
+/\
+
+(! mn menv cenv env cn ts s.
+(lookup (mk_id mn cn) cenv = NONE)
+==>
+evaluate_dec mn menv cenv s env (Dexn cn ts) (s, Rval (bind (mk_id mn cn) ( LENGTH ts, TypeExn) emp, emp)))
+
+/\
+
+(! mn menv cenv env cn ts s.
+(lookup (mk_id mn cn) cenv <> NONE)
+==>
+evaluate_dec mn menv cenv s env (Dexn cn ts) (s, Rerr Rtype_error))`;
 
 val _ = Hol_reln `
 
@@ -524,6 +545,7 @@ val _ = Define `
       Dlet p e => ALL_DISTINCT (pat_bindings p []) /\ e_diverges menv cenv st env e
     | Dletrec funs => F
     | Dtype tds => F
+    | Dexn cn ts => F
   )))`;
 
 

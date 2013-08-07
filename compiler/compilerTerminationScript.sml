@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib Defn pairTheory pred_setTheory listTheory finite_mapTheory state_transformerTheory lcsymtacs
-open terminationTheory CompilerLibTheory CompilerPrimitivesTheory IntLangTheory ToIntLangTheory ToBytecodeTheory CompilerTheory PrinterTheory BytecodeTheory
+open terminationTheory CompilerLibTheory IntLangTheory ToIntLangTheory ToBytecodeTheory CompilerTheory PrinterTheory BytecodeTheory
 val _ = new_theory "compilerTermination"
 
 (* size helper theorems *)
@@ -97,14 +97,14 @@ val (mkshift_def,mkshift_ind) = register "mkshift" (
 
 val _ = register "remove_mat_var" (
   tprove_no_defn ((remove_mat_var_def,remove_mat_var_ind),
-  WF_REL_TAC `measure (LENGTH o SND)` >> rw[]))
+  WF_REL_TAC `measure (LENGTH o SND o SND)` >> rw[]))
 
 val (exp_to_Cexp_def,exp_to_Cexp_ind) = register "exp_to_Cexp" (
   tprove_no_defn ((exp_to_Cexp_def,exp_to_Cexp_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
     | INL (_,e) => exp_size e
     | INR (INL (_,defs)) => exp1_size defs
-    | INR (INR (INL (_,pes))) => exp4_size pes
+    | INR (INR (INL (_,pes))) => exp3_size pes
     | INR (INR (INR (_,es))) => exp6_size es)`))
 
 val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
@@ -266,7 +266,6 @@ val _ = export_rewrites
 ,"mkshift_def"
 ,"label_closures_def"
 ,"ToIntLang.Cpat_vars_def"
-,"CompilerPrimitives.map_result_def","CompilerPrimitives.every_result_def"
 ,"IntLang.doPrim2_def","IntLang.CevalPrim2_def","IntLang.CevalUpd_def","IntLang.CevalPrim1_def"
 ,"free_labs_def","no_labs_def","all_labs_def"
 ,"IntLang.CDiv_excv_def","IntLang.CBind_excv_def","IntLang.CEq_excv_def"

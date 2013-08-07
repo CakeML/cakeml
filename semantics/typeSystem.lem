@@ -38,7 +38,7 @@ deBruijn_subst skip ts (Tapp ts' tn) =
 
 (* constructor type environments: each constructor has a type
  * forall tyvars. t list -> (tyvars) typeN *)
-type tenvC = env (id conN) (list tvarN * list t * id typeN)
+type tenvC = env (id conN) (list tvarN * list t * tid_or_exn)
 
 (* Type environments *)
 type tenvE =
@@ -164,7 +164,7 @@ let check_ctor_tenv mn tenvC tds =
   all_distinct (List.map (fun (_,tn,_) -> tn) tds) &&
   List.for_all
     (fun (tvs,tn,ctors) ->
-       List.for_all (fun (_,(_,_,tn')) -> mk_id mn tn <> tn') tenvC)
+       List.for_all (fun (_,(_,_,tn')) -> TypeId (mk_id mn tn) <> tn') tenvC)
     tds
 
 val build_ctor_tenv : option modN -> list (list tvarN * typeN * list (conN * list t)) -> tenvC
@@ -172,7 +172,7 @@ let build_ctor_tenv mn tds =
   List.flatten
     (List.map
        (fun (tvs,tn,ctors) ->
-          List.map (fun (cn,ts) -> (mk_id mn cn,(tvs,ts, mk_id mn tn))) ctors)
+          List.map (fun (cn,ts) -> (mk_id mn cn,(tvs,ts, TypeId (mk_id mn tn)))) ctors)
        tds)
 
 (* Simultaneous substitution of types for type variables in a type *)
@@ -217,6 +217,13 @@ is_value (Fun _ _) = true
 and
 is_value _ = false
 
+val tid_exn_to_tc : tid_or_exn -> tc
+let tid_exn_to_tc t =
+  match t with
+    | TypeId tid -> TC_name tid
+    | TypeExn -> TC_exn
+  end
+
 indreln
 
 forall tvs cenv n t.
@@ -253,7 +260,7 @@ List.length ts' = List.length tvs' &&
 type_ps tvs cenv ps (List.map (type_subst (List.combine tvs' ts')) ts) tenv &&
 lookup cn cenv = Some (tvs', ts, tn)
 ==>
-type_p tvs cenv (Pcon (Some cn) ps) (Tapp ts' (TC_name tn)) tenv
+type_p tvs cenv (Pcon (Some cn) ps) (Tapp ts' (tid_exn_to_tc tn)) tenv
 
 and
 
@@ -307,18 +314,23 @@ type_e menv cenv tenv (Lit Unit) Tunit
 
 and
 
-forall menv cenv tenv err t.
-check_freevars (num_tvs tenv) [] t
+forall menv cenv tenv e t.
+check_freevars (num_tvs tenv) [] t &&
+type_e menv cenv tenv e Texn 
 ==>
-type_e menv cenv tenv (Raise err) t
+type_e menv cenv tenv (Raise e) t
 
 and
 
-forall menv cenv tenv e1 var e2 t.
-type_e menv cenv tenv e1 t &&
-type_e menv cenv (bind_tenv var 0 Tint tenv) e2 t
+forall menv cenv tenv e pes t.
+type_e menv cenv tenv e t &&
+(pes <> []) &&
+(forall ((p,e) MEM pes). exists tenv'.
+   all_distinct (pat_bindings p []) &&
+   type_p (num_tvs tenv) cenv p Texn tenv' &&
+   type_e menv cenv (bind_var_list 0 tenv' tenv) e t)
 ==>
-type_e menv cenv tenv (Handle e1 var e2) t
+type_e menv cenv tenv (Handle e pes) t
 
 and
 
@@ -328,7 +340,7 @@ List.length tvs = List.length ts' &&
 type_es menv cenv tenv es (List.map (type_subst (List.combine tvs ts')) ts) &&
 lookup cn cenv = Some (tvs, ts, tn)
 ==>
-type_e menv cenv tenv (Con (Some cn) es) (Tapp ts' (TC_name tn))
+type_e menv cenv tenv (Con (Some cn) es) (Tapp ts' (tid_exn_to_tc tn))
 
 and
 
@@ -494,6 +506,14 @@ check_ctor_tenv mn cenv tdecs
 ==>
 type_d mn menv cenv tenv (Dtype tdecs) (build_ctor_tenv mn tdecs) emp
 
+and
+
+forall mn menv cenv tenv cn ts.
+(lookup (mk_id mn cn) cenv = None) &&
+List.for_all (check_freevars 0 []) ts
+==>
+type_d mn menv cenv tenv (Dexn cn ts) (bind (mk_id mn cn) ([], ts, TypeExn) emp) emp
+
 indreln
 
 forall mn menv cenv tenv.
@@ -534,9 +554,18 @@ type_specs mn cenv tenv (Stype td :: specs) cenv' tenv'
 
 and
 
+forall mn cenv tenv cn ts specs cenv' tenv'.
+(lookup (mk_id mn cn) cenv = None) &&
+List.for_all (check_freevars 0 []) ts &&
+type_specs mn (bind (mk_id mn cn) ([], ts, TypeExn) cenv) tenv specs cenv' tenv'
+==>
+type_specs mn cenv tenv (Sexn cn ts :: specs) cenv' tenv'
+
+and
+
 forall mn cenv tenv tn specs cenv' tenv' tvs.
 all_distinct tvs &&
-List.for_all (fun (_,(_,_,tn')) -> mk_id mn tn <> tn') cenv &&
+List.for_all (fun (_,(_,_,tn')) -> TypeId (mk_id mn tn) <> tn') cenv &&
 type_specs mn cenv tenv specs cenv' tenv'
 ==>
 type_specs mn cenv tenv (Stype_opq tvs tn :: specs) cenv' tenv'
@@ -638,3 +667,7 @@ let init_tenv =
      ("!", 1, Tfn (Tref (Tvar_db 0)) (Tvar_db 0));
      ("ref", 1, Tfn (Tvar_db 0) (Tref (Tvar_db 0)))]
     Empty
+
+val init_tenvC : tenvC
+let init_tenvC =
+  List.map (fun cn -> (Short cn, ([], [], TypeExn))) ["Bind"; "Div"; "Eq"]

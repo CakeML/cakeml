@@ -15,7 +15,7 @@
 %token <character> CHAR_T
 %token POP_T POPS_T SHIFT_T PUSH_INT_T CONS_T LOAD_T STORE_T LOAD_REV_T 
 %token EL_T TAG_EQ_T IS_BLOCK_T EQUAL_T ADD_T SUB_T MULT_T DIV_T MOD_T LESS_T 
-%token STACK_T LABEL_T JUMP_T JUMP_IF_T CALL_T JUMP_PTR_T CALL_PTR_T RETURN_T 
+%token LABEL_T JUMP_T JUMP_IF_T CALL_T JUMP_PTR_T CALL_PTR_T RETURN_T 
 %token PUSH_EXC_T POP_EXC_T REF_T DEREF_T UPDATE_T STOP_T TICK_T PRINT_T 
 %token PRINT_C_T LAB_T ADDR_T PUSH_PTR_T
 %token HALT_T /* Not really a token, but we use these to tag our internal instruction representation too. */
@@ -164,8 +164,8 @@ loc:
 ;
 
 inst:
-   STACK_T stack_op { 
-     $$ = $2;
+   stack_op { 
+     $$ = $1;
    }
  | LABEL_T NUM_T {
      inst_list* next = malloc(sizeof(inst_list));

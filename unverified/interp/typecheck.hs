@@ -30,7 +30,7 @@ lookup_st_ex k env =
 
 type Tenv = Env VarN (Integer, Infer_t)
 type TenvM = Env ModN Tenv
-type TenvC = Env (Id ConN) ([TvarN], [T], Id TypeN)
+type TenvC = Env (Id ConN) ([TvarN], [T], Tid_or_exn)
 
 fresh_uvar :: M_st_ex Infer_t
 fresh_uvar =
@@ -115,6 +115,10 @@ infer_deBruijn_subst s (Infer_Tapp ts tn) =
 infer_deBruijn_subst s (Infer_Tuvar n) =
   Infer_Tuvar n
 
+tid_exn_to_tc :: Tid_or_exn -> Tc
+tid_exn_to_tc (TypeId tid) = TC_name tid
+tid_exn_to_tc TypeExn = TC_exn
+
 infer_p :: TenvC -> Pat -> Infer_t -> M_st_ex [(VarN,Infer_t)]
 infer_p cenv (Pvar n) t =
   return [(n,t)]
@@ -136,7 +140,7 @@ infer_p cenv (Pcon cn_opt ps pos) t =
       Just cn ->
         do (tvs',ts,tn) <- lookup_st_ex cn cenv;
            ts' <- n_fresh_uvar (List.length tvs');
-           add_constraint pos (Infer_Tapp ts' (TC_name tn)) t;
+           add_constraint pos (Infer_Tapp ts' (tid_exn_to_tc tn)) t;
            infer_ps cenv ps (List.map (infer_type_subst (listToEnv (List.zip tvs' ts'))) ts)
 infer_p cenv (Pref p pos) t =
   do t1 <- fresh_uvar;
@@ -185,12 +189,15 @@ ensureDistinct msg select l =
     Nothing -> return ()
     Just x -> typeError (getPos x) ("duplicate " ++ msg ++ ": " ++ show x)
 
+infer_Texn = Infer_Tapp [] TC_exn
+
 infer_e :: TenvM -> TenvC -> Tenv -> Exp -> Infer_t -> M_st_ex ()
-infer_e menv cenv env (Raise err) t =
-  return ()
-infer_e menv cenv env (Handle e1 x e2) t =
+infer_e menv cenv env (Raise e) t =
+  do infer_e menv cenv env e infer_Texn;
+     return ()
+infer_e menv cenv env (Handle e1 pes) t =
   do infer_e menv cenv env e1 t;
-     infer_e menv cenv (Ast.bind x (0,Infer_Tapp [] TC_int) env) e2 t
+     infer_pes menv cenv env pes infer_Texn t
 infer_e menv cenv tenv (Lit (Bool b) pos) t =
   add_constraint pos (Infer_Tapp [] TC_bool) t
 infer_e menv cenv tenv (Lit (IntLit i) pos) t =
@@ -215,7 +222,7 @@ infer_e menv cenv env (Con cn_opt es pos) t =
     Just cn ->
        do (tvs',ts,tn) <- lookup_st_ex cn cenv;
           ts' <- n_fresh_uvar (List.length tvs');
-          add_constraint pos (Infer_Tapp ts' (TC_name tn)) t;
+          add_constraint pos (Infer_Tapp ts' (tid_exn_to_tc tn)) t;
           infer_es menv cenv env es (List.map (infer_type_subst (listToEnv (List.zip tvs' ts'))) ts)
 infer_e menv cenv env (Fun x e pos) t =
   do t1 <- fresh_uvar;
@@ -311,7 +318,7 @@ check_ctor_tenv mn tenvC tds =
 	         mapM_ (\(cn,ts) -> mapM_ (check_freevars 0 tvs) ts) ctors)
 	   tds;
      ensureDistinct "type name" (\(_,tn,_) -> tn) tds;
-     unless (List.all (\(tvs,tn,ctors) -> envAll (\_ (_,_,tn') -> mk_id mn tn /= tn') tenvC) tds)
+     unless (List.all (\(tvs,tn,ctors) -> envAll (\_ (_,_,tn') -> TypeId (mk_id mn tn) /= tn') tenvC) tds)
             (error "constructor with wrong module")
 
 build_ctor_tenv :: Maybe ModN -> [([TvarN], TypeN, [(ConN, [T])])] -> TenvC
@@ -320,7 +327,7 @@ build_ctor_tenv mn tds =
     (List.concat
       (List.map
          (\(tvs,tn,ctors) ->
-            List.map (\(cn,ts) -> (mk_id mn cn,(tvs,ts, mk_id mn tn))) ctors)
+            List.map (\(cn,ts) -> (mk_id mn cn,(tvs,ts, TypeId (mk_id mn tn)))) ctors)
          tds))
 
 infer_d :: Maybe ModN -> TenvM -> TenvC -> Tenv -> Dec -> M_st_ex (TenvC, Tenv)
@@ -349,6 +356,12 @@ infer_d mn menv cenv env (Dletrec funs) =
 infer_d mn menv cenv env (Dtype tdecs) =
   do check_ctor_tenv mn cenv tdecs; 
      return (build_ctor_tenv mn tdecs, emp)
+infer_d mn menv cenv env (Dexn cn ts) =
+  if isJust (Ast.lookup (mk_id mn cn) cenv) then
+    typeError (getPos cn) ("duplicate constructor: " ++ show (mk_id mn cn))
+  else 
+    do mapM_ (check_freevars 0 []) ts;
+       return (bind (mk_id mn cn) ([], ts, TypeExn) emp, emp)
 
 infer_ds :: Maybe ModN -> TenvM -> TenvC -> Tenv -> Decs -> M_st_ex (TenvC, Tenv)
 infer_ds mn menv cenv env [] =
@@ -384,9 +397,15 @@ check_specs mn cenv env (Sval x t:specs) =
 check_specs mn cenv env (Stype td : specs) =
   do check_ctor_tenv mn cenv td;
      check_specs mn (merge (build_ctor_tenv mn td) cenv) env specs
+check_specs mn cenv env (Sexn cn ts : specs) =
+  if isJust (Ast.lookup (mk_id mn cn) cenv) then
+    typeError (getPos cn) ("duplicate constructor: " ++ show (mk_id mn cn))
+  else 
+    do mapM_ (check_freevars 0 []) ts;
+       check_specs mn (bind (mk_id mn cn) ([], ts, TypeExn) cenv) env specs
 check_specs mn cenv env (Stype_opq tvs tn : specs) =
   do mapM_ (\(_, (x,y,tn')) -> 
-              unless (mk_id mn tn /= tn') 
+              unless (TypeId (mk_id mn tn) /= tn') 
                      (typeError (getPos tn) ("duplicate type definition: " ++ show (mk_id mn tn)))) 
           (envToList cenv);
      ensureDistinct "type variable" (\x -> x) tvs;
@@ -399,7 +418,7 @@ check_weakC cenv_impl cenv_spec =
                Nothing -> typeError (getPos cn) ("Missing implementation of " ++ show cn)
                Just (tvs_impl,ts_impl,tn_impl) ->
                   unless (tn_spec == tn_impl && tvs_spec == tvs_impl && ts_spec == ts_impl) 
-                         (typeError (getPos tn_spec) "datatype specification and implementation differ"))
+                         (typeError (getPos cn) "datatype specification and implementation differ"))
         (envToList cenv_spec)
 
 check_weakE :: Tenv -> Tenv -> M_st_ex ()
@@ -466,6 +485,9 @@ init_type_env =
        ("~", (0, infer_Tfn infer_Tint infer_Tint)),
        ("!", (1, infer_Tfn (infer_Tref (Infer_Tvar_db 0)) (Infer_Tvar_db 0))),
        ("ref", (1, infer_Tfn (Infer_Tvar_db 0) (infer_Tref (Infer_Tvar_db 0))))])
+
+init_tenvC =
+  listToEnv (List.map (\cn -> (Short (ConN cn Typecheck.dummy_pos) , ([], [], TypeExn))) ["Bind", "Div", "Eq"])
 
 inferTop :: (TenvM,TenvC,Tenv) -> Top -> Either (SourcePos,String) (TenvM, TenvC, Tenv)
 inferTop (menv,cenv,env) top =

@@ -62,15 +62,6 @@ nVlist1 = many1 nV
 
 nFQV = fmap Short nV <|> longV
 
-nExn = 
-  (tokeq (AlphaT "Bind") >> return Bind_error)
-  <|>
-  (tokeq (AlphaT "Div") >> return Div_error)
-  <|>
-  do tokeq (AlphaT "IntError");
-     (i,pos) <- tok destIntT;
-     return (Int_error i)
-
 mkAst_App e1 e2 =
   case e1 of
     Ast_Con (Just (Short (ConN "ref" pos))) [] pos' -> Ast_App (Ast_Var (Short (VarN "ref" pos))) e2
@@ -181,23 +172,11 @@ nElogicOR = nElogicAND `chainl1` (tokeq OrelseT >>= (\pos -> return (\e1 e2 -> A
 nEhandle = 
   do e1 <- nElogicOR;
      option e1 (do tokeq HandleT;
-                   tokeq (AlphaT "IntError");
-		   v <- nV;
-		   tokeq DarrowT;
-		   e2 <- nE;
-		   return (Ast_Handle e1 v e2))
-
-nEhandle' = 
-  do e1 <- nElogicOR;
-     option e1 (do tokeq HandleT;
-                   tokeq (AlphaT "IntError");
-		   v <- nV;
-		   tokeq DarrowT;
-		   e2 <- nE';
-		   return (Ast_Handle e1 v e2))
+                   pes <- nPEs;
+		   return (Ast_Handle e1 pes))
 
 nE = 
-  (tokeq RaiseT >> fmap Ast_Raise nExn)
+  (tokeq RaiseT >> fmap Ast_Raise nE)
   <|>
   nEhandle
   <|>
@@ -222,9 +201,9 @@ nE =
      return (Ast_Mat e pes)
 
 nE' = 
-  (tokeq RaiseT >> fmap Ast_Raise nExn)
+  (tokeq RaiseT >> fmap Ast_Raise nE)
   <|>
-  nEhandle'
+  nEhandle
   <|>
   do tokeq IfT;
      e1 <- nE;
@@ -233,12 +212,6 @@ nE' =
      tokeq ElseT;
      e3 <- nE';
      return (Ast_If e1 e2 e3)
-  <|>
-  do pos <- tokeq FnT;
-     x <- nV;
-     tokeq DarrowT;
-     e <- nE';
-     return (Ast_Fun x e pos)
 
 nPEs = choice [try (do pe <- nPE'; tokeq BarT; pes <- nPEs; return (pe:pes)),
                fmap (\x -> [x]) nPE]
@@ -409,6 +382,8 @@ nDecl =
   (tokeq FunT >> fmap Ast_Dletrec nAndFDecls)
   <|>
   fmap Ast_Dtype nTypeDec
+  <|>
+  (tokeq ExceptionT >> fmap (uncurry Ast_Dexn) nDconstructor)
 
 nDecls = 
   do d <- nDecl;

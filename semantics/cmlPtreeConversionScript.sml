@@ -503,24 +503,6 @@ val mkAst_App_def = Define`
           | _ => Ast_Con s [a2])
      | _ => Ast_App a1 a2
 `
-
-val ptree_Exn_def = Define`
-  ptree_Exn (Lf _) = NONE ∧
-  ptree_Exn (Nd nt subs) =
-    if nt <> mkNT nExn then NONE
-    else
-      case subs of
-          [bd] => if bd = Lf (TOK (AlphaT "Bind")) then SOME Bind_error
-                  else if bd = Lf (TOK (AlphaT "Div")) then SOME Div_error
-                  else NONE
-        | [ie; ipt] =>
-          do
-            assert(ie = Lf (TOK (AlphaT "IntError")));
-            OPTION_MAP Int_error (destIntT ' (destTOK ' (destLf ipt)))
-          od
-        | _ => NONE
-`;
-
 val ptree_Expr_def = Define`
   ptree_Expr ent (Lf _) = NONE ∧
   ptree_Expr ent (Nd nt subs) =
@@ -692,27 +674,12 @@ val ptree_Expr_def = Define`
       else if nt = mkNT nEhandle then
         case subs of
             [pt] => ptree_Expr nElogicOR pt
-          | [e1pt; handlet; interrort; vpt; arrowt; e2pt] =>
+          | [e1pt; handlet; ent] =>
             do
-              assert(handlet = Lf (TOK HandleT) ∧ arrowt = Lf (TOK DarrowT) ∧
-                     interrort = Lf (TOK (AlphaT "IntError")));
-              e1 <- ptree_Expr nElogicOR e1pt;
-              v <- ptree_V vpt;
-              e2 <- ptree_Expr nE e2pt;
-              SOME(Ast_Handle e1 v e2)
-            od
-          | _ => NONE
-      else if nt = mkNT nEhandle' then
-        case subs of
-            [pt] => ptree_Expr nElogicOR pt
-          | [e1pt; handlet; interrort; vpt; arrowt; e2pt] =>
-            do
-              assert(handlet = Lf (TOK HandleT) ∧ arrowt = Lf (TOK DarrowT) ∧
-                     interrort = Lf (TOK (AlphaT "IntError")));
-              e1 <- ptree_Expr nElogicOR e1pt;
-              v <- ptree_V vpt;
-              e2 <- ptree_Expr nE' e2pt;
-              SOME(Ast_Handle e1 v e2)
+              assert(handlet = Lf (TOK HandleT));
+              e <- ptree_Expr nElogicOR e1pt;
+              pes <- ptree_PEs ent;
+              SOME(Ast_Handle e pes)
             od
           | _ => NONE
       else if nt = mkNT nE then
@@ -721,7 +688,7 @@ val ptree_Expr_def = Define`
           | [raiset; ept] =>
             do
               assert(raiset = Lf (TOK RaiseT));
-              e <- ptree_Exn ept;
+              e <- ptree_Expr nE ept;
               SOME(Ast_Raise e)
             od
           | [fnt; vnt; arrowt; ent] =>
@@ -747,11 +714,11 @@ val ptree_Expr_def = Define`
           | _ => NONE
       else if nt = mkNT nE' then
         case subs of
-          | [t] => ptree_Expr nEhandle' t
+          | [t] => ptree_Expr nElogicOR t
           | [raiset; ept] =>
             do
               assert(raiset = Lf (TOK RaiseT));
-              e <- ptree_Exn ept;
+              e <- ptree_Expr nE' ept;
               SOME(Ast_Raise e)
             od
           | [fnt; vnt; arrowt; ent] =>

@@ -188,6 +188,7 @@ data Tc =
   | TC_ref
   | TC_fn
   | TC_tup
+  | TC_exn
   deriving Eq
 
 instance Show Tc where
@@ -198,6 +199,17 @@ instance Show Tc where
   show TC_ref = "ref"
   show TC_fn = "->"
   show TC_tup = "*"
+  show TC_exn = "exn"
+
+data Tid_or_exn = 
+    TypeId (Id TypeN)
+  | TypeExn
+
+instance Eq Tid_or_exn where
+  (==) TypeExn TypeExn = True
+  (==) (TypeId tid1) (TypeId tid2) = tid1 == tid2
+  (==) _ _ = False
+
 
 data T = 
     Tvar TvarN
@@ -210,6 +222,7 @@ tunit = Tapp [] TC_unit
 tbool = Tapp [] TC_bool
 tref t = Tapp [t] TC_ref
 tfn t1 t2 = Tapp [t1,t2] TC_fn
+texn = Tapp [] TC_exn
 
 data Pat = 
     Pvar VarN
@@ -217,21 +230,9 @@ data Pat =
   | Pcon (Maybe (Id ConN)) [Pat] SourcePos
   | Pref Pat SourcePos
 
-data Error = 
-    Bind_error
-  | Div_error
-  | Eq_error
-  | Int_error Integer
-
-instance Show Error where
-  show Bind_error = "Bind"
-  show Div_error = "Div"
-  show Eq_error = "Equality_closure"
-  show (Int_error i) = "(IntError " ++ show i ++ ")"
-
 data Exp = 
-    Raise Error
-  | Handle Exp VarN Exp
+    Raise Exp
+  | Handle Exp [(Pat,Exp)]
   | Lit Lit SourcePos
   | Con (Maybe (Id ConN)) [Exp] SourcePos
   | Var (Id VarN)
@@ -250,6 +251,7 @@ data Dec =
     Dlet Pat Exp SourcePos
   | Dletrec [(VarN, VarN, Exp)]
   | Dtype Type_def
+  | Dexn ConN [T]
 
 type Decs = [Dec]
 
@@ -257,6 +259,7 @@ data Spec =
     Sval VarN T
   | Stype Type_def
   | Stype_opq [TvarN] TypeN
+  | Sexn ConN [T]
 
 type Specs = [Spec]
 
@@ -281,8 +284,8 @@ data Ast_pat =
   | Ast_Pref Ast_pat SourcePos
 
 data Ast_exp =
-    Ast_Raise Error
-  | Ast_Handle Ast_exp VarN Ast_exp
+    Ast_Raise Ast_exp
+  | Ast_Handle Ast_exp [(Ast_pat, Ast_exp)]
   | Ast_Lit Lit SourcePos
   | Ast_Var (Id VarN)
   | Ast_Con (Maybe (Id ConN)) [Ast_exp] SourcePos
@@ -305,6 +308,7 @@ data Ast_dec =
     Ast_Dlet Ast_pat Ast_exp SourcePos
   | Ast_Dletrec [(VarN, VarN, Ast_exp)]
   | Ast_Dtype Ast_type_def
+  | Ast_Dexn ConN [Ast_t]
 
 type Ast_decs = [Ast_dec]
 
@@ -347,9 +351,10 @@ elab_spec :: Maybe ModN -> Tdef_env -> [Ast_spec] -> [Spec]
 elab_top :: Tdef_env -> Ctor_env -> Ast_top -> (Tdef_env, Ctor_env, Top)
 elab_prog :: Tdef_env -> Ctor_env -> [Ast_top] -> (Tdef_env, Ctor_env, Prog)
 
-elab_e ctors (Ast_Raise err) = Raise err
-elab_e ctors (Ast_Handle e1 x e2) =
-  Handle (elab_e ctors e1) x (elab_e ctors e2)
+elab_e ctors (Ast_Raise e) = Raise (elab_e ctors e)
+elab_e ctors (Ast_Handle e pes) =
+  Handle (elab_e ctors e) 
+         (List.map (\(p,e) -> (elab_p ctors p, elab_e ctors e)) pes)
 elab_e ctors (Ast_Lit l pos) =
   Lit l pos
 elab_e ctors (Ast_Var id) =
@@ -370,10 +375,7 @@ elab_e ctors (Ast_If e1 e2 e3) =
   If (elab_e ctors e1) (elab_e ctors e2) (elab_e ctors e3)
 elab_e ctors (Ast_Mat e pes) =
   Mat (elab_e ctors e) 
-      (List.map (\(p,e) -> 
-                   let p' = elab_p ctors p in
-                     (p', elab_e ctors e))
-                pes)
+      (List.map (\(p,e) -> (elab_p ctors p, elab_e ctors e)) pes)
 elab_e ctors (Ast_Let x e1 e2) =
   Let x (elab_e ctors e1) (elab_e ctors e2)
 elab_e ctors (Ast_Letrec funs e) =
@@ -413,8 +415,12 @@ elab_dec mn type_bound ctors (Ast_Dletrec funs) =
 elab_dec mn type_bound ctors (Ast_Dtype t) = 
   let type_bound' = listToEnv (List.map (\(tvs,tn,ctors) -> (tn, TC_name (mk_id mn tn))) t) in
     (type_bound',
-     merge (listToEnv (get_ctors_bindings mn t)) ctors,
+     listToEnv (get_ctors_bindings mn t),
      Dtype (List.map (elab_td (merge type_bound' type_bound)) t))
+elab_dec mn type_bound ctors (Ast_Dexn cn ts) =
+  (emp,
+   bind cn (mk_id mn cn) emp,
+   Dexn cn (List.map (elab_t type_bound) ts)) 
 
 elab_decs mn type_bound ctors [] = (emp,emp,[])
 elab_decs mn type_bound ctors (d:ds) = 

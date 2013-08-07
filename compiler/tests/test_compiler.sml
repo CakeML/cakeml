@@ -116,9 +116,7 @@ Dtype
     [("Cons",[Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]); ("Nil",[])])]
 ``
 val e22 = ``Con (SOME (Short "Cons")) [Lit (Bool T); Con (SOME (Short "Nil")) []]``
-
 val (bs,rs) = run_decs inits [listd]
-
 val (m,[Block (t1,[v,Block (t2,[])])]) = mst_run_decs_exp ([listd],e22)
 val true = valOf(numML.toInt t1) > 2;
 val true = valOf(numML.toInt t2) > valOf(numML.toInt t1);
@@ -494,25 +492,32 @@ val e71 = ``Let "x" (Lit (IntLit 0))
             (App (Opb Gt) (Lit (IntLit 1)) (Var (Short "x")))``
 val (m,[r]) = mst_run_exp e71
 val true = (OLit (Bool true) = bv_to_ov m r);
-val e72 = ``Raise Bind_error``
+val e72 = ``Raise (Con(SOME(Short"Bind"))[])``
 val (m,[bv]) = mst_run_exp_exc e72
-val true = (OConv (SOME (Short"Bind"),[])) = bv_to_ov err_m bv;
-val e73 = ``Handle (Raise (Int_error 42)) "x" (Var(Short "x"))``
-val [Number i] = run_exp e73
+val true = (OConv (SOME (Short"Bind"),[])) = bv_to_ov m bv;
+val e73' = ``Handle (Raise (Con(SOME(Short"Bind"))[])) [Pcon(SOME(Short"Bind"))[],Lit(IntLit 42)]``
+val [Number i] = run_exp e73'
+val SOME 42 = intML.toInt i;
+val dint = ``Dexn "Int" [Tint]``
+val e73 = ``Handle (Raise (Con(SOME(Short"Int"))[Lit(IntLit 42)])) [Pcon(SOME(Short"Int"))[Pvar "x"],Var(Short "x")]``
+val [Number i] = run_decs_exp ([dint],e73)
 val SOME 42 = intML.toInt i;
 val e74 = ``Mat (Lit (Bool F)) [Plit (Bool T),Lit (IntLit 0)]``
 val (m,[bv]) = mst_run_exp_exc e74
-val true = (OConv (SOME (Short"Bind"),[])) = bv_to_ov err_m bv;
-val e75 = ``Handle (App (Opn Divide) (Lit (IntLit 1)) (Raise (Int_error 1))) "x" (Var(Short "x"))``
+val true = (OConv (SOME (Short"Bind"),[])) = bv_to_ov m bv;
+val e75 = ``Handle (App (Opn Divide) (Lit (IntLit 1)) (Raise (Lit(IntLit 1)))) [Pvar "x",(Var(Short "x"))]``
 val (m,[Number i]) = mst_run_exp e75
 val SOME 1 = intML.toInt i;
-val e76 = ``Handle (App (Opn Divide) (Lit (IntLit 1)) (Lit (IntLit 0))) "x" (Var(Short "x"))``
+val e76 = ``App (Opn Divide) (Lit (IntLit 1)) (Lit (IntLit 0))``
 val (m,[bv]) = mst_run_exp_exc e76
-val true = (OConv (SOME (Short"Div"),[])) = bv_to_ov err_m bv;
-val e77 = ``Let "x" (Lit (IntLit 0)) (Handle (App (Opn Modulo) (Lit (IntLit 1)) (Var (Short "x"))) "x" (Var (Short "x")))``
+val true = (OConv (SOME (Short"Div"),[])) = bv_to_ov m bv;
+val e76' = ``Handle (App (Opn Divide) (Lit (IntLit 1)) (Lit (IntLit 0))) [Pvar "x",(Var(Short "x"))]``
+val (m,[bv]) = mst_run_exp e76'
+val true = (OConv (SOME (Short"Div"),[])) = bv_to_ov m bv;
+val e77 = ``Let "x" (Lit (IntLit 0)) (Handle (App (Opn Modulo) (Lit (IntLit 1)) (Var (Short "x"))) [])``
 val (m,[bv]) = mst_run_exp_exc e77
-val true = (OConv (SOME (Short"Div"),[])) = bv_to_ov err_m bv;
-val e78 = ``Let "x" (Lit (IntLit 1)) (Handle (App (Opn Modulo) (Lit (IntLit 0)) (Var (Short "x"))) "x" (Var (Short "x")))``
+val true = (OConv (SOME (Short"Div"),[])) = bv_to_ov m bv;
+val e78 = ``Let "x" (Lit (IntLit 1)) (Handle (App (Opn Modulo) (Lit (IntLit 0)) (Var (Short "x"))) [])``
 val (m,[Number i]) = mst_run_exp e78
 val SOME 0 = intML.toInt i;
 val m = ``[Dlet (Pvar "x") (Lit (IntLit 1))]``

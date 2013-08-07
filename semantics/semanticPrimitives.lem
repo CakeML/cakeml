@@ -19,7 +19,7 @@ type v =
 (* The result of evaluation *)
 type error_result =
   | Rtype_error
-  | Rraise of error
+  | Rraise of v (* Should only be a value of type exn *)
   | Rtimeout_error
 
 type result 'a =
@@ -51,8 +51,12 @@ let store_assign n v st =
   else
     None
 
+type tid_or_exn = 
+  | TypeId of id typeN
+  | TypeExn
+
 (* Maps each constructor to its arity and which type it is from *)
-type envC = env (id conN) (num * id typeN)
+type envC = env (id conN) (num * tid_or_exn)
 
 type envE = env varN v
 
@@ -261,7 +265,7 @@ let do_app s env' op v1 v2 =
         end
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) ->
         if (op = Divide || op = Modulo) && n2 = i 0 then
-          Some (s, env', Raise Div_error)
+          Some (s, env', Raise (Con (Some (Short "Div")) []))
         else
           Some (s, env',Lit (IntLit (opn_lookup op n1 n2)))
     | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) ->
@@ -269,7 +273,7 @@ let do_app s env' op v1 v2 =
     | (Equality, v1, v2) ->
         match do_eq v1 v2 with
           | Eq_type_error -> None
-          | Eq_closure -> Some (s, env', Raise Eq_error)
+          | Eq_closure -> Some (s, env', Raise (Con (Some (Short "Eq")) []))
           | Eq_val b -> Some (s, env', Lit (Bool b))
         end
     | (Opassign, (Loc lnum), v) ->
@@ -310,7 +314,7 @@ let build_tdefs mn tds =
       (fun (tvs, tn, condefs) ->
          List.map
            (fun (conN, ts) ->
-              (mk_id mn conN, (List.length ts, mk_id mn tn)))
+              (mk_id mn conN, (List.length ts, TypeId (mk_id mn tn))))
            condefs)
       tds)
 
@@ -337,6 +341,27 @@ let combine_mod_result menv env r =
     | Rval (menv',env') -> Rval (merge menv' menv, merge env' env)
   end
 
+(* Constructor environment implied by declarations *)
+
+let rec
+dec_to_cenv mn (Dtype tds) = build_tdefs mn tds
+and
+dec_to_cenv mn (Dexn cn ts) = bind (mk_id mn cn) (List.length ts,TypeExn) emp
+and
+dec_to_cenv mn _ = []
+
+let rec
+decs_to_cenv mn [] = []
+and
+decs_to_cenv mn (d::ds) = decs_to_cenv mn ds @ dec_to_cenv mn d
+
+let rec
+top_to_cenv (Tdec d) = dec_to_cenv None d
+and
+top_to_cenv (Tmod mn _ ds) = decs_to_cenv (Some mn) ds
+
+(* initial environments *)
+
 val init_env : envE
 let init_env =
   [("+", Closure [] "x" (Fun "y" (App (Opn Plus) (Var (Short "x")) (Var (Short "y")))));
@@ -353,6 +378,12 @@ let init_env =
    ("~", Closure [] "x" (App (Opn Minus) (Lit (IntLit (i 0))) (Var (Short "x"))));
    ("!", Closure [] "x" (Uapp Opderef (Var (Short "x"))));
    ("ref", Closure [] "x" (Uapp Opref (Var (Short "x"))))]
+
+val init_envC : envC
+let init_envC =
+  List.map (fun cn -> (Short cn, (0, TypeExn))) ["Bind"; "Div"; "Eq"]
+
+(* conversions to strings *)
 
 let rec
 id_to_string (Short s) = s

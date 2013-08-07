@@ -166,12 +166,6 @@ val mmlPEG_def = zDefine`
               (mkNT nVlist1,
                seql [pnt nV; try (pnt nVlist1)] (bindNT nVlist1));
               (mkNT nFQV, choicel [pegf (pnt nV) (bindNT nFQV); peg_longV]);
-              (mkNT nExn,
-               pegf (choicel
-                       [tokeq (AlphaT "Bind");
-                        tokeq (AlphaT "Div");
-                        seql [tokeq (AlphaT "IntError"); tok isInt mktokLf] I])
-                    (bindNT nExn));
               (mkNT nEapp,
                seql [pnt nEbase; rpt (pnt nEbase) FLAT]
                     (λl.
@@ -226,17 +220,11 @@ val mmlPEG_def = zDefine`
                           (tokeq OrelseT));
               (mkNT nEhandle,
                seql [pnt nElogicOR;
-                     try (seql [tokeq HandleT; tokeq (AlphaT "IntError"); pnt nV;
-                                tokeq DarrowT; pnt nE] I)]
+                     try (seql [tokeq HandleT; pnt nPEs] I)]
                     (bindNT nEhandle)
               );
-              (mkNT nEhandle',
-               seql [pnt nElogicOR;
-                     try (seql [tokeq HandleT; tokeq (AlphaT "IntError"); pnt nV;
-                                tokeq DarrowT; pnt nE'] I)]
-                    (bindNT nEhandle'));
               (mkNT nE,
-               choicel [seql [tokeq RaiseT; pnt nExn] (bindNT nE);
+               choicel [seql [tokeq RaiseT; pnt nE] (bindNT nE);
                         pegf (pnt nEhandle) (bindNT nE);
                         seql [tokeq IfT; pnt nE; tokeq ThenT; pnt nE;
                               tokeq ElseT; pnt nE]
@@ -246,12 +234,10 @@ val mmlPEG_def = zDefine`
                         seql [tokeq CaseT; pnt nE; tokeq OfT; pnt nPEs]
                              (bindNT nE)]);
               (mkNT nE',
-               choicel [seql [tokeq RaiseT; pnt nExn] (bindNT nE');
-                        pegf (pnt nEhandle') (bindNT nE');
+               choicel [seql [tokeq RaiseT; pnt nE'] (bindNT nE');
+                        pegf (pnt nElogicOR) (bindNT nE');
                         seql [tokeq IfT; pnt nE; tokeq ThenT; pnt nE;
-                              tokeq ElseT; pnt nE'] (bindNT nE');
-                        seql [tokeq FnT; pnt nV; tokeq DarrowT; pnt nE']
-                             (bindNT nE')]);
+                              tokeq ElseT; pnt nE'] (bindNT nE')]);
               (mkNT nPEs,
                choicel [seql [pnt nPE'; tokeq BarT; pnt nPEs] (bindNT nPEs);
                         pegf (pnt nPE) (bindNT nPEs)]);
@@ -552,7 +538,7 @@ val npeg0_rwts =
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nErel``, ``nEcomp``, ``nEbefore``,
                 ``nEtyped``, ``nElogicAND``, ``nElogicOR``, ``nEhandle``,
-                ``nE``, ``nEhandle'``, ``nE'``,
+                ``nE``, ``nE'``,
                 ``nSpecLine``, ``nStructure``, ``nTopLevelDec``]
 
 val pegfail_empty = Store_thm(
@@ -622,7 +608,7 @@ in
   th::acc
 end;
 
-val topo_nts = [``nExn``, ``nV``, ``nTyvarN``, ``nTypeDec``, ``nDecl``,
+val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nDecl``,
                 ``nVlist1``, ``nUQTyOp``, ``nUQConstructorName``,
                 ``nConstructorName``, ``nTyVarList``, ``nTypeName``, ``nTyOp``,
                 ``nTbase``, ``nDType``, ``nPType``,
@@ -633,7 +619,7 @@ val topo_nts = [``nExn``, ``nV``, ``nTyvarN``, ``nTypeDec``, ``nDecl``,
                 ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nErel``,
                 ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``,
-                ``nElogicOR``, ``nEhandle``, ``nEhandle'``, ``nE``, ``nE'``,
+                ``nElogicOR``, ``nEhandle``, ``nE``, ``nE'``,
                 ``nType``, ``nTypeList1``, ``nTypeList2``,
                 ``nEseq``, ``nElist1``, ``nDtypeDecl``,
                 ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,
