@@ -1,3 +1,4 @@
+exception IntError of int;
 
 val x = 10;
 
@@ -6,7 +7,7 @@ val l3 = f true 1 2;
 
 val l4 = let val x = 12 in x + x end;
 
-fun l5 x = (10 + (raise IntError 4)) handle IntError n => n + x;
+fun l5 x = (10 + (raise (IntError 4))) handle IntError n => n + x;
 
 val l6 = (fn x => x) 1;
 
@@ -21,3 +22,5 @@ val l8 = let fun even x = (x = 0) orelse (if x = 1 then false else odd (x - 1))
 val l9 = l8 3;
  
 val l10 = ~4;
+
+val l11 = (raise Bind) handle Div => 1 | Bind => 2;

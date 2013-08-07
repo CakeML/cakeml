@@ -382,6 +382,8 @@ nDecl =
   (tokeq FunT >> fmap Ast_Dletrec nAndFDecls)
   <|>
   fmap Ast_Dtype nTypeDec
+  <|>
+  (tokeq ExceptionT >> fmap (uncurry Ast_Dexn) nDconstructor)
 
 nDecls = 
   do d <- nDecl;
