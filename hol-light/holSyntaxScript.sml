@@ -244,6 +244,7 @@ val TYPE_SUBST_def = tDefine"TYPE_SUBST"`
 (WF_REL_TAC`measure (type_size o SND)` >> simp[] >>
  gen_tac >> Induct >> simp[definition"type_size_def"] >> rw[] >>
  simp[] >> res_tac >> simp[])
+val _ = export_rewrites["TYPE_SUBST_def"]
 
 val VFREE_IN_FINITE = store_thm("VFREE_IN_FINITE",
   ``∀t. FINITE {x | VFREE_IN x t}``,
@@ -446,5 +447,160 @@ val SIZEOF_VSUBST = store_thm("SIZEOF_VSUBST",
 val sizeof_positive = store_thm("sizeof_positive",
   ``∀t. 0 < sizeof t``,
   Induct >> simp[])
+
+val INST_def = tDefine"INST"`
+  (INST env tyin (Var x ty) =
+     let tm = Var x ty in
+     let tm' = Var x (TYPE_SUBST tyin ty) in
+     if REV_ASSOCD tm' env tm = tm then Result tm' else Clash tm') ∧
+  (INST env tyin (Const x ty) =
+    Result(Const x (TYPE_SUBST tyin ty))) ∧
+  (INST env tyin (Equal ty) = Result(Equal(TYPE_SUBST tyin ty))) ∧
+  (INST env tyin (Select ty) = Result(Select(TYPE_SUBST tyin ty))) ∧
+  (INST env tyin (Comb s t) =
+    let sres = INST env tyin s in
+    if IS_CLASH sres then sres else
+    let tres = INST env tyin t in
+    if IS_CLASH tres then tres else
+    let s' = RESULT sres and t' = RESULT tres in
+    Result (Comb s' t')) ∧
+  (INST env tyin (Abs x ty t) =
+    let ty' = TYPE_SUBST tyin ty in
+    let env' = (Var x ty,Var x ty')::env in
+    let tres = INST env' tyin t in
+    if IS_RESULT tres then Result(Abs x ty' (RESULT tres)) else
+    let w = CLASH tres in
+    if (w ≠ Var x ty') then tres else
+    let x' = VARIANT (RESULT(INST [] tyin t)) x ty' in
+    let t' = VSUBST [Var x' ty,Var x ty] t in
+    let ty' = TYPE_SUBST tyin ty in
+    let env' = (Var x' ty,Var x' ty')::env in
+    let tres = INST env' tyin t' in
+    if IS_RESULT tres then Result(Abs x' ty' (RESULT tres)) else tres)`
+(WF_REL_TAC`measure (sizeof o SND o SND)` >> simp[SIZEOF_VSUBST])
+
+val INST_HAS_TYPE = store_thm("INST_HAS_TYPE",
+  ``∀n tm env tyin.
+      welltyped tm ∧ (sizeof tm = n) ∧
+      (∀s s'. MEM (s,s') env ⇒
+              ∃x ty. (s = Var x ty) ∧
+                     (s' = Var x (TYPE_SUBST tyin ty)))
+      ⇒ (∃x ty. (INST env tyin tm = Clash(Var x (TYPE_SUBST tyin ty))) ∧
+                VFREE_IN (Var x ty) tm ∧
+                REV_ASSOCD (Var x (TYPE_SUBST tyin ty))
+                  env (Var x ty) ≠ Var x ty)
+      ∨ (∀x ty. VFREE_IN (Var x ty) tm
+                ⇒ REV_ASSOCD (Var x (TYPE_SUBST tyin ty))
+                    env (Var x ty) = Var x ty) ∧
+        (∃tm'. INST env tyin tm = Result tm' ∧
+               tm' has_type (TYPE_SUBST tyin (typeof tm)) ∧
+               (∀u uty. VFREE_IN (Var u uty) tm' ⇔
+                        ∃oty. VFREE_IN (Var u oty) tm ∧
+                              uty = TYPE_SUBST tyin oty))``,
+  gen_tac >> completeInduct_on`n` >>
+  Induct >> simp[Once INST_def] >>
+  TRY (
+    simp[Once INST_def] >>
+    simp[Once has_type_cases] >>
+    NO_TAC )
+  >- (
+    pop_assum kall_tac >> rw[] >>
+    simp[Once INST_def] >>
+    simp[Once has_type_cases] >>
+    metis_tac[] )
+  >- (
+    rpt gen_tac >> strip_tac >>
+    fs[] >> BasicProvers.VAR_EQ_TAC >>
+    fsrw_tac[ARITH_ss][] >>
+    simp[Once INST_def] >>
+    first_assum(qspec_then`sizeof tm`mp_tac) >>
+    first_x_assum(qspec_then`sizeof tm'`mp_tac) >> simp[] >>
+    disch_then(qspecl_then[`tm'`,`env`,`tyin`]mp_tac) >> simp[] >>
+    qmatch_abbrev_tac`P ⇒ Q` >> strip_tac >>
+    qunabbrev_tac`Q` >>
+    disch_then(qspecl_then[`tm`,`env`,`tyin`]mp_tac) >>
+    simp[] >>
+    qunabbrev_tac`P` >>
+    reverse (strip_tac >> fs[]) >- (
+      simp[Once has_type_cases] >>
+      metis_tac[] ) >>
+    metis_tac[] )
+  >- (
+    rpt gen_tac >> strip_tac >>
+    fs[] >> BasicProvers.VAR_EQ_TAC >>
+    fsrw_tac[ARITH_ss][] >>
+    Q.PAT_ABBREV_TAC`env' = X::env` >>
+    Q.PAT_ABBREV_TAC`tm' = VSUBST X tm` >>
+    Q.PAT_ABBREV_TAC`env'' = X::env` >>
+    `sizeof tm' = sizeof tm` by (
+      simp[Abbr`tm'`,SIZEOF_VSUBST] ) >>
+    `welltyped tm'` by (
+      simp[Abbr`tm'`] >>
+      match_mp_tac VSUBST_WELLTYPED >>
+      simp[] >> simp[Once has_type_cases] ) >>
+    first_x_assum(qspec_then`sizeof tm`mp_tac) >> simp[] >>
+    simp[Once INST_def] >>
+    disch_then(fn th =>
+      qspecl_then[`tm`,`env'`,`tyin`]mp_tac th >>
+      qspecl_then[`tm'`,`env''`,`tyin`]mp_tac th >>
+      qspecl_then[`tm`,`[]`,`tyin`]mp_tac th) >> simp[] >>
+    qmatch_abbrev_tac`a ⇒ b` >> strip_tac >> qunabbrev_tac`b` >>
+    qmatch_abbrev_tac`(p ⇒ q) ⇒ r` >>
+    `p` by (
+      unabbrev_all_tac >> rw[] >> metis_tac[]) >>
+    simp[] >> map_every qunabbrev_tac[`p`,`q`,`r`] >> pop_assum kall_tac >>
+    qmatch_abbrev_tac`x ⇒ (p ⇒ q) ⇒ r` >>
+    `p` by (
+      unabbrev_all_tac >> rw[] >> metis_tac[]) >>
+    simp[] >> map_every qunabbrev_tac[`x`,`p`,`q`,`r`] >> pop_assum kall_tac >>
+    qunabbrev_tac`a` >>
+    fs[] >- (
+      rw[] >> fs[] >> fs[Abbr`env''`,Abbr`env'`,REV_ASSOCD] ) >>
+    strip_tac >> fs[] >- (
+      strip_tac >> fs[] >- (
+        fs[Abbr`env''`,Abbr`env'`,REV_ASSOCD,Abbr`tm'`,VFREE_IN_VSUBST] >>
+        rw[] >> fs[] >>
+        BasicProvers.EVERY_CASE_TAC >> fs[] >>
+        rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+        TRY (
+          qexists_tac`ty`>>simp[] >>
+          qmatch_abbrev_tac`REV_ASSOCD x l d ≠ d` >>
+          cheat ) >>
+        metis_tac[] ) >>
+      fs[Abbr`env''`,Abbr`env'`,REV_ASSOCD,Abbr`tm'`,VFREE_IN_VSUBST] >>
+      simp[Once has_type_cases] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[] >>
+      rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+      rw[] >> fs[] >>
+      TRY (qmatch_abbrev_tac `REV_ASSOCD vx l d = d` >> cheat) >>
+      rw[EQ_IMP_THM] >>
+      TRY (qmatch_abbrev_tac `s ≠ u ∨ P` >> cheat) >>
+      metis_tac[] ) >>
+    strip_tac >> fs[] >- (
+      rw[] >> fs[] >>
+      fs[Abbr`env''`,Abbr`env'`,REV_ASSOCD,Abbr`tm'`,VFREE_IN_VSUBST] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[] >>
+      rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+      simp[Once has_type_cases] >>
+      TRY (qmatch_abbrev_tac `REV_ASSOCD vx l d = d` >> cheat) >>
+      TRY (
+        qmatch_assum_abbrev_tac`tz has_type TYPE_SUBST tyin (typeof (VSUBST ez tm))` >>
+        qmatch_abbrev_tac`tz has_type TYPE_SUBST tyin (typeof tm)` >>
+        `typeof (VSUBST ez tm) = typeof tm` by (
+          match_mp_tac WELLTYPED_LEMMA >>
+          match_mp_tac VSUBST_HAS_TYPE >>
+          conj_tac >- metis_tac[WELLTYPED] >>
+          simp[Abbr`ez`] >>
+          simp[Once has_type_cases] ) >>
+        metis_tac[] ) >>
+      TRY (
+        EQ_TAC >> cheat ) >>
+      metis_tac[] ) >>
+    rw[] >> fs[] >>
+    fs[Abbr`env''`,Abbr`env'`,REV_ASSOCD,Abbr`tm'`,VFREE_IN_VSUBST] >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+    simp[Once has_type_cases] >>
+    cheat ))
 
 val _ = export_theory()
