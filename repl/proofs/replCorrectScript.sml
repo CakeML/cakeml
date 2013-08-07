@@ -940,6 +940,62 @@ res_tac >>
 fs [SUBSET_DEF] >>
 fs [weak_other_mods_def, GSYM alistTheory.ALOOKUP_NONE]);
 
+val type_ds_dup_exns = Q.prove (
+`!mn tenvM tenvC tenv ds tenvC' tenv'.
+  type_ds mn tenvM tenvC tenv ds tenvC' tenv' ⇒
+  !i cn ts tenvC_no_sig.
+    i < LENGTH ds ∧ (EL i ds = Dexn cn ts)
+    ⇒
+    mk_id mn cn ∉ set (MAP FST (decs_to_cenv mn (TAKE i ds))) ∧
+    mk_id mn cn ∉ set (MAP FST tenvC)`,
+ ho_match_mp_tac type_ds_ind >>
+ REPEAT GEN_TAC >>
+ STRIP_TAC >>
+ REPEAT GEN_TAC >>
+ STRIP_TAC >>
+ REPEAT GEN_TAC >>
+ cases_on `i = 0` >>
+ fs [] 
+ >- (fs [type_d_cases] >>
+     rw [] >>
+     fs [check_ctor_tenv_def, check_dup_ctors_eqn, decs_to_cenv_def,
+         LibTheory.bind_def, LibTheory.merge_def, LibTheory.emp_def,
+         alistTheory.ALOOKUP_NONE])
+ >- (`0 < i` by decide_tac >>
+     fs [EL_CONS] >>
+     STRIP_TAC >>
+     `PRE i < LENGTH ds`
+               by (cases_on `i` >>
+                  fs []) >>
+     `i - 1 = PRE i` by decide_tac >>
+     rw [decs_to_cenv_def] >>
+     res_tac >>
+     fs [LibTheory.merge_def] >>
+     fs [type_d_cases, dec_to_cenv_def] >>
+     rw [] >>
+     fs [GSYM alistTheory.ALOOKUP_NONE, SIMP_RULE (srw_ss()) [] lookup_none] >>
+     fs [LibTheory.emp_def, LibTheory.bind_def]));
+
+val type_sound_inv_dup_exns = Q.prove (
+`∀mn spec ds rs new_tenvM new_tenvC new_tenv new_st envC r i ts cn.
+  type_top rs.tenvM rs.tenvC rs.tenv (Tmod mn spec ds) new_tenvM new_tenvC new_tenv  ∧
+  type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store) ∧
+  i < LENGTH ds ∧ (EL i ds = Dexn cn ts)
+  ⇒
+  mk_id (SOME mn) cn ∉ set (MAP FST (decs_to_cenv (SOME mn) (TAKE i ds))) ∧
+  mk_id (SOME mn) cn ∉ set (MAP FST rs.envC) `,
+ rw [type_sound_invariants_def, type_top_cases, top_to_cenv_def] >>
+ imp_res_tac consistent_con_env_dom >>
+ rw [] 
+ >- metis_tac [type_ds_dup_exns] >>
+ `mk_id (SOME mn) cn ∉ set (MAP FST rs.tenvC)` by metis_tac [type_ds_dup_exns] >>
+ imp_res_tac weakC_not_SOME >>
+ imp_res_tac consistent_mod_env_distinct >>
+ imp_res_tac weakM_dom >>
+ res_tac >>
+ fs [SUBSET_DEF] >>
+ fs [weak_other_mods_def, GSYM alistTheory.ALOOKUP_NONE]);
+
 val consistent_mod_env_dom = Q.prove (
 `!tenvS tenvC menv tenvM.
   consistent_mod_env tenvS tenvC menv tenvM ⇒
@@ -1164,7 +1220,7 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
         fs[closed_top_def] >>
         reverse conj_tac >- metis_tac [type_sound_inv_closed] >>
         fs[invariant_def] ) >>
-      metis_tac [type_sound_inv_dup_ctors] ) >>
+      metis_tac [type_sound_inv_dup_ctors, type_sound_inv_dup_exns] ) >>
     qexists_tac`st.rcompiler_state` >> strip_tac >>
     simp[] >>
     qmatch_assum_abbrev_tac`bc_eval bs0 = NONE` >>
@@ -1247,7 +1303,7 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
   discharge_hyps >- (
     conj_tac >- metis_tac[untyped_safety_top] >>
     conj_tac >- (simp[closed_top_def] >> metis_tac[type_sound_inv_closed]) >>
-    conj_tac >- metis_tac[type_sound_inv_dup_ctors] >>
+    conj_tac >- metis_tac[type_sound_inv_dup_ctors, type_sound_inv_dup_exns] >>
     conj_tac >- (
       match_mp_tac env_rs_change_clock >>
       simp[] >>
@@ -1285,7 +1341,7 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
     fs[closed_top_def] >>
     metis_tac [type_sound_inv_closed]
     ) >>
-  conj_tac >- metis_tac [type_sound_inv_dup_ctors] >>
+  conj_tac >- metis_tac [type_sound_inv_dup_ctors, type_sound_inv_dup_exns] >>
   conj_tac >- (
     fs[Abbr`bs0`,install_code_def,env_rs_def,LET_THM] >> rfs[] >> fs[] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
@@ -1345,7 +1401,7 @@ map_every qunabbrev_tac[`A`,`B`,`C`] >>
       fs[closed_top_def] >>
       reverse conj_tac >- metis_tac [type_sound_inv_closed] >>
       fs[invariant_def] ) >>
-    metis_tac [type_sound_inv_dup_ctors]) >>
+    metis_tac [type_sound_inv_dup_ctors, type_sound_inv_dup_exns]) >>
   disch_then(qspec_then`st.rcompiler_state`mp_tac) >>
   disch_then(Q.X_CHOOSE_THEN`ck`mp_tac) >>
   simp[] >>
