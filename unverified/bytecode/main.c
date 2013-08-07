@@ -271,11 +271,11 @@ void run(inst code[]) {
 	pc++;
 	break;
       case JUMP_T:
-	pc = code[pc].args.num;
+	pc = code[pc].args.loc.num;
 	break;
       case JUMP_IF_T:
 	if (stack[sp-1].tag == TRUE_TAG + CONS)
-	  pc = code[pc].args.num;
+	  pc = code[pc].args.loc.num;
 	else
 	  pc++;
 	sp--;
@@ -285,7 +285,7 @@ void run(inst code[]) {
 	stack[sp] = stack[sp-1];
 	stack[sp-1].tag = CODE_PTR;
 	stack[sp-1].number = pc+1;
-	pc = code[pc].args.num;
+	pc = code[pc].args.loc.num;
 	sp++;
 	break;
       case CALL_PTR_T:
@@ -302,7 +302,7 @@ void run(inst code[]) {
       case PUSH_PTR_T:
 	CHECK_STACK(sp);
 	stack[sp].tag = CODE_PTR;
-	stack[sp].tag = code[pc].args.num;
+	stack[sp].tag = code[pc].args.loc.num;
 	sp++;
 	pc++;
 	break;
