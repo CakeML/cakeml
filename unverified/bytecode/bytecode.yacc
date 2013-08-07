@@ -75,6 +75,12 @@ stack_op:
    }
  | CONS_T NUM_T NUM_T {
      inst_list* next = malloc(sizeof(inst_list));
+     if ($2 > MAX_TAG) {
+       yyerror(&yylloc, NULL, "tag too big");
+     }
+     if ($3 > MAX_BLOCK) {
+       yyerror(&yylloc, NULL, "block size too big");
+     }
      next->car.tag = CONS_T;
      next->car.args.two_num.num1 = $2;
      next->car.args.two_num.num2 = $3;
