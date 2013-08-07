@@ -32,6 +32,22 @@ inst* inst_list_to_array(inst_list *l, unsigned long length) {
   return prog_array;
 }
 
+/* The lower 16 bits of the value's tag indicates it's type:
+ * 0 -> Number
+ * 1 -> Code pointer
+ * 2 -> Reference pointer
+ * 3 -> Stack pointer
+ * 4 and over represent a block, where the type of the block depends on how much over 4:
+ *    0 -> false
+ *    1 -> true
+ *    2 -> unit
+ *    3 -> closure
+ *    higher numbers are used for user-defined constructors.
+ *
+ * The tag field above these 16 bits indicates the length of the block for 
+ * blocks and means nothing for non-blocks.
+ */
+
 #define NUMBER 0
 #define CODE_PTR 1
 #define REF_PTR 2
@@ -42,17 +58,20 @@ inst* inst_list_to_array(inst_list *l, unsigned long length) {
 #define TRUE_TAG 1
 #define UNIT_TAG 2
 #define CLOSURE_TAG 3
-#define BLOCK_TAG 4
 
 struct value {
-  long long tag;
-  union { long number; struct { long length; struct value *values; } block; };
+  unsigned long tag;
+  union { long number; struct value *block; };
 };
 
 typedef struct value value;
 
+#define GET_TAG(v) (v.tag & 0xffff)
+#define GET_LEN(v) (v.tag >> 16)
+#define SET_TAG(v,t,l) v.tag = ((t) | ((l) << 16))
+
 void inline print_value(value v) {
-  switch (v.tag) {
+  switch (GET_TAG(v)) {
     case NUMBER:
       if (v.number < 0)
 	printf("~%ld",-v.number);
@@ -67,7 +86,7 @@ void inline print_value(value v) {
       printf("<error>");
       break;
     default: /* a block */
-      switch (v.tag - CONS) {
+      switch (GET_TAG(v) - CONS) {
 	case TRUE_TAG:
 	  printf("true");
 	  break;
@@ -96,8 +115,8 @@ long inline bool_to_tag(int i) {
 
 int equal(value v1, value v2) {
 
-  long tag1 = v1.tag;
-  long tag2 = v2.tag;
+  long tag1 = GET_TAG(v1);
+  long tag2 = GET_TAG(v2);
   int i;
 
   if (tag1 == CODE_PTR || tag1 == STACK_PTR || tag2 == CODE_PTR || tag2 == STACK_PTR)
@@ -115,8 +134,8 @@ int equal(value v1, value v2) {
     else if (tag1 != tag2)
       return 0;
     else {
-      for (i = 0; i < v2.block.length; i++) {
-	int res = equal(v1.block.values[i], v2.block.values[i]);
+      for (i = 0; i < GET_LEN(v2); i++) {
+	int res = equal(v1.block[i], v2.block[i]);
 	if (res != 1)
 	  return res;
       }
@@ -171,7 +190,7 @@ void run(inst code[]) {
 	break;
       case PUSH_INT_T:
 	CHECK_STACK(sp);
-	stack[sp].tag = NUMBER;
+	SET_TAG(stack[sp], NUMBER, 0);
 	stack[sp].number = code[pc].args.num;
 	sp++;
 	pc++;
@@ -179,8 +198,7 @@ void run(inst code[]) {
       case CONS_T:
 	if (code[pc].args.two_num.num2 == 0) {
 	  CHECK_STACK(sp);
-	  stack[sp].tag = CONS + code[pc].args.two_num.num1;
-	  stack[sp].block.length = 0;
+	  SET_TAG(stack[sp], CONS + code[pc].args.two_num.num1, 0);
 	  sp++;
 	}
 	else {
@@ -188,9 +206,8 @@ void run(inst code[]) {
 	  for (i = 0; i < code[pc].args.two_num.num2; i++)
 		  block[i] = stack[sp-code[pc].args.two_num.num2+i];
 	  sp -= code[pc].args.two_num.num2;
-	  stack[sp].tag = CONS + code[pc].args.two_num.num1;
-	  stack[sp].block.values = block;
-	  stack[sp].block.length = code[pc].args.two_num.num2;
+	  SET_TAG(stack[sp], CONS + code[pc].args.two_num.num1, code[pc].args.two_num.num2);
+	  stack[sp].block = block;
 	  sp++;
 	}
 	pc++;
@@ -213,59 +230,59 @@ void run(inst code[]) {
 	pc++;
 	break;
       case EL_T:
-	stack[sp-1] = stack[sp-1].block.values[code[pc].args.num];
+	stack[sp-1] = stack[sp-1].block[code[pc].args.num];
 	pc++;
 	break;
       case TAG_EQ_T:
-	stack[sp-1].tag = bool_to_tag(stack[sp-1].tag == code[pc].args.num + CONS);
+	SET_TAG(stack[sp-1], bool_to_tag(GET_TAG(stack[sp-1]) == code[pc].args.num + CONS), 0);
 	pc++;
 	break;
       case IS_BLOCK_T:
-	stack[sp-1].tag = bool_to_tag(stack[sp-1].tag >= CONS);
+	SET_TAG(stack[sp-1], bool_to_tag(GET_TAG(stack[sp-1]) >= CONS), 0);
 	pc++;
 	break;
       case EQUAL_T:
 	tmp = equal(stack[sp-1], stack[sp-2]);
 	if (tmp == 0 || tmp == 1)
-	  stack[sp-2].tag = bool_to_tag(tmp);
+	  SET_TAG(stack[sp-2], bool_to_tag(tmp), 0);
 	else {
-	  stack[sp-2].tag = NUMBER;
+	  SET_TAG(stack[sp-2], NUMBER, 0);
 	  stack[sp-2].number = tmp - 2;
 	}
 	sp--;
 	pc++;
 	break;
       case LESS_T:
-	stack[sp-2].tag = bool_to_tag(stack[sp-2].number < stack[sp-1].number);
+	SET_TAG(stack[sp-2], bool_to_tag(stack[sp-2].number < stack[sp-1].number), 0);
 	sp--;
 	pc++;
 	break;
       case ADD_T:
-	stack[sp-2].tag = NUMBER;
+	SET_TAG(stack[sp-2], NUMBER, 0);
 	stack[sp-2].number = stack[sp-2].number + stack[sp-1].number;
 	sp--;
 	pc++;
 	break;
       case SUB_T:
-	stack[sp-2].tag = NUMBER;
+	SET_TAG(stack[sp-2], NUMBER, 0);
 	stack[sp-2].number = stack[sp-2].number - stack[sp-1].number;
 	sp--;
 	pc++;
 	break;
       case MULT_T:
-	stack[sp-2].tag = NUMBER;
+	SET_TAG(stack[sp-2], NUMBER, 0);
 	stack[sp-2].number = stack[sp-2].number * stack[sp-1].number;
 	sp--;
 	pc++;
 	break;
       case DIV_T:
-	stack[sp-2].tag = NUMBER;
+	SET_TAG(stack[sp-2], NUMBER, 0);
 	stack[sp-2].number = stack[sp-2].number / stack[sp-1].number;
 	sp--;
 	pc++;
 	break;
       case MOD_T:
-	stack[sp-2].tag = NUMBER;
+	SET_TAG(stack[sp-2], NUMBER, 0);
 	stack[sp-2].number = stack[sp-2].number % stack[sp-1].number;
 	sp--;
 	pc++;
@@ -274,7 +291,7 @@ void run(inst code[]) {
 	pc = code[pc].args.loc.num;
 	break;
       case JUMP_IF_T:
-	if (stack[sp-1].tag == TRUE_TAG + CONS)
+	if (GET_TAG(stack[sp-1]) == TRUE_TAG + CONS)
 	  pc = code[pc].args.loc.num;
 	else
 	  pc++;
@@ -283,7 +300,7 @@ void run(inst code[]) {
       case CALL_T:
 	CHECK_STACK(sp);
 	stack[sp] = stack[sp-1];
-	stack[sp-1].tag = CODE_PTR;
+	SET_TAG(stack[sp-1], CODE_PTR, 0);
 	stack[sp-1].number = pc+1;
 	pc = code[pc].args.loc.num;
 	sp++;
@@ -291,7 +308,7 @@ void run(inst code[]) {
       case CALL_PTR_T:
 	tmp_frame = stack[sp-1];
 	stack[sp-1] = stack[sp-2];
-	stack[sp-2].tag = CODE_PTR;
+	SET_TAG(stack[sp-2], CODE_PTR, 0);
 	stack[sp-2].number = pc+1;
 	pc = tmp_frame.number;
 	break;
@@ -301,8 +318,8 @@ void run(inst code[]) {
 	break;
       case PUSH_PTR_T:
 	CHECK_STACK(sp);
-	stack[sp].tag = CODE_PTR;
-	stack[sp].tag = code[pc].args.loc.num;
+	SET_TAG(stack[sp], CODE_PTR, 0);
+	stack[sp].number = code[pc].args.loc.num;
 	sp++;
 	pc++;
 	break;
@@ -314,7 +331,7 @@ void run(inst code[]) {
       case PUSH_EXC_T:
 	CHECK_STACK(sp);
 	handler = sp;
-	stack[sp].tag = STACK_PTR;
+	SET_TAG(stack[sp], STACK_PTR, 0);
 	stack[sp].number = handler;
 	sp++;
 	pc++;
@@ -330,7 +347,7 @@ void run(inst code[]) {
       case REF_T:
 	CHECK_REFS(next_ref);
 	refs[next_ref] = stack[sp-1];
-	stack[sp-1].tag = REF_PTR;
+	SET_TAG(stack[sp-1], REF_PTR, 0);
 	stack[sp-1].number = next_ref;
 	next_ref++;
 	pc++;
@@ -382,6 +399,6 @@ int main(int argc, char** argv) {
   prog_array = inst_list_to_array(parse_result, inst_list_length(parse_result));
   run(prog_array);
 
-  printf("\n");
+  printf("\n%lu", sizeof(value));
   return 0;
 }
