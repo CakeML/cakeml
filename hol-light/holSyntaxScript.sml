@@ -1,4 +1,5 @@
-open HolKernel boolLib bossLib lcsymtacs pairTheory listTheory pred_setTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory pred_setTheory
+val _ = numLib.prefer_num()
 val _ = new_theory "holSyntax"
 
 val _ = Hol_datatype`type
@@ -10,6 +11,7 @@ val _ = Hol_datatype`type
 
 val domain_def = Define`domain (Fun s t) = s`
 val codomain_def = Define`codomain (Fun s t) = t`
+val _ = export_rewrites["domain_def","codomain_def"]
 
 val _ = Hol_datatype`term
   = Var of string => type
@@ -43,6 +45,7 @@ val typeof_def = Define`
   (typeof (Select  ty) = Fun (Fun ty Bool) ty) ∧
   (typeof (Comb s t)   = codomain (typeof s)) ∧
   (typeof (Abs n ty t) = Fun ty (typeof t))`
+val _ = export_rewrites["typeof_def"]
 
 val WELLTYPED_LEMMA = store_thm("WELLTYPED_LEMMA",
   ``∀tm ty. tm has_type ty ⇒ (typeof tm = ty)``,
@@ -65,6 +68,7 @@ val WELLTYPED_CLAUSES = store_thm("WELLTYPED_CLAUSES",
   REPEAT STRIP_TAC THEN REWRITE_TAC[welltyped_def] THEN
   rw[Once has_type_cases] >>
   metis_tac[WELLTYPED,WELLTYPED_LEMMA])
+val _ = export_rewrites["WELLTYPED_CLAUSES"]
 
 val _ = Parse.add_infix("===",100,Parse.NONASSOC)
 
@@ -150,6 +154,7 @@ val RACONV_REFL = store_thm("RACONV_REFL",
 val ACONV_REFL = store_thm("ACONV_REFL",
   ``∀t. ACONV t t``,
   simp[ACONV_def,RACONV_REFL])
+val _ = export_rewrites["ACONV_REFL"]
 
 val ALPHAVARS_TYPE = store_thm("ALPHAVARS_TYPE",
   ``∀env s t. ALPHAVARS env (s,t) ∧
@@ -201,6 +206,7 @@ val VFREE_IN_def = Define`
   (VFREE_IN v (Select ty) ⇔ (Select ty = v)) ∧
   (VFREE_IN v (Comb s t) ⇔ VFREE_IN v s ∨ VFREE_IN v t) ∧
   (VFREE_IN v (Abs x ty t) ⇔ (Var x ty ≠ v) ∧ VFREE_IN v t)`
+val _ = export_rewrites["VFREE_IN_def"]
 
 val VFREE_IN_RACONV = store_thm("VFREE_IN_RACONV",
   ``∀env p. RACONV env p
@@ -263,6 +269,182 @@ val VFREE_IN_FINITE_ALT = store_thm("VFREE_IN_FINITE_ALT",
   simp[SUBSET_DEF] >> rw[] >>
   HINT_EXISTS_TAC >> simp[])
 
-val PRIME_CHAR_def = Define`PRIME_CHAR = #"'"`
+val PRIMED_INFINITE = store_thm("PRIMED_INFINITE",
+  ``INFINITE (IMAGE (λn. APPEND x (GENLIST (K #"'") n)) UNIV)``,
+  match_mp_tac (MP_CANON IMAGE_11_INFINITE) >>
+  simp[] >> Induct >- metis_tac[NULL_EQ,NULL_GENLIST] >>
+  simp[GENLIST_CONS] >> qx_gen_tac`y` >>
+  Cases_on`GENLIST (K #"'") y`>>simp[]>>rw[]>>
+  Cases_on`y`>>fs[GENLIST_CONS])
+
+val PRIMED_NAME_EXISTS = store_thm("PRIMED_NAME_EXISTS",
+  ``∃n. ¬(VFREE_IN (Var (APPEND x (GENLIST (K #"'") n)) ty) t)``,
+  qspecl_then[`t`,`ty`]mp_tac VFREE_IN_FINITE_ALT >>
+  disch_then(mp_tac o CONJ PRIMED_INFINITE) >>
+  disch_then(mp_tac o MATCH_MP INFINITE_DIFF_FINITE) >>
+  simp[GSYM MEMBER_NOT_EMPTY] >> rw[] >> metis_tac[])
+
+val LEAST_EXISTS = prove(
+  ``(∃n. P n) ⇒ ∃k. P k ∧ ∀m. m < k ⇒ ¬(P m)``,
+  metis_tac[whileTheory.LEAST_EXISTS])
+
+val VARIANT_PRIMES_def = new_specification
+  ("VARIANT_PRIMES_def"
+  ,["VARIANT_PRIMES"]
+  ,(PRIMED_NAME_EXISTS
+   |> HO_MATCH_MP LEAST_EXISTS
+   |> Q.GENL[`ty`,`x`,`t`]
+   |> SIMP_RULE std_ss [SKOLEM_THM]))
+
+val VARIANT_def = Define`
+  VARIANT t x ty = APPEND x (GENLIST (K #"'") (VARIANT_PRIMES t x ty))`
+
+val VARIANT_THM = store_thm("VARIANT_THM",
+  ``∀t x ty. ¬VFREE_IN (Var (VARIANT t x ty) ty) t``,
+  metis_tac[VARIANT_def,VARIANT_PRIMES_def])
+
+val VSUBST_def = Define`
+  (VSUBST ilist (Var x ty) = REV_ASSOCD (Var x ty) ilist (Var x ty)) ∧
+  (VSUBST ilist (Const x ty) = Const x ty) ∧
+  (VSUBST ilist (Equal ty) = Equal ty) ∧
+  (VSUBST ilist (Select ty) = Select ty) ∧
+  (VSUBST ilist (Comb s t) = Comb (VSUBST ilist s) (VSUBST ilist t)) ∧
+  (VSUBST ilist (Abs x ty t) =
+    let ilist' = FILTER (λ(s',s). ¬(s = Var x ty)) ilist in
+    let t' = VSUBST ilist' t in
+    if EXISTS (λ(s',s). VFREE_IN (Var x ty) s' ∧ VFREE_IN s t) ilist'
+    then let z = VARIANT t' x ty in
+         let ilist'' = CONS (Var z ty,Var x ty) ilist' in
+         Abs z ty (VSUBST ilist'' t)
+    else Abs x ty t')`
+
+val VSUBST_HAS_TYPE = store_thm("VSUBST_HAS_TYPE",
+  ``∀tm ty ilist.
+      tm has_type ty ∧
+      (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. (s = Var x ty) ∧ s' has_type ty)
+      ⇒ (VSUBST ilist tm) has_type ty``,
+  Induct >> simp[VSUBST_def]
+  >- (
+    map_every qx_gen_tac[`x`,`ty`,`tty`] >>
+    Induct >> simp[REV_ASSOCD,FORALL_PROD] >>
+    srw_tac[DNF_ss][] >> rw[] >> fs[] >>
+    qpat_assum`X has_type tty`mp_tac >>
+    simp[Once has_type_cases]>>rw[]>>rw[])
+  >- (
+    simp[Once has_type_cases] >> rw[] >>
+    rw[Once has_type_cases] >> metis_tac[] )
+  >- (
+    map_every qx_gen_tac[`ty`,`x`,`fty`,`ilist`] >>
+    simp[Once has_type_cases] >> rw[] >>
+    simp[Once has_type_cases] >>
+    first_x_assum match_mp_tac >> simp[] >>
+    simp[MEM_FILTER] >> rw[] >> TRY(metis_tac[]) >>
+    simp[Once has_type_cases]))
+
+val VSUBST_WELLTYPED = store_thm("VSUBST_WELLTYPED",
+  ``∀tm ty ilist.
+      welltyped tm ∧
+      (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. (s = Var x ty) ∧ s' has_type ty)
+      ⇒ welltyped (VSUBST ilist tm)``,
+  metis_tac[VSUBST_HAS_TYPE,welltyped_def])
+
+val REV_ASSOCD_FILTER = store_thm("REV_ASSOCD_FILTER",
+  ``∀l a b d.
+      REV_ASSOCD a (FILTER (λ(y,x). P x) l) b =
+        if P a then REV_ASSOCD a l b else b``,
+  Induct >> simp[REV_ASSOCD,FORALL_PROD] >>
+  rw[] >> fs[FORALL_PROD,REV_ASSOCD] >> rw[] >> fs[])
+
+val REV_ASSOCD_MEM = store_thm("REV_ASSOCD_MEM",
+  ``∀l x d. MEM (REV_ASSOCD x l d,x) l ∨ (REV_ASSOCD x l d = d)``,
+  Induct >> simp[REV_ASSOCD,FORALL_PROD] >>rw[]>>fs[])
+
+val VFREE_IN_VSUBST = store_thm("VFREE_IN_VSUBST",
+  ``∀tm u uty ilist.
+      VFREE_IN (Var u uty) (VSUBST ilist tm) ⇔
+        ∃y ty. VFREE_IN (Var y ty) tm ∧
+               VFREE_IN (Var u uty) (REV_ASSOCD (Var y ty) ilist (Var y ty))``,
+  Induct >> simp[VFREE_IN_def,VSUBST_def] >- metis_tac[] >>
+  map_every qx_gen_tac[`xty`,`x`,`u`,`uty`,`ilist`] >>
+  qmatch_abbrev_tac`VFREE_IN vu (if p then Abs vx xty (VSUBST l1 tm) else Abs x xty (VSUBST l2 tm)) ⇔ q` >>
+  qsuff_tac`VFREE_IN vu (Abs (if p then vx else x) xty (VSUBST (if p then l1 else l2) tm)) ⇔ q` >- metis_tac[] >>
+  simp[VFREE_IN_def,Abbr`vu`] >>
+  rw[] >- (
+    simp[Abbr`q`,Abbr`l1`,REV_ASSOCD,Abbr`l2`,REV_ASSOCD_FILTER] >>
+    EQ_TAC >- (
+      rw[] >>
+      pop_assum mp_tac >> rw[VFREE_IN_def] >> fs[] >>
+      metis_tac[] ) >>
+    qmatch_assum_abbrev_tac`Abbrev(vx = VARIANT t x xty)` >>
+    qspecl_then[`t`,`x`,`xty`]mp_tac VARIANT_THM >> strip_tac >>
+    qmatch_assum_abbrev_tac`Abbrev(t = VSUBST ll tm)` >>
+    rfs[Abbr`t`] >>
+    fs[Abbr`vx`] >> strip_tac >>
+    (conj_tac >- (
+      spose_not_then strip_assume_tac >>
+      first_x_assum(qspecl_then[`y`,`ty`]mp_tac) >>
+      simp[Abbr`ll`,REV_ASSOCD_FILTER])) >>
+    map_every qexists_tac[`y`,`ty`] >> simp[]) >>
+  simp[Abbr`q`,Abbr`l2`,REV_ASSOCD_FILTER,Abbr`l1`,Abbr`vx`] >>
+  EQ_TAC >- (
+    rw[] >>
+    pop_assum mp_tac >> rw[VFREE_IN_def] >> fs[] >>
+    metis_tac[] ) >>
+  fs[EXISTS_MEM,EVERY_MEM,markerTheory.Abbrev_def,MEM_FILTER,FORALL_PROD] >>
+  simp[GSYM LEFT_FORALL_IMP_THM] >>
+  rpt gen_tac >>
+  Cases_on`∃a. MEM (a,Var y ty) ilist ∧ VFREE_IN (Var x xty) a` >- (
+    fs[] >> first_x_assum(qspecl_then[`a`,`Var y ty`]mp_tac) >>
+    simp[] >> rw[] >> fs[] >> fs[VFREE_IN_def] >>
+    metis_tac[] ) >> fs[] >>
+  Cases_on`VFREE_IN (Var u uty) (REV_ASSOCD (Var y ty) ilist (Var y ty))`>>simp[] >>
+  Cases_on`Var u uty = Var y ty`>- (
+    fs[] >> metis_tac[] ) >>
+  Q.ISPECL_THEN[`ilist`,`Var y ty`,`Var y ty`]mp_tac REV_ASSOCD_MEM >>
+  strip_tac >> fs[] >>
+  fs[VFREE_IN_def] >>
+  metis_tac[])
+
+val _ = Hol_datatype`result = Clash of term | Result of term`
+
+val IS_RESULT_def = Define`
+  IS_RESULT(Clash _) = F ∧
+  IS_RESULT(Result _) = T`
+
+val IS_CLASH_def = Define`
+  IS_CLASH(Clash _) = T ∧
+  IS_CLASH(Result _) = F`
+
+val RESULT_def = Define`
+  RESULT(Result t) = t`
+
+val CLASH_def = Define`
+  CLASH(Clash t) = t`
+
+val _ = export_rewrites["IS_RESULT_def","IS_CLASH_def","RESULT_def","CLASH_def"]
+
+val sizeof_def = Define`
+  sizeof (Var x ty) = 1 ∧
+  sizeof (Const x ty) = 1 ∧
+  sizeof (Equal ty) = 1 ∧
+  sizeof (Select ty) = 1 ∧
+  sizeof (Comb s t) = 1 + sizeof s + sizeof t ∧
+  sizeof (Abs x ty t) = 2 + sizeof t`
+val _ = export_rewrites["sizeof_def"]
+
+val SIZEOF_VSUBST = store_thm("SIZEOF_VSUBST",
+  ``∀t ilist. (∀s' s. MEM (s',s) ilist ⇒ ∃x ty. s' = Var x ty)
+              ⇒ sizeof (VSUBST ilist t) = sizeof t``,
+  Induct >> simp[VSUBST_def] >> rw[VSUBST_def] >> simp[] >- (
+    Q.ISPECL_THEN[`ilist`,`Var s t`,`Var s t`]mp_tac REV_ASSOCD_MEM >>
+    rw[] >> res_tac >> pop_assum SUBST1_TAC >> simp[] )
+  >- metis_tac[] >>
+  first_x_assum match_mp_tac >>
+  simp[MEM_FILTER] >>
+  rw[] >> res_tac >> fs[] )
+
+val sizeof_positive = store_thm("sizeof_positive",
+  ``∀t. 0 < sizeof t``,
+  Induct >> simp[])
 
 val _ = export_theory()
