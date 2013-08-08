@@ -100,6 +100,13 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3::t = l"
                                               [Ast_Lit (IntLit 3);
                                                Ast_Var (Short "t")]))
                             (Ast_Var (Short "l"))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3 < x = true"
+                   (SOME ``Ast_App
+                            (Ast_App (Ast_Var (Short "="))
+                                     (Ast_App (Ast_App (Ast_Var (Short "<"))
+                                                       (Ast_Lit (IntLit 3)))
+                                              (Ast_Var (Short "x"))))
+                            (Ast_Lit (Bool T))``)
 
 val _ = tytest0 "'a * bool"
                 ``Ast_Tapp [Ast_Tvar "'a";
