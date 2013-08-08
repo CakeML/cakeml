@@ -53,7 +53,7 @@ nV' c =
 	        return (c s pos))
   <|>
   tok (\t -> do (s,pos) <- destSymbolT t;
-                guard (not (s `elem` ["+", "-", "/", "<", ">", "<=", ">=", "<>", ":=", "*"]));
+                guard (not (s `elem` ["+", "-", "/", "<", ">", "<=", ">=", "<>", ":=", "*", "::", "@"]));
 	        return (c s pos))
 
 nV = nV' VarN
@@ -94,6 +94,8 @@ nAddOps =
   (mk_op (SymbolT "-") "-")
 
 nRelOps = choice (mk_op EqualsT "=" : List.map (\s -> mk_op (SymbolT s) s) ["<", ">", "<=", ">=", "<>"])
+
+nListOps = choice (List.map (\s -> mk_op (SymbolT s) s) ["::", "@"])
 
 nCompOps = 
   (mk_op (SymbolT ":=") ":=")
@@ -150,12 +152,14 @@ nEmult = linfix nEapp nMultOps
 
 nEadd = linfix nEmult nAddOps
 
-nErel = 
-  do e1 <- nEadd;
-     option e1
-            (do (op,pos) <- nRelOps;
-	        e2 <- nEadd;
-                return (Ast_App (Ast_App (Ast_Var (Short (VarN op pos))) e1) e2))
+nElist = nEadd `chainr1` fmap (\(t,pos) e1 e2 -> if t == "::" then
+                                                   Ast_Con (Just (Short (ConN t pos))) [e1,e2] pos
+	                                         else
+						   Ast_App (Ast_App (Ast_Var (Short (VarN t pos))) e1) e2)
+   
+                              nListOps
+
+nErel = linfix nElist nRelOps;
 
 nEcomp = linfix nErel nCompOps
 
