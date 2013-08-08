@@ -19,7 +19,7 @@ val _ = overload_on (
                           [NN nEtyped [NN nEbefore [NN nEcomp l]]]]]]``)
 val _ = overload_on (
   "EB",
-  ``λl. EREL [NN nErel [NN nEadd [NN nEmult [NN nEapp [NN nEbase l]]]]]``)
+  ``λl. EREL [NN nErel [NN nElistop [NN nEadd [NN nEmult [NN nEapp [NN nEbase l]]]]]]``)
 
 val result_t = ``Result``
 fun parsetest0 nt sem s opt = let
@@ -92,6 +92,14 @@ fun tytest0 s r = parsetest0 ``nType`` ``ptree_Type nType`` s (SOME r)
 val tytest = parsetest ``nType`` ``ptree_Type nType``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
+
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3::t = l"
+                   (SOME ``Ast_App
+                            (Ast_App (Ast_Var (Short "="))
+                                     (Ast_Con (SOME (Short "::"))
+                                              [Ast_Lit (IntLit 3);
+                                               Ast_Var (Short "t")]))
+                            (Ast_Var (Short "l"))``)
 
 val _ = tytest0 "'a * bool"
                 ``Ast_Tapp [Ast_Tvar "'a";

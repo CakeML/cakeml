@@ -908,25 +908,25 @@ val peg_sound = store_thm(
       disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
       simp[cmlG_applied, cmlG_FDOM, pegsym_to_sym_def, DISJ_IMP_THM,
            FORALL_AND_THM, SUBSET_DEF] >> simp[NT_rank_def])
-  >- (print_tac "nErel" >> simp[peg_nonfix_def] >>
-      `NT_rank (mkNT nEadd) < NT_rank (mkNT nErel)` by simp[NT_rank_def]>>
-      strip_tac >> rveq >> simp[] >>
+  >- (print_tac "nErel" >>
+      disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
+      simp[cmlG_applied, cmlG_FDOM, pegsym_to_sym_def, DISJ_IMP_THM,
+           FORALL_AND_THM, SUBSET_DEF] >> simp[NT_rank_def])
+  >- (print_tac "nElistop" >>
+      `NT_rank (mkNT nEadd) < NT_rank (mkNT nElistop)`
+        by simp[NT_rank_def] >> strip_tac >> rveq >>
+      simp[cmlG_FDOM, cmlG_applied] >>
       first_x_assum (erule strip_assume_tac) >> rveq >>
-      dsimp[cmlG_FDOM, cmlG_applied] >>
-      first_x_assum
-        (assume_tac o
-         MATCH_MP (GEN_ALL (MATCH_MP not_peg0_LENGTH_decreases peg0_nEadd)) o
-         assert (free_in ``NIL : mlptree list`` o concl)) >>
-      first_assum (fn patth =>
-         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                      assert (free_in ``nRelOps``) o concl)) >>
-      rpt kill_asm_guard >> strip_tac >> rveq >> dsimp[] >>
+      simp[listTheory.APPEND_EQ_CONS] >>
+      first_assum (mp_tac o
+                   PART_MATCH (lhand o rand) not_peg0_LENGTH_decreases o
+                   assert (free_in ``nEadd``) o concl) >>
+      simp[] >> strip_tac >>
+      first_assum (erule strip_assume_tac) >>
+      rveq >> dsimp[MAP_EQ_CONS] >> csimp[] >>
       first_x_assum (assume_tac o MATCH_MP length_no_greater o
-                     assert (free_in ``nRelOps`` o concl)) >> fs[] >>
-      first_x_assum (fn patth =>
-         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                      assert (free_in ``nEadd``) o concl)) >>
-      rpt kill_asm_guard >> strip_tac >> rveq >> simp[])
+                     assert (free_in ``nListOps`` o concl)) >>
+      asimp[GSYM CONJ_ASSOC])
   >- (print_tac "nEadd" >>
       disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
       simp[cmlG_applied, cmlG_FDOM, pegsym_to_sym_def, DISJ_IMP_THM,
@@ -982,6 +982,7 @@ val peg_sound = store_thm(
       >- ((* nCons *)first_x_assum (erule strip_assume_tac) >> rveq >> simp[])>>
       IMP_RES_THEN mp_tac peg_EbaseParen_sound >> simp[])
   >- (print_tac "nCompOps">> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
+  >- (print_tac "nListOps">> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nRelOps" >> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nAddOps" >> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nMultOps">> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])

@@ -116,7 +116,7 @@ val peg_V_def = Define`
           (tok (λt.
                   do s <- destSymbolT t;
                      assert(s ∉ {"+"; "-"; "/"; "<"; ">"; "<="; ">="; "<>";
-                                 ":="; "*"})
+                                 ":="; "*"; "::"; "@"})
                   od = SOME ())
                mktokLf)
           (bindNT nV o sumID)
@@ -187,6 +187,8 @@ val mmlPEG_def = zDefine`
                                             MAP (tokeq o SymbolT)
                                                 ["<"; ">"; "<="; ">="; "<>"]))
                                   (bindNT nRelOps));
+              (mkNT nListOps, pegf (choicel (MAP (tokeq o SymbolT) ["::"; "@"]))
+                                   (bindNT nListOps));
               (mkNT nCompOps, pegf (choicel [tokeq (SymbolT ":=");
                                              tokeq (AlphaT "o")])
                                    (bindNT nCompOps));
@@ -204,7 +206,10 @@ val mmlPEG_def = zDefine`
               (mkNT nEmult,
                peg_linfix (mkNT nEmult) (pnt nEapp) (pnt nMultOps));
               (mkNT nEadd, peg_linfix (mkNT nEadd) (pnt nEmult) (pnt nAddOps));
-              (mkNT nErel, peg_nonfix nErel (pnt nEadd) (pnt nRelOps));
+              (mkNT nElistop,
+               seql [pnt nEadd; try (seql [pnt nListOps; pnt nElistop] I)]
+                    (bindNT nElistop));
+              (mkNT nErel, peg_linfix (mkNT nErel) (pnt nElistop) (pnt nRelOps));
               (mkNT nEcomp, peg_linfix (mkNT nEcomp) (pnt nErel)
                                        (pnt nCompOps));
               (mkNT nEbefore, peg_linfix (mkNT nEbefore) (pnt nEcomp)
@@ -537,9 +542,10 @@ val npeg0_rwts =
                 ``nTypeList1``, ``nTypeList2``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``,
                 ``nPatternList``,
-                ``nLetDec``, ``nMultOps``,
+                ``nLetDec``, ``nMultOps``, ``nListOps``,
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
-                ``nEmult``, ``nEadd``, ``nErel``, ``nEcomp``, ``nEbefore``,
+                ``nEmult``, ``nEadd``, ``nElistop``, ``nErel``, ``nEcomp``,
+                ``nEbefore``,
                 ``nEtyped``, ``nElogicAND``, ``nElogicOR``, ``nEhandle``,
                 ``nE``, ``nE'``,
                 ``nSpecLine``, ``nStructure``, ``nTopLevelDec``]
@@ -614,13 +620,13 @@ end;
 val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nDecl``,
                 ``nVlist1``, ``nUQTyOp``, ``nUQConstructorName``,
                 ``nConstructorName``, ``nTyVarList``, ``nTypeName``, ``nTyOp``,
-                ``nTbase``, ``nDType``, ``nPType``,
+                ``nTbase``, ``nDType``, ``nPType``, ``nListOps``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``,
                 ``nPatternList``, ``nPE``,
                 ``nPE'``, ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``,
                 ``nFQV``,
                 ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
-                ``nEmult``, ``nEadd``, ``nErel``,
+                ``nEmult``, ``nEadd``, ``nElistop``, ``nErel``,
                 ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``,
                 ``nElogicOR``, ``nEhandle``, ``nE``, ``nE'``,
                 ``nType``, ``nTypeList1``, ``nTypeList2``,

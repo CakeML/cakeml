@@ -331,6 +331,10 @@ val ptree_Op_def = Define`
       if subs = [Lf (TK (SymbolT "+"))] then SOME (Short "+")
       else if subs = [Lf (TK (SymbolT "-"))] then SOME (Short "-")
       else NONE
+    else if nt = mkNT nListOps then
+      if subs = [Lf (TK (SymbolT "::"))] then SOME (Short "::")
+      else if subs = [Lf (TK (SymbolT "@"))] then SOME (Short "@")
+      else NONE
     else if nt = mkNT nRelOps then
       case subs of
           [pt] =>
@@ -611,15 +615,27 @@ val ptree_Expr_def = Define`
             od
           | [t] => ptree_Expr nEmult t
           | _ => NONE
-      else if nt = mkNT nErel then
+      else if nt = mkNT nElistop then
         case subs of
             [t1;opt;t2] => do
               a1 <- ptree_Expr nEadd t1;
               a_op <- ptree_Op opt;
-              a2 <- ptree_Expr nEadd t2;
-              SOME (Ast_App (Ast_App (Ast_Var a_op) a1) a2)
+              a2 <- ptree_Expr nElistop t2;
+              SOME (if a_op = Short "::" then
+                      Ast_Con (SOME (Short "::")) [a1;a2]
+                    else Ast_App (Ast_App (Ast_Var a_op) a1) a2)
             od
           | [t] => ptree_Expr nEadd t
+          | _ => NONE
+      else if nt = mkNT nErel then
+        case subs of
+            [t1;opt;t2] => do
+              a1 <- ptree_Expr nErel t1;
+              a_op <- ptree_Op opt;
+              a2 <- ptree_Expr nElistop t2;
+              SOME (Ast_App (Ast_App (Ast_Var a_op) a1) a2)
+            od
+          | [t] => ptree_Expr nElistop t
           | _ => NONE
       else if nt = mkNT nEcomp then
         case subs of

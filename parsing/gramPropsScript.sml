@@ -40,20 +40,21 @@ val NT_rank_def = Define`
     case N of
       | INR _ => 0n
       | INL n =>
-        if n = nElist1                 then 15
-        else if n = nEseq              then 15
-        else if n = nREPLTop           then 15
-        else if n = nREPLPhrase        then 15
-        else if n = nElist2            then 15
-        else if n = nE                 then 14
-        else if n = nE'                then 14
-        else if n = nEhandle           then 13
-        else if n = nElogicOR          then 12
-        else if n = nElogicAND         then 11
-        else if n = nEtyped            then 10
-        else if n = nEbefore           then  9
-        else if n = nEcomp             then  8
-        else if n = nErel              then  7
+        if n = nElist1                 then 16
+        else if n = nEseq              then 16
+        else if n = nREPLTop           then 16
+        else if n = nREPLPhrase        then 16
+        else if n = nElist2            then 16
+        else if n = nE                 then 15
+        else if n = nE'                then 15
+        else if n = nEhandle           then 14
+        else if n = nElogicOR          then 13
+        else if n = nElogicAND         then 12
+        else if n = nEtyped            then 11
+        else if n = nEbefore           then 10
+        else if n = nEcomp             then  9
+        else if n = nErel              then  8
+        else if n = nElistop           then  7
         else if n = nEadd              then  6
         else if n = nEmult             then  5
         else if n = nEapp              then  4
@@ -187,9 +188,10 @@ val nullable_DtypeDecl = prove_nullable ``nDtypeDecl``
 val nullable_Decl = prove_nullable ``nDecl``
 val nullable_TypeDec = prove_nullable ``nTypeDec``
 val _ = map prove_nullable [
-          ``nFQV``, ``nEbase``, ``nEapp``, ``nEmult``, ``nEadd``, ``nErel``,
+          ``nFQV``, ``nEbase``, ``nEapp``, ``nEmult``, ``nEadd``, ``nElistop``,
+          ``nErel``,
           ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``, ``nElogicOR``,
-          ``nEhandle``, ``nE``, ``nE'``, ``nCompOps``,
+          ``nEhandle``, ``nE``, ``nE'``, ``nCompOps``, ``nListOps``,
           ``nConstructorName``, ``nPattern``, ``nRelOps``, ``nMultOps``,
           ``nAddOps``, ``nDconstructor``, ``nFDecl``, ``nPatternList``,
           ``nEseq``, ``nEtuple``]

@@ -43,6 +43,7 @@ val tokmap0 =
                [("(", ``LparT``), (")", ``RparT``), (",", ``CommaT``),
                 (";", ``SemicolonT``), (":=", ``SymbolT ":="``),
                 (":>", ``SealT``),
+                ("::", ``SymbolT "::"``), ("@", ``SymbolT "@"``),
                 ("->", ``ArrowT``), ("=>", ``DarrowT``),
                 ("*", ``StarT``),
                 ("|", ``BarT``), ("=", ``EqualsT``), (":", ``ColonT``),
@@ -117,7 +118,8 @@ val mmlG_def = mk_grammar_def ginfo
  V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false"; "ref" } ∧
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
     |  ^(``{SymbolT s |
-            s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"; ":="}}``);
+            s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"; ":=";
+                 "::"; "@"}}``);
  FQV ::= V
       |  ^(``{LongidT str s | str,s |
               s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s))}``) ;
@@ -135,9 +137,11 @@ val mmlG_def = mk_grammar_def ginfo
  AddOps ::= ^(``{SymbolT "+"; SymbolT "-"}``);
  RelOps ::= ^(``{SymbolT s | s ∈ {"<"; ">"; "<="; ">="; "<>"}}``) | "=";
  CompOps ::= "o" | ":=";
+ ListOps ::= "@" | "::";
  Emult ::= Emult MultOps Eapp | Eapp;
  Eadd ::= Eadd AddOps Emult | Emult;
- Erel ::= Eadd RelOps Eadd | Eadd;
+ Elistop ::= Eadd ListOps Elistop | Eadd;
+ Erel ::= Erel RelOps Elistop | Elistop;
  Ecomp ::= Ecomp CompOps Erel | Erel;
  Ebefore ::= Ebefore "before" Ecomp | Ecomp;
  Etyped ::= Ebefore | Ebefore ":" Type;
