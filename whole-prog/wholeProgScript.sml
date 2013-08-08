@@ -241,6 +241,64 @@ decode_bc_inst wl =
          else
            NONE`;
 
+val encode_bc_insts_def = Define `
+(encode_bc_insts [] = SOME []) ∧
+(encode_bc_insts (i::rest) = 
+  case encode_bc_inst i of
+       NONE => NONE
+     | SOME wl =>
+         case encode_bc_insts rest of
+              NONE => NONE
+            | SOME wl' => SOME (wl++wl'))`;
+
+val lem = Q.prove (
+`!l. LENGTH l < SUC (LENGTH l) ∧ LENGTH l < SUC (SUC (LENGTH l)) ∧ LENGTH l < SUC (SUC (SUC (LENGTH l)))`,
+decide_tac);
+
+val decode_bc_insts_prim_def = tDefine "decode_bc_insts" `
+(decode_bc_insts [] = SOME []) ∧
+(decode_bc_insts (wl:'a word list) =
+  case decode_bc_inst wl of
+       NONE => NONE
+     | SOME (i,rest) =>
+         if 39 < dimword (:'a) then
+           case decode_bc_insts rest of
+                NONE => NONE
+              | SOME is => SOME (i::is)
+         else
+           NONE)`
+(wf_rel_tac `measure LENGTH` >>
+ rw [] >>
+ fs [decode_bc_inst_def] >>
+ rpt (full_case_tac
+      >- (full_simp_tac (srw_ss()++ARITH_ss) [decode_num_def, option_map_fst_def, decode_char_def] >>
+          every_case_tac >>
+          TRY (PairCases_on `x`) >>
+          rw [] >>
+          fs [] >>
+          every_case_tac >>
+          rw [] >>
+          fs [] >>
+          rw [lem]) >>
+      pop_assum  (fn _ => all_tac)) >>
+ rw []);
+
+val decode_bc_insts_def = Q.store_thm ("decode_bc_insts_def",
+`(decode_bc_insts [] = SOME []) ∧
+ (39 < dimword (:'a) ⇒
+   (decode_bc_insts ((w:'a word)::wl) =
+     case decode_bc_inst (w::wl) of
+         NONE => NONE
+       | SOME (i,rest) =>
+           case decode_bc_insts rest of
+                NONE => NONE
+              | SOME is => SOME (i::is)))`,
+ rw [decode_bc_insts_prim_def] >>
+ every_case_tac >>
+ fs [decode_bc_inst_def]);
+
+val _ = computeLib.del_funs [decode_bc_insts_prim_def];
+
 val decode_encode_num = Q.prove (
 `!n w l. 
   (encode_num n = SOME w)
@@ -259,63 +317,52 @@ val decode_encode_bc_inst = Q.store_thm ("decode_encode_bc_inst",
   (decode_bc_inst (l1 ++ l2) = SOME (inst, l2))`,
  strip_tac >>
  ho_match_mp_tac (fetch "-" "encode_bc_inst_ind") >>
- `0 < dimword (:'a) ∧
-  1 < dimword (:'a) ∧
-  2 < dimword (:'a) ∧
-  3 < dimword (:'a) ∧
-  4 < dimword (:'a) ∧
-  5 < dimword (:'a) ∧
-  6 < dimword (:'a) ∧
-  7 < dimword (:'a) ∧
-  8 < dimword (:'a) ∧
-  9 < dimword (:'a) ∧
-  10 < dimword (:'a) ∧
-  11 < dimword (:'a) ∧
-  12 < dimword (:'a) ∧
-  13 < dimword (:'a) ∧
-  14 < dimword (:'a) ∧
-  15 < dimword (:'a) ∧
-  16 < dimword (:'a) ∧
-  17 < dimword (:'a) ∧
-  18 < dimword (:'a) ∧
-  19 < dimword (:'a) ∧
-  20 < dimword (:'a) ∧
-  21 < dimword (:'a) ∧
-  22 < dimword (:'a) ∧
-  23 < dimword (:'a) ∧
-  24 < dimword (:'a) ∧
-  25 < dimword (:'a) ∧
-  26 < dimword (:'a) ∧
-  27 < dimword (:'a) ∧
-  28 < dimword (:'a) ∧
-  29 < dimword (:'a) ∧
-  30 < dimword (:'a) ∧
-  31 < dimword (:'a) ∧
-  32 < dimword (:'a) ∧
-  33 < dimword (:'a) ∧
-  34 < dimword (:'a) ∧
-  35 < dimword (:'a) ∧
-  36 < dimword (:'a) ∧
-  37 < dimword (:'a) ∧
-  38 < dimword (:'a) ∧
-  39 < dimword (:'a)`
-          by decide_tac >>
  rw [encode_bc_inst_def, decode_bc_inst_def] >>
- fs [option_map_fst_def] >>
+ full_simp_tac (srw_ss()++ARITH_ss) [option_map_fst_def] >>
  TRY (Cases_on `l`) >>
- fs [encode_loc_def, encode_char_def, decode_char_def] >>
+ full_simp_tac (srw_ss()++ARITH_ss)  [encode_loc_def, encode_char_def, decode_char_def] >>
  imp_res_tac decode_encode_num >>
- fs []
+ full_simp_tac (srw_ss()++ARITH_ss) []
  >- ARITH_TAC
  >- ARITH_TAC
  >- (pop_assum (assume_tac o Q.SPEC `[]`) >>
-     fs [decode_num_def] >>
+     full_simp_tac (srw_ss()++ARITH_ss)  [decode_num_def] >>
      rw [ORD_BOUND, CHR_ORD]));
-   
-val whole_prog_compile_def = Define`
+
+val decode_encode_bc_insts = Q.store_thm ("decode_encode_bc_insts",
+`39 < dimword (:'a) 
+ ⇒
+ !(l1:'a word list) insts.
+  (encode_bc_insts insts = SOME l1)
+  ⇒
+  (decode_bc_insts l1 = SOME insts)`,
+ strip_tac >>
+ ho_match_mp_tac (fetch "-" "decode_bc_insts_ind") >>
+ rw [decode_bc_insts_def, encode_bc_insts_def] >>
+ cases_on `insts` >>
+ fs [decode_bc_insts_def, encode_bc_insts_def] >>
+ every_case_tac >>
+ rw [] >>
+ imp_res_tac decode_encode_bc_inst
+ >- (cases_on `h` >>
+     fs [encode_bc_inst_def] >>
+     TRY (cases_on `l`) >>
+     TRY (cases_on `b`) >>
+     fs [encode_bc_inst_def, encode_loc_def] >>
+     every_case_tac >>
+     fs []) >>
+ metis_tac [optionTheory.SOME_11, optionTheory.NOT_SOME_NONE, PAIR_EQ]);
+
+val whole_prog_compile_def = Define `
   whole_prog_compile input = 
     case wp_main_loop initial_repl_fun_state input of
          Failure error_msg => "<error>: " ++ error_msg ++ "\n"
        | Success code => FLAT (MAP (\inst. bc_inst_to_string inst ++ "\n") code)`;
+
+val whole_prog_compile_encode_def = Define `
+  whole_prog_compile_encode input = 
+    case wp_main_loop initial_repl_fun_state input of
+         Failure error_msg => NONE
+       | Success code => encode_bc_insts code`;
 
 val _ = export_theory ();
