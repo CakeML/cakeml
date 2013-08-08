@@ -1,0 +1,6 @@
+INCLUDES = .. ../../repl
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = ../heap
+endif

@@ -1,8 +1,0 @@
-inferTestLib.sml
-    The test harness
-
-inferTestScript.sml
-    Definitions used in testing
-
-test[1-4].ml
-    The tests

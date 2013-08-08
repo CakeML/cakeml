@@ -1,4 +1,4 @@
-open inferTestTheory repl_computeLib stringSyntax;
+open wholeProgTheory repl_computeLib stringSyntax optionSyntax;
 open TextIO;
 
 fun do_test filename =
@@ -6,9 +6,9 @@ fun do_test filename =
     val i = openIn filename;
     val s = inputAll i;
     val _ = closeIn i;
-    val res = (rhs o concl o EVAL) ``(infer_test_repl_fun ^(fromMLstring s))``
+    val res = (rhs o concl o EVAL) ``case wp_main_loop initial_repl_fun_state ^(fromMLstring s) of Failure msg => SOME msg | Success _ => NONE``
   in
-    if term_eq res ``Terminate`` then
+    if is_none res then
       NONE
     else 
       SOME res
