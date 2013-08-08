@@ -93,6 +93,14 @@ val tytest = parsetest ``nType`` ``ptree_Type nType``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "[3,4]"
+                   (SOME ``Ast_Con (SOME (Short "::"))
+                             [Ast_Lit (IntLit 3);
+                              Ast_Con (SOME (Short "::"))
+                                      [Ast_Lit (IntLit 4);
+                                       Ast_Con (SOME (Short "[]")) []]]``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "[]"
+                   (SOME ``Ast_Con (SOME (Short "[]")) []``);
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3::t = l"
                    (SOME ``Ast_App
                             (Ast_App (Ast_Var (Short "="))
@@ -283,8 +291,8 @@ val _ = parsetest ``nEbase`` ``ptree_Expr nEbase`` "x"
 val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f x y"
 val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f true y"
 val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f true Constructor"
-val _ = parsetest ``nElist1`` ``ptree_Expr nElist1`` "x"
-val _ = parsetest ``nElist1`` ``ptree_Expr nElist1`` "x,2"
+val _ = parsetest ``nElist1`` ``ptree_Exprlist nElist1`` "x"
+val _ = parsetest ``nElist1`` ``ptree_Exprlist nElist1`` "x,2"
 val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "C (x)"
 val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "C(x, y)"
 val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "f x * 3"

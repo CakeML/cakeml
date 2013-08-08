@@ -9,6 +9,8 @@ open pegSoundTheory
 
 val _ = new_theory "pegComplete"
 
+val _ = set_trace "Goalstack.print_goal_at_top" 0
+
 val REVERSE_11 = store_thm(
   "REVERSE_11",
   ``(REVERSE l1 = REVERSE l2) ⇔ (l1 = l2)``,
@@ -300,7 +302,7 @@ val firstSet_nEtuple = Store_thm(
 val firstSet_nEbase = Store_thm(
   "firstSet_nEbase",
   ``firstSet mmlG [NT (mkNT nEbase)] =
-      {LetT; LparT} ∪ firstSet mmlG [NT (mkNT nFQV)] ∪ {IntT i | T} ∪
+      {LetT; LparT; LbrackT} ∪ firstSet mmlG [NT (mkNT nFQV)] ∪ {IntT i | T} ∪
       firstSet mmlG [NT (mkNT nConstructorName)]``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION] >> gen_tac >> eq_tac >> rw[] >> simp[]);
@@ -511,7 +513,8 @@ val NOTIN_firstSet_nE = Store_thm(
     DatatypeT ∉ firstSet mmlG (NT (mkNT nE) :: rest) ∧
     ExceptionT ∉ firstSet mmlG (NT (mkNT nE) :: rest) ∧
     SemicolonT ∉ firstSet mmlG (NT (mkNT nE) :: rest) ∧
-    RparT ∉ firstSet mmlG (NN nE :: rest)``,
+    RparT ∉ firstSet mmlG (NN nE :: rest) ∧
+    RbrackT ∉ firstSet mmlG (NN nE :: rest)``,
   simp[firstSet_nE, firstSet_nFQV] >>
   rpt (dsimp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, disjImpI]))
 
@@ -545,6 +548,12 @@ val firstSetML_nE' = Store_thm(
     firstSetML mmlG sn (NT (mkNT nE')::rest) = firstSet mmlG [NN nE']``,
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM, firstSet_nE']) >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
+
+val firstSet_nElist1 = Store_thm(
+  "firstSet_nElist1",
+  ``firstSet mmlG (NT (mkNT nElist1)::rest) = firstSet mmlG [NT (mkNT nE)]``,
+  simp[SimpLHS, firstSetML_eqn] >>
+  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]);
 
 val firstSetML_nPtuple = Store_thm(
   "firstSetML_nPtuple",
@@ -597,6 +606,8 @@ val NOTIN_firstSet_nV = Store_thm(
     EndT ∉ firstSet mmlG [NN nV] ∧
     AndT ∉ firstSet mmlG [NN nV] ∧
     FunT ∉ firstSet mmlG [NN nV] ∧
+    LbrackT ∉ firstSet mmlG [NN nV] ∧
+    RbrackT ∉ firstSet mmlG [NN nV] ∧
     InT ∉ firstSet mmlG [NN nV] ∧
     IntT i ∉ firstSet mmlG [NN nV] ∧
     ThenT ∉ firstSet mmlG [NN nV] ∧
@@ -620,6 +631,8 @@ val NOTIN_firstSet_nFQV = Store_thm(
     ExceptionT ∉ firstSet mmlG [NN nFQV] ∧
     EndT ∉ firstSet mmlG [NN nFQV] ∧
     FunT ∉ firstSet mmlG [NN nFQV] ∧
+    LbrackT ∉ firstSet mmlG [NN nFQV] ∧
+    RbrackT ∉ firstSet mmlG [NN nFQV] ∧
     InT ∉ firstSet mmlG [NN nFQV] ∧
     IntT i ∉ firstSet mmlG [NN nFQV] ∧
     AndT ∉ firstSet mmlG [NN nFQV] ∧
@@ -651,10 +664,12 @@ val NOTIN_firstSet_nConstructorName = Store_thm(
     IfT ∉ firstSet mmlG [NN nConstructorName] ∧
     InT ∉ firstSet mmlG [NN nConstructorName] ∧
     IntT i ∉ firstSet mmlG [NN nConstructorName] ∧
+    LbrackT ∉ firstSet mmlG [NN nConstructorName] ∧
     LetT ∉ firstSet mmlG [NN nConstructorName] ∧
     LparT ∉ firstSet mmlG [NN nConstructorName] ∧
     OfT ∉ firstSet mmlG [NN nConstructorName] ∧
     RaiseT ∉ firstSet mmlG [NN nConstructorName] ∧
+    RbrackT ∉ firstSet mmlG [NN nConstructorName] ∧
     RparT ∉ firstSet mmlG [NN nConstructorName] ∧
     SemicolonT ∉ firstSet mmlG [NN nConstructorName] ∧
     ThenT ∉ firstSet mmlG [NN nConstructorName] ∧
@@ -2147,8 +2162,8 @@ val completeness = store_thm(
                        stringTheory.isUpper_def]>>
       fs[])
   >- (print_tac "nEbase" >> note_tac "** Slow nEbase beginning" >> stdstart
-      >- simp[peg_eval_tok_NONE]
-      >- (simp[peg_eval_tok_NONE] >>
+      >- (note_tac "Ebase:Eseq (not Int)" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:Eseq (not ())" >> simp[peg_eval_tok_NONE] >>
           erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_Eseq) >>
           simp[] >> asm_match `ptree_fringe pt = MAP TK f` >> Cases_on `f` >>
           simp[] >> strip_tac >> rw[] >> fs[] >>
@@ -2191,22 +2206,24 @@ val completeness = store_thm(
           DISJ1_TAC >> normlist >> first_assum (unify_firstconj kall_tac) >>
           CONV_TAC SWAP_VARS_CONV >> Q.REFINE_EXISTS_TAC `[pt2]` >>
           asimp[peg_EbaseParenFn_def, peg_eval_tok_NONE])
-      >- simp[peg_eval_tok_NONE]
-      >- (erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_FQV) >>
+      >- (note_tac "Ebase:() (not Int)" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:FQV" >>
+          erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_FQV) >>
           simp[] >> Cases_on `pfx` >> fs[] >> DISJ2_TAC >>
           asm_match `ptree_fringe fpt = TK h :: MAP TK t` >>
-          `¬isInt h ∧ h ≠ LparT ∧ h ≠ LetT`
+          `¬isInt h ∧ h ≠ LparT ∧ h ≠ LetT ∧ h ≠ LbrackT`
             by (IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
                 Cases_on `h` >> simp[]) >>
           simp[peg_eval_tok_NONE] >> DISJ2_TAC >>
           conj_tac
           >- simp[peg_EbaseParen_def, peg_eval_tok_NONE] >>
           DISJ1_TAC >> simp[NT_rank_def])
-      >- (erule mp_tac (MATCH_MP fringe_length_not_nullable
+      >- (note_tac "Ebase:Constructor" >>
+          erule mp_tac (MATCH_MP fringe_length_not_nullable
                                  nullable_ConstructorName) >>
           simp[] >> Cases_on `pfx` >> fs[] >> DISJ2_TAC >>
           asm_match `ptree_fringe fpt = TK h :: MAP TK t` >>
-          `¬isInt h ∧ h ≠ LparT ∧ h ≠ LetT`
+          `¬isInt h ∧ h ≠ LparT ∧ h ≠ LetT ∧ h ≠ LbrackT`
             by (IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
                 Cases_on `h` >> simp[]) >>
           simp[peg_eval_tok_NONE] >> DISJ2_TAC >>
@@ -2221,13 +2238,29 @@ val completeness = store_thm(
           `h ∈ firstSet mmlG [NN nConstructorName]`
             by metis_tac [firstSet_nonempty_fringe] >>
           fs[firstSet_nConstructorName])
-      >- simp[peg_eval_tok_NONE]
-      >- simp[peg_eval_tok_NONE] >>
-      note_tac "Ebase:let-in-end" >> DISJ2_TAC >> conj_tac
-      >- simp[peg_eval_tok_NONE, peg_EbaseParen_def] >>
+      >- (note_tac "Ebase:let (not Int)" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:let (not LparT)" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:let-in-end" >> DISJ2_TAC >> conj_tac
+          >- simp[peg_eval_tok_NONE, peg_EbaseParen_def] >>
+          simp[peg_eval_tok_NONE] >>
+          DISJ1_TAC >> normlist >>
+          first_assum (unify_firstconj kall_tac) >> asimp[] >>
+          normlist >> simp[])
+      >- (note_tac "Ebase:[] not int" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:[] not LparT" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:[]" >> simp[peg_eval_tok_NONE] >>
+          DISJ2_TAC >> conj_tac
+          >- simp[peg_eval_tok_NONE, peg_EbaseParen_def] >>
+          simp[peg_respects_firstSets])
+      >- (note_tac "Ebase:[..] not int" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:[..] not LparT" >> simp[peg_eval_tok_NONE]) >>
+      note_tac "Ebase:[..]" >> DISJ2_TAC >>
+      conj_tac
+      >- (simp_tac list_ss [peg_eval_tok_NONE, peg_EbaseParen_def,
+                            peg_eval_seql_CONS, tokeq_def] >>
+          simp[]) >>
       DISJ1_TAC >> normlist >>
-      first_assum (unify_firstconj kall_tac) >> asimp[] >>
-      normlist >> simp[])
+      asimp[])
   >- (print_tac "nEapp" >> disch_then assume_tac >>
       match_mp_tac (eapp_complete
                       |> Q.INST [`master` |-> `pfx`]

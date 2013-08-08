@@ -196,6 +196,8 @@ val mmlPEG_def = zDefine`
                choicel [tok isInt (bindNT nEbase o mktokLf);
                         seql [tokeq LparT; tokeq RparT] (bindNT nEbase);
                         peg_EbaseParen;
+                        seql [tokeq LbrackT; try (pnt nElist1); tokeq RbrackT]
+                             (bindNT nEbase);
                         seql [tokeq LetT; pnt nLetDecs; tokeq InT; pnt nEseq;
                               tokeq EndT] (bindNT nEbase);
                         pegf (pnt nFQV) (bindNT nEbase);
@@ -547,7 +549,7 @@ val npeg0_rwts =
                 ``nEmult``, ``nEadd``, ``nElistop``, ``nErel``, ``nEcomp``,
                 ``nEbefore``,
                 ``nEtyped``, ``nElogicAND``, ``nElogicOR``, ``nEhandle``,
-                ``nE``, ``nE'``,
+                ``nE``, ``nE'``, ``nElist1``,
                 ``nSpecLine``, ``nStructure``, ``nTopLevelDec``]
 
 val pegfail_empty = Store_thm(

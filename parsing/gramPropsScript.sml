@@ -191,7 +191,7 @@ val _ = map prove_nullable [
           ``nFQV``, ``nEbase``, ``nEapp``, ``nEmult``, ``nEadd``, ``nElistop``,
           ``nErel``,
           ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``, ``nElogicOR``,
-          ``nEhandle``, ``nE``, ``nE'``, ``nCompOps``, ``nListOps``,
+          ``nEhandle``, ``nE``, ``nE'``, ``nElist1``, ``nCompOps``, ``nListOps``,
           ``nConstructorName``, ``nPattern``, ``nRelOps``, ``nMultOps``,
           ``nAddOps``, ``nDconstructor``, ``nFDecl``, ``nPatternList``,
           ``nEseq``, ``nEtuple``]

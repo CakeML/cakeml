@@ -41,6 +41,8 @@ val tokmap0 =
     List.foldl (fn ((s,t), acc) => Binarymap.insert(acc,s,t))
                (Binarymap.mkDict String.compare)
                [("(", ``LparT``), (")", ``RparT``), (",", ``CommaT``),
+                ("[", ``LbrackT``),
+                ("]", ``RbrackT``),
                 (";", ``SemicolonT``), (":=", ``SymbolT ":="``),
                 (":>", ``SealT``),
                 ("::", ``SymbolT "::"``), ("@", ``SymbolT "@"``),
@@ -125,7 +127,7 @@ val mmlG_def = mk_grammar_def ginfo
               s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s))}``) ;
  Vlist1 ::= V Vlist1 | V;
  Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | <IntT>
-        |  "let" LetDecs "in" Eseq "end";
+        |  "let" LetDecs "in" Eseq "end" | "[" "]" | "[" Elist1 "]";
  Eseq ::= E ";" Eseq | E;
  Etuple ::= "(" Elist2 ")";
  Elist2 ::= E "," Elist1;

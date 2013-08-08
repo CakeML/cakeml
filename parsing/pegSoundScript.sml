@@ -970,6 +970,11 @@ val peg_sound = store_thm(
       >- (* () *) dsimp[]
       >- ((* peg_EbaseParen 1 *)
           IMP_RES_THEN match_mp_tac peg_EbaseParen_sound >> simp[])
+      >- ((* [ elist1 ] *)
+          rpt (loseC ``NT_rank``) >>
+          lrresolve KEEP (K true) mp_tac >> rpt kill_asm_guard >>
+          strip_tac >> rveq >> dsimp[])
+      >- ((* [ ] *) dsimp[])
       >- ((* "let" ... "in" ... "end" case *)
           rpt (loseC ``NT_rank``) >>
           lrresolve KEEP (free_in ``nLetDecs``) mp_tac >>

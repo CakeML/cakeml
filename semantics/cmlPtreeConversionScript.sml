@@ -482,11 +482,6 @@ val ptree_Pattern_def = Define`
          | _ => NONE)
 `;
 
-val frontAppCon_def = Define`
-  frontAppCon e (Ast_Con x args) = SOME (Ast_Con x (e::args)) ∧
-  frontAppCon _ _ = NONE
-`;
-
 val Eseq_encode_def = Define`
   (Eseq_encode [] = NONE) ∧
   (Eseq_encode [e] = SOME e) ∧
@@ -514,12 +509,18 @@ val ptree_Expr_def = Define`
       if nt = mkNT nEbase then
         case subs of
             [lpart; pt; rpart] =>
-            if lpart = Lf (TK LparT) ∧ rpart = Lf (TK RparT) then
-              do
-                eseq <- ptree_Eseq pt;
-                Eseq_encode eseq
-              od
-            else NONE
+            do
+              assert(lpart = Lf (TK LparT) ∧ rpart = Lf (TK RparT));
+              eseq <- ptree_Eseq pt;
+              Eseq_encode eseq
+            od ++
+            do
+              assert(lpart = Lf (TK LbrackT) ∧ rpart = Lf (TK RbrackT));
+              elist <- ptree_Exprlist nElist1 pt;
+              SOME(FOLDR (λe acc. Ast_Con (SOME (Short "::")) [e; acc])
+                         (Ast_Con (SOME (Short "[]")) [])
+                         elist)
+            od
           | [single] =>
               do
                 lf <- destLf single;
@@ -542,6 +543,8 @@ val ptree_Expr_def = Define`
               ptree_Expr nEtuple single
           | [lp;rp] => if lp = Lf (TK LparT) ∧ rp = Lf (TK RparT) then
                          SOME (Ast_Lit Unit)
+                       else if lp = Lf (TK LbrackT) ∧ rp = Lf (TK RbrackT) then
+                         SOME (Ast_Con (SOME (Short "[]")) [])
                        else NONE
           | [lett;letdecs_pt;intok;ept;endt] =>
             do
@@ -569,31 +572,11 @@ val ptree_Expr_def = Define`
       else if nt = mkNT nEtuple then
         case subs of
             [lpart; el2; rpart] =>
-            if lpart = Lf (TOK LparT) ∧ rpart = Lf (TOK RparT) then
-              ptree_Expr nElist2 el2
-            else NONE
-          | _ => NONE
-      else if nt = mkNT nElist2 then
-        case subs of
-            [e; ct; el] =>
-              do
-                assert(ct = Lf (TOK CommaT));
-                front <- ptree_Expr nE e;
-                back <- ptree_Expr nElist1 el;
-                frontAppCon front back
-              od
-          | _ => NONE
-      else if nt = mkNT nElist1 then
-        case subs of
-            [sing] => do e <- ptree_Expr nE sing; SOME(Ast_Con NONE [e]) od
-          | [e;ct;el1] =>
-            if ct = Lf (TOK CommaT) then
-              do
-                front <- ptree_Expr nE e;
-                back <- ptree_Expr nElist1 el1 ;
-                frontAppCon front back
-              od
-            else NONE
+            do
+              assert (lpart = Lf (TOK LparT) ∧ rpart = Lf (TOK RparT));
+              es <- ptree_Exprlist nElist2 el2;
+              SOME(Ast_Con NONE es)
+            od
           | _ => NONE
       else if nt = mkNT nEmult then
         case subs of
@@ -755,6 +738,32 @@ val ptree_Expr_def = Define`
           | _ => NONE
       else NONE
     else NONE) ∧
+  (ptree_Exprlist nm ast =
+     case ast of
+         Lf _ => NONE
+       | Nd nt subs =>
+         if nt = mkNT nElist1 then
+           case subs of
+               [sing] => do e <- ptree_Expr nE sing; SOME [e] od
+             | [e;ct;el1] =>
+               do
+                 assert(ct = Lf (TOK CommaT));
+                 front <- ptree_Expr nE e;
+                 back <- ptree_Exprlist nElist1 el1 ;
+                 SOME(front::back)
+               od
+             | _ => NONE
+         else if nt = mkNT nElist2 then
+           case subs of
+               [e;ct;el1] =>
+               do
+                 assert(ct = Lf (TOK CommaT));
+                 front <- ptree_Expr nE e;
+                 back <- ptree_Exprlist nElist1 el1 ;
+                 SOME(front::back)
+               od
+             | _ => NONE
+         else NONE) ∧
   ptree_AndFDecls ast =
     (case ast of
         Lf _ => NONE
