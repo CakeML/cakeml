@@ -139,7 +139,8 @@ val firstSet_nLetDecs = Store_thm(
 
 val firstSet_nDecls = Store_thm(
   "firstSet_nDecls",
-  ``firstSet mmlG [NN nDecls] = {ValT; DatatypeT; FunT; SemicolonT}``,
+  ``firstSet mmlG [NN nDecls] =
+      {ValT; DatatypeT; FunT; SemicolonT; ExceptionT}``,
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM, INSERT_UNION_EQ,
@@ -191,19 +192,20 @@ val firstSet_nTypeDec = Store_thm(
 
 val firstSet_nDecl = Store_thm(
   "firstSet_nDecl",
-  ``firstSet mmlG [NT (mkNT nDecl)] = {ValT; FunT; DatatypeT}``,
+  ``firstSet mmlG [NT (mkNT nDecl)] = {ValT; FunT; DatatypeT;ExceptionT}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ]);
 
 val firstSet_nTopLevelDec = Store_thm(
   "firstSet_nTopLevelDec",
   ``firstSet mmlG [NT (mkNT nTopLevelDec)] =
-    {ValT; FunT; DatatypeT; StructureT}``,
+    {ValT; FunT; DatatypeT; StructureT; ExceptionT}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ, INSERT_COMM]);
 
 val firstSet_nTopLevelDecs = Store_thm(
   "firstSet_nTopLevelDecs",
-  ``firstSet mmlG [NN nTopLevelDecs] = {ValT; FunT; DatatypeT; StructureT}``,
+  ``firstSet mmlG [NN nTopLevelDecs] =
+      {ValT; FunT; DatatypeT; StructureT; ExceptionT}``,
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   simp[INSERT_UNION_EQ, INSERT_COMM]);
@@ -482,6 +484,7 @@ val NOTIN_firstSet_nE = Store_thm(
     StructureT ∉ firstSet mmlG (NT (mkNT nE) :: rest) ∧
     FunT ∉ firstSet mmlG (NT (mkNT nE) :: rest) ∧
     DatatypeT ∉ firstSet mmlG (NT (mkNT nE) :: rest) ∧
+    ExceptionT ∉ firstSet mmlG (NT (mkNT nE) :: rest) ∧
     SemicolonT ∉ firstSet mmlG (NT (mkNT nE) :: rest) ∧
     RparT ∉ firstSet mmlG (NN nE :: rest)``,
   simp[firstSet_nE, firstSet_nFQV] >>
@@ -564,6 +567,7 @@ val NOTIN_firstSet_nV = Store_thm(
     FnT ∉ firstSet mmlG [NN nV] ∧ IfT ∉ firstSet mmlG [NN nV] ∧
     EqualsT ∉ firstSet mmlG [NN nV] ∧ DarrowT ∉ firstSet mmlG [NN nV] ∧
     ValT ∉ firstSet mmlG [NN nV] ∧
+    ExceptionT ∉ firstSet mmlG [NN nV] ∧
     EndT ∉ firstSet mmlG [NN nV] ∧
     AndT ∉ firstSet mmlG [NN nV] ∧
     FunT ∉ firstSet mmlG [NN nV] ∧
@@ -587,6 +591,7 @@ val NOTIN_firstSet_nFQV = Store_thm(
     BarT ∉ firstSet mmlG [NN nFQV] ∧
     EqualsT ∉ firstSet mmlG [NN nFQV] ∧ DarrowT ∉ firstSet mmlG [NN nFQV] ∧
     ValT ∉ firstSet mmlG [NN nFQV] ∧
+    ExceptionT ∉ firstSet mmlG [NN nFQV] ∧
     EndT ∉ firstSet mmlG [NN nFQV] ∧
     FunT ∉ firstSet mmlG [NN nFQV] ∧
     InT ∉ firstSet mmlG [NN nFQV] ∧
@@ -614,6 +619,7 @@ val NOTIN_firstSet_nConstructorName = Store_thm(
     ElseT ∉ firstSet mmlG [NN nConstructorName] ∧
     EndT ∉ firstSet mmlG [NN nConstructorName] ∧
     EqualsT ∉ firstSet mmlG [NN nConstructorName] ∧
+    ExceptionT ∉ firstSet mmlG [NN nConstructorName] ∧
     FnT ∉ firstSet mmlG [NN nConstructorName] ∧
     FunT ∉ firstSet mmlG [NN nConstructorName] ∧
     IfT ∉ firstSet mmlG [NN nConstructorName] ∧
@@ -1023,7 +1029,7 @@ val stoppers_def = Define`
   (stoppers nDecl = nestoppers DIFF {BarT; StarT; AndT; OfT}) ∧
   (stoppers nDecls =
      nestoppers DIFF
-     {BarT; StarT; AndT; SemicolonT; FunT; ValT; DatatypeT; OfT}) ∧
+     {BarT; StarT; AndT; SemicolonT; FunT; ValT; DatatypeT; OfT; ExceptionT}) ∧
   (stoppers nDType = UNIV DIFF firstSet mmlG [NN nTyOp]) ∧
   (stoppers nDtypeCons =
      UNIV DIFF ({ArrowT; BarT; StarT; OfT} ∪ firstSet mmlG [NN nTyOp])) ∧
@@ -1106,7 +1112,7 @@ val stoppers_def = Define`
      nestoppers DIFF {BarT; StarT; AndT; OfT}) ∧
   (stoppers nTopLevelDecs =
      nestoppers DIFF
-     {BarT; StarT; AndT; StructureT; OfT; ValT; FunT; DatatypeT}) ∧
+     {BarT; StarT; AndT; StructureT; OfT; ValT; FunT; DatatypeT; ExceptionT}) ∧
   (stoppers nType = UNIV DIFF ({ArrowT; StarT} ∪ firstSet mmlG [NN nTyOp])) ∧
   (stoppers nTypeDec =
      UNIV DIFF ({AndT; ArrowT; StarT; BarT; OfT} ∪ firstSet mmlG [NN nTyOp])) ∧
@@ -2278,11 +2284,10 @@ val completeness = store_thm(
   >- (print_tac "nDecl" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >> rw[] >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
-      rw[]
+      rw[peg_eval_tok_NONE]
       >- (DISJ1_TAC >> normlist >>
           first_assum (unify_firstconj kall_tac o has_length) >> simp[])
-      >- simp[peg_eval_tok_NONE]
-      >- (dsimp[peg_eval_tok_NONE] >>
+      >- (dsimp[] >>
           asm_match `ptree_head tpt = NN nTypeDec` >>
           `0 < LENGTH (ptree_fringe tpt)`
             by metis_tac[fringe_length_not_nullable, nullable_TypeDec] >>

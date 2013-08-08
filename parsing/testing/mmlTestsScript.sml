@@ -24,7 +24,7 @@ val _ = overload_on (
 val result_t = ``Result``
 fun parsetest0 nt sem s opt = let
   val s_t = stringSyntax.lift_string bool s
-  val _ = print ("Lexing "^s^"\n")
+  val _ = print ("**********\nLexing "^s^"\n")
   val t = time (rhs o concl o EVAL) ``lexer_fun ^s_t``
   val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
   val _ = print ("Parsing\n")
@@ -104,6 +104,14 @@ val _ = tytest "'a * bool -> 'a"
 val _ = tytest "'a * (bool * 'c)"
 val _ = tytest "(bool * int)"
 val _ = tytest "(bool list * int) * bool"
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Foo"
+                   (SOME ``Ast_Dexn "Foo" []``)
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Bar of int"
+                   (SOME ``Ast_Dexn "Bar" [Ast_Tapp [] (SOME (Short "int"))]``)
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Bar of int * int"
+                   (SOME ``Ast_Dexn "Bar"
+                             [Ast_Tapp [] (SOME (Short "int"));
+                              Ast_Tapp [] (SOME (Short "int"))]``);
 val _ = parsetest ``nPType`` ``ptree_PType`` "'a"
 val _ = parsetest ``nPType`` ``ptree_PType`` "'a * bool"
 val _ = parsetest ``nPatternList`` ``ptree_Plist`` "x,y"

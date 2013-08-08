@@ -472,7 +472,9 @@ val peg_sound = store_thm(
           first_x_assum (erule strip_assume_tac) >> rveq >>
           simp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> dsimp[])
       >- (dsimp[cmlG_applied, cmlG_FDOM, MAP_EQ_SING] >> csimp[] >>
-          metis_tac[DECIDE ``x<SUC x``]) >>
+          metis_tac[DECIDE ``x<SUC x``])
+      >- (dsimp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> csimp[] >>
+          metis_tac[DECIDE``x<SUC x``]) >>
       `NT_rank (mkNT nTypeDec) < NT_rank (mkNT nDecl)`
         by simp[NT_rank_def] >>
       first_x_assum (erule strip_assume_tac) >>

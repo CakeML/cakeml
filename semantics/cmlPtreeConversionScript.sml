@@ -893,6 +893,11 @@ val ptree_Decl_def = Define`
                assert(funtok = Lf (TOK FunT));
                fdecs <- ptree_AndFDecls fdecls;
                SOME (Ast_Dletrec fdecs)
+             od ++
+             do
+               assert (funtok = Lf (TOK ExceptionT));
+               (enm, etys) <- ptree_Dconstructor fdecls;
+               SOME (Ast_Dexn enm etys)
              od
            | [valtok; patpt; eqtok; ept] =>
              do

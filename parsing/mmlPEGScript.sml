@@ -338,10 +338,13 @@ val mmlPEG_def = zDefine`
                         seql [tokeq SemicolonT; pnt nLetDecs] (bindNT nLetDecs);
                         pegf (empty []) (bindNT nLetDecs)]);
               (mkNT nDecl,
-               choicel [seql [tokeq ValT; pnt nPattern; tokeq EqualsT; pnt nE]
-                             (bindNT nDecl);
-                        seql [tokeq FunT; pnt nAndFDecls] (bindNT nDecl);
-                        seql [pnt nTypeDec] (bindNT nDecl)]);
+               choicel [
+                 seql [tokeq ValT; pnt nPattern; tokeq EqualsT; pnt nE]
+                      (bindNT nDecl);
+                 seql [tokeq FunT; pnt nAndFDecls] (bindNT nDecl);
+                 seql [tokeq ExceptionT; pnt nDconstructor] (bindNT nDecl);
+                 seql [pnt nTypeDec] (bindNT nDecl)
+               ]);
               (mkNT nDecls,
                choicel [seql [pnt nDecl; pnt nDecls] (bindNT nDecls);
                         seql [tokeq SemicolonT; pnt nDecls] (bindNT nDecls);
