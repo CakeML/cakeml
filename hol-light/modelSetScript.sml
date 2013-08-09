@@ -52,6 +52,10 @@ val I_AXIOM = store_thm("I_AXIOM",
 
 (* TODO: move *)
 
+val CARDLEQ_FINITE = store_thm("CARDLEQ_FINITE",
+  ``∀s1 s2. FINITE s2 ∧ s1 ≼ s2 ⇒ FINITE s1``,
+  metis_tac[cardleq_def,FINITE_INJ])
+
 val CARDLEQ_CARD = store_thm("CARDLEQ_CARD",
   ``FINITE s1 ∧ FINITE s2 ⇒ (s1 ≼ s2 ⇔ CARD s1 ≤ CARD s2)``,
   rw[EQ_IMP_THM] >-
@@ -99,7 +103,7 @@ val I_INFINITE = store_thm("I_INFINITE",
   simp[EXTENSION,IN_POW] >>
   qexists_tac`{}`>>simp[])
 
-val I_PAIR_EXISTS = store_thm("I_PAIR_EXISTS",
+val I_PAIR_EXISTS = prove(
   ``∃f:I#I->I. !x y. (f x = f y) ==> (x = y)``,
   qsuff_tac `𝕌(:I#I) ≼ 𝕌(:I)` >-
     simp[cardleq_def,INJ_DEF] >>
@@ -113,5 +117,40 @@ val INJ_LEMMA = METIS_PROVE[]``(!x y. (f x = f y) ==> (x = y)) <=> (!x y. (f x =
 val I_PAIR_def =
   new_specification("I_PAIR_def",["I_PAIR"],
     REWRITE_RULE[INJ_LEMMA] I_PAIR_EXISTS)
+
+val CARD_BOOL_LT_I = store_thm("CARD_BOOL_LT_I",
+  ``𝕌(:bool) ≺ 𝕌(:I)``,
+  strip_tac >> mp_tac I_INFINITE >> simp[] >>
+  match_mp_tac (INST_TYPE[beta|->``:bool``]CARDLEQ_FINITE) >>
+  HINT_EXISTS_TAC >> simp[UNIV_BOOL])
+
+val I_BOOL_EXISTS = prove(
+  ``∃f:bool->I. !x y. (f x = f y) ==> (x = y)``,
+  `𝕌(:bool) ≼ 𝕌(:I)` by metis_tac[CARD_BOOL_LT_I,cardlt_lenoteq] >>
+  fs[cardleq_def,INJ_DEF] >> metis_tac[])
+
+val I_BOOL_def =
+  new_specification("I_BOOL_def",["I_BOOL"],
+    REWRITE_RULE[INJ_LEMMA] I_BOOL_EXISTS)
+
+val I_IND_EXISTS = prove(
+  ``∃f:ind_model->I. !x y. (f x = f y) ==> (x = y)``,
+  `𝕌(:ind_model) ≼ 𝕌(:I)` by metis_tac[I_AXIOM,cardlt_lenoteq] >>
+  fs[cardleq_def,INJ_DEF] >> metis_tac[])
+
+val I_IND_def =
+  new_specification("I_IND_def",["I_IND"],
+    REWRITE_RULE[INJ_LEMMA] I_IND_EXISTS)
+
+val I_SET_EXISTS = prove(
+  ``∀s:I->bool. s ≺ 𝕌(:I) ⇒ ∃f:(I->bool)->I. !x y. x ⊆ s ∧ y ⊆ s ∧ (f x = f y) ==> (x = y)``,
+  gen_tac >> disch_then(strip_assume_tac o MATCH_MP(CONJUNCT2 I_AXIOM)) >>
+  fs[cardlt_lenoteq] >>
+  fs[cardleq_def,INJ_DEF,IN_POW] >>
+  metis_tac[])
+
+val I_SET_def =
+  new_specification("I_SET_def",["I_SET"],
+    SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM] I_SET_EXISTS)
 
 val _ = export_theory()
