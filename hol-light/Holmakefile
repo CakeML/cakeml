@@ -1,4 +1,4 @@
-INCLUDES = ../translator ../semantics
+INCLUDES = ../translator ../semantics $(HOLDIR)/examples/set-theory/hol_sets
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -9,7 +9,7 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 SEM_BARE_THYS = AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory
 TRANS_BARE_THYS = Print_astTheory Print_astTerminationTheory
 
-BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) $(patsubst %,../translator/%,$(TRANS_BARE_THYS))
+BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) $(patsubst %,../translator/%,$(TRANS_BARE_THYS)) $(HOLDIR)/examples/set-theory/hol_sets/cardinalTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

@@ -1,14 +1,5 @@
-open HolKernel boolLib bossLib lcsymtacs pred_setTheory
+open HolKernel boolLib bossLib lcsymtacs pred_setTheory cardinalTheory
 val _ = new_theory"modelSet"
-
-val _ = Parse.add_infix("<=_c",450,Parse.NONASSOC)
-val _ = Parse.add_infix("<_c",450,Parse.NONASSOC)
-
-val le_c_def = xDefine"le_c"
-  `s <=_c t ⇔ ∃f. INJ f s t`
-
-val lt_c_def = xDefine"lt_c"
-  `s <_c t ⇔ s <=_c t ∧ ~(t <=_c s)`
 
 val ind_model_exists = prove(
   ``∃x. (@s:num->bool. s ≠ {} ∧ FINITE s) x``,
@@ -36,14 +27,26 @@ val mk_I_onto   = prove_abs_fn_onto    inacc_bij
 val dest_I_11   = prove_rep_fn_one_one inacc_bij
 val dest_I_onto = prove_rep_fn_onto    inacc_bij
 
-(*
+val FINITE_CARD_LT = store_thm("FINITE_CARD_LT",
+  ``∀s. FINITE s ⇔ s ≺ 𝕌(:num)``,
+  metis_tac[INFINITE_Unum])
+
 val lemma = prove(
-  ``∀s. s <_c UNIV:I->bool ⇔ FINITE s``,
-  FINITE_CARD_LT
+  ``∀s. s ≺ 𝕌(:I) ⇔ FINITE s``,
+  rw[FINITE_CARD_LT] >>
+  match_mp_tac CARDEQ_CARDLEQ >>
+  simp[cardeq_REFL] >>
+  match_mp_tac cardleq_ANTISYM >>
+  simp[cardleq_def,INJ_DEF] >>
+  metis_tac[inacc_bij,dest_I_11,mk_I_11,IN_UNIV,IN_DEF])
 
 val I_AXIOM = store_thm("I_AXIOM",
-  ``UNIV:ind_model->bool <_c UNIV:I->bool ∧
-    (∀s. s <_c UNIV:I->bool ⇒ POW s <_c UNIV:I->bool)``,
-*)
+  ``𝕌(:ind_model) ≺ 𝕌(:I) ∧
+    ∀s. s ≺ 𝕌(:I) ⇒ POW s ≺ 𝕌(:I)``,
+  simp[lemma,FINITE_POW] >>
+  `UNIV = IMAGE mk_ind (@s. s ≠ {} ∧ FINITE s)` by (
+    simp[Once EXTENSION,IN_DEF,ind_model_bij] >>
+    metis_tac[ind_model_bij]) >>
+  metis_tac[IMAGE_FINITE,NOT_INSERT_EMPTY,FINITE_EMPTY,FINITE_INSERT])
 
 val _ = export_theory()
