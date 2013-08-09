@@ -165,37 +165,98 @@ val nullconv =
          pairTheory.o_UNCURRY_R, pairTheory.S_UNCURRY_R, INSERT_INTER,
          nullableML_def, c1, condc, cmlG_FDOM, cmlG_applied]);
 
-fun prove_nullable t = let
-  val th = nullconv ``nullableNT mmlG (mkNT ^t)``
-  val nm = "nullable_" ^ String.extract(term_to_string t,1,NONE)
+val safenml = LIST_CONJ (List.take(CONJUNCTS nullableML_def, 2))
+
+val nullML_t = prim_mk_const {Thy = "NTproperties", Name = "nullableML"}
+
+val nullloop_th = prove(
+  ``nullableML G (N INSERT sn) (NT N :: rest) = F``,
+  simp[Once nullableML_def]);
+
+val null2 = prove(
+  ``nullableML G sn (x :: y :: z) <=>
+      nullableML G sn [x] ∧ nullableML G sn [y] ∧
+      nullableML G sn z``,
+  simp[Once nullableML_by_singletons, SimpLHS] >>
+  dsimp[] >> simp[GSYM nullableML_by_singletons]);
+
+
+fun prove_nullable domapp sn acc G_t t = let
+  val gML_t = ``nullableML ^G_t sn [NT ^t]``
+  open combinTheory pairTheory
+  val gML1_th =
+      (REWR_CONV (last (CONJUNCTS nullableML_def)) THENC
+       SIMP_CONV (srw_ss())
+       (acc @ [domapp, GSPEC_INTER, nullloop_th,
+               RIGHT_INTER_OVER_UNION, o_ABS_R, S_ABS_R, S_ABS_L,
+               GSPEC_applied, o_UNCURRY_R, S_UNCURRY_R, INSERT_INTER, safenml,
+               null2]) THENC
+       SIMP_CONV (bool_ss ++ boolSimps.COND_elim_ss)
+                 [NOT_INSERT_EMPTY]) gML_t
+  fun mend th0 =
+      if not (is_eq (concl th0)) then
+        EQF_INTRO th0
+        handle HOL_ERR _ => EQT_INTRO th0
+                            handle HOL_ERR _ => th0
+      else th0
 in
-  save_thm(nm, EQT_ELIM th handle HOL_ERR _ => EQF_ELIM th) before
-  export_rewrites [nm]
+  if is_const (rhs (concl gML1_th)) then gML1_th :: acc
+  else
+    let
+      fun findp t = let
+        val (f,args) = strip_comb t
+      in
+        same_const nullML_t f andalso length args = 3
+      end
+      val nml_ts = find_terms findp (rhs (concl gML1_th))
+      val ts = List.foldl
+                 (fn (t, acc) => HOLset.add(acc, rand (lhand (rand t))))
+                 empty_tmset nml_ts
+      fun foldthis (t', a) =
+          if HOLset.member(sn, t') then a
+          else prove_nullable domapp (HOLset.add(sn,t)) a G_t t'
+      val acc = HOLset.foldl foldthis acc ts
+      val th0 = mend (SIMP_RULE bool_ss acc gML1_th)
+    in
+      if can (find_term findp) (rhs (concl th0)) then
+        let
+          val th' = CONV_RULE (RAND_CONV (ONCE_REWRITE_CONV [th0])) th0
+        in
+          mend (REWRITE_RULE [IN_INSERT] th') :: acc
+        end
+      else
+        th0 :: acc
+    end
 end
-val nullable_V = prove_nullable ``nV``
-val nullable_Vlist1 = prove_nullable ``nVlist1``
-val nullable_TyvarN = prove_nullable ``nTyvarN``
-val nullable_UQTyOp = prove_nullable ``nUQTyOp``
-val nullable_TyOp = prove_nullable ``nTyOp``
-val nullable_Tbase = prove_nullable ``nTbase``
-val nullable_DType = prove_nullable ``nDType``
-val nullable_SpecLine = prove_nullable ``nSpecLine``
-val nullable_ConstructorName = prove_nullable ``nConstructorName``
-val nullable_Ptuple = prove_nullable ``nPtuple``
-val nullable_Pbase = prove_nullable ``nPbase``
-val nullable_LetDec = prove_nullable ``nLetDec``
-val nullable_TyVarList = prove_nullable ``nTyVarList``
-val nullable_DtypeDecl = prove_nullable ``nDtypeDecl``
-val nullable_Decl = prove_nullable ``nDecl``
-val nullable_TypeDec = prove_nullable ``nTypeDec``
-val _ = map prove_nullable [
-          ``nFQV``, ``nEbase``, ``nEapp``, ``nEmult``, ``nEadd``, ``nElistop``,
-          ``nErel``,
-          ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``, ``nElogicOR``,
-          ``nEhandle``, ``nE``, ``nE'``, ``nElist1``, ``nCompOps``, ``nListOps``,
-          ``nConstructorName``, ``nPapp``, ``nPattern``, ``nRelOps``, ``nMultOps``,
-          ``nAddOps``, ``nDconstructor``, ``nFDecl``, ``nPatternList``,
-          ``nEseq``, ``nEtuple``]
+
+local val domapp = CONJ cmlG_applied cmlG_FDOM
+in
+fun fold_nullprove (t, a) =
+    prove_nullable domapp empty_tmset a ``mmlG`` ``mkNT ^t``
+end
+
+val nullacc =
+    foldl fold_nullprove [] [``nE``, ``nType``, ``nTyvarN``, ``nSpecLine``,
+                             ``nVlist1``, ``nPtuple``, ``nPbase``, ``nLetDec``,
+                             ``nTyVarList``, ``nDtypeDecl``, ``nDecl``, ``nE'``,
+                             ``nElist1``, ``nCompOps``, ``nListOps``,
+                             ``nPapp``, ``nPattern``, ``nRelOps``, ``nMultOps``,
+                             ``nAddOps``, ``nDconstructor``, ``nFDecl``, ``nPatternList``,
+                             ``nEseq``, ``nEtuple``, ``nTopLevelDecs``, ``nTopLevelDec``]
+
+local
+  fun appthis th = let
+    val th' = th |> Q.INST [`sn` |-> `{}`]
+                 |> REWRITE_RULE [GSYM nullableML_EQN, NOT_IN_EMPTY]
+    fun trydn t = dest_neg t handle HOL_ERR _ => t
+    val t = th' |> concl |> trydn |> rand |> lhand |> rand |> rand
+    val nm = "nullable_" ^ String.extract(term_to_string t, 1, NONE)
+  in
+    save_thm(nm, th'); export_rewrites [nm]
+  end
+in
+val _ = List.app appthis nullacc
+end
 
 val len_assum =
     first_x_assum
@@ -240,20 +301,6 @@ val fringe_length_not_nullable = store_thm(
   fs[listTheory.LENGTH_NIL] >>
   erule mp_tac grammarTheory.valid_ptree_derive >>
   fs[NTpropertiesTheory.nullable_def]);
-
-val DType_fringe_length = MATCH_MP fringe_length_not_nullable nullable_DType
-val V_fringe_length = MATCH_MP fringe_length_not_nullable nullable_V
-val Vlist1_fringe_length = MATCH_MP fringe_length_not_nullable nullable_Vlist1
-val nullable_TopLevelDec = prove_nullable ``nTopLevelDec``
-val TopLevelDec_fringe_length =
-    MATCH_MP fringe_length_not_nullable nullable_TopLevelDec
-val nullable_TopLevelDecs = prove_nullable ``nTopLevelDecs``
-val SpecLine_fringe_length =
-    MATCH_MP fringe_length_not_nullable nullable_SpecLine
-val ConstructorName_fringe_length = MATCH_MP fringe_length_not_nullable nullable_ConstructorName
-val Ptuple_fringe_length = MATCH_MP fringe_length_not_nullable nullable_Ptuple
-val Pbase_fringe_length = MATCH_MP fringe_length_not_nullable nullable_Pbase
-val LetDec_fringe_length = MATCH_MP fringe_length_not_nullable nullable_LetDec
 
 val derives_singleTOK = store_thm(
   "derives_singleTOK",
