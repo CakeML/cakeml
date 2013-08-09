@@ -1,4 +1,5 @@
-open HolKernel boolLib bossLib lcsymtacs pred_setTheory cardinalTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory cardinalTheory
+val _ = numLib.prefer_num()
 val _ = new_theory"modelSet"
 
 val ind_model_exists = prove(
@@ -48,5 +49,69 @@ val I_AXIOM = store_thm("I_AXIOM",
     simp[Once EXTENSION,IN_DEF,ind_model_bij] >>
     metis_tac[ind_model_bij]) >>
   metis_tac[IMAGE_FINITE,NOT_INSERT_EMPTY,FINITE_EMPTY,FINITE_INSERT])
+
+(* TODO: move *)
+
+val CARDLEQ_CARD = store_thm("CARDLEQ_CARD",
+  ``FINITE s1 ∧ FINITE s2 ⇒ (s1 ≼ s2 ⇔ CARD s1 ≤ CARD s2)``,
+  rw[EQ_IMP_THM] >-
+    metis_tac[cardleq_def,INJ_CARD] >>
+  Cases_on`CARD s1 = CARD s2` >-
+    metis_tac[cardleq_lteq,CARDEQ_CARD_EQN] >>
+  simp[Once cardleq_lteq] >> disj1_tac >>
+  simp[cardleq_def] >>
+  gen_tac >> match_mp_tac PHP >>
+  fsrw_tac[ARITH_ss][])
+
+val CARD_LT_CARD = store_thm("CARD_LT_CARD",
+  ``FINITE s1 ∧ FINITE s2 ⇒ (s1 ≺ s2 ⇔ CARD s1 < CARD s2)``,
+  rw[] >> simp[cardlt_lenoteq,CARDLEQ_CARD,CARDEQ_CARD_EQN])
+
+val I_INFINITE = store_thm("I_INFINITE",
+  ``INFINITE 𝕌(:I)``,
+  DISCH_TAC >>
+  Q.ISPEC_THEN`count (CARD 𝕌(:I) - 1)`mp_tac (CONJUNCT2 I_AXIOM) >>
+  simp[] >>
+  simp[CARD_LT_CARD,CARDLEQ_CARD,FINITE_POW] >>
+  conj_asm1_tac >- (
+    imp_res_tac CARD_EQ_0 >>
+    fs[EXTENSION] >> DECIDE_TAC ) >>
+  match_mp_tac(DECIDE``a - 1 < b ∧ 0 < a ==> a <= b``) >>
+  reverse conj_tac >- pop_assum ACCEPT_TAC >>
+  qmatch_abbrev_tac`n < CARD (POW (count n))` >>
+  rpt (pop_assum kall_tac) >>
+  Induct_on`n` >>
+  simp[COUNT_SUC,POW_EQNS] >>
+  qmatch_abbrev_tac`SUC n < CARD (a ∪ b)` >>
+  `FINITE a ∧ FINITE b` by simp[Abbr`a`,Abbr`b`,IMAGE_FINITE,FINITE_POW] >>
+  `∀s. s ∈ b ⇒ ∀x. x ∈ s ⇒ x < n` by (
+    simp[Abbr`b`,IN_POW,SUBSET_DEF] ) >>
+  `∀s. s ∈ a ⇒ n ∈ s` by (
+    simp[Abbr`a`,GSYM LEFT_FORALL_IMP_THM] ) >>
+  `a ∩ b = {}` by (
+    simp[Once EXTENSION] >>
+    metis_tac[prim_recTheory.LESS_REFL] ) >>
+  qsuff_tac`SUC n < CARD a + CARD b`>-
+    metis_tac[DECIDE``a + 0 = a``,CARD_EMPTY,CARD_UNION] >>
+  fs[Abbr`b`,CARD_POW] >>
+  qsuff_tac`CARD a ≠ 0`>-DECIDE_TAC>>
+  simp[CARD_EQ_0,Abbr`a`] >>
+  simp[EXTENSION,IN_POW] >>
+  qexists_tac`{}`>>simp[])
+
+val I_PAIR_EXISTS = store_thm("I_PAIR_EXISTS",
+  ``∃f:I#I->I. !x y. (f x = f y) ==> (x = y)``,
+  qsuff_tac `𝕌(:I#I) ≼ 𝕌(:I)` >-
+    simp[cardleq_def,INJ_DEF] >>
+  match_mp_tac CARDEQ_SUBSET_CARDLEQ >>
+  qsuff_tac`𝕌(:I#I) = 𝕌(:I) × 𝕌(:I)` >-
+    metis_tac[cardeq_TRANS,SET_SQUARED_CARDEQ_SET,I_INFINITE] >>
+  simp[EXTENSION])
+
+val INJ_LEMMA = METIS_PROVE[]``(!x y. (f x = f y) ==> (x = y)) <=> (!x y. (f x = f y) <=> (x = y))``
+
+val I_PAIR_def =
+  new_specification("I_PAIR_def",["I_PAIR"],
+    REWRITE_RULE[INJ_LEMMA] I_PAIR_EXISTS)
 
 val _ = export_theory()
