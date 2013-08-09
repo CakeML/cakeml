@@ -320,7 +320,9 @@ val mmlPEG_def = zDefine`
               (mkNT nPbase,
                pegf
                  (choicel [pnt nV; pnt nConstructorName; tok isInt mktokLf;
-                           pnt nPtuple; tokeq UnderbarT])
+                           pnt nPtuple; tokeq UnderbarT;
+                           seql [tokeq LbrackT; try (pnt nPatternList);
+                                 tokeq RbrackT] I])
                  (bindNT nPbase));
               (mkNT nPattern,
                (* could be optimised so that a bare constructor name doesn't

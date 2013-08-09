@@ -434,6 +434,18 @@ val ptree_Pattern_def = Define`
           od ++
           if vic = Lf (TOK UnderbarT) then SOME (Ast_Pvar "_")
           else NONE
+        | [lb; rb] =>
+          if lb = Lf (TK LbrackT) ∧ rb = Lf (TK RbrackT) then
+            SOME(Ast_Pcon (SOME (Short "[]")) [])
+          else NONE
+        | [lb; plistpt; rb] =>
+          do
+            assert (lb = Lf (TK LbrackT) ∧ rb = Lf (TK RbrackT));
+            plist <- ptree_Plist plistpt;
+            SOME (FOLDR (λp a. Ast_Pcon (SOME (Short "::")) [p; a])
+                        (Ast_Pcon (SOME (Short "[]")) [])
+                        plist)
+          od
         | _ => NONE
     else if nm = mkNT nPattern then
       case args of

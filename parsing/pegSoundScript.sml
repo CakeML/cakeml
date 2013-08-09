@@ -536,8 +536,12 @@ val peg_sound = store_thm(
       >- (simp[cmlG_FDOM, cmlG_applied] >> asm_match `isInt h` >>
           Cases_on `h` >> fs[])
       >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >>
-          dsimp[cmlG_applied, cmlG_FDOM]) >>
-      simp[cmlG_FDOM, cmlG_applied])
+          dsimp[cmlG_applied, cmlG_FDOM])
+      >- simp[cmlG_FDOM, cmlG_applied]
+      >- (simp[cmlG_FDOM, cmlG_applied] >>
+          lrresolve KEEP (K true) mp_tac >> kill_asm_guard >>
+          ASM_REWRITE_TAC [] >> strip_tac >> rveq >> dsimp[]) >>
+      dsimp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nConstructorName" >>
       simp[pairTheory.EXISTS_PROD, gramTheory.assert_def] >>
       `NT_rank (mkNT nUQConstructorName) < NT_rank (mkNT nConstructorName)`
