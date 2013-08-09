@@ -324,12 +324,16 @@ val mmlPEG_def = zDefine`
                            seql [tokeq LbrackT; try (pnt nPatternList);
                                  tokeq RbrackT] I])
                  (bindNT nPbase));
-              (mkNT nPattern,
+              (mkNT nPapp,
                (* could be optimised so that a bare constructor name doesn't
                   cause a backtrack *)
                choicel [seql [pnt nConstructorName; pnt nPbase]
-                             (bindNT nPattern);
-                        pegf (pnt nPbase) (bindNT nPattern)]);
+                             (bindNT nPapp);
+                        pegf (pnt nPbase) (bindNT nPapp)]);
+              (mkNT nPattern,
+               seql [pnt nPapp;
+                     try (seql [tokeq (SymbolT "::"); pnt nPattern] I)]
+                    (bindNT nPattern));
               (mkNT nPatternList,
                seql [pnt nPattern;
                      try (seql [tokeq CommaT; pnt nPatternList] I)]
@@ -544,7 +548,7 @@ val npeg0_rwts =
                 ``nDtypeDecl``, ``nDconstructor``, ``nFDecl``, ``nTyvarN``,
                 ``nTyOp``, ``nTbase``, ``nDType``, ``nPType``, ``nType``,
                 ``nTypeList1``, ``nTypeList2``,
-                ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``,
+                ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPapp``, ``nPattern``,
                 ``nPatternList``,
                 ``nLetDec``, ``nMultOps``, ``nListOps``,
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
@@ -625,7 +629,7 @@ val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nDecl``,
                 ``nVlist1``, ``nUQTyOp``, ``nUQConstructorName``,
                 ``nConstructorName``, ``nTyVarList``, ``nTypeName``, ``nTyOp``,
                 ``nTbase``, ``nDType``, ``nPType``, ``nListOps``,
-                ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPattern``,
+                ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPapp``, ``nPattern``,
                 ``nPatternList``, ``nPE``,
                 ``nPE'``, ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``,
                 ``nFQV``,

@@ -582,6 +582,21 @@ val firstSetML_nPbase = Store_thm(
   simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
+val firstSet_nPapp = Store_thm(
+  "firstSet_nPapp",
+  ``firstSet mmlG (NN nPapp :: rest) = firstSet mmlG [NN nPbase]``,
+  simp[SimpLHS, firstSetML_eqn] >>
+  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
+  dsimp[Once EXTENSION, EQ_IMP_THM]);
+
+val firstSetML_nPapp = Store_thm(
+  "firstSetML_nPapp",
+  ``mkNT nPbase ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nConstructorName ∉ sn ∧
+    mkNT nUQConstructorName ∉ sn ∧ mkNT nPtuple ∉ sn ∧ mkNT nPapp ∉ sn ⇒
+    firstSetML mmlG sn (NN nPapp :: rest) = firstSet mmlG [NN nPbase]``,
+  simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
+  dsimp[Once EXTENSION, EQ_IMP_THM]);
+
 val firstSet_nPattern = Store_thm(
   "firstSet_nPattern",
   ``firstSet mmlG (NN nPattern :: rest) = firstSet mmlG [NN nPbase]``,
@@ -1145,11 +1160,15 @@ val stoppers_def = Define`
   (stoppers nFDecl = nestoppers) ∧
   (stoppers nLetDec = nestoppers DELETE AndT) ∧
   (stoppers nLetDecs = nestoppers DIFF {AndT; FunT; ValT; SemicolonT}) ∧
-  (stoppers nPattern =
+  (stoppers nPapp =
      UNIV DIFF ({LparT; UnderbarT; LbrackT} ∪ { IntT i | T } ∪
                 firstSet mmlG [NN nV] ∪ firstSet mmlG [NN nConstructorName])) ∧
+  (stoppers nPattern =
+     UNIV DIFF ({LparT; UnderbarT; LbrackT; SymbolT "::"} ∪ { IntT i | T } ∪
+                firstSet mmlG [NN nV] ∪ firstSet mmlG [NN nConstructorName])) ∧
   (stoppers nPatternList =
-     UNIV DIFF ({CommaT; LparT; UnderbarT; LbrackT} ∪ {IntT i | T} ∪
+     UNIV DIFF ({CommaT; LparT; UnderbarT; LbrackT; SymbolT "::"} ∪
+                {IntT i | T} ∪
                 firstSet mmlG [NN nV] ∪ firstSet mmlG [NN nConstructorName])) ∧
   (stoppers nPE = nestoppers) ∧
   (stoppers nPE' = BarT INSERT nestoppers) ∧
@@ -1874,6 +1893,14 @@ val completeness = store_thm(
       normlist >> first_assum (unify_firstconj kall_tac o has_length) >>
       simp[])
   >- (print_tac "nPattern" >> stdstart
+      >- (normlist >> first_assum (unify_firstconj kall_tac o has_length) >>
+          asm_match `ptree_head ppt = NN nPapp` >> qexists_tac `ppt` >>
+          simp[] >> first_x_assum (match_mp_tac o has_const ``LENGTH``) >>
+          simp[firstSet_nV, firstSet_nConstructorName]) >>
+      first_assum (unify_firstconj kall_tac) >> simp[] >>
+      conj_tac >- simp[NT_rank_def] >>
+      Cases_on `sfx` >> fs[peg_eval_tok_NONE])
+  >- (print_tac "nPapp" >> stdstart
       >- (DISJ1_TAC >>
           erule mp_tac
             (MATCH_MP fringe_length_not_nullable nullable_Pbase) >>

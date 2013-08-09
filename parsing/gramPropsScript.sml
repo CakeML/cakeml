@@ -85,11 +85,12 @@ val NT_rank_def = Define`
         else if n = nSpecLine          then  2
         else if n = nPtuple            then  2
         else if n = nPbase             then  3
-        else if n = nPattern           then  4
-        else if n = nPatternList       then  5
-        else if n = nPEs               then  6
-        else if n = nPE                then  5
-        else if n = nPE'               then  5
+        else if n = nPapp              then  4
+        else if n = nPattern           then  5
+        else if n = nPatternList       then  6
+        else if n = nPEs               then  7
+        else if n = nPE                then  6
+        else if n = nPE'               then  6
         else if n = nLetDecs           then  2
         else if n = nLetDec            then  1
         else if n = nDtypeDecl         then  3
@@ -192,7 +193,7 @@ val _ = map prove_nullable [
           ``nErel``,
           ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``, ``nElogicOR``,
           ``nEhandle``, ``nE``, ``nE'``, ``nElist1``, ``nCompOps``, ``nListOps``,
-          ``nConstructorName``, ``nPattern``, ``nRelOps``, ``nMultOps``,
+          ``nConstructorName``, ``nPapp``, ``nPattern``, ``nRelOps``, ``nMultOps``,
           ``nAddOps``, ``nDconstructor``, ``nFDecl``, ``nPatternList``,
           ``nEseq``, ``nEtuple``]
 

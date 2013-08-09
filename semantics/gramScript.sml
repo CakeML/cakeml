@@ -166,7 +166,8 @@ val mmlG_def = mk_grammar_def ginfo
  (* patterns *)
  Pbase ::= V | ConstructorName | <IntT> | Ptuple | "_"
         |  "[" "]" | "[" PatternList "]";
- Pattern ::= ConstructorName Pbase | Pbase;
+ Papp ::= ConstructorName Pbase | Pbase;
+ Pattern ::= Papp "::" Pattern | Papp ;
  Ptuple ::= "(" ")" | "(" PatternList ")";
  PatternList ::= Pattern | Pattern "," PatternList ;
  PE ::= Pattern "=>" E;

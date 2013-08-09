@@ -447,7 +447,7 @@ val ptree_Pattern_def = Define`
                         plist)
           od
         | _ => NONE
-    else if nm = mkNT nPattern then
+    else if nm = mkNT nPapp then
       case args of
           [pb] => ptree_Pattern nPbase pb
         | [cnm; ppt] =>
@@ -455,6 +455,17 @@ val ptree_Pattern_def = Define`
             cn <- ptree_ConstructorName cnm;
             p <- ptree_Pattern nPbase ppt;
             SOME(mkPatApp cn p)
+          od
+        | _ => NONE
+    else if nm = mkNT nPattern then
+      case args of
+          [papt] => ptree_Pattern nPapp papt
+        | [papt; cons_t; pattpt] =>
+          do
+            assert (cons_t = Lf (TK (SymbolT "::")));
+            pa <- ptree_Pattern nPapp papt;
+            patt <- ptree_Pattern nPattern pattpt;
+            SOME(Ast_Pcon (SOME (Short "::")) [pa; patt])
           od
         | _ => NONE
     else if nm = mkNT nPtuple then

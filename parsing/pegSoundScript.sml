@@ -512,8 +512,22 @@ val peg_sound = store_thm(
       lrresolve X (free_in ``nPatternList``) mp_tac >> simp[] >>
       strip_tac >> rveq >> dsimp[])
   >- (print_tac "nPattern" >>
-      `NT_rank (mkNT nConstructorName) < NT_rank (mkNT nPattern) ∧
-       NT_rank (mkNT nPbase) < NT_rank (mkNT nPattern)`
+      `NT_rank (mkNT nPapp) < NT_rank (mkNT nPattern)`
+        by simp[NT_rank_def] >> strip_tac >> rveq >>
+      simp[cmlG_applied, cmlG_FDOM]
+      >- (lrresolve KEEP (K true) mp_tac >> rpt kill_asm_guard >>
+          strip_tac >> rveq >> simp[MAP_EQ_CONS] >> dsimp[] >>
+          csimp[] >>
+          imp_res_tac length_no_greater >> fs[GSYM CONJ_ASSOC] >>
+          rpt (loseC ``NT_rank``) >> lrresolve X (K true) mp_tac >>
+          asimp[])
+      >- (lrresolve X (K true) mp_tac >> rpt kill_asm_guard >>
+          strip_tac >> rveq >> simp[]) >>
+      lrresolve X (K true) mp_tac >> rpt kill_asm_guard >>
+      strip_tac >> rveq >> simp[])
+  >- (print_tac "nPapp" >>
+      `NT_rank (mkNT nConstructorName) < NT_rank (mkNT nPapp) ∧
+       NT_rank (mkNT nPbase) < NT_rank (mkNT nPapp)`
         by simp[NT_rank_def] >>
       strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied]
       >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[] >>
