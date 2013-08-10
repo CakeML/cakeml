@@ -7,4 +7,3 @@ BytecodeScript.sml: hol_lib.lem compilerLib.lem printer.lem bytecode.lem
 	sed 's/LEAST/$$LEAST/g' < BytecodeScript.sml > .temp &&\
 	sed 's/Hol.char/char/g' < .temp > BytecodeScript.sml &&\
 	rm -f .temp
-EXTRA_CLEANS = CompilerLibScript.sml PrinterScript.sml BytecodeScript.sml
