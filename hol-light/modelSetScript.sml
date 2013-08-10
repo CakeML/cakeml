@@ -52,6 +52,12 @@ val I_AXIOM = store_thm("I_AXIOM",
 
 (* TODO: move *)
 
+val POW_EMPTY = store_thm("POW_EMPTY",
+  ``POW x ≠ {}``,
+  SRW_TAC[][EXTENSION,IN_POW] THEN
+  METIS_TAC[EMPTY_SUBSET])
+val _ = export_rewrites["POW_EMPTY"]
+
 val CARDLEQ_FINITE = store_thm("CARDLEQ_FINITE",
   ``∀s1 s2. FINITE s2 ∧ s1 ≼ s2 ⇒ FINITE s1``,
   metis_tac[cardleq_def,FINITE_INJ])
@@ -90,56 +96,6 @@ val CROSS_EMPTY_EQN = store_thm("CROSS_EMPTY_EQN",
   rw[EQ_IMP_THM] >> rw[CROSS_EMPTY] >>
   fs[EXTENSION,pairTheory.FORALL_PROD] >>
   metis_tac[])
-
-(*
-val cardlt_CROSS = store_thm("cardlt_CROSS",
-  ``x1 ≺ x2 ∧ y ≠ {} ⇒ x1 × y ≺ x2 × y``,
-  rw[cardleq_def] >>
-  spose_not_then strip_assume_tac >>
-  `INJ (λex. IMAGE (FST o CURRY f ex) y) x2 (POW x1)` by (
-    fs[INJ_DEF,IN_POW] >>
-    simp[SUBSET_DEF,EXTENSION] >>
-    fs[FORALL_PROD,EXISTS_PROD] >>
-    conj_tac >- metis_tac[] >>
-    
-  `∃ey. ey ∈ y` by metis_tac[MEMBER_NOT_EMPTY] >>
-  first_x_assum(qspec_then`λex. FST(f(ex,ey))`mp_tac) >>
-  fs[INJ_DEF] >> rw[]
-
-val cardlt_CROSS_cong = store_thm("cardlt_CROSS_cong",
-  ``x1 ≺ x2 ∧ y1 ≺ y2 ⇒ x1 × y1 ≺ x2 × y2``,
-  rw[cardlt_lenoteq] >- metis_tac[CARDLEQ_CROSS_CONG] >>
-  CARDEQ_CROSS
-  fs[cardeq_def,cardleq_def,BIJ_DEF] >>
-  qx_gen_tac`g` >>
-  spose_not_then strip_assume_tac >>
-  `x2 ≠ {}` by metis_tac[INJ_EMPTY,SURJ_EMPTY] >>
-  `y2 ≠ {}` by metis_tac[INJ_EMPTY,SURJ_EMPTY] >>
-  `x2 × y2 ≠ {}` by metis_tac[CROSS_EMPTY_EQN] >>
-  `x1 × y1 ≠ {}` by metis_tac[SURJ_EMPTY] >>
-  `x1 ≠ {} ∧ y1 ≠ {}` by metis_tac[CROSS_EMPTY_EQN] >>
-  `∃y. y ∈ y1` by metis_tac[MEMBER_NOT_EMPTY] >>
-  hr
-  `INJ (FST o (λx. g (x,y))) x1 x2` by (
-    match_mp_tac INJ_COMPOSE >>
-    qexists_tac`x2 × y2` >>
-    conj_tac >- (
-      fs[INJ_DEF,FORALL_PROD] >>
-      metis_tac[] ) >>
-    simp[INJ_DEF,FORALL_PROD]
-    fs[INJ_DEF,Abbr`h`] >>
-    map_every qx_gen_tac[`a`,`b`] >> strip_tac >>
-    first_x_assum(qspecl_then[`a,y`,`b,y`]mp_tac) >>
-    simp[]
-    first
-  `INJ (λ
-  CROSS_EMPTY
-  print_apropos``{} = x × y ``
-  SURJ_EMPTY
-  Cases_on`INJ g 
-  rw[]
-  INJ_CROSS
-*)
 
 val CARDEQ_CROSS_SYM = store_thm("CARDEQ_CROSS_SYM",
   ``s × t ≈ t × s``,
@@ -284,5 +240,217 @@ val setlevel_CARD = store_thm("setlevel_CARD",
     qsuff_tac`s × t ≺ 𝕌(:I) ∨ t × s ≺ 𝕌(:I)` >-
       metis_tac[cardleq_lt_trans,CARDEQ_CROSS_SYM,cardleq_TRANS,cardleq_lteq] >>
     metis_tac[cardleq_dichotomy,CARD_MUL_LT_LEMMA,I_INFINITE]))
+
+val I_SET_SETLEVEL = store_thm("I_SET_SETLEVEL",
+  ``∀l s t. s ⊆ setlevel l ∧ t ⊆ setlevel l ∧
+            (I_SET (setlevel l) s = I_SET (setlevel l) t)
+            ⇒ s = t``,
+  metis_tac[setlevel_CARD,I_SET_def])
+
+val universe_def = Define`
+  universe = {(t,x) | x ∈ setlevel t}`
+
+val v_exists = prove(
+  ``∃a. a ∈ universe``,
+  qexists_tac`Ur_bool,I_BOOL T` >>
+  rw[universe_def,setlevel_def])
+
+val v_ty =
+  new_type_definition ("V",SIMP_RULE std_ss [IN_DEF]v_exists)
+val v_bij = define_new_type_bijections
+  {ABS="mk_V",REP="dest_V",name="v_bij",tyax=v_ty}
+val mk_V_11     = prove_abs_fn_one_one v_bij
+val mk_V_onto   = prove_abs_fn_onto    v_bij
+val dest_V_11   = prove_rep_fn_one_one v_bij
+val dest_V_onto = prove_rep_fn_onto    v_bij
+
+val universe_IN = prove(
+  ``universe x ⇔ x ∈ universe``,
+  rw[IN_DEF])
+
+val V_bij = store_thm("V_bij",
+  ``∀l e. e ∈ setlevel l ⇔ dest_V(mk_V(l,e)) = (l,e)``,
+  rw[GSYM(CONJUNCT2 v_bij)] >>
+  rw[universe_IN,universe_def])
+
+val droplevel_def = Define`
+  droplevel (Powerset l) = l`
+
+val isasetlevel = Define`
+  isasetlevel (Powerset _) = T ∧
+  isasetlevel _ = F`
+
+val level_def = Define`
+  level x = FST(dest_V x)`
+
+val element_def = Define`
+  element x = SND(dest_V x)`
+
+val ELEMENT_IN_LEVEL = store_thm("ELEMENT_IN_LEVEL",
+  ``∀x. (element x) ∈ setlevel (level x)``,
+  rw[element_def,level_def,V_bij,v_bij])
+
+val SET = store_thm("SET",
+  ``∀x. mk_V(level x,element x) = x``,
+  rw[level_def,element_def,v_bij])
+
+val set_def = Define`
+  set x = @s. s ⊆ (setlevel(droplevel(level x))) ∧
+              I_SET (setlevel(droplevel(level x))) s = element x`
+
+val isaset_def = Define`
+  isaset x ⇔ ∃l. level x = Powerset l`
+
+val _ = Parse.add_infix("<:",425,Parse.NONASSOC)
+
+val inset_def = xDefine"inset"
+  `x <: s ⇔ level s = Powerset(level x) ∧ element x ∈ set s`
+
+val _ = Parse.add_infix("<=:",450,Parse.NONASSOC)
+
+val subset_def = xDefine"subset"`
+  s <=: t ⇔ level s = level t ∧ ∀x. x <: s ⇒ x <: t`
+
+val MEMBERS_ISASET = store_thm("MEMBERS_ISASET",
+  ``∀x s. x <: s ⇒ isaset s``,
+  rw[inset_def,isaset_def])
+
+val LEVEL_NONEMPTY = store_thm("LEVEL_NONEMPTY",
+  ``∀l. ∃x. x ∈ setlevel l``,
+  simp[MEMBER_NOT_EMPTY] >>
+  Induct >> rw[setlevel_def,CROSS_EMPTY_EQN])
+
+val LEVEL_SET_EXISTS = store_thm("LEVEL_SET_EXISTS",
+  ``∀l. ∃s. level s = l``,
+  mp_tac LEVEL_NONEMPTY >>
+  simp[V_bij,level_def] >>
+  metis_tac[FST])
+
+val MK_V_CLAUSES = store_thm("MK_V_CLAUSES",
+  ``e ∈ setlevel l ⇒
+      level(mk_V(l,e)) = l ∧ element(mk_V(l,e)) = e``,
+  rw[level_def,element_def,V_bij])
+
+val MK_V_SET = store_thm("MK_V_SET",
+  ``s ⊆ setlevel l ⇒
+    set(mk_V(Powerset l,I_SET (setlevel l) s)) = s ∧
+    level(mk_V(Powerset l,I_SET (setlevel l) s)) = Powerset l ∧
+    element(mk_V(Powerset l,I_SET (setlevel l) s)) = I_SET (setlevel l) s``,
+  strip_tac >>
+  `I_SET (setlevel l) s ∈ setlevel (Powerset l)` by (
+    rw[setlevel_def,IN_POW] ) >>
+  simp[MK_V_CLAUSES] >>
+  simp[set_def,MK_V_CLAUSES,droplevel_def] >>
+  SELECT_ELIM_TAC >>
+  metis_tac[I_SET_SETLEVEL])
+
+val EMPTY_EXISTS = prove(
+  ``∀l. ∃s. level s = l ∧ ∀x. ¬(x <: s)``,
+  Induct >> TRY (
+    qexists_tac`mk_V(Powerset l,I_SET(setlevel l){})` >>
+    simp[inset_def,MK_V_CLAUSES,MK_V_SET] >> NO_TAC ) >>
+  metis_tac[LEVEL_SET_EXISTS,MEMBERS_ISASET,isaset_def,theorem"setlevel_distinct"])
+
+val emptyset_def =
+  new_specification("emptyset_def",["emptyset"],
+    SIMP_RULE std_ss [SKOLEM_THM] EMPTY_EXISTS)
+
+val COMPREHENSION_EXISTS = prove(
+  ``∀s p. ∃t. level t = level s ∧ ∀x. x <: t ⇔ x <: s ∧ p x``,
+  rpt gen_tac >>
+  reverse(Cases_on`isaset s`) >- metis_tac[MEMBERS_ISASET] >>
+  fs[isaset_def] >>
+  qspec_then`s`mp_tac ELEMENT_IN_LEVEL >>
+  simp[setlevel_def,IN_POW] >>
+  disch_then(Q.X_CHOOSE_THEN`u`strip_assume_tac) >>
+  qabbrev_tac`v = {i | i ∈ u ∧ p(mk_V(l,i))}` >>
+  qexists_tac`mk_V(Powerset l,I_SET (setlevel l) v)` >>
+  `v ⊆ setlevel l` by (
+    fs[SUBSET_DEF,Abbr`v`] ) >>
+  simp[MK_V_SET,inset_def] >>
+  fs[Abbr`v`] >>
+  metis_tac[SET,MK_V_SET])
+
+val _ = Parse.add_infix("suchthat",9,Parse.LEFT)
+
+val suchthat_def =
+  new_specification("suchthat_def",["suchthat"],
+    SIMP_RULE std_ss [SKOLEM_THM] COMPREHENSION_EXISTS)
+
+val SETLEVEL_EXISTS = store_thm("SETLEVEL_EXISTS",
+  ``∀l. ∃s. (level s = Powerset l) ∧
+            ∀x. x <: s ⇔ level x = l ∧ element x ∈ setlevel l``,
+  gen_tac >>
+  qexists_tac`mk_V(Powerset l,I_SET (setlevel l) (setlevel l))` >>
+  simp[MK_V_SET,inset_def] >> metis_tac[])
+
+val SET_DECOMP = store_thm("SET_DECOMP",
+  ``∀s. isaset s ⇒
+        set s ⊆ setlevel(droplevel(level s)) ∧
+        I_SET (setlevel(droplevel(level s))) (set s) = element s``,
+  gen_tac >> simp[isaset_def] >> strip_tac >>
+  simp[set_def] >>
+  SELECT_ELIM_TAC >>
+  simp[setlevel_def,droplevel_def] >>
+  qspec_then`s`mp_tac ELEMENT_IN_LEVEL >>
+  simp[setlevel_def,IN_POW] >>
+  metis_tac[])
+
+val SET_SUBSET_SETLEVEL = store_thm("SET_SUBSET_SETLEVEL",
+  ``∀s. isaset s ⇒ set s ⊆ setlevel(droplevel(level s))``,
+  metis_tac[SET_DECOMP])
+
+val POWERSET_EXISTS = prove(
+  ``∀s. ∃t. level t = Powerset(level s) ∧ ∀x. x <: t ⇔ x <=: s``,
+  gen_tac >> Cases_on`isaset s` >- (
+    fs[isaset_def] >>
+    qspec_then`Powerset l`(Q.X_CHOOSE_THEN`t`strip_assume_tac)
+      SETLEVEL_EXISTS >>
+    qexists_tac`t suchthat (λx. x <=: s)` >>
+    simp[suchthat_def,subset_def] >>
+    metis_tac[ELEMENT_IN_LEVEL] ) >>
+  fs[subset_def] >>
+  metis_tac[MEMBERS_ISASET,SETLEVEL_EXISTS
+           ,ELEMENT_IN_LEVEL,isaset_def])
+
+val powerset_def =
+  new_specification("powerset_def",["powerset"],
+    SIMP_RULE std_ss [SKOLEM_THM] POWERSET_EXISTS)
+
+val pair_def = Define`
+  pair x y = mk_V(Cartprod (level x) (level y),
+                  I_PAIR(element x,element y))`
+
+val PAIR_IN_LEVEL = store_thm("PAIR_IN_LEVEL",
+  ``∀x y l m. x ∈ setlevel l ∧ y ∈ setlevel m
+              ⇒ I_PAIR(x,y) ∈ setlevel (Cartprod l m)``,
+  simp[setlevel_def])
+
+val DEST_MK_PAIR = store_thm("DEST_MK_PAIR",
+  ``dest_V(pair x y) = (Cartprod (level x) (level y), I_PAIR(element x,element y))``,
+  simp[pair_def,GSYM V_bij] >>
+  simp[PAIR_IN_LEVEL,ELEMENT_IN_LEVEL])
+
+val PAIR_INJ = store_thm("PAIR_INJ",
+  ``∀x1 y1 x2 y2. (pair x1 y1 = pair x2 y2) ⇔ (x1 = x2) ∧ (y1 = y2)``,
+  simp[EQ_IMP_THM] >> rpt gen_tac >>
+  disch_then(assume_tac o AP_TERM``dest_V``) >>
+  fs[DEST_MK_PAIR,I_PAIR_def] >>
+  fs[level_def,element_def] >>
+  metis_tac[v_bij,PAIR_EQ,FST,SND,pair_CASES])
+
+val LEVEL_PAIR = store_thm("LEVEL_PAIR",
+  ``∀x y. level(pair x y) = Cartprod (level x) (level y)``,
+  rw[level_def,DEST_MK_PAIR])
+
+val fst_def = Define`
+  fst p = @x. ∃y. p = pair x y`
+
+val snd_def = Define`
+  snd p = @y. ∃x. p = pair x y`
+
+val PAIR_CLAUSES = store_thm("PAIR_CLAUSES",
+  ``∀x y. (fst(pair x y) = x) ∧ (snd(pair x y) = y)``,
+  rw[fst_def,snd_def] >> metis_tac[PAIR_INJ])
 
 val _ = export_theory()
