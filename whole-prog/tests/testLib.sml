@@ -1,7 +1,9 @@
 open wholeProgTheory repl_computeLib stringSyntax optionSyntax;
 open TextIO;
 
-val _ = computeLib.add_funs [compile_decs_def];
+val _ = computeLib.add_funs [compile_decs_def, compile_print_vals_def, 
+                             bc_inst_to_string_def, encode_bc_insts_def,
+                             encode_bc_inst_def, encode_num_def];
 
 fun do_test filename =
   let 
@@ -27,10 +29,40 @@ List.app (fn d => (x := (!x) + 1;
         files
 end;
 
+fun do_compile_string infile outfile =
+  let
+    val i = openIn infile;
+    val s = inputAll i;
+    val _ = closeIn i;
+    val res = (rhs o concl o EVAL) ``whole_prog_compile ^(fromMLstring s)``
+    val res = fromHOLstring res
+    val out = openOut outfile
+    val _ = output (out, res)
+    val _ = closeOut out
+  in
+    ()
+  end
 
+fun do_compile_binary infile outfile =
+  let
+    val i = openIn infile;
+    val s = inputAll i;
+    val _ = closeIn i;
+    val res = (rhs o concl o EVAL) ``(whole_prog_compile_encode ^(fromMLstring s):word64 list option)``
+    val res = fromHOLstring res
+    val out = BinIO.openOut outfile
+    (*val _ = ...*)
+    val _ = BinIO.closeOut out
+  in
+    ()
+  end
+
+
+(*
 do_all_tests
 ["test1.ml", 
  "test2.ml", 
  "test3.ml",
  "test4.ml"]
+ *)
 
