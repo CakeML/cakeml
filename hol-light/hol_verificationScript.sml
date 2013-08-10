@@ -1289,11 +1289,7 @@ val mk_comb_thm = prove(
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Q.PAT_ASSUM `xxx = (res,s1)` (ASSUME_TAC o GSYM)
   \\ Cases_on `term_type f` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `s' = "fun"` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `l` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `t'` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `term_type a = h`
+  \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
   \\ FULL_SIMP_TAC (srw_ss()) [failwith_def,ex_return_def]
   \\ IMP_RES_TAC term_type
   \\ FULL_SIMP_TAC (srw_ss()) [TERM_def,welltyped_in,WELLTYPED_CLAUSES,
