@@ -453,4 +453,181 @@ val PAIR_CLAUSES = store_thm("PAIR_CLAUSES",
   ``∀x y. (fst(pair x y) = x) ∧ (snd(pair x y) = y)``,
   rw[fst_def,snd_def] >> metis_tac[PAIR_INJ])
 
+val CARTESIAN_EXISTS = prove(
+  ``∀s t. ∃u. level u = Powerset(Cartprod (droplevel(level s))
+                                          (droplevel(level t))) ∧
+              ∀z. z <: u ⇔ ∃x y. (z = pair x y) ∧ x <: s ∧ y <: t``,
+  rpt gen_tac >>
+  reverse(Cases_on`isaset s`) >- (
+    metis_tac[EMPTY_EXISTS,MEMBERS_ISASET] ) >>
+  `∃l. level s = Powerset l` by metis_tac[isaset_def] >>
+  reverse(Cases_on`isaset t`) >- (
+    metis_tac[EMPTY_EXISTS,MEMBERS_ISASET] ) >>
+  `∃m. level t = Powerset m` by metis_tac[isaset_def] >>
+  qspec_then`Cartprod l m`mp_tac SETLEVEL_EXISTS >>
+  simp[droplevel_def] >>
+  disch_then(Q.X_CHOOSE_THEN`u`strip_assume_tac) >>
+  qho_match_abbrev_tac`∃u. P u ∧ ∀z. Q u z ⇔ R z` >>
+  qexists_tac`u suchthat R` >>
+  simp[Abbr`P`,suchthat_def] >>
+  simp[Abbr`Q`,suchthat_def] >>
+  simp[Abbr`R`]>>
+  fs[inset_def] >>
+  metis_tac[ELEMENT_IN_LEVEL,LEVEL_PAIR])
+
+val product_def =
+  new_specification("PRODUCT_def",["product"],
+    SIMP_RULE std_ss [SKOLEM_THM] CARTESIAN_EXISTS)
+
+val IN_SET_ELEMENT = store_thm("IN_SET_ELEMENT",
+  ``∀s. isaset s ∧ e ∈ set s ⇒
+        ∃x. e = element x ∧ level s = Powerset (level x) ∧ x <: s``,
+  rw[isaset_def] >>
+  qexists_tac`mk_V(l,e)` >>
+  simp[inset_def] >>
+  qsuff_tac`e ∈ setlevel l` >- simp[MK_V_CLAUSES] >>
+  metis_tac[isaset_def,SET_SUBSET_SETLEVEL,SUBSET_DEF,droplevel_def])
+
+val SUBSET_ALT = store_thm("SUBSET_ALT",
+  ``isaset s ∧ isaset t ⇒
+    (s <=: t ⇔ level s = level t ∧ set s SUBSET set t)``,
+  simp[subset_def,inset_def] >>
+  Cases_on`level s = level t` >> simp[SUBSET_DEF] >>
+  metis_tac[IN_SET_ELEMENT])
+
+val SUBSET_ANTISYM_LEVEL = store_thm("SUBSET_ANTISYM_LEVEL",
+  ``∀s t. isaset s ∧ isaset t ∧ s <=: t ∧ t <=: s ⇒ s = t``,
+  rw[] >> rfs[SUBSET_ALT] >>
+  imp_res_tac SET_DECOMP >>
+  metis_tac[SET,SUBSET_ANTISYM])
+
+val EXTENSIONALITY_LEVEL = store_thm("EXTENSIONALITY_LEVEL",
+  ``∀s t. isaset s ∧ isaset t ∧ level s = level t ∧ (∀x. x <: s ⇔ x <: t) ⇒ s = t``,
+  metis_tac[SUBSET_ANTISYM_LEVEL,subset_def])
+
+val EXTENSIONALITY_NONEMPTY = store_thm("EXTENSIONALITY_NONEMPTY",
+  ``∀s t. (∃x. x <: s) ∧ (∃x. x <: t) ∧ (∀x. x <: s ⇔ x <: t) ⇒ s = t``,
+  metis_tac[EXTENSIONALITY_LEVEL,MEMBERS_ISASET,inset_def])
+
+val true_def = Define`
+  true = mk_V(Ur_bool,I_BOOL T)`
+
+val false_def = Define`
+  false = mk_V(Ur_bool,I_BOOL F)`
+
+val boolset_def = Define`
+  boolset = mk_V(Powerset Ur_bool,I_SET (setlevel Ur_bool) (setlevel Ur_bool))`
+
+val setlevel_bool = prove(
+  ``∀b. I_BOOL b ∈ setlevel Ur_bool``,
+  simp[setlevel_def,I_BOOL_def])
+
+val IN_BOOL = store_thm("IN_BOOL",
+  ``∀x. x <: boolset ⇔ x = true ∨ x = false``,
+  rw[inset_def,boolset_def,true_def,false_def] >>
+  simp[MK_V_SET,setlevel_def] >>
+  metis_tac[SET,V_bij,PAIR_EQ,ELEMENT_IN_LEVEL,setlevel_bool])
+
+val TRUE_NE_FALSE = store_thm("TRUE_NE_FALSE",
+  ``true ≠ false``,
+  rw[true_def,false_def] >>
+  disch_then(mp_tac o AP_TERM``dest_V``) >> simp[] >>
+  metis_tac[V_bij,setlevel_bool,PAIR_EQ,I_BOOL_def])
+
+val BOOLEAN_EQ = store_thm("BOOLEAN_EQ",
+  ``∀x y. x <: boolset ∧ y <: boolset ∧ ((x = true) ⇔ (y = true))
+          ⇒ x = y``,
+  metis_tac[TRUE_NE_FALSE,IN_BOOL])
+
+val indset_def = Define`
+  indset = mk_V(Powerset Ur_ind,I_SET (setlevel Ur_ind) (setlevel Ur_ind))`
+
+val INDSET_IND_MODEL = store_thm("INDSET_IND_MODEL",
+  ``∃f. (∀i:ind_model. f i <: indset) ∧ (∀i j. f i = f j ⇒ i = j)``,
+  qexists_tac`λi. mk_V(Ur_ind,I_IND i)` >> simp[] >>
+  `!i. (I_IND i) ∈ setlevel Ur_ind` by (
+    simp[setlevel_def] ) >>
+  simp[MK_V_SET,indset_def,inset_def,MK_V_CLAUSES] >>
+  metis_tac[V_bij,I_IND_def,ELEMENT_IN_LEVEL,PAIR_EQ])
+
+val INDSET_INHABITED = store_thm("INDSET_INHABITED",
+  ``∃x. x <: indset``,
+  metis_tac[INDSET_IND_MODEL])
+
+val ch_def =
+  new_specification("ch_def",["ch"],
+    prove(``∃ch. ∀s. (∃x. x <: s) ⇒ ch s <: s``,
+      simp[GSYM SKOLEM_THM] >> metis_tac[]))
+
+val IN_POWERSET = Q.prove
+ (`!x s. x <: powerset s <=> x <=: s`,
+  metis_tac[powerset_def]);;
+
+val IN_PRODUCT = Q.prove
+ (`!z s t. z <: product s t <=> ?x y. (z = pair x y) /\ x <: s /\ y <: t`,
+  metis_tac[product_def]);;
+
+val IN_COMPREHENSION = Q.prove
+ (`!p s x. x <: (s suchthat p) <=> x <: s /\ p x`,
+  metis_tac[suchthat_def]);;
+
+val PRODUCT_INHABITED = Q.prove
+ (`(?x. x <: s) /\ (?y. y <: t) ==> ?z. z <: product s t`,
+  metis_tac[IN_PRODUCT]);;
+
+val funspace_def = Define`
+  funspace s t = (powerset(product s t) suchthat
+                  λu. ∀x. x <: s ⇒ ∃!y. pair x y <: u)`
+
+val apply_def = Define`
+  apply f x = @y. pair x y <: f`
+
+val abstract_def = Define`
+  abstract s t f =
+    (product s t suchthat λz. ∀x y. pair x y = z ⇒ y = f x)`
+
+val APPLY_ABSTRACT = store_thm("APPLY_ABSTRACT",
+  ``∀f x s t. x <: s ∧ f x <: t ⇒ apply(abstract s t f) x = f x``,
+  rw[apply_def,abstract_def,IN_PRODUCT,suchthat_def] >>
+  SELECT_ELIM_TAC >> rw[PAIR_INJ])
+
+val APPLY_IN_RANSPACE = store_thm("APPLY_IN_RANSPACE",
+  ``∀f x s t. x <: s ∧ f <: funspace s t ⇒ apply f x <: t``,
+  simp[funspace_def,suchthat_def,IN_POWERSET,IN_PRODUCT,subset_def] >>
+  rw[apply_def] >> metis_tac[PAIR_INJ])
+
+val ABSTRACT_IN_FUNSPACE = store_thm("ABSTRACT_IN_FUNSPACE",
+  ``∀f x s t. (∀x. x <: s ⇒ f x <: t) ⇒ abstract s t f <: funspace s t``,
+  rw[funspace_def,abstract_def,suchthat_def,IN_POWERSET,IN_PRODUCT,subset_def,PAIR_INJ] >> metis_tac[])
+
+val FUNSPACE_INHABITED = store_thm("FUNSPACE_INHABITED",
+  ``∀s t. ((∃x. x <: s) ⇒ (∃y. y <: t)) ⇒ ∃f. f <: funspace s t``,
+  rw[] >> qexists_tac`abstract s t (λx. @y. y <: t)` >>
+  match_mp_tac ABSTRACT_IN_FUNSPACE >> metis_tac[])
+
+val ABSTRACT_EQ = store_thm("ABSTRACT_EQ",
+  ``∀s t1 t2 f g.
+      (∃x. x <: s) ∧
+      (∀x. x <: s ⇒ f x <: t1 ∧ g x <: t2 ∧ f x = g x)
+      ⇒ abstract s t1 f = abstract s t2 g``,
+  rw[abstract_def] >>
+  match_mp_tac EXTENSIONALITY_NONEMPTY >>
+  simp[suchthat_def,IN_PRODUCT,PAIR_INJ] >>
+  metis_tac[PAIR_INJ])
+
+val boolean_def = Define`
+  boolean b = if b then true else false`
+
+val holds_def = Define`
+  holds s x ⇔ apply s x = true`
+
+val BOOLEAN_IN_BOOLSET = store_thm("BOOLEAN_IN_BOOLSET",
+  ``∀b. boolean b <: boolset``,
+  metis_tac[boolean_def,IN_BOOL])
+
+val BOOLEAN_EQ_TRUE = store_thm("BOOLEAN_EQ_TRUE",
+  ``∀b. boolean b = true ⇔ b``,
+  metis_tac[boolean_def,TRUE_NE_FALSE])
+
 val _ = export_theory()
+
