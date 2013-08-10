@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory cardinalTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory cardinalTheory pairTheory
 val _ = numLib.prefer_num()
 val _ = new_theory"modelSet"
 
@@ -70,6 +70,100 @@ val CARDLEQ_CARD = store_thm("CARDLEQ_CARD",
 val CARD_LT_CARD = store_thm("CARD_LT_CARD",
   ``FINITE s1 ∧ FINITE s2 ⇒ (s1 ≺ s2 ⇔ CARD s1 < CARD s2)``,
   rw[] >> simp[cardlt_lenoteq,CARDLEQ_CARD,CARDEQ_CARD_EQN])
+
+val cardlt_leq_trans = store_thm("cardlt_leq_trans",
+  ``∀r s t. r ≺ s ∧ s ≼ t ⇒ r ≺ t``,
+  rw[cardlt_lenoteq] >- metis_tac[cardleq_TRANS] >>
+  metis_tac[CARDEQ_CARDLEQ,cardeq_REFL,cardleq_ANTISYM])
+
+val cardleq_lt_trans = store_thm("cardleq_lt_trans",
+  ``∀r s t. r ≼ s ∧ s ≺ t ⇒ r ≺ t``,
+  rw[cardlt_lenoteq] >- metis_tac[cardleq_TRANS] >>
+  metis_tac[CARDEQ_CARDLEQ,cardeq_REFL,cardleq_ANTISYM])
+
+val cardleq_empty = store_thm("cardleq_empty",
+  ``x ≼ {} ⇔ x = {}``,
+  simp[cardleq_lteq,CARDEQ_0])
+
+val CROSS_EMPTY_EQN = store_thm("CROSS_EMPTY_EQN",
+  ``s × t = {} ⇔ s = {} ∨ t = {}``,
+  rw[EQ_IMP_THM] >> rw[CROSS_EMPTY] >>
+  fs[EXTENSION,pairTheory.FORALL_PROD] >>
+  metis_tac[])
+
+(*
+val cardlt_CROSS = store_thm("cardlt_CROSS",
+  ``x1 ≺ x2 ∧ y ≠ {} ⇒ x1 × y ≺ x2 × y``,
+  rw[cardleq_def] >>
+  spose_not_then strip_assume_tac >>
+  `INJ (λex. IMAGE (FST o CURRY f ex) y) x2 (POW x1)` by (
+    fs[INJ_DEF,IN_POW] >>
+    simp[SUBSET_DEF,EXTENSION] >>
+    fs[FORALL_PROD,EXISTS_PROD] >>
+    conj_tac >- metis_tac[] >>
+    
+  `∃ey. ey ∈ y` by metis_tac[MEMBER_NOT_EMPTY] >>
+  first_x_assum(qspec_then`λex. FST(f(ex,ey))`mp_tac) >>
+  fs[INJ_DEF] >> rw[]
+
+val cardlt_CROSS_cong = store_thm("cardlt_CROSS_cong",
+  ``x1 ≺ x2 ∧ y1 ≺ y2 ⇒ x1 × y1 ≺ x2 × y2``,
+  rw[cardlt_lenoteq] >- metis_tac[CARDLEQ_CROSS_CONG] >>
+  CARDEQ_CROSS
+  fs[cardeq_def,cardleq_def,BIJ_DEF] >>
+  qx_gen_tac`g` >>
+  spose_not_then strip_assume_tac >>
+  `x2 ≠ {}` by metis_tac[INJ_EMPTY,SURJ_EMPTY] >>
+  `y2 ≠ {}` by metis_tac[INJ_EMPTY,SURJ_EMPTY] >>
+  `x2 × y2 ≠ {}` by metis_tac[CROSS_EMPTY_EQN] >>
+  `x1 × y1 ≠ {}` by metis_tac[SURJ_EMPTY] >>
+  `x1 ≠ {} ∧ y1 ≠ {}` by metis_tac[CROSS_EMPTY_EQN] >>
+  `∃y. y ∈ y1` by metis_tac[MEMBER_NOT_EMPTY] >>
+  hr
+  `INJ (FST o (λx. g (x,y))) x1 x2` by (
+    match_mp_tac INJ_COMPOSE >>
+    qexists_tac`x2 × y2` >>
+    conj_tac >- (
+      fs[INJ_DEF,FORALL_PROD] >>
+      metis_tac[] ) >>
+    simp[INJ_DEF,FORALL_PROD]
+    fs[INJ_DEF,Abbr`h`] >>
+    map_every qx_gen_tac[`a`,`b`] >> strip_tac >>
+    first_x_assum(qspecl_then[`a,y`,`b,y`]mp_tac) >>
+    simp[]
+    first
+  `INJ (λ
+  CROSS_EMPTY
+  print_apropos``{} = x × y ``
+  SURJ_EMPTY
+  Cases_on`INJ g 
+  rw[]
+  INJ_CROSS
+*)
+
+val CARDEQ_CROSS_SYM = store_thm("CARDEQ_CROSS_SYM",
+  ``s × t ≈ t × s``,
+  simp[cardeq_def] >>
+  qexists_tac`λp. (SND p,FST p)` >>
+  simp[BIJ_IFF_INV] >>
+  qexists_tac`λp. (SND p,FST p)` >>
+  simp[])
+
+val CARD_MUL_ABSORB_LE = store_thm("CARD_MUL_ABSORB_LE",
+  ``∀s t. INFINITE t ∧ s ≼ t ⇒ s × t ≼ t``,
+  metis_tac[CARDLEQ_CROSS_CONG,SET_SQUARED_CARDEQ_SET,
+            cardleq_lteq,cardleq_TRANS,cardleq_REFL])
+
+val CARD_MUL_LT_LEMMA = store_thm("CARD_MUL_LT_LEMMA",
+  ``∀s t. s ≼ t ∧ t ≺ u ∧ INFINITE u ⇒ s × t ≺ u``,
+  rw[] >>
+  Cases_on`FINITE t` >- (
+    metis_tac[CARDLEQ_FINITE,FINITE_CROSS] ) >>
+  metis_tac[CARD_MUL_ABSORB_LE,cardleq_lt_trans])
+
+val CARD_MUL_LT_INFINITE = store_thm("CARD_MUL_LT_INFINITE",
+  ``∀s t. s ≺ t ∧ t ≺ u ∧ INFINITE u ⇒ s × t ≺ u``,
+  metis_tac[CARD_MUL_LT_LEMMA,cardleq_lteq])
 
 val I_INFINITE = store_thm("I_INFINITE",
   ``INFINITE 𝕌(:I)``,
@@ -152,5 +246,43 @@ val I_SET_EXISTS = prove(
 val I_SET_def =
   new_specification("I_SET_def",["I_SET"],
     SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM] I_SET_EXISTS)
+
+val _ = Hol_datatype`
+  setlevel = Ur_bool
+           | Ur_ind
+           | Powerset of setlevel
+           | Cartprod of setlevel => setlevel`
+
+val setlevel_def = Define`
+  setlevel Ur_bool = IMAGE I_BOOL UNIV ∧
+  setlevel Ur_ind = IMAGE I_IND UNIV ∧
+  setlevel (Cartprod l1 l2) =
+    IMAGE I_PAIR (setlevel l1 × setlevel l2) ∧
+  setlevel (Powerset l) =
+    IMAGE (I_SET (setlevel l)) (POW (setlevel l))`
+
+val setlevel_CARD = store_thm("setlevel_CARD",
+  ``∀l. setlevel l ≺ 𝕌(:I)``,
+  Induct >> simp_tac std_ss [setlevel_def]
+  >- (
+    strip_tac >>
+    match_mp_tac (ISPEC``𝕌(:I)``(GEN_ALL cardlt_REFL)) >>
+    metis_tac[cardleq_TRANS,IMAGE_cardleq,cardleq_lt_trans,CARD_BOOL_LT_I])
+  >- (
+    strip_tac >>
+    match_mp_tac (ISPEC``𝕌(:I)``(GEN_ALL cardlt_REFL)) >>
+    metis_tac[cardleq_TRANS,IMAGE_cardleq,cardleq_lt_trans,I_AXIOM])
+  >- (
+    strip_tac >>
+    match_mp_tac (ISPEC``𝕌(:I)``(GEN_ALL cardlt_REFL)) >>
+    metis_tac[cardleq_TRANS,IMAGE_cardleq,cardleq_lt_trans,I_AXIOM])
+  >- (
+    strip_tac >>
+    match_mp_tac (ISPEC``𝕌(:I)``(GEN_ALL cardlt_REFL)) >>
+    qmatch_assum_abbrev_tac`𝕌(:I) ≼ IMAGE I_PAIR (s × t)` >>
+    `𝕌(:I) ≼ s × t` by metis_tac[IMAGE_cardleq,cardleq_TRANS] >>
+    qsuff_tac`s × t ≺ 𝕌(:I) ∨ t × s ≺ 𝕌(:I)` >-
+      metis_tac[cardleq_lt_trans,CARDEQ_CROSS_SYM,cardleq_TRANS,cardleq_lteq] >>
+    metis_tac[cardleq_dichotomy,CARD_MUL_LT_LEMMA,I_INFINITE]))
 
 val _ = export_theory()
