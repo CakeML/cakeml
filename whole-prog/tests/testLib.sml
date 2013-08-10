@@ -1,6 +1,8 @@
 open wholeProgTheory repl_computeLib stringSyntax optionSyntax;
 open TextIO;
 
+val _ = computeLib.add_funs [compile_decs_def];
+
 fun do_test filename =
   let 
     val i = openIn filename;
@@ -24,6 +26,7 @@ List.app (fn d => (x := (!x) + 1;
                       | NONE => print (Int.toString (!x) ^ ": ok\n"))))
         files
 end;
+
 
 do_all_tests
 ["test1.ml", 
