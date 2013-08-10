@@ -1,5 +1,5 @@
 (* List stuff *)
-datatype 'a list = Nil | Cons of 'a * 'a list;
+datatype 'a lst = Nil | Cons of 'a * 'a lst;
 
 fun length x = 
   case x of

@@ -318,8 +318,10 @@ check_ctor_tenv mn tenvC tds =
 	         mapM_ (\(cn,ts) -> mapM_ (check_freevars 0 tvs) ts) ctors)
 	   tds;
      ensureDistinct "type name" (\(_,tn,_) -> tn) tds;
-     unless (List.all (\(tvs,tn,ctors) -> envAll (\_ (_,_,tn') -> TypeId (mk_id mn tn) /= tn') tenvC) tds)
-            (error "constructor with wrong module")
+     mapM_ (\(tvs,tn,ctors) -> 
+                 do unless (envAll (\_ (_,_,tn') -> TypeId (mk_id mn tn) /= tn') tenvC)
+                           (typeError (getPos tn) ("duplicate type: " ++ (show (mk_id mn tn)))))
+               tds
 
 build_ctor_tenv :: Maybe ModN -> [([TvarN], TypeN, [(ConN, [T])])] -> TenvC
 build_ctor_tenv mn tds =
