@@ -47,12 +47,12 @@ val _ = Define `
                ( FUPDATE 
                ( FUPDATE 
                ( FUPDATE 
-               ( FUPDATE FEMPTY ( NONE, tuple_cn)) ( (SOME(Short"[]")), nil_exc_cn)) ( (SOME(Short"::")), cons_exc_cn)) ( (SOME(Short"Bind")), bind_exc_cn)) ( (SOME(Short"Div")), div_exc_cn)) ( (SOME(Short"Eq")), eq_exc_cn))
+               ( FUPDATE FEMPTY ( NONE, tuple_cn)) ( (SOME(Short"nil")), nil_exc_cn)) ( (SOME(Short"::")), cons_exc_cn)) ( (SOME(Short"Bind")), bind_exc_cn)) ( (SOME(Short"Div")), div_exc_cn)) ( (SOME(Short"Eq")), eq_exc_cn))
               ,[(eq_exc_cn,SOME(Short"Eq"))
                ;(div_exc_cn,SOME(Short"Div"))
                ;(bind_exc_cn,SOME(Short"Bind"))
                ;(cons_exc_cn,SOME(Short"::"))
-               ;(nil_exc_cn,SOME(Short"[]"))
+               ;(nil_exc_cn,SOME(Short"nil"))
                ;(tuple_cn,NONE)]
               ,6)
    ; renv := []

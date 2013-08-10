@@ -39,7 +39,7 @@ val _ = Define `
 (*val init_envC : envC*)
 val _ = Define `
  init_envC =  
-((Short "[]", (0, TypeId (Short "list"))) ::
+((Short "nil", (0, TypeId (Short "list"))) ::
   (Short "::", (2, TypeId (Short "list"))) :: MAP (\ cn . (Short cn, (0, TypeExn))) ["Bind"; "Div"; "Eq"])`;
 
 
@@ -67,7 +67,7 @@ val _ = Define `
 (*val init_tenvC : tenvC*)
 val _ = Define `
  init_tenvC =  
-((Short "[]", (["'a"], [], TypeId (Short "list"))) ::
+((Short "nil", (["'a"], [], TypeId (Short "list"))) ::
   (Short "::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) :: MAP (\ cn . (Short cn, ([], [], TypeExn))) ["Bind"; "Div"; "Eq"])`;
 
 

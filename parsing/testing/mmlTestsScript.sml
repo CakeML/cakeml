@@ -96,9 +96,9 @@ val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 val _ = parsetest0 ``nE`` ``ptree_Expr nE``
                    "case x of [] => 3 | [] :: _ => 1 | (h::t) :: rest => 2"
           (SOME ``Ast_Mat (Ast_Var (Short "x"))
-                    [(Ast_Pcon (SOME (Short "[]")) [],Ast_Lit (IntLit 3));
+                    [(Ast_Pcon (SOME (Short "nil")) [],Ast_Lit (IntLit 3));
                      (Ast_Pcon (SOME (Short "::"))
-                               [Ast_Pcon (SOME (Short "[]")) []; Ast_Pvar "_"],
+                               [Ast_Pcon (SOME (Short "nil")) []; Ast_Pvar "_"],
                       Ast_Lit (IntLit 1));
                      (Ast_Pcon (SOME (Short "::"))
                                [Ast_Pcon (SOME (Short "::"))
@@ -109,12 +109,12 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE``
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "case x of [] => 3 | [e, _] => e"
            (SOME ``Ast_Mat (Ast_Var (Short "x"))
-                     [(Ast_Pcon (SOME (Short "[]")) [],Ast_Lit (IntLit 3));
+                     [(Ast_Pcon (SOME (Short "nil")) [],Ast_Lit (IntLit 3));
                       (Ast_Pcon (SOME (Short "::"))
                                 [Ast_Pvar "e";
                                  Ast_Pcon (SOME (Short "::"))
                                           [Ast_Pvar "_";
-                                           Ast_Pcon (SOME (Short "[]")) []]],
+                                           Ast_Pcon (SOME (Short "nil")) []]],
                        Ast_Var (Short "e"))]``)
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "[3,4]"
@@ -122,9 +122,9 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "[3,4]"
                              [Ast_Lit (IntLit 3);
                               Ast_Con (SOME (Short "::"))
                                       [Ast_Lit (IntLit 4);
-                                       Ast_Con (SOME (Short "[]")) []]]``)
+                                       Ast_Con (SOME (Short "nil")) []]]``)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "[]"
-                   (SOME ``Ast_Con (SOME (Short "[]")) []``);
+                   (SOME ``Ast_Con (SOME (Short "nil")) []``);
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3::t = l"
                    (SOME ``Ast_App
                             (Ast_App (Ast_Var (Short "="))

@@ -26,13 +26,13 @@ let init_compiler_state =
                (Pmap.add (Some(Short"Div")) div_exc_cn
                (Pmap.add (Some(Short"Bind")) bind_exc_cn
                (Pmap.add (Some(Short"::")) cons_exc_cn
-               (Pmap.add (Some(Short"[]")) nil_exc_cn
+               (Pmap.add (Some(Short"nil")) nil_exc_cn
                (Pmap.add None tuple_cn Pmap.empty))))))
               ,[(eq_exc_cn,Some(Short"Eq"))
                ;(div_exc_cn,Some(Short"Div"))
                ;(bind_exc_cn,Some(Short"Bind"))
                ;(cons_exc_cn,Some(Short"::"))
-               ;(nil_exc_cn,Some(Short"[]"))
+               ;(nil_exc_cn,Some(Short"nil"))
                ;(tuple_cn,None)]
               ,6)
    ; renv = []

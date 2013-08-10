@@ -436,14 +436,14 @@ val ptree_Pattern_def = Define`
           else NONE
         | [lb; rb] =>
           if lb = Lf (TK LbrackT) ∧ rb = Lf (TK RbrackT) then
-            SOME(Ast_Pcon (SOME (Short "[]")) [])
+            SOME(Ast_Pcon (SOME (Short "nil")) [])
           else NONE
         | [lb; plistpt; rb] =>
           do
             assert (lb = Lf (TK LbrackT) ∧ rb = Lf (TK RbrackT));
             plist <- ptree_Plist plistpt;
             SOME (FOLDR (λp a. Ast_Pcon (SOME (Short "::")) [p; a])
-                        (Ast_Pcon (SOME (Short "[]")) [])
+                        (Ast_Pcon (SOME (Short "nil")) [])
                         plist)
           od
         | _ => NONE
@@ -541,7 +541,7 @@ val ptree_Expr_def = Define`
               assert(lpart = Lf (TK LbrackT) ∧ rpart = Lf (TK RbrackT));
               elist <- ptree_Exprlist nElist1 pt;
               SOME(FOLDR (λe acc. Ast_Con (SOME (Short "::")) [e; acc])
-                         (Ast_Con (SOME (Short "[]")) [])
+                         (Ast_Con (SOME (Short "nil")) [])
                          elist)
             od
           | [single] =>
@@ -567,7 +567,7 @@ val ptree_Expr_def = Define`
           | [lp;rp] => if lp = Lf (TK LparT) ∧ rp = Lf (TK RparT) then
                          SOME (Ast_Lit Unit)
                        else if lp = Lf (TK LbrackT) ∧ rp = Lf (TK RbrackT) then
-                         SOME (Ast_Con (SOME (Short "[]")) [])
+                         SOME (Ast_Con (SOME (Short "nil")) [])
                        else NONE
           | [lett;letdecs_pt;intok;ept;endt] =>
             do
