@@ -66,7 +66,7 @@ Induct >> rw[CompilerLibTheory.el_check_def] >> fs[] >> fsrw_tac[ARITH_ss][] >>
 simp[rich_listTheory.EL_CONS,arithmeticTheory.PRE_SUB1])
 
 val _ = computeLib.add_funs
-  [ElabTheory.elab_p_def
+  [terminationTheory.elab_p_def
   ,ElabTheory.elab_decs_def
   ,CompilerLibTheory.find_index_def
   ,CompilerLibTheory.the_def

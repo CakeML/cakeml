@@ -69,7 +69,11 @@ do_all_tests
  "test3.ml",
  "test4.ml"]
 
-
+val filename = "fib.ml";
+val i = openIn filename;
+val s = inputAll i;
+val _ = closeIn i;
+val res = EVAL ``wp_main_loop initial_repl_fun_state ^(fromMLstring s)``
 
 do_compile_string "test0.ml" "test0.byte"
 do_compile_string "fib.ml" "fib.byte"
