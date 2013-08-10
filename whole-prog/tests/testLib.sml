@@ -1,9 +1,11 @@
 open wholeProgTheory repl_computeLib stringSyntax optionSyntax;
+open bytecodeLabelsTheory;
 open TextIO;
 
 val _ = computeLib.add_funs [compile_decs_def, compile_print_vals_def, 
                              bc_inst_to_string_def, encode_bc_insts_def,
-                             encode_bc_inst_def, encode_num_def];
+                             encode_bc_inst_def, encode_num_def, encode_loc_def,
+                             encode_char_def, bc_loc_to_string_def];
 
 fun do_test filename =
   let 
@@ -34,7 +36,8 @@ fun do_compile_string infile outfile =
     val i = openIn infile;
     val s = inputAll i;
     val _ = closeIn i;
-    val res = (rhs o concl o EVAL) ``whole_prog_compile ^(fromMLstring s)``
+    (* TODO: there is an assumption on this theorem.  Where does it come from? *)
+    val res = (rhs o concl o EVAL) ``whole_prog_compile T ^(fromMLstring s)``
     val res = fromHOLstring res
     val out = openOut outfile
     val _ = output (out, res)
@@ -48,7 +51,7 @@ fun do_compile_binary infile outfile =
     val i = openIn infile;
     val s = inputAll i;
     val _ = closeIn i;
-    val res = (rhs o concl o EVAL) ``(whole_prog_compile_encode ^(fromMLstring s):word64 list option)``
+    val res = (rhs o concl o EVAL) ``(whole_prog_compile_encode T ^(fromMLstring s):word64 list option)``
     val res = fromHOLstring res
     val out = BinIO.openOut outfile
     (*val _ = ...*)
@@ -58,11 +61,19 @@ fun do_compile_binary infile outfile =
   end
 
 
+
 (*
 do_all_tests
 ["test1.ml", 
  "test2.ml", 
  "test3.ml",
  "test4.ml"]
+
+
+
+do_compile_string "test0.ml" "test0.byte"
+do_compile_string "fib.ml" "fib.byte"
+
+
  *)
 

@@ -67,7 +67,7 @@ typedef struct inst_list inst_list;
 
 struct value {
   unsigned long tag;
-  union { long number; struct value *block; };
+  union { long number; struct value *block; } arg;
 };
 
 typedef struct value value;

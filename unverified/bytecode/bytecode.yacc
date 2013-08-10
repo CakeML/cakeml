@@ -35,7 +35,7 @@ void yyerror(YYLTYPE *locp, inst_list** parse_result, char *s, ...) /* Called by
 {
   printf ("Parser: %s near line: %d column: %d\n", s, locp->first_line, locp->first_column);
   exit(1);
-};
+}
 
 extern int yylex(YYSTYPE * yylval_param,YYLTYPE * yylloc_param );
 

@@ -1,11 +1,11 @@
-INCLUDES = .. ../parsing ../semantics ../repl
+INCLUDES = .. ../parsing ../semantics ../repl ../bytecode
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../parsing/lexer_implTheory ../repl/repl_funTheory
+BARE_THYS = ../parsing/lexer_implTheory ../repl/repl_funTheory ../bytecode/bytecodeLabelsTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

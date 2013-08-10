@@ -1,6 +1,6 @@
 open wordsLib intLib;
 open preamble;
-open lexer_implTheory replTheory;
+open lexer_implTheory replTheory bytecodeLabelsTheory;
 
 val _ = new_theory "wholeProg";
 
@@ -21,7 +21,7 @@ val wp_main_loop_def = tDefine "wp_main_loop" `
           Success (code,s,s_exc) =>
             case wp_main_loop s rest_of_input of
                  Failure error_msg => Failure error_msg
-               | Success code' => Success (code ++ code')` tac;
+               | Success code' => Success (REVERSE code ++ code')` tac;
 
 (* TODO: Move the bytecode->string and encoder/decoder to the bytecode directory *)
 
@@ -297,8 +297,6 @@ val decode_bc_insts_def = Q.store_thm ("decode_bc_insts_def",
  every_case_tac >>
  fs [decode_bc_inst_def]);
 
-val _ = computeLib.del_funs [decode_bc_insts_prim_def];
-
 val decode_encode_num = Q.prove (
 `!n w l. 
   (encode_num n = SOME w)
@@ -354,15 +352,29 @@ val decode_encode_bc_insts = Q.store_thm ("decode_encode_bc_insts",
  metis_tac [optionTheory.SOME_11, optionTheory.NOT_SOME_NONE, PAIR_EQ]);
 
 val whole_prog_compile_def = Define `
-  whole_prog_compile input = 
+  whole_prog_compile remove_labels input = 
     case wp_main_loop initial_repl_fun_state input of
          Failure error_msg => "<error>: " ++ error_msg ++ "\n"
-       | Success code => FLAT (MAP (\inst. bc_inst_to_string inst ++ "\n") code)`;
+       | Success code => 
+           let code = 
+             if remove_labels then
+               code_labels (\x.0) code
+             else
+               code
+             in
+               FLAT (MAP (\inst. bc_inst_to_string inst ++ "\n") code)`;
 
 val whole_prog_compile_encode_def = Define `
-  whole_prog_compile_encode input = 
+  whole_prog_compile_encode remove_labels input = 
     case wp_main_loop initial_repl_fun_state input of
          Failure error_msg => NONE
-       | Success code => encode_bc_insts code`;
+       | Success code => 
+           let code = 
+             if remove_labels then
+               code_labels (\x.0) code
+             else
+               code
+             in
+               encode_bc_insts code`;
 
 val _ = export_theory ();

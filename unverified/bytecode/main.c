@@ -8,7 +8,7 @@ extern FILE *yyin;
 extern int yyparse(inst_list **parse_result);
 extern inst_list* decode(FILE *in);
 
-unsigned long inline get_loc(loc loc) {
+unsigned long static inline get_loc(loc loc) {
   if (loc.isLab)
     assert(0);
   return loc.num;
@@ -21,7 +21,7 @@ unsigned long inst_list_length(inst_list *l) {
     l = l->cdr;
   };
   return len;
-};
+}
 
 inst* inst_list_to_array(inst_list *l, unsigned long length) {
   unsigned long i;
@@ -56,13 +56,13 @@ void check_locations(inst *prog, unsigned long num_inst) {
   return;
 }
 
-void inline print_value(value v) {
+void static inline print_value(value v) {
   switch (GET_TAG(v)) {
     case NUMBER:
-      if (v.number < 0)
-	printf("~%ld",-v.number);
+      if (v.arg.number < 0)
+	printf("~%ld",-v.arg.number);
       else
-	printf("%ld",v.number);
+	printf("%ld",v.arg.number);
       break;
     case REF_PTR:
       printf("<ref>");
@@ -92,7 +92,7 @@ void inline print_value(value v) {
   }
 }
 
-unsigned long inline bool_to_tag(int i) {
+unsigned long static inline bool_to_tag(int i) {
   if (i)
     return TRUE_TAG + CONS;
   else
@@ -108,7 +108,7 @@ int equal(value v1, value v2) {
   if (tag1 == CODE_PTR || tag1 == STACK_PTR || tag2 == CODE_PTR || tag2 == STACK_PTR)
     return 3;
   else if ((tag1 == NUMBER && tag2 == NUMBER) || (tag1 == REF_PTR && tag2 == REF_PTR))
-    if (v2.number == v1.number)
+    if (v2.arg.number == v1.arg.number)
       return 1;
     else 
       return 0;
@@ -121,7 +121,7 @@ int equal(value v1, value v2) {
       return 0;
     else {
       for (i = 0; i < GET_LEN(v2); i++) {
-	int res = equal(v1.block[i], v2.block[i]);
+	int res = equal(v1.arg.block[i], v2.arg.block[i]);
 	if (res != 1)
 	  return res;
       }
@@ -177,7 +177,7 @@ void run(inst code[]) {
       case push_int_i:
 	CHECK_STACK(sp);
 	SET_TAG(stack[sp], NUMBER, 0);
-	stack[sp].number = code[pc].args.num;
+	stack[sp].arg.number = code[pc].args.num;
 	sp++;
 	pc++;
 	break;
@@ -194,7 +194,7 @@ void run(inst code[]) {
 		  block[i] = stack[sp-code[pc].args.two_num.num2+i];
 	  sp -= code[pc].args.two_num.num2;
 	  SET_TAG(stack[sp], CONS + code[pc].args.two_num.num1, code[pc].args.two_num.num2);
-	  stack[sp].block = block;
+	  stack[sp].arg.block = block;
 	  sp++;
 	}
 	pc++;
@@ -217,7 +217,7 @@ void run(inst code[]) {
 	pc++;
 	break;
       case el_i:
-	stack[sp-1] = stack[sp-1].block[code[pc].args.num];
+	stack[sp-1] = stack[sp-1].arg.block[code[pc].args.num];
 	pc++;
 	break;
       case tag_eq_i:
@@ -234,43 +234,43 @@ void run(inst code[]) {
 	  SET_TAG(stack[sp-2], bool_to_tag(tmp), 0);
 	else {
 	  SET_TAG(stack[sp-2], NUMBER, 0);
-	  stack[sp-2].number = tmp - 2;
+	  stack[sp-2].arg.number = tmp - 2;
 	}
 	sp--;
 	pc++;
 	break;
       case less_i:
-	SET_TAG(stack[sp-2], bool_to_tag(stack[sp-2].number < stack[sp-1].number), 0);
+	SET_TAG(stack[sp-2], bool_to_tag(stack[sp-2].arg.number < stack[sp-1].arg.number), 0);
 	sp--;
 	pc++;
 	break;
       case add_i:
 	SET_TAG(stack[sp-2], NUMBER, 0);
-	stack[sp-2].number = stack[sp-2].number + stack[sp-1].number;
+	stack[sp-2].arg.number = stack[sp-2].arg.number + stack[sp-1].arg.number;
 	sp--;
 	pc++;
 	break;
       case sub_i:
 	SET_TAG(stack[sp-2], NUMBER, 0);
-	stack[sp-2].number = stack[sp-2].number - stack[sp-1].number;
+	stack[sp-2].arg.number = stack[sp-2].arg.number - stack[sp-1].arg.number;
 	sp--;
 	pc++;
 	break;
       case mult_i:
 	SET_TAG(stack[sp-2], NUMBER, 0);
-	stack[sp-2].number = stack[sp-2].number * stack[sp-1].number;
+	stack[sp-2].arg.number = stack[sp-2].arg.number * stack[sp-1].arg.number;
 	sp--;
 	pc++;
 	break;
       case div_i:
 	SET_TAG(stack[sp-2], NUMBER, 0);
-	stack[sp-2].number = stack[sp-2].number / stack[sp-1].number;
+	stack[sp-2].arg.number = stack[sp-2].arg.number / stack[sp-1].arg.number;
 	sp--;
 	pc++;
 	break;
       case mod_i:
 	SET_TAG(stack[sp-2], NUMBER, 0);
-	stack[sp-2].number = stack[sp-2].number % stack[sp-1].number;
+	stack[sp-2].arg.number = stack[sp-2].arg.number % stack[sp-1].arg.number;
 	sp--;
 	pc++;
 	break;
@@ -291,7 +291,7 @@ void run(inst code[]) {
 	CHECK_STACK(sp);
 	stack[sp] = stack[sp-1];
 	SET_TAG(stack[sp-1], CODE_PTR, 0);
-	stack[sp-1].number = pc+1;
+	stack[sp-1].arg.number = pc+1;
 	pc = get_loc(code[pc].args.loc);
 	sp++;
 	break;
@@ -299,22 +299,22 @@ void run(inst code[]) {
 	tmp_frame = stack[sp-1];
 	stack[sp-1] = stack[sp-2];
 	SET_TAG(stack[sp-2], CODE_PTR, 0);
-	stack[sp-2].number = pc+1;
-	pc = tmp_frame.number;
+	stack[sp-2].arg.number = pc+1;
+	pc = tmp_frame.arg.number;
 	break;
       case jump_ptr_i:
 	sp--;
-	pc = stack[sp].number;
+	pc = stack[sp].arg.number;
 	break;
       case push_ptr_i:
 	CHECK_STACK(sp);
 	SET_TAG(stack[sp], CODE_PTR, 0);
-	stack[sp].number = get_loc(code[pc].args.loc);
+	stack[sp].arg.number = get_loc(code[pc].args.loc);
 	sp++;
 	pc++;
 	break;
       case return_i:
-	pc = stack[sp-2].number;
+	pc = stack[sp-2].arg.number;
 	stack[sp-2] = stack[sp-1];
 	sp--;
 	break;
@@ -322,13 +322,13 @@ void run(inst code[]) {
 	CHECK_STACK(sp);
 	handler = sp;
 	SET_TAG(stack[sp], STACK_PTR, 0);
-	stack[sp].number = handler;
+	stack[sp].arg.number = handler;
 	sp++;
 	pc++;
 	break;
       case pop_exc_i:
 	tmp_frame = stack[sp-1];
-	tmp_sp1 = stack[handler].number;
+	tmp_sp1 = stack[handler].arg.number;
 	stack[handler] = tmp_frame;
 	sp = handler + 1;
 	handler = tmp_sp1;
@@ -338,16 +338,16 @@ void run(inst code[]) {
 	CHECK_REFS(next_ref);
 	refs[next_ref] = stack[sp-1];
 	SET_TAG(stack[sp-1], REF_PTR, 0);
-	stack[sp-1].number = next_ref;
+	stack[sp-1].arg.number = next_ref;
 	next_ref++;
 	pc++;
 	break;
       case deref_i:
-	stack[sp-1] = refs[stack[sp-1].number];
+	stack[sp-1] = refs[stack[sp-1].arg.number];
 	pc++;
 	break;
       case update_i:
-	refs[stack[sp-2].number] = stack[sp-1];
+	refs[stack[sp-2].arg.number] = stack[sp-1];
 	sp -= 2;
 	pc++;
 	break;
