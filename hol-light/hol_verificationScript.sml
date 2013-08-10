@@ -1524,9 +1524,7 @@ val dest_eq_thm = store_thm("dest_eq_thm",
     (s' = s) /\ !t1 t2. (res = HolRes (t1,t2)) ==> TERM defs t1 /\ TERM defs t2 /\
     (hol_tm tm = Comb (Comb (Equal (typeof (hol_tm t1))) (hol_tm t1)) (hol_tm t2))``,
   ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ SIMP_TAC std_ss [dest_eq_def]
-  \\ Cases_on `tm` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) [ex_return_def]
-  \\ Cases_on `h'` \\ FULL_SIMP_TAC (srw_ss()) [ex_return_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) [failwith_def,ex_return_def]
   \\ SRW_TAC [] [] \\ FULL_SIMP_TAC (srw_ss()) [ex_return_def]
   \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
   \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
@@ -2399,12 +2397,8 @@ val TRANS_thm = store_thm("TRANS_thm",
     (s' = s) /\ !th. (res = HolRes th) ==> THM defs th``,
   Cases_on `th1` \\ Cases_on `th2` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [TRANS_def]
-  \\ Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `h''` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `h'` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `h'` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
+  \\ BasicProvers.EVERY_CASE_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
   \\ SRW_TAC [] [ex_bind_def] \\ IMP_RES_TAC THM
   \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const "=" h1) ll) m1)` []
   \\ POP_ASSUM MP_TAC
@@ -2438,12 +2432,8 @@ val MK_COMB_thm = store_thm("MK_COMB_thm",
     (s' = s) /\ !th. (res = HolRes th) ==> THM defs th``,
   Cases_on `th1` \\ Cases_on `th2` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [MK_COMB_def]
-  \\ Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `h''` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `h'` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `h'` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
+  \\ BasicProvers.EVERY_CASE_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
   \\ SRW_TAC [] [ex_bind_def] \\ IMP_RES_TAC THM
   \\ Q.MATCH_ASSUM_RENAME_TAC `TERM defs (Comb (Comb (Const "=" h1) f1) f2)` []
   \\ POP_ASSUM MP_TAC
@@ -2489,6 +2479,12 @@ val ABS_thm = store_thm("ABS_thm",
   \\ Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
   \\ FULL_SIMP_TAC std_ss [ex_bind_def]
   \\ Cases_on `s'' = "="` \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] []
+  \\ TRY (
+      POP_ASSUM MP_TAC \\
+      NTAC 3 BasicProvers.CASE_TAC \\
+      STRIP_TAC \\
+      FULL_SIMP_TAC std_ss [] \\
+      NO_TAC)
   \\ Q.MATCH_ASSUM_RENAME_TAC
        `THM defs (Sequent l (Comb (Comb (Const "=" h) t1) t2))` []
   \\ Cases_on `mk_abs (tm,t1) s` \\ FULL_SIMP_TAC (srw_ss()) []
@@ -2584,9 +2580,8 @@ val EQ_MP_thm = store_thm("EQ_MP_thm",
     (s' = s) /\ !th. (res = HolRes th) ==> THM defs th``,
   Cases_on `th1` \\ Cases_on `th2` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [EQ_MP_def]
-  \\ Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `h''` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
-  \\ Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
+  \\ BasicProvers.EVERY_CASE_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
   \\ SRW_TAC [] [ex_bind_def,ex_return_def] \\ IMP_RES_TAC THM
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM
   \\ Q.MATCH_ASSUM_RENAME_TAC `THM defs (Sequent l
