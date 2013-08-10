@@ -138,6 +138,11 @@ nEbase =
      tokeq EndT;
      return (List.foldr do_let_dec (eseq_encode pos es) lets)
   <|>
+  do pos <- tokeq LbrackT;
+     es <- sepBy nE (tokeq CommaT);
+     tokeq RbrackT;
+     return (List.foldr (\e ast -> Ast_Con (Just (Short (ConN "::" pos))) [e, ast] pos) (Ast_Con (Just (Short (ConN "[]" pos))) [] pos) es)
+  <|>
   fmap Ast_Var nFQV
   <|>
   do n <- nConstructorName;
@@ -347,11 +352,19 @@ nPbase =
   nPtuple
   <|>
   (tokeq UnderbarT >>= (\pos -> return (Ast_Pvar (VarN "_" pos))))
+  <|>
+  do pos <- tokeq LbrackT;
+     ps <- sepBy nPattern (tokeq CommaT);
+     tokeq RbrackT;
+     return (List.foldr (\p ast -> Ast_Pcon (Just (Short (ConN "::" pos))) [p, ast] pos) (Ast_Pcon (Just (Short (ConN "[]" pos))) [] pos) ps)
 
-nPattern = choice [try (do n <- nConstructorName;
-                           pat <- nPbase;
-                           return (mk_pat_app n pat)), 
-                   nPbase]
+
+nPapp = choice [try (do n <- nConstructorName;
+                        pat <- nPbase;
+                        return (mk_pat_app n pat)), 
+                nPbase]
+
+nPattern = nPapp `chainr1` fmap (\pos p1 p2 -> Ast_Pcon (Just (Short (ConN "::" pos))) [p1,p2] pos) (tokeq (SymbolT "::"))  
 
 nPtuple = 
   do pos <- tokeq LparT;
