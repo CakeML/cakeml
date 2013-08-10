@@ -1,10 +1,18 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "bytecode_inst.h"
-#include "bytecode.tab.h"
 
 extern FILE *yyin;
 extern int yyparse(inst_list **parse_result);
+extern inst_list* decode(FILE *in);
+
+unsigned long inline get_loc(loc loc) {
+  if (loc.isLab)
+    assert(0);
+  return loc.num;
+}
 
 unsigned long inst_list_length(inst_list *l) {
   unsigned long len = 0;
@@ -27,20 +35,23 @@ inst* inst_list_to_array(inst_list *l, unsigned long length) {
     l = next;
   };
 
-  prog_array[length].tag = HALT_T; 
+  prog_array[length].tag = stop_i; 
 
   return prog_array;
 }
 
 void check_locations(inst *prog, unsigned long num_inst) {
   unsigned long i;
+  unsigned long loc;
 
   for(i = 0; i < num_inst; i++) {
-    if (prog[i].tag == JUMP_T || prog[i].tag == JUMP_IF_T || prog[i].tag == CALL_T || prog[i].tag == PUSH_PTR_T)
-      if (prog[i].args.loc.num >= num_inst) {
-	printf("instruction %lu has bad location %lu\n", i, prog[i].args.loc.num);
+    if (prog[i].tag == jump_i || prog[i].tag == jump_if_i || prog[i].tag == call_i || prog[i].tag == push_ptr_i) {
+      loc = get_loc(prog[i].args.loc);
+      if (loc >= num_inst) {
+	printf("instruction number %lu has bad location %lu\n", i, loc);
 	exit(1);
       }
+    }
   }
   return;
 }
@@ -143,17 +154,17 @@ void run(inst code[]) {
   while (1) {
 
     switch (code[pc].tag) {
-      case POP_T:
+      case pop_i:
 	sp--;
 	pc++;
 	break;
-      case POPS_T:
+      case pops_i:
 	tmp_sp1 = sp;
 	sp -= code[pc].args.num;
 	stack[sp-1] = stack[tmp_sp1-1];
 	pc++;
 	break;
-      case SHIFT_T:
+      case shift_i:
 	if (code[pc].args.two_num.num2 != 0) {
 	  tmp_sp1 = sp - code[pc].args.two_num.num1;
 	  tmp_sp2 = tmp_sp1 - code[pc].args.two_num.num2;
@@ -163,14 +174,14 @@ void run(inst code[]) {
 	}
 	pc++;
 	break;
-      case PUSH_INT_T:
+      case push_int_i:
 	CHECK_STACK(sp);
 	SET_TAG(stack[sp], NUMBER, 0);
 	stack[sp].number = code[pc].args.num;
 	sp++;
 	pc++;
 	break;
-      case CONS_T:
+      case cons_i:
 	if (code[pc].args.two_num.num2 == 0) {
 	  CHECK_STACK(sp);
 	  SET_TAG(stack[sp], CONS + code[pc].args.two_num.num1, 0);
@@ -188,36 +199,36 @@ void run(inst code[]) {
 	}
 	pc++;
 	break;
-      case LOAD_T:
+      case load_i:
 	CHECK_STACK(sp);
 	stack[sp] = stack[sp-1-code[pc].args.num];
 	sp++;
 	pc++;
 	break;
-      case STORE_T:
+      case store_i:
 	stack[sp-2-code[pc].args.num] = stack[sp-1];
 	sp--;
 	pc++;
 	break;
-      case LOAD_REV_T:
+      case load_rev_i:
 	CHECK_STACK(sp);
 	stack[sp] = stack[code[pc].args.num];
 	sp++;
 	pc++;
 	break;
-      case EL_T:
+      case el_i:
 	stack[sp-1] = stack[sp-1].block[code[pc].args.num];
 	pc++;
 	break;
-      case TAG_EQ_T:
+      case tag_eq_i:
 	SET_TAG(stack[sp-1], bool_to_tag(GET_TAG(stack[sp-1]) == code[pc].args.num + CONS), 0);
 	pc++;
 	break;
-      case IS_BLOCK_T:
+      case is_block_i:
 	SET_TAG(stack[sp-1], bool_to_tag(GET_TAG(stack[sp-1]) >= CONS), 0);
 	pc++;
 	break;
-      case EQUAL_T:
+      case equal_i:
 	tmp = equal(stack[sp-1], stack[sp-2]);
 	if (tmp == 0 || tmp == 1)
 	  SET_TAG(stack[sp-2], bool_to_tag(tmp), 0);
@@ -228,83 +239,86 @@ void run(inst code[]) {
 	sp--;
 	pc++;
 	break;
-      case LESS_T:
+      case less_i:
 	SET_TAG(stack[sp-2], bool_to_tag(stack[sp-2].number < stack[sp-1].number), 0);
 	sp--;
 	pc++;
 	break;
-      case ADD_T:
+      case add_i:
 	SET_TAG(stack[sp-2], NUMBER, 0);
 	stack[sp-2].number = stack[sp-2].number + stack[sp-1].number;
 	sp--;
 	pc++;
 	break;
-      case SUB_T:
+      case sub_i:
 	SET_TAG(stack[sp-2], NUMBER, 0);
 	stack[sp-2].number = stack[sp-2].number - stack[sp-1].number;
 	sp--;
 	pc++;
 	break;
-      case MULT_T:
+      case mult_i:
 	SET_TAG(stack[sp-2], NUMBER, 0);
 	stack[sp-2].number = stack[sp-2].number * stack[sp-1].number;
 	sp--;
 	pc++;
 	break;
-      case DIV_T:
+      case div_i:
 	SET_TAG(stack[sp-2], NUMBER, 0);
 	stack[sp-2].number = stack[sp-2].number / stack[sp-1].number;
 	sp--;
 	pc++;
 	break;
-      case MOD_T:
+      case mod_i:
 	SET_TAG(stack[sp-2], NUMBER, 0);
 	stack[sp-2].number = stack[sp-2].number % stack[sp-1].number;
 	sp--;
 	pc++;
 	break;
-      case JUMP_T:
-	pc = code[pc].args.loc.num;
+      case label_i:
+	pc++;
 	break;
-      case JUMP_IF_T:
+      case jump_i:
+	pc = get_loc(code[pc].args.loc);
+	break;
+      case jump_if_i:
 	if (GET_TAG(stack[sp-1]) == TRUE_TAG + CONS)
-	  pc = code[pc].args.loc.num;
+	  pc = get_loc(code[pc].args.loc);
 	else
 	  pc++;
 	sp--;
 	break;
-      case CALL_T:
+      case call_i:
 	CHECK_STACK(sp);
 	stack[sp] = stack[sp-1];
 	SET_TAG(stack[sp-1], CODE_PTR, 0);
 	stack[sp-1].number = pc+1;
-	pc = code[pc].args.loc.num;
+	pc = get_loc(code[pc].args.loc);
 	sp++;
 	break;
-      case CALL_PTR_T:
+      case call_ptr_i:
 	tmp_frame = stack[sp-1];
 	stack[sp-1] = stack[sp-2];
 	SET_TAG(stack[sp-2], CODE_PTR, 0);
 	stack[sp-2].number = pc+1;
 	pc = tmp_frame.number;
 	break;
-      case JUMP_PTR_T:
+      case jump_ptr_i:
 	sp--;
 	pc = stack[sp].number;
 	break;
-      case PUSH_PTR_T:
+      case push_ptr_i:
 	CHECK_STACK(sp);
 	SET_TAG(stack[sp], CODE_PTR, 0);
-	stack[sp].number = code[pc].args.loc.num;
+	stack[sp].number = get_loc(code[pc].args.loc);
 	sp++;
 	pc++;
 	break;
-      case RETURN_T:
+      case return_i:
 	pc = stack[sp-2].number;
 	stack[sp-2] = stack[sp-1];
 	sp--;
 	break;
-      case PUSH_EXC_T:
+      case push_exc_i:
 	CHECK_STACK(sp);
 	handler = sp;
 	SET_TAG(stack[sp], STACK_PTR, 0);
@@ -312,7 +326,7 @@ void run(inst code[]) {
 	sp++;
 	pc++;
 	break;
-      case POP_EXC_T:
+      case pop_exc_i:
 	tmp_frame = stack[sp-1];
 	tmp_sp1 = stack[handler].number;
 	stack[handler] = tmp_frame;
@@ -320,7 +334,7 @@ void run(inst code[]) {
 	handler = tmp_sp1;
 	pc++;
 	break;
-      case REF_T:
+      case ref_i:
 	CHECK_REFS(next_ref);
 	refs[next_ref] = stack[sp-1];
 	SET_TAG(stack[sp-1], REF_PTR, 0);
@@ -328,56 +342,69 @@ void run(inst code[]) {
 	next_ref++;
 	pc++;
 	break;
-      case DEREF_T:
+      case deref_i:
 	stack[sp-1] = refs[stack[sp-1].number];
 	pc++;
 	break;
-      case UPDATE_T:
+      case update_i:
 	refs[stack[sp-2].number] = stack[sp-1];
 	sp -= 2;
 	pc++;
 	break;
-      case TICK_T:
+      case tick_i:
 	pc++;
 	break;
-      case PRINT_T:
+      case print_i:
 	print_value(stack[sp-1]);
 	sp--;
 	pc++;
 	break;
-      case PRINT_C_T:
+      case print_c_i:
 	putchar(code[pc].args.character);
 	pc++;
 	break;
-      case HALT_T:
+      case stop_i:
 	return;
+      default:
+	assert(0);
+	break;
     }
   }
-  printf("invalid instruction\n");
-  exit(1);
 }
 
 int main(int argc, char** argv) {
   inst_list *parse_result;
   inst *prog_array;
   unsigned long num_inst;
+  FILE *in;
 
-  if (argc != 2) {
-    printf("usage: cakeml-byte filename\n");
+  if (argc == 2 && (strcmp(argv[1],"-b"))) {
+    yyin = fopen(argv[1], "r");
+    if (yyin == NULL) {
+      printf("Could not open input file %s\n", argv[1]);
+      exit(1);
+    };
+    yyparse(&parse_result);
+    fclose(yyin);
+  }
+  else if (argc == 3 && !(strcmp(argv[1],"-b"))) {
+    in = fopen(argv[2], "rb");
+    if (in == NULL) {
+      printf("Could not open input file %s\n", argv[2]);
+      exit(1);
+    };
+    parse_result = decode(in);
+    fclose(in);
+   }
+  else {
+    printf("usage: cakeml-byte filename or cakeml-byte -b filename\n");
     exit(1);
-  };
-  yyin = fopen(argv[1], "r");
-  if (yyin == NULL) {
-    printf("Could not open input file %s\n", argv[1]);
-    exit(1);
-  };
-  yyparse(&parse_result);
-  fclose(yyin);
+  }
+		 
   num_inst = inst_list_length(parse_result);
   prog_array = inst_list_to_array(parse_result, num_inst);
   check_locations(prog_array, num_inst);
   run(prog_array);
 
-  printf("\n%lu", sizeof(value));
   return 0;
 }

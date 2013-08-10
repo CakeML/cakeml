@@ -65,7 +65,7 @@
 [0-9]+ { 
   yylval->num = strtoul(yytext, NULL, 10); 
   if (errno == ERANGE) {
-    printf("number doesn't fit at line: %d column: %d\n", yylloc->first_line, yylloc->first_column); 
+    printf("Lexer: number %s too big at line: %d column: %d\n", yytext, yylloc->first_line, yylloc->first_column); 
     exit(1); 
   }
   else 
@@ -74,7 +74,7 @@
 -[0-9]+ { 
   yylval->integer = strtol(yytext, NULL, 10); 
   if (errno == ERANGE) {
-    printf("number doesn't fit at line: %d column: %d\n", yylloc->first_line, yylloc->first_column); 
+    printf("Lexer: number %s too small at line: %d column: %d\n", yytext, yylloc->first_line, yylloc->first_column); 
     exit(1); 
   }
   else 
@@ -83,6 +83,6 @@
 
 <<EOF>> { return 0; }
 
-. { printf("lex error at line: %d column: %d\n", yylloc->first_line, yylloc->first_column); exit(1); }
+. { printf("Lexer: error at line: %d column: %d\n", yylloc->first_line, yylloc->first_column); exit(1); }
 
 %%

@@ -20,7 +20,6 @@
 %token LABEL_T JUMP_T JUMP_IF_T CALL_T JUMP_PTR_T CALL_PTR_T RETURN_T 
 %token PUSH_EXC_T POP_EXC_T REF_T DEREF_T UPDATE_T STOP_T TICK_T PRINT_T 
 %token PRINT_C_T LAB_T ADDR_T PUSH_PTR_T
-%token HALT_T /* Not really a token, but we use these to tag our internal instruction representation too. */
 
 %type <insts> insts inst stack_op loc
 %type <integer> num_or_int
@@ -34,8 +33,8 @@
 
 void yyerror(YYLTYPE *locp, inst_list** parse_result, char *s, ...) /* Called by yyparse on error */
 {
-  printf ("%s near line: %d column: %d\n", s, locp->first_line, locp->first_column);
-  exit(3);
+  printf ("Parser: %s near line: %d column: %d\n", s, locp->first_line, locp->first_column);
+  exit(1);
 };
 
 extern int yylex(YYSTYPE * yylval_param,YYLTYPE * yylloc_param );
@@ -51,25 +50,25 @@ num_or_int:
 stack_op: 
    POP_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = POP_T;
+     next->car.tag = pop_i;
      $$ = next;
    }
  | POPS_T NUM_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = POPS_T;
+     next->car.tag = pops_i;
      next->car.args.num = $2;
      $$ = next;
    }
  | SHIFT_T NUM_T NUM_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = SHIFT_T;
+     next->car.tag = shift_i;
      next->car.args.two_num.num1 = $2;
      next->car.args.two_num.num2 = $3;
      $$ = next;
    }
  | PUSH_INT_T num_or_int {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = PUSH_INT_T;
+     next->car.tag = push_int_i;
      next->car.args.integer = $2;
      $$ = next;
    }
@@ -81,94 +80,91 @@ stack_op:
      if ($3 > MAX_BLOCK) {
        yyerror(&yylloc, NULL, "block size too big");
      }
-     next->car.tag = CONS_T;
+     next->car.tag = cons_i;
      next->car.args.two_num.num1 = $2;
      next->car.args.two_num.num2 = $3;
      $$ = next;
    }
  | LOAD_T NUM_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = LOAD_T;
+     next->car.tag = load_i;
      next->car.args.num = $2;
      $$ = next;
    }
  | STORE_T NUM_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = STORE_T;
+     next->car.tag = store_i;
      next->car.args.num = $2;
      $$ = next;
    }
  | LOAD_REV_T NUM_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = LOAD_REV_T;
+     next->car.tag = load_rev_i;
      next->car.args.num = $2;
      $$ = next;
    }
  | EL_T NUM_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = EL_T;
+     next->car.tag = el_i;
      next->car.args.num = $2;
      $$ = next;
    }
  | TAG_EQ_T NUM_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = TAG_EQ_T;
+     next->car.tag = tag_eq_i;
      next->car.args.num = $2;
      $$ = next;
    }
  | IS_BLOCK_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = IS_BLOCK_T;
+     next->car.tag = is_block_i;
      $$ = next;
    }
  | EQUAL_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = EQUAL_T;
+     next->car.tag = equal_i;
      $$ = next;
    }
  | ADD_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = ADD_T;
+     next->car.tag = add_i;
      $$ = next;
    }
  | SUB_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = SUB_T;
+     next->car.tag = sub_i;
      $$ = next;
    }
  | MULT_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = MULT_T;
+     next->car.tag = mult_i;
      $$ = next;
    }
  | DIV_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = DIV_T;
+     next->car.tag = div_i;
      $$ = next;
    }
  | MOD_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = MOD_T;
+     next->car.tag = mod_i;
      $$ = next;
    }
  | LESS_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = LESS_T;
+     next->car.tag = less_i;
      $$ = next;
    }
 ;
 
 loc:
-/*
    LAB_T NUM_T {
      inst_list* next = malloc(sizeof(inst_list));
      next->car.args.loc.isLab = 1;
      next->car.args.loc.num = $2;
      $$ = next;
    }
- |
-*/
- ADDR_T NUM_T {
+ | ADDR_T NUM_T {
      inst_list* next = malloc(sizeof(inst_list));
      next->car.args.loc.isLab = 0;
      next->car.args.loc.num = $2;
@@ -182,84 +178,84 @@ inst:
    }
  | LABEL_T NUM_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = LABEL_T;
+     next->car.tag = label_i;
      next->car.args.num = $2;
      $$ = next;
    }
  | JUMP_T loc {
-     $2->car.tag = JUMP_T;
+     $2->car.tag = jump_i;
      $$ = $2;
    }
  | JUMP_IF_T loc {
-     $2->car.tag = JUMP_IF_T;
+     $2->car.tag = jump_if_i;
      $$ = $2;
    }
  | CALL_T loc {
-     $2->car.tag = CALL_T;
+     $2->car.tag = call_i;
      $$ = $2;
    }
  | JUMP_PTR_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = JUMP_PTR_T;
+     next->car.tag = jump_ptr_i;
      $$ = next;
    }
  | CALL_PTR_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = CALL_PTR_T;
+     next->car.tag = call_ptr_i;
      $$ = next;
    }
  | PUSH_PTR_T loc {
-     $2->car.tag = PUSH_PTR_T;
+     $2->car.tag = push_ptr_i;
      $$ = $2;
    }
  | RETURN_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = RETURN_T;
+     next->car.tag = return_i;
      $$ = next;
    }
  | PUSH_EXC_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = PUSH_EXC_T;
+     next->car.tag = push_exc_i;
      $$ = next;
    }
  | POP_EXC_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = POP_EXC_T;
+     next->car.tag = pop_exc_i;
      $$ = next;
    }
  | REF_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = REF_T;
+     next->car.tag = ref_i;
      $$ = next;
    }
  | DEREF_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = DEREF_T;
+     next->car.tag = deref_i;
      $$ = next;
    }
  | UPDATE_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = UPDATE_T;
+     next->car.tag = update_i;
      $$ = next;
    }
  | STOP_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = STOP_T;
+     next->car.tag = stop_i;
      $$ = next;
    }
  | TICK_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = TICK_T;
+     next->car.tag = tick_i;
      $$ = next;
    }
  | PRINT_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = PRINT_T;
+     next->car.tag = print_i;
      $$ = next;
    }
  | PRINT_C_T CHAR_T {
      inst_list* next = malloc(sizeof(inst_list));
-     next->car.tag = PRINT_C_T;
+     next->car.tag = print_c_i;
      next->car.args.character = $2;
      $$ = next;
    }
