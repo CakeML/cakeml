@@ -141,7 +141,7 @@ nEbase =
   do pos <- tokeq LbrackT;
      es <- sepBy nE (tokeq CommaT);
      tokeq RbrackT;
-     return (List.foldr (\e ast -> Ast_Con (Just (Short (ConN "::" pos))) [e, ast] pos) (Ast_Con (Just (Short (ConN "[]" pos))) [] pos) es)
+     return (List.foldr (\e ast -> Ast_Con (Just (Short (ConN "::" pos))) [e, ast] pos) (Ast_Con (Just (Short (ConN "nil" pos))) [] pos) es)
   <|>
   fmap Ast_Var nFQV
   <|>
@@ -356,7 +356,7 @@ nPbase =
   do pos <- tokeq LbrackT;
      ps <- sepBy nPattern (tokeq CommaT);
      tokeq RbrackT;
-     return (List.foldr (\p ast -> Ast_Pcon (Just (Short (ConN "::" pos))) [p, ast] pos) (Ast_Pcon (Just (Short (ConN "[]" pos))) [] pos) ps)
+     return (List.foldr (\p ast -> Ast_Pcon (Just (Short (ConN "::" pos))) [p, ast] pos) (Ast_Pcon (Just (Short (ConN "nil" pos))) [] pos) ps)
 
 
 nPapp = choice [try (do n <- nConstructorName;
@@ -365,14 +365,16 @@ nPapp = choice [try (do n <- nConstructorName;
                 nPbase]
 
 nPattern = nPapp `chainr1` fmap (\pos p1 p2 -> Ast_Pcon (Just (Short (ConN "::" pos))) [p1,p2] pos) (tokeq (SymbolT "::"))  
-
 nPtuple = 
   do pos <- tokeq LparT;
      ((tokeq RparT >> return (Ast_Plit Unit pos))
       <|> 
-      do pats <- sepBy1 nPattern (tokeq CommaT);
+      do pat <- nPattern;
+         r <- option pat (do tokeq CommaT 
+                             pats <- sepBy1 nPattern (tokeq CommaT)
+                             return (Ast_Pcon Nothing (pat:pats) pos));
          tokeq RparT;
-         return (Ast_Pcon Nothing pats pos))
+         return r)
 
 nLetDec = 
   do tokeq ValT;

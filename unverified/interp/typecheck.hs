@@ -489,7 +489,7 @@ init_type_env =
 tic_a = TvarN "'a" dummy_pos
 
 init_tenvC =
-  listToEnv ((Short (ConN "[]" dummy_pos), ([tic_a], [], TypeId (Short (TypeN "list" dummy_pos)))) :
+  listToEnv ((Short (ConN "nil" dummy_pos), ([tic_a], [], TypeId (Short (TypeN "list" dummy_pos)))) :
              (Short (ConN "::" dummy_pos), ([tic_a], [Tvar tic_a, Tapp [Tvar tic_a] (TC_name (Short (TypeN "list" dummy_pos)))], TypeId (Short (TypeN "list" dummy_pos)))) :
              List.map (\cn -> (Short (ConN cn dummy_pos) , ([], [], TypeExn))) ["Bind", "Div", "Eq"])
 
