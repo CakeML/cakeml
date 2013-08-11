@@ -1,3 +1,4 @@
+structure s = struct
 fun fib n = 
   if n = 0 then
     [0]
@@ -9,4 +10,5 @@ fun fib n =
 
 val fibs = fib 20;
 
-val (f20::_) = fibs;
+val (f20::x) = fibs;
+end;

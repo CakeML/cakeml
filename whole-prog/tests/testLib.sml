@@ -1,4 +1,5 @@
 open wholeProgTheory repl_computeLib stringSyntax optionSyntax;
+open pairSyntax;
 open bytecodeLabelsTheory wordsLib;
 open TextIO;
 
@@ -98,7 +99,24 @@ val filename = "fib.ml";
 val i = openIn filename;
 val s = inputAll i;
 val _ = closeIn i;
-val res = EVAL ``whole_prog_compile F ^(fromMLstring s)``
+PolyML.fullGC();
+val toks_thm = time EVAL ``lex_until_toplevel_semicolon ^(fromMLstring s)``
+(*runtime: 7.362s,    gctime: 5.321s,     systime: 1.202s.*)
+val toks = toks_thm |> concl |> rhs |> dest_some |> dest_pair |> fst
+PolyML.fullGC();
+val parse_thm = time EVAL ``parse_top ^toks``
+runtime: 6.016s,    gctime: 2.688s,     systime: 1.305s.
+val parse_tree = parse_thm |> concl |> rhs |> dest_some
+runtime: 6.016s,    gctime: 2.688s,     systime: 1.305s.
+PolyML.fullGC();
+val elab_thm = time EVAL ``elaborate_top initial_elaborator_state ^parse_tree``
+runtime: 0.01792s,    gctime: 0.00000s,     systime: 0.01898s.
+val ast = elab_thm |> concl |> rhs |> dest_pair |> snd
+PolyML.fullGC();
+val infer_thm = time EVAL ``infertype_top initial_inferencer_state ^ast``
+runtime: 2.486s,    gctime: 0.24140s,     systime: 1.043s.
+PolyML.fullGC();
+val compiler_thm = time EVAL ``compile_top initial_compiler_state ^ast``
 
 val filename = "test0.ml";
 val i = openIn filename;
