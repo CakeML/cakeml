@@ -13,12 +13,12 @@ val _ = Hol_datatype`
     | Tyapp of type_op => type list
   ; type_op
     = Typrim of string => num
-    | Tydefined of string => num => term
+    | Tydefined of string => term
   ; const_tag
     = Prim
     | Defined of term
-    | Tyabs of string => num => term
-    | Tyrep of string => num => term`
+    | Tyabs of string => term
+    | Tyrep of string => term`
 
 val _ = Parse.overload_on("Fun",``λs t. Tyapp (Typrim "->" 2) [s;t]``)
 val _ = Parse.overload_on("Bool",``Tyapp (Typrim "bool" 0) []``)
@@ -611,142 +611,74 @@ val INORDER_INSERT_def = Define`
 val STRING_SORT_def = Define`
   STRING_SORT xs = FOLDR INORDER_INSERT [] xs`
 
-(*
-
-val _ = Hol_datatype`def
-  = Axiomdef of term
-  | Constdef of string => term
-  | Typedef of string => term => string => string`
-
-val types_aux_def = Define`
-  (types_aux (Axiomdef t) = []) /\
-  (types_aux (Constdef s t) = []) /\
-  (types_aux (Typedef tyname t a r) = [(tyname,LENGTH (tvars t))])`
-
-val types_def = Define
- `types defs = FLAT (MAP types_aux defs)`
-
-val (type_ok_rules,type_ok_ind,type_ok_cases) = Hol_reln
-  `(!n defs. type_ok defs (Tyvar n)) /\
-   (!defs. type_ok defs Bool) /\
-   (!defs. type_ok defs Ind) /\
-   (!ty1 ty2 defs. type_ok defs ty1 /\ type_ok defs ty2 ==>
-                   type_ok defs (Fun ty1 ty2)) /\
-   (!n tys defs. (!ty. MEM ty tys ==> type_ok defs ty) /\
-                 MEM (n,LENGTH tys) (types defs) ==>
-                 type_ok defs (Tyapp n tys))`
-
-val consts_aux_def = Define
- `(consts_aux (Axiomdef t) = []) /\
-  (consts_aux (Constdef s t) = [(s,typeof t)]) /\
-  (consts_aux (Typedef tyname t a r) =
-     let rep_type = domain (typeof t) in
-     let abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t))) in
-       [(a,Fun rep_type abs_type);
-        (r,Fun abs_type rep_type)])`
-
-val consts_def = Define
- `consts defs = FLAT (MAP consts_aux defs)`
-
-val term_ok_def = Define
- `(term_ok defs (Var s ty) <=> type_ok defs ty) /\
-  (term_ok defs (Const s ty) <=> (type_ok defs ty /\
-     (?ty2 i. MEM (s,ty2) (consts defs) /\ (TYPE_SUBST i ty2 = ty)))) /\
-  (term_ok defs (Equal ty) <=> type_ok defs ty) /\
-  (term_ok defs (Select ty) <=> type_ok defs ty) /\
-  (term_ok defs (Comb x y) <=> (term_ok defs x /\ term_ok defs y)) /\
-  (term_ok defs (Abs s ty x) <=> (type_ok defs ty /\ term_ok defs x))`
-
-val def_ok_def = Define
- `(def_ok (Axiomdef t) (defs:(def)list) <=>
-     t has_type Bool /\ welltyped t /\ term_ok defs t) /\
-  (def_ok (Constdef s t) (defs:(def)list) <=>
-     CLOSED t /\ welltyped t /\ term_ok defs t /\
-     ~(MEM s (MAP FST (consts defs))) /\ ~(s = "=") /\
-     !v. MEM v (tvars t) ==> MEM v (tyvars (typeof t))) /\
-  (def_ok (Typedef tyname t a r) defs <=>
-     CLOSED t /\ welltyped t /\ term_ok defs t /\
-     ~(MEM tyname (MAP FST (types defs))) /\
-     ~(MEM a (MAP FST (consts defs))) /\ ~(a = "=") /\
-     ~(MEM r (MAP FST (consts defs))) /\ ~(r = "=") /\
-     ?ty. (typeof t = Fun ty Bool))`
-
-val context_ok_def = Define
- `(context_ok [] = T) /\
-  (context_ok (CONS def defs) <=> (def_ok def defs /\ context_ok defs))`
-
-val welltyped_in_def = Define
- `welltyped_in t defs <=> welltyped t /\ term_ok defs t /\ context_ok defs`
-
 val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 
 val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
- `(!t defs.
-        welltyped_in t defs
-        ==> (defs, []) |- t === t) /\
-  (!asl1 asl2 l m1 m2 r defs.
-        (defs, asl1) |- l === m1 /\ (defs, asl2) |- m2 === r /\ ACONV m1 m2
-        ==> (defs, TERM_UNION asl1 asl2) |- l === r) /\
-  (!asl1 l1 r1 asl2 l2 r2 defs.
-        (defs, asl1) |- l1 === r1 /\
-        (defs, asl2) |- l2 === r2 /\ welltyped(Comb l1 l2)
-        ==> (defs, TERM_UNION asl1 asl2) |- Comb l1 l2 === Comb r1 r2) /\
-  (!asl x ty l r defs.
-        ~(EXISTS (VFREE_IN (Var x ty)) asl) /\ type_ok defs ty /\
-        (defs, asl) |- l === r
-        ==> (defs, asl) |- (Abs x ty l) === (Abs x ty r)) /\
-  (!x ty t defs.
-        welltyped_in t defs /\ type_ok defs ty
-        ==> (defs, []) |- Comb (Abs x ty t) (Var x ty) === t) /\
-  (!p defs.
-        p has_type Bool /\ welltyped_in p defs
-        ==> (defs, [p]) |- p) /\
-  (!asl1 asl2 p q p' defs.
-        (defs, asl1) |- p === q /\ (defs, asl2) |- p' /\ ACONV p p'
-        ==> (defs, TERM_UNION asl1 asl2) |- q) /\
-  (!asl1 asl2 c1 c2 defs.
-        (defs, asl1) |- c1 /\ (defs, asl2) |- c2
-        ==> (defs, TERM_UNION (FILTER((~) o ACONV c2) asl1)
-                              (FILTER((~) o ACONV c1) asl2))
-               |- c1 === c2) /\
-  (!tyin asl p defs.
-        (!s s'. MEM (s',s) tyin ==> type_ok defs s') /\
-        (defs, asl) |- p
-        ==> (defs, MAP (INST tyin) asl) |- INST tyin p) /\
-  (!ilist asl p defs.
-        (!s s'. MEM (s',s) ilist ==> ?x ty. (s = Var x ty) /\ s' has_type ty /\
-                                            welltyped_in s' defs) /\
-        (defs, asl) |- p
-        ==> (defs, MAP (VSUBST ilist) asl) |- VSUBST ilist p) /\
-  (!asl p d defs.
-        (defs, asl) |- p /\ def_ok d defs
-        ==> (CONS d defs, asl) |- p) /\
-  (!t defs.
-        context_ok defs /\ MEM (Axiomdef t) defs
-        ==> (defs, []) |- t) /\
-  (!n t defs.
-        context_ok defs /\ MEM (Constdef n t) defs
-        ==> (defs, []) |- Const n (typeof t) === t) /\
-  (!tyname t a r defs x rep_type abs_type y d.
-        (d = Typedef tyname t a r) /\
-        (rep_type = domain (typeof t)) /\
-        (abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t)))) /\
-        context_ok (CONS d defs) /\ (defs, []) |- Comb t y
-        ==> (CONS d defs, [])
-             |- Comb (Const a (Fun rep_type abs_type))
-                     (Comb (Const r (Fun abs_type rep_type))
-                           (Var x abs_type)) === Var x abs_type) /\
-  (!tyname t a r defs x rep_type abs_type y d.
-        (d = Typedef tyname t a r) /\
-        (rep_type = domain (typeof t)) /\
-        (abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t)))) /\
-        context_ok (CONS d defs) /\ (defs, []) |- Comb t y
-        ==> (CONS d defs, [])
-             |- Comb t (Var x rep_type) ===
-                Comb (Const r (Fun abs_type rep_type))
-                     (Comb (Const a (Fun rep_type abs_type))
-                           (Var x rep_type)) === Var x rep_type)`;;
-
-*)
+ `(* REFL *)
+ ([] |- t === t)
+∧ (* TRANS *)
+  (h1 |- l === m1 ∧ h2 |- m2 === r ∧ ACONV m1 m2
+   ⇒
+   (TERM_UNION h1 h2) |- l === r)
+∧ (* MK_COMB *)
+  (h1 |- l1 === r1 ∧
+   h2 |- l2 === r2 ∧ welltyped(Comb l1 l2)
+   ⇒
+   (TERM_UNION h1 h2) |- Comb l1 l2 === Comb r1 r2)
+∧ (* ABS *)
+  (¬(EXISTS (VFREE_IN (Var x ty)) h) ∧
+   h |- l === r
+   ⇒
+   h |- (Abs x ty l) === (Abs x ty r))
+∧ (* BETA *)
+  ([] |- Comb (Abs x ty t) (Var x ty) === t)
+∧ (* ASSUME *)
+  (p has_type Bool
+   ⇒
+   [p] |- p)
+∧ (* EQ_MP *)
+  (h1 |- p === q ∧ h2 |- p' ∧ ACONV p p'
+   ⇒
+   (TERM_UNION h1 h2) |- q)
+∧ (* DEDUCT_ANTISYM *)
+  (h1 |- c1 ∧ h2 |- c2
+   ⇒
+   (TERM_UNION (FILTER((~) o ACONV c2) h1)
+               (FILTER((~) o ACONV c1) h2))
+     |- c1 === c2)
+∧ (* INST_TYPE *)
+  (h |- c
+   ⇒
+   (MAP (INST tyin) h) |- INST tyin c)
+∧ (* INST *)
+  ((∀s s'. MEM (s',s) ilist ⇒ ∃x ty. (s = Var x ty) ∧ s' has_type ty) ∧
+   h |- c
+   ⇒
+   (MAP (VSUBST ilist) h) |- VSUBST ilist c)
+∧ (* new_basic_definition *)
+  ((∀x ty. ¬VFREE_IN (Var x ty) r) ∧
+   set(tvars r) ⊆ set(tyvars ty) ∧
+   r has_type ty
+   ⇒
+   [] |- (Const n ty (Defined r)) === r)
+∧ (* new_basic_type_definition |- abs (rep x) = x *)
+  ([] |- Comb p w ∧
+   rty = domain (typeof p) ∧
+   aty = Tyapp (Tydefined n p) (MAP Tyvar (STRING_SORT (tvars p)))
+   ⇒
+   [] |-
+     Comb (Const abs (Fun rty aty) (Tyabs n p))
+          (Comb (Const rep (Fun aty rty) (Tyrep n p))
+                (Var x aty)) === Var x aty)
+∧ (* new_basic_type_definition |- p x = (rep (abs x) = x) *)
+  ([] |- Comb p w ∧
+   rty = domain (typeof p) ∧
+   aty = Tyapp (Tydefined n p) (MAP Tyvar (STRING_SORT (tvars p)))
+   ⇒
+   [] |-
+     Comb p (Var x rty) ===
+     Comb (Const rep (Fun aty rty) (Tyrep n p))
+          (Comb (Const abs (Fun rty aty) (Tyabs n p))
+                (Var x rty)) === Var x rty)`;;
 
 val _ = export_theory()
