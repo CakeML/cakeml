@@ -62,6 +62,16 @@ fun take 0 xs = []
   | take n [] = []
   | take n (x::xs) = x :: take (n-1) xs
 
+fun MY_MP name th1 th2 =
+  MP th1 th2 handle e =>
+    let
+      val _ = print ("\n\n "^name^" MP th1 th2 failed, th1 is:\n\n")
+      val _ = print_thm th1
+      val _ = print "\n\nth2 is:\n\n"
+      val _ = print_thm th2
+      val _ = print "\n\n"
+    in raise e end
+
 local
   (* inv: get_DeclAssum () is a hyp in each thm in each !cert_memory *)
   val module_name = ref "";
@@ -75,6 +85,16 @@ local
   val abbrev_counter = ref 0;
   val abbrev_defs = ref ([]:thm list);
 in
+  fun get_cenv_names () = let
+    val th = !cenv_eq_thm
+    val pat = ``Short (n:string)``
+    val strs = find_terms (can (match_term pat)) (concl th) |> map rand
+    fun all_distinct [] = []
+      | all_distinct (x::xs) = let
+        val ys = all_distinct xs
+        in if mem x ys then ys else x::ys end
+    val names = map stringSyntax.fromHOLstring strs |> all_distinct
+    in names end
   fun get_check_ctors_decs () = !check_ctors
   fun get_DeclAssumExists () = !decl_exists
   fun cert_reset () =
@@ -178,7 +198,7 @@ in
     val th = MATCH_MP IMP_check_ctors_decs_SNOC (!check_ctors) |> SPEC d
     val tm = th |> concl |> dest_imp |> fst
     val lemma = prove(tm,PURE_REWRITE_TAC [cenv] THEN EVAL_TAC)
-    val th = MP th lemma
+    val th = MY_MP "snoc_decl" th lemma
     val _ = (check_ctors := th)
     val _ = map_cert_memory f
     in () end;
@@ -189,8 +209,8 @@ in
               THENC SIMP_CONV (srw_ss()) [] THENC EVAL
       val th = MATCH_MP DeclAssumExists_SNOC_Dtype (!decl_exists)
                |> SPEC (decl |> rand)
-               |> CONV_RULE ((RATOR_CONV o RAND_CONV) c)
-      val th = MP th TRUTH
+      val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV) c)
+      val th = MY_MP "dtype" th TRUTH
       in decl_exists := th end
     val _ = snoc_decl decl
     val _ = update_decl_abbreviation ()
@@ -687,7 +707,14 @@ fun tag_name type_name const_name = let
   val y = clean_lowercase const_name
   fun upper_case_hd s =
     clean_uppercase (implode [hd (explode s)]) ^ implode (tl (explode s))
-  in if y = "" then upper_case_hd x else upper_case_hd y end;
+  val name = if y = "" then upper_case_hd x else upper_case_hd y
+  val taken_names = get_cenv_names ()
+  fun find_unique name n =
+    if not (mem name taken_names) then name else
+    if not (mem (name ^ "_" ^ int_to_string n) taken_names) then
+      name ^ "_" ^ int_to_string n
+    else find_unique name (n+1)
+  in find_unique name 1 end;
 
 val last_def_fail = ref T
 
@@ -956,8 +983,10 @@ val _ = persistent_skip_case_const ``COND:bool -> 'a -> 'a -> 'a``;
   in f end
 
 (*
-
+val ty = ``:compiler_result``;
 val ty = ``:token``
+
+val ty = ``:TREE2``
 
 val ty = ``:'a list``; derive_thms_for_type ty
 val ty = ``:'a # 'b``; derive_thms_for_type ty
@@ -2667,5 +2696,6 @@ fun mltDefine name q tac = let
   val _ = print_thm (D th)
   val _ = print "\n\n"
   in def end;
+
 
 end
