@@ -155,6 +155,13 @@ val peg_EbaseParen_def = Define`
                    seql [tokeq SemicolonT; pnt nEseq; tokeq RparT] I]]
          peg_EbaseParenFn
 `
+val peg_StructName_def = Define`
+  peg_StructName =
+    tok (λt. do s <- destAlphaT t ;
+                assert (s ≠ "")
+             od = SOME ())
+        (bindNT nStructName o mktokLf)
+`;
 
 
 val mmlPEG_def = zDefine`
@@ -379,8 +386,9 @@ val mmlPEG_def = zDefine`
               (mkNT nOptionalSignatureAscription,
                pegf (try (seql [tokeq SealT; pnt nSignatureValue] I))
                     (bindNT nOptionalSignatureAscription));
+              (mkNT nStructName, peg_StructName);
               (mkNT nStructure,
-               seql [tokeq StructureT; pnt nV; pnt nOptionalSignatureAscription;
+               seql [tokeq StructureT; pnt nStructName; pnt nOptionalSignatureAscription;
                      tokeq EqualsT; tokeq StructT; pnt nDecls; tokeq EndT]
                     (bindNT nStructure));
               (mkNT nTopLevelDec,
@@ -530,6 +538,7 @@ fun pegnt(t,acc) = let
       prove(``¬peg0 mmlPEG (pnt ^t)``,
             simp(pegnt_case_ths @ mmlpeg_rules_applied @
                  [FDOM_cmlPEG, peg_V_def, peg_UQConstructorName_def,
+                  peg_StructName_def,
                   peg_EbaseParen_def,
                   peg_TypeDec_def, choicel_def, seql_def, peg_longV_def,
                   pegf_def, peg_nonfix_def, peg_linfix_def]) >>
@@ -544,7 +553,7 @@ end
 val npeg0_rwts =
     List.foldl pegnt []
                [``nTypeDec``, ``nDecl``, ``nV``, ``nVlist1``, ``nUQTyOp``,
-                ``nUQConstructorName``, ``nConstructorName``, ``nTypeName``,
+                ``nUQConstructorName``, ``nStructName``, ``nConstructorName``, ``nTypeName``,
                 ``nDtypeDecl``, ``nDconstructor``, ``nFDecl``, ``nTyvarN``,
                 ``nTyOp``, ``nTbase``, ``nDType``, ``nPType``, ``nType``,
                 ``nTypeList1``, ``nTypeList2``,
@@ -617,7 +626,7 @@ fun wfnt(t,acc) = let
                    (mmlpeg_rules_applied @
                     [wfpeg_pnt, FDOM_cmlPEG, try_def, peg_longV_def,
                      seql_def, peg_TypeDec_def, peg_V_def,
-                     peg_EbaseParen_def,
+                     peg_EbaseParen_def, peg_StructName_def,
                      peg_UQConstructorName_def, peg_nonfix_def,
                      tokeq_def, peg_linfix_def]) THEN
           simp(wfpeg_rwts @ npeg0_rwts @ peg0_rwts @ acc))
@@ -626,7 +635,7 @@ in
 end;
 
 val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nDecl``,
-                ``nVlist1``, ``nUQTyOp``, ``nUQConstructorName``,
+                ``nVlist1``, ``nUQTyOp``, ``nUQConstructorName``, ``nStructName``,
                 ``nConstructorName``, ``nTyVarList``, ``nTypeName``, ``nTyOp``,
                 ``nTbase``, ``nDType``, ``nPType``, ``nListOps``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPapp``, ``nPattern``,
@@ -666,7 +675,7 @@ val PEG_exprs = save_thm(
          [pegTheory.Gexprs_def, pegTheory.subexprs_def,
           subexprs_pnt, peg_start, peg_range, choicel_def, tokeq_def, try_def,
           seql_def, pegf_def, peg_V_def, peg_nonfix_def, peg_EbaseParen_def,
-          peg_longV_def, peg_linfix_def,
+          peg_longV_def, peg_linfix_def, peg_StructName_def,
           peg_TypeDec_def, peg_UQConstructorName_def,
           pred_setTheory.INSERT_UNION_EQ
          ])
@@ -679,7 +688,7 @@ val PEG_wellformed = store_thm(
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
        peg_linfix_def, peg_UQConstructorName_def, peg_TypeDec_def,
        peg_V_def, peg_EbaseParen_def, peg_nonfix_def,
-       peg_longV_def] >>
+       peg_longV_def, peg_StructName_def] >>
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
 val _ = export_rewrites ["PEG_wellformed"]
 

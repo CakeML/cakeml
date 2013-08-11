@@ -1767,6 +1767,11 @@ val completeness = store_thm(
       normlist >> first_assum (unify_firstconj kall_tac) >> simp[] >>
       normlist >> simp[] >>
       first_assum (unify_firstconj kall_tac) >> simp[])
+  >- (print_tac "nStructName" >>
+      simp[MAP_EQ_SING, peg_eval_NT_SOME] >>
+      simp[mmlpeg_rules_applied, FDOM_cmlPEG, peg_StructName_def,
+           gramTheory.assert_def] >>
+      strip_tac >> rveq >> fs[MAP_EQ_SING])
   >- (print_tac "nSpecLineList" >>
       simp[peg_eval_NT_SOME] >>
       simp[mmlpeg_rules_applied, FDOM_cmlPEG] >> simp[MAP_EQ_CONS] >>

@@ -175,13 +175,14 @@ val mmlG_def = mk_grammar_def ginfo
  PEs ::= PE | PE' "|" PEs;
 
  (* modules *)
+ StructName ::= ^(``{AlphaT s | s ≠ ""}``) ;
  SpecLine ::= "val" V ":" Type
            |  "type" TypeName
            |  TypeDec ;
  SpecLineList ::= SpecLine SpecLineList | ";" SpecLineList | ;
  SignatureValue ::= "sig" SpecLineList "end" ;
  OptionalSignatureAscription ::= ":>" SignatureValue | ;
- Structure ::= "structure" V OptionalSignatureAscription "=" "struct" Decls "end";
+ Structure ::= "structure" StructName OptionalSignatureAscription "=" "struct" Decls "end";
  TopLevelDec ::= Structure | Decl;
  TopLevelDecs ::= TopLevelDec TopLevelDecs | ;
  REPLPhrase ::= TopLevelDecs ";" | E ";" ;

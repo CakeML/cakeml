@@ -396,11 +396,11 @@ val peg_sound = store_thm(
   >- (print_tac "nStructure" >> strip_tac >> rveq >>
       simp[DISJ_IMP_THM, FORALL_AND_THM, cmlG_FDOM, cmlG_applied] >>
       loseC ``NT_rank`` >> fs[] >>
-      asm_match `peg_eval mmlPEG (vi, nt (mkNT nV) I) (SOME(opti,vt))` >>
+      asm_match `peg_eval mmlPEG (vi, nt (mkNT nStructName) I) (SOME(opti,vt))` >>
       `LENGTH vi < SUC (LENGTH vi)` by decide_tac >>
       first_assum (erule strip_assume_tac) >> rveq >> simp[] >>
       `LENGTH opti < LENGTH vi`
-        by metis_tac[not_peg0_LENGTH_decreases, peg0_nV] >>
+        by metis_tac[not_peg0_LENGTH_decreases, peg0_nStructName] >>
       `LENGTH opti < SUC (LENGTH vi)` by decide_tac >>
       first_assum (erule strip_assume_tac) >> rveq >> simp[] >>
       asm_match `peg_eval mmlPEG (opti, OPTSIG)
@@ -410,6 +410,10 @@ val peg_sound = store_thm(
                      DECIDE``x:num ≤ y ⇔ x < y ∨ x = y``] >> fs[] >>
       `LENGTH di < SUC (LENGTH vi)` by decide_tac >>
       first_x_assum (erule strip_assume_tac) >> rveq >> simp[])
+  >- (print_tac "nStructName" >>
+      simp[peg_StructName_def] >>
+      disch_then (qxchl [`t`] strip_assume_tac) >> rveq >> simp[] >>
+      Cases_on `t` >> fs[gramTheory.assert_def, cmlG_applied, cmlG_FDOM])
   >- (print_tac "nOptionalSignatureAscription" >> strip_tac >> rveq >>
       simp[cmlG_applied, cmlG_FDOM] >> dsimp[] >>
       loseC ``NT_rank`` >> dsimp[MAP_EQ_SING] >> csimp[] >> fs[] >>

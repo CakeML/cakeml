@@ -316,6 +316,11 @@ nDconstructor =
                 t <- nType;
                 return (cn, detuplify t))
 
+nStructName = 
+  tok (\t -> do (s,pos) <- destAlphaT t; 
+                guard (s /= "");
+                return (ModN s pos))
+
 nUQConstructorName = 
   tok (\t -> do (s,pos) <- destAlphaT t; 
                 guard (s /= "" && isUpper (List.head s) || s `elem` ["true", "false", "ref"]);
@@ -439,7 +444,7 @@ nOptionalSignatureAscription = optionMaybe (tokeq SealT >> nSignatureValue)
 
 nStructure = 
   do tokeq StructureT;
-     x <- nV' ModN;
+     x <- nStructName;
      s_opt <- nOptionalSignatureAscription;
      tokeq EqualsT;
      tokeq StructT;

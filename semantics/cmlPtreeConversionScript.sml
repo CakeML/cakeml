@@ -1034,6 +1034,16 @@ val ptree_SignatureValue_def = Define`
         | _ => NONE
 `;
 
+val ptree_StructName_def = Define`
+  ptree_StructName (Lf _) = NONE ∧
+  ptree_StructName (Nd nm args) =
+    if nm <> mkNT nStructName then NONE
+    else
+      case args of
+          [pt] => destAlphaT ' (destTOK ' (destLf pt))
+        | _ => NONE
+`
+
 val ptree_Structure_def = Define`
   ptree_Structure (Lf _) = NONE ∧
   ptree_Structure (Nd nt args) =
@@ -1045,7 +1055,7 @@ val ptree_Structure_def = Define`
             assert(structtok = Lf (TOK StructT) ∧
                    structuretok = Lf (TOK StructureT) ∧
                    eqtok = Lf (TOK EqualsT) ∧ endtok = Lf (TOK EndT));
-            sname <- ptree_V sname_pt;
+            sname <- ptree_StructName sname_pt;
             asc <- case asc_opt of
                        Lf _ => NONE
                      | Nd nt args =>
