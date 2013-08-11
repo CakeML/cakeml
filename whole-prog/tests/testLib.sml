@@ -1,6 +1,11 @@
-open wholeProgTheory repl_computeLib stringSyntax optionSyntax;
+structure testLib = struct
+
+open wholeProgTheory stringSyntax optionSyntax;
 open pairSyntax;
 open bytecodeLabelsTheory wordsLib;
+
+open repl_computeLib;
+
 open TextIO;
 
 val _ = computeLib.add_funs [compile_decs_def, compile_print_vals_def, 
@@ -86,7 +91,6 @@ fun do_compile_binary infile outfile =
     ()
   end
 
-
   (*
 do_all_tests
 ["test1.ml", 
@@ -94,7 +98,7 @@ do_all_tests
  "test3.ml",
  "test4.ml"]
 
-val filename = "fib.ml";
+val filename = "fib.sml";
 val i = openIn filename;
 val s = inputAll i;
 val _ = closeIn i;
@@ -115,17 +119,16 @@ val bcs = compiler_thm |> concl |> rhs |> dest_pair |> snd |> dest_pair |> snd
 PolyML.fullGC();
 val string_thm = time EVAL ``FLAT (MAP (\inst. bc_inst_to_string inst ++ "\n") ^bcs)``
 PolyML.fullGC();
-val word_thm = time EVAL ``encode_bc_insts ^bcs``
+val word_thm = time EVAL ``(encode_bc_insts ^bcs : word64 list option)``
 
 val filename = "test0.ml";
 val i = openIn filename;
 val s = inputAll i;
 val _ = closeIn i;
-val res = EVAL ``(whole_prog_compile_string F ^(fromMLstring s))``
+val res = EVAL ``(whole_prog_compile_encode T ^(fromMLstring s))``
 
 
 time (do_compile_binary "fib.ml") "fib.bbyte"
-runtime: 4m03s,    gctime: 3m53s,     systime: 6.918s.
 
 time (do_compile_string "fib.ml") "fib.byte"
 
@@ -134,4 +137,4 @@ time (do_compile_string "test0.ml") "test0.byte"
 
 
  *)
-
+end;
