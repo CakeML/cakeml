@@ -1,0 +1,20 @@
+model_syntax.ml
+    John Harrison's Model/syntax.ml extended with defns and tweaked to export nicely to OpenTheory.
+
+model_syntax.art
+    The result of exporting the above file to OpenTheory, i.e. an OpenTheory article file.
+
+model_syntaxScript.sml
+    A HOL4 script file which imports the article file from above into HOL4.
+
+hol_kernelScript.sml
+    Defines the HOL light kernel as monadic functions in HOL4.
+
+hol_verificationScript.sml
+    Proves that the two files from above agree, i.e. the monadic functions respect the inference rules.
+
+ml_monadScript.sml
+    A few lemmas that are used in translating the monadic functions from hol_kernelScript.sml
+
+ml_hol_kernelScript.sml
+    Proof-producing translation of all functions from hol_kernelScript.sml into CakeML

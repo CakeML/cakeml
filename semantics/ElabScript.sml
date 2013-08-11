@@ -50,10 +50,10 @@ val _ = Hol_datatype `
 
 val _ = Hol_datatype `
  ast_exp =
-    (* raise 4 *)
-    Ast_Raise of error
-    (* e handle x => e *)
-  | Ast_Handle of ast_exp => varN => ast_exp
+    (* raise (E 4) *)
+    Ast_Raise of ast_exp
+    (* e handle E x => x | F => 1 *)
+  | Ast_Handle of ast_exp => (ast_pat # ast_exp) list
     (* 1 *)
     (* true *)
     (* () *)
@@ -105,7 +105,8 @@ val _ = Hol_datatype `
     (* fun f x = e and g y = f *) 
   | Ast_Dletrec of (varN # varN # ast_exp) list
     (* see above *)
-  | Ast_Dtype of ast_type_def`;
+  | Ast_Dtype of ast_type_def
+  | Ast_Dexn of conN => ast_t list`;
 
 
 val _ = type_abbrev( "ast_decs" , ``: ast_dec list``);
@@ -169,11 +170,12 @@ val _ = type_abbrev( "tdef_env" , ``: (typeN,tc0) env``);
 
  val elab_e_defn = Hol_defn "elab_e" `
 
-(elab_e ctors (Ast_Raise err) =  
-(Raise err))
+(elab_e ctors (Ast_Raise e) =  
+(Raise (elab_e ctors e)))
 /\
-(elab_e ctors (Ast_Handle e1 x e2) =  
-(Handle (elab_e ctors e1) x (elab_e ctors e2)))
+(elab_e ctors (Ast_Handle e pes) =  
+(Handle (elab_e ctors e) 
+         ( MAP (\ (p,e) . (elab_p ctors p, elab_e ctors e)) pes)))
 /\
 (elab_e ctors (Ast_Lit l) =  
 (Lit l))
@@ -206,10 +208,7 @@ val _ = type_abbrev( "tdef_env" , ``: (typeN,tc0) env``);
 /\
 (elab_e ctors (Ast_Mat e pes) =  
 (Mat (elab_e ctors e) 
-      ( MAP (\ (p,e) . 
-                   let p' = ( elab_p ctors p) in
-                     (p', elab_e ctors e))
-                pes)))
+      ( MAP (\ (p,e) . (elab_p ctors p, elab_e ctors e)) pes)))
 /\
 (elab_e ctors (Ast_Let x e1 e2) =  
 (Let x (elab_e ctors e1) (elab_e ctors e2)))
@@ -225,17 +224,6 @@ val _ = type_abbrev( "tdef_env" , ``: (typeN,tc0) env``);
 ((n1,n2,elab_e ctors e) :: elab_funs ctors funs))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_e_defn;
-
- val get_prim_type_def = Define `
- (get_prim_type tn =  
-((case tn of
-      "int" => SOME TC_int
-    | "bool" => SOME TC_bool
-    | "unit" => SOME TC_unit
-    | "ref" => SOME TC_ref
-    | _ => NONE
-  )))`;
-
 
  val elab_t_defn = Hol_defn "elab_t" `
 
@@ -284,8 +272,13 @@ val _ = Define `
 (elab_dec mn type_bound ctors (Ast_Dtype t) =  
  (let type_bound' = ( MAP (\ (tvs,tn,ctors) . (tn, TC_name (mk_id mn tn))) t) in
   (type_bound',
-   merge (get_ctors_bindings mn t) ctors,
-   Dtype ( MAP (elab_td (merge type_bound' type_bound)) t))))`;
+   get_ctors_bindings mn t,
+   Dtype ( MAP (elab_td (merge type_bound' type_bound)) t))))
+/\
+(elab_dec mn type_bound ctors (Ast_Dexn cn ts) =
+  (emp,
+   bind cn (mk_id mn cn) emp,
+   Dexn cn ( MAP (elab_t type_bound) ts)))`;
 
 
  val elab_decs_defn = Hol_defn "elab_decs" `

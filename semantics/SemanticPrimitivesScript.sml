@@ -35,7 +35,7 @@ val _ = Hol_datatype `
 val _ = Hol_datatype `
  error_result =
     Rtype_error
-  | Rraise of error
+  | Rraise of v (* Should only be a value of type exn *)
   | Rtimeout_error`;
 
 
@@ -78,8 +78,14 @@ val _ = Define `
     NONE))`;
 
 
+val _ = Hol_datatype `
+ tid_or_exn = 
+    TypeId of typeN id
+  | TypeExn`;
+
+
 (* Maps each constructor to its arity and which type it is from *)
-val _ = type_abbrev( "envC" , ``: (( conN id), (num # typeN id)) env``);
+val _ = type_abbrev( "envC" , ``: (( conN id), (num # tid_or_exn)) env``);
 
 val _ = type_abbrev( "envE" , ``: (varN, v) env``);
 
@@ -314,7 +320,7 @@ val _ = Define `
         )
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 = & 0) then
-          SOME (s, env', Raise Div_error)
+          SOME (s, env', Raise (Con (SOME (Short "Div")) []))
         else
           SOME (s, env',Lit (IntLit (opn_lookup op n1 n2)))
     | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) =>
@@ -322,7 +328,7 @@ val _ = Define `
     | (Equality, v1, v2) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
-          | Eq_closure => SOME (s, env', Raise Eq_error)
+          | Eq_closure => SOME (s, env', Raise (Con (SOME (Short "Eq")) []))
           | Eq_val b => SOME (s, env', Lit (Bool b))
         )
     | (Opassign, (Loc lnum), v) =>
@@ -367,7 +373,7 @@ val _ = Define `
     ( MAP
       (\ (tvs, tn, condefs) . MAP
            (\ (conN, ts) .
-              (mk_id mn conN, ( LENGTH ts, mk_id mn tn)))
+              (mk_id mn conN, ( LENGTH ts, TypeId (mk_id mn tn))))
            condefs)
       tds)))`;
 
@@ -402,24 +408,33 @@ val _ = Define `
   )))`;
 
 
-(*val init_env : envE*)
-val _ = Define `
- init_env =  
-([("+", Closure [] "x" (Fun "y" (App (Opn Plus) (Var (Short "x")) (Var (Short "y")))));
-   ("-", Closure [] "x" (Fun "y" (App (Opn Minus) (Var (Short "x")) (Var (Short "y")))));
-   ("*", Closure [] "x" (Fun "y" (App (Opn Times) (Var (Short "x")) (Var (Short "y")))));
-   ("div", Closure [] "x" (Fun "y" (App (Opn Divide) (Var (Short "x")) (Var (Short "y")))));
-   ("mod", Closure [] "x" (Fun "y" (App (Opn Modulo) (Var (Short "x")) (Var (Short "y")))));
-   ("<", Closure [] "x" (Fun "y" (App (Opb Lt) (Var (Short "x")) (Var (Short "y")))));
-   (">", Closure [] "x" (Fun "y" (App (Opb Gt) (Var (Short "x")) (Var (Short "y")))));
-   ("<=", Closure [] "x" (Fun "y" (App (Opb Leq) (Var (Short "x")) (Var (Short "y")))));
-   (">=", Closure [] "x" (Fun "y" (App (Opb Geq) (Var (Short "x")) (Var (Short "y")))));
-   ("=", Closure [] "x" (Fun "y" (App Equality (Var (Short "x")) (Var (Short "y")))));
-   (":=", Closure [] "x" (Fun "y" (App Opassign (Var (Short "x")) (Var (Short "y")))));
-   ("~", Closure [] "x" (App (Opn Minus) (Lit (IntLit ( & 0))) (Var (Short "x"))));
-   ("!", Closure [] "x" (Uapp Opderef (Var (Short "x"))));
-   ("ref", Closure [] "x" (Uapp Opref (Var (Short "x"))))])`;
+(* Constructor environment implied by declarations *)
 
+ val dec_to_cenv_def = Define `
+
+(dec_to_cenv mn (Dtype tds) = ( build_tdefs mn tds))
+/\
+(dec_to_cenv mn (Dexn cn ts) = ( bind (mk_id mn cn) ( LENGTH ts,TypeExn) emp))
+/\
+(dec_to_cenv mn _ = ([]))`;
+
+
+ val decs_to_cenv_defn = Hol_defn "decs_to_cenv" `
+
+(decs_to_cenv mn [] = ([]))
+/\
+(decs_to_cenv mn (d::ds) = (decs_to_cenv mn ds ++ dec_to_cenv mn d))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn decs_to_cenv_defn;
+
+ val top_to_cenv_def = Define `
+
+(top_to_cenv (Tdec d) = ( dec_to_cenv NONE d))
+/\
+(top_to_cenv (Tmod mn _ ds) = ( decs_to_cenv (SOME mn) ds))`;
+
+
+(* conversions to strings *)
 
  val id_to_string_def = Define `
 

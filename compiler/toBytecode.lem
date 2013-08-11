@@ -3,7 +3,6 @@
 open Lib
 open Ast
 open CompilerLib
-open CompilerPrimitives
 open IntLang
 open ToIntLang
 open Bytecode

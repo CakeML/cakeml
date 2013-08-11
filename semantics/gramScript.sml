@@ -41,8 +41,11 @@ val tokmap0 =
     List.foldl (fn ((s,t), acc) => Binarymap.insert(acc,s,t))
                (Binarymap.mkDict String.compare)
                [("(", ``LparT``), (")", ``RparT``), (",", ``CommaT``),
+                ("[", ``LbrackT``),
+                ("]", ``RbrackT``),
                 (";", ``SemicolonT``), (":=", ``SymbolT ":="``),
                 (":>", ``SealT``),
+                ("::", ``SymbolT "::"``), ("@", ``SymbolT "@"``),
                 ("->", ``ArrowT``), ("=>", ``DarrowT``),
                 ("*", ``StarT``),
                 ("|", ``BarT``), ("=", ``EqualsT``), (":", ``ColonT``),
@@ -56,6 +59,7 @@ val tokmap0 =
                 ("Div", ``AlphaT "Div"``),
                 ("else", ``ElseT``),
                 ("end", ``EndT``),
+                ("exception", ``ExceptionT``),
                 ("false", ``AlphaT "false"``),
                 ("fn", ``FnT``),
                 ("fun", ``FunT``),
@@ -116,14 +120,14 @@ val mmlG_def = mk_grammar_def ginfo
  V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false"; "ref" } ∧
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
     |  ^(``{SymbolT s |
-            s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"; ":="}}``);
+            s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"; ":=";
+                 "::"; "@"}}``);
  FQV ::= V
       |  ^(``{LongidT str s | str,s |
               s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s))}``) ;
  Vlist1 ::= V Vlist1 | V;
- Exn ::= "Bind" | "Div" | "IntError" <IntT>;
  Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | <IntT>
-        |  "let" LetDecs "in" Eseq "end";
+        |  "let" LetDecs "in" Eseq "end" | "[" "]" | "[" Elist1 "]";
  Eseq ::= E ";" Eseq | E;
  Etuple ::= "(" Elist2 ")";
  Elist2 ::= E "," Elist1;
@@ -135,31 +139,35 @@ val mmlG_def = mk_grammar_def ginfo
  AddOps ::= ^(``{SymbolT "+"; SymbolT "-"}``);
  RelOps ::= ^(``{SymbolT s | s ∈ {"<"; ">"; "<="; ">="; "<>"}}``) | "=";
  CompOps ::= "o" | ":=";
+ ListOps ::= "@" | "::";
  Emult ::= Emult MultOps Eapp | Eapp;
  Eadd ::= Eadd AddOps Emult | Emult;
- Erel ::= Eadd RelOps Eadd | Eadd;
+ Elistop ::= Eadd ListOps Elistop | Eadd;
+ Erel ::= Erel RelOps Elistop | Elistop;
  Ecomp ::= Ecomp CompOps Erel | Erel;
  Ebefore ::= Ebefore "before" Ecomp | Ecomp;
  Etyped ::= Ebefore | Ebefore ":" Type;
  ElogicAND ::= ElogicAND "andalso" Etyped | Etyped;
  ElogicOR ::= ElogicOR "orelse" ElogicAND | ElogicAND;
- Ehandle ::= ElogicOR | ElogicOR "handle" "IntError" V "=>" E ;  (* should be a PEs *)
- E ::= "if" E "then" E "else" E | "case" E "of" PEs | "fn" V "=>" E | "raise" Exn
+ Ehandle ::= ElogicOR | ElogicOR "handle" PEs ;
+ E ::= "if" E "then" E "else" E | "case" E "of" PEs | "fn" V "=>" E | "raise" E
     |  Ehandle;
- E' ::= "if" E "then" E "else" E' | "fn" V "=>" E' | "raise" Exn | Ehandle' ;
- Ehandle' ::= ElogicOR | ElogicOR "handle" "IntError" V "=>" E' ;
+ E' ::= "if" E "then" E "else" E' | "raise" E' | ElogicOR ;
 
  (* function and value declarations *)
  FDecl ::= V Vlist1 "=" E ;
  AndFDecls ::= FDecl | AndFDecls "and" FDecl;
- Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec ;
+ Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec
+       |  "exception" Dconstructor ;
  Decls ::= Decl Decls | ";" Decls | ;
  LetDec ::= "val" V "=" E | "fun" AndFDecls ;
  LetDecs ::= LetDec LetDecs | ";" LetDecs | ;
 
  (* patterns *)
- Pbase ::= V | ConstructorName | <IntT> | Ptuple | "_";
- Pattern ::= ConstructorName Pbase | Pbase;
+ Pbase ::= V | ConstructorName | <IntT> | Ptuple | "_"
+        |  "[" "]" | "[" PatternList "]";
+ Papp ::= ConstructorName Pbase | Pbase;
+ Pattern ::= Papp "::" Pattern | Papp ;
  Ptuple ::= "(" ")" | "(" PatternList ")";
  PatternList ::= Pattern | Pattern "," PatternList ;
  PE ::= Pattern "=>" E;
@@ -167,13 +175,14 @@ val mmlG_def = mk_grammar_def ginfo
  PEs ::= PE | PE' "|" PEs;
 
  (* modules *)
+ StructName ::= ^(``{AlphaT s | s ≠ ""}``) ;
  SpecLine ::= "val" V ":" Type
            |  "type" TypeName
            |  TypeDec ;
  SpecLineList ::= SpecLine SpecLineList | ";" SpecLineList | ;
  SignatureValue ::= "sig" SpecLineList "end" ;
  OptionalSignatureAscription ::= ":>" SignatureValue | ;
- Structure ::= "structure" V OptionalSignatureAscription "=" "struct" Decls "end";
+ Structure ::= "structure" StructName OptionalSignatureAscription "=" "struct" Decls "end";
  TopLevelDec ::= Structure | Decl;
  TopLevelDecs ::= TopLevelDec TopLevelDecs | ;
  REPLPhrase ::= TopLevelDecs ";" | E ";" ;

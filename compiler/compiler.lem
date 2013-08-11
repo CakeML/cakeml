@@ -22,13 +22,23 @@ val cpam : compiler_state -> list (num * option (id conN))
 let rec cpam s = match s.contab with (_,w,_) -> w end
 
 let init_compiler_state =
-  <| contab = (Pmap.add None tuple_cn Pmap.empty
-              ,[(tuple_cn,None)]
-              ,1)
+  <| contab = ((Pmap.add (Some(Short"Eq")) eq_exc_cn
+               (Pmap.add (Some(Short"Div")) div_exc_cn
+               (Pmap.add (Some(Short"Bind")) bind_exc_cn
+               (Pmap.add (Some(Short"::")) cons_exc_cn
+               (Pmap.add (Some(Short"nil")) nil_exc_cn
+               (Pmap.add None tuple_cn Pmap.empty))))))
+              ,[(eq_exc_cn,Some(Short"Eq"))
+               ;(div_exc_cn,Some(Short"Div"))
+               ;(bind_exc_cn,Some(Short"Bind"))
+               ;(cons_exc_cn,Some(Short"::"))
+               ;(nil_exc_cn,Some(Short"nil"))
+               ;(tuple_cn,None)]
+              ,6)
    ; renv = []
    ; rmenv = Pmap.empty
    ; rsz = 0
-   ; rnext_label = 4
+   ; rnext_label = 0
    |>
 
 let rec
@@ -40,6 +50,9 @@ number_constructors mn ((c,_)::cs) (m,w,n) =
 let rec
 dec_to_contab mn ct (Dtype ts) =
   List.fold_left (fun ct (_,_,cs) -> number_constructors mn cs ct) ct ts
+and
+dec_to_contab mn ct (Dexn c ts) =
+  number_constructors mn [(c,ts)] ct
 and
 dec_to_contab _ ct _ = ct
 
@@ -67,6 +80,8 @@ let compile_fake_exp menv m env rsz cs vs e =
 
 let rec
 compile_dec _ _ _ _ cs (Dtype _) = (None, emit cs [Stack (Cons (block_tag+tuple_cn) 0)])
+and
+compile_dec _ _ _ _ cs (Dexn _ _ ) = (None, emit cs [Stack (Cons (block_tag+tuple_cn) 0)])
 and
 compile_dec menv m env rsz cs (Dletrec defs) =
   let vs = List.map (fun (n,_,_) -> n) defs in
@@ -131,6 +146,8 @@ compile_print_types ((_,_,cs)::ts) s =
 
 let rec
 compile_print_dec (Dtype ts) s = compile_print_types ts s
+and
+compile_print_dec (Dexn c xs) s = compile_print_types [(([]:list tvarN),"exn",[(c,xs)])] s
 and
 compile_print_dec (Dlet p e) s =
   compile_print_vals 0 (pat_bindings p []) s

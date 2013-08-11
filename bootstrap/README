@@ -1,8 +1,7 @@
 Files which bootstrap the verified compiler.
-NB, may require 32GB of RAM to complete.
+NB, may require 16GB of RAM to complete.
 
-compile_oneshotScript.sml
-    evaluate the compiler applied to itself
-
-compile_repl_stepScript.sml
-    older version that does the same as above but with a different setup
+compileReplDecsScript.sml
+    evaluate the compiler on repl_decs
+compileCallReplStepDecScript.sml
+    evaluate the compiler on the call of call_repl_step

@@ -19,12 +19,12 @@ val _ = overload_on (
                           [NN nEtyped [NN nEbefore [NN nEcomp l]]]]]]``)
 val _ = overload_on (
   "EB",
-  ``λl. EREL [NN nErel [NN nEadd [NN nEmult [NN nEapp [NN nEbase l]]]]]``)
+  ``λl. EREL [NN nErel [NN nElistop [NN nEadd [NN nEmult [NN nEapp [NN nEbase l]]]]]]``)
 
 val result_t = ``Result``
 fun parsetest0 nt sem s opt = let
   val s_t = stringSyntax.lift_string bool s
-  val _ = print ("Lexing "^s^"\n")
+  val _ = print ("**********\nLexing "^s^"\n")
   val t = time (rhs o concl o EVAL) ``lexer_fun ^s_t``
   val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
   val _ = print ("Parsing\n")
@@ -88,17 +88,77 @@ in
 end
 
 fun parsetest t1 t2 s = parsetest0 t1 t2 s NONE
-fun tytest0 s r = parsetest0 ``nType`` ``ptree_Type`` s (SOME r)
+fun tytest0 s r = parsetest0 ``nType`` ``ptree_Type nType`` s (SOME r)
 val tytest = parsetest ``nType`` ``ptree_Type nType``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
-val _ = tytest "'a * bool"
-val _ = tytest "'a * bool * 'c"
+val _ = parsetest0 ``nE`` ``ptree_Expr nE``
+                   "case x of [] => 3 | [] :: _ => 1 | (h::t) :: rest => 2"
+          (SOME ``Ast_Mat (Ast_Var (Short "x"))
+                    [(Ast_Pcon (SOME (Short "nil")) [],Ast_Lit (IntLit 3));
+                     (Ast_Pcon (SOME (Short "::"))
+                               [Ast_Pcon (SOME (Short "nil")) []; Ast_Pvar "_"],
+                      Ast_Lit (IntLit 1));
+                     (Ast_Pcon (SOME (Short "::"))
+                               [Ast_Pcon (SOME (Short "::"))
+                                         [Ast_Pvar "h"; Ast_Pvar "t"];
+                                Ast_Pvar "rest"],
+                      Ast_Lit (IntLit 2))]``)
+
+
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "case x of [] => 3 | [e, _] => e"
+           (SOME ``Ast_Mat (Ast_Var (Short "x"))
+                     [(Ast_Pcon (SOME (Short "nil")) [],Ast_Lit (IntLit 3));
+                      (Ast_Pcon (SOME (Short "::"))
+                                [Ast_Pvar "e";
+                                 Ast_Pcon (SOME (Short "::"))
+                                          [Ast_Pvar "_";
+                                           Ast_Pcon (SOME (Short "nil")) []]],
+                       Ast_Var (Short "e"))]``)
+
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "[3,4]"
+                   (SOME ``Ast_Con (SOME (Short "::"))
+                             [Ast_Lit (IntLit 3);
+                              Ast_Con (SOME (Short "::"))
+                                      [Ast_Lit (IntLit 4);
+                                       Ast_Con (SOME (Short "nil")) []]]``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "[]"
+                   (SOME ``Ast_Con (SOME (Short "nil")) []``);
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3::t = l"
+                   (SOME ``Ast_App
+                            (Ast_App (Ast_Var (Short "="))
+                                     (Ast_Con (SOME (Short "::"))
+                                              [Ast_Lit (IntLit 3);
+                                               Ast_Var (Short "t")]))
+                            (Ast_Var (Short "l"))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3 < x = true"
+                   (SOME ``Ast_App
+                            (Ast_App (Ast_Var (Short "="))
+                                     (Ast_App (Ast_App (Ast_Var (Short "<"))
+                                                       (Ast_Lit (IntLit 3)))
+                                              (Ast_Var (Short "x"))))
+                            (Ast_Lit (Bool T))``)
+
+val _ = tytest0 "'a * bool"
+                ``Ast_Tapp [Ast_Tvar "'a";
+                            Ast_Tapp [] (SOME (Short "bool"))] NONE``
+val _ = tytest0 "'a * bool * 'c"
+                ``Ast_Tapp [Ast_Tvar "'a";
+                            Ast_Tapp [] (SOME (Short "bool"));
+                            Ast_Tvar "'c"] NONE``
 val _ = tytest "'a * bool -> 'a"
 val _ = tytest "'a * (bool * 'c)"
 val _ = tytest "(bool * int)"
 val _ = tytest "(bool list * int) * bool"
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Foo"
+                   (SOME ``Ast_Dexn "Foo" []``)
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Bar of int"
+                   (SOME ``Ast_Dexn "Bar" [Ast_Tapp [] (SOME (Short "int"))]``)
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Bar of int * int"
+                   (SOME ``Ast_Dexn "Bar"
+                             [Ast_Tapp [] (SOME (Short "int"));
+                              Ast_Tapp [] (SOME (Short "int"))]``);
 val _ = parsetest ``nPType`` ``ptree_PType`` "'a"
 val _ = parsetest ``nPType`` ``ptree_PType`` "'a * bool"
 val _ = parsetest ``nPatternList`` ``ptree_Plist`` "x,y"
@@ -157,18 +217,22 @@ val _ = parsetest0 ``nREPLTop`` ``ptree_REPLTop``
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "4 handle IntError x => 3 + 4"
                    (SOME ``Ast_Handle (Ast_Lit (IntLit 4))
-                                      "x"
-                                      (Ast_App (Ast_App (Ast_Var (Short "+"))
-                                                        (Ast_Lit (IntLit 3)))
-                                               (Ast_Lit (IntLit 4)))``)
+                                      [(Ast_Pcon (SOME (Short "IntError"))
+                                                [Ast_Pvar "x"],
+                                        Ast_App (Ast_App (Ast_Var (Short "+"))
+                                                         (Ast_Lit (IntLit 3)))
+                                                (Ast_Lit (IntLit 4)))]``)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE``
                    "if raise IntError 4 then 2 else 3 handle IntError f => 23"
-                   (SOME ``Ast_If (Ast_Raise (Int_error 4))
+                   (SOME ``Ast_If (Ast_Raise
+                                     (Ast_Con (SOME (Short "IntError"))
+                                              [Ast_Lit (IntLit 4)]))
                                   (Ast_Lit (IntLit 2))
                                   (Ast_Handle
                                      (Ast_Lit (IntLit 3))
-                                     "f"
-                                     (Ast_Lit (IntLit 23)))``);
+                                     [(Ast_Pcon (SOME(Short "IntError"))
+                                                [Ast_Pvar"f"],
+                                       Ast_Lit (IntLit 23))])``);
 val _ = parsetest ``nE`` ``ptree_Expr nE``
                   "f x handle IntError n => case n of 0 => raise Div\n\
                   \                        | 1 => raise Bind\n\
@@ -251,8 +315,8 @@ val _ = parsetest ``nEbase`` ``ptree_Expr nEbase`` "x"
 val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f x y"
 val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f true y"
 val _ = parsetest ``nEapp`` ``ptree_Expr nEapp`` "f true Constructor"
-val _ = parsetest ``nElist1`` ``ptree_Expr nElist1`` "x"
-val _ = parsetest ``nElist1`` ``ptree_Expr nElist1`` "x,2"
+val _ = parsetest ``nElist1`` ``ptree_Exprlist nElist1`` "x"
+val _ = parsetest ``nElist1`` ``ptree_Exprlist nElist1`` "x,2"
 val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "C (x)"
 val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "C(x, y)"
 val _ = parsetest ``nEmult`` ``ptree_Expr nEmult`` "f x * 3"

@@ -1,5 +1,5 @@
-open HolKernel Parse boolLib bossLib; val _ = new_theory "ml_translator";
-
+open HolKernel Parse boolLib bossLib;
+val _ = new_theory "ml_translator";
 open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
 open terminationTheory;
 open bigBigEquivTheory;
@@ -69,9 +69,9 @@ val big_exp_determ' = store_thm("big_exp_determ'",
    (!s env es r1.
       evaluate_list' s env es r1 ==>
       !r2. evaluate_list' s env es r2 ==> (r1 = r2)) /\
-   (!s env v pes r1.
-      evaluate_match' s env v pes r1 ==>
-      !r2. evaluate_match' s env v pes r2 ==> (r1 = r2))``,
+   (!s env v pes errv r1.
+      evaluate_match' s env v pes errv r1 ==>
+      !r2. evaluate_match' s env v pes errv r2 ==> (r1 = r2))``,
   HO_MATCH_MP_TAC evaluate'_ind >> rw [] >>
   pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once evaluate'_cases]) >>
   fs [] >> rw [] >> fs [] >> res_tac >> fs [] >> rw [] >>
@@ -599,7 +599,7 @@ val Decls_def = Define `
     evaluate_decs' mn menv1 cenv1 s1 env1 ds (s2,cenv2, Rval env2)`;
 
 val DeclAssum_def = Define `
-  DeclAssum ds env = ?s2 cenv2. Decls NONE [] [] empty_store [] ds cenv2 s2 env`;
+  DeclAssum ds env = ?s2 cenv2. Decls NONE [] init_envC empty_store [] ds cenv2 s2 env`;
 
 val Decls_Dtype = store_thm("Decls_Dtype",
   ``!mn menv cenv s env tds cenv1 s1 env1.
@@ -650,8 +650,8 @@ val evaluate'_empty_store_lemma = prove(
       evaluate' s env e r1 ==> has_emp r1 ==> (s = empty_store)) /\
    (!s env es r1.
       evaluate_list' s env es r1 ==> has_emp r1 ==> (s = empty_store)) /\
-   (!s env v pes r1.
-      evaluate_match' s env v pes r1 ==> has_emp r1 ==> (s = empty_store))``,
+   (!s env v pes errv r1.
+      evaluate_match' s env v pes errv r1 ==> has_emp r1 ==> (s = empty_store))``,
   HO_MATCH_MP_TAC evaluate'_ind >> rw [] \\ POP_ASSUM MP_TAC
   \\ TRY (Cases_on `uop`) \\ TRY (Cases_on `op`)
   \\ FULL_SIMP_TAC (srw_ss()) [do_uapp_def,do_app_def,LET_DEF,store_alloc_def]
@@ -678,8 +678,8 @@ val evaluate'_empty_store_lemma = prove(
 
 val _ = temp_overload_on("has_emp_no_fail",
   ``\x. (FST x = empty_store:store) /\
-        ~(SND x = (Rerr Rtype_error):'a result) /\
-        ~(SND x = (Rerr (Rraise Bind_error)):'a result)``)
+        ~(SND x = (Rerr Rtype_error):'a result) (*/\
+        ~(SND x = (Rerr (Rraise Bind_error)):'a result)*)``)
 
 val sind = IndDefLib.derive_strong_induction(evaluate'_rules,evaluate'_ind);
 
@@ -727,9 +727,9 @@ val evaluate'_empty_store_IMP_any_store = prove(
    (!s env es r1.
       evaluate_list' s env es r1 ==> has_emp_no_fail r1 ==>
       !t. evaluate_list' t env es (t,SND r1)) /\
-   (!s env v pes r1.
-      evaluate_match' s env v pes r1 ==> has_emp_no_fail r1 ==>
-      !t. evaluate_match' t env v pes (t,SND r1))``,
+   (!s env v pes errv r1.
+      evaluate_match' s env v pes errv r1 ==> has_emp_no_fail r1 ==>
+      !t. evaluate_match' t env v pes errv (t,SND r1))``,
   HO_MATCH_MP_TAC sind \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ FULL_SIMP_TAC (srw_ss()) []
   THEN1
@@ -1022,14 +1022,13 @@ val MEMBER_INTRO = store_thm("MEMBER_INTRO",
 
 val evaluate_match_SKIP = store_thm("evaluate_match_SKIP",
   ``evaluate_match' empty_store env (Conv (SOME (Short s1)) args1)
-      ((Pcon (SOME (Short s2)) pats2,exp2)::pats) (x,Rval res) <=>
+      ((Pcon (SOME (Short s2)) pats2,exp2)::pats) errv (x,Rval res) <=>
     if s1 <> s2 then
       ALL_DISTINCT (pat_bindings (Pcon (SOME (Short s2)) pats2) []) /\
-      evaluate_match' empty_store env (Conv (SOME (Short s1)) args1) pats
-        (x,Rval res)
+      evaluate_match' empty_store env (Conv (SOME (Short s1)) args1) pats errv (x,Rval res)
     else
       evaluate_match' empty_store env (Conv (SOME (Short s1)) args1)
-        ((Pcon (SOME (Short s2)) pats2,exp2)::pats) (x,Rval res)``,
+        ((Pcon (SOME (Short s2)) pats2,exp2)::pats) errv (x,Rval res)``,
   SRW_TAC [] []
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate'_cases,pmatch'_def]);
 
@@ -1041,14 +1040,15 @@ val DeclsC_def = Define `
 
 val DeclAssumC_def = Define `
   DeclAssumC ds cenv env =
-     ?s2. DeclsC NONE [] [] empty_store [] ds cenv s2 env`;
+     ?s2. DeclsC NONE [] init_envC empty_store [] ds cenv s2 env`;
 
 val DeclAssumC_thm = store_thm ("DeclAssumC_thm",
-  ``!ds env. check_ctors_decs NONE [] ds /\ DeclAssum ds env ==>
+  ``!ds env. check_ctors_decs NONE init_envC ds /\ DeclAssum ds env ==>
              ?cenv. DeclAssumC ds cenv env``,
-  rw [DeclAssum_def, DeclAssumC_def, Decls_def, DeclsC_def] >>
+  rw [DeclAssum_def, DeclAssumC_def, Decls_def, DeclsC_def, empty_store_def] >>
+  `cenv_bind_div_eq init_envC` by EVAL_TAC >>
   metis_tac [result_distinct, eval_decs'_to_eval_decs_simple_pat, EVERY_DEF,
-             eval_ctor_inv_def, empty_store_def]);
+             eval_ctor_inv_def]);
 
 val EvalC_def = Define `
   EvalC cenv env exp P =
@@ -1056,7 +1056,7 @@ val EvalC_def = Define `
       evaluate F [] (cenv:envC) (0,[]) env exp ((0,[]),Rval res) /\ P (res:v)`;
 
 val Eval_IMP_EvalC = store_thm("Eval_IMP_EvalC",
-  ``check_ctors_decs NONE [] ds /\ DeclAssumC ds cenv env ==>
+  ``check_ctors_decs NONE cenv0 ds /\ DeclAssumC ds cenv env ==>
     !n P. Eval env (Var n) P ==> EvalC cenv env (Var n) P``,
   rw [Eval_def, EvalC_def, DeclAssumC_def, DeclsC_def, empty_store_def]
   \\ `check_ctors cenv (Var n)` by EVAL_TAC

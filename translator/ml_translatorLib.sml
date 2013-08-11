@@ -626,6 +626,7 @@ end
 
 fun type_of_cases_const ty = let
   val th = TypeBase.case_def_of ty
+    handle HOL_ERR e => raise ERR "type_of_cases_const" (String.concat["For ",Parse.type_to_string ty,"\n",Feedback.format_ERR e])
   val ty = th |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
               |> concl |> dest_eq |> fst |> repeat rator |> type_of
   in ty end
@@ -1125,7 +1126,7 @@ fun derive_thms_for_type ty = let
       |> (ONCE_REWRITE_CONV [evaluate'_cases] THENC SIMP_CONV (srw_ss()) [])
     val evaluate_match_Conv =
       ``evaluate_match' empty_store env (Conv (SOME (Short s)) args)
-           ((Pcon (SOME (Short s)) pats,exp2)::pats2) (x,Rval y)``
+           ((Pcon (SOME (Short s)) pats,exp2)::pats2) errv (x,Rval y)``
       |> (ONCE_REWRITE_CONV [evaluate'_cases] THENC
           SIMP_CONV (srw_ss()) [pmatch'_def])
     val IF_T = prove(``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
@@ -2135,7 +2136,7 @@ fun hol2deep tm =
     in check_inv "abs" tm result end else
   if is_arb tm then let
     val inv = get_type_inv (type_of tm)
-    val goal = ``PRECONDITION F ==> Eval env (Raise Bind_error) (^inv ^tm)``
+    val goal = ``PRECONDITION F ==> Eval env (Raise (Con(SOME(Short"Bind"))[])) (^inv ^tm)``
     val result = prove(goal,SIMP_TAC std_ss [PRECONDITION_def]) |> UNDISCH
     in check_inv "arb" tm result end
   else raise (UnableToTranslate tm)

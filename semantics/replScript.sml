@@ -1,6 +1,7 @@
 open preamble;
 open ASCIInumbersTheory;
 open BigStepTheory TypeSystemTheory AstTheory ElabTheory lexer_funTheory;
+open InitialEnvTheory;
 open gramTheory cmlPtreeConversionTheory;
 
 val _ = new_theory "repl";
@@ -36,12 +37,9 @@ repl_state = <| (* Elaborator state *)
                 envM : envM; envC : envC; store : store; envE : envE |>`;
 
 val init_repl_state_def = Define`
-  init_repl_state = <| type_bindings := [("int", TC_int);
-                                         ("bool", TC_bool);
-                                         ("ref", TC_ref);
-                                         ("unit", TC_unit)]; ctors := [];
-                       tenvM := []; tenvC := []; tenv := init_tenv;
-                       envM := []; envC := []; store := []; envE := init_env |>`
+  init_repl_state = <| type_bindings := init_type_bindings; ctors := [];
+                       tenvM := []; tenvC := init_tenvC; tenv := init_tenv;
+                       envM := []; envC := init_envC; store := []; envE := init_env |>`
 
 val _ = Hol_datatype `
 repl_result =
@@ -52,18 +50,6 @@ repl_result =
 val strip_mod_env_def = Define `
 strip_mod_env tenvM =
   MAP (\(n,tenv). (n,[])) tenvM`;
-
-val dec_to_cenv_def = Define `
-(dec_to_cenv mn (Dtype tds) = build_tdefs mn tds) ∧
-(dec_to_cenv mn _ = [])`;
-
-val decs_to_cenv_def = Define `
-(decs_to_cenv mn [] = []) ∧
-(decs_to_cenv mn (d::ds) = decs_to_cenv mn ds ++ dec_to_cenv mn d)`;
-
-val top_to_cenv_def = Define `
-(top_to_cenv (Tdec d) = dec_to_cenv NONE d) ∧
-(top_to_cenv (Tmod mn _ ds) = decs_to_cenv (SOME mn) ds)`;
 
 val update_repl_state_def = Define `
 update_repl_state ast state type_bindings ctors tenvM tenvC tenv store envC r =
@@ -117,18 +103,12 @@ val print_v_def = Define `
 val print_envE_def = Define `
 print_envE envE = CONCAT (MAP (\(x,v). "val " ++ x ++ " = " ++ print_v v) envE)`;
 
-val print_error_def = Define `
-(print_error Bind_error = "<Bind>") ∧
-(print_error Div_error = "<Div>") ∧
-(print_error Eq_error = "<Eq_closure>") ∧
-(print_error (Int_error i) = "<" ++ int_to_string i ++ ">")`;
-
 val print_result_def = Define `
 (print_result (Tdec _) envC (Rval (envM,envE)) = print_envC envC ++ print_envE envE) ∧
 (print_result (Tmod mn _ _) _ (Rval _) = "structure "++mn++" = <structure>") ∧
 (print_result _ _ (Rerr Rtimeout_error) = "<timeout error>") ∧
 (print_result _ _ (Rerr Rtype_error) = "<type error>") ∧
-(print_result _ _ (Rerr (Rraise e)) = "raise " ++ print_error e)`;
+(print_result _ _ (Rerr (Rraise e)) = "raise " ++ print_v e)`;
 
 val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 

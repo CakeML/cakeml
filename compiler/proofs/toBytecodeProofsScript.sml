@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory sortingTheory lcsymtacs quantHeuristicsLib quantHeuristicsLibAbbrev
-open miscTheory miscLib CompilerLibTheory CompilerPrimitivesTheory IntLangTheory ToBytecodeTheory compilerTerminationTheory intLangExtraTheory toIntLangProofsTheory BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory bytecodeLabelsTheory
+open miscTheory miscLib BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory bytecodeLabelsTheory CompilerLibTheory IntLangTheory ToBytecodeTheory compilerTerminationTheory intLangExtraTheory toIntLangProofsTheory
 val _ = numLib.prefer_num()
 val _ = Parse.bring_to_front_overload"++"{Name="APPEND",Thy="list"}
 val _ = new_theory "toBytecodeProofs"
@@ -268,6 +268,43 @@ val Cv_bv_l2a_mono_mp = save_thm("Cv_bv_l2a_mono_mp",MP_CANON (GEN_ALL (CONJUNCT
 val Cv_bv_not_env = store_thm("Cv_bv_not_env",
   ``∀pp Cv bv. Cv_bv pp Cv bv ⇒ ∀vs. (bv = Block 0 vs) ⇒ (vs = [])``,
   gen_tac >> ho_match_mp_tac Cv_bv_only_ind >> simp[])
+
+val no_closures_Cv_bv = store_thm("no_closures_Cv_bv",
+  ``∀Cv. no_closures Cv ⇒ ∀bv pp pp'. (FST pp').sm = (FST pp).sm ∧ Cv_bv pp Cv bv ⇒ Cv_bv pp' Cv bv``,
+  ho_match_mp_tac compilerTerminationTheory.no_closures_ind >>
+  simp[] >> rw[] >>
+  TRY (
+    simp[Once Cv_bv_cases] >>
+    fs[Once Cv_bv_cases] >>
+    NO_TAC) >>
+  REWRITE_TAC[Once Cv_bv_cases] >>
+  simp[] >>
+  pop_assum mp_tac >>
+  REWRITE_TAC[Once Cv_bv_cases] >>
+  simp[] >> rw[] >>
+  fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >>
+  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >> rw[] >>
+  first_x_assum (match_mp_tac o MP_CANON) >>
+  metis_tac[MEM_EL])
+
+val no_closures_no_locs_Cv_bv = store_thm("no_closures_no_locs_Cv_bv",
+  ``∀Cv. no_closures Cv ∧ all_Clocs Cv = {} ⇒ ∀bv pp pp'. Cv_bv pp Cv bv ⇒ Cv_bv pp' Cv bv``,
+  ho_match_mp_tac compilerTerminationTheory.no_closures_ind >>
+  simp[] >> rw[] >>
+  TRY (
+    simp[Once Cv_bv_cases] >>
+    fs[Once Cv_bv_cases] >>
+    NO_TAC) >>
+  REWRITE_TAC[Once Cv_bv_cases] >> simp[] >>
+  pop_assum mp_tac >>
+  REWRITE_TAC[Once Cv_bv_cases] >> simp[] >> rw[] >>
+  fsrw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >>
+  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >> rw[] >>
+  first_x_assum (match_mp_tac o MP_CANON) >>
+  PairCases_on`pp`>>fs[]>>
+  fs[miscTheory.IMAGE_EQ_SING] >>
+  simp[EXISTS_PROD] >>
+  metis_tac[MEM_EL])
 
 (* s_refs relation *)
 

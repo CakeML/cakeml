@@ -56,7 +56,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (* constructor type environments: each constructor has a type
  * forall tyvars. t list -> (tyvars) typeN *)
-val _ = type_abbrev( "tenvC" , ``: (( conN id), ( tvarN list # t list # typeN id)) env``);
+val _ = type_abbrev( "tenvC" , ``: (( conN id), ( tvarN list # t list # tid_or_exn)) env``);
 
 (* Type environments *)
 val _ = Hol_datatype `
@@ -199,7 +199,7 @@ val _ = Define `
     tds /\ ALL_DISTINCT ( MAP (\p . 
   (case (p ) of ( (_,tn,_) ) => tn )) tds) /\ EVERY
     (\ (tvs,tn,ctors) . EVERY (\p . 
-  (case (p ) of ( (_,(_,_,tn')) ) => mk_id mn tn <> tn' )) tenvC)
+  (case (p ) of ( (_,(_,_,tn')) ) => TypeId (mk_id mn tn) <> tn' )) tenvC)
     tds))`;
 
 
@@ -207,7 +207,7 @@ val _ = Define `
 val _ = Define `
  (build_ctor_tenv mn tds = ( FLAT
     ( MAP
-       (\ (tvs,tn,ctors) . MAP (\ (cn,ts) . (mk_id mn cn,(tvs,ts, mk_id mn tn))) ctors)
+       (\ (tvs,tn,ctors) . MAP (\ (cn,ts) . (mk_id mn cn,(tvs,ts, TypeId (mk_id mn tn)))) ctors)
        tds)))`;
 
 
@@ -267,6 +267,15 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn is_value_defn;
 
+(*val tid_exn_to_tc : tid_or_exn -> tc*)
+val _ = Define `
+ (tid_exn_to_tc t =  
+((case t of
+      TypeId tid => TC_name tid
+    | TypeExn => TC_exn
+  )))`;
+
+
 val _ = Hol_reln `
 
 (! tvs cenv n t.
@@ -303,7 +312,7 @@ type_ps tvs cenv ps ( MAP (type_subst ( ZIP ( tvs', ts'))) ts) tenv /\
 (
 lookup cn cenv = SOME (tvs', ts, tn)))
 ==>
-type_p tvs cenv (Pcon (SOME cn) ps) (Tapp ts' (TC_name tn)) tenv)
+type_p tvs cenv (Pcon (SOME cn) ps) (Tapp ts' (tid_exn_to_tc tn)) tenv)
 
 /\
 
@@ -357,19 +366,23 @@ type_e menv cenv tenv (Lit Unit) Tunit)
 
 /\
 
-(! menv cenv tenv err t.
+(! menv cenv tenv e t.
 (
-check_freevars (num_tvs tenv) [] t)
+check_freevars (num_tvs tenv) [] t /\
+type_e menv cenv tenv e Texn) 
 ==>
-type_e menv cenv tenv (Raise err) t)
+type_e menv cenv tenv (Raise e) t)
 
 /\
 
-(! menv cenv tenv e1 var e2 t.
-(type_e menv cenv tenv e1 t /\
-type_e menv cenv (bind_tenv var 0 Tint tenv) e2 t)
+(! menv cenv tenv e pes t.
+(type_e menv cenv tenv e t /\
+(pes <> []) /\
+(! ((p,e) :: LIST_TO_SET pes). ? tenv'. ALL_DISTINCT (pat_bindings p []) /\
+   type_p (num_tvs tenv) cenv p Texn tenv' /\
+   type_e menv cenv (bind_var_list 0 tenv' tenv) e t))
 ==>
-type_e menv cenv tenv (Handle e1 var e2) t)
+type_e menv cenv tenv (Handle e pes) t)
 
 /\
 
@@ -378,7 +391,7 @@ type_es menv cenv tenv es ( MAP (type_subst ( ZIP ( tvs, ts'))) ts) /\
 (
 lookup cn cenv = SOME (tvs, ts, tn)))
 ==>
-type_e menv cenv tenv (Con (SOME cn) es) (Tapp ts' (TC_name tn)))
+type_e menv cenv tenv (Con (SOME cn) es) (Tapp ts' (tid_exn_to_tc tn)))
 
 /\
 
@@ -546,7 +559,14 @@ type_d mn menv cenv tenv (Dletrec funs) emp (tenv_add_tvs tvs tenv'))
 (
 check_ctor_tenv mn cenv tdecs)
 ==>
-type_d mn menv cenv tenv (Dtype tdecs) (build_ctor_tenv mn tdecs) emp)`;
+type_d mn menv cenv tenv (Dtype tdecs) (build_ctor_tenv mn tdecs) emp)
+
+/\
+
+(! mn menv cenv tenv cn ts.
+((lookup (mk_id mn cn) cenv = NONE) /\ EVERY (check_freevars 0 []) ts)
+==>
+type_d mn menv cenv tenv (Dexn cn ts) (bind (mk_id mn cn) ([], ts, TypeExn) emp) emp)`;
 
 val _ = Hol_reln `
 
@@ -591,8 +611,16 @@ type_specs mn cenv tenv (Stype td :: specs) cenv' tenv')
 
 /\
 
+(! mn cenv tenv cn ts specs cenv' tenv'.
+((lookup (mk_id mn cn) cenv = NONE) /\ EVERY (check_freevars 0 []) ts /\
+type_specs mn (bind (mk_id mn cn) ([], ts, TypeExn) cenv) tenv specs cenv' tenv')
+==>
+type_specs mn cenv tenv (Sexn cn ts :: specs) cenv' tenv')
+
+/\
+
 (! mn cenv tenv tn specs cenv' tenv' tvs. ( ALL_DISTINCT tvs /\ EVERY (\p . 
-  (case (p ) of ( (_,(_,_,tn')) ) => mk_id mn tn <> tn' )) cenv /\
+  (case (p ) of ( (_,(_,_,tn')) ) => TypeId (mk_id mn tn) <> tn' )) cenv /\
 type_specs mn cenv tenv specs cenv' tenv')
 ==>
 type_specs mn cenv tenv (Stype_opq tvs tn :: specs) cenv' tenv')`;
@@ -679,26 +707,5 @@ type_top menv cenv tenv top menv' cenv' tenv' /\
 type_prog (merge menv' menv) (merge cenv' cenv) (bind_var_list2 tenv' tenv) tops menv'' cenv'' tenv'')
 ==>
 type_prog menv cenv tenv (top :: tops) (merge menv'' menv') (merge cenv'' cenv') (merge tenv'' tenv'))`;
-
-(*val init_tenv : tenvE*)
-val _ = Define `
- init_tenv = ( FOLDR 
-    (\ (tn,tvs,t) tenv . Bind_name tn tvs t tenv) 
-    Empty 
-    [("+", 0, Tfn Tint (Tfn Tint Tint));
-     ("-", 0, Tfn Tint (Tfn Tint Tint));
-     ("*", 0, Tfn Tint (Tfn Tint Tint));
-     ("div", 0, Tfn Tint (Tfn Tint Tint));
-     ("mod", 0, Tfn Tint (Tfn Tint Tint));
-     ("<", 0, Tfn Tint (Tfn Tint Tbool));
-     (">", 0, Tfn Tint (Tfn Tint Tbool));
-     ("<=", 0, Tfn Tint (Tfn Tint Tbool));
-     (">=", 0, Tfn Tint (Tfn Tint Tbool));
-     ("=", 1, Tfn (Tvar_db 0) (Tfn (Tvar_db 0) Tbool));
-     (":=", 1, Tfn (Tref (Tvar_db 0)) (Tfn (Tvar_db 0) Tunit));
-     ("~", 0, Tfn Tint Tint);
-     ("!", 1, Tfn (Tref (Tvar_db 0)) (Tvar_db 0));
-     ("ref", 1, Tfn (Tvar_db 0) (Tref (Tvar_db 0)))])`;
-
 val _ = export_theory()
 

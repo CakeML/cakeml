@@ -92,7 +92,7 @@ type_vs tvs menv cenv senv vs ( MAP (type_subst ( ZIP ( tvs', ts'))) ts) /\
 (
 lookup cn cenv = SOME (tvs', ts, tn)))
 ==>
-type_v tvs menv cenv senv (Conv (SOME cn) vs) (Tapp ts' (TC_name tn)))
+type_v tvs menv cenv senv (Conv (SOME cn) vs) (Tapp ts' (tid_exn_to_tc tn)))
 
 /\
 
@@ -188,10 +188,17 @@ context_invariant n [] n)
 
 /\
 
-(! dec_tvs c x e env.
+(! dec_tvs c env.
 (context_invariant dec_tvs c 0)
 ==>
-context_invariant dec_tvs ((Chandle ()  x e,env) :: c) 0)
+context_invariant dec_tvs ((Craise () ,env) :: c) 0)
+
+/\
+
+(! dec_tvs c pes env.
+(context_invariant dec_tvs c 0)
+==>
+context_invariant dec_tvs ((Chandle ()  pes,env) :: c) 0)
 
 /\
 
@@ -223,10 +230,10 @@ context_invariant dec_tvs ((Cif ()  e1 e2,env) :: c) 0)
 
 /\
 
-(! dec_tvs c pes env.
+(! dec_tvs c pes env err_v.
 (context_invariant dec_tvs c 0)
 ==>
-context_invariant dec_tvs ((Cmat ()  pes,env) :: c) 0)
+context_invariant dec_tvs ((Cmat ()  pes err_v,env) :: c) 0)
 
 /\
 
@@ -252,11 +259,20 @@ context_invariant dec_tvs ((Cuapp op () ,env) :: c) 0)`;
 
 val _ = Hol_reln `
 
-(! tvs menv cenv senv tenv x e t.
+(! tvs menv cenv senv tenv t.
 (
-type_e menv cenv (bind_tenv x 0 Tint tenv) e t)
+check_freevars tvs [] t)
+ ==>
+type_ctxt tvs menv cenv senv tenv (Craise () ) Texn t)
+
+/\
+
+(! tvs menv cenv senv tenv pes t.
+(! ((p,e) :: LIST_TO_SET pes). ? tenv'. ALL_DISTINCT (pat_bindings p []) /\
+   type_p (num_tvs tenv) cenv p Texn tenv' /\
+   type_e menv cenv (bind_var_list 0 tenv' tenv) e t)
 ==>
-type_ctxt tvs menv cenv senv tenv (Chandle ()  x e) t t)
+type_ctxt tvs menv cenv senv tenv (Chandle ()  pes) t t)
 
 /\
 
@@ -309,13 +325,14 @@ type_ctxt tvs menv cenv senv tenv (Cif ()  e1 e2) Tbool t)
 
 /\
 
-(! tvs menv cenv senv tenv t1 t2 pes.
+(! tvs menv cenv senv tenv t1 t2 pes err_v.
 (((pes = []) ==> (check_freevars tvs [] t1 /\ check_freevars 0 [] t2)) /\
 (! ((p,e) :: LIST_TO_SET pes) . ? tenv'. ALL_DISTINCT (pat_bindings p []) /\
    type_p tvs cenv p t1 tenv' /\
-   type_e menv cenv (bind_var_list 0 tenv' tenv) e t2))
+   type_e menv cenv (bind_var_list 0 tenv' tenv) e t2) /\
+type_v 0 menv cenv senv err_v Texn)
 ==>
-type_ctxt tvs menv cenv senv tenv (Cmat ()  pes) t1 t2)
+type_ctxt tvs menv cenv senv tenv (Cmat ()  pes err_v) t1 t2)
 
 /\
 
@@ -336,7 +353,7 @@ type_es menv cenv (bind_tvar tvs tenv) es ( MAP (type_subst ( ZIP ( tvs', ts')))
 lookup cn cenv = SOME (tvs', (ts1 ++([t] ++ts2)), tn)))
 ==>
 type_ctxt tvs menv cenv senv tenv (Ccon (SOME cn) vs ()  es) (type_subst ( ZIP ( tvs', ts')) t)
-          (Tapp ts' (TC_name tn)))
+          (Tapp ts' (tid_exn_to_tc tn)))
 
 /\
 

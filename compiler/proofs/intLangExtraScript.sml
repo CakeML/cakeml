@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib miscLib boolSimps pairTheory listTheory rich_listTheory pred_setTheory finite_mapTheory relationTheory SatisfySimps arithmeticTheory quantHeuristicsLib lcsymtacs
-open miscTheory semanticsExtraTheory CompilerLibTheory CompilerPrimitivesTheory IntLangTheory ToIntLangTheory compilerTerminationTheory
+open miscTheory semanticsExtraTheory CompilerLibTheory IntLangTheory ToIntLangTheory compilerTerminationTheory
 val _ = new_theory "intLangExtra"
 
 (* compilerLibExtra *)
@@ -110,6 +110,22 @@ val the_find_index_suff = store_thm("the_find_index_suff",
   imp_res_tac find_index_MEM >>
   pop_assum(qspec_then`n`mp_tac) >>
   srw_tac[DNF_ss,ARITH_ss][])
+
+val find_index_APPEND1 = store_thm("find_index_APPEND1",
+  ``∀l1 n l2 m i. (find_index n (l1 ++ l2) m = SOME i) ∧ (i < m+LENGTH l1) ⇒ (find_index n l1 m = SOME i)``,
+  Induct >> simp[find_index_def] >- (
+    spose_not_then strip_assume_tac >>
+    imp_res_tac find_index_LESS_LENGTH >>
+    DECIDE_TAC ) >>
+  rw[] >> res_tac >>
+  first_x_assum match_mp_tac >>
+  simp[])
+
+val find_index_APPEND2 = store_thm("find_index_APPEND2",
+  ``∀l1 n l2 m i. (find_index n (l1 ++ l2) m = SOME i) ∧ (m + LENGTH l1 ≤ i) ⇒ (find_index n l2 (m+LENGTH l1) = SOME i)``,
+  Induct >> simp[find_index_def] >>
+  rw[] >> fsrw_tac[ARITH_ss][] >>
+  res_tac >> fsrw_tac[ARITH_ss][ADD1])
 
 (* free/all/no_labs *)
 
@@ -523,13 +539,10 @@ val every_Cresult_P1 = store_thm("every_Cresult_P1",
 val _ = export_rewrites["every_Cresult_P1"]
 
 val Cmap_result_def = Define`
-  (Cmap_result f (Rval v) = Cval (f v)) ∧
-  (Cmap_result f (Rerr (Rraise Bind_error)) = Cexc (Craise CBind_excv)) ∧
-  (Cmap_result f (Rerr (Rraise Div_error)) = Cexc (Craise CDiv_excv)) ∧
-  (Cmap_result f (Rerr (Rraise Eq_error)) = Cexc (Craise CEq_excv)) ∧
-  (Cmap_result f (Rerr (Rraise (Int_error n))) = Cexc (Craise (CLitv (IntLit n)))) ∧
-  (Cmap_result f (Rerr Rtype_error) = Cexc Ctype_error) ∧
-  (Cmap_result f (Rerr Rtimeout_error) = Cexc Ctimeout_error)`
+  (Cmap_result f1 _ (Rval v) = Cval (f1 v)) ∧
+  (Cmap_result _ f2 (Rerr (Rraise v)) = Cexc (Craise (f2 v))) ∧
+  (Cmap_result _ _ (Rerr Rtype_error) = Cexc Ctype_error) ∧
+  (Cmap_result _ _ (Rerr Rtimeout_error) = Cexc Ctimeout_error)`
 val _ = export_rewrites["Cmap_result_def"]
 
 (* Cevaluate functional equations *)
@@ -1142,10 +1155,10 @@ EVERY2_trans
 val result_rel_syneq_refl = save_thm(
 "result_rel_syneq_refl",
 result_rel_refl
-|> Q.GEN`R`
+|> Q.GENL[`R2`,`R1`]
 |> Q.ISPEC`syneq`
 |> SIMP_RULE std_ss [syneq_refl])
-val _ = export_rewrites["result_rel_syneq_refl"]
+(*val _ = export_rewrites["result_rel_syneq_refl"]*)
 
 val Cresult_rel_syneq_refl = save_thm(
 "Cresult_rel_syneq_refl",
@@ -1166,12 +1179,13 @@ val _ = export_rewrites["Cresult_rel_syneq_refl"]
 val result_rel_syneq_trans = save_thm(
 "result_rel_syneq_trans",
 result_rel_trans
-|> Q.GEN`R`
+|> Q.GEN`R1`
 |> Q.ISPEC`syneq`
 |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
 |> UNDISCH
 |> (fn th => PROVE_HYP (PROVE[syneq_trans](hd(hyp th))) th)
-|> SIMP_RULE std_ss [AND_IMP_INTRO])
+|> SIMP_RULE std_ss [AND_IMP_INTRO]
+|> Q.GEN`R2`)
 
 val Cresult_rel_syneq_trans = save_thm(
 "Cresult_rel_syneq_trans",
@@ -1219,9 +1233,12 @@ val free_vars_defs_MAP = store_thm("free_vars_defs_MAP",
   gen_tac >> Induct >> simp[])
 
 val good_cmap_def = Define`
-  good_cmap (cenv:envC) m ⇔
+  good_cmap cenv m ⇔
     ALL_DISTINCT (MAP FST cenv) ∧
     NONE ∈ FDOM m ∧
+    FLOOKUP m (SOME (Short "Bind")) = SOME bind_exc_cn ∧
+    FLOOKUP m (SOME (Short "Div")) = SOME div_exc_cn ∧
+    FLOOKUP m (SOME (Short "Eq")) = SOME eq_exc_cn ∧
     (!p1. MEM p1 cenv ⇒ FAPPLY m (SOME (FST p1)) ≠ FAPPLY m NONE) ∧
     ∀p1 p2.
       MEM p1 cenv ∧ MEM p2 cenv ⇒
@@ -1251,6 +1268,34 @@ val Cevaluate_store_SUBSET = store_thm("Cevaluate_store_SUBSET",
     Cases_on`uop`>>fs[]>>srw_tac[ARITH_ss][] >>
     Cases_on`v`>>fs[] ) >>
   pop_assum mp_tac >>Cases_on`v1`>>rw[])
+
+val mvars_def = tDefine"mvars"`
+  (mvars (CRaise e) = mvars e) ∧
+  (mvars (CHandle e1 e2) = mvars e1 ∪ mvars e2) ∧
+  (mvars (CVar (Short _)) = {}) ∧
+  (mvars (CVar (Long mn x)) = {(mn,x)}) ∧
+  (mvars (CLit _) = {}) ∧
+  (mvars (CCon _ es) = mvars_list es) ∧
+  (mvars (CTagEq e _) = mvars e) ∧
+  (mvars (CProj e _) = mvars e) ∧
+  (mvars (CLet e eb) = mvars e ∪ mvars eb) ∧
+  (mvars (CLetrec defs e) = mvars_defs defs ∪ mvars e) ∧
+  (mvars (CCall _ e es) = mvars e ∪ mvars_list es) ∧
+  (mvars (CPrim1 _ e) = mvars e) ∧
+  (mvars (CPrim2 _ e1 e2) = mvars e1 ∪ mvars e2) ∧
+  (mvars (CUpd e1 e2) = mvars e1 ∪ mvars e2) ∧
+  (mvars (CIf e1 e2 e3) = mvars e1 ∪ mvars e2 ∪ mvars e3) ∧
+  (mvars_list [] = {}) ∧
+  (mvars_list (e::es) = mvars e ∪ mvars_list es) ∧
+  (mvars_defs [] = {}) ∧
+  (mvars_defs (d::ds) = mvars_def d ∪ mvars_defs ds) ∧
+  (mvars_def (_,_,e) = mvars e)`
+  (WF_REL_TAC `inv_image $< (λx. case x of
+    | INL e => Cexp_size e
+    | INR (INL es) => Cexp4_size es
+    | INR (INR (INL (defs))) => Cexp1_size defs
+    | INR (INR (INR (def))) => Cexp2_size def)`)
+val _ = export_rewrites["mvars_def"]
 
 (* Clocs *)
 
@@ -2318,6 +2363,69 @@ val Cevaluate_closed = store_thm("Cevaluate_closed",
   rpt gen_tac >> ntac 2 strip_tac >>
   full_simp_tac std_ss [] >>
   fs[] )
+
+val closed_Clocs_def = Define`
+  closed_Clocs Cmenv Cenv Cs ⇔
+    (BIGUNION (IMAGE (BIGUNION o IMAGE all_Clocs o set) (FRANGE Cmenv)) ⊆ count (LENGTH Cs)) ∧
+    (BIGUNION (IMAGE all_Clocs (set Cs)) ⊆ count (LENGTH Cs)) ∧
+    (BIGUNION (IMAGE all_Clocs (set Cenv)) ⊆ count (LENGTH Cs))`
+
+val Cevaluate_closed_Clocs = store_thm("Cevaluate_closed_Clocs",
+  ``∀menv s env exp res.
+    closed_Clocs menv env (SND s) ∧
+    Cevaluate menv s env exp res
+    ⇒
+    closed_Clocs menv env (SND(FST res)) ∧
+    (∀v. SND res = Cval v ∨ SND res = Cexc (Craise v) ⇒ all_Clocs v ⊆ count (LENGTH (SND (FST res))))``,
+  rw[closed_Clocs_def] >>
+  TRY (
+    match_mp_tac SUBSET_TRANS >>
+    HINT_EXISTS_TAC >> simp[] >>
+    qspecl_then[`menv`,`s`,`env`,`exp`,`res`]mp_tac(CONJUNCT1 Cevaluate_store_SUBSET) >>
+    simp[SUBSET_DEF] ) >>
+  qspecl_then[`menv`,`s`,`env`,`exp`,`res`]mp_tac(CONJUNCT1 Cevaluate_Clocs) >>
+  simp[])
+
+val good_cd_def = Define`
+  good_cd ((ez,nz,ix),(l,cc,recs,envs),az,b) ⇔
+    EVERY (λv. v < ez) envs ∧
+    set (free_vars b) ⊆ count (LENGTH cc) ∧
+    ∃e e'. (cc,(recs,envs),e') = (bind_fv (az,e) nz ix)`
+
+val code_env_cd_def = Define`
+  code_env_cd menv code (x,(l,ccenv,ce),(az,b)) ⇔
+    (∀mn x. (mn,x) ∈ mvars b ⇒ ∃env. FLOOKUP menv mn = SOME env ∧ x < LENGTH env) ∧
+    good_cd (x,(l,ccenv,ce),(az,b)) ∧
+    ∃cs bc0 cc bc1.
+      ((compile menv (MAP CTEnv ccenv) (TCTail az 0) 0 cs b).out = cc ++ cs.out) ∧
+      EVERY (combin$C $< cs.next_label o dest_Label) (FILTER is_Label bc0) ∧ l < cs.next_label ∧
+      (code = bc0 ++ Label l :: (REVERSE cc) ++ bc1)`
+
+val closed_vlabs_def = Define`
+  closed_vlabs Cmenv Cenv Cs cmnv code ⇔
+    EVERY all_vlabs Cs ∧ EVERY all_vlabs Cenv ∧ all_vlabs_menv Cmenv ∧
+    (∀cd. cd ∈ vlabs_list Cs ⇒ code_env_cd cmnv code cd) ∧
+    (∀cd. cd ∈ vlabs_list Cenv ⇒ code_env_cd cmnv code cd) ∧
+    (∀cd. cd ∈ vlabs_menv Cmenv ⇒ code_env_cd cmnv code cd)`
+
+val Cevaluate_closed_vlabs = store_thm("Cevaluate_closed_vlabs",
+  ``∀menv s env exp res cmnv code.
+    closed_vlabs menv env (SND s) cmnv code ∧
+    Cevaluate menv s env exp res ∧ all_labs exp ∧
+    (∀cd. MEM cd (free_labs (LENGTH env) exp) ⇒ code_env_cd cmnv code cd)
+    ⇒
+    closed_vlabs menv env (SND(FST res)) cmnv code ∧
+    (∀v. SND res = Cval v ∨ SND res = Cexc (Craise v) ⇒
+      all_vlabs v ∧
+      vlabs v ⊆ vlabs_menv menv ∪ vlabs_list (SND s) ∪ vlabs_list env ∪ set (free_labs (LENGTH env) exp))``,
+  rpt gen_tac >>
+  simp[closed_vlabs_def] >>
+  strip_tac >>
+  qspecl_then[`menv`,`s`,`env`,`exp`,`res`]mp_tac(CONJUNCT1 Cevaluate_vlabs)>>
+  qspecl_then[`menv`,`s`,`env`,`exp`,`res`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs)>>
+  simp[] >>
+  rw[] >> fs[SUBSET_DEF] >>
+  metis_tac[])
 
 (* mkshift *)
 

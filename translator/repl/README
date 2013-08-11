@@ -4,3 +4,9 @@ ml_repl_stepScript.sml
 sideScript.sml
   Prove side conditions that the translator generates (mostly that the
   inferencer only usees well-founded substitutions).
+
+replDecsScript.sml
+  Declarations for loading and running the REPL.
+
+oneshotScript.sml
+  Declarations for loading the compiler and running it once.

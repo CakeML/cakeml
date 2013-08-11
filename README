@@ -5,9 +5,9 @@ theorem prover (http://hol.sourceforge.net).
 
 NB: We develop this using the head of the HOL4 development version in Github
 (https://github.com/mn200/HOL), and it will not work on official HOL releases.
-We build HOL on PolyML 5.5 (http://www.polyml.org/).  Also, a full build
-(including the bootstrapping which requires running the compiler on itself in
-the logic) requires a machine with 32GB RAM.
+We build HOL on PolyML 5.5 (http://www.polyml.org/). Also, a full build
+(including the bootstrapping which runs the compiler on itself in the logic)
+may require 16GB RAM.
 
 Directory structure:
 
@@ -27,6 +27,7 @@ Directory structure:
     - type soundness
     - determinism
     - equivalence of the big and small step semantics
+    - a verified clocked interpreter
 
 - parsing
     Lexer and PEG parser for CakeML.
@@ -54,6 +55,10 @@ Directory structure:
 - repl/examples
     Examples of evaluating repl_fun in the logic.
 
+- whole-prog
+    Compile a whole CakeML program to bytecode, instead of interleaving
+    compilation and execution as in the repl.
+
 - translator
     A proof-producing translator from HOL functions to CakeML.
 - translator/repl
@@ -69,9 +74,11 @@ Directory structure:
 - x86-64
     (Work towards an) x86-64 implementation of repl_fun.
 
-- unverified
+- unverified/interp
     Unverified implementation, in Haskell, of the CakeML frontend augmented
     with informative error messages.
+- unverified/bytecode
+    An unverified implementation of CakeML bytecode, written in C
 
 - hol-light
     An implementation of HOL Light (http://www.cl.cam.ac.uk/~jrh13/hol-light/)
@@ -79,3 +86,6 @@ Directory structure:
 
 - clockScript.sml
     A proof outline of our divergence preservation technique.
+
+- COPYING
+    Copyright notice, license, and disclaimer.

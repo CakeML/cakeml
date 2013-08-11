@@ -52,10 +52,11 @@ val (exp_to_tok_tree_def, exp_to_tok_tree_ind) =
                                    | INR (INL (_,p,e)) => exp_size e + 1
                                    | INR (INR (_,topt1,topt2,e)) => exp_size e + 1)` >>
   rw [] >>
+  srw_tac[ARITH_ss][] >>
   TRY (induct_on `funs`) >>
   TRY (induct_on `pes`) >>
   TRY (induct_on `es`) >>
-  TRY (induct_on `v41`) >>
+  TRY (induct_on `v39`) >>
   rw [exp_size_def] >>
   fs [exp_size_def] >>
   rw [exp_size_def] >>

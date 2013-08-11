@@ -13,10 +13,7 @@ elaborate_top ((types, constructors) : elaborator_state) ast_top =
     ((new_types++types, new_constructors ++ constructors), top)`;
 
 val initial_elaborator_state_def = Define `
-initial_elaborator_state : elaborator_state = ([("int", TC_int);
-                                                ("bool", TC_bool);
-                                                ("ref", TC_ref);
-                                                ("unit", TC_unit)], [])`;
+initial_elaborator_state : elaborator_state = (init_repl_state.type_bindings, [])`;
 
 val _ = type_abbrev ("inferencer_state", ``:(modN, (varN, num # infer_t) env) env # tenvC # (varN, num # infer_t) env``);
 
@@ -30,7 +27,7 @@ infertype_top ((module_type_env, constructor_type_env, type_env) :inferencer_sta
                   new_type_env ++ type_env)`;
 
 val initial_inferencer_state_def = Define `
-initial_inferencer_state : inferencer_state = ([], [], infer$init_type_env)`;
+initial_inferencer_state : inferencer_state = ([], init_tenvC, infer$init_type_env)`;
 
 val _ = Hol_datatype`repl_fun_state = <|
   relaborator_state : elaborator_state;
@@ -117,14 +114,7 @@ val install_code_def = Define `
              ; cons_names := m
              |>`;
 
-val PrintE_def = Define`
-  PrintE = (MAP PrintC "raise ")++
-           [Stack(Load 0); Stack IsBlock; JumpIf (Lab 0); PrintC #"<"; Print; PrintC #">"; Jump (Lab 3);Label 0
-           ;Stack (Load 0); Stack(TagEq (block_tag+bind_exc_cn)); JumpIf (Lab 1)
-           ;Stack(TagEq (block_tag+ div_exc_cn)); JumpIf (Lab 2)]++
-           (MAP PrintC "<Eq_closure>")++(Jump(Lab 3))::(Label 1)::(Stack Pop)::
-           (MAP PrintC "<Bind>")      ++(Jump(Lab 3))::(Label 2)::
-           (MAP PrintC "<Div>")       ++[Label 3]`
+val PrintE_def = Define`PrintE = (MAP PrintC "raise ")++[Print]`
 
 val initial_bc_state_def =  Define`
   initial_bc_state =

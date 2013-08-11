@@ -86,7 +86,7 @@ metis_tac[NOT_LESS])
 
 val free_vars_remove_mat_var_SUBSET = store_thm(
 "free_vars_remove_mat_var_SUBSET",
-``∀v pes. set (free_vars (remove_mat_var v pes)) ⊆ {v} ∪ BIGUNION (IMAGE (λ(p,e). set (lshift (Cpat_vars p) (free_vars e))) (set pes))``,
+``∀b v pes. set (free_vars (remove_mat_var b v pes)) ⊆ {v} ∪ BIGUNION (IMAGE (λ(p,e). set (lshift (Cpat_vars p) (free_vars e))) (set pes))``,
 ho_match_mp_tac remove_mat_var_ind >>
 strip_tac >- rw[remove_mat_var_def] >>
 srw_tac[DNF_ss][remove_mat_var_def,SUBSET_DEF,LET_THM] >-
@@ -107,7 +107,7 @@ val no_labs_remove_mat_vp = store_thm("no_labs_remove_mat_vp",
 val _ = export_rewrites["no_labs_remove_mat_vp"]
 
 val no_labs_remove_mat_var = store_thm("no_labs_remove_mat_var",
-  ``∀x pes. no_labs (remove_mat_var x pes) = no_labs_list (MAP SND pes)``,
+  ``∀b x pes. no_labs (remove_mat_var b x pes) ⇔ no_labs_list (MAP SND pes)``,
   ho_match_mp_tac remove_mat_var_ind >> rw[remove_mat_var_def] >> simp[] >> metis_tac[])
 val _ = export_rewrites["no_labs_remove_mat_var"]
 
@@ -295,10 +295,12 @@ val Cpmatch_list_APPEND = store_thm("Cpmatch_list_APPEND",
   srw_tac[DNF_ss][] >>
   PROVE_TAC[])
 
+val cenv = rand ``pmatch cenv``
+
 val pmatch_Cpmatch = store_thm("pmatch_Cpmatch",
-  ``(∀(cenv:envC) s p v env env'. (pmatch cenv s p v env = Match (env' ++ env))
+  ``(∀^cenv s p v env env'. (pmatch cenv s p v env = Match (env' ++ env))
       ⇒ ∀m. Cpmatch (MAP (v_to_Cv m.mvars m.cnmap) s) (SND (pat_to_Cpat m p)) (v_to_Cv m.mvars m.cnmap v) (env_to_Cenv m.mvars m.cnmap env')) ∧
-    (∀(cenv:envC) s ps vs env env'. (pmatch_list cenv s ps vs env = Match (env' ++ env))
+    (∀^cenv s ps vs env env'. (pmatch_list cenv s ps vs env = Match (env' ++ env))
       ⇒ ∀m. Cpmatch_list (MAP (v_to_Cv m.mvars m.cnmap) s) (SND (pats_to_Cpats m ps)) (vs_to_Cvs m.mvars m.cnmap vs) (env_to_Cenv m.mvars m.cnmap env'))``,
   ho_match_mp_tac pmatch_ind >>
   strip_tac >- (
@@ -398,10 +400,10 @@ val pmatch_Cpmatch = store_thm("pmatch_Cpmatch",
   rw[pmatch_def])
 
 val pmatch_Cpnomatch = store_thm("pmatch_Cpnomatch",
-  ``(∀(cenv:envC) s p v env. (pmatch cenv s p v env = No_match)
+  ``(∀^cenv s p v env. (pmatch cenv s p v env = No_match)
       ⇒ ∀m. good_cmap cenv m.cnmap ⇒
             Cpnomatch (MAP (v_to_Cv m.mvars m.cnmap) s) (SND (pat_to_Cpat m p)) (v_to_Cv m.mvars m.cnmap v)) ∧
-    (∀(cenv:envC) s ps vs env env'. (pmatch_list cenv s ps vs env = No_match) ∧ (LENGTH ps = LENGTH vs)
+    (∀^cenv s ps vs env env'. (pmatch_list cenv s ps vs env = No_match) ∧ (LENGTH ps = LENGTH vs)
       ⇒ ∀m. good_cmap cenv m.cnmap ⇒
             Cpnomatch_list (MAP (v_to_Cv m.mvars m.cnmap) s) (SND (pats_to_Cpats m ps)) (vs_to_Cvs m.mvars m.cnmap vs))``,
   ho_match_mp_tac pmatch_ind >>
@@ -494,9 +496,9 @@ val matchres_def = Define`
   matchres (env:envE) cenv s env' e r = ∃env''. (env' = env'' ++ env) ∧ (r = (s, Rval (env'',e)))`
 
 val evaluate_match_with_Cevaluate_match = store_thm("evaluate_match_with_Cevaluate_match",
-  ``∀pes r. evaluate_match_with (matchres env) (cenv:envC) s env v pes r ⇒
+  ``∀pes errv r. evaluate_match_with (matchres env) cenv s env v pes errv r ⇒
       ∀m. good_cmap cenv m.cnmap ⇒
-        ((r = (s, Rerr (Rraise Bind_error)))
+        ((r = (s, Rerr (Rraise errv)))
             ⇒ Cevaluate_match (MAP (v_to_Cv m.mvars m.cnmap) (SND s)) (v_to_Cv m.mvars m.cnmap v)
                 (MAP (λ(p,e). (SND (pat_to_Cpat m p),(p,e))) pes)
                 [] NONE) ∧
@@ -517,12 +519,12 @@ val evaluate_match_with_Cevaluate_match = store_thm("evaluate_match_with_Cevalua
   strip_tac >- rw[] >> rw[] )
 
 val evaluate_match_with_matchres = store_thm("evaluate_match_with_matchres",
-  ``∀(pes:(pat#exp)list) r. evaluate_match_with P (cenv:envC) s env v pes r ⇒
+  ``∀(pes:(pat#exp)list) errv r. evaluate_match_with P cenv s env v pes errv r ⇒
             (SND r ≠ Rerr Rtype_error) ⇒
-            ((SND r = Rerr (Rraise Bind_error)) ∧
-             evaluate_match_with (matchres env) cenv s env v pes (s, Rerr (Rraise Bind_error)) ∧
+            ((SND r = Rerr (Rraise errv)) ∧
+             evaluate_match_with (matchres env) cenv s env v pes errv (s, Rerr (Rraise errv)) ∧
              (FST r = s)) ∨
-            ∃menv mr. evaluate_match_with (matchres env) cenv s env v pes (s, Rval (menv,mr)) ∧
+            ∃menv mr. evaluate_match_with (matchres env) cenv s env v pes errv (s, Rval (menv,mr)) ∧
                       P cenv s (menv++env) mr r``,
   ho_match_mp_tac evaluate_match_with_ind >>
   strip_tac >- rw[Once evaluate_match_with_cases] >>
@@ -544,11 +546,12 @@ val evaluate_match_with_matchres = store_thm("evaluate_match_with_matchres",
   rw[])
 
 val evaluate_match_with_matchres_closed = store_thm("evaluate_match_with_matchres_closed",
-  ``∀(pes:(pat#exp)list) r. evaluate_match_with (matchres env) (cenv:envC) s env v pes r ⇒
+  ``∀(pes:(pat#exp)list) errv r. evaluate_match_with (matchres env) cenv s env v pes errv r ⇒
             EVERY (closed envM) (SND s) ∧ EVERY (closed envM) (MAP SND env) ∧ closed envM v ⇒
             every_result (λ(menv,mr). EVERY (closed envM) (MAP SND menv) ∧
                                       MEM mr pes ∧
-                                      ((MAP FST menv) = pat_bindings (FST mr) [])) (SND r) ``,
+                                      ((MAP FST menv) = pat_bindings (FST mr) []))
+                         (λv. v = errv) (SND r) ``,
   ho_match_mp_tac evaluate_match_with_ind >>
   strip_tac >- rw[] >>
   strip_tac >- (
@@ -562,15 +565,16 @@ val evaluate_match_with_matchres_closed = store_thm("evaluate_match_with_matchre
     rw[] >> fs[] >>
     Cases_on `SND r` >> fs[] >>
     fs[UNCURRY] >>
-    fsrw_tac[DNF_ss][] >> PROVE_TAC[]) >>
+    fsrw_tac[DNF_ss][] >>
+    Cases_on`e'`>>fs[]) >>
   strip_tac >- rw[] >>
   rw[])
 
 val evaluate_match_with_matchres_all_cns = store_thm("evaluate_match_with_matchres_all_cns",
-  ``∀pes r. evaluate_match_with (matchres env) (cenv:envC) s env v pes r ⇒
+  ``∀pes errv r. evaluate_match_with (matchres env) ^cenv s env v pes errv r ⇒
             (∀w. MEM w (SND s) ∨ MEM w (MAP SND env) ∨ (w = v) ⇒ all_cns w ⊆ cenv_dom cenv) ⇒
             (∀v. MEM v (SND (FST r)) ⇒ all_cns v ⊆ cenv_dom cenv) ∧
-            every_result (λ(menv,mr). ∀v. MEM v (MAP SND menv) ⇒ all_cns v ⊆ cenv_dom cenv) (SND r) ``,
+            every_result (λ(menv,mr). ∀v. MEM v (MAP SND menv) ⇒ all_cns v ⊆ cenv_dom cenv) (λv. v = errv) (SND r) ``,
   ho_match_mp_tac evaluate_match_with_ind >>
   strip_tac >- rw[] >>
   strip_tac >- (
@@ -578,7 +582,7 @@ val evaluate_match_with_matchres_all_cns = store_thm("evaluate_match_with_matchr
     fs[] >>
     fs[Once pmatch_nil] >>
     Cases_on `pmatch cenv (SND s) p v []` >> fs[] >>
-    qspecl_then [`cenv`,`(SND s)`,`p`,`v`,`[]`] mp_tac (CONJUNCT1 pmatch_all_cns) >>
+    qspecl_then[`cenv`,`(SND s)`,`p`,`v`,`[]`] mp_tac (CONJUNCT1 pmatch_all_cns) >>
     fs[] >>
     fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP] >>
     metis_tac[]) >>
@@ -1008,17 +1012,18 @@ val Cevaluate_match_NONE_NIL = store_thm("Cevaluate_match_NONE_NIL",
 
 val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
   ``∀pes menv mr. Cevaluate_match (SND s) v pes menv mr ⇒
-      ∀env x. (el_check x env = SOME v) ∧
+      ∀env b x. (el_check x env = SOME v) ∧
               EVERY (λ(p,e). set (free_vars e) ⊆ count (Cpat_vars p + LENGTH env) ∧ no_labs e) pes
       ⇒
        case mr of
        | NONE =>
-           ∃r. Cevaluate mod s env (remove_mat_var x pes) r ∧
+           ∃r. Cevaluate mod s env (remove_mat_var b x pes) r ∧
                FST s = FST (FST r) ∧
                EVERY2 (syneq) (SND s) (SND (FST r)) ∧
-               (SND r = Cexc (Craise CBind_excv))
+               ∃e. (SND r = Cexc (Craise e)) ∧
+                   (syneq (if b then v else CBind_excv) e)
        | SOME e => ∀r0. Cevaluate mod s (menv ++ env) e r0 ⇒
-           ∃r. Cevaluate mod s env (remove_mat_var x pes) r ∧
+           ∃r. Cevaluate mod s env (remove_mat_var b x pes) r ∧
                FST (FST r0) = FST (FST r) ∧
                EVERY2 (syneq) (SND (FST r0)) (SND (FST r)) ∧
                Cresult_rel syneq syneq (SND r0) (SND r)``,
@@ -1026,7 +1031,9 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
   strip_tac >- (
     rw[remove_mat_var_def] >>
     rw[Once Cevaluate_cases] >>
-    srw_tac[DNF_ss][] >>
+    fs[el_check_def] >>
+    rw[Once Cevaluate_cases] >>
+    rw[Once Cevaluate_cases] >>
     rw[Once Cevaluate_cases] >>
     rw[Once Cevaluate_cases] ) >>
   strip_tac >- (
@@ -1066,18 +1073,19 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
       res_tac >> simp[] ) >>
     metis_tac[Cresult_rel_syneq_trans,EVERY2_syneq_trans ] ) >>
   rw[] >>
+  Q.PAT_ABBREV_TAC`errv = if b then v else X` >>
   rw[remove_mat_var_def,LET_THM] >>
   qspecl_then [`p`,`v`] mp_tac (CONJUNCT1 Cpnomatch_remove_mat) >>
   rw[] >>
   Q.PAT_ABBREV_TAC`ex = CLetrec X Y` >>
-  qsuff_tac `∀r0. (case mr of NONE => (r0 = (s,Cexc (Craise CBind_excv)))
+  qsuff_tac `∀r0. (case mr of NONE => ∃err0. (r0 = (s,Cexc (Craise err0))) ∧ syneq err0 errv
                    | SOME e => Cevaluate mod s (menv ++ env) e r0)
                    ⇒ ∃r. Cevaluate mod s env ex r ∧
                          FST (FST r0) = FST (FST r) ∧
                          EVERY2 syneq (SND (FST r0)) (SND (FST r)) ∧
                          Cresult_rel syneq syneq (SND r0) (SND r)` >- (
     Cases_on `mr` >> fs[EXISTS_PROD,FORALL_PROD] >>
-    Cases_on`s`>>srw_tac[DNF_ss][Once syneq_cases] >> metis_tac[] ) >>
+    Cases_on`s`>>srw_tac[DNF_ss][]) >>
   qx_gen_tac `r0` >>
   strip_tac >>
   qunabbrev_tac`ex` >>
@@ -1104,15 +1112,15 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
     srw_tac[ARITH_ss][ADD1] >>
     res_tac >> simp[] ) >>
   qsuff_tac`
-      ∃r. Cevaluate mod s env (remove_mat_var x pes) r ∧
+      ∃r. Cevaluate mod s env (remove_mat_var b x pes) r ∧
           FST (FST r0) = FST (FST r) ∧
           EVERY2 (syneq) (SND (FST r0)) (SND (FST r)) ∧
           Cresult_rel syneq syneq (SND r0) (SND r)` >- (
     disch_then(Q.X_CHOOSE_THEN`r1`strip_assume_tac) >>
-    qspecl_then[`mod`,`s`,`env`,`remove_mat_var x pes`,`r1`]mp_tac(CONJUNCT1 Cevaluate_syneq) >>
+    qspecl_then[`mod`,`s`,`env`,`remove_mat_var b x pes`,`r1`]mp_tac(CONJUNCT1 Cevaluate_syneq) >>
     simp[] >>
     Q.PAT_ABBREV_TAC`f = CRecClos env A B` >>
-    disch_then(qspecl_then[`λv1 v2. v2 = v1 + 1`,`mod`,`s`,`f::env`,`shift 1 0 (remove_mat_var x pes)`]mp_tac) >>
+    disch_then(qspecl_then[`λv1 v2. v2 = v1 + 1`,`mod`,`s`,`f::env`,`shift 1 0 (remove_mat_var b x pes)`]mp_tac) >>
     qmatch_abbrev_tac`(P ⇒ Q) ⇒ R` >>
     qsuff_tac`P` >- (
       unabbrev_all_tac >>
@@ -1122,7 +1130,7 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
     simp[shift_def,ADD1,EL_CONS,PRE_SUB1] >>
     match_mp_tac mkshift_thm >>
     simp[] >> conj_tac >- (
-      qspecl_then[`x`,`pes`]strip_assume_tac free_vars_remove_mat_var_SUBSET >>
+      qspecl_then[`b`,`x`,`pes`]strip_assume_tac free_vars_remove_mat_var_SUBSET >>
       match_mp_tac SUBSET_TRANS >> HINT_EXISTS_TAC >>
       fsrw_tac[DNF_ss][SUBSET_DEF] >>
       qx_gen_tac`y` >>
@@ -1134,11 +1142,11 @@ val Cevaluate_match_remove_mat_var = store_thm("Cevaluate_match_remove_mat_var",
     fsrw_tac[DNF_ss][EVERY_MEM,FORALL_PROD] >>
     simp[free_labs_list_MAP,FLAT_EQ_NIL,EVERY_MAP,EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD] >>
     metis_tac[]) >>
-  first_x_assum(qspecl_then[`env`,`x`]mp_tac) >>
+  first_x_assum(qspecl_then[`env`,`b`,`x`]mp_tac) >>
   simp[] >>
   Cases_on`mr`>>fs[] >>
-  srw_tac[DNF_ss][Once syneq_cases] >>
-  metis_tac[EVERY2_syneq_trans])
+  srw_tac[DNF_ss][] >>
+  metis_tac[syneq_trans,EVERY2_syneq_trans])
 
 val Cpmatch_syneq = store_thm("Cpmatch_syneq",
   ``(∀p v env. Cpmatch s p v env ⇒

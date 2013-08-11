@@ -7,7 +7,7 @@ val _ = numLib.prefer_num();
 
 
 
-open CompilerPrimitivesTheory BytecodeTheory PrinterTheory CompilerLibTheory SemanticPrimitivesTheory AstTheory LibTheory
+open BytecodeTheory PrinterTheory CompilerLibTheory SemanticPrimitivesTheory AstTheory LibTheory
 
 val _ = new_theory "IntLang"
 
@@ -106,6 +106,12 @@ val _ = Define `
 
 val _ = Define `
  eq_exc_cn = 3`;
+
+val _ = Define `
+ nil_exc_cn = 4`;
+
+val _ = Define `
+ cons_exc_cn = 5`;
 
 val _ = Define `
  CBind_exc = (CCon bind_exc_cn [])`;

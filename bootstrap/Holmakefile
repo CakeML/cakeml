@@ -5,7 +5,7 @@ ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../repl/repl_computeLib ../translator/repl/oneshotTheory
+BARE_THYS = ../repl/repl_computeLib ../repl/repl_computeTheory ../translator/repl/replDecsTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

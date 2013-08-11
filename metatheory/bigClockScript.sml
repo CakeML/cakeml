@@ -1,5 +1,6 @@
 open preamble;
-open BigStepTheory SemanticPrimitivesTheory;
+open LibTheory AstTheory BigStepTheory SemanticPrimitivesTheory;
+open terminationTheory;
 
 val _ = new_theory "bigClock";
 
@@ -10,7 +11,7 @@ val do_app_cases = Q.store_thm ("do_app_cases",
   ((?op' n1 n2. 
     (op = Opn op') ∧ (v1 = Litv (IntLit n1)) ∧ (v2 = Litv (IntLit n2)) ∧
     ((((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧ 
-     (st' = st) ∧ (env' = env) ∧ (v3 = Raise Div_error) ∨
+     (st' = st) ∧ (env' = env) ∧ (v3 = Raise (Con (SOME (Short "Div")) [])) ∨
      ~(((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧
      (st' = st) ∧ (env' = env) ∧ (v3 = Lit (IntLit (opn_lookup op' n1 n2))))) ∨
   (?op' n1 n2.
@@ -18,7 +19,7 @@ val do_app_cases = Q.store_thm ("do_app_cases",
     (st = st') ∧ (env = env') ∧ (v3 = Lit (Bool (opb_lookup op' n1 n2)))) ∨
   ((op = Equality) ∧ (st = st') ∧ (env = env') ∧
       ((?b. (do_eq v1 v2 = Eq_val b) ∧ (v3 = Lit (Bool b))) ∨
-       ((do_eq v1 v2 = Eq_closure) ∧ (v3 = Raise Eq_error)))) ∨
+       ((do_eq v1 v2 = Eq_closure) ∧ (v3 = Raise (Con (SOME (Short "Eq")) []))))) ∨
   (∃env'' n e.
     (op = Opapp) ∧ (v1 = Closure env'' n e) ∧
     (st' = st) ∧ (env' = bind n v2 env'') ∧ (v3 = e)) ∨
@@ -72,9 +73,9 @@ val big_exp_determ = Q.store_thm ("big_exp_determ",
    evaluate_list ck menv cenv s env es r1 ⇒
    ∀r2. evaluate_list ck menv cenv s env es r2 ⇒
    (r1 = r2)) ∧
- (∀ck (menv : envM) (cenv : envC) s env v pes r1.
-   evaluate_match ck menv cenv s env v pes r1 ⇒
-   ∀r2. evaluate_match ck menv cenv s env v pes r2 ⇒
+ (∀ck (menv : envM) (cenv : envC) s env v pes err_v r1.
+   evaluate_match ck menv cenv s env v pes err_v r1 ⇒
+   ∀r2. evaluate_match ck menv cenv s env v pes err_v r2 ⇒
    (r1 = r2))`,
 HO_MATCH_MP_TAC evaluate_ind >>
 rw [] >>
@@ -103,8 +104,8 @@ val big_unclocked_unchanged = Q.prove (
      ⇒
      (SND r1 ≠ Rerr Rtimeout_error) ∧
      (FST s = FST (FST r1))) ∧
- (∀ck (menv : envM) (cenv : envC) s env v pes r1.
-   evaluate_match ck menv cenv s env v pes r1 ⇒
+ (∀ck (menv : envM) (cenv : envC) s env v pes err_v r1.
+   evaluate_match ck menv cenv s env v pes err_v r1 ⇒
      (ck = F)
      ⇒
      (SND r1 ≠ Rerr Rtimeout_error) ∧
@@ -129,14 +130,14 @@ val big_unclocked_ignore = Q.prove (
        (r ≠ Rerr Rtimeout_error)
        ⇒
        evaluate_list F menv cenv (count2,st) env es ((count2, st'), r)) ∧
- (∀ck (menv : envM) (cenv : envC) s env v pes r1.
-   evaluate_match ck menv cenv s env v pes r1 ⇒
+ (∀ck (menv : envM) (cenv : envC) s env v pes err_v r1.
+   evaluate_match ck menv cenv s env v pes err_v r1 ⇒
      !count1 count1' count2 count2' st st' r.
        (s = (count1,st)) ∧
        (r1 = ((count1', st'), r)) ∧
        (r ≠ Rerr Rtimeout_error)
        ⇒
-       evaluate_match F menv cenv (count2,st) env v pes ((count2, st'), r))`,
+       evaluate_match F menv cenv (count2,st) env v pes err_v ((count2, st'), r))`,
 ho_match_mp_tac evaluate_ind >>
 rw [] >>
 rw [Once evaluate_cases]>>
@@ -188,14 +189,14 @@ val add_to_counter = Q.store_thm ("add_to_counter",
    (r' ≠ Rerr Rtimeout_error) ∧
    (ck = T) ⇒
    evaluate_list T menv cenv (count+extra,s0) env es ((count'+extra,s'),r')) ∧
- (∀ck (menv : envM) (cenv : envC) s env v pes r1.
-   evaluate_match ck menv cenv s env v pes r1 ⇒
+ (∀ck (menv : envM) (cenv : envC) s env v pes err_v r1.
+   evaluate_match ck menv cenv s env v pes err_v r1 ⇒
    !s0 count count' s' r' extra.
    (r1 = ((count',s'),r')) ∧
    (s = (count, s0)) ∧
    (r' ≠ Rerr Rtimeout_error) ∧
    (ck = T) ⇒
-   evaluate_match T menv cenv (count+extra,s0) env v pes ((count'+extra,s'),r'))`,
+   evaluate_match T menv cenv (count+extra,s0) env v pes err_v ((count'+extra,s'),r'))`,
 ho_match_mp_tac evaluate_ind >>
 rw [] >>
 rw [Once evaluate_cases] >|
@@ -268,29 +269,28 @@ val add_clock = Q.prove (
    (s = (count, s0)) ∧
    (ck = F) ⇒
    ∃count1. evaluate_list T menv cenv (count1,s0) env es ((0,s'),r')) ∧
- (∀ck (menv : envM) (cenv : envC) s env v pes r1.
-   evaluate_match ck menv cenv s env v pes r1 ⇒
+ (∀ck (menv : envM) (cenv : envC) s env v pes err_v r1.
+   evaluate_match ck menv cenv s env v pes err_v r1 ⇒
    !s0 count count' s' r'.
    (r1 = ((count',s'),r')) ∧
    (s = (count, s0)) ∧
    (ck = F) ⇒
-   ∃count1. evaluate_match T menv cenv (count1,s0) env v pes ((0,s'),r'))`,
-ho_match_mp_tac evaluate_ind >>
-rw [] >>
-rw [Once evaluate_cases] >|
-[metis_tac [],
- tac,
- metis_tac [],
- metis_tac [],
- metis_tac [],
- metis_tac [],
- metis_tac [],
- metis_tac [],
- metis_tac [],
- metis_tac [],
- metis_tac [],
- metis_tac [],
- PairCases_on `s'` >>
+   ∃count1. evaluate_match T menv cenv (count1,s0) env v pes err_v ((0,s'),r'))`,
+ ho_match_mp_tac evaluate_ind >>
+ rw [] >>
+ rw [Once evaluate_cases] >-
+ metis_tac [] >-
+ metis_tac [] >-
+ metis_tac [] >-
+ tac >-
+ metis_tac [] >-
+ metis_tac [] >-
+ metis_tac [] >-
+ metis_tac [] >-
+ metis_tac [] >-
+ metis_tac [] >-
+ metis_tac [] >- (
+     PairCases_on `s'` >>
      fs [] >>
      Q.ABBREV_TAC `inc = if op = Opapp then 1:num else 0` >>
      qexists_tac `count1+count1'+inc+count1''` >>
@@ -310,28 +310,28 @@ rw [Once evaluate_cases] >|
      rw [] >>
      fs [dec_count_add] >>
      metis_tac [add_to_counter, arithmeticTheory.ADD_COMM,
-                arithmeticTheory.ADD_0, result_distinct, error_result_distinct, result_11],
- tac,
- tac,
- metis_tac [],
- tac,
- metis_tac [],
- metis_tac [],
- tac,
- metis_tac [],
- metis_tac [],
- tac,
- metis_tac [],
- tac,
- metis_tac [],
- metis_tac [],
- tac,
- metis_tac [],
- tac,
- metis_tac [],
- metis_tac [],
- metis_tac [],
- metis_tac []]);
+                arithmeticTheory.ADD_0, result_distinct, error_result_distinct, result_11]) >-
+ tac >-
+ tac >-
+ metis_tac [] >-
+ tac >-
+ metis_tac [] >-
+ metis_tac [] >-
+ tac >-
+ metis_tac [] >-
+ metis_tac [] >-
+ tac >-
+ metis_tac [] >-
+ tac >-
+ metis_tac [] >-
+ metis_tac [] >-
+ tac >-
+ metis_tac [] >-
+ tac >-
+ metis_tac [] >-
+ metis_tac [] >-
+ metis_tac [] >-
+ metis_tac []);
 
 val clock_monotone = Q.prove (
 `(∀ck (menv : envM) (cenv : envC) s env e r1.
@@ -348,8 +348,8 @@ val clock_monotone = Q.prove (
    (s = (count, s0)) ∧
    (ck = T) ⇒
    (count' ≤ count)) ∧
- (∀ck (menv : envM) (cenv : envC) s env v pes r1.
-   evaluate_match ck menv cenv s env v pes r1 ⇒
+ (∀ck (menv : envM) (cenv : envC) s env v pes err_v r1.
+   evaluate_match ck menv cenv s env v pes err_v r1 ⇒
    !s0 count count' s' r'.
    (r1 = ((count',s'),r')) ∧
    (s = (count, s0)) ∧
@@ -362,7 +362,6 @@ PairCases_on `s'` >>
 full_simp_tac (srw_ss()++ARITH_ss) [] >>
 cases_on `op` >>
 full_simp_tac (srw_ss()++ARITH_ss) [dec_count_def]);
-
 
 val big_clocked_unclocked_equiv = Q.store_thm ("big_clocked_unclocked_equiv",
 `!(menv : envM) (cenv : envC) s env e s' r1 count1.
@@ -394,22 +393,22 @@ ONCE_REWRITE_TAC [evaluate_cases] >>
 rw [] >>
 `exp_size h < exp_size (Con i (h::l)) ∧
  exp_size (Con i l) < exp_size (Con i (h::l))`
-         by srw_tac [ARITH_ss] [AstTheory.exp_size_def] >>
+         by srw_tac [ARITH_ss] [exp_size_def] >>
 `?count1 s1 r1. evaluate T menv cenv (count',s) env h ((count1,s1),r1)`
           by metis_tac [] >>
 `?count2 s2 r2. evaluate_list T menv cenv (count1, s1) env l ((count2,s2),r2)`
                 by metis_tac [clock_monotone, arithmeticTheory.LESS_OR_EQ, arithmeticTheory.LESS_TRANS] >>
-metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES, AstTheory.error_nchotomy]);
+metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES]);
 
 val eval_match_total = Q.prove (
-`∀(menv : envM) (cenv : envC) s env l i count' v.
+`∀(menv : envM) (cenv : envC) s env l i count' v err_v.
   (∀p_1 p_2.
     p_1 < count' ∨ p_1 = count' ∧ exp_size p_2 < exp_size (Mat e' l) ⇒
     ∀menv (cenv : envC) s env.
       ∃count'' s' r.
         evaluate T menv cenv (p_1,s) env p_2 ((count'',s'),r))
 ⇒
-?s2 count2 r2. evaluate_match T menv cenv (count',s) env v l ((count2,s2),r2)`,
+?s2 count2 r2. evaluate_match T menv cenv (count',s) env v l err_v ((count2,s2),r2)`,
 induct_on `l` >>
 rw [] >>
 ONCE_REWRITE_TAC [evaluate_cases] >>
@@ -418,7 +417,7 @@ rw [] >>
 rw [] >>
 `exp_size e < exp_size (Mat e' ((p,e)::l)) ∧
  exp_size (Mat e' l) < exp_size (Mat e' ((p,e)::l))`
-         by srw_tac [ARITH_ss] [AstTheory.exp_size_def] >>
+         by srw_tac [ARITH_ss] [exp_size_def] >>
 `(pmatch cenv s p v env = Match_type_error) ∨ 
  (pmatch cenv s p v env = No_match) ∨ 
  (?env'. pmatch cenv s p v env = Match env')`
@@ -426,39 +425,80 @@ rw [] >>
 rw [] >>
 metis_tac [arithmeticTheory.LESS_TRANS]);
 
+
+val eval_handle_total = Q.prove (
+`∀(menv : envM) (cenv : envC) s env l i count' v err_v.
+  (∀p_1 p_2.
+    p_1 < count' ∨ p_1 = count' ∧ exp_size p_2 < exp_size (Handle e' l) ⇒
+    ∀menv (cenv : envC) s env.
+      ∃count'' s' r.
+        evaluate T menv cenv (p_1,s) env p_2 ((count'',s'),r))
+⇒
+?s2 count2 r2. evaluate_match T menv cenv (count',s) env v l err_v ((count2,s2),r2)`,
+induct_on `l` >>
+rw [] >>
+ONCE_REWRITE_TAC [evaluate_cases] >>
+rw [] >>
+`?p e. h = (p,e)` by metis_tac [pair_CASES] >>
+rw [] >>
+`exp_size e < exp_size (Handle e' ((p,e)::l)) ∧
+ exp_size (Handle e' l) < exp_size (Handle e' ((p,e)::l))`
+         by srw_tac [ARITH_ss] [exp_size_def] >>
+`(pmatch cenv s p v env = Match_type_error) ∨ 
+ (pmatch cenv s p v env = No_match) ∨ 
+ (?env'. pmatch cenv s p v env = Match env')`
+            by metis_tac [match_result_nchotomy] >>
+rw [] >>
+metis_tac [arithmeticTheory.LESS_TRANS]);
+
+val evaluate_raise_empty_ctor = Q.prove (
+`!ck menv cenv s env x cn.
+  ?err. evaluate ck menv cenv s env (Raise (Con cn [])) (s, Rerr err)`,
+ ntac 4 (rw [Once evaluate_cases]) >>
+ metis_tac []);
+
 val big_clocked_total_lem = Q.prove (
 `!count_e (menv : envM) (cenv : envC) s env.
   ∃count' s' r. evaluate T menv cenv (FST count_e,s) env (SND count_e) ((count',s'), r)`,
-ho_match_mp_tac ind >>
-rw [] >>
-`?count e. count_e = (count,e)` by (PairCases_on `count_e` >> fs []) >>
-rw [] >>
-fs [FORALL_PROD, LEX_DEF_THM] >>
-cases_on `e` >>
-rw [Once evaluate_cases] >|
-[(* Handle *)
-     `exp_size e' < exp_size (Handle e' s' e0) ∧
-      exp_size e0 < exp_size (Handle e' s' e0)`
-            by srw_tac [ARITH_ss] [AstTheory.exp_size_def] >>
-     `?count1 s1 r1. evaluate T menv cenv (count',s) env e' ((count1,s1),r1)`
-            by metis_tac [] >>
-     metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES, AstTheory.error_nchotomy,
-                clock_monotone, arithmeticTheory.LESS_OR_EQ],
- (* Con *)
+ ho_match_mp_tac ind >>
+ rw [] >>
+ `?count e. count_e = (count,e)` by (PairCases_on `count_e` >> fs []) >>
+ rw [] >>
+ fs [FORALL_PROD, LEX_DEF_THM] >>
+ cases_on `e` >>
+ rw [Once evaluate_cases] >-
+ ((* Raise *)
+     `exp_size e' < exp_size (Raise e')` by srw_tac [ARITH_ss] [exp_size_def] >>
+     metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES]) >-
+ ((* Handle *)
+     `exp_size e' < exp_size (Handle e' l)` by srw_tac [ARITH_ss] [exp_size_def] >>
+     `?count1 s1 r1. evaluate T menv cenv (count',s) env e' ((count1,s1),r1)` by metis_tac [] >>
+     `(?err. r1 = Rerr err) ∨ (?v. r1 = Rval v)` by (cases_on `r1` >> metis_tac []) >>
+     rw [] >-
+         (cases_on `err` >>
+               fs [] >-
+               metis_tac [] >-
+                    (`?count2 s2 r2. evaluate_match T menv cenv (count1,s1) env v l v ((count2,s2),r2)`
+                            by metis_tac [eval_handle_total, arithmeticTheory.LESS_TRANS, 
+                                          clock_monotone, arithmeticTheory.LESS_OR_EQ] >>
+                     metis_tac []) >-
+               metis_tac []) >-
+     metis_tac []) >-
+ ((* Con *)
      `?count2 s2 r2. evaluate_list T menv cenv (count',s) env l ((count2,s2),r2)`
                by metis_tac [eval_list_total] >>
-     metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES, AstTheory.error_nchotomy],
- (* Var *)
+     metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES]) >-
+ ((* Var *)
      cases_on `lookup_var_id i menv env` >>
-         rw [],
- (* Uapp *)
+         rw []) >-
+ ((* Uapp *)
      `exp_size e' < exp_size (Uapp u e')`
-            by srw_tac [ARITH_ss] [AstTheory.exp_size_def] >>
-     metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES],
- (* App *)
+            by srw_tac [ARITH_ss] [exp_size_def] >>
+     metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES]) >-
+ ((* App *)
      `exp_size e' < exp_size (App o' e' e0) ∧
       exp_size e0 < exp_size (App o' e' e0)`
-            by srw_tac [ARITH_ss] [AstTheory.exp_size_def] >>
+            by srw_tac [ARITH_ss] [exp_size_def] >>
      `?count1 s1 r1. evaluate T menv cenv (count',s) env e' ((count1,s1),r1)`
             by metis_tac [] >>
      `?count2 s2 r2. evaluate T menv cenv (count1,s1) env e0 ((count2,s2),r2)`
@@ -478,13 +518,14 @@ rw [Once evaluate_cases] >|
           metis_tac [] >>
           `dec_count Opapp count2 < count2` by srw_tac [ARITH_ss] [dec_count_def] >>
           metis_tac [clock_monotone, arithmeticTheory.LESS_OR_EQ, arithmeticTheory.LESS_TRANS],
-      `(?l. e2 = Lit l) ∨ (e2 = Raise Div_error) ∨ (e2 = Raise Eq_error)`
-                  by fs [do_app_cases] >>
-          prove_tac [evaluate_rules]],
- (* Log *)
+      `(?l. e2 = Lit l) ∨ (e2 = Raise (Con (SOME (Short "Div")) [])) ∨ (e2 = Raise (Con (SOME (Short "Eq")) []))`
+                  by fs [do_app_cases] >-
+          prove_tac [evaluate_rules] >>
+          metis_tac [evaluate_raise_empty_ctor]]) >-
+ ((* Log *)
      `exp_size e' < exp_size (Log l e' e0) ∧
       exp_size e0 < exp_size (Log l e' e0)`
-            by srw_tac [ARITH_ss] [AstTheory.exp_size_def] >>
+            by srw_tac [ARITH_ss] [exp_size_def] >>
      `?count1 s1 r1. evaluate T menv cenv (count',s) env e' ((count1,s1),r1)`
             by metis_tac [] >>
      `?count2 s2 r2. evaluate T menv cenv (count1,s1) env e0 ((count2,s2),r2)`
@@ -502,12 +543,12 @@ rw [Once evaluate_cases] >|
                     rw []) >-
      metis_tac [] >-
      prove_tac [evaluate_rules] >>
-     metis_tac [clock_monotone, arithmeticTheory.LESS_OR_EQ],
- (* If *)
+     metis_tac [clock_monotone, arithmeticTheory.LESS_OR_EQ]) >-
+ ((* If *)
      `exp_size e' < exp_size (If e' e0 e1) ∧
       exp_size e0 < exp_size (If e' e0 e1) ∧
       exp_size e1 < exp_size (If e' e0 e1)`
-            by srw_tac [ARITH_ss] [AstTheory.exp_size_def] >>
+            by srw_tac [ARITH_ss] [exp_size_def] >>
      `?count1 s1 r1. evaluate T menv cenv (count',s) env e' ((count1,s1),r1)`
             by metis_tac [] >>
      `?count2 s2 r2. evaluate T menv cenv (count1,s1) env e0 ((count2,s2),r2)`
@@ -519,28 +560,28 @@ rw [Once evaluate_cases] >|
      metis_tac [] >>
      `(do_if v e0 e1 = NONE) ∨ (do_if v e0 e1 = SOME e0) ∨ (do_if v e0 e1 = SOME e1)`
                  by (rw [do_if_def]) >>
-     metis_tac [],
- (* match *)
+     metis_tac []) >-
+ ((* match *)
      `exp_size e' < exp_size (Mat e' l)`
-            by srw_tac [ARITH_ss] [AstTheory.exp_size_def] >>
+            by srw_tac [ARITH_ss] [exp_size_def] >>
      `?count1 s1 r1. evaluate T menv cenv (count',s) env e' ((count1,s1),r1)`
             by metis_tac [] >>
      `(?err. r1 = Rerr err) ∨ (?v. r1 = Rval v)` by (cases_on `r1` >> metis_tac []) >>
      rw [] >-
      metis_tac [] >>
-     `?count2 s2 r2. evaluate_match T menv cenv (count1,s1) env v l ((count2,s2),r2)`
+     `?count2 s2 r2. evaluate_match T menv cenv (count1,s1) env v l (Conv (SOME (Short "Bind")) []) ((count2,s2),r2)`
                by metis_tac [eval_match_total, arithmeticTheory.LESS_TRANS, clock_monotone, arithmeticTheory.LESS_OR_EQ] >>
-     metis_tac [],
- (* Let *)
+     metis_tac []) >-
+ ((* Let *)
      `exp_size e' < exp_size (Let s' e' e0) ∧
       exp_size e0 < exp_size (Let s' e' e0)`
-            by srw_tac [ARITH_ss] [AstTheory.exp_size_def] >>
-     metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES, AstTheory.error_nchotomy,
-                clock_monotone, arithmeticTheory.LESS_OR_EQ],
- (* Letrec *)
+            by srw_tac [ARITH_ss] [exp_size_def] >>
+     metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES,
+                clock_monotone, arithmeticTheory.LESS_OR_EQ]) >-
+ ((* Letrec *)
      `exp_size e' < exp_size (Letrec l e')`
-            by srw_tac [ARITH_ss] [AstTheory.exp_size_def] >>
-     metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES, AstTheory.error_nchotomy]]);
+            by srw_tac [ARITH_ss] [exp_size_def] >>
+     metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES]));
 
 val big_clocked_total = Q.store_thm ("big_clocked_total",
 `!(menv : envM) (cenv : envC) count s env e.
@@ -564,8 +605,8 @@ val big_clocked_timeout_0 = Q.store_thm ("big_clocked_timeout_0",
    (ck = T)
    ⇒
    (count' = 0)) ∧
- (∀ck (menv : envM) (cenv : envC) s env v pes r1.
-   evaluate_match ck menv cenv s env v pes r1 ⇒
+ (∀ck (menv : envM) (cenv : envC) s env v pes err_v r1.
+   evaluate_match ck menv cenv s env v pes err_v r1 ⇒
    !s0 count count' s'.
    (s = (count, s0)) ∧
    (r1 = ((count',s'),Rerr Rtimeout_error)) ∧
@@ -627,13 +668,13 @@ val sub_from_counter = Q.store_thm ("sub_from_counter",
    (s = (count+extra, s0)) ∧
    (ck = T) ⇒
    evaluate_list T menv cenv (count,s0) env es ((count',s'),r')) ∧
- (∀ck (menv : envM) (cenv : envC) s env v pes r1.
-   evaluate_match ck menv cenv s env v pes r1 ⇒
+ (∀ck (menv : envM) (cenv : envC) s env v pes err_v r1.
+   evaluate_match ck menv cenv s env v pes err_v r1 ⇒
    !s0 count count' s' r'.
    (r1 = ((count'+extra,s'),r')) ∧
    (s = (count+extra, s0)) ∧
    (ck = T) ⇒
-   evaluate_match T menv cenv (count,s0) env v pes ((count',s'),r'))`,
+   evaluate_match T menv cenv (count,s0) env v pes err_v ((count',s'),r'))`,
  ho_match_mp_tac evaluate_strongind >>
  rw [] >>
  rw [Once evaluate_cases] >>
