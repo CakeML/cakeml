@@ -1,4 +1,5 @@
 structure s = struct
+
 fun fib n = 
   if n = 0 then
     [0]

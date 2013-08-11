@@ -127,9 +127,11 @@ in
   set_skip the_compset ``COND`` (SOME 1)
 end
 
+val _ = computeLib.add_funs [compile_decs_def, compile_print_vals_def]
 val eval_compile_primitives = EVAL ``compile_primitives``
-val _ = computeLib.del_funs[compile_primitives_def]
+val _ = computeLib.del_funs[compile_primitives_def, compile_decs_def, compile_print_vals_def]
 val _ = computeLib.add_funs[eval_compile_primitives]
+
 val eval_initial_repl_fun_state = EVAL ``initial_repl_fun_state``
 val _ = PolyML.fullGC();
 (* too slow!
