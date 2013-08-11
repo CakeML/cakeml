@@ -8,6 +8,7 @@ open ToIntLangTheory ToBytecodeTheory terminationTheory ElabTheory;
 open compilerTerminationTheory inferTheory;
 open BytecodeTheory mmlParseTheory mmlPEGTheory;
 open arithmeticTheory listTheory finite_mapTheory pred_setTheory;
+
 open ml_translatorLib ml_translatorTheory std_preludeTheory;
 
 
@@ -51,12 +52,6 @@ val _ = (find_def_for_const := def_of_const);
 
 (* compiler *)
 
-val fapply_thm = prove(
-  ``fapply d x f = case FLOOKUP f x of NONE => d | SOME y => y``,
-  SRW_TAC [] [fapply_def,FLOOKUP_DEF]);
-
-val _ = translate fapply_thm;
-
 val _ = rich_listTheory.BUTLASTN_REVERSE |> Q.SPECL [`n`,`REVERSE l`]
   |> REWRITE_RULE [REVERSE_REVERSE,LENGTH_REVERSE] |> UNDISCH
   |> translate
@@ -67,13 +62,6 @@ val butlastn_side_def = prove(
   |> update_precondition;
 
 val _ = translate compile_top_def;
-
-(*
-fetch "-" "compile_top_side_def"
-fetch "-" "compile_dec_side_def"
-fetch "-" "compile_fake_exp_side_def"
-*)
-
 
 (* elaborator *)
 
@@ -100,41 +88,11 @@ val _ = translate (def_of_const ``peg_exec``);
 
 (* parsing: mmlvalid *)
 
-val LENGTH_LEMMA = prove(
-  ``!l. ((LENGTH l = 1) ==> l <> []) /\
-        ((LENGTH l = 2) ==> l <> [] /\ TL l <> [])``,
-  Cases THEN FULL_SIMP_TAC std_ss [LENGTH]
-  THEN Cases_on `t` THEN FULL_SIMP_TAC (srw_ss()) [LENGTH]);
-
-val if_and_lemma = METIS_PROVE []
-  ``(if b1 /\ b2 then x else y) = if b1 then (if b2 then x else y) else y``
-
 val monad_unitbind_assert = prove(
   ``!b x. monad_unitbind (assert b) x = if b then x else NONE``,
   Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
 
-(*
-val _ = translate (mmlvalidTheory.mml_okrule_eval_th
-          |> RW [monad_unitbind_assert,NOT_NIL_AND_LEMMA,if_and_lemma])
-*)
-
-(*
-val mml_okrule_side_def = prove(
-  ``!x y. mml_okrule_side x y = T``,
-  SIMP_TAC std_ss [fetch "-" "mml_okrule_side_def"]
-  THEN FULL_SIMP_TAC std_ss [LENGTH_LEMMA]
-  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) [])
-  |> update_precondition;
-*)
-
 val _ = translate grammarTheory.ptree_head_def
-
-(*
-val res = translate
-  (((mmlvalidTheory.mmlvalid_thm |> CONJUNCTS) @
-    (mmlvalidTheory.mmlvalidL_def |> CONJUNCTS))
-   |> map GEN_ALL |> LIST_CONJ)
-*)
 
 
 (* parsing: ptree converstion *)
