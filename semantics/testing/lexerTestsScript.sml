@@ -1,3 +1,4 @@
+open ASCIInumbersLib intLib;
 open preamble;
 open lexer_funTheory;
 
@@ -10,7 +11,7 @@ fun run_test test expected =
     if ok then
       ()
     else
-      raise (Fail ("Failed lexer test: " ^ term_to_string result))
+      raise (Fail ("Failed lexer test: " ^ term_to_string test ^ "\n" ^ term_to_string result))
   end
 
 
@@ -26,19 +27,15 @@ val test5 = run_test ``"a_'_3''||bg+++l"`` ``[AlphaT "a_'_3''"; SymbolT "||"; Al
 
 val test6 = run_test ``"a_1'.b_2'"`` ``[LongidT "a_1'" "b_2'"]``;
 
-val test7 = run_test ``"a1_'.++"`` ``[LongidT "a1_'" "++"]``; (* Fails *)
+val test7 = run_test ``"a1_'.++"`` ``[LongidT "a1_'" "++"]``;
 
-val test8 = run_test ``"++.a1"`` ``[LongidT "++" "a1"]``; (* Fails *)
-
-val test9 = run_test ``"++.--"`` ``[LongidT "++" "--"]``;
-
-val test10 = run_test ``"a.b.c"`` ``[LexErrorT]``
+val test10 = run_test ``"a.b.c"`` ``[LongidT "a" "b"; LexErrorT; AlphaT "c"]``
 
 val test11 = run_test ``"a{"`` ``[AlphaT "a"; LbraceT]``
 
-val test12 = run_test ``"1"`` ``[IntT 1]`` (* Fails *)
+val test12 = run_test ``"1"`` ``[IntT 1]``
 
-val test13 = run_test ``"~1~1a~12"`` ``[IntT ~1; IntT ~1; AlphaT "a"; IntT ~12]`` (* Fails *)
+val test13 = run_test ``"~1~1a~12"`` ``[IntT ~1; IntT ~1; AlphaT "a"; IntT ~12]``
 
 val test14 = run_test ``"'"`` ``[TyvarT "'"]``;
 
@@ -48,10 +45,6 @@ val test16 = run_test ``"l'4a--"`` ``[AlphaT "l'4a"; SymbolT "--"]``;
 
 val test17 = run_test ``"++a.b%$"`` ``[SymbolT "++"; LongidT "a" "b"; SymbolT "%$"]``;
 
-val test18 = run_test ``"a++.%$b"`` ``[AlphaT "a"; LongidT "++" "%$"; AlphaT "b"]``;
-
-val test19 = run_test ``"~55+~4"`` ``[IntT ~55; SymbolT "+~"; IntT 4]`` (* Fails *)
-
-val test20 = run_test ``"a.b!!!.="`` ``[LongidT "a" "b"; LongidT "!!!" "="]``
+val test19 = run_test ``"~55+~4"`` ``[IntT ~55; SymbolT "+~"; IntT 4]``
 
 val _ = export_theory ();

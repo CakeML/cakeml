@@ -14,6 +14,7 @@ open stringTheory stringLib listTheory TokensTheory ASCIInumbersTheory intLib;
 
 val _ = Hol_datatype `symbol = StringS of string
                              | NumberS of int
+                             | LongS of string => string
                              | OtherS of string
                              | ErrorS `;
 
@@ -147,11 +148,6 @@ val moduleRead_thm = store_thm(
   FULL_SIMP_TAC (srw_ss() ++ ARITH_ss) [])
   *)
 
-val isLongidChar_def = Define `
-  isLongidChar symp c <=>
-     (¬symp ∧ isAlphaNumPrime c) ∨ (symp ∧ isSymbol c) ∨ c = #"."
-`;
-
 val next_sym_def = tDefine "next_sym" `
   (next_sym "" = NONE) /\
   (next_sym (c::str) =
@@ -177,9 +173,22 @@ val next_sym_def = tDefine "next_sym" `
        | SOME rest => next_sym rest
      else if is_single_char_symbol c then (* single character tokens, i.e. delimiters *)
        SOME (OtherS [c], str)
-     else if isAlpha c ∨ isSymbol c then (* read identifier *)
-       let (n,rest) = read_while (isLongidChar (¬isAlpha c)) str [c] in
+     else if isSymbol c then
+       let (n,rest) = read_while isSymbol str [c] in
          SOME (OtherS n, rest)
+     else if isAlpha c then (* read identifier *)
+       let (n,rest) = read_while isAlphaNumPrime str [c] in
+         case rest of
+              #"."::c'::rest' =>
+                if isAlpha c' then
+                  let (n', rest'') = read_while isAlphaNumPrime rest' [c'] in
+                    SOME (LongS n n', rest'')
+                else if isSymbol c' then
+                  let (n', rest'') = read_while isSymbol rest' [c'] in
+                    SOME (LongS n n', rest'')
+                else
+                    SOME (ErrorS, rest')
+            | _ => SOME (OtherS n, rest)
      else if c = #"_" then SOME (OtherS "_", str)
      else (* input not recognised *)
        SOME (ErrorS, str))`
@@ -187,7 +196,21 @@ val next_sym_def = tDefine "next_sym" `
    THEN IMP_RES_TAC (GSYM read_while_thm)
    THEN IMP_RES_TAC (GSYM read_string_thm)
    THEN IMP_RES_TAC skip_comment_thm THEN Cases_on `str`
-   THEN FULL_SIMP_TAC (srw_ss()) [LENGTH] THEN DECIDE_TAC)
+   THEN FULL_SIMP_TAC (srw_ss()) [LENGTH] THEN DECIDE_TAC);
+
+val lem1 = Q.prove (
+`((let (x,y) = z a in f x y) = P a) = (let (x,y) = z a in (f x y = P a))`,
+EQ_TAC THEN
+SRW_TAC [] [LET_THM] THEN
+Cases_on `z a` THEN
+FULL_SIMP_TAC std_ss []);
+
+val lem2 = Q.prove (
+`((let (x,y) = z a in f x y) ⇒ P a) = (let (x,y) = z a in (f x y ⇒ P a))`,
+EQ_TAC THEN
+SRW_TAC [] [LET_THM] THEN
+Cases_on `z a` THEN
+FULL_SIMP_TAC std_ss []);
 
 val next_sym_LESS = prove(
   ``!input. (next_sym input = SOME (s,rest)) ==> LENGTH rest < LENGTH input``,
@@ -205,7 +228,27 @@ val next_sym_LESS = prove(
   THEN REPEAT STRIP_TAC THEN IMP_RES_TAC (GSYM skip_comment_thm)
   THEN FULL_SIMP_TAC (srw_ss()) [LENGTH]
   THEN TRY (Q.PAT_ASSUM `xx = rest` (ASSUME_TAC o GSYM))
-  THEN FULL_SIMP_TAC std_ss [LENGTH] THEN DECIDE_TAC);
+  THEN FULL_SIMP_TAC (std_ss++ARITH_ss) [LENGTH]
+  THEN Cases_on `rest'`
+  THEN FULL_SIMP_TAC (srw_ss()) []
+  THEN SRW_TAC [] []
+  THEN Cases_on `h' = #"."` 
+  THEN SRW_TAC [] []
+  THEN FULL_SIMP_TAC (srw_ss()) []
+  THEN SRW_TAC [] []
+  THEN FULL_SIMP_TAC (std_ss++ARITH_ss) []
+  THEN Cases_on `t'`
+  THEN FULL_SIMP_TAC (srw_ss()++ARITH_ss) []
+  THEN SRW_TAC [] []
+  THEN FULL_SIMP_TAC (srw_ss()++ARITH_ss) [lem1]
+  THEN POP_ASSUM MP_TAC
+  THEN SRW_TAC [] [lem2] 
+  THEN IMP_RES_TAC read_while_thm
+  THEN BasicProvers.EVERY_CASE_TAC
+  THEN FULL_SIMP_TAC (std_ss++ARITH_ss) [LENGTH] 
+  THEN SRW_TAC [] []
+  THEN FULL_SIMP_TAC (std_ss++ARITH_ss) [LENGTH]);
+
 
 (*
 
@@ -249,18 +292,6 @@ val processIdent_def = Define `
              SymbolT (c::s)
            else
              LexErrorT`;
-
-val processLongIdent_def = Define`
-  processLongIdent s =
-    let (id1,id2) = SPLITP (\c. c = #".") s in
-      case id2 of
-        | [] => processIdent id1 (* No . in s *)
-        | #"."::id2 =>
-            if (processIdent id1 = LexErrorT) ∨ (processIdent id2 = LexErrorT) then
-              LexErrorT
-            else
-              LongidT id1 id2
-        | _ => LexErrorT`;
 
 val get_token_def = Define `
   get_token s =
@@ -317,7 +348,7 @@ val get_token_def = Define `
     if s = "with" then WithT else
     if s = "withtype" then WithtypeT else
     if HD s = #"'" then TyvarT s else
-    processLongIdent s`;
+    processIdent s`;
 
 val token_of_sym_def = Define `
   token_of_sym s =
@@ -325,6 +356,7 @@ val token_of_sym_def = Define `
     | ErrorS    => LexErrorT
     | StringS s => StringT s
     | NumberS i => IntT i 
+    | LongS s1 s2 => LongidT s1 s2
     | OtherS s  => get_token s `;
 
 val next_token_def = Define `
