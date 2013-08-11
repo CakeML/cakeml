@@ -8,3 +8,5 @@ fun fib n =
       f1::f2::fibs => f1+f2::f1::f2::fibs;
 
 val fibs = fib 20;
+
+val (f20::_) = fibs;

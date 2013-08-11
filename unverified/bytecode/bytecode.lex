@@ -36,7 +36,7 @@
 "-" return SUB_T;
 "*" return MULT_T;
 "/" return DIV_T;
-"mod" return MOD_T;
+"%" return MOD_T;
 "<" return LESS_T;
 
 "label" return LABEL_T;

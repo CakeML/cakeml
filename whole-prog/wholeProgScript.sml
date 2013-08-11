@@ -352,29 +352,28 @@ val decode_encode_bc_insts = Q.store_thm ("decode_encode_bc_insts",
  metis_tac [optionTheory.SOME_11, optionTheory.NOT_SOME_NONE, PAIR_EQ]);
 
 val whole_prog_compile_def = Define `
-  whole_prog_compile remove_labels input = 
+whole_prog_compile remove_labels input = 
+  let (css,csf,init_code) = compile_primitives in
     case wp_main_loop initial_repl_fun_state input of
+         Failure error_msg => Failure error_msg
+       | Success code => 
+           if remove_labels then
+             Success (code_labels (\x.0) (REVERSE init_code++code))
+           else
+             Success (REVERSE init_code++code)`;
+
+val whole_prog_compile_string_def = Define `
+  whole_prog_compile_string remove_labels input = 
+    case whole_prog_compile remove_labels input of
          Failure error_msg => "<error>: " ++ error_msg ++ "\n"
        | Success code => 
-           let code = 
-             if remove_labels then
-               code_labels (\x.0) code
-             else
-               code
-             in
-               FLAT (MAP (\inst. bc_inst_to_string inst ++ "\n") code)`;
+           FLAT (MAP (\inst. bc_inst_to_string inst ++ "\n") code)`;
 
 val whole_prog_compile_encode_def = Define `
   whole_prog_compile_encode remove_labels input = 
-    case wp_main_loop initial_repl_fun_state input of
+    case whole_prog_compile remove_labels input of
          Failure error_msg => NONE
        | Success code => 
-           let code = 
-             if remove_labels then
-               code_labels (\x.0) code
-             else
-               code
-             in
-               encode_bc_insts code`;
+           encode_bc_insts code`;
 
 val _ = export_theory ();

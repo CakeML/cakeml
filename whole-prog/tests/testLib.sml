@@ -36,10 +36,9 @@ fun do_compile_string infile outfile =
     val i = openIn infile;
     val s = inputAll i;
     val _ = closeIn i;
-    (* TODO: there is an assumption on this theorem.  Where does it come from? *)
-    val res = EVAL ``whole_prog_compile T ^(fromMLstring s)``
+    val thm = EVAL ``whole_prog_compile_string T ^(fromMLstring s)``
     val _ = assert (fn x => hyp x = []) thm;
-    val res = fromHOLstring (rhs (concl res))
+    val res = fromHOLstring (rhs (concl thm))
     val out = openOut outfile
     val _ = output (out, res)
     val _ = closeOut out
@@ -99,20 +98,22 @@ val filename = "fib.ml";
 val i = openIn filename;
 val s = inputAll i;
 val _ = closeIn i;
-val res = EVAL ``wp_main_loop initial_repl_fun_state ^(fromMLstring s)``
+val res = EVAL ``whole_prog_compile F ^(fromMLstring s)``
 
 val filename = "test0.ml";
 val i = openIn filename;
 val s = inputAll i;
 val _ = closeIn i;
-val res = EVAL ``(whole_prog_compile_encode T ^(fromMLstring s):word64 list option)``
+val res = EVAL ``(whole_prog_compile_string F ^(fromMLstring s))``
 
 
-do_compile_binary "test0.ml" "test0.bbyte"
-do_compile_binary "fib.ml" "fib.bbyte"
+time (do_compile_binary "fib.ml") "fib.bbyte"
+runtime: 4m03s,    gctime: 3m53s,     systime: 6.918s.
 
-do_compile_string "test0.ml" "test0.byte"
-do_compile_string "fib.ml" "fib.byte"
+time (do_compile_string "fib.ml") "fib.byte"
+
+time (do_compile_binary "test0.ml") "test0.bbyte"
+time (do_compile_string "test0.ml") "test0.byte"
 
 
  *)
