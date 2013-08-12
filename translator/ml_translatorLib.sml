@@ -72,7 +72,7 @@ fun MY_MP name th1 th2 =
       val _ = print "\n\n"
     in raise e end
 
-local
+(* local *)
   (* inv: get_DeclAssum () is a hyp in each thm in each !cert_memory *)
   val module_name = ref "";
   val decl_abbrev = ref TRUTH;
@@ -84,9 +84,10 @@ local
   (* session specific state below *)
   val abbrev_counter = ref 0;
   val abbrev_defs = ref ([]:thm list);
-in
+  val init_envC = InitialEnvTheory.init_envC_def |> SIMP_RULE std_ss [MAP]
+(* in *)
   fun get_cenv_names () = let
-    val th = !cenv_eq_thm
+    val th = CONJ (!cenv_eq_thm) init_envC
     val pat = ``Short (n:string)``
     val strs = find_terms (can (match_term pat)) (concl th) |> map rand
     fun all_distinct [] = []
@@ -311,7 +312,7 @@ in
     val _ = (check_ctors := check)
     val _ = (decl_exists := ex)
     in () end
-end
+(* end *)
 
 
 (* code for managing type information *)
@@ -703,19 +704,21 @@ val _ = Hol_datatype `BTREE = BLEAF of ('a TREE) | BBRANCH of BTREE => BTREE`;
 val ty = ``:'a BTREE``
 *)
 
-fun tag_name type_name const_name = let
-  val x = clean_lowercase type_name
-  val y = clean_lowercase const_name
-  fun upper_case_hd s =
-    clean_uppercase (implode [hd (explode s)]) ^ implode (tl (explode s))
-  val name = if y = "" then upper_case_hd x else upper_case_hd y
-  val taken_names = get_cenv_names ()
-  fun find_unique name n =
-    if not (mem name taken_names) then name else
-    if not (mem (name ^ "_" ^ int_to_string n) taken_names) then
-      name ^ "_" ^ int_to_string n
-    else find_unique name (n+1)
-  in find_unique name 1 end;
+fun tag_name type_name const_name =
+  if (type_name = "LIST_TYPE") andalso (const_name = "NIL") then "nil" else
+  if (type_name = "LIST_TYPE") andalso (const_name = "CONS") then "::" else let
+    val x = clean_lowercase type_name
+    val y = clean_lowercase const_name
+    fun upper_case_hd s =
+      clean_uppercase (implode [hd (explode s)]) ^ implode (tl (explode s))
+    val name = if y = "" then upper_case_hd x else upper_case_hd y
+    val taken_names = get_cenv_names ()
+    fun find_unique name n =
+      if not (mem name taken_names) then name else
+      if not (mem (name ^ "_" ^ int_to_string n) taken_names) then
+        name ^ "_" ^ int_to_string n
+      else find_unique name (n+1)
+    in find_unique name 1 end;
 
 val last_def_fail = ref T
 
@@ -987,8 +990,6 @@ val _ = persistent_skip_case_const ``COND:bool -> 'a -> 'a -> 'a``;
 val ty = ``:compiler_result``;
 val ty = ``:token``
 
-val ty = ``:TREE2``
-
 val ty = ``:'a list``; derive_thms_for_type ty
 val ty = ``:'a # 'b``; derive_thms_for_type ty
 val ty = ``:'a + num``; derive_thms_for_type ty
@@ -1029,7 +1030,6 @@ fun derive_thms_for_type ty = let
   val _ = map (fn (_,inv_def,_) => print_inv_def inv_def) inv_defs
   fun list_mk_type [] ret_ty = ret_ty
     | list_mk_type (x::xs) ret_ty = mk_type("fun",[type_of x,list_mk_type xs ret_ty])
-
   (* prove lemma for case_of *)
   fun prove_case_of_lemma (ty,case_th,inv_lhs,inv_def) = let
     val cases_th = TypeBase.case_def_of ty
@@ -1189,7 +1189,6 @@ fun derive_thms_for_type ty = let
       \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) [PULL_EXISTS]
       \\ EXISTS_TAC witness \\ ASM_SIMP_TAC (srw_ss()) [inv_def,evaluate_list_SIMP])
     in (pat,lemma) end;
-
 (*
   val ((ty,case_th),(_,inv_def,eq_lemma)) = hd (zip case_thms inv_defs)
 *)
@@ -1200,14 +1199,11 @@ fun derive_thms_for_type ty = let
     val x = inv_lhs |> rator |> rand
     val input = mk_var("input",type_of x)
     val inv_lhs = subst [x|->input] inv_lhs
-
-
-
     val (case_lemma,ts) = prove_case_of_lemma (ty,case_th,inv_lhs,inv_def)
     val conses = map (derive_cons ty inv_lhs inv_def) ts
     in (ty,eq_lemma,inv_def,conses,case_lemma,ts) end
   val res = map make_calls (zip case_thms inv_defs)
-  val _ = snoc_dtype_decl dtype
+  val _ = if name = "LIST_TYPE" then () else snoc_dtype_decl dtype
   val (rws1,rws2) = if not is_record then ([],[])
                     else derive_record_specific_thms (hd tys)
   in (rws1,rws2,res) end;
@@ -2698,5 +2694,21 @@ fun mltDefine name q tac = let
   val _ = print "\n\n"
   in def end;
 
+
+(*
+  register_type ``:'a # 'b``
+
+  register_type ``:'a list``
+
+
+  translate
+val def = HD
+
+
+
+
+type_of ``(1,2)``
+
+*)
 
 end

@@ -1102,12 +1102,12 @@ val decs_to_cenv_NIL = save_thm("decs_to_cenv_NIL",
 val DeclAssumExists_def = Define `
   DeclAssumExists decls = ?env. DeclAssum decls env`;
 
-val SWAP_EXISTS = METIS_PROVE [] ``(?x y. P x y) ==> (?y x. P x y)``
+val SWAP_EXISTS = METIS_PROVE [] ``(?x y. P x y) ==> (?y x. P x y)``;
 
 val DeclAssumExists_SNOC_Dtype = store_thm("DeclAssumExists_SNOC_Dtype",
   ``!funs ds.
       DeclAssumExists ds ==>
-      !d. check_dup_ctors NONE (decs_to_cenv NONE ds) d ==>
+      !d. check_dup_ctors NONE (decs_to_cenv NONE ds ++ init_envC) d ==>
           DeclAssumExists (SNOC (Dtype d) ds)``,
   SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [DeclAssum_def,Decls_APPEND,SNOC_APPEND]
@@ -1196,16 +1196,16 @@ val check_ctors_decs_SNOC = prove(
   Induct_on `ds` THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
   \\ ASM_SIMP_TAC (srw_ss()) [check_ctors_decs_def,CONJ_ASSOC]
   \\ SIMP_TAC std_ss [decs_to_cenv_def])
-  |> Q.SPEC `[]` |> SIMP_RULE std_ss [APPEND_NIL];
+  |> Q.SPEC `init_envC` |> SIMP_RULE std_ss [APPEND_NIL];
 
 val IMP_check_ctors_decs_SNOC = store_thm("IMP_check_ctors_decs_SNOC",
-  ``check_ctors_decs NONE [] ds ==>
-    !d. check_ctors_dec (decs_to_cenv NONE ds) d ==>
-         check_ctors_decs NONE [] (SNOC d ds)``,
+  ``check_ctors_decs NONE init_envC ds ==>
+    !d. check_ctors_dec (decs_to_cenv NONE ds ++ init_envC) d ==>
+         check_ctors_decs NONE init_envC (SNOC d ds)``,
   SIMP_TAC std_ss [check_ctors_decs_SNOC]);
 
 val check_ctors_decs_NIL = store_thm("check_ctors_decs_NIL",
-  ``check_ctors_decs NONE [] []``,
+  ``check_ctors_decs NONE init_envC []``,
   EVAL_TAC);
 
 val RES_FORALL_set = prove(
