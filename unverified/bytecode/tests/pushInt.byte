@@ -1,0 +1,11 @@
+pushInt 1
+pushInt 0
+pushInt -1
+pushInt 123456789
+pushInt -123456789
+
+print printC '\n'
+print printC '\n'
+print printC '\n'
+print printC '\n'
+print printC '\n'

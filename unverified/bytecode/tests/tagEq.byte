@@ -1,0 +1,9 @@
+pushInt 0
+cons 23 0
+tagEq 22
+
+pushInt 2
+pushInt 3
+=
+= print printC '\n'
+pushInt 0 = print printC '\n'

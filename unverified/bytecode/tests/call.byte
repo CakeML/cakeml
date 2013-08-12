@@ -1,0 +1,9 @@
+pushInt 0
+call addr 7
+
+pushInt 1 = print printC '\n'
+stop
+
+pop
+pushInt 1
+return

@@ -1,0 +1,5 @@
+pushInt 1
+pushInt 2
+pop
+
+pushInt 1 = print printC '\n'

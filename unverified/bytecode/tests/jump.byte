@@ -1,0 +1,8 @@
+jump addr 3
+jump addr 6
+pushInt 2
+pushInt 3
+jump addr 1
+pushInt 4
+
+pushInt 3 = print printC '\n'

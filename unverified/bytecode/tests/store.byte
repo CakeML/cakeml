@@ -1,0 +1,11 @@
+pushInt 1
+pushInt 2
+pushInt 3
+pushInt 4
+pushInt 5
+store 2
+
+pushInt 4 = print printC '\n'
+pushInt 3 = print printC '\n'
+pushInt 5 = print printC '\n'
+pushInt 1 = print printC '\n'

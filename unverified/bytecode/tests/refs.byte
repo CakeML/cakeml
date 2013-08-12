@@ -1,0 +1,10 @@
+pushInt -1
+pushInt 0
+ref
+load 0
+pushInt 4
+update
+deref
+
+pushInt 4 = print printC '\n'
+pushInt -1 = print printC '\n'

@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <stdbool.h>
 #include "bytecode_inst.h"
 
 extern FILE *yyin;
@@ -10,7 +11,7 @@ extern inst_list* decode(FILE *in);
 
 unsigned long static inline get_loc(loc loc) {
   if (loc.isLab)
-    assert(0);
+    assert(false);
   return loc.num;
 }
 
@@ -92,7 +93,7 @@ void static inline print_value(value v) {
   }
 }
 
-unsigned long static inline bool_to_tag(int i) {
+unsigned long static inline bool_to_tag(bool i) {
   if (i)
     return TRUE_TAG + CONS;
   else
@@ -125,18 +126,41 @@ int equal(value v1, value v2) {
 	if (res != 1)
 	  return res;
       }
-      return 0;
+      return 1;
     }
 }
+
+static inline long sml_div(long n1, long n2) {
+  if (n1 % n2 != 0 && ((n1 < 0) != (n2 < 0)))
+    return ((n1 / n2) - 1);
+  else
+    return (n1 / n2);
+}
+
+static inline long sml_mod(long n1, long n2) {
+  return (n1 - sml_div(n1,n2) * n2);
+}
+
 
 #define STACK_SIZE 1000000
 #define REF_SIZE 1000000
 
-value stack[STACK_SIZE];
-value refs[REF_SIZE];
+static value stack[STACK_SIZE];
+static value refs[REF_SIZE];
 
-#define CHECK_STACK(sp) { if (sp >= STACK_SIZE) { printf("stack overflow\n"); exit(1); } }
-#define CHECK_REFS(next_ref) { if (next_ref >= REF_SIZE) { printf("ref overflow\n"); exit(1); } }
+static inline void check_stack(unsigned int sp) { 
+  if (sp >= STACK_SIZE) {
+    printf("stack overflow\n"); 
+    exit(1); 
+  }
+}
+
+static inline void check_refs(unsigned int next_ref) { 
+  if (next_ref >= REF_SIZE) {
+    printf("ref overflow\n"); 
+    exit(1);
+  }
+}
 
 void run(inst code[]) {
 
@@ -151,7 +175,7 @@ void run(inst code[]) {
   value *block;
   int tmp;
 
-  while (1) {
+  while (true) {
 
     switch (code[pc].tag) {
       case pop_i:
@@ -175,7 +199,7 @@ void run(inst code[]) {
 	pc++;
 	break;
       case push_int_i:
-	CHECK_STACK(sp);
+	check_stack(sp);
 	SET_TAG(stack[sp], NUMBER, 0);
 	stack[sp].arg.number = code[pc].args.num;
 	sp++;
@@ -183,7 +207,7 @@ void run(inst code[]) {
 	break;
       case cons_i:
 	if (code[pc].args.two_num.num2 == 0) {
-	  CHECK_STACK(sp);
+	  check_stack(sp);
 	  SET_TAG(stack[sp], CONS + code[pc].args.two_num.num1, 0);
 	  sp++;
 	}
@@ -200,7 +224,7 @@ void run(inst code[]) {
 	pc++;
 	break;
       case load_i:
-	CHECK_STACK(sp);
+	check_stack(sp);
 	stack[sp] = stack[sp-1-code[pc].args.num];
 	sp++;
 	pc++;
@@ -211,7 +235,7 @@ void run(inst code[]) {
 	pc++;
 	break;
       case load_rev_i:
-	CHECK_STACK(sp);
+	check_stack(sp);
 	stack[sp] = stack[code[pc].args.num];
 	sp++;
 	pc++;
@@ -264,13 +288,13 @@ void run(inst code[]) {
 	break;
       case div_i:
 	SET_TAG(stack[sp-2], NUMBER, 0);
-	stack[sp-2].arg.number = stack[sp-2].arg.number / stack[sp-1].arg.number;
+	stack[sp-2].arg.number = sml_div(stack[sp-2].arg.number,stack[sp-1].arg.number);
 	sp--;
 	pc++;
 	break;
       case mod_i:
 	SET_TAG(stack[sp-2], NUMBER, 0);
-	stack[sp-2].arg.number = stack[sp-2].arg.number % stack[sp-1].arg.number;
+	stack[sp-2].arg.number = sml_mod(stack[sp-2].arg.number, stack[sp-1].arg.number);
 	sp--;
 	pc++;
 	break;
@@ -288,7 +312,7 @@ void run(inst code[]) {
 	sp--;
 	break;
       case call_i:
-	CHECK_STACK(sp);
+	check_stack(sp);
 	stack[sp] = stack[sp-1];
 	SET_TAG(stack[sp-1], CODE_PTR, 0);
 	stack[sp-1].arg.number = pc+1;
@@ -307,7 +331,7 @@ void run(inst code[]) {
 	pc = stack[sp].arg.number;
 	break;
       case push_ptr_i:
-	CHECK_STACK(sp);
+	check_stack(sp);
 	SET_TAG(stack[sp], CODE_PTR, 0);
 	stack[sp].arg.number = get_loc(code[pc].args.loc);
 	sp++;
@@ -319,7 +343,7 @@ void run(inst code[]) {
 	sp--;
 	break;
       case push_exc_i:
-	CHECK_STACK(sp);
+	check_stack(sp);
 	handler = sp;
 	SET_TAG(stack[sp], STACK_PTR, 0);
 	stack[sp].arg.number = handler;
@@ -335,7 +359,7 @@ void run(inst code[]) {
 	pc++;
 	break;
       case ref_i:
-	CHECK_REFS(next_ref);
+	check_refs(next_ref);
 	refs[next_ref] = stack[sp-1];
 	SET_TAG(stack[sp-1], REF_PTR, 0);
 	stack[sp-1].arg.number = next_ref;
@@ -366,7 +390,7 @@ void run(inst code[]) {
       case stop_i:
 	return;
       default:
-	assert(0);
+	assert(false);
 	break;
     }
   }

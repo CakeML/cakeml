@@ -1,0 +1,13 @@
+cons 0 0
+isBlock
+
+print printC '\n'
+
+pushInt 1
+isBlock
+
+pushInt 2
+pushInt 3
+=
+= print printC '\n'
+

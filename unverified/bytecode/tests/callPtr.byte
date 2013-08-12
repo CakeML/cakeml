@@ -1,0 +1,10 @@
+pushInt 0
+pushPtr addr 8
+callPtr
+
+pushInt 1 = print printC '\n'
+stop
+
+pop
+pushInt 1
+return

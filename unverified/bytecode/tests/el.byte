@@ -1,0 +1,20 @@
+pushInt 0
+pushInt 1
+pushInt 2
+pushInt 3
+cons 500 3
+el 0
+
+pushInt 1 = print printC '\n'
+pushInt 0 = print printC '\n'
+
+pushInt 0
+pushInt 1
+pushInt 2
+pushInt 3
+cons 500 3
+el 2
+
+pushInt 3 = print printC '\n'
+pushInt 0 = print printC '\n'
+

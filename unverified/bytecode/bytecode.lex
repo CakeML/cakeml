@@ -61,6 +61,7 @@
 "addr" return ADDR_T;
 
 "'"."'" { yylval->character = yytext[1]; return CHAR_T; }
+"'\\n'" { yylval->character = '\n'; return CHAR_T; }
 
 [0-9]+ { 
   yylval->num = strtoul(yytext, NULL, 10); 

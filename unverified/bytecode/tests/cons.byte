@@ -1,0 +1,14 @@
+pushInt 0
+pushInt 1
+pushInt 2
+pushInt 3
+cons 40 3
+
+tagEq 40 print printC '\n'
+pushInt 0 = print printC '\n'
+
+pushInt 0
+cons 40 0
+
+tagEq 40 print printC '\n'
+pushInt 0 = print printC '\n'

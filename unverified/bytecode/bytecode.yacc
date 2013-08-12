@@ -44,7 +44,12 @@ extern int yylex(YYSTYPE * yylval_param,YYLTYPE * yylloc_param );
 %%
 
 num_or_int:
-   NUM_T { $$ = (long)$1 }
+   NUM_T { 
+     if ($1 > LONG_MAX) 
+       yyerror(&yylloc, NULL, "number too big");
+     else
+       $$ = (long)$1 
+   }
  | INT_T { $$ = $1 }
 
 stack_op: 

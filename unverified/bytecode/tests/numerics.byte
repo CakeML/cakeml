@@ -1,0 +1,118 @@
+pushInt 1
+pushInt -4
++
+
+pushInt -3 = print printC '\n'
+
+pushInt 1
+pushInt -4
+-
+
+pushInt 5= print printC '\n'
+
+pushInt 1
+pushInt 2
+<
+
+print printC '\n'
+
+pushInt 2
+pushInt 3
+*
+pushInt 6 = print printC '\n'
+
+pushInt 43
+pushInt -3
+%
+
+pushInt -2 = print printC '\n'
+
+pushInt -43
+pushInt -3
+%
+
+pushInt -1 = print printC '\n'
+
+pushInt -43
+pushInt 3
+%
+
+pushInt 2 = print printC '\n'
+
+pushInt 43
+pushInt 3
+%
+
+pushInt 1 = print printC '\n'
+
+pushInt 42
+pushInt -3
+%
+
+pushInt 0 = print printC '\n'
+
+pushInt -42
+pushInt -3
+%
+
+pushInt 0 = print printC '\n'
+
+pushInt -42
+pushInt 3
+%
+
+pushInt 0 = print printC '\n'
+
+pushInt 42
+pushInt 3
+%
+
+pushInt 0 = print printC '\n'
+
+pushInt 43
+pushInt -3
+/
+
+pushInt -15 = print printC '\n'
+
+pushInt -43
+pushInt -3
+/
+
+pushInt 14 = print printC '\n'
+
+pushInt -43
+pushInt 3
+/
+
+pushInt -15 = print printC '\n'
+
+pushInt 43
+pushInt 3
+/
+
+pushInt 14 = print printC '\n'
+
+pushInt 42
+pushInt -3
+/
+
+pushInt -14 = print printC '\n'
+
+pushInt -42
+pushInt -3
+/
+
+pushInt 14 = print printC '\n'
+
+pushInt -42
+pushInt 3
+/
+
+pushInt -14 = print printC '\n'
+
+pushInt 42
+pushInt 3
+/
+
+pushInt 14 = print printC '\n'

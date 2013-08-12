@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <stdbool.h>
 #include "bytecode_inst.h"
 
 /* How many bytes each field of the encoding has */
@@ -50,7 +51,7 @@ inst_list* decode(FILE *in) {
   unsigned long i;
   unsigned int inst_num = 0;
 
-  while (1) {
+  while (true) {
     num_read = fread(&tag, ENCODING_SIZE, 1, in);
     if (num_read < 1)
       return program;

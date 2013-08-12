@@ -2,9 +2,10 @@
 #define BYTECODE_INST_H
 
 #include <limits.h>
+#include <stdbool.h>
 
 typedef struct {
-  int isLab;
+  bool isLab;
   unsigned long num;
 } loc;
 

@@ -1,0 +1,11 @@
+pushInt 1
+pushInt 2
+pushInt 3
+pushInt 4
+pushInt 5
+pushInt 6
+shift 2 3
+
+pushInt 6 = print printC '\n'
+pushInt 5 = print printC '\n'
+pushInt 1 = print printC '\n'

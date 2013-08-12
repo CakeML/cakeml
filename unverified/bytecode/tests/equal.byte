@@ -1,0 +1,50 @@
+pushInt 1 
+pushInt 2
+cons 4 2
+pushInt 1 
+pushInt 2
+cons 4 2
+= print printC '\n'
+
+pushInt 1 
+pushInt 2
+cons 5 2
+pushInt 1 
+pushInt 2
+cons 4 2
+=
+
+pushInt 1
+pushInt 2
+=
+= print printC '\n'
+
+
+pushInt 0 
+pushInt 2
+cons 4 2
+pushInt 1 
+pushInt 2
+cons 4 2
+=
+
+pushInt 1
+pushInt 2
+=
+= print printC '\n'
+
+pushInt 1
+cons 0 0
+=
+
+pushInt 1
+pushInt 2
+=
+= print printC '\n'
+
+pushExc
+pushInt 1
+=
+pushInt 1
+=
+print printC '\n'

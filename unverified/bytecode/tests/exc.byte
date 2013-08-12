@@ -1,0 +1,16 @@
+pushInt 0
+pushPtr addr 6
+pushExc
+pushInt 1
+pushInt 2
+call addr 11
+
+pushInt 0 = print printC '\n'
+stop
+
+pop
+pushInt -1
+pushInt -2
+popExc
+pushInt -2 = print printC '\n'
+callPtr
