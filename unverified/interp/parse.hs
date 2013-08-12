@@ -47,7 +47,7 @@ longV =
 
 nV' c =
   tok (\t -> do (s,pos) <- destAlphaT t; 
-                guard (not (s `elem` ["before", "div", "mod", "o", "true", "false","ref"]) && 
+                guard (not (s `elem` ["before", "div", "mod", "o", "true", "false","ref", "nil"]) && 
                        s /= "" && 
 	               not (isUpper (List.head s)));
 	        return (c s pos))
@@ -323,7 +323,7 @@ nStructName =
 
 nUQConstructorName = 
   tok (\t -> do (s,pos) <- destAlphaT t; 
-                guard (s /= "" && isUpper (List.head s) || s `elem` ["true", "false", "ref"]);
+                guard (s /= "" && isUpper (List.head s) || s `elem` ["true", "false", "ref", "nil"]);
                 return (ConN s pos))
 
 nConstructorName = 
