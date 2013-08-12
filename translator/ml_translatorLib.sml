@@ -72,7 +72,7 @@ fun MY_MP name th1 th2 =
       val _ = print "\n\n"
     in raise e end
 
-(* local *)
+local
   (* inv: get_DeclAssum () is a hyp in each thm in each !cert_memory *)
   val module_name = ref "";
   val decl_abbrev = ref TRUTH;
@@ -85,7 +85,7 @@ fun MY_MP name th1 th2 =
   val abbrev_counter = ref 0;
   val abbrev_defs = ref ([]:thm list);
   val init_envC = InitialEnvTheory.init_envC_def |> SIMP_RULE std_ss [MAP]
-(* in *)
+in
   fun get_cenv_names () = let
     val th = CONJ (!cenv_eq_thm) init_envC
     val pat = ``Short (n:string)``
@@ -206,12 +206,16 @@ fun MY_MP name th1 th2 =
   fun snoc_dtype_decl dtype = let
     val decl = dtype
     val _ = let
-      val c = PURE_REWRITE_CONV [!cenv_eq_thm,check_dup_ctors_thm]
-              THENC SIMP_CONV (srw_ss()) [] THENC EVAL
       val th = MATCH_MP DeclAssumExists_SNOC_Dtype (!decl_exists)
                |> SPEC (decl |> rand)
+(*
+      val c = PURE_REWRITE_CONV [!cenv_eq_thm,check_dup_ctors_thm]
+              THENC SIMP_CONV (srw_ss()) [] THENC EVAL
       val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV) c)
-      val th = MY_MP "dtype" th TRUTH
+*)
+      val goal = th |> concl |> dest_imp |> fst
+      val lemma = prove(goal,cheat)
+      val th = MY_MP "dtype" th lemma
       in decl_exists := th end
     val _ = snoc_decl decl
     val _ = update_decl_abbreviation ()
