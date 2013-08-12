@@ -1,9 +1,141 @@
 
-open HolKernel Parse boolLib bossLib;
+open HolKernel Parse boolLib bossLib lcsymtacs;
 
 val _ = new_theory "lexer_impl";
 
 open stringTheory stringLib listTheory TokensTheory lexer_funTheory;
+
+val tac =
+  BasicProvers.FULL_CASE_TAC
+  >- (simp_tac (srw_ss()) [char_le_def, char_lt_def, get_token_def, processIdent_def] >>
+      full_simp_tac (srw_ss()) [isAlphaNum_def, isAlpha_def, isDigit_def, 
+                                isUpper_def, isLower_def]) >>
+  pop_assum (fn _ => all_tac);
+
+  (*
+val get_token_eqn = Q.prove (
+`!s.
+  get_token s =
+    case s of
+         [] => LexErrorT
+       | [c] =>
+           if c ≤ #";" then
+             if c ≤ #")" then
+               if c ≤ #"'" then
+                 if c = #"#" then HashT else
+                 if c = #"'" then TyvarT s else
+                 SymbolT s
+               else
+                 if c = #"(" then LparT else
+                 if c = #")" then RparT else
+                 SymbolT s
+             else
+               if c ≤ #"," then
+                 if c = #"*" then StarT else
+                 if c = #"," then CommaT else
+                 SymbolT s
+               else
+                 if c = #":" then ColonT else
+                 if c = #";" then SemicolonT else
+                 SymbolT s
+           else
+             if c ≤ #"]" then
+               if c ≤ #"=" then
+                 if #"A" ≤ c ∧ c ≤ #"Z" then AlphaT s else
+                 if c = #"=" then EqualsT else
+                 SymbolT s
+               else
+                 if c = #"[" then LbrackT else
+                 if c = #"]" then RbrackT else
+                 SymbolT s
+             else
+               if c ≤ #"{" then
+                 if #"a" ≤ c ∧ c ≤ #"z" then AlphaT s else
+                 if c = #"{" then LbraceT else
+                 SymbolT s
+               else
+                 if c = #"|" then BarT else
+                 if c = #"}" then RbraceT else
+                 SymbolT s
+       | c::s' =>
+           if c < #"a" then
+             if c = #"'" then TyvarT s else
+             if s = "->" then ArrowT else
+             if s = "..." then DotsT else
+             if s = ":>" then SealT else
+             if s = "=>" then DarrowT else
+             SymbolT s
+           else if c ≤ #"z" then
+             if c ≤ #"i" then
+               if c ≤ #"e" then
+                 if c < #"e" then
+                   if s = "and" then AndT else
+                   if s = "andalso" then AndalsoT else
+                   if s = "as" then AsT else
+                   if s = "case" then CaseT else
+                   if s = "datatype" then DatatypeT else
+                   AlphaT s
+                 else
+                   if s = "else" then ElseT else
+                   if s = "end" then EndT else
+                   if s = "eqtype" then EqtypeT else
+                   if s = "exception" then ExceptionT else
+                   AlphaT s
+               else
+                 if c ≤ #"h" then
+                   if s = "fn" then FnT else
+                   if s = "fun" then FunT else
+                   if s = "handle" then HandleT else
+                   AlphaT s
+                 else
+                   if s = "if" then IfT else
+                   if s = "in" then InT else
+                   if s = "include" then IncludeT else
+                   AlphaT s
+             else 
+               if c ≤ #"r" then
+                 if c = #"l" then
+                   if s = "let" then LetT else
+                   if s = "local" then LocalT else
+                   AlphaT s
+                 else if c = #"o" then
+                   if s = "of" then OfT else
+                   if s = "op" then OpT else
+                   if s = "open" then OpenT else
+                   if s = "orelse" then OrelseT else
+                   AlphaT s
+                 else
+                   if s = "raise" then RaiseT else
+                   if s = "rec" then RecT else
+                   AlphaT s
+               else
+                 if c = #"s" then
+                   if s = "sharing" then SharingT else
+                   if s = "sig" then SigT else
+                   if s = "signature" then SignatureT else
+                   if s = "struct" then StructT else
+                   if s = "structure" then StructureT else
+                   AlphaT s
+                 else if c < #"w" then
+                   if s = "then" then ThenT else
+                   if s = "type" then TypeT else
+                   if s = "val" then ValT else
+                   AlphaT s
+                 else
+                   if s = "where" then WhereT else
+                   if s = "with" then WithT else
+                   if s = "withtype" then WithtypeT else
+                   AlphaT s
+           else
+             SymbolT s`,
+ strip_tac >>
+ Cases_on `s` >>
+ simp_tac (srw_ss()) []
+ >- srw_tac [] [processIdent_def, get_token_def] >> 
+ Cases_on `t` >>
+ simp_tac (srw_ss()) [] >>
+ NTAC 9 tac
+ *)
 
 val lex_aux_def = tDefine "lex_aux" `
   lex_aux acc error stk input =

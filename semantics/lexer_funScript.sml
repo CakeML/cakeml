@@ -281,17 +281,11 @@ val processIdent_def = Define `
   processIdent s =
     case s of
        | "" => LexErrorT
-       | #"'"::_ => LexErrorT
        | c::s =>
            if isAlphaNum c then
-             if EVERY isAlphaNumPrime s then
-               AlphaT (c::s)
-             else
-               LexErrorT
-           else if EVERY isSymbol (c::s) then
-             SymbolT (c::s)
-           else
-             LexErrorT`;
+             AlphaT (c::s)
+           else 
+             SymbolT (c::s)`;
 
 val get_token_def = Define `
   get_token s =
@@ -347,7 +341,7 @@ val get_token_def = Define `
     if s = "where" then WhereT else
     if s = "with" then WithT else
     if s = "withtype" then WithtypeT else
-    if HD s = #"'" then TyvarT s else
+    if s ≠ "" ∧ HD s = #"'" then TyvarT s else
     processIdent s`;
 
 val token_of_sym_def = Define `
