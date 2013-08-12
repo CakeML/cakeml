@@ -613,6 +613,8 @@ val STRING_SORT_def = Define`
 
 val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 
+val _ = Parse.overload_on("closed",``λt. ∀n ty. ¬VFREE_IN (Var n ty) t``)
+
 val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
  `(* REFL *)
  ([] |- t === t)
@@ -656,13 +658,14 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
    ⇒
    (MAP (VSUBST ilist) h) |- VSUBST ilist c)
 ∧ (* new_basic_definition *)
-  ((∀x ty. ¬VFREE_IN (Var x ty) r) ∧
+  (closed r ∧
    set(tvars r) ⊆ set(tyvars ty) ∧
    r has_type ty
    ⇒
    [] |- (Const n ty (Defined r)) === r)
 ∧ (* new_basic_type_definition |- abs (rep x) = x *)
-  ([] |- Comb p w ∧
+  (closed p ∧
+   [] |- Comb p w ∧
    rty = domain (typeof p) ∧
    aty = Tyapp (Tydefined n p) (MAP Tyvar (STRING_SORT (tvars p)))
    ⇒
@@ -671,7 +674,8 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
           (Comb (Const rep (Fun aty rty) (Tyrep n p))
                 (Var x aty)) === Var x aty)
 ∧ (* new_basic_type_definition |- p x = (rep (abs x) = x) *)
-  ([] |- Comb p w ∧
+  (closed p ∧
+   [] |- Comb p w ∧
    rty = domain (typeof p) ∧
    aty = Tyapp (Tydefined n p) (MAP Tyvar (STRING_SORT (tvars p)))
    ⇒
