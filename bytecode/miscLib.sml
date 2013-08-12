@@ -10,10 +10,10 @@ val discharge_hyps =
       val Q = genvar bool
       val R = genvar bool
   in
-  Q.MATCH_ABBREV_TAC`(^P⇒^Q)⇒^R` >>
-  SUBGOAL_THEN P
-    (fn th => disch_then (mp_tac o PROVE_HYP th o UNDISCH) >> map_every qunabbrev_tac[`^P`,`^Q`,`^R`]) >|
-  [map_every qunabbrev_tac[`^P`,`^Q`,`^R`],ALL_TAC]
+    Q.MATCH_ABBREV_TAC`(^P==>^Q)==>^R` THEN
+    SUBGOAL_THEN P
+      (fn th => DISCH_THEN (MP_TAC o PROVE_HYP th o UNDISCH)) THEN
+    MAP_EVERY Q.UNABBREV_TAC[`^P`,`^Q`,`^R`]
   end
 fun prove_hyps_by tac th = PROVE_HYP (prove(list_mk_conj (hyp th),tac)) th
 end
