@@ -6,7 +6,7 @@ open HolKernel boolLib bossLib;
 open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
 open terminationTheory;
 open ml_translatorTheory intLib;
-open arithmeticTheory listTheory combinTheory pairTheory;
+open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory;
 
 infix \\ val op \\ = op THEN;
@@ -208,13 +208,16 @@ in
     val _ = let
       val th = MATCH_MP DeclAssumExists_SNOC_Dtype (!decl_exists)
                |> SPEC (decl |> rand)
-(*
-      val c = PURE_REWRITE_CONV [!cenv_eq_thm,check_dup_ctors_thm]
-              THENC SIMP_CONV (srw_ss()) [] THENC EVAL
-      val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV) c)
-*)
       val goal = th |> concl |> dest_imp |> fst
-      val lemma = prove(goal,cheat)
+      val lemma = !cenv_eq_thm
+      val tac =
+        PURE_REWRITE_TAC [lemma,check_dup_ctors_thm,MAP_APPEND,MEM_APPEND]
+        THEN PURE_REWRITE_TAC [MAP,MEM,InitialEnvTheory.init_envC_def,FST,FOLDR]
+        THEN CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV))
+        THEN PURE_REWRITE_TAC [FST,FOLDR,id_11]
+        THEN CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV))
+        THEN EVAL_TAC
+      val lemma = prove(goal,tac)
       val th = MY_MP "dtype" th lemma
       in decl_exists := th end
     val _ = snoc_decl decl
@@ -700,10 +703,8 @@ val pair_SIMP = prove(
   Cases \\ FULL_SIMP_TAC std_ss [fetch "-" "pair_def"]);
 
 val ty = ``:'a list``
-val ty = ``:'a # 'b``
-val ty = ``:unit``
-val _ = Hol_datatype `TREE = LEAF of 'a | BRANCH of TREE => TREE`;
 register_type ty
+
 val _ = Hol_datatype `BTREE = BLEAF of ('a TREE) | BBRANCH of BTREE => BTREE`;
 val ty = ``:'a BTREE``
 *)

@@ -1212,9 +1212,17 @@ val RES_FORALL_set = prove(
   ``(!x::set l. P x) = EVERY P l``,
   SIMP_TAC std_ss [res_quanTheory.RES_FORALL,EVERY_MEM]);
 
+val lookup_eq_NONE = prove(
+  ``!cenv. (lookup (mk_id NONE name) cenv = NONE) <=>
+           ~MEM (Short name) (MAP FST cenv)``,
+  Induct \\ EVAL_TAC \\ FULL_SIMP_TAC std_ss [] \\ Cases
+  \\ FULL_SIMP_TAC std_ss [lookup_def] \\ SRW_TAC [] []
+  \\ FULL_SIMP_TAC std_ss [mk_id_def]);
+
 val check_dup_ctors_thm = save_thm("check_dup_ctors_thm",
-  check_dup_ctors_def
+  check_dup_ctors_def |> Q.SPEC `NONE`
   |> SIMP_RULE std_ss [LET_DEF,RES_FORALL_set]
-  |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV));
+  |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)
+  |> REWRITE_RULE [lookup_eq_NONE]);
 
 val _ = export_theory();
