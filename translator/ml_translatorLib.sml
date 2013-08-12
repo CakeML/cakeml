@@ -72,7 +72,7 @@ fun MY_MP name th1 th2 =
       val _ = print "\n\n"
     in raise e end
 
-(* local *)
+local
   (* inv: get_DeclAssum () is a hyp in each thm in each !cert_memory *)
   val module_name = ref "";
   val decl_abbrev = ref TRUTH;
@@ -85,7 +85,7 @@ fun MY_MP name th1 th2 =
   val abbrev_counter = ref 0;
   val abbrev_defs = ref ([]:thm list);
   val init_envC = InitialEnvTheory.init_envC_def |> SIMP_RULE std_ss [MAP]
-(* in *)
+in
   fun get_cenv_names () = let
     val th = CONJ (!cenv_eq_thm) init_envC
     val pat = ``Short (n:string)``
@@ -312,7 +312,7 @@ fun MY_MP name th1 th2 =
     val _ = (check_ctors := check)
     val _ = (decl_exists := ex)
     in () end
-(* end *)
+end
 
 
 (* code for managing type information *)
@@ -2693,22 +2693,5 @@ fun mltDefine name q tac = let
   val _ = print_thm (D th)
   val _ = print "\n\n"
   in def end;
-
-
-(*
-  register_type ``:'a # 'b``
-
-  register_type ``:'a list``
-
-
-  translate
-val def = HD
-
-
-
-
-type_of ``(1,2)``
-
-*)
 
 end
