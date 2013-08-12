@@ -4,6 +4,9 @@ set -e
 
 echo -n "Running regression test on "
 git rev-parse --short HEAD
+echo "HOL revision: $(cd $(heapname | xargs dirname); git rev-parse --short HEAD)"
+echo -n "Machine: "
+uname -nmo
 
 status=$(git status 2> /dev/null)
 
