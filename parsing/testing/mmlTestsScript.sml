@@ -93,6 +93,18 @@ val tytest = parsetest ``nType`` ``ptree_Type nType``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val h::List.nil = [3]"
+          (SOME ``Ast_Dlet
+                    (Ast_Pcon (SOME (Short "::"))
+                              [Ast_Pvar "h";
+                               Ast_Pcon (SOME (Long "List" "nil")) []])
+                    (Ast_Con (SOME (Short "::"))
+                             [Ast_Lit (IntLit 3);
+                              Ast_Con (SOME (Short "nil")) []])``)
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val nil = f x"
+          (SOME ``Ast_Dlet (Ast_Pcon (SOME (Short "nil")) [])
+                           (Ast_App (Ast_Var (Short "f"))
+                                    (Ast_Var (Short "x")))``)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE``
                    "case x of [] => 3 | [] :: _ => 1 | (h::t) :: rest => 2"
           (SOME ``Ast_Mat (Ast_Var (Short "x"))

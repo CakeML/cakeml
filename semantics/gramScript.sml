@@ -68,6 +68,7 @@ val tokmap0 =
                 ("in", ``InT``),
                 ("IntError", ``AlphaT "IntError"``),
                 ("let", ``LetT``),
+                ("nil", ``AlphaT "nil"``),
                 ("o", ``AlphaT "o"``),
                 ("of", ``OfT``),
                 ("orelse", ``OrelseT``),
@@ -113,18 +114,21 @@ val mmlG_def = mk_grammar_def ginfo
 
  (* expressions - base cases and function applications *)
  UQConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``)
-                    | "true" | "false" | "ref";
+                    | "true" | "false" | "ref" | "nil";
  ConstructorName ::=
      UQConstructorName
-  | ^(``{LongidT str s | str,s | s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s)}``);
- V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false"; "ref" } ∧
+  | ^(``{LongidT str s | str,s | s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s) ∨
+                                 s ∈ {"true"; "false"; "ref"; "nil"}}``);
+ V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false"; "ref";
+                            "nil" } ∧
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
     |  ^(``{SymbolT s |
             s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"; ":=";
                  "::"; "@"}}``);
  FQV ::= V
       |  ^(``{LongidT str s | str,s |
-              s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s))}``) ;
+              s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)) ∧
+              s ∉ {"true"; "false"; "ref"; "nil"}}``) ;
  Vlist1 ::= V Vlist1 | V;
  Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | <IntT>
         |  "let" LetDecs "in" Eseq "end" | "[" "]" | "[" Elist1 "]";

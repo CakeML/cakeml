@@ -240,7 +240,8 @@ val firstSet_nV = store_thm(
   "firstSet_nV",
   ``firstSet mmlG (NN nV:: rest) =
       { AlphaT s | s ≠ "" ∧ ¬isUpper (HD s) ∧ s ≠ "before" ∧ s ≠ "div" ∧
-                   s ≠ "mod" ∧ s ≠ "o" ∧ s ≠ "true" ∧ s ≠ "false" ∧ s ≠ "ref"} ∪
+                   s ≠ "mod" ∧ s ≠ "o" ∧ s ≠ "true" ∧ s ≠ "false" ∧ s ≠ "ref" ∧
+                   s ≠ "nil"} ∪
       { SymbolT s | s ≠ "+" ∧ s ≠ "*" ∧ s ≠ "-" ∧ s ≠ "/" ∧ s ≠ "<" ∧ s ≠ ">" ∧
                     s ≠ "<=" ∧ s ≠ ">=" ∧ s ≠ "<>" ∧ s ≠ ":=" ∧ s ≠ "::" ∧
                     s ≠ "@"}``,
@@ -256,16 +257,18 @@ val firstSet_nFQV = store_thm(
   "firstSet_nFQV",
   ``firstSet mmlG [NT (mkNT nFQV)] =
       firstSet mmlG [NT (mkNT nV)] ∪
-      { LongidT m i | (m,i) | i ≠ "" ∧ (isAlpha (HD i) ⇒ ¬isUpper (HD i))}``,
+      { LongidT m i | (m,i) | i ≠ "" ∧ (isAlpha (HD i) ⇒ ¬isUpper (HD i)) ∧
+                              i ∉ {"true"; "false"; "ref"; "nil"}}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION]);
 
 val firstSet_nConstructorName = store_thm(
   "firstSet_nConstructorName",
   ``firstSet mmlG (NN nConstructorName :: rest) =
-      { LongidT str s | (str,s) | s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s) } ∪
+      { LongidT str s | (str,s) | s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s) ∨
+                                  s ∈ {"true"; "false"; "ref"; "nil"}} ∪
       { AlphaT s | s ≠ "" ∧ isUpper (HD s) } ∪
-      { AlphaT "true"; AlphaT "false"; AlphaT "ref"}``,
+      { AlphaT s | s ∈ {"true"; "false"; "ref"; "nil"}}``,
   ntac 2 (simp [Once firstSet_NT, cmlG_applied, cmlG_FDOM]) >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
