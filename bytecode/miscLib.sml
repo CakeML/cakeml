@@ -5,15 +5,7 @@ fun RATOR_X_ASSUM t ttac (g as (asl,w)) = UNDISCH_THEN (first (can (match_term t
 fun rator_x_assum q ttac = Q_TAC (C RATOR_X_ASSUM ttac) q
 fun RATOR_ASSUM t ttac (g as (asl,w)) = ttac (ASSUME (first (can (match_term t) o fst o strip_comb) asl)) g
 fun rator_assum q ttac = Q_TAC (C RATOR_ASSUM ttac) q
-val discharge_hyps =
-  let val P = genvar bool
-      val Q = genvar bool
-      val R = genvar bool
-  in
-    Q.MATCH_ABBREV_TAC`(^P==>^Q)==>^R` THEN
-    SUBGOAL_THEN P
-      (fn th => DISCH_THEN (MP_TAC o PROVE_HYP th o UNDISCH)) THEN
-    MAP_EVERY Q.UNABBREV_TAC[`^P`,`^Q`,`^R`]
-  end
+val IMP_IMP = METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``
+val discharge_hyps = match_mp_tac IMP_IMP >> conj_tac
 fun prove_hyps_by tac th = PROVE_HYP (prove(list_mk_conj (hyp th),tac)) th
 end
