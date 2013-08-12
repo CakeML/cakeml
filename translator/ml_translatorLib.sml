@@ -316,7 +316,7 @@ in
     val _ = (check_ctors := check)
     val _ = (decl_exists := ex)
     in () end
-(* end *)
+end
 
 
 (* code for managing type information *)
@@ -2697,22 +2697,5 @@ fun mltDefine name q tac = let
   val _ = print_thm (D th)
   val _ = print "\n\n"
   in def end;
-
-
-(*
-  register_type ``:'a # 'b``
-
-  register_type ``:'a list``
-
-
-  translate
-val def = HD
-
-
-
-
-type_of ``(1,2)``
-
-*)
 
 end
