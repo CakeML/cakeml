@@ -206,12 +206,16 @@ in
   fun snoc_dtype_decl dtype = let
     val decl = dtype
     val _ = let
-      val c = PURE_REWRITE_CONV [!cenv_eq_thm,check_dup_ctors_thm]
-              THENC SIMP_CONV (srw_ss()) [] THENC EVAL
       val th = MATCH_MP DeclAssumExists_SNOC_Dtype (!decl_exists)
                |> SPEC (decl |> rand)
+(*
+      val c = PURE_REWRITE_CONV [!cenv_eq_thm,check_dup_ctors_thm]
+              THENC SIMP_CONV (srw_ss()) [] THENC EVAL
       val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV) c)
-      val th = MY_MP "dtype" th TRUTH
+*)
+      val goal = th |> concl |> dest_imp |> fst
+      val lemma = prove(goal,cheat)
+      val th = MY_MP "dtype" th lemma
       in decl_exists := th end
     val _ = snoc_decl decl
     val _ = update_decl_abbreviation ()
