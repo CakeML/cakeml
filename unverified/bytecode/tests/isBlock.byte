@@ -11,3 +11,10 @@ pushInt 3
 =
 = print printC '\n'
 
+ref
+isBlock
+
+pushInt 2
+pushInt 3
+=
+= print printC '\n'

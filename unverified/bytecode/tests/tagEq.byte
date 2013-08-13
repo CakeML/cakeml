@@ -7,3 +7,16 @@ pushInt 3
 =
 = print printC '\n'
 pushInt 0 = print printC '\n'
+
+pushInt 0
+pushInt 1
+pushInt 2
+pushInt 3
+cons 23 3 
+tagEq 22
+
+pushInt 2
+pushInt 3
+=
+= print printC '\n'
+pushInt 0 = print printC '\n'

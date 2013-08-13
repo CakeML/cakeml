@@ -1,0 +1,8 @@
+#!/bin/sh
+
+for i in `ls *.byte`;
+do
+	echo --- ${i} ---;
+	../cakeml-byte ${i}
+	echo \\n
+done

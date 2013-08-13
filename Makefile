@@ -5,13 +5,12 @@ all:
 	cd compiler/tests; Holmake && ./selftest.exe
 
 clean:
-	cd semantics; Holmake -C semantics cleanAll
+	cd semantics; Holmake cleanAll
 	cd metatheory; Holmake cleanAll
 	cd parsing; Holmake cleanAll
 	cd parsing/testing; Holmake cleanAll
 	cd inference; Holmake cleanAll
 	cd inference/proofs; Holmake cleanAll
-	cd inference/tests; Holmake cleanAll
 	cd bytecode; Holmake cleanAll
 	cd compiler; Holmake cleanAll
 	cd compiler/tests; Holmake cleanAll

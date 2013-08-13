@@ -41,10 +41,3 @@ pushInt 1
 pushInt 2
 =
 = print printC '\n'
-
-pushExc
-pushInt 1
-=
-pushInt 1
-=
-print printC '\n'
