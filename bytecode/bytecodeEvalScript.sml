@@ -88,25 +88,14 @@ fs[bc_eval_stack_def,bc_stack_op_cases] >> rw[]
   qmatch_assum_rename_tac `n ≤ LENGTH t` [] >>
   qexists_tac `TAKE n t` >> rw[])
 >- (
-  qmatch_rename_tac
-    `∃(ys:bc_value list).
-      (n = LENGTH ys) ∧
-      (h::t = ys ++ DROP (n - 1) t) ∧
-      (REVERSE (TAKE (n - 1) t) ++ [h] = REVERSE ys)` [] >>
-  qexists_tac `TAKE n (h::t)` >> rw[] )
+  Cases_on`n0`>>fsrw_tac[ARITH_ss][] )
 >- (
-  qmatch_assum_rename_tac `n < LENGTH t` [] >>
-  map_every qexists_tac [`TAKE n t`,`EL n t`,`DROP (n+1) t`] >>
-  imp_res_tac arithmeticTheory.LESS_IMP_LESS_OR_EQ >>
-  rw[] >>
-  qpat_assum `n < LENGTH t` mp_tac >>
-  rpt (pop_assum (K ALL_TAC)) >>
-  qid_spec_tac `n` >>
-  Induct_on `t` >> fs[] >>
-  rw[] >> fs[DROP_def] >>
-  first_x_assum (qspec_then `n-1` mp_tac) >>
-  srw_tac[ARITH_ss][] >>
-  Cases_on `n` >> fs[] )
+  qexists_tac`TAKE n t` >> simp[] >>
+  rpt (pop_assum mp_tac) >>
+  map_every qid_spec_tac[`n`,`t`] >>
+  Induct >> simp[] >>
+  gen_tac >> Cases >> fs[] >> strip_tac >>
+  res_tac >> Cases_on`t`>>fs[])
 >- (
   qmatch_assum_rename_tac `bc_eval_stack (El n) (h::t) = SOME ys` [] >>
   Cases_on `h` >> fs[bc_eval_stack_def] )
