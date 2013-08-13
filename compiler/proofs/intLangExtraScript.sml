@@ -355,7 +355,7 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
     Cases >> rw[] >> fs[] >>
     fs[EVERY_MEM] >>
     fsrw_tac[DNF_ss][SUBSET_DEF,vlabs_list_MAP] >>
-    metis_tac[MEM_LUPDATE] ) >>
+    metis_tac[MEM_LUPDATE_E] ) >>
   strip_tac >- rw[] >>
   strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
   strip_tac >- ( srw_tac[DNF_ss][SUBSET_DEF] >> metis_tac[] ) >>
@@ -423,7 +423,7 @@ val tac =
     Cases >> rw[] >> fs[] >>
     fs[EVERY_MEM] >>
     fsrw_tac[DNF_ss][EVERY_MEM] >>
-    metis_tac[MEM_LUPDATE] ) >>
+    metis_tac[MEM_LUPDATE_E] ) >>
   strip_tac >- fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   strip_tac >- (
     ntac 7 gen_tac >>
@@ -1438,7 +1438,7 @@ val Cevaluate_Clocs = store_thm("Cevaluate_Clocs",
     gen_tac >> ntac 2 strip_tac >>
     fs[] >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
-    rw[] >> imp_res_tac MEM_LUPDATE >>
+    rw[] >> imp_res_tac MEM_LUPDATE_E >>
     fsrw_tac[DNF_ss][] >> res_tac) >>
   strip_tac >- rw[] >>
   strip_tac >- (
@@ -2226,7 +2226,7 @@ val CevalUpd_closed = store_thm(
   rpt gen_tac >> strip_tac >>
   rw[] >>
   fsrw_tac[DNF_ss][EVERY_MEM] >> rw[] >>
-  imp_res_tac MEM_LUPDATE >> fs[])
+  imp_res_tac MEM_LUPDATE_E >> fs[])
 
 val Cevaluate_closed = store_thm("Cevaluate_closed",
   ``(∀menv s env exp res. Cevaluate menv s env exp res

@@ -246,12 +246,6 @@ val OPTION_EVERY_mono = store_thm("OPTION_EVERY_mono",
   Cases_on `op` THEN SRW_TAC[][])
 val _ = IndDefLib.export_mono"OPTION_EVERY_mono"
 
-val MEM_LUPDATE = store_thm("MEM_LUPDATE",
-  ``!l x y i. MEM x (LUPDATE y i l) ==> (x = y) \/ MEM x l``,
-  Induct THEN SRW_TAC[][LUPDATE_def] THEN
-  Cases_on`i`THEN FULL_SIMP_TAC(srw_ss())[LUPDATE_def] THEN
-  PROVE_TAC[])
-
 val option_case_NONE_F = store_thm("option_case_NONE_F",
   ``(case X of NONE => F | SOME x => P x) = (∃x. (X = SOME x) ∧ P x)``,
   Cases_on`X`>>rw[])
@@ -429,12 +423,6 @@ val CARD_UNION_LE = store_thm("CARD_UNION_LE",
 val IMAGE_SUBSET_gen = store_thm("IMAGE_SUBSET_gen",
   ``∀f s u t. s ⊆ u ∧ (IMAGE f u ⊆ t) ⇒ IMAGE f s ⊆ t``,
   simp[SUBSET_DEF] >> metis_tac[])
-
-val REVERSE_INV = store_thm("REVERSE_INV",
-  ``!l1 l2. (REVERSE l1 = REVERSE l2) = (l1 = l2)``,
-  Induct THEN SRW_TAC[][] THEN
-  Cases_on`l2` THEN SRW_TAC[][EQ_IMP_THM])
-val _ = export_rewrites["REVERSE_INV"]
 
 val FLOOKUP_DRESTRICT = store_thm("FLOOKUP_DRESTRICT",
   ``!fm s k. FLOOKUP (DRESTRICT fm s) k = if k IN s then FLOOKUP fm k else NONE``,

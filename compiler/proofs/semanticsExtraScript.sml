@@ -623,7 +623,7 @@ val do_app_all_cns = store_thm("do_app_all_cns",
  >- (
      rw[] >> fs[store_assign_def] >> rw[] >>
      fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD] >> rw[] >>
-     imp_res_tac MEM_LUPDATE >> fs[] >> rw[] >>
+     imp_res_tac MEM_LUPDATE_E >> fs[] >> rw[] >>
      TRY (qmatch_assum_rename_tac`MEM z t`[]>>PairCases_on`z`>>fs[]) >>
      metis_tac[]));
 
@@ -914,7 +914,7 @@ val do_app_locs = store_thm("do_app_locs",
   TRY(qpat_assum`X = SOME Y` mp_tac >> BasicProvers.CASE_TAC >> simp[] >> BasicProvers.CASE_TAC >>rw[]) >>
   fs[build_rec_env_MAP]>> rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
   rfs[store_assign_def] >> rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-  imp_res_tac miscTheory.MEM_LUPDATE >> fs[bind_def] >>
+  imp_res_tac MEM_LUPDATE_E >> fs[bind_def] >>
   TRY(metis_tac[]) >>
   fs[MEM_MAP,UNCURRY] >> rpt BasicProvers.VAR_EQ_TAC >> fs[] >> fs[MEM_MAP] >> metis_tac[])
 
@@ -1260,7 +1260,7 @@ ntac 4 gen_tac >> Cases
   fsrw_tac[DNF_ss][EVERY_MEM,MEM_MAP,FORALL_PROD] >>
   rw[] >>
   fs[store_assign_def] >> rw[] >>
-  PROVE_TAC[MEM_LUPDATE,closed_lit,closed_conv,EVERY_MEM,closed_loc]));
+  PROVE_TAC[MEM_LUPDATE_E,closed_lit,closed_conv,EVERY_MEM,closed_loc]));
 
 val pmatch_closed = store_thm("pmatch_closed",
   ``(∀^cenv s p v env env' (menv:envM).

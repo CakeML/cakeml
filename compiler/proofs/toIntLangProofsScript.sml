@@ -1897,7 +1897,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       simp[]>>strip_tac >>
       `EVERY (closed menv) (LUPDATE v2 n s3)` by (
         fs[EVERY_MEM] >>
-        metis_tac[MEM_LUPDATE] ) >>
+        metis_tac[MEM_LUPDATE_E] ) >>
       fs[] >>
       `closed_under_cenv cenv menv env (SND cs') ∧ closed_under_cenv cenv menv env (LUPDATE v2 n s3)` by (
         qspecl_then[`T`,`menv`,`cenv`,`cs`,`env`,`e1`,`(cs',Rval (Loc n))`]mp_tac(evaluate_closed_under_cenv) >>
@@ -1905,7 +1905,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         simp[] >> rw[] >>
         fsrw_tac[DNF_ss][closed_under_cenv_def] >>
         rw[] >>
-        imp_res_tac MEM_LUPDATE >> fs[] >>
+        imp_res_tac MEM_LUPDATE_E >> fs[] >>
         qspecl_then[`T`,`menv`,`cenv`,`cs'`,`env`,`e2`,`((count',s3),Rval v2)`]mp_tac(CONJUNCT1 evaluate_all_cns) >>
         simp[] >> disch_then match_mp_tac >>
         fsrw_tac[DNF_ss][] ) >> fs[] >>
