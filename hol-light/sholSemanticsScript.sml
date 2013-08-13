@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs pred_setTheory listTheory finite_mapTheory sholSyntaxTheory modelSetTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory finite_mapTheory sholSyntaxTheory modelSetTheory
 val _ = numLib.prefer_num()
 val _ = new_theory"sholSemantics"
 
@@ -44,13 +44,13 @@ val (semantics_rules,semantics_ind,semantics_cases) = Hol_reln`
    semantics σ τ (Const s ty (Defined t)) mt) ∧
 
   (typeset τ rty mrty ∧
-   typeset τ atr maty
+   typeset τ aty maty
    ⇒
    semantics σ τ (Const s (Fun aty rty) (Tyrep op p))
     (abstract maty mrty (λx. x))) ∧
 
   (typeset τ rty mrty ∧
-   typeset τ atr maty ∧
+   typeset τ aty maty ∧
    welltyped p ∧ closed p ∧
    INST tyin p has_type Fun rty Bool ∧
    semantics FEMPTY τ (INST tyin p) mp
@@ -143,18 +143,84 @@ val TYPE_SUBST_tyvars = store_thm("TYPE_SUBST_tyvars",
   rpt gen_tac >> EQ_TAC >> strip_tac >> fs[] >>
   fs[MEM_LIST_UNION] >> metis_tac[])
 
-(*
+val tvars_VSUBST_subset = store_thm("tvars_VSUBST_subset",
+  ``∀t sub. set (tvars (VSUBST sub t)) ⊆ set (tvars t) ∪ set (FLAT (MAP (tvars o FST) sub))``,
+  Induct >> simp[VSUBST_def,tvars_def] >- (
+    rw[SUBSET_DEF,MEM_FLAT] >>
+    Q.ISPECL_THEN[`sub`,`Var s t`,`Var s t`]mp_tac REV_ASSOCD_MEM >>
+    rw[] >> fs[tvars_def] >>
+    disj2_tac >> HINT_EXISTS_TAC >> simp[MEM_MAP] >>
+    HINT_EXISTS_TAC >> simp[] )
+  >- (
+    fs[SUBSET_DEF,MEM_LIST_UNION] >>
+    metis_tac[] )
+  >- (
+    rw[] >>
+    fs[SUBSET_DEF,MEM_LIST_UNION,tvars_def,VSUBST_def] >>
+    rw[] >> fs[] >>
+    res_tac >> fs[tvars_def] >>
+    fs[MEM_FLAT,MEM_MAP,MEM_FILTER,pairTheory.EXISTS_PROD] >>
+    fsrw_tac[DNF_ss][] >> metis_tac[]))
+
 val INST_CORE_tvars = store_thm("INST_CORE_tvars",
-  ``∀t env tyin tyin'.
+  ``∀env tyin t tyin'.
     (∀x. MEM x (tvars t) ⇒
          REV_ASSOCD (Tyvar x) tyin' (Tyvar x) =
-         REV_ASSOCD (Tyvar x) tyin  (Tyvar x))
+         REV_ASSOCD (Tyvar x) tyin  (Tyvar x)) ∧
+    (∀s s'. MEM (s,s') env ⇒
+            ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin ty))
     ⇒
     INST_CORE env tyin t = INST_CORE env tyin' t``,
-  Induct >- (
+  ho_match_mp_tac INST_CORE_ind >>
+  strip_tac >- (
     simp[INST_CORE_def] >>
-    rw[]
-  ho_match_mp_tac term_ind
+    rw[] >> fs[tvars_def] >>
+    metis_tac[TYPE_SUBST_tyvars] ) >>
+  strip_tac >- (
+    simp[INST_CORE_def] >>
+    rw[] >> fs[tvars_def] >>
+    metis_tac[TYPE_SUBST_tyvars] ) >>
+  strip_tac >- (
+    simp[INST_CORE_def] >>
+    rw[] >> fs[tvars_def,MEM_LIST_UNION] >>
+    rw[] >>
+    TRY (
+    `INST_CORE env tyin t = INST_CORE env tyin' t` by (
+      first_x_assum match_mp_tac >>
+      metis_tac[] )) >>
+    TRY (
+    `INST_CORE env tyin t' = INST_CORE env tyin' t'` by (
+      first_x_assum match_mp_tac >>
+      metis_tac[] )) >>
+    fs[] ) >>
+  simp[tvars_def,MEM_LIST_UNION] >>
+  simp[INST_CORE_def] >>
+  rpt gen_tac >> strip_tac >> rpt gen_tac >>
+  Q.PAT_ABBREV_TAC`env1 = X::env` >>
+  Q.PAT_ABBREV_TAC`env2 = X::env` >>
+  Q.PAT_ABBREV_TAC`env3 = X::env` >>
+  Q.PAT_ABBREV_TAC`env4 = X::env` >>
+  strip_tac >>
+  `env1 = env3` by metis_tac[TYPE_SUBST_tyvars] >>
+  `INST_CORE env1 tyin t = INST_CORE env1 tyin' t` by (
+    first_x_assum match_mp_tac >>
+    simp[] >> metis_tac[TYPE_SUBST_tyvars] ) >>
+  `TYPE_SUBST tyin' ty = TYPE_SUBST tyin ty` by metis_tac[TYPE_SUBST_tyvars] >>
+  Cases_on`IS_RESULT (INST_CORE env3 tyin t)`>>rfs[] >> fs[] >>
+  Cases_on`CLASH (INST_CORE env3 tyin' t) = Var x (TYPE_SUBST tyin ty)`>>fs[] >>
+  `INST_CORE [] tyin t = INST_CORE [] tyin' t` by (
+    first_x_assum match_mp_tac >> simp[] ) >>
+  `env2 = env4` by (
+    simp[Abbr`env2`,Abbr`env4`]) >>
+  fs[] >>
+  Q.PAT_ABBREV_TAC`sub = [(Var X Y,Var A Z)]` >>
+  `INST_CORE env4 tyin (VSUBST sub t) = INST_CORE env4 tyin' (VSUBST sub t)` by (
+    first_x_assum match_mp_tac >>
+    rw[] >- (
+      imp_res_tac (SIMP_RULE std_ss [SUBSET_DEF] tvars_VSUBST_subset) >>
+      fs[Abbr`sub`,tvars_def] ) >>
+    metis_tac[] ) >>
+  fs[])
 
 val semantics_11 = store_thm("semantics_11",
   ``(∀τ ty mty. typeset τ ty mty ⇒
@@ -187,15 +253,32 @@ val semantics_11 = store_thm("semantics_11",
     qspecl_then[`sizeof t`,`t`,`[]`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
     qspecl_then[`sizeof t`,`t`,`[]`,`tyin'`]mp_tac INST_CORE_HAS_TYPE >>
     simp[] >> ntac 2 strip_tac >> fs[INST_def] >>
-    imp_res_tac WELLTYPED_LEMMA >> rw[] >> fs[]
+    `INST_CORE [] tyin' t = INST_CORE [] tyin t` by (
+      match_mp_tac INST_CORE_tvars >>
+      fs[SUBSET_DEF] >>
+      imp_res_tac WELLTYPED_LEMMA >> rw[] >> fs[] >>
+      metis_tac[TYPE_SUBST_tyvars] ) >>
+    fs[] ) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    simp[Once semantics_cases] >>
+    rw[] >> metis_tac[] ) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    simp_tac (srw_ss()) [Once semantics_cases] >>
+    rw[] >>
+    cheat ) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    simp[Once semantics_cases] >> rw[] >>
+    metis_tac[] ) >>
+  rpt gen_tac >>
+  strip_tac >>
+  simp[Once semantics_cases] >>
+  rw[] >>
+  metis_tac[WELLTYPED_LEMMA] )
 
-    `tyt' = tyt` by metis_tac[WELLTYPED_LEMMA] >> rw[] >>
-    TYPE_SUBST
-    print_find"TYPE_SUBST"
-
-    ) >>
-
-
+(*
 val semantics_typeset = store_thm("semantics_typeset",
   ``∀tm ty. tm has_type ty ⇒
       ∀σ τ mtm mty. type_valuation τ ∧ term_valuation τ σ ∧
