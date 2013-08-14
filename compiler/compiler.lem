@@ -129,6 +129,7 @@ and
 compile_print_vals n (v::vs) s =
   let s = emit s (List.map PrintC (Hol.EXPLODE (Hol.CONCAT ["val ";v;" = "]))) in
   let s = emit s [Stack(Load n); Print] in
+  let s = emit s (List.map PrintC (Hol.EXPLODE "\n")) in
   compile_print_vals (n+1) vs s
 
 let rec
@@ -136,7 +137,7 @@ compile_print_ctors [] s = s
 and
 compile_print_ctors ((c,_)::cs) s =
   compile_print_ctors cs
-    (emit s (List.map PrintC (Hol.EXPLODE (Hol.CONCAT [c;" = <constructor>"]))))
+    (emit s (List.map PrintC (Hol.EXPLODE (Hol.CONCAT [c;" = <constructor>\n"]))))
 
 let rec
 compile_print_types [] s = s
@@ -158,7 +159,7 @@ compile_print_dec (Dletrec defs) s =
 let rec
 compile_top rs (Tmod mn _ decs) =
   let (ct,env,cs) = compile_decs_wrap (Some mn) rs decs in
-  let str = Hol.CONCAT["structure ";mn;" = <structure>"] in
+  let str = Hol.CONCAT["structure ";mn;" = <structure>\n"] in
   (<| rs with
       contab = ct
     ; rnext_label = cs.next_label

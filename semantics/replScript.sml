@@ -82,10 +82,10 @@ update_repl_state ast state type_bindings ctors tenvM tenvC tenv store envC r =
                       tenvM := strip_mod_env tenvM ++ state.tenvM |>`;
 
 val print_envM_def = Define `
-print_envM envM = CONCAT (MAP (λ(x,m). "module " ++ x ++ " = <structure>") envM)`;
+print_envM envM = CONCAT (MAP (λ(x,m). "module " ++ x ++ " = <structure>\n") envM)`;
 
 val print_envC_def = Define `
-print_envC envC = CONCAT (MAP (λ(x,c). id_to_string x ++ " = <constructor>") envC)`;
+print_envC envC = CONCAT (MAP (λ(x,c). id_to_string x ++ " = <constructor>\n") envC)`;
 
 val print_lit_def = Define `
 (print_lit (IntLit i) = int_to_string i) ∧
@@ -101,14 +101,14 @@ val print_v_def = Define `
 (print_v (Loc _) = "<ref>")`;
 
 val print_envE_def = Define `
-print_envE envE = CONCAT (MAP (\(x,v). "val " ++ x ++ " = " ++ print_v v) envE)`;
+print_envE envE = CONCAT (MAP (\(x,v). "val " ++ x ++ " = " ++ print_v v ++ "\n") envE)`;
 
 val print_result_def = Define `
 (print_result (Tdec _) envC (Rval (envM,envE)) = print_envC envC ++ print_envE envE) ∧
-(print_result (Tmod mn _ _) _ (Rval _) = "structure "++mn++" = <structure>") ∧
-(print_result _ _ (Rerr Rtimeout_error) = "<timeout error>") ∧
-(print_result _ _ (Rerr Rtype_error) = "<type error>") ∧
-(print_result _ _ (Rerr (Rraise e)) = "raise " ++ print_v e)`;
+(print_result (Tmod mn _ _) _ (Rval _) = "structure "++mn++" = <structure>\n") ∧
+(print_result _ _ (Rerr Rtimeout_error) = "<timeout error>\n") ∧
+(print_result _ _ (Rerr Rtype_error) = "<type error>\n") ∧
+(print_result _ _ (Rerr (Rraise e)) = "raise " ++ print_v e ++ "\n")`;
 
 val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 
@@ -135,12 +135,12 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 (!state type_errors ast asts rest.
   ast_repl state type_errors asts rest
   ⇒
-  ast_repl state (T::type_errors) (SOME ast::asts) (Result "<type error>" rest)) ∧
+  ast_repl state (T::type_errors) (SOME ast::asts) (Result "<type error>\n" rest)) ∧
 
 (!state x type_errors asts rest.
   ast_repl state type_errors asts rest
   ⇒
-  ast_repl state (x::type_errors) (NONE::asts) (Result "<parse error>" rest))`;
+  ast_repl state (x::type_errors) (NONE::asts) (Result "<parse error>\n" rest))`;
 
 val parse_def = Define`
   parse toks =

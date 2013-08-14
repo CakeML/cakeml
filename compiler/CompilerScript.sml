@@ -175,6 +175,7 @@ val _ = Define `
 (compile_print_vals n (v::vs) s =  
 (let s = ( emit s ( MAP PrintC (EXPLODE (CONCAT ["val ";v;" = "])))) in
   let s = ( emit s [Stack(Load n); Print]) in
+  let s = ( emit s ( MAP PrintC (EXPLODE "\n"))) in
   compile_print_vals (n +1) vs s))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_print_vals_defn;
@@ -185,7 +186,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (compile_print_ctors ((c,_)::cs) s =  
 (compile_print_ctors cs
-    (emit s ( MAP PrintC (EXPLODE (CONCAT [c;" = <constructor>"]))))))`;
+    (emit s ( MAP PrintC (EXPLODE (CONCAT [c;" = <constructor>\n"]))))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_print_ctors_defn;
 
@@ -218,7 +219,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (compile_top rs (Tmod mn _ decs) =  
 (let (ct,env,cs) = ( compile_decs_wrap (SOME mn) rs decs) in
-  let str = ( CONCAT["structure ";mn;" = <structure>"]) in
+  let str = ( CONCAT["structure ";mn;" = <structure>\n"]) in
   (( rs with<|
       contab := ct
     ; rnext_label := cs.next_label

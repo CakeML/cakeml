@@ -64,7 +64,7 @@ val bc_inst_to_string_def = Define `
 (bc_inst_to_string Stop = "stop") ∧
 (bc_inst_to_string Tick = "tick") ∧
 (bc_inst_to_string Print = "print") ∧
-(bc_inst_to_string (PrintC c) = "printC '" ++ [c] ++ "'")`;
+(bc_inst_to_string (PrintC c) = "printC '" ++ (if c = #"\n" then "\\n" else [c]) ++ "'")`;
 
 val encode_num_def = Define `
 encode_num n =
