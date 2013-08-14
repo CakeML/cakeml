@@ -45,6 +45,8 @@ val test16 = run_test ``"l'4a--"`` ``[AlphaT "l'4a"; SymbolT "--"]``;
 
 val test17 = run_test ``"++a.b%$"`` ``[SymbolT "++"; LongidT "a" "b"; SymbolT "%$"]``;
 
-val test19 = run_test ``"~55+~4"`` ``[IntT ~55; SymbolT "+~"; IntT 4]``
+val test19 = run_test ``"~55+~4"`` ``[IntT ~55; SymbolT "+~"; IntT 4]``;
+
+val test20 = run_test ``"a."`` ``[LexErrorT]``;
 
 val _ = export_theory ();

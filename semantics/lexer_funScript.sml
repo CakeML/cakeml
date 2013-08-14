@@ -180,15 +180,18 @@ val next_sym_def = tDefine "next_sym" `
      else if isAlpha c then (* read identifier *)
        let (n,rest) = read_while isAlphaNumPrime str [c] in
          case rest of
-              #"."::c'::rest' =>
-                if isAlpha c' then
-                  let (n', rest'') = read_while isAlphaNumPrime rest' [c'] in
-                    SOME (LongS (n ++ "." ++ n'), rest'')
-                else if isSymbol c' then
-                  let (n', rest'') = read_while isSymbol rest' [c'] in
-                    SOME (LongS (n ++ "." ++ n'), rest'')
-                else
-                    SOME (ErrorS, rest')
+              #"."::rest' =>
+                  (case rest' of
+                      c'::rest' =>
+                        if isAlpha c' then
+                          let (n', rest'') = read_while isAlphaNumPrime rest' [c'] in
+                            SOME (LongS (n ++ "." ++ n'), rest'')
+                        else if isSymbol c' then
+                          let (n', rest'') = read_while isSymbol rest' [c'] in
+                            SOME (LongS (n ++ "." ++ n'), rest'')
+                             else
+                               SOME (ErrorS, rest')
+                    | "" => SOME (ErrorS, []))
             | _ => SOME (OtherS n, rest)
      else if c = #"_" then SOME (OtherS "_", str)
      else (* input not recognised *)
