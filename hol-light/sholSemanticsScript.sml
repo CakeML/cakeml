@@ -2,123 +2,6 @@ open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory fin
 val _ = numLib.prefer_num()
 val _ = new_theory"sholSemantics"
 
-val (semantics_rules,semantics_ind,semantics_cases) = Hol_reln`
-  (typeset τ (Tyvar s) (τ s)) ∧
-
-  (typeset τ (Tyapp (Typrim "bool" 0) []) boolset) ∧
-
-  (typeset τ x mx ∧ typeset τ y my
-   ⇒
-   typeset τ (Tyapp (Typrim "->" 2) [x;y]) (funspace mx my)) ∧
-
-  (LENGTH (tvars p) = LENGTH ts ∧
-   tyin = ZIP (MAP Tyvar (STRING_SORT (tvars p)), ts) ∧
-   INST tyin p has_type Fun rty Bool ∧
-   semantics FEMPTY τ (INST tyin p) mp ∧
-   typeset τ rty mrty (* do we need to know that mp is not empty? *)
-   ⇒
-   typeset τ (Tyapp (Tydefined s p) ts) (mrty suchthat holds mp)) ∧
-
-  (FLOOKUP σ (n,ty) = SOME m
-   ⇒
-   semantics σ τ (Var n ty) m) ∧
-
-  (typeset τ ty mty
-   ⇒
-   semantics σ τ (Const "=" (Fun ty (Fun ty Bool)) Prim)
-    (abstract mty (funspace mty boolset)
-       (λx. abstract mty boolset (λy. boolean (x = y))))) ∧
-
-  (typeset τ ty mty
-   ⇒
-   semantics σ τ (Const "@" (Fun (Fun ty Bool) ty) Prim)
-     (abstract (funspace mty boolset) mty
-       (λp. let mp = (mty suchthat holds p) in
-            ch (if ∃x. x <: mp then mp else mty)))) ∧
-
-  (welltyped t ∧ closed t ∧
-   set(tvars t) ⊆ set (tyvars (typeof t)) ∧
-   INST tyin t has_type ty ∧
-   semantics FEMPTY τ (INST tyin t) mt
-   ⇒
-   semantics σ τ (Const s ty (Defined t)) mt) ∧
-
-  (typeset τ rty mrty ∧
-   typeset τ (Tyapp (Tydefined op p) args) maty (* do we put all the conditions here too? *)
-   ⇒
-   semantics σ τ (Const s (Fun (Tyapp (Tydefined op p) args) rty) (Tyrep op p))
-    (abstract maty mrty (λx. x))) ∧
-
-  (typeset τ rty mrty ∧
-   typeset τ (Tyapp (Tydefined op p) args) maty ∧
-   welltyped p ∧ closed p ∧
-   tyin = ZIP(args,MAP Tyvar(STRING_SORT(tvars p))) ∧ LENGTH args = LENGTH (tvars p) ∧
-   semantics FEMPTY τ (INST tyin p) mp
-   ⇒
-   semantics σ τ (Const s (Fun rty (Tyapp (Tydefined op p) args)) (Tyabs op p))
-    (abstract mrty maty (λx. if holds mp x then x else ch maty))) ∧
-
-  (semantics σ τ t mt ∧
-   semantics σ τ u mu
-   ⇒
-   semantics σ τ (Comb t u) (apply mt mu)) ∧
-
-  (typeset τ ty mty ∧
-   b has_type tyb ∧
-   typeset τ tyb mtyb ∧
-   (∀x. semantics (σ |+ ((n,ty),x)) τ b (mb x))
-   ⇒
-   semantics σ τ (Abs n ty b) (abstract mty mtyb mb))`
-
-val type_valuation_def = Define`
-  type_valuation τ ⇔ ∀x. ∃y. y <: τ x`
-
-val term_valuation_def = Define`
-  term_valuation τ σ ⇔
-    FEVERY (λ(v,m). ∀mty. typeset τ (SND v) mty ⇒ m <: mty) σ`
-
-val _ = Parse.add_infix("|=",450,Parse.NONASSOC)
-
-val sequent_def = xDefine"sequent"`
-  h |= c ⇔ EVERY (λt. t has_type Bool) (c::h) ∧
-           ∀σ τ. type_valuation τ ∧
-                 term_valuation τ σ ∧
-                 EVERY (λt. semantics σ τ t true) h
-                 ⇒
-                 semantics σ τ c true`
-
-val term_valuation_FUPDATE = store_thm("term_valuation_FUPDATE",
-  ``∀τ σ v m.
-    term_valuation τ σ ∧
-    (∀mty. typeset τ (SND v) mty ⇒ m <: mty)
-    ⇒
-    term_valuation τ (σ |+ (v,m))``,
-  rw[term_valuation_def,FEVERY_DEF,FAPPLY_FUPDATE_THM]>>PROVE_TAC[])
-
-val semantics_closed = store_thm("semantics_closed",
-  ``∀t σ τ mt. semantics σ τ t mt ⇒
-      ∀n ty. VFREE_IN (Var n ty) t ⇒ (n,ty) ∈ FDOM σ``,
-  reverse Induct >- (
-    simp[Once semantics_cases] >>
-    rpt gen_tac >> strip_tac >>
-    simp[CONJ_SYM] >>
-    simp[GSYM AND_IMP_INTRO] >>
-    rpt gen_tac >> strip_tac >>
-    `(n,ty) ∈ FDOM (σ |+ ((s,t),x))` by PROVE_TAC[] >>
-    fs[] ) >>
-  simp[Once semantics_cases] >>
-  simp[FLOOKUP_DEF] >>
-  metis_tac[])
-
-val type_ind =
-  TypeBase.induction_of``:type``
-  |> Q.SPECL[`K T`,`P`,`K T`,`K T`,`EVERY P`]
-  |> SIMP_RULE std_ss [EVERY_DEF]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> Q.GEN`P`
-
 val MEM_LIST_INSERT = store_thm("MEM_LIST_INSERT",
   ``∀l x. set (LIST_INSERT x l) = x INSERT set l``,
   Induct >> simp[LIST_INSERT_def] >> rw[] >>
@@ -128,6 +11,15 @@ val MEM_LIST_UNION = store_thm("MEM_LIST_UNION",
   ``∀l1 l2. set (LIST_UNION l1 l2) = set l1 ∪ set l2``,
   Induct >> fs[LIST_UNION_def,MEM_LIST_INSERT] >>
   rw[EXTENSION] >> metis_tac[])
+
+val type_ind =
+  TypeBase.induction_of``:type``
+  |> Q.SPECL[`K T`,`P`,`K T`,`K T`,`EVERY P`]
+  |> SIMP_RULE std_ss [EVERY_DEF]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> Q.GEN`P`
 
 val TYPE_SUBST_tyvars = store_thm("TYPE_SUBST_tyvars",
   ``∀ty tyin tyin'.
@@ -222,54 +114,118 @@ val INST_CORE_tvars = store_thm("INST_CORE_tvars",
     metis_tac[] ) >>
   fs[])
 
-(*
-val INST_CORE_tvars_imp = store_thm("INST_CORE_tvars_imp",
-  ``∀env tyin t tyin'.
-    (∀s s'. MEM (s,s') env ⇒
-            ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin ty)) ∧
-    (∀s s'. MEM (s,s') env ⇒
-            ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin' ty)) ∧
-    INST_CORE env tyin t = INST_CORE env tyin' t
+val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
+  (typeset τ (Tyvar s) (τ s)) ∧
+
+  (typeset τ (Tyapp (Typrim "bool" 0) []) boolset) ∧
+
+  (typeset τ x mx ∧ typeset τ y my
+   ⇒
+   typeset τ (Tyapp (Typrim "->" 2) [x;y]) (funspace mx my)) ∧
+
+  (LENGTH (tvars p) = LENGTH args ∧
+   tyin = ZIP (args, MAP Tyvar (STRING_SORT (tvars p))) ∧
+   semantics FEMPTY τ (INST tyin p) mp ∧ w <: mrty ∧ holds mp w ∧
+   INST tyin p has_type Fun rty Bool ∧ typeset τ rty mrty
+   ⇒
+   typeset τ (Tyapp (Tydefined op p) args) (mrty suchthat holds mp)) ∧
+
+  (FLOOKUP σ (n,ty) = SOME m
+   ⇒
+   semantics σ τ (Var n ty) m) ∧
+
+  (typeset τ ty mty
+   ⇒
+   semantics σ τ (Const "=" (Fun ty (Fun ty Bool)) Prim)
+    (abstract mty (funspace mty boolset)
+       (λx. abstract mty boolset (λy. boolean (x = y))))) ∧
+
+  (typeset τ ty mty
+   ⇒
+   semantics σ τ (Const "@" (Fun (Fun ty Bool) ty) Prim)
+     (abstract (funspace mty boolset) mty
+       (λp. let mp = (mty suchthat holds p) in
+            ch (if ∃x. x <: mp then mp else mty)))) ∧
+
+  (welltyped t ∧ closed t ∧
+   set(tvars t) ⊆ set (tyvars (typeof t)) ∧
+   INST tyin t has_type ty ∧
+   semantics FEMPTY τ (INST tyin t) mt
+   ⇒
+   semantics σ τ (Const s ty (Defined t)) mt) ∧
+
+  (typeset τ (Tyapp (Tydefined op p) args) maty ∧
+   tyin = ZIP(args, MAP Tyvar (STRING_SORT (tvars p))) ∧
+   INST tyin p has_type Fun rty Bool ∧ typeset τ rty mrty
+   ⇒
+   semantics σ τ (Const s (Fun (Tyapp (Tydefined op p) args) rty) (Tyrep op p))
+    (abstract maty mrty (λx. x))) ∧
+
+  (typeset τ (Tyapp (Tydefined op p) args) maty ∧
+   tyin = ZIP(args, MAP Tyvar (STRING_SORT (tvars p))) ∧
+   INST tyin p has_type Fun rty Bool ∧ typeset τ rty mrty ∧
+   semantics FEMPTY τ (INST tyin p) mp
+   ⇒
+   semantics σ τ (Const s (Fun rty (Tyapp (Tydefined op p) args)) (Tyabs op p))
+    (abstract mrty maty (λx. if holds mp x then x else ch maty))) ∧
+
+  (semantics σ τ t mt ∧
+   semantics σ τ u mu ∧
+   typeset τ (typeof t) mty
+   ⇒
+   semantics σ τ (Comb t u) (apply mt mu)) ∧
+
+  (typeset τ ty mty ∧
+   b has_type tyb ∧
+   typeset τ tyb mtyb ∧
+   (∀x. semantics (σ |+ ((n,ty),x)) τ b (mb x))
+   ⇒
+   semantics σ τ (Abs n ty b) (abstract mty mtyb mb))`
+
+val typeset_Bool = store_thm("typeset_Bool",
+  ``typeset τ Bool ty ⇔ ty = boolset``,
+  simp[Once semantics_cases])
+val _ = export_rewrites["typeset_Bool"]
+
+val type_valuation_def = Define`
+  type_valuation τ ⇔ ∀x. ∃y. y <: τ x`
+
+val term_valuation_def = Define`
+  term_valuation τ σ ⇔
+    FEVERY (λ(v,m). ∀mty. typeset τ (SND v) mty ⇒ m <: mty) σ`
+
+val _ = Parse.add_infix("|=",450,Parse.NONASSOC)
+
+val sequent_def = xDefine"sequent"`
+  h |= c ⇔ EVERY (λt. t has_type Bool) (c::h) ∧
+           ∀σ τ. type_valuation τ ∧
+                 term_valuation τ σ ∧
+                 EVERY (λt. semantics σ τ t true) h
+                 ⇒
+                 semantics σ τ c true`
+
+val term_valuation_FUPDATE = store_thm("term_valuation_FUPDATE",
+  ``∀τ σ v m.
+    term_valuation τ σ ∧
+    (∀mty. typeset τ (SND v) mty ⇒ m <: mty)
     ⇒
-    (∀x. MEM x (tvars t) ⇒
-         REV_ASSOCD (Tyvar x) tyin' (Tyvar x) =
-         REV_ASSOCD (Tyvar x) tyin  (Tyvar x))``,
-  ho_match_mp_tac INST_CORE_ind >>
-  strip_tac >- (
-    simp[INST_CORE_def] >>
-    rw[] >> fs[tvars_def] >>
-    metis_tac[TYPE_SUBST_tyvars] ) >>
-  strip_tac >- (
-    simp[INST_CORE_def] >>
-    rw[] >> fs[tvars_def] >>
-    metis_tac[TYPE_SUBST_tyvars] ) >>
-  strip_tac >- (
+    term_valuation τ (σ |+ (v,m))``,
+  rw[term_valuation_def,FEVERY_DEF,FAPPLY_FUPDATE_THM]>>PROVE_TAC[])
+
+val semantics_closed = store_thm("semantics_closed",
+  ``∀t σ τ mt. semantics σ τ t mt ⇒
+      ∀n ty. VFREE_IN (Var n ty) t ⇒ (n,ty) ∈ FDOM σ``,
+  reverse Induct >- (
+    simp[Once semantics_cases] >>
     rpt gen_tac >> strip_tac >>
-    simp[INST_CORE_def] >>
-    gen_tac >> strip_tac >>
-    simp[tvars_def,MEM_LIST_UNION] >>
-    pop_assum mp_tac >> rw[] >> fs[] >>
-
-    INST_CORE_HAS_TYPE
-
-    Cases_on`IS_CLASHOI
-    simp[INST_CORE_def] >>
-    rw[] >> fs[tvars_def,MEM_LIST_UNION] >>
-    ntac 2 (pop_assum mp_tac) >> rw[] >> fs[] >>
-    TRY (
-      first_assum (match_mp_tac o MP_CANON) >>
-      qpat_assum`X = Y`(assume_tac o SYM) >> simp[] >>
-      match_mp_tac EQ_SYM >>
-      match_mp_tac INST_CORE_tvars >> simp[] >>
-      first_x_assum match_mp_tac
-
-
-      first_x_assum (match_mp_tac o MP_CANON) >>
-      simp[] >>
-      metis_tac[INST_CORE_tvars]
-    metis_tac[TYPE_SUBST_tyvars]
-    metis_tac[TYPE_SUBST_tyvars] ) >>
-*)
+    simp[CONJ_SYM] >>
+    simp[GSYM AND_IMP_INTRO] >>
+    rpt gen_tac >> strip_tac >>
+    `(n,ty) ∈ FDOM (σ |+ ((s,t),x))` by PROVE_TAC[] >>
+    fs[] ) >>
+  simp[Once semantics_cases] >>
+  simp[FLOOKUP_DEF] >>
+  metis_tac[])
 
 val semantics_11 = store_thm("semantics_11",
   ``(∀τ ty mty. typeset τ ty mty ⇒
@@ -331,51 +287,123 @@ val semantics_11 = store_thm("semantics_11",
   rw[] >>
   metis_tac[WELLTYPED_LEMMA] )
 
-(*
 val semantics_typeset = store_thm("semantics_typeset",
-  ``∀tm ty. tm has_type ty ⇒
-      ∀σ τ mtm mty. type_valuation τ ∧ term_valuation τ σ ∧
-                    typeset τ ty mty ∧ semantics σ τ tm mtm
-                    ⇒ mtm <: mty``,
-  ho_match_mp_tac has_type_strongind >>
-  conj_tac >- (
-    simp[Once (CONJUNCT2 semantics_cases)] >>
-    rw[term_valuation_def] >>
-    imp_res_tac FEVERY_FLOOKUP >> fs[]) >>
-  conj_tac >- (
-    rpt gen_tac >> strip_tac >>
-    pop_assum mp_tac >>
-    simp[Once (CONJUNCT2 semantics_cases)] >>
-    rw[] >- (
-      qpat_assum`typeset τ (Fun X Y) Z`mp_tac >>
-      simp[Once (CONJUNCT1 semantics_cases)] >> strip_tac >>
-      qpat_assum`typeset τ (Fun X Y) Z`mp_tac >>
-      simp[Once (CONJUNCT1 semantics_cases)] >> strip_tac >>
-      pop_assum mp_tac >>
-      simp[Once (CONJUNCT1 semantics_cases)] >> strip_tac >>
-      rpt BasicProvers.VAR_EQ_TAC >>
-      match_mp_tac ABSTRACT_IN_FUNSPACE
-
-      print_apropos``x <: funspace y z``
-
-
-val semantics_typeset = store_thm("semantics_typeset",
-  ``(∀τ ty mty. typeset τ ty mty ⇒
-        ∀σ t mt. type_valuation τ ∧ term_valuation τ σ ∧
-                 t has_type ty ∧ semantics σ τ t mt ⇒
-                 mt <: mty) ∧
+  ``(∀τ ty mty. typeset τ ty mty ⇒ type_valuation τ ⇒ ∃mt. mt <: mty) ∧
     (∀σ τ t mt. semantics σ τ t mt ⇒
         ∀ty mty. type_valuation τ ∧ term_valuation τ σ ∧
                  t has_type ty ∧ typeset τ ty mty ⇒
                  mt <: mty)``,
-
-  ho_match_mp_tac semantics_ind >>
+  ho_match_mp_tac (theorem"semantics_strongind") >>
   simp[INDSET_INHABITED,FUNSPACE_INHABITED] >>
   conj_tac >- simp[type_valuation_def] >>
   conj_tac >- metis_tac[BOOLEAN_IN_BOOLSET] >>
-
-  gen_tac >> Induct >> simp[Once semantics_cases]
-  Induct
-*)
+  conj_tac >- ( rw[suchthat_def] >> metis_tac[] ) >>
+  conj_tac >- (
+    simp[Once has_type_cases] >> rw[] >>
+    fs[term_valuation_def] >>
+    imp_res_tac FEVERY_FLOOKUP >>
+    fs[] ) >>
+  conj_tac >- (
+    rw[Once has_type_cases] >>
+    pop_assum mp_tac >> rw[Once semantics_cases] >>
+    pop_assum mp_tac >> rw[Once semantics_cases] >>
+    imp_res_tac semantics_11 >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[] >>
+    match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[] >>
+    metis_tac[BOOLEAN_IN_BOOLSET] ) >>
+  conj_tac >- (
+    rw[Once has_type_cases] >>
+    pop_assum mp_tac >> rw[Once semantics_cases] >>
+    qpat_assum`typeset τ (Fun X Y) Z` mp_tac >> rw[Once semantics_cases] >>
+    imp_res_tac semantics_11 >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[] >>
+    fs[suchthat_def] >> rw[] >- (
+      qmatch_abbrev_tac`ch s <: mty` >>
+      `ch s <: s` by (
+        match_mp_tac ch_def >>
+        simp[Abbr`s`,suchthat_def] >>
+        metis_tac[] ) >>
+      fs[Abbr`s`,suchthat_def] ) >>
+    match_mp_tac ch_def >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rw[] >>
+    imp_res_tac WELLTYPED_LEMMA >> fs[] >> rw[] >>
+    fs[term_valuation_def,FEVERY_DEF] >>
+    metis_tac[WELLTYPED_LEMMA] ) >>
+  conj_tac >- (
+    rw[] >>
+    imp_res_tac WELLTYPED_LEMMA >> fs[] >> rw[] >>
+    qpat_assum`typeset τ (X Y) Z` mp_tac >> rw[Once semantics_cases] >>
+    imp_res_tac semantics_11 >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    match_mp_tac ABSTRACT_IN_FUNSPACE >>
+    qpat_assum`typeset τ (X Y) Z`mp_tac >>
+    simp_tac std_ss [Once semantics_cases] >>
+    rw[] >>
+    fs[suchthat_def] >>
+    imp_res_tac WELLTYPED_LEMMA >>
+    fs[] >> rw[] >> imp_res_tac semantics_11 >> rw[] ) >>
+  conj_tac >- (
+    rw[] >>
+    imp_res_tac WELLTYPED_LEMMA >> fs[] >> rw[] >>
+    qpat_assum`typeset τ (X Y) Z` mp_tac >> rw[Once semantics_cases] >>
+    imp_res_tac semantics_11 >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    match_mp_tac ABSTRACT_IN_FUNSPACE >>
+    rw[] >>
+    imp_res_tac semantics_11 >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    qpat_assum`typeset τ (X Y) Z` mp_tac >>
+    simp_tac std_ss [Once semantics_cases] >>
+    simp[] >> strip_tac >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    rw[] >- (
+      fs[suchthat_def] >>
+      imp_res_tac WELLTYPED_LEMMA >> fs[] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      imp_res_tac semantics_11 >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      rw[] ) >>
+    match_mp_tac ch_def >>
+    fs[suchthat_def] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rw[] >>
+    qpat_assum`X has_type Y` mp_tac >>
+    rw[Once has_type_cases] >>
+    match_mp_tac APPLY_IN_RANSPACE >>
+    imp_res_tac WELLTYPED_LEMMA >> fs[] >>
+    qpat_assum`typeset τ (X Y) Z` mp_tac >>
+    simp_tac std_ss [Once semantics_cases] >>
+    rw[] >>
+    qmatch_assum_rename_tac`typeset τ (typeof u) tu`[] >>
+    first_x_assum(qspecl_then[`typeof u`,`tu`]mp_tac) >>
+    rw[] >> qexists_tac`tu` >> rw[] >>
+    first_x_assum match_mp_tac >>
+    qexists_tac`Fun (typeof u) ty` >>
+    rw[Once semantics_cases] >>
+    metis_tac[] ) >>
+  rw[] >>
+  qpat_assum`X has_type Y` mp_tac >>
+  rw[Once has_type_cases] >>
+  qpat_assum`typeset τ (X Y) Z` mp_tac >>
+  simp_tac std_ss [Once semantics_cases] >>
+  rw[] >>
+  imp_res_tac semantics_11 >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  imp_res_tac WELLTYPED_LEMMA >> rw[] >>
+  imp_res_tac semantics_11 >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[] >>
+  first_x_assum (qspec_then`x`mp_tac) >>
+  rw[] >> first_x_assum match_mp_tac >>
+  qexists_tac`typeof t` >> rw[] >>
+  fs[term_valuation_def] >>
+  match_mp_tac (CONJUNCT2 FEVERY_STRENGTHEN_THM) >>
+  simp[] >>
+  metis_tac[semantics_11])
 
 val _ = export_theory()
