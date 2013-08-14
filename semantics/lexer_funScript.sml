@@ -14,7 +14,8 @@ open stringTheory stringLib listTheory TokensTheory ASCIInumbersTheory intLib;
 
 val _ = Hol_datatype `symbol = StringS of string
                              | NumberS of int
-                             | LongS of string => string
+                             (* For identifier with a . in them *)
+                             | LongS of string
                              | OtherS of string
                              | ErrorS `;
 
@@ -182,10 +183,10 @@ val next_sym_def = tDefine "next_sym" `
               #"."::c'::rest' =>
                 if isAlpha c' then
                   let (n', rest'') = read_while isAlphaNumPrime rest' [c'] in
-                    SOME (LongS n n', rest'')
+                    SOME (LongS (n ++ "." ++ n'), rest'')
                 else if isSymbol c' then
                   let (n', rest'') = read_while isSymbol rest' [c'] in
-                    SOME (LongS n n', rest'')
+                    SOME (LongS (n ++ "." ++ n'), rest'')
                 else
                     SOME (ErrorS, rest')
             | _ => SOME (OtherS n, rest)
@@ -350,7 +351,7 @@ val token_of_sym_def = Define `
     | ErrorS    => LexErrorT
     | StringS s => StringT s
     | NumberS i => IntT i 
-    | LongS s1 s2 => LongidT s1 s2
+    | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in LongidT s1 (TL s2)
     | OtherS s  => get_token s `;
 
 val next_token_def = Define `
