@@ -39,7 +39,7 @@ struct inst_list {
 
 typedef struct inst_list inst_list;
 
-#define MAX_TAG (0xffff - 4)
+#define MAX_TAG (0xffff - 2)
 #define MAX_BLOCK (ULONG_MAX >> 16)
 
 #endif

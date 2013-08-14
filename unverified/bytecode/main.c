@@ -115,13 +115,16 @@ static inline value tag_pointer(value v) {
 typedef enum { 
   bignum_tag = 0, 
   ref_tag = 1, 
-  /* The following are 2 greater than the compiler expects in emitted cons
-   * instructions. */
-  false_tag = 2, 
-  true_tag = 3, 
-  unit_tag = 4, 
-  closure_tag = 5
+  // The following are 3 greater than the compiler expects in emitted cons
+  // instructions.
+  forward_pointer_tag = 2,
+  false_tag = 3, 
+  true_tag = 4, 
+  unit_tag = 5, 
+  closure_tag = 6
 } block_tag;
+
+#define SKIP_TAGS 3
 
 static inline block_tag get_header_tag(value h) {
   return (h & 0xffff);
@@ -163,6 +166,9 @@ void static print_value(value *heap, value v) {
       case ref_tag:
         printf("<ref>");
 	break;
+      case closure_tag:
+        printf("<fn>");
+	break;
       default:
 	printf("<constructor>");
 	break;
@@ -195,7 +201,7 @@ static int equal(value *heap, value v1, value v2) {
     value tag2 = get_header_tag(h2);
     if (tag1 == closure_tag || tag2 == closure_tag)
       return 2;
-    else if (tag1 != tag2)
+    else if (h1 != h2) // If the tags and lengths aren't the same
       return 0;
     else if (tag1 == ref_tag)
       return value_cmp(v1,v2);
@@ -213,6 +219,91 @@ static int equal(value *heap, value v1, value v2) {
     return 0;
 }
 
+#define STACK_SIZE 1000000
+#define HEAP_SIZE 1000000
+static value stack[STACK_SIZE];
+
+static inline void check_stack(unsigned int sp) { 
+  if (sp >= STACK_SIZE) {
+    printf("stack overflow\n"); 
+    exit(1); 
+  }
+}
+
+// Move the object at ptr in the from heap to the to heap, starting at
+// to_next_free.  Updates to_next_free, and returns the location that the value
+// has been moved to.  ptr must be a pointer value.
+static value gc_move(value *from, value *to, value ptr, unsigned long *to_next_free) {
+  value header, p;
+  unsigned long i, next;
+
+  next = *to_next_free;
+  p = get_pointer(ptr);
+  header = from[p];
+
+  if (get_header_tag(header) == forward_pointer_tag)
+    return from[p+1];
+  else {
+    to[next] = header;
+    for (i = 1; i <= get_header_size(header); i++)
+      to[next + i] = from[p + i];
+    *to_next_free = next + i;
+
+    // install forward pointer
+    from[p] = build_header(forward_pointer_tag, 1); 
+    from[p+1] = next;
+    return next;
+  }
+}
+
+static value gc(unsigned long root_len, value* roots, value *from, value *to) {
+  value i, to_next_free, to_next_copy;
+
+  to_next_free = 0;
+  to_next_copy = 0;
+
+  // Copy roots into the to heap
+  for (i = 0; i < root_len; i++)
+    if (is_pointer(roots[i]))
+      roots[i] = tag_pointer(gc_move(from, to, roots[i], &to_next_free));
+
+  while (to_next_copy < to_next_free) {
+    /* invariant: to_next_copy should be pointing at a header of an object whose
+     * contents have not been copied. */
+    unsigned long i;
+    unsigned long length = get_header_size(to[to_next_copy]);
+    for (i = 1; i <= length; ++i)
+      if (is_pointer(to[to_next_copy + i])) 
+	to[to_next_copy + i] = tag_pointer(gc_move(from, to, to[to_next_copy + i], &to_next_free));
+
+    to_next_copy += length + 1;
+  }
+
+  return to_next_free;
+}
+
+static inline value alloc(value size, value *next, value heap_size, value **heap, value sp) {
+  if (*next + size > heap_size) {
+    value *to = malloc(heap_size * sizeof(value));
+    value i = gc(sp, stack, *heap, to);
+    if (i + size > heap_size) {
+      printf("Out of memory\n");
+      exit(1);
+    }
+    else {
+      *next = i + size;
+      free(*heap);
+      *heap = to;
+      return i;
+    }
+  }
+  else {
+    value i = *next;
+    *next = *next + size;
+    return i;
+  }
+}
+
 static inline fixnum sml_div(fixnum n1, fixnum n2) {
   if (n1 % n2 != 0 && ((n1 < 0) != (n2 < 0)))
     return ((n1 / n2) - 1);
@@ -225,38 +316,20 @@ static inline fixnum sml_mod(fixnum n1, fixnum n2) {
 }
 
 
-#define STACK_SIZE 1000000
-#define HEAP_SIZE 1000000
-
-static value stack[STACK_SIZE];
-static value heap[HEAP_SIZE];
-
-static inline void check_stack(unsigned int sp) { 
-  if (sp >= STACK_SIZE) {
-    printf("stack overflow\n"); 
-    exit(1); 
-  }
-}
-
-static inline void check_heap(unsigned int next_heap) { 
-  if (next_heap >= HEAP_SIZE) {
-    printf("heap overflow\n"); 
-    exit(1);
-  }
-}
 
 void run(inst code[]) {
 
-  /* The stack pointer sp will point to the lowest unused stack slot */
+  // The stack pointer sp will point to the lowest unused stack slot
   unsigned long sp = 0;
   unsigned long pc = 0;
   unsigned long handler = 0;
   unsigned long next_heap = 0;
 
   unsigned long tmp_sp1, tmp_sp2;
-  value tmp_frame;
+  value tmp_frame, ptr;
   int tmp;
-  bool b;
+
+  value *heap = malloc(HEAP_SIZE * sizeof(value));
 
   while (true) {
 
@@ -294,16 +367,16 @@ void run(inst code[]) {
 	  sp++;
 	}
 	else {
-	  unsigned long i, tag, length;
-	  tag = code[pc].args.two_num.num1 + 2;
+	  block_tag tag;
+	  value i, length;
+	  tag = code[pc].args.two_num.num1 + SKIP_TAGS;
 	  length = code[pc].args.two_num.num2;
-	  check_heap(next_heap + length);
-	  heap[next_heap] = build_header(tag,length);
+	  ptr = alloc(length + 1, &next_heap, HEAP_SIZE, &heap, sp);
+	  heap[ptr] = build_header(tag,length);
 	  for (i = 0; i < length; i++)
-	    heap[next_heap+1+i] = stack[sp-length+i];
+	    heap[ptr+1+i] = stack[sp-length+i];
 	  sp -= length;
-	  stack[sp] = tag_pointer(next_heap);
-	  next_heap += 1 + length;
+	  stack[sp] = tag_pointer(ptr);
 	  sp++;
 	}
 	pc++;
@@ -333,14 +406,16 @@ void run(inst code[]) {
 	if (is_empty_block(stack[sp-1]))
   	  stack[sp-1] = bool_to_val(code[pc].args.num == get_empty_block(stack[sp-1]));
         else
-	  stack[sp-1] = bool_to_val(get_header_tag(heap[get_pointer(stack[sp-1])]) == code[pc].args.num + 2);
+	  stack[sp-1] = bool_to_val(get_header_tag(heap[get_pointer(stack[sp-1])]) == code[pc].args.num + SKIP_TAGS);
 	pc++;
 	break;
       case is_block_i:
 	if (is_empty_block(stack[sp-1]))
 	  stack[sp-1] = bool_to_val(true);
+	else if (is_pointer(stack[sp-1]))
+	  stack[sp-1] = bool_to_val(get_header_tag(heap[get_pointer(stack[sp-1])]) >= SKIP_TAGS);
 	else
-	  stack[sp-1] = bool_to_val(get_header_tag(heap[get_pointer(stack[sp-1])]) >= 2);
+	  stack[sp-1] = bool_to_val(false);
 	pc++;
 	break;
       case equal_i:
@@ -440,11 +515,10 @@ void run(inst code[]) {
 	pc++;
 	break;
       case ref_i:
-	check_heap(next_heap + 1);
-	heap[next_heap] = build_header(ref_tag, 1);
-	heap[next_heap + 1] = stack[sp-1];
-	stack[sp-1] = tag_pointer(next_heap);
-	next_heap += 2;
+	ptr = alloc(2, &next_heap, HEAP_SIZE, &heap, sp);
+	heap[ptr] = build_header(ref_tag, 1);
+	heap[ptr + 1] = stack[sp-1];
+	stack[sp-1] = tag_pointer(ptr);
 	pc++;
 	break;
       case deref_i:

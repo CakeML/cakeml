@@ -11,6 +11,7 @@ pushInt 3
 =
 = print printC '\n'
 
+pushInt 111
 ref
 isBlock
 

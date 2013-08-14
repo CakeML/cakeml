@@ -88,6 +88,7 @@ inst_list* decode(FILE *in) {
 	next_inst->car.args.integer = i;
 	break;
       case 5:
+	/* TODO: check that the block and tag aren't too big */
 	next_inst->car.tag = cons_i;
 	next_inst->car.args.two_num = decode_2num(in, inst_num);
 	break;
