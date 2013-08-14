@@ -15,7 +15,7 @@ val (semantics_rules,semantics_ind,semantics_cases) = Hol_reln`
    tyin = ZIP (MAP Tyvar (STRING_SORT (tvars p)), ts) ∧
    INST tyin p has_type Fun rty Bool ∧
    semantics FEMPTY τ (INST tyin p) mp ∧
-   typeset τ rty mrty
+   typeset τ rty mrty (* do we need to know that mp is not empty? *)
    ⇒
    typeset τ (Tyapp (Tydefined s p) ts) (mrty suchthat holds mp)) ∧
 
@@ -44,18 +44,18 @@ val (semantics_rules,semantics_ind,semantics_cases) = Hol_reln`
    semantics σ τ (Const s ty (Defined t)) mt) ∧
 
   (typeset τ rty mrty ∧
-   typeset τ aty maty
+   typeset τ (Tyapp (Tydefined op p) args) maty (* do we put all the conditions here too? *)
    ⇒
-   semantics σ τ (Const s (Fun aty rty) (Tyrep op p))
+   semantics σ τ (Const s (Fun (Tyapp (Tydefined op p) args) rty) (Tyrep op p))
     (abstract maty mrty (λx. x))) ∧
 
   (typeset τ rty mrty ∧
-   typeset τ aty maty ∧
+   typeset τ (Tyapp (Tydefined op p) args) maty ∧
    welltyped p ∧ closed p ∧
-   INST tyin p has_type Fun rty Bool ∧
+   tyin = ZIP(args,MAP Tyvar(STRING_SORT(tvars p))) ∧ LENGTH args = LENGTH (tvars p) ∧
    semantics FEMPTY τ (INST tyin p) mp
    ⇒
-   semantics σ τ (Const s (Fun rty aty) (Tyabs op p))
+   semantics σ τ (Const s (Fun rty (Tyapp (Tydefined op p) args)) (Tyabs op p))
     (abstract mrty maty (λx. if holds mp x then x else ch maty))) ∧
 
   (semantics σ τ t mt ∧
@@ -222,6 +222,55 @@ val INST_CORE_tvars = store_thm("INST_CORE_tvars",
     metis_tac[] ) >>
   fs[])
 
+(*
+val INST_CORE_tvars_imp = store_thm("INST_CORE_tvars_imp",
+  ``∀env tyin t tyin'.
+    (∀s s'. MEM (s,s') env ⇒
+            ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin ty)) ∧
+    (∀s s'. MEM (s,s') env ⇒
+            ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin' ty)) ∧
+    INST_CORE env tyin t = INST_CORE env tyin' t
+    ⇒
+    (∀x. MEM x (tvars t) ⇒
+         REV_ASSOCD (Tyvar x) tyin' (Tyvar x) =
+         REV_ASSOCD (Tyvar x) tyin  (Tyvar x))``,
+  ho_match_mp_tac INST_CORE_ind >>
+  strip_tac >- (
+    simp[INST_CORE_def] >>
+    rw[] >> fs[tvars_def] >>
+    metis_tac[TYPE_SUBST_tyvars] ) >>
+  strip_tac >- (
+    simp[INST_CORE_def] >>
+    rw[] >> fs[tvars_def] >>
+    metis_tac[TYPE_SUBST_tyvars] ) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    simp[INST_CORE_def] >>
+    gen_tac >> strip_tac >>
+    simp[tvars_def,MEM_LIST_UNION] >>
+    pop_assum mp_tac >> rw[] >> fs[] >>
+
+    INST_CORE_HAS_TYPE
+
+    Cases_on`IS_CLASHOI
+    simp[INST_CORE_def] >>
+    rw[] >> fs[tvars_def,MEM_LIST_UNION] >>
+    ntac 2 (pop_assum mp_tac) >> rw[] >> fs[] >>
+    TRY (
+      first_assum (match_mp_tac o MP_CANON) >>
+      qpat_assum`X = Y`(assume_tac o SYM) >> simp[] >>
+      match_mp_tac EQ_SYM >>
+      match_mp_tac INST_CORE_tvars >> simp[] >>
+      first_x_assum match_mp_tac
+
+
+      first_x_assum (match_mp_tac o MP_CANON) >>
+      simp[] >>
+      metis_tac[INST_CORE_tvars]
+    metis_tac[TYPE_SUBST_tyvars]
+    metis_tac[TYPE_SUBST_tyvars] ) >>
+*)
+
 val semantics_11 = store_thm("semantics_11",
   ``(∀τ ty mty. typeset τ ty mty ⇒
         ∀mty'. typeset τ ty mty' ⇒ mty' = mty) ∧
@@ -267,7 +316,11 @@ val semantics_11 = store_thm("semantics_11",
     rpt gen_tac >> strip_tac >>
     simp_tac (srw_ss()) [Once semantics_cases] >>
     rw[] >>
-    cheat ) >>
+    `mrty = mty'` by metis_tac[] >>
+    `maty = mty` by metis_tac[] >>
+    qsuff_tac`mp = mt`>-rw[]>>
+    first_x_assum match_mp_tac >>
+    simp[] ) >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
     simp[Once semantics_cases] >> rw[] >>
