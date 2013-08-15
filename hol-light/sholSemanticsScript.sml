@@ -178,7 +178,7 @@ val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
   (typeset τ ty mty ∧
    b has_type tyb ∧
    typeset τ tyb mtyb ∧
-   (∀x. semantics (σ |+ ((n,ty),x)) τ b (mb x))
+   (∀x. x <: mty ⇒ (mb x) <: mtyb ∧ semantics (σ |+ ((n,ty),x)) τ b (mb x))
    ⇒
    semantics σ τ (Abs n ty b) (abstract mty mtyb mb))`
 
@@ -204,26 +204,26 @@ val sequent_def = xDefine"sequent"`
                  ⇒
                  semantics σ τ c true`
 
-val semantics_closed = store_thm("semantics_closed",
-  ``∀t σ τ mt. semantics σ τ t mt ⇒
-      ∀n ty. VFREE_IN (Var n ty) t ⇒ (n,ty) ∈ FDOM σ``,
-  reverse Induct >- (
-    simp[Once semantics_cases] >>
-    rpt gen_tac >> strip_tac >>
-    simp[CONJ_SYM] >>
-    simp[GSYM AND_IMP_INTRO] >>
-    rpt gen_tac >> strip_tac >>
-    `(n,ty) ∈ FDOM (σ |+ ((s,t),x))` by PROVE_TAC[] >>
-    fs[] ) >>
+val typeset_inhabited = store_thm("typeset_inhabited",
+  ``∀ty τ mty. type_valuation τ ∧ typeset τ ty mty ⇒ ∃m. m <: mty``,
+  ho_match_mp_tac type_ind >>
+  conj_tac >- (
+    simp[type_valuation_def] >>
+    simp[Once semantics_cases] ) >>
+  rpt gen_tac >> strip_tac >>
   simp[Once semantics_cases] >>
-  simp[FLOOKUP_DEF] >>
-  metis_tac[])
+  rw[] >- metis_tac[BOOLEAN_IN_BOOLSET]
+  >- (
+    match_mp_tac FUNSPACE_INHABITED >>
+    fs[] >> metis_tac[] ) >>
+  simp[suchthat_def] >>
+  metis_tac[] )
 
 val semantics_11 = store_thm("semantics_11",
   ``(∀τ ty mty. typeset τ ty mty ⇒
-        ∀mty'. typeset τ ty mty' ⇒ mty' = mty) ∧
+        ∀mty'. type_valuation τ ∧ typeset τ ty mty' ⇒ mty' = mty) ∧
     (∀σ τ t mt. semantics σ τ t mt ⇒
-        ∀mt'. semantics σ τ t mt' ⇒ mt' = mt)``,
+        ∀mt'. type_valuation τ ∧ semantics σ τ t mt' ⇒ mt' = mt)``,
   ho_match_mp_tac semantics_ind >>
   conj_tac >- simp[Once semantics_cases] >>
   conj_tac >- simp[Once semantics_cases] >>
@@ -258,26 +258,31 @@ val semantics_11 = store_thm("semantics_11",
     fs[] ) >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
-    simp[Once semantics_cases] >>
+    simp_tac std_ss [Once semantics_cases] >>
     rw[] >> metis_tac[] ) >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
     simp_tac (srw_ss()) [Once semantics_cases] >>
-    rw[] >>
+    rpt strip_tac >>
+    BasicProvers.VAR_EQ_TAC >>
     `mrty = mty'` by metis_tac[] >>
     `maty = mty` by metis_tac[] >>
-    qsuff_tac`mp = mt`>-rw[]>>
+    qsuff_tac`mp = mt`>-metis_tac[] >>
     first_x_assum match_mp_tac >>
     simp[] ) >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
-    simp[Once semantics_cases] >> rw[] >>
-    metis_tac[] ) >>
+    simp_tac std_ss [Once semantics_cases] >>
+    simp_tac (srw_ss()) [] >>
+    rw[] >> metis_tac[] ) >>
   rpt gen_tac >>
   strip_tac >>
-  simp[Once semantics_cases] >>
+  simp_tac std_ss [Once semantics_cases] >>
   rw[] >>
-  metis_tac[WELLTYPED_LEMMA] )
+  imp_res_tac WELLTYPED_LEMMA >> rw[] >>
+  match_mp_tac ABSTRACT_EQ >>
+  conj_tac >- metis_tac[typeset_inhabited] >>
+  fs[] >> res_tac >> fs[])
 
 val semantics_typeset = store_thm("semantics_typeset",
   ``(∀τ ty mty. typeset τ ty mty ⇒ type_valuation τ ⇒ ∃mt. mt <: mty) ∧
@@ -393,16 +398,24 @@ val semantics_typeset = store_thm("semantics_typeset",
   imp_res_tac WELLTYPED_LEMMA >> rw[] >>
   qmatch_assum_rename_tac`typeset τ (typeof t) mtt`[] >>
   map_every qexists_tac[`mty`,`mtt`] >> rw[] >>
-  match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[] >>
-  first_x_assum (qspecl_then[`x`,`typeof t`]mp_tac) >>
-  qmatch_abbrev_tac`(p ⇒ q) ⇒ r` >>
-  qsuff_tac`p ∧ (q ⇒ r)` >- metis_tac[] >>
-  conj_tac >- (
-    simp[Abbr`p`] >> fs[term_valuation_def] >>
-    match_mp_tac (CONJUNCT2 FEVERY_STRENGTHEN_THM) >>
-    simp[] >> metis_tac[] ) >>
-  simp[Abbr`q`,Abbr`r`] >>
-  metis_tac[semantics_11])
+  match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[])
+
+(*
+val semantics_closed = store_thm("semantics_closed",
+  ``∀t σ τ mt. semantics σ τ t mt ⇒
+      ∀n ty. VFREE_IN (Var n ty) t ⇒ (n,ty) ∈ FDOM σ``,
+  reverse Induct >- (
+    simp[Once semantics_cases] >>
+    rpt gen_tac >> strip_tac >>
+    simp[CONJ_SYM] >>
+    simp[GSYM AND_IMP_INTRO] >>
+    rpt gen_tac >> strip_tac >>
+    `(n,ty) ∈ FDOM (σ |+ ((s,t),x))` by PROVE_TAC[] >>
+    fs[] ) >>
+  simp[Once semantics_cases] >>
+  simp[FLOOKUP_DEF] >>
+  metis_tac[])
+*)
 
 val semantics_equation = store_thm("semantics_equation",
   ``∀σ τ s t mty ms mt.
@@ -435,7 +448,6 @@ val semantics_equation = store_thm("semantics_equation",
     metis_tac[semantics_typeset,semantics_11,WELLTYPED,BOOLEAN_IN_BOOLSET] ) >>
   unabbrev_all_tac >> simp[])
 
-(*
 val semantics_raconv = store_thm("semantics_raconv",
   ``∀env tp.
       RACONV env tp ⇒
@@ -447,12 +459,12 @@ val semantics_raconv = store_thm("semantics_raconv",
           ALPHAVARS env (Var x1 ty1,Var x2 ty2) ⇒
             (semantics σ1 τ (Var x1 ty1) =
              semantics σ2 τ (Var x2 ty2))) ∧
-        welltyped (FST tp) ∧ welltyped (SND tp) (* ∧
-        (∃m. typeset τ (typeof (FST tp)) m) ∧ (∃m. typeset τ (typeof (SND tp)) m) *)
+        EVERY (λ(x,y). welltyped x ∧ welltyped y ∧ typeof x = typeof y) env ∧
+        welltyped (FST tp) ∧ welltyped (SND tp)
         ⇒
         (semantics σ1 τ (FST tp) =
          semantics σ2 τ (SND tp))``,
-  ho_match_mp_tac RACONV_ind >>
+  ho_match_mp_tac RACONV_strongind >>
   simp[FORALL_PROD] >>
   conj_tac >- (
     rw[] >>
@@ -470,26 +482,50 @@ val semantics_raconv = store_thm("semantics_raconv",
     `semantics σ1 τ s1 = semantics σ2 τ s2` by metis_tac[] >>
     `semantics σ1 τ t1 = semantics σ2 τ t2` by metis_tac[] >>
     simp[] >>
-    qsuff_tac`∀ms mt. semantics σ2 τ s2 ms ∧ semantics σ2 τ t2 mt ∧ ((∃m. typeset τ (typeof s2) m) ⇔ (∃m. typeset τ (typeof s1) m)) ⇒
-                              typeof s1 = typeof s2` >- (
-      Cases_on`∃ms. semantics σ2 τ s2 ms`>>fs[]>>
-      simp[Once(CONJUNCT1 semantics_cases)] >>
-      simp[Once(Q.SPECL[`τ`,`Fun X Y`](CONJUNCT1 semantics_cases))] >>
-      srw_tac[DNF_ss][] >>
-      metis_tac[] ) >>
-    rpt gen_tac >> strip_tac
-      Cases_on`∃mt. semantics σ2 τ t2 mt`>>fs[]>> rw[] >- (
-        res_tac >> fs[] ) >>
-      metis_tac[] ) >>
-    rpt gen_tac >> strip_tac >> simp[] >>
-    semantics_typeset
-    typeset
-    `
-    ALPHAVARS_def
-    metis_tac[semantics_typeset]
-    metis_tac[semantics_11,semantics_typeset]
-    has_type_rules
-*)
+    EQ_TAC >>
+    strip_tac >>
+    map_every qexists_tac[`mt`,`mu`] >> rw[] >>
+    `∃msy. typeset τ (typeof s2) msy ∧ mt <: msy` by metis_tac[semantics_typeset,WELLTYPED] >>
+    `∃msy. typeset τ (typeof s1) msy ∧ mt <: msy` by metis_tac[semantics_typeset,WELLTYPED] >>
+    rfs[Once(Q.SPECL[`τ`,`Fun X Y`](CONJUNCT1 semantics_cases))] >>
+    metis_tac[] ) >>
+  rw[] >>
+  simp[Once FUN_EQ_THM] >>
+  simp[Once semantics_cases] >>
+  simp[Once semantics_cases,SimpRHS] >>
+  rw[] >>
+  rw[EQ_IMP_THM] >>
+  map_every qexists_tac[`mb`,`mty`,`mtyb`,`tyb`] >>
+  simp[] >>
+  qmatch_assum_abbrev_tac`RACONV env' (t1,t2)` >>
+  qspecl_then[`env'`,`t1,t2`]mp_tac RACONV_TYPE >>
+  simp[Abbr`env'`] >> strip_tac >>
+  (conj_tac >- metis_tac[WELLTYPED,WELLTYPED_LEMMA]) >>
+  rw[] >>
+  first_x_assum(qspec_then`x`mp_tac) >> rw[] >>
+  qmatch_abbrev_tac`semantics σ2' τ tq m` >>
+  qmatch_assum_abbrev_tac`semantics σ1' τ tp m` >>
+  (qsuff_tac`semantics σ1' τ tp = semantics σ2' τ tq` >- metis_tac[]) >>
+  (first_x_assum match_mp_tac ORELSE (match_mp_tac EQ_SYM >> first_x_assum match_mp_tac)) >>
+  fs[term_valuation_def] >>
+  (conj_tac >- (
+    simp[Abbr`σ2'`,Abbr`σ1'`] >>
+    match_mp_tac (CONJUNCT2 FEVERY_STRENGTHEN_THM) >>
+    simp[] >> metis_tac[] )) >>
+  (conj_tac >- (
+    simp[Abbr`σ2'`,Abbr`σ1'`] >>
+    match_mp_tac (CONJUNCT2 FEVERY_STRENGTHEN_THM) >>
+    simp[] >> metis_tac[] )) >>
+  simp[ALPHAVARS_def] >>
+  (rw[] >- (
+    simp[FUN_EQ_THM] >>
+    simp[Once semantics_cases] >>
+    simp[Once semantics_cases,SimpRHS] >>
+    simp[FLOOKUP_DEF,Abbr`σ1'`,Abbr`σ2'`] )) >>
+  qmatch_assum_rename_tac`ALPHAVARS env (Var va vta, Var vb vtb)`[] >>
+  first_x_assum(qspecl_then[`va`,`vta`,`vb`,`vtb`]mp_tac) >>
+  simp[] >>
+  cheat (* prove that the semantics doesn't care about σ extended with irrelevant binding *))
 
 val _ = export_theory()
 
