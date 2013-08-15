@@ -194,20 +194,20 @@ val get_type_error_mask_def = Define `
 (get_type_error_mask Diverge = [F]) ∧
 (get_type_error_mask Diverge = [F]) ∧
 (get_type_error_mask (Result r rs) =
-  (r = "<type error>")::get_type_error_mask rs)`;
+  (r = "<type error>\n")::get_type_error_mask rs)`;
 
-val print_envC_not_type_error = prove(``ls ≠ "<type error>" ⇒ print_envC envc ++ ls ≠ "<type error>"``,
+val print_envC_not_type_error = prove(``ls ≠ "<type error>\n" ⇒ print_envC envc ++ ls ≠ "<type error>\n"``,
 Induct_on`envc`>>
 simp[print_envC_def]>>
 Cases>>simp[]>>
 Induct_on`q`>>simp[id_to_string_def]>>
 lrw[LIST_EQ_REWRITE])
 
-val print_envE_not_type_error = prove(``print_envE en ≠ "<type error>"``,
+val print_envE_not_type_error = prove(``print_envE en ≠ "<type error>\n"``,
 Induct_on`en`>>simp[print_envE_def]>>
 Cases>>simp[])
 
-val print_result_not_type_error = prove(``r ≠ Rerr Rtype_error ⇒ print_result top envc r ≠ "<type error>"``,
+val print_result_not_type_error = prove(``r ≠ Rerr Rtype_error ⇒ print_result top envc r ≠ "<type error>\n"``,
   Cases_on`r`>>
   TRY(Cases_on`e`)>>
   TRY(PairCases_on`a`)>>
@@ -1079,28 +1079,37 @@ val PrintE_thm = store_thm("PrintE_thm",
     ⇒
     let bs' = bs with <|pc:=next_addr bs.inst_length bs.code
                        ;stack:=st
-                       ;output:=bs.output++("raise "++print_bv bs.cons_names bv)
+                       ;output:=bs.output++("raise "++print_bv bs.cons_names bv++"\n")
                        |> in
     bc_next^* bs bs'``,
   rw[] >>
-  rw[Once RTC_CASES2] >>
-  disj2_tac >>
-  qexists_tac`bs with <|output := bs.output ++ "raise "; pc := next_addr bs.inst_length (BUTLAST PrintE)|>` >>
+  qsuff_tac`∃bs1 bs2. bc_next^* bs bs1 ∧ bc_next bs1 bs2 ∧ bc_next bs2 bs'` >-
+    metis_tac[RTC_TRANSITIVE,transitive_def,RTC_SUBSET] >>
+  qexists_tac`bs with <|output := bs.output ++ "raise "; pc := next_addr bs.inst_length (BUTLASTN 2 PrintE)|>` >>
+  simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
     match_mp_tac MAP_PrintC_thm >>
     rw[bc_state_component_equality] >>
     rw[PrintE_def] >>
     qexists_tac`[]` >>
-    rw[] ) >>
-  qmatch_abbrev_tac`bc_next bs0 bs1` >>
+    rw[] >> EVAL_TAC >> simp[]) >>
+  qho_match_abbrev_tac`∃bs2. bc_next bs0 bs2 ∧ P bs2` >>
   `bc_fetch bs0 = SOME Print` by (
     match_mp_tac bc_fetch_next_addr >>
     simp[Abbr`bs0`,PrintE_def] >>
     CONV_TAC SWAP_EXISTS_CONV >>
-    qexists_tac`[]` >> simp[] ) >>
+    qexists_tac`[PrintC#"\n"]` >> simp[] >> EVAL_TAC >> simp[]) >>
+  rw[bc_eval1_thm,bc_eval1_def,Abbr`bs0`,bump_pc_def] >>
+  simp[Abbr`P`] >>
+  qmatch_abbrev_tac`bc_next bs0 bs1` >>
+  `bc_fetch bs0 = SOME(PrintC#"\n")` by (
+    match_mp_tac bc_fetch_next_addr >>
+    simp[Abbr`bs0`,PrintE_def] >>
+    CONV_TAC SWAP_EXISTS_CONV >>
+    qexists_tac`[]` >> simp[] >> EVAL_TAC >> simp[]) >>
   rw[bc_eval1_thm,bc_eval1_def,Abbr`bs0`,bump_pc_def,Abbr`bs1`] >>
   rw[bc_state_component_equality,Abbr`bs'`] >>
-  rw[PrintE_def] >> simp[])
+  rw[PrintE_def] >> simp[] >> EVAL_TAC >>simp[] >> simp[IMPLODE_EXPLODE_I])
 
 val and_shadow_def = zDefine`and_shadow = $/\`
 

@@ -94,13 +94,13 @@ val parse_elaborate_infertype_compile_def = Define `
   parse_elaborate_infertype_compile tokens s =
     case parse_top tokens of
       (* case: parse error *)
-      NONE => Failure "<parse error>"
+      NONE => Failure "<parse error>\n"
     | (* case: ast_top produced *)
       SOME ast_top =>
         let (es,top) = elaborate_top s.relaborator_state ast_top in
           case infertype_top s.rinferencer_state top of
             (* type inference failed to find type *)
-          | Failure _ => Failure "<type error>"
+          | Failure _ => Failure "<type error>\n"
             (* type found, type safe! *)
           | Success is =>
              let (css,csf,code) = compile_top s.rcompiler_state top in
@@ -114,7 +114,7 @@ val install_code_def = Define `
              ; cons_names := m
              |>`;
 
-val PrintE_def = Define`PrintE = (MAP PrintC "raise ")++[Print]`
+val PrintE_def = Define`PrintE = (MAP PrintC "raise ")++[Print;PrintC(#"\n")]`
 
 val initial_bc_state_def =  Define`
   initial_bc_state =
