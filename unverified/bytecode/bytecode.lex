@@ -72,7 +72,7 @@
   else 
     return NUM_T;
   }
-~[0-9]+ { 
+-[0-9]+ { 
   yylval->integer = strtol(yytext, NULL, 10); 
   if (errno == ERANGE) {
     printf("Lexer: number %s too small at line: %d column: %d\n", yytext, yylloc->first_line, yylloc->first_column); 
