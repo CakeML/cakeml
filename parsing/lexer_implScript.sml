@@ -5,15 +5,13 @@ val _ = new_theory "lexer_impl";
 
 open stringTheory stringLib listTheory TokensTheory lexer_funTheory;
 
-val tac =
-  BasicProvers.FULL_CASE_TAC
-  >- (simp_tac (srw_ss()) [char_le_def, char_lt_def, get_token_def, processIdent_def] >>
-      full_simp_tac (srw_ss()) [isAlphaNum_def, isAlpha_def, isDigit_def, 
-                                isUpper_def, isLower_def]) >>
-  pop_assum (fn _ => all_tac);
+val tac = 
+ full_simp_tac (srw_ss()) [char_le_def, char_lt_def] >>
+ Cases_on `t` >>
+ rw [get_token_def, processIdent_def, isAlphaNum_def, isAlpha_def, isDigit_def,
+     isLower_def, isUpper_def];
 
-  (*
-val get_token_eqn = Q.prove (
+val get_token_eqn = Q.store_thm ("get_token_eqn",
 `!s.
   get_token s =
     case s of
@@ -40,7 +38,7 @@ val get_token_eqn = Q.prove (
                  SymbolT s
            else
              if c ≤ #"]" then
-               if c ≤ #"=" then
+               if c ≤ #"Z" then
                  if #"A" ≤ c ∧ c ≤ #"Z" then AlphaT s else
                  if c = #"=" then EqualsT else
                  SymbolT s
@@ -50,6 +48,7 @@ val get_token_eqn = Q.prove (
                  SymbolT s
              else
                if c ≤ #"{" then
+                 if c = #"_" then UnderbarT else
                  if #"a" ≤ c ∧ c ≤ #"z" then AlphaT s else
                  if c = #"{" then LbraceT else
                  SymbolT s
@@ -59,12 +58,16 @@ val get_token_eqn = Q.prove (
                  SymbolT s
        | c::s' =>
            if c < #"a" then
-             if c = #"'" then TyvarT s else
-             if s = "->" then ArrowT else
-             if s = "..." then DotsT else
-             if s = ":>" then SealT else
-             if s = "=>" then DarrowT else
-             SymbolT s
+             if c ≤ #"." then
+               if c = #"'" then TyvarT s else
+               if s = "->" then ArrowT else
+               if s = "..." then DotsT else
+               SymbolT s
+             else
+               if s = ":>" then SealT else
+               if s = "=>" then DarrowT else
+               if #"A" ≤ c ∧ c ≤ #"Z" then AlphaT s else
+               SymbolT s
            else if c ≤ #"z" then
              if c ≤ #"i" then
                if c ≤ #"e" then
@@ -132,10 +135,24 @@ val get_token_eqn = Q.prove (
  Cases_on `s` >>
  simp_tac (srw_ss()) []
  >- srw_tac [] [processIdent_def, get_token_def] >> 
+ MAP_EVERY (fn c =>
+               Cases_on `h = ^c` >-
+               tac >>
+               full_simp_tac (srw_ss()) [])
+           [``#"a"``, ``#"c"``, ``#"d"``, ``#"e"``, ``#"f"``, ``#"h"``,
+            ``#"i"``, ``#"l"``, ``#"o"``, ``#"r"``, ``#"s"``, ``#"t"``, ``#"w"``,
+            ``#"v"``, ``#"'"``, ``#"."``, ``#":"``, ``#"-"``, ``#"="``, ``#"#"``,
+            ``#"("``, ``#")"``, ``#"*"``, ``#","``, ``#";"``, ``#"|"``, ``#"["``,
+            ``#"]"``, ``#"_"``, ``#"{"``, ``#"}"``] >>
+ full_simp_tac (srw_ss()) [get_token_def] >>
+ rw [processIdent_def, isAlphaNum_def, isAlpha_def, isDigit_def,
+     isLower_def, isUpper_def] >>
+ full_simp_tac (srw_ss()++ARITH_ss) [char_le_def, char_lt_def] >>
  Cases_on `t` >>
- simp_tac (srw_ss()) [] >>
- NTAC 9 tac
- *)
+ rw []);
+
+val _ = computeLib.del_persistent_consts([``get_token``]);
+val _ = computeLib.add_persistent_funs(["get_token_eqn"]);
 
 val lex_aux_def = tDefine "lex_aux" `
   lex_aux acc error stk input =

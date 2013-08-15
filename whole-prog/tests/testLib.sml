@@ -99,7 +99,11 @@ do_all_tests
  "test3.ml",
  "test4.ml"]
 
-val filename = "test5.ml";
+computeLib.del_consts[``get_token``]
+computeLib.add_funs[lexer_funTheory.get_token_def]
+computeLib.add_funs[lexer_implTheory.get_token_eqn]
+
+val filename = "test3.ml";
 val i = openIn filename;
 val s = inputAll i;
 val _ = closeIn i;

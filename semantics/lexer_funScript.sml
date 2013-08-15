@@ -286,7 +286,7 @@ val processIdent_def = Define `
     case s of
        | "" => LexErrorT
        | c::s =>
-           if isAlphaNum c then
+           if isAlpha c then
              AlphaT (c::s)
            else 
              SymbolT (c::s)`;
