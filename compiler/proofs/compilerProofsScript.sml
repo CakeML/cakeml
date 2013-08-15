@@ -866,7 +866,7 @@ val compile_code_env_thm = store_thm("compile_code_env_thm",
 (* printing *)
 
 val _ = Parse.overload_on("print_bv",``λm. ov_to_string o bv_to_ov m``)
-val print_bv_str_def = Define`print_bv_str m v w = "val "++v++" = "++(print_bv m w)`
+val print_bv_str_def = Define`print_bv_str m v w = "val "++v++" = "++(print_bv m w)++"\n"`
 
 val append_cons_lemma = prove(``ls ++ [x] ++ a::b = ls ++ x::a::b``,lrw[])
 
@@ -984,7 +984,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
   rpt gen_tac >>
   strip_tac >>
   fs[IMPLODE_EXPLODE_I] >>
-  `bs.code = bc0 ++ (MAP PrintC ("val "++v++" = ")) ++ [Stack(Load i);Print] ++ c1` by (
+  `bs.code = bc0 ++ (MAP PrintC ("val "++v++" = ")) ++ [Stack(Load i);Print;PrintC(#"\n")] ++ c1` by (
     simp[] ) >>
   qmatch_assum_abbrev_tac`bs.code = bc0 ++ l1 ++ l2 ++ c1` >>
   `bc_next^* bs (bs with <|pc:=next_addr bs.inst_length (bc0++l1)
@@ -1000,23 +1000,31 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     qexists_tac`bc0++l1` >>
     simp[Abbr`l2`] ) >>
   `bc_next^* bs1 (bs1 with <|pc:=next_addr bs.inst_length(bc0++l1++l2)
-                            ;output := STRCAT bs1.output (print_bv bs.cons_names (EL i bvs))|>)` by (
+                            ;output := STRCAT bs1.output (print_bv bs.cons_names (EL i bvs))++"\n"|>)` by (
     simp[RTC_eq_NRC] >>
-    qexists_tac`SUC(SUC 0)` >>
+    qexists_tac`SUC(SUC(SUC 0))` >>
     simp[NRC] >>
     qho_match_abbrev_tac`∃z. bc_next bs1 z ∧ P z` >>
     simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
     simp[Abbr`bs1`,bc_eval_stack_def,EL_APPEND1]>>
     simp[Abbr`P`]>>
-    qmatch_abbrev_tac`bc_next bs1 bs2` >>
+    qho_match_abbrev_tac`∃z. bc_next bs1 z ∧ P z` >>
     `bc_fetch bs1 = SOME Print` by (
       match_mp_tac bc_fetch_next_addr >>
       qexists_tac`bc0++l1++[HD l2]` >>
       simp[Abbr`bs1`,Abbr`l2`] >>
       simp[FILTER_APPEND,SUM_APPEND] ) >>
     simp[bc_eval1_thm,bc_eval1_def,bump_pc_def]>>
-    simp[Abbr`bs1`,Abbr`bs2`]>>
-    simp[bc_state_component_equality,IMPLODE_EXPLODE_I] >>
+    simp[Abbr`bs1`]>>
+    simp[Abbr`P`] >>
+    qmatch_abbrev_tac`bc_next bs1 bs2` >>
+    `bc_fetch bs1 = SOME (PrintC(#"\n"))` by (
+      match_mp_tac bc_fetch_next_addr >>
+      qexists_tac`bc0++l1++FRONT l2` >>
+      simp[Abbr`bs1`,Abbr`l2`] >>
+      simp[FILTER_APPEND,SUM_APPEND] ) >>
+    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
+    simp[Abbr`bs1`,Abbr`bs2`,bc_state_component_equality,IMPLODE_EXPLODE_I] >>
     simp[FILTER_APPEND,SUM_APPEND,Abbr`l2`] ) >>
   qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
   `bc_next^* bs bs2` by metis_tac[RTC_TRANSITIVE,transitive_def] >>
@@ -1050,7 +1058,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     simp[print_bv_str_def]) >>
   metis_tac[RTC_TRANSITIVE,transitive_def] )
 
-val _ = Parse.overload_on("print_ctor",``λx. STRCAT (id_to_string (Short x)) " = <constructor>"``)
+val _ = Parse.overload_on("print_ctor",``λx. STRCAT (id_to_string (Short x)) " = <constructor>\n"``)
 val _ = Parse.overload_on("print_ctors",``λls. FLAT (MAP (λ(x,y). print_ctor x) ls)``)
 
 val compile_print_ctors_thm = store_thm("compile_print_ctors_thm",
@@ -1089,9 +1097,9 @@ val compile_print_ctors_thm = store_thm("compile_print_ctors_thm",
   rpt strip_tac >>
   qmatch_assum_abbrev_tac`bs.code = bc0 ++ l1 ++ l2 ++ c1` >>
   `bc_next^* bs (bs with <|pc := next_addr bs.inst_length (bc0++l1++l2)
-                          ;output := bs.output ++ (x0++" = <constructor>")|>)` by (
+                          ;output := bs.output ++ (x0++" = <constructor>\n")|>)` by (
     match_mp_tac MAP_PrintC_thm >>
-    qexists_tac`x0 ++ " = <constructor>"` >>
+    qexists_tac`x0 ++ " = <constructor>\n"` >>
     qexists_tac`bc0` >>
     simp[Abbr`l1`,Abbr`l2`] ) >>
   qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
@@ -5271,7 +5279,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       map_every qexists_tac[`bs1`,`bs2`] >>
       simp[Abbr`bs1`,Abbr`bs2`,bc_state_component_equality] ) >>
     qmatch_assum_abbrev_tac`bc_next^* bs bs3` >>
-    `bc_next^* bs3 (bs3 with <| pc := next_addr bs.inst_length bs.code; output := STRCAT bs.output ("structure "++mn++" = <structure>") |>)` by (
+    `bc_next^* bs3 (bs3 with <| pc := next_addr bs.inst_length bs.code; output := STRCAT bs.output ("structure "++mn++" = <structure>\n") |>)` by (
       match_mp_tac MAP_PrintC_thm >>
       simp[Abbr`bs3`] >>
       CONV_TAC SWAP_EXISTS_CONV >>
