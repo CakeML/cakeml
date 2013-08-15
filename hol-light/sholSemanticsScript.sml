@@ -406,4 +406,35 @@ val semantics_typeset = store_thm("semantics_typeset",
   simp[] >>
   metis_tac[semantics_11])
 
+val semantics_equation = store_thm("semantics_equation",
+  ``∀σ τ s t mty ms mt.
+    type_valuation τ ∧ term_valuation τ σ ∧
+    welltyped s ∧ typeset τ (typeof s) mty ∧
+    welltyped t ∧ typeset τ (typeof t) mty ∧
+    semantics σ τ s ms ∧ semantics σ τ t mt
+    ⇒ semantics σ τ (s === t) (boolean (ms = mt))``,
+  rw[equation_def] >>
+  simp[Once semantics_cases] >>
+  simp[Once semantics_cases] >>
+  simp[Once semantics_cases] >>
+  simp[Q.SPECL[`τ`,`Fun X Y`](CONJUNCT1 semantics_cases)] >>
+  srw_tac[DNF_ss][] >>
+  map_every qexists_tac[`mt`,`ms`,`mty`,`mty`,`mty`,`mty`] >>
+  simp[] >>
+  match_mp_tac EQ_SYM >>
+  qho_match_abbrev_tac`apply (apply (abstract a b f) x) y = z` >>
+  `apply (abstract a b f) x = f x` by (
+    match_mp_tac APPLY_ABSTRACT >>
+    unabbrev_all_tac >> simp[] >>
+    conj_tac >- metis_tac[semantics_typeset,WELLTYPED] >>
+    match_mp_tac ABSTRACT_IN_FUNSPACE >>
+    metis_tac[semantics_typeset,WELLTYPED,BOOLEAN_IN_BOOLSET] ) >>
+  simp[Abbr`f`,Abbr`b`] >>
+  qho_match_abbrev_tac`apply (abstract a b f) y = z` >>
+  `apply (abstract a b f) y = f y `  by (
+    match_mp_tac APPLY_ABSTRACT >>
+    unabbrev_all_tac >> simp[] >>
+    metis_tac[semantics_typeset,WELLTYPED,BOOLEAN_IN_BOOLSET] ) >>
+  unabbrev_all_tac >> simp[])
+
 val _ = export_theory()
