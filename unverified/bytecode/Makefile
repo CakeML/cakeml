@@ -1,6 +1,6 @@
 YACC = bison
 LEX = flex
-CFLAGS = -g -Wall -pedantic -std=c99
+CFLAGS = -O2 -Wall -pedantic -std=c99
 CC = gcc
 
 all: cakeml-byte

@@ -363,7 +363,7 @@ void run(inst code[]) {
       case cons_i:
 	if (code[pc].args.two_num.num2 == 0) {
 	  check_stack(sp);
-	  stack[sp] = tag_empty_block(code[pc].args.two_num.num1);
+	  stack[sp] = tag_empty_block(code[pc].args.two_num.num1 + SKIP_TAGS);
 	  sp++;
 	}
 	else {
@@ -404,7 +404,7 @@ void run(inst code[]) {
 	break;
       case tag_eq_i:
 	if (is_empty_block(stack[sp-1]))
-  	  stack[sp-1] = bool_to_val(code[pc].args.num == get_empty_block(stack[sp-1]));
+  	  stack[sp-1] = bool_to_val(code[pc].args.num + SKIP_TAGS == get_empty_block(stack[sp-1]));
         else
 	  stack[sp-1] = bool_to_val(get_header_tag(heap[get_pointer(stack[sp-1])]) == code[pc].args.num + SKIP_TAGS);
 	pc++;
