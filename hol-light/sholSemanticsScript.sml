@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory finite_mapTheory sholSyntaxTheory modelSetTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory pairTheory listTheory finite_mapTheory sholSyntaxTheory modelSetTheory
 val _ = numLib.prefer_num()
 val _ = new_theory"sholSemantics"
 
@@ -437,4 +437,51 @@ val semantics_equation = store_thm("semantics_equation",
     metis_tac[semantics_typeset,WELLTYPED,BOOLEAN_IN_BOOLSET] ) >>
   unabbrev_all_tac >> simp[])
 
+(*
+val semantics_raconv = store_thm("semantics_raconv",
+  ``∀env tp.
+      RACONV env tp ⇒
+      ∀σ1 σ2 τ.
+        type_valuation τ ∧
+        term_valuation τ σ1 ∧
+        term_valuation τ σ2 ∧
+        (∀x1 ty1 x2 ty2.
+          ALPHAVARS env (Var x1 ty1,Var x2 ty2) ⇒
+            (semantics σ1 τ (Var x1 ty1) =
+             semantics σ2 τ (Var x2 ty2))) ∧
+        welltyped (FST tp) ∧ welltyped (SND tp)
+        ⇒
+        (semantics σ1 τ (FST tp) =
+         semantics σ2 τ (SND tp))``,
+  ho_match_mp_tac RACONV_ind >>
+  simp[FORALL_PROD] >>
+  conj_tac >- (
+    rw[] >>
+    simp[Once FUN_EQ_THM] >>
+    simp[Once semantics_cases] >>
+    simp[Once semantics_cases,SimpRHS] ) >>
+  conj_tac >- (
+    rw[] >>
+    simp[Once FUN_EQ_THM] >>
+    simp[Once semantics_cases] >>
+    simp[Once semantics_cases,SimpRHS] >>
+    simp[Once (CONJUNCT1 semantics_cases)] >>
+    simp[Once (CONJUNCT1 semantics_cases),SimpRHS] >>
+    srw_tac[DNF_ss][] >>
+    `semantics σ1 τ s1 = semantics σ2 τ s2` by metis_tac[] >>
+    `semantics σ1 τ t1 = semantics σ2 τ t2` by metis_tac[] >>
+    simp[] >>
+    qsuff_tac`∀ms mt. semantics σ2 τ s2 ms ∧ semantics σ2 τ t2 mt ⇒ typeof s1 = typeof s2` >- (
+      Cases_on`∃ms. semantics σ2 τ s2 ms`>>fs[]>>
+      Cases_on`∃mt. semantics σ2 τ t2 ms`>>fs[]>> rw[] >- (
+        res_tac >> fs[] ) >>
+      metis_tac[] ) >>
+    rpt gen_tac >> strip_tac >> simp[] >>
+    `
+    ALPHAVARS_def
+    metis_tac[semantics_typeset]
+    metis_tac[semantics_11,semantics_typeset]
+*)
+
 val _ = export_theory()
+
