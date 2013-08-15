@@ -279,6 +279,8 @@ static value gc(unsigned long root_len, value* roots, value *from, value *to) {
     to_next_copy += length + 1;
   }
 
+ // printf("used words: %lu\n", to_next_free);
+
   return to_next_free;
 }
 
@@ -321,7 +323,7 @@ void run(inst code[]) {
 
   // The stack pointer sp will point to the lowest unused stack slot
   unsigned long sp = 0;
-  unsigned long pc = 0;
+  unsigned long pc = 9;
   unsigned long handler = 0;
   unsigned long next_heap = 0;
 

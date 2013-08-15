@@ -11,7 +11,8 @@ open TextIO;
 val _ = computeLib.add_funs [compile_decs_def, compile_print_vals_def, 
                              bc_inst_to_string_def, encode_bc_insts_def,
                              encode_bc_inst_def, encode_num_def, encode_loc_def,
-                             encode_char_def, bc_loc_to_string_def, dimword_64];
+                             encode_char_def, bc_loc_to_string_def, dimword_64,
+                             PrintE_def, int_to_string2_def];
 
 fun do_test filename =
   let 
@@ -98,7 +99,7 @@ do_all_tests
  "test3.ml",
  "test4.ml"]
 
-val filename = "fib.sml";
+val filename = "test5.ml";
 val i = openIn filename;
 val s = inputAll i;
 val _ = closeIn i;
@@ -134,6 +135,8 @@ time (do_compile_string "fib.ml") "fib.byte"
 
 time (do_compile_binary "test0.ml") "test0.bbyte"
 time (do_compile_string "test0.ml") "test0.byte"
+
+time (do_compile_string "test5.ml") "test5.byte"
 
 
  *)

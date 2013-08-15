@@ -29,11 +29,15 @@ val bc_loc_to_string_def = Define `
 (bc_loc_to_string (Lab n) = "lab " ++ toString n) ∧
 (bc_loc_to_string (Addr n) = "addr " ++ toString n)`;
 
+val int_to_string2_def = Define `
+int_to_string2 z =
+  if z < 0 then STRCAT "-" (toString (Num (-z))) else toString (Num z)`;
+
 val bc_inst_to_string_def = Define `
 (bc_inst_to_string (Stack Pop) = "pop") ∧
 (bc_inst_to_string (Stack (Pops n)) = "pops " ++ toString n) ∧
 (bc_inst_to_string (Stack (Shift n1 n2)) = "shift " ++ toString n1 ++ " " ++ toString n2) ∧
-(bc_inst_to_string (Stack (PushInt i)) = "pushInt " ++ int_to_string i) ∧
+(bc_inst_to_string (Stack (PushInt i)) = "pushInt " ++ int_to_string2 i) ∧
 (bc_inst_to_string (Stack (Cons n1 n2)) = "cons " ++ toString n1 ++ " " ++ toString n2) ∧
 (bc_inst_to_string (Stack (Load n)) = "load " ++ toString n) ∧
 (bc_inst_to_string (Stack (Store n)) = "store " ++ toString n) ∧
@@ -358,7 +362,7 @@ whole_prog_compile remove_labels input =
          Failure error_msg => Failure error_msg
        | Success code => 
            if remove_labels then
-             Success (code_labels (\x.0) (REVERSE init_code++code))
+             Success (code_labels (\x.0) (PrintE++[Stop]++REVERSE init_code++code))
            else
              Success (REVERSE init_code++code)`;
 
