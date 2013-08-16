@@ -525,7 +525,11 @@ val semantics_raconv = store_thm("semantics_raconv",
   qmatch_assum_rename_tac`ALPHAVARS env (Var va vta, Var vb vtb)`[] >>
   first_x_assum(qspecl_then[`va`,`vta`,`vb`,`vtb`]mp_tac) >>
   simp[] >>
-  cheat (* prove that the semantics doesn't care about σ extended with irrelevant binding *))
+  simp[FUN_EQ_THM,Once(CONJUNCT2 semantics_cases)] >>
+  simp[Once(CONJUNCT2 semantics_cases)] >>
+  simp[Once(CONJUNCT2 semantics_cases)] >>
+  simp[Once(CONJUNCT2 semantics_cases)] >>
+  simp[Abbr`σ1'`,Abbr`σ2'`,FLOOKUP_UPDATE])
 
 val _ = export_theory()
 
