@@ -171,7 +171,7 @@ val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
 
   (semantics σ τ t mt ∧
    semantics σ τ u mu ∧
-   typeset τ (typeof t) mty
+   welltyped (Comb t u)
    ⇒
    semantics σ τ (Comb t u) (apply mt mu)) ∧
 
@@ -299,8 +299,8 @@ val semantics_11 = store_thm("semantics_11",
 val semantics_typeset = store_thm("semantics_typeset",
   ``(∀τ ty mty. typeset τ ty mty ⇒ type_valuation τ ⇒ ∃mt. mt <: mty) ∧
     (∀σ τ t mt. semantics σ τ t mt ⇒
-        ∀ty. type_valuation τ ∧ term_valuation τ σ ∧ t has_type ty ⇒
-             ∃mty. typeset τ ty mty ∧ mt <: mty)``,
+        type_valuation τ ∧ term_valuation τ σ ⇒
+           ∃mty. welltyped t ∧ typeset τ (typeof t) mty ∧ mt <: mty)``,
   ho_match_mp_tac (theorem"semantics_strongind") >>
   simp[INDSET_INHABITED,FUNSPACE_INHABITED] >>
   conj_tac >- simp[type_valuation_def] >>
@@ -384,66 +384,54 @@ val semantics_typeset = store_thm("semantics_typeset",
     fs[suchthat_def] >>
     metis_tac[] ) >>
   conj_tac >- (
-    rw[] >>
-    qpat_assum`X has_type Y` mp_tac >>
-    rw[Once has_type_cases] >>
-    fs[] >>
-    imp_res_tac WELLTYPED_LEMMA >> fs[] >> rw[] >>
+    rw[] >> fs[] >>
     fs[Once (Q.SPECL[`τ`,`Fun X Y`](CONJUNCT1 semantics_cases))] >>
+    imp_res_tac semantics_11 >>
+    rpt BasicProvers.VAR_EQ_TAC >>
     qexists_tac`my` >> simp[] >>
     match_mp_tac APPLY_IN_RANSPACE >>
     qmatch_assum_rename_tac`typeset τ (typeof u) tu`[] >>
-    first_x_assum(qspec_then`typeof u`mp_tac) >> rw[] >>
-    imp_res_tac semantics_11 >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    qexists_tac`mty` >> rw[] >>
-    first_x_assum(qspec_then`typeof t`mp_tac) >> rw[] >>
-    fs[Once (Q.SPECL[`τ`,`Fun X Y`](CONJUNCT1 semantics_cases))] >>
-    imp_res_tac semantics_11 >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    rw[]) >>
-  rw[] >>
-  qpat_assum`X has_type Y` mp_tac >>
-  rw[Once has_type_cases] >>
-  rw[Once semantics_cases] >>
-  fsrw_tac[DNF_ss][] >>
-  imp_res_tac WELLTYPED_LEMMA >> rw[] >>
+    qexists_tac`tu` >> simp[]) >>
+  rw[] >> fs[] >>
+  simp[Once semantics_cases] >>
+  imp_res_tac WELLTYPED_LEMMA >>
+  fs[WELLTYPED] >> fsrw_tac[DNF_ss][] >>
+  BasicProvers.VAR_EQ_TAC >>
   qmatch_assum_rename_tac`typeset τ (typeof t) mtt`[] >>
   map_every qexists_tac[`mty`,`mtt`] >> rw[] >>
   match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[])
 
-(*
-val semantics_closed = store_thm("semantics_closed",
-  ``∀t σ τ mt. semantics σ τ t mt ⇒
-      ∀n ty. VFREE_IN (Var n ty) t ⇒ (n,ty) ∈ FDOM σ``,
-  reverse Induct >- (
+val semantics_closes_over = store_thm("semantics_closes_over",
+  ``∀t σ τ m. type_valuation τ ∧ semantics σ τ t m ⇒ σ closes_over t``,
+  Induct
+  >- (
+    simp[Once semantics_cases,FLOOKUP_DEF] )
+  >- (
+    simp[Once semantics_cases] )
+  >- (
+    simp[Once semantics_cases] >>
+    rw[] >> metis_tac[])
+  >- (
     simp[Once semantics_cases] >>
     rpt gen_tac >> strip_tac >>
-    simp[CONJ_SYM] >>
-    simp[GSYM AND_IMP_INTRO] >>
-    rpt gen_tac >> strip_tac >>
-    `(n,ty) ∈ FDOM (σ |+ ((s,t),x))` by PROVE_TAC[] >>
-    fs[] ) >>
-  simp[Once semantics_cases] >>
-  simp[FLOOKUP_DEF] >>
-  metis_tac[])
-*)
+    `∃x. x <: mty` by metis_tac[typeset_inhabited] >>
+    res_tac >>
+    fs[FDOM_FUPDATE] >>
+    metis_tac[]))
 
 val semantics_equation = store_thm("semantics_equation",
   ``∀σ τ s t mty ms mt.
     type_valuation τ ∧ term_valuation τ σ ∧
-    welltyped s ∧ typeset τ (typeof s) mty ∧
-    welltyped t ∧ typeset τ (typeof t) mty ∧
-    semantics σ τ s ms ∧ semantics σ τ t mt
+    semantics σ τ s ms ∧ semantics σ τ t mt ∧
+    (typeof s = typeof t)
     ⇒ semantics σ τ (s === t) (boolean (ms = mt))``,
   rw[equation_def] >>
   simp[Once semantics_cases] >>
   simp[Once semantics_cases] >>
   simp[Once semantics_cases] >>
-  simp[Q.SPECL[`τ`,`Fun X Y`](CONJUNCT1 semantics_cases)] >>
   srw_tac[DNF_ss][] >>
-  map_every qexists_tac[`mt`,`ms`,`mty`,`mty`,`mty`,`mty`] >>
-  simp[] >>
+  imp_res_tac semantics_typeset >> simp[] >>
+  map_every qexists_tac[`mt`,`ms`,`mty`] >> simp[] >>
   match_mp_tac EQ_SYM >>
   qho_match_abbrev_tac`apply (apply (abstract a b f) x) y = z` >>
   `apply (abstract a b f) x = f x` by (
@@ -552,24 +540,6 @@ val semantics_aconv = store_thm("semantics_aconv",
   qspecl_then[`[]`,`s,t`] mp_tac semantics_raconv >>
   rw[] >> first_x_assum match_mp_tac >> rw[] >>
   fs[ALPHAVARS_def])
-
-val semantics_closes_over = store_thm("semantics_closes_over",
-  ``∀t σ τ m. type_valuation τ ∧ semantics σ τ t m ⇒ σ closes_over t``,
-  Induct
-  >- (
-    simp[Once semantics_cases,FLOOKUP_DEF] )
-  >- (
-    simp[Once semantics_cases] )
-  >- (
-    simp[Once semantics_cases] >>
-    rw[] >> metis_tac[])
-  >- (
-    simp[Once semantics_cases] >>
-    rpt gen_tac >> strip_tac >>
-    `∃x. x <: mty` by metis_tac[typeset_inhabited] >>
-    res_tac >>
-    fs[FDOM_FUPDATE] >>
-    metis_tac[]))
 
 val binary_inference_rule = store_thm("binary_inference_rule",
   ``p1 has_type Bool ∧ p2 has_type Bool ∧ q has_type Bool ∧
