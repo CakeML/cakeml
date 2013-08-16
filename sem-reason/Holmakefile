@@ -1,0 +1,24 @@
+INCLUDES=.. ../semantics ../metatheory
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+PRE_BARE_THYS = AstTheory \
+		LibTheory \
+		SemanticPrimitivesTheory \
+		SmallStepTheory \
+		TypeSystemTheory \
+		terminationTheory \
+		tokenUtilsTheory
+
+
+BARE_THYS = $(patsubst %,../semantics/%,$(PRE_BARE_THYS)) ../metatheory/TypeSoundInvariantsTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) ../semantics/sem_heap
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b ../semantics/sem_heap -o $(HOLHEAP) $(BARE_THYS)
+endif
+
