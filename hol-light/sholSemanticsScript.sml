@@ -531,5 +531,15 @@ val semantics_raconv = store_thm("semantics_raconv",
   simp[Once(CONJUNCT2 semantics_cases)] >>
   simp[Abbr`σ1'`,Abbr`σ2'`,FLOOKUP_UPDATE])
 
+val semantics_aconv = store_thm("semantics_aconv",
+  ``∀σ τ s t.
+      type_valuation τ ∧ term_valuation τ σ ∧
+      welltyped s ∧ welltyped t ∧ ACONV s t
+      ⇒ semantics σ τ s = semantics σ τ t``,
+  rw[ACONV_def]  >>
+  qspecl_then[`[]`,`s,t`] mp_tac semantics_raconv >>
+  rw[] >> first_x_assum match_mp_tac >> rw[] >>
+  fs[ALPHAVARS_def])
+
 val _ = export_theory()
 
