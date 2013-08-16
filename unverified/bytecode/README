@@ -1,5 +1,15 @@
+An unverified implementation of a CakeML bytecode interpreter.
+
+ - bytecode.lex
+   bytecode.yacc
+ A parser for an assembly language for CakeML bytecode.
+
+ - decode.c
+ A parser for an encoded form of CakeML bytecode programs.
+
+ - main.c
+ The interpreter.
+
 TODO:
-  test
-  GC
-  Bignums?
-  Labels?
+  Check for various overflows.
+  Bignum support.
