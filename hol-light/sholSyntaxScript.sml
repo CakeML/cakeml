@@ -615,9 +615,24 @@ val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 
 val _ = Parse.overload_on("closed",``λt. ∀n ty. ¬VFREE_IN (Var n ty) t``)
 
-val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
- `(* REFL *)
- (welltyped t ⇒ [] |- t === t)
+val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
+ (type_ok (Tyvar a)) ∧ (type_ok Bool) ∧
+ (type_ok ty1 ∧ type_ok ty2 ⇒ type_ok (Fun ty1 ty2)) ∧
+ (type_ok ty ⇒ term_ok (Var x ty)) ∧
+ (type_ok ty ⇒ term_ok (Equal ty)) ∧
+ (type_ok ty ⇒ term_ok (Select ty)) ∧
+ (term_ok t1 ∧ term_ok t2 ⇒ term_ok (Comb t1 t2)) ∧
+ (type_ok ty ∧ term_ok tm ⇒ term_ok (Abs x ty tm)) ∧
+ (term_ok (Comb t1 t2) ⇒ term_ok t1) ∧
+ (term_ok (Comb t1 t2) ⇒ term_ok t2) ∧
+ (term_ok (Abs x ty tm) ⇒ term_ok tm) ∧
+ (term_ok tm ∧ tm has_type ty ⇒ type_ok ty) ∧
+ (h |- c ∧ MEM t (c::h) ⇒ term_ok t) ∧
+
+ (* REFL *)
+ (term_ok t ∧ t has_type ty ∧ type_ok ty
+  ⇒
+  [] |- t === t)
 ∧ (* TRANS *)
   (h1 |- l === m1 ∧ h2 |- m2 === r ∧ ACONV m1 m2
    ⇒
@@ -629,13 +644,15 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
    (TERM_UNION h1 h2) |- Comb l1 l2 === Comb r1 r2)
 ∧ (* ABS *)
   (¬(EXISTS (VFREE_IN (Var x ty)) h) ∧
-   h |- l === r
+   h |- l === r ∧ type_ok ty
    ⇒
    h |- (Abs x ty l) === (Abs x ty r))
 ∧ (* BETA *)
-  ([] |- Comb (Abs x ty t) (Var x ty) === t)
+  (type_ok ty ∧ term_ok t
+   ⇒
+   [] |- Comb (Abs x ty t) (Var x ty) === t)
 ∧ (* ASSUME *)
-  (p has_type Bool
+  (term_ok p ∧ p has_type Bool
    ⇒
    [p] |- p)
 ∧ (* EQ_MP *)
@@ -649,18 +666,18 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
                (FILTER((~) o ACONV c1) h2))
      |- c1 === c2)
 ∧ (* INST_TYPE *)
-  (h |- c
+  (h |- c ∧ EVERY type_ok (MAP FST tyin)
    ⇒
    (MAP (INST tyin) h) |- INST tyin c)
 ∧ (* INST *)
-  ((∀s s'. MEM (s',s) ilist ⇒ ∃x ty. (s = Var x ty) ∧ s' has_type ty) ∧
+  ((∀s s'. MEM (s',s) ilist ⇒ term_ok s' ∧ ∃x ty. (s = Var x ty) ∧ s' has_type ty) ∧
    h |- c
    ⇒
    (MAP (VSUBST ilist) h) |- VSUBST ilist c)
 ∧ (* new_basic_definition *)
-  (closed r ∧
+  (term_ok r ∧ closed r ∧
    set(tvars r) ⊆ set(tyvars ty) ∧
-   r has_type ty
+   r has_type ty ∧ type_ok ty
    ⇒
    [] |- (Const n ty (Defined r)) === r)
 ∧ (* new_basic_type_definition |- abs (rep x) = x *)
@@ -683,6 +700,6 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
      Comb p (Var x rty) ===
      Comb (Const rep (Fun aty rty) (Tyrep n p))
           (Comb (Const abs (Fun rty aty) (Tyabs n p))
-                (Var x rty)) === Var x rty)`;;
+                (Var x rty)) === Var x rty)`
 
 val _ = export_theory()
