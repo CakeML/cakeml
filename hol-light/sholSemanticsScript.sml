@@ -122,6 +122,35 @@ val INST_CORE_tvars = store_thm("INST_CORE_tvars",
     metis_tac[] ) >>
   fs[])
 
+val RACONV_welltyped = store_thm("RACONV_welltyped",
+  ``∀t1 env t2.
+    EVERY (λ(x,y). welltyped x ∧ welltyped y ∧ typeof x = typeof y) env ∧
+    welltyped t1 ∧ RACONV env (t1,t2) ⇒
+    welltyped t2``,
+  Induct >>
+  simp[Once RACONV_cases] >- (
+    rw[] >> rw[WELLTYPED_CLAUSES] )
+  >- (
+    rw[WELLTYPED_CLAUSES] >>
+    pop_assum mp_tac >>
+    simp[Once RACONV_cases] >>
+    rw[] >> rw[WELLTYPED_CLAUSES] >>
+    metis_tac[RACONV_TYPE,FST,SND] )
+  >- (
+    rw[Once RACONV_cases] >>
+    pop_assum mp_tac >>
+    rw[Once RACONV_cases] >>
+    rw[WELLTYPED_CLAUSES] >>
+    first_x_assum match_mp_tac >>
+    qmatch_assum_abbrev_tac`RACONV env' pp` >>
+    qexists_tac`env'` >>
+    simp[Abbr`env'`]))
+
+val ACONV_welltyped = store_thm("ACONV_welltyped",
+  ``∀t1 t2. ACONV t1 t2 ∧ welltyped t1 ⇒ welltyped t2``,
+  rw[ACONV_def] >>
+  metis_tac[RACONV_welltyped,EVERY_DEF])
+
 val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
   (typeset τ (Tyvar s) (τ s)) ∧
 
@@ -358,6 +387,7 @@ val semantics_typeset = store_thm("semantics_typeset",
     rw[] >>
     imp_res_tac WELLTYPED_LEMMA >> fs[] >> rw[] >>
     qpat_assum`typeset τ (X Y) Z` mp_tac >> rw[Once semantics_cases] >>
+    qpat_assum`typeset τ (X Y) Z` mp_tac >> rw[Once semantics_cases] >>
     imp_res_tac semantics_11 >>
     rpt BasicProvers.VAR_EQ_TAC >>
     rw[Once semantics_cases] >>
@@ -479,35 +509,6 @@ val semantics_raconv = store_thm("semantics_raconv",
   simp[Once(CONJUNCT2 semantics_cases)] >>
   simp[Once(CONJUNCT2 semantics_cases)] >>
   simp[Abbr`σ1'`,Abbr`σ2'`,FLOOKUP_UPDATE])
-
-val RACONV_welltyped = store_thm("RACONV_welltyped",
-  ``∀t1 env t2.
-    EVERY (λ(x,y). welltyped x ∧ welltyped y ∧ typeof x = typeof y) env ∧
-    welltyped t1 ∧ RACONV env (t1,t2) ⇒
-    welltyped t2``,
-  Induct >>
-  simp[Once RACONV_cases] >- (
-    rw[] >> rw[WELLTYPED_CLAUSES] )
-  >- (
-    rw[WELLTYPED_CLAUSES] >>
-    pop_assum mp_tac >>
-    simp[Once RACONV_cases] >>
-    rw[] >> rw[WELLTYPED_CLAUSES] >>
-    metis_tac[RACONV_TYPE,FST,SND] )
-  >- (
-    rw[Once RACONV_cases] >>
-    pop_assum mp_tac >>
-    rw[Once RACONV_cases] >>
-    rw[WELLTYPED_CLAUSES] >>
-    first_x_assum match_mp_tac >>
-    qmatch_assum_abbrev_tac`RACONV env' pp` >>
-    qexists_tac`env'` >>
-    simp[Abbr`env'`]))
-
-val ACONV_welltyped = store_thm("ACONV_welltyped",
-  ``∀t1 t2. ACONV t1 t2 ∧ welltyped t1 ⇒ welltyped t2``,
-  rw[ACONV_def] >>
-  metis_tac[RACONV_welltyped,EVERY_DEF])
 
 val semantics_aconv = store_thm("semantics_aconv",
   ``∀σ τ s t.
