@@ -617,7 +617,7 @@ val _ = Parse.overload_on("closed",``λt. ∀n ty. ¬VFREE_IN (Var n ty) t``)
 
 val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
  `(* REFL *)
- ([] |- t === t)
+ (welltyped t ⇒ [] |- t === t)
 ∧ (* TRANS *)
   (h1 |- l === m1 ∧ h2 |- m2 === r ∧ ACONV m1 m2
    ⇒
