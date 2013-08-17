@@ -621,7 +621,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
  (type_ok ty ⇒ term_ok (Var x ty)) ∧
  (type_ok ty ⇒ term_ok (Equal ty)) ∧
  (type_ok ty ⇒ term_ok (Select ty)) ∧
- (term_ok t1 ∧ term_ok t2 ⇒ term_ok (Comb t1 t2)) ∧
+ (term_ok t1 ∧ term_ok t2 ∧ welltyped (Comb t1 t2) ⇒ term_ok (Comb t1 t2)) ∧
  (type_ok ty ∧ term_ok tm ⇒ term_ok (Abs x ty tm)) ∧
  (term_ok (Comb t1 t2) ⇒ term_ok t1) ∧
  (term_ok (Comb t1 t2) ⇒ term_ok t2) ∧
@@ -629,17 +629,17 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
  (term_ok tm ∧ tm has_type ty ⇒ type_ok ty) ∧
  (h |- c ∧ MEM t (c::h) ⇒ term_ok t) ∧
 
- (* REFL *)
- (term_ok t ∧ t has_type ty ∧ type_ok ty
-  ⇒
-  [] |- t === t)
+  (* REFL *)
+  (term_ok t
+   ⇒
+   [] |- t === t)
 ∧ (* TRANS *)
   (h1 |- l === m1 ∧ h2 |- m2 === r ∧ ACONV m1 m2
    ⇒
    (TERM_UNION h1 h2) |- l === r)
 ∧ (* MK_COMB *)
   (h1 |- l1 === r1 ∧
-   h2 |- l2 === r2 ∧ welltyped(Comb l1 l2)
+   h2 |- l2 === r2 ∧ welltyped (Comb l1 l2)
    ⇒
    (TERM_UNION h1 h2) |- Comb l1 l2 === Comb r1 r2)
 ∧ (* ABS *)
@@ -677,7 +677,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
 ∧ (* new_basic_definition *)
   (term_ok r ∧ closed r ∧
    set(tvars r) ⊆ set(tyvars ty) ∧
-   r has_type ty ∧ type_ok ty
+   r has_type ty
    ⇒
    [] |- (Const n ty (Defined r)) === r)
 ∧ (* new_basic_type_definition |- abs (rep x) = x *)
