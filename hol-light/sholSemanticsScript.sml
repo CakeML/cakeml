@@ -194,27 +194,8 @@ val term_valuation_def = Define`
   term_valuation τ σ ⇔
     FEVERY (λ(v,m). ∃mty. typeset τ (SND v) mty ∧ m <: mty) σ`
 
-val _ = Parse.add_infix("|=",450,Parse.NONASSOC)
-
 val _ = Parse.add_infix("closes_over",450,Parse.NONASSOC)
 val _ = Parse.overload_on("closes_over",``λσ t. ∀x ty. VFREE_IN (Var x ty) t ⇒ (x,ty) ∈ FDOM σ``)
-
-val has_meaning_def = Define`
-  has_meaning t =
-           ∀σ τ. type_valuation τ ∧
-                 term_valuation τ σ ∧
-                 σ closes_over t
-                 ⇒
-                 ∃m. semantics σ τ t m`
-
-val sequent_def = xDefine"sequent"`
-  h |= c ⇔ EVERY (λt. t has_type Bool) (c::h) ∧
-           ∀σ τ. type_valuation τ ∧
-                 term_valuation τ σ ∧
-                 EVERY (λt. semantics σ τ t true) h ∧
-                 (∀x ty. VFREE_IN (Var x ty) c ⇒ (x,ty) ∈ FDOM σ)
-                 ⇒
-                 semantics σ τ c true`
 
 val typeset_inhabited = store_thm("typeset_inhabited",
   ``∀ty τ mty. type_valuation τ ∧ typeset τ ty mty ⇒ ∃m. m <: mty``,
@@ -419,35 +400,6 @@ val semantics_closes_over = store_thm("semantics_closes_over",
     fs[FDOM_FUPDATE] >>
     metis_tac[]))
 
-val semantics_equation = store_thm("semantics_equation",
-  ``∀σ τ s t mty ms mt.
-    type_valuation τ ∧ term_valuation τ σ ∧
-    semantics σ τ s ms ∧ semantics σ τ t mt ∧
-    (typeof s = typeof t)
-    ⇒ semantics σ τ (s === t) (boolean (ms = mt))``,
-  rw[equation_def] >>
-  simp[Once semantics_cases] >>
-  simp[Once semantics_cases] >>
-  simp[Once semantics_cases] >>
-  srw_tac[DNF_ss][] >>
-  imp_res_tac semantics_typeset >> simp[] >>
-  map_every qexists_tac[`mt`,`ms`,`mty`] >> simp[] >>
-  match_mp_tac EQ_SYM >>
-  qho_match_abbrev_tac`apply (apply (abstract a b f) x) y = z` >>
-  `apply (abstract a b f) x = f x` by (
-    match_mp_tac APPLY_ABSTRACT >>
-    unabbrev_all_tac >> simp[] >>
-    conj_tac >- metis_tac[semantics_typeset,semantics_11,WELLTYPED] >>
-    match_mp_tac ABSTRACT_IN_FUNSPACE >>
-    metis_tac[semantics_typeset,WELLTYPED,BOOLEAN_IN_BOOLSET] ) >>
-  simp[Abbr`f`,Abbr`b`] >>
-  qho_match_abbrev_tac`apply (abstract a b f) y = z` >>
-  `apply (abstract a b f) y = f y `  by (
-    match_mp_tac APPLY_ABSTRACT >>
-    unabbrev_all_tac >> simp[] >>
-    metis_tac[semantics_typeset,semantics_11,WELLTYPED,BOOLEAN_IN_BOOLSET] ) >>
-  unabbrev_all_tac >> simp[])
-
 val semantics_raconv = store_thm("semantics_raconv",
   ``∀env tp.
       RACONV env tp ⇒
@@ -541,21 +493,6 @@ val semantics_aconv = store_thm("semantics_aconv",
   rw[] >> first_x_assum match_mp_tac >> rw[] >>
   fs[ALPHAVARS_def])
 
-val binary_inference_rule = store_thm("binary_inference_rule",
-  ``p1 has_type Bool ∧ p2 has_type Bool ∧ q has_type Bool ∧
-    (∀σ τ. type_valuation τ ∧ term_valuation τ σ ∧
-           (σ closes_over p1 ⇒ semantics σ τ p1 true) ∧
-           (σ closes_over p2 ⇒ semantics σ τ p2 true) ∧
-           σ closes_over q
-         ⇒ semantics σ τ q true)
-    ⇒ h1 |= p1 ∧ h2 |= p2 ⇒ TERM_UNION h1 h2 |= q``,
-  rw[sequent_def,ALL_BOOL_TERM_UNION] >>
-  first_x_assum match_mp_tac >> simp[] >>
-  conj_tac >> strip_tac >>
-  first_x_assum match_mp_tac >> rw[] >>
-  fs[EVERY_MEM] >> rw[] >>
-  metis_tac[TERM_UNION_THM,semantics_aconv,welltyped_def,TERM_UNION_NONEW])
-
 val semantics_vfree_in = store_thm("semantics_vfree_in",
   ``∀τ σ1 σ2 t.
       type_valuation τ ∧
@@ -592,14 +529,119 @@ val semantics_vfree_in = store_thm("semantics_vfree_in",
     fs[] >> metis_tac[] ) >>
   fs[] )
 
+val type_valuation_exists = store_thm("type_valuation_exists",
+  ``∃τ. type_valuation τ``,
+  rw[type_valuation_def,GSYM SKOLEM_THM] >>
+  metis_tac[BOOLEAN_IN_BOOLSET])
+
+val has_meaning_def = Define`
+  has_meaning t = ∀τ σ. type_valuation τ ∧ term_valuation τ σ ⇒
+    ∃σ' m. σ ⊑ σ' ∧ term_valuation τ σ' ∧ σ' closes_over t ∧
+           semantics σ' τ t m`
+
+val has_meaning_welltyped = store_thm("has_meaning_welltyped",
+  ``has_meaning t ⇒ welltyped t``,
+  rw[has_meaning_def] >>
+  metis_tac[type_valuation_exists,semantics_typeset
+           ,term_valuation_def,CONJUNCT1 FEVERY_STRENGTHEN_THM
+           ,SUBMAP_FEMPTY])
+
+val closes_over_aconv = store_thm("closes_over_aconv",
+  ``∀σ t t'. σ closes_over t ∧ ACONV t t' ⇒ σ closes_over t'``,
+  rw[] >> metis_tac[VFREE_IN_ACONV])
+
+val RACONV_welltyped = store_thm("RACONV_welltyped",
+  ``∀t1 env t2.
+    EVERY (λ(x,y). welltyped x ∧ welltyped y ∧ typeof x = typeof y) env ∧
+    welltyped t1 ∧ RACONV env (t1,t2) ⇒
+    welltyped t2``,
+  Induct >>
+  simp[Once RACONV_cases] >- (
+    rw[] >> rw[WELLTYPED_CLAUSES] )
+  >- (
+    rw[WELLTYPED_CLAUSES] >>
+    pop_assum mp_tac >>
+    simp[Once RACONV_cases] >>
+    rw[] >> rw[WELLTYPED_CLAUSES] >>
+    metis_tac[RACONV_TYPE,FST,SND] )
+  >- (
+    rw[Once RACONV_cases] >>
+    pop_assum mp_tac >>
+    rw[Once RACONV_cases] >>
+    rw[WELLTYPED_CLAUSES] >>
+    first_x_assum match_mp_tac >>
+    qmatch_assum_abbrev_tac`RACONV env' pp` >>
+    qexists_tac`env'` >>
+    simp[Abbr`env'`]))
+
+val ACONV_welltyped = store_thm("ACONV_welltyped",
+  ``∀t1 t2. ACONV t1 t2 ∧ welltyped t1 ⇒ welltyped t2``,
+  rw[ACONV_def] >>
+  metis_tac[RACONV_welltyped,EVERY_DEF])
+
+val has_meaning_aconv = store_thm("has_meaning_aconv",
+  ``has_meaning t ∧ ACONV t t' ⇒ has_meaning t'``,
+  rw[] >>
+  imp_res_tac has_meaning_welltyped >>
+  fs[has_meaning_def] >> rw[] >>
+  metis_tac[semantics_aconv,closes_over_aconv,ACONV_welltyped])
+
+val semantics_equation = store_thm("semantics_equation",
+  ``∀σ τ s t mty ms mt mst.
+    type_valuation τ ∧ term_valuation τ σ ∧
+    semantics σ τ s ms ∧ semantics σ τ t mt ∧
+    (typeof s = typeof t) ∧ mst = boolean (ms = mt)
+    ⇒ semantics σ τ (s === t) mst``,
+  rw[equation_def] >>
+  simp[Once semantics_cases] >>
+  simp[Once semantics_cases] >>
+  simp[Once semantics_cases] >>
+  srw_tac[DNF_ss][] >>
+  imp_res_tac semantics_typeset >> simp[] >>
+  map_every qexists_tac[`mt`,`ms`,`mty`] >> simp[] >>
+  match_mp_tac EQ_SYM >>
+  qho_match_abbrev_tac`apply (apply (abstract a b f) x) y = z` >>
+  `apply (abstract a b f) x = f x` by (
+    match_mp_tac APPLY_ABSTRACT >>
+    unabbrev_all_tac >> simp[] >>
+    conj_tac >- metis_tac[semantics_typeset,semantics_11,WELLTYPED] >>
+    match_mp_tac ABSTRACT_IN_FUNSPACE >>
+    metis_tac[semantics_typeset,WELLTYPED,BOOLEAN_IN_BOOLSET] ) >>
+  simp[Abbr`f`,Abbr`b`] >>
+  qho_match_abbrev_tac`apply (abstract a b f) y = z` >>
+  `apply (abstract a b f) y = f y `  by (
+    match_mp_tac APPLY_ABSTRACT >>
+    unabbrev_all_tac >> simp[] >>
+    metis_tac[semantics_typeset,semantics_11,WELLTYPED,BOOLEAN_IN_BOOLSET] ) >>
+  unabbrev_all_tac >> simp[])
+
+val _ = Parse.add_infix("|=",450,Parse.NONASSOC)
+
+val sequent_def = xDefine"sequent"`
+  h |= c ⇔ EVERY (λt. t has_type Bool) (c::h) ∧
+           EVERY has_meaning (c::h) ∧
+           ∀σ τ. type_valuation τ ∧
+                 term_valuation τ σ ∧
+                 EVERY (λt. semantics σ τ t true) h ∧
+                 σ closes_over c
+                 ⇒
+                 semantics σ τ c true`
+
 val vfree_in_equation = store_thm("vfree_in_equation",
   ``VFREE_IN v (s === t) ⇔ (v = Equal (typeof s)) ∨ VFREE_IN v s ∨ VFREE_IN v t``,
   rw[equation_def,VFREE_IN_def] >> metis_tac[])
 
+val closes_over_equation = store_thm("closes_over_equation",
+  ``σ closes_over l === r ⇔ σ closes_over l ∧ σ closes_over r``,
+  rw[vfree_in_equation] >> metis_tac[])
+
+(*
 val ASSUME_correct = store_thm("ASSUME_correct",
   ``∀p. p has_type Bool ⇒ [p] |= p``,
   rw[sequent_def])
+*)
 
+(*
 val REFL_correct = store_thm("REFL_correct",
   ``∀t. has_meaning t ∧ welltyped t ⇒ [] |= t === t``,
   rw[sequent_def,WELLTYPED,EQUATION_HAS_TYPE_BOOL] >>
@@ -610,6 +652,58 @@ val REFL_correct = store_thm("REFL_correct",
   `true = boolean (mt = mt)` by rw[boolean_def] >> pop_assum SUBST1_TAC >>
   match_mp_tac semantics_equation >>
   metis_tac[WELLTYPED,semantics_typeset])
+*)
+
+(*
+val binary_inference_rule = store_thm("binary_inference_rule",
+  ``∀h1 h2 p1 p2 q.
+    (p1 has_type Bool ∧ p2 has_type Bool ⇒ q has_type Bool) ∧
+    (has_meaning p1 ∧ has_meaning p2 ⇒ has_meaning q) ∧
+    (∀σ τ. type_valuation τ ∧ term_valuation τ σ ∧
+           semantics σ τ p1 true ∧ semantics σ τ p2 true ∧
+           σ closes_over q ⇒
+           semantics σ τ q true) ∧
+    h1 |= p1 ∧ h2 |= p2
+    ⇒ TERM_UNION h1 h2 |= q``,
+  rpt gen_tac >> strip_tac >>
+  fs[sequent_def,ALL_BOOL_TERM_UNION] >>
+  conj_tac >- (
+    fs[EVERY_MEM] >>
+    metis_tac[TERM_UNION_NONEW,TERM_UNION_THM,has_meaning_aconv] ) >>
+  rw[] >>
+
+  simp[sequent_def,ALL_BOOL_TERM_UNION] >>
+  first_x_assum match_mp_tac >> simp[] >>
+  conj_tac >> strip_tac >>
+  first_x_assum match_mp_tac >> simp[] >>
+  fs[EVERY_MEM] >>
+  metis_tac[TERM_UNION_THM,semantics_aconv,welltyped_def
+           ,TERM_UNION_NONEW,semantics_closes_over])
+*)
+
+(*
+val TRANS_correct = store_thm("TRANS_correct",
+  ``∀h1 h2 l m1 m2 r.
+      h1 |= l === m1 ∧ h2 |= m2 === r ∧ ACONV m1 m2
+      ⇒ TERM_UNION h1 h2 |= l === r``,
+  rw[] >> match_mp_tac binary_inference_rule >>
+  map_every qexists_tac[`l === m1`,`m2 === r`] >>
+  simp[EQUATION_HAS_TYPE_BOOL] >>
+  conj_tac >- metis_tac[ACONV_TYPE] >>
+  rw[] >> match_mp_tac semantics_equation >>
+  sequent_def
+  simp[boolean_def] >>
+  fs[closes_over_equation] >>
+  semantics_closes_over
+  sequent_def
+
+  semantics_equation
+  semantics_aconv
+  closes_over
+  semantics_closes_over
+  print_find"aconv_boolean"
+  sequent_def
+*)
 
 val _ = export_theory()
 
