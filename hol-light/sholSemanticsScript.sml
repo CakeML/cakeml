@@ -1054,4 +1054,43 @@ val ABS_correct = store_thm("ABS_correct",
   simp[] >> fs[WELLTYPED] >>
   metis_tac[semantics_typeset,semantics_11,FUPDATE_PURGE])
 
+val DEDUCT_ANTISYM_correct = store_thm("DEDUCT_ANTISYM_correct",
+  ``∀h1 p1 h2 p2.
+      h1 |= p1 ∧ h2 |= p2 ⇒
+      TERM_UNION (FILTER ($~ o ACONV p2) h1)
+                 (FILTER ($~ o ACONV p1) h2)
+      |= p1 === p2``,
+  rw[] >>
+  fs[sequent_def,EQUATION_HAS_TYPE_BOOL] >>
+  imp_res_tac has_meaning_welltyped >>
+  imp_res_tac WELLTYPED_LEMMA >>
+  fs[] >>
+  simp[equation_has_meaning_iff] >>
+  simp[CONJ_ASSOC] >>
+  conj_tac >- (
+    fs[EVERY_MEM] >>
+    metis_tac[TERM_UNION_NONEW,MEM_FILTER] ) >>
+  simp[closes_over_equation] >>
+  rw[] >>
+  match_mp_tac semantics_equation >>
+  simp[BOOLEAN_EQ_TRUE] >>
+  fs[EVERY_MEM] >>
+  rpt(first_x_assum(qspecl_then[`σ`,`τ`]mp_tac)) >> simp[] >>
+  qmatch_abbrev_tac`(a ⇒ b) ⇒ (c ⇒ d) ⇒ e` >>
+  `∀x y ls. MEM x (FILTER ($~ o ACONV y) ls) ⇔ ¬ACONV y x ∧ MEM x ls` by simp[MEM_FILTER] >>
+  `d ⇒ a` by (
+    unabbrev_all_tac >> rw[] >>
+    Cases_on`ACONV p2 t`>-metis_tac[semantics_aconv] >>
+    metis_tac[TERM_UNION_THM,semantics_aconv,welltyped_def] ) >>
+  `b ⇒ c` by (
+    unabbrev_all_tac >> rw[] >>
+    Cases_on`ACONV p1 t`>-metis_tac[semantics_aconv] >>
+    metis_tac[TERM_UNION_THM,semantics_aconv,welltyped_def] ) >>
+  ntac 2 strip_tac >>
+  `a = d ∧ b = d ∧ c = d` by metis_tac[] >> fs[] >>
+  Cases_on`d` >> fs[markerTheory.Abbrev_def] >- metis_tac[] >>
+  `∃m1 m2. semantics σ τ p1 m1 ∧ semantics σ τ p2 m2` by (
+    metis_tac[has_meaning_def,semantics_reduce_term_valuation] ) >>
+  metis_tac[semantics_typeset,typeset_Bool,WELLTYPED_LEMMA,IN_BOOL])
+
 val _ = export_theory()
