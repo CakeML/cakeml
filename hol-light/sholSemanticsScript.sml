@@ -899,7 +899,7 @@ val TRANS_correct = store_thm("TRANS_correct",
   `semantics σ τ m1 mm2` by metis_tac[semantics_aconv,semantics_typeset] >>
   `mm1 = mm2` by metis_tac[semantics_11] >>
   `typeof m1 = typeof m2` by metis_tac[ACONV_TYPE,semantics_typeset] >>
-  fs[boolean_def] >> rw[] >> fs[] >> rfs[])
+  fs[BOOLEAN_EQ_TRUE])
 
 val MK_COMB_correct = store_thm("MK_COMB_correct",
   ``∀h1 h2 l1 r1 l2 r2.
@@ -930,10 +930,7 @@ val MK_COMB_correct = store_thm("MK_COMB_correct",
   simp[CONJ_ASSOC] >>
   conj_tac >- (
     metis_tac[semantics_typeset,codomain_rwt] ) >>
-  qpat_assum`true = X`(assume_tac o SYM)>>fs[]>>
-  fs[boolean_def] >>
-  rpt(qpat_assum`X = true`mp_tac) >>
-  rw[])
+  fs[BOOLEAN_EQ_TRUE])
 
 val EQ_MP_correct = store_thm("EQ_MP_correct",
   ``∀h1 h2 p q p'.
@@ -949,8 +946,9 @@ val EQ_MP_correct = store_thm("EQ_MP_correct",
   qspecl_then[`σ`,`τ`,`p`,`q`,`true`]mp_tac semantics_equation_imp >>
   rw[] >>
   fs[sequent_def,EQUATION_HAS_TYPE_BOOL] >>
+  fs[BOOLEAN_EQ_TRUE] >>
   `ms = true` by metis_tac[semantics_aconv,semantics_11] >>
-  fs[boolean_def] >> rw[] >> fs[TRUE_NE_FALSE])
+  rw[])
 
 val BETA_correct = store_thm("BETA_correct",
   ``∀x ty t. type_has_meaning ty ∧ has_meaning t ⇒ [] |= Comb (Abs x ty t) (Var x ty) === t``,
