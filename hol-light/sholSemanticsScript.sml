@@ -1091,4 +1091,31 @@ val DEDUCT_ANTISYM_correct = store_thm("DEDUCT_ANTISYM_correct",
     metis_tac[has_meaning_def,semantics_reduce_term_valuation] ) >>
   metis_tac[semantics_typeset,typeset_Bool,WELLTYPED_LEMMA,IN_BOOL])
 
+val dest_var_def = Define`
+  dest_var (Var x ty) = (x,ty)`
+val _ = export_rewrites["dest_var_def"]
+
+(*
+val semantics_VSUBST = store_thm("semantics_VSUBST",
+  ``∀tm ilist σ τ m.
+      type_valuation τ ∧ term_valuation τ σ ∧
+      (∀s s'. MEM (s',s) ilist ⇒ semantics σ τ s' (m s') ∧ ∃x ty. s = Var x ty ∧ s' has_type ty)
+      ⇒
+      semantics σ τ (VSUBST ilist tm) =
+      semantics (σ |++ (REVERSE (MAP (λ(s',s). (dest_var s, m s')) ilist))) τ tm``,
+  Induct >- (
+    gen_tac >>
+    Induct >- (
+      simp[VSUBST_def,REV_ASSOCD,FUPDATE_LIST_THM] ) >>
+    Cases >> fs[VSUBST_def,REV_ASSOCD,FUPDATE_LIST_THM] >>
+    rw[] >- (
+      simp[FUN_EQ_THM,Once semantics_cases,SimpRHS] >>
+      simp[FUPDATE_LIST_APPEND,FUPDATE_LIST_THM,FLOOKUP_UPDATE] >>
+      metis_tac[semantics_11] ) >>
+    fs[FUN_EQ_THM,Q.SPECL[`X`,`Y`,`Var s t`](CONJUNCT2 semantics_cases)] >>
+    simp[FUPDATE_LIST_APPEND,FUPDATE_LIST_THM,FLOOKUP_UPDATE] >>
+    `∃rs rty. r = Var rs rty` by metis_tac[] >> fs[] >>
+    metis_tac[] )
+*)
+
 val _ = export_theory()
