@@ -14,7 +14,7 @@ PRE_BARE_THYS = AstTheory \
 		tokenUtilsTheory
 
 
-BARE_THYS = $(patsubst %,../semantics/%,$(PRE_BARE_THYS)) ../metatheory/TypeSoundInvariantsTheory
+BARE_THYS = $(patsubst %,../semantics/%,$(PRE_BARE_THYS)) ../metatheory/TypeSoundInvariantsTheory ../metatheory/weakeningTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) ../semantics/sem_heap
 
