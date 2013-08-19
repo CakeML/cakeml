@@ -15,7 +15,7 @@ val _ = Hol_datatype `
 world = <| k : num; Sigma1 : tenvS; Sigma2 : tenvS; omega : unit |>`;
 
 val _ = Hol_datatype `
-rho = <| r : num |-> (world # v # v) ; p1 : t list ; p2 : t list |>`;
+rho = <| r : (world # v # v) list; p1 : t list ; p2 : t list |>`;
 
 val world_n_def = Define `
 world_n n w ⇔ w.k < n`;
@@ -126,7 +126,7 @@ observe_e tenvM tenvC w (k1,env1,e1) (k2,env2,e2) =
 
 val rel_v_def = tDefine "rel_v" `
 (rel_v p (Tvar_db n) tenvM tenvC w v1 v2 ⇔
-  FLOOKUP p.r n = SOME (w,v1,v2)) ∧
+  EL n p.r = (w,v1,v2)) ∧
 
 (rel_v p (Tapp [] TC_int) tenvM tenvC w v1 v2 ⇔
   check_VAtom p (Tapp [] TC_int) tenvM tenvC w v1 v2 ∧
@@ -230,6 +230,75 @@ val rel_v_def = tDefine "rel_v" `
       res_tac >>
       decide_tac));
 
+val (rel_tenv_rules, rel_tenv_ind, rel_tenv_cases) = Hol_reln `
+(!tenvM tenvC p w p'.
+  rel_tenv tenvM tenvC p Empty p' w (Emp, Emp)) ∧
 
+(!tenvM tenvC p m tenv w env1 env2 p' .
+  rel_tenv tenvM tenvC p tenv p' w (env1, env2)
+  ⇒
+  rel_tenv tenvM tenvC p (Bind_tvar m tenv) 
+           <| r := MAP (\x.ARB) (COUNT_LIST m) ++ p'.r; p1 := ARB++p.p1; p2 := ARB++p.p1 |> 
+           w (env1, env2)) ∧
+
+(!tenvM tenvC p n t tenv w env1 env2 p'.
+  rel_tenv tenvM tenvC p tenv p' w (env1, env2) ∧
+  rel_v p' t tenvM tenvC w v1 v2
+  ⇒
+  rel_tenv tenvM tenvC p (Bind_name n ARB t tenv) p' w (bind n v1 env1, bind n v2 env2))`;
+
+val log_approx_e_def = Define `
+log_approx_e tenvM tenvC tenv e1 e2 t ⇔
+  type_e tenvM tenvC tenv e1 t ∧
+  type_e tenvM tenvC tenv e2 t ∧
+  !w p env1 env2.
+    rel_tenv tenvM tenvC <| r := []; p1 := []; p2 := [] |> tenv p w (env1,env2) ⇒
+    rel_e p t tenvM tenvC w (env1,e1) (env2,e2)`;
+
+    (*
+val app_compat1 = Q.prove (
+`!tenvM tenvC tenv e1 e2 t.
+  log_approx_e tenvM tenvC tenv e1 e2 t ⇒
+  !op e t' t''.
+    type_e tenvM tenvC tenv e t' ∧
+    type_op op t t' t'' ⇒
+    log_approx_e tenvM tenvC tenv (App op e1 e) (App op e2 e) t''`,
+
+  rw [log_approx_e_def] >>
+  `type_e tenvM tenvC tenv (App op e1 e) t'' ∧
+   type_e tenvM tenvC tenv (App op e2 e) t''`
+            by (ONCE_REWRITE_TAC [type_e_cases] >> 
+                rw [] >>
+                metis_tac []) >>
+  fs [rel_v_def] >>
+  res_tac >>
+  qexists_tac `tenv1` >>
+  qexists_tac `tenv2` >>
+  rw []
+  >- (fs [termEAtom_def, termEAtom_n_def] >>
+      rw []
+      
+
+
+val fundamental_prop = Q.prove (
+`(!tenvM tenvC tenv e t.
+  type_e tenvM tenvC tenv e t ⇒
+  log_approx_e tenvM tenvC tenv e e t) ∧
+ (!tenvM tenvC tenv es ts.
+  type_es tenvM tenvC tenv es ts ⇒
+  LIST_REL (\e t. log_approx_e tenvM tenvC tenv e e t) es ts) ∧
+ (!tenvM tenvC tenv funs tenv'.
+  type_funs tenvM tenvC tenv funs tenv' ⇒
+  T)`, 
+
+  ho_match_mp_tac type_e_strongind >>
+  rw [] 
+  >- (rw [log_approx_e_def] >>
+      rw [Once type_e_cases])
+
+  >- (rw [log_approx_e_def] >>
+      rw [Once type_e_cases] >>
+      metis_tac [])
+      *)
 
 val _ = export_theory();
