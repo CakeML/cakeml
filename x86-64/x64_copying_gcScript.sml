@@ -5,7 +5,7 @@ open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open wordsTheory wordsLib integer_wordTheory;
 open prog_x64_extraTheory;
 
-open ml_copying_gcTheory x64_compilerLib;
+open ml_copying_gcTheory ml_heapTheory x64_compilerLib;
 open set_sepTheory;
 open helperLib;
 open addressTheory
@@ -22,7 +22,7 @@ infix \\ val op \\ = op THEN;
 
 val x64_addr_def = Define `
   (x64_addr base (Pointer n) = base + n2w n << 3 - 1w) /\
-  (x64_addr base (Data w) = (w2w:62 word -> word64) w << 1)`;
+  (x64_addr base (Data w) = (w2w:63 word -> word64) w << 1)`;
 
 val one_list_def = Define `
   (one_list a [] = emp) /\
@@ -558,7 +558,7 @@ val x64_move_loop_thm = prove(
   \\ REVERSE (Cases_on `x1 && 0x2w = 0x0w`) \\ FULL_SIMP_TAC std_ss [] THEN1
    (FULL_SIMP_TAC std_ss [GSYM word_mul_n2w,blast_lemma2,
       AC WORD_AND_COMM WORD_AND_ASSOC]
-    \\ Q.PAT_ABBREV_TAC `dd = DataElement [] n' xx : (bool[62], tag # bool[64] list) heap_element`
+    \\ Q.PAT_ABBREV_TAC `dd = DataElement [] n' xx : (bool[63], tag # bool[64] list) heap_element`
     \\ `(h1 ++ dd::t) = (SNOC dd h1 ++ t)` by
           FULL_SIMP_TAC std_ss [SNOC_APPEND,GSYM APPEND_ASSOC,APPEND]
     \\ FULL_SIMP_TAC std_ss [WORD_MUL_LSL,word_mul_n2w,word_arith_lemma1]
@@ -617,7 +617,7 @@ val x64_move_loop_thm = prove(
     \\ FULL_SIMP_TAC (srw_ss()) [heap_length_def] \\ REPEAT STRIP_TAC
     \\ DECIDE_TAC)
   \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss [LENGTH_MAP]
-  \\ Q.ABBREV_TAC `xx = DataElement ys3 (LENGTH l) (tag,qs) : (bool[62], tag # bool[64] list) heap_element`
+  \\ Q.ABBREV_TAC `xx = DataElement ys3 (LENGTH l) (tag,qs) : (bool[63], tag # bool[64] list) heap_element`
   \\ Q.PAT_ASSUM `!x1 x2 x3. bbb` (MP_TAC o Q.SPECL
        [`limit`,`h1 ++ [xx]`,`t ++ xs3`,`n3`,`heap3`,`c3`])
   \\ IMP_RES_TAC gc_move_loop_ok \\ FULL_SIMP_TAC std_ss []
