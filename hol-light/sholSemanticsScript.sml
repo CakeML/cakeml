@@ -1114,27 +1114,94 @@ val welltyped_VSUBST = store_thm("welltyped_VSUBST",
     rw[Abbr`ilist1`] >- rw[Once has_type_cases] >>
     fs[MEM_FILTER]))
 
-(*
 val semantics_VSUBST = store_thm("semantics_VSUBST",
-  ``∀tm ilist σ τ m.
+  ``∀tm ilist σ τ.
       type_valuation τ ∧ term_valuation τ σ ∧
-      (∀s s'. MEM (s',s) ilist ⇒ semantics σ τ s' (m s') ∧ ∃x ty. s = Var x ty ∧ s' has_type ty)
+      (∀s s'. MEM (s',s) ilist ⇒ has_meaning s' ∧ ∃x ty. s = Var x ty ∧ s' has_type ty) ∧
+      σ closes_over (VSUBST ilist tm)
       ⇒
       semantics σ τ (VSUBST ilist tm) =
-      semantics (σ |++ (REVERSE (MAP (λ(s',s). (dest_var s, m s')) ilist))) τ tm``,
+      semantics (σ |++ (REVERSE (MAP (λ(s',s). (dest_var s, @m. semantics σ τ s' m)) ilist))) τ tm``,
   Induct >- (
     gen_tac >>
     Induct >- (
       simp[VSUBST_def,REV_ASSOCD,FUPDATE_LIST_THM] ) >>
     Cases >> fs[VSUBST_def,REV_ASSOCD,FUPDATE_LIST_THM] >>
     rw[] >- (
-      simp[FUN_EQ_THM,Once semantics_cases,SimpRHS] >>
+      simp[FUN_EQ_THM] >>
+      simp[Q.SPECL[`X`,`Y`,`Var A B`](CONJUNCT2 semantics_cases)] >>
       simp[FUPDATE_LIST_APPEND,FUPDATE_LIST_THM,FLOOKUP_UPDATE] >>
-      metis_tac[semantics_11] ) >>
+      SELECT_ELIM_TAC >>
+      reverse conj_tac >- metis_tac[semantics_11] >>
+      fs[has_meaning_def] >>
+      metis_tac[semantics_reduce_term_valuation] ) >>
     fs[FUN_EQ_THM,Q.SPECL[`X`,`Y`,`Var s t`](CONJUNCT2 semantics_cases)] >>
     simp[FUPDATE_LIST_APPEND,FUPDATE_LIST_THM,FLOOKUP_UPDATE] >>
     `∃rs rty. r = Var rs rty` by metis_tac[] >> fs[] >>
-    metis_tac[] )
-*)
+    first_x_assum match_mp_tac >>
+    metis_tac[])
+  >- (
+    rw[VSUBST_def] >>
+    simp[FUN_EQ_THM] >>
+    simp[Once semantics_cases] >>
+    simp[Once semantics_cases,SimpRHS] )
+  >- (
+    rw[VSUBST_def] >>
+    simp[FUN_EQ_THM] >>
+    simp[Once semantics_cases] >>
+    simp[Once semantics_cases,SimpRHS] >>
+    srw_tac[DNF_ss][] >>
+    EQ_TAC >> strip_tac >>
+    map_every qexists_tac[`mt`,`mu`,`rty`] >> simp[] >>
+    rw[] >> TRY (
+      qmatch_abbrev_tac`semantics σ1 τ t1 m1` >>
+      qmatch_assum_abbrev_tac`semantics σ2 τ t2 m1` >>
+      qsuff_tac`semantics σ2 τ t2 = semantics σ1 τ t1` >- metis_tac[] >>
+      unabbrev_all_tac >>
+      (first_x_assum match_mp_tac ORELSE (match_mp_tac EQ_SYM >> first_x_assum match_mp_tac)) >>
+      metis_tac[] ) >>
+    metis_tac[welltyped_VSUBST,VSUBST_HAS_TYPE,WELLTYPED,WELLTYPED_LEMMA] )
+  >- (*
+    rw[VSUBST_def] >> rw[] >>
+    simp[FUN_EQ_THM] >>
+    rw[Once semantics_cases] >>
+    rw[Once semantics_cases,SimpRHS] >>
+    EQ_TAC >> strip_tac >>
+    map_every qexists_tac[`mb`,`mty`,`mtyb`,`tyb`] >> simp[] >>
+    `∀s s'. MEM (s',s) ilist' ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty` by (
+      unabbrev_all_tac >> simp[MEM_FILTER] ) >>
+    `∀s s'. MEM (s',s) ilist'' ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty` by (
+      unabbrev_all_tac >> simp[MEM_FILTER] >>
+      rw[] >> rw[Once has_type_cases]) >>
+    (conj_tac >- (
+       TRY (
+         TRY(qunabbrev_tac`t'`) >>
+         qmatch_assum_abbrev_tac`VSUBST ilist2 tm has_type tyb` >>
+         `welltyped (VSUBST ilist2 tm)` by metis_tac[welltyped_def] >>
+         `welltyped tm` by metis_tac[welltyped_VSUBST] >>
+         `tyb = typeof tm` by metis_tac[VSUBST_HAS_TYPE,WELLTYPED_LEMMA,WELLTYPED] >>
+         metis_tac[WELLTYPED] ) >>
+       metis_tac[welltyped_VSUBST,VSUBST_HAS_TYPE,WELLTYPED,WELLTYPED_LEMMA,welltyped_def] ))
+    >- (
+      qx_gen_tac`y` >> strip_tac >>
+      first_x_assum(qspecl_then[`ilist''`,`σ`,`τ`,`λx. if x = Var z t then mb y else m x`]mp_tac) >>
+      discharge_hyps >- (
+        simp[] >>
+        simp[Abbr`ilist''`,Abbr`ilist'`,MEM_FILTER] >>
+        rw[]
+      simp[FUPDATE_LIST_APPEND,FUPDATE_LIST_THM]
+      ???? ))
+    >- (
+      qx_gen_tac`y` >> strip_tac >>
+      first_x_assum(qspecl_then[`ilist''`,`σ |+ ((z,t),y)`,`τ`,`λa. if a = Var z t then y else m a`]mp_tac) >>
+      discharge_hyps >- (
+        simp[] >>
+        conj_tac >- metis_tac[term_valuation_FUPDATE,FST,SND] >>
+        simp[Abbr`ilist''`,Abbr`ilist'`,MEM_FILTER] >>
+        rw[] >> TRY( simp[Once semantics_cases,FLOOKUP_DEF] >> NO_TAC) >>
+        fs[EXISTS_MEM,MEM_FILTER,EXISTS_PROD]
+        metis_tac[semantics_extend_term_valuation
+     *)
+   cheat)
 
 val _ = export_theory()
