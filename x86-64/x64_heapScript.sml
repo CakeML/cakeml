@@ -167,7 +167,9 @@ val error_msg_def = Define `
   error_msg = "\nERROR: resource bound hit, aborting\n"`;
 
 val zHEAP_ERROR_def = Define `
-  zHEAP_ERROR (cs,output) = zHEAP_OUTPUT (cs,output ++ error_msg)`;
+  zHEAP_ERROR (cs,output) =
+    SEP_EXISTS part. zHEAP_OUTPUT (cs,part ++ error_msg) *
+                     cond (isPREFIX part output)`;
 
 
 (* helpers theorems *)
@@ -4311,7 +4313,12 @@ set_goal([],goal)
     SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES])
   val th1 = MP th lemma
   val th = SPEC_COMPOSE_RULE [zHEAP_PRINT_ERROR_MSG,zHEAP_TERMINATE]
-  val th = th |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [GSYM zHEAP_ERROR_def]))
+  val (th,goal) = SPEC_WEAKEN_RULE th ``zHEAP_ERROR (cs,s.output)``
+  val lemma = prove(goal,
+    SIMP_TAC std_ss [SEP_IMP_def,zHEAP_ERROR_def,SEP_EXISTS_THM]
+    \\ REPEAT STRIP_TAC \\ Q.EXISTS_TAC `s.output`
+    \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.IS_PREFIX_REFL,SEP_CLAUSES])
+  val th = MP th lemma
   val (_,_,code,_) = dest_spec (concl th)
   val error_code_def = Define `error_code (p:word64) = ^code`;
   val th = th |> RW [GSYM error_code_def]
@@ -6306,6 +6313,12 @@ val zHEAP_CALL_PTR =
 
 (* call instruction *)
 
+val EVEN_LEMMA = prove(
+  ``EVEN n ==> (2 * (n DIV 2) = n:num)``,
+  SIMP_TAC std_ss [RW1 [MULT_COMM] EVEN_EXISTS]
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [MULT_DIV]
+  \\ SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC]);
+
 val zHEAP_CALL_IMM = let
   val th = x64_call_imm
   val th = th |> RW [GSYM IMM32_def] |> Q.INST [`rip`|->`p`]
@@ -6719,12 +6732,6 @@ val IMP_small_offset = prove(
                 |> DISCH_ALL |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO]
                 |> Q.INST [`base`|->`cb`])
   \\ FULL_SIMP_TAC (srw_ss()) [SEP_IMP_def,SEP_DISJ_def,SEP_EXISTS_THM]);
-
-val EVEN_LEMMA = prove(
-  ``EVEN n ==> (2 * (n DIV 2) = n:num)``,
-  SIMP_TAC std_ss [RW1 [MULT_COMM] EVEN_EXISTS]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [MULT_DIV]
-  \\ SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC]);
 
 val EXISTS_NOT_FDOM_NUM = prove(
   ``!f. ?m:num. ~(m IN FDOM f)``,
