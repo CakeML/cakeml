@@ -1095,6 +1095,25 @@ val dest_var_def = Define`
   dest_var (Var x ty) = (x,ty)`
 val _ = export_rewrites["dest_var_def"]
 
+val welltyped_VSUBST = store_thm("welltyped_VSUBST",
+  ``∀tm ilist.
+      (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ⇒
+      (welltyped (VSUBST ilist tm) ⇔ welltyped tm)``,
+  qsuff_tac `∀tm ilist.
+      (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ⇒
+      welltyped (VSUBST ilist tm) ⇒ welltyped tm` >- metis_tac[VSUBST_WELLTYPED] >>
+  Induct >> simp[VSUBST_def]
+  >- (
+    rw[] >>
+    metis_tac[VSUBST_HAS_TYPE,WELLTYPED_LEMMA,WELLTYPED] )
+  >- (
+    rw[] >>
+    first_x_assum (match_mp_tac o MP_CANON) >>
+    qmatch_assum_abbrev_tac`welltyped (VSUBST ilist1 tm)` >>
+    qexists_tac`ilist1` >>
+    rw[Abbr`ilist1`] >- rw[Once has_type_cases] >>
+    fs[MEM_FILTER]))
+
 (*
 val semantics_VSUBST = store_thm("semantics_VSUBST",
   ``∀tm ilist σ τ m.
