@@ -680,10 +680,27 @@ val semantics_reduce_term_valuation = store_thm("semantics_reduce_term_valuation
 val type_has_meaning_def = Define`
   type_has_meaning ty ⇔ ∀τ. type_valuation τ ⇒ ∃m. typeset τ ty m`
 
+(*  prove by induction on types or on typeset (ignoring semantics)? ∀τ ty m. typeset τ ty m ⇒ type_has_meaning ty *)
+
+(* use this instead:
+
+val has_meaning_def = Define`
+  has_meaning t = ∀τ σ. type_valuation τ ∧ term_valuation τ σ ∧ σ closes_over t ⇒ semantics σ τ t m`
+
+*)
+
+(* and prove the extension in the definition below is possible as a separate theorem  *)
+
 val has_meaning_def = Define`
   has_meaning t = ∀τ σ. type_valuation τ ∧ term_valuation τ σ ⇒
     ∃σ' m. σ ⊑ σ' ∧ term_valuation τ σ' ∧ σ' closes_over t ∧
            semantics σ' τ t m`
+
+(*
+
+can we prove this too?: ∀σ τ t m. semantics σ τ t m ⇒ has_meaning t
+
+*)
 
 val has_meaning_welltyped = store_thm("has_meaning_welltyped",
   ``∀t. has_meaning t ⇒ welltyped t``,
