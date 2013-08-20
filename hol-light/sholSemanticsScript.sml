@@ -248,6 +248,14 @@ val term_valuation_FUPDATE = store_thm("term_valuation_FUPDATE",
   match_mp_tac(CONJUNCT2 FEVERY_STRENGTHEN_THM) >>
   fs[] >> metis_tac[])
 
+val term_valuation_FUPDATE_LIST = store_thm("term_valuation_FUPDATE_LIST",
+  ``∀ls τ σ. term_valuation τ σ ∧ EVERY (λ(v,m). ∃mty. typeset τ (SND v) mty ∧ m <: mty) ls ⇒ term_valuation τ (σ |++ ls)``,
+  Induct >> simp[FUPDATE_LIST_THM] >>
+  Cases>>fs[]>>rw[]>>
+  first_x_assum match_mp_tac >> rw[] >>
+  match_mp_tac term_valuation_FUPDATE >>
+  rw[] >> metis_tac[])
+
 val typeset_inhabited = store_thm("typeset_inhabited",
   ``∀ty τ mty. type_valuation τ ∧ typeset τ ty mty ⇒ ∃m. m <: mty``,
   ho_match_mp_tac type_ind >>
@@ -729,9 +737,14 @@ val equation_has_meaning_iff = store_thm("equation_has_meaning_iff",
   metis_tac[])
 
 val has_meaning_Var = store_thm("has_meaning_Var",
-  ``∀x ty. type_has_meaning ty ⇒ has_meaning (Var x ty)``,
+  ``∀x ty. has_meaning (Var x ty) ⇔ type_has_meaning ty``,
   rw[type_has_meaning_def,has_meaning_def] >>
   simp[Once semantics_cases,FLOOKUP_DEF] >>
+  rw[EQ_IMP_THM] >- (
+    first_x_assum(qspecl_then[`τ`,`FEMPTY`]mp_tac) >>
+    simp[SUBMAP_FEMPTY] >>
+    simp[term_valuation_def,FEVERY_DEF,FORALL_PROD] >>
+    metis_tac[] ) >>
   Cases_on`(x,ty) ∈ FDOM σ`>-metis_tac[SUBMAP_REFL] >>
   `∃mty. typeset τ ty mty` by metis_tac[] >>
   `∃m. m <: mty` by metis_tac[typeset_inhabited] >>
@@ -1114,11 +1127,43 @@ val welltyped_VSUBST = store_thm("welltyped_VSUBST",
     rw[Abbr`ilist1`] >- rw[Once has_type_cases] >>
     fs[MEM_FILTER]))
 
+(*
+val semantics_has_meaning = store_thm("semantics_has_meaning",
+  ``(∀τ ty mty. typeset τ ty mty ⇒ type_has_meaning ty) ∧
+    (∀σ τ tm mtm. semantics σ τ tm mtm ⇒ has_meaning tm)``,
+  ho_match_mp_tac (theorem"semantics_strongind") >>
+  conj_tac >- (
+    rw[type_has_meaning_def] >>
+    rw[Once semantics_cases] ) >>
+  conj_tac >- (
+    rw[type_has_meaning_def] ) >>
+  conj_tac >- (
+    rw[type_has_meaning_def] >>
+    rw[Once semantics_cases] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rw[type_has_meaning_def,has_meaning_def] >>
+    rw[Once semantics_cases] >>
+    first_x_assum(qspecl_then[`τ'`,`FEMPTY`]mp_tac) >>
+    simp[] >>
+    disch_then(qx_choosel_then[`σ`,`m`]strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`semantics FEMPTY τ pp mtm` >>
+    `semantics FEMPTY t' pp m
+*)
+
+val VFREE_IN_has_meaning = store_thm("VFREE_IN_has_meaning",
+  ``∀t2 t1. has_meaning t2 ∧ VFREE_IN t1 t2 ⇒ has_meaning t1``,
+  Induct
+  >- simp[VFREE_IN_def]
+  >- simp[VFREE_IN_def]
+  >- (simp[VFREE_IN_def,has_meaning_Comb] >> metis_tac[])
+  >- simp[VFREE_IN_def,has_meaning_Abs])
+
 val semantics_VSUBST = store_thm("semantics_VSUBST",
   ``∀tm ilist σ τ.
       type_valuation τ ∧ term_valuation τ σ ∧
-      (∀s s'. MEM (s',s) ilist ⇒ has_meaning s' ∧ ∃x ty. s = Var x ty ∧ s' has_type ty) ∧
-      σ closes_over (VSUBST ilist tm)
+      (∀s s'. MEM (s',s) ilist ⇒ has_meaning s' ∧ ∃x ty. s = Var x ty ∧ s' has_type ty)
+      ∧ σ closes_over (VSUBST ilist tm)
       ⇒
       semantics σ τ (VSUBST ilist tm) =
       semantics (σ |++ (REVERSE (MAP (λ(s',s). (dest_var s, @m. semantics σ τ s' m)) ilist))) τ tm``,
@@ -1162,17 +1207,85 @@ val semantics_VSUBST = store_thm("semantics_VSUBST",
       metis_tac[] ) >>
     metis_tac[welltyped_VSUBST,VSUBST_HAS_TYPE,WELLTYPED,WELLTYPED_LEMMA] )
   >- (*
+    rpt gen_tac >> strip_tac >>
+    fs[VSUBST_def,LET_THM] >>
+    Q.PAT_ABBREV_TAC`ilist1 = FILTER X ilist` >>
+    Q.PAT_ABBREV_TAC`z = VARIANT X s t` >>
+    Q.PAT_ABBREV_TAC`ilist2 = X::ilist1` >>
+    Q.PAT_ABBREV_TAC`P = EXISTS X ilist1` >>
+    simp[FUN_EQ_THM] >> qx_gen_tac`m` >>
+    simp[PROVE[]``semantics σ τ (if P then Y else Z) m = if P then semantics σ τ Y m else semantics σ τ Z m``] >>
+    Q.PAT_ABBREV_TAC`ls:((string#type)#V)list = REVERSE (MAP X ilist)` >>
+    simp[Once semantics_cases] >>
+    simp[Once semantics_cases,SimpRHS] >>
+    simp[Q.SPECL[`X`,`Y`,`Abs s t Z`](CONJUNCT2 semantics_cases)] >>
+    `∀s s'. MEM (s',s) ilist1 ⇒ has_meaning s' ∧ (∃x ty. s = Var x ty ∧ s' has_type ty)` by (
+      unabbrev_all_tac >> simp[MEM_FILTER] >> metis_tac[]) >>
+    `∀s s'. MEM (s',s) ilist2 ⇒ (∃x ty. s = Var x ty ∧ s' has_type ty)` by (
+      unabbrev_all_tac >> simp[MEM_FILTER] >>
+      rw[] >> rw[Once has_type_cases]) >>
+    reverse(Cases_on`P`)>>fs[]>-(
+      EQ_TAC >> strip_tac >- (
+        map_every qexists_tac[`mb`,`mty`,`mtyb`,`tyb`] >> simp[] >>
+        conj_tac >- (
+         `welltyped (VSUBST ilist1 tm)` by metis_tac[welltyped_def] >>
+         `welltyped tm` by metis_tac[welltyped_VSUBST] >>
+         `tyb = typeof tm` by metis_tac[VSUBST_HAS_TYPE,WELLTYPED_LEMMA,WELLTYPED] >>
+         metis_tac[WELLTYPED] ) >>
+        rw[] >>
+      first_x_assum(qspecl_then[`ilist1`,`σ |+ ((s,t),x)`,`τ`]mp_tac) >>
+      discharge_hyps >- (
+        simp[] >>
+        conj_tac >- metis_tac[term_valuation_FUPDATE,FST,SND] >>
+        metis_tac[] ) >>
+      Q.PAT_ABBREV_TAC`ls1:((string#type)#V)list = REVERSE X` >>
+      `σ |+ ((s,t),x) |++ ls1 = (σ |++ ls1) |+ ((s,t),x)` by (
+        match_mp_tac FUPDATE_FUPDATE_LIST_COMMUTES >>
+        simp[Abbr`ls1`,rich_listTheory.MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD] >>
+        simp[Abbr`ilist1`,MEM_MAP,MEM_FILTER,FORALL_PROD] >>
+        map_every qx_gen_tac[`r`,`v`] >>
+        Cases_on`(r,v) ∈ set ilist`>>fs[]>>
+        `∃x y. v = Var x y` by metis_tac[] >>
+        fs[] >> metis_tac[] ) >>
+      simp[] >>
+      `term_valuation τ ((σ |++ ls1) |+ ((s,t),x))` by (
+        match_mp_tac term_valuation_FUPDATE >> simp[] >>
+        qexists_tac`mty`>>simp[] >>
+        match_mp_tac term_valuation_FUPDATE_LIST >>
+        simp[Abbr`ls1`] >>
+        simp[EVERY_MEM,FORALL_PROD,MEM_MAP] >>
+        simp[Abbr`ilist1`,MEM_FILTER,EXISTS_PROD] >>
+        simp_tac(srw_ss()++DNF_ss)[]
+
+        term_valuation_def
+        FEVERY_FUPDATE_LIST_suff
+
+      qsuff_tac`
+      semantics_vfree_in
+      `ls1 = ls` by (
+        simp[Abbr`ls1`,Abbr`ls`,Abbr`ilist1`] >>
+        rich_listTheory.MAP_FILTER
+        simp[MAP_EQ_f]
+        `∃
+      print_apropos``x |+ y |++ z``
+        
+    discharge_hyps >- (
+      simp[] >>
+      conj_tac >- (
+        simp[Abbr`ilist1`,MEM_FILTER] >>
+        metis_tac[] ) >>
+      Cases_on`P`>>fs[VFREE_IN_VSUBST,Abbr`ilist2`,REV_ASSOCD] >> rw[]
+    reverse(Cases_on`P`)>>fs[]>-(
+
+      simp[Once
+
+
     rw[VSUBST_def] >> rw[] >>
     simp[FUN_EQ_THM] >>
     rw[Once semantics_cases] >>
     rw[Once semantics_cases,SimpRHS] >>
     EQ_TAC >> strip_tac >>
     map_every qexists_tac[`mb`,`mty`,`mtyb`,`tyb`] >> simp[] >>
-    `∀s s'. MEM (s',s) ilist' ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty` by (
-      unabbrev_all_tac >> simp[MEM_FILTER] ) >>
-    `∀s s'. MEM (s',s) ilist'' ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty` by (
-      unabbrev_all_tac >> simp[MEM_FILTER] >>
-      rw[] >> rw[Once has_type_cases]) >>
     (conj_tac >- (
        TRY (
          TRY(qunabbrev_tac`t'`) >>
@@ -1183,11 +1296,36 @@ val semantics_VSUBST = store_thm("semantics_VSUBST",
          metis_tac[WELLTYPED] ) >>
        metis_tac[welltyped_VSUBST,VSUBST_HAS_TYPE,WELLTYPED,WELLTYPED_LEMMA,welltyped_def] ))
     >- (
-      qx_gen_tac`y` >> strip_tac >>
-      first_x_assum(qspecl_then[`ilist''`,`σ`,`τ`,`λx. if x = Var z t then mb y else m x`]mp_tac) >>
+      first_x_assum(qspecl_then[`ilist''`,`σ`,`τ`]mp_tac) >>
       discharge_hyps >- (
         simp[] >>
-        simp[Abbr`ilist''`,Abbr`ilist'`,MEM_FILTER] >>
+        conj_tac >- (
+          fs[Abbr`ilist''`,Abbr`ilist'`,MEM_FILTER] >>
+          rw[] >>
+          fs[EXISTS_MEM,MEM_FILTER,EXISTS_PROD] >>
+          metis_tac[VFREE_IN_has_meaning,has_meaning_Var] ) >>
+        fs[LET_THM]
+        simp[Abbr`ilist''`,Abbr`ilist'`,VFREE_IN_VSUBST,REV_ASSOCD] >>
+        rw[] >> pop_assum mp_tac >> rw[] >>
+        metis_tac[]
+      simp[Q.SPECL[`X`,`Y`,`Var V Z`](CONJUNCT2 semantics_cases),FLOOKUP_DEF]
+        metis_tac[]
+
+    >- (
+      qx_gen_tac`y` >> strip_tac >> fs[LET_THM] >>
+      first_x_assum(qspecl_then[`ilist''`,`σ |+ ((z,t),y)`,`τ`]mp_tac) >>
+      discharge_hyps >- (
+        simp[] >>
+        conj_tac >- metis_tac[term_valuation_FUPDATE,FST,SND] >>
+        conj_tac >- (
+          fs[Abbr`ilist''`,Abbr`ilist'`,MEM_FILTER] >>
+          rw[] >>
+          fs[EXISTS_MEM,MEM_FILTER,EXISTS_PROD] >>
+          metis_tac[VFREE_IN_has_meaning,has_meaning_Var] ) >>
+        metis_tac[] ) >>
+      simp[Abbr`ilist''`,FUPDATE_LIST_APPEND,FUPDATE_LIST_THM] >>
+      simp[Q.SPECL[`X`,`Y`,`Var V Z`](CONJUNCT2 semantics_cases),FLOOKUP_DEF]
+
         rw[]
       simp[FUPDATE_LIST_APPEND,FUPDATE_LIST_THM]
       ???? ))
