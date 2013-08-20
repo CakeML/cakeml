@@ -152,7 +152,7 @@ val ACONV_welltyped = store_thm("ACONV_welltyped",
   metis_tac[RACONV_welltyped,EVERY_DEF])
 
 val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
-  (typeset τ (Tyvar s) (τ s)) ∧
+  (FLOOKUP τ s = SOME m ⇒ typeset τ (Tyvar s) m) ∧
 
   (typeset τ (Tyapp (Typrim "bool" 0) []) boolset) ∧
 
@@ -162,7 +162,7 @@ val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
 
   (LENGTH (tvars p) = LENGTH args ∧
    tyin = ZIP (args, MAP Tyvar (STRING_SORT (tvars p))) ∧
-   semantics FEMPTY τ (INST tyin p) mp ∧ w <: mrty ∧ holds mp w ∧
+   semantics FEMPTY FEMPTY (INST tyin p) mp ∧ w <: mrty ∧ holds mp w ∧
    INST tyin p has_type Fun rty Bool ∧ typeset τ rty mrty
    ⇒
    typeset τ (Tyapp (Tydefined op p) args) (mrty suchthat holds mp)) ∧
@@ -187,7 +187,7 @@ val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
   (welltyped t ∧ closed t ∧
    set(tvars t) ⊆ set (tyvars (typeof t)) ∧
    INST tyin t has_type ty ∧
-   semantics FEMPTY τ (INST tyin t) mt
+   semantics FEMPTY FEMPTY (INST tyin t) mt
    ⇒
    semantics σ τ (Const s ty (Defined t)) mt) ∧
 
@@ -201,7 +201,7 @@ val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
   (typeset τ (Tyapp (Tydefined op p) args) maty ∧
    tyin = ZIP(args, MAP Tyvar (STRING_SORT (tvars p))) ∧
    INST tyin p has_type Fun rty Bool ∧ typeset τ rty mrty ∧
-   semantics FEMPTY τ (INST tyin p) mp
+   semantics FEMPTY FEMPTY (INST tyin p) mp
    ⇒
    semantics σ τ (Const s (Fun rty (Tyapp (Tydefined op p) args)) (Tyabs op p))
     (abstract mrty maty (λx. if holds mp x then x else ch maty))) ∧
@@ -225,12 +225,11 @@ val typeset_Bool = store_thm("typeset_Bool",
 val _ = export_rewrites["typeset_Bool"]
 
 val type_valuation_def = Define`
-  type_valuation τ ⇔ ∀x. ∃y. y <: τ x`
+  type_valuation τ ⇔ ∀x. x ∈ FRANGE τ ⇒ ∃y. y <: x`
 
-val a_type_valuation_exists = store_thm("a_type_valuation_exists",
-  ``∃τ:string->V. type_valuation τ``,
-  rw[type_valuation_def,GSYM SKOLEM_THM] >>
-  metis_tac[BOOLEAN_IN_BOOLSET])
+val type_valuation_FEMPTY = store_thm("type_valuation_FEMPTY",
+  ``type_valuation FEMPTY``, rw[type_valuation_def])
+val _ = export_rewrites["type_valuation_FEMPTY"]
 
 val term_valuation_def = Define`
   term_valuation τ σ ⇔
@@ -261,7 +260,9 @@ val typeset_inhabited = store_thm("typeset_inhabited",
   ho_match_mp_tac type_ind >>
   conj_tac >- (
     simp[type_valuation_def] >>
-    simp[Once semantics_cases] ) >>
+    simp[Once semantics_cases] >>
+    simp[FLOOKUP_DEF,FRANGE_DEF] >>
+    metis_tac[]) >>
   rpt gen_tac >> strip_tac >>
   simp[Once semantics_cases] >>
   rw[] >- metis_tac[BOOLEAN_IN_BOOLSET]
@@ -336,6 +337,26 @@ val semantics_11 = store_thm("semantics_11",
   conj_tac >- metis_tac[typeset_inhabited] >>
   fs[] >> res_tac >> fs[])
 
+(*
+val typeset_tyvars = store_thm("typeset_tyvars",
+  ``∀ty τ1 τ2 m. typeset τ1 ty m ∧ (∀x. x ∈ set(tyvars ty) ⇒ FLOOKUP τ1 x = FLOOKUP τ2 x) ⇒ typeset τ2 ty m``,
+  ho_match_mp_tac type_ind >>
+  conj_tac >- (
+    ntac 2 (simp[Once semantics_cases]) >>
+    simp[FLOOKUP_DEF,SUBMAP_DEF,tyvars_def] >>
+    rw[]) >>
+  rpt gen_tac >> strip_tac >>
+  simp[Once semantics_cases] >> rw[] >>
+  simp[Once semantics_cases] >>
+  fs[tyvars_def,MEM_LIST_UNION] >- metis_tac[] >>
+  map_every qexists_tac[`mp`,`mrty`,`rty`,`w`] >> simp[] >>
+  fs[EVERY_MEM] >>
+  qmatch_assum_abbrev_tac`INST tyin p has_type Fun rty Bool` >>
+  qspecl_then[`sizeof p`,`p`,`
+
+  INST_CORE_HAS_TYPE
+  metis_tac[]
+
 val semantics_typeset = store_thm("semantics_typeset",
   ``(∀τ ty mty. typeset τ ty mty ⇒ type_valuation τ ⇒ ∃mt. mt <: mty) ∧
     (∀σ τ t mt. semantics σ τ t mt ⇒
@@ -343,7 +364,10 @@ val semantics_typeset = store_thm("semantics_typeset",
            ∃mty. welltyped t ∧ typeset τ (typeof t) mty ∧ mt <: mty)``,
   ho_match_mp_tac (theorem"semantics_strongind") >>
   simp[INDSET_INHABITED,FUNSPACE_INHABITED] >>
-  conj_tac >- simp[type_valuation_def] >>
+  conj_tac >- (
+    simp[type_valuation_def] >>
+    simp[FLOOKUP_DEF,FRANGE_DEF] >>
+    metis_tac[] ) >>
   conj_tac >- metis_tac[BOOLEAN_IN_BOOLSET] >>
   conj_tac >- ( rw[suchthat_def] >> metis_tac[] ) >>
   conj_tac >- (
@@ -1358,5 +1382,6 @@ val semantics_VSUBST = store_thm("semantics_VSUBST",
         metis_tac[semantics_extend_term_valuation
      *)
    cheat)
+*)
 
 val _ = export_theory()
