@@ -2,6 +2,9 @@ open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory pairTheory lis
 val _ = numLib.prefer_num()
 val _ = new_theory"sholSemantics"
 
+val discharge_hyps =
+  match_mp_tac(PROVE[]``(p ∧ (q ==> r)) ==> ((p ==> q) ==> r)``) >> conj_tac
+
 val FEVERY_SUBMAP = store_thm("FEVERY_SUBMAP",
   ``FEVERY P fm /\ fm0 SUBMAP fm ==> FEVERY P fm0``,
   SRW_TAC[][FEVERY_DEF,SUBMAP_DEF])
@@ -150,6 +153,147 @@ val ACONV_welltyped = store_thm("ACONV_welltyped",
   ``∀t1 t2. ACONV t1 t2 ∧ welltyped t1 ⇒ welltyped t2``,
   rw[ACONV_def] >>
   metis_tac[RACONV_welltyped,EVERY_DEF])
+
+val simple_inst_def = Define`
+  simple_inst tyin (Var x ty) = Var x (TYPE_SUBST tyin ty) ∧
+  simple_inst tyin (Const x ty g) = Const x (TYPE_SUBST tyin ty) g ∧
+  simple_inst tyin (Comb s t) = Comb (simple_inst tyin s) (simple_inst tyin t) ∧
+  simple_inst tyin (Abs x ty t) = Abs x (TYPE_SUBST tyin ty) (simple_inst tyin t)`
+val _ = export_rewrites["simple_inst_def"]
+
+val simple_inst_has_type = store_thm("simple_inst_has_type",
+  ``∀tm tyin ty. welltyped tm ⇒ simple_inst tyin tm has_type (TYPE_SUBST tyin (typeof tm))``,
+  Induct >> rw[]
+  >- rw[Once has_type_cases]
+  >- rw[Once has_type_cases]
+  >- (
+    rw[Once has_type_cases] >> fs[] >>
+    metis_tac[] )
+  >- (
+    rw[Once has_type_cases] ))
+
+(* not true: application with operator with variable type is not welltyped
+val simple_inst_welltyped = store_thm("simple_inst_welltyped",
+  ``∀tm tyin. welltyped (simple_inst tyin tm) ⇔ welltyped tm``,
+  reverse(rw[EQ_IMP_THM])>-metis_tac[simple_inst_has_type,WELLTYPED,WELLTYPED_LEMMA]>>
+  pop_assum mp_tac >> map_every qid_spec_tac[`tyin`,`tm`] >>
+  Induct >> rw[]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (
+    res_tac >>
+    imp_res_tac simple_inst_has_type >>
+    `TYPE_SUBST tyin (typeof tm) = Fun (typeof (simple_inst tyin tm')) rty` by metis_tac[WELLTYPED_LEMMA]
+  metis_tac[WELLTYPED,WELLTYPED_LEMMA,simple_inst_has_type]
+*)
+
+(*
+val INST_CORE_Clash = store_thm("INST_CORE_Clash",
+  ``∀env tyin tm x xty. INST_CORE env tyin tm = Clash (Var x xty) ⇒ ∃ty. xty = TYPE_SUBST tyin ty ∧ VFREE_IN (Var x ty) tm``,
+  ho_match_mp_tac INST_CORE_ind >>
+  conj_tac >- ( simp[INST_CORE_def] >> rw[]) >>
+  conj_tac >- simp[INST_CORE_def] >>
+  conj_tac >- ( simp[INST_CORE_def] >> rw[] >> metis_tac[]) >>
+  simp[INST_CORE_def] >> rw[] >> fs[]
+  >- metis_tac[]
+  >- metis_tac[] >>
+  fs[VFREE_IN_VSUBST,REV_ASSOCD] >>
+  qpat_assum`VFREE_IN X (Y Z)` mp_tac >>
+  reverse(rw[] >> fs[])
+  >- metis_tac[]
+  >- metis_tac[] >>
+  qmatch_assum_abbrev_tac`¬IS_RESULT X` >>
+  Cases_on`X` >> fs[markerTheory.Abbrev_def] >> rw[] >>
+  qexists_tac`ty` >> simp[] >> rfs[] >>
+  simp[VFREE_IN_def]
+  type_of``VARIANT``
+  print_apropos``VARIANT``
+  VARIANT_THM
+*)
+
+val INST_CORE_NIL_IS_RESULT = store_thm("INST_CORE_NIL_IS_RESULT",
+  ``∀tyin tm. welltyped tm ⇒ IS_RESULT (INST_CORE [] tyin tm)``,
+  rw[] >>
+  qspecl_then[`sizeof tm`,`tm`,`[]`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
+  simp[] >> rw[] >> rw[] >> fs[REV_ASSOCD])
+
+val NOT_IS_CLASH_IS_RESULT = store_thm("NOT_IS_CLASH_IS_RESULT",
+  ``∀x. IS_CLASH x ⇔ ¬IS_RESULT x``,
+  Cases >> simp[])
+
+val RESULT_eq_suff = prove(
+  ``x = Result y ⇒ RESULT x = y``,
+  Cases_on`x`>>simp[])
+
+val TYPE_SUBST_NIL = store_thm("TYPE_SUBST_NIL",
+  ``∀ty. TYPE_SUBST [] ty = ty``,
+  ho_match_mp_tac type_ind >>
+  simp[TYPE_SUBST_def,REV_ASSOCD,EVERY_MEM,LIST_EQ_REWRITE,EL_MAP,MEM_EL,GSYM LEFT_FORALL_IMP_THM])
+val _ = export_rewrites["TYPE_SUBST_NIL"]
+
+(*
+
+Unfortunately, the conjecture below is probably not true.
+
+Even when restricted to closed terms, simple_inst can behave differently from INST.
+Example: simple_inst [α|->t] (λ(x:α). (λ(x:t). (x:α))) = (λx:t. (λx:t. (x:t)))
+                INST [α|->t] (λ(x:α). (λ(x:t). (x:α))) = (λx':t. (λ(x:t). (x':t)))
+
+So perhaps we could first rename all bound variables apart then call simple_inst in the semantics.
+(Alternatively just assert renaming is always possible by existentially quantifying the α-equivalent term.)
+
+Do free variables make a difference at all?
+Yes:     simple_inst [α|->t] (λ(x:t). (x:α)) = (λ(x:t). (x:t))
+                INST [α|->t] (λ(x:t). (x:α)) = (λ(x':t). (x:t))
+
+So the restriction to closed terms is necessary.
+
+val INST_CORE_simple_inst = store_thm("INST_CORE_simple_inst",
+  ``∀env tyin tm. welltyped tm ∧
+      (∀s s'. MEM (s,s') env ⇒ ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin ty)) ∧
+      (∀x ty. VFREE_IN (Var x ty) tm ⇒ REV_ASSOCD (Var x (TYPE_SUBST tyin ty)) env (Var x ty) = Var x ty) ⇒
+      INST_CORE env tyin tm = Result(simple_inst tyin tm)``,
+  ho_match_mp_tac INST_CORE_ind >>
+  conj_tac >- (
+    rw[INST_CORE_def] >> rw[] >>
+    first_x_assum(qspec_then`ty`strip_assume_tac)>>
+    unabbrev_all_tac >> fs[]) >>
+  conj_tac >- rw[INST_CORE_def] >>
+  conj_tac >- (
+    rw[INST_CORE_def] >>
+    unabbrev_all_tac >> rw[] >> fs[] >>
+    metis_tac[NOT_IS_CLASH_IS_RESULT,IS_RESULT_def,RESULT_eq_suff]) >>
+  rpt gen_tac >> strip_tac >> simp[] >> strip_tac >>
+  simp_tac std_ss [INST_CORE_def] >>
+  Q.PAT_ABBREV_TAC`ty' = TYPE_SUBST tyin ty` >>
+  simp_tac std_ss [LET_THM] >>
+  qabbrev_tac`env' = (Var x ty, Var x ty')::env` >>
+  qabbrev_tac`tres = INST_CORE env' tyin tm` >>
+  Q.PAT_ABBREV_TAC`x' = VARIANT X x ty'` >>
+  Q.PAT_ABBREV_TAC`env'' = X::env` >> fs[] >>
+  qspecl_then[`sizeof tm`,`tm`,`env'`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
+  simp[] >>
+  discharge_hyps >- ( simp[Abbr`env'`] >> metis_tac[] ) >>
+  qmatch_abbrev_tac`A ∨ B ⇒ C` >>
+  qsuff_tac`(A ⇒ C) ∧ (B ⇒ C)` >- (rpt (pop_assum kall_tac) >> PROVE_TAC[]) >>
+  reverse conj_tac >- (
+    map_every qunabbrev_tac[`A`,`B`,`C`] >>
+    strip_tac >>
+    `tres = Result (simple_inst tyin tm)` by (
+      first_x_assum match_mp_tac >>
+      simp[REV_ASSOCD,Abbr`env'`,Abbr`ty'`] >>
+      rw[] >> metis_tac[] ) >>
+    simp[] ) >>
+  map_every qunabbrev_tac[`A`,`B`,`C`] >>
+  disch_then(qx_choosel_then[`v`,`vy`]strip_assume_tac) >>
+  `CLASH tres = Var x ty'` by (
+    simp[] >> pop_assum mp_tac >>
+    simp[Abbr`env'`,REV_ASSOCD] >>
+    Cases_on`x=v`>>simp[]>>
+    Cases_on`ty = vy`>>simp[Abbr`ty'`]>>
+    rw[] ) >>
+  simp[] >>
+*)
 
 val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
   (FLOOKUP τ s = SOME m ⇒ typeset τ (Tyvar s) m) ∧
@@ -815,9 +959,6 @@ val has_meaning_Comb = store_thm("has_meaning_Comb",
   map_every qexists_tac[`σ2`,`m1`,`m2`] >>
   simp[] >>
   metis_tac[SUBMAP_TRANS,closes_over_extend,semantics_extend_term_valuation])
-
-val discharge_hyps =
-  match_mp_tac(PROVE[]``(p ∧ (q ==> r)) ==> ((p ==> q) ==> r)``) >> conj_tac
 
 val has_meaning_Abs = store_thm("has_meaning_Abs",
   ``∀x ty t. has_meaning (Abs x ty t) ⇔ type_has_meaning ty ∧ has_meaning t``,
