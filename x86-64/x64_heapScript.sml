@@ -1187,7 +1187,7 @@ gg goal
   val th = th |> DISCH_ALL |> RW [AND_IMP_INTRO] |> RW [GSYM SPEC_MOVE_COND]
   in th end;
 
-val zBC_PushExc =
+val zBC_PushExc_raw =
   SPEC_COMPOSE_RULE [zHEAP_PUSH1,zREAD_HANDLER,zWRITE_HANDLER]
 
 
@@ -1231,7 +1231,7 @@ val MOD_LESS_ALT = prove(
   \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `m`)
   \\ DECIDE_TAC);
 
-val zBC_PopExc = let
+val zBC_PopExc_raw = let
   val ((th,_,_),_) = prog_x64Lib.x64_spec "4981EB08000000"
   val th = th |> Q.INST [`rip`|->`p`]
   val (_,_,sts,_) = prog_x64Lib.x64_tools
@@ -6884,6 +6884,8 @@ val zBC_JumpPtr = zHEAP_JMP_PTR |> fix_code
 val zBC_CallPtr = zHEAP_CALL_PTR |> fix_code
 val zBC_Call = zHEAP_CALL_IMM |> fix_code
 val zBC_PushPtr = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_LOAD_PTR] |> fix_code
+val zBC_PushExc = zBC_PushExc |> fix_code
+val zBC_PopExc = zBC_PopExc |> fix_code
 
 
 (* translation function *)
@@ -6916,6 +6918,8 @@ val x64_def = Define `
   (x64 i (Ref) = ^(get_code zBC_Ref)) /\
   (x64 i (Deref) = ^(get_code zBC_Deref)) /\
   (x64 i (Update) = ^(get_code zBC_Update)) /\
+  (x64 i (PopExc) = ^(get_code zBC_PopExc)) /\
+  (x64 i (PushExc) = ^(get_code zBC_PushExc)) /\
   (x64 i (Label l) = []) /\
   (x64 i (Tick) = ^(get_code zBC_Tick)) /\
   (x64 i (PrintC c) =
@@ -6972,10 +6976,13 @@ val LENGTH_x64_code = prove(
 (* cb = code base, sb = stack base,ev *)
 
 val bc_adjust_def = tDefine "bc_adjust" `
-  (bc_adjust (cb,sb,ev) (CodePtr p) = CodePtr ((w2n (cb:word64) DIV 2) + p)) /\
-  (bc_adjust (cb,sb,ev) (StackPtr i) = StackPtr ((w2n (sb:word64) DIV 2) + i)) /\
+  (bc_adjust (cb,sb,ev) (CodePtr p) =
+     CodePtr ((w2n (cb:word64) DIV 2) + p)) /\
+  (bc_adjust (cb,sb,ev) (StackPtr i) =
+     StackPtr ((w2n ((sb:word64) - n2w (8 * i)) DIV 2))) /\
   (bc_adjust (cb,sb,ev) (Number n) = Number n) /\
-  (bc_adjust (cb,sb,ev) (RefPtr r) = RefPtr (if ev then 2 * r else 2 * r + 1)) /\
+  (bc_adjust (cb,sb,ev) (RefPtr r) =
+     RefPtr (if ev then 2 * r else 2 * r + 1)) /\
   (bc_adjust (cb,sb,ev) (Block tag data) =
      Block tag (MAP (bc_adjust (cb,sb,ev)) data))`
   (WF_REL_TAC `measure (bc_value_size o SND)`
@@ -6994,7 +7001,8 @@ val zBC_HEAP_def = Define `
     SEP_EXISTS x2 x3.
       let ss = MAP (bc_adjust (cb,sb,ev)) bs.stack ++ (Number 0) :: stack in
         zHEAP (cs,HD ss,x2,x3,x,FUNION (ref_adjust (cb,sb,ev) bs.refs) f2,TL ss,
-                  s with <| output := out ++ bs.output |>,NONE)`;
+                  s with <| output := out ++ bs.output ;
+                            handler := bs.handler + SUC (LENGTH stack) |>,NONE)`;
 
 (*
   no tracking for the following:
@@ -7014,7 +7022,7 @@ fun prepare th = let
       x3,x,FUNION (ref_adjust (cb,sb,ev) s1.refs) f2,
       TL (MAP (bc_adjust (cb,sb,ev)) s1.stack ++ Number 0::stack),
       s with output := STRCAT out s1.output,NONE) *
-   zPC (cb + n2w (2 * s1.pc)) * ~zS)``
+     zPC (cb + n2w (2 * s1.pc)) * ~zS)``
   val i = fst (match_term pre tm)
   val th = INST i th
   in th end
@@ -7106,8 +7114,21 @@ val MOD64_DIV2_MOD63 = prove(
   \\ `0 < dimword (:63) * 2` by EVAL_TAC
   \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC,MOD_MOD]);
 
+val HD_CONS_TL = prove(
+  ``!xs. ~(xs = []) ==> (HD xs :: TL xs = xs)``,
+  Cases \\ SRW_TAC [] []);
+
+val word_sub_intro = prove(
+  ``(-w + v = v - w) /\ (v + -w = v - w:'a word)``,
+  SIMP_TAC std_ss [word_sub_def,AC WORD_ADD_COMM WORD_ADD_ASSOC]);
+
+val SPEC_CONSEQ = prove(
+  ``SPEC m p c q ==>
+    !p1 q1. SEP_IMP p1 p /\ SEP_IMP q q1 ==> SPEC m p1 c q1``,
+  METIS_TAC [SPEC_WEAKEN,SPEC_STRENGTHEN]);
+
 val zBC_HEAP_THM = prove(
-  ``EVEN (w2n cb) ==>
+  ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>
     !s1 s2.
       bc_next s1 s2 ==> (s1.inst_length = x64_inst_length) /\
       (!r. r IN FDOM f2 ==> if ev then ODD r else EVEN r) ==>
@@ -7423,8 +7444,63 @@ val zBC_HEAP_THM = prove(
     \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM]
     \\ REPEAT STRIP_TAC \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
     \\ FULL_SIMP_TAC (std_ss++star_ss) [])
-  THEN1 (* PushExn *) cheat
-  THEN1 (* PopExn *) cheat
+  THEN1 (* PushExn *)
+   (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
+    \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
+    \\ REPEAT STRIP_TAC
+    \\ (prepare zBC_PushExc
+         |> MATCH_MP SPEC_WEAKEN |> SPEC_ALL
+         |> DISCH_ALL |> RW [AND_IMP_INTRO]
+         |> MATCH_MP_TAC)
+    \\ ASM_SIMP_TAC (srw_ss()) [bc_adjust_def]
+    \\ SIMP_TAC std_ss [reintro_word_sub]
+    \\ `SUC (LENGTH (TL
+         (MAP (bc_adjust (cb,sb,ev)) s1.stack ++
+        Number 0::stack))) = LENGTH s1.stack + SUC (LENGTH stack)` by ALL_TAC
+    THEN1 (Cases_on `s1.stack` \\ SRW_TAC [] [] \\ DECIDE_TAC)
+    \\ FULL_SIMP_TAC std_ss []
+    \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,
+         LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1]
+    \\ SIMP_TAC std_ss [GSYM ADD_ASSOC]
+    \\ SIMP_TAC (srw_ss()) [HD_CONS_TL] \\ SIMP_TAC std_ss [reintro_word_sub]
+    \\ `-n2w (8 * s1.handler + 8 * SUC (LENGTH stack)) +
+            cs.stack_trunk = sb + -n2w (8 * s1.handler)` by ALL_TAC THEN1
+     (Q.PAT_ASSUM `bbb = sb` (ASSUME_TAC o GSYM)
+      \\ FULL_SIMP_TAC std_ss []
+      \\ FULL_SIMP_TAC std_ss [GSYM word_add_n2w,word_sub_intro]
+      \\ FULL_SIMP_TAC std_ss [WORD_SUB_PLUS] \\ SRW_TAC [] [])
+    \\ FULL_SIMP_TAC std_ss []
+    \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
+    \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
+    \\ FULL_SIMP_TAC std_ss [reintro_word_sub]
+    \\ FULL_SIMP_TAC (std_ss++star_ss) [])
+  THEN1 (* PopExn *)
+   (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
+    \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
+    \\ REPEAT STRIP_TAC
+    \\ (zBC_PopExc
+         |> DISCH ``l1 ++ StackPtr (w2n (cs.stack_trunk -
+                      n2w (8 * sp)) DIV 2)::l2 = xss``
+         |> SIMP_RULE std_ss [] |> prepare
+         |> Q.INST [`l1`|->`MAP (bc_adjust (cb,sb,ev)) l1`,
+                    `l2`|->`MAP (bc_adjust (cb,sb,ev)) l2 ++ Number 0::stack`,
+                    `x1`|->`bc_adjust (cb,sb,ev) x'`,
+                    `sp`|->`sp + SUC (LENGTH (stack:bc_value list))`]
+         |> MATCH_MP SPEC_WEAKEN |> SPEC_ALL
+         |> DISCH_ALL |> RW [AND_IMP_INTRO]
+         |> MATCH_MP_TAC)
+    \\ STRIP_TAC THEN1 cheat
+    \\ FULL_SIMP_TAC (srw_ss()) [MAP,MAP_APPEND,HD,TL,APPEND]
+    \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,
+         LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1]
+    \\ SIMP_TAC std_ss [GSYM ADD_ASSOC]
+    \\ FULL_SIMP_TAC std_ss [reintro_word_sub]
+    \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
+    \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
+    \\ FULL_SIMP_TAC std_ss [reintro_word_sub]
+    \\ FULL_SIMP_TAC (std_ss++star_ss) [])
   THEN1 (* Ref *)
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
     \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
@@ -7668,7 +7744,7 @@ val isPREFIX_APPEND = prove(
   \\ METIS_TAC [APPEND_ASSOC]);
 
 val zBC_HEAP_RTC = prove(
-  ``EVEN (w2n cb) ==>
+  ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>
     !s1 s2.
       bc_next^* s1 s2 ==>
       isPREFIX s1.output s2.output /\
@@ -7712,7 +7788,6 @@ val zBC_HEAP_RTC = prove(
     \\ REPEAT STRIP_TAC \\ Q.EXISTS_TAC `part`
     \\ FULL_SIMP_TAC std_ss [cond_STAR] \\ METIS_TAC [isPREFIX_APPEND])
   \\ Q.PAT_ASSUM `SPEC xx yy tt rr` MP_TAC
-  \\ `STRCAT out s2.output = STRCAT out s3.output` by cheat
   \\ FULL_SIMP_TAC std_ss []
   \\ (SPEC_SUBSET_CODE |> SIMP_RULE std_ss [PULL_FORALL,AND_IMP_INTRO]
         |> RW1 [CONJ_COMM] |> RW [GSYM AND_IMP_INTRO] |> MATCH_MP_TAC)
