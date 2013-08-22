@@ -24,3 +24,4 @@ val THE : forall 'a 'b. 'a -> 'b
 val OPTION_BIND : forall 'a 'b 'c. 'a -> ('b -> 'c) -> 'c
 val OPTION_MAP : forall 'a 'b 'c 'd. ('a -> 'b) -> 'c -> 'd
 val FLOOKUP : forall 'a 'b 'c. 'a -> 'b -> 'c
+val find_index : forall 'a 'b. 'a -> list 'a -> num -> 'b

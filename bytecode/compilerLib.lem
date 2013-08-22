@@ -12,11 +12,6 @@ let inline {hol} drop = Hol.DROP
 val least : (num -> bool) -> num
 let inline {hol} least = Hol.LEAST
 
-let rec
-find_index _ [] _ = None
-and
-find_index y (x::xs) n = if x = y then Some n else find_index y xs (n+1)
-
 let rec el_check n ls = if n < List.length ls then Some (List.nth ls n) else None
 
 let rec num_fold f a n = if n = 0 then a else num_fold f (f a) (n-1)

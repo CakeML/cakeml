@@ -21,14 +21,6 @@ val _ = new_theory "CompilerLib"
 
 (*val least : (num -> bool) -> num*)
 
- val find_index_defn = Hol_defn "find_index" `
-
-(find_index _ [] _ = NONE)
-/\
-(find_index y (x::xs) n = (if x = y then SOME n else find_index y xs (n +1)))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn find_index_defn;
-
  val el_check_def = Define `
  (el_check n ls = (if n < LENGTH ls then SOME ( EL  n  ls) else NONE))`;
 

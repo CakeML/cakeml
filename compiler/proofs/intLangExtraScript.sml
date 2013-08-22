@@ -4,6 +4,14 @@ val _ = new_theory "intLangExtra"
 
 (* compilerLibExtra *)
 
+val the_find_index_suff = store_thm("the_find_index_suff",
+  ``∀P d x ls n. (∀m. m < LENGTH ls ⇒ P (m + n)) ∧ MEM x ls ⇒
+    P (the d (find_index x ls n))``,
+  rw[] >>
+  imp_res_tac find_index_MEM >>
+  pop_assum(qspec_then`n`mp_tac) >>
+  srw_tac[DNF_ss,ARITH_ss][])
+
 val set_lunion = store_thm("set_lunion",
   ``∀l1 l2. set (lunion l1 l2) = set l1 ∪ set l2``,
   Induct >> simp[lunion_def] >> rw[EXTENSION] >> metis_tac[])
@@ -17,115 +25,6 @@ val set_lshift = store_thm("set_lshift",
   TRY(qexists_tac`v`>>simp[]>>NO_TAC)>>
   TRY(qexists_tac`m`>>simp[]>>NO_TAC))
 val _ = export_rewrites["set_lshift"]
-
-val find_index_NOT_MEM = store_thm("find_index_NOT_MEM",
-  ``∀ls x n. ¬MEM x ls = (find_index x ls n = NONE)``,
-  Induct >> rw[find_index_def])
-
-val find_index_MEM = store_thm("find_index_MEM",
-  ``!ls x n. MEM x ls ==> ?i. (find_index x ls n = SOME (n+i)) /\ i < LENGTH ls /\ (EL i ls = x)``,
-  Induct >> rw[find_index_def] >- (
-    qexists_tac`0`>>rw[] ) >>
-  first_x_assum(qspecl_then[`x`,`n+1`]mp_tac) >>
-  rw[]>>qexists_tac`SUC i`>>srw_tac[ARITH_ss][ADD1])
-
-val find_index_LEAST_EL = store_thm("find_index_LEAST_EL",
-  ``∀ls x n. find_index x ls n = if MEM x ls then SOME (n + (LEAST n. x = EL n ls)) else NONE``,
-  Induct >- rw[find_index_def] >>
-  simp[find_index_def] >>
-  rpt gen_tac >>
-  Cases_on`h=x`>>fs[] >- (
-    numLib.LEAST_ELIM_TAC >>
-    conj_tac >- (qexists_tac`0` >> rw[]) >>
-    Cases >> rw[] >>
-    first_x_assum (qspec_then`0`mp_tac) >> rw[] ) >>
-  rw[] >>
-  numLib.LEAST_ELIM_TAC >>
-  conj_tac >- metis_tac[MEM_EL,MEM] >>
-  rw[] >>
-  Cases_on`n`>>fs[ADD1] >>
-  numLib.LEAST_ELIM_TAC >>
-  conj_tac >- metis_tac[] >>
-  rw[] >>
-  qmatch_rename_tac`m = n`[] >>
-  Cases_on`m < n` >- (res_tac >> fs[]) >>
-  Cases_on`n < m` >- (
-    `n + 1 < m + 1` by DECIDE_TAC >>
-    res_tac >> fs[GSYM ADD1] ) >>
-  DECIDE_TAC )
-
-val find_index_LESS_LENGTH = store_thm(
-"find_index_LESS_LENGTH",
-``∀ls n m i. (find_index n ls m = SOME i) ⇒ (m <= i) ∧ (i < m + LENGTH ls)``,
-Induct >> rw[find_index_def] >>
-res_tac >>
-srw_tac[ARITH_ss][arithmeticTheory.ADD1])
-
-val find_index_ALL_DISTINCT_EL = store_thm(
-"find_index_ALL_DISTINCT_EL",
-``∀ls n m. ALL_DISTINCT ls ∧ n < LENGTH ls ⇒ (find_index (EL n ls) ls m = SOME (m + n))``,
-Induct >- rw[] >>
-gen_tac >> Cases >>
-srw_tac[ARITH_ss][find_index_def] >>
-metis_tac[MEM_EL])
-val _ = export_rewrites["find_index_ALL_DISTINCT_EL"]
-
-val find_index_ALL_DISTINCT_EL_eq = store_thm("find_index_ALL_DISTINCT_EL_eq",
-  ``∀ls. ALL_DISTINCT ls ⇒ ∀x m i. (find_index x ls m = SOME i) =
-      ∃j. (i = m + j) ∧ j < LENGTH ls ∧ (x = EL j ls)``,
-  rw[EQ_IMP_THM] >- (
-    imp_res_tac find_index_LESS_LENGTH >>
-    fs[find_index_LEAST_EL] >> srw_tac[ARITH_ss][] >>
-    numLib.LEAST_ELIM_TAC >>
-    conj_tac >- PROVE_TAC[MEM_EL] >>
-    fs[EL_ALL_DISTINCT_EL_EQ] ) >>
-  PROVE_TAC[find_index_ALL_DISTINCT_EL])
-
-val find_index_APPEND_same = store_thm("find_index_APPEND_same",
-  ``!l1 n m i l2. (find_index n l1 m = SOME i) ==> (find_index n (l1 ++ l2) m = SOME i)``,
-  Induct >> rw[find_index_def])
-
-val find_index_ALL_DISTINCT_REVERSE = store_thm("find_index_ALL_DISTINCT_REVERSE",
-  ``∀ls x m j. ALL_DISTINCT ls ∧ (find_index x ls m = SOME j) ⇒ (find_index x (REVERSE ls) m = SOME (m + LENGTH ls + m - j - 1))``,
-  rw[] >> imp_res_tac find_index_ALL_DISTINCT_EL_eq >>
-  `ALL_DISTINCT (REVERSE ls)` by rw[ALL_DISTINCT_REVERSE] >>
-  simp[find_index_ALL_DISTINCT_EL_eq] >>
-  rw[] >> fsrw_tac[ARITH_ss][] >> rw[] >>
-  qmatch_assum_rename_tac`z < LENGTH ls`[] >>
-  qexists_tac`LENGTH ls - z - 1` >>
-  lrw[EL_REVERSE,PRE_SUB1])
-
-val THE_find_index_suff = store_thm("THE_find_index_suff",
-  ``∀P x ls n. (∀m. m < LENGTH ls ⇒ P (m + n)) ∧ MEM x ls ⇒
-    P (THE (find_index x ls n))``,
-  rw[] >>
-  imp_res_tac find_index_MEM >>
-  pop_assum(qspec_then`n`mp_tac) >>
-  srw_tac[DNF_ss,ARITH_ss][])
-
-val the_find_index_suff = store_thm("the_find_index_suff",
-  ``∀P d x ls n. (∀m. m < LENGTH ls ⇒ P (m + n)) ∧ MEM x ls ⇒
-    P (the d (find_index x ls n))``,
-  rw[] >>
-  imp_res_tac find_index_MEM >>
-  pop_assum(qspec_then`n`mp_tac) >>
-  srw_tac[DNF_ss,ARITH_ss][])
-
-val find_index_APPEND1 = store_thm("find_index_APPEND1",
-  ``∀l1 n l2 m i. (find_index n (l1 ++ l2) m = SOME i) ∧ (i < m+LENGTH l1) ⇒ (find_index n l1 m = SOME i)``,
-  Induct >> simp[find_index_def] >- (
-    spose_not_then strip_assume_tac >>
-    imp_res_tac find_index_LESS_LENGTH >>
-    DECIDE_TAC ) >>
-  rw[] >> res_tac >>
-  first_x_assum match_mp_tac >>
-  simp[])
-
-val find_index_APPEND2 = store_thm("find_index_APPEND2",
-  ``∀l1 n l2 m i. (find_index n (l1 ++ l2) m = SOME i) ∧ (m + LENGTH l1 ≤ i) ⇒ (find_index n l2 (m+LENGTH l1) = SOME i)``,
-  Induct >> simp[find_index_def] >>
-  rw[] >> fsrw_tac[ARITH_ss][] >>
-  res_tac >> fsrw_tac[ARITH_ss][ADD1])
 
 (* free/all/no_labs *)
 
