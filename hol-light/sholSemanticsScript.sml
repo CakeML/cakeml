@@ -303,6 +303,22 @@ val find_index_MAP_inj = store_thm("find_index_MAP_inj",
   rw[] >> rw[find_index_def] >>
   metis_tac[])
 
+val find_index_shift_0 = store_thm("find_index_shift_0",
+  ``∀ls x k. find_index x ls k = OPTION_MAP (λx. x + k) (find_index x ls 0)``,
+  Induct >> simp_tac(srw_ss())[find_index_def] >>
+  rpt gen_tac >>
+  Cases_on`h=x` >- (
+    BasicProvers.VAR_EQ_TAC >>
+    simp_tac(srw_ss())[] ) >>
+  pop_assum mp_tac >>
+  simp_tac(srw_ss())[] >>
+  strip_tac >>
+  first_assum(qspecl_then[`x`,`k+1`]mp_tac) >>
+  first_x_assum(qspecl_then[`x`,`1`]mp_tac) >>
+  rw[] >>
+  Cases_on`find_index x ls 0`>>rw[] >>
+  simp[])
+
 val dbilist_def = Define`
   dbilist ilist = alist_to_fmap (MAP (λ(k,v). dest_var k, dbterm [] v) (MAP (λ(v,k). (k,v)) ilist))`
 
@@ -354,6 +370,60 @@ val VSUBST_NIL = store_thm("VSUBST_NIL",
   ``∀tm. VSUBST [] tm = tm``,
   Induct >> simp[VSUBST_def,REV_ASSOCD])
 val _ = export_rewrites["VSUBST_NIL"]
+
+val RACONV_dbterm = store_thm("RACONV_dbterm",
+  ``∀env tp. RACONV env tp ⇒
+    (∀vp. MEM vp env ⇒ (∃x ty. (FST vp = Var x ty)) ∧ (∃x ty. (SND vp = Var x ty)))
+     ⇒ dbterm (MAP (dest_var o FST) env) (FST tp) = dbterm (MAP (dest_var o SND) env) (SND tp)``,
+  ho_match_mp_tac RACONV_ind >> rw[] >> rw[] >>
+  TRY (
+    first_x_assum match_mp_tac >>
+    rw[] >> rw[] ) >>
+  Induct_on`env` >> simp[ALPHAVARS_def] >>
+  rw[] >> rw[] >- rw[find_index_def] >> fs[] >>
+  simp[find_index_def] >>
+  `∃x ty. FST h = Var x ty` by metis_tac[] >>
+  `∃y tz. SND h = Var y tz` by metis_tac[] >>
+  simp[] >>
+  simp[Once find_index_shift_0] >>
+  simp[Once find_index_shift_0,SimpRHS] >>
+  rpt BasicProvers.CASE_TAC >> fs[] >> rw[] >> fs[])
+
+val dbterm_RACONV = store_thm("dbterm_RACONV",
+  ``∀t1 env1 t2 env2. dbterm env1 t1 = dbterm env2 t2 ∧ LENGTH env1 = LENGTH env2 ⇒
+      RACONV (ZIP(MAP (UNCURRY Var) env1,MAP (UNCURRY Var) env2)) (t1,t2)``,
+  Induct >- (
+    ntac 2 gen_tac >> simp[] >>
+    Cases >> simp[RACONV] >>
+    TRY (BasicProvers.CASE_TAC >> simp[] >> NO_TAC) >>
+    Induct_on`env1` >- (
+      simp[find_index_def,LENGTH_NIL_SYM,ALPHAVARS_def] ) >>
+    gen_tac >> Cases >> simp[] >>
+    simp[find_index_def,ALPHAVARS_def] >>
+    Cases_on`h`>>Cases_on`h'`>>simp[] >>
+    simp[Once find_index_shift_0] >>
+    simp[Once find_index_shift_0,SimpRHS] >>
+    rpt BasicProvers.CASE_TAC >> fs[] >> rw[] >> fs[] )
+  >- (
+    simp[] >> ntac 2 gen_tac >>
+    Cases >> simp[RACONV] >>
+    gen_tac >> BasicProvers.CASE_TAC >> simp[] )
+  >- (
+    simp[] >>
+    gen_tac >> Cases >> simp[RACONV] >>
+    gen_tac >> BasicProvers.CASE_TAC >> simp[] ) >>
+  simp[] >>
+  ntac 2 gen_tac >>
+  Cases >> simp[RACONV] >- (
+    gen_tac >> BasicProvers.CASE_TAC >> simp[] ) >>
+  rw[] >> res_tac >> fs[])
+
+val dbterm_ACONV = store_thm("dbterm_ACONV",
+  ``∀t1 t2. ACONV t1 t2 ⇔ dbterm [] t1 = dbterm [] t2``,
+  rw[ACONV_def,EQ_IMP_THM] >- (
+    qspecl_then[`[]`,`t1,t2`]mp_tac RACONV_dbterm >> simp[] ) >>
+  qspecl_then[`t1`,`[]`,`t2`,`[]`]mp_tac dbterm_RACONV >>
+  simp[])
 
 (*
 val dbterm_rename = store_thm("dbterm_rename",
@@ -454,7 +524,7 @@ val dbterm_VSUBST = store_thm("dbterm_VSUBST",
           rpt BasicProvers.VAR_EQ_TAC >>
           fs[] >> rw[] >>
           metis_tac[]
-)
+*)
 
 (*
 val dbterm_VSUBST = store_thm("dbterm_VSUBST",
