@@ -425,6 +425,178 @@ val dbterm_ACONV = store_thm("dbterm_ACONV",
   qspecl_then[`t1`,`[]`,`t2`,`[]`]mp_tac dbterm_RACONV >>
   simp[])
 
+val dbfv_def = Define`
+  dbfv (dbFree s ty) = [(s,ty)] ∧
+  dbfv (dbVar _) = [] ∧
+  dbfv (dbConst _ _ _) = [] ∧
+  dbfv (dbComb t1 t2) = dbfv t1 ++ dbfv t2 ∧
+  dbfv (dbAbs _ tm) = dbfv tm`
+val _ = export_rewrites["dbfv_def"]
+
+val dbbv_def = Define`
+  dbbv (dbFree s ty) = [] ∧
+  dbbv (dbVar n) = [n] ∧
+  dbbv (dbConst _ _ _) = [] ∧
+  dbbv (dbComb t1 t2) = dbbv t1 ++ dbbv t2 ∧
+  dbbv (dbAbs _ tm) = MAP PRE (FILTER ($< 0) (dbbv tm))`
+val _ = export_rewrites["dbbv_def"]
+
+val fresh_def = Define`
+  fresh ls ty = let n = LEAST n. (REPLICATE n (ARB:char),ty) ∉ set ls in (REPLICATE n (ARB:char),ty)`
+
+val fresh_thm = store_thm("fresh_thm",
+  ``∀ls ty. fresh ls ty ∉ set ls``,
+  rw[fresh_def,LET_THM] >>
+  numLib.LEAST_ELIM_TAC >> rw[] >>
+  spose_not_then strip_assume_tac >>
+  qsuff_tac`INFINITE (set ls)` >- simp[] >>
+  REWRITE_TAC[infinite_num_inj] >>
+  qexists_tac`λn. REPLICATE n ARB,ty` >>
+  simp[INJ_DEF] >> rw[] >>
+  metis_tac[rich_listTheory.LENGTH_REPLICATE])
+
+val fresh_ty = store_thm("fresh_ty",
+  ``∀ls ty. SND(fresh ls ty) = ty``,
+  rw[fresh_def] >> rw[])
+
+val undb_def = Define`
+  (undb env (dbFree s ty) = Var s ty) ∧
+  (undb env (dbVar n) = UNCURRY Var (EL n env)) ∧
+  (undb env (dbConst s ty g) = Const s ty g) ∧
+  (undb env (dbComb t1 t2) = Comb (undb env t1) (undb env t2)) ∧
+  (undb env (dbAbs ty tm) =
+     let (x,ty) = fresh (env ++ dbfv tm) ty in
+     Abs x ty (undb ((x,ty)::env) tm))`
+val _ = export_rewrites["undb_def"]
+
+val dbterm_undb = store_thm("dbterm_undb",
+  ``∀tm env. set (dbbv tm) ⊆ count (LENGTH env) ∧ DISJOINT (set (dbfv tm)) (set env) ∧ ALL_DISTINCT env
+    ⇒ (dbterm env (undb env tm) = tm)``,
+  Induct >- (
+    simp[] >> rw[] >>
+    BasicProvers.CASE_TAC >>
+    metis_tac[find_index_is_MEM] )
+  >- rw[UNCURRY]
+  >- rw[]
+  >- rw[] >>
+  rw[] >>
+  rw[] >- metis_tac[fresh_ty,SND] >>
+  first_x_assum match_mp_tac >>
+  fs[SUBSET_DEF,IN_DISJOINT,MEM_MAP,GSYM LEFT_FORALL_IMP_THM,MEM_FILTER] >>
+  conj_tac >- (
+    rw[] >>
+    res_tac >>
+    qmatch_assum_rename_tac`MEM z Y`["Y"] >>
+    Cases_on`z`>>fsrw_tac[ARITH_ss][] ) >>
+  conj_tac >- (
+    qx_gen_tac`z` >>
+    Cases_on`z=(x,ty)`>>simp[]>>
+    metis_tac[fresh_thm,MEM_APPEND] ) >>
+  metis_tac[fresh_thm,MEM_APPEND])
+
+val dbbv_dbterm = store_thm("dbbv_dbterm",
+  ``∀tm env. set (dbbv (dbterm env tm)) ⊆ count (LENGTH env)``,
+  Induct >- (
+    simp[SUBSET_DEF] >>
+    rpt gen_tac >>
+    BasicProvers.CASE_TAC >> simp[] >>
+    imp_res_tac find_index_LESS_LENGTH >>
+    fs[] )
+  >- rw[]
+  >- rw[] >>
+  rw[] >>
+  fs[SUBSET_DEF,MEM_MAP,GSYM LEFT_FORALL_IMP_THM,MEM_FILTER] >>
+  rw[] >> res_tac >> fs[] >>
+  Cases_on`y`>>fs[])
+
+(*
+val VSUBST_RACONV = store_thm("VSUBST_RACONV",
+  ``∀env tp. RACONV env tp ⇒ ∀ilist. RACONV (MAP (λ(x,y). VSUBST ilist x, VSUBST ilist y) env) (VSUBST ilist (FST tp), VSUBST ilist (SND tp))``,
+  ho_match_mp_tac RACONV_ind >>
+  conj_tac >- (
+    Induct >- (
+      simp[ALPHAVARS_def,VSUBST_def,RACONV_REFL] ) >>
+    Cases >> simp[ALPHAVARS_def] >>
+    rw[VSUBST_def] >>
+    rw[VSUBST_def] >>
+*)
+
+(*
+val dbterm_rename = store_thm("dbterm_rename",
+  ``∀tm x x' ty env ilist.
+      ¬VFREE_IN (Var x' ty) tm ∧
+      Var x ty ∉ set (MAP SND ilist) ∧
+
+      ⇒
+      dbterm ((x',ty)::env) (VSUBST ((Var x' ty,Var x ty)::ilist) tm) =
+      dbterm ((x,ty)::env) (VSUBST ilist tm)``,
+  Induct >- (
+    simp[VSUBST_def] >>
+    rw[REV_ASSOCD,find_index_def] >- (
+      Q.ISPECL_THEN[`ilist`,`Var s t`,`Var s t`]mp_tac REV_ASSOCD_MEM >>
+      rw[] >> fs[find_index_def] >>
+      fs[MEM_MAP,EXISTS_PROD] >> metis_tac[] )
+    dbterm_env_shift
+
+val dbterm_VSUBST = store_thm("dbterm_VSUBST",
+  ``∀tm ilist env.
+      (∀k v. MEM (v,k) ilist ⇒
+             ∃x ty. k = Var x ty ∧
+                    (∀x ty. MEM (x,ty) env ⇒ ¬VFREE_IN (Var x ty) v)) ⇒
+      dbterm env (VSUBST (FILTER (λ(v,k). dest_var k ∉ set env) ilist) tm) =
+      dbsubst (dbilist ilist) (dbterm env tm)``,
+  Induct >- (
+    simp[VSUBST_def] >> rw[] >>
+    match_mp_tac EQ_SYM >>
+    BasicProvers.CASE_TAC >- (
+      fs[GSYM find_index_NOT_MEM] >>
+      qspecl_then[`ilist`,`s`,`t`]mp_tac dbilist_thm >>
+      discharge_hyps >- metis_tac[] >>
+      rw[] >- (
+        rw[REV_ASSOCD_FILTER] >>
+        qmatch_abbrev_tac`dbterm [] a = dbterm env a` >>
+        qspecl_then[`a`,`[]`,`env`]mp_tac dbterm_env_shift >>
+        discharge_hyps >- (
+          rw[] >>
+          Cases_on`a = Var s t` >> simp[] >- (
+            spose_not_then strip_assume_tac >>
+            imp_res_tac find_index_is_MEM >>
+            metis_tac[] ) >>
+          `MEM (a,Var s t) ilist` by metis_tac[REV_ASSOCD_MEM] >>
+          spose_not_then strip_assume_tac >>
+          first_x_assum(qspecl_then[`Var s t`,`a`]mp_tac) >>
+          simp[] >>
+          metis_tac[find_index_is_MEM] ) >>
+        rw[] ) >>
+      rw[REV_ASSOCD_FILTER] >>
+      qmatch_abbrev_tac`dbFree s t = dbterm env a` >>
+      Cases_on`a = Var s t`>>simp[] >- (
+        BasicProvers.CASE_TAC >>
+        metis_tac[find_index_is_MEM] ) >>
+      `MEM (a,Var s t) ilist` by metis_tac[REV_ASSOCD_MEM] >>
+      fs[MEM_MAP,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    simp[REV_ASSOCD_FILTER] >> rw[] >>
+    metis_tac[find_index_is_MEM] )
+  >- rw[VSUBST_def]
+  >- rw[VSUBST_def] >>
+  rw[] >>
+  rw[VSUBST_def] >>
+  rw[] >- (
+    fs[EXISTS_MEM,Abbr`ilist'`,MEM_FILTER,EXISTS_PROD] >>
+    qmatch_assum_abbrev_tac`Abbrev(t' = VSUBST (FILTER P ilist') tm)` >>
+    cheat ) >>
+  simp[Abbr`t'`] >>
+  first_x_assum(qspecl_then[`ilist`,`(s,t)::env`]mp_tac) >>
+  discharge_hyps >- (
+    simp[] >> rw[] >>
+    res_tac >> simp[] >>
+    reverse(rw[]) >- metis_tac[] >>
+    fs[Abbr`ilist'`,EXISTS_MEM,EVERY_MEM,MEM_FILTER,FORALL_PROD] >>
+    Cases_on`MEM (s,t) env`>-metis_tac[] >>
+    first_x_assum(qspecl_then[`
+*)
+
 (*
 val dbterm_rename = store_thm("dbterm_rename",
   ``∀tm env x x' ty.
