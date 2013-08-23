@@ -223,6 +223,14 @@ val dbterm_def = Define`
   (dbterm k env (Abs x ty t) = dbAbs ty (dbterm k ((x,ty)::env) t))`
 val _ = export_rewrites["dbterm_def"]
 
+val dbterm_def = Define`
+  (dbterm env (Var s ty) =
+     case find_index (s,ty) env 0 of SOME n => dbVar n | NONE => dbFree s ty) ∧
+  (dbterm env (Const s ty g) = dbConst s ty g) ∧
+  (dbterm env (Comb t1 t2) = dbComb (dbterm env t1) (dbterm env t2)) ∧
+  (dbterm env (Abs x ty t) = dbAbs ty (dbterm ((x,ty)::env) t))`
+val _ = export_rewrites["dbterm_def"]
+
 val dbinst_def = Define`
   dbinst tyin (dbFree x ty) = dbFree x (TYPE_SUBST tyin ty) ∧
   dbinst tyin (dbVar n) = dbVar n ∧
@@ -257,6 +265,452 @@ val dbsubst_dbsubst = store_thm("dbsubst_dbsubst",
     BasicProvers.CASE_TAC >>
     BasicProvers.CASE_TAC >>
     simp[] ) >> simp[])
+
+val find_index_shift = store_thm("find_index_shift",
+  ``∀ls x k j. (find_index x ls k = SOME j) ⇒ j ≥ k ∧ ∀n. find_index x ls n = SOME (j-k+n)``,
+  Induct >> simp[find_index_def] >> rw[] >> res_tac >> fsrw_tac[ARITH_ss][])
+
+val dbterm_env_shift = store_thm("dbterm_env_shift",
+  ``∀tm e1 e0. (∀x ty n. VFREE_IN (Var x ty) tm ∧ find_index (x,ty) (e1++e0) 0 = SOME n ⇒ n < LENGTH e1)
+      ⇒ dbterm (e1++e0) tm = dbterm e1 tm``,
+  Induct >- (
+    simp[find_index_def] >> rw[] >>
+    BasicProvers.CASE_TAC >- (
+      fs[GSYM find_index_NOT_MEM] >>
+      BasicProvers.CASE_TAC >>
+      metis_tac[find_index_NOT_MEM,optionTheory.NOT_SOME_NONE] ) >>
+    fs[] >>
+    Q.ISPECL_THEN[`e1`,`s,t`,`e0`,`0`,`x`]mp_tac find_index_APPEND1 >> rw[] )
+  >- simp[]
+  >- ( simp[] >> metis_tac[] ) >>
+  fs[EVERY_MEM,FORALL_PROD] >> rw[] >>
+  first_x_assum(qspecl_then[`(s,t)::e1`,`e0`]mp_tac) >>
+  simp[find_index_def] >>
+  disch_then match_mp_tac >>
+  rw[] >> simp[] >>
+  Q.ISPECL_THEN[`e1++e0`,`x,ty`,`1`,`n`]mp_tac find_index_shift >>
+  simp[] >> rw[] >>
+  pop_assum(qspec_then`0`mp_tac) >> simp[] >>
+  rw[] >> Cases_on`n`>>fs[] >> metis_tac[])
+
+val find_index_is_MEM = store_thm("find_index_is_MEM",
+  ``∀x ls n j. find_index x ls n = SOME j ⇒ MEM x ls``,
+  metis_tac[find_index_NOT_MEM,optionTheory.NOT_SOME_NONE])
+
+val find_index_MAP_inj = store_thm("find_index_MAP_inj",
+  ``∀ls x n f. (∀y. MEM y ls ⇒ (f x = f y) ⇒ x = y) ⇒ (find_index (f x) (MAP f ls) n = find_index x ls n)``,
+  Induct >- simp[find_index_def] >>
+  rw[] >> rw[find_index_def] >>
+  metis_tac[])
+
+val dbilist_def = Define`
+  dbilist ilist = alist_to_fmap (MAP (λ(k,v). dest_var k, dbterm [] v) (MAP (λ(v,k). (k,v)) ilist))`
+
+val dbilist_thm = store_thm("dbilist_thm",
+  ``∀ilist x ty.
+    (∀k v. MEM (v,k) ilist ⇒ ∃x ty. k = Var x ty) ⇒
+    (FLOOKUP (dbilist ilist) (x,ty) =
+     if MEM (Var x ty) (MAP SND ilist) then SOME (dbterm [] (REV_ASSOCD (Var x ty) ilist (Var x ty))) else NONE)``,
+  rw[dbilist_def,ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >- (
+    rw[REV_ASSOCD_ALOOKUP] >>
+    BasicProvers.CASE_TAC >>
+    fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
+    fs[MEM_EL,ALOOKUP_LEAST_EL] >>
+    rfs[EL_MAP,UNCURRY] >>
+    qpat_assum`X = EL n ilist`(assume_tac o SYM) >>
+    qpat_assum`Var x ty = X`(assume_tac o SYM) >>
+    conj_tac >- ( qexists_tac`n` >> simp[EL_MAP,UNCURRY] ) >>
+    rw[] >>
+    numLib.LEAST_ELIM_TAC >>
+    conj_tac >- ( qexists_tac`n` >> simp[EL_MAP,UNCURRY] ) >>
+    rw[] >>
+    `¬(n < n'')` by (
+      strip_tac >>
+      first_x_assum(qspec_then`n`mp_tac) >>
+      simp[EL_MAP,UNCURRY] ) >>
+    `n'' < LENGTH ilist` by DECIDE_TAC >>
+    fs[EL_MAP,UNCURRY] >>
+    fs[GSYM LEFT_FORALL_IMP_THM] >>
+    numLib.LEAST_ELIM_TAC >>
+    conj_tac >- ( qexists_tac`n` >> simp[EL_MAP,UNCURRY] ) >>
+    rw[] >>
+    `¬(n'' < n''')` by (
+      strip_tac >>
+      first_x_assum(qspec_then`n''`mp_tac) >>
+      simp[EL_MAP,UNCURRY] >>
+      res_tac >> Cases_on`EL n'' ilist`>>fs[] >>fs[]) >>
+    `n''' < LENGTH ilist` by DECIDE_TAC >>
+    fs[EL_MAP,UNCURRY] >>
+    `¬(n''' < n'')` by (
+      strip_tac >>
+      last_x_assum(qspec_then`n'''`mp_tac) >>
+      simp[EL_MAP,UNCURRY] ) >>
+    `n'' = n'''` by DECIDE_TAC >>
+    simp[] ) >>
+  spose_not_then strip_assume_tac >>
+  res_tac >> fs[] >> metis_tac[])
+
+val VSUBST_NIL = store_thm("VSUBST_NIL",
+  ``∀tm. VSUBST [] tm = tm``,
+  Induct >> simp[VSUBST_def,REV_ASSOCD])
+val _ = export_rewrites["VSUBST_NIL"]
+
+(*
+val dbterm_rename = store_thm("dbterm_rename",
+  ``∀tm env x x' ty.
+      ¬VFREE_IN (Var x' ty) tm ⇒
+      dbterm ((x',ty)::env) (VSUBST [(Var x' ty,Var x ty)] tm) =
+      dbterm ((x,ty)::env) tm``,
+  Induct >- (
+    simp[VSUBST_def,REV_ASSOCD,find_index_def] >>
+    rw[find_index_def] >> rw[] )
+  >- rw[VSUBST_def]
+  >- rw[VSUBST_def]
+  >- (
+     simp[VSUBST_def] >>
+     rpt gen_tac >> strip_tac >- (
+       rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+       rw[] >- (
+         fs[] >>
+
+val dbterm_rename_bvars = store_thm("dbterm_rename_bvars",
+  ``∀tm env ilist.
+    (∀k v. MEM (v,k) ilist ⇒ ∃x x' ty. k = Var x ty ∧ v = Var x' ty ∧ MEM (x,ty) env) ⇒
+    dbterm (MAP (λ(x,ty). dest_var(REV_ASSOCD (Var x ty) ilist (Var x ty))) env) (VSUBST ilist tm) =
+    dbterm env tm``,
+  Induct >- (
+    simp[VSUBST_def,REV_ASSOCD_ALOOKUP] >>
+    rw[] >>
+    BasicProvers.CASE_TAC >- (
+      fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
+      BasicProvers.CASE_TAC >- (
+        fs[GSYM find_index_NOT_MEM,MEM_MAP,EXISTS_PROD] >>
+        pop_assum(qspecl_then[`s`,`t`]mp_tac) >>
+        BasicProvers.CASE_TAC >> simp[] >- (
+          rw[] >>
+          BasicProvers.CASE_TAC >>
+          imp_res_tac find_index_is_MEM ) >>
+        BasicProvers.CASE_TAC >> simp[] >>
+        imp_res_tac find_index_is_MEM >>
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        res_tac >> fs[] ) >>
+      BasicProvers.CASE_TAC >- (
+        fs[GSYM find_index_NOT_MEM] >>
+        imp_res_tac find_index_is_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        qpat_assum`X = Y`mp_tac >>
+        BasicProvers.CASE_TAC >> simp[] >- (
+          fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
+          metis_tac[] ) >>
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        res_tac >> fs[] >> rw[] >>
+
+          simp[GSM find_index_NOT_MEM]
+          fs[ALOOKUP_FAILS]
+*)
+
+(*
+val dbterm_VSUBST = store_thm("dbterm_VSUBST",
+  ``∀tm env ilist env'.
+      (∀k v. MEM (v,k) ilist ⇒
+        ∃x ty. k = Var x ty ∧
+               (∀x ty. MEM (x,ty) env ⇒ ¬VFREE_IN (Var x ty) v) ∧
+               (MEM (x,ty) env ⇒ ∃x'. v = Var x' ty ∧ ¬VFREE_IN v tm)) ∧
+      (env' = MAP (λ(x,ty). dest_var(REV_ASSOCD (Var x ty) ilist (Var x ty))) env)
+      ⇒
+      dbterm env' (VSUBST ilist tm) =
+      dbsubst (dbilist ilist) (dbterm env tm)``,
+  Induct >- (
+    rw[VSUBST_def,REV_ASSOCD_ALOOKUP] >>
+    match_mp_tac EQ_SYM >>
+    BasicProvers.CASE_TAC >> simp[] >- (
+      qspecl_then[`ilist`,`s`,`t`]mp_tac dbilist_thm >>
+      discharge_hyps >- metis_tac[] >>
+      rw[REV_ASSOCD_ALOOKUP] >- (
+        BasicProvers.CASE_TAC >>
+        fs[ALOOKUP_FAILS,find_index_def,MEM_MAP,EXISTS_PROD] >>
+        qmatch_abbrev_tac`dbterm [] x = dbterm e x` >>
+        qspecl_then[`x`,`[]`,`e`]mp_tac dbterm_env_shift >>
+        discharge_hyps >- (
+          rw[] >>
+          imp_res_tac ALOOKUP_MEM >>
+          fs[MEM_MAP,EXISTS_PROD] >>
+          res_tac >> fs[] >>
+          rpt BasicProvers.VAR_EQ_TAC >>
+          fs[GSYM find_index_NOT_MEM] >> rfs[] >> rw[] >>
+          spose_not_then strip_assume_tac >>
+          imp_res_tac find_index_is_MEM >>
+          fs[Abbr`e`,MEM_MAP,EXISTS_PROD] >>
+          ntac 2 (pop_assum mp_tac) >>
+          BasicProvers.CASE_TAC >> simp[] >- metis_tac[] >> rw[] >>
+          imp_res_tac ALOOKUP_MEM >>
+          fs[MEM_MAP,EXISTS_PROD] >>
+          res_tac >> fs[] >>
+          rpt BasicProvers.VAR_EQ_TAC >>
+          rfs[] >> rw[] >>
+          spose_not_then strip_assume_tac >> fs[] >>
+          rpt BasicProvers.VAR_EQ_TAC >>
+          fs[] >> rw[] >>
+          metis_tac[]
+)
+
+(*
+val dbterm_VSUBST = store_thm("dbterm_VSUBST",
+  ``∀tm env ilist env'.
+      (∀k v. MEM (v,k) ilist ⇒
+        ∃x ty. k = Var x ty ∧
+               (REV_ASSOCD k ilist k = v ⇒
+                 EVERY ($~ o combin$C VFREE_IN v o UNCURRY Var) env ∧
+                 (MEM (x,ty) env ⇒
+                    ∃e x'. env = (x,ty)::e ∧ ilist = [(v,k)] ∧ v = Var x' ty))) ∧
+      (env' = if ∃k v e. ilist = [(v,k)] ∧ env = (dest_var k)::e then (dest_var (FST(HD ilist)))::(TL env) else env)
+      ⇒
+      dbterm env' (VSUBST ilist tm) =
+      dbsubst (dbilist ilist) (dbterm env tm)``,
+  Induct >- (
+    simp[VSUBST_def] >> rpt gen_tac >>
+    simp[REV_ASSOCD_ALOOKUP] >>
+    strip_tac >>
+    match_mp_tac EQ_SYM >>
+    BasicProvers.CASE_TAC >> simp[] >- (
+      qspecl_then[`ilist`,`s`,`t`]mp_tac dbilist_thm >>
+      discharge_hyps >- metis_tac[] >>
+      simp[MEM_MAP,EXISTS_PROD] >> strip_tac >>
+      fs[GSYM find_index_NOT_MEM] >>
+      Cases_on`ALOOKUP (MAP (λ(x,y). (y,x)) ilist) (Var s t)` >- (
+        fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
+        rw[] >> fs[] >> rw[] >> fs[] >> rw[find_index_def]
+        ) >>
+      simp[REV_ASSOCD_ALOOKUP] >>
+        BasicProvers.CASE_TAC >> simp[] >>
+        BasicProvers.CASE_TAC >> simp[] >>
+        BasicProvers.CASE_TAC >> simp[] >- (
+          qmatch_abbrev_tac`dbterm [] x = dbterm env x` >>
+          qspecl_then[`x`,`[]`,`env`]mp_tac dbterm_env_shift >>simp[] >>
+          discharge_hyps >- (
+            simp[Abbr`env`,find_index_def] >>
+            imp_res_tac ALOOKUP_MEM >>
+            pop_assum mp_tac >>
+            simp[MEM_MAP,EXISTS_PROD] >> strip_tac >>
+            first_x_assum(qspecl_then[`Var s t`,`x`]mp_tac) >>
+            simp[] >> strip_tac >>
+            rw[] >> rw[] >>
+            qpat_assum`EVERY X Y`mp_tac >>
+            simp[EVERY_MEM,FORALL_PROD] >>
+            metis_tac[find_index_is_MEM] ) >>
+          rw[] ) >>
+        qmatch_abbrev_tac`dbterm [] x = dbterm env x` >>
+        qspecl_then[`x`,`[]`,`env`]mp_tac dbterm_env_shift >>simp[] >>
+        discharge_hyps >- (
+          simp[Abbr`env`,find_index_def] >>
+          imp_res_tac ALOOKUP_MEM >>
+          ntac 2 (pop_assum mp_tac) >>
+          simp[MEM_MAP,EXISTS_PROD] >> ntac 2 strip_tac >>
+          first_assum(qspecl_then[`Var s t`,`x`]mp_tac) >>
+          first_x_assum(qspecl_then[`Var q r`,`x'`]mp_tac) >>
+          simp[] >> ntac 2 strip_tac >>
+          rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+          qpat_assum`¬VFREE_IN X Y`mp_tac >>
+          qpat_assum`¬VFREE_IN X Y`mp_tac >>
+          simp[] >> ntac 2 strip_tac >>
+          qpat_assum`MEM X Y`mp_tac >> simp[] >>
+          spose_not_then strip_assume_tac >>
+          rpt BasicProvers.VAR_EQ_TAC >>
+          pop_assum mp_tac >> simp[] >>
+          qpat_assum`MEM X Y`mp_tac >> simp[] >>
+          qpat_assum`MEM X Y`mp_tac >> simp[] >>
+          fs[] ) >>
+        rw[] ) >>
+      `ALOOKUP (MAP (λ(x,y). (y,x)) ilist) (Var s t) = NONE` by (
+        simp[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >> metis_tac[] ) >>
+      simp[] >>
+      BasicProvers.CASE_TAC >> simp[find_index_def] >>
+      BasicProvers.CASE_TAC >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      fs[find_index_def] >>
+      imp_res_tac ALOOKUP_MEM >> fs[MEM_MAP,EXISTS_PROD] >>
+      first_x_assum(qspecl_then[`Var q r`,`x`]mp_tac) >>
+      simp[] >> rw[] >- (
+        spose_not_then strip_assume_tac >> fs[] >> rw[] >> fs[]
+
+        rpt BasicProvers.VAR_EQ_TAC
+      res_tac >> fs[] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      fs[] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      qpat_assum`¬VFREE_IN X Y`mp_tac >>
+      simp[] >> strip_tac >>
+      qpat_assum`MEM X Y`mp_tac >> simp[] >>
+      qpat_assum`ALOOKUP X Y = Z`mp_tac >> simp[] >>
+      qpat_assum`ALOOKUP X Y = Z`mp_tac >> simp[] >>
+      rw[]>>fs[]>>rfs[]>>
+      fs[dbilist_def,find_index_def]
+
+      fs[ALOOKUP_FAILS,find_index_def] >>
+      BasicProvers.CASE_TAC >> simp[find_index_def] >- (
+        fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
+        BasicProvers.CASE_TAC >>
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        res_tac >> rfs[] >> fs[] >>
+        metis_tac[] ) >>
+      BasicProvers.CASE_TAC >- (
+        fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        metis_tac[dest_var_def] ) >>
+      fs[ALOOKUP_LEAST_EL,MEM_EL] >> rw[] >>
+      numLib.LEAST_ELIM_TAC >>
+      conj_tac >- metis_tac[] >> rw[] >>
+      rfs[EL_MAP,UNCURRY] >>
+      `¬(n < n'')` by (
+        strip_tac >> first_x_assum(qspec_then`n`mp_tac) >> simp[EL_MAP,UNCURRY] ) >>
+      `n'' < LENGTH ilist` by DECIDE_TAC >> fs[EL_MAP,UNCURRY] >>
+      numLib.LEAST_ELIM_TAC >>
+      conj_tac >- (qexists_tac`n'`>>simp[EL_MAP,UNCURRY]) >> rw[] >>
+      qpat_assum`Var s t = X`(assume_tac o SYM) >> fs[] >>
+      `¬(n' < n''')` by (
+        strip_tac >> first_x_assum(qspec_then`n'`mp_tac) >> simp[EL_MAP,UNCURRY] ) >>
+      `n''' < LENGTH ilist` by DECIDE_TAC >> fs[EL_MAP,UNCURRY] >>
+      qpat_assum`(s,t) = X`(assume_tac o SYM) >> fs[] >>
+      `¬(n''' < n'')` by (
+        strip_tac >> last_x_assum(qspec_then`n'''`mp_tac) >> simp[EL_MAP,UNCURRY] >>
+        fs[GSYM LEFT_FORALL_IMP_THM] >> res_tac >>
+        Cases_on`EL n''' ilist`>>fs[] >> fs[] ) >>
+      `¬(n'' < n''')` by (
+        strip_tac >> first_x_assum(qspec_then`n''`mp_tac) >> simp[EL_MAP,UNCURRY] ) >>
+      `n'' = n'''` by DECIDE_TAC >> simp[] ) >>
+    Cases_on`h`>>simp[]>>
+    simp[find_index_def] >>
+    BasicProvers.CASE_TAC >> simp[] >- (
+      fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
+      BasicProvers.CASE_TAC >> simp[find_index_def] >- (
+        fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
+        rw[]>>fs[] >> BasicProvers.CASE_TAC>>fs[] >>
+        BasicProvers.CASE_TAC >>
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >> rw[] >>
+        res_tac >> rfs[] >> fs[] >>
+        metis_tac[] ) >>
+      rw[] >- (
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        metis_tac[] ) >>
+      BasicProvers.CASE_TAC >> simp[]
+
+
+        fs[GSYM find_index_NOT_MEM] >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        BasicProvers.CASE_TAC >> simp[] >- (
+          fs[GSYM find_index_NOT_MEM] >>
+          BasicProvers.CASE_TAC >> simp[] >>
+          imp_res_tac ALOOKUP_MEM >>
+          fs[MEM_MAP,EXISTS_PROD] >>
+          res_tac >> fs[] >>
+          metis_tac[] ) >>
+        imp_res_tac find_index_is_MEM >>
+        simp[] >>
+        BasicProvers.CASE_TAC >> simp[] >>
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        metis_tac[] ) >>
+      BasicProvers.CASE_TAC >> simp[] >- (
+        fs[GSYM find_index_NOT_MEM] >>
+        imp_res_tac find_index_is_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        qpat_assum`(s,t) = X`(mp_tac o SYM)>>
+        BasicProvers.CASE_TAC >> simp[] >> rw[] >> fs[] >>
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        res_tac >> rfs[] >> rw[] >> rfs[] >> rw[] >> rfs[] >> rw[] >>
+        fs[EVERY_MEM,FORALL_PROD] >>
+        BasicProvers.CASE_TAC >> simp[] >>
+        fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD]
+
+      qmatch_assum_abbrev_tac`find_index st (MAP f ls) 0 = SOME x` >>
+      Q.ISPECL_THEN[`ls`,`st`,`0`,`f`]mp_tac find_index_MAP_inj >>
+      discharge_hyps >- (
+        simp[Abbr`st`,Abbr`f`] >>
+        simp[FORALL_PROD] >>
+        qx_genl_tac[`a`,`b`] >>
+        strip_tac >>
+        BasicProvers.CASE_TAC >> simp[] >- (
+          BasicProvers.CASE_TAC >> simp[] >>
+          imp_res_tac ALOOKUP_MEM >>
+          fs[MEM_MAP,EXISTS_PROD] >>
+          res_tac >> rfs[] >>
+          rpt BasicProvers.VAR_EQ_TAC >> rfs[] >>
+          rw[] >>
+          fs[EVERY_MEM,FORALL_PROD]
+
+      imp_res_tac find_index_is_MEM >>
+      fs[MEM_MAP,EXISTS_PROD] >>
+      qpat_assum`(s,t) = X`(assume_tac o SYM)>>fs[]>>
+      pop_assum mp_tac >>
+      BasicProvers.CASE_TAC >> simp[] >- (
+        rw[] >>
+        BasicProvers.CASE_TAC >> simp[]
+        imp_res_tac find_index_is_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] 
+        hrk
+
+        qmatch_assum_abbrev_tac`find_index (s,t) (MAP f env) 0 = NONE` >>
+        `MEM (f (s,t)) (MAP f env)` by metis_tac[MEM_MAP] >>
+        pop_assum mp_tac >>
+        simp[Abbr`f`] >>
+        BasicProvers.CASE_TAC >> simp[MEM_MAP,EXISTS_PROD] >- (
+          rw[] >>
+          BasicProvers.CASE_TAC >> simp[] >>
+          fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD]
+
+    BasicProvers.CASE_TAC >> simp[] >- (
+      BasicProvers.CASE_TAC >- (
+        fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        metis_tac[dest_var_def] ) >>
+      fs[ALOOKUP_LEAST_EL,MEM_EL] >>
+      rfs[EL_MAP,UNCURRY] >> rw[] >>
+      numLib.LEAST_ELIM_TAC >>
+      conj_tac >- ( qexists_tac`n` >> simp[EL_MAP,UNCURRY] ) >> rw[] >>
+      `¬(n < n'')` by (
+        strip_tac >>
+        first_x_assum(qspec_then`n`mp_tac) >>
+        simp[EL_MAP,UNCURRY] ) >>
+      `n'' < LENGTH ilist` by DECIDE_TAC >>
+      fs[EL_MAP,UNCURRY] >>
+      numLib.LEAST_ELIM_TAC >>
+      conj_tac >- ( qexists_tac`n'` >> simp[EL_MAP,UNCURRY] ) >> rw[] >>
+      `¬(n' < n''')` by (
+        strip_tac >>
+        first_x_assum(qspec_then`n'`mp_tac) >>
+        simp[EL_MAP,UNCURRY] ) >>
+      `n''' < LENGTH ilist` by DECIDE_TAC >>
+      fs[EL_MAP,UNCURRY] >>
+      qpat_assum`(s,t) = X`(assume_tac o SYM) >> fs[] >>
+      qpat_assum`Var s t = X`(assume_tac o SYM) >> fs[] >>
+      `¬(n'' < n''')` by (
+        strip_tac >>
+        first_x_assum(qspec_then`n''`mp_tac) >>
+        simp[EL_MAP,UNCURRY] ) >>
+      `¬(n''' < n'')` by (
+        strip_tac >>
+        last_x_assum(qspec_then`n'''`mp_tac) >>
+        simp[EL_MAP,UNCURRY] >>
+        `∃x y. SND(EL n''' ilist) = Var x y` by metis_tac[pair_CASES,SND] >>
+        fs[] ) >>
+      `n'' = n'''` by DECIDE_TAC >> rw[] >>
+      fs[GSYM LEFT_FORALL_IMP_THM] >> rw[] >>
+      rfs[] >> rw[] >>
+      qspecl_then[`FST(EL n'' ilist)`,`[]`,`env`]mp_tac dbterm_env_shift >>
+      simp[] >> disch_then match_mp_tac >>
+      first_x_assum(qspecl_then[`SND(EL n'' ilist)`,`FST(EL n'' ilist)`,`n''`]mp_tac) >>
+      Cases_on`EL n'' ilist`>>simp[]>> rw[] >> fs[] >> BasicProvers.VAR_EQ_TAC >> fs[] >>
+      spose_not_then strip_assume_tac >>
+      Q.ISPECL_THEN[`env`,`x,ty`,`0`]mp_tac find_index_NOT_MEM >>
+*)
 
 (*
 val dbterm_subst_nil = store_thm("dbterm_subst_nil",
