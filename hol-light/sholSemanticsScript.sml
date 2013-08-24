@@ -2132,108 +2132,16 @@ val semantics_typeset = store_thm("semantics_typeset",
   map_every qexists_tac[`tty`,`mty`,`mtt`] >> rw[] >>
   match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[])
 
-(*
-val semantics_raconv = store_thm("semantics_raconv",
-  ``∀env tp.
-      RACONV env tp ⇒
-      ∀σ1 σ2 τ.
-        type_valuation τ ∧
-        term_valuation τ σ1 ∧
-        term_valuation τ σ2 ∧
-        (∀x1 ty1 x2 ty2.
-          ALPHAVARS env (Var x1 ty1,Var x2 ty2) ⇒
-            (semantics σ1 τ (Var x1 ty1) =
-             semantics σ2 τ (Var x2 ty2))) ∧
-        EVERY (λ(x,y). welltyped x ∧ welltyped y ∧ typeof x = typeof y) env ∧
-        welltyped (FST tp) ∧ welltyped (SND tp)
-        ⇒
-        (semantics σ1 τ (FST tp) =
-         semantics σ2 τ (SND tp))``,
-  ho_match_mp_tac RACONV_strongind >>
-  simp[FORALL_PROD] >>
-  conj_tac >- (
-    rw[] >>
-    simp[Once FUN_EQ_THM] >>
-    simp[Once semantics_cases] >>
-    simp[Once semantics_cases,SimpRHS] ) >>
-  conj_tac >- (
-    rw[] >>
-    simp[Once FUN_EQ_THM] >>
-    simp[Once semantics_cases] >>
-    simp[Once semantics_cases,SimpRHS] >>
-    simp[Once (CONJUNCT1 semantics_cases)] >>
-    simp[Once (CONJUNCT1 semantics_cases),SimpRHS] >>
-    srw_tac[DNF_ss][] >> rfs[] >>
-    `semantics σ1 τ s1 = semantics σ2 τ s2` by metis_tac[] >>
-    `semantics σ1 τ t1 = semantics σ2 τ t2` by metis_tac[] >>
-    simp[] >>
-    EQ_TAC >>
-    strip_tac >>
-    map_every qexists_tac[`mt`,`mu`] >> rw[] >>
-    `∃msy. typeset τ (typeof s2) msy ∧ mt <: msy` by metis_tac[semantics_typeset,WELLTYPED] >>
-    `∃msy. typeset τ (typeof s1) msy ∧ mt <: msy` by metis_tac[semantics_typeset,WELLTYPED] >>
-    rfs[Once(Q.SPECL[`τ`,`Fun X Y`](CONJUNCT1 semantics_cases))] >>
-    metis_tac[] ) >>
-  rw[] >>
-  simp[Once FUN_EQ_THM] >>
-  simp[Once semantics_cases] >>
-  simp[Once semantics_cases,SimpRHS] >>
-  rw[] >>
-  rw[EQ_IMP_THM] >>
-  map_every qexists_tac[`mb`,`mty`,`mtyb`,`tyb`] >>
-  simp[] >>
-  qmatch_assum_abbrev_tac`RACONV env' (t1,t2)` >>
-  qspecl_then[`env'`,`t1,t2`]mp_tac RACONV_TYPE >>
-  simp[Abbr`env'`] >> strip_tac >>
-  (conj_tac >- metis_tac[WELLTYPED,WELLTYPED_LEMMA]) >>
-  rw[] >>
-  first_x_assum(qspec_then`x`mp_tac) >> rw[] >>
-  qmatch_abbrev_tac`semantics σ2' τ tq m` >>
-  qmatch_assum_abbrev_tac`semantics σ1' τ tp m` >>
-  (qsuff_tac`semantics σ1' τ tp = semantics σ2' τ tq` >- metis_tac[]) >>
-  (first_x_assum match_mp_tac ORELSE (match_mp_tac EQ_SYM >> first_x_assum match_mp_tac)) >>
-  fs[term_valuation_def] >>
-  (conj_tac >- (
-    simp[Abbr`σ2'`,Abbr`σ1'`] >>
-    match_mp_tac (CONJUNCT2 FEVERY_STRENGTHEN_THM) >>
-    simp[] >> metis_tac[] )) >>
-  (conj_tac >- (
-    simp[Abbr`σ2'`,Abbr`σ1'`] >>
-    match_mp_tac (CONJUNCT2 FEVERY_STRENGTHEN_THM) >>
-    simp[] >> metis_tac[] )) >>
-  simp[ALPHAVARS_def] >>
-  (rw[] >- (
-    simp[FUN_EQ_THM] >>
-    simp[Once semantics_cases] >>
-    simp[Once semantics_cases,SimpRHS] >>
-    simp[FLOOKUP_DEF,Abbr`σ1'`,Abbr`σ2'`] )) >>
-  qmatch_assum_rename_tac`ALPHAVARS env (Var va vta, Var vb vtb)`[] >>
-  first_x_assum(qspecl_then[`va`,`vta`,`vb`,`vtb`]mp_tac) >>
-  simp[] >>
-  simp[FUN_EQ_THM,Once(CONJUNCT2 semantics_cases)] >>
-  simp[Once(CONJUNCT2 semantics_cases)] >>
-  simp[Once(CONJUNCT2 semantics_cases)] >>
-  simp[Once(CONJUNCT2 semantics_cases)] >>
-  simp[Abbr`σ1'`,Abbr`σ2'`,FLOOKUP_UPDATE])
-
-val semantics_aconv = store_thm("semantics_aconv",
-  ``∀σ τ s t.
-      type_valuation τ ∧ term_valuation τ σ ∧ welltyped s ∧ ACONV s t
-      ⇒ semantics σ τ s = semantics σ τ t``,
-  rw[] >> imp_res_tac ACONV_welltyped >>
-  fs[ACONV_def]  >>
-  qspecl_then[`[]`,`s,t`] mp_tac semantics_raconv >>
-  rw[] >> first_x_assum match_mp_tac >> rw[] >>
-  fs[ALPHAVARS_def])
-
-val semantics_vfree_in = store_thm("semantics_vfree_in",
-  ``∀τ σ1 σ2 t.
+val semantics_fvs = store_thm("semantics_fvs",
+  ``∀τ env σ1 σ2 t.
       type_valuation τ ∧
-      term_valuation τ σ1 ∧ term_valuation τ σ2 ∧
-      welltyped t ∧
-      (∀x ty. VFREE_IN (Var x ty) t ⇒ (FLOOKUP σ1 (x,ty) = FLOOKUP σ2 (x,ty)))
-      ⇒ semantics σ1 τ t = semantics σ2 τ t``,
+      (∀x ty. MEM (x,ty) (dbfv t) ⇒ (FLOOKUP σ1 (x,ty) = FLOOKUP σ2 (x,ty)))
+      ⇒ semantics env σ1 τ t = semantics env σ2 τ t``,
   gen_tac >> (CONV_TAC (RESORT_FORALL_CONV List.rev)) >> Induct
+  >- (
+    rw[FUN_EQ_THM] >>
+    rw[Once semantics_cases] >>
+    rw[Once semantics_cases] )
   >- (
     rw[FUN_EQ_THM] >>
     rw[Once semantics_cases] >>
@@ -2252,15 +2160,12 @@ val semantics_vfree_in = store_thm("semantics_vfree_in",
   rw[Once semantics_cases,SimpRHS] >>
   rw[EQ_IMP_THM] >>
   map_every qexists_tac[`mb`,`mty`,`mtyb`,`tyb`] >>
-  rw[] >>
-  (qsuff_tac`semantics (σ1 |+ ((s,t),x)) τ t' = semantics (σ2 |+ ((s,t),x)) τ t'` >- metis_tac[]) >>
-  first_x_assum match_mp_tac >>
-  fs[term_valuation_def] >>
-  rw[FLOOKUP_UPDATE] >>
-  TRY (
-    match_mp_tac (CONJUNCT2 FEVERY_STRENGTHEN_THM) >>
-    fs[] >> metis_tac[] ) >>
-  fs[] )
+  rw[] >> metis_tac[])
+
+(*
+
+semantics_bvs to change the env?
+would need dbwelltyped to allow env change too
 
 val _ = Parse.add_infix("closes_over",450,Parse.NONASSOC)
 val _ = Parse.overload_on("closes_over",``λσ t. ∀x ty. VFREE_IN (Var x ty) t ⇒ (x,ty) ∈ FDOM σ``)
