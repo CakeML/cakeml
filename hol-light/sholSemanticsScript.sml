@@ -1674,8 +1674,7 @@ val dbtvars_dbterm = store_thm("dbtvars_dbterm",
     fs[SUBSET_DEF,MEM_LIST_UNION,MEM_FLAT,MEM_MAP,EXISTS_PROD] >>
     metis_tac[] ) >>
   rw[tvars_def] >>
-  fs[SUBSET_DEF,MEM_LIST_UNION,MEM_FLAT,MEM_MAP,EXISTS_PROD] >>
-  rw[] >- metis_tac[] >>
+  fs[SUBSET_DEF,MEM_LIST_UNION,MEM_FLAT,MEM_MAP,EXISTS_PROD] >> rw[] >>
   res_tac >> fs[] >>
   metis_tac[])
 
