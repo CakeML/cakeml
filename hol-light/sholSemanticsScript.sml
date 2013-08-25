@@ -2167,45 +2167,63 @@ val semantics_fvs = store_thm("semantics_fvs",
 semantics_bvs to change the env?
 would need dbwelltyped to allow env change too
 
+*)
+
+(*
+
 val _ = Parse.add_infix("closes_over",450,Parse.NONASSOC)
 val _ = Parse.overload_on("closes_over",``λσ t. ∀x ty. VFREE_IN (Var x ty) t ⇒ (x,ty) ∈ FDOM σ``)
 
-val semantics_closes_over = store_thm("semantics_closes_over",
-  ``∀t σ τ m. type_valuation τ ∧ semantics σ τ t m ⇒ σ closes_over t``,
+*)
+
+val closes_def = Define`
+  closes env σ t ⇔ set (dbfv t) ⊆ FDOM σ ∧ set (dbbv t) ⊆ count (LENGTH env)`
+
+val semantics_closes = store_thm("semantics_closes",
+  ``∀t env σ τ m. type_valuation τ ∧ semantics env σ τ t m ⇒ closes env σ t``,
   Induct
   >- (
-    simp[Once semantics_cases,FLOOKUP_DEF] )
+    simp[Once semantics_cases,FLOOKUP_DEF,closes_def] )
   >- (
-    simp[Once semantics_cases] )
+    simp[Once semantics_cases,FLOOKUP_DEF,closes_def] )
+  >- (
+    simp[Once semantics_cases,closes_def] )
+  >- (
+    simp[Once semantics_cases,closes_def,dbwelltyped_def] >>
+    rw[Once dbhas_type_cases] >>
+    fs[closes_def] >> metis_tac[])
   >- (
     simp[Once semantics_cases] >>
-    rw[] >> metis_tac[])
-  >- (
-    simp[Once semantics_cases] >>
+    fs[closes_def] >>
     rpt gen_tac >> strip_tac >>
     `∃x. x <: mty` by metis_tac[typeset_inhabited] >>
-    res_tac >>
-    fs[FDOM_FUPDATE] >>
-    metis_tac[]))
+    res_tac >> fs[] >>
+    fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_FILTER] >>
+    Cases >> simp[] >> rw[] >> res_tac >> fs[]))
 
-val closes_over_aconv = store_thm("closes_over_aconv",
-  ``∀σ t t'. σ closes_over t ∧ ACONV t t' ⇒ σ closes_over t'``,
-  rw[] >> metis_tac[VFREE_IN_ACONV])
+val closes_extend = store_thm("closes_extend",
+  ``∀env σ t env' σ'. closes env σ t ∧ σ ⊑ σ' ∧ env ≼ env' ⇒ closes env' σ' t``,
+  rw[SUBMAP_DEF,closes_def,SUBSET_DEF] >>
+  imp_res_tac rich_listTheory.IS_PREFIX_LENGTH >>
+  res_tac >> DECIDE_TAC)
 
-val closes_over_equation = store_thm("closes_over_equation",
-  ``σ closes_over l === r ⇔ σ closes_over l ∧ σ closes_over r``,
-  rw[vfree_in_equation] >> metis_tac[])
+val dbeq_def = Define`
+  dbeq ty s t = dbComb (dbComb (dbConst "=" (Fun ty (Fun ty Bool)) Prim) s) t`
 
-val closes_over_extend = store_thm("closes_over_extend",
-  ``∀σ t σ'. σ closes_over t ∧ σ ⊑ σ' ⇒ σ' closes_over t``,
-  rw[SUBMAP_DEF])
+val equation_dbeq = store_thm("equation_dbeq",
+  ``∀s t env. dbterm env (s === t) = dbeq (typeof s) (dbterm env s) (dbterm env t)``,
+  rw[equation_def,dbeq_def])
+
+val closes_dbeq = store_thm("closes_dbeq",
+  ``closes env σ (dbeq ty l r) ⇔ closes env σ l ∧ closes env σ r``,
+  rw[closes_def,dbeq_def] >> metis_tac[])
 
 val tac =
   qho_match_abbrev_tac`apply (apply (abstract a b f) x) y = z` >>
   `apply (abstract a b f) x = f x` by (
     match_mp_tac APPLY_ABSTRACT >>
     unabbrev_all_tac >> simp[] >>
-    conj_tac >- metis_tac[semantics_typeset,semantics_11,WELLTYPED] >>
+    TRY(conj_tac >- metis_tac[semantics_typeset,semantics_11,dbhas_type_11]) >>
     match_mp_tac ABSTRACT_IN_FUNSPACE >>
     metis_tac[semantics_typeset,WELLTYPED,BOOLEAN_IN_BOOLSET] ) >>
   simp[Abbr`f`,Abbr`b`] >>
@@ -2213,38 +2231,56 @@ val tac =
   `apply (abstract a b f) y = f y `  by (
     match_mp_tac APPLY_ABSTRACT >>
     unabbrev_all_tac >> simp[] >>
-    metis_tac[semantics_typeset,semantics_11,WELLTYPED,BOOLEAN_IN_BOOLSET] ) >>
+    metis_tac[semantics_typeset,semantics_11,dbhas_type_11,BOOLEAN_IN_BOOLSET] ) >>
   unabbrev_all_tac >> simp[]
 
 val semantics_equation = store_thm("semantics_equation",
-  ``∀σ τ s t mty ms mt mst.
-    type_valuation τ ∧ term_valuation τ σ ∧
-    semantics σ τ s ms ∧ semantics σ τ t mt ∧
-    (typeof s = typeof t) ∧ boolean (ms = mt) = mst
-    ⇒ semantics σ τ (s === t) mst``,
-  rw[equation_def] >>
+  ``∀env σ τ s t ty mty ms mt mst.
+    type_valuation τ ∧ term_valuation τ σ ∧ good_env τ env ∧
+    semantics env σ τ s ms ∧ semantics env σ τ t mt ∧
+    dbhas_type (MAP FST env) s ty ∧
+    dbhas_type (MAP FST env) t ty ∧
+    boolean (ms = mt) = mst
+    ⇒ semantics env σ τ (dbeq ty s t) mst``,
+  rw[dbeq_def] >>
   simp[Once semantics_cases] >>
   simp[Once semantics_cases] >>
   simp[Once semantics_cases] >>
-  srw_tac[DNF_ss][] >>
-  imp_res_tac semantics_typeset >> simp[] >>
+  srw_tac[DNF_ss][dbwelltyped_def] >>
+  simp[Once dbhas_type_cases] >>
+  simp[Once dbhas_type_cases] >>
+  simp[Once dbhas_type_cases] >>
+  simp[Once dbhas_type_cases] >>
+  simp[Once dbhas_type_cases] >>
+  qspecl_then[`env`,`σ`,`τ`,`s`,`ms`]mp_tac(CONJUNCT2 semantics_typeset) >>
+  qspecl_then[`env`,`σ`,`τ`,`t`,`mt`]mp_tac(CONJUNCT2 semantics_typeset) >>
+  rw[] >>
+  imp_res_tac dbhas_type_11 >> rw[] >>
+  imp_res_tac semantics_11 >> rw[] >>
   map_every qexists_tac[`mt`,`ms`,`mty`] >> simp[] >>
   match_mp_tac EQ_SYM >> tac)
 
 val semantics_equation_imp = store_thm("semantics_equation_imp",
-  ``∀σ τ s t mst.
-    type_valuation τ ∧ term_valuation τ σ ∧ semantics σ τ (s === t) mst ⇒
+  ``∀env σ τ s t ty mst.
+    type_valuation τ ∧ term_valuation τ σ ∧ good_env τ env ∧
+    semantics env σ τ (dbeq ty s t) mst ⇒
     ∃ms mt.
-    semantics σ τ s ms ∧ semantics σ τ t mt ∧
-    (typeof s = typeof t) ∧ boolean (ms = mt) = mst``,
-  rw[equation_def] >>
-  fs[Q.SPECL[`σ`,`τ`,`Comb X Y`](CONJUNCT2 semantics_cases)] >>
-  fs[Q.SPECL[`σ`,`τ`,`Equal X`](CONJUNCT2 semantics_cases)] >>
-  qmatch_assum_rename_tac`semantics σ τ s ms`[] >> rw[] >>
-  qmatch_assum_rename_tac`semantics σ τ t mt`[] >>
+    semantics env σ τ s ms ∧ semantics env σ τ t mt ∧
+    dbhas_type (MAP FST env) s ty ∧
+    dbhas_type (MAP FST env) t ty ∧
+    boolean (ms = mt) = mst``,
+  rw[dbeq_def] >>
+  fs[Q.SPECL[`env`,`σ`,`τ`,`dbComb X Y`](CONJUNCT2 semantics_cases)] >>
+  fs[Q.SPECL[`env`,`σ`,`τ`,`dbConst X Y Z`](CONJUNCT2 semantics_cases)] >>
+  fs[dbwelltyped_def] >>
+  fs[Q.SPECL[`X`,`dbComb Y Z`]dbhas_type_cases] >>
+  fs[Q.SPECL[`X`,`dbConst Y Z A`]dbhas_type_cases] >>
+  qmatch_assum_rename_tac`semantics env σ τ s ms`[] >> rw[] >>
+  qmatch_assum_rename_tac`semantics env σ τ t mt`[] >>
   map_every qexists_tac[`ms`,`mt`] >> rw[] >>
   match_mp_tac EQ_SYM >> tac)
 
+(*
 val term_valuation_reduce = store_thm("term_valuation_reduce",
   ``∀τ σ σ'. term_valuation τ σ' ∧ σ ⊑ σ' ⇒ term_valuation τ σ``,
   metis_tac[term_valuation_def,FEVERY_SUBMAP])
@@ -2272,18 +2308,148 @@ val semantics_reduce_term_valuation = store_thm("semantics_reduce_term_valuation
   qsuff_tac`semantics σ τ t = semantics σ' τ t`>-rw[] >>
   match_mp_tac semantics_vfree_in >> simp[] >>
   fs[SUBMAP_DEF,FLOOKUP_DEF])
+*)
+
+val typeset_extend = store_thm("typeset_extend",
+  ``∀τ ty mty τ'. typeset τ ty mty ∧ τ ⊑ τ' ⇒ typeset τ' ty mty``,
+  rw[] >>
+  match_mp_tac typeset_tyvars >>
+  qexists_tac`τ` >>
+  fs[SUBMAP_DEF,FLOOKUP_DEF] >>
+  imp_res_tac typeset_closes_over >>
+  fs[SUBSET_DEF])
+
+val typeset_reduce = store_thm("typeset_reduce",
+  ``∀τ ty mty τ'. typeset τ' ty mty ∧ set (tyvars ty) ⊆ FDOM τ ∧ τ ⊑ τ' ⇒ typeset τ ty mty``,
+  rw[] >>
+  match_mp_tac typeset_tyvars >>
+  qexists_tac`τ'` >>
+  fs[SUBMAP_DEF,FLOOKUP_DEF,SUBSET_DEF])
+
+val covering_type_valuation_exists = store_thm("covering_type_valuation_exists",
+  ``∀τ ty. ∃τ'. τ ⊑ τ' ∧ set (tyvars ty) ⊆ FDOM τ' ∧ (type_valuation τ ⇒ type_valuation τ')``,
+  qsuff_tac`∀s:string set. FINITE s ⇒ ∀τ. ∃τ'. τ ⊑ τ' ∧ s ⊆ FDOM τ' ∧ (type_valuation τ ⇒ type_valuation τ')`
+    >- metis_tac[FINITE_LIST_TO_SET] >>
+  ho_match_mp_tac FINITE_INDUCT >>
+  rw[] >- metis_tac[SUBMAP_REFL] >>
+  first_x_assum(qspec_then`τ`strip_assume_tac) >>
+  Cases_on`e ∈ FDOM τ'` >- metis_tac[] >>
+  qexists_tac`τ' |+ (e,boolset)` >>
+  simp[] >>
+  fs[type_valuation_def,IN_FRANGE,FAPPLY_FUPDATE_THM] >>
+  metis_tac[SUBMAP_FUPDATE_EQN,SUBMAP_TRANS,BOOLEAN_IN_BOOLSET])
 
 val type_has_meaning_def = Define`
-  type_has_meaning ty ⇔ ∀τ. type_valuation τ ⇒ ∃m. typeset τ ty m`
+  type_has_meaning ty ⇔ ∀τ. type_valuation τ ∧ set (tyvars ty) ⊆ FDOM τ ⇒ ∃m. typeset τ ty m`
 
-(*  prove by induction on types or on typeset (ignoring semantics)? ∀τ ty m. typeset τ ty m ⇒ type_has_meaning ty *)
+val type_has_meaning_Bool = store_thm("type_has_meaning_Bool",
+  ``type_has_meaning Bool``,
+  rw[type_has_meaning_def])
+val _ = export_rewrites["type_has_meaning_Bool"]
 
-(* use this instead:
+val type_has_meaning_Fun = store_thm("type_has_meaning_Fun",
+  ``∀dty rty. type_has_meaning (Fun dty rty) ⇔ type_has_meaning dty ∧ type_has_meaning rty``,
+  rw[type_has_meaning_def,tyvars_def] >>
+  rw[Once semantics_cases] >>
+  metis_tac[covering_type_valuation_exists,typeset_reduce,SUBMAP_DEF,SUBSET_DEF])
+val _ = export_rewrites["type_has_meaning_Fun"]
+
+val typeset_has_meaning = prove(
+  ``(∀τ ty m. typeset τ ty m ⇒ type_has_meaning ty) ∧
+    (∀env σ τ t m. semantics env σ τ t m ⇒ T)``,
+  ho_match_mp_tac (theorem"semantics_strongind") >> simp[] >>
+  conj_tac >- (
+    simp[type_has_meaning_def,tyvars_def] >>
+    simp[Once semantics_cases,FLOOKUP_DEF] ) >>
+  rw[type_has_meaning_def,tyvars_def] >>
+  simp[Once semantics_cases] >>
+  metis_tac[])
+val typeset_has_meaning = save_thm("typeset_has_meaning",CONJUNCT1 typeset_has_meaning)
 
 val has_meaning_def = Define`
-  has_meaning t = ∀τ σ. type_valuation τ ∧ term_valuation τ σ ∧ σ closes_over t ⇒ semantics σ τ t m`
+  has_meaning t =
+    ∀τ σ env. type_valuation τ ∧
+              term_valuation τ σ ∧
+              good_env τ env ∧
+              closes env σ t
+            ⇒ ∃m. semantics env σ τ t m`
 
-*)
+val closes_dbComb = store_thm("closes_dbComb",
+  ``∀env σ t1 t2. closes env σ (dbComb t1 t2) ⇔ closes env σ t1 ∧ closes env σ t2``,
+  rw[closes_def] >> metis_tac[])
+val _ = export_rewrites["closes_dbComb"]
+
+val closes_dbAbs = store_thm("closes_dbAbs",
+  ``∀env σ ty tm. closes env σ (dbAbs ty tm) ⇔ ∃e. closes (e::env) σ tm``,
+  rw[closes_def,SUBSET_DEF,MEM_MAP,MEM_FILTER,GSYM LEFT_FORALL_IMP_THM] >>
+  rw[EQ_IMP_THM] >> res_tac >> DECIDE_TAC)
+val _ = export_rewrites["closes_dbAbs"]
+
+val closes_dbConst = store_thm("closes_dbConst",
+  ``∀env σ s t c. closes env σ (dbConst s t c)``,
+  rw[closes_def])
+val _ = export_rewrites["closes_dbConst"]
+
+val closes_dbFree = store_thm("closes_dbFree",
+  ``∀env σ s ty. closes env σ (dbFree s ty) ⇔ (s,ty) ∈ FDOM σ``,
+  rw[closes_def])
+val _ = export_rewrites["closes_dbFree"]
+
+val closes_dbVar = store_thm("closes_dbVar",
+  ``∀env σ n. closes env σ (dbVar n) ⇔ n < LENGTH env``,
+  rw[closes_def])
+val _ = export_rewrites["closes_dbVar"]
+
+(*
+val covering_sigma_exists = store_thm("covering_sigma_exists",
+  ``∀σ t. ∃σ'. σ ⊑ σ' ∧ set (dbfv t) ⊆ FDOM σ' ∧
+      (∀τ. term_valuation τ σ ∧ (∀p. MEM p (dbfv t) ⇒ ∃mty. typeset τ (SND p) mty) ⇒ term_valuation τ σ')``,
+  qsuff_tac`∀s:(string#type) set. FINITE s ⇒
+    ∀σ. ∃σ'. σ ⊑ σ' ∧ s ⊆ FDOM σ' ∧ (∀τ. term_valuation τ σ ∧ (∀p. p ∈ s ⇒ ∃mty. typeset τ (SND p) mty)⇒ term_valuation τ σ')`
+    >- metis_tac[FINITE_LIST_TO_SET] >>
+  ho_match_mp_tac FINITE_INDUCT >>
+  rw[] >- metis_tac[SUBMAP_REFL] >>
+  first_x_assum(qspec_then`σ`strip_assume_tac) >>
+  Cases_on`e ∈ FDOM σ'` >- metis_tac[] >>
+  qexists_tac`τ' |+ (e,boolset)` >>
+  term_valuation_def
+  simp[] >>
+  fs[type_valuation_def,IN_FRANGE,FAPPLY_FUPDATE_THM] >>
+  metis_tac[SUBMAP_FUPDATE_EQN,SUBMAP_TRANS,BOOLEAN_IN_BOOLSET])
+
+val covering_valuation_exists = store_thm("covering_valuation_exists",
+  ``∀t τ env σ ty mty.
+     type_valuation τ ∧ dbhas_type (MAP FST env) t ty ∧ typeset τ ty mty ∧ term_valuation τ σ ∧ good_env τ env ⇒
+      ∃env' σ'. σ ⊑ σ' ∧ env ≼ env' ∧ closes env' σ' t ∧ term_valuation τ σ' ∧ good_env τ env'``,
+  Induct >> simp[] >- (
+    rw[] >> qexists_tac`env` >> rw[] >>
+    Cases_on`(s,t) ∈ FDOM σ` >- (qexists_tac`σ`>>rw[])>>
+    fs[Once dbhas_type_cases] >>
+    imp_res_tac typeset_inhabited >>
+    qexists_tac`σ |+ ((s,t),m)` >> rw[] >>
+    match_mp_tac term_valuation_FUPDATE >>
+    simp[] >> metis_tac[])
+  >- (
+    rw[Once dbhas_type_cases] >>
+    CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`σ` >> rw[] >>
+    qexists_tac`env` >> rw[] )
+  >- (
+    rw[Once dbhas_type_cases] >>
+    metis_tac[SUBMAP_REFL,rich_listTheory.IS_PREFIX_REFL])
+  >- (
+    rw[Once dbhas_type_cases] >>
+    first_x_assum(qspecl_then[`τ`,`env`,`σ`,`dty`,`
+
+    last_x_assum(qspecl_then[`τ`,`env`,`σ`,`Fun dty ty`]mp_tac) >>
+    rw[Once semantics_cases] >>
+    fs[GSYM LEFT_FORALL_IMP_THM] >>
+    first_x_assum(qspecl_then[`
+    fs[SKOLEM_THM] >>
+    disch_then(qx_choosel_then[`e`,`s`]strip_assume_tac) >>
+
+    srw_
+    last_x_assum(qspecl_then[`
+    metis_tac[SUBMAP_REFL,rich_listTheory.IS_PREFIX_REFL,SUBMAP_TRANS,rich_listTheory.IS_PREFIX_TRANS]
 
 (* and prove the extension in the definition below is possible as a separate theorem  *)
 
@@ -2291,7 +2457,6 @@ val has_meaning_def = Define`
   has_meaning t = ∀τ σ. type_valuation τ ∧ term_valuation τ σ ⇒
     ∃σ' m. σ ⊑ σ' ∧ term_valuation τ σ' ∧ σ' closes_over t ∧
            semantics σ' τ t m`
-
 (*
 
 can we prove this too?: ∀σ τ t m. semantics σ τ t m ⇒ has_meaning t
