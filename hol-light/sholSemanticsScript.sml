@@ -2464,30 +2464,31 @@ val has_meaning_def = Define`
               closes env σ τ t
             ⇒ ∃m. semantics env σ τ t m`
 
-(*
 val closes_dbComb = store_thm("closes_dbComb",
   ``∀env σ τ t1 t2. closes env σ τ (dbComb t1 t2) ⇔ closes env σ τ t1 ∧ closes env σ τ t2``,
   rw[closes_def] >> metis_tac[])
 val _ = export_rewrites["closes_dbComb"]
 
 val closes_dbAbs = store_thm("closes_dbAbs",
-  ``∀env σ ty tm. closes env σ (dbAbs ty tm) ⇔ ∃e. closes (e::env) σ tm``,
+  ``∀env σ τ ty tm. closes env σ τ (dbAbs ty tm) ⇔ set (tyvars ty) ⊆ FDOM τ ∧ ∃e. closes (e::env) σ τ tm``,
   rw[closes_def,SUBSET_DEF,MEM_MAP,MEM_FILTER,GSYM LEFT_FORALL_IMP_THM] >>
-  rw[EQ_IMP_THM] >> res_tac >> DECIDE_TAC)
+  rw[EQ_IMP_THM] >> res_tac >>
+  rw[EXISTS_PROD] >> TRY (qexists_tac`ty`) >> rw[] >>
+  res_tac >> DECIDE_TAC)
 val _ = export_rewrites["closes_dbAbs"]
 
 val closes_dbConst = store_thm("closes_dbConst",
-  ``∀env σ s t c. closes env σ (dbConst s t c)``,
+  ``∀env σ τ s ty c. closes env σ τ (dbConst s ty c) ⇔ set (tyvars ty) ⊆ FDOM τ ∧ set (FLAT (MAP (tyvars o FST) env)) ⊆ FDOM τ``,
   rw[closes_def])
 val _ = export_rewrites["closes_dbConst"]
 
 val closes_dbFree = store_thm("closes_dbFree",
-  ``∀env σ s ty. closes env σ (dbFree s ty) ⇔ (s,ty) ∈ FDOM σ``,
+  ``∀env σ τ s ty. closes env σ τ (dbFree s ty) ⇔ set (tyvars ty) ⊆ FDOM τ ∧ set (FLAT (MAP (tyvars o FST) env)) ⊆ FDOM τ ∧ (s,ty) ∈ FDOM σ``,
   rw[closes_def])
 val _ = export_rewrites["closes_dbFree"]
 
 val closes_dbVar = store_thm("closes_dbVar",
-  ``∀env σ n. closes env σ (dbVar n) ⇔ n < LENGTH env``,
+  ``∀env σ τ n. closes env σ τ (dbVar n) ⇔ set (FLAT (MAP (tyvars o FST) env)) ⊆ FDOM τ ∧ n < LENGTH env``,
   rw[closes_def])
 val _ = export_rewrites["closes_dbVar"]
 
@@ -2540,6 +2541,11 @@ val covering_env_exists = store_thm("covering_env_exists",
   Q.ISPECL_THEN[`Bool,boolean F`,`SUC(e-LENGTH env')`]strip_assume_tac rich_listTheory.EVERY_REPLICATE >>
   fs[good_env_def,EVERY_MEM] >> rw[] >> res_tac >> rw[] >> rw[BOOLEAN_IN_BOOLSET])
 
+(*
+not true: ((dbVar 0) (dbFree "x" a)) has semantics when env = [Fun a b],
+          but not when env = [a].
+          so, should has_meaning have welltyped in the precondition?
+          should dbVars carry types?
 val semantics_has_meaning = prove(
   ``(∀τ ty m. typeset τ ty m ⇒ T) ∧
     (∀env σ τ t m. semantics env σ τ t m ⇒ has_meaning t)``,
@@ -2550,39 +2556,81 @@ val semantics_has_meaning = prove(
     rw[has_meaning_def,Once semantics_cases] ) >>
   conj_tac >- (
     rw[has_meaning_def] >>
-    closes_def
     rw[Once semantics_cases] >>
     imp_res_tac typeset_has_meaning >>
-    Cases_on`set (tyvars ty) ⊆ FDOM τ'` >- metis_tac[type_has_meaning_def] >>
+    fs[type_has_meaning_def,tyvars_def] ) >>
+  conj_tac >- (
+    rw[has_meaning_def] >>
+    rw[Once semantics_cases] >>
+    imp_res_tac typeset_has_meaning >>
+    fs[type_has_meaning_def,tyvars_def] ) >>
+  conj_tac >- (
+    rw[has_meaning_def] >>
+    rw[Once semantics_cases] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rw[has_meaning_def] >>
+    rw[Once semantics_cases] >>
+    CONV_TAC SWAP_EXISTS_CONV >>
+    HINT_EXISTS_TAC >> rw[] >>
+    imp_res_tac typeset_has_meaning >>
+    fs[type_has_meaning_def] >>
+    first_x_assum match_mp_tac >>
+    fs[tyvars_def] ) >>
+  conj_tac >- (
+    rw[has_meaning_def] >>
+    rw[Once semantics_cases] >>
+    CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+    HINT_EXISTS_TAC >>
+    qexists_tac`m'` >> rw[] >>
+    imp_res_tac typeset_has_meaning >>
+    fs[type_has_meaning_def] >>
+    first_x_assum match_mp_tac >>
+    fs[tyvars_def] ) >>
+  conj_tac >- (
+    rw[has_meaning_def] >>
+    simp[Once semantics_cases] >>
+    first_x_assum(qspecl_then[`τ'`,`σ'`,`env'`]mp_tac) >> rw[] >>
+    first_x_assum(qspecl_then[`τ'`,`σ'`,`env'`]mp_tac) >> rw[] >>
+    HINT_EXISTS_TAC >> rw[] >>
+    qexists_tac`m''`>>rw[] >>
 
-    typeset_extend
-    typeset_reduce
-    covering_type_valuation_exists
-
-    imp_res_tac typeset_closes_over
-    metis_tac[typeset_has_meaning,type_has_meaning_def]
-    ) >>
-
-save_thm("semantics_has_meaning",
+    dbhas_type_11
+    closes_def
+    dbhas_type_cases
+    fs[dbwelltyped_def] >>
+    fs[Once dbhas_type_cases] >>
+    qspecl_then[`env'`,`σ'`,`τ'`,`t`,`m'''`]mp_tac (CONJUNCT2 semantics_typeset) >>
+    qspecl_then[`env'`,`σ'`,`τ'`,`t'`,`m''`]mp_tac (CONJUNCT2 semantics_typeset) >>
+    rw[] >>
+    imp_res_tac typeset_has_meaning >>
+    fs[type_has_meaning_def]
+    type_has_meaning_def
+    type_has_meaning_Fun
 *)
 
 (*
 val has_meaning_welltyped = store_thm("has_meaning_welltyped",
-  ``∀t. has_meaning t ⇒ welltyped t``,
+  ``∀t. has_meaning t ⇒ ∃env. dbwelltyped env t``,
   rw[has_meaning_def] >>
+  semantics_typeset
   metis_tac[a_type_valuation_exists,semantics_typeset
            ,term_valuation_def,CONJUNCT1 FEVERY_STRENGTHEN_THM
            ,SUBMAP_FEMPTY])
+*)
 
+(*
 val has_meaning_aconv = store_thm("has_meaning_aconv",
   ``∀t t'. has_meaning t ∧ ACONV t t' ⇒ has_meaning t'``,
   rw[] >>
   imp_res_tac has_meaning_welltyped >>
   fs[has_meaning_def] >> rw[] >>
   metis_tac[semantics_aconv,closes_over_aconv,ACONV_welltyped])
+*)
 
+(*
 val equation_has_meaning = store_thm("equation_has_meaning",
-  ``∀s t. has_meaning s ∧ has_meaning t ∧ typeof s = typeof t ⇒ has_meaning (s === t)``,
+  ``∀s t ty env. has_meaning s ∧ has_meaning t ∧ dbhas_type env s ty ∧ dbhas_type env t ty ⇒ has_meaning (dbeq ty s t)``,
   rw[has_meaning_def] >>
   first_x_assum(qspecl_then[`τ`,`σ`]mp_tac) >> simp[] >>
   disch_then(qx_choosel_then[`σ1`,`m1`]strip_assume_tac) >>
