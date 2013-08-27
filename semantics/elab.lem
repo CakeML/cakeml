@@ -94,6 +94,7 @@ type ast_spec =
   | Ast_Sval of varN * ast_t
   | Ast_Stype of ast_type_def
   | Ast_Stype_opq of list tvarN * typeN
+  | Ast_Sexn of conN * list ast_t
 
 type ast_specs = list ast_spec
 
@@ -263,6 +264,9 @@ elab_spec mn type_bound (Ast_Stype td :: spec) =
 and
 elab_spec mn type_bound (Ast_Stype_opq tvs tn::spec) =
   Stype_opq tvs tn :: elab_spec mn ((tn, TC_name (mk_id mn tn))::type_bound) spec
+and
+elab_spec mn type_bound (Ast_Sexn cn ts::spec) =
+  Sexn cn (List.map (elab_t type_bound) ts) :: elab_spec mn type_bound spec
 
 let rec
 elab_top type_bound ctors (Ast_Tdec d) =
