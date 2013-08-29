@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs miscTheory pred_setTheory pairTheory listTheory finite_mapTheory alistTheory sholSyntaxTheory modelSetTheory
+open HolKernel boolLib boolSimps SatisfySimps bossLib lcsymtacs miscTheory pred_setTheory pairTheory listTheory finite_mapTheory alistTheory sholSyntaxTheory modelSetTheory
 val _ = numLib.prefer_num()
 val _ = new_theory"sholSemantics"
 
@@ -63,6 +63,10 @@ val find_index_shift_0 = store_thm("find_index_shift_0",
   rw[] >>
   Cases_on`find_index x ls 0`>>rw[] >>
   simp[])
+
+val find_index_shift = store_thm("find_index_shift",
+  ``∀ls x k j. (find_index x ls k = SOME j) ⇒ j ≥ k ∧ ∀n. find_index x ls n = SOME (j-k+n)``,
+  Induct >> simp[find_index_def] >> rw[] >> res_tac >> fsrw_tac[ARITH_ss][])
 
 val LIST_UNION_NIL = store_thm("LIST_UNION_NIL",
   ``∀l2. (LIST_UNION [] l2 = l2)``,
@@ -209,24 +213,6 @@ val ACONV_welltyped = store_thm("ACONV_welltyped",
   rw[ACONV_def] >>
   metis_tac[RACONV_welltyped,EVERY_DEF])
 
-val simple_inst_def = Define`
-  simple_inst tyin (Var x ty) = Var x (TYPE_SUBST tyin ty) ∧
-  simple_inst tyin (Const x ty g) = Const x (TYPE_SUBST tyin ty) g ∧
-  simple_inst tyin (Comb s t) = Comb (simple_inst tyin s) (simple_inst tyin t) ∧
-  simple_inst tyin (Abs x ty t) = Abs x (TYPE_SUBST tyin ty) (simple_inst tyin t)`
-val _ = export_rewrites["simple_inst_def"]
-
-val simple_inst_has_type = store_thm("simple_inst_has_type",
-  ``∀tm tyin ty. welltyped tm ⇒ simple_inst tyin tm has_type (TYPE_SUBST tyin (typeof tm))``,
-  Induct >> rw[]
-  >- rw[Once has_type_cases]
-  >- rw[Once has_type_cases]
-  >- (
-    rw[Once has_type_cases] >> fs[] >>
-    metis_tac[] )
-  >- (
-    rw[Once has_type_cases] ))
-
 val bv_names_def = Define`
   bv_names (Var _ _) = [] ∧
   bv_names (Const _ _ _) = [] ∧
@@ -263,25 +249,15 @@ val TYPE_SUBST_NIL = store_thm("TYPE_SUBST_NIL",
   simp[TYPE_SUBST_def,REV_ASSOCD,EVERY_MEM,LIST_EQ_REWRITE,EL_MAP,MEM_EL,GSYM LEFT_FORALL_IMP_THM])
 val _ = export_rewrites["TYPE_SUBST_NIL"]
 
+val VSUBST_NIL = store_thm("VSUBST_NIL",
+  ``∀tm. VSUBST [] tm = tm``,
+  Induct >> simp[VSUBST_def,REV_ASSOCD])
+val _ = export_rewrites["VSUBST_NIL"]
+
 val REV_ASSOCD_ALOOKUP = store_thm("REV_ASSOCD_ALOOKUP",
   ``∀ls x d. REV_ASSOCD x ls d = case ALOOKUP (MAP (λ(x,y). (y,x)) ls) x of NONE => d | SOME y => y``,
   Induct >> simp[REV_ASSOCD] >>
   Cases >> simp[REV_ASSOCD] >> rw[])
-
-val _ = Hol_datatype`
-  dbterm = dbFree of string => type
-         | dbVar of num => type
-         | dbConst of string => type => const_tag
-         | dbComb of dbterm => dbterm
-         | dbAbs of type => dbterm`
-
-val dbterm_def = Define`
-  (dbterm env (Var s ty) =
-     case find_index (s,ty) env 0 of SOME n => dbVar n ty | NONE => dbFree s ty) ∧
-  (dbterm env (Const s ty g) = dbConst s ty g) ∧
-  (dbterm env (Comb t1 t2) = dbComb (dbterm env t1) (dbterm env t2)) ∧
-  (dbterm env (Abs x ty t) = dbAbs ty (dbterm ((x,ty)::env) t))`
-val _ = export_rewrites["dbterm_def"]
 
 val FLOOKUPD_def = Define`
   FLOOKUPD i v d = case FLOOKUP i v of NONE => d | SOME ty => ty`
@@ -300,949 +276,215 @@ val tyinst_def = tDefine "tyinst"`
 val tyinst_def = save_thm("tyinst_def",SIMP_RULE (std_ss++ETA_ss)[]tyinst_def)
 val _ = export_rewrites["tyinst_def"]
 
-val dbinst_def = Define`
-  dbinst tyin (dbFree x ty) = dbFree x (tyinst tyin ty) ∧
-  dbinst tyin (dbVar n ty) = dbVar n (tyinst tyin ty) ∧
-  dbinst tyin (dbConst x ty g) = dbConst x (tyinst tyin ty) g ∧
-  dbinst tyin (dbComb s t) = dbComb (dbinst tyin s) (dbinst tyin t) ∧
-  dbinst tyin (dbAbs ty t) = dbAbs (tyinst tyin ty) (dbinst tyin t)`
-val _ = export_rewrites["dbinst_def"]
+val simple_inst_def = Define`
+  simple_inst tyin (Var x ty) = Var x (tyinst tyin ty) ∧
+  simple_inst tyin (Const x ty g) = Const x (tyinst tyin ty) g ∧
+  simple_inst tyin (Comb s t) = Comb (simple_inst tyin s) (simple_inst tyin t) ∧
+  simple_inst tyin (Abs x ty t) = Abs x (tyinst tyin ty) (simple_inst tyin t)`
+val _ = export_rewrites["simple_inst_def"]
 
-val dbsubst_def = Define`
-  (dbsubst σ (dbFree s ty) = FLOOKUPD σ (s,ty) (dbFree s ty)) ∧
-  (dbsubst σ (dbVar n ty) = dbVar n ty) ∧
-  (dbsubst σ (dbConst s ty g) = dbConst s ty g) ∧
-  (dbsubst σ (dbComb t1 t2) = dbComb (dbsubst σ t1) (dbsubst σ t2)) ∧
-  (dbsubst σ (dbAbs ty tm) = dbAbs ty (dbsubst σ tm))`
-val _ = export_rewrites["dbsubst_def"]
+val simple_inst_has_type = store_thm("simple_inst_has_type",
+  ``∀tm tyin ty. welltyped tm ⇒ simple_inst tyin tm has_type (tyinst tyin (typeof tm))``,
+  Induct >> rw[]
+  >- rw[Once has_type_cases]
+  >- rw[Once has_type_cases]
+  >- (
+    rw[Once has_type_cases] >> fs[] >>
+    metis_tac[] )
+  >- (
+    rw[Once has_type_cases] ))
 
-val dbsubst_FEMPTY = store_thm("dbsubst_FEMPTY",
-  ``∀tm. dbsubst FEMPTY tm = tm``,
+val simple_subst_def = Define`
+  (simple_subst σ (Var s ty) = FLOOKUPD σ (s,ty) (Var s ty)) ∧
+  (simple_subst σ (Const s ty g) = Const s ty g) ∧
+  (simple_subst σ (Comb t1 t2) = Comb (simple_subst σ t1) (simple_subst σ t2)) ∧
+  (simple_subst σ (Abs s ty tm) = Abs s ty (simple_subst (σ \\ (s,ty)) tm))`
+val _ = export_rewrites["simple_subst_def"]
+
+val simple_subst_FEMPTY = store_thm("simple_subst_FEMPTY",
+  ``∀tm. simple_subst FEMPTY tm = tm``,
   Induct >> simp[])
-val _ = export_rewrites["dbsubst_FEMPTY"]
+val _ = export_rewrites["simple_subst_FEMPTY"]
 
-val dbsubst_dbsubst = store_thm("dbsubst_dbsubst",
-  ``∀tm σ1 σ2. dbsubst σ2 (dbsubst σ1 tm) = dbsubst ((dbsubst σ2 o_f σ1) ⊌ σ2) tm``,
+(*
+val simple_subst_compose = store_thm("simple_subst_compose",
+  ``∀tm σ1 σ2. simple_subst σ2 (simple_subst σ1 tm) = simple_subst ((simple_subst σ2 o_f σ1) ⊌ σ2) tm``,
   Induct >- (
     simp[FLOOKUPD_def,FLOOKUP_FUNION,FLOOKUP_o_f] >> rw[] >>
     BasicProvers.CASE_TAC >>
     BasicProvers.CASE_TAC >>
-    simp[FLOOKUPD_def] ) >> simp[])
+    simp[FLOOKUPD_def] ) >> simp[] >>
+    )
+*)
 
-val find_index_shift = store_thm("find_index_shift",
-  ``∀ls x k j. (find_index x ls k = SOME j) ⇒ j ≥ k ∧ ∀n. find_index x ls n = SOME (j-k+n)``,
-  Induct >> simp[find_index_def] >> rw[] >> res_tac >> fsrw_tac[ARITH_ss][])
+val ilist_to_fmap_def = Define`
+  ilist_to_fmap ilist = FUN_FMAP (λp. REV_ASSOCD (UNCURRY Var p) ilist (UNCURRY Var p)) {(x,ty) | MEM (Var x ty) (MAP SND ilist)}`
 
-val dbterm_env_shift = store_thm("dbterm_env_shift",
-  ``∀tm e1 e0. (∀x ty n. VFREE_IN (Var x ty) tm ∧ find_index (x,ty) (e1++e0) 0 = SOME n ⇒ n < LENGTH e1)
-      ⇒ dbterm (e1++e0) tm = dbterm e1 tm``,
+val FLOOKUP_ilist_to_fmap = store_thm("FLOOKUP_ilist_to_fmap",
+  ``∀ilist s ty.
+    FLOOKUP (ilist_to_fmap ilist) (s,ty) = if MEM (Var s ty) (MAP SND ilist) then SOME (REV_ASSOCD (Var s ty) ilist (Var s ty)) else NONE``,
+  rpt gen_tac >>
+  simp[ilist_to_fmap_def] >>
+  qmatch_abbrev_tac`FLOOKUP (FUN_FMAP f P) Y = X` >>
+  `FINITE P` by (
+    Q.ISPECL_THEN[`UNCURRY Var`,`P`,`set (MAP SND ilist)`]match_mp_tac FINITE_INJ >>
+    simp[INJ_DEF,MEM_MAP,Abbr`P`,EXISTS_PROD,FORALL_PROD] ) >>
+  simp[FLOOKUP_DEF,FUN_FMAP_DEF] >>
+  simp[Abbr`P`,Abbr`X`,Abbr`Y`,Abbr`f`])
+
+val GENLIST_NIL = store_thm("GENLIST_NIL",
+  ``∀f n. (GENLIST f n = []) ⇔ n = 0``,
+  GEN_TAC THEN Induct THEN SRW_TAC[][GENLIST_CONS])
+
+val MAP_SND_FILTER_NEQ = store_thm("MAP_SND_FILTER_NEQ",
+  ``MAP SND (FILTER (λ(x,y). y ≠ z) ls) =
+    FILTER ($<> z) (MAP SND ls)``,
+  Q.ISPECL_THEN[`$<> z`,`SND:('b#'a)->'a`,`ls`]mp_tac rich_listTheory.FILTER_MAP >> rw[] >>
+  AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >>
+  simp[FUN_EQ_THM,FORALL_PROD,EQ_IMP_THM])
+
+val VSUBST_frees = store_thm("VSUBST_frees",
+  ``∀tm il1 il2. (∀n ty. VFREE_IN (Var n ty) tm ⇒
+                    (MEM (Var n ty) (MAP SND il1) ⇔ MEM (Var n ty) (MAP SND il2)) ∧
+                    (REV_ASSOCD (Var n ty) il1 (Var n ty) = REV_ASSOCD (Var n ty) il2 (Var n ty))) ∧
+                 (∀s s'. MEM (s',s) il1 ∨ MEM (s',s) il2 ⇒ ∃x ty. s = Var x ty) ∧
+                 ALL_DISTINCT (MAP SND il1) ∧ ALL_DISTINCT (MAP SND il2) ⇒
+                 VSUBST il1 tm = VSUBST il2 tm``,
+  Induct >> simp[] >> rw[VSUBST_def]
+  >- metis_tac[] >- metis_tac[] >>
+  qho_match_abbrev_tac`(if P1 then Q1 else R1) = if P2 then Q2 else R2` >>
+  `P1 = P2` by (
+    rw[Abbr`P1`,Abbr`P2`,EXISTS_MEM,FORALL_PROD] >>
+    unabbrev_all_tac >> rw[MEM_FILTER] >> rw[EXISTS_PROD] >>
+    rw[EQ_IMP_THM] >> fs[REV_ASSOCD_ALOOKUP] >>
+    qmatch_assum_rename_tac`MEM (z,y) ill`[] >>
+    `∃x ty. y = Var x ty` by metis_tac[] >>
+    first_x_assum(qspecl_then[`x`,`ty`]mp_tac) >>
+    (discharge_hyps >- (rw[] >> fs[])) >>
+    strip_tac >|[
+      pop_assum mp_tac,
+      pop_assum (mp_tac o SYM)] >>
+    (BasicProvers.CASE_TAC >- (
+       fs[ALOOKUP_FAILS,MEM_MAP,UNCURRY,FORALL_PROD] )) >>
+    simp[MEM_MAP,EXISTS_PROD] >>
+    BasicProvers.VAR_EQ_TAC >>
+    asm_simp_tac(srw_ss()++SATISFY_ss)[] >>
+    (BasicProvers.CASE_TAC >- (
+      fs[ALOOKUP_FAILS,MEM_MAP,UNCURRY,FORALL_PROD,EXISTS_PROD] >> metis_tac[])) >>
+    strip_tac >>
+    qpat_assum`ALOOKUP ls y = SOME q`mp_tac >>
+    qmatch_assum_abbrev_tac`ALOOKUP ls y = SOME q` >>
+    `ALL_DISTINCT (MAP FST ls)` by (
+      simp[Abbr`ls`,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+      srw_tac[ETA_ss][] ) >>
+    strip_tac >>
+    `MEM (y,z) ls` by (
+      simp[Abbr`ls`,MEM_MAP,EXISTS_PROD] ) >>
+    imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >> fs[] >>
+    qunabbrev_tac`q` >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    qmatch_assum_rename_tac`MEM (q,y) ill`[] >>
+    map_every qexists_tac[`q`,`y`] >> simp[] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,UNCURRY] ) >>
+  qunabbrev_tac`P1` >>
+  pop_assum SUBST1_TAC >>
+  `t'' = t'` by (
+    unabbrev_all_tac >>
+    first_x_assum match_mp_tac >>
+    simp[MEM_FILTER,MEM_MAP,REV_ASSOCD_FILTER] >>
+    conj_tac >- (
+      fs[MEM_MAP,EXISTS_PROD] >>
+      rw[] >> metis_tac[] ) >>
+    conj_tac >- metis_tac[] >>
+    simp[MAP_SND_FILTER_NEQ] >>
+    simp[FILTER_ALL_DISTINCT]) >>
+  map_every qunabbrev_tac[`t''`,`t'`,`z'`,`z`,`R2`,`R1`] >>
+  fs[] >>
+  qunabbrev_tac`P2` >> rw[] >>
+  map_every qunabbrev_tac[`Q1`,`Q2`] >> rw[] >>
+  first_x_assum match_mp_tac >>
+  qmatch_assum_abbrev_tac`Abbrev (ilist''' = (Var z t,Var s t)::ilist'')` >>
+  conj_tac >- (
+    simp[Abbr`ilist'''`,Abbr`ilist''''`,REV_ASSOCD] >>
+    unabbrev_all_tac >>
+    simp[MEM_MAP,MEM_FILTER,EXISTS_PROD,REV_ASSOCD_FILTER] >>
+    rw[] >> fs[] >>
+    fs[MEM_MAP,EXISTS_PROD] ) >>
+  conj_tac >- (
+    unabbrev_all_tac >>
+    simp[MEM_FILTER] >>
+    metis_tac[] ) >>
+  unabbrev_all_tac >> simp[] >>
+  simp[MEM_MAP,MEM_FILTER,FORALL_PROD] >>
+  simp[MAP_SND_FILTER_NEQ,FILTER_ALL_DISTINCT])
+
+val ilist_to_fmap_DOMSUB = store_thm("ilist_to_fmap_DOMSUB",
+  ``∀ilist x. ilist_to_fmap ilist \\ x = ilist_to_fmap (FILTER (λ(p,q). q ≠ Var (FST x) (SND x)) ilist)``,
+  rw[FLOOKUP_EXT,FUN_EQ_THM,FORALL_PROD] >>
+  rw[FLOOKUP_ilist_to_fmap,DOMSUB_FLOOKUP_THM,MEM_MAP,MEM_FILTER,UNCURRY] >>
+  rfs[REV_ASSOCD_FILTER] >> rw[] >> fs[FORALL_PROD] >>
+  Cases_on`x`>>Cases_on`y`>>fs[]>>rw[]>>metis_tac[])
+
+val VSUBST_simple_subst = store_thm("VSUBST_simple_subst",
+  ``∀tm ilist. DISJOINT (set (bv_names tm)) {y | ∃ty u. VFREE_IN (Var y ty) u ∧ MEM u (MAP FST ilist)} ∧
+               (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty) ∧
+               ALL_DISTINCT (MAP SND ilist)
+               ⇒ VSUBST ilist tm = simple_subst (ilist_to_fmap ilist) tm``,
   Induct >- (
-    simp[find_index_def] >> rw[] >>
-    BasicProvers.CASE_TAC >- (
-      fs[GSYM find_index_NOT_MEM] >>
-      BasicProvers.CASE_TAC >>
-      metis_tac[find_index_NOT_MEM,optionTheory.NOT_SOME_NONE] ) >>
-    fs[] >>
-    Q.ISPECL_THEN[`e1`,`s,t`,`e0`,`0`,`x`]mp_tac find_index_APPEND1 >> rw[] )
-  >- simp[]
-  >- ( simp[] >> metis_tac[] ) >>
-  fs[EVERY_MEM,FORALL_PROD] >> rw[] >>
-  first_x_assum(qspecl_then[`(s,t)::e1`,`e0`]mp_tac) >>
-  simp[find_index_def] >>
-  disch_then match_mp_tac >>
-  rw[] >> simp[] >>
-  Q.ISPECL_THEN[`e1++e0`,`x,ty`,`1`,`n`]mp_tac find_index_shift >>
-  simp[] >> rw[] >>
-  pop_assum(qspec_then`0`mp_tac) >> simp[] >>
-  rw[] >> Cases_on`n`>>fs[] >> metis_tac[])
-
-val dbilist_def = Define`
-  dbilist ilist = alist_to_fmap (MAP (λ(k,v). dest_var k, dbterm [] v) (MAP (λ(v,k). (k,v)) ilist))`
-
-val dbilist_thm = store_thm("dbilist_thm",
-  ``∀ilist x ty.
-    (∀k v. MEM (v,k) ilist ⇒ ∃x ty. k = Var x ty) ⇒
-    (FLOOKUP (dbilist ilist) (x,ty) =
-     if MEM (Var x ty) (MAP SND ilist) then SOME (dbterm [] (REV_ASSOCD (Var x ty) ilist (Var x ty))) else NONE)``,
-  rw[dbilist_def,ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >- (
+    simp[] >>
+    simp[VSUBST_def] >>
+    simp[FLOOKUPD_def] >>
+    simp[FLOOKUP_ilist_to_fmap] >>
+    rw[] >>
     rw[REV_ASSOCD_ALOOKUP] >>
     BasicProvers.CASE_TAC >>
-    fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
-    fs[MEM_EL,ALOOKUP_LEAST_EL] >>
-    rfs[EL_MAP,UNCURRY] >>
-    qpat_assum`X = EL n ilist`(assume_tac o SYM) >>
-    qpat_assum`Var x ty = X`(assume_tac o SYM) >>
-    conj_tac >- ( qexists_tac`n` >> simp[EL_MAP,UNCURRY] ) >>
-    rw[] >>
-    numLib.LEAST_ELIM_TAC >>
-    conj_tac >- ( qexists_tac`n` >> simp[EL_MAP,UNCURRY] ) >>
-    rw[] >>
-    `¬(n < n'')` by (
-      strip_tac >>
-      first_x_assum(qspec_then`n`mp_tac) >>
-      simp[EL_MAP,UNCURRY] ) >>
-    `n'' < LENGTH ilist` by DECIDE_TAC >>
-    fs[EL_MAP,UNCURRY] >>
-    fs[GSYM LEFT_FORALL_IMP_THM] >>
-    numLib.LEAST_ELIM_TAC >>
-    conj_tac >- ( qexists_tac`n` >> simp[EL_MAP,UNCURRY] ) >>
-    rw[] >>
-    `¬(n'' < n''')` by (
-      strip_tac >>
-      first_x_assum(qspec_then`n''`mp_tac) >>
-      simp[EL_MAP,UNCURRY] >>
-      res_tac >> Cases_on`EL n'' ilist`>>fs[] >>fs[]) >>
-    `n''' < LENGTH ilist` by DECIDE_TAC >>
-    fs[EL_MAP,UNCURRY] >>
-    `¬(n''' < n'')` by (
-      strip_tac >>
-      last_x_assum(qspec_then`n'''`mp_tac) >>
-      simp[EL_MAP,UNCURRY] ) >>
-    `n'' = n'''` by DECIDE_TAC >>
-    simp[] ) >>
-  spose_not_then strip_assume_tac >>
-  res_tac >> fs[] >> metis_tac[])
-
-val VSUBST_NIL = store_thm("VSUBST_NIL",
-  ``∀tm. VSUBST [] tm = tm``,
-  Induct >> simp[VSUBST_def,REV_ASSOCD])
-val _ = export_rewrites["VSUBST_NIL"]
-
-val RACONV_dbterm = store_thm("RACONV_dbterm",
-  ``∀env tp. RACONV env tp ⇒
-    (∀vp. MEM vp env ⇒ (∃x x' ty. (vp = (Var x ty, Var x' ty))))
-     ⇒ dbterm (MAP (dest_var o FST) env) (FST tp) = dbterm (MAP (dest_var o SND) env) (SND tp)``,
-  ho_match_mp_tac RACONV_ind >> rw[] >> rw[] >>
-  TRY (
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,FORALL_PROD,UNCURRY,EXISTS_PROD] >>
+    metis_tac[])
+  >- simp[VSUBST_def]
+  >- (
+    simp[VSUBST_def] >> rw[] >>
     first_x_assum match_mp_tac >>
-    rw[] >> rw[] ) >>
-  Induct_on`env` >> simp[ALPHAVARS_def] >>
-  rw[] >> rw[] >- (
-    rw[find_index_def] >>
-    metis_tac[PAIR_EQ,term_11] ) >> fs[] >>
-  simp[find_index_def] >>
-  `∃x x' ty. h = (Var x ty, Var x' ty)` by metis_tac[] >> simp[] >>
-  simp[Once find_index_shift_0] >>
-  simp[Once find_index_shift_0,SimpRHS] >>
-  rpt BasicProvers.CASE_TAC >> fs[] >> rw[] >> fs[])
-
-val dbterm_RACONV = store_thm("dbterm_RACONV",
-  ``∀t1 env1 t2 env2. dbterm env1 t1 = dbterm env2 t2 ∧ LENGTH env1 = LENGTH env2 ⇒
-      RACONV (ZIP(MAP (UNCURRY Var) env1,MAP (UNCURRY Var) env2)) (t1,t2)``,
-  Induct >- (
-    ntac 2 gen_tac >> simp[] >>
-    Cases >> simp[RACONV] >>
-    TRY (BasicProvers.CASE_TAC >> simp[] >> NO_TAC) >>
-    Induct_on`env1` >- (
-      simp[find_index_def,LENGTH_NIL_SYM,ALPHAVARS_def] ) >>
-    gen_tac >> Cases >> simp[] >>
-    simp[find_index_def,ALPHAVARS_def] >>
-    Cases_on`h`>>Cases_on`h'`>>simp[] >>
-    simp[Once find_index_shift_0] >>
-    simp[Once find_index_shift_0,SimpRHS] >>
-    rpt BasicProvers.CASE_TAC >> fs[] >> rw[] >> fs[] )
-  >- (
-    simp[] >> ntac 2 gen_tac >>
-    Cases >> simp[RACONV] >>
-    gen_tac >> BasicProvers.CASE_TAC >> simp[] )
-  >- (
-    simp[] >>
-    gen_tac >> Cases >> simp[RACONV] >>
-    gen_tac >> BasicProvers.CASE_TAC >> simp[] ) >>
-  simp[] >>
-  ntac 2 gen_tac >>
-  Cases >> simp[RACONV] >- (
-    gen_tac >> BasicProvers.CASE_TAC >> simp[] ) >>
-  rw[] >> res_tac >> fs[])
-
-val dbterm_ACONV = store_thm("dbterm_ACONV",
-  ``∀t1 t2. ACONV t1 t2 ⇔ dbterm [] t1 = dbterm [] t2``,
-  rw[ACONV_def,EQ_IMP_THM] >- (
-    qspecl_then[`[]`,`t1,t2`]mp_tac RACONV_dbterm >> simp[] ) >>
-  qspecl_then[`t1`,`[]`,`t2`,`[]`]mp_tac dbterm_RACONV >>
-  simp[])
-
-val dbfv_def = Define`
-  dbfv (dbFree s ty) = [(s,ty)] ∧
-  dbfv (dbVar _ _) = [] ∧
-  dbfv (dbConst _ _ _) = [] ∧
-  dbfv (dbComb t1 t2) = dbfv t1 ++ dbfv t2 ∧
-  dbfv (dbAbs _ tm) = dbfv tm`
-val _ = export_rewrites["dbfv_def"]
-
-val dbbv_def = Define`
-  dbbv (dbFree s ty) = [] ∧
-  dbbv (dbVar n ty) = [(n,ty)] ∧
-  dbbv (dbConst _ _ _) = [] ∧
-  dbbv (dbComb t1 t2) = dbbv t1 ++ dbbv t2 ∧
-  dbbv (dbAbs _ tm) = MAP (λ(n,ty). (PRE n,ty)) (FILTER ($< 0 o FST) (dbbv tm))`
-val _ = export_rewrites["dbbv_def"]
-
-val fresh_def = Define`
-  fresh ls ty = let n = LEAST n. (REPLICATE n (ARB:char),ty) ∉ set ls in (REPLICATE n (ARB:char),ty)`
-
-val fresh_thm = store_thm("fresh_thm",
-  ``∀ls ty. fresh ls ty ∉ set ls``,
-  rw[fresh_def,LET_THM] >>
-  numLib.LEAST_ELIM_TAC >> rw[] >>
-  spose_not_then strip_assume_tac >>
-  qsuff_tac`INFINITE (set ls)` >- simp[] >>
-  REWRITE_TAC[infinite_num_inj] >>
-  qexists_tac`λn. REPLICATE n ARB,ty` >>
-  simp[INJ_DEF] >> rw[] >>
-  metis_tac[rich_listTheory.LENGTH_REPLICATE])
-
-val fresh_ty = store_thm("fresh_ty",
-  ``∀ls ty. SND(fresh ls ty) = ty``,
-  rw[fresh_def] >> rw[])
-
-(*
-val undb_def = Define`
-  (undb env (dbFree s ty) = Var s ty) ∧
-  (undb env (dbVar n) = UNCURRY Var (EL n env)) ∧
-  (undb env (dbConst s ty g) = Const s ty g) ∧
-  (undb env (dbComb t1 t2) = Comb (undb env t1) (undb env t2)) ∧
-  (undb env (dbAbs ty tm) =
-     let (x,ty) = fresh (env ++ dbfv tm) ty in
-     Abs x ty (undb ((x,ty)::env) tm))`
-val _ = export_rewrites["undb_def"]
-
-val dbterm_undb = store_thm("dbterm_undb",
-  ``∀tm env. set (dbbv tm) ⊆ count (LENGTH env) ∧ DISJOINT (set (dbfv tm)) (set env) ∧ ALL_DISTINCT env
-    ⇒ (dbterm env (undb env tm) = tm)``,
-  Induct >- (
-    simp[] >> rw[] >>
-    BasicProvers.CASE_TAC >>
-    metis_tac[find_index_is_MEM] )
-  >- rw[UNCURRY]
-  >- rw[]
-  >- rw[] >>
-  rw[] >>
-  rw[] >- metis_tac[fresh_ty,SND] >>
+    fs[IN_DISJOINT] >>
+    metis_tac[] ) >>
+  simp[VSUBST_def] >>
+  rpt gen_tac >> strip_tac >>
+  BasicProvers.CASE_TAC >- (
+    fs[EXISTS_MEM,MEM_FILTER,UNCURRY] >>
+    `∃x ty. SND e = Var x ty` by metis_tac[pair_CASES,SND] >>
+    first_x_assum(qspecl_then[`t`,`FST e`]mp_tac) >>
+    simp[MEM_MAP] >>
+    metis_tac[] ) >>
+  simp[ilist_to_fmap_DOMSUB] >>
   first_x_assum match_mp_tac >>
-  fs[SUBSET_DEF,IN_DISJOINT,MEM_MAP,GSYM LEFT_FORALL_IMP_THM,MEM_FILTER] >>
-  conj_tac >- (
-    rw[] >>
-    res_tac >>
-    qmatch_assum_rename_tac`MEM z Y`["Y"] >>
-    Cases_on`z`>>fsrw_tac[ARITH_ss][] ) >>
-  conj_tac >- (
-    qx_gen_tac`z` >>
-    Cases_on`z=(x,ty)`>>simp[]>>
-    metis_tac[fresh_thm,MEM_APPEND] ) >>
-  metis_tac[fresh_thm,MEM_APPEND])
-*)
-
-(*
-val dbbv_dbterm = store_thm("dbbv_dbterm",
-  ``∀tm env. set (dbbv (dbterm env tm)) ⊆ count (LENGTH env)``,
-  Induct >- (
-    simp[SUBSET_DEF] >>
-    rpt gen_tac >>
-    BasicProvers.CASE_TAC >> simp[] >>
-    imp_res_tac find_index_LESS_LENGTH >>
-    fs[] )
-  >- rw[]
-  >- rw[] >>
-  rw[] >>
-  fs[SUBSET_DEF,MEM_MAP,GSYM LEFT_FORALL_IMP_THM,MEM_FILTER] >>
-  rw[] >> res_tac >> fs[] >>
-  Cases_on`y`>>fs[])
-*)
+  simp[MAP_SND_FILTER_NEQ,FILTER_ALL_DISTINCT,MEM_FILTER,MEM_MAP,EXISTS_PROD] >>
+  fs[MEM_MAP,EXISTS_PROD,IN_DISJOINT] >>
+  metis_tac[])
 
 (*
 val VSUBST_RACONV = store_thm("VSUBST_RACONV",
-  ``∀env tp. RACONV env tp ⇒ ∀ilist. RACONV (MAP (λ(x,y). VSUBST ilist x, VSUBST ilist y) env) (VSUBST ilist (FST tp), VSUBST ilist (SND tp))``,
+  ``∀env tp. RACONV env tp ⇒
+    ∀ilist. (∀x. MEM x (MAP FST env) ∨ MEM x (MAP SND env) ⇒
+      ∃s ty. VSUBST ilist x = Var s ty) ⇒ RACONV (MAP (λ(x,y). VSUBST ilist x, VSUBST ilist y) env) (VSUBST ilist (FST tp), VSUBST ilist (SND tp))``,
   ho_match_mp_tac RACONV_ind >>
   conj_tac >- (
     Induct >- (
       simp[ALPHAVARS_def,VSUBST_def,RACONV_REFL] ) >>
-    Cases >> simp[ALPHAVARS_def] >>
-    rw[VSUBST_def] >>
-    rw[VSUBST_def] >>
-*)
-
-(*
-val dbterm_rename = store_thm("dbterm_rename",
-  ``∀tm x x' ty env ilist.
-      ¬VFREE_IN (Var x' ty) tm ∧
-      Var x ty ∉ set (MAP SND ilist) ∧
-
-      ⇒
-      dbterm ((x',ty)::env) (VSUBST ((Var x' ty,Var x ty)::ilist) tm) =
-      dbterm ((x,ty)::env) (VSUBST ilist tm)``,
-  Induct >- (
-    simp[VSUBST_def] >>
-    rw[REV_ASSOCD,find_index_def] >- (
-      Q.ISPECL_THEN[`ilist`,`Var s t`,`Var s t`]mp_tac REV_ASSOCD_MEM >>
-      rw[] >> fs[find_index_def] >>
-      fs[MEM_MAP,EXISTS_PROD] >> metis_tac[] )
-    dbterm_env_shift
-
-val dbterm_VSUBST = store_thm("dbterm_VSUBST",
-  ``∀tm ilist env.
-      (∀k v. MEM (v,k) ilist ⇒
-             ∃x ty. k = Var x ty ∧
-                    (∀x ty. MEM (x,ty) env ⇒ ¬VFREE_IN (Var x ty) v)) ⇒
-      dbterm env (VSUBST (FILTER (λ(v,k). dest_var k ∉ set env) ilist) tm) =
-      dbsubst (dbilist ilist) (dbterm env tm)``,
-  Induct >- (
-    simp[VSUBST_def] >> rw[] >>
-    match_mp_tac EQ_SYM >>
-    BasicProvers.CASE_TAC >- (
-      fs[GSYM find_index_NOT_MEM] >>
-      qspecl_then[`ilist`,`s`,`t`]mp_tac dbilist_thm >>
-      discharge_hyps >- metis_tac[] >>
-      rw[] >- (
-        rw[REV_ASSOCD_FILTER] >>
-        qmatch_abbrev_tac`dbterm [] a = dbterm env a` >>
-        qspecl_then[`a`,`[]`,`env`]mp_tac dbterm_env_shift >>
-        discharge_hyps >- (
-          rw[] >>
-          Cases_on`a = Var s t` >> simp[] >- (
-            spose_not_then strip_assume_tac >>
-            imp_res_tac find_index_is_MEM >>
-            metis_tac[] ) >>
-          `MEM (a,Var s t) ilist` by metis_tac[REV_ASSOCD_MEM] >>
-          spose_not_then strip_assume_tac >>
-          first_x_assum(qspecl_then[`Var s t`,`a`]mp_tac) >>
-          simp[] >>
-          metis_tac[find_index_is_MEM] ) >>
-        rw[] ) >>
-      rw[REV_ASSOCD_FILTER] >>
-      qmatch_abbrev_tac`dbFree s t = dbterm env a` >>
-      Cases_on`a = Var s t`>>simp[] >- (
-        BasicProvers.CASE_TAC >>
-        metis_tac[find_index_is_MEM] ) >>
-      `MEM (a,Var s t) ilist` by metis_tac[REV_ASSOCD_MEM] >>
-      fs[MEM_MAP,EXISTS_PROD] >>
-      metis_tac[] ) >>
-    simp[REV_ASSOCD_FILTER] >> rw[] >>
-    metis_tac[find_index_is_MEM] )
-  >- rw[VSUBST_def]
-  >- rw[VSUBST_def] >>
-  rw[] >>
-  rw[VSUBST_def] >>
-  rw[] >- (
-    fs[EXISTS_MEM,Abbr`ilist'`,MEM_FILTER,EXISTS_PROD] >>
-    qmatch_assum_abbrev_tac`Abbrev(t' = VSUBST (FILTER P ilist') tm)` >>
-    cheat ) >>
-  simp[Abbr`t'`] >>
-  first_x_assum(qspecl_then[`ilist`,`(s,t)::env`]mp_tac) >>
-  discharge_hyps >- (
-    simp[] >> rw[] >>
-    res_tac >> simp[] >>
-    reverse(rw[]) >- metis_tac[] >>
-    fs[Abbr`ilist'`,EXISTS_MEM,EVERY_MEM,MEM_FILTER,FORALL_PROD] >>
-    Cases_on`MEM (s,t) env`>-metis_tac[] >>
-    first_x_assum(qspecl_then[`
-*)
-
-(*
-val dbterm_rename = store_thm("dbterm_rename",
-  ``∀tm env x x' ty.
-      ¬VFREE_IN (Var x' ty) tm ⇒
-      dbterm ((x',ty)::env) (VSUBST [(Var x' ty,Var x ty)] tm) =
-      dbterm ((x,ty)::env) tm``,
-  Induct >- (
-    simp[VSUBST_def,REV_ASSOCD,find_index_def] >>
-    rw[find_index_def] >> rw[] )
-  >- rw[VSUBST_def]
-  >- rw[VSUBST_def]
-  >- (
-     simp[VSUBST_def] >>
-     rpt gen_tac >> strip_tac >- (
-       rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-       rw[] >- (
-         fs[] >>
-
-val dbterm_rename_bvars = store_thm("dbterm_rename_bvars",
-  ``∀tm env ilist.
-    (∀k v. MEM (v,k) ilist ⇒ ∃x x' ty. k = Var x ty ∧ v = Var x' ty ∧ MEM (x,ty) env) ⇒
-    dbterm (MAP (λ(x,ty). dest_var(REV_ASSOCD (Var x ty) ilist (Var x ty))) env) (VSUBST ilist tm) =
-    dbterm env tm``,
-  Induct >- (
-    simp[VSUBST_def,REV_ASSOCD_ALOOKUP] >>
-    rw[] >>
-    BasicProvers.CASE_TAC >- (
-      fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
-      BasicProvers.CASE_TAC >- (
-        fs[GSYM find_index_NOT_MEM,MEM_MAP,EXISTS_PROD] >>
-        pop_assum(qspecl_then[`s`,`t`]mp_tac) >>
-        BasicProvers.CASE_TAC >> simp[] >- (
-          rw[] >>
-          BasicProvers.CASE_TAC >>
-          imp_res_tac find_index_is_MEM ) >>
-        BasicProvers.CASE_TAC >> simp[] >>
-        imp_res_tac find_index_is_MEM >>
-        imp_res_tac ALOOKUP_MEM >>
-        fs[MEM_MAP,EXISTS_PROD] >>
-        res_tac >> fs[] ) >>
-      BasicProvers.CASE_TAC >- (
-        fs[GSYM find_index_NOT_MEM] >>
-        imp_res_tac find_index_is_MEM >>
-        fs[MEM_MAP,EXISTS_PROD] >>
-        qpat_assum`X = Y`mp_tac >>
-        BasicProvers.CASE_TAC >> simp[] >- (
-          fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
-          metis_tac[] ) >>
-        imp_res_tac ALOOKUP_MEM >>
-        fs[MEM_MAP,EXISTS_PROD] >>
-        res_tac >> fs[] >> rw[] >>
-
-          simp[GSM find_index_NOT_MEM]
-          fs[ALOOKUP_FAILS]
-*)
-
-(*
-val dbterm_VSUBST = store_thm("dbterm_VSUBST",
-  ``∀tm env ilist env'.
-      (∀k v. MEM (v,k) ilist ⇒
-        ∃x ty. k = Var x ty ∧
-               (∀x ty. MEM (x,ty) env ⇒ ¬VFREE_IN (Var x ty) v) ∧
-               (MEM (x,ty) env ⇒ ∃x'. v = Var x' ty ∧ ¬VFREE_IN v tm)) ∧
-      (env' = MAP (λ(x,ty). dest_var(REV_ASSOCD (Var x ty) ilist (Var x ty))) env)
-      ⇒
-      dbterm env' (VSUBST ilist tm) =
-      dbsubst (dbilist ilist) (dbterm env tm)``,
-  Induct >- (
-    rw[VSUBST_def,REV_ASSOCD_ALOOKUP] >>
-    match_mp_tac EQ_SYM >>
-    BasicProvers.CASE_TAC >> simp[] >- (
-      qspecl_then[`ilist`,`s`,`t`]mp_tac dbilist_thm >>
-      discharge_hyps >- metis_tac[] >>
-      rw[REV_ASSOCD_ALOOKUP] >- (
-        BasicProvers.CASE_TAC >>
-        fs[ALOOKUP_FAILS,find_index_def,MEM_MAP,EXISTS_PROD] >>
-        qmatch_abbrev_tac`dbterm [] x = dbterm e x` >>
-        qspecl_then[`x`,`[]`,`e`]mp_tac dbterm_env_shift >>
-        discharge_hyps >- (
-          rw[] >>
-          imp_res_tac ALOOKUP_MEM >>
-          fs[MEM_MAP,EXISTS_PROD] >>
-          res_tac >> fs[] >>
-          rpt BasicProvers.VAR_EQ_TAC >>
-          fs[GSYM find_index_NOT_MEM] >> rfs[] >> rw[] >>
-          spose_not_then strip_assume_tac >>
-          imp_res_tac find_index_is_MEM >>
-          fs[Abbr`e`,MEM_MAP,EXISTS_PROD] >>
-          ntac 2 (pop_assum mp_tac) >>
-          BasicProvers.CASE_TAC >> simp[] >- metis_tac[] >> rw[] >>
-          imp_res_tac ALOOKUP_MEM >>
-          fs[MEM_MAP,EXISTS_PROD] >>
-          res_tac >> fs[] >>
-          rpt BasicProvers.VAR_EQ_TAC >>
-          rfs[] >> rw[] >>
-          spose_not_then strip_assume_tac >> fs[] >>
-          rpt BasicProvers.VAR_EQ_TAC >>
-          fs[] >> rw[] >>
-          metis_tac[]
-*)
-
-(*
-val dbterm_VSUBST = store_thm("dbterm_VSUBST",
-  ``∀tm env ilist env'.
-      (∀k v. MEM (v,k) ilist ⇒
-        ∃x ty. k = Var x ty ∧
-               (REV_ASSOCD k ilist k = v ⇒
-                 EVERY ($~ o combin$C VFREE_IN v o UNCURRY Var) env ∧
-                 (MEM (x,ty) env ⇒
-                    ∃e x'. env = (x,ty)::e ∧ ilist = [(v,k)] ∧ v = Var x' ty))) ∧
-      (env' = if ∃k v e. ilist = [(v,k)] ∧ env = (dest_var k)::e then (dest_var (FST(HD ilist)))::(TL env) else env)
-      ⇒
-      dbterm env' (VSUBST ilist tm) =
-      dbsubst (dbilist ilist) (dbterm env tm)``,
-  Induct >- (
-    simp[VSUBST_def] >> rpt gen_tac >>
-    simp[REV_ASSOCD_ALOOKUP] >>
-    strip_tac >>
-    match_mp_tac EQ_SYM >>
-    BasicProvers.CASE_TAC >> simp[] >- (
-      qspecl_then[`ilist`,`s`,`t`]mp_tac dbilist_thm >>
-      discharge_hyps >- metis_tac[] >>
-      simp[MEM_MAP,EXISTS_PROD] >> strip_tac >>
-      fs[GSYM find_index_NOT_MEM] >>
-      Cases_on`ALOOKUP (MAP (λ(x,y). (y,x)) ilist) (Var s t)` >- (
-        fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
-        rw[] >> fs[] >> rw[] >> fs[] >> rw[find_index_def]
-        ) >>
-      simp[REV_ASSOCD_ALOOKUP] >>
-        BasicProvers.CASE_TAC >> simp[] >>
-        BasicProvers.CASE_TAC >> simp[] >>
-        BasicProvers.CASE_TAC >> simp[] >- (
-          qmatch_abbrev_tac`dbterm [] x = dbterm env x` >>
-          qspecl_then[`x`,`[]`,`env`]mp_tac dbterm_env_shift >>simp[] >>
-          discharge_hyps >- (
-            simp[Abbr`env`,find_index_def] >>
-            imp_res_tac ALOOKUP_MEM >>
-            pop_assum mp_tac >>
-            simp[MEM_MAP,EXISTS_PROD] >> strip_tac >>
-            first_x_assum(qspecl_then[`Var s t`,`x`]mp_tac) >>
-            simp[] >> strip_tac >>
-            rw[] >> rw[] >>
-            qpat_assum`EVERY X Y`mp_tac >>
-            simp[EVERY_MEM,FORALL_PROD] >>
-            metis_tac[find_index_is_MEM] ) >>
-          rw[] ) >>
-        qmatch_abbrev_tac`dbterm [] x = dbterm env x` >>
-        qspecl_then[`x`,`[]`,`env`]mp_tac dbterm_env_shift >>simp[] >>
-        discharge_hyps >- (
-          simp[Abbr`env`,find_index_def] >>
-          imp_res_tac ALOOKUP_MEM >>
-          ntac 2 (pop_assum mp_tac) >>
-          simp[MEM_MAP,EXISTS_PROD] >> ntac 2 strip_tac >>
-          first_assum(qspecl_then[`Var s t`,`x`]mp_tac) >>
-          first_x_assum(qspecl_then[`Var q r`,`x'`]mp_tac) >>
-          simp[] >> ntac 2 strip_tac >>
-          rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-          qpat_assum`¬VFREE_IN X Y`mp_tac >>
-          qpat_assum`¬VFREE_IN X Y`mp_tac >>
-          simp[] >> ntac 2 strip_tac >>
-          qpat_assum`MEM X Y`mp_tac >> simp[] >>
-          spose_not_then strip_assume_tac >>
-          rpt BasicProvers.VAR_EQ_TAC >>
-          pop_assum mp_tac >> simp[] >>
-          qpat_assum`MEM X Y`mp_tac >> simp[] >>
-          qpat_assum`MEM X Y`mp_tac >> simp[] >>
-          fs[] ) >>
-        rw[] ) >>
-      `ALOOKUP (MAP (λ(x,y). (y,x)) ilist) (Var s t) = NONE` by (
-        simp[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >> metis_tac[] ) >>
-      simp[] >>
-      BasicProvers.CASE_TAC >> simp[find_index_def] >>
-      BasicProvers.CASE_TAC >>
-      BasicProvers.CASE_TAC >> fs[] >>
-      fs[find_index_def] >>
-      imp_res_tac ALOOKUP_MEM >> fs[MEM_MAP,EXISTS_PROD] >>
-      first_x_assum(qspecl_then[`Var q r`,`x`]mp_tac) >>
-      simp[] >> rw[] >- (
-        spose_not_then strip_assume_tac >> fs[] >> rw[] >> fs[]
-
-        rpt BasicProvers.VAR_EQ_TAC
-      res_tac >> fs[] >>
-      rpt BasicProvers.VAR_EQ_TAC >>
-      fs[] >>
-      rpt BasicProvers.VAR_EQ_TAC >>
-      qpat_assum`¬VFREE_IN X Y`mp_tac >>
-      simp[] >> strip_tac >>
-      qpat_assum`MEM X Y`mp_tac >> simp[] >>
-      qpat_assum`ALOOKUP X Y = Z`mp_tac >> simp[] >>
-      qpat_assum`ALOOKUP X Y = Z`mp_tac >> simp[] >>
-      rw[]>>fs[]>>rfs[]>>
-      fs[dbilist_def,find_index_def]
-
-      fs[ALOOKUP_FAILS,find_index_def] >>
-      BasicProvers.CASE_TAC >> simp[find_index_def] >- (
-        fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
-        BasicProvers.CASE_TAC >>
-        imp_res_tac ALOOKUP_MEM >>
-        fs[MEM_MAP,EXISTS_PROD] >>
-        res_tac >> rfs[] >> fs[] >>
-        metis_tac[] ) >>
-      BasicProvers.CASE_TAC >- (
-        fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
-        imp_res_tac ALOOKUP_MEM >>
-        fs[MEM_MAP,EXISTS_PROD] >>
-        metis_tac[dest_var_def] ) >>
-      fs[ALOOKUP_LEAST_EL,MEM_EL] >> rw[] >>
-      numLib.LEAST_ELIM_TAC >>
-      conj_tac >- metis_tac[] >> rw[] >>
-      rfs[EL_MAP,UNCURRY] >>
-      `¬(n < n'')` by (
-        strip_tac >> first_x_assum(qspec_then`n`mp_tac) >> simp[EL_MAP,UNCURRY] ) >>
-      `n'' < LENGTH ilist` by DECIDE_TAC >> fs[EL_MAP,UNCURRY] >>
-      numLib.LEAST_ELIM_TAC >>
-      conj_tac >- (qexists_tac`n'`>>simp[EL_MAP,UNCURRY]) >> rw[] >>
-      qpat_assum`Var s t = X`(assume_tac o SYM) >> fs[] >>
-      `¬(n' < n''')` by (
-        strip_tac >> first_x_assum(qspec_then`n'`mp_tac) >> simp[EL_MAP,UNCURRY] ) >>
-      `n''' < LENGTH ilist` by DECIDE_TAC >> fs[EL_MAP,UNCURRY] >>
-      qpat_assum`(s,t) = X`(assume_tac o SYM) >> fs[] >>
-      `¬(n''' < n'')` by (
-        strip_tac >> last_x_assum(qspec_then`n'''`mp_tac) >> simp[EL_MAP,UNCURRY] >>
-        fs[GSYM LEFT_FORALL_IMP_THM] >> res_tac >>
-        Cases_on`EL n''' ilist`>>fs[] >> fs[] ) >>
-      `¬(n'' < n''')` by (
-        strip_tac >> first_x_assum(qspec_then`n''`mp_tac) >> simp[EL_MAP,UNCURRY] ) >>
-      `n'' = n'''` by DECIDE_TAC >> simp[] ) >>
-    Cases_on`h`>>simp[]>>
-    simp[find_index_def] >>
-    BasicProvers.CASE_TAC >> simp[] >- (
-      fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
-      BasicProvers.CASE_TAC >> simp[find_index_def] >- (
-        fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
-        rw[]>>fs[] >> BasicProvers.CASE_TAC>>fs[] >>
-        BasicProvers.CASE_TAC >>
-        imp_res_tac ALOOKUP_MEM >>
-        fs[MEM_MAP,EXISTS_PROD] >> rw[] >>
-        res_tac >> rfs[] >> fs[] >>
-        metis_tac[] ) >>
-      rw[] >- (
-        imp_res_tac ALOOKUP_MEM >>
-        fs[MEM_MAP,EXISTS_PROD] >>
-        metis_tac[] ) >>
-      BasicProvers.CASE_TAC >> simp[]
-
-
-        fs[GSYM find_index_NOT_MEM] >>
-        fs[MEM_MAP,EXISTS_PROD] >>
-        BasicProvers.CASE_TAC >> simp[] >- (
-          fs[GSYM find_index_NOT_MEM] >>
-          BasicProvers.CASE_TAC >> simp[] >>
-          imp_res_tac ALOOKUP_MEM >>
-          fs[MEM_MAP,EXISTS_PROD] >>
-          res_tac >> fs[] >>
-          metis_tac[] ) >>
-        imp_res_tac find_index_is_MEM >>
-        simp[] >>
-        BasicProvers.CASE_TAC >> simp[] >>
-        imp_res_tac ALOOKUP_MEM >>
-        fs[MEM_MAP,EXISTS_PROD] >>
-        metis_tac[] ) >>
-      BasicProvers.CASE_TAC >> simp[] >- (
-        fs[GSYM find_index_NOT_MEM] >>
-        imp_res_tac find_index_is_MEM >>
-        fs[MEM_MAP,EXISTS_PROD] >>
-        qpat_assum`(s,t) = X`(mp_tac o SYM)>>
-        BasicProvers.CASE_TAC >> simp[] >> rw[] >> fs[] >>
-        imp_res_tac ALOOKUP_MEM >>
-        fs[MEM_MAP,EXISTS_PROD] >>
-        res_tac >> rfs[] >> rw[] >> rfs[] >> rw[] >> rfs[] >> rw[] >>
-        fs[EVERY_MEM,FORALL_PROD] >>
-        BasicProvers.CASE_TAC >> simp[] >>
-        fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD]
-
-      qmatch_assum_abbrev_tac`find_index st (MAP f ls) 0 = SOME x` >>
-      Q.ISPECL_THEN[`ls`,`st`,`0`,`f`]mp_tac find_index_MAP_inj >>
-      discharge_hyps >- (
-        simp[Abbr`st`,Abbr`f`] >>
-        simp[FORALL_PROD] >>
-        qx_genl_tac[`a`,`b`] >>
-        strip_tac >>
-        BasicProvers.CASE_TAC >> simp[] >- (
-          BasicProvers.CASE_TAC >> simp[] >>
-          imp_res_tac ALOOKUP_MEM >>
-          fs[MEM_MAP,EXISTS_PROD] >>
-          res_tac >> rfs[] >>
-          rpt BasicProvers.VAR_EQ_TAC >> rfs[] >>
-          rw[] >>
-          fs[EVERY_MEM,FORALL_PROD]
-
-      imp_res_tac find_index_is_MEM >>
-      fs[MEM_MAP,EXISTS_PROD] >>
-      qpat_assum`(s,t) = X`(assume_tac o SYM)>>fs[]>>
-      pop_assum mp_tac >>
-      BasicProvers.CASE_TAC >> simp[] >- (
-        rw[] >>
-        BasicProvers.CASE_TAC >> simp[]
-        imp_res_tac find_index_is_MEM >>
-        fs[MEM_MAP,EXISTS_PROD] 
-        hrk
-
-        qmatch_assum_abbrev_tac`find_index (s,t) (MAP f env) 0 = NONE` >>
-        `MEM (f (s,t)) (MAP f env)` by metis_tac[MEM_MAP] >>
-        pop_assum mp_tac >>
-        simp[Abbr`f`] >>
-        BasicProvers.CASE_TAC >> simp[MEM_MAP,EXISTS_PROD] >- (
-          rw[] >>
-          BasicProvers.CASE_TAC >> simp[] >>
-          fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD]
-
-    BasicProvers.CASE_TAC >> simp[] >- (
-      BasicProvers.CASE_TAC >- (
-        fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
-        imp_res_tac ALOOKUP_MEM >>
-        fs[MEM_MAP,EXISTS_PROD] >>
-        metis_tac[dest_var_def] ) >>
-      fs[ALOOKUP_LEAST_EL,MEM_EL] >>
-      rfs[EL_MAP,UNCURRY] >> rw[] >>
-      numLib.LEAST_ELIM_TAC >>
-      conj_tac >- ( qexists_tac`n` >> simp[EL_MAP,UNCURRY] ) >> rw[] >>
-      `¬(n < n'')` by (
-        strip_tac >>
-        first_x_assum(qspec_then`n`mp_tac) >>
-        simp[EL_MAP,UNCURRY] ) >>
-      `n'' < LENGTH ilist` by DECIDE_TAC >>
-      fs[EL_MAP,UNCURRY] >>
-      numLib.LEAST_ELIM_TAC >>
-      conj_tac >- ( qexists_tac`n'` >> simp[EL_MAP,UNCURRY] ) >> rw[] >>
-      `¬(n' < n''')` by (
-        strip_tac >>
-        first_x_assum(qspec_then`n'`mp_tac) >>
-        simp[EL_MAP,UNCURRY] ) >>
-      `n''' < LENGTH ilist` by DECIDE_TAC >>
-      fs[EL_MAP,UNCURRY] >>
-      qpat_assum`(s,t) = X`(assume_tac o SYM) >> fs[] >>
-      qpat_assum`Var s t = X`(assume_tac o SYM) >> fs[] >>
-      `¬(n'' < n''')` by (
-        strip_tac >>
-        first_x_assum(qspec_then`n''`mp_tac) >>
-        simp[EL_MAP,UNCURRY] ) >>
-      `¬(n''' < n'')` by (
-        strip_tac >>
-        last_x_assum(qspec_then`n'''`mp_tac) >>
-        simp[EL_MAP,UNCURRY] >>
-        `∃x y. SND(EL n''' ilist) = Var x y` by metis_tac[pair_CASES,SND] >>
-        fs[] ) >>
-      `n'' = n'''` by DECIDE_TAC >> rw[] >>
-      fs[GSYM LEFT_FORALL_IMP_THM] >> rw[] >>
-      rfs[] >> rw[] >>
-      qspecl_then[`FST(EL n'' ilist)`,`[]`,`env`]mp_tac dbterm_env_shift >>
-      simp[] >> disch_then match_mp_tac >>
-      first_x_assum(qspecl_then[`SND(EL n'' ilist)`,`FST(EL n'' ilist)`,`n''`]mp_tac) >>
-      Cases_on`EL n'' ilist`>>simp[]>> rw[] >> fs[] >> BasicProvers.VAR_EQ_TAC >> fs[] >>
-      spose_not_then strip_assume_tac >>
-      Q.ISPECL_THEN[`env`,`x,ty`,`0`]mp_tac find_index_NOT_MEM >>
-*)
-
-(*
-val dbterm_subst_nil = store_thm("dbterm_subst_nil",
-  ``∀x k env. dbterm k env x = dbsubst (alist_to_fmap (GENLIST (λi. (EL i env,dbVar (k+i))) (LENGTH env))) (dbterm k [] x)``,
-  Induct >- (
-    simp[find_index_def] >> rw[] >>
-    BasicProvers.CASE_TAC >- (
-      fs[GSYM find_index_NOT_MEM] >>
-      BasicProvers.CASE_TAC >>
-      imp_res_tac ALOOKUP_MEM >>
-      fs[MEM_GENLIST,MEM_EL] >>
-      metis_tac[] ) >>
-    BasicProvers.CASE_TAC >- (
-      fs[ALOOKUP_FAILS,MEM_GENLIST] >>
-      metis_tac[find_index_NOT_MEM,optionTheory.NOT_SOME_NONE,MEM_EL] ) >>
-    fs[ALOOKUP_LEAST_EL,find_index_LEAST_EL] >> rw[] >>
-    fs[MEM_EL] >> rfs[EL_MAP] >>
-    numLib.LEAST_ELIM_TAC >> conj_tac >- metis_tac[] >> rw[] >>
-    `¬(n' < n'')` by metis_tac[] >>
-    numLib.LEAST_ELIM_TAC >> conj_tac >- (
-      qexists_tac`n''` >> simp[EL_MAP] ) >>
-    rw[] >>
-    `¬(n'' < n''')` by (
-      strip_tac >>
-      first_x_assum(qspec_then`n''`mp_tac) >>
-      simp[EL_MAP] ) >>
-    simp[EL_MAP] >>
-    `¬(n''' < n'')` by (
-      strip_tac >>
-      last_x_assum(qspec_then`n'''`mp_tac) >>
-      simp[] >>
-      `n''' < LENGTH env` by DECIDE_TAC >>
-      fs[EL_MAP] ) >>
-    DECIDE_TAC )
-  >- simp[]
-  >- (
-    simp_tac(srw_ss())[] >>
-    metis_tac[] ) >>
-  simp_tac(srw_ss())[] >>
-  rpt gen_tac >>
-  first_assum(qspecl_then[`k`,`(s,t)::env`]mp_tac) >>
-  first_x_assum(qspecl_then[`k`,`[(s,t)]`]mp_tac) >>
-  rw[] >>
-  simp[GENLIST_CONS,arithmeticTheory.ADD1,combinTheory.o_DEF]
-  simp[dbsubst_dbsubst] >>
-  simp[GSYM FUPDATE_EQ_FUNION]
-*)
-
-(*
-val dbterm_VSUBST = store_thm("dbterm_VSUBST",
-  ``∀tm k env ilist.
-      (∀s s'. MEM (s,s') ilist ⇒ ∃x ty. s' = Var x ty) ⇒
-      dbterm k env (VSUBST ilist tm) =
-      dbsubst (alist_to_fmap (GENLIST (λi. (EL i env,dbVar (k+i))) (LENGTH env)))
-        (dbsubst (alist_to_fmap (MAP (λ(v,x). (dest_var x,dbterm (k + LENGTH env) [] v)) ilist))
-          (dbterm (k + LENGTH env) [] tm))``,
-  Induct
-  >- (
-    simp[VSUBST_def,find_index_def] >> rw[] >>
-    Q.PAT_ABBREV_TAC`ls:((string#type)#dbterm)list = MAP X ilist` >>
-    simp[REV_ASSOCD_ALOOKUP] >>
-    BasicProvers.CASE_TAC >> simp[] >- (
-      `ALOOKUP ls (s,t) = NONE` by (
-        fs[ALOOKUP_FAILS,Abbr`ls`,MEM_MAP,FORALL_PROD] >>
-        spose_not_then strip_assume_tac >>
-        res_tac >> fs[] >> metis_tac[] ) >>
-      simp[] >>
-      simp[ALOOKUP_LEAST_EL,find_index_LEAST_EL] >>
-      simp[MEM_MAP,MEM_GENLIST,EXISTS_PROD] >>
-      simp[MEM_EL] >> rw[] >>
-      numLib.LEAST_ELIM_TAC >> conj_tac >- metis_tac[] >> rw[] >>
-      numLib.LEAST_ELIM_TAC >> conj_tac >- (
-        qexists_tac`n` >> simp[EL_MAP] ) >> rw[] >>
-      `¬(n < n')` by metis_tac[] >>
-      `¬(n' < n'')` by (
-        strip_tac >> res_tac >>
-        `n' < LENGTH env` by DECIDE_TAC >>
-        fs[EL_MAP] ) >>
-      `n'' < LENGTH env` by DECIDE_TAC >>
-      fs[EL_MAP] >>
-      `¬(n'' < n')` by metis_tac[] >>
-      `n' = n''` by DECIDE_TAC >>
-      simp[] ) >>
-    `ALOOKUP ls (s,t) = SOME (dbterm (k + LENGTH env) [] x)` by (
-      fs[ALOOKUP_LEAST_EL,MEM_MAP,EXISTS_PROD,Abbr`ls`] >>
-      fs[MEM_EL] >>
-      qpat_assum`X = EL n ilist`(assume_tac o SYM) >>
-      conj_tac >- metis_tac[dest_var_def] >> rw[] >>
-      numLib.LEAST_ELIM_TAC >>
-      conj_tac >- ( qexists_tac`n` >> simp[EL_MAP,UNCURRY] ) >>
+    Cases >> fs[ALPHAVARS_def] >>
+    rpt gen_tac >> strip_tac >- (
       rw[] >>
-      `¬(n < n')` by (
-        strip_tac >>
-        first_x_assum(qspec_then`n`mp_tac) >>
-        simp[EL_MAP,UNCURRY] ) >>
-      `n' < LENGTH ilist` by DECIDE_TAC >>
-      fs[EL_MAP,UNCURRY] >>
-      numLib.LEAST_ELIM_TAC >>
-      conj_tac >- ( qexists_tac`n` >> simp[EL_MAP,UNCURRY] ) >>
-      rw[] >>
-      `¬(n < n'')` by (
-        strip_tac >>
-        first_x_assum(qspec_then`n`mp_tac) >>
-        simp[EL_MAP,UNCURRY] ) >>
-      `n'' < LENGTH ilist` by DECIDE_TAC >>
-      fs[EL_MAP,UNCURRY] >>
-      `¬(n'' < n')` by (
-        strip_tac >>
-        last_x_assum(qspec_then`n''`mp_tac) >>
-        simp[EL_MAP,UNCURRY] ) >>
-      `¬(n' < n'')` by (
-        strip_tac >>
-        first_x_assum(qspec_then`n'`mp_tac) >>
-        simp[EL_MAP,UNCURRY] >>
-        `∃x ty. SND (EL n' ilist) = Var x ty` by (
-          first_x_assum match_mp_tac >>
-          qexists_tac`FST (EL n' ilist)` >>
-          qexists_tac`n'` >>
-          simp[] ) >>
-        fs[] ) >>
-      `n' = n''` by DECIDE_TAC >>
-      fs[] ) >>
-    simp[] >>
+      `∃s1 t1. VSUBST ilist (Var x1 ty1) = Var s1 t1` by metis_tac[] >>
+      `∃s2 t2. VSUBST ilist (Var x2 ty2) = Var s2 t2` by metis_tac[] >>
+      rw[RACONV,ALPHAVARS_def] ) >>
+    Cases_on`Var x1 ty1 = Var x2 ty2` >- (
+      simp[] >> gen_tac >> strip_tac >> strip_tac >>
+      match_mp_tac RACONV_REFL
+      metis_tac[RACONV_REFL
 
-    rpt (pop_assum kall_tac) >>
-    qid_spec_tac`k` >>
-    Induct_on`env` >> simp[] >>
-    simp[GENLIST_CONS,combinTheory.o_DEF]
-
-val dbterm_VSUBST = store_thm("dbterm_VSUBST",
-  ``∀tm env ilist.
-    (∀s s'. MEM (s,s') ilist ⇒
-      ∃x ty. s' = Var x ty ∧
-             (MEM (x,ty) env ⇒ ∃x'. s = Var x' ty)) ⇒
-    dbterm (MAP (λ(x,ty). dest_var(REV_ASSOCD (Var x ty) ilist (Var x ty))) env) (VSUBST ilist tm) =
-    dbsubst (FEMPTY |++ (REVERSE (MAP (λ(v,k). (dest_var k,dbterm env v)) ilist))) (dbterm env tm)``,
-  Induct >- (
-    simp[VSUBST_def] >>
-    CONV_TAC(RESORT_FORALL_CONV(List.rev)) >>
-    Induct >- (
-      simp[REV_ASSOCD,FUPDATE_LIST_THM] >>
-      simp[prove(``MAP (λ(x,ty). (x,ty)) env = env``,simp[LIST_EQ_REWRITE,EL_MAP,UNCURRY])]) >>
-    Cases >> simp[REV_ASSOCD,FUPDATE_LIST_APPEND,FUPDATE_LIST_THM] >>
-    rw[] >- (
-      BasicProvers.CASE_TAC >> simp[FLOOKUP_UPDATE] >>
-      metis_tac[find_index_NOT_MEM,optionTheory.NOT_SOME_NONE] ) >>
-    BasicProvers.CASE_TAC >> simp[FLOOKUP_UPDATE] >- (
-      `∃x ty. r = Var x ty` by metis_tac[] >> fs[] >>
-      first_x_assum(qspecl_then[`env`,`s`] mp_tac) >>
-      (discharge_hyps >- ( simp[] >> metis_tac[] )) >>
-      simp[] ) >>
-    first_x_assum(qspecl_then[`env`,`s`] mp_tac) >>
-    discharge_hyps >- ( simp[] >> metis_tac[] ) >>
-    simp[] )
-  >- ( simp[VSUBST_def] )
-  >- (
-    simp[VSUBST_def] >> rw[] >>
-    first_x_assum match_mp_tac >>
-    metis_tac[] ) >>
-  rw[VSUBST_def] >>
-  rw[] >- (
-    first_x_assum(qspecl_then[`(z,t)::env`,`ilist''`]mp_tac) >>
-    discharge_hyps >- (
-      fs[Abbr`ilist''`,IN_DISJOINT] >>
-      fs[Abbr`ilist'`,MEM_FILTER] >>
-      rw[] >- metis_tac[] >>
-      fs[MEM_MAP,FORALL_PROD,MEM_FILTER] >>
-      Cases_on`x=(s,t)`>>fs[] >- (
-        fs[EXISTS_MEM,MEM_FILTER,EXISTS_PROD] >>
-        conj_tac >- (
-          simp[Abbr`z`] >>
-          cheat ) >>
-        first_x_assum(qspecl_then[`s`,`t`]mp_tac) >>
-        rw[] >>
-        first_x_assum(qspecl_then[`Vark
-          simp[]
-
-
-val dbterm_INST_CORE = store_thm("dbterm_INST_CORE",
-  ``∀env tyin tm.
-      welltyped tm ∧
-      (∀s s'. MEM (s,s') env ⇒ ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin ty)) ∧
-      IS_RESULT (INST_CORE env tyin tm)
-  ⇒ let bvs = MAP (dest_var o FST) env in
-    let bvsi = MAP (dest_var o SND) env in
-    (dbterm bvsi (RESULT (INST_CORE env tyin tm)) = dbinst tyin (dbterm bvs tm))``
-  ho_match_mp_tac INST_CORE_ind >>
-  conj_tac >- (
-    simp[INST_CORE_def] >>
-    rw[REV_ASSOCD] >>
-    qho_match_abbrev_tac`P 0 = Q 0` >>
-    qsuff_tac`∀n. P n = Q n`>-rw[]>>
-    unabbrev_all_tac >> simp[] >>
-    Induct_on`env` >> simp[REV_ASSOCD,find_index_def] >>
-    Cases >> simp[REV_ASSOCD] >> rw[] >> fs[] >>
-    `∃qq qy. q = Var qq qy` by metis_tac[] >> fs[] >>
-    `r = Var qq (TYPE_SUBST tyin qy)` by metis_tac[term_11] >> fs[] >>
-    rw[] ) >>
-  conj_tac >- (
-    simp[INST_CORE_def] ) >>
-  conj_tac >- (
-    simp[INST_CORE_def] >>
-    rw[] >> fs[] >>
-    metis_tac[NOT_IS_CLASH_IS_RESULT] ) >>
-  simp[INST_CORE_def] >>
-  rw[] >> fs[] >- (
-    qmatch_assum_abbrev_tac`IS_RESULT (INST_CORE env' tyin tm)` >>
-    qspecl_then[`sizeof tm`,`tm`,`env'`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
-    discharge_hyps >- (
-      simp[Abbr`env'`] >>
-      metis_tac[] ) >>
-    `∀X. INST_CORE env' tyin tm ≠ Clash X` by metis_tac[NOT_IS_CLASH_IS_RESULT,IS_CLASH_def] >> fs[] >>
-    strip_tac >> fs[] >>
-    first_x_assum match_mp_tac >>
-    rw[] >> metis_tac[] ) >>
-  qmatch_assum_abbrev_tac`¬IS_RESULT (INST_CORE env' tyin tm)` >>
-  `∃x. INST_CORE env' tyin tm = Clash x` by (
-    Cases_on`INST_CORE env' tyin tm`>>fs[] ) >>
-  fs[] >> rw[] >>
-  qmatch_assum_abbrev_tac`IS_RESULT (INST_CORE env'' tyin tm')` >>
-  `∃r. INST_CORE env'' tyin tm' = Result r` by (
-    Cases_on`INST_CORE env'' tyin tm'`>>fs[]) >>
-  fs[] >> rw[] >>
-  `welltyped tm'` by (
-    simp[Abbr`tm'`] >>
-    match_mp_tac VSUBST_WELLTYPED >>
-    simp[] >> simp[Once has_type_cases] ) >> fs[] >>
-  `IS_RESULT (INST_CORE [] tyin tm)` by metis_tac[INST_CORE_NIL_IS_RESULT] >> fs[] >>
-  qmatch_assum_abbrev_tac`P ⇒ (Q = R)` >>
-  `P` by ( unabbrev_all_tac >> rw[] >> metis_tac[] ) >>
-  fs[] >>
-  map_every qunabbrev_tac[`Q`,`R`] >>
-  ntac 2 (pop_assum kall_tac) >>
-
-
-val dbterm_INST = store_thm("dbterm_INST",
-  ``∀tm tyin. welltyped tm ⇒ (dbterm [] (INST tyin tm) = dbinst tyin (dbterm [] tm))``,
-  Induct >- (
-    simp[INST_def,INST_CORE_def] >>
-    rw[REV_ASSOCD,find_index_def] )
-  >- (
-    simp[INST_def,INST_CORE_def] )
-  >- (
-    simp[INST_def,INST_CORE_def] >>
-    fs[INST_def] >> rw[] >>
-    metis_tac[NOT_IS_CLASH_IS_RESULT,INST_CORE_NIL_IS_RESULT] )
-  >- (
-    simp[INST_def,INST_CORE_def] >>
-    fs[INST_def] >> rw[]
+    ALPHAVARS_MEM
+    rw[VSUBST_def] >> rw[VSUBST_def] >>
+    rw[REV_ASSOCD_ALOOKUP]
 *)
 
 (*
@@ -1334,7 +576,6 @@ val bv_names_ALL_DISTINCT_exists = store_thm("bv_names_ALL_DISTINCT_exists",
       qexists_tac`Abs s t tm1` >>
       fs[ACONV_def,RACONV]
 *)
-
 
 (*
 val RACONV_SWAP = store_thm("RACONV_SWAP",
@@ -1454,6 +695,8 @@ Yes:     simple_inst [α|->t] (λ(x:t). (x:α)) = (λ(x:t). (x:t))
 
 So the restriction to closed terms is necessary.
 
+Or rather, should rename all bound variables apart from each other and also apart from the free variables.
+
 val INST_CORE_simple_inst = store_thm("INST_CORE_simple_inst",
   ``∀env tyin tm. welltyped tm ∧
       (∀s s'. MEM (s,s') env ⇒ ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin ty)) ∧
@@ -1541,34 +784,6 @@ val INST_CORE_simple_inst = store_thm("INST_CORE_simple_inst",
     map_every qunabbrev_tac[`A`,`B`,`C`] >>
 *)
 
-val (dbhas_type_rules,dbhas_type_ind,dbhas_type_cases) = Hol_reln`
-  (dbhas_type (dbVar n ty) ty) ∧
-  (dbhas_type (dbFree s ty) ty) ∧
-  (dbhas_type (dbConst s ty g) ty) ∧
-  (dbhas_type t1 (Fun dty rty) ∧
-   dbhas_type t2 dty
-   ⇒
-   dbhas_type (dbComb t1 t2) rty) ∧
-  (dbhas_type tm rty
-   ⇒
-   dbhas_type (dbAbs dty tm) (Fun dty rty))`
-
-val dbwelltyped_def = Define`
-  dbwelltyped tm = ∃ty. dbhas_type tm ty`
-
-val dbhas_type_dbinst = store_thm("dbhas_type_dbinst",
-  ``∀tm ty. dbhas_type tm ty ⇒
-      ∀tyin. dbhas_type (dbinst tyin tm) (tyinst tyin ty)``,
-  ho_match_mp_tac dbhas_type_ind >>
-  conj_tac >- simp[Once dbhas_type_cases,EL_MAP] >>
-  conj_tac >- simp[Once dbhas_type_cases] >>
-  conj_tac >- simp[Once dbhas_type_cases] >>
-  conj_tac >- (
-    rw[] >>
-    simp[Once dbhas_type_cases] >>
-    metis_tac[] ) >>
-  rw[] >> simp[Once dbhas_type_cases])
-
 (*
 val dbinst_dbhas_type = store_thm("dbinst_dbhas_type",
   ``∀tm tyin env ty.
@@ -1594,36 +809,6 @@ val dbinst_dbhas_type = store_thm("dbinst_dbhas_type",
      )
 *)
 
-val dbhas_type_dbterm = store_thm("dbhas_type_dbterm",
-  ``∀tm env ty. tm has_type ty ⇔ dbhas_type (dbterm env tm) ty``,
-  Induct >- (
-    simp[Once has_type_cases] >>
-    rw[EQ_IMP_THM] >- (
-      BasicProvers.CASE_TAC >- (
-        simp[Once dbhas_type_cases] ) >>
-      simp[Once dbhas_type_cases] ) >>
-    pop_assum mp_tac >>
-    BasicProvers.CASE_TAC >>
-    simp[Once dbhas_type_cases] )
-  >- rw[Once dbhas_type_cases,Once has_type_cases]
-  >- (
-    rw[] >>
-    rw[Once dbhas_type_cases] >>
-    rw[Once has_type_cases] >>
-    metis_tac[] ) >>
-  rw[Once dbhas_type_cases] >>
-  rw[Once has_type_cases] >>
-  rw[EQ_IMP_THM] >>
-  metis_tac[SND,MAP])
-
-val dbtvars_def = Define`
-  dbtvars (dbFree _ ty) = tyvars ty ∧
-  dbtvars (dbVar _ ty) = tyvars ty ∧
-  dbtvars (dbConst _ ty _) = tyvars ty ∧
-  dbtvars (dbComb t1 t2) = LIST_UNION (dbtvars t1) (dbtvars t2) ∧
-  dbtvars (dbAbs ty t) = LIST_UNION (tyvars ty) (dbtvars t)`
-val _ = export_rewrites["dbtvars_def"]
-
 val tyinst_tyvars1 = store_thm("tyinst_tyvars1",
   ``∀tyin ty tyin'. (∀v. MEM v (tyvars ty) ⇒ FLOOKUPD tyin' v (Tyvar v) = FLOOKUPD tyin v (Tyvar v)) ⇒
          tyinst tyin' ty = tyinst tyin ty``,
@@ -1640,41 +825,6 @@ val tyinst_tyvars = store_thm("tyinst_tyvars",
   rw[MEM_FOLDR_LIST_UNION,EVERY_MEM,MAP_EQ_f] >>
   metis_tac[])
 
-val dbinst_tvars = store_thm("dbinst_tvars",
-  ``∀tm tyin tyin'. (∀v. MEM v (dbtvars tm) ⇒ FLOOKUPD tyin' v (Tyvar v) = FLOOKUPD tyin v (Tyvar v)) ⇒
-       dbinst tyin tm = dbinst tyin' tm``,
-  Induct >- ( simp[] >> metis_tac[tyinst_tyvars] )
-  >- (simp[] >> metis_tac[tyinst_tyvars])
-  >- (simp[] >> metis_tac[tyinst_tyvars])
-  >- ( simp[] >> simp[MEM_LIST_UNION] ) >>
-  rw[MEM_LIST_UNION] >>
-  metis_tac[tyinst_tyvars])
-
-val dbtvars_dbterm = store_thm("dbtvars_dbterm",
-  ``∀tm env. set (dbtvars (dbterm env tm)) = set (tvars tm)``,
-  Induct >- (
-    simp[] >> rw[] >>
-    BasicProvers.CASE_TAC >> simp[] >>
-    simp[tvars_def] )
-  >- simp[tvars_def]
-  >- (
-    simp[tvars_def] >>
-    fs[SUBSET_DEF,MEM_LIST_UNION,MEM_FLAT,MEM_MAP,EXISTS_PROD] >>
-    metis_tac[] ) >>
-  rw[tvars_def] >>
-  fs[SUBSET_DEF,MEM_LIST_UNION,MEM_FLAT,MEM_MAP,EXISTS_PROD] >> rw[] >>
-  res_tac >> fs[] >>
-  metis_tac[])
-
-val dbhas_type_11 = store_thm("dbhas_type_11",
-  ``∀tm ty. dbhas_type tm ty ⇒ ∀ty'. dbhas_type tm ty' ⇒ ty' = ty``,
-  ho_match_mp_tac dbhas_type_ind >>
-  rpt conj_tac >>
-  rpt gen_tac >> TRY strip_tac >>
-  simp[Once dbhas_type_cases] >>
-  TRY ( rw[] >> res_tac >> fs[] >> NO_TAC) >>
-  TRY (pop_assum mp_tac >> simp[Once dbhas_type_cases]>> NO_TAC))
-
 val tyvars_tyinst = store_thm("tyvars_tyinst",
   ``∀ty tyin.
     set (tyvars (tyinst tyin ty)) = {v | ∃x. x ∈ set (tyvars ty) ∧ v ∈ set (tyvars (FLOOKUPD tyin x (Tyvar x)))}``,
@@ -1690,6 +840,7 @@ val tyvars_typeof_subset_tvars = store_thm("tyvars_typeof_subset_tvars",
   simp[SUBSET_DEF,MEM_LIST_UNION,tyvars_def] >>
   metis_tac[])
 
+(*
 val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
   (FLOOKUP τ s = SOME m ⇒ typeset τ (Tyvar s) m) ∧
 
@@ -3541,6 +2692,7 @@ val semantics_VSUBST = store_thm("semantics_VSUBST",
         metis_tac[semantics_extend_term_valuation
      *)
    cheat)
+*)
 *)
 
 val _ = export_theory()
