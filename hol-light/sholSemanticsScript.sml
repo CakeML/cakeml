@@ -462,6 +462,137 @@ val VSUBST_simple_subst = store_thm("VSUBST_simple_subst",
   fs[MEM_MAP,EXISTS_PROD,IN_DISJOINT] >>
   metis_tac[])
 
+val dest_tyvar_def = Define`
+  dest_tyvar (Tyvar x) = x`
+val _ = export_rewrites["dest_tyvar_def"]
+
+val tyin_to_fmap_def = Define`
+  tyin_to_fmap tyin = alist_to_fmap (MAP (λ(v,k). (dest_tyvar k,v)) tyin)`
+
+val tyinst_TYPE_SUBST = store_thm("tyinst_TYPE_SUBST",
+  ``∀ty tyin. (∀s s'. MEM (s,s') tyin ⇒ ∃v. s' = Tyvar v) ⇒ TYPE_SUBST tyin ty = tyinst (tyin_to_fmap tyin) ty``,
+  ho_match_mp_tac type_ind >>
+  conj_tac >- (
+    simp[REV_ASSOCD_ALOOKUP,FLOOKUPD_def,tyin_to_fmap_def] >> rw[] >>
+    BasicProvers.CASE_TAC >> BasicProvers.CASE_TAC >>
+    TRY (
+      fs[ALOOKUP_FAILS] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,EXISTS_PROD] >>
+      res_tac >> fs[] >>
+      metis_tac[dest_tyvar_def] ) >>
+    fs[ALOOKUP_LEAST_EL] >> rw[] >>
+    fs[MEM_EL] >> rw[] >>
+    numLib.LEAST_ELIM_TAC >>
+    conj_tac >- metis_tac[] >> rw[] >>
+    numLib.LEAST_ELIM_TAC >>
+    conj_tac >- metis_tac[] >> rw[] >>
+    `¬(n < n'')` by metis_tac[] >>
+    `¬(n' < n''')` by metis_tac[] >>
+    fs[EL_MAP] >> rfs[EL_MAP] >>
+    fs[UNCURRY,GSYM LEFT_FORALL_IMP_THM] >>
+    `∃v. SND (EL n' tyin) = Tyvar v` by metis_tac[SND,pair_CASES] >>
+    fs[] >>
+    `¬(n < n''')` by (
+      strip_tac >>
+      first_x_assum(qspec_then`n`mp_tac) >>
+      simp[EL_MAP,UNCURRY] >>
+      metis_tac[dest_tyvar_def] ) >>
+    `¬(n' < n'')` by (
+      strip_tac >>
+      last_x_assum(qspec_then`n'`mp_tac) >>
+      simp[EL_MAP,UNCURRY] ) >>
+    `n''' < LENGTH tyin` by DECIDE_TAC >>
+    fs[EL_MAP,UNCURRY] >>
+    `∃v'. SND (EL n''' tyin) = Tyvar v'` by metis_tac[SND,pair_CASES] >>
+    fs[] >> rw[] >>
+    `¬(n''' < n'')` by (
+      strip_tac >>
+      last_x_assum(qspec_then`n'''`mp_tac) >>
+      simp[EL_MAP,UNCURRY] ) >>
+    simp[EL_MAP,UNCURRY] >>
+    `n'' < LENGTH tyin` by DECIDE_TAC >>
+    fs[EL_MAP,UNCURRY] >>
+    `¬(n'' < n''')` by (
+      strip_tac >>
+      first_x_assum(qspec_then`n''`mp_tac) >>
+      simp[EL_MAP,UNCURRY] >>
+      metis_tac[dest_tyvar_def]) >>
+    `n'' = n'''` by DECIDE_TAC >>
+    rw[] ) >>
+  rw[MAP_EQ_f,EVERY_MEM] >>
+  metis_tac[])
+
+val INST_CORE_simple_inst = store_thm("INST_CORE_simple_inst",
+  ``∀env tyin tm.
+      ALL_DISTINCT (bv_names tm ++ (MAP (FST o dest_var o SND) env)) ∧
+      DISJOINT (set(bv_names tm)) {x | ∃ty. VFREE_IN (Var x ty) tm} ∧
+      (∀s s'. MEM (s,s') tyin ⇒ ∃v. s' = Tyvar v) ∧
+      (∀s s'. MEM (s,s') env ⇒ ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin ty)) ∧
+      (∀x ty ty'. VFREE_IN (Var x ty) tm ∧ MEM (Var x ty') (MAP FST env) ⇒ ty' = ty)
+      ⇒ INST_CORE env tyin tm = Result (simple_inst (tyin_to_fmap tyin) tm)``,
+  ho_match_mp_tac INST_CORE_ind >>
+  conj_tac >- (
+    simp[INST_CORE_def] >> rpt gen_tac >> strip_tac >>
+    qspecl_then[`ty`,`tyin`]mp_tac tyinst_TYPE_SUBST >>
+    discharge_hyps >- metis_tac[] >> simp[] >> rw[] >>
+    imp_res_tac (REWRITE_RULE[PROVE[]``A ∨ B ⇔ ¬B ⇒ A``]REV_ASSOCD_MEM) >>
+    qmatch_assum_abbrev_tac`MEM (p,q) env` >>
+    first_x_assum(qspecl_then[`p`,`q`]mp_tac) >>
+    simp[Abbr`q`] >> rw[] >>
+    fs[MEM_MAP,EXISTS_PROD] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    simp[INST_CORE_def] >> rw[] >>
+    match_mp_tac tyinst_TYPE_SUBST >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rw[] >>
+    rw[INST_CORE_def] >>
+    `sres = Result (simple_inst (tyin_to_fmap tyin) tm)` by (
+      first_x_assum match_mp_tac >>
+      fs[ALL_DISTINCT_APPEND,IN_DISJOINT] >>
+      metis_tac[] ) >>
+    qunabbrev_tac`sres`>>simp[]>>fs[] >>
+    `tres = Result (simple_inst (tyin_to_fmap tyin) tm')` by (
+      first_x_assum match_mp_tac >>
+      fs[ALL_DISTINCT_APPEND,IN_DISJOINT] >>
+      metis_tac[] ) >>
+    unabbrev_all_tac >> simp[] ) >>
+  rw[] >>
+  rw[INST_CORE_def] >>
+  fs[] >>
+  `tres = Result (simple_inst (tyin_to_fmap tyin) tm)` by (
+    first_x_assum match_mp_tac >>
+    conj_tac >- fs[ALL_DISTINCT_APPEND] >>
+    conj_tac >- ( fs[IN_DISJOINT] >> metis_tac[] ) >>
+    conj_tac >- metis_tac[] >>
+    conj_tac >- metis_tac[] >>
+    qx_genl_tac[`u`,`uy`,`uy'`] >>
+    reverse(Cases_on`u=x ∧ uy' = ty`) >- (
+      simp[] >> strip_tac >> fs[] >>
+      TRY(first_x_assum match_mp_tac >> fs[] >> metis_tac[]) >>
+      Cases_on`u≠x`>-metis_tac[]>>fs[]>>
+      fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+      metis_tac[dest_var_def,FST] ) >>
+    fs[]>>
+    fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+    metis_tac[dest_var_def,FST] ) >>
+  fs[] >>
+  qunabbrev_tac`ty'` >>
+  metis_tac[tyinst_TYPE_SUBST])
+
+val INST_simple_inst = store_thm("INST_simple_inst",
+  ``∀tyin tm.
+      ALL_DISTINCT (bv_names tm) ∧
+      DISJOINT (set (bv_names tm)) {x | ∃ty. VFREE_IN (Var x ty) tm} ∧
+      (∀s s'. MEM (s,s') tyin ⇒ ∃v. s' = Tyvar v)
+      ⇒
+      INST tyin tm = simple_inst (tyin_to_fmap tyin) tm``,
+  rw[INST_def] >>
+  qspecl_then[`[]`,`tyin`,`tm`]mp_tac INST_CORE_simple_inst >>
+  simp[] >> discharge_hyps >- metis_tac[] >> rw[])
+
 (*
 val VSUBST_RACONV = store_thm("VSUBST_RACONV",
   ``∀env tp. RACONV env tp ⇒
