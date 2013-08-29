@@ -2611,58 +2611,116 @@ val covering_sigma_exists = store_thm("covering_sigma_exists",
   SELECT_ELIM_TAC >>
   metis_tac[typeset_inhabited,semantics_11])
 
-(*
 val covering_env_exists = store_thm("covering_env_exists",
-  ``∀ρ t. good_bvs ρ t ⇒ ∀env. (∀n ty. MEM (n,ty) (dbbv t) ∧ n < LENGTH env ⇒ FST (EL n env) = ty) ⇒
-                         ∃env'. (∀n ty. MEM (n,ty) (dbbv t) ⇒ n < LENGTH env' ∧ FST (EL n env') = ty) ∧
-                                (∀τ. good_env τ env ⇒ good_env τ env')``,
-  ho_match_mp_tac good_bvs_ind >> simp[] >>
-  conj_tac >- metis_tac[] >>
+  ``∀s. FINITE s ⇒
+      (∀n ty1 ty2. (n,ty1) ∈ s ∧ (n,ty2) ∈ s ⇒ ty1 = ty2) ⇒
+      ∀τ env.
+        type_valuation τ ∧ good_env τ env ∧
+        (∀n ty. (n,ty) ∈ s ⇒ ∃mty. typeset τ ty mty) ∧
+        (∀n ty. (n,ty) ∈ s ∧ n < LENGTH env ⇒ FST (EL n env) = ty) ⇒
+        ∃env'.
+          env ≼ env' ∧
+          (∀n ty. (n,ty) ∈ s ⇒ n < LENGTH env' ∧ FST (EL n env') = ty) ∧
+          good_env τ env'``,
+  rw[] >>
+  qexists_tac`env ++ GENLIST (λi. case some ty. (LENGTH env + i,ty) ∈ s of
+                                       SOME ty => (ty, @m. ∃mty. typeset τ ty mty ∧ m <: mty)
+                                       | NONE => (Bool,boolean F))
+                             (LEAST m. ∀n ty. (n,ty) ∈ s ⇒ n < m)` >>
+  numLib.LEAST_ELIM_TAC >>
   conj_tac >- (
+    qpat_assum`FINITE s`mp_tac >>
+    rpt(pop_assum kall_tac) >>
+    qid_spec_tac`s` >>
+    ho_match_mp_tac FINITE_INDUCT >>
     rw[] >>
-    Cases_on`n < LENGTH env`>-metis_tac[] >>
-    qexists_tac`env++(REPLICATE (SUC(n-LENGTH env)) (EL n ρ,
-    good_env_def
-
-  ``∀τ env t. (∃ρ. good_bvs ρ t) ⇒ ∃env'. env ≼ env' ∧ (∀n ty. MEM (n,ty) (dbbv t) ⇒ n < LENGTH env' ∧ FST (EL n env') = ty) ∧ (good_env τ env ⇒ good_env τ env')`` ,
-  qsuff_tac`∀s:(num#type) set. FINITE s ⇒
-    ∀τ env t. (∃ρ. good_bvs ρ t) ∧ (s = set (dbbv t)) ⇒ ∃env'. env ≼ env' ∧ (∀n ty. (n,ty) ∈ s ⇒ n < LENGTH env' ∧ FST (EL n env') = ty) ∧ (good_env τ env ⇒ good_env τ env')`
-    >- metis_tac[FINITE_LIST_TO_SET] >>
-  ho_match_mp_tac FINITE_INDUCT >>
-  rw[] >- metis_tac[rich_listTheory.IS_PREFIX_REFL] >>
-  first_x_assum(qspecl_then[`τ`,`env`]strip_assume_tac) >>
-  PairCases_on`e`>>fs[] >>
-  Cases_on`e0 < LENGTH env'` >- metis_tac[rich_listTheory.IS_PREFIX_REFL] >>
-  qexists_tac`env'++(REPLICATE (SUC (e - LENGTH env')) (Bool,boolean F))` >>
-  rw[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.LENGTH_REPLICATE]
-  >- fs[rich_listTheory.IS_PREFIX_APPEND]
-  >- simp[]
-  >- (simp[] >> fs[SUBSET_DEF] >> rw[] >> res_tac >> simp[] ) >>
-  Q.ISPECL_THEN[`Bool,boolean F`,`SUC(e-LENGTH env')`]strip_assume_tac rich_listTheory.EVERY_REPLICATE >>
-  fs[good_env_def,EVERY_MEM] >> rw[] >> res_tac >> rw[] >> rw[BOOLEAN_IN_BOOLSET])
+    qexists_tac`if FST e < n then n else SUC (FST e)` >>
+    rw[] >> fs[] >> simp[] >>
+    res_tac >> simp[] ) >>
+  simp[] >>
+  gen_tac >> strip_tac >>
+  conj_tac >- (
+    rw[] >> res_tac >> simp[] >>
+    Cases_on`n' < LENGTH env`>>simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_APPEND2] >>
+    qho_match_abbrev_tac`D (option_CASE ($some P) A B) = ty` >>
+    qho_match_abbrev_tac`Q ($some P)` >>
+    map_every qunabbrev_tac[`D`,`B`,`A`] >>
+    match_mp_tac optionTheory.some_intro >>
+    simp[Abbr`P`,Abbr`Q`] >> rw[] >>
+    metis_tac[] ) >>
+  fs[good_env_def] >>
+  simp[EVERY_GENLIST,UNCURRY] >>
+  rw[] >>
+  qho_match_abbrev_tac`∃mty. typeset τ (FST p) mty ∧ (SND p) <: mty` >>
+  qho_match_abbrev_tac`B p` >>
+  qunabbrev_tac`p` >>
+  qho_match_abbrev_tac`B (option_CASE ($some P) X Y)` >>
+  qho_match_abbrev_tac`Q ($some P)` >>
+  map_every qunabbrev_tac[`B`,`X`,`Y`] >>
+  match_mp_tac optionTheory.some_intro >>
+  simp[Abbr`P`,Abbr`Q`] >> rw[BOOLEAN_IN_BOOLSET] >>
+  res_tac >>
+  qexists_tac`mty` >> rw[] >>
+  SELECT_ELIM_TAC >>
+  metis_tac[typeset_inhabited,semantics_11])
 
 val closing_envs_exist = store_thm("closing_envs_exist",
   ``∀env σ τ tm. (∃ρ. good_bvs ρ tm) ∧ type_valuation τ ∧ term_valuation τ σ ∧ good_env τ env  ∧
                  (∀n ty. MEM (n,ty) (dbbv tm) ∧ n < LENGTH env ⇒ FST (EL n env) = ty) ∧
-                 (∀x ty. MEM (x,ty) (dbfv tm) ∧ (x,ty) ∈ FDOM σ ⇒ ∃mty. typeset τ ty mty)
+                 (∀n ty1 ty2. MEM (n,ty1) (dbbv tm) ∧ MEM (n,ty2) (dbbv tm) ⇒ ty1 = ty2) ∧
+                 (∀x n ty. MEM (x,ty) (dbfv tm) ∨ (x,ty) ∈ FDOM σ ∨ MEM (n,ty) (dbbv tm) ⇒ ∃mty. typeset τ ty mty)
                  ⇒
       ∃env' σ' τ'.
         env ≼ env' ∧ σ ⊑ σ' ∧ τ ⊑ τ' ∧ closes (MAP FST env') σ' τ' tm ∧
         type_valuation τ' ∧ term_valuation τ' σ' ∧ good_env τ' env'``,
   rw[closes_def] >>
-
-  good_bvs_dbbv_iff
-
-  good_env_def
-
-  Q.ISPEC_THEN`set (dbtvars tm) ∪ set (FLAT (MAP (tyvars o FST) env))`mp_tac covering_type_valuation_exists >>
+  qspec_then`set (dbbv tm)`mp_tac covering_env_exists >>
   simp[] >>
-  disch_then(qspec_then`τ`mp_tac) >> rw[] >>
-  qspecl_then[`τ''`,`σ`,`tm`]mp_tac covering_sigma_exists >>
-  rw[] >>
-  metis_tac[] )
-*)
-
+  discharge_hyps >- metis_tac[] >>
+  disch_then(qspecl_then[`τ`,`env`]mp_tac) >>
+  simp[] >>
+  discharge_hyps >- metis_tac[] >>
+  strip_tac >>
+  qexists_tac`env'` >>
+  Q.ISPEC_THEN`set (dbtvars tm) ∪ set (FLAT (MAP tyvars (MAP FST env')))`mp_tac covering_type_valuation_exists >>
+  simp[] >>
+  disch_then(qspec_then`τ`mp_tac) >>
+  disch_then(qx_choose_then`τ'`strip_assume_tac) >>
+  qspecl_then[`τ'`,`σ`,`tm`]mp_tac covering_sigma_exists >>
+  rfs[] >>
+  strip_tac >>
+  qexists_tac`σ'` >>
+  qexists_tac`τ'` >>
+  simp[] >>
+  conj_tac >- (
+    match_mp_tac dbbv_good_bvs >>
+    conj_tac >- metis_tac[] >>
+    metis_tac[EL_MAP,LENGTH_MAP] ) >>
+  conj_tac >- (
+    first_x_assum match_mp_tac >>
+    conj_tac >- (
+      fs[term_valuation_def,FEVERY_DEF] >>
+      rw[] >> res_tac >>
+      qexists_tac`mty` >> simp[] >>
+      match_mp_tac typeset_tyvars >>
+      qexists_tac`τ` >> simp[] >>
+      imp_res_tac(CONJUNCT1 typeset_closes_over) >>
+      fs[SUBSET_DEF,FLOOKUP_DEF,SUBMAP_DEF] ) >>
+    rw[] >>
+    `∃mty. typeset τ (SND p) mty` by metis_tac[pair_CASES,SND] >>
+    qexists_tac`mty` >> simp[] >>
+    match_mp_tac typeset_tyvars >>
+    qexists_tac`τ` >> simp[] >>
+    imp_res_tac(CONJUNCT1 typeset_closes_over) >>
+    fs[SUBSET_DEF,FLOOKUP_DEF,SUBMAP_DEF] ) >>
+  fs[good_env_def,EVERY_MEM] >>
+  rw[] >> res_tac >>
+  fs[UNCURRY] >>
+  qexists_tac`mty` >> simp[] >>
+  match_mp_tac typeset_tyvars >>
+  qexists_tac`τ` >> simp[] >>
+  imp_res_tac(CONJUNCT1 typeset_closes_over) >>
+  fs[SUBSET_DEF,FLOOKUP_DEF,SUBMAP_DEF] )
 
 (*
 not true: the env can vary on the prefix of bvs that don't occur
@@ -2731,6 +2789,10 @@ val has_meaning_dbVar = store_thm("has_meaning_dbVar",
   metis_tac[FST,rich_listTheory.LENGTH_REPLICATE,prim_recTheory.LESS_SUC_REFL])
 
 (*
+not true?
+e.g. s = (dbVar 0 bool) and t = (dbVar 0 ind)
+*)
+(*
 val has_meaning_dbComb = store_thm("has_meaning_dbComb",
   ``∀s t. has_meaning (dbComb s t) ⇔ has_meaning s ∧ has_meaning t``,
   rw[] >> EQ_TAC >> strip_tac >- (
@@ -2742,6 +2804,47 @@ val has_meaning_dbComb = store_thm("has_meaning_dbComb",
     conj_tac >- metis_tac[] >>
     simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM,GSYM AND_IMP_INTRO] >>
     rpt gen_tac >> ntac 3 strip_tac >>
+    `∀n ty1 ty2. MEM (n,ty1) (dbbv s ++ dbbv t) ∧
+                 MEM (n,ty2) (dbbv s ++ dbbv t) ⇒ ty1 = ty2` by (
+      fs[closes_def] >>
+      metis_tac[good_bvs_dbbv,EL_MAP] ) >>
+    conj_tac >> strip_tac >|[
+    (* need to replace elements of env that are in dbbv s but not dbbv t *)
+    qspecl_then[`env`,`σ'`,`τ'`,`s`]mp_tac closing_envs_exist
+    ,
+    qspecl_then[`env`,`σ'`,`τ'`,`t`]mp_tac closing_envs_exist
+    ] >>
+    simp[] >>
+    (discharge_hyps >- (
+       fs[closes_def] >>
+       conj_tac >- metis_tac[] >>
+       conj_tac >- metis_tac[good_bvs_dbbv,EL_MAP] >>
+       conj_tac >- metis_tac[good_bvs_dbbv,EL_MAP] >>
+       fs[term_valuation_def,FEVERY_DEF,FORALL_PROD,SUBSET_DEF] >>
+       fs[good_env_def,EVERY_MEM,FORALL_PROD] >>
+       rw[] >- metis_tac[]
+       >- metis_tac[] >>
+       `∃x. MEM (ty,x) env` by (
+         imp_res_tac good_bvs_dbbv >>
+         rfs[EL_MAP] >>
+         simp[MEM_EL] >>
+         metis_tac[pair_CASES,PAIR_EQ,FST] ) >>
+       metis_tac[] )) >>
+    disch_then(qx_choosel_then[`env1`,`σ1`,`τ1`]strip_assume_tac) >>
+    first_x_assum(qspecl_then[`τ1`,`σ1`,`env1`]mp_tac) >>
+    simp[] >>
+    `set (FLAT (MAP tyvars (MAP FST env1))) ⊆ FDOM τ1` by (
+      fs[good_env_def,EVERY_MEM,SUBSET_DEF,FORALL_PROD,MEM_FLAT,MEM_MAP,EXISTS_PROD] >>
+      rw[] >> res_tac >>
+      imp_res_tac typeset_closes_over >>
+      fs[SUBSET_DEF] ) >>
+    discharge_hyps >- metis_tac[closes_extend]
+
+    good_env_def
+
+         imp_res_tac good_bvs_dbbv
+         fs[
+    first_x_assum(qspecl_then[`τ'`,`σ'`,`env`]
 
     first_x_assum(qspecl_then[`τ`,`σ`]mp_tac) >>
     simp[] >> strip_tac >>
@@ -2756,7 +2859,9 @@ val has_meaning_dbComb = store_thm("has_meaning_dbComb",
   map_every qexists_tac[`σ2`,`m1`,`m2`] >>
   simp[] >>
   metis_tac[SUBMAP_TRANS,closes_over_extend,semantics_extend_term_valuation])
+*)
 
+(*
 val has_meaning_Abs = store_thm("has_meaning_Abs",
   ``∀x ty t. has_meaning (Abs x ty t) ⇔ type_has_meaning ty ∧ has_meaning t``,
   rw[EQ_IMP_THM] >> fs[type_has_meaning_def,has_meaning_def] >>
