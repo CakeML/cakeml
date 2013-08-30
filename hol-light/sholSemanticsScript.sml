@@ -1195,6 +1195,101 @@ val semantics_aconv = store_thm("semantics_aconv",
   rw[] >> first_x_assum match_mp_tac >> rw[] >>
   fs[ALPHAVARS_def])
 
+val RACONV_tvars = store_thm("RACONV_tvars",
+  ``∀env tp. RACONV env tp ⇒ (∀x1 ty1 x2 ty2. MEM (Var x1 ty1,Var x2 ty2) env ⇒ ty1 = ty2) ⇒ tvars (FST tp) = tvars (SND tp)``,
+  ho_match_mp_tac RACONV_ind >>
+  simp[tvars_def] >>
+  conj_tac >- (
+    Induct >> simp[ALPHAVARS_def] >>
+    Cases >> rw[] >>
+    metis_tac[] ) >>
+  metis_tac[])
+
+val ACONV_tvars = store_thm("ACONV_tvars",
+  ``∀t1 t2. ACONV t1 t2 ⇒ tvars t1 = tvars t2``,
+  rw[ACONV_def] >> metis_tac[RACONV_tvars,MEM,FST,SND])
+
+val RACONV_TRANS = store_thm("RACONV_TRANS",
+  ``∀env tp. RACONV env tp ⇒ ∀vs t. LENGTH vs = LENGTH env ∧ RACONV (ZIP(MAP SND env,vs)) (SND tp,t) ⇒ RACONV (ZIP(MAP FST env,vs)) (FST tp, t)``,
+  ho_match_mp_tac RACONV_ind >> simp[RACONV] >>
+  conj_tac >- (
+    Induct >- simp[ALPHAVARS_def] >>
+    Cases >> simp[ALPHAVARS_def] >>
+    rw[] >> Cases_on`vs`>>fs[] >>
+    Cases_on`t`>>fs[RACONV]>>
+    fs[ALPHAVARS_def] >> rw[] >>
+    metis_tac[RACONV] ) >>
+  conj_tac >- ( rw[] >> Cases_on`t`>>fs[RACONV] ) >>
+  conj_tac >- ( rw[] >> Cases_on`t`>>fs[RACONV] ) >>
+  rw[] >>
+  Cases_on`t`>>fs[RACONV]>>rw[]>>
+  metis_tac[LENGTH,ZIP])
+
+val ACONV_TRANS = store_thm("ACONV_TRANS",
+  ``∀t1 t2 t3. ACONV t1 t2 ∧ ACONV t2 t3 ⇒ ACONV t1 t3``,
+  rw[ACONV_def] >> imp_res_tac RACONV_TRANS >> fs[LENGTH_NIL])
+
+val RACONV_SYM = store_thm("RACONV_SYM",
+  ``∀env tp. RACONV env tp ⇒ RACONV (MAP (λ(x,y). (y,x)) env) (SND tp,FST tp)``,
+  ho_match_mp_tac RACONV_ind >> simp[] >>
+  conj_tac >- (
+    Induct >> simp[ALPHAVARS_def,RACONV] >>
+    Cases >> simp[] >>
+    rw[] >> res_tac >> fs[RACONV]) >>
+  simp[RACONV])
+
+val ACONV_SYM = store_thm("ACONV_SYM",
+  ``∀t1 t2. ACONV t1 t2 ⇒ ACONV t2 t1``,
+  rw[ACONV_def] >> imp_res_tac RACONV_SYM >> fs[])
+
+(* not true.
+  (λ(x:'a). x:'b) aconv (λ(y:'a). x:'b) but
+ ~(λ(x:'b). x:'b) aconv (λ(y:'b). x:'b)
+
+need to restrict to "good" (fresh) terms
+
+val simple_inst_raconv = store_thm("simple_inst_raconv",
+  ``∀env tp. RACONV env tp ⇒
+      ∀tyin.
+        (∀x1 ty1 x2 ty2. MEM (Var x1 ty1,Var x2 ty2) env ⇒ ty1 = ty2) ⇒
+        RACONV (MAP (λ(x,y). (simple_inst tyin x, simple_inst tyin y)) env)
+               (simple_inst tyin (FST tp), simple_inst tyin (SND tp))``,
+  ho_match_mp_tac RACONV_ind >> simp[RACONV] >>
+  conj_tac >- (
+    Induct >> simp[ALPHAVARS_def] >>
+    Cases >> simp[] >> rw[] >> rw[] >>
+    res_tac >> pop_assum mp_tac >>
+    discharge_hyps >- metis_tac[] >>
+    rw[] >>
+    `ty1 = ty2` by metis_tac[ALPHAVARS_MEM,FST,SND,term_11] >>
+    rw[] >>
+    Cases_on`q`>>Cases_on`r`>>fs[]
+  res_tac
+*)
+
+(*
+val typeset_Tydefined_ACONV = store_thm("typeset_Tydefined_ACONV",
+  ``∀τ op p1 p2 args mty.
+    typeset τ (Tyapp (Tydefined op p1) args) mty ∧ ACONV p1 p2 ⇒
+    typeset τ (Tyapp (Tydefined op p2) args) mty``,
+  rw[Once semantics_cases] >>
+  rw[Once semantics_cases] >>
+  map_every qexists_tac[`mp`,`mrty`,`rty`,`w`] >>
+  simp[] >>
+  qspecl_then[`{}`,`p1`]mp_tac fresh_term_def >>
+  qspecl_then[`{}`,`p2`]mp_tac fresh_term_def >>
+  simp[] >> ntac 2 strip_tac >>
+  imp_res_tac ACONV_tvars >> fs[] >>
+  conj_asm1_tac >- (
+    metis_tac[ACONV_TYPE,ACONV_welltyped,WELLTYPED_LEMMA,WELLTYPED,ACONV_TRANS,ACONV_SYM] ) >>
+  qmatch_abbrev_tac`semantics s t u mp` >>
+  qmatch_assum_abbrev_tac`semantics s t v mp` >>
+  qsuff_tac`semantics s t u = semantics s t v`>-rw[] >>
+  match_mp_tac semantics_aconv >>
+  unabbrev_all_tac >> simp[] >>
+  conj_tac >- metis_tac[simple_inst_has_type,welltyped_def] >>
+*)
+
 (*
 val semantics_typeset = store_thm("semantics_typeset",
   ``(∀τ ty mty. typeset τ ty mty ⇒ type_valuation τ ⇒ ∃mt. mt <: mty) ∧
@@ -1251,6 +1346,7 @@ val semantics_typeset = store_thm("semantics_typeset",
     fsrw_tac[DNF_ss][] >>
     qmatch_assum_rename_tac`mt <: maty`[] >>
     map_every qexists_tac[`mty`,`maty`] >>
+
     rw[] >- (
 
       metis_tac[typeset_tyvars,typeset_closes_over,SUBSET_DEF,FDOM_FEMPTY,NOT_IN_EMPTY] ) >>
