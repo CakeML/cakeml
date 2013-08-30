@@ -593,6 +593,183 @@ val INST_simple_inst = store_thm("INST_simple_inst",
   qspecl_then[`[]`,`tyin`,`tm`]mp_tac INST_CORE_simple_inst >>
   simp[] >> discharge_hyps >- metis_tac[] >> rw[])
 
+val rename_bvars_def = Define`
+  rename_bvars names env (Var s ty) = (names, Var (FLOOKUPD (alist_to_fmap env) (s,ty) s) ty) ∧
+  rename_bvars names env (Const s ty g) = (names, Const s ty g) ∧
+  (rename_bvars names env (Comb t1 t2) =
+     let (names,t1) = rename_bvars names env t1 in
+     let (names,t2) = rename_bvars names env t2 in
+     (names, Comb t1 t2)) ∧
+  (rename_bvars [] env (Abs s ty tm) =
+     let (names, tm) = rename_bvars [] env tm in
+     (names, Abs s ty tm)) ∧
+  (rename_bvars (s'::names) env (Abs s ty tm) =
+     let (names,tm) = rename_bvars names (((s,ty),s')::env) tm in
+     (names, Abs s' ty tm))`
+
+val FST_rename_bvars = store_thm("FST_rename_bvars",
+  ``∀names env tm. LENGTH (bv_names tm) ≤ LENGTH names ⇒ (FST (rename_bvars names env tm) = DROP (LENGTH (bv_names tm)) names)``,
+  ho_match_mp_tac (theorem"rename_bvars_ind") >>
+  simp[rename_bvars_def] >>
+  rw[UNCURRY] >> rw[] >>
+  Cases_on`rename_bvars names env tm` >> fs[] >>
+  fsrw_tac[ARITH_ss][] >>
+  REWRITE_TAC[Once arithmeticTheory.ADD_SYM] >>
+  match_mp_tac rich_listTheory.DROP_DROP >>
+  simp[])
+
+val ALL_DISTINCT_DROP = store_thm("ALL_DISTINCT_DROP",
+  ``∀ls n. ALL_DISTINCT ls ⇒ ALL_DISTINCT (DROP n ls)``,
+  Induct >> simp[] >> rw[])
+
+val rename_bvars_RACONV = store_thm("rename_bvars_RACONV",
+  ``∀names env tm.
+    LENGTH (bv_names tm) ≤ LENGTH names ∧
+    DISJOINT (set (MAP SND env ++ names)) (set (MAP (FST o FST) env ++ bv_names tm)) ∧
+    DISJOINT (set (MAP SND env ++ names)) {x | ∃ty. VFREE_IN (Var x ty) tm} ∧
+    ALL_DISTINCT (MAP SND env ++ names)
+    ⇒ RACONV (MAP (λ((s,ty),s'). (Var s ty, Var s' ty)) env) (tm, SND (rename_bvars names env tm))``,
+  ho_match_mp_tac (theorem"rename_bvars_ind") >>
+  simp[rename_bvars_def,RACONV] >>
+  conj_tac >- (
+    gen_tac >>
+    Induct >> simp[ALPHAVARS_def] >>
+    qx_gen_tac`p` >> PairCases_on`p` >>
+    simp[] >> rw[] >>
+    simp[FLOOKUPD_def,FLOOKUP_UPDATE] >>
+    Cases_on`s=p0`>>simp[]>-(
+      Cases_on`ty=p1`>>simp[]>>rw[]>>
+      fs[FLOOKUPD_def,IN_DISJOINT,ALL_DISTINCT_APPEND]>>
+      metis_tac[]) >>
+    BasicProvers.CASE_TAC>-(
+      simp[] >>
+      first_x_assum(qspecl_then[`s`,`ty`]mp_tac) >>
+      simp[FLOOKUPD_def,FLOOKUP_UPDATE] >>
+      fs[ALL_DISTINCT_APPEND,IN_DISJOINT] >>
+      metis_tac[] ) >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD,IN_DISJOINT] >>
+    Cases_on`x=p2`>>simp[]>-(
+      fs[ALL_DISTINCT_APPEND,MEM_MAP,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    last_x_assum(qspecl_then[`s`,`ty`]mp_tac) >>
+    simp[FLOOKUPD_def,FLOOKUP_UPDATE] >>
+    fs[ALL_DISTINCT_APPEND,IN_DISJOINT] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rw[UNCURRY] >>
+    simp[RACONV] >>
+    conj_tac >> first_x_assum (match_mp_tac o MP_CANON) >>
+    fs[ALL_DISTINCT_APPEND,IN_DISJOINT] >>
+    TRY (
+      qexists_tac`SND (rename_bvars names env tm)`>>simp[] >>
+      qspecl_then[`names`,`env`,`tm`]mp_tac FST_rename_bvars >>
+      discharge_hyps >- DECIDE_TAC >> strip_tac >>
+      first_assum (assume_tac o Q.AP_TERM`LENGTH`) >>
+      fs[LENGTH_DROP] >>
+      `LENGTH (bv_names tm) ≤ LENGTH names` by DECIDE_TAC >>
+      conj_tac >- DECIDE_TAC >>
+      conj_tac >- (
+        rw[] >> spose_not_then strip_assume_tac >>
+        imp_res_tac rich_listTheory.MEM_DROP >>
+        metis_tac[] ) >>
+      conj_tac >- (
+        rw[] >> spose_not_then strip_assume_tac >>
+        imp_res_tac rich_listTheory.MEM_DROP >>
+        metis_tac[] ) >>
+      conj_tac >- metis_tac[ALL_DISTINCT_DROP] >>
+      rw[] >> spose_not_then strip_assume_tac >>
+      imp_res_tac rich_listTheory.MEM_DROP >>
+      metis_tac[]) >>
+    conj_tac >- DECIDE_TAC >> metis_tac[]) >>
+  rw[UNCURRY] >>
+  rw[RACONV] >>
+  first_x_assum match_mp_tac >>
+  simp[] >>
+  fs[IN_DISJOINT,ALL_DISTINCT_APPEND] >>
+  rfs[] >> metis_tac[])
+
+val rename_bvars_ACONV = store_thm("rename_bvars_ACONV",
+  ``∀names tm.
+    LENGTH (bv_names tm) ≤ LENGTH names ∧ ALL_DISTINCT names ∧
+    DISJOINT (set names) {x | MEM x (bv_names tm) ∨ ∃ty. VFREE_IN (Var x ty) tm}
+    ⇒
+    ACONV tm (SND (rename_bvars names [] tm))``,
+  rw[ACONV_def] >>
+  qspecl_then[`names`,`[]`,`tm`]mp_tac rename_bvars_RACONV >>
+  simp[] >> disch_then match_mp_tac >>
+  fs[IN_DISJOINT] >> metis_tac[])
+
+val fresh_def = new_specification("fresh_def",["fresh"],
+  IN_INFINITE_NOT_FINITE
+  |> Q.ISPECL[`UNIV:string set`,`s:string set`]
+  |> REWRITE_RULE[INST_TYPE[alpha|->``:char``]INFINITE_LIST_UNIV,IN_UNIV]
+  |> SIMP_RULE(srw_ss())[GSYM RIGHT_EXISTS_IMP_THM]
+  |> Q.GEN`s`
+  |> SIMP_RULE(srw_ss())[SKOLEM_THM])
+
+val fresh_union = store_thm("fresh_union",
+  ``FINITE s ∧ FINITE t ⇒ fresh (s ∪ t) ∉ s ∧ fresh (s ∪ t) ∉ t``,
+  metis_tac[fresh_def,FINITE_UNION,IN_UNION])
+
+val fresh_names_exist = store_thm("fresh_names_exist",
+  ``∀s n. FINITE (s:string set) ⇒ ∃names. LENGTH names = n ∧ ALL_DISTINCT names ∧ DISJOINT (set names) s``,
+  gen_tac >> Induct >> strip_tac
+  >- (qexists_tac`[]`>>simp[]) >> rw[] >> fs[] >>
+  qexists_tac`fresh (s ∪ set names)::names` >>
+  simp[fresh_union])
+
+val FINITE_VFREE_IN = store_thm("FINITE_VFREE_IN",
+  ``∀tm. FINITE {x | ∃ty. VFREE_IN (Var x ty) tm}``,
+  Induct >> simp[] >- (
+    qmatch_assum_abbrev_tac`FINITE s1` >>
+    qpat_assum`FINITE s1`mp_tac >>
+    qmatch_assum_abbrev_tac`FINITE s2` >>
+    strip_tac >>
+    qmatch_abbrev_tac`FINITE s3` >>
+    qsuff_tac`s3 = s1 ∪ s2` >- metis_tac[FINITE_UNION] >>
+    unabbrev_all_tac >> simp[EXTENSION] >> metis_tac[] ) >>
+  rw[] >>
+  qmatch_assum_abbrev_tac`FINITE a` >>
+  qmatch_abbrev_tac`FINITE b` >>
+  qsuff_tac`b ⊆ a` >- metis_tac[SUBSET_FINITE] >>
+  unabbrev_all_tac >> simp[SUBSET_DEF] >>
+  metis_tac[])
+val _ = export_rewrites["FINITE_VFREE_IN"]
+
+val bv_names_rename_bvars = store_thm("bv_names_rename_bvars",
+  ``∀names env tm.
+    LENGTH (bv_names tm) ≤ LENGTH names ⇒
+    bv_names (SND (rename_bvars names env tm)) = TAKE (LENGTH (bv_names tm)) names``,
+  ho_match_mp_tac(theorem"rename_bvars_ind")>>
+  simp[rename_bvars_def] >>
+  conj_tac >- (
+    rw[UNCURRY] >>
+    Cases_on`rename_bvars names env tm`>>fs[] >>
+    `LENGTH (bv_names tm) ≤ LENGTH names` by DECIDE_TAC >> fs[] >>
+    qspecl_then[`names`,`env`,`tm`]mp_tac FST_rename_bvars >>
+    rw[] >> fs[] >>
+    `LENGTH (bv_names tm') ≤ LENGTH names - LENGTH (bv_names tm)` by DECIDE_TAC >> fs[] >>
+    simp[TAKE_SUM] ) >>
+  rw[UNCURRY])
+
+val fresh_term_def = new_specification("fresh_term_def",["fresh_term"],
+  prove(``∃f. ∀s tm. FINITE s ⇒
+                     ACONV tm (f s tm) ∧
+                     ALL_DISTINCT (bv_names (f s tm)) ∧
+                     DISJOINT (set (bv_names (f s tm))) s``,
+    simp[GSYM SKOLEM_THM] >> rw[RIGHT_EXISTS_IMP_THM] >>
+    qspecl_then[`s ∪ set (bv_names tm) ∪ {x | ∃ty. VFREE_IN (Var x ty) tm}`,`LENGTH (bv_names tm)`]mp_tac fresh_names_exist >> rw[] >>
+    qexists_tac`SND (rename_bvars names [] tm)` >>
+    conj_tac >- (
+      match_mp_tac rename_bvars_ACONV >>
+      fs[IN_DISJOINT] >>
+      metis_tac[] ) >>
+    qspecl_then[`names`,`[]`,`tm`]mp_tac bv_names_rename_bvars >>
+    simp[TAKE_LENGTH_ID_rwt] >>
+    fs[IN_DISJOINT] >>
+    metis_tac[]))
+
 (*
 val VSUBST_RACONV = store_thm("VSUBST_RACONV",
   ``∀env tp. RACONV env tp ⇒
