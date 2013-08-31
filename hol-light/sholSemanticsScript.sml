@@ -220,6 +220,19 @@ val bv_names_def = Define`
   bv_names (Abs x ty t) = x::bv_names t`
 val _ = export_rewrites["bv_names_def"]
 
+(*
+val bvs_def = Define`
+  bvs (Var _ _) = [] ∧
+  bvs (Const _ _ _) = [] ∧
+  bvs (Comb s t) = bvs s ++ bvs t ∧
+  bvs (Abs x ty t) = (x,ty)::bvs t`
+val _ = export_rewrites["bvs_def"]
+
+val bv_names_bvs = store_thm("bv_names_bvs",
+  ``∀tm. bv_names tm = MAP FST (bvs tm)``,
+  Induct >> simp[])
+*)
+
 val dest_var_def = Define`
   dest_var (Var x ty) = (x,ty) ∧
   dest_var _ = ("",Tyvar "")`
@@ -863,8 +876,8 @@ val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
    ⇒
    semantics σ τ (Const s ty (Defined t0)) mt) ∧
 
-  (p = fresh_term {} p0 ∧
-   typeset τ (Tyapp (Tydefined op p) args) maty ∧
+  (typeset τ (Tyapp (Tydefined op p0) args) maty ∧
+   p = fresh_term {} p0 ∧
    tyin = alist_to_fmap(ZIP (tvars p, args)) ∧
    simple_inst tyin p has_type Fun rty Bool ∧
    typeset FEMPTY rty mrty
@@ -872,8 +885,8 @@ val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
    semantics σ τ (Const s (Fun (Tyapp (Tydefined op p0) args) rty) (Tyrep op p0))
     (abstract maty mrty (λx. x))) ∧
 
-  (p = fresh_term {} p0 ∧
-   typeset τ (Tyapp (Tydefined op p) args) maty ∧
+  (typeset τ (Tyapp (Tydefined op p0) args) maty ∧
+   p = fresh_term {} p0 ∧
    tyin = alist_to_fmap(ZIP (tvars p, args)) ∧
    simple_inst tyin p has_type Fun rty Bool ∧
    typeset FEMPTY rty mrty ∧
@@ -1242,30 +1255,200 @@ val ACONV_SYM = store_thm("ACONV_SYM",
   ``∀t1 t2. ACONV t1 t2 ⇒ ACONV t2 t1``,
   rw[ACONV_def] >> imp_res_tac RACONV_SYM >> fs[])
 
-(* not true.
-  (λ(x:'a). x:'b) aconv (λ(y:'a). x:'b) but
- ~(λ(x:'b). x:'b) aconv (λ(y:'b). x:'b)
-
-need to restrict to "good" (fresh) terms
-
 val simple_inst_raconv = store_thm("simple_inst_raconv",
   ``∀env tp. RACONV env tp ⇒
       ∀tyin.
-        (∀x1 ty1 x2 ty2. MEM (Var x1 ty1,Var x2 ty2) env ⇒ ty1 = ty2) ⇒
+        (∀s s'. MEM (s,s') env ⇒ ∃x x' ty. s = Var x ty ∧ s' = Var x' ty) ∧
+        ALL_DISTINCT (MAP (FST o dest_var o FST) env ++ bv_names (FST tp)) ∧
+        ALL_DISTINCT (MAP (FST o dest_var o SND) env ++ bv_names (SND tp)) ∧
+        (∀x ty. VFREE_IN (Var x ty) (FST tp) ⇒ x ∉ set (bv_names (FST tp)) ∧
+            ∀ty'. MEM (Var x ty') (MAP FST env) ⇒ ty' = ty) ∧
+        (∀x ty. VFREE_IN (Var x ty) (SND tp) ⇒ x ∉ set (bv_names (SND tp)) ∧
+            ∀ty'. MEM (Var x ty') (MAP SND env) ⇒ ty' = ty)
+        ⇒
         RACONV (MAP (λ(x,y). (simple_inst tyin x, simple_inst tyin y)) env)
                (simple_inst tyin (FST tp), simple_inst tyin (SND tp))``,
-  ho_match_mp_tac RACONV_ind >> simp[RACONV] >>
+  ho_match_mp_tac RACONV_ind >>
   conj_tac >- (
-    Induct >> simp[ALPHAVARS_def] >>
+    Induct >> simp[ALPHAVARS_def,RACONV] >>
     Cases >> simp[] >> rw[] >> rw[] >>
-    res_tac >> pop_assum mp_tac >>
-    discharge_hyps >- metis_tac[] >>
-    rw[] >>
-    `ty1 = ty2` by metis_tac[ALPHAVARS_MEM,FST,SND,term_11] >>
-    rw[] >>
-    Cases_on`q`>>Cases_on`r`>>fs[]
-  res_tac
-*)
+    `∃x x' ty. q = Var x ty ∧ r = Var x' ty` by metis_tac[] >>
+    rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+    `ty1 = ty2` by (
+      imp_res_tac ALPHAVARS_MEM >>
+      metis_tac[FST,SND,term_11] ) >>
+    BasicProvers.VAR_EQ_TAC >>
+    Cases_on`x1=x` >- fs[] >>
+    Cases_on`x2=x'` >- fs[] >>
+    asm_simp_tac(srw_ss())[] >>
+    last_x_assum mp_tac >>
+    simp_tac(srw_ss())[] >>
+    simp_tac(srw_ss())[RACONV] >>
+    disch_then (match_mp_tac o MP_CANON) >>
+    metis_tac[]) >>
+  conj_tac >- rw[RACONV] >>
+  conj_tac >- (
+    rw[RACONV] >>
+    first_x_assum match_mp_tac >>
+    fs[ALL_DISTINCT_APPEND] >>
+    metis_tac[] ) >>
+  rw[] >>
+  simp_tac(srw_ss())[RACONV] >>
+  first_x_assum match_mp_tac >>
+  conj_tac >- metis_tac[] >>
+  rpt(qpat_assum`ALL_DISTINCT X`mp_tac) >>
+  simp_tac(srw_ss())[ALL_DISTINCT_APPEND] >>
+  ntac 2 strip_tac >>
+  conj_tac >- metis_tac[] >>
+  conj_tac >- metis_tac[] >>
+  conj_tac >>
+  rpt gen_tac >> strip_tac >>
+  (conj_tac >- metis_tac[]) >>
+  fs[MEM_MAP,EXISTS_PROD] >>
+  fs[FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
+  metis_tac[dest_var_def,FST])
+
+val simple_inst_aconv = store_thm("simple_inst_aconv",
+  ``∀t1 t2 tyin. ACONV t1 t2 ∧
+      ALL_DISTINCT (bv_names t1) ∧ ALL_DISTINCT (bv_names t2) ∧
+      (∀x ty. VFREE_IN (Var x ty) t1 ⇒ x ∉ set (bv_names t1)) ∧
+      (∀x ty. VFREE_IN (Var x ty) t2 ⇒ x ∉ set (bv_names t2))
+    ⇒
+      ACONV (simple_inst tyin t1) (simple_inst tyin t2)``,
+  rw[ACONV_def] >>
+  qspecl_then[`[]`,`(t1,t2)`]mp_tac simple_inst_raconv >>
+  rw[] >> metis_tac[])
+
+val semantics_frees = store_thm("semantics_frees",
+  ``∀τ σ1 σ2 t.
+      type_valuation τ ∧
+      (∀x ty. VFREE_IN (Var x ty) t ⇒ (FLOOKUP σ1 (x,ty) = FLOOKUP σ2 (x,ty)))
+      ⇒ semantics σ1 τ t = semantics σ2 τ t``,
+  gen_tac >> (CONV_TAC (RESORT_FORALL_CONV List.rev)) >> Induct
+  >- (
+    rw[FUN_EQ_THM] >>
+    rw[Once semantics_cases] >>
+    rw[Once semantics_cases] )
+  >- (
+    rw[FUN_EQ_THM] >>
+    rw[Once semantics_cases] >>
+    rw[Once semantics_cases,SimpRHS] )
+  >- (
+    rw[FUN_EQ_THM] >>
+    rw[Once semantics_cases] >>
+    rw[Once semantics_cases,SimpRHS] >>
+    metis_tac[]) >>
+  rw[FUN_EQ_THM] >>
+  rw[Once semantics_cases] >>
+  rw[Once semantics_cases,SimpRHS] >>
+  rw[EQ_IMP_THM] >>
+  map_every qexists_tac[`mb`,`mty`,`mtyb`,`tyb`] >>
+  rw[] >>
+  first_x_assum(qspec_then`m`mp_tac) >> rw[] >>
+  qmatch_abbrev_tac`semantics (f |+ z) τ tt mm` >>
+  qmatch_assum_abbrev_tac`semantics (g |+ z) τ tt mm` >>
+  (qsuff_tac`semantics (f|+z) τ tt = semantics (g|+z) τ tt` >- rw[]) >>
+  first_x_assum match_mp_tac >>
+  simp[Abbr`z`,FLOOKUP_UPDATE] >>
+  metis_tac[])
+
+val closes_def = Define`
+  closes (σ:string#type|->V) (τ:string|->V) t ⇔
+    set (tvars t) ⊆ FDOM τ ∧
+    (∀x ty. VFREE_IN (Var x ty) t ⇒ (x,ty) ∈ FDOM σ)`
+
+val semantics_closes = prove(
+  ``(∀τ ty m. typeset τ ty m ⇒ T) ∧
+    (∀σ τ t m. semantics σ τ t m ⇒ type_valuation τ ∧ term_valuation τ σ ⇒ closes σ τ t)``,
+  ho_match_mp_tac(theorem"semantics_strongind") >> simp[] >>
+  conj_tac >- (
+    simp[Once semantics_cases,FLOOKUP_DEF,closes_def] >>
+    simp[term_valuation_def,FEVERY_DEF,FORALL_PROD] >>
+    rw[tvars_def] >> metis_tac[typeset_closes_over] ) >>
+  conj_tac >- (
+    rw[closes_def,tyvars_def,tvars_def] >>
+    metis_tac[typeset_closes_over] ) >>
+  conj_tac >- (
+    rw[closes_def,tyvars_def,tvars_def] >>
+    metis_tac[typeset_closes_over] ) >>
+  conj_tac >- (
+    rw[closes_def,tvars_def] >>
+    fs[tyvars_tyinst,SUBSET_DEF,GSYM LEFT_FORALL_IMP_THM] >>
+    qmatch_assum_abbrev_tac`tvars (inst tyin tm) = []` >>
+    qspecl_then[`tm`,`tyin`]strip_assume_tac tvars_simple_inst >>
+    rfs[EXTENSION] >>
+    imp_res_tac WELLTYPED >>
+    imp_res_tac tyvars_typeof_subset_tvars >>
+    fs[SUBSET_DEF] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rw[closes_def,tyvars_def,tvars_def] >>
+    TRY (metis_tac[typeset_closes_over,FDOM_FEMPTY,SUBSET_EMPTY,EMPTY_SUBSET]) >>
+    fs[SUBSET_DEF,MEM_FOLDR_LIST_UNION] >>
+    qpat_assum`typeset τ (X Y) Z`mp_tac >>
+    simp[Once semantics_cases] >> rw[] >>
+    qmatch_assum_abbrev_tac`simple_inst tyin tm has_type pty` >>
+    imp_res_tac typeset_closes_over >> fs[] >>
+    qspecl_then[`rty`,`tyin`]strip_assume_tac tyvars_tyinst >>
+    rfs[EXTENSION] >>
+    fs[Abbr`tyin`,FLOOKUPD_def] >>
+    `∃n. y = EL n args ∧ n < LENGTH args` by metis_tac[MEM_EL] >>
+    first_x_assum(qspecl_then[`x`,`EL n (tvars tm)`]mp_tac) >>
+    BasicProvers.CASE_TAC >- (
+      fs[ALOOKUP_FAILS] >> rfs[MEM_ZIP] >> metis_tac[] ) >>
+    qspec_then`tm`strip_assume_tac tvars_ALL_DISTINCT >>
+    qmatch_assum_abbrev_tac`ALOOKUP ls a = SOME z` >>
+    Q.ISPECL_THEN[`ls`,`n`]strip_assume_tac ALOOKUP_ALL_DISTINCT_EL >>
+    rfs[MAP_ZIP,Abbr`ls`,EL_ZIP] >> rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+    qmatch_assum_abbrev_tac`simple_inst tyin tm has_type pty` >>
+    qspecl_then[`tm`,`tyin`]strip_assume_tac tvars_simple_inst >>
+    rfs[EXTENSION] >>
+    first_x_assum(qspecl_then[`x`,`a`]mp_tac) >>
+    simp[Abbr`a`] >> rw[] >- metis_tac[MEM_EL] >>
+    ntac 2 (pop_assum mp_tac) >>
+    simp[FLOOKUPD_def,Abbr`tyin`]) >>
+  conj_tac >- (
+    rw[closes_def,tyvars_def,tvars_def] >>
+    TRY (metis_tac[typeset_closes_over,FDOM_FEMPTY,SUBSET_EMPTY,EMPTY_SUBSET]) >>
+    fs[SUBSET_DEF,MEM_FOLDR_LIST_UNION] >>
+    qpat_assum`typeset τ (X Y) Z`mp_tac >>
+    simp[Once semantics_cases] >> rw[] >>
+    qmatch_assum_abbrev_tac`simple_inst tyin tm has_type pty` >>
+    imp_res_tac typeset_closes_over >> fs[] >>
+    qspecl_then[`rty`,`tyin`]strip_assume_tac tyvars_tyinst >>
+    rfs[EXTENSION] >>
+    fs[Abbr`tyin`,FLOOKUPD_def] >>
+    `∃n. y = EL n args ∧ n < LENGTH args` by metis_tac[MEM_EL] >>
+    first_x_assum(qspecl_then[`x`,`EL n (tvars tm)`]mp_tac) >>
+    BasicProvers.CASE_TAC >- (
+      fs[ALOOKUP_FAILS] >> rfs[MEM_ZIP] >> metis_tac[] ) >>
+    qspec_then`tm`strip_assume_tac tvars_ALL_DISTINCT >>
+    qmatch_assum_abbrev_tac`ALOOKUP ls a = SOME z` >>
+    Q.ISPECL_THEN[`ls`,`n`]strip_assume_tac ALOOKUP_ALL_DISTINCT_EL >>
+    rfs[MAP_ZIP,Abbr`ls`,EL_ZIP] >> rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
+    qmatch_assum_abbrev_tac`simple_inst tyin tm has_type pty` >>
+    qspecl_then[`tm`,`tyin`]strip_assume_tac tvars_simple_inst >>
+    rfs[EXTENSION] >>
+    first_x_assum(qspecl_then[`x`,`a`]mp_tac) >>
+    simp[Abbr`a`] >> rw[] >- metis_tac[MEM_EL] >>
+    ntac 2 (pop_assum mp_tac) >>
+    simp[FLOOKUPD_def,Abbr`tyin`]) >>
+  conj_tac >- (
+    rw[closes_def,tvars_def] >> fs[] >> metis_tac[] ) >>
+  (
+    fs[closes_def,tvars_def] >>
+    rpt gen_tac >> strip_tac >> strip_tac >>
+    simp[GSYM CONJ_ASSOC] >>
+    conj_tac >- metis_tac[typeset_closes_over] >> fs[] >>
+    qmatch_assum_rename_tac`typeset τ ty mty`[] >>
+    `∃m. m <: mty` by metis_tac[typeset_inhabited] >>
+    first_x_assum(qspec_then`m`mp_tac)>>simp[]>>strip_tac>>
+    pop_assum mp_tac >>
+    discharge_hyps >- (
+      match_mp_tac term_valuation_FUPDATE >>
+      simp[] >> metis_tac[] ) >>
+    rw[] >> metis_tac[]))
+val semantics_closes = save_thm("semantics_closes",MP_CANON (CONJUNCT2 semantics_closes))
 
 (*
 val typeset_Tydefined_ACONV = store_thm("typeset_Tydefined_ACONV",
@@ -1288,6 +1471,11 @@ val typeset_Tydefined_ACONV = store_thm("typeset_Tydefined_ACONV",
   match_mp_tac semantics_aconv >>
   unabbrev_all_tac >> simp[] >>
   conj_tac >- metis_tac[simple_inst_has_type,welltyped_def] >>
+  match_mp_tac simple_inst_aconv >>
+  simp[fresh_term_def] >>
+  conj_tac >- metis_tac[ACONV_SYM,ACONV_TRANS] >>
+  imp_res_tac semantics_closes >> fs[] >>
+  fs[closes_def,VFREE_IN_simple_inst]
 *)
 
 (*
@@ -1462,213 +1650,6 @@ val dbbv_good_bvs = store_thm("dbbv_good_bvs",
   Cases >> rw[] >- (
     imp_res_tac good_bvs_dbbv >> fs[] ) >>
   res_tac >> fs[])
-
-val semantics_fvs = store_thm("semantics_fvs",
-  ``∀τ env σ1 σ2 t.
-      type_valuation τ ∧
-      (∀x ty. MEM (x,ty) (dbfv t) ⇒ (FLOOKUP σ1 (x,ty) = FLOOKUP σ2 (x,ty)))
-      ⇒ semantics env σ1 τ t = semantics env σ2 τ t``,
-  gen_tac >> (CONV_TAC (RESORT_FORALL_CONV List.rev)) >> Induct
-  >- (
-    rw[FUN_EQ_THM] >>
-    rw[Once semantics_cases] >>
-    rw[Once semantics_cases] )
-  >- (
-    rw[FUN_EQ_THM] >>
-    rw[Once semantics_cases] >>
-    rw[Once semantics_cases] )
-  >- (
-    rw[FUN_EQ_THM] >>
-    rw[Once semantics_cases] >>
-    rw[Once semantics_cases,SimpRHS] )
-  >- (
-    rw[FUN_EQ_THM] >>
-    rw[Once semantics_cases] >>
-    rw[Once semantics_cases,SimpRHS] >>
-    metis_tac[]) >>
-  rw[FUN_EQ_THM] >>
-  rw[Once semantics_cases] >>
-  rw[Once semantics_cases,SimpRHS] >>
-  rw[EQ_IMP_THM] >>
-  map_every qexists_tac[`mb`,`mty`,`mtyb`,`tyb`] >>
-  rw[] >> metis_tac[])
-
-val semantics_bvs = store_thm("semantics_bvs",
-  ``∀t ρ1 ρ2 σ τ.
-      (∀n ty. MEM (n,ty) (dbbv t) ⇒ (n < LENGTH ρ1 ⇔ n < LENGTH ρ2) ∧ (n < LENGTH ρ1 ⇒ EL n ρ1 = EL n ρ2))
-    ⇒ semantics ρ1 σ τ t = semantics ρ2 σ τ t``,
-  Induct >- (
-    simp[Once good_bvs_cases] >>
-    simp[Once good_bvs_cases] >>
-    simp[FUN_EQ_THM] >>
-    simp[Once semantics_cases] >>
-    simp[Once semantics_cases] )
-  >- (
-    simp[FUN_EQ_THM] >>
-    simp[Once semantics_cases] >>
-    simp[Once semantics_cases] >>
-    metis_tac[])
-  >- (
-    simp[FUN_EQ_THM] >>
-    simp[Once semantics_cases] >>
-    simp[Once semantics_cases,SimpRHS] )
-  >- (
-    simp[] >> rw[] >>
-    simp[FUN_EQ_THM] >>
-    simp[Once semantics_cases] >>
-    simp[Once semantics_cases,SimpRHS] >>
-    srw_tac[DNF_ss][] >>
-    metis_tac[] ) >>
-  (
-    simp[] >>
-    rw[MEM_MAP,MEM_FILTER,EXISTS_PROD,GSYM LEFT_FORALL_IMP_THM] >>
-    simp[FUN_EQ_THM] >>
-    simp[Once semantics_cases] >>
-    simp[Once semantics_cases,SimpRHS] >>
-    srw_tac[DNF_ss][] >>
-    rw[EQ_IMP_THM] >>
-    map_every qexists_tac[`mb`,`mty`,`mtyb`,`tyb`] >>
-    rw[] >>
-    first_x_assum(qspec_then`x`mp_tac) >> rw[] >>
-    qmatch_abbrev_tac`semantics (z::ρa) σ τ t y` >>
-    qmatch_assum_abbrev_tac`semantics (z::ρb) σ τ t y` >>
-    (qsuff_tac`semantics (z::ρa) σ τ t = semantics (z::ρb) σ τ t` >- metis_tac[]) >>
-    (first_x_assum (match_mp_tac o MP_CANON) ORELSE
-     (match_mp_tac EQ_SYM >> first_x_assum (match_mp_tac o MP_CANON))) >>
-    Cases >> rw[] >>
-    res_tac >> fs[] ))
-
-val semantics_frees = store_thm("semantics_frees",
-  ``∀t ρ1 ρ2 σ1 σ2 τ.
-      type_valuation τ ∧
-      (∀x ty. MEM (x,ty) (dbfv t) ⇒ (FLOOKUP σ1 (x,ty) = FLOOKUP σ2 (x,ty))) ∧
-      (∀n ty. MEM (n,ty) (dbbv t) ⇒ (n < LENGTH ρ1 ⇔ n < LENGTH ρ2) ∧ (n < LENGTH ρ1 ⇒ EL n ρ1 = EL n ρ2))
-    ⇒ semantics ρ1 σ1 τ t = semantics ρ2 σ2 τ t``,
-  metis_tac[semantics_bvs,semantics_fvs])
-
-val closes_def = Define`
-  closes env (σ:string#type|->V) (τ:string|->V) t ⇔
-    set (dbtvars t) ⊆ FDOM τ ∧
-    set (FLAT (MAP tyvars env)) ⊆ FDOM τ ∧
-    set (dbfv t) ⊆ FDOM σ ∧
-    good_bvs env t`
-
-val semantics_closes = prove(
-  ``(∀τ ty m. typeset τ ty m ⇒ T) ∧
-    (∀env σ τ t m. semantics env σ τ t m ⇒ type_valuation τ ∧ term_valuation τ σ ∧ good_env τ env ⇒ closes (MAP FST env) σ τ t)``,
-  ho_match_mp_tac(theorem"semantics_strongind") >> simp[] >>
-  conj_tac >- (
-    simp[Once semantics_cases,FLOOKUP_DEF,closes_def] >>
-    simp[term_valuation_def,FEVERY_DEF,FORALL_PROD] >>
-    rw[] >- metis_tac[typeset_closes_over] >>
-    fs[good_env_def,SUBSET_DEF,MEM_FLAT,MEM_MAP,EXISTS_PROD,EVERY_MEM,FORALL_PROD] >>
-    rw[] >- metis_tac[typeset_closes_over,SUBSET_DEF] >>
-    rw[Once good_bvs_cases]) >>
-  conj_tac >- (
-    simp[Once semantics_cases,FLOOKUP_DEF,closes_def] >>
-    rw[good_env_def,EVERY_MEM,SUBSET_DEF,MEM_FLAT,MEM_MAP,EXISTS_PROD,FORALL_PROD,EL_MAP] >>
-    rw[Once good_bvs_cases,EL_MAP] >>
-    metis_tac[typeset_closes_over,SUBSET_DEF,MEM_EL]) >>
-  conj_tac >- (
-    rw[closes_def,tyvars_def,good_env_def] >>
-    fs[EVERY_MEM,SUBSET_DEF,MEM_FLAT,MEM_MAP,EXISTS_PROD,FORALL_PROD] >>
-    metis_tac[typeset_closes_over,SUBSET_DEF] ) >>
-  conj_tac >- (
-    rw[closes_def,tyvars_def,good_env_def] >>
-    fs[EVERY_MEM,SUBSET_DEF,MEM_FLAT,MEM_MAP,EXISTS_PROD,FORALL_PROD] >>
-    metis_tac[typeset_closes_over,SUBSET_DEF] ) >>
-  conj_tac >- (
-    rw[closes_def] >- (
-      fs[tyvars_tyinst,SUBSET_DEF] >>
-      qspecl_then[`dbterm [] t`,`tyin`]strip_assume_tac dbtvars_dbinst >>
-      rfs[EXTENSION] >>
-      fs[dbtvars_dbterm] >>
-      imp_res_tac WELLTYPED >>
-      imp_res_tac dbhas_type_dbterm >>
-      first_x_assum(qspec_then`[]`strip_assume_tac) >> fs[] >>
-      imp_res_tac dbhas_type_11 >> rw[] >>
-      imp_res_tac tyvars_typeof_subset_tvars >>
-      fs[SUBSET_DEF] >>
-      metis_tac[] ) >>
-    fs[good_env_def,EVERY_MEM,SUBSET_DEF,MEM_FLAT,MEM_MAP,EXISTS_PROD,FORALL_PROD] >>
-    metis_tac[typeset_closes_over,SUBSET_DEF] ) >>
-  conj_tac >- (
-    rw[closes_def,tyvars_def] >>
-    TRY (metis_tac[typeset_closes_over,FDOM_FEMPTY,SUBSET_EMPTY,EMPTY_SUBSET]) >- (
-      fs[SUBSET_DEF,MEM_FOLDR_LIST_UNION] >>
-      qpat_assum`typeset τ (X Y) Z`mp_tac >>
-      simp[Once semantics_cases] >> rw[] >>
-      qmatch_assum_abbrev_tac`dbhas_type (dbinst tyin (dbterm [] p)) pty` >>
-      imp_res_tac typeset_closes_over >> fs[] >>
-      qspecl_then[`rty`,`tyin`]strip_assume_tac tyvars_tyinst >>
-      rfs[EXTENSION] >>
-      fs[Abbr`tyin`,FLOOKUPD_def] >>
-      `∃n. y = EL n args ∧ n < LENGTH args` by metis_tac[MEM_EL] >>
-      first_x_assum(qspecl_then[`x`,`EL n (tvars p)`]mp_tac) >>
-      BasicProvers.CASE_TAC >- (
-        fs[ALOOKUP_FAILS] >> rfs[MEM_ZIP] >> metis_tac[] ) >>
-      qspec_then`p`strip_assume_tac tvars_ALL_DISTINCT >>
-      qmatch_assum_abbrev_tac`ALOOKUP ls a = SOME z` >>
-      Q.ISPECL_THEN[`ls`,`n`]strip_assume_tac ALOOKUP_ALL_DISTINCT_EL >>
-      rfs[MAP_ZIP,Abbr`ls`,EL_ZIP] >> rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-      qmatch_assum_abbrev_tac`dbhas_type (dbinst tyin (dbterm [] p)) pty` >>
-      qspecl_then[`dbterm [] p`,`tyin`]strip_assume_tac dbtvars_dbinst >>
-      rfs[EXTENSION] >>
-      fs[dbtvars_dbterm] >> rw[] >>
-      first_x_assum(qspecl_then[`x`,`a`]mp_tac) >>
-      simp[Abbr`a`] >> rw[] >- metis_tac[MEM_EL] >>
-      pop_assum mp_tac >>
-      simp[FLOOKUPD_def,Abbr`tyin`]) >>
-    fs[good_env_def,EVERY_MEM,SUBSET_DEF,MEM_FLAT,MEM_MAP,EXISTS_PROD,FORALL_PROD] >>
-    metis_tac[typeset_closes_over,SUBSET_DEF] ) >>
-  conj_tac >- (
-    rw[closes_def,tyvars_def] >>
-    TRY (metis_tac[typeset_closes_over,FDOM_FEMPTY,SUBSET_EMPTY,EMPTY_SUBSET]) >- (
-      fs[SUBSET_DEF,MEM_FOLDR_LIST_UNION] >>
-      qpat_assum`typeset τ (X Y) Z`mp_tac >>
-      simp[Once semantics_cases] >> rw[] >>
-      qmatch_assum_abbrev_tac`dbhas_type (dbinst tyin (dbterm [] p)) pty` >>
-      imp_res_tac typeset_closes_over >> fs[] >>
-      qspecl_then[`rty`,`tyin`]strip_assume_tac tyvars_tyinst >>
-      rfs[EXTENSION] >>
-      fs[Abbr`tyin`,FLOOKUPD_def] >>
-      `∃n. y = EL n args ∧ n < LENGTH args` by metis_tac[MEM_EL] >>
-      first_x_assum(qspecl_then[`x`,`EL n (tvars p)`]mp_tac) >>
-      BasicProvers.CASE_TAC >- (
-        fs[ALOOKUP_FAILS] >> rfs[MEM_ZIP] >> metis_tac[] ) >>
-      qspec_then`p`strip_assume_tac tvars_ALL_DISTINCT >>
-      qmatch_assum_abbrev_tac`ALOOKUP ls a = SOME z` >>
-      Q.ISPECL_THEN[`ls`,`n`]strip_assume_tac ALOOKUP_ALL_DISTINCT_EL >>
-      rfs[MAP_ZIP,Abbr`ls`,EL_ZIP] >> rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-      qmatch_assum_abbrev_tac`dbhas_type (dbinst tyin (dbterm [] p)) pty` >>
-      qspecl_then[`dbterm [] p`,`tyin`]strip_assume_tac dbtvars_dbinst >>
-      rfs[EXTENSION] >>
-      fs[dbtvars_dbterm] >> rw[] >>
-      first_x_assum(qspecl_then[`x`,`a`]mp_tac) >>
-      simp[Abbr`a`] >> rw[] >- metis_tac[MEM_EL] >>
-      pop_assum mp_tac >>
-      simp[FLOOKUPD_def,Abbr`tyin`]) >>
-    fs[good_env_def,EVERY_MEM,SUBSET_DEF,MEM_FLAT,MEM_MAP,EXISTS_PROD,FORALL_PROD] >>
-    metis_tac[typeset_closes_over,SUBSET_DEF] ) >>
-  conj_tac >- (
-    rw[closes_def] >> fs[] >> metis_tac[] ) >>
-  (
-    fs[closes_def] >>
-    rpt gen_tac >> strip_tac >> strip_tac >>
-    simp[GSYM CONJ_ASSOC] >>
-    conj_tac >- metis_tac[typeset_closes_over] >> fs[] >>
-    qmatch_assum_rename_tac`dbhas_type t tty`[] >>
-    qmatch_assum_rename_tac`typeset τ tty mtty`[] >>
-    qmatch_assum_rename_tac`typeset τ ty mty`[] >>
-    `∃m. m <: mty` by metis_tac[typeset_inhabited] >>
-    first_x_assum(qspec_then`m`mp_tac)>>simp[]>>strip_tac>>
-    `good_env τ ((ty,m)::env)` by (
-      pop_assum kall_tac >>
-      fs[good_env_def,EVERY_MEM,SUBSET_DEF,MEM_FLAT,MEM_MAP,EXISTS_PROD,FORALL_PROD] >>
-      metis_tac[] ) >>
-    fs[] >>
-    rw[Once good_bvs_cases]))
-val semantics_closes = save_thm("semantics_closes",MP_CANON (CONJUNCT2 semantics_closes))
 
 val good_bvs_extend = store_thm("good_bvs_extend",
   ``∀env t. good_bvs env t ⇒ ∀env'. good_bvs (env++env') t``,
