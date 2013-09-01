@@ -1389,6 +1389,49 @@ val semantics_frees = store_thm("semantics_frees",
   simp[Abbr`z`,FLOOKUP_UPDATE] >>
   metis_tac[])
 
+val semantics_frees_exists = store_thm("semantics_frees_exists",
+  ``∀τ1 τ2 σ1 σ2 m t.
+      semantics σ1 τ1 t m ∧
+      type_valuation τ1 ∧ type_valuation τ2 ∧
+      term_valuation τ1 σ1 ∧ term_valuation τ2 σ2 ∧
+      (∀x. MEM x (tvars t) ⇒ x ∈ FDOM τ2) ∧
+      (∀x ty. VFREE_IN (Var x ty) t ⇒ ((x,ty) ∈ FDOM σ2))
+      ⇒ ∃m. semantics σ2 τ2 t m``,
+  gen_tac >> (CONV_TAC (RESORT_FORALL_CONV List.rev)) >> Induct
+  >- (
+    rw[FUN_EQ_THM] >>
+    rw[Once semantics_cases] >>
+    fs[FLOOKUP_DEF])
+  >- (
+    simp[tvars_def] >>
+    rw[Once semantics_cases] >>
+    rw[Once semantics_cases] >>
+    fs[tyvars_def] >>
+    metis_tac[typeset_tyvars_typeset_exists,tyvars_def])
+  >- (
+    simp[tvars_def] >>
+    rw[Once semantics_cases] >>
+    rw[Once semantics_cases] >>
+    metis_tac[]) >>
+  simp[tvars_def] >>
+  rw[Once semantics_cases] >>
+  rw[Once semantics_cases] >>
+  CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+  qexists_tac`tyb` >> simp[] >>
+  `∃mty2 mtyb2. typeset τ2 t mty2 ∧ typeset τ2 tyb mtyb2` by (
+    metis_tac[typeset_tyvars_typeset_exists,tyvars_typeof_subset_tvars,SUBSET_DEF] ) >>
+  map_every qexists_tac[`mtyb2`,`mty2`] >>
+  rw[GSYM SKOLEM_THM] >>
+  `∃m1. m1 <: mty` by metis_tac[typeset_inhabited] >>
+  Cases_on`m <: mty2`>>simp[]>>
+  first_x_assum(qspec_then`m1`mp_tac) >> rw[] >>
+  first_x_assum(qspecl_then[`mb m1`,`σ2|+((s,t),m)`,`σ1|+((s,t),m1)`,`τ2`]mp_tac) >>
+  simp[] >>
+  discharge_hyps >- metis_tac[term_valuation_FUPDATE,FST,SND] >>
+  rw[] >>
+  qexists_tac`m'` >> rw[] >>
+  metis_tac[semantics_typeset,term_valuation_FUPDATE,FST,SND,WELLTYPED_LEMMA,semantics_11])
+
 val closes_def = Define`
   closes s t tm ⇔
     set (tvars tm) ⊆ t ∧
@@ -1969,7 +2012,6 @@ val has_meaning_Comb = store_thm("has_meaning_Comb",
   simp[])
 val _ = export_rewrites["has_meaning_Comb"]
 
-(*
 val has_meaning_Abs = store_thm("has_meaning_Abs",
   ``∀x ty t. has_meaning (Abs x ty t) ⇔ type_has_meaning ty ∧ has_meaning t``,
   rpt gen_tac >>
@@ -1987,59 +2029,50 @@ val has_meaning_Abs = store_thm("has_meaning_Abs",
       simp[] >> metis_tac[] ) >>
     conj_tac >- metis_tac[semantics_typeset,typeset_has_meaning] >>
     conj_tac >- metis_tac[FDOM_FUPDATE] >>
-
-  rw[EQ_IMP_THM] >> fs[type_has_meaning_def,has_meaning_def] >>
-  fs[Q.SPECL[`X`,`Y`,`Abs x ty t`](CONJUNCT2 semantics_cases)] >> rw[] >>
-  (qmatch_assum_rename_tac`term_valuation τ σ`[] ORELSE
-   (qabbrev_tac`σ:string#type|->V = FEMPTY` >>
-    `term_valuation τ σ` by simp[Abbr`σ`]))
-  >- (
-    first_x_assum(qspecl_then[`τ`,`σ`]mp_tac) >> simp[] >>
-    simp_tac(srw_ss()++DNF_ss)[] >>
-    rpt gen_tac >> strip_tac >> metis_tac[] )
-  >- (
-    first_x_assum(qspecl_then[`τ`,`σ`]mp_tac) >> simp[] >>
-    simp_tac(srw_ss()++DNF_ss)[] >>
-    rpt gen_tac >> strip_tac >>
-    Cases_on`(x,ty) ∈ FDOM σ'` >- (
-      `σ' ' (x,ty) <: mty` by (
-        fs[term_valuation_def,FEVERY_DEF] >>
-        res_tac >> fs[] >>
-        imp_res_tac semantics_11 >> fs[] ) >>
-      `σ' |+ ((x,ty),σ' ' (x,ty)) = σ'` by (
-        metis_tac[FUPDATE_ELIM] ) >>
-      metis_tac[SUBMAP_REFL,semantics_closes_over] ) >>
-    `∃z. z <: mty` by metis_tac[typeset_inhabited] >>
-    map_every qexists_tac[`σ' |+ ((x,ty),z)`,`mb z`] >>
-    conj_asm1_tac >- metis_tac[SUBMAP_FUPDATE_EQN,SUBMAP_TRANS] >>
+    rw[] >>
+    match_mp_tac semantics_frees_exists >>
+    map_every qexists_tac[`τ`,`σ|+((x,ty),m)`,`mb m`] >>
+    simp[] >>
+    fs[closes_def,SUBSET_DEF] ) >>
+  rw[has_meaning_def] >- (
+    Q.ISPEC_THEN`set (tyvars ty)`mp_tac covering_type_valuation_exists >>
+    simp[] >> (disch_then(qspec_then`τ`mp_tac)) >>
+    strip_tac >> rfs[] >>
+    map_every qexists_tac[`τ'`,`σ`] >>
+    simp[] >>
     conj_tac >- (
-      fs[term_valuation_def] >>
-      match_mp_tac(CONJUNCT2 FEVERY_STRENGTHEN_THM) >>
-      fs[] >> metis_tac[] ) >>
-    metis_tac[semantics_closes_over] ) >>
-  simp_tac(srw_ss()++DNF_ss)[] >>
-  first_assum(qspecl_then[`τ`,`σ`]mp_tac) >>
-  ntac 2 (pop_assum mp_tac) >> simp_tac std_ss [] >> ntac 2 strip_tac >>
-  strip_tac >>
-  qexists_tac`σ'` >> simp[] >>
-  `∃mty. typeset τ ty mty` by metis_tac[] >>
-  `∃tyb mtyb. t has_type tyb ∧ typeset τ tyb mtyb` by metis_tac[semantics_typeset,WELLTYPED] >>
+      fs[term_valuation_def,FEVERY_DEF] >>
+      metis_tac[typeset_extend] ) >>
+    match_mp_tac closes_extend >>
+    fs[SUBMAP_DEF,SUBSET_DEF] >>
+    metis_tac[] ) >>
+  simp[Once semantics_cases] >>
+  `∃mty. typeset τ' ty mty` by metis_tac[type_has_meaning_def] >>
   CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
-  map_every qexists_tac[`tyb`,`mtyb`,`mty`] >> simp[] >>
-  simp[GSYM FORALL_AND_THM] >>
+  `welltyped t ∧ ∃mtyb. typeset τ (typeof t) mtyb` by (
+    metis_tac[semantics_typeset] ) >>
+  `∃mtyb'. typeset τ' (typeof t) mtyb'` by (
+    match_mp_tac typeset_tyvars_typeset_exists >>
+    fs[WELLTYPED] >>
+    imp_res_tac tyvars_typeof_subset_tvars >>
+    fs[closes_def,SUBSET_DEF] >>
+    metis_tac[] ) >>
+  map_every qexists_tac[`typeof t`,`mtyb'`,`mty`] >>
+  simp[GSYM WELLTYPED] >>
   simp[GSYM SKOLEM_THM] >>
   qx_gen_tac`z` >>
-  simp[GSYM IMP_CONJ_THM] >>
   simp[RIGHT_EXISTS_IMP_THM] >>
   strip_tac >>
-  first_x_assum(qspecl_then[`τ`,`σ' |+ ((x,ty),z)`]mp_tac) >>
-  discharge_hyps >- metis_tac[term_valuation_FUPDATE,FST,SND] >>
-  disch_then(qx_choosel_then[`σ''`,`y`] strip_assume_tac) >>
-  qexists_tac`y` >>
-  conj_tac >- metis_tac[semantics_typeset,WELLTYPED_LEMMA,semantics_11] >>
-  match_mp_tac semantics_reduce_term_valuation >>
-  HINT_EXISTS_TAC >> simp[])
+  first_x_assum(qspecl_then[`τ'`,`σ' |+ ((x,ty),z)`]mp_tac) >>
+  discharge_hyps >- (
+    simp[] >>
+    metis_tac[term_valuation_FUPDATE,FST,SND] ) >>
+  disch_then(qx_choosel_then[`y`] strip_assume_tac) >>
+  qexists_tac`y` >> simp[] >>
+  metis_tac[semantics_typeset,term_valuation_FUPDATE,FST,SND,WELLTYPED_LEMMA,semantics_11])
+val _ = export_rewrites["has_meaning_Abs"]
 
+(*
 val semantics_has_meaning = prove(
   ``(∀τ ty m. typeset τ ty m ⇒ T) ∧
     (∀σ τ t m. semantics σ τ t m ⇒ type_valuation τ ⇒ has_meaning t)``,
