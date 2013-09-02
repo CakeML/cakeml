@@ -220,19 +220,6 @@ val bv_names_def = Define`
   bv_names (Abs x ty t) = x::bv_names t`
 val _ = export_rewrites["bv_names_def"]
 
-(*
-val bvs_def = Define`
-  bvs (Var _ _) = [] ∧
-  bvs (Const _ _ _) = [] ∧
-  bvs (Comb s t) = bvs s ++ bvs t ∧
-  bvs (Abs x ty t) = (x,ty)::bvs t`
-val _ = export_rewrites["bvs_def"]
-
-val bv_names_bvs = store_thm("bv_names_bvs",
-  ``∀tm. bv_names tm = MAP FST (bvs tm)``,
-  Induct >> simp[])
-*)
-
 val dest_var_def = Define`
   dest_var (Var x ty) = (x,ty) ∧
   dest_var _ = ("",Tyvar "")`
@@ -318,17 +305,6 @@ val simple_subst_FEMPTY = store_thm("simple_subst_FEMPTY",
   ``∀tm. simple_subst FEMPTY tm = tm``,
   Induct >> simp[])
 val _ = export_rewrites["simple_subst_FEMPTY"]
-
-(*
-val simple_subst_compose = store_thm("simple_subst_compose",
-  ``∀tm σ1 σ2. simple_subst σ2 (simple_subst σ1 tm) = simple_subst ((simple_subst σ2 o_f σ1) ⊌ σ2) tm``,
-  Induct >- (
-    simp[FLOOKUPD_def,FLOOKUP_FUNION,FLOOKUP_o_f] >> rw[] >>
-    BasicProvers.CASE_TAC >>
-    BasicProvers.CASE_TAC >>
-    simp[FLOOKUPD_def] ) >> simp[] >>
-    )
-*)
 
 val ilist_to_fmap_def = Define`
   ilist_to_fmap ilist = FUN_FMAP (λp. REV_ASSOCD (UNCURRY Var p) ilist (UNCURRY Var p)) {(x,ty) | MEM (Var x ty) (MAP SND ilist)}`
@@ -774,7 +750,6 @@ val FINITE_VFREE_IN_2 = store_thm("FINITE_VFREE_IN_2",
   metis_tac[])
 val _ = export_rewrites["FINITE_VFREE_IN_2"]
 
-
 val bv_names_rename_bvars = store_thm("bv_names_rename_bvars",
   ``∀names env tm.
     LENGTH (bv_names tm) ≤ LENGTH names ⇒
@@ -807,21 +782,6 @@ val fresh_term_def = new_specification("fresh_term_def",["fresh_term"],
     simp[TAKE_LENGTH_ID_rwt] >>
     fs[IN_DISJOINT] >>
     metis_tac[]))
-
-(* not true: application with operator with variable type is not welltyped
-val simple_inst_welltyped = store_thm("simple_inst_welltyped",
-  ``∀tm tyin. welltyped (simple_inst tyin tm) ⇔ welltyped tm``,
-  reverse(rw[EQ_IMP_THM])>-metis_tac[simple_inst_has_type,WELLTYPED,WELLTYPED_LEMMA]>>
-  pop_assum mp_tac >> map_every qid_spec_tac[`tyin`,`tm`] >>
-  Induct >> rw[]
-  >- metis_tac[]
-  >- metis_tac[]
-  >- (
-    res_tac >>
-    imp_res_tac simple_inst_has_type >>
-    `TYPE_SUBST tyin (typeof tm) = Fun (typeof (simple_inst tyin tm')) rty` by metis_tac[WELLTYPED_LEMMA]
-  metis_tac[WELLTYPED,WELLTYPED_LEMMA,simple_inst_has_type]
-*)
 
 val tyinst_tyvars1 = store_thm("tyinst_tyvars1",
   ``∀tyin ty tyin'. (∀v. MEM v (tyvars ty) ⇒ FLOOKUPD tyin' v (Tyvar v) = FLOOKUPD tyin v (Tyvar v)) ⇒
@@ -1344,6 +1304,112 @@ val simple_inst_aconv = store_thm("simple_inst_aconv",
   qspecl_then[`[]`,`(t1,t2)`]mp_tac simple_inst_raconv >>
   rw[] >> metis_tac[])
 
+val semantics_typeset = store_thm("semantics_typeset",
+  ``(∀τ ty mty. typeset τ ty mty ⇒ type_valuation τ ⇒ ∃mt. mt <: mty) ∧
+    (∀σ τ t mt. semantics σ τ t mt ⇒
+        type_valuation τ ∧ term_valuation τ σ ⇒
+           ∃mty. welltyped t ∧ typeset τ (typeof t) mty ∧ mt <: mty)``,
+  ho_match_mp_tac (theorem"semantics_strongind") >>
+  simp[INDSET_INHABITED,FUNSPACE_INHABITED] >>
+  conj_tac >- (
+    simp[type_valuation_def] >>
+    simp[FLOOKUP_DEF,FRANGE_DEF] >>
+    metis_tac[] ) >>
+  conj_tac >- metis_tac[BOOLEAN_IN_BOOLSET] >>
+  conj_tac >- ( rw[suchthat_def] >> metis_tac[] ) >>
+  conj_tac >- (
+    simp[] >> rw[] >>
+    fs[term_valuation_def] >>
+    imp_res_tac FEVERY_FLOOKUP >>
+    fs[] >> metis_tac[]) >>
+  conj_tac >- (
+    rw[] >>
+    rw[Once semantics_cases] >>
+    rw[Once (Q.SPECL[`τ`,`Fun X Y`](CONJUNCT1 semantics_cases))] >>
+    fsrw_tac[DNF_ss][] >>
+    rpt(qexists_tac`mty`)>>simp[]>>
+    match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[] >>
+    match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[] >>
+    rw[BOOLEAN_IN_BOOLSET]) >>
+  conj_tac >- (
+    rw[] >>
+    rw[Once semantics_cases] >>
+    rw[Once (Q.SPECL[`τ`,`Fun X Y`](CONJUNCT1 semantics_cases))] >>
+    fsrw_tac[DNF_ss][] >>
+    rpt(qexists_tac`mty`)>>simp[]>>
+    match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[] >>
+    fs[suchthat_def] >> rw[] >- (
+      qmatch_abbrev_tac`ch s <: mty` >>
+      `ch s <: s` by (
+        match_mp_tac ch_def >>
+        simp[Abbr`s`,suchthat_def] >>
+        metis_tac[] ) >>
+      fs[Abbr`s`,suchthat_def] ) >>
+    match_mp_tac ch_def >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rw[] >>
+    qmatch_assum_abbrev_tac`welltyped (inst tyin tm)` >>
+    qspecl_then[`tm`,`tyin`]mp_tac simple_inst_has_type >> rw[] >>
+    imp_res_tac(CONJUNCT1 typeset_closes_over) >> fs[] >>
+    metis_tac[WELLTYPED_LEMMA,typeset_tyvars,MEM]) >>
+  conj_tac >- (
+    rw[] >>
+    rw[Once semantics_cases] >>
+    fsrw_tac[DNF_ss][] >>
+    qmatch_assum_rename_tac`mt <: maty`[] >>
+    map_every qexists_tac[`mty`,`maty`] >>
+    rw[] >- (
+      metis_tac[typeset_tyvars,typeset_closes_over,SUBSET_DEF,FDOM_FEMPTY,NOT_IN_EMPTY] ) >>
+    match_mp_tac ABSTRACT_IN_FUNSPACE >> simp[] >>
+    qpat_assum`typeset τ (X Y) Z` mp_tac >> rw[Once semantics_cases] >>
+    fs[suchthat_def] >>
+    qmatch_assum_abbrev_tac`(simple_inst tyin tm) has_type fty` >>
+    qspecl_then[`tm`,`tyin`]mp_tac simple_inst_has_type >> simp[] >>
+    discharge_hyps >- metis_tac[welltyped_def] >>
+    rw[] >> imp_res_tac WELLTYPED_LEMMA >>
+    fs[Abbr`fty`] >> rw[] >>
+    metis_tac[semantics_11,type_valuation_FEMPTY]) >>
+  conj_tac >- (
+    rw[] >>
+    rw[Once semantics_cases] >>
+    fsrw_tac[DNF_ss][] >>
+    qmatch_assum_rename_tac`typeset FEMPTY ty mm`[] >>
+    map_every qexists_tac[`mm`,`mty`] >> rw[] >-
+      metis_tac[typeset_tyvars,typeset_closes_over,SUBSET_DEF,FDOM_FEMPTY,NOT_IN_EMPTY] >>
+    match_mp_tac ABSTRACT_IN_FUNSPACE >>
+    qpat_assum`typeset τ (X Y) Z` mp_tac >> rw[Once semantics_cases] >>
+    qmatch_assum_abbrev_tac`(simple_inst tyin tm) has_type fty` >>
+    qspecl_then[`tm`,`tyin`]mp_tac simple_inst_has_type >> simp[] >>
+    discharge_hyps >- metis_tac[welltyped_def] >>
+    rw[] >> imp_res_tac WELLTYPED_LEMMA >>
+    fs[Abbr`fty`] >> rw[] >- (
+      fs[suchthat_def] >>
+      metis_tac[semantics_11,type_valuation_FEMPTY,term_valuation_FEMPTY] ) >>
+    match_mp_tac ch_def >>
+    fs[suchthat_def] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rw[] >> fs[] >>
+    fs[Once (Q.SPECL[`τ`,`Fun X Y`](CONJUNCT1 semantics_cases))] >> rw[] >>
+    qexists_tac`my` >> simp[] >>
+    match_mp_tac APPLY_IN_RANSPACE >>
+    metis_tac[semantics_11]) >>
+  rw[] >> fs[] >>
+  simp[Once semantics_cases] >>
+  res_tac >>
+  pop_assum mp_tac >>
+  discharge_hyps >- (
+    match_mp_tac term_valuation_FUPDATE >>
+    rw[] >> metis_tac[] ) >>
+  rw[] >>
+  fsrw_tac[DNF_ss][] >>
+  imp_res_tac WELLTYPED_LEMMA >> rw[] >>
+  imp_res_tac semantics_11 >> rw[] >>
+  qmatch_assum_rename_tac`typeset τ (typeof t) tty`[] >>
+  map_every qexists_tac[`mty`,`tty`] >> rw[] >>
+  match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[])
+
 val semantics_frees = store_thm("semantics_frees",
   ``∀τ1 τ2 σ1 σ2 t.
       type_valuation τ1 ∧ type_valuation τ2 ∧
@@ -1592,112 +1658,6 @@ val typeset_Tydefined_ACONV = store_thm("typeset_Tydefined_ACONV",
     simp[Abbr`tm`,IN_DISJOINT] >>
     metis_tac[fresh_term_def,ACONV_VFREE_IN,ACONV_SYM] ) >>
   fs[] >> metis_tac[ACONV_VFREE_IN,ACONV_SYM])
-
-val semantics_typeset = store_thm("semantics_typeset",
-  ``(∀τ ty mty. typeset τ ty mty ⇒ type_valuation τ ⇒ ∃mt. mt <: mty) ∧
-    (∀σ τ t mt. semantics σ τ t mt ⇒
-        type_valuation τ ∧ term_valuation τ σ ⇒
-           ∃mty. welltyped t ∧ typeset τ (typeof t) mty ∧ mt <: mty)``,
-  ho_match_mp_tac (theorem"semantics_strongind") >>
-  simp[INDSET_INHABITED,FUNSPACE_INHABITED] >>
-  conj_tac >- (
-    simp[type_valuation_def] >>
-    simp[FLOOKUP_DEF,FRANGE_DEF] >>
-    metis_tac[] ) >>
-  conj_tac >- metis_tac[BOOLEAN_IN_BOOLSET] >>
-  conj_tac >- ( rw[suchthat_def] >> metis_tac[] ) >>
-  conj_tac >- (
-    simp[] >> rw[] >>
-    fs[term_valuation_def] >>
-    imp_res_tac FEVERY_FLOOKUP >>
-    fs[] >> metis_tac[]) >>
-  conj_tac >- (
-    rw[] >>
-    rw[Once semantics_cases] >>
-    rw[Once (Q.SPECL[`τ`,`Fun X Y`](CONJUNCT1 semantics_cases))] >>
-    fsrw_tac[DNF_ss][] >>
-    rpt(qexists_tac`mty`)>>simp[]>>
-    match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[] >>
-    match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[] >>
-    rw[BOOLEAN_IN_BOOLSET]) >>
-  conj_tac >- (
-    rw[] >>
-    rw[Once semantics_cases] >>
-    rw[Once (Q.SPECL[`τ`,`Fun X Y`](CONJUNCT1 semantics_cases))] >>
-    fsrw_tac[DNF_ss][] >>
-    rpt(qexists_tac`mty`)>>simp[]>>
-    match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[] >>
-    fs[suchthat_def] >> rw[] >- (
-      qmatch_abbrev_tac`ch s <: mty` >>
-      `ch s <: s` by (
-        match_mp_tac ch_def >>
-        simp[Abbr`s`,suchthat_def] >>
-        metis_tac[] ) >>
-      fs[Abbr`s`,suchthat_def] ) >>
-    match_mp_tac ch_def >>
-    metis_tac[] ) >>
-  conj_tac >- (
-    rw[] >>
-    qmatch_assum_abbrev_tac`welltyped (inst tyin tm)` >>
-    qspecl_then[`tm`,`tyin`]mp_tac simple_inst_has_type >> rw[] >>
-    imp_res_tac(CONJUNCT1 typeset_closes_over) >> fs[] >>
-    metis_tac[WELLTYPED_LEMMA,typeset_tyvars,MEM]) >>
-  conj_tac >- (
-    rw[] >>
-    rw[Once semantics_cases] >>
-    fsrw_tac[DNF_ss][] >>
-    qmatch_assum_rename_tac`mt <: maty`[] >>
-    map_every qexists_tac[`mty`,`maty`] >>
-    rw[] >- (
-      metis_tac[typeset_tyvars,typeset_closes_over,SUBSET_DEF,FDOM_FEMPTY,NOT_IN_EMPTY] ) >>
-    match_mp_tac ABSTRACT_IN_FUNSPACE >> simp[] >>
-    qpat_assum`typeset τ (X Y) Z` mp_tac >> rw[Once semantics_cases] >>
-    fs[suchthat_def] >>
-    qmatch_assum_abbrev_tac`(simple_inst tyin tm) has_type fty` >>
-    qspecl_then[`tm`,`tyin`]mp_tac simple_inst_has_type >> simp[] >>
-    discharge_hyps >- metis_tac[welltyped_def] >>
-    rw[] >> imp_res_tac WELLTYPED_LEMMA >>
-    fs[Abbr`fty`] >> rw[] >>
-    metis_tac[semantics_11,type_valuation_FEMPTY]) >>
-  conj_tac >- (
-    rw[] >>
-    rw[Once semantics_cases] >>
-    fsrw_tac[DNF_ss][] >>
-    qmatch_assum_rename_tac`typeset FEMPTY ty mm`[] >>
-    map_every qexists_tac[`mm`,`mty`] >> rw[] >-
-      metis_tac[typeset_tyvars,typeset_closes_over,SUBSET_DEF,FDOM_FEMPTY,NOT_IN_EMPTY] >>
-    match_mp_tac ABSTRACT_IN_FUNSPACE >>
-    qpat_assum`typeset τ (X Y) Z` mp_tac >> rw[Once semantics_cases] >>
-    qmatch_assum_abbrev_tac`(simple_inst tyin tm) has_type fty` >>
-    qspecl_then[`tm`,`tyin`]mp_tac simple_inst_has_type >> simp[] >>
-    discharge_hyps >- metis_tac[welltyped_def] >>
-    rw[] >> imp_res_tac WELLTYPED_LEMMA >>
-    fs[Abbr`fty`] >> rw[] >- (
-      fs[suchthat_def] >>
-      metis_tac[semantics_11,type_valuation_FEMPTY,term_valuation_FEMPTY] ) >>
-    match_mp_tac ch_def >>
-    fs[suchthat_def] >>
-    metis_tac[] ) >>
-  conj_tac >- (
-    rw[] >> fs[] >>
-    fs[Once (Q.SPECL[`τ`,`Fun X Y`](CONJUNCT1 semantics_cases))] >> rw[] >>
-    qexists_tac`my` >> simp[] >>
-    match_mp_tac APPLY_IN_RANSPACE >>
-    metis_tac[semantics_11]) >>
-  rw[] >> fs[] >>
-  simp[Once semantics_cases] >>
-  res_tac >>
-  pop_assum mp_tac >>
-  discharge_hyps >- (
-    match_mp_tac term_valuation_FUPDATE >>
-    rw[] >> metis_tac[] ) >>
-  rw[] >>
-  fsrw_tac[DNF_ss][] >>
-  imp_res_tac WELLTYPED_LEMMA >> rw[] >>
-  imp_res_tac semantics_11 >> rw[] >>
-  qmatch_assum_rename_tac`typeset τ (typeof t) tty`[] >>
-  map_every qexists_tac[`mty`,`tty`] >> rw[] >>
-  match_mp_tac ABSTRACT_IN_FUNSPACE >> rw[])
 
 val closes_extend = store_thm("closes_extend",
   ``∀σ τ t σ' τ'. closes σ τ t ∧ σ ⊆ σ' ∧ τ ⊆ τ' ⇒ closes σ' τ' t``,
