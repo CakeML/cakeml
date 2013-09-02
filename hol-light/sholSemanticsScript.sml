@@ -2548,6 +2548,109 @@ val DEDUCT_ANTISYM_correct = store_thm("DEDUCT_ANTISYM_correct",
     metis_tac[has_meaning_def,semantics_reduce] ) >>
   metis_tac[semantics_typeset,typeset_Bool,WELLTYPED_LEMMA,IN_BOOL])
 
+val simple_subst_has_type = store_thm("simple_subst_has_type",
+  ``∀tm ty.
+      tm has_type ty ⇒
+      ∀subst.
+        FEVERY (λ((x,ty),tm). tm has_type ty) subst ⇒
+        simple_subst subst tm has_type ty``,
+  ho_match_mp_tac has_type_ind >>
+  simp[] >> rw[] >- (
+    fs[FLOOKUPD_def,FEVERY_DEF,FLOOKUP_DEF] >>
+    rw[] >> res_tac >> fs[] >>
+    rw[Once has_type_cases] )
+  >- (
+    rw[Once has_type_cases] )
+  >- (
+    rw[Once has_type_cases] >>
+    metis_tac[] ) >>
+  rw[Once has_type_cases] >>
+  first_x_assum match_mp_tac >>
+  fs[FEVERY_DEF,DOMSUB_FAPPLY_THM])
+
+(*
+val semantics_simple_subst = store_thm("semantics_simple_subst",
+  ``∀tm subst ss σ τ.
+      DISJOINT (set (bv_names tm)) {y | ∃ty u. VFREE_IN (Var y ty) u ∧ u ∈ FRANGE subst} ∧
+      FEVERY (λ((x,ty),tm). tm has_type ty) subst ∧
+      FDOM ss = FDOM subst ∧
+      FEVERY (λ(v,m). semantics σ τ (subst ' v) m) ss ∧
+      closes (FDOM σ) (FDOM τ) tm ∧
+      welltyped tm ∧
+      type_valuation τ
+      ⇒
+      semantics σ τ (simple_subst subst tm) = semantics (ss ⊌ σ) τ tm``,
+  Induct >- (
+    rw[] >>
+    simp[FLOOKUPD_def,FUN_EQ_THM] >> rw[] >>
+    fs[FEVERY_DEF,FLOOKUP_DEF] >>
+    simp[Once semantics_cases,SimpRHS] >>
+    fs[FLOOKUP_DEF,FUNION_DEF] >>
+    BasicProvers.CASE_TAC >>
+    TRY (
+      simp[Once semantics_cases,FLOOKUP_DEF] >>
+      NO_TAC) >>
+    metis_tac[semantics_11] )
+  >- (
+    rw[] >>
+    simp[FUN_EQ_THM] >>
+    simp[Once semantics_cases] >>
+    simp[Once semantics_cases,SimpRHS] )
+  >- (
+    rw[] >>
+    simp[FUN_EQ_THM] >>
+    simp[Once semantics_cases] >>
+    simp[Once semantics_cases,SimpRHS] >>
+    `simple_subst subst tm has_type (typeof tm) ∧
+     simple_subst subst tm' has_type (typeof tm')` by (
+       fs[WELLTYPED] >>
+       metis_tac[simple_subst_has_type] ) >>
+    imp_res_tac WELLTYPED_LEMMA >>
+    pop_assum(assume_tac o SYM) >>
+    fs[] >> simp[WELLTYPED] >>
+    metis_tac[] ) >>
+  rw[] >>
+  simp[FUN_EQ_THM] >>
+  simp[Once semantics_cases] >>
+  simp[Once semantics_cases,SimpRHS] >>
+  rw[] >>
+  rw[EQ_IMP_THM] >>
+  map_every qexists_tac[`mb`,`mty`,`mtyb`,`tyb`] >>
+  rw[] >>
+  TRY (
+    qmatch_assum_abbrev_tac`simple_subst sub tm has_type tyb` >>
+    qsuff_tac`tyb = typeof tm` >- metis_tac[WELLTYPED] >>
+    qsuff_tac`simple_subst sub tm has_type (typeof tm)` >- metis_tac[WELLTYPED_LEMMA] >>
+    match_mp_tac (MP_CANON simple_subst_has_type) >>
+    fs[WELLTYPED] >>
+    fs[FEVERY_DEF,Abbr`sub`,DOMSUB_FAPPLY_THM] ) >>
+  TRY (
+    match_mp_tac (MP_CANON simple_subst_has_type) >>
+    fs[FEVERY_DEF,DOMSUB_FAPPLY_THM] ) >>
+  TRY (
+    qmatch_abbrev_tac`semantics sx τ stm mm` >>
+    first_x_assum(qspec_then`m`mp_tac) >>
+    rw[] >>
+    qmatch_assum_abbrev_tac`semantics sy τ tm mm` >>
+    qsuff_tac`semantics sx τ stm = semantics sy τ tm` >- rw[] >>
+    first_x_assum(qspecl_then[`subst \\ (s,t)`,`ss \\ (s,t)`,`σ |+ ((s,t),m)`,`τ`]mp_tac) >>
+    discharge_hyps >- (
+      simp[] >>
+      fs[FEVERY_DEF,DOMSUB_FAPPLY_THM] >>
+      reverse conj_tac >- (
+        rw[Abbr`sx`] >>
+        match_mp_tac semantics_extend >>
+        map_every qexists_tac[`σ`,`τ`] >>
+        simp[]
+
+        metis_tac[]
+      fs[IN_DISJOINT,IN_FRANGE,DOMSUB_FAPPLY_THM]
+    qunabbrev_tac`sy` >>
+    simp[GSYM FUNION_FUPDATE_1] >>
+    qunabbrev_tac`stm` >>
+    first_x_assum (match_mp_tac o MP_CANON)
+*)
+
 (*
 val welltyped_VSUBST = store_thm("welltyped_VSUBST",
   ``∀tm ilist.
