@@ -1,8 +1,6 @@
-open HolKernel bossLib boolLib boolSimps lcsymtacs ml_translatorLib ml_translatorTheory miscLib rich_listTheory
-open BytecodeTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeTerminationTheory compilerTerminationTheory semanticsExtraTheory toIntLangProofsTheory toBytecodeProofsTheory compilerProofsTheory ml_repl_stepTheory sideTheory replDecsTheory bootstrap_lemmaTheory
+open HolKernel bossLib boolLib boolSimps lcsymtacs miscLib arithmeticTheory listTheory rich_listTheory
+open BytecodeTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeTerminationTheory compilerTerminationTheory semanticsExtraTheory toIntLangProofsTheory toBytecodeProofsTheory compilerProofsTheory
 val _ = new_theory"replDecsProofs"
-
-val _ = translation_extends"ml_repl_step"
 
 val ct = ``init_compiler_state.contab``
 val m = ``<|bvars:=[];mvars:=FEMPTY;cnmap:=cmap(^ct)|>``
@@ -15,15 +13,19 @@ val decs_cns_repl_decs = ``decs_cns NONE repl_decs = {}``
 val check_dup_ctors_repl_decs = ``
 (∀i tds.
     i < LENGTH repl_decs ∧ EL i repl_decs = Dtype tds ⇒
-        check_dup_ctors NONE (decs_to_cenv NONE (TAKE i repl_decs))
+        check_dup_ctors NONE (decs_to_cenv NONE (TAKE i repl_decs) ++ init_envC)
               tds)``
+val check_dup_exns_repl_decs = ``
+(∀i cn ts.
+    i < LENGTH repl_decs ∧ EL i repl_decs = Dexn cn ts ⇒
+        mk_id NONE cn ∉ set (MAP FST (decs_to_cenv NONE (TAKE i repl_decs) ++ init_envC)))``
 
 val bootstrap_result = ``compile_decs NONE FEMPTY ^ct ^m ^renv ^rsz ^cs repl_decs``
 
 val compile_repl_decs_thm = store_thm("compile_repl_decs_thm",
   ``∀s cenv env.
-      evaluate_decs NONE [] [] [] [] repl_decs (s,cenv,Rval env) ∧
-      ^FV_decs_repl_decs ∧ ^decs_cns_repl_decs ∧ ^check_dup_ctors_repl_decs
+      evaluate_decs NONE [] init_envC [] [] repl_decs (s,cenv,Rval env) ∧
+      ^FV_decs_repl_decs ∧ ^decs_cns_repl_decs ∧ ^check_dup_ctors_repl_decs ∧ ^check_dup_exns_repl_decs
       ⇒
       let (ct,m,rsz,cs) = ^bootstrap_result in
       ∀bs.
@@ -40,10 +42,10 @@ val compile_repl_decs_thm = store_thm("compile_repl_decs_thm",
            |> in
         bc_eval bs = SOME bs'
       ∧ bs'.pc = next_addr bs.inst_length bs.code
-      ∧ env_rs [] cenv env rs 0 rd (0,s) bs'
+      ∧ env_rs [] (cenv++init_envC) env rs 0 rd (0,s) bs'
       ∧ good_labels rs.rnext_label bs.code``,
   rw[] >>
-  qspecl_then[`NONE`,`[]`,`[]`,`[]`,`[]`,`repl_decs`,`(s,cenv,Rval env)`]mp_tac compile_decs_thm >>
+  qspecl_then[`NONE`,`[]`,`init_envC`,`[]`,`[]`,`repl_decs`,`(s,cenv,Rval env)`]mp_tac compile_decs_thm >>
   simp[] >>
   disch_then(CHOOSE_THEN mp_tac) >>
   disch_then(qspecl_then[`^m`,`^cs`]mp_tac) >>
@@ -57,6 +59,7 @@ val compile_repl_decs_thm = store_thm("compile_repl_decs_thm",
   disch_then(qspecl_then[`[]`,`REVERSE cs.out`]mp_tac) >>
   simp[] >>
   discharge_hyps >- (
+    conj_tac >- metis_tac[] >>
     conj_tac >- (
       simp[closed_context_def,closed_under_cenv_def,closed_under_menv_def] ) >>
     conj_tac >- (
@@ -85,12 +88,12 @@ val compile_repl_decs_thm = store_thm("compile_repl_decs_thm",
       simp[Abbr`bs2`] ) >>
     simp[bc_eval1_thm,bc_eval1_def] ) >>
   conj_tac >- simp[Abbr`bs2`] >>
-  qmatch_assum_abbrev_tac`env_rs [] cenv env rs 0 rd' (0,s) bs'` >>
+  qmatch_assum_abbrev_tac`env_rs [] cenv2 env rs 0 rd' (0,s) bs'` >>
   Q.PAT_ABBREV_TAC`rs':compiler_state = X` >>
   qmatch_assum_abbrev_tac`compile_decs rmn rmenv rct rm renv msz rcs rdecs = rX` >>
   qspecl_then[`rdecs`,`rmn`,`rmenv`,`rct`,`rm`,`renv`,`msz`,`rcs`]mp_tac compile_decs_append_out >>
   simp[Abbr`rX`,Abbr`rm`,Abbr`msz`,Abbr`renv`,Abbr`rcs`,Abbr`rs`] >> strip_tac >>
-  qmatch_assum_abbrev_tac`env_rs [] cenv env rs 0 rd' (0,s) bs'` >>
+  qmatch_assum_abbrev_tac`env_rs [] cenv2 env rs 0 rd' (0,s) bs'` >>
   `rs' = rs` by (
     simp[Abbr`rs`,Abbr`rs'`,CompilerTheory.compiler_state_component_equality] >>
     simp[REVERSE_GENLIST,PRE_SUB1] ) >>
@@ -102,9 +105,14 @@ val compile_repl_decs_thm = store_thm("compile_repl_decs_thm",
   fs[good_labels_def,between_labels_def] >>
   fsrw_tac[DNF_ss][EVERY_MEM,miscTheory.between_def,MEM_MAP])
 
+val FV_dec_call_repl_step_dec = ``FV_dec call_repl_step_dec = {}``
+val dec_cns_call_repl_step_dec = ``dec_cns call_repl_step_dec = {}``
+
 val compile_call_repl_step_thm = store_thm("compile_call_repl_step_thm",
   ``∀mn cenv s env s' rs csz rd ck cs bs.
     evaluate_dec mn [] cenv s env call_repl_step_dec (s',Rval([],[]))
+    ∧ ^FV_dec_call_repl_step_dec
+    ∧ ^dec_cns_call_repl_step_dec
     ∧ MEM "call_repl_step" (MAP FST env)
     ∧ compile_dec FEMPTY <|bvars := MAP FST env; mvars := FEMPTY; cnmap := cmap rs.contab|> (MAP (CTDec o SND) rs.renv) rs.rsz <|out:=[];next_label:=rs.rnext_label|> call_repl_step_dec = (SOME [],cs)
     ∧ closed_context [] cenv s env
@@ -131,8 +139,6 @@ val compile_call_repl_step_thm = store_thm("compile_call_repl_step_thm",
   disch_then(qspecl_then[`bs.code`,`REVERSE cs.out`,`csz`]mp_tac) >> simp[] >>
   discharge_hyps >- (
     simp[Abbr`d`,Abbr`m`,Abbr`cs0`,Abbr`bs1`] >>
-    simp[call_repl_step_dec_def] >> fs[MEM_MAP] >>
-    conj_tac >- metis_tac[] >>
     match_mp_tac env_rs_with_bs_irr >>
     qexists_tac`bs with clock := SOME ck'` >> simp[] >>
     match_mp_tac env_rs_change_clock >> simp[] >>
@@ -182,7 +188,7 @@ val compile_call_repl_step_thm = store_thm("compile_call_repl_step_thm",
   simp[Abbr`bs1`,pmatchTheory.vs_to_Cvs_MAP] >>
   `ALL_DISTINCT (FILTER is_Label (bs.code ++ REVERSE cs.out))` by (
     qspecl_then[`FEMPTY`,`m`,`renv`,`rsz`,`cs0`,`d`]mp_tac compile_dec_append_out >>
-    simp[Abbr`renv`,Abbr`m`,Abbr`d`,call_repl_step_dec_def] >>
+    simp[Abbr`renv`,Abbr`m`,Abbr`d`] >>
     discharge_hyps >- fs[env_rs_def,LET_THM,LIST_EQ_REWRITE] >> strip_tac >>
     fs[good_labels_def,FILTER_APPEND,ALL_DISTINCT_APPEND,FILTER_APPEND,Abbr`cs0`,between_labels_def] >>
     fsrw_tac[DNF_ss][EVERY_MEM,miscTheory.between_def,MEM_MAP,MEM_FILTER,is_Label_rwt] >>
