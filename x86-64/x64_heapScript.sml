@@ -4702,7 +4702,7 @@ gg goal
     SIMP_TAC std_ss [LET_DEF,SEP_CLAUSES]
     \\ SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
     \\ REPEAT STRIP_TAC \\ Q.LIST_EXISTS_TAC [`vals`]
-    \\ `(ORD (HD s.input) < k) <=> (vals.reg10 <₊ n2w k)` by ALL_TAC
+    \\ `(ORD (HD s.input) < k) <=> (vals.reg10 <+ n2w k)` by ALL_TAC
     \\ FULL_SIMP_TAC std_ss [SEP_CLAUSES]
     \\ FULL_SIMP_TAC (srw_ss()) [zVALS_def,AC STAR_COMM STAR_ASSOC]
     \\ POP_ASSUM (K ALL_TAC)
@@ -9335,6 +9335,43 @@ val next_symbol_def = tDefine "next_symbol" `
       let (x2,s,stack) = read_str (x2,s,stack) in
         (x2,s,stack)
     else
+    let (x1,s) = is_digit s in
+    if getNumber x1 <> 0 then
+      let x1 = Number 0 in
+      let x2 = x1 in
+      let (x1,x2,s) = read_num (x1,x2,s) in
+      let stack = x2::stack in
+      let x2 = Number 3 in
+        (x2,s,stack)
+    else if HD s.input = #"'" then
+      let (s,stack) = read_anp (s,stack) in
+      let x2 = Number 4 in
+        (x2,s,stack)
+    else if HD s.input = #"~" then
+      let s = s with input := DROP 1 s.input in
+      if s.input = "" then
+        let x1 = Number 126 in
+        let stack = x1 :: stack in
+        let x2 = Number 4 in
+          (x2,s,stack)
+      else
+      let (x1,s) = is_digit s in
+      if getNumber x1 <> 0 then
+        let x1 = Number 0 in
+        let x2 = x1 in
+        let (x1,x2,s) = read_num (x1,x2,s) in
+        let x1 = Number 0 in
+        let x1 = any_sub x1 x2 in
+        let stack = x1::stack in
+        let x2 = Number 3 in
+          (x2,s,stack)
+      else (* store symbol *)
+        let x1 = Number 126 in
+        let stack = x1 :: stack in
+        let (s,stack) = read_sym (s,stack) in
+        let x2 = Number 4 in
+          (x2,s,stack)
+    else
     let (x1,s) = is_symbol s in
     if getNumber x1 <> 0 then
       let (s,stack) = read_sym (s,stack) in
@@ -9344,7 +9381,49 @@ val next_symbol_def = tDefine "next_symbol" `
       let x2 = Number 0 in
         (x2,s,stack)` cheat
 
-val read_str_thm = prove(
+val read_string_IMP = prove(
+  ``!v x. (read_string v x = (res,r)) ==>
+          (res = ErrorS) \/ ?s. res = StringS s``,
+  HO_MATCH_MP_TAC read_string_ind
+  \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
+  \\ ONCE_REWRITE_TAC [read_string_def]
+  \\ SRW_TAC [] []
+  \\ Cases_on `v`
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `t`
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ METIS_TAC [PAIR_EQ]);
+
+val LIST_PREFIX_PROP = prove(
+  ``!xs P. ?xs1 xs2.
+             EVERY P xs1 /\ (xs2 <> "" ==> ~P (HD xs2)) /\
+             (xs = xs1 ++ xs2)``,
+  Induct \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ REPEAT STRIP_TAC \\ Cases_on `P h` THEN1
+   (FIRST_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `P`)
+    \\ Q.LIST_EXISTS_TAC [`h::xs1`,`xs2`]
+    \\ FULL_SIMP_TAC (srw_ss()) [])
+  \\ Q.EXISTS_TAC `[]` \\ Q.EXISTS_TAC `h::xs`
+  \\ FULL_SIMP_TAC (srw_ss()) []);
+
+val read_while_APPEND = prove(
+  ``EVERY P xs /\ (ys <> "" ==> ~isDigit (HD ys)) ==>
+     (read_while P (xs ++ ys) res = (xs ++ res, ys))``,
+  cheat);
+
+val read_while_lemma = prove(
+  ``!xs ys P.
+      read_while P xs ys =
+        let (zs,rest) = read_while P xs [] in (REVERSE ys ++ zs,rest)``,
+  Induct THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
+  \\ SIMP_TAC std_ss [read_while_def] \\ REPEAT STRIP_TAC
+  \\ Cases_on `P h` \\ POP_ASSUM MP_TAC \\ SIMP_TAC (srw_ss()) [LET_DEF]
+  \\ SIMP_TAC std_ss [stringTheory.IMPLODE_EXPLODE_I]
+  \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
+  \\ Cases_on `read_while P xs ""` \\ FULL_SIMP_TAC std_ss [LET_DEF]
+  \\ SIMP_TAC (srw_ss()) [APPEND_NIL]);
+
+val read_sym_thm = prove(
   ``!xs s stack.
       ?ts.
         (next_symbol (s,stack) =
@@ -9352,60 +9431,73 @@ val read_str_thm = prove(
            | NONE => (Number 2, s with input := "", stack)
            | SOME (StringS text, rest) =>
                (Number 1,s with input := rest, MAP Chr (REVERSE text) ++ stack)
+           | SOME (OtherS text, rest) =>
+               (Number 4,s with input := rest, MAP Chr (REVERSE text) ++ stack)
            | SOME (ErrorS, rest) =>
-               (Number 0,s with input := rest, MAP Chr (REVERSE ts) ++ stack))``,
-
+               (Number 0,s with input := rest, MAP Chr (REVERSE ts) ++ stack)
+           | SOME (NumberS n, rest) =>
+               (Number 3,s with input := rest, Number n :: stack))``,
   Induct_on `s.input` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [next_sym_def,next_symbol_def]
   \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF] THEN1 (Cases_on `s`
     \\ FULL_SIMP_TAC (srw_ss()) (TypeBase.updates_of ``:zheap_state``))
-  \\ FULL_SIMP_TAC std_ss [is_symbol_thm,is_space_thm,getNumber_def,HD,TL]
+  \\ FULL_SIMP_TAC std_ss [is_symbol_thm,is_space_thm,
+       is_digit_thm,getNumber_def,HD,TL]
   \\ FULL_SIMP_TAC std_ss [bool2int_thm]
   \\ Cases_on `isSpace h` \\ FULL_SIMP_TAC std_ss [] THEN1
    (FULL_SIMP_TAC std_ss [PULL_FORALL] \\ SEP_I_TAC "next_symbol"
     \\ FULL_SIMP_TAC (srw_ss()) []
     \\ Q.EXISTS_TAC `ts` \\ FULL_SIMP_TAC (srw_ss()) [])
   \\ Q.PAT_ASSUM `!x.bbb` (K ALL_TAC)
-  \\ Cases_on `h = #"\""` \\ FULL_SIMP_TAC (srw_ss()) []
-
-    FULL_SIMP_TAC (srw_ss()) [isDigit_def]
+  \\ Cases_on `h = #"\""` \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
+   (FULL_SIMP_TAC (srw_ss()) [isDigit_def]
     \\ ASSUME_TAC (read_str_thm |> Q.SPEC `[]` |> RW [MAP,APPEND,REVERSE_DEF])
     \\ SEP_I_TAC "read_str" \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ Cases_on ``read_string v ""`` \\ FULL_SIMP_TAC (srw_ss()) []
-
-
-
-
-
-
-    FIRST_X_ASSUM (MP_TAC o Q.SPECL [``,``])
-
-
-    ONCE_REWRITE_TAC [next_sym_def,next_symbol_def]
-
-
-
-
-
-  read_string_def
-
-
-
-
-
-
-
-
-    if getNumber x1 <> 0 then
-      let x2 = Number 0 in
-      let (x2,s) = read_num (x2,s) in
-        next_symbol (x2,s)` cheat
-
-(* 0 is Error
-   1 is String
-   2 is end of input
-    *)
+    \\ Cases_on `read_string v ""` \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ IMP_RES_TAC read_string_IMP
+    \\ FULL_SIMP_TAC (srw_ss()) [] \\ METIS_TAC [])
+  \\ Cases_on `isDigit h` \\ FULL_SIMP_TAC std_ss [] THEN1
+   (STRIP_ASSUME_TAC (LIST_PREFIX_PROP |> Q.SPECL [`h::v`,`isDigit`])
+    \\ FULL_SIMP_TAC std_ss []
+    \\ `s = s with input := s.input` by FULL_SIMP_TAC std_ss [s_with_input]
+    \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
+    \\ FULL_SIMP_TAC std_ss []
+    \\ ASSUME_TAC (GEN_ALL read_num_thm)
+    \\ SEP_I_TAC "read_num"
+    \\ POP_ASSUM MP_TAC \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
+    \\ FULL_SIMP_TAC std_ss []
+    \\ Cases_on `xs1` \\ FULL_SIMP_TAC (srw_ss()) []
+    THEN1 (Cases_on `xs2` \\ FULL_SIMP_TAC (srw_ss()) [])
+    \\ FULL_SIMP_TAC (srw_ss()) [read_while_APPEND])
+  \\ Cases_on `h = #"'"` \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
+   (ASM_SIMP_TAC std_ss [read_anp_thm |> Q.SPEC `[]` |> RW [MAP,APPEND]]
+    \\ SIMP_TAC std_ss [read_while_def,EVAL ``isAlphaNumPrime #"'"``]
+    \\ Cases_on `read_while isAlphaNumPrime v "'"`
+    \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF])
+  \\ Cases_on `h = #"~"` \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
+   (Cases_on `v = ""` \\ FULL_SIMP_TAC std_ss []
+    THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
+    \\ Cases_on `isDigit (HD v)` \\ FULL_SIMP_TAC std_ss [] THEN1
+     (STRIP_ASSUME_TAC (LIST_PREFIX_PROP |> Q.SPECL [`v`,`isDigit`])
+      \\ FULL_SIMP_TAC std_ss []
+      \\ ASSUME_TAC (GEN_ALL read_num_thm)
+      \\ SEP_I_TAC "read_num"
+      \\ POP_ASSUM MP_TAC \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
+      \\ FULL_SIMP_TAC std_ss []
+      \\ FULL_SIMP_TAC (srw_ss()) [read_while_APPEND]
+      \\ FULL_SIMP_TAC std_ss [any_sub_def,getNumber_def]
+      \\ AP_TERM_TAC \\ intLib.COOPER_TAC)
+    \\ SIMP_TAC std_ss [EVAL ``is_single_char_symbol #"~"``]
+    \\ SIMP_TAC std_ss [EVAL ``isSymbol #"~"``]
+    \\ ASSUME_TAC (read_sym_thm |> Q.SPEC `[]` |> RW [MAP,APPEND,REVERSE_DEF])
+    \\ SEP_I_TAC "read_sym" \\ POP_ASSUM MP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF] \\ STRIP_TAC
+    \\ Cases_on `read_while isSymbol v ""`
+    \\ ONCE_REWRITE_TAC [read_while_lemma]
+    \\ FULL_SIMP_TAC std_ss [LET_DEF,EVAL ``REVERSE [x]``]
+    \\ SIMP_TAC (srw_ss()) [Chr_def])
+  \\ cheat);
 
 
 (*
