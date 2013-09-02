@@ -2446,7 +2446,6 @@ val BETA_correct = store_thm("BETA_correct",
   simp[Abbr`f`,Abbr`e`] >>
   metis_tac[FUPDATE_ELIM])
 
-(*
 val ABS_correct = store_thm("ABS_correct",
   ``∀x ty h l r.
     ¬EXISTS (VFREE_IN (Var x ty)) h ∧ h |= l === r ∧ type_has_meaning ty ⇒
@@ -2457,9 +2456,15 @@ val ABS_correct = store_thm("ABS_correct",
   simp[Once semantics_cases] >>
   simp[Once (Q.SPECL[`X`,`Y`,`Abs A B Z`](CONJUNCT2 semantics_cases))] >>
   srw_tac[DNF_ss][BOOLEAN_EQ_TRUE] >>
-
+  qmatch_assum_abbrev_tac`closes fs ft (fl === fr)` >>
+  `closes fs ft fl ∧ closes fs ft fr` by (
+    qsuff_tac`∃ty. fl has_type ty ∧ fr has_type ty` >- metis_tac[closes_equation] >>
+    qexists_tac`Fun ty (typeof l)` >>
+    simp[Abbr`fl`,Abbr`fr`,Once has_type_cases] >>
+    fs[WELLTYPED] >> simp[Once has_type_cases] ) >>
+  `set (tyvars ty) ⊆ ft` by (
+    fs[Abbr`fl`,closes_def] ) >>
   `∃mty. typeset τ ty mty` by metis_tac[type_has_meaning_def] >>
-  fs[closes_over_equation] >>
   qabbrev_tac`σ0 = σ \\ (x,ty)` >>
   `term_valuation τ σ0` by (
     fs[term_valuation_def,Abbr`σ0`] >>
@@ -2467,11 +2472,12 @@ val ABS_correct = store_thm("ABS_correct",
     simp[DOMSUB_FAPPLY_THM] ) >>
   `EVERY (λt. semantics σ0 τ t true) h` by (
     fs[EVERY_MEM] >> rw[] >>
-    match_mp_tac semantics_reduce_term_valuation >>
-    qexists_tac`σ` >> simp[] >>
+    match_mp_tac semantics_reduce >>
+    map_every qexists_tac[`τ`,`σ`] >> simp[] >>
     conj_tac >- metis_tac[SUBMAP_DOMSUB] >>
     simp[Abbr`σ0`] >>
-    metis_tac[semantics_closes_over] ) >>
+    `closes fs ft t` by metis_tac[semantics_closes] >>
+    fs[closes_def]) >>
   `∀z. z <: mty ⇒
       term_valuation τ (σ0 |+ ((x,ty),z)) ∧
       semantics (σ0 |+ ((x,ty),z)) τ (l === r) true` by (
@@ -2480,10 +2486,14 @@ val ABS_correct = store_thm("ABS_correct",
     first_x_assum match_mp_tac >> simp[] >>
     conj_tac >- (
       fs[EVERY_MEM] >> rw[] >>
-      match_mp_tac semantics_extend_term_valuation >>
-      qexists_tac`σ0` >>
+      match_mp_tac semantics_extend >>
+      map_every qexists_tac[`σ0`,`τ`] >>
       simp[] >> simp[Abbr`σ0`] ) >>
-    simp[Abbr`σ0`] >> metis_tac[] ) >>
+    match_mp_tac(MP_CANON(GEN_ALL(DISCH_ALL(snd(EQ_IMP_RULE(UNDISCH closes_equation)))))) >>
+    fs[WELLTYPED,Abbr`σ0`,closes_def] >>
+    qexists_tac`typeof r`>>simp[]>>
+    fs[Abbr`fl`,Abbr`fr`,tvars_def] >>
+    metis_tac[]) >>
   `∃m. ∀z. z <: mty ⇒
     semantics (σ0 |+ ((x,ty),z)) τ l (m z) ∧
     semantics (σ0 |+ ((x,ty),z)) τ r (m z)` by (
@@ -2498,6 +2508,7 @@ val ABS_correct = store_thm("ABS_correct",
   simp[] >> fs[WELLTYPED] >>
   metis_tac[semantics_typeset,semantics_11,FUPDATE_PURGE])
 
+(*
 val DEDUCT_ANTISYM_correct = store_thm("DEDUCT_ANTISYM_correct",
   ``∀h1 p1 h2 p2.
       h1 |= p1 ∧ h2 |= p2 ⇒
