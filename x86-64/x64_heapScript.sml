@@ -4596,6 +4596,70 @@ val zHEAP_READ_INPUT = let
   val _ = add_compiled [th]
   in th end;
 
+val zHEAP_READ_INPUT_DIGIT = let
+  val th = compose_specs ["mov r0,r10","sub r0,48","shl r0,2"]
+  val pc = get_pc th
+  val pre = ``s.input <> "" /\ 48 <= ORD (HD s.input)``
+  val target = ``~zS * zPC p * zVALS cs vals *
+      cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\ ^pre)``
+  val (th,goal) = expand_pre th target
+  val lemma = prove(goal,SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
+  val th = MP th lemma |> DISCH_ALL |> DISCH T |> PURE_REWRITE_RULE [AND_IMP_INTRO]
+  val th = MATCH_MP SPEC_WEAKEN_LEMMA th
+  val th = th |> Q.SPEC `zHEAP (cs,
+    Number (& (ORD (HD s.input) - 48)),
+    x2, x3, x4, refs, stack,s,NONE) * ~zS * ^pc`
+  val goal = th |> concl |> dest_imp |> fst
+(*
+  gg goal
+*)
+  val blast = blastLib.BBLAST_PROVE
+    ``!w:word64. w <+ 512w ==> (0x7FCw && 0x4w * w = 0x4w * w)``
+  val lemma = prove(goal,
+    SIMP_TAC std_ss [LET_DEF,SEP_CLAUSES]
+    \\ SIMP_TAC std_ss [Once heap_inv_def] \\ STRIP_TAC
+    \\ FULL_SIMP_TAC std_ss []
+    \\ FULL_SIMP_TAC std_ss [MAP,HD,APPEND]
+    \\ SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
+    \\ REPEAT STRIP_TAC
+    \\ Cases_on `s.input` \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ Q.EXISTS_TAC `vals with reg0 := ((n2w (ORD h) - 48w) << 2)`
+    \\ SIMP_TAC (std_ss++sep_cond_ss) [zVALS_def,cond_STAR]
+    \\ SIMP_TAC (srw_ss()) []
+    \\ REVERSE STRIP_TAC THEN1
+     (POP_ASSUM MP_TAC \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ FULL_SIMP_TAC (std_ss++star_ss) [APPEND,GSYM APPEND_ASSOC])
+    \\ FULL_SIMP_TAC (srw_ss()) [heap_inv_def]
+    \\ Q.LIST_EXISTS_TAC [`vs`,
+         `Data (2w * n2w ((ORD h) - 48))`,
+         `r2`,`r3`,`r4`,`roots`,`heap`,`a`,`sp`]
+    \\ FULL_SIMP_TAC (std_ss++star_ss) []
+    \\ SIMP_TAC std_ss [x64_addr_def]
+    \\ REVERSE STRIP_TAC THEN1
+     (`ORD h < 256` by FULL_SIMP_TAC std_ss [ORD_BOUND]
+      \\ `2 * (ORD h - 48) < 9223372036854775808` by DECIDE_TAC
+      \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w,WORD_MUL_LSL,MULT_ASSOC,w2w_n2w,
+           bitTheory.BITS_THM,LEFT_SUB_DISTRIB]
+      \\ `~(4 * ORD h < 192)` by DECIDE_TAC
+      \\ IMP_RES_TAC (MATCH_MP (METIS_PROVE [] ``(x = if b then x1 else x2) ==>
+                   (~b ==> (x2 = x))``) (word_arith_lemma2 |> SPEC_ALL
+                      |> INST_TYPE [``:'a``|->``:64``]))
+      \\ FULL_SIMP_TAC (srw_ss()) [])
+    \\ MATCH_MP_TAC abs_ml_inv_Num
+    \\ Q.LIST_EXISTS_TAC [`x1`,`r1`] \\ ASM_SIMP_TAC std_ss []
+    \\ `ORD h < 256` by FULL_SIMP_TAC std_ss [ORD_BOUND]
+    \\ SRW_TAC [] [] \\ DECIDE_TAC)
+  val th = MP th lemma
+  val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val (th,goal) = SPEC_STRENGTHEN_RULE th
+    ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p * cond ^pre``
+  val lemma = prove(goal,
+    SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
+      AC CONJ_COMM CONJ_ASSOC])
+  val th = MP th lemma
+  val _ = add_compiled [th]
+  in th end;
+
 val zHEAP_CMP_INPUT = let
   val ((th,_,_),_) = prog_x64Lib.x64_spec "4981FA"
   val th = th |> Q.INST [`rip`|->`p`]
@@ -9212,19 +9276,19 @@ val read_str_thm = prove(
 
 (* read number *)
 
-val read_num_def = tDefine "read_num" `
-  read_num (x2:bc_value,s:zheap_state) =
-    if s.input = "" then (x2,s) else
+val (res,read_num_def,read_num_pre_def) = x64_compile `
+  read_num (x1:bc_value,x2:bc_value,s:zheap_state) =
+    if s.input = "" then (x1,x2,s) else
     let (x1,s) = is_digit s in
-    if getNumber x1 = 0 then (x2,s) else
+    if getNumber x1 = 0 then (x1,x2,s) else
       let x1 = Number 10 in
       let x1 = any_mul x1 x2 in
       let x2 = x1 in
-      let x1 = Number (&ORD (HD s.input) - 48) in
+      let x1 = Number (&(ORD (HD s.input) - 48)) in
       let x1 = any_add x1 x2 in
       let x2 = x1 in
       let s = s with input := DROP 1 s.input in
-        read_num (x2,s)` cheat
+        read_num (x1,x2,s)`
 
 val toNum_CONS = prove(
   ``isDigit h ==>
@@ -9233,25 +9297,115 @@ val toNum_CONS = prove(
   cheat);
 
 val read_num_thm = prove(
-  ``!digits k s.
+  ``!digits k s x1.
       EVERY isDigit digits /\ ((rest <> []) ==> ~isDigit (HD rest)) ==>
-      (read_num (Number (& k),s with input := digits ++ rest) =
-         (Number (& (toNum digits + 10 ** (LENGTH digits) * k)),
-          s with input := rest))``,
-  Induct \\ SIMP_TAC (srw_ss()) [Once read_num_def,LET_DEF] THEN1
+      ?x1'.
+        read_num_pre (x1,Number (& k),s with input := digits ++ rest) /\
+        (read_num (x1,Number (& k),s with input := digits ++ rest) =
+           (x1',Number (& (toNum digits + 10 ** (LENGTH digits) * k)),
+            s with input := rest))``,
+  Induct
+  \\ SIMP_TAC (srw_ss()) [Once read_num_def,Once read_num_pre_def,LET_DEF] THEN1
    (Cases_on `rest` \\ FULL_SIMP_TAC (srw_ss()) [is_digit_thm,getNumber_def,
-      bool2int_thm,any_mul_def,any_add_def,any_sub_def])
+      bool2int_thm,any_mul_def,any_add_def,any_sub_def,isNumber_def])
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [is_digit_thm,getNumber_def]
-  \\ FULL_SIMP_TAC (srw_ss()) [is_digit_thm,getNumber_def,
+  \\ FULL_SIMP_TAC (srw_ss()) [is_digit_thm,getNumber_def,isNumber_def,
       bool2int_thm,any_mul_def,any_add_def,any_sub_def,isDigit_def]
   \\ `(& (ORD h)) - 48 = & (ORD h - 48)` by ALL_TAC
   THEN1 FULL_SIMP_TAC std_ss [integerTheory.INT_SUB]
   \\ FULL_SIMP_TAC std_ss [integerTheory.INT_ADD]
-  \\ FULL_SIMP_TAC (srw_ss()) [EXP]
+  \\ SEP_I_TAC "read_num" \\ FULL_SIMP_TAC (srw_ss()) [EXP]
   \\ FULL_SIMP_TAC std_ss [LEFT_ADD_DISTRIB,toNum_CONS,isDigit_def]
   \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC, AC ADD_ASSOC ADD_COMM]);
 
 (* next symbol *)
+
+val next_symbol_def = tDefine "next_symbol" `
+  next_symbol (s:zheap_state,stack) =
+    if s.input = "" then
+      let x2 = Number 2 in (x2,s,stack)
+    else
+    let (x1,s) = is_space s in
+    if getNumber x1 <> 0 then
+      let s = s with input := DROP 1 s.input in
+        next_symbol (s:zheap_state,stack)
+    else if HD s.input = #"\"" then
+      let s = s with input := DROP 1 s.input in
+      let x2 = Number 0 in
+      let (x2,s,stack) = read_str (x2,s,stack) in
+        (x2,s,stack)
+    else
+    let (x1,s) = is_symbol s in
+    if getNumber x1 <> 0 then
+      let (s,stack) = read_sym (s,stack) in
+      let x2 = Number 1 in
+        (x2,s,stack)
+    else
+      let x2 = Number 0 in
+        (x2,s,stack)` cheat
+
+val read_str_thm = prove(
+  ``!xs s stack.
+      ?ts.
+        (next_symbol (s,stack) =
+           case next_sym s.input of
+           | NONE => (Number 2, s with input := "", stack)
+           | SOME (StringS text, rest) =>
+               (Number 1,s with input := rest, MAP Chr (REVERSE text) ++ stack)
+           | SOME (ErrorS, rest) =>
+               (Number 0,s with input := rest, MAP Chr (REVERSE ts) ++ stack))``,
+
+  Induct_on `s.input` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ ONCE_REWRITE_TAC [next_sym_def,next_symbol_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF] THEN1 (Cases_on `s`
+    \\ FULL_SIMP_TAC (srw_ss()) (TypeBase.updates_of ``:zheap_state``))
+  \\ FULL_SIMP_TAC std_ss [is_symbol_thm,is_space_thm,getNumber_def,HD,TL]
+  \\ FULL_SIMP_TAC std_ss [bool2int_thm]
+  \\ Cases_on `isSpace h` \\ FULL_SIMP_TAC std_ss [] THEN1
+   (FULL_SIMP_TAC std_ss [PULL_FORALL] \\ SEP_I_TAC "next_symbol"
+    \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ Q.EXISTS_TAC `ts` \\ FULL_SIMP_TAC (srw_ss()) [])
+  \\ Q.PAT_ASSUM `!x.bbb` (K ALL_TAC)
+  \\ Cases_on `h = #"\""` \\ FULL_SIMP_TAC (srw_ss()) []
+
+    FULL_SIMP_TAC (srw_ss()) [isDigit_def]
+    \\ ASSUME_TAC (read_str_thm |> Q.SPEC `[]` |> RW [MAP,APPEND,REVERSE_DEF])
+    \\ SEP_I_TAC "read_str" \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ Cases_on ``read_string v ""`` \\ FULL_SIMP_TAC (srw_ss()) []
+
+
+
+
+
+
+    FIRST_X_ASSUM (MP_TAC o Q.SPECL [``,``])
+
+
+    ONCE_REWRITE_TAC [next_sym_def,next_symbol_def]
+
+
+
+
+
+  read_string_def
+
+
+
+
+
+
+
+
+    if getNumber x1 <> 0 then
+      let x2 = Number 0 in
+      let (x2,s) = read_num (x2,s) in
+        next_symbol (x2,s)` cheat
+
+(* 0 is Error
+   1 is String
+   2 is end of input
+    *)
 
 
 (*
