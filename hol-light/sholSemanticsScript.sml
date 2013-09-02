@@ -2508,7 +2508,6 @@ val ABS_correct = store_thm("ABS_correct",
   simp[] >> fs[WELLTYPED] >>
   metis_tac[semantics_typeset,semantics_11,FUPDATE_PURGE])
 
-(*
 val DEDUCT_ANTISYM_correct = store_thm("DEDUCT_ANTISYM_correct",
   ``∀h1 p1 h2 p2.
       h1 |= p1 ∧ h2 |= p2 ⇒
@@ -2525,7 +2524,8 @@ val DEDUCT_ANTISYM_correct = store_thm("DEDUCT_ANTISYM_correct",
   conj_tac >- (
     fs[EVERY_MEM] >>
     metis_tac[TERM_UNION_NONEW,MEM_FILTER] ) >>
-  simp[closes_over_equation] >>
+  rpt gen_tac >>
+  qspecl_then[`FDOM σ`,`FDOM τ`,`p1`,`p2`,`Bool`]mp_tac(Q.GENL[`ty`,`r`,`l`,`τ`,`σ`]closes_equation) >>
   rw[] >>
   match_mp_tac semantics_equation >>
   simp[BOOLEAN_EQ_TRUE] >>
@@ -2545,9 +2545,10 @@ val DEDUCT_ANTISYM_correct = store_thm("DEDUCT_ANTISYM_correct",
   `a = d ∧ b = d ∧ c = d` by metis_tac[] >> fs[] >>
   Cases_on`d` >> fs[markerTheory.Abbrev_def] >- metis_tac[] >>
   `∃m1 m2. semantics σ τ p1 m1 ∧ semantics σ τ p2 m2` by (
-    metis_tac[has_meaning_def,semantics_reduce_term_valuation] ) >>
+    metis_tac[has_meaning_def,semantics_reduce] ) >>
   metis_tac[semantics_typeset,typeset_Bool,WELLTYPED_LEMMA,IN_BOOL])
 
+(*
 val welltyped_VSUBST = store_thm("welltyped_VSUBST",
   ``∀tm ilist.
       (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ⇒
