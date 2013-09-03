@@ -2568,29 +2568,32 @@ val simple_subst_has_type = store_thm("simple_subst_has_type",
   first_x_assum match_mp_tac >>
   fs[FEVERY_DEF,DOMSUB_FAPPLY_THM])
 
-(*
 val semantics_simple_subst = store_thm("semantics_simple_subst",
   ``∀tm subst ss σ τ.
       DISJOINT (set (bv_names tm)) {y | ∃ty u. VFREE_IN (Var y ty) u ∧ u ∈ FRANGE subst} ∧
       FEVERY (λ((x,ty),tm). tm has_type ty) subst ∧
-      FDOM ss = FDOM subst ∧
+      FDOM subst = FDOM ss ∧
       FEVERY (λ(v,m). semantics σ τ (subst ' v) m) ss ∧
-      closes (FDOM σ) (FDOM τ) tm ∧
+      closes (FDOM (ss ⊌ σ)) (FDOM τ) tm ∧
       welltyped tm ∧
       type_valuation τ
       ⇒
       semantics σ τ (simple_subst subst tm) = semantics (ss ⊌ σ) τ tm``,
   Induct >- (
+    rpt gen_tac >> simp[] >>
+    Cases_on`(s,t) ∈ FDOM ss` >- (
+      rw[] >>
+      simp[FLOOKUPD_def,FUN_EQ_THM] >> rw[] >>
+      fs[FEVERY_DEF,FLOOKUP_DEF,SUBSET_DEF] >>
+      simp[Once semantics_cases,SimpRHS] >>
+      fs[FLOOKUP_DEF,FUNION_DEF] >>
+      metis_tac[semantics_11] ) >>
     rw[] >>
     simp[FLOOKUPD_def,FUN_EQ_THM] >> rw[] >>
-    fs[FEVERY_DEF,FLOOKUP_DEF] >>
+    fs[FEVERY_DEF,FLOOKUP_DEF,SUBSET_DEF] >>
     simp[Once semantics_cases,SimpRHS] >>
-    fs[FLOOKUP_DEF,FUNION_DEF] >>
-    BasicProvers.CASE_TAC >>
-    TRY (
-      simp[Once semantics_cases,FLOOKUP_DEF] >>
-      NO_TAC) >>
-    metis_tac[semantics_11] )
+    simp[Once semantics_cases] >>
+    fs[FLOOKUP_DEF,FUNION_DEF])
   >- (
     rw[] >>
     simp[FUN_EQ_THM] >>
@@ -2627,29 +2630,38 @@ val semantics_simple_subst = store_thm("semantics_simple_subst",
   TRY (
     match_mp_tac (MP_CANON simple_subst_has_type) >>
     fs[FEVERY_DEF,DOMSUB_FAPPLY_THM] ) >>
-  TRY (
-    qmatch_abbrev_tac`semantics sx τ stm mm` >>
-    first_x_assum(qspec_then`m`mp_tac) >>
+  qmatch_abbrev_tac`semantics sx τ stm mm` >>
+  first_x_assum(qspec_then`m`mp_tac) >> rw[] >>
+  qmatch_assum_abbrev_tac`semantics sy τ ttm mm` >>
+  qsuff_tac`semantics sx τ stm = semantics sy τ ttm` >- rw[] >>
+  first_x_assum(qspecl_then[`subst \\ (s,t)`,`ss \\ (s,t)`,`σ |+ ((s,t),m)`,`τ`]mp_tac) >>
+  (discharge_hyps >- (
+    simp[] >>
+    fs[FEVERY_DEF,DOMSUB_FAPPLY_THM] >>
+    conj_tac >- (
+      fs[IN_DISJOINT,IN_FRANGE,DOMSUB_FAPPLY_THM] >>
+      metis_tac[] ) >>
+    reverse conj_tac >- (
+      fs[closes_def] >>
+      metis_tac[] ) >>
     rw[] >>
-    qmatch_assum_abbrev_tac`semantics sy τ tm mm` >>
-    qsuff_tac`semantics sx τ stm = semantics sy τ tm` >- rw[] >>
-    first_x_assum(qspecl_then[`subst \\ (s,t)`,`ss \\ (s,t)`,`σ |+ ((s,t),m)`,`τ`]mp_tac) >>
-    discharge_hyps >- (
-      simp[] >>
-      fs[FEVERY_DEF,DOMSUB_FAPPLY_THM] >>
-      reverse conj_tac >- (
-        rw[Abbr`sx`] >>
-        match_mp_tac semantics_extend >>
-        map_every qexists_tac[`σ`,`τ`] >>
-        simp[]
-
-        metis_tac[]
-      fs[IN_DISJOINT,IN_FRANGE,DOMSUB_FAPPLY_THM]
-    qunabbrev_tac`sy` >>
-    simp[GSYM FUNION_FUPDATE_1] >>
-    qunabbrev_tac`stm` >>
-    first_x_assum (match_mp_tac o MP_CANON)
-*)
+    ((qsuff_tac`semantics σ τ (subst ' x) = semantics sx τ (subst ' x)` >- metis_tac[])
+     ORELSE
+     (qsuff_tac`semantics σ τ (subst ' x) = semantics sy τ (subst ' x)` >- metis_tac[])) >>
+    match_mp_tac semantics_frees >>
+    simp[] >>
+    fs[IN_FRANGE,FLOOKUP_DEF,Abbr`sx`,FAPPLY_FUPDATE_THM,Abbr`sy`] >>
+    metis_tac[] )) >>
+  rw[] >>
+  rw[Abbr`sy`,GSYM FUNION_FUPDATE_1,Abbr`sx`] >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  simp[GSYM fmap_EQ_THM] >>
+  simp[FUNION_DEF,FAPPLY_FUPDATE_THM] >>
+  (conj_tac >- (
+    simp[EXTENSION] >>
+    metis_tac[] )) >>
+  simp[DOMSUB_FAPPLY_THM] >>
+  metis_tac[] )
 
 (*
 val welltyped_VSUBST = store_thm("welltyped_VSUBST",
