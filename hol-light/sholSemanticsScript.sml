@@ -2664,6 +2664,59 @@ val semantics_simple_subst = store_thm("semantics_simple_subst",
   metis_tac[] )
 
 (*
+VSUBST_def
+
+val RACONV_VSUBST = store_thm("RACONV_VSUBST",
+  ``∀env tp. RACONV env tp ⇒
+    ∀subst.
+      (∀s s'. MEM (s',s) subst ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ∧
+      (∀x ty u. MEM (Var x ty) (MAP SND subst) ∨ (MEM u (MAP FST subst) ∧ VFREE_IN (Var x ty) u) ⇒
+                ¬MEM (Var x ty) (MAP FST env) ∧
+                ¬MEM (Var x ty) (MAP SND env))
+      ⇒
+      RACONV
+        (MAP
+          (λ(v1,v2).
+            (case v1 of Var x ty =>
+               if VFREE_IN (Var x ty) (FST tp)
+             | _ => v1
+            ,case v2 of Var x ty => ?
+             | _ => v2
+            )
+          )
+          env)
+        (VSUBST subst (FST tp),VSUBST subst (SND tp))``,
+  ho_match_mp_tac RACONV_ind >>
+  conj_tac >- (
+    Induct >- (
+      simp[ALPHAVARS_def,VSUBST_def] >>
+      rw[] >>
+      match_mp_tac RACONV_REFL >>
+      rw[] ) >>
+    Cases >> simp[ALPHAVARS_def,VSUBST_def] >>
+    rw[] >> fs[] >- (
+      simp[REV_ASSOCD_ALOOKUP] >>
+      BasicProvers.CASE_TAC >- (
+        BasicProvers.CASE_TAC >- (
+          simp[RACONV,ALPHAVARS_def] ) >>
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        metis_tac[] ) >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    first_x_assum(qspecl_then[`ty1`,`ty2`,`x1`,`x2`]mp_tac) >>
+    simp[VSUBST_def] >>
+    cheat) >>
+  conj_tac >- (
+    simp[VSUBST_def,RACONV] ) >>
+  conj_tac >- (
+    simp[VSUBST_def,RACONV] >>
+    metis_tac[] ) >>
+  rw[VSUBST_def] >>
+  rw[RACONV]
+*)
+
 val welltyped_VSUBST = store_thm("welltyped_VSUBST",
   ``∀tm ilist.
       (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ⇒
@@ -2684,29 +2737,6 @@ val welltyped_VSUBST = store_thm("welltyped_VSUBST",
     fs[MEM_FILTER]))
 
 (*
-val semantics_has_meaning = store_thm("semantics_has_meaning",
-  ``(∀τ ty mty. typeset τ ty mty ⇒ type_has_meaning ty) ∧
-    (∀σ τ tm mtm. semantics σ τ tm mtm ⇒ has_meaning tm)``,
-  ho_match_mp_tac (theorem"semantics_strongind") >>
-  conj_tac >- (
-    rw[type_has_meaning_def] >>
-    rw[Once semantics_cases] ) >>
-  conj_tac >- (
-    rw[type_has_meaning_def] ) >>
-  conj_tac >- (
-    rw[type_has_meaning_def] >>
-    rw[Once semantics_cases] >>
-    metis_tac[] ) >>
-  conj_tac >- (
-    rw[type_has_meaning_def,has_meaning_def] >>
-    rw[Once semantics_cases] >>
-    first_x_assum(qspecl_then[`τ'`,`FEMPTY`]mp_tac) >>
-    simp[] >>
-    disch_then(qx_choosel_then[`σ`,`m`]strip_assume_tac) >>
-    qmatch_assum_abbrev_tac`semantics FEMPTY τ pp mtm` >>
-    `semantics FEMPTY t' pp m
-*)
-
 val VFREE_IN_has_meaning = store_thm("VFREE_IN_has_meaning",
   ``∀t2 t1. has_meaning t2 ∧ VFREE_IN t1 t2 ⇒ has_meaning t1``,
   Induct
