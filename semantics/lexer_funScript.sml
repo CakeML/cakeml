@@ -216,7 +216,7 @@ SRW_TAC [] [LET_THM] THEN
 Cases_on `z a` THEN
 FULL_SIMP_TAC std_ss []);
 
-val next_sym_LESS = prove(
+val next_sym_LESS = store_thm("next_sym_LESS",
   ``!input. (next_sym input = SOME (s,rest)) ==> LENGTH rest < LENGTH input``,
   HO_MATCH_MP_TAC (fetch "-" "next_sym_ind") THEN REPEAT STRIP_TAC
   THEN POP_ASSUM MP_TAC THEN ONCE_REWRITE_TAC [next_sym_def]
@@ -236,7 +236,7 @@ val next_sym_LESS = prove(
   THEN Cases_on `rest'`
   THEN FULL_SIMP_TAC (srw_ss()) []
   THEN SRW_TAC [] []
-  THEN Cases_on `h' = #"."` 
+  THEN Cases_on `h' = #"."`
   THEN SRW_TAC [] []
   THEN FULL_SIMP_TAC (srw_ss()) []
   THEN SRW_TAC [] []
@@ -246,10 +246,10 @@ val next_sym_LESS = prove(
   THEN SRW_TAC [] []
   THEN FULL_SIMP_TAC (srw_ss()++ARITH_ss) [lem1]
   THEN POP_ASSUM MP_TAC
-  THEN SRW_TAC [] [lem2] 
+  THEN SRW_TAC [] [lem2]
   THEN IMP_RES_TAC read_while_thm
   THEN BasicProvers.EVERY_CASE_TAC
-  THEN FULL_SIMP_TAC (std_ss++ARITH_ss) [LENGTH] 
+  THEN FULL_SIMP_TAC (std_ss++ARITH_ss) [LENGTH]
   THEN SRW_TAC [] []
   THEN FULL_SIMP_TAC (std_ss++ARITH_ss) [LENGTH]);
 
@@ -288,7 +288,7 @@ val processIdent_def = Define `
        | c::s =>
            if isAlpha c then
              AlphaT (c::s)
-           else 
+           else
              SymbolT (c::s)`;
 
 val get_token_def = Define `
@@ -353,7 +353,7 @@ val token_of_sym_def = Define `
     case s of
     | ErrorS    => LexErrorT
     | StringS s => StringT s
-    | NumberS i => IntT i 
+    | NumberS i => IntT i
     | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in LongidT s1 (TL s2)
     | OtherS s  => get_token s `;
 

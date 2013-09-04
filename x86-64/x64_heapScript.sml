@@ -1548,6 +1548,14 @@ gg goal
   val th = th |> DISCH_ALL |> RW [AND_IMP_INTRO] |> RW [GSYM SPEC_MOVE_COND]
   in th end;
 
+fun gen_load k = let
+  val th = zHEAP_LOAD |> Q.INST [`k`|->k] |> SIMP_RULE (srw_ss()) [IMM32_def]
+  val _ = add_compiled [th]
+  in th end
+
+val _ = map gen_load [`0:num`, `1:num`, `2:num`, `3:num`,
+                      `4:num`, `5:num`, `6:num`, `7:num`]
+
 
 (* store *)
 
@@ -2597,7 +2605,8 @@ gg goal
   val _ = add_compiled [th];
   in th end;
 
-val _ = map (zHEAP_IS_CONST ``1:num``) (tl (up_to 50));
+val _ = map (zHEAP_IS_CONST ``1:num``) (map ord (explode "let(struct)sig[end];"))
+val _ = map (zHEAP_IS_CONST ``1:num``) (tl (up_to 60));
 val _ = map (zHEAP_IS_CONST ``2:num``) (tl (up_to 10));
 val _ = map (zHEAP_IS_CONST ``3:num``) (tl (up_to 10));
 val _ = map (zHEAP_IS_CONST ``4:num``) (tl (up_to 10));
@@ -6322,11 +6331,11 @@ val longs_tag_def   = Define `longs_tag = 52:num`;
 val numbers_tag_def = Define `numbers_tag = 53:num`;
 val strings_tag_def = Define `strings_tag = 54:num`;
 
-val BlockErrorS_def  = Define `BlockErrorS x  = Block errors_tag [x]`;
 val BlockOtherS_def  = Define `BlockOtherS x  = Block others_tag [x]`;
 val BlockLongS_def   = Define `BlockLongS x   = Block longs_tag [x]`;
 val BlockNumberS_def = Define `BlockNumberS x = Block numbers_tag [x]`;
 val BlockStringS_def = Define `BlockStringS x = Block strings_tag [x]`;
+val BlockErrorS_def  = Define `BlockErrorS    = Block errors_tag []`;
 
 fun BlockConsPair tag (n,m) = let
   fun index_to_push 1 = zHEAP_PUSH1
@@ -6371,18 +6380,21 @@ fun Block1 tag = let
   in th end
 
 val thms = map Block1
-  [`errors_tag`, `others_tag`, `longs_tag`, `numbers_tag`, `strings_tag`]
+  [`others_tag`, `longs_tag`, `numbers_tag`, `strings_tag`]
 
-fun GenBlockNil th = let
-  val th = th |> Q.INST [`k`|->`nil_tag`]
-    |> SIMP_RULE (srw_ss()) [w2w_n2w,nil_tag_def,SEP_CLAUSES,GSYM BlockNil_def]
+fun GenBlockNil tag th = let
+  val th = th |> Q.INST [`k`|->tag]
+    |> SIMP_RULE (srw_ss()) [GSYM BlockNil_def,GSYM BlockErrorS_def]
+    |> SIMP_RULE (srw_ss()) [w2w_n2w,nil_tag_def,SEP_CLAUSES,errors_tag_def]
   val _ = add_compiled [th]
   in th end;
 
-val BlockNil1 = GenBlockNil zHEAP_Nil1
-val BlockNil2 = GenBlockNil zHEAP_Nil2
-val BlockNil3 = GenBlockNil zHEAP_Nil3
-val BlockNil4 = GenBlockNil zHEAP_Nil4
+val BlockNil1 = GenBlockNil `nil_tag` zHEAP_Nil1
+val BlockNil2 = GenBlockNil `nil_tag` zHEAP_Nil2
+val BlockNil3 = GenBlockNil `nil_tag` zHEAP_Nil3
+val BlockNil4 = GenBlockNil `nil_tag` zHEAP_Nil4
+
+val _ = map (GenBlockNil `errors_tag`) [zHEAP_Nil1,zHEAP_Nil2,zHEAP_Nil3,zHEAP_Nil4]
 
 
 (* Number size *)
@@ -7136,6 +7148,17 @@ val zHEAP_NOP = let
   val lemma= prove(goal,
     SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES])
   val th = MP th lemma
+  in th end;
+
+val ID_def = Define `ID x = x`;
+
+val zHEAP_ID_1234 = let
+  val (th,goal) = SPEC_WEAKEN_RULE zHEAP_NOP
+    ``let (x1,x2,x3,x4) = ID (x1,x2,x3,x4) in
+       (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ¬zS * zPC (p + 0x3w))``
+  val lemma = prove(goal,FULL_SIMP_TAC std_ss [SEP_IMP_REFL,ID_def,LET_DEF])
+  val th = MP th lemma
+  val _ = add_compiled [th]
   in th end;
 
 val zHEAP_NOP2 = let
@@ -9782,7 +9805,8 @@ val next_symbol_thm = prove(
    (ASM_SIMP_TAC std_ss [read_while_def,LET_DEF,isNumber_def]
     \\ Cases_on `(read_while isSymbol t (STRING h' ""))`
     \\ FULL_SIMP_TAC (srw_ss()) [Chr_def])
-  THEN1 (Q.EXISTS_TAC `q ++ [CHR 46]` \\ FULL_SIMP_TAC (srw_ss()) [Chr_def]));
+  THEN1 (Q.EXISTS_TAC `q ++ [CHR 46]` \\ FULL_SIMP_TAC (srw_ss()) [Chr_def]))
+  |> SIMP_RULE std_ss [];
 
 (* cons list *)
 
@@ -9826,42 +9850,426 @@ val cons_list_thm = prove(
        (BlockNil,BlockList (MAP Chr (REVERSE xs)),stack))``,
   SIMP_TAC std_ss [cons_list_def,cons_list_pre_def,cons_list_aux_thm,LET_DEF]);
 
+(* semi_sym *)
+
+val semi_sym_def = Define `
+  (semi_sym (OtherS s) =
+    if s = ";" then Number 1 else
+    if MEM s ["let";"struct";"sig";"("] then Number 2 else
+    if MEM s [")";"end"] then Number 3 else Number 0) /\
+  (semi_sym _ = Number 0)`;
+
+val (res,semi_len_def,semi_len_pre_def) = x64_compile `
+  semi_len (stack:bc_value list) =
+    let x1 = HD stack in
+    if isBlock x1 then let x1 = Number 0 in (x1,stack) else
+    let x1 = EL 1 stack in
+    if isBlock x1 then let x1 = Number 1 in (x1,stack) else
+    let x1 = EL 2 stack in
+    if isBlock x1 then let x1 = Number 2 in (x1,stack) else
+    let x1 = EL 3 stack in
+    if isBlock x1 then let x1 = Number 3 in (x1,stack) else
+    let x1 = EL 4 stack in
+    if isBlock x1 then let x1 = Number 4 in (x1,stack) else
+    let x1 = EL 5 stack in
+    if isBlock x1 then let x1 = Number 5 in (x1,stack) else
+    let x1 = EL 6 stack in
+    if isBlock x1 then let x1 = Number 6 in (x1,stack) else
+      let x1 = Number 7 in (x1,stack)`
+
+val LIST_CASES = prove(
+  ``!xs. (xs = []:string) \/
+         (?x1. xs = [x1]) \/
+         (?x1 x2. xs = [x1;x2]) \/
+         (?x1 x2 x3. xs = [x1;x2;x3]) \/
+         (?x1 x2 x3 x4. xs = [x1;x2;x3;x4]) \/
+         (?x1 x2 x3 x4 x5. xs = [x1;x2;x3;x4;x5]) \/
+         (?x1 x2 x3 x4 x5 x6. xs = [x1;x2;x3;x4;x5;x6]) \/
+         (?x1 x2 x3 x4 x5 x6 x7 ts. xs = x1::x2::x3::x4::x5::x6::x7::ts)``,
+  Cases \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ REPEAT (Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) []
+             \\ Cases_on `t'` \\ FULL_SIMP_TAC (srw_ss()) []));
+
+val APPEND_LEMMA = prove(
+  ``(xs ++ ys ++ zs ++ qs = xs ++ (ys ++ zs) ++ qs:'a list) /\
+    ([Chr c] = MAP Chr [c]) /\
+    (Chr c :: MAP Chr cs = MAP Chr (c::cs))``,
+  SIMP_TAC std_ss [APPEND_ASSOC,MAP]);
+
+val semi_len_thm = prove(
+  ``semi_len_pre (MAP Chr (REVERSE xs) ++ BlockNil::stack) /\
+    (semi_len (MAP Chr (REVERSE xs) ++ BlockNil::stack) =
+      (if LENGTH xs < 7 then Number (& (LENGTH xs))
+       else Number 7,MAP Chr (REVERSE xs) ++ BlockNil::stack))``,
+  SIMP_TAC std_ss [semi_len_def,semi_len_pre_def,LET_DEF]
+  \\ Cases_on `xs` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ ASM_SIMP_TAC (srw_ss()) [Chr_def,getNumber_def,isBlock_def,
+        BlockNil_def,canCompare_def,isNumber_def,ADD1,APPEND,GSYM ORD_11]
+  \\ NTAC 4 (TRY (Cases_on `t`) \\ TRY (Cases_on `t'`)
+      \\ ASM_SIMP_TAC (srw_ss()) [Chr_def,getNumber_def,isBlock_def,
+           BlockNil_def,canCompare_def,isNumber_def,ADD1,APPEND,GSYM ORD_11]
+      THEN1 DECIDE_TAC) THEN1 DECIDE_TAC
+  \\ FULL_SIMP_TAC std_ss [GSYM ADD_ASSOC,APPEND_LEMMA,APPEND]
+  \\ FULL_SIMP_TAC std_ss [GSYM Chr_def,APPEND_LEMMA]
+  \\ (LIST_CASES |> Q.SPEC `REVERSE t` |> STRIP_ASSUME_TAC)
+  \\ ASM_SIMP_TAC std_ss [] \\ EVAL_TAC \\ SRW_TAC [] [] \\ DECIDE_TAC);
+
+val (res,semi_symbol_def,semi_symbol_pre_def) = x64_compile `
+  semi_symbol (stack:bc_value list) =
+    let x3 = Number 0 in
+    let (x1,stack) = semi_len stack in
+    if getNumber x1 = 0 then (x3,stack) else
+    if getNumber x1 = 1 then
+      let x1 = HD stack in
+        if getNumber x1 = 59 (* ; *) then let x3 = Number 1 in (x3,stack) else
+        if getNumber x1 = 40 (* ( *) then let x3 = Number 2 in (x3,stack) else
+        if getNumber x1 = 41 (* ) *)then let x3 = Number 3 in (x3,stack) else
+          (x3,stack) else
+    if getNumber x1 = 2 then (x3,stack) else
+    if getNumber x1 = 3 then
+      let x1 = HD stack in
+      if getNumber x1 = 116 (* t *) then
+        let x1 = EL 1 stack in if getNumber x1 <> 101 (* e *) then (x3,stack) else
+        let x1 = EL 2 stack in if getNumber x1 <> 108 (* l *) then (x3,stack) else
+        let x3 = Number 2 in
+          (x3,stack)
+      else if getNumber x1 = 103 (* g *) then
+        let x1 = EL 1 stack in if getNumber x1 <> 105 (* i *) then (x3,stack) else
+        let x1 = EL 2 stack in if getNumber x1 <> 115 (* s *) then (x3,stack) else
+        let x3 = Number 2 in
+          (x3,stack)
+      else if getNumber x1 = 100 (* d *) then
+        let x1 = EL 1 stack in if getNumber x1 <> 110 (* n *) then (x3,stack) else
+        let x1 = EL 2 stack in if getNumber x1 <> 101 (* e *) then (x3,stack) else
+        let x3 = Number 3 in
+          (x3,stack)
+      else
+        (x3,stack)
+    else
+    if getNumber x1 = 4 then (x3,stack) else
+    if getNumber x1 = 5 then (x3,stack) else
+    if getNumber x1 = 6 then
+      let x1 = HD stack   in if getNumber x1 <> 116 (* t *) then (x3,stack) else
+      let x1 = EL 1 stack in if getNumber x1 <>  99 (* c *) then (x3,stack) else
+      let x1 = EL 2 stack in if getNumber x1 <> 117 (* u *) then (x3,stack) else
+      let x1 = EL 3 stack in if getNumber x1 <> 114 (* r *) then (x3,stack) else
+      let x1 = EL 4 stack in if getNumber x1 <> 116 (* t *) then (x3,stack) else
+      let x1 = EL 5 stack in if getNumber x1 <> 115 (* s *) then (x3,stack) else
+      let x3 = Number 2 in
+        (x3,stack)
+    else
+      (x3,stack)`
+
+val (res,semi_symbol'_def,semi_symbol'_pre_def) = x64_compile `
+  semi_symbol' (stack:bc_value list) =
+    let (x3,stack) = semi_symbol stack in
+    let x1 = x3 in
+      (x1,x3,stack)`
+
+val semi_symbol_thm = prove(
+  ``semi_symbol_pre (MAP Chr (REVERSE xs) ++ BlockNil::stack) /\
+    (semi_symbol (MAP Chr (REVERSE xs) ++ BlockNil::stack) =
+      (semi_sym (OtherS xs),MAP Chr (REVERSE xs) ++ BlockNil::stack))``,
+  FULL_SIMP_TAC std_ss [semi_symbol_def,semi_symbol_pre_def,LET_DEF,
+    semi_sym_def,semi_len_thm]
+  \\ (LIST_CASES |> SPEC_ALL |> STRIP_ASSUME_TAC)
+  \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def]
+  \\ `!k. ~(SUC (SUC (SUC (SUC (SUC (SUC (SUC k)))))) < 7)` by DECIDE_TAC
+  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC (srw_ss()) [Chr_def,isNumber_def,
+      getNumber_def,GSYM ORD_11] \\ TRY DECIDE_TAC
+  \\ (LIST_CASES |> Q.SPEC `REVERSE ts` |> STRIP_ASSUME_TAC)
+  \\ ASM_SIMP_TAC std_ss [] \\ EVAL_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def]);
+
+
 (* next symbol -- final package up *)
 
-(*
-
-val (res,next_sym_def,next_sym_pre_def) = x64_compile `
-  next_sym (x2,s,stack) =
+val (res,next_sym_full_def,next_sym_full_pre_def) = x64_compile `
+  next_sym_full (s,stack) =
+    let x3 = Number 0 in
     let x1 = BlockNil in
+    let x2 = x1 in
     let stack = x1::stack in
     let (x1,x2,s,stack) = next_symbol (x1,x2,s,stack) in
-      if getNumber x1 = 2 then (x1,x2,s,stack) else
-      if getNumber x1 =
+      if getNumber x1 = 2 then
+        let (x1,stack) = (HD stack, TL stack) in
+        let x2 = Number 0 in
+          (x1,x2,x3,s,stack)
+      else if getNumber x1 = 1 then
+        let (x1,x2,stack) = cons_list stack in
+        let x1 = x2 in
+        let x1 = BlockStringS x1 in
+        let x2 = Number 1 in
+          (x1,x2,x3,s,stack)
+      else if getNumber x1 = 4 then
+        let (x1,x3,stack) = semi_symbol' stack in
+        let (x1,x2,stack) = cons_list stack in
+        let x1 = x2 in
+        let x1 = BlockOtherS x1 in
+        let x2 = Number 1 in
+          (x1,x2,x3,s,stack)
+      else if getNumber x1 = 5 then
+        let (x1,x2,stack) = cons_list stack in
+        let x1 = x2 in
+        let x1 = BlockLongS x1 in
+        let x2 = Number 1 in
+          (x1,x2,x3,s,stack)
+      else if getNumber x1 = 3 then
+        let (x1,stack) = (HD stack, TL stack) in
+        let x1 = BlockNumberS x1 in
+        let (x2,stack) = (HD stack, TL stack) in
+        let x2 = Number 1 in
+          (x1,x2,x3,s,stack)
+      else
+        let (x1,x2,stack) = cons_list stack in
+        let x1 = BlockErrorS in
+        let x2 = Number 1 in
+          (x1,x2,x3,s,stack)`
 
-  cons_list_aux (x1,x2:bc_value,stack) =
+val BlockSym_def = Define `
+  (BlockSym (StringS s) = BlockStringS (BlockList (MAP Chr s))) /\
+  (BlockSym (OtherS s) = BlockOtherS (BlockList (MAP Chr s))) /\
+  (BlockSym (LongS s) = BlockLongS (BlockList (MAP Chr s))) /\
+  (BlockSym (ErrorS) = BlockErrorS) /\
+  (BlockSym (NumberS n) = BlockNumberS (Number n))`;
+
+val next_sym_full_thm = prove(
+  ``next_sym_full_pre (s,stack) /\
+    (next_sym_full (s,stack) =
+     case next_sym s.input of
+     | NONE => (BlockNil, Number 0, Number 0, s with input := "", stack)
+     | SOME (t,rest) => (BlockSym t, Number 1, semi_sym t,
+                         s with input := rest, stack))``,
+  SIMP_TAC std_ss [next_sym_full_def,next_sym_full_pre_def,LET_DEF]
+  \\ ASSUME_TAC next_symbol_thm
+  \\ SEP_I_TAC "next_symbol" \\ FULL_SIMP_TAC std_ss []
+  \\ Cases_on `next_sym s.input` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
+  \\ Cases_on `x` \\ FULL_SIMP_TAC std_ss []
+  \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [isNumber_def,BlockSym_def,
+       cons_list_thm,semi_symbol_thm,semi_symbol'_def,semi_symbol'_pre_def]
+  \\ FULL_SIMP_TAC std_ss [semi_sym_def,LET_DEF,MEM,cons_list_thm]
+  \\ FULL_SIMP_TAC (srw_ss()) []);
+
+(* lex_aux_alt *)
+
+val lex_aux_alt_def = tDefine "lex_aux_alt" `
+  lex_aux_alt acc (d:num) input =
+    case next_sym input of
+    | (* case: end of input *)
+      NONE => NONE
+    | (* case: token found *)
+      SOME (token, rest) =>
+        let new_acc = (token::acc) in
+          if (token = OtherS ";") /\ (d = 0) then SOME (REVERSE new_acc, rest)
+          else if MEM token [OtherS "let"; OtherS "struct";
+                             OtherS "sig"; OtherS "("] then
+            lex_aux_alt new_acc (d + 1) rest
+          else if MEM token [OtherS ")"; OtherS "end"] then
+            lex_aux_alt new_acc (d - 1) rest
+          else lex_aux_alt new_acc d rest `
+  (WF_REL_TAC `measure (LENGTH o SND o SND)`
+   THEN SRW_TAC []  [next_sym_LESS]);
+
+val lex_aux_alt_ind = fetch "-" "lex_aux_alt_ind"
+
+val lex_until_top_semicolon_alt_def = Define `
+  lex_until_top_semicolon_alt input = lex_aux_alt [] 0 input`
+
+(* lex_until *)
+
+val (res,lex_until_def,lex_until_pre_def) = x64_compile `
+  lex_until (x1,x2,x3,x4:bc_value,s,stack) =
+    let (x1,x2,x3,x4) = ID (x1,x2,x3,x4) in
+    let (x1,x2,x3,s,stack) = next_sym_full (s,stack) in
+      if getNumber x2 = 0 then (* next_sym returned NONE *)
+        (x1,x2,x3,x4,s,stack)
+      else
+        let stack = x1 :: stack in
+          if getNumber x3 = 0 then (* nothing of interest *)
+            lex_until (x1,x2,x3,x4,s,stack)
+          else if getNumber x3 = 2 then (* some form of open paren *)
+            let x1 = x4 in
+            let x2 = Number 1 in
+            let x1 = any_add x1 x2 in
+            let x4 = x1 in
+              lex_until (x1,x2,x3,x4,s,stack)
+          else if getNumber x3 = 3 then (* some form of close paren *)
+            if getNumber x4 = 0 then
+              lex_until (x1,x2,x3,x4,s,stack)
+            else
+              let x1 = x4 in
+              let x2 = Number 1 in
+              let x1 = any_sub x1 x2 in
+              let x4 = x1 in
+                lex_until (x1,x2,x3,x4,s,stack)
+          else (* must be a semicolon *)
+            if getNumber x4 = 0 then
+              let x2 = Number 1 in
+                (x1,x2,x3,x4,s,stack)
+            else
+              lex_until (x1,x2,x3,x4,s,stack)`
+
+val isNumber_semi_sym = prove(
+  ``!q. isNumber (semi_sym q)``,
+  Cases \\ EVAL_TAC \\ SRW_TAC [] [] \\ EVAL_TAC);
+
+val getNumber_semi_sym = prove(
+  ``(getNumber (semi_sym s) = k) <=> (semi_sym s = Number k)``,
+  ASSUME_TAC (Q.SPEC `s` isNumber_semi_sym)
+  \\ Cases_on `semi_sym s`
+  \\ FULL_SIMP_TAC (srw_ss()) [isNumber_def,getNumber_def]);
+
+val lex_until_thm = prove(
+  ``!acc d xs s x1 x2 x3 stack. (xs = s.input) ==>
+      ?y1 y2 y3 fs.
+        lex_until_pre (x1,x2,x3,Number (& d),s,MAP BlockSym acc ++ stack) /\
+        (lex_until (x1,x2,x3,Number (& d),s,MAP BlockSym acc ++ stack) =
+          case lex_aux_alt acc d s.input of
+          | NONE => (y1,Number 0,y2,y3,s with input := "",MAP BlockSym fs ++ stack)
+          | SOME (ts,rest) => (y1,Number 1,y2,y3,s with input := rest,
+                               MAP BlockSym (REVERSE ts) ++ stack))``,
+  HO_MATCH_MP_TAC lex_aux_alt_ind \\ REPEAT STRIP_TAC
+  \\ ONCE_REWRITE_TAC [lex_until_def,lex_until_pre_def]
+  \\ FULL_SIMP_TAC std_ss [LET_DEF,ID_def]
+  \\ ASM_SIMP_TAC std_ss [next_sym_full_thm,Once lex_aux_alt_def,LET_DEF]
+  \\ Cases_on `next_sym s.input`
+  \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,isNumber_semi_sym]
+  THEN1 (Q.EXISTS_TAC `acc` \\ FULL_SIMP_TAC std_ss [])
+  \\ Cases_on `x` \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def]
+  \\ REVERSE (Cases_on `?tt. q = OtherS tt`) THEN1
+   (FULL_SIMP_TAC std_ss []
+    \\ `getNumber (semi_sym q) = 0` by ALL_TAC THEN1
+      (Cases_on `q` \\ EVAL_TAC \\ FULL_SIMP_TAC (srw_ss()) [])
+    \\ FULL_SIMP_TAC std_ss [isNumber_semi_sym]
+    \\ SEP_I_TAC "lex_until" \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ Q.LIST_EXISTS_TAC [`y1`,`y2`,`y3`,`fs`]
+    \\ FULL_SIMP_TAC (srw_ss()) [])
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ `((tt = ";") <=> (semi_sym (OtherS tt) = Number 1)) /\
+      ((tt = "let") \/ (tt = "struct") \/ (tt = "sig") \/ (tt = "(")
+       <=> (semi_sym (OtherS tt) = Number 2)) /\
+      ((tt = ")") \/ (tt = "end") <=> (semi_sym (OtherS tt) = Number 3))` by ALL_TAC
+  THEN1 (REPEAT STRIP_TAC \\ SIMP_TAC std_ss [semi_sym_def] \\ SRW_TAC [] [])
+  \\ FULL_SIMP_TAC (srw_ss()) [getNumber_semi_sym]
+  \\ Cases_on `tt = ";"` THEN1
+    (FULL_SIMP_TAC (srw_ss()) [semi_sym_def,getNumber_def,isNumber_def]
+     \\ Cases_on `d = 0` \\ FULL_SIMP_TAC (srw_ss()) []
+     \\ SEP_I_TAC "lex_until" \\ FULL_SIMP_TAC (srw_ss()) []
+     \\ Q.LIST_EXISTS_TAC [`y1`,`y2`,`y3`,`fs`]
+     \\ FULL_SIMP_TAC (srw_ss()) [])
+  \\ FULL_SIMP_TAC std_ss []
+  \\ NTAC 3 (POP_ASSUM (K ALL_TAC))
+  \\ Cases_on `semi_sym (OtherS tt) = Number 0`
+  \\ FULL_SIMP_TAC (srw_ss()) [isNumber_def] THEN1
+   (POP_ASSUM MP_TAC
+    \\ SIMP_TAC std_ss [semi_sym_def]
+    \\ SRW_TAC [] []
+    \\ FULL_SIMP_TAC std_ss []
+    \\ SEP_I_TAC "lex_until" \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ Q.LIST_EXISTS_TAC [`y1`,`y2`,`y3`,`fs`]
+    \\ FULL_SIMP_TAC (srw_ss()) [])
+  \\ Cases_on `semi_sym (OtherS tt) = Number 2`
+  \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
+   (FULL_SIMP_TAC std_ss [any_add_def,getNumber_def,integerTheory.INT_ADD]
+    \\ SEP_I_TAC "lex_until" \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ Q.LIST_EXISTS_TAC [`y1`,`y2`,`y3`,`fs`]
+    \\ FULL_SIMP_TAC (srw_ss()) [])
+  \\ `semi_sym (OtherS tt) = Number 3` by ALL_TAC THEN1
+   (SRW_TAC [] [semi_sym_def,MEM] \\ FULL_SIMP_TAC (srw_ss()) [semi_sym_def,MEM])
+  \\ FULL_SIMP_TAC (srw_ss()) [PULL_FORALL]
+  \\ Cases_on `d = 0` \\ FULL_SIMP_TAC std_ss [] THEN1
+   (SEP_I_TAC "lex_until" \\ POP_ASSUM MP_TAC \\ MATCH_MP_TAC IMP_IMP
+    THEN1 (SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
+      \\ FULL_SIMP_TAC (srw_ss()) [semi_sym_def]))
+  \\ FULL_SIMP_TAC std_ss [any_sub_def,getNumber_def,
+       integerTheory.INT_SUB,DECIDE ``n <> 0 ==> 1 <= n:num``]
+  \\ SEP_I_TAC "lex_until" \\ POP_ASSUM MP_TAC \\ MATCH_MP_TAC IMP_IMP
+  THEN1 (SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [semi_sym_def]));
+
+(* cons_list_alt *)
+
+val (res,cons_list_alt_aux_def,cons_list_alt_aux_pre_def) = x64_compile `
+  cons_list_alt_aux (x1,x2:bc_value,stack) =
     let x2 = x1 in
     let (x1,stack) = (HD stack, TL stack) in
+      if ~isBlock x1 then (x1,x2,stack) else
+        let x1 = BlockCons (x1,x2) in
+          cons_list_alt_aux (x1,x2,stack)`
 
+val (res,cons_list_alt_def,cons_list_alt_pre_def) = x64_compile `
+  cons_list_alt (stack) =
+    let x1 = BlockNil in
+    let x2 = BlockNil in
+    let (x1,x2,stack) = cons_list_alt_aux (x1,x2,stack) in
+      (x1,x2,stack)`
 
+val isBlock_BkockSym = prove(
+  ``!s. isBlock (BlockSym s)``,
+  Cases \\ EVAL_TAC);
 
+val cons_list_alt_aux_thm = prove(
+  ``!xs ys x2.
+      cons_list_alt_aux_pre (BlockList ys,x2,MAP BlockSym xs ++ Number n::stack) /\
+      (cons_list_alt_aux (BlockList ys,x2,MAP BlockSym xs ++ Number n::stack) =
+         (Number n,BlockList (MAP BlockSym (REVERSE xs) ++ ys),stack))``,
+  Induct \\ ONCE_REWRITE_TAC [cons_list_alt_aux_def,cons_list_alt_aux_pre_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF,isBlock_BkockSym,isBlock_def,canCompare_def]
+  \\ SIMP_TAC std_ss [Once (GSYM BlockList_def)]
+  \\ ASM_SIMP_TAC std_ss [] \\ SIMP_TAC std_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ SIMP_TAC std_ss [Once (GSYM BlockList_def)]
+  \\ ASM_SIMP_TAC std_ss [] \\ SIMP_TAC std_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ Cases \\ EVAL_TAC \\ SIMP_TAC std_ss []) |> Q.SPECL [`xs`,`[]`]
+  |> SIMP_RULE std_ss [BlockList_def,APPEND_NIL];
 
-next_symbol_def
-cons_list_def
-next_symbol_thm
+val cons_list_alt_thm = prove(
+  ``cons_list_alt_pre (MAP BlockSym xs ++ Number n::stack) /\
+    (cons_list_alt (MAP BlockSym xs ++ Number n::stack) =
+       (Number n,BlockList (MAP BlockSym (REVERSE xs)),stack))``,
+  SIMP_TAC std_ss [cons_list_alt_def,cons_list_alt_pre_def,
+    cons_list_alt_aux_thm,LET_DEF]);
 
-*)
+(* lex_until_semi *)
+
+val (res,lex_until_semi_def,lex_until_semi_pre_def) = x64_compile `
+  lex_until_semi (x1,x3,s,stack) =
+    let stack = x1 :: stack in
+    let stack = x3 :: stack in
+    let x1 = Number 0 in
+    let stack = x1 :: stack in
+    let x2 = x1 in
+    let x3 = x1 in
+    let x4 = x1 in
+    let (x1,x2,x3,x4,s,stack) = lex_until (x1,x2,x3,x4,s,stack) in
+    let x4 = x2 in
+    let (x1,x2,stack) = cons_list_alt stack in
+    let (x3,stack) = (HD stack,TL stack) in
+    let (x1,stack) = (HD stack,TL stack) in
+      (x1,x2,x3,x4,s,stack)`
+
+val lex_until_semi_thm = prove(
+  ``?y2.
+      lex_until_semi_pre (x1,x3,s,stack) /\
+      (lex_until_semi (x1,x3,s,stack) =
+        case lex_until_top_semicolon_alt s.input of
+        | NONE => (x1,y2,x3,Number 0,s with input := "",stack)
+        | SOME (ts,rest) => (x1,BlockList (MAP BlockSym ts),x3,Number 1,
+                             s with input := rest,stack))``,
+  SIMP_TAC std_ss [lex_until_semi_def,lex_until_semi_pre_def,LET_DEF]
+  \\ ASSUME_TAC (lex_until_thm |> Q.SPECL [`[]`,`0`])
+  \\ FULL_SIMP_TAC std_ss [MAP,APPEND]
+  \\ SEP_I_TAC "lex_until" \\ FULL_SIMP_TAC std_ss []
+  \\ REPEAT (POP_ASSUM (K ALL_TAC))
+  \\ SIMP_TAC std_ss [lex_until_top_semicolon_alt_def]
+  \\ Cases_on `lex_aux_alt [] 0 s.input`
+  \\ FULL_SIMP_TAC (srw_ss()) [cons_list_alt_thm]
+  \\ Cases_on `x` \\ FULL_SIMP_TAC (srw_ss()) [cons_list_alt_thm]);
 
 (*
 
 print_compiler_grammar();
 
-if isBlock x1 then _ else _
-
-lexer_fun_def
-next_token_def
-next_sym_def
-
 *)
-
 
 val _ = export_theory();
