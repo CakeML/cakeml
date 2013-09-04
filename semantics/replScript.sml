@@ -6,28 +6,6 @@ open gramTheory cmlPtreeConversionTheory;
 
 val _ = new_theory "repl";
 
-val toplevel_semi_dex_non0 = Q.prove (
-`!i err stk toks j. (toplevel_semi_dex i err stk toks = SOME j) ==> 0 < j`,
-induct_on `toks` >>
-rw [toplevel_semi_dex_def] >>
-TRY (Cases_on `stk`) >> FULL_SIMP_TAC (srw_ss()) [] >>
-TRY (Cases_on `h`) >> FULL_SIMP_TAC (srw_ss()) [] >>
-RES_TAC >> DECIDE_TAC);
-
-val split_top_level_semi_def = tDefine "split_top_level_semi" `
-(split_top_level_semi toks =
-  case toplevel_semi_dex 0 F [] toks of
-    | NONE => []
-    | SOME i =>
-        TAKE i toks :: split_top_level_semi (DROP i toks))`
-(wf_rel_tac `measure LENGTH` >>
- rw [] >>
- cases_on `toks` >>
- fs [toplevel_semi_dex_def] >>
- cases_on `h` >>
- fs [] >>
- metis_tac [toplevel_semi_dex_non0, DECIDE ``0 < 1:num``, DECIDE ``!x:num. 0 < x + 1``]);
-
 val _ = Hol_datatype `
 repl_state = <| (* Elaborator state *)
                 type_bindings : tdef_env; ctors : ctor_env;

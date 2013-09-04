@@ -46,7 +46,7 @@ val repl_step_def = Define `
                  initial_repl_fun_state,initial_repl_fun_state)
     | SOME (tokens,new_s,len,labs,s',s_exc) => (* received some input *)
         let s = if new_s then s' else s_exc in
-        case parse_elaborate_infertype_compile tokens s of
+        case parse_elaborate_infertype_compile (MAP token_of_sym tokens) s of
         | Success (code,s',s_exc) =>
             let code = REVERSE code in
             let labs = FUNION labs (collect_labels code len inst_length) in
@@ -57,14 +57,14 @@ val repl_step_def = Define `
         | Failure error_msg => INR (error_msg,len,labs,s)`
 
 val tac = (WF_REL_TAC `measure (LENGTH o FST o SND)` THEN REPEAT STRIP_TAC
-           THEN IMP_RES_TAC lexer_implTheory.lex_until_toplevel_semicolon_LESS);
+           THEN IMP_RES_TAC lexer_implTheory.lex_until_top_semicolon_alt_LESS);
 
 val main_loop_alt_def = tDefine "main_loop_alt" `
   main_loop_alt bs input state =
     case repl_step state of
       | INR (error_msg,len,labs,s) =>
             Result error_msg
-             (case lex_until_toplevel_semicolon input of
+             (case lex_until_top_semicolon_alt input of
               | NONE => Terminate
               | SOME (ts,rest) =>
                   (main_loop_alt bs rest (SOME (ts,F,len,labs,s,s))))
@@ -76,7 +76,7 @@ val main_loop_alt_def = tDefine "main_loop_alt" `
                                           else new_bs) in
             let new_s = (bc_fetch new_bs = SOME Stop) in
               (if state = NONE then I else Result (REVERSE new_bs.output))
-                (case lex_until_toplevel_semicolon input of
+                (case lex_until_top_semicolon_alt input of
                  | NONE => Terminate
                  | SOME (ts,rest) =>
                      (main_loop_alt new_bs rest (SOME (ts,new_s,new_state)))) ` tac

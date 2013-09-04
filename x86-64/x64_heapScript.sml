@@ -10051,31 +10051,6 @@ val next_sym_full_thm = prove(
   \\ FULL_SIMP_TAC std_ss [semi_sym_def,LET_DEF,MEM,cons_list_thm]
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
-(* lex_aux_alt *)
-
-val lex_aux_alt_def = tDefine "lex_aux_alt" `
-  lex_aux_alt acc (d:num) input =
-    case next_sym input of
-    | (* case: end of input *)
-      NONE => NONE
-    | (* case: token found *)
-      SOME (token, rest) =>
-        let new_acc = (token::acc) in
-          if (token = OtherS ";") /\ (d = 0) then SOME (REVERSE new_acc, rest)
-          else if MEM token [OtherS "let"; OtherS "struct";
-                             OtherS "sig"; OtherS "("] then
-            lex_aux_alt new_acc (d + 1) rest
-          else if MEM token [OtherS ")"; OtherS "end"] then
-            lex_aux_alt new_acc (d - 1) rest
-          else lex_aux_alt new_acc d rest `
-  (WF_REL_TAC `measure (LENGTH o SND o SND)`
-   THEN SRW_TAC []  [next_sym_LESS]);
-
-val lex_aux_alt_ind = fetch "-" "lex_aux_alt_ind"
-
-val lex_until_top_semicolon_alt_def = Define `
-  lex_until_top_semicolon_alt input = lex_aux_alt [] 0 input`
-
 (* lex_until *)
 
 val (res,lex_until_def,lex_until_pre_def) = x64_compile `

@@ -94,13 +94,13 @@ val repl_fun'_thm = store_thm("repl_fun'_thm",
 (* proof of repl_fun_alt' = repl_fun' *)
 
 val tac = (WF_REL_TAC `measure (LENGTH o FST o SND)` \\ REPEAT STRIP_TAC
-           \\ IMP_RES_TAC lex_until_toplevel_semicolon_LESS);
+           \\ IMP_RES_TAC lex_until_top_semicolon_alt_LESS);
 
 val main_loop_alt'_def = tDefine "main_loop_alt'" `
   main_loop_alt' bs input state =
     case repl_step state of
       | INR (error_msg,len,labs,s) =>
-       (case lex_until_toplevel_semicolon input of
+       (case lex_until_top_semicolon_alt input of
         | NONE => (Result error_msg Terminate,T)
         | SOME (ts,rest) =>
             let (res,assert) = main_loop_alt' bs rest
@@ -117,7 +117,7 @@ val main_loop_alt'_def = tDefine "main_loop_alt'" `
                                           else new_bs) in
             let new_s = (bc_fetch new_bs = SOME Stop) in
             let out = if state = NONE then I else Result (new_bs.output) in
-              (case lex_until_toplevel_semicolon input of
+              (case lex_until_top_semicolon_alt input of
                | NONE => (out Terminate,code_assert)
                | SOME (ts,rest) =>
                   let (res,assert) =
@@ -301,6 +301,15 @@ val install_code_NIL = prove(
     install_code m code bs``,
   SIMP_TAC (srw_ss()) [install_code_def]);
 
+val lex_lemma = prove(
+  ``lex_until_toplevel_semicolon input =
+    case lex_until_top_semicolon_alt input of
+    | NONE => NONE
+    | SOME (ts,rest) => SOME (MAP token_of_sym ts, rest)``,
+  ASSUME_TAC lex_until_top_semicolon_alt_thm
+  \\ Cases_on `lex_until_top_semicolon_alt input` \\ TRY (Cases_on `x`)
+  \\ FULL_SIMP_TAC (srw_ss()) []);
+
 val main_loop_alt_eq = prove(
   ``!input ts b s1 s2 bs res.
       (bs.inst_length = inst_length) ==>
@@ -308,7 +317,8 @@ val main_loop_alt_eq = prove(
       (main_loop_alt' (strip_labels bs) input (SOME (ts,b,
          code_length inst_length bs.code,
          all_labels inst_length bs.code,s1,s2)))
-      (case parse_elaborate_infertype_compile ts (if b then s1 else s2) of
+      (case parse_elaborate_infertype_compile
+            (MAP token_of_sym ts) (if b then s1 else s2) of
              Success (code,s',s_exc) =>
                (let code_assert = code_labels_ok bs.code in
                 let s1 = install_code (cpam s'.rcompiler_state) code bs in
@@ -327,14 +337,16 @@ val main_loop_alt_eq = prove(
   \\ POP_ASSUM MP_TAC \\ POP_ASSUM (K ALL_TAC) \\ STRIP_TAC
   \\ SIMP_TAC std_ss [Once main_loop_alt'_def,repl_step_def]
   \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
-  \\ REVERSE (Cases_on `parse_elaborate_infertype_compile ts (if b then s1 else s2)`)
+  \\ REVERSE (Cases_on `parse_elaborate_infertype_compile
+       (MAP token_of_sym ts) (if b then s1 else s2)`)
   \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF] THEN1
    (SIMP_TAC std_ss [Once main_loop'_def]
-    \\ Cases_on `lex_until_toplevel_semicolon input` \\ FULL_SIMP_TAC std_ss []
+    \\ SIMP_TAC std_ss [lex_lemma]
+    \\ Cases_on `lex_until_top_semicolon_alt input` \\ FULL_SIMP_TAC std_ss []
     THEN1 (SIMP_TAC std_ss [temp_def])
     \\ Cases_on `x` \\ FULL_SIMP_TAC (srw_ss()) []
     \\ `STRLEN r < STRLEN input` by
-          METIS_TAC [lexer_implTheory.lex_until_toplevel_semicolon_LESS]
+          METIS_TAC [lexer_implTheory.lex_until_top_semicolon_alt_LESS]
     \\ Q.PAT_ASSUM `!xx.bbb` (MP_TAC o Q.SPEC `r`)
     \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
@@ -388,7 +400,8 @@ val main_loop_alt_eq = prove(
       SOME (strip_labels x)` by METIS_TAC [bc_eval_SOME_strip_labels]
   \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [main_loop'_def]
-  \\ Cases_on `lex_until_toplevel_semicolon input`
+  \\ SIMP_TAC std_ss [lex_lemma]
+  \\ Cases_on `lex_until_top_semicolon_alt input`
   \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF,temp_REFL]
   THEN1
    (SIMP_TAC std_ss [temp_def] \\ REPEAT STRIP_TAC
@@ -396,7 +409,7 @@ val main_loop_alt_eq = prove(
     \\ MATCH_MP_TAC code_executes_ok_strip_labels \\ ASM_SIMP_TAC std_ss [])
   \\ Cases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
   \\ `STRLEN r < STRLEN input` by
-        METIS_TAC [lexer_implTheory.lex_until_toplevel_semicolon_LESS]
+        METIS_TAC [lexer_implTheory.lex_until_top_semicolon_alt_LESS]
   \\ Q.PAT_ASSUM `!xx.bbb` (MP_TAC o Q.SPEC `r`)
   \\ FULL_SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC
@@ -557,9 +570,10 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
        code_length inst_length x.code)` by ALL_TAC THEN1
    (POP_ASSUM (ASSUME_TAC o GSYM) \\ UNABBREV_ALL_TAC
     \\ FULL_SIMP_TAC std_ss [code_length_def,MAP_APPEND,SUM_APPEND])
-  \\ Cases_on `lex_until_toplevel_semicolon input` \\ FULL_SIMP_TAC std_ss []
+  \\ FULL_SIMP_TAC std_ss [lex_lemma]
+  \\ Cases_on `lex_until_top_semicolon_alt input` \\ FULL_SIMP_TAC std_ss []
   \\ Q.MATCH_ASSUM_RENAME_TAC
-       `lex_until_toplevel_semicolon input = SOME ts_rest` []
+       `lex_until_top_semicolon_alt input = SOME ts_rest` []
   \\ Cases_on `ts_rest` \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ FULL_SIMP_TAC std_ss [PAIR_I]

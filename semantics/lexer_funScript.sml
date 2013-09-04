@@ -2,6 +2,7 @@ open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "lexer_fun";
 
+open preamble;
 open stringTheory stringLib listTheory TokensTheory ASCIInumbersTheory intLib;
 
 (* This script defines the functional spec for the assmebly
@@ -81,7 +82,8 @@ val skip_comment_thm = prove(
   THEN HO_MATCH_MP_TAC (fetch "-" "skip_comment_ind") THEN REPEAT STRIP_TAC
   THEN POP_ASSUM MP_TAC THEN ONCE_REWRITE_TAC [skip_comment_def]
   THEN SRW_TAC [] [] THEN RES_TAC THEN TRY DECIDE_TAC
-  THEN FULL_SIMP_TAC std_ss [] THEN SRW_TAC [] [] THEN RES_TAC THEN DECIDE_TAC);
+  THEN FULL_SIMP_TAC std_ss [] THEN SRW_TAC [] [] THEN RES_TAC
+  THEN DECIDE_TAC);
 
 val read_while_thm = prove(
   ``!cs s cs' s'.
@@ -90,64 +92,7 @@ val read_while_thm = prove(
   RES_TAC THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND] THEN DECIDE_TAC);
 
 val isAlphaNumPrime_def = Define`
-  isAlphaNumPrime c <=> isAlphaNum c \/ c = #"'" ∨ c = #"_"
-`
-
-(*
-val moduleRead_def = Define`
-  moduleRead initP c s =
-    let (n,rest) = read_while initP s [c]
-    in
-      case rest of
-          [] => (OtherS n, rest)
-        | [h] => if h = #"." then (ErrorS, [])
-                 else (OtherS n, rest)
-        | h1::h2::rest' =>
-          if h1 = #"." then
-            let nextP = if isAlpha h2 then SOME isAlphaNumPrime
-                        else if isSymbol h2 then SOME isSymbol
-                        else NONE
-            in
-              case nextP of
-                  NONE => (ErrorS, rest')
-                | SOME P =>
-                  let (n2, rest'') = read_while P rest' [h2]
-                  in
-                    (OtherS (n ++ "." ++ n2), rest'')
-          else (OtherS n, rest)
-`
-val moduleRead_thm = store_thm(
-  "moduleRead_thm",
-  ``!s tk r. (moduleRead P c s = (tk, r)) ==> STRLEN r <= STRLEN s``,
-  SIMP_TAC (srw_ss())[moduleRead_def, LET_THM] THEN REPEAT GEN_TAC THEN
-  `?p q. read_while P s [c] = (p,q)`
-    by METIS_TAC [TypeBase.nchotomy_of ``:'a # 'b``] THEN
-  ASM_SIMP_TAC (srw_ss()) [] THEN
-  `(q = []) \/  ?h t. q = h::t`
-    by METIS_TAC [TypeBase.nchotomy_of ``:'a list``]
-  THEN1 (SRW_TAC [][] THEN SRW_TAC [][]) THEN
-  ASM_SIMP_TAC (srw_ss()) [] THEN
-  `(t = []) \/  ?h2 t2. t = h2::t2`
-    by METIS_TAC [TypeBase.nchotomy_of ``:'a list``]
-  THEN1 (SRW_TAC [][] THEN SRW_TAC [][] THEN IMP_RES_TAC read_while_thm THEN
-         FULL_SIMP_TAC (srw_ss()) []) THEN
-  ASM_SIMP_TAC (srw_ss()) [] THEN
-  REVERSE (Cases_on `h = #"."`)
-    THEN1 (SRW_TAC [][] THEN SRW_TAC [][] THEN IMP_RES_TAC read_while_thm THEN
-           FULL_SIMP_TAC (srw_ss()) []) THEN
-  ASM_SIMP_TAC (srw_ss())[] THEN
-  Q.MATCH_ABBREV_TAC `option_CASE PP XX YY = (tk,r) ==> RR` THEN
-  MAP_EVERY Q.UNABBREV_TAC [`XX`, `YY`, `RR`] THEN
-  `PP = NONE ∨ ∃P'. PP = SOME P'`
-    by METIS_TAC [TypeBase.nchotomy_of ``:'a option``]
-  THEN1 (SRW_TAC [][] THEN IMP_RES_TAC read_while_thm THEN
-         FULL_SIMP_TAC (srw_ss() ++ ARITH_ss) []) THEN
-  ASM_SIMP_TAC (srw_ss())[] THEN
-  `?n2 rest2. read_while P' t2 [h2] = (n2,rest2)`
-    by METIS_TAC [TypeBase.nchotomy_of ``:'a # 'b``] THEN
-  SRW_TAC [][] THEN IMP_RES_TAC read_while_thm THEN
-  FULL_SIMP_TAC (srw_ss() ++ ARITH_ss) [])
-  *)
+  isAlphaNumPrime c <=> isAlphaNum c \/ (c = #"'") \/ (c = #"_")`
 
 val next_sym_def = tDefine "next_sym" `
   (next_sym "" = NONE) /\
@@ -157,7 +102,7 @@ val next_sym_def = tDefine "next_sym" `
      else if isDigit c then (* read number *)
        let (n,rest) = read_while isDigit str [] in
          SOME (NumberS (&(num_from_dec_string (c::n))), rest)
-     else if c = #"~" ∧ str ≠ "" ∧ isDigit (HD str) then (* read negative number *)
+     else if c = #"~" /\ str <> "" /\ isDigit (HD str) then (* read negative number *)
        let (n,rest) = read_while isDigit str [] in
          SOME (NumberS (0- &(num_from_dec_string n)), rest)
      else if c = #"'" then (* read type variable *)
@@ -210,7 +155,7 @@ Cases_on `z a` THEN
 FULL_SIMP_TAC std_ss []);
 
 val lem2 = Q.prove (
-`((let (x,y) = z a in f x y) ⇒ P a) = (let (x,y) = z a in (f x y ⇒ P a))`,
+`((let (x,y) = z a in f x y) ==> P a) = (let (x,y) = z a in (f x y ==> P a))`,
 EQ_TAC THEN
 SRW_TAC [] [LET_THM] THEN
 Cases_on `z a` THEN
@@ -253,32 +198,11 @@ val next_sym_LESS = store_thm("next_sym_LESS",
   THEN SRW_TAC [] []
   THEN FULL_SIMP_TAC (std_ss++ARITH_ss) [LENGTH]);
 
-
 (*
 
   EVAL ``next_sym "3 (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``
   EVAL ``next_sym " (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``
 
-*)
-
-(*
-val splitAtP_def = Define`
-  splitAtP P [] k = k [] [] ∧
-  splitAtP P (h::t) k = if P h then k [] (h::t)
-                        else splitAtP P t (λp. k (h::p))
-`
-
-val moduleSplit_def = Define`
-  moduleSplit s =
-    splitAtP (λc. c = #".") s
-             (λp sfx.
-                 case sfx of
-                     [] => if isAlpha (HD s) then AlphaT s
-                           else SymbolT s
-                   | [_] => LexErrorT
-                   | _::t => if MEM #"." t then LexErrorT
-                             else LongidT p t)
-`
 *)
 
 val processIdent_def = Define `
@@ -345,7 +269,7 @@ val get_token_def = Define `
     if s = "where" then WhereT else
     if s = "with" then WithT else
     if s = "withtype" then WithtypeT else
-    if s ≠ "" ∧ HD s = #"'" then TyvarT s else
+    if s <> "" /\ HD s = #"'" then TyvarT s else
     processIdent s`;
 
 val token_of_sym_def = Define `
@@ -393,53 +317,38 @@ val lexer_fun_def = tDefine "lexer_fun" `
 
 *)
 
-(*
-
-  TODO: Should the token datatype be cleaned? A lot of tokens aren't
-        produced, e.g. NewlineT, ZeroT, DigitT, NumericT, HexintT,
-        WordT, HexwordT, RealT, CharT, TyvarT, LongidT.
-
-*)
-
-val _ = Hol_datatype`semihider = SH_END | SH_PAR`
-(* extend with SH_BRACE and SH_BRACKET when records and lists
-   are part of the syntax *)
-
 val toplevel_semi_dex_def = Define`
-  toplevel_semi_dex (i:num) error stk [] = NONE ∧
-  toplevel_semi_dex i error stk (h::t) =
-    if h = SemicolonT ∧ (stk = [] ∨ error) then SOME (i+1)
-    else if error then toplevel_semi_dex (i + 1) error stk t
-    else if h = LetT then toplevel_semi_dex (i + 1) F (SH_END::stk) t
-    else if h = StructT then toplevel_semi_dex (i + 1) F (SH_END::stk) t
-    else if h = SigT then toplevel_semi_dex (i + 1) F (SH_END::stk) t
-    else if h = LparT then toplevel_semi_dex (i + 1) F (SH_PAR::stk) t
-    else if h = EndT then
-      case stk of
-          SH_END :: stk' => toplevel_semi_dex (i + 1) F stk' t
-        | _ => toplevel_semi_dex (i + 1) T [] t
-    else if h = RparT then
-      case stk of
-          SH_PAR :: stk' => toplevel_semi_dex (i + 1) F stk' t
-        | _ => toplevel_semi_dex (i + 1) T [] t
-    else toplevel_semi_dex (i + 1) F stk t
-`
+  (toplevel_semi_dex (i:num) (d:num) [] = NONE) /\
+  (toplevel_semi_dex i d (h::t) =
+    if h = SemicolonT /\ (d = 0) then SOME (i+1)
+    else if h = LetT then toplevel_semi_dex (i + 1) (d + 1) t
+    else if h = StructT then toplevel_semi_dex (i + 1) (d + 1) t
+    else if h = SigT then toplevel_semi_dex (i + 1) (d + 1) t
+    else if h = LparT then toplevel_semi_dex (i + 1) (d + 1) t
+    else if h = EndT then toplevel_semi_dex (i + 1) (d - 1) t
+    else if h = RparT then toplevel_semi_dex (i + 1) (d - 1) t
+    else toplevel_semi_dex (i + 1) d t)`
 
-(* open lexer_funTheory;
-assert
-  (aconv ``SOME 16n`` o rhs o concl)
-  (EVAL
-    ``toplevel_semi_dex 1 F []
-        (lexer_fun "let val x = 3; val y = 10 in x + y end; (")``);
+val toplevel_semi_dex_non0 = Q.prove (
+`!i d toks j. (toplevel_semi_dex i d toks = SOME j) ==> 0 < j`,
+induct_on `toks` >>
+rw [toplevel_semi_dex_def] >>
+TRY (Cases_on `d`) >> FULL_SIMP_TAC (srw_ss()) [] >>
+TRY (Cases_on `h`) >> FULL_SIMP_TAC (srw_ss()) [] >>
+RES_TAC >> DECIDE_TAC);
 
-assert
-  (aconv ``SOME 16n`` o rhs o concl)
-  (EVAL
-    ``toplevel_semi_dex 1 F []
-        (lexer_fun "let val x) = 3; val y = 10 in x + y end; (")``)
-
-*)
-
-
+val split_top_level_semi_def = tDefine "split_top_level_semi" `
+(split_top_level_semi toks =
+  case toplevel_semi_dex 0 0 toks of
+    | NONE => []
+    | SOME i =>
+        TAKE i toks :: split_top_level_semi (DROP i toks))`
+(wf_rel_tac `measure LENGTH` >>
+ rw [] >>
+ cases_on `toks` >>
+ fs [toplevel_semi_dex_def] >>
+ cases_on `h` >>
+ fs [] >>
+ metis_tac [toplevel_semi_dex_non0, DECIDE ``0 < 1:num``, DECIDE ``!x:num. 0 < x + 1``]);
 
 val _ = export_theory();

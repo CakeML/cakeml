@@ -18,42 +18,34 @@ lex_impl_all input =
  metis_tac [lex_until_toplevel_semicolon_LESS]);
 
 val lex_aux_tokens_def = Define `
-  lex_aux_tokens acc error stk input =
+  lex_aux_tokens acc (d:num) input =
      case input of
        [] => NONE
      | token::rest =>
-         if token = SemicolonT /\ (stk = [] \/ error) then
-           SOME (REVERSE (token::acc),rest)
-         else
-           (let new_acc = token::acc
-            in
-              if error then lex_aux_tokens new_acc error stk rest
-              else if token = LetT then
-                lex_aux_tokens new_acc F (SH_END::stk) rest
-              else if token = StructT then
-                lex_aux_tokens new_acc F (SH_END::stk) rest
-              else if token = SigT then
-                lex_aux_tokens new_acc F (SH_END::stk) rest
-              else if token = LparT then
-                lex_aux_tokens new_acc F (SH_PAR::stk) rest
-              else if token = EndT then
-                case stk of
-                  [] => lex_aux_tokens new_acc T [] rest
-                | SH_END::stk' => lex_aux_tokens new_acc F stk' rest
-                | SH_PAR::stk' => lex_aux_tokens new_acc T [] rest
-              else if token = RparT then
-                case stk of
-                  [] => lex_aux_tokens new_acc T [] rest
-                | SH_END::stk' => lex_aux_tokens new_acc T [] rest
-                | SH_PAR::stk' => lex_aux_tokens new_acc F stk' rest
-              else lex_aux_tokens new_acc F stk rest)`
+         let new_acc = token::acc in
+           if token = SemicolonT /\ (d = 0) then
+             SOME (REVERSE (new_acc),rest)
+           else
+             if token = LetT then
+               lex_aux_tokens new_acc (d+1) rest
+             else if token = StructT then
+               lex_aux_tokens new_acc (d+1) rest
+             else if token = SigT then
+               lex_aux_tokens new_acc (d+1) rest
+             else if token = LparT then
+               lex_aux_tokens new_acc (d+1) rest
+             else if token = EndT then
+               lex_aux_tokens new_acc (d-1) rest
+             else if token = RparT then
+               lex_aux_tokens new_acc (d-1) rest
+             else lex_aux_tokens new_acc d rest`
 
 val lex_until_toplevel_semicolon_tokens_def = Define `
-  lex_until_toplevel_semicolon_tokens input = lex_aux_tokens [] F [] input`;
+  lex_until_toplevel_semicolon_tokens input = lex_aux_tokens [] 0 input`;
 
 val lex_aux_tokens_LESS = prove(
-  ``!acc error stk input.
-      (lex_aux_tokens acc error stk input = SOME (t,rest)) ==>
+  ``!acc d input.
+      (lex_aux_tokens acc d input = SOME (t,rest)) ==>
       (if acc = [] then LENGTH rest < LENGTH input
                    else LENGTH rest <= LENGTH input)``,
   Induct_on `input`
@@ -61,7 +53,6 @@ val lex_aux_tokens_LESS = prove(
   >> SIMP_TAC (srw_ss()) [Once lex_aux_tokens_def,LET_DEF]
   >> SRW_TAC [] [] >> RES_TAC
   >> FULL_SIMP_TAC std_ss [NOT_CONS_NIL]
-  >> TRY (Cases_on `stk`) >> RES_TAC
   >> TRY (Cases_on `h`) >> RES_TAC
   >> FULL_SIMP_TAC (srw_ss()) [] >> RES_TAC
   >> FULL_SIMP_TAC (srw_ss()) [] >> RES_TAC
@@ -77,9 +68,9 @@ val lex_impl_all_tokens_def = tDefine "lex_impl_all_tokens" `
    >> METIS_TAC [lex_aux_tokens_LESS])
 
 val lex_aux_tokens_thm = prove(
-  ``!input acc error stk res1 res2.
-      (lex_aux_tokens acc error stk (lexer_fun input) = res1) /\
-      (lex_aux acc error stk input = res2) ==>
+  ``!input acc d res1 res2.
+      (lex_aux_tokens acc d (lexer_fun input) = res1) /\
+      (lex_aux acc d input = res2) ==>
       (case res2 of NONE => (res1 = NONE)
                   | SOME (ts,rest) => (res1 = SOME (ts,lexer_fun rest)))``,
   HO_MATCH_MP_TAC lexer_fun_ind >> SIMP_TAC std_ss []
@@ -90,15 +81,8 @@ val lex_aux_tokens_thm = prove(
   >> Cases_on `x`
   >> Q.MATCH_ASSUM_RENAME_TAC `next_token input = SOME (t,rest)` []
   >> FULL_SIMP_TAC (srw_ss()) []
-  >> SRW_TAC [] []
-  THEN1 (METIS_TAC [lexer_fun_def])
-  THEN1 (METIS_TAC [lexer_fun_def])
-  >> SRW_TAC [] []
-  >> ASM_SIMP_TAC std_ss [GSYM lexer_fun_def]
-  >> Cases_on `stk`
-  >> ASM_SIMP_TAC (srw_ss()) [GSYM lexer_fun_def]
-  >> Cases_on `h`
-  >> ASM_SIMP_TAC (srw_ss()) [GSYM lexer_fun_def]) |> SIMP_RULE std_ss [];
+  >> SRW_TAC [] [] >> SRW_TAC [] []
+  >> ASM_SIMP_TAC std_ss [GSYM lexer_fun_def]) |> SIMP_RULE std_ss [];
 
 val lex_impl_all_tokens_thm = prove(
   ``!input. lex_impl_all input =
@@ -107,38 +91,36 @@ val lex_impl_all_tokens_thm = prove(
   >> SIMP_TAC std_ss [Once lex_impl_all_def,Once lex_impl_all_tokens_def]
   >> FULL_SIMP_TAC std_ss [lex_until_toplevel_semicolon_tokens_def]
   >> FULL_SIMP_TAC std_ss [lex_until_toplevel_semicolon_def]
-  >> MP_TAC (lex_aux_tokens_thm |> Q.SPECL [`input`,`[]`,`F`,`[]`])
-  >> Cases_on `lex_aux [] F [] input` >> FULL_SIMP_TAC std_ss []
+  >> MP_TAC (lex_aux_tokens_thm |> Q.SPECL [`input`,`[]`,`0`])
+  >> Cases_on `lex_aux [] 0 input` >> FULL_SIMP_TAC std_ss []
   >> Cases_on `x` >> FULL_SIMP_TAC (srw_ss()) []
   >> REPEAT STRIP_TAC >> RES_TAC);
 
 val lex_aux_tokens_thm = prove(
-  ``!input stk error acc.
-      (res = lex_aux_tokens acc error stk input) ==>
+  ``!input d acc.
+      (res = lex_aux_tokens acc d input) ==>
       case res of
-        NONE => (toplevel_semi_dex (LENGTH acc) error stk input = NONE)
+        NONE => (toplevel_semi_dex (LENGTH acc) d input = NONE)
       | SOME (toks,rest) =>
-          (toplevel_semi_dex (LENGTH acc) error stk input = SOME (LENGTH toks)) /\
+          (toplevel_semi_dex (LENGTH acc) d input = SOME (LENGTH toks)) /\
           (REVERSE acc ++ input = toks ++ rest)``,
   Induct
   >> SIMP_TAC (srw_ss()) [Once lex_aux_tokens_def]
   >> ONCE_REWRITE_TAC [toplevel_semi_dex_def]
   >> SIMP_TAC std_ss [LET_DEF] >> Cases
   >> FULL_SIMP_TAC (srw_ss()) []
-  >> Cases_on `error` >> ASM_SIMP_TAC std_ss []
   >> REPEAT STRIP_TAC >> RES_TAC
   >> POP_ASSUM MP_TAC
   >> POP_ASSUM (ASSUME_TAC o GSYM)
   >> ASM_REWRITE_TAC []
   >> Cases_on `res` >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
-  >> Cases_on `stk` >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
-  >> TRY (Cases_on `h`) >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
+  >> Cases_on `d = 0` >> ASM_SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
   >> TRY (Cases_on `x`) >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
   >> SIMP_TAC std_ss [Once EQ_SYM_EQ]
   >> FULL_SIMP_TAC std_ss []
   >> REPEAT STRIP_TAC >> RES_TAC
   >> FULL_SIMP_TAC (srw_ss()) [LENGTH,arithmeticTheory.ADD1])
-  |> Q.SPECL [`input`,`[]`,`F`,`[]`] |> Q.GEN `res` |> SIMP_RULE std_ss [LENGTH];
+  |> Q.SPECL [`input`,`0`,`[]`] |> Q.GEN `res` |> SIMP_RULE std_ss [LENGTH];
 
 val split_top_level_semi_thm = prove(
   ``!input. split_top_level_semi input = lex_impl_all_tokens input``,
@@ -146,7 +128,7 @@ val split_top_level_semi_thm = prove(
   >> SIMP_TAC std_ss [Once split_top_level_semi_def,Once lex_impl_all_tokens_def,
       Once lex_until_toplevel_semicolon_tokens_def]
   >> MP_TAC lex_aux_tokens_thm
-  >> Cases_on `lex_aux_tokens [] F [] input` >> FULL_SIMP_TAC std_ss []
+  >> Cases_on `lex_aux_tokens [] 0 input` >> FULL_SIMP_TAC std_ss []
   >> Cases_on `x` >> FULL_SIMP_TAC (srw_ss()) []
   >> FULL_SIMP_TAC std_ss [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]
   >> STRIP_TAC >> RES_TAC >> POP_ASSUM MP_TAC
@@ -956,7 +938,7 @@ val type_ds_dup_exns = Q.prove (
  STRIP_TAC >>
  REPEAT GEN_TAC >>
  cases_on `i = 0` >>
- fs [] 
+ fs []
  >- (fs [type_d_cases] >>
      rw [] >>
      fs [check_ctor_tenv_def, check_dup_ctors_eqn, decs_to_cenv_def,
@@ -987,7 +969,7 @@ val type_sound_inv_dup_exns = Q.prove (
   mk_id (SOME mn) cn ∉ set (MAP FST rs.envC) `,
  rw [type_sound_invariants_def, type_top_cases, top_to_cenv_def] >>
  imp_res_tac consistent_con_env_dom >>
- rw [] 
+ rw []
  >- metis_tac [type_ds_dup_exns] >>
  `mk_id (SOME mn) cn ∉ set (MAP FST rs.tenvC)` by metis_tac [type_ds_dup_exns] >>
  imp_res_tac weakC_not_SOME >>
@@ -1005,14 +987,14 @@ ho_match_mp_tac metaTerminationTheory.consistent_mod_env_ind >>
 rw [metaTerminationTheory.consistent_mod_env_def]);
 
 val consistent_mod_env_dup_modules = Q.prove (
-`!tenvM_no_sig rs. 
+`!tenvM_no_sig rs.
   consistent_mod_env tenvS tenvC_no_sig
         (MAP (λ(n,tenv). (n,[]))
            (MAP
               (λ(mn,env).
                  (mn,MAP (λ(x,tvs,t). (x,tvs,convert_t t)) env))
               new_infer_menv) ++ rs.envM) tenvM_no_sig
- ⇒ 
+ ⇒
  ALL_DISTINCT (MAP FST new_infer_menv) ∧
  ∀m. MEM m (MAP FST new_infer_menv) ⇒ m ∉ set (MAP FST rs.envM)`,
  induct_on `new_infer_menv` >>
