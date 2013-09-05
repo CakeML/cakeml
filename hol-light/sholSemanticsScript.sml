@@ -2664,35 +2664,324 @@ val semantics_simple_subst = store_thm("semantics_simple_subst",
   metis_tac[] )
 
 (*
-VSUBST_def
+val raconv_refl_frees = store_thm("raconv_refl_frees",
+  ``∀t env. (∀n. n < LENGTH env ⇒ (FST (EL n env) = SND (EL n env)) ∨
+                 ¬VFREE_IN (FST (EL n env)) t ∧
+                 ¬VFREE_IN (SND (EL n env)) t ∧
+                 (∀m. m < n ⇒ FST (EL n env) ≠ FST (EL m env) ∧ SND (EL n env) ≠ SND (EL m env))) (*∧
+            (∀x y. MEM (x,y) env ⇒ ∃v w ty. x = Var v ty ∧ y = Var w ty)*)
+                 ⇒ RACONV env (t,t)``,
+  Induct >- (
+    simp[RACONV] >>
+    gen_tac >> Induct >- simp[ALPHAVARS_def] >>
+    Cases >> simp[ALPHAVARS_def] >>
+    rw[] >> fs[] >>
+    first_assum(qspec_then`0`mp_tac) >>
+    simp_tac(srw_ss())[]>>
+    Cases_on`q=r`>>simp[]>-(
+      rw[]>>
+      Cases_on`q = Var s t`>>simp[]>>
+      first_x_assum match_mp_tac >>
+      rw[]>>
+      first_x_assum(qspec_then`SUC n`mp_tac) >>
+      simp[]>>rw[]>>rw[]>>
+      disj2_tac >> rw[] >>
+      first_x_assum(qspec_then`SUC m`mp_tac) >>
+      simp[] ) >>
+    rw[]>>
+    first_x_assum match_mp_tac>>
+    rw[]>>
+    first_x_assum(qspec_then`SUC n`mp_tac) >>
+    simp[]>>rw[]>>rw[]>>
+    disj2_tac >> rw[] >>
+    first_x_assum(qspec_then`SUC m`mp_tac) >>
+    simp[] )
+  >- simp[RACONV]
+  >- (
+    simp[RACONV] >>
+    rw[] >>
+    first_x_assum match_mp_tac >>
+    rw[] >>
+    metis_tac[] ) >>
+  simp[RACONV] >> rw[] >>
+  first_x_assum match_mp_tac >>
+  Cases >> simp[] >> rw[] >>
+  qmatch_assum_rename_tac`n < LENGTH env`[] >>
+  first_x_assum(qspec_then`n`mp_tac) >>
+  simp[] >>
+  Cases_on`FST (EL n env) = SND (EL n env)`>>simp[]>>
+  Cases_on`FST (EL n env)
+  >- metis_tac[]
+
+  first_x_assum(qspecl_then[`(Var s t,Var s t)::env'`,`env`]mp_tac) >>
+  simp[] >> disch_then match_mp_tac >>
+  fs[EVERY_MEM,MEM_FILTER,FORALL_PROD] >>
+  rw[] >- metis_tac[] >>
+  kkkkkkk
+  res_
+  RACONV_REFL
+*)
+
+(*
+val raconv_vsubst = store_thm("raconv_vsubst",
+  ``∀t1 t2 env subst.
+      RACONV env (t1,t2) ∧
+      (∀s s'. MEM (s',s) subst ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ∧
+      (∀s s'. MEM (s',s) env ⇒ ∃x x' ty. s = Var x ty ∧ s' = Var x' ty) ∧
+      (∀v1 v2. ALPHAVARS env (v1,v2) ∧ VFREE_IN v1 t1 ∧ VFREE_IN v2 t2 ⇒
+                 RACONV env (VSUBST subst v1, VSUBST subst v2)) ∧
+      (∀s. MEM s (MAP SND subst) ⇒ ¬MEM s (MAP FST env) ∧ ¬MEM s (MAP SND env))
+      ⇒
+      RACONV env (VSUBST subst t1,VSUBST subst t2)``,
+  Induct
+  >- (gen_tac >> Cases >> simp[RACONV])
+  >- (gen_tac >> Cases >> simp[RACONV,VSUBST_def])
+  >- (Cases >> simp[RACONV,VSUBST_def]) >>
+  gen_tac >> Cases >> simp[RACONV] >>
+  rw[VSUBST_def] >>
+  rw[RACONV]
+
+
+val raconv_vsubst = store_thm("raconv_vsubst",
+  ``∀t1 t2 env subst.
+      RACONV env (t1,t2) ∧
+      (∀s s'. MEM (s',s) subst ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ∧
+      (∀s s' x ty. MEM (s',s) subst ∧ VFREE_IN s t1 ∧ VFREE_IN (Var x ty) s'
+        ⇒ ¬MEM (Var x ty) (MAP FST env)) ∧
+      (∀s s' x ty. MEM (s',s) subst ∧ VFREE_IN s t2 ∧ VFREE_IN (Var x ty) s'
+        ⇒ ¬MEM (Var x ty) (MAP SND env)) ∧
+      (∀s. MEM s (MAP SND subst) ⇒ ¬MEM s (MAP FST env) ∧ ¬MEM s (MAP SND env))
+      ⇒
+      RACONV env (VSUBST subst t1,VSUBST subst t2)``,
+  Induct >- (
+    gen_tac >>
+    Cases >> simp[RACONV] >>
+    simp[VSUBST_def] >>
+    CONV_TAC SWAP_FORALL_CONV >>
+    Induct >- (
+      simp[REV_ASSOCD,RACONV] ) >>
+    Cases >> simp[REV_ASSOCD] >>
+    gen_tac >> strip_tac >>
+    Cases_on`MEM (Var s t,Var s' t') env` >- (
+      `r ≠ Var s t` by ( fs[MEM_MAP,FORALL_PROD] >> metis_tac[] ) >>
+      `r ≠ Var s' t'` by ( fs[MEM_MAP,FORALL_PROD] >> metis_tac[] ) >>
+      simp[] >>
+      first_x_assum match_mp_tac >>
+      simp[] >>
+      metis_tac[] ) >>
+    imp_res_tac ALPHAVARS_MEM >> fs[] >>
+    reverse BasicProvers.CASE_TAC >> rw[] >- (
+      first_x_assum match_mp_tac >>
+      simp[] >> metis_tac[] ) >>
+
+
+    Induct >- (
+      simp[ALPHAVARS_def] >> rw[] >>
+      match_mp_tac RACONV_REFL >>
+      simp[] ) >>
+    Cases >> simp[ALPHAVARS_def] >>
+    strip_tac >- (
+      rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+      first_x_assum match_mp_tac >>
+      simp[ALPHAVARS_def] >>
+      metis_tac[] ) >>
+    fs[] >>
+    rw[] >> fs[] >>
+    RACONV_REFL
+
+    Induct >- (
+      simp[ALPHAVARS_def] >> rw[] >>
+      MATCH_MP_TAC RACONV_REFL >>
+      simp[] ) >>
+    Cases >> simp[ALPHAVARS_def]
+
+val SEMANTICS_VSUBST = store_thm("SEMANTICS_VSUBST",
+ ``!tm sigma tau ilist.
+       welltyped tm /\
+       (!s s'. MEM (s',s) ilist ==> ?x ty. (s = Var x ty) /\ s' has_type ty)
+       ==> !sigma tau. type_valuation tau /\ term_valuation tau sigma ∧
+                       sigma' satisfies:
+                             (ITLIST
+                                (\(t,x). DEST_VAR x |-> semantics sigma tau t)
+                                ilist sigma)
+                       ==> (semantics sigma tau (VSUBST ilist tm) =
+                            semantics sigma' tau tm)``,
+  MATCH_MP_TAC term_INDUCT THEN REWRITE_TAC[VSUBST; semantics] THEN
+  CONJ_TAC THENL
+   [MAP_EVERY X_GEN_TAC [`x:string`; `ty:type`] THEN
+    MATCH_MP_TAC list_INDUCT THEN
+    REWRITE_TAC[MEM; REV_ASSOCD; ITLIST; semantics; FORALL_PAIR_THM] THEN
+    MAP_EVERY X_GEN_TAC [`t:term`; `s:term`; `ilist:(term#term)list`] THEN
+    REWRITE_TAC[TAUT `a \/ b ==> c <=> (a ==> c) /\ (b ==> c)`] THEN
+    SIMP_TAC[FORALL_AND_THM; LEFT_FORALL_IMP_THM; PAIR_EQ] THEN
+    REWRITE_TAC[WELLTYPED_CLAUSES; LEFT_EXISTS_AND_THM; EXISTS_REFL] THEN
+    DISCH_THEN(fun th ->
+      DISCH_THEN(CONJUNCTS_THEN ASSUME_TAC) THEN MP_TAC th) THEN
+    ASM_REWRITE_TAC[] THEN
+    FIRST_X_ASSUM(X_CHOOSE_THEN `y:string` MP_TAC) THEN
+    DISCH_THEN(X_CHOOSE_THEN `tty:type` MP_TAC) THEN
+    DISCH_THEN(CONJUNCTS_THEN2 SUBST_ALL_TAC ASSUME_TAC) THEN
+    CONV_TAC(ONCE_DEPTH_CONV GEN_BETA_CONV) THEN
+    REWRITE_TAC[DEST_VAR; VALMOD; term_INJ; PAIR_EQ] THEN ASM_MESON_TAC[];
+    ALL_TAC] THEN
+  CONJ_TAC THENL
+   [REWRITE_TAC[WELLTYPED_CLAUSES] THEN REPEAT STRIP_TAC THEN
+    BINOP_TAC THEN ASM_MESON_TAC[];
+    ALL_TAC] THEN
+  MAP_EVERY X_GEN_TAC [`x:string`; `ty:type`; `t:term`] THEN
+  REWRITE_TAC[WELLTYPED_CLAUSES] THEN
+  ASM_CASES_TAC `welltyped t` THEN ASM_REWRITE_TAC[] THEN
+  REPEAT STRIP_TAC THEN LET_TAC THEN LET_TAC THEN
+  SUBGOAL_THEN
+   `!s s'. MEM (s',s) ilist' ==> (?x ty. (s = Var x ty) /\ s' has_type ty)`
+  ASSUME_TAC THENL
+   [EXPAND_TAC "ilist'" THEN ASM_SIMP_TAC[MEM_FILTER]; ALL_TAC] THEN
+  COND_CASES_TAC THENL
+   [REPEAT LET_TAC THEN
+    SUBGOAL_THEN
+     `!s s'. MEM (s',s) ilist'' ==> (?x ty. (s = Var x ty) /\ s' has_type ty)`
+    ASSUME_TAC THENL
+     [EXPAND_TAC "ilist''" THEN REWRITE_TAC[MEM; PAIR_EQ] THEN
+      ASM_MESON_TAC[has_type_RULES];
+      ALL_TAC];
+    ALL_TAC] THEN
+  REWRITE_TAC[semantics] THEN
+  MATCH_MP_TAC ABSTRACT_EQ THEN ASM_SIMP_TAC[TYPESET_INHABITED] THEN
+  X_GEN_TAC `a:V` THEN DISCH_TAC THEN
+  REPEAT CONJ_TAC THEN TRY(MATCH_MP_TAC SEMANTICS_TYPESET) THEN
+  ASM_SIMP_TAC[TERM_VALUATION_VALMOD; TERM_VALUATION_ITLIST] THEN
+  EXPAND_TAC "t'" THEN
+  ASM_SIMP_TAC[VSUBST_WELLTYPED; GSYM WELLTYPED; TERM_VALUATION_VALMOD] THEN
+  MATCH_MP_TAC TERM_VALUATION_VFREE_IN THEN
+  ASM_SIMP_TAC[TERM_VALUATION_VALMOD; TERM_VALUATION_ITLIST] THEN
+  MAP_EVERY X_GEN_TAC [`u:string`; `uty:type`] THEN DISCH_TAC THENL
+   [EXPAND_TAC "ilist''" THEN REWRITE_TAC[ITLIST] THEN
+    CONV_TAC(ONCE_DEPTH_CONV GEN_BETA_CONV) THEN
+    REWRITE_TAC[DEST_VAR; VALMOD; PAIR_EQ] THEN
+    COND_CASES_TAC THEN ASM_REWRITE_TAC[semantics; VALMOD];
+    ALL_TAC] THEN
+  EXPAND_TAC "ilist'" THEN ASM_SIMP_TAC[ITLIST_VALMOD_FILTER] THEN
+  REWRITE_TAC[VALMOD] THENL
+   [ALL_TAC;
+    REWRITE_TAC[PAIR_EQ] THEN COND_CASES_TAC THEN ASM_REWRITE_TAC[] THEN
+    MATCH_MP_TAC ITLIST_VALMOD_EQ THEN ASM_REWRITE_TAC[VALMOD; PAIR_EQ] THEN
+    MAP_EVERY X_GEN_TAC [`s':term`; `s:term`] THEN STRIP_TAC THEN
+    FIRST_X_ASSUM(MP_TAC o C MATCH_MP
+     (ASSUME `MEM (s':term,s:term) ilist`)) THEN
+    DISCH_THEN(X_CHOOSE_THEN `w:string` MP_TAC) THEN
+    DISCH_THEN(X_CHOOSE_THEN `wty:type` MP_TAC) THEN
+    DISCH_THEN(CONJUNCTS_THEN2 SUBST_ALL_TAC ASSUME_TAC) THEN
+    UNDISCH_TAC `DEST_VAR (Var w wty) = u,uty` THEN
+    REWRITE_TAC[DEST_VAR; PAIR_EQ] THEN
+    DISCH_THEN(CONJUNCTS_THEN SUBST_ALL_TAC) THEN
+    MATCH_MP_TAC TERM_VALUATION_VFREE_IN THEN
+    ASM_SIMP_TAC[TERM_VALUATION_VALMOD] THEN
+    CONJ_TAC THENL [ASM_MESON_TAC[welltyped]; ALL_TAC] THEN
+    MAP_EVERY X_GEN_TAC [`v:string`; `vty:type`] THEN
+    DISCH_TAC THEN REWRITE_TAC[VALMOD; PAIR_EQ] THEN
+    COND_CASES_TAC THEN ASM_REWRITE_TAC[] THEN
+    FIRST_X_ASSUM(CONJUNCTS_THEN SUBST_ALL_TAC) THEN
+    FIRST_X_ASSUM(MP_TAC o GEN_REWRITE_RULE I [NOT_EX]) THEN
+    REWRITE_TAC[GSYM ALL_MEM] THEN
+    DISCH_THEN(MP_TAC o SPEC `(s':term,Var u uty)`) THEN
+    ASM_REWRITE_TAC[] THEN CONV_TAC(ONCE_DEPTH_CONV GEN_BETA_CONV) THEN
+    ASM_REWRITE_TAC[] THEN EXPAND_TAC "ilist'" THEN
+    REWRITE_TAC[MEM_FILTER] THEN
+    CONV_TAC(ONCE_DEPTH_CONV GEN_BETA_CONV) THEN
+    ASM_REWRITE_TAC[term_INJ]] THEN
+  MP_TAC(ISPECL [`t':term`; `x:string`; `ty:type`] VARIANT) THEN
+  ASM_REWRITE_TAC[] THEN EXPAND_TAC "t'" THEN
+  REWRITE_TAC[VFREE_IN_VSUBST] THEN
+  REWRITE_TAC[NOT_EXISTS_THM; TAUT `~(a /\ b) = b ==> ~a`] THEN
+  DISCH_THEN(MP_TAC o SPECL [`u:string`; `uty:type`]) THEN
+  ASM_REWRITE_TAC[] THEN
+  SUBGOAL_THEN
+   `REV_ASSOCD (Var u uty) ilist' (Var u uty) =
+    REV_ASSOCD (Var u uty) ilist (Var u uty)`
+  SUBST1_TAC THENL
+   [EXPAND_TAC "ilist'" THEN REWRITE_TAC[REV_ASSOCD_FILTER] THEN
+    ASM_REWRITE_TAC[term_INJ];
+    ALL_TAC] THEN
+  UNDISCH_TAC
+   `!s s'. MEM (s',s) ilist ==> ?x ty. (s = Var x ty) /\ s' has_type ty` THEN
+  SPEC_TAC(`ilist:(term#term)list`,`l:(term#term)list`) THEN
+  MATCH_MP_TAC list_INDUCT THEN
+  REWRITE_TAC[REV_ASSOCD; ITLIST; VFREE_IN; VALMOD; term_INJ] THEN
+  SIMP_TAC[PAIR_EQ] THEN REWRITE_TAC[FORALL_PAIR_THM] THEN
+  CONV_TAC(ONCE_DEPTH_CONV GEN_BETA_CONV) THEN
+  REWRITE_TAC[VALMOD; REV_ASSOCD; MEM] THEN
+  REWRITE_TAC[TAUT `a \/ b ==> c <=> (a ==> c) /\ (b ==> c)`] THEN
+  SIMP_TAC[FORALL_AND_THM; LEFT_FORALL_IMP_THM; PAIR_EQ] THEN
+  REWRITE_TAC[WELLTYPED_CLAUSES; LEFT_EXISTS_AND_THM; EXISTS_REFL] THEN
+  MAP_EVERY X_GEN_TAC [`t1:term`; `t2:term`; `i:(term#term)list`] THEN
+  DISCH_THEN(fun th ->
+   DISCH_THEN(CONJUNCTS_THEN ASSUME_TAC) THEN MP_TAC th) THEN
+  FIRST_X_ASSUM(X_CHOOSE_THEN `v:string` MP_TAC) THEN
+  DISCH_THEN(X_CHOOSE_THEN `vty:type` MP_TAC) THEN
+  DISCH_THEN(CONJUNCTS_THEN2 SUBST_ALL_TAC ASSUME_TAC) THEN
+  ASM_REWRITE_TAC[DEST_VAR; term_INJ; PAIR_EQ] THEN
+  SUBGOAL_THEN `(v:string = u) /\ (vty:type = uty) <=> (u = v) /\ (uty = vty)`
+  SUBST1_TAC THENL [MESON_TAC[]; ALL_TAC] THEN
+  COND_CASES_TAC THEN ASM_REWRITE_TAC[] THEN
+  REPEAT STRIP_TAC THEN MATCH_MP_TAC TERM_VALUATION_VFREE_IN THEN
+  ASM_SIMP_TAC[TERM_VALUATION_VALMOD; VALMOD] THEN
+  REWRITE_TAC[PAIR_EQ] THEN ASM_MESON_TAC[welltyped; term_INJ]);;
+
+val RACONV_VSUBST = store_thm("RACONV_VSUBST",
+  ``∀env x1 x2 ty t1 t2. RACONV ((Var x1 ty,Var x2 ty)::env) (t1,t2) ⇔ RACONV env 
+      
+
+val aconv_clauses = store_thm("aconv_clauses",
+  ``(∀x ty t2. ACONV (Var x ty) t2 ⇔ t2 = Var x ty) ∧
+    (∀x ty g t2. ACONV (Const x ty g) t2 ⇔ t2 = Const x ty g) ∧
+    (∀t1a t1d t2. ACONV (Comb t1a t1d) t2 ⇔ ∃t2a t2d. t2 = Comb t2a t2d ∧ ACONV t1a t2a ∧ ACONV t1d t2d) ∧
+    (∀x1 ty b1 t2. ACONV (Abs x1 ty b1) t2 ⇔
+       ∃x2 b2 x3.
+         t2 = Abs x2 ty b2 ∧
+         ¬VFREE_IN (Var x3 ty) b1 ∧
+         ¬VFREE_IN (Var x3 ty) b2 ∧
+         ACONV (VSUBST [(Var x3 ty,Var x1 ty)] b1)
+               (VSUBST [(Var x3 ty,Var x2 ty)] b2))``,
+  rw[] >> Cases_on`t2`>>simp[ACONV_def,RACONV,ALPHAVARS_def]
+  >- metis_tac[]
+  >- metis_tac[] >>
+  Cases_on`t=ty`>>rw[]
+
+val ACONV_VSUBST = store_thm("RACONV_VSUBST",
+  ``∀tm subst tm'. ACONV tm tm' ⇒ ACONV (VSUBST subst tm) (VSUBST subst tm')``,
+  Induct >- (
+
+    ACONV_
+
+val RACONV_VSUBST = store_thm("RACONV_VSUBST",
+  ``∀env tp. RACONV env tp ⇒
+      ∀subst1 subst2.
+        (∀x1 ty1 x2 ty2.
+          ALPHAVARS env (Var x1 ty1,Var x2 ty2) ⇒
+            RACONV env (VSUBST subst1 (Var x1 ty1),VSUBST subst2 (Var x2 ty2)))
+        ⇒
+        RACONV env (VSUBST subst1 (FST tp),VSUBST subst2 (SND tp))``,
+  ho_match_mp_tac RACONV_ind >>
+  simp[RACONV,VSUBST_def] >>
+  rw[] >>
+  rw[RACONV,VSUBST_def]
 
 val RACONV_VSUBST = store_thm("RACONV_VSUBST",
   ``∀env tp. RACONV env tp ⇒
     ∀subst.
       (∀s s'. MEM (s',s) subst ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ∧
-      (∀x ty u. MEM (Var x ty) (MAP SND subst) ∨ (MEM u (MAP FST subst) ∧ VFREE_IN (Var x ty) u) ⇒
-                ¬MEM (Var x ty) (MAP FST env) ∧
-                ¬MEM (Var x ty) (MAP SND env))
+      (∀s s' x ty. MEM (s',s) subst ∧ VFREE_IN s (FST tp) ∧ VFREE_IN (Var x ty) s'
+        ⇒ ¬MEM (Var x ty) (MAP FST env)) ∧
+      (∀s s' x ty. MEM (s',s) subst ∧ VFREE_IN s (SND tp) ∧ VFREE_IN (Var x ty) s'
+        ⇒ ¬MEM (Var x ty) (MAP SND env)) ∧
+      (∀s s'. MEM (s',s) subst ⇒ ¬MEM s (MAP FST env) ∧ ¬MEM s (MAP SND env))
       ⇒
-      RACONV
-        (MAP
-          (λ(v1,v2).
-            (case v1 of Var x ty =>
-               if VFREE_IN (Var x ty) (FST tp)
-             | _ => v1
-            ,case v2 of Var x ty => ?
-             | _ => v2
-            )
-          )
-          env)
-        (VSUBST subst (FST tp),VSUBST subst (SND tp))``,
+      RACONV env (VSUBST subst (FST tp),VSUBST subst (SND tp))``,
   ho_match_mp_tac RACONV_ind >>
   conj_tac >- (
     Induct >- (
-      simp[ALPHAVARS_def,VSUBST_def] >>
-      rw[] >>
-      match_mp_tac RACONV_REFL >>
-      rw[] ) >>
+      simp[ALPHAVARS_def,VSUBST_def] >> rw[LENGTH_NIL] >>
+      match_mp_tac RACONV_REFL >> rw[] ) >>
     Cases >> simp[ALPHAVARS_def,VSUBST_def] >>
     rw[] >> fs[] >- (
       simp[REV_ASSOCD_ALOOKUP] >>
@@ -2706,7 +2995,13 @@ val RACONV_VSUBST = store_thm("RACONV_VSUBST",
       fs[MEM_MAP,EXISTS_PROD] >>
       metis_tac[] ) >>
     first_x_assum(qspecl_then[`ty1`,`ty2`,`x1`,`x2`]mp_tac) >>
+    simp[] >>
+    disch_then(qspec_then`subst`mp_tac) >>
+    discharge_hyps >- metis_tac[] >>
     simp[VSUBST_def] >>
+
+    REV_ASSOCD_MEM
+    (* show that you ca igore non-occuring bvs in the env with RACONV? *)
     cheat) >>
   conj_tac >- (
     simp[VSUBST_def,RACONV] ) >>
@@ -2715,7 +3010,6 @@ val RACONV_VSUBST = store_thm("RACONV_VSUBST",
     metis_tac[] ) >>
   rw[VSUBST_def] >>
   rw[RACONV]
-*)
 
 val welltyped_VSUBST = store_thm("welltyped_VSUBST",
   ``∀tm ilist.
@@ -2927,6 +3221,7 @@ val semantics_VSUBST = store_thm("semantics_VSUBST",
         metis_tac[semantics_extend_term_valuation
      *)
    cheat)
+*)
 *)
 
 val _ = export_theory()
