@@ -2717,39 +2717,142 @@ val raconv_refl_frees = store_thm("raconv_refl_frees",
   simp[] >> disch_then match_mp_tac >>
   fs[EVERY_MEM,MEM_FILTER,FORALL_PROD] >>
   rw[] >- metis_tac[] >>
-  kkkkkkk
-  res_
-  RACONV_REFL
+*)
+
+(*
+val raconv_rename = store_thm("raconv_rename",
+  ``∀t2 t1 subst env x1 x2 ty y.
+      RACONV ((Var x1 ty,Var y ty)::env) (VSUBST subst t1, t2) ∧
+      ¬VFREE_IN (Var x2 ty) (VSUBST subst t1) ∧
+      ¬MEM (Var x1 ty) (MAP SND subst) ∧
+      (∀x. MEM x (MAP FST env) ⇒ ¬MEM x (MAP SND subst))
+      ⇒
+      RACONV ((Var x2 ty,Var y ty)::env) (VSUBST ((Var x2 ty,Var x1 ty)::subst) t1, t2)``,
+  Induct >- (
+    gen_tac >>
+    reverse Cases>-(
+      rw[] >>
+      fs[VSUBST_def,LET_THM] >>
+      rpt (pop_assum mp_tac) >>
+      rw[RACONV] ) >>
+    fs[VSUBST_def,RACONV] >>
+    rw[REV_ASSOCD_ALOOKUP,RACONV,ALPHAVARS_def] >>
+    TRY (
+      last_x_assum mp_tac >>
+      BasicProvers.CASE_TAC >> fs[RACONV,ALPHAVARS_def] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    BasicProvers.CASE_TAC >> fs[RACONV,ALPHAVARS_def,ALOOKUP_FAILS] >> rw[] >>
+    Cases_on`x`>>fs[RACONV,ALPHAVARS_def] >> rw[] >>
+
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD] >>
+    metis_tac[] ) >>
+
+    Induct >- (
+      simp[REV_ASSOCD,RACONV] >>
+      rw[RACONV,ALPHAVARS_def] >>
+      fs[] ) >>
+    Cases >> simp[REV_ASSOCD] >>
+    fs[REV_ASSOCD] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    Cases_on`q`>>simp[RACONV]>>
+    simp[ALPHAVARS_def] >>
+    rw[]>>fs[RACONV,ALPHAVARS_def]>>
+    first_x_assum(qspecl_then[`[]`,`s''`,`s'`,`t'`,`s''`]mp_tac)
+    fs[REV_ASSOCD_ALOOKUP]
+    Induct >- (
+      simp[ALPHAVARS_def] >>
+      rw[RACONV,ALPHAVARS_def]>>fs[]
+
+    rw[] >>
+    Cases_on`q`>>fs[RACONV,ALPHAVARS_def]
+    rw[RACONV,ALPHAVARS_def] >>
+    fs[RACONV]
+
+    fs[REV_ASSOCD] >> rw[] >>
+    fs[REV_ASSOCD,RACONV]
+
+    rw[VSUBST_def]
+    gen_tac >> Cases >> simp[RACONV,VSUBST_def]
+
+[] |- (λx. x a) == (λy. y a)
+[(x,y)] |- x a == y a
 *)
 
 (*
 val raconv_vsubst = store_thm("raconv_vsubst",
-  ``∀t1 t2 env subst.
+  ``∀t1 t2 env subst1 subst2.
       RACONV env (t1,t2) ∧
-      (∀s s'. MEM (s',s) subst ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ∧
-      (∀s s'. MEM (s',s) env ⇒ ∃x x' ty. s = Var x ty ∧ s' = Var x' ty) ∧
-      (∀v1 v2. ALPHAVARS env (v1,v2) ∧ VFREE_IN v1 t1 ∧ VFREE_IN v2 t2 ⇒
-                 RACONV env (VSUBST subst v1, VSUBST subst v2)) ∧
-      (∀s. MEM s (MAP SND subst) ⇒ ¬MEM s (MAP FST env) ∧ ¬MEM s (MAP SND env))
+      (* (∀s s'. MEM (s',s) subst ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ∧ *)
+      (* (∀s s'. MEM (s',s) env ⇒ ∃x x' ty. s = Var x ty ∧ s' = Var x' ty) ∧ *)
+      (∀v1 v2. ALPHAVARS env (v1,v2) (* ∧ VFREE_IN v1 t1 ∧ VFREE_IN v2 t2 *) ⇒
+                 RACONV env (VSUBST subst1 v1, VSUBST subst2 v2)) (* ∧
+      (∀s. MEM s (MAP SND subst1) ⇒ ¬MEM s (MAP FST env)) ∧
+      (∀s. MEM s (MAP SND subst2) ⇒ ¬MEM s (MAP SND env)) *)
       ⇒
-      RACONV env (VSUBST subst t1,VSUBST subst t2)``,
+      RACONV env (VSUBST subst1 t1,VSUBST subst2 t2)``,
   Induct
   >- (gen_tac >> Cases >> simp[RACONV])
   >- (gen_tac >> Cases >> simp[RACONV,VSUBST_def])
   >- (Cases >> simp[RACONV,VSUBST_def]) >>
   gen_tac >> Cases >> simp[RACONV] >>
   rw[VSUBST_def] >>
-  rw[RACONV]
+  rw[RACONV] >- (
+    first_x_assum match_mp_tac
+
+*)
+
+val ALPHAVARS_FILTER_REFL = store_thm("ALPHAVARS_FILTER_REFL",
+  ``∀env t. EVERY (UNCURRY $=) (FILTER (λ(x,y). t = x ∨ t = y) env) ⇒ ALPHAVARS env (t,t)``,
+  Induct >> simp[ALPHAVARS_def] >>
+  Cases >> simp[] >> rw[] >> fs[])
+
+(*
+val RACONV_FILTER_REFL = store_thm("RACONV_FILTER_ENV",
+  ``∀t env. EVERY (UNCURRY $=) (FILTER (λ(x,y). VFREE_IN x t) env) ∧
+            EVERY (λ(x,y). VFREE_IN x t ⇔ VFREE_IN y t) env
+      ⇒ RACONV env (t,t)``,
+  Induct
+  >- (
+    rw[RACONV] >>
+    match_mp_tac ALPHAVARS_FILTER_REFL >>
+    fs[EVERY_MEM,FORALL_PROD,MEM_FILTER] >>
+    metis_tac[])
+  >- simp[RACONV]
+  >- (
+    simp[RACONV] >>
+    rw[] >>
+    first_x_assum match_mp_tac >>
+    fs[EVERY_MEM,FORALL_PROD,MEM_FILTER] >>
+    metis_tac[] ) >>
+  simp[RACONV] >> rw[] >>
+  first_x_assum match_mp_tac >>
+  fs[EVERY_MEM,FORALL_PROD,MEM_FILTER] >>
+  conj_tac >- (
+    qx_genl_tac[`x`,`y`] >> rw[] >>
+    Cases_on`x=Var s t` >- (
+      res_tac >> fs[] >>
+      rfs[]
+
+    rw[] >>
+    Cases_on`ph
+  Cases_on`x = Var s t ∧ y = Var s t`>>simp[] >>
+  fs[]
+  metis_tac[]
+  rw[]
 
 
 val raconv_vsubst = store_thm("raconv_vsubst",
   ``∀t1 t2 env subst.
       RACONV env (t1,t2) ∧
+      (* substitution well-typed *)
       (∀s s'. MEM (s',s) subst ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ∧
-      (∀s s' x ty. MEM (s',s) subst ∧ VFREE_IN s t1 ∧ VFREE_IN (Var x ty) s'
-        ⇒ ¬MEM (Var x ty) (MAP FST env)) ∧
-      (∀s s' x ty. MEM (s',s) subst ∧ VFREE_IN s t2 ∧ VFREE_IN (Var x ty) s'
-        ⇒ ¬MEM (Var x ty) (MAP SND env)) ∧
+      (* substitution doesn't capture bound variables *)
+      (∀s' x ty. MEM s' (MAP FST subst) ∧ VFREE_IN (Var x ty) s'
+        ⇒ ¬MEM (Var x ty) (MAP FST env) ∧ ¬MEM (Var x ty) (MAP SND env)) ∧
+      (* substitution doesn't replace bound variables *)
       (∀s. MEM s (MAP SND subst) ⇒ ¬MEM s (MAP FST env) ∧ ¬MEM s (MAP SND env))
       ⇒
       RACONV env (VSUBST subst t1,VSUBST subst t2)``,
@@ -2757,6 +2860,20 @@ val raconv_vsubst = store_thm("raconv_vsubst",
     gen_tac >>
     Cases >> simp[RACONV] >>
     simp[VSUBST_def] >>
+    rw[] >>
+    simp[REV_ASSOCD_ALOOKUP] >>
+    reverse BasicProvers.CASE_TAC >- (
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,EXISTS_PROD]
+      simp
+
+    Induct >- (
+      simp[ALPHAVARS_def] >> rw[] >>
+      match_mp_tac RACONV_REFL >> rw[] ) >>
+
+    Cases >> simp[ALPHAVARS_def] >>
+    rw[]
+
     CONV_TAC SWAP_FORALL_CONV >>
     Induct >- (
       simp[REV_ASSOCD,RACONV] ) >>
@@ -2929,7 +3046,6 @@ val SEMANTICS_VSUBST = store_thm("SEMANTICS_VSUBST",
 
 val RACONV_VSUBST = store_thm("RACONV_VSUBST",
   ``∀env x1 x2 ty t1 t2. RACONV ((Var x1 ty,Var x2 ty)::env) (t1,t2) ⇔ RACONV env 
-      
 
 val aconv_clauses = store_thm("aconv_clauses",
   ``(∀x ty t2. ACONV (Var x ty) t2 ⇔ t2 = Var x ty) ∧
