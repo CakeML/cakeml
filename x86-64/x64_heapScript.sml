@@ -35,7 +35,7 @@ val w2w_ADD_sw2sw_SUB = prove(
 
 (* define zHEAP *)
 
-val _ = (Datatype.big_record_size := 40);
+val _ = (Datatype.big_record_size := 100);
 
 val _ = Hol_datatype ` (* called cs *)
   zheap_consts = <| heap_limit : num ;
@@ -53,6 +53,23 @@ val _ = Hol_datatype ` (* called cs *)
                     code_heap_ptr : word64 ;
                     code_heap_length : num ;
                     stack_trunk : word64 |>`;
+
+val consts_zero = Define `
+  consts_zero = <| heap_limit := 0 ;
+                   heap_part1 := 0w ;
+                   heap_part2 := 0w ;
+                   ret_address := 0w ;
+                   rest_of_stack := [] ;
+                   getchar_ptr := 0w ;
+                   putchar_ptr := 0w ;
+                   error_ptr := 0w ;
+                   alloc_ptr := 0w ;
+                   bignum_ptr := 0w ;
+                   equal_ptr := 0w ;
+                   print_ptr := 0w ;
+                   code_heap_ptr := 0w ;
+                   code_heap_length := 0 ;
+                   stack_trunk := 0w |>`;
 
 val _ = Hol_datatype ` (* called vs *)
   zheap_vars = <| current_heap : word64 ;
@@ -114,7 +131,8 @@ val x64_store_def = Define `
        cs.print_ptr;           (* pointer to routine for rec printing of bc_value *)
        vs.code_ptr;            (* pointer to next free instruction slot *)
        n2w cs.code_heap_length;(* size of code heap *)
-       cs.code_heap_ptr
+       cs.code_heap_ptr;
+       0w
       ]`;
 
 val not_0w_def = Define `not_0w = ~0w`;
@@ -214,6 +232,71 @@ val error_msg_def = Define `
 val zHEAP_ERROR_def = Define `
   zHEAP_ERROR cs =
     SEP_EXISTS output. zHEAP_OUTPUT (cs,output ++ error_msg)`;
+
+
+(* define INTI_STATE *)
+
+val _ = Hol_datatype ` (* called init *)
+  zheap_init = <| init_heap_ptr : word64 ;
+                  init_heap_size : word64 ;
+                  init_code_heap_ptr : word64 ;
+                  init_code_heap_size : word64 ;
+                  init_putc_ptr : word64 ;
+                  init_getc_ptr : word64 ;
+                  init_input : string ;
+                  init_ret_ptr : word64 ;
+                  init_stack_bottom : word64 ;
+                  init_stack : word64 list |>`;
+
+(*
+
+  heap[0] = HEAP_SIZE;
+  heap[1] = (long) (& codeheap);
+  heap[2] = CODE_HEAP_SIZE;
+  heap[3] = (long) (& putchar);
+  heap[4] = (long) (& getchar);
+
+  - pointer to heap is in rax
+  - ret address on top of stack
+
+*)
+
+val init_inv_def = Define `
+  init_inv (cs:zheap_consts) (vals:x64_vals) (init:zheap_init) =
+    (* heap pointer is in rax regsiter *)
+    (vals.reg0 = init.init_heap_ptr) /\
+    (* pointers are 64-bit aligned and sizes are < 2 ** 48 *)
+    (init.init_heap_ptr && 7w = 0w) /\
+    (init.init_code_heap_ptr && 7w = 0w) /\
+    0x100 <= w2n init.init_heap_size /\
+    (w2n init.init_heap_size MOD 16 = 0) /\
+    w2n init.init_heap_size < 0x1000000000000 /\
+    w2n init.init_code_heap_size < 0x1000000000000 /\
+    (* stack contains ret pointer *)
+    (vals.stack = init.init_ret_ptr :: init.init_stack) /\
+    (* code heap is present but not clean *)
+    (vals.code_option = SOME F) /\ (vals.code_list = []) /\
+    (cs.code_heap_ptr = init.init_code_heap_ptr) /\
+    (cs.code_heap_length = w2n init.init_code_heap_size) /\
+    (* input_stream holds input and output is empty *)
+    (cs.getchar_ptr = init.init_getc_ptr) /\
+    (cs.putchar_ptr = init.init_putc_ptr) /\
+    (vals.input_stream = MAP (n2w o ORD) init.init_input) /\
+    (vals.output_stream = []) /\
+    (* memory contains heap array with space for heaps *)
+    ?space.
+      (one_list init.init_heap_ptr ([init.init_heap_size;
+                                     init.init_code_heap_ptr;
+                                     init.init_code_heap_size;
+                                     init.init_putc_ptr;
+                                     init.init_getc_ptr] ++ space))
+           (fun2set (vals.memory,vals.memory_domain)) /\
+      (8 * (5 + LENGTH space) = w2n init.init_heap_size)`;
+
+val INIT_STATE_def = Define `
+  INIT_STATE init =
+    SEP_EXISTS cs vals.
+      zVALS cs vals * cond (init_inv cs vals init)`;
 
 
 (* helpers theorems *)
@@ -341,6 +424,284 @@ fun x64_decompile_no_status name asm =
     (assemble asm);
 
 val (_,_,sts,_) = prog_x64Lib.x64_tools
+
+
+(* from INIT_STATE to zHEAP *)
+
+val store_length =
+  x64_store_def |> SPEC_ALL |> concl |> rand |> rand
+    |> listSyntax.dest_list |> fst |> length |> numSyntax.term_of_int
+
+val heap_len =
+  ``((w2n init.init_heap_size - 8 * ^store_length) DIV 16)``
+
+val first_s_def = Define `
+  first_s (init:zheap_init) =
+    <| input := " " ++ init.init_input ;
+       output := "" ;
+       handler := 0 ;
+       base_offset := 0 ;
+       code_mode := SOME F ;
+       code := [] |>`
+
+val first_cs_def = Define `
+  first_cs (init:zheap_init) =
+    consts_zero with <| heap_limit := ^heap_len
+                      ; ret_address := init.init_ret_ptr
+                      ; rest_of_stack := init.init_stack
+                      ; code_heap_ptr := init.init_code_heap_ptr
+                      ; code_heap_length := w2n init.init_code_heap_size
+                      ; getchar_ptr := init.init_getc_ptr
+                      ; putchar_ptr := init.init_putc_ptr |>`;
+
+val reintro_word_sub64 = SIMP_CONV (srw_ss()) [] ``-(n2w n):word64`` |> GSYM
+
+val ID_def = Define `ID x = x`;
+
+val n2w_lsr = prove(
+  ``!n. n < 2**64 ==>
+        (n2w n >>> k = n2w (n DIV 2 ** k):word64)``,
+  SIMP_TAC std_ss [w2n_lsr,GSYM w2n_11,w2n_n2w] \\ REPEAT STRIP_TAC
+  \\ `(n DIV 2 ** k) < dimword (:64)` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ FULL_SIMP_TAC (srw_ss()) [DIV_LT_X]
+  \\ Cases_on `(2:num) ** k` \\ FULL_SIMP_TAC std_ss [MULT_CLAUSES]
+  \\ DECIDE_TAC) |> SIMP_RULE std_ss [];
+
+val x64_heap_heap_expand = prove(
+  ``x64_heap curr (heap_expand len) curr curr = one_list_exists curr len``,
+  Cases_on `len` \\ ASM_SIMP_TAC std_ss [heap_expand_def]
+  \\ SIMP_TAC std_ss [one_list_exists_def,FUN_EQ_THM,SEP_EXISTS_THM,ADD1,
+      cond_STAR,LENGTH_NIL,one_list_def,x64_heap_def,SEP_CLAUSES,x64_el_def]);
+
+val x64_heap_APPEND_one_list_exists = prove(
+  ``x64_heap curr (heap_expand heap_len) curr curr *
+    one_list_exists (curr + 0x8w * n2w heap_len) heap_len =
+    one_list_exists curr (heap_len + heap_len)``,
+  SIMP_TAC std_ss [x64_heap_heap_expand,one_list_exists_def,SEP_CLAUSES]
+  \\ SIMP_TAC (std_ss++sep_cond_ss) [FUN_EQ_THM,SEP_EXISTS_THM,cond_STAR]
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC THEN1
+   (Q.EXISTS_TAC `xs ++ xs'`
+    \\ FULL_SIMP_TAC std_ss [LENGTH_APPEND,one_list_APPEND,word_mul_n2w])
+  \\ IMP_RES_TAC LENGTH_EQ_SUM \\ FULL_SIMP_TAC std_ss []
+  \\ Q.LIST_EXISTS_TAC [`l1`,`l2`]
+  \\ FULL_SIMP_TAC std_ss [one_list_APPEND,word_mul_n2w]);
+
+val (x64_setup_res, x64_setup_def, x64_setup_pre_def) = x64_compile `
+  x64_setup (r0:word64,dm:word64 set,m:word64->word64,ss:word64 list) =
+    let r1 = 1w:word64 in
+    let ss = r1 :: ss in
+    let r1 = m r0 in
+    let r12 = m (r0 + 0x08w) in (* code_heap_ptr *)
+    let r13 = m (r0 + 0x10w) in (* code_heap_size *)
+    let r3 = n2w ^store_length in
+    let r3 = r3 << 3 in
+    let r15 = r0 + r3 in (* v *)
+    let r1 = r1 - r3 in
+    let r1 = r1 >>> 4 in (* w *)
+    let r9 = r0 in
+    let r6 = r15 - 1w in
+    let r7 = r1 << 3 in
+    let r7 = r7 + r15 in
+    let r7 = r7 - 1w in
+    let r10 = 0x20w:word64 in
+    let m = (r0 =+ r15) m in
+    let r2 = r1 << 3 in
+    let r15 = r15 + r2 in
+    let r11 = 0w:word64 in
+    let m = (r0 + 8w =+ r15) m in
+    let m = (r0 + 0x10w =+ r1) m in
+    let m = (r0 + 0x28w =+ r11) m in
+    let m = (r0 + 0x30w =+ r11) m in
+    let m = (r0 + 0x38w =+ r11) m in
+    let m = (r0 + 0x40w =+ r11) m in
+    let m = (r0 + 0x48w =+ r11) m in
+    let m = (r0 + 0x58w =+ r13) m in
+    let m = (r0 + 0x50w =+ r12) m in
+    let m = (r0 + 0x60w =+ r12) m in
+    let m = (r0 + 0x68w =+ r11) m in
+    let r0 = r11 in
+    let r1 = r11 in
+    let r2 = r11 in
+    let r3 = r11 in
+    let r8 = r11 in
+    let r12 = r11 in
+    let r13 = r11 in
+    let r14 = r11 in
+    let r15 = r11 in
+      (r0,r1,r2,r3,r6,r7,r8,r9,r10,r11,r12,r13,r14,r15,dm,m,ss)`
+
+val init_inv_IMP_heap_inv = prove(
+  ``init_inv cs vals init ==>
+      x64_setup_pre (vals.reg0,vals.memory_domain,vals.memory,vals.stack) /\
+      let x = Number 0 in
+      let w = (vals.memory vals.reg0 - n2w (ID (8 * ^store_length))) >>> 4 in
+      let c = (vals.memory (vals.reg0 + 8w)) in
+      let v = vals.reg0 + n2w (8 * ^store_length) in
+        heap_inv (first_cs init,x,x,x,x,FEMPTY,[],first_s init,NONE)
+          (let (r0,r1,r2,r3,r6,r7,r8,r9,r10,r11,r12,r13,r14,r15,dm,m,ss) =
+            x64_setup (vals.reg0,vals.memory_domain,vals.memory,vals.stack) in
+             vals with <| reg0 := r0 ;
+                          reg1 := r1 ;
+                          reg2 := r2 ;
+                          reg3 := r3 ;
+                          reg6 := r6 ;
+                          reg7 := r7 ;
+                          reg8 := r8 ;
+                          reg9 := r9 ;
+                          reg10 := r10 ;
+                          reg11 := r11 ;
+                          reg12 := r12 ;
+                          reg13 := r13 ;
+                          reg14 := r14 ;
+                          reg15 := r15 ;
+                          stack := ss ;
+                          memory := m ;
+                          memory_domain := dm |>)``,
+  ONCE_REWRITE_TAC [CONJ_COMM]
+  \\ SIMP_TAC std_ss [LET_DEF,init_inv_def] \\ STRIP_TAC
+  \\ Q.ABBREV_TAC `heap_len = ^heap_len`
+  \\ Q.ABBREV_TAC `curr = init.init_heap_ptr + n2w (8 * ^store_length)`
+  \\ `(vals.memory init.init_heap_ptr - n2w (ID 112)) >>> 4 = n2w heap_len` by
+   (FULL_SIMP_TAC std_ss [one_list_def,APPEND] \\ SEP_R_TAC
+    \\ UNABBREV_ALL_TAC \\ Cases_on `init.init_heap_size`
+    \\ FULL_SIMP_TAC std_ss [w2n_n2w,WORD_SUB_INTRO,ID_def]
+    \\ `~(n < 8 * ^store_length)` by DECIDE_TAC
+    \\ FULL_SIMP_TAC std_ss [word_arith_lemma2]
+    \\ `n - 8 * ^store_length < 18446744073709551616` by DECIDE_TAC
+    \\ FULL_SIMP_TAC bool_ss [EVAL ``8 * ^store_length``]
+    \\ IMP_RES_TAC n2w_lsr
+    \\ FULL_SIMP_TAC std_ss []) \\ FULL_SIMP_TAC std_ss []
+  \\ `curr + n2w heap_len << 3 - 0x1w = (curr + n2w (8 * heap_len)) - 1w` by
+   (FULL_SIMP_TAC std_ss [WORD_MUL_LSL,word_mul_n2w,word_sub_def]
+    \\ SIMP_TAC std_ss [AC WORD_ADD_COMM WORD_ADD_ASSOC])
+  \\ FULL_SIMP_TAC std_ss []
+  \\ SIMP_TAC (srw_ss()) [LET_DEF,heap_inv_def]
+  \\ FULL_SIMP_TAC std_ss [PULL_EXISTS]
+  \\ Q.LIST_EXISTS_TAC [`<| current_heap := curr;
+                            other_heap := curr + n2w (8 * heap_len);
+                            base_ptr := init.init_heap_ptr ;
+                            code_ptr := init.init_code_heap_ptr |>`,
+       `Data 0w`,`Data 0w`,`Data 0w`,`Data 0w`,`[]`,
+       `heap_expand heap_len`,`0`,`heap_len`]
+  \\ FULL_SIMP_TAC std_ss [GSYM CONJ_ASSOC]
+  \\ FULL_SIMP_TAC (srw_ss()) [x64_addr_def,first_cs_def,heap_vars_ok_def]
+  \\ STRIP_TAC THEN1
+   (Cases_on `heap_len = 0` \\ FULL_SIMP_TAC std_ss [heap_expand_def]
+    \\ EVAL_TAC \\ SIMP_TAC std_ss [SUM,PULL_EXISTS] \\ Q.EXISTS_TAC `FEMPTY`
+    \\ SRW_TAC [] [INJ_DEF,get_refs_def] \\ DECIDE_TAC)
+  \\ FULL_SIMP_TAC (srw_ss()) [init_inv_def,first_s_def,code_heap_inv_def,
+       stack_inv_def] \\ FULL_SIMP_TAC std_ss [reintro_word_sub64]
+  \\ `heap_len < 281474976710656 /\
+      heap_len < 4611686018427387904` by ALL_TAC THEN1
+    (UNABBREV_ALL_TAC \\ FULL_SIMP_TAC std_ss [DIV_LT_X] \\ DECIDE_TAC)
+  \\ FULL_SIMP_TAC std_ss [x64_heap_APPEND_one_list_exists
+       |> SIMP_RULE std_ss [word_mul_n2w]]
+  \\ `0x7w && curr = 0x0w` by ALL_TAC THEN1
+   (UNABBREV_ALL_TAC
+    \\ Q.PAT_ASSUM `0x7w && init.init_heap_ptr = 0x0w` MP_TAC
+    \\ blastLib.BBLAST_TAC) \\ FULL_SIMP_TAC std_ss []
+  \\ `0x7w && curr + n2w (8 * heap_len) = 0x0w` by ALL_TAC THEN1
+   (POP_ASSUM MP_TAC \\ SIMP_TAC std_ss [GSYM word_mul_n2w]
+    \\ blastLib.BBLAST_TAC) \\ FULL_SIMP_TAC std_ss []
+  \\ FULL_SIMP_TAC (srw_ss()) [x64_setup_def,LET_DEF,ID_def]
+  \\ STRIP_TAC THEN1 cheat (* stack initialisation is slightly borken *)
+  \\ STRIP_TAC THEN1 DECIDE_TAC
+  \\ `^store_length - 5 <= LENGTH space` by DECIDE_TAC
+  \\ IMP_RES_TAC LESS_EQ_LENGTH
+  \\ FULL_SIMP_TAC std_ss []
+  \\ Cases_on `ys1` \\ FULL_SIMP_TAC std_ss [LENGTH]
+  \\ REVERSE (NTAC 5 (REPEAT (Cases_on `t` \\ FULL_SIMP_TAC std_ss [LENGTH])
+             \\ REPEAT (Cases_on `t'` \\ FULL_SIMP_TAC std_ss [LENGTH])))
+  THEN1 (SIMP_TAC std_ss [ADD1] \\ `F` by DECIDE_TAC)
+  \\ FULL_SIMP_TAC (srw_ss()++sep_cond_ss) [APPEND,one_list_def,x64_store_def,
+       EVAL ``consts_zero``,STAR_ASSOC,SEP_CLAUSES,SEP_EXISTS_THM,
+       one_list_exists_def,cond_STAR]
+  \\ SIMP_TAC std_ss [CONJ_ASSOC]
+  \\ REVERSE STRIP_TAC THEN1
+   (FULL_SIMP_TAC std_ss [x64_setup_pre_def,LET_DEF]
+    \\ SEP_R_TAC \\ SIMP_TAC std_ss []
+    \\ Q.PAT_ASSUM `0x7w && init.init_heap_ptr = 0x0w` MP_TAC
+    \\ blastLib.BBLAST_TAC)
+  \\ SIMP_TAC std_ss [GSYM CONJ_ASSOC]
+  \\ Q.EXISTS_TAC `ys2` \\ STRIP_TAC THEN1
+   (UNABBREV_ALL_TAC \\ FULL_SIMP_TAC std_ss [ADD1,LEFT_ADD_DISTRIB]
+    \\ FULL_SIMP_TAC std_ss [ADD_ASSOC]
+    \\ Q.PAT_ASSUM `ww = w2n init.init_heap_size` (ASSUME_TAC o GSYM)
+    \\ FULL_SIMP_TAC std_ss []
+    \\ Q.PAT_ASSUM `(ppp + 8 * LENGTH ys2) MOD 16 = 0` MP_TAC
+    \\ SIMP_TAC std_ss [Once (GSYM MOD_PLUS)]
+    \\ ONCE_REWRITE_TAC [GSYM (EVAL ``8 * 2:num``)]
+    \\ SIMP_TAC bool_ss [GSYM MOD_COMMON_FACTOR,DECIDE ``0 < 8:num /\ 0 < 2:num``]
+    \\ SIMP_TAC std_ss [GSYM DIV_DIV_DIV_MULT,RW1 [MULT_COMM] MULT_DIV]
+    \\ STRIP_ASSUME_TAC (Q.SPEC `LENGTH (ys2:word64 list)`
+           (MATCH_MP DIVISION (DECIDE ``0<2:num``)) |> GSYM)
+    \\ POP_ASSUM (K ALL_TAC)
+    \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+    \\ DECIDE_TAC)
+  \\ SIMP_TAC std_ss [WORD_MUL_LSL,word_mul_n2w]
+  \\ Q.ABBREV_TAC `ptr = init.init_heap_ptr`
+  \\ Q.ABBREV_TAC `m = vals.memory`
+  \\ Q.ABBREV_TAC `dm = vals.memory_domain`
+  \\ SEP_R_TAC
+  \\ FULL_SIMP_TAC std_ss [] \\ SEP_W_TAC
+  \\ POP_ASSUM MP_TAC
+  \\ FULL_SIMP_TAC (std_ss++star_ss) []
+  \\ SIMP_TAC std_ss [STAR_ASSOC]
+  \\ Q.PAT_ABBREV_TAC `pat = (ww:word64 =+ vv:word64) bbb`
+  \\ FULL_SIMP_TAC (std_ss++star_ss) []
+  \\ SIMP_TAC std_ss [STAR_ASSOC])
+  |> SPEC_ALL |> SIMP_RULE std_ss [LET_DEF];
+
+val new_vals = init_inv_IMP_heap_inv |> concl |> rand |> rand |> rand
+
+val zHEAP_SETUP = let
+  val th = x64_setup_res
+  val pc = get_pc th
+  val target = ``~zS * zPC p * zVALS cs vals * cond (init_inv cs vals init)``
+  val (th,goal) = expand_pre th target
+  val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
+  val th = MP th lemma |> DISCH_ALL |> DISCH T
+                       |> PURE_REWRITE_RULE [AND_IMP_INTRO]
+  val th = MATCH_MP SPEC_WEAKEN_LEMMA th
+  val th = th |> Q.SPEC `zHEAP (first_cs init,Number 0,Number 0,
+                                Number 0,Number 0,FEMPTY,[],
+                                first_s init,NONE) * ~zS * ^pc`
+  val goal = th |> concl |> dest_imp |> fst
+(*
+  gg goal
+*)
+  val lemma = prove(goal,
+    SIMP_TAC std_ss [def,LET_DEF,SEP_CLAUSES] \\ NTAC 2 STRIP_TAC
+    THEN1 (IMP_RES_TAC init_inv_IMP_heap_inv)
+    \\ FULL_SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
+    \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
+    \\ REPEAT STRIP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()) [zVALS_def]
+    \\ IMP_RES_TAC init_inv_IMP_heap_inv
+    \\ `?r0 r1 r2 r3 r6 r7 r8 r9 r10 r11 r12 r13 r14 r15 dm m ss.
+          x64_setup (vals.reg0,vals.memory_domain,vals.memory,vals.stack) =
+            (r0,r1,r2,r3,r6,r7,r8,r9,r10,r11,r12,r13,r14,r15,dm,m,ss)` by
+               METIS_TAC [PAIR]
+    \\ FULL_SIMP_TAC std_ss []
+    \\ EXISTS_TAC new_vals
+    \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ FULL_SIMP_TAC (srw_ss()++star_ss) [zVALS_def,LET_DEF,ID_def,first_cs_def]
+    \\ FULL_SIMP_TAC std_ss [STAR_ASSOC]
+    \\ Q.PAT_ASSUM `init_inv cs vals init` ASSUME_TAC
+    \\ FULL_SIMP_TAC std_ss [init_inv_def]
+    \\ Q.PAT_ASSUM `xx s` MP_TAC
+    \\ FULL_SIMP_TAC (srw_ss()++star_ss) []
+    \\ FULL_SIMP_TAC std_ss [STAR_ASSOC])
+  val th = MP th lemma
+  val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val th = Q.GEN `cs` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val (th,goal) = SPEC_STRENGTHEN_RULE th ``INIT_STATE init * ~zS * zPC p``
+  val lemma = prove(goal,
+    SIMP_TAC (std_ss++star_ss) [INIT_STATE_def,SEP_IMP_REFL,SEP_CLAUSES,
+       AC CONJ_ASSOC CONJ_COMM])
+  val th = MP th lemma
+  val th = th |> DISCH_ALL |> RW [AND_IMP_INTRO] |> RW [GSYM SPEC_MOVE_COND]
+  in th end;
 
 
 (* SNOC imm8 to code heap *)
@@ -7149,8 +7510,6 @@ val zHEAP_NOP = let
     SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES])
   val th = MP th lemma
   in th end;
-
-val ID_def = Define `ID x = x`;
 
 val zHEAP_ID_1234 = let
   val (th,goal) = SPEC_WEAKEN_RULE zHEAP_NOP

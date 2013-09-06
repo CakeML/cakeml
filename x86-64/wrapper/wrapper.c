@@ -6,9 +6,17 @@ const HEAP_SIZE = 1024 * 1024 * 1024;
 const CODE_HEAP_SIZE = 4 * 1024 * 1024;
 
 int main(int argc, char** argv) {
+  /* allocate memory -- code heap must have EXEC rights */
   void *codeheap = malloc(CODE_HEAP_SIZE);
   mprotect(codeheap, CODE_HEAP_SIZE, PROT_READ|PROT_WRITE|PROT_EXEC);
   unsigned long long *heap = malloc(HEAP_SIZE);
+  /* check precondition */
+  assert ((& heap) & 7 == 0);
+  assert ((& codeheap) & 7 == 0);
+  assert (0x100 <= HEAP_SIZE);
+  assert (HEAP_SIZE < 0x1000000000000);
+  assert (CODE_HEAP_SIZE < 0x1000000000000);
+  /* start verified code */
   heap[0] = HEAP_SIZE;
   heap[1] = (long) (& codeheap);
   heap[2] = CODE_HEAP_SIZE;
