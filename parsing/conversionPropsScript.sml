@@ -147,6 +147,7 @@ val UQConstructorName_OK = store_thm(
     ∃i. ptree_UQConstructorName pt = SOME i``,
   start >> simp[ptree_UQConstructorName_def]);
 
+val n = SIMP_RULE bool_ss [GSYM AND_IMP_INTRO]
 val ConstructorName_OK = store_thm(
   "ConstructorName_OK",
   ``valid_ptree mmlG pt ∧ ptree_head pt = NT (mkNT nConstructorName) ∧
@@ -165,7 +166,6 @@ val Ops_OK0 = store_thm(
   start >> simp[ptree_Op_def, gramTheory.assert_def,
                 optionTheory.OPTION_IGNORE_BIND_def]);
 
-val n = SIMP_RULE bool_ss [GSYM AND_IMP_INTRO]
 val MAP_TK11 = prove(
   ``∀l1 l2. MAP TK l1 = MAP TK l2 ⇔ l1 = l2``,
   Induct_on `l1` >> simp[] >- metis_tac[] >> rpt gen_tac >>
