@@ -228,6 +228,7 @@ val Eseq_encode_OK = store_thm(
   Induct >> simp[] >>
   Cases_on `l` >> simp[Eseq_encode_def]);
 
+val _ = print "The E_OK proof takes a while\n"
 val E_OK0 = store_thm(
   "E_OK0",
   ``valid_ptree mmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
@@ -301,5 +302,82 @@ val AndFDecls_OK = save_thm(
   "AndFDecls_OK",
   okify (last o #1 o front_last o CONJUNCTS) `v` E_OK0)
 
+val Dconstructor_OK = store_thm(
+  "Dconstructor_OK",
+  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nDconstructor ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃dc. ptree_Dconstructor pt = SOME dc``,
+  start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
+  rveq >> simp[ptree_Dconstructor_def, gramTheory.assert_def,
+               optionTheory.OPTION_IGNORE_BIND_def]
+  >- (map_every (erule strip_assume_tac o n)
+                [UQConstructorName_OK, Type_OK] >>
+      simp[]) >>
+  erule strip_assume_tac (n UQConstructorName_OK) >> simp[])
+
+val DtypeCons_OK = store_thm(
+  "DtypeCons_OK",
+  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nDtypeCons ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃dtc. ptree_linfix nDtypeCons BarT ptree_Dconstructor pt = SOME dtc``,
+  map_every qid_spec_tac [`toks`, `pt`] >>
+  ho_match_mp_tac grammarTheory.ptree_ind >>
+  simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
+  full_simp_tac (srw_ss() ++ DNF_ss) [MAP_EQ_APPEND, MAP_EQ_CONS] >>
+  simp[Once ptree_linfix_def, gramTheory.assert_def,
+       optionTheory.OPTION_IGNORE_BIND_def] >>
+  erule strip_assume_tac (n Dconstructor_OK) >> simp[]);
+
+val DtypeDecl_OK = store_thm(
+  "DtypeDecl_OK",
+  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nDtypeDecl ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃dtd. ptree_DtypeDecl pt = SOME dtd``,
+  start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
+  rveq >> simp[ptree_DtypeDecl_def, gramTheory.assert_def,
+               optionTheory.OPTION_IGNORE_BIND_def] >>
+  map_every (erule strip_assume_tac o n) [DtypeCons_OK, TypeName_OK] >>
+  simp[]);
+
+val DtypeDecls_OK = store_thm(
+  "DtypeDecls_OK",
+  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nDtypeDecls ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃td. ptree_linfix nDtypeDecls AndT ptree_DtypeDecl pt = SOME td``,
+  map_every qid_spec_tac [`toks`, `pt`] >>
+  ho_match_mp_tac grammarTheory.ptree_ind >>
+  simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
+  full_simp_tac (srw_ss() ++ DNF_ss) [MAP_EQ_APPEND, MAP_EQ_CONS] >>
+  simp[Once ptree_linfix_def, gramTheory.assert_def,
+       optionTheory.OPTION_IGNORE_BIND_def] >>
+  erule strip_assume_tac (n DtypeDecl_OK) >> simp[]);
+
+val TypeDec_OK = store_thm(
+  "TypeDec_OK",
+  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nTypeDec ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃td. ptree_TypeDec pt = SOME td``,
+  start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
+  rveq >> fs[MAP_EQ_CONS] >>
+  simp[ptree_TypeDec_def, optionTheory.OPTION_IGNORE_BIND_def,
+       gramTheory.assert_def] >>
+  erule strip_assume_tac (n DtypeDecls_OK) >> simp[]);
+
+val Decl_OK = store_thm(
+  "Decl_OK",
+  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nDecl ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃d. ptree_Decl pt = SOME d``,
+  start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
+  rveq >> fs[MAP_EQ_CONS] >>
+  simp[ptree_Decl_def, optionTheory.OPTION_IGNORE_BIND_def,
+       gramTheory.assert_def]
+  >- (map_every (erule strip_assume_tac o n) [Pattern_OK, E_OK] >>
+      simp[])
+  >- (erule strip_assume_tac (n AndFDecls_OK) >> simp[])
+  >- (erule strip_assume_tac (n TypeDec_OK) >> simp[]) >>
+  erule strip_assume_tac (n Dconstructor_OK) >> simp[] >>
+  asm_match `ptree_Dconstructor pt' = SOME dc` >>
+  Cases_on `dc` >> simp[]);
 
 val _ = export_theory();
