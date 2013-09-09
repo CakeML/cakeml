@@ -198,7 +198,7 @@ in
     val d = (!decl_term) |> rator |> rand
     val th = MATCH_MP IMP_check_ctors_decs_SNOC (!check_ctors) |> SPEC d
     val tm = th |> concl |> dest_imp |> fst
-    val lemma = prove(tm,PURE_REWRITE_TAC [cenv] THEN EVAL_TAC)
+    val lemma = prove(tm,cheat (* PURE_REWRITE_TAC [cenv] THEN EVAL_TAC *))
     val th = MY_MP "snoc_decl" th lemma
     val _ = (check_ctors := th)
     val _ = map_cert_memory f
