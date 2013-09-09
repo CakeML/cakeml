@@ -278,7 +278,8 @@ val token_of_sym_def = Define `
     | ErrorS    => LexErrorT
     | StringS s => StringT s
     | NumberS i => IntT i
-    | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in LongidT s1 (TL s2)
+    | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in
+                   LongidT s1 (case s2 of "" => "" | (c::cs) => cs)
     | OtherS s  => get_token s `;
 
 val next_token_def = Define `
