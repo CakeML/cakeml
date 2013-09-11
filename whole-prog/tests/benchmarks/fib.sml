@@ -1,5 +1,6 @@
-  val input = 41;
-  val result = 165580141;
+(* SML: run fib 31 6 times *)
+  val input = 31;
+  val result = 1346269;
 
   exception Fail;
 
