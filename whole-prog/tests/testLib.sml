@@ -92,6 +92,23 @@ fun do_compile_binary infile outfile =
     ()
   end
 
+fun ml_string_to_labelled_bytecode s = let
+  val thm = EVAL ``(whole_prog_compile F ^(fromMLstring s))``
+  val res = rhs(concl thm)
+  val (con,arg) = dest_comb res
+in
+  if fst(dest_const con)="Success"
+  then arg
+  else raise (Fail (fromHOLstring arg))
+end
+
+(* 
+ val code = ml_string_to_labelled_bytecode "val x = 1;"
+ N.B. To run, start the bytecode machine at the first instruction after the
+      Stop instruction (the Stop is at EL 8 code).
+*)
+
+
   (*
 do_all_tests
 ["test1.ml", 
