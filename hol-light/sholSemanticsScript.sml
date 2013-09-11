@@ -2879,6 +2879,34 @@ val (saconv_rules,saconv_ind,saconv_cases) = Hol_reln`
    ⇒
    saconv env s1 s2 (Abs x1 ty t1) (Abs x2 ty t2))`
 
+val saconv_raconv = store_thm("saconv_raconv",
+  ``∀env s1 s2 t1 t2. saconv env s1 s2 t1 t2 ⇒ RACONV env (VSUBST s1 t1,VSUBST s2 t2)``,
+  ho_match_mp_tac saconv_ind >>
+  conj_tac >- simp[VSUBST_def] >>
+  conj_tac >- simp[VSUBST_def,RACONV] >>
+  conj_tac >- simp[VSUBST_def,RACONV] >>
+  rw[] >>
+  rw[VSUBST_def] >>
+  rw[] >> fs[LET_THM] >>
+  rw[RACONV] >>
+  fs[EVERY_MEM,EXISTS_MEM,EXISTS_PROD,FORALL_PROD] >>
+  metis_tac[PAIR_EQ])
+
+(*
+val raconv_saconv = store_thm("raconv_saconv",
+  ``∀env tp. RACONV env tp ⇒
+    ∀s1 s2.
+    ???
+    ⇒ saconv env s1 s2 (FST tp) (SND tp)``,
+  ho_match_mp_tac RACONV_ind >>
+  simp[] >>
+  conj_tac >- (
+    simp[Once saconv_cases] >>
+    Induct >- (
+      simp[ALPHAVARS_def] >> rw[] >>
+      match_mp_tac RACONV_REFL >>
+      metis_tac
+
 val raconv_vsubst = store_thm("raconv_vsubst",
   ``∀t1 t2 subst env.
       RACONV env (t1,t2) ∧
@@ -2890,6 +2918,7 @@ val raconv_vsubst = store_thm("raconv_vsubst",
 
       VSUBST_simple_subst
       fresh_term_def
+*)
 
 (*
 val aconv_vsubst_exists = store_thm("aconv_vsubst_exists",
