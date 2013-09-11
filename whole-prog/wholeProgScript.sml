@@ -356,15 +356,14 @@ val decode_encode_bc_insts = Q.store_thm ("decode_encode_bc_insts",
  metis_tac [optionTheory.SOME_11, optionTheory.NOT_SOME_NONE, PAIR_EQ]);
 
 val whole_prog_compile_def = Define `
-whole_prog_compile remove_labels input = 
+whole_prog_compile remove_labels input =
   let (css,csf,init_code) = compile_primitives in
     case wp_main_loop initial_repl_fun_state input of
          Failure error_msg => Failure error_msg
-       | Success code => 
-           if remove_labels then
-             Success (code_labels (\x.0) (PrintE++[Stop]++REVERSE init_code++code))
-           else
-             Success (REVERSE init_code++code)`;
+       | Success prog_code =>
+           let code = PrintE++[Stop]++REVERSE init_code++prog_code in
+           Success (if remove_labels then (code_labels (\x.0) code)
+                    else code)`;
 
 val whole_prog_compile_string_def = Define `
   whole_prog_compile_string remove_labels input = 
