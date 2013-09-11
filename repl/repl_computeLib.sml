@@ -68,7 +68,7 @@ simp[rich_listTheory.EL_CONS,arithmeticTheory.PRE_SUB1])
 val _ = computeLib.add_funs
   [terminationTheory.elab_p_def
   ,ElabTheory.elab_decs_def
-  ,CompilerLibTheory.find_index_def
+  ,miscTheory.find_index_def
   ,CompilerLibTheory.the_def
   ,CompilerLibTheory.lunion_def
   ,CompilerLibTheory.lshift_def
