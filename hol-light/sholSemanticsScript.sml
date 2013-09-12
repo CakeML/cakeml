@@ -2850,17 +2850,162 @@ val alphavars_distinct = store_thm("alphavars_distinct",
   unabbrev_all_tac >> rw[FUN_EQ_THM] >>
   metis_tac[])
 
+val distinct_snd_def = Define`
+  distinct_snd [] = []  ∧
+  distinct_snd ((x,y)::xs) = (x,y)::(FILTER (λp. SND p ≠ y) (distinct_snd xs))`
+val _ = export_rewrites["distinct_snd_def"]
+
+val ALL_DISTINCT_MAP_SND_distinct_snd = store_thm("ALL_DISTINCT_MAP_SND_distinct_snd",
+  ``∀ls. ALL_DISTINCT (MAP SND (distinct_snd ls))``,
+  Induct >> simp[] >>
+  Cases >> simp[] >>
+  conj_tac >- (
+    simp[MEM_MAP,FORALL_PROD,MEM_FILTER] ) >>
+  Q.ISPECL_THEN[`λp. p ≠ r`,`SND`,`distinct_snd ls`]mp_tac rich_listTheory.FILTER_MAP >>
+  simp[combinTheory.o_DEF] >>
+  disch_then(SUBST1_TAC o SYM) >>
+  simp[FILTER_ALL_DISTINCT])
+
+val FILTER_distinct_snd = store_thm("FILTER_distinct_snd",
+  ``∀P ls. FILTER (λ(x,y). P y) (distinct_snd ls) = distinct_snd (FILTER (λ(x,y). P y) ls)``,
+  gen_tac >> Induct >> simp[] >>
+  Cases >> simp[] >> rw[] >>
+  rw[LAMBDA_PROD] >- (
+    first_x_assum(SUBST1_TAC o SYM) >>
+    rw[rich_listTheory.FILTER_FILTER] >>
+    rw[LAMBDA_PROD] >>
+    rw[CONJ_SYM] ) >>
+  rw[rich_listTheory.FILTER_FILTER,LAMBDA_PROD] >>
+  first_x_assum(SUBST1_TAC o SYM) >>
+  AP_THM_TAC >> AP_TERM_TAC >>
+  rw[FUN_EQ_THM] >>
+  metis_tac[] )
+
+(* Not true for stupid reason: VSUBST checks for the range of the substitution
+using EXISTS rather than REV_ASSOCD, so old bindings might show up (that aren't
+in the finite map version any more)
+
+val VSUBST_distinct_snd = store_thm("VSUBST_distinct_snd",
+  ``∀subst. VSUBST subst = VSUBST (distinct_snd subst)``,
+  simp[FUN_EQ_THM] >>
+  CONV_TAC SWAP_FORALL_CONV >>
+  Induct >- (
+    simp[VSUBST_def] >>
+    gen_tac >>
+    Induct >> simp[REV_ASSOCD] >>
+    Cases >> simp[REV_ASSOCD] >>
+    simp[REV_ASSOCD_FILTER,LAMBDA_PROD] )
+  >- simp[VSUBST_def]
+  >- (
+    simp_tac std_ss [Once VSUBST_def] >>
+    simp_tac std_ss [Once VSUBST_def] >>
+    metis_tac[term_11] ) >>
+  simp_tac std_ss [Once VSUBST_def] >>
+  simp_tac std_ss [Once VSUBST_def] >>
+  rpt gen_tac >>
+  Q.ISPECL_THEN[`λx. x ≠ Var s t`,`subst`]mp_tac FILTER_distinct_snd >>
+  simp_tac std_ss [] >> disch_then kall_tac >>
+  pop_assum mp_tac >>
+  qho_match_abbrev_tac`(∀x. P x) ⇒ Q` >> strip_tac >>
+  qunabbrev_tac`Q` >> rw[] >>
+  `t'' = t'` by (
+    unabbrev_all_tac >>
+    pop_assum(assume_tac o SIMP_RULE(srw_ss())[]) >>
+    metis_tac[] ) >>
+  BasicProvers.VAR_EQ_TAC >>
+  `z' = z` by metis_tac[] >>
+  BasicProvers.VAR_EQ_TAC >>
+
+  qmatch_assum_abbrev_tac`∀x. A x` >>
+  rw[]
+  simp[]
+  simp_tac (srw_ss())[LET_THM] >>
+
+  simp[SKOLEM_THM] >>
+  qexists_tac`λs. (MAP (λp. (SND p,UNCURRY Var (FST p))) (fmap_to_alist (ilist_to_fmap s)))` >>
+  gen_tac >>
+  conj_tac >- (
+    simp[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD] >>
+    qmatch_abbrev_tac`ALL_DISTINCT (MAP f ls)` >>
+    `MAP f ls = MAP (UNCURRY Var) (MAP FST ls)` by (
+      simp[MAP_MAP_o,MAP_EQ_f,Abbr`f`,FORALL_PROD] ) >>
+    pop_assum SUBST1_TAC >>
+    match_mp_tac ALL_DISTINCT_MAP_INJ >>
+    simp[FORALL_PROD] >>
+    simp[Abbr`ls`] ) >>
+  simp[FUN_EQ_THM] >>
+  Induct >- (
+    simp[VSUBST_def,REV_ASSOCD_ALOOKUP] >>
+    simp[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD] >>
+    
+    ALOOKUP_MAP
+ *)
+
+val vsubst_def = Define`
+  vsubst subst (Var x ty) = FLOOKUPD subst (x,ty) (Var x ty) ∧
+  vsubst subst (Const x ty g) = Const x ty g ∧
+  vsubst subst (Comb t1 t2) = Comb (vsubst subst t1) (vsubst subst t2) ∧
+  vsubst subst (Abs x ty t) =
+    let x' =
+      if ∃y ty u. VFREE_IN (Var y ty) t ∧ FLOOKUP subst (y,ty) = SOME u ∧ VFREE_IN (Var x ty) u
+      then VARIANT (vsubst (subst \\ (x,ty)) t) x ty
+      else x
+    in
+    Abs x' ty (vsubst (subst |+ ((x,ty),(Var x' ty))) t)`
+
+VSUBST_frees
+
+val vsubst_VSUBST = store_thm("vsubst_VSUBST",
+  ``∀tm ilist.
+      (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty) ⇒
+      VSUBST ilist tm = vsubst (ilist_to_fmap ilist) tm``,
+  Induct >- (
+    simp[VSUBST_def,vsubst_def,FLOOKUPD_def] >>
+    simp[FLOOKUP_ilist_to_fmap] >>
+    rw[REV_ASSOCD_ALOOKUP] >>
+    BasicProvers.CASE_TAC >> simp[] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD] >> metis_tac[] )
+  >- (
+    simp[VSUBST_def,vsubst_def] )
+  >- (
+    simp[VSUBST_def,vsubst_def] >>
+    metis_tac[]) >>
+  simp[VSUBST_def,vsubst_def] >>
+  rpt gen_tac >> strip_tac >>
+
+
+RACONV env (VSUBST s t1, VSUBST s t2) ∧
+RACONV env (u1,u2) ∧
+⇒
+let s' = (u,Var x ty)::(FILTER (λ(s',s). s ≠ Var x ty) s) in
+RACONV env (VSUBST s' t1, VSUBST s' t2)
+
+val (renaconv_rules,renaconv_ind,renaconv_cases) = Hol_reln`
+  (ALPHAVARS env (Var (FLOOKUPD r1 (x1,ty) x1) ty, Var (FLOOKUPD r2 (x2,ty) x2) ty)
+   ⇒
+   renaconv r1 r2 env (Var x1 ty) (Var x2 ty)) ∧
+  (renaconv r1 r2 env (Const s ty g) (Const s ty g)) ∧
+  (renaconv r1 r2 env t1a t2a ∧
+   renaconv r1 r2 env t1d t2d
+   ⇒
+   renaconv r1 r2 env (Comb t1a t1d) (Comb t2a t2d)) ∧
+  (renaconv (r1|+((x1,ty),y1)) (r2|+((x2,ty),y2)) ((Var y1 ty,Var y2 ty)::env) t1 t2
+   ⇒
+   renaconv r1 r2 env (Abs x1 ty t1) (Abs x2 ty t2))`
+
 val (saconv_rules,saconv_ind,saconv_cases) = Hol_reln`
-  (RACONV env
+  (RACONV senv
      (REV_ASSOCD (Var x ty) s1 (Var x ty)
-     ,REV_ASSOCD (Var y ty) s2 (Var y ty))
+     ,REV_ASSOCD (Var y ty) s2 (Var y ty)) ∧
+   RACONV env (Var x ty,Var y ty)
    ⇒
-   saconv env s1 s2 (Var x ty) (Var y ty)) ∧
-  (saconv env s1 s2 (Const x ty g) (Const x ty g)) ∧
-  (saconv env s1 s2 t1a t2a ∧
-   saconv env s1 s2 t1d t2d
+   saconv env senv s1 s2 (Var x ty) (Var y ty)) ∧
+  (saconv env senv s1 s2 (Const x ty g) (Const x ty g)) ∧
+  (saconv env senv s1 s2 t1a t2a ∧
+   saconv env senv s1 s2 t1d t2d
    ⇒
-   saconv env s1 s2 (Comb t1a t1d) (Comb t2a t2d)) ∧
+   saconv env senv s1 s2 (Comb t1a t1d) (Comb t2a t2d)) ∧
   ((z1,s1'') = (
      let s1' = FILTER (λ(s',s). s ≠ Var x1 ty) s1 in
      if EXISTS (λ(s',s). VFREE_IN (Var x1 ty) s' ∧ VFREE_IN s t1) s1'
@@ -2875,37 +3020,46 @@ val (saconv_rules,saconv_ind,saconv_cases) = Hol_reln`
        let z2 = VARIANT (VSUBST s2' t2) x2 ty in
        (z2, ((Var z2 ty,Var x2 ty)::s2'))
      else (x2,s2')) ∧
-   saconv ((Var z1 ty,Var z2 ty)::env) s1'' s2'' t1 t2
+   saconv ((Var x1 ty,Var x2 ty)::env) ((Var z1 ty,Var z2 ty)::senv) s1'' s2'' t1 t2
    ⇒
-   saconv env s1 s2 (Abs x1 ty t1) (Abs x2 ty t2))`
+   saconv env senv s1 s2 (Abs x1 ty t1) (Abs x2 ty t2))`
 
 val saconv_raconv = store_thm("saconv_raconv",
-  ``∀env s1 s2 t1 t2. saconv env s1 s2 t1 t2 ⇒ RACONV env (VSUBST s1 t1,VSUBST s2 t2)``,
+  ``∀env senv s1 s2 t1 t2. saconv env senv s1 s2 t1 t2 ⇒ RACONV env (t1,t2) ∧ RACONV senv (VSUBST s1 t1,VSUBST s2 t2)``,
   ho_match_mp_tac saconv_ind >>
   conj_tac >- simp[VSUBST_def] >>
   conj_tac >- simp[VSUBST_def,RACONV] >>
   conj_tac >- simp[VSUBST_def,RACONV] >>
-  rw[] >>
-  rw[VSUBST_def] >>
-  rw[] >> fs[LET_THM] >>
-  rw[RACONV] >>
+  rw[RACONV,VSUBST_def] >>
+  rw[] >> fs[LET_THM] >> rw[RACONV] >>
   fs[EVERY_MEM,EXISTS_MEM,EXISTS_PROD,FORALL_PROD] >>
   metis_tac[PAIR_EQ])
 
-(*
 val raconv_saconv = store_thm("raconv_saconv",
-  ``∀env tp. RACONV env tp ⇒
-    ∀s1 s2.
-    ???
-    ⇒ saconv env s1 s2 (FST tp) (SND tp)``,
-  ho_match_mp_tac RACONV_ind >>
-  simp[] >>
-  conj_tac >- (
-    simp[Once saconv_cases] >>
-    Induct >- (
-      simp[ALPHAVARS_def] >> rw[] >>
-      match_mp_tac RACONV_REFL >>
-      metis_tac
+  ``∀t1 t2 env s1 s2.
+    RACONV env (t1,t2) ∧
+    (∀x1 x2 ty. ALPHAVARS env (Var x1 ty, Var x2 ty) ⇒ RACONV env (VSUBST s1 (Var x1 ty), VSUBST s2 (Var x2 ty))) ∧
+    (∀v1 v2. MEM (v1,v2) env ⇒ ∃x1 x2 ty. v1 = Var x1 ty ∧ v2 = Var x2 ty)
+    ⇒ ∃senv. saconv env senv s1 s2 t1 t2``,
+  Induct >- (
+    gen_tac >> Cases >>
+    simp[Once saconv_cases,VSUBST_def,RACONV] >>
+    rpt gen_tac >> strip_tac >>
+    conj_asm1_tac >- (
+      imp_res_tac ALPHAVARS_MEM >> fs[] >>
+      metis_tac[term_11] ) >>
+    rw[] ) >>
+  >- (
+    gen_tac >> Cases >>
+    rw[Once saconv_cases,RACONV] )
+  >- (
+    Cases >> rw[RACONV] >>
+    rw[] >> rw[Once saconv_cases] ) >>
+  gen_tac >> Cases >> rw[RACONV] >>
+  simp[Once saconv_cases] >>
+  rw[] >>
+  first_x_assum match_mp_tac >>
+  simp[]
 
 val raconv_vsubst = store_thm("raconv_vsubst",
   ``∀t1 t2 subst env.
