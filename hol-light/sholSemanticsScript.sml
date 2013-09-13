@@ -2881,6 +2881,36 @@ val FILTER_distinct_snd = store_thm("FILTER_distinct_snd",
   rw[FUN_EQ_THM] >>
   metis_tac[] )
 
+RACONV env (VSUBST s1 t1, VSUBST s2 t2)
+⇒
+∀env' s1' s2'.
+  LENGTH env' = LENGTH env ∧
+  set (MAP SND s1) ⊆ set (MAP SND s1') ∧
+  set (MAP SND s2) ⊆ set (MAP SND s2') ∧
+  (∀k v. MEM k (MAP SND s1') ∧ v = REV_ASSOCD s1' k k
+      ⇒ ∃x ty. k = Var x ty ∧
+           if MEM k (MAP SND s1) then
+             v = REV_ASSOCD s1 k k
+           else
+             ∃n. n < LENGTH env' ∧
+                 FST (EL n env') = v ∧
+                 FST (EL n env) = k ∧
+                 ∀m. m < n ⇒ FST (EL m env) ≠ k) ∧
+  (∀k v. MEM k (MAP SND s2') ∧ v = REV_ASSOCD s2' k k
+      ⇒ ∃x ty. k = Var x ty ∧
+           if MEM k (MAP SND s2) then
+             v = REV_ASSOCD s1 k k
+           else
+             ∃n. n < LENGTH env' ∧
+                 SND (EL n env') = v ∧
+                 SND (EL n env) = k ∧
+                 ∀m. m < n ⇒ SND (EL m env) ≠ k) ∧
+  (∀n. n < LENGTH env' ⇒
+    (FST (EL n env') = FST (EL n env) ∨ MEM (FST (EL n env)) (MAP SND s1')) ∧
+    (SND (EL n env') = SND (EL n env) ∨ MEM (SND (EL n env)) (MAP SND s2')))
+  ⇒
+  RACONV env' (VSUBST s1' t1, VSUBST s2' t2)
+
 (* Not true for stupid reason: VSUBST checks for the range of the substitution
 using EXISTS rather than REV_ASSOCD, so old bindings might show up (that aren't
 in the finite map version any more)
