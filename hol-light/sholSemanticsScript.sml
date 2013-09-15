@@ -2881,35 +2881,102 @@ val FILTER_distinct_snd = store_thm("FILTER_distinct_snd",
   rw[FUN_EQ_THM] >>
   metis_tac[] )
 
-RACONV env (VSUBST s1 t1, VSUBST s2 t2)
-⇒
-∀env' s1' s2'.
-  LENGTH env' = LENGTH env ∧
-  set (MAP SND s1) ⊆ set (MAP SND s1') ∧
-  set (MAP SND s2) ⊆ set (MAP SND s2') ∧
-  (∀k v. MEM k (MAP SND s1') ∧ v = REV_ASSOCD s1' k k
-      ⇒ ∃x ty. k = Var x ty ∧
-           if MEM k (MAP SND s1) then
-             v = REV_ASSOCD s1 k k
-           else
-             ∃n. n < LENGTH env' ∧
-                 FST (EL n env') = v ∧
-                 FST (EL n env) = k ∧
-                 ∀m. m < n ⇒ FST (EL m env) ≠ k) ∧
-  (∀k v. MEM k (MAP SND s2') ∧ v = REV_ASSOCD s2' k k
-      ⇒ ∃x ty. k = Var x ty ∧
-           if MEM k (MAP SND s2) then
-             v = REV_ASSOCD s1 k k
-           else
-             ∃n. n < LENGTH env' ∧
-                 SND (EL n env') = v ∧
-                 SND (EL n env) = k ∧
-                 ∀m. m < n ⇒ SND (EL m env) ≠ k) ∧
-  (∀n. n < LENGTH env' ⇒
-    (FST (EL n env') = FST (EL n env) ∨ MEM (FST (EL n env)) (MAP SND s1')) ∧
-    (SND (EL n env') = SND (EL n env) ∨ MEM (SND (EL n env)) (MAP SND s2')))
-  ⇒
-  RACONV env' (VSUBST s1' t1, VSUBST s2' t2)
+(*
+val vsubst_term_def = Define`
+  vsubst_term vs s (Var x ty) = REV_ASSOCD (Var x ty) vs (Var x ty) ∧
+  vsubst_term vs s (Const x ty g) = Const x ty g ∧
+  vsubst_term vs s (Comb t1 t2) = Comb (vsubst_term vs s t1) (vsubst_term vs s t2) ∧
+  vsubst_term vs ilist (Abs x ty tm) =
+    let ilist' = FILTER (λ(s',s). s ≠ Var x ty) ilist in
+    let vs' = FILTER (λ(s',s). s ≠ Var x ty) vs in
+      if EXISTS (λ(s',s). VFREE_IN (Var x ty) s' ∧ VFREE_IN s tm) ilist' then
+        let z = VARIANT (VSUBST ilist' tm) x ty in
+        let ilist'' = (Var z ty,Var x ty)::ilist' in
+        let vs'' = (Var z ty,Var x ty)::vs' in
+          Abs z ty (vsubst_term vs'' ilist'' tm)
+      else Abs x ty (vsubst_term vs' ilist' tm)`
+
+won't work:
+VSUBST [y<-x,3<-y'] (λy. (x y'))
+= (λy'. (y 3))
+but
+(λy'. (x y')) ≠ (λy. (x y'))
+EVAL ``VSUBST [(Var "y" t,Var "x" t);(Const a b c,Var "y'" t)] (Abs "y" t (Comb (Var "x" t) (Var "y'" t)))``
+
+val vsubst_term_raconv = store_thm("vsubst_term_raconv",
+  ``∀tm vs s.
+      (∀s s'. MEM (s',s) vs ⇒ ∃x x' ty. s = Var x ty ∧ s' = Var x' ty)
+      ⇒
+      RACONV vs (vsubst_term vs s tm, tm)``,
+  Induct >- (
+    simp[vsubst_term_def,REV_ASSOCD_ALOOKUP] >>
+    gen_tac >>
+    Induct >- (
+      simp[] >>
+      match_mp_tac RACONV_REFL >>
+      simp[] ) >>
+    Cases >> simp[] >>
+    strip_tac >>
+    BasicProvers.CASE_TAC >- (
+      `∃x. q = Var x t` by metis_tac[term_11] >>
+      fs[RACONV,ALPHAVARS_def] ) >>
+    BasicProvers.CASE_TAC >- (
+      fs[RACONV,ALPHAVARS_def]
+*)
+
+val raconv_vsubst = store_thm("raconv_vsubst",
+  ``∀t1 t2 s1 s2 env.
+    RACONV env (VSUBST s1 t1, VSUBST s2 t2)
+    ⇒
+    ∀env' s1' s2'.
+      LENGTH env' = LENGTH env ∧
+      set (MAP SND s1) ⊆ set (MAP SND s1') ∧
+      set (MAP SND s2) ⊆ set (MAP SND s2') ∧
+      (∀k v. MEM k (MAP SND s1') ∧ v = REV_ASSOCD k s1' k
+          ⇒ ∃x ty. k = Var x ty ∧
+               if MEM k (MAP SND s1) then
+                 v = REV_ASSOCD k s1 k
+               else
+                 ∃n. n < LENGTH env' ∧
+                     FST (EL n env') = v ∧
+                     FST (EL n env) = k ∧
+                     ∀m. m < n ⇒ FST (EL m env) ≠ k) ∧
+      (∀k v. MEM k (MAP SND s2') ∧ v = REV_ASSOCD k s2' k
+          ⇒ ∃x ty. k = Var x ty ∧
+               if MEM k (MAP SND s2) then
+                 v = REV_ASSOCD k s1 k
+               else
+                 ∃n. n < LENGTH env' ∧
+                     SND (EL n env') = v ∧
+                     SND (EL n env) = k ∧
+                     ∀m. m < n ⇒ SND (EL m env) ≠ k) ∧
+      (∀n. n < LENGTH env' ⇒
+        (FST (EL n env') = FST (EL n env) ∨ MEM (FST (EL n env)) (MAP SND s1')) ∧
+        (SND (EL n env') = SND (EL n env) ∨ MEM (SND (EL n env)) (MAP SND s2')))
+      ⇒
+      RACONV env' (VSUBST s1' t1, VSUBST s2' t2)``,
+  completeInduct_on`sizeof (VSUBST s1 t1)` >>
+  rw[] >>
+  Cases_on`VSUBST s1 t1`>>Cases_on`VSUBST s2 t2`>>fs[RACONV]
+  >-(
+    Cases_on`t1`>>Cases_on`t2`>>fs[VSUBST_def,LET_THM]>>(ntac 2 (pop_assum mp_tac))>>rw[]>>fs[]>>
+    qmatch_abbrev_tac`RACONV env' (ra v1 s1' v1,ra v2 s2' v2)` >>
+    `ra v1 s1' v1 = ra v1 s1 v1` by (
+      qpat_assum`ra v1 s1 v1 = X`(mp_tac o SYM) >>
+      unabbrev_all_tac >>
+      simp[REV_ASSOCD_ALOOKUP] >>
+      BasicProvers.CASE_TAC >- (
+        BasicProvers.CASE_TAC >>
+        imp_res_tac ALOOKUP_MEM >>
+
+        fs[MEM_MAP,EXISTS_PROD] >>
+        metis_tac[term_11]
+    simp[REV_ASSOCD_ALOOKUP] >>
+    BasicProvers.CASE_TAC >- (
+      BasicProvers.CASE_TAC >- (
+        fs[ALOOKUP_FAILS,SUBSET_DEF,MEM_MAP,EXISTS_PROD,GSYM LEFT_FORALL_IMP_THM]
+
+    gen_tac >> Cases >> simp[hr
 
 (* Not true for stupid reason: VSUBST checks for the range of the substitution
 using EXISTS rather than REV_ASSOCD, so old bindings might show up (that aren't
