@@ -417,8 +417,7 @@ val ilist_to_fmap_DOMSUB = store_thm("ilist_to_fmap_DOMSUB",
 
 val VSUBST_simple_subst = store_thm("VSUBST_simple_subst",
   ``∀tm ilist. DISJOINT (set (bv_names tm)) {y | ∃ty u. VFREE_IN (Var y ty) u ∧ MEM u (MAP FST ilist)} ∧
-               (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty) ∧
-               ALL_DISTINCT (MAP SND ilist)
+               (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty)
                ⇒ VSUBST ilist tm = simple_subst (ilist_to_fmap ilist) tm``,
   Induct >- (
     simp[] >>
@@ -447,7 +446,7 @@ val VSUBST_simple_subst = store_thm("VSUBST_simple_subst",
     metis_tac[] ) >>
   simp[ilist_to_fmap_DOMSUB] >>
   first_x_assum match_mp_tac >>
-  simp[MAP_SND_FILTER_NEQ,FILTER_ALL_DISTINCT,MEM_FILTER,MEM_MAP,EXISTS_PROD] >>
+  simp[MAP_SND_FILTER_NEQ,MEM_FILTER,MEM_MAP,EXISTS_PROD] >>
   fs[MEM_MAP,EXISTS_PROD,IN_DISJOINT] >>
   metis_tac[])
 
