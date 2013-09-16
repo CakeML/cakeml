@@ -2662,91 +2662,6 @@ val semantics_simple_subst = store_thm("semantics_simple_subst",
   simp[DOMSUB_FAPPLY_THM] >>
   metis_tac[] )
 
-(*
-val raconv_rename = store_thm("raconv_rename",
-  ``∀t2 t1 subst env x1 x2 ty y.
-      RACONV ((Var x1 ty,Var y ty)::env) (VSUBST subst t1, t2) ∧
-      ¬VFREE_IN (Var x2 ty) (VSUBST subst t1) ∧
-      ¬MEM (Var x1 ty) (MAP SND subst) ∧
-      (∀x. MEM x (MAP FST env) ⇒ ¬MEM x (MAP SND subst))
-      ⇒
-      RACONV ((Var x2 ty,Var y ty)::env) (VSUBST ((Var x2 ty,Var x1 ty)::subst) t1, t2)``,
-  Induct >- (
-    gen_tac >>
-    reverse Cases>-(
-      rw[] >>
-      fs[VSUBST_def,LET_THM] >>
-      rpt (pop_assum mp_tac) >>
-      rw[RACONV] ) >>
-    fs[VSUBST_def,RACONV] >>
-    rw[REV_ASSOCD_ALOOKUP,RACONV,ALPHAVARS_def] >>
-    TRY (
-      last_x_assum mp_tac >>
-      BasicProvers.CASE_TAC >> fs[RACONV,ALPHAVARS_def] >>
-      imp_res_tac ALOOKUP_MEM >>
-      fs[MEM_MAP,EXISTS_PROD] >>
-      metis_tac[] ) >>
-    BasicProvers.CASE_TAC >> fs[RACONV,ALPHAVARS_def,ALOOKUP_FAILS] >> rw[] >>
-    Cases_on`x`>>fs[RACONV,ALPHAVARS_def] >> rw[] >>
-
-    imp_res_tac ALOOKUP_MEM >>
-    fs[MEM_MAP,EXISTS_PROD] >>
-    metis_tac[] ) >>
-
-    Induct >- (
-      simp[REV_ASSOCD,RACONV] >>
-      rw[RACONV,ALPHAVARS_def] >>
-      fs[] ) >>
-    Cases >> simp[REV_ASSOCD] >>
-    fs[REV_ASSOCD] >>
-    BasicProvers.CASE_TAC >> fs[] >>
-    Cases_on`q`>>simp[RACONV]>>
-    simp[ALPHAVARS_def] >>
-    rw[]>>fs[RACONV,ALPHAVARS_def]>>
-    first_x_assum(qspecl_then[`[]`,`s''`,`s'`,`t'`,`s''`]mp_tac)
-    fs[REV_ASSOCD_ALOOKUP]
-    Induct >- (
-      simp[ALPHAVARS_def] >>
-      rw[RACONV,ALPHAVARS_def]>>fs[]
-
-    rw[] >>
-    Cases_on`q`>>fs[RACONV,ALPHAVARS_def]
-    rw[RACONV,ALPHAVARS_def] >>
-    fs[RACONV]
-
-    fs[REV_ASSOCD] >> rw[] >>
-    fs[REV_ASSOCD,RACONV]
-
-    rw[VSUBST_def]
-    gen_tac >> Cases >> simp[RACONV,VSUBST_def]
-
-[] |- (λx. x a) == (λy. y a)
-[(x,y)] |- x a == y a
-*)
-
-(*
-val raconv_vsubst = store_thm("raconv_vsubst",
-  ``∀t1 t2 env subst1 subst2.
-      RACONV env (t1,t2) ∧
-      (* (∀s s'. MEM (s',s) subst ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ∧ *)
-      (* (∀s s'. MEM (s',s) env ⇒ ∃x x' ty. s = Var x ty ∧ s' = Var x' ty) ∧ *)
-      (∀v1 v2. ALPHAVARS env (v1,v2) (* ∧ VFREE_IN v1 t1 ∧ VFREE_IN v2 t2 *) ⇒
-                 RACONV env (VSUBST subst1 v1, VSUBST subst2 v2)) (* ∧
-      (∀s. MEM s (MAP SND subst1) ⇒ ¬MEM s (MAP FST env)) ∧
-      (∀s. MEM s (MAP SND subst2) ⇒ ¬MEM s (MAP SND env)) *)
-      ⇒
-      RACONV env (VSUBST subst1 t1,VSUBST subst2 t2)``,
-  Induct
-  >- (gen_tac >> Cases >> simp[RACONV])
-  >- (gen_tac >> Cases >> simp[RACONV,VSUBST_def])
-  >- (Cases >> simp[RACONV,VSUBST_def]) >>
-  gen_tac >> Cases >> simp[RACONV] >>
-  rw[VSUBST_def] >>
-  rw[RACONV] >- (
-    first_x_assum match_mp_tac
-
-*)
-
 val ALPHAVARS_FILTER_REFL = store_thm("ALPHAVARS_FILTER_REFL",
   ``∀env t. EVERY (UNCURRY $=) (FILTER (λ(x,y). t = x ∨ t = y) env) ⇒ ALPHAVARS env (t,t)``,
   Induct >> simp[ALPHAVARS_def] >>
@@ -2798,7 +2713,7 @@ val _ = export_rewrites["dbVSUBST_def"]
 val dbVFREE_IN_def = Define`
   (dbVFREE_IN v (dbVar x ty) ⇔ dbVar x ty = v) ∧
   (dbVFREE_IN v (dbBound n) ⇔ F) ∧
-  (dbVFREE_IN v (dbConst x ty g) ⇔ F) ∧
+  (dbVFREE_IN v (dbConst x ty g) ⇔ dbConst x ty g = v) ∧
   (dbVFREE_IN v (dbComb t1 t2) ⇔ (dbVFREE_IN v t1 ∨ dbVFREE_IN v t2)) ∧
   (dbVFREE_IN v (dbAbs ty t) ⇔ dbVFREE_IN v t)`
 val _ = export_rewrites["dbVFREE_IN_def"]
@@ -2811,7 +2726,7 @@ val bind_not_free = store_thm("bind_not_free",
 val bind_dbVSUBST = store_thm("bind_dbVSUBST",
   ``∀tm v n ls.
     (UNCURRY dbVar v) ∉ set (MAP SND ls) ∧
-    (∀t. MEM t (MAP FST ls) ⇒ ¬dbVFREE_IN (UNCURRY dbVar v) t)
+    (∀k. dbVFREE_IN k tm ⇒ ¬dbVFREE_IN (UNCURRY dbVar v) (REV_ASSOCD k ls k))
     ⇒
     bind v n (dbVSUBST ls tm) = dbVSUBST ls (bind v n tm)``,
   Induct >> simp[] >>
@@ -2838,18 +2753,6 @@ val bind_dbVSUBST_cons = store_thm("bind_dbVSUBST_cons",
     Cases_on`x`>>fs[] ) >>
   match_mp_tac bind_not_free >> fs[] )
 
-(*
-val dbVSUBST_cons = store_thm("dbVSUBST_cons",
-  ``∀tm ls x1 ty1 x2 ty2.
-    ¬dbVFREE_IN (dbVar x2 ty2) (dbVSUBST ls tm) ∧
-    dbVar x1 ty1 ∉ set (MAP SND ls)
-    ⇒
-    dbVSUBST ((dbVar x2 ty2,dbVar x1 ty1)::ls) tm = dbVSUBST ls (dbVSUBST [(dbVar x2 ty2,dbVar x1 ty1)] tm)``,
-  Induct >> simp[] >>
-  ntac 2 gen_tac >> Induct >> simp[REV_ASSOCD] >>
-  Cases >> simp[REV_ASSOCD] >> rw[]
-*)
-
 val dbVSUBST_frees = store_thm("dbVSUBST_frees",
   ``∀tm ls ls'.
     (∀k. dbVFREE_IN k tm ⇒ REV_ASSOCD k ls k = REV_ASSOCD k ls' k)
@@ -2857,9 +2760,38 @@ val dbVSUBST_frees = store_thm("dbVSUBST_frees",
       dbVSUBST ls tm = dbVSUBST ls' tm``,
   Induct >> simp[])
 
-(*
+val dbVFREE_IN_bind = store_thm("dbVFREE_IN_bind",
+  ``∀tm x v n b. dbVFREE_IN x (bind v n tm) ⇔ (x ≠ UNCURRY dbVar v) ∧ dbVFREE_IN x tm``,
+  Induct >> simp[] >> rw[] >- metis_tac[]
+  >- (
+    Cases_on`x`>>fs[]>>
+    Cases_on`v`>>fs[]>>
+    metis_tac[])
+  >- (
+    Cases_on`x`>>fs[]>>
+    Cases_on`v`>>fs[]) >>
+  Cases_on`v`>>fs[]>>
+  Cases_on`x=dbVar q r`>>fs[])
+
 val dbVFREE_IN_VFREE_IN = store_thm("dbVFREE_IN_VFREE_IN",
-  ``
+  ``∀tm x. dbVFREE_IN (db x) (db tm) ⇔ VFREE_IN x tm``,
+  Induct >> simp[VFREE_IN_def] >- (
+    gen_tac >> Cases >> simp[VFREE_IN_def] )
+  >- (
+    gen_tac >> Cases >> simp[VFREE_IN_def] ) >>
+  simp[dbVFREE_IN_bind] >>
+  gen_tac >> Cases >> simp[] >>
+  metis_tac[] )
+
+val MAP_db_FILTER_neq = store_thm("MAP_db_FILTER_neq",
+  ``∀ls z ty. MAP (λ(x,y). (db x, db y)) (FILTER (λ(x,y). y ≠ Var z ty) ls) = FILTER (λ(x,y). y ≠ dbVar z ty) (MAP (λ(x,y). (db x, db y)) ls)``,
+  Induct >> simp[] >>
+  Cases >> simp[] >>
+  rw[] >-( Cases_on`r`>>fs[] ) >> fs[])
+
+(*
+val REV_ASSOCD_MAP_db = store_thm("REV_ASSOCD_MAP_db",
+  ``∀ls k d. REV_ASSOCD k (MAP (λ(x,y). (db x, db y)) ls) d = 
 *)
 
 val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
@@ -2880,10 +2812,22 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
     qspecl_then[`tt`,`v`,`n`,`ls`]mp_tac bind_dbVSUBST >>
     discharge_hyps >- (
       fs[MEM_MAP,EVERY_MEM,EXISTS_PROD,FORALL_PROD,Abbr`ls`,GSYM LEFT_FORALL_IMP_THM,Abbr`ilist'`,MEM_FILTER] >>
-      Cases_on`v`>>fs[] >>
+      qunabbrev_tac`v` >>
       conj_tac >- (
         gen_tac >> Cases >> simp[] >>
         metis_tac[] ) >>
+      qx_gen_tac`k` >> strip_tac >> simp[] >>
+      simp[MAP_db_FILTER_neq] >>
+      simp[REV_ASSOCD_FILTER] >>
+
+(*
+      rw[] >- (
+        qspecl_then[`t1`,`Var s t`]mp_tac dbVFREE_IN_VFREE_IN >>
+      rw[] >>
+      first_x_assum(qspecl_then[`t1`,`t2`]mp_tac) >>
+      simp[] >> rw[] >>
+*)
+
       cheat ) >>
     rw[Abbr`ls`,Abbr`ilist'`] >>
     match_mp_tac dbVSUBST_frees >>
