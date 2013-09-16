@@ -2663,62 +2663,6 @@ val semantics_simple_subst = store_thm("semantics_simple_subst",
   metis_tac[] )
 
 (*
-val raconv_refl_frees = store_thm("raconv_refl_frees",
-  ``∀t env. (∀n. n < LENGTH env ⇒ (FST (EL n env) = SND (EL n env)) ∨
-                 ¬VFREE_IN (FST (EL n env)) t ∧
-                 ¬VFREE_IN (SND (EL n env)) t ∧
-                 (∀m. m < n ⇒ FST (EL n env) ≠ FST (EL m env) ∧ SND (EL n env) ≠ SND (EL m env))) (*∧
-            (∀x y. MEM (x,y) env ⇒ ∃v w ty. x = Var v ty ∧ y = Var w ty)*)
-                 ⇒ RACONV env (t,t)``,
-  Induct >- (
-    simp[RACONV] >>
-    gen_tac >> Induct >- simp[ALPHAVARS_def] >>
-    Cases >> simp[ALPHAVARS_def] >>
-    rw[] >> fs[] >>
-    first_assum(qspec_then`0`mp_tac) >>
-    simp_tac(srw_ss())[]>>
-    Cases_on`q=r`>>simp[]>-(
-      rw[]>>
-      Cases_on`q = Var s t`>>simp[]>>
-      first_x_assum match_mp_tac >>
-      rw[]>>
-      first_x_assum(qspec_then`SUC n`mp_tac) >>
-      simp[]>>rw[]>>rw[]>>
-      disj2_tac >> rw[] >>
-      first_x_assum(qspec_then`SUC m`mp_tac) >>
-      simp[] ) >>
-    rw[]>>
-    first_x_assum match_mp_tac>>
-    rw[]>>
-    first_x_assum(qspec_then`SUC n`mp_tac) >>
-    simp[]>>rw[]>>rw[]>>
-    disj2_tac >> rw[] >>
-    first_x_assum(qspec_then`SUC m`mp_tac) >>
-    simp[] )
-  >- simp[RACONV]
-  >- (
-    simp[RACONV] >>
-    rw[] >>
-    first_x_assum match_mp_tac >>
-    rw[] >>
-    metis_tac[] ) >>
-  simp[RACONV] >> rw[] >>
-  first_x_assum match_mp_tac >>
-  Cases >> simp[] >> rw[] >>
-  qmatch_assum_rename_tac`n < LENGTH env`[] >>
-  first_x_assum(qspec_then`n`mp_tac) >>
-  simp[] >>
-  Cases_on`FST (EL n env) = SND (EL n env)`>>simp[]>>
-  Cases_on`FST (EL n env)
-  >- metis_tac[]
-
-  first_x_assum(qspecl_then[`(Var s t,Var s t)::env'`,`env`]mp_tac) >>
-  simp[] >> disch_then match_mp_tac >>
-  fs[EVERY_MEM,MEM_FILTER,FORALL_PROD] >>
-  rw[] >- metis_tac[] >>
-*)
-
-(*
 val raconv_rename = store_thm("raconv_rename",
   ``∀t2 t1 subst env x1 x2 ty y.
       RACONV ((Var x1 ty,Var y ty)::env) (VSUBST subst t1, t2) ∧
@@ -2802,6 +2746,110 @@ val raconv_vsubst = store_thm("raconv_vsubst",
     first_x_assum match_mp_tac
 
 *)
+
+val collapse_def = Define`
+  collapse _ [] = [] ∧
+  collapse (s1,s2) ((l,r)::env) =
+    if l ∈ s1 ∨ r ∈ s2
+    then (l,r)::(collapse (s1 DIFF {l}, s2 DIFF {r}) env)
+    else collapse (s1,s2) env`
+
+val collapse_eq_nil = store_thm("collapse_eq_nil",
+  ``∀env s1 s2. collapse (s1,s2) env = [] ⇔ DISJOINT s1 (set (MAP FST env)) ∧ DISJOINT s2 (set (MAP SND env))``,
+  Induct >> simp[collapse_def] >>
+  Cases >> simp[collapse_def] >>
+  rw[] >> fs[IN_DISJOINT] >>
+  metis_tac[])
+
+val raconv_collapse = store_thm("raconv_collapse",
+  ``∀env tp. RACONV env tp ⇒
+      let f1 = {Var x ty | VFREE_IN (Var x ty) (FST tp)} in
+      let f2 = {Var x ty | VFREE_IN (Var x ty) (SND tp)} in
+      ∀env'. collapse (f1,f2) env' = collapse (f1,f2) env ⇒
+        RACONV env' tp``,
+  ho_match_mp_tac RACONV_ind >>
+  conj_tac >- (
+    Induct >- (
+      simp[ALPHAVARS_def,collapse_def,RACONV,collapse_eq_nil] >>
+      rw[] >>
+      match_mp_tac ALPHAVARS_FILTER_REFL >>
+      fs[IN_DISJOINT,EVERY_MEM,MEM_FILTER,FORALL_PROD,MEM_MAP] >>
+      metis_tac[]) >>
+    Cases >>
+    simp[ALPHAVARS_def,collapse_def] >>
+    rw[] >- (
+      
+    rw[RACONV,ALPHAVARS_def] >> fs[RACONV] >> ) >>
+  conj_tac >- simp[RACONV] >>
+  conj_tac >- simp[RACONV] >>
+
+val raconv_refl_frees = store_thm("raconv_refl_frees",
+  ``∀t env. (∀n. n < LENGTH env ⇒
+                 (* equal *)
+                 (FST (EL n env) = SND (EL n env)) ∨
+                 (* shadowed *)
+                 (∃m1 m2. m1 < n ∧ m2 < n ∧ FST (EL m1 env) = FST (EL n env) ∧ SND (EL m2 env) = SND (EL n env)) ∨
+                 (* don't occur and don't shadow *)
+                 ¬VFREE_IN (FST (EL n env)) t ∧
+                 ¬VFREE_IN (SND (EL n env)) t ∧
+                 (∀m. n < m ⇒ FST (EL n env) ≠ FST (EL m env) ∧ SND (EL n env) ≠ SND (EL m env))) (*∧
+            (∀x y. MEM (x,y) env ⇒ ∃v w ty. x = Var v ty ∧ y = Var w ty)*)
+                 ⇒ RACONV env (t,t)``,
+  Induct >- (
+    simp[RACONV] >>
+    gen_tac >> Induct >- simp[ALPHAVARS_def] >>
+    Cases >> simp[ALPHAVARS_def] >>
+    rw[] >> fs[] >>
+    first_assum(qspec_then`0`mp_tac) >>
+    simp_tac(srw_ss())[]>>
+    Cases_on`q=r`>>simp[]>-(
+      rw[]>>
+      Cases_on`q = Var s t`>>simp[]>>
+      first_x_assum match_mp_tac >>
+      rw[]>>
+      first_x_assum(qspec_then`SUC n`mp_tac) >>
+      simp[]>>rw[]>>rw[]>- (
+        Cases_on`m`>>fs[]>>
+        disj2_tac >> disj1_tac >>
+        metis_tac[] ) >>
+      disj2_tac >> disj2_tac >> rw[] >>
+      first_x_assum(qspec_then`SUC m`mp_tac) >>
+      simp[] ) >>
+    rw[]>>
+    first_x_assum match_mp_tac>>
+    rw[]>>
+    last_x_assum(qspec_then`SUC n`mp_tac) >>
+    simp[]>>rw[]>>rw[]>- (
+      Cases_on`m`>>fs[]>-(
+        disj2_tac >> rw[] >>
+        first_x_assum(qspec_then`SUC m`mp_tac) >>
+        simp[] ) >>
+      metis_tac[] ) >>
+    disj2_tac >> disj2_tac >> rw[] >>
+    first_x_assum(qspec_then`SUC m`mp_tac) >>
+    simp[] ) >>
+  >- simp[RACONV]
+  >- (
+    simp[RACONV] >>
+    rw[] >>
+    first_x_assum match_mp_tac >>
+    rw[] >>
+    metis_tac[] ) >>
+  simp[RACONV] >> rw[] >>
+  first_x_assum match_mp_tac >>
+  Cases >> simp[] >> rw[] >>
+  qmatch_assum_rename_tac`n < LENGTH env`[] >>
+  first_x_assum(qspec_then`n`mp_tac) >>
+  simp[] >>
+  Cases_on`FST (EL n env) = SND (EL n env)`>>simp[]>>
+  strip_tac >> fs[]
+  Cases_on`FST (EL n env)
+  >- metis_tac[]
+
+  first_x_assum(qspecl_then[`(Var s t,Var s t)::env'`,`env`]mp_tac) >>
+  simp[] >> disch_then match_mp_tac >>
+  fs[EVERY_MEM,MEM_FILTER,FORALL_PROD] >>
+  rw[] >- metis_tac[] >>
 
 val ALPHAVARS_FILTER_REFL = store_thm("ALPHAVARS_FILTER_REFL",
   ``∀env t. EVERY (UNCURRY $=) (FILTER (λ(x,y). t = x ∨ t = y) env) ⇒ ALPHAVARS env (t,t)``,
@@ -2922,6 +2970,100 @@ val vsubst_term_raconv = store_thm("vsubst_term_raconv",
     BasicProvers.CASE_TAC >- (
       fs[RACONV,ALPHAVARS_def]
 *)
+
+val vsvsubst_def = Define`
+  vsvsubst vs s (Var x ty) = REV_ASSOCD (Var x ty) s (Var x ty) ∧
+  vsvsubst vs s (Const x ty g) = Const x ty g ∧
+  vsvsubst vs s (Comb t1 t2) = Comb (vsvsubst vs s t1) (vsvsubst vs s t2) ∧
+  vsvsubst vs ilist (Abs x ty tm) =
+    let ilist' = FILTER (λ(s',s). s ≠ Var x ty) ilist in
+    let vs' = FILTER (λ(s',s). s ≠ Var x ty) vs in
+      if EXISTS (λ(s',s). VFREE_IN (Var x ty) s' ∧ VFREE_IN s tm) ilist' then
+        let z = VARIANT (VSUBST ilist' tm) x ty in
+        let ilist'' = (Var z ty,Var x ty)::ilist' in
+        let vs'' = (Var z ty,Var x ty)::vs' in
+          Abs z ty (vsvsubst vs'' ilist'' tm)
+      else Abs x ty (vsvsubst vs' ilist' tm)`
+
+val vsvsubst_VSUBST = store_thm("vsvsubst_VSUBST",
+  ``∀tm subst vs. vsvsubst vs subst tm = VSUBST subst tm``,
+  Induct >> simp[vsvsubst_def,VSUBST_def])
+
+val vsvsubst_RACONV = store_thm("vsvsubst_RACONV",
+  ``∀env tp. RACONV env tp ⇒
+      ∀subst vs s2.
+        DISJOINT (set (bv_names (FST tp))) {y | ∃ty u. VFREE_IN (Var y ty) u ∧ MEM u (MAP FST subst)} ∧
+        (∀v. MEM v (MAP SND subst) ⇒ ∃x ty. v = Var x ty) ∧
+        (*
+        MAP SND vs = MAP SND env ∧
+        set (MAP SND subst) ⊆ set (MAP SND s2) ∧
+        set (MAP SND s2) ⊆ set (MAP SND subst) ∪ set (MAP SND vs) ∧
+        set (MAP SND vs) ⊆ set (MAP SND s2) ∧
+        *)
+        (*
+        something like this probably:
+        on the lhs, the subst is unchanged,
+        on the rhs, it's unchanged except it might rename some bound variables into their new names
+        given two equal terms, they ought to be raconv if the env doesn't include any of their free variables...
+        (∀k. MEM k (MAP SND s2) ⇒
+          if MEM k (MAP SND subst) then
+            RACONV (ZIP(MAP FST env,MAP FST vs))
+              (REV_ASSOCD k subst k,
+               REV_ASSOCD k s2 k)
+          else REV_ASSOCD k s2 k = REV_ASSOCD k vs k)
+        *)
+        (∀v1 v2. ALPHAVARS env (v1,v2) ⇒
+            RACONV (ZIP(MAP FST env,MAP FST vs))
+              (REV_ASSOCD v1 subst v1
+              ,REV_ASSOCD v2 s2 v2))
+        ⇒
+        RACONV (ZIP(MAP FST env,MAP FST vs)) (VSUBST subst (FST tp), vsvsubst vs s2 (SND tp))``,
+  ho_match_mp_tac RACONV_ind >> simp[] >>
+  conj_tac >- simp[VSUBST_def,vsvsubst_def] >>
+  conj_tac >- simp[VSUBST_def,vsvsubst_def,RACONV] >>
+  conj_tac >- simp[VSUBST_def,vsvsubst_def,RACONV] >>
+  rw[VSUBST_def,vsvsubst_def] >>
+  `¬EXISTS (λ(s',s). VFREE_IN (Var x1 ty2) s' ∧ VFREE_IN s t1) ilist''` by (
+    simp[Abbr`ilist''`,EVERY_MEM,MEM_FILTER,FORALL_PROD] >>
+    fs[IN_DISJOINT,MEM_MAP,FORALL_PROD] >>
+    metis_tac[] ) >>
+  simp[] >>
+  rw[RACONV] >- (
+    simp[Abbr`t'`] >>
+    first_x_assum(qspecl_then[`ilist''`,`vs''`,`ilist''''`]mp_tac) >>
+    discharge_hyps >- (
+      conj_tac >- (
+        fs[IN_DISJOINT,Abbr`ilist''`,MEM_MAP,MEM_FILTER] >>
+        metis_tac[] ) >>
+      conj_tac >- (
+        fs[Abbr`ilist''`,MEM_MAP,MEM_FILTER] >>
+        metis_tac[] ) >>
+      simp[ALPHAVARS_def,Abbr`vs''`]
+
+    rw[]
+
+    Induct >- (
+      simp[ALPHAVARS_def] >>
+      rw[REV_ASSOCD] >>
+      Cases_on`MEM (Var x1 ty1) (MAP SND s2)` >- (
+        first_x_assum(qspec_then`Var x1 ty1`mp_tac) >>
+        rw[] >>
+        fs[SUBSET_DEF] >>
+        metis_tac[] ) >>
+      `Var x1 ty1 ∉ set (MAP SND subst)` by metis_tac[SUBSET_DEF] >>
+      simp[REV_ASSOCD_ALOOKUP] >>
+      BasicProvers.CASE_TAC >- (
+        BasicProvers.CASE_TAC >- (
+          simp[RACONV_REFL] ) >>
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        metis_tac[] ) >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    Cases >> simp[ALPHAVARS_def] >>
+    rw[]
+
 
 val raconv_vsubst = store_thm("raconv_vsubst",
   ``∀t1 t2 s1 s2 env.
