@@ -2726,7 +2726,8 @@ val bind_not_free = store_thm("bind_not_free",
 val bind_dbVSUBST = store_thm("bind_dbVSUBST",
   ``∀tm v n ls.
     (UNCURRY dbVar v) ∉ set (MAP SND ls) ∧
-    (∀k. dbVFREE_IN k tm ⇒ ¬dbVFREE_IN (UNCURRY dbVar v) (REV_ASSOCD k ls k))
+    (∀k. dbVFREE_IN k tm ∧ MEM k (MAP SND ls) ⇒
+        ¬dbVFREE_IN (UNCURRY dbVar v) (REV_ASSOCD k ls k))
     ⇒
     bind v n (dbVSUBST ls tm) = dbVSUBST ls (bind v n tm)``,
   Induct >> simp[] >>
@@ -2789,25 +2790,52 @@ val MAP_db_FILTER_neq = store_thm("MAP_db_FILTER_neq",
   Cases >> simp[] >>
   rw[] >-( Cases_on`r`>>fs[] ) >> fs[])
 
-(*
 val REV_ASSOCD_MAP_db = store_thm("REV_ASSOCD_MAP_db",
-  ``∀ls k d. REV_ASSOCD k (MAP (λ(x,y). (db x, db y)) ls) d = 
-*)
+  ``∀ls k ky.
+    (∀k v. MEM (v,k) ls ⇒ ∃x ty. k = Var x ty)
+    ⇒
+    REV_ASSOCD (dbVar k ky) (MAP (λ(x,y). (db x, db y)) ls) (dbVar k ky) = db (REV_ASSOCD (Var k ky) ls (Var k ky))``,
+  Induct >> simp[REV_ASSOCD] >>
+  Cases >> simp[REV_ASSOCD] >>
+  rw[] >> fs[] >- (
+    Cases_on`r`>>fs[]>>rw[] ) >>
+  `∃x ty. r = Var x ty` by metis_tac[] >> fs[] >>
+  metis_tac[])
+
+val dbVFREE_IN_dbVSUBST = store_thm("dbVFREE_IN_dbVSUBST",
+  ``∀tm u uty ilist.
+      dbVFREE_IN (dbVar u uty) (dbVSUBST ilist tm) ⇔
+      ∃y ty. dbVFREE_IN (dbVar y ty) tm ∧
+             dbVFREE_IN (dbVar u uty)
+               (REV_ASSOCD (dbVar y ty) ilist (dbVar y ty))``,
+  Induct >> simp[] >> rw[] >> metis_tac[])
 
 val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
-  ``∀tm ilist. db (VSUBST ilist tm) = dbVSUBST (MAP (λ(x,y). (db x, db y)) ilist) (db tm)``,
+  ``∀tm ilist.
+    (∀k v. MEM (v,k) ilist ⇒ ∃x ty. k = Var x ty)
+    ⇒
+    db (VSUBST ilist tm) = dbVSUBST (MAP (λ(x,y). (db x, db y)) ilist) (db tm)``,
   Induct >- (
     simp[VSUBST_def] >>
     gen_tac >> Induct >>
     simp[REV_ASSOCD] >>
     Cases >> simp[REV_ASSOCD] >>
+    strip_tac >>
+    qpat_assum`p ⇒ qq`mp_tac >>
+    discharge_hyps >- metis_tac[] >> strip_tac >>
     rw[] >> fs[] >>
     Cases_on`r`>>fs[] )
   >- simp[VSUBST_def]
-  >- simp[VSUBST_def] >>
+  >- (
+    simp[VSUBST_def] >>
+    metis_tac[] ) >>
   rw[VSUBST_def] >>
   reverse(rw[]) >- (
-    qunabbrev_tac`t'` >> simp[] >>
+    first_x_assum(qspec_then`ilist'`mp_tac) >>
+    discharge_hyps >- (
+      simp[Abbr`ilist'`,MEM_FILTER] >>
+      metis_tac[] ) >>
+    rw[Abbr`t'`] >>
     qmatch_abbrev_tac`bind v n (dbVSUBST ls tt) = X` >>
     qspecl_then[`tt`,`v`,`n`,`ls`]mp_tac bind_dbVSUBST >>
     discharge_hyps >- (
@@ -2819,35 +2847,58 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
       qx_gen_tac`k` >> strip_tac >> simp[] >>
       simp[MAP_db_FILTER_neq] >>
       simp[REV_ASSOCD_FILTER] >>
-
-(*
-      rw[] >- (
-        qspecl_then[`t1`,`Var s t`]mp_tac dbVFREE_IN_VFREE_IN >>
-      rw[] >>
-      first_x_assum(qspecl_then[`t1`,`t2`]mp_tac) >>
-      simp[] >> rw[] >>
-*)
-
-      cheat ) >>
+      qmatch_assum_rename_tac`k = db u`[] >>
+      `∃x ty. u = Var x ty` by metis_tac[] >>
+      qspecl_then[`ilist`,`x`,`ty`]mp_tac REV_ASSOCD_MAP_db >>
+      discharge_hyps >- metis_tac[] >>
+      simp[] >> strip_tac >>
+      BasicProvers.CASE_TAC >- (
+        qmatch_abbrev_tac`¬dbVFREE_IN (dbVar s t) (db tz)` >>
+        qspecl_then[`tz`,`Var s t`]mp_tac dbVFREE_IN_VFREE_IN >>
+        simp[] >> strip_tac >>
+        rpt BasicProvers.VAR_EQ_TAC >>
+        spose_not_then strip_assume_tac >>
+        metis_tac[REV_ASSOCD_MEM,VFREE_IN_def,dbVFREE_IN_VFREE_IN] ) >>
+      fs[] ) >>
     rw[Abbr`ls`,Abbr`ilist'`] >>
     match_mp_tac dbVSUBST_frees >>
-    cheat
-    (* 
-    REV_ASSOCD_FILTER
-    rich_listTheory.FILTER_MAP
-    *) ) >>
-  qunabbrev_tac`ilist''` >> simp[] >>
+    simp[MAP_db_FILTER_neq,REV_ASSOCD_FILTER] >>
+    rw[Abbr`v`] >>
+    fs[dbVFREE_IN_bind]) >>
+  first_x_assum(qspec_then`ilist''`mp_tac) >>
+  discharge_hyps >- (
+    simp[Abbr`ilist''`,Abbr`ilist'`,MEM_FILTER] >>
+    metis_tac[] ) >>
+  qunabbrev_tac`ilist''` >> rw[] >>
   qmatch_abbrev_tac`bind v n (dbVSUBST ((zz,x)::ls) tt) = X` >>
   qspecl_then[`tt`,`(z,t)`,`(s,t)`,`n`,`ls`]mp_tac bind_dbVSUBST_cons >>
   simp[Abbr`v`] >>
   discharge_hyps >- (
     qunabbrev_tac`zz` >>
-    qunabbrev_tac`tt` >>
-    cheat (* not sure ... *) ) >>
+    simp[dbVFREE_IN_dbVSUBST] >>
+    simp[dbVFREE_IN_bind] >>
+    rpt gen_tac >>
+    qspecl_then[`ilist'`,`y`,`ty`]mp_tac REV_ASSOCD_MAP_db >>
+    discharge_hyps >- (
+      simp[Abbr`ilist'`,MEM_FILTER] >>
+      metis_tac[] ) >>
+    rw[] >>
+    qmatch_assum_abbrev_tac`tv = db tu` >>
+    qspecl_then[`tu`,`Var z t`]mp_tac dbVFREE_IN_VFREE_IN >>
+    rw[] >>
+    qspecl_then[`tm`,`Var y ty`]mp_tac dbVFREE_IN_VFREE_IN >>
+    rw[Abbr`tt`] >>
+    spose_not_then strip_assume_tac >>
+    qsuff_tac`VFREE_IN (Var z t) t'`>-
+      metis_tac[VARIANT_THM] >>
+    simp[Abbr`tu`,Abbr`t'`,VFREE_IN_VSUBST] >>
+    metis_tac[] ) >>
   rw[] >>
   simp[Abbr`ls`] >>
   match_mp_tac dbVSUBST_frees >>
-  cheat (* as above? *)  )
+  simp[Abbr`ilist'`,MAP_db_FILTER_neq,REV_ASSOCD_FILTER] >>
+  rw[Abbr`x`] >>
+  fs[dbVFREE_IN_bind])
 
 val dbterm_def = Define`
   (dbterm env (Var s ty) =
@@ -2941,8 +2992,10 @@ val ACONV_db = store_thm("ACONV_db",
   metis_tac[dbterm_ACONV,dbterm_db])
 
 val ACONV_VSUBST = store_thm("ACONV_VSUBST",
-  ``ACONV t1 t2 ⇒ ACONV (VSUBST ilist t1) (VSUBST ilist t2)``,
-  rw[ACONV_db] >>
-  rw[VSUBST_dbVSUBST])
+  ``∀t1 t2 ilist.
+    (∀k v. MEM (v,k) ilist ⇒ ∃x ty. k = Var x ty) ∧
+    ACONV t1 t2 ⇒
+    ACONV (VSUBST ilist t1) (VSUBST ilist t2)``,
+  rw[ACONV_db] >> metis_tac[VSUBST_dbVSUBST])
 
 val _ = export_theory()
