@@ -2747,6 +2747,317 @@ val raconv_vsubst = store_thm("raconv_vsubst",
 
 *)
 
+val ALPHAVARS_FILTER_REFL = store_thm("ALPHAVARS_FILTER_REFL",
+  ``∀env t. EVERY (UNCURRY $=) (FILTER (λ(x,y). t = x ∨ t = y) env) ⇒ ALPHAVARS env (t,t)``,
+  Induct >> simp[ALPHAVARS_def] >>
+  Cases >> simp[] >> rw[] >> fs[])
+
+val _ = Hol_datatype` dbterm =
+    dbVar of string => type
+  | dbBound of num
+  | dbConst of string => type => const_tag
+  | dbComb of dbterm => dbterm
+  | dbAbs of type => dbterm`
+
+val bind_def = Define`
+  (bind v n (dbVar x ty) = if v = (x,ty) then dbBound n else dbVar x ty) ∧
+  bind v n (dbBound m) = dbBound m ∧
+  bind v n (dbConst x ty g) = dbConst x ty g ∧
+  bind v n (dbComb t1 t2) = dbComb (bind v n t1) (bind v n t2) ∧
+  bind v n (dbAbs ty tm) = dbAbs ty (bind v (n+1) tm)`
+val _ = export_rewrites["bind_def"]
+
+val db_def = Define`
+  db (Var x ty) = dbVar x ty ∧
+  db (Const x ty g) = dbConst x ty g ∧
+  db (Comb t1 t2) = dbComb (db t1) (db t2) ∧
+  db (Abs x ty tm) = dbAbs ty (bind (x,ty) 0 (db tm))`
+val _ = export_rewrites["db_def"]
+
+val dbVSUBST_def = Define`
+  dbVSUBST ilist (dbVar x ty) = REV_ASSOCD (dbVar x ty) ilist (dbVar x ty) ∧
+  dbVSUBST ilist (dbBound m) = dbBound m ∧
+  dbVSUBST ilist (dbConst x ty g) = dbConst x ty g ∧
+  dbVSUBST ilist (dbComb t1 t2) = dbComb (dbVSUBST ilist t1) (dbVSUBST ilist t2) ∧
+  dbVSUBST ilist (dbAbs ty t) = dbAbs ty (dbVSUBST ilist t)`
+    (*
+    let ilist' = FILTER (λ(s',s). s ≠ dbVar x ty) ilist in
+    let t' = dbVSUBST ilist' t in
+    dbAbs ty t'
+    *)
+    (*
+    if EXISTS (λ(s',s). dbVFREE_IN (dbVar x ty) s' ∧ dbVFREE_IN s t) ilist'
+    then
+      let z = VARIANT ???? in
+      let ilist'' = (dbVar z ty,dbVar x ty)::ilist'
+      in dbAbs ty (dbVSUBST ilist'' t)
+    else dbAbs ty t'
+    *)
+val _ = export_rewrites["dbVSUBST_def"]
+
+val dbVFREE_IN_def = Define`
+  (dbVFREE_IN v (dbVar x ty) ⇔ dbVar x ty = v) ∧
+  (dbVFREE_IN v (dbBound n) ⇔ F) ∧
+  (dbVFREE_IN v (dbConst x ty g) ⇔ F) ∧
+  (dbVFREE_IN v (dbComb t1 t2) ⇔ (dbVFREE_IN v t1 ∨ dbVFREE_IN v t2)) ∧
+  (dbVFREE_IN v (dbAbs ty t) ⇔ dbVFREE_IN v t)`
+val _ = export_rewrites["dbVFREE_IN_def"]
+
+(* make a macro to write this line below *)
+val bind_not_free = store_thm("bind_not_free",
+  ``∀t n v. ¬dbVFREE_IN (UNCURRY dbVar v) t ⇒ bind v n t = t``,
+  Induct >> simp[] >> rw[])
+
+val bind_dbVSUBST = store_thm("bind_dbVSUBST",
+  ``∀tm v n ls.
+    (UNCURRY dbVar v) ∉ set (MAP SND ls) ∧
+    (∀t. MEM t (MAP FST ls) ⇒ ¬dbVFREE_IN (UNCURRY dbVar v) t)
+    ⇒
+    bind v n (dbVSUBST ls tm) = dbVSUBST ls (bind v n tm)``,
+  Induct >> simp[] >>
+  CONV_TAC (RESORT_FORALL_CONV List.rev) >>
+  rw[] >- (
+    `REV_ASSOCD (dbVar s t) ls (dbVar s t) = dbVar s t` by (
+      fs[MEM_MAP,EXISTS_PROD] >>
+      metis_tac[REV_ASSOCD_MEM,MEM_MAP] ) >>
+    rw[] ) >>
+  Induct_on`ls` >- simp[REV_ASSOCD] >>
+  Cases >> simp[REV_ASSOCD] >> strip_tac >>
+  rw[] >> metis_tac[bind_not_free])
+
+val bind_dbVSUBST_cons = store_thm("bind_dbVSUBST_cons",
+  ``∀tm z x n ls.
+    ¬dbVFREE_IN (UNCURRY dbVar z) (dbVSUBST ls (bind x n tm))
+    ⇒
+    bind z n (dbVSUBST ((UNCURRY dbVar z,UNCURRY dbVar x)::ls) tm) = dbVSUBST ls (bind x n tm)``,
+  Induct >> simp[] >>
+  CONV_TAC (RESORT_FORALL_CONV List.rev) >>
+  rw[REV_ASSOCD] >>fs[] >- (
+    Cases_on`z`>>fs[] ) >>
+  Cases_on`z`>>fs[] >- (
+    Cases_on`x`>>fs[] ) >>
+  match_mp_tac bind_not_free >> fs[] )
+
+(*
+val dbVSUBST_cons = store_thm("dbVSUBST_cons",
+  ``∀tm ls x1 ty1 x2 ty2.
+    ¬dbVFREE_IN (dbVar x2 ty2) (dbVSUBST ls tm) ∧
+    dbVar x1 ty1 ∉ set (MAP SND ls)
+    ⇒
+    dbVSUBST ((dbVar x2 ty2,dbVar x1 ty1)::ls) tm = dbVSUBST ls (dbVSUBST [(dbVar x2 ty2,dbVar x1 ty1)] tm)``,
+  Induct >> simp[] >>
+  ntac 2 gen_tac >> Induct >> simp[REV_ASSOCD] >>
+  Cases >> simp[REV_ASSOCD] >> rw[]
+*)
+
+val dbVSUBST_frees = store_thm("dbVSUBST_frees",
+  ``∀tm ls ls'.
+    (∀k. dbVFREE_IN k tm ⇒ REV_ASSOCD k ls k = REV_ASSOCD k ls' k)
+     ⇒
+      dbVSUBST ls tm = dbVSUBST ls' tm``,
+  Induct >> simp[])
+
+(*
+val dbVFREE_IN_VFREE_IN = store_thm("dbVFREE_IN_VFREE_IN",
+  ``
+*)
+
+val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
+  ``∀tm ilist. db (VSUBST ilist tm) = dbVSUBST (MAP (λ(x,y). (db x, db y)) ilist) (db tm)``,
+  Induct >- (
+    simp[VSUBST_def] >>
+    gen_tac >> Induct >>
+    simp[REV_ASSOCD] >>
+    Cases >> simp[REV_ASSOCD] >>
+    rw[] >> fs[] >>
+    Cases_on`r`>>fs[] )
+  >- simp[VSUBST_def]
+  >- simp[VSUBST_def] >>
+  rw[VSUBST_def] >>
+  reverse(rw[]) >- (
+    qunabbrev_tac`t'` >> simp[] >>
+    qmatch_abbrev_tac`bind v n (dbVSUBST ls tt) = X` >>
+    qspecl_then[`tt`,`v`,`n`,`ls`]mp_tac bind_dbVSUBST >>
+    discharge_hyps >- (
+      fs[MEM_MAP,EVERY_MEM,EXISTS_PROD,FORALL_PROD,Abbr`ls`,GSYM LEFT_FORALL_IMP_THM,Abbr`ilist'`,MEM_FILTER] >>
+      Cases_on`v`>>fs[] >>
+      conj_tac >- (
+        gen_tac >> Cases >> simp[] >>
+        metis_tac[] ) >>
+      cheat ) >>
+    rw[Abbr`ls`,Abbr`ilist'`] >>
+    match_mp_tac dbVSUBST_frees >>
+    cheat
+    (* 
+    REV_ASSOCD_FILTER
+    rich_listTheory.FILTER_MAP
+    *) ) >>
+  qunabbrev_tac`ilist''` >> simp[] >>
+  qmatch_abbrev_tac`bind v n (dbVSUBST ((zz,x)::ls) tt) = X` >>
+  qspecl_then[`tt`,`(z,t)`,`(s,t)`,`n`,`ls`]mp_tac bind_dbVSUBST_cons >>
+  simp[Abbr`v`] >>
+  discharge_hyps >- (
+    qunabbrev_tac`zz` >>
+    qunabbrev_tac`tt` >>
+    cheat (* not sure ... *) ) >>
+  rw[] >>
+  simp[Abbr`ls`] >>
+  match_mp_tac dbVSUBST_frees >>
+  cheat (* as above? *)  )
+
+val dbterm_def = Define`
+  (dbterm env (Var s ty) =
+     case find_index (s,ty) env 0 of SOME n => dbBound n | NONE => dbVar s ty) ∧
+  (dbterm env (Const s ty g) = dbConst s ty g) ∧
+  (dbterm env (Comb t1 t2) = dbComb (dbterm env t1) (dbterm env t2)) ∧
+  (dbterm env (Abs x ty t) = dbAbs ty (dbterm ((x,ty)::env) t))`
+val _ = export_rewrites["dbterm_def"]
+
+val bind_list_aux_def = Define`
+  bind_list_aux n [] tm = tm ∧
+  bind_list_aux n (v::vs) tm = bind_list_aux (n+1) vs (bind v n tm)`
+val _ = export_rewrites["bind_list_aux_def"]
+
+val bind_list_aux_clauses = store_thm("bind_list_aux_clauses",
+  ``(∀env m. bind_list_aux m env (dbBound n) = dbBound n) ∧
+    (∀env m. bind_list_aux m env (dbConst x ty g) = dbConst x ty g) ∧
+    (∀env m t1 t2. bind_list_aux m env (dbComb t1 t2) = dbComb (bind_list_aux m env t1) (bind_list_aux m env t2)) ∧
+    (∀env m ty tm. bind_list_aux m env (dbAbs ty tm) = dbAbs ty (bind_list_aux (m+1) env tm))``,
+  rpt conj_tac >> Induct >> simp[])
+
+val dbterm_bind = store_thm("dbterm_bind",
+  ``∀tm env. dbterm env tm = bind_list_aux 0 env (db tm)``,
+  Induct >> simp[bind_list_aux_clauses] >>
+  gen_tac >>
+  Q.SPEC_TAC(`0`,`n`) >>
+  Induct_on`env` >> simp[find_index_def] >>
+  Cases >> simp[] >>
+  rw[] >> rw[bind_list_aux_clauses])
+
+val dbterm_db = store_thm("dbterm_db",
+  ``∀tm. dbterm [] tm = db tm``,
+  rw[dbterm_bind])
+
+val dbterm_RACONV = store_thm("dbterm_RACONV",
+  ``∀t1 env1 t2 env2. dbterm env1 t1 = dbterm env2 t2 ∧ LENGTH env1 = LENGTH env2 ⇒
+      RACONV (ZIP(MAP (UNCURRY Var) env1,MAP (UNCURRY Var) env2)) (t1,t2)``,
+  Induct >- (
+    ntac 2 gen_tac >> simp[] >>
+    Cases >> simp[RACONV] >>
+    TRY (BasicProvers.CASE_TAC >> simp[] >> NO_TAC) >>
+    Induct_on`env1` >- (
+      simp[find_index_def,LENGTH_NIL_SYM,ALPHAVARS_def] ) >>
+    gen_tac >> Cases >> simp[] >>
+    simp[find_index_def,ALPHAVARS_def] >>
+    Cases_on`h`>>Cases_on`h'`>>simp[] >>
+    simp[Once find_index_shift_0] >>
+    simp[Once find_index_shift_0,SimpRHS] >>
+    rpt BasicProvers.CASE_TAC >> fs[] >> rw[] >> fs[] )
+  >- (
+    simp[] >> ntac 2 gen_tac >>
+    Cases >> simp[RACONV] >>
+    gen_tac >> BasicProvers.CASE_TAC >> simp[] )
+  >- (
+    simp[] >>
+    gen_tac >> Cases >> simp[RACONV] >>
+    gen_tac >> BasicProvers.CASE_TAC >> simp[] ) >>
+  simp[] >>
+  ntac 2 gen_tac >>
+  Cases >> simp[RACONV] >- (
+    gen_tac >> BasicProvers.CASE_TAC >> simp[] ) >>
+  rw[] >> res_tac >> fs[])
+
+val RACONV_dbterm = store_thm("RACONV_dbterm",
+  ``∀env tp. RACONV env tp ⇒
+    (∀vp. MEM vp env ⇒ (∃x ty. (FST vp = Var x ty)) ∧ (∃x ty. (SND vp = Var x ty)))
+     ⇒ dbterm (MAP (dest_var o FST) env) (FST tp) = dbterm (MAP (dest_var o SND) env) (SND tp)``,
+  ho_match_mp_tac RACONV_ind >> rw[] >> rw[] >>
+  TRY (
+    first_x_assum match_mp_tac >>
+    rw[] >> rw[] ) >>
+  Induct_on`env` >> simp[ALPHAVARS_def] >>
+  rw[] >> rw[] >- rw[find_index_def] >> fs[] >>
+  simp[find_index_def] >>
+  `∃x ty. FST h = Var x ty` by metis_tac[] >>
+  `∃y tz. SND h = Var y tz` by metis_tac[] >>
+  simp[] >>
+  simp[Once find_index_shift_0] >>
+  simp[Once find_index_shift_0,SimpRHS] >>
+  rpt BasicProvers.CASE_TAC >> fs[] >> rw[] >> fs[])
+
+val dbterm_ACONV = store_thm("dbterm_ACONV",
+  ``∀t1 t2. ACONV t1 t2 ⇔ dbterm [] t1 = dbterm [] t2``,
+  rw[ACONV_def,EQ_IMP_THM] >- (
+    qspecl_then[`[]`,`t1,t2`]mp_tac RACONV_dbterm >> simp[] ) >>
+  qspecl_then[`t1`,`[]`,`t2`,`[]`]mp_tac dbterm_RACONV >>
+  simp[])
+
+val ACONV_db = store_thm("ACONV_db",
+  ``∀t1 t2. ACONV t1 t2 ⇔ db t1 = db t2``,
+  metis_tac[dbterm_ACONV,dbterm_db])
+
+val ACONV_VSUBST = store_thm("ACONV_VSUBST",
+  ``ACONV t1 t2 ⇒ ACONV (VSUBST ilist t1) (VSUBST ilist t2)``,
+  rw[ACONV_db] >>
+  rw[VSUBST_dbVSUBST])
+
+(*
+val bind_list_aux_def = Define`
+  bind_list_aux n [] tm = tm ∧
+  bind_list_aux n (v::vs) tm = bind_list_aux (n+1) vs (bind v n tm)`
+val _ = export_rewrites["bind_list_aux_def"]
+
+val bind_list_def = Define`
+  bind_list [] tm = tm ∧
+  bind_list (v::vs) tm = bind_list vs (dbAbs (SND v) (bind v 0 tm))`
+val _ = export_rewrites["bind_list_def"]
+
+(*
+val bind_list_clauses = store_thm("bind_list_clauses",
+  ``(∀env m. bind_list m env (dbBound n) = dbBound n) ∧
+    (∀env m. bind_list m env (dbConst x ty g) = dbConst x ty g) ∧
+    (∀env m t1 t2. bind_list m env (dbComb t1 t2) = dbComb (bind_list m env t1) (bind_list m env t2)) ∧
+    (∀env m ty tm. bind_list m env (dbAbs ty tm) = dbAbs ty (bind_list (m+1) env tm))``,
+  rpt conj_tac >> Induct >> simp[])
+*)
+
+val RACONV_db = store_thm("RACONV_db",
+  ``∀env tp. RACONV env tp ⇒
+      (∀s s'. MEM (s',s) env ⇒ ∃x x' ty. s = Var x ty ∧ s' = Var x' ty) ⇒
+      bind_list (MAP (dest_var o FST) env) (db (FST tp)) =
+      bind_list (MAP (dest_var o SND) env) (db (SND tp))``,
+  
+*)
+
+(*
+val RACONV_db = store_thm("RACONV_db",
+  ``∀t1 t2 env. RACONV env (t1,t2) ⇒
+      (∀s s'. MEM (s',s) env ⇒ ∃x x' ty. s = Var x ty ∧ s' = Var x' ty) ⇒
+      bind_list (LENGTH env) (MAP (dest_var o FST) env) (db t1) =
+      bind_list (LENGTH env) (MAP (dest_var o SND) env) (db t2)``,
+  Induct >- (
+    gen_tac >> Cases >> simp[RACONV] >>
+    Induct >> simp[ALPHAVARS_def] >>
+    Cases >> simp[] >>
+    rpt gen_tac >> strip_tac >>
+    rpt BasicProvers.VAR_EQ_TAC >> simp[bind_list_clauses] >>
+    rw[bind_list_clauses] >>
+    `∃x x' ty. q = Var x ty ∧ r = Var x' ty` by metis_tac[] >>
+    fs[] )
+  >- (
+    gen_tac >> Cases >> simp[RACONV,bind_list_clauses] )
+  >- (
+    Cases >> simp[RACONV,bind_list_clauses] ) >>
+  gen_tac >> Cases >> simp[RACONV] >>
+  gen_tac >> strip_tac >> strip_tac >>
+  simp[bind_list_clauses] >>
+  res_tac >>
+  rfs[]
+
+
+  rw[]
+  bind_def
+
 val collapse_def = Define`
   collapse _ [] = [] ∧
   collapse (s1,s2) ((l,r)::env) =
@@ -2760,6 +3071,47 @@ val collapse_eq_nil = store_thm("collapse_eq_nil",
   Cases >> simp[collapse_def] >>
   rw[] >> fs[IN_DISJOINT] >>
   metis_tac[])
+
+val collapse_empty = store_thm("collapse_empty",
+  ``∀ls s1 s2. (s1 = {} ∧ s2 = {}) ⇒ (collapse (s1,s2) ls = [])``,
+  Induct >> simp[collapse_def] >>
+  Cases >> simp[collapse_def])
+
+val tac =
+  first_x_assum match_mp_tac >>
+  qexists_tac`s1 DIFF {q}` >>
+  qexists_tac`s2 DIFF {r}` >>
+  metis_tac[IN_DIFF,IN_SING]
+
+val collapse_eq_subset = store_thm("collapse_eq_subset",
+  ``∀l1 l2 s1 s2 t1 t2. collapse (s1,s2) l1 = collapse (s1,s2) l2 ∧ t1 ⊆ s1 ∧ t2 ⊆ s2 ⇒ collapse (t1,t2) l1 = collapse (t1,t2) l2``,
+  Induct >> simp[collapse_def,collapse_eq_nil] >- (
+    simp[IN_DISJOINT,SUBSET_DEF] >> rw[] >>
+    metis_tac[] ) >>
+  Cases >> simp[collapse_def] >>
+  Induct >-(
+    simp[collapse_def] >>
+    rw[] >> fs[SUBSET_DEF,collapse_eq_nil,IN_DISJOINT] >>
+    metis_tac[] ) >>
+  Cases >> simp[collapse_def] >>
+  rpt gen_tac >>
+  strip_tac >>
+  rw[] >> fs[SUBSET_DEF]
+  >- tac >- tac >- tac >- tac >- (
+    qpat_assum`X = Y`mp_tac >>
+    rw[] >> fs[] >>
+    first_x_assum(qspecl_then[`s1`,`s2`,`t1`,`t2`]mp_tac) >>
+    simp[] )
+  >- (
+    qpat_assum`X = Y`mp_tac >>
+    rw[] >> fs[] >>
+    first_x_assum(qspecl_then[`s1`,`s2`,`t1`,`t2`]mp_tac) >>
+    simp[] )
+  >- (
+    qpat_assum`X = Y`mp_tac >>
+    rw[] >> fs[] >>
+    first_x_assum(qspecl_then[`s1`,`s2`,`t1`,`t2`]mp_tac) >>
+    simp[] )
 
 val raconv_collapse = store_thm("raconv_collapse",
   ``∀env tp. RACONV env tp ⇒
@@ -2778,10 +3130,23 @@ val raconv_collapse = store_thm("raconv_collapse",
     Cases >>
     simp[ALPHAVARS_def,collapse_def] >>
     rw[] >- (
-      
-    rw[RACONV,ALPHAVARS_def] >> fs[RACONV] >> ) >>
+      qmatch_assum_abbrev_tac`X = Y::Z` >>
+      `Z = []` by (
+        unabbrev_all_tac >>
+        match_mp_tac collapse_empty >>
+        simp[EXTENSION] ) >>
+      unabbrev_all_tac >> fs[] >>
+      Induct_on`env'` >> simp[collapse_def] >>
+      Cases >> simp[collapse_def] >>
+      simp[RACONV,ALPHAVARS_def] >>
+      rw[] >> fs[] >>
+      fs[RACONV] ) >>
+    fs[LET_THM] ) >>
   conj_tac >- simp[RACONV] >>
-  conj_tac >- simp[RACONV] >>
+  conj_tac >- (
+    simp[RACONV] >>
+    rw[] >>
+    first_x_assum match_mp_tac >>
 
 val raconv_refl_frees = store_thm("raconv_refl_frees",
   ``∀t env. (∀n. n < LENGTH env ⇒
@@ -2850,11 +3215,6 @@ val raconv_refl_frees = store_thm("raconv_refl_frees",
   simp[] >> disch_then match_mp_tac >>
   fs[EVERY_MEM,MEM_FILTER,FORALL_PROD] >>
   rw[] >- metis_tac[] >>
-
-val ALPHAVARS_FILTER_REFL = store_thm("ALPHAVARS_FILTER_REFL",
-  ``∀env t. EVERY (UNCURRY $=) (FILTER (λ(x,y). t = x ∨ t = y) env) ⇒ ALPHAVARS env (t,t)``,
-  Induct >> simp[ALPHAVARS_def] >>
-  Cases >> simp[] >> rw[] >> fs[])
 
 val ALPHAVARS_FILTER = store_thm("ALPHAVARS_FILTER",
   ``∀env tp P. ALPHAVARS env tp ⇒ ALPHAVARS (FILTER (λ(x,y). x = FST tp ∨ y = SND tp ∨ P tp) env) tp``,
@@ -3184,19 +3544,13 @@ val vsubst_def = Define`
   vsubst subst (Const x ty g) = Const x ty g ∧
   vsubst subst (Comb t1 t2) = Comb (vsubst subst t1) (vsubst subst t2) ∧
   vsubst subst (Abs x ty t) =
-    let x' =
-      if ∃y ty u. VFREE_IN (Var y ty) t ∧ FLOOKUP subst (y,ty) = SOME u ∧ VFREE_IN (Var x ty) u
-      then VARIANT (vsubst (subst \\ (x,ty)) t) x ty
-      else x
-    in
+    let x' = VARIANT (vsubst (subst \\ (x,ty)) t) x ty in
     Abs x' ty (vsubst (subst |+ ((x,ty),(Var x' ty))) t)`
-
-VSUBST_frees
 
 val vsubst_VSUBST = store_thm("vsubst_VSUBST",
   ``∀tm ilist.
       (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty) ⇒
-      VSUBST ilist tm = vsubst (ilist_to_fmap ilist) tm``,
+      ∀env. RACONV env (VSUBST ilist tm, vsubst (ilist_to_fmap ilist) tm)``,
   Induct >- (
     simp[VSUBST_def,vsubst_def,FLOOKUPD_def] >>
     simp[FLOOKUP_ilist_to_fmap] >>
@@ -3208,6 +3562,7 @@ val vsubst_VSUBST = store_thm("vsubst_VSUBST",
     simp[VSUBST_def,vsubst_def] )
   >- (
     simp[VSUBST_def,vsubst_def] >>
+    fs[ACONV_def,RACONV] >>
     metis_tac[]) >>
   simp[VSUBST_def,vsubst_def] >>
   rpt gen_tac >> strip_tac >>
@@ -4187,6 +4542,7 @@ val semantics_VSUBST = store_thm("semantics_VSUBST",
         metis_tac[semantics_extend_term_valuation
      *)
    cheat)
+*)
 *)
 *)
 
