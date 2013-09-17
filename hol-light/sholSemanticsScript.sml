@@ -749,6 +749,18 @@ val FINITE_VFREE_IN_2 = store_thm("FINITE_VFREE_IN_2",
   metis_tac[])
 val _ = export_rewrites["FINITE_VFREE_IN_2"]
 
+val FINITE_VFREE_IN_list = store_thm("FINITE_VFREE_IN_list",
+  ``∀ls. FINITE {x | ∃ty u. VFREE_IN (Var x ty) u ∧ MEM u ls}``,
+  Induct >> simp[] >> rw[] >>
+  qmatch_assum_abbrev_tac`FINITE s` >>
+  qmatch_abbrev_tac`FINITE t` >>
+  `t = s ∪ {x | ∃ty. VFREE_IN (Var x ty) h}` by (
+    simp[EXTENSION,Abbr`t`,Abbr`s`] >>
+    metis_tac[] ) >>
+  pop_assum SUBST1_TAC >>
+  simp[FINITE_UNION])
+val _ = export_rewrites["FINITE_VFREE_IN_list"]
+
 val bv_names_rename_bvars = store_thm("bv_names_rename_bvars",
   ``∀names env tm.
     LENGTH (bv_names tm) ≤ LENGTH names ⇒
@@ -2997,5 +3009,243 @@ val ACONV_VSUBST = store_thm("ACONV_VSUBST",
     ACONV t1 t2 ⇒
     ACONV (VSUBST ilist t1) (VSUBST ilist t2)``,
   rw[ACONV_db] >> metis_tac[VSUBST_dbVSUBST])
+
+val has_meaning_VSUBST = store_thm("has_meaning_VSUBST",
+  ``∀tm ilist.
+    has_meaning tm ∧
+    (∀v k. MEM (v,k) ilist ⇒ has_meaning v ∧ ∃x ty. k = Var x ty ∧ v has_type ty)
+    ⇒ has_meaning (VSUBST ilist tm)``,
+  Induct >- (
+    simp[VSUBST_def] >>
+    gen_tac >> Induct >>
+    simp[REV_ASSOCD] >>
+    Cases >> simp[REV_ASSOCD] >>
+    rw[] >> fs[] >> metis_tac[] )
+  >- (
+    simp[VSUBST_def] )
+  >- (
+    simp[VSUBST_def] >>
+    rw[] >>
+    TRY (
+      match_mp_tac VSUBST_WELLTYPED >>
+      metis_tac[] ) >>
+    TRY (
+      qexists_tac`rty` >>
+      metis_tac[VSUBST_HAS_TYPE,type_11,WELLTYPED_LEMMA,WELLTYPED] ) >>
+    first_x_assum match_mp_tac >>
+    metis_tac[]) >>
+  rw[] >> fs[] >>
+  rw[VSUBST_def] >>
+  rw[] >>
+  rw[Abbr`t'`] >>
+  first_x_assum match_mp_tac >>
+  unabbrev_all_tac >>
+  simp[MEM_FILTER] >>
+  metis_tac[has_meaning_Var,has_type_cases])
+
+val simple_subst_frees = store_thm("simple_subst_frees",
+  ``∀tm s1 s2.
+    (∀x ty. VFREE_IN (Var x ty) tm ⇒ FLOOKUP s1 (x,ty) = FLOOKUP s2 (x,ty))
+    ⇒
+    simple_subst s1 tm = simple_subst s2 tm``,
+  Induct >> simp[FLOOKUPD_def] >> rw[] >>
+  first_x_assum match_mp_tac >>
+  simp[DOMSUB_FLOOKUP_THM] >>
+  rw[] >> fs[])
+
+val tvars_VSUBST_lookup = store_thm("tvars_VSUBST_lookup",
+  ``∀tm ilist x ty. VFREE_IN (Var x ty) tm ⇒ set (tvars (REV_ASSOCD (Var x ty) ilist (Var x ty))) ⊆ set (tvars (VSUBST ilist tm))``,
+  Induct >> simp[VSUBST_def,tvars_def] >- (
+    fs[SUBSET_DEF] >>
+    metis_tac[] ) >>
+  rw[tvars_def] >>
+  qmatch_abbrev_tac`X ⊆ Y ∪ set (tvars (VSUBST ls tm))` >>
+  first_x_assum(qspecl_then[`ls`,`x`,`ty`]mp_tac) >>
+  unabbrev_all_tac >>
+  simp[SUBSET_DEF,REV_ASSOCD,REV_ASSOCD_FILTER])
+
+val closes_VSUBST_lookup = store_thm("closes_VSUBST_lookup",
+  ``closes s t (VSUBST ilist tm) ∧
+    VFREE_IN (Var x ty) tm
+    ⇒
+    closes s t (REV_ASSOCD (Var x ty) ilist (Var x ty))``,
+  rw[closes_def] >- (
+    metis_tac[tvars_VSUBST_lookup,SUBSET_TRANS] ) >>
+  first_x_assum match_mp_tac >>
+  rw[VFREE_IN_VSUBST] >>
+  metis_tac[])
+
+val FEVERY_ALL_FLOOKUP = store_thm("FEVERY_ALL_FLOOKUP",
+  ``∀P f. FEVERY P f ⇔ ∀k v. FLOOKUP f k = SOME v ⇒ P (k,v)``,
+  SRW_TAC[][FEVERY_DEF,FLOOKUP_DEF])
+
+val tvars_subset_VSUBST = store_thm("tvars_subset_VSUBST",
+  ``∀tm ilist.
+    (∀k v. MEM (v,k) ilist ⇒ ∃x ty. k = Var x ty ∧ v has_type ty)
+    ⇒
+    set (tvars tm) ⊆ set (tvars (VSUBST ilist tm))``,
+  Induct >> rw[VSUBST_def,tvars_def] >- (
+    simp[REV_ASSOCD_ALOOKUP] >>
+    BasicProvers.CASE_TAC >> simp[tvars_def] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD] >>
+    res_tac >> fs[] >> rw[] >>
+    metis_tac[tyvars_typeof_subset_tvars] ) >>
+  TRY ( fs[SUBSET_DEF] >> NO_TAC) >>
+  rw[tvars_def,Abbr`t'`] >>
+  qmatch_abbrev_tac`X ⊆ Y ∪ Z` >>
+  (qsuff_tac`X ⊆ Z` >- (simp[SUBSET_DEF])) >>
+  unabbrev_all_tac >>
+  first_x_assum match_mp_tac >>
+  simp[MEM_FILTER] >>
+  metis_tac[has_type_cases])
+
+val INST_correct = store_thm("INST_correct",
+  ``∀ilist h c.
+      (∀s s'. MEM (s',s) ilist ⇒ has_meaning s' ∧ ∃x ty. (s = Var x ty) ∧ s' has_type ty) ∧ h |= c
+      ⇒
+      (MAP (VSUBST ilist) h) |= VSUBST ilist c``,
+  rw[] >>
+  fs[sequent_def] >>
+  conj_asm1_tac >- (
+    conj_tac >- (
+      match_mp_tac VSUBST_HAS_TYPE >>
+      metis_tac[] ) >>
+    fs[EVERY_MEM,MEM_MAP] >>
+    metis_tac[VSUBST_HAS_TYPE] ) >>
+  conj_tac >- (
+    conj_tac >- (
+      match_mp_tac has_meaning_VSUBST >>
+      metis_tac[] ) >>
+    fs[EVERY_MEM,MEM_MAP] >>
+    metis_tac[has_meaning_VSUBST] ) >>
+  rw[] >>
+  qabbrev_tac`tm = fresh_term {x | ∃ty u. VFREE_IN (Var x ty) u ∧ MEM u (MAP FST ilist)} c` >>
+  `ACONV c tm` by simp[fresh_term_def,Abbr`tm`] >>
+  qspecl_then[`c`,`tm`,`ilist`]mp_tac ACONV_VSUBST >>
+  discharge_hyps >- metis_tac[] >> strip_tac >>
+  qsuff_tac`semantics σ τ (VSUBST ilist tm) true` >- (
+    metis_tac[semantics_aconv,welltyped_def] ) >>
+  `VSUBST ilist tm = simple_subst (ilist_to_fmap ilist) tm` by (
+    match_mp_tac VSUBST_simple_subst >>
+    simp[fresh_term_def,Abbr`tm`] >>
+    metis_tac[] ) >>
+  simp[] >>
+  qabbrev_tac`subst = DRESTRICT (ilist_to_fmap ilist) {(x,ty) | VFREE_IN (Var x ty) c ∨ ∃t. MEM t h ∧ VFREE_IN (Var x ty) t}` >>
+  `simple_subst (ilist_to_fmap ilist) tm = simple_subst subst tm` by (
+    match_mp_tac simple_subst_frees >>
+    simp[Abbr`subst`,FLOOKUP_DRESTRICT] >>
+    metis_tac[VFREE_IN_ACONV] ) >>
+  `∀k v. FLOOKUP subst k = SOME v ⇒ ∃m. semantics σ τ v m` by (
+    simp[Abbr`subst`,FLOOKUP_DRESTRICT] >>
+    Cases >> simp[FLOOKUP_ilist_to_fmap] >>
+    simp[REV_ASSOCD_ALOOKUP] >>
+    BasicProvers.CASE_TAC >- (
+      fs[ALOOKUP_FAILS,MEM_MAP,FORALL_PROD,EXISTS_PROD] ) >>
+    `has_meaning x` by (
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    pop_assum mp_tac >>
+    simp[has_meaning_def] >>
+    strip_tac >>
+    strip_tac >>
+    first_x_assum match_mp_tac >>
+    simp[] >>
+    `x = REV_ASSOCD (Var q r) ilist (Var q r)` by (
+      simp[REV_ASSOCD_ALOOKUP] ) >>
+    fs[EVERY_MAP] >> fs[EVERY_MEM] >>
+    metis_tac[closes_VSUBST_lookup,semantics_closes] ) >>
+  pop_assum mp_tac >>
+  simp[GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM] >>
+  disch_then(qx_choose_then`ssf`strip_assume_tac) >>
+  qabbrev_tac`ss = FUN_FMAP (λk. ssf k (subst ' k)) (FDOM subst)` >>
+  qspecl_then[`tm`,`subst`,`ss`,`σ`,`τ`]mp_tac semantics_simple_subst >>
+  `FDOM subst = FDOM ss` by (
+    unabbrev_all_tac >> simp[] ) >>
+  `closes (FDOM (ss ⊌ σ)) (FDOM τ) tm` by (
+    fs[closes_def] >>
+    conj_tac >- (
+      metis_tac[tvars_subset_VSUBST,ACONV_tvars,SUBSET_DEF] ) >>
+    fs[Abbr`ss`] >>
+    rw[] >>
+    `VFREE_IN (Var x ty) c` by metis_tac[ACONV_VFREE_IN,ACONV_SYM] >>
+    fs[VFREE_IN_VSUBST,GSYM LEFT_FORALL_IMP_THM] >>
+    Cases_on`(x,ty) ∈ FDOM ss`>>simp[] >>
+    first_x_assum match_mp_tac >>
+    map_every qexists_tac[`x`,`ty`] >>
+    simp[REV_ASSOCD_ALOOKUP] >>
+    BasicProvers.CASE_TAC >> simp[] >>
+    imp_res_tac ALOOKUP_MEM >>
+    qpat_assum`X = FDOM ss`(assume_tac o SYM) >>
+    fs[Abbr`subst`,FDOM_DRESTRICT] >>
+    `FLOOKUP (ilist_to_fmap ilist) (x,ty) = NONE` by fs[FLOOKUP_DEF] >>
+    fs[FLOOKUP_ilist_to_fmap,MEM_MAP,EXISTS_PROD] ) >>
+  discharge_hyps >- (
+    conj_tac >- (
+      qmatch_assum_abbrev_tac`Abbrev(tm = fresh_term s c)` >>
+      `DISJOINT (set (bv_names tm)) s` by (
+        simp[Abbr`tm`,Abbr`s`,fresh_term_def] ) >>
+      fs[Abbr`s`,IN_DISJOINT,FRANGE_FLOOKUP] >>
+      simp[Abbr`subst`,FLOOKUP_DRESTRICT] >>
+      simp[FORALL_PROD,FLOOKUP_ilist_to_fmap] >>
+      spose_not_then strip_assume_tac >>
+      qsuff_tac`MEM u (MAP FST ilist)`>-metis_tac[] >>
+      BasicProvers.VAR_EQ_TAC >>
+      simp[REV_ASSOCD_ALOOKUP] >>
+      BasicProvers.CASE_TAC >- (
+        fs[ALOOKUP_FAILS,MEM_MAP,FORALL_PROD,EXISTS_PROD] ) >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    conj_tac >- (
+      simp[FEVERY_ALL_FLOOKUP] >>
+      simp[Abbr`subst`,FLOOKUP_DRESTRICT] >>
+      simp[FORALL_PROD,FLOOKUP_ilist_to_fmap] >>
+      rw[] >>
+      metis_tac[REV_ASSOCD_MEM,term_11,has_type_cases] ) >>
+    conj_tac >- (
+      simp[FEVERY_ALL_FLOOKUP] >>
+      simp[Abbr`ss`,FLOOKUP_FUN_FMAP] >>
+      fs[FLOOKUP_DEF] ) >>
+    simp[] >>
+    reverse conj_tac >- (
+      metis_tac[ACONV_welltyped,welltyped_def] ) >>
+    fs[FEVERY_ALL_FLOOKUP,Abbr`ss`,FLOOKUP_FUN_FMAP,FLOOKUP_DEF] ) >>
+  rw[] >>
+  `term_valuation τ (ss ⊌ σ)` by (
+    fs[term_valuation_def,FEVERY_ALL_FLOOKUP,FLOOKUP_FUNION] >>
+    rpt gen_tac >>
+    BasicProvers.CASE_TAC >> simp[] >>
+    rw[] >>
+    fs[Abbr`ss`,FLOOKUP_FUN_FMAP] >>
+    `FLOOKUP subst k = SOME (subst ' k)` by simp[FLOOKUP_DEF] >>
+    `semantics σ τ (subst ' k) v` by metis_tac[] >>
+    qspecl_then[`σ`,`τ`,`subst ' k`,`v`]mp_tac(CONJUNCT2 semantics_typeset) >>
+    simp[term_valuation_def,FEVERY_ALL_FLOOKUP] >>
+    qsuff_tac`typeof (subst ' k) = SND k` >- metis_tac[] >>
+    qsuff_tac`MEM (subst ' k,UNCURRY Var k) ilist` >- (
+      strip_tac >> res_tac >> Cases_on`k` >> fs[] >>
+      metis_tac[has_meaning_welltyped,WELLTYPED_LEMMA] ) >>
+    qabbrev_tac`w = subst ' k` >>
+    Cases_on`k` >>
+    fs[Abbr`subst`,FLOOKUP_DRESTRICT,FLOOKUP_ilist_to_fmap] >>
+    rw[] >>
+    simp[REV_ASSOCD_ALOOKUP] >>
+    BasicProvers.CASE_TAC >>
+    fs[ALOOKUP_FAILS,MEM_MAP,EXISTS_PROD] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD] ) >>
+  qsuff_tac`semantics (ss ⊌ σ) τ c true` >- metis_tac[semantics_aconv,welltyped_def] >>
+  first_x_assum match_mp_tac >>
+  simp[] >> fs[] >>
+  reverse conj_tac >- metis_tac[closes_aconv,ACONV_SYM] >>
+  fs[EVERY_MAP] >>
+  fs[EVERY_MEM] >>
+  rw[] >>
+  `semantics σ τ (VSUBST ilist t) true` by metis_tac[] >>
+
+  semantics_simple_subst
+  semantics_aconv
 
 val _ = export_theory()
