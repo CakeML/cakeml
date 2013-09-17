@@ -3299,4 +3299,43 @@ val INST_correct = store_thm("INST_correct",
     metis_tac[] ) >>
   metis_tac[semantics_aconv,ACONV_VSUBST,welltyped_def])
 
+(*
+val semantics_simple_inst = store_thm("semantics_simple_inst",
+
+need to induct on typeset as well?
+
+  ``∀tm tyin σ τ σi τi.
+    (∀a. MEM a (tvars tm) ⇒ ∃m. FLOOKUP τi a = SOME m ∧ typeset τ (tyinst tyin (Tyvar a)) m) ∧
+    (∀x ty. VFREE_IN (Var x ty) tm ⇒ FLOOKUP σi (x,ty) = FLOOKUP σ (x,tyinst tyin ty)) ∧
+    has_meaning tm
+    ⇒
+    semantics σ τ (simple_inst tyin tm) = semantics σi τi tm``
+  Induct >- (
+    rw[tvars_def] >>
+    simp[FUN_EQ_THM] >>
+    simp[Once semantics_cases] >>
+    simp[Once semantics_cases] )
+  >- (
+    rw[tvars_def] >>
+    simp[FUN_EQ_THM] >>
+    simp[Once semantics_cases] >>
+    simp[Once semantics_cases,SimpRHS] >>
+    rw[EQ_IMP_THM] >- (
+      fs[has_meaning_def] >>
+      first_x_assum(qspecl_then[`τ'`,`σ`]mp_tac) >>
+      simp[Once semantics_cases] >> rw[] >>
+      fs[tyvars_def] >>
+      qexists_tac`mty`
+
+      Cases_on`t`>>fs[tyvars_def]
+    )
+    semantics_simple_subst
+
+val INST_TYPE_correct = store_thm("INST_TYPE_correct",
+  ``∀h c tyin.
+      h |= c ∧ EVERY type_has_meaning (MAP FST tyin)
+      ⇒
+      (MAP (INST tyin) h) |= INST tyin c``,
+*)
+
 val _ = export_theory()
