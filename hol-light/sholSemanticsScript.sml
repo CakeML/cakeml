@@ -3181,6 +3181,16 @@ val INST_correct = store_thm("INST_correct",
     fs[Abbr`subst`,FDOM_DRESTRICT] >>
     `FLOOKUP (ilist_to_fmap ilist) (x,ty) = NONE` by fs[FLOOKUP_DEF] >>
     fs[FLOOKUP_ilist_to_fmap,MEM_MAP,EXISTS_PROD] ) >>
+  `FEVERY (λ((x,ty),tm). tm has_type ty) subst` by (
+    simp[FEVERY_ALL_FLOOKUP] >>
+    simp[Abbr`subst`,FLOOKUP_DRESTRICT] >>
+    simp[FORALL_PROD,FLOOKUP_ilist_to_fmap] >>
+    rw[] >>
+    metis_tac[REV_ASSOCD_MEM,term_11,has_type_cases] ) >>
+  `FEVERY (λ(v,m). semantics σ τ (subst ' v) m) ss` by (
+    simp[FEVERY_ALL_FLOOKUP] >>
+    simp[Abbr`ss`,FLOOKUP_FUN_FMAP] >>
+    fs[FLOOKUP_DEF] ) >>
   discharge_hyps >- (
     conj_tac >- (
       qmatch_assum_abbrev_tac`Abbrev(tm = fresh_term s c)` >>
@@ -3198,20 +3208,8 @@ val INST_correct = store_thm("INST_correct",
       imp_res_tac ALOOKUP_MEM >>
       fs[MEM_MAP,EXISTS_PROD] >>
       metis_tac[] ) >>
-    conj_tac >- (
-      simp[FEVERY_ALL_FLOOKUP] >>
-      simp[Abbr`subst`,FLOOKUP_DRESTRICT] >>
-      simp[FORALL_PROD,FLOOKUP_ilist_to_fmap] >>
-      rw[] >>
-      metis_tac[REV_ASSOCD_MEM,term_11,has_type_cases] ) >>
-    conj_tac >- (
-      simp[FEVERY_ALL_FLOOKUP] >>
-      simp[Abbr`ss`,FLOOKUP_FUN_FMAP] >>
-      fs[FLOOKUP_DEF] ) >>
     simp[] >>
-    reverse conj_tac >- (
-      metis_tac[ACONV_welltyped,welltyped_def] ) >>
-    fs[FEVERY_ALL_FLOOKUP,Abbr`ss`,FLOOKUP_FUN_FMAP,FLOOKUP_DEF] ) >>
+    metis_tac[ACONV_welltyped,welltyped_def] ) >>
   rw[] >>
   `term_valuation τ (ss ⊌ σ)` by (
     fs[term_valuation_def,FEVERY_ALL_FLOOKUP,FLOOKUP_FUNION] >>
@@ -3244,8 +3242,61 @@ val INST_correct = store_thm("INST_correct",
   fs[EVERY_MEM] >>
   rw[] >>
   `semantics σ τ (VSUBST ilist t) true` by metis_tac[] >>
-
-  semantics_simple_subst
-  semantics_aconv
+  qmatch_assum_abbrev_tac`Abbrev(tm = fresh_term s c)` >>
+  qabbrev_tac`th = fresh_term s t` >>
+  `ACONV t th` by simp[Abbr`th`,Abbr`s`,fresh_term_def] >>
+  qsuff_tac`semantics (ss ⊌ σ) τ th true` >-  metis_tac[semantics_aconv,welltyped_def] >>
+  `semantics (ss ⊌ σ) τ th = semantics σ τ (simple_subst subst th)` by (
+    match_mp_tac EQ_SYM >>
+    match_mp_tac semantics_simple_subst >>
+    conj_tac >- (
+      `DISJOINT (set (bv_names th)) s` by (
+        simp[Abbr`th`,Abbr`s`,fresh_term_def] ) >>
+      fs[Abbr`s`,IN_DISJOINT,FRANGE_FLOOKUP] >>
+      simp[Abbr`subst`,FLOOKUP_DRESTRICT] >>
+      simp[FORALL_PROD,FLOOKUP_ilist_to_fmap] >>
+      spose_not_then strip_assume_tac >>
+      qsuff_tac`MEM u (MAP FST ilist)`>-metis_tac[] >>
+      BasicProvers.VAR_EQ_TAC >>
+      simp[REV_ASSOCD_ALOOKUP] >>
+      BasicProvers.CASE_TAC >- (
+        fs[ALOOKUP_FAILS,MEM_MAP,FORALL_PROD,EXISTS_PROD] ) >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    simp[] >>
+    reverse conj_tac >- (
+      metis_tac[ACONV_welltyped,welltyped_def] ) >>
+    `closes (FDOM σ) (FDOM τ) (VSUBST ilist t)` by metis_tac[semantics_closes] >>
+    fs[closes_def] >>
+    conj_tac >- (
+      metis_tac[tvars_subset_VSUBST,ACONV_tvars,SUBSET_DEF] ) >>
+    fs[Abbr`ss`] >>
+    rw[] >>
+    `VFREE_IN (Var x ty) t` by metis_tac[ACONV_VFREE_IN,ACONV_SYM] >>
+    fs[VFREE_IN_VSUBST,GSYM LEFT_FORALL_IMP_THM] >>
+    Cases_on`(x,ty) ∈ FDOM ss`>>simp[] >>
+    first_x_assum match_mp_tac >>
+    map_every qexists_tac[`x`,`ty`] >>
+    simp[REV_ASSOCD_ALOOKUP] >>
+    BasicProvers.CASE_TAC >> simp[] >>
+    imp_res_tac ALOOKUP_MEM >>
+    qpat_assum`X = FDOM ss`(assume_tac o SYM) >>
+    fs[Abbr`subst`,FDOM_DRESTRICT] >>
+    `FLOOKUP (ilist_to_fmap ilist) (x,ty) = NONE` by fs[FLOOKUP_DEF] >>
+    fs[FLOOKUP_ilist_to_fmap,MEM_MAP,EXISTS_PROD] >>
+    metis_tac[]) >>
+  simp[] >>
+  `simple_subst subst th = simple_subst (ilist_to_fmap ilist) th` by (
+    match_mp_tac simple_subst_frees >>
+    simp[Abbr`subst`,FLOOKUP_DRESTRICT] >>
+    rw[] >>
+    metis_tac[VFREE_IN_ACONV] ) >>
+  `simple_subst (ilist_to_fmap ilist) th = VSUBST ilist th` by (
+    match_mp_tac EQ_SYM >>
+    match_mp_tac VSUBST_simple_subst >>
+    simp[Abbr`th`,Abbr`s`,fresh_term_def] >>
+    metis_tac[] ) >>
+  metis_tac[semantics_aconv,ACONV_VSUBST,welltyped_def])
 
 val _ = export_theory()
