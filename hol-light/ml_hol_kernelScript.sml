@@ -104,8 +104,10 @@ fun derive_case_of ty = let
   val ts = map mk_vars ys
   (* patterns *)
   val patterns = map (fn (n,f,fxs,pxs,tm,exp,xs) => let
-    val str = tag_name name (repeat rator tm |> dest_const |> fst)
-    val str = stringSyntax.fromMLstring str
+    val pat = ``Short (s:string)``
+    val str = inv_def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL
+      |> first (fn th => can (match_term tm) (th |> concl |> dest_eq |> fst |> rator |> rand))
+      |> concl |> find_term (can (match_term pat)) |> rand
     val vars = map (fn (x,n,v) => ``(Pvar ^n) : pat``) xs
     val vars = listSyntax.mk_list(vars,``:pat``)
     in ``(Pcon (SOME (Short ^str)) ^vars, ^exp)`` end) ts
@@ -742,11 +744,6 @@ val def = DEDUCT_ANTISYM_RULE_def |> m_translate
 val def = new_basic_definition_def |> m_translate
 val def = (INST_TYPE_def |> SIMP_RULE std_ss [LET_DEF]) |> m_translate
 val def = (INST_def |> SIMP_RULE std_ss [LET_DEF]) |> m_translate
-
-val MAP_Tyvar_lemma = prove(
-  ``MAP Tyvar = MAP (\x. Tyvar x)``,
-  AP_TERM_TAC \\ SIMP_TAC std_ss [FUN_EQ_THM]);
-
-val def = new_basic_type_definition_def |> RW1 [MAP_Tyvar_lemma] |> m_translate
+val def = new_basic_type_definition_def |> m_translate
 
 val _ = export_theory();

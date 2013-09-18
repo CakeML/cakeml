@@ -187,7 +187,7 @@ val HOL_MONAD_def = Define `
                                      (state2:hol_refs,s2:store,res) =
     case (x state1, res) of
       ((HolRes y, state), Rval v) => (state = state2) /\ a y v
-    | ((HolErr e, state), Rerr (Rraise (Int_error _))) => (state = state2)
+    | ((HolErr e, state), Rerr (Rraise _)) => (state = state2)
     | _ => F`
 
 (* return *)
@@ -328,10 +328,10 @@ val HOL_STORE_EXISTS = prove(
   ``?s refs. HOL_STORE s refs``,
   SIMP_TAC std_ss [HOL_STORE_def]
   \\ STRIP_ASSUME_TAC HOL_TERM_TYPE_EXISTS
-  \\ Q.EXISTS_TAC `[Conv (SOME (Short "Nil")) [];
-                    Conv (SOME (Short "Nil")) [];
-                    Conv (SOME (Short "Nil")) [];
-                    Conv (SOME (Short "Nil")) []; v]`
+  \\ Q.EXISTS_TAC `[Conv (SOME (Short "nil")) [];
+                    Conv (SOME (Short "nil")) [];
+                    Conv (SOME (Short "nil")) [];
+                    Conv (SOME (Short "nil")) []; v]`
   \\ FULL_SIMP_TAC (srw_ss()) [LENGTH,EL,HD,TL]
   \\ Q.EXISTS_TAC `<| the_axioms := []; the_type_constants := [] ;
                       the_term_constants := []; the_definitions := [];
@@ -449,16 +449,17 @@ val M_FUN_QUANT_SIMP = save_thm("M_FUN_QUANT_SIMP",
 (* failwith *)
 
 val EvalM_failwith = store_thm("EvalM_failwith",
-  ``!x a. EvalM env (Raise (Int_error 0)) (HOL_MONAD a (failwith x))``,
+  ``!x a. EvalM env (Raise (Lit Unit)) (HOL_MONAD a (failwith x))``,
   SIMP_TAC (srw_ss()) [Eval_def,EvalM_def,HOL_MONAD_def,failwith_def]
-  \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) [] );
+  \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []
+  \\ ONCE_REWRITE_TAC [evaluate'_cases] \\ SIMP_TAC (srw_ss()) []);
 
 (* otherwise *)
 
 val EvalM_otherwise = store_thm("EvalM_otherwise",
   ``!n. EvalM env exp1 (HOL_MONAD a x1) ==>
         (!i. EvalM ((n,i)::env) exp2 (HOL_MONAD a x2)) ==>
-        EvalM env (Handle exp1 n exp2) (HOL_MONAD a (x1 otherwise x2))``,
+        EvalM env (Handle exp1 [(Pvar n,exp2)]) (HOL_MONAD a (x1 otherwise x2))``,
   SIMP_TAC std_ss [EvalM_def] \\ REPEAT STRIP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
   \\ Q.PAT_ASSUM `!s refs. bb ==> bbb` (MP_TAC o Q.SPECL [`s`,`refs`])
@@ -474,14 +475,14 @@ val EvalM_otherwise = store_thm("EvalM_otherwise",
   \\ Cases_on `x1 refs` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [otherwise_def]
   \\ Cases_on `e` \\ FULL_SIMP_TAC (srw_ss()) [otherwise_def]
-  \\ Cases_on `e'` \\ FULL_SIMP_TAC (srw_ss()) [otherwise_def]
-  \\ Q.PAT_ASSUM `!xx. bbb` (MP_TAC o
-        Q.SPECL [`Litv (IntLit i)`,`s2`,`refs2`])
-  \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
-  \\ Q.LIST_EXISTS_TAC [`s2'`,`res`,`refs2'`]
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`v`,`s2`,`refs2`])
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
-  THEN1 (FULL_SIMP_TAC std_ss [bind_def] \\ METIS_TAC [])
-  \\ FULL_SIMP_TAC (srw_ss()) [HOL_MONAD_def]);
+  \\ Q.LIST_EXISTS_TAC [`s2'`,`res`,`refs2'`]
+  \\ FULL_SIMP_TAC (srw_ss()) [HOL_MONAD_def]
+  \\ DISJ2_TAC \\ DISJ1_TAC
+  \\ Q.LIST_EXISTS_TAC [`s2`,`v`] \\ ASM_SIMP_TAC std_ss []
+  \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases,pat_bindings_def,pmatch'_def]
+  \\ FULL_SIMP_TAC std_ss [bind_def]);
 
 (* if *)
 
@@ -566,7 +567,7 @@ val evaluate'_SIMP =
    ``evaluate' a0 a1 (Var s) a3``,
    ``evaluate' a0 a1 (Con s l) a3``,
    ``evaluate' a0 a1 (Lit l) a3``,
-   ``evaluate' a0 a1 (Handle e s e0) a3``,
+   ``evaluate' a0 a1 (Handle e s) a3``,
    ``evaluate' a0 a1 (Raise e) a3``,
    ``evaluate_list' a0 a1 [] a3``,
    ``evaluate_list' a0 a1 (h::t) a3``]
