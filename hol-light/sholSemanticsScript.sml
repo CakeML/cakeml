@@ -3301,6 +3301,18 @@ val INST_correct = store_thm("INST_correct",
 
 (*
 val semantics_simple_inst = store_thm("semantics_simple_inst",
+  ``(∀τi ty m. typeset τi ty m ⇒
+       ∀τ tyin.
+         (∀a. MEM a (tyvars ty) ⇒ typeset τ (tyinst tyin (Tyvar a)) (τi ' a))
+         ⇒
+         typeset τ (tyinst tyin ty) m) ∧
+    (∀σi τi tm m. semantics σi τi tm m ⇒
+        ∀σ τ tyin.
+          (∀a. MEM a (tvars tm) ⇒ typeset τ (tyinst tyin (Tyvar a)) (τi ' a)) ∧
+          (∀x ty. VFREE_IN (Var x ty) tm ⇒ FLOOKUP σi (x,ty) = FLOOKUP σ (x,tyinst tyin ty))
+          ⇒
+          semantics σ τ (simple_inst tyin tm) m)``,
+  ho_match_mp_tac semantics_ind
 
 need to induct on typeset as well?
 
