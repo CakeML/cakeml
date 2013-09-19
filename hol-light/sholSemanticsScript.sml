@@ -3533,35 +3533,44 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
   reverse(Cases_on`tx=ty`) >> simp[FLOOKUP_UPDATE] >> rw[] >>
   metis_tac[])
 
+val dbINST_def = Define`
+  dbINST tyin (dbVar x ty) = dbVar x (TYPE_SUBST tyin ty) ∧
+  dbINST tyin (dbBound n) = dbBound n ∧
+  dbINST tyin (dbConst x ty g) = dbConst x (TYPE_SUBST tyin ty) g ∧
+  dbINST tyin (dbComb t1 t2) = dbComb (dbINST tyin t1) (dbINST tyin t2) ∧
+  dbINST tyin (dbAbs ty t) = dbAbs (TYPE_SUBST tyin ty) (dbINST tyin t)`
+val _ = export_rewrites["dbINST_def"]
+
 (*
+val dbINST_bind = store_thm("dbINST_bind",
+  ``∀tm v n ls.
+      no variables will be captured
+      ⇒ dbINST ls (bind v n tm) = bind (FST v,TYPE_SUBST ls (SND v)) n (dbINST ls tm)``,
+  Induct >> simp[] >>
+  Cases_on`v`>>simp[] >>
+  rw[]
 
-  ``∀tm tyin σ τ σi τi.
-    (∀a. MEM a (tvars tm) ⇒ ∃m. FLOOKUP τi a = SOME m ∧ typeset τ (tyinst tyin (Tyvar a)) m) ∧
-    (∀x ty. VFREE_IN (Var x ty) tm ⇒ FLOOKUP σi (x,ty) = FLOOKUP σ (x,tyinst tyin ty)) ∧
-    has_meaning tm
-    ⇒
-    semantics σ τ (simple_inst tyin tm) = semantics σi τi tm``
-  Induct >- (
-    rw[tvars_def] >>
-    simp[FUN_EQ_THM] >>
-    simp[Once semantics_cases] >>
-    simp[Once semantics_cases] )
+val INST_CORE_dbINST = store_thm("INST_CORE_dbINST",
+  ``∀tm tyin env tmi.
+      INST_CORE env tyin tm = Result tmi ⇒
+        db tmi = dbINST tyin (db tm)``,
+  Induct >> simp[] >- (
+    simp[INST_CORE_def] >>
+    rw[] >> rw[] )
   >- (
-    rw[tvars_def] >>
-    simp[FUN_EQ_THM] >>
-    simp[Once semantics_cases] >>
-    simp[Once semantics_cases,SimpRHS] >>
-    rw[EQ_IMP_THM] >- (
-      fs[has_meaning_def] >>
-      first_x_assum(qspecl_then[`τ'`,`σ`]mp_tac) >>
-      simp[Once semantics_cases] >> rw[] >>
-      fs[tyvars_def] >>
-      qexists_tac`mty`
-
-      Cases_on`t`>>fs[tyvars_def]
-    )
-    semantics_simple_subst
-
+    rw[INST_CORE_def] >> rw[] )
+  >- (
+    simp[INST_CORE_def] >>
+    rw[] >> fs[] >>
+    Cases_on`INST_CORE env tyin tm`>>fs[] >>
+    Cases_on`INST_CORE env tyin tm'`>>fs[] >>
+    metis_tac[] ) >>
+  simp[INST_CORE_def] >>
+  rw[] >> fs[] >>
+  qmatch_assum_abbrev_tac`IS_RESULT X` >>
+  Cases_on`X`>>
+  pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >> fs[] >- (
+    
 val INST_TYPE_correct = store_thm("INST_TYPE_correct",
   ``∀h c tyin.
       h |= c ∧ EVERY type_has_meaning (MAP FST tyin)
