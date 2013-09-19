@@ -3393,7 +3393,30 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
       rfs[MEM_ZIP] >>
       metis_tac[] ) >>
     rfs[ALOOKUP_ZIP_MAP_SND] ) >>
-  conj_tac
+  conj_tac >- (
+    rw[] >>
+    simp[Once semantics_cases] ) >>
+  conj_tac >- (
+    rw[tvars_def,tyvars_def] >>
+    simp[Once semantics_cases] >>
+    qexists_tac`m` >> simp[] ) >>
+  conj_tac >- (
+    rw[tvars_def,tyvars_def] >>
+    simp[Once semantics_cases] >>
+    qexists_tac`m` >> simp[] ) >>
+  conj_tac >- (
+    rw[tvars_def] >>
+    simp[Once semantics_cases] >>
+    rw[tyinst_tyinst] >>
+    fs[simple_inst_compose] >>
+    qho_match_abbrev_tac`∃x. tyinst a z = tyinst x z ∧ c x` >>
+    qexists_tac`a` >>
+    unabbrev_all_tac >> simp[] >>
+    first_x_assum match_mp_tac >>
+    simp[] >>
+    imp_res_tac semantics_closes >>
+    fs[closes_def] ) >>
+  conj_tac >-
 *)
 
 (*
