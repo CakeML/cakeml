@@ -2730,7 +2730,6 @@ val dbVFREE_IN_def = Define`
   (dbVFREE_IN v (dbAbs ty t) ⇔ dbVFREE_IN v t)`
 val _ = export_rewrites["dbVFREE_IN_def"]
 
-(* make a macro to write this line below *)
 val bind_not_free = store_thm("bind_not_free",
   ``∀t n v. ¬dbVFREE_IN (UNCURRY dbVar v) t ⇒ bind v n t = t``,
   Induct >> simp[] >> rw[])
@@ -3299,6 +3298,20 @@ val INST_correct = store_thm("INST_correct",
     metis_tac[] ) >>
   metis_tac[semantics_aconv,ACONV_VSUBST,welltyped_def])
 
+val tyinst_tyinst = store_thm("tyinst_tyinst",
+  ``∀ty i1 i2. tyinst i1 (tyinst i2 ty) = tyinst (tyinst i1 o_f i2 ⊌ i1) ty``,
+  ho_match_mp_tac type_ind >>
+  simp[] >>
+  conj_tac >- (
+    simp[FLOOKUPD_def,FLOOKUP_o_f,FLOOKUP_FUNION] >> rw[] >>
+    BasicProvers.CASE_TAC >>
+    simp[FLOOKUPD_def] ) >>
+  simp[MAP_MAP_o,MAP_EQ_f,EVERY_MEM])
+
+val simple_inst_compose = store_thm("simple_inst_compose",
+  ``∀tm i1 i2. simple_inst i1 (simple_inst i2 tm) = simple_inst (tyinst i1 o_f i2 ⊌ i1) tm``,
+  Induct >> simp[tyinst_tyinst])
+
 (*
 val semantics_simple_inst = store_thm("semantics_simple_inst",
   ``(∀τi ty m. typeset τi ty m ⇒
@@ -3312,9 +3325,22 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
           (∀x ty. VFREE_IN (Var x ty) tm ⇒ FLOOKUP σi (x,ty) = FLOOKUP σ (x,tyinst tyin ty))
           ⇒
           semantics σ τ (simple_inst tyin tm) m)``,
-  ho_match_mp_tac semantics_ind
+  ho_match_mp_tac semantics_ind >>
+  conj_tac >- simp[tyvars_def,FLOOKUP_DEF] >>
+  conj_tac >- simp[tyvars_def] >>
+  conj_tac >- (
+    simp[tyvars_def] >> rw[] >>
+    simp[Once semantics_cases] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rw[tyvars_def] >>
+    simp[Once semantics_cases] >>
+    qmatch_assum_rename_tac`w <: mp`[] >>
+    map_every qexists_tac[`m`,`mp`,`rty`,`w`] >>
+    simp[] >>
+    fs[MEM_FOLDR_LIST_UNION] >>
+    fs[tyinst_tyinst,simple_inst_compose] >>
 
-need to induct on typeset as well?
 
   ``∀tm tyin σ τ σi τi.
     (∀a. MEM a (tvars tm) ⇒ ∃m. FLOOKUP τi a = SOME m ∧ typeset τ (tyinst tyin (Tyvar a)) m) ∧
