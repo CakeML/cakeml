@@ -7872,6 +7872,11 @@ val _ = store_bignum_op zHEAP_Mul
 val _ = store_bignum_op zHEAP_Dec
 
 
+(* print number *)
+
+
+
+
 (* print *)
 
 val (bc_print_res,bc_print_def,bc_print_pre_def) = x64_compile `
