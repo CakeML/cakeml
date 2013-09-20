@@ -26,8 +26,8 @@ val lookup_APPEND = prove(
          | NONE => lookup name ys
          | res => res``,
   Induct \\ SRW_TAC [] [lookup_def]
-  \\ Cases_on `h` \\ SRW_TAC [] [lookup_def] \\
-  METIS_TAC[alistTheory.ALOOKUP_APPEND]);
+  \\ Cases_on `h` \\ SRW_TAC [] [lookup_def]
+  \\ METIS_TAC[alistTheory.ALOOKUP_APPEND]);
 
 val lookup_IMP_APPEND = prove(
   ``!env rest.
@@ -47,12 +47,12 @@ val lemma = prove(
       DeclAssum ^decls env ==>
       Eval env (Var (Short "parse_elaborate_infertype_compile"))
         ((a --> b) f)) ==>
-    Decls NONE [] [] empty_store [] ^decls cenv2 s2 env /\
-    Decls NONE [] [] empty_store [("input",i)] ^decls cenv2 s2 env /\
+    Decls NONE [] init_envC empty_store [] ^decls cenv2 s2 env /\
+    Decls NONE [] init_envC empty_store [("input",i)] ^decls cenv2 s2 env /\
     (lookup "input" env = NONE) /\
     ^a input i ==>
     ?env cenv2 s2.
-      Decls NONE [] [] empty_store [("input",i)]
+      Decls NONE [] init_envC empty_store [("input",i)]
         (SNOC
           (Dlet (Pvar "it")
              (App Opapp (Var (Short "parse_elaborate_infertype_compile"))
@@ -87,7 +87,7 @@ val lemma = prove(
   \\ SIMP_TAC std_ss [Eval_def]
   \\ ONCE_REWRITE_TAC [evaluate'_cases]
   \\ SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [Eval_Var_SIMP,alistTheory.ALOOKUP_APPEND])
+  \\ Q.EXISTS_TAC `i` \\ FULL_SIMP_TAC std_ss [lookup_APPEND] \\ EVAL_TAC)
   |> UNDISCH_ALL
   |> SIMP_RULE std_ss [Eval_Var_LOOKUP,PULL_EXISTS]
   |> SIMP_RULE std_ss [Decls_def]
