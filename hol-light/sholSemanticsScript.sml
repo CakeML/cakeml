@@ -3683,12 +3683,67 @@ val INST_dbINST = store_thm("INST_dbINST",
   qspecl_then[`tm`,`tyin`,`[]`,`t`]mp_tac INST_CORE_dbINST >>
   simp[])
 
+val ACONV_INST = store_thm("ACONV_INST",
+  ``∀t1 t2 tyin. welltyped t1 ∧ ACONV t1 t2 ⇒ ACONV (INST tyin t1) (INST tyin t2)``,
+  rw[] >> imp_res_tac ACONV_welltyped >>
+  fs[ACONV_db] >> imp_res_tac INST_dbINST >> rw[] )
+
+val INST_HAS_TYPE = store_thm("INST_HAS_TYPE",
+  ``∀tm tyin ty. tm has_type ty ⇒ INST tyin tm has_type (TYPE_SUBST tyin ty)``,
+  rw[INST_def] >>
+  `welltyped tm` by metis_tac[welltyped_def] >>
+  imp_res_tac INST_CORE_NIL_IS_RESULT >>
+  pop_assum(qspec_then`tyin`strip_assume_tac) >>
+  Cases_on`INST_CORE [] tyin tm`>>fs[] >>
+  qspecl_then[`sizeof tm`,`tm`,`[]`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
+  rw[] >>
+  metis_tac[WELLTYPED_LEMMA])
+
 (*
+val type_has_meaning_TYPE_SUBST = store_thm("type_has_meaning_TYPE_SUBST",
+  ``∀ty tyin. type_has_meaning ty ∧ EVERY type_has_meaning (MAP FST tyin) ⇒ type_has_meaning (TYPE_SUBST tyin ty)``,
+  rw[type_has_meaning_def] >>
+
+  semantics_simple_inst
+  tyinst_TYPE_SUBST
+
+  ho_match_mp_tac type_ind >> simp[] >>
+  conj_tac >- (
+    gen_tac >> Induct >> simp[REV_ASSOCD] >>
+    Cases >> simp[REV_ASSOCD] >> rw[] ) >>
+  rw[EVERY_MEM] >>
+  fsrw_tac[DNF_ss][] >>
+  first_x_assum(qspec_then`tyin`mp_tac o CONV_RULE SWAP_FORALL_CONV) >> rw[] >>
+  fs[type_has_meaning_def] >>
+  fs[tyvars_def,MEM_FOLDR_LIST_UNION,SUBSET_DEF,GSYM LEFT_FORALL_IMP_THM] >>
+  rw[] >>
+  fsrw_tac[DNF_ss][MEM_MAP] >>
+
+val has_meaning_INST_CORE = store_thm("has_meaning_INST_CORE",
+  ``∀tm env tyin tt.
+    has_meaning tm ∧
+    EVERY type_has_meaning (MAP FST tyin) ∧
+    INST_CORE env tyin tm = Result tt
+    ⇒ has_meaning tt``,
+  Induct >> simp[INST_CORE_def] >- (
+    rw[] >> simp[] >>
+
+    simp[Once has_type_cases]
+    type_has_meaning_def
+    has_meaning_VSUBST
+
 val INST_TYPE_correct = store_thm("INST_TYPE_correct",
   ``∀h c tyin.
       h |= c ∧ EVERY type_has_meaning (MAP FST tyin)
       ⇒
       (MAP (INST tyin) h) |= INST tyin c``,
+  simp[sequent_def] >>
+  rpt gen_tac >> strip_tac >>
+  conj_asm1_tac >- (
+    fs[EVERY_MEM,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
+    `TYPE_SUBST tyin Bool = Bool` by simp[] >>
+    metis_tac[INST_HAS_TYPE] ) >>
+  has_meaning_VSUBST
 *)
 
 val _ = export_theory()
