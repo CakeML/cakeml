@@ -3699,38 +3699,71 @@ val INST_HAS_TYPE = store_thm("INST_HAS_TYPE",
   rw[] >>
   metis_tac[WELLTYPED_LEMMA])
 
-(*
 val type_has_meaning_TYPE_SUBST = store_thm("type_has_meaning_TYPE_SUBST",
-  ``∀ty tyin. type_has_meaning ty ∧ EVERY type_has_meaning (MAP FST tyin) ⇒ type_has_meaning (TYPE_SUBST tyin ty)``,
+  ``∀ty tyin.
+    type_has_meaning ty ∧
+    EVERY type_has_meaning (MAP FST tyin) ∧
+    (∀s s'. MEM (s,s') tyin ⇒ ∃v. s' = Tyvar v)
+    ⇒
+    type_has_meaning (TYPE_SUBST tyin ty)``,
   rw[type_has_meaning_def] >>
-
-  semantics_simple_inst
-  tyinst_TYPE_SUBST
-
-  ho_match_mp_tac type_ind >> simp[] >>
-  conj_tac >- (
-    gen_tac >> Induct >> simp[REV_ASSOCD] >>
-    Cases >> simp[REV_ASSOCD] >> rw[] ) >>
-  rw[EVERY_MEM] >>
-  fsrw_tac[DNF_ss][] >>
-  first_x_assum(qspec_then`tyin`mp_tac o CONV_RULE SWAP_FORALL_CONV) >> rw[] >>
-  fs[type_has_meaning_def] >>
-  fs[tyvars_def,MEM_FOLDR_LIST_UNION,SUBSET_DEF,GSYM LEFT_FORALL_IMP_THM] >>
+  imp_res_tac tyinst_TYPE_SUBST >>
+  fs[] >> pop_assum kall_tac >>
+  fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,GSYM LEFT_FORALL_IMP_THM,type_has_meaning_def] >>
+  qabbrev_tac`ti = FUN_FMAP (λa. @m. typeset τ (tyinst (tyin_to_fmap tyin) (Tyvar a)) m) (set (tyvars ty))` >>
+  `∀a. MEM a (tyvars ty) ⇒ ∃x. typeset τ (FLOOKUPD (tyin_to_fmap tyin) a (Tyvar a)) x` by (
+    rw[] >>
+    fs[tyvars_tyinst,SUBSET_DEF,GSYM LEFT_FORALL_IMP_THM] >>
+    fs[FLOOKUPD_def,tyin_to_fmap_def] >>
+    BasicProvers.CASE_TAC >- (
+      simp[Once semantics_cases,FLOOKUP_DEF] >>
+      first_x_assum match_mp_tac >>
+      qexists_tac`a` >> simp[tyvars_def] ) >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD] >>
+    BasicProvers.VAR_EQ_TAC >>
+    qmatch_assum_rename_tac`MEM(x,a)tyin`[] >>
+    last_x_assum(qspecl_then[`x`,`a`]mp_tac) >>
+    simp[] >>
+    disch_then(qspec_then`τ`mp_tac) >>
+    simp[] >>
+    discharge_hyps >- (
+      rw[] >>
+      first_x_assum match_mp_tac >>
+      `∃v. a = Tyvar v` by metis_tac[] >> fs[] >>
+      qexists_tac`v` >>
+      simp[] ) >>
+    simp[] ) >>
+  `type_valuation ti` by (
+    simp[type_valuation_def,Abbr`ti`] >>
+    rw[] >>
+    SELECT_ELIM_TAC >>
+    simp[] >>
+    metis_tac[typeset_inhabited] ) >>
+  first_x_assum(qspec_then`ti`mp_tac) >>
+  simp[] >>
+  discharge_hyps >- simp[Abbr`ti`] >>
+  strip_tac >> qexists_tac`m` >>
+  match_mp_tac (MP_CANON (CONJUNCT1 semantics_simple_inst)) >>
+  HINT_EXISTS_TAC >>
+  simp[] >>
   rw[] >>
-  fsrw_tac[DNF_ss][MEM_MAP] >>
+  simp[Abbr`ti`,FUN_FMAP_DEF] >>
+  SELECT_ELIM_TAC >> simp[] )
 
+(*
 val has_meaning_INST_CORE = store_thm("has_meaning_INST_CORE",
   ``∀tm env tyin tt.
     has_meaning tm ∧
     EVERY type_has_meaning (MAP FST tyin) ∧
-    INST_CORE env tyin tm = Result tt
+    INST_CORE env tyin tm = Result tt ∧
+    (∀s s'. MEM (s,s') tyin ⇒ ∃v. s' = Tyvar v)
     ⇒ has_meaning tt``,
   Induct >> simp[INST_CORE_def] >- (
     rw[] >> simp[] >>
-
-    simp[Once has_type_cases]
-    type_has_meaning_def
-    has_meaning_VSUBST
+    match_mp_tac type_has_meaning_TYPE_SUBST >>
+    simp[] >> metis_tac[] )
+  >- (
 
 val INST_TYPE_correct = store_thm("INST_TYPE_correct",
   ``∀h c tyin.
