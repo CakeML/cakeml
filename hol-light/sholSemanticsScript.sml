@@ -3541,36 +3541,149 @@ val dbINST_def = Define`
   dbINST tyin (dbAbs ty t) = dbAbs (TYPE_SUBST tyin ty) (dbINST tyin t)`
 val _ = export_rewrites["dbINST_def"]
 
-(*
 val dbINST_bind = store_thm("dbINST_bind",
   ``∀tm v n ls.
-      no variables will be captured
+      (∀ty. dbVFREE_IN (dbVar (FST v) ty) tm ∧ (TYPE_SUBST ls ty = TYPE_SUBST ls (SND v)) ⇒ ty = SND v)
       ⇒ dbINST ls (bind v n tm) = bind (FST v,TYPE_SUBST ls (SND v)) n (dbINST ls tm)``,
   Induct >> simp[] >>
   Cases_on`v`>>simp[] >>
-  rw[]
+  rpt strip_tac >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[])
+
+val dbVSUBST_nil = store_thm("dbVSUBST_nil",
+  ``∀tm. dbVSUBST [] tm = tm``,
+  Induct >> simp[REV_ASSOCD])
+val _ = export_rewrites["dbVSUBST_nil"]
 
 val INST_CORE_dbINST = store_thm("INST_CORE_dbINST",
   ``∀tm tyin env tmi.
+      welltyped tm ∧ (∀s s'. MEM (s,s') env ⇒ ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin ty)) ∧
       INST_CORE env tyin tm = Result tmi ⇒
         db tmi = dbINST tyin (db tm)``,
-  Induct >> simp[] >- (
+  completeInduct_on`sizeof tm` >> Cases >> simp[] >- (
+    strip_tac >>
     simp[INST_CORE_def] >>
     rw[] >> rw[] )
   >- (
-    rw[INST_CORE_def] >> rw[] )
+    strip_tac >> rw[INST_CORE_def] >> rw[] )
   >- (
+    strip_tac >>
     simp[INST_CORE_def] >>
     rw[] >> fs[] >>
-    Cases_on`INST_CORE env tyin tm`>>fs[] >>
-    Cases_on`INST_CORE env tyin tm'`>>fs[] >>
+    qmatch_assum_rename_tac`typeof t1 = Fun (typeof t2) rty`[] >>
+    first_assum(qspec_then`sizeof t1`mp_tac) >>
+    first_x_assum(qspec_then`sizeof t2`mp_tac) >>
+    simp[] >>
+    disch_then(qspec_then`t2`strip_assume_tac) >>
+    disch_then(qspec_then`t1`strip_assume_tac) >>
+    rfs[] >>
+    Cases_on`INST_CORE env tyin t1` >>fs[] >>
+    Cases_on`INST_CORE env tyin t2`>>fs[] >>
     metis_tac[] ) >>
+  strip_tac >>
   simp[INST_CORE_def] >>
   rw[] >> fs[] >>
+  qmatch_assum_rename_tac`welltyped tm`[] >>
   qmatch_assum_abbrev_tac`IS_RESULT X` >>
   Cases_on`X`>>
   pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >> fs[] >- (
-    
+    qmatch_abbrev_tac`bind (x,TYPE_SUBST tyin ty) 0 (db tt) = X` >>
+    pop_assum mp_tac >> ntac 3 (pop_assum kall_tac) >> strip_tac >>
+    qspecl_then[`db tm`,`x,ty`,`0`,`tyin`]mp_tac dbINST_bind >>
+    discharge_hyps >- (
+      qx_gen_tac`ty2` >>
+      qspecl_then[`tm`,`Var x ty2`]mp_tac dbVFREE_IN_VFREE_IN >>
+      rw[] >>
+      qmatch_assum_abbrev_tac`INST_CORE env' tyin tm = Y` >>
+      qspecl_then[`sizeof tm`,`tm`,`env'`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
+      discharge_hyps >- (
+        simp[Abbr`env'`] >>
+        metis_tac[] ) >>
+      simp[Abbr`Y`] >>
+      simp[Abbr`env'`,REV_ASSOCD] >>
+      strip_tac >>
+      last_x_assum(qspecl_then[`x`,`ty2`]mp_tac) >>
+      simp[] ) >>
+    rw[] >>
+    qmatch_assum_abbrev_tac`INST_CORE env' tyin tm = Y` >>
+    first_x_assum(qspec_then`sizeof tm`mp_tac) >> simp[] >>
+    disch_then(qspec_then`tm`mp_tac) >> simp[] >>
+    disch_then(qspecl_then[`tyin`,`env'`,`tt`]mp_tac) >>
+    simp[Abbr`env'`] >>
+    discharge_hyps >- metis_tac[] >>
+    rw[] ) >>
+  qmatch_abbrev_tac`bind (z,TYPE_SUBST tyin ty) 0 (db tt) = dbINST tyin (bind (x,ty) 0 (db tm))` >>
+  ntac 3 (pop_assum kall_tac) >>
+  qspecl_then[`db tm`,`z,ty`,`x,ty`,`0`,`[]`]mp_tac bind_dbVSUBST_cons >>
+  discharge_hyps >- (
+    simp[] >>
+    simp[dbVFREE_IN_bind] >>
+    `∃tmi. INST_CORE [] tyin tm = Result tmi` by (
+      Cases_on`INST_CORE [] tyin tm`>>simp[] >>
+      imp_res_tac INST_CORE_NIL_IS_RESULT >>
+      pop_assum(qspec_then`tyin`strip_assume_tac) >>
+      rfs[] ) >> fs[] >>
+    first_x_assum(qspec_then`sizeof tm`mp_tac) >> simp[] >>
+    disch_then(qspec_then`tm`mp_tac) >> simp[] >>
+    disch_then(qspecl_then[`tyin`,`[]`,`tmi`]mp_tac) >>
+    rw[] >>
+    spose_not_then strip_assume_tac >>
+    qspecl_then[`tm`,`Var z ty`]mp_tac dbVFREE_IN_VFREE_IN >>
+    simp[] >>
+    qspecl_then[`sizeof tm`,`tm`,`[]`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
+    simp[] >> strip_tac >>
+    first_x_assum(qspecl_then[`z`,`TYPE_SUBST tyin ty`]mp_tac) >>
+    simp[VARIANT_THM,Abbr`z`] >>
+    metis_tac[] ) >>
+  simp[] >> disch_then(strip_assume_tac o SYM) >> simp[] >>
+  qmatch_assum_abbrev_tac`INST_CORE env' tyin tv = Result tt` >>
+  `sizeof tv = sizeof tm` by (
+    simp[Abbr`tv`] >>
+    match_mp_tac SIZEOF_VSUBST >>
+    simp[] ) >>
+  first_x_assum(qspec_then`sizeof tv`mp_tac) >> simp[] >>
+  disch_then(qspec_then`tv`mp_tac) >> simp[] >>
+  disch_then(qspecl_then[`tyin`,`env'`,`tt`]mp_tac) >>
+  `welltyped tv` by (
+    simp[Abbr`tv`] >>
+    match_mp_tac VSUBST_WELLTYPED >>
+    simp[] >> simp[Once has_type_cases] ) >>
+  discharge_hyps >- (
+    simp[Abbr`env'`] >>
+    metis_tac[] ) >>
+  rw[] >>
+  qspecl_then[`tm`,`[Var z ty,Var x ty]`]mp_tac VSUBST_dbVSUBST >>
+  simp[] >> disch_then(strip_assume_tac o SYM) >> simp[] >>
+  qspecl_then[`db tv`,`z,ty`,`0`,`tyin`]mp_tac dbINST_bind >>
+  discharge_hyps >- (
+    simp[] >>
+    qx_gen_tac`ty2` >>
+    qspecl_then[`tv`,`Var z ty2`]mp_tac dbVFREE_IN_VFREE_IN >>
+    rw[] >>
+    qspecl_then[`sizeof tv`,`tv`,`env'`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
+    discharge_hyps >- (
+      simp[Abbr`env'`] >>
+      metis_tac[] ) >>
+    simp[] >>
+    simp[Abbr`env'`,REV_ASSOCD] >>
+    strip_tac >>
+    last_x_assum(qspecl_then[`z`,`ty2`]mp_tac) >>
+    simp[] ) >>
+  simp[])
+
+val INST_dbINST = store_thm("INST_dbINST",
+  ``∀tm tyin.
+      welltyped tm ⇒
+      db (INST tyin tm) = dbINST tyin (db tm)``,
+  rw[INST_def] >>
+  imp_res_tac INST_CORE_NIL_IS_RESULT >>
+  pop_assum(qspec_then`tyin`strip_assume_tac) >>
+  Cases_on`INST_CORE [] tyin tm`>>fs[] >>
+  qspecl_then[`tm`,`tyin`,`[]`,`t`]mp_tac INST_CORE_dbINST >>
+  simp[])
+
+(*
 val INST_TYPE_correct = store_thm("INST_TYPE_correct",
   ``∀h c tyin.
       h |= c ∧ EVERY type_has_meaning (MAP FST tyin)
