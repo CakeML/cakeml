@@ -3751,6 +3751,111 @@ val type_has_meaning_TYPE_SUBST = store_thm("type_has_meaning_TYPE_SUBST",
   simp[Abbr`ti`,FUN_FMAP_DEF] >>
   SELECT_ELIM_TAC >> simp[] )
 
+val has_meaning_simple_inst = store_thm("has_meaning_simple_inst",
+  ``∀tm tyin.
+      has_meaning tm ∧
+      ALL_DISTINCT (bv_names tm) ∧
+      DISJOINT (set (bv_names tm)) {x | ∃ty. VFREE_IN (Var x ty) tm} ∧
+     (∀ty. ty ∈ FRANGE tyin ⇒ type_has_meaning ty)
+     ⇒ has_meaning (simple_inst tyin tm)``,
+  rw[] >>
+  match_mp_tac semantics_has_meaning >>
+  qabbrev_tac`τ = FUN_FMAP (K boolset) (set (tvars (simple_inst tyin tm)))` >>
+  `type_valuation τ` by (
+    simp[type_valuation_def] >>
+    simp[Abbr`τ`] >>
+    metis_tac[BOOLEAN_IN_BOOLSET] ) >>
+  `∃τi. (FDOM τi = set (tvars tm)) ∧ (∀a. MEM a (tvars tm) ⇒ typeset τ (tyinst tyin (Tyvar a)) (τi ' a))` by (
+    qexists_tac`FUN_FMAP (λa. @m. typeset τ (tyinst tyin (Tyvar a)) m) (set (tvars tm))` >>
+    simp[] >> rw[] >>
+    simp[FUN_FMAP_DEF] >>
+    SELECT_ELIM_TAC >> simp[] >>
+    simp[FLOOKUPD_def] >>
+    BasicProvers.CASE_TAC >- (
+      simp[Once semantics_cases] >>
+      simp[Abbr`τ`,FLOOKUP_FUN_FMAP] >>
+      simp[tvars_simple_inst,FLOOKUPD_def] >>
+      qexists_tac`a`>>simp[tyvars_def] ) >>
+    `x ∈ FRANGE tyin` by metis_tac[FRANGE_FLOOKUP] >>
+    res_tac >> pop_assum mp_tac >>
+    simp_tac std_ss [type_has_meaning_def] >>
+    disch_then match_mp_tac >>
+    simp[] >>
+    simp[Abbr`τ`,tvars_simple_inst] >>
+    simp[SUBSET_DEF,FLOOKUPD_def] >> rw[] >>
+    qexists_tac`a`>>simp[] ) >>
+  `type_valuation τi` by (
+    simp[type_valuation_def,IN_FRANGE] >>
+    metis_tac[typeset_inhabited] ) >>
+  qabbrev_tac`σ = FUN_FMAP (λ(x,ty). @x. ∃m. typeset τ ty m ∧ x <: m) {(x,ty) | VFREE_IN (Var x ty) (simple_inst tyin tm)}` >>
+  `term_valuation τ σ` by (
+    simp[term_valuation_def,FEVERY_ALL_FLOOKUP] >>
+    simp[Abbr`σ`,FLOOKUP_FUN_FMAP,GSYM LEFT_FORALL_IMP_THM] >>
+    simp[VFREE_IN_simple_inst,GSYM LEFT_FORALL_IMP_THM] >>
+    qx_genl_tac[`x`,`ty`] >> rw[] >>
+    `∃m. typeset τi ty m` by (
+      imp_res_tac has_meaning_subterm >> fs[] >>
+      fs[type_has_meaning_def] >>
+      pop_assum match_mp_tac >>
+      simp[] >>
+      imp_res_tac tvars_VFREE_IN_subset >>
+      fs[SUBSET_DEF,tvars_def] ) >>
+    `typeset τ (tyinst tyin ty) m` by (
+      match_mp_tac(MP_CANON(CONJUNCT1 semantics_simple_inst)) >>
+      qexists_tac`τi` >>
+      simp[] >> rw[] >> fs[] >>
+      first_x_assum match_mp_tac >>
+      imp_res_tac tvars_VFREE_IN_subset >>
+      fs[SUBSET_DEF,tvars_def] ) >>
+    qexists_tac`m` >>
+    simp[] >>
+    SELECT_ELIM_TAC >>
+    metis_tac[typeset_inhabited,semantics_11] ) >>
+  `∃σi. FDOM σi = { (x,ty) | VFREE_IN (Var x ty) tm } ∧
+    (∀x ty. VFREE_IN (Var x ty) tm ⇒ FLOOKUP σi (x,ty) = FLOOKUP σ (x,tyinst tyin ty))` by (
+    qexists_tac`FUN_FMAP (λ(x,ty). σ ' (x,tyinst tyin ty)) { (x,ty) | VFREE_IN (Var x ty) tm }` >>
+    simp[FLOOKUP_FUN_FMAP] >>
+    simp[FLOOKUP_DEF] >>
+    simp[Abbr`σ`,VFREE_IN_simple_inst] >>
+    metis_tac[] ) >>
+  `term_valuation τi σi` by (
+    simp[term_valuation_def,FEVERY_ALL_FLOOKUP] >>
+    qx_gen_tac`k` >>
+    PairCases_on`k` >>
+    reverse(Cases_on`VFREE_IN (Var k0 k1) tm`) >- (
+      simp[FLOOKUP_DEF] ) >>
+    simp[] >>
+    simp[Abbr`σ`,FLOOKUP_FUN_FMAP] >>
+    strip_tac >>
+    `type_has_meaning k1` by (
+      imp_res_tac has_meaning_subterm >> fs[] ) >>
+    fs[type_has_meaning_def] >>
+    pop_assum(qspec_then`τi`mp_tac) >>
+    discharge_hyps >- (
+      simp[] >>
+      imp_res_tac tvars_VFREE_IN_subset >>
+      fs[tvars_def] ) >>
+    strip_tac >>
+    qexists_tac`m` >> simp[] >>
+    SELECT_ELIM_TAC >>
+    `typeset τ (tyinst tyin k1) m` by (
+      match_mp_tac(MP_CANON(CONJUNCT1 semantics_simple_inst)) >>
+      simp[] >>
+      imp_res_tac tvars_VFREE_IN_subset >>
+      fs[tvars_def,SUBSET_DEF] >>
+      metis_tac[] ) >>
+    metis_tac[typeset_inhabited,semantics_11] ) >>
+  `∃m. semantics σi τi tm m` by (
+    fs[has_meaning_def] >>
+    first_x_assum match_mp_tac >>
+    simp[] >>
+    simp[closes_def] ) >>
+  map_every qexists_tac[`σ`,`τ`,`m`] >>
+  simp[] >>
+  match_mp_tac(MP_CANON(CONJUNCT2 semantics_simple_inst)) >>
+  map_every qexists_tac[`σi`,`τi`] >>
+  simp[])
+
 (*
 val has_meaning_INST_CORE = store_thm("has_meaning_INST_CORE",
   ``∀tm env tyin tt.
