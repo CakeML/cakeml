@@ -3813,6 +3813,14 @@ val has_meaning_simple_inst = store_thm("has_meaning_simple_inst",
   map_every qexists_tac[`σi`,`τi`] >>
   simp[])
 
+val IN_FRANGE_tyin_to_fmap_suff = store_thm("IN_FRANGE_tyin_to_fmap_suff",
+  ``∀P tyin. (∀x. MEM x (MAP FST tyin) ⇒ P x) ⇒ (∀x. x ∈ FRANGE (tyin_to_fmap tyin) ⇒ P x)``,
+  rw[FRANGE_FLOOKUP,tyin_to_fmap_def] >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[MEM_MAP,MEM_FILTER,EXISTS_PROD] >>
+  rw[] >> fs[GSYM LEFT_FORALL_IMP_THM] >>
+  metis_tac[])
+
 (*
 val INST_TYPE_correct = store_thm("INST_TYPE_correct",
   ``∀h c tyin.
@@ -3827,15 +3835,46 @@ val INST_TYPE_correct = store_thm("INST_TYPE_correct",
     metis_tac[INST_HAS_TYPE] ) >>
   `welltyped c ∧ EVERY welltyped h` by (
     fs[EVERY_MEM] >> metis_tac[welltyped_def] ) >>
-
-
-  INST_simple_inst
-  ACONV_INST
-  has_meaning_aconv
-
+  qabbrev_tac`tm = fresh_term {x | ∃ty. VFREE_IN (Var x ty) c} c` >>
+  `ACONV c tm` by simp[Abbr`tm`,fresh_term_def] >>
+  `{x | ∃ty. VFREE_IN (Var x ty) tm } = {x | ∃ty. VFREE_IN (Var x ty) c}` by (
+    simp[EXTENSION] >> metis_tac[VFREE_IN_ACONV] ) >>
+  `has_meaning tm` by metis_tac[has_meaning_aconv] >>
+  `ACONV (INST tyin tm) (INST tyin c)` by metis_tac[ACONV_INST,ACONV_SYM] >>
+  `INST tyin tm = simple_inst (tyin_to_fmap tyin) tm` by (
+    match_mp_tac INST_simple_inst >>
+    simp[Abbr`tm`,fresh_term_def] ) >>
   conj_asm1_tac >- (
     fs[EVERY_MEM,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
+    conj_tac >- (
+      match_mp_tac has_meaning_aconv >>
+      qexists_tac`INST tyin tm` >> simp[] >>
+      match_mp_tac has_meaning_simple_inst >>
+      simp[Abbr`tm`,fresh_term_def] >>
+      ho_match_mp_tac IN_FRANGE_tyin_to_fmap_suff >>
+      simp[MEM_MAP,GSYM LEFT_FORALL_IMP_THM] ) >>
+    qx_gen_tac`d` >> rw[] >>
+    qabbrev_tac`td = fresh_term {x | ∃ty. VFREE_IN (Var x ty) d} d` >>
+    `ACONV d td` by simp[Abbr`td`,fresh_term_def] >>
+    `{x | ∃ty. VFREE_IN (Var x ty) td } = {x | ∃ty. VFREE_IN (Var x ty) d}` by (
+      simp[EXTENSION] >> metis_tac[VFREE_IN_ACONV] ) >>
+    `has_meaning td` by metis_tac[has_meaning_aconv] >>
+    match_mp_tac has_meaning_aconv >>
+    qexists_tac`INST tyin td` >>
+    simp[ACONV_INST,ACONV_SYM] >>
+    `INST tyin td = simple_inst (tyin_to_fmap tyin) td` by (
+      match_mp_tac INST_simple_inst >>
+      simp[Abbr`td`,fresh_term_def] ) >>
+    simp[] >>
+    match_mp_tac has_meaning_simple_inst >>
+    simp[Abbr`td`,fresh_term_def] >>
+    ho_match_mp_tac IN_FRANGE_tyin_to_fmap_suff >>
+    simp[MEM_MAP,GSYM LEFT_FORALL_IMP_THM] ) >>
+  rw[] >>
+  `semantics σ τ (INST tyin c) = semantics σ τ (INST tyin tm)` by (
+    metis_tac[semantics_aconv,ACONV_SYM,ACONV_welltyped,simple_inst_has_type,welltyped_def] ) >>
+  simp[] >>
+  match_mp_tac(MP_CANON (CONJUNCT2 semantics_simple_inst)) >>
 *)
-
 
 val _ = export_theory()
