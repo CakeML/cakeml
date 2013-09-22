@@ -455,10 +455,10 @@ val dest_tyvar_def = Define`
 val _ = export_rewrites["dest_tyvar_def"]
 
 val tyin_to_fmap_def = Define`
-  tyin_to_fmap tyin = alist_to_fmap (MAP (λ(v,k). (dest_tyvar k,v)) tyin)`
+  tyin_to_fmap tyin = alist_to_fmap (MAP (λ(v,k). (dest_tyvar k,v)) (FILTER (λ(v,k). ∃x. k = Tyvar x) tyin))`
 
 val tyinst_TYPE_SUBST = store_thm("tyinst_TYPE_SUBST",
-  ``∀ty tyin. (∀s s'. MEM (s,s') tyin ⇒ ∃v. s' = Tyvar v) ⇒ TYPE_SUBST tyin ty = tyinst (tyin_to_fmap tyin) ty``,
+  ``∀ty tyin. TYPE_SUBST tyin ty = tyinst (tyin_to_fmap tyin) ty``,
   ho_match_mp_tac type_ind >>
   conj_tac >- (
     simp[REV_ASSOCD_ALOOKUP,FLOOKUPD_def,tyin_to_fmap_def] >> rw[] >>
@@ -466,48 +466,12 @@ val tyinst_TYPE_SUBST = store_thm("tyinst_TYPE_SUBST",
     TRY (
       fs[ALOOKUP_FAILS] >>
       imp_res_tac ALOOKUP_MEM >>
-      fs[MEM_MAP,EXISTS_PROD] >>
+      fs[MEM_MAP,EXISTS_PROD,MEM_FILTER] >>
       res_tac >> fs[] >>
       metis_tac[dest_tyvar_def] ) >>
-    fs[ALOOKUP_LEAST_EL] >> rw[] >>
-    fs[MEM_EL] >> rw[] >>
-    numLib.LEAST_ELIM_TAC >>
-    conj_tac >- metis_tac[] >> rw[] >>
-    numLib.LEAST_ELIM_TAC >>
-    conj_tac >- metis_tac[] >> rw[] >>
-    `¬(n < n'')` by metis_tac[] >>
-    `¬(n' < n''')` by metis_tac[] >>
-    fs[EL_MAP] >> rfs[EL_MAP] >>
-    fs[UNCURRY,GSYM LEFT_FORALL_IMP_THM] >>
-    `∃v. SND (EL n' tyin) = Tyvar v` by metis_tac[SND,pair_CASES] >>
-    fs[] >>
-    `¬(n < n''')` by (
-      strip_tac >>
-      first_x_assum(qspec_then`n`mp_tac) >>
-      simp[EL_MAP,UNCURRY] >>
-      metis_tac[dest_tyvar_def] ) >>
-    `¬(n' < n'')` by (
-      strip_tac >>
-      last_x_assum(qspec_then`n'`mp_tac) >>
-      simp[EL_MAP,UNCURRY] ) >>
-    `n''' < LENGTH tyin` by DECIDE_TAC >>
-    fs[EL_MAP,UNCURRY] >>
-    `∃v'. SND (EL n''' tyin) = Tyvar v'` by metis_tac[SND,pair_CASES] >>
-    fs[] >> rw[] >>
-    `¬(n''' < n'')` by (
-      strip_tac >>
-      last_x_assum(qspec_then`n'''`mp_tac) >>
-      simp[EL_MAP,UNCURRY] ) >>
-    simp[EL_MAP,UNCURRY] >>
-    `n'' < LENGTH tyin` by DECIDE_TAC >>
-    fs[EL_MAP,UNCURRY] >>
-    `¬(n'' < n''')` by (
-      strip_tac >>
-      first_x_assum(qspec_then`n''`mp_tac) >>
-      simp[EL_MAP,UNCURRY] >>
-      metis_tac[dest_tyvar_def]) >>
-    `n'' = n'''` by DECIDE_TAC >>
-    rw[] ) >>
+    Induct_on`tyin` >> simp[] >>
+    Cases >> simp[] >>
+    rw[] >> fs[] ) >>
   rw[MAP_EQ_f,EVERY_MEM] >>
   metis_tac[])
 
@@ -515,7 +479,6 @@ val INST_CORE_simple_inst = store_thm("INST_CORE_simple_inst",
   ``∀env tyin tm.
       ALL_DISTINCT (bv_names tm ++ (MAP (FST o dest_var o SND) env)) ∧
       DISJOINT (set(bv_names tm)) {x | ∃ty. VFREE_IN (Var x ty) tm} ∧
-      (∀s s'. MEM (s,s') tyin ⇒ ∃v. s' = Tyvar v) ∧
       (∀s s'. MEM (s,s') env ⇒ ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin ty)) ∧
       (∀x ty ty'. VFREE_IN (Var x ty) tm ∧ MEM (Var x ty') (MAP FST env) ⇒ ty' = ty)
       ⇒ INST_CORE env tyin tm = Result (simple_inst (tyin_to_fmap tyin) tm)``,
@@ -523,7 +486,7 @@ val INST_CORE_simple_inst = store_thm("INST_CORE_simple_inst",
   conj_tac >- (
     simp[INST_CORE_def] >> rpt gen_tac >> strip_tac >>
     qspecl_then[`ty`,`tyin`]mp_tac tyinst_TYPE_SUBST >>
-    discharge_hyps >- metis_tac[] >> simp[] >> rw[] >>
+    simp[] >> rw[] >>
     imp_res_tac (REWRITE_RULE[PROVE[]``A ∨ B ⇔ ¬B ⇒ A``]REV_ASSOCD_MEM) >>
     qmatch_assum_abbrev_tac`MEM (p,q) env` >>
     first_x_assum(qspecl_then[`p`,`q`]mp_tac) >>
@@ -532,8 +495,7 @@ val INST_CORE_simple_inst = store_thm("INST_CORE_simple_inst",
     metis_tac[] ) >>
   conj_tac >- (
     simp[INST_CORE_def] >> rw[] >>
-    match_mp_tac tyinst_TYPE_SUBST >>
-    metis_tac[] ) >>
+    simp[tyinst_TYPE_SUBST]) >>
   conj_tac >- (
     rw[] >>
     rw[INST_CORE_def] >>
@@ -555,7 +517,6 @@ val INST_CORE_simple_inst = store_thm("INST_CORE_simple_inst",
     conj_tac >- fs[ALL_DISTINCT_APPEND] >>
     conj_tac >- ( fs[IN_DISJOINT] >> metis_tac[] ) >>
     conj_tac >- metis_tac[] >>
-    conj_tac >- metis_tac[] >>
     qx_genl_tac[`u`,`uy`,`uy'`] >>
     reverse(Cases_on`u=x ∧ uy' = ty`) >- (
       simp[] >> strip_tac >> fs[] >>
@@ -573,13 +534,12 @@ val INST_CORE_simple_inst = store_thm("INST_CORE_simple_inst",
 val INST_simple_inst = store_thm("INST_simple_inst",
   ``∀tyin tm.
       ALL_DISTINCT (bv_names tm) ∧
-      DISJOINT (set (bv_names tm)) {x | ∃ty. VFREE_IN (Var x ty) tm} ∧
-      (∀s s'. MEM (s,s') tyin ⇒ ∃v. s' = Tyvar v)
+      DISJOINT (set (bv_names tm)) {x | ∃ty. VFREE_IN (Var x ty) tm}
       ⇒
       INST tyin tm = simple_inst (tyin_to_fmap tyin) tm``,
   rw[INST_def] >>
   qspecl_then[`[]`,`tyin`,`tm`]mp_tac INST_CORE_simple_inst >>
-  simp[] >> discharge_hyps >- metis_tac[] >> rw[])
+  simp[])
 
 val rename_bvars_def = Define`
   rename_bvars names env (Var s ty) = (names, Var (FLOOKUPD (alist_to_fmap env) (s,ty) s) ty) ∧
@@ -3702,13 +3662,11 @@ val INST_HAS_TYPE = store_thm("INST_HAS_TYPE",
 val type_has_meaning_TYPE_SUBST = store_thm("type_has_meaning_TYPE_SUBST",
   ``∀ty tyin.
     type_has_meaning ty ∧
-    EVERY type_has_meaning (MAP FST tyin) ∧
-    (∀s s'. MEM (s,s') tyin ⇒ ∃v. s' = Tyvar v)
+    EVERY type_has_meaning (MAP FST tyin)
     ⇒
     type_has_meaning (TYPE_SUBST tyin ty)``,
   rw[type_has_meaning_def] >>
-  imp_res_tac tyinst_TYPE_SUBST >>
-  fs[] >> pop_assum kall_tac >>
+  fs[tyinst_TYPE_SUBST] >>
   fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,GSYM LEFT_FORALL_IMP_THM,type_has_meaning_def] >>
   qabbrev_tac`ti = FUN_FMAP (λa. @m. typeset τ (tyinst (tyin_to_fmap tyin) (Tyvar a)) m) (set (tyvars ty))` >>
   `∀a. MEM a (tyvars ty) ⇒ ∃x. typeset τ (FLOOKUPD (tyin_to_fmap tyin) a (Tyvar a)) x` by (
@@ -3720,18 +3678,17 @@ val type_has_meaning_TYPE_SUBST = store_thm("type_has_meaning_TYPE_SUBST",
       first_x_assum match_mp_tac >>
       qexists_tac`a` >> simp[tyvars_def] ) >>
     imp_res_tac ALOOKUP_MEM >>
-    fs[MEM_MAP,EXISTS_PROD] >>
+    fs[MEM_MAP,EXISTS_PROD,MEM_FILTER] >>
+    BasicProvers.VAR_EQ_TAC >> fs[] >>
     BasicProvers.VAR_EQ_TAC >>
-    qmatch_assum_rename_tac`MEM(x,a)tyin`[] >>
-    last_x_assum(qspecl_then[`x`,`a`]mp_tac) >>
+    last_x_assum(qspecl_then[`x`,`Tyvar a`]mp_tac) >>
     simp[] >>
     disch_then(qspec_then`τ`mp_tac) >>
     simp[] >>
     discharge_hyps >- (
       rw[] >>
       first_x_assum match_mp_tac >>
-      `∃v. a = Tyvar v` by metis_tac[] >> fs[] >>
-      qexists_tac`v` >>
+      qexists_tac`a` >>
       simp[] ) >>
     simp[] ) >>
   `type_valuation ti` by (
@@ -3857,19 +3814,6 @@ val has_meaning_simple_inst = store_thm("has_meaning_simple_inst",
   simp[])
 
 (*
-val has_meaning_INST_CORE = store_thm("has_meaning_INST_CORE",
-  ``∀tm env tyin tt.
-    has_meaning tm ∧
-    EVERY type_has_meaning (MAP FST tyin) ∧
-    INST_CORE env tyin tm = Result tt ∧
-    (∀s s'. MEM (s,s') tyin ⇒ ∃v. s' = Tyvar v)
-    ⇒ has_meaning tt``,
-  Induct >> simp[INST_CORE_def] >- (
-    rw[] >> simp[] >>
-    match_mp_tac type_has_meaning_TYPE_SUBST >>
-    simp[] >> metis_tac[] )
-  >- (
-
 val INST_TYPE_correct = store_thm("INST_TYPE_correct",
   ``∀h c tyin.
       h |= c ∧ EVERY type_has_meaning (MAP FST tyin)
@@ -3881,7 +3825,17 @@ val INST_TYPE_correct = store_thm("INST_TYPE_correct",
     fs[EVERY_MEM,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
     `TYPE_SUBST tyin Bool = Bool` by simp[] >>
     metis_tac[INST_HAS_TYPE] ) >>
-  has_meaning_VSUBST
+  `welltyped c ∧ EVERY welltyped h` by (
+    fs[EVERY_MEM] >> metis_tac[welltyped_def] ) >>
+
+
+  INST_simple_inst
+  ACONV_INST
+  has_meaning_aconv
+
+  conj_asm1_tac >- (
+    fs[EVERY_MEM,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
 *)
+
 
 val _ = export_theory()
