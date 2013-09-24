@@ -6,8 +6,7 @@ open gramPropsTheory
 
 val _ = new_theory "conversionProps";
 
-val _ = export_rewrites ["cmlPtreeConversion.OPTION_CHOICE_def",
-                         "option.OPTION_IGNORE_BIND_def"]
+val _ = export_rewrites ["option.OPTION_IGNORE_BIND_def"]
 
 val ptree_head_TOK = store_thm(
   "ptree_head_TOK",
@@ -33,7 +32,7 @@ val TyOp_OK = store_thm(
   ``valid_ptree mmlG pt ∧ ptree_head pt = NT (mkNT nTyOp) ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃tyop. ptree_Tyop pt = SOME tyop``,
-  start >> simp[ptree_Tyop_def, OPTION_CHOICE_def] >>
+  start >> simp[ptree_Tyop_def] >>
   asm_match `valid_ptree mmlG pt'` >>
   `destLf pt' = NONE`
     by (Cases_on `pt'` >> fs[MAP_EQ_CONS] >>
@@ -57,7 +56,7 @@ val TyVarList_OK = store_thm(
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
   full_simp_tac (srw_ss() ++ DNF_ss) []
   >- (simp[ptree_linfix_def] >> metis_tac [TyvarN_OK]) >>
-  simp_tac (srw_ss()) [Once ptree_linfix_def] >> simp[gramTheory.assert_def] >>
+  simp_tac (srw_ss()) [Once ptree_linfix_def] >> simp[] >>
   simp[] >> dsimp[] >>
   fs[MAP_EQ_APPEND, MAP_EQ_CONS] >> rveq >>
   metis_tac [TyvarN_OK]);
@@ -100,7 +99,7 @@ val Type_OK0 = store_thm(
   dsimp[] >> rpt strip_tac >>
   fs[MAP_EQ_CONS, cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND] >>
   rveq >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
-  simp[Once ptree_Type_def, gramTheory.assert_def] >>
+  simp[Once ptree_Type_def] >>
   fs[DISJ_IMP_THM, FORALL_AND_THM]
   >- metis_tac[tuplify_OK]
   >- metis_tac[tuplify_OK]
@@ -138,7 +137,7 @@ val FQV_OK = store_thm(
     ∃i. ptree_FQV pt = SOME i``,
   start >> simp[ptree_FQV_def]
   >- metis_tac[V_OK, optionTheory.OPTION_MAP_DEF,
-               OPTION_CHOICE_def] >>
+               optionTheory.OPTION_CHOICE_def] >>
   simp[ptree_V_def]);
 
 val UQConstructorName_OK = store_thm(
@@ -164,7 +163,7 @@ val Ops_OK0 = store_thm(
   ``N ∈ {nMultOps; nAddOps; nListOps; nRelOps; nCompOps} ∧ valid_ptree mmlG pt ∧
     MAP TK toks = ptree_fringe pt ∧ ptree_head pt = NT (mkNT N) ⇒
     ∃opv. ptree_Op pt = SOME opv``,
-  start >> simp[ptree_Op_def, gramTheory.assert_def]);
+  start >> simp[ptree_Op_def]);
 
 val MAP_TK11 = prove(
   ``∀l1 l2. MAP TK l1 = MAP TK l2 ⇔ l1 = l2``,
@@ -186,7 +185,7 @@ val Pattern_OK0 = store_thm(
   dsimp[] >> rpt strip_tac >>
   fs[MAP_EQ_CONS, cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND] >>
   rveq >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
-  simp[Once ptree_Pattern_def, gramTheory.assert_def] >>
+  simp[Once ptree_Pattern_def] >>
   fs[DISJ_IMP_THM, FORALL_AND_THM] >>
   rpt (Q.UNDISCH_THEN `bool$T` (K ALL_TAC)) >>
   TRY (std >> NO_TAC)
@@ -257,7 +256,7 @@ val E_OK0 = store_thm(
   dsimp[] >> rpt strip_tac >>
   fs[MAP_EQ_CONS, cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND] >>
   rveq >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
-  simp[Once ptree_Expr_def, gramTheory.assert_def] >>
+  simp[Once ptree_Expr_def] >>
   fs[DISJ_IMP_THM, FORALL_AND_THM] >>
   rpt (Q.UNDISCH_THEN `bool$T` (K ALL_TAC)) >>
   TRY (std >> NO_TAC)
@@ -308,7 +307,7 @@ val Dconstructor_OK = store_thm(
     MAP TK toks = ptree_fringe pt ⇒
     ∃dc. ptree_Dconstructor pt = SOME dc``,
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> simp[ptree_Dconstructor_def, gramTheory.assert_def]
+  rveq >> simp[ptree_Dconstructor_def]
   >- (map_every (erule strip_assume_tac o n)
                 [UQConstructorName_OK, Type_OK] >>
       simp[]) >>
@@ -323,7 +322,7 @@ val DtypeCons_OK = store_thm(
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
   full_simp_tac (srw_ss() ++ DNF_ss) [MAP_EQ_APPEND, MAP_EQ_CONS] >>
-  simp[Once ptree_linfix_def, gramTheory.assert_def] >>
+  simp[Once ptree_linfix_def] >>
   erule strip_assume_tac (n Dconstructor_OK) >> simp[]);
 
 val DtypeDecl_OK = store_thm(
@@ -332,7 +331,7 @@ val DtypeDecl_OK = store_thm(
     MAP TK toks = ptree_fringe pt ⇒
     ∃dtd. ptree_DtypeDecl pt = SOME dtd``,
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> simp[ptree_DtypeDecl_def, gramTheory.assert_def] >>
+  rveq >> simp[ptree_DtypeDecl_def] >>
   map_every (erule strip_assume_tac o n) [DtypeCons_OK, TypeName_OK] >>
   simp[]);
 
@@ -345,7 +344,7 @@ val DtypeDecls_OK = store_thm(
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
   full_simp_tac (srw_ss() ++ DNF_ss) [MAP_EQ_APPEND, MAP_EQ_CONS] >>
-  simp[Once ptree_linfix_def, gramTheory.assert_def] >>
+  simp[Once ptree_linfix_def] >>
   erule strip_assume_tac (n DtypeDecl_OK) >> simp[]);
 
 val TypeDec_OK = store_thm(
@@ -355,7 +354,7 @@ val TypeDec_OK = store_thm(
     ∃td. ptree_TypeDec pt = SOME td``,
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
   rveq >> fs[MAP_EQ_CONS] >>
-  simp[ptree_TypeDec_def, gramTheory.assert_def] >>
+  simp[ptree_TypeDec_def] >>
   erule strip_assume_tac (n DtypeDecls_OK) >> simp[]);
 
 val Decl_OK = store_thm(
@@ -365,7 +364,7 @@ val Decl_OK = store_thm(
     ∃d. ptree_Decl pt = SOME d``,
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
   rveq >> fs[MAP_EQ_CONS] >>
-  simp[ptree_Decl_def, gramTheory.assert_def]
+  simp[ptree_Decl_def]
   >- (map_every (erule strip_assume_tac o n) [Pattern_OK, E_OK] >>
       simp[])
   >- (erule strip_assume_tac (n AndFDecls_OK) >> simp[])
@@ -383,7 +382,7 @@ val Decls_OK = store_thm(
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
   full_simp_tac (srw_ss() ++ DNF_ss) [MAP_EQ_APPEND, MAP_EQ_CONS] >>
-  simp[ptree_Decls_def, gramTheory.assert_def]
+  simp[ptree_Decls_def]
   >- (asm_match `ptree_head pt' = NN nDecl` >>
       `∀s. pt' <> Lf s`
         by (Cases_on `pt'` >> fs[MAP_EQ_CONS] >> rveq >> fs[])>>
@@ -396,7 +395,7 @@ val SpecLine_OK = store_thm(
     MAP TK toks = ptree_fringe pt ⇒
     ∃sl. ptree_SpecLine pt = SOME sl``,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> simp[ptree_SpecLine_def, gramTheory.assert_def] >>
+  rveq >> simp[ptree_SpecLine_def] >>
   metis_tac[V_OK, Type_OK, TypeName_OK, TypeDec_OK]);
 
 val SpecLineList_OK = store_thm(
@@ -408,7 +407,7 @@ val SpecLineList_OK = store_thm(
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
   full_simp_tac (srw_ss() ++ DNF_ss) [MAP_EQ_APPEND, MAP_EQ_CONS] >>
-  simp[ptree_SpeclineList_def, gramTheory.assert_def]
+  simp[ptree_SpeclineList_def]
   >- (erule strip_assume_tac (n SpecLine_OK) >> simp[] >>
       asm_match `ptree_head pt' = NN nSpecLine` >>
       Cases_on `pt'` >> fs[MAP_EQ_CONS]) >>
@@ -420,7 +419,7 @@ val StructName_OK = store_thm(
     MAP TK toks = ptree_fringe pt ⇒
     ∃sl. ptree_StructName pt = SOME sl``,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> simp[ptree_StructName_def, gramTheory.assert_def]);
+  rveq >> simp[ptree_StructName_def]);
 
 val SignatureValue_OK = store_thm(
   "SignatureValue_OK",
@@ -428,7 +427,7 @@ val SignatureValue_OK = store_thm(
     MAP TK toks = ptree_fringe pt ⇒
     ∃sv. ptree_SignatureValue pt = SOME sv``,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> simp[ptree_SignatureValue_def, gramTheory.assert_def] >>
+  rveq >> simp[ptree_SignatureValue_def] >>
   metis_tac[SpecLineList_OK]);
 
 val Structure_OK = store_thm(
@@ -437,7 +436,7 @@ val Structure_OK = store_thm(
     MAP TK toks = ptree_fringe pt ⇒
     ∃s. ptree_Structure pt = SOME s``,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> simp[ptree_Structure_def, gramTheory.assert_def] >>
+  rveq >> simp[ptree_Structure_def] >>
   map_every (erule strip_assume_tac o n) [Decls_OK, StructName_OK] >> simp[] >>
   asm_match `ptree_head pt' = NN nOptionalSignatureAscription` >>
   Cases_on `pt'` >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>

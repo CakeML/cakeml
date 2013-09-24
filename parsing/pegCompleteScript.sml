@@ -1574,18 +1574,17 @@ val completeness = store_thm(
   >- (print_tac "nV" >>
       simp[peg_eval_NT_SOME] >>
       simp[mmlpeg_rules_applied, FDOM_cmlPEG, peg_V_def,
-           peg_eval_choice, gramTheory.assert_def, peg_eval_tok_NONE] >>
+           peg_eval_choice, peg_eval_tok_NONE] >>
       dsimp[MAP_EQ_SING] >> rpt strip_tac >> rveq >>
       fs[MAP_EQ_SING, sumID_def])
   >- (print_tac "nUQTyOp" >>
       simp[MAP_EQ_SING] >> simp[peg_eval_NT_SOME] >>
       simp[mmlpeg_rules_applied, FDOM_cmlPEG,
-           peg_eval_choice, gramTheory.assert_def, peg_eval_tok_NONE] >>
+           peg_eval_choice, peg_eval_tok_NONE] >>
       strip_tac >> rveq >> fs[MAP_EQ_SING])
   >- (print_tac "nUQConstructorName" >>
       simp[MAP_EQ_SING, peg_eval_NT_SOME] >>
-      simp[mmlpeg_rules_applied, FDOM_cmlPEG, peg_UQConstructorName_def,
-           gramTheory.assert_def] >>
+      simp[mmlpeg_rules_applied, FDOM_cmlPEG, peg_UQConstructorName_def] >>
       strip_tac >> rveq >> fs[MAP_EQ_SING])
   >- (print_tac "nTyvarN" >> dsimp[MAP_EQ_SING] >> simp[peg_eval_NT_SOME] >>
       simp[mmlpeg_rules_applied, FDOM_cmlPEG] >> rpt strip_tac >>
@@ -1772,8 +1771,7 @@ val completeness = store_thm(
       first_assum (unify_firstconj kall_tac) >> simp[])
   >- (print_tac "nStructName" >>
       simp[MAP_EQ_SING, peg_eval_NT_SOME] >>
-      simp[mmlpeg_rules_applied, FDOM_cmlPEG, peg_StructName_def,
-           gramTheory.assert_def] >>
+      simp[mmlpeg_rules_applied, FDOM_cmlPEG, peg_StructName_def] >>
       strip_tac >> rveq >> fs[MAP_EQ_SING])
   >- (print_tac "nSpecLineList" >>
       simp[peg_eval_NT_SOME] >>
@@ -2046,7 +2044,7 @@ val completeness = store_thm(
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied,
            peg_longV_def] >> rw[] >> fs[MAP_EQ_SING] >> rveq >>
       simp[NT_rank_def, peg_eval_seq_NONE, peg_respects_firstSets,
-           firstSet_nV, gramTheory.assert_def])
+           firstSet_nV])
   >- (print_tac "nFDecl" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >> rw[] >>
       fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
@@ -2438,7 +2436,7 @@ val completeness = store_thm(
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, mmlpeg_rules_applied] >> rw[] >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
       rw[] >- simp[NT_rank_def] >>
-      DISJ2_TAC >> simp[peg_eval_seq_NONE, gramTheory.assert_def] >>
+      DISJ2_TAC >> simp[peg_eval_seq_NONE] >>
       match_mp_tac peg_respects_firstSets >> simp[] >>
       simp[firstSet_NT, cmlG_FDOM, cmlG_applied, disjImpI] >>
       dsimp[])

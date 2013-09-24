@@ -19,12 +19,20 @@ val _ = new_theory "cmlPtreeConversion"
 val _ = hide "nt"
 
 
-val OPTION_CHOICE_def = Define`
-  OPTION_CHOICE (SOME y) x = SOME y ∧
-  OPTION_CHOICE NONE x = x
-`
+(* ----------------------------------------------------------------------
+    We'll be using the option monad quite a bit in what follows
+   ---------------------------------------------------------------------- *)
 
-val _ = overload_on ("++", ``OPTION_CHOICE``)
+val _ = overload_on ("monad_bind", ``OPTION_BIND``)
+val _ = overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
+
+val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
+                                        "option.OPTION_IGNORE_BIND_def",
+                                        "option.OPTION_GUARD_def",
+                                        "option.OPTION_CHOICE_def"]
+
+val _ = overload_on ("assert", ``option$OPTION_GUARD : bool -> unit option``)
+val _ = overload_on ("++", ``option$OPTION_CHOICE``)
 
 val oHD_def = Define`oHD l = case l of [] => NONE | h::_ => SOME h`
 val safeTL_def = Define`safeTL [] = [] ∧ safeTL (h::t) = t`

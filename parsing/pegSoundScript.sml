@@ -413,7 +413,7 @@ val peg_sound = store_thm(
   >- (print_tac "nStructName" >>
       simp[peg_StructName_def] >>
       disch_then (qxchl [`t`] strip_assume_tac) >> rveq >> simp[] >>
-      Cases_on `t` >> fs[gramTheory.assert_def, cmlG_applied, cmlG_FDOM])
+      Cases_on `t` >> fs[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nOptionalSignatureAscription" >> strip_tac >> rveq >>
       simp[cmlG_applied, cmlG_FDOM] >> dsimp[] >>
       loseC ``NT_rank`` >> dsimp[MAP_EQ_SING] >> csimp[] >> fs[] >>
@@ -561,7 +561,7 @@ val peg_sound = store_thm(
           ASM_REWRITE_TAC [] >> strip_tac >> rveq >> dsimp[]) >>
       dsimp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nConstructorName" >>
-      simp[pairTheory.EXISTS_PROD, gramTheory.assert_def] >>
+      simp[pairTheory.EXISTS_PROD] >>
       `NT_rank (mkNT nUQConstructorName) < NT_rank (mkNT nConstructorName)`
         by simp[NT_rank_def] >>
       strip_tac >> rveq >> simp[]
@@ -572,7 +572,7 @@ val peg_sound = store_thm(
   >- (print_tac "nUQConstructorName" >>
       simp[peg_UQConstructorName_def] >>
       disch_then (qxchl [`t`] strip_assume_tac) >> rveq >> simp[] >>
-      Cases_on `t` >> fs[gramTheory.assert_def, cmlG_applied, cmlG_FDOM])
+      Cases_on `t` >> fs[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nDconstructor" >>
       `NT_rank (mkNT nUQConstructorName) < NT_rank (mkNT nDconstructor)`
         by simp[NT_rank_def] >>
@@ -1058,7 +1058,7 @@ val peg_sound = store_thm(
                      mp_tac) >>
       rpt kill_asm_guard >> dsimp[cmlG_FDOM, cmlG_applied])
   >- (print_tac "nFQV" >>
-      simp[peg_longV_def, pairTheory.EXISTS_PROD, gramTheory.assert_def] >>
+      simp[peg_longV_def, pairTheory.EXISTS_PROD] >>
       strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]
       >- (`NT_rank (mkNT nV) < NT_rank (mkNT nFQV)` by simp[NT_rank_def] >>
           first_x_assum (erule strip_assume_tac) >> rveq >> simp[]) >>
@@ -1077,7 +1077,7 @@ val peg_sound = store_thm(
   >- (print_tac "nTyvarN" >> rw[] >> simp[cmlG_FDOM, cmlG_applied] >>
       asm_match `isTyvarT h` >> Cases_on `h` >> fs[]) >>
   print_tac "nV" >>
-  simp[peg_V_def, peg_eval_choice, sumID_def, gramTheory.assert_def] >>
+  simp[peg_V_def, peg_eval_choice, sumID_def] >>
   strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]
   >- (asm_match `destAlphaT t = SOME astring` >> Cases_on `t` >> fs[]) >>
   asm_match `destSymbolT mytok = SOME symstring` >>

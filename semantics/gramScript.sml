@@ -7,33 +7,6 @@ open lcsymtacs grammarLib monadsyntax
 val _ = new_theory "gram"
 
 (* ----------------------------------------------------------------------
-    We'll be using the option monad quite a bit in what follows
-   ---------------------------------------------------------------------- *)
-
-val _ = overload_on ("monad_bind", ``OPTION_BIND``)
-val _ = overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
-
-val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
-                                        "option.OPTION_IGNORE_BIND_def"]
-
-val assert_def = Define`assert b = if b then SOME() else NONE`
-
-val mmap_def = Define`
-  (mmap f [] = SOME []) /\
-  (mmap f (h::t) = do
-     v <- f h;
-     vs <- mmap f t;
-     SOME(v::vs)
-   od)`
-
-val mmap_CONG = store_thm(
-  "mmap_CONG",
-  ``∀l1 l2 f f'.
-      l1 = l2 ∧ (∀x. MEM x l2 ⇒ f x = f' x) ⇒ mmap f l1 = mmap f l2``,
-  Induct >> rw[]);
-val _ = DefnBase.export_cong "mmap_CONG"
-
-(* ----------------------------------------------------------------------
     Define the Mini ML CFG
    ---------------------------------------------------------------------- *)
 
