@@ -3898,111 +3898,123 @@ val INST_TYPE_correct = store_thm("INST_TYPE_correct",
   `FINITE ss` by (
     simp[Abbr`ss`,MEM_MAP] >>
     rw[] >> rw[] ) >>
-  `type_valuation τi` by (
+  `type_valuation τi ∧ (∀a. MEM a (tvars c) ∨ (∃t. MEM t h ∧ MEM a (tvars t)) ⇒ ∃x. typeset τ (FLOOKUPD (tyin_to_fmap tyin) a (Tyvar a)) x)` by (
     simp[type_valuation_def] >>
     simp[FRANGE_FLOOKUP] >>
     simp[Abbr`τi`,FLOOKUP_FUN_FMAP] >>
     simp[Abbr`ff`,Abbr`ss`,MEM_MAP] >>
     simp[GSYM LEFT_FORALL_IMP_THM] >>
-    simp[Once CONJ_COMM] >>
+    simp[CONJ_COMM] >>
     simp[GSYM LEFT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     simp[AND_IMP_INTRO] >>
-    qx_genl_tac[`v`,`t`] >>
-    rw[] >>
+    conj_asm1_tac >- (
+      gen_tac >>
+      simp[FLOOKUPD_def] >>
+      strip_tac >>
+      BasicProvers.CASE_TAC >- (
+        simp[Once semantics_cases] >>
+        fs[closes_def] >>
+        `tvars (INST tyin c) = tvars (INST tyin tm)` by metis_tac[ACONV_tvars] >>
+        fs[] >> rfs[tvars_simple_inst] >>
+        fs[SUBSET_DEF,FLOOKUPD_def] >>
+        simp[FLOOKUP_DEF] >>
+        first_x_assum match_mp_tac >>
+        qexists_tac`a` >>
+        simp[tyvars_def] >>
+        metis_tac[ACONV_tvars] )
+      >- (
+        fs[tyin_to_fmap_def] >>
+        imp_res_tac ALOOKUP_MEM >>
+        fs[EVERY_MEM,MEM_MAP,MEM_FILTER,EXISTS_PROD] >>
+        rw[] >> fs[GSYM LEFT_FORALL_IMP_THM] >>
+        res_tac >> fs[type_has_meaning_def] >>
+        first_x_assum match_mp_tac >>
+        fs[closes_def] >>
+        `tvars (INST tyin c) = tvars (INST tyin tm)` by metis_tac[ACONV_tvars] >>
+        fs[] >> rfs[tvars_simple_inst] >>
+        fs[SUBSET_DEF,FLOOKUPD_def] >>
+        rw[] >>
+        first_x_assum match_mp_tac >>
+        qmatch_assum_rename_tac`MEM v (tvars c)`[] >>
+        qexists_tac`v` >>
+        simp[] >>
+        metis_tac[ACONV_tvars] )
+      >- (
+        simp[Once semantics_cases] >>
+        `semantics σ τ (INST tyin t) true` by (
+          fs[EVERY_MAP] >> fs[EVERY_MEM] >> metis_tac[]) >>
+        `∃n. n < LENGTH h ∧ t = EL n h` by metis_tac[MEM_EL] >>
+        `semantics σ τ (INST tyin (EL n tms)) true` by (
+          fs[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM,Abbr`tms`,EL_MAP] >>
+          metis_tac[] ) >>
+        `ACONV t (EL n tms)` by (
+          fs[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM,Abbr`tms`] ) >>
+        `ACONV (INST tyin (EL n tms)) (INST tyin t) ∧ (INST tyin (EL n tms) = simple_inst (tyin_to_fmap tyin) (EL n tms))` by (
+          fs[EVERY_MEM,FORALL_PROD,MEM_ZIP,Abbr`tms`,EL_MAP,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
+          fs[MEM_EL,EL_MAP,GSYM LEFT_FORALL_IMP_THM] >>
+          metis_tac[] ) >>
+        `closes (FDOM σ) (FDOM τ) (INST tyin (EL n tms))`
+            by metis_tac[semantics_closes] >>
+        fs[closes_def] >>
+        `tvars (INST tyin t) = tvars (INST tyin (EL n tms))` by metis_tac[ACONV_tvars] >>
+        fs[] >> rfs[tvars_simple_inst] >>
+        fs[SUBSET_DEF,FLOOKUPD_def] >>
+        simp[FLOOKUP_DEF] >>
+        first_x_assum match_mp_tac >>
+        qexists_tac`a` >>
+        simp[tyvars_def] >>
+        metis_tac[ACONV_tvars] )
+      >- (
+        `semantics σ τ (INST tyin t) true` by (
+          fs[EVERY_MAP] >> fs[EVERY_MEM] >> metis_tac[]) >>
+        `∃n. n < LENGTH h ∧ t = EL n h` by metis_tac[MEM_EL] >>
+        `semantics σ τ (INST tyin (EL n tms)) true` by (
+          fs[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM,Abbr`tms`,EL_MAP] >>
+          metis_tac[] ) >>
+        `ACONV t (EL n tms)` by (
+          fs[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM,Abbr`tms`] ) >>
+        `ACONV (INST tyin (EL n tms)) (INST tyin t) ∧ (INST tyin (EL n tms) = simple_inst (tyin_to_fmap tyin) (EL n tms))` by (
+          fs[EVERY_MEM,FORALL_PROD,MEM_ZIP,Abbr`tms`,EL_MAP,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
+          fs[MEM_EL,EL_MAP,GSYM LEFT_FORALL_IMP_THM] >>
+          metis_tac[] ) >>
+        `closes (FDOM σ) (FDOM τ) (INST tyin (EL n tms))`
+            by metis_tac[semantics_closes] >>
+        fs[tyin_to_fmap_def] >>
+        imp_res_tac ALOOKUP_MEM >>
+        fs[EVERY_MEM,MEM_MAP,MEM_FILTER,EXISTS_PROD] >>
+        rw[] >> fs[GSYM LEFT_FORALL_IMP_THM] >>
+        res_tac >> fs[type_has_meaning_def] >>
+        first_x_assum match_mp_tac >>
+        fs[closes_def] >>
+        `tvars (INST tyin (EL n h)) = tvars (INST tyin (EL n tms))` by metis_tac[ACONV_tvars] >>
+        fs[] >> rfs[tvars_simple_inst] >>
+        fs[SUBSET_DEF,FLOOKUPD_def] >>
+        rw[] >>
+        first_x_assum match_mp_tac >>
+        qmatch_assum_rename_tac`MEM v (tvars (EL n h))`[] >>
+        qexists_tac`v` >>
+        simp[] >>
+        metis_tac[ACONV_tvars] ))>>
+    qx_genl_tac[`v`,`t`] >> rw[] >>
     SELECT_ELIM_TAC >>
-    (reverse conj_tac >- metis_tac[typeset_inhabited]) >>
-    simp[FLOOKUPD_def] >>
-    BasicProvers.CASE_TAC >- (
-      simp[Once semantics_cases] >>
-      fs[closes_def] >>
-      `tvars (INST tyin c) = tvars (INST tyin tm)` by metis_tac[ACONV_tvars] >>
-      fs[] >> rfs[tvars_simple_inst] >>
-      fs[SUBSET_DEF,FLOOKUPD_def] >>
-      simp[FLOOKUP_DEF] >>
-      first_x_assum match_mp_tac >>
-      qexists_tac`v` >>
-      simp[tyvars_def] >>
-      metis_tac[ACONV_tvars] )
-    >- (
-      fs[tyin_to_fmap_def] >>
-      imp_res_tac ALOOKUP_MEM >>
-      fs[EVERY_MEM,MEM_MAP,MEM_FILTER,EXISTS_PROD] >>
-      rw[] >> fs[GSYM LEFT_FORALL_IMP_THM] >>
-      res_tac >> fs[type_has_meaning_def] >>
-      first_x_assum match_mp_tac >>
-      fs[closes_def] >>
-      `tvars (INST tyin c) = tvars (INST tyin tm)` by metis_tac[ACONV_tvars] >>
-      fs[] >> rfs[tvars_simple_inst] >>
-      fs[SUBSET_DEF,FLOOKUPD_def] >>
-      rw[] >>
-      first_x_assum match_mp_tac >>
-      qmatch_assum_rename_tac`MEM v (tvars c)`[] >>
-      qexists_tac`v` >>
-      simp[] >>
-      metis_tac[ACONV_tvars] )
-    >- (
-      simp[Once semantics_cases] >>
-      `semantics σ τ (INST tyin t) true` by (
-        fs[EVERY_MAP] >> fs[EVERY_MEM] >> metis_tac[]) >>
-      `∃n. n < LENGTH h ∧ t = EL n h` by metis_tac[MEM_EL] >>
-      `semantics σ τ (INST tyin (EL n tms)) true` by (
-        fs[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM,Abbr`tms`,EL_MAP] >>
-        metis_tac[] ) >>
-      `ACONV t (EL n tms)` by (
-        fs[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM,Abbr`tms`] ) >>
-      `ACONV (INST tyin (EL n tms)) (INST tyin t) ∧ (INST tyin (EL n tms) = simple_inst (tyin_to_fmap tyin) (EL n tms))` by (
-        fs[EVERY_MEM,FORALL_PROD,MEM_ZIP,Abbr`tms`,EL_MAP,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
-        fs[MEM_EL,EL_MAP,GSYM LEFT_FORALL_IMP_THM] >>
-        metis_tac[] ) >>
-      `closes (FDOM σ) (FDOM τ) (INST tyin (EL n tms))`
-          by metis_tac[semantics_closes] >>
-      fs[closes_def] >>
-      `tvars (INST tyin t) = tvars (INST tyin (EL n tms))` by metis_tac[ACONV_tvars] >>
-      fs[] >> rfs[tvars_simple_inst] >>
-      fs[SUBSET_DEF,FLOOKUPD_def] >>
-      simp[FLOOKUP_DEF] >>
-      first_x_assum match_mp_tac >>
-      qexists_tac`v` >>
-      simp[tyvars_def] >>
-      metis_tac[ACONV_tvars] )
-    >- (
-      `semantics σ τ (INST tyin t) true` by (
-        fs[EVERY_MAP] >> fs[EVERY_MEM] >> metis_tac[]) >>
-      `∃n. n < LENGTH h ∧ t = EL n h` by metis_tac[MEM_EL] >>
-      `semantics σ τ (INST tyin (EL n tms)) true` by (
-        fs[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM,Abbr`tms`,EL_MAP] >>
-        metis_tac[] ) >>
-      `ACONV t (EL n tms)` by (
-        fs[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM,Abbr`tms`] ) >>
-      `ACONV (INST tyin (EL n tms)) (INST tyin t) ∧ (INST tyin (EL n tms) = simple_inst (tyin_to_fmap tyin) (EL n tms))` by (
-        fs[EVERY_MEM,FORALL_PROD,MEM_ZIP,Abbr`tms`,EL_MAP,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
-        fs[MEM_EL,EL_MAP,GSYM LEFT_FORALL_IMP_THM] >>
-        metis_tac[] ) >>
-      `closes (FDOM σ) (FDOM τ) (INST tyin (EL n tms))`
-          by metis_tac[semantics_closes] >>
-      fs[tyin_to_fmap_def] >>
-      imp_res_tac ALOOKUP_MEM >>
-      fs[EVERY_MEM,MEM_MAP,MEM_FILTER,EXISTS_PROD] >>
-      rw[] >> fs[GSYM LEFT_FORALL_IMP_THM] >>
-      res_tac >> fs[type_has_meaning_def] >>
-      first_x_assum match_mp_tac >>
-      fs[closes_def] >>
-      `tvars (INST tyin (EL n h)) = tvars (INST tyin (EL n tms))` by metis_tac[ACONV_tvars] >>
-      fs[] >> rfs[tvars_simple_inst] >>
-      fs[SUBSET_DEF,FLOOKUPD_def] >>
-      rw[] >>
-      first_x_assum match_mp_tac >>
-      qmatch_assum_rename_tac`MEM v (tvars (EL n h))`[] >>
-      qexists_tac`v` >>
-      simp[] >>
-      metis_tac[ACONV_tvars] ))>>
+    metis_tac[typeset_inhabited]) >>
   `∀a. MEM a (tvars tm) ⇒
        typeset τ (tyinst (tyin_to_fmap tyin) (Tyvar a)) (τi ' a)` by (
     `tvars tm = tvars c` by metis_tac[ACONV_tvars] >>
     rw[] >>
     `a ∈ ss` by (rw[Abbr`ss`] >> metis_tac[]) >>
     rw[Abbr`τi`,FUN_FMAP_DEF,Abbr`ff`] >>
-    SELECT_ELIM_TAC >> simp[] >>
+    SELECT_ELIM_TAC >> simp[] ) >>
+  qabbrev_tac`σi = FUN_FMAP (λ(x,ty). @m. FLOOKUP σ (x,tyinst (tyin_to_fmap tyin) ty) = SOME m) {(x,ty) | ∃t. VFREE_IN (Var x ty) t ∧ MEM t (c::h)}` >>
+  qmatch_assum_abbrev_tac`Abbrev(σi = FUN_FMAP ft st)` >>
+  `FINITE st` by (
+    `st = BIGUNION (IMAGE (λt. {(x,ty) | VFREE_IN (Var x ty) t}) (set(c::h)))` by (
+      simp[Abbr`st`,Once EXTENSION,EXISTS_PROD,FORALL_PROD] >> srw_tac[DNF_ss][] ) >>
+    rw[] >> rw[] ) >>
+  `term_valuation τi σi` by (
+    simp[term_valuation_def,FEVERY_ALL_FLOOKUP] >>
+    simp[Abbr`σi`,FLOOKUP_FUN_FMAP] >>
+    rw[Abbr`st`,Abbr`ft`] >> rw[]
 *)
 
 val _ = export_theory()
