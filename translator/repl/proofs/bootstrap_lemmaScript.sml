@@ -1,4 +1,3 @@
-
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "bootstrap_lemma";
@@ -7,7 +6,7 @@ open ml_translatorTheory;
 open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
 open terminationTheory;
 open bigBigEquivTheory;
-open arithmeticTheory listTheory combinTheory pairTheory;
+open arithmeticTheory listTheory combinTheory pairTheory alistTheory;
 open integerTheory;
 open lcsymtacs;
 
@@ -87,7 +86,7 @@ val lemma = prove(
   \\ SIMP_TAC std_ss [Eval_def]
   \\ ONCE_REWRITE_TAC [evaluate'_cases]
   \\ SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
-  \\ Q.EXISTS_TAC `i` \\ FULL_SIMP_TAC std_ss [lookup_APPEND] \\ EVAL_TAC)
+  \\ FULL_SIMP_TAC (srw_ss())[ALOOKUP_APPEND])
   |> UNDISCH_ALL
   |> SIMP_RULE std_ss [Eval_Var_LOOKUP,PULL_EXISTS]
   |> SIMP_RULE std_ss [Decls_def]
