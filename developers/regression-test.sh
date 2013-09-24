@@ -20,6 +20,8 @@ case $(uname -a) in
     Linux* ) TIMECMD="/usr/bin/time -o timing.log -f 'User:%U Mem:%M'";;
 esac
 
+echo
+
 while read i
 do
   if [ ! -d $i ]
