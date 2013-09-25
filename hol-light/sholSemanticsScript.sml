@@ -4163,4 +4163,23 @@ val INST_TYPE_correct = store_thm("INST_TYPE_correct",
     fs[EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EXISTS_PROD,Abbr`tms`,EL_MAP,fresh_term_def] ) >>
   metis_tac[semantics_11])
 
+(*
+val new_basic_definition_correct = store_thm("new_basic_definition_correct",
+  ``∀r ty n. has_meaning r ∧ closed r ∧ set(tvars r) ⊆ set(tyvars ty) ∧ r has_type ty
+    ⇒ [] |= (Const n ty (Defined r) === r)``,
+  simp[sequent_def,EQUATION_HAS_TYPE_BOOL,welltyped_def,equation_has_meaning_iff] >>
+  rpt gen_tac >> strip_tac >>
+  conj_asm1_tac >- metis_tac[WELLTYPED_LEMMA] >> simp[] >> pop_assum kall_tac >>
+  conj_tac >- (
+    match_mp_tac semantics_has_meaning >>
+    fs[has_meaning_def] >>
+    simp[Once semantics_cases] >>
+    map_every qexists_tac[`σ`,`τ`] >> simp[] >>
+
+    first_x_assum(qspecl_then[`τ`,`FEMPTY`]mp_tac) >>
+    fs[closes_def] >>
+    strip_tac >>
+
+*)
+
 val _ = export_theory()
