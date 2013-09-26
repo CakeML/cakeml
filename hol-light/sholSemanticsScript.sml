@@ -2205,7 +2205,6 @@ val has_meaning_Abs = store_thm("has_meaning_Abs",
   metis_tac[semantics_typeset,term_valuation_FUPDATE,FST,SND,WELLTYPED_LEMMA,semantics_11])
 val _ = export_rewrites["has_meaning_Abs"]
 
-(*
 val semantics_has_meaning = prove(
   ``(∀τ ty m. typeset τ ty m ⇒ T) ∧
     (∀σ τ t m. semantics σ τ t m ⇒ term_valuation τ σ ∧ type_valuation τ ⇒ has_meaning t)``,
@@ -2288,6 +2287,7 @@ val semantics_has_meaning = prove(
     disch_then(qspecl_then[`FEMPTY`,`τ'`]mp_tac) >>
     simp[] >>
     discharge_hyps >- (
+      `LENGTH args = LENGTH (tvars (fresh_term {} p0))` by fs[Once semantics_cases] >>
       imp_res_tac semantics_closes >> rfs[] >>
       fs[closes_def] >>
       simp[Abbr`tm`,tvars_simple_inst] >>
@@ -2296,9 +2296,15 @@ val semantics_has_meaning = prove(
       first_x_assum match_mp_tac >>
       pop_assum mp_tac >>
       simp[FLOOKUPD_def] >>
-
-
-    qexists_tac`m'` >> rw[] >>
+      BasicProvers.CASE_TAC >- (
+        fs[ALOOKUP_FAILS] >>
+        rfs[MEM_ZIP] >>
+        metis_tac[MEM_EL] ) >>
+      imp_res_tac ALOOKUP_MEM >>
+      rfs[MEM_ZIP] >>
+      metis_tac[MEM_EL] ) >>
+    disch_then(qx_choose_then`m3`strip_assume_tac) >>
+    qexists_tac`m3` >> rw[] >>
     imp_res_tac typeset_has_meaning >>
     fs[type_has_meaning_def] >>
     first_x_assum match_mp_tac >>
@@ -2315,6 +2321,7 @@ val semantics_has_meaning = prove(
   rw[])
 val semantics_has_meaning = save_thm("semantics_has_meaning",MP_CANON (CONJUNCT2 semantics_has_meaning))
 
+(*
 val typeset_Tydefined_ACONV = store_thm("typeset_Tydefined_ACONV",
   ``∀τ op p1 p2 args mty.
     typeset τ (Tyapp (Tydefined op p1) args) mty ∧ ACONV p1 p2 ⇒
