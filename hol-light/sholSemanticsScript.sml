@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps SatisfySimps bossLib lcsymtacs miscTheory pred_setTheory pairTheory listTheory finite_mapTheory alistTheory sholSyntaxTheory modelSetTheory
+open HolKernel boolLib boolSimps SatisfySimps bossLib lcsymtacs miscTheory pred_setTheory pairTheory listTheory finite_mapTheory alistTheory sholSyntaxTheory modelSetTheory sortingTheory stringTheory
 val _ = numLib.prefer_num()
 val _ = new_theory"sholSemantics"
 
@@ -4704,5 +4704,63 @@ val new_basic_definition_correct = store_thm("new_basic_definition_correct",
   conj_asm1_tac >- metis_tac[VFREE_IN_ACONV] >>
   conj_tac >- metis_tac[ACONV_tvars,WELLTYPED_LEMMA,ACONV_TYPE,ACONV_welltyped,WELLTYPED] >>
   metis_tac[semantics_aconv,term_valuation_FEMPTY,welltyped_def] )
+
+val PERM_STRING_SORT = store_thm("PERM_STRING_SORT",
+  ``∀ls. ALL_DISTINCT ls ⇒ PERM ls (STRING_SORT ls)``,
+  Induct >>
+  simp[STRING_SORT_def] >>
+  simp[INORDER_INSERT_def] >>
+  fs[STRING_SORT_def] >>
+  simp[PERM_CONS_EQ_APPEND] >>
+  gen_tac >> strip_tac >> fs[] >>
+  qho_match_abbrev_tac`∃M N. A ++ [h] ++ B = M ++ [h] ++ N ∧ (Z M N)` >>
+  map_every qexists_tac[`A`,`B`] >>
+  simp[Abbr`Z`] >>
+  match_mp_tac PERM_ALL_DISTINCT >>
+  simp[ALL_DISTINCT_APPEND] >>
+  simp[Abbr`A`,Abbr`B`,MEM_FILTER] >>
+  metis_tac[FILTER_ALL_DISTINCT,ALL_DISTINCT_PERM,string_lt_antisym,string_lt_cases,MEM_PERM] )
+
+val LENGTH_STRING_SORT = store_thm("LENGTH_STRING_SORT",
+  ``∀ls. ALL_DISTINCT ls ⇒ (LENGTH (STRING_SORT ls) = LENGTH ls)``,
+  metis_tac[PERM_STRING_SORT,PERM_LENGTH])
+val _ = export_rewrites["LENGTH_STRING_SORT"]
+
+(*
+val new_basic_type_definition_1_correct = store_thm("new_basic_type_definition_1_correct",
+  ``∀p w n abs rep x rty aty.
+      closed p ∧ [] |= Comb p w ∧
+      rty = domain (typeof p) ∧
+      aty = Tyapp (Tydefined n p) (MAP Tyvar (STRING_SORT (tvars p)))
+      ⇒
+      [] |=
+        Comb (Const abs (Fun rty aty) (Tyabs n p))
+             (Comb (Const rep (Fun aty rty) (Tyrep n p))
+                   (Var x aty)) === Var x aty``,
+  rw[sequent_def,EQUATION_HAS_TYPE_BOOL] >- (
+    simp[equation_has_meaning_iff] >>
+    reverse conj_asm2_tac >- (
+      simp[type_has_meaning_def] >>
+      rw[] >>
+      simp[Once semantics_cases] >>
+      fs[Q.SPECL[`Comb p w`,`Bool`]has_type_cases] >>
+      imp_res_tac WELLTYPED_LEMMA >>
+      fs[] >> rw[] >>
+      qabbrev_tac`tm = fresh_term {} p` >>
+      `ACONV p tm` by simp[Abbr`tm`,fresh_term_def] >>
+      imp_res_tac ACONV_tvars >>
+      imp_res_tac ACONV_welltyped >>
+      pop_assum kall_tac >>
+      imp_res_tac ACONV_TYPE >>
+      pop_assum(assume_tac o SYM) >>
+      qspec_then`tm`strip_assume_tac WELLTYPED >>
+      simp[] >> rfs[] >>
+      CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+      CONV_TAC SWAP_EXISTS_CONV >>
+      qexists_tac`typeof w` >>
+      simp[RIGHT_EXISTS_AND_THM] >>
+      conj_asm1_tac >- (
+        rw[]
+*)
 
 val _ = export_theory()
