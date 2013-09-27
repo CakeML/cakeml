@@ -4650,47 +4650,11 @@ val INST_TYPE_correct = store_thm("INST_TYPE_correct",
     fs[EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EXISTS_PROD,Abbr`tms`,EL_MAP,fresh_term_def] ) >>
   metis_tac[semantics_11])
 
-(*
-val typeset_Tydefined_ACONV = store_thm("typeset_Tydefined_ACONV",
-  ``∀τ op p1 p2 args mty.
-    typeset τ (Tyapp (Tydefined op p1) args) mty ∧ ACONV p1 p2 ⇒
-    typeset τ (Tyapp (Tydefined op p2) args) mty``,
-  rw[Once semantics_cases] >>
-  rw[Once semantics_cases] >>
-  map_every qexists_tac[`mp`,`mrty`,`rty`,`w`] >>
-  simp[] >>
-  qspecl_then[`{}`,`p1`]mp_tac fresh_term_def >>
-  qspecl_then[`{}`,`p2`]mp_tac fresh_term_def >>
-  simp[] >> ntac 2 strip_tac >>
-  imp_res_tac ACONV_tvars >> fs[] >>
-  conj_asm1_tac >- (
-    metis_tac[ACONV_VFREE_IN,ACONV_SYM] ) >>
-  conj_asm1_tac >- (
-    metis_tac[ACONV_TYPE,ACONV_welltyped,WELLTYPED_LEMMA,WELLTYPED,ACONV_TRANS,ACONV_SYM] ) >>
-  qmatch_abbrev_tac`semantics s t u mp` >>
-  qmatch_assum_abbrev_tac`semantics s t v mp` >>
-  qsuff_tac`semantics s t u = semantics s t v`>-rw[] >>
-  match_mp_tac semantics_aconv >>
-  unabbrev_all_tac >> simp[] >>
-  conj_tac >- metis_tac[simple_inst_has_type,welltyped_def] >>
-  match_mp_tac simple_inst_aconv >>
-  simp[fresh_term_def] >>
-  conj_tac >- metis_tac[ACONV_SYM,ACONV_TRANS] >>
-  imp_res_tac semantics_closes >> fs[] >>
-  fs[closes_def] >>
-  qmatch_assum_abbrev_tac`closed (simple_inst tyin tm)` >>
-  qspecl_then[`tm`,`tyin`]mp_tac VFREE_IN_simple_inst >>
-  discharge_hyps >- (
-    simp[Abbr`tm`,IN_DISJOINT] >>
-    metis_tac[fresh_term_def,ACONV_VFREE_IN,ACONV_SYM] ) >>
-  fs[] >> metis_tac[ACONV_VFREE_IN,ACONV_SYM])
+val simple_inst_FEMPTY = store_thm("simple_inst_FEMPTY",
+  ``∀tm. simple_inst FEMPTY tm = tm``,
+  Induct >> simp[])
+val _ = export_rewrites["simple_inst_FEMPTY"]
 
-val ALPHAVARS_FILTER_REFL = store_thm("ALPHAVARS_FILTER_REFL",
-  ``∀env t. EVERY (UNCURRY $=) (FILTER (λ(x,y). t = x ∨ t = y) env) ⇒ ALPHAVARS env (t,t)``,
-  Induct >> simp[ALPHAVARS_def] >>
-  Cases >> simp[] >> rw[] >> fs[])
-
-(*
 val new_basic_definition_correct = store_thm("new_basic_definition_correct",
   ``∀r ty n. has_meaning r ∧ closed r ∧ set(tvars r) ⊆ set(tyvars ty) ∧ r has_type ty
     ⇒ [] |= (Const n ty (Defined r) === r)``,
@@ -4702,12 +4666,43 @@ val new_basic_definition_correct = store_thm("new_basic_definition_correct",
     fs[has_meaning_def] >>
     simp[Once semantics_cases] >>
     map_every qexists_tac[`σ`,`τ`] >> simp[] >>
-
+    CONV_TAC SWAP_EXISTS_CONV >>
+    qexists_tac`FEMPTY` >>
+    simp[] >>
+    `ACONV r (fresh_term {} r)` by metis_tac[fresh_term_def,FINITE_EMPTY] >>
     first_x_assum(qspecl_then[`τ`,`FEMPTY`]mp_tac) >>
-    fs[closes_def] >>
-    strip_tac >>
-
-*)
-*)
+    fs[closes_def] >> rw[] >>
+    qexists_tac`m` >>
+    conj_asm1_tac >- metis_tac[welltyped_def,ACONV_welltyped,ACONV_TYPE] >>
+    conj_asm1_tac >- metis_tac[welltyped_def,ACONV_welltyped,ACONV_TYPE] >>
+    conj_asm1_tac >- metis_tac[VFREE_IN_ACONV] >>
+    conj_tac >- metis_tac[ACONV_tvars,WELLTYPED_LEMMA,ACONV_TYPE,ACONV_welltyped,WELLTYPED] >>
+    metis_tac[semantics_aconv,term_valuation_FEMPTY,welltyped_def] ) >>
+  rw[] >>
+  match_mp_tac semantics_equation >>
+  `Const n (typeof r) (Defined r) has_type (typeof r)` by (
+    simp[Once has_type_cases] ) >>
+  `r has_type typeof r` by metis_tac[WELLTYPED_LEMMA] >>
+  `typeof r = ty` by metis_tac[WELLTYPED_LEMMA] >>
+  qspecl_then[`FDOM σ`,`FDOM τ`,`Const n (typeof r) (Defined r)`,`r`,`ty`]mp_tac(Q.GENL[`ty`,`r`,`l`,`τ`,`σ`]closes_equation) >>
+  rw[] >>
+  simp[Once semantics_cases] >>
+  srw_tac[DNF_ss][] >>
+  CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
+  qexists_tac`FEMPTY` >>
+  simp[] >>
+  `∃m. semantics σ τ r m` by (
+    fs[has_meaning_def] ) >>
+  `semantics FEMPTY τ r = semantics σ τ r` by (
+    match_mp_tac semantics_frees >>
+    simp[] ) >>
+  `ACONV r (fresh_term {} r)` by metis_tac[fresh_term_def,FINITE_EMPTY] >>
+  map_every qexists_tac[`m`,`m`] >>
+  simp[boolean_def] >>
+  conj_asm1_tac >- metis_tac[welltyped_def,ACONV_welltyped,ACONV_TYPE] >>
+  conj_asm1_tac >- metis_tac[welltyped_def,ACONV_welltyped,ACONV_TYPE] >>
+  conj_asm1_tac >- metis_tac[VFREE_IN_ACONV] >>
+  conj_tac >- metis_tac[ACONV_tvars,WELLTYPED_LEMMA,ACONV_TYPE,ACONV_welltyped,WELLTYPED] >>
+  metis_tac[semantics_aconv,term_valuation_FEMPTY,welltyped_def] )
 
 val _ = export_theory()
