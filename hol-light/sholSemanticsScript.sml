@@ -3979,46 +3979,6 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
   reverse(Cases_on`tx=ty`) >> simp[FLOOKUP_UPDATE] >> rw[] >>
   metis_tac[])
 
-(*
-val typeset_Tydefined_ACONV = store_thm("typeset_Tydefined_ACONV",
-  ``∀τ op p1 p2 args mty.
-    typeset τ (Tyapp (Tydefined op p1) args) mty ∧ ACONV p1 p2 ⇒
-    typeset τ (Tyapp (Tydefined op p2) args) mty``,
-  rw[Once semantics_cases] >>
-  rw[Once semantics_cases] >>
-  map_every qexists_tac[`mp`,`mrty`,`rty`,`w`] >>
-  simp[] >>
-  qspecl_then[`{}`,`p1`]mp_tac fresh_term_def >>
-  qspecl_then[`{}`,`p2`]mp_tac fresh_term_def >>
-  simp[] >> ntac 2 strip_tac >>
-  imp_res_tac ACONV_tvars >> fs[] >>
-  conj_asm1_tac >- (
-    metis_tac[ACONV_VFREE_IN,ACONV_SYM] ) >>
-  conj_asm1_tac >- (
-    metis_tac[ACONV_TYPE,ACONV_welltyped,WELLTYPED_LEMMA,WELLTYPED,ACONV_TRANS,ACONV_SYM] ) >>
-  qmatch_abbrev_tac`semantics s t u mp` >>
-  qmatch_assum_abbrev_tac`semantics s t v mp` >>
-  qsuff_tac`semantics s t u = semantics s t v`>-rw[] >>
-  match_mp_tac semantics_aconv >>
-  unabbrev_all_tac >> simp[] >>
-  conj_tac >- metis_tac[simple_inst_has_type,welltyped_def] >>
-  match_mp_tac simple_inst_aconv >>
-  simp[fresh_term_def] >>
-  conj_tac >- metis_tac[ACONV_SYM,ACONV_TRANS] >>
-  imp_res_tac semantics_closes >> fs[] >>
-  fs[closes_def] >>
-  qmatch_assum_abbrev_tac`closed (simple_inst tyin tm)` >>
-  qspecl_then[`tm`,`tyin`]mp_tac VFREE_IN_simple_inst >>
-  discharge_hyps >- (
-    simp[Abbr`tm`,IN_DISJOINT] >>
-    metis_tac[fresh_term_def,ACONV_VFREE_IN,ACONV_SYM] ) >>
-  fs[] >> metis_tac[ACONV_VFREE_IN,ACONV_SYM])
-
-val ALPHAVARS_FILTER_REFL = store_thm("ALPHAVARS_FILTER_REFL",
-  ``∀env t. EVERY (UNCURRY $=) (FILTER (λ(x,y). t = x ∨ t = y) env) ⇒ ALPHAVARS env (t,t)``,
-  Induct >> simp[ALPHAVARS_def] >>
-  Cases >> simp[] >> rw[] >> fs[])
-
 val dbINST_def = Define`
   dbINST tyin (dbVar x ty) = dbVar x (TYPE_SUBST tyin ty) ∧
   dbINST tyin (dbBound n) = dbBound n ∧
@@ -4682,12 +4642,53 @@ val INST_TYPE_correct = store_thm("INST_TYPE_correct",
   simp[] >>
   disch_then(qspecl_then[`σ`,`τ`,`tyin_to_fmap tyin`]mp_tac) >>
   discharge_hyps >- (
+    simp[] >>
     conj_tac >- (
       rw[] >> fs[] >>
       metis_tac[ACONV_tvars] ) >>
     conj_tac >- metis_tac[VFREE_IN_ACONV] >>
     fs[EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EXISTS_PROD,Abbr`tms`,EL_MAP,fresh_term_def] ) >>
   metis_tac[semantics_11])
+
+(*
+val typeset_Tydefined_ACONV = store_thm("typeset_Tydefined_ACONV",
+  ``∀τ op p1 p2 args mty.
+    typeset τ (Tyapp (Tydefined op p1) args) mty ∧ ACONV p1 p2 ⇒
+    typeset τ (Tyapp (Tydefined op p2) args) mty``,
+  rw[Once semantics_cases] >>
+  rw[Once semantics_cases] >>
+  map_every qexists_tac[`mp`,`mrty`,`rty`,`w`] >>
+  simp[] >>
+  qspecl_then[`{}`,`p1`]mp_tac fresh_term_def >>
+  qspecl_then[`{}`,`p2`]mp_tac fresh_term_def >>
+  simp[] >> ntac 2 strip_tac >>
+  imp_res_tac ACONV_tvars >> fs[] >>
+  conj_asm1_tac >- (
+    metis_tac[ACONV_VFREE_IN,ACONV_SYM] ) >>
+  conj_asm1_tac >- (
+    metis_tac[ACONV_TYPE,ACONV_welltyped,WELLTYPED_LEMMA,WELLTYPED,ACONV_TRANS,ACONV_SYM] ) >>
+  qmatch_abbrev_tac`semantics s t u mp` >>
+  qmatch_assum_abbrev_tac`semantics s t v mp` >>
+  qsuff_tac`semantics s t u = semantics s t v`>-rw[] >>
+  match_mp_tac semantics_aconv >>
+  unabbrev_all_tac >> simp[] >>
+  conj_tac >- metis_tac[simple_inst_has_type,welltyped_def] >>
+  match_mp_tac simple_inst_aconv >>
+  simp[fresh_term_def] >>
+  conj_tac >- metis_tac[ACONV_SYM,ACONV_TRANS] >>
+  imp_res_tac semantics_closes >> fs[] >>
+  fs[closes_def] >>
+  qmatch_assum_abbrev_tac`closed (simple_inst tyin tm)` >>
+  qspecl_then[`tm`,`tyin`]mp_tac VFREE_IN_simple_inst >>
+  discharge_hyps >- (
+    simp[Abbr`tm`,IN_DISJOINT] >>
+    metis_tac[fresh_term_def,ACONV_VFREE_IN,ACONV_SYM] ) >>
+  fs[] >> metis_tac[ACONV_VFREE_IN,ACONV_SYM])
+
+val ALPHAVARS_FILTER_REFL = store_thm("ALPHAVARS_FILTER_REFL",
+  ``∀env t. EVERY (UNCURRY $=) (FILTER (λ(x,y). t = x ∨ t = y) env) ⇒ ALPHAVARS env (t,t)``,
+  Induct >> simp[ALPHAVARS_def] >>
+  Cases >> simp[] >> rw[] >> fs[])
 
 (*
 val new_basic_definition_correct = store_thm("new_basic_definition_correct",
