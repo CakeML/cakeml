@@ -3898,8 +3898,27 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
     first_x_assum(qspecl_then[`FEMPTY`,`τ`,`tyin'`]mp_tac) >>
     simp[] >>
     discharge_hyps >- (
-
-      cheat ) >>
+      simp[tvars_simple_inst] >>
+      simp[fresh_term_def] >>
+      `LENGTH (tvars (fresh_term {} p0)) = LENGTH args` by fs[Once semantics_cases] >>
+      conj_tac >- (
+        rw[] >>
+        first_x_assum match_mp_tac >>
+        pop_assum mp_tac >>
+        simp[FLOOKUPD_def] >>
+        BasicProvers.CASE_TAC >>
+        fs[ALOOKUP_FAILS] >>
+        imp_res_tac ALOOKUP_MEM >>
+        rfs[MEM_ZIP] >>
+        metis_tac[MEM_EL] ) >>
+      `closed p0` by fs[Once semantics_cases] >>
+      `ACONV p0 (fresh_term {} p0)` by metis_tac[fresh_term_def,FINITE_EMPTY] >>
+      `closed (fresh_term {} p0)` by metis_tac[VFREE_IN_ACONV] >>
+      `{x | ∃ty. VFREE_IN (Var x ty) (fresh_term {} p0)} = {}` by (
+        simp[EXTENSION] ) >>
+      qmatch_assum_abbrev_tac`semantics FEMPTY τi (simple_inst tyin tm) Z` >>
+      qspecl_then[`tm`,`tyin`]mp_tac VFREE_IN_simple_inst >>
+      simp[Abbr`tm`,fresh_term_def] ) >>
     qmatch_abbrev_tac`semantics FEMPTY τ' t1 mz ⇒ semantics FEMPTY τ' t2 mz` >>
     qsuff_tac`t1 = t2`>-rw[]>>
     `LENGTH (tvars (fresh_term {} p0)) = LENGTH args` by fs[Once semantics_cases] >>
