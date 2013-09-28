@@ -4,6 +4,21 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val GENLIST_NIL = store_thm("GENLIST_NIL",
+  ``∀f n. (GENLIST f n = []) ⇔ (n = 0)``,
+  GEN_TAC THEN Induct THEN SRW_TAC[][GENLIST_CONS])
+
+val MAP_SND_FILTER_NEQ = store_thm("MAP_SND_FILTER_NEQ",
+  ``MAP SND (FILTER (λ(x,y). y ≠ z) ls) =
+    FILTER ($<> z) (MAP SND ls)``,
+  Q.ISPECL_THEN[`$<> z`,`SND:('b#'a)->'a`,`ls`]mp_tac rich_listTheory.FILTER_MAP >> rw[] >>
+  AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >>
+  simp[FUN_EQ_THM,FORALL_PROD,EQ_IMP_THM])
+
+val ALL_DISTINCT_DROP = store_thm("ALL_DISTINCT_DROP",
+  ``∀ls n. ALL_DISTINCT ls ⇒ ALL_DISTINCT (DROP n ls)``,
+  Induct >> simp[] >> rw[])
+
 val FEVERY_SUBMAP = store_thm("FEVERY_SUBMAP",
   ``FEVERY P fm /\ fm0 SUBMAP fm ==> FEVERY P fm0``,
   SRW_TAC[][FEVERY_DEF,SUBMAP_DEF])
