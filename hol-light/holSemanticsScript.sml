@@ -1,5 +1,4 @@
-
-open HolKernel Parse boolLib bossLib;
+open HolKernel Parse boolLib bossLib lcsymtacs;
 
 val _ = new_theory "holSemantics";
 
@@ -84,13 +83,54 @@ val seq_trans_def = Define `
 
 (* -- part 2 -- *)
 
-(*
 val hol_seq_def = Define `
   hol_seq ((defs,hyps),tm) = ?h c. seq_trans ((defs,hyps),tm) (h,c) /\ h |= c`;
-*)
 
 
 (* -- part 3 -- *)
+
+val _ = Parse.overload_on("α",``(Tyvar "a"):sholSyntax$type``)
+val id_stm = ``Abs "x" α (Var "x" α)``
+val id_ok = prove(
+  ``term_ok ^id_stm``,
+  simp[Once proves_cases] >>
+  disj1_tac >>
+  simp[Once proves_cases] >>
+  simp[Once proves_cases] >>
+  disj1_tac >>
+  simp[Once proves_cases] )
+val _ = Parse.overload_on("Ts",``^id_stm === ^id_stm``)
+val truth_sthm =
+   proves_rules
+|> CONJUNCTS
+|> C (curry List.nth) 14
+|> SPEC id_stm
+|> UNDISCH
+|> PROVE_HYP id_ok
+
+val Ts_ok = save_thm("Ts_ok",
+   proves_rules
+|> CONJUNCTS
+|> C (curry List.nth) 13
+|> SPEC ``Ts``
+|> Q.SPEC `[]`
+|> SIMP_RULE (srw_ss())[truth_sthm])
+val _ = export_rewrites["Ts_ok"]
+
+val Ts_has_type_Bool = prove(
+  ``Ts has_type Bool``,
+  simp[EQUATION_HAS_TYPE_BOOL])
+
+val _ = Parse.overload_on("Arb",``λty. Comb (Select ty) (Abs "x" ty Ts)``)
+
+val Arb_ok = prove(
+  ``∀ty. type_ok ty ⇒ term_ok (Arb ty)``,
+  rw[] >>
+  simp[Once proves_cases] >>
+  disj1_tac >>
+  conj_tac >- simp[Once proves_cases] >>
+  conj_tac >- simp[Once proves_cases] >>
+  METIS_TAC[Ts_has_type_Bool,welltyped_def,WELLTYPED_LEMMA])
 
 val type_ok_IMP = prove(
   ``!defs ty. type_ok defs ty ==> !ty1. type defs ty ty1 ==> type_ok ty1``,
@@ -99,8 +139,9 @@ val type_ok_IMP = prove(
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []
   \\ TRY (ONCE_REWRITE_TAC [sholSyntaxTheory.proves_cases]
     \\ SIMP_TAC (srw_ss()) [] \\ RES_TAC \\ ASM_SIMP_TAC std_ss [] \\ NO_TAC)
-  THEN1 cheat (* Ind not supported *)
-  THEN1 cheat (* Tyapp not supported *))
+  \\ simp[Once proves_cases]
+  \\ qexists_tac`Arb ty1`
+  THEN cheat (* probably needs term_ok to be in mutual recursion *))
   |> SIMP_RULE std_ss [PULL_FORALL,AND_IMP_INTRO];
 
 val type_11 = prove(
