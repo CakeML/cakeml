@@ -5079,4 +5079,56 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
   pop_assum mp_tac >>
   simp[IN_BOOL])
 
+val soundness = store_thm("soundness",
+  ``(∀ty. type_ok ty ⇒ type_has_meaning ty) ∧
+    (∀tm. term_ok tm ⇒ has_meaning tm) ∧
+    (∀h c. h |- c ⇒ h |= c)``,
+  ho_match_mp_tac proves_ind >>
+  simp[] >>
+  conj_tac >- (
+    simp[type_has_meaning_def,tyvars_def] >>
+    simp[Once semantics_cases,FLOOKUP_DEF] ) >>
+  conj_tac >- (
+    simp[has_meaning_def,tyvars_def] >>
+    simp[Once semantics_cases] >>
+    simp[type_has_meaning_def] >>
+    rw[] >>
+    Q.ISPEC_THEN`set (tyvars ty)`mp_tac covering_type_valuation_exists >>
+    simp[] >>
+    disch_then(qspec_then`FEMPTY`mp_tac) >>
+    simp[] >>
+    disch_then(qx_choose_then`τ`strip_assume_tac) >>
+    map_every qexists_tac[`τ`,`FEMPTY`] >>
+    simp[] ) >>
+  conj_tac >- (
+    simp[has_meaning_def,tyvars_def] >>
+    simp[Once semantics_cases] >>
+    simp[type_has_meaning_def] >>
+    rw[] >>
+    Q.ISPEC_THEN`set (tyvars ty)`mp_tac covering_type_valuation_exists >>
+    simp[] >>
+    disch_then(qspec_then`FEMPTY`mp_tac) >>
+    simp[] >>
+    disch_then(qx_choose_then`τ`strip_assume_tac) >>
+    map_every qexists_tac[`τ`,`FEMPTY`] >>
+    simp[] ) >>
+  conj_tac >- (
+    metis_tac[has_meaning_type_has_meaning,has_meaning_welltyped,WELLTYPED_LEMMA] ) >>
+  conj_tac >- (
+    rw[sequent_def] >>
+    fs[EVERY_MEM] ) >>
+  conj_tac >- metis_tac[REFL_correct] >>
+  conj_tac >- metis_tac[TRANS_correct] >>
+  conj_tac >- metis_tac[MK_COMB_correct] >>
+  conj_tac >- metis_tac[ABS_correct,NOT_EXISTS] >>
+  conj_tac >- metis_tac[BETA_correct] >>
+  conj_tac >- metis_tac[ASSUME_correct] >>
+  conj_tac >- metis_tac[EQ_MP_correct] >>
+  conj_tac >- metis_tac[DEDUCT_ANTISYM_correct] >>
+  conj_tac >- metis_tac[INST_TYPE_correct] >>
+  conj_tac >- metis_tac[INST_correct] >>
+  conj_tac >- metis_tac[new_basic_definition_correct] >>
+  conj_tac >- metis_tac[new_basic_type_definition_correct] >>
+  metis_tac[new_basic_type_definition_correct])
+
 val _ = export_theory()
