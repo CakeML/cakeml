@@ -48,6 +48,37 @@ val ALOOKUP_ZIP_MAP_SND = store_thm("ALOOKUP_ZIP_MAP_SND",
   Induct >> simp[LENGTH_NIL,LENGTH_NIL_SYM,FUN_EQ_THM] >>
   gen_tac >> Cases >> simp[] >> rw[] >> rw[])
 
+val PERM_STRING_SORT = store_thm("PERM_STRING_SORT",
+  ``∀ls. ALL_DISTINCT ls ⇒ PERM ls (STRING_SORT ls)``,
+  Induct >>
+  simp[STRING_SORT_def] >>
+  simp[INORDER_INSERT_def] >>
+  fs[STRING_SORT_def] >>
+  simp[PERM_CONS_EQ_APPEND] >>
+  gen_tac >> strip_tac >> fs[] >>
+  qho_match_abbrev_tac`∃M N. A ++ [h] ++ B = M ++ [h] ++ N ∧ (Z M N)` >>
+  map_every qexists_tac[`A`,`B`] >>
+  simp[Abbr`Z`] >>
+  match_mp_tac PERM_ALL_DISTINCT >>
+  simp[ALL_DISTINCT_APPEND] >>
+  simp[Abbr`A`,Abbr`B`,MEM_FILTER] >>
+  metis_tac[FILTER_ALL_DISTINCT,ALL_DISTINCT_PERM,string_lt_antisym,string_lt_cases,MEM_PERM] )
+
+val LENGTH_STRING_SORT = store_thm("LENGTH_STRING_SORT",
+  ``∀ls. ALL_DISTINCT ls ⇒ (LENGTH (STRING_SORT ls) = LENGTH ls)``,
+  metis_tac[PERM_STRING_SORT,PERM_LENGTH])
+val _ = export_rewrites["LENGTH_STRING_SORT"]
+
+val MEM_STRING_SORT = store_thm("MEM_STRING_SORT",
+  ``∀x ls. ALL_DISTINCT ls ⇒ (MEM x (STRING_SORT ls) ⇔ MEM x ls)``,
+  metis_tac[PERM_STRING_SORT,MEM_PERM])
+val _ = export_rewrites["MEM_STRING_SORT"]
+
+val ALL_DISTINCT_STRING_SORT = store_thm("ALL_DISTINCT_STRING_SORT",
+  ``∀ls. ALL_DISTINCT ls ⇒ ALL_DISTINCT (STRING_SORT ls)``,
+  metis_tac[PERM_STRING_SORT,ALL_DISTINCT_PERM])
+val _ = export_rewrites["ALL_DISTINCT_STRING_SORT"]
+
 val find_index_is_MEM = store_thm("find_index_is_MEM",
   ``∀x ls n j. find_index x ls n = SOME j ⇒ MEM x ls``,
   metis_tac[find_index_NOT_MEM,optionTheory.NOT_SOME_NONE])
@@ -980,7 +1011,7 @@ val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
 
   (p = fresh_term {} p0 ∧ closed p0 ∧
    LENGTH (tvars p) = LENGTH args ∧
-   tyin = alist_to_fmap(ZIP (tvars p, args)) ∧
+   tyin = alist_to_fmap(ZIP (STRING_SORT(tvars p), args)) ∧
    p has_type Fun rty Bool ∧
    (∀τ. type_valuation τ ∧ set (tvars (simple_inst tyin p)) ⊆ FDOM τ ⇒
       ∃mrty mp w.
@@ -1019,7 +1050,7 @@ val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
 
   (typeset τ (Tyapp (Tydefined op p0) args) maty ∧
    p = fresh_term {} p0 ∧
-   tyin = alist_to_fmap(ZIP (tvars p, args)) ∧
+   tyin = alist_to_fmap(ZIP (STRING_SORT(tvars p), args)) ∧
    simple_inst tyin p has_type Fun rty Bool ∧
    typeset τ rty mrty
    ⇒
@@ -1028,7 +1059,7 @@ val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
 
   (typeset τ (Tyapp (Tydefined op p0) args) maty ∧
    p = fresh_term {} p0 ∧
-   tyin = alist_to_fmap(ZIP (tvars p, args)) ∧
+   tyin = alist_to_fmap(ZIP (STRING_SORT(tvars p), args)) ∧
    simple_inst tyin p has_type Fun rty Bool ∧
    typeset τ rty mrty ∧
    semantics FEMPTY τ (simple_inst tyin p) mp
@@ -1194,7 +1225,7 @@ val typeset_tyvars = store_thm("typeset_tyvars",
         rfs[MEM_ZIP] >>
         imp_res_tac tyvars_typeof_subset_tvars >>
         fs[SUBSET_DEF,tyvars_def] >>
-        metis_tac[MEM_EL] ) >>
+        metis_tac[MEM_EL,MEM_STRING_SORT,tvars_ALL_DISTINCT,LENGTH_STRING_SORT] ) >>
       imp_res_tac ALOOKUP_MEM >>
       rfs[MEM_ZIP] >>
       imp_res_tac tyvars_typeof_subset_tvars >>
@@ -1212,7 +1243,7 @@ val typeset_tyvars = store_thm("typeset_tyvars",
       rfs[MEM_ZIP] >>
       imp_res_tac tyvars_typeof_subset_tvars >>
       fs[SUBSET_DEF,tyvars_def] >>
-      metis_tac[MEM_EL] ) >>
+      metis_tac[MEM_EL,tvars_ALL_DISTINCT,LENGTH_STRING_SORT,MEM_STRING_SORT] ) >>
     imp_res_tac ALOOKUP_MEM >>
     rfs[MEM_ZIP] >>
     imp_res_tac tyvars_typeof_subset_tvars >>
@@ -1260,7 +1291,7 @@ val typeset_tyvars = store_thm("typeset_tyvars",
       rfs[MEM_ZIP] >>
       imp_res_tac tyvars_typeof_subset_tvars >>
       fs[SUBSET_DEF,tyvars_def] >>
-      metis_tac[MEM_EL] ) >>
+      metis_tac[MEM_EL,tvars_ALL_DISTINCT,LENGTH_STRING_SORT,MEM_STRING_SORT] ) >>
     imp_res_tac ALOOKUP_MEM >>
     rfs[MEM_ZIP] >>
     imp_res_tac tyvars_typeof_subset_tvars >>
@@ -1298,14 +1329,14 @@ val typeset_closes_over = store_thm("typeset_closes_over",
     rw[] >>
     `∃n. n < LENGTH args ∧ y = EL n args` by metis_tac[MEM_EL] >>
     first_x_assum match_mp_tac >> simp[] >>
-    qexists_tac`EL n (tvars tm)` >>
-    conj_tac >- metis_tac[MEM_EL] >>
+    qexists_tac`EL n (STRING_SORT (tvars tm))` >>
+    conj_tac >- metis_tac[MEM_EL,LENGTH_STRING_SORT,tvars_ALL_DISTINCT,MEM_STRING_SORT] >>
     simp[FLOOKUPD_def,Abbr`tyin`] >>
     BasicProvers.CASE_TAC >- (
       fs[ALOOKUP_FAILS] >>
       rfs[MEM_ZIP] >>
-      metis_tac[] ) >>
-    Q.ISPECL_THEN[`ZIP(tvars tm,args)`,`n`]mp_tac ALOOKUP_ALL_DISTINCT_EL >>
+      metis_tac[tvars_ALL_DISTINCT,MEM_STRING_SORT,LENGTH_STRING_SORT,MEM_EL] ) >>
+    Q.ISPECL_THEN[`ZIP(STRING_SORT(tvars tm),args)`,`n`]mp_tac ALOOKUP_ALL_DISTINCT_EL >>
     discharge_hyps >- simp[MAP_ZIP] >> rw[EL_ZIP]) >>
   conj_tac >- (
     rw[FLOOKUP_DEF,tvars_def] >>
@@ -1559,7 +1590,7 @@ val semantics_frees = store_thm("semantics_frees",
       simp[Once semantics_cases] >> strip_tac >>
       BasicProvers.CASE_TAC >- (
         rfs[ALOOKUP_FAILS,tyvars_def,MEM_ZIP] >>
-        metis_tac[MEM_EL] ) >>
+        metis_tac[MEM_EL,tvars_ALL_DISTINCT,MEM_STRING_SORT,LENGTH_STRING_SORT] ) >>
       imp_res_tac ALOOKUP_MEM >>
       rfs[MEM_ZIP] >>
       metis_tac[MEM_EL] )
@@ -1594,7 +1625,7 @@ val semantics_frees = store_thm("semantics_frees",
       simp[Once semantics_cases] >> strip_tac >>
       BasicProvers.CASE_TAC >- (
         rfs[ALOOKUP_FAILS,tyvars_def,MEM_ZIP] >>
-        metis_tac[MEM_EL] ) >>
+        metis_tac[MEM_EL,tvars_ALL_DISTINCT,MEM_STRING_SORT,LENGTH_STRING_SORT] ) >>
       imp_res_tac ALOOKUP_MEM >>
       rfs[MEM_ZIP] >>
       metis_tac[MEM_EL] ))
@@ -1658,7 +1689,7 @@ val semantics_closes = prove(
     imp_res_tac tyvars_typeof_subset_tvars >>
     fs[SUBSET_DEF] >>
     metis_tac[] ) >>
-  conj_tac >- (
+  let val tac = (
     rw[closes_def,tyvars_def,tvars_def] >>
     TRY (metis_tac[typeset_closes_over,FDOM_FEMPTY,SUBSET_EMPTY,EMPTY_SUBSET]) >>
     fs[SUBSET_DEF,MEM_FOLDR_LIST_UNION] >>
@@ -1669,7 +1700,7 @@ val semantics_closes = prove(
     fs[tyvars_tyinst,SUBSET_DEF,GSYM LEFT_FORALL_IMP_THM] >>
     fs[Abbr`tyin`,FLOOKUPD_def] >>
     `∃n. y = EL n args ∧ n < LENGTH args` by metis_tac[MEM_EL] >>
-    first_x_assum(qspecl_then[`x`,`EL n (tvars tm)`]mp_tac) >>
+    first_x_assum(qspecl_then[`x`,`EL n (STRING_SORT (tvars tm))`]mp_tac) >>
     BasicProvers.CASE_TAC >- (
       fs[ALOOKUP_FAILS] >> rfs[MEM_ZIP] >> metis_tac[] ) >>
     qspec_then`tm`strip_assume_tac tvars_ALL_DISTINCT >>
@@ -1682,32 +1713,11 @@ val semantics_closes = prove(
     simp[Abbr`a`] >> rw[] >>
     ntac 2 (pop_assum mp_tac) >>
     simp[FLOOKUPD_def,Abbr`tyin`] >>
-    metis_tac[MEM_EL]) >>
-  conj_tac >- (
-    rw[closes_def,tyvars_def,tvars_def] >>
-    TRY (metis_tac[typeset_closes_over,FDOM_FEMPTY,SUBSET_EMPTY,EMPTY_SUBSET]) >>
-    fs[SUBSET_DEF,MEM_FOLDR_LIST_UNION] >>
-    qpat_assum`typeset τ (X Y) Z`mp_tac >>
-    simp[Once semantics_cases] >> rw[] >>
-    qmatch_assum_abbrev_tac`simple_inst tyin tm has_type pty` >>
-    imp_res_tac typeset_closes_over >> fs[] >>
-    fs[tyvars_tyinst,SUBSET_DEF,GSYM LEFT_FORALL_IMP_THM] >>
-    fs[Abbr`tyin`,FLOOKUPD_def] >>
-    `∃n. y = EL n args ∧ n < LENGTH args` by metis_tac[MEM_EL] >>
-    first_x_assum(qspecl_then[`x`,`EL n (tvars tm)`]mp_tac) >>
-    BasicProvers.CASE_TAC >- (
-      fs[ALOOKUP_FAILS] >> rfs[MEM_ZIP] >> metis_tac[] ) >>
-    qspec_then`tm`strip_assume_tac tvars_ALL_DISTINCT >>
-    qmatch_assum_abbrev_tac`ALOOKUP ls a = SOME z` >>
-    Q.ISPECL_THEN[`ls`,`n`]strip_assume_tac ALOOKUP_ALL_DISTINCT_EL >>
-    rfs[MAP_ZIP,Abbr`ls`,EL_ZIP] >> rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-    qmatch_assum_abbrev_tac`simple_inst tyin tm has_type pty` >>
-    fs[tvars_simple_inst,GSYM LEFT_FORALL_IMP_THM] >>
-    first_x_assum(qspecl_then[`x`,`a`]mp_tac) >>
-    simp[Abbr`a`] >> rw[] >>
-    ntac 2 (pop_assum mp_tac) >>
-    simp[FLOOKUPD_def,Abbr`tyin`] >>
-    metis_tac[MEM_EL]) >>
+    metis_tac[MEM_EL,tvars_ALL_DISTINCT,MEM_STRING_SORT,LENGTH_STRING_SORT])
+  in
+    conj_tac >- tac >>
+    conj_tac >- tac
+  end >>
   conj_tac >- (
     rw[closes_def,tvars_def] >> fs[] >> metis_tac[] ) >>
   (
@@ -1841,7 +1851,7 @@ val typeset_has_meaning = prove(
   pop_assum mp_tac >>
   BasicProvers.CASE_TAC >- (
     rfs[ALOOKUP_FAILS,MEM_ZIP,tyvars_def] >>
-    metis_tac[MEM_EL] ) >>
+    metis_tac[MEM_EL,tvars_ALL_DISTINCT,LENGTH_STRING_SORT,MEM_STRING_SORT] ) >>
   imp_res_tac ALOOKUP_MEM >>
   rfs[MEM_ZIP] >>
   metis_tac[MEM_EL])
@@ -1888,7 +1898,7 @@ val semantics_frees_exists = store_thm("semantics_frees_exists",
         rfs[MEM_ZIP] >>
         imp_res_tac tyvars_typeof_subset_tvars >>
         fs[SUBSET_DEF,tyvars_def] >>
-        metis_tac[MEM_EL] ) >>
+        metis_tac[MEM_EL,tvars_ALL_DISTINCT,LENGTH_STRING_SORT,MEM_STRING_SORT] ) >>
       imp_res_tac ALOOKUP_MEM >>
       rfs[MEM_ZIP] >>
       imp_res_tac tyvars_typeof_subset_tvars >>
@@ -1913,7 +1923,7 @@ val semantics_frees_exists = store_thm("semantics_frees_exists",
         rfs[MEM_ZIP] >>
         imp_res_tac tyvars_typeof_subset_tvars >>
         fs[SUBSET_DEF,tyvars_def] >>
-        metis_tac[MEM_EL] ) >>
+        metis_tac[MEM_EL,tvars_ALL_DISTINCT,LENGTH_STRING_SORT,MEM_STRING_SORT] ) >>
       imp_res_tac ALOOKUP_MEM >>
       rfs[MEM_ZIP] >>
       rw[] >>
@@ -1974,7 +1984,7 @@ val semantics_frees_exists = store_thm("semantics_frees_exists",
     BasicProvers.CASE_TAC >- (
       fs[ALOOKUP_FAILS,tyvars_def] >>
       rfs[MEM_ZIP] >>
-      metis_tac[MEM_EL] ) >>
+      metis_tac[MEM_EL,tvars_ALL_DISTINCT,LENGTH_STRING_SORT,MEM_STRING_SORT] ) >>
     imp_res_tac ALOOKUP_MEM >>
     rfs[MEM_ZIP] >>
     rw[] >>
@@ -2305,7 +2315,7 @@ val semantics_has_meaning = prove(
       BasicProvers.CASE_TAC >- (
         fs[ALOOKUP_FAILS] >>
         rfs[MEM_ZIP] >>
-        metis_tac[MEM_EL] ) >>
+        metis_tac[MEM_EL,tvars_ALL_DISTINCT,LENGTH_STRING_SORT,MEM_STRING_SORT] ) >>
       imp_res_tac ALOOKUP_MEM >>
       rfs[MEM_ZIP] >>
       metis_tac[MEM_EL] ) >>
@@ -3617,7 +3627,7 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
     qsuff_tac`b ∧ c ∧ a`>-rw[] >>
     map_every qunabbrev_tac[`a`,`b`,`c`] >>
     conj_tac >- (
-      qmatch_abbrev_tac`typeset τ (tyinst (alist_to_fmap (ZIP (tvars tm,MAP (tyinst tyin) args))) rty) mp` >>
+      qmatch_abbrev_tac`typeset τ (tyinst (alist_to_fmap (ZIP (STRING_SORT(tvars tm),MAP (tyinst tyin) args))) rty) mp` >>
       pop_assum kall_tac >>
       first_x_assum(qspecl_then[`τ`,`tyin`]mp_tac) >>
       discharge_hyps >- (
@@ -3632,7 +3642,7 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
         rfs[ALOOKUP_FAILS,MEM_ZIP] >>
         imp_res_tac tyvars_typeof_subset_tvars >>
         fs[tyvars_def,SUBSET_DEF] >>
-        metis_tac[MEM_EL]) >>
+        metis_tac[MEM_EL,LENGTH_STRING_SORT,MEM_STRING_SORT,tvars_ALL_DISTINCT]) >>
       qmatch_abbrev_tac`typeset τ t1 mp ⇒ typeset τ t2 mp` >>
       qsuff_tac`t1 = t2`>-rw[] >>
       unabbrev_all_tac >>
@@ -3644,7 +3654,7 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
         imp_res_tac tyvars_typeof_subset_tvars >>
         fs[tyvars_def,SUBSET_DEF] >>
         fs[MEM_ZIP,MEM_EL] >>
-        metis_tac[LENGTH_ZIP,EL_ZIP] ) >>
+        metis_tac[LENGTH_ZIP,EL_ZIP,LENGTH_STRING_SORT,tvars_ALL_DISTINCT,MEM_STRING_SORT,MEM_EL] ) >>
       BasicProvers.CASE_TAC >- (
         fs[ALOOKUP_FAILS] >>
         imp_res_tac ALOOKUP_MEM >>
@@ -3666,7 +3676,7 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
         BasicProvers.CASE_TAC >>
         imp_res_tac ALOOKUP_MEM >>
         rfs[ALOOKUP_FAILS,MEM_ZIP] >>
-        metis_tac[MEM_EL]) >>
+        metis_tac[MEM_EL,tvars_ALL_DISTINCT,LENGTH_STRING_SORT,MEM_STRING_SORT]) >>
       qmatch_abbrev_tac`semantics FEMPTY τ t1 m ⇒ semantics FEMPTY τ t2 m` >>
       qsuff_tac`t1 = t2`>-rw[]>>
       unabbrev_all_tac >>
@@ -3678,7 +3688,7 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
         imp_res_tac tyvars_typeof_subset_tvars >>
         fs[tyvars_def,SUBSET_DEF] >>
         fs[MEM_ZIP,MEM_EL] >>
-        metis_tac[LENGTH_ZIP,EL_ZIP] ) >>
+        metis_tac[LENGTH_ZIP,EL_ZIP,tvars_ALL_DISTINCT,MEM_STRING_SORT,LENGTH_STRING_SORT,MEM_EL] ) >>
       BasicProvers.CASE_TAC >- (
         fs[ALOOKUP_FAILS] >>
         imp_res_tac ALOOKUP_MEM >>
@@ -3708,7 +3718,7 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
         rfs[ALOOKUP_FAILS,MEM_ZIP] >>
         imp_res_tac tyvars_typeof_subset_tvars >>
         fs[tyvars_def,SUBSET_DEF] >>
-        metis_tac[MEM_EL]) >>
+        metis_tac[MEM_EL,tvars_ALL_DISTINCT,MEM_STRING_SORT,LENGTH_STRING_SORT]) >>
       fs[SUBSET_DEF] >> rw[] >>
       first_x_assum match_mp_tac >>
       fs[tvars_simple_inst] >>
@@ -3718,7 +3728,7 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
       BasicProvers.CASE_TAC >- (
         fs[ALOOKUP_FAILS] >>
         rfs[MEM_ZIP] >>
-        metis_tac[MEM_EL] ) >>
+        metis_tac[MEM_EL,tvars_ALL_DISTINCT,MEM_STRING_SORT,LENGTH_STRING_SORT] ) >>
       rfs[ALOOKUP_ZIP_MAP_SND] >>
       simp[tyvars_tyinst] >>
       qexists_tac`a` >>
@@ -3757,7 +3767,7 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
         imp_res_tac tyvars_typeof_subset_tvars >>
         fs[tyvars_def,SUBSET_DEF] >>
         fs[MEM_ZIP,MEM_EL] >>
-        metis_tac[LENGTH_ZIP,EL_ZIP] ) >>
+        metis_tac[LENGTH_ZIP,EL_ZIP,tvars_ALL_DISTINCT,LENGTH_STRING_SORT,MEM_STRING_SORT,MEM_EL] ) >>
       BasicProvers.CASE_TAC >- (
         fs[ALOOKUP_FAILS] >>
         imp_res_tac ALOOKUP_MEM >>
@@ -3784,7 +3794,7 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
       imp_res_tac tyvars_typeof_subset_tvars >>
       fs[tyvars_def,SUBSET_DEF] >>
       fs[MEM_ZIP,MEM_EL] >>
-      metis_tac[LENGTH_ZIP,EL_ZIP] ) >>
+      metis_tac[LENGTH_ZIP,EL_ZIP,tvars_ALL_DISTINCT,MEM_STRING_SORT,MEM_EL,LENGTH_STRING_SORT] ) >>
     BasicProvers.CASE_TAC >- (
       fs[ALOOKUP_FAILS] >>
       imp_res_tac ALOOKUP_MEM >>
@@ -3844,12 +3854,12 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
         imp_res_tac tyvars_typeof_subset_tvars >>
         fs[tyvars_def,SUBSET_DEF,ALOOKUP_FAILS] >>
         rfs[MEM_ZIP] >>
-        metis_tac[MEM_EL] ) >>
+        metis_tac[MEM_EL,LENGTH_STRING_SORT,MEM_STRING_SORT,tvars_ALL_DISTINCT] ) >>
       BasicProvers.CASE_TAC >- (
         imp_res_tac tyvars_typeof_subset_tvars >>
         fs[tyvars_def,SUBSET_DEF,ALOOKUP_FAILS] >>
         rfs[MEM_ZIP] >>
-        metis_tac[MEM_EL] ) >>
+        metis_tac[MEM_EL,tvars_ALL_DISTINCT,MEM_STRING_SORT,LENGTH_STRING_SORT] ) >>
       rfs[ALOOKUP_ZIP_MAP_SND] ) >>
     rw[] >>
     match_mp_tac simple_inst_has_type >>
@@ -3883,18 +3893,18 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
           imp_res_tac tyvars_typeof_subset_tvars >>
           fs[tyvars_def,SUBSET_DEF,ALOOKUP_FAILS] >>
           rfs[MEM_ZIP] >>
-          metis_tac[MEM_EL] ) >>
+          metis_tac[MEM_EL,tvars_ALL_DISTINCT,MEM_STRING_SORT,LENGTH_STRING_SORT] ) >>
         BasicProvers.CASE_TAC >- (
           imp_res_tac tyvars_typeof_subset_tvars >>
           fs[tyvars_def,SUBSET_DEF,ALOOKUP_FAILS] >>
           rfs[MEM_ZIP] >>
-          metis_tac[MEM_EL] ) >>
+          metis_tac[MEM_EL,tvars_ALL_DISTINCT,LENGTH_STRING_SORT,MEM_STRING_SORT] ) >>
         rfs[ALOOKUP_ZIP_MAP_SND] ) >>
       rw[] >>
       match_mp_tac simple_inst_has_type >>
       last_x_assum mp_tac >>
       simp[Once semantics_cases] >> strip_tac >>
-      metis_tac[welltyped_def]  ) >>
+      metis_tac[welltyped_def] ) >>
     first_x_assum(qspecl_then[`FEMPTY`,`τ`,`tyin'`]mp_tac) >>
     simp[] >>
     discharge_hyps >- (
@@ -3910,7 +3920,7 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
         fs[ALOOKUP_FAILS] >>
         imp_res_tac ALOOKUP_MEM >>
         rfs[MEM_ZIP] >>
-        metis_tac[MEM_EL] ) >>
+        metis_tac[MEM_EL,tvars_ALL_DISTINCT,MEM_STRING_SORT,LENGTH_STRING_SORT] ) >>
       `closed p0` by fs[Once semantics_cases] >>
       `ACONV p0 (fresh_term {} p0)` by metis_tac[fresh_term_def,FINITE_EMPTY] >>
       `closed (fresh_term {} p0)` by metis_tac[VFREE_IN_ACONV] >>
@@ -3931,8 +3941,8 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
       fs[ALOOKUP_FAILS] >>
       imp_res_tac tyvars_typeof_subset_tvars >>
       fs[tyvars_def,SUBSET_DEF] >>
-      fs[MEM_ZIP,MEM_EL] >>
-      metis_tac[LENGTH_ZIP,EL_ZIP] ) >>
+      rfs[MEM_ZIP] >>
+      metis_tac[MEM_EL,LENGTH_ZIP,EL_ZIP,tvars_ALL_DISTINCT,LENGTH_STRING_SORT,MEM_STRING_SORT] ) >>
     BasicProvers.CASE_TAC >- (
       fs[ALOOKUP_FAILS] >>
       imp_res_tac ALOOKUP_MEM >>
@@ -4704,27 +4714,6 @@ val new_basic_definition_correct = store_thm("new_basic_definition_correct",
   conj_asm1_tac >- metis_tac[VFREE_IN_ACONV] >>
   conj_tac >- metis_tac[ACONV_tvars,WELLTYPED_LEMMA,ACONV_TYPE,ACONV_welltyped,WELLTYPED] >>
   metis_tac[semantics_aconv,term_valuation_FEMPTY,welltyped_def] )
-
-val PERM_STRING_SORT = store_thm("PERM_STRING_SORT",
-  ``∀ls. ALL_DISTINCT ls ⇒ PERM ls (STRING_SORT ls)``,
-  Induct >>
-  simp[STRING_SORT_def] >>
-  simp[INORDER_INSERT_def] >>
-  fs[STRING_SORT_def] >>
-  simp[PERM_CONS_EQ_APPEND] >>
-  gen_tac >> strip_tac >> fs[] >>
-  qho_match_abbrev_tac`∃M N. A ++ [h] ++ B = M ++ [h] ++ N ∧ (Z M N)` >>
-  map_every qexists_tac[`A`,`B`] >>
-  simp[Abbr`Z`] >>
-  match_mp_tac PERM_ALL_DISTINCT >>
-  simp[ALL_DISTINCT_APPEND] >>
-  simp[Abbr`A`,Abbr`B`,MEM_FILTER] >>
-  metis_tac[FILTER_ALL_DISTINCT,ALL_DISTINCT_PERM,string_lt_antisym,string_lt_cases,MEM_PERM] )
-
-val LENGTH_STRING_SORT = store_thm("LENGTH_STRING_SORT",
-  ``∀ls. ALL_DISTINCT ls ⇒ (LENGTH (STRING_SORT ls) = LENGTH ls)``,
-  metis_tac[PERM_STRING_SORT,PERM_LENGTH])
-val _ = export_rewrites["LENGTH_STRING_SORT"]
 
 val has_meaning_type_has_meaning = store_thm("has_meaning_type_has_meaning",
   ``∀tm. has_meaning tm ⇒ type_has_meaning (typeof tm)``,
