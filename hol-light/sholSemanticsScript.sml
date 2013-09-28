@@ -8,14 +8,6 @@ val discharge_hyps =
 val discharge_hyps_keep =
   match_mp_tac(PROVE[]``(p ∧ (p ∧ q ==> r)) ==> ((p ==> q) ==> r)``) >> conj_tac
 
-val FEVERY_SUBMAP = store_thm("FEVERY_SUBMAP",
-  ``FEVERY P fm /\ fm0 SUBMAP fm ==> FEVERY P fm0``,
-  SRW_TAC[][FEVERY_DEF,SUBMAP_DEF])
-
-val FEVERY_ALL_FLOOKUP = store_thm("FEVERY_ALL_FLOOKUP",
-  ``∀P f. FEVERY P f ⇔ ∀k v. FLOOKUP f k = SOME v ⇒ P (k,v)``,
-  SRW_TAC[][FEVERY_DEF,FLOOKUP_DEF])
-
 val MEM_LIST_INSERT = store_thm("MEM_LIST_INSERT",
   ``∀l x. set (LIST_INSERT x l) = x INSERT set l``,
   Induct >> simp[LIST_INSERT_def] >> rw[] >>
@@ -33,20 +25,6 @@ val MEM_FOLDR_LIST_UNION = store_thm("MEM_FOLDR_LIST_UNION",
 val ALL_DISTINCT_LIST_UNION = store_thm("ALL_DISTINCT_LIST_UNION",
   ``∀l1 l2. ALL_DISTINCT l2 ⇒ ALL_DISTINCT (LIST_UNION l1 l2)``,
   Induct >> fs[LIST_UNION_def,LIST_INSERT_def] >> rw[])
-
-val ALOOKUP_ALL_DISTINCT_EL = store_thm("ALOOKUP_ALL_DISTINCT_EL",
-  ``∀ls n. n < LENGTH ls ∧ ALL_DISTINCT (MAP FST ls) ⇒ ALOOKUP ls (FST (EL n ls)) = SOME (SND (EL n ls))``,
-  Induct >> simp[] >>
-  Cases >> simp[] >>
-  Cases >> simp[] >>
-  rw[] >> fs[MEM_MAP] >>
-  metis_tac[MEM_EL])
-
-val ALOOKUP_ZIP_MAP_SND = store_thm("ALOOKUP_ZIP_MAP_SND",
-  ``∀l1 l2 k f. LENGTH l1 = LENGTH l2 ⇒
-      ALOOKUP (ZIP(l1,MAP f l2)) = OPTION_MAP f o (ALOOKUP (ZIP(l1,l2)))``,
-  Induct >> simp[LENGTH_NIL,LENGTH_NIL_SYM,FUN_EQ_THM] >>
-  gen_tac >> Cases >> simp[] >> rw[] >> rw[])
 
 val PERM_STRING_SORT = store_thm("PERM_STRING_SORT",
   ``∀ls. ALL_DISTINCT ls ⇒ PERM ls (STRING_SORT ls)``,
@@ -78,36 +56,6 @@ val ALL_DISTINCT_STRING_SORT = store_thm("ALL_DISTINCT_STRING_SORT",
   ``∀ls. ALL_DISTINCT ls ⇒ ALL_DISTINCT (STRING_SORT ls)``,
   metis_tac[PERM_STRING_SORT,ALL_DISTINCT_PERM])
 val _ = export_rewrites["ALL_DISTINCT_STRING_SORT"]
-
-val find_index_is_MEM = store_thm("find_index_is_MEM",
-  ``∀x ls n j. find_index x ls n = SOME j ⇒ MEM x ls``,
-  metis_tac[find_index_NOT_MEM,optionTheory.NOT_SOME_NONE])
-
-val find_index_MAP_inj = store_thm("find_index_MAP_inj",
-  ``∀ls x n f. (∀y. MEM y ls ⇒ (f x = f y) ⇒ x = y) ⇒ (find_index (f x) (MAP f ls) n = find_index x ls n)``,
-  Induct >- simp[find_index_def] >>
-  rw[] >> rw[find_index_def] >>
-  metis_tac[])
-
-val find_index_shift_0 = store_thm("find_index_shift_0",
-  ``∀ls x k. find_index x ls k = OPTION_MAP (λx. x + k) (find_index x ls 0)``,
-  Induct >> simp_tac(srw_ss())[find_index_def] >>
-  rpt gen_tac >>
-  Cases_on`h=x` >- (
-    BasicProvers.VAR_EQ_TAC >>
-    simp_tac(srw_ss())[] ) >>
-  pop_assum mp_tac >>
-  simp_tac(srw_ss())[] >>
-  strip_tac >>
-  first_assum(qspecl_then[`x`,`k+1`]mp_tac) >>
-  first_x_assum(qspecl_then[`x`,`1`]mp_tac) >>
-  rw[] >>
-  Cases_on`find_index x ls 0`>>rw[] >>
-  simp[])
-
-val find_index_shift = store_thm("find_index_shift",
-  ``∀ls x k j. (find_index x ls k = SOME j) ⇒ j ≥ k ∧ ∀n. find_index x ls n = SOME (j-k+n)``,
-  Induct >> simp[find_index_def] >> rw[] >> res_tac >> fsrw_tac[ARITH_ss][])
 
 val LIST_UNION_NIL = store_thm("LIST_UNION_NIL",
   ``∀l2. (LIST_UNION [] l2 = l2)``,

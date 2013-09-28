@@ -4,6 +4,28 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
+val FEVERY_SUBMAP = store_thm("FEVERY_SUBMAP",
+  ``FEVERY P fm /\ fm0 SUBMAP fm ==> FEVERY P fm0``,
+  SRW_TAC[][FEVERY_DEF,SUBMAP_DEF])
+
+val FEVERY_ALL_FLOOKUP = store_thm("FEVERY_ALL_FLOOKUP",
+  ``∀P f. FEVERY P f ⇔ ∀k v. (FLOOKUP f k = SOME v) ⇒ P (k,v)``,
+  SRW_TAC[][FEVERY_DEF,FLOOKUP_DEF])
+
+val ALOOKUP_ALL_DISTINCT_EL = store_thm("ALOOKUP_ALL_DISTINCT_EL",
+  ``∀ls n. n < LENGTH ls ∧ ALL_DISTINCT (MAP FST ls) ⇒ (ALOOKUP ls (FST (EL n ls)) = SOME (SND (EL n ls)))``,
+  Induct >> simp[] >>
+  Cases >> simp[] >>
+  Cases >> simp[] >>
+  rw[] >> fs[MEM_MAP] >>
+  metis_tac[MEM_EL])
+
+val ALOOKUP_ZIP_MAP_SND = store_thm("ALOOKUP_ZIP_MAP_SND",
+  ``∀l1 l2 k f. (LENGTH l1 = LENGTH l2) ⇒
+      (ALOOKUP (ZIP(l1,MAP f l2)) = OPTION_MAP f o (ALOOKUP (ZIP(l1,l2))))``,
+  Induct >> simp[LENGTH_NIL,LENGTH_NIL_SYM,FUN_EQ_THM] >>
+  gen_tac >> Cases >> simp[] >> rw[] >> rw[])
+
 val find_index_def = Define`
   (find_index _ [] _ = NONE) ∧
   (find_index y (x::xs) n = if x = y then SOME n else find_index y xs (n+1))`
@@ -109,6 +131,35 @@ val find_index_APPEND2 = store_thm("find_index_APPEND2",
   rw[] >> fsrw_tac[ARITH_ss][] >>
   res_tac >> fsrw_tac[ARITH_ss][ADD1])
 
+val find_index_is_MEM = store_thm("find_index_is_MEM",
+  ``∀x ls n j. (find_index x ls n = SOME j) ⇒ MEM x ls``,
+  metis_tac[find_index_NOT_MEM,optionTheory.NOT_SOME_NONE])
+
+val find_index_MAP_inj = store_thm("find_index_MAP_inj",
+  ``∀ls x n f. (∀y. MEM y ls ⇒ (f x = f y) ⇒ x = y) ⇒ (find_index (f x) (MAP f ls) n = find_index x ls n)``,
+  Induct >- simp[find_index_def] >>
+  rw[] >> rw[find_index_def] >>
+  metis_tac[])
+
+val find_index_shift_0 = store_thm("find_index_shift_0",
+  ``∀ls x k. find_index x ls k = OPTION_MAP (λx. x + k) (find_index x ls 0)``,
+  Induct >> simp_tac(srw_ss())[find_index_def] >>
+  rpt gen_tac >>
+  Cases_on`h=x` >- (
+    BasicProvers.VAR_EQ_TAC >>
+    simp_tac(srw_ss())[] ) >>
+  pop_assum mp_tac >>
+  simp_tac(srw_ss())[] >>
+  strip_tac >>
+  first_assum(qspecl_then[`x`,`k+1`]mp_tac) >>
+  first_x_assum(qspecl_then[`x`,`1`]mp_tac) >>
+  rw[] >>
+  Cases_on`find_index x ls 0`>>rw[] >>
+  simp[])
+
+val find_index_shift = store_thm("find_index_shift",
+  ``∀ls x k j. (find_index x ls k = SOME j) ⇒ j ≥ k ∧ ∀n. find_index x ls n = SOME (j-k+n)``,
+  Induct >> simp[find_index_def] >> rw[] >> res_tac >> fsrw_tac[ARITH_ss][])
 
 val ALOOKUP_APPEND_same = store_thm("ALOOKUP_APPEND_same",
   ``∀l1 l2 l. (ALOOKUP l1 = ALOOKUP l2) ==> (ALOOKUP (l1 ++ l) = ALOOKUP (l2 ++ l))``,
