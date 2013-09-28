@@ -22,6 +22,7 @@ val _ = Hol_datatype`
 
 val _ = Parse.overload_on("Fun",``λs t. Tyapp (Typrim "fun" 2) [s;t]``)
 val _ = Parse.overload_on("Bool",``Tyapp (Typrim "bool" 0) []``)
+val _ = Parse.overload_on("Ind",``Tyapp (Typrim "ind" 0) []``)
 val _ = Parse.overload_on("Equal" ,``λty. Const "=" (Fun ty (Fun ty Bool)) Prim``)
 val _ = Parse.overload_on("Select",``λty. Const "@" (Fun (Fun ty Bool) ty) Prim``)
 
@@ -616,7 +617,7 @@ val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 val _ = Parse.overload_on("closed",``λt. ∀n ty. ¬VFREE_IN (Var n ty) t``)
 
 val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
- (type_ok (Tyvar a)) ∧ (type_ok Bool) ∧
+ (type_ok (Tyvar a)) ∧ (type_ok Bool) ∧ (type_ok Ind) ∧
  (type_ok ty1 ∧ type_ok ty2 ⇒ type_ok (Fun ty1 ty2)) ∧
  (type_ok ty ⇒ term_ok (Var x ty)) ∧
  (type_ok ty ⇒ term_ok (Equal ty)) ∧

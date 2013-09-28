@@ -1,12 +1,17 @@
-open HolKernel boolLib boolSimps SatisfySimps bossLib lcsymtacs miscTheory pred_setTheory pairTheory listTheory finite_mapTheory alistTheory sholSyntaxTheory sholSyntaxExtraTheory modelSetTheory sortingTheory stringTheory
+open HolKernel boolLib boolSimps SatisfySimps bossLib lcsymtacs miscTheory miscLib pred_setTheory pairTheory listTheory finite_mapTheory alistTheory sholSyntaxTheory sholSyntaxExtraTheory modelSetTheory sortingTheory stringTheory
 val _ = numLib.prefer_num()
 val _ = new_theory"sholSemantics"
 
-val discharge_hyps =
-  match_mp_tac(PROVE[]``(p ∧ (q ==> r)) ==> ((p ==> q) ==> r)``) >> conj_tac
-
 val discharge_hyps_keep =
   match_mp_tac(PROVE[]``(p ∧ (p ∧ q ==> r)) ==> ((p ==> q) ==> r)``) >> conj_tac
+
+val alist_to_fmap_id_map = store_thm("alist_to_fmap_id_map",
+  ``∀ls f. alist_to_fmap (ZIP (ls, MAP f ls)) = FUN_FMAP f (set ls)``,
+  Induct >> simp[] >>
+  simp[GSYM fmap_EQ_THM] >>
+  simp[FUN_FMAP_DEF,FAPPLY_FUPDATE_THM] >>
+  rw[FUN_FMAP_DEF])
+val _ = export_rewrites["alist_to_fmap_id_map"]
 
 val type_valuation_def = Define`
   type_valuation τ ⇔ ∀x. x ∈ FRANGE τ ⇒ ∃y. y <: x`
@@ -18,11 +23,13 @@ val _ = export_rewrites["type_valuation_FEMPTY"]
 val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
   (FLOOKUP τ s = SOME m ⇒ typeset τ (Tyvar s) m) ∧
 
-  (typeset τ (Tyapp (Typrim "bool" 0) []) boolset) ∧
+  (typeset τ Bool boolset) ∧
+
+  (typeset τ Ind indset) ∧
 
   (typeset τ x mx ∧ typeset τ y my
    ⇒
-   typeset τ (Tyapp (Typrim "fun" 2) [x;y]) (funspace mx my)) ∧
+   typeset τ (Fun x y) (funspace mx my)) ∧
 
   (p = fresh_term {} p0 ∧ closed p0 ∧
    LENGTH (tvars p) = LENGTH args ∧
@@ -100,6 +107,11 @@ val typeset_Bool = store_thm("typeset_Bool",
   simp[Once semantics_cases])
 val _ = export_rewrites["typeset_Bool"]
 
+val typeset_Ind = store_thm("typeset_Ind",
+  ``typeset τ Ind ty ⇔ ty = indset``,
+  rw[Once semantics_cases])
+val _ = export_rewrites["typeset_Ind"]
+
 val term_valuation_def = Define`
   term_valuation τ σ ⇔
     FEVERY (λ(v,m). ∃mty. typeset τ (SND v) mty ∧ m <: mty) σ`
@@ -143,6 +155,7 @@ val typeset_inhabited = store_thm("typeset_inhabited",
   rpt gen_tac >> strip_tac >>
   simp[Once semantics_cases] >>
   rw[] >- metis_tac[BOOLEAN_IN_BOOLSET]
+  >- metis_tac[INDSET_INHABITED]
   >- (
     match_mp_tac FUNSPACE_INHABITED >>
     fs[] >> metis_tac[] ) >>
@@ -155,6 +168,7 @@ val semantics_11 = store_thm("semantics_11",
     (∀σ τ t mt. semantics σ τ t mt ⇒
         ∀mt'. type_valuation τ ∧ semantics σ τ t mt' ⇒ mt' = mt)``,
   ho_match_mp_tac semantics_ind >>
+  conj_tac >- simp[Once semantics_cases] >>
   conj_tac >- simp[Once semantics_cases] >>
   conj_tac >- simp[Once semantics_cases] >>
   conj_tac >- (
@@ -826,6 +840,11 @@ val type_has_meaning_Bool = store_thm("type_has_meaning_Bool",
   ``type_has_meaning Bool``,
   rw[type_has_meaning_def])
 val _ = export_rewrites["type_has_meaning_Bool"]
+
+val type_has_meaning_Ind = store_thm("type_has_meaning_Ind",
+  ``type_has_meaning Ind``,
+  rw[type_has_meaning_def])
+val _ = export_rewrites["type_has_meaning_Ind"]
 
 val covering_type_valuation_exists = store_thm("covering_type_valuation_exists",
   ``∀s. FINITE s ⇒ ∀τ. ∃τ'. τ ⊑ τ' ∧ s ⊆ FDOM τ' ∧ (type_valuation τ ⇒ type_valuation τ')``,
@@ -2627,6 +2646,7 @@ val semantics_simple_inst = store_thm("semantics_simple_inst",
   ho_match_mp_tac (theorem"semantics_strongind") >>
   conj_tac >- simp[tyvars_def,FLOOKUP_DEF] >>
   conj_tac >- simp[tyvars_def] >>
+  conj_tac >- simp[tyvars_def] >>
   conj_tac >- (
     simp[tyvars_def] >> rw[] >>
     simp[Once semantics_cases] >>
@@ -3749,14 +3769,6 @@ val simple_inst_id_map = store_thm("simple_inst_id_map",
   ``∀tm s. FINITE s ⇒ simple_inst (FUN_FMAP Tyvar s) tm = tm``,
   Induct >> simp[])
 val _ = export_rewrites["simple_inst_id_map"]
-
-val alist_to_fmap_id_map = store_thm("alist_to_fmap_id_map",
-  ``∀ls. alist_to_fmap (ZIP (ls, MAP Tyvar ls)) = FUN_FMAP Tyvar (set ls)``,
-  Induct >> simp[] >>
-  simp[GSYM fmap_EQ_THM] >>
-  simp[FUN_FMAP_DEF,FAPPLY_FUPDATE_THM] >>
-  rw[FUN_FMAP_DEF])
-val _ = export_rewrites["alist_to_fmap_id_map"]
 
 val new_basic_type_definition_correct = store_thm("new_basic_type_definition_correct",
   ``∀p w n abs rep x rty aty.
