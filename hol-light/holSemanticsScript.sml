@@ -57,7 +57,7 @@ val (term_rules,term_ind,term_cases) = xHol_reln "term" `
   (type defs Bool (Tyapp (Typrim "bool" 0) [])) /\
   (type defs Ind (Tyapp (Typrim "ind" 0) [])) /\
   (type defs tx tx1 /\ type defs ty ty1 ==>
-   type defs (Fun tx ty) (Tyapp (Typrim "->" 2) [tx1; ty1])) /\
+   type defs (Fun tx ty) (Tyapp (Typrim "fun" 2) [tx1; ty1])) /\
   (EVERY2 (type defs) tys tys1 /\
    (type_def s defs = SOME (tm,abs,rep)) /\ term defs tm tm1 ==>
    type defs (Tyapp s tys) (Tyapp (Tydefined s tm1) tys1)) /\

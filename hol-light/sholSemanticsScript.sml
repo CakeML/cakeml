@@ -1007,7 +1007,7 @@ val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
 
   (typeset τ x mx ∧ typeset τ y my
    ⇒
-   typeset τ (Tyapp (Typrim "->" 2) [x;y]) (funspace mx my)) ∧
+   typeset τ (Tyapp (Typrim "fun" 2) [x;y]) (funspace mx my)) ∧
 
   (p = fresh_term {} p0 ∧ closed p0 ∧
    LENGTH (tvars p) = LENGTH args ∧

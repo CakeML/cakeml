@@ -20,14 +20,14 @@ val _ = Hol_datatype`
     | Tyabs of string => term
     | Tyrep of string => term`
 
-val _ = Parse.overload_on("Fun",``λs t. Tyapp (Typrim "->" 2) [s;t]``)
+val _ = Parse.overload_on("Fun",``λs t. Tyapp (Typrim "fun" 2) [s;t]``)
 val _ = Parse.overload_on("Bool",``Tyapp (Typrim "bool" 0) []``)
 val _ = Parse.overload_on("Equal" ,``λty. Const "=" (Fun ty (Fun ty Bool)) Prim``)
 val _ = Parse.overload_on("Select",``λty. Const "@" (Fun (Fun ty Bool) ty) Prim``)
 
-val domain_def = Define`domain (Tyapp op args) = if op = (Typrim "->" 2) then EL 0 args else ARB`
+val domain_def = Define`domain (Tyapp op args) = if op = (Typrim "fun" 2) then EL 0 args else ARB`
 val domain_rwt = store_thm("domain_rwt", ``domain (Fun s t) = s``, rw[domain_def])
-val codomain_def = Define`codomain (Tyapp op args) = if op = (Typrim "->" 2) then EL 1 args else ARB`
+val codomain_def = Define`codomain (Tyapp op args) = if op = (Typrim "fun" 2) then EL 1 args else ARB`
 val codomain_rwt = store_thm("codomain_rwt", ``codomain (Fun s t) = t``, rw[codomain_def])
 val _ = export_rewrites["domain_rwt","codomain_rwt"]
 
