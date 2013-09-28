@@ -5131,4 +5131,47 @@ val soundness = store_thm("soundness",
   conj_tac >- metis_tac[new_basic_type_definition_correct] >>
   metis_tac[new_basic_type_definition_correct])
 
+val consistency = store_thm("consistency",
+  ``(∃tm. [] |- tm) ∧ (∃tm. ¬([] |- tm))``,
+  conj_tac >- (
+    qexists_tac`Var x Bool === Var x Bool` >>
+    simp[Once proves_cases] >>
+    disj1_tac >>
+    qexists_tac`Var x Bool` >>
+    simp[] >>
+    simp[Once proves_cases] >>
+    disj1_tac >>
+    simp[Once proves_cases] ) >>
+  qexists_tac`Var x Bool === Var (VARIANT (Var x Bool) x Bool) Bool` >>
+  spose_not_then strip_assume_tac >>
+  imp_res_tac soundness >>
+  pop_assum mp_tac >>
+  simp[sequent_def,EQUATION_HAS_TYPE_BOOL,equation_has_meaning_iff] >>
+  qmatch_assum_abbrev_tac`[] |- Var x Bool === Var y Bool` >>
+  map_every qexists_tac[`FEMPTY|+((x,Bool),true)|+((y,Bool),false)`,`FEMPTY`] >>
+  simp[] >>
+  conj_asm1_tac >- (
+    conj_tac >- (
+      match_mp_tac term_valuation_FUPDATE >>
+      simp[IN_BOOL] >>
+      match_mp_tac term_valuation_FUPDATE >>
+      simp[IN_BOOL] ) >>
+    match_mp_tac(MP_CANON(GEN_ALL(DISCH_ALL(snd(EQ_IMP_RULE(UNDISCH_ALL closes_equation))))))>>
+    simp[] >>
+    qexists_tac`Bool`>>simp[tyvars_def] >>
+    simp[Once has_type_cases] >>
+    simp[Once has_type_cases] ) >>
+  strip_tac >>
+  imp_res_tac semantics_equation_imp >>
+  rfs[] >>
+  ntac 2 (pop_assum mp_tac) >>
+  simp[Once semantics_cases,FLOOKUP_UPDATE] >>
+  simp[Once semantics_cases,FLOOKUP_UPDATE] >>
+  `x ≠ y` by (
+    simp[Abbr`y`] >>
+    metis_tac[VARIANT_THM,VFREE_IN_def] ) >>
+  simp[] >>
+  fs[BOOLEAN_EQ_TRUE] >>
+  metis_tac[TRUE_NE_FALSE])
+
 val _ = export_theory()
