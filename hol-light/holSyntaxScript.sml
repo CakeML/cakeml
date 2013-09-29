@@ -642,31 +642,18 @@ val STRING_SORT_def = Define`
   STRING_SORT xs = FOLDR INORDER_INSERT [] xs`
 
 val _ = Hol_datatype`def
-  = Axiomdef of term
-  | Constdef of string => term
+  = Constdef of string => term
   | Typedef of string => term => string => string`
 
 val types_aux_def = Define`
-  (types_aux (Axiomdef t) = []) /\
   (types_aux (Constdef s t) = []) /\
   (types_aux (Typedef tyname t a r) = [(tyname,LENGTH (tvars t))])`
 
 val types_def = Define
- `types defs = FLAT (MAP types_aux defs)`
-
-val (type_ok_rules,type_ok_ind,type_ok_cases) = Hol_reln
-  `(!n defs. type_ok defs (Tyvar n)) /\
-   (!defs. type_ok defs Bool) /\
-   (!defs. type_ok defs Ind) /\
-   (!ty1 ty2 defs. type_ok defs ty1 /\ type_ok defs ty2 ==>
-                   type_ok defs (Fun ty1 ty2)) /\
-   (!n tys defs. (!ty. MEM ty tys ==> type_ok defs ty) /\
-                 MEM (n,LENGTH tys) (types defs) ==>
-                 type_ok defs (Tyapp n tys))`
+ `types defs = FLAT (MAP types_aux defs)++[("ind",0);("bool",0);("fun",2)]`
 
 val consts_aux_def = Define
- `(consts_aux (Axiomdef t) = []) /\
-  (consts_aux (Constdef s t) = [(s,typeof t)]) /\
+ `(consts_aux (Constdef s t) = [(s,typeof t)]) /\
   (consts_aux (Typedef tyname t a r) =
      let rep_type = domain (typeof t) in
      let abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t))) in
@@ -674,43 +661,32 @@ val consts_aux_def = Define
         (r,Fun abs_type rep_type)])`
 
 val consts_def = Define
- `consts defs = FLAT (MAP consts_aux defs)`
-
-val term_ok_def = Define
- `(term_ok defs (Var s ty) <=> type_ok defs ty) /\
-  (term_ok defs (Const s ty) <=> (type_ok defs ty /\
-     (?ty2 i. MEM (s,ty2) (consts defs) /\ (TYPE_SUBST i ty2 = ty)))) /\
-  (term_ok defs (Equal ty) <=> type_ok defs ty) /\
-  (term_ok defs (Select ty) <=> type_ok defs ty) /\
-  (term_ok defs (Comb x y) <=> (term_ok defs x /\ term_ok defs y)) /\
-  (term_ok defs (Abs s ty x) <=> (type_ok defs ty /\ term_ok defs x))`
-
-val def_ok_def = Define
- `(def_ok (Axiomdef t) (defs:(def)list) <=>
-     t has_type Bool /\ welltyped t /\ term_ok defs t) /\
-  (def_ok (Constdef s t) (defs:(def)list) <=>
-     CLOSED t /\ welltyped t /\ term_ok defs t /\
-     ~(MEM s (MAP FST (consts defs))) /\ ~(s = "=") /\
-     !v. MEM v (tvars t) ==> MEM v (tyvars (typeof t))) /\
-  (def_ok (Typedef tyname t a r) defs <=>
-     CLOSED t /\ welltyped t /\ term_ok defs t /\
-     ~(MEM tyname (MAP FST (types defs))) /\
-     ~(MEM a (MAP FST (consts defs))) /\ ~(a = "=") /\
-     ~(MEM r (MAP FST (consts defs))) /\ ~(r = "=") /\
-     ?ty. (typeof t = Fun ty Bool))`
-
-val context_ok_def = Define
- `(context_ok [] = T) /\
-  (context_ok (CONS def defs) <=> (def_ok def defs /\ context_ok defs))`
-
-val welltyped_in_def = Define
- `welltyped_in t defs <=> welltyped t /\ term_ok defs t /\ context_ok defs`
+ `consts defs = FLAT (MAP consts_aux defs)++[("@",typeof(Select(Tyvar"a")));("=",typeof(Equal(Tyvar"a")))]`
 
 val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 
 val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
- `(!t defs.
-        welltyped_in t defs
+ `(!n defs. type_ok defs (Tyvar n)) /\
+  (!defs. type_ok defs Bool) /\
+  (!defs. type_ok defs Ind) /\
+  (!ty1 ty2 defs. type_ok defs ty1 /\ type_ok defs ty2 ==> type_ok defs (Fun ty1 ty2)) /\
+  (!defs tm ty. term_ok defs tm /\ tm has_type ty ==> type_ok defs ty) /\
+
+  (!defs x ty. type_ok defs ty ==> term_ok defs (Var x ty)) /\
+  (!defs ty. type_ok defs ty ==> term_ok defs (Equal ty)) /\
+  (!defs ty. type_ok defs ty ==> term_ok defs (Select ty)) /\
+  (!defs t1 t2. term_ok defs t1 /\ term_ok defs t2 /\ welltyped (Comb t1 t2) ==> term_ok defs (Comb t1 t2)) /\
+  (!defs x ty tm. term_ok defs tm /\ type_ok defs ty ==> term_ok defs (Abs x ty tm)) /\
+  (!defs t1 t2. term_ok defs (Comb t1 t2) ==> term_ok defs t1) /\
+  (!defs t1 t2. term_ok defs (Comb t1 t2) ==> term_ok defs t2) /\
+  (!defs x ty tm. term_ok defs (Abs x ty tm) ==> term_ok defs tm) /\
+  (!defs h c t. (defs,h) |- c /\ MEM t (c::h) ==> term_ok defs t) /\
+
+  (context_ok []) /\
+  (!defs h c. (defs,h) |- c ==> context_ok defs) /\
+
+  (!t defs.
+        context_ok defs /\ term_ok defs t
         ==> (defs, []) |- t === t) /\
   (!asl1 asl2 l m1 m2 r defs.
         (defs, asl1) |- l === m1 /\ (defs, asl2) |- m2 === r /\ ACONV m1 m2
@@ -724,10 +700,10 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
         (defs, asl) |- l === r
         ==> (defs, asl) |- (Abs x ty l) === (Abs x ty r)) /\
   (!x ty t defs.
-        welltyped_in t defs /\ type_ok defs ty
+        context_ok defs /\ term_ok defs t /\ type_ok defs ty
         ==> (defs, []) |- Comb (Abs x ty t) (Var x ty) === t) /\
   (!p defs.
-        p has_type Bool /\ welltyped_in p defs
+        context_ok defs /\ p has_type Bool /\ term_ok defs p
         ==> (defs, [p]) |- p) /\
   (!asl1 asl2 p q p' defs.
         (defs, asl1) |- p === q /\ (defs, asl2) |- p' /\ ACONV p p'
@@ -743,36 +719,36 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
         ==> (defs, MAP (INST tyin) asl) |- INST tyin p) /\
   (!ilist asl p defs.
         (!s s'. MEM (s',s) ilist ==> ?x ty. (s = Var x ty) /\ s' has_type ty /\
-                                            welltyped_in s' defs) /\
+                                            term_ok defs s') /\
         (defs, asl) |- p
         ==> (defs, MAP (VSUBST ilist) asl) |- VSUBST ilist p) /\
-  (!asl p d defs.
-        (defs, asl) |- p /\ def_ok d defs
-        ==> (CONS d defs, asl) |- p) /\
-  (!t defs.
-        context_ok defs /\ MEM (Axiomdef t) defs
-        ==> (defs, []) |- t) /\
+  (!asl p s t defs.
+        (defs, asl) |- p /\
+        CLOSED t /\ welltyped t /\ term_ok defs t /\
+        ~(MEM s (MAP FST (consts defs))) /\
+        (!v. MEM v (tvars t) ==> MEM v (tyvars (typeof t)))
+        ==> (CONS (Constdef s t) defs, asl) |- p) /\
   (!n t defs.
         context_ok defs /\ MEM (Constdef n t) defs
         ==> (defs, []) |- Const n (typeof t) === t) /\
-  (!tyname t a r defs x rep_type abs_type y d.
+  (!asl p tyname t a r defs x rep_type abs_type y d.
         (d = Typedef tyname t a r) /\
-        (rep_type = domain (typeof t)) /\
         (abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t)))) /\
-        context_ok (CONS d defs) /\ (defs, []) |- Comb t y
-        ==> (CONS d defs, [])
-             |- Comb (Const a (Fun rep_type abs_type))
-                     (Comb (Const r (Fun abs_type rep_type))
-                           (Var x abs_type)) === Var x abs_type) /\
-  (!tyname t a r defs x rep_type abs_type y d.
-        (d = Typedef tyname t a r) /\
-        (rep_type = domain (typeof t)) /\
-        (abs_type = Tyapp tyname (MAP Tyvar (STRING_SORT (tvars t)))) /\
-        context_ok (CONS d defs) /\ (defs, []) |- Comb t y
-        ==> (CONS d defs, [])
-             |- Comb t (Var x rep_type) ===
+        (defs, []) |- Comb t y /\
+        CLOSED t /\ t has_type (Fun rep_type Bool) /\
+        ~(MEM tyname (MAP FST (types defs))) /\
+        ~(MEM a (MAP FST (consts defs))) /\
+        ~(MEM r (MAP FST (consts defs))) /\
+        ( (defs, asl) |- p  \/
+          ((asl,p) = ([],
+             Comb (Const a (Fun rep_type abs_type))
+                    (Comb (Const r (Fun abs_type rep_type))
+                          (Var x abs_type)) === Var x abs_type)) \/
+          ((asl,p) = ([],
+             Comb t (Var x rep_type) ===
                 Comb (Const r (Fun abs_type rep_type))
                      (Comb (Const a (Fun rep_type abs_type))
-                           (Var x rep_type)) === Var x rep_type)`;;
+                           (Var x rep_type)) === Var x rep_type)) )
+        ==> (CONS d defs, asl) |- p)`
 
 val _ = export_theory()
