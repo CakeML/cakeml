@@ -4106,6 +4106,239 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
   pop_assum mp_tac >>
   simp[IN_BOOL])
 
+val in_funspace_abstract = store_thm("in_funspace_abstract",
+  ``∀z s t. z <: funspace s t ∧ (∃z. z <: s) ∧ (∃z. z <: t) ⇒
+    ∃f. z = abstract s t f ∧ (∀x. x <: s ⇒ f x <: t)``,
+  rw[funspace_def,suchthat_def,powerset_def] >>
+  qexists_tac`λx. @y. pair x y <: z` >>
+  conj_tac >- (
+    match_mp_tac EXTENSIONALITY_NONEMPTY >>
+    simp[abstract_def] >>
+    conj_tac >- (
+      fs[EXISTS_UNIQUE_THM] >>
+      metis_tac[] ) >>
+    simp[suchthat_def] >>
+    conj_tac >- (
+      simp[PRODUCT_def] >>
+      srw_tac[DNF_ss][] >>
+      simp[RIGHT_EXISTS_AND_THM] >>
+      qmatch_assum_rename_tac`y <: s`[] >>
+      qexists_tac`y` >> simp[] >>
+      first_x_assum(qspec_then`y`mp_tac) >>
+      simp[] >>
+      simp[EXISTS_UNIQUE_THM] >>
+      strip_tac >>
+      qmatch_assum_rename_tac`pair y x <: z`[] >>
+      fs[subset_def] >>
+      `pair y x <: product s t` by metis_tac[] >>
+      fs[PRODUCT_def,PAIR_INJ] >>
+      SELECT_ELIM_TAC >>
+      metis_tac[] ) >>
+    rw[] >>
+    EQ_TAC >> strip_tac >- (
+      fs[subset_def] >>
+      rw[] >>
+      SELECT_ELIM_TAC >>
+      fs[EXISTS_UNIQUE_THM] >>
+      fs[PRODUCT_def] >>
+      metis_tac[PAIR_INJ] ) >>
+    fs[PRODUCT_def,subset_def,EXISTS_UNIQUE_THM] >>
+    metis_tac[]) >>
+  rw[] >>
+  fs[subset_def,EXISTS_UNIQUE_THM,PRODUCT_def] >>
+  SELECT_ELIM_TAC >>
+  metis_tac[PAIR_INJ])
+
+val ETA_AX_correct = store_thm("ETA_AX_correct",
+  ``∀t ty x.
+    has_meaning t ∧ type_has_meaning ty ∧ welltyped (Comb t (Var x ty)) ∧ ¬VFREE_IN (Var x ty) t
+    ⇒
+    [] |= Abs x ty (Comb t (Var x ty)) === t``,
+  rw[sequent_def,EQUATION_HAS_TYPE_BOOL] >> rw[] >- (
+    match_mp_tac equation_has_meaning >> simp[] ) >>
+  match_mp_tac semantics_equation >>
+  simp[BOOLEAN_EQ_TRUE] >>
+  simp[Once semantics_cases] >>
+  srw_tac[DNF_ss][] >>
+  qmatch_assum_abbrev_tac`closes s y (l === t)` >>
+  qspecl_then[`s`,`y`,`l`,`t`,`typeof l`]mp_tac(Q.GENL[`ty`,`r`,`l`,`τ`,`σ`]closes_equation) >>
+  discharge_hyps_keep >- (
+    unabbrev_all_tac >>
+    simp[] >>
+    simp[Once has_type_cases] >>
+    simp[Once has_type_cases] >>
+    imp_res_tac WELLTYPED >> rfs[] >>
+    qexists_tac`ty` >> simp[] >>
+    simp[Once has_type_cases] ) >>
+  strip_tac >> fs[] >> pop_assum kall_tac >>
+  `∃mty. typeset τ ty mty` by (
+    fs[type_has_meaning_def] >>
+    first_x_assum match_mp_tac >>
+    fs[closes_def] >>
+    imp_res_tac tyvars_typeof_subset_tvars >>
+    imp_res_tac WELLTYPED_LEMMA >>
+    fs[SUBSET_DEF] >> rfs[tyvars_def] ) >>
+  `∃mtyb. typeset τ rty mtyb` by (
+    imp_res_tac has_meaning_type_has_meaning >> rfs[] >>
+    fs[type_has_meaning_def] >>
+    first_x_assum match_mp_tac >>
+    fs[closes_def] >>
+    imp_res_tac tyvars_typeof_subset_tvars >>
+    imp_res_tac WELLTYPED_LEMMA >>
+    fs[SUBSET_DEF] >> rfs[tyvars_def] ) >>
+  CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+  map_every qexists_tac[`rty`,`mtyb`,`mty`] >>
+  simp[] >>
+  simp[Once has_type_cases,RIGHT_EXISTS_AND_THM] >>
+  conj_tac >- (
+    qexists_tac`ty` >>
+    imp_res_tac WELLTYPED >>
+    rfs[] >>
+    simp[Once has_type_cases] ) >>
+  `∃m. semantics σ τ t m` by (
+    fs[has_meaning_def] ) >>
+  `m <: funspace mty mtyb` by (
+    imp_res_tac semantics_typeset >>
+    rfs[] >>
+    ntac 2 (pop_assum mp_tac) >>
+    simp[Once semantics_cases] >>
+    rw[] >>
+    metis_tac[semantics_11] ) >>
+  qspecl_then[`m`,`mty`,`mtyb`]mp_tac in_funspace_abstract >>
+  discharge_hyps >- (
+    simp[] >>
+    metis_tac[typeset_inhabited] ) >>
+  strip_tac >>
+  qexists_tac`f` >>
+  fs[] >>
+  rw[Once semantics_cases] >>
+  qmatch_assum_rename_tac`z <: mty`[] >>
+  `semantics (σ |+ ((x,ty),z)) τ t = semantics σ τ t` by (
+    match_mp_tac semantics_frees >>
+    simp[FLOOKUP_UPDATE] >>
+    rw[] >> fs[] ) >>
+  simp[] >>
+  qexists_tac`abstract mty mtyb f` >>
+  simp[] >>
+  simp[Once semantics_cases,FLOOKUP_UPDATE] >>
+  match_mp_tac EQ_SYM >>
+  match_mp_tac APPLY_ABSTRACT >>
+  metis_tac[])
+
+val SELECT_AX_correct = store_thm("SELECT_AX_correct",
+  ``∀h p ty w.
+      p has_type Fun ty Bool ∧ h |= Comb p w ⇒
+      h |= Comb p (Comb (Select ty) p)``,
+  rw[sequent_def]
+  >- (
+    simp[Once has_type_cases] >>
+    qexists_tac`ty` >> simp[] >>
+    simp[Once has_type_cases] >>
+    qexists_tac`Fun ty Bool` >>
+    simp[] >>
+    simp[Once has_type_cases] )
+  >- metis_tac[WELLTYPED_LEMMA]
+  >- metis_tac[WELLTYPED_LEMMA]
+  >- metis_tac[WELLTYPED_LEMMA]
+  >- (
+    match_mp_tac semantics_has_meaning >>
+    simp[Once semantics_cases] >>
+    srw_tac[DNF_ss][] >>
+    imp_res_tac has_meaning_type_has_meaning >>
+    imp_res_tac WELLTYPED_LEMMA >> fs[] >> rw[] >>
+    Q.ISPEC_THEN`set (tyvars (typeof w))`mp_tac covering_type_valuation_exists >>
+    simp[] >>
+    disch_then(qspec_then`FEMPTY`mp_tac) >>
+    simp[] >> strip_tac >>
+    map_every qexists_tac[`FEMPTY`,`τ'`] >>
+    simp[] >>
+    fs[type_has_meaning_def] ) >>
+  simp[Once semantics_cases] >>
+  imp_res_tac WELLTYPED_LEMMA >> fs[] >> rw[] >>
+  `∃m. semantics σ τ p m` by (
+    fs[has_meaning_def] ) >>
+  qexists_tac`m` >> simp[] >>
+  simp[Once semantics_cases] >>
+  simp[Once semantics_cases] >>
+  srw_tac[DNF_ss][] >>
+  qexists_tac`m` >> simp[] >>
+  `∃mty. typeset τ (typeof w) mty` by (
+    imp_res_tac has_meaning_type_has_meaning >>
+    fs[type_has_meaning_def] >>
+    first_x_assum match_mp_tac >>
+    simp[] >>
+    fs[closes_def] >>
+    `w has_type (typeof w)` by metis_tac[WELLTYPED] >>
+    imp_res_tac tyvars_typeof_subset_tvars >>
+    fs[SUBSET_DEF,tyvars_def] ) >>
+  qexists_tac`mty` >>
+  simp[] >>
+  qmatch_abbrev_tac `true = apply m (apply (abstract fs mty f) m)` >>
+  `apply (abstract fs mty f) m = f m` by (
+    match_mp_tac APPLY_ABSTRACT >>
+    imp_res_tac semantics_typeset >>
+    rfs[] >>
+    ntac 2 (pop_assum mp_tac) >>
+    simp[Once semantics_cases] >>
+    strip_tac >>
+    imp_res_tac semantics_11 >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    simp[Abbr`fs`] >>
+    simp[Abbr`f`] >>
+    rw[] >>
+    metis_tac[ch_def,suchthat_def] ) >>
+  simp[Abbr`f`] >>
+  pop_assum kall_tac >>
+  BasicProvers.CASE_TAC >- (
+    match_mp_tac EQ_SYM >>
+    simp[GSYM holds_def] >>
+    qmatch_abbrev_tac`holds m (ch s)` >>
+    `ch s <: s` by (
+      match_mp_tac ch_def >>
+      metis_tac[] ) >>
+    fs[Abbr`s`,suchthat_def] ) >>
+  `∃τw. set (tvars w) ⊆ (FDOM τw) ∧ type_valuation τw` by (
+    fs[has_meaning_def,closes_def] >> metis_tac[] ) >>
+  qspecl_then[`σ`,`τ ⊌ τw`,`Comb p w`]mp_tac closing_envs_exist >>
+  discharge_hyps >- (
+    simp[type_valuation_union] >>
+    conj_tac >- (
+      match_mp_tac term_valuation_extend_type >>
+      qexists_tac`τ` >>
+      simp[SUBMAP_FUNION] ) >>
+    imp_res_tac has_meaning_subterm >>
+    rw[] >>
+    ntac 2 (first_x_assum (qspec_then`Var x ty`mp_tac)) >> rw[] >>
+    fs[type_has_meaning_def] >>
+    first_x_assum match_mp_tac >>
+    simp[type_valuation_union] >>
+    fs[closes_def] >>
+    imp_res_tac tvars_VFREE_IN_subset >>
+    fs[tvars_def,SUBSET_DEF] ) >>
+  rw[] >>
+  first_x_assum(qspecl_then[`σ'`,`τ'`]mp_tac) >>
+  discharge_hyps >- (
+    simp[] >>
+    fs[EVERY_MEM] >>
+    rw[] >>
+    match_mp_tac semantics_extend >>
+    map_every qexists_tac[`σ`,`τ`] >>
+    simp[] >>
+    metis_tac[SUBMAP_FUNION,SUBMAP_TRANS,SUBMAP_REFL] ) >>
+  `semantics σ' τ' p m` by (
+    match_mp_tac semantics_extend >>
+    map_every qexists_tac[`σ`,`τ`] >>
+    simp[] >>
+    metis_tac[SUBMAP_FUNION,SUBMAP_TRANS,SUBMAP_REFL] ) >>
+  simp[Once semantics_cases] >> rw[] >>
+  imp_res_tac semantics_11 >> rw[] >>
+  fs[suchthat_def,holds_def] >>
+  qsuff_tac`m2 <: mty` >- metis_tac[] >>
+  `typeset τ' (typeof w) mty` by (
+    match_mp_tac typeset_extend >>
+    metis_tac[SUBMAP_FUNION,SUBMAP_REFL,SUBMAP_TRANS] ) >>
+  metis_tac[semantics_typeset,semantics_11])
+
 val soundness = store_thm("soundness",
   ``(∀ty. type_ok ty ⇒ type_has_meaning ty) ∧
     (∀tm. term_ok tm ⇒ has_meaning tm) ∧
@@ -4156,7 +4389,15 @@ val soundness = store_thm("soundness",
   conj_tac >- metis_tac[INST_correct] >>
   conj_tac >- metis_tac[new_basic_definition_correct] >>
   conj_tac >- metis_tac[new_basic_type_definition_correct] >>
-  metis_tac[new_basic_type_definition_correct])
+  conj_tac >- metis_tac[new_basic_type_definition_correct] >>
+  conj_tac >- (
+    rpt strip_tac >>
+    match_mp_tac ETA_AX_correct >>
+    simp[] >> disj2_tac >>
+    spose_not_then strip_assume_tac >>
+    `type_size (Fun ty1 ty2) = type_size ty1` by metis_tac[] >>
+    fsrw_tac[ARITH_ss][term_size_def]) >>
+  metis_tac[SELECT_AX_correct])
 
 val consistency = store_thm("consistency",
   ``(∃tm. [] |- tm) ∧ (∃tm. ¬([] |- tm))``,

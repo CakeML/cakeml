@@ -701,6 +701,15 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
      Comb p (Var x rty) ===
      Comb (Const rep (Fun aty rty) (Tyrep n p))
           (Comb (Const abs (Fun rty aty) (Tyabs n p))
-                (Var x rty)) === Var x rty)`
+                (Var x rty)) === Var x rty)
+∧ (* ETA_AX *)
+  (type_ok ty1 ∧ type_ok ty2
+   ⇒
+   [] |- Abs x ty1 (Comb (Var f (Fun ty1 ty2)) (Var x ty1)) === Var f (Fun ty1 ty2))
+∧ (* SELECT_AX *)
+  (p has_type (Fun ty Bool) ∧
+   h |- Comb p w
+   ⇒
+   h |- Comb p (Comb (Select ty) p))`
 
 val _ = export_theory()
