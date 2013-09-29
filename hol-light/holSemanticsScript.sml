@@ -132,71 +132,141 @@ val Arb_ok = prove(
   conj_tac >- simp[Once proves_cases] >>
   METIS_TAC[Ts_has_type_Bool,welltyped_def,WELLTYPED_LEMMA])
 
-val type_ok_IMP = prove(
-  ``!defs ty. type_ok defs ty ==> !ty1. type defs ty ty1 ==> type_ok ty1``,
-  HO_MATCH_MP_TAC type_ok_ind \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
-  \\ ONCE_REWRITE_TAC [term_cases]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ TRY (ONCE_REWRITE_TAC [sholSyntaxTheory.proves_cases]
-    \\ SIMP_TAC (srw_ss()) [] \\ RES_TAC \\ ASM_SIMP_TAC std_ss [] \\ NO_TAC)
-  \\ simp[Once proves_cases]
-  \\ qexists_tac`Arb ty1`
-  THEN cheat (* probably needs term_ok to be in mutual recursion *))
-  |> SIMP_RULE std_ss [PULL_FORALL,AND_IMP_INTRO];
+val term_type_11 = prove(
+  ``(!ty ty1. type defs ty ty1 ==> !ty2. type defs ty ty2 ==> (ty1 = ty2)) ∧
+    (∀tm tm1. term defs tm tm1 ⇒ ∀tm2. term defs tm tm2 ⇒ (tm1 = tm2))``,
+  HO_MATCH_MP_TAC term_ind >>
+  rpt conj_tac >> rpt gen_tac
+  >- simp[Once term_cases]
+  >- simp[Once term_cases]
+  >- simp[Once term_cases]
+  >- (strip_tac >> simp[Once term_cases] >> METIS_TAC[])
+  >- (strip_tac >> simp[Once term_cases] >>
+      fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
+      rw[LIST_EQ_REWRITE] >> rfs[MEM_ZIP] >>
+      METIS_TAC[] )
+  >> (strip_tac >> simp[Once term_cases] >> METIS_TAC[]))
 
-val type_11 = prove(
-  ``type defs ty ty1 /\ type defs ty ty2 ==> (ty1 = ty2)``,
-  cheat);
+val has_type_IMP = prove(
+  ``∀tm ty. tm has_type ty ⇒ ∀defs tm1. term defs tm tm1 ⇒ ∃ty1. type defs ty ty1 ∧ tm1 has_type ty1``,
+  HO_MATCH_MP_TAC holSyntaxTheory.has_type_strongind >> rw[] >>
+  TRY (
+    qpat_assum`term defs (Comb X Y) Z`mp_tac >>
+    rw[Once term_cases] >>
+    rw[Once has_type_cases] >>
+    fs[Q.SPEC`Fun X Y`(CONJUNCT1 (SPEC_ALL term_cases))] >>
+    METIS_TAC[term_type_11] ) >>
+  TRY (
+    qpat_assum`term defs (Abs X Y A) Z`mp_tac >>
+    rw[Once term_cases] >>
+    rw[Once has_type_cases] >>
+    rw[Once term_cases] >>
+    METIS_TAC[term_type_11] ) >>
+  (
+    last_x_assum mp_tac >>
+    rw[Once term_cases] >>
+    rw[Once has_type_cases] >>
+    METIS_TAC[term_type_11] ))
 
-val term_ok_IMP = prove(
-  ``!tm defs. term_ok defs tm /\ welltyped tm ==>
-              !tm1. term defs tm tm1 ==> term_ok tm1 /\ welltyped tm1``,
-  Induct \\ SIMP_TAC std_ss [term_ok_def,PULL_EXISTS]
-  \\ ONCE_REWRITE_TAC [term_cases]
-  \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,PULL_FORALL]
-  \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ IMP_RES_TAC type_ok_IMP
-  \\ TRY (ONCE_REWRITE_TAC [sholSyntaxTheory.proves_cases]
-          \\ ASM_SIMP_TAC (srw_ss()) [] \\ NO_TAC)
-  THEN1 cheat (* Const not supported *)
-  THEN1
-   (ONCE_REWRITE_TAC [sholSyntaxTheory.proves_cases]
-    \\ ASM_SIMP_TAC (srw_ss()) []
-    \\ DISJ1_TAC
-    \\ Q.PAT_ASSUM `type defs tt ttt` MP_TAC
-    \\ ONCE_REWRITE_TAC [term_cases] \\ SIMP_TAC (srw_ss()) []
-    \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
-    \\ ONCE_REWRITE_TAC [term_cases] \\ SIMP_TAC (srw_ss()) []
-    \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
-    \\ ONCE_REWRITE_TAC [term_cases] \\ SIMP_TAC (srw_ss()) []
-    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC type_11
-    \\ FULL_SIMP_TAC (srw_ss()) [])
-  THEN1
-   (ONCE_REWRITE_TAC [sholSyntaxTheory.proves_cases]
-    \\ ASM_SIMP_TAC (srw_ss()) []
-    \\ DISJ1_TAC
-    \\ Q.PAT_ASSUM `type defs tt ttt` MP_TAC
-    \\ ONCE_REWRITE_TAC [term_cases] \\ SIMP_TAC (srw_ss()) []
-    \\ REPEAT STRIP_TAC
-    \\ Q.PAT_ASSUM `type defs (Fun t Bool) tx1` MP_TAC
-    \\ ONCE_REWRITE_TAC [term_cases] \\ SIMP_TAC (srw_ss()) []
-    \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
-    \\ ONCE_REWRITE_TAC [term_cases] \\ SIMP_TAC (srw_ss()) []
-    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC type_11
-    \\ FULL_SIMP_TAC (srw_ss()) [])
-  THEN1
-   (ONCE_REWRITE_TAC [sholSyntaxTheory.proves_cases]
-    \\ ASM_SIMP_TAC (srw_ss()) []
-    \\ `?rty. typeof x1 = Fun (typeof y1) rty` by cheat
-    \\ METIS_TAC []));
-
-val proves_IMP = prove(
-  ``!dh c. dh |- c ==> ?h1 c1. seq_trans (dh,c) (h1,c1) /\ h1 |- c1``,
-  HO_MATCH_MP_TAC holSyntaxTheory.proves_ind
-  \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [seq_trans_def]
-  \\ cheat (* holSyntaxTheory.proves_rules ought to provide context_ok *));
-
+val proves_IMP = store_thm("proves_IMP",
+  ``(∀defs ty. type_ok defs ty ⇒ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
+    (∀defs tm. term_ok defs tm ⇒ ∃tm1. term defs tm tm1 ∧ term_ok tm1) ∧
+    (∀defs. context_ok defs ⇒ T) ∧
+    (∀dh c. dh |- c ⇒ ∃h1 c1. seq_trans (dh,c) (h1,c1) ∧ h1 |- c1)``,
+  HO_MATCH_MP_TAC holSyntaxTheory.proves_strongind >>
+  conj_tac >- simp[Once term_cases,Once proves_cases] >>
+  conj_tac >- simp[Once term_cases,Once proves_cases] >>
+  conj_tac >- simp[Once term_cases,Once proves_cases] >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    simp[Once term_cases] >> rw[] >>
+    srw_tac[boolSimps.DNF_ss][] >>
+    simp[Once proves_cases] >>
+    METIS_TAC[]) >>
+  conj_tac >- (
+    rw[] >>
+    simp[Once proves_cases] >>
+    METIS_TAC[has_type_IMP] ) >>
+  conj_tac >- (
+    rw[] >>
+    simp[Once term_cases] >>
+    srw_tac[boolSimps.DNF_ss][] >>
+    simp[Once proves_cases] >>
+    METIS_TAC[] ) >>
+  conj_tac >- (
+    rw[] >>
+    simp[Once term_cases] >>
+    srw_tac[boolSimps.DNF_ss][] >>
+    simp[Once term_cases] >>
+    srw_tac[boolSimps.DNF_ss][] >>
+    simp[Once CONJ_COMM] >>
+    simp[Once term_cases] >>
+    srw_tac[boolSimps.DNF_ss][] >>
+    simp[Once CONJ_COMM] >>
+    simp[Once term_cases] >>
+    simp[Once proves_cases] >>
+    METIS_TAC[] ) >>
+  conj_tac >- (
+    rw[] >>
+    simp[Once term_cases] >>
+    srw_tac[boolSimps.DNF_ss][] >>
+    simp[Once term_cases] >>
+    srw_tac[boolSimps.DNF_ss][] >>
+    simp[Once term_cases] >>
+    srw_tac[boolSimps.DNF_ss][] >>
+    simp[Once CONJ_COMM] >>
+    simp[Once term_cases] >>
+    simp[Once proves_cases] >>
+    METIS_TAC[] ) >>
+  conj_tac >- (
+    rw[] >>
+    simp[Once term_cases] >>
+    srw_tac[boolSimps.DNF_ss][] >>
+    simp[Once proves_cases] >>
+    fs[welltyped_def,holSyntaxTheory.welltyped_def] >>
+    map_every qexists_tac[`tm1`,`tm1'`] >> rw[] >>
+    disj1_tac >>
+    conj_tac >- METIS_TAC[has_type_IMP] >>
+    conj_tac >- METIS_TAC[has_type_IMP] >>
+    imp_res_tac holSyntaxTheory.WELLTYPED_LEMMA >> fs[] >> rw[] >>
+    imp_res_tac has_type_IMP >>
+    fs[Q.SPEC`Fun X Y`(CONJUNCT1 (SPEC_ALL term_cases))] >> rw[] >>
+    IMP_RES_TAC WELLTYPED_LEMMA >> rw[] >>
+    METIS_TAC[term_type_11] ) >>
+  conj_tac >- (
+    rw[] >>
+    simp[Once term_cases] >>
+    srw_tac[boolSimps.DNF_ss][] >>
+    simp[Once proves_cases] >>
+    METIS_TAC[] ) >>
+  conj_tac >- (
+    rpt gen_tac >>
+    simp[Once term_cases] >> rw[] >>
+    qexists_tac`x1` >> rw[] >>
+    simp[Once proves_cases] >>
+    METIS_TAC[] ) >>
+  conj_tac >- (
+    rpt gen_tac >>
+    simp[Once term_cases] >> rw[] >>
+    qexists_tac`y1` >> rw[] >>
+    simp[Once proves_cases] >>
+    METIS_TAC[] ) >>
+  conj_tac >- (
+    rpt gen_tac >>
+    simp[Once term_cases] >> rw[] >>
+    qexists_tac`x1` >> rw[] >>
+    simp[Once proves_cases] >>
+    METIS_TAC[] ) >>
+  conj_tac >- (
+    rw[seq_trans_def,EVERY2_EVERY,EVERY_MEM] >>
+    rfs[MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
+    METIS_TAC[List.nth(CONJUNCTS proves_rules,13),MEM,MEM_EL] ) >>
+  conj_tac >- rw[] >>
+  conj_tac >- rw[seq_trans_def] >>
+  conj_tac >- (
+    rw[seq_trans_def] >>
+    (* derive term for equations *)
+    cheat ) >>
+  cheat)
 
 val _ = export_theory();
-
