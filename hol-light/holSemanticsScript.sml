@@ -66,7 +66,7 @@ val (term_rules,term_ind,term_cases) = xHol_reln "term" `
    term defs (Equal ty) (Const "=" ty1 Prim)) /\
   (type defs (Fun (Fun ty Bool) ty) ty1 ==>
    term defs (Select ty) (Const "@" ty1 Prim)) /\
-  (term defs x x1 /\ term defs y y1 ==>
+  (term defs x x1 /\ term defs y y1 /\ welltyped (Comb x y) ==>
    term defs (Comb x y) (Comb x1 y1)) /\
   (type defs ty ty1 /\ term defs x x1 ==>
    term defs (Abs s ty x) (Abs s ty1 x1)) /\
@@ -168,6 +168,35 @@ val has_type_IMP = prove(
     rw[Once has_type_cases] >>
     METIS_TAC[term_type_11] ))
 
+val term_equation = prove(
+  ``!x y z. (x === y) has_type Bool ⇒
+    (term defs (x === y) z ⇔ ∃x1 y1. (z = x1 === y1) ∧ term defs x x1 ∧ term defs y y1)``,
+  rpt gen_tac >> strip_tac >>
+  simp[equation_def,holSyntaxTheory.equation_def] >>
+  simp[Once term_cases] >>
+  simp[Once term_cases] >>
+  simp[Once term_cases] >>
+  srw_tac[boolSimps.DNF_ss][] >>
+  simp[Once term_cases] >>
+  srw_tac[boolSimps.DNF_ss][] >>
+  simp[Q.SPEC`Fun X Y`(CONJUNCT1 (SPEC_ALL term_cases))] >>
+  srw_tac[boolSimps.DNF_ss][] >>
+  simp[Q.SPEC`Bool`(CONJUNCT1 (SPEC_ALL term_cases))] >>
+  fs[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
+  rw[EQ_IMP_THM] >>
+  METIS_TAC[term_type_11,has_type_IMP,holSyntaxTheory.WELLTYPED,WELLTYPED_LEMMA])
+
+val term_welltyped = prove(
+  ``(∀ty ty1. type defs ty ty1 ⇒ T) ∧
+    (∀tm tm1. term defs tm tm1 ⇒ (welltyped tm ⇔ welltyped tm1))``,
+  HO_MATCH_MP_TAC (theorem"term_strongind") >>
+  simp[] >> rw[] >>
+  rw[EQ_IMP_THM] >> fs[] >>
+  fs[WELLTYPED,holSyntaxTheory.WELLTYPED] >>
+  imp_res_tac has_type_IMP >>
+  fs[Q.SPEC`Fun X Y`(CONJUNCT1 (SPEC_ALL term_cases))] >> rw[] >>
+  METIS_TAC[has_type_IMP,term_type_11,WELLTYPED_LEMMA,holSyntaxTheory.WELLTYPED_LEMMA])
+
 val proves_IMP = store_thm("proves_IMP",
   ``(∀defs ty. type_ok defs ty ⇒ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
     (∀defs tm. term_ok defs tm ⇒ ∃tm1. term defs tm tm1 ∧ term_ok tm1) ∧
@@ -265,7 +294,16 @@ val proves_IMP = store_thm("proves_IMP",
   conj_tac >- rw[seq_trans_def] >>
   conj_tac >- (
     rw[seq_trans_def] >>
-    (* derive term for equations *)
+    qspecl_then[`tm`,`tm`,`tm1 === tm1`]mp_tac term_equation >>
+    simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
+    `welltyped tm1` by METIS_TAC[soundness,has_meaning_welltyped] >>
+    `welltyped tm` by METIS_TAC[term_welltyped] >>
+    simp[] >> strip_tac >>
+    qexists_tac`tm1 === tm1` >>
+    simp[] >>
+    METIS_TAC[List.nth(CONJUNCTS proves_rules,14)] ) >>
+  conj_tac >- (
+    rw[seq_trans_def] >>
     cheat ) >>
   cheat)
 
