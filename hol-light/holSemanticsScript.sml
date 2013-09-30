@@ -401,6 +401,25 @@ val VFREE_IN_IMP_inv = prove(
     rw[] >> METIS_TAC[term_type_11] ) >>
   METIS_TAC[])
 
+val LIST_REL_term_FILTER_ACONV = prove(
+  ``∀asl1 h1 c c1.
+    LIST_REL (term defs) asl1 h1 ∧ term defs c c1
+    ⇒
+    LIST_REL (term defs) (FILTER ($~ o ACONV c) asl1)
+    (FILTER ($~ o ACONV c1) h1)``,
+  Induct >> simp[] >>
+  rw[] >> rw[] >>
+  METIS_TAC[ACONV_IMP,ACONV_IMP_inv])
+
+(*
+val context_ok_term_ok = prove(
+  ``∀defs n t. context_ok defs ∧ MEM (Constdef n t) defs ⇒ term_ok defs t``,
+  Induct >> simp[] >>
+  simp[Once holSyntaxTheory.proves_cases] >>
+  rw[] >>
+  simp[Once holSyntaxTheory.proves_cases]
+*)
+
 val proves_IMP = store_thm("proves_IMP",
   ``(∀defs ty. type_ok defs ty ⇒ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
     (∀defs tm. term_ok defs tm ⇒ ∃tm1. term defs tm tm1 ∧ term_ok tm1) ∧
@@ -630,7 +649,59 @@ val proves_IMP = store_thm("proves_IMP",
     qexists_tac`x1` >> rw[] >>
     qexists_tac`c1'` >> rw[] >>
     METIS_TAC[ACONV_IMP] ) >>
-
+  conj_tac >- (
+    rw[seq_trans_def] >>
+    qexists_tac`TERM_UNION (FILTER ($~ o ACONV c1') h1) (FILTER ($~ o ACONV c1) h1')` >>
+    qexists_tac`c1 === c1'` >>
+    qspecl_then[`c`,`c'`,`c1 === c1'`]mp_tac term_equation >>
+    discharge_hyps >- (
+      simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
+      `c1 has_type Bool ∧ c1' has_type Bool` by (
+        imp_res_tac soundness >>
+        fs[sequent_def] ) >>
+      conj_asm1_tac >- METIS_TAC[welltyped_def,term_welltyped] >>
+      conj_asm1_tac >- METIS_TAC[welltyped_def,term_welltyped] >>
+      fs[holSyntaxTheory.WELLTYPED] >>
+      imp_res_tac has_type_IMP >>
+      imp_res_tac WELLTYPED_LEMMA >> rw[] >>
+      fs[] >>
+      METIS_TAC[term_type_11_inv] ) >>
+    disch_then(mp_tac o snd o EQ_IMP_RULE) >>
+    discharge_hyps >- METIS_TAC[] >>
+    strip_tac >> simp[] >>
+    conj_tac >- (
+      match_mp_tac LIST_REL_term_UNION >>
+      conj_tac >>
+      match_mp_tac LIST_REL_term_FILTER_ACONV >>
+      METIS_TAC[] ) >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,21)) >>
+    rw[] ) >>
+  conj_tac >- (
+    rw[seq_trans_def] >>
+    cheat ) >>
+  conj_tac >- (
+    rw[seq_trans_def] >>
+    cheat ) >>
+  conj_tac >- (
+    rw[seq_trans_def] >>
+    map_every qexists_tac[`h1`,`c1`] >>
+    simp[] >>
+    fs[EVERY_MEM,EVERY2_EVERY] >>
+    rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+    (* term cons *)
+    cheat ) >>
+  conj_tac >- (
+    rw[seq_trans_def] >>
+    (* need everything in context to be term_ok ... *)
+    cheat ) >>
+  rw[seq_trans_def]
+  >- (
+    (* term cons *)
+    cheat )
+  >- (
+    simp[] >>
+    cheat ) >>
+  simp[] >>
   cheat)
 
 val _ = export_theory();
