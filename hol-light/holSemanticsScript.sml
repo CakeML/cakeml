@@ -366,6 +366,41 @@ val LIST_REL_term_UNION = prove(
   imp_res_tac TERM_UNION_NONEW >>
   METIS_TAC[holSyntaxTheory.TERM_UNION_THM,MEM_EL,ACONV_IMP_inv,holSyntaxTheory.ACONV_SYM,holSyntaxTheory.ACONV_TRANS])
 
+val VFREE_IN_IMP = prove(
+  ``!t2 t1 defs s2 s1. VFREE_IN t1 t2 ∧ term defs t1 s1 ∧ term defs t2 s2 ⇒ VFREE_IN s1 s2``,
+  Induct >> simp[] >>
+  fs[Q.SPEC`Var X Y`(CONJUNCT2 (SPEC_ALL term_cases))] >>
+  fs[Q.SPEC`Select X`(CONJUNCT2 (SPEC_ALL term_cases))] >>
+  fs[Q.SPEC`Equal X`(CONJUNCT2 (SPEC_ALL term_cases))] >>
+  fs[Q.SPEC`Const X Y`(CONJUNCT2 (SPEC_ALL term_cases))] >>
+  fs[Q.SPEC`Comb X Y`(CONJUNCT2 (SPEC_ALL term_cases))] >>
+  fs[Q.SPEC`Abs X Y Z`(CONJUNCT2 (SPEC_ALL term_cases))] >>
+  rw[] >> rw[holSyntaxTheory.VFREE_IN_def] >> fsrw_tac[ARITH_ss][] >> rw[] >>
+  imp_res_tac term_type_11 >> fs[] >> rw[]
+  >- METIS_TAC[] >- METIS_TAC[]
+  >- (
+    spose_not_then strip_assume_tac >> rw[] >>
+    fs[Q.SPECL[`A`,`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+    rw[] >> METIS_TAC[term_type_11_inv] ) >>
+  METIS_TAC[])
+
+val VFREE_IN_IMP_inv = prove(
+  ``!s2 s1 defs t2 t1. VFREE_IN s1 s2 ∧ term defs t1 s1 ∧ term defs t2 s2 ⇒ VFREE_IN t1 t2``,
+  Induct >> simp[] >>
+  fs[Q.SPECL[`A`,`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+  fs[Q.SPECL[`A`,`Const X Y Z`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+  fs[Q.SPECL[`A`,`Comb X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+  rw[] >> rw[holSyntaxTheory.VFREE_IN_def] >>
+  last_x_assum mp_tac >> rw[] >> fsrw_tac[ARITH_ss][] >> rw[] >>
+  imp_res_tac term_type_11_inv >> fs[]
+  >- METIS_TAC[] >- METIS_TAC[] >>
+  fs[Q.SPECL[`A`,`Abs X Y Z`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+  rw[] >- (
+    spose_not_then strip_assume_tac >> rw[] >>
+    fs[Q.SPECL[`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+    rw[] >> METIS_TAC[term_type_11] ) >>
+  METIS_TAC[])
+
 val proves_IMP = store_thm("proves_IMP",
   ``(∀defs ty. type_ok defs ty ⇒ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
     (∀defs tm. term_ok defs tm ⇒ ∃tm1. term defs tm tm1 ∧ term_ok tm1) ∧
@@ -549,7 +584,53 @@ val proves_IMP = store_thm("proves_IMP",
     fs[EVERY_MEM,EVERY2_EVERY] >>
     rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
     fs[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
-    cheat (* relate VFREE_INs *)) >>
+    rw[] >> res_tac >> pop_assum mp_tac >>
+    METIS_TAC[VFREE_IN_IMP_inv,term_rules]) >>
+  conj_tac >- (
+    rw[seq_trans_def] >>
+    qspecl_then[`Comb (Abs x ty tm) (Var x ty)`,`tm`]mp_tac term_equation >>
+    simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
+    `welltyped tm1` by METIS_TAC[soundness,has_meaning_welltyped] >>
+    `welltyped tm` by METIS_TAC[term_welltyped] >>
+    simp[] >> strip_tac >>
+    srw_tac[boolSimps.DNF_ss][] >>
+    simp[Once term_cases] >>
+    srw_tac[boolSimps.DNF_ss][] >>
+    simp[Once term_cases] >>
+    srw_tac[boolSimps.DNF_ss][] >>
+    fs[Q.SPECL[`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+    srw_tac[boolSimps.DNF_ss][] >>
+    map_every qexists_tac[`tm1`,`ty1`,`tm1`,`ty1`] >>
+    simp[] >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,18)) >>
+    simp[] ) >>
+  conj_tac >- (
+    rw[seq_trans_def] >>
+    srw_tac[boolSimps.DNF_ss][] >>
+    map_every qexists_tac[`tm1`,`tm1`] >>
+    rw[] >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,19)) >>
+    imp_res_tac has_type_IMP >>
+    fs[Q.SPEC`Bool`(CONJUNCT1 (SPEC_ALL term_cases))] >>
+    rw[] ) >>
+  conj_tac >- (
+    rw[seq_trans_def] >>
+    qexists_tac`TERM_UNION h1 h1'` >>
+    qspecl_then[`p`,`c`,`c1`]mp_tac term_equation >>
+    `welltyped c1` by (
+      imp_res_tac soundness >>
+      fs[sequent_def,welltyped_def] >>
+      METIS_TAC[] ) >>
+    `welltyped (p === c)` by METIS_TAC[term_welltyped] >>
+    fs[welltyped_equation] >>
+    strip_tac >>
+    qexists_tac`y1` >>
+    simp[LIST_REL_term_UNION] >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,20)) >>
+    qexists_tac`x1` >> rw[] >>
+    qexists_tac`c1'` >> rw[] >>
+    METIS_TAC[ACONV_IMP] ) >>
+
   cheat)
 
 val _ = export_theory();
