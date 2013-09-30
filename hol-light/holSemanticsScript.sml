@@ -494,7 +494,62 @@ val proves_IMP = store_thm("proves_IMP",
     conj_tac >- METIS_TAC[LIST_REL_term_UNION] >>
     match_mp_tac(List.nth(CONJUNCTS proves_rules,15)) >>
     METIS_TAC[ACONV_IMP]) >>
-  conj_tac >>
+  conj_tac >- (
+    rw[seq_trans_def] >>
+    qspecl_then[`l1`,`r1`,`c1`]mp_tac term_equation >>
+    simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
+    `∀t. MEM t (c1::h1) ∨ MEM t (c1'::h1') ⇒ t has_type Bool` by (
+      imp_res_tac soundness >> fs[sequent_def,EVERY_MEM] >>
+      METIS_TAC[] ) >>
+    `welltyped (l1 === r1) ∧ welltyped (l2 === r2)` by (
+      imp_res_tac term_welltyped >>
+      METIS_TAC[MEM,welltyped_def] ) >>
+    fs[welltyped_equation,holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
+    strip_tac >>
+    qspecl_then[`l2`,`r2`,`c1'`]mp_tac term_equation >>
+    simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
+    strip_tac >>
+    qspecl_then[`Comb l1 l2`,`Comb r1 r2`,`Comb x1 x1' === Comb y1 y1'`]mp_tac term_equation >>
+    simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
+    strip_tac >>
+    map_every qexists_tac[`TERM_UNION h1 h1'`,`Comb x1 x1' === Comb y1 y1'`] >>
+    simp[LIST_REL_term_UNION] >>
+    simp[Q.SPEC`Comb X Y`(CONJUNCT2 (SPEC_ALL term_cases))] >>
+    srw_tac[boolSimps.DNF_ss][] >- METIS_TAC[] >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,16)) >>
+    simp[] >>
+    conj_asm1_tac >- METIS_TAC[term_welltyped] >>
+    conj_tac >- METIS_TAC[term_welltyped] >>
+    fs[WELLTYPED,holSyntaxTheory.WELLTYPED] >>
+    imp_res_tac has_type_IMP >> rfs[] >>
+    fs[Q.SPEC`Fun X Y`(CONJUNCT1 (SPEC_ALL term_cases))] >> rw[] >>
+    imp_res_tac WELLTYPED_LEMMA >> rw[] >>
+    METIS_TAC[term_type_11] ) >>
+  conj_tac >- (
+    rw[seq_trans_def] >>
+    qexists_tac`h1` >>
+    simp[] >>
+    qspecl_then[`l`,`r`,`c1`]mp_tac term_equation >>
+    simp[] >>
+    `c1 has_type Bool` by (
+      imp_res_tac soundness >>
+      fs[sequent_def] ) >>
+    `l === r has_type Bool` by (
+      simp[GSYM welltyped_equation] >>
+      metis_tac[term_welltyped,welltyped_def] ) >>
+    simp[] >> strip_tac >>
+    qexists_tac`Abs x ty1 x1 === Abs x ty1 y1` >>
+    qspecl_then[`Abs x ty l`,`Abs x ty r`,`Abs x ty1 x1 === Abs x ty1 y1`]mp_tac term_equation >>
+    fs[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
+    strip_tac >>
+    simp[Q.SPEC`Abs X Y Z`(CONJUNCT2 (SPEC_ALL term_cases))] >>
+    conj_tac >- METIS_TAC[] >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,17)) >>
+    simp[] >>
+    fs[EVERY_MEM,EVERY2_EVERY] >>
+    rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+    fs[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+    cheat (* relate VFREE_INs *)) >>
   cheat)
 
 val _ = export_theory();
