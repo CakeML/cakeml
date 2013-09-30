@@ -751,4 +751,37 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
                            (Var x rep_type)) === Var x rep_type)) )
         ==> (CONS d defs, asl) |- p)`
 
+val RACONV_TRANS = store_thm("RACONV_TRANS",
+  ``∀env tp. RACONV env tp ⇒ ∀vs t. LENGTH vs = LENGTH env ∧ RACONV (ZIP(MAP SND env,vs)) (SND tp,t) ⇒ RACONV (ZIP(MAP FST env,vs)) (FST tp, t)``,
+  ho_match_mp_tac RACONV_ind >> simp[RACONV] >>
+  conj_tac >- (
+    Induct >- simp[ALPHAVARS_def] >>
+    Cases >> simp[ALPHAVARS_def] >>
+    rw[] >> Cases_on`vs`>>fs[] >>
+    Cases_on`t`>>fs[RACONV]>>
+    fs[ALPHAVARS_def] >> rw[] >>
+    metis_tac[RACONV] ) >>
+  conj_tac >- ( rw[] >> Cases_on`t`>>fs[RACONV] ) >>
+  conj_tac >- ( rw[] >> Cases_on`t`>>fs[RACONV] ) >>
+  rw[] >>
+  Cases_on`t`>>fs[RACONV]>>rw[]>>
+  metis_tac[LENGTH,ZIP])
+
+val ACONV_TRANS = store_thm("ACONV_TRANS",
+  ``∀t1 t2 t3. ACONV t1 t2 ∧ ACONV t2 t3 ⇒ ACONV t1 t3``,
+  rw[ACONV_def] >> imp_res_tac RACONV_TRANS >> fs[LENGTH_NIL])
+
+val RACONV_SYM = store_thm("RACONV_SYM",
+  ``∀env tp. RACONV env tp ⇒ RACONV (MAP (λ(x,y). (y,x)) env) (SND tp,FST tp)``,
+  ho_match_mp_tac RACONV_ind >> simp[] >>
+  conj_tac >- (
+    Induct >> simp[ALPHAVARS_def,RACONV] >>
+    Cases >> simp[] >>
+    rw[] >> res_tac >> fs[RACONV]) >>
+  simp[RACONV])
+
+val ACONV_SYM = store_thm("ACONV_SYM",
+  ``∀t1 t2. ACONV t1 t2 ⇒ ACONV t2 t1``,
+  rw[ACONV_def] >> imp_res_tac RACONV_SYM >> fs[])
+
 val _ = export_theory()
