@@ -895,6 +895,80 @@ val INST_IMP = prove(
   pop_assum(qspec_then`tyin1`mp_tac) >>
   rw[])
 
+val REV_ASSOCD_FILTER_vars = store_thm("REV_ASSOCD_FILTER_vars",
+  ``∀a tyin1 tyin2.
+      (FILTER (λ(ty,s). ∃a. s = Tyvar a) tyin1
+      =FILTER (λ(ty,s). ∃a. s = Tyvar a) tyin2)
+      ⇒
+      holSyntax$REV_ASSOCD (holSyntax$Tyvar a) tyin1 (holSyntax$Tyvar a) =
+      holSyntax$REV_ASSOCD (holSyntax$Tyvar a) tyin2 (holSyntax$Tyvar a)``,
+  gen_tac >>
+  Induct >> simp[holSyntaxTheory.REV_ASSOCD] >- (
+    Induct >> simp[holSyntaxTheory.REV_ASSOCD] >>
+    Cases >> simp[holSyntaxTheory.REV_ASSOCD] >>
+    rw[] ) >>
+  Cases >> simp[holSyntaxTheory.REV_ASSOCD] >>
+  Induct >> simp[holSyntaxTheory.REV_ASSOCD] >- (
+    rw[] >>
+    first_x_assum(qspec_then`[]`mp_tac) >>
+    rw[holSyntaxTheory.REV_ASSOCD] ) >>
+  Cases >> simp[holSyntaxTheory.REV_ASSOCD] >>
+  rw[] >> fs[] >- (
+    first_x_assum(qspec_then`(q',Tyvar a)::tyin2`mp_tac) >>
+    rw[holSyntaxTheory.REV_ASSOCD] ) >>
+  first_x_assum(qspec_then`(q',Tyvar a')::tyin2`mp_tac) >>
+  rw[holSyntaxTheory.REV_ASSOCD] )
+
+val TYPE_SUBST_FILTER = store_thm("TYPE_SUBST_FILTER",
+  ``∀ty tyin1 tyin2.
+      (FILTER (λ(ty,s). ∃a. s = Tyvar a) tyin1
+      =FILTER (λ(ty,s). ∃a. s = Tyvar a) tyin2)
+      ⇒
+      holSyntax$TYPE_SUBST tyin1 ty = holSyntax$TYPE_SUBST tyin2 ty``,
+  ((TypeBase.induction_of``:holSyntax$type``)
+    |> Q.SPECL[`P`,`EVERY P`]
+    |> SIMP_RULE(srw_ss())[]
+    |> UNDISCH_ALL
+    |> CONJUNCT1
+    |> DISCH_ALL
+    |> GEN_ALL
+    |> HO_MATCH_MP_TAC) >>
+  rw[] >- rw[REV_ASSOCD_FILTER_vars] >>
+  simp[MAP_EQ_f] >> fs[EVERY_MEM])
+
+val INST_CORE_FILTER = store_thm("INST_CORE_FILTER",
+  ``∀env tyin1 tm tyin2.
+      (FILTER (λ(ty,s). ∃a. s = Tyvar a) tyin1
+      =FILTER (λ(ty,s). ∃a. s = Tyvar a) tyin2)
+      ⇒
+      INST_CORE env tyin1 tm = holSyntax$INST_CORE env tyin2 tm``,
+  HO_MATCH_MP_TAC holSyntaxTheory.INST_CORE_ind >>
+  rw[holSyntaxTheory.INST_CORE_def] >>
+  imp_res_tac REV_ASSOCD_FILTER_vars >>
+  imp_res_tac TYPE_SUBST_FILTER >> fs[] >- (
+    first_x_assum(qspec_then`tyin2`mp_tac) >> simp[] >>
+    rw[] >> fs[] >>
+    first_x_assum(qspec_then`tyin2`mp_tac) >> simp[] >>
+    rw[] >> fs[] ) >>
+  first_x_assum(qspec_then`tyin2`mp_tac) >> simp[] >>
+  unabbrev_all_tac >>
+  rw[] >> fs[] >>
+  first_x_assum(qspec_then`tyin2`mp_tac) >> simp[] >>
+  rw[] >> fs[] >>
+  first_x_assum(qspec_then`tyin2`mp_tac) >> simp[] >>
+  rw[] >> fs[] )
+
+val INST_FILTER = store_thm("INST_FILTER",
+  ``∀tyin1 tyin2 tm.
+      (FILTER (λ(ty,s). ∃a. s = Tyvar a) tyin1
+      =FILTER (λ(ty,s). ∃a. s = Tyvar a) tyin2)
+      ⇒
+      INST tyin1 tm = holSyntax$INST tyin2 tm``,
+  rw[holSyntaxTheory.INST_def] >>
+  imp_res_tac INST_CORE_FILTER >>
+  pop_assum(qspecl_then[`tm`,`[]`]mp_tac) >>
+  rw[])
+
 val proves_IMP = store_thm("proves_IMP",
   ``(∀defs ty. type_ok defs ty ⇒ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
     (∀defs tm. term_ok defs tm ⇒ ∃tm1. term defs tm tm1 ∧ term_ok tm1) ∧
@@ -1168,8 +1242,56 @@ val proves_IMP = store_thm("proves_IMP",
     rw[] ) >>
   conj_tac >- (
     rw[seq_trans_def] >>
-    (* INST *)
-    cheat ) >>
+    qabbrev_tac`tyin0 = FILTER (λ(ty,s). ∃a. s = Tyvar a) tyin` >>
+    `INST tyin = INST tyin0` by (
+      simp[FUN_EQ_THM] >>
+      gen_tac >>
+      match_mp_tac INST_FILTER >>
+      simp[Abbr`tyin0`,rich_listTheory.FILTER_FILTER] >>
+      AP_THM_TAC >> AP_TERM_TAC >>
+      simp[FUN_EQ_THM] ) >>
+    `∃tyin1. LIST_REL (type defs) (MAP FST tyin0) (MAP FST tyin1) ∧
+             LIST_REL (type defs) (MAP SND tyin0) (MAP SND tyin1) ∧
+             EVERY type_ok (MAP FST tyin1)` by (
+      simp[exists_list_GENLIST] >>
+      qexists_tac`LENGTH tyin0` >>
+      simp[EVERY_MAP,EVERY_GENLIST] >>
+      simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+      simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM,GSYM SKOLEM_THM,RIGHT_EXISTS_IMP_THM] >>
+      rw[] >>
+      `MEM (EL i tyin0) tyin0` by METIS_TAC[MEM_EL] >>
+      `MEM (EL i tyin0) tyin` by (
+        fs[Abbr`tyin0`,MEM_FILTER] ) >>
+      Cases_on`EL i tyin0` >>
+      first_x_assum(qspecl_then[`r`,`q`]mp_tac) >>
+      simp[] >> rw[] >>
+      fs[Abbr`tyin0`,MEM_FILTER] >>
+      simp[EXISTS_PROD] >>
+      simp[Once CONJ_COMM] >>
+      simp[Once term_cases] >>
+      qexists_tac`ty1` >>
+      simp[]) >>
+    `∀t. MEM t (c1::h1) ⇒ welltyped t` by (
+      imp_res_tac soundness >>
+      fs[sequent_def,EVERY_MEM] >>
+      METIS_TAC[has_meaning_welltyped] ) >>
+    qexists_tac`MAP (INST tyin1) h1` >>
+    qexists_tac`INST tyin1 c1` >>
+    reverse conj_tac >- (
+      match_mp_tac(List.nth(CONJUNCTS proves_rules,22)) >>
+      simp[] ) >>
+    qpat_assum`LIST_REL X asl h1`mp_tac >>
+    simp[EVERY2_EVERY,EVERY_MEM] >>
+    strip_tac >> pop_assum mp_tac >>
+    simp[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+    rw[] >>
+    match_mp_tac INST_IMP >>
+    simp[] >>
+    fs[EVERY2_EVERY,EVERY_MEM] >>
+    fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+    rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+    fs[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+    METIS_TAC[term_welltyped]) >>
   conj_tac >- (
     rw[seq_trans_def] >>
     `∃ilist1. LIST_REL (term defs) (MAP FST ilist) (MAP FST ilist1) ∧
