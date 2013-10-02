@@ -550,6 +550,112 @@ val term_type_cons = prove(
     Cases_on`d`>>simp[Once const_def_def] >>
     rw[] >> fs[safe_def_names_def] ))
 
+val REV_ASSOCD_ilist_IMP = prove(
+  ``∀ilist defs t ilist1 t1.
+      LIST_REL (term defs) (MAP FST ilist) (MAP FST ilist1) ∧
+      LIST_REL (term defs) (MAP SND ilist) (MAP SND ilist1) ∧
+      term defs t t1
+      ⇒
+      term defs (holSyntax$REV_ASSOCD t ilist t) (sholSyntax$REV_ASSOCD t1 ilist1 t1)``,
+  Induct >> simp[holSyntaxTheory.REV_ASSOCD,REV_ASSOCD] >>
+  Cases >> simp[holSyntaxTheory.REV_ASSOCD,REV_ASSOCD] >>
+  rw[] >- (
+    imp_res_tac term_type_11 >> rw[] >>
+    Cases_on`ilist1`>>fs[]>>
+    Cases_on`h`>>fs[]>>rw[]>>
+    simp[REV_ASSOCD] ) >>
+  Cases_on`ilist1`>>fs[]>>
+  Cases_on`h`>>fs[]>>rw[]>>
+  simp[REV_ASSOCD] >>
+  imp_res_tac term_type_11 >> rw[] >>
+  imp_res_tac term_type_11_inv)
+
+val VSUBST_IMP = prove(
+  ``∀tm ilist defs ilist1 tm1 r1.
+      term defs tm tm1 ∧
+      LIST_REL (term defs) (MAP FST ilist) (MAP FST ilist1) ∧
+      LIST_REL (term defs) (MAP SND ilist) (MAP SND ilist1) ∧
+      (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ∧
+      (∀s s'. MEM (s',s) ilist1 ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty)
+      ⇒
+      term defs (VSUBST ilist tm) (VSUBST ilist1 tm1)``,
+  Induct >- (
+    simp[Once term_cases] >> rw[] >>
+    simp[holSyntaxTheory.VSUBST_def,VSUBST_def] >>
+    match_mp_tac REV_ASSOCD_ilist_IMP >>
+    simp[Once term_cases] )
+  >- (
+    simp[Once term_cases] >> rw[] >>
+    simp[VSUBST_def,holSyntaxTheory.VSUBST_def] >>
+    simp[Once term_cases] >>
+    rw[] )
+  >- (
+    simp[Once term_cases] >> rw[] >>
+    simp[VSUBST_def,holSyntaxTheory.VSUBST_def] >>
+    simp[Once term_cases] )
+  >- (
+    simp[Once term_cases] >> rw[] >>
+    simp[VSUBST_def,holSyntaxTheory.VSUBST_def] >>
+    simp[Once term_cases] )
+  >- (
+    simp[Once term_cases] >> rw[] >>
+    simp[VSUBST_def,holSyntaxTheory.VSUBST_def] >>
+    simp[Once term_cases] >>
+    imp_res_tac term_welltyped >>
+    fs[WELLTYPED,holSyntaxTheory.WELLTYPED] >>
+    imp_res_tac VSUBST_HAS_TYPE >>
+    imp_res_tac holSyntaxTheory.VSUBST_HAS_TYPE >>
+    imp_res_tac WELLTYPED_LEMMA >>
+    imp_res_tac holSyntaxTheory.WELLTYPED_LEMMA >>
+    fs[] )
+  >- (
+    simp[Once term_cases] >> rw[] >>
+    simp[VSUBST_def,holSyntaxTheory.VSUBST_def] >>
+    qmatch_abbrev_tac`term defs (if p then q else r) (if p1 then q1 else r1)` >>
+    `p = p1` by (
+      unabbrev_all_tac >>
+      simp[EXISTS_MEM,MEM_FILTER,EXISTS_PROD] >>
+      fs[EVERY2_EVERY,EVERY_MEM,MEM_ZIP] >>
+      rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+      fs[EL_MAP] >> rfs[EL_MAP] >>
+      simp[MEM_EL] >>
+      rw[EQ_IMP_THM] >>
+      first_x_assum(qspec_then`n`mp_tac) >>
+      first_x_assum(qspec_then`n`mp_tac) >>
+      rw[] >>
+      qpat_assum`(X,Y) = Z`(assume_tac o SYM) >> fs[] >- (
+        map_every qexists_tac[`FST (EL n ilist1)`,`SND (EL n ilist1)`] >>
+        simp[] >>
+        conj_tac >- (
+          reverse conj_tac >- METIS_TAC[] >>
+          spose_not_then strip_assume_tac >>
+          qpat_assum`term defs X Y`mp_tac >>
+          Cases_on`p_2`>>simp[Once term_cases] >>
+          fs[] >> METIS_TAC[term_type_11_inv] ) >>
+        METIS_TAC[VFREE_IN_IMP_inv,VFREE_IN_IMP,term_rules] ) >>
+      map_every qexists_tac[`FST (EL n ilist)`,`SND (EL n ilist)`] >>
+      simp[] >>
+      conj_tac >- (
+        reverse conj_tac >- METIS_TAC[] >>
+        spose_not_then strip_assume_tac >>
+        qpat_assum`term defs X Y`mp_tac >>
+        Cases_on`p_2`>>simp[Once term_cases] >>
+        fs[] >> METIS_TAC[term_type_11] ) >>
+      METIS_TAC[VFREE_IN_IMP_inv,VFREE_IN_IMP,term_rules] ) >>
+    rw[Abbr`p`,Abbr`p1`] >> fs[] >>
+    unabbrev_all_tac >>
+    simp[Once term_cases] >>
+    TRY (
+      conj_asm1_tac >- (
+        (* VARIANT_IMP *)
+        cheat ) ) >>
+    first_x_assum match_mp_tac >>
+    simp[MEM_FILTER] >>
+    rw[] >>
+    TRY ( simp[Once term_cases] >> NO_TAC ) >>
+    TRY ( simp[Once has_type_cases,Once holSyntaxTheory.has_type_cases] >> NO_TAC) >>
+    cheat (* LIST_REL_MAP_FILTER *)))
+
 val proves_IMP = store_thm("proves_IMP",
   ``(∀defs ty. type_ok defs ty ⇒ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
     (∀defs tm. term_ok defs tm ⇒ ∃tm1. term defs tm tm1 ∧ term_ok tm1) ∧
