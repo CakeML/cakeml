@@ -772,14 +772,15 @@ val TYPE_SUBST_IMP = prove(
   disch_then(qspecl_then[`tyin1`,`EL n tys`,`tyin`,`defs`]mp_tac) >>
   simp[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM])
 
-(*
 val INST_CORE_IMP = prove(
   ``∀env tyin tm defs env1 tyin1 tm1.
       term defs tm tm1 ∧
       LIST_REL (type defs) (MAP FST tyin) (MAP FST tyin1) ∧
       LIST_REL (type defs) (MAP SND tyin) (MAP SND tyin1) ∧
       LIST_REL (term defs) (MAP FST env) (MAP FST env1) ∧
-      LIST_REL (term defs) (MAP SND env) (MAP SND env1)
+      LIST_REL (term defs) (MAP SND env) (MAP SND env1) ∧
+      (∀s s'. MEM (s,s') env ⇒ ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin ty)) ∧
+      (∀s s'. MEM (s,s') env1 ⇒ ∃x ty. s = Var x ty ∧ s' = Var x (TYPE_SUBST tyin1 ty))
       ⇒
       result_term defs (INST_CORE env tyin tm) (INST_CORE env1 tyin1 tm1)``,
   HO_MATCH_MP_TAC holSyntaxTheory.INST_CORE_ind >>
@@ -837,19 +838,62 @@ val INST_CORE_IMP = prove(
     rpt gen_tac >> strip_tac >>
     simp[Once term_cases] >> rw[] >>
     rw[INST_CORE_def,holSyntaxTheory.INST_CORE_def] >>
+    first_x_assum(qspecl_then[`defs`,`env1`,`tyin1`,`x1`]mp_tac) >>
+    simp[] >> strip_tac >>
+    `IS_CLASH sres = IS_CLASH sres'` by (
+      Cases_on`sres`>>fs[Once result_term_cases] ) >>
+    Cases_on`IS_CLASH sres` >> fs[] >>
+    first_x_assum(qspecl_then[`defs`,`env1`,`tyin1`,`y1`]mp_tac) >>
+    simp[] >> strip_tac >>
+    `IS_CLASH tres = IS_CLASH tres'` by (
+      Cases_on`tres`>>fs[Once result_term_cases] ) >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    simp[Once result_term_cases] >>
+    simp[Once term_cases] >>
+    Cases_on`sres`>>fs[]>>
+    Cases_on`sres'`>>fs[]>>
+    Cases_on`tres`>>fs[]>>
+    Cases_on`tres'`>>fs[]>>
+    fs[Once result_term_cases] >>
+    map_every qunabbrev_tac[`s'`,`s''`,`t'`,`t''`] >>
+    simp[] >>
+    qspecl_then[`sizeof tm`,`tm`,`env`,`tyin`]mp_tac holSyntaxTheory.INST_CORE_HAS_TYPE >>
+    simp[] >> strip_tac >>
+    qspecl_then[`sizeof tm'`,`tm'`,`env`,`tyin`]mp_tac holSyntaxTheory.INST_CORE_HAS_TYPE >>
+    simp[] >> strip_tac >>
+    imp_res_tac has_type_IMP >>
+    simp[holSyntaxTheory.welltyped_def] >>
+    conj_tac >- METIS_TAC[] >>
+    conj_tac >- METIS_TAC[] >>
+    qpat_assum`t''' has_type (Fun Y Z)`mp_tac >>
+    simp[Once holSyntaxTheory.has_type_cases] >>
+    `welltyped t'''` by METIS_TAC[term_welltyped,welltyped_def] >>
+    `welltyped t''''` by METIS_TAC[term_welltyped,welltyped_def] >>
+    rw[] >> fs[] >>
+    fs[holSyntaxTheory.WELLTYPED] >>
+    imp_res_tac holSyntaxTheory.WELLTYPED_LEMMA >>
+    fs[] >> rw[] ) >>
+  rpt gen_tac >> strip_tac >>
+  simp[Once term_cases] >> rw[] >>
+  rw[INST_CORE_def,holSyntaxTheory.INST_CORE_def] >>
+  cheat )
 
 val INST_IMP = prove(
   ``∀tm tyin defs tyin1 tm1.
-      term defs tm tm1 ∧
-      LIST_REL (term defs) (MAP FST ilist) (MAP FST ilist1) ∧
-      LIST_REL (term defs) (MAP SND ilist) (MAP SND ilist1) ∧
-      (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ∧
-      (∀s s'. MEM (s',s) ilist1 ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty)
+      term defs tm tm1 ∧ welltyped tm ∧
+      LIST_REL (type defs) (MAP FST tyin) (MAP FST tyin1) ∧
+      LIST_REL (type defs) (MAP SND tyin) (MAP SND tyin1)
       ⇒
-      term defs (INST tyin tm) (VSUBST tyin1 tm1)``,
-      INST_def
-      INST_CORE_def
-*)
+      term defs (INST tyin tm) (INST tyin1 tm1)``,
+  rw[INST_def,holSyntaxTheory.INST_def] >>
+  qspecl_then[`[]`,`tyin`,`tm`,`defs`,`[]`,`tyin1`,`tm1`]mp_tac INST_CORE_IMP >>
+  simp[] >>
+  simp[Once result_term_cases] >>
+  rw[] >> rw[] >>
+  imp_res_tac term_welltyped >>
+  imp_res_tac INST_CORE_NIL_IS_RESULT >>
+  pop_assum(qspec_then`tyin1`mp_tac) >>
+  rw[])
 
 val proves_IMP = store_thm("proves_IMP",
   ``(∀defs ty. type_ok defs ty ⇒ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
