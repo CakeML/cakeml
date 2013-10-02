@@ -551,12 +551,13 @@ val term_type_cons = prove(
     rw[] >> fs[safe_def_names_def] ))
 
 val REV_ASSOCD_ilist_IMP = prove(
-  ``∀ilist defs t ilist1 t1.
+  ``∀ilist defs t ilist1 t1 d d1.
       LIST_REL (term defs) (MAP FST ilist) (MAP FST ilist1) ∧
       LIST_REL (term defs) (MAP SND ilist) (MAP SND ilist1) ∧
-      term defs t t1
+      term defs t t1 ∧
+      term defs d d1
       ⇒
-      term defs (holSyntax$REV_ASSOCD t ilist t) (sholSyntax$REV_ASSOCD t1 ilist1 t1)``,
+      term defs (holSyntax$REV_ASSOCD t ilist d) (sholSyntax$REV_ASSOCD t1 ilist1 d1)``,
   Induct >> simp[holSyntaxTheory.REV_ASSOCD,REV_ASSOCD] >>
   Cases >> simp[holSyntaxTheory.REV_ASSOCD,REV_ASSOCD] >>
   rw[] >- (
@@ -565,6 +566,27 @@ val REV_ASSOCD_ilist_IMP = prove(
     Cases_on`h`>>fs[]>>rw[]>>
     simp[REV_ASSOCD] ) >>
   Cases_on`ilist1`>>fs[]>>
+  Cases_on`h`>>fs[]>>rw[]>>
+  simp[REV_ASSOCD] >>
+  imp_res_tac term_type_11 >> rw[] >>
+  imp_res_tac term_type_11_inv)
+
+val REV_ASSOCD_tyin_IMP = prove(
+  ``∀tyin defs t tyin1 t1 d d1.
+      LIST_REL (type defs) (MAP FST tyin) (MAP FST tyin1) ∧
+      LIST_REL (type defs) (MAP SND tyin) (MAP SND tyin1) ∧
+      type defs t t1 ∧
+      type defs d d1
+      ⇒
+      type defs (holSyntax$REV_ASSOCD t tyin d) (sholSyntax$REV_ASSOCD t1 tyin1 d1)``,
+  Induct >> simp[holSyntaxTheory.REV_ASSOCD,REV_ASSOCD] >>
+  Cases >> simp[holSyntaxTheory.REV_ASSOCD,REV_ASSOCD] >>
+  rw[] >- (
+    imp_res_tac term_type_11 >> rw[] >>
+    Cases_on`tyin1`>>fs[]>>
+    Cases_on`h`>>fs[]>>rw[]>>
+    simp[REV_ASSOCD] ) >>
+  Cases_on`tyin1`>>fs[]>>
   Cases_on`h`>>fs[]>>rw[]>>
   simp[REV_ASSOCD] >>
   imp_res_tac term_type_11 >> rw[] >>
@@ -626,7 +648,7 @@ val tac =
     METIS_TAC[term_type_11,term_type_11_inv]
 
 val VSUBST_IMP = prove(
-  ``∀tm ilist defs ilist1 tm1 r1.
+  ``∀tm ilist defs ilist1 tm1.
       term defs tm tm1 ∧
       LIST_REL (term defs) (MAP FST ilist) (MAP FST ilist1) ∧
       LIST_REL (term defs) (MAP SND ilist) (MAP SND ilist1) ∧
@@ -716,6 +738,118 @@ val VSUBST_IMP = prove(
     TRY ( simp[Once term_cases] >> NO_TAC ) >>
     TRY ( simp[Once has_type_cases,Once holSyntaxTheory.has_type_cases] >> NO_TAC) >>
     tac))
+
+val (result_term_rules,result_term_ind,result_term_cases) = Hol_reln`
+  (term defs tm tm1 ⇒ result_term defs (Clash tm) (Clash tm1)) ∧
+  (term defs tm tm1 ⇒ result_term defs (Result tm) (Result tm1))`
+
+val TYPE_SUBST_IMP = prove(
+  ``∀ty1 tyin1 ty tyin defs.
+      type defs ty ty1 ∧
+      LIST_REL (type defs) (MAP FST tyin) (MAP FST tyin1) ∧
+      LIST_REL (type defs) (MAP SND tyin) (MAP SND tyin1)
+      ⇒
+      type defs (TYPE_SUBST tyin ty) (TYPE_SUBST tyin1 ty1)``,
+  HO_MATCH_MP_TAC type_ind >>
+  conj_tac >- (
+    simp[Once term_cases] >> rw[] >>
+    match_mp_tac REV_ASSOCD_tyin_IMP >>
+    rw[Once term_cases] ) >>
+  rpt gen_tac >> strip_tac >>
+  simp[Once term_cases] >>
+  rw[] >>
+  rw[holSyntaxTheory.TYPE_SUBST_def] >>
+  rw[Once term_cases] >> fs[] >>
+  simp[EVERY2_MAP] >>
+  fs[EVERY_MEM,EVERY2_EVERY] >>
+  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+  fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+  rw[] >>
+  first_x_assum(qspec_then`EL n l`mp_tac) >>
+  discharge_hyps >- METIS_TAC[MEM_EL] >>
+  last_x_assum(qspec_then`n`mp_tac) >>
+  simp[] >> strip_tac >>
+  disch_then(qspecl_then[`tyin1`,`EL n tys`,`tyin`,`defs`]mp_tac) >>
+  simp[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM])
+
+(*
+val INST_CORE_IMP = prove(
+  ``∀env tyin tm defs env1 tyin1 tm1.
+      term defs tm tm1 ∧
+      LIST_REL (type defs) (MAP FST tyin) (MAP FST tyin1) ∧
+      LIST_REL (type defs) (MAP SND tyin) (MAP SND tyin1) ∧
+      LIST_REL (term defs) (MAP FST env) (MAP FST env1) ∧
+      LIST_REL (term defs) (MAP SND env) (MAP SND env1)
+      ⇒
+      result_term defs (INST_CORE env tyin tm) (INST_CORE env1 tyin1 tm1)``,
+  HO_MATCH_MP_TAC holSyntaxTheory.INST_CORE_ind >>
+  conj_tac >- (
+    simp[Once term_cases] >> rw[] >>
+    simp[INST_CORE_def,holSyntaxTheory.INST_CORE_def] >>
+    qmatch_abbrev_tac`result_term defs (if p then q else r) (if p1 then q1 else r1)` >>
+    `p = p1` by (
+      unabbrev_all_tac >>
+      qspecl_then[`ty1`,`tyin1`,`ty`,`tyin`,`defs`]mp_tac TYPE_SUBST_IMP >>
+      simp[] >> strip_tac >>
+      qmatch_assum_abbrev_tac `type defs ity ity1` >>
+      qspecl_then[`env`,`defs`,`Var x ity`,`env1`,`Var x ity1`,`Var x ty`,`Var x ty1`]mp_tac REV_ASSOCD_ilist_IMP >>
+      simp[] >>
+      discharge_hyps >- (
+        simp[Once term_cases] >>
+        simp[Once term_cases] ) >>
+      strip_tac >>
+      EQ_TAC >> strip_tac >> fs[] >>
+      fs[Q.SPECL[`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+      fs[Q.SPECL[`A`,`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+      METIS_TAC[term_type_11_inv,term_type_11] ) >>
+    rw[Abbr`p`,Abbr`p1`] >> fs[] >>
+    unabbrev_all_tac >>
+    rw[Once result_term_cases] >>
+    rw[Once term_cases] >>
+    match_mp_tac TYPE_SUBST_IMP >>
+    rw[] ) >>
+  conj_tac >- (
+    simp[Once term_cases] >> rw[] >>
+    rw[INST_CORE_def,holSyntaxTheory.INST_CORE_def] >>
+    rw[Once result_term_cases] >>
+    rw[Once term_cases] >>
+    match_mp_tac TYPE_SUBST_IMP >>
+    rw[] ) >>
+  conj_tac >- (
+    simp[Once term_cases] >> rw[] >>
+    rw[INST_CORE_def,holSyntaxTheory.INST_CORE_def] >>
+    rw[Once result_term_cases] >>
+    rw[Once term_cases] >>
+    fs[Q.SPEC`Fun X Y`(CONJUNCT1 (SPEC_ALL term_cases))] >> rw[] >>
+    fs[Q.SPEC`Bool`(CONJUNCT1 (SPEC_ALL term_cases))] >> rw[] >>
+    match_mp_tac TYPE_SUBST_IMP >>
+    rw[] ) >>
+  conj_tac >- (
+    simp[Once term_cases] >> rw[] >>
+    rw[INST_CORE_def,holSyntaxTheory.INST_CORE_def] >>
+    rw[Once result_term_cases] >>
+    rw[Once term_cases] >>
+    fs[Q.SPEC`Fun X Y`(CONJUNCT1 (SPEC_ALL term_cases))] >> rw[] >>
+    fs[Q.SPEC`Bool`(CONJUNCT1 (SPEC_ALL term_cases))] >> rw[] >>
+    match_mp_tac TYPE_SUBST_IMP >>
+    rw[] ) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    simp[Once term_cases] >> rw[] >>
+    rw[INST_CORE_def,holSyntaxTheory.INST_CORE_def] >>
+
+val INST_IMP = prove(
+  ``∀tm tyin defs tyin1 tm1.
+      term defs tm tm1 ∧
+      LIST_REL (term defs) (MAP FST ilist) (MAP FST ilist1) ∧
+      LIST_REL (term defs) (MAP SND ilist) (MAP SND ilist1) ∧
+      (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty) ∧
+      (∀s s'. MEM (s',s) ilist1 ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty)
+      ⇒
+      term defs (INST tyin tm) (VSUBST tyin1 tm1)``,
+      INST_def
+      INST_CORE_def
+*)
 
 val proves_IMP = store_thm("proves_IMP",
   ``(∀defs ty. type_ok defs ty ⇒ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
