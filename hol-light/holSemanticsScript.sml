@@ -1,4 +1,4 @@
-open HolKernel Parse boolLib bossLib lcsymtacs miscLib;
+open HolKernel Parse boolLib bossLib lcsymtacs miscTheory miscLib;
 
 val _ = new_theory "holSemantics";
 
@@ -570,6 +570,61 @@ val REV_ASSOCD_ilist_IMP = prove(
   imp_res_tac term_type_11 >> rw[] >>
   imp_res_tac term_type_11_inv)
 
+val VARIANT_IMP = prove(
+  ``∀tm tm1 defs s ty ty1.
+      term defs tm tm1 ∧
+      type defs ty ty1
+      ⇒
+      VARIANT tm s ty = VARIANT tm1 s ty1``,
+  rw[VARIANT_def,holSyntaxTheory.VARIANT_def] >>
+  simp[LIST_EQ_REWRITE] >>
+  conj_asm1_tac >- (
+    qmatch_abbrev_tac`a = b` >>
+    Cases_on`a < b` >- (
+      fs[Abbr`b`] >>
+      imp_res_tac VARIANT_PRIMES_def >>
+      imp_res_tac VFREE_IN_IMP_inv >>
+      fs[Q.SPECL[`A`,`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+      fsrw_tac[boolSimps.DNF_ss][] >>
+      METIS_TAC[holSyntaxTheory.VARIANT_PRIMES_def] ) >>
+    Cases_on`b < a` >- (
+      fs[Abbr`a`] >>
+      imp_res_tac holSyntaxTheory.VARIANT_PRIMES_def >>
+      imp_res_tac VFREE_IN_IMP >>
+      fs[Q.SPECL[`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+      fsrw_tac[boolSimps.DNF_ss][] >>
+      METIS_TAC[VARIANT_PRIMES_def] ) >>
+    DECIDE_TAC ) >>
+  simp[])
+
+val LIST_REL_MAP_FILTER_NEQ = store_thm("LIST_REL_MAP_FILTER_NEQ",
+  ``∀P f1 f2 z1 z2 l1 l2.
+      LIST_REL P (MAP f1 l1) (MAP f2 l2) ∧
+      (∀y1 y2. MEM (y1,y2) (ZIP(l1,l2)) ⇒ (SND y1 ≠ z1 ⇔ SND y2 ≠ z2) ∧ (P (f1 y1) (f2 y2)))
+      ⇒
+      LIST_REL P (MAP f1 (FILTER (λ(x,y). y ≠ z1) l1)) (MAP f2 (FILTER (λ(x,y). y ≠ z2) l2))``,
+  ntac 5 gen_tac >>
+  Induct >> simp[] >>
+  Cases >> simp[] >>
+  Cases >> simp[] >>
+  strip_tac >>
+  Cases_on`h`>>fs[] >> rw[] >>
+  METIS_TAC[SND])
+
+val tac =
+    match_mp_tac LIST_REL_MAP_FILTER_NEQ >>
+    simp[] >>
+    fs[EVERY2_EVERY] >>
+    simp[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+    unabbrev_all_tac >>
+    fs[EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+    rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+    rw[EQ_IMP_THM] >>
+    rpt (first_x_assum(qspec_then`n`mp_tac)) >> rw[] >>
+    fs[Q.SPECL[`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+    fs[Q.SPECL[`A`,`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+    METIS_TAC[term_type_11,term_type_11_inv]
+
 val VSUBST_IMP = prove(
   ``∀tm ilist defs ilist1 tm1 r1.
       term defs tm tm1 ∧
@@ -647,14 +702,20 @@ val VSUBST_IMP = prove(
     simp[Once term_cases] >>
     TRY (
       conj_asm1_tac >- (
-        (* VARIANT_IMP *)
-        cheat ) ) >>
+        match_mp_tac EQ_SYM >>
+        match_mp_tac VARIANT_IMP >>
+        qexists_tac`defs` >>
+        simp[] >>
+        first_x_assum match_mp_tac >>
+        simp[MEM_FILTER] >>
+        conj_tac >>
+        tac )) >>
     first_x_assum match_mp_tac >>
     simp[MEM_FILTER] >>
     rw[] >>
     TRY ( simp[Once term_cases] >> NO_TAC ) >>
     TRY ( simp[Once has_type_cases,Once holSyntaxTheory.has_type_cases] >> NO_TAC) >>
-    cheat (* LIST_REL_MAP_FILTER *)))
+    tac))
 
 val proves_IMP = store_thm("proves_IMP",
   ``(∀defs ty. type_ok defs ty ⇒ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
@@ -933,8 +994,66 @@ val proves_IMP = store_thm("proves_IMP",
     cheat ) >>
   conj_tac >- (
     rw[seq_trans_def] >>
-    (* VSUBST *)
-    cheat ) >>
+    `∃ilist1. LIST_REL (term defs) (MAP FST ilist) (MAP FST ilist1) ∧
+              LIST_REL (term defs) (MAP SND ilist) (MAP SND ilist1)` by (
+      simp[exists_list_GENLIST] >>
+      qexists_tac`LENGTH ilist` >>
+      simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+      simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM,GSYM SKOLEM_THM,RIGHT_EXISTS_IMP_THM] >>
+      fs[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >> rw[] >>
+      Cases_on`EL n ilist` >>
+      first_x_assum(qspecl_then[`r`,`q`,`n`]mp_tac) >>
+      simp[] >> rw[] >>
+      simp[Once CONJ_COMM] >>
+      simp[Once term_cases] >>
+      simp[EXISTS_PROD] >>
+      qexists_tac`tm1` >>
+      simp[] >>
+      imp_res_tac has_type_IMP >>
+      METIS_TAC[] ) >>
+    qexists_tac`MAP (VSUBST ilist1) h1` >>
+    qexists_tac`VSUBST ilist1 c1` >>
+    reverse conj_tac >- (
+      match_mp_tac(List.nth(CONJUNCTS proves_rules,23)) >>
+      fs[EVERY2_EVERY,EVERY_MEM] >>
+      fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+      rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+      fs[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+      rpt gen_tac >> strip_tac >>
+      Cases_on`EL n ilist` >>
+      first_x_assum(qspecl_then[`r`,`q`,`n`]mp_tac) >>
+      simp[] >> strip_tac >>
+      rpt (first_x_assum(qspec_then`n`mp_tac)) >>
+      simp[] >> ntac 3 strip_tac >>
+      imp_res_tac term_type_11 >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      qpat_assum`(X,Y)=Z`(assume_tac o SYM) >> fs[]>>
+      fs[Q.SPECL[`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+      imp_res_tac has_type_IMP
+      METIS_TAC[term_type_11] ) >>
+    qpat_assum`LIST_REL X asl h1`mp_tac >>
+    simp[EVERY2_EVERY,EVERY_MEM] >>
+    strip_tac >> pop_assum mp_tac >>
+    simp[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+    rw[] >>
+    match_mp_tac VSUBST_IMP >>
+    simp[] >>
+    fs[EVERY2_EVERY,EVERY_MEM] >>
+    fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+    rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+    fs[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+    conj_tac >- METIS_TAC[] >>
+    qx_genl_tac[`x`,`y`,`m`] >> strip_tac >>
+    Cases_on`EL m ilist` >>
+    first_x_assum(qspecl_then[`r`,`q`,`m`]mp_tac) >>
+    simp[] >> strip_tac >>
+    rpt (first_x_assum(qspec_then`m`mp_tac)) >>
+    simp[] >> ntac 3 strip_tac >>
+    imp_res_tac term_type_11 >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    qpat_assum`(X,Y)=Z`(assume_tac o SYM) >> fs[]>>
+    fs[Q.SPECL[`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+    METIS_TAC[has_type_IMP,term_type_11] ) >>
   conj_tac >- (
     rw[seq_trans_def] >>
     map_every qexists_tac[`h1`,`c1`] >>
