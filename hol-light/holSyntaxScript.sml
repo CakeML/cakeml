@@ -739,6 +739,7 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
         ~(MEM tyname (MAP FST (types defs))) /\
         ~(MEM a (MAP FST (consts defs))) /\
         ~(MEM r (MAP FST (consts defs))) /\
+        ~(a = r) /\
         ( (defs, asl) |- p  \/
           ((asl,p) = ([],
              Comb (Const a (Fun rep_type abs_type))

@@ -980,6 +980,7 @@ val TYPE_SUBST_IMP = prove(
   conj_tac >- (
     simp[Once term_cases] >> rw[] >>
     match_mp_tac REV_ASSOCD_tyin_IMP >>
+    rw[Once term_cases] >>
     rw[Once term_cases] ) >>
   rpt gen_tac >> strip_tac >>
   simp[Once term_cases] >>
@@ -1195,11 +1196,32 @@ val INST_FILTER = store_thm("INST_FILTER",
   pop_assum(qspecl_then[`tm`,`[]`]mp_tac) >>
   rw[])
 
+val deftm_def = Define`
+  deftm (Constdef n t) = t ∧
+  deftm (Typedef n t a r) = t`
+
+val MEM_Constdef_const_def = prove(
+  ``∀defs n t. ALL_DISTINCT (MAP FST (consts defs)) ∧ MEM (Constdef n t) defs ⇒ const_def n defs = SOME (0,t)``,
+  Induct >> simp[] >>
+  Cases >> simp[consts_def,consts_aux_def] >>
+  rw[Once const_def_def] >>
+  imp_res_tac MEM_Constdef_MEM_consts >>
+  fs[consts_def] >> fs[] >>
+  spose_not_then strip_assume_tac >>
+  res_tac >>
+  imp_res_tac MEM_Constdef_MEM_consts >>
+  fs[consts_def] >> fs[] )
+
 val proves_IMP = store_thm("proves_IMP",
   ``(∀defs ty. type_ok defs ty ⇒ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
     (∀defs tm. term_ok defs tm ⇒ ∃tm1. term defs tm tm1 ∧ term_ok tm1) ∧
-    (∀defs. context_ok defs ⇒ ∃h c h1 c1. seq_trans ((defs,h),c) (h1,c1) ∧ h1 |- c1) ∧
-    (∀dh c. dh |- c ⇒ ∃h1 c1. seq_trans (dh,c) (h1,c1) ∧ h1 |- c1)``,
+    (∀defs. context_ok defs ⇒
+      ALL_DISTINCT (MAP FST (consts defs)) ∧
+      (∀t. MEM t (MAP deftm defs) ⇒ ∃t1. term defs t t1 ∧ term_ok t1)) ∧
+    (∀dh c. dh |- c ⇒
+      ALL_DISTINCT (MAP FST (consts (FST dh))) ∧
+      (∀t. MEM t (MAP deftm (FST dh)) ⇒ ∃t1. term (FST dh) t t1 ∧ term_ok t1) ∧
+      ∃h1 c1. seq_trans (dh,c) (h1,c1) ∧ h1 |- c1)``,
   HO_MATCH_MP_TAC holSyntaxTheory.proves_strongind >>
   conj_tac >- simp[Once term_cases,Once proves_cases] >>
   conj_tac >- simp[Once term_cases,Once proves_cases] >>
@@ -1290,6 +1312,8 @@ val proves_IMP = store_thm("proves_IMP",
     METIS_TAC[List.nth(CONJUNCTS proves_rules,13),MEM,MEM_EL] ) >>
   conj_tac >- (
     rw[seq_trans_def] >>
+    rw[consts_def]
+    (* >>
     qexists_tac`[]` >> simp[] >>
     qexists_tac`Var x Bool === Var x Bool` >>
     qspecl_then[`[]`,`Var x Bool`,`Var x Bool`,`Var x Bool === Var x Bool`]mp_tac (Q.GEN`defs`term_equation) >>
@@ -1301,7 +1325,7 @@ val proves_IMP = store_thm("proves_IMP",
     simp[Once term_cases] >>
     match_mp_tac(List.nth(CONJUNCTS proves_rules,14)) >>
     simp[Once proves_cases] >>
-    simp[Once proves_cases] ) >>
+    simp[Once proves_cases] *)) >>
   conj_tac >- (
     rw[seq_trans_def] >>
     METIS_TAC[] ) >>
@@ -1581,7 +1605,24 @@ val proves_IMP = store_thm("proves_IMP",
     fs[Q.SPECL[`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
     METIS_TAC[has_type_IMP,term_type_11] ) >>
   conj_tac >- (
-    rw[seq_trans_def] >>
+    rw[seq_trans_def,deftm_def] >>
+    TRY (
+      first_x_assum(qspec_then`t`mp_tac) >>
+      rw[] >>
+      qexists_tac`t1` >> rw[] >>
+      match_mp_tac (MP_CANON (CONJUNCT2 term_type_cons)) >>
+      simp[safe_def_names_def] ) >>
+    TRY (
+      qexists_tac`tm1` >> rw[] >>
+      match_mp_tac (MP_CANON (CONJUNCT2 term_type_cons)) >>
+      simp[safe_def_names_def] ) >>
+    TRY (
+      fs[consts_def] >>
+      fs[ALL_DISTINCT_APPEND] >>
+      simp[Once consts_aux_def] >>
+      simp[Once consts_aux_def] >>
+      simp[Once consts_aux_def] >>
+      METIS_TAC[] ) >>
     map_every qexists_tac[`h1`,`c1`] >>
     simp[] >>
     fs[EVERY_MEM,EVERY2_EVERY] >>
@@ -1591,10 +1632,41 @@ val proves_IMP = store_thm("proves_IMP",
     METIS_TAC[term_type_cons]) >>
   conj_tac >- (
     rw[seq_trans_def] >>
-    (* need everything in context to be term_ok ... *)
+    first_x_assum(qspec_then`t`mp_tac) >>
+    simp[MEM_MAP] >>
+    discharge_hyps >- (
+      qexists_tac`Constdef n t` >>
+      simp[deftm_def] ) >>
+    strip_tac >>
+    `welltyped t1` by (
+      imp_res_tac soundness >>
+      METIS_TAC[has_meaning_welltyped] ) >>
+    `welltyped t` by METIS_TAC[term_welltyped] >>
+    qexists_tac`Const n (typeof t1) (Defined t1) === t1` >>
+    qspecl_then[`Const n (typeof t)`,`t`]mp_tac term_equation >>
+    simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >> strip_tac >>
+    conj_tac >- (
+      qexists_tac`Const n (typeof t1) (Defined t1)` >>
+      qexists_tac`t1` >>
+      simp[] >>
+      simp[Once term_cases] >>
+      qexists_tac`0` >>
+      rw[] >>
+      qexists_tac`t` >>
+      simp[] >>
+      conj_tac >- METIS_TAC[has_type_IMP,WELLTYPED_LEMMA,WELLTYPED,holSyntaxTheory.WELLTYPED_LEMMA,holSyntaxTheory.WELLTYPED] >>
+      MEM_Constdef_const_def >>
+      rw[] ) >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,24)) >>
+    fs[WELLTYPED] >>
+    (* need to remember all this information with the inductive hypothesis for context_ok *)
     cheat ) >>
-  rw[seq_trans_def]
-  >- (
+  rpt gen_tac >>
+  simp[seq_trans_def] >>
+  strip_tac >- (
+    conj_tac >- (
+      fs[consts_def] >>
+      simp[Once consts_aux_def]
     map_every qexists_tac[`h1`,`c1'`] >>
     fs[EVERY_MEM,EVERY2_EVERY] >>
     rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
