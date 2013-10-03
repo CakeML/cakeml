@@ -1268,6 +1268,48 @@ val CLOSED_IMP = prove(
   fs[Q.SPECL[`A`,`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
   METIS_TAC[])
 
+val LIST_UNION_IMP = prove(
+  ``∀l1 l2. sholSyntax$LIST_UNION l1 l2 = holSyntax$LIST_UNION l1 l2``,
+  Induct >> fs[LIST_UNION_def,holSyntaxTheory.LIST_UNION_def] >>
+  simp[LIST_INSERT_def,holSyntaxTheory.LIST_INSERT_def])
+
+val LIST_UNION_NIL_2 = store_thm("LIST_UNION_NIL_2",
+  ``∀ls. ALL_DISTINCT ls ⇒ sholSyntax$LIST_UNION ls [] = ls``,
+  Induct >> simp[LIST_UNION_def,LIST_INSERT_def] >>
+  rw[] >> fs[] >> rfs[LIST_UNION_def])
+
+val LIST_UNION_same = store_thm("LIST_UNION_same",
+  ``∀l1 l2. set l1 ⊆ set l2 ⇒ LIST_UNION l1 l2 = l2``,
+  Induct >> simp[LIST_UNION_def] >>
+  fs[pred_setTheory.SUBSET_DEF] >>
+  fs[LIST_UNION_def,LIST_INSERT_def])
+
+val tyvars_IMP = prove(
+  ``∀ty1 defs ty. type defs ty ty1 ⇒ (tyvars ty = tyvars ty1)``,
+  HO_MATCH_MP_TAC type_ind >> conj_tac >|[rpt gen_tac,rpt gen_tac >> strip_tac] >>
+  simp[Once term_cases] >>
+  rw[tyvars_def,holSyntaxTheory.tyvars_def] >>
+  rw[tyvars_def,holSyntaxTheory.tyvars_def] >> fs[] >- (
+    METIS_TAC[LIST_UNION_IMP] ) >>
+  ntac 2 (pop_assum kall_tac) >>
+  fs[EVERY_MEM] >>
+  ntac 2 (pop_assum mp_tac) >>
+  qid_spec_tac`l` >>
+  Induct_on`tys` >>
+  simp[] >> rw[] >> rw[] >> fs[] >>
+  METIS_TAC[LIST_UNION_IMP] )
+
+val tvars_IMP = prove(
+  ``∀tm defs tm1. term defs tm tm1 ⇒ (tvars tm = tvars tm1)``,
+  Induct >> simp[tvars_def,holSyntaxTheory.tvars_def] >>
+  simp[Once term_cases] >> rw[] >>
+  simp[tvars_def] >>
+  fs[Q.SPEC`Fun X Y`(CONJUNCT1 (SPEC_ALL term_cases))] >> rw[] >>
+  fs[Q.SPEC`Bool`(CONJUNCT1 (SPEC_ALL term_cases))] >> rw[] >>
+  imp_res_tac term_type_11 >> rw[] >>
+  simp[tyvars_def] >>
+  METIS_TAC[tyvars_IMP,LIST_UNION_NIL_2,tyvars_ALL_DISTINCT,LIST_UNION_same,pred_setTheory.SUBSET_DEF,LIST_UNION_IMP])
+
 val proves_IMP = store_thm("proves_IMP",
   ``(∀defs ty. type_ok defs ty ⇒ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
     (∀defs tm. term_ok defs tm ⇒ ∃tm1. term defs tm tm1 ∧ term_ok tm1) ∧
@@ -1723,24 +1765,46 @@ val proves_IMP = store_thm("proves_IMP",
     fs[EVERY_MEM] >>
     res_tac >> fs[def_ok_def] >>
     imp_res_tac CLOSED_IMP >> simp[] >>
-    (* tvars_IMP, tyvars_IMP *)
-    cheat ) >>
+    imp_res_tac tvars_IMP >>
+    fs[holSyntaxTheory.WELLTYPED] >>
+    imp_res_tac has_type_IMP >>
+    imp_res_tac tyvars_IMP >>
+    imp_res_tac WELLTYPED_LEMMA >>
+    METIS_TAC[]) >>
   rpt gen_tac >>
   simp[seq_trans_def] >>
-  strip_tac >- (
-    conj_tac >- (
-      fs[consts_def] >>
-      simp[Once consts_aux_def]
+  strip_tac >>
+  (conj_tac >- ( fs[consts_def] >> simp[Once consts_aux_def] )) >>
+  (conj_tac >- ( simp[def_ok_def] )) >>
+  (conj_tac >- (
+    simp[deftm_def] >>
+    rw[] >- (
+      qpat_assum`term defs X c1`mp_tac >>
+      simp[Once term_cases] >>
+      rw[] >>
+      qexists_tac`x1` >>
+      conj_tac >- (
+        match_mp_tac (MP_CANON(CONJUNCT2 term_type_cons)) >>
+        simp[safe_def_names_def] ) >>
+      match_mp_tac (List.nth(CONJUNCTS proves_rules,9)) >>
+      qexists_tac`y1` >>
+      match_mp_tac (List.nth(CONJUNCTS proves_rules,13)) >>
+      qexists_tac`Comb x1 y1` >>
+      qexists_tac`[]` >>
+      simp[] ) >>
+    res_tac >>
+    qexists_tac`t1` >>
+    simp[] >>
+    match_mp_tac (MP_CANON(CONJUNCT2 term_type_cons)) >>
+    simp[safe_def_names_def] ))
+  >- (
     map_every qexists_tac[`h1`,`c1'`] >>
     fs[EVERY_MEM,EVERY2_EVERY] >>
     rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
     `safe_def_names defs (Typedef tyname t a r)` by (
       simp[safe_def_names_def] ) >>
-    METIS_TAC[term_type_cons])
-  >- (
-    simp[] >>
-    cheat ) >>
-  simp[] >>
+    METIS_TAC[term_type_cons]) >>
+  rw[] >>
   cheat)
 
 val _ = export_theory();
