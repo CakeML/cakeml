@@ -72,10 +72,20 @@ val (term_rules,term_ind,term_cases) = xHol_reln "term" `
   (type defs ty ty1 /\ term defs x x1 ==>
    term defs (Abs s ty x) (Abs s ty1 x1)) /\
   (type defs ty ty1 /\
-   (const_def s defs = SOME (n,tm)) /\ term defs tm tm1 ==>
-   term defs (Const s ty) (Const s ty1 (if n = 0 then Defined tm1 else
-                                        if n = 1 then Tyabs s tm1 else
-                                     (* if n = 2 then *) Tyrep s tm1)))`
+   (const_def s defs = SOME (0,tm)) /\ term defs tm tm1 ==>
+   term defs (Const s ty) (Const s ty1 (Defined tm1))) /\
+  (type defs ty ty1 /\
+   (const_def s defs = SOME (1,tm)) /\
+   (type_def n defs = SOME (tm,s,s')) /\
+   (∀tm n' s'. (MEM (Typedef n' tm s s') defs) ⇒ (n' = n)) /\
+   term defs tm tm1 ==>
+   term defs (Const s ty) (Const s ty1 (Tyabs n tm1))) /\
+  (type defs ty ty1 /\
+   (const_def s defs = SOME (2,tm)) /\
+   (type_def n defs = SOME (tm,s',s)) /\
+   (∀tm n' s'. (MEM (Typedef n' tm s' s) defs) ⇒ (n' = n)) /\
+   term defs tm tm1 ==>
+   term defs (Const s ty) (Const s ty1 (Tyrep n tm1)))`
 
 val seq_trans_def = Define `
   seq_trans ((defs,h),c) (h1,c1) <=>
@@ -133,6 +143,52 @@ val Arb_ok = prove(
   conj_tac >- simp[Once proves_cases] >>
   METIS_TAC[Ts_has_type_Bool,welltyped_def,WELLTYPED_LEMMA])
 
+val type_def_MEM = prove(
+  ``∀defs n tm x y. type_def n defs = SOME (tm,x,y) ⇒ MEM (Typedef n tm x y) defs``,
+  Induct >> simp[Once type_def_def] >>
+  Cases >> simp[] >> rw[])
+
+val const_def_MEM_0 = prove(
+  ``∀defs n tm. const_def n defs = SOME (0,tm) ⇒ MEM (Constdef n tm) defs``,
+  Induct >> simp[Once const_def_def] >>
+  Cases >> simp[] >> rw[])
+
+val const_def_MEM_1 = prove(
+  ``∀defs n tm. const_def n defs = SOME (1,tm) ⇒ ∃x y z. MEM (Typedef x y n z) defs``,
+  Induct >> simp[Once const_def_def] >>
+  Cases >> simp[] >> rw[] >> METIS_TAC[])
+
+val const_def_MEM_2 = prove(
+  ``∀defs n m tm. const_def n defs = SOME (m,tm) ∧ m ≠ 0 ∧ m ≠ 1 ⇒ ∃x y z. MEM (Typedef x y z n) defs``,
+  Induct >> simp[Once const_def_def] >>
+  Cases >> simp[] >> rw[] >> METIS_TAC[])
+
+val MEM_Typedef_MEM_types = prove(
+  ``∀defs n tm a r. MEM (Typedef n tm a r) defs ⇒ MEM n (MAP FST (types defs))``,
+  Induct >> simp[] >>
+  rw[types_def,types_aux_def] >>
+  rw[types_def,types_aux_def] >>
+  fs[types_def] >>
+  METIS_TAC[])
+
+val MEM_Typedef_MEM_consts = prove(
+  ``∀defs n tm a r. MEM (Typedef n tm a r) defs ⇒ MEM a (MAP FST (consts defs)) ∧ MEM r (MAP FST (consts defs))``,
+  Induct >> simp[] >>
+  rw[consts_def,consts_aux_def] >>
+  rw[consts_def,consts_aux_def] >>
+  fs[consts_def] >>
+  METIS_TAC[])
+
+val MEM_Constdef_MEM_consts = prove(
+  ``∀defs n tm. MEM (Constdef n tm) defs ⇒ MEM n (MAP FST (consts defs))``,
+  Induct >> simp[] >>
+  rw[consts_def,consts_aux_def] >>
+  rw[consts_def,consts_aux_def] >>
+  fs[consts_def] >>
+  METIS_TAC[])
+
+val neq210 = prove(``2:int ≠ 0 ∧ 2 ≠ 1``,simp[])
+
 val term_type_11 = prove(
   ``(!ty ty1. type defs ty ty1 ==> !ty2. type defs ty ty2 ==> (ty1 = ty2)) ∧
     (∀tm tm1. term defs tm tm1 ⇒ ∀tm2. term defs tm tm2 ⇒ (tm1 = tm2))``,
@@ -146,7 +202,8 @@ val term_type_11 = prove(
       fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
       rw[LIST_EQ_REWRITE] >> rfs[MEM_ZIP] >>
       METIS_TAC[] )
-  >> (strip_tac >> simp[Once term_cases] >> METIS_TAC[]))
+  >> (strip_tac >> simp[Once term_cases] >> rw[] >>
+    METIS_TAC[type_def_MEM,const_def_MEM_1,const_def_MEM_2,neq210]))
 
 val term_type_11_inv = prove(
   ``(!ty ty1. type defs ty ty1 ==> !ty2. type defs ty2 ty1 ==> (ty = ty2)) ∧
@@ -176,7 +233,9 @@ val term_type_11_inv = prove(
     fsrw_tac[ARITH_ss][] )
   >- (strip_tac >> simp[Once term_cases] >> METIS_TAC[])
   >- (strip_tac >> simp[Once term_cases] >> METIS_TAC[])
-  >- ( strip_tac >> simp[Once term_cases] >> rw[] ))
+  >- ( strip_tac >> simp[Once term_cases] >> rw[] )
+  >- (strip_tac >> simp[Once term_cases] >> METIS_TAC[])
+  >- (strip_tac >> simp[Once term_cases] >> METIS_TAC[]))
 
 val has_type_IMP = prove(
   ``∀tm ty. tm has_type ty ⇒ ∀defs tm1. term defs tm tm1 ⇒ ∃ty1. type defs ty ty1 ∧ tm1 has_type ty1``,
@@ -269,13 +328,9 @@ val RACONV_IMP = prove(
    fs[Q.SPEC`Var X Y`(CONJUNCT2 (SPEC_ALL term_cases))] >>
    fs[Q.SPEC`Select X`(CONJUNCT2 (SPEC_ALL term_cases))] >>
    fs[Q.SPEC`Equal X`(CONJUNCT2 (SPEC_ALL term_cases))] >>
-   fs[Q.SPEC`Const X Y`(CONJUNCT2 (SPEC_ALL term_cases))] >>
    fs[Q.SPEC`Comb X Y`(CONJUNCT2 (SPEC_ALL term_cases))] >>
    rw[RACONV] >> fsrw_tac[ARITH_ss][] >>
    TRY (match_mp_tac(MP_CANON(CONJUNCT1 term_type_11)) >> metis_tac[]) >>
-   TRY (match_mp_tac(MP_CANON(CONJUNCT2 term_type_11)) >> metis_tac[]) >>
-   TRY (first_x_assum match_mp_tac >> simp[] >> metis_tac[]) >>
-   TRY (last_x_assum match_mp_tac >> simp[] >> metis_tac[]) >>
    TRY (
      match_mp_tac (MP_CANON ALPHAVARS_IMP) >>
      qexists_tac`env` >>
@@ -284,6 +339,21 @@ val RACONV_IMP = prove(
      simp[] >>
      simp[Once term_cases] >>
      simp[Once term_cases] ) >>
+   TRY (first_x_assum match_mp_tac >> simp[] >> metis_tac[]) >>
+   TRY (last_x_assum match_mp_tac >> simp[] >> metis_tac[])
+   >- (
+     rpt(qpat_assum`term defs X Y`mp_tac) >>
+     simp[Q.SPEC`Const X Y`(CONJUNCT2 (SPEC_ALL term_cases))] >>
+     rw[] >> simp_tac(srw_ss())[RACONV] >>
+     rpt conj_tac >>
+     TRY (match_mp_tac(MP_CANON(CONJUNCT1 term_type_11)) >> metis_tac[]) >>
+     TRY (match_mp_tac(MP_CANON(CONJUNCT2 term_type_11)) >> metis_tac[]) >>
+     full_simp_tac pure_ss [] >>
+     qpat_assum`SOME X = SOME Y`mp_tac >>
+     simp_tac(srw_ss()++ARITH_ss)[] >>
+     strip_tac >>
+     rpt BasicProvers.VAR_EQ_TAC >>
+     metis_tac[term_type_11,const_def_MEM_1,const_def_MEM_2,neq210]) >>
    fs[Q.SPEC`Abs X Y Z`(CONJUNCT2 (SPEC_ALL term_cases))] >>
    rw[RACONV] >- metis_tac[term_type_11] >>
    first_x_assum match_mp_tac >> simp[] >>
@@ -320,7 +390,6 @@ val RACONV_IMP_inv = prove(
    simp[] >> rw[] >>
    Cases_on`tp` >>
    fs[Q.SPECL[`A`,`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
-   fs[Q.SPECL[`A`,`Const X Y Z`](CONJUNCT2 (SPEC_ALL term_cases))] >>
    fs[Q.SPECL[`A`,`Comb X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
    rw[holSyntaxTheory.RACONV] >> fsrw_tac[ARITH_ss][] >>
    TRY (imp_res_tac term_type_11_inv >> fs[] >> NO_TAC) >>
@@ -334,7 +403,13 @@ val RACONV_IMP_inv = prove(
      qexists_tac`defs` >>
      simp[] >>
      simp[Once term_cases] >>
-     simp[Once term_cases] ) >>
+     simp[Once term_cases] )
+   >- (
+     fs[Q.SPECL[`A`,`Const X Y Z`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+     rw[holSyntaxTheory.RACONV] >>
+     TRY (match_mp_tac(MP_CANON(CONJUNCT1 term_type_11_inv)) >> metis_tac[]) >>
+     TRY (match_mp_tac(MP_CANON(CONJUNCT2 term_type_11_inv)) >> metis_tac[]) >>
+     imp_res_tac term_type_11_inv >> fs[] ) >>
    fs[Q.SPECL[`A`,`Abs X Y Z`](CONJUNCT2 (SPEC_ALL term_cases))] >>
    rw[holSyntaxTheory.RACONV] >- metis_tac[term_type_11_inv] >>
    first_x_assum match_mp_tac >> simp[] >>
@@ -372,11 +447,12 @@ val VFREE_IN_IMP = prove(
   fs[Q.SPEC`Var X Y`(CONJUNCT2 (SPEC_ALL term_cases))] >>
   fs[Q.SPEC`Select X`(CONJUNCT2 (SPEC_ALL term_cases))] >>
   fs[Q.SPEC`Equal X`(CONJUNCT2 (SPEC_ALL term_cases))] >>
-  fs[Q.SPEC`Const X Y`(CONJUNCT2 (SPEC_ALL term_cases))] >>
   fs[Q.SPEC`Comb X Y`(CONJUNCT2 (SPEC_ALL term_cases))] >>
   fs[Q.SPEC`Abs X Y Z`(CONJUNCT2 (SPEC_ALL term_cases))] >>
   rw[] >> rw[holSyntaxTheory.VFREE_IN_def] >> fsrw_tac[ARITH_ss][] >> rw[] >>
   imp_res_tac term_type_11 >> fs[] >> rw[]
+  >- (
+    fs[Q.SPEC`Const X Y`(CONJUNCT2 (SPEC_ALL term_cases))] )
   >- METIS_TAC[] >- METIS_TAC[]
   >- (
     spose_not_then strip_assume_tac >> rw[] >>
@@ -388,11 +464,11 @@ val VFREE_IN_IMP_inv = prove(
   ``!s2 s1 defs t2 t1. VFREE_IN s1 s2 ∧ term defs t1 s1 ∧ term defs t2 s2 ⇒ VFREE_IN t1 t2``,
   Induct >> simp[] >>
   fs[Q.SPECL[`A`,`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
-  fs[Q.SPECL[`A`,`Const X Y Z`](CONJUNCT2 (SPEC_ALL term_cases))] >>
   fs[Q.SPECL[`A`,`Comb X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
   rw[] >> rw[holSyntaxTheory.VFREE_IN_def] >>
   last_x_assum mp_tac >> rw[] >> fsrw_tac[ARITH_ss][] >> rw[] >>
-  imp_res_tac term_type_11_inv >> fs[]
+  imp_res_tac term_type_11_inv >> fs[] >- (
+    fs[Q.SPECL[`A`,`Const X Y Z`](CONJUNCT2 (SPEC_ALL term_cases))] )
   >- METIS_TAC[] >- METIS_TAC[] >>
   fs[Q.SPECL[`A`,`Abs X Y Z`](CONJUNCT2 (SPEC_ALL term_cases))] >>
   rw[] >- (
@@ -455,50 +531,6 @@ val safe_def_names_def = Define`
     a ∉ set (MAP FST (consts defs)) ∧
     r ∉ set (MAP FST (consts defs)))`
 
-val type_def_MEM = prove(
-  ``∀defs n tm x y. type_def n defs = SOME (tm,x,y) ⇒ MEM (Typedef n tm x y) defs``,
-  Induct >> simp[Once type_def_def] >>
-  Cases >> simp[] >> rw[])
-
-val const_def_MEM_0 = prove(
-  ``∀defs n tm. const_def n defs = SOME (0,tm) ⇒ MEM (Constdef n tm) defs``,
-  Induct >> simp[Once const_def_def] >>
-  Cases >> simp[] >> rw[])
-
-val const_def_MEM_1 = prove(
-  ``∀defs n tm. const_def n defs = SOME (1,tm) ⇒ ∃x y z. MEM (Typedef x y n z) defs``,
-  Induct >> simp[Once const_def_def] >>
-  Cases >> simp[] >> rw[] >> METIS_TAC[])
-
-val const_def_MEM_2 = prove(
-  ``∀defs n m tm. const_def n defs = SOME (m,tm) ∧ m ≠ 0 ∧ m ≠ 1 ⇒ ∃x y z. MEM (Typedef x y z n) defs``,
-  Induct >> simp[Once const_def_def] >>
-  Cases >> simp[] >> rw[] >> METIS_TAC[])
-
-val MEM_Typedef_MEM_types = prove(
-  ``∀defs n tm a r. MEM (Typedef n tm a r) defs ⇒ MEM n (MAP FST (types defs))``,
-  Induct >> simp[] >>
-  rw[types_def,types_aux_def] >>
-  rw[types_def,types_aux_def] >>
-  fs[types_def] >>
-  METIS_TAC[])
-
-val MEM_Typedef_MEM_consts = prove(
-  ``∀defs n tm a r. MEM (Typedef n tm a r) defs ⇒ MEM a (MAP FST (consts defs)) ∧ MEM r (MAP FST (consts defs))``,
-  Induct >> simp[] >>
-  rw[consts_def,consts_aux_def] >>
-  rw[consts_def,consts_aux_def] >>
-  fs[consts_def] >>
-  METIS_TAC[])
-
-val MEM_Constdef_MEM_consts = prove(
-  ``∀defs n tm. MEM (Constdef n tm) defs ⇒ MEM n (MAP FST (consts defs))``,
-  Induct >> simp[] >>
-  rw[consts_def,consts_aux_def] >>
-  rw[consts_def,consts_aux_def] >>
-  fs[consts_def] >>
-  METIS_TAC[])
-
 val term_type_cons = prove(
   ``(∀ty ty1. type defs ty ty1 ⇒ ∀d. safe_def_names defs d ⇒ type (d::defs) ty ty1) ∧
     (∀tm tm1. term defs tm tm1 ⇒ ∀d. safe_def_names defs d ⇒ term (d::defs) tm tm1)``,
@@ -514,7 +546,6 @@ val term_type_cons = prove(
     first_x_assum match_mp_tac >>
     rw[safe_def_names_def] )
   >- (
-    qexists_tac`0` >> rw[] >>
     qexists_tac`tm` >>
     reverse conj_tac >- METIS_TAC[] >>
     Cases_on`d`>>simp[Once const_def_def] >>
@@ -524,27 +555,36 @@ val term_type_cons = prove(
     fs[safe_def_names_def] >>
     rw[] >> fs[] )
   >- (
-    qexists_tac`1` >> rw[] >>
+    qexists_tac`s'` >> qexists_tac`tm` >>
     imp_res_tac const_def_MEM_1 >>
     imp_res_tac MEM_Typedef_MEM_consts >>
-    qexists_tac`tm` >>
-    reverse conj_tac >- METIS_TAC[] >>
+    res_tac >> simp[] >>
     Cases_on`d`>>simp[Once const_def_def] >>
-    rw[] >>
-    fs[safe_def_names_def] )
+    rw[] >> rw[Once type_def_def] >>
+    fs[safe_def_names_def] >>
+    imp_res_tac type_def_MEM >>
+    imp_res_tac MEM_Typedef_MEM_types >>
+    fs[] >> rw[] >>
+    METIS_TAC[const_def_MEM_1])
   >- (
-    qexists_tac`n` >> rw[] >>
+    qexists_tac`s'` >> qexists_tac`tm` >>
     imp_res_tac const_def_MEM_2 >>
+    fsrw_tac[ARITH_ss][] >>
     imp_res_tac MEM_Typedef_MEM_consts >>
-    qexists_tac`tm` >>
-    reverse conj_tac >- METIS_TAC[] >>
+    res_tac >> simp[] >>
     Cases_on`d`>>simp[Once const_def_def] >>
-    rw[] >> fs[safe_def_names_def] ))
+    rw[] >> rw[Once type_def_def] >>
+    fs[safe_def_names_def] >>
+    imp_res_tac type_def_MEM >>
+    imp_res_tac MEM_Typedef_MEM_types >>
+    fs[] >> rw[] >>
+    METIS_TAC[const_def_MEM_2]))
 
 val def_ok_def = Define`
   def_ok defs (Constdef n t) = term_ok defs t ∧
   def_ok defs (Typedef n t a r) = term_ok defs t`
 
+(*
 val proves_ok = prove(
   ``(∀defs ty. type_ok defs ty ⇒ T) ∧
     (∀defs tm. term_ok defs tm ⇒ T) ∧
@@ -775,6 +815,7 @@ val proves_ok = prove(
   match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,28)) >>
   simp[] >>
   metis_tac[List.nth(CONJUNCTS holSyntaxTheory.proves_rules,16)])
+*)
 
 val REV_ASSOCD_ilist_IMP = prove(
   ``∀ilist defs t ilist1 t1 d d1.
@@ -891,7 +932,8 @@ val VSUBST_IMP = prove(
     simp[Once term_cases] >> rw[] >>
     simp[VSUBST_def,holSyntaxTheory.VSUBST_def] >>
     simp[Once term_cases] >>
-    rw[] )
+    rw[] >>
+    METIS_TAC[const_def_MEM_1])
   >- (
     simp[Once term_cases] >> rw[] >>
     simp[VSUBST_def,holSyntaxTheory.VSUBST_def] >>
@@ -1041,8 +1083,10 @@ val INST_CORE_IMP = prove(
     rw[INST_CORE_def,holSyntaxTheory.INST_CORE_def] >>
     rw[Once result_term_cases] >>
     rw[Once term_cases] >>
-    match_mp_tac TYPE_SUBST_IMP >>
-    rw[] ) >>
+    TRY (
+      match_mp_tac TYPE_SUBST_IMP >>
+      rw[] ) >>
+    METIS_TAC[const_def_MEM_1]) >>
   conj_tac >- (
     simp[Once term_cases] >> rw[] >>
     rw[INST_CORE_def,holSyntaxTheory.INST_CORE_def] >>
@@ -1830,13 +1874,10 @@ val proves_IMP = store_thm("proves_IMP",
       qexists_tac`t1` >>
       simp[] >>
       simp[Once term_cases] >>
-      qexists_tac`0` >>
-      rw[] >>
+      imp_res_tac MEM_Constdef_const_def >>
       qexists_tac`t` >>
       simp[] >>
-      conj_tac >- METIS_TAC[has_type_IMP,WELLTYPED_LEMMA,WELLTYPED,holSyntaxTheory.WELLTYPED_LEMMA,holSyntaxTheory.WELLTYPED] >>
-      imp_res_tac MEM_Constdef_const_def >>
-      rw[] ) >>
+      METIS_TAC[has_type_IMP,WELLTYPED_LEMMA,WELLTYPED,holSyntaxTheory.WELLTYPED_LEMMA,holSyntaxTheory.WELLTYPED]) >>
     match_mp_tac(List.nth(CONJUNCTS proves_rules,24)) >>
     fs[WELLTYPED] >>
     fs[EVERY_MEM] >>
@@ -1937,6 +1978,9 @@ val proves_IMP = store_thm("proves_IMP",
     simp[Once term_cases] >>
     strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >>
+    simp[Once type_def_def] >>
+    simp[Once const_def_def] >>
+    simp[Once const_def_def] >>
     CONV_TAC SWAP_EXISTS_CONV >>
     qexists_tac`x1` >>
     CONV_TAC SWAP_EXISTS_CONV >>
@@ -1947,6 +1991,7 @@ val proves_IMP = store_thm("proves_IMP",
     simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
     simp[Q.SPEC`Const X Y`(CONJUNCT2 (SPEC_ALL term_cases))] >>
     simp[Once const_def_def] >>
+    simp[Once const_def_def] >>
     simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
     simp[Q.SPEC`Fun X Y`(CONJUNCT1 (SPEC_ALL term_cases))] >>
     simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
@@ -1955,6 +2000,7 @@ val proves_IMP = store_thm("proves_IMP",
     simp[Once type_def_def] >>
     simp[Once type_def_def] >>
     simp[Once type_def_def] >>
+    simp[Once const_def_def] >>
     `safe_def_names defs (Typedef tyname t a r)` by simp[safe_def_names_def] >>
     `type (Typedef tyname t a r::defs) rep_type tx1` by METIS_TAC[term_type_cons] >>
     qexists_tac`x1` >> simp[] >>
@@ -1964,11 +2010,25 @@ val proves_IMP = store_thm("proves_IMP",
     qexists_tac`rr` >> simp[] >>
     qexists_tac`x1` >> simp[] >>
     qexists_tac`rr` >> simp[] >>
+    simp[Once type_def_def] >>
     qexists_tac`x1` >> simp[] >>
     qexists_tac`rr` >> simp[] >>
+    reverse conj_tac >- (
+      rw[] >>
+      imp_res_tac MEM_Typedef_MEM_consts ) >>
     match_mp_tac(List.nth(CONJUNCTS proves_rules,25)) >>
-
-
+    imp_res_tac CLOSED_IMP >>
+    simp[] >>
+    qexists_tac`y1` >>
+    imp_res_tac tvars_IMP >>
+    simp[Abbr`rr`,STRING_SORT_IMP] >>
+    `welltyped x1` by METIS_TAC[term_welltyped] >>
+    imp_res_tac has_type_IMP >>
+    ntac 2 (pop_assum mp_tac) >>
+    simp[Once term_cases] >>
+    rw[] >>
+    imp_res_tac WELLTYPED_LEMMA >>
+    rw[] ) >>
   cheat)
 
 val _ = export_theory();
