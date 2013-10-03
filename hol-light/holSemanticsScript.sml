@@ -1001,7 +1001,7 @@ val TYPE_SUBST_IMP = prove(
 
 val INST_CORE_IMP = prove(
   ``∀env tyin tm defs env1 tyin1 tm1.
-      term defs tm tm1 ∧
+      welltyped tm ∧ term defs tm tm1 ∧
       LIST_REL (type defs) (MAP FST tyin) (MAP FST tyin1) ∧
       LIST_REL (type defs) (MAP SND tyin) (MAP SND tyin1) ∧
       LIST_REL (term defs) (MAP FST env) (MAP FST env1) ∧
@@ -1103,7 +1103,78 @@ val INST_CORE_IMP = prove(
   rpt gen_tac >> strip_tac >>
   simp[Once term_cases] >> rw[] >>
   rw[INST_CORE_def,holSyntaxTheory.INST_CORE_def] >>
-  cheat )
+  fs[] >>
+  first_x_assum(qspecl_then[`defs`,`env'`,`tyin1`,`x1`]mp_tac) >>
+  discharge_hyps >- (
+    simp[] >>
+    simp[Abbr`env'`] >>
+    simp[Once term_cases] >>
+    simp[Once term_cases] >>
+    conj_tac >- METIS_TAC[TYPE_SUBST_IMP] >>
+    METIS_TAC[] ) >>
+  strip_tac >>
+  `IS_RESULT tres = IS_RESULT tres'` by (
+    pop_assum mp_tac >>
+    Cases_on`tres'`>>simp[Once result_term_cases] >>
+    rw[] >> rw[] ) >>
+  Cases_on`IS_RESULT tres` >> fs[] >- (
+    simp[result_term_cases] >>
+    simp[Once term_cases] >> rfs[] >>
+    conj_tac >- METIS_TAC[TYPE_SUBST_IMP] >>
+    Cases_on`tres`>>Cases_on`tres'`>>fs[]>>
+    fs[result_term_cases] ) >>
+  `term defs w w'` by (
+    Cases_on`tres`>>Cases_on`tres'`>>
+    rfs[result_term_cases] ) >>
+  `w = Var x ty'' ⇔ w' = Var x ty'` by (
+    EQ_TAC >>
+    strip_tac >>
+    qpat_assum`term defs w w'`mp_tac >>
+    simp[Once term_cases] >>
+    strip_tac >>
+    Cases_on`tres`>>Cases_on`tres'`>>
+    rfs[result_term_cases] >>
+    METIS_TAC[TYPE_SUBST_IMP,term_type_11,term_type_11_inv] ) >>
+  Cases_on`w = Var x ty''`>>rfs[]>>fs[]>>
+  first_x_assum(qspecl_then[`defs`,`env''''`,`tyin1`,`t''`]mp_tac) >>
+  `x' = x''` by (
+    simp[Abbr`x'`,Abbr`x''`] >>
+    match_mp_tac VARIANT_IMP >>
+    qexists_tac`defs` >>
+    reverse conj_tac >- METIS_TAC[TYPE_SUBST_IMP] >>
+    first_x_assum(qspecl_then[`defs`,`tyin1`,`x1`]mp_tac) >>
+    simp[] >>
+    `IS_RESULT (INST_CORE [] tyin1 x1)` by (
+      match_mp_tac INST_CORE_NIL_IS_RESULT >>
+      METIS_TAC[term_welltyped] ) >>
+    Cases_on`INST_CORE [] tyin1 x1`>>fs[] >>
+    simp[result_term_cases] >> rw[] >> rw[] ) >>
+  discharge_hyps >- (
+    simp[] >>
+    conj_tac >- (
+      simp[Abbr`t'`] >>
+      match_mp_tac holSyntaxTheory.VSUBST_WELLTYPED >>
+      simp[] >>
+      simp[Once holSyntaxTheory.has_type_cases] ) >>
+    conj_tac >- (
+      simp[Abbr`t'`,Abbr`t''`] >>
+      match_mp_tac VSUBST_IMP >>
+      simp[] >>
+      simp[Once term_cases] >>
+      simp[Once term_cases] >>
+      simp[Once has_type_cases] >>
+      simp[Once holSyntaxTheory.has_type_cases] ) >>
+    simp[Abbr`env''''`] >>
+    simp[Once term_cases] >>
+    simp[Once term_cases] >>
+    conj_tac >- METIS_TAC[TYPE_SUBST_IMP] >>
+    METIS_TAC[] ) >>
+  strip_tac >>
+  `IS_RESULT tres'' = IS_RESULT tres'''` by (
+    Cases_on`tres''`>>Cases_on`tres'''`>>rfs[result_term_cases] ) >>
+  Cases_on`tres''`>>Cases_on`tres'''`>>fs[]>>rfs[result_term_cases] >>
+  simp[Once term_cases] >>
+  METIS_TAC[TYPE_SUBST_IMP] )
 
 val INST_IMP = prove(
   ``∀tm tyin defs tyin1 tm1.
