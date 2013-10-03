@@ -448,15 +448,6 @@ val proves_cons = prove(
     Cases_on`d`
 *)
 
-(*
-val context_ok_term_ok = prove(
-  ``∀defs n t. context_ok defs ∧ MEM (Constdef n t) defs ⇒ term_ok defs t``,
-  Induct >> simp[] >>
-  simp[Once holSyntaxTheory.proves_cases] >>
-  rw[] >>
-  simp[Once holSyntaxTheory.proves_cases]
-*)
-
 val safe_def_names_def = Define`
   (safe_def_names defs (Constdef n t) ⇔ n ∉ set (MAP FST (consts defs))) ∧
   (safe_def_names defs (Typedef n t a r) ⇔
@@ -549,6 +540,241 @@ val term_type_cons = prove(
     reverse conj_tac >- METIS_TAC[] >>
     Cases_on`d`>>simp[Once const_def_def] >>
     rw[] >> fs[safe_def_names_def] ))
+
+val def_ok_def = Define`
+  def_ok defs (Constdef n t) = term_ok defs t ∧
+  def_ok defs (Typedef n t a r) = term_ok defs t`
+
+val proves_ok = prove(
+  ``(∀defs ty. type_ok defs ty ⇒ T) ∧
+    (∀defs tm. term_ok defs tm ⇒ T) ∧
+    (∀defs. context_ok defs ⇒ EVERY (def_ok defs) defs) ∧
+    (∀dh c. dh |- c ⇒ EVERY (term_ok (FST dh)) (c::SND dh) ∧ context_ok (FST dh) ∧ EVERY (def_ok (FST dh)) (FST dh))``,
+  HO_MATCH_MP_TAC holSyntaxTheory.proves_strongind >>
+  simp[] >>
+  conj_tac >- (
+    rw[] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+    qexists_tac`[]` >> simp[] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,16)) >>
+    simp[] ) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[EVERY_MEM] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+    qexists_tac`TERM_UNION asl1 asl2` >>
+    qexists_tac`l === r` >>
+    simp[] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,17)) >>
+    METIS_TAC[] ) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[EVERY_MEM] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+    qexists_tac`TERM_UNION asl1 asl2` >>
+    qexists_tac`Comb l1 l2 === Comb r1 r2` >>
+    simp[] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,18)) >>
+    simp[] ) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+    qexists_tac`asl` >>
+    qexists_tac`Abs x ty l === Abs x ty r` >>
+    simp[] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,19)) >>
+    simp[] ) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+    qexists_tac`[]` >>
+    simp[] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,20)) >>
+    simp[] ) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[EVERY_MEM] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+    qexists_tac`TERM_UNION asl1 asl2` >>
+    qexists_tac`c` >>
+    simp[] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,22)) >>
+    METIS_TAC[] ) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    qmatch_abbrev_tac`term_ok defs X ∧ EVERY (term_ok defs) hh` >>
+    rw[EVERY_MEM] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+    qexists_tac`hh` >>
+    qexists_tac`X` >>
+    simp[] >>
+    qunabbrev_tac`hh` >>
+    qunabbrev_tac`X` >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,23)) >>
+    simp[] ) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    qmatch_abbrev_tac`term_ok defs X ∧ EVERY (term_ok defs) hh` >>
+    rw[EVERY_MEM] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+    qexists_tac`hh` >>
+    qexists_tac`X` >>
+    simp[] >>
+    qunabbrev_tac`hh` >>
+    qunabbrev_tac`X` >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,24)) >>
+    simp[] >>
+    METIS_TAC[]) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    qmatch_abbrev_tac`term_ok defs X ∧ EVERY (term_ok defs) hh` >>
+    rw[EVERY_MEM] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+    qexists_tac`hh` >>
+    qexists_tac`X` >>
+    simp[] >>
+    qunabbrev_tac`hh` >>
+    qunabbrev_tac`X` >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,25)) >>
+    simp[] >>
+    METIS_TAC[]) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rw[EVERY_MEM] >>
+    TRY (
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+      qexists_tac`asl` >>
+      qexists_tac`c` >>
+      simp[] >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,26)) >>
+      simp[] ) >>
+    TRY (
+      simp[def_ok_def] >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,11)) >>
+      qexists_tac`Comb (Equal (typeof (Const s (typeof tm)))) (Const s (typeof tm))` >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+      qexists_tac`[]` >>
+      simp_tac std_ss [MEM] >>
+      simp[GSYM holSyntaxTheory.equation_def] >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,27)) >>
+      simp[] >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,15)) >>
+      qexists_tac`asl` >> qexists_tac`c` >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,26)) >>
+      simp[] ) >>
+    TRY (
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,15)) >>
+      qexists_tac`asl` >>
+      qexists_tac`c` >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,26)) >>
+      simp[] ) >>
+    qsuff_tac`∀t. term_ok defs t ⇒ term_ok (Constdef s tm::defs) t` >- (
+      rw[] >>
+      Cases_on`e`>>simp[def_ok_def] >>
+      first_x_assum match_mp_tac >>
+      fs[EVERY_MEM] >>
+      res_tac >> fs[def_ok_def] ) >>
+    rw[] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,11)) >>
+    qexists_tac`Comb (Equal (typeof t)) t` >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+    qexists_tac`[]` >>
+    simp_tac std_ss [MEM] >>
+    simp[GSYM holSyntaxTheory.equation_def] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,26)) >>
+    simp[] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,16)) >>
+    simp[] ) >>
+  conj_tac >- (
+    rw[] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+    qexists_tac`[]` >> simp[] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,27)) >>
+    simp[] ) >>
+  rpt gen_tac >> strip_tac >- (
+    rw[EVERY_MEM] >>
+    TRY (
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+      qexists_tac`asl` >>
+      qexists_tac`c` >>
+      simp[] >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,28)) >>
+      simp[] >>
+      METIS_TAC[]) >>
+    TRY (
+      simp[def_ok_def] >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,10)) >>
+      qexists_tac`y` >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+      qexists_tac`[]` >>
+      simp_tac std_ss [MEM] >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,28)) >>
+      simp[] >>
+      METIS_TAC[]) >>
+    TRY (
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,15)) >>
+      qexists_tac`asl` >>
+      qexists_tac`c` >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,28)) >>
+      simp[] >>
+      METIS_TAC[]) >>
+    qsuff_tac`∀x. term_ok defs x ⇒ term_ok (Typedef tyname t a r::defs) x` >- (
+      rw[] >>
+      Cases_on`e`>>simp[def_ok_def] >>
+      first_x_assum match_mp_tac >>
+      fs[EVERY_MEM] >>
+      res_tac >> fs[def_ok_def] ) >>
+    rw[] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,11)) >>
+    qexists_tac`Comb (Equal (typeof x)) x` >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+    qexists_tac`[]` >>
+    simp_tac std_ss [MEM] >>
+    simp[GSYM holSyntaxTheory.equation_def] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,28)) >>
+    simp[] >>
+    metis_tac[List.nth(CONJUNCTS holSyntaxTheory.proves_rules,16)]) >>
+  rw[EVERY_MEM] >>
+  TRY (
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+    qexists_tac`[]` >>
+    simp[] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,28)) >>
+    simp[] >>
+    METIS_TAC[]) >>
+  TRY (
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,15)) >>
+    qexists_tac`[]` >>
+    qexists_tac`Comb t y` >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,28)) >>
+    simp[] >>
+    METIS_TAC[]) >>
+  TRY (
+    simp[def_ok_def] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,10)) >>
+    qexists_tac`y` >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+    qexists_tac`[]` >>
+    simp_tac std_ss [MEM] >>
+    match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,28)) >>
+    simp[] >>
+    METIS_TAC[]) >>
+  (qsuff_tac`∀x. term_ok defs x ⇒ term_ok (Typedef tyname t a r::defs) x` >- (
+    rw[] >>
+    Cases_on`e`>>simp[def_ok_def] >>
+    first_x_assum match_mp_tac >>
+    fs[EVERY_MEM] >>
+    res_tac >> fs[def_ok_def] )) >>
+  rw[] >>
+  match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,11)) >>
+  qexists_tac`Comb (Equal (typeof x)) x` >>
+  match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+  qexists_tac`[]` >>
+  simp_tac std_ss [MEM] >>
+  simp[GSYM holSyntaxTheory.equation_def] >>
+  match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,28)) >>
+  simp[] >>
+  metis_tac[List.nth(CONJUNCTS holSyntaxTheory.proves_rules,16)])
 
 val REV_ASSOCD_ilist_IMP = prove(
   ``∀ilist defs t ilist1 t1 d d1.
@@ -1329,7 +1555,7 @@ val proves_IMP = store_thm("proves_IMP",
       rpt BasicProvers.VAR_EQ_TAC >>
       qpat_assum`(X,Y)=Z`(assume_tac o SYM) >> fs[]>>
       fs[Q.SPECL[`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
-      imp_res_tac has_type_IMP
+      imp_res_tac has_type_IMP >>
       METIS_TAC[term_type_11] ) >>
     qpat_assum`LIST_REL X asl h1`mp_tac >>
     simp[EVERY2_EVERY,EVERY_MEM] >>
