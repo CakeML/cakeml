@@ -619,8 +619,8 @@ val tyvars_def = tDefine"tyvars"`
   tyvars (Tyapp v tys) = FOLDR (λx y. LIST_UNION (tyvars x) y) [] tys ∧
   tyvars Bool = [] ∧
   tyvars Ind = [] ∧
-  tyvars (Fun ty1 ty2) = LIST_UNION (tyvars ty1) (tyvars ty2)`
-(WF_REL_TAC`measure type_size` >> simp[] >>
+  tyvars (Fun ty1 ty2) = FOLDR (λx y. LIST_UNION (tyvars x) y) [] [ty1;ty2]`
+(WF_REL_TAC`measure type_size` >> simp[] >> reverse conj_tac >- (rw[] >> simp[]) >>
  gen_tac >> Induct >>
  simp[definition"type_size_def"] >> rw[] >>
  simp[] >> res_tac >> simp[])
