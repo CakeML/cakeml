@@ -1212,14 +1212,72 @@ val MEM_Constdef_const_def = prove(
   imp_res_tac MEM_Constdef_MEM_consts >>
   fs[consts_def] >> fs[] )
 
+val def_ok_def = Define`
+  (def_ok (Constdef n t) ⇔ CLOSED t ∧ set (tvars t) ⊆ set (tyvars (typeof t))) ∧
+  (def_ok (Typedef n t a r) ⇔ T)`
+
+val term_subterm = prove(
+  ``∀tm defs tm1 t0. term defs tm tm1 ∧ VFREE_IN t0 tm ⇒ ∃t1. term defs t0 t1 ∧ VFREE_IN t1 tm1``,
+  Induct >> simp[Once term_cases] >> rw[] >>
+  simp[Once term_cases] >>
+  rw[] >>
+  res_tac >>
+  imp_res_tac term_type_11 >>
+  rw[]
+  >- METIS_TAC[]
+  >- METIS_TAC[] >>
+  qexists_tac`t1` >> rw[] >>
+  spose_not_then strip_assume_tac >>
+  rw[] >>
+  qpat_assum`term X Y Z`mp_tac >>
+  simp_tac std_ss [Once term_cases] >>
+  simp[] >>
+  METIS_TAC[term_type_11_inv])
+
+val term_subterm_inv = prove(
+  ``∀tm1 defs tm t1. term defs tm tm1 ∧ VFREE_IN t1 tm1 ⇒ ∃t0. term defs t0 t1 ∧ VFREE_IN t0 tm``,
+  Induct >> simp[Once term_cases] >> rw[] >>
+  simp[Once term_cases] >>
+  rw[] >>
+  res_tac >>
+  imp_res_tac term_type_11 >>
+  rw[]
+  >- METIS_TAC[]
+  >- METIS_TAC[] >>
+  qexists_tac`t0` >> rw[] >>
+  spose_not_then strip_assume_tac >>
+  rw[] >>
+  qpat_assum`term X (A Y) Z`mp_tac >>
+  simp_tac std_ss [Once term_cases] >>
+  simp[] >>
+  METIS_TAC[term_type_11])
+
+val CLOSED_IMP = prove(
+  ``∀tm defs tm1. term defs tm tm1 ⇒ (CLOSED tm ⇔ closed tm1)``,
+  rw[holSyntaxTheory.CLOSED_def] >>
+  rw[EQ_IMP_THM] >>
+  spose_not_then strip_assume_tac >>
+  imp_res_tac VFREE_IN_IMP_inv >>
+  imp_res_tac VFREE_IN_IMP >>
+  fs[Q.SPECL[`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+  fs[Q.SPECL[`A`,`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+  fs[GSYM LEFT_FORALL_IMP_THM] >>
+  imp_res_tac term_subterm >>
+  imp_res_tac term_subterm_inv >>
+  fs[Q.SPECL[`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+  fs[Q.SPECL[`A`,`Var X Y`](CONJUNCT2 (SPEC_ALL term_cases))] >>
+  METIS_TAC[])
+
 val proves_IMP = store_thm("proves_IMP",
   ``(∀defs ty. type_ok defs ty ⇒ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
     (∀defs tm. term_ok defs tm ⇒ ∃tm1. term defs tm tm1 ∧ term_ok tm1) ∧
     (∀defs. context_ok defs ⇒
       ALL_DISTINCT (MAP FST (consts defs)) ∧
+      EVERY def_ok defs ∧
       (∀t. MEM t (MAP deftm defs) ⇒ ∃t1. term defs t t1 ∧ term_ok t1)) ∧
     (∀dh c. dh |- c ⇒
       ALL_DISTINCT (MAP FST (consts (FST dh))) ∧
+      EVERY def_ok (FST dh) ∧
       (∀t. MEM t (MAP deftm (FST dh)) ⇒ ∃t1. term (FST dh) t t1 ∧ term_ok t1) ∧
       ∃h1 c1. seq_trans (dh,c) (h1,c1) ∧ h1 |- c1)``,
   HO_MATCH_MP_TAC holSyntaxTheory.proves_strongind >>
@@ -1615,7 +1673,7 @@ val proves_IMP = store_thm("proves_IMP",
     TRY (
       qexists_tac`tm1` >> rw[] >>
       match_mp_tac (MP_CANON (CONJUNCT2 term_type_cons)) >>
-      simp[safe_def_names_def] ) >>
+      simp[safe_def_names_def] >> NO_TAC ) >>
     TRY (
       fs[consts_def] >>
       fs[ALL_DISTINCT_APPEND] >>
@@ -1623,6 +1681,9 @@ val proves_IMP = store_thm("proves_IMP",
       simp[Once consts_aux_def] >>
       simp[Once consts_aux_def] >>
       METIS_TAC[] ) >>
+    TRY (
+      simp[def_ok_def,pred_setTheory.SUBSET_DEF] >>
+      NO_TAC ) >>
     map_every qexists_tac[`h1`,`c1`] >>
     simp[] >>
     fs[EVERY_MEM,EVERY2_EVERY] >>
@@ -1655,11 +1716,14 @@ val proves_IMP = store_thm("proves_IMP",
       qexists_tac`t` >>
       simp[] >>
       conj_tac >- METIS_TAC[has_type_IMP,WELLTYPED_LEMMA,WELLTYPED,holSyntaxTheory.WELLTYPED_LEMMA,holSyntaxTheory.WELLTYPED] >>
-      MEM_Constdef_const_def >>
+      imp_res_tac MEM_Constdef_const_def >>
       rw[] ) >>
     match_mp_tac(List.nth(CONJUNCTS proves_rules,24)) >>
     fs[WELLTYPED] >>
-    (* need to remember all this information with the inductive hypothesis for context_ok *)
+    fs[EVERY_MEM] >>
+    res_tac >> fs[def_ok_def] >>
+    imp_res_tac CLOSED_IMP >> simp[] >>
+    (* tvars_IMP, tyvars_IMP *)
     cheat ) >>
   rpt gen_tac >>
   simp[seq_trans_def] >>
