@@ -12,80 +12,23 @@ val _ = set_trace "Unicode" 0;
 
 infix \\ val op \\ = op THEN;
 
-val domain = domain_def
-val codomain = codomain_def
-val type_INDUCT = TypeBase.induction_of``:type``
-val term_INDUCT = TypeBase.induction_of``:term``
-val consts = consts_def
-val consts_aux = consts_aux_def
-val term_ok = ``term_ok defs t`` |> ONCE_REWRITE_CONV [proves_cases]
-val context_ok = ``context_ok defs`` |> ONCE_REWRITE_CONV [proves_cases]
-val VSUBST = VSUBST_def
-val IS_CLASH = IS_CLASH_def
-val result_INDUCT = TypeBase.induction_of``:result``
-val IS_RESULT = IS_RESULT_def
-val TYPE_SUBST = TYPE_SUBST_def
-val sizeof = sizeof_def
-val RESULT = RESULT_def
-val CLASH = CLASH_def
-val typeof = typeof_def
-val INORDER_INSERT = INORDER_INSERT_def
-val tyvars = holSyntaxTheory.tyvars_def
-val tvars = tvars_def
-val TERM_UNION = TERM_UNION_def
-val ALPHAVARS = ALPHAVARS_def
-val ACONV = ACONV_def
-val types_aux = types_aux_def
-val welltyped = welltyped_def
-val equation = equation_def
-val def_INDUCT = TypeBase.induction_of``:holSyntax$def``
-val VFREE_IN = VFREE_IN_def
-val VARIANT = VARIANT_def
-val VARIANT_PRIMES = VARIANT_PRIMES_def
-
 (* ------------------------------------------------------------------------- *)
 (* Translations from implementation types to model types.                    *)
 (* ------------------------------------------------------------------------- *)
 
-val MEM_hol_type_size = prove(
-  ``!tys a. MEM a tys ==> hol_type_size a < hol_type1_size tys``,
-  Induct \\ SIMP_TAC std_ss [MEM,hol_type_size_def] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [] \\ RES_TAC \\ FULL_SIMP_TAC std_ss [] \\ DECIDE_TAC);
+val _ = temp_overload_on("impossible_term",``holSyntax$Const "=" (Tyvar "a")``);
 
 val hol_ty_def = tDefine "hol_ty" `
-  (hol_ty (hol_kernel$Tyvar v) = Tyvar v) /\
-  (hol_ty (Tyapp s tys) =
-     if (s = "bool") /\ (tys = []) then Bool else
-     if (s = "ind") /\ (tys = []) then Ind else
-     if (s = "fun") /\ (LENGTH tys = 2) then
-       Fun (hol_ty (EL 0 tys)) (hol_ty (EL 1 tys))
-     else Tyapp s (MAP hol_ty tys))`
- (WF_REL_TAC `measure hol_type_size`
-  \\ REPEAT STRIP_TAC
-  \\ IMP_RES_TAC MEM_hol_type_size \\ TRY DECIDE_TAC
-  \\ Cases_on `tys` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Cases_on `t'` \\ FULL_SIMP_TAC (srw_ss()) [hol_type_size_def]
-  \\ DECIDE_TAC);
-
-val _ = temp_overload_on("fun",``\x y. hol_kernel$Tyapp "fun" [x;y]``);
-val _ = temp_overload_on("bool_ty",``hol_kernel$Tyapp "bool" []``);
-val _ = temp_overload_on("impossible_term",``Const "=" Ind``);
+  (hol_ty (hol_kernel$Tyvar v) = holSyntax$Tyvar v) /\
+  (hol_ty (Tyapp s tys) = Tyapp s (MAP hol_ty tys))`
+ (WF_REL_TAC `measure hol_type_size` \\ REPEAT STRIP_TAC
+  \\ SUFF_TAC ``hol_type_size a < hol_type1_size tys`` THEN1 DECIDE_TAC
+  \\ Induct_on `tys` \\ SRW_TAC [] []
+  \\ FULL_SIMP_TAC std_ss [hol_type_size_def] \\ DECIDE_TAC);
 
 val hol_tm_def = Define `
-  (hol_tm (Var v ty) = Var v (hol_ty ty)) /\
-  (hol_tm (Const s ty) =
-     if s = "=" then
-       if (?a. ty = fun a (fun a bool_ty))
-       then Equal (domain (hol_ty ty))
-       else impossible_term
-     else
-     if s = "@" then
-       if (?a. ty = fun (fun a bool_ty) a)
-       then Select (codomain (hol_ty ty))
-       else impossible_term
-     else
-       Const s (hol_ty ty)) /\
+  (hol_tm (hol_kernel$Var v ty) = holSyntax$Var v (hol_ty ty)) /\
+  (hol_tm (Const s ty) = Const s (hol_ty ty)) /\
   (hol_tm (Comb x y) = Comb (hol_tm x) (hol_tm y)) /\
   (hol_tm (Abs (Var v ty) x) = Abs v (hol_ty ty) (hol_tm x)) /\
   (hol_tm _ = impossible_term)`;
@@ -117,10 +60,8 @@ val THM_def = Define `
   THM defs (Sequent asl c) = ((hol_defs defs, MAP hol_tm asl) |- hol_tm c)`;
 
 (* ------------------------------------------------------------------------- *)
-(* State invariant - types/terms/axioms can be extracted from defs           *)
+(* State invariant - types/terms can be extracted from defs                  *)
 (* ------------------------------------------------------------------------- *)
-
-val _ = temp_overload_on("aty",``(Tyvar "A"):hol_type``);
 
 val STATE_def = Define `
   STATE state defs =
@@ -134,48 +75,93 @@ val STATE_def = Define `
 
 val STATE_def = STATE_def |> SIMP_RULE std_ss [LET_DEF];
 
-(* ====== This file is broken from here onwards ======== *)
-
 (* ------------------------------------------------------------------------- *)
-(* Certain terms cannot occur                                                *)
+(* type_ok, term_ok and context_ok lemmas                                    *)
 (* ------------------------------------------------------------------------- *)
 
-val NOT_EQ_CONST = prove(
-  ``!defs x. context_ok (hol_defs defs) ==>
-             ~MEM ("=",x) (consts (hol_defs defs))``,
-  Induct \\ FULL_SIMP_TAC std_ss [consts_def,MAP,FLAT,MEM,hol_defs_def]
-  \\ Cases \\ FULL_SIMP_TAC std_ss [consts_def,MAP,FLAT,MEM,hol_defs_def]
-  \\ FULL_SIMP_TAC std_ss [consts_aux_def,APPEND,MEM,context_ok_def,def_ok_def,LET_THM]);
+val term_ok_impossible_term = prove(
+  ``~(term_ok defs impossible_term)``,
+  cheat);
 
 val impossible_term_thm = prove(
-  ``TERM defs tm ==> hol_tm tm <> impossible_term ``,
-  SIMP_TAC std_ss [TERM_def,welltyped_in_def] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [term_ok_def] \\ IMP_RES_TAC NOT_EQ_CONST);
+  ``TERM defs tm ==> hol_tm tm <> impossible_term``,
+  SIMP_TAC std_ss [TERM_def] \\ REPEAT STRIP_TAC
+  \\ Cases_on `tm` \\ Cases_on `h`
+  \\ FULL_SIMP_TAC (srw_ss()) [hol_tm_def,term_ok_impossible_term]);
 
 val Abs_Var = prove(
   ``TERM defs (Abs v tm) ==> ?s ty. v = Var s ty``,
   REPEAT STRIP_TAC \\ IMP_RES_TAC impossible_term_thm
   \\ Cases_on `v` \\ FULL_SIMP_TAC (srw_ss()) [hol_tm_def]);
 
-val Select_type = prove(
-  ``TERM defs (Const "@" ty) ==> ?a. ty = fun (fun a bool_ty) a``,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC impossible_term_thm
-  \\ FULL_SIMP_TAC std_ss [hol_tm_def,EVAL ``"@" = "="``] \\ METIS_TAC []);
+val type_ok = ``type_ok defs t`` |> ONCE_REWRITE_CONV [proves_cases]
+val term_ok = ``term_ok defs t`` |> ONCE_REWRITE_CONV [proves_cases]
 
-val Equal_type = prove(
-  ``TERM defs (Const "=" ty) ==> ?a. ty = fun a (fun a bool_ty)``,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC impossible_term_thm
-  \\ FULL_SIMP_TAC std_ss [hol_tm_def] \\ METIS_TAC []);
+val context_ok_fun = prove(
+  ``context_ok defs ==> (MEM ("fun",a) (types defs) <=> (a = 2))``,
+  cheat)
 
-val Equal_type_IMP = prove(
-  ``TERM defs (Comb (Const "=" (fun a' (fun a' bool_ty))) ll) ==>
-    (typeof (hol_tm ll) = (hol_ty a'))``,
-  SIMP_TAC (srw_ss()) [TERM_def,welltyped_in_def,hol_tm_def,hol_ty_def,
-    WELLTYPED_CLAUSES,domain_def,typeof_def]);
+val type_ok_Tyapp = prove(
+  ``type_ok defs (Tyapp s l) ==> EVERY (type_ok defs) l``,
+  cheat);
+
+val type_ok_TYPESUBST = prove(
+  ``!defs i ty.
+      EVERY (\(x,y). type_ok defs x /\ type_ok defs y) i /\
+      type_ok defs ty ==> type_ok def (TYPE_SUBST i ty)``,
+  cheat);
 
 (* ------------------------------------------------------------------------- *)
 (* TYPE and TERM lemmas                                                      *)
 (* ------------------------------------------------------------------------- *)
+
+val TYPE_Tyapp = prove(
+  ``MEM (tyop,LENGTH args) r.the_type_constants /\
+    STATE r defs /\ EVERY (TYPE defs) args ==>
+    TYPE defs (Tyapp tyop args)``,
+  cheat);
+
+
+(*
+
+
+val domain = domain_def
+val codomain = codomain_def
+val type_INDUCT = TypeBase.induction_of``:type``
+val term_INDUCT = TypeBase.induction_of``:term``
+val consts = consts_def
+val consts_aux = consts_aux_def
+val term_ok = ``term_ok defs t`` |> ONCE_REWRITE_CONV [proves_cases]
+val context_ok = ``context_ok defs`` |> ONCE_REWRITE_CONV [proves_cases]
+val VSUBST = VSUBST_def
+val IS_CLASH = IS_CLASH_def
+val result_INDUCT = TypeBase.induction_of``:result``
+val IS_RESULT = IS_RESULT_def
+val TYPE_SUBST = TYPE_SUBST_def
+val sizeof = sizeof_def
+val RESULT = RESULT_def
+val CLASH = CLASH_def
+val typeof = typeof_def
+val INORDER_INSERT = INORDER_INSERT_def
+val tyvars = holSyntaxTheory.tyvars_def
+val tvars = tvars_def
+val TERM_UNION = TERM_UNION_def
+val ALPHAVARS = ALPHAVARS_def
+val ACONV = ACONV_def
+val types_aux = types_aux_def
+val welltyped = welltyped_def
+val equation = equation_def
+val def_INDUCT = TypeBase.induction_of``:holSyntax$def``
+val VFREE_IN = VFREE_IN_def
+val VARIANT = VARIANT_def
+val VARIANT_PRIMES = VARIANT_PRIMES_def
+
+
+val _ = temp_overload_on("aty",``(Tyvar "A"):hol_type``);
+val _ = temp_overload_on("fun",``\x y. hol_kernel$Tyapp "fun" [x;y]``);
+val _ = temp_overload_on("bool_ty",``hol_kernel$Tyapp "bool" []``);
+
+
 
 val LENGTH_EQ_2 = prove(
   ``!l. (LENGTH l = 2) = ?x1 x2. l = [x1;x2]``,
@@ -867,6 +853,8 @@ val THM = prove(
   SIMP_TAC std_ss [THM_def] \\ REPEAT STRIP_TAC \\ IMP_RES_TAC THM_LEMMA
   \\ FULL_SIMP_TAC std_ss [EVERY_MEM,TERM_def,MEM_MAP,PULL_EXISTS]);
 
+*)
+
 (* ------------------------------------------------------------------------- *)
 (* Verification of type functions                                            *)
 (* ------------------------------------------------------------------------- *)
@@ -900,12 +888,7 @@ val get_type_arity_thm = prove(
 val mk_vartype_thm = store_thm("mk_vartype_thm",
   ``!name s.
       TYPE s.the_definitions (mk_vartype name)``,
-  SIMP_TAC (srw_ss()) [mk_vartype_def,TYPE_def,hol_ty_def,
-    Once type_ok_cases,type_11]);
-
-val ALL_DISTINCT_LEMMA = prove(
-  ``ALL_DISTINCT (xs ++ ys) ==> EVERY (\y. ~MEM y xs) ys``,
-  SIMP_TAC std_ss [ALL_DISTINCT_APPEND,EVERY_MEM] \\ METIS_TAC []);
+  SIMP_TAC (srw_ss()) [mk_vartype_def,TYPE_def,hol_ty_def,Once type_ok]);
 
 val mk_type_thm = store_thm("mk_type_thm",
   ``!tyop args s z s'.
@@ -918,28 +901,11 @@ val mk_type_thm = store_thm("mk_type_thm",
   \\ IMP_RES_TAC get_type_arity_thm
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def,ex_return_def]
   \\ SRW_TAC [] [ex_return_def]
-  \\ FULL_SIMP_TAC std_ss [TYPE_def,hol_ty_def]
-  \\ SRW_TAC [] [] \\ SIMP_TAC std_ss [Once type_ok_cases,type_11]
-  THEN1 (Cases_on `args` \\ FULL_SIMP_TAC std_ss [LENGTH]
-         \\ Cases_on `t` \\ FULL_SIMP_TAC std_ss [LENGTH]
-         \\ Cases_on `t'` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1,LENGTH_NIL,
-              EVERY_DEF,HD,EVAL ``EL 1 (x::y::xs)``,TYPE_def])
-  \\ SIMP_TAC std_ss [LENGTH_MAP,MEM_MAP,PULL_EXISTS]
-  \\ NTAC 3 (POP_ASSUM MP_TAC) \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC std_ss [STATE_def,MEM_APPEND,MEM,LENGTH_NIL,LET_DEF]
-  \\ FULL_SIMP_TAC std_ss [EVERY_MEM,TYPE_def]
-  \\ REPEAT STRIP_TAC \\ NTAC 4 (POP_ASSUM MP_TAC)
-  \\ FULL_SIMP_TAC std_ss [MEM_APPEND,MEM,MAP,MAP_APPEND]
-  \\ REPEAT STRIP_TAC
-  \\ IMP_RES_TAC ALL_DISTINCT_LEMMA
-  \\ FULL_SIMP_TAC std_ss [EVERY_DEF]
-  \\ FULL_SIMP_TAC (srw_ss()) [MEM_MAP,FORALL_PROD]
+  \\ IMP_RES_TAC TYPE_Tyapp
   \\ CCONTR_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ Q.PAT_ASSUM `r.the_type_constants = xxx` ASSUME_TAC
-  \\ FULL_SIMP_TAC std_ss [MAP,MAP_APPEND,ALL_DISTINCT_APPEND,MEM,
-       FORALL_PROD,MEM_MAP,PULL_EXISTS] \\ RES_TAC
-  \\ Q.PAT_ASSUM `defs = r.the_definitions` ASSUME_TAC
-  \\ FULL_SIMP_TAC std_ss [] \\ RES_TAC \\ FULL_SIMP_TAC std_ss []);
+  \\ FULL_SIMP_TAC std_ss [STATE_def]
+  \\ `r.the_definitions = defs` by FULL_SIMP_TAC std_ss []
+  \\ FULL_SIMP_TAC std_ss [context_ok_fun]);
 
 val dest_type_thm = store_thm("dest_type_thm",
   ``!ty s z s'.
@@ -948,19 +914,9 @@ val dest_type_thm = store_thm("dest_type_thm",
       !i. (z = HolRes i) ==> ?n tys. (ty = Tyapp n tys) /\ (i = (n,tys)) /\
                                      EVERY (TYPE defs) tys``,
   Cases \\ FULL_SIMP_TAC (srw_ss()) [dest_type_def,failwith_def,ex_return_def]
-  \\ FULL_SIMP_TAC std_ss [TYPE_def,hol_ty_def] \\ SRW_TAC [] [] THEN1
-   (Cases_on `l` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1]
-    \\ Cases_on `t` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1]
-    \\ Cases_on `t'` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1]
-    \\ FULL_SIMP_TAC std_ss [HD, EVAL ``EL 1 (x::y::xs)``,EVERY_DEF]
-    \\ NTAC 2 (POP_ASSUM MP_TAC)
-    \\ FULL_SIMP_TAC (srw_ss()) [Once type_ok_cases,type_11,TYPE_def,type_distinct]
-    \\ REPEAT STRIP_TAC \\ `F` by DECIDE_TAC)
-  \\ Cases_on `l` \\ SIMP_TAC std_ss [EVERY_DEF]
-  \\ POP_ASSUM MP_TAC
-  \\ SIMP_TAC std_ss [Once type_ok_cases]
-  \\ SIMP_TAC std_ss [type_11,TYPE_def,type_distinct,EVERY_MEM,MEM_MAP,
-      PULL_EXISTS,LENGTH_MAP,MEM]);
+  \\ FULL_SIMP_TAC std_ss [TYPE_def,hol_ty_def,EVERY_MEM] \\ SRW_TAC [] []
+  \\ IMP_RES_TAC type_ok_Tyapp
+  \\ FULL_SIMP_TAC std_ss [EVERY_MEM,MEM_MAP,PULL_EXISTS]);
 
 val dest_vartype_thm = store_thm("dest_vartype_thm",
   ``!ty s z s'.
@@ -997,27 +953,16 @@ val tyvars_thm = prove(
   ``!ty s. MEM s (tyvars ty) = MEM s (tyvars (hol_ty ty))``,
   HO_MATCH_MP_TAC hol_kernelTheory.tyvars_ind \\ REPEAT STRIP_TAC
   \\ Cases_on `ty` \\ FULL_SIMP_TAC (srw_ss()) [type_11,type_distinct]
-  \\ SIMP_TAC (srw_ss()) [Once hol_kernelTheory.tyvars_def,Once tyvars,hol_ty_def]
-  \\ SRW_TAC [] [tyvars]
-  THEN1 (FULL_SIMP_TAC (srw_ss()) [tyvars,Once itlist_def])
-  THEN1 (FULL_SIMP_TAC (srw_ss()) [tyvars,Once itlist_def])
-  THEN1
-   (FULL_SIMP_TAC (srw_ss()) [tyvars,Once itlist_def]
-    \\ Cases_on `l` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1]
-    \\ Cases_on `t` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1]
-    \\ Cases_on `t'` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1]
-    \\ FULL_SIMP_TAC std_ss [HD, EVAL ``EL 1 (x::y::xs)``,EVERY_DEF]
-    \\ FULL_SIMP_TAC (srw_ss()) [MEM,MAP,Once itlist_def]
-    \\ FULL_SIMP_TAC (srw_ss()) [MEM,MAP,Once itlist_def]
-    \\ FULL_SIMP_TAC std_ss [MEM_union,MEM,MEM_LIST_UNION]
-    \\ `F` by DECIDE_TAC)
-  \\ SIMP_TAC (srw_ss()) [Once tyvars] \\ NTAC 3 (POP_ASSUM (K ALL_TAC))
+  \\ SIMP_TAC (srw_ss()) [Once hol_kernelTheory.tyvars_def,
+       Once holSyntaxTheory.tyvars_def,hol_ty_def]
   \\ FULL_SIMP_TAC std_ss [FOLDR_MAP]
   \\ Induct_on `l`
   \\ SIMP_TAC (srw_ss()) [Once itlist_def,FOLDR,MEM_union,MEM_LIST_UNION]
   \\ METIS_TAC []);
 
-val lemma = prove(``(if x = y then f y else f x) = f x``,METIS_TAC[]);
+val IMP_MAP_EQ = prove(
+  ``!xs f g. (!x. MEM x xs ==> (f x = g x)) ==> (MAP f xs = MAP g xs)``,
+  Induct \\ SRW_TAC [] []);
 
 val type_subst_thm = store_thm("type_subst",
   ``!i ty.
@@ -1028,7 +973,7 @@ val type_subst_thm = store_thm("type_subst",
   HO_MATCH_MP_TAC type_subst_ind \\ STRIP_TAC \\ Cases THEN1
    (SIMP_TAC (srw_ss()) [Once type_subst_def]
     \\ SIMP_TAC (srw_ss()) [Once type_subst_def]
-    \\ SIMP_TAC std_ss [hol_ty_def,TYPE_SUBST]
+    \\ SIMP_TAC std_ss [hol_ty_def,TYPE_SUBST_def]
     \\ Induct_on `i` \\ TRY Cases \\ ONCE_REWRITE_TAC [rev_assocd_def]
     \\ SIMP_TAC (srw_ss()) [REV_ASSOCD,MAP]
     \\ Cases_on `r = Tyvar s'` \\ FULL_SIMP_TAC std_ss [hol_ty_def]
@@ -1037,34 +982,23 @@ val type_subst_thm = store_thm("type_subst",
     \\ `F` by ALL_TAC \\ POP_ASSUM MP_TAC \\ SIMP_TAC std_ss []
     \\ SRW_TAC [] [type_distinct])
   \\ SIMP_TAC (srw_ss()) [] \\ STRIP_TAC
-  \\ ONCE_REWRITE_TAC [type_subst_def] \\ SIMP_TAC (srw_ss()) []
-  \\ SIMP_TAC std_ss [LET_DEF,lemma]
+  \\ ONCE_REWRITE_TAC [type_subst_def] \\ SIMP_TAC (srw_ss()) [LET_DEF]
+  \\ SIMP_TAC std_ss [LET_DEF,prove(``(if x = y then f y else f x) = f x``,METIS_TAC[])]
   \\ Cases_on `l = []`
-  THEN1 (FULL_SIMP_TAC std_ss [MAP,hol_ty_def] \\ SRW_TAC [] [TYPE_SUBST])
-  \\ FULL_SIMP_TAC std_ss []
-  \\ Cases_on `LENGTH l = 2` THEN1
-   (FULL_SIMP_TAC (srw_ss()) [LENGTH_EQ_2]
-    \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss [TYPE_SUBST,MAP]
-    \\ FULL_SIMP_TAC (srw_ss()) [TYPE_def,hol_ty_def]
-    \\ Cases_on `s' = "fun"` \\ FULL_SIMP_TAC std_ss [TYPE_SUBST,MAP]
-    \\ FULL_SIMP_TAC (srw_ss()) [TYPE_def,hol_ty_def]
-    \\ SIMP_TAC (srw_ss()) [Once type_ok_cases,type_distinct,type_11]
-    \\ NTAC 2 (POP_ASSUM MP_TAC)
-    \\ SIMP_TAC (srw_ss()) [Once type_ok_cases,type_distinct,type_11]
-    \\ FULL_SIMP_TAC std_ss [] \\ METIS_TAC [])
-  \\ FULL_SIMP_TAC std_ss [hol_ty_def,LENGTH_MAP,GSYM LENGTH_NIL]
-  \\ FULL_SIMP_TAC std_ss [TYPE_SUBST,type_11]
-  \\ STRIP_TAC THEN1
-   (NTAC 2 (POP_ASSUM (K ALL_TAC)) \\ Induct_on `l`
-    \\ FULL_SIMP_TAC (srw_ss()) [MAP,MEM])
+  THEN1 (FULL_SIMP_TAC std_ss [MAP,hol_ty_def] \\ SRW_TAC [] [TYPE_SUBST_def])
+  \\ FULL_SIMP_TAC std_ss [TYPE_SUBST_def,type_11]
   \\ FULL_SIMP_TAC std_ss [TYPE_def,hol_ty_def,LENGTH_MAP,GSYM LENGTH_NIL]
-  \\ STRIP_TAC
-  \\ SIMP_TAC (srw_ss()) [Once type_ok_cases,type_distinct,type_11]
-  \\ FULL_SIMP_TAC std_ss [MEM_MAP,PULL_EXISTS,EVERY_MEM,FORALL_PROD]
-  \\ POP_ASSUM MP_TAC
-  \\ SIMP_TAC (srw_ss()) [Once type_ok_cases,type_distinct,type_11]
-  \\ FULL_SIMP_TAC std_ss [MEM_MAP,PULL_EXISTS,EVERY_MEM,FORALL_PROD]
-  \\ METIS_TAC []);
+  \\ FULL_SIMP_TAC std_ss [TYPE_SUBST_def,type_11]
+  \\ MATCH_MP_TAC (METIS_PROVE [] ``c /\ (c ==> b) ==> c /\ b``)
+  \\ STRIP_TAC THEN1
+   (SIMP_TAC std_ss [MAP_MAP_o,o_DEF] \\ MATCH_MP_TAC IMP_MAP_EQ
+    \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [])
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ SIMP_TAC std_ss [GSYM TYPE_SUBST_def]
+  \\ MATCH_MP_TAC type_ok_TYPESUBST
+  \\ Q.EXISTS_TAC `hol_defs s`
+  \\ FULL_SIMP_TAC std_ss [EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD,PULL_EXISTS]
+  \\ REPEAT STRIP_TAC \\ RES_TAC);
 
 val mk_fun_ty_thm = store_thm("mk_fun_ty_thm",
   ``!ty1 ty2 s z s'.
@@ -1072,8 +1006,9 @@ val mk_fun_ty_thm = store_thm("mk_fun_ty_thm",
       (mk_fun_ty ty1 ty2 s = (z,s')) ==> (s' = s) /\
       ?i. (z = HolRes i) /\ (i = Tyapp "fun" [ty1;ty2]) /\ TYPE defs i``,
   SIMP_TAC std_ss [mk_fun_ty_def] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [BASIC_TYPE]
   \\ IMP_RES_TAC mk_type_thm \\ FULL_SIMP_TAC (srw_ss()) []);
+
+(*
 
 (* ------------------------------------------------------------------------- *)
 (* Verification of term functions                                            *)
@@ -3506,5 +3441,7 @@ val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
     \\ IMP_RES_TAC (GSYM term_type)
     \\ ASM_SIMP_TAC (srw_ss()) [hol_ty_def,domain,codomain]
     \\ Q.EXISTS_TAC `(hol_tm x)` \\ FULL_SIMP_TAC std_ss []));
+
+*)
 
 val _ = export_theory();
