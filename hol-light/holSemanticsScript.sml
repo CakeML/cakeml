@@ -1590,7 +1590,7 @@ val proves_IMP = store_thm("proves_IMP",
   rpt gen_tac >>
   simp[seq_trans_def] >>
   strip_tac >>
-  (conj_tac >- (
+  (conj_asm1_tac >- (
     fs[good_defs_def,types_def,consts_def] >>
     fs[ALL_DISTINCT_APPEND] >>
     simp[Once types_aux_def] >>
@@ -1648,12 +1648,12 @@ val proves_IMP = store_thm("proves_IMP",
     simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
     simp[Abbr`ty`] >>
     simp[Once term_cases] >>
-    simp[Once type_def_def] >>
-    simp[Abbr`ddefs`] >>
     simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
+    `tyname ∉ {"bool";"ind";"fun"}` by fs[types_def] >> fs[] >>
+    simp[Abbr`ddefs`] >>
     qpat_assum`term defs X c1`mp_tac >>
     simp[Once term_cases] >>
-    strip_tac >>
+    simp[Once type_def_def] >>
     CONV_TAC SWAP_EXISTS_CONV >>
     qexists_tac`x1` >>
     CONV_TAC SWAP_EXISTS_CONV >>
@@ -1666,14 +1666,19 @@ val proves_IMP = store_thm("proves_IMP",
       match_mp_tac EVERY2_refl >>
       simp[] ) >>
     conj_asm1_tac >- (
-      match_mp_tac (MP_CANON(CONJUNCT2 term_type_cons)) >>
+      match_mp_tac (MP_CANON(CONJUNCT2 (UNDISCH(SPEC_ALL term_type_cons)))) >>
       simp[safe_def_names_def] ) >>
     simp[Abbr`t1`] >>
     simp[Once term_cases] >>
     simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
     simp[Once term_cases] >>
-    simp[Once const_def_def] >>
     simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
+    `a ≠ "@"` by fs[consts_def] >> simp[] >>
+    simp[Once const_def_def] >>
+    simp[Once type_def_def] >>
+    simp[Once const_def_def] >>
+    simp[Once type_def_def] >>
+    simp[Once const_def_def] >>
     simp[Once term_cases] >>
     simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
     `∃ty1. x1 has_type ty1 ∧ type defs (Fun rep_type Bool) ty1` by METIS_TAC[has_type_IMP] >>
@@ -1685,9 +1690,6 @@ val proves_IMP = store_thm("proves_IMP",
     simp[Once term_cases] >>
     strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >>
-    simp[Once type_def_def] >>
-    simp[Once const_def_def] >>
-    simp[Once const_def_def] >>
     CONV_TAC SWAP_EXISTS_CONV >>
     qexists_tac`x1` >>
     CONV_TAC SWAP_EXISTS_CONV >>
@@ -1700,6 +1702,7 @@ val proves_IMP = store_thm("proves_IMP",
     simp[Once const_def_def] >>
     simp[Once const_def_def] >>
     simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
+    `r ≠ "="` by fs[consts_def] >> simp[] >>
     simp[Q.SPEC`Fun X Y`(CONJUNCT1 (SPEC_ALL term_cases))] >>
     simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
     simp[Q.SPEC`Tyapp X Y`(CONJUNCT1 (SPEC_ALL term_cases))] >>
@@ -1722,7 +1725,8 @@ val proves_IMP = store_thm("proves_IMP",
     qexists_tac`rr` >> simp[] >>
     reverse conj_tac >- (
       rw[] >>
-      imp_res_tac MEM_Typedef_MEM_consts ) >>
+      imp_res_tac MEM_Typedef_MEM_consts >>
+      fs[consts_def]) >>
     match_mp_tac(List.nth(CONJUNCTS proves_rules,25)) >>
     imp_res_tac CLOSED_IMP >>
     simp[] >>
