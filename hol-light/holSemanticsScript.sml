@@ -1654,6 +1654,7 @@ val proves_IMP = store_thm("proves_IMP",
     qpat_assum`term defs X c1`mp_tac >>
     simp[Once term_cases] >>
     simp[Once type_def_def] >>
+    strip_tac >>
     CONV_TAC SWAP_EXISTS_CONV >>
     qexists_tac`x1` >>
     CONV_TAC SWAP_EXISTS_CONV >>
@@ -1779,7 +1780,7 @@ val proves_IMP = store_thm("proves_IMP",
   simp[RIGHT_EXISTS_AND_THM] >>
   `safe_def_names defs (Typedef tyname t a r)` by (
     simp[safe_def_names_def] ) >>
-  conj_tac >- METIS_TAC[term_type_cons] >>
+  conj_asm1_tac >- METIS_TAC[term_type_cons] >>
   qmatch_assum_abbrev_tac`Abbrev (t2 = t3 === t4)` >>
   `t3 === t4 has_type Bool` by (
     simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
@@ -1793,6 +1794,7 @@ val proves_IMP = store_thm("proves_IMP",
   simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
   simp[Once term_cases] >>
   simp[Abbr`ddefs`,Once type_def_def] >>
+  `r ∉ {"=";"@"}` by fs[consts_def] >> fs[] >>
   simp[Once const_def_def] >>
   simp[Once const_def_def] >>
   simp[Once const_def_def] >>
@@ -1802,9 +1804,9 @@ val proves_IMP = store_thm("proves_IMP",
   simp[Once term_cases] >>
   simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
   simp[Once term_cases] >>
+  `tyname ∉ {"bool";"ind";"fun"}` by fs[types_def] >> fs[] >>
   simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
   simp[Once type_def_def] >>
-  `type (Typedef tyname t a r::defs) (typeof y) tx1` by METIS_TAC[term_type_cons] >>
   `term (Typedef tyname t a r::defs) t x1` by METIS_TAC[term_type_cons] >>
   qexists_tac`x1`>>simp[] >>
   simp[Q.SPEC`Var X Y`(CONJUNCT2 (SPEC_ALL term_cases))] >>
@@ -1815,6 +1817,7 @@ val proves_IMP = store_thm("proves_IMP",
   qexists_tac`tx1`>>simp[] >>
   qexists_tac`x1`>>simp[] >>
   simp[Q.SPEC`Const X Y`(CONJUNCT2 (SPEC_ALL term_cases))] >>
+  `a ≠ "@"` by fs[consts_def] >>
   simp[Once type_def_def] >>
   simp[Once const_def_def] >>
   simp[Once const_def_def] >>
@@ -1843,9 +1846,9 @@ val proves_IMP = store_thm("proves_IMP",
     match_mp_tac EVERY2_refl >>
     simp[] ) >>
   fs[safe_def_names_def] >>
-  conj_tac >- METIS_TAC[MEM_Typedef_MEM_consts] >>
+  conj_tac >- METIS_TAC[MEM_Typedef_MEM_consts,consts_def,MEM_MAP,MEM_APPEND] >>
   HINT_EXISTS_TAC >> simp[] >>
-  conj_tac >- METIS_TAC[MEM_Typedef_MEM_consts] >>
+  conj_tac >- METIS_TAC[MEM_Typedef_MEM_consts,consts_def,MEM_MAP,MEM_APPEND] >>
   match_mp_tac(List.nth(CONJUNCTS proves_rules,26)) >>
   imp_res_tac CLOSED_IMP >>
   simp[] >>
