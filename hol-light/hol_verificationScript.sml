@@ -18,9 +18,8 @@ val type_INDUCT = TypeBase.induction_of``:type``
 val term_INDUCT = TypeBase.induction_of``:term``
 val consts = consts_def
 val consts_aux = consts_aux_def
-val term_ok = term_ok_def
-val welltyped_in = welltyped_in_def
-val context_ok = context_ok_def
+val term_ok = ``term_ok defs t`` |> ONCE_REWRITE_CONV [proves_cases]
+val context_ok = ``context_ok defs`` |> ONCE_REWRITE_CONV [proves_cases]
 val VSUBST = VSUBST_def
 val IS_CLASH = IS_CLASH_def
 val result_INDUCT = TypeBase.induction_of``:result``
@@ -36,7 +35,6 @@ val tvars = tvars_def
 val TERM_UNION = TERM_UNION_def
 val ALPHAVARS = ALPHAVARS_def
 val ACONV = ACONV_def
-val def_ok = def_ok_def
 val types_aux = types_aux_def
 val welltyped = welltyped_def
 val equation = equation_def
@@ -94,8 +92,6 @@ val hol_tm_def = Define `
 
 val hol_defs_def = Define `
   (hol_defs [] = []) /\
-  (hol_defs (Axiomdef tm::defs) =
-    (Axiomdef (hol_tm tm)) :: hol_defs defs) /\
   (hol_defs (Constdef n tm::defs) =
     (Constdef n (hol_tm tm)) :: hol_defs defs) /\
   (hol_defs (Typedef s1 tm s2 s3 :: defs) =
@@ -112,7 +108,7 @@ val TYPE_def = Define `
   TYPE defs ty = type_ok (hol_defs defs) (hol_ty ty)`;
 
 val TERM_def = Define `
-  TERM defs tm = welltyped_in (hol_tm tm) (hol_defs defs)`;
+  TERM defs tm = term_ok (hol_defs defs) (hol_tm tm)`;
 
 val CONTEXT_def = Define `
   CONTEXT defs = context_ok (hol_defs defs)`;
@@ -130,15 +126,15 @@ val STATE_def = Define `
   STATE state defs =
     let hds = hol_defs defs in
       (defs = state.the_definitions) /\ context_ok hds /\
-      (state.the_type_constants = types hds ++ [("bool",0);("ind",0);("fun",2)]) /\
+      (state.the_type_constants = types hds) /\
       ALL_DISTINCT (MAP FST state.the_type_constants) /\
       ALL_DISTINCT (MAP FST state.the_term_constants) /\
       TERM defs state.the_clash_var /\
-      ?user_defined.
-        (state.the_term_constants = user_defined ++
-                     [("=",fun aty (fun aty bool_ty));
-                      ("@",fun (fun aty bool_ty) aty)]) /\
-        (consts hds = MAP (\(name,ty). (name, hol_ty ty)) user_defined)`;
+      (consts hds = MAP (\(name,ty). (name, hol_ty ty)) state.the_term_constants)`;
+
+val STATE_def = STATE_def |> SIMP_RULE std_ss [LET_DEF];
+
+(* ====== This file is broken from here onwards ======== *)
 
 (* ------------------------------------------------------------------------- *)
 (* Certain terms cannot occur                                                *)
