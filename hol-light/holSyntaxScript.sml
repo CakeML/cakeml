@@ -4,30 +4,32 @@ val _ = new_theory "holSyntax"
 
 val _ = Hol_datatype`type
   = Tyvar of string
-  | Tyapp of string => type list
-  | Bool
-  | Ind
-  | Fun of type => type`
+  | Tyapp of string => type list`
+
+val _ = Parse.overload_on("Bool",``Tyapp "bool" []``)
+val _ = Parse.overload_on("Ind",``Tyapp "ind" []``)
+val _ = Parse.overload_on("Fun",``λs t. Tyapp "fun" [s;t]``)
 
 val domain_def = Define`domain (Fun s t) = s`
 val codomain_def = Define`codomain (Fun s t) = t`
+val domain_def = save_thm("domain_def",SIMP_RULE(srw_ss())[]domain_def)
+val codomain_def = save_thm("codomain_def",SIMP_RULE(srw_ss())[]codomain_def)
 val _ = export_rewrites["domain_def","codomain_def"]
 
 val _ = Hol_datatype`term
   = Var of string => type
   | Const of string => type
-  | Equal of type
-  | Select of type
   | Comb of term => term
   | Abs of string => type => term`
+
+val _ = Parse.overload_on("Equal",``λty. Const "=" (Fun ty (Fun ty Bool))``)
+val _ = Parse.overload_on("Select",``λty. Const "@" (Fun (Fun ty Bool) ty)``)
 
 val _ = Parse.add_infix("has_type",450,Parse.NONASSOC)
 
 val (has_type_rules,has_type_ind,has_type_cases) = Hol_reln`
   ((Var   n ty) has_type ty) ∧
   ((Const n ty) has_type ty) ∧
-  ((Equal   ty) has_type (Fun ty (Fun ty Bool))) ∧
-  ((Select  ty) has_type (Fun (Fun ty Bool) ty)) ∧
   (s has_type (Fun dty rty) ∧
    t has_type dty
    ⇒
@@ -41,8 +43,6 @@ val welltyped_def = Define`
 val typeof_def = Define`
   (typeof (Var n   ty) = ty) ∧
   (typeof (Const n ty) = ty) ∧
-  (typeof (Equal   ty) = Fun ty (Fun ty Bool)) ∧
-  (typeof (Select  ty) = Fun (Fun ty Bool) ty) ∧
   (typeof (Comb s t)   = codomain (typeof s)) ∧
   (typeof (Abs n ty t) = Fun ty (typeof t))`
 val _ = export_rewrites["typeof_def"]
@@ -59,8 +59,6 @@ val WELLTYPED = store_thm("WELLTYPED",
 val WELLTYPED_CLAUSES = store_thm("WELLTYPED_CLAUSES",
  ``(!n ty. welltyped(Var n ty)) /\
    (!n ty. welltyped(Const n ty)) /\
-   (!ty. welltyped(Equal ty)) /\
-   (!ty. welltyped(Select ty)) /\
    (!s t. welltyped (Comb s t) <=>
             welltyped s /\ welltyped t /\
             ?rty. typeof s = Fun (typeof t) rty) /\
@@ -91,8 +89,6 @@ val (RACONV_rules,RACONV_ind,RACONV_cases) = Hol_reln`
   (ALPHAVARS env (Var x1 ty1,Var x2 ty2)
     ⇒ RACONV env (Var x1 ty1,Var x2 ty2)) ∧
   (RACONV env (Const x ty,Const x ty)) ∧
-  (RACONV env (Equal ty,Equal ty)) ∧
-  (RACONV env (Select ty, Select ty)) ∧
   (RACONV env (s1,s2) ∧ RACONV env (t1,t2)
     ⇒ RACONV env (Comb s1 t1,Comb s2 t2)) ∧
   ((ty1 = ty2) ∧ RACONV ((Var x1 ty1,Var x2 ty2)::env) (t1,t2)
@@ -102,39 +98,19 @@ val RACONV = store_thm("RACONV",
  ``(RACONV env (Var x1 ty1,Var x2 ty2) <=>
         ALPHAVARS env (Var x1 ty1,Var x2 ty2)) /\
    (RACONV env (Var x1 ty1,Const x2 ty2) <=> F) /\
-   (RACONV env (Var x1 ty1,Equal ty2) <=> F) /\
-   (RACONV env (Var x1 ty1,Select ty2) <=> F) /\
    (RACONV env (Var x1 ty1,Comb l2 r2) <=> F) /\
    (RACONV env (Var x1 ty1,Abs x2 ty2 t2) <=> F) /\
    (RACONV env (Const x1 ty1,Var x2 ty2) <=> F) /\
    (RACONV env (Const x1 ty1,Const x2 ty2) <=> (x1 = x2) /\ (ty1 = ty2)) /\
-   (RACONV env (Const x1 ty1,Equal ty2) <=> F) /\
-   (RACONV env (Const x1 ty1,Select ty2) <=> F) /\
    (RACONV env (Const x1 ty1,Comb l2 r2) <=> F) /\
    (RACONV env (Const x1 ty1,Abs x2 ty2 t2) <=> F) /\
-   (RACONV env (Equal ty1,Var x2 ty2) <=> F) /\
-   (RACONV env (Equal ty1,Const x2 ty2) <=> F) /\
-   (RACONV env (Equal ty1,Equal ty2) <=> (ty1 = ty2)) /\
-   (RACONV env (Equal ty1,Select ty2) <=> F) /\
-   (RACONV env (Equal ty1,Comb l2 r2) <=> F) /\
-   (RACONV env (Equal ty1,Abs x2 ty2 t2) <=> F) /\
-   (RACONV env (Select ty1,Var x2 ty2) <=> F) /\
-   (RACONV env (Select ty1,Const x2 ty2) <=> F) /\
-   (RACONV env (Select ty1,Equal ty2) <=> F) /\
-   (RACONV env (Select ty1,Select ty2) <=> (ty1 = ty2)) /\
-   (RACONV env (Select ty1,Comb l2 r2) <=> F) /\
-   (RACONV env (Select ty1,Abs x2 ty2 t2) <=> F) /\
    (RACONV env (Comb l1 r1,Var x2 ty2) <=> F) /\
    (RACONV env (Comb l1 r1,Const x2 ty2) <=> F) /\
-   (RACONV env (Comb l1 r1,Equal ty2) <=> F) /\
-   (RACONV env (Comb l1 r1,Select ty2) <=> F) /\
    (RACONV env (Comb l1 r1,Comb l2 r2) <=>
         RACONV env (l1,l2) /\ RACONV env (r1,r2)) /\
    (RACONV env (Comb l1 r1,Abs x2 ty2 t2) <=> F) /\
    (RACONV env (Abs x1 ty1 t1,Var x2 ty2) <=> F) /\
    (RACONV env (Abs x1 ty1 t1,Const x2 ty2) <=> F) /\
-   (RACONV env (Abs x1 ty1 t1,Equal ty2) <=> F) /\
-   (RACONV env (Abs x1 ty1 t1,Select ty2) <=> F) /\
    (RACONV env (Abs x1 ty1 t1,Comb l2 r2) <=> F) /\
    (RACONV env (Abs x1 ty1 t1,Abs x2 ty2 t2) <=>
         (ty1 = ty2) /\ RACONV (CONS (Var x1 ty1,Var x2 ty2) env) (t1,t2))``,
@@ -202,8 +178,6 @@ val ALL_BOOL_TERM_UNION = store_thm("ALL_BOOL_TERM_UNION",
 val VFREE_IN_def = Define`
   (VFREE_IN v (Var x ty) ⇔ (Var x ty = v)) ∧
   (VFREE_IN v (Const x ty) ⇔ (Const x ty = v)) ∧
-  (VFREE_IN v (Equal ty) ⇔ (Equal ty = v)) ∧
-  (VFREE_IN v (Select ty) ⇔ (Select ty = v)) ∧
   (VFREE_IN v (Comb s t) ⇔ VFREE_IN v s ∨ VFREE_IN v t) ∧
   (VFREE_IN v (Abs x ty t) ⇔ (Var x ty ≠ v) ∧ VFREE_IN v t)`
 val _ = export_rewrites["VFREE_IN_def"]
@@ -238,8 +212,6 @@ val REV_ASSOCD = store_thm("REV_ASSOCD",
 val TYPE_SUBST_def = tDefine"TYPE_SUBST"`
   (TYPE_SUBST i (Tyvar v) = REV_ASSOCD (Tyvar v) i (Tyvar v)) ∧
   (TYPE_SUBST i (Tyapp v tys) = Tyapp v (MAP (TYPE_SUBST i) tys)) ∧
-  (TYPE_SUBST i Bool = Bool) ∧
-  (TYPE_SUBST i Ind = Ind) ∧
   (TYPE_SUBST i (Fun ty1 ty2) = Fun (TYPE_SUBST i ty1) (TYPE_SUBST i ty2))`
 (WF_REL_TAC`measure (type_size o SND)` >> simp[] >>
  gen_tac >> Induct >> simp[definition"type_size_def"] >> rw[] >>
@@ -307,8 +279,6 @@ val VARIANT_THM = store_thm("VARIANT_THM",
 val VSUBST_def = Define`
   (VSUBST ilist (Var x ty) = REV_ASSOCD (Var x ty) ilist (Var x ty)) ∧
   (VSUBST ilist (Const x ty) = Const x ty) ∧
-  (VSUBST ilist (Equal ty) = Equal ty) ∧
-  (VSUBST ilist (Select ty) = Select ty) ∧
   (VSUBST ilist (Comb s t) = Comb (VSUBST ilist s) (VSUBST ilist t)) ∧
   (VSUBST ilist (Abs x ty t) =
     let ilist' = FILTER (λ(s',s). ¬(s = Var x ty)) ilist in
@@ -427,8 +397,6 @@ val _ = export_rewrites["IS_RESULT_def","IS_CLASH_def","RESULT_def","CLASH_def"]
 val sizeof_def = Define`
   sizeof (Var x ty) = 1 ∧
   sizeof (Const x ty) = 1 ∧
-  sizeof (Equal ty) = 1 ∧
-  sizeof (Select ty) = 1 ∧
   sizeof (Comb s t) = 1 + sizeof s + sizeof t ∧
   sizeof (Abs x ty t) = 2 + sizeof t`
 val _ = export_rewrites["sizeof_def"]
@@ -455,8 +423,6 @@ val INST_CORE_def = tDefine"INST_CORE"`
      if REV_ASSOCD tm' env tm = tm then Result tm' else Clash tm') ∧
   (INST_CORE env tyin (Const x ty) =
     Result(Const x (TYPE_SUBST tyin ty))) ∧
-  (INST_CORE env tyin (Equal ty) = Result(Equal(TYPE_SUBST tyin ty))) ∧
-  (INST_CORE env tyin (Select ty) = Result(Select(TYPE_SUBST tyin ty))) ∧
   (INST_CORE env tyin (Comb s t) =
     let sres = INST_CORE env tyin s in
     if IS_CLASH sres then sres else
@@ -616,11 +582,8 @@ val LIST_UNION_def = Define`
 
 val tyvars_def = tDefine"tyvars"`
   tyvars (Tyvar v) = [v] ∧
-  tyvars (Tyapp v tys) = FOLDR (λx y. LIST_UNION (tyvars x) y) [] tys ∧
-  tyvars Bool = [] ∧
-  tyvars Ind = [] ∧
-  tyvars (Fun ty1 ty2) = FOLDR (λx y. LIST_UNION (tyvars x) y) [] [ty1;ty2]`
-(WF_REL_TAC`measure type_size` >> simp[] >> reverse conj_tac >- (rw[] >> simp[]) >>
+  tyvars (Tyapp v tys) = FOLDR (λx y. LIST_UNION (tyvars x) y) [] tys`
+(WF_REL_TAC`measure type_size` >> simp[] >>
  gen_tac >> Induct >>
  simp[definition"type_size_def"] >> rw[] >>
  simp[] >> res_tac >> simp[])
@@ -628,8 +591,6 @@ val tyvars_def = tDefine"tyvars"`
 val tvars_def = Define`
   (tvars (Var n ty) = tyvars ty) /\
   (tvars (Const n ty) = tyvars ty) /\
-  (tvars (Equal ty) = tyvars ty) /\
-  (tvars (Select ty) = tyvars ty) /\
   (tvars (Comb s t) = LIST_UNION (tvars s) (tvars t)) /\
   (tvars (Abs n ty t) = LIST_UNION (tyvars ty) (tvars t))`
 
@@ -667,14 +628,9 @@ val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 
 val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
  `(!n defs. type_ok defs (Tyvar n)) /\
-  (!defs. type_ok defs Bool) /\
-  (!defs. type_ok defs Ind) /\
-  (!ty1 ty2 defs. type_ok defs ty1 /\ type_ok defs ty2 ==> type_ok defs (Fun ty1 ty2)) /\
   (!defs tm ty. term_ok defs tm /\ tm has_type ty ==> type_ok defs ty) /\
 
   (!defs x ty. type_ok defs ty ==> term_ok defs (Var x ty)) /\
-  (!defs ty. type_ok defs ty ==> term_ok defs (Equal ty)) /\
-  (!defs ty. type_ok defs ty ==> term_ok defs (Select ty)) /\
   (!defs t1 t2. term_ok defs t1 /\ term_ok defs t2 /\ welltyped (Comb t1 t2) ==> term_ok defs (Comb t1 t2)) /\
   (!defs x ty tm. term_ok defs tm /\ type_ok defs ty ==> term_ok defs (Abs x ty tm)) /\
   (!defs t1 t2. term_ok defs (Comb t1 t2) ==> term_ok defs t1) /\
