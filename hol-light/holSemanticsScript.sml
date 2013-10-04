@@ -1856,4 +1856,9 @@ val proves_IMP = store_thm("proves_IMP",
   imp_res_tac WELLTYPED_LEMMA >>
   simp[])
 
+val soundness = store_thm("soundness",
+  ``∀dh t. dh |- t ⇒ hol_seq (dh,t)``,
+  Cases >> rw[hol_seq_def] >>
+  METIS_TAC[proves_IMP,soundness])
+
 val _ = export_theory();
