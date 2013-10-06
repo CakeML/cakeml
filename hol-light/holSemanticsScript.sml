@@ -154,7 +154,7 @@ val MEM_Constdef_MEM_consts = prove(
 
 val neq210 = prove(``2:int ≠ 0 ∧ 2 ≠ 1``,simp[])
 
-val good_defs_imp = prove(
+val good_defs_imp = store_thm("good_defs_imp",
   ``good_defs defs ⇒
       (type_def "fun" defs = NONE) ∧
       (type_def "bool" defs = NONE) ∧
@@ -178,7 +178,7 @@ val good_defs_imp = prove(
   fs[] >> rfs[] >>
   fs[types_def,consts_def,ALL_DISTINCT_APPEND] >>
   METIS_TAC[])
-val _ = augment_srw_ss[rewrites[good_defs_imp]]
+val _ = export_rewrites["good_defs_imp"]
 
 val term_type_11 = prove(
   ``∀defs. good_defs defs ⇒

@@ -1,14 +1,13 @@
-open HolKernel Parse boolLib bossLib;
+open HolKernel Parse boolLib bossLib lcsymtacs;
 
 val _ = new_theory "hol_verification";
 
-open hol_kernelTheory holSyntaxTheory;
+open hol_kernelTheory holSyntaxTheory holSemanticsTheory;
 open listTheory arithmeticTheory combinTheory pairTheory;
 
 open monadsyntax;
 val _ = temp_overload_on ("monad_bind", ``ex_bind``);
 val _ = temp_overload_on ("return", ``ex_return``);
-val _ = set_trace "Unicode" 0;
 
 infix \\ val op \\ = op THEN;
 
@@ -81,7 +80,10 @@ val STATE_def = STATE_def |> SIMP_RULE std_ss [LET_DEF];
 
 val term_ok_impossible_term = prove(
   ``~(term_ok defs impossible_term)``,
-  cheat);
+  spose_not_then strip_assume_tac >>
+  imp_res_tac proves_IMP >>
+  qpat_assum`term X Y Z`mp_tac >>
+  simp[Once term_cases])
 
 val impossible_term_thm = prove(
   ``TERM defs tm ==> hol_tm tm <> impossible_term``,
@@ -99,7 +101,11 @@ val term_ok = ``term_ok defs t`` |> ONCE_REWRITE_CONV [proves_cases]
 
 val context_ok_fun = prove(
   ``context_ok defs ==> (MEM ("fun",a) (types defs) <=> (a = 2))``,
-  cheat)
+  simp[types_def] >>
+  rw[EQ_IMP_THM] >>
+  imp_res_tac proves_IMP >>
+  fs[good_defs_def,types_def,ALL_DISTINCT_APPEND,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
+  res_tac >> fs[])
 
 val type_ok_Tyapp = prove(
   ``type_ok defs (Tyapp s l) ==> EVERY (type_ok defs) l``,
