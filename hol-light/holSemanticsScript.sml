@@ -1146,8 +1146,8 @@ val STRING_SORT_IMP = prove(
   Induct >> simp[INORDER_INSERT_def,holSyntaxTheory.INORDER_INSERT_def])
 
 val proves_IMP = store_thm("proves_IMP",
-  ``(∀defs ty. type_ok defs ty ⇒ good_defs defs ⇒ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
-    (∀defs tm. term_ok defs tm ⇒ good_defs defs ⇒ ∃tm1. term defs tm tm1 ∧ term_ok tm1) ∧
+  ``(∀defs ty. type_ok defs ty ⇒ good_defs defs ∧ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
+    (∀defs tm. term_ok defs tm ⇒ good_defs defs ∧ ∃tm1. term defs tm tm1 ∧ term_ok tm1) ∧
     (∀defs. context_ok defs ⇒
       good_defs defs ∧
       EVERY def_ok defs ∧
@@ -1158,7 +1158,7 @@ val proves_IMP = store_thm("proves_IMP",
       (∀t. MEM t (MAP deftm (FST dh)) ⇒ ∃t1. term (FST dh) t t1 ∧ term_ok t1) ∧
       ∃h1 c1. seq_trans (dh,c) (h1,c1) ∧ h1 |- c1)``,
   HO_MATCH_MP_TAC holSyntaxTheory.proves_strongind >>
-  conj_tac >- simp[Once term_cases,Once proves_cases] >>
+  conj_tac >- ( rw[] >> simp[Once term_cases,Once proves_cases] ) >>
   conj_tac >- (
     rw[] >>
     simp[Once proves_cases] >>
