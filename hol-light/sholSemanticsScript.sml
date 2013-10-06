@@ -4400,9 +4400,9 @@ val soundness = store_thm("soundness",
   metis_tac[SELECT_AX_correct])
 
 val consistency = store_thm("consistency",
-  ``(∃tm. [] |- tm) ∧ (∃tm. ¬([] |- tm))``,
+  ``([] |- (Var x Bool === Var x Bool)) ∧
+    (¬([] |- (Var x Bool === Var (VARIANT (Var x Bool) x Bool) Bool)))``,
   conj_tac >- (
-    qexists_tac`Var x Bool === Var x Bool` >>
     simp[Once proves_cases] >>
     disj1_tac >>
     qexists_tac`Var x Bool` >>
@@ -4410,7 +4410,6 @@ val consistency = store_thm("consistency",
     simp[Once proves_cases] >>
     disj1_tac >>
     simp[Once proves_cases] ) >>
-  qexists_tac`Var x Bool === Var (VARIANT (Var x Bool) x Bool) Bool` >>
   spose_not_then strip_assume_tac >>
   imp_res_tac soundness >>
   pop_assum mp_tac >>

@@ -1861,4 +1861,48 @@ val soundness = store_thm("soundness",
   Cases >> rw[hol_seq_def] >>
   METIS_TAC[proves_IMP,soundness])
 
+val type_ok_Bool = prove(
+  ``∀d. context_ok d ⇒ type_ok d Bool``,
+  rw[] >>
+  simp[Once holSyntaxTheory.proves_cases] >>
+  qexists_tac`Var x (Tyvar a) === Var x (Tyvar a)` >>
+  simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
+  simp[Once holSyntaxTheory.proves_cases] >>
+  rpt disj2_tac >>
+  qexists_tac`[]` >>
+  simp[] >>
+  simp[Once holSyntaxTheory.proves_cases] >>
+  disj1_tac >>
+  qexists_tac`Var x (Tyvar a)` >>
+  simp[] >>
+  simp[Once holSyntaxTheory.proves_cases] >>
+  disj1_tac >>
+  simp[Once holSyntaxTheory.proves_cases])
+
+val consistency = store_thm("consistency",
+  ``(∀d. context_ok d ⇒ (d,[]) |- (Var x Bool === Var x Bool)) ∧
+    (∀d. ¬ ((d,[]) |- Var x Bool === Var (VARIANT (Var x Bool) x Bool) Bool))``,
+  conj_tac >- (
+    rpt strip_tac >>
+    simp[Once holSyntaxTheory.proves_cases] >>
+    disj1_tac >>
+    qexists_tac`Var x Bool` >>
+    simp[] >>
+    simp[Once holSyntaxTheory.proves_cases] >>
+    disj1_tac >>
+    simp[type_ok_Bool] ) >>
+  rw[] >>
+  spose_not_then strip_assume_tac >>
+  imp_res_tac proves_IMP >>
+  fs[seq_trans_def] >>
+  qmatch_assum_abbrev_tac`term d (l === r) c1` >>
+  qspecl_then[`d`,`l`,`r`,`c1`]mp_tac (Q.GEN`defs`term_equation) >>
+  simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
+  simp[Abbr`l`,Abbr`r`] >>
+  simp[Once term_cases] >>
+  simp[Once term_cases] >>
+  simp[Once term_cases] >>
+  simp[Once term_cases] >>
+  METIS_TAC[consistency])
+
 val _ = export_theory();
