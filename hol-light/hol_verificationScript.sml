@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib lcsymtacs;
 
 val _ = new_theory "hol_verification";
 
-open hol_kernelTheory holSyntaxTheory holSemanticsTheory;
+open hol_kernelTheory holSemanticsTheory holSyntaxTheory;
 open listTheory arithmeticTheory combinTheory pairTheory;
 
 open monadsyntax;
