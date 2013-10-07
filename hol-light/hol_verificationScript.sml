@@ -946,8 +946,9 @@ val get_type_arity_thm = prove(
 
 val mk_vartype_thm = store_thm("mk_vartype_thm",
   ``!name s.
+      STATE s s.the_definitions ⇒
       TYPE s.the_definitions (mk_vartype name)``,
-  SIMP_TAC (srw_ss()) [mk_vartype_def,TYPE_def,hol_ty_def,Once type_ok]);
+  SIMP_TAC (srw_ss()) [mk_vartype_def,TYPE_def,hol_ty_def,Once type_ok,STATE_def]);
 
 val mk_type_thm = store_thm("mk_type_thm",
   ``!tyop args s z s'.
