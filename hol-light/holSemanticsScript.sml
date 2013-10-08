@@ -1146,13 +1146,14 @@ val STRING_SORT_IMP = prove(
   Induct >> simp[INORDER_INSERT_def,holSyntaxTheory.INORDER_INSERT_def])
 
 val proves_IMP = store_thm("proves_IMP",
-  ``(∀defs ty. type_ok defs ty ⇒ good_defs defs ∧ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
-    (∀defs tm. term_ok defs tm ⇒ good_defs defs ∧ ∃tm1. term defs tm tm1 ∧ term_ok tm1) ∧
+  ``(∀defs ty. type_ok defs ty ⇒ context_ok defs ∧ good_defs defs ∧ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
+    (∀defs tm. term_ok defs tm ⇒ context_ok defs ∧ good_defs defs ∧ ∃tm1. term defs tm tm1 ∧ term_ok tm1) ∧
     (∀defs. context_ok defs ⇒
       good_defs defs ∧
       EVERY def_ok defs ∧
       (∀t. MEM t (MAP deftm defs) ⇒ ∃t1. term defs t t1 ∧ term_ok t1)) ∧
     (∀dh c. dh |- c ⇒
+      context_ok (FST dh) ∧
       good_defs (FST dh) ∧
       EVERY def_ok (FST dh) ∧
       (∀t. MEM t (MAP deftm (FST dh)) ⇒ ∃t1. term (FST dh) t t1 ∧ term_ok t1) ∧
@@ -1545,6 +1546,11 @@ val proves_IMP = store_thm("proves_IMP",
       simp[Once consts_aux_def] >>
       simp[Once consts_aux_def] >>
       METIS_TAC[] ) >>
+    TRY (
+      simp[Once holSyntaxTheory.proves_cases] >>
+      map_every qexists_tac[`asl`,`c`] >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,21)) >>
+      simp[] >> NO_TAC) >>
     map_every qexists_tac[`h1`,`c1`] >>
     simp[] >>
     fs[EVERY_MEM,EVERY2_EVERY] >>
@@ -1590,6 +1596,13 @@ val proves_IMP = store_thm("proves_IMP",
   rpt gen_tac >>
   simp[seq_trans_def] >>
   strip_tac >>
+  (conj_tac >- (
+    simp[Once holSyntaxTheory.proves_cases] >>
+    map_every qexists_tac[`[]`,`holSyntax$Comb t y`] >>
+    match_mp_tac (List.nth(CONJUNCTS holSyntaxTheory.proves_rules,23)) >>
+    simp[] >>
+    map_every qexists_tac[`rep_type`,`y`] >>
+    METIS_TAC[] )) >>
   (conj_asm1_tac >- (
     fs[good_defs_def,types_def,consts_def] >>
     fs[ALL_DISTINCT_APPEND] >>
