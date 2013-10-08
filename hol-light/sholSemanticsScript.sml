@@ -1564,6 +1564,10 @@ val has_meaning_VFREE_IN = store_thm("has_meaning_VFREE_IN",
   ``∀tm. has_meaning tm ⇒ ∀st. VFREE_IN st tm ⇒ has_meaning st``,
   Induct >> rw[] >> fs[])
 
+val has_meaning_subterm = store_thm("has_meaning_subterm",
+  ``∀t1 t2. subterm t1 t2 ⇒ has_meaning t2 ⇒ has_meaning t1``,
+  ho_match_mp_tac subterm_ind >> simp[])
+
 val binary_inference_rule = store_thm("binary_inference_rule",
   ``∀h1 h2 p1 p2 q.
     (p1 has_type Bool ∧ p2 has_type Bool ⇒ q has_type Bool) ∧
