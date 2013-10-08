@@ -1560,7 +1560,7 @@ val REFL_correct = store_thm("REFL_correct",
   simp[boolean_def] >>
   metis_tac[])
 
-val has_meaning_subterm = store_thm("has_meaning_subterm",
+val has_meaning_VFREE_IN = store_thm("has_meaning_VFREE_IN",
   ``∀tm. has_meaning tm ⇒ ∀st. VFREE_IN st tm ⇒ has_meaning st``,
   Induct >> rw[] >> fs[])
 
@@ -1581,11 +1581,11 @@ val binary_inference_rule = store_thm("binary_inference_rule",
     metis_tac[TERM_UNION_NONEW,TERM_UNION_THM,has_meaning_aconv] ) >>
   rw[] >>
   `∀x ty. VFREE_IN (Var x ty) p1 ⇒ type_has_meaning ty` by
-    metis_tac[has_meaning_subterm,has_meaning_Var] >>
+    metis_tac[has_meaning_VFREE_IN,has_meaning_Var] >>
   `∀x ty. VFREE_IN (Var x ty) p2 ⇒ type_has_meaning ty` by
-    metis_tac[has_meaning_subterm,has_meaning_Var] >>
+    metis_tac[has_meaning_VFREE_IN,has_meaning_Var] >>
   `∀x ty. VFREE_IN (Var x ty) q ⇒ type_has_meaning ty` by
-    metis_tac[has_meaning_subterm,has_meaning_Var] >>
+    metis_tac[has_meaning_VFREE_IN,has_meaning_Var] >>
   Q.ISPEC_THEN`set(tvars p1)`mp_tac covering_type_valuation_exists >> simp[] >>
   disch_then(qspec_then`τ`(qx_choose_then`τ0`strip_assume_tac)) >>
   qspecl_then[`σ`,`τ0`,`p1`]mp_tac closing_envs_exist >> rfs[] >>
@@ -3282,7 +3282,7 @@ val has_meaning_simple_inst = store_thm("has_meaning_simple_inst",
     simp[VFREE_IN_simple_inst,GSYM LEFT_FORALL_IMP_THM] >>
     qx_genl_tac[`x`,`ty`] >> rw[] >>
     `∃m. typeset τi ty m` by (
-      imp_res_tac has_meaning_subterm >> fs[] >>
+      imp_res_tac has_meaning_VFREE_IN >> fs[] >>
       fs[type_has_meaning_def] >>
       pop_assum match_mp_tac >>
       simp[] >>
@@ -3316,7 +3316,7 @@ val has_meaning_simple_inst = store_thm("has_meaning_simple_inst",
     simp[Abbr`σ`,FLOOKUP_FUN_FMAP] >>
     strip_tac >>
     `type_has_meaning k1` by (
-      imp_res_tac has_meaning_subterm >> fs[] ) >>
+      imp_res_tac has_meaning_VFREE_IN >> fs[] ) >>
     fs[type_has_meaning_def] >>
     pop_assum(qspec_then`τi`mp_tac) >>
     discharge_hyps >- (
@@ -3604,9 +3604,9 @@ val INST_TYPE_correct = store_thm("INST_TYPE_correct",
     reverse(Cases_on`type_has_meaning ty`) >- (
       rw[] >>
       `has_meaning (Var x ty)` by (
-        imp_res_tac has_meaning_subterm >>
+        imp_res_tac has_meaning_VFREE_IN >>
         fs[EVERY_MEM] >> res_tac >>
-        imp_res_tac has_meaning_subterm >>
+        imp_res_tac has_meaning_VFREE_IN >>
         fs[]) >>
       fs[] ) >>
     reverse(Cases_on`set (tyvars ty) ⊆ FDOM τi`) >- (
@@ -3824,7 +3824,7 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
     discharge_hyps >- (
       simp[type_valuation_union] >>
       rw[] >>
-      imp_res_tac has_meaning_subterm >>
+      imp_res_tac has_meaning_VFREE_IN >>
       fs[type_has_meaning_def] >>
       first_x_assum match_mp_tac >>
       simp[type_valuation_union] >>
@@ -4306,7 +4306,7 @@ val SELECT_AX_correct = store_thm("SELECT_AX_correct",
       match_mp_tac term_valuation_extend_type >>
       qexists_tac`τ` >>
       simp[SUBMAP_FUNION] ) >>
-    imp_res_tac has_meaning_subterm >>
+    imp_res_tac has_meaning_VFREE_IN >>
     rw[] >>
     ntac 2 (first_x_assum (qspec_then`Var x ty`mp_tac)) >> rw[] >>
     fs[type_has_meaning_def] >>

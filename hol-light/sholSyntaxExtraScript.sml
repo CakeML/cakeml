@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs sholSyntaxTheory miscLib
-open SatisfySimps miscTheory pairTheory listTheory pred_setTheory finite_mapTheory alistTheory sortingTheory stringTheory
+open SatisfySimps miscTheory pairTheory listTheory pred_setTheory finite_mapTheory alistTheory sortingTheory stringTheory relationTheory
 val _ = new_theory"sholSyntaxExtra"
 
 val MEM_LIST_INSERT = store_thm("MEM_LIST_INSERT",
@@ -919,5 +919,40 @@ val tvars_VFREE_IN_subset = store_thm("tvars_VFREE_IN_subset",
   ``∀tm s. VFREE_IN s tm ⇒ set (tvars s) ⊆ set (tvars tm)``,
   Induct >> simp[tvars_def] >>
   fs[SUBSET_DEF] >> metis_tac[])
+
+val (subtype_rules,subtype_ind,subtype_cases) = Hol_reln`
+  MEM ty ls ⇒ subtype ty (Tyapp n ls)`
+
+val RTC_subtype_Tyvar = store_thm("RTC_subtype_Tyvar",
+  ``∀n. subtype^* ty (Tyvar n) ⇒ (ty = Tyvar n)``,
+  simp[Once RTC_CASES2] >> simp[subtype_cases])
+val _ = export_rewrites["RTC_subtype_Tyvar"]
+
+val RTC_subtype_Tyapp = store_thm("RTC_subtype_Tyapp",
+  ``∀ty n ls. subtype^* ty (Tyapp n ls) ⇔ (ty = Tyapp n ls) ∨ ∃a. MEM a ls ∧ subtype^* ty a``,
+  simp[Once RTC_CASES2] >> rw[subtype_cases] >> METIS_TAC[] )
+
+val (subterm_rules,subterm_ind,subterm_cases) = Hol_reln`
+  subterm s (Comb s t) ∧
+  subterm t (Comb s t) ∧
+  subterm tm (Abs x ty tm) ∧
+  subterm (Var x ty) (Abs x ty tm)`
+
+val RTC_subterm_Var = store_thm("RTC_subterm_Var",
+  ``∀t x ty. subterm^* t (Var x ty) ⇔ (t = Var x ty)``,
+  simp[Once RTC_CASES2] >> simp[subterm_cases])
+val _ = export_rewrites["RTC_subterm_Var"]
+
+val RTC_subterm_Comb = store_thm("RTC_subterm_Comb",
+  ``∀t t1 t2. subterm^* t (Comb t1 t2) ⇔ (t = Comb t1 t2) ∨ subterm^* t t1 ∨ subterm^* t t2``,
+  rw[Once RTC_CASES2] >>
+  simp[subterm_cases] >>
+  METIS_TAC[])
+
+val RTC_subterm_Abs = store_thm("RTC_subterm_Abs",
+  ``∀t x ty tm. subterm^* t (Abs x ty tm) ⇔ (t = Abs x ty tm) ∨ (t = Var x ty) ∨ subterm^* t tm``,
+  simp[Once RTC_CASES2] >>
+  simp[subterm_cases] >>
+  METIS_TAC[RTC_subterm_Var])
 
 val _ = export_theory()
