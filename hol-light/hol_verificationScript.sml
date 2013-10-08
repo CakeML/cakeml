@@ -141,7 +141,7 @@ val TERM = prove(
     (TERM defs (Comb x y) ==> TERM defs x /\ TERM defs y)``,
   cheat);
 
-val term_ok_welltyped = prove(
+val term_ok_Comb_welltyped = prove(
   ``term_ok defs (Comb f x) ==> welltyped (Comb f x)``,
   cheat);
 
@@ -1107,7 +1107,7 @@ val term_type = prove(
     \\ Q.PAT_ASSUM `TERM defs (Comb s h)` MP_TAC
     \\ FULL_SIMP_TAC std_ss [TERM_def,hol_tm_def,
          WELLTYPED_CLAUSES] \\ REPEAT STRIP_TAC
-    \\ IMP_RES_TAC term_ok_welltyped
+    \\ IMP_RES_TAC term_ok_Comb_welltyped
     \\ FULL_SIMP_TAC std_ss [WELLTYPED_CLAUSES]
     \\ FULL_SIMP_TAC std_ss []
     \\ Q.PAT_ASSUM `Fun xx yy = yyy` (ASSUME_TAC o GSYM)
@@ -1144,7 +1144,7 @@ val type_of_thm = prove(
     THEN1 IMP_RES_TAC term_type
     \\ POP_ASSUM (ASSUME_TAC o GSYM)
     \\ FULL_SIMP_TAC std_ss [TERM_def,hol_tm_def,WELLTYPED_CLAUSES]
-    \\ IMP_RES_TAC term_ok_welltyped
+    \\ IMP_RES_TAC term_ok_Comb_welltyped
     \\ FULL_SIMP_TAC std_ss [TERM_def,hol_tm_def,WELLTYPED_CLAUSES]
     \\ FULL_SIMP_TAC std_ss []
     \\ Q.PAT_ASSUM `Fun (typeof (hol_tm t0)) rty = iii`
