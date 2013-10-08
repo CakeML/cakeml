@@ -4339,6 +4339,83 @@ val SELECT_AX_correct = store_thm("SELECT_AX_correct",
     metis_tac[SUBMAP_FUNION,SUBMAP_REFL,SUBMAP_TRANS] ) >>
   metis_tac[semantics_typeset,semantics_11])
 
+(*
+val typeset_tyvars_tyinst_exists = store_thm("typeset_tyvars_tyinst_exists",
+  ``∀ty τ m tyin x v. typeset τ (tyinst tyin ty) m ∧ MEM x (tyvars ty) ∧ FLOOKUP tyin x = SOME v
+      ⇒ ∃mv. typeset τ v mv``,
+  ho_match_mp_tac type_ind >>
+  conj_tac >- (
+    simp[tyvars_def,FLOOKUPD_def] >>
+    rw[] >> fs[] >> metis_tac[] ) >>
+  rw[EVERY_MEM,tyvars_def,MEM_FOLDR_LIST_UNION] >>
+  qpat_assum`typeset X Y Z`mp_tac >>
+  simp[Once semantics_cases] >>
+  rw[] >> fs[] >- (
+    Cases_on`l`>>fs[]>>rw[]>>
+    Cases_on`t`>>fs[]
+    metis_tac[] ) >>
+
+val semantics_tvars_simple_inst_exists = store_thm("semantics_tvars_simple_inst_exists",
+  ``(∀τ ity m. typeset τ ity m ⇒
+      ∀ty tyin x v.
+          (ity = tyinst tyin ty) ∧ MEM x (tyvars ty) ∧ FLOOKUP tyin x = SOME v
+      ⇒ ∃mv. typeset τ v mv) ∧
+    (∀σ τ it m. semantics σ τ it m ⇒
+      ∀tm tyin x v.
+        (it = simple_inst tyin tm) ∧
+        MEM x (tvars tm) ∧ (FLOOKUP tyin x = SOME v)
+       ⇒ ∃mv. typeset τ v mv)``,
+  ho_match_mp_tac (theorem"semantics_strongind") >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    Cases >> simp[] >>
+    simp[tyvars_def,FLOOKUPD_def] >>
+    rw[] >> fs[] >> rw[] >>
+    simp[Once semantics_cases] ) >>
+  conj_tac >- (
+    gen_tac >> Cases >> simp[tyvars_def,MEM_FOLDR_LIST_UNION] >>
+    rw[] >> fs[FLOOKUPD_def] >> rw[] ) >>
+  conj_tac >- (
+    gen_tac >> Cases >> simp[tyvars_def,MEM_FOLDR_LIST_UNION] >>
+    rw[] >> fs[FLOOKUPD_def] >> rw[] ) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    Cases >> simp[tyvars_def,MEM_FOLDR_LIST_UNION] >>
+    rw[] >> fs[FLOOKUPD_def] >> rw[] >- (
+      simp[Once semantics_cases] >>
+      first_x_assum(qspecl_then[`Tyvar a`,`FEMPTY |+ (a,ity')`]mp_tac) >>
+      simp[tyvars_def,FLOOKUPD_def,FLOOKUP_UPDATE] >>
+      first_x_assum(qspecl_then[`Tyvar a`,`FEMPTY |+ (a,ity)`]mp_tac) >>
+      simp[tyvars_def,FLOOKUPD_def,FLOOKUP_UPDATE] >>
+      metis_tac[] ) >>
+    Cases_on`l`>>fs[] >> rw[] >- metis_tac[] >>
+    Cases_on`t`>>fs[] >> rw[] >- metis_tac[] >>
+    fs[] ) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    Cases >> rw[tyvars_def,MEM_FOLDR_LIST_UNION] >- (
+      fs[FLOOKUPD_def] >> rw[] >>
+      simp[Once semantics_cases] >>
+      metis_tac[] ) >>
+    qmatch_assum_abbrev_tac`semantics FEMPTY τ (simple_inst tyin tm) m` >>
+    first_x_assum (qspecl_then[`tm`,`tyin`]mp_tac) >>
+    simp[] >>
+    `∃n. n < LENGTH l ∧ y = EL n l` by metis_tac[MEM_EL] >>
+    disch_then(qspec_then`EL n (STRING_SORT (tvars tm))`mp_tac) >>
+    simp[Abbr`tyin`,ALOOKUP_ZIP_MAP_SND] >>
+    simp_tac(srw_ss()++DNF_ss)[] >>
+    Q.ISPECL_THEN[`ZIP(STRING_SORT (tvars tm),l)`,`n`]mp_tac ALOOKUP_ALL_DISTINCT_EL >>
+    simp[LENGTH_ZIP,MAP_ZIP,EL_ZIP] >> strip_tac >>
+    discharge_hyps >- (
+      metis_tac[MEM_STRING_SORT,MEM_EL,tvars_ALL_DISTINCT,LENGTH_MAP,LENGTH_STRING_SORT] ) >>
+    rw[] >>
+
+  Induct >- (
+    simp[tvars_def] >>
+    simp[Once semantics_cases] >>
+    rw[]
+*)
+
 val soundness = store_thm("soundness",
   ``(∀ty. type_ok ty ⇒ type_has_meaning ty) ∧
     (∀tm. term_ok tm ⇒ has_meaning tm) ∧
@@ -4348,6 +4425,22 @@ val soundness = store_thm("soundness",
   conj_tac >- (
     simp[type_has_meaning_def,tyvars_def] >>
     simp[Once semantics_cases,FLOOKUP_DEF] ) >>
+  (*
+  conj_tac >- (
+    rw[type_has_meaning_def] >>
+    Q.ISPEC_THEN`set (tyvars (Tyapp op args))`mp_tac covering_type_valuation_exists >>
+    simp[] >>
+    disch_then(qspec_then`τ`mp_tac) >>
+    disch_then(qx_choose_then`t`mp_tac) >>
+    simp[] >> strip_tac >>
+    first_x_assum(qspec_then`t`mp_tac) >>
+    simp[] >> strip_tac >>
+    qsuff_tac`∃m. typeset t ty m` >- metis_tac[typeset_reduce] >>
+    pop_assum mp_tac >>
+    simp[Once semantics_cases] >>
+    rw[] >> fs[] >> TRY (metis_tac[]) >>
+  ) >>
+  *)
   conj_tac >- (
     simp[has_meaning_def,tyvars_def] >>
     simp[Once semantics_cases] >>
