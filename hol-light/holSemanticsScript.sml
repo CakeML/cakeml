@@ -1861,7 +1861,7 @@ val soundness = store_thm("soundness",
   Cases >> rw[hol_seq_def] >>
   METIS_TAC[proves_IMP,soundness])
 
-val type_ok_Bool = prove(
+val type_ok_Bool = store_thm("type_ok_Bool",
   ``∀d. context_ok d ⇒ type_ok d Bool``,
   rw[] >>
   simp[Once holSyntaxTheory.proves_cases] >>
