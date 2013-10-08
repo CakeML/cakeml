@@ -943,6 +943,11 @@ val RTC_subterm_Var = store_thm("RTC_subterm_Var",
   simp[Once RTC_CASES2] >> simp[subterm_cases])
 val _ = export_rewrites["RTC_subterm_Var"]
 
+val RTC_subterm_Const = store_thm("RTC_subterm_Const",
+  ``∀t x ty g. subterm^* t (Const x ty g) ⇔ (t = Const x ty g)``,
+  simp[Once RTC_CASES2] >> simp[subterm_cases])
+val _ = export_rewrites["RTC_subterm_Const"]
+
 val RTC_subterm_Comb = store_thm("RTC_subterm_Comb",
   ``∀t t1 t2. subterm^* t (Comb t1 t2) ⇔ (t = Comb t1 t2) ∨ subterm^* t t1 ∨ subterm^* t t2``,
   rw[Once RTC_CASES2] >>
