@@ -444,4 +444,49 @@ val Structure_OK = store_thm(
   fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >>
   metis_tac[SignatureValue_OK]);
 
+val TopLevelDec_OK = store_thm(
+  "TopLevelDec_OK",
+  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nTopLevelDec ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃t. ptree_TopLevelDec pt = SOME t``,
+  start
+  >- (erule strip_assume_tac (n Structure_OK) >> simp[ptree_TopLevelDec_def]) >>
+  erule strip_assume_tac (n Decl_OK) >> simp[ptree_TopLevelDec_def] >>
+  Cases_on `ptree_Structure e` >> simp[]);
+
+val TopLevelDecs_OK = store_thm(
+  "TopLevelDecs_OK",
+  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nTopLevelDecs ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃ts. ptree_TopLevelDecs pt = SOME ts``,
+  map_every qid_spec_tac [`toks`, `pt`] >>
+  ho_match_mp_tac grammarTheory.ptree_ind >>
+  dsimp[] >> rpt strip_tac >> fs[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >>
+  rveq >> dsimp[ptree_TopLevelDecs_def] >>
+  fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND] >>
+  first_x_assum (erule strip_assume_tac) >>
+  erule strip_assume_tac (n TopLevelDec_OK) >> simp[]);
+
+val REPLPhrase_OK = store_thm(
+  "REPLPhrase_OK",
+  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nREPLPhrase ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃r. ptree_REPLPhrase pt = SOME r``,
+  start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
+  simp[ptree_REPLPhrase_def]
+  >- (erule strip_assume_tac (n TopLevelDecs_OK) >> simp[]) >>
+  Cases_on `ptree_TopLevelDecs e` >> simp[] >>
+  erule strip_assume_tac (n E_OK) >> simp[]);
+
+val REPLTop_OK = store_thm(
+  "REPLTop_OK",
+  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nREPLTop ∧
+    MAP TK toks = ptree_fringe pt ⇒
+    ∃r. ptree_REPLTop pt = SOME r``,
+  start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
+  simp[ptree_REPLTop_def]
+  >- (erule strip_assume_tac (n TopLevelDec_OK) >> simp[]) >>
+  Cases_on `ptree_TopLevelDec e` >> simp[] >>
+  erule strip_assume_tac (n E_OK) >> simp[]);
+
 val _ = export_theory();
