@@ -263,7 +263,7 @@ val term_equation = prove(
   rw[EQ_IMP_THM] >>
   METIS_TAC[term_type_11,has_type_IMP,holSyntaxTheory.WELLTYPED,WELLTYPED_LEMMA,good_defs_def])
 
-val term_welltyped = prove(
+val term_welltyped = store_thm("term_welltyped",
   ``∀defs. good_defs defs ⇒
     (∀ty ty1. type defs ty ty1 ⇒ T) ∧
     (∀tm tm1. term defs tm tm1 ⇒ (welltyped tm ⇔ welltyped tm1))``,
