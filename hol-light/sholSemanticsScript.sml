@@ -4420,6 +4420,73 @@ val semantics_tvars_simple_inst_exists = store_thm("semantics_tvars_simple_inst_
     rw[]
 *)
 
+(*
+val semantics_simple_inst_imp = store_thm("semantics_simple_inst_imp",
+  ``(∀τ tyi m. typeset τ tyi m ⇒
+      ∀ty tyin.
+        tyi = tyinst tyin ty ∧
+        type_valuation τ
+        ⇒
+        ∃τi.
+          type_valuation τi ∧
+          (∀a. MEM a (tyvars ty) ⇒ a ∈ FDOM τi ∧ typeset τ (tyinst tyin (Tyvar a)) (τi ' a)) ∧
+        typeset τi ty m) ∧
+    (∀σ τ tmi m. semantics σ τ tmi m ⇒
+      ∀tm tyin.
+        tmi = simple_inst tyin tm ∧
+        type_valuation τ ∧
+        term_valuation τ σ
+        ⇒
+        ∃σi τi.
+          type_valuation τi ∧
+          term_valuation τi σi ∧
+          (∀a. MEM a (tvars tm) ⇒ a ∈ FDOM τi ∧ typeset τ (tyinst tyin (Tyvar a)) (τi ' a)) ∧
+          (∀x ty. VFREE_IN (Var x ty) tm ⇒ FLOOKUP σi (x,ty) = FLOOKUP σ (x,tyinst tyin ty)) ∧
+        semantics σi τi tm m)``,
+  ho_match_mp_tac (theorem"semantics_strongind") >>
+  conj_tac >- (
+    rw[] >>
+    Cases_on`ty`>>fs[] >>
+    simp[tyvars_def] >>
+    qpat_assum`Tyvar s = X`(assume_tac o SYM) >>
+    simp[] >>
+    simp[Once semantics_cases] >>
+    simp[Once semantics_cases] >>
+    simp[FLOOKUP_DEF] >>
+    qexists_tac`FEMPTY |+ (s',m)` >>
+    simp[] >>
+    fs[type_valuation_def,IN_FRANGE,FLOOKUP_DEF,GSYM LEFT_FORALL_IMP_THM] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rw[]
+
+val type_has_meaning_tyinst_imp = store_thm("type_has_meaning_tyinst_imp",
+  ``∀ty tyin. type_has_meaning (tyinst tyin ty) ⇒ type_has_meaning ty``,
+  ho_match_mp_tac type_ind >>
+  simp[] >>
+  conj_tac >- (
+    simp[type_has_meaning_def] >>
+    rw[] >>
+    simp[Once semantics_cases] >>
+    fs[tyvars_def] >>
+    simp[FLOOKUP_DEF] ) >>
+  rw[EVERY_MEM] >>
+  fs[type_has_meaning_def] >>
+  rw[] >>
+  semantics_simple_inst
+has_meaning_simple_inst
+type_has_meaning_TYPE_SUBST
+
+val tvars_subterm_tyvars = store_thm("tvars_subterm_tyvars",
+  ``∀tm x. MEM x (tvars tm) ∧ welltyped tm ⇒ ∃t. subterm^* t tm ∧ MEM x (tyvars (typeof t))``,
+  Induct >> simp[tvars_def] >- (
+    simp[RTC_subterm_Comb] >>
+    gen_tac >> strip_tac >> simp[] >> fs[tyvars_def] >>
+    metis_tac[] ) >>
+  simp[RTC_subterm_Abs] >>
+  rw[] >> metis_tac[tyvars_def,typeof_def])
+*)
+
 val soundness = store_thm("soundness",
   ``(∀ty. type_ok ty ⇒ type_has_meaning ty) ∧
     (∀tm. term_ok tm ⇒ has_meaning tm) ∧
