@@ -4421,26 +4421,44 @@ val semantics_tvars_simple_inst_exists = store_thm("semantics_tvars_simple_inst_
 *)
 
 (*
+val typeset_tyinst_imp = store_thm("typeset_tyinst_imp",
+  ``∀τ m ty tyin. typeset τ (tyinst tyin ty) m ∧ type_valuation τ ⇒
+      ∃τi. type_valuation τi ∧
+           (∀a. MEM a (tyvars ty) ⇒ a ∈ FDOM τi ∧ typeset τ (tyinst tyin (Tyvar a)) (τi ' a)) ∧
+           typeset τi ty m``,
+  rw[] >>
+  qexists_tac`FUN_FMAP (λa. @m. typeset τ (FLOOKUPD tyin a (Tyvar a)) m) (set (tyvars ty))` >>
+  `∀a. MEM a (tyvars ty) ⇒ ∃m. typeset τ (FLOOKUPD tyin a (Tyvar a)) m` by (
+    rw[] >>
+    imp_res_tac typeset_closes_over >>
+    fs[tyvars_tyinst,SUBSET_DEF,GSYM LEFT_FORALL_IMP_THM]
+*)
+
+(*
 val semantics_simple_inst_imp = store_thm("semantics_simple_inst_imp",
   ``(∀τ tyi m. typeset τ tyi m ⇒
       ∀ty tyin.
         tyi = tyinst tyin ty ∧
+        FDOM tyin = set (tyvars ty) ∧
         type_valuation τ
         ⇒
         ∃τi.
+          FDOM τi = FDOM tyin ∧
           type_valuation τi ∧
-          (∀a. MEM a (tyvars ty) ⇒ a ∈ FDOM τi ∧ typeset τ (tyinst tyin (Tyvar a)) (τi ' a)) ∧
-        typeset τi ty m) ∧
+          (∀a. a ∈ FDOM tyin ⇒ typeset τ (tyinst tyin (Tyvar a)) (τi ' a)) ∧
+          typeset τi ty m) ∧
     (∀σ τ tmi m. semantics σ τ tmi m ⇒
       ∀tm tyin.
         tmi = simple_inst tyin tm ∧
+        FDOM tyin = set (tvars tm) ∧
         type_valuation τ ∧
         term_valuation τ σ
         ⇒
         ∃σi τi.
+          FDOM τi = FDOM tyin ∧
           type_valuation τi ∧
           term_valuation τi σi ∧
-          (∀a. MEM a (tvars tm) ⇒ a ∈ FDOM τi ∧ typeset τ (tyinst tyin (Tyvar a)) (τi ' a)) ∧
+          (∀a. a ∈ FDOM tyin ⇒ typeset τ (tyinst tyin (Tyvar a)) (τi ' a)) ∧
           (∀x ty. VFREE_IN (Var x ty) tm ⇒ FLOOKUP σi (x,ty) = FLOOKUP σ (x,tyinst tyin ty)) ∧
         semantics σi τi tm m)``,
   ho_match_mp_tac (theorem"semantics_strongind") >>
@@ -4458,7 +4476,145 @@ val semantics_simple_inst_imp = store_thm("semantics_simple_inst_imp",
     fs[type_valuation_def,IN_FRANGE,FLOOKUP_DEF,GSYM LEFT_FORALL_IMP_THM] >>
     metis_tac[] ) >>
   conj_tac >- (
-    rw[]
+    rw[] >>
+    Cases_on`ty`>>fs[] >>
+    simp[tyvars_def] >>
+    rw[] >> TRY(metis_tac[type_valuation_FEMPTY,FDOM_FEMPTY]) >>
+    qpat_assum`Bool = X`(assume_tac o SYM) >>
+    simp[] >>
+    simp[Once semantics_cases] >>
+    simp[FLOOKUP_DEF] >>
+    qexists_tac`FEMPTY |+ (s,boolset)` >>
+    simp[] >>
+    fs[type_valuation_def,IN_FRANGE,FLOOKUP_DEF,GSYM LEFT_FORALL_IMP_THM] >>
+    metis_tac[BOOLEAN_IN_BOOLSET] ) >>
+  conj_tac >- (
+    rw[] >>
+    Cases_on`ty`>>fs[] >>
+    simp[tyvars_def] >>
+    rw[] >> TRY(metis_tac[type_valuation_FEMPTY,FDOM_FEMPTY]) >>
+    qpat_assum`Ind = X`(assume_tac o SYM) >>
+    simp[] >>
+    simp[Once semantics_cases] >>
+    simp[FLOOKUP_DEF] >>
+    qexists_tac`FEMPTY |+ (s,indset)` >>
+    simp[] >>
+    fs[type_valuation_def,IN_FRANGE,FLOOKUP_DEF,GSYM LEFT_FORALL_IMP_THM] >>
+    metis_tac[INDSET_INHABITED] ) >>
+  conj_tac >- (
+    rw[] >>
+    Cases_on`ty`>>fs[] >>
+    simp[tyvars_def] >>
+    rw[] >>
+    TRY (
+      Cases_on`l`>>fs[]>>
+      Cases_on`t`>>fs[]>>rw[]>>
+      simp[Q.SPECL[`tt`,`Fun X Y`](CONJUNCT1 semantics_cases)] >>
+      fs[tyvars_def] >>
+      last_x_assum(qspecl_then[`h`,`DRESTRICT tyin (set (tyvars h))`]mp_tac) >>
+      discharge_hyps >- (
+        simp[FDOM_DRESTRICT,EXTENSION] >>
+        conj_tac >- (
+          match_mp_tac tyinst_tyvars1 >>
+          simp[FLOOKUPD_def,FLOOKUP_DRESTRICT] ) >>
+        metis_tac[] ) >>
+      disch_then(qx_choose_then`t1`strip_assume_tac) >>
+      last_x_assum(qspecl_then[`h'`,`DRESTRICT tyin (set (tyvars h'))`]mp_tac)>>
+      discharge_hyps >- (
+        simp[FDOM_DRESTRICT,EXTENSION] >>
+        conj_tac >- (
+          match_mp_tac tyinst_tyvars1 >>
+          simp[FLOOKUPD_def,FLOOKUP_DRESTRICT] ) >>
+        metis_tac[] ) >>
+      disch_then(qx_choose_then`t2`strip_assume_tac) >>
+      `∀a. MEM a (tyvars h) ∧ MEM a (tyvars h') ⇒ t1 ' a = t2 ' a` by (
+        rw[] >>
+        rfs[FLOOKUPD_def,FLOOKUP_DRESTRICT] >>
+        metis_tac[semantics_11] ) >>
+      qexists_tac`t1 ⊌ t2` >>
+      simp[type_valuation_union] >>
+      conj_tac >- (
+        gen_tac >>
+        simp[FUNION_DEF] >>
+        Cases_on`MEM a (tyvars h)` >> simp[] >- (
+          fs[FLOOKUPD_def,FLOOKUP_DRESTRICT] ) >>
+        rw[] >>
+        fs[FLOOKUPD_def,FLOOKUP_DRESTRICT] ) >>
+      map_every qexists_tac[`m`,`m'`] >>
+      simp[] >> rw[] >>
+      match_mp_tac (MP_CANON (CONJUNCT1 typeset_tyvars)) >>
+      simp[FLOOKUP_FUNION] >>
+      simp[FLOOKUP_DEF] >- metis_tac[] >>
+      qexists_tac`t2` >>
+      simp[] >> rw[] ) >>
+    `∃z z'. z <: m ∧ z' <: m'` by metis_tac[typeset_inhabited] >>
+    qexists_tac`FEMPTY|+(s,funspace m m')` >>
+    qpat_assum`Fun X Y = Z`(assume_tac o SYM) >>
+    simp[] >>
+    simp[Once semantics_cases] >>
+    conj_tac >- (
+      simp[type_valuation_def] >>
+      qexists_tac`abstract m m' (K z')` >>
+      match_mp_tac ABSTRACT_IN_FUNSPACE >>
+      simp[] ) >>
+    conj_tac >- metis_tac[] >>
+    simp[Once semantics_cases,FLOOKUP_UPDATE] ) >>
+  conj_tac >- (
+    rw[] >>
+    Cases_on`ty`>>fs[]>-(
+      fs[tyvars_def]>>
+      qexists_tac`FEMPTY|+(s,(m' suchthat holds m))` >>
+      simp[] >>
+      qpat_assum`X = FLOOKUPD A B Z`(assume_tac o SYM) >>
+      simp[] >>
+      conj_tac >- (
+        simp[type_valuation_def] >>
+        simp[suchthat_def] >>
+        metis_tac[] ) >>
+      conj_tac >- (
+        simp[Once semantics_cases] >>
+        metis_tac[] ) >>
+      simp[Once semantics_cases,FLOOKUP_UPDATE] ) >>
+    rw[] >>
+    qmatch_assum_abbrev_tac`semantics FEMPTY τ (simple_inst tyin tm) m` >>
+    first_x_assum(qspecl_then[`tm`,`tyin`]mp_tac) >>
+    discharge_hyps >- (
+      simp[] >>
+      simp[Abbr`tyin`,MAP_ZIP] >>
+      simp[EXTENSION] ) >>
+    strip_tac >>
+    qexists_tac`FUN_FMAP (λa. @m. typeset τ (FLOOKUPD tyin' a (Tyvar a)) m) (set (tyvars (Tyapp (Tydefined op p0) l)))` >>
+    simp[] >>
+    `∀a. MEM a (tyvars (Tyapp (Tydefined op p0) l)) ⇒ ∃m. typeset τ (FLOOKUPD tyin' a (Tyvar a)) m` by (
+      fs[tyvars_def,MEM_FOLDR_LIST_UNION,GSYM LEFT_FORALL_IMP_THM] >>
+      rw[] >>
+      `∃n. y = EL n l ∧ n < LENGTH l` by metis_tac[MEM_EL] >>
+      qpat_assum`∀a. MEM a (tvars tm) ⇒ X`(qspec_then`EL n (STRING_SORT(tvars tm))`mp_tac) >>
+      discharge_hyps >- metis_tac[MEM_EL,LENGTH_STRING_SORT,MEM_STRING_SORT,tvars_ALL_DISTINCT] >>
+      simp[FLOOKUPD_def,Abbr`tyin`,ALOOKUP_ZIP_MAP_SND] >>
+      Q.ISPECL_THEN[`ZIP((STRING_SORT(tvars tm)),l)`,`n`]mp_tac ALOOKUP_ALL_DISTINCT_EL >>
+      simp[MAP_ZIP,EL_ZIP] >>
+      disch_then kall_tac >>
+
+      semantics_simple_inst
+      qpat_assum`FDOM tyin' = X`(assume_tac o SYM) >>
+      simp[FLOOKUPD_def,FLOOKUP_DEF] >>
+      rw[]
+
+    first_x_assum(qspecl_then[`rty`,`DRESTRICT tyin (set (tyvars rty))`]mp_tac) >>
+    discharge_hyps >- (
+      simp[FDOM_DRESTRICT] >>
+      conj_tac >- (
+        match_mp_tac tyinst_tyvars1 >>
+        imp_res_tac tyvars_typeof_subset_tvars >>
+        fs[tyvars_def,SUBSET_DEF] >>
+        simp[FLOOKUPD_def,FLOOKUP_DRESTRICT] ) >>
+      imp_res_tac tyvars_typeof_subset_tvars >>
+      fs[tyvars_def,SUBSET_DEF] >>
+      simp[Abbr`tyin`,EXTENSION,MAP_ZIP] >>
+      metis_tac[] ) >>
+    disch_then(qx_choose_then`tt`strip_assume_tac) >>
+
 
 val type_has_meaning_tyinst_imp = store_thm("type_has_meaning_tyinst_imp",
   ``∀ty tyin. type_has_meaning (tyinst tyin ty) ⇒ type_has_meaning ty``,
