@@ -4577,30 +4577,50 @@ val semantics_simple_inst_imp = store_thm("semantics_simple_inst_imp",
       simp[Once semantics_cases,FLOOKUP_UPDATE] ) >>
     rw[] >>
     qmatch_assum_abbrev_tac`semantics FEMPTY τ (simple_inst tyin tm) m` >>
+    qmatch_assum_abbrev_tac`Abbrev(tyin = alist_to_fmap(ZIP (tvs,MAP (tyinst tyin') l)))` >>
+    qabbrev_tac`tyn = alist_to_fmap(ZIP(tvs,l))` >>
+    first_x_assum(qspecl_then[`simple_inst tyn tm`,`tyin'`]mp_tac) >>
+    discharge_hyps_keep >- (
+      simp[simple_inst_compose,tvars_simple_inst,tyvars_def] >>
+      conj_tac >- (
+        simp[simple_inst_tvars] >>
+        simp[FLOOKUPD_def] >>
+        simp[FLOOKUP_FUNION,FLOOKUP_o_f] >>
+        simp[Abbr`tyin`,Abbr`tyn`,Abbr`tvs`,ALOOKUP_ZIP_MAP_SND] >>
+        rw[] >>
+        `∃n. x = EL n (STRING_SORT (tvars tm)) ∧ n < LENGTH l` by metis_tac[MEM_EL,LENGTH_STRING_SORT,tvars_ALL_DISTINCT,MEM_STRING_SORT] >>
+        Q.ISPECL_THEN[`ZIP((STRING_SORT(tvars tm)),l)`,`n`]mp_tac ALOOKUP_ALL_DISTINCT_EL >>
+        simp[MAP_ZIP,EL_ZIP] ) >>
+      simp[SET_EQ_SUBSET,SUBSET_DEF,MEM_FOLDR_LIST_UNION,GSYM LEFT_FORALL_IMP_THM] >>
+      simp[Abbr`tyn`,FLOOKUPD_def,Abbr`tvs`] >>
+      conj_tac >- (
+        rw[] >>
+        `∃n. y = EL n l ∧ n < LENGTH l` by metis_tac[MEM_EL] >>
+        qexists_tac`EL n (STRING_SORT(tvars tm))` >>
+        conj_tac >- metis_tac[MEM_EL,tvars_ALL_DISTINCT,MEM_STRING_SORT,LENGTH_STRING_SORT] >>
+        Q.ISPECL_THEN[`ZIP((STRING_SORT(tvars tm)),l)`,`n`]mp_tac ALOOKUP_ALL_DISTINCT_EL >>
+        simp[MAP_ZIP,EL_ZIP] >> rw[] ) >>
+      rpt gen_tac >>
+      BasicProvers.CASE_TAC >- (
+        rw[] >>
+        fs[ALOOKUP_FAILS] >>
+        rfs[MEM_ZIP] >>
+        metis_tac[MEM_EL,tvars_ALL_DISTINCT,MEM_STRING_SORT,LENGTH_STRING_SORT] ) >>
+      imp_res_tac ALOOKUP_MEM >>
+      rw[] >> rfs[MEM_ZIP] >>
+      metis_tac[MEM_EL] ) >>
+    strip_tac >>
+    qpat_assum`FDOM tyin' = X`(assume_tac o SYM) >>
+    qexists_tac`τi` >>
+    simp[] >>
+
+
     first_x_assum(qspecl_then[`tm`,`tyin`]mp_tac) >>
     discharge_hyps >- (
       simp[] >>
       simp[Abbr`tyin`,MAP_ZIP] >>
       simp[EXTENSION] ) >>
     strip_tac >>
-    qexists_tac`FUN_FMAP (λa. @m. typeset τ (FLOOKUPD tyin' a (Tyvar a)) m) (set (tyvars (Tyapp (Tydefined op p0) l)))` >>
-    simp[] >>
-    `∀a. MEM a (tyvars (Tyapp (Tydefined op p0) l)) ⇒ ∃m. typeset τ (FLOOKUPD tyin' a (Tyvar a)) m` by (
-      fs[tyvars_def,MEM_FOLDR_LIST_UNION,GSYM LEFT_FORALL_IMP_THM] >>
-      rw[] >>
-      `∃n. y = EL n l ∧ n < LENGTH l` by metis_tac[MEM_EL] >>
-      qpat_assum`∀a. MEM a (tvars tm) ⇒ X`(qspec_then`EL n (STRING_SORT(tvars tm))`mp_tac) >>
-      discharge_hyps >- metis_tac[MEM_EL,LENGTH_STRING_SORT,MEM_STRING_SORT,tvars_ALL_DISTINCT] >>
-      simp[FLOOKUPD_def,Abbr`tyin`,ALOOKUP_ZIP_MAP_SND] >>
-      Q.ISPECL_THEN[`ZIP((STRING_SORT(tvars tm)),l)`,`n`]mp_tac ALOOKUP_ALL_DISTINCT_EL >>
-      simp[MAP_ZIP,EL_ZIP] >>
-      disch_then kall_tac >>
-
-      semantics_simple_inst
-      qpat_assum`FDOM tyin' = X`(assume_tac o SYM) >>
-      simp[FLOOKUPD_def,FLOOKUP_DEF] >>
-      rw[]
-
     first_x_assum(qspecl_then[`rty`,`DRESTRICT tyin (set (tyvars rty))`]mp_tac) >>
     discharge_hyps >- (
       simp[FDOM_DRESTRICT] >>
@@ -4614,7 +4634,26 @@ val semantics_simple_inst_imp = store_thm("semantics_simple_inst_imp",
       simp[Abbr`tyin`,EXTENSION,MAP_ZIP] >>
       metis_tac[] ) >>
     disch_then(qx_choose_then`tt`strip_assume_tac) >>
+    `∀ty. ty ∈ FRANGE tyin' ⇒ ∃m. typeset τ ty m` by (
+      simp[IN_FRANGE,tyvars_def,MEM_FOLDR_LIST_UNION,GSYM LEFT_FORALL_IMP_THM]
 
+    qexists_tac`τi ⊌ ((λty. @m. typeset τ ty m) o_f tyin')`
+
+    `∀a. MEM a (tyvars (Tyapp (Tydefined op p0) l)) ⇒ ∃m. typeset τ (FLOOKUPD tyin' a (Tyvar a)) m` by (
+      fs[tyvars_def,MEM_FOLDR_LIST_UNION,GSYM LEFT_FORALL_IMP_THM] >>
+      rw[] >>
+      `∃n. y = EL n l ∧ n < LENGTH l` by metis_tac[MEM_EL] >>
+      qpat_assum`∀a. MEM a (tvars tm) ⇒ X`(qspec_then`EL n (STRING_SORT(tvars tm))`mp_tac) >>
+      discharge_hyps >- metis_tac[MEM_EL,LENGTH_STRING_SORT,MEM_STRING_SORT,tvars_ALL_DISTINCT] >>
+      simp[FLOOKUPD_def,Abbr`tyin`,ALOOKUP_ZIP_MAP_SND] >>
+      Q.ISPECL_THEN[`ZIP((STRING_SORT(tvars tm)),l)`,`n`]mp_tac ALOOKUP_ALL_DISTINCT_EL >>
+      simp[MAP_ZIP,EL_ZIP] >>
+      disch_then kall_tac >>
+
+
+    qexists_tac`FUN_FMAP (λa. @m. typeset τ (FLOOKUPD tyin' a (Tyvar a)) m) (set (tyvars (Tyapp (Tydefined op p0) l)))` >>
+
+    simp[] >>
 
 val type_has_meaning_tyinst_imp = store_thm("type_has_meaning_tyinst_imp",
   ``∀ty tyin. type_has_meaning (tyinst tyin ty) ⇒ type_has_meaning ty``,
