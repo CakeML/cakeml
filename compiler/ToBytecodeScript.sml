@@ -380,14 +380,14 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     let s = ( emit s [Stack (Load (n +1 +k +1))]) in
     (* CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
      * vk, ..., v1, env1, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c1; env1], *)
-    let s = ( emit s [Stack (Load (n +1)); Stack (El 1)]) in
-    (* env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
+    let s = ( emit s [Stack (Load (n +1)); Stack (El 0)]) in
+    (* CodePtr c, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
      * vk, ..., v1, env1, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c1; env1], *)
-    let s = ( emit s [Stack (Load (n +2)); Stack (El 0)]) in
-    (* CodePtr c, env, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
+    let s = ( emit s [Stack (Load (n +2)); Stack (El 1)]) in
+    (* env, CodePtr c, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
      * vk, ..., v1, env1, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c1; env1], *)
     let s = ( emit s [Stack (Shift (1 +1 +1 +n +1) (k +1 +1 +j +1))]) in
-    emit s ((if ck then [Tick] else []) ++[JumpPtr])
+    emit s ((if ck then [Tick] else []) ++[Return])
   )))
 /\
 (compile menv env t sz s (CPrim1 uop e) =  
