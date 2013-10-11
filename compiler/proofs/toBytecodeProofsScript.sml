@@ -2270,8 +2270,8 @@ val retbc_thm = store_thm("retbc_thm",
   rw[bc_eval1_thm] >>
   rw[bc_eval1_def])
 
-val _ = Parse.overload_on("jmpbc",``λck n j k. [Stack (Load (n + k + 2)); Stack (Load (n + 1)); Stack (El 1); Stack (Load (n + 2)); Stack (El 0);
-                                                Stack (Shift (n + 4) (k + j + 3))] ++ (if ck then [Tick] else []) ++ [JumpPtr]``)
+val _ = Parse.overload_on("jmpbc",``λck n j k. [Stack (Load (n + k + 2)); Stack (Load (n + 1)); Stack (El 0); Stack (Load (n + 2)); Stack (El 1);
+                                                Stack (Shift (n + 4) (k + j + 3))] ++ (if ck then [Tick] else []) ++ [Return]``)
 
 val code = ``jmpbc ck (LENGTH (args1 :bc_value list)) (LENGTH (args : bc_value list)) (LENGTH (vs : bc_value list))``
 val jmpbc_thm = store_thm("jmpbc_thm",
