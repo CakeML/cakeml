@@ -52,7 +52,6 @@ val _ = Hol_datatype `
   | Jump of loc             (* jump to location *)
   | JumpIf of loc           (* jump to location iff true *)
   | Call of loc             (* call location *)
-  | JumpPtr                 (* jump based on code pointer *)
   | CallPtr                 (* call based on code pointer *)
   | PushPtr of loc          (* push a CodePtr onto stack *)
   | Return                  (* pop return address, jump *)
@@ -337,12 +336,6 @@ bc_next s ((s with<| pc := n; stack := x ::CodePtr ((bump_pc s).pc) ::xs|>)))
 bc_fetch s = SOME CallPtr) /\ (s.stack = CodePtr ptr ::x ::xs))
 ==>
 bc_next s ((s with<| pc := ptr; stack := x ::CodePtr ((bump_pc s).pc) ::xs|>)))
-/\
-(! s ptr xs.
-((
-bc_fetch s = SOME JumpPtr) /\ (s.stack = CodePtr ptr ::xs))
-==>
-bc_next s ((s with<| pc := ptr; stack := xs|>)))
 /\
 (! s l n.
 ((

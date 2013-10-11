@@ -222,10 +222,6 @@ val bc_next_append_code = store_thm("bc_next_append_code",
   strip_tac >- (
     rw[bc_eval1_thm] >>
     imp_res_tac bc_fetch_append_code >>
-    rw[bc_eval1_def,LET_THM] ) >>
-  strip_tac >- (
-    rw[bc_eval1_thm] >>
-    imp_res_tac bc_fetch_append_code >>
     imp_res_tac bc_find_loc_append_code >>
     rw[bc_eval1_def,LET_THM] >>
     rw[bc_state_component_equality] >>
