@@ -35,10 +35,10 @@ val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
    LENGTH (tvars p) = LENGTH args ∧
    tyin = alist_to_fmap(ZIP (STRING_SORT(tvars p), args)) ∧
    p has_type Fun rty Bool ∧
-   (∀τ. type_valuation τ ∧ set (tvars (simple_inst tyin p)) ⊆ FDOM τ ⇒
+   (∀τ. type_valuation τ ∧ set (tvars p) ⊆ FDOM τ ⇒
       ∃mrty mp w.
-        typeset τ (tyinst tyin rty) mrty ∧
-        semantics FEMPTY τ (simple_inst tyin p) mp ∧
+        typeset τ rty mrty ∧
+        semantics FEMPTY τ p mp ∧
         w <: mrty ∧ holds mp w) ∧
    typeset τ (tyinst tyin rty) mrty ∧
    semantics FEMPTY τ (simple_inst tyin p) mp ∧
@@ -4579,7 +4579,7 @@ val semantics_simple_inst_imp = store_thm("semantics_simple_inst_imp",
     qmatch_assum_abbrev_tac`semantics FEMPTY τ (simple_inst tyin tm) m` >>
     qmatch_assum_abbrev_tac`Abbrev(tyin = alist_to_fmap(ZIP (tvs,MAP (tyinst tyin') l)))` >>
     qabbrev_tac`tyn = alist_to_fmap(ZIP(tvs,l))` >>
-    first_x_assum(qspecl_then[`simple_inst tyn tm`,`tyin'`]mp_tac) >>
+    first_assum(qspecl_then[`simple_inst tyn tm`,`tyin'`]mp_tac) >>
     discharge_hyps_keep >- (
       simp[simple_inst_compose,tvars_simple_inst,tyvars_def] >>
       conj_tac >- (
@@ -4616,16 +4616,17 @@ val semantics_simple_inst_imp = store_thm("semantics_simple_inst_imp",
     simp[Once semantics_cases] >>
     map_every qexists_tac[`m`,`m'`,`rty`,`w`] >>
     simp[] >>
+    `semantics FEMPTY τi (simple_inst tyn tm) m` by (
+      qmatch_abbrev_tac`semantics s1 τi tt m` >>
+      qmatch_assum_abbrev_tac`semantics s2 τi tt m` >>
+      qsuff_tac`semantics s1 τi tt = semantics s2 τi tt` >- rw[] >>
+      match_mp_tac semantics_frees >>
+      simp[Abbr`tt`] >>
+      `ACONV p0 tm` by simp[Abbr`tm`,fresh_term_def] >>
+      `closed tm` by metis_tac[ACONV_VFREE_IN,ACONV_SYM] >>
+      simp[VFREE_IN_simple_inst,Abbr`tm`,fresh_term_def] ) >>
+    simp[] >>
     reverse conj_tac >- (
-      reverse conj_tac >- (
-        qmatch_abbrev_tac`semantics s1 τi tt m` >>
-        qmatch_assum_abbrev_tac`semantics s2 τi tt m` >>
-        qsuff_tac`semantics s1 τi tt = semantics s2 τi tt` >- rw[] >>
-        match_mp_tac semantics_frees >>
-        simp[Abbr`tt`] >>
-        `ACONV p0 tm` by simp[Abbr`tm`,fresh_term_def] >>
-        `closed tm` by metis_tac[ACONV_VFREE_IN,ACONV_SYM] >>
-        simp[VFREE_IN_simple_inst,Abbr`tm`,fresh_term_def] ) >>
       first_x_assum(qspecl_then[`tyinst tyn rty`,`DRESTRICT tyin' (set(tyvars (tyinst tyn rty)))`]mp_tac) >>
       discharge_hyps >- (
         simp[tyinst_tyinst,tyvars_tyinst,tyvars_def] >>
@@ -4683,7 +4684,30 @@ val semantics_simple_inst_imp = store_thm("semantics_simple_inst_imp",
         rfs[FLOOKUPD_def,FLOOKUP_DRESTRICT] >>
         metis_tac[semantics_11] ) >>
       simp[tvars_simple_inst] ) >>
-    ...
+    rw[] >>
+    `∃mm. semantics FEMPTY τ' (simple_inst tyn tm) mm` by (
+      match_mp_tac (MP_CANON (CONJUNCT2 semantics_frees_exists)) >>
+      map_every qexists_tac[`FEMPTY`,`τi`,`m`] >>
+      simp[] >> fs[SUBSET_DEF] >>
+      `ACONV p0 tm` by simp[Abbr`tm`,fresh_term_def] >>
+      `closed tm` by metis_tac[ACONV_VFREE_IN,ACONV_SYM] >>
+      simp[VFREE_IN_simple_inst,Abbr`tm`,fresh_term_def] ) >>
+    qspecl_then[`FEMPTY`,`τ'`,`simple_inst tyn tm`,`mm`]mp_tac(CONJUNCT2 semantics_typeset) >>
+    simp[] >> strip_tac >>
+    `typeof (simple_inst tyn tm) = tyinst tyn (typeof tm)` by (
+      metis_tac[WELLTYPED,simple_inst_has_type,WELLTYPED_LEMMA] ) >>
+    `typeof tm = Fun rty Bool` by metis_tac[welltyped_def,WELLTYPED_LEMMA] >>
+    fs[] >>
+    qpat_assum`typeset X Y mty` mp_tac >>
+    simp[Once semantics_cases] >> strip_tac >>
+    qexists_tac`mx` >> simp[] >>
+    qexists_tac`mm` >> simp[] >>
+
+    first_x_assum(qspec_then`(λa. @m. typeset ) o_f tyin'`mp_tac)
+
+    qspecl_then[`FEMPTY`,`τ'`,`simple_inst tyn tm`,`mm`]mp_tac (CONJUNCT2 semantics_simple_inst) >>
+    simp[] >>
+    disch_then(qspecl_then[`FEMPTY`,`τ'`,`tyin'`]mp_tac) >>
 
 val type_has_meaning_tyinst_imp = store_thm("type_has_meaning_tyinst_imp",
   ``∀ty tyin. type_has_meaning (tyinst tyin ty) ⇒ type_has_meaning ty``,
