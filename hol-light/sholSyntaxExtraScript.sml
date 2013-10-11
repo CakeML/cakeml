@@ -292,6 +292,16 @@ val tyinst_def = tDefine "tyinst"`
 val tyinst_def = save_thm("tyinst_def",SIMP_RULE (std_ss++ETA_ss)[]tyinst_def)
 val _ = export_rewrites["tyinst_def"]
 
+val tyinst_tyinst = store_thm("tyinst_tyinst",
+  ``∀ty i1 i2. tyinst i1 (tyinst i2 ty) = tyinst (tyinst i1 o_f i2 ⊌ i1) ty``,
+  ho_match_mp_tac type_ind >>
+  simp[] >>
+  conj_tac >- (
+    simp[FLOOKUPD_def,FLOOKUP_o_f,FLOOKUP_FUNION] >> rw[] >>
+    BasicProvers.CASE_TAC >>
+    simp[FLOOKUPD_def] ) >>
+  simp[MAP_MAP_o,MAP_EQ_f,EVERY_MEM])
+
 val simple_inst_def = Define`
   simple_inst tyin (Var x ty) = Var x (tyinst tyin ty) ∧
   simple_inst tyin (Const x ty g) = Const x (tyinst tyin ty) g ∧
@@ -310,6 +320,15 @@ val simple_inst_has_type = store_thm("simple_inst_has_type",
   >- (
     rw[Once has_type_cases] ))
 
+val simple_inst_compose = store_thm("simple_inst_compose",
+  ``∀tm i1 i2. simple_inst i1 (simple_inst i2 tm) = simple_inst (tyinst i1 o_f i2 ⊌ i1) tm``,
+  Induct >> simp[tyinst_tyinst])
+
+val bv_names_simple_inst = store_thm("bv_names_simple_inst",
+  ``∀tm tyin. bv_names (simple_inst tyin tm) = bv_names tm``,
+  Induct >> simp[])
+val _ = export_rewrites["bv_names_simple_inst"]
+
 val simple_subst_def = Define`
   (simple_subst σ (Var s ty) = FLOOKUPD σ (s,ty) (Var s ty)) ∧
   (simple_subst σ (Const s ty g) = Const s ty g) ∧
@@ -321,6 +340,26 @@ val simple_subst_FEMPTY = store_thm("simple_subst_FEMPTY",
   ``∀tm. simple_subst FEMPTY tm = tm``,
   Induct >> simp[])
 val _ = export_rewrites["simple_subst_FEMPTY"]
+
+val simple_subst_has_type = store_thm("simple_subst_has_type",
+  ``∀tm ty.
+      tm has_type ty ⇒
+      ∀subst.
+        FEVERY (λ((x,ty),tm). tm has_type ty) subst ⇒
+        simple_subst subst tm has_type ty``,
+  ho_match_mp_tac has_type_ind >>
+  simp[] >> rw[] >- (
+    fs[FLOOKUPD_def,FEVERY_DEF,FLOOKUP_DEF] >>
+    rw[] >> res_tac >> fs[] >>
+    rw[Once has_type_cases] )
+  >- (
+    rw[Once has_type_cases] )
+  >- (
+    rw[Once has_type_cases] >>
+    metis_tac[] ) >>
+  rw[Once has_type_cases] >>
+  first_x_assum match_mp_tac >>
+  fs[FEVERY_DEF,DOMSUB_FAPPLY_THM])
 
 val ilist_to_fmap_def = Define`
   ilist_to_fmap ilist = FUN_FMAP (λp. REV_ASSOCD (UNCURRY Var p) ilist (UNCURRY Var p)) {(x,ty) | MEM (Var x ty) (MAP SND ilist)}`
