@@ -629,9 +629,7 @@ val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
  `(!n defs. context_ok defs ==> type_ok defs (Tyvar n)) /\
   (!defs tm ty. term_ok defs tm /\ tm has_type ty ==> type_ok defs ty) /\
-  (*
   (!defs n ls ty. type_ok defs (Tyapp n ls) /\ MEM ty ls ==> type_ok defs ty) /\
-  *)
 
   (!defs x ty. type_ok defs ty ==> term_ok defs (Var x ty)) /\
   (!defs t1 t2. term_ok defs t1 /\ term_ok defs t2 /\ welltyped (Comb t1 t2) ==> term_ok defs (Comb t1 t2)) /\

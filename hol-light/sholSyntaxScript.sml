@@ -619,9 +619,7 @@ val _ = Parse.overload_on("closed",``λt. ∀n ty. ¬VFREE_IN (Var n ty) t``)
 val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
  (type_ok (Tyvar a)) ∧ (type_ok Bool) ∧ (type_ok Ind) ∧
  (type_ok ty1 ∧ type_ok ty2 ⇒ type_ok (Fun ty1 ty2)) ∧
- (*
  (type_ok (Tyapp op args) ∧ MEM ty args ⇒ type_ok ty) ∧
- *)
  (type_ok ty ⇒ term_ok (Var x ty)) ∧
  (type_ok ty ⇒ term_ok (Equal ty)) ∧
  (type_ok ty ⇒ term_ok (Select ty)) ∧
