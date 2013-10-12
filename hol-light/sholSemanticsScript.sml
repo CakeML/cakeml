@@ -3911,14 +3911,9 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
   rpt gen_tac >> strip_tac >>
   fs[Q.SPECL[`Comb p w`,`Bool`]has_type_cases] >>
   imp_res_tac WELLTYPED_LEMMA >>
-  qabbrev_tac`tm = fresh_term {} p` >>
-  `ACONV p tm` by simp[Abbr`tm`,fresh_term_def] >>
-  imp_res_tac ACONV_tvars >>
-  imp_res_tac ACONV_welltyped >> pop_assum kall_tac >>
-  imp_res_tac ACONV_TYPE >> pop_assum(assume_tac o SYM) >>
-  `∀τ. type_valuation τ ∧ set (tvars tm) ⊆ FDOM τ ⇒
+  `∀τ. type_valuation τ ∧ set (tvars p) ⊆ FDOM τ ⇒
      ∃mrty mp z.
-       typeset τ (typeof w) mrty ∧ semantics FEMPTY τ tm mp ∧ z <: mrty ∧
+       typeset τ (typeof w) mrty ∧ semantics FEMPTY τ p mp ∧ z <: mrty ∧
        holds mp z` by (
     gen_tac >> strip_tac >>
     `type_has_meaning (typeof w)` by metis_tac[has_meaning_type_has_meaning] >>
@@ -3931,13 +3926,11 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
       fs[tyvars_def,SUBSET_DEF] ) >>
     strip_tac >>
     qexists_tac`m` >> rw[] >>
-    `∃mp. semantics FEMPTY τ tm mp` by (
-      imp_res_tac has_meaning_aconv >>
+    `∃mp. semantics FEMPTY τ p mp` by (
       fs[has_meaning_def] >>
       first_x_assum match_mp_tac >>
       simp[] >>
-      fs[closes_def] >>
-      metis_tac[VFREE_IN_ACONV] ) >>
+      fs[closes_def] ) >>
     qexists_tac`mp` >>
     rw[] >>
     `∃σ τw mw. term_valuation τw σ ∧ type_valuation τw ∧ semantics σ τw w mw` by (
@@ -3962,14 +3955,10 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
       map_every qexists_tac[`{}`,`FDOM τ`] >>
       simp[] >>
       fs[SUBMAP_DEF,SUBSET_DEF] >>
-      match_mp_tac closes_aconv >>
-      qexists_tac`tm` >>
-      simp[ACONV_SYM] >>
       metis_tac[semantics_closes,FDOM_FEMPTY,term_valuation_FEMPTY] ) >>
     simp[Once semantics_cases] >>
     rw[] >>
-    `semantics s t tm m1` by metis_tac[semantics_aconv] >>
-    `semantics FEMPTY τ tm m1` by (
+    `semantics FEMPTY τ p m1` by (
       match_mp_tac semantics_reduce >>
       map_every qexists_tac[`t`,`s`] >>
       simp[] >>
@@ -3990,38 +3979,47 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
       simp[type_has_meaning_def] >>
       rw[] >>
       simp[Once semantics_cases] >>
-      fs[] >> rw[] >>
-      qspec_then`tm`strip_assume_tac WELLTYPED >>
-      simp[] >> rfs[] >>
+      qexists_tac`MAP (FAPPLY τ) (STRING_SORT (tvars p))` >>
+      Q.PAT_ABBREV_TAC`t0 = A(X):string|->V` >>
       CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
       CONV_TAC SWAP_EXISTS_CONV >>
       qexists_tac`typeof w` >>
-      simp[RIGHT_EXISTS_AND_THM] >>
-      first_x_assum(qspec_then`τ`mp_tac) >>
       simp[] >>
+      `t0 ⊑ τ` by (
+        simp[Abbr`t0`,SUBMAP_DEF,FUN_FMAP_DEF,MAP_ZIP] >>
+        fs[SUBSET_DEF,tyvars_def,MEM_FOLDR_LIST_UNION,GSYM LEFT_FORALL_IMP_THM,MEM_MAP] ) >>
+      first_x_assum(qspec_then`t0`mp_tac) >>
       discharge_hyps >- (
-        fs[tvars_simple_inst,SUBSET_DEF,tyvars_def,MEM_FOLDR_LIST_UNION] >>
-        rw[] >>
-        first_x_assum match_mp_tac >>
-        qexists_tac`Tyvar x` >>
-        simp[tyvars_def] >>
-        simp[MEM_MAP]) >>
-      metis_tac[] ) >>
+        conj_tac >- metis_tac[type_valuation_reduce] >>
+        simp[Abbr`t0`,MAP_ZIP,SUBSET_DEF] ) >>
+      strip_tac >>
+      map_every qexists_tac[`z`,`mrty`,`mp`] >>
+      simp[] >>
+      simp[EVERY2_MAP] >>
+      simp[Once semantics_cases,FLOOKUP_DEF] >>
+      match_mp_tac EVERY2_refl >>
+      simp[] >>
+      fs[tyvars_def,SUBSET_DEF,MEM_MAP,MEM_FOLDR_LIST_UNION]) >>
     simp[] >>
     conj_tac >>
     match_mp_tac semantics_has_meaning >>
     simp[Once semantics_cases] >>
     srw_tac[DNF_ss][] >>
-    `∃τ mp. type_valuation τ ∧ semantics FEMPTY τ tm mp` by (
-      imp_res_tac has_meaning_aconv >>
+    `∃τ mp. type_valuation τ ∧ semantics FEMPTY τ p mp` by (
       fs[has_meaning_def] >>
-      qexists_tac`τ'` >> simp[] >>
+      qexists_tac`τ` >> simp[] >>
       first_x_assum match_mp_tac >>
       simp[] >>
-      fs[closes_def] >>
-      metis_tac[VFREE_IN_ACONV] ) >>
-    rfs[] >>
+      fs[closes_def]) >>
+    map_every qexists_tac[`FEMPTY`,`τ`,`MAP (FAPPLY τ) (STRING_SORT (tvars p))`] >>
+    simp[] >>
+    Q.PAT_ABBREV_TAC`tt:string|->V = FUN_FMAP X Y` >>
     qmatch_assum_abbrev_tac`type_has_meaning ty` >>
+    `tt ⊑ τ` by (
+      simp[Abbr`tt`,SUBMAP_DEF,FUN_FMAP_DEF,MAP_ZIP] >>
+      imp_res_tac semantics_closes >>
+      fs[closes_def,SUBSET_DEF] ) >>
+    `type_valuation tt` by metis_tac[type_valuation_reduce] >>
     `∃maty. typeset τ ty maty` by (
       fs[type_has_meaning_def] >>
       first_x_assum match_mp_tac >>
@@ -4029,7 +4027,7 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
       rw[] >> fs[tyvars_def] >> rw[] >>
       imp_res_tac semantics_closes >>
       fs[closes_def,SUBSET_DEF] ) >>
-    `∃mrty. typeset τ (typeof w) mrty` by (
+    `∃mrty. typeset tt (typeof w) mrty` by (
       imp_res_tac has_meaning_type_has_meaning >>
       fs[type_has_meaning_def] >>
       first_x_assum match_mp_tac >>
@@ -4037,8 +4035,23 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
       imp_res_tac tyvars_typeof_subset_tvars >>
       imp_res_tac semantics_closes >>
       fs[closes_def,SUBSET_DEF,tyvars_def] >>
-      metis_tac[]) >>
-    metis_tac[WELLTYPED,term_valuation_FEMPTY] ) >>
+      simp[Abbr`tt`]) >>
+    qexists_tac`maty` >>
+    ((map_every qexists_tac [`mp`,`mrty`])ORELSE(qexists_tac`mrty`)) >>
+    simp[] >>
+    TRY conj_tac >>
+    TRY (
+      match_mp_tac semantics_reduce >>
+      qexists_tac`τ` >>
+      qexists_tac`FEMPTY` >>
+      simp[closes_def,Abbr`tt`,SUBSET_DEF]) >>
+    simp[EVERY2_MAP] >>
+    match_mp_tac EVERY2_refl >>
+    simp[] >>
+    fs[tyvars_def,SUBSET_DEF,MEM_MAP,MEM_FOLDR_LIST_UNION] >>
+    simp[Once semantics_cases,FLOOKUP_DEF] >>
+    imp_res_tac semantics_closes >>
+    fs[closes_def,SUBSET_DEF] ) >>
   conj_tac >- (
     rw[] >>
     match_mp_tac semantics_equation >>
@@ -4046,10 +4059,7 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
     simp[Once semantics_cases] >>
     simp[Once semantics_cases] >>
     srw_tac[DNF_ss][] >>
-    simp[Once semantics_cases] >>
-    srw_tac[DNF_ss][] >>
     fs[equation_has_meaning_iff] >>
-    fs[] >> rw[] >>
     qmatch_assum_abbrev_tac`closes s t (l === r)` >>
     qspecl_then[`s`,`t`,`l`,`r`,`typeof r`]mp_tac(Q.GENL[`ty`,`r`,`l`,`τ`,`σ`]closes_equation) >>
     discharge_hyps_keep >- (
@@ -4061,25 +4071,53 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
       simp[Once has_type_cases] ) >>
     strip_tac >> fs[] >>
     pop_assum kall_tac >>
-    `tm has_type (typeof p)` by metis_tac[WELLTYPED] >>
-    rfs[] >>
+    `p has_type (typeof p)` by metis_tac[WELLTYPED] >>
     first_assum(qspec_then`τ`mp_tac) >>
     discharge_hyps >- (
       simp[] >>
       imp_res_tac tyvars_typeof_subset_tvars >>
       fs[Abbr`r`,tyvars_def,SUBSET_DEF,tvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP] ) >>
     disch_then(qx_choosel_then[`mrty`,`mp`,`z`]strip_assume_tac) >>
-    CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
-    map_every qexists_tac[`z`,`typeof w`,`mrty`,`mp`,`mrty`,`mp`] >>
+    qabbrev_tac`ams = MAP (FAPPLY τ) (STRING_SORT (tvars p))` >>
+    `set (tvars p) ⊆ t` by (
+      imp_res_tac semantics_closes >>
+      rfs[closes_def] ) >>
+    `LIST_REL (typeset τ) (MAP Tyvar (STRING_SORT (tvars p))) ams` by (
+      simp[EVERY2_MAP,Abbr`ams`] >>
+      match_mp_tac EVERY2_refl >>
+      simp[] >>
+      simp[Once semantics_cases,FLOOKUP_DEF] >>
+      fs[SUBSET_DEF] ) >>
+    CONV_TAC(RESORT_EXISTS_CONV(fn ls => List.drop(ls,2) @ List.take(ls,2))) >>
+    qexists_tac`ams` >>
+    Q.PAT_ABBREV_TAC`t0 = A(X):string|->V` >>
+    `t0 ⊑ τ` by (
+      simp[Abbr`ams`,Abbr`t0`,SUBMAP_DEF,FUN_FMAP_DEF,MAP_ZIP] >>
+      fs[SUBSET_DEF] ) >>
+    `closes ∅ (FDOM t0) p` by (
+      simp[closes_def,Abbr`t0`,MAP_ZIP,Abbr`ams`,SUBSET_DEF] ) >>
+    `semantics FEMPTY t0 p mp` by (
+      match_mp_tac semantics_reduce >>
+      map_every qexists_tac[`τ`,`FEMPTY`] >>
+      simp[] ) >>
+    `typeset t0 (typeof w) mrty` by (
+      match_mp_tac typeset_reduce >>
+      qexists_tac`τ` >>
+      simp[] >>
+      imp_res_tac tyvars_typeof_subset_tvars >>
+      fs[Abbr`t0`,tyvars_def,SUBSET_DEF,MAP_ZIP,Abbr`ams`] ) >>
+    `∃maty. typeset τ (Tyapp (Tydefined n p) (MAP Tyvar (STRING_SORT (tvars p)))) maty` by (
+      simp[Once semantics_cases] >>
+      map_every qexists_tac[`ams`,`mp`,`mrty`,`typeof w`,`z`] >>
+      simp[] ) >>
+    map_every qexists_tac[`maty`,`mp`,`mrty`] >>
     simp[] >>
     simp[Once semantics_cases] >>
     srw_tac[DNF_ss][] >>
     simp[Once semantics_cases] >>
     srw_tac[DNF_ss][] >>
-    simp[Once semantics_cases] >>
-    srw_tac[DNF_ss][] >>
     CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
-    map_every qexists_tac[`z`,`typeof w`,`mrty`,`mp`,`mrty`] >>
+    map_every qexists_tac[`mrty`,`maty`,`ams`] >>
     simp[] >>
     simp[Abbr`r`] >>
     simp[Once semantics_cases] >>
@@ -4088,6 +4126,7 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
     fs[closes_def] >>
     simp[BOOLEAN_EQ_TRUE] >>
     qmatch_abbrev_tac`apply (abstract a b c) (apply (abstract b a f) g) = g` >>
+    `type_valuation t0` by metis_tac[type_valuation_reduce] >>
     `g <: a ∧ holds mp g` by (
       fs[term_valuation_def,FEVERY_DEF] >>
       qmatch_assum_abbrev_tac`(x,y) ∈ s` >>
@@ -4096,22 +4135,33 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
       simp[Abbr`y`,Once semantics_cases] >>
       strip_tac >>
       rfs[suchthat_def] >>
+      `ams' = ams` by (
+        rfs[LIST_EQ_REWRITE,EVERY2_EVERY,EVERY_MEM] >>
+        fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+        rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+        metis_tac[semantics_11] ) >>
+      BasicProvers.VAR_EQ_TAC >> rfs[] >>
       `mp' = mp` by metis_tac[semantics_11] >>
       imp_res_tac WELLTYPED_LEMMA >>
       rfs[] >>
       `mrty' = mrty` by metis_tac[semantics_11] >>
       fs[Abbr`a`] ) >>
+    `g <: b` by (
+      fs[term_valuation_def,FEVERY_ALL_FLOOKUP] >>
+      qmatch_assum_abbrev_tac`Abbrev(g = σ ' k)` >>
+      `FLOOKUP σ k = SOME g` by ( simp[FLOOKUP_DEF] ) >>
+      metis_tac[semantics_11,SND]) >>
     `apply (abstract b a f) g = f g` by (
       match_mp_tac APPLY_ABSTRACT >>
-      simp[Abbr`f`] >>
-      simp[Abbr`b`,suchthat_def] ) >>
+      simp[Abbr`f`] ) >>
     simp[Abbr`a`,Abbr`f`] >>
     `g = c g` by ( simp[Abbr`c`] ) >>
     match_mp_tac EQ_TRANS >>
     qexists_tac`c g` >>
     reverse conj_tac >- rw[] >>
+    simp[Abbr`b`] >>
     match_mp_tac APPLY_ABSTRACT >>
-    simp[Abbr`c`,Abbr`b`,suchthat_def]) >>
+    simp[Abbr`c`,suchthat_def]) >>
   conj_asm1_tac >- (
     simp[welltyped_def] >>
     qexists_tac`Bool` >>
@@ -4149,14 +4199,13 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
     simp[EQUATION_HAS_TYPE_BOOL]) >>
   strip_tac >> fs[] >>
   pop_assum kall_tac >>
-  `tm has_type (typeof p)` by metis_tac[WELLTYPED] >>
+  `p has_type (typeof p)` by metis_tac[WELLTYPED] >>
   rfs[] >>
   first_assum(qspec_then`τ`mp_tac) >>
   discharge_hyps >- (
     simp[] >>
     rfs[Abbr`l`,closes_def]) >>
   disch_then(qx_choosel_then[`mrty`,`mp`,`z`]strip_assume_tac) >>
-  `semantics FEMPTY τ p mp` by metis_tac[semantics_aconv,term_valuation_FEMPTY] >>
   `semantics σ τ p mp` by metis_tac[semantics_extend,term_valuation_FEMPTY,SUBMAP_FEMPTY,SUBMAP_REFL] >>
   CONV_TAC SWAP_EXISTS_CONV >>
   qexists_tac`mp` >> simp[] >>
@@ -4171,19 +4220,46 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
   srw_tac[DNF_ss][] >>
   simp[Once semantics_cases] >>
   srw_tac[DNF_ss][] >>
-  simp[Once semantics_cases] >>
-  srw_tac[DNF_ss][] >>
-  CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
-  map_every qexists_tac[`z`,`typeof w`,`mrty`,`mp`,`mrty`] >>
+  qabbrev_tac`ams = MAP (FAPPLY τ) (STRING_SORT (tvars p))` >>
+  `set (tvars p) ⊆ t` by (
+    imp_res_tac semantics_closes >>
+    rfs[closes_def] ) >>
+  `LIST_REL (typeset τ) (MAP Tyvar (STRING_SORT (tvars p))) ams` by (
+    simp[EVERY2_MAP,Abbr`ams`] >>
+    match_mp_tac EVERY2_refl >>
+    simp[] >>
+    simp[Once semantics_cases,FLOOKUP_DEF] >>
+    fs[SUBSET_DEF] ) >>
+  CONV_TAC(RESORT_EXISTS_CONV(fn ls => List.drop(ls,2) @ List.take(ls,2))) >>
+  qexists_tac`ams` >>
+  Q.PAT_ABBREV_TAC`t0 = A(X):string|->V` >>
+  `t0 ⊑ τ` by (
+    simp[Abbr`ams`,Abbr`t0`,SUBMAP_DEF,FUN_FMAP_DEF,MAP_ZIP] >>
+    fs[SUBSET_DEF] ) >>
+  `closes ∅ (FDOM t0) p` by (
+    simp[closes_def,Abbr`t0`,MAP_ZIP,Abbr`ams`,SUBSET_DEF] ) >>
+  `semantics FEMPTY t0 p mp` by (
+    match_mp_tac semantics_reduce >>
+    map_every qexists_tac[`τ`,`FEMPTY`] >>
+    simp[] ) >>
+  `typeset t0 (typeof w) mrty` by (
+    match_mp_tac typeset_reduce >>
+    qexists_tac`τ` >>
+    simp[] >>
+    imp_res_tac tyvars_typeof_subset_tvars >>
+    fs[Abbr`t0`,tyvars_def,SUBSET_DEF,MAP_ZIP,Abbr`ams`] ) >>
+  `∃maty. typeset τ (Tyapp (Tydefined n p) (MAP Tyvar (STRING_SORT (tvars p)))) maty` by (
+    simp[Once semantics_cases] >>
+    map_every qexists_tac[`ams`,`mp`,`mrty`,`typeof w`,`z`] >>
+    simp[] ) >>
+  map_every qexists_tac[`maty`,`mrty`] >>
   simp[] >>
   simp[Once semantics_cases] >>
   srw_tac[DNF_ss][] >>
   simp[Once semantics_cases] >>
   srw_tac[DNF_ss][] >>
-  simp[Once semantics_cases] >>
-  srw_tac[DNF_ss][] >>
   CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
-  map_every qexists_tac[`z`,`typeof w`,`mrty`,`mp`,`mrty`,`mp`] >>
+  map_every qexists_tac[`mrty`,`mp`,`maty`,`ams`] >>
   simp[] >>
   simp[Once semantics_cases] >>
   simp[Once semantics_cases] >>
@@ -4199,25 +4275,45 @@ val new_basic_type_definition_correct = store_thm("new_basic_type_definition_cor
   qspec_then`a suchthat holds mp`mp_tac ch_def >>
   discharge_hyps >- (simp[suchthat_def] >> metis_tac[]) >>
   simp[suchthat_def] >> strip_tac >>
+  `ch maty <: maty` by (
+    match_mp_tac ch_def >>
+    metis_tac[typeset_inhabited] ) >>
+  `type_valuation t0` by metis_tac[type_valuation_reduce] >>
+  `if holds mp d then d <: maty else ch maty <: mrty ∧ ch maty ≠ d` by (
+    rw[] >>
+    qpat_assum`typeset X Y b`mp_tac >>
+    simp[Once semantics_cases] >>
+    rw[] >>
+    simp[suchthat_def] >>
+    `ams' = ams` by (
+      rfs[LIST_EQ_REWRITE,EVERY2_EVERY,EVERY_MEM] >>
+      fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+      rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+      metis_tac[semantics_11] ) >>
+    BasicProvers.VAR_EQ_TAC >> rfs[] >>
+    `mp' = mp` by metis_tac[semantics_11] >>
+    imp_res_tac WELLTYPED_LEMMA >>
+    rfs[] >>
+    `mrty' = mrty` by metis_tac[semantics_11] >>
+    fs[Abbr`a`] >> metis_tac[] ) >>
   `apply (abstract a b g) d = g d` by (
     match_mp_tac APPLY_ABSTRACT >>
     simp[Abbr`g`,Abbr`b`,suchthat_def] >>
     BasicProvers.CASE_TAC >>
-    simp[suchthat_def] ) >>
+    simp[] ) >>
   rfs[] >>
   `apply (abstract b a f) (g d) = f (g d)` by (
     match_mp_tac APPLY_ABSTRACT >>
     simp[Abbr`f`,Abbr`g`,Abbr`b`] >>
     BasicProvers.CASE_TAC >>
-    simp[suchthat_def] ) >>
+    fs[] ) >>
   simp[Abbr`f`,Abbr`g`,Abbr`d`,boolean_def,Abbr`e`] >>
   simp[holds_def] >>
   BasicProvers.CASE_TAC >>
-  fs[holds_def] >>
-  rw[] >> fs[] >>
+  fs[Abbr`a`,Abbr`b`,holds_def] >>
   `apply mp (σ ' (x,typeof w)) <: boolset` by (
     match_mp_tac APPLY_IN_RANSPACE >>
-    qexists_tac`a` >> simp[] >>
+    qexists_tac`mrty` >> simp[] >>
     qspecl_then[`FEMPTY`,`τ`,`p`,`mp`]mp_tac(CONJUNCT2 semantics_typeset) >>
     simp[] >>
     simp[Once semantics_cases] >>
