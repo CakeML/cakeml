@@ -162,8 +162,6 @@ val bc_eval1_def = Define`
       (λn. SOME (s with <| pc := n; stack := x :: CodePtr ((bump_pc s).pc) :: xs |>))
   | (CallPtr, CodePtr ptr::x::xs) =>
       SOME (s with <| pc := ptr; stack := x :: CodePtr ((bump_pc s).pc) :: xs |>)
-  | (JumpPtr, CodePtr ptr::xs) =>
-     SOME (s with <| pc := ptr; stack := xs |>)
   | (PushPtr l, xs) =>
       OPTION_BIND (bc_find_loc s l)
         (λn. SOME (bump_pc s with <| stack := CodePtr n::xs |>))
@@ -218,11 +216,6 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
    (qexists_tac `F` >> rw[] >> NO_TAC)))
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
-  rw[bc_next_cases] )
->- (
-  Cases_on `s1.stack` >> fs[LET_THM] >>
-  qmatch_assum_rename_tac `s1.stack = h::t` [] >>
-  Cases_on `h` >> fs[] >>
   rw[bc_next_cases] )
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>

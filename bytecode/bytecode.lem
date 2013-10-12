@@ -34,7 +34,6 @@ type
   | Jump of loc             (* jump to location *)
   | JumpIf of loc           (* jump to location iff true *)
   | Call of loc             (* call location *)
-  | JumpPtr                 (* jump based on code pointer *)
   | CallPtr                 (* call based on code pointer *)
   | PushPtr of loc          (* push a CodePtr onto stack *)
   | Return                  (* pop return address, jump *)
@@ -282,12 +281,6 @@ bc_fetch s = Some CallPtr
 && s.stack = CodePtr ptr::x::xs
 ==>
 bc_next s (<|s with pc = ptr; stack = x::CodePtr ((bump_pc s).pc)::xs|>)
-and
-forall s ptr xs.
-bc_fetch s = Some JumpPtr
-&& s.stack = CodePtr ptr::xs
-==>
-bc_next s (<|s with pc = ptr; stack = xs|>)
 and
 forall s l n.
 bc_fetch s = Some (PushPtr l)
