@@ -107,15 +107,281 @@ val context_ok_fun = prove(
   fs[good_defs_def,types_def,ALL_DISTINCT_APPEND,MEM_MAP,GSYM LEFT_FORALL_IMP_THM] >>
   res_tac >> fs[])
 
+(*
+val all_types_ok_def = tDefine "all_types_ok"`
+  (all_types_ok defs (Tyvar a) = type_ok defs (Tyvar a)) ∧
+  (all_types_ok defs (Tyapp n ls) ⇔ type_ok defs (Tyapp n ls) ∧ (∀x. MEM x ls ⇒ all_types_ok defs x))`
+  (WF_REL_TAC`measure (type_size o SND)` >>
+   gen_tac >> Induct >> simp[type_size_def] >>
+   rw[] >> simp[] >> res_tac >> simp[])
+
+val all_types_ok_type_ok = prove(
+  ``∀ty defs. all_types_ok defs ty ⇒ type_ok defs ty``,
+  Cases >> simp[all_types_ok_def])
+
+val RTC_VFREE_IN_Var = store_thm("RTC_VFREE_IN_Var",
+  ``∀t x ty. holSyntax$VFREE_IN^* t (Var x ty) ⇒ (t = Var x ty)``,
+  qsuff_tac`∀t1 t2. holSyntax$VFREE_IN^* t1 t2 ⇒ ∀x ty. t2 = Var x ty ⇒ t1 = Var x ty` >-
+    METIS_TAC[] >>
+  HO_MATCH_MP_TAC relationTheory.RTC_INDUCT >>
+  rw[] >> fs[])
+
+val RTC_VFREE_IN_Comb = store_thm("RTC_VFREE_IN_Comb",
+  ``∀t t1 t2. holSyntax$VFREE_IN^* t (Comb t1 t2) ⇒ t = Comb t1 t2 ∨ VFREE_IN^* t t1 ∨ VFREE_IN^* t t2``,
+  qsuff_tac`∀t t2. holSyntax$VFREE_IN^* t t2 ⇒ ∀a b. t2 = Comb a b ⇒ t = t2 ∨ VFREE_IN^* t a ∨ VFREE_IN^* t b` >-
+    METIS_TAC[] >>
+  HO_MATCH_MP_TAC relationTheory.RTC_INDUCT >>
+  rw[] >> fs[] >>
+  METIS_TAC[relationTheory.RTC_CASES1])
+
+val RTC_VFREE_IN_Abs = store_thm("RTC_VFREE_IN_Abs",
+  ``∀t x ty tm. holSyntax$VFREE_IN^* t (Abs x ty tm) ⇒ t = Abs x ty tm ∨ VFREE_IN^* t tm``,
+  qsuff_tac`∀t t2. holSyntax$VFREE_IN^* t t2 ⇒ ∀x ty tm. t2 = Abs x ty tm ⇒ t = t2 ∨ VFREE_IN^* t tm` >-
+    METIS_TAC[] >>
+  HO_MATCH_MP_TAC relationTheory.RTC_INDUCT >>
+  rw[] >> fs[] >>
+  METIS_TAC[relationTheory.RTC_CASES1])
+*)
+
+(*
+val (subtype_rules,subtype_ind,subtype_cases) = Hol_reln`
+  MEM ty ls ⇒ subtype ty (holSyntax$Tyapp n ls)`
+
+val RTC_subtype_Tyvar = store_thm("RTC_subtype_Tyvar",
+  ``∀n. subtype^* ty (holSyntax$Tyvar n) ⇔ (ty = Tyvar n)``,
+  simp[Once relationTheory.RTC_CASES2] >> simp[subtype_cases])
+val _ = export_rewrites["RTC_subtype_Tyvar"]
+
+val RTC_subtype_Tyapp = store_thm("RTC_subtype_Tyapp",
+  ``∀ty n ls. subtype^* ty (holSyntax$Tyapp n ls) ⇔ (ty = Tyapp n ls) ∨ ∃a. MEM a ls ∧ subtype^* ty a``,
+  simp[Once relationTheory.RTC_CASES2] >>
+  rw[subtype_cases] >>
+  METIS_TAC[] )
+
+val (subterm_rules,subterm_ind,subterm_cases) = Hol_reln`
+  subterm s (holSyntax$Comb s t) ∧
+  subterm t (Comb s t) ∧
+  subterm tm (Abs x ty tm) ∧
+  subterm (Var x ty) (Abs x ty tm)`
+
+val RTC_subterm_Var = store_thm("RTC_subterm_Var",
+  ``∀t x ty. subterm^* t (holSyntax$Var x ty) ⇔ (t = Var x ty)``,
+  simp[Once relationTheory.RTC_CASES2] >> simp[subterm_cases])
+val _ = export_rewrites["RTC_subterm_Var"]
+
+val RTC_subterm_Const = store_thm("RTC_subterm_Const",
+  ``∀t n ty. subterm^* t (Const n ty) ⇔ (t = Const n ty)``,
+  simp[Once relationTheory.RTC_CASES2] >>
+  simp[subterm_cases])
+val _ = export_rewrites["RTC_subterm_Const"]
+
+val RTC_subterm_Comb = store_thm("RTC_subterm_Comb",
+  ``∀t t1 t2. subterm^* t (holSyntax$Comb t1 t2) ⇔ (t = Comb t1 t2) ∨ subterm^* t t1 ∨ subterm^* t t2``,
+  rw[Once relationTheory.RTC_CASES2] >>
+  simp[subterm_cases] >>
+  METIS_TAC[])
+
+val RTC_subterm_Abs = store_thm("RTC_subterm_Abs",
+  ``∀t x ty tm. subterm^* t (holSyntax$Abs x ty tm) ⇔ (t = Abs x ty tm) ∨ (t = Var x ty) ∨ subterm^* t tm``,
+  simp[Once relationTheory.RTC_CASES2] >>
+  simp[subterm_cases] >>
+  METIS_TAC[RTC_subterm_Var])
+
+val RTC_subterm_equation = store_thm("RTC_subterm_equation",
+  ``∀t l r. subterm^* t (l === r) ⇔ (t = l === r) ∨ (subterm^* t (Comb (Equal (typeof l)) l)) ∨ (subterm^* t r)``,
+  simp[Once relationTheory.RTC_CASES2] >>
+  simp[equation_def] >>
+  simp[subterm_cases] >>
+  srw_tac[boolSimps.DNF_ss][])
+*)
+
 val type_ok_Tyapp = prove(
   ``type_ok defs (Tyapp s l) ==> EVERY (type_ok defs) l``,
-  cheat);
+  rw[EVERY_MEM] >>
+  rw[Once proves_cases] >>
+  METIS_TAC[])
 
 val type_ok_TYPESUBST = prove(
   ``!defs i ty.
       EVERY (\(x,y). type_ok defs x /\ type_ok defs y) i /\
-      type_ok defs ty ==> type_ok def (TYPE_SUBST i ty)``,
-  cheat);
+      type_ok defs ty ==> type_ok defs (TYPE_SUBST i ty)``,
+  rw[] >>
+  rw[Once proves_cases] >>
+  disj2_tac >> disj1_tac >>
+  qexists_tac`Var x (TYPE_SUBST i ty)` >>
+  simp[Once has_type_cases] >>
+  simp[Once proves_cases] >>
+  disj2_tac >> disj2_tac >> disj1_tac >>
+  simp[Once proves_cases] >>
+  qexists_tac`Equal (TYPE_SUBST i ty)` >>
+  disj2_tac >> disj1_tac >>
+  qexists_tac`Var x (TYPE_SUBST i ty)` >>
+  simp[Once proves_cases] >>
+  rpt disj2_tac >>
+  qexists_tac`[]` >> simp[] >>
+  qabbrev_tac`v = Var x (TYPE_SUBST i ty)` >>
+  `typeof v = TYPE_SUBST i ty` by simp[Abbr`v`] >>
+  pop_assum(SUBST1_TAC o SYM) >>
+  simp[GSYM equation_def] >>
+  `v === v = INST i (Var x ty === Var x ty)` by (
+    simp[equation_def,INST_def,INST_CORE_def,REV_ASSOCD] >>
+    simp[Abbr`v`] ) >>
+  `[] = MAP (INST i) []` by simp[] >>
+  pop_assum SUBST1_TAC >>
+  pop_assum SUBST1_TAC >>
+  MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,20)) >>
+  fs[EVERY_MEM,FORALL_PROD] >>
+  conj_tac >- METIS_TAC[] >>
+  MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,12)) >>
+  imp_res_tac proves_IMP >> simp[] >>
+  simp[Once proves_cases])
+
+val term_ok_Equal = store_thm("term_ok_Equal",
+  ``∀defs ty. term_ok defs (Equal ty) ⇔ context_ok defs ∧ type_ok defs ty``,
+  rw[] >> reverse EQ_TAC >- (
+    rw [] >>
+    simp[Once proves_cases] >>
+    disj1_tac >>
+    simp[Once proves_cases] >>
+    qexists_tac`Var x ty` >>
+    disj2_tac >>
+    disj1_tac >>
+    qexists_tac`Var x ty` >>
+    simp[Once proves_cases] >>
+    rpt disj2_tac >>
+    qexists_tac`[]` >>
+    simp[] >>
+    `term_ok defs (Var x ty)` by simp[Once proves_cases] >>
+    imp_res_tac (List.nth(CONJUNCTS proves_rules,12)) >>
+    imp_res_tac (List.nth(CONJUNCTS proves_rules,9)) >>
+    fs[equation_def]) >>
+  rw[] >>
+  imp_res_tac proves_IMP >>
+  simp[Once proves_cases] >>
+  disj2_tac >> disj1_tac >>
+  qexists_tac`Var x ty` >>
+  simp[Once proves_cases] >>
+  simp[Once has_type_cases] >>
+  disj1_tac >>
+  `type_ok defs (typeof (Equal ty))` by (
+    simp[Once proves_cases] >>
+    disj1_tac >>
+    qexists_tac`Equal ty` >>
+    simp[] >>
+    simp[Once has_type_cases] ) >>
+  fs[] >>
+  imp_res_tac type_ok_Tyapp >> fs[])
+val _ = export_rewrites["term_ok_Equal"]
+
+val term_ok_welltyped = store_thm("term_ok_welltyped",
+  ``∀defs tm. term_ok defs tm ⇒ welltyped tm``,
+  rw[] >>
+  imp_res_tac proves_IMP >>
+  METIS_TAC[term_welltyped,sholSemanticsTheory.soundness,sholSemanticsTheory.has_meaning_welltyped])
+
+val term_ok_equation = store_thm("term_ok_equation",
+  ``∀defs l r. term_ok defs (l === r) ⇔ context_ok defs ∧ term_ok defs l ∧ term_ok defs r ∧ (typeof l = typeof r)``,
+  rw[] >> reverse EQ_TAC >- (
+    rw[] >>
+    simp[Once proves_cases,equation_def] >>
+    imp_res_tac term_ok_welltyped >>
+    disj1_tac >> simp[] >>
+    simp[Once proves_cases] >>
+    disj1_tac >>
+    simp[term_ok_Equal] >>
+    simp[Once proves_cases] >>
+    METIS_TAC[WELLTYPED]) >>
+  simp[equation_def] >>
+  strip_tac >>
+  imp_res_tac proves_IMP >>
+  simp[] >>
+  imp_res_tac term_ok_welltyped >>
+  fs[] >>
+  conj_tac >>
+  simp[Once proves_cases] >>
+  TRY (METIS_TAC[]) >>
+  ntac 4 disj2_tac >> disj1_tac >>
+  qexists_tac`Equal (typeof r)` >>
+  simp[Once proves_cases] >>
+  METIS_TAC[])
+val _ = export_rewrites["term_ok_equation"]
+
+(*
+val _ = Parse.overload_on("xgood_type",``λdefs ty. ∀t. hol_verification$subtype^* t ty ⇒ type_ok defs t``)
+val _ = Parse.overload_on("xgood_term",``λdefs tm. ∀t. hol_verification$subterm^* t tm ⇒ term_ok defs t ∧ xgood_type defs (typeof t)``)
+val _ = Parse.overload_on("xgood_defs",``λdefs. EVERY (λd. xgood_term defs (deftm d)) defs``)
+
+val proves_all_ok = prove(
+  ``(∀defs ty. type_ok defs ty ⇒ xgood_defs defs ∧ xgood_type defs ty) ∧
+    (∀defs tm. term_ok defs tm ⇒ xgood_defs defs ∧ xgood_term defs tm) ∧
+    (∀defs. context_ok defs ⇒ xgood_defs defs) ∧
+    (∀dh (c:holSyntax$term). dh |- c ⇒ xgood_defs (FST dh) ∧ EVERY (xgood_term (FST dh)) (c::(SND dh)))``,
+  HO_MATCH_MP_TAC proves_strongind >>
+  simp[] >>
+  conj_tac >- (
+    rw[] >> rw[Once proves_cases]) >>
+  conj_tac >- (
+    rw[] >>
+    imp_res_tac proves_IMP >>
+    METIS_TAC[term_welltyped,sholSemanticsTheory.soundness,sholSemanticsTheory.has_meaning_welltyped
+             ,WELLTYPED_LEMMA,relationTheory.RTC_REFL] ) >>
+  conj_tac >- (
+    rw[] >>
+    simp[Once proves_cases] ) >>
+  conj_tac >- (
+    rw[] >> fs[] >>
+    fs[RTC_subterm_Comb] >> rw[] >>
+    TRY ( simp[Once proves_cases] >> NO_TAC) >> rfs[] >- (
+      qsuff_tac`∃tt. subtype^* t' (typeof tm)` >-
+        METIS_TAC[relationTheory.RTC_REFL] >>
+      simp[Once relationTheory.RTC_CASES2] >>
+      simp[subtype_cases] >>
+      METIS_TAC[] ) >>
+    METIS_TAC[] ) >>
+  conj_tac >- (
+    rw[] >> fs[] >>
+    fs[RTC_subterm_Abs] >> rw[] >>
+    TRY ( simp[Once proves_cases] >> NO_TAC) >> rfs[] >>
+    TRY (METIS_TAC[]) >>
+    pop_assum mp_tac >>
+    simp[Once relationTheory.RTC_CASES2] >>
+    simp[subtype_cases] >>
+    rw[] >> TRY (METIS_TAC[relationTheory.RTC_REFL]) >>
+    simp[Once proves_cases] >>
+    qexists_tac`Abs x ty tm` >>
+    simp[Once proves_cases] >>
+    simp[Once has_type_cases] >>
+    `term_ok defs tm` by METIS_TAC[relationTheory.RTC_REFL] >>
+    imp_res_tac proves_IMP >>
+    `welltyped tm1` by METIS_TAC[sholSemanticsTheory.soundness,sholSemanticsTheory.has_meaning_welltyped] >>
+    imp_res_tac term_welltyped >>
+    METIS_TAC[WELLTYPED] ) >>
+  conj_tac >- (
+    rw[] >> fs[] >>
+    METIS_TAC[RTC_subterm_Comb]) >>
+  conj_tac >- (
+    rw[] >> fs[] >>
+    METIS_TAC[RTC_subterm_Comb] ) >>
+  conj_tac >- (
+    rw[] >> fs[] >>
+    metis_tac[RTC_subterm_Abs] ) >>
+  conj_tac >- (
+    rw[] >> fs[EVERY_MEM] >>
+    metis_tac[] ) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    simp[RTC_subterm_equation] >>
+    simp[RTC_subterm_Comb] >>
+    simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
+    `tm === tm has_type Bool` by (
+      simp[EQUATION_HAS_TYPE_BOOL] >>
+      metis_tac[term_ok_welltyped] ) >>
+    imp_res_tac WELLTYPED_LEMMA >>
+    simp[RTC_subtype_Tyapp,type_ok_Bool] >>
+    simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
+    simp[RTC_subtype_Tyapp,type_ok_Bool] >>
+    simp_tac(srw_ss()++boolSimps.DNF_ss)[] >>
+*)
 
 (* ------------------------------------------------------------------------- *)
 (* TYPE and TERM lemmas                                                      *)
