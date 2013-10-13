@@ -1165,6 +1165,24 @@ val proves_IMP = store_thm("proves_IMP",
     simp[Once proves_cases] >>
     METIS_TAC[has_type_IMP] ) >>
   conj_tac >- (
+    rpt gen_tac >>
+    simp[Once term_cases] >>
+    rw[] >> fs[] >> rw[]
+    >- (
+      qexists_tac`tx1` >> rw[] >>
+      rw[Once proves_cases] >>
+      METIS_TAC[MEM] )
+    >- (
+      qexists_tac`ty1'` >> rw[] >>
+      rw[Once proves_cases] >>
+      METIS_TAC[MEM] ) >>
+    fs[EVERY2_EVERY,EVERY_MEM] >>
+    rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+    fs[MEM_EL] >>
+    qexists_tac`EL n' tys1` >> simp[] >>
+    simp[Once proves_cases] >>
+    METIS_TAC[MEM_EL] ) >>
+  conj_tac >- (
     rw[] >>
     simp[Once term_cases] >>
     srw_tac[boolSimps.DNF_ss][] >>
@@ -1215,7 +1233,7 @@ val proves_IMP = store_thm("proves_IMP",
   conj_tac >- (
     rw[seq_trans_def,EVERY2_EVERY,EVERY_MEM] >>
     rfs[MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
-    METIS_TAC[List.nth(CONJUNCTS proves_rules,13),MEM,MEM_EL] ) >>
+    METIS_TAC[List.nth(CONJUNCTS proves_rules,14),MEM,MEM_EL] ) >>
   conj_tac >- (
     rw[seq_trans_def] >>
     rw[good_defs_def] >>
@@ -1246,7 +1264,7 @@ val proves_IMP = store_thm("proves_IMP",
     simp[] >> strip_tac >>
     qexists_tac`tm1 === tm1` >>
     simp[] >>
-    METIS_TAC[List.nth(CONJUNCTS proves_rules,14)] ) >>
+    METIS_TAC[List.nth(CONJUNCTS proves_rules,15)] ) >>
   conj_tac >- (
     rw[seq_trans_def] >>
     `∀t. MEM t (c1::h1) ∨ MEM t (c1'::h1') ⇒ t has_type Bool` by (
@@ -1268,7 +1286,7 @@ val proves_IMP = store_thm("proves_IMP",
     discharge_hyps >- METIS_TAC[] >>
     strip_tac >> simp[] >>
     conj_tac >- METIS_TAC[LIST_REL_term_UNION] >>
-    match_mp_tac(List.nth(CONJUNCTS proves_rules,15)) >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,16)) >>
     METIS_TAC[ACONV_IMP]) >>
   conj_tac >- (
     rw[seq_trans_def] >>
@@ -1292,7 +1310,7 @@ val proves_IMP = store_thm("proves_IMP",
     simp[LIST_REL_term_UNION] >>
     simp[Q.SPEC`Comb X Y`(CONJUNCT2 (SPEC_ALL term_cases))] >>
     srw_tac[boolSimps.DNF_ss][] >- METIS_TAC[] >>
-    match_mp_tac(List.nth(CONJUNCTS proves_rules,16)) >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,17)) >>
     simp[] >>
     conj_asm1_tac >- METIS_TAC[term_welltyped] >>
     conj_tac >- METIS_TAC[term_welltyped] >>
@@ -1320,7 +1338,7 @@ val proves_IMP = store_thm("proves_IMP",
     strip_tac >>
     simp[Q.SPEC`Abs X Y Z`(CONJUNCT2 (SPEC_ALL term_cases))] >>
     conj_tac >- METIS_TAC[] >>
-    match_mp_tac(List.nth(CONJUNCTS proves_rules,17)) >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,18)) >>
     simp[] >>
     fs[EVERY_MEM,EVERY2_EVERY] >>
     rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
@@ -1343,14 +1361,14 @@ val proves_IMP = store_thm("proves_IMP",
     srw_tac[boolSimps.DNF_ss][] >>
     map_every qexists_tac[`tm1`,`ty1`,`tm1`,`ty1`] >>
     simp[] >>
-    match_mp_tac(List.nth(CONJUNCTS proves_rules,18)) >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,19)) >>
     simp[] ) >>
   conj_tac >- (
     rw[seq_trans_def] >> rfs[] >>
     srw_tac[boolSimps.DNF_ss][] >>
     map_every qexists_tac[`tm1`,`tm1`] >>
     rw[] >>
-    match_mp_tac(List.nth(CONJUNCTS proves_rules,19)) >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,20)) >>
     imp_res_tac has_type_IMP >>
     fs[Q.SPEC`Bool`(CONJUNCT1 (SPEC_ALL term_cases))] >>
     rw[] >> rfs[]) >>
@@ -1367,7 +1385,7 @@ val proves_IMP = store_thm("proves_IMP",
     strip_tac >>
     qexists_tac`y1` >>
     simp[LIST_REL_term_UNION] >>
-    match_mp_tac(List.nth(CONJUNCTS proves_rules,20)) >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,21)) >>
     qexists_tac`x1` >> rw[] >>
     qexists_tac`c1'` >> rw[] >>
     METIS_TAC[ACONV_IMP] ) >>
@@ -1397,7 +1415,7 @@ val proves_IMP = store_thm("proves_IMP",
       conj_tac >>
       match_mp_tac LIST_REL_term_FILTER_ACONV >>
       METIS_TAC[] ) >>
-    match_mp_tac(List.nth(CONJUNCTS proves_rules,21)) >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,22)) >>
     rw[] ) >>
   conj_tac >- (
     rw[seq_trans_def] >>
@@ -1437,7 +1455,7 @@ val proves_IMP = store_thm("proves_IMP",
     qexists_tac`MAP (INST tyin1) h1` >>
     qexists_tac`INST tyin1 c1` >>
     reverse conj_tac >- (
-      match_mp_tac(List.nth(CONJUNCTS proves_rules,22)) >>
+      match_mp_tac(List.nth(CONJUNCTS proves_rules,23)) >>
       simp[] ) >>
     qpat_assum`LIST_REL X asl h1`mp_tac >>
     simp[EVERY2_EVERY,EVERY_MEM] >>
@@ -1473,7 +1491,7 @@ val proves_IMP = store_thm("proves_IMP",
     qexists_tac`MAP (VSUBST ilist1) h1` >>
     qexists_tac`VSUBST ilist1 c1` >>
     reverse conj_tac >- (
-      match_mp_tac(List.nth(CONJUNCTS proves_rules,23)) >>
+      match_mp_tac(List.nth(CONJUNCTS proves_rules,24)) >>
       fs[EVERY2_EVERY,EVERY_MEM] >>
       fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
       rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
@@ -1549,7 +1567,7 @@ val proves_IMP = store_thm("proves_IMP",
     TRY (
       simp[Once holSyntaxTheory.proves_cases] >>
       map_every qexists_tac[`asl`,`c`] >>
-      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,21)) >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,22)) >>
       simp[] >> NO_TAC) >>
     map_every qexists_tac[`h1`,`c1`] >>
     simp[] >>
@@ -1582,7 +1600,7 @@ val proves_IMP = store_thm("proves_IMP",
       qexists_tac`t` >>
       simp[] >>
       METIS_TAC[good_defs_def,has_type_IMP,WELLTYPED_LEMMA,WELLTYPED,holSyntaxTheory.WELLTYPED_LEMMA,holSyntaxTheory.WELLTYPED]) >>
-    match_mp_tac(List.nth(CONJUNCTS proves_rules,24)) >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,25)) >>
     fs[WELLTYPED] >>
     fs[EVERY_MEM] >>
     res_tac >> fs[def_ok_def] >>
@@ -1599,7 +1617,7 @@ val proves_IMP = store_thm("proves_IMP",
   (conj_tac >- (
     simp[Once holSyntaxTheory.proves_cases] >>
     map_every qexists_tac[`[]`,`holSyntax$Comb t y`] >>
-    match_mp_tac (List.nth(CONJUNCTS holSyntaxTheory.proves_rules,23)) >>
+    match_mp_tac (List.nth(CONJUNCTS holSyntaxTheory.proves_rules,24)) >>
     simp[] >>
     map_every qexists_tac[`rep_type`,`y`] >>
     METIS_TAC[] )) >>
@@ -1624,9 +1642,9 @@ val proves_IMP = store_thm("proves_IMP",
       conj_tac >- (
         match_mp_tac (MP_CANON(CONJUNCT2 (UNDISCH(SPEC_ALL term_type_cons)))) >>
         simp[safe_def_names_def] ) >>
-      match_mp_tac (List.nth(CONJUNCTS proves_rules,9)) >>
+      match_mp_tac (List.nth(CONJUNCTS proves_rules,10)) >>
       qexists_tac`y1` >>
-      match_mp_tac (List.nth(CONJUNCTS proves_rules,13)) >>
+      match_mp_tac (List.nth(CONJUNCTS proves_rules,14)) >>
       qexists_tac`Comb x1 y1` >>
       qexists_tac`[]` >>
       simp[] ) >>
@@ -1741,7 +1759,7 @@ val proves_IMP = store_thm("proves_IMP",
       rw[] >>
       imp_res_tac MEM_Typedef_MEM_consts >>
       fs[consts_def]) >>
-    match_mp_tac(List.nth(CONJUNCTS proves_rules,25)) >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,26)) >>
     imp_res_tac CLOSED_IMP >>
     simp[] >>
     qexists_tac`y1` >>
@@ -1862,7 +1880,7 @@ val proves_IMP = store_thm("proves_IMP",
   conj_tac >- METIS_TAC[MEM_Typedef_MEM_consts,consts_def,MEM_MAP,MEM_APPEND] >>
   HINT_EXISTS_TAC >> simp[] >>
   conj_tac >- METIS_TAC[MEM_Typedef_MEM_consts,consts_def,MEM_MAP,MEM_APPEND] >>
-  match_mp_tac(List.nth(CONJUNCTS proves_rules,26)) >>
+  match_mp_tac(List.nth(CONJUNCTS proves_rules,27)) >>
   imp_res_tac CLOSED_IMP >>
   simp[] >>
   qexists_tac`y1` >>
@@ -1878,6 +1896,7 @@ val type_ok_Bool = store_thm("type_ok_Bool",
   ``∀d. context_ok d ⇒ type_ok d Bool``,
   rw[] >>
   simp[Once holSyntaxTheory.proves_cases] >>
+  disj1_tac >>
   qexists_tac`Var x (Tyvar a) === Var x (Tyvar a)` >>
   simp[holSyntaxTheory.EQUATION_HAS_TYPE_BOOL] >>
   simp[Once holSyntaxTheory.proves_cases] >>
@@ -1918,4 +1937,4 @@ val consistency = store_thm("consistency",
   simp[Once term_cases] >>
   METIS_TAC[consistency])
 
-val _ = export_theory();
+val _ = export_theory()
