@@ -1,4 +1,4 @@
-open HolKernel Parse boolLib bossLib lcsymtacs miscLib;
+open HolKernel Parse boolLib bossLib lcsymtacs miscLib miscTheory alistTheory;
 
 val _ = new_theory "hol_verification";
 
@@ -235,7 +235,6 @@ val type_ok_Fun = store_thm("type_ok_Fun",
   simp[Once proves_cases] >>
   disj1_tac >>
   simp[Once proves_cases])
-val _ = export_rewrites["type_ok_Fun"]
 
 val _ = Parse.overload_on("α",``(Tyvar "a"):holSyntax$type``)
 val id_tm = ``holSyntax$Abs "x" α (Var "x" α)``
@@ -261,9 +260,10 @@ val Tt_ok = store_thm("Tt_ok",
   metis_tac[truth_thm,List.nth(CONJUNCTS proves_rules,10),MEM])
 val _ = export_rewrites["Tt_ok"]
 
-val Tt_has_type_Bool = prove(
+val Tt_has_type_Bool = store_thm("Tt_has_type_Bool",
   ``Tt has_type Bool``,
   simp[EQUATION_HAS_TYPE_BOOL])
+val _ = export_rewrites["Tt_has_type_Bool"]
 
 (*
 val SAME_ASMS_rule = store_thm("SAME_ASMS_rule",
@@ -415,7 +415,7 @@ val term_ok_Select = store_thm("term_ok_Select",
     qexists_tac`Select ty` >>
     simp[] >>
     simp[Once has_type_cases] ) >>
-  fs[])
+  fs[type_ok_Fun])
 val _ = export_rewrites["term_ok_Select"]
 
 val _ = Parse.overload_on("Arb",``λty. Comb (Select ty) (Abs "x" ty Tt)``)
@@ -456,16 +456,114 @@ val _ = export_rewrites["type_ok_Ind"]
 
 val IMP_IMP = METIS_PROVE [] ``b /\ (b1 ==> b2) ==> ((b ==> b1) ==> b2)``
 
+val MEM_types_Typedef = store_thm("MEM_types_Typedef",
+  ``∀x defs. MEM x (FLAT (MAP types_aux defs)) ⇒ ∃t a r. MEM (Typedef (FST x) t a r) defs ∧ (LENGTH (tvars t) = SND x)``,
+  Cases >> Induct >> simp[] >>
+  Cases >> simp[types_aux_def] >> fs[] >>
+  METIS_TAC[])
+
+val MEM_Typedef_MEM_consts_type = store_thm("MEM_Typedef_MEM_consts_type",
+  ``∀defs n tm a r. MEM (Typedef n tm a r) defs ⇒
+    let rty = domain (typeof tm) in
+    let aty = holSyntax$Tyapp n (MAP holSyntax$Tyvar (holSyntax$STRING_SORT (tvars tm))) in
+    MEM (a,Fun rty aty) (FLAT (MAP consts_aux defs)) ∧
+    MEM (r,Fun aty rty) (FLAT (MAP consts_aux defs))``,
+  Induct >> simp[] >>
+  rw[consts_def,consts_aux_def] >>
+  rw[consts_def,consts_aux_def] >>
+  fs[consts_def] >>
+  res_tac >>
+  fs[LET_THM])
+
+val INST_HAS_TYPE = store_thm("INST_HAS_TYPE",
+  ``∀tm tyin ty. tm has_type ty ⇒ holSyntax$INST tyin tm has_type TYPE_SUBST tyin ty``,
+  rw[holSyntaxTheory.INST_def] >>
+  qspecl_then[`sizeof tm`,`tm`,`[]`,`tyin`]mp_tac holSyntaxTheory.INST_CORE_HAS_TYPE >>
+  simp[] >>
+  `welltyped tm` by METIS_TAC[holSyntaxTheory.welltyped_def] >>
+  imp_res_tac holSyntaxTheory.WELLTYPED_LEMMA >>
+  simp[] >>
+  simp[REV_ASSOCD] >> rw[] >> rw[])
+
+val REV_ASSOCD_sREV_ASSOCD = prove(
+  ``holSyntax$REV_ASSOCD = sholSyntax$REV_ASSOCD``,
+  simp[FUN_EQ_THM] >>
+  CONV_TAC SWAP_FORALL_CONV >>
+  Induct >>
+  simp[sholSyntaxTheory.REV_ASSOCD,holSyntaxTheory.REV_ASSOCD] >>
+  Cases >>
+  simp[sholSyntaxTheory.REV_ASSOCD,holSyntaxTheory.REV_ASSOCD])
+
 val TYPE_Tyapp = prove(
   ``MEM (tyop,LENGTH args) r.the_type_constants /\
     STATE r defs /\ EVERY (TYPE defs) args ==>
     TYPE defs (Tyapp tyop args)``,
+  rw[EVERY_MEM,TYPE_def,hol_ty_def] >>
+  fs[STATE_def] >>
+  reverse(fs[types_def]) >> rw[] >> fs[LENGTH_NIL] >- (
+    Cases_on`args`>>fs[]>>
+    Cases_on`t`>>fs[LENGTH_NIL]>>
+    simp[type_ok_Fun]) >>
+  qmatch_abbrev_tac`type_ok defs (Tyapp tyop hargs)` >>
+  qsuff_tac`∃rty. type_ok defs (Fun rty (Tyapp tyop hargs))` >- (
+    simp[type_ok_Fun] >> rw[] ) >>
+  `EVERY def_ok (hol_defs r.the_definitions)` by METIS_TAC[proves_IMP] >>
+  imp_res_tac MEM_types_Typedef >>
+  rfs[EVERY_MEM] >>
+  res_tac >>
+  fs[def_ok_def] >>
+  imp_res_tac MEM_Typedef_MEM_consts_type >>
+  `typeof t = Fun rty Bool` by METIS_TAC[welltyped_def,WELLTYPED_LEMMA] >>
+  fs[LET_THM] >>
+  `MEM t (MAP deftm defs)` by (
+    simp[MEM_MAP] >>
+    HINT_EXISTS_TAC >>
+    simp[deftm_def] ) >>
+  qabbrev_tac`tyin = ZIP(hargs,MAP holSyntax$Tyvar (holSyntax$STRING_SORT(tvars t)))` >>
+  qexists_tac`TYPE_SUBST tyin rty` >>
+  simp[Once proves_cases] >>
+  disj1_tac >>
+  qmatch_assum_abbrev_tac`MEM(a,Fun rty (Tyapp tyop vargs)) X` >>
+  qexists_tac`INST tyin (Const a (Fun rty (Tyapp tyop vargs)))` >>
+  `Const a (Fun rty (Tyapp tyop vargs)) has_type (Fun rty (Tyapp tyop vargs))` by (
+    simp[Once has_type_cases] ) >>
+  `hargs = MAP (TYPE_SUBST tyin) vargs` by (
+    simp[Abbr`hargs`,Abbr`vargs`] >>
+    simp[LIST_EQ_REWRITE,EL_MAP] >>
+    simp[Abbr`tyin`] >>
+    simp[REV_ASSOCD_sREV_ASSOCD,sholSyntaxExtraTheory.REV_ASSOCD_ALOOKUP] >>
+    simp[ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF] >>
+    rw[] >>
+    BasicProvers.CASE_TAC >- (
+      rfs[ALOOKUP_FAILS,MEM_MAP,MEM_ZIP,FORALL_PROD] >>
+      METIS_TAC[] ) >>
+    qmatch_assum_abbrev_tac`ALOOKUP mls (holSyntax$Tyvar (EL n vs)) = SOME z` >>
+    Q.ISPECL_THEN[`mls`,`n`]mp_tac ALOOKUP_ALL_DISTINCT_EL >>
+    simp[Abbr`mls`,Abbr`vs`,EL_MAP,MAP_MAP_o,combinTheory.o_DEF,EL_ZIP] >>
+    discharge_hyps >- (
+      qmatch_abbrev_tac`ALL_DISTINCT (MAP f ls)` >>
+      `MAP f ls = MAP Tyvar (MAP SND ls)` by (
+        simp[Abbr`f`,MAP_MAP_o,combinTheory.o_DEF] ) >>
+      simp[Abbr`ls`,MAP_ZIP] >>
+      match_mp_tac ALL_DISTINCT_MAP_INJ >>
+      simp[] ) >>
+    rw[] ) >>
+  simp[] >>
+  reverse conj_tac >- (
+    imp_res_tac INST_HAS_TYPE >>
+    fsrw_tac[boolSimps.ETA_ss][] ) >>
+  simp[Once proves_cases] >>
   cheat);
 
 val TYPE = prove(
-  ``(TYPE defs (Tyvar v)) /\
+  ``(STATE state defs ==> TYPE defs (Tyvar v)) /\
     (TYPE defs (Tyapp op tys) ==> EVERY (TYPE defs) tys)``,
-  cheat);
+  conj_tac >- (
+    simp[STATE_def,TYPE_def,hol_ty_def,EVERY_MEM] >>
+    rw[] >> simp[Once proves_cases] ) >>
+  rw[EVERY_MEM,TYPE_def,hol_ty_def] >>
+  imp_res_tac type_ok_Tyapp >>
+  fs[EVERY_MEM,MEM_MAP,GSYM LEFT_FORALL_IMP_THM]);
 
 val TERM = prove(
   ``(TERM defs (Var n ty) ==> TYPE defs ty) /\

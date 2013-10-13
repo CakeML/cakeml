@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory pred_setTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory pred_setTheory sortingTheory stringTheory
 val _ = numLib.prefer_num()
 val _ = new_theory "holSyntax"
 
@@ -748,5 +748,62 @@ val RACONV_SYM = store_thm("RACONV_SYM",
 val ACONV_SYM = store_thm("ACONV_SYM",
   ``∀t1 t2. ACONV t1 t2 ⇒ ACONV t2 t1``,
   rw[ACONV_def] >> imp_res_tac RACONV_SYM >> fs[])
+
+val PERM_STRING_SORT = store_thm("PERM_STRING_SORT",
+  ``∀ls. ALL_DISTINCT ls ⇒ PERM ls (STRING_SORT ls)``,
+  Induct >>
+  simp[STRING_SORT_def] >>
+  simp[INORDER_INSERT_def] >>
+  fs[STRING_SORT_def] >>
+  simp[PERM_CONS_EQ_APPEND] >>
+  gen_tac >> strip_tac >> fs[] >>
+  qho_match_abbrev_tac`∃M N. A ++ [h] ++ B = M ++ [h] ++ N ∧ (Z M N)` >>
+  map_every qexists_tac[`A`,`B`] >>
+  simp[Abbr`Z`] >>
+  match_mp_tac PERM_ALL_DISTINCT >>
+  simp[ALL_DISTINCT_APPEND] >>
+  simp[Abbr`A`,Abbr`B`,MEM_FILTER] >>
+  metis_tac[FILTER_ALL_DISTINCT,ALL_DISTINCT_PERM,string_lt_antisym,string_lt_cases,MEM_PERM] )
+
+val LENGTH_STRING_SORT = store_thm("LENGTH_STRING_SORT",
+  ``∀ls. ALL_DISTINCT ls ⇒ (LENGTH (STRING_SORT ls) = LENGTH ls)``,
+  metis_tac[PERM_STRING_SORT,PERM_LENGTH])
+val _ = export_rewrites["LENGTH_STRING_SORT"]
+
+val MEM_STRING_SORT = store_thm("MEM_STRING_SORT",
+  ``∀x ls. ALL_DISTINCT ls ⇒ (MEM x (STRING_SORT ls) ⇔ MEM x ls)``,
+  metis_tac[PERM_STRING_SORT,MEM_PERM])
+val _ = export_rewrites["MEM_STRING_SORT"]
+
+val ALL_DISTINCT_STRING_SORT = store_thm("ALL_DISTINCT_STRING_SORT",
+  ``∀ls. ALL_DISTINCT ls ⇒ ALL_DISTINCT (STRING_SORT ls)``,
+  metis_tac[PERM_STRING_SORT,ALL_DISTINCT_PERM])
+val _ = export_rewrites["ALL_DISTINCT_STRING_SORT"]
+
+val ALL_DISTINCT_LIST_UNION = store_thm("ALL_DISTINCT_LIST_UNION",
+  ``∀l1 l2. ALL_DISTINCT l2 ⇒ ALL_DISTINCT (LIST_UNION l1 l2)``,
+  Induct >> fs[LIST_UNION_def,LIST_INSERT_def] >> rw[])
+
+val type_ind = save_thm("type_ind",
+  TypeBase.induction_of``:type``
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> SIMP_RULE std_ss [EVERY_DEF]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> Q.GEN`P`)
+
+val tyvars_ALL_DISTINCT = store_thm("tyvars_ALL_DISTINCT",
+  ``∀ty. ALL_DISTINCT (tyvars ty)``,
+  ho_match_mp_tac type_ind >>
+  rw[tyvars_def] >>
+  Induct_on`l` >> simp[] >>
+  rw[ALL_DISTINCT_LIST_UNION])
+val _ = export_rewrites["tyvars_ALL_DISTINCT"]
+
+val tvars_ALL_DISTINCT = store_thm("tvars_ALL_DISTINCT",
+  ``∀tm. ALL_DISTINCT (tvars tm)``,
+  Induct >> simp[tvars_def,ALL_DISTINCT_LIST_UNION])
+val _ = export_rewrites["tvars_ALL_DISTINCT"]
 
 val _ = export_theory()
