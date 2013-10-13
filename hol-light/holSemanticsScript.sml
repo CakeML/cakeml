@@ -540,10 +540,6 @@ val term_type_cons = prove(
     fs[types_def,consts_def] >> rw[] >>
     METIS_TAC[const_def_MEM_2]))
 
-val def_ok_def = Define`
-  def_ok defs (Constdef n t) = term_ok defs t ∧
-  def_ok defs (Typedef n t a r) = term_ok defs t`
-
 val REV_ASSOCD_ilist_IMP = prove(
   ``∀ilist defs t ilist1 t1 d d1.
       good_defs defs ∧
@@ -1040,10 +1036,6 @@ val MEM_Constdef_const_def = prove(
   imp_res_tac MEM_Constdef_MEM_consts >>
   fs[consts_def] >> fs[] )
 
-val def_ok_def = Define`
-  (def_ok (Constdef n t) ⇔ CLOSED t ∧ set (tvars t) ⊆ set (tyvars (typeof t))) ∧
-  (def_ok (Typedef n t a r) ⇔ T)`
-
 val term_subterm = prove(
   ``∀tm defs tm1 t0. good_defs defs ∧ term defs tm tm1 ∧ VFREE_IN t0 tm ⇒ ∃t1. term defs t0 t1 ∧ VFREE_IN t1 tm1``,
   Induct >> simp[Once term_cases] >> rw[] >>
@@ -1173,6 +1165,10 @@ val TERM_UNION_FILTER_NIL = store_thm("TERM_UNION_FILTER_NIL",
   fs[EVERY_MEM,EXISTS_MEM,Abbr`subun`,MEM_FILTER] >>
   METIS_TAC[])
 val _ = export_rewrites["TERM_UNION_FILTER_NIL"]
+
+val def_ok_def = Define`
+  (def_ok (Constdef n t) ⇔ CLOSED t ∧ set (tvars t) ⊆ set (tyvars (typeof t))) ∧
+  (def_ok (Typedef n t a r) ⇔ ∃rty. t has_type Fun rty Bool)`
 
 val proves_IMP = store_thm("proves_IMP",
   ``(∀defs ty. type_ok defs ty ⇒ context_ok defs ∧ good_defs defs ∧ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
@@ -1662,7 +1658,7 @@ val proves_IMP = store_thm("proves_IMP",
       simp[Once consts_aux_def] >>
       simp[Once consts_aux_def] >>
       METIS_TAC[])) >>
-    (conj_tac >- ( simp[def_ok_def] )) >>
+    (conj_tac >- ( simp[def_ok_def] >> METIS_TAC[])) >>
     (conj_tac >- (
       simp[deftm_def] >>
       rw[] >- (
