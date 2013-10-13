@@ -1176,12 +1176,12 @@ val proves_IMP = store_thm("proves_IMP",
     (∀defs. context_ok defs ⇒
       good_defs defs ∧
       EVERY def_ok defs ∧
-      (∀t. MEM t (MAP deftm defs) ⇒ ∃t1. term defs t t1 ∧ term_ok t1)) ∧
+      (∀t. MEM t (MAP deftm defs) ⇒ term_ok defs t ∧ ∃t1. term defs t t1 ∧ term_ok t1)) ∧
     (∀dh c. dh |- c ⇒
       context_ok (FST dh) ∧
       good_defs (FST dh) ∧
       EVERY def_ok (FST dh) ∧
-      (∀t. MEM t (MAP deftm (FST dh)) ⇒ ∃t1. term (FST dh) t t1 ∧ term_ok t1) ∧
+      (∀t. MEM t (MAP deftm (FST dh)) ⇒ term_ok (FST dh) t ∧ ∃t1. term (FST dh) t t1 ∧ term_ok t1) ∧
       ∃h1 c1. seq_trans (dh,c) (h1,c1) ∧ h1 |- c1)``,
   HO_MATCH_MP_TAC holSyntaxTheory.proves_strongind >>
   conj_tac >- ( rw[] >> simp[Once term_cases,Once proves_cases] ) >>
@@ -1595,6 +1595,32 @@ val proves_IMP = store_thm("proves_IMP",
       map_every qexists_tac[`asl`,`c`] >>
       match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,23)) >>
       simp[] >> NO_TAC) >>
+    TRY (
+      simp[Once holSyntaxTheory.proves_cases] >>
+      ntac 4 disj2_tac >> disj1_tac >>
+      qexists_tac`Comb (Equal (typeof (Const s (typeof t)))) (Const s (typeof t))` >>
+      simp[GSYM holSyntaxTheory.equation_def] >>
+      simp[Once holSyntaxTheory.proves_cases] >>
+      rpt disj2_tac >>
+      qexists_tac`[]` >> simp[] >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,24)) >>
+      simp[] >>
+      simp[Once holSyntaxTheory.proves_cases] >>
+      map_every qexists_tac[`asl`,`c`] >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,23)) >>
+      simp[] >> NO_TAC) >>
+    TRY (
+      simp[Once holSyntaxTheory.proves_cases] >>
+      ntac 4 disj2_tac >> disj1_tac >>
+      qexists_tac`Comb (Equal (typeof t)) t` >>
+      simp[GSYM holSyntaxTheory.equation_def] >>
+      simp[Once holSyntaxTheory.proves_cases] >>
+      rpt disj2_tac >>
+      qexists_tac`[]` >> simp[] >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,23)) >>
+      simp[] >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+      simp[] >> NO_TAC) >>
     map_every qexists_tac[`h1`,`c1`] >>
     simp[] >>
     fs[EVERY_MEM,EVERY2_EVERY] >>
@@ -1658,13 +1684,23 @@ val proves_IMP = store_thm("proves_IMP",
       simp[Once consts_aux_def] >>
       simp[Once consts_aux_def] >>
       METIS_TAC[])) >>
-    (conj_tac >- ( simp[def_ok_def] >> METIS_TAC[])) >>
+    (conj_tac >- ( simp[def_ok_def] >> PROVE_TAC[])) >>
     (conj_tac >- (
       simp[deftm_def] >>
-      rw[] >- (
+      gen_tac >> strip_tac >- (
+        BasicProvers.VAR_EQ_TAC >>
         qpat_assum`term defs X c1`mp_tac >>
         simp[Once term_cases] >>
-        rw[] >>
+        strip_tac >> BasicProvers.VAR_EQ_TAC >>
+        conj_tac >- (
+          simp[Once holSyntaxTheory.proves_cases] >>
+          ntac 3 disj2_tac >> disj1_tac >>
+          qexists_tac`y` >>
+          simp[Once holSyntaxTheory.proves_cases] >>
+          rpt disj2_tac >>
+          qexists_tac`[]` >> simp[] >>
+          match_mp_tac (List.nth(CONJUNCTS holSyntaxTheory.proves_rules,25)) >>
+          simp[] >> PROVE_TAC[] ) >>
         qexists_tac`x1` >>
         conj_tac >- (
           match_mp_tac (MP_CANON(CONJUNCT2 (UNDISCH(SPEC_ALL term_type_cons)))) >>
@@ -1675,6 +1711,22 @@ val proves_IMP = store_thm("proves_IMP",
         qexists_tac`Comb x1 y1` >>
         qexists_tac`[]` >>
         simp[] ) >>
+      conj_tac >- (
+        simp[Once holSyntaxTheory.proves_cases] >>
+        ntac 4 disj2_tac >> disj1_tac >>
+        qexists_tac`Comb (Equal (typeof t')) t'` >>
+        simp[GSYM holSyntaxTheory.equation_def] >>
+        simp[Once holSyntaxTheory.proves_cases] >>
+        rpt disj2_tac >>
+        qexists_tac`[]` >> simp[] >>
+        match_mp_tac (List.nth(CONJUNCTS holSyntaxTheory.proves_rules,25)) >>
+        simp[] >>
+        qexists_tac`ARB` >>
+        HINT_EXISTS_TAC >>
+        HINT_EXISTS_TAC >>
+        simp[] >> disj1_tac >>
+        match_mp_tac (List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+        METIS_TAC[] ) >>
       res_tac >>
       qexists_tac`t1` >>
       simp[] >>
