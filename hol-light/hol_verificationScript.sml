@@ -1,4 +1,4 @@
-open HolKernel Parse boolLib bossLib lcsymtacs;
+open HolKernel Parse boolLib bossLib lcsymtacs miscLib;
 
 val _ = new_theory "hol_verification";
 
@@ -149,7 +149,7 @@ val type_ok_TYPESUBST = prove(
   simp[Once proves_cases])
 
 val term_ok_Equal = store_thm("term_ok_Equal",
-  ``∀defs ty. term_ok defs (Equal ty) ⇔ context_ok defs ∧ type_ok defs ty``,
+  ``∀defs ty. term_ok defs (Equal ty) ⇔ type_ok defs ty``,
   rw[] >> reverse EQ_TAC >- (
     rw [] >>
     simp[Once proves_cases] >>
@@ -164,6 +164,7 @@ val term_ok_Equal = store_thm("term_ok_Equal",
     qexists_tac`[]` >>
     simp[] >>
     `term_ok defs (Var x ty)` by simp[Once proves_cases] >>
+    imp_res_tac proves_IMP >>
     imp_res_tac (List.nth(CONJUNCTS proves_rules,12)) >>
     imp_res_tac (List.nth(CONJUNCTS proves_rules,9)) >>
     fs[equation_def]) >>
@@ -217,6 +218,159 @@ val term_ok_equation = store_thm("term_ok_equation",
   simp[Once proves_cases] >>
   METIS_TAC[])
 val _ = export_rewrites["term_ok_equation"]
+
+val type_ok_Fun = store_thm("type_ok_Fun",
+  ``!defs x y. type_ok defs (Fun x y) ⇔ type_ok defs x ∧ type_ok defs y``,
+  simp[EQ_IMP_THM] >> rpt gen_tac >> conj_tac >- (
+    strip_tac >>
+    imp_res_tac proves_IMP >> rw[] >>
+    imp_res_tac type_ok_Tyapp >>
+    fs[] ) >>
+  rw[] >>
+  simp[Once proves_cases] >>
+  disj1_tac >>
+  qexists_tac`Abs a x (Var b y)` >>
+  simp[Once has_type_cases] >>
+  simp[Once has_type_cases] >>
+  simp[Once proves_cases] >>
+  disj1_tac >>
+  simp[Once proves_cases])
+val _ = export_rewrites["type_ok_Fun"]
+
+val _ = Parse.overload_on("α",``(Tyvar "a"):holSyntax$type``)
+val id_tm = ``holSyntax$Abs "x" α (Var "x" α)``
+val id_ok = prove(
+  ``term_ok defs ^id_tm ⇔ context_ok defs``,
+  rw[EQ_IMP_THM] >> imp_res_tac proves_IMP >>
+  simp[Once proves_cases] >>
+  disj1_tac >>
+  simp[Once proves_cases] >>
+  simp[Once proves_cases] >>
+  simp[Once proves_cases] )
+
+val _ = Parse.overload_on("Tt",``^id_tm === ^id_tm``)
+val truth_thm =
+   proves_rules
+|> CONJUNCTS
+|> C (curry List.nth) 12
+|> SPEC id_tm
+|> SIMP_RULE(srw_ss())[AND_IMP_INTRO,id_ok]
+
+val Tt_ok = store_thm("Tt_ok",
+  ``context_ok defs ⇒ term_ok defs Tt``,
+  metis_tac[truth_thm,List.nth(CONJUNCTS proves_rules,9),MEM])
+val _ = export_rewrites["Tt_ok"]
+
+val Tt_has_type_Bool = prove(
+  ``Tt has_type Bool``,
+  simp[EQUATION_HAS_TYPE_BOOL])
+
+(*
+val SAME_ASMS_rule = store_thm("SAME_ASMS_rule",
+  ``∀defs asl2 asl1 c.
+    (defs,asl1) |- c ∧
+    (∀h1. MEM h1 asl1 ⇒ ∃h2. MEM h2 asl2 ∧ ACONV h1 h2) ∧
+    EVERY (λh2. term_ok defs h2 ∧ h2 has_type Bool) asl2
+    ⇒ (defs,asl2) |- c``,
+  gen_tac >> Induct >- (
+    simp[] >> Cases >> simp[] >> METIS_TAC[] ) >>
+  rw[] >>
+  `(defs,[h]) |- h` by (
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,17)) >>
+    imp_res_tac proves_IMP >> simp[] ) >>
+  fs[] >>
+  Cases_on`EXISTS (ACONV h) asl2` >- (
+    first_x_assum(qspecl_then[`asl1`,`c`]mp_tac) >>
+    simp[] >>
+    discharge_hyps >- (
+      fs[EXISTS_MEM] >>
+      METIS_TAC[ACONV_TRANS] ) >>
+
+val SET_ASMS_rule = store_thm("SET_ASMS_rule",
+  ``∀defs asl c. (defs,asl) |- c ⇒ (defs,TERM_UNION asl asl) |- c``,
+  rw[] >>
+  match_mp_tac(List.nth(CONJUNCTS proves_rules,18)) >>
+  qexists_tac`c` >>
+  qexists_tac`c` >>
+  rw[] >>
+  `(defs,[]) |- c === c` by (
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,12)) >>
+    imp_res_tac proves_IMP >>
+    fs[seq_trans_def] >>
+    simp[Once proves_cases] >>
+    rpt disj2_tac >>
+    qexists_tac`asl` >>
+    qexists_tac`c` >>
+    rw[] ) >>
+  match_mp_tac(List.nth(CONJUNCTS proves_rules,19))
+
+val ADD_ASM_rule = store_thm("ADD_ASM_rule",
+  ``!defs asl h c. (defs,asl) |- c /\ h has_type Bool /\ term_ok defs h ==> (defs,h::asl) |- c``,
+  gen_tac >> Induct >> rw[] >- (
+    
+  rw[] >>
+  `(defs,[h]) |- h` by (
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,17)) >>
+    imp_res_tac proves_IMP >> simp[] ) >>
+  `(defs,TERM_UNION (FILTER ($~ o ACONV c) [h]) (FILTER ($~ o ACONV h) asl)) |- h === c` by (
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,19)) >> rw[] ) >>
+  fs[]
+  match_mp_tac(List.nth(CONJUNCTS proves_rules,18))
+  rw[]
+
+val FILTER_ASMS_rule = store_thm("FILTER_ASMS_rule",
+  ``!defs asl c. (defs,holSyntax$TERM_UNION asl []) |- c ==> (defs,asl) |- c``,
+  gen_tac >> Induct >> simp[] >>
+  simp[TERM_UNION_def] >> rw[] >> fs[] >- (
+
+List.nth(CONJUNCTS proves_rules,19)
+List.nth(CONJUNCTS proves_rules,18)
+List.nth(CONJUNCTS proves_rules,17)
+*)
+
+val SYM_rule = store_thm("SYM_rule",
+  ``∀defs asl l r. (defs,asl) |- l === r ⇒
+     (defs,TERM_UNION asl []) |- r === l``,
+  rw[] >>
+  `term_ok defs (l === r)` by (
+    match_mp_tac (List.nth(CONJUNCTS proves_rules,9)) >>
+    qexists_tac`asl` >>
+    qexists_tac`l === r` >>
+    simp[] ) >>
+  fs[] >>
+  `(defs,[]) |- l === l` by (
+    match_mp_tac (List.nth(CONJUNCTS proves_rules,12)) >>
+    simp[] ) >>
+  `(defs,TERM_UNION [] asl) |-
+      Comb (Equal (typeof l)) l ===
+      Comb (Equal (typeof l)) r` by (
+    MATCH_MP_TAC (List.nth(CONJUNCTS proves_rules,14)) >>
+    conj_tac >- (
+      match_mp_tac (List.nth(CONJUNCTS proves_rules,12)) >>
+      simp[] >>
+      simp[Once proves_cases] >>
+      disj2_tac >> disj1_tac >>
+      qexists_tac`r` >> simp[] >>
+      METIS_TAC[holSyntaxTheory.WELLTYPED,term_ok_welltyped] ) >>
+    simp[] >>
+    METIS_TAC[term_ok_welltyped] ) >>
+  fs[holSyntaxTheory.TERM_UNION_def] >>
+  `(defs,TERM_UNION asl []) |- (l === l) === (r === l)` by (
+    `l === l = Comb (Comb (Equal (typeof l)) l) l` by (
+      simp[equation_def] ) >>
+    `r === l = Comb (Comb (Equal (typeof l)) r) l` by (
+      simp[equation_def] ) >>
+    pop_assum SUBST1_TAC >>
+    pop_assum SUBST1_TAC >>
+    MATCH_MP_TAC (List.nth(CONJUNCTS proves_rules,14)) >>
+    simp[] >> rfs[] >>
+    METIS_TAC[term_ok_welltyped] ) >>
+  `TERM_UNION asl [] = TERM_UNION (TERM_UNION asl []) []` by simp[] >>
+  pop_assum SUBST1_TAC >>
+  MATCH_MP_TAC (List.nth(CONJUNCTS proves_rules,18)) >>
+  qexists_tac`l === l` >>
+  qexists_tac`l === l` >>
+  simp[])
 
 (* ------------------------------------------------------------------------- *)
 (* TYPE and TERM lemmas                                                      *)
