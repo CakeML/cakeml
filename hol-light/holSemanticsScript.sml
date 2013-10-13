@@ -125,7 +125,7 @@ val const_def_MEM_2 = prove(
   Induct >> simp[Once const_def_def] >>
   Cases >> simp[] >> rw[] >> METIS_TAC[])
 
-val MEM_Typedef_MEM_types = prove(
+val MEM_Typedef_MEM_types = store_thm("MEM_Typedef_MEM_types",
   ``∀defs n tm a r. MEM (Typedef n tm a r) defs ⇒
     MEM n (MAP FST (FLAT (MAP types_aux defs)))``,
   Induct >> simp[] >>
@@ -134,7 +134,7 @@ val MEM_Typedef_MEM_types = prove(
   fs[types_def] >>
   METIS_TAC[])
 
-val MEM_Typedef_MEM_consts = prove(
+val MEM_Typedef_MEM_consts = store_thm("MEM_Typedef_MEM_consts",
   ``∀defs n tm a r. MEM (Typedef n tm a r) defs ⇒
     MEM a (MAP FST (FLAT (MAP consts_aux defs))) ∧ MEM r (MAP FST (FLAT (MAP consts_aux defs)))``,
   Induct >> simp[] >>
@@ -1174,22 +1174,6 @@ val TERM_UNION_FILTER_NIL = store_thm("TERM_UNION_FILTER_NIL",
   METIS_TAC[])
 val _ = export_rewrites["TERM_UNION_FILTER_NIL"]
 
-(*
-val TERM_UNION_MAP_NIL = store_thm("TERM_UNION_MAP_NIL",
-  ``∀f l1. (holSyntax$TERM_UNION l1 [] = l1) ⇒
-      (holSyntax$TERM_UNION (MAP f l1) [] = MAP f l1)``,
-  gen_tac >>
-  Induct >> simp[holSyntaxTheory.TERM_UNION_def] >>
-  rw[holSyntaxTheory.TERM_UNION_def] >> fs[] >> TRY (
-    qspecl_then[`l1`,`[h]`]mp_tac TERM_UNION_APPEND_SAME_NIL >>
-    simp[] >> NO_TAC ) >>
-  spose_not_then strip_assume_tac >>
-  fs[EVERY_MEM,EXISTS_MEM] >>
-  imp_res_tac holSyntaxTheory.TERM_UNION_NONEW >> fs[MEM_MAP] >> rw[] >>
-  TERM_UNION_THM
-  res_tac)
-*)
-
 val proves_IMP = store_thm("proves_IMP",
   ``(∀defs ty. type_ok defs ty ⇒ context_ok defs ∧ good_defs defs ∧ ∃ty1. type defs ty ty1 ∧ type_ok ty1) ∧
     (∀defs tm. term_ok defs tm ⇒ context_ok defs ∧ good_defs defs ∧ ∃tm1. term defs tm tm1 ∧ term_ok tm1) ∧
@@ -1202,10 +1186,10 @@ val proves_IMP = store_thm("proves_IMP",
       good_defs (FST dh) ∧
       EVERY def_ok (FST dh) ∧
       (∀t. MEM t (MAP deftm (FST dh)) ⇒ ∃t1. term (FST dh) t t1 ∧ term_ok t1) ∧
-      (* (holSyntax$TERM_UNION (SND dh) [] = (SND dh)) ∧ *)
       ∃h1 c1. seq_trans (dh,c) (h1,c1) ∧ h1 |- c1)``,
   HO_MATCH_MP_TAC holSyntaxTheory.proves_strongind >>
   conj_tac >- ( rw[] >> simp[Once term_cases,Once proves_cases] ) >>
+  conj_tac >- ( rw[] >> rw[Once term_cases] >> rw[Once proves_cases] ) >>
   conj_tac >- (
     rw[] >>
     simp[Once proves_cases] >>
@@ -1613,7 +1597,7 @@ val proves_IMP = store_thm("proves_IMP",
     TRY (
       simp[Once holSyntaxTheory.proves_cases] >>
       map_every qexists_tac[`asl`,`c`] >>
-      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,22)) >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,23)) >>
       simp[] >> NO_TAC) >>
     map_every qexists_tac[`h1`,`c1`] >>
     simp[] >>
@@ -1664,7 +1648,7 @@ val proves_IMP = store_thm("proves_IMP",
     (conj_tac >- (
       simp[Once holSyntaxTheory.proves_cases] >>
       map_every qexists_tac[`[]`,`holSyntax$Comb t y`] >>
-      match_mp_tac (List.nth(CONJUNCTS holSyntaxTheory.proves_rules,24)) >>
+      match_mp_tac (List.nth(CONJUNCTS holSyntaxTheory.proves_rules,25)) >>
       simp[] >>
       map_every qexists_tac[`rep_type`,`y`] >>
       METIS_TAC[] )) >>
