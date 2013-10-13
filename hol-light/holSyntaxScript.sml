@@ -707,7 +707,13 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"
                 Comb (Const r (Fun abs_type rep_type))
                      (Comb (Const a (Fun rep_type abs_type))
                            (Var x rep_type)) === Var x rep_type)) )
-        ==> (CONS d defs, asl) |- p)`
+        ==> (CONS d defs, asl) |- p) /\
+  (!ty1 ty2 defs.
+    context_ok defs /\ type_ok defs ty1 /\ type_ok defs ty2
+    ==> (defs,[]) |- Abs x ty1 (Comb (Var f (Fun ty1 ty2)) (Var x ty1)) === Var f (Fun ty1 ty2)) /\
+  (!asl p w ty defs.
+     p has_type (Fun ty Bool) /\ (defs,asl) |- Comb p w
+     ==> (defs,asl) |- Comb p (Comb (Select ty) p))`
 
 val RACONV_TRANS = store_thm("RACONV_TRANS",
   ``∀env tp. RACONV env tp ⇒ ∀vs t. LENGTH vs = LENGTH env ∧ RACONV (ZIP(MAP SND env,vs)) (SND tp,t) ⇒ RACONV (ZIP(MAP FST env,vs)) (FST tp, t)``,
