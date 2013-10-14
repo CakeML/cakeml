@@ -494,6 +494,23 @@ val REV_ASSOCD_sREV_ASSOCD = prove(
   Cases >>
   simp[sholSyntaxTheory.REV_ASSOCD,holSyntaxTheory.REV_ASSOCD])
 
+val INST_CORE_NIL_is_Result = store_thm("INST_CORE_NIL_is_Result",
+  ``∀tyin tm. welltyped tm ⇒ ∃r. holSyntax$INST_CORE [] tyin tm = Result r``,
+  rw[] >>
+  qspecl_then[`sizeof tm`,`tm`,`[]`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
+  simp[REV_ASSOCD] >> rw[] >> rw[])
+
+val INST_equation = store_thm("INST_equation",
+  ``∀tyin l r. welltyped (l === r) ⇒ (holSyntax$INST tyin (l === r) = (INST tyin l) === (INST tyin r))``,
+  rw[INST_def,equation_def,INST_CORE_def] >>
+  UNABBREV_ALL_TAC >> rw[] >> fs[] >>
+  imp_res_tac INST_CORE_NIL_is_Result >> fs[] >>
+  rpt (first_x_assum(qspec_then`tyin`STRIP_ASSUME_TAC)) >>
+  fs[] >> rw[] >>
+  qspecl_then[`sizeof l`,`l`,`[]`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
+  qspecl_then[`sizeof r`,`r`,`[]`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
+  simp[REV_ASSOCD] >> rw[] >> imp_res_tac WELLTYPED_LEMMA >> rw[] )
+
 val TYPE_Tyapp = prove(
   ``MEM (tyop,LENGTH args) r.the_type_constants /\
     STATE r defs /\ EVERY (TYPE defs) args ==>
@@ -515,8 +532,9 @@ val TYPE_Tyapp = prove(
   imp_res_tac MEM_Typedef_MEM_consts_type >>
   `typeof t = Fun rty Bool` by METIS_TAC[welltyped_def,WELLTYPED_LEMMA] >>
   fs[LET_THM] >>
-  `MEM t (MAP deftm defs)` by (
-    simp[MEM_MAP] >>
+  `MEM t (FLAT (MAP deftm defs))` by (
+    simp[MEM_MAP,MEM_FLAT] >>
+    srw_tac[boolSimps.DNF_ss][] >>
     HINT_EXISTS_TAC >>
     simp[deftm_def] ) >>
   qabbrev_tac`tyin = ZIP(hargs,MAP holSyntax$Tyvar (holSyntax$STRING_SORT(tvars t)))` >>
@@ -552,8 +570,36 @@ val TYPE_Tyapp = prove(
   reverse conj_tac >- (
     imp_res_tac INST_HAS_TYPE >>
     fsrw_tac[boolSimps.ETA_ss][] ) >>
+  Q.PAT_ABBREV_TAC`tm = (holSyntax$Const a aaty)` >>
+  `welltyped (tm === tm)` by (
+    simp[welltyped_def] >>
+    qexists_tac`Bool` >>
+    simp[EQUATION_HAS_TYPE_BOOL] >>
+    simp[Abbr`tm`] ) >>
+  qsuff_tac`term_ok defs (INST tyin (tm === tm))` >- (
+    imp_res_tac INST_equation >>
+    pop_assum(qspec_then`tyin`STRIP_ASSUME_TAC) >>
+    simp[] ) >>
   simp[Once proves_cases] >>
-  cheat);
+  rpt disj2_tac >>
+  qexists_tac`[]` >> simp[] >>
+  `[] = MAP (INST tyin) []` by simp[] >>
+  pop_assum SUBST1_TAC >>
+  MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,21)) >>
+  reverse conj_tac >- (
+    MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,13)) >>
+    simp[] >>
+    `MEM tm (FLAT (MAP deftm defs))`  by (
+      simp[MEM_FLAT,MEM_MAP] >>
+      srw_tac[boolSimps.DNF_ss][] >>
+      HINT_EXISTS_TAC >>
+      simp[deftm_def] ) >>
+    METIS_TAC[proves_IMP] ) >>
+  `LENGTH hargs = LENGTH vargs` by (
+    simp[Abbr`hargs`,Abbr`vargs`] ) >>
+  simp[Abbr`tyin`,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+  fs[Abbr`hargs`] >> simp[EL_MAP] >>
+  METIS_TAC[MEM_EL] )
 
 val TYPE = prove(
   ``(STATE state defs ==> TYPE defs (Tyvar v)) /\
