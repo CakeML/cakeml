@@ -22,18 +22,18 @@ val start =
 
 val UQTyOp_OK = store_thm(
   "UQTyOp_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NT (mkNT nUQTyOp) ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nUQTyOp) ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃utyop. ptree_UQTyop pt = SOME utyop``,
   start >> simp[ptree_UQTyop_def]);
 
 val TyOp_OK = store_thm(
   "TyOp_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NT (mkNT nTyOp) ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTyOp) ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃tyop. ptree_Tyop pt = SOME tyop``,
   start >> simp[ptree_Tyop_def] >>
-  asm_match `valid_ptree mmlG pt'` >>
+  asm_match `valid_ptree cmlG pt'` >>
   `destLf pt' = NONE`
     by (Cases_on `pt'` >> fs[MAP_EQ_CONS] >>
         rveq >> fs[]) >>
@@ -41,14 +41,14 @@ val TyOp_OK = store_thm(
 
 val TyvarN_OK = store_thm(
   "TyvarN_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NT (mkNT nTyvarN) ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTyvarN) ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃tyvn. ptree_TyvarN pt = SOME tyvn``,
   start >> simp[ptree_TyvarN_def]);
 
 val TyVarList_OK = store_thm(
   "TyVarList_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NT (mkNT nTyVarList) ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTyVarList) ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃tyvnms. ptree_linfix nTyVarList CommaT ptree_TyvarN pt = SOME tyvnms``,
   map_every qid_spec_tac [`toks`, `pt`] >>
@@ -63,7 +63,7 @@ val TyVarList_OK = store_thm(
 
 val TypeName_OK = store_thm(
   "TypeName_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NT (mkNT nTypeName) ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTypeName) ∧
     MAP TOK toks = ptree_fringe pt ⇒
     ∃tn. ptree_TypeName pt = SOME tn``,
   start >> simp[ptree_TypeName_def] >| [
@@ -83,7 +83,7 @@ val tuplify_OK = store_thm(
 
 val Type_OK0 = store_thm(
   "Type_OK0",
-  ``valid_ptree mmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
+  ``valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
     (N ∈ {nType; nDType; nTbase} ∧
      ptree_head pt = NT (mkNT N)
        ⇒
@@ -125,14 +125,14 @@ val Type_OK = save_thm("Type_OK", okify CONJUNCT1 `nType` Type_OK0);
 
 val V_OK = store_thm(
   "V_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NT (mkNT nV) ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nV) ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃i. ptree_V pt = SOME i``,
   start >> simp[ptree_V_def]);
 
 val FQV_OK = store_thm(
   "FQV_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NT (mkNT nFQV) ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nFQV) ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃i. ptree_FQV pt = SOME i``,
   start >> simp[ptree_FQV_def]
@@ -142,7 +142,7 @@ val FQV_OK = store_thm(
 
 val UQConstructorName_OK = store_thm(
   "UQConstructorName_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NT (mkNT nUQConstructorName) ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nUQConstructorName) ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃i. ptree_UQConstructorName pt = SOME i``,
   start >> simp[ptree_UQConstructorName_def]);
@@ -150,7 +150,7 @@ val UQConstructorName_OK = store_thm(
 val n = SIMP_RULE bool_ss [GSYM AND_IMP_INTRO]
 val ConstructorName_OK = store_thm(
   "ConstructorName_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NT (mkNT nConstructorName) ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nConstructorName) ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃i. ptree_ConstructorName pt = SOME i``,
   start >> simp[ptree_ConstructorName_def]
@@ -160,7 +160,7 @@ val ConstructorName_OK = store_thm(
 
 val Ops_OK0 = store_thm(
   "Ops_OK0",
-  ``N ∈ {nMultOps; nAddOps; nListOps; nRelOps; nCompOps} ∧ valid_ptree mmlG pt ∧
+  ``N ∈ {nMultOps; nAddOps; nListOps; nRelOps; nCompOps} ∧ valid_ptree cmlG pt ∧
     MAP TK toks = ptree_fringe pt ∧ ptree_head pt = NT (mkNT N) ⇒
     ∃opv. ptree_Op pt = SOME opv``,
   start >> simp[ptree_Op_def]);
@@ -175,7 +175,7 @@ val std = rpt (first_x_assum (erule strip_assume_tac o n)) >>
           simp[]
 val Pattern_OK0 = store_thm(
   "Pattern_OK0",
-  ``valid_ptree mmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
+  ``valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
     (N ∈ {nPattern; nPtuple; nPapp; nPbase} ∧ ptree_head pt = NT (mkNT N) ⇒
      ∃p. ptree_Pattern N pt = SOME p) ∧
     (ptree_head pt = NN nPatternList ⇒
@@ -211,7 +211,7 @@ val Pattern_OK = save_thm("Pattern_OK", okify CONJUNCT1 `nPattern` Pattern_OK0);
 val Vlist1_OK = store_thm(
   "Vlist1_OK",
   ``ptree_head pt = NN nVlist1 ∧ MAP TK toks = ptree_fringe pt ∧
-    valid_ptree mmlG pt ⇒
+    valid_ptree cmlG pt ⇒
     ∃vl. ptree_Vlist1 pt = SOME vl ∧ vl <> []``,
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
@@ -230,7 +230,7 @@ val Eseq_encode_OK = store_thm(
 val _ = print "The E_OK proof takes a while\n"
 val E_OK0 = store_thm(
   "E_OK0",
-  ``valid_ptree mmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
+  ``valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
     (N ∈ {nE; nE'; nEhandle; nElogicOR; nElogicAND; nEtuple; nEmult;
           nEadd; nElistop; nErel; nEcomp; nEbefore; nEtyped; nEapp;
           nEbase} ∧
@@ -303,7 +303,7 @@ val AndFDecls_OK = save_thm(
 
 val Dconstructor_OK = store_thm(
   "Dconstructor_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nDconstructor ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nDconstructor ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃dc. ptree_Dconstructor pt = SOME dc``,
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
@@ -315,7 +315,7 @@ val Dconstructor_OK = store_thm(
 
 val DtypeCons_OK = store_thm(
   "DtypeCons_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nDtypeCons ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nDtypeCons ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃dtc. ptree_linfix nDtypeCons BarT ptree_Dconstructor pt = SOME dtc``,
   map_every qid_spec_tac [`toks`, `pt`] >>
@@ -327,7 +327,7 @@ val DtypeCons_OK = store_thm(
 
 val DtypeDecl_OK = store_thm(
   "DtypeDecl_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nDtypeDecl ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nDtypeDecl ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃dtd. ptree_DtypeDecl pt = SOME dtd``,
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
@@ -337,7 +337,7 @@ val DtypeDecl_OK = store_thm(
 
 val DtypeDecls_OK = store_thm(
   "DtypeDecls_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nDtypeDecls ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nDtypeDecls ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃td. ptree_linfix nDtypeDecls AndT ptree_DtypeDecl pt = SOME td``,
   map_every qid_spec_tac [`toks`, `pt`] >>
@@ -349,7 +349,7 @@ val DtypeDecls_OK = store_thm(
 
 val TypeDec_OK = store_thm(
   "TypeDec_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nTypeDec ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nTypeDec ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃td. ptree_TypeDec pt = SOME td``,
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
@@ -359,7 +359,7 @@ val TypeDec_OK = store_thm(
 
 val Decl_OK = store_thm(
   "Decl_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nDecl ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nDecl ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃d. ptree_Decl pt = SOME d``,
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
@@ -375,7 +375,7 @@ val Decl_OK = store_thm(
 
 val Decls_OK = store_thm(
   "Decls_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nDecls ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nDecls ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃ds. ptree_Decls pt = SOME ds``,
   map_every qid_spec_tac [`toks`, `pt`] >>
@@ -391,7 +391,7 @@ val Decls_OK = store_thm(
 
 val SpecLine_OK = store_thm(
   "SpecLine_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nSpecLine ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nSpecLine ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃sl. ptree_SpecLine pt = SOME sl``,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
@@ -400,7 +400,7 @@ val SpecLine_OK = store_thm(
 
 val SpecLineList_OK = store_thm(
   "SpecLineList_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nSpecLineList ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nSpecLineList ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃sl. ptree_SpeclineList pt = SOME sl``,
   map_every qid_spec_tac [`toks`, `pt`] >>
@@ -415,7 +415,7 @@ val SpecLineList_OK = store_thm(
 
 val StructName_OK = store_thm(
   "StructName_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nStructName ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nStructName ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃sl. ptree_StructName pt = SOME sl``,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
@@ -423,7 +423,7 @@ val StructName_OK = store_thm(
 
 val SignatureValue_OK = store_thm(
   "SignatureValue_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nSignatureValue ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nSignatureValue ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃sv. ptree_SignatureValue pt = SOME sv``,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
@@ -432,7 +432,7 @@ val SignatureValue_OK = store_thm(
 
 val Structure_OK = store_thm(
   "Structure_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nStructure ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nStructure ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃s. ptree_Structure pt = SOME s``,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
@@ -446,7 +446,7 @@ val Structure_OK = store_thm(
 
 val TopLevelDec_OK = store_thm(
   "TopLevelDec_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nTopLevelDec ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nTopLevelDec ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃t. ptree_TopLevelDec pt = SOME t``,
   start
@@ -456,7 +456,7 @@ val TopLevelDec_OK = store_thm(
 
 val TopLevelDecs_OK = store_thm(
   "TopLevelDecs_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nTopLevelDecs ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nTopLevelDecs ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃ts. ptree_TopLevelDecs pt = SOME ts``,
   map_every qid_spec_tac [`toks`, `pt`] >>
@@ -469,7 +469,7 @@ val TopLevelDecs_OK = store_thm(
 
 val REPLPhrase_OK = store_thm(
   "REPLPhrase_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nREPLPhrase ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nREPLPhrase ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃r. ptree_REPLPhrase pt = SOME r``,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
@@ -480,7 +480,7 @@ val REPLPhrase_OK = store_thm(
 
 val REPLTop_OK = store_thm(
   "REPLTop_OK",
-  ``valid_ptree mmlG pt ∧ ptree_head pt = NN nREPLTop ∧
+  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nREPLTop ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃r. ptree_REPLTop pt = SOME r``,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>

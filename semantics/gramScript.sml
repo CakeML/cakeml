@@ -62,9 +62,9 @@ fun tokmap s =
 val ginfo = { tokmap = tokmap,
               tokty = ``:token``, nt_tyname = "MMLnonT",
               start = "Type",
-              gname = "mmlG", mkntname = (fn s => "n" ^ s) }
+              gname = "cmlG", mkntname = (fn s => "n" ^ s) }
 
-val mmlG_def = mk_grammar_def ginfo
+val cmlG_def = mk_grammar_def ginfo
 `(* types *)
  UQTyOp ::= <AlphaT> | <SymbolT>;
  TyvarN ::= <TyvarT>;
@@ -203,9 +203,9 @@ val ast = ``Nd (mkNT nEmult) [
 
 val check_results =
     time (SIMP_CONV (srw_ss())
-              [valid_ptree_def, mmlG_def,DISJ_IMP_THM, FORALL_AND_THM,
+              [valid_ptree_def, cmlG_def,DISJ_IMP_THM, FORALL_AND_THM,
                finite_mapTheory.FAPPLY_FUPDATE_THM])
- ``valid_ptree mmlG ^ast``
+ ``valid_ptree cmlG ^ast``
 
 val _ = if aconv (rhs (concl check_results)) T then print "valid_ptree: OK\n"
         else raise Fail "valid_ptree: failed"

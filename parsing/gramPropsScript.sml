@@ -101,7 +101,7 @@ val NT_rank_def = Define`
         else                                 0
 `
 
-val rules_t = ``mmlG.rules``
+val rules_t = ``cmlG.rules``
 fun ty2frag ty = let
   open simpLib
   val {convs,rewrs} = TypeBase.simpls_of ty
@@ -109,7 +109,7 @@ in
   merge_ss (rewrites rewrs :: map conv_ss convs)
 end
 val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β)grammar``)
-                      [mmlG_def, combinTheory.K_DEF,
+                      [cmlG_def, combinTheory.K_DEF,
                        finite_mapTheory.FUPDATE_LIST_THM] rules_t
 val cmlG_applied = let
   val app0 = finite_mapSyntax.fapply_t
@@ -131,7 +131,7 @@ in
 end
 
 val cmlG_FDOM = save_thm("cmlG_FDOM",
-  SIMP_CONV (srw_ss()) [mmlG_def] ``FDOM mmlG.rules``)
+  SIMP_CONV (srw_ss()) [cmlG_def] ``FDOM cmlG.rules``)
 
 val paireq = prove(
   ``(x,y) = z ⇔ x = FST z ∧ y = SND z``, Cases_on `z` >> simp[])
@@ -232,7 +232,7 @@ end
 local val domapp = CONJ cmlG_applied cmlG_FDOM
 in
 fun fold_nullprove (t, a) =
-    prove_nullable domapp empty_tmset a ``mmlG`` ``mkNT ^t``
+    prove_nullable domapp empty_tmset a ``cmlG`` ``mkNT ^t``
 end
 
 val nullacc =
@@ -311,7 +311,7 @@ val _ = export_rewrites ["derives_singleTOK"]
 
 val fringe_lengths_V = store_thm(
   "fringe_lengths_V",
-  ``fringe_lengths mmlG [NT (mkNT nV)] = {1}``,
+  ``fringe_lengths cmlG [NT (mkNT nV)] = {1}``,
   simp[fringe_lengths_def] >>
   simp[Once relationTheory.RTC_CASES1, MAP_EQ_SING, cmlG_FDOM] >>
   dsimp[MAP_EQ_SING,cmlG_applied] >>
@@ -386,14 +386,14 @@ val vlist1_cross_tac =
     elimV_tac `vt1` >> fs[] >>
     TRY (elimV_tac `vt2`) >> fs[] >>
     asm_match `ptree_fringe vlt = []` >>
-    qispl_then [`mmlG`] mp_tac fringe_length_ptree >>
+    qispl_then [`cmlG`] mp_tac fringe_length_ptree >>
     disch_then (qspecl_then [`[]`, `vlt`] mp_tac) >>
     simp[SYM nullable_fringe_lengths, mmlvalid_SYM] >>
     metis_tac [nullable_Vlist1]
 
-val mmlGNIL =
+val cmlGNIL =
     fringe_length_ptree
-      |> ISPEC ``mmlG`` |> Q.SPEC `[]`
+      |> ISPEC ``cmlG`` |> Q.SPEC `[]`
       |> SIMP_RULE (srw_ss()) [SYM nullable_fringe_lengths,
                                GSYM AND_IMP_INTRO, mmlvalid_SYM]
 
@@ -694,9 +694,9 @@ val Type_protects_comma = store_thm(
 val unambiguous = store_thm(
   "unambiguous",
   ``∀i N p1 p2.
-      valid_ptree mmlG p1 ∧ ptree_fringe p1 = MAP TOK i ∧
+      valid_ptree cmlG p1 ∧ ptree_fringe p1 = MAP TOK i ∧
       ptree_head p1 = NT N ∧
-      valid_ptree mmlG p2 ∧ ptree_fringe p2 = MAP TOK i ∧
+      valid_ptree cmlG p2 ∧ ptree_fringe p2 = MAP TOK i ∧
       ptree_head p2 = NT N ⇒
       p1 = p2``,
   ntac 2 gen_tac >> `∃iN. iN = (i,N)` by simp[] >> pop_assum mp_tac >>
@@ -734,14 +734,14 @@ val unambiguous = store_thm(
       >- (elim_tac elimUQTyop_thm `t1` >> elim_tac elimUQTyop_thm `t2`)
       >- (elim_tac elimUQTyop_thm `t1` >>
           elim_tac elimUQTyop_thm `t2` >> fs[] >>
-          imp_res_tac mmlGNIL >> ntac 3 (pop_assum mp_tac) >>
+          imp_res_tac cmlGNIL >> ntac 3 (pop_assum mp_tac) >>
           simp[])
       >- (elim_tac elimUQTyop_thm `t1` >>
           fs[grammarTheory.MAP_EQ_APPEND, MAP_EQ_SING] >>
           elim_tac elimUQTyop_thm `t2` >> fs[] >>
-          imp_res_tac mmlGNIL >> pop_assum mp_tac >> simp[])
+          imp_res_tac cmlGNIL >> pop_assum mp_tac >> simp[])
       >- (elim_tac elimUQTyop_thm `t1` >>
-          imp_res_tac mmlGNIL >> ntac 3 (pop_assum mp_tac) >> simp[])
+          imp_res_tac cmlGNIL >> ntac 3 (pop_assum mp_tac) >> simp[])
       >- (elim_tac elimUQTyop_thm `t1` >>
           fs[grammarTheory.MAP_EQ_APPEND, MAP_EQ_SING] >> rveq >>
           elim_tac elimUQTyop_thm `t2` >>
@@ -753,7 +753,7 @@ val unambiguous = store_thm(
             (erule SUBST_ALL_TAC head_TOK >> fs[MAP_EQ_SING] >> rveq) >>
           pop_assum (assume_tac o SYM) >> fs[])
       >- (erule SUBST_ALL_TAC head_TOK >>
-          elim_tac elimUQTyop_thm `t` >> erule mp_tac mmlGNIL >>
+          elim_tac elimUQTyop_thm `t` >> erule mp_tac cmlGNIL >>
           simp[nullable_UQTyOp])
       >- (rpt
             (erule SUBST_ALL_TAC head_TOK >> fs[MAP_EQ_SING]) >>

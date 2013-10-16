@@ -122,7 +122,7 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 
 val parse_def = Define`
   parse toks =
-    case some pt. valid_ptree mmlG pt ∧ ptree_head pt = NT (mkNT nREPLTop) ∧
+    case some pt. valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nREPLTop) ∧
                   ptree_fringe pt = MAP TOK toks
     of
        NONE => NONE

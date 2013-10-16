@@ -192,19 +192,19 @@ val peg_linfix_correct_lemma = store_thm(
          LENGTH i0' < LENGTH i0 ⇒
          peg_eval mmlPEG (i0',s) (SOME(i,pts)) ⇒
          ∃pt. pts = [pt] ∧ ptree_head pt ∈ pegsym_to_sym s ∧
-              valid_ptree mmlG pt ∧ MAP TK i0' = ptree_fringe pt ++ MAP TK i) ∧
+              valid_ptree cmlG pt ∧ MAP TK i0' = ptree_fringe pt ++ MAP TK i) ∧
       (∀i pts s.
          s ∈ {sym; sepsym} ⇒
          peg_eval mmlPEG (i0, s) (SOME(i,pts)) ⇒
          ∃pt. pts = [pt] ∧ ptree_head pt ∈ pegsym_to_sym s ∧
-              valid_ptree mmlG pt ∧ MAP TK i0 = ptree_fringe pt ++ MAP TK i) ∧
+              valid_ptree cmlG pt ∧ MAP TK i0 = ptree_fringe pt ++ MAP TK i) ∧
       ¬peg0 mmlPEG sym ∧
-      UpperN ∈ FDOM mmlG.rules ∧
-      {[gsym] | gsym ∈ pegsym_to_sym sym } ⊆ mmlG.rules ' UpperN ∧
+      UpperN ∈ FDOM cmlG.rules ∧
+      {[gsym] | gsym ∈ pegsym_to_sym sym } ⊆ cmlG.rules ' UpperN ∧
       {[NT UpperN; gsep; gsym] |
           gsep ∈ pegsym_to_sym sepsym ∧ gsym ∈ pegsym_to_sym sym } ⊆
-        mmlG.rules ' UpperN ⇒
-      ∃pt. pts = [pt] ∧ ptree_head pt = NT UpperN ∧ valid_ptree mmlG pt ∧
+        cmlG.rules ' UpperN ⇒
+      ∃pt. pts = [pt] ∧ ptree_head pt = NT UpperN ∧ valid_ptree cmlG pt ∧
            MAP TK i0 = ptree_fringe pt ++ MAP TK i``,
   rpt strip_tac >> qpat_assum `peg_eval X Y Z` mp_tac >>
   simp[peg_linfix_def, peg_eval_rpt, peg_eval_seq_SOME] >>
@@ -216,8 +216,8 @@ val peg_linfix_correct_lemma = store_thm(
   qpat_assum `peg_eval_list X Y Z` mp_tac >>
   `∃i2. i2 = i1 ∧ LENGTH i2 ≤ LENGTH i1` by simp[] >>
   Q.UNDISCH_THEN `i2 = i1` (SUBST1_TAC o SYM) >>
-  `∃acc. MAP ptree_head acc ∈ mmlG.rules ' UpperN ∧
-         (∀pt. MEM pt acc ⇒ valid_ptree mmlG pt) ∧
+  `∃acc. MAP ptree_head acc ∈ cmlG.rules ' UpperN ∧
+         (∀pt. MEM pt acc ⇒ valid_ptree cmlG pt) ∧
          [rpt1] = acc ∧ ptree_fringe rpt1 = FLAT (MAP ptree_fringe acc)`
     by (simp[] >> fs[SUBSET_DEF]) >>
   ntac 2 (pop_assum SUBST1_TAC) >> ntac 2 (pop_assum mp_tac) >>
@@ -247,7 +247,7 @@ val peg_linfix_correct_lemma = store_thm(
   first_x_assum (qspecl_then [`i`, `i3'`, `[Nd UpperN acc; sep_pt; sym_pt]`]
                              mp_tac) >>
   simp[DISJ_IMP_THM, FORALL_AND_THM] >>
-  `[NT UpperN; ptree_head sep_pt; ptree_head sym_pt] ∈ mmlG.rules ' UpperN`
+  `[NT UpperN; ptree_head sep_pt; ptree_head sym_pt] ∈ cmlG.rules ' UpperN`
     by fs[SUBSET_DEF] >>
   simp[]);
 
@@ -297,10 +297,10 @@ val peg_EbaseParen_sound = store_thm(
         peg_eval mmlPEG (i0', nt (mkNT N) I) (SOME(i,pts)) ⇒
         ∃pt.
            pts = [pt] ∧ ptree_head pt = NT (mkNT N) ∧
-          valid_ptree mmlG pt ∧ MAP TOK i0' = ptree_fringe pt ++ MAP TOK i) ⇒
+          valid_ptree cmlG pt ∧ MAP TOK i0' = ptree_fringe pt ++ MAP TOK i) ⇒
       ∃pt.
         pts = [pt] ∧ ptree_head pt = NT (mkNT nEbase) ∧
-        valid_ptree mmlG pt ∧ MAP TOK i0 = ptree_fringe pt ++ MAP TOK i``,
+        valid_ptree cmlG pt ∧ MAP TOK i0 = ptree_fringe pt ++ MAP TOK i``,
   rw[peg_EbaseParen_def]
   >- (rlresolve X (K true) mp_tac >> simp[] >> strip_tac >> rveq >>
       simp[peg_EbaseParenFn_def, cmlG_FDOM, cmlG_applied, DISJ_IMP_THM])
@@ -326,7 +326,7 @@ val peg_sound = store_thm(
   ``∀N i0 i pts.
        peg_eval mmlPEG (i0,nt N I) (SOME(i,pts)) ⇒
        ∃pt. pts = [pt] ∧ ptree_head pt = NT N ∧
-            valid_ptree mmlG pt ∧
+            valid_ptree cmlG pt ∧
             MAP TOK i0 = ptree_fringe pt ++ MAP TOK i``,
   ntac 2 gen_tac >> `?iN. iN = (i0,N)` by simp[] >> pop_assum mp_tac >>
   map_every qid_spec_tac [`i0`, `N`, `iN`] >>
@@ -719,7 +719,7 @@ val peg_sound = store_thm(
       `∃i2. LENGTH i2 < LENGTH i0 ∧ i1 = i2` by simp[] >>
       pop_assum SUBST1_TAC >> pop_assum mp_tac >>
       `∃acc.
-         ptree_head acc = NN nDType ∧ valid_ptree mmlG acc ∧
+         ptree_head acc = NN nDType ∧ valid_ptree cmlG acc ∧
          ptree_fringe base_pt ++ MAP TK i2 =
            ptree_fringe acc ++ MAP TK i2 ∧
          Nd (mkNT nDType) [base_pt] = acc`
@@ -1036,8 +1036,8 @@ val peg_sound = store_thm(
       simp[peg_eval_rpt] >> disch_then (qxchl [`pts`] strip_assume_tac) >>
       rveq >>
       `∃acc. ptree_fringe pt = FLAT (MAP ptree_fringe acc) ∧
-             [pt] = acc ∧ MAP ptree_head acc ∈ mmlG.rules ' (mkNT nEapp) ∧
-             (∀pt. MEM pt acc ⇒ valid_ptree mmlG pt)`
+             [pt] = acc ∧ MAP ptree_head acc ∈ cmlG.rules ' (mkNT nEapp) ∧
+             (∀pt. MEM pt acc ⇒ valid_ptree cmlG pt)`
         by simp[cmlG_applied, cmlG_FDOM] >>
       ntac 2 (pop_assum mp_tac) >> ntac 2 (pop_assum SUBST1_TAC) >>
       Q.UNDISCH_THEN `LENGTH i1 < LENGTH i0` mp_tac >>
