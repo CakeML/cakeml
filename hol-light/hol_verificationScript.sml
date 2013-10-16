@@ -616,21 +616,64 @@ val TERM = prove(
     (TERM defs (Const n ty) ==> TYPE defs ty) /\
     (TERM defs (Abs (Var v ty) x) ==> TERM defs x /\ TYPE defs ty) /\
     (TERM defs (Comb x y) ==> TERM defs x /\ TERM defs y)``,
-  cheat);
+  rw[TERM_def,TYPE_def,hol_tm_def] >- (
+    rw[Once proves_cases] >>
+    ntac 2 disj2_tac >> disj1_tac >>
+    HINT_EXISTS_TAC >> rw[] >>
+    rw[Once has_type_cases] )
+  >- (
+    rw[Once proves_cases] >>
+    ntac 2 disj2_tac >> disj1_tac >>
+    HINT_EXISTS_TAC >> rw[] >>
+    rw[Once has_type_cases] )
+  >- (
+    rw[Once proves_cases] >>
+    ntac 5 disj2_tac >> disj1_tac >>
+    METIS_TAC[] )
+  >- (
+    qsuff_tac`type_ok (hol_defs defs) (Fun (hol_ty ty) (typeof (hol_tm x)))` >- (
+      rw[type_ok_Fun] ) >>
+    rw[Once proves_cases] >>
+    disj1_tac >>
+    HINT_EXISTS_TAC >>
+    rw[] >>
+    rw[Once has_type_cases] >>
+    imp_res_tac term_ok_welltyped >>
+    fs[] >> METIS_TAC[WELLTYPED] )
+  >- (
+    rw[Once proves_cases] >>
+    ntac 3 disj2_tac >> disj1_tac >>
+    METIS_TAC[] )
+  >- (
+    rw[Once proves_cases] >>
+    ntac 4 disj2_tac >> disj1_tac >>
+    METIS_TAC[] ));
 
 val term_ok_Comb_welltyped = prove(
   ``term_ok defs (Comb f x) ==> welltyped (Comb f x)``,
-  cheat);
+  rw[] >> IMP_RES_TAC term_ok_welltyped >> fs[]);
 
 val TYPE_Fun = prove(
   ``TYPE defs ty1 /\ TYPE defs ty2 ==>
     TYPE defs (Tyapp "fun" [ty1;ty2])``,
-  cheat);
+  rw[TYPE_def,hol_ty_def,type_ok_Fun]);
 
 val TYPE_11 = prove(
-  ``!x y. STATE s defs /\ TYPE defs x /\ TYPE defs y ==>
-          ((hol_ty x = hol_ty y) = (x = y))``,
-  cheat);
+  ``!x y. ((hol_ty x = hol_ty y) = (x = y))``,
+  (TypeBase.induction_of(``:hol_type``)
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> SIMP_RULE(srw_ss())[]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> GEN_ALL
+  |> HO_MATCH_MP_TAC) >>
+  rw[hol_ty_def] >>
+  Cases_on`y`>>rw[hol_ty_def] >>
+  rw[MAP_EQ_EVERY2,EVERY2_EVERY] >>
+  rw[EQ_IMP_THM] >>
+  fs[EVERY_MEM] >> rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL] >>
+  simp[LIST_EQ_REWRITE]);
 
 val TERM_11 = prove(
   ``!x y. STATE s defs /\ TERM defs x /\ TERM defs y ==>
