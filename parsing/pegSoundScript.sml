@@ -127,30 +127,30 @@ val _ = augment_srw_ss [rewrites [
 
 val peg_eval_TypeDec_wrongtok = store_thm(
   "peg_eval_TypeDec_wrongtok",
-  ``tk ≠ DatatypeT ⇒ ¬peg_eval mmlPEG (tk::i, nt (mkNT nTypeDec) f) (SOME x)``,
-  simp[Once pegTheory.peg_eval_cases, mmlpeg_rules_applied, FDOM_cmlPEG,
+  ``tk ≠ DatatypeT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTypeDec) f) (SOME x)``,
+  simp[Once pegTheory.peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
        peg_TypeDec_def, peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME]);
 
 val peg_eval_LetDec_wrongtok = store_thm(
   "peg_eval_LetDec_wrongtok",
-  ``¬peg_eval mmlPEG (SemicolonT::i, nt (mkNT nLetDec) f) (SOME x)``,
-  simp[Once pegTheory.peg_eval_cases, mmlpeg_rules_applied, FDOM_cmlPEG,
+  ``¬peg_eval cmlPEG (SemicolonT::i, nt (mkNT nLetDec) f) (SOME x)``,
+  simp[Once pegTheory.peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
        peg_TypeDec_def, peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME,
        peg_eval_choicel_CONS, peg_eval_seql_CONS]);
 
 val peg_eval_nUQConstructor_wrongtok = store_thm(
   "peg_eval_nUQConstructor_wrongtok",
   ``(∀s. t ≠ AlphaT s) ⇒
-    ¬peg_eval mmlPEG (t::i, nt (mkNT nUQConstructorName) f) (SOME x)``,
-  simp[Once pegTheory.peg_eval_cases, mmlpeg_rules_applied,
+    ¬peg_eval cmlPEG (t::i, nt (mkNT nUQConstructorName) f) (SOME x)``,
+  simp[Once pegTheory.peg_eval_cases, cmlpeg_rules_applied,
        peg_eval_tok_SOME,
        peg_UQConstructorName_def] >> Cases_on `t` >> simp[]);
 
 val peg_eval_nConstructor_wrongtok = store_thm(
   "peg_eval_nConstructor_wrongtok",
   ``(∀s. t ≠ AlphaT s) ∧ (∀s1 s2. t ≠ LongidT s1 s2) ⇒
-    ¬peg_eval mmlPEG (t::i, nt (mkNT nConstructorName) f) (SOME x)``,
-  simp[Once pegTheory.peg_eval_cases, mmlpeg_rules_applied, peg_eval_tok_SOME,
+    ¬peg_eval cmlPEG (t::i, nt (mkNT nConstructorName) f) (SOME x)``,
+  simp[Once pegTheory.peg_eval_cases, cmlpeg_rules_applied, peg_eval_tok_SOME,
        peg_eval_choicel_CONS, peg_eval_seq_NONE, pegf_def, pnt_def,
        peg_eval_nUQConstructor_wrongtok, peg_eval_seq_SOME] >>
   Cases_on `t` >> simp[]);
@@ -158,16 +158,16 @@ val peg_eval_nConstructor_wrongtok = store_thm(
 val peg_eval_nV_wrongtok = store_thm(
   "peg_eval_nV_wrongtok",
   ``(∀s. t ≠ AlphaT s) ∧ (∀s. t ≠ SymbolT s) ⇒
-    ¬peg_eval mmlPEG (t::i, nt (mkNT nV) f) (SOME x)``,
-  simp[Once pegTheory.peg_eval_cases, mmlpeg_rules_applied, peg_V_def,
+    ¬peg_eval cmlPEG (t::i, nt (mkNT nV) f) (SOME x)``,
+  simp[Once pegTheory.peg_eval_cases, cmlpeg_rules_applied, peg_V_def,
        peg_eval_seq_NONE, peg_eval_choice] >>
   Cases_on `t` >> simp[]);
 
 val peg_eval_nFQV_wrongtok = store_thm(
   "peg_eval_nFQV_wrongtok",
   ``(∀s. t ≠ AlphaT s) ∧ (∀s. t ≠ SymbolT s) ∧ (∀s1 s2. t ≠ LongidT s1 s2) ⇒
-    ¬peg_eval mmlPEG (t::i, nt (mkNT nFQV) f) (SOME x)``,
-  simp[Once pegTheory.peg_eval_cases, mmlpeg_rules_applied,
+    ¬peg_eval cmlPEG (t::i, nt (mkNT nFQV) f) (SOME x)``,
+  simp[Once pegTheory.peg_eval_cases, cmlpeg_rules_applied,
        peg_eval_seq_NONE, peg_eval_choice, peg_eval_nV_wrongtok] >>
   Cases_on `t` >> simp[peg_longV_def]);
 
@@ -186,19 +186,19 @@ val pegsym_to_sym_def = Define`
 val peg_linfix_correct_lemma = store_thm(
   "peg_linfix_correct_lemma",
   ``∀UpperN sym sepsym i0 i pts.
-      peg_eval mmlPEG (i0, peg_linfix UpperN sym sepsym) (SOME(i,pts)) ⇒
+      peg_eval cmlPEG (i0, peg_linfix UpperN sym sepsym) (SOME(i,pts)) ⇒
       (∀i0' i pts s.
          s ∈ {sym;sepsym} ⇒
          LENGTH i0' < LENGTH i0 ⇒
-         peg_eval mmlPEG (i0',s) (SOME(i,pts)) ⇒
+         peg_eval cmlPEG (i0',s) (SOME(i,pts)) ⇒
          ∃pt. pts = [pt] ∧ ptree_head pt ∈ pegsym_to_sym s ∧
               valid_ptree cmlG pt ∧ MAP TK i0' = ptree_fringe pt ++ MAP TK i) ∧
       (∀i pts s.
          s ∈ {sym; sepsym} ⇒
-         peg_eval mmlPEG (i0, s) (SOME(i,pts)) ⇒
+         peg_eval cmlPEG (i0, s) (SOME(i,pts)) ⇒
          ∃pt. pts = [pt] ∧ ptree_head pt ∈ pegsym_to_sym s ∧
               valid_ptree cmlG pt ∧ MAP TK i0 = ptree_fringe pt ++ MAP TK i) ∧
-      ¬peg0 mmlPEG sym ∧
+      ¬peg0 cmlPEG sym ∧
       UpperN ∈ FDOM cmlG.rules ∧
       {[gsym] | gsym ∈ pegsym_to_sym sym } ⊆ cmlG.rules ' UpperN ∧
       {[NT UpperN; gsep; gsym] |
@@ -209,7 +209,7 @@ val peg_linfix_correct_lemma = store_thm(
   rpt strip_tac >> qpat_assum `peg_eval X Y Z` mp_tac >>
   simp[peg_linfix_def, peg_eval_rpt, peg_eval_seq_SOME] >>
   rpt strip_tac >> rveq >>
-  asm_match `peg_eval mmlPEG (i0, sym) (SOME(i1,r1))` >>
+  asm_match `peg_eval cmlPEG (i0, sym) (SOME(i1,r1))` >>
   first_assum (qspecl_then [`i1`, `r1`, `sym`] mp_tac) >> simp_tac(srw_ss())[]>>
   ASM_REWRITE_TAC[] >> disch_then (qxchl[`rpt1`] strip_assume_tac) >> simp[] >>
   rveq >>
@@ -268,9 +268,9 @@ val MAP_TK_11 = Store_thm(
 
 val peg_eval_nTyOp_wrongtok = store_thm(
   "peg_eval_nTyOp_wrongtok",
-  ``¬peg_eval mmlPEG (LparT::i, nt (mkNT nTyOp) f) (SOME x)``,
-  simp[Once pegTheory.peg_eval_cases, mmlpeg_rules_applied, FDOM_cmlPEG] >>
-  simp[Once pegTheory.peg_eval_cases, mmlpeg_rules_applied, FDOM_cmlPEG]);
+  ``¬peg_eval cmlPEG (LparT::i, nt (mkNT nTyOp) f) (SOME x)``,
+  simp[Once pegTheory.peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG] >>
+  simp[Once pegTheory.peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG]);
 
 datatype disposition = X | KEEP
 fun rlresolve d P k = let
@@ -291,10 +291,10 @@ end
 val peg_EbaseParen_sound = store_thm(
   "peg_EbaseParen_sound",
   ``∀i0 i pts.
-      peg_eval mmlPEG (i0, peg_EbaseParen) (SOME(i,pts)) ⇒
+      peg_eval cmlPEG (i0, peg_EbaseParen) (SOME(i,pts)) ⇒
       (∀i0' N i pts.
         LENGTH i0' < LENGTH i0 ∧
-        peg_eval mmlPEG (i0', nt (mkNT N) I) (SOME(i,pts)) ⇒
+        peg_eval cmlPEG (i0', nt (mkNT N) I) (SOME(i,pts)) ⇒
         ∃pt.
            pts = [pt] ∧ ptree_head pt = NT (mkNT N) ∧
           valid_ptree cmlG pt ∧ MAP TOK i0' = ptree_fringe pt ++ MAP TOK i) ⇒
@@ -324,7 +324,7 @@ val peg_EbaseParen_sound = store_thm(
 val peg_sound = store_thm(
   "peg_sound",
   ``∀N i0 i pts.
-       peg_eval mmlPEG (i0,nt N I) (SOME(i,pts)) ⇒
+       peg_eval cmlPEG (i0,nt N I) (SOME(i,pts)) ⇒
        ∃pt. pts = [pt] ∧ ptree_head pt = NT N ∧
             valid_ptree cmlG pt ∧
             MAP TOK i0 = ptree_fringe pt ++ MAP TOK i``,
@@ -339,7 +339,7 @@ val peg_sound = store_thm(
   map_every qx_gen_tac [`N`, `i0`, `i`, `pts`] >> strip_tac >>
   simp[peg_eval_NT_SOME, cmlPEGTheory.FDOM_cmlPEG] >>
   disch_then (CONJUNCTS_THEN2 strip_assume_tac mp_tac) >> rveq >>
-  simp[cmlPEGTheory.mmlpeg_rules_applied]
+  simp[cmlPEGTheory.cmlpeg_rules_applied]
   >- (print_tac "nREPLTop">>
       `NT_rank (mkNT nE) < NT_rank (mkNT nREPLTop) ∧
        NT_rank (mkNT nTopLevelDec) < NT_rank (mkNT nREPLTop)`
@@ -355,7 +355,7 @@ val peg_sound = store_thm(
       first_x_assum (erule strip_assume_tac) >> rveq >>
       dsimp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nTopLevelDecs" >>
-      qmatch_abbrev_tac `peg_eval mmlPEG (i0, rpt NNN FF) (SOME(i,pts)) ⇒ QQ`>>
+      qmatch_abbrev_tac `peg_eval cmlPEG (i0, rpt NNN FF) (SOME(i,pts)) ⇒ QQ`>>
       map_every markerLib.UNABBREV_TAC ["NNN", "QQ"] >>
       `(FF [] = [Nd (mkNT nTopLevelDecs) []]) ∧
        ∀h t. FF ([h]::t) = [Nd (mkNT nTopLevelDecs) [h; HD (FF t)]]`
@@ -396,14 +396,14 @@ val peg_sound = store_thm(
   >- (print_tac "nStructure" >> strip_tac >> rveq >>
       simp[DISJ_IMP_THM, FORALL_AND_THM, cmlG_FDOM, cmlG_applied] >>
       loseC ``NT_rank`` >> fs[] >>
-      asm_match `peg_eval mmlPEG (vi, nt (mkNT nStructName) I) (SOME(opti,vt))` >>
+      asm_match `peg_eval cmlPEG (vi, nt (mkNT nStructName) I) (SOME(opti,vt))` >>
       `LENGTH vi < SUC (LENGTH vi)` by decide_tac >>
       first_assum (erule strip_assume_tac) >> rveq >> simp[] >>
       `LENGTH opti < LENGTH vi`
         by metis_tac[not_peg0_LENGTH_decreases, peg0_nStructName] >>
       `LENGTH opti < SUC (LENGTH vi)` by decide_tac >>
       first_assum (erule strip_assume_tac) >> rveq >> simp[] >>
-      asm_match `peg_eval mmlPEG (opti, OPTSIG)
+      asm_match `peg_eval cmlPEG (opti, OPTSIG)
                           (SOME (EqualsT::StructT::di,[opt]))` >>
       `LENGTH (EqualsT::StructT::di) ≤ LENGTH opti`
         by metis_tac[pegTheory.peg_eval_suffix',
@@ -429,7 +429,7 @@ val peg_sound = store_thm(
              by simp[NT_rank_def] >>
           first_x_assum (erule mp_tac) >>
           asm_match
-            `peg_eval mmlPEG (i0, nt (mkNT nSpecLine) I) (SOME (i1,r))` >>
+            `peg_eval cmlPEG (i0, nt (mkNT nSpecLine) I) (SOME (i1,r))` >>
           `LENGTH i1 < LENGTH i0`
             by metis_tac[not_peg0_LENGTH_decreases, peg0_nSpecLine] >>
           first_x_assum (erule mp_tac) >> rpt strip_tac >> rveq >> fs[])
@@ -439,7 +439,7 @@ val peg_sound = store_thm(
   >- (print_tac "nSpecLine" >> strip_tac >> rveq >>
       fs[cmlG_applied, cmlG_FDOM, peg_eval_TypeDec_wrongtok]
       >- (asm_match
-            `peg_eval mmlPEG (i1, nt (mkNT nV) I) (SOME(ColonT::i2,r))` >>
+            `peg_eval cmlPEG (i1, nt (mkNT nV) I) (SOME(ColonT::i2,r))` >>
           `LENGTH i1 < SUC (LENGTH i1)` by DECIDE_TAC >>
           first_assum (erule strip_assume_tac) >>
           `LENGTH (ColonT::i2) < LENGTH i1`
@@ -455,7 +455,7 @@ val peg_sound = store_thm(
         by simp[NT_rank_def] >>
       strip_tac >> rveq >> fs[cmlG_applied, cmlG_FDOM]
       >- (first_x_assum (erule strip_assume_tac) >>
-          asm_match `peg_eval mmlPEG (i0,nt (mkNT nDecl) I) (SOME(i1,r))` >>
+          asm_match `peg_eval cmlPEG (i0,nt (mkNT nDecl) I) (SOME(i1,r))` >>
           dsimp[MAP_EQ_SING] >>
           `LENGTH i1 < LENGTH i0`
             by metis_tac[not_peg0_LENGTH_decreases,peg0_nDecl] >>
@@ -465,7 +465,7 @@ val peg_sound = store_thm(
       dsimp[MAP_EQ_SING] >> csimp[] >> metis_tac[DECIDE``x<SUC x``])
   >- (print_tac "nDecl" >>
       rpt strip_tac >> rveq >> fs[peg_eval_TypeDec_wrongtok]
-      >- (asm_match `peg_eval mmlPEG (i1, nt (mkNT nPattern) I)
+      >- (asm_match `peg_eval cmlPEG (i1, nt (mkNT nPattern) I)
                               (SOME(EqualsT::i2,r))` >>
           `LENGTH i1 < SUC (LENGTH i1)` by decide_tac >>
           first_assum (erule strip_assume_tac) >> rveq >>
@@ -495,7 +495,7 @@ val peg_sound = store_thm(
   >- (print_tac "nLetDec" >>
       rpt strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> fs[]
       >- (dsimp[listTheory.APPEND_EQ_CONS, MAP_EQ_SING] >> csimp[] >>
-          asm_match`peg_eval mmlPEG (i1,nt (mkNT nV) I) (SOME(EqualsT::i2,r))` >>
+          asm_match`peg_eval cmlPEG (i1,nt (mkNT nV) I) (SOME(EqualsT::i2,r))` >>
           `LENGTH i1 < SUC (LENGTH i1)` by decide_tac >>
           first_assum (erule strip_assume_tac) >> rveq >> simp[] >>
           `LENGTH (EqualsT::i2) ≤ LENGTH i1`
@@ -711,10 +711,10 @@ val peg_sound = store_thm(
       disch_then (qxchl [`base_pt`] strip_assume_tac) >> rveq >> simp[] >>
       erule strip_assume_tac
         (MATCH_MP not_peg0_LENGTH_decreases peg0_nTbase) >>
-      qpat_assum `peg_eval mmlPEG (II, rpt XX FF) YY` mp_tac >>
+      qpat_assum `peg_eval cmlPEG (II, rpt XX FF) YY` mp_tac >>
       simp[peg_eval_rpt] >> disch_then (qxchl [`tyops`] strip_assume_tac) >>
       rveq >> simp[] >>
-      asm_match `peg_eval_list mmlPEG (i1, nt (mkNT nTyOp) I) (i,tyops)`>>
+      asm_match `peg_eval_list cmlPEG (i1, nt (mkNT nTyOp) I) (i,tyops)`>>
       pop_assum mp_tac >>
       `∃i2. LENGTH i2 < LENGTH i0 ∧ i1 = i2` by simp[] >>
       pop_assum SUBST1_TAC >> pop_assum mp_tac >>
@@ -857,8 +857,8 @@ val peg_sound = store_thm(
           first_assum (assume_tac o MATCH_MP length_no_greater o
                        assert (free_in ``ElseT`` o concl)) >> fs[] >>
           dsimp[cmlG_applied, cmlG_FDOM, MAP_EQ_SING] >> csimp[] >>
-          qpat_assum `peg_eval mmlPEG X (SOME(ThenT::Y,Z))` (K ALL_TAC) >>
-          qpat_assum `peg_eval mmlPEG X (SOME(ElseT::Y,Z))` (K ALL_TAC) >>
+          qpat_assum `peg_eval cmlPEG X (SOME(ThenT::Y,Z))` (K ALL_TAC) >>
+          qpat_assum `peg_eval cmlPEG X (SOME(ElseT::Y,Z))` (K ALL_TAC) >>
           loseC ``NT_rank`` >>
           first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
@@ -1029,9 +1029,9 @@ val peg_sound = store_thm(
       first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >>
       erule assume_tac
         (MATCH_MP not_peg0_LENGTH_decreases peg0_nEbase |> GEN_ALL) >>
-      asm_match `peg_eval mmlPEG (i0, nt (mkNT nEbase) I) (SOME(i1,[pt]))`>>
+      asm_match `peg_eval cmlPEG (i0, nt (mkNT nEbase) I) (SOME(i1,[pt]))`>>
       asm_match
-        `peg_eval mmlPEG (i1,rpt(nt(mkNT nEbase) I) FLAT) (SOME(i,r))` >>
+        `peg_eval cmlPEG (i1,rpt(nt(mkNT nEbase) I) FLAT) (SOME(i,r))` >>
       qpat_assum `peg_eval G (i1, rpt X R) Y` mp_tac >>
       simp[peg_eval_rpt] >> disch_then (qxchl [`pts`] strip_assume_tac) >>
       rveq >>

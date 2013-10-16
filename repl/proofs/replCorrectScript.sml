@@ -142,7 +142,7 @@ val peg_det = pegTheory.peg_deterministic |> CONJUNCT1
 val parser_correct = Q.prove (
 `!toks. parse_top toks = repl$parse toks`,
   rw[parse_top_def,replTheory.parse_def] >>
-  rw[mmlParseREPLTop_def] >>
+  rw[cmlParseREPLTop_def] >>
   qspec_then`toks`strip_assume_tac cmlPEGTheory.parse_REPLTop_total >>
   simp[destResult_def] >>
   fs[GSYM pegexecTheory.peg_eval_executed, cmlPEGTheory.pnt_def] >>

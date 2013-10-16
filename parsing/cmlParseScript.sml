@@ -6,44 +6,44 @@ open monadsyntax
 
 val _ = new_theory "cmlParse"
 
-val _ = overload_on ("mmlpegexec",
-                     ``λn t. peg_exec mmlPEG (pnt n) t [] done failed``)
+val _ = overload_on ("cmlpegexec",
+                     ``λn t. peg_exec cmlPEG (pnt n) t [] done failed``)
 
 val destResult_def = Define`
   destResult (Result x) = x ∧
   destResult _ = NONE
 `
 
-val mmlParseExpr_def = Define`
-  mmlParseExpr toks = do
-    (toks', pts) <- destResult (mmlpegexec nE toks);
+val cmlParseExpr_def = Define`
+  cmlParseExpr toks = do
+    (toks', pts) <- destResult (cmlpegexec nE toks);
     pt <- oHD pts;
     ast <- ptree_Expr nE pt;
     SOME(toks',ast)
   od
 `;
 
-val mmlParseREPLPhrase_def = Define`
-  mmlParseREPLPhrase toks = do
-    (toks', pts) <- destResult (mmlpegexec nREPLPhrase toks);
+val cmlParseREPLPhrase_def = Define`
+  cmlParseREPLPhrase toks = do
+    (toks', pts) <- destResult (cmlpegexec nREPLPhrase toks);
     pt <- oHD pts;
     ast <- ptree_REPLPhrase pt;
     SOME(toks',ast)
   od
 `
 
-val mmlParseREPLTop_def = Define`
-  mmlParseREPLTop toks = do
-    (toks', pts) <- destResult (mmlpegexec nREPLTop toks);
+val cmlParseREPLTop_def = Define`
+  cmlParseREPLTop toks = do
+    (toks', pts) <- destResult (cmlpegexec nREPLTop toks);
     pt <- oHD pts;
     ast <- ptree_REPLTop pt;
     SOME(toks',ast)
   od
 `
 
-val mmlpeg_executed =
+val cmlpeg_executed =
     pegexecTheory.peg_eval_executed
-      |> Q.GEN `G` |> Q.ISPEC `mmlPEG`
+      |> Q.GEN `G` |> Q.ISPEC `cmlPEG`
       |> SIMP_RULE (srw_ss()) [cmlPEGTheory.PEG_wellformed]
       |> Q.GEN `s` |> Q.GEN `r` |> Q.GEN `e` |> GSYM
 
@@ -51,7 +51,7 @@ val mmlpeg_executed =
 val parse_def = Define `
   (parse : token list -> ast_prog option) tokens =
     do
-      (ts,ast_tdecs) <- mmlParseREPLPhrase tokens;
+      (ts,ast_tdecs) <- cmlParseREPLPhrase tokens;
       if ts <> [] then NONE else SOME ast_tdecs
     od
 `;
@@ -62,7 +62,7 @@ val parse_def = Define `
 val parse_top_def = Define `
   (parse_top : token list -> ast_top option) tokens =
     do
-      (ts,ast_top) <- mmlParseREPLTop tokens;
+      (ts,ast_top) <- cmlParseREPLTop tokens;
       if ts <> [] then NONE else SOME ast_top
     od
 `;
@@ -75,7 +75,7 @@ val _ = Hol_datatype`
 val parse_REPLphrase_def = Define`
   parse_REPLphrase toks =
     do
-      (toks',pts) <- destResult (mmlpegexec nREPLPhrase toks);
+      (toks',pts) <- destResult (cmlpegexec nREPLPhrase toks);
       pt <- oHD pts;
       tds <- ptree_REPLPhrase pt;
       SOME(toks',tds)

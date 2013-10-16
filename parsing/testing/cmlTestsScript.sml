@@ -29,7 +29,7 @@ fun parsetest0 nt sem s opt = let
   val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
   val _ = print ("Parsing\n")
   val evalth = time EVAL
-                    ``peg_exec mmlPEG (nt (mkNT ^nt) I) ^t [] done failed``
+                    ``peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] done failed``
   val r = rhs (concl evalth)
   fun diag(s,t) = let
     fun pp pps (s,t) =

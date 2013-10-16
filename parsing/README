@@ -2,7 +2,7 @@
 
 The parsing function that actually runs in the CakeML system should conform to the specification, which is the grammar in `semantics/gram`.  Here conforming means that if a sequence of tokens has a parse tree in the grammar, then the function should return that parse tree (*completeness*).  Dually, if the function returns a parse tree, it should be correct according to the grammar (*soundness*).
 
-The parsing function is one that executes a *Parsing Expression Grammar* (or PEG). PEGs provide an LL-like attack on input strings, but add the ability to do significant back-tracking if necessary.  The CakeML PEG is specified in the file mmlPEGScript.sml.  The same file includes a proof that the PEG is well-formed, which means that execution will always terminate (*totality*).  As PEG execution really is a function (`peg_exec` to be precise), we also have that execution is *deterministic*.   (The necessary background theory of PEGs is in the main HOL distribution.)
+The parsing function is one that executes a *Parsing Expression Grammar* (or PEG). PEGs provide an LL-like attack on input strings, but add the ability to do significant back-tracking if necessary.  The CakeML PEG is specified in the file cmlPEGScript.sml.  The same file includes a proof that the PEG is well-formed, which means that execution will always terminate (*totality*).  As PEG execution really is a function (`peg_exec` to be precise), we also have that execution is *deterministic*.   (The necessary background theory of PEGs is in the main HOL distribution.)
 
 ## MANIFEST
 
@@ -12,9 +12,9 @@ The parsing function is one that executes a *Parsing Expression Grammar* (or PEG
 
 * `lexer_impl`: code for consuming tokens until a top-level semicolon is found (semicolons can be hidden in `let`-`in`-`end` blocks and between parentheses.
 
-* `mmlPEG`: theory defining the PEG for CakeML.  Includes a proof that the PEG is well-formed.
+* `cmlPEG`: theory defining the PEG for CakeML.  Includes a proof that the PEG is well-formed.
 
-* `mmlParse`: theory defining the overall parsing functions that go from tokens to abstract syntax trees.  (In other words, these include calls to the functions in `semantics/cmlPtreeConversion`.)  The function used in the REPL is `parse_top`.
+* `cmlParse`: theory defining the overall parsing functions that go from tokens to abstract syntax trees.  (In other words, these include calls to the functions in `semantics/cmlPtreeConversion`.)  The function used in the REPL is `parse_top`.
 
 * `parsingPreamble`: custom HOL proof code
 

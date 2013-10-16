@@ -68,9 +68,9 @@ val _ = translate compile_top_def;
 val _ = translate (def_of_const ``elab_top``);
 
 
-(* parsing: peg_exec and mmlPEG *)
+(* parsing: peg_exec and cmlPEG *)
 
-val _ = translate (def_of_const ``mmlPEG``);
+val _ = translate (def_of_const ``cmlPEG``);
 
 val INTRO_FLOOKUP = prove(
   ``(if n IN FDOM G.rules
@@ -86,7 +86,7 @@ val _ = translate (def_of_const ``coreloop`` |> RW [INTRO_FLOOKUP]
 val _ = translate (def_of_const ``peg_exec``);
 
 
-(* parsing: mmlvalid *)
+(* parsing: cmlvalid *)
 
 val monad_unitbind_assert = prove(
   ``!b x. monad_unitbind (assert b) x = if b then x else NONE``,
@@ -106,7 +106,7 @@ val _ = translate (def_of_const ``ptree_REPLTop``);
 
 (* parsing: top-level parser *)
 
-val _ = translate (RW [monad_unitbind_assert,mmlParseREPLTop_def] parse_top_def);
+val _ = translate (RW [monad_unitbind_assert,cmlParseREPLTop_def] parse_top_def);
 
 val parse_top_side_def = prove(
   ``!x. parse_top_side x = T``,

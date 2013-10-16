@@ -166,8 +166,8 @@ val peg_StructName_def = Define`
 `;
 
 
-val mmlPEG_def = zDefine`
-  mmlPEG = <|
+val cmlPEG_def = zDefine`
+  cmlPEG = <|
     start := pnt nREPLTop;
     rules := FEMPTY |++
              [(mkNT nV, peg_V);
@@ -416,7 +416,7 @@ val mmlPEG_def = zDefine`
              ] |>
 `;
 
-val rules_t = ``mmlPEG.rules``
+val rules_t = ``cmlPEG.rules``
 fun ty2frag ty = let
   open simpLib
   val {convs,rewrs} = TypeBase.simpls_of ty
@@ -430,11 +430,11 @@ end
    which matches optionTheory.OPTION_BIND_EQUALS_OPTION, putting
    an existential into our rewrite thereby *)
 val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β,γ)peg``)
-                      [mmlPEG_def, combinTheory.K_DEF,
+                      [cmlPEG_def, combinTheory.K_DEF,
                        finite_mapTheory.FUPDATE_LIST_THM] rules_t
 
-val _ = print "Calculating application of mmlPEG rules\n"
-val mmlpeg_rules_applied = let
+val _ = print "Calculating application of cmlPEG rules\n"
+val cmlpeg_rules_applied = let
   val app0 = finite_mapSyntax.fapply_t
   val theta =
       Type.match_type (type_of app0 |> dom_rng |> #1) (type_of rules_t)
@@ -447,34 +447,34 @@ val mmlpeg_rules_applied = let
                   [finite_mapTheory.FAPPLY_FUPDATE_THM]
   val ths = TypeBase.constructors_of ``:MMLnonT`` |> map mkrule
 in
-    save_thm("mmlpeg_rules_applied", LIST_CONJ ths);
+    save_thm("cmlpeg_rules_applied", LIST_CONJ ths);
     ths
 end
 
 val FDOM_cmlPEG = save_thm(
   "FDOM_cmlPEG",
-  SIMP_CONV (srw_ss()) [mmlPEG_def,
+  SIMP_CONV (srw_ss()) [cmlPEG_def,
                         finite_mapTheory.FRANGE_FUPDATE_DOMSUB,
                         finite_mapTheory.DOMSUB_FUPDATE_THM,
                         finite_mapTheory.FUPDATE_LIST_THM]
-            ``FDOM mmlPEG.rules``);
+            ``FDOM cmlPEG.rules``);
 
 val spec0 =
-    peg_nt_thm |> Q.GEN `G`  |> Q.ISPEC `mmlPEG`
+    peg_nt_thm |> Q.GEN `G`  |> Q.ISPEC `cmlPEG`
                |> SIMP_RULE (srw_ss()) [FDOM_cmlPEG]
                |> Q.GEN `n`
 
 val mkNT = ``mkNT``
 
-val mmlPEG_exec_thm = save_thm(
-  "mmlPEG_exec_thm",
+val cmlPEG_exec_thm = save_thm(
+  "cmlPEG_exec_thm",
   TypeBase.constructors_of ``:MMLnonT``
     |> map (fn t => ISPEC (mk_comb(mkNT, t)) spec0)
-    |> map (SIMP_RULE bool_ss mmlpeg_rules_applied)
+    |> map (SIMP_RULE bool_ss cmlpeg_rules_applied)
     |> LIST_CONJ)
-val _ = computeLib.add_persistent_funs ["mmlPEG_exec_thm"]
+val _ = computeLib.add_persistent_funs ["cmlPEG_exec_thm"]
 
-val test1 = time EVAL ``peg_exec mmlPEG (pnt nErel) [IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] [] done failed``
+val test1 = time EVAL ``peg_exec cmlPEG (pnt nErel) [IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] [] done failed``
 
 
 open lcsymtacs
@@ -485,13 +485,13 @@ val frange_image = prove(
 
 val peg_range =
     SIMP_CONV (srw_ss())
-              (FDOM_cmlPEG :: frange_image :: mmlpeg_rules_applied)
-              ``FRANGE mmlPEG.rules``
+              (FDOM_cmlPEG :: frange_image :: cmlpeg_rules_applied)
+              ``FRANGE cmlPEG.rules``
 
-val peg_start = SIMP_CONV(srw_ss()) [mmlPEG_def]``mmlPEG.start``
+val peg_start = SIMP_CONV(srw_ss()) [cmlPEG_def]``cmlPEG.start``
 
 val wfpeg_rwts = pegTheory.wfpeg_cases
-                   |> ISPEC ``mmlPEG``
+                   |> ISPEC ``cmlPEG``
                    |> (fn th => map (fn t => Q.SPEC t th)
                                     [`seq e1 e2 f`, `choice e1 e2 f`, `tok P f`,
                                      `any f`, `empty v`, `not e v`, `rpt e f`,
@@ -504,12 +504,12 @@ val wfpeg_rwts = pegTheory.wfpeg_cases
                                                     pegf_def])))
 
 val wfpeg_pnt = pegTheory.wfpeg_cases
-                  |> ISPEC ``mmlPEG``
+                  |> ISPEC ``cmlPEG``
                   |> Q.SPEC `pnt n`
                   |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [pnt_def]))
 
 val peg0_rwts = pegTheory.peg0_cases
-                  |> ISPEC ``mmlPEG`` |> CONJUNCTS
+                  |> ISPEC ``cmlPEG`` |> CONJUNCTS
                   |> map (fn th => map (fn t => Q.SPEC t th)
                                        [`tok P f`, `choice e1 e2 f`, `seq e1 e2 f`,
                                         `tokeq t`, `empty l`, `not e v`])
@@ -532,14 +532,14 @@ in
 end
 
 val pegnt_case_ths = pegTheory.peg0_cases
-                      |> ISPEC ``mmlPEG`` |> CONJUNCTS
+                      |> ISPEC ``cmlPEG`` |> CONJUNCTS
                       |> map (Q.SPEC `pnt n`)
                       |> map (CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [pnt_def])))
 
 fun pegnt(t,acc) = let
   val th =
-      prove(``¬peg0 mmlPEG (pnt ^t)``,
-            simp(pegnt_case_ths @ mmlpeg_rules_applied @
+      prove(``¬peg0 cmlPEG (pnt ^t)``,
+            simp(pegnt_case_ths @ cmlpeg_rules_applied @
                  [FDOM_cmlPEG, peg_V_def, peg_UQConstructorName_def,
                   peg_StructName_def,
                   peg_EbaseParen_def,
@@ -624,9 +624,9 @@ val peg0_tokeq = Store_thm(
 
 fun wfnt(t,acc) = let
   val th =
-    prove(``wfpeg mmlPEG (pnt ^t)``,
+    prove(``wfpeg cmlPEG (pnt ^t)``,
           SIMP_TAC (srw_ss())
-                   (mmlpeg_rules_applied @
+                   (cmlpeg_rules_applied @
                     [wfpeg_pnt, FDOM_cmlPEG, try_def, peg_longV_def,
                      seql_def, peg_TypeDec_def, peg_V_def,
                      peg_EbaseParen_def, peg_StructName_def,
@@ -673,7 +673,7 @@ val subexprs_pnt = prove(
 
 val PEG_exprs = save_thm(
   "PEG_exprs",
-  ``Gexprs mmlPEG``
+  ``Gexprs cmlPEG``
     |> SIMP_CONV (srw_ss())
          [pegTheory.Gexprs_def, pegTheory.subexprs_def,
           subexprs_pnt, peg_start, peg_range, choicel_def, tokeq_def, try_def,
@@ -685,7 +685,7 @@ val PEG_exprs = save_thm(
 
 val PEG_wellformed = store_thm(
   "PEG_wellformed",
-  ``wfG mmlPEG``,
+  ``wfG cmlPEG``,
   simp[pegTheory.wfG_def, pegTheory.Gexprs_def, pegTheory.subexprs_def,
        subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
@@ -719,7 +719,7 @@ local
   val nts = recurse [] r
 in
 val FDOM_cmlPEG_nts = let
-  fun p t = prove(``^t ∈ FDOM mmlPEG.rules``, simp[FDOM_cmlPEG])
+  fun p t = prove(``^t ∈ FDOM cmlPEG.rules``, simp[FDOM_cmlPEG])
 in
   save_thm("FDOM_cmlPEG_nts", LIST_CONJ (map p nts)) before
   export_rewrites ["FDOM_cmlPEG_nts"]

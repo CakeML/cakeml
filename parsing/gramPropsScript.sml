@@ -332,19 +332,19 @@ val parsing_ind = save_thm(
 
 
 (*
-val mmlvalid_not_INR = store_thm(
-  "mmlvalid_not_INR",
-  ``mmlvalid pt ∧ ptree_fringe pt = MAP TOK i ⇒ ptree_head pt ≠ NT (INR n)``,
+val cmlvalid_not_INR = store_thm(
+  "cmlvalid_not_INR",
+  ``cmlvalid pt ∧ ptree_fringe pt = MAP TOK i ⇒ ptree_head pt ≠ NT (INR n)``,
   Cases_on `pt` >>
-  dsimp[MAP_EQ_SING, mmlvalid_thm] >> rpt strip_tac >> rw[] >>
-  fs[mml_okrule_eval_th])
+  dsimp[MAP_EQ_SING, cmlvalid_thm] >> rpt strip_tac >> rw[] >>
+  fs[cml_okrule_eval_th])
 
 val mkelim_tac =
-  gen_tac >> Cases_on `pt` >> simp[mmlvalid_def] >> rw[] >>
+  gen_tac >> Cases_on `pt` >> simp[cmlvalid_def] >> rw[] >>
   fs[cmlG_FDOM,cmlG_applied] >> Cases_on `l` >> fs[] >>
   Cases_on `h` >> fs[]
 fun mkelim_th t = prove(
-  ``∀pt. ptree_head pt = NN ^t ⇒ mmlvalid pt ⇒
+  ``∀pt. ptree_head pt = NN ^t ⇒ cmlvalid pt ⇒
          pt = Lf (NN ^t) ∨ ∃t. pt = Nd (mkNT ^t) [Lf (TOK t)]``,
   mkelim_tac)
 
@@ -354,7 +354,7 @@ fun elim_tac th q = let
   fun c1 eqth = let
     val th' = MATCH_MP th eqth handle HOL_ERR _ => MATCH_MP th (SYM eqth)
   in
-    first_assum (fn mmlvth => mp_tac (MATCH_MP th' mmlvth))
+    first_assum (fn cmlvth => mp_tac (MATCH_MP th' cmlvth))
   end
 in
   first_assum c1 >>
@@ -388,26 +388,26 @@ val vlist1_cross_tac =
     asm_match `ptree_fringe vlt = []` >>
     qispl_then [`cmlG`] mp_tac fringe_length_ptree >>
     disch_then (qspecl_then [`[]`, `vlt`] mp_tac) >>
-    simp[SYM nullable_fringe_lengths, mmlvalid_SYM] >>
+    simp[SYM nullable_fringe_lengths, cmlvalid_SYM] >>
     metis_tac [nullable_Vlist1]
 
 val cmlGNIL =
     fringe_length_ptree
       |> ISPEC ``cmlG`` |> Q.SPEC `[]`
       |> SIMP_RULE (srw_ss()) [SYM nullable_fringe_lengths,
-                               GSYM AND_IMP_INTRO, mmlvalid_SYM]
+                               GSYM AND_IMP_INTRO, cmlvalid_SYM]
 
 val head_TOK = prove(
-  ``∀pt t. ptree_head pt = TOK t ⇒ mmlvalid pt ⇒ pt = Lf (TOK t)``,
+  ``∀pt t. ptree_head pt = TOK t ⇒ cmlvalid pt ⇒ pt = Lf (TOK t)``,
   Cases >> simp[]);
 
 val elimTyOp_thm = prove(
-  ``∀pt. ptree_head pt = NN nTyOp ⇒ mmlvalid pt ⇒
+  ``∀pt. ptree_head pt = NN nTyOp ⇒ cmlvalid pt ⇒
          LENGTH (ptree_fringe pt) = 1``,
-  gen_tac >> Cases_on `pt` >> simp[mmlvalid_def] >> rw[] >>
+  gen_tac >> Cases_on `pt` >> simp[cmlvalid_def] >> rw[] >>
   fs[MAP_EQ_SING,cmlG_FDOM,cmlG_applied] >> rveq >> fs[]
-  >- (fs[mmlvalid_SYM] >> elim_tac elimUQTyop_thm `t`) >>
-  fs[mmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[]);
+  >- (fs[cmlvalid_SYM] >> elim_tac elimUQTyop_thm `t`) >>
+  fs[cmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[]);
 
 val balance_def = Define`
   balance stk l r [] = SOME stk ∧
@@ -502,7 +502,7 @@ val _ = export_rewrites ["protected_by_NIL"]
 
 val protects_def = Define`
   protects N toks guards =
-    ∀pt. mmlvalid pt ∧ ptree_head pt = NN N ⇒
+    ∀pt. cmlvalid pt ∧ ptree_head pt = NN N ⇒
          (∀t. t ∈ toks ⇒ protected_by t guards (ptree_fringe pt)) ∧
          (∀gl gr. (gl,gr) ∈ guards ⇒ balanced [] gl gr (ptree_fringe pt))
 `
@@ -513,11 +513,11 @@ fun loseC c =
 
 val lose_rank = loseC ``NT_rank``
 
-val mmlvalid_Lf = store_thm(
-  "mmlvalid_Lf",
-  ``mmlvalid (Lf s)``,
-  simp[mmlvalid_def])
-val _ = export_rewrites ["mmlvalid_Lf"]
+val cmlvalid_Lf = store_thm(
+  "cmlvalid_Lf",
+  ``cmlvalid (Lf s)``,
+  simp[cmlvalid_def])
+val _ = export_rewrites ["cmlvalid_Lf"]
 
 
 val ptree_head_t = ``ptree_head``
@@ -542,17 +542,17 @@ end (asl,g)
 (*
 val allpar_balanced = store_thm(
   "allpar_balanced",
-  ``∀pt N. ptree_head pt = NN N ⇒ mmlvalid pt ⇒
+  ``∀pt N. ptree_head pt = NN N ⇒ cmlvalid pt ⇒
            balanced [] (TK LparT) (TK RparT) (ptree_fringe pt)``,
   ho_match_mp_tac parsing_ind >> qx_gen_tac `pt` >> strip_tac >>
-  qx_gen_tac `N` >> fs[mmlvalid_def] >>
+  qx_gen_tac `N` >> fs[cmlvalid_def] >>
   rpt strip_tac >>
   `(∃s. pt = Lf s) ∨ (∃N' subs. pt = Nd N' subs)` by (Cases_on `pt` >> simp[])>>
   fs[] >> rveq >>
   Cases_on `N` >> fs[cmlG_FDOM,MAP_EQ_CONS,cmlG_applied] >> rveq >>
   fs[DISJ_IMP_THM, FORALL_AND_THM] >>
   TRY single_rank_tac >>
-  TRY (fs[mmlvalid_SYM] >>
+  TRY (fs[cmlvalid_SYM] >>
        rpt (erule SUBST_ALL_TAC head_TOK >> fs[]) >>
        asimp[balanced_APPEND, balanced_APPEND_safe1] >> NO_TAC)
   >- (lose_rank >> erule assume_tac V_fringe_length >>
@@ -566,7 +566,7 @@ val allpar_balanced = store_thm(
                                      simp[NT_rank_def]) >>
           asimp[]) >>
       asimp[])
-  >- (fs[mmlvalid_SYM] >> rpt (erule SUBST_ALL_TAC head_TOK >> fs[]) >>
+  >- (fs[cmlvalid_SYM] >> rpt (erule SUBST_ALL_TAC head_TOK >> fs[]) >>
       lose_rank >> rw[] >> rpt (match_mp_tac balanced_APPEND >> conj_tac) >>
       asimp[])
   >- (erule assume_tac SpecLine_fringe_length >>
@@ -599,8 +599,8 @@ val allpar_balanced = store_thm(
 
 
 res_tac) >>
-  >- (fs[mmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[]) >>
-  >- (fs[mmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[]) >>
+  >- (fs[cmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[]) >>
+  >- (fs[cmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[]) >>
 
 
 
@@ -608,7 +608,7 @@ res_tac) >>
 
 
 fun mkpar_balanced_t t =
-  ``∀pt. ptree_head pt = NN ^t ⇒ mmlvalid pt ⇒
+  ``∀pt. ptree_head pt = NN ^t ⇒ cmlvalid pt ⇒
          balanced [] (TK LparT) (TK RparT) (ptree_fringe pt)``
 
 
@@ -616,7 +616,7 @@ val Type_protects_comma = store_thm(
   "Type_protects_comma",
   ``(∀n. n ∈ {nType; nDType; nTyOp} ⇒
          protects n {TOK CommaT} {(TOK LparT, TOK RparT)}) ∧
-    (∀pt. mmlvalid pt ∧ ptree_head pt = NN nTypeList ⇒
+    (∀pt. cmlvalid pt ∧ ptree_head pt = NN nTypeList ⇒
           balanced [] (TK LparT) (TK RparT) (ptree_fringe pt))``,
   simp[protects_def, GSYM RIGHT_FORALL_IMP_THM] >>
   CONV_TAC (LAND_CONV SWAP_VARS_CONV) >>
@@ -634,23 +634,23 @@ val Type_protects_comma = store_thm(
   Cases_on `pt`
   >- simp[DECIDE ``i < 1n ⇔ i = 0``] >>
   conj_tac >| [ntac 3 strip_tac, ALL_TAC] >>
-  rveq >> fs[mmlvalid_def] >> rveq >>
+  rveq >> fs[cmlvalid_def] >> rveq >>
   fs(MAP_EQ_CONS::cmlG_FDOM::cmlG_applied) >> rveq >> fs[]
   >- simp[NT_rank_def]
-  >- (fs[DISJ_IMP_THM, FORALL_AND_THM, mmlvalid_SYM] >>
+  >- (fs[DISJ_IMP_THM, FORALL_AND_THM, cmlvalid_SYM] >>
       erule SUBST_ALL_TAC head_TOK >> fs[] >> rw[] >> lose_rank
       >- simp[protected_by_APPEND] >>
       simp[balanced_APPEND])
-  >- (fs[mmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[])
+  >- (fs[cmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[])
   >- simp[NT_rank_def]
   >- (fs[DISJ_IMP_THM, FORALL_AND_THM, AND_IMP_INTRO, IMP_CONJ_THM] >>
       rpt lose_rank >> rpt (loseC ``nType``) >>
       erule assume_tac DType_fringe_length >>
-      fs[mmlvalid_SYM] >> erule assume_tac elimTyOp_thm >> fs[] >>
+      fs[cmlvalid_SYM] >> erule assume_tac elimTyOp_thm >> fs[] >>
       asimp[protected_by_APPEND, balanced_APPEND])
   >- (fs[DISJ_IMP_THM, FORALL_AND_THM, AND_IMP_INTRO, IMP_CONJ_THM] >>
       rpt lose_rank >> rpt (loseC ``nType``) >> rpt (loseC ``nDType``) >>
-      fs[mmlvalid_SYM] >>
+      fs[cmlvalid_SYM] >>
       rpt (erule SUBST_ALL_TAC head_TOK >> fs[]) >>
       asm_match `ptree_head tlpt = NN nTypeList` >>
       `balanced [] (TK LparT) (TK RparT) (ptree_fringe tlpt)` by asimp[] >>
@@ -668,7 +668,7 @@ val Type_protects_comma = store_thm(
       simp[balanced_APPEND_safe1])
   >- (fs[DISJ_IMP_THM, FORALL_AND_THM, AND_IMP_INTRO, IMP_CONJ_THM] >>
       rpt lose_rank >> rpt (loseC ``nTyOp``) >> rpt (loseC ``nDType``) >>
-      fs[mmlvalid_SYM] >>
+      fs[cmlvalid_SYM] >>
       rpt (erule SUBST_ALL_TAC head_TOK >> fs[]) >>
       asm_match `ptree_head typt = NN nType` >>
       `protected_by (TK CommaT) {(TK LparT, TK RparT)} (ptree_fringe typt)`
@@ -680,15 +680,15 @@ val Type_protects_comma = store_thm(
           pop_assum SUBST_ALL_TAC >>
           match_mp_tac protected_by_APPEND >> simp[]) >>
       asimp[balanced_APPEND_safe1])
-  >- (fs[mmlvalid_SYM] >> elim_tac elimUQTyop_thm `t` >>
-      fs(mmlvalid_def::cmlG_FDOM::cmlG_applied))
-  >- (fs[mmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[]) >>
+  >- (fs[cmlvalid_SYM] >> elim_tac elimUQTyop_thm `t` >>
+      fs(cmlvalid_def::cmlG_FDOM::cmlG_applied))
+  >- (fs[cmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> simp[]) >>
   strip_tac >> rveq >> fs[] >>
   fs (MAP_EQ_CONS::cmlG_applied) >> rveq >> fs[]
   >- simp[NT_rank_def] >>
   fs[DISJ_IMP_THM, FORALL_AND_THM, AND_IMP_INTRO, IMP_CONJ_THM] >>
   rpt lose_rank >> rpt (loseC ``nTyOp``) >> rpt (loseC ``nDType``) >>
-  fs[mmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> fs[] >>
+  fs[cmlvalid_SYM] >> erule SUBST_ALL_TAC head_TOK >> fs[] >>
   asimp[balanced_APPEND])
 
 val unambiguous = store_thm(
@@ -705,14 +705,14 @@ val unambiguous = store_thm(
     `measure (LENGTH:token list -> num) LEX measure (NT_rank: NT -> num)`
     (HO_MATCH_MP_TAC o SIMP_RULE (srw_ss()) [pairTheory.WF_LEX])
     relationTheory.WF_INDUCTION_THM >>
-  dsimp[pairTheory.LEX_DEF, AND_IMP_INTRO, mmlvalid_SYM] >>
+  dsimp[pairTheory.LEX_DEF, AND_IMP_INTRO, cmlvalid_SYM] >>
   rpt strip_tac >>
   `(∃x. N = INR x) ∨ ∃n. N = INL n` by (Cases_on `N` >> simp[])
-  >- metis_tac[mmlvalid_not_INR] >> rw[] >>
+  >- metis_tac[cmlvalid_not_INR] >> rw[] >>
   Cases_on `n`
   >- ((* nVlist1 *) Cases_on `p1` >> fs[MAP_EQ_SING] >> rw[] >>
       Cases_on `p2` >>
-      fs[MAP_EQ_SING, mmlvalid_thm, mml_okrule_eval_th, MAP_EQ_CONS] >>
+      fs[MAP_EQ_SING, cmlvalid_thm, cml_okrule_eval_th, MAP_EQ_CONS] >>
       rpt BasicProvers.VAR_EQ_TAC >> fs[grammarTheory.MAP_EQ_APPEND]
       >- (elimV_tac `vt1` >> fs[MAP_EQ_SING] >> rveq >>
           elimV_tac `vt2` >> fs[MAP_EQ_SING] >> rveq >>
@@ -728,8 +728,8 @@ val unambiguous = store_thm(
   >- ((* nTypeName *)
       Cases_on `p1` >> fs[MAP_EQ_SING] >> rw[] >>
       Cases_on `p2` >>
-      fs[MAP_EQ_SING,mmlvalid_def,cmlG_FDOM,cmlG_applied] >>
-      rveq >> fs[mmlvalid_SYM, MAP_EQ_CONS] >> rveq >>
+      fs[MAP_EQ_SING,cmlvalid_def,cmlG_FDOM,cmlG_applied] >>
+      rveq >> fs[cmlvalid_SYM, MAP_EQ_CONS] >> rveq >>
       fs[DISJ_IMP_THM, FORALL_AND_THM]
       >- (elim_tac elimUQTyop_thm `t1` >> elim_tac elimUQTyop_thm `t2`)
       >- (elim_tac elimUQTyop_thm `t1` >>
@@ -764,7 +764,7 @@ val unambiguous = store_thm(
   >- ((* nTypeList *)
       Cases_on `p1` >> fs[MAP_EQ_SING] >> rveq >>
       Cases_on `p2` >> fs[MAP_EQ_SING] >> rveq >>
-      fs[mmlvalid_thm, mml_okrule_eval_th, MAP_EQ_CONS] >> rveq >>
+      fs[cmlvalid_thm, cml_okrule_eval_th, MAP_EQ_CONS] >> rveq >>
       fs[]
       >- (rank_assum >> simp[NT_rank_def])
       >- (erule SUBST_ALL_TAC head_TOK)
