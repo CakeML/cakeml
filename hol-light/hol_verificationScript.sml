@@ -675,36 +675,96 @@ val TYPE_11 = prove(
   fs[EVERY_MEM] >> rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL] >>
   simp[LIST_EQ_REWRITE]);
 
+val term_ok_Comb = store_thm("term_ok_Comb",
+  ``term_ok defs (Comb t1 t2) ⇔ term_ok defs t1 ∧ term_ok defs t2 ∧ welltyped (Comb t1 t2)``,
+  EQ_TAC >- (
+    strip_tac >>
+    imp_res_tac term_ok_Comb_welltyped >>
+    simp[] >>
+    conj_tac >>
+    simp[Once proves_cases] >>
+    METIS_TAC[] ) >>
+  rw[] >>
+  simp[Once proves_cases])
+
+val term_ok_Var = store_thm("term_ok_Var",
+  ``term_ok defs (Var x ty) ⇔ type_ok defs ty``,
+  EQ_TAC >> rw[] >>
+  simp[Once proves_cases] >>
+  ntac 2 disj2_tac >> disj1_tac >>
+  HINT_EXISTS_TAC >>
+  rw[] >>
+  rw[Once has_type_cases])
+
+val term_ok_Abs = store_thm("term_ok_Abs",
+  ``term_ok defs (Abs x ty tm) ⇔ term_ok defs (Var x ty) ∧ term_ok defs tm``,
+  EQ_TAC >- (
+    strip_tac >>
+    conj_tac >- (
+      simp[Once proves_cases] >>
+      disj1_tac >>
+      qsuff_tac`type_ok defs (Fun ty (typeof tm))` >- rw[type_ok_Fun] >>
+      simp[Once proves_cases] >>
+      disj1_tac >>
+      HINT_EXISTS_TAC >>
+      rw[] >>
+      rw[Once has_type_cases] >>
+      imp_res_tac term_ok_welltyped >>
+      fs[] >> METIS_TAC[WELLTYPED] ) >>
+    simp[Once proves_cases] >>
+    METIS_TAC[] ) >>
+  rw[] >>
+  simp[Once proves_cases] >>
+  disj1_tac >>
+  fs[term_ok_Var])
+
 val TERM_11 = prove(
-  ``!x y. STATE s defs /\ TERM defs x /\ TERM defs y ==>
+  ``!x y. TERM defs x /\ TERM defs y ==>
           ((hol_tm x = hol_tm y) = (x = y))``,
-  cheat);
+  Induct >> rw[hol_tm_def] >> fs[] >- (
+    Cases_on`y`>>rw[hol_tm_def,TYPE_11] >>
+    Cases_on`h'`>>rw[hol_tm_def] )
+  >- (
+    Cases_on`y`>>rw[hol_tm_def,TYPE_11] >>
+    `term_ok (hol_defs defs) (hol_tm (Abs h' h0))` by fs[TERM_def] >>
+    Cases_on`h'`>>fs[hol_tm_def,term_ok_impossible_term] )
+  >- (
+    fs[TERM_def,hol_tm_def,term_ok_Comb] >>
+    Cases_on`y`>>rw[hol_tm_def,TYPE_11]
+    >- METIS_TAC[] >>
+    Cases_on`h`>>fs[hol_tm_def,term_ok_impossible_term] ) >>
+  fs[TERM_def] >>
+  Cases_on`x`>>fs[hol_tm_def,term_ok_impossible_term] >>
+  Cases_on`y`>>fs[hol_tm_def] >>
+  Cases_on`h'`>>fs[hol_tm_def,term_ok_impossible_term,hol_ty_def,TYPE_11] >>
+  fs[term_ok_Abs] >>
+  METIS_TAC[]);
 
 val TERM_Var_SIMP = prove(
-  ``STATE s defs ==> (TERM defs (Var n ty) = TYPE defs ty)``,
-  cheat);
+  ``(TERM defs (Var n ty) = TYPE defs ty)``,
+  rw[TERM_def,TYPE_def,hol_tm_def,term_ok_Var]);
 
 val TERM_Abs = prove(
   ``TERM defs (Abs (Var v ty) tm) <=> TYPE defs ty /\ TERM defs tm``,
-  cheat);
+  rw[TERM_def,term_ok_Abs,hol_tm_def,term_ok_Var,TYPE_def]);
 
 val TERM_Var = prove(
-  ``STATE s defs /\ TYPE defs ty ==> TERM defs (Var n ty)``,
+  ``TYPE defs ty ==> TERM defs (Var n ty)``,
   METIS_TAC [TERM_Var_SIMP]);
 
 val IMP_TERM_Abs = prove(
   ``TERM defs (Var str ty) /\ TERM defs bod ==>
     TERM defs (Abs (Var str ty) bod)``,
-  cheat);
+  fs[TERM_def,hol_tm_def,term_ok_Var,term_ok_Abs]);
 
 val IMP_TERM_Comb = prove(
   ``TERM defs f /\
     TERM defs a /\
-    STATE s defs /\
     (typeof (hol_tm a) = ty1) /\
     (typeof (hol_tm f) = Fun ty1 ty2) ==>
     TERM defs (Comb f a)``,
-  cheat);
+  rw[TERM_def,hol_tm_def,term_ok_Comb] >>
+  METIS_TAC[term_ok_welltyped]);
 
 val _ = temp_overload_on("aty",``(Tyvar "A"):hol_type``);
 val _ = temp_overload_on("fun",``\x y. hol_kernel$Tyapp "fun" [x;y]``);
