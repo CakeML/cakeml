@@ -10,7 +10,7 @@ The parsing function is one that executes a *Parsing Expression Grammar* (or PEG
 
 * `gramProps`: theory containing properties of the governing CFG.  In particular, a slew of nullability results for various non-terminals.
 
-* `lexer_impl`: code for consuming tokens until a top-level semicolon is found (semicolons can be hidden in `let`-`in`-`end` blocks and between parentheses.
+* `lexer_impl`: code for consuming tokens until a top-level semicolon is found (semicolons can be hidden in `let`-`in`-`end` blocks, structures, signatures, and between parentheses).
 
 * `cmlPEG`: theory defining the PEG for CakeML.  Includes a proof that the PEG is well-formed.
 
