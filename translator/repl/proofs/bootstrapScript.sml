@@ -72,15 +72,20 @@ val decs_cns_oneshot_decs = ``decs_cns NONE oneshot_decs = {}``
 val check_dup_ctors_oneshot_decs = ``
 (∀i tds.
     i < LENGTH oneshot_decs ∧ EL i oneshot_decs = Dtype tds ⇒
-        check_dup_ctors NONE (decs_to_cenv NONE (TAKE i oneshot_decs))
+        check_dup_ctors NONE (SemanticPrimitives$decs_to_cenv NONE (TAKE i oneshot_decs) ++ init_envC)
               tds)``
+val check_dup_exns_oneshot_decs = ``
+(∀i cn ts.
+     i < LENGTH oneshot_decs ∧ EL i oneshot_decs = Dexn cn ts ⇒
+     mk_id NONE cn ∉
+     set (MAP FST (SemanticPrimitives$decs_to_cenv NONE (TAKE i oneshot_decs) ++ init_envC)))``
 
 val bootstrap_result = ``compile_decs NONE FEMPTY ^ct ^m ^renv ^rsz ^cs oneshot_decs``
 
 val oneshot_thm = store_thm("oneshot_thm",
   ``∀i s cenv env.
-      evaluate_decs NONE [] [] [] [("input",i)] oneshot_decs (s,cenv,Rval env) ∧
-      ^FV_decs_oneshot_decs ∧ ^decs_cns_oneshot_decs ∧ ^check_dup_ctors_oneshot_decs ∧
+      evaluate_decs NONE [] init_envC [] [("input",i)] oneshot_decs (s,cenv,Rval env) ∧
+      ^FV_decs_oneshot_decs ∧ ^decs_cns_oneshot_decs ∧ ^check_dup_ctors_oneshot_decs ∧ ^check_dup_exns_oneshot_decs ∧
       closed [] i ∧ all_cns i = {} ∧ all_locs i = {} ∧ ¬(contains_closure i)
       ⇒
       let (ct,m,rsz,cs) = ^bootstrap_result in
@@ -97,7 +102,7 @@ val oneshot_thm = store_thm("oneshot_thm",
       ∧ syneq (v_to_Cv FEMPTY (cmap ct) (THE (lookup "it" env))) Cv
       ∧ Cv_bv (mk_pp rd bs') Cv bv``,
   rw[] >>
-  qspecl_then[`NONE`,`[]`,`[]`,`[]`,`[("input",i)]`,`oneshot_decs`,`(s,cenv,Rval env)`]mp_tac compile_decs_thm >>
+  qspecl_then[`NONE`,`[]`,`init_envC`,`[]`,`[("input",i)]`,`oneshot_decs`,`(s,cenv,Rval env)`]mp_tac compile_decs_thm >>
   simp[] >>
   disch_then(CHOOSE_THEN mp_tac) >>
   disch_then(qspecl_then[`^m`,`^cs`]mp_tac) >>
@@ -110,6 +115,7 @@ val oneshot_thm = store_thm("oneshot_thm",
   disch_then(qspecl_then[`[]`,`REVERSE cs.out`]mp_tac) >>
   simp[] >>
   discharge_hyps >- (
+    conj_tac >- metis_tac[] >>
     conj_tac >- (
       simp[closed_context_def,closed_under_cenv_def,closed_under_menv_def] ) >>
     conj_tac >- (
@@ -295,7 +301,7 @@ val bootstrap_thm_lemma = prove(
             (PAIR_TYPE REPL_FUN_STATE_TYPE REPL_FUN_STATE_TYPE))
          (LIST_TYPE CHAR)) (parse_elaborate_infertype_compile input)
         v) ∧
-     evaluate_decs NONE [] [] [] [("input",i)] oneshot_decs (s,cenv,Rval env) ∧
+     evaluate_decs NONE [] init_envC [] [("input",i)] oneshot_decs (s,cenv,Rval env) ∧
    (
      FV_decs oneshot_decs = {Short "input"} ∧
      decs_cns NONE oneshot_decs = ∅ ∧
