@@ -1068,16 +1068,12 @@ val Eval_IMP_EvalC = store_thm("Eval_IMP_EvalC",
 
 (* cenv computation *)
 
-val decs_to_cenv_def = Define `
-  (decs_to_cenv mn [] = []) /\
-  (decs_to_cenv mn (d::ds) = decs_to_cenv mn ds ++ dec_to_cenv mn d)`;
-
 val Decls_IMP_cenv = prove(
   ``!ds menv cenv s env cenv2 s2 env2.
       Decls NONE menv cenv s env ds cenv2 s2 env2 ==>
       (cenv2 = decs_to_cenv NONE ds)``,
   Induct
-  THEN1 (EVAL_TAC \\ SIMP_TAC (srw_ss()) [Once evaluate_decs'_cases,emp_def])
+  THEN1 (EVAL_TAC \\ SIMP_TAC (srw_ss()) [Once evaluate_decs'_cases,emp_def,decs_to_cenv_def])
   \\ SIMP_TAC std_ss [Once Decls_CONS,PULL_EXISTS]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [decs_to_cenv_def]
   \\ RES_TAC \\ FULL_SIMP_TAC std_ss [merge_def] \\ SIMP_TAC (srw_ss()) []
@@ -1092,10 +1088,11 @@ val Decls_IMP_cenv = prove(
 val decs_to_cenv_SNOC = store_thm("decs_to_cenv_SNOC",
   ``!ds d. decs_to_cenv NONE (SNOC d ds) =
            dec_to_cenv NONE d ++ decs_to_cenv NONE ds``,
-  Induct \\ EVAL_TAC \\ FULL_SIMP_TAC std_ss [APPEND_ASSOC]);
+  Induct \\ EVAL_TAC \\ FULL_SIMP_TAC std_ss [APPEND_ASSOC,decs_to_cenv_def]
+  \\ EVAL_TAC \\ SIMP_TAC std_ss []);
 
 val decs_to_cenv_NIL = save_thm("decs_to_cenv_NIL",
-  EVAL ``decs_to_cenv NONE []``);
+  SIMP_CONV (srw_ss()) [decs_to_cenv_def] ``decs_to_cenv NONE []``);
 
 (* DeclAssum exists *)
 
@@ -1193,7 +1190,7 @@ val check_ctors_decs_SNOC = prove(
       check_ctors_decs mn cenv (SNOC d ds) <=>
       check_ctors_decs mn cenv ds /\
       check_ctors_dec (decs_to_cenv mn ds ++ cenv) d``,
-  Induct_on `ds` THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
+  Induct_on `ds` THEN1 (EVAL_TAC \\ (SIMP_TAC (srw_ss()) [decs_to_cenv_def]))
   \\ ASM_SIMP_TAC (srw_ss()) [check_ctors_decs_def,CONJ_ASSOC]
   \\ SIMP_TAC std_ss [decs_to_cenv_def])
   |> Q.SPEC `init_envC` |> SIMP_RULE std_ss [APPEND_NIL];
