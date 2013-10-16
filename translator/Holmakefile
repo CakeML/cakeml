@@ -16,7 +16,7 @@ PRE_BARE_THYS1 = AstTheory \
 		SemanticPrimitivesTheory \
 		AltBigStepTheory
 
-PRE_BARE_THYS2 = mmlParseTheory lexer_implTheory
+PRE_BARE_THYS2 = cmlParseTheory lexer_implTheory
 
 PRE_BARE_THYS3 = bigBigEquivTheory
 

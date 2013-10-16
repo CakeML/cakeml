@@ -10,7 +10,7 @@ SEM_BARE_THYS = AstTheory \
 	        lexer_funTheory \
 	        TypeSystemTheory
 
-BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) ../parsing/mmlParseTheory ../inference/inferTheory ../compiler/compilerTerminationTheory ../bytecode/bytecodeEvalTheory
+BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) ../parsing/cmlParseTheory ../inference/inferTheory ../compiler/compilerTerminationTheory ../bytecode/bytecodeEvalTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
