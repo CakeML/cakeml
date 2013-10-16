@@ -592,6 +592,15 @@ end
 
 (* code for loading and storing translations into a single thm *)
 
+fun check_uptodate_term tm =
+  if Theory.uptodate_term tm then () else let
+    val t = find_term (fn tm => is_const tm
+      andalso not (Theory.uptodate_term tm)) tm
+    val _ = print "\n\nFound out-of-date term: "
+    val _ = print_term t
+    val _ = print "\n\n"
+    in () end
+
 local
   val suffix = "_translator_state_thm"
   fun pack_state () = let
@@ -602,6 +611,7 @@ local
     val p2 = pack_types()
     val p = pack_pair I I (p1,p2)
     val th = PURE_ONCE_REWRITE_RULE [tag_lemma] p
+    val _ = check_uptodate_term (concl th)
     in save_thm(name,th) end
   fun unpack_state name = let
     val th = fetch name (name ^ suffix)
@@ -639,13 +649,39 @@ fun type_of_cases_const ty = let
               |> concl |> dest_eq |> fst |> repeat rator |> type_of
   in ty end
 
-fun name_of_type ty = let
+val basic_theories =
+   ["alist", "arithmetic", "bag", "bitstring", "bit", "bool",
+    "combin", "container", "divides", "fcp", "finite_map", "float",
+    "fmaptree", "frac", "gcdset", "gcd", "ind_type", "integer_word",
+    "integer", "integral", "list", "llist", "marker", "measure",
+    "numeral_bit", "numeral", "numpair", "numposrep", "num", "one",
+    "operator", "option", "pair", "path", "patricia_casts",
+    "patricia", "poly", "poset", "powser", "pred_set", "prelim",
+    "prim_rec", "quote", "quotient_list", "quotient_option",
+    "quotient_pair", "quotient_pred_set", "quotient_sum", "quotient",
+    "rat", "real_sigma", "realax", "real", "relation", "res_quan",
+    "rich_list", "ringNorm", "ring", "sat", "semi_ring", "seq",
+    "set_relation", "sorting", "state_option", "state_transformer",
+    "string_num", "string", "sum_num", "sum", "topology", "transc",
+    "update", "util_prob", "while", "words"]
+
+fun get_ty_case_const ty = let
   val th = TypeBase.case_def_of ty
   val case_const = th |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
                       |> concl |> dest_eq |> fst |> repeat rator
+  in case_const end
+
+fun name_of_type ty = let
+  val case_const = get_ty_case_const ty
   val name = case_const |> dest_const |> fst |> explode |> rev
                         |> funpow 5 tl |> rev |> implode
   in name end;
+
+fun full_name_of_type ty = let
+  val case_const = get_ty_case_const ty
+  val thy_name = case_const |> dest_thy_const |> #Thy
+  val thy_name = if mem thy_name basic_theories then "" else thy_name ^ "_"
+  in thy_name ^ name_of_type ty end
 
 fun remove_primes th = let
   fun last s = substring(s,size s-1,1)
@@ -788,8 +824,6 @@ fun rename_bound_vars_rule prefix th = let
     in ALPHA_CONV (next_var v) tm end handle HOL_ERR _ => NO_CONV tm
   in CONV_RULE (DEPTH_CONV next_alpha_conv) th end;
 
-fun get_name ty = clean_uppercase (name_of_type ty) ^ "_TYPE"
-
 fun list_lemma () = let
   val _ = is_const (Parse.Term [ANTIQUOTE ``LIST_TYPE:('a -> v -> bool) -> 'a list -> v -> bool``])
           orelse failwith("LIST_TYPE not yet defined.")
@@ -819,6 +853,7 @@ fun pair_lemma () = let
 *)
 
 fun define_ref_inv tys = let
+  fun get_name ty = clean_uppercase (full_name_of_type ty) ^ "_TYPE"
   val names = map get_name tys
   val name = hd names
   fun list_mk_type [] ret_ty = ret_ty
@@ -956,7 +991,7 @@ fun define_ref_inv tys = let
     in [eq_lemma] end handle HOL_ERR _ => map (K TRUTH) tys
   val res = map (fn ((th,inv_def),eq_lemma) => (th,inv_def,eq_lemma))
                 (zip inv_defs eq_lemmas)
-  in res end;
+  in (name,res) end;
 
 fun domain ty = ty |> dest_fun_type |> fst
 fun codomain ty = ty |> dest_fun_type |> snd
@@ -1006,10 +1041,14 @@ fun derive_thms_for_type ty = let
   val (ty,ret_ty) = dest_fun_type (type_of_cases_const ty)
   val is_record = 0 < length(TypeBase.fields_of ty)
   val tys = find_mutrec_types ty
-  val name = get_name (hd tys)
   val _ = map (fn ty => print ("Adding type " ^ type_to_string ty ^ "\n")) tys
   (* derive case theorems *)
   val case_thms = map (fn ty => (ty, get_nchotomy_of ty)) tys
+  (* define coupling invariant for data refinement and prove EqualityType lemmas *)
+  val (name,inv_defs) = define_ref_inv tys
+  val _ = map (fn (_,inv_def,_) => print_inv_def inv_def) inv_defs
+  fun list_mk_type [] ret_ty = ret_ty
+    | list_mk_type (x::xs) ret_ty = mk_type("fun",[type_of x,list_mk_type xs ret_ty])
   (* define a MiniML datatype declaration *)
   val dtype_parts = map (fn (ty,case_th) => let
     val xs = map rand (find_terms is_eq (concl case_th))
@@ -1030,11 +1069,6 @@ fun derive_thms_for_type ty = let
     in dtype end) case_thms
   val dtype_list = listSyntax.mk_list(dtype_parts,type_of (hd dtype_parts))
   val dtype = ``(Dtype ^dtype_list): dec``
-  (* define coupling invariant for data refinement and prove EqualityType lemmas *)
-  val inv_defs = define_ref_inv tys
-  val _ = map (fn (_,inv_def,_) => print_inv_def inv_def) inv_defs
-  fun list_mk_type [] ret_ty = ret_ty
-    | list_mk_type (x::xs) ret_ty = mk_type("fun",[type_of x,list_mk_type xs ret_ty])
   (* prove lemma for case_of *)
   fun prove_case_of_lemma (ty,case_th,inv_lhs,inv_def) = let
     val cases_th = TypeBase.case_def_of ty
