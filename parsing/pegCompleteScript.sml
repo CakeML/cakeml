@@ -2459,4 +2459,31 @@ val completeness = store_thm(
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM,
      peg_eval_tok_NONE])
 
+(* two valid parse-trees with the same head (nREPLTop), and the same fringes, which
+   are all tokens, must be identical. *)
+val cmlG_unambiguous = store_thm(
+  "cmlG_unambiguous",
+  ``valid_ptree mmlG pt1 ∧ ptree_head pt1 = NT (mkNT nREPLTop) ∧
+    valid_ptree mmlG pt2 ∧ ptree_head pt2 = NT (mkNT nREPLTop) ∧
+    ptree_fringe pt1 = ptree_fringe pt2 ∧
+    (∀s. s ∈ set (ptree_fringe pt1) ⇒ ∃t. s = TOK t) ⇒
+    pt1 = pt2``,
+  rpt strip_tac >>
+  `∃ts. ptree_fringe pt1 = MAP TK ts`
+    by (Q.UNDISCH_THEN `ptree_fringe pt1 = ptree_fringe pt2` kall_tac >>
+        qabbrev_tac `l = ptree_fringe pt1` >> markerLib.RM_ALL_ABBREVS_TAC >>
+        Induct_on `l` >> rw[] >> fs[DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
+        metis_tac[listTheory.MAP]) >>
+  qspecl_then [`pt`, `nREPLTop`, `ts`, `[]`] (ASSUME_TAC o Q.GEN `pt`)
+    completeness >>
+  pop_assum (fn th => MP_TAC (Q.SPEC `pt1` th) THEN
+                      MP_TAC (Q.SPEC `pt2` th)) >> simp[] >>
+  rpt strip_tac >>
+  first_x_assum (assume_tac o GSYM o
+                 MATCH_MP (CONJUNCT1 pegTheory.peg_deterministic)) >>
+  first_x_assum (qspec_then `SOME ([], [pt2])`
+                            (mp_tac o SIMP_RULE (srw_ss()) [])) >>
+  metis_tac[]);
+
+
 val _ = export_theory();
