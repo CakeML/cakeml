@@ -1580,7 +1580,7 @@ val MEM_union = prove(
   \\ METIS_TAC []);
 
 val MEM_LIST_UNION = prove(
-  ``!xs ys x. MEM x (LIST_UNION xs ys) <=> MEM x xs \/ MEM x ys``,
+  ``!xs ys x. MEM x (holSyntax$LIST_UNION xs ys) <=> MEM x xs \/ MEM x ys``,
   Induct \\ FULL_SIMP_TAC std_ss [LIST_UNION_def]
   \\ ONCE_REWRITE_TAC [FOLDR] \\ SRW_TAC [] [LIST_INSERT_def]
   \\ METIS_TAC []);
@@ -1607,7 +1607,7 @@ val IMP_MAP_EQ = prove(
 val type_subst_thm = store_thm("type_subst",
   ``!i ty.
       (hol_ty (type_subst i ty) =
-       TYPE_SUBST (MAP (\(n,t). (hol_ty n,hol_ty t)) i) (hol_ty ty)) /\
+       holSyntax$TYPE_SUBST (MAP (\(n,t). (hol_ty n,hol_ty t)) i) (hol_ty ty)) /\
       (EVERY (\(x,y). TYPE s x /\ TYPE s y) i /\ TYPE s ty ==>
        TYPE s (type_subst i ty))``,
   HO_MATCH_MP_TAC type_subst_ind \\ STRIP_TAC \\ Cases THEN1
@@ -1636,7 +1636,6 @@ val type_subst_thm = store_thm("type_subst",
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ SIMP_TAC std_ss [GSYM TYPE_SUBST_def]
   \\ MATCH_MP_TAC type_ok_TYPESUBST
-  \\ Q.EXISTS_TAC `hol_defs s`
   \\ FULL_SIMP_TAC std_ss [EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD,PULL_EXISTS]
   \\ REPEAT STRIP_TAC \\ RES_TAC);
 
@@ -1690,7 +1689,7 @@ val term_type = prove(
     \\ IMP_RES_TAC term_ok_Comb_welltyped
     \\ FULL_SIMP_TAC std_ss [WELLTYPED_CLAUSES]
     \\ FULL_SIMP_TAC std_ss []
-    \\ Q.PAT_ASSUM `Fun xx yy = yyy` (ASSUME_TAC o GSYM)
+    \\ Q.PAT_ASSUM `Fun xx yy = hol_ty yyy` (ASSUME_TAC o GSYM)
     \\ FULL_SIMP_TAC std_ss [codomain_def]
     \\ Cases_on `term_type tm` \\ FULL_SIMP_TAC std_ss [hol_ty_def,type_distinct]
     \\ SRW_TAC [] [type_distinct]
@@ -1752,7 +1751,7 @@ val alphavars_thm = prove(
   ``!env.
       STATE s defs /\ TERM defs tm1 /\ TERM defs tm2 /\
       EVERY (\(v1,v2). TERM defs v1 /\ TERM defs v2) env ==>
-      (alphavars env tm1 tm2 = ALPHAVARS
+      (alphavars env tm1 tm2 = holSyntax$ALPHAVARS
          (MAP (\(v1,v2). (hol_tm v1, hol_tm v2)) env) (hol_tm tm1, hol_tm tm2))``,
   Induct \\ SIMP_TAC (srw_ss()) [Once alphavars_def,ALPHAVARS_def]
   THEN1 METIS_TAC [TERM_11] \\ Cases \\ FULL_SIMP_TAC (srw_ss()) []
@@ -1797,9 +1796,8 @@ val raconv_thm = prove(
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
   THEN1 (REPEAT STRIP_TAC \\ MATCH_MP_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [])
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [MAP,hol_tm_def]
-  \\ `(hol_ty ty = hol_ty ty4) = (ty = ty4)` by ALL_TAC THEN1
-    (MATCH_MP_TAC TYPE_11 \\ FULL_SIMP_TAC std_ss [])
-  \\ FULL_SIMP_TAC std_ss [])
+  \\ `(hol_ty ty = hol_ty ty4) = (ty = ty4)` by ALL_TAC
+  \\ FULL_SIMP_TAC std_ss [TYPE_11])
 
 val aconv_thm = store_thm("aconv_thm",
   ``!tm1 tm2 env.
