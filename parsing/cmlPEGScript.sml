@@ -6,7 +6,7 @@ local open monadsyntax in end
 
 fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
 
-val _ = new_theory "mmlPEG"
+val _ = new_theory "cmlPEG"
 
 
 

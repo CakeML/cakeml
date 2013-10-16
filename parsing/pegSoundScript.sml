@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib;
 
 open pred_setTheory
-open mmlPEGTheory gramTheory gramPropsTheory
+open cmlPEGTheory gramTheory gramPropsTheory
 open lcsymtacs boolSimps
 open parsingPreamble
 
@@ -337,9 +337,9 @@ val peg_sound = store_thm(
              relationTheory.WF_INDUCTION_THM >>
   dsimp[pairTheory.LEX_DEF] >>
   map_every qx_gen_tac [`N`, `i0`, `i`, `pts`] >> strip_tac >>
-  simp[peg_eval_NT_SOME, mmlPEGTheory.FDOM_cmlPEG] >>
+  simp[peg_eval_NT_SOME, cmlPEGTheory.FDOM_cmlPEG] >>
   disch_then (CONJUNCTS_THEN2 strip_assume_tac mp_tac) >> rveq >>
-  simp[mmlPEGTheory.mmlpeg_rules_applied]
+  simp[cmlPEGTheory.mmlpeg_rules_applied]
   >- (print_tac "nREPLTop">>
       `NT_rank (mkNT nE) < NT_rank (mkNT nREPLTop) ∧
        NT_rank (mkNT nTopLevelDec) < NT_rank (mkNT nREPLTop)`

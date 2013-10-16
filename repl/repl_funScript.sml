@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib lcsymtacs
-open lexer_implTheory mmlParseTheory AstTheory inferTheory CompilerTheory
+open lexer_implTheory cmlParseTheory AstTheory inferTheory CompilerTheory
      PrinterTheory compilerTerminationTheory bytecodeEvalTheory replTheory
      ElabTheory
 
@@ -35,20 +35,20 @@ val _ = Hol_datatype`repl_fun_state = <|
   rcompiler_state  : compiler_state |>`
 
 val initial_program_def = Define `
-initial_program = 
+initial_program =
    Dlet (Pcon NONE [Pvar "ref";
                     Pvar "!";
                     Pvar "~";
                     Pvar ":=";
-                    Pvar "="; 
-                    Pvar ">=";  
-                    Pvar "<=";  
-                    Pvar ">";  
-                    Pvar "<";  
-                    Pvar "mod";  
-                    Pvar "div";  
-                    Pvar "*";  
-                    Pvar "-";  
+                    Pvar "=";
+                    Pvar ">=";
+                    Pvar "<=";
+                    Pvar ">";
+                    Pvar "<";
+                    Pvar "mod";
+                    Pvar "div";
+                    Pvar "*";
+                    Pvar "-";
                     Pvar "+"])
         (Con NONE [(Fun "x" (Uapp Opref (Var(Short"x"))));
                    (Fun "x" (Uapp Opderef (Var(Short"x"))));

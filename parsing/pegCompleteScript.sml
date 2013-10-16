@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib
 
 open pred_setTheory
-open mmlPEGTheory gramTheory gramPropsTheory
+open cmlPEGTheory gramTheory gramPropsTheory
 open lcsymtacs boolSimps
 open parsingPreamble
 

@@ -1,11 +1,11 @@
 open HolKernel Parse boolLib bossLib
 
-open mmlPEGTheory gramTheory cmlPtreeConversionTheory
+open cmlPEGTheory gramTheory cmlPtreeConversionTheory
      grammarTheory lexer_funTheory
 
 local open ASCIInumbersLib in end
 
-val _ = new_theory "mmlTests"
+val _ = new_theory "cmlTests"
 
 val _ = overload_on ("NN", ``λn. Nd (mkNT n)``)
 val _ = overload_on ("Tf", ``λt. Lf (TK t)``)

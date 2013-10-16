@@ -1,10 +1,10 @@
 open HolKernel Parse boolLib bossLib
 
-open mmlPEGTheory cmlPtreeConversionTheory pegSoundTheory
+open cmlPEGTheory cmlPtreeConversionTheory pegSoundTheory
 open lcsymtacs
 open monadsyntax
 
-val _ = new_theory "mmlParse"
+val _ = new_theory "cmlParse"
 
 val _ = overload_on ("mmlpegexec",
                      ``λn t. peg_exec mmlPEG (pnt n) t [] done failed``)
@@ -44,7 +44,7 @@ val mmlParseREPLTop_def = Define`
 val mmlpeg_executed =
     pegexecTheory.peg_eval_executed
       |> Q.GEN `G` |> Q.ISPEC `mmlPEG`
-      |> SIMP_RULE (srw_ss()) [mmlPEGTheory.PEG_wellformed]
+      |> SIMP_RULE (srw_ss()) [cmlPEGTheory.PEG_wellformed]
       |> Q.GEN `s` |> Q.GEN `r` |> Q.GEN `e` |> GSYM
 
 (* This function parses declarations, no junk is allowed at the end. *)
