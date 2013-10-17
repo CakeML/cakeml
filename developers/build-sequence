@@ -9,10 +9,10 @@ compiler/proofs
 translator
 hol-light
 translator/repl
-translator/repl/proofs
 repl
 repl/proofs
 parsing/testing
 inference/tests
 compiler/tests
 bootstrap
+translator/repl/proofs
