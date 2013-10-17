@@ -7841,10 +7841,22 @@ val zHEAP_BIGNUM_OP = let
   val th = MP th lemma
   in th end
 
+(*
+val n = ``0:num``
+
+val thA = th
+val thB = zHEAP_POP3
+
+val th1 = thA
+val th2 = thB
+
+*)
+
 fun get_INT_OP n = let
   val th = zHEAP_Num3 |> Q.INST [`k`|->`^n`]
            |> SIMP_RULE (srw_ss()) [w2w_def,w2n_n2w,SEP_CLAUSES]
-  val th = SPEC_COMPOSE_RULE [zHEAP_PUSH3,th,zHEAP_BIGNUM_OP,zHEAP_POP3]
+  val th = SPEC_COMPOSE_RULE [zHEAP_PUSH3,th,zHEAP_BIGNUM_OP]
+  val th = SPEC_COMPOSE_RULE [th,zHEAP_POP3]
   val th = th |> SIMP_RULE (srw_ss()) [NOT_CONS_NIL,SEP_CLAUSES,
              getNumber_def,n2iop_def,multiwordTheory.int_op_def,HD,TL]
   in th end;
@@ -9003,6 +9015,8 @@ val small_offset_def = Define `
   small_offset n x =
     if n < 268435456:num then x else ^(get_code zBC_Error)`;
 
+type_of   ``x64``
+
 val x64_def = Define `
   (x64 i (Stack Pop) = ^(get_code zBC_Pop)) /\
   (x64 i (Stack (Pops k)) = small_offset k ^(get_code zBC_Pops)) /\
@@ -9050,7 +9064,7 @@ val x64_def = Define `
   (x64 i (JumpIf (Addr l)) =
      small_offset l (small_offset i
        (let imm32 = n2w (2 * l) - n2w i - 12w in ^(get_code zBC_JumpIf)))) /\
-  (x64 i (JumpPtr) = ^(get_code zBC_JumpPtr)) /\
+ (* (x64 i (JumpPtr) = ^(get_code zBC_JumpPtr)) /\ *)
   (x64 i (Call (Addr l)) =
      small_offset l (small_offset i
        (let imm32 = n2w (2 * l) - n2w i - 6w in ^(get_code zBC_Call)))) /\
@@ -10036,6 +10050,7 @@ val zBC_HEAP_THM = prove(
     \\ SIMP_TAC std_ss [LEFT_ADD_DISTRIB,ADD_ASSOC]
     \\ FULL_SIMP_TAC std_ss [MOD64_DIV2_MOD63]
     \\ FULL_SIMP_TAC (std_ss++star_ss) [])
+(*
   THEN1 (* JumpPtr *)
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
     \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
@@ -10052,6 +10067,7 @@ val zBC_HEAP_THM = prove(
     \\ Q.LIST_EXISTS_TAC [`CodePtr (w2n cb DIV 2 + ptr)`,`x3`]
     \\ FULL_SIMP_TAC std_ss [LEFT_ADD_DISTRIB,GSYM word_add_n2w]
     \\ FULL_SIMP_TAC (std_ss++star_ss) [])
+*)
   THEN1 (* PushPtr -- Lab *) ERROR_TAC
   THEN1 (* PushPtr -- Addr *)
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,MAP_APPEND,MAP]
