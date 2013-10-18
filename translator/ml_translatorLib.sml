@@ -103,6 +103,9 @@ in
      decl_abbrev := TRUTH;
      decl_term   := ``[]:dec list``;
      cert_memory := [];
+     cenv_eq_thm := decs_to_cenv_NIL;
+     check_ctors := check_ctors_decs_NIL;
+     decl_exists := DeclAssumExists_NIL;
      (* abbrev_counter := 0; *)
      abbrev_defs := [])
   fun map_cert_memory f = (cert_memory := map f (!cert_memory))
