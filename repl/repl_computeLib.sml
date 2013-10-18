@@ -309,4 +309,34 @@ in
   (new_fmdef, defs', new_th)
 end
 
+open bytecodeLabelsTheory
+
+val collect_labels_nil = CONJUNCT1 collect_labels_def
+val collect_labels_Label = CONJUNCT2 collect_labels_def |> SPEC ``Label l`` |> SIMP_RULE(srw_ss())[] |> GEN_ALL
+val cases = CONJUNCT2 collect_labels_def |> SPEC_ALL |> concl |> rhs |> TypeBase.strip_case
+  |> snd |> map fst |> filter (fn tm => fst(dest_const(fst(strip_comb tm))) <> "Label")
+val collect_labels_others =
+  foldl (fn (t,n) => Net.insert
+    (fst(strip_comb t)
+    ,CONJUNCT2 collect_labels_def |> SPEC t |> SIMP_RULE(srw_ss())[] |> GEN_ALL) n)
+  Net.empty cases
+
+fun collect_labels_conv tm = let val (_,[xs,p,l]) = strip_comb tm in
+  if listSyntax.is_nil xs then SPECL[p,l]collect_labels_nil else let
+    val (x,xs) = listSyntax.dest_cons xs
+    val (con,args) = strip_comb x
+    val conv =
+      if fst(dest_const con) = "Label" then
+        ((fn tm => SPECL [hd args,xs,p,l] collect_labels_Label)
+         THENC (RATOR_CONV(RAND_CONV(collect_labels_conv))))
+      else let
+        val th = hd (Net.match con collect_labels_others)
+      in
+        ((fn tm => SPECL (args@[xs,p,l]) th)
+         THENC (RATOR_CONV(RAND_CONV(EVAL)))
+         THENC collect_labels_conv)
+      end
+    in conv tm end
+  end
+
 end
