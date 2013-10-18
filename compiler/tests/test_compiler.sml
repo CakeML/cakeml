@@ -520,7 +520,7 @@ val (bs,rs) = run_top (bs,rs) (mk_Texp ``Var(Long"M""x")``)
 val [x,mx] = bc_state_stack bs
 val true = (OLit(IntLit(intML.fromInt 1))) = bv_to_ov (cpam rs) x andalso x = mx;
 val (bs,rs) = run_top inits (mk_Tdec ``Dlet (Pvar "x") (Lit (IntLit 2))``)
-val true = "val x = 2" = bc_state_output bs
+val true = "val x = 2\n" = bc_state_output bs
 val (bs,rs) = run_top (bs,rs) (mk_Tmod "M" m)
 val (bs,rs) = run_top (bs,rs) (mk_Texp ``App (Opn Minus) (Var (Short "x")) (Var (Long"M""x"))``)
 val [r,mx,x] = bc_state_stack bs
@@ -531,7 +531,7 @@ val d0 = paird
 val d1 = ``Dlet (Pcon (SOME (Short "Pair_type")) [Pvar "x";Pvar "y"]) (Con (SOME (Short "Pair_type")) [Lit (IntLit 1);Lit (IntLit 2)])``
 val (bs,rs) = run_top inits (mk_Tdec d0)
 val (bs,rs) = run_top (bs,rs) (mk_Tdec d1)
-val true = "Pair_type = <constructor>val y = 2val x = 1" = bc_state_output bs;
+val true = "Pair_type = <constructor>\nval y = 2\nval x = 1\n" = bc_state_output bs;
 val m1 = ``[Dlet (Pvar "x") (Lit (IntLit 1))]``
 val (bs,rs) = run_top inits (mk_Tmod "M1" m1)
 val (bs,rs) = run_top (bs,rs) (mk_Texp ``Lit (IntLit 2)``)
