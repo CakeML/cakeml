@@ -221,7 +221,6 @@ in f end
 val print_bc_inst = let fun
   f (Stack sop) = "Stack "^(print_bc_stack_op sop)
 | f CallPtr = "CallPtr"
-| f JumpPtr = "JumpPtr"
 | f Return = "Return"
 | f Deref = "Deref"
 | f Ref = "Ref"

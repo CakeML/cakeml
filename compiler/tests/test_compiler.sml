@@ -110,42 +110,36 @@ val e21 = ``Let "x" (Lit (Bool T))
   (Var (Short "x")))``
 val (m,[v]) = mst_run_exp e21
 val true = (OLit (Bool true)) = (bv_to_ov m v);
-val listd = ``
-Dtype
-  [(["'a"],"list",
-    [("Cons",[Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]); ("Nil",[])])]
-``
-val e22 = ``Con (SOME (Short "Cons")) [Lit (Bool T); Con (SOME (Short "Nil")) []]``
-val (bs,rs) = run_decs inits [listd]
-val (m,[Block (t1,[v,Block (t2,[])])]) = mst_run_decs_exp ([listd],e22)
-val true = valOf(numML.toInt t1) > 2;
-val true = valOf(numML.toInt t2) > valOf(numML.toInt t1);
+val e22 = ``Con (SOME (Short "::")) [Lit (Bool T); Con (SOME (Short "nil")) []]``
+val (bs,rs) = run_decs inits []
+val (m,[Block (t1,[v,Block (t2,[])])]) = mst_run_decs_exp ([],e22)
+val true = (OConv(SOME(Short"nil"),[])) = (bv_to_ov m ((Block (t2,[]))))
 val true = (OLit (Bool true)) = (bv_to_ov m v);
-val e23 = ``Mat (Con (SOME (Short "Cons")) [Lit (IntLit 2);
-                 Con (SOME (Short "Cons")) [Lit (IntLit 3);
-                 Con (SOME (Short "Nil")) []]])
-            [(Pcon (SOME (Short "Cons")) [Pvar "x"; Pvar "xs"],
+val e23 = ``Mat (Con (SOME (Short "::")) [Lit (IntLit 2);
+                 Con (SOME (Short "::")) [Lit (IntLit 3);
+                 Con (SOME (Short "nil")) []]])
+            [(Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs"],
               Var (Short "x"));
-             (Pcon (SOME (Short "Nil")) [],
+             (Pcon (SOME (Short "nil")) [],
               Lit (IntLit 1))]``
-val [Number i] = run_decs_exp ([listd],e23)
+val [Number i] = run_decs_exp ([],e23)
 val SOME 2 = intML.toInt i;
-val e24 = ``Mat (Con (SOME (Short "Nil")) [])
-            [(Pcon (SOME (Short "Nil")) [], Lit (Bool F))]``
-val (m,[v]) = mst_run_decs_exp([listd],e24)
+val e24 = ``Mat (Con (SOME (Short "nil")) [])
+            [(Pcon (SOME (Short "nil")) [], Lit (Bool F))]``
+val (m,[v]) = mst_run_decs_exp([],e24)
 val true = (OLit (Bool false)) = (bv_to_ov m v);
-val e25 = ``Mat (Con (SOME (Short "Cons")) [Lit (IntLit 2);
-                 Con (SOME (Short "Nil")) []])
-            [(Pcon (SOME (Short "Cons")) [Pvar "x"; Pvar "xs"],
+val e25 = ``Mat (Con (SOME (Short "::")) [Lit (IntLit 2);
+                 Con (SOME (Short "nil")) []])
+            [(Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs"],
               Var (Short "x"))]``
-val [Number i] = run_decs_exp([listd],e25)
+val [Number i] = run_decs_exp([],e25)
 val SOME 2 = intML.toInt i;
-val e26 = ``Mat (Con (SOME (Short "Cons")) [Lit (IntLit 2);
-                 Con (SOME (Short "Nil")) []])
-            [(Pcon (SOME (Short "Cons")) [Plit (IntLit 2);
-              Pcon (SOME (Short "Nil")) []],
+val e26 = ``Mat (Con (SOME (Short "::")) [Lit (IntLit 2);
+                 Con (SOME (Short "nil")) []])
+            [(Pcon (SOME (Short "::")) [Plit (IntLit 2);
+              Pcon (SOME (Short "nil")) []],
               Lit (IntLit 5))]``
-val [Number i] = run_decs_exp([listd],e26)
+val [Number i] = run_decs_exp([],e26)
 val SOME 5 = intML.toInt i;
 (*
 val e27 =
@@ -215,16 +209,16 @@ val _ = reset_translation()
 val _ = translate listTheory.APPEND
 val _ = finalise_translation()
 val ds = dest_list I (get_decls())
-val e33 = ``App Opapp (Var (Short "APPEND")) (Con (SOME (Short "Nil")) [])``
+val e33 = ``App Opapp (Var (Short "APPEND")) (Con (SOME (Short "nil")) [])``
 val (m,st) = mst_run_decs_exp (ds,e33)
 val tm = bv_to_ov m (hd st)
 val true = tm = OFn;
-val e34 = ``App Opapp (App Opapp (Var (Short "APPEND")) (Con (SOME (Short "Nil")) []))
-                      (Con (SOME (Short "Nil")) [])``
+val e34 = ``App Opapp (App Opapp (Var (Short "APPEND")) (Con (SOME (Short "nil")) []))
+                      (Con (SOME (Short "nil")) [])``
 val (m,st) = mst_run_decs_exp (ds,e34)
 val [r,cl] = st
 val tm = bv_to_ov m r
-val true = tm = OConv (SOME (Short"Nil"),[])
+val true = tm = OConv (SOME (Short"nil"),[])
 val tm = bv_to_ov m cl
 val true = tm = OFn;
 fun h t = hd(tl(snd(strip_comb(concl t))))
@@ -239,11 +233,11 @@ val e32 = h t
 val (m,st) = mst_run_decs_exp (ds,e32)
 val [res,cl] = st
 val tm = bv_to_ov m res
-val true = tm = OConv (SOME (Short"Cons"),[OLit (IntLit (intML.fromInt 4)), OConv (SOME (Short"Nil"),[])]);
+val true = tm = OConv (SOME (Short"::"),[OLit (IntLit (intML.fromInt 4)), OConv (SOME (Short"nil"),[])]);
 val _ = reset_translation()
+val _ = translate listTheory.APPEND
 val _ = translate sortingTheory.PART_DEF
 val _ = translate sortingTheory.PARTITION_DEF
-val _ = translate listTheory.APPEND
 val _ = translate sortingTheory.QSORT_DEF
 val _ = finalise_translation()
 val ds = dest_list I (get_decls())

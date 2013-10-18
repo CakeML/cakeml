@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib EmitTeX
-open bytecode_emitTheory extended_emitTheory basis_emitTheory
+open miscTheory bytecode_emitTheory extended_emitTheory basis_emitTheory
 open CompilerLibTheory IntLangTheory ToIntLangTheory ToBytecodeTheory CompilerTheory PrinterTheory compilerTerminationTheory
 val _ = new_theory "compile_emit"
 
@@ -108,6 +108,8 @@ val defs = map EmitML.DEFN
 , IntLangTheory.bind_exc_cn_def
 , IntLangTheory.div_exc_cn_def
 , IntLangTheory.eq_exc_cn_def
+, IntLangTheory.nil_exc_cn_def
+, IntLangTheory.cons_exc_cn_def
 , IntLangTheory.CBind_exc_def
 , IntLangTheory.CDiv_exc_def
 , IntLangTheory.CEq_exc_def
