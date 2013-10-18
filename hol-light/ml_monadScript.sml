@@ -82,7 +82,7 @@ val hol_type_ind = store_thm("hol_type_ind",
   \\ EVAL_TAC \\ IMP_RES_TAC MEM_hol_type_size \\ DECIDE_TAC);
 
 val LIST_TYPE_def = fetch "-" "LIST_TYPE_def"
-val HOL_TYPE_TYPE_def = fetch "-" "HOL_TYPE_TYPE_def"
+val HOL_KERNEL_HOL_TYPE_TYPE_def = fetch "-" "HOL_KERNEL_HOL_TYPE_TYPE_def"
 
 val LIST_TYPE_NO_CLOSURES = prove(
   ``!xs v.
@@ -122,22 +122,22 @@ val LIST_TYPE_CHAR_LEMMA = prove(
   METIS_TAC (eq_lemmas ()));
 
 val EqualityType_HOL_TYPE = prove(
-  ``EqualityType HOL_TYPE_TYPE``,
+  ``EqualityType HOL_KERNEL_HOL_TYPE_TYPE``,
   SIMP_TAC std_ss [EqualityType_thm] \\ STRIP_TAC THEN1
    (HO_MATCH_MP_TAC hol_type_ind
-    \\ FULL_SIMP_TAC std_ss [HOL_TYPE_TYPE_def]
+    \\ FULL_SIMP_TAC std_ss [HOL_KERNEL_HOL_TYPE_TYPE_def]
     \\ REPEAT STRIP_TAC
     \\ FULL_SIMP_TAC std_ss [no_closures_def,EVERY_DEF]
     \\ IMP_RES_TAC (LIST_TYPE_NO_CLOSURES |> GEN_ALL)
     \\ METIS_TAC [CHAR_IMP_no_closures])
   \\ HO_MATCH_MP_TAC hol_type_ind \\ REVERSE STRIP_TAC THEN1
    (REPEAT STRIP_TAC
-    \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [HOL_TYPE_TYPE_def]
+    \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [HOL_KERNEL_HOL_TYPE_TYPE_def]
     \\ FULL_SIMP_TAC (srw_ss()) [types_match_def]
     \\ ASSUME_TAC LIST_TYPE_CHAR_LEMMA
     \\ FULL_SIMP_TAC std_ss [EqualityType_def] \\ RES_TAC)
   \\ REPEAT GEN_TAC \\ STRIP_TAC \\ REPEAT GEN_TAC \\ STRIP_TAC
-  \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [HOL_TYPE_TYPE_def]
+  \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [HOL_KERNEL_HOL_TYPE_TYPE_def]
   \\ FULL_SIMP_TAC (srw_ss()) [types_match_def]
   \\ MATCH_MP_TAC (METIS_PROVE [] ``(b1 /\ (x1 = y1)) /\ (b2 /\ (x2 = y2)) ==>
        (b1 /\ b2) /\ ((x1 /\ x2 <=> y1 /\ y2))``)
@@ -146,7 +146,7 @@ val EqualityType_HOL_TYPE = prove(
     \\ FULL_SIMP_TAC std_ss [EqualityType_def] \\ RES_TAC
     \\ ASM_SIMP_TAC std_ss [])
   \\ MATCH_MP_TAC LIST_TYPE_11
-  \\ Q.EXISTS_TAC `HOL_TYPE_TYPE`
+  \\ Q.EXISTS_TAC `HOL_KERNEL_HOL_TYPE_TYPE`
   \\ FULL_SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC \\ RES_TAC)
   |> store_eq_thm;
@@ -158,9 +158,9 @@ val _ = register_type ``:def``;
 (*
   fetch "-" "PAIR_TYPE_def";
   fetch "-" "LIST_TYPE_def";
-  fetch "-" "HOL_TYPE_TYPE_def";
-  fetch "-" "HOL_TERM_TYPE_def";
-  fetch "-" "THM_TYPE_def";
+  fetch "-" "HOL_KERNEL_HOL_TYPE_TYPE_def";
+  fetch "-" "HOL_KERNEL_HOL_TERM_TYPE_def";
+  fetch "-" "HOL_KERNEL_HOL_KERNEL_THM_TYPE_def";
 *)
 
 (* definition of EvalM *)
@@ -169,10 +169,10 @@ val HOL_STORE_def = Define `
   HOL_STORE s refs <=>
     5 <= LENGTH s /\
     (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) NUM)) refs.the_type_constants (EL 0 s) /\
-    (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE)) refs.the_term_constants (EL 1 s) /\
-    (LIST_TYPE THM_TYPE refs.the_axioms) (EL 2 s) /\
-    (LIST_TYPE DEF_TYPE refs.the_definitions) (EL 3 s) /\
-    (HOL_TERM_TYPE refs.the_clash_var) (EL 4 s)`;
+    (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_KERNEL_HOL_TYPE_TYPE)) refs.the_term_constants (EL 1 s) /\
+    (LIST_TYPE HOL_KERNEL_THM_TYPE refs.the_axioms) (EL 2 s) /\
+    (LIST_TYPE HOL_KERNEL_DEF_TYPE refs.the_definitions) (EL 3 s) /\
+    (HOL_KERNEL_HOL_TERM_TYPE refs.the_clash_var) (EL 4 s)`;
 
 val EvalM_def = Define `
   EvalM env exp P <=>
@@ -312,22 +312,22 @@ val Eval_IMP_PURE = store_thm("Eval_IMP_PURE",
   \\ REPEAT STRIP_TAC \\ Q.EXISTS_TAC `res`
   \\ ASM_SIMP_TAC std_ss [evaluate'_empty_store_IMP]);
 
-val HOL_TYPE_TYPE_EXISTS = prove(
-  ``?ty v. HOL_TYPE_TYPE ty v``,
+val HOL_KERNEL_HOL_TYPE_TYPE_EXISTS = prove(
+  ``?ty v. HOL_KERNEL_HOL_TYPE_TYPE ty v``,
   Q.EXISTS_TAC `Tyvar []`
-  \\ SIMP_TAC std_ss [fetch "-" "HOL_TYPE_TYPE_def",fetch "-" "LIST_TYPE_def"]);
+  \\ SIMP_TAC std_ss [fetch "-" "HOL_KERNEL_HOL_TYPE_TYPE_def",fetch "-" "LIST_TYPE_def"]);
 
-val HOL_TERM_TYPE_EXISTS = prove(
-  ``?tm v. HOL_TERM_TYPE tm v``,
-  STRIP_ASSUME_TAC HOL_TYPE_TYPE_EXISTS
+val HOL_KERNEL_HOL_TERM_TYPE_EXISTS = prove(
+  ``?tm v. HOL_KERNEL_HOL_TERM_TYPE tm v``,
+  STRIP_ASSUME_TAC HOL_KERNEL_HOL_TYPE_TYPE_EXISTS
   \\ Q.EXISTS_TAC `Var [] ty`
-  \\ SIMP_TAC std_ss [fetch "-" "HOL_TERM_TYPE_def",fetch "-" "LIST_TYPE_def"]
+  \\ SIMP_TAC std_ss [fetch "-" "HOL_KERNEL_HOL_TERM_TYPE_def",fetch "-" "LIST_TYPE_def"]
   \\ Q.EXISTS_TAC `v` \\ FULL_SIMP_TAC std_ss []);
 
 val HOL_STORE_EXISTS = prove(
   ``?s refs. HOL_STORE s refs``,
   SIMP_TAC std_ss [HOL_STORE_def]
-  \\ STRIP_ASSUME_TAC HOL_TERM_TYPE_EXISTS
+  \\ STRIP_ASSUME_TAC HOL_KERNEL_HOL_TERM_TYPE_EXISTS
   \\ Q.EXISTS_TAC `[Conv (SOME (Short "nil")) [];
                     Conv (SOME (Short "nil")) [];
                     Conv (SOME (Short "nil")) [];
@@ -809,26 +809,26 @@ val get_type_constants_thm = store_thm("get_the_type_constants_thm",
 val get_term_constants_thm = store_thm("get_the_term_constants_thm",
   ``Eval env (Var (Short "the_term_constants")) ($= the_term_constants) ==>
     EvalM env (Uapp Opderef (Var (Short "the_term_constants")))
-      (HOL_MONAD (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE))
+      (HOL_MONAD (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_KERNEL_HOL_TYPE_TYPE))
                  get_the_term_constants)``,
   read_tac ``1:num``);
 
 val get_the_axioms_thm = store_thm("get_the_axioms_thm",
   ``Eval env (Var (Short "the_axioms")) ($= the_axioms) ==>
     EvalM env (Uapp Opderef (Var (Short "the_axioms")))
-      (HOL_MONAD (LIST_TYPE THM_TYPE) get_the_axioms)``,
+      (HOL_MONAD (LIST_TYPE HOL_KERNEL_THM_TYPE) get_the_axioms)``,
   read_tac ``2:num``);
 
 val get_the_definitions_thm = store_thm("get_the_definitions_thm",
   ``Eval env (Var (Short "the_definitions")) ($= the_definitions) ==>
     EvalM env (Uapp Opderef (Var (Short "the_definitions")))
-      (HOL_MONAD (LIST_TYPE DEF_TYPE) get_the_definitions)``,
+      (HOL_MONAD (LIST_TYPE HOL_KERNEL_DEF_TYPE) get_the_definitions)``,
   read_tac ``3:num``);
 
 val get_the_clash_var_thm = store_thm("get_the_clash_var_thm",
   ``Eval env (Var (Short "the_clash_var")) ($= the_clash_var) ==>
     EvalM env (Uapp Opderef (Var (Short "the_clash_var")))
-      (HOL_MONAD HOL_TERM_TYPE get_the_clash_var)``,
+      (HOL_MONAD HOL_KERNEL_HOL_TERM_TYPE get_the_clash_var)``,
   read_tac ``4:num``);
 
 fun update_tac r q =
@@ -873,28 +873,28 @@ val set_the_type_constants_thm = store_thm("set_the_type_constants_thm",
 
 val set_the_term_constants_thm = store_thm("set_the_term_constants_thm",
   ``Eval env (Var (Short "the_term_constants")) ($= the_term_constants) ==>
-    Eval env exp (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_TYPE_TYPE) x) ==>
+    Eval env exp (LIST_TYPE (PAIR_TYPE (LIST_TYPE CHAR) HOL_KERNEL_HOL_TYPE_TYPE) x) ==>
     EvalM env (App Opassign (Var (Short "the_term_constants")) exp)
       ((HOL_MONAD UNIT_TYPE) (set_the_term_constants x))``,
   update_tac `LUPDATE res 1 s` `refs with the_term_constants := x`);
 
 val set_the_axioms_thm = store_thm("set_the_axioms_thm",
   ``Eval env (Var (Short "the_axioms")) ($= the_axioms) ==>
-    Eval env exp (LIST_TYPE THM_TYPE x) ==>
+    Eval env exp (LIST_TYPE HOL_KERNEL_THM_TYPE x) ==>
     EvalM env (App Opassign (Var (Short "the_axioms")) exp)
       ((HOL_MONAD UNIT_TYPE) (set_the_axioms x))``,
   update_tac `LUPDATE res 2 s` `refs with the_axioms := x`);
 
 val set_the_definitions_thm = store_thm("set_the_definitions_thm",
   ``Eval env (Var (Short "the_definitions")) ($= the_definitions) ==>
-    Eval env exp (LIST_TYPE DEF_TYPE x) ==>
+    Eval env exp (LIST_TYPE HOL_KERNEL_DEF_TYPE x) ==>
     EvalM env (App Opassign (Var (Short "the_definitions")) exp)
       ((HOL_MONAD UNIT_TYPE) (set_the_definitions x))``,
   update_tac `LUPDATE res 3 s` `refs with the_definitions := x`);
 
 val set_the_clash_var_thm = store_thm("set_the_clash_var_thm",
   ``Eval env (Var (Short "the_clash_var")) ($= the_clash_var) ==>
-    Eval env exp (HOL_TERM_TYPE x) ==>
+    Eval env exp (HOL_KERNEL_HOL_TERM_TYPE x) ==>
     EvalM env (App Opassign (Var (Short "the_clash_var")) exp)
       ((HOL_MONAD UNIT_TYPE) (set_the_clash_var x))``,
   update_tac `LUPDATE res 4 s` `refs with the_clash_var := x`);
