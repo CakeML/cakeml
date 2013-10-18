@@ -47,7 +47,9 @@ val x340 = doit 1 x320;
 val x360 = doit 1 x340;
 val x380 = doit 1 x360;
 val x400 = doit 1 x380;
-val (_,_,th) = x400;
+val x420 = doit 1 x400;
+val x440 = doit 1 x420;
+val (_,_,th) = x440;
 
 val repl_decs_compiled = save_thm("repl_decs_compiled", th);
 
