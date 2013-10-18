@@ -57,6 +57,7 @@ val ty = ``:def``; val _ = derive_case_of ty;
 
 fun derive_case_of ty = let
   val (ty,ret_ty) = dest_fun_type (type_of_cases_const ty)
+  fun get_name ty = clean_uppercase (full_name_of_type ty) ^ "_TYPE"
   val name = get_name ty
   val inv_def = fetch "ml_monad" (name ^ "_def")
   val case_th = get_nchotomy_of ty
