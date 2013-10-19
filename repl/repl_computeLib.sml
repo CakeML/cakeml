@@ -339,4 +339,16 @@ fun collect_labels_conv tm = let val (_,[xs,p,l]) = strip_comb tm in
     in conv tm end
   end
 
+val all_labels_conv = REWR_CONV all_labels_def THENC collect_labels_conv
+
+fun code_labels_conv tm = let
+  val th = (REWR_CONV code_labels_def THENC (RATOR_CONV(RAND_CONV all_labels_conv))) tm
+  val _ = print "extracting labels finite-map "
+  val _ = PolyML.fullGC()
+  val (thx, fm_eqns, new_fmdef) = time (extract_fmap 0) (rhs (concl th))
+  val _ = computeLib.add_funs fm_eqns
+  val _ = PolyML.fullGC()
+  val new_th = TRANS th thx
+in CONV_RULE (RAND_CONV EVAL) new_th end
+
 end
