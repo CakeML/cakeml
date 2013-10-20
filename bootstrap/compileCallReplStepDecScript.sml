@@ -9,9 +9,11 @@ val internal_code_def = new_definition("internal_code_def",
 val internal_contab_def = new_definition("internal_contab_def",
   mk_eq(``internal_contab:contab``, rand(rator(rhs(concl(repl_decs_compiled))))))
 
-val _ = computeLib.add_funs[call_repl_step_dec_def,
+val compile_repl_decs_internal =
   CONV_RULE(LAND_CONV(REWRITE_CONV[SYM compile_repl_decs_def]))
-    (REWRITE_RULE[SYM internal_code_def, SYM internal_contab_def]repl_decs_compiled)]
+    (REWRITE_RULE[SYM internal_code_def, SYM internal_contab_def]repl_decs_compiled)
+
+val _ = computeLib.add_funs[call_repl_step_dec_def,compile_repl_decs_internal]
 
 val call_repl_step_dec_compiled = save_thm("call_repl_step_dec_compiled",
   EVAL``
@@ -20,5 +22,11 @@ val call_repl_step_dec_compiled = save_thm("call_repl_step_dec_compiled",
     let rsz = FST(SND(SND(SND(compile_repl_decs)))) in
     let cs = SND(SND(SND(SND(compile_repl_decs)))) in
   compile_dec FEMPTY m env rsz <|out:=[];next_label:=cs.next_label|> call_repl_step_dec``);
+
+val inst_length_def = Define`inst_length i = 0` (* TODO: replace with real one *)
+
+val code_labels_internal_code = save_thm("code_labels_internal_code",
+  (RAND_CONV(REWR_CONV internal_code_def) THENC code_labels_conv)
+    ``code_labels inst_length internal_code``)
 
 val _ = export_theory()
