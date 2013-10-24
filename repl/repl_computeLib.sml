@@ -309,6 +309,38 @@ in
   (new_fmdef, defs', new_th)
 end
 
+fun hide_list_chunks_conv chunk_size tm =
+  let
+    fun f n tm =
+      if listSyntax.is_nil tm
+        then (REFL tm, Net.empty)
+      else
+        let
+          val (x,xs) = listSyntax.dest_cons tm
+        in
+          if n < chunk_size
+            then
+              let
+                val (th,net) = f (n+1) xs
+              in
+                (AP_TERM(mk_icomb(listSyntax.cons_tm,x)) th
+                ,net)
+              end
+          else
+            let
+              val (th,net) = f 0 xs
+              val def = mk_def (listSyntax.mk_cons(x,rhs(concl th)))
+              val const = lhs(concl def)
+              val th = (REWR_CONV def THENC (RAND_CONV (REWR_CONV (SYM th)))) const
+            in
+              (SYM th
+              ,Net.insert(const,def)net)
+            end
+        end
+  in
+    f 0 tm
+  end
+
 open bytecodeLabelsTheory
 
 val collect_labels_nil = CONJUNCT1 collect_labels_def
@@ -321,22 +353,52 @@ val collect_labels_others =
     ,CONJUNCT2 collect_labels_def |> SPEC t |> SIMP_RULE(srw_ss())[] |> GEN_ALL) n)
   Net.empty cases
 
-fun collect_labels_conv tm = let val (_,[xs,p,l]) = strip_comb tm in
-  if listSyntax.is_nil xs then SPECL[p,l]collect_labels_nil else let
-    val (x,xs) = listSyntax.dest_cons xs
-    val (con,args) = strip_comb x
-    val conv =
-      if fst(dest_const con) = "Label" then
-        ((fn tm => SPECL [hd args,xs,p,l] collect_labels_Label)
-         THENC (RATOR_CONV(RAND_CONV(collect_labels_conv))))
-      else let
-        val th = hd (Net.match con collect_labels_others)
+fun collect_labels_conv tm =
+  let
+    val (_,[xs,_,_]) = strip_comb tm
+    val (th,net) = hide_list_chunks_conv 20 xs
+    fun clconv tm =
+      let
+        val (_,[xs,p,l]) = strip_comb tm
       in
-        ((fn tm => SPECL (args@[xs,p,l]) th)
-         THENC (RATOR_CONV(RAND_CONV(EVAL)))
-         THENC collect_labels_conv)
+        if listSyntax.is_nil xs
+          then SPECL[p,l]collect_labels_nil
+        else if listSyntax.is_cons xs
+          then
+            let
+              val (x,xs) = listSyntax.dest_cons xs
+              val (con,args) = strip_comb x
+              val conv =
+                if fst(dest_const con) = "Label"
+                  then
+                    ((fn tm => SPECL [hd args,xs,p,l] collect_labels_Label)
+                     THENC (RATOR_CONV(RAND_CONV(clconv))))
+                else
+                  let
+                    val th = hd (Net.match con collect_labels_others)
+                  in
+                    ((fn tm => SPECL (args@[xs,p,l]) th)
+                     THENC (RATOR_CONV(RAND_CONV(EVAL)))
+                     THENC clconv)
+                  end
+            in
+              conv tm
+            end
+        else
+          let
+            val def = hd (Net.match xs net)
+            val conv =
+              ((RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV def))))
+               THENC clconv)
+          in
+            conv tm
+          end
       end
-    in conv tm end
+    val conv =
+      ((RATOR_CONV(RATOR_CONV(RAND_CONV(K th))))
+       THENC clconv)
+  in
+    conv tm
   end
 
 val all_labels_conv = REWR_CONV all_labels_def THENC collect_labels_conv
@@ -350,5 +412,29 @@ fun code_labels_conv tm = let
   val _ = PolyML.fullGC()
   val new_th = TRANS th thx
 in CONV_RULE (RAND_CONV EVAL) new_th end
+
+(*
+local
+  val bc_inst = ``:bc_inst``
+  val Label = ``Label``
+  val Jump = ``Jump``
+  val Lab = ``Lab``
+  fun mk_Label tm = mk_comb(Label,tm)
+  fun mk_Jump n = mk_comb(Jump,mk_comb(Lab,n))
+  fun f n ls = if n < 0 then ls else
+    let
+      val ntm = numSyntax.term_of_int n
+    in
+      f (n-1) (listSyntax.mk_cons(mk_Jump ntm,listSyntax.mk_cons(mk_Label ntm,ls)))
+    end
+in
+  fun genls n = f n (listSyntax.mk_nil bc_inst)
+end
+
+val ls = genls 1000
+val tm = ``collect_labels ^ls 0 inst_length``
+val th = time collect_labels_conv tm
+
+*)
 
 end
