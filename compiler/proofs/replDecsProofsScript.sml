@@ -42,7 +42,7 @@ val compile_repl_decs_thm = store_thm("compile_repl_decs_thm",
            |> in
         bc_eval bs = SOME bs'
       ∧ bs'.pc = next_addr bs.inst_length bs.code
-      ∧ env_rs [] (cenv++init_envC) env rs 0 rd (0,s) bs'
+      ∧ env_rs [] (cenv++init_envC) (0,s) env rs 0 rd bs'
       ∧ good_labels rs.rnext_label bs.code``,
   rw[] >>
   qspecl_then[`NONE`,`[]`,`init_envC`,`[]`,`[]`,`repl_decs`,`(s,cenv,Rval env)`]mp_tac compile_decs_thm >>
@@ -88,12 +88,12 @@ val compile_repl_decs_thm = store_thm("compile_repl_decs_thm",
       simp[Abbr`bs2`] ) >>
     simp[bc_eval1_thm,bc_eval1_def] ) >>
   conj_tac >- simp[Abbr`bs2`] >>
-  qmatch_assum_abbrev_tac`env_rs [] cenv2 env rs 0 rd' (0,s) bs'` >>
+  qmatch_assum_abbrev_tac`env_rs [] cenv2 (0,s) env rs 0 rd' bs'` >>
   Q.PAT_ABBREV_TAC`rs':compiler_state = X` >>
   qmatch_assum_abbrev_tac`compile_decs rmn rmenv rct rm renv msz rcs rdecs = rX` >>
   qspecl_then[`rdecs`,`rmn`,`rmenv`,`rct`,`rm`,`renv`,`msz`,`rcs`]mp_tac compile_decs_append_out >>
   simp[Abbr`rX`,Abbr`rm`,Abbr`msz`,Abbr`renv`,Abbr`rcs`,Abbr`rs`] >> strip_tac >>
-  qmatch_assum_abbrev_tac`env_rs [] cenv2 env rs 0 rd' (0,s) bs'` >>
+  qmatch_assum_abbrev_tac`env_rs [] cenv2 (0,s) env rs 0 rd' bs'` >>
   `rs' = rs` by (
     simp[Abbr`rs`,Abbr`rs'`,CompilerTheory.compiler_state_component_equality] >>
     simp[REVERSE_GENLIST,PRE_SUB1] ) >>
@@ -116,7 +116,7 @@ val compile_call_repl_step_thm = store_thm("compile_call_repl_step_thm",
     ∧ MEM "call_repl_step" (MAP FST env)
     ∧ compile_dec FEMPTY <|bvars := MAP FST env; mvars := FEMPTY; cnmap := cmap rs.contab|> (MAP (CTDec o SND) rs.renv) rs.rsz <|out:=[];next_label:=rs.rnext_label|> call_repl_step_dec = (SOME [],cs)
     ∧ closed_context [] cenv s env
-    ∧ env_rs [] cenv env rs csz rd (ck,s) bs
+    ∧ env_rs [] cenv (ck,s) env rs csz rd bs
     ∧ good_labels rs.rnext_label bs.code (* TODO: add this to env_rs? *)
     ∧ bs.clock = NONE
     ⇒
@@ -124,7 +124,7 @@ val compile_call_repl_step_thm = store_thm("compile_call_repl_step_thm",
     bc_eval (bs with <|code := bs.code ++ REVERSE (Stack Pop::cs.out); pc := next_addr bs.inst_length bs.code|>) = SOME bs'
     ∧ bs'.pc = next_addr bs.inst_length (bs.code ++ REVERSE (Stack Pop::cs.out))
     ∧ bs'.output = bs.output
-    ∧ env_rs [] cenv env rs csz rd' (ck,s') bs'``,
+    ∧ env_rs [] cenv (ck,s') env rs csz rd' bs'``,
   rw[] >>
   qspecl_then[`mn`,`[]`,`cenv`,`s`,`env`,`call_repl_step_dec`,`s',Rval([],[])`]mp_tac compile_dec_thm >>
   simp[] >>

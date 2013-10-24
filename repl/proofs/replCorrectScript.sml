@@ -254,7 +254,7 @@ val invariant_def = Define`
     ∧ type_sound_invariants (rs.tenvM,rs.tenvC,rs.tenv,rs.envM,rs.envC,rs.envE,rs.store)
 
     ∧ closed_context rs.envM rs.envC rs.store rs.envE
-    ∧ (∃rd c. env_rs rs.envM rs.envC rs.envE rfs.rcompiler_state (LENGTH bs.stack) rd (c,rs.store) bs)
+    ∧ (∃rd c. env_rs rs.envM rs.envC (c,rs.store) rs.envE rfs.rcompiler_state (LENGTH bs.stack) rd bs)
     ∧ good_labels rfs.rcompiler_state.rnext_label bs.code
 
     ∧ bs.clock = NONE
@@ -1397,7 +1397,7 @@ map_every qunabbrev_tac[`A`,`B`,`C`] >>
   disch_then(Q.X_CHOOSE_THEN`ck`mp_tac) >>
   simp[] >>
   `∃rd c.
-    env_rs rs.envM rs.envC rs.envE st.rcompiler_state (LENGTH bs.stack) rd (c,rs.store) bs` by (
+    env_rs rs.envM rs.envC (c,rs.store) rs.envE st.rcompiler_state (LENGTH bs.stack) rd bs` by (
     fs[invariant_def,LET_THM] >> metis_tac[] ) >>
   qmatch_assum_abbrev_tac`bc_eval bs0 = SOME bs1` >>
   disch_then(qspecl_then[`rd`,`bs0 with clock := SOME ck`]mp_tac) >>
@@ -1714,7 +1714,7 @@ val compile_primitives_terminates = store_thm("compile_primitives_terminates",
   ``bc_eval (install_code [] (SND(SND compile_primitives)) (^(rand(rhs(concl(initial_bc_state_def)))))) = SOME initial_bc_state ∧
       initial_bc_state.pc = next_addr initial_bc_state.inst_length initial_bc_state.code ∧
       initial_bc_state.stack ≠ [] ∧
-      ∃rd. env_rs [] init_envC init_env (FST compile_primitives) (LENGTH initial_bc_state.stack) rd (0,[]) initial_bc_state``,
+      ∃rd. env_rs [] init_envC (0,[]) init_env (FST compile_primitives) (LENGTH initial_bc_state.stack) rd initial_bc_state``,
   qho_match_abbrev_tac`bc_eval bs = SOME bs1i ∧ P` >>
   `evaluate_top [] init_envC [] [] (Tdec initial_program) ([],[],Rval ([],init_env))`
         by (rw [evaluate_top_cases, LibTheory.emp_def] >>
