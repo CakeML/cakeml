@@ -372,7 +372,7 @@ fun get_flookup_eqns th =
                 |> CONV_RULE(RAND_CONV(REWR_CONV cond1))
               val neq = boolSyntax.mk_neg(boolSyntax.mk_eq(k,x))
               val eq2 = th
-                |> CONV_RULE(RAND_CONV(RATOR_CONV(RATOR_CONV(RAND_CONV(PURE_REWRITE_CONV[ASSUME neq])))))
+                |> CONV_RULE(RAND_CONV(RATOR_CONV(RATOR_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV[ASSUME neq])))))
                 |> CONV_RULE(RAND_CONV(REWR_CONV cond2))
             in
               f (eq1::ls) eq2
@@ -394,8 +394,13 @@ fun extract_fmap sz t = let
   val fl_tm = mk_comb(rhs(concl fl_def),genvar domty)
   val fl_th = RATOR_CONV(RAND_CONV(REWR_CONV(SYM def))) fl_tm
   val eqns = get_flookup_eqns (SYM fl_th)
+  val deftm = lhs(concl def)
+  fun fl_conv tm =
+    if same_const (rand(rator tm)) deftm
+      then PURE_ONCE_REWRITE_CONV eqns tm
+    else raise ERR "" ""
 in
-  (ONCE_DEPTH_CONV (REWR_CONV (SYM def)) t, eqns, def)
+  (ONCE_DEPTH_CONV (REWR_CONV (SYM def)) t, (lookup_t,2,fl_conv), def)
 end
 
 fun doit i (lastfm_def, defs, th) = let
@@ -408,9 +413,9 @@ fun doit i (lastfm_def, defs, th) = let
   val th20_fm = CONV_RULE (PURE_REWRITE_CONV [lastfm_def]) th20
   val _ = print "  extracting finite-map "
   val _ = PolyML.fullGC()
-  val (new_th0, fm_eqns, new_fmdef) = time (extract_fmap 20) (rhs (concl th20_fm))
+  val (new_th0, fm_conv, new_fmdef) = time (extract_fmap 20) (rhs (concl th20_fm))
   val new_th = TRANS th20_fm new_th0
-  val _ = computeLib.add_funs fm_eqns
+  val _ = computeLib.add_convs [fm_conv]
   val _ = PolyML.fullGC()
 in
   (new_fmdef, defs', new_th)
@@ -559,8 +564,8 @@ fun code_labels_conv tm = let
            tm
   val _ = print "extracting labels finite-map "
   val _ = PolyML.fullGC()
-  val (thx, fm_eqns, new_fmdef) = time (extract_fmap 0) (rhs (concl th))
-  val _ = computeLib.add_funs fm_eqns
+  val (thx, fm_conv, new_fmdef) = time (extract_fmap 0) (rhs (concl th))
+  val _ = computeLib.add_convs [fm_conv]
   val _ = PolyML.fullGC()
   val new_th = TRANS th thx
 in CONV_RULE (RAND_CONV (inst_labels_conv net)) new_th end
