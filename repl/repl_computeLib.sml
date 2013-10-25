@@ -251,12 +251,6 @@ in
   recurse n defs (REFL t)
 end
 
-fun fmkeys fm_t = let
-  val kv = rand fm_t
-in
-  lhand kv :: fmkeys (lhand fm_t)
-end handle HOL_ERR _ => []
-
 val FLOOKUP_t = prim_mk_const { Thy = "finite_map", Name = "FLOOKUP"}
 val lookup_fmty = #1 (dom_rng (type_of FLOOKUP_t))
 fun mk_flookup_eqn fm k =
@@ -297,19 +291,109 @@ fun flookup_fupdate_conv tm =
    THENC flookup_fupdate_conv)
   tm
 
+(* TODO: MOVE THIS to Drule *)
+  local
+     val thms = Drule.CONJUNCTS (Q.SPEC `t` boolTheory.IMP_CLAUSES)
+     val T_imp = Drule.GEN_ALL (hd thms)
+     val F_imp = Drule.GEN_ALL (List.nth (thms, 2))
+     val NT_imp = DECIDE ``(~F ==> t) = t``
+     fun dest_neg_occ_var tm1 tm2 =
+        case Lib.total boolSyntax.dest_neg tm1 of
+           SOME v => if Term.is_var v andalso not (Term.var_occurs v tm2)
+                        then SOME v
+                     else NONE
+         | NONE => NONE
+  in
+     fun ELIM_UNDISCH thm =
+        case Lib.total boolSyntax.dest_imp (Thm.concl thm) of
+           SOME (l, r) =>
+              if l = boolSyntax.T
+                 then Conv.CONV_RULE (Conv.REWR_CONV T_imp) thm
+              else if l = boolSyntax.F
+                 then Conv.CONV_RULE (Conv.REWR_CONV F_imp) thm
+              else if Term.is_var l andalso not (Term.var_occurs l r)
+                 then Conv.CONV_RULE (Conv.REWR_CONV T_imp)
+                         (Thm.INST [l |-> boolSyntax.T] thm)
+              else (case dest_neg_occ_var l r of
+                       SOME v => Conv.CONV_RULE (Conv.REWR_CONV NT_imp)
+                                    (Thm.INST [v |-> boolSyntax.F] thm)
+                     | NONE => Drule.UNDISCH thm)
+         | NONE => raise ERR "ELIM_UNDISCH" ""
+  end
+
+  (* ---------------------------- *)
+
+  (* Apply rule to hyphothesis tm *)
+
+  fun HYP_RULE r tm = ELIM_UNDISCH o r o Thm.DISCH tm
+
+  (* Apply rule to hyphotheses satisfying P *)
+
+  fun PRED_HYP_RULE r P thm =
+     List.foldl (Lib.uncurry (HYP_RULE r)) thm (List.filter P (Thm.hyp thm))
+
+  (* Apply conversion c to all hyphotheses *)
+
+  fun ALL_HYP_RULE r = PRED_HYP_RULE r (K true)
+  local
+     fun LAND_RULE c = Conv.CONV_RULE (Conv.LAND_CONV c)
+  in
+     fun HYP_CONV_RULE c = HYP_RULE (LAND_RULE c)
+     fun PRED_HYP_CONV_RULE c = PRED_HYP_RULE (LAND_RULE c)
+     fun ALL_HYP_CONV_RULE c = ALL_HYP_RULE (LAND_RULE c)
+     fun FULL_CONV_RULE c = ALL_HYP_CONV_RULE c o Conv.CONV_RULE c
+  end
+(* END TODO *)
+
+(* TODO: MOVE THIS to finite_mapSyntax *)
+  val mk_flookup = mk_binop FLOOKUP_t
+  val dest_flookup = dest_binop FLOOKUP_t (ERR "dest_flookup" "not an FLOOKUP")
+  val is_flookup = can dest_flookup
+(* END TODO *)
+
+fun get_flookup_eqns th =
+  let
+    fun f ls th =
+      let
+        val tm = rhs(concl th)
+      in
+        if is_flookup tm
+           andalso finite_mapSyntax.is_fupdate(rand(rator tm))
+          then
+            let
+              val x = rand tm
+              val th = CONV_RULE (RAND_CONV(REWR_CONV FLOOKUP_UPDATE)) th
+              val r = rhs(concl th)
+              val k = r |> rator |> rator |> rand |> lhs
+              val eq1 = th
+                |> INST [x|->k]
+                |> ALL_HYP_CONV_RULE EVAL
+                |> CONV_RULE(RAND_CONV(RATOR_CONV(RATOR_CONV(RAND_CONV(EVAL)))))
+                |> CONV_RULE(RAND_CONV(REWR_CONV cond1))
+              val neq = boolSyntax.mk_neg(boolSyntax.mk_eq(k,x))
+              val eq2 = th
+                |> CONV_RULE(RAND_CONV(RATOR_CONV(RATOR_CONV(RAND_CONV(PURE_REWRITE_CONV[ASSUME neq])))))
+                |> CONV_RULE(RAND_CONV(REWR_CONV cond2))
+            in
+              f (eq1::ls) eq2
+            end
+        else ls
+      end
+  in
+    f [] th
+  end
+
 fun extract_fmap sz t = let
   fun test t = finite_mapSyntax.is_fupdate t andalso lbinop_size 0 t > sz
   val fm = find_term test t
-  val lookup_t = inst (match_type lookup_fmty (type_of fm)) FLOOKUP_t
+  val ty = type_of fm
+  val lookup_t = inst (match_type lookup_fmty ty) FLOOKUP_t
   val def = mk_def fm
-  val fl_def' = AP_TERM lookup_t def
-  val keys = fmkeys fm
-  fun fulleqn k = let
-    val th0 = AP_THM fl_def' k
-  in
-    CONV_RULE (RAND_CONV flookup_fupdate_conv) th0
-  end
-  val eqns = map fulleqn keys
+  val fl_def = AP_TERM lookup_t def
+  val domty = hd(snd(dest_type ty))
+  val fl_tm = mk_comb(rhs(concl fl_def),genvar domty)
+  val fl_th = RATOR_CONV(RAND_CONV(REWR_CONV(SYM def))) fl_tm
+  val eqns = get_flookup_eqns (SYM fl_th)
 in
   (ONCE_DEPTH_CONV (REWR_CONV (SYM def)) t, eqns, def)
 end
