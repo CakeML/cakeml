@@ -37,7 +37,8 @@ val inst_labels_def = Define `
      let addr = case FLOOKUP f l of NONE => Lab l | SOME a => Addr a in
        JumpIf addr :: inst_labels f xs) /\
   (inst_labels f (x::xs) = x :: inst_labels f xs)`
-  |> SIMP_RULE std_ss [LET_DEF];
+val inst_labels_def = save_thm("inst_labels_def",
+  inst_labels_def |> SIMP_RULE std_ss [LET_DEF]);
 
 val code_labels_def = Define `
   code_labels l code = inst_labels (all_labels l code) code`;

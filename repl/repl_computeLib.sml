@@ -353,10 +353,8 @@ val collect_labels_others =
     ,CONJUNCT2 collect_labels_def |> SPEC t |> SIMP_RULE(srw_ss())[] |> GEN_ALL) n)
   Net.empty cases
 
-fun collect_labels_conv tm =
+fun collect_labels_conv net =
   let
-    val (_,[xs,_,_]) = strip_comb tm
-    val (th,net) = hide_list_chunks_conv 20 xs
     fun clconv tm =
       let
         val (_,[xs,p,l]) = strip_comb tm
@@ -394,24 +392,71 @@ fun collect_labels_conv tm =
             conv tm
           end
       end
-    val conv =
-      ((RATOR_CONV(RATOR_CONV(RAND_CONV(K th))))
-       THENC clconv)
   in
-    conv tm
+    clconv
   end
 
-val all_labels_conv = REWR_CONV all_labels_def THENC collect_labels_conv
+fun all_labels_conv net = REWR_CONV all_labels_def THENC (collect_labels_conv net)
+
+
+val inst_labels_nil = CONJUNCT1 inst_labels_def
+val inst_labels_cons =
+  foldl (fn (th,n) => Net.insert
+    (th |> concl |> strip_forall |> snd |> lhs |> rand |> rator |> rand,
+     th) n)
+  Net.empty
+  (CONJUNCTS(CONJUNCT2 inst_labels_def))
+
+fun inst_labels_conv net =
+  let
+    fun ilconv tm =
+      let
+        val (_,[f,ls]) = strip_comb tm
+      in
+        if listSyntax.is_nil ls
+          then SPEC f inst_labels_nil
+        else if listSyntax.is_cons ls
+          then
+            let
+              val (x,xs) = listSyntax.dest_cons ls
+              val th = hd (Net.match x inst_labels_cons)
+              val conv =
+                if fst(dest_const(fst(strip_comb x))) = "Label"
+                  then ilconv
+                else RATOR_CONV(RAND_CONV EVAL)
+                     THENC (RAND_CONV ilconv)
+            in
+              (REWR_CONV th
+               THENC conv)
+              tm
+            end
+        else
+          let
+            val def = hd (Net.match ls net)
+          in
+            (RAND_CONV(REWR_CONV def)
+             THENC ilconv)
+            tm
+          end
+      end
+  in
+    ilconv
+  end
 
 fun code_labels_conv tm = let
-  val th = (REWR_CONV code_labels_def THENC (RATOR_CONV(RAND_CONV all_labels_conv))) tm
+  val (_,[l,code]) = strip_comb tm
+  val (codeth,net) = hide_list_chunks_conv 20 code
+  val th = (RAND_CONV(K codeth)
+            THENC REWR_CONV code_labels_def
+            THENC (RATOR_CONV(RAND_CONV (all_labels_conv net))))
+           tm
   val _ = print "extracting labels finite-map "
   val _ = PolyML.fullGC()
   val (thx, fm_eqns, new_fmdef) = time (extract_fmap 0) (rhs (concl th))
   val _ = computeLib.add_funs fm_eqns
   val _ = PolyML.fullGC()
   val new_th = TRANS th thx
-in CONV_RULE (RAND_CONV EVAL) new_th end
+in CONV_RULE (RAND_CONV (inst_labels_conv net)) new_th end
 
 (*
 local
@@ -432,8 +477,8 @@ in
 end
 
 val ls = genls 1000
-val tm = ``collect_labels ^ls 0 inst_length``
-val th = time collect_labels_conv tm
+val tm = ``code_labels (K 0) ^ls``
+val th = time code_labels_conv tm
 
 *)
 
