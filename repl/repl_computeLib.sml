@@ -274,6 +274,29 @@ in
   end
 end
 
+(*
+val sz = 20
+val num = ``:num``
+fun genfm 0 = finite_mapSyntax.mk_fempty(num,num)
+  | genfm n = finite_mapSyntax.mk_fupdate
+               (genfm(n-1),
+                pairSyntax.mk_pair(numSyntax.term_of_int n,
+                                   numSyntax.term_of_int (n+1)))
+
+val fm = genfm 30
+val t = ``foo (bar baz) ^fm x``
+*)
+
+val [cond1,cond2] = CONJUNCTS bool_case_thm
+
+fun flookup_fupdate_conv tm =
+  TRY_CONV
+  (REWR_CONV FLOOKUP_UPDATE
+   THENC (RATOR_CONV(RATOR_CONV(RAND_CONV EVAL)))
+   THENC (REWR_CONV cond1 ORELSEC REWR_CONV cond2)
+   THENC flookup_fupdate_conv)
+  tm
+
 fun extract_fmap sz t = let
   fun test t = finite_mapSyntax.is_fupdate t andalso lbinop_size 0 t > sz
   val fm = find_term test t
@@ -284,7 +307,7 @@ fun extract_fmap sz t = let
   fun fulleqn k = let
     val th0 = AP_THM fl_def' k
   in
-    CONV_RULE (RAND_CONV EVAL) th0
+    CONV_RULE (RAND_CONV flookup_fupdate_conv) th0
   end
   val eqns = map fulleqn keys
 in
