@@ -351,34 +351,30 @@ fun flookup_fupdate_conv tm =
   val is_flookup = can dest_flookup
 (* END TODO *)
 
-fun get_flookup_eqns th =
+fun get_flookup_eqns conv th =
   let
     fun f ls th =
       let
         val tm = rhs(concl th)
+        val x = rand tm
+        val th = CONV_RULE(RAND_CONV(REWR_CONV FLOOKUP_UPDATE)) th
+        val r = rhs(concl th)
+        val k = r |> rator |> rator |> rand |> lhs
+        val eq1 = th
+          |> INST [x|->k]
+          |> RIGHT_CONV_RULE
+               (RATOR_CONV(RATOR_CONV(RAND_CONV conv))
+                THENC REWR_CONV cond1)
+          |> ALL_HYP_CONV_RULE conv
+        val neq = boolSyntax.mk_neg(boolSyntax.mk_eq(k,x))
+        val eq2 = th
+          |> RIGHT_CONV_RULE
+               (RATOR_CONV(RATOR_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV[ASSUME neq])))
+                THENC (REWR_CONV cond2))
       in
-        if is_flookup tm
-           andalso finite_mapSyntax.is_fupdate(rand(rator tm))
-          then
-            let
-              val x = rand tm
-              val th = CONV_RULE (RAND_CONV(REWR_CONV FLOOKUP_UPDATE)) th
-              val r = rhs(concl th)
-              val k = r |> rator |> rator |> rand |> lhs
-              val eq1 = th
-                |> INST [x|->k]
-                |> ALL_HYP_CONV_RULE EVAL
-                |> CONV_RULE(RAND_CONV(RATOR_CONV(RATOR_CONV(RAND_CONV(EVAL)))))
-                |> CONV_RULE(RAND_CONV(REWR_CONV cond1))
-              val neq = boolSyntax.mk_neg(boolSyntax.mk_eq(k,x))
-              val eq2 = th
-                |> CONV_RULE(RAND_CONV(RATOR_CONV(RATOR_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV[ASSUME neq])))))
-                |> CONV_RULE(RAND_CONV(REWR_CONV cond2))
-            in
-              f (eq1::ls) eq2
-            end
-        else ls
+        f (eq1::ls) eq2
       end
+      handle HOL_ERR _ => ls
   in
     f [] th
   end
@@ -393,7 +389,7 @@ fun extract_fmap sz t = let
   val domty = hd(snd(dest_type ty))
   val fl_tm = mk_comb(rhs(concl fl_def),genvar domty)
   val fl_th = RATOR_CONV(RAND_CONV(REWR_CONV(SYM def))) fl_tm
-  val eqns = get_flookup_eqns (SYM fl_th)
+  val eqns = get_flookup_eqns (CHANGED_CONV numLib.REDUCE_CONV ORELSEC EVAL) (SYM fl_th)
   val deftm = lhs(concl def)
   fun fl_conv tm =
     if same_const (rand(rator tm)) deftm
