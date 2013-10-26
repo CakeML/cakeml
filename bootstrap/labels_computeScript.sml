@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs bytecodeLabelsTheory finite_mapTheory patriciaTheory
+open HolKernel boolLib bossLib lcsymtacs bytecodeLabelsTheory finite_mapTheory patriciaTheory sortingTheory
 val _ = new_theory"labels_compute"
 
 val inst_labels_fn_def = Define`
@@ -21,7 +21,7 @@ val inst_labels_fn_def = save_thm("inst_labels_fn_def",
   inst_labels_fn_def |> SIMP_RULE std_ss [LET_DEF]);
 
 val good_label_map_def = Define`
-  (good_label_map [] p l fn ks ⇔ set (TRAVERSE fn) = set ks) ∧
+  (good_label_map [] p l fn ks ⇔ PERM (TRAVERSE fn) ks) ∧
   (good_label_map (Label n::xs) p l fn ks ⇔ fn ' n = SOME p ∧ good_label_map xs p l fn (n::ks)) ∧
   (good_label_map (x::xs) p l fn ks = good_label_map xs (p + l x + 1:num) l fn ks)`
 
@@ -31,9 +31,8 @@ val good_label_map_collect_labels = store_thm("good_label_map_collect_labels",
   simp[collect_labels_def,good_label_map_def] >- (
     rw[] >>
     imp_res_tac MEM_TRAVERSE_PEEK >>
-    fs[pred_setTheory.EXTENSION] >>
-    last_x_assum(qspec_then`x`mp_tac) >>
-    Cases_on`fn ' x` >> simp[] ) >>
+    imp_res_tac MEM_PERM >>
+    fs[]) >>
   Cases >> simp[good_label_map_def,collect_labels_def,FLOOKUP_UPDATE] >>
   rw[] >> fs[] >>
   rw[] >> fs[] >>
@@ -57,5 +56,7 @@ val inst_labels_fn_intro = store_thm("inst_labels_fn_intro",
    imp_res_tac good_label_map_collect_labels >> fs[] >>
    match_mp_tac inst_labels_fn_intro0 >>
    simp[FUN_EQ_THM])
+
+val _ = Parse.set_fixity"="(Parse.Infix(Parse.NONASSOC, 100)) (* required to load patriciaLib later *)
 
 val _ = export_theory()
