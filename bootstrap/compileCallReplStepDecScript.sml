@@ -1,4 +1,4 @@
-open HolKernel bossLib repl_computeLib replDecsTheory compileReplDecsTheory
+open HolKernel bossLib repl_computeLib labels_computeLib replDecsTheory compileReplDecsTheory
 val _ = new_theory"compileCallReplStepDec"
 
 val _ = Globals.max_print_depth := 15
