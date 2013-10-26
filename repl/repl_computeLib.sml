@@ -379,7 +379,7 @@ fun get_flookup_eqns conv th =
     f [] th
   end
 
-fun extract_fmap sz t = let
+fun extract_fmap sz conv t = let
   fun test t = finite_mapSyntax.is_fupdate t andalso lbinop_size 0 t > sz
   val fm = find_term test t
   val ty = type_of fm
@@ -389,7 +389,7 @@ fun extract_fmap sz t = let
   val domty = hd(snd(dest_type ty))
   val fl_tm = mk_comb(rhs(concl fl_def),genvar domty)
   val fl_th = RATOR_CONV(RAND_CONV(REWR_CONV(SYM def))) fl_tm
-  val eqns = get_flookup_eqns (CHANGED_CONV numLib.REDUCE_CONV ORELSEC EVAL) (SYM fl_th)
+  val eqns = get_flookup_eqns conv (SYM fl_th)
   val deftm = lhs(concl def)
   fun fl_conv tm =
     if same_const (rand(rator tm)) deftm
@@ -409,7 +409,7 @@ fun doit i (lastfm_def, defs, th) = let
   val th20_fm = CONV_RULE (PURE_REWRITE_CONV [lastfm_def]) th20
   val _ = print "  extracting finite-map "
   val _ = PolyML.fullGC()
-  val (new_th0, fm_conv, new_fmdef) = time (extract_fmap 20) (rhs (concl th20_fm))
+  val (new_th0, fm_conv, new_fmdef) = time (extract_fmap 20 EVAL) (rhs (concl th20_fm))
   val new_th = TRANS th20_fm new_th0
   val _ = computeLib.add_convs [fm_conv]
   val _ = PolyML.fullGC()
@@ -560,7 +560,7 @@ fun code_labels_conv tm = let
            tm
   val _ = print "extracting labels finite-map "
   val _ = PolyML.fullGC()
-  val (thx, fm_conv, new_fmdef) = time (extract_fmap 0) (rhs (concl th))
+  val (thx, fm_conv, new_fmdef) = time (extract_fmap 0 numLib.REDUCE_CONV) (rhs (concl th))
   val _ = computeLib.add_convs [fm_conv]
   val _ = PolyML.fullGC()
   val new_th = TRANS th thx
