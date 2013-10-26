@@ -128,8 +128,12 @@ fun inst_labels_conv fm_def net =
               val conv =
                 if name = "Label"
                   then ilconv
-                else RATOR_CONV(RAND_CONV(TRY_CONV(RATOR_CONV(RAND_CONV(REWR_CONV fm_def))
-                                                   THENC ffconv)))
+                else RATOR_CONV(
+                       RAND_CONV(
+                         TRY_CONV(
+                           RAND_CONV(RATOR_CONV(RATOR_CONV(RAND_CONV(
+                             RATOR_CONV(RAND_CONV(REWR_CONV fm_def))
+                             THENC ffconv)))))))
                      THENC (RAND_CONV ilconv)
             in
               (REWR_CONV th
