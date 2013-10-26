@@ -1,5 +1,5 @@
 structure repl_computeLib = struct
-open preamble repl_funTheory ASCIInumbersLib intLib
+open preamble repl_funTheory ASCIInumbersLib intLib stringLib
 open AstTheory inferTheory CompilerTheory compilerTerminationTheory bytecodeEvalTheory
 open repl_computeTheory;
 
@@ -398,6 +398,18 @@ in
   (ONCE_DEPTH_CONV (REWR_CONV (SYM def)) t, (lookup_t,2,fl_conv), def)
 end
 
+val numeq_rws = [
+  REFL_CLAUSE, CONJUNCT2 NOT_CLAUSES,
+  arithmeticTheory.NUMERAL_DEF,
+  numeralTheory.numeral_eq,
+  GSYM arithmeticTheory.ALT_ZERO]
+val numeq_conv = PURE_REWRITE_CONV numeq_rws
+
+val coneq_conv = PURE_ONCE_REWRITE_CONV (#rewrs(TypeBase.simpls_of``:string id option``))
+                 THENC PURE_ONCE_REWRITE_CONV (#rewrs(TypeBase.simpls_of``:string id``))
+                 THENC ONCE_DEPTH_CONV string_EQ_CONV
+                 THENC PURE_REWRITE_CONV [REFL_CLAUSE, CONJUNCT2 NOT_CLAUSES, AND_CLAUSES]
+
 fun doit i (lastfm_def, defs, th) = let
   val list_t = rand (rhs (concl th))
   val nstr = listSyntax.mk_length list_t |> (PURE_REWRITE_CONV defs THENC EVAL)
@@ -408,10 +420,10 @@ fun doit i (lastfm_def, defs, th) = let
   val th20_fm = CONV_RULE (PURE_REWRITE_CONV [lastfm_def]) th20
   val _ = print "  extracting finite-map "
   val _ = PolyML.fullGC()
-  val (new_th0, fm_conv, new_fmdef) = time (extract_fmap 20 EVAL) (rhs (concl th20_fm))
+  val (new_th0, fm_conv, new_fmdef) = time (extract_fmap 20 coneq_conv) (rhs (concl th20_fm))
   val new_th = TRANS th20_fm new_th0
   val _ = computeLib.add_convs [fm_conv]
-  val new_th = ALL_HYP_CONV_RULE EVAL new_th
+  val new_th = ALL_HYP_CONV_RULE coneq_conv new_th
   val _ = PolyML.fullGC()
 in
   (new_fmdef, defs', new_th)
@@ -560,13 +572,13 @@ fun code_labels_conv tm = let
            tm
   val _ = print "extracting labels finite-map "
   val _ = PolyML.fullGC()
-  val (thx, fm_conv, new_fmdef) = time (extract_fmap 0 numLib.REDUCE_CONV) (rhs (concl th))
+  val (thx, fm_conv, new_fmdef) = time (extract_fmap 0 numeq_conv) (rhs (concl th))
   val _ = computeLib.add_convs [fm_conv]
   val _ = PolyML.fullGC()
   val new_th = TRANS th thx
   val th2 = CONV_RULE (RAND_CONV (inst_labels_conv net)) new_th
 in
-  ALL_HYP_CONV_RULE numLib.REDUCE_CONV th2
+  ALL_HYP_CONV_RULE numeq_conv th2
 end
 
 (*
