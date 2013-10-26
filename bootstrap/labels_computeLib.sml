@@ -93,11 +93,20 @@ fun all_labels_conv net = REWR_CONV all_labels_def THENC (collect_labels_conv ne
 
 val inst_labels_nil = CONJUNCT1 inst_labels_def
 val inst_labels_cons =
-  foldl (fn (th,n) => Redblackmap.insert
-    (n
-    ,th |> concl |> strip_forall |> snd |> lhs |> rand |> rator |> rand
-        |> strip_comb |> fst |> dest_const |> fst
-    ,th))
+  foldl (fn (th,n) =>
+    let
+      val tm = th |> concl |> strip_forall |> snd |> lhs |> rand |> rator |> rand
+      val (con,args) = strip_comb tm
+      val is_Addr = (args |> hd |> strip_comb |> fst |> dest_const |> fst |> equal "Addr") handle _ => false
+    in
+      if is_Addr
+        then n
+      else
+        Redblackmap.insert
+          (n
+          ,con |> dest_const |> fst
+          ,th)
+    end)
   (Redblackmap.mkDict String.compare)
   (CONJUNCTS(CONJUNCT2 inst_labels_def))
 
