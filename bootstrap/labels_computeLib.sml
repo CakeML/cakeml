@@ -78,7 +78,7 @@ fun good_label_map_conv ptdef map =
             else
               let
                 val name = fst(dest_const ls)
-                val _ = print ("expanding"^name^"\n")
+                val _ = print (" expanding "^name)
               in
                 Redblackmap.find(map,name) |> REWR_CONV |> RAND_CONV
                   |> RATOR_CONV |> RATOR_CONV |> RATOR_CONV |> RATOR_CONV
@@ -193,7 +193,7 @@ fun inst_labels_fn_conv ptdef map =
           handle HOL_ERR e =>
             let
               val name = fst(dest_const ls)
-              val _ = print ("expanding "^name^"\n")
+              val _ = print (" expanding "^name)
               val def = Redblackmap.find(map,fst(dest_const ls))
             in
               (RAND_CONV(REWR_CONV def)
@@ -210,9 +210,10 @@ fun code_labels_conv tm =
   let
     val (_,[l,code]) = strip_comb tm
     val pt = collect_labels code l
-    val _ = print "proving IS_PTREE hypothesis\n"
-    val th1 = Lib.with_flag(patriciaLib.is_ptree_term_size_limit,~1)
-                patriciaLib.PTREE_IS_PTREE_CONV
+    val _ = print "proving IS_PTREE hypothesis: "
+    val th1 = time
+                (with_flag(patriciaLib.is_ptree_term_size_limit,~1)
+                   patriciaLib.PTREE_IS_PTREE_CONV)
                 (patriciaSyntax.mk_is_ptree pt)
               |> EQT_ELIM
     val (codeth,map) = hide_list_chunks_conv 20 code
@@ -226,14 +227,14 @@ fun code_labels_conv tm =
                   l,
                   ptabb,
                   listSyntax.mk_nil numSyntax.num])
-    val _ = print "proving good_label_map hypothesis\n"
-    val th2 = good_label_map_conv ptdef map tm2 |> EQT_ELIM
+    val _ = print "proving good_label_map hypothesis: "
+    val th2 = time (good_label_map_conv ptdef map) tm2 |> EQT_ELIM
     val th3 = SPECL [ptabb,l,codeabb] inst_labels_fn_intro
     val th0 = CONV_RULE(RAND_CONV(REWR_CONV(SYM ptdef))) th1
     val th4 = PROVE_HYP (CONJ th2 th0) (UNDISCH th3)
     val th5 = CONV_RULE(LAND_CONV(RAND_CONV(REWR_CONV(SYM codeth)))) th4
-    val _ = print "evaluating inst_labels_fn\n"
-    val th6 = RIGHT_CONV_RULE (inst_labels_fn_conv ptdef map) th5
+    val _ = print "evaluating inst_labels_fn: "
+    val th6 = time (RIGHT_CONV_RULE (inst_labels_fn_conv ptdef map)) th5
     val _ = Redblackmap.app (delete_const o fst) map
     val _ = delete_const (fst (dest_const ptabb))
   in
