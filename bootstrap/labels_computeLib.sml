@@ -1,5 +1,5 @@
 structure labels_computeLib = struct
-open HolKernel patriciaLib repl_computeLib bytecodeLabelsTheory labels_computeTheory permLib
+open HolKernel repl_computeLib bytecodeLabelsTheory labels_computeTheory patriciaLib
 
 fun collect_labels code l =
   let
@@ -52,7 +52,7 @@ fun good_label_map_conv ptdef map =
   let
     fun f tm =
       let
-        val (_,[ls,p,l,pf,ks]) = strip_comb tm
+        val (_,[ls,p,l,pf]) = strip_comb tm
         val conv =
           let
             val (x,xs) = listSyntax.dest_cons ls
@@ -70,7 +70,7 @@ fun good_label_map_conv ptdef map =
                 THENC REWR_CONV and1
             else
               REWR_CONV (Redblackmap.find(good_label_map_others,name))
-              THENC RATOR_CONV(RATOR_CONV(RATOR_CONV(RAND_CONV EVAL)))
+              THENC RATOR_CONV(RATOR_CONV(RAND_CONV EVAL))
           end
           handle e as HOL_ERR _ =>
             if listSyntax.is_nil ls
@@ -81,16 +81,13 @@ fun good_label_map_conv ptdef map =
                 val _ = print (" expanding "^name)
               in
                 Redblackmap.find(map,name) |> REWR_CONV |> RAND_CONV
-                  |> RATOR_CONV |> RATOR_CONV |> RATOR_CONV |> RATOR_CONV
+                  |> RATOR_CONV |> RATOR_CONV |> RATOR_CONV
               end
       in
         (conv THENC f) tm
       end
       handle HOL_ERR _ =>
-        (REWR_CONV good_label_map_nil
-         THENC RATOR_CONV(RAND_CONV (RAND_CONV(REWR_CONV ptdef) THENC EVAL))
-         THENC permLib.PERM_NORMALISE_CONV)
-        tm
+        REWR_CONV good_label_map_nil tm
   in f
   end
 
@@ -206,16 +203,10 @@ fun inst_labels_fn_conv ptdef map =
     ilconv
   end
 
-fun code_labels_conv tm =
+fun code_labels_conv th0 tm =
   let
     val (_,[l,code]) = strip_comb tm
     val pt = collect_labels code l
-    val _ = print "proving IS_PTREE hypothesis: "
-    val th1 = time
-                (with_flag(patriciaLib.is_ptree_term_size_limit,~1)
-                   patriciaLib.PTREE_IS_PTREE_CONV)
-                (patriciaSyntax.mk_is_ptree pt)
-              |> EQT_ELIM
     val _ = print "hiding list tails: "
     val (codeth,map) = time (hide_list_chunks_conv 100) code
     val codeabb = rhs(concl codeth)
@@ -226,13 +217,12 @@ fun code_labels_conv tm =
                  [codeabb,
                   numSyntax.zero_tm,
                   l,
-                  ptabb,
-                  listSyntax.mk_nil numSyntax.num])
+                  ptabb])
     val _ = print "proving good_label_map hypothesis: "
     val th2 = time (good_label_map_conv ptdef map) tm2 |> EQT_ELIM
     val th3 = SPECL [ptabb,l,codeabb] inst_labels_fn_intro
-    val th0 = CONV_RULE(RAND_CONV(REWR_CONV(SYM ptdef))) th1
-    val th4 = PROVE_HYP (CONJ th2 th0) (UNDISCH th3)
+    val th1 = CONV_RULE(RAND_CONV(REWR_CONV codeth)) th0
+    val th4 = PROVE_HYP (CONJ th2 th1) (UNDISCH th3)
     val th5 = CONV_RULE(LAND_CONV(RAND_CONV(REWR_CONV(SYM codeth)))) th4
     val _ = print "evaluating inst_labels_fn: "
     val th6 = time (RIGHT_CONV_RULE (inst_labels_fn_conv ptdef map)) th5

@@ -25,15 +25,25 @@ val call_repl_step_dec_compiled = save_thm("call_repl_step_dec_compiled",
 
 val inst_length_def = Define`inst_length i = 0` (* TODO: replace with real one *)
 
+val code_labels_ok_bootstrap_lcode =
+  ASSUME ``code_labels_ok bootstrap_lcode``
+  |> CONV_RULE(RAND_CONV(REWR_CONV bootstrap_lcode_def))
+
 val code_labels_bootstrap_lcode = save_thm("code_labels_bootstrap_lcode",
-  (RAND_CONV(REWR_CONV bootstrap_lcode_def) THENC code_labels_conv)
+  (RAND_CONV(REWR_CONV bootstrap_lcode_def)
+   THENC code_labels_conv code_labels_ok_bootstrap_lcode)
     ``code_labels inst_length bootstrap_lcode``)
 
 val call_lcode_def = new_definition("call_lcode_def",
   mk_eq(``call_lcode:bc_inst list``,rand(rand(rator(rand(rand(rand(rand(rhs(concl(call_repl_step_dec_compiled)))))))))))
 
+val code_labels_ok_call_lcode =
+  ASSUME ``code_labels_ok call_lcode``
+  |> CONV_RULE(RAND_CONV(REWR_CONV call_lcode_def))
+
 val code_labels_call_lcode = save_thm("code_labels_call_lcode",
-  (RAND_CONV(REWR_CONV call_lcode_def) THENC code_labels_conv)
+  (RAND_CONV(REWR_CONV call_lcode_def)
+   THENC code_labels_conv code_labels_ok_call_lcode)
     ``code_labels inst_length call_lcode``)
 
 val _ = export_theory()
