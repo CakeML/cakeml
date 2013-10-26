@@ -497,7 +497,7 @@ fun collect_labels_conv net =
                      THENC (RATOR_CONV(RAND_CONV(clconv))))
                 else
                   let
-                    val th = hd (Net.match con collect_labels_others)
+                    val th = hd (Net.index con collect_labels_others)
                   in
                     ((fn tm => SPECL (args@[xs,p,l]) th)
                      THENC (RATOR_CONV(RAND_CONV(EVAL)))
@@ -508,7 +508,7 @@ fun collect_labels_conv net =
             end
         else
           let
-            val def = hd (Net.match xs net)
+            val def = hd (Net.index xs net)
             val conv =
               ((RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV def))))
                THENC clconv)
@@ -544,7 +544,7 @@ fun inst_labels_conv fm_def net =
           then
             let
               val (x,xs) = listSyntax.dest_cons ls
-              val th = hd (Net.match x inst_labels_cons)
+              val th = hd (Net.index x inst_labels_cons)
               val conv =
                 if fst(dest_const(fst(strip_comb x))) = "Label"
                   then ilconv
@@ -558,7 +558,7 @@ fun inst_labels_conv fm_def net =
             end
         else
           let
-            val def = hd (Net.match ls net)
+            val def = hd (Net.index ls net)
           in
             (RAND_CONV(REWR_CONV def)
              THENC ilconv)
