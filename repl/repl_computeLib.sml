@@ -365,7 +365,6 @@ fun get_flookup_eqns conv th =
           |> RIGHT_CONV_RULE
                (RATOR_CONV(RATOR_CONV(RAND_CONV conv))
                 THENC REWR_CONV cond1)
-          |> ALL_HYP_CONV_RULE conv
         val neq = boolSyntax.mk_neg(boolSyntax.mk_eq(k,x))
         val eq2 = th
           |> RIGHT_CONV_RULE
@@ -412,6 +411,7 @@ fun doit i (lastfm_def, defs, th) = let
   val (new_th0, fm_conv, new_fmdef) = time (extract_fmap 20 EVAL) (rhs (concl th20_fm))
   val new_th = TRANS th20_fm new_th0
   val _ = computeLib.add_convs [fm_conv]
+  val new_th = ALL_HYP_CONV_RULE EVAL new_th
   val _ = PolyML.fullGC()
 in
   (new_fmdef, defs', new_th)
@@ -564,7 +564,10 @@ fun code_labels_conv tm = let
   val _ = computeLib.add_convs [fm_conv]
   val _ = PolyML.fullGC()
   val new_th = TRANS th thx
-in CONV_RULE (RAND_CONV (inst_labels_conv net)) new_th end
+  val th2 = CONV_RULE (RAND_CONV (inst_labels_conv net)) new_th
+in
+  ALL_HYP_CONV_RULE numLib.REDUCE_CONV th2
+end
 
 (*
 local
