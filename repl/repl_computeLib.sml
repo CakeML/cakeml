@@ -283,13 +283,17 @@ val t = ``foo (bar baz) ^fm x``
 
 val [cond1,cond2] = CONJUNCTS bool_case_thm
 
-fun flookup_fupdate_conv tm =
-  TRY_CONV
-  (REWR_CONV FLOOKUP_UPDATE
-   THENC (RATOR_CONV(RATOR_CONV(RAND_CONV EVAL)))
-   THENC (REWR_CONV cond1 ORELSEC REWR_CONV cond2)
-   THENC flookup_fupdate_conv)
-  tm
+fun flookup_fupdate_conv eqconv =
+  let
+    fun f tm =
+      TRY_CONV
+        (REWR_CONV FLOOKUP_UPDATE
+         THENC (RATOR_CONV(RATOR_CONV(RAND_CONV eqconv)))
+         THENC (REWR_CONV cond1 ORELSEC REWR_CONV cond2)
+         THENC f)
+      tm
+  in f
+  end
 
 (* TODO: MOVE THIS to Drule *)
   local
@@ -527,7 +531,8 @@ val inst_labels_cons =
   Net.empty
   (CONJUNCTS(CONJUNCT2 inst_labels_def))
 
-fun inst_labels_conv net =
+val ffconv = flookup_fupdate_conv numeq_conv
+fun inst_labels_conv fm_def net =
   let
     fun ilconv tm =
       let
@@ -543,7 +548,8 @@ fun inst_labels_conv net =
               val conv =
                 if fst(dest_const(fst(strip_comb x))) = "Label"
                   then ilconv
-                else RATOR_CONV(RAND_CONV EVAL)
+                else RATOR_CONV(RAND_CONV(TRY_CONV(RATOR_CONV(RAND_CONV(REWR_CONV fm_def))
+                                                   THENC ffconv)))
                      THENC (RAND_CONV ilconv)
             in
               (REWR_CONV th
@@ -570,13 +576,9 @@ fun code_labels_conv tm = let
             THENC REWR_CONV code_labels_def
             THENC (RATOR_CONV(RAND_CONV (all_labels_conv net))))
            tm
-  val _ = print "extracting labels finite-map "
-  val _ = PolyML.fullGC()
-  val (thx, fm_conv, new_fmdef) = time (extract_fmap 0 numeq_conv I) (rhs (concl th))
-  val _ = computeLib.add_convs [fm_conv]
-  val _ = PolyML.fullGC()
-  val new_th = TRANS th thx
-  val th2 = CONV_RULE (RAND_CONV (inst_labels_conv net)) new_th
+  val fm_def = mk_def(rand(rator(rhs(concl(th)))))
+  val new_th = RIGHT_CONV_RULE (RATOR_CONV(RAND_CONV(REWR_CONV(SYM fm_def)))) th
+  val th2 = RIGHT_CONV_RULE (inst_labels_conv fm_def net) new_th
 in
   ALL_HYP_CONV_RULE numeq_conv th2
 end
