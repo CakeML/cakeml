@@ -437,7 +437,7 @@ fun hide_list_chunks_conv chunk_size tm =
   let
     fun f n tm =
       if listSyntax.is_nil tm
-        then (REFL tm, Net.empty, [])
+        then (REFL tm, Redblackmap.mkDict(String.compare))
       else
         let
           val (x,xs) = listSyntax.dest_cons tm
@@ -445,22 +445,20 @@ fun hide_list_chunks_conv chunk_size tm =
           if n < chunk_size
             then
               let
-                val (th,net,ls) = f (n+1) xs
+                val (th,net) = f (n+1) xs
               in
                 (AP_TERM(mk_icomb(listSyntax.cons_tm,x)) th
-                ,net
-                ,ls)
+                ,net)
               end
           else
             let
-              val (th,net,ls) = f 0 xs
+              val (th,net) = f 0 xs
               val def = mk_def (listSyntax.mk_cons(x,rhs(concl th)))
               val const = lhs(concl def)
               val th = (REWR_CONV def THENC (RAND_CONV (REWR_CONV (SYM th)))) const
             in
               (SYM th
-              ,Net.insert(const,def)net
-              ,fst(dest_const const)::ls)
+              ,Redblackmap.insert(net,fst(dest_const const),def))
             end
         end
   in
@@ -474,10 +472,11 @@ val collect_labels_Label = CONJUNCT2 collect_labels_def |> SPEC ``Label l`` |> S
 val cases = CONJUNCT2 collect_labels_def |> SPEC_ALL |> concl |> rhs |> TypeBase.strip_case
   |> snd |> map fst |> filter (fn tm => fst(dest_const(fst(strip_comb tm))) <> "Label")
 val collect_labels_others =
-  foldl (fn (t,n) => Net.insert
-    (fst(strip_comb t)
-    ,CONJUNCT2 collect_labels_def |> SPEC t |> SIMP_RULE(srw_ss())[] |> GEN_ALL) n)
-  Net.empty cases
+  foldl (fn (t,n) => Redblackmap.insert
+    (n
+    ,fst(dest_const(fst(strip_comb t)))
+    ,CONJUNCT2 collect_labels_def |> SPEC t |> SIMP_RULE(srw_ss())[] |> GEN_ALL))
+  (Redblackmap.mkDict String.compare) cases
 
 fun collect_labels_conv net =
   let
@@ -492,14 +491,15 @@ fun collect_labels_conv net =
             let
               val (x,xs) = listSyntax.dest_cons xs
               val (con,args) = strip_comb x
+              val name = fst(dest_const con)
               val conv =
-                if fst(dest_const con) = "Label"
+                if name = "Label"
                   then
                     ((fn tm => SPECL [hd args,xs,p,l] collect_labels_Label)
                      THENC (RATOR_CONV(RAND_CONV(clconv))))
                 else
                   let
-                    val th = hd (Net.index con collect_labels_others)
+                    val th = Redblackmap.find(collect_labels_others,name)
                   in
                     ((fn tm => SPECL (args@[xs,p,l]) th)
                      THENC (RATOR_CONV(RAND_CONV(EVAL)))
@@ -510,7 +510,7 @@ fun collect_labels_conv net =
             end
         else
           let
-            val def = hd (Net.index xs net)
+            val def = Redblackmap.find(net,fst(dest_const xs))
             val conv =
               ((RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV def))))
                THENC clconv)
@@ -527,10 +527,12 @@ fun all_labels_conv net = REWR_CONV all_labels_def THENC (collect_labels_conv ne
 
 val inst_labels_nil = CONJUNCT1 inst_labels_def
 val inst_labels_cons =
-  foldl (fn (th,n) => Net.insert
-    (th |> concl |> strip_forall |> snd |> lhs |> rand |> rator |> rand,
-     th) n)
-  Net.empty
+  foldl (fn (th,n) => Redblackmap.insert
+    (n
+    ,th |> concl |> strip_forall |> snd |> lhs |> rand |> rator |> rand
+        |> strip_comb |> fst |> dest_const |> fst
+    ,th))
+  (Redblackmap.mkDict String.compare)
   (CONJUNCTS(CONJUNCT2 inst_labels_def))
 
 val ffconv = flookup_fupdate_conv numeq_conv
@@ -546,9 +548,10 @@ fun inst_labels_conv fm_def net =
           then
             let
               val (x,xs) = listSyntax.dest_cons ls
-              val th = hd (Net.index x inst_labels_cons)
+              val name = fst(dest_const(fst(strip_comb x)))
+              val th = Redblackmap.find(inst_labels_cons,name)
               val conv =
-                if fst(dest_const(fst(strip_comb x))) = "Label"
+                if name = "Label"
                   then ilconv
                 else RATOR_CONV(RAND_CONV(TRY_CONV(RATOR_CONV(RAND_CONV(REWR_CONV fm_def))
                                                    THENC ffconv)))
@@ -560,7 +563,7 @@ fun inst_labels_conv fm_def net =
             end
         else
           let
-            val def = hd (Net.index ls net)
+            val def = Redblackmap.find(net,fst(dest_const ls))
           in
             (RAND_CONV(REWR_CONV def)
              THENC ilconv)
@@ -573,7 +576,7 @@ fun inst_labels_conv fm_def net =
 
 fun code_labels_conv tm = let
   val (_,[l,code]) = strip_comb tm
-  val (codeth,net,names) = hide_list_chunks_conv 20 code
+  val (codeth,net) = hide_list_chunks_conv 20 code
   val th = (RAND_CONV(K codeth)
             THENC REWR_CONV code_labels_def
             THENC (RATOR_CONV(RAND_CONV (all_labels_conv net))))
@@ -582,7 +585,7 @@ fun code_labels_conv tm = let
   val new_th = RIGHT_CONV_RULE (RATOR_CONV(RAND_CONV(REWR_CONV(SYM fm_def)))) th
   val th2 = RIGHT_CONV_RULE (inst_labels_conv fm_def net) new_th
   val th3 = ALL_HYP_CONV_RULE numeq_conv th2
-  val _ = app delete_const names
+  val _ = Redblackmap.app (delete_const o fst) net
 in
   th3
 end
