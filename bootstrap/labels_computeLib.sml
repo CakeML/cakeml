@@ -216,7 +216,8 @@ fun code_labels_conv tm =
                    patriciaLib.PTREE_IS_PTREE_CONV)
                 (patriciaSyntax.mk_is_ptree pt)
               |> EQT_ELIM
-    val (codeth,map) = hide_list_chunks_conv 20 code
+    val _ = print "hiding list tails: "
+    val (codeth,map) = time (hide_list_chunks_conv 20) code
     val codeabb = rhs(concl codeth)
     val ptdef = mk_def pt
     val ptabb = lhs(concl ptdef)
