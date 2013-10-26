@@ -437,7 +437,7 @@ fun hide_list_chunks_conv chunk_size tm =
   let
     fun f n tm =
       if listSyntax.is_nil tm
-        then (REFL tm, Net.empty)
+        then (REFL tm, Net.empty, [])
       else
         let
           val (x,xs) = listSyntax.dest_cons tm
@@ -445,20 +445,22 @@ fun hide_list_chunks_conv chunk_size tm =
           if n < chunk_size
             then
               let
-                val (th,net) = f (n+1) xs
+                val (th,net,ls) = f (n+1) xs
               in
                 (AP_TERM(mk_icomb(listSyntax.cons_tm,x)) th
-                ,net)
+                ,net
+                ,ls)
               end
           else
             let
-              val (th,net) = f 0 xs
+              val (th,net,ls) = f 0 xs
               val def = mk_def (listSyntax.mk_cons(x,rhs(concl th)))
               val const = lhs(concl def)
               val th = (REWR_CONV def THENC (RAND_CONV (REWR_CONV (SYM th)))) const
             in
               (SYM th
-              ,Net.insert(const,def)net)
+              ,Net.insert(const,def)net
+              ,fst(dest_const const)::ls)
             end
         end
   in
@@ -571,7 +573,7 @@ fun inst_labels_conv fm_def net =
 
 fun code_labels_conv tm = let
   val (_,[l,code]) = strip_comb tm
-  val (codeth,net) = hide_list_chunks_conv 20 code
+  val (codeth,net,names) = hide_list_chunks_conv 20 code
   val th = (RAND_CONV(K codeth)
             THENC REWR_CONV code_labels_def
             THENC (RATOR_CONV(RAND_CONV (all_labels_conv net))))
@@ -579,8 +581,10 @@ fun code_labels_conv tm = let
   val fm_def = mk_def(rand(rator(rhs(concl(th)))))
   val new_th = RIGHT_CONV_RULE (RATOR_CONV(RAND_CONV(REWR_CONV(SYM fm_def)))) th
   val th2 = RIGHT_CONV_RULE (inst_labels_conv fm_def net) new_th
+  val th3 = ALL_HYP_CONV_RULE numeq_conv th2
+  val _ = app delete_const names
 in
-  ALL_HYP_CONV_RULE numeq_conv th2
+  th3
 end
 
 (*
