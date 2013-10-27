@@ -57,7 +57,6 @@ val good_label_map_Lab =
   good_label_map_clauses
   |> CONJUNCT2 |> CONJUNCT2 |> CONJUNCTS
   |> zip ["PushPtr","Call","Jump","JumpIf"]
-  |> Redblackmap.fromList String.compare
 val good_label_map_others =
   good_label_map_def
   |> SIMP_RULE (srw_ss()) []
@@ -72,7 +71,6 @@ val good_label_map_others =
          (fst(dest_const(fst(strip_comb tm)))
          ,th |> SPEC_ALL |> Q.GEN`u` |> SPEC tm |> SIMP_RULE (srw_ss()) [])
        end)
-  |> Redblackmap.fromList String.compare
 
 val and1 = CONJUNCT1 (SPEC_ALL AND_CLAUSES)
 
@@ -106,11 +104,11 @@ fun good_label_map_conv lconv ptdef =
                 REWR_CONV good_label_map_Label
                 THENC ptconv
             else
-              REWR_CONV (Redblackmap.find(good_label_map_others,name))
+              REWR_CONV (assoc name good_label_map_others)
               THENC pconv
               handle
-                NotFound =>
-                  REWR_CONV (Redblackmap.find(good_label_map_Lab,name))
+                HOL_ERR _ =>
+                  REWR_CONV (assoc name good_label_map_Lab)
                   THENC ptconv
                   THENC pconv
           end
