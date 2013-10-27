@@ -1,7 +1,10 @@
 structure labels_computeLib = struct
 open HolKernel repl_computeLib bytecodeLabelsTheory labels_computeTheory patriciaLib
 
-fun collect_labels code l =
+val Addr_tm = ``Addr``
+fun mk_Addr x = mk_comb(Addr_tm,x)
+
+fun ml_code_labels lconv code l =
   let
     fun f [] p acc = acc
       | f (x::xs) p acc =
@@ -13,23 +16,174 @@ fun collect_labels code l =
               let
                 val n = numSyntax.dest_numeral(hd args)
               in
-                f xs p (patriciaLib.add acc (n,p))
+                f xs p (patriciaLib.add acc (n,numSyntax.mk_numeral p))
               end
           else
             let
-              val p = numSyntax.mk_suc(numSyntax.mk_plus(p,mk_comb(l,x)))
+              val lx = numSyntax.dest_numeral(rhs(concl(lconv(mk_comb(l,x)))))
             in
-              f xs (rhs(concl(EVAL p))) acc
+              f xs (Arbnum.+(p,Arbnum.plus1(lx))) acc
             end
         end
+    val (codels,ty) = listSyntax.dest_list code
+    val pt = f codels Arbnum.zero patriciaLib.empty
+    fun g [] acc = List.rev acc
+      | g (x::xs) acc =
+        let
+          val (con,args) = strip_comb x
+        in
+          if fst(dest_const con) = "Label"
+            then g xs acc
+          else
+            let
+              val [arg] = args
+              val (lab,[n]) = strip_comb arg
+              val ("Lab",_) = dest_const lab
+              val SOME m = patriciaLib.peek pt (numSyntax.dest_numeral n)
+            in
+              g xs ((mk_comb(con,mk_Addr m))::acc)
+            end
+            handle Bind => g xs (x::acc)
+        end
   in
-    patriciaLib.mk_ptree
-      (f (fst(listSyntax.dest_list code)) numSyntax.zero_tm patriciaLib.empty)
+    (patriciaLib.mk_ptree pt
+    ,listSyntax.mk_list(g codels [],ty))
   end
+
+val good_label_map_tm = ``good_label_map``
+val good_label_map_nil = CONJUNCT1 good_label_map_clauses
+val good_label_map_Label = CONJUNCT1 (CONJUNCT2 good_label_map_clauses)
+val good_label_map_Lab =
+  good_label_map_clauses
+  |> CONJUNCT2 |> CONJUNCT2 |> CONJUNCTS
+  |> zip ["PushPtr","Call","Jump","JumpIf"]
+  |> Redblackmap.fromList String.compare
+val good_label_map_others =
+  good_label_map_def
+  |> SIMP_RULE (srw_ss()) []
+  |> CONJUNCTS |> tl
+  |> filter (not o is_neg o snd o strip_forall o concl)
+  |> filter (not o C mem ["Label","PushPtr","Call","Jump","JumpIf"] o fst o dest_const o fst o strip_comb o rand o rator
+             o rand o rator o rator o rator o rator o lhs o snd o strip_forall o concl)
+  |> map (fn th =>
+       let
+         val tm = th |> concl |> strip_forall |> snd |> rhs |> rator |> rand |> lhs
+       in
+         (fst(dest_const(fst(strip_comb tm)))
+         ,th |> SPEC_ALL |> Q.GEN`u` |> SPEC tm |> SIMP_RULE (srw_ss()) [])
+       end)
+  |> Redblackmap.fromList String.compare
+
+val and1 = CONJUNCT1 (SPEC_ALL AND_CLAUSES)
+
+fun good_label_map_conv lconv ptdef =
+  let
+    val ptconv =
+          LAND_CONV
+            (LAND_CONV
+               (RATOR_CONV(RAND_CONV(REWR_CONV ptdef))
+                THENC patriciaLib.PTREE_CONV)
+             THENC REWR_CONV REFL_CLAUSE)
+          THENC REWR_CONV and1
+    val pconv =
+          RATOR_CONV
+            (RATOR_CONV
+               (RAND_CONV
+                  (RAND_CONV(RAND_CONV lconv)
+                   THENC numLib.REDUCE_CONV)))
+    fun f count tm =
+      let
+        val _ = if count mod 1000 = 0 then print ((Int.toString count)^"..") else ()
+        val (_,[ls,us,p,l,pt]) = strip_comb tm
+        val conv =
+          let
+            val (x,xs) = listSyntax.dest_cons ls
+            val (con,args) = strip_comb x
+            val name = fst(dest_const con)
+          in
+            if name = "Label"
+              then
+                REWR_CONV good_label_map_Label
+                THENC ptconv
+            else
+              REWR_CONV (Redblackmap.find(good_label_map_others,name))
+              THENC pconv
+              handle
+                NotFound =>
+                  REWR_CONV (Redblackmap.find(good_label_map_Lab,name))
+                  THENC ptconv
+                  THENC pconv
+          end
+          (*
+          | e as HOL_ERR _ =>
+            if listSyntax.is_nil ls
+              then raise e
+            else
+              let
+                val name = fst(dest_const ls)
+                val _ = print (" expanding "^name)
+              in
+                Redblackmap.find(map,name) |> REWR_CONV |> RAND_CONV
+                  |> RATOR_CONV |> RATOR_CONV |> RATOR_CONV
+              end
+           *)
+      in
+        (conv THENC (f (count+1))) tm
+      end
+      handle HOL_ERR _ =>
+        REWR_CONV good_label_map_nil tm
+  in f 0
+  end
+
+fun code_labels_conv th0 lconv tm =
+  let
+    val (_,[l,code]) = strip_comb tm
+    val (pt,us) = ml_code_labels lconv code l
+    val ptdef = mk_def pt
+    val ptabb = lhs(concl ptdef)
+    val th = SPECL [ptabb,l,code,us] code_labels_elim
+    val tm2 = list_mk_comb
+                (good_label_map_tm,
+                 [code, us,
+                  numSyntax.zero_tm,
+                  l, ptabb])
+    val _ = print "proving good_label_map hypothesis: "
+    val th2 = time (good_label_map_conv lconv ptdef) tm2 |> EQT_ELIM
+    val _ = delete_const (fst (dest_const ptabb))
+  in
+    MP th (CONJ th2 th0)
+  end
+
+(*
+    val _ = print "hiding list tails: "
+    val (codeth,map) = time (hide_list_chunks_conv 100) code
+    val codeabb = rhs(concl codeth)
+    val ptdef = mk_def pt
+    val ptabb = lhs(concl ptdef)
+    val tm2 = list_mk_comb
+                (good_label_map_tm,
+                 [codeabb,
+                  numSyntax.zero_tm,
+                  l,
+                  ptabb])
+    val _ = print "proving good_label_map hypothesis: "
+    val th2 = time (good_label_map_conv ptdef map) tm2 |> EQT_ELIM
+    val th3 = SPECL [ptabb,l,codeabb] inst_labels_fn_intro
+    val th1 = CONV_RULE(RAND_CONV(REWR_CONV codeth)) th0
+    val th4 = PROVE_HYP (CONJ th2 th1) (UNDISCH th3)
+    val th5 = CONV_RULE(LAND_CONV(RAND_CONV(REWR_CONV(SYM codeth)))) th4
+    val _ = print "evaluating inst_labels_fn: "
+    val th6 = time (RIGHT_CONV_RULE (inst_labels_fn_conv ptdef map)) th5
+    val _ = Redblackmap.app (delete_const o fst) map
+    val _ = delete_const (fst (dest_const ptabb))
+  in
+    th6
+  end
+*)
 
 val stringDict : (string,thm) Redblackmap.dict = Redblackmap.mkDict String.compare
 
-val good_label_map_tm = ``good_label_map``
+(*
 val good_label_map_nil = CONJUNCT1 good_label_map_def
 val good_label_map_Label = good_label_map_def |> CONJUNCT2 |> CONJUNCT1
 val cases = good_label_map_def |> CONJUNCT2 |> CONJUNCT2 |> CONJUNCTS
@@ -45,52 +199,9 @@ val good_label_map_others =
         ,th)
     end)
   stringDict cases
+*)
 
-val and1 = CONJUNCT1 (SPEC_ALL AND_CLAUSES)
-
-fun good_label_map_conv ptdef map =
-  let
-    fun f tm =
-      let
-        val (_,[ls,p,l,pf]) = strip_comb tm
-        val conv =
-          let
-            val (x,xs) = listSyntax.dest_cons ls
-            val (con,args) = strip_comb x
-            val name = fst(dest_const con)
-          in
-            if name = "Label"
-              then
-                REWR_CONV good_label_map_Label
-                THENC LAND_CONV
-                  (LAND_CONV
-                     (RATOR_CONV(RAND_CONV(REWR_CONV ptdef))
-                      THENC patriciaLib.PTREE_CONV)
-                   THENC REWR_CONV REFL_CLAUSE)
-                THENC REWR_CONV and1
-            else
-              REWR_CONV (Redblackmap.find(good_label_map_others,name))
-              THENC RATOR_CONV(RATOR_CONV(RAND_CONV EVAL))
-          end
-          handle e as HOL_ERR _ =>
-            if listSyntax.is_nil ls
-              then raise e
-            else
-              let
-                val name = fst(dest_const ls)
-                val _ = print (" expanding "^name)
-              in
-                Redblackmap.find(map,name) |> REWR_CONV |> RAND_CONV
-                  |> RATOR_CONV |> RATOR_CONV |> RATOR_CONV
-              end
-      in
-        (conv THENC f) tm
-      end
-      handle HOL_ERR _ =>
-        REWR_CONV good_label_map_nil tm
-  in f
-  end
-
+(*
 fun hide_list_chunks_conv chunk_size tm =
   let
     fun f n tm =
@@ -202,35 +313,7 @@ fun inst_labels_fn_conv ptdef map =
   in
     ilconv
   end
-
-fun code_labels_conv th0 tm =
-  let
-    val (_,[l,code]) = strip_comb tm
-    val pt = collect_labels code l
-    val _ = print "hiding list tails: "
-    val (codeth,map) = time (hide_list_chunks_conv 100) code
-    val codeabb = rhs(concl codeth)
-    val ptdef = mk_def pt
-    val ptabb = lhs(concl ptdef)
-    val tm2 = list_mk_comb
-                (good_label_map_tm,
-                 [codeabb,
-                  numSyntax.zero_tm,
-                  l,
-                  ptabb])
-    val _ = print "proving good_label_map hypothesis: "
-    val th2 = time (good_label_map_conv ptdef map) tm2 |> EQT_ELIM
-    val th3 = SPECL [ptabb,l,codeabb] inst_labels_fn_intro
-    val th1 = CONV_RULE(RAND_CONV(REWR_CONV codeth)) th0
-    val th4 = PROVE_HYP (CONJ th2 th1) (UNDISCH th3)
-    val th5 = CONV_RULE(LAND_CONV(RAND_CONV(REWR_CONV(SYM codeth)))) th4
-    val _ = print "evaluating inst_labels_fn: "
-    val th6 = time (RIGHT_CONV_RULE (inst_labels_fn_conv ptdef map)) th5
-    val _ = Redblackmap.app (delete_const o fst) map
-    val _ = delete_const (fst (dest_const ptabb))
-  in
-    th6
-  end
+*)
 
 (*
 val collect_labels_nil = CONJUNCT1 collect_labels_def

@@ -23,7 +23,7 @@ val call_repl_step_dec_compiled = save_thm("call_repl_step_dec_compiled",
     let cs = SND(SND(SND(SND(compile_repl_decs)))) in
   compile_dec FEMPTY m env rsz <|out:=[];next_label:=cs.next_label|> call_repl_step_dec``);
 
-val inst_length_def = Define`inst_length i = 0` (* TODO: replace with real one *)
+val inst_length_def = Define`inst_length (i:bc_inst) = (0:num)` (* TODO: replace with real one *)
 
 val code_labels_ok_bootstrap_lcode =
   ASSUME ``code_labels_ok bootstrap_lcode``
@@ -31,7 +31,7 @@ val code_labels_ok_bootstrap_lcode =
 
 val code_labels_bootstrap_lcode = save_thm("code_labels_bootstrap_lcode",
   (RAND_CONV(REWR_CONV bootstrap_lcode_def)
-   THENC code_labels_conv code_labels_ok_bootstrap_lcode)
+   THENC code_labels_conv code_labels_ok_bootstrap_lcode (REWR_CONV inst_length_def))
     ``code_labels inst_length bootstrap_lcode``)
 
 val call_lcode_def = new_definition("call_lcode_def",
@@ -43,7 +43,7 @@ val code_labels_ok_call_lcode =
 
 val code_labels_call_lcode = save_thm("code_labels_call_lcode",
   (RAND_CONV(REWR_CONV call_lcode_def)
-   THENC code_labels_conv code_labels_ok_call_lcode)
+   THENC code_labels_conv code_labels_ok_call_lcode (REWR_CONV inst_length_def))
     ``code_labels inst_length call_lcode``)
 
 val _ = export_theory()
