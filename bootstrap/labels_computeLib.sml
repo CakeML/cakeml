@@ -74,13 +74,38 @@ val good_label_map_others =
 
 val and1 = CONJUNCT1 (SPEC_ALL AND_CLAUSES)
 
+val memoref = ref (Redblackmap.mkDict Arbnum.compare)
+
+fun peekconv ptdef =
+  let
+    val conv =
+          (RATOR_CONV(RAND_CONV(REWR_CONV ptdef))
+           THENC patriciaLib.PTREE_PEEK_CONV)
+    fun f tm =
+      let
+        val memo = !memoref
+        val (_,[pt,nt]) = strip_comb tm
+        val n = numSyntax.dest_numeral nt
+      in
+        case Redblackmap.peek(memo,n) of
+          SOME th => th
+        | NONE =>
+          let
+            val th = conv tm
+            val _ = memoref := Redblackmap.insert(memo,n,th)
+          in
+            th
+          end
+      end
+  in f
+  end
+
 fun good_label_map_conv lconv ptdef =
   let
+    val _ = memoref := Redblackmap.mkDict Arbnum.compare
     val ptconv =
           LAND_CONV
-            (LAND_CONV
-               (RATOR_CONV(RAND_CONV(REWR_CONV ptdef))
-                THENC patriciaLib.PTREE_PEEK_CONV)
+            (LAND_CONV (peekconv ptdef)
              THENC REWR_CONV REFL_CLAUSE)
           THENC REWR_CONV and1
     val pconv =
