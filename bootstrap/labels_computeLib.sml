@@ -82,7 +82,7 @@ fun good_label_map_conv lconv ptdef =
           LAND_CONV
             (LAND_CONV
                (RATOR_CONV(RAND_CONV(REWR_CONV ptdef))
-                THENC patriciaLib.PTREE_CONV)
+                THENC patriciaLib.PTREE_PEEK_CONV)
              THENC REWR_CONV REFL_CLAUSE)
           THENC REWR_CONV and1
     val pconv =
