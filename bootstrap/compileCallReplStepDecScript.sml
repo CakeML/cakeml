@@ -35,7 +35,7 @@ val code_labels_bootstrap_lcode = save_thm("code_labels_bootstrap_lcode",
     ``code_labels inst_length bootstrap_lcode``)
 
 val call_lcode_def = new_definition("call_lcode_def",
-  mk_eq(``call_lcode:bc_inst list``,rand(rand(rator(rand(rand(rand(rand(rhs(concl(call_repl_step_dec_compiled)))))))))))
+  mk_eq(``call_lcode:bc_inst list``,rand(rand(rator(rand(rhs(concl(call_repl_step_dec_compiled))))))))
 
 val code_labels_ok_call_lcode =
   ASSUME ``code_labels_ok call_lcode``
