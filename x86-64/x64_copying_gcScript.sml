@@ -12,6 +12,7 @@ open addressTheory
 
 infix \\ val op \\ = op THEN;
 
+
 (* invariant informally:
      Unused -- don't care
      ForwardPointer -- head contains ptr, rest don't care
@@ -285,6 +286,7 @@ val x64_move_thm = prove(
          (x64_heap (b1 + n2w (8 * b)) heap' b2 b2 *
           one_list_exists (b1 + n2w (8 * b + 8 * heap_length heap')) n' *
           x64_heap b2 h2' b1 b2 * r) (fun2set (m1,dm))``,
+
   NTAC 11 STRIP_TAC
   \\ REVERSE (Cases_on `x2`)
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]

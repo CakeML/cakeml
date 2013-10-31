@@ -52,7 +52,11 @@ val _ = Hol_datatype ` (* called cs *)
                     print_ptr : word64 ;
                     code_heap_ptr : word64 ;
                     code_heap_length : num ;
-                    stack_trunk : word64 |>`;
+                    stack_trunk : word64 ;
+                    repl_setup_ptr : word64 ;
+                    repl_step_ptr : word64 ;
+                    lex_ptr : word64 ;
+                    install_and_run_ptr : word64 |>`;
 
 val consts_zero = Define `
   consts_zero = <| heap_limit := 0 ;
@@ -69,13 +73,25 @@ val consts_zero = Define `
                    print_ptr := 0w ;
                    code_heap_ptr := 0w ;
                    code_heap_length := 0 ;
-                   stack_trunk := 0w |>`;
+                   stack_trunk := 0w ;
+                   repl_setup_ptr := 0w ;
+                   repl_step_ptr := 0w ;
+                   lex_ptr := 0w ;
+                   install_and_run_ptr := 0w |>`;
+
+val _ = Hol_datatype ` (* called local *)
+  zheap_local = <| stop_addr : word64
+                 |> `;
+
+val local_zero_def = Define `
+  local_zero = <| stop_addr := 0w |>`;
 
 val _ = Hol_datatype ` (* called vs *)
   zheap_vars = <| current_heap : word64 ;
                   other_heap : word64 ;
                   base_ptr : word64 ;
-                  code_ptr : word64 |>`;
+                  code_ptr : word64 ;
+                  local : zheap_local |>`;
 
 val _ = Hol_datatype ` (* called s *)
   zheap_state = <| input : string ;
@@ -83,7 +99,8 @@ val _ = Hol_datatype ` (* called s *)
                    handler : num ;
                    base_offset : num ;
                    code_mode : bool option ;
-                   code : word8 list |>`;
+                   code : word8 list ;
+                   local : zheap_local |>`;
 
 val _ = Hol_datatype ` (* called vals *)
   x64_vals = <| reg0 : word64 ;
@@ -119,20 +136,24 @@ val heap_vars_ok_def = Define `
 val x64_store_def = Define `
   x64_store cs vs =
     one_list vs.base_ptr
-      [vs.current_heap;        (* pointer to currently used heap half *)
-       vs.other_heap;          (* pointer to the other heap half *)
-       n2w (cs.heap_limit);    (* size of each heap half *)
-       cs.putchar_ptr;         (* pointer to C's putchar method *)
-       cs.getchar_ptr;         (* pointer to C's getchar method *)
-       cs.error_ptr;           (* pointer to abort code which writes error message *)
-       cs.alloc_ptr;           (* pointer to heap alloc routine *)
-       cs.bignum_ptr;          (* pointer to entry point for bignum library *)
-       cs.equal_ptr;           (* pointer to routine for rec equality check *)
-       cs.print_ptr;           (* pointer to routine for rec printing of bc_value *)
-       vs.code_ptr;            (* pointer to next free instruction slot *)
-       n2w cs.code_heap_length;(* size of code heap *)
-       cs.code_heap_ptr;
-       0w
+      [ vs.current_heap          (*   0 pointer to currently used heap half *)
+      ; vs.other_heap            (*   8 pointer to the other heap half *)
+      ; n2w (cs.heap_limit)      (*  16 size of each heap half *)
+      ; cs.putchar_ptr           (*  24 pointer to C's putchar method *)
+      ; cs.getchar_ptr           (*  32 pointer to C's getchar method *)
+      ; cs.error_ptr             (*  40 pointer to abort code which writes error message *)
+      ; cs.alloc_ptr             (*  48 pointer to heap alloc routine *)
+      ; cs.bignum_ptr            (*  56 pointer to entry point for bignum library *)
+      ; cs.equal_ptr             (*  64 pointer to routine for rec equality check *)
+      ; cs.print_ptr             (*  72 pointer to routine for rec printing of bc_value *)
+      ; vs.code_ptr              (*  80 pointer to next free instruction slot *)
+      ; n2w cs.code_heap_length  (*  88 size of code heap *)
+      ; cs.code_heap_ptr         (*  96 base of code heap *)
+      ; cs.repl_setup_ptr        (* 104 pointer to repl_step_setup code *)
+      ; cs.repl_step_ptr         (* 112 pointer to repl_step routine *)
+      ; cs.lex_ptr               (* 120 lexer *)
+      ; cs.install_and_run_ptr   (* 128 install and run bytecode *)
+      ; vs.local.stop_addr       (* 136 address where bc execution returns *)
       ]`;
 
 val not_0w_def = Define `not_0w = ~0w`;
@@ -184,6 +205,7 @@ val heap_inv_def = Define `
                     0x1w::cs.ret_address::cs.rest_of_stack) /\
       (vals.input_stream = MAP (n2w o ORD) (DROP 1 s.input)) /\
       (vals.output_stream = MAP (n2w o ORD) s.output) /\
+      (vs.local = s.local) /\
       heap_vars_ok vs`
 
 val zOPTION_CODE_HEAP_def = Define `
@@ -443,7 +465,8 @@ val first_s_def = Define `
        handler := 0 ;
        base_offset := 0 ;
        code_mode := SOME F ;
-       code := [] |>`
+       code := [] ;
+       local := local_zero |>`
 
 val first_cs_def = Define `
   first_cs (init:zheap_init) =
@@ -522,6 +545,14 @@ val (x64_setup_res, x64_setup_def, x64_setup_pre_def) = x64_compile `
     let m = (r0 + 0x50w =+ r12) m in
     let m = (r0 + 0x60w =+ r12) m in
     let m = (r0 + 0x68w =+ r14) m in
+    let r0 = r0 + 112w in
+    let m = (r0 =+ r14) m in
+    let r0 = r0 + 8w in
+    let m = (r0 =+ r14) m in
+    let r0 = r0 + 8w in
+    let m = (r0 =+ r14) m in
+    let r0 = r0 + 8w in
+    let m = (r0 =+ r14) m in
     let r0 = r14 in
     let r1 = r14 in
     let r2 = r14 in
@@ -568,7 +599,7 @@ val init_inv_IMP_heap_inv = prove(
   \\ SIMP_TAC std_ss [LET_DEF,init_inv_def] \\ STRIP_TAC
   \\ Q.ABBREV_TAC `heap_len = ^heap_len`
   \\ Q.ABBREV_TAC `curr = init.init_heap_ptr + n2w (8 * ^store_length)`
-  \\ `(vals.memory init.init_heap_ptr - n2w (ID 112)) >>> 4 = n2w heap_len` by
+  \\ `(vals.memory init.init_heap_ptr - n2w (ID 144)) >>> 4 = n2w heap_len` by
    (FULL_SIMP_TAC std_ss [one_list_def,APPEND] \\ SEP_R_TAC
     \\ UNABBREV_ALL_TAC \\ Cases_on `init.init_heap_size`
     \\ FULL_SIMP_TAC std_ss [w2n_n2w,WORD_SUB_INTRO,ID_def]
@@ -587,7 +618,8 @@ val init_inv_IMP_heap_inv = prove(
   \\ Q.LIST_EXISTS_TAC [`<| current_heap := curr;
                             other_heap := curr + n2w (8 * heap_len);
                             base_ptr := init.init_heap_ptr ;
-                            code_ptr := init.init_code_heap_ptr |>`,
+                            code_ptr := init.init_code_heap_ptr ;
+                            local := local_zero |>`,
        `Data 0w`,`Data 0w`,`Data 0w`,`Data 0w`,`[]`,
        `heap_expand heap_len`,`0`,`heap_len`]
   \\ FULL_SIMP_TAC std_ss [GSYM CONJ_ASSOC]
@@ -597,13 +629,13 @@ val init_inv_IMP_heap_inv = prove(
     \\ IMP_RES_TAC LESS_EQ_LENGTH
     \\ FULL_SIMP_TAC std_ss []
     \\ Cases_on `ys1` \\ FULL_SIMP_TAC std_ss [LENGTH]
-    \\ REVERSE (NTAC 5 (REPEAT (Cases_on `t` \\ FULL_SIMP_TAC std_ss [LENGTH])
+    \\ REVERSE (NTAC 10 (REPEAT (Cases_on `t` \\ FULL_SIMP_TAC std_ss [LENGTH])
                \\ REPEAT (Cases_on `t'` \\ FULL_SIMP_TAC std_ss [LENGTH])))
     THEN1 (SIMP_TAC std_ss [ADD1] \\ `F` by DECIDE_TAC)
     \\ FULL_SIMP_TAC (srw_ss()++sep_cond_ss) [APPEND,one_list_def,x64_store_def,
          EVAL ``consts_zero``,STAR_ASSOC,SEP_CLAUSES,SEP_EXISTS_THM,
          one_list_exists_def,cond_STAR]
-    \\ FULL_SIMP_TAC std_ss [x64_setup_pre_def,LET_DEF]
+    \\ FULL_SIMP_TAC std_ss [x64_setup_pre_def,LET_DEF,word_arith_lemma1]
     \\ SEP_R_TAC \\ SIMP_TAC std_ss []
     \\ Q.PAT_ASSUM `0x7w && init.init_heap_ptr = 0x0w` MP_TAC
     \\ blastLib.BBLAST_TAC)
@@ -626,7 +658,7 @@ val init_inv_IMP_heap_inv = prove(
   \\ `0x7w && curr + n2w (8 * heap_len) = 0x0w` by ALL_TAC THEN1
    (POP_ASSUM MP_TAC \\ SIMP_TAC std_ss [GSYM word_mul_n2w]
     \\ blastLib.BBLAST_TAC) \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC (srw_ss()) [x64_setup_def,LET_DEF,ID_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [x64_setup_def,LET_DEF,ID_def,local_zero_def]
   \\ STRIP_TAC THEN1
    (SIMP_TAC std_ss [reintro_word_sub64,GSYM (EVAL ``-16w:word64``)]
     \\ SIMP_TAC std_ss [WORD_SUB_INTRO,GSYM WORD_SUB_PLUS,word_add_n2w]
@@ -643,8 +675,8 @@ val init_inv_IMP_heap_inv = prove(
   \\ IMP_RES_TAC LESS_EQ_LENGTH
   \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `ys1` \\ FULL_SIMP_TAC std_ss [LENGTH]
-  \\ REVERSE (NTAC 5 (REPEAT (Cases_on `t` \\ FULL_SIMP_TAC std_ss [LENGTH])
-             \\ REPEAT (Cases_on `t'` \\ FULL_SIMP_TAC std_ss [LENGTH])))
+  \\ REVERSE (NTAC 10 (REPEAT (Cases_on `t` \\ FULL_SIMP_TAC std_ss [LENGTH])
+              \\ REPEAT (Cases_on `t'` \\ FULL_SIMP_TAC std_ss [LENGTH])))
   THEN1 (SIMP_TAC std_ss [ADD1] \\ `F` by DECIDE_TAC)
   \\ FULL_SIMP_TAC (srw_ss()++sep_cond_ss) [APPEND,one_list_def,x64_store_def,
        EVAL ``consts_zero``,STAR_ASSOC,SEP_CLAUSES,SEP_EXISTS_THM,
@@ -5340,7 +5372,7 @@ val zHEAP_NEXT_INPUT = let
     \\ SIMP_TAC std_ss [STAR_ASSOC,SEP_IMP_def,cond_STAR]
     \\ REPEAT STRIP_TAC \\ IMP_RES_TAC heap_inv_IMP
     \\ FULL_SIMP_TAC std_ss [heap_inv_def,x64_store_def,
-         one_list_def,word_arith_lemma1]
+         one_list_def,word_arith_lemma1,SEP_CLAUSES]
     \\ SEP_R_TAC \\ NTAC 2 (POP_ASSUM MP_TAC)
     \\ FULL_SIMP_TAC (std_ss++star_ss) [SEP_CLAUSES])
   val th = MP th lemma |> DISCH_ALL |> RW [AND_IMP_INTRO]
@@ -6758,7 +6790,10 @@ val x64_cons_loop_thm = prove(
   \\ FULL_SIMP_TAC std_ss [REVERSE_DEF,one_list_def,one_list_APPEND,SEP_CLAUSES]
   \\ FULL_SIMP_TAC std_ss [LENGTH_REVERSE,GSYM word_mul_n2w,GSYM word_add_n2w,
        AC WORD_ADD_COMM WORD_ADD_ASSOC, AC WORD_MULT_COMM WORD_MULT_ASSOC]
-  \\ SEP_R_TAC \\ FULL_SIMP_TAC (std_ss++star_ss) []);
+  \\ FULL_SIMP_TAC (std_ss++star_ss) []
+  \\ SEP_R_TAC \\ FULL_SIMP_TAC (std_ss++star_ss) []
+  \\ Q.PAT_ASSUM `r7 && 0x7w = 0x0w` MP_TAC
+  \\ blastLib.BBLAST_TAC);
 
 val LENGTH_APPEND_11 = prove(
   ``!xs xs1 ys ys1.
@@ -9014,8 +9049,6 @@ val zBC_Shift3 = zHEAP_GENERAL_Shift |> fix_code
 val small_offset_def = Define `
   small_offset n x =
     if n < 268435456:num then x else ^(get_code zBC_Error)`;
-
-type_of   ``x64``
 
 val x64_def = Define `
   (x64 i (Stack Pop) = ^(get_code zBC_Pop)) /\
@@ -12279,6 +12312,264 @@ val lex_until_semi_thm = prove(
 (*
 
 print_compiler_grammar();
+
+*)
+
+(* --- repl_step --- *)
+
+
+(*
+val DeclAssumExists_SNOC_Dlet_Fun = store_thm("DeclAssumExists_SNOC_Dlet_Fun",
+val DeclAssumExists_SNOC_Dlet = store_thm("DeclAssumExists_SNOC_Dlet",
+*)
+
+val DeclAssumExists_ml_repl_step_decls = prove(
+  ``DeclAssumExists ml_repl_step_decls``,
+  MP_TAC ml_repl_stepTheory.ml_repl_step_translator_state_thm
+  \\ REWRITE_TAC [markerTheory.Abbrev_def,ml_translatorTheory.TAG_def,AND_IMP_INTRO]
+  \\ STRIP_TAC
+  \\ Q.PAT_ASSUM `pp ==> DeclAssumExists xxx` MP_TAC
+  \\ REPEAT (POP_ASSUM (K ALL_TAC))
+  \\ REPEAT STRIP_TAC
+  \\ POP_ASSUM MATCH_MP_TAC
+  \\ FULL_SIMP_TAC std_ss [ml_translatorTheory.PRECONDITION_def]
+  \\ STRIP_TAC THEN1
+   (MP_TAC sideTheory.repl_step_side_thm
+    \\ FULL_SIMP_TAC std_ss [ml_repl_stepTheory.repl_step_side_def])
+  \\ cheat (* EqualityType (GRAMMAR_PARSETREE_TYPE ...) *) )
+
+val SNOC3 = prove(
+   ``xs ++ [x3;x2;x1] = SNOC x1 (SNOC x2 (SNOC x3 xs))``,
+  SRW_TAC [] []);
+
+val DeclAssumExists_repl_decs = prove(
+  ``DeclAssumExists repl_decs``,
+  SIMP_TAC std_ss [replDecsTheory.repl_decs_def,SNOC3]
+  \\ MATCH_MP_TAC ml_translatorTheory.DeclAssumExists_SNOC_Dlet_Fun
+  \\ MATCH_MP_TAC (MP_CANON DeclAssumExists_SNOC_Dlet_ALT)
+  \\ SIMP_TAC std_ss [ml_translatorTheory.Eval_def]
+  \\ SIMP_TAC (srw_ss()) [Once AltBigStepTheory.evaluate'_cases]
+  \\ SIMP_TAC (srw_ss()) [Once AltBigStepTheory.evaluate'_cases]
+  \\ SIMP_TAC (srw_ss()) [SemanticPrimitivesTheory.do_uapp_def,LET_DEF,
+                          SemanticPrimitivesTheory.store_alloc_def]
+  \\ MATCH_MP_TAC (MP_CANON DeclAssumExists_SNOC_Dlet_ALT)
+  \\ SIMP_TAC std_ss [ml_translatorTheory.Eval_def]
+  \\ SIMP_TAC (srw_ss()) [Once AltBigStepTheory.evaluate'_cases]
+  \\ SIMP_TAC (srw_ss()) [Once AltBigStepTheory.evaluate'_cases]
+  \\ SIMP_TAC (srw_ss()) [SemanticPrimitivesTheory.do_uapp_def,LET_DEF,
+                          SemanticPrimitivesTheory.store_alloc_def]
+  \\ SIMP_TAC (srw_ss()) [Once AltBigStepTheory.evaluate'_cases]
+  \\ SIMP_TAC std_ss [DeclAssumExists_ml_repl_step_decls]);
+
+val check_ctors_decs_ml_repl_step_decls = prove(
+  ``check_ctors_decs NONE init_envC ml_repl_step_decls``,
+  MP_TAC ml_repl_stepTheory.ml_repl_step_translator_state_thm
+  \\ REWRITE_TAC [markerTheory.Abbrev_def,ml_translatorTheory.TAG_def,AND_IMP_INTRO]
+  \\ STRIP_TAC);
+
+val decs_to_cenv_ml_repl_step_decls = let
+  val pat = ``decs_to_cenv NONE ml_repl_step_decls = xxx``
+  in ml_repl_stepTheory.ml_repl_step_translator_state_thm
+     |> RW [markerTheory.Abbrev_def,ml_translatorTheory.TAG_def]
+     |> CONJUNCTS
+     |> filter (fn th => can (match_term pat) (concl th)) |> hd end
+
+val check_ctors_decs_repl_decs = prove(
+  ``check_ctors_decs NONE init_envC repl_decs``,
+  SIMP_TAC std_ss [replDecsTheory.repl_decs_def,SNOC3]
+  \\ MATCH_MP_TAC (MP_CANON IMP_check_ctors_decs_SNOC)
+  \\ REVERSE STRIP_TAC THEN1 EVAL_TAC
+  \\ MATCH_MP_TAC (MP_CANON IMP_check_ctors_decs_SNOC)
+  \\ REVERSE STRIP_TAC THEN1 EVAL_TAC
+  \\ MATCH_MP_TAC (MP_CANON IMP_check_ctors_decs_SNOC)
+  \\ SIMP_TAC std_ss [check_ctors_decs_ml_repl_step_decls]
+  \\ EVAL_TAC
+  \\ REWRITE_TAC [decs_to_cenv_ml_repl_step_decls]
+  \\ EVAL_TAC);
+
+val repl_decs_lemma = prove(
+  ``(FV_decs repl_decs = ∅) ∧
+    (decs_cns NONE repl_decs = ∅) ∧
+    (∀i tds.
+        i < LENGTH repl_decs ∧
+        (EL i repl_decs = Dtype tds) ⇒
+        check_dup_ctors NONE
+          (decs_to_cenv NONE (TAKE i repl_decs) ++ init_envC)
+          tds) ∧
+    (∀i cn ts.
+        i < LENGTH repl_decs ∧
+        (EL i repl_decs = Dexn cn ts) ⇒
+        mk_id NONE cn ∉
+        set
+          (MAP FST
+             (decs_to_cenv NONE (TAKE i repl_decs) ++
+              init_envC)))``,
+  cheat);
+
+val evaluate_decs_repl_decs = let
+  val th = ml_translatorTheory.DeclAssumC_thm
+           |> RW [GSYM AND_IMP_INTRO]
+  val th = MATCH_MP th check_ctors_decs_repl_decs
+  val th = prove(``?cenv env. DeclAssumC repl_decs cenv env``,
+                 METIS_TAC [DeclAssumExists_repl_decs,th,DeclAssumExists_def])
+           |> RW [ml_translatorTheory.DeclAssumC_def,
+                  ml_translatorTheory.DeclsC_def]
+  in th end
+
+val compile_term_def = Define `
+  compile_term = (compile_decs NONE FEMPTY init_compiler_state.contab
+          <|bvars := []; mvars := FEMPTY;
+            cnmap := cmap init_compiler_state.contab|> [] 0
+          <|out := []; next_label := init_compiler_state.rnext_label|>
+          repl_decs)`;
+
+val new_compiler_state_def = Define `
+  new_compiler_state =
+  (init_compiler_state with
+            <|contab := FST compile_term;
+              renv :=
+                ZIP
+                  ((FST (SND compile_term)).bvars,
+                   REVERSE (GENLIST I (FST (... ... ))));
+              rsz := FST (SND (SND compile_term));
+              rnext_label := (SND (SND (... ... ))).next_label|>) `
+
+val new_compiler_state_def = Define `
+  new_compiler_state =
+    (init_compiler_state with
+            <|contab := FST compile_term;
+              renv :=
+                ZIP
+                  ((FST (SND compile_term)).bvars,
+                   REVERSE (GENLIST I (FST (SND (SND compile_term)))));
+              rsz := FST (SND (SND compile_term));
+              rnext_label :=
+                (SND (SND (SND compile_term))).next_label|>)`;
+
+val compile_decs_bc_eval = let
+  val th = replDecsProofsTheory.compile_repl_decs_thm |> GEN_ALL
+           |> Q.SPEC `repl_decs`
+           |> RW [repl_decs_lemma]
+  val lemma = prove(``(!x y z. P x y z ==> Q x y z) ==>
+                      (?y z x. P x y z) ==> ?x y z. Q x y z``, METIS_TAC [])
+  val th = MATCH_MP (HO_MATCH_MP lemma th)
+    (evaluate_decs_repl_decs |> RW [EVAL ``empty_store``])
+  in th |> SIMP_RULE std_ss [LET_DEF,GSYM compile_term_def]
+        |> CONV_RULE (DEPTH_CONV (PairRules.PBETA_CONV))
+        |> SIMP_RULE (srw_ss()) [GSYM new_compiler_state_def] end
+
+val code_labels_ok_bootstrap_lcode = let
+  val lemma1 =
+    ``<|out := code; next_label := n |>.out``
+    |> SIMP_CONV (srw_ss()) []
+  val lemma2 =
+    ``<|bvars := names; mvars := FEMPTY; cnmap := internal37|>.bvars``
+    |> SIMP_CONV (srw_ss()) []
+  val lemma3 = prove(
+    ``(?x. (y = x) /\ P x) ==> P y``,
+    SIMP_TAC std_ss []);
+  val th =
+    compilerProofsTheory.compile_decs_append_out
+    |> SPEC_ALL |> INST i |> SIMP_RULE (srw_ss()) [LET_DEF,repl_decs_lemma]
+    |> RW [compileReplDecsTheory.repl_decs_compiled,repl_computeTheory.compile_decs_FOLDL,LET_DEF]
+    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)
+    |> RW [lemma1,lemma2,GSYM miscTheory.SWAP_REVERSE_SYM]
+    |> HO_MATCH_MP lemma3 |> CONJUNCTS |> el 2
+
+    |> RW [bytecodeLabelsTheory.code_labels_ok_REVERSE]
+    |> CONV_RULE ((RAND_CONV o REWR_CONV) (GSYM compileCallReplStepDecTheory.bootstrap_lcode_def))
+  in th end
+
+val code_labels_bootstrap_lcode =
+  PROVE_HYP code_labels_ok_bootstrap_lcode
+  compileCallReplStepDecTheory.code_labels_bootstrap_lcode
+
+val compile_term_out_EQ_bootstrap_lcode = prove(
+  ``REVERSE (SND (SND (SND compile_term))).out = bootstrap_lcode``,
+  SIMP_TAC std_ss [compile_term_def]
+  \\ REWRITE_TAC [compileReplDecsTheory.repl_decs_compiled,
+       repl_computeTheory.compile_decs_FOLDL,LET_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ REWRITE_TAC [SND,FST,``<|out := code; next_label := n |>.out``
+                          |> SIMP_CONV (srw_ss()) []]
+  \\ REWRITE_TAC [compileCallReplStepDecTheory.bootstrap_lcode_def]
+  \\ cheat (* false!!! *));
+
+val next_addr_code_labels = prove(
+  ``length_ok l ==>
+    (next_addr l (code_labels l code) = next_addr l code)``,
+  FULL_SIMP_TAC std_ss [bytecodeLabelsTheory.code_labels_def]
+  \\ Q.SPEC_TAC (`all_labels l code`,`labs`)
+  \\ Induct_on `code` THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
+  \\ REPEAT STRIP_TAC \\ Cases_on `h` \\ TRY (Cases_on `l'`)
+  \\ FULL_SIMP_TAC (srw_ss()) [bytecodeLabelsTheory.inst_labels_def,
+       bytecodeLabelsTheory.length_ok_def]);
+
+val bc_eval_bootstrap_lcode = prove(
+  ``∃s cenv env.
+     ∀bs.
+       (bs.code = bootstrap_lcode) ∧ length_ok bs.inst_length /\
+       (bs.pc = 0) ∧ (bs.stack = []) ∧ (bs.clock = NONE) ⇒
+       ∃bs' rd.
+         (bc_eval (strip_labels bs) = SOME bs') ∧
+         (bs'.pc = next_addr bs.inst_length (strip_labels bs).code) ∧
+         env_rs [] (cenv ++ init_envC) (0,s) env new_compiler_state 0 rd bs'``,
+  STRIP_ASSUME_TAC compile_decs_bc_eval
+  \\ Q.LIST_EXISTS_TAC [`s`,`cenv`,`env`]
+  \\ REPEAT STRIP_TAC
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `bs`)
+  \\ FULL_SIMP_TAC std_ss []
+  \\ MATCH_MP_TAC IMP_IMP
+  \\ SIMP_TAC std_ss [compile_term_out_EQ_bootstrap_lcode]
+  \\ REPEAT STRIP_TAC
+  \\ Q.EXISTS_TAC `strip_labels bs'`
+  \\ Q.EXISTS_TAC `rd` \\ FULL_SIMP_TAC std_ss []
+  \\ STRIP_TAC THEN1
+   (MATCH_MP_TAC (MP_CANON bytecodeEvalTheory.RTC_bc_next_bc_eval)
+    \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+    \\ IMP_RES_TAC bytecodeLabelsTheory.bc_next_strip_labels_RTC
+    \\ FULL_SIMP_TAC std_ss []
+    \\ CCONTR_TAC
+    \\ FULL_SIMP_TAC std_ss []
+    \\ IMP_RES_TAC bytecodeLabelsTheory.bc_next_strip_IMP
+    \\ REVERSE (`length_ok bs'.inst_length` by ALL_TAC)
+    \\ FULL_SIMP_TAC std_ss [] THEN1 METIS_TAC []
+    \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
+    \\ FULL_SIMP_TAC std_ss [])
+  \\ FULL_SIMP_TAC (srw_ss()) [bytecodeLabelsTheory.strip_labels_def]
+  \\ FULL_SIMP_TAC std_ss [next_addr_code_labels]
+  \\ FULL_SIMP_TAC (srw_ss()) [compilerProofsTheory.env_rs_def,LET_DEF]
+  \\ Q.LIST_EXISTS_TAC [`Cenv`,`Cs`]
+  \\ FULL_SIMP_TAC (srw_ss()) [bytecodeLabelsTheory.strip_labels_def]
+  \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+  \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ cheat (* Ramana can you sort this out? *));
+
+
+(*
+
+val entire_x64_implementation_def = Define `
+  entire_x64_implementation p =
+    {(p:word64,[0x88w:word8])} UNION bignum_code (p + 999w)`;
+
+val out_def = Define `
+  (out (Diverge) = ("",F)) /\
+  (out (Terminate) = ("",T)) /\
+  (out (Result r rest) =
+     let (str,res) = out rest in
+       (r ++ str,res))`;
+
+val x64_correct = store_thm("x64_correct",
+  ``TEMPORAL X64_MODEL (entire_x64_implementation p)
+      (T_IMPLIES (INIT_STATE init)
+                 (T_DISJ (EVENTUALLY (SEP_EXISTS output result bools. zHEAP_OUTPUT (first_cs init,output) *
+                                         cond (repl bools init.init_input result /\ (out result = (output,T)))))
+                 (T_DISJ (ALWAYS (EVENTUALLY (SEP_EXISTS output result bools. zHEAP_OK output *
+                                         cond (repl bools init.init_input result /\ (out result = (output,F))))))
+                         (EVENTUALLY (SEP_EXISTS output rest result bools success. zHEAP_ERROR output *
+                                         cond (repl bools init.init_input result /\ (out result = (output ++ rest,success))))))))``,
+  cheat);
 
 *)
 

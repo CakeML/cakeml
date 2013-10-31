@@ -1136,9 +1136,9 @@ val DeclAssumExists_SNOC_Dlet_Fun = store_thm("DeclAssumExists_SNOC_Dlet_Fun",
        combine_dec_result_def]
   \\ FULL_SIMP_TAC std_ss [Decls_def] \\ METIS_TAC []);
 
-val DeclAssumExists_SNOC_Dlet = store_thm("DeclAssumExists_SNOC_Dlet",
+val DeclAssumExists_SNOC_Dlet_ALT = store_thm("DeclAssumExists_SNOC_Dlet_ALT",
   ``!ds name n exp P.
-      (!env. DeclAssum ds env ==> Eval env exp P) ==>
+      (!env s1. DeclAssum ds env ==> ?res s. evaluate' s1 env exp (s,Rval res)) ==>
       DeclAssumExists ds ==>
       DeclAssumExists (SNOC (Dlet (Pvar name) exp) ds)``,
   SIMP_TAC std_ss [DeclAssumExists_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
@@ -1151,8 +1151,15 @@ val DeclAssumExists_SNOC_Dlet = store_thm("DeclAssumExists_SNOC_Dlet",
   \\ SIMP_TAC std_ss [merge_def,APPEND_NIL]
   \\ SIMP_TAC (srw_ss()) [pmatch'_def,ALL_DISTINCT,pat_bindings_def,
        combine_dec_result_def]
-  \\ FULL_SIMP_TAC std_ss [Decls_def,Eval_def,evaluate'_empty_store_EQ]
+  \\ FULL_SIMP_TAC std_ss [Decls_def,Eval_def]
   \\ METIS_TAC []);
+
+val DeclAssumExists_SNOC_Dlet = store_thm("DeclAssumExists_SNOC_Dlet",
+  ``!ds name n exp P.
+      (!env. DeclAssum ds env ==> Eval env exp P) ==>
+      DeclAssumExists ds ==>
+      DeclAssumExists (SNOC (Dlet (Pvar name) exp) ds)``,
+  METIS_TAC [evaluate'_empty_store_EQ,Eval_def,DeclAssumExists_SNOC_Dlet_ALT])
 
 val DeclAssumExists_SNOC_Dletrec = store_thm("DeclAssumExists_SNOC_Dletrec",
   ``!funs ds.
