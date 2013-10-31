@@ -1,5 +1,5 @@
 INCLUDES = ../bytecode/ ../semantics/ ../parsing/ ../repl/ ../repl/proofs/ \
-           ../compiler/proofs/ \
+           ../compiler/proofs/ ../bootstrap/ ../translator/repl/ ../translator/ \
            $(HOLDIR)/examples/machine-code/x64_compiler \
            $(HOLDIR)/examples/machine-code/decompiler \
            $(HOLDIR)/examples/machine-code/hoare-triple \

@@ -6,8 +6,8 @@ val _ = new_theory "x64_heap";
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open wordsTheory wordsLib integer_wordTheory;
-open prog_x64_extraTheory prog_x64Theory;
-open lexer_funTheory lexer_implTheory
+open prog_x64_extraTheory prog_x64Theory temporalTheory;
+open lexer_funTheory lexer_implTheory ml_translatorTheory;
 
 open BytecodeTheory (* repl_funTheory *);
 
@@ -12326,13 +12326,13 @@ val DeclAssumExists_SNOC_Dlet = store_thm("DeclAssumExists_SNOC_Dlet",
 val DeclAssumExists_ml_repl_step_decls = prove(
   ``DeclAssumExists ml_repl_step_decls``,
   MP_TAC ml_repl_stepTheory.ml_repl_step_translator_state_thm
-  \\ REWRITE_TAC [markerTheory.Abbrev_def,ml_translatorTheory.TAG_def,AND_IMP_INTRO]
+  \\ REWRITE_TAC [markerTheory.Abbrev_def,TAG_def,AND_IMP_INTRO]
   \\ STRIP_TAC
   \\ Q.PAT_ASSUM `pp ==> DeclAssumExists xxx` MP_TAC
   \\ REPEAT (POP_ASSUM (K ALL_TAC))
   \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MATCH_MP_TAC
-  \\ FULL_SIMP_TAC std_ss [ml_translatorTheory.PRECONDITION_def]
+  \\ FULL_SIMP_TAC std_ss [PRECONDITION_def]
   \\ STRIP_TAC THEN1
    (MP_TAC sideTheory.repl_step_side_thm
     \\ FULL_SIMP_TAC std_ss [ml_repl_stepTheory.repl_step_side_def])
@@ -12345,15 +12345,15 @@ val SNOC3 = prove(
 val DeclAssumExists_repl_decs = prove(
   ``DeclAssumExists repl_decs``,
   SIMP_TAC std_ss [replDecsTheory.repl_decs_def,SNOC3]
-  \\ MATCH_MP_TAC ml_translatorTheory.DeclAssumExists_SNOC_Dlet_Fun
+  \\ MATCH_MP_TAC DeclAssumExists_SNOC_Dlet_Fun
   \\ MATCH_MP_TAC (MP_CANON DeclAssumExists_SNOC_Dlet_ALT)
-  \\ SIMP_TAC std_ss [ml_translatorTheory.Eval_def]
+  \\ SIMP_TAC std_ss [Eval_def]
   \\ SIMP_TAC (srw_ss()) [Once AltBigStepTheory.evaluate'_cases]
   \\ SIMP_TAC (srw_ss()) [Once AltBigStepTheory.evaluate'_cases]
   \\ SIMP_TAC (srw_ss()) [SemanticPrimitivesTheory.do_uapp_def,LET_DEF,
                           SemanticPrimitivesTheory.store_alloc_def]
   \\ MATCH_MP_TAC (MP_CANON DeclAssumExists_SNOC_Dlet_ALT)
-  \\ SIMP_TAC std_ss [ml_translatorTheory.Eval_def]
+  \\ SIMP_TAC std_ss [Eval_def]
   \\ SIMP_TAC (srw_ss()) [Once AltBigStepTheory.evaluate'_cases]
   \\ SIMP_TAC (srw_ss()) [Once AltBigStepTheory.evaluate'_cases]
   \\ SIMP_TAC (srw_ss()) [SemanticPrimitivesTheory.do_uapp_def,LET_DEF,
@@ -12364,13 +12364,13 @@ val DeclAssumExists_repl_decs = prove(
 val check_ctors_decs_ml_repl_step_decls = prove(
   ``check_ctors_decs NONE init_envC ml_repl_step_decls``,
   MP_TAC ml_repl_stepTheory.ml_repl_step_translator_state_thm
-  \\ REWRITE_TAC [markerTheory.Abbrev_def,ml_translatorTheory.TAG_def,AND_IMP_INTRO]
+  \\ REWRITE_TAC [markerTheory.Abbrev_def,TAG_def,AND_IMP_INTRO]
   \\ STRIP_TAC);
 
 val decs_to_cenv_ml_repl_step_decls = let
   val pat = ``decs_to_cenv NONE ml_repl_step_decls = xxx``
   in ml_repl_stepTheory.ml_repl_step_translator_state_thm
-     |> RW [markerTheory.Abbrev_def,ml_translatorTheory.TAG_def]
+     |> RW [markerTheory.Abbrev_def,TAG_def]
      |> CONJUNCTS
      |> filter (fn th => can (match_term pat) (concl th)) |> hd end
 
@@ -12407,13 +12407,12 @@ val repl_decs_lemma = prove(
   cheat);
 
 val evaluate_decs_repl_decs = let
-  val th = ml_translatorTheory.DeclAssumC_thm
+  val th = DeclAssumC_thm
            |> RW [GSYM AND_IMP_INTRO]
   val th = MATCH_MP th check_ctors_decs_repl_decs
   val th = prove(``?cenv env. DeclAssumC repl_decs cenv env``,
                  METIS_TAC [DeclAssumExists_repl_decs,th,DeclAssumExists_def])
-           |> RW [ml_translatorTheory.DeclAssumC_def,
-                  ml_translatorTheory.DeclsC_def]
+           |> RW [DeclAssumC_def,DeclsC_def]
   in th end
 
 val compile_term_def = Define `
@@ -12511,7 +12510,7 @@ val bc_eval_bootstrap_lcode = prove(
        (bs.code = bootstrap_lcode) ∧ length_ok bs.inst_length /\
        (bs.pc = 0) ∧ (bs.stack = []) ∧ (bs.clock = NONE) ⇒
        ∃bs' rd.
-         (bc_eval (strip_labels bs) = SOME bs') ∧
+         (bc_eval (strip_labels bs) = SOME (strip_labels bs')) ∧
          (bs'.pc = next_addr bs.inst_length (strip_labels bs).code) ∧
          env_rs [] (cenv ++ init_envC) (0,s) env new_compiler_state 0 rd bs'``,
   STRIP_ASSUME_TAC compile_decs_bc_eval
@@ -12522,7 +12521,7 @@ val bc_eval_bootstrap_lcode = prove(
   \\ MATCH_MP_TAC IMP_IMP
   \\ SIMP_TAC std_ss [compile_term_out_EQ_bootstrap_lcode]
   \\ REPEAT STRIP_TAC
-  \\ Q.EXISTS_TAC `strip_labels bs'`
+  \\ Q.EXISTS_TAC `bs'`
   \\ Q.EXISTS_TAC `rd` \\ FULL_SIMP_TAC std_ss []
   \\ STRIP_TAC THEN1
    (MATCH_MP_TAC (MP_CANON bytecodeEvalTheory.RTC_bc_next_bc_eval)
@@ -12537,14 +12536,7 @@ val bc_eval_bootstrap_lcode = prove(
     \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
     \\ FULL_SIMP_TAC std_ss [])
   \\ FULL_SIMP_TAC (srw_ss()) [bytecodeLabelsTheory.strip_labels_def]
-  \\ FULL_SIMP_TAC std_ss [next_addr_code_labels]
-  \\ FULL_SIMP_TAC (srw_ss()) [compilerProofsTheory.env_rs_def,LET_DEF]
-  \\ Q.LIST_EXISTS_TAC [`Cenv`,`Cs`]
-  \\ FULL_SIMP_TAC (srw_ss()) [bytecodeLabelsTheory.strip_labels_def]
-  \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
-  \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
-  \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ cheat (* Ramana can you sort this out? *));
+  \\ FULL_SIMP_TAC std_ss [next_addr_code_labels]);
 
 
 (*
@@ -12559,6 +12551,8 @@ val out_def = Define `
   (out (Result r rest) =
      let (str,res) = out rest in
        (r ++ str,res))`;
+
+
 
 val x64_correct = store_thm("x64_correct",
   ``TEMPORAL X64_MODEL (entire_x64_implementation p)
