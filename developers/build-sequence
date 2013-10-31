@@ -14,5 +14,6 @@ parsing/testing
 inference/tests
 compiler/tests
 bootstrap
+x86-64
 hol-light
 translator/repl/proofs
