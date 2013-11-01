@@ -262,6 +262,17 @@ val evaluate_decs_append = store_thm("evaluate_decs_append",
   qexists_tac`r1` >> simp[] >>
   Cases_on`r1`>>fs[])
 
+val evaluate_decs_decs_to_cenv = store_thm("evaluate_decs_decs_to_cenv",
+  ``∀mn menv cenv s env decs res.
+     evaluate_decs mn menv cenv s env decs res ⇒
+     ∀v. (SND(SND res ) = Rval v) ⇒
+     (decs_to_cenv mn decs = (FST(SND res)))``,
+   HO_MATCH_MP_TAC BigStepTheory.evaluate_decs_ind >>
+   simp[LibTheory.emp_def] >> rw[] >- simp[SemanticPrimitivesTheory.decs_to_cenv_def] >>
+   imp_res_tac compilerProofsTheory.evaluate_dec_dec_to_cenv >>
+   fs[] >> simp[SemanticPrimitivesTheory.decs_to_cenv_def,LibTheory.merge_def] >>
+   Cases_on`r`>>fs[SemanticPrimitivesTheory.combine_dec_result_def])
+
 val evaluate_decs_ml_repl_decs = let
   val th = DeclAssumC_thm
            |> RW [GSYM AND_IMP_INTRO]
@@ -271,40 +282,84 @@ val evaluate_decs_ml_repl_decs = let
            |> RW [DeclAssumC_def,DeclsC_def]
   in th end
 
-(*
+val ml_repl_decs_cenv_env_s_def = new_specification("ml_repl_decs_cenv_env_s_def",
+  ["ml_repl_decs_cenv","ml_repl_decs_env","ml_repl_decs_s"],
+  evaluate_decs_ml_repl_decs)
+
+val merge_emp = prove(
+  ``merge x emp = x``,
+    simp[LibTheory.emp_def,LibTheory.merge_def])
+
+val ml_repl_decs_cenv =
+  MATCH_MP evaluate_decs_decs_to_cenv ml_repl_decs_cenv_env_s_def
+  |> SIMP_RULE (srw_ss())[]
+  |> SYM
+
+val do_con_check_ml_repl_decs_None =
+  EVAL ``do_con_check (merge ml_repl_decs_cenv xx) (SOME(Short"None")) 0``
+  |> RIGHT_CONV_RULE(REWRITE_CONV[ml_repl_decs_cenv])
+  |> RIGHT_CONV_RULE(REWRITE_CONV[ml_repl_stepTheory.ml_repl_step_decls,SemanticPrimitivesTheory.decs_to_cenv_def])
+  |> RIGHT_CONV_RULE EVAL
+  |> EQT_ELIM
+
+val bind_emp = EVAL``bind x y emp``
+
 val repl_decs_env_front = let
+  val ss = SIMP_RULE (srw_ss())
   val th =
     repl_decs_cenv_env_s_def
     |> RW[repl_decs_def]
     |> MATCH_MP evaluate_decs_append
     |> Q.SPEC`ml_repl_step_decls`
     |> SIMP_RULE (srw_ss())[]
-    |> HO_MATCH_MP (METIS_PROVE[]
-                    ``(!s0 e0 r0. P s0 e0 r0 ==> Q s0 e0 r0) ==>
-                      ((?e0 r0 s0. P s0 e0 r0) ==> (?s0 e0 r0. Q s0 e0 r0))``)
-    |> C MATCH_MP evaluate_decs_ml_repl_decs
+    |> C MATCH_MP ml_repl_decs_cenv_env_s_def
   val th =
-    th |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_decs_cases]
-    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_dec_cases]
-    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
-    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
-    |> SIMP_RULE (srw_ss()) [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
-    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
-    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
-    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
-    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
-    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
-    |> SIMP_RULE (srw_ss()) [Once SemanticPrimitivesTheory.do_uapp_def,LET_THM,SemanticPrimitivesTheory.store_alloc_def]
+    th |> ss [Once BigStepTheory.evaluate_decs_cases]
+    |> ss [Once BigStepTheory.evaluate_dec_cases]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [Once SemanticPrimitivesTheory.do_uapp_def,LET_THM,SemanticPrimitivesTheory.store_alloc_def]
   val th =
-    th |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_decs_cases]
-    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_dec_cases]
-    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
-    |> SIMP_RULE (srw_ss()) [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
-    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
-    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
-    |> SIMP_RULE (srw_ss()) [Once SemanticPrimitivesTheory.do_uapp_def,LET_THM,SemanticPrimitivesTheory.store_alloc_def]
+    th |> ss [do_con_check_ml_repl_decs_None]
+    |> ss [Once BigStepTheory.evaluate_decs_cases]
+    |> ss [Once BigStepTheory.evaluate_dec_cases]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [Once SemanticPrimitivesTheory.do_uapp_def,LET_THM,SemanticPrimitivesTheory.store_alloc_def]
   val th =
-    
+    th |> ss [merge_emp,do_con_check_ml_repl_decs_None,bind_emp]
+    |> ss [Once BigStepTheory.evaluate_dec_cases]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [Once SemanticPrimitivesTheory.do_uapp_def,LET_THM,SemanticPrimitivesTheory.store_alloc_def]
+  val th =
+    th |> ss [Once BigStepTheory.evaluate_dec_cases]
+    |> ss [Once BigStepTheory.evaluate_cases]
+    |> ss [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
+    |> ss [Once SemanticPrimitivesTheory.do_uapp_def,LET_THM,SemanticPrimitivesTheory.store_alloc_def]
+    |> ss [Once BigStepTheory.evaluate_decs_cases]
+    |> ss [Once BigStepTheory.evaluate_dec_cases]
+    |> ss [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
+  val th =
+    th |> ss [Once BigStepTheory.evaluate_dec_cases]
+    |> ss [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
+    |> ss [Once BigStepTheory.evaluate_decs_cases]
+    |> ss [SemanticPrimitivesTheory.combine_dec_result_def,LibTheory.merge_def,LibTheory.emp_def,LibTheory.bind_def]
+  in th end
+
+(*
 val env_rs_repl_decs_inp_out = prove(
   ``env_rs [] (cenv ++ init_envC) (0,s)
       repl_decs_env new_compiler_state 0 rd bs' ==>
@@ -356,7 +411,24 @@ val env_rs_repl_decs_inp_out = prove(
   rpt (qpat_assum `Cv_bv X Y Z`mp_tac) >>
   simp[] >>
   qpat_assum`EVERY2 syneq X Y`mp_tac >>
-  simp[pmatchTheory.env_to_Cenv_MAP]
+  simp[pmatchTheory.env_to_Cenv_MAP] >>
+  simp[repl_decs_env_front] >>
+  simp[GSYM AND_IMP_INTRO] >> strip_tac >>
+  simp[compilerTerminationTheory.v_to_Cv_def] >>
+  ntac 2 strip_tac >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  ntac 2 strip_tac >>
+  simp[Once toBytecodeProofsTheory.Cv_bv_cases] >>
+  simp[Once toBytecodeProofsTheory.Cv_bv_cases] >>
+  disch_then(qx_choose_then`pout`STRIP_ASSUME_TAC) >>
+  disch_then(qx_choose_then`pinp`STRIP_ASSUME_TAC) >>
+  Q.LIST_EXISTS_TAC[`pout`,`pinp`] >> simp[] >>
+  qpat_assum`s_refs X Y Z`mp_tac >>
+  simp[toBytecodeProofsTheory.s_refs_def] >>
+
+  print_find"s_refs_def"
+
+set_trace"Goalstack.print_goal_at_top"0
 *)
 
 val bc_eval_bootstrap_lcode = prove(
