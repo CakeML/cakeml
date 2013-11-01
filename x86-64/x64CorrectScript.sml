@@ -1,11 +1,11 @@
 open HolKernel boolLib bossLib helperLib pairTheory
-open ml_translatorTheory sideTheory replDecsTheory replDecsProofsTheory compileCallReplStepDecTheory x64_heapTheory
+open ml_translatorTheory sideTheory replDecsTheory replDecsProofsTheory compileCallReplStepDecTheory
 
 val _ = new_theory "x64Correct"
 
 infix \\ val op \\ = op THEN;
 
-val _ = Globals.max_print_depth := 20
+val _ = Globals.max_print_depth := 50
 
 (* --- repl_step --- *)
 
@@ -107,6 +107,10 @@ val evaluate_decs_repl_decs = let
            |> RW [DeclAssumC_def,DeclsC_def]
   in th end
 
+val repl_decs_cenv_env_s_def = new_specification("repl_decs_cenv_env_s_def",
+  ["repl_decs_cenv","repl_decs_env","repl_decs_s"],
+  evaluate_decs_repl_decs)
+
 val compile_term_def = Define `
   compile_term = (compile_decs NONE FEMPTY init_compiler_state.contab
           <|bvars := []; mvars := FEMPTY;
@@ -130,13 +134,20 @@ val compile_decs_bc_eval = let
   val th = replDecsProofsTheory.compile_repl_decs_thm |> GEN_ALL
            |> Q.SPEC `repl_decs`
            |> RW [repl_decs_lemma]
-  val lemma = prove(``(!x y z. P x y z ==> Q x y z) ==>
-                      (?y z x. P x y z) ==> ?x y z. Q x y z``, METIS_TAC [])
-  val th = MATCH_MP (HO_MATCH_MP lemma th)
-    (evaluate_decs_repl_decs |> RW [EVAL ``empty_store``])
+  val th = MATCH_MP th (repl_decs_cenv_env_s_def |> RW [EVAL ``empty_store``])
   in th |> SIMP_RULE std_ss [LET_DEF,GSYM compile_term_def]
         |> CONV_RULE (DEPTH_CONV (PairRules.PBETA_CONV))
         |> SIMP_RULE (srw_ss()) [GSYM new_compiler_state_def] end
+
+val compile_term_out_EQ_bootstrap_lcode = prove(
+  ``REVERSE (SND (SND (SND compile_term))).out = REVERSE bootstrap_lcode``,
+  SIMP_TAC std_ss [compile_term_def]
+  \\ REWRITE_TAC [compileReplDecsTheory.repl_decs_compiled,
+       repl_computeTheory.compile_decs_FOLDL,LET_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ REWRITE_TAC [SND,FST,``<|out := code; next_label := n |>.out``
+                          |> SIMP_CONV (srw_ss()) []]
+  \\ REWRITE_TAC [compileCallReplStepDecTheory.bootstrap_lcode_def]);
 
 val code_labels_ok_rev_bootstrap_lcode = let
   val lemma1 =
@@ -163,16 +174,6 @@ val code_labels_bootstrap_lcode =
   PROVE_HYP code_labels_ok_rev_bootstrap_lcode
   compileCallReplStepDecTheory.code_labels_rev_bootstrap_lcode
 
-val compile_term_out_EQ_bootstrap_lcode = prove(
-  ``REVERSE (SND (SND (SND compile_term))).out = REVERSE bootstrap_lcode``,
-  SIMP_TAC std_ss [compile_term_def]
-  \\ REWRITE_TAC [compileReplDecsTheory.repl_decs_compiled,
-       repl_computeTheory.compile_decs_FOLDL,LET_DEF]
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ REWRITE_TAC [SND,FST,``<|out := code; next_label := n |>.out``
-                          |> SIMP_CONV (srw_ss()) []]
-  \\ REWRITE_TAC [compileCallReplStepDecTheory.bootstrap_lcode_def]);
-
 val next_addr_code_labels = prove(
   ``length_ok l ==>
     (next_addr l (code_labels l code) = next_addr l code)``,
@@ -183,17 +184,25 @@ val next_addr_code_labels = prove(
   \\ FULL_SIMP_TAC (srw_ss()) [bytecodeLabelsTheory.inst_labels_def,
        bytecodeLabelsTheory.length_ok_def]);
 
+val MEM_call_repl_step = prove(
+  ``env_rs [] (repl_decs_cenv ++ init_envC) (0,s)
+      repl_decs_env new_compiler_state 0 rd bs' ==>
+    MEM "call_repl_step" (MAP FST repl_decs_env) (* /\
+    (bs'.stack = v1::v2::vs) /\ v1 is a pointer to a store cell in bc.refs that
+                                holds LAST s *)``,
+  cheat);
+
 val bc_eval_bootstrap_lcode = prove(
-  ``∃s cenv env.
-     ∀bs.
+  ``∀bs.
        (bs.code = REVERSE bootstrap_lcode) ∧ length_ok bs.inst_length /\
        (bs.pc = 0) ∧ (bs.stack = []) ∧ (bs.clock = NONE) ⇒
        ∃bs' rd.
          (bc_eval (strip_labels bs) = SOME (strip_labels bs')) ∧
          (bs'.pc = next_addr bs.inst_length (strip_labels bs).code) ∧
-         env_rs [] (cenv ++ init_envC) (0,s) env new_compiler_state 0 rd bs'``,
+         env_rs [] (repl_decs_cenv ++ init_envC) (0,repl_decs_s)
+           repl_decs_env new_compiler_state 0 rd bs' /\
+         MEM "call_repl_step" (MAP FST repl_decs_env)``,
   STRIP_ASSUME_TAC compile_decs_bc_eval
-  \\ Q.LIST_EXISTS_TAC [`s`,`cenv`,`env`]
   \\ REPEAT STRIP_TAC
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `bs`)
   \\ FULL_SIMP_TAC std_ss []
@@ -215,7 +224,48 @@ val bc_eval_bootstrap_lcode = prove(
     \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
     \\ FULL_SIMP_TAC std_ss [])
   \\ FULL_SIMP_TAC (srw_ss()) [bytecodeLabelsTheory.strip_labels_def]
-  \\ FULL_SIMP_TAC std_ss [next_addr_code_labels]);
+  \\ FULL_SIMP_TAC std_ss [next_addr_code_labels]
+  \\ IMP_RES_TAC MEM_call_repl_step);
+
+val compile_call_term_def = Define `
+  compile_call_term = compile_dec FEMPTY (FST (SND compile_repl_decs))
+     (FST (SND (SND compile_repl_decs)))
+     (FST (SND (SND (SND compile_repl_decs))))
+     <|out := [];
+       next_label :=
+         (SND (SND (SND (SND compile_repl_decs)))).next_label|>
+     call_repl_step_dec`;
+
+val compile_call_term_thm =
+  call_repl_step_dec_compiled
+  |> SIMP_RULE std_ss [GSYM compileCallReplStepDecTheory.call_lcode_def,
+       LET_DEF,GSYM compile_call_term_def]
+
+(*
+
+|- FV_dec call_repl_step_dec = {Short "call_repl_step"}
+
+but to get rid of asumption in
+
+  val th =
+    compile_call_repl_step_thm |> GEN_ALL
+      |> Q.SPEC `call_repl_step_dec` |> Q.SPEC `NONE`
+      |> RW [EVAL ``dec_cns call_repl_step_dec``]
+      |> Q.SPECL [`repl_decs_cenv`,`s`,`repl_decs_env`,`s2`]
+
+compile_call_term_def
+
+  print_find "repl_decs_compiled"
+
+we need:
+
+|- FV_dec call_repl_step_dec = {}
+
+
+
+*)
+
+
 
 
 (*
