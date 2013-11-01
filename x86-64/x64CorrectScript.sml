@@ -1,11 +1,11 @@
-open HolKernel boolLib bossLib helperLib pairTheory
+open HolKernel boolLib bossLib helperLib pairTheory lcsymtacs
 open ml_translatorTheory sideTheory replDecsTheory replDecsProofsTheory compileCallReplStepDecTheory
 
 val _ = new_theory "x64Correct"
 
 infix \\ val op \\ = op THEN;
 
-val _ = Globals.max_print_depth := 50
+val _ = Globals.max_print_depth := 20
 
 (* --- repl_step --- *)
 
@@ -96,7 +96,7 @@ val repl_decs_lemma = prove(
           (MAP FST
              (decs_to_cenv NONE (TAKE i repl_decs) ++
               init_envC)))``,
-  cheat);
+  cheat (* translator should do this? *));
 
 val evaluate_decs_repl_decs = let
   val th = DeclAssumC_thm
@@ -184,13 +184,66 @@ val next_addr_code_labels = prove(
   \\ FULL_SIMP_TAC (srw_ss()) [bytecodeLabelsTheory.inst_labels_def,
        bytecodeLabelsTheory.length_ok_def]);
 
+val new_compiler_state_renv =
+  SIMP_CONV (srw_ss()) [new_compiler_state_def] ``new_compiler_state.renv``
+  |> RW [compile_term_def,compileReplDecsTheory.repl_decs_compiled,repl_computeTheory.compile_decs_FOLDL,LET_THM]
+  |> CONV_RULE (DEPTH_CONV (PairRules.PBETA_CONV))
+  |> RW [SND]
+  |> RW [SIMP_CONV (srw_ss()) [] ``<|bvars := X; mvars := Y; cnmap := Z|>.bvars``]
+
+val length_new_compiler_state_renv =
+  EVAL (listSyntax.mk_length(
+          new_compiler_state_renv |> concl |> rhs |> rand |> rator |> rand))
+
 val MEM_call_repl_step = prove(
-  ``env_rs [] (repl_decs_cenv ++ init_envC) (0,s)
-      repl_decs_env new_compiler_state 0 rd bs' ==>
-    MEM "call_repl_step" (MAP FST repl_decs_env) (* /\
-    (bs'.stack = v1::v2::vs) /\ v1 is a pointer to a store cell in bc.refs that
+  ``env_rs [] (cenv ++ init_envC) (0,s)
+      env new_compiler_state 0 rd bs' ==>
+    MEM "call_repl_step" (MAP FST env) /\
+    ∃cl out inp st.
+      (bs'.stack = cl::out::inp::st)
+        (* /\ v1 is a pointer to a store cell in bc.refs that
                                 holds LAST s *)``,
-  cheat);
+  simp[compilerProofsTheory.env_rs_def,LET_THM] >> strip_tac >>
+  Q.PAT_ASSUM`X = MAP FST env`(ASSUME_TAC o SYM) THEN
+  conj_tac >- (
+    SRW_TAC[][] THEN
+    REWRITE_TAC[new_compiler_state_renv] THEN
+    qmatch_abbrev_tac`MEM "call_repl_step" (MAP FST (ZIP (l1,l2)))` >>
+    qsuff_tac `MEM "call_repl_step" l1 ∧ (LENGTH l1 = LENGTH l2)` >- simp[listTheory.MAP_ZIP] >>
+    mp_tac length_new_compiler_state_renv >> FULL_SIMP_TAC bool_ss [] >>
+    strip_tac >>
+    conj_tac >- simp[Abbr`l1`] >>
+    simp[Abbr`l2`] ) >>
+  fs[toBytecodeProofsTheory.Cenv_bs_def] >>
+  fs[toBytecodeProofsTheory.env_renv_def] >>
+  qpat_assum`EVERY2 P X Y`mp_tac >>
+  simp_tac bool_ss [miscTheory.EVERY2_MAP] >>
+  simp[CompilerLibTheory.el_check_def] >>
+  `∃x y z w. new_compiler_state.renv = x::y::z::w` by (
+    REWRITE_TAC[new_compiler_state_renv] >>
+    EVAL_TAC >> SRW_TAC[][] ) >>
+  strip_tac >>
+  `∃Cx Cy Cz Cw. Cenv = Cx::Cy::Cz::Cw` by (
+    fs[listTheory.EVERY2_EVERY] >> rfs[] >>
+    Cases_on`Cenv`>>fs[]>>
+    Cases_on`t`>>fs[]>>
+    Cases_on`t'`>>fs[]) >>
+  BasicProvers.VAR_EQ_TAC >>
+  pop_assum mp_tac >>
+  simp[] >>
+  Cases_on`SND x < LENGTH bs'.stack` >> simp[] >>
+  Cases_on`SND y < LENGTH bs'.stack` >> simp[] >>
+  Cases_on`SND z < LENGTH bs'.stack` >> simp[] >>
+  qpat_assum`new_compiler_state_renv = X`mp_tac >>
+  REWRITE_TAC[new_compiler_state_renv] >>
+  EVAL_TAC >>
+  strip_tac >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  rpt strip_tac >>
+  rpt (qpat_assum`X < LENGTH Y`mp_tac) >>
+  Cases_on`bs'.stack`>>simp[] >>
+  Cases_on`t`>>simp[] >>
+  Cases_on`t'`>>simp[] )
 
 val bc_eval_bootstrap_lcode = prove(
   ``∀bs.
