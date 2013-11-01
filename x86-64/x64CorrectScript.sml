@@ -195,34 +195,136 @@ val length_new_compiler_state_renv =
   EVAL (listSyntax.mk_length(
           new_compiler_state_renv |> concl |> rhs |> rand |> rator |> rand))
 
+val new_compiler_state_rsz =
+  SIMP_CONV (srw_ss()) [new_compiler_state_def] ``new_compiler_state.rsz``
+  |> RW [compile_term_def,compileReplDecsTheory.repl_decs_compiled,repl_computeTheory.compile_decs_FOLDL,LET_THM]
+  |> CONV_RULE (DEPTH_CONV (PairRules.PBETA_CONV))
+  |> RW [SND]
+
+val repl_decs_env_vs =
+  MATCH_MP semanticsExtraTheory.evaluate_decs_new_decs_vs repl_decs_cenv_env_s_def
+  |> SIMP_RULE (srw_ss())[]
+  |> SIMP_RULE (srw_ss())[repl_decs_def,AstTheory.pat_bindings_def]
+
 val MEM_call_repl_step = prove(
+  ``MEM "call_repl_step" (MAP FST repl_decs_env)``,
+  simp[repl_decs_env_vs])
+
+(* TODO: move *)
+val evaluate_decs_append = store_thm("evaluate_decs_append",
+  ``∀decs mn menv cenv s env res. evaluate_decs mn menv cenv s env decs res ⇒
+      ∀d1 d2 s0 e0 r0. (decs = d1 ++ d2) ∧ evaluate_decs mn menv cenv s env d1 (s0,e0,Rval r0) ⇒
+                       ∃s1 e1 r1. evaluate_decs mn menv (merge e0 cenv) s0 (merge r0 env) d2 (s1,e1,r1) ∧
+                            (res = (s1, merge e1 e0, combine_dec_result r0 r1))``,
+  Induct >- (
+    simp[Once BigStepTheory.evaluate_decs_cases] >>
+    simp[Once BigStepTheory.evaluate_decs_cases] >>
+    simp[Once BigStepTheory.evaluate_decs_cases] >>
+    simp[LibTheory.emp_def,LibTheory.merge_def,SemanticPrimitivesTheory.combine_dec_result_def]) >>
+  simp[Once BigStepTheory.evaluate_decs_cases] >>
+  rw[] >- (
+    Cases_on`d1`>>fs[] >- (
+      pop_assum mp_tac >>
+      simp[Once BigStepTheory.evaluate_decs_cases] >>
+      rw[] >>
+      simp_tac(srw_ss())[Once BigStepTheory.evaluate_decs_cases] >>
+      simp[LibTheory.emp_def,LibTheory.merge_def] >>
+      simp[SemanticPrimitivesTheory.combine_dec_result_def] >>
+      qexists_tac`Rerr e`>>simp[] ) >>
+    pop_assum mp_tac >>
+    simp_tac(srw_ss())[Once BigStepTheory.evaluate_decs_cases] >>
+    rw[] >>
+    imp_res_tac determTheory.dec_determ >>
+    fs[] ) >>
+  Cases_on`d1`>>fs[] >- (
+    pop_assum mp_tac >>
+    simp[Once BigStepTheory.evaluate_decs_cases] >>
+    rw[] >>
+    simp_tac(srw_ss())[Once BigStepTheory.evaluate_decs_cases] >>
+    simp[LibTheory.emp_def,LibTheory.merge_def] >>
+    fs[LibTheory.merge_def] >>
+    qexists_tac`combine_dec_result new_env r` >>
+    conj_tac >- METIS_TAC[] >>
+    simp[SemanticPrimitivesTheory.combine_dec_result_def] >>
+    Cases_on`r`>>simp[LibTheory.merge_def]) >>
+  pop_assum mp_tac >>
+  simp_tac(srw_ss())[Once BigStepTheory.evaluate_decs_cases] >>
+  rw[] >>
+  fs[LibTheory.merge_def] >>
+  imp_res_tac determTheory.dec_determ >>
+  fs[] >> rw[] >>
+  first_x_assum(qspecl_then[`mn`,`menv`,`new_tds ++ cenv`,`s2`,`new_env ++ env`,`s3,new_tds',r`]mp_tac) >>
+  rw[] >>
+  Cases_on`r'`>>fs[SemanticPrimitivesTheory.combine_dec_result_def] >>
+  first_x_assum(qspecl_then[`t`,`d2`,`s0`,`new_tds''`,`a`]mp_tac) >>
+  rw[] >>
+  fs[LibTheory.merge_def] >>
+  qexists_tac`r1` >> simp[] >>
+  Cases_on`r1`>>fs[])
+
+val evaluate_decs_ml_repl_decs = let
+  val th = DeclAssumC_thm
+           |> RW [GSYM AND_IMP_INTRO]
+  val th = MATCH_MP th check_ctors_decs_ml_repl_step_decls
+  val th = prove(``?cenv env. DeclAssumC ml_repl_step_decls cenv env``,
+                 METIS_TAC [DeclAssumExists_ml_repl_step_decls,th,DeclAssumExists_def])
+           |> RW [DeclAssumC_def,DeclsC_def]
+  in th end
+
+(*
+val repl_decs_env_front = let
+  val th =
+    repl_decs_cenv_env_s_def
+    |> RW[repl_decs_def]
+    |> MATCH_MP evaluate_decs_append
+    |> Q.SPEC`ml_repl_step_decls`
+    |> SIMP_RULE (srw_ss())[]
+    |> HO_MATCH_MP (METIS_PROVE[]
+                    ``(!s0 e0 r0. P s0 e0 r0 ==> Q s0 e0 r0) ==>
+                      ((?e0 r0 s0. P s0 e0 r0) ==> (?s0 e0 r0. Q s0 e0 r0))``)
+    |> C MATCH_MP evaluate_decs_ml_repl_decs
+  val th =
+    th |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_decs_cases]
+    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_dec_cases]
+    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
+    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
+    |> SIMP_RULE (srw_ss()) [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
+    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
+    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
+    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
+    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
+    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
+    |> SIMP_RULE (srw_ss()) [Once SemanticPrimitivesTheory.do_uapp_def,LET_THM,SemanticPrimitivesTheory.store_alloc_def]
+  val th =
+    th |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_decs_cases]
+    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_dec_cases]
+    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
+    |> SIMP_RULE (srw_ss()) [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
+    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
+    |> SIMP_RULE (srw_ss()) [Once BigStepTheory.evaluate_cases]
+    |> SIMP_RULE (srw_ss()) [Once SemanticPrimitivesTheory.do_uapp_def,LET_THM,SemanticPrimitivesTheory.store_alloc_def]
+  val th =
+    
+val env_rs_repl_decs_inp_out = prove(
   ``env_rs [] (cenv ++ init_envC) (0,s)
-      env new_compiler_state 0 rd bs' ==>
-    MEM "call_repl_step" (MAP FST env) /\
-    ∃cl out inp st.
-      (bs'.stack = cl::out::inp::st)
-        (* /\ v1 is a pointer to a store cell in bc.refs that
-                                holds LAST s *)``,
+      repl_decs_env new_compiler_state 0 rd bs' ==>
+    ∃cl pout pinp out inp st.
+      (bs'.stack = cl::RefPtr pout::RefPtr pinp::st) ∧
+      (FLOOKUP bs'.refs pout = SOME out) ∧
+      (FLOOKUP bs'.refs pinp = SOME inp) ∧
+      Cv_bv x4 (v_to_Cv x1 x2 (EL x3 s)) out ∧
+      Cv_bv x8 (v_to_Cv x5 x6 (EL x7 s)) inp``,
   simp[compilerProofsTheory.env_rs_def,LET_THM] >> strip_tac >>
-  Q.PAT_ASSUM`X = MAP FST env`(ASSUME_TAC o SYM) THEN
-  conj_tac >- (
-    SRW_TAC[][] THEN
-    REWRITE_TAC[new_compiler_state_renv] THEN
-    qmatch_abbrev_tac`MEM "call_repl_step" (MAP FST (ZIP (l1,l2)))` >>
-    qsuff_tac `MEM "call_repl_step" l1 ∧ (LENGTH l1 = LENGTH l2)` >- simp[listTheory.MAP_ZIP] >>
-    mp_tac length_new_compiler_state_renv >> FULL_SIMP_TAC bool_ss [] >>
-    strip_tac >>
-    conj_tac >- simp[Abbr`l1`] >>
-    simp[Abbr`l2`] ) >>
   fs[toBytecodeProofsTheory.Cenv_bs_def] >>
   fs[toBytecodeProofsTheory.env_renv_def] >>
   qpat_assum`EVERY2 P X Y`mp_tac >>
+  qpat_assum`EVERY2 P X Cs`mp_tac >>
   simp_tac bool_ss [miscTheory.EVERY2_MAP] >>
   simp[CompilerLibTheory.el_check_def] >>
   `∃x y z w. new_compiler_state.renv = x::y::z::w` by (
     REWRITE_TAC[new_compiler_state_renv] >>
     EVAL_TAC >> SRW_TAC[][] ) >>
-  strip_tac >>
+  ntac 2 strip_tac >>
   `∃Cx Cy Cz Cw. Cenv = Cx::Cy::Cz::Cw` by (
     fs[listTheory.EVERY2_EVERY] >> rfs[] >>
     Cases_on`Cenv`>>fs[]>>
@@ -234,16 +336,28 @@ val MEM_call_repl_step = prove(
   Cases_on`SND x < LENGTH bs'.stack` >> simp[] >>
   Cases_on`SND y < LENGTH bs'.stack` >> simp[] >>
   Cases_on`SND z < LENGTH bs'.stack` >> simp[] >>
-  qpat_assum`new_compiler_state_renv = X`mp_tac >>
+  simp[listTheory.EL_REVERSE] >>
+  qpat_assum`X = LENGTH bs'.stack`(ASSUME_TAC o SYM) >>
+  simp[arithmeticTheory.PRE_SUB1,new_compiler_state_rsz] >>
+  qpat_assum`new_compiler_state.renv = X`mp_tac >>
   REWRITE_TAC[new_compiler_state_renv] >>
   EVAL_TAC >>
   strip_tac >>
   rpt BasicProvers.VAR_EQ_TAC >>
   rpt strip_tac >>
+  rpt (qpat_assum `Cv_bv X Y Z`mp_tac) >>
+  simp[] >> rpt strip_tac >>
   rpt (qpat_assum`X < LENGTH Y`mp_tac) >>
+  qpat_assum`LENGTH bs'.stack = X`(ASSUME_TAC o SYM) >>
   Cases_on`bs'.stack`>>simp[] >>
   Cases_on`t`>>simp[] >>
-  Cases_on`t'`>>simp[] )
+  Cases_on`t'`>>simp[] >>
+  strip_tac >>
+  rpt (qpat_assum `Cv_bv X Y Z`mp_tac) >>
+  simp[] >>
+  qpat_assum`EVERY2 syneq X Y`mp_tac >>
+  simp[pmatchTheory.env_to_Cenv_MAP]
+*)
 
 val bc_eval_bootstrap_lcode = prove(
   ``∀bs.
@@ -278,7 +392,7 @@ val bc_eval_bootstrap_lcode = prove(
     \\ FULL_SIMP_TAC std_ss [])
   \\ FULL_SIMP_TAC (srw_ss()) [bytecodeLabelsTheory.strip_labels_def]
   \\ FULL_SIMP_TAC std_ss [next_addr_code_labels]
-  \\ IMP_RES_TAC MEM_call_repl_step);
+  \\ simp[MEM_call_repl_step]);
 
 val compile_call_term_def = Define `
   compile_call_term = compile_dec FEMPTY (FST (SND compile_repl_decs))
@@ -296,15 +410,13 @@ val compile_call_term_thm =
 
 (*
 
-|- FV_dec call_repl_step_dec = {Short "call_repl_step"}
-
-but to get rid of asumption in
-
   val th =
     compile_call_repl_step_thm |> GEN_ALL
       |> Q.SPEC `call_repl_step_dec` |> Q.SPEC `NONE`
-      |> RW [EVAL ``dec_cns call_repl_step_dec``]
-      |> Q.SPECL [`repl_decs_cenv`,`s`,`repl_decs_env`,`s2`]
+      |> RW [EVAL ``dec_cns call_repl_step_dec``, (SIMP_RULE(srw_ss())[](EVAL ``FV_dec call_repl_step_dec``))]
+      |> Q.SPECL [`repl_decs_cenv`,`[out;inp]`,`repl_decs_env`,`[out';inp']`]
+      |> SIMP_RULE std_ss[MEM_call_repl_step]
+      (* get rid of all the hypotheses, and expand out the evaluate_dec as far as possible *)
 
 compile_call_term_def
 
