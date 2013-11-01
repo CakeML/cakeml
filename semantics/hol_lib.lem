@@ -1,3 +1,5 @@
+open import Transform
+
 type char
 val RTC : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)
 val MOD : num -> num -> num

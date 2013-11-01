@@ -1,3 +1,4 @@
+open import Transform
 (* Tokens for Standard ML.  NB, not all of them are used in CakeML *)
 type token =
 | WhitespaceT of num | NewlineT | LexErrorT

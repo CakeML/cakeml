@@ -1,3 +1,5 @@
+open import Transform
+
 val i : num -> Int.int
 let inline {hol} i = Hol.(&)
 

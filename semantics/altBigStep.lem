@@ -1,3 +1,4 @@
+open import Transform
 open Lib
 open Ast 
 open SemanticPrimitives
@@ -45,37 +46,37 @@ and
 pmatch_list' _ _ _ env = Match_type_error
 
 
-indreln
+indreln [evaluate' : type_here] and [evaluate_list' : ...] and [evaluate_match' : ...]
 
-forall env l s.
+lit : forall env l s.
 true
 ==>
 evaluate' s env (Lit l) (s, Rval (Litv l))
 
 and
 
-forall env e s1 s2 v.
+raise1 : forall env e s1 s2 v.
 evaluate' s1 env e (s2, Rval v)
 ==>
 evaluate' s1 env (Raise e) (s2, Rerr (Rraise v))
 
 and
 
-forall env e s1 s2 err.
+raise2 : forall env e s1 s2 err.
 evaluate' s1 env e (s2, Rerr err)
 ==>
 evaluate' s1 env (Raise e) (s2, Rerr err)
 
 and
 
-forall s1 s2 env e v pes.
+handle1 : forall s1 s2 env e v pes.
 evaluate' s1 env e (s2, Rval v)
 ==>
 evaluate' s1 env (Handle e pes) (s2, Rval v)
 
 and
 
-forall s1 s2 env e pes v bv.
+handle2 : forall s1 s2 env e pes v bv.
 evaluate' s1 env e (s2, Rerr (Rraise v)) &&
 evaluate_match' s2 env v pes v bv
 ==>
@@ -83,7 +84,7 @@ evaluate' s1 env (Handle e pes) bv
 
 and
 
-forall s1 s2 env e pes err.
+handle3 : forall s1 s2 env e pes err.
 evaluate' s1 env e (s2, Rerr err) &&
 (err = Rtimeout_error || err = Rtype_error)
 ==>
@@ -91,42 +92,42 @@ evaluate' s1 env (Handle e pes) (s2, Rerr err)
 
 and
 
-forall env cn es vs s1 s2.
+con1 : forall env cn es vs s1 s2.
 evaluate_list' s1 env es (s2, Rval vs)
 ==>
 evaluate' s1 env (Con cn es) (s2, Rval (Conv cn vs))
 
 and
 
-forall env cn es err s s'.
+con2 : forall env cn es err s s'.
 evaluate_list' s env es (s', Rerr err)
 ==>
 evaluate' s env (Con cn es) (s', Rerr err)
 
 and
 
-forall env n v s.
+var1 : forall env n v s.
 (lookup n env = Some v)
 ==>
 evaluate' s env (Var (Short n)) (s, Rval v)
 
 and
 
-forall env n s.
+var2 : forall env n s.
 (lookup n env = None)
 ==>
 evaluate' s env (Var (Short n)) (s, Rerr Rtype_error)
 
 and
 
-forall env n e s.
+fn : forall env n e s.
 true
 ==>
 evaluate' s env (Fun n e) (s, Rval (Closure env n e))
 
 and
 
-forall env uop e v v' s1 s2 s3.
+app1 : forall env uop e v v' s1 s2 s3.
 evaluate' s1 env e (s2, Rval v) &&
 do_uapp s2 uop v = Some (s3,v')
 ==>
@@ -134,7 +135,7 @@ evaluate' s1 env (Uapp uop e) (s3, Rval v')
 
 and
 
-forall env uop e v s1 s2.
+app2 : orall env uop e v s1 s2.
 evaluate' s1 env e (s2, Rval v) &&
 do_uapp s2 uop v = None
 ==>

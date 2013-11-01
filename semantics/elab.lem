@@ -1,3 +1,4 @@
+open import Transform
 (* An AST that can be the result of parsing, and then elaborated into the main
  * CakeML AST in ast.lem.  We are assuming that constructors start with capital
  * letters, and non-constructors start with lower case (as in OCaml) so that
