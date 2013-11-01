@@ -105,7 +105,7 @@ val compile_repl_decs_thm = store_thm("compile_repl_decs_thm",
   fs[good_labels_def,between_labels_def] >>
   fsrw_tac[DNF_ss][EVERY_MEM,miscTheory.between_def,MEM_MAP])
 
-val FV_dec_call_repl_step_dec = ``FV_dec call_repl_step_dec = {}``
+val FV_dec_call_repl_step_dec = ``FV_dec call_repl_step_dec = {Short"call_repl_step"}``
 val dec_cns_call_repl_step_dec = ``dec_cns call_repl_step_dec = {}``
 
 val compile_call_repl_step_thm = store_thm("compile_call_repl_step_thm",
@@ -139,6 +139,9 @@ val compile_call_repl_step_thm = store_thm("compile_call_repl_step_thm",
   disch_then(qspecl_then[`bs.code`,`REVERSE cs.out`,`csz`]mp_tac) >> simp[] >>
   discharge_hyps >- (
     simp[Abbr`d`,Abbr`m`,Abbr`cs0`,Abbr`bs1`] >>
+    conj_tac >- (
+      fs[MEM_MAP,pairTheory.EXISTS_PROD] >>
+      PROVE_TAC[] ) >>
     match_mp_tac env_rs_with_bs_irr >>
     qexists_tac`bs with clock := SOME ck'` >> simp[] >>
     match_mp_tac env_rs_change_clock >> simp[] >>
