@@ -9,12 +9,6 @@ val _ = Globals.max_print_depth := 20
 
 (* --- repl_step --- *)
 
-
-(*
-val DeclAssumExists_SNOC_Dlet_Fun = store_thm("DeclAssumExists_SNOC_Dlet_Fun",
-val DeclAssumExists_SNOC_Dlet = store_thm("DeclAssumExists_SNOC_Dlet",
-*)
-
 val DeclAssumExists_ml_repl_step_decls = prove(
   ``DeclAssumExists ml_repl_step_decls``,
   MP_TAC ml_repl_stepTheory.ml_repl_step_translator_state_thm
@@ -359,16 +353,20 @@ val repl_decs_env_front = let
     |> ss [SemanticPrimitivesTheory.combine_dec_result_def,LibTheory.merge_def,LibTheory.emp_def,LibTheory.bind_def]
   in th end
 
-(*
 val env_rs_repl_decs_inp_out = prove(
   ``env_rs [] (cenv ++ init_envC) (0,s)
       repl_decs_env new_compiler_state 0 rd bs' ==>
-    ∃cl pout pinp out inp st.
+    ∃cl pout pinp wout winp out inp st.
       (bs'.stack = cl::RefPtr pout::RefPtr pinp::st) ∧
       (FLOOKUP bs'.refs pout = SOME out) ∧
       (FLOOKUP bs'.refs pinp = SOME inp) ∧
-      Cv_bv x4 (v_to_Cv x1 x2 (EL x3 s)) out ∧
-      Cv_bv x8 (v_to_Cv x5 x6 (EL x7 s)) inp``,
+      let mv = MAP FST o_f new_compiler_state.rmenv in
+      let m = cmap new_compiler_state.contab in
+      let pp = mk_pp rd bs' in
+      let vout = v_to_Cv mv m (EL (LENGTH ml_repl_decs_s +1) s) in
+      let vinp = v_to_Cv mv m (EL (LENGTH ml_repl_decs_s +0) s) in
+      syneq vout wout ∧ syneq vinp winp ∧
+      Cv_bv pp wout out ∧ Cv_bv pp winp inp``,
   simp[compilerProofsTheory.env_rs_def,LET_THM] >> strip_tac >>
   fs[toBytecodeProofsTheory.Cenv_bs_def] >>
   fs[toBytecodeProofsTheory.env_renv_def] >>
@@ -396,7 +394,7 @@ val env_rs_repl_decs_inp_out = prove(
   simp[arithmeticTheory.PRE_SUB1,new_compiler_state_rsz] >>
   qpat_assum`new_compiler_state.renv = X`mp_tac >>
   REWRITE_TAC[new_compiler_state_renv] >>
-  EVAL_TAC >>
+  CONV_TAC (RATOR_CONV EVAL) >>
   strip_tac >>
   rpt BasicProvers.VAR_EQ_TAC >>
   rpt strip_tac >>
@@ -425,11 +423,41 @@ val env_rs_repl_decs_inp_out = prove(
   Q.LIST_EXISTS_TAC[`pout`,`pinp`] >> simp[] >>
   qpat_assum`s_refs X Y Z`mp_tac >>
   simp[toBytecodeProofsTheory.s_refs_def] >>
-
-  print_find"s_refs_def"
-
-set_trace"Goalstack.print_goal_at_top"0
-*)
+  rpt BasicProvers.VAR_EQ_TAC >>
+  ntac 2 (pop_assum mp_tac) >>
+  simp[CompilerLibTheory.el_check_def] >>
+  qpat_assum`LIST_REL P Cw X`kall_tac >>
+  qpat_assum`syneq X Cx`kall_tac >>
+  qpat_assum`LIST_REL P X Cw`kall_tac >>
+  qpat_assum`Cv_bv X Cx Y`kall_tac >>
+  rpt strip_tac >>
+  simp[finite_mapTheory.FLOOKUP_DEF] >>
+  fs[listTheory.EVERY_MEM] >>
+  simp[Once CONJ_ASSOC] >>
+  `LENGTH ml_repl_decs_s < LENGTH Cs` by simp[] >>
+  simp[RIGHT_EXISTS_AND_THM] >>
+  conj_tac >- (
+    conj_tac >>
+    first_x_assum MATCH_MP_TAC >>
+    simp[listTheory.MEM_EL] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    PROVE_TAC[] ) >>
+  fs[listTheory.EVERY2_EVERY,listTheory.EVERY_MEM,pairTheory.FORALL_PROD] >>
+  qexists_tac`EL(LENGTH ml_repl_decs_s+1)Cs` >>
+  conj_tac >- (
+    first_x_assum MATCH_MP_TAC >>
+    simp[listTheory.MEM_ZIP] >>
+    PROVE_TAC[] ) >>
+  qexists_tac`EL(LENGTH ml_repl_decs_s+0)Cs` >>
+  conj_tac >- (
+    first_x_assum MATCH_MP_TAC >>
+    simp[listTheory.MEM_ZIP] >>
+    PROVE_TAC[] ) >>
+  conj_tac >> FIRST_X_ASSUM MATCH_MP_TAC >>
+  simp[listTheory.MEM_ZIP] >|[
+    qexists_tac`LENGTH ml_repl_decs_s+1`,
+    qexists_tac`LENGTH ml_repl_decs_s+0`] >>
+  simp[listTheory.EL_MAP])
 
 val bc_eval_bootstrap_lcode = prove(
   ``∀bs.
