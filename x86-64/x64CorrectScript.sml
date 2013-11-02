@@ -267,6 +267,13 @@ val evaluate_decs_decs_to_cenv = store_thm("evaluate_decs_decs_to_cenv",
    fs[] >> simp[SemanticPrimitivesTheory.decs_to_cenv_def,LibTheory.merge_def] >>
    Cases_on`r`>>fs[SemanticPrimitivesTheory.combine_dec_result_def])
 
+val cenv_bind_div_eq_init_envC = store_thm("cenv_bind_div_eq_init_envC",
+  ``cenv_bind_div_eq init_envC``, EVAL_TAC)
+
+val closed_context_empty = store_thm("closed_context_empty",
+  ``closed_context [] init_envC empty_store []``,
+  EVAL_TAC >> rw[])
+
 val evaluate_decs_ml_repl_decs = let
   val th = DeclAssumC_thm
            |> RW [GSYM AND_IMP_INTRO]
@@ -508,30 +515,101 @@ val compile_call_term_thm =
   |> SIMP_RULE std_ss [GSYM compileCallReplStepDecTheory.call_lcode_def,
        LET_DEF,GSYM compile_call_term_def]
 
-(*
+val new_decs_vs_ml_repl_step_decls =
+  ``new_decs_vs ml_repl_step_decls``
+  |> REWRITE_CONV [ml_repl_stepTheory.ml_repl_step_decls]
+  |> RIGHT_CONV_RULE EVAL
+  |> RIGHT_CONV_RULE (SIMP_CONV std_ss [AstTheory.pat_bindings_def])
+  |> RIGHT_CONV_RULE EVAL
 
+val MAP_FST_repl_decs_env =
+  repl_decs_env_vs
+  |> REWRITE_RULE[new_decs_vs_ml_repl_step_decls]
+
+val FST_SND_compile_repl_decs =
+  ``FST (SND compile_repl_decs)``
+  |> REWRITE_CONV[compileReplDecsTheory.compile_repl_decs_def]
+  |> RW[compileReplDecsTheory.repl_decs_compiled,repl_computeTheory.compile_decs_FOLDL]
+  |> RW[GSYM MAP_FST_repl_decs_env]
+
+val FST_SND_SND_compile_repl_decs =
+  ``FST (SND (SND compile_repl_decs))``
+  |> REWRITE_CONV[compileReplDecsTheory.compile_repl_decs_def]
+  |> RW[compileReplDecsTheory.repl_decs_compiled,repl_computeTheory.compile_decs_FOLDL]
+
+val FST_SND_SND_SND_compile_repl_decs =
+  ``FST (SND (SND (SND compile_repl_decs)))``
+  |> REWRITE_CONV[compileReplDecsTheory.compile_repl_decs_def]
+  |> RW[compileReplDecsTheory.repl_decs_compiled,repl_computeTheory.compile_decs_FOLDL]
+
+val SND_SND_SND_SND_compile_repl_decs =
+  ``SND (SND (SND (SND compile_repl_decs)))``
+  |> REWRITE_CONV[compileReplDecsTheory.compile_repl_decs_def]
+  |> RW[compileReplDecsTheory.repl_decs_compiled,repl_computeTheory.compile_decs_FOLDL]
+
+val new_compiler_state_contab =
+  SIMP_CONV (srw_ss()) [new_compiler_state_def] ``new_compiler_state.contab``
+  |> RW [compile_term_def,compileReplDecsTheory.repl_decs_compiled,repl_computeTheory.compile_decs_FOLDL,LET_THM]
+  |> CONV_RULE (DEPTH_CONV (PairRules.PBETA_CONV))
+  |> RW [SND]
+
+val new_compiler_state_rnext_label =
+  SIMP_CONV (srw_ss()) [new_compiler_state_def] ``new_compiler_state.rnext_label``
+  |> RW [compile_term_def,compileReplDecsTheory.repl_decs_compiled,repl_computeTheory.compile_decs_FOLDL,LET_THM]
+  |> CONV_RULE (DEPTH_CONV (PairRules.PBETA_CONV))
+  |> RW [SND]
+  |> RW [SIMP_CONV (srw_ss()) [] ``<|out := X; next_label := Y|>.next_label``]
+
+val FST_SND_SND_compile_repl_decs_new_compiler_state_renv = prove(
+  ``FST(SND(SND compile_repl_decs)) = MAP (CTDec o SND) new_compiler_state.renv``,
+  REWRITE_TAC[FST_SND_SND_compile_repl_decs,new_compiler_state_renv] >>
+  EVAL_TAC)
+
+val compile_call_new_compiler_state = prove(
+  ``compile_dec FEMPTY
+        <|bvars := MAP FST repl_decs_env; mvars := FEMPTY;
+          cnmap := cmap new_compiler_state.contab|>
+        (MAP (CTDec o SND) new_compiler_state.renv)
+        new_compiler_state.rsz
+        <|out := []; next_label := new_compiler_state.rnext_label|>
+        call_repl_step_dec
+    = compile_call_term``,
+  simp[compile_call_term_def] >>
+  AP_THM_TAC >>
+  simp[FST_SND_compile_repl_decs] >>
+  simp[new_compiler_state_contab] >>
+  simp[FST_SND_SND_compile_repl_decs_new_compiler_state_renv] >>
+  simp[new_compiler_state_rsz] >>
+  simp[FST_SND_SND_SND_compile_repl_decs] >>
+  AP_TERM_TAC >>
+  simp[new_compiler_state_rnext_label] >>
+  CONV_TAC(RAND_CONV(RAND_CONV(REWR_CONV SND_SND_SND_SND_compile_repl_decs))) >>
+  CONV_TAC(RAND_CONV(REWR_CONV(SIMP_CONV (srw_ss()) [] ``<|out := X; next_label := Y|>.next_label``))) >>
+  rw[])
+
+val closed_context_repl_decs =
+  repl_decs_cenv_env_s_def
+  |> MATCH_MP semanticsExtraTheory.evaluate_decs_closed_context
+  |> SIMP_RULE (srw_ss())[LET_THM,repl_decs_lemma,cenv_bind_div_eq_init_envC,closed_context_empty]
+
+(*
+val compile_call_bc_eval = let
   val th =
     compile_call_repl_step_thm |> GEN_ALL
       |> Q.SPEC `call_repl_step_dec` |> Q.SPEC `NONE`
       |> RW [EVAL ``dec_cns call_repl_step_dec``, (SIMP_RULE(srw_ss())[](EVAL ``FV_dec call_repl_step_dec``))]
-      |> Q.SPECL [`repl_decs_cenv`,`[out;inp]`,`repl_decs_env`,`[out';inp']`]
+      |> Q.SPECL [`repl_decs_cenv++init_envC`,`s++[out;inp]`,`repl_decs_env`,`s++[out';inp']`]
       |> SIMP_RULE std_ss[MEM_call_repl_step]
+      |> Q.SPECL [`new_compiler_state`,`csz`,`rd`,`ck`]
+      |> SPEC(rand(rhs(concl(compile_call_term_thm))))
+      |> RW[compile_call_new_compiler_state,compile_call_term_thm]
+      |> SIMP_RULE (srw_ss())[]
+
       (* get rid of all the hypotheses, and expand out the evaluate_dec as far as possible *)
 
-compile_call_term_def
-
-  print_find "repl_decs_compiled"
-
-we need:
-
-|- FV_dec call_repl_step_dec = {}
-
-
-
+  print_find "closed_context"
+  print_apropos``closed_context []``
 *)
-
-
-
 
 (*
 
