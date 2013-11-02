@@ -9,6 +9,13 @@ val _ = Globals.max_print_depth := 20
 
 (* --- repl_step --- *)
 
+val equality_types = prove(
+  ``EqualityType AST_T_TYPE ∧
+    EqualityType AST_PAT_TYPE ∧
+    EqualityType (GRAMMAR_PARSETREE_TYPE TOKENS_TOKEN_TYPE GRAM_MMLNONT_TYPE) ∧
+    EqualityType AST_EXP_TYPE``,
+    cheat (* try proving this manually (like in hol-light/ml_monadScript.sml), or fix automation *))
+
 val DeclAssumExists_ml_repl_step_decls = prove(
   ``DeclAssumExists ml_repl_step_decls``,
   MP_TAC ml_repl_stepTheory.ml_repl_step_translator_state_thm
@@ -22,7 +29,7 @@ val DeclAssumExists_ml_repl_step_decls = prove(
   \\ STRIP_TAC THEN1
    (MP_TAC sideTheory.repl_step_side_thm
     \\ FULL_SIMP_TAC std_ss [ml_repl_stepTheory.repl_step_side_def])
-  \\ cheat (* EqualityType (GRAMMAR_PARSETREE_TYPE ...) *) )
+  \\ SIMP_TAC std_ss [equality_types])
 
 val SNOC3 = prove(
    ``xs ++ [x3;x2;x1] = SNOC x1 (SNOC x2 (SNOC x3 xs))``,
@@ -360,7 +367,7 @@ val repl_decs_env_front = let
     |> ss [SemanticPrimitivesTheory.combine_dec_result_def,LibTheory.merge_def,LibTheory.emp_def,LibTheory.bind_def]
   in th end
 
-val env_rs_repl_decs_inp_out = prove(
+val env_rs_repl_decs_inp_out = store_thm("env_rs_repl_decs_inp_out",
   ``env_rs [] (cenv ++ init_envC) (0,s)
       repl_decs_env new_compiler_state 0 rd bs' ==>
     ∃cl pout pinp wout winp out inp st.
@@ -466,7 +473,7 @@ val env_rs_repl_decs_inp_out = prove(
     qexists_tac`LENGTH ml_repl_decs_s+0`] >>
   simp[listTheory.EL_MAP])
 
-val bc_eval_bootstrap_lcode = prove(
+val bc_eval_bootstrap_lcode = store_thm("bc_eval_bootstrap_lcode",
   ``∀bs.
        (bs.code = REVERSE bootstrap_lcode) ∧ length_ok bs.inst_length /\
        (bs.pc = 0) ∧ (bs.stack = []) ∧ (bs.clock = NONE) ⇒
@@ -560,6 +567,16 @@ val new_compiler_state_rnext_label =
   |> RW [SND]
   |> RW [SIMP_CONV (srw_ss()) [] ``<|out := X; next_label := Y|>.next_label``]
 
+val compile_term_next_label = prove(
+  ``(SND (SND (SND compile_term))).next_label = new_compiler_state.rnext_label``,
+  SIMP_TAC std_ss [compile_term_def]
+  \\ REWRITE_TAC [compileReplDecsTheory.repl_decs_compiled,
+       repl_computeTheory.compile_decs_FOLDL,LET_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ REWRITE_TAC [SND,FST,``<|out := code; next_label := n |>.next_label``
+                          |> SIMP_CONV (srw_ss()) []]
+  \\ REWRITE_TAC [new_compiler_state_rnext_label]);
+
 val FST_SND_SND_compile_repl_decs_new_compiler_state_renv = prove(
   ``FST(SND(SND compile_repl_decs)) = MAP (CTDec o SND) new_compiler_state.renv``,
   REWRITE_TAC[FST_SND_SND_compile_repl_decs,new_compiler_state_renv] >>
@@ -587,29 +604,133 @@ val compile_call_new_compiler_state = prove(
   CONV_TAC(RAND_CONV(REWR_CONV(SIMP_CONV (srw_ss()) [] ``<|out := X; next_label := Y|>.next_label``))) >>
   rw[])
 
-val closed_context_repl_decs =
+val closed_context_repl_decs = save_thm("closed_context_repl_decs",
   repl_decs_cenv_env_s_def
   |> MATCH_MP semanticsExtraTheory.evaluate_decs_closed_context
-  |> SIMP_RULE (srw_ss())[LET_THM,repl_decs_lemma,cenv_bind_div_eq_init_envC,closed_context_empty]
+  |> SIMP_RULE (srw_ss())[LET_THM,repl_decs_lemma,cenv_bind_div_eq_init_envC,closed_context_empty])
+
+val cenv_bind_div_eq_ml_repl_decs_cenv_init_envC = prove(
+  ``cenv_bind_div_eq (ml_repl_decs_cenv ++ init_envC)``,
+  match_mp_tac (semanticsExtraTheory.cenv_bind_div_eq_append) >>
+  simp[cenv_bind_div_eq_init_envC] >>
+  simp[ml_repl_decs_cenv] >>
+  simp[InitialEnvTheory.init_envC_def] >>
+  REWRITE_TAC[decs_to_cenv_ml_repl_step_decls] >>
+  EVAL_TAC)
+
+val repl_decs_s_thm = save_thm("repl_decs_s_thm",
+  CONJUNCT1 repl_decs_env_front)
+
+val DeclAssum_ml_repl_step_decls = prove(
+  ``DeclAssum ml_repl_step_decls ml_repl_decs_env``,
+  simp[DeclAssum_def] >>
+  simp[Decls_def] >>
+  cheat (* ml_repl_decs_cenv_env_s_def and decs/decs' equivalence *))
+  (* easier proof might be to do decs/decs' equivalence for the special case
+  when only Letrec and Let(Fun (to avoid induction at expression level) *)
 
 (*
-val compile_call_bc_eval = let
+val repl_step_closure_def =
+  new_specification("repl_step_closure_def",["repl_step_closure"],
+
+  ml_repl_stepTheory.ml_repl_step_translator_state_thm
+  |> CONV_RULE (REWR_CONV TAG_def)
+  |> CONV_RULE (REWR_CONV markerTheory.Abbrev_def) |> CONJUNCT2 |> CONJUNCT1
+  |> CONV_RULE (REWR_CONV markerTheory.Abbrev_def) |> CONJUNCT2 |> CONJUNCT1
+  |> CONV_RULE (REWR_CONV markerTheory.Abbrev_def) |> CONJUNCT2 |> CONJUNCT1
+  |> CONV_RULE (REWR_CONV markerTheory.Abbrev_def) |> CONJUNCT2 |> CONJUNCT2
+  |> CONJUNCT2 |> CONJUNCT1
+
+  |> RW[sideTheory.repl_step_side_thm,PRECONDITION_def,equality_types]
+  |> CONV_RULE (REWR_CONV markerTheory.Abbrev_def)
+  |> SPEC ``ml_repl_decs_env``
+  |> RW[DeclAssum_ml_repl_step_decls,Eval_def]
+  |> SIMP_RULE(srw_ss())[Once AltBigStepTheory.evaluate'_cases]
+  |> SIMP_RULE(srw_ss())[Arrow_def,AppReturns_def,evaluate_closure_def,Eq_def]
+  |> GEN_ALL |> Q.SPEC`NONE` |> SIMP_RULE(srw_ss())[std_preludeTheory.OPTION_TYPE_def]
+
+  ml_repl_step_translator_state_thm
+  |> EVAL
+  ml_repl_decs_cenv_env_s_def
+  ml_repl_step_decls
+*)
+
+val good_labels_new_compiler_state_bootstrap_lcode = prove(
+  ``good_labels new_compiler_state.rnext_label (REVERSE bootstrap_lcode)``,
+  qspec_then`<|code:=REVERSE bootstrap_lcode;pc:=0;stack:=[];clock:=NONE|>`mp_tac compile_decs_bc_eval >>
+  simp[compile_term_out_EQ_bootstrap_lcode] >>
+  strip_tac >>
+  fs[compile_term_next_label])
+
+val compile_call_bc_eval = save_thm("compile_call_bc_eval",
+let
   val th =
     compile_call_repl_step_thm |> GEN_ALL
       |> Q.SPEC `call_repl_step_dec` |> Q.SPEC `NONE`
       |> RW [EVAL ``dec_cns call_repl_step_dec``, (SIMP_RULE(srw_ss())[](EVAL ``FV_dec call_repl_step_dec``))]
-      |> Q.SPECL [`repl_decs_cenv++init_envC`,`s++[out;inp]`,`repl_decs_env`,`s++[out';inp']`]
+      |> Q.SPECL [`repl_decs_cenv++init_envC`,`ml_repl_decs_s++[out;inp]`,`repl_decs_env`,`ml_repl_decs_s++[out';inp']`]
       |> SIMP_RULE std_ss[MEM_call_repl_step]
       |> Q.SPECL [`new_compiler_state`,`csz`,`rd`,`ck`]
       |> SPEC(rand(rhs(concl(compile_call_term_thm))))
       |> RW[compile_call_new_compiler_state,compile_call_term_thm]
       |> SIMP_RULE (srw_ss())[]
+   val evaluate_dec_th =
+     th |> SPEC_ALL |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO] |> UNDISCH |> hyp |> hd |> ASSUME
+   val ccth =
+     semanticsExtraTheory.evaluate_dec_closed_context
+     |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
+     |> C MATCH_MP evaluate_dec_th
+     |> SIMP_RULE (srw_ss()) [call_repl_step_dec_def,GSYM listTheory.MAP_MAP_o
+                             ,Once listTheory.MEM_MAP,MEM_call_repl_step
+                             ,LET_THM]
+     |> UNDISCH
+     |> CONV_RULE (LAND_CONV(REWRITE_CONV [repl_decs_env_front]))
+     |> RW[cenv_bind_div_eq_ml_repl_decs_cenv_init_envC]
+   val th1 =
+     th |> SPEC_ALL |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
+     |> UNDISCH_ALL
+     |> CONJ ccth
+     |> SIMP_RULE std_ss [GSYM RIGHT_EXISTS_AND_THM]
+     |> (fn th => DISCH (first (equal "good_labels" o fst o dest_const o fst o strip_comb) (hyp th)) th)
+     |> DISCH ``bs.code = REVERSE bootstrap_lcode``
+     |> SIMP_RULE std_ss [good_labels_new_compiler_state_bootstrap_lcode]
+     |> DISCH_ALL
+     |> SIMP_RULE std_ss [AND_IMP_INTRO]
+in th1 end)
 
-      (* get rid of all the hypotheses, and expand out the evaluate_dec as far as possible *)
+   (*
+   going further (as in below) is probably not worth it
+
+   val ss = SIMP_CONV (srw_ss())
+   val th2 =
+     th1 |> CONV_RULE (LAND_CONV (
+     ss[Once BigStepTheory.evaluate_dec_cases,call_repl_step_dec_def]
+     THENC ss[Once BigStepTheory.evaluate_cases]
+     THENC ss[Once BigStepTheory.evaluate_cases,LibTheory.emp_def,SemanticPrimitivesTheory.do_app_def]
+     THENC ss[last(CONJUNCTS repl_decs_env_front),SemanticPrimitivesTheory.lookup_var_id_def]
+     THENC ss[AstTheory.pat_bindings_def]
+     THENC ss[Once BigStepTheory.evaluate_cases]
+     THENC ss[Once BigStepTheory.evaluate_cases,SemanticPrimitivesTheory.lookup_var_id_def,LibTheory.bind_def]
+     THENC ss[SemanticPrimitivesTheory.do_app_def]
+     THENC ss[Once BigStepTheory.evaluate_cases]
+     THENC ss[Once BigStepTheory.evaluate_cases]
+     THENC ss[Once BigStepTheory.evaluate_cases]))
+   val th3 =
+     th2 |> CONV_RULE (LAND_CONV (
+     ss[Once BigStepTheory.evaluate_cases]
+     THENC ss[SemanticPrimitivesTheory.lookup_var_id_def]
+     ))
+
+     THENC ss[SemanticPrimitivesTheory.do_app_def]
+
+     print_find"cenv_bind_div"
+
+  set_trace"Goalstack.print_goal_at_top"0
+  set_trace"Goalstack.howmany_printed_assums"10
 
   print_find "closed_context"
   print_apropos``closed_context []``
-*)
+  *)
 
 (*
 
