@@ -11249,7 +11249,7 @@ val (res,is_space_def,is_space_pre_def) = x64_compile `
       if HD s.input = CHR 32 then (x1,s) else
       if ~(ORD (HD s.input) < 9) /\ ORD (HD s.input) < 14 then (x1,s) else
         let x1 = Number 0 in (x1,s)`
-<
+
 val is_space_thm = prove(
   ``(is_space_pre s = s.input <> "") /\
     (is_space s = (Number (bool2int (isSpace (HD s.input))), s))``,
