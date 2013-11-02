@@ -643,7 +643,8 @@ val init_inv_IMP_heap_inv = prove(
   \\ STRIP_TAC THEN1
    (Cases_on `heap_len = 0` \\ FULL_SIMP_TAC std_ss [heap_expand_def]
     \\ EVAL_TAC \\ SIMP_TAC std_ss [SUM,PULL_EXISTS] \\ Q.EXISTS_TAC `FEMPTY`
-    \\ SRW_TAC [] [INJ_DEF,get_refs_def] \\ DECIDE_TAC)
+    \\ SRW_TAC [] [INJ_DEF,get_refs_def] \\ TRY DECIDE_TAC \\
+    Cases_on`x = Number 0` \\ SRW_TAC [][get_refs_def])
   \\ FULL_SIMP_TAC (srw_ss()) [init_inv_def,first_s_def,code_heap_inv_def,
        stack_inv_def] \\ FULL_SIMP_TAC std_ss [reintro_word_sub64]
   \\ `heap_len < 281474976710656 /\
@@ -11967,7 +11968,7 @@ val next_symbol_thm = prove(
     \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF,isNumber_def])
   \\ Cases_on `h = #"~"` \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
    (Cases_on `v = ""` \\ FULL_SIMP_TAC std_ss []
-    THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
+    THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [] \\ SRW_TAC[][read_while_def] \\ EVAL_TAC)
     \\ Cases_on `isDigit (HD v)` \\ FULL_SIMP_TAC std_ss [] THEN1
      (STRIP_ASSUME_TAC (LIST_PREFIX_PROP |> Q.SPECL [`v`,`isDigit`])
       \\ FULL_SIMP_TAC std_ss []
@@ -11991,7 +11992,7 @@ val next_symbol_thm = prove(
    (Cases_on `v` \\ FULL_SIMP_TAC (srw_ss()) []
     \\ SIMP_TAC std_ss [EVAL ``is_single_char_symbol #"*"``]
     \\ SIMP_TAC std_ss [EVAL ``isSymbol #"*"``,isNumber_def]
-    THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
+    THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [] \\ SRW_TAC[][read_while_def] \\ EVAL_TAC)
     \\ Q.MATCH_ASSUM_RENAME_TAC `s.input = STRING #"*" (STRING x xs)` []
     \\ Cases_on `x = #")"` \\ FULL_SIMP_TAC std_ss []
     THEN1 (FULL_SIMP_TAC (srw_ss()) [])
