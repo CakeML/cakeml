@@ -621,6 +621,7 @@ val cenv_bind_div_eq_ml_repl_decs_cenv_init_envC = prove(
 val repl_decs_s_thm = save_thm("repl_decs_s_thm",
   CONJUNCT1 repl_decs_env_front)
 
+(*
 val DeclAssum_ml_repl_step_decls = prove(
   ``DeclAssum ml_repl_step_decls ml_repl_decs_env``,
   simp[DeclAssum_def] >>
@@ -629,7 +630,6 @@ val DeclAssum_ml_repl_step_decls = prove(
   (* easier proof might be to do decs/decs' equivalence for the special case
   when only Letrec and Let(Fun (to avoid induction at expression level) *)
 
-(*
 val repl_step_closure_def =
   new_specification("repl_step_closure_def",["repl_step_closure"],
 
