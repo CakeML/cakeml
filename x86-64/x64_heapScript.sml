@@ -10744,7 +10744,7 @@ val bc_num_def = Define `
        Stack Pop => (0:num,0:num,0:num)
      | Stack (Pops n) => (1,n,0)
      | Stack (Shift n m) => (2,n,m)
-     | Stack (PushInt n) => (3,Num n,if n < 0 then 1 else 0)
+     | Stack (PushInt i) => (3,Num (ABS i),if i < 0 then 1 else 0)
      | Stack (Cons n m) => (4,n,m)
      | Stack (Load n) => (5,n,0)
      | Stack (Store n) => (6,n,0)
@@ -10764,7 +10764,6 @@ val bc_num_def = Define `
      | JumpIf (Addr n) => (22,n,0)
      | Call (Addr n) => (23,n,0)
      | PushPtr (Addr n) => (24,n,0)
-     | JumpPtr => (25,0,0)
      | CallPtr => (26,0,0)
      | Return => (27,0,0)
      | PushExc => (28,0,0)
@@ -10904,6 +10903,68 @@ val (res,ic_Pops_def,ic_Pops_pre_def) = x64_compile `
     else let s = s with code := s.code ++ ^err in (x2,s,cs)`
 
 (*
+  EVAL ``x64 i (Stack (TagEq k))``
+*)
+
+val tageq1 = ``[0x48w; 0x31w; 0xC9w; 0x81w; 0xC1w]:word8 list`` |> gen
+val tageq2 = ``[0x48w; 0xA9w; 0x1w; 0x0w; 0x0w;
+      0x0w; 0x48w; 0x75w; 0x7w; 0x48w; 0x83w; 0xE8w; 0x2w; 0x48w; 0xEBw;
+      0xEw; 0x48w; 0x8Bw; 0x40w; 0x1w; 0x48w; 0x25w; 0xFFw; 0xFFw; 0x0w;
+      0x0w; 0x48w; 0xC1w; 0xE8w; 0x2w; 0x48w; 0x39w; 0xC8w; 0x48w;
+      0x75w; 0x8w; 0xB8w; 0x6w; 0x0w; 0x0w; 0x0w; 0x48w; 0xEBw; 0x5w;
+      0xB8w; 0x2w; 0x0w; 0x0w; 0x0w]:word8 list`` |> gen
+
+val (res,ic_TagEq_def,ic_TagEq_pre_def) = x64_compile `
+  ic_TagEq (x2,s,cs:zheap_consts) =
+    if isSmall x2 then
+    if getNumber x2 < 268435456 then
+      let x2 = Number (getNumber x2 * 4) in
+      let s = s with code := s.code ++ ^tageq1 in
+      let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
+      let s = s with code := s.code ++ ^tageq2 in
+        (x2,s,cs)
+    else let s = s with code := s.code ++ ^err in (x2,s,cs)
+    else let s = s with code := s.code ++ ^err in (x2,s,cs)`
+
+(*
+  EVAL ``x64 i (Stack (El k))``
+*)
+
+val el1 = ``[0x48w; 0x31w; 0xC9w; 0x81w; 0xC1w]:word8 list`` |> gen
+val el2 = ``[0x48w; 0x8Bw; 0x44w; 0x48w; 0x9w]:word8 list`` |> gen
+
+val (res,ic_El_def,ic_El_pre_def) = x64_compile `
+  ic_El (x2,s,cs:zheap_consts) =
+    if isSmall x2 then
+    if getNumber x2 < 268435456 then
+      let x2 = Number (getNumber x2 * 4) in
+      let s = s with code := s.code ++ ^el1 in
+      let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
+      let s = s with code := s.code ++ ^el2 in
+        (x2,s,cs)
+    else let s = s with code := s.code ++ ^err in (x2,s,cs)
+    else let s = s with code := s.code ++ ^err in (x2,s,cs)`
+
+(*
+  EVAL ``x64 i (Stack (PushInt k))``
+*)
+
+val pushint = ``[0x48w; 0x50w; 0x48w; 0x31w; 0xC0w; 0x5w]:word8 list`` |> gen
+
+val (res,ic_PushInt_def,ic_PushInt_pre_def) = x64_compile `
+  ic_PushInt (x2,x3,s,cs:zheap_consts) =
+    if getNumber x3 = 0 then
+    if isSmall x2 then
+    if getNumber x2 < 268435456 then
+      let x2 = Number (getNumber x2 * 4) in
+      let s = s with code := s.code ++ ^pushint in
+      let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
+        (x2,x3,s,cs)
+    else let s = s with code := s.code ++ ^err in (x2,x3,s,cs)
+    else let s = s with code := s.code ++ ^err in (x2,x3,s,cs)
+    else let s = s with code := s.code ++ ^err in (x2,x3,s,cs)`
+
+(*
   EVAL ``x64 i (PrintC c)``
 *)
 
@@ -10926,15 +10987,17 @@ val (res,ic_PrintC_def,ic_PrintC_pre_def) = x64_compile `
   EVAL ``x64 i (Stack (Store x))``
 *)
 
-val store = ``[0x48w; 0x89w; 0x84w; 0x24w]:word8 list`` |> gen
+val store1 = ``[0x48w; 0x89w; 0x84w; 0x24w]:word8 list`` |> gen
+val store2 = ``[0x48w; 0x58w]:word8 list`` |> gen
 
 val (res,ic_Store_def,ic_Store_pre_def) = x64_compile `
   ic_Store (x2,s,cs:zheap_consts) =
     if isSmall x2 then
     if getNumber x2 < 268435456 then
       let x2 = Number (getNumber x2 * 8) in
-      let s = s with code := s.code ++ ^store in
+      let s = s with code := s.code ++ ^store1 in
       let s = s with code := s.code ++ IMM32 (n2w (Num (getNumber x2))) in
+      let s = s with code := s.code ++ ^store2 in
         (x2,s,cs)
     else let s = s with code := s.code ++ ^err in (x2,s,cs)
     else let s = s with code := s.code ++ ^err in (x2,s,cs)`
@@ -10943,7 +11006,7 @@ val (res,ic_Store_def,ic_Store_pre_def) = x64_compile `
   EVAL ``x64 i (Stack (Load x))``
 *)
 
-val load = ``[0x48w; 0x8Bw; 0x84w; 0x24w]:word8 list`` |> gen
+val load = ``[0x48w; 0x50w; 0x48w; 0x8Bw; 0x84w; 0x24w]:word8 list`` |> gen
 
 val (res,ic_Load_def,ic_Load_pre_def) = x64_compile `
   ic_Load (x2,s,cs:zheap_consts) =
@@ -11097,6 +11160,12 @@ val (res,ic_Any_def,ic_Any_pre_def) = x64_compile `
       let (x2,s,cs) = ic_PrintC (x2,s,cs) in (x1,x2,x3,s,cs)
     else if getNumber x1 = & ^(index ``Label l``) then
       (x1,x2,x3,s,cs)
+    else if getNumber x1 = & ^(index ``Stack (TagEq a)``) then
+      let (x2,s,cs) = ic_TagEq (x2,s,cs) in (x1,x2,x3,s,cs)
+    else if getNumber x1 = & ^(index ``Stack (PushInt a)``) then
+      let (x2,x3,s,cs) = ic_PushInt (x2,x3,s,cs) in (x1,x2,x3,s,cs)
+    else if getNumber x1 = & ^(index ``Stack (El a)``) then
+      let (x2,s,cs) = ic_El (x2,s,cs) in (x1,x2,x3,s,cs)
     else
       let (x1,s,cs) = ic_no_args (x1,s,cs) in (x1,x2,x3,s,cs)`
 
@@ -11117,6 +11186,7 @@ val ic_Any_thm = prove(
           ic_Any_pre (Number (& n1),Number (& n2),Number (& n3),s,cs) /\
           (ic_Any (Number (& n1),Number (& n2),Number (& n3),s,cs) =
              (x1,x2,x3,s with code := s.code ++ x64 (LENGTH s.code) i,cs))``,
+
   Cases \\ TRY (Cases_on `b`) \\ TRY (Cases_on `l:loc`)
   \\ SIMP_TAC (srw_ss()) [bc_num_def,LET_DEF,ic_Any_def,ic_Any_pre_def,
        getNumber_def,ic_no_args_def,isNumber_def,
@@ -11124,6 +11194,9 @@ val ic_Any_thm = prove(
        ic_PrintC_def,ic_PrintC_pre_def,
        ic_Load_def,ic_Load_pre_def,
        ic_Store_def,ic_Store_pre_def,
+       ic_El_def,ic_El_pre_def,
+       ic_PushInt_def,ic_PushInt_pre_def,
+       ic_TagEq_def,ic_TagEq_pre_def,
        isSmall_def,canCompare_def]
   \\ TRY (SIMP_TAC std_ss [x64_def,LENGTH] \\ NO_TAC)
   \\ TRY (Cases_on `n < 268435456`
@@ -11147,8 +11220,21 @@ val ic_Any_thm = prove(
         AC MULT_COMM MULT_ASSOC]
     \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
-  \\ cheat (* code for TagEq, El, Store, Load, Cons and PushInt
-              not properly generated *));
+  \\ TRY (
+    Cases_on `i < 0` THEN1 FULL_SIMP_TAC std_ss [x64_def,small_offset_def,LENGTH]
+    \\ FULL_SIMP_TAC std_ss [x64_def,LET_DEF,small_offset_def]
+    \\ Cases_on `Num (ABS i) < 268435456` \\ FULL_SIMP_TAC std_ss [LENGTH]
+    \\ `small_int (&Num (ABS i))` by ALL_TAC THEN1
+      (FULL_SIMP_TAC std_ss [small_int_def] \\ intLib.COOPER_TAC)
+    \\ `Num (ABS i) = Num i` by intLib.COOPER_TAC
+    \\ FULL_SIMP_TAC std_ss [IMM32_def,GSYM APPEND_ASSOC,APPEND]
+    \\ FULL_SIMP_TAC std_ss [AC MULT_ASSOC MULT_COMM]
+    \\ FULL_SIMP_TAC std_ss [small_int_def]
+    \\ REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
+  \\ cheat (* code for following not properly generated:
+               - Cons
+               - Shift
+               *));
 
 (* code install that walks down a list *)
 
