@@ -1216,7 +1216,20 @@ gg goal
     \\ SIMP_TAC std_ss [blast_lemma5,x64_addr_def]
     \\ Q.PAT_ASSUM `bb = vs.code_ptr` (ASSUME_TAC o GSYM)
     \\ FULL_SIMP_TAC std_ss [WORD_ADD_SUB]
-    \\ REVERSE STRIP_TAC THEN1 cheat (* provable *)
+    \\ REVERSE STRIP_TAC THEN1 (
+        WORD_EVAL_TAC
+        \\ SIMP_TAC std_ss [bitTheory.BITS_ZERO3]
+        \\ SIMP_TAC std_ss [bitTheory.TIMES_2EXP_def]
+        \\ AP_TERM_TAC
+        \\ Q.MATCH_ABBREV_TAC`(x * 4) MOD b = ((2 * x) MOD c * 2) MOD b` \\
+        `b = 2 * c` by ( SIMP_TAC std_ss [Abbr`b`,Abbr`c`] )
+        \\ POP_ASSUM SUBST1_TAC \\ Q.UNABBREV_TAC`b` \\
+        `(2 * x) MOD c = 2 * x` by (
+          MATCH_MP_TAC LESS_MOD \\
+          UNABBREV_ALL_TAC \\
+          DECIDE_TAC )
+        \\ POP_ASSUM SUBST1_TAC
+        \\ DECIDE_TAC )
     \\ FULL_SIMP_TAC (srw_ss()) [abs_ml_inv_def,roots_ok_def,MEM]
     \\ STRIP_TAC THEN1 (METIS_TAC [])
     \\ FULL_SIMP_TAC std_ss [bc_stack_ref_inv_def] \\ Q.EXISTS_TAC `f`
