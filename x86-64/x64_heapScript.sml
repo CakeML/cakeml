@@ -9513,15 +9513,30 @@ val SPEC_CONSEQ = prove(
     !p1 q1. SEP_IMP p1 p /\ SEP_IMP q q1 ==> SPEC m p1 c q1``,
   METIS_TAC [SPEC_WEAKEN,SPEC_STRENGTHEN]);
 
+val bc_equal_sym = prove(
+  ``(!x1 x2. bc_equal x1 x2 = bc_equal x2 x1) /\
+    (!xs1 xs2. bc_equal_list xs1 xs2 = bc_equal_list xs2 xs1)``,
+  HO_MATCH_MP_TAC bytecodeTerminationTheory.bc_equal_ind
+  \\ REPEAT ( STRIP_TAC THEN1 ( GEN_TAC \\ Cases \\ SRW_TAC[][bc_equal_def] ))
+  \\ NTAC 8 ( STRIP_TAC THEN1 ( SRW_TAC[][bc_equal_def,EQ_IMP_THM] ) )
+  \\ STRIP_TAC THEN1 (
+    SRW_TAC[][] \\
+    SRW_TAC[][bc_equal_def] \\
+    REV_FULL_SIMP_TAC std_ss [] )
+  \\ STRIP_TAC THEN1 ( SRW_TAC[][bc_equal_def,EQ_IMP_THM] )
+  \\ STRIP_TAC THEN1 (
+    SRW_TAC[][bc_equal_def] \\
+    Cases_on`bc_equal x1 x2` \\ FULL_SIMP_TAC (srw_ss())[] \\
+    Cases_on`bc_equal x2 x1` \\ FULL_SIMP_TAC (srw_ss())[] \\
+    BasicProvers.CASE_TAC \\ FULL_SIMP_TAC (srw_ss())[] )
+  \\ STRIP_TAC THEN1 ( GEN_TAC \\ Cases \\ SRW_TAC[][bc_equal_def] )
+  \\ SRW_TAC[][bc_equal_def]) |> CONJUNCT1;
+
 val bc_equal_adjust = prove(
   ``!x1 x2.
       bc_equal x1 x2 <> Eq_type_error ==>
       (bc_equal (bc_adjust (cb,sb,ev) x2) (bc_adjust (cb,sb,ev) x1) =
        bc_equal x2 x1)``,
-  cheat (* locally provable cheat *));
-
-val bc_equal_sym = prove(
-  ``!x1 x2. bc_equal x1 x2 = bc_equal x2 x1``,
   cheat (* locally provable cheat *));
 
 val DROP_MAP_APPEND = prove(
