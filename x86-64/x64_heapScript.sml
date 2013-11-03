@@ -9533,11 +9533,33 @@ val bc_equal_sym = prove(
   \\ SRW_TAC[][bc_equal_def]) |> CONJUNCT1;
 
 val bc_equal_adjust = prove(
-  ``!x1 x2.
+  ``(!x1 x2.
       bc_equal x1 x2 <> Eq_type_error ==>
       (bc_equal (bc_adjust (cb,sb,ev) x2) (bc_adjust (cb,sb,ev) x1) =
-       bc_equal x2 x1)``,
-  cheat (* locally provable cheat *));
+       bc_equal x2 x1)) /\
+    (!x1 x2.
+      bc_equal_list x1 x2 <> Eq_type_error ==>
+      (bc_equal_list (MAP (bc_adjust (cb,sb,ev)) x2) (MAP (bc_adjust (cb,sb,ev)) x1) =
+       bc_equal_list x2 x1))``,
+  HO_MATCH_MP_TAC bytecodeTerminationTheory.bc_equal_ind
+  \\ REPEAT (STRIP_TAC THEN1 ( GEN_TAC \\ Cases \\ SRW_TAC[][bc_equal_def,bc_adjust_def]))
+  \\ NTAC 3 ( STRIP_TAC THEN1 ( SRW_TAC[ARITH_ss][bc_equal_def,bc_adjust_def] ) )
+  \\ STRIP_TAC THEN1 (
+    SRW_TAC[][bc_adjust_def] \\
+    FULL_SIMP_TAC (srw_ss()) [bc_equal_def] \\
+    SRW_TAC[][] \\
+    REV_FULL_SIMP_TAC (srw_ss()) [] )
+  \\ STRIP_TAC THEN1 ( SRW_TAC[ARITH_ss][bc_equal_def,bc_adjust_def] )
+  \\ STRIP_TAC THEN1 (
+    SRW_TAC[][bc_adjust_def] \\
+    FULL_SIMP_TAC (srw_ss()) [bc_equal_def] \\
+    Cases_on`bc_equal x1 x2` \\ FULL_SIMP_TAC (srw_ss())[] \\
+    Cases_on`bc_equal x2 x1` \\ FULL_SIMP_TAC (srw_ss())[] \\
+    ASSUME_TAC (SPEC_ALL bc_equal_sym) \\
+    REV_FULL_SIMP_TAC (srw_ss())[] \\
+    SRW_TAC[][] \\ FULL_SIMP_TAC (srw_ss())[] )
+  \\ STRIP_TAC THEN1 ( SRW_TAC[ARITH_ss][bc_equal_def,bc_adjust_def] )
+  \\ STRIP_TAC THEN1 ( SRW_TAC[ARITH_ss][bc_equal_def,bc_adjust_def] )) |> CONJUNCT1;
 
 val DROP_MAP_APPEND = prove(
   ``DROP (LENGTH xs) (MAP f xs ++ ys) = ys``,
