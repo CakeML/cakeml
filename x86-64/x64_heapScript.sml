@@ -11787,11 +11787,26 @@ val (res,read_num_def,read_num_pre_def) = x64_compile `
       let s = s with input := DROP 1 s.input in
         read_num (x1,x2,s)`
 
+val l2n_n = prove(
+  ``!n b. n < b ==> !ls. l2n b (ls ++ [n]) = l2n b ls + b ** (LENGTH ls) * n``,
+  NTAC 2 GEN_TAC THEN STRIP_TAC THEN
+  Induct THEN EVAL_TAC THEN SRW_TAC[ARITH_ss][ADD1] THEN
+  SRW_TAC[ARITH_ss][LEFT_ADD_DISTRIB,GSYM ADD1,EXP])
+
 val toNum_CONS = prove(
   ``isDigit h ==>
     (toNum (STRING h digits) =
      toNum digits + 10 ** STRLEN digits * (ORD h - 48))``,
-  cheat (* locally provable cheat *));
+  Cases_on`h`\\
+  REPEAT (
+  Cases_on`n`\\ EVAL_TAC \\ Cases_on`n'`\\EVAL_TAC \\
+  FULL_SIMP_TAC (srw_ss()++ARITH_ss)[ADD1] ) THEN
+  REPEAT (
+  (Cases_on`n` ORELSE Cases_on`n'`)\\ EVAL_TAC \\
+  FULL_SIMP_TAC (srw_ss()++ARITH_ss)[ADD1] THEN1 (
+    Q.PAT_ABBREV_TAC`d = [x:char]` \\
+    Q.ISPECL_THEN[`digits`,`d`]MP_TAC REV_REVERSE_LEM \\
+    SRW_TAC[][Abbr`d`] \\ EVAL_TAC \\ SRW_TAC[ARITH_ss][l2n_n,GSYM REVERSE_REV] )));
 
 val read_num_thm = prove(
   ``!digits k s x1.
