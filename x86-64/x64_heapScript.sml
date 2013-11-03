@@ -9592,7 +9592,11 @@ val TWICE_x64_inst_length = prove(
   \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `n` \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC std_ss [LEFT_SUB_DISTRIB,ADD1,GSYM ADD_ASSOC]
-  \\ cheat (* easy local cheat *));
+  \\ FULL_SIMP_TAC std_ss [EVEN_ADD]
+  \\ FULL_SIMP_TAC std_ss [EVEN_EXISTS]
+  \\ SRW_TAC[ARITH_ss][bitTheory.DIV_MULT_THM2]
+  \\ SRW_TAC[][ADD_MODULUS]
+  \\ METIS_TAC [MULT_SYM,SUB_0,MOD_EQ_0,DECIDE``0:num < 2``]);
 
 val zBC_HEAP_THM = prove(
   ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>
