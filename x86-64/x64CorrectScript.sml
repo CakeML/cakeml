@@ -1,13 +1,19 @@
 open HolKernel boolLib bossLib helperLib pairTheory lcsymtacs
 open ml_translatorTheory sideTheory replDecsTheory replDecsProofsTheory compileCallReplStepDecTheory
+open SemanticPrimitivesTheory
 
 val _ = new_theory "x64Correct"
 
 infix \\ val op \\ = op THEN;
 
-val _ = Globals.max_print_depth := 20
+val _ = Globals.max_print_depth := 50
 
-(* --- repl_step --- *)
+
+(* --- misc --- *)
+
+val SNOC3 = prove(
+   ``xs ++ [x3;x2;x1] = SNOC x1 (SNOC x2 (SNOC x3 xs))``,
+  SRW_TAC [] []);
 
 val equality_types = prove(
   ``EqualityType AST_T_TYPE ∧
@@ -15,6 +21,20 @@ val equality_types = prove(
     EqualityType (GRAMMAR_PARSETREE_TYPE TOKENS_TOKEN_TYPE GRAM_MMLNONT_TYPE) ∧
     EqualityType AST_EXP_TYPE``,
     cheat (* try proving this manually (like in hol-light/ml_monadScript.sml), or fix automation *))
+
+val DeclC_thm = store_thm ("DeclC_thm", (* TODO: move to ml_translatorScript.sml *)
+  ``!ds env cenv2 s2.
+      check_ctors_decs NONE init_envC ds /\
+      Decls NONE [] init_envC empty_store [] ds cenv2 s2 env ==>
+      DeclsC NONE [] init_envC empty_store [] ds cenv2 s2 env``,
+  SRW_TAC [] [DeclAssum_def, DeclAssumC_def, Decls_def, DeclsC_def, empty_store_def]
+  \\ `cenv_bind_div_eq init_envC` by EVAL_TAC
+  \\ METIS_TAC [result_distinct,
+       bigBigEquivTheory.eval_decs'_to_eval_decs_simple_pat, listTheory.EVERY_DEF,
+       bigBigEquivTheory.eval_ctor_inv_def]);
+
+
+(* --- Decl for repl_decs --- *)
 
 val DeclAssumExists_ml_repl_step_decls = prove(
   ``DeclAssumExists ml_repl_step_decls``,
@@ -31,28 +51,64 @@ val DeclAssumExists_ml_repl_step_decls = prove(
     \\ FULL_SIMP_TAC std_ss [ml_repl_stepTheory.repl_step_side_def])
   \\ SIMP_TAC std_ss [equality_types])
 
-val SNOC3 = prove(
-   ``xs ++ [x3;x2;x1] = SNOC x1 (SNOC x2 (SNOC x3 xs))``,
-  SRW_TAC [] []);
+val Decls_ml_repl_step_decls =
+  new_specification("Decls_ml_repl_step_decls",
+    ["ml_repl_step_decls_env","ml_repl_step_decls_s","ml_repl_step_decls_cenv"],
+    DeclAssumExists_ml_repl_step_decls
+    |> SIMP_RULE std_ss [DeclAssumExists_def,DeclAssum_def])
+
+val Decls_11 = prove(
+  ``Decls mn menv cenv1 s1 env1 ds1 cenv2 s2 env2 ==>
+    (Decls mn menv cenv1 s1 env1 ds1 cenv2' s2' env2' <=>
+     ((cenv2',s2',env2') = (cenv2,s2,env2)))``,
+  cheat);
+
+val Decls_repl_decs_lemma = let
+  val i = fst (match_term ``Decls mn menv cenv1 s1 env1 ds1 cenv2 s2 env2``
+                 (concl Decls_ml_repl_step_decls))
+  val ds2 = repl_decs_def |> concl |> rand |> rand
+  val th = Decls_APPEND |> SPEC_ALL |> INST i |> Q.INST [`ds2`|->`^ds2`]
+  val th = th |> SIMP_RULE std_ss [MATCH_MP Decls_11 Decls_ml_repl_step_decls]
+  val sem_rw =
+    SIMP_RULE (srw_ss()) [Once AltBigStepTheory.evaluate_decs'_cases,PULL_EXISTS,
+                          Once AltBigStepTheory.evaluate_dec'_cases,PULL_EXISTS,
+                          Once AltBigStepTheory.evaluate'_cases,PULL_EXISTS,
+                          do_uapp_def,store_alloc_def,LET_DEF,terminationTheory.pmatch'_def,
+                          AstTheory.pat_bindings_def,combine_dec_result_def,
+                          LibTheory.merge_def,LibTheory.emp_def,LibTheory.bind_def]
+  fun n_times 0 f x = x
+    | n_times n f x = n_times (n-1) f (f x)
+  val th = th |> GSYM |> SIMP_RULE std_ss [Once Decls_def,GSYM repl_decs_def]
+              |> n_times 10 sem_rw
+              |> MATCH_MP (METIS_PROVE [] ``(b <=> c) ==> (b ==> c)``)
+              |> GEN_ALL |> SIMP_RULE std_ss []
+  in th end;
+
+val repl_decs_env_def = Define `
+  repl_decs_env = ^(Decls_repl_decs_lemma |> concl |> rand)`;
+
+val repl_decs_s_def = Define `
+  repl_decs_s = ^(Decls_repl_decs_lemma |> concl |> rator |> rand)`;
+
+val repl_decs_cenv_def = Define `
+  repl_decs_cenv = ^(Decls_repl_decs_lemma |> concl |> rator |> rator |> rand)`;
+
+val Decls_repl_decs = prove(
+  ``Decls NONE [] init_envC empty_store [] repl_decs repl_decs_cenv
+     repl_decs_s repl_decs_env``,
+  FULL_SIMP_TAC std_ss [Decls_repl_decs_lemma,repl_decs_cenv_def,
+    repl_decs_s_def, repl_decs_env_def]);
+
+val DeclAssum_repl_decs = prove(
+  ``DeclAssum repl_decs repl_decs_env``,
+  METIS_TAC [Decls_repl_decs,DeclAssum_def]);
 
 val DeclAssumExists_repl_decs = prove(
   ``DeclAssumExists repl_decs``,
-  SIMP_TAC std_ss [replDecsTheory.repl_decs_def,SNOC3]
-  \\ MATCH_MP_TAC DeclAssumExists_SNOC_Dlet_Fun
-  \\ MATCH_MP_TAC (MP_CANON DeclAssumExists_SNOC_Dlet_ALT)
-  \\ SIMP_TAC std_ss [Eval_def]
-  \\ SIMP_TAC (srw_ss()) [Once AltBigStepTheory.evaluate'_cases]
-  \\ SIMP_TAC (srw_ss()) [Once AltBigStepTheory.evaluate'_cases]
-  \\ SIMP_TAC (srw_ss()) [SemanticPrimitivesTheory.do_uapp_def,LET_DEF,
-                          SemanticPrimitivesTheory.store_alloc_def]
-  \\ MATCH_MP_TAC (MP_CANON DeclAssumExists_SNOC_Dlet_ALT)
-  \\ SIMP_TAC std_ss [Eval_def]
-  \\ SIMP_TAC (srw_ss()) [Once AltBigStepTheory.evaluate'_cases]
-  \\ SIMP_TAC (srw_ss()) [Once AltBigStepTheory.evaluate'_cases]
-  \\ SIMP_TAC (srw_ss()) [SemanticPrimitivesTheory.do_uapp_def,LET_DEF,
-                          SemanticPrimitivesTheory.store_alloc_def]
-  \\ SIMP_TAC (srw_ss()) [Once AltBigStepTheory.evaluate'_cases]
-  \\ SIMP_TAC std_ss [DeclAssumExists_ml_repl_step_decls]);
+  METIS_TAC [DeclAssumExists_def,DeclAssum_repl_decs]);
+
+
+(* --- DeclC for repl_decs --- *)
 
 val check_ctors_decs_ml_repl_step_decls = prove(
   ``check_ctors_decs NONE init_envC ml_repl_step_decls``,
@@ -80,6 +136,66 @@ val check_ctors_decs_repl_decs = prove(
   \\ REWRITE_TAC [decs_to_cenv_ml_repl_step_decls]
   \\ EVAL_TAC);
 
+val DeclsC_ml_repl_step_decls = prove(
+  ``DeclsC NONE [] init_envC empty_store [] ml_repl_step_decls
+     ml_repl_step_decls_cenv ml_repl_step_decls_s ml_repl_step_decls_env``,
+  METIS_TAC [DeclC_thm, check_ctors_decs_ml_repl_step_decls, Decls_ml_repl_step_decls]);
+
+val DeclsC_repl_decs = prove(
+  ``DeclsC NONE [] init_envC empty_store [] repl_decs repl_decs_cenv
+     repl_decs_s repl_decs_env``,
+  METIS_TAC [DeclC_thm, check_ctors_decs_repl_decs, Decls_repl_decs]);
+
+val DeclAssumC_repl_decs = prove(
+  ``DeclAssumC repl_decs repl_decs_cenv repl_decs_env``,
+  METIS_TAC [DeclsC_repl_decs,DeclAssumC_def]);
+
+
+(* --- expanding Eval repl_step --- *)
+
+val Eval_repl_step1 =
+  ml_repl_stepTheory.ml_repl_step_translator_state_thm
+  |> CONV_RULE (REWR_CONV TAG_def)
+  |> CONV_RULE (REWR_CONV markerTheory.Abbrev_def) |> CONJUNCT2 |> CONJUNCT1
+  |> CONV_RULE (REWR_CONV markerTheory.Abbrev_def) |> CONJUNCT2 |> CONJUNCT1
+  |> CONV_RULE (REWR_CONV markerTheory.Abbrev_def) |> CONJUNCT2 |> CONJUNCT1
+  |> CONV_RULE (REWR_CONV markerTheory.Abbrev_def) |> CONJUNCT2 |> CONJUNCT2
+  |> CONJUNCT2 |> CONJUNCT1
+  |> RW[sideTheory.repl_step_side_thm,PRECONDITION_def,equality_types]
+  |> CONV_RULE (REWR_CONV markerTheory.Abbrev_def)
+
+val INPUT_TYPE_def = Define `
+  INPUT_TYPE =
+  ^(find_term (can (match_term ``OPTION_TYPE xx``)) (concl Eval_repl_step1))`;
+
+val OUTPUT_TYPE_def = Define `
+  OUTPUT_TYPE =
+  ^(find_term (can (match_term ``SUM_TYPE xx yy``)) (concl Eval_repl_step1))`;
+
+val Eval_repl_step =
+  Eval_repl_step1
+  |> RW [GSYM INPUT_TYPE_def,GSYM OUTPUT_TYPE_def]
+  |> SPEC_ALL |> UNDISCH
+  |> GENL (free_vars (concl Eval_repl_step1))
+  |> HO_MATCH_MP Eval_FUN_FORALL
+  |> SIMP_RULE std_ss [FUN_QUANT_SIMP]
+  |> DISCH_ALL |> GEN_ALL
+  |> MATCH_MP DeclAssum_Dlet |> Q.SPEC `"input"` |> SIMP_RULE (srw_ss()) [] |> Q.SPEC `e1`
+  |> MATCH_MP DeclAssum_Dlet |> Q.SPEC `"output"` |> SIMP_RULE (srw_ss()) [] |> Q.SPEC `e2`
+  |> MATCH_MP DeclAssum_Dlet |> Q.SPEC `"call_repl_step"` |> SIMP_RULE (srw_ss()) [] |> Q.SPEC `e3`
+  |> SIMP_RULE std_ss [GSYM SNOC3] |> SPEC_ALL
+  |> SIMP_RULE std_ss [DeclAssum_def,PULL_EXISTS] |> SPEC_ALL
+  |> (fn th => MATCH_MP th (Decls_repl_decs |> RW [repl_decs_def]))
+
+val repl_step_do_app =
+  Eval_repl_step
+  |> SIMP_RULE std_ss [Eval_def,Arrow_def,AppReturns_def,
+       evaluate_closure_def,PULL_EXISTS,GSYM CONJ_ASSOC]
+  |> SIMP_RULE (srw_ss()) [Once AltBigStepTheory.evaluate'_cases,PULL_EXISTS]
+
+
+(* --- instantiation of compiler correctness --- *)
+
 val repl_decs_lemma = prove(
   ``(FV_decs repl_decs = ∅) ∧
     (decs_cns NONE repl_decs = ∅) ∧
@@ -99,18 +215,9 @@ val repl_decs_lemma = prove(
               init_envC)))``,
   cheat (* translator should do this? *));
 
-val evaluate_decs_repl_decs = let
-  val th = DeclAssumC_thm
-           |> RW [GSYM AND_IMP_INTRO]
-  val th = MATCH_MP th check_ctors_decs_repl_decs
-  val th = prove(``?cenv env. DeclAssumC repl_decs cenv env``,
-                 METIS_TAC [DeclAssumExists_repl_decs,th,DeclAssumExists_def])
-           |> RW [DeclAssumC_def,DeclsC_def]
-  in th end
+val evaluate_decs_repl_decs = DeclsC_repl_decs |> RW [DeclsC_def]
 
-val repl_decs_cenv_env_s_def = new_specification("repl_decs_cenv_env_s_def",
-  ["repl_decs_cenv","repl_decs_env","repl_decs_s"],
-  evaluate_decs_repl_decs)
+val repl_decs_cenv_env_s_def = evaluate_decs_repl_decs
 
 val compile_term_def = Define `
   compile_term = (compile_decs NONE FEMPTY init_compiler_state.contab
@@ -281,32 +388,23 @@ val closed_context_empty = store_thm("closed_context_empty",
   ``closed_context [] init_envC empty_store []``,
   EVAL_TAC >> rw[])
 
-val evaluate_decs_ml_repl_decs = let
-  val th = DeclAssumC_thm
-           |> RW [GSYM AND_IMP_INTRO]
-  val th = MATCH_MP th check_ctors_decs_ml_repl_step_decls
-  val th = prove(``?cenv env. DeclAssumC ml_repl_step_decls cenv env``,
-                 METIS_TAC [DeclAssumExists_ml_repl_step_decls,th,DeclAssumExists_def])
-           |> RW [DeclAssumC_def,DeclsC_def]
-  in th end
+val evaluate_decs_repl_decs = DeclsC_ml_repl_step_decls |> RW [DeclsC_def]
 
-val ml_repl_decs_cenv_env_s_def = new_specification("ml_repl_decs_cenv_env_s_def",
-  ["ml_repl_decs_cenv","ml_repl_decs_env","ml_repl_decs_s"],
-  evaluate_decs_ml_repl_decs)
+val repl_decs_cenv_env_s_def = evaluate_decs_repl_decs
 
 val merge_emp = prove(
   ``merge x emp = x``,
     simp[LibTheory.emp_def,LibTheory.merge_def])
 
-val ml_repl_decs_cenv =
-  MATCH_MP evaluate_decs_decs_to_cenv ml_repl_decs_cenv_env_s_def
+val ml_repl_step_decls_cenv =
+  MATCH_MP evaluate_decs_decs_to_cenv evaluate_decs_repl_decs
   |> SIMP_RULE (srw_ss())[]
   |> SYM
 
-val do_con_check_ml_repl_decs_None =
-  EVAL ``do_con_check (merge ml_repl_decs_cenv xx) (SOME(Short"None")) 0``
-  |> RIGHT_CONV_RULE(REWRITE_CONV[ml_repl_decs_cenv])
-  |> RIGHT_CONV_RULE(REWRITE_CONV[ml_repl_stepTheory.ml_repl_step_decls,SemanticPrimitivesTheory.decs_to_cenv_def])
+val do_con_check_ml_repl_step_decls_None =
+  EVAL ``do_con_check (merge ml_repl_step_decls_cenv xx) (SOME(Short"None")) 0``
+  |> RIGHT_CONV_RULE(REWRITE_CONV[ml_repl_step_decls_cenv])
+  |> RIGHT_CONV_RULE(REWRITE_CONV[ml_repl_stepTheory.ml_repl_step_decls,decs_to_cenv_def])
   |> RIGHT_CONV_RULE EVAL
   |> EQT_ELIM
 
@@ -320,7 +418,7 @@ val repl_decs_env_front = let
     |> MATCH_MP evaluate_decs_append
     |> Q.SPEC`ml_repl_step_decls`
     |> SIMP_RULE (srw_ss())[]
-    |> C MATCH_MP ml_repl_decs_cenv_env_s_def
+    |> C MATCH_MP evaluate_decs_repl_decs
   val th =
     th |> ss [Once BigStepTheory.evaluate_decs_cases]
     |> ss [Once BigStepTheory.evaluate_dec_cases]
@@ -334,7 +432,7 @@ val repl_decs_env_front = let
     |> ss [Once BigStepTheory.evaluate_cases]
     |> ss [Once SemanticPrimitivesTheory.do_uapp_def,LET_THM,SemanticPrimitivesTheory.store_alloc_def]
   val th =
-    th |> ss [do_con_check_ml_repl_decs_None]
+    th |> ss [do_con_check_ml_repl_step_decls_None]
     |> ss [Once BigStepTheory.evaluate_decs_cases]
     |> ss [Once BigStepTheory.evaluate_dec_cases]
     |> ss [Once BigStepTheory.evaluate_cases]
@@ -343,7 +441,7 @@ val repl_decs_env_front = let
     |> ss [Once BigStepTheory.evaluate_cases]
     |> ss [Once SemanticPrimitivesTheory.do_uapp_def,LET_THM,SemanticPrimitivesTheory.store_alloc_def]
   val th =
-    th |> ss [merge_emp,do_con_check_ml_repl_decs_None,bind_emp]
+    th |> ss [merge_emp,do_con_check_ml_repl_step_decls_None,bind_emp]
     |> ss [Once BigStepTheory.evaluate_dec_cases]
     |> ss [Once BigStepTheory.evaluate_cases]
     |> ss [Once BigStepTheory.evaluate_cases]
@@ -367,6 +465,8 @@ val repl_decs_env_front = let
     |> ss [SemanticPrimitivesTheory.combine_dec_result_def,LibTheory.merge_def,LibTheory.emp_def,LibTheory.bind_def]
   in th end
 
+(*
+
 val env_rs_repl_decs_inp_out = store_thm("env_rs_repl_decs_inp_out",
   ``env_rs [] (cenv ++ init_envC) (0,s)
       repl_decs_env new_compiler_state 0 rd bs' ==>
@@ -377,8 +477,8 @@ val env_rs_repl_decs_inp_out = store_thm("env_rs_repl_decs_inp_out",
       let mv = MAP FST o_f new_compiler_state.rmenv in
       let m = cmap new_compiler_state.contab in
       let pp = mk_pp rd bs' in
-      let vout = v_to_Cv mv m (EL (LENGTH ml_repl_decs_s +1) s) in
-      let vinp = v_to_Cv mv m (EL (LENGTH ml_repl_decs_s +0) s) in
+      let vout = v_to_Cv mv m (EL (LENGTH ml_repl_step_decls_s +1) s) in
+      let vinp = v_to_Cv mv m (EL (LENGTH ml_repl_step_decls_s +0) s) in
       syneq vout wout ∧ syneq vinp winp ∧
       Cv_bv pp wout out ∧ Cv_bv pp winp inp``,
   simp[compilerProofsTheory.env_rs_def,LET_THM] >> strip_tac >>
@@ -448,7 +548,7 @@ val env_rs_repl_decs_inp_out = store_thm("env_rs_repl_decs_inp_out",
   simp[finite_mapTheory.FLOOKUP_DEF] >>
   fs[listTheory.EVERY_MEM] >>
   simp[Once CONJ_ASSOC] >>
-  `LENGTH ml_repl_decs_s < LENGTH Cs` by simp[] >>
+  `LENGTH ml_repl_step_decls_s < LENGTH Cs` by simp[] >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
     conj_tac >>
@@ -457,21 +557,23 @@ val env_rs_repl_decs_inp_out = store_thm("env_rs_repl_decs_inp_out",
     rpt BasicProvers.VAR_EQ_TAC >>
     PROVE_TAC[] ) >>
   fs[listTheory.EVERY2_EVERY,listTheory.EVERY_MEM,pairTheory.FORALL_PROD] >>
-  qexists_tac`EL(LENGTH ml_repl_decs_s+1)Cs` >>
+  qexists_tac`EL(LENGTH ml_repl_step_decls_s+1)Cs` >>
   conj_tac >- (
     first_x_assum MATCH_MP_TAC >>
     simp[listTheory.MEM_ZIP] >>
     PROVE_TAC[] ) >>
-  qexists_tac`EL(LENGTH ml_repl_decs_s+0)Cs` >>
+  qexists_tac`EL(LENGTH ml_repl_step_decls_s+0)Cs` >>
   conj_tac >- (
     first_x_assum MATCH_MP_TAC >>
     simp[listTheory.MEM_ZIP] >>
     PROVE_TAC[] ) >>
   conj_tac >> FIRST_X_ASSUM MATCH_MP_TAC >>
   simp[listTheory.MEM_ZIP] >|[
-    qexists_tac`LENGTH ml_repl_decs_s+1`,
-    qexists_tac`LENGTH ml_repl_decs_s+0`] >>
+    qexists_tac`LENGTH ml_repl_step_decls_s+1`,
+    qexists_tac`LENGTH ml_repl_step_decls_s+0`] >>
   simp[listTheory.EL_MAP])
+
+*)
 
 val bc_eval_bootstrap_lcode = store_thm("bc_eval_bootstrap_lcode",
   ``∀bs.
@@ -609,51 +711,17 @@ val closed_context_repl_decs = save_thm("closed_context_repl_decs",
   |> MATCH_MP semanticsExtraTheory.evaluate_decs_closed_context
   |> SIMP_RULE (srw_ss())[LET_THM,repl_decs_lemma,cenv_bind_div_eq_init_envC,closed_context_empty])
 
-val cenv_bind_div_eq_ml_repl_decs_cenv_init_envC = prove(
-  ``cenv_bind_div_eq (ml_repl_decs_cenv ++ init_envC)``,
+val cenv_bind_div_eq_ml_repl_step_decls_cenv_init_envC = prove(
+  ``cenv_bind_div_eq (ml_repl_step_decls_cenv ++ init_envC)``,
   match_mp_tac (semanticsExtraTheory.cenv_bind_div_eq_append) >>
   simp[cenv_bind_div_eq_init_envC] >>
-  simp[ml_repl_decs_cenv] >>
+  simp[ml_repl_step_decls_cenv] >>
   simp[InitialEnvTheory.init_envC_def] >>
   REWRITE_TAC[decs_to_cenv_ml_repl_step_decls] >>
   EVAL_TAC)
 
-val repl_decs_s_thm = save_thm("repl_decs_s_thm",
-  CONJUNCT1 repl_decs_env_front)
 
-(*
-val DeclAssum_ml_repl_step_decls = prove(
-  ``DeclAssum ml_repl_step_decls ml_repl_decs_env``,
-  simp[DeclAssum_def] >>
-  simp[Decls_def] >>
-  cheat (* ml_repl_decs_cenv_env_s_def and decs/decs' equivalence *))
-  (* easier proof might be to do decs/decs' equivalence for the special case
-  when only Letrec and Let(Fun (to avoid induction at expression level) *)
-
-val repl_step_closure_def =
-  new_specification("repl_step_closure_def",["repl_step_closure"],
-
-  ml_repl_stepTheory.ml_repl_step_translator_state_thm
-  |> CONV_RULE (REWR_CONV TAG_def)
-  |> CONV_RULE (REWR_CONV markerTheory.Abbrev_def) |> CONJUNCT2 |> CONJUNCT1
-  |> CONV_RULE (REWR_CONV markerTheory.Abbrev_def) |> CONJUNCT2 |> CONJUNCT1
-  |> CONV_RULE (REWR_CONV markerTheory.Abbrev_def) |> CONJUNCT2 |> CONJUNCT1
-  |> CONV_RULE (REWR_CONV markerTheory.Abbrev_def) |> CONJUNCT2 |> CONJUNCT2
-  |> CONJUNCT2 |> CONJUNCT1
-
-  |> RW[sideTheory.repl_step_side_thm,PRECONDITION_def,equality_types]
-  |> CONV_RULE (REWR_CONV markerTheory.Abbrev_def)
-  |> SPEC ``ml_repl_decs_env``
-  |> RW[DeclAssum_ml_repl_step_decls,Eval_def]
-  |> SIMP_RULE(srw_ss())[Once AltBigStepTheory.evaluate'_cases]
-  |> SIMP_RULE(srw_ss())[Arrow_def,AppReturns_def,evaluate_closure_def,Eq_def]
-  |> GEN_ALL |> Q.SPEC`NONE` |> SIMP_RULE(srw_ss())[std_preludeTheory.OPTION_TYPE_def]
-
-  ml_repl_step_translator_state_thm
-  |> EVAL
-  ml_repl_decs_cenv_env_s_def
-  ml_repl_step_decls
-*)
+(* --- connecting the Eval theorem with compiler correctness --- *)
 
 val good_labels_new_compiler_state_bootstrap_lcode = prove(
   ``good_labels new_compiler_state.rnext_label (REVERSE bootstrap_lcode)``,
@@ -662,13 +730,14 @@ val good_labels_new_compiler_state_bootstrap_lcode = prove(
   strip_tac >>
   fs[compile_term_next_label])
 
-val compile_call_bc_eval = save_thm("compile_call_bc_eval",
-let
+val compile_call_bc_eval = let
   val th =
     compile_call_repl_step_thm |> GEN_ALL
       |> Q.SPEC `call_repl_step_dec` |> Q.SPEC `NONE`
-      |> RW [EVAL ``dec_cns call_repl_step_dec``, (SIMP_RULE(srw_ss())[](EVAL ``FV_dec call_repl_step_dec``))]
-      |> Q.SPECL [`repl_decs_cenv++init_envC`,`ml_repl_decs_s++[out;inp]`,`repl_decs_env`,`ml_repl_decs_s++[out';inp']`]
+      |> RW [EVAL ``dec_cns call_repl_step_dec``,
+             (SIMP_RULE(srw_ss())[](EVAL ``FV_dec call_repl_step_dec``))]
+      |> Q.SPECL [`repl_decs_cenv++init_envC`,`ml_repl_step_decls_s++[out;inp]`,
+                  `repl_decs_env`,`ml_repl_step_decls_s++[out';inp']`]
       |> SIMP_RULE std_ss[MEM_call_repl_step]
       |> Q.SPECL [`new_compiler_state`,`csz`,`rd`,`ck`]
       |> SPEC(rand(rhs(concl(compile_call_term_thm))))
@@ -685,7 +754,7 @@ let
                              ,LET_THM]
      |> UNDISCH
      |> CONV_RULE (LAND_CONV(REWRITE_CONV [repl_decs_env_front]))
-     |> RW[cenv_bind_div_eq_ml_repl_decs_cenv_init_envC]
+     |> RW[cenv_bind_div_eq_ml_repl_step_decls_cenv_init_envC]
    val th1 =
      th |> SPEC_ALL |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
      |> UNDISCH_ALL
@@ -696,7 +765,99 @@ let
      |> SIMP_RULE std_ss [good_labels_new_compiler_state_bootstrap_lcode]
      |> DISCH_ALL
      |> SIMP_RULE std_ss [AND_IMP_INTRO]
-in th1 end)
+  in th1 end
+
+(*
+repl_step_do_app
+compile_call_bc_eval
+*)
+
+
+
+(*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Eval_repl_step2
+
+  repl_decs_def
+
+
+
+print_find "ml_repl_step_decls"
+
+val simple_decs_def = Define `
+  (simple_decs [] = T) /\
+  (simple_decs (Dtype _::ds) = simple_decs ds) /\
+  (simple_decs (Dlet _ (Fun _ _)::ds) = simple_decs ds) /\
+  (simple_decs (Dletrec _::ds) = simple_decs ds) /\
+  (simple_decs _ = F)`
+
+simple_decs_def
+
+  ``simple_decs ml_repl_step_decls``
+
+  ONCE_REWRITE_TAC [ml_repl_stepTheory.ml_repl_step_decls]
+  REWRITE_TAC [simple_decs_def]
+
+  ml_repl_stepTheory.ml_repl_step_decls
+  |> RW []
+
+
+  repl_decs_def
+
+
+
+
+repl_decs_cenv_env_s_def
+
+
+
+
+
+
+
+(*
+val DeclAssum_ml_repl_step_decls = prove(
+  ``DeclAssum ml_repl_step_decls ml_repl_step_decls_env``,
+  simp[DeclAssum_def] >>
+  simp[Decls_def] >>
+  cheat (* ml_repl_step_decls_cenv_env_s_def and decs/decs' equivalence *))
+  (* easier proof might be to do decs/decs' equivalence for the special case
+  when only Letrec and Let(Fun (to avoid induction at expression level) *)
+
+val repl_step_closure_def =
+  new_specification("repl_step_closure_def",["repl_step_closure"],
+
+open sideTheory
+
+repl_step_side_thm
+
+
+  |> SPEC ``ml_repl_step_decls_env``
+  |> RW[DeclAssum_ml_repl_step_decls,Eval_def]
+  |> SIMP_RULE(srw_ss())[Once AltBigStepTheory.evaluate'_cases]
+  |> SIMP_RULE(srw_ss())[Arrow_def,AppReturns_def,evaluate_closure_def,Eq_def]
+  |> GEN_ALL |> Q.SPEC`NONE` |> SIMP_RULE(srw_ss())[std_preludeTheory.OPTION_TYPE_def]
+
+  ml_repl_step_translator_state_thm
+  |> EVAL
+  ml_repl_step_decls_cenv_env_s_def
+  ml_repl_step_decls
+*)
+
+
 
    (*
    going further (as in below) is probably not worth it
@@ -731,6 +892,8 @@ in th1 end)
   print_find "closed_context"
   print_apropos``closed_context []``
   *)
+
+*)
 
 (*
 
