@@ -712,16 +712,13 @@ val closed_context_repl_decs = save_thm("closed_context_repl_decs",
   |> SIMP_RULE (srw_ss())[LET_THM,repl_decs_lemma,cenv_bind_div_eq_init_envC,closed_context_empty])
 
 val cenv_bind_div_eq_ml_repl_step_decls_cenv_init_envC = prove(
-  ``cenv_bind_div_eq (ml_repl_step_decls_cenv ++ init_envC)``,
+  ``cenv_bind_div_eq (repl_decs_cenv ++ init_envC)``,
   match_mp_tac (semanticsExtraTheory.cenv_bind_div_eq_append) >>
   simp[cenv_bind_div_eq_init_envC] >>
-  simp[ml_repl_step_decls_cenv] >>
+  simp[ml_repl_step_decls_cenv,repl_decs_cenv_def] >>
   simp[InitialEnvTheory.init_envC_def] >>
   REWRITE_TAC[decs_to_cenv_ml_repl_step_decls] >>
   EVAL_TAC)
-
-
-(* --- connecting the Eval theorem with compiler correctness --- *)
 
 val good_labels_new_compiler_state_bootstrap_lcode = prove(
   ``good_labels new_compiler_state.rnext_label (REVERSE bootstrap_lcode)``,
@@ -755,6 +752,7 @@ val compile_call_bc_eval = let
      |> UNDISCH
      |> CONV_RULE (LAND_CONV(REWRITE_CONV [repl_decs_env_front]))
      |> RW[cenv_bind_div_eq_ml_repl_step_decls_cenv_init_envC]
+
    val th1 =
      th |> SPEC_ALL |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
      |> UNDISCH_ALL
@@ -765,63 +763,16 @@ val compile_call_bc_eval = let
      |> SIMP_RULE std_ss [good_labels_new_compiler_state_bootstrap_lcode]
      |> DISCH_ALL
      |> SIMP_RULE std_ss [AND_IMP_INTRO]
-  in th1 end
+  in th1 |> Q.INST [`ck`|->`0`,`csz`|->`0`] end
+
+
+(* --- connecting the Eval theorem with compiler correctness --- *)
 
 (*
 repl_step_do_app
+bc_eval_bootstrap_lcode
 compile_call_bc_eval
 *)
-
-
-
-(*
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Eval_repl_step2
-
-  repl_decs_def
-
-
-
-print_find "ml_repl_step_decls"
-
-val simple_decs_def = Define `
-  (simple_decs [] = T) /\
-  (simple_decs (Dtype _::ds) = simple_decs ds) /\
-  (simple_decs (Dlet _ (Fun _ _)::ds) = simple_decs ds) /\
-  (simple_decs (Dletrec _::ds) = simple_decs ds) /\
-  (simple_decs _ = F)`
-
-simple_decs_def
-
-  ``simple_decs ml_repl_step_decls``
-
-  ONCE_REWRITE_TAC [ml_repl_stepTheory.ml_repl_step_decls]
-  REWRITE_TAC [simple_decs_def]
-
-  ml_repl_stepTheory.ml_repl_step_decls
-  |> RW []
-
-
-  repl_decs_def
-
-
-
-
-repl_decs_cenv_env_s_def
-
 
 
 
@@ -892,8 +843,6 @@ repl_step_side_thm
   print_find "closed_context"
   print_apropos``closed_context []``
   *)
-
-*)
 
 (*
 
