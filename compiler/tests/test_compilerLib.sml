@@ -131,6 +131,9 @@ val term_to_ov = v_to_ov [] o term_to_v
 fun add_code c bs = bc_state_pc_fupd (K (numML.fromInt (List.length (bc_state_code bs))))
   (strip_labels (bc_state_code_fupd (C append (List.rev c)) bs))
 
+fun ladd_code c bs = bc_state_pc_fupd (K (numML.fromInt (List.length (bc_state_code bs))))
+  (bc_state_code_fupd (C append (List.rev c)) bs)
+
 fun mk_Tmod mn ds = Tmod(mn,NONE,dest_list term_to_dec ds)
 fun mk_Texp e = Tdec (term_to_dec ``Dlet (Pvar "it") ^e``)
 fun mk_Tdec d = Tdec (term_to_dec d)
@@ -161,6 +164,12 @@ fun excp bs = numML.toInt (bc_state_pc bs) = SOME 0
 fun run_top (bs,rs) t = let
   val (rss,(rsf,c)) = compile_top rs t
   val bs = add_code c bs
+  val (SOME bs) = bc_eval bs
+in (bs,if excp bs then rsf else rss) end
+
+fun lrun_top (bs,rs) t = let
+  val (rss,(rsf,c)) = compile_top rs t
+  val bs = ladd_code c bs
   val (SOME bs) = bc_eval bs
 in (bs,if excp bs then rsf else rss) end
 
@@ -212,9 +221,13 @@ val print_bc_stack_op = let fun
 | f (Cons (n,m)) = "Cons "^(numML.toString n)^" "^(numML.toString m)
 | f (Shift (n,m)) = "Shift "^(numML.toString n)^" "^(numML.toString m)
 | f (Store n) = "Store "^(numML.toString n)
+| f (LoadRev n) = "LoadRev "^(numML.toString n)
 | f Pop = "Pop"
 | f Sub = "Sub"
 | f Add = "Add"
+| f Mod = "Mod"
+| f Div = "Div"
+| f IsBlock = "IsBlock"
 | f Less = "Less"
 | f x = (PolyML.print x; raise Match)
 in f end
@@ -228,6 +241,10 @@ val print_bc_inst = let fun
 | f PushExc = "PushExc"
 | f Update = "Update"
 | f Stop = "Stop"
+| f Tick = "Tick"
+| f Print = "Print"
+| f (Label n) = "Label "^(numML.toString n)
+| f (PrintC c) = "PrintC #\""^(Char.toString c)^"\""
 | f (Jump n) = "Jump "^(loc_to_string n)
 | f (JumpIf n) = "JumpIf "^(loc_to_string n)
 | f (PushPtr n) = "PushPtr "^(loc_to_string n)
