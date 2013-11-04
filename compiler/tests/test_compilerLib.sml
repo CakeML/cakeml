@@ -152,6 +152,8 @@ in (add_code c bs,rss,rsf) end
 
 val inits = (init_bc_state, init_compiler_state)
 
+val real_inits = (real_init_bc_state, init_compiler_state)
+
 fun mst_run_decs_exp_gen test (ds,e) = let
   val (bs,rs) = run_decs inits ds
   val (bs,rss,rsf) = prep_exp (bs,rs) e
@@ -232,7 +234,7 @@ val print_bc_stack_op = let fun
 | f x = (PolyML.print x; raise Match)
 in f end
 val print_bc_inst = let fun
-  f (Stack sop) = "Stack "^(print_bc_stack_op sop)
+  f (Stack sop) = "Stack ("^(print_bc_stack_op sop)^")"
 | f CallPtr = "CallPtr"
 | f Return = "Return"
 | f Deref = "Deref"
@@ -245,9 +247,9 @@ val print_bc_inst = let fun
 | f Print = "Print"
 | f (Label n) = "Label "^(numML.toString n)
 | f (PrintC c) = "PrintC #\""^(Char.toString c)^"\""
-| f (Jump n) = "Jump "^(loc_to_string n)
-| f (JumpIf n) = "JumpIf "^(loc_to_string n)
-| f (PushPtr n) = "PushPtr "^(loc_to_string n)
+| f (Jump n) = "Jump ("^(loc_to_string n)^")"
+| f (JumpIf n) = "JumpIf ("^(loc_to_string n)^")"
+| f (PushPtr n) = "PushPtr ("^(loc_to_string n)^")"
 | f x = (PolyML.print x; raise Match)
 in f end
 fun
@@ -262,5 +264,14 @@ fun print_bs bs =
  ("pc", numML.toString(bc_state_pc bs)),
  ("code", rev(snd(foldl (fn (i,(n,ls)) => (n+1,((Int.toString n)^": "^print_bc_inst i)::ls)) (0,[]) (bc_state_code bs)))),
  ("refs", let val f = bc_state_refs bs in map (fn k => (numML.toString k,print_bv(fmapML.FAPPLY f k))) (sort (numML.<) (mk_set (setML.toList (fmapML.FDOM f)))) end))
+
+local
+fun print_bs bs =
+(rev(snd(foldl (fn (i,(n,ls)) => (n+1,(print_bc_inst i)::ls)) (0,[]) (bc_state_code bs))))
+in
+fun bs_to_term bs =
+  print_bs bs |> map (fn s => Term [QUOTE s])
+    |> (fn ts => listSyntax.mk_list(ts,type_of (hd ts)))
+end
 
 end

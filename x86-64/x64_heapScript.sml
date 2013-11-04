@@ -7727,6 +7727,8 @@ val (x64_print_stack_res,x64_print_stack_def) = x64_decompile "x64_print_stack" 
       jmp L1
   L2: `
 
+val _ = add_compiled [x64_print_stack_res]
+
 val x64_print_stack_thm = prove(
   ``!xs output.
       EVERY (\x. ORD x <> 0) xs /\ (r15 = po) ==>
@@ -8032,9 +8034,108 @@ val _ = store_bignum_op zHEAP_Mul
 val _ = store_bignum_op zHEAP_Dec
 
 
-(* print number *)
+(* print number small number *)
 
+val (x64_single_div_res,x64_single_div_def) = x64_decompile "x64_single_div" `
+  div r9`
 
+val _ = add_compiled [x64_single_div_res]
+
+val (res,x64_push_digits_def,x64_push_digits_pre_def) = x64_compile `
+  x64_push_digits (r0:word64,r9:word64,ss:word64 list) =
+    let r2 = 0w in
+    let (r0,r2,r9) = x64_single_div (r0,r2,r9) in
+    let r2 = r2 + 48w in
+    let ss = r2 :: ss in
+      if r0 = 0w then (r0,r2,r9,ss) else
+        x64_push_digits (r0,r9,ss)`
+
+val (res,x64_push_dec_def,x64_push_dec_pre_def) = x64_compile `
+  x64_push_dec (r0,ss) =
+    let r2 = 0w in
+    let ss = r2 :: ss in
+    let r9 = 10w in
+    let (r0,r2,r9,ss) = x64_push_digits (r0,r9,ss) in
+      (r0,r2,r9,ss)`
+
+val (x64_print_small_int_res,
+     x64_print_small_int_def,x64_print_small_int_pre_def) = x64_compile `
+  x64_print_small_int (r0,r1,r2,r3,r6,r7,r8,r9,r10,r11,r12,r13,r14,r15,
+                       output,po,ss:word64 list,dm:word64 set,m:word64 -> word64) =
+    let ss = r0 :: ss in
+    let ss = r1 :: ss in
+    let ss = r2 :: ss in
+    let ss = r3 :: ss in
+    let ss = r6 :: ss in
+    let ss = r7 :: ss in
+    let ss = r8 :: ss in
+    let ss = r9 :: ss in
+    let ss = r10 :: ss in
+    let ss = r11 :: ss in
+    let ss = r12 :: ss in
+    let ss = r13 :: ss in
+    let ss = r14 :: ss in
+    let ss = r15 :: ss in
+    let r15 = m (r9 + 24w) in
+    let r0 = r0 >>> 2 in
+    let (r0,r2,r9,ss) = x64_push_dec (r0,ss) in
+    let (r15,output,po,ss) = x64_print_stack (r15,output,po,ss) in
+    let (r15, ss) = (HD ss, TL ss) in
+    let (r14, ss) = (HD ss, TL ss) in
+    let (r13, ss) = (HD ss, TL ss) in
+    let (r12, ss) = (HD ss, TL ss) in
+    let (r11, ss) = (HD ss, TL ss) in
+    let (r10, ss) = (HD ss, TL ss) in
+    let (r9, ss) = (HD ss, TL ss) in
+    let (r8, ss) = (HD ss, TL ss) in
+    let (r7, ss) = (HD ss, TL ss) in
+    let (r6, ss) = (HD ss, TL ss) in
+    let (r3, ss) = (HD ss, TL ss) in
+    let (r2, ss) = (HD ss, TL ss) in
+    let (r1, ss) = (HD ss, TL ss) in
+    let (r0, ss) = (HD ss, TL ss) in
+      (r0,r1,r2,r3,r6,r7,r8,r9,r10,r11,r12,r13,r14,r15,output,po,ss,dm,m)`
+
+(*
+
+val () = computeLib.add_funs [x64_print_small_int_def,x64_single_div_def,
+           x64_push_digits_def,x64_pop_def,x64_push_dec_def,
+           x64_print_stack_def,x64_print_def]
+
+*)
+
+val append_number_def = Define `
+  append_number output x = output ++ int_to_string (getNumber x)`;
+
+val zHEAP_PRINT_SMALL_INT = let
+  val th = x64_print_small_int_res
+  val th = th |> Q.INST [`rip`|->`p`]
+  val target = ``~zS * zPC p * zVALS cs vals *
+      cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\
+            isNumber x1)``
+  val (th,goal) = expand_pre th target
+  val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
+  val th = MP th lemma |> DISCH_ALL
+  val pc = get_pc th
+  val th = MATCH_MP SPEC_WEAKEN_LEMMA th
+  val th = th |> Q.SPEC `zHEAP (cs,x1,x2,x3,x4,refs,stack,s with
+         output := STRCAT s.output (int_to_string (getNumber x1)),NONE) * ~zS *^pc`
+  val goal = th |> concl |> dest_imp |> fst
+  val lemma = prove(goal,cheat)
+  val th = MP th lemma |> DISCH_ALL |> RW [AND_IMP_INTRO]
+  val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val (th,goal) = SPEC_STRENGTHEN_RULE th
+    ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p *
+      cond (isNumber x1)``
+  val lemma = prove(goal,
+    SIMP_TAC (std_ss++sep_cond_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
+                                AC CONJ_COMM CONJ_ASSOC]
+    \\ SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
+                                AC CONJ_COMM CONJ_ASSOC])
+  val th = MP th lemma
+  val th = th |> RW [GSYM append_number_def]
+  val _ = add_compiled [th]
+  in th end;
 
 
 (* print *)
@@ -8043,8 +8144,7 @@ val (bc_print_res,bc_print_def,bc_print_pre_def) = x64_compile `
   bc_print (x1,x2:bc_value,s) =
     if isNumber x1 then
       let x2 = Number 0 in
-      let (x1,s) = (Number 0,
-        s with output := STRCAT s.output (int_to_str (getNumber x1))) in
+      let s = s with output := append_number s.output x1 in
         (x1,x2,s)
     else if isBlock x1 then
       let x1 = Number (&getTag x1) in
@@ -8079,7 +8179,7 @@ val bc_print_thm = prove(
   ``canCompare x1 ==>
     bc_print_pre (x1,x2,s) /\
     (bc_print (x1,x2,s) =
-      (if isNumber x1 then Number 0 else
+      (if isNumber x1 then x1 else
        if isBlock x1 then Number (& (getTag x1)) else x1,
        if isNumber x1 then Number 0 else x2,
        s with output := s.output ++ ov_to_string (bv_to_ov ARB x1)))``,
@@ -8087,11 +8187,13 @@ val bc_print_thm = prove(
     bc_print_def,bc_print_pre_def,isBlock_def,isNumber_def,LET_DEF,
     getNumber_def,better_bv_to_ov_def,PrinterTheory.ov_to_string_def,
     SemanticPrimitivesTheory.int_to_string_def,
-    multiwordTheory.int_to_str_def,getTag_def]
+    multiwordTheory.int_to_str_def,getTag_def,append_number_def]
+(*
   THEN1
    (Cases_on `i < 0:int` \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]
     THEN1 (`ABS i = -i` by intLib.COOPER_TAC \\ FULL_SIMP_TAC std_ss [])
     \\ `ABS i = i` by intLib.COOPER_TAC \\ FULL_SIMP_TAC std_ss [])
+*)
   \\ SRW_TAC [] [] \\ FULL_SIMP_TAC (srw_ss()) [PrinterTheory.ov_to_string_def]
   \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]);
 
@@ -9044,43 +9146,6 @@ val all_abbrevs =
   map (fetch "-") ["error_code_def","alloc_code_def",
     "bignum_code_def","print_code_def","equal_code_def"] |> LIST_CONJ
 
-(*
-
-val test =
-
-  val th1 = zBC_PushInt |> Q.INST [`k`|->`5`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
-  val th1 = SPEC_COMPOSE_RULE [th1,zHEAP_PRINT,zHEAP_TERMINATE_WITH_ERROR]
-  val th1 = th1 |> SIMP_RULE (srw_ss()) [SEP_CLAUSES,isNumber_def,canCompare_def]
-
-  val th = SPEC_COMPOSE_RULE [zHEAP_INIT,zHEAP_ABBREVS,th1]
-           |> SIMP_RULE (srw_ss()) [code_abbrevs_def,all_abbrevs]
-           |> RW [INSERT_UNION_EQ,UNION_EMPTY
-
-
-
-
-
-
-3.59
-
-
-max_print_depth := 25
-
-
-  PushInt 2;
-  Stack Less;
-  JumpIf (Lab 0);
-  Load 0;
-
-
-  Label 0;
-  Return;
-
-max_print_depth := 10
-
-  export_codeLib.write_code_to_file "wrapper/asm_code.s" th
-
-*)
 
 (* --- translation from bytecode to x64 --- *)
 
@@ -9312,6 +9377,86 @@ val x64_length_def = Define `
 
 val x64_inst_length_def = Define `
   x64_inst_length bc = (x64_length bc DIV 2) - 1`;
+
+val LENGTH_IF = prove(
+  ``(LENGTH (if b then xs else ys) = if b then LENGTH xs else LENGTH ys) /\
+    ((if b then m else n) DIV 2 - 1 = if b then m DIV 2 - 1 else n DIV 2 - 1)``,
+  SRW_TAC [] []);
+
+val PushInt_SIMP = prove(
+  ``(if Num (ABS v28) < 268435456 then if v28 < 0 then 1 else 4 else 1) =
+    if v28 < 268435456 then if v28 < 0 then 1 else 4 else 1:num``,
+  intLib.COOPER_TAC);
+
+val x64_inst_length_thm = prove(
+  ``!bc. x64_inst_length bc = case bc of (Label l) => 0
+                                    | Stack Add => x64_inst_length (Stack Add)
+                                    | Jump (Lab l) => x64_inst_length (Jump (Lab l))
+                                    | JumpIf (Lab l) => x64_inst_length (JumpIf (Lab l))
+                                    | Call (Lab l) => x64_inst_length (Call (Lab l))
+                                    | PushPtr (Lab l) => x64_inst_length (PushPtr (Lab l))
+                                    | i => x64_inst_length i``,
+  Cases \\ EVAL_TAC \\ TRY (Cases_on `b`) \\ EVAL_TAC
+  \\ TRY (Cases_on `l`) \\ EVAL_TAC)
+  |> SPEC_ALL |> CONV_RULE (RAND_CONV (REWRITE_CONV [x64_inst_length_def,
+       x64_length_def,x64_def,LENGTH]))
+  |> SIMP_RULE std_ss [LET_DEF,LENGTH,small_offset_def,LENGTH_IF,PushInt_SIMP,
+       IMM32_def,LENGTH_NTIMES,LENGTH_APPEND,ADD1,GSYM ADD_ASSOC];
+
+val real_inst_length_def = Define `
+  real_inst_length bc =
+   case bc of
+     Stack Pop => 0
+   | Stack (Pops v25) => if v25 < 268435456 then 4 else 1
+   | Stack (Shift v26 v27) =>
+       if v26 + v27 < 268435456 then
+         if v26 < 268435456 then
+           if v27 < 268435456 then
+             if v27 = 0 then 1
+             else if v26 = 0 then 5
+             else if v26 = 1 then 4
+             else if v26 ≤ 1 + v27 then ((v26 − 1) * 10 + 16) DIV 2 − 1
+             else (v26 * 10 + ((v26 − 1) * 10 + 20)) DIV 2 − 1
+           else 1
+         else 1
+       else 1
+   | Stack (PushInt v28) =>
+       if v28 < 268435456 then if v28 < 0 then 1 else 4 else 1
+   | Stack (Cons v29 0) => if v29 < 268435456 then 4 else 1
+   | Stack (Cons v29 v30) => if v30 < 32768 then 34 else 1
+   | Stack (Load v31) => if v31 < 268435456 then 4 else 1
+   | Stack (Store v32) => if v32 < 268435456 then 4 else 1
+   | Stack (LoadRev v33) => 1
+   | Stack (El v34) => if v34 < 268435456 then 6 else 1
+   | Stack (TagEq v35) => if v35 < 268435456 then 28 else 1
+   | Stack IsBlock => 25
+   | Stack Equal => 5
+   | Stack Add => 8
+   | Stack Sub => 11
+   | Stack Mult => 8
+   | Stack Div => 11
+   | Stack Mod => 11
+   | Stack Less => 11
+   | Label l => 0
+   | Jump (Lab l') => 1
+   | Jump (Addr v39) => if v39 < 268435456 then 2 else 1
+   | JumpIf (Lab l'') => 1
+   | JumpIf (Addr v43) => if v43 < 268435456 then 5 else 1
+   | Call (Lab l''') => 1
+   | Call (Addr v47) => if v47 < 268435456 then 2 else 1
+   | CallPtr => 3
+   | PushPtr (Lab l'''') => 1
+   | PushPtr (Addr v51) => if v51 < 268435456 then 7 else 1
+   | Return => 0
+   | PushExc => 3
+   | PopExc => 5
+   | Ref => 23
+   | Deref => 1
+   | Update => 3
+   | Stop => 9
+   | Tick => 1
+   | Print => 5
+   | PrintC v13 => 25`
 
 val EVEN_LENGTH_small_offset = prove(
   ``EVEN (LENGTH x) ==> EVEN (LENGTH (small_offset n x))``,
@@ -12653,6 +12798,94 @@ val lex_until_semi_thm = prove(
 (*
 
 print_compiler_grammar();
+
+*)
+
+
+
+(*
+
+fun generate_test th1 = let
+  val th = SPEC_COMPOSE_RULE [zHEAP_INIT,zHEAP_ABBREVS,th1,zHEAP_TERMINATE]
+           |> SIMP_RULE (srw_ss()) [code_abbrevs_def,all_abbrevs]
+           |> RW [INSERT_UNION_EQ,UNION_EMPTY]
+           |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [first_cs_def,first_s_def]))
+  val _ = export_codeLib.write_code_to_file "wrapper/asm_code.s" th
+  in th end
+
+print "A\n":
+
+  val thA = zBC_PrintC |> Q.INST [`c`|->`65w`] |> SIMP_RULE (srw_ss()) []
+  val thNL = zBC_PrintC |> Q.INST [`c`|->`10w`] |> SIMP_RULE (srw_ss()) []
+  val th = SPEC_COMPOSE_RULE [thA,thNL]
+  val th = generate_test th
+
+push 10 numbers onto stack:
+
+  val push_int = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_LOAD_IMM1]
+  val th9 = push_int |> Q.INST [`k`|->`9`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+  val th8 = push_int |> Q.INST [`k`|->`8`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+  val th7 = push_int |> Q.INST [`k`|->`7`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+  val th6 = push_int |> Q.INST [`k`|->`6`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+  val th5 = push_int |> Q.INST [`k`|->`5`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+  val th4 = push_int |> Q.INST [`k`|->`4`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+  val th3 = push_int |> Q.INST [`k`|->`3`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+  val th2 = push_int |> Q.INST [`k`|->`2`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+  val th1 = push_int |> Q.INST [`k`|->`1`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+  val th0 = push_int |> Q.INST [`k`|->`0`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+  val push_10 = SPEC_COMPOSE_RULE [th0,th1,th2,th3,th4,th5,th6,th7,th8,th9]
+  val th = generate_test push_10
+
+print some numbers:
+
+  val th = SPEC_COMPOSE_RULE [push_10,zBC_Print,zBC_Print,zBC_Print]
+  val th = generate_test th
+
+try running bytecode:
+
+val tm =
+   ``[Stack (PushInt 600); Stack (PushInt 500); Stack (PushInt 400);
+   PushExc; Stack (PushInt 6); PopExc;
+   PrintC #"v"; PrintC #"a"; PrintC #"l";
+   PrintC #" "; PrintC #"t"; PrintC #"e"; PrintC #"s"; PrintC #"t";
+   PrintC #"1"; PrintC #" "; PrintC #"="; PrintC #" ";
+   Print; PrintC #" "; Print; PrintC #"\n"]``
+
+val code = ``x64_code 0 ^tm``
+
+val code_EVAL = EVAL code
+
+val zHEAP_RUN_CODE = prove(
+  ``SPEC X64_MODEL
+     (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS * zPC p)
+     {(p,^code)}
+     (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS * zPC (p + n2w (LENGTH ^code)))``,
+  cheat) |> SIMP_RULE std_ss [code_EVAL,LENGTH];
+
+  val th = generate_test zHEAP_RUN_CODE
+
+
+
+
+
+-----------------
+
+open test_compilerLib
+
+val test1_def = Define `test1 = 6`;
+
+val test = translate test1_def
+
+val dlet = fetch "-" "scratch_decls_0" |> concl |> rand |> rator |> rand
+
+val tdec = mk_Tdec dlet
+
+val (bs,rs) = real_inits
+val (rss,(rsf,c)) = compile_top rs tdec
+val bs = add_code c bs
+val tm = bs_to_term bs
+
+
 
 *)
 

@@ -32,6 +32,73 @@ val init_bc_state_def =  Define`
     inst_length := λi. 0;
     clock := NONE |>`
 
+val real_inst_length_def = Define `
+  real_inst_length bc =
+   case bc of
+     Stack Pop => 0
+   | Stack (Pops v25) => if v25 < 268435456 then 4 else 1
+   | Stack (Shift v26 v27) =>
+       if v26 + v27 < 268435456 then
+         if v26 < 268435456 then
+           if v27 < 268435456 then
+             if v27 = 0 then 1
+             else if v26 = 0 then 5
+             else if v26 = 1 then 4
+             else if v26 ≤ 1 + v27 then ((v26 − 1) * 10 + 16) DIV 2 − 1
+             else (v26 * 10 + ((v26 − 1) * 10 + 20)) DIV 2 − 1
+           else 1
+         else 1
+       else 1
+   | Stack (PushInt v28) =>
+       if v28 < 268435456 then if v28 < 0 then 1 else 4 else 1
+   | Stack (Cons v29 v30) => if v30 < 1 then if v29 < 268435456 then 4 else 1 else
+                             if v30 < 32768 then 34 else 1
+   | Stack (Load v31) => if v31 < 268435456 then 4 else 1
+   | Stack (Store v32) => if v32 < 268435456 then 4 else 1
+   | Stack (LoadRev v33) => 1
+   | Stack (El v34) => if v34 < 268435456 then 6 else 1
+   | Stack (TagEq v35) => if v35 < 268435456 then 28 else 1
+   | Stack IsBlock => 25
+   | Stack Equal => 5
+   | Stack Add => 8
+   | Stack Sub => 11
+   | Stack Mult => 8
+   | Stack Div => 11
+   | Stack Mod => 11
+   | Stack Less => 11
+   | Label l => 0
+   | Jump (Lab l') => 1
+   | Jump (Addr v39) => if v39 < 268435456 then 2 else 1
+   | JumpIf (Lab l'') => 1
+   | JumpIf (Addr v43) => if v43 < 268435456 then 5 else 1
+   | Call (Lab l''') => 1
+   | Call (Addr v47) => if v47 < 268435456 then 2 else 1
+   | CallPtr => 3
+   | PushPtr (Lab l'''') => 1
+   | PushPtr (Addr v51) => if v51 < 268435456 then 7 else 1
+   | Return => 0
+   | PushExc => 3
+   | PopExc => 5
+   | Ref => 23
+   | Deref => 1
+   | Update => 3
+   | Stop => 9
+   | Tick => 1
+   | Print => 5
+   | PrintC v13 => 25`
+
+val real_init_bc_state_def =  Define`
+  real_init_bc_state = <|
+    stack := [];
+    code := [];
+    pc := 0;
+    refs := FEMPTY;
+    handler := 0;
+    output := "";
+    cons_names := [];
+    inst_length := real_inst_length;
+    clock := NONE |>`
+
 val _ = new_constant("STRING",``:char -> string -> string``)
 val _ = ConstMapML.prim_insert(``STRING``,(false,"","STRING",type_of``STRING``))
 val _ = new_constant("CONCAT",``:string list -> string``)
@@ -57,6 +124,8 @@ bc_equal_def,
 bc_eval_stack_def,
 CONCAT_RULE(CONV_RULE(PURE_REWRITE_CONV[mk_thm([],mk_eq(``CONS:char -> string -> string``,``STRING``))]) bc_eval1_def),
 bc_eval_compute,
+real_inst_length_def,
+real_init_bc_state_def,
 init_bc_state_def
 ,bytecodeLabelsTheory.collect_labels_def
 ,bytecodeLabelsTheory.all_labels_def
