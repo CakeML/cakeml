@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib helperLib pairTheory lcsymtacs
 open ml_translatorTheory sideTheory replDecsTheory replDecsProofsTheory compileCallReplStepDecTheory
-open SemanticPrimitivesTheory
+open SemanticPrimitivesTheory listTheory
 
 val _ = new_theory "x64Correct"
 
@@ -180,12 +180,9 @@ val Eval_repl_step =
   |> HO_MATCH_MP Eval_FUN_FORALL
   |> SIMP_RULE std_ss [FUN_QUANT_SIMP]
   |> DISCH_ALL |> GEN_ALL
-  |> MATCH_MP DeclAssum_Dlet |> Q.SPEC `"input"` |> SIMP_RULE (srw_ss()) [] |> Q.SPEC `e1`
-  |> MATCH_MP DeclAssum_Dlet |> Q.SPEC `"output"` |> SIMP_RULE (srw_ss()) [] |> Q.SPEC `e2`
-  |> MATCH_MP DeclAssum_Dlet |> Q.SPEC `"call_repl_step"` |> SIMP_RULE (srw_ss()) [] |> Q.SPEC `e3`
-  |> SIMP_RULE std_ss [GSYM SNOC3] |> SPEC_ALL
-  |> SIMP_RULE std_ss [DeclAssum_def,PULL_EXISTS] |> SPEC_ALL
-  |> (fn th => MATCH_MP th (Decls_repl_decs |> RW [repl_decs_def]))
+  |> SIMP_RULE std_ss [DeclAssum_def,PULL_EXISTS]
+  |> SPEC_ALL
+  |> (fn th => MATCH_MP th (Decls_ml_repl_step_decls))
 
 val repl_step_do_app =
   Eval_repl_step
@@ -727,6 +724,14 @@ val good_labels_new_compiler_state_bootstrap_lcode = prove(
   strip_tac >>
   fs[compile_term_next_label])
 
+val code_start_def = Define `
+  code_start bs = next_addr bs.inst_length (REVERSE bootstrap_lcode)`;
+
+val code_end_def = Define `
+  code_end bs = next_addr bs.inst_length
+        (REVERSE bootstrap_lcode ++ REVERSE call_lcode ++
+         [Stack Pop])`;
+
 val compile_call_bc_eval = let
   val th =
     compile_call_repl_step_thm |> GEN_ALL
@@ -752,7 +757,6 @@ val compile_call_bc_eval = let
      |> UNDISCH
      |> CONV_RULE (LAND_CONV(REWRITE_CONV [repl_decs_env_front]))
      |> RW[cenv_bind_div_eq_ml_repl_step_decls_cenv_init_envC]
-
    val th1 =
      th |> SPEC_ALL |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
      |> UNDISCH_ALL
@@ -763,14 +767,133 @@ val compile_call_bc_eval = let
      |> SIMP_RULE std_ss [good_labels_new_compiler_state_bootstrap_lcode]
      |> DISCH_ALL
      |> SIMP_RULE std_ss [AND_IMP_INTRO]
-  in th1 |> Q.INST [`ck`|->`0`,`csz`|->`0`] end
+     |> Q.INST [`ck`|->`0`,`csz`|->`0`]
+     |> RW [GSYM code_start_def, GSYM code_end_def]
+  in th1 end
+
+val COMPILER_RUN_INV_def = Define `
+  COMPILER_RUN_INV bs out inp =
+    ?rd.
+      env_rs [] (repl_decs_cenv ++ init_envC)
+        (0,ml_repl_step_decls_s ++ [out; inp]) repl_decs_env
+         new_compiler_state 0 rd (bs with code := REVERSE bootstrap_lcode) /\
+      closed_context [] (repl_decs_cenv ++ init_envC)
+        (ml_repl_step_decls_s ++ [out; inp]) repl_decs_env /\
+      (bs.clock = NONE) /\ (bs.output = "") /\
+      (bs.code = REVERSE bootstrap_lcode ++ REVERSE call_lcode ++ [Stack Pop])`;
+
+val COMPILER_RUN_INV_STEP = prove(
+  ``COMPILER_RUN_INV bs1 out1 inp1 /\
+    evaluate_dec NONE [] (repl_decs_cenv ++ init_envC)
+      (ml_repl_step_decls_s ++ [out1; inp1]) repl_decs_env
+      call_repl_step_dec
+      (ml_repl_step_decls_s ++ [out2; inp2],Rval ([],[])) ==>
+    ?bs2.
+      (bc_eval (bs1 with pc := code_start bs1) = SOME bs2) /\
+      COMPILER_RUN_INV bs2 out2 inp2 /\ (bs2.pc = code_end bs1)``,
+  SIMP_TAC std_ss [COMPILER_RUN_INV_def] \\ STRIP_TAC
+  \\ MP_TAC (compile_call_bc_eval
+       |> Q.INST [`bs`|->`bs1 with code := REVERSE bootstrap_lcode`,
+                  `inp`|->`inp1`,`inp'`|->`inp2`,
+                  `out`|->`out1`,`out'`|->`out2`])
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [code_start_def,code_end_def,PULL_EXISTS]
+  \\ Q.LIST_EXISTS_TAC [`bs'`,`rd'`]
+  \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+  \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
+  \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_clock_less
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ FULL_SIMP_TAC std_ss [optionTheory.OPTREL_def]
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ STRIP_TAC THEN1
+   (Q.PAT_ASSUM `xx = SOME bs'` (ASSUME_TAC o GSYM)
+    \\ FULL_SIMP_TAC std_ss [] \\ AP_TERM_TAC
+    \\ ASM_SIMP_TAC (srw_ss()) [BytecodeTheory.bc_state_component_equality])
+  \\ cheat (* currently false, code mismatch *));
 
 
 (* --- connecting the Eval theorem with compiler correctness --- *)
 
+val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
+  ``COMPILER_RUN_INV bs1 inp1 out1 /\
+    INPUT_TYPE x inp1 ==>
+    ?bs2 inp2 out2.
+      (bc_eval (bs1 with pc := code_start bs1) = SOME bs2) /\
+      COMPILER_RUN_INV bs2 inp2 out2 /\ (bs2.pc = code_end bs1) /\
+      OUTPUT_TYPE (repl_step x) out2``,
+  REPEAT STRIP_TAC
+  \\ REVERSE (`?out2.
+     evaluate_dec NONE [] (repl_decs_cenv ++ init_envC)
+       (ml_repl_step_decls_s ++ [inp1; out1]) repl_decs_env
+       call_repl_step_dec
+       (ml_repl_step_decls_s ++ [inp1; out2],Rval ([],[])) /\
+     OUTPUT_TYPE (repl_step x) out2` by ALL_TAC)
+  THEN1 METIS_TAC [COMPILER_RUN_INV_STEP]
+  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_dec_cases,
+       call_repl_step_dec_def,LibTheory.emp_def,terminationTheory.pmatch_def,
+                          AstTheory.pat_bindings_def]
+  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases]
+  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases]
+  \\ SIMP_TAC (srw_ss()) [Once repl_decs_env_def,lookup_var_id_def,do_app_def]
+  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases]
+  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases,LibTheory.bind_def]
+  \\ SIMP_TAC (srw_ss()) [Once repl_decs_env_def,lookup_var_id_def,do_app_def]
+  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases,PULL_EXISTS]
+  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases,PULL_EXISTS]
+  \\ SIMP_TAC (srw_ss()) [Once repl_decs_env_def,lookup_var_id_def]
+  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases,PULL_EXISTS]
+  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases,PULL_EXISTS]
+  \\ SIMP_TAC (srw_ss()) [Once repl_decs_env_def,lookup_var_id_def,do_uapp_def,
+       store_lookup_def,rich_listTheory.EL_LENGTH_APPEND]
+  \\ STRIP_ASSUME_TAC repl_step_do_app
+  \\ FULL_SIMP_TAC std_ss [] \\ RES_TAC
+  \\ `!s env'. do_app s env' Opapp res inp1 = SOME (s,env,exp)` by ALL_TAC THEN1
+   (Cases_on `res` \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
+    \\ Cases_on `ALOOKUP l0 s` \\ FULL_SIMP_TAC (srw_ss()) [do_app_def]
+    \\ Cases_on `x'` \\ FULL_SIMP_TAC (srw_ss()) [do_app_def])
+  \\ FULL_SIMP_TAC std_ss []
+  \\ `!tt. evaluate F [] (repl_decs_cenv ++ init_envC)
+       (0,ml_repl_step_decls_s ++ [inp1; out1]) env exp
+       tt <=> (tt = ((0,ml_repl_step_decls_s ++ [inp1; out1]),Rval u))` by
+       cheat (* requires difficult proof: evaluate' ==> evaluate *)
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ `store_assign (LENGTH ml_repl_step_decls_s + 1) u
+        (ml_repl_step_decls_s ++ [inp1; out1]) =
+      SOME (ml_repl_step_decls_s ++ [inp1; u])` by ALL_TAC THEN1
+   (SIMP_TAC std_ss [store_assign_def,LENGTH_APPEND,LENGTH]
+    \\ `ml_repl_step_decls_s ++ [inp1; out1] =
+        (ml_repl_step_decls_s ++ [inp1]) ++ [out1]` by ALL_TAC THEN1
+          FULL_SIMP_TAC std_ss [LUPDATE_LENGTH,APPEND,GSYM APPEND_ASSOC]
+    \\ `LENGTH ml_repl_step_decls_s + 1 =
+        LENGTH (ml_repl_step_decls_s ++ [inp1])` by SRW_TAC [] []
+    \\ FULL_SIMP_TAC std_ss []
+    \\ FULL_SIMP_TAC std_ss [LUPDATE_LENGTH]
+    \\ FULL_SIMP_TAC std_ss [APPEND,GSYM APPEND_ASSOC])
+  \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_dec_cases,
+       call_repl_step_dec_def,LibTheory.emp_def,terminationTheory.pmatch_def,
+                          AstTheory.pat_bindings_def]);
+
+
+
+
+
+
+
+
+
+
+
+
+
 (*
+
+COMPILER_RUN_INV_STEP
+
 repl_step_do_app
-bc_eval_bootstrap_lcode
+
+bc_eval_bootstrap_lcode |> RW [repl_decs_s_def]
 compile_call_bc_eval
 *)
 
