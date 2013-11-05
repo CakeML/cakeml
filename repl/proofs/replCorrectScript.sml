@@ -1058,6 +1058,7 @@ val PrintE_thm = store_thm("PrintE_thm",
     bs.code = PrintE
     ∧ bs.pc = 0
     ∧ bs.stack = bv::st
+    ∧ can_Print bv
     ⇒
     let bs' = bs with <|pc:=next_addr bs.inst_length bs.code
                        ;stack:=st
@@ -1252,6 +1253,7 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
       reverse(Cases_on`e`>>fs[])>-(
         metis_tac[bigClockTheory.top_evaluate_not_timeout] ) >>
       tac >>
+      `can_Print bv` by metis_tac[Cv_bv_can_Print] >>
       `∃ls1. bs1.code = PrintE++Stop::ls1` by (
         rfs[Abbr`bs0`,install_code_def] ) >>
       qspecl_then[`bs1 with <|clock := NONE; code := PrintE|>`,`bv`,`bs0.stack`]mp_tac PrintE_thm >>
@@ -1521,6 +1523,7 @@ map_every qunabbrev_tac[`A`,`B`,`C`] >>
       fs[Abbr`bs0`,install_code_def] >>
       fs[invariant_def] ) >>
     qunabbrev_tac`Y` >>
+    `can_Print bv` by metis_tac[Cv_bv_can_Print] >>
     qspecl_then[`bs2 with <|code := PrintE|>`,`bv`,`bs0.stack`]mp_tac PrintE_thm >>
     simp[] >> strip_tac >>
     qmatch_assum_abbrev_tac`bc_next^* bs3 bs4` >>
