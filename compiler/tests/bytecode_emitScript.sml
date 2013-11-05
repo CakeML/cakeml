@@ -1,5 +1,6 @@
 open HolKernel bossLib boolLib EmitTeX basis_emitTheory
 open CompilerLibTheory PrinterTheory BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory
+open bytecodeLabelsTheory
 val _ = new_theory "bytecode_emit"
 
 val _ = Parse.temp_type_abbrev("string",``:char list``)
@@ -32,22 +33,18 @@ val init_bc_state_def =  Define`
     inst_length := λi. 0;
     clock := NONE |>`
 
-val real_inst_length_def = Define `
+val real_inst_length_def = zDefine `
   real_inst_length bc =
    case bc of
      Stack Pop => 0
    | Stack (Pops v25) => if v25 < 268435456 then 4 else 1
    | Stack (Shift v26 v27) =>
        if v26 + v27 < 268435456 then
-         if v26 < 268435456 then
-           if v27 < 268435456 then
-             if v27 = 0 then 1
-             else if v26 = 0 then 5
-             else if v26 = 1 then 4
-             else if v26 ≤ 1 + v27 then ((v26 − 1) * 10 + 16) DIV 2 − 1
-             else (v26 * 10 + ((v26 − 1) * 10 + 20)) DIV 2 − 1
-           else 1
-         else 1
+         if v27 = 0 then 1
+         else if v26 = 0 then 5
+         else if v26 = 1 then 4
+         else if v26 ≤ 1 + v27 then ((v26 − 1) * 10 + 16) DIV 2 − 1
+         else (v26 * 10 + ((v26 − 1) * 10 + 20)) DIV 2 − 1
        else 1
    | Stack (PushInt v28) =>
        if v28 < 268435456 then if v28 < 0 then 1 else 4 else 1
@@ -69,15 +66,11 @@ val real_inst_length_def = Define `
    | Stack Mod => 11
    | Stack Less => 11
    | Label l => 0
-   | Jump (Lab l') => 2
-   | Jump (Addr v39) => if v39 < 268435456 then 2 else 1
-   | JumpIf (Lab l'') => 5
-   | JumpIf (Addr v43) => if v43 < 268435456 then 5 else 1
-   | Call (Lab l''') => 2
-   | Call (Addr v47) => if v47 < 268435456 then 2 else 1
+   | Jump _ => 2
+   | JumpIf _ => 5
+   | Call _ => 2
    | CallPtr => 3
-   | PushPtr (Lab l'''') => 7
-   | PushPtr (Addr v51) => if v51 < 268435456 then 7 else 1
+   | PushPtr _ => 7
    | Return => 0
    | PushExc => 3
    | PopExc => 5
@@ -88,6 +81,15 @@ val real_inst_length_def = Define `
    | Tick => 1
    | Print => 5
    | PrintC v13 => 25`
+
+val () = ([],``!bc. x = real_inst_length bc``)
+  |> (Cases THEN TRY (Cases_on `b`)) |> fst |> map (rand o snd)
+  |> map (REWRITE_CONV [real_inst_length_def] THENC EVAL)
+  |> computeLib.add_funs
+
+val real_inst_length_ok = store_thm("real_inst_length_ok",
+  ``length_ok real_inst_length``,
+  EVAL_TAC \\ SIMP_TAC std_ss []);
 
 val real_init_bc_state_def =  Define`
   real_init_bc_state = <|

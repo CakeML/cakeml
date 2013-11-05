@@ -9343,7 +9343,6 @@ val x64_def = Define `
   (x64 i (JumpIf (Addr l)) =
      small_offset l (small_offset i
        (let imm32 = n2w (2 * l) - n2w i - 12w in ^(get_code zBC_JumpIf)))) /\
- (* (x64 i (JumpPtr) = ^(get_code zBC_JumpPtr)) /\ *)
   (x64 i (Call (Addr l)) =
      small_offset l (small_offset i
        (let imm32 = n2w (2 * l) - n2w i - 6w in ^(get_code zBC_Call)))) /\
@@ -9396,7 +9395,7 @@ val x64_inst_length_thm = prove(
   |> SIMP_RULE std_ss [LET_DEF,LENGTH,small_offset_def,LENGTH_IF,PushInt_SIMP,
        IMM32_def,LENGTH_NTIMES,LENGTH_APPEND,ADD1,GSYM ADD_ASSOC];
 
-val real_inst_length_def = Define `
+val real_inst_length_def = zDefine `
   real_inst_length bc =
    case bc of
      Stack Pop => 0
@@ -9452,6 +9451,11 @@ val real_inst_length_def = Define `
    | Tick => 1
    | Print => 5
    | PrintC v13 => 25`
+
+val () = ([],``!bc. x = real_inst_length bc``)
+  |> (Cases THEN TRY (Cases_on `l`) THEN TRY (Cases_on `b`)) |> fst |> map snd
+  |> map rand |> map (REWRITE_CONV [real_inst_length_def] THENC EVAL)
+  |> computeLib.add_funs
 
 val EVEN_LENGTH_small_offset = prove(
   ``EVEN (LENGTH x) ==> EVEN (LENGTH (small_offset n x))``,
