@@ -32,7 +32,7 @@ val _ = Define `
  (opn_lookup n = ((case n of
     Plus => (+)
   | Minus => (-)
-  | Times => ( * )
+  | Times => (*)
   | Divide => (/)
   | Modulo => (%)
 )))`;

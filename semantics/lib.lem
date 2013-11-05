@@ -1,4 +1,4 @@
-open import Pervasives_extra
+open import Pervasives
 
 (* TODO: look for these in the built-in library *)
 

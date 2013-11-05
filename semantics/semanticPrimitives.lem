@@ -1,6 +1,6 @@
-open import Pervasives_extra
-open Lib
-open Ast
+open import Pervasives
+open import Lib
+open import Ast
 
 (* Value forms *)
 type v =
