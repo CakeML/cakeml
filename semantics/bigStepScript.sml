@@ -318,24 +318,24 @@ evaluate_dec mn menv cenv s env (Dletrec funs) (s, Rval (emp, build_rec_env funs
 evaluate_dec mn menv cenv s env (Dletrec funs) (s, Rerr Rtype_error))
 
 /\ (! mn menv cenv env tds s.
-(check_dup_ctors instance_Basic_classes_Eq_var_dict (instance_Basic_classes_Eq_tup_dict instance_Basic_classes_Eq_nat_dict
+(check_dup_ctors (instance_Basic_classes_Eq_tup_dict instance_Basic_classes_Eq_nat_dict
    instance_Basic_classes_Eq_var_dict) mn cenv tds)
 ==>
 evaluate_dec mn menv cenv s env (Dtype tds) (s, Rval (build_tdefs mn tds, emp)))
 
 /\ (! mn menv cenv env tds s.
-((~ (check_dup_ctors instance_Basic_classes_Eq_var_dict (instance_Basic_classes_Eq_tup_dict instance_Basic_classes_Eq_nat_dict
+((~ (check_dup_ctors (instance_Basic_classes_Eq_tup_dict instance_Basic_classes_Eq_nat_dict
    instance_Basic_classes_Eq_var_dict) mn cenv tds)))
 ==>
 evaluate_dec mn menv cenv s env (Dtype tds) (s, Rerr Rtype_error))
 
 /\ (! mn menv cenv env cn ts s.
-(lookup (instance_Basic_classes_Eq_Ast_id_dict instance_Basic_classes_Eq_var_dict) (mk_id mn cn) cenv = (NONE))
+(lookup instance_Basic_classes_Eq_var_dict (mk_id mn cn) cenv = (NONE))
 ==>
 evaluate_dec mn menv cenv s env (Dexn cn ts) (s, Rval (bind (mk_id mn cn) ((LENGTH ts), TypeExn) emp, emp)))
 
 /\ (! mn menv cenv env cn ts s.
-( (~ (lookup (instance_Basic_classes_Eq_Ast_id_dict instance_Basic_classes_Eq_var_dict) (mk_id mn cn) cenv =  (NONE))))
+( (~ (lookup instance_Basic_classes_Eq_var_dict (mk_id mn cn) cenv =  (NONE))))
 ==>
 evaluate_dec mn menv cenv s env (Dexn cn ts) (s, Rerr Rtype_error))`;
 

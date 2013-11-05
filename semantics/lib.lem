@@ -47,14 +47,12 @@ let emp = []
 val lookup : forall 'a 'b. Eq 'a => 'a -> env 'a 'b -> maybe 'b
 let rec
 lookup n [] = Nothing
-(* TODO: put back
 and
 lookup n ((n',v)::e) =
   if n' = n then
     Just v
   else
     lookup n e
-*)
 
 val bind : forall 'a 'b. 'a -> 'b -> env 'a 'b -> env 'a 'b
 let bind n v e = (n,v)::e

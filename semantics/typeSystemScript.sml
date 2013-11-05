@@ -193,7 +193,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
    maybe modN -> tenvC -> list (list tvarN * typeN * list (conN * list t)) -> bool*)
 val _ = Define `
  (check_ctor_tenv mn tenvC tds =  
-(check_dup_ctors instance_Basic_classes_Eq_var_dict instance_Basic_classes_Eq_var_dict mn tenvC tds /\  
+(check_dup_ctors instance_Basic_classes_Eq_var_dict mn tenvC tds /\  
 ((EVERY
     (\ (tvs,tn,ctors) .       
 (ALL_DISTINCT tvs) /\       
@@ -307,7 +307,7 @@ type_p tvs cenv (Plit Unit) Tunit [])
 ((EVERY (check_freevars tvs []) ts') /\
 (((LENGTH ts') = (LENGTH tvs')) /\
 (type_ps tvs cenv ps ((MAP (type_subst (list_combine tvs' ts')) ts)) tenv /\
-(lookup (instance_Basic_classes_Eq_Ast_id_dict instance_Basic_classes_Eq_var_dict) cn cenv = (SOME (tvs', ts, tn))))))
+(lookup instance_Basic_classes_Eq_var_dict cn cenv = (SOME (tvs', ts, tn))))))
 ==>
 type_p tvs cenv (Pcon ((SOME cn)) ps) (Tapp ts' (tid_exn_to_tc tn)) tenv)
 
@@ -369,7 +369,7 @@ type_e menv cenv tenv (Handle e pes) t)
 ((EVERY (check_freevars (num_tvs tenv) []) ts') /\
 (((LENGTH tvs) = (LENGTH ts')) /\
 (type_es menv cenv tenv es ((MAP (type_subst (list_combine tvs ts')) ts)) /\
-(lookup (instance_Basic_classes_Eq_Ast_id_dict instance_Basic_classes_Eq_var_dict) cn cenv = (SOME (tvs, ts, tn))))))
+(lookup instance_Basic_classes_Eq_var_dict cn cenv = (SOME (tvs, ts, tn))))))
 ==>
 type_e menv cenv tenv (Con ((SOME cn)) es) (Tapp ts' (tid_exn_to_tc tn)))
 
@@ -502,7 +502,7 @@ type_d mn menv cenv tenv (Dletrec funs) emp (tenv_add_tvs tvs tenv'))
 type_d mn menv cenv tenv (Dtype tdecs) (build_ctor_tenv mn tdecs) emp)
 
 /\ (! mn menv cenv tenv cn ts.
-((lookup (instance_Basic_classes_Eq_Ast_id_dict instance_Basic_classes_Eq_var_dict) (mk_id mn cn) cenv = (NONE)) /\
+((lookup instance_Basic_classes_Eq_var_dict (mk_id mn cn) cenv = (NONE)) /\
 (EVERY (check_freevars((  0)) []) ts))
 ==>
 type_d mn menv cenv tenv (Dexn cn ts) (bind (mk_id mn cn) ([], ts, TypeExn) emp) emp)`;
@@ -536,7 +536,7 @@ type_specs mn (merge (build_ctor_tenv mn td) cenv) tenv specs cenv' tenv')
 type_specs mn cenv tenv (Stype td :: specs) cenv' tenv')
 
 /\ (! mn cenv tenv cn ts specs cenv' tenv'.
-((lookup (instance_Basic_classes_Eq_Ast_id_dict instance_Basic_classes_Eq_var_dict) (mk_id mn cn) cenv = (NONE)) /\
+((lookup instance_Basic_classes_Eq_var_dict (mk_id mn cn) cenv = (NONE)) /\
 ((EVERY (check_freevars((  0)) []) ts) /\
 type_specs mn (bind (mk_id mn cn) ([], ts, TypeExn) cenv) tenv specs cenv' tenv'))
 ==>
@@ -571,10 +571,10 @@ val _ = Define `
 val _ = Define `
  (weakC cenv_impl cenv_spec =  
 (! cn.
-    (case lookup (instance_Basic_classes_Eq_Ast_id_dict instance_Basic_classes_Eq_var_dict) cn cenv_spec of
+    (case lookup instance_Basic_classes_Eq_var_dict cn cenv_spec of
         (SOME (tvs_spec,ts_spec,tn_spec)) =>
           (case lookup 
-  (instance_Basic_classes_Eq_Ast_id_dict instance_Basic_classes_Eq_var_dict) cn cenv_impl of
+  instance_Basic_classes_Eq_var_dict cn cenv_impl of
               (NONE) => F
             | (SOME (tvs_impl, ts_impl, tn_impl)) =>                
 (tn_spec = tn_impl) /\                

@@ -8,7 +8,7 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "ast"
 
-(*open import Pervasives*) 
+(*open import Pervasives*)
 
 (* Literal constants *)
 val _ = Hol_datatype `
@@ -32,7 +32,7 @@ val _ = Define `
  (opn_lookup n = ((case n of
     Plus => (+)
   | Minus => (-)
-  | Times => (*)
+  | Times => ( * )
   | Divide => (/)
   | Modulo => (%)
 )))`;
@@ -81,14 +81,15 @@ val _ = Hol_datatype `
   | Long of modN => 'a`;
 
 
-val _ = Define `
-(instance_Basic_classes_Eq_Ast_id_dict dict_Basic_classes_Eq_a =(<|
-
-  isEqual_method :=(\ x y. (case (x,y) of
-        (Short a, Short b) => a = b
-      | (Long mn a, Long mn' b) => (mn = mn') /\ (a = b)
-    ))|>))`;
-
+(*
+instance forall 'a. Eq 'a => (Eq (id 'a))
+  let (=) x y =
+    match (x,y) with
+      | (Short a, Short b) -> a = b
+      | (Long mn a, Long mn' b) -> mn = mn' && (a = b)
+    end
+end
+*)
 
 (* Variable names *)
 val _ = type_abbrev( "varN" , ``: string``);

@@ -113,7 +113,7 @@ val _ = Define `
 ((case n_opt of
       (NONE) => T
     | (SOME n) =>
-        (case lookup (instance_Basic_classes_Eq_Ast_id_dict instance_Basic_classes_Eq_var_dict) n cenv of
+        (case lookup instance_Basic_classes_Eq_var_dict n cenv of
             (NONE) => F
           | (SOME (l',ns)) => l = l'
         )
@@ -160,13 +160,10 @@ val _ = Hol_datatype `
     Match_type_error))
 /\
 (pmatch envC s (Pcon ((SOME n)) ps) (Conv ((SOME n')) vs) env =  
-((case (lookup (instance_Basic_classes_Eq_Ast_id_dict instance_Basic_classes_Eq_var_dict) n envC, lookup (instance_Basic_classes_Eq_Ast_id_dict instance_Basic_classes_Eq_var_dict) n' envC) of
+((case (lookup instance_Basic_classes_Eq_var_dict n envC, lookup instance_Basic_classes_Eq_var_dict n' envC) of
       ((SOME (l, t)), (SOME (l', t'))) =>
         if (t = t') /\ (((LENGTH ps) = l) /\ ((LENGTH vs) = l')) then
-          if (case ( n, n') of
-        (Short a, Short b) => a = b
-      | (Long mn a, Long mn' b) => (mn = mn') /\ (a = b)
-    ) then
+          if n = n' then
             pmatch_list envC s ps vs env
           else
             No_match
@@ -391,10 +388,10 @@ val check_dup_ctors :
     forall 'a. option modN -> env (id conN) 'a -> list (list tvarN * typeN * list (conN * list t)) -> bool
 *)
 val _ = Define `
- (check_dup_ctors dict_Basic_classes_Eq_a dict_Basic_classes_Eq_e mn_opt cenv tds =  
+ (check_dup_ctors dict_Basic_classes_Eq_e mn_opt cenv tds =  
 ((! ((tvs, tn, condefs) :: 
   (LIST_TO_SET tds)) ((n, ts) :: (LIST_TO_SET condefs)).
-     lookup (instance_Basic_classes_Eq_Ast_id_dict dict_Basic_classes_Eq_a) (mk_id mn_opt n) cenv = (NONE))
+     lookup instance_Basic_classes_Eq_var_dict (mk_id mn_opt n) cenv = (NONE))
   /\  
 (ALL_DISTINCT (let x2 = 
   ([]) in  (FOLDR

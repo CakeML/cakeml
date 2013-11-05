@@ -1,4 +1,4 @@
-open import Pervasives 
+open import Pervasives
 
 (* Literal constants *)
 type lit =
@@ -53,6 +53,7 @@ type id 'a =
   | Short of 'a
   | Long of modN * 'a
 
+(*
 instance forall 'a. Eq 'a => (Eq (id 'a))
   let (=) x y =
     match (x,y) with
@@ -60,6 +61,7 @@ instance forall 'a. Eq 'a => (Eq (id 'a))
       | (Long mn a, Long mn' b) -> mn = mn' && (a = b)
     end
 end
+*)
 
 (* Variable names *)
 type varN = string
