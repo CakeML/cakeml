@@ -9,7 +9,7 @@ type token =
 | InT | IncludeT | LetT | LocalT | OfT | OpT
 | OpenT | OrelseT | RaiseT | RecT | SharingT | SigT | SignatureT | StructT
 | StructureT | ThenT | TypeT | ValT | WhereT | WhileT | WithT | WithtypeT
-| IntT of int
+| IntT of integer
 | HexintT of string
 | RealT of string
 | StringT of string

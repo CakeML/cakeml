@@ -1,7 +1,7 @@
 open import Transform
-open Lib
-open Ast 
-open SemanticPrimitives
+open import Lib
+open import Ast 
+open import SemanticPrimitives
 
 (* Small-step semantics for expression only.  Modules and definitions have
  * big-step semantics only *)

@@ -1,7 +1,8 @@
 open import Transform
+
 (* Literal constants *)
 type lit =
-  | IntLit of int
+  | IntLit of integer
   | Bool of bool
   | Unit
 
@@ -10,19 +11,21 @@ type lit =
 type opn = Plus | Minus | Times | Divide | Modulo
 type opb = Lt | Gt | Leq | Geq
 
+val opn_lookup : opn -> integer -> integer -> integer
 let opn_lookup n = match n with
-  | Plus -> Int.(+)
-  | Minus -> Int.(-)
-  | Times -> Int.( * )
-  | Divide -> Int.(/)
-  | Modulo -> Int.(%)
+  | Plus -> (+)
+  | Minus -> (-)
+  | Times -> ( * )
+  | Divide -> (/)
+  | Modulo -> (mod)
 end
 
-let opb_lookup n : int -> int -> bool = match n with
-  | Lt -> Int.(<)
-  | Gt -> Int.(>)
-  | Leq -> Int.(<=)
-  | Geq -> Int.(>=)
+val opb_lookup : opb -> integer -> integer -> bool
+let opb_lookup n = match n with
+  | Lt -> (<)
+  | Gt -> (>)
+  | Leq -> (<=)
+  | Geq -> (>=)
 end
 
 (* Opapp is function application *)
@@ -49,6 +52,14 @@ type modN = string
 type id 'a =
   | Short of 'a
   | Long of modN * 'a
+
+instance forall 'a. Eq 'a => (Eq (id 'a))
+  let (=) x y =
+    match (x,y) with
+      | (Short a, Short b) -> a = b
+      | (Long mn a, Long mn' b) -> mn = mn' && a = b
+    end
+end
 
 (* Variable names *)
 type varN = string

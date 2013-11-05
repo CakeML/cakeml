@@ -17,8 +17,8 @@ open import Transform
  * 
  *)
 
-open Lib
-open Ast
+open import Lib
+open import Ast
 
 type ast_pat =
     (* x *)

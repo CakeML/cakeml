@@ -1,5 +1,6 @@
 open import Transform
 
+(*
 val i : num -> Int.int
 let inline {hol} i = Hol.(&)
 
@@ -11,27 +12,37 @@ let inline {hol} num_to_string = Hol.num_to_dec_string
 
 val neg : int -> int
 let inline {hol} neg = Hol.int_neg
+*)
 
 val all_distinct : forall 'a. list 'a -> bool
+(*
 let inline {hol} all_distinct = Hol.ALL_DISTINCT
+*)
 
 val rtc : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)
+(*
 let inline {hol} rtc = Hol.RTC
+*)
 
 val count_list : num -> list num
+(*
 let inline {hol} count_list = Hol.COUNT_LIST
+*)
 
 val option_map : forall 'a 'b. ('a -> 'b) -> option 'a -> option 'b
+(*
 let option_map f x = 
   match x with
     | None -> None
     | Some y -> Some (f y)
   end
+*)
 
 (* Change the nth element in the list to 'a *)
 val LUPDATE : forall 'a. 'a -> num -> list 'a -> list 'a
+(*
 let inline {hol} LUPDATE = Hol.LUPDATE
-
+*)
 
 (* Environments *)
 type env 'a 'b = list ('a*'b)
@@ -39,7 +50,7 @@ type env 'a 'b = list ('a*'b)
 val emp : forall 'a 'b. env 'a 'b
 let emp = []
 
-val lookup : forall 'a 'b. 'a -> env 'a 'b -> option 'b
+val lookup : forall 'a 'b. Eq 'a => 'a -> env 'a 'b -> option 'b
 let rec
 lookup n [] = None
 and

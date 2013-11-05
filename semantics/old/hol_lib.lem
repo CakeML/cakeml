@@ -1,3 +1,6 @@
+let x = (1:nat)
+
+(*
 open import Transform
 
 type char
@@ -19,3 +22,4 @@ val COUNT_LIST : num -> list num
 
 val int_neg : int -> int
 val num_to_dec_string : num -> string
+*)

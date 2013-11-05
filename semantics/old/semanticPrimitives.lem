@@ -265,7 +265,7 @@ let do_app s env' op v1 v2 =
           | None -> None
         end
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) ->
-        if (op = Divide || op = Modulo) && n2 = i 0 then
+        if (op = Divide || op = Modulo) && n2 = 0 then
           Some (s, env', Raise (Con (Some (Short "Div")) []))
         else
           Some (s, env',Lit (IntLit (opn_lookup op n1 n2)))
@@ -320,8 +320,11 @@ let build_tdefs mn tds =
       tds)
 
 (* Checks that no constructor is defined twice *)
+(* TODO: This gives a class error for some reason *)
+(*
 val check_dup_ctors :
     forall 'a. option modN -> env (id conN) 'a -> list (list tvarN * typeN * list (conN * list t)) -> bool
+*)
 let check_dup_ctors mn_opt cenv tds =
   (forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs).
      lookup (mk_id mn_opt n) cenv = None)
@@ -363,6 +366,8 @@ top_to_cenv (Tmod mn _ ds) = decs_to_cenv (Some mn) ds
 
 (* conversions to strings *)
 
+(* TODO : Put back.  Why is ^ missing now? *)
+(*
 let rec
 id_to_string (Short s) = s
 and
@@ -371,3 +376,4 @@ id_to_string (Long x y) = x^"."^y
 let int_to_string z =
   if Int.(<) z (i 0) then "~"^(num_to_string (int_to_num (neg z)))
   else num_to_string (int_to_num z)
+*)
