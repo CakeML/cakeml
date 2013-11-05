@@ -3,6 +3,63 @@ open miscTheory BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory rich
 val _ = numLib.prefer_num()
 val _ = new_theory"bytecodeExtra"
 
+val real_inst_length_def = zDefine `
+  real_inst_length bc =
+   case bc of
+     Stack Pop => 0
+   | Stack (Pops v25) => if v25 < 268435456 then 4 else 1
+   | Stack (Shift v26 v27) =>
+       if v26 + v27 < 268435456 then
+         if v27 = 0 then 1
+         else if v26 = 0 then 5
+         else if v26 = 1 then 4
+         else if v26 ≤ 1 + v27 then ((v26 − 1) * 10 + 16) DIV 2 − 1
+         else (v26 * 10 + ((v26 − 1) * 10 + 20)) DIV 2 − 1
+       else 1
+   | Stack (PushInt v28) =>
+       if v28 < 268435456 then if v28 < 0 then 1 else 4 else 1
+   | Stack (Cons v29 v30) =>
+       if v29 < 268435456 then
+         if v30 = 0 then 4 else if v30 < 32768 then 34 else 1
+       else 1
+   | Stack (Load v31) => if v31 < 268435456 then 4 else 1
+   | Stack (Store v32) => if v32 < 268435456 then 4 else 1
+   | Stack (LoadRev v33) => 5
+   | Stack (El v34) => if v34 < 268435456 then 6 else 1
+   | Stack (TagEq v35) => if v35 < 268435456 then 28 else 1
+   | Stack IsBlock => 25
+   | Stack Equal => 5
+   | Stack Add => 3
+   | Stack Sub => 3
+   | Stack Mult => 8
+   | Stack Div => 11
+   | Stack Mod => 11
+   | Stack Less => 11
+   | Label l => 0
+   | Jump _ => 2
+   | JumpIf _ => 5
+   | Call _ => 2
+   | CallPtr => 3
+   | PushPtr _ => 7
+   | Return => 0
+   | PushExc => 3
+   | PopExc => 5
+   | Ref => 23
+   | Deref => 1
+   | Update => 3
+   | Stop => 9
+   | Tick => 1
+   | Print => 5
+   | PrintC v13 => 25`
+
+val thms = ([],``!bc. x = real_inst_length bc``)
+  |> (Cases THEN TRY (Cases_on `b`)) |> fst |> map (rand o snd)
+  |> map (REWRITE_CONV [real_inst_length_def] THENC EVAL)
+val names = let val r = ref 0 in map (fn th =>
+  let val name = ("real_inst_length_"^Int.toString(!r)) in
+     (save_thm(name,th);r := (!r)+1;name) end) thms end
+val _ =  computeLib.add_persistent_funs names
+
 val with_same_refs = store_thm("with_same_refs",
   ``(x with refs := x.refs) = x``,
   rw[bc_state_component_equality])
