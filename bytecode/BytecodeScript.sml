@@ -128,6 +128,24 @@ val _ = Define `
 (is_Block _ = F)`;
 
 
+ val can_Print_defn = Hol_defn "can_Print" `
+
+(can_Print (Number _) = T)
+/\
+(can_Print (Block n vs) = ( ~  (n = block_tag) \/ can_Print_list vs))
+/\
+(can_Print (CodePtr _) = F)
+/\
+(can_Print (RefPtr v) = T)
+/\
+(can_Print (StackPtr _) = F)
+/\
+(can_Print_list [] = T)
+/\
+(can_Print_list (v::vs) = (can_Print v /\ can_Print_list vs))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn can_Print_defn;
+
 (* comparing bc_values for equality *)
 
  val bc_equal_defn = Hol_defn "bc_equal" `
@@ -389,7 +407,7 @@ bc_next s ((bump_pc s with<| clock := OPTION_MAP PRE s.clock|>)))
 /\
 (! s x xs.
 ((
-bc_fetch s = SOME Print) /\ (s.stack = x ::xs))
+bc_fetch s = SOME Print) /\ (s.stack = x ::xs) /\ can_Print x)
 ==>
 bc_next s ((bump_pc s with<| stack := xs;
   output := CONCAT [s.output;ov_to_string (bv_to_ov s.cons_names x)]|>)))

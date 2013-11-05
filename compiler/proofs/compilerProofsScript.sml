@@ -943,6 +943,11 @@ val code_labels_ok_MAP_PrintC = store_thm("code_labels_ok_MAP_PrintC",
   Induct>>simp[]>>rw[]>>match_mp_tac code_labels_ok_cons>>simp[])
 val _ = export_rewrites["code_labels_ok_MAP_PrintC"]
 
+val can_Print_list_EVERY = store_thm("can_Print_list_EVERY",
+  ``∀ls. can_Print_list ls = EVERY can_Print ls``,
+  Induct >> simp[])
+val _ = export_rewrites["can_Print_list_EVERY"]
+
 val compile_print_vals_thm = store_thm("compile_print_vals_thm",
   ``∀vs i cs. let cs' = compile_print_vals i vs cs in
     ∃code. cs'.out = REVERSE code ++ cs.out
@@ -953,6 +958,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     bs.code = bc0 ++ code
     ∧ bs.pc = next_addr bs.inst_length bc0
     ∧ bs.stack = bvs ++ st0
+    ∧ can_Print_list bvs
     ∧ i + LENGTH vs ≤ LENGTH bvs
     ⇒
     let bs' = bs with <|pc := next_addr bs.inst_length (bc0++code)
@@ -1016,6 +1022,9 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
       simp[FILTER_APPEND,SUM_APPEND] ) >>
     simp[bc_eval1_thm,bc_eval1_def,bump_pc_def]>>
     simp[Abbr`bs1`]>>
+    conj_tac >- (
+      fs[EVERY_MEM] >> first_x_assum match_mp_tac >>
+      simp[MEM_EL] >> qexists_tac`i` >> simp[] ) >>
     simp[Abbr`P`] >>
     qmatch_abbrev_tac`bc_next bs1 bs2` >>
     `bc_fetch bs1 = SOME (PrintC(#"\n"))` by (
@@ -1125,6 +1134,7 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       bs.code = bc0 ++ code
       ∧ bs.pc = next_addr bs.inst_length bc0
       ∧ bs.stack = bvs ++ st0
+      ∧ can_Print_list bvs
       ∧ LENGTH bvs = LENGTH (new_dec_vs d)
       ⇒
       let str =
@@ -1206,6 +1216,14 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     qspecl_then[`[s,l]`,`cs`]mp_tac (INST_TYPE[alpha|->``:t list``]compile_print_ctors_thm) >>
     simp[] >> rw[] >> simp[] >>
     simp[print_envC_def]))
+
+val Cv_bv_can_Print = save_thm("Cv_bv_can_Print",prove(
+  ``(∀Cv bv. Cv_bv pp Cv bv ⇒ can_Print bv) ∧
+    (∀bvs ce env defs. benv_bvs pp bvs ce env defs ⇒ T)``,
+  ho_match_mp_tac Cv_bv_ind >> simp[] >>
+  simp[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >> rw[] >>
+  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL])
+  |> CONJUNCT1)
 
 (* env_rs *)
 
@@ -1588,6 +1606,22 @@ val env_rs_shift_to_menv = store_thm("env_rs_shift_to_menv",
   simp[] >>
   simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP,EL_REVERSE,PRE_SUB1] >>
   simp[EL_DROP])
+
+val env_rs_can_Print = store_thm("env_rs_can_Print",
+  ``∀menv cenv cs env rs z rd bs n v.
+    env_rs menv cenv cs env rs z rd bs ∧
+    el_check n (REVERSE bs.stack) = SOME v ∧
+    MEM n (MAP SND rs.renv)
+    ⇒
+    can_Print v``,
+  simp[env_rs_def] >>
+  rw[Cenv_bs_def,env_renv_def,option_case_NONE_F] >>
+  fs[EVERY2_EVERY,EVERY_MEM] >>
+  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,CompilerLibTheory.el_check_def,EL_MAP] >>
+  match_mp_tac (GEN_ALL Cv_bv_can_Print) >>
+  qexists_tac`mk_pp rd bs` >>
+  fsrw_tac[DNF_ss][MEM_MAP,MEM_EL] >>
+  rw[] >> metis_tac[])
 
 (* compile_news *)
 
@@ -3493,6 +3527,7 @@ val compile_decs_thm = store_thm("compile_decs_thm",
                          ;rsz := rsz'
                          |> in
       bc_next^* bs bs'
+      ∧ can_Print_list bvs
       ∧ env_rs menv (FST(SND res)++cenv) (0,s') (env'++env) rs' csz rd' bs'
     | Rerr(Rraise err) =>
       ∀ig h0 sp st0.
@@ -4002,6 +4037,24 @@ val compile_decs_thm = store_thm("compile_decs_thm",
       `bs3 = bs2 with code := bs.code` by (
         simp[Abbr`bs3`,Abbr`bs2`] ) >>
       metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
+    conj_tac >- (
+      simp[] >>
+      simp[EVERY_MEM] >> rpt strip_tac >>
+      match_mp_tac env_rs_can_Print >>
+      rator_assum`env_rs`(MAP_EVERY EXISTS_TAC o snd o strip_comb o concl) >>
+      simp[CompilerLibTheory.el_check_def] >>
+      pop_assum mp_tac >>
+      simp[MEM_EL] >>
+      disch_then(qx_choose_then`k`strip_assume_tac) >>
+      qexists_tac`k + LENGTH bs.stack` >>
+      simp[EL_REVERSE,PRE_SUB1,EL_APPEND1,EL_APPEND2,Abbr`rsz1`] >>
+      disj1_tac >> disj2_tac >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      qexists_tac`LENGTH bvs - k - 1` >>
+      simp[MAP_ZIP] >>
+      rator_x_assum`env_rs`kall_tac >>
+      rator_x_assum`env_rs`mp_tac >>
+      simp[env_rs_def] >> rw[] >> rw[] ) >>
     qmatch_abbrev_tac`env_rs menv xcenv xcs xenv xrs xzz rd2 xbs` >>
     qmatch_assum_abbrev_tac`env_rs menv xcenv xcs xenv yrs xzz rd2 ybs` >>
     `xbs = ybs` by (
@@ -4482,6 +4535,7 @@ val compile_decs_wrap_thm = store_thm("compile_decs_wrap_thm",
                          (*;output := if IS_NONE mn then REVERSE(print_envE env')++bs.output else bs.output*)|> in
       let rs' = rs with <|contab := ct; rnext_label := cs.next_label; renv := renv++rs.renv; rsz := rs.rsz+LENGTH renv|> in
       bc_next^* bs bs'
+      ∧ can_Print_list bvs
       ∧ env_rs menv (cenv'++cenv) (0,s') (env'++env) rs' (LENGTH bs.stack) rd' bs'
     | Rerr (Rraise err) =>
       ∃Cv bv rf rd'.
@@ -4653,6 +4707,7 @@ val compile_decs_wrap_thm = store_thm("compile_decs_wrap_thm",
       `bs2' = bs2` by (
         simp[Abbr`bs2`,Abbr`bs2'`,bc_state_component_equality,Abbr`cs1`,SUM_APPEND,FILTER_APPEND,Abbr`cs`,REVERSE_APPEND,Abbr`c2`]) >>
       metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
+    conj_tac >- simp[] >>
     qmatch_assum_abbrev_tac`env_rs menv cenv2 ck2 renv2 rs2 st0 rd2 bss2` >>
     qmatch_abbrev_tac`env_rs menv cenv2 ck2 renv2 rs3 st0 rd2 bss3` >>
     rator_x_assum`env_rs`mp_tac >>

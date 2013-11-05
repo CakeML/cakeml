@@ -11,6 +11,7 @@ val _ = export_rewrites
 ["Bytecode.bc_fetch_aux_def","Bytecode.bool_to_tag_def","Bytecode.bool_to_val_def"
 ,"Bytecode.unit_tag_def","Bytecode.unit_val_def","Bytecode.closure_tag_def","Bytecode.block_tag_def"
 ,"Bytecode.is_Label_def","Bytecode.is_Block_def","Bytecode.bc_equality_result_to_val_def"
+,"Bytecode.can_Print_def"
 ,"CompilerLib.the_def","CompilerLib.fapply_def"]
 
 val _ = Parse.overload_on("next_addr", ``λil ls. SUM (MAP (SUC o il) (FILTER ($~ o is_Label) ls))``)

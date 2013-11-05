@@ -91,6 +91,21 @@ is_Block (Block _ _) = true
 and
 is_Block _ = false
 
+let rec
+can_Print (Number _) = true
+and
+can_Print (Block n vs) = not (n = block_tag) || can_Print_list vs
+and
+can_Print (CodePtr _) = false
+and
+can_Print (RefPtr v) = true
+and
+can_Print (StackPtr _) = false
+and
+can_Print_list [] = true
+and
+can_Print_list (v::vs) = can_Print v && can_Print_list vs
+
 (* comparing bc_values for equality *)
 
 let rec
@@ -338,6 +353,7 @@ and
 forall s x xs.
 bc_fetch s = Some Print
 && (s.stack = x::xs)
+&& can_Print x
 ==>
 bc_next s (<|bump_pc s with stack = xs;
   output = Hol.CONCAT [s.output;ov_to_string (bv_to_ov s.cons_names x)]|>)
