@@ -1,4 +1,4 @@
-open import Pervasives_extra
+open import Transform
 open Lib
 open Ast
 
@@ -6,7 +6,7 @@ open Ast
 type v =
   | Litv of lit
   (* Constructor application. *)
-  | Conv of maybe (id conN) * list v 
+  | Conv of option (id conN) * list v 
   (* Function closures
      The environment is used for the free variables in the function *)
   | Closure of env varN v * varN * exp
@@ -15,7 +15,7 @@ type v =
    * The last variable name indicates which function from the mutually
    * recursive bundle this closure value represents *)
   | Recclosure of env varN v * list (varN * varN * exp) * varN
-  | Loc of nat
+  | Loc of num
 
 (* The result of evaluation *)
 type error_result =
@@ -34,57 +34,57 @@ type store = list v
 val empty_store : store
 let empty_store = []
 
-val store_lookup : nat -> store -> maybe v
+val store_lookup : num -> store -> option v
 let store_lookup l st =
   if l < List.length st then
-    Just (List_extra.nth st l)
+    Some (List.nth st l)
   else
-    Nothing
+    None
 
-val store_alloc : v -> store -> store * nat
+val store_alloc : v -> store -> store * num
 let store_alloc v st =
-  ((st ++ [v]), List.length st)
+  (st @ [v], List.length st)
 
-val store_assign : nat -> v -> store -> maybe store
+val store_assign : num -> v -> store -> option store
 let store_assign n v st =
   if n < List.length st then
-    Just (LUPDATE v n st)
+    Some (LUPDATE v n st)
   else
-    Nothing
+    None
 
 type tid_or_exn = 
   | TypeId of id typeN
   | TypeExn
 
 (* Maps each constructor to its arity and which type it is from *)
-type envC = env (id conN) (nat * tid_or_exn)
+type envC = env (id conN) (num * tid_or_exn)
 
 type envE = env varN v
 
 (* The bindings of a module *)
 type envM = env modN envE
 
-val lookup_var_id : id varN -> envM -> envE -> maybe v
+val lookup_var_id : id varN -> envM -> envE -> option v
 let lookup_var_id id menv envE =
   match id with
     | Short x -> lookup x envE
     | Long x y ->
         match lookup x menv with
-          | Nothing -> Nothing
-          | Just env -> lookup y env
+          | None -> None
+          | Some env -> lookup y env
         end
   end
 
 (* Other primitives *)
 (* Check that a constructor is properly applied *)
-val do_con_check : envC -> maybe (id conN) -> nat -> bool
+val do_con_check : envC -> option (id conN) -> num -> bool
 let do_con_check cenv n_opt l =
   match n_opt with
-    | Nothing -> true
-    | Just n ->
+    | None -> true
+    | Some n ->
         match lookup n cenv with
-          | Nothing -> false
-          | Just (l',ns) -> l = l'
+          | None -> false
+          | Some (l',ns) -> l = l'
         end
   end
 
@@ -122,10 +122,10 @@ pmatch envC s (Plit l) (Litv l') env =
   else
     Match_type_error
 and
-pmatch envC s (Pcon (Just n) ps) (Conv (Just n') vs) env =
+pmatch envC s (Pcon (Some n) ps) (Conv (Some n') vs) env =
   match (lookup n envC, lookup n' envC) with
-    | (Just (l, t), Just (l', t')) ->
-        if t = t' && ((List.length ps = l) && (List.length vs = l')) then
+    | (Some (l, t), Some (l', t')) ->
+        if t = t' && (List.length ps = l) && (List.length vs = l') then
           if n = n' then
             pmatch_list envC s ps vs env
           else
@@ -135,7 +135,7 @@ pmatch envC s (Pcon (Just n) ps) (Conv (Just n') vs) env =
     | (_, _) -> Match_type_error
   end
 and
-pmatch envC s (Pcon Nothing ps) (Conv Nothing vs) env =
+pmatch envC s (Pcon None ps) (Conv None vs) env =
   if List.length ps = List.length vs then
     pmatch_list envC s ps vs env
   else
@@ -143,8 +143,8 @@ pmatch envC s (Pcon Nothing ps) (Conv Nothing vs) env =
 and
 pmatch envC s (Pref p) (Loc lnum) env =
   match store_lookup lnum s with
-    | Just v -> pmatch envC s p v env
-    | Nothing -> Match_type_error
+    | Some v -> pmatch envC s p v env
+    | None -> Match_type_error
   end
 and
 pmatch envC _ _ _ env = Match_type_error
@@ -163,19 +163,19 @@ pmatch_list envC s _ _ env = Match_type_error
 (* Bind each function of a mutually recursive set of functions to its closure *)
 val build_rec_env : list (varN * varN * exp) -> envE -> envE -> envE
 let build_rec_env funs cl_env add_to_env =
-  foldr 
-    (fun (f,x,e) env' -> bind f (Recclosure cl_env funs f) env') 
-    add_to_env 
+  List.fold_right
+    (fun (f,x,e) env' -> bind f (Recclosure cl_env funs f) env')
     funs
+    add_to_env
 
 (* Lookup in the list of mutually recursive functions *)
-val find_recfun : varN -> list (varN * varN * exp) -> maybe (varN * exp)
+val find_recfun : varN -> list (varN * varN * exp) -> option (varN * exp)
 let rec find_recfun n funs =
   match funs with
-    | [] -> Nothing
+    | [] -> None
     | (f,x,e) :: funs ->
         if f = n then
-          Just (x,e)
+          Some (x,e)
         else
           find_recfun n funs
   end
@@ -185,7 +185,7 @@ val contains_closure : v -> bool
 let rec
 contains_closure (Litv l) = false
 and
-contains_closure (Conv cn vs) = List.any contains_closure vs
+contains_closure (Conv cn vs) = List.exist contains_closure vs
 and
 contains_closure (Closure env n e) = true
 and
@@ -193,21 +193,21 @@ contains_closure (Recclosure env funs n) = true
 and
 contains_closure (Loc n) = false
 
-val do_uapp : store -> uop -> v -> maybe (store * v)
+val do_uapp : store -> uop -> v -> option (store * v)
 let do_uapp s uop v =
   match uop with
     | Opderef ->
         match v with
           | Loc n ->
               match store_lookup n s with
-                | Just v -> Just (s,v)
-                | Nothing -> Nothing
+                | Some v -> Some (s,v)
+                | None -> None
               end
-          | _ -> Nothing
+          | _ -> None
         end
     | Opref ->
         let (s',n) = store_alloc v s in
-          Just (s', Loc n)
+          Some (s', Loc n)
   end
 
 type eq_result = 
@@ -223,7 +223,7 @@ and
 do_eq (Loc l1) (Loc l2) = Eq_val (l1 = l2)
 and
 do_eq (Conv cn1 vs1) (Conv cn2 vs2) =
-  if cn1 = cn2 && (List.length vs1 = List.length vs2) then
+  if cn1 = cn2 && List.length vs1 = List.length vs2 then
     do_eq_list vs1 vs2
   else
     Eq_val false
@@ -254,63 +254,63 @@ and
 do_eq_list _ _ = Eq_val false
 
 (* Do an application *)
-val do_app : store -> envE -> op -> v -> v -> maybe (store * envE * exp)
+val do_app : store -> envE -> op -> v -> v -> option (store * envE * exp)
 let do_app s env' op v1 v2 =
   match (op, v1, v2) with
     | (Opapp, Closure env n e, v) ->
-        Just (s, bind n v env, e)
+        Some (s, bind n v env, e)
     | (Opapp, Recclosure env funs n, v) ->
         match find_recfun n funs with
-          | Just (n,e) -> Just (s, bind n v (build_rec_env funs env env), e)
-          | Nothing -> Nothing
+          | Some (n,e) -> Some (s, bind n v (build_rec_env funs env env), e)
+          | None -> None
         end
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) ->
-        if (op = Divide || (op = Modulo)) && (n2 = 0) then
-          Just (s, env', Raise (Con (Just (Short "Div")) []))
+        if (op = Divide || op = Modulo) && n2 = i 0 then
+          Some (s, env', Raise (Con (Some (Short "Div")) []))
         else
-          Just (s, env',Lit (IntLit (opn_lookup op n1 n2)))
+          Some (s, env',Lit (IntLit (opn_lookup op n1 n2)))
     | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) ->
-        Just (s, env', Lit (Bool (opb_lookup op n1 n2)))
+        Some (s, env', Lit (Bool (opb_lookup op n1 n2)))
     | (Equality, v1, v2) ->
         match do_eq v1 v2 with
-          | Eq_type_error -> Nothing
-          | Eq_closure -> Just (s, env', Raise (Con (Just (Short "Eq")) []))
-          | Eq_val b -> Just (s, env', Lit (Bool b))
+          | Eq_type_error -> None
+          | Eq_closure -> Some (s, env', Raise (Con (Some (Short "Eq")) []))
+          | Eq_val b -> Some (s, env', Lit (Bool b))
         end
     | (Opassign, (Loc lnum), v) ->
         match store_assign lnum v s with
-        | Just st -> Just (st, env', Lit Unit)
-        | Nothing -> Nothing
+        | Some st -> Some (st, env', Lit Unit)
+        | None -> None
         end
-    | _ -> Nothing
+    | _ -> None
   end
 
 (* Do a logical operation *)
-val do_log : lop -> v -> exp -> maybe exp
+val do_log : lop -> v -> exp -> option exp
 let do_log l v e =
   match (l, v) with
-    | (And, Litv (Bool true)) -> Just e
-    | (Or, Litv (Bool false)) -> Just e
-    | (_, Litv (Bool b)) -> Just (Lit (Bool b))
-    | _ -> Nothing
+    | (And, Litv (Bool true)) -> Some e
+    | (Or, Litv (Bool false)) -> Some e
+    | (_, Litv (Bool b)) -> Some (Lit (Bool b))
+    | _ -> None
   end
 
 (* Do an if-then-else *)
-val do_if : v -> exp -> exp -> maybe exp
+val do_if : v -> exp -> exp -> option exp
 let do_if v e1 e2 =
   if v = Litv (Bool true) then
-    Just e1
+    Some e1
   else if v = Litv (Bool false) then
-    Just e2
+    Some e2
   else
-    Nothing
+    None
 
 (* Semantic helpers for definitions *)
 
 (* Add the given type definition to the given constructor environment *)
-val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> envC
+val build_tdefs : option modN -> list (list tvarN * typeN * list (conN * list t)) -> envC
 let build_tdefs mn tds =
-  concat
+  List.flatten
     (List.map
       (fun (tvs, tn, condefs) ->
          List.map
@@ -320,14 +320,11 @@ let build_tdefs mn tds =
       tds)
 
 (* Checks that no constructor is defined twice *)
-(* TODO: This gives a class error for some reason *)
-(*
 val check_dup_ctors :
     forall 'a. option modN -> env (id conN) 'a -> list (list tvarN * typeN * list (conN * list t)) -> bool
-*)
 let check_dup_ctors mn_opt cenv tds =
   (forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs).
-     lookup (mk_id mn_opt n) cenv = Nothing)
+     lookup (mk_id mn_opt n) cenv = None)
   &&
   all_distinct [ n | forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs) | true ]
 
@@ -357,17 +354,15 @@ dec_to_cenv mn _ = []
 let rec
 decs_to_cenv mn [] = []
 and
-decs_to_cenv mn (d::ds) = decs_to_cenv mn ds ++ dec_to_cenv mn d
+decs_to_cenv mn (d::ds) = decs_to_cenv mn ds @ dec_to_cenv mn d
 
 let rec
-top_to_cenv (Tdec d) = dec_to_cenv Nothing d
+top_to_cenv (Tdec d) = dec_to_cenv None d
 and
-top_to_cenv (Tmod mn _ ds) = decs_to_cenv (Just mn) ds
+top_to_cenv (Tmod mn _ ds) = decs_to_cenv (Some mn) ds
 
 (* conversions to strings *)
 
-(* TODO : Put back.  Why is ^ missing now? *)
-(*
 let rec
 id_to_string (Short s) = s
 and
@@ -376,4 +371,3 @@ id_to_string (Long x y) = x^"."^y
 let int_to_string z =
   if Int.(<) z (i 0) then "~"^(num_to_string (int_to_num (neg z)))
   else num_to_string (int_to_num z)
-*)

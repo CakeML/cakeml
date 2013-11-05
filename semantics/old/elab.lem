@@ -1,4 +1,4 @@
-open import Pervasives_extra
+open import Transform
 (* An AST that can be the result of parsing, and then elaborated into the main
  * CakeML AST in ast.lem.  We are assuming that constructors start with capital
  * letters, and non-constructors start with lower case (as in OCaml) so that
@@ -17,8 +17,8 @@ open import Pervasives_extra
  * 
  *)
 
-open import Lib
-open import Ast
+open Lib
+open Ast
 
 type ast_pat =
     (* x *)
@@ -30,7 +30,7 @@ type ast_pat =
     (* C(x,y) *)
     (* D *)
     (* E x *)
-  | Ast_Pcon of maybe (id conN) * list ast_pat
+  | Ast_Pcon of option (id conN) * list ast_pat
     (* ref x *)
   | Ast_Pref of ast_pat
 
@@ -48,7 +48,7 @@ type ast_exp =
     (* C(x,y) *)
     (* D *)
     (* E x *)
-  | Ast_Con of maybe (id conN) * list ast_exp
+  | Ast_Con of option (id conN) * list ast_exp
     (* fn x => e *)
   | Ast_Fun of varN * ast_exp
     (* e e *)
@@ -71,7 +71,7 @@ type ast_t =
     (* t *)
     (* num t *)
     (* (num,bool) t *)
-  | Ast_Tapp of list ast_t * maybe (id typeN)
+  | Ast_Tapp of list ast_t * option (id typeN)
     (* t -> t *)
   | Ast_Tfn of ast_t * ast_t
 
@@ -100,7 +100,7 @@ type ast_spec =
 type ast_specs = list ast_spec
 
 type ast_top =
-  | Ast_Tmod of modN * maybe ast_specs * ast_decs
+  | Ast_Tmod of modN * option ast_specs * ast_decs
   | Ast_Tdec of ast_dec
 
 type ast_prog = list ast_top
@@ -113,12 +113,12 @@ elab_p ctors (Ast_Pvar n) = Pvar n
 and
 elab_p ctors (Ast_Plit l) = Plit l
 and
-elab_p ctors (Ast_Pcon (Just (Short cn)) ps) =
+elab_p ctors (Ast_Pcon (Some (Short cn)) ps) =
   match lookup cn ctors with
-    | Just cid ->
-        Pcon (Just cid) (elab_ps ctors ps)
-    | Nothing ->
-        Pcon (Just (Short cn)) (elab_ps ctors ps)
+    | Some cid ->
+        Pcon (Some cid) (elab_ps ctors ps)
+    | None ->
+        Pcon (Some (Short cn)) (elab_ps ctors ps)
   end
 and
 elab_p ctors (Ast_Pcon cn ps) =
@@ -136,9 +136,9 @@ val elab_t : tdef_env -> ast_t -> t
 val elab_e : ctor_env -> ast_exp -> exp
 val elab_funs : ctor_env -> list (varN * varN * ast_exp) -> 
                 list (varN * varN * exp)
-val elab_dec : maybe modN -> tdef_env -> ctor_env -> ast_dec -> tdef_env * ctor_env * dec
-val elab_decs : maybe modN -> tdef_env -> ctor_env -> list ast_dec -> tdef_env * ctor_env * list dec
-val elab_spec : maybe modN -> tdef_env -> list ast_spec -> list spec
+val elab_dec : option modN -> tdef_env -> ctor_env -> ast_dec -> tdef_env * ctor_env * dec
+val elab_decs : option modN -> tdef_env -> ctor_env -> list ast_dec -> tdef_env * ctor_env * list dec
+val elab_spec : option modN -> tdef_env -> list ast_spec -> list spec
 val elab_top : tdef_env -> ctor_env -> ast_top -> tdef_env * ctor_env * top
 val elab_prog : tdef_env -> ctor_env -> list ast_top -> tdef_env * ctor_env * prog
 
@@ -156,12 +156,12 @@ and
 elab_e ctors (Ast_Var id) =
   Var id
 and
-elab_e ctors (Ast_Con (Just (Short cn)) es) =
+elab_e ctors (Ast_Con (Some (Short cn)) es) =
   match lookup cn ctors with
-    | Just cid ->
-        Con (Just cid) (List.map (elab_e ctors) es)
-    | Nothing ->
-        Con (Just (Short cn)) (List.map (elab_e ctors) es)
+    | Some cid ->
+        Con (Some cid) (List.map (elab_e ctors) es)
+    | None ->
+        Con (Some (Short cn)) (List.map (elab_e ctors) es)
   end
 and
 elab_e ctors (Ast_Con cn es) =
@@ -202,23 +202,23 @@ and
 elab_t type_bound (Ast_Tfn t1 t2) =
   Tfn (elab_t type_bound t1) (elab_t type_bound t2)
     and
-elab_t type_bound (Ast_Tapp ts Nothing) =
+elab_t type_bound (Ast_Tapp ts None) =
   let ts' = List.map (elab_t type_bound) ts in
     Tapp ts' TC_tup
 and
-elab_t type_bound (Ast_Tapp ts (Just (Long m tn))) =
+elab_t type_bound (Ast_Tapp ts (Some (Long m tn))) =
   let ts' = List.map (elab_t type_bound) ts in
     Tapp ts' (TC_name (Long m tn))
 and
-elab_t type_bound (Ast_Tapp ts (Just (Short tn))) =
+elab_t type_bound (Ast_Tapp ts (Some (Short tn))) =
   let ts' = List.map (elab_t type_bound) ts in
     match lookup tn type_bound with
-      | Nothing -> Tapp ts' (TC_name (Short tn))
-      | Just tc -> Tapp ts' tc
+      | None -> Tapp ts' (TC_name (Short tn))
+      | Some tc -> Tapp ts' tc
     end
 
 let get_ctors_bindings mn t =
-  concat
+  List.flatten
     (List.map (fun (tvs,tn,ctors) -> List.map (fun (cn,t) -> (cn, mk_id mn cn)) ctors) t)
    
 let elab_td type_bound (tvs,tn,ctors) =
@@ -251,7 +251,7 @@ elab_decs mn type_bound ctors (d::ds) =
   let (type_bound'',ctors'',ds') = 
     elab_decs mn (merge type_bound' type_bound) (merge ctors' ctors) ds 
   in
-    (merge type_bound'' type_bound', merge ctors'' ctors', (d'::ds'))
+    (merge type_bound'' type_bound', merge ctors'' ctors', d'::ds')
 
 let rec 
 elab_spec mn type_bound [] = []
@@ -271,12 +271,12 @@ elab_spec mn type_bound (Ast_Sexn cn ts::spec) =
 
 let rec
 elab_top type_bound ctors (Ast_Tdec d) =
-  let (type_bound', ctors', d') = elab_dec Nothing type_bound ctors d in
+  let (type_bound', ctors', d') = elab_dec None type_bound ctors d in
       (type_bound', ctors', Tdec d')
 and
 elab_top type_bound ctors (Ast_Tmod mn spec ds) =
-  let (type_bound',ctors',ds') = elab_decs (Just mn) type_bound ctors ds in
-      (type_bound,ctors,Tmod mn (option_map (elab_spec (Just mn) type_bound) spec) ds')
+  let (type_bound',ctors',ds') = elab_decs (Some mn) type_bound ctors ds in
+      (type_bound,ctors,Tmod mn (option_map (elab_spec (Some mn) type_bound) spec) ds')
 
 let rec
 elab_prog type_bound ctors [] = ([],emp,[])
@@ -286,4 +286,4 @@ elab_prog type_bound ctors (top::prog) =
   let (type_bound'',ctors'',prog') = 
     elab_prog (merge type_bound' type_bound) (merge ctors' ctors) prog
   in
-    (merge type_bound'' type_bound', merge ctors'' ctors', (top'::prog'))
+    (merge type_bound'' type_bound', merge ctors'' ctors', top'::prog')

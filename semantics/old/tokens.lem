@@ -1,7 +1,7 @@
-open import Pervasives_extra
+open import Transform
 (* Tokens for Standard ML.  NB, not all of them are used in CakeML *)
 type token =
-| WhitespaceT of nat | NewlineT | LexErrorT
+| WhitespaceT of num | NewlineT | LexErrorT
 | HashT | LparT | RparT | StarT | CommaT | ArrowT | DotsT | ColonT | SealT
 | SemicolonT | EqualsT | DarrowT | LbrackT | RbrackT | UnderbarT | LbraceT
 | BarT | RbraceT | AndT | AndalsoT | AsT | CaseT | DatatypeT
@@ -9,7 +9,7 @@ type token =
 | InT | IncludeT | LetT | LocalT | OfT | OpT
 | OpenT | OrelseT | RaiseT | RecT | SharingT | SigT | SignatureT | StructT
 | StructureT | ThenT | TypeT | ValT | WhereT | WhileT | WithT | WithtypeT
-| IntT of integer
+| IntT of int
 | HexintT of string
 | RealT of string
 | StringT of string

@@ -1,7 +1,7 @@
-open import Pervasives_extra
-open import Lib
-open import Ast 
-open import SemanticPrimitives
+open import Transform
+open Lib
+open Ast 
+open SemanticPrimitives
 
 (* Small-step semantics for expression only.  Modules and definitions have
  * big-step semantics only *)
@@ -22,7 +22,7 @@ type ctxt_frame =
   | Clet of varN * unit * exp
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
-  | Ccon of maybe (id conN) * list v * unit * list exp
+  | Ccon of option (id conN) * list v * unit * list exp
   | Cuapp of uop * unit
 type ctxt = ctxt_frame * envE
 
@@ -50,7 +50,7 @@ type e_step_result =
  * single step *)
 
 val push : envM -> envC -> store -> envE -> exp -> ctxt_frame -> list ctxt -> e_step_result
-let push envM envC s env e c' cs = Estep (envM, envC, s, env, Exp e, ((c',env)::cs))
+let push envM envC s env e c' cs = Estep (envM, envC, s, env, Exp e, (c',env)::cs)
 
 val return : envM -> envC -> store -> envE -> v -> list ctxt -> e_step_result
 let return envM envC s env v c = Estep (envM, envC, s, env, Val v, c)
@@ -64,8 +64,8 @@ let continue envM envC s v cs =
         match c with
           | [] -> Estuck
           | ((Chandle () pes,env') :: c) ->
-              Estep (envM,envC,s,env,Val v,((Cmat () pes v, env')::c))
-          | _::c -> Estep (envM,envC,s,env,Val v,((Craise (),env)::c))
+              Estep (envM,envC,s,env,Val v,(Cmat () pes v, env')::c)
+          | _::c -> Estep (envM,envC,s,env,Val v,(Craise (),env)::c)
         end
     | (Chandle () pes, env) :: c ->
         return envM envC s env v c
@@ -73,26 +73,26 @@ let continue envM envC s v cs =
         push envM envC s env e (Capp2 op v ()) c
     | (Capp2 op v' (), env) :: c ->
         match do_app s env op v' v with
-          | Just (s',env,e) -> Estep (envM, envC, s', env, Exp e, c)
-          | Nothing -> Etype_error
+          | Some (s',env,e) -> Estep (envM, envC, s', env, Exp e, c)
+          | None -> Etype_error
         end
     | (Clog l () e, env) :: c ->
         match do_log l v e with
-          | Just e -> Estep (envM, envC, s, env, Exp e, c)
-          | Nothing -> Etype_error
+          | Some e -> Estep (envM, envC, s, env, Exp e, c)
+          | None -> Etype_error
         end
     | (Cif () e1 e2, env) :: c ->
         match do_if v e1 e2 with
-          | Just e -> Estep (envM, envC, s, env, Exp e, c)
-          | Nothing -> Etype_error
+          | Some e -> Estep (envM, envC, s, env, Exp e, c)
+          | None -> Etype_error
         end
     | (Cmat () [] err_v, env) :: c ->
-        Estep (envM, envC, s, env, Val err_v, ((Craise (), env) ::c))
+        Estep (envM, envC, s, env, Val err_v, (Craise (), env) ::c)
     | (Cmat () ((p,e)::pes) err_v, env) :: c ->
         if all_distinct (pat_bindings p []) then
           match pmatch envC s p v env with
             | Match_type_error -> Etype_error
-            | No_match -> Estep (envM, envC, s, env, Val v, ((Cmat () pes err_v,env)::c))
+            | No_match -> Estep (envM, envC, s, env, Val v, (Cmat () pes err_v,env)::c)
             | Match env' -> Estep (envM, envC, s, env', Exp e, c)
           end
         else
@@ -101,7 +101,7 @@ let continue envM envC s v cs =
         Estep (envM, envC, s, bind n v env, Exp e, c)
     | (Ccon n vs () [], env) :: c ->
         if do_con_check envC n (List.length vs + 1) then
-          return envM envC s env (Conv n (reverse (v::vs))) c
+          return envM envC s env (Conv n (List.rev (v::vs))) c
         else
           Etype_error
     | (Ccon n vs () (e::es), env) :: c ->
@@ -111,8 +111,8 @@ let continue envM envC s v cs =
           Etype_error
     | (Cuapp uop (), env) :: c ->
        match do_uapp s uop v with
-         | Just (s',v') -> return envM envC s' env v' c
-         | Nothing -> Etype_error
+         | Some (s',v') -> return envM envC s' env v' c
+         | None -> Etype_error
        end
   end
 
@@ -145,15 +145,15 @@ let e_step (envM, envC, s, env, ev, c) =
                 Etype_error
           | Var n ->
               match lookup_var_id n envM env with
-                | Nothing -> Etype_error
-                | Just v -> 
+                | None -> Etype_error
+                | Some v -> 
                     return envM envC s env v c
               end
           | Fun n e -> return envM envC s env (Closure env n e) c
           | App op e1 e2 -> push envM envC s env e1 (Capp1 op () e2) c
           | Log l e1 e2 -> push envM envC s env e1 (Clog l () e2) c
           | If e1 e2 e3 -> push envM envC s env e1 (Cif () e2 e3) c
-          | Mat e pes -> push envM envC s env e (Cmat () pes (Conv (Just (Short "Bind")) [])) c
+          | Mat e pes -> push envM envC s env e (Cmat () pes (Conv (Some (Short "Bind")) [])) c
           | Let n e1 e2 -> push envM envC s env e1 (Clet n () e2) c
           | Letrec funs e ->
               if not (all_distinct (List.map (fun (x,y,z) -> x) funs)) then
@@ -191,7 +191,7 @@ val e_diverges : envM -> envC -> store -> envE -> exp -> bool
 let e_diverges menv cenv s env e =
   forall menv' cenv' s' env' e' c'.
     (rtc e_step_reln) (menv,cenv,s,env,Exp e,[]) (menv',cenv',s',env', e',c')
-    -->    
-(exists menv'' cenv'' s'' env'' e'' c''.
-      e_step_reln (menv',cenv',s',env', e',c') (menv'',cenv'',s'',env'',e'',c''))
+    -->
+    exists menv'' cenv'' s'' env'' e'' c''.
+      e_step_reln (menv',cenv',s',env', e',c') (menv'',cenv'',s'',env'',e'',c'')
 

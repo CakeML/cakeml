@@ -1,8 +1,7 @@
-open import Pervasives_extra
-
+open import Transform
 (* Literal constants *)
 type lit =
-  | IntLit of integer
+  | IntLit of int
   | Bool of bool
   | Unit
 
@@ -12,18 +11,18 @@ type opn = Plus | Minus | Times | Divide | Modulo
 type opb = Lt | Gt | Leq | Geq
 
 let opn_lookup n = match n with
-  | Plus -> (+)
-  | Minus -> (-)
-  | Times -> ( * )
-  | Divide -> (/)
-  | Modulo -> (mod)
+  | Plus -> Int.(+)
+  | Minus -> Int.(-)
+  | Times -> Int.( * )
+  | Divide -> Int.(/)
+  | Modulo -> Int.(%)
 end
 
-let opb_lookup n : integer -> integer -> bool = match n with
-  | Lt -> (<)
-  | Gt -> (>)
-  | Leq -> (<=)
-  | Geq -> (>=)
+let opb_lookup n : int -> int -> bool = match n with
+  | Lt -> Int.(<)
+  | Gt -> Int.(>)
+  | Leq -> Int.(<=)
+  | Geq -> Int.(>=)
 end
 
 (* Opapp is function application *)
@@ -51,14 +50,6 @@ type id 'a =
   | Short of 'a
   | Long of modN * 'a
 
-instance forall 'a. Eq 'a => (Eq (id 'a))
-  let (=) x y =
-    match (x,y) with
-      | (Short a, Short b) -> a = b
-      | (Long mn a, Long mn' b) -> mn = mn' && (a = b)
-    end
-end
-
 (* Variable names *)
 type varN = string
 
@@ -71,11 +62,11 @@ type typeN = string
 (* Type variable names *)
 type tvarN = string
 
-val mk_id : forall 'a. maybe modN -> 'a -> id 'a
+val mk_id : forall 'a. option modN -> 'a -> id 'a
 let mk_id mn_opt n =
   match mn_opt with
-    | Nothing -> Short n
-    | Just mn -> Long mn n
+    | None -> Short n
+    | Some mn -> Long mn n
   end
 
 (* Types
@@ -94,7 +85,7 @@ type tc =
 type t =
   | Tvar of tvarN
   (* DeBruin indexed type variables. *)
-  | Tvar_db of nat
+  | Tvar_db of num
   | Tapp of list t * tc
 
 let Tint = Tapp [] TC_int
@@ -109,7 +100,7 @@ type pat =
   | Pvar of varN
   | Plit of lit
   (* Constructor applications. *)
-  | Pcon of maybe (id conN) * list pat
+  | Pcon of option (id conN) * list pat
   | Pref of pat
 
 (* Expressions *)
@@ -118,7 +109,7 @@ type exp =
   | Handle of exp * list (pat * exp)
   | Lit of lit
   (* Constructor application. *)
-  | Con of maybe (id conN) * list exp
+  | Con of option (id conN) * list exp
   | Var of id varN
   | Fun of varN * exp
   (* Application of a unary operator *)
@@ -164,7 +155,7 @@ type spec =
 type specs = list spec
 
 type top =
-  | Tmod of modN * maybe specs * decs
+  | Tmod of modN * option specs * decs
   | Tdec of dec
 
 type prog = list top
