@@ -326,8 +326,7 @@ val _ = Define `
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =((  0 : int))) then          
 (SOME (s, env', Raise (Con ((SOME (Short "Div"))) [])))
         else          
-(SOME (s, env',Lit (IntLit (opn_lookup 
-  instance_Num_NumAdd_Num_integer_dict instance_Num_NumDivision_Num_integer_dict instance_Num_NumMinus_Num_integer_dict instance_Num_NumMult_Num_integer_dict instance_Num_NumRemainder_Num_integer_dict op n1 n2))))
+(SOME (s, env',Lit (IntLit (opn_lookup op n1 n2))))
     | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) =>        
 (SOME (s, env', Lit (Bool (opb_lookup op n1 n2))))
     | (Equality, v1, v2) =>
