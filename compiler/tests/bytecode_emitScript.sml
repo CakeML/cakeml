@@ -51,30 +51,32 @@ val real_inst_length_def = Define `
        else 1
    | Stack (PushInt v28) =>
        if v28 < 268435456 then if v28 < 0 then 1 else 4 else 1
-   | Stack (Cons v29 v30) => if v30 < 1 then if v29 < 268435456 then 4 else 1 else
-                             if v30 < 32768 then 34 else 1
+   | Stack (Cons v29 v30) =>
+       if v29 < 268435456 then
+         if v30 = 0 then 4 else if v30 < 32768 then 34 else 1
+       else 1
    | Stack (Load v31) => if v31 < 268435456 then 4 else 1
    | Stack (Store v32) => if v32 < 268435456 then 4 else 1
-   | Stack (LoadRev v33) => 1
+   | Stack (LoadRev v33) => 5
    | Stack (El v34) => if v34 < 268435456 then 6 else 1
    | Stack (TagEq v35) => if v35 < 268435456 then 28 else 1
    | Stack IsBlock => 25
    | Stack Equal => 5
-   | Stack Add => 8
-   | Stack Sub => 11
+   | Stack Add => 3
+   | Stack Sub => 3
    | Stack Mult => 8
    | Stack Div => 11
    | Stack Mod => 11
    | Stack Less => 11
    | Label l => 0
-   | Jump (Lab l') => 1
+   | Jump (Lab l') => 2
    | Jump (Addr v39) => if v39 < 268435456 then 2 else 1
-   | JumpIf (Lab l'') => 1
+   | JumpIf (Lab l'') => 5
    | JumpIf (Addr v43) => if v43 < 268435456 then 5 else 1
-   | Call (Lab l''') => 1
+   | Call (Lab l''') => 2
    | Call (Addr v47) => if v47 < 268435456 then 2 else 1
    | CallPtr => 3
-   | PushPtr (Lab l'''') => 1
+   | PushPtr (Lab l'''') => 7
    | PushPtr (Addr v51) => if v51 < 268435456 then 7 else 1
    | Return => 0
    | PushExc => 3

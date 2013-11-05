@@ -259,10 +259,12 @@ fun
 | print_bv (RefPtr n) = "RefPtr "^(numML.toString n)
 | print_bv (Number n) = "Number "^(Int.toString (valOf (intML.toInt n)))
 and print_bvs [] = "]" | print_bvs [bv] = (print_bv bv)^"]" | print_bvs (bv::bvs) = (print_bv bv)^", "^(print_bvs bvs)
+fun calc_inst_length bs i =
+  (valOf o numML.toInt o bc_state_inst_length bs) i + 1
 fun print_bs bs =
 (("stack", map print_bv (bc_state_stack bs)),
  ("pc", numML.toString(bc_state_pc bs)),
- ("code", rev(snd(foldl (fn (i,(n,ls)) => (n+1,((Int.toString n)^": "^print_bc_inst i)::ls)) (0,[]) (bc_state_code bs)))),
+ ("code", rev(snd(foldl (fn (i,(n,ls)) => (n+calc_inst_length bs i,((Int.toString n)^": "^print_bc_inst i)::ls)) (0,[]) (bc_state_code bs)))),
  ("refs", let val f = bc_state_refs bs in map (fn k => (numML.toString k,print_bv(fmapML.FAPPLY f k))) (sort (numML.<) (mk_set (setML.toList (fmapML.FDOM f)))) end))
 
 local
