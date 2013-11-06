@@ -1,4 +1,4 @@
-open preamble repl_computeLib repl_computeTheory ml_repl_stepTheory replDecsTheory
+open preamble repl_computeLib repl_computeTheory ml_repl_stepTheory replDecsTheory flookupLib
 val _ = new_theory"compileReplDecs"
 
 val ct = ``init_compiler_state.contab``
@@ -34,7 +34,12 @@ in
   (CONV_RULE (RAND_CONV (RAND_CONV (replace defs))) initial_split20, defs)
 end
 
-val x100 = doit 5 (TRUTH, decllist_defs, initial')
+val () =
+  ( computeLib.del_consts [finite_mapSyntax.flookup_t]
+  ; computeLib.add_convs
+    [(finite_mapSyntax.flookup_t, 2, FLOOKUP_DEFN_CONV)] )
+
+val x100 = doit 5 (decllist_defs, initial')
 val x140 = doit 2 x100;
 val x180 = doit 2 x140
 val x220 = doit 2 x180;
@@ -49,7 +54,7 @@ val x380 = doit 1 x360;
 val x400 = doit 1 x380;
 val x420 = doit 1 x400;
 val x440 = doit 1 x420;
-val (_,_,th) = x440;
+val (_,th) = x440;
 
 val repl_decs_compiled = save_thm("repl_decs_compiled", th);
 

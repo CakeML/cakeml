@@ -1,4 +1,4 @@
-open HolKernel bossLib repl_computeLib labels_computeLib replDecsTheory compileReplDecsTheory
+open HolKernel bossLib repl_computeLib labels_computeLib replDecsTheory compileReplDecsTheory flookupLib
 val _ = new_theory"compileCallReplStepDec"
 
 val _ = Globals.max_print_depth := 15
@@ -18,6 +18,11 @@ val compile_repl_decs_internal =
     (REWRITE_RULE[SYM bootstrap_lcode_def, SYM internal_contab_def]repl_decs_compiled)
 
 val _ = computeLib.add_funs[call_repl_step_dec_def,compile_repl_decs_internal]
+
+val () =
+  ( computeLib.del_consts [finite_mapSyntax.flookup_t]
+  ; computeLib.add_convs
+    [(finite_mapSyntax.flookup_t, 2, FLOOKUP_DEFN_CONV)] )
 
 val call_repl_step_dec_compiled = save_thm("call_repl_step_dec_compiled",
   EVAL``

@@ -415,22 +415,16 @@ val coneq_conv = PURE_ONCE_REWRITE_CONV (#rewrs(TypeBase.simpls_of``:string id o
                  THENC ONCE_DEPTH_CONV string_EQ_CONV
                  THENC PURE_REWRITE_CONV [REFL_CLAUSE, CONJUNCT2 NOT_CLAUSES, AND_CLAUSES]
 
-fun doit i (lastfm_def, defs, th) = let
+fun doit i (defs, th) = let
   val list_t = rand (rhs (concl th))
   val nstr = listSyntax.mk_length list_t |> (PURE_REWRITE_CONV defs THENC EVAL)
                |> concl |> rhs |> term_to_string
   val _ = print (nstr^" declarations still to go\n")
   val (defs', th20_0) = iterate i defs (rhs (concl th))
   val th20 = CONV_RULE (RAND_CONV (K th20_0)) th
-  val th20_fm = CONV_RULE (PURE_REWRITE_CONV [lastfm_def]) th20
-  val _ = print "  extracting finite-map "
-  val _ = PolyML.fullGC()
-  val (new_th0, fm_conv, new_fmdef) = time (extract_fmap 20 coneq_conv (ALL_HYP_CONV_RULE coneq_conv)) (rhs (concl th20_fm))
-  val new_th = TRANS th20_fm new_th0
-  val _ = computeLib.add_convs [fm_conv]
   val _ = PolyML.fullGC()
 in
-  (new_fmdef, defs', new_th)
+  (defs', th20)
 end
 
 end
