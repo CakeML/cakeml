@@ -1754,11 +1754,15 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     let cs' = compile_Cexp rmenv renv rsz cs exp in
     ∃c0 code. cs'.out = REVERSE code ++ REVERSE c0 ++ cs.out ∧ between_labels (code++c0) cs.next_label cs'.next_label ∧
     code_labels_ok (c0++code) ∧
-    ∀menv s env res rd csz bs bc0.
+    (*
+    ((∀Ce. syneq_exp (LENGTH renv) (LENGTH renv) $= exp Ce ⇒ free_labs 0 Ce = []) ⇒ ∃l. c0 = [Jump(Lab l); Label l]) ∧
+    *)
+    ∀menv s env res rd csz bs bc0 bc00.
       Cevaluate menv s env exp res
     ∧ closed_Clocs menv env (SND s)
     ∧ closed_vlabs menv env (SND s) rmenv bc0
-    ∧ Cenv_bs rd menv s env rmenv renv rsz csz (bs with code := bc0)
+    ∧ Cenv_bs rd menv s env rmenv renv rsz csz (bs with code := bc00)
+    ∧ (bc00 = bc0 ∨ bc00 = bc0 ++ c0)
     ∧ bs.code = bc0 ++ c0 ++ code
     ∧ bs.pc = next_addr bs.inst_length bc0
     ∧ bs.clock = SOME (FST s)
@@ -1818,7 +1822,18 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     simp[LIST_TO_SET_FLAT,MAP_MAP_o,LIST_TO_SET_MAP,GSYM IMAGE_COMPOSE] >>
     simp[combinTheory.o_DEF,LAMBDA_PROD] >>
     metis_tac[SIMP_RULE(srw_ss())[combinTheory.o_DEF,LAMBDA_PROD](CONJUNCT1 free_labs_free_labs)] ) >>
+  (*
+  conj_tac >- (
+    qunabbrev_tac`cs'` >>
+    strip_tac >>
+    qpat_assum`X = REVERSE c0 ++ Y`mp_tac >>
+    pop_assum(qspec_then`Ce`mp_tac) >>
+    simp[] >>
+    simp[compile_code_env_def] >>
+    rw[Once SWAP_REVERSE] ) >>
+  *)
   rpt gen_tac >>
+  Q.PAT_ABBREV_TAC`bc00A = (X ∨ Y)` >>
   strip_tac >>
   first_x_assum(qspecl_then[`bs`,`bc0`]mp_tac) >>
   simp[] >>
@@ -1861,9 +1876,13 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     conj_tac >- metis_tac[SUBSET_TRANS] >>
     match_mp_tac Cenv_bs_with_irr >>
     qexists_tac`bs with code := bc0 ++ c0` >> simp[] >>
-    match_mp_tac Cenv_bs_append_code >>
-    HINT_EXISTS_TAC >>
-    simp[bc_state_component_equality] ) >>
+    Cases_on`bc00 = bc0` >- (
+      match_mp_tac Cenv_bs_append_code >>
+      HINT_EXISTS_TAC >>
+      simp[bc_state_component_equality] ) >>
+    `bc0 ++ c0 = bc00` by metis_tac[] >>
+    pop_assum SUBST1_TAC >>
+    simp[] ) >>
   PairCases_on`res`>>fs[]>>
   strip_tac >>
   Cases_on`res2`>>fs[]>>rfs[]>-(
@@ -1940,6 +1959,11 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
   disj2_tac >>
   HINT_EXISTS_TAC >>
   simp[] )
+
+(*
+``free_labs 0 (exp_to_Cexp <|cnmap := FEMPTY|+(NONE,5)|> (Mat (App Opapp (Var (Short "call_repl_step")) (Lit Unit)) [(Plit Unit,Con NONE [])]))``
+|> (EVAL THENC SIMP_CONV (srw_ss()) [ToIntLangTheory.pat_to_Cpat_def,finite_mapTheory.FLOOKUP_UPDATE,remove_mat_var_def])
+*)
 
 (* compile_fake_exp *)
 
