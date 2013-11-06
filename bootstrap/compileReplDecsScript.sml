@@ -34,10 +34,28 @@ in
   (CONV_RULE (RAND_CONV (RAND_CONV (replace defs))) initial_split20, defs)
 end
 
+val fapply_tms = [
+ ``fapply``
+,``exp_to_Cexp``
+,``compile_dec``
+,``compile_fake_exp``
+,``compile_dec1``]
+
+val fapply_thms = [
+  CompilerLibTheory.fapply_def
+, exp_to_Cexp_def
+, compile_dec_def
+, compile_fake_exp_def
+, compile_dec1_def
+]
+
 val () =
-  ( computeLib.del_consts [finite_mapSyntax.flookup_t]
+  ( computeLib.del_consts (finite_mapSyntax.flookup_t::fapply_tms)
   ; computeLib.add_convs
-    [(finite_mapSyntax.flookup_t, 2, FLOOKUP_DEFN_CONV)] )
+    [(finite_mapSyntax.flookup_t, 2, (* PRINT_CONV THENC *) FLOOKUP_DEFN_CONV (* THENC PRINT_CONV *)) ]
+  ; computeLib.add_funs fapply_thms)
+
+(* val _ = computeLib.monitoring := SOME (fn tm => fst (dest_strip_comb tm) = "CompilerLib$fapply") *)
 
 val x100 = doit 5 (decllist_defs, initial')
 val x140 = doit 2 x100;
