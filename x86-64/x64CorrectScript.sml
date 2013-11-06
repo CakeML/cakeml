@@ -22,17 +22,6 @@ val equality_types = prove(
     EqualityType AST_EXP_TYPE``,
     cheat (* try proving this manually (like in hol-light/ml_monadScript.sml), or fix automation *))
 
-val DeclC_thm = store_thm ("DeclC_thm", (* TODO: move to ml_translatorScript.sml *)
-  ``!ds env cenv2 s2.
-      check_ctors_decs NONE init_envC ds /\
-      Decls NONE [] init_envC empty_store [] ds cenv2 s2 env ==>
-      DeclsC NONE [] init_envC empty_store [] ds cenv2 s2 env``,
-  SRW_TAC [] [DeclAssum_def, DeclAssumC_def, Decls_def, DeclsC_def, empty_store_def]
-  \\ `cenv_bind_div_eq init_envC` by EVAL_TAC
-  \\ METIS_TAC [result_distinct,
-       bigBigEquivTheory.eval_decs'_to_eval_decs_simple_pat, listTheory.EVERY_DEF,
-       bigBigEquivTheory.eval_ctor_inv_def]);
-
 
 (* --- Decl for repl_decs --- *)
 

@@ -7985,7 +7985,7 @@ val zHEAP_ADD_SMALL_INT = let
     \\ SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
                                 AC CONJ_COMM CONJ_ASSOC])
   val th = MP th lemma
-  val th = th |> RW [GSYM append_number_def]
+  val th = th |> RW []
   in th end;
 
 
@@ -8018,7 +8018,7 @@ val zHEAP_SUB_SMALL_INT = let
     \\ SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
                                 AC CONJ_COMM CONJ_ASSOC])
   val th = MP th lemma
-  val th = th |> RW [GSYM append_number_def]
+  val th = th |> RW []
   in th end;
 
 
