@@ -39,8 +39,10 @@ val code_labels_rev_bootstrap_lcode = save_thm("code_labels_rev_bootstrap_lcode"
 val call_lcode_def = new_definition("call_lcode_def",
   mk_eq(``call_lcode:bc_inst list``,rand(rand(rator(rand(rhs(concl(call_repl_step_dec_compiled))))))))
 
+val gen_fmap_defs = (map (fst o snd) o DB.find)"gen_fmap_"
+
 val rev_call_lcode = save_thm("rev_call_lcode",
-  (RAND_CONV(REWR_CONV call_lcode_def) THENC REWRITE_CONV[gen_fmap_6,gen_fmap_5,gen_fmap_0] THENC EVAL) ``REVERSE call_lcode``)
+  (RAND_CONV(REWR_CONV call_lcode_def) THENC REWRITE_CONV(gen_fmap_defs) THENC EVAL) ``REVERSE call_lcode``)
 
 val code_labels_ok_rev_call_lcode =
   ASSUME ``code_labels_ok (REVERSE call_lcode)``
