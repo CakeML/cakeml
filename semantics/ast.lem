@@ -12,7 +12,7 @@ type opn = Plus | Minus | Times | Divide | Modulo
 type opb = Lt | Gt | Leq | Geq
 
 val opn_lookup : opn -> integer -> integer -> integer
-let opn_lookup n = match n with
+let opn_lookup n : integer -> integer -> integer = match n with
   | Plus -> (+)
   | Minus -> (-)
   | Times -> ( * )
@@ -21,7 +21,7 @@ let opn_lookup n = match n with
 end
 
 val opb_lookup : opb -> integer -> integer -> bool
-let opb_lookup n = match n with
+let opb_lookup n : integer -> integer -> bool = match n with
   | Lt -> (<)
   | Gt -> (>)
   | Leq -> (<=)

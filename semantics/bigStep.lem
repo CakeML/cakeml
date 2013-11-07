@@ -141,7 +141,7 @@ app1 : forall ck menv cenv env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
 evaluate ck menv cenv s1 env e1 (s2, Rval v1) &&
 (evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) &&
 (do_app s3 env op v1 v2 = Just (s4, env', e3) &&
-(((ck && (op = Opapp)) --> count /= 0) &&
+(((ck && (op = Opapp)) --> count <> 0) &&
 evaluate ck menv cenv ((if ck then dec_count op count else count),s4) env' e3 bv)))
 ==>
 evaluate ck menv cenv s1 env (App op e1 e2) bv
@@ -425,7 +425,7 @@ evaluate_dec mn menv cenv s env (Dexn cn ts) (s, Rval (bind (mk_id mn cn) (List.
 and
 
 dexn2 : forall mn menv cenv env cn ts s.
-(lookup (mk_id mn cn) cenv /= Nothing)
+(lookup (mk_id mn cn) cenv <> Nothing)
 ==>
 evaluate_dec mn menv cenv s env (Dexn cn ts) (s, Rerr Rtype_error)
 

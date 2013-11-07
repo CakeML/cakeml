@@ -165,7 +165,7 @@ let check_ctor_tenv mn tenvC tds =
 (all_distinct (List.map (fun (_,tn,_) -> tn) tds) &&
   List.all
     (fun (tvs,tn,ctors) ->
-       List.all (fun (_,(_,_,tn')) -> TypeId (mk_id mn tn) /= tn') tenvC)
+       List.all (fun (_,(_,_,tn')) -> TypeId (mk_id mn tn) <> tn') tenvC)
     tds))
 
 val build_ctor_tenv : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> tenvC
@@ -329,7 +329,7 @@ and
 
 handle : forall menv cenv tenv e pes t.
 type_e menv cenv tenv e t &&
-((pes /= []) &&
+((pes <> []) &&
 (forall ((p,e) MEM pes). exists tenv'.
    all_distinct (pat_bindings p []) &&   
 (type_p (num_tvs tenv) cenv p Texn tenv' &&
@@ -409,7 +409,7 @@ and
 
 mat : forall menv cenv tenv e pes t1 t2.
 type_e menv cenv tenv e t1 &&
-((pes /= []) &&
+((pes <> []) &&
 (forall ((p,e) MEM pes) . exists tenv'.
    all_distinct (pat_bindings p []) &&   
 (type_p (num_tvs tenv) cenv p t1 tenv' &&
@@ -570,7 +570,7 @@ and
 
 stype_opq : forall mn cenv tenv tn specs cenv' tenv' tvs.
 all_distinct tvs &&
-(List.all (fun (_,(_,_,tn')) -> TypeId (mk_id mn tn) /= tn') cenv &&
+(List.all (fun (_,(_,_,tn')) -> TypeId (mk_id mn tn) <> tn') cenv &&
 type_specs mn cenv tenv specs cenv' tenv')
 ==>
 type_specs mn cenv tenv (Stype_opq tvs tn :: specs) cenv' tenv'

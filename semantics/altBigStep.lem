@@ -428,7 +428,7 @@ evaluate_dec' mn menv cenv s env (Dexn cn ts) (s, Rval (bind (mk_id mn cn) (List
 and
 
 dexn2 : forall mn menv cenv env cn ts s.
-(lookup (mk_id mn cn) cenv /= Nothing)
+(lookup (mk_id mn cn) cenv <> Nothing)
 ==>
 evaluate_dec' mn menv cenv s env (Dexn cn ts) (s, Rerr Rtype_error)
 

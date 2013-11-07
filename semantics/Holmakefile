@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = $(HOLDIR)/examples/parsing/ ..
+INCLUDES = $(HOLDIR)/examples/parsing/ .. ../../lem/hol-lib
 
 SRC = lib tokens ast elab semanticPrimitives smallStep bigStep typeSystem altBigStep initialEnv
 LEMS = $(patsubst %,%.lem,$(SRC))
