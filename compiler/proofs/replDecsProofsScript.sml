@@ -218,4 +218,55 @@ val compile_call_repl_step_thm = store_thm("compile_call_repl_step_thm",
   simp[] >>
   fs[FILTER_APPEND])
 
+val EVERY2_APPEND_IMP = store_thm("EVERY2_APPEND_IMP",
+  ``∀R l1 l2 l3. LIST_REL R (l1 ++ l2) l3 ⇔ ∃l4 l5. l3 = l4 ++ l5 ∧ LENGTH l4 = LENGTH l1 ∧ LENGTH l5 = LENGTH l2 ∧ EVERY2 R l1 l4 ∧ EVERY2 R l2 l5``,
+  rw[EQ_IMP_THM] >- (
+    qexists_tac`TAKE (LENGTH l1) l3` >>
+    qexists_tac`DROP (LENGTH l1) l3` >>
+    simp[TAKE_DROP] >>
+    imp_res_tac EVERY2_LENGTH >> fs[] >>
+    simp[LENGTH_TAKE] >>
+    simp[miscTheory.EVERY2_APPEND] ) >>
+  simp[miscTheory.EVERY2_APPEND_suff])
+
+(*
+val env_rs_remove_call_code = store_thm("env_rs_remove_call_code",
+  ``∀cenv ck s env rs csz rd bs s' rd' bs' rest.
+     env_rs [] cenv (ck,s) env rs csz rd bs ∧
+     bs'.code = bs.code ++ rest ∧
+     (∃s0 s1 s1'. s = s0 ++ s1 ∧ s' = s0 ++ s1' ∧ LENGTH s1 = LENGTH s1' ∧ ¬(EXISTS contains_closure s1')) ∧
+     env_rs [] cenv (ck,s') env rs csz rd' bs'
+     ⇒
+     env_rs [] cenv (ck,s') env rs csz rd' (bs' with code := bs.code)``,
+   rw[env_rs_def,LET_THM] >>
+   rpt HINT_EXISTS_TAC >>
+   simp[] >>
+   conj_tac >- (
+     fs[intLangExtraTheory.closed_vlabs_def] >>
+     fs[intLangExtraTheory.vlabs_list_MAP,GSYM LEFT_FORALL_IMP_THM] >>
+     conj_tac >- (
+       rw[] >>
+       fs[EVERY2_APPEND_IMP] >>
+       rpt BasicProvers.VAR_EQ_TAC >>
+       fs[] >- (
+         intLangExtraTheory.no_closures_syneq_equal
+
+       LIST_REL_APPEND
+       print_apropos``EVERY2 R (l1 ++ l2)``
+       Cases_on`MEM x Cs` >- metis_tac[] >>
+       qpat_assum`FEMPTY = X`(assume_tac o SYM) >> fs[] >>
+       qmatch_assum_abbrev_tac`LIST_REL syneq (MAP f s) Cs` >>
+       fs[EVERY2_EVERY,EVERY_MEM] >>
+       rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+       `∃n. x = EL n Cs' ∧ n < LENGTH Cs'` by metis_tac[MEM_EL] >>
+       `syneq (f (EL n s')) (EL n Cs')` by metis_tac[] >>
+
+       `¬contains_closure (EL n s')` by metis_tac[MEM_EL]
+       qsuff_tac`no_closures x`
+
+     print_find"no_closures_vlabs"
+
+   Q.LIST_EXISTS_TAC[`
+*)
+
 val _ = export_theory()
