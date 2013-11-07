@@ -2113,7 +2113,7 @@ val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
     simp[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] ) >>
   disch_then(qx_choosel_then[`Cs'`,`Cv`]strip_assume_tac) >>
   fs[Abbr`Cres0`] >>
-  first_x_assum(qspecl_then[`Cmenv`,`FST s,Cs`,`Cenv`,`(FST s',Cs'),Cv`,`rd`,`csz`,`bs`,`bc0`]mp_tac) >>
+  first_x_assum(qspecl_then[`Cmenv`,`FST s,Cs`,`Cenv`,`(FST s',Cs'),Cv`,`rd`,`csz`,`bs`,`bc0`,`bc0`]mp_tac) >>
   simp[] >>
   discharge_hyps >- (
     rfs[] >>
