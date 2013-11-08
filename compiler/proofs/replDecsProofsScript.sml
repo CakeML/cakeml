@@ -234,27 +234,44 @@ val env_rs_remove_call_code = store_thm("env_rs_remove_call_code",
   ``∀cenv ck s env rs csz rd bs s' rd' bs' rest.
      env_rs [] cenv (ck,s) env rs csz rd bs ∧
      bs'.code = bs.code ++ rest ∧
-     (∃s0 s1 s1'. s = s0 ++ s1 ∧ s' = s0 ++ s1' ∧ LENGTH s1 = LENGTH s1' ∧ ¬(EXISTS contains_closure s1')) ∧
+     ¬EXISTS contains_closure s' ∧
      env_rs [] cenv (ck,s') env rs csz rd' bs'
      ⇒
      env_rs [] cenv (ck,s') env rs csz rd' (bs' with code := bs.code)``,
    rw[env_rs_def,LET_THM] >>
-   rpt HINT_EXISTS_TAC >>
-   simp[] >>
+   qpat_assum`FEMPTY = X`(assume_tac o SYM) >> fs[] >>
+   rpt HINT_EXISTS_TAC >> simp[] >>
    conj_tac >- (
      fs[intLangExtraTheory.closed_vlabs_def] >>
      fs[intLangExtraTheory.vlabs_list_MAP,GSYM LEFT_FORALL_IMP_THM] >>
      conj_tac >- (
        rw[] >>
+       qmatch_assum_abbrev_tac`LIST_REL syneq (MAP f s') Cs'` >>
+       fs[EVERY2_EVERY,EVERY_MEM] >>
+       rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
+       `∃n. x = EL n Cs' ∧ n < LENGTH Cs'` by metis_tac[MEM_EL] >>
+       `syneq (f (EL n s')) (EL n Cs')` by metis_tac[] >>
+       `no_closures (f (EL n s'))` by metis_tac[no_closures_contains_closure,MEM_EL] >>
+       `EL n Cs' = f (EL n s')` by metis_tac[intLangExtraTheory.no_closures_syneq_equal] >>
+       `vlabs x = {}` by metis_tac[no_closures_vlabs,MEM_EL] >>
+       fs[] ) >>
+     cheat ) >>
+   fs[Cenv_bs_def,finite_mapTheory.fmap_rel_def]
+
+
+       `
+       print_find"fmap_rel_d"
+
        fs[EVERY2_APPEND_IMP] >>
        rpt BasicProvers.VAR_EQ_TAC >>
        fs[] >- (
          intLangExtraTheory.no_closures_syneq_equal
+         qmatch_assum_abbrev_tac`LIST_REL syneq (MAP f s0) l4` >>
+         print_find"vlabs_def"
 
        LIST_REL_APPEND
        print_apropos``EVERY2 R (l1 ++ l2)``
        Cases_on`MEM x Cs` >- metis_tac[] >>
-       qpat_assum`FEMPTY = X`(assume_tac o SYM) >> fs[] >>
        qmatch_assum_abbrev_tac`LIST_REL syneq (MAP f s) Cs` >>
        fs[EVERY2_EVERY,EVERY_MEM] >>
        rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
