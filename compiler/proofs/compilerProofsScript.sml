@@ -1738,6 +1738,93 @@ val compile_news_thm = store_thm("compile_news_thm",
     simp[Once SWAP_REVERSE] ) >>
   metis_tac[])
 
+(* no_funs stuff - move? *)
+
+val no_labs_free_labs_nil = store_thm("no_labs_free_labs_nil",
+  ``(∀n e. no_labs e ⇔ free_labs n e = []) ∧
+    (∀n es. no_labs_list es ⇔ free_labs_list n es = []) ∧
+    (∀n m p defs. no_labs_defs defs ⇔ free_labs_defs n m p defs = []) ∧
+    (∀n m p def. no_labs_def def ⇔ free_labs_def n m p def = [])``,
+  ho_match_mp_tac free_labs_ind >>
+  simp[] >> rw[] >> metis_tac[])
+
+val no_funs_def = tDefine "no_funs"`
+  (no_funs (Raise e) ⇔ no_funs e) ∧
+  (no_funs (Handle e pes) ⇔ no_funs e ∧ no_funs_pes pes) ∧
+  (no_funs (Lit _) ⇔ T) ∧
+  (no_funs (Con _ es) ⇔ no_funs_list es) ∧
+  (no_funs (Var _) ⇔ T) ∧
+  (no_funs (Fun _ _) ⇔ F) ∧
+  (no_funs (Uapp _ e) ⇔ no_funs e) ∧
+  (no_funs (App _ e1 e2) ⇔ no_funs e1 ∧ no_funs e2) ∧
+  (no_funs (Log _ e1 e2) ⇔ no_funs e1 ∧ no_funs e2) ∧
+  (no_funs (If e1 e2 e3) ⇔ no_funs e1 ∧ no_funs e2 ∧ no_funs e3) ∧
+  (no_funs (Mat e pes) ⇔ no_funs e ∧ no_funs_pes pes) ∧
+  (no_funs (Let _ e1 e2) ⇔ no_funs e1 ∧ no_funs e2) ∧
+  (no_funs (Letrec _ _) ⇔ F) ∧
+  (no_funs_list [] ⇔ T) ∧
+  (no_funs_list (e::es) ⇔ no_funs e ∧ no_funs_list es) ∧
+  (no_funs_pes [] ⇔ T) ∧
+  (no_funs_pes ((_,e)::pes) ⇔ no_funs e ∧ no_funs_pes pes)`
+  (WF_REL_TAC `inv_image $< (λx. case x of
+    | INL e => exp_size e
+    | INR (INL es) => exp6_size es
+    | INR (INR pes) => exp3_size pes)`)
+val _ = export_rewrites["no_funs_def"]
+
+val Cno_funs_def = xDefine "Cno_funs"`
+  (Cno_funs (CRaise e) ⇔ Cno_funs e) ∧
+  (Cno_funs (CHandle e1 e2) ⇔ Cno_funs e1 ∧ Cno_funs e2) ∧
+  (Cno_funs (CLit _) ⇔ T) ∧
+  (Cno_funs (CCon _ es) ⇔ Cno_funs_list es) ∧
+  (Cno_funs (CVar _) ⇔ T) ∧
+  (Cno_funs (CTagEq e _) ⇔ Cno_funs e) ∧
+  (Cno_funs (CProj e _) ⇔ Cno_funs e) ∧
+  (Cno_funs (CCall _ e es) ⇔ Cno_funs e ∧ Cno_funs_list es) ∧
+  (Cno_funs (CPrim1 _ e) ⇔ Cno_funs e) ∧
+  (Cno_funs (CPrim2 _ e1 e2) ⇔ Cno_funs e1 ∧ Cno_funs e2) ∧
+  (Cno_funs (CUpd e1 e2) ⇔ Cno_funs e1 ∧ Cno_funs e2) ∧
+  (Cno_funs (CIf e1 e2 e3) ⇔ Cno_funs e1 ∧ Cno_funs e2 ∧ Cno_funs e3) ∧
+  (Cno_funs (CLet e1 e2) ⇔ Cno_funs e1 ∧ Cno_funs e2) ∧
+  (Cno_funs (CLetrec _ _) ⇔ F) ∧
+  (Cno_funs_list [] ⇔ T) ∧
+  (Cno_funs_list (e::es) ⇔ Cno_funs e ∧ Cno_funs_list es)`
+val _ = export_rewrites["Cno_funs_def"]
+
+val Cno_funs_list_EVERY = store_thm("Cno_funs_list_EVERY",
+  ``∀ls. Cno_funs_list ls ⇔ EVERY Cno_funs ls``,
+  Induct >> simp[])
+
+val Cno_funs_syneq_no_labs = store_thm("Cno_funs_syneq_no_labs",
+  ``(∀z1 z2 V e1 e2. syneq_exp z1 z2 V e1 e2 ⇒ Cno_funs e1 ⇒ no_labs e2) ∧
+    (∀z1 z2 V d1 d2 U. syneq_defs z1 z2 V d1 d2 U ⇒ T)``,
+  ho_match_mp_tac syneq_exp_ind >> simp[] >>
+  simp[EVERY2_EVERY,EVERY_MEM,Cno_funs_list_EVERY] >> rw[] >>
+  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,MEM_EL])
+
+(*
+``Cno_funs (exp_to_Cexp <|cnmap := FEMPTY|+(NONE,5)|> (Mat (App Opapp (Var (Short "call_repl_step")) (Lit Unit)) [(Plit Unit,Con NONE [])]))``
+|> (EVAL THENC SIMP_CONV (srw_ss()) [ToIntLangTheory.pat_to_Cpat_def,finite_mapTheory.FLOOKUP_UPDATE,remove_mat_var_def])
+*)
+
+(*
+val Cno_funs_remove_mat_var = store_
+
+val no_funs_Cno_funs = store_thm("no_funs_Cno_funs",
+  ``(∀s e. no_funs e ⇔ Cno_funs (exp_to_Cexp s e)) ∧
+    (∀(s:exp_to_Cexp_state) (defs:(string#string#exp)list). T) ∧
+    (∀(s:exp_to_Cexp_state) pes. no_funs_pes pes ⇔ T) ∧
+    (∀s es. no_funs_list es ⇔ Cno_funs_list (exps_to_Cexps s es))``
+  ho_match_mp_tac exp_to_Cexp_ind >>
+  simp[] >>
+  simp[exp_to_Cexp_def,remove_mat_var_def]
+  type_of``exps_to_Cexps``
+free_labs_def
+no_labs_def
+print_find"no_labs"
+
+*)
+
 (* compile_Cexp *)
 
 val between_labels_def = Define`
@@ -1959,11 +2046,6 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
   disj2_tac >>
   HINT_EXISTS_TAC >>
   simp[] )
-
-(*
-``free_labs 0 (exp_to_Cexp <|cnmap := FEMPTY|+(NONE,5)|> (Mat (App Opapp (Var (Short "call_repl_step")) (Lit Unit)) [(Plit Unit,Con NONE [])]))``
-|> (EVAL THENC SIMP_CONV (srw_ss()) [ToIntLangTheory.pat_to_Cpat_def,finite_mapTheory.FLOOKUP_UPDATE,remove_mat_var_def])
-*)
 
 (* compile_fake_exp *)
 
