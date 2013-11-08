@@ -1841,9 +1841,7 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     let cs' = compile_Cexp rmenv renv rsz cs exp in
     ∃c0 code. cs'.out = REVERSE code ++ REVERSE c0 ++ cs.out ∧ between_labels (code++c0) cs.next_label cs'.next_label ∧
     code_labels_ok (c0++code) ∧
-    (*
-    ((∀Ce. syneq_exp (LENGTH renv) (LENGTH renv) $= exp Ce ⇒ free_labs 0 Ce = []) ⇒ ∃l. c0 = [Jump(Lab l); Label l]) ∧
-    *)
+    (Cno_funs exp ⇒ ∃l. c0 = [Jump(Lab l); Label l]) ∧
     ∀menv s env res rd csz bs bc0 bc00.
       Cevaluate menv s env exp res
     ∧ closed_Clocs menv env (SND s)
@@ -1909,16 +1907,15 @@ val compile_Cexp_thm = store_thm("compile_Cexp_thm",
     simp[LIST_TO_SET_FLAT,MAP_MAP_o,LIST_TO_SET_MAP,GSYM IMAGE_COMPOSE] >>
     simp[combinTheory.o_DEF,LAMBDA_PROD] >>
     metis_tac[SIMP_RULE(srw_ss())[combinTheory.o_DEF,LAMBDA_PROD](CONJUNCT1 free_labs_free_labs)] ) >>
-  (*
   conj_tac >- (
     qunabbrev_tac`cs'` >>
     strip_tac >>
+    `no_labs Ce` by metis_tac[Cno_funs_syneq_no_labs] >>
+    `free_labs 0 Ce = []` by metis_tac[no_labs_free_labs_nil] >>
     qpat_assum`X = REVERSE c0 ++ Y`mp_tac >>
-    pop_assum(qspec_then`Ce`mp_tac) >>
     simp[] >>
     simp[compile_code_env_def] >>
     rw[Once SWAP_REVERSE] ) >>
-  *)
   rpt gen_tac >>
   Q.PAT_ABBREV_TAC`bc00A = (X ∨ Y)` >>
   strip_tac >>
