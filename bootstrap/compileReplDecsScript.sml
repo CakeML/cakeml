@@ -8,7 +8,7 @@ val cs = ``<|out:=[];next_label:=init_compiler_state.rnext_label|>``
 val compile_repl_decs_def = zDefine`
   compile_repl_decs = FOLDL (compile_dec1 NONE FEMPTY) (^ct,^m,[],0,^cs) repl_decs`
 
-val _ = computeLib.add_funs[ml_repl_step_decls,repl_decs_def,call_repl_step_dec_def]
+val _ = computeLib.add_funs[ml_repl_step_decls,repl_decs_def]
 val _ = computeLib.stoppers := let
   val stoppers = [``Dlet``,``Dletrec``,``Dtype``]
   in SOME (fn tm => mem tm stoppers) end

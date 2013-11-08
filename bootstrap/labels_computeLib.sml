@@ -162,6 +162,7 @@ fun code_labels_conv th0 lconv tm =
   let
     val (_,[l,code]) = strip_comb tm
     val (pt,us) = ml_code_labels lconv code l
+    val pt = inst[alpha|->numSyntax.num] pt (* in case pt is empty *)
     val ptdef = mk_def pt
     val ptabb = lhs(concl ptdef)
     val th = SPECL [ptabb,l,code,us] code_labels_elim
