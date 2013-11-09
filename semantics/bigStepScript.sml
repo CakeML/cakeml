@@ -34,9 +34,7 @@ val _ = Define `
     count0))`;
 
 
-val _ = Hol_reln ` evaluate : bool -> envM -> envC -> count_store -> envE -> exp -> count_store # v result -> bool
-/\ evaluate_list : bool -> envM -> envC -> count_store -> envE -> exp list -> count_store # ( v list) result -> bool
-/\ evaluate_match : bool -> envM -> envC -> count_store -> envE -> v -> (pat # exp) list -> v -> count_store # v result -> bool (! ck menv cenv env l s.
+val _ = Hol_reln ` (! ck menv cenv env l s.
 T
 ==>
 evaluate ck menv cenv s env (Lit l) (s, Rval (Litv l)))
@@ -121,7 +119,7 @@ evaluate ck menv cenv s env (Uapp uop e) (s', Rerr err))
 (evaluate ck menv cenv s1 env e1 (s2, Rval v1) /\
 (evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) /\
 ((do_app s3 env op v1 v2 = (SOME (s4, env', e3))) /\
-(((ck /\ (op = Opapp)) ==> (~ ( count =(   0)))) /\
+(((ck /\ (op = Opapp)) ==> (~ (  count=((   0))))) /\
 evaluate ck menv cenv ((if ck then dec_count op count else count),s4) env' e3 bv))))
 ==>
 evaluate ck menv cenv s1 env (App op e1 e2) bv)
@@ -275,7 +273,7 @@ evaluate_match ck menv cenv (count,s) env v ((p,e)::pes) err_v ((count,s), Rerr 
 evaluate_match ck menv cenv s env v ((p,e)::pes) err_v (s, Rerr Rtype_error))`;
 
 
-val _ = Hol_reln ` evaluate_dec :  modN option -> envM -> envC -> store -> envE -> dec -> store # (envC # envE) result -> bool (! mn menv cenv env p e v env' s1 s2 count.
+val _ = Hol_reln ` (! mn menv cenv env p e v env' s1 s2 count.
 (evaluate F menv cenv (( 0),s1) env e ((count,s2), Rval v) /\
 ((ALL_DISTINCT (pat_bindings p [])) /\
 (pmatch cenv s2 p v emp = Match env')))
@@ -333,11 +331,11 @@ evaluate_dec mn menv cenv s env (Dtype tds) (s, Rerr Rtype_error))
 evaluate_dec mn menv cenv s env (Dexn cn ts) (s, Rval (bind (mk_id mn cn) ((LENGTH ts), TypeExn) emp, emp)))
 
 /\ (! mn menv cenv env cn ts s.
-( (~ (lookup (mk_id mn cn) cenv =  (NONE))))
+( (~ ( (lookup (mk_id mn cn) cenv)=  (NONE))))
 ==>
 evaluate_dec mn menv cenv s env (Dexn cn ts) (s, Rerr Rtype_error))`;
 
-val _ = Hol_reln ` evaluate_decs :  modN option -> envM -> envC -> store -> envE -> dec list -> store # envC # envE result -> bool (! mn menv cenv s env.
+val _ = Hol_reln ` (! mn menv cenv s env.
 T
 ==>
 evaluate_decs mn menv cenv s env [] (s, emp, Rval emp))
@@ -353,7 +351,7 @@ evaluate_decs mn menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, new_td
 ==>
 evaluate_decs mn menv cenv s1 env (d::ds) (s3, merge new_tds' new_tds, combine_dec_result new_env r))`;
 
-val _ = Hol_reln ` evaluate_top : envM -> envC -> store -> envE -> top -> store # envC # (envM # envE) result -> bool (! menv cenv s1 s2 env d new_tds new_env.
+val _ = Hol_reln ` (! menv cenv s1 s2 env d new_tds new_env.
 (evaluate_dec (NONE) menv cenv s1 env d (s2, Rval (new_tds, new_env)))
 ==>
 evaluate_top menv cenv s1 env (Tdec d) (s2, new_tds, Rval (emp, new_env)))
@@ -380,7 +378,7 @@ evaluate_top menv cenv s1 env (Tmod mn specs ds) (s2, new_tds, Rerr err))
 ==>
 evaluate_top menv cenv s env (Tmod mn specs ds) (s, emp, Rerr Rtype_error))`;
 
-val _ = Hol_reln ` evaluate_prog : envM -> envC -> store -> envE -> prog -> store # envC # (envM # envE) result -> bool (! menv cenv s env.
+val _ = Hol_reln ` (! menv cenv s env.
 T
 ==>
 evaluate_prog menv cenv s env [] (s, emp, Rval (emp, emp)))
@@ -406,7 +404,7 @@ val _ = Define `
   )))`;
 
 
-val _ = Hol_reln ` decs_diverges :  modN option -> envM -> envC -> store -> envE -> decs -> bool (! mn menv cenv st env d ds.
+val _ = Hol_reln ` (! mn menv cenv st env d ds.
 (dec_diverges menv cenv st env d)
 ==>
 decs_diverges mn menv cenv st env (d::ds)) 
@@ -417,7 +415,7 @@ decs_diverges mn menv (merge new_tds cenv) s2 (merge new_env env) ds)
 ==>
 decs_diverges mn menv cenv s1 env (d::ds))`;
 
-val _ = Hol_reln ` top_diverges : envM -> envC -> store -> envE -> top -> bool (! menv cenv st env d.
+val _ = Hol_reln ` (! menv cenv st env d.
 (dec_diverges menv cenv st env d)
 ==>
 top_diverges menv cenv st env (Tdec d))
@@ -428,7 +426,7 @@ decs_diverges ((SOME mn)) menv cenv s1 env ds)
 ==>
 top_diverges menv cenv s1 env (Tmod mn specs ds))`;
 
-val _ = Hol_reln ` prog_diverges : envM -> envC -> store -> envE -> prog -> bool (! menv cenv st env top tops.
+val _ = Hol_reln ` (! menv cenv st env top tops.
 (top_diverges menv cenv st env top)
 ==>
 prog_diverges menv cenv st env (top::tops))

@@ -59,9 +59,7 @@ val _ = new_theory "altBigStep"
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pmatch'_defn;
 
 
-val _ = Hol_reln ` evaluate' : envM -> store -> envE -> exp -> store # v result -> bool 
-/\ evaluate_list' : envM -> store -> envE -> exp list -> store # ( v list) result -> bool
-/\ evaluate_match' : envM -> store -> envE -> v -> (pat # exp) list -> v -> store # v result -> bool (! env l s.
+val _ = Hol_reln ` (! env l s.
 T
 ==>
 evaluate' s env (Lit l) (s, Rval (Litv l)))
@@ -281,7 +279,7 @@ evaluate_match' s env v ((p,e)::pes) err_v (s, Rerr Rtype_error))
 ==>
 evaluate_match' s env v ((p,e)::pes) err_v (s, Rerr Rtype_error))`;
 
-val _ = Hol_reln ` evaluate_dec' :  modN option -> envM -> envC -> store -> envE -> dec -> store # (envC # envE) result -> bool (! mn menv cenv env p e v env' s1 s2.
+val _ = Hol_reln ` (! mn menv cenv env p e v env' s1 s2.
 (evaluate' s1 env e (s2, Rval v) /\
 ((ALL_DISTINCT (pat_bindings p [])) /\
 (pmatch' s2 p v emp = Match env')))
@@ -339,12 +337,12 @@ evaluate_dec' mn menv cenv s env (Dtype tds) (s, Rerr Rtype_error))
 evaluate_dec' mn menv cenv s env (Dexn cn ts) (s, Rval (bind (mk_id mn cn) ((LENGTH ts), TypeExn) emp, emp)))
 
 /\ (! mn menv cenv env cn ts s.
-( (~ (lookup (mk_id mn cn) cenv =  (NONE))))
+( (~ ( (lookup (mk_id mn cn) cenv)=  (NONE))))
 ==>
 evaluate_dec' mn menv cenv s env (Dexn cn ts) (s, Rerr Rtype_error))`;
 
 
-val _ = Hol_reln ` evaluate_decs' :  modN option -> envM -> envC -> store -> envE -> dec list -> store # envC # envE result -> bool (! mn menv cenv s env.
+val _ = Hol_reln ` (! mn menv cenv s env.
 T
 ==>
 evaluate_decs' mn menv cenv s env [] (s, emp, Rval emp))
@@ -360,7 +358,7 @@ evaluate_decs' mn menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, new_t
 ==>
 evaluate_decs' mn menv cenv s1 env (d::ds) (s3, merge new_tds' new_tds, combine_dec_result new_env r))`;
 
-val _ = Hol_reln ` evaluate_top' : envM -> envC -> store -> envE -> top -> store # envC # (envM # envE) result -> bool (! menv cenv s1 s2 env d new_tds new_env.
+val _ = Hol_reln ` (! menv cenv s1 s2 env d new_tds new_env.
 (evaluate_dec' (NONE) menv cenv s1 env d (s2, Rval (new_tds, new_env)))
 ==>
 evaluate_top' menv cenv s1 env (Tdec d) (s2, new_tds, Rval (emp, new_env)))
@@ -387,7 +385,7 @@ evaluate_top' menv cenv s1 env (Tmod mn specs ds) (s2, new_tds, Rerr err))
 ==>
 evaluate_top' menv cenv s env (Tmod mn specs ds) (s, emp, Rerr Rtype_error))`;
 
-val _ = Hol_reln ` evaluate_prog' : envM -> envC -> store -> envE -> prog -> store # envC # (envM # envE) result -> bool (! menv cenv s env.
+val _ = Hol_reln ` (! menv cenv s env.
 T
 ==>
 evaluate_prog' menv cenv s env [] (s, emp, Rval (emp, emp)))

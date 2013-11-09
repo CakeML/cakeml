@@ -4,7 +4,7 @@ open gramTheory tokenUtilsTheory
 
 open monadsyntax lcsymtacs
 
-local open ElabTheory in end (* for "ast" type *)
+local open elabTheory in end (* for "ast" type *)
 
 val _ = new_theory "cmlPtreeConversion"
 

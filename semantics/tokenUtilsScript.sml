@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib
 
-open TokensTheory
+open tokensTheory
 
 val _ = new_theory "tokenUtils"
 

@@ -155,7 +155,7 @@ val _ = type_abbrev( "ctor_env" , ``: (conN, ( conN id)) env``);
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_p_defn;
 
-val _ = type_abbrev( "tdef_env" , ``: (typeN, Ast$tc0) env``);
+val _ = type_abbrev( "tdef_env" , ``: (typeN, ast$tc0) env``);
 
 (*val elab_t : tdef_env -> ast_t -> t*)
 (*val elab_e : ctor_env -> ast_exp -> exp*)

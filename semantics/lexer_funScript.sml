@@ -3,7 +3,7 @@ open HolKernel Parse boolLib bossLib;
 val _ = new_theory "lexer_fun";
 
 open preamble;
-open stringTheory stringLib listTheory TokensTheory ASCIInumbersTheory intLib;
+open stringTheory stringLib listTheory tokensTheory ASCIInumbersTheory intLib;
 
 (* This script defines the functional spec for the assmebly
    implementation of the lexer. This lexer specification consists of

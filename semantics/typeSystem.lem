@@ -3,7 +3,7 @@ open import Lib
 open import Ast
 
 (* Only to get check_dup_ctors *)
-open SemanticPrimitives 
+open import SemanticPrimitives 
 
 (* Type substitution *)
 
