@@ -1,5 +1,5 @@
 open preamble;
-open LibTheory AstTheory BigStepTheory SemanticPrimitivesTheory;
+open libTheory astTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory;
 
 val _ = new_theory "bigClock";

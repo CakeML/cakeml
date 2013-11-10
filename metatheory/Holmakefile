@@ -2,27 +2,26 @@ INCLUDES=.. ../semantics
 OPTIONS = QUIT_ON_FAILURE
 
 SEMI = lib tokens ast semanticPrimitives smallStep bigStep typeSystem
-SRCL = bigSmallInvariants typeSoundInvariants
-SRCU = BigSmallInvariants TypeSoundInvariants
+SRC = bigSmallInvariants typeSoundInvariants
 LEMI = $(patsubst %,../semantics/%.lem,$(SEMI))
-LEMS = $(patsubst %,%.lem,$(SRCL))
-GENS = $(patsubst %,%Script.sml,$(SRCU))
+LEMS = $(patsubst %,%.lem,$(SRC))
+GENS = $(patsubst %,%Script.sml,$(SRC))
 
-$(GENS) : ../semantics/hol_lib.lem $(LEMI) $(LEMS)
-	lem -extra_level none -hol_lib ../semantics/hol_lib.lem $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMS))
+$(GENS) : $(LEMI) $(LEMS)
+	lem -auxiliary_level none $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMS))
 
 ifdef POLY
 HOLHEAP = meta_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-PRE_BARE_THYS = AltBigStepTheory \
-		AstTheory \
-		BigStepTheory \
-		LibTheory \
-		SemanticPrimitivesTheory \
-		SmallStepTheory \
-		TokensTheory \
-		TypeSystemTheory \
+PRE_BARE_THYS = altBigStepTheory \
+		astTheory \
+		bigStepTheory \
+		libTheory \
+		semanticPrimitivesTheory \
+		smallStepTheory \
+		tokensTheory \
+		typeSystemTheory \
 		terminationTheory \
 		tokenUtilsTheory
 

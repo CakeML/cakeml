@@ -1,10 +1,10 @@
 open preamble;
-open LibTheory AstTheory TypeSystemTheory SemanticPrimitivesTheory;
-open SmallStepTheory BigStepTheory replTheory;
+open libTheory astTheory typeSystemTheory semanticPrimitivesTheory;
+open smallStepTheory bigStepTheory replTheory;
 open terminationTheory;
 open weakeningTheory typeSysPropsTheory bigSmallEquivTheory;
-open InitialEnvTheory;
-open TypeSoundInvariantsTheory bigClockTheory;
+open initialEnvTheory;
+open typeSoundInvariantsTheory bigClockTheory;
 open metaTerminationTheory;
 
 val _ = new_theory "typeSound";
@@ -761,7 +761,7 @@ val type_funs_subst_lem =
 (Q.GEN `tenvE2` o
  SIMP_RULE (srw_ss()) [bind_tenv_def, num_tvs_def, deBruijn_subst_tenvE_def,
                        db_merge_def, deBruijn_inc0, num_tvs_bind_var_list,
-                       db_merge_bind_var_list, option_map_def,
+                       db_merge_bind_var_list,
                        deBruijn_subst_E_bind_var_list] o
  Q.SPECL [`tenvM`, `tenvC`, `e`, `t`, `bind_var_list 0 tenv' Empty`] o
  SIMP_RULE (srw_ss()) [GSYM RIGHT_FORALL_IMP_THM, AND_IMP_INTRO] o
@@ -798,10 +798,10 @@ ho_match_mp_tac type_v_strongind >>
 rw [] >>
 rw [Once type_v_cases] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
-rw [deBruijn_inc_def, deBruijn_subst_def, option_map_def] >>
-rw [deBruijn_inc_def, deBruijn_subst_def, option_map_def] >>
+rw [deBruijn_inc_def, deBruijn_subst_def] >>
+rw [deBruijn_inc_def, deBruijn_subst_def] >>
 fs [check_freevars_def, Tfn_def, Tint_def, Tbool_def, Tref_def, Tunit_def] >>
-rw [deBruijn_inc_def, deBruijn_subst_def, option_map_def] >>
+rw [deBruijn_inc_def, deBruijn_subst_def] >>
 rw [nil_deBruijn_inc, deBruijn_subst_check_freevars, type_subst_lem3,
     nil_deBruijn_subst] >|
 [rw [EVERY_MAP] >>

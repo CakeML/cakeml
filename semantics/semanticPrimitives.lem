@@ -48,7 +48,7 @@ let store_alloc v st =
 val store_assign : nat -> v -> store -> maybe store
 let store_assign n v st =
   if n < List.length st then
-    Just (LUPDATE v n st)
+    Just (List.update st n v)
   else
     Nothing
 

@@ -276,7 +276,7 @@ elab_top type_bound ctors (Ast_Tdec d) =
 and
 elab_top type_bound ctors (Ast_Tmod mn spec ds) =
   let (type_bound',ctors',ds') = elab_decs (Just mn) type_bound ctors ds in
-      (type_bound,ctors,Tmod mn (option_map (elab_spec (Just mn) type_bound) spec) ds')
+      (type_bound,ctors,Tmod mn (Maybe.map (elab_spec (Just mn) type_bound) spec) ds')
 
 let rec
 elab_prog type_bound ctors [] = ([],emp,[])

@@ -1,5 +1,5 @@
 open preamble 
-open TypeSoundInvariantsTheory BigSmallInvariantsTheory;
+open typeSoundInvariantsTheory bigSmallInvariantsTheory;
 
 val _ = new_theory "metaTermination";
 

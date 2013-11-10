@@ -1,5 +1,5 @@
 open preamble;
-open LibTheory AstTheory BigStepTheory SmallStepTheory SemanticPrimitivesTheory
+open libTheory astTheory bigStepTheory smallStepTheory semanticPrimitivesTheory
 open determTheory bigSmallEquivTheory
 open terminationTheory metaTerminationTheory bigClockTheory;
 

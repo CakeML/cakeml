@@ -320,7 +320,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (elab_top type_bound ctors (Ast_Tmod mn spec ds) =  
 (let (type_bound',ctors',ds') = (elab_decs ((SOME mn)) type_bound ctors ds) in
-      (type_bound,ctors,Tmod mn (option_map (elab_spec ((SOME mn)) type_bound) spec) ds')))`;
+      (type_bound,ctors,Tmod mn ((OPTION_MAP (elab_spec ((SOME mn)) type_bound) spec)) ds')))`;
 
 
  val elab_prog_defn = Hol_defn "elab_prog" `

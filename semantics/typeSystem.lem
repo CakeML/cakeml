@@ -259,7 +259,7 @@ and
 pcon_some : forall tvs cenv cn ps ts tvs' tn ts' tenv.
 List.all (check_freevars tvs []) ts' &&
 (List.length ts' = List.length tvs' &&
-(type_ps tvs cenv ps (List.map (type_subst (zip tvs' ts')) ts) tenv &&
+(type_ps tvs cenv ps (List.map (type_subst (ZIP tvs' ts')) ts) tenv &&
 (lookup cn cenv = Just (tvs', ts, tn))))
 ==>
 type_p tvs cenv (Pcon (Just cn) ps) (Tapp ts' (tid_exn_to_tc tn)) tenv
@@ -342,7 +342,7 @@ and
 con_some : forall menv cenv tenv cn es tvs tn ts' ts.
 List.all (check_freevars (num_tvs tenv) []) ts' &&
 (List.length tvs = List.length ts' &&
-(type_es menv cenv tenv es (List.map (type_subst (zip tvs ts')) ts) &&
+(type_es menv cenv tenv es (List.map (type_subst (ZIP tvs ts')) ts) &&
 (lookup cn cenv = Just (tvs, ts, tn))))
 ==>
 type_e menv cenv tenv (Con (Just cn) es) (Tapp ts' (tid_exn_to_tc tn))
@@ -545,7 +545,7 @@ and
 
 sval : forall mn cenv tenv x t specs cenv' tenv' fvs.
 check_freevars 0 fvs t &&
-type_specs mn cenv (bind x (List.length fvs, type_subst (zip fvs (List.map Tvar_db (count_list (List.length fvs)))) t) tenv) specs cenv' tenv'
+type_specs mn cenv (bind x (List.length fvs, type_subst (ZIP fvs (List.map Tvar_db (count_list (List.length fvs)))) t) tenv) specs cenv' tenv'
 ==>
 type_specs mn cenv tenv (Sval x t :: specs) cenv' tenv' 
 

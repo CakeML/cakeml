@@ -71,7 +71,7 @@ val _ = Define `
 val _ = Define `
  (store_assign n v st =  
 (if n < (LENGTH st) then    
-(SOME ((LUPDATE v n st)))
+(SOME ((LUPDATE  v  n  st)))
   else    
 (NONE)))`;
 

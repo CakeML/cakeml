@@ -1,6 +1,6 @@
 open preamble;
 open monadsyntax;
-open SemanticPrimitivesTheory BigStepTheory;
+open semanticPrimitivesTheory bigStepTheory;
 open terminationTheory;
 open bigClockTheory;
 
@@ -392,7 +392,7 @@ val run_eval_decs_spec = Q.store_thm ("run_eval_decs_spec",
  fs [] >>
  rw [] 
  >- (cases_on `r'''` >>
-     fs [combine_dec_result_def, LibTheory.merge_def] >>
+     fs [combine_dec_result_def, libTheory.merge_def] >>
      every_case_tac >>
      fs [] >|
      [MAP_EVERY qexists_tac [`SND q`, `q'''`, `q'`, `r'`, `Rval a`] >>

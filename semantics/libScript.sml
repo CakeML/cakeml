@@ -12,12 +12,6 @@ val _ = new_theory "lib"
 
 (* TODO: look for these in the built-in library *)
 
-
-(*
-val i : num -> Int.int
-let inline {hol} i = Hol.(&)
-*)
-
 (*val int_to_num : integer -> nat*)
 
 (*val num_to_string : nat -> string*)
@@ -30,19 +24,13 @@ let inline {hol} i = Hol.(&)
 
 (*val count_list : nat -> list nat*)
 
-(*val option_map : forall 'a 'b. ('a -> 'b) -> maybe 'a -> maybe 'b*)
-val _ = Define `
- (option_map f x =  
- ((case x of
-      (NONE) => (NONE)
-    | (SOME y) => (SOME (f y))
-  )))`;
-
-
-(* Change the nth element in the list to 'a *)
-(*val LUPDATE : forall 'a. 'a -> nat -> list 'a -> list 'a*)
-
 (*val ^ : string -> string -> string*)
+
+(* The builtin List.zip maps to list_combine in HOL, but I want to map to ZIP *)
+(*val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)*)
+
+
+
 
 (* Environments *)
 val _ = type_abbrev((* ( 'a, 'b) *) "env" , ``: ('a#'b) list``);

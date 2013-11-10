@@ -2,12 +2,6 @@ open import Pervasives
 
 (* TODO: look for these in the built-in library *)
 
-
-(*
-val i : num -> Int.int
-let inline {hol} i = Hol.(&)
-*)
-
 val int_to_num : integer -> nat
 declare hol target_rep function int_to_num = `Num`
 
@@ -26,19 +20,15 @@ declare hol    target_rep function rtc = `RTC`
 val count_list : nat -> list nat
 declare hol    target_rep function count_list = `COUNT_LIST`
 
-val option_map : forall 'a 'b. ('a -> 'b) -> maybe 'a -> maybe 'b
-let option_map f x = 
-  match x with
-    | Nothing -> Nothing
-    | Just y -> Just (f y)
-  end
-
-(* Change the nth element in the list to 'a *)
-val LUPDATE : forall 'a. 'a -> nat -> list 'a -> list 'a
-declare hol    target_rep function LUPDATE = `LUPDATE`
-
 val (^) : string -> string -> string
 declare hol target_rep function (^) = infix `++`
+
+(* The builtin List.zip maps to list_combine in HOL, but I want to map to ZIP *)
+val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)
+let inline {hol} ZIP x y = `ZIP` (x,y)
+
+
+
 
 (* Environments *)
 type env 'a 'b = list ('a*'b)

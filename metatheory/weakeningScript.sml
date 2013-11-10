@@ -1,8 +1,8 @@
 open preamble;
 open optionTheory rich_listTheory;
-open LibTheory AstTheory TypeSystemTheory typeSysPropsTheory;
-open SemanticPrimitivesTheory;
-open TypeSoundInvariantsTheory;
+open libTheory astTheory typeSystemTheory typeSysPropsTheory;
+open semanticPrimitivesTheory;
+open typeSoundInvariantsTheory;
 open terminationTheory metaTerminationTheory;
 
 val _ = new_theory "weakening";

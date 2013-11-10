@@ -1,11 +1,11 @@
 (* Theorems about type_e, type_es, and type_funs *)
-open preamble rich_listTheory;
-open LibTheory AstTheory TypeSystemTheory terminationTheory;
+open preamble rich_listTheory optionTheory;
+open libTheory astTheory typeSystemTheory terminationTheory;
 
 val _ = new_theory "typeSysProps";
 
-val check_dup_ctors_def = SemanticPrimitivesTheory.check_dup_ctors_def;
-val build_tdefs_def = SemanticPrimitivesTheory.build_tdefs_def;
+val check_dup_ctors_def = semanticPrimitivesTheory.check_dup_ctors_def;
+val build_tdefs_def = semanticPrimitivesTheory.build_tdefs_def;
 
 val all_distinct_map_inj = Q.prove (
 `!f l. (!x y. (f x = f y) ⇒ (x = y)) ⇒ (ALL_DISTINCT (MAP f l) = ALL_DISTINCT l)`,
@@ -30,11 +30,6 @@ rw [lookup_def] >>
 cases_on `keys` >>
 cases_on `vals` >>
 fs []);
-
-val option_map_eqns = Q.prove (
-`(!f. option_map f NONE = NONE) ∧
- (!f x. option_map f (SOME x) = SOME (f x))`,
-rw [option_map_def]);
 
 (* TODO: Move these definitions to miniML.lem? *)
 (* Check that the dynamic and static constructor environments are consistent *)
@@ -956,7 +951,7 @@ val type_p_subst = Q.store_thm ("type_p_subst",
 ho_match_mp_tac type_p_strongind >>
 rw [] >>
 ONCE_REWRITE_TAC [type_p_cases] >>
-rw [deBruijn_subst_def, option_map_eqns, Tint_def,
+rw [deBruijn_subst_def, OPTION_MAP_DEF, Tint_def,
     Tbool_def, Tunit_def, Tref_def] >|
 [metis_tac [check_freevars_lem],
  rw [EVERY_MAP] >>
@@ -1033,10 +1028,10 @@ ho_match_mp_tac type_e_strongind >>
 rw [] >>
 ONCE_REWRITE_TAC [type_e_cases] >>
 rw [deBruijn_subst_def, deBruijn_subst_tenvE_def, 
-    bind_tvar_rewrites, bind_tenv_def, num_tvs_def, option_map_eqns,
+    bind_tvar_rewrites, bind_tenv_def, num_tvs_def, OPTION_MAP_DEF,
     num_tvs_db_merge, num_tvs_deBruijn_subst_tenvE] >>
 fs [deBruijn_subst_def, deBruijn_subst_tenvE_def, 
-    bind_tvar_rewrites, bind_tenv_def, num_tvs_def, option_map_eqns,
+    bind_tvar_rewrites, bind_tenv_def, num_tvs_def, OPTION_MAP_DEF,
     num_tvs_db_merge, num_tvs_deBruijn_subst_tenvE, tenv_ok_def,
     Tbool_def, Tint_def, Tunit_def, Tref_def, Tfn_def] >>
 `tenv_ok tenvE2` by metis_tac [tenv_ok_db_merge, bind_tvar_def, tenv_ok_def] >|

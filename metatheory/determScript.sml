@@ -1,4 +1,4 @@
-open preamble SemanticPrimitivesTheory BigStepTheory bigSmallEquivTheory bigClockTheory;
+open preamble semanticPrimitivesTheory bigStepTheory bigSmallEquivTheory bigClockTheory;
 
 val _ = new_theory "determ";
 
