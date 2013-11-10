@@ -495,10 +495,6 @@ val FUPDATE_LIST_CANCEL = store_thm("FUPDATE_LIST_CANCEL",
   MATCH_MP_TAC FUPDATE_FUPDATE_LIST_MEM THEN
   FULL_SIMP_TAC(srw_ss())[])
 
-val FUPDATE_LIST_SNOC = store_thm("FUPDATE_LIST_SNOC",
-  ``!xs x fm. fm |++ SNOC x xs = (fm |++ xs) |+ x``,
-  Induct >> rw[FUPDATE_LIST_THM])
-
 val FUPDATE_EQ_FUNION = store_thm("FUPDATE_EQ_FUNION",
   ``∀fm kv. fm |+ kv = (FEMPTY |+ kv) ⊌ fm``,
   gen_tac >> Cases >>
@@ -887,16 +883,6 @@ val DRESTRICT_FUNION_SUBSET = store_thm("DRESTRICT_FUNION_SUBSET",
   rw[SUBMAP_DEF,DRESTRICT_DEF,FUNION_DEF] >>
   fs[SUBSET_DEF])
 
-(* TODO: move to optionTheory *)
-val IF_NONE_EQUALS_OPTION = store_thm(
-  "IF_NONE_EQUALS_OPTION",
-  ``(((if P then X else NONE) = NONE) <=> (P ==> IS_NONE X)) /\
-    (((if P then NONE else X) = NONE) <=> (IS_SOME X ==> P)) /\
-    (((if P then X else NONE) = SOME x) <=> P /\ (X = SOME x)) /\
-    (((if P then NONE else X) = SOME x) <=> ~P /\ (X = SOME x))``,
-  SRW_TAC [][]);
-val _ = export_rewrites ["IF_NONE_EQUALS_OPTION"]
-
 (* TODO: move elsewhere? export as rewrite? *)
 val IN_option_rwt = store_thm(
 "IN_option_rwt",
@@ -928,12 +914,6 @@ val FOLDL2_FUPDATE_LIST_paired = store_thm(
 rw[FOLDL2_FOLDL,MAP2_MAP,ZIP_MAP,MAP_ZIP,LENGTH_ZIP,
    pairTheory.UNCURRY,pairTheory.LAMBDA_PROD,FUPDATE_LIST,
    rich_listTheory.FOLDL_MAP])
-
-val FOLDL_FUPDATE_LIST = store_thm(
-"FOLDL_FUPDATE_LIST",
-``!f1 f2 ls a. FOLDL (\fm k. fm |+ (f1 k, f2 k)) a ls =
-  a |++ MAP (\k. (f1 k, f2 k)) ls``,
-SRW_TAC[][FUPDATE_LIST,rich_listTheory.FOLDL_MAP])
 
 val FOLDR_CONS_triple = store_thm(
 "FOLDR_CONS_triple",
