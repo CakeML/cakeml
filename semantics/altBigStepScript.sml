@@ -40,7 +40,7 @@ val _ = new_theory "altBigStep"
 (pmatch' s (Pref p) (Loc lnum) env =  
 ((case store_lookup lnum s of
       (SOME v) => pmatch' s p v env
-    | (NONE) => Match_type_error
+    | NONE => Match_type_error
   )))
 /\
 (pmatch' _ _ _ env = Match_type_error)
@@ -107,7 +107,7 @@ evaluate' s env (Con cn es) (s', Rerr err))
 evaluate' s env (Var (Short n)) (s, Rval v))
 
 /\ (! env n s.
-(lookup n env = (NONE))
+(lookup n env = NONE)
 ==>
 evaluate' s env (Var (Short n)) (s, Rerr Rtype_error))
 
@@ -124,7 +124,7 @@ evaluate' s1 env (Uapp uop e) (s3, Rval v'))
 
 /\ (! env uop e v s1 s2.
 (evaluate' s1 env e (s2, Rval v) /\
-(do_uapp s2 uop v = (NONE)))
+(do_uapp s2 uop v = NONE))
 ==>
 evaluate' s1 env (Uapp uop e) (s2, Rerr Rtype_error))
 
@@ -144,7 +144,7 @@ evaluate' s1 env (App op e1 e2) bv)
 /\ (! env op e1 e2 v1 v2 s1 s2 s3.
 (evaluate' s1 env e1 (s2, Rval v1) /\
 (evaluate' s2 env e2 (s3, Rval v2) /\
-(do_app s3 env op v1 v2 = (NONE))))
+(do_app s3 env op v1 v2 = NONE)))
 ==>
 evaluate' s1 env (App op e1 e2) (s3, Rerr Rtype_error))
 
@@ -168,7 +168,7 @@ evaluate' s1 env (Log op e1 e2) bv)
 
 /\ (! env op e1 e2 v s1 s2.
 (evaluate' s1 env e1 (s2, Rval v) /\
-(do_log op v e2 = (NONE)))
+(do_log op v e2 = NONE))
 ==>
 evaluate' s1 env (Log op e1 e2) (s2, Rerr Rtype_error))
 
@@ -186,7 +186,7 @@ evaluate' s1 env (If e1 e2 e3) bv)
 
 /\ (! env e1 e2 e3 v s1 s2.
 (evaluate' s1 env e1 (s2, Rval v) /\
-(do_if v e2 e3 = (NONE)))
+(do_if v e2 e3 = NONE))
 ==>
 evaluate' s1 env (If e1 e2 e3) (s2, Rerr Rtype_error))
 
@@ -332,12 +332,12 @@ evaluate_dec' mn menv cenv s env (Dtype tds) (s, Rval (build_tdefs mn tds, emp))
 evaluate_dec' mn menv cenv s env (Dtype tds) (s, Rerr Rtype_error))
 
 /\ (! mn menv cenv env cn ts s.
-(lookup (mk_id mn cn) cenv = (NONE))
+(lookup (mk_id mn cn) cenv = NONE)
 ==>
 evaluate_dec' mn menv cenv s env (Dexn cn ts) (s, Rval (bind (mk_id mn cn) ((LENGTH ts), TypeExn) emp, emp)))
 
 /\ (! mn menv cenv env cn ts s.
-( (~ ( (lookup (mk_id mn cn) cenv)=  (NONE))))
+( (~ ((lookup (mk_id mn cn) cenv) = NONE)))
 ==>
 evaluate_dec' mn menv cenv s env (Dexn cn ts) (s, Rerr Rtype_error))`;
 
@@ -359,29 +359,29 @@ evaluate_decs' mn menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, new_t
 evaluate_decs' mn menv cenv s1 env (d::ds) (s3, merge new_tds' new_tds, combine_dec_result new_env r))`;
 
 val _ = Hol_reln ` (! menv cenv s1 s2 env d new_tds new_env.
-(evaluate_dec' (NONE) menv cenv s1 env d (s2, Rval (new_tds, new_env)))
+(evaluate_dec' NONE menv cenv s1 env d (s2, Rval (new_tds, new_env)))
 ==>
 evaluate_top' menv cenv s1 env (Tdec d) (s2, new_tds, Rval (emp, new_env)))
 
 /\ (! menv cenv s1 s2 env d err.
-(evaluate_dec' (NONE) menv cenv s1 env d (s2, Rerr err))
+(evaluate_dec' NONE menv cenv s1 env d (s2, Rerr err))
 ==>
 evaluate_top' menv cenv s1 env (Tdec d) (s2, emp, Rerr err))
 
 /\ (! menv cenv s1 s2 env ds mn specs new_tds new_env.
- ((~ ((MEM mn ((MAP (FST) menv))))) /\
+ ((~ ((MEM mn ((MAP FST menv))))) /\
 evaluate_decs' ((SOME mn)) menv cenv s1 env ds (s2, new_tds, Rval new_env))
 ==>
 evaluate_top' menv cenv s1 env (Tmod mn specs ds) (s2, new_tds, Rval ([(mn,new_env)], emp)))
 
 /\ (! menv cenv s1 s2 env ds mn specs new_tds err.
- ((~ ((MEM mn ((MAP (FST) menv))))) /\
+ ((~ ((MEM mn ((MAP FST menv))))) /\
 evaluate_decs' ((SOME mn)) menv cenv s1 env ds (s2, new_tds, Rerr err))
 ==>
 evaluate_top' menv cenv s1 env (Tmod mn specs ds) (s2, new_tds, Rerr err))
 
 /\ (! menv cenv s env mn specs ds.
-((MEM mn ((MAP (FST) menv))))
+((MEM mn ((MAP FST menv))))
 ==>
 evaluate_top' menv cenv s env (Tmod mn specs ds) (s, emp, Rerr Rtype_error))`;
 

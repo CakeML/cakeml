@@ -107,7 +107,7 @@ val _ = type_abbrev( "tvarN" , ``: string``);
 val _ = Define `
  (mk_id mn_opt n =  
 ((case mn_opt of
-      (NONE) => Short n
+      NONE => Short n
     | (SOME mn) => Long mn n
   )))`;
 

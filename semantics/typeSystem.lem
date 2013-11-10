@@ -226,7 +226,7 @@ let tid_exn_to_tc t =
   end
 
 indreln [type_p : nat -> tenvC -> pat -> t -> list (varN * t) -> bool]
-and [type_ps : nat -> tenvC -> pat -> list t -> list (varN * t) -> bool]
+and [type_ps : nat -> tenvC -> list pat -> list t -> list (varN * t) -> bool]
 
 pvar : forall tvs cenv n t.
 check_freevars tvs [] t
@@ -622,7 +622,7 @@ type_specs mn emp emp specs cenv' tenv')
 ==>
 check_signature mn cenv tenv (Just specs) cenv' tenv'
 
-indreln [type_top : t]
+indreln [type_top : tenvM -> tenvC -> tenvE -> top -> tenvM -> tenvC -> (env varN (nat * t)) -> bool]
 
 tdec : forall menv cenv tenv d cenv' tenv'.
 type_d Nothing menv cenv tenv d cenv' tenv'

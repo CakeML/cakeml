@@ -43,7 +43,7 @@ val _ = Define `
 (*val lookup : forall 'a 'b. Eq 'a => 'a -> env 'a 'b -> maybe 'b*)
  val lookup_defn = Hol_defn "lookup" `
 
-(lookup n [] = (NONE))
+(lookup n [] = NONE)
 /\
 (lookup n ((n',v)::e) =  
 (if n' = n then    

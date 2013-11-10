@@ -140,7 +140,7 @@ val _ = type_abbrev( "ctor_env" , ``: (conN, ( conN id)) env``);
 ((case lookup cn ctors of
       (SOME cid) =>
         Pcon ((SOME cid)) (elab_ps ctors ps)
-    | (NONE) =>
+    | NONE =>
         Pcon ((SOME (Short cn))) (elab_ps ctors ps)
   )))
 /\
@@ -186,7 +186,7 @@ val _ = type_abbrev( "tdef_env" , ``: (typeN, ast$tc0) env``);
 ((case lookup cn ctors of
       (SOME cid) =>
         Con ((SOME cid)) ((MAP (elab_e ctors) es))
-    | (NONE) =>
+    | NONE =>
         Con ((SOME (Short cn))) ((MAP (elab_e ctors) es))
   )))
 /\
@@ -231,7 +231,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (elab_t type_bound (Ast_Tfn t1 t2) =  
 (Tfn (elab_t type_bound t1) (elab_t type_bound t2)))
     /\
-(elab_t type_bound (Ast_Tapp ts (NONE)) =  
+(elab_t type_bound (Ast_Tapp ts NONE) =  
 (let ts' = ((MAP (elab_t type_bound) ts)) in
     Tapp ts' TC_tup))
 /\
@@ -242,7 +242,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (elab_t type_bound (Ast_Tapp ts ((SOME (Short tn)))) =  
 (let ts' = ((MAP (elab_t type_bound) ts)) in
     (case lookup tn type_bound of
-        (NONE) => Tapp ts' (TC_name (Short tn))
+        NONE => Tapp ts' (TC_name (Short tn))
       | (SOME tc0) => Tapp ts' tc0
     )))`;
 
@@ -315,7 +315,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  val _ = Define `
 
 (elab_top type_bound ctors (Ast_Tdec d) =  
-(let (type_bound', ctors', d') = (elab_dec (NONE) type_bound ctors d) in
+(let (type_bound', ctors', d') = (elab_dec NONE type_bound ctors d) in
       (type_bound', ctors', Tdec d')))
 /\
 (elab_top type_bound ctors (Ast_Tmod mn spec ds) =  

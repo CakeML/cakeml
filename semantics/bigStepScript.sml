@@ -29,7 +29,7 @@ val _ = type_abbrev( "count_store" , ``: num # store``);
 val _ = Define `
  (dec_count op count0 =  
  (if op = Opapp then
-    count0 -(  1)
+    count0 -  1
   else
     count0))`;
 
@@ -89,7 +89,7 @@ evaluate ck menv cenv s env (Con cn es) (s', Rerr err))
 evaluate ck menv cenv s env (Var n) (s, Rval v))
 
 /\ (! ck menv cenv env n s.
-(lookup_var_id n menv env = (NONE))
+(lookup_var_id n menv env = NONE)
 ==>
 evaluate ck menv cenv s env (Var n) (s, Rerr Rtype_error))
 
@@ -106,7 +106,7 @@ evaluate ck menv cenv s1 env (Uapp uop e) ((count,s3), Rval v'))
 
 /\ (! ck menv cenv env uop e v s1 s2 count.
 (evaluate ck menv cenv s1 env e ((count,s2), Rval v) /\
-(do_uapp s2 uop v = (NONE)))
+(do_uapp s2 uop v = NONE))
 ==>
 evaluate ck menv cenv s1 env (Uapp uop e) ((count,s2), Rerr Rtype_error))
 
@@ -119,7 +119,7 @@ evaluate ck menv cenv s env (Uapp uop e) (s', Rerr err))
 (evaluate ck menv cenv s1 env e1 (s2, Rval v1) /\
 (evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) /\
 ((do_app s3 env op v1 v2 = (SOME (s4, env', e3))) /\
-(((ck /\ (op = Opapp)) ==> (~ (  count=((   0))))) /\
+(((ck /\ (op = Opapp)) ==> (~ (count =( 0)))) /\
 evaluate ck menv cenv ((if ck then dec_count op count else count),s4) env' e3 bv))))
 ==>
 evaluate ck menv cenv s1 env (App op e1 e2) bv)
@@ -128,16 +128,16 @@ evaluate ck menv cenv s1 env (App op e1 e2) bv)
 (evaluate ck menv cenv s1 env e1 (s2, Rval v1) /\
 (evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) /\
 ((do_app s3 env op v1 v2 = (SOME (s4, env', e3))) /\
-((count =(  0)) /\
+((count = 0) /\
 ((op = Opapp) /\
 ck)))))
 ==>
-evaluate ck menv cenv s1 env (App op e1 e2) ((( 0),s4), Rerr Rtimeout_error))
+evaluate ck menv cenv s1 env (App op e1 e2) (( 0,s4), Rerr Rtimeout_error))
 
 /\ (! ck menv cenv env op e1 e2 v1 v2 s1 s2 s3 count.
 (evaluate ck menv cenv s1 env e1 (s2, Rval v1) /\
 (evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) /\
-(do_app s3 env op v1 v2 = (NONE))))
+(do_app s3 env op v1 v2 = NONE)))
 ==>
 evaluate ck menv cenv s1 env (App op e1 e2) ((count,s3), Rerr Rtype_error))
 
@@ -161,7 +161,7 @@ evaluate ck menv cenv s1 env (Log op e1 e2) bv)
 
 /\ (! ck menv cenv env op e1 e2 v s1 s2.
 (evaluate ck menv cenv s1 env e1 (s2, Rval v) /\
-(do_log op v e2 = (NONE)))
+(do_log op v e2 = NONE))
 ==>
 evaluate ck menv cenv s1 env (Log op e1 e2) (s2, Rerr Rtype_error))
 
@@ -179,7 +179,7 @@ evaluate ck menv cenv s1 env (If e1 e2 e3) bv)
 
 /\ (! ck menv cenv env e1 e2 e3 v s1 s2.
 (evaluate ck menv cenv s1 env e1 (s2, Rval v) /\
-(do_if v e2 e3 = (NONE)))
+(do_if v e2 e3 = NONE))
 ==>
 evaluate ck menv cenv s1 env (If e1 e2 e3) (s2, Rerr Rtype_error))
 
@@ -274,21 +274,21 @@ evaluate_match ck menv cenv s env v ((p,e)::pes) err_v (s, Rerr Rtype_error))`;
 
 
 val _ = Hol_reln ` (! mn menv cenv env p e v env' s1 s2 count.
-(evaluate F menv cenv (( 0),s1) env e ((count,s2), Rval v) /\
+(evaluate F menv cenv ( 0,s1) env e ((count,s2), Rval v) /\
 ((ALL_DISTINCT (pat_bindings p [])) /\
 (pmatch cenv s2 p v emp = Match env')))
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rval (emp, env')))
 
 /\ (! mn menv cenv env p e v s1 s2 count.
-(evaluate F menv cenv (( 0),s1) env e ((count,s2), Rval v) /\
+(evaluate F menv cenv ( 0,s1) env e ((count,s2), Rval v) /\
 ((ALL_DISTINCT (pat_bindings p [])) /\
 (pmatch cenv s2 p v emp = No_match)))
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr (Rraise (Conv ((SOME (Short "Bind"))) []))))
 
 /\ (! mn menv cenv env p e v s1 s2 count.
-(evaluate F menv cenv (( 0),s1) env e ((count,s2), Rval v) /\
+(evaluate F menv cenv ( 0,s1) env e ((count,s2), Rval v) /\
 ((ALL_DISTINCT (pat_bindings p [])) /\
 (pmatch cenv s2 p v emp = Match_type_error)))
 ==>
@@ -300,7 +300,7 @@ evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr Rtype_error))
 evaluate_dec mn menv cenv s env (Dlet p e) (s, Rerr Rtype_error))
 
 /\ (! mn menv cenv env p e err s count s'.
-(evaluate F menv cenv (( 0),s) env e ((count,s'), Rerr err) /\
+(evaluate F menv cenv ( 0,s) env e ((count,s'), Rerr err) /\
 (ALL_DISTINCT (pat_bindings p [])))
 ==>
 evaluate_dec mn menv cenv s env (Dlet p e) (s', Rerr err))
@@ -326,12 +326,12 @@ evaluate_dec mn menv cenv s env (Dtype tds) (s, Rval (build_tdefs mn tds, emp)))
 evaluate_dec mn menv cenv s env (Dtype tds) (s, Rerr Rtype_error))
 
 /\ (! mn menv cenv env cn ts s.
-(lookup (mk_id mn cn) cenv = (NONE))
+(lookup (mk_id mn cn) cenv = NONE)
 ==>
 evaluate_dec mn menv cenv s env (Dexn cn ts) (s, Rval (bind (mk_id mn cn) ((LENGTH ts), TypeExn) emp, emp)))
 
 /\ (! mn menv cenv env cn ts s.
-( (~ ( (lookup (mk_id mn cn) cenv)=  (NONE))))
+( (~ ((lookup (mk_id mn cn) cenv) = NONE)))
 ==>
 evaluate_dec mn menv cenv s env (Dexn cn ts) (s, Rerr Rtype_error))`;
 
@@ -352,29 +352,29 @@ evaluate_decs mn menv (merge new_tds cenv) s2 (merge new_env env) ds (s3, new_td
 evaluate_decs mn menv cenv s1 env (d::ds) (s3, merge new_tds' new_tds, combine_dec_result new_env r))`;
 
 val _ = Hol_reln ` (! menv cenv s1 s2 env d new_tds new_env.
-(evaluate_dec (NONE) menv cenv s1 env d (s2, Rval (new_tds, new_env)))
+(evaluate_dec NONE menv cenv s1 env d (s2, Rval (new_tds, new_env)))
 ==>
 evaluate_top menv cenv s1 env (Tdec d) (s2, new_tds, Rval (emp, new_env)))
 
 /\ (! menv cenv s1 s2 env d err.
-(evaluate_dec (NONE) menv cenv s1 env d (s2, Rerr err))
+(evaluate_dec NONE menv cenv s1 env d (s2, Rerr err))
 ==>
 evaluate_top menv cenv s1 env (Tdec d) (s2, emp, Rerr err))
 
 /\ (! menv cenv s1 s2 env ds mn specs new_tds new_env.
- ((~ ((MEM mn ((MAP (FST) menv))))) /\
+ ((~ ((MEM mn ((MAP FST menv))))) /\
 evaluate_decs ((SOME mn)) menv cenv s1 env ds (s2, new_tds, Rval new_env))
 ==>
 evaluate_top menv cenv s1 env (Tmod mn specs ds) (s2, new_tds, Rval ([(mn,new_env)], emp)))
 
 /\ (! menv cenv s1 s2 env ds mn specs new_tds err.
- ((~ ((MEM mn ((MAP (FST) menv))))) /\
+ ((~ ((MEM mn ((MAP FST menv))))) /\
 evaluate_decs ((SOME mn)) menv cenv s1 env ds (s2, new_tds, Rerr err))
 ==>
 evaluate_top menv cenv s1 env (Tmod mn specs ds) (s2, new_tds, Rerr err))
 
 /\ (! menv cenv s env mn specs ds.
-((MEM mn ((MAP (FST) menv))))
+((MEM mn ((MAP FST menv))))
 ==>
 evaluate_top menv cenv s env (Tmod mn specs ds) (s, emp, Rerr Rtype_error))`;
 
@@ -421,7 +421,7 @@ val _ = Hol_reln ` (! menv cenv st env d.
 top_diverges menv cenv st env (Tdec d))
 
 /\ (! menv cenv s1 env ds mn specs.
-((~ ((MEM mn ((MAP (FST) menv))))) /\
+((~ ((MEM mn ((MAP FST menv))))) /\
 decs_diverges ((SOME mn)) menv cenv s1 env ds)
 ==>
 top_diverges menv cenv s1 env (Tmod mn specs ds))`;

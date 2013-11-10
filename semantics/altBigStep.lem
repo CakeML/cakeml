@@ -46,9 +46,9 @@ and
 pmatch_list' _ _ _ env = Match_type_error
 
 
-indreln [evaluate' : envM -> store -> envE -> exp -> store * result v -> bool] 
-and [evaluate_list' : envM -> store -> envE -> list exp -> store * result (list v) -> bool]
-and [evaluate_match' : envM -> store -> envE -> v -> list (pat * exp) -> v -> store * result v -> bool]
+indreln [evaluate' : store -> envE -> exp -> store * result v -> bool] 
+and [evaluate_list' : store -> envE -> list exp -> store * result (list v) -> bool]
+and [evaluate_match' : store -> envE -> v -> list (pat * exp) -> v -> store * result v -> bool]
 
 lit : forall env l s.
 true

@@ -56,9 +56,9 @@ val _ = Define `
 val _ = Define `
  (store_lookup l st =  
 (if l < (LENGTH st) then    
-(SOME ((EL  l  st)))
-  else    
-(NONE)))`;
+(SOME ((EL l st)))
+  else
+    NONE))`;
 
 
 (*val store_alloc : v -> store -> store * nat*)
@@ -71,9 +71,9 @@ val _ = Define `
 val _ = Define `
  (store_assign n v st =  
 (if n < (LENGTH st) then    
-(SOME ((LUPDATE  v  n  st)))
-  else    
-(NONE)))`;
+(SOME ((LUPDATE v n st)))
+  else
+    NONE))`;
 
 
 val _ = Hol_datatype `
@@ -97,7 +97,7 @@ val _ = Define `
       Short x => lookup x envE
     | Long x y =>
         (case lookup x menv of
-            (NONE) => (NONE)
+            NONE => NONE
           | (SOME env) => lookup y env
         )
   )))`;
@@ -109,10 +109,10 @@ val _ = Define `
 val _ = Define `
  (do_con_check cenv n_opt l =  
 ((case n_opt of
-      (NONE) => T
+      NONE => T
     | (SOME n) =>
         (case lookup n cenv of
-            (NONE) => F
+            NONE => F
           | (SOME (l',ns)) => l = l'
         )
   )))`;
@@ -170,7 +170,7 @@ val _ = Hol_datatype `
     | (_, _) => Match_type_error
   )))
 /\
-(pmatch envC s (Pcon (NONE) ps) (Conv (NONE) vs) env =  
+(pmatch envC s (Pcon NONE ps) (Conv NONE vs) env =  
 (if (LENGTH ps) = (LENGTH vs) then
     pmatch_list envC s ps vs env
   else
@@ -179,7 +179,7 @@ val _ = Hol_datatype `
 (pmatch envC s (Pref p) (Loc lnum) env =  
 ((case store_lookup lnum s of
       (SOME v) => pmatch envC s p v env
-    | (NONE) => Match_type_error
+    | NONE => Match_type_error
   )))
 /\
 (pmatch envC _ _ _ env = Match_type_error)
@@ -212,7 +212,7 @@ val _ = Define `
  val find_recfun_defn = Hol_defn "find_recfun" `
  (find_recfun n funs =  
 ((case funs of
-      [] => (NONE)
+      [] => NONE
     | (f,x,e) :: funs =>
         if f = n then          
 (SOME (x,e))
@@ -247,9 +247,9 @@ val _ = Define `
             Loc n =>
               (case store_lookup n s of
                   (SOME v) => (SOME (s,v))
-                | (NONE) => (NONE)
+                | NONE => NONE
               )
-          | _ => (NONE)
+          | _ => NONE
         )
     | Opref =>
         let (s',n) = (store_alloc v s) in          
@@ -315,10 +315,10 @@ val _ = Define `
     | (Opapp, Recclosure env funs n, v) =>
         (case find_recfun n funs of
             (SOME (n,e)) => (SOME (s, bind n v (build_rec_env funs env env), e))
-          | (NONE) => (NONE)
+          | NONE => NONE
         )
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) =>
-        if ((op = Divide) \/ (op = Modulo)) /\ (n2 =((  0 : int))) then          
+        if ((op = Divide) \/ (op = Modulo)) /\ (n2 =(( 0 : int))) then          
 (SOME (s, env', Raise (Con ((SOME (Short "Div"))) [])))
         else          
 (SOME (s, env',Lit (IntLit (opn_lookup op n1 n2))))
@@ -326,16 +326,16 @@ val _ = Define `
 (SOME (s, env', Lit (Bool (opb_lookup op n1 n2))))
     | (Equality, v1, v2) =>
         (case do_eq v1 v2 of
-            Eq_type_error => (NONE)
+            Eq_type_error => NONE
           | Eq_closure => (SOME (s, env', Raise (Con ((SOME (Short "Eq"))) [])))
           | Eq_val b => (SOME (s, env', Lit (Bool b)))
         )
     | (Opassign, (Loc lnum), v) =>
         (case store_assign lnum v s of
           (SOME st) => (SOME (st, env', Lit Unit))
-        | (NONE) => (NONE)
+        | NONE => NONE
         )
-    | _ => (NONE)
+    | _ => NONE
   )))`;
 
 
@@ -347,7 +347,7 @@ val _ = Define `
       (And, Litv (Bool T)) => (SOME e)
     | (Or, Litv (Bool F)) => (SOME e)
     | (_, Litv (Bool b)) => (SOME (Lit (Bool b)))
-    | _ => (NONE)
+    | _ => NONE
   )))`;
 
 
@@ -359,8 +359,8 @@ val _ = Define `
 (SOME e1)
   else if v = Litv (Bool F) then    
 (SOME e2)
-  else    
-(NONE)))`;
+  else
+    NONE))`;
 
 
 (* Semantic helpers for definitions *)
@@ -389,7 +389,7 @@ val _ = Define `
  (check_dup_ctors mn_opt cenv tds =  
 ((! ((tvs, tn, condefs) :: 
   (LIST_TO_SET tds)) ((n, ts) :: (LIST_TO_SET condefs)).
-     lookup (mk_id mn_opt n) cenv = (NONE))
+     lookup (mk_id mn_opt n) cenv = NONE)
   /\  
 (ALL_DISTINCT (let x2 = 
   ([]) in  (FOLDR
@@ -437,7 +437,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val _ = Define `
 
-(top_to_cenv (Tdec d) = (dec_to_cenv (NONE) d))
+(top_to_cenv (Tdec d) = (dec_to_cenv NONE d))
 /\
 (top_to_cenv (Tmod mn _ ds) = (decs_to_cenv ((SOME mn)) ds))`;
 
@@ -453,7 +453,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Define `
  (int_to_string z =  
-(if z <((  0 : int)) then "~"++((num_to_dec_string ((Num ((int_neg z))))))
+(if z <(( 0 : int)) then "~"++((num_to_dec_string ((Num ((int_neg z))))))
   else (num_to_dec_string ((Num z)))))`;
 
 val _ = export_theory()

@@ -95,17 +95,17 @@ val _ = Define `
     | (Capp2 op v' () , env) :: c =>
         (case do_app s env op v' v of
             (SOME (s',env,e)) => Estep (envM, envC, s', env, Exp e, c)
-          | (NONE) => Etype_error
+          | NONE => Etype_error
         )
     | (Clog l ()  e, env) :: c =>
         (case do_log l v e of
             (SOME e) => Estep (envM, envC, s, env, Exp e, c)
-          | (NONE) => Etype_error
+          | NONE => Etype_error
         )
     | (Cif ()  e1 e2, env) :: c =>
         (case do_if v e1 e2 of
             (SOME e) => Estep (envM, envC, s, env, Exp e, c)
-          | (NONE) => Etype_error
+          | NONE => Etype_error
         )
     | (Cmat ()  [] err_v, env) :: c =>
         Estep (envM, envC, s, env, Val err_v, ((Craise () , env) ::c))
@@ -121,19 +121,19 @@ val _ = Define `
     | (Clet n ()  e, env) :: c =>
         Estep (envM, envC, s, bind n v env, Exp e, c)
     | (Ccon n vs ()  [], env) :: c =>
-        if do_con_check envC n ((LENGTH vs) +(  1)) then
+        if do_con_check envC n ((LENGTH vs) + 1) then
           return envM envC s env (Conv n ((REVERSE (v::vs)))) c
         else
           Etype_error
     | (Ccon n vs ()  (e::es), env) :: c =>
-        if do_con_check envC n ((((LENGTH vs) +(  1)) +(  1)) + (LENGTH es)) then
+        if do_con_check envC n ((((LENGTH vs) + 1) + 1) + (LENGTH es)) then
           push envM envC s env e (Ccon n (v::vs) ()  es) c
         else
           Etype_error
     | (Cuapp uop () , env) :: c =>
        (case do_uapp s uop v of
            (SOME (s',v')) => return envM envC s' env v' c
-         | (NONE) => Etype_error
+         | NONE => Etype_error
        )
   )))`;
 
@@ -168,7 +168,7 @@ val _ = Define `
                 Etype_error
           | Var n =>
               (case lookup_var_id n envM env of
-                  (NONE) => Etype_error
+                  NONE => Etype_error
                 | (SOME v) => 
                     return envM envC s env v c
               )
