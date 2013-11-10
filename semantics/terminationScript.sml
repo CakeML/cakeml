@@ -1,5 +1,5 @@
 open preamble intSimps;
-open LibTheory AstTheory SemanticPrimitivesTheory TypeSystemTheory AltBigStepTheory ElabTheory;
+open libTheory astTheory semanticPrimitivesTheory typeSystemTheory altBigStepTheory elabTheory;
 
 val _ = new_theory "termination";
 

@@ -444,16 +444,17 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (* conversions to strings *)
 
-(* TODO : Put back.  Why is ^ missing now? *)
-(*
-let rec
-id_to_string (Short s) = s
-and
-id_to_string (Long x y) = x^"."^y
+ val _ = Define `
 
-let int_to_string z =
-  if Int.(<) z (i 0) then "~"^(num_to_string (int_to_num (neg z)))
-  else num_to_string (int_to_num z)
-*)
+(id_to_string (Short s) = s)
+/\
+(id_to_string (Long x y) = (x++("."++y)))`;
+
+
+val _ = Define `
+ (int_to_string z =  
+(if z <((  0 : int)) then "~"++((num_to_dec_string ((Num ((int_neg z))))))
+  else (num_to_dec_string ((Num z)))))`;
+
 val _ = export_theory()
 

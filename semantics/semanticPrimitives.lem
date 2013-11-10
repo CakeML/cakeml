@@ -366,14 +366,11 @@ top_to_cenv (Tmod mn _ ds) = decs_to_cenv (Just mn) ds
 
 (* conversions to strings *)
 
-(* TODO : Put back.  Why is ^ missing now? *)
-(*
 let rec
 id_to_string (Short s) = s
 and
 id_to_string (Long x y) = x^"."^y
 
 let int_to_string z =
-  if Int.(<) z (i 0) then "~"^(num_to_string (int_to_num (neg z)))
+  if z < 0 then "~"^(num_to_string (int_to_num (neg z)))
   else num_to_string (int_to_num z)
-*)

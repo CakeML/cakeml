@@ -6,16 +6,16 @@ open import Pervasives
 (*
 val i : num -> Int.int
 let inline {hol} i = Hol.(&)
-
-val int_to_num : int -> num
-let inline {hol} int_to_num = Hol.Num
-
-val num_to_string : num -> string
-let inline {hol} num_to_string = Hol.num_to_dec_string
-
-val neg : int -> int
-let inline {hol} neg = Hol.int_neg
 *)
+
+val int_to_num : integer -> nat
+declare hol target_rep function int_to_num = `Num`
+
+val num_to_string : nat -> string
+declare hol target_rep function num_to_string = `num_to_dec_string`
+
+val neg : integer -> integer
+declare hol target_rep function neg = `int_neg`
 
 val all_distinct : forall 'a. list 'a -> bool
 declare hol    target_rep function all_distinct = `ALL_DISTINCT`
@@ -37,6 +37,8 @@ let option_map f x =
 val LUPDATE : forall 'a. 'a -> nat -> list 'a -> list 'a
 declare hol    target_rep function LUPDATE = `LUPDATE`
 
+val (^) : string -> string -> string
+declare hol target_rep function (^) = infix `++`
 
 (* Environments *)
 type env 'a 'b = list ('a*'b)

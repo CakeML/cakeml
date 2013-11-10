@@ -1,7 +1,7 @@
 open preamble;
 open ASCIInumbersTheory;
-open BigStepTheory TypeSystemTheory AstTheory ElabTheory lexer_funTheory;
-open InitialEnvTheory;
+open bigStepTheory typeSystemTheory astTheory elabTheory lexer_funTheory;
+open initialEnvTheory;
 open gramTheory cmlPtreeConversionTheory;
 
 val _ = new_theory "repl";

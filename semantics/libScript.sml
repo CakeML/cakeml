@@ -16,16 +16,13 @@ val _ = new_theory "lib"
 (*
 val i : num -> Int.int
 let inline {hol} i = Hol.(&)
-
-val int_to_num : int -> num
-let inline {hol} int_to_num = Hol.Num
-
-val num_to_string : num -> string
-let inline {hol} num_to_string = Hol.num_to_dec_string
-
-val neg : int -> int
-let inline {hol} neg = Hol.int_neg
 *)
+
+(*val int_to_num : integer -> nat*)
+
+(*val num_to_string : nat -> string*)
+
+(*val neg : integer -> integer*)
 
 (*val all_distinct : forall 'a. list 'a -> bool*)
 
@@ -45,6 +42,7 @@ val _ = Define `
 (* Change the nth element in the list to 'a *)
 (*val LUPDATE : forall 'a. 'a -> nat -> list 'a -> list 'a*)
 
+(*val ^ : string -> string -> string*)
 
 (* Environments *)
 val _ = type_abbrev((* ( 'a, 'b) *) "env" , ``: ('a#'b) list``);
