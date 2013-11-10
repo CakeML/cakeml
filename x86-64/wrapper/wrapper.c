@@ -25,6 +25,7 @@ int main(int argc, char** argv) {
   asm ("    movq %0, %%rax          \n" /* pointer to heap is in rax */
        "    jmp L2                  \n"
        "    .align 4                \n"
+       "    .byte 0x5               \n"
        "L1: .include \"asm_code.s\" \n" /* ret address on top of stack */
        "L2: call L1                 \n"
        : /* no output */ : /* input: heap */ "r"(heap)

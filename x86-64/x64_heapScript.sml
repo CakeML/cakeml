@@ -12804,13 +12804,44 @@ print_compiler_grammar();
 
 (*
 
-fun generate_test th1 = let
-  val th = SPEC_COMPOSE_RULE [zHEAP_INIT,zHEAP_ABBREVS,th1,zHEAP_TERMINATE]
+local
+  val th0 = SPEC_COMPOSE_RULE [zHEAP_INIT,zHEAP_ABBREVS]
            |> SIMP_RULE (srw_ss()) [code_abbrevs_def,all_abbrevs]
            |> RW [INSERT_UNION_EQ,UNION_EMPTY]
-           |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [first_cs_def,first_s_def]))
-  val _ = export_codeLib.write_code_to_file "wrapper/asm_code.s" th
-  in th end
+in
+  fun generate_test th1 = let
+    val _ = print " [1] "
+    val th = SPEC_COMPOSE_RULE [th0,th1,zHEAP_TERMINATE]
+    val _ = print " [2] "
+    val th = th |> RW [INSERT_UNION_EQ,UNION_EMPTY]
+    val _ = print " [3] "
+    val th = th |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [first_cs_def,first_s_def]))
+    val _ = print " [4] "
+    val _ = export_codeLib.write_code_to_file "wrapper/asm_code.s" th
+    in th end
+end
+
+local
+  val x64_code_EVAL_NIL = x64_code_def |> CONJUNCTS |> hd |> SPEC_ALL
+  val x64_code_EVAL_CONS = prove(
+    ``x64_code i (x::xs) =
+        (\c. (\l. c ++ x64_code l xs) (i + LENGTH c)) (x64 i x)``,
+    SIMP_TAC std_ss [x64_code_def,x64_length_def,LENGTH_x64_IGNORE])
+  val APPEND_NIL = APPEND |> CONJUNCTS |> hd |> SPEC_ALL
+  val APPEND_CONS = APPEND |> CONJUNCTS |> last |> SPEC_ALL
+  fun eval_append_conv f tm =
+    (REWR_CONV APPEND_NIL THENC f) tm
+    handle HOL_ERR _ =>
+    (REWR_CONV APPEND_CONS THENC RAND_CONV (eval_append_conv f)) tm
+in
+  fun eval_x64_code_conv tm =
+    if tm |> rand |> listSyntax.is_nil then
+      REWR_CONV x64_code_EVAL_NIL tm
+    else
+      (REWR_CONV x64_code_EVAL_CONS THENC (RAND_CONV EVAL)
+       THENC BETA_CONV THENC (RAND_CONV EVAL) THENC BETA_CONV
+       THENC eval_append_conv eval_x64_code_conv) tm
+end
 
 print "A\n":
 
@@ -13000,44 +13031,949 @@ val tm =
    PrintC #" "; PrintC #"k"; PrintC #"_"; PrintC #"2"; PrintC #" ";
    PrintC #"="; PrintC #" "; Stack (Load 0); Print; PrintC #"\n"]``
 
+QSORT (<=) (mk_list 1000 ++ mk_list 1000)
+
+val tm =
+   ``[PushPtr (Addr 0); PushExc; Stack (Cons 4 0); Stack Pop;
+   Stack (Cons 0 0); PopExc; Stack (Pops 1); Stack Pop; PrintC #"P";
+   PrintC #"a"; PrintC #"i"; PrintC #"r"; PrintC #" "; PrintC #"=";
+   PrintC #" "; PrintC #"<"; PrintC #"c"; PrintC #"o"; PrintC #"n";
+   PrintC #"s"; PrintC #"t"; PrintC #"r"; PrintC #"u"; PrintC #"c";
+   PrintC #"t"; PrintC #"o"; PrintC #"r"; PrintC #">"; PrintC #"\n";
+   PushPtr (Addr 0); PushExc; Jump (Addr 2355); Stack (PushInt 0); Ref;
+   PushPtr (Addr 768); Stack (Load 0); Stack (Load 6); Stack (Load 6);
+   Stack (Cons 0 2); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 0);
+   Stack (Pops 2); Stack (Load 1); Stack (Store 3); Stack (Pops 2);
+   Return; Stack (PushInt 0); Ref; PushPtr (Addr 959); Stack (Load 0);
+   Stack (Load 5); Stack (Load 4); Stack (El 0); Stack (Load 5);
+   Stack (El 1); Stack (Cons 0 3); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 0); Stack (Pops 2); Stack (Load 1); Stack (Store 3);
+   Stack (Pops 2); Return; Stack (PushInt 0); Ref; PushPtr (Addr 1162);
+   Stack (Load 0); Stack (Load 3); Stack (El 0); Stack (Load 4);
+   Stack (El 1); Stack (Load 5); Stack (El 2); Stack (Load 8);
+   Stack (Cons 0 4); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 0);
+   Stack (Pops 2); Stack (Load 1); Stack (Store 3); Stack (Pops 2);
+   Return; Stack (Load 0); Stack (El 0); Stack (PushInt 0); Ref;
+   PushPtr (Addr 1533); Stack (Load 0); Stack (Load 3); Stack (Load 5);
+   Stack (El 1); Stack (Load 6); Stack (El 2); Stack (Load 7);
+   Stack (El 3); Stack (Load 10); Stack (Cons 0 5); Stack (Cons 3 2);
+   Stack (Store 0); Stack (Load 1); Stack (Load 1); Update;
+   Stack (Store 0); Stack (Load 1); Stack (TagEq 8); JumpIf (Addr 1399);
+   Jump (Addr 1475); Stack (Load 2); Stack (El 3); Stack (Load 5);
+   Stack (Cons 10 2); Stack (Pops 3); Stack (Load 1); Stack (Store 3);
+   Stack (Pops 2); Return; Jump (Addr 1533); Stack (Load 0);
+   Stack (Load 4); Stack (Load 1); Stack (El 0); Stack (Load 2);
+   Stack (El 1); Stack (Shift 4 6); Return; Stack (PushInt 0); Ref;
+   PushPtr (Addr 2343); Stack (Load 0); Stack (Cons 0 0);
+   Stack (Cons 3 2); Stack (Store 0); Stack (Load 1); Stack (Load 1);
+   Update; Stack (Store 0); Stack (Load 1); Stack (El 0);
+   Stack (TagEq 9); JumpIf (Addr 1689); Jump (Addr 2285);
+   Stack (Load 1); Stack (El 0); Stack (El 0); Stack (Load 0);
+   Stack (Load 3); Stack (El 0); Stack (El 1); Stack (Load 0);
+   Stack (Load 5); Stack (El 2); Stack (Load 3); Stack (Load 1);
+   Stack (El 1); Stack (Load 2); Stack (El 0); Tick; CallPtr;
+   JumpIf (Addr 1793); Jump (Addr 2039); Stack (Load 5); Stack (El 1);
+   Stack (Load 6); Stack (El 2); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 1);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Load 3); Stack (Load 7); Stack (El 3);
+   Stack (Cons 9 2); Stack (Load 1); Stack (El 1); Stack (Load 2);
+   Stack (El 0); Tick; CallPtr; Stack (Load 6); Stack (El 4);
+   Stack (Load 8); Stack (Load 2); Stack (El 0); Stack (Load 3);
+   Stack (El 1); Stack (Shift 5 8); Tick; Return; Jump (Addr 2282);
+   Stack (Load 5); Stack (El 1); Stack (Load 6); Stack (El 2);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Load 1); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 6);
+   Stack (El 3); Stack (Load 1); Stack (El 1); Stack (Load 2);
+   Stack (El 0); Tick; CallPtr; Stack (Load 3); Stack (Load 7);
+   Stack (El 4); Stack (Cons 9 2); Stack (Load 8); Stack (Load 2);
+   Stack (El 0); Stack (Load 3); Stack (El 1); Stack (Shift 5 8); Tick;
+   Return; Jump (Addr 2343); Stack (Load 0); Stack (Load 3);
+   Stack (Load 1); Stack (El 0); Stack (Load 2); Stack (El 1);
+   Stack (Shift 4 4); Return; Stack (Cons 5 0); PopExc; Return;
+   Stack (PushInt 0); Ref; PushPtr (Addr 596); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 0);
+   Stack (Cons 4 1); Stack (Pops 1); Stack (Load 0); Stack (Load 0);
+   Stack (El 0); Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc;
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l";
+   PrintC #" "; PrintC #"p"; PrintC #"a"; PrintC #"r"; PrintC #"t";
+   PrintC #" "; PrintC #"="; PrintC #" "; Stack (Load 0); Print;
+   PrintC #"\n"; PushPtr (Addr 0); PushExc; Jump (Addr 3316);
+   Stack (PushInt 0); Ref; PushPtr (Addr 3115); Stack (Load 0);
+   Stack (Load 3); Stack (El 0); Stack (Load 6); Stack (Cons 0 2);
+   Stack (Cons 3 2); Stack (Store 0); Stack (Load 1); Stack (Load 1);
+   Update; Stack (Store 0); Stack (Load 0); Stack (Pops 2);
+   Stack (Load 1); Stack (Store 3); Stack (Pops 2); Return;
+   Stack (Load 0); Stack (El 0); Stack (Load 1); Stack (El 1);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Load 3); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Cons 8 0);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Cons 8 0); Stack (Load 3); Stack (Load 2);
+   Stack (El 0); Stack (Load 3); Stack (El 1); Stack (Shift 5 4); Tick;
+   Return; Stack (Cons 5 0); PopExc; Return; Stack (PushInt 0); Ref;
+   PushPtr (Addr 2936); Stack (Load 0); Stack (LoadRev 0);
+   Stack (Cons 0 1); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 0);
+   Stack (Pops 1); Stack (PushInt 0); Ref; PushPtr (Addr 3304);
+   Stack (Load 0); Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 1); Stack (Load 0); Stack (Cons 4 1); Stack (Pops 1);
+   Stack (Pops 1); Stack (Pops 1); Stack (Load 0); Stack (Load 0);
+   Stack (El 0); Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc;
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l";
+   PrintC #" "; PrintC #"p"; PrintC #"a"; PrintC #"r"; PrintC #"t";
+   PrintC #"i"; PrintC #"t"; PrintC #"i"; PrintC #"o"; PrintC #"n";
+   PrintC #" "; PrintC #"="; PrintC #" "; Stack (Load 0); Print;
+   PrintC #"\n"; PushPtr (Addr 0); PushExc; Jump (Addr 5093);
+   Stack (PushInt 0); Ref; PushPtr (Addr 4366); Stack (Load 0);
+   Stack (Load 5); Stack (Load 7); Stack (Cons 0 2); Stack (Cons 3 2);
+   Stack (Store 0); Stack (Load 1); Stack (Load 1); Update;
+   Stack (Store 0); Stack (Load 0); Stack (Pops 2); Stack (Load 1);
+   Stack (Store 3); Stack (Pops 2); Return; Stack (Load 0);
+   Stack (El 0); Stack (PushInt 0); Ref; PushPtr (Addr 4666);
+   Stack (Load 0); Stack (Load 3); Stack (Load 5); Stack (El 1);
+   Stack (Load 8); Stack (Cons 0 3); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 1); Stack (TagEq 8); JumpIf (Addr 4579);
+   Jump (Addr 4608); Stack (Load 4); Stack (Pops 3); Stack (Load 1);
+   Stack (Store 3); Stack (Pops 2); Return; Jump (Addr 4666);
+   Stack (Load 0); Stack (Load 4); Stack (Load 1); Stack (El 0);
+   Stack (Load 2); Stack (El 1); Stack (Shift 4 6); Return;
+   Stack (PushInt 0); Ref; PushPtr (Addr 5081); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 1);
+   Stack (El 0); Stack (TagEq 9); JumpIf (Addr 4822); Jump (Addr 5023);
+   Stack (Load 1); Stack (El 0); Stack (El 0); Stack (Load 0);
+   Stack (Load 3); Stack (El 0); Stack (El 1); Stack (Load 0);
+   Stack (Load 2); Stack (Load 6); Stack (El 1); Stack (Load 2);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Load 7); Stack (El 2); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Cons 9 2);
+   Stack (Pops 6); Stack (Load 1); Stack (Store 2); Stack (Pops 1);
+   Return; Jump (Addr 5081); Stack (Load 0); Stack (Load 3);
+   Stack (Load 1); Stack (El 0); Stack (Load 2); Stack (El 1);
+   Stack (Shift 4 4); Return; Stack (Cons 5 0); PopExc; Return;
+   Stack (PushInt 0); Ref; PushPtr (Addr 4194); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 0);
+   Stack (Cons 4 1); Stack (Pops 1); Stack (Load 0); Stack (Load 0);
+   Stack (El 0); Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc;
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l";
+   PrintC #" "; PrintC #"a"; PrintC #"p"; PrintC #"p"; PrintC #"e";
+   PrintC #"n"; PrintC #"d"; PrintC #" "; PrintC #"="; PrintC #" ";
+   Stack (Load 0); Print; PrintC #"\n"; PushPtr (Addr 0); PushExc;
+   Jump (Addr 7540); Stack (PushInt 0); Ref; PushPtr (Addr 5922);
+   Stack (Load 0); Stack (Load 3); Stack (El 0); Stack (Load 4);
+   Stack (El 1); Stack (Load 8); Stack (Load 8); Stack (Cons 0 4);
+   Stack (Cons 3 2); Stack (Store 0); Stack (Load 1); Stack (Load 1);
+   Update; Stack (Store 0); Stack (Load 0); Stack (Pops 2);
+   Stack (Load 1); Stack (Store 3); Stack (Pops 2); Return;
+   Stack (Load 2); Stack (PushInt 0); Ref; PushPtr (Addr 6246);
+   Stack (Load 0); Stack (Load 3); Stack (Load 5); Stack (El 0);
+   Stack (Load 6); Stack (El 1); Stack (Load 7); Stack (El 2);
+   Stack (Load 8); Stack (El 3); Stack (Cons 0 5); Stack (Cons 3 2);
+   Stack (Store 0); Stack (Load 1); Stack (Load 1); Update;
+   Stack (Store 0); Stack (Load 1); Stack (TagEq 8); JumpIf (Addr 6159);
+   Jump (Addr 6188); Stack (Cons 8 0); Stack (Pops 3); Stack (Load 1);
+   Stack (Store 3); Stack (Pops 2); Return; Jump (Addr 6246);
+   Stack (Load 0); Stack (Load 4); Stack (Load 1); Stack (El 0);
+   Stack (Load 2); Stack (El 1); Stack (Shift 4 6); Return;
+   Stack (PushInt 0); Ref; PushPtr (Addr 7397); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 1);
+   Stack (El 0); Stack (TagEq 9); JumpIf (Addr 6402); Jump (Addr 7339);
+   Stack (Load 1); Stack (El 0); Stack (El 0); Stack (Load 0);
+   Stack (Load 3); Stack (El 0); Stack (El 1); Stack (Load 0);
+   Stack (Load 5); Stack (El 1); Stack (PushInt 0); Ref;
+   PushPtr (Addr 7409); Stack (Load 0); Stack (Load 9); Stack (El 4);
+   Stack (Load 7); Stack (Cons 0 2); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 0); Stack (Pops 1); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 1);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Load 0); Stack (PushInt 0); Ref; PushPtr (Addr 7528);
+   Stack (Load 0); Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 1); Stack (TagEq 10); JumpIf (Addr 6844);
+   Jump (Addr 7278); Stack (Load 1); Stack (El 0); Stack (Load 0);
+   Stack (Load 3); Stack (El 1); Stack (Load 0); Stack (Load 12);
+   Stack (El 2); Stack (Load 13); Stack (El 2); Stack (Load 14);
+   Stack (El 3); Stack (Load 15); Stack (El 4); Stack (Load 1);
+   Stack (El 1); Stack (Load 2); Stack (El 0); Tick; CallPtr;
+   Stack (Load 5); Stack (Load 1); Stack (El 1); Stack (Load 2);
+   Stack (El 0); Tick; CallPtr; Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 11);
+   Stack (Cons 8 0); Stack (Cons 9 2); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 1);
+   Stack (El 1); Stack (Load 2); Stack (El 0); Tick; CallPtr;
+   Stack (Load 13); Stack (El 3); Stack (Load 14); Stack (El 4);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Load 2); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 15);
+   Stack (Load 2); Stack (El 0); Stack (Load 3); Stack (El 1);
+   Stack (Shift 5 15); Tick; Return; Jump (Addr 7336); Stack (Load 0);
+   Stack (Load 10); Stack (Load 1); Stack (El 0); Stack (Load 2);
+   Stack (El 1); Stack (Shift 4 11); Return; Jump (Addr 7397);
+   Stack (Load 0); Stack (Load 3); Stack (Load 1); Stack (El 0);
+   Stack (Load 2); Stack (El 1); Stack (Shift 4 4); Return;
+   Stack (Cons 5 0); PopExc; Return; Stack (Load 0); Stack (El 0);
+   Stack (Load 3); Stack (Load 1); Stack (El 1); Stack (Load 2);
+   Stack (El 0); Tick; CallPtr; Stack (Load 1); Stack (El 1);
+   Stack (Load 3); Stack (Load 2); Stack (El 0); Stack (Load 3);
+   Stack (El 1); Stack (Shift 5 4); Tick; Return; Stack (Cons 5 0);
+   PopExc; Return; Stack (PushInt 0); Ref; PushPtr (Addr 5726);
+   Stack (Load 0); Stack (LoadRev 1); Stack (LoadRev 2);
+   Stack (Cons 0 2); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 0);
+   Stack (Cons 4 1); Stack (Pops 1); Stack (Load 0); Stack (Load 0);
+   Stack (El 0); Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc;
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l";
+   PrintC #" "; PrintC #"q"; PrintC #"s"; PrintC #"o"; PrintC #"r";
+   PrintC #"t"; PrintC #" "; PrintC #"="; PrintC #" "; Stack (Load 0);
+   Print; PrintC #"\n"; PushPtr (Addr 0); PushExc; Jump (Addr 8417);
+   Stack (Load 2); Stack (PushInt 0); Stack Sub; Stack (PushInt 1);
+   Stack Less; JumpIf (Addr 8229); Jump (Addr 8258); Stack (Cons 8 0);
+   Stack (Pops 1); Stack (Load 1); Stack (Store 3); Stack (Pops 2);
+   Return; Jump (Addr 8417); Stack (Load 2); Stack (Load 4);
+   Stack (Load 4); Stack (PushInt 1); Stack Sub; Stack (Load 0);
+   Stack (PushInt 0); Stack Less; JumpIf (Addr 8313); Jump (Addr 8321);
+   Stack (PushInt 0); Jump (Addr 8326); Stack (Load 0); Stack (Pops 1);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Cons 9 2); Stack (Pops 1); Stack (Load 1);
+   Stack (Store 3); Stack (Pops 2); Return; Stack (PushInt 0); Ref;
+   PushPtr (Addr 8189); Stack (Load 0); Stack (Cons 0 0);
+   Stack (Cons 3 2); Stack (Store 0); Stack (Load 1); Stack (Load 1);
+   Update; Stack (Store 0); Stack (Load 0); Stack (Cons 4 1);
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc; Stack (Pops 1);
+   Stack (Load 0); Stack (Load 0); Stack (El 0); Stack (Store 1);
+   Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l"; PrintC #" ";
+   PrintC #"m"; PrintC #"k"; PrintC #"_"; PrintC #"l"; PrintC #"i";
+   PrintC #"s"; PrintC #"t"; PrintC #" "; PrintC #"="; PrintC #" ";
+   Stack (Load 0); Print; PrintC #"\n"; PushPtr (Addr 0); PushExc;
+   Jump (Addr 9314); Stack (PushInt 0); Ref; PushPtr (Addr 9243);
+   Stack (Load 0); Stack (Load 5); Stack (Cons 0 1); Stack (Cons 3 2);
+   Stack (Store 0); Stack (Load 1); Stack (Load 1); Update;
+   Stack (Store 0); Stack (Load 0); Stack (Pops 2); Stack (Load 1);
+   Stack (Store 3); Stack (Pops 2); Return; Stack (Load 0);
+   Stack (El 0); Stack (Load 3); Stack Sub; Stack (PushInt 1);
+   Stack Less; Stack (Pops 1); Stack (Load 1); Stack (Store 3);
+   Stack (Pops 2); Return; Stack (Cons 5 0); PopExc; Return;
+   Stack (LoadRev 3); Stack (PushInt 0); Ref; PushPtr (Addr 9076);
+   Stack (Load 0); Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 0); Stack (Pops 1); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (LoadRev 2);
+   Stack (LoadRev 4); Stack (PushInt 1000); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 1);
+   Stack (El 1); Stack (Load 2); Stack (El 0); Tick; CallPtr;
+   Stack (LoadRev 4); Stack (PushInt 1000); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 1);
+   Stack (El 1); Stack (Load 2); Stack (El 0); Tick; CallPtr;
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (PushInt 0); Ref; PushPtr (Addr 9302); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 1);
+   Stack (Load 0); Stack (Cons 4 1); Stack (Pops 1); Stack (Pops 1);
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc; Stack (Pops 1);
+   Stack (Load 0); Stack (Load 0); Stack (El 0); Stack (Store 1);
+   Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l"; PrintC #" ";
+   PrintC #"u"; PrintC #"s"; PrintC #"e"; PrintC #"_"; PrintC #"q";
+   PrintC #"s"; PrintC #"o"; PrintC #"r"; PrintC #"t"; PrintC #" ";
+   PrintC #"="; PrintC #" "; Stack (Load 0); Print; PrintC #"\n"]``
+
+Batched queue:
+
+val tm =
+   ``[PushPtr (Addr 0); PushExc; Stack (Cons 4 0); Stack Pop;
+   Stack (Cons 0 0); PopExc; Stack (Pops 1); Stack Pop; PrintC #"Q";
+   PrintC #"u"; PrintC #"e"; PrintC #"u"; PrintC #"e"; PrintC #" ";
+   PrintC #"="; PrintC #" "; PrintC #"<"; PrintC #"c"; PrintC #"o";
+   PrintC #"n"; PrintC #"s"; PrintC #"t"; PrintC #"r"; PrintC #"u";
+   PrintC #"c"; PrintC #"t"; PrintC #"o"; PrintC #"r"; PrintC #">";
+   PrintC #"\n"; PushPtr (Addr 0); PushExc; Jump (Addr 634);
+   Stack (Cons 5 0); PopExc; Return; Stack (Cons 8 0); Stack (Cons 8 0);
+   Stack (Cons 10 2); Stack (PushInt 0); Ref; PushPtr (Addr 622);
+   Stack (Load 0); Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 1); Stack (Load 0); Stack (Cons 4 1); Stack (Pops 1);
+   Stack (Pops 1); Stack (Pops 1); Stack (Load 0); Stack (Load 0);
+   Stack (El 0); Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc;
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l";
+   PrintC #" "; PrintC #"e"; PrintC #"m"; PrintC #"p"; PrintC #"t";
+   PrintC #"y"; PrintC #" "; PrintC #"="; PrintC #" "; Stack (Load 0);
+   Print; PrintC #"\n"; PushPtr (Addr 0); PushExc; Jump (Addr 2153);
+   Stack (Load 2); Stack (PushInt 0); Ref; PushPtr (Addr 1826);
+   Stack (Load 0); Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 1); Stack (TagEq 10); JumpIf (Addr 1455);
+   Jump (Addr 1768); Stack (Load 1); Stack (El 0); Stack (Load 0);
+   Stack (Load 3); Stack (El 1); Stack (Load 0); Stack (Load 2);
+   Stack (PushInt 0); Ref; PushPtr (Addr 1838); Stack (Load 0);
+   Stack (Load 3); Stack (Cons 0 1); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 1); Stack (TagEq 8); JumpIf (Addr 1678);
+   Jump (Addr 1707); Stack (Cons 1 0); Stack (Pops 9); Stack (Load 1);
+   Stack (Store 3); Stack (Pops 2); Return; Jump (Addr 1765);
+   Stack (Load 0); Stack (Load 10); Stack (Load 1); Stack (El 0);
+   Stack (Load 2); Stack (El 1); Stack (Shift 4 12); Return;
+   Jump (Addr 1826); Stack (Load 0); Stack (Load 4); Stack (Load 1);
+   Stack (El 0); Stack (Load 2); Stack (El 1); Stack (Shift 4 6);
+   Return; Stack (Cons 5 0); PopExc; Return; Stack (PushInt 0); Ref;
+   PushPtr (Addr 2129); Stack (Load 0); Stack (Cons 0 0);
+   Stack (Cons 3 2); Stack (Store 0); Stack (Load 1); Stack (Load 1);
+   Update; Stack (Store 0); Stack (Load 1); Stack (El 0);
+   Stack (TagEq 9); JumpIf (Addr 1994); Jump (Addr 2071);
+   Stack (Load 1); Stack (El 0); Stack (El 0); Stack (Load 0);
+   Stack (Load 3); Stack (El 0); Stack (El 1); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Pops 6); Stack (Load 1); Stack (Store 2);
+   Stack (Pops 1); Return; Jump (Addr 2129); Stack (Load 0);
+   Stack (Load 3); Stack (Load 1); Stack (El 0); Stack (Load 2);
+   Stack (El 1); Stack (Shift 4 4); Return; Stack (Cons 5 0); PopExc;
+   Return; Stack (Cons 5 0); PopExc; Return; Stack (PushInt 0); Ref;
+   PushPtr (Addr 1301); Stack (Load 0); Stack (Cons 0 0);
+   Stack (Cons 3 2); Stack (Store 0); Stack (Load 1); Stack (Load 1);
+   Update; Stack (Store 0); Stack (Load 0); Stack (Pops 1);
+   Stack (PushInt 0); Ref; PushPtr (Addr 2141); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 1);
+   Stack (Load 0); Stack (Cons 4 1); Stack (Pops 1); Stack (Pops 1);
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc; Stack (Pops 1);
+   Stack (Load 0); Stack (Load 0); Stack (El 0); Stack (Store 1);
+   Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l"; PrintC #" ";
+   PrintC #"i"; PrintC #"s"; PrintC #"_"; PrintC #"e"; PrintC #"m";
+   PrintC #"p"; PrintC #"t"; PrintC #"y"; PrintC #" "; PrintC #"=";
+   PrintC #" "; Stack (Load 0); Print; PrintC #"\n"; PushPtr (Addr 0);
+   PushExc; Jump (Addr 3877); Stack (PushInt 0); Ref;
+   PushPtr (Addr 3141); Stack (Load 0); Stack (Load 5); Stack (Load 7);
+   Stack (Cons 0 2); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 0);
+   Stack (Pops 2); Stack (Load 1); Stack (Store 3); Stack (Pops 2);
+   Return; Stack (Load 0); Stack (El 0); Stack (PushInt 0); Ref;
+   PushPtr (Addr 3441); Stack (Load 0); Stack (Load 3); Stack (Load 5);
+   Stack (El 1); Stack (Load 8); Stack (Cons 0 3); Stack (Cons 3 2);
+   Stack (Store 0); Stack (Load 1); Stack (Load 1); Update;
+   Stack (Store 0); Stack (Load 1); Stack (TagEq 8); JumpIf (Addr 3354);
+   Jump (Addr 3383); Stack (Load 4); Stack (Pops 3); Stack (Load 1);
+   Stack (Store 3); Stack (Pops 2); Return; Jump (Addr 3441);
+   Stack (Load 0); Stack (Load 4); Stack (Load 1); Stack (El 0);
+   Stack (Load 2); Stack (El 1); Stack (Shift 4 6); Return;
+   Stack (PushInt 0); Ref; PushPtr (Addr 3865); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 1);
+   Stack (El 0); Stack (TagEq 9); JumpIf (Addr 3597); Jump (Addr 3807);
+   Stack (Load 1); Stack (El 0); Stack (El 0); Stack (Load 0);
+   Stack (Load 3); Stack (El 0); Stack (El 1); Stack (Load 0);
+   Stack (Load 5); Stack (El 1); Stack (Load 1); Stack (Load 1);
+   Stack (El 1); Stack (Load 2); Stack (El 0); Tick; CallPtr;
+   Stack (Load 3); Stack (Load 7); Stack (El 2); Stack (Cons 9 2);
+   Stack (Load 8); Stack (Load 2); Stack (El 0); Stack (Load 3);
+   Stack (El 1); Stack (Shift 5 8); Tick; Return; Jump (Addr 3865);
+   Stack (Load 0); Stack (Load 3); Stack (Load 1); Stack (El 0);
+   Stack (Load 2); Stack (El 1); Stack (Shift 4 4); Return;
+   Stack (Cons 5 0); PopExc; Return; Stack (PushInt 0); Ref;
+   PushPtr (Addr 2969); Stack (Load 0); Stack (Cons 0 0);
+   Stack (Cons 3 2); Stack (Store 0); Stack (Load 1); Stack (Load 1);
+   Update; Stack (Store 0); Stack (Load 0); Stack (Cons 4 1);
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc; Stack (Pops 1);
+   Stack (Load 0); Stack (Load 0); Stack (El 0); Stack (Store 1);
+   Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l"; PrintC #" ";
+   PrintC #"r"; PrintC #"e"; PrintC #"v"; PrintC #" "; PrintC #"=";
+   PrintC #" "; Stack (Load 0); Print; PrintC #"\n"; PushPtr (Addr 0);
+   PushExc; Jump (Addr 4556); Stack (Load 0); Stack (El 0);
+   Stack (Load 3); Stack (Load 1); Stack (El 1); Stack (Load 2);
+   Stack (El 0); Tick; CallPtr; Stack (Cons 8 0); Stack (Load 3);
+   Stack (Load 2); Stack (El 0); Stack (Load 3); Stack (El 1);
+   Stack (Shift 5 4); Tick; Return; Stack (Cons 5 0); PopExc; Return;
+   Stack (PushInt 0); Ref; PushPtr (Addr 4432); Stack (Load 0);
+   Stack (LoadRev 2); Stack (Cons 0 1); Stack (Cons 3 2);
+   Stack (Store 0); Stack (Load 1); Stack (Load 1); Update;
+   Stack (Store 0); Stack (Load 0); Stack (Pops 1); Stack (PushInt 0);
+   Ref; PushPtr (Addr 4544); Stack (Load 0); Stack (Cons 0 0);
+   Stack (Cons 3 2); Stack (Store 0); Stack (Load 1); Stack (Load 1);
+   Update; Stack (Store 0); Stack (Load 1); Stack (Load 0);
+   Stack (Cons 4 1); Stack (Pops 1); Stack (Pops 1); Stack (Pops 1);
+   Stack (Load 0); Stack (Load 0); Stack (El 0); Stack (Store 1);
+   Stack Pop; Stack (Cons 0 1); PopExc; Stack (Pops 1); Stack (Load 0);
+   Stack (Load 0); Stack (El 0); Stack (Store 1); Stack Pop;
+   PrintC #"v"; PrintC #"a"; PrintC #"l"; PrintC #" "; PrintC #"r";
+   PrintC #"e"; PrintC #"v"; PrintC #"e"; PrintC #"r"; PrintC #"s";
+   PrintC #"e"; PrintC #" "; PrintC #"="; PrintC #" "; Stack (Load 0);
+   Print; PrintC #"\n"; PushPtr (Addr 0); PushExc; Jump (Addr 6408);
+   Stack (Load 2); Stack (PushInt 0); Ref; PushPtr (Addr 5994);
+   Stack (Load 0); Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 1); Stack (TagEq 10); JumpIf (Addr 5536);
+   Jump (Addr 5936); Stack (Load 1); Stack (El 0); Stack (Load 0);
+   Stack (Load 3); Stack (El 1); Stack (Load 0); Stack (Load 2);
+   Stack (PushInt 0); Ref; PushPtr (Addr 6006); Stack (Load 0);
+   Stack (Load 3); Stack (Load 5); Stack (Cons 0 2); Stack (Cons 3 2);
+   Stack (Store 0); Stack (Load 1); Stack (Load 1); Update;
+   Stack (Store 0); Stack (Load 1); Stack (TagEq 8); JumpIf (Addr 5764);
+   Jump (Addr 5875); Stack (Load 8); Stack (El 0); Stack (Load 3);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Cons 8 0); Stack (Cons 10 2); Stack (Pops 9);
+   Stack (Load 1); Stack (Store 3); Stack (Pops 2); Return;
+   Jump (Addr 5933); Stack (Load 0); Stack (Load 10); Stack (Load 1);
+   Stack (El 0); Stack (Load 2); Stack (El 1); Stack (Shift 4 12);
+   Return; Jump (Addr 5994); Stack (Load 0); Stack (Load 4);
+   Stack (Load 1); Stack (El 0); Stack (Load 2); Stack (El 1);
+   Stack (Shift 4 6); Return; Stack (Cons 5 0); PopExc; Return;
+   Stack (PushInt 0); Ref; PushPtr (Addr 6384); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 1);
+   Stack (El 0); Stack (TagEq 9); JumpIf (Addr 6162); Jump (Addr 6326);
+   Stack (Load 1); Stack (El 0); Stack (El 0); Stack (Load 0);
+   Stack (Load 3); Stack (El 0); Stack (El 1); Stack (Load 0);
+   Stack (Load 2); Stack (Load 1); Stack (Cons 9 2); Stack (Load 6);
+   Stack (El 1); Stack (Cons 10 2); Stack (Pops 6); Stack (Load 1);
+   Stack (Store 2); Stack (Pops 1); Return; Jump (Addr 6384);
+   Stack (Load 0); Stack (Load 3); Stack (Load 1); Stack (El 0);
+   Stack (Load 2); Stack (El 1); Stack (Shift 4 4); Return;
+   Stack (Cons 5 0); PopExc; Return; Stack (Cons 5 0); PopExc; Return;
+   Stack (PushInt 0); Ref; PushPtr (Addr 5382); Stack (Load 0);
+   Stack (LoadRev 3); Stack (Cons 0 1); Stack (Cons 3 2);
+   Stack (Store 0); Stack (Load 1); Stack (Load 1); Update;
+   Stack (Store 0); Stack (Load 0); Stack (Pops 1); Stack (PushInt 0);
+   Ref; PushPtr (Addr 6396); Stack (Load 0); Stack (Cons 0 0);
+   Stack (Cons 3 2); Stack (Store 0); Stack (Load 1); Stack (Load 1);
+   Update; Stack (Store 0); Stack (Load 1); Stack (Load 0);
+   Stack (Cons 4 1); Stack (Pops 1); Stack (Pops 1); Stack (Pops 1);
+   Stack (Load 0); Stack (Load 0); Stack (El 0); Stack (Store 1);
+   Stack Pop; Stack (Cons 0 1); PopExc; Stack (Pops 1); Stack (Load 0);
+   Stack (Load 0); Stack (El 0); Stack (Store 1); Stack Pop;
+   PrintC #"v"; PrintC #"a"; PrintC #"l"; PrintC #" "; PrintC #"c";
+   PrintC #"h"; PrintC #"e"; PrintC #"c"; PrintC #"k"; PrintC #"f";
+   PrintC #" "; PrintC #"="; PrintC #" "; Stack (Load 0); Print;
+   PrintC #"\n"; PushPtr (Addr 0); PushExc; Jump (Addr 7824);
+   Stack (PushInt 0); Ref; PushPtr (Addr 7387); Stack (Load 0);
+   Stack (Load 5); Stack (Load 4); Stack (El 0); Stack (Cons 0 2);
+   Stack (Cons 3 2); Stack (Store 0); Stack (Load 1); Stack (Load 1);
+   Update; Stack (Store 0); Stack (Load 0); Stack (Pops 2);
+   Stack (Load 1); Stack (Store 3); Stack (Pops 2); Return;
+   Stack (Load 0); Stack (El 0); Stack (PushInt 0); Ref;
+   PushPtr (Addr 7800); Stack (Load 0); Stack (Cons 0 0);
+   Stack (Cons 3 2); Stack (Store 0); Stack (Load 1); Stack (Load 1);
+   Update; Stack (Store 0); Stack (Load 1); Stack (TagEq 10);
+   JumpIf (Addr 7548); Jump (Addr 7742); Stack (Load 1); Stack (El 0);
+   Stack (Load 0); Stack (Load 3); Stack (El 1); Stack (Load 0);
+   Stack (Load 6); Stack (El 1); Stack (Load 3); Stack (Load 10);
+   Stack (Load 3); Stack (Cons 9 2); Stack (Cons 10 2); Stack (Load 9);
+   Stack (Load 2); Stack (El 0); Stack (Load 3); Stack (El 1);
+   Stack (Shift 5 10); Tick; Return; Jump (Addr 7800); Stack (Load 0);
+   Stack (Load 4); Stack (Load 1); Stack (El 0); Stack (Load 2);
+   Stack (El 1); Stack (Shift 4 6); Return; Stack (Cons 5 0); PopExc;
+   Return; Stack (Cons 5 0); PopExc; Return; Stack (PushInt 0); Ref;
+   PushPtr (Addr 7208); Stack (Load 0); Stack (LoadRev 4);
+   Stack (Cons 0 1); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 0);
+   Stack (Pops 1); Stack (PushInt 0); Ref; PushPtr (Addr 7812);
+   Stack (Load 0); Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 1); Stack (Load 0); Stack (Cons 4 1); Stack (Pops 1);
+   Stack (Pops 1); Stack (Pops 1); Stack (Load 0); Stack (Load 0);
+   Stack (El 0); Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc;
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l";
+   PrintC #" "; PrintC #"s"; PrintC #"n"; PrintC #"o"; PrintC #"c";
+   PrintC #" "; PrintC #"="; PrintC #" "; Stack (Load 0); Print;
+   PrintC #"\n"; PushPtr (Addr 0); PushExc; Jump (Addr 9410);
+   Stack (Load 2); Stack (PushInt 0); Ref; PushPtr (Addr 9083);
+   Stack (Load 0); Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 1); Stack (TagEq 10); JumpIf (Addr 8726);
+   Jump (Addr 9025); Stack (Load 1); Stack (El 0); Stack (Load 0);
+   Stack (Load 3); Stack (El 1); Stack (Load 0); Stack (Load 2);
+   Stack (PushInt 0); Ref; PushPtr (Addr 9095); Stack (Load 0);
+   Stack (Load 3); Stack (Cons 0 1); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 1); Stack (TagEq 8); JumpIf (Addr 8949);
+   Jump (Addr 8964); Stack (Cons 5 0); PopExc; Return; Jump (Addr 9022);
+   Stack (Load 0); Stack (Load 10); Stack (Load 1); Stack (El 0);
+   Stack (Load 2); Stack (El 1); Stack (Shift 4 12); Return;
+   Jump (Addr 9083); Stack (Load 0); Stack (Load 4); Stack (Load 1);
+   Stack (El 0); Stack (Load 2); Stack (El 1); Stack (Shift 4 6);
+   Return; Stack (Cons 5 0); PopExc; Return; Stack (PushInt 0); Ref;
+   PushPtr (Addr 9386); Stack (Load 0); Stack (Cons 0 0);
+   Stack (Cons 3 2); Stack (Store 0); Stack (Load 1); Stack (Load 1);
+   Update; Stack (Store 0); Stack (Load 1); Stack (El 0);
+   Stack (TagEq 9); JumpIf (Addr 9251); Jump (Addr 9328);
+   Stack (Load 1); Stack (El 0); Stack (El 0); Stack (Load 0);
+   Stack (Load 3); Stack (El 0); Stack (El 1); Stack (Load 0);
+   Stack (Load 2); Stack (Pops 6); Stack (Load 1); Stack (Store 2);
+   Stack (Pops 1); Return; Jump (Addr 9386); Stack (Load 0);
+   Stack (Load 3); Stack (Load 1); Stack (El 0); Stack (Load 2);
+   Stack (El 1); Stack (Shift 4 4); Return; Stack (Cons 5 0); PopExc;
+   Return; Stack (Cons 5 0); PopExc; Return; Stack (PushInt 0); Ref;
+   PushPtr (Addr 8572); Stack (Load 0); Stack (Cons 0 0);
+   Stack (Cons 3 2); Stack (Store 0); Stack (Load 1); Stack (Load 1);
+   Update; Stack (Store 0); Stack (Load 0); Stack (Pops 1);
+   Stack (PushInt 0); Ref; PushPtr (Addr 9398); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 1);
+   Stack (Load 0); Stack (Cons 4 1); Stack (Pops 1); Stack (Pops 1);
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc; Stack (Pops 1);
+   Stack (Load 0); Stack (Load 0); Stack (El 0); Stack (Store 1);
+   Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l"; PrintC #" ";
+   PrintC #"h"; PrintC #"e"; PrintC #"a"; PrintC #"d"; PrintC #" ";
+   PrintC #"="; PrintC #" "; Stack (Load 0); Print; PrintC #"\n";
+   PushPtr (Addr 0); PushExc; Jump (Addr 11075); Stack (Load 2);
+   Stack (PushInt 0); Ref; PushPtr (Addr 10650); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 1);
+   Stack (TagEq 10); JumpIf (Addr 10276); Jump (Addr 10592);
+   Stack (Load 1); Stack (El 0); Stack (Load 0); Stack (Load 3);
+   Stack (El 1); Stack (Load 0); Stack (Load 2); Stack (PushInt 0); Ref;
+   PushPtr (Addr 10662); Stack (Load 0); Stack (Load 3);
+   Stack (Load 11); Stack (El 0); Stack (Load 6); Stack (Cons 0 3);
+   Stack (Cons 3 2); Stack (Store 0); Stack (Load 1); Stack (Load 1);
+   Update; Stack (Store 0); Stack (Load 1); Stack (TagEq 8);
+   JumpIf (Addr 10516); Jump (Addr 10531); Stack (Cons 5 0); PopExc;
+   Return; Jump (Addr 10589); Stack (Load 0); Stack (Load 10);
+   Stack (Load 1); Stack (El 0); Stack (Load 2); Stack (El 1);
+   Stack (Shift 4 12); Return; Jump (Addr 10650); Stack (Load 0);
+   Stack (Load 4); Stack (Load 1); Stack (El 0); Stack (Load 2);
+   Stack (El 1); Stack (Shift 4 6); Return; Stack (Cons 5 0); PopExc;
+   Return; Stack (PushInt 0); Ref; PushPtr (Addr 11051); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 1);
+   Stack (El 0); Stack (TagEq 9); JumpIf (Addr 10818);
+   Jump (Addr 10993); Stack (Load 1); Stack (El 0); Stack (El 0);
+   Stack (Load 0); Stack (Load 3); Stack (El 0); Stack (El 1);
+   Stack (Load 0); Stack (Load 5); Stack (El 1); Stack (Load 1);
+   Stack (Load 7); Stack (El 2); Stack (Cons 10 2); Stack (Load 8);
+   Stack (Load 2); Stack (El 0); Stack (Load 3); Stack (El 1);
+   Stack (Shift 5 8); Tick; Return; Jump (Addr 11051); Stack (Load 0);
+   Stack (Load 3); Stack (Load 1); Stack (El 0); Stack (Load 2);
+   Stack (El 1); Stack (Shift 4 4); Return; Stack (Cons 5 0); PopExc;
+   Return; Stack (Cons 5 0); PopExc; Return; Stack (PushInt 0); Ref;
+   PushPtr (Addr 10122); Stack (Load 0); Stack (LoadRev 4);
+   Stack (Cons 0 1); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 0);
+   Stack (Pops 1); Stack (PushInt 0); Ref; PushPtr (Addr 11063);
+   Stack (Load 0); Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 1); Stack (Load 0); Stack (Cons 4 1); Stack (Pops 1);
+   Stack (Pops 1); Stack (Pops 1); Stack (Load 0); Stack (Load 0);
+   Stack (El 0); Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc;
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l";
+   PrintC #" "; PrintC #"t"; PrintC #"a"; PrintC #"i"; PrintC #"l";
+   PrintC #" "; PrintC #"="; PrintC #" "; Stack (Load 0); Print;
+   PrintC #"\n"; PushPtr (Addr 0); PushExc; Jump (Addr 12598);
+   Stack (PushInt 0); Ref; PushPtr (Addr 12019); Stack (Load 0);
+   Stack (Load 6); Stack (Load 4); Stack (El 0); Stack (Load 5);
+   Stack (El 1); Stack (Load 8); Stack (Cons 0 4); Stack (Cons 3 2);
+   Stack (Store 0); Stack (Load 1); Stack (Load 1); Update;
+   Stack (Store 0); Stack (Load 0); Stack (Pops 2); Stack (Load 1);
+   Stack (Store 3); Stack (Pops 2); Return; Stack (Load 0);
+   Stack (El 3); Stack (PushInt 0); Stack Sub; Stack (PushInt 1);
+   Stack Less; JumpIf (Addr 12066); Jump (Addr 12095); Stack (Load 2);
+   Stack (Pops 1); Stack (Load 1); Stack (Store 3); Stack (Pops 2);
+   Return; Jump (Addr 12598); Stack (Load 0); Stack (El 0);
+   Stack (Load 1); Stack (El 3); Stack (PushInt 1); Stack Sub;
+   Stack (Load 0); Stack (PushInt 0); Stack Less; JumpIf (Addr 12159);
+   Jump (Addr 12167); Stack (PushInt 0); Jump (Addr 12172);
+   Stack (Load 0); Stack (Pops 1); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 1);
+   Stack (El 1); Stack (Load 2); Stack (El 2); Stack (Load 3);
+   Stack (El 2); Stack (Load 6); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 4);
+   Stack (El 3); Stack (PushInt 1); Stack Sub; Stack (Load 0);
+   Stack (PushInt 0); Stack Less; JumpIf (Addr 12330);
+   Jump (Addr 12338); Stack (PushInt 0); Jump (Addr 12343);
+   Stack (Load 0); Stack (Pops 1); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 1);
+   Stack (El 1); Stack (Load 2); Stack (El 0); Tick; CallPtr;
+   Stack (Load 3); Stack (El 3); Stack (PushInt 1); Stack Sub;
+   Stack (Load 0); Stack (PushInt 0); Stack Less; JumpIf (Addr 12460);
+   Jump (Addr 12468); Stack (PushInt 0); Jump (Addr 12473);
+   Stack (Load 0); Stack (Pops 1); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 1);
+   Stack (El 1); Stack (Load 2); Stack (El 0); Tick; CallPtr;
+   Stack (Load 3); Stack (Load 2); Stack (El 0); Stack (Load 3);
+   Stack (El 1); Stack (Shift 5 4); Tick; Return; Stack (PushInt 0);
+   Ref; PushPtr (Addr 11823); Stack (Load 0); Stack (LoadRev 7);
+   Stack (LoadRev 5); Stack (Cons 0 2); Stack (Cons 3 2);
+   Stack (Store 0); Stack (Load 1); Stack (Load 1); Update;
+   Stack (Store 0); Stack (Load 0); Stack (Cons 4 1); Stack (Pops 1);
+   Stack (Load 0); Stack (Load 0); Stack (El 0); Stack (Store 1);
+   Stack Pop; Stack (Cons 0 1); PopExc; Stack (Pops 1); Stack (Load 0);
+   Stack (Load 0); Stack (El 0); Stack (Store 1); Stack Pop;
+   PrintC #"v"; PrintC #"a"; PrintC #"l"; PrintC #" "; PrintC #"u";
+   PrintC #"s"; PrintC #"e"; PrintC #"_"; PrintC #"q"; PrintC #"u";
+   PrintC #"e"; PrintC #"u"; PrintC #"e"; PrintC #" "; PrintC #"=";
+   PrintC #" "; Stack (Load 0); Print; PrintC #"\n"; PushPtr (Addr 0);
+   PushExc; Jump (Addr 13363); Stack (Cons 5 0); PopExc; Return;
+   Stack (LoadRev 6); Stack (LoadRev 8); Stack (PushInt 1000000);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (LoadRev 0); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 1);
+   Stack (El 1); Stack (Load 2); Stack (El 0); Tick; CallPtr;
+   Stack (PushInt 0); Ref; PushPtr (Addr 13351); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 1);
+   Stack (Load 0); Stack (Cons 4 1); Stack (Pops 1); Stack (Pops 1);
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc; Stack (Pops 1);
+   Stack (Load 0); Stack (Load 0); Stack (El 0); Stack (Store 1);
+   Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l"; PrintC #" ";
+   PrintC #"r"; PrintC #"u"; PrintC #"n"; PrintC #"_"; PrintC #"q";
+   PrintC #"u"; PrintC #"e"; PrintC #"u"; PrintC #"e"; PrintC #" ";
+   PrintC #"="; PrintC #" "; Stack (Load 0); Print; PrintC #"\n"]``;
+
+tree_sort:
+
+val tm =
+   ``[PushPtr (Addr 0); PushExc; Jump (Addr 914); Stack (PushInt 0); Ref;
+   PushPtr (Addr 187); Stack (Load 0); Stack (Load 5); Stack (Load 7);
+   Stack (Cons 0 2); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 0);
+   Stack (Pops 2); Stack (Load 1); Stack (Store 3); Stack (Pops 2);
+   Return; Stack (Load 0); Stack (El 0); Stack (PushInt 0); Ref;
+   PushPtr (Addr 487); Stack (Load 0); Stack (Load 3); Stack (Load 5);
+   Stack (El 1); Stack (Load 8); Stack (Cons 0 3); Stack (Cons 3 2);
+   Stack (Store 0); Stack (Load 1); Stack (Load 1); Update;
+   Stack (Store 0); Stack (Load 1); Stack (TagEq 8); JumpIf (Addr 400);
+   Jump (Addr 429); Stack (Load 4); Stack (Pops 3); Stack (Load 1);
+   Stack (Store 3); Stack (Pops 2); Return; Jump (Addr 487);
+   Stack (Load 0); Stack (Load 4); Stack (Load 1); Stack (El 0);
+   Stack (Load 2); Stack (El 1); Stack (Shift 4 6); Return;
+   Stack (PushInt 0); Ref; PushPtr (Addr 902); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 1);
+   Stack (El 0); Stack (TagEq 9); JumpIf (Addr 643); Jump (Addr 844);
+   Stack (Load 1); Stack (El 0); Stack (El 0); Stack (Load 0);
+   Stack (Load 3); Stack (El 0); Stack (El 1); Stack (Load 0);
+   Stack (Load 2); Stack (Load 6); Stack (El 1); Stack (Load 2);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Load 7); Stack (El 2); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Cons 9 2);
+   Stack (Pops 6); Stack (Load 1); Stack (Store 2); Stack (Pops 1);
+   Return; Jump (Addr 902); Stack (Load 0); Stack (Load 3);
+   Stack (Load 1); Stack (El 0); Stack (Load 2); Stack (El 1);
+   Stack (Shift 4 4); Return; Stack (Cons 5 0); PopExc; Return;
+   Stack (PushInt 0); Ref; PushPtr (Addr 15); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 0);
+   Stack (Cons 4 1); Stack (Pops 1); Stack (Load 0); Stack (Load 0);
+   Stack (El 0); Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc;
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l";
+   PrintC #" "; PrintC #"a"; PrintC #"p"; PrintC #"p"; PrintC #"e";
+   PrintC #"n"; PrintC #"d"; PrintC #" "; PrintC #"="; PrintC #" ";
+   Stack (Load 0); Print; PrintC #"\n"; PushPtr (Addr 0); PushExc;
+   Stack (Cons 4 0); Stack Pop; Stack (Cons 0 0); PopExc;
+   Stack (Pops 1); Stack Pop; PrintC #"B"; PrintC #"r"; PrintC #"a";
+   PrintC #"n"; PrintC #"c"; PrintC #"h"; PrintC #" "; PrintC #"=";
+   PrintC #" "; PrintC #"<"; PrintC #"c"; PrintC #"o"; PrintC #"n";
+   PrintC #"s"; PrintC #"t"; PrintC #"r"; PrintC #"u"; PrintC #"c";
+   PrintC #"t"; PrintC #"o"; PrintC #"r"; PrintC #">"; PrintC #"\n";
+   PrintC #"L"; PrintC #"e"; PrintC #"a"; PrintC #"f"; PrintC #" ";
+   PrintC #"="; PrintC #" "; PrintC #"<"; PrintC #"c"; PrintC #"o";
+   PrintC #"n"; PrintC #"s"; PrintC #"t"; PrintC #"r"; PrintC #"u";
+   PrintC #"c"; PrintC #"t"; PrintC #"o"; PrintC #"r"; PrintC #">";
+   PrintC #"\n"; PushPtr (Addr 0); PushExc; Jump (Addr 4014);
+   Stack (PushInt 0); Ref; PushPtr (Addr 2898); Stack (Load 0);
+   Stack (Load 6); Stack (Load 6); Stack (Cons 0 2); Stack (Cons 3 2);
+   Stack (Store 0); Stack (Load 1); Stack (Load 1); Update;
+   Stack (Store 0); Stack (Load 0); Stack (Pops 2); Stack (Load 1);
+   Stack (Store 3); Stack (Pops 2); Return; Stack (Load 2);
+   Stack (PushInt 0); Ref; PushPtr (Addr 3250); Stack (Load 0);
+   Stack (Load 3); Stack (Load 5); Stack (El 0); Stack (Load 6);
+   Stack (El 1); Stack (Cons 0 3); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 1); Stack (TagEq 11); JumpIf (Addr 3111);
+   Jump (Addr 3192); Stack (Cons 11 0); Stack (Load 3); Stack (El 1);
+   Stack (Cons 11 0); Stack (Cons 10 3); Stack (Pops 3); Stack (Load 1);
+   Stack (Store 3); Stack (Pops 2); Return; Jump (Addr 3250);
+   Stack (Load 0); Stack (Load 4); Stack (Load 1); Stack (El 0);
+   Stack (Load 2); Stack (El 1); Stack (Shift 4 6); Return;
+   Stack (PushInt 0); Ref; PushPtr (Addr 4002); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 1);
+   Stack (El 0); Stack (TagEq 10); JumpIf (Addr 3406); Jump (Addr 3944);
+   Stack (Load 1); Stack (El 0); Stack (El 0); Stack (Load 0);
+   Stack (Load 3); Stack (El 0); Stack (El 1); Stack (Load 0);
+   Stack (Load 5); Stack (El 0); Stack (El 2); Stack (Load 0);
+   Stack (Load 7); Stack (El 2); Stack (Load 3); Stack Less;
+   JumpIf (Addr 3516); Jump (Addr 3674); Stack (Load 7); Stack (El 1);
+   Stack (Load 8); Stack (El 2); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 5);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Load 3); Stack (Load 2); Stack (Cons 10 3);
+   Stack (Pops 8); Stack (Load 1); Stack (Store 2); Stack (Pops 1);
+   Return; Jump (Addr 3941); Stack (Load 2); Stack (Load 8);
+   Stack (El 2); Stack Less; JumpIf (Addr 3712); Jump (Addr 3870);
+   Stack (Load 4); Stack (Load 3); Stack (Load 9); Stack (El 1);
+   Stack (Load 10); Stack (El 2); Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 3);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Cons 10 3); Stack (Pops 8); Stack (Load 1);
+   Stack (Store 2); Stack (Pops 1); Return; Jump (Addr 3941);
+   Stack (Load 4); Stack (Load 3); Stack (Load 2); Stack (Cons 10 3);
+   Stack (Pops 8); Stack (Load 1); Stack (Store 2); Stack (Pops 1);
+   Return; Jump (Addr 4002); Stack (Load 0); Stack (Load 3);
+   Stack (Load 1); Stack (El 0); Stack (Load 2); Stack (El 1);
+   Stack (Shift 4 4); Return; Stack (Cons 5 0); PopExc; Return;
+   Stack (PushInt 0); Ref; PushPtr (Addr 2726); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 0);
+   Stack (Cons 4 1); Stack (Pops 1); Stack (Load 0); Stack (Load 0);
+   Stack (El 0); Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc;
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l";
+   PrintC #" "; PrintC #"i"; PrintC #"n"; PrintC #"s"; PrintC #"e";
+   PrintC #"r"; PrintC #"t"; PrintC #" "; PrintC #"="; PrintC #" ";
+   Stack (Load 0); Print; PrintC #"\n"; PushPtr (Addr 0); PushExc;
+   Jump (Addr 5371); Stack (Load 2); Stack (PushInt 0); Ref;
+   PushPtr (Addr 4940); Stack (Load 0); Stack (Load 3); Stack (Load 5);
+   Stack (El 0); Stack (Load 9); Stack (Cons 0 3); Stack (Cons 3 2);
+   Stack (Store 0); Stack (Load 1); Stack (Load 1); Update;
+   Stack (Store 0); Stack (Load 1); Stack (TagEq 8); JumpIf (Addr 4853);
+   Jump (Addr 4882); Stack (Cons 11 0); Stack (Pops 3); Stack (Load 1);
+   Stack (Store 3); Stack (Pops 2); Return; Jump (Addr 4940);
+   Stack (Load 0); Stack (Load 4); Stack (Load 1); Stack (El 0);
+   Stack (Load 2); Stack (El 1); Stack (Shift 4 6); Return;
+   Stack (PushInt 0); Ref; PushPtr (Addr 5359); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 1);
+   Stack (El 0); Stack (TagEq 9); JumpIf (Addr 5096); Jump (Addr 5301);
+   Stack (Load 1); Stack (El 0); Stack (El 0); Stack (Load 0);
+   Stack (Load 3); Stack (El 0); Stack (El 1); Stack (Load 0);
+   Stack (Load 5); Stack (El 1); Stack (Load 3); Stack (Load 1);
+   Stack (El 1); Stack (Load 2); Stack (El 0); Tick; CallPtr;
+   Stack (Load 6); Stack (El 2); Stack (Load 2); Stack (Load 1);
+   Stack (El 1); Stack (Load 2); Stack (El 0); Tick; CallPtr;
+   Stack (Load 8); Stack (Load 2); Stack (El 0); Stack (Load 3);
+   Stack (El 1); Stack (Shift 5 8); Tick; Return; Jump (Addr 5359);
+   Stack (Load 0); Stack (Load 3); Stack (Load 1); Stack (El 0);
+   Stack (Load 2); Stack (El 1); Stack (Shift 4 4); Return;
+   Stack (Cons 5 0); PopExc; Return; Stack (PushInt 0); Ref;
+   PushPtr (Addr 4647); Stack (Load 0); Stack (LoadRev 1);
+   Stack (Cons 0 1); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 0);
+   Stack (Cons 4 1); Stack (Pops 1); Stack (Load 0); Stack (Load 0);
+   Stack (El 0); Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc;
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l";
+   PrintC #" "; PrintC #"b"; PrintC #"u"; PrintC #"i"; PrintC #"l";
+   PrintC #"d"; PrintC #"_"; PrintC #"t"; PrintC #"r"; PrintC #"e";
+   PrintC #"e"; PrintC #" "; PrintC #"="; PrintC #" "; Stack (Load 0);
+   Print; PrintC #"\n"; PushPtr (Addr 0); PushExc; Jump (Addr 7051);
+   Stack (Load 2); Stack (PushInt 0); Ref; PushPtr (Addr 6437);
+   Stack (Load 0); Stack (Load 3); Stack (Load 5); Stack (El 0);
+   Stack (Load 9); Stack (Cons 0 3); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 1); Stack (TagEq 11); JumpIf (Addr 6350);
+   Jump (Addr 6379); Stack (Cons 8 0); Stack (Pops 3); Stack (Load 1);
+   Stack (Store 3); Stack (Pops 2); Return; Jump (Addr 6437);
+   Stack (Load 0); Stack (Load 4); Stack (Load 1); Stack (El 0);
+   Stack (Load 2); Stack (El 1); Stack (Shift 4 6); Return;
+   Stack (PushInt 0); Ref; PushPtr (Addr 7039); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 1);
+   Stack (El 0); Stack (TagEq 10); JumpIf (Addr 6593); Jump (Addr 6981);
+   Stack (Load 1); Stack (El 0); Stack (El 0); Stack (Load 0);
+   Stack (Load 3); Stack (El 0); Stack (El 1); Stack (Load 0);
+   Stack (Load 5); Stack (El 0); Stack (El 2); Stack (Load 0);
+   Stack (Load 7); Stack (El 1); Stack (Load 8); Stack (El 1);
+   Stack (Load 9); Stack (El 2); Stack (Load 7); Stack (Load 1);
+   Stack (El 1); Stack (Load 2); Stack (El 0); Tick; CallPtr;
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Load 4); Stack (Cons 8 0); Stack (Cons 9 2);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0);
+   Tick; CallPtr; Stack (Load 8); Stack (El 2); Stack (Load 2);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Load 10); Stack (Load 2); Stack (El 0);
+   Stack (Load 3); Stack (El 1); Stack (Shift 5 10); Tick; Return;
+   Jump (Addr 7039); Stack (Load 0); Stack (Load 3); Stack (Load 1);
+   Stack (El 0); Stack (Load 2); Stack (El 1); Stack (Shift 4 4);
+   Return; Stack (Cons 5 0); PopExc; Return; Stack (PushInt 0); Ref;
+   PushPtr (Addr 6144); Stack (Load 0); Stack (LoadRev 0);
+   Stack (Cons 0 1); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 0);
+   Stack (Cons 4 1); Stack (Pops 1); Stack (Load 0); Stack (Load 0);
+   Stack (El 0); Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc;
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l";
+   PrintC #" "; PrintC #"f"; PrintC #"l"; PrintC #"a"; PrintC #"t";
+   PrintC #"t"; PrintC #"e"; PrintC #"n"; PrintC #" "; PrintC #"=";
+   PrintC #" "; Stack (Load 0); Print; PrintC #"\n"; PushPtr (Addr 0);
+   PushExc; Jump (Addr 7877); Stack (Load 0); Stack (El 0);
+   Stack (Load 1); Stack (El 1); Stack (Load 4); Stack (Load 1);
+   Stack (El 1); Stack (Load 2); Stack (El 0); Tick; CallPtr;
+   Stack (Load 3); Stack (Load 2); Stack (El 0); Stack (Load 3);
+   Stack (El 1); Stack (Shift 5 4); Tick; Return; Stack (Cons 5 0);
+   PopExc; Return; Stack (PushInt 0); Ref; PushPtr (Addr 7746);
+   Stack (Load 0); Stack (LoadRev 3); Stack (LoadRev 2);
+   Stack (Cons 0 2); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 0);
+   Stack (Pops 1); Stack (PushInt 0); Ref; PushPtr (Addr 7865);
+   Stack (Load 0); Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0);
+   Stack (Load 1); Stack (Load 1); Update; Stack (Store 0);
+   Stack (Load 1); Stack (Load 0); Stack (Cons 4 1); Stack (Pops 1);
+   Stack (Pops 1); Stack (Pops 1); Stack (Load 0); Stack (Load 0);
+   Stack (El 0); Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc;
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l";
+   PrintC #" "; PrintC #"t"; PrintC #"r"; PrintC #"e"; PrintC #"e";
+   PrintC #"_"; PrintC #"s"; PrintC #"o"; PrintC #"r"; PrintC #"t";
+   PrintC #" "; PrintC #"="; PrintC #" "; Stack (Load 0); Print;
+   PrintC #"\n"; PushPtr (Addr 0); PushExc; Jump (Addr 8989);
+   Stack (Load 2); Stack (PushInt 0); Stack Sub; Stack (PushInt 1);
+   Stack Less; JumpIf (Addr 8801); Jump (Addr 8830); Stack (Cons 8 0);
+   Stack (Pops 1); Stack (Load 1); Stack (Store 3); Stack (Pops 2);
+   Return; Jump (Addr 8989); Stack (Load 2); Stack (Load 4);
+   Stack (Load 4); Stack (PushInt 1); Stack Sub; Stack (Load 0);
+   Stack (PushInt 0); Stack Less; JumpIf (Addr 8885); Jump (Addr 8893);
+   Stack (PushInt 0); Jump (Addr 8898); Stack (Load 0); Stack (Pops 1);
+   Stack (Load 1); Stack (El 1); Stack (Load 2); Stack (El 0); Tick;
+   CallPtr; Stack (Cons 9 2); Stack (Pops 1); Stack (Load 1);
+   Stack (Store 3); Stack (Pops 2); Return; Stack (PushInt 0); Ref;
+   PushPtr (Addr 8761); Stack (Load 0); Stack (Cons 0 0);
+   Stack (Cons 3 2); Stack (Store 0); Stack (Load 1); Stack (Load 1);
+   Update; Stack (Store 0); Stack (Load 0); Stack (Cons 4 1);
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc; Stack (Pops 1);
+   Stack (Load 0); Stack (Load 0); Stack (El 0); Stack (Store 1);
+   Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l"; PrintC #" ";
+   PrintC #"m"; PrintC #"k"; PrintC #"_"; PrintC #"l"; PrintC #"i";
+   PrintC #"s"; PrintC #"t"; PrintC #" "; PrintC #"="; PrintC #" ";
+   Stack (Load 0); Print; PrintC #"\n"; PushPtr (Addr 0); PushExc;
+   Jump (Addr 9660); Stack (Cons 5 0); PopExc; Return;
+   Stack (LoadRev 4); Stack (LoadRev 0); Stack (LoadRev 5);
+   Stack (PushInt 1000); Stack (Load 1); Stack (El 1); Stack (Load 2);
+   Stack (El 0); Tick; CallPtr; Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (LoadRev 5);
+   Stack (PushInt 1000); Stack (Load 1); Stack (El 1); Stack (Load 2);
+   Stack (El 0); Tick; CallPtr; Stack (Load 1); Stack (El 1);
+   Stack (Load 2); Stack (El 0); Tick; CallPtr; Stack (Load 1);
+   Stack (El 1); Stack (Load 2); Stack (El 0); Tick; CallPtr;
+   Stack (PushInt 0); Ref; PushPtr (Addr 9648); Stack (Load 0);
+   Stack (Cons 0 0); Stack (Cons 3 2); Stack (Store 0); Stack (Load 1);
+   Stack (Load 1); Update; Stack (Store 0); Stack (Load 1);
+   Stack (Load 0); Stack (Cons 4 1); Stack (Pops 1); Stack (Pops 1);
+   Stack (Pops 1); Stack (Load 0); Stack (Load 0); Stack (El 0);
+   Stack (Store 1); Stack Pop; Stack (Cons 0 1); PopExc; Stack (Pops 1);
+   Stack (Load 0); Stack (Load 0); Stack (El 0); Stack (Store 1);
+   Stack Pop; PrintC #"v"; PrintC #"a"; PrintC #"l"; PrintC #" ";
+   PrintC #"u"; PrintC #"s"; PrintC #"e"; PrintC #"_"; PrintC #"t";
+   PrintC #"r"; PrintC #"e"; PrintC #"e"; PrintC #" "; PrintC #"=";
+   PrintC #" "; Stack (Load 0); Print; PrintC #"\n"]``;
+
+
 let
   val code = ``x64_code 0 ^tm``
-  val code_EVAL = EVAL code
+  val code_EVAL = eval_x64_code_conv code
+  val len = ``LENGTH ^code + 3``
+            |> (ONCE_REWRITE_CONV [code_EVAL] THENC EVAL) |> concl |> rand
   val zHEAP_RUN_CODE = prove(
   ``SPEC X64_MODEL
      (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS * zPC p)
-     {(p,0x48w::0x8Bw::0xECw::^code)}
-     (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS * zPC (p + n2w (LENGTH ^code + 3)))``,
-  cheat) |> SIMP_RULE std_ss [code_EVAL,LENGTH];
+     {(p,0x48w::0x8Bw::0xECw::^(code_EVAL |> concl |> rand))}
+     (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS * zPC (p + n2w ^len))``,
+  cheat)
   val _ = generate_test zHEAP_RUN_CODE
 in
   ()
 end
 
-(*
-fun fib n = if n < 2 then n else fib (n - 1) + fib (n - 2)
-time (fn n => fib n + fib n + fib n + fib n + fib n + fib n) 31
-*)
 
 -----------------
 
+BENCHMARK 1: fib
+
+TIMES: CakeML 0.141s, PolyML 0.096s, Ocaml 0.440s, Ocamlopt 0.056s
+
+0.440 / 0.141
+0.440 / 0.096
+0.440 / 0.056
+
+BENCHMARK 2: qsort
+
+TIMES: CakeML 0.253s, PolyML 0.016s, Ocaml 0.161s, Ocamlopt 0.052s
+
+0.161 / 0.253
+0.161 / 0.016
+0.161 / 0.052
+
+BENCHMARK 3: batched queue
+
+TIMES: CakeML 0.822s, PolyML 0.028s, Ocaml 0.361s, Ocamlopt 0.179s
+
+0.361 / 0.822
+0.361 / 0.028
+0.361 / 0.179
+
+BENCHMARK 4: binary tree
+
+TIMES: CakeML 0.125s, PolyML 0.012s, Ocaml 0.069s, Ocamlopt 0.016s
+
+0.069 / 0.125
+0.069 / 0.012
+0.069 / 0.016
+
+-----------------
+
+(* testing infrastructure *)
+
+open listTheory arithmeticTheory ml_translatorLib mini_preludeTheory;
 open test_compilerLib
 
-val foo_def = tDefine "fib" `fib n = if n < 2 then n else fib (n - 1) + fib (n - 2)` cheat;
-val bar_def = Define `k = let n = 31 in fib n + fib n + fib n + fib n + fib n + fib n`;
+(* ... *)
 
-val test = translate foo_def
-val test = translate bar_def
+val dlets = let
+  fun get_dlet suffix =
+    [fetch "-" ("scratch_decls_" ^ suffix) |> concl |> rand |> rator |> rand |> mk_Tdec]
+    handle HOL_ERR _ => []
+  in get_dlet "0" @
+     get_dlet "1" @
+     get_dlet "2" @
+     get_dlet "3" @
+     get_dlet "4" @
+     get_dlet "5" @
+     get_dlet "6" @
+     get_dlet "7" @
+     get_dlet "8" @
+     get_dlet "9" @
+     get_dlet "10" @
+     get_dlet "11" @
+     get_dlet "12" @
+     get_dlet "13" @
+     get_dlet "14" @
+     get_dlet "15" @
+     get_dlet "16" @
+     get_dlet "17" @
+     get_dlet "18" @
+     get_dlet "19" end
 
-val dlet1 = fetch "-" "scratch_decls_4" |> concl |> rand |> rator |> rand |> mk_Tdec
-val dlet2 = fetch "-" "scratch_decls_5" |> concl |> rand |> rator |> rand |> mk_Tdec
+fun get_bs dlets = let
+  val (bs,rs) = real_inits
+  fun foo ((bs,rs),[]) = bs
+    | foo ((bs,rs),x::xs) = let
+    val (rs,(rsf,c)) = compile_top rs x
+    val bs = add_code c bs
+    in foo ((bs,rs),xs) end
+  in foo ((bs,rs),dlets) end
 
-val (bs,rs) = real_inits
-val (rs,(rsf,c)) = compile_top rs dlet1
-val bs = add_code c bs
-val (rs,(rsf,c)) = compile_top rs dlet2
-val bs = add_code c bs
-val tm = bs_to_term bs
+val tm = bs_to_term (get_bs dlets)
 
 *)
 
