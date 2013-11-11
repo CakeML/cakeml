@@ -10057,7 +10057,6 @@ val ic_Any_thm = prove(
                - Shift
                *));
 
-
 (* code install that walks down a list *)
 
 val (res,ic_List_def,ic_List_pre_def) = x64_compile `
@@ -10131,6 +10130,41 @@ val ic_List_thm = prove(
          `s with code := s.code ++ x64 (LENGTH s.code) h`,`cs`,`stack`])
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [LENGTH_x64_IGNORE,x64_length_def]);
+
+val (ic_full_res,ic_full_def,ic_full_pre_def) = x64_compile `
+  ic_full (x1,x2,x3,x4,s,cs:zheap_consts,stack) =
+    let stack = x1 :: stack in
+    let stack = x2 :: stack in
+    let stack = x3 :: stack in
+    let (x1,x2,x3,x4,s,cs,stack) = ic_List (x1,x2,x3,x4,s,cs,stack) in
+    let (x3,stack) = (HD stack, TL stack) in
+    let (x2,stack) = (HD stack, TL stack) in
+    let (x1,stack) = (HD stack, TL stack) in
+    let x4 = x1 in
+      (x1,x2,x3,x4,s,cs,stack)`
+
+val ic_full_thm = prove(
+  ``(s.code_mode = SOME F) ==>
+    ic_full_pre (x1,x2,x3,tuple_list c p n (MAP bc_num l),s,cs,stack) /\
+    (ic_full (x1,x2,x3,tuple_list c p n (MAP bc_num l),s,cs,stack) =
+      (x1,x2,x3,x1,s with code := s.code ++ x64_code (LENGTH s.code) l,cs,stack))``,
+  REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC std_ss [ic_full_def,ic_full_pre_def,LET_DEF]
+  \\ MP_TAC (ic_List_thm |> SPEC_ALL |> Q.INST [`stack`|->`x3::x2::x1::stack`])
+  \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []);
+
+val zHEAP_INSTALL_CODE = let
+  val th = ic_full_res
+    |> DISCH ``x4 = tuple_list c p n (MAP bc_num l)``
+    |> DISCH ``s.code_mode = SOME F``
+    |> SIMP_RULE std_ss [ic_full_thm,LET_DEF,SEP_CLAUSES]
+    |> GSYM |> SIMP_RULE std_ss []
+    |> RW [GSYM SPEC_MOVE_COND] |> GSYM
+  val th = SPEC_COMPOSE_RULE [zHEAP_CALL_INSTALL_WITH_STOP_ADDR,th]
+  val th = th |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) []))
+  val th = abbreviate_code "install_and_run" ``cs.install_and_run_ptr`` th
+  val th = th |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) []))
+  in th end;
 
 
 (* --- lexer --- *)
@@ -11464,6 +11498,13 @@ val zHEAP_LEX = let
 
 (* set cs pointers *)
 
+val full_code_abbrevs_def = Define `
+  full_code_abbrevs cs =
+     bignum_code cs.bignum_ptr UNION alloc_code cs.alloc_ptr UNION
+     equal_code cs.equal_ptr UNION print_code cs.print_ptr UNION
+     error_code cs.error_ptr UNION lex_code cs.lex_ptr UNION
+     install_and_run_code cs.install_and_run_ptr`;
+
 fun zHEAP_SET_CS i update = let
   val call_th = x64_call_imm
   val pop_th = x64_pop_r15
@@ -11519,11 +11560,13 @@ gg goal
   val th = MP th lemma
   in GSYM th end;
 
-val SET_CS_ERROR  = zHEAP_SET_CS 40 ``\w. cs with error_ptr := w``
-val SET_CS_ALLOC  = zHEAP_SET_CS 48 ``\w. cs with alloc_ptr := w``
-val SET_CS_BIGNUM = zHEAP_SET_CS 56 ``\w. cs with bignum_ptr := w``
-val SET_CS_EQUAL  = zHEAP_SET_CS 64 ``\w. cs with equal_ptr := w``
-val SET_CS_PRINT  = zHEAP_SET_CS 72 ``\w. cs with print_ptr := w``
+val SET_CS_ERROR   = zHEAP_SET_CS  40 ``\w. cs with error_ptr := w``;
+val SET_CS_ALLOC   = zHEAP_SET_CS  48 ``\w. cs with alloc_ptr := w``;
+val SET_CS_BIGNUM  = zHEAP_SET_CS  56 ``\w. cs with bignum_ptr := w``;
+val SET_CS_EQUAL   = zHEAP_SET_CS  64 ``\w. cs with equal_ptr := w``;
+val SET_CS_PRINT   = zHEAP_SET_CS  72 ``\w. cs with print_ptr := w``;
+val SET_CS_LEX     = zHEAP_SET_CS 120 ``\w. cs with lex_ptr := w``;
+val SET_CS_INSTALL = zHEAP_SET_CS 128 ``\w. cs with install_and_run_ptr := w``;
 
 fun guess_length name = let
   fun dest_code_pair tm = let
@@ -11544,20 +11587,26 @@ val zHEAP_INIT = let
             (SET_CS_ALLOC,"alloc"),
             (SET_CS_BIGNUM,"bignum"),
             (SET_CS_EQUAL,"equal"),
-            (SET_CS_PRINT,"print")] |> SPEC_COMPOSE_RULE
+            (SET_CS_PRINT,"print"),
+            (SET_CS_LEX,"lex"),
+            (SET_CS_INSTALL,"install_and_run")] |> SPEC_COMPOSE_RULE
   val th = SPEC_COMPOSE_RULE [zHEAP_SETUP,th]
+  val l = th |> concl |> rand |> find_term (can (match_term ``zPC p``))
+             |> rand |> rand |> rand |> numSyntax.int_of_term
+  val th = if l mod 2 = 0 then th else SPEC_COMPOSE_RULE [th,zHEAP_NOP]
   in th end
 
 val zHEAP_ABBREVS = prove(
   ``SPEC X64_MODEL
       (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * zPC p)
-      (code_abbrevs cs)
+      (full_code_abbrevs cs)
       (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * zPC p)``,
   SIMP_TAC std_ss [SPEC_REFL]);
 
 val all_abbrevs =
-  map (fetch "-") ["error_code_def","alloc_code_def",
-    "bignum_code_def","print_code_def","equal_code_def"] |> LIST_CONJ
+  map (fetch "-") ["error_code_def", "alloc_code_def", "lex_code_def",
+    "install_and_run_code_def", "bignum_code_def", "print_code_def",
+    "equal_code_def"] |> LIST_CONJ
 
 
 (* --- bytecode simulation --- *)
