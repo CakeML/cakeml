@@ -8,9 +8,6 @@ declare hol target_rep function int_to_num = `Num`
 val num_to_string : nat -> string
 declare hol target_rep function num_to_string = `num_to_dec_string`
 
-val neg : integer -> integer
-declare hol target_rep function neg = `int_neg`
-
 val all_distinct : forall 'a. list 'a -> bool
 declare hol    target_rep function all_distinct = `ALL_DISTINCT`
 

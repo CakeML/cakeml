@@ -4,22 +4,19 @@ open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTh
 open initialEnvTheory;
 open typeSysPropsTheory;
 
-(* Remove automatic rewrites that break the proofs in this file *)
-val _ = diminish_srw_ss ["semanticsExtra"];
-
 val fupdate_list_map = Q.prove (
 `!l f x y.
   x ∈ FDOM (FEMPTY |++ l)
    ⇒
      ((FEMPTY |++ MAP (\(a,b). (a, f b)) l) ' x = f ((FEMPTY |++ l) ' x))`,
      rpt gen_tac >>
-     Q.ISPECL_THEN[`FST`,`f o SND`,`l`,`FEMPTY:α|->γ`]mp_tac(GSYM miscTheory.FOLDL_FUPDATE_LIST) >>
+     Q.ISPECL_THEN[`FST`,`f o SND`,`l`,`FEMPTY:α|->γ`]mp_tac(GSYM FOLDL_FUPDATE_LIST) >>
      simp[LAMBDA_PROD] >>
      disch_then kall_tac >>
      qid_spec_tac`l` >>
      ho_match_mp_tac SNOC_INDUCT >>
      simp[FUPDATE_LIST_THM] >>
-     simp[FOLDL_SNOC,FORALL_PROD,FAPPLY_FUPDATE_THM,FDOM_FUPDATE_LIST,MAP_SNOC,miscTheory.FUPDATE_LIST_SNOC] >>
+     simp[FOLDL_SNOC,FORALL_PROD,FAPPLY_FUPDATE_THM,FDOM_FUPDATE_LIST,MAP_SNOC,FUPDATE_LIST_SNOC] >>
      rw[] >> rw[])
 
 val fdom_fupdate_list2 = Q.prove (

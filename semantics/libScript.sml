@@ -16,8 +16,6 @@ val _ = new_theory "lib"
 
 (*val num_to_string : nat -> string*)
 
-(*val neg : integer -> integer*)
-
 (*val all_distinct : forall 'a. list 'a -> bool*)
 
 (*val rtc : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool)*)

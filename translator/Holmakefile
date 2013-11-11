@@ -2,19 +2,19 @@ INCLUDES = ../semantics ../parsing ../metatheory
 OPTIONS = QUIT_ON_FAILURE
 
 Print_ast_deps = ../semantics/lib.lem ../semantics/tokens.lem ../semantics/ast.lem
-Print_astScript.sml : ../semantics/hol_lib.lem $(Print_ast_deps) print_ast.lem
-	lem -extra_level none -hol_lib ../semantics/hol_lib.lem $(patsubst %,-i %,$(Print_ast_deps)) -hol print_ast.lem
+Print_astScript.sml : $(Print_ast_deps) print_ast.lem
+	lem -auxiliary_level none $(patsubst %,-i %,$(Print_ast_deps)) -hol print_ast.lem
 
 ifdef POLY
-HOLHEAP = local-hol-heap
+#HOLHEAP = local-hol-heap
 PARENT_HOLHEAP = ../semantics/sem_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-PRE_BARE_THYS1 = AstTheory \
-		TokensTheory \
-		LibTheory \
-		SemanticPrimitivesTheory \
-		AltBigStepTheory
+PRE_BARE_THYS1 = astTheory \
+		tokensTheory \
+		libTheory \
+		semanticPrimitivesTheory \
+		altBigStepTheory
 
 PRE_BARE_THYS2 = cmlParseTheory lexer_implTheory
 
@@ -27,6 +27,6 @@ BARE_THYS3 =  $(patsubst %,../metatheory/%,$(PRE_BARE_THYS3))
 DEPS = $(patsubst %,%.uo,$(BARE_THYS1)) $(patsubst %,%.uo,$(BARE_THYS2)) $(patsubst %,%.uo,$(BARE_THYS3))
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS1) $(BARE_THYS2) $(BARE_THYS3)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS1) $(BARE_THYS3) $(BARE_THYS2)
 
 endif

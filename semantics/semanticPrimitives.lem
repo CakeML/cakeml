@@ -372,5 +372,5 @@ and
 id_to_string (Long x y) = x^"."^y
 
 let int_to_string z =
-  if z < 0 then "~"^(num_to_string (int_to_num (neg z)))
+  if z < 0 then "~"^(num_to_string (int_to_num (~ z)))
   else num_to_string (int_to_num z)

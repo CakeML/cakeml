@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib;
 val _ = new_theory "ml_translator";
-open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
+open astTheory libTheory altBigStepTheory semanticPrimitivesTheory;
 open terminationTheory;
 open bigBigEquivTheory;
 open arithmeticTheory listTheory combinTheory pairTheory;
@@ -1062,7 +1062,7 @@ val Eval_IMP_EvalC = store_thm("Eval_IMP_EvalC",
   \\ `check_ctors cenv (Var n)` by EVAL_TAC
   \\ Q.PAT_ASSUM `evaluate' [] env (Var n) ([],Rval res)` MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate'_cases]
-  \\ REPEAT STRIP_TAC \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases]
+  \\ REPEAT STRIP_TAC \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases]
   \\ Q.EXISTS_TAC `res` \\ FULL_SIMP_TAC (srw_ss()) [lookup_var_id_def]
   \\ metis_tac [eval'_to_eval_simple_pat, result_distinct]);
 

@@ -453,7 +453,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Define `
  (int_to_string z =  
-(if z <(( 0 : int)) then "~"++((num_to_dec_string ((Num ((int_neg z))))))
+(if z <(( 0 : int)) then "~"++((num_to_dec_string ((Num ((~ z))))))
   else (num_to_dec_string ((Num z)))))`;
 
 val _ = export_theory()

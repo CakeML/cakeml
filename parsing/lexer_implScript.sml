@@ -3,7 +3,7 @@ open HolKernel Parse boolLib bossLib lcsymtacs;
 
 val _ = new_theory "lexer_impl";
 
-open stringTheory stringLib listTheory TokensTheory lexer_funTheory;
+open stringTheory stringLib listTheory tokensTheory lexer_funTheory;
 
 val tac =
  full_simp_tac (srw_ss()) [char_le_def, char_lt_def] >>

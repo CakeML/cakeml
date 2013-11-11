@@ -3,7 +3,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "std_prelude";
 open arithmeticTheory listTheory combinTheory pairTheory sumTheory;
 open optionTheory oneTheory bitTheory stringTheory whileTheory;
 open finite_mapTheory pred_setTheory;
-open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
+open astTheory libTheory altBigStepTheory semanticPrimitivesTheory;
 open terminationTheory alistTheory;
 
 open ml_translatorLib ml_translatorTheory mini_preludeTheory;

@@ -1,7 +1,7 @@
 open preamble intSimps;
-open AstTheory Print_astTheory;
+open astTheory print_astTheory;
 
-val _ = new_theory "Print_astTermination";
+val _ = new_theory "print_astTermination";
 
 (* ----------------- Termination proofs for Print_astTheory --------------- *)
 

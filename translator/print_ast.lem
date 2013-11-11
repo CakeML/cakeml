@@ -1,41 +1,36 @@
-open Lib
-open Ast
-open Tokens
+open import Pervasives 
+open import Lib
+open import Ast
+open import Tokens
 
-val Num : Int.int -> num
-let inline {hol} Num = Hol.Num
-
-val CHR : num -> string
-let inline {hol} CHR n = Hol.STRING (Hol.CHR n) ""
+val CHR : nat -> string
+let inline {hol} CHR n = `STRING` (`CHR` n) ""
 
 val string_first : string -> string
-let inline {hol} string_first s = Hol.STRING (Hol.SUB (s,0)) ""
+let inline {hol} string_first s = `STRING` (`SUB` (s,(0:nat))) ""
 
-val first_ord : string -> num
-let inline {hol} first_ord s = Hol.ORD (Hol.SUB (s,0))
-
-val (%) : num -> num -> num
-let inline {hol} (%) = Hol.MOD
+val first_ord : string -> nat
+let inline {hol} first_ord s = `ORD` (`SUB` (s,(0:nat)))
 
 let rec num_to_string n acc =
   if n = 0 then
     acc
   else
-    num_to_string (n / 10) (CHR (n % 10 + 48) ^ acc)
+    num_to_string (n / 10) (CHR (n mod 10 + 48) ^ acc)
 
-val int_to_string : Int.int -> string
+val int_to_string : integer -> string
 let int_to_string n =
-  if n = i 0 then
+  if n = 0 then
     "0"
-  else if Int.(>) n (i 0) then
-    num_to_string (Num n) ""
+  else if n > 0 then
+    num_to_string (int_to_num n) ""
   else
-    "~" ^ num_to_string (Num (Int.(-) (i 0) n)) ""
+    "~" ^ num_to_string (int_to_num (0 - n)) ""
 
-val spaces : num -> string -> string
+val spaces : nat -> string -> string
 let rec 
 spaces n s =
-  if (n:num) = 0 then
+  if (n:nat) = 0 then
     s
   else
     " " ^ spaces (n - 1) s
@@ -212,21 +207,21 @@ pat_to_tok_tree (Pvar v) = var_to_tok_tree v
 and
 pat_to_tok_tree (Plit l) = lit_to_tok_tree l
 and
-pat_to_tok_tree (Pcon (Some c) []) = id_to_tok_tree c
+pat_to_tok_tree (Pcon (Just c) []) = id_to_tok_tree c
 and
-pat_to_tok_tree (Pcon (Some c) ps) =
+pat_to_tok_tree (Pcon (Just c) ps) =
   L LparT ^^ id_to_tok_tree c ^^ 
     L LparT ^^ join_trees (L CommaT) (List.map pat_to_tok_tree ps) ^^
     L RparT ^^ L RparT
 and
-pat_to_tok_tree (Pcon None ps) =
+pat_to_tok_tree (Pcon Nothing ps) =
     L LparT ^^ join_trees (L CommaT) (List.map pat_to_tok_tree ps) ^^ L RparT
 and
 pat_to_tok_tree (Pref p) =
   L LparT ^^ L (LongidT "" "ref") ^^ pat_to_tok_tree p ^^ L RparT
 
 let inc_indent i = 
-  if (i:num) < 30 then
+  if (i:nat) < 30 then
     i + 2
   else
     i
@@ -241,17 +236,17 @@ and
 exp_to_tok_tree indent (Lit l) =
   lit_to_tok_tree l
 and
-exp_to_tok_tree indent (Con (Some c) []) =
+exp_to_tok_tree indent (Con (Just c) []) =
   id_to_tok_tree c
 and
-exp_to_tok_tree indent (Con (Some c) es) =
+exp_to_tok_tree indent (Con (Just c) es) =
   L LparT ^^
   id_to_tok_tree c ^^ 
   L LparT ^^
   join_trees (L CommaT) (List.map (exp_to_tok_tree indent) es) ^^ 
   L RparT ^^ L RparT
 and
-exp_to_tok_tree indent (Con None es) =
+exp_to_tok_tree indent (Con Nothing es) =
   L LparT ^^
   join_trees (L CommaT) (List.map (exp_to_tok_tree indent) es) ^^ 
   L RparT
@@ -435,7 +430,7 @@ let variant_to_tok_tree (c,ts) =
     join_trees (L StarT) (List.map type_to_tok_tree ts)
 
 (*val typedef_to_tok_tree : num -> tvarN list * typeN * (conN * t list) list -> token tree*)
-val typedef_to_tok_tree : num -> list tvarN * typeN * list (conN * list t) -> tok_tree
+val typedef_to_tok_tree : nat -> list tvarN * typeN * list (conN * list t) -> tok_tree
 let typedef_to_tok_tree indent (tvs, name, variants) =
   (if tvs = [] then 
      L (LongidT "" name)
