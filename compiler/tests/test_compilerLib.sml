@@ -131,6 +131,9 @@ val term_to_ov = v_to_ov [] o term_to_v
 fun add_code c bs = bc_state_pc_fupd (K (numML.fromInt (List.length (bc_state_code bs))))
   (strip_labels (bc_state_code_fupd (C append (List.rev c)) bs))
 
+fun ladd_code c bs = bc_state_pc_fupd (K (numML.fromInt (List.length (bc_state_code bs))))
+  (bc_state_code_fupd (C append (List.rev c)) bs)
+
 fun mk_Tmod mn ds = Tmod(mn,NONE,dest_list term_to_dec ds)
 fun mk_Texp e = Tdec (term_to_dec ``Dlet (Pvar "it") ^e``)
 fun mk_Tdec d = Tdec (term_to_dec d)
@@ -149,6 +152,8 @@ in (add_code c bs,rss,rsf) end
 
 val inits = (init_bc_state, init_compiler_state)
 
+val real_inits = (real_init_bc_state, init_compiler_state)
+
 fun mst_run_decs_exp_gen test (ds,e) = let
   val (bs,rs) = run_decs inits ds
   val (bs,rss,rsf) = prep_exp (bs,rs) e
@@ -161,6 +166,12 @@ fun excp bs = numML.toInt (bc_state_pc bs) = SOME 0
 fun run_top (bs,rs) t = let
   val (rss,(rsf,c)) = compile_top rs t
   val bs = add_code c bs
+  val (SOME bs) = bc_eval bs
+in (bs,if excp bs then rsf else rss) end
+
+fun lrun_top (bs,rs) t = let
+  val (rss,(rsf,c)) = compile_top rs t
+  val bs = ladd_code c bs
   val (SOME bs) = bc_eval bs
 in (bs,if excp bs then rsf else rss) end
 
@@ -212,14 +223,18 @@ val print_bc_stack_op = let fun
 | f (Cons (n,m)) = "Cons "^(numML.toString n)^" "^(numML.toString m)
 | f (Shift (n,m)) = "Shift "^(numML.toString n)^" "^(numML.toString m)
 | f (Store n) = "Store "^(numML.toString n)
+| f (LoadRev n) = "LoadRev "^(numML.toString n)
 | f Pop = "Pop"
 | f Sub = "Sub"
 | f Add = "Add"
+| f Mod = "Mod"
+| f Div = "Div"
+| f IsBlock = "IsBlock"
 | f Less = "Less"
 | f x = (PolyML.print x; raise Match)
 in f end
 val print_bc_inst = let fun
-  f (Stack sop) = "Stack "^(print_bc_stack_op sop)
+  f (Stack sop) = "Stack ("^(print_bc_stack_op sop)^")"
 | f CallPtr = "CallPtr"
 | f Return = "Return"
 | f Deref = "Deref"
@@ -228,9 +243,13 @@ val print_bc_inst = let fun
 | f PushExc = "PushExc"
 | f Update = "Update"
 | f Stop = "Stop"
-| f (Jump n) = "Jump "^(loc_to_string n)
-| f (JumpIf n) = "JumpIf "^(loc_to_string n)
-| f (PushPtr n) = "PushPtr "^(loc_to_string n)
+| f Tick = "Tick"
+| f Print = "Print"
+| f (Label n) = "Label "^(numML.toString n)
+| f (PrintC c) = "PrintC #\""^(Char.toString c)^"\""
+| f (Jump n) = "Jump ("^(loc_to_string n)^")"
+| f (JumpIf n) = "JumpIf ("^(loc_to_string n)^")"
+| f (PushPtr n) = "PushPtr ("^(loc_to_string n)^")"
 | f x = (PolyML.print x; raise Match)
 in f end
 fun
@@ -240,10 +259,21 @@ fun
 | print_bv (RefPtr n) = "RefPtr "^(numML.toString n)
 | print_bv (Number n) = "Number "^(Int.toString (valOf (intML.toInt n)))
 and print_bvs [] = "]" | print_bvs [bv] = (print_bv bv)^"]" | print_bvs (bv::bvs) = (print_bv bv)^", "^(print_bvs bvs)
+fun calc_inst_length bs i =
+  (valOf o numML.toInt o bc_state_inst_length bs) i + 1
 fun print_bs bs =
 (("stack", map print_bv (bc_state_stack bs)),
  ("pc", numML.toString(bc_state_pc bs)),
- ("code", rev(snd(foldl (fn (i,(n,ls)) => (n+1,((Int.toString n)^": "^print_bc_inst i)::ls)) (0,[]) (bc_state_code bs)))),
+ ("code", rev(snd(foldl (fn (i,(n,ls)) => (n+calc_inst_length bs i,((Int.toString n)^": "^print_bc_inst i)::ls)) (0,[]) (bc_state_code bs)))),
  ("refs", let val f = bc_state_refs bs in map (fn k => (numML.toString k,print_bv(fmapML.FAPPLY f k))) (sort (numML.<) (mk_set (setML.toList (fmapML.FDOM f)))) end))
+
+local
+fun print_bs bs =
+(rev(snd(foldl (fn (i,(n,ls)) => (n+1,(print_bc_inst i)::ls)) (0,[]) (bc_state_code bs))))
+in
+fun bs_to_term bs =
+  print_bs bs |> map (fn s => Term [QUOTE s])
+    |> (fn ts => listSyntax.mk_list(ts,type_of (hd ts)))
+end
 
 end

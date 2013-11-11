@@ -341,6 +341,7 @@ val isSomeDataElement_heap_lookup_lemma3 = prove(
     (isSomeDataElement (heap_lookup n (x::xs)) =
      el_length x <= n /\ isSomeDataElement (heap_lookup (n - el_length x) xs))``,
   SRW_TAC [] [heap_expand_def,heap_lookup_def,isSomeDataElement_def]
+  \\ Cases_on`n < el_length x` THEN SRW_TAC[][]
   THEN1 (DISJ1_TAC \\ DECIDE_TAC)
   \\ `el_length x <= n` by DECIDE_TAC \\ FULL_SIMP_TAC std_ss []);
 
