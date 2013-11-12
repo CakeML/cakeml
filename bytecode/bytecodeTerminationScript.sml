@@ -1,4 +1,4 @@
-open HolKernel Defn boolLib bossLib BytecodeTheory lcsymtacs
+open HolKernel Defn boolLib bossLib bytecodeTheory lcsymtacs
 val _ = new_theory"bytecodeTermination"
 
 fun register name (def,ind) = let
@@ -8,11 +8,11 @@ fun register name (def,ind) = let
 in (def,ind) end
 
 val _ = export_rewrites
-["Bytecode.bc_fetch_aux_def","Bytecode.bool_to_tag_def","Bytecode.bool_to_val_def"
-,"Bytecode.unit_tag_def","Bytecode.unit_val_def","Bytecode.closure_tag_def","Bytecode.block_tag_def"
-,"Bytecode.is_Label_def","Bytecode.is_Block_def","Bytecode.bc_equality_result_to_val_def"
-,"Bytecode.can_Print_def"
-,"CompilerLib.the_def","CompilerLib.fapply_def"]
+["bytecode.bc_fetch_aux_def","bytecode.bool_to_tag_def","bytecode.bool_to_val_def"
+,"bytecode.unit_tag_def","bytecode.unit_val_def","bytecode.closure_tag_def","bytecode.block_tag_def"
+,"bytecode.is_Label_def","bytecode.is_Block_def","bytecode.bc_equality_result_to_val_def"
+,"bytecode.can_Print_def"
+,"compilerLib.the_def","compilerLib.fapply_def"]
 
 val _ = Parse.overload_on("next_addr", ``λil ls. SUM (MAP (SUC o il) (FILTER ($~ o is_Label) ls))``)
 

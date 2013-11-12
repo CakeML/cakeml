@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib relationTheory lcsymtacs miscTheory arithmeticTheory rich_listTheory
-open BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory miscLib
+open bytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory miscLib
 
 val _ = new_theory"bytecodeClock"
 

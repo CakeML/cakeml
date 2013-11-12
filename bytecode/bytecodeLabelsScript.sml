@@ -3,7 +3,7 @@ open HolKernel Parse boolLib bossLib lcsymtacs;
 val _ = new_theory "bytecodeLabels";
 
 open listTheory arithmeticTheory finite_mapTheory pred_setTheory rich_listTheory
-open relationTheory BytecodeTheory;
+open relationTheory bytecodeTheory;
 
 val REVERSE = Tactical.REVERSE
 
@@ -146,7 +146,7 @@ val code_length_inst_labels = store_thm("code_length_inst_labels",
   \\ ASM_SIMP_TAC (srw_ss()) [inst_labels_def,code_length_def]
   \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ FULL_SIMP_TAC std_ss [code_length_def]
-  \\ FULL_SIMP_TAC std_ss [ilength_def,BytecodeTheory.is_Label_def,
+  \\ FULL_SIMP_TAC std_ss [ilength_def,bytecodeTheory.is_Label_def,
        LET_DEF,MAP,SUM] \\ FULL_SIMP_TAC std_ss [length_ok_def]);
 
 val code_length_strip_labels = store_thm("code_length_strip_labels",

@@ -1,36 +1,39 @@
-open Lib
-open Ast
-open SemanticPrimitives
-open CompilerLib
-open Printer
+open import Pervasives
+import Map_extra
+
+open import Lib
+open import Ast
+open import SemanticPrimitives
+open import CompilerLib
+open import Printer
 
 (* --- Syntax --- *)
 
 type
   bc_stack_op =
     Pop                     (* pop top of stack *)
-  | Pops of num             (* pop n elements under stack top *)
-  | Shift of num * num      (* shift top n elements down k places *)
-  | PushInt of int          (* push int onto stack *)
-  | Cons of num * num       (* push new cons with tag m and n elements *)
-  | Load of num             (* push stack[n] *)
-  | Store of num            (* pop and store in stack[n] *)
-  | LoadRev of num          (* push rev(stack)[n] *)
-  | El of num               (* read field n of cons block *)
-  | TagEq of num            (* test tag of block *)
+  | Pops of nat             (* pop n elements under stack top *)
+  | Shift of nat * nat      (* shift top n elements down k places *)
+  | PushInt of integer      (* push int onto stack *)
+  | Cons of nat * nat       (* push new cons with tag m and n elements *)
+  | Load of nat             (* push stack[n] *)
+  | Store of nat            (* pop and store in stack[n] *)
+  | LoadRev of nat          (* push rev(stack)[n] *)
+  | El of nat               (* read field n of cons block *)
+  | TagEq of nat            (* test tag of block *)
   | IsBlock                 (* test for a block *)
   | Equal                   (* test equality *)
   | Add | Sub | Mult | Div | Mod | Less  (* arithmetic *)
 
 type
   loc =
-    Lab of num              (* label *)
-  | Addr of num             (* address *)
+    Lab of nat              (* label *)
+  | Addr of nat             (* address *)
 
 type
   bc_inst =
     Stack of bc_stack_op
-  | Label of num            (* label location *)
+  | Label of nat            (* label location *)
   | Jump of loc             (* jump to location *)
   | JumpIf of loc           (* jump to location iff true *)
   | Call of loc             (* call location *)
@@ -45,7 +48,7 @@ type
   | Stop                    (* halt execution *)
   | Tick                    (* use fuel *)
   | Print                   (* print value at top of stack *)
-  | PrintC of Hol.char      (* print a character *)
+  | PrintC of char          (* print a character *)
 
 (* --- Semantics --- *)
 
@@ -53,35 +56,36 @@ type
 
 type
   bc_value =
-    Number of int                  (* integer *)
-  | Block of num * list bc_value   (* cons block: tag and payload *)
-  | CodePtr of num                 (* code pointer *)
-  | RefPtr of num                  (* pointer to ref cell *)
-  | StackPtr of num                (* pointer into stack *)
+    Number of integer              (* integer *)
+  | Block of nat * list bc_value   (* cons block: tag and payload *)
+  | CodePtr of nat                 (* code pointer *)
+  | RefPtr of nat                  (* pointer to ref cell *)
+  | StackPtr of nat                (* pointer into stack *)
 
 type
   bc_state =
    <| (* main state components *)
       stack : list bc_value;
       code : list bc_inst;
-      pc : num;
-      refs : Pmap.map num bc_value;
-      handler : num;
+      pc : nat;
+      refs : map nat bc_value;
+      handler : nat;
       output : string;
-      cons_names : list (num * option (id conN));
+      cons_names : list (nat * maybe (id conN));
       (* artificial state components *)
-      inst_length : bc_inst -> num;
-      clock : option num
+      inst_length : bc_inst -> nat;
+      clock : maybe nat
    |>
 
+val bool_to_tag : bool -> nat
 let rec
 bool_to_tag false = 0
 and
 bool_to_tag true = 1
 
-let unit_tag = 2
-let closure_tag = 3
-let block_tag = 4
+let unit_tag : nat = 2
+let closure_tag : nat = 3
+let block_tag : nat = 4
 
 let bool_to_val b = Block (bool_to_tag b) []
 let unit_val = Block unit_tag []
@@ -149,9 +153,9 @@ bc_equal_list _ _ = Eq_val false
 let rec
 bc_equality_result_to_val (Eq_val b) = bool_to_val b
 and
-bc_equality_result_to_val Eq_closure = Number (i 0)
+bc_equality_result_to_val Eq_closure = Number 0
 and
-bc_equality_result_to_val Eq_type_error = Number (i 1)
+bc_equality_result_to_val Eq_type_error = Number 1
 
 (* fetching the next instruction from the code *)
 
@@ -161,12 +165,12 @@ and
 is_Label _ = false
 
 let rec
-bc_fetch_aux [] _ _ = None
+bc_fetch_aux [] _ _ = Nothing
 and
-bc_fetch_aux (x::xs) len n =
+bc_fetch_aux (x::xs) len (n:nat) =
   if is_Label x then bc_fetch_aux xs len n else
-    if n = 0 then Some x else
-      if n < len x + 1 then None else
+    if n = 0 then Just x else
+      if n < len x + 1 then Nothing else
         bc_fetch_aux xs len (n - (len x + 1))
 
 let bc_fetch s = bc_fetch_aux s.code s.inst_length s.pc
@@ -174,24 +178,24 @@ let bc_fetch s = bc_fetch_aux s.code s.inst_length s.pc
 (* most instructions just bump the pc along, for this we use bump_pc *)
 
 let bump_pc s = match bc_fetch s with
-| None -> s
-| Some x -> <| s with pc = s.pc + s.inst_length x + 1 |>
+| Nothing -> s
+| Just x -> <| s with pc = s.pc + s.inst_length x + 1 |>
 end
 
 (* finding the address of a location *)
 let rec
-bc_find_loc_aux [] _ _ _ = None
+bc_find_loc_aux [] _ _ _ = Nothing
 and
-bc_find_loc_aux (x::xs) len l n =
-  if x = Label l then Some n else
+bc_find_loc_aux (x::xs) len l (n:nat) =
+  if x = Label l then Just n else
     bc_find_loc_aux xs len l (n + (if is_Label x then 0 else len x + 1))
 
 let rec
-bc_find_loc _ (Addr n) = Some n
+bc_find_loc _ (Addr n) = Just n
 and
 bc_find_loc s (Lab l) = bc_find_loc_aux s.code s.inst_length l 0
 
-val bv_to_ov : list (num * option (id conN)) -> bc_value -> ov
+val bv_to_ov : list (nat * maybe (id conN)) -> bc_value -> ov
 let rec
 bv_to_ov _ (Number i) = OLit (IntLit i)
 and
@@ -200,7 +204,7 @@ bv_to_ov m (Block n vs) =
   if n = (bool_to_tag true) then OLit (Bool true) else
   if n = unit_tag then OLit Unit else
   if n = closure_tag then OFn else
-  OConv (the None (Lib.lookup (n-block_tag) m)) (List.map (bv_to_ov m) vs)
+  OConv (the Nothing (Lib.lookup (n-block_tag) m)) (List.map (bv_to_ov m) vs)
 and
 bv_to_ov _ (RefPtr n) = OLoc n
 and
@@ -209,156 +213,160 @@ bv_to_ov _ _ = OError
 (* next state relation *)
 
 indreln
-forall x xs. true ==>
+[bc_stack_op : bc_stack_op -> (list bc_value) -> (list bc_value) -> bool]
+
+pop : forall x xs. true ==>
 bc_stack_op Pop (x::xs) (xs)
 and
-forall x ys xs. true ==>
-bc_stack_op (Pops (List.length ys)) (x::ys@xs) (x::xs)
+pops : forall x ys xs. true ==>
+bc_stack_op (Pops (List.length ys)) ((x::ys)++xs) (x::xs)
 and
-forall ys zs xs. true ==>
-bc_stack_op (Shift (List.length ys) (List.length zs)) (ys@zs@xs) (ys@xs)
+shift : forall ys zs xs. true ==>
+bc_stack_op (Shift (List.length ys) (List.length zs)) (ys++(zs++xs)) (ys++xs)
 and
-forall n xs. true ==>
+pushInt : forall n xs. true ==>
 bc_stack_op (PushInt n) (xs) (Number n::xs)
 and
-forall tag ys xs. true ==>
-bc_stack_op (Cons tag (List.length ys)) (ys@xs) (Block tag (List.rev ys)::xs)
+cons : forall tag ys xs. true ==>
+bc_stack_op (Cons tag (List.length ys)) (ys++xs) (Block tag (List.reverse ys)::xs)
 and
-forall k xs. k < List.length xs ==>
-bc_stack_op (Load k) xs (List.nth xs k::xs)
+load : forall k xs. k < List.length xs ==>
+bc_stack_op (Load k) xs (List_extra.nth xs k::xs)
 and
-forall y ys x xs. true ==>
-bc_stack_op (Store (List.length ys)) (y::ys@x::xs) (ys@y::xs)
+store : forall y ys x xs. true ==>
+bc_stack_op (Store (List.length ys)) ((y::ys)++(x::xs)) (ys++(y::xs))
 and
-forall k xs. k < List.length xs ==>
-bc_stack_op (LoadRev k) xs (List.nth (List.rev xs) k::xs)
+loadRev : forall k xs. k < List.length xs ==>
+bc_stack_op (LoadRev k) xs (List_extra.nth (List.reverse xs) k::xs)
 and
-forall k tag ys xs. k < List.length ys ==>
-bc_stack_op (El k) ((Block tag ys)::xs) (List.nth ys k::xs)
+block : forall k tag ys xs. k < List.length ys ==>
+bc_stack_op (El k) ((Block tag ys)::xs) (List_extra.nth ys k::xs)
 and
-forall t tag ys xs. true ==>
+tagEq : forall t tag ys xs. true ==>
 bc_stack_op (TagEq t) ((Block tag ys)::xs) (bool_to_val (tag = t)::xs)
 and
-forall x xs. (forall n. not (x = CodePtr n) && not (x = StackPtr n)) ==>
+isBlock : forall x xs. (forall n. not (x = CodePtr n) && not (x = StackPtr n)) ==>
 bc_stack_op IsBlock (x::xs) ((bool_to_val (is_Block x))::xs)
 and
-forall x2 x1 xs. not (bc_equal x1 x2 = Eq_type_error) ==>
+equal : forall x2 x1 xs. not (bc_equal x1 x2 = Eq_type_error) ==>
 bc_stack_op Equal (x2::x1::xs) (bc_equality_result_to_val (bc_equal x1 x2)::xs)
 and
-forall n m xs. true ==>
-bc_stack_op Less (Number n::Number m::xs) (bool_to_val (Int.(<) m n)::xs)
+less : forall n m xs. true ==>
+bc_stack_op Less (Number n::Number m::xs) (bool_to_val (m < n)::xs)
 and
-forall n m xs. true ==>
-bc_stack_op Add  (Number n::Number m::xs) (Number (Int.(+) m n)::xs)
+add : forall n m xs. true ==>
+bc_stack_op Add  (Number n::Number m::xs) (Number (m + n)::xs)
 and
-forall n m xs. true ==>
-bc_stack_op Sub  (Number n::Number m::xs) (Number (Int.(-) m n)::xs)
+sub : forall n m xs. true ==>
+bc_stack_op Sub  (Number n::Number m::xs) (Number (m - n)::xs)
 and
-forall n m xs. true ==>
-bc_stack_op Mult (Number n::Number m::xs) (Number (Int.( * ) m n)::xs)
+mult : forall n m xs. true ==>
+bc_stack_op Mult (Number n::Number m::xs) (Number (m * n)::xs)
 and
-forall n m xs. not (n = i 0) ==>
-bc_stack_op Div  (Number n::Number m::xs) (Number (Int.(/) m n)::xs)
+dv : forall n m xs. not (n = 0) ==>
+bc_stack_op Div  (Number n::Number m::xs) (Number (m div n)::xs)
 and
-forall n m xs. not (n = i 0) ==>
-bc_stack_op Mod  (Number n::Number m::xs) (Number (Int.(%) m n)::xs)
+md : forall n m xs. not (n = 0) ==>
+bc_stack_op Mod  (Number n::Number m::xs) (Number (m mod n)::xs)
 
 indreln
-forall s b ys.
-bc_fetch s = Some (Stack b)
+[bc_next : bc_state -> bc_state -> bool]
+
+stack_op : forall s b ys.
+bc_fetch s = Just (Stack b)
 && bc_stack_op b (s.stack) ys
 ==>
 bc_next s (<|bump_pc s with stack = ys|>) (* parens throughout: lem sucks *)
 and
-forall s l n.
-(bc_fetch s = Some (Jump l)) (* parens: ugh...*)
-&& (bc_find_loc s l = Some n)
+jump : forall s l n.
+(bc_fetch s = Just (Jump l)) (* parens: ugh...*)
+&& (bc_find_loc s l = Just n)
 ==>
 bc_next s (<|s with pc = n|>)
 and
-forall s l n b xs s'.
-bc_fetch s = Some (JumpIf l)
-&& (bc_find_loc s l = Some n)
+jumpIf : forall s l n b xs s'.
+bc_fetch s = Just (JumpIf l)
+&& (bc_find_loc s l = Just n)
 && s.stack = (bool_to_val b)::xs
 && s' = (<|s with stack = xs|>)
 ==>
 bc_next s (if b then <|s' with pc = n|> else bump_pc s')
 and
-forall s l n x xs.
-bc_fetch s = Some (Call l)
-&& (bc_find_loc s l = Some n)
+call : forall s l n x xs.
+bc_fetch s = Just (Call l)
+&& (bc_find_loc s l = Just n)
 && s.stack = x::xs
 ==>
 bc_next s (<|s with pc = n; stack = x::CodePtr ((bump_pc s).pc)::xs|>)
 and
-forall s ptr x xs.
-bc_fetch s = Some CallPtr
+callPtr : forall s ptr x xs.
+bc_fetch s = Just CallPtr
 && s.stack = CodePtr ptr::x::xs
 ==>
 bc_next s (<|s with pc = ptr; stack = x::CodePtr ((bump_pc s).pc)::xs|>)
 and
-forall s l n.
-bc_fetch s = Some (PushPtr l)
-&& (bc_find_loc s l = Some n)
+pushPtr : forall s l n.
+bc_fetch s = Just (PushPtr l)
+&& (bc_find_loc s l = Just n)
 ==>
 bc_next s (<|bump_pc s with stack = (CodePtr n)::s.stack |>)
 and
-forall s x n xs.
-bc_fetch s = Some Return
+return : forall s x n xs.
+bc_fetch s = Just Return
 && s.stack = x::CodePtr n::xs
 ==>
 bc_next s (<|s with pc = n; stack = x::xs|>)
 and
-forall s.
-(bc_fetch s = Some PushExc) (* parens: Lem sucks *)
+pushExc : forall s.
+(bc_fetch s = Just PushExc) (* parens: Lem sucks *)
 ==>
 bc_next s (<|bump_pc s with
                handler = List.length s.stack ;
                stack = (StackPtr s.handler)::s.stack|>)
 and
-forall s sp x l1 l2.
-bc_fetch s = Some PopExc &&
-s.stack = x::l1 @ StackPtr sp::l2 &&
+popExc : forall s sp x l1 l2.
+bc_fetch s = Just PopExc &&
+s.stack = (x::l1) ++ (StackPtr sp::l2) &&
 List.length l2 = s.handler
 ==>
 bc_next s (<|bump_pc s with handler = sp; stack = x::l2|>)
 and
-forall s x xs ptr.
-bc_fetch s = Some Ref
+ref : forall s x xs ptr.
+bc_fetch s = Just Ref
 && s.stack = x::xs
-&& (ptr = least (fun ptr -> not (Pmap.mem ptr s.refs)))
+&& (ptr = least (fun ptr -> not (Map.member ptr s.refs)))
 ==>
-bc_next s (<|bump_pc s with stack = (RefPtr ptr)::xs; refs = Pmap.add ptr x s.refs|>)
+bc_next s (<|bump_pc s with stack = (RefPtr ptr)::xs; refs = Map.insert ptr x s.refs|>)
 and
-forall s ptr xs.
-bc_fetch s = Some Deref
+deref : forall s ptr xs.
+bc_fetch s = Just Deref
 && s.stack = (RefPtr ptr)::xs
-&& Pmap.mem ptr s.refs
+&& Map.member ptr s.refs
 ==>
-bc_next s (<|bump_pc s with stack = Pmap.find ptr s.refs::xs|>)
+bc_next s (<|bump_pc s with stack = Map_extra.find ptr s.refs::xs|>)
 and
-forall s x ptr xs.
-bc_fetch s = Some Update
+update : forall s x ptr xs.
+bc_fetch s = Just Update
 && s.stack = x::(RefPtr ptr)::xs
-&& Pmap.mem ptr s.refs
+&& Map.member ptr s.refs
 ==>
-bc_next s (<|bump_pc s with stack = xs; refs = Pmap.add ptr x s.refs|>)
+bc_next s (<|bump_pc s with stack = xs; refs = Map.insert ptr x s.refs|>)
 and
-forall s.
-bc_fetch s = Some Tick
-&& (forall n. s.clock = Some n --> n > 0)
+tick : forall s.
+bc_fetch s = Just Tick
+&& (forall n. s.clock = Just n --> n > 0)
 ==>
-bc_next s (<|bump_pc s with clock = Hol.OPTION_MAP Hol.PRE s.clock|>)
+bc_next s (<|bump_pc s with clock = Maybe.map natPred s.clock|>)
 and
-forall s x xs.
-bc_fetch s = Some Print
+print : forall s x xs.
+bc_fetch s = Just Print
 && (s.stack = x::xs)
 && can_Print x
 ==>
 bc_next s (<|bump_pc s with stack = xs;
-  output = Hol.CONCAT [s.output;ov_to_string (bv_to_ov s.cons_names x)]|>)
+  output = string_concat [s.output;ov_to_string (bv_to_ov s.cons_names x)]|>)
 and
-forall s c.
-bc_fetch s = Some (PrintC c)
+printC : forall s c.
+bc_fetch s = Just (PrintC c)
 ==>
-bc_next s (<|bump_pc s with output = Hol.SNOC c s.output|>)
+bc_next s (<|bump_pc s with output = snoc_char c s.output|>)

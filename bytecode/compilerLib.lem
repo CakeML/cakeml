@@ -1,19 +1,20 @@
+open import Pervasives
+import List_extra
+
+
 (* TODO: these should be in the lem library *)
+val least : (nat -> bool) -> nat
+let inline {hol} least = `LEAST`
 
-val genlist : forall 'a. (num -> 'a) -> num -> list 'a
-let inline {hol} genlist = Hol.GENLIST
+val string_concat : list string -> string
+let inline {hol} string_concat = `CONCAT`
 
-val pre : num -> num
-let inline {hol} pre = Hol.PRE
+val snoc_char : char -> string -> string
+let inline {hol} snoc_char c s = `SNOC` c s
 
-val drop : forall 'a. num -> list 'a -> list 'a
-let inline {hol} drop = Hol.DROP
+let rec el_check n ls = if n < List.length ls then Just (List_extra.nth ls n) else Nothing
 
-val least : (num -> bool) -> num
-let inline {hol} least = Hol.LEAST
-
-let rec el_check n ls = if n < List.length ls then Some (List.nth ls n) else None
-
+val num_fold : forall 'a. ('a -> 'a) -> 'a -> nat -> 'a
 let rec num_fold f a n = if n = 0 then a else num_fold f (f a) (n-1)
 
 let rec
@@ -27,7 +28,7 @@ let rec
 lunion [] s = s
 and
 lunion (x::xs) s =
-  if List.mem x s
+  if List.elem x s
   then lunion xs s
   else x::(lunion xs s)
 
@@ -35,6 +36,6 @@ let rec
 lshift n ls =
   List.map (fun v -> v - n) (List.filter (fun v -> n <= v) ls)
 
-let rec the _ (Some x) = x and the x None = x
+let rec the _ (Just x) = x and the x Nothing = x
 
-let fapply d x f = match Hol.FLOOKUP f x with Some d -> d | None -> d end
+let fapply d x f = match lookup f x with Just d -> d | Nothing -> d end

@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib Parse lcsymtacs
-open SemanticPrimitivesTheory BytecodeTheory bytecodeTerminationTheory arithmeticTheory listTheory finite_mapTheory integerTheory whileTheory relationTheory
+open semanticPrimitivesTheory bytecodeTheory bytecodeTerminationTheory arithmeticTheory listTheory finite_mapTheory integerTheory whileTheory relationTheory
 val _ = new_theory "bytecodeEval";
 
 val bc_eval_stack_def = Define`
@@ -238,7 +238,7 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   qmatch_assum_rename_tac`s1.stack = x::xs`[] >>
   Cases_on `s1.handler < LENGTH xs` >> fs[LET_THM] >>
   Cases_on `EL s1.handler (REVERSE xs)` >> fs[LET_THM] >>
-  rw[bc_next_cases,BytecodeTheory.bc_state_component_equality] >>
+  rw[bc_next_cases,bytecodeTheory.bc_state_component_equality] >>
   qpat_assum`X = x::xs`kall_tac >>
   qpat_assum`X = SOME PopExc`kall_tac >>
   qmatch_assum_rename_tac`m < LENGTH xs`[] >>
@@ -268,7 +268,7 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   pop_assum mp_tac >>
   BasicProvers.EVERY_CASE_TAC >>
   rw[bc_next_cases,PRE_SUB1] >>
-  rw[BytecodeTheory.bc_state_component_equality,bump_pc_def])
+  rw[bytecodeTheory.bc_state_component_equality,bump_pc_def])
 >- (
   Cases_on `s1.stack` >> fs[LET_THM] >>
   rw[bc_next_cases] )
@@ -287,7 +287,7 @@ TRY(
   pop_assum (assume_tac o SYM) >>
   lrw[rich_listTheory.TAKE_REVERSE,rich_listTheory.LASTN_LENGTH_ID]) >>
 BasicProvers.EVERY_CASE_TAC >> fs[PRE_SUB1] >>
-rw[BytecodeTheory.bc_state_component_equality,bump_pc_def])
+rw[bytecodeTheory.bc_state_component_equality,bump_pc_def])
 
 val bc_eval1_thm = store_thm("bc_eval1_thm",
   ``!s1 s2. bc_next s1 s2 = (bc_eval1 s1 = SOME s2)``,

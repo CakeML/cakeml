@@ -1,14 +1,16 @@
 (* observable values *)
+open import Pervasives
+import List_extra
 
-open Ast
-open SemanticPrimitives
-open CompilerLib
+open import Ast
+open import SemanticPrimitives
+open import CompilerLib
 
 type ov =
   | OLit of lit
-  | OConv of option (id conN) * list ov
+  | OConv of maybe (id conN) * list ov
   | OFn
-  | OLoc of num (* machine, not semantic, address *)
+  | OLoc of nat (* machine, not semantic, address *)
   | OError (* internal machine value (pointer) that should not appear *)
 
 let rec
@@ -20,10 +22,10 @@ v_to_ov _ (Closure _ _ _) = OFn
 and
 v_to_ov _ (Recclosure _ _ _) = OFn
 and
-v_to_ov s (Loc n) = OLoc (List.nth s n)
+v_to_ov s (Loc n) = OLoc (List_extra.nth s n)
 
 let rec
-ov_to_string (OLit (IntLit (i:int))) = int_to_string i
+ov_to_string (OLit (IntLit (i:integer))) = int_to_string i
 and
 ov_to_string (OLit (Bool true)) = "true"
 and

@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps listTheory relationTheory arithmeticTheory lcsymtacs
-open miscTheory BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory rich_listTheory
+open miscTheory bytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory rich_listTheory
 val _ = numLib.prefer_num()
 val _ = new_theory"bytecodeExtra"
 
