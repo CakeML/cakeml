@@ -2,7 +2,7 @@ INCLUDES = .. ../..
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
-HOLHEAP = miniml-heap
+#HOLHEAP = miniml-heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 BARE_THYS = ../ml_translatorLib

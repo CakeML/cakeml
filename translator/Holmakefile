@@ -1,4 +1,4 @@
-INCLUDES = ../semantics ../parsing ../metatheory
+INCLUDES = .. ../semantics ../parsing ../metatheory
 OPTIONS = QUIT_ON_FAILURE
 
 Print_ast_deps = ../semantics/lib.lem ../semantics/tokens.lem ../semantics/ast.lem

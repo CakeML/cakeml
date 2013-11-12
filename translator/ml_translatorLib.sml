@@ -3,7 +3,7 @@ struct
 
 open HolKernel boolLib bossLib;
 
-open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
+open astTheory libTheory altBigStepTheory semanticPrimitivesTheory;
 open terminationTheory;
 open ml_translatorTheory intLib;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
@@ -84,7 +84,7 @@ local
   (* session specific state below *)
   val abbrev_counter = ref 0;
   val abbrev_defs = ref ([]:thm list);
-  val init_envC = InitialEnvTheory.init_envC_def |> SIMP_RULE std_ss [MAP]
+  val init_envC = initialEnvTheory.init_envC_def |> SIMP_RULE std_ss [MAP]
 in
   fun get_cenv_names () = let
     val th = CONJ (!cenv_eq_thm) init_envC
@@ -215,7 +215,7 @@ in
       val lemma = !cenv_eq_thm
       val tac =
         PURE_REWRITE_TAC [lemma,check_dup_ctors_thm,MAP_APPEND,MEM_APPEND]
-        THEN PURE_REWRITE_TAC [MAP,MEM,InitialEnvTheory.init_envC_def,FST,FOLDR]
+        THEN PURE_REWRITE_TAC [MAP,MEM,initialEnvTheory.init_envC_def,FST,FOLDR]
         THEN CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV))
         THEN PURE_REWRITE_TAC [FST,FOLDR,id_11]
         THEN CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV))
