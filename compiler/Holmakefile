@@ -2,21 +2,19 @@ INCLUDES = ../semantics ../bytecode
 
 OPTIONS = QUIT_ON_FAILURE
 
-LIBS = ../semantics/hol_lib.lem ../bytecode/hol_lib.lem
 SEMANTICSI = lib ast semanticPrimitives
 BYTECODEI = compilerLib printer bytecode
-COMPILERH = intLang toIntLang toBytecode compiler
-COMPILERU = IntLang ToIntLang ToBytecode Compiler
-GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(COMPILERU))
+COMPILER = intLang toIntLang toBytecode compiler
+GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(COMPILER))
 
 LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,../bytecode/%.lem,$(BYTECODEI))
-LEMH = $(patsubst %,%.lem,$(COMPILERH))
+LEMH = $(patsubst %,%.lem,$(COMPILER))
 
-$(GEN_SCRIPTS): $(LIBS) $(LEMI) $(LEMH)
-	lem -extra_level auto $(patsubst %,-hol_lib %,$(LIBS)) $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH))
+$(GEN_SCRIPTS): $(LEMI) $(LEMH)
+	lem -auxiliary_level auto $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH))
 
 ifdef POLY
-HOLHEAP = heap
+#HOLHEAP = heap
 PARENT_HOLHEAP = ../semantics/sem_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
