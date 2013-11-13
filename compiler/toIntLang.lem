@@ -6,6 +6,10 @@ open import CompilerLib
 open import IntLang
 open import Ast
 
+(* TODO: Lem's builtin find index has a different type *)
+val find_index : forall 'a 'b. 'a -> list 'a -> nat -> 'b
+let inline {hol} find_index = `find_index` (* to pick up the definition in miscTheory *)
+
 let rec
 free_vars (CRaise e) = free_vars e
 and
@@ -119,7 +123,7 @@ pats_to_Cpats m (p::ps) =
   (m,Cp::Cps)
 
 let rec
-Cpat_vars CPvar = 1
+Cpat_vars CPvar = (1:nat)
 and
 Cpat_vars (CPlit _) = 0
 and
@@ -166,15 +170,15 @@ remove_mat_var b v ((p,sk)::pes) =
     (remove_mat_vp 0 (shift 1 (Cpat_vars p) sk) (v+1) p)
 
 let rec
-opn_to_prim2 Plus = Inl CAdd
+opn_to_prim2 Plus = Left CAdd
 and
-opn_to_prim2 Minus = Inl CSub
+opn_to_prim2 Minus = Left CSub
 and
-opn_to_prim2 Times = Inl CMul
+opn_to_prim2 Times = Left CMul
 and
-opn_to_prim2 Divide = Inr CDiv
+opn_to_prim2 Divide = Right CDiv
 and
-opn_to_prim2 Modulo = Inr CMod
+opn_to_prim2 Modulo = Right CMod
 
 let rec
 exp_to_Cexp m (Handle e pes) =
@@ -190,9 +194,9 @@ and
 exp_to_Cexp m (Con cn es) =
   CCon (fapply 0 cn m.cnmap) (exps_to_Cexps m es)
 and
-exp_to_Cexp m (Var (Short vn)) = CVar (Short (the 0 (Hol.find_index vn m.bvars 0)))
+exp_to_Cexp m (Var (Short vn)) = CVar (Short (the 0 (find_index vn m.bvars 0)))
 and
-exp_to_Cexp m (Var (Long mn vn)) = CVar (Long mn (the 0 (Hol.find_index vn (fapply [] mn m.mvars) 0)))
+exp_to_Cexp m (Var (Long mn vn)) = CVar (Long mn (the 0 (find_index vn (fapply [] mn m.mvars) 0)))
 and
 exp_to_Cexp m (Fun vn e) =
   CLetrec [(Nothing,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))] (CVar (Short 0))
@@ -201,11 +205,11 @@ exp_to_Cexp m (App (Opn opn) e1 e2) =
   let Ce1 = exp_to_Cexp m e1 in
   let Ce2 = exp_to_Cexp m e2 in
   match opn_to_prim2 opn with
-  | Inl p2 -> CPrim2 p2 Ce1 Ce2
-  | Inr p2 ->
+  | Left p2 -> CPrim2 p2 Ce1 Ce2
+  | Right p2 ->
     CLet Ce1
       (CLet (shift 1 0 Ce2)
-        (CIf (CPrim2 CEq (CVar (Short 0)) (CLit (IntLit (i 0))))
+        (CIf (CPrim2 CEq (CVar (Short 0)) (CLit (IntLit 0)))
              (CRaise CDiv_exc)
              (CPrim2 p2 (CVar (Short 1)) (CVar (Short 0)))))
   end
@@ -215,13 +219,13 @@ exp_to_Cexp m (App (Opb opb) e1 e2) =
   let Ce2 = exp_to_Cexp m e2 in
   match opb with
   | Lt -> CPrim2 CLt Ce1 Ce2
-  | Leq -> CPrim2 CLt (CPrim2 CSub Ce1 Ce2) (CLit (IntLit (i 1)))
+  | Leq -> CPrim2 CLt (CPrim2 CSub Ce1 Ce2) (CLit (IntLit 1))
   | opb ->
       CLet Ce1 (
         CLet (shift 1 0 Ce2) (
           match opb with
           | Gt ->  CPrim2 CLt (CVar (Short 0)) (CVar (Short 1))
-          | Geq -> CPrim2 CLt (CPrim2 CSub (CVar (Short 0)) (CVar (Short 1))) (CLit (IntLit (i 1)))
+          | Geq -> CPrim2 CLt (CPrim2 CSub (CVar (Short 0)) (CVar (Short 1))) (CLit (IntLit 1))
           | _ -> CRaise CBind_exc (* should not happen *)
           end))
   end
@@ -275,7 +279,7 @@ exp_to_Cexp m (Let vn e b) =
   CLet Ce Cb
 and
 exp_to_Cexp m (Letrec defs b) =
-  let m = <| m with bvars = (List.map (fun (n,_,_) -> n) defs) @ m.bvars |> in
+  let m = <| m with bvars = (List.map (fun (n,_,_) -> n) defs) ++ m.bvars |> in
   CLetrec (defs_to_Cdefs m defs) (exp_to_Cexp m b)
 and
 defs_to_Cdefs _ [] = []
@@ -318,9 +322,9 @@ v_to_Cv mv m (Recclosure env defs vn) =
   let Cenv = env_to_Cenv mv m env in
   let m = <| bvars = List.map fst env ; mvars = mv; cnmap = m |> in
   let fns = List.map (fun (n,_,_) -> n) defs in
-  let m = <| m with bvars = fns @ m.bvars |> in
+  let m = <| m with bvars = fns ++ m.bvars |> in
   let Cdefs = defs_to_Cdefs m defs in
-  CRecClos Cenv Cdefs (the 0 (Hol.find_index vn fns 0))
+  CRecClos Cenv Cdefs (the 0 (find_index vn fns 0))
 and
 v_to_Cv _ _ (Loc n) = CLoc n
 and
