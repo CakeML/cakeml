@@ -15,6 +15,12 @@ let inline {hol} snoc_char c s = `SNOC` c s
 val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool
 let inline {hol} all2 f a b = `EVERY2` f a b
 
+val EXPLODE : string -> list char
+let inline {hol} EXPLODE = `EXPLODE`
+
+val o : forall 'a 'b 'c. ('b -> 'c) -> ('a -> 'b) -> ('a -> 'c)
+declare hol target_rep function o = infix `o`
+
 
 let rec el_check n ls = if n < List.length ls then Just (List_extra.nth ls n) else Nothing
 

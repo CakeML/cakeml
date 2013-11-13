@@ -8,10 +8,6 @@ open import ToIntLang
 open import ToBytecode
 open import Bytecode
 
-(* TODO: Put in Lem library *)
-val EXPLODE : string -> list char
-let inline {hol} EXPLODE = `EXPLODE`
-
 type contab = Map.map (maybe (id conN)) nat * list (nat * maybe (id conN)) * nat
 val cmap : contab -> Map.map (maybe (id conN)) nat
 let rec cmap (m,_,_) = m

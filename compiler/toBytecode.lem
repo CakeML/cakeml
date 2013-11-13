@@ -9,10 +9,6 @@ open import IntLang
 open import ToIntLang
 open import Bytecode
 
-(* TODO: Put in Lem library *)
-val o : forall 'a 'b 'c. ('b -> 'c) -> ('a -> 'b) -> ('a -> 'c)
-declare hol target_rep function o = infix `o`
-
 (* pull closure bodies into code environment *)
 
 let rec bind_fv (az,e) nz ix =
