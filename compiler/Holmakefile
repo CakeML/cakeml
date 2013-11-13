@@ -1,4 +1,4 @@
-INCLUDES = ../semantics ../bytecode
+INCLUDES = ../semantics ../bytecode ../../lem/hol-lib
 
 OPTIONS = QUIT_ON_FAILURE
 

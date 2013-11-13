@@ -44,8 +44,8 @@ gen_tac >> Induct >> srw_tac[ARITH_ss][list_size_def])
 val bc_value1_size_thm = store_thm(
 "bc_value1_size_thm",
 ``∀ls. bc_value1_size ls = SUM (MAP bc_value_size ls) + LENGTH ls``,
-Induct >- rw[BytecodeTheory.bc_value_size_def] >>
-srw_tac [ARITH_ss][BytecodeTheory.bc_value_size_def])
+Induct >- rw[bytecodeTheory.bc_value_size_def] >>
+srw_tac [ARITH_ss][bytecodeTheory.bc_value_size_def])
 
 (* termination proofs *)
 
@@ -258,19 +258,19 @@ val (do_Ceq_def,do_Ceq_ind) = register "do_Ceq" (
 (* export rewrites *)
 
 val _ = export_rewrites
-["ToBytecode.emit_def","ToBytecode.get_label_def","ToBytecode.emit_ceref_def","ToBytecode.emit_ceenv_def"
-,"ToBytecode.prim1_to_bc_def","ToBytecode.prim2_to_bc_def","Compiler.cmap_def","ToIntLang.cbv_def"
-,"ToIntLang.remove_mat_vp_def","free_vars_def","no_closures_def"
+["toBytecode.emit_def","toBytecode.get_label_def","toBytecode.emit_ceref_def","toBytecode.emit_ceenv_def"
+,"toBytecode.prim1_to_bc_def","toBytecode.prim2_to_bc_def","compiler.cmap_def","toIntLang.cbv_def"
+,"toIntLang.remove_mat_vp_def","free_vars_def","no_closures_def"
 ,"Cv_to_ov_def","v_to_ov_def"
-,"ToBytecode.compile_varref_def","compile_envref_def"
+,"toBytecode.compile_varref_def","compile_envref_def"
 ,"mkshift_def"
 ,"label_closures_def"
-,"ToIntLang.Cpat_vars_def"
-,"IntLang.doPrim2_def","IntLang.CevalPrim2_def","IntLang.CevalUpd_def","IntLang.CevalPrim1_def"
+,"toIntLang.Cpat_vars_def"
+,"intLang.doPrim2_def","intLang.CevalPrim2_def","intLang.CevalUpd_def","intLang.CevalPrim1_def"
 ,"free_labs_def","no_labs_def","all_labs_def"
-,"IntLang.CDiv_excv_def","IntLang.CBind_excv_def","IntLang.CEq_excv_def"
-,"IntLang.CDiv_exc_def","IntLang.CBind_exc_def","IntLang.CEq_exc_def"
-,"ToIntLang.opn_to_prim2_def"
+,"intLang.CDiv_excv_def","intLang.CBind_excv_def","intLang.CEq_excv_def"
+,"intLang.CDiv_exc_def","intLang.CBind_exc_def","intLang.CEq_exc_def"
+,"toIntLang.opn_to_prim2_def"
 ,"do_Ceq_def"];
 
 val _ = export_theory()
