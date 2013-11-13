@@ -12,6 +12,10 @@ let inline {hol} string_concat = `CONCAT`
 val snoc_char : char -> string -> string
 let inline {hol} snoc_char c s = `SNOC` c s
 
+val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool
+let inline {hol} all2 f a b = `EVERY2` f a b
+
+
 let rec el_check n ls = if n < List.length ls then Just (List_extra.nth ls n) else Nothing
 
 val num_fold : forall 'a. ('a -> 'a) -> 'a -> nat -> 'a
@@ -38,4 +42,5 @@ lshift n ls =
 
 let rec the _ (Just x) = x and the x Nothing = x
 
-let fapply d x f = match lookup f x with Just d -> d | Nothing -> d end
+val fapply : forall 'a 'b. MapKeyType 'b => 'a -> 'b -> Map.map 'b 'a -> 'a
+let fapply d x f = match Map.lookup x f with Just d -> d | Nothing -> d end

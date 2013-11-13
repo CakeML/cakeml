@@ -1,9 +1,10 @@
 (* Translation from CakeML to Intermediate Language *)
+open import Pervasives
 
-open Lib
-open CompilerLib
-open IntLang
-open Ast
+open import Lib
+open import CompilerLib
+open import IntLang
+open import Ast
 
 let rec
 free_vars (CRaise e) = free_vars e
@@ -46,9 +47,9 @@ free_vars_defs _ [] = []
 and
 free_vars_defs n (d::ds) = lunion (free_vars_def n d) (free_vars_defs n ds)
 and
-free_vars_def n (None,(k,e)) = lshift (n+k) (free_vars e)
+free_vars_def n (Nothing,(k,e)) = lshift (n+k) (free_vars e)
 and
-free_vars_def _ (Some _,_) = []
+free_vars_def _ (Just _,_) = []
 
 let rec
 mkshift f k (CRaise e) = CRaise (mkshift f k e)
@@ -72,7 +73,7 @@ and
 mkshift f k (CLetrec defs b) =
   let ns = List.length defs in
   let defs = List.map (fun cb ->
-    match cb with | (Some _,_) -> cb | (None,(az,b)) -> (None,(az,mkshift f (k+ns+az) b)) end)
+    match cb with | (Just _,_) -> cb | (Nothing,(az,b)) -> (Nothing,(az,mkshift f (k+ns+az) b)) end)
     defs in
   CLetrec defs (mkshift f (k+ns) b)
 and
@@ -92,8 +93,8 @@ let shift n = mkshift (fun v -> v+n)
 
 type exp_to_Cexp_state =
  <| bvars : list string
-  ; mvars : Pmap.map string (list string)
-  ; cnmap : Pmap.map (option (id conN)) num
+  ; mvars : Map.map string (list string)
+  ; cnmap : Map.map (maybe (id conN)) nat
   |>
 let rec cbv m v = <| m with bvars = v::m.bvars |>
 
@@ -161,7 +162,7 @@ let rec
 remove_mat_var b v [] = CRaise (if b then CVar (Short v) else CBind_exc)
 and
 remove_mat_var b v ((p,sk)::pes) =
-  CLetrec [(None, (0,shift 1 0 (remove_mat_var b v pes)))]
+  CLetrec [(Nothing, (0,shift 1 0 (remove_mat_var b v pes)))]
     (remove_mat_vp 0 (shift 1 (Cpat_vars p) sk) (v+1) p)
 
 let rec
@@ -194,7 +195,7 @@ and
 exp_to_Cexp m (Var (Long mn vn)) = CVar (Long mn (the 0 (Hol.find_index vn (fapply [] mn m.mvars) 0)))
 and
 exp_to_Cexp m (Fun vn e) =
-  CLetrec [(None,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))] (CVar (Short 0))
+  CLetrec [(Nothing,(1,shift 1 1 (exp_to_Cexp (cbv m vn) e)))] (CVar (Short 0))
 and
 exp_to_Cexp m (App (Opn opn) e1 e2) =
   let Ce1 = exp_to_Cexp m e1 in
@@ -282,7 +283,7 @@ and
 defs_to_Cdefs m ((_,vn,e)::defs) =
   let Ce = exp_to_Cexp (cbv m vn) e in
   let Cdefs = defs_to_Cdefs m defs in
-  (None,(1,Ce))::Cdefs
+  (Nothing,(1,Ce))::Cdefs
 and
 pes_to_Cpes _ [] = []
 and
@@ -311,7 +312,7 @@ v_to_Cv mv m (Closure env vn e) =
   let Cenv = env_to_Cenv mv m env in
   let m = <| bvars = List.map fst env ; mvars = mv; cnmap = m |> in
   let Ce = exp_to_Cexp (cbv m vn) e in
-  CRecClos Cenv [(None, (1,shift 1 1 Ce))] 0
+  CRecClos Cenv [(Nothing, (1,shift 1 1 Ce))] 0
 and
 v_to_Cv mv m (Recclosure env defs vn) =
   let Cenv = env_to_Cenv mv m env in

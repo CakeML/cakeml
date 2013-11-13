@@ -19,6 +19,9 @@ val _ = new_theory "compilerLib"
 
 (*val snoc_char : char -> string -> string*)
 
+(*val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool*)
+
+
  val _ = Define `
  (el_check n ls = (if n < (LENGTH ls) then (SOME ((EL n ls))) else NONE))`;
 
@@ -61,8 +64,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  (the _ ((SOME x)) = x) /\ (the x NONE = x)`;
 
 
+(*val fapply : forall 'a 'b. MapKeyType 'b => 'a -> 'b -> Map.map 'b 'a -> 'a*)
 val _ = Define `
- (fapply d x f = ((case lookupBy (=) f x of (SOME d) => d | NONE => d )))`;
+ (fapply d x f = ((case (FLOOKUP f x) of (SOME d) => d | NONE => d )))`;
 
 val _ = export_theory()
 

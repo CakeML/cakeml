@@ -434,7 +434,7 @@ let rec syneq_cb_V az r1 r2 V V' v1 v2 =
 indreln
 [syneq_exp : nat -> nat -> (nat -> nat -> bool) -> Cexp -> Cexp -> bool]
 and
-[syneq_defs : nat -> nat -> (nat -> nat -> bool) -> def -> def -> (nat -> nat -> bool) -> bool]
+[syneq_defs : nat -> nat -> (nat -> nat -> bool) -> list def -> list def -> (nat -> nat -> bool) -> bool]
 
 raise : forall ez1 ez2 V e1 e2.
 syneq_exp ez1 ez2 V e1 e2
@@ -464,7 +464,7 @@ true
 syneq_exp ez1 ez2 V (CLit lit) (CLit lit)
 and
 con : forall ez1 ez2 V cn es1 es2.
-List.for_all2 (syneq_exp ez1 ez2 V) es1 es2
+all2 (syneq_exp ez1 ez2 V) es1 es2
 ==>
 syneq_exp ez1 ez2 V (CCon cn es1) (CCon cn es2)
 and
@@ -497,7 +497,7 @@ syneq_exp ez1 ez2 V (CLetrec defs1 b1) (CLetrec defs2 b2)
 and
 call : forall ez1 ez2 V ck e1 e2 es1 es2.
 syneq_exp ez1 ez2 V e1 e2 &&
-List.for_all2 (syneq_exp ez1 ez2 V) es1 es2
+all2 (syneq_exp ez1 ez2 V) es1 es2
 ==>
 syneq_exp ez1 ez2 V (CCall ck e1 es1) (CCall ck e2 es2)
 and
@@ -543,14 +543,14 @@ dont_know : forall ez1 ez2 V defs1 defs2 U.
 syneq_defs ez1 ez2 V defs1 defs2 U
 
 indreln
-[syneq : t]
+[syneq : Cv -> Cv -> bool]
 litv : forall l.
 true
 ==>
 syneq (CLitv l) (CLitv l)
 and
 conv : forall cn vs1 vs2.
-List.for_all2 (syneq) vs1 vs2
+all2 (syneq) vs1 vs2
 ==>
 syneq (CConv cn vs1) (CConv cn vs2)
 and
