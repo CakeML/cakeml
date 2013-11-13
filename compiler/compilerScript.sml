@@ -18,9 +18,6 @@ val _ = new_theory "compiler"
 (*open import ToBytecode*)
 (*open import Bytecode*)
 
-(* TODO: Put in Lem library *)
-(*val EXPLODE : string -> list char*)
-
 val _ = type_abbrev( "contab" , ``: (( ( conN id)option), num) fmap # (num #  ( conN id)option) list # num``);
 (*val cmap : contab -> Map.map (maybe (id conN)) nat*)
  val _ = Define `
@@ -160,7 +157,7 @@ val _ = Define `
   let cs = (emit cs [Stack (Cons tuple_cn n)]) in
   let cs = (emit cs [PopExc; Stack(Pops( 1))]) in
   let cs = (compile_news cs( 0) news) in
-  let env = (list_combine news ((GENLIST (\ i . ((rs.rsz+n)-  1)- i) n))) in
+  let env = (ZIP (news,((GENLIST (\ i . ((rs.rsz+n)-  1)- i) n)))) in
   (ct,env,cs)))`;
 
 

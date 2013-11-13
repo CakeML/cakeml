@@ -1,4 +1,4 @@
-INCLUDES=.. ../semantics
+INCLUDES=.. ../semantics ../lem_lib_stub
 OPTIONS = QUIT_ON_FAILURE
 
 SEMI = lib tokens ast semanticPrimitives smallStep bigStep typeSystem

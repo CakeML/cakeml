@@ -186,7 +186,7 @@ let rec
 emit_ceenv env (sz,s) fv = (sz+1,
   compile_varref sz s
   (match el_check fv env with Just x -> x
-   | None -> CTLet 0 (* should not happen *) end))
+   | Nothing -> CTLet 0 (* should not happen *) end))
 
 let rec
 (* sz                                                           z                             *)
@@ -194,7 +194,7 @@ let rec
 emit_ceref z (sz,s) j = (sz+1,emit s [Stack (Load ((sz-z)+j))])
 
 let rec
-push_lab (s,ecs) (None,_) = (s,([],[])::ecs) (* should not happen *)
+push_lab (s,ecs) (Nothing,_) = (s,([],[])::ecs) (* should not happen *)
 and
 push_lab (s,ecs) (Just (l,(_,ceenv)),_) =
   (emit s [PushPtr (Lab l)],ceenv::ecs)
@@ -288,7 +288,7 @@ compile menv env t sz s (CVar id) = pushret t
            | Long mn vn -> Maybe.map CTDec (el_check vn (fapply [] mn menv))
            end
      with Just x -> x
-     | None -> CTLet 0 (* should not happen *) end))
+     | Nothing -> CTLet 0 (* should not happen *) end))
 and
 compile menv env t sz s (CCon n es) =
   pushret t (emit (compile_nts menv env sz s es) [Stack (Cons (n+block_tag) (List.length es))])
@@ -414,7 +414,7 @@ and
 free_labs_def ez nz ix (Just (l,(cc,(re,ev))),(az,b)) =
   (((ez,nz,ix),((l,(cc,(re,ev))),(az,b)))::(free_labs (1 + List.length re + List.length ev + az) b))
 and
-free_labs_def ez nz _ (None,(az,b)) = (free_labs (ez+nz+az) b)
+free_labs_def ez nz _ (Nothing,(az,b)) = (free_labs (ez+nz+az) b)
 
 let rec cce_aux menv s ((l,(ccenv,_)),(az,b)) =
   compile menv (List.map CTEnv ccenv) (TCTail az 0) 0 (emit s [Label l]) b

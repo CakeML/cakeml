@@ -1,9 +1,9 @@
 INCLUDES = .. ../semantics ../parsing ../metatheory
 OPTIONS = QUIT_ON_FAILURE
 
-Print_ast_deps = ../semantics/lib.lem ../semantics/tokens.lem ../semantics/ast.lem
-Print_astScript.sml : $(Print_ast_deps) print_ast.lem
-	lem -auxiliary_level none $(patsubst %,-i %,$(Print_ast_deps)) -hol print_ast.lem
+print_ast_deps = ../semantics/lib.lem ../semantics/tokens.lem ../semantics/ast.lem
+print_astScript.sml : $(print_ast_deps) print_ast.lem
+	lem -auxiliary_level none $(patsubst %,-i %,$(print_ast_deps)) -hol print_ast.lem
 
 ifdef POLY
 #HOLHEAP = local-hol-heap

@@ -19,9 +19,6 @@ val _ = new_theory "toBytecode"
 (*open import ToIntLang*)
 (*open import Bytecode*)
 
-(* TODO: Put in Lem library *)
-(*val o : forall 'a 'b 'c. ('b -> 'c) -> ('a -> 'b) -> ('a -> 'c)*)
-
 (* pull closure bodies into code environment *)
 
  val _ = Define `
@@ -222,7 +219,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (emit_ceenv env (sz,s) fv = ((sz+ 1),
   compile_varref sz s
   ((case el_check fv env of (SOME x) => x
-   | None => CTLet( 0) (* should not happen *) ))))`;
+   | NONE => CTLet( 0) (* should not happen *) ))))`;
 
 
  val _ = Define `
@@ -234,7 +231,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val _ = Define `
 
-(push_lab p p0 =((case (p,p0) of ( (s,ecs), (None,_) ) => (s,(([],[]) :: ecs)) )))`;
+(push_lab (s,ecs) (NONE,_) = (s,(([],[])::ecs))) (* should not happen *)
+/\
+(push_lab (s,ecs) ((SOME (l,(_,ceenv))),_) =
+  (emit s [PushPtr (Lab l)],(ceenv::ecs)))`;
 
 
  val _ = Define `
@@ -337,7 +337,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
            | Long mn vn => (OPTION_MAP CTDec (el_check vn (fapply [] mn menv)))
            )
      of (SOME x) => x
-     | None => CTLet( 0) (* should not happen *) )))))
+     | NONE => CTLet( 0) (* should not happen *) )))))
 /\
 (compile menv env t sz s (CCon n es) =  
 (pushret t (emit (compile_nts menv env sz s es) [Stack (Cons (n+block_tag) ((LENGTH es)))])))
@@ -466,7 +466,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (free_labs_def ez nz ix ((SOME (l,(cc,(re,ev)))),(az,b)) =
   (((ez,nz,ix),((l,(cc,(re,ev))),(az,b)))::(free_labs ((( 1 + (LENGTH re)) + (LENGTH ev)) + az) b)))
 /\
-(free_labs_def ez nz _ (None,(az,b)) = (free_labs ((ez+nz)+az) b))`;
+(free_labs_def ez nz _ (NONE,(az,b)) = (free_labs ((ez+nz)+az) b))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn free_labs_defn;
 

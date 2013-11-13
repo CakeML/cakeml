@@ -122,7 +122,7 @@ let compile_decs_wrap mn rs decs =
   let cs = emit cs [Stack (Cons tuple_cn n)] in
   let cs = emit cs [PopExc; Stack(Pops 1)] in
   let cs = compile_news cs 0 news in
-  let env = zip news (genlist (fun i -> rs.rsz+n-1-i) n) in
+  let env = Lib.ZIP news (genlist (fun i -> rs.rsz+n-1-i) n) in
   (ct,env,cs)
 
 let rec

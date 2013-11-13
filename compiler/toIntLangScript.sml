@@ -24,8 +24,7 @@ val _ = new_theory "toIntLang"
 
 (free_vars (CRaise e) = (free_vars e))
 /\
-(free_vars (CHandle e1 e2) = (lunion (free_vars e1) (lshift 
-  instance_Basic_classes_Ord_nat_dict instance_Num_NumMinus_nat_dict( 1) (free_vars e2))))
+(free_vars (CHandle e1 e2) = (lunion (free_vars e1) (lshift( 1) (free_vars e2))))
 /\
 (free_vars (CVar (Short n)) = ([n]))
 /\
@@ -39,13 +38,11 @@ val _ = new_theory "toIntLang"
 /\
 (free_vars (CProj e _) = (free_vars e))
 /\
-(free_vars (CLet e eb) = (lunion (free_vars e) (lshift 
-  instance_Basic_classes_Ord_nat_dict instance_Num_NumMinus_nat_dict( 1) (free_vars eb))))
+(free_vars (CLet e eb) = (lunion (free_vars e) (lshift( 1) (free_vars eb))))
 /\
 (free_vars (CLetrec defs e) =  
 (let n = ((LENGTH defs)) in
-  lunion (free_vars_defs n defs) (lshift 
-  instance_Basic_classes_Ord_nat_dict instance_Num_NumMinus_nat_dict n (free_vars e))))
+  lunion (free_vars_defs n defs) (lshift n (free_vars e))))
 /\
 (free_vars (CCall _ e es) = (lunion (free_vars e) (free_vars_list es)))
 /\
@@ -65,8 +62,7 @@ val _ = new_theory "toIntLang"
 /\
 (free_vars_defs n (d::ds) = (lunion (free_vars_def n d) (free_vars_defs n ds)))
 /\
-(free_vars_def n (NONE,(k,e)) = (lshift 
-  instance_Basic_classes_Ord_nat_dict instance_Num_NumMinus_nat_dict (n+k) (free_vars e)))
+(free_vars_def n (NONE,(k,e)) = (lshift (n+k) (free_vars e)))
 /\
 (free_vars_def _ ((SOME _),_) = ([]))`;
 

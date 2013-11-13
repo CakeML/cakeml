@@ -456,15 +456,12 @@ Cevaluate_list menv s env (e::es) (s'', Cexc err))`;
 
 
  val _ = Define `
- (syneq_cb_V dict_Basic_classes_Ord_a dict_Num_NumMinus_a az r1 r2 V V' v1 v2 =  
-(( dict_Basic_classes_Ord_a.isLess_method v1 az /\ (v2 = v1)) \/
-  ( dict_Basic_classes_Ord_a.isLessEqual_method az v1 /\ (dict_Basic_classes_Ord_a.isLessEqual_method az v2 /\
-   ((? j1 j2. ((r1 (dict_Num_NumMinus_a.numMinus_method v1 az) = CCRef j1) /\ ((r2 (
-  dict_Num_NumMinus_a.numMinus_method v2 az) = CCRef j2) /\ V' j1 j2))) \/    
-((? j1 j2. ((r1 (dict_Num_NumMinus_a.numMinus_method v1 az) = CCEnv j1) /\ ((r2 (
-  dict_Num_NumMinus_a.numMinus_method v2 az) = CCEnv j2) /\ V  j1 j2))) \/
-    (? j. (r1 (dict_Num_NumMinus_a.numMinus_method v1 az) = CCArg j) /\ (r2 (
-  dict_Num_NumMinus_a.numMinus_method v2 az) = CCArg j))))))))`;
+ (syneq_cb_V (az:num) r1 r2 V V' v1 v2 =  
+(((v1 < az) /\ (v2 = v1)) \/
+  ((az <= v1) /\ ((az <= v2) /\
+   ((? j1 j2. ((r1 (v1 - az) = CCRef j1) /\ ((r2 (v2 - az) = CCRef j2) /\ V' j1 j2))) \/    
+((? j1 j2. ((r1 (v1 - az) = CCEnv j1) /\ ((r2 (v2 - az) = CCEnv j2) /\ V  j1 j2))) \/
+    (? j. (r1 (v1 - az) = CCArg j) /\ (r2 (v2 - az) = CCArg j))))))))`;
 
 
 val _ = Hol_reln ` (! ez1 ez2 V e1 e2.
@@ -550,8 +547,7 @@ syneq_exp ez1 ez2 V (CIf e11 e21 e31) (CIf e12 e22 e32))
      ==> ((EL n2 defs2) = (EL n1 defs1))) /\
   (((b,az,e1,j1,r1) = syneq_cb_aux n1 ((LENGTH defs1)) ez1 ((EL n1 defs1))) /\
   (((b,az,e2,j2,r2) = syneq_cb_aux n2 ((LENGTH defs2)) ez2 ((EL n2 defs2))) /\
-  (b ==> (syneq_exp (az+j1) (az+j2) (syneq_cb_V 
-  instance_Basic_classes_Ord_nat_dict instance_Num_NumMinus_nat_dict az r1 r2 V U) e1 e2 /\    
+  (b ==> (syneq_exp (az+j1) (az+j2) (syneq_cb_V az r1 r2 V U) e1 e2 /\    
 (! l ccenv recs envs b.      
 ((EL n1 defs1) = ((SOME(l,(ccenv,(recs,envs)))),b))
       ==> ((EVERY (\ v . U v v) recs) /\          

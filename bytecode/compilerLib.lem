@@ -43,7 +43,7 @@ lunion (x::xs) s =
   else x::(lunion xs s)
 
 let rec
-lshift n ls =
+lshift (n : nat) ls =
   List.map (fun v -> v - n) (List.filter (fun v -> n <= v) ls)
 
 let rec the _ (Just x) = x and the x Nothing = x

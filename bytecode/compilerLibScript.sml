@@ -21,6 +21,10 @@ val _ = new_theory "compilerLib"
 
 (*val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool*)
 
+(*val EXPLODE : string -> list char*)
+
+(*val o : forall 'a 'b 'c. ('b -> 'c) -> ('a -> 'b) -> ('a -> 'c)*)
+
 
  val _ = Define `
  (el_check n ls = (if n < (LENGTH ls) then (SOME ((EL n ls))) else NONE))`;
@@ -55,9 +59,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val _ = Define `
 
-(lshift dict_Basic_classes_Ord_a dict_Num_NumMinus_a n ls =  
-((MAP (\ v . dict_Num_NumMinus_a.numMinus_method v n) ((FILTER (\ v . 
-  dict_Basic_classes_Ord_a.isLessEqual_method n v) ls)))))`;
+(lshift (n : num) ls =  
+((MAP (\ v . v - n) ((FILTER (\ v . n <= v) ls)))))`;
 
 
  val _ = Define `
