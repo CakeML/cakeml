@@ -52,9 +52,9 @@ val compile_repl_decs_thm = store_thm("compile_repl_decs_thm",
   disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(fn ls => (List.drop(ls,5))@(List.take(ls,5))))) >>
   disch_then(qspecl_then[`init_compiler_state`,`0`,`<|sm:=[];cls:=FEMPTY|>`
                         ,`bs with <|clock := SOME ck|>`]mp_tac) >>
-  assume_tac(prove(``init_compiler_state.rmenv = FEMPTY``,rw[CompilerTheory.init_compiler_state_def])) >>
-  assume_tac(prove(``init_compiler_state.renv = []``,rw[CompilerTheory.init_compiler_state_def])) >>
-  assume_tac(prove(``init_compiler_state.rsz = 0``,rw[CompilerTheory.init_compiler_state_def])) >>
+  assume_tac(prove(``init_compiler_state.rmenv = FEMPTY``,rw[compilerTheory.init_compiler_state_def])) >>
+  assume_tac(prove(``init_compiler_state.renv = []``,rw[compilerTheory.init_compiler_state_def])) >>
+  assume_tac(prove(``init_compiler_state.rsz = 0``,rw[compilerTheory.init_compiler_state_def])) >>
   simp[] >>
   disch_then(qspecl_then[`[]`,`REVERSE cs.out`]mp_tac) >>
   simp[] >>
@@ -95,7 +95,7 @@ val compile_repl_decs_thm = store_thm("compile_repl_decs_thm",
   simp[Abbr`rX`,Abbr`rm`,Abbr`msz`,Abbr`renv`,Abbr`rcs`,Abbr`rs`] >> strip_tac >>
   qmatch_assum_abbrev_tac`env_rs [] cenv2 (0,s) env rs 0 rd' bs'` >>
   `rs' = rs` by (
-    simp[Abbr`rs`,Abbr`rs'`,CompilerTheory.compiler_state_component_equality] >>
+    simp[Abbr`rs`,Abbr`rs'`,compilerTheory.compiler_state_component_equality] >>
     simp[REVERSE_GENLIST,PRE_SUB1] ) >>
   qexists_tac`rd'` >>
   conj_tac >- (

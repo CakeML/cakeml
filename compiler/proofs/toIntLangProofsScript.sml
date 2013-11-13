@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib miscLib boolSimps intLib pairTheory sumTheory listTheory pred_setTheory finite_mapTheory arithmeticTheory alistTheory rich_listTheory lcsymtacs
-open LibTheory SemanticPrimitivesTheory AstTheory terminationTheory semanticsExtraTheory miscTheory CompilerLibTheory IntLangTheory ToIntLangTheory compilerTerminationTheory intLangExtraTheory pmatchTheory
+open libTheory semanticPrimitivesTheory astTheory terminationTheory semanticsExtraTheory miscTheory compilerLibTheory intLangTheory toIntLangTheory compilerTerminationTheory intLangExtraTheory pmatchTheory
 val _ = numLib.prefer_num()
 val _ = new_theory "toIntLangProofs"
 val fsd = full_simp_tac std_ss
@@ -258,7 +258,7 @@ val SND_pat_to_Cpat_ignore_mvars = store_thm("SND_pat_to_Cpat_ignore_mvars",
   ``(∀p m m'. m'.bvars = m.bvars ∧ m'.cnmap = m.cnmap ⇒ SND(pat_to_Cpat m' p) = SND(pat_to_Cpat m p)) ∧
     (∀ps m m'. m'.bvars = m.bvars ∧ m'.cnmap = m.cnmap ⇒ SND(pats_to_Cpats m' ps) = SND(pats_to_Cpats m ps))``,
   ho_match_mp_tac(TypeBase.induction_of``:pat``) >>
-  simp[ToIntLangTheory.pat_to_Cpat_def] >>
+  simp[toIntLangTheory.pat_to_Cpat_def] >>
   simp[UNCURRY] >>
   rw[] >- metis_tac[pmatchTheory.pat_to_Cpat_cnmap,FST] >>
   first_x_assum match_mp_tac >>
@@ -269,9 +269,9 @@ val FST_pat_to_Cpat_ignore_mvars = store_thm("FST_pat_to_Cpat_ignore_mvars",
   ``(∀p m m'. m'.bvars = m.bvars ∧ m'.cnmap = m.cnmap ⇒ FST(pat_to_Cpat m' p) = FST(pat_to_Cpat m p) with mvars := m'.mvars) ∧
     (∀ps m m'. m'.bvars = m.bvars ∧ m'.cnmap = m.cnmap ⇒ FST(pats_to_Cpats m' ps) = FST(pats_to_Cpats m ps) with mvars := m'.mvars)``,
   ho_match_mp_tac(TypeBase.induction_of``:pat``) >>
-  simp[ToIntLangTheory.pat_to_Cpat_def] >>
+  simp[toIntLangTheory.pat_to_Cpat_def] >>
   simp[UNCURRY] >>
-  rw[ToIntLangTheory.exp_to_Cexp_state_component_equality])
+  rw[toIntLangTheory.exp_to_Cexp_state_component_equality])
 
 val pat_to_Cpat_acc = store_thm("pat_to_Cpat_acc",
   ``(∀p s s' Cp. (pat_to_Cpat s p = (s',Cp)) ⇒
@@ -487,7 +487,7 @@ val pat_to_Cpat_SUBMAP = store_thm("pat_to_Cpat_SUBMAP",
   ``(∀p m m'. all_cns_pat p ⊆ FDOM m.cnmap ∧ m.cnmap ⊑ m'.cnmap ∧ (m'.bvars = m.bvars) ⇒ (SND (pat_to_Cpat m' p) = SND (pat_to_Cpat m p))) ∧
     (∀ps m m'. all_cns_pats ps ⊆ FDOM m.cnmap ∧ m.cnmap ⊑ m'.cnmap ∧ (m'.bvars = m.bvars) ⇒ (SND (pats_to_Cpats m' ps) = SND (pats_to_Cpats m ps)))``,
   ho_match_mp_tac(TypeBase.induction_of``:pat``)>>
-  simp[ToIntLangTheory.pat_to_Cpat_def,UNCURRY,FLOOKUP_DEF] >>
+  simp[toIntLangTheory.pat_to_Cpat_def,UNCURRY,FLOOKUP_DEF] >>
   simp[pat_to_Cpat_cnmap] >>
   conj_tac >- rw[SUBMAP_DEF] >>
   rw[] >>
@@ -1249,7 +1249,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
           fs[] >> fs[]) >>
         simp[exp_to_Cexp_def] >> strip_tac >>
         simp[] >>
-        simp[Abbr`cnt'`,BigStepTheory.dec_count_def] >>
+        simp[Abbr`cnt'`,bigStepTheory.dec_count_def] >>
         fs[v_to_Cv_def] >> rw[] >>
         Cases_on`opn`>>fs[]>>
         fs[v_to_Cv_def,opn_lookup_def] >>
@@ -1302,13 +1302,13 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         srw_tac[DNF_ss][Once Cevaluate_cases] >> disj1_tac >>
         srw_tac[DNF_ss][Once Cevaluate_cases] >>
         srw_tac[DNF_ss][Once Cevaluate_cases] >>
-        Cases_on`opn`>>fs[Abbr`cnt'`,BigStepTheory.dec_count_def]>>
+        Cases_on`opn`>>fs[Abbr`cnt'`,bigStepTheory.dec_count_def]>>
         rator_x_assum`evaluate`mp_tac >>
-        simp[Once BigStepTheory.evaluate_cases] >>
-        simp[Once BigStepTheory.evaluate_cases] >>
-        simp[Once BigStepTheory.evaluate_cases] >>
-        simp[Once BigStepTheory.evaluate_cases] >>
-        simp[Once BigStepTheory.evaluate_cases] >>
+        simp[Once bigStepTheory.evaluate_cases] >>
+        simp[Once bigStepTheory.evaluate_cases] >>
+        simp[Once bigStepTheory.evaluate_cases] >>
+        simp[Once bigStepTheory.evaluate_cases] >>
+        simp[Once bigStepTheory.evaluate_cases] >>
         simp[v_to_Cv_def] >>
         fs[good_cmap_def] >>
         metis_tac[EVERY2_syneq_trans] ) >>
@@ -1317,7 +1317,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       srw_tac[DNF_ss][Once Cevaluate_cases] >>
       srw_tac[DNF_ss][Once Cevaluate_cases] >-
       decide_tac >>
-      rw[] >> fs[v_to_Cv_def,Abbr`cnt'`,BigStepTheory.dec_count_def] >>
+      rw[] >> fs[v_to_Cv_def,Abbr`cnt'`,bigStepTheory.dec_count_def] >>
       Cases_on`opn`>>Cases_on`n2=0`>>fs[] >>rw[]>>fs[]>>rw[v_to_Cv_def,opn_lookup_def]>>
       metis_tac[EVERY2_syneq_trans] )
     >- (
@@ -1358,7 +1358,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       qunabbrev_tac`cnt'` >>
       fs[do_app_Opb_SOME]>>rw[]>>fs[v_to_Cv_def]>>rw[]>>fs[]>>rw[]>>
       fs[v_to_Cv_def]>>fs[]>>rw[]>>
-      fs[exp_to_Cexp_def,BigStepTheory.dec_count_def]>>rw[]>>
+      fs[exp_to_Cexp_def,bigStepTheory.dec_count_def]>>rw[]>>
       qmatch_assum_rename_tac`FST x = FST y`[] >>
       PairCases_on`y`>>fs[] >> rw[] >>
       qabbrev_tac`sa = MAP (v_to_Cv mv m) (SND cs)` >>
@@ -1531,11 +1531,11 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
                     rw [] >>
                     fs[evaluate_lit] >>
                     rator_x_assum`evaluate`mp_tac >>
-                    simp[Once BigStepTheory.evaluate_cases] >>
-                    simp[Once BigStepTheory.evaluate_cases] >>
-                    simp[Once BigStepTheory.evaluate_cases] >>
-                    simp[Once BigStepTheory.evaluate_cases] >>
-                    simp[Once BigStepTheory.evaluate_cases] >>
+                    simp[Once bigStepTheory.evaluate_cases] >>
+                    simp[Once bigStepTheory.evaluate_cases] >>
+                    simp[Once bigStepTheory.evaluate_cases] >>
+                    simp[Once bigStepTheory.evaluate_cases] >>
+                    simp[Once bigStepTheory.evaluate_cases] >>
                     rw[] >> rw[]) >>
       rpt BasicProvers.VAR_EQ_TAC >>
       fs[] >>
@@ -1554,7 +1554,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         fs [] >>
         simp [Once Cevaluate_cases, v_to_Cv_def] >>
         simp [Once Cevaluate_cases] >>
-        fs[exp_to_Cexp_def,Abbr`cnt'`,BigStepTheory.dec_count_def]  >>
+        fs[exp_to_Cexp_def,Abbr`cnt'`,bigStepTheory.dec_count_def]  >>
         metis_tac[EVERY2_syneq_trans]) >>
       map_every qexists_tac [`sf`, `Cexc (Craise CEq_excv)`, `cnte`, `sf`, `CLitv (IntLit 0)`, `w1`, `w3`, `FST cs'`, `sd`] >>
       fs [] >>
@@ -1570,14 +1570,14 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       simp [Once Cevaluate_cases] >>
       simp [Once Cevaluate_cases] >>
       simp [Once Cevaluate_cases] >>
-      fs[exp_to_Cexp_def,Abbr`cnt'`,BigStepTheory.dec_count_def] >>
+      fs[exp_to_Cexp_def,Abbr`cnt'`,bigStepTheory.dec_count_def] >>
       simp[Once syneq_cases] >>
       rator_x_assum`evaluate`mp_tac >>
-      simp[Once BigStepTheory.evaluate_cases] >>
-      simp[Once BigStepTheory.evaluate_cases] >>
-      simp[Once BigStepTheory.evaluate_cases] >>
-      simp[Once BigStepTheory.evaluate_cases] >>
-      simp[Once BigStepTheory.evaluate_cases] >>
+      simp[Once bigStepTheory.evaluate_cases] >>
+      simp[Once bigStepTheory.evaluate_cases] >>
+      simp[Once bigStepTheory.evaluate_cases] >>
+      simp[Once bigStepTheory.evaluate_cases] >>
+      simp[Once bigStepTheory.evaluate_cases] >>
       rw[] >> rw[v_to_Cv_def] >- (
         fs[good_cmap_def] ) >>
       fs[do_con_check_def])
@@ -1758,7 +1758,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
           lrw[EL_APPEND2] ) >>
         simp[EXISTS_PROD] >>
         qunabbrev_tac`resc`>>fs[]>>
-        simp[Abbr`kc`,Abbr`cnt'`,BigStepTheory.dec_count_def] >>
+        simp[Abbr`kc`,Abbr`cnt'`,bigStepTheory.dec_count_def] >>
         metis_tac[EVERY2_syneq_trans,Cresult_rel_syneq_trans] ) >>
       rw[] >> fs[v_to_Cv_def,LET_THM,defs_to_Cdefs_MAP] >> rw[] >>
       reverse(fs[Q.SPECL[`c`,`CRecClos env1 defs zz`]syneq_cases]) >- (
@@ -1876,7 +1876,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
         metis_tac[EVERY2_syneq_trans] ) >>
       simp[EXISTS_PROD] >>
       qunabbrev_tac`resc`>>fs[]>>
-      simp[Abbr`kc`,Abbr`cnt'`,BigStepTheory.dec_count_def] >>
+      simp[Abbr`kc`,Abbr`cnt'`,bigStepTheory.dec_count_def] >>
       metis_tac[EVERY2_syneq_trans,Cresult_rel_syneq_trans] )
     >- (
       rw[Once Cevaluate_cases] >>
@@ -1926,7 +1926,7 @@ val exp_to_Cexp_thm1 = store_thm("exp_to_Cexp_thm1",
       strip_tac >>
       fs[Abbr`w1`] >> rw[] >>
       qmatch_assum_rename_tac`syneq w1 w2`[] >>
-      simp[Abbr`cnt'`,BigStepTheory.dec_count_def]>>
+      simp[Abbr`cnt'`,bigStepTheory.dec_count_def]>>
       map_every qexists_tac[`sf`,`w2`,`LUPDATE w2 n sf`,`FST cs'`,`sd`] >>
       simp[] >>
       fs[EVERY2_EVERY] >>
@@ -3206,7 +3206,7 @@ val exp_to_Cexp_syneq = store_thm("exp_to_Cexp_syneq",
       discharge_hyps >- (
         qabbrev_tac`p = EL n defs` >> PairCases_on`p` >> simp[] >>
         fsrw_tac[DNF_ss][SUBSET_DEF,FV_defs_MAP,FORALL_PROD,MEM_MAP,EXISTS_PROD] >>
-        metis_tac[AstTheory.id_11,MEM_EL] ) >>
+        metis_tac[astTheory.id_11,MEM_EL] ) >>
       simp[ADD1] >> strip_tac >>
       match_mp_tac (MP_CANON (CONJUNCT1 syneq_exp_mono_V)) >>
       HINT_EXISTS_TAC >>

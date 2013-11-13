@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory sortingTheory lcsymtacs quantHeuristicsLib quantHeuristicsLibAbbrev
-open miscTheory miscLib BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory bytecodeLabelsTheory CompilerLibTheory IntLangTheory ToBytecodeTheory compilerTerminationTheory intLangExtraTheory toIntLangProofsTheory
+open miscTheory miscLib bytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory bytecodeLabelsTheory compilerLibTheory intLangTheory toBytecodeTheory compilerTerminationTheory intLangExtraTheory toIntLangProofsTheory
 val _ = numLib.prefer_num()
 val _ = Parse.bring_to_front_overload"++"{Name="APPEND",Thy="list"}
 val _ = new_theory "toBytecodeProofs"
@@ -740,8 +740,8 @@ val Cenv_bs_FUPDATE_CTDec = store_thm("Cenv_bs_FUPDATE_CTDec",
     Cenv_bs rd menv s (v::env) rmenv ((CTDec n)::renv) (rsz+1) csz bs'``,
   rpt gen_tac >>
   simp[Cenv_bs_def] >>
-  reverse(reverse(rw[Cenv_bs_def,s_refs_def]) >> fs[CompilerLibTheory.el_check_def] >- fs[good_rd_def]) >>
-  fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,env_renv_def,fmap_rel_def,CompilerLibTheory.el_check_def] >>
+  reverse(reverse(rw[Cenv_bs_def,s_refs_def]) >> fs[compilerLibTheory.el_check_def] >- fs[good_rd_def]) >>
+  fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD,env_renv_def,fmap_rel_def,compilerLibTheory.el_check_def] >>
   simp[EL_LENGTH_APPEND_rwt,ADD1] >>
   rpt strip_tac >> res_tac >>
   pop_assum mp_tac >> BasicProvers.CASE_TAC >>
@@ -891,7 +891,7 @@ val env_renv_shift = store_thm("env_renv_shift",
   fs[EVERY2_EVERY,EVERY_MEM] >>
   rpt(qpat_assum`X = Y`mp_tac) >> ntac 2 strip_tac >>
   fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,EL_MAP] >>
-  fs[CompilerLibTheory.el_check_def,option_case_NONE_F])
+  fs[compilerLibTheory.el_check_def,option_case_NONE_F])
 
 val env_renv_append_imp = store_thm("env_renv_append_imp",
   ``∀rd sz bs l1 l2 l3 l4. env_renv rd sz bs (l1 ++ l2) (l3 ++ l4) ∧ LENGTH l1 = LENGTH l3 ∧ LENGTH l2 = LENGTH l4 ⇒

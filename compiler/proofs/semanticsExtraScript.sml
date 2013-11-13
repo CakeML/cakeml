@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps pairTheory alistTheory listTheory rich_listTheory pred_setTheory finite_mapTheory lcsymtacs SatisfySimps quantHeuristicsLib miscLib
-open LibTheory SemanticPrimitivesTheory AstTheory BigStepTheory TypeSystemTheory terminationTheory bigClockTheory bigBigEquivTheory replTheory miscTheory
+open libTheory semanticPrimitivesTheory astTheory bigStepTheory typeSystemTheory terminationTheory bigClockTheory bigBigEquivTheory replTheory miscTheory
 val _ = new_theory "semanticsExtra"
 
 (* ALOOKUPs *)
@@ -41,7 +41,7 @@ val _ = Parse.overload_on("pat_vars",``λp. set (pat_bindings p [])``)
 val evaluate_list_MAP_Var = store_thm("evaluate_list_MAP_Var",
   ``∀vs ck menv cenv s env. set vs ⊆ set (MAP FST env) ⇒ evaluate_list ck menv cenv s env (MAP (Var o Short) vs) (s,Rval (MAP (THE o ALOOKUP env) vs))``,
   Induct >> simp[Once evaluate_cases] >>
-  rw[] >> rw[Once evaluate_cases,SemanticPrimitivesTheory.lookup_var_id_def] >>
+  rw[] >> rw[Once evaluate_cases,semanticPrimitivesTheory.lookup_var_id_def] >>
   Cases_on`ALOOKUP env h`>>simp[] >>
   imp_res_tac ALOOKUP_FAILS >>
   fsrw_tac[DNF_ss][MEM_MAP,EXISTS_PROD])
@@ -62,7 +62,7 @@ val _ = Parse.overload_on("env_range",``λenv:envE. set (MAP SND env)``)
 
 val mk_id_inj = store_thm("mk_id_inj",
   ``mk_id mn n1 = mk_id mn n2 ⇒ n1 = n2``,
-  rw[AstTheory.mk_id_def] >>
+  rw[astTheory.mk_id_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[])
 
 val map_result_def = Define`
@@ -85,8 +85,8 @@ val evaluate_dec_decs = store_thm("evaluate_dec_decs",
     evaluate_decs mn menv cenv s env [dec] (s',(case res of Rval (cenv',_) => cenv' | _ => []),map_result SND res)``,
   simp[Once evaluate_decs_cases] >>
   Cases_on`res`>>simp[] >>
-  simp[Once evaluate_decs_cases,SemanticPrimitivesTheory.combine_dec_result_def] >>
-  simp[LibTheory.emp_def,LibTheory.merge_def] >>
+  simp[Once evaluate_decs_cases,semanticPrimitivesTheory.combine_dec_result_def] >>
+  simp[libTheory.emp_def,libTheory.merge_def] >>
   Cases_on`a`>>simp[])
 
 val evaluate_decs_divergence_take = store_thm("evaluate_decs_divergence_take",
@@ -115,7 +115,7 @@ val evaluate_decs_divergence_take = store_thm("evaluate_decs_divergence_take",
       simp[Once evaluate_decs_cases] >>
       fsrw_tac[DNF_ss][] >>
       qexists_tac`s'` >>
-      simp[SemanticPrimitivesTheory.combine_dec_result_def] >>
+      simp[semanticPrimitivesTheory.combine_dec_result_def] >>
       qexists_tac`merge env' a1` >>
       qexists_tac`res0` >>
       qexists_tac`cenv'` >>
@@ -123,12 +123,12 @@ val evaluate_decs_divergence_take = store_thm("evaluate_decs_divergence_take",
       qexists_tac`a1` >>
       qexists_tac`Rval env'` >>
       simp[] >>
-      fs[LibTheory.merge_def] ) >>
+      fs[libTheory.merge_def] ) >>
     fsrw_tac[DNF_ss][] >>
     metis_tac[] ) >>
   qexists_tac`0` >>
   simp[] >>
-  simp[Once evaluate_decs_cases,LibTheory.emp_def,LibTheory.merge_def] >>
+  simp[Once evaluate_decs_cases,libTheory.emp_def,libTheory.merge_def] >>
   metis_tac[] )
 
 val evaluate_decs_divergence = store_thm("evaluate_decs_divergence",
@@ -146,7 +146,7 @@ val evaluate_decs_divergence = store_thm("evaluate_decs_divergence",
   Cases_on`res1`>>fs[]>-(
     PairCases_on`a`>>fs[]>>
     fsrw_tac[DNF_ss][] >>
-    fs[LibTheory.merge_def,FORALL_PROD] >>
+    fs[libTheory.merge_def,FORALL_PROD] >>
     metis_tac[] ) >>
   metis_tac[])
 
@@ -367,7 +367,7 @@ val evaluate_dec_new_dec_vs = store_thm("evaluate_dec_new_dec_vs",
     evaluate_dec mn menv cenv s env dec res ⇒
     ∀tds vs. (SND res = Rval (tds,vs)) ⇒ MAP FST vs = new_dec_vs dec``,
   ho_match_mp_tac evaluate_dec_ind >>
-  simp[LibTheory.emp_def] >> rw[] >>
+  simp[libTheory.emp_def] >> rw[] >>
   imp_res_tac pmatch_dom >> fs[])
 
 val evaluate_decs_new_decs_vs = store_thm("evaluate_decs_new_decs_vs",
@@ -375,10 +375,10 @@ val evaluate_decs_new_decs_vs = store_thm("evaluate_decs_new_decs_vs",
     evaluate_decs mn menv cenv s env decs res ⇒
     ∀env'. SND (SND res) = Rval env' ⇒ MAP FST env' = new_decs_vs decs``,
   ho_match_mp_tac evaluate_decs_ind >>
-  simp[LibTheory.emp_def,SemanticPrimitivesTheory.combine_dec_result_def] >>
+  simp[libTheory.emp_def,semanticPrimitivesTheory.combine_dec_result_def] >>
   rpt gen_tac >>
   BasicProvers.CASE_TAC >>
-  simp[LibTheory.merge_def] >>
+  simp[libTheory.merge_def] >>
   metis_tac[evaluate_dec_new_dec_vs,SND])
 
 (* evaluate_match_with *)
@@ -846,7 +846,7 @@ val evaluate_dec_new_dec_cns = store_thm("evaluate_dec_new_dec_cns",
     ∀tds env. SND res = Rval (tds,env) ⇒
     MAP (mk_id mn) (new_dec_cns d) = (MAP FST tds)``,
   ho_match_mp_tac evaluate_dec_ind >>
-  simp[LibTheory.emp_def,SemanticPrimitivesTheory.build_tdefs_def] >>
+  simp[libTheory.emp_def,semanticPrimitivesTheory.build_tdefs_def] >>
   rw[bind_def] >>
   simp[MAP_MAP_o,MAP_FLAT] >> AP_TERM_TAC >>
   simp[MAP_EQ_f,FORALL_PROD,MAP_MAP_o])
@@ -907,8 +907,8 @@ val do_app_locs = store_thm("do_app_locs",
     LENGTH s ≤ LENGTH s' ∧
     (∀v. MEM v (MAP SND env') ∨ MEM v s' ⇒ all_locs v ⊆ count (LENGTH s'))``,
   rw [bigClockTheory.do_app_cases, SUBSET_DEF] >>
-  simp[contains_closure_def,LibTheory.bind_def]>>
-  rw[AstTheory.opn_lookup_def,AstTheory.opb_lookup_def] >> simp[] >> fs[] >>
+  simp[contains_closure_def,libTheory.bind_def]>>
+  rw[astTheory.opn_lookup_def,astTheory.opb_lookup_def] >> simp[] >> fs[] >>
   fsrw_tac[DNF_ss][SUBSET_DEF] >>
   TRY(metis_tac[]) >>
   TRY(qpat_assum`X = SOME Y` mp_tac >> BasicProvers.CASE_TAC >> simp[] >> BasicProvers.CASE_TAC >>rw[]) >>
@@ -930,7 +930,7 @@ val pmatch_locs = store_thm("pmatch_locs",
         ⇒
         (∀v. MEM v (MAP SND env') ⇒ all_locs v ⊆ count (LENGTH s)))``,
     ho_match_mp_tac pmatch_ind >>
-    strip_tac >- (rw[pmatch_def,LibTheory.bind_def] >> fs[]) >>
+    strip_tac >- (rw[pmatch_def,libTheory.bind_def] >> fs[]) >>
     strip_tac >- (rw[pmatch_def]) >>
     strip_tac >- (
       simp[pmatch_def] >>
@@ -993,7 +993,7 @@ val tac0 =
   strip_tac
 
 val tac =
-  rpt gen_tac >> ntac 2 strip_tac >> fs[LibTheory.bind_def] >>
+  rpt gen_tac >> ntac 2 strip_tac >> fs[libTheory.bind_def] >>
   tac0 >>
   fsrw_tac[DNF_ss][SUBSET_DEF] >>
   metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS,arithmeticTheory.LESS_EQ_TRANS]
@@ -1024,7 +1024,7 @@ val evaluate_locs = store_thm("evaluate_locs",
   strip_tac >- rw[] >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
-    fs[LibTheory.bind_def] >>
+    fs[libTheory.bind_def] >>
     strip_tac >>
     last_x_assum mp_tac >>
     discharge_hyps >- metis_tac[] >> strip_tac >>
@@ -1094,7 +1094,7 @@ val evaluate_locs = store_thm("evaluate_locs",
   strip_tac >- rw[] >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
-    fs[LibTheory.bind_def,build_rec_env_MAP,MAP_FST_funs] >>
+    fs[libTheory.bind_def,build_rec_env_MAP,MAP_FST_funs] >>
     qpat_assum`P ⇒ Q`mp_tac >>
     discharge_hyps >- (
       rw[] >> rw[all_locs_def] >>
@@ -1110,7 +1110,7 @@ val evaluate_locs = store_thm("evaluate_locs",
   strip_tac >- tac >>
   strip_tac >- rw[] >>
   strip_tac >- (
-    rpt gen_tac >> ntac 2 strip_tac >> fs[LibTheory.bind_def] >>
+    rpt gen_tac >> ntac 2 strip_tac >> fs[libTheory.bind_def] >>
     qpat_assum`P ⇒ Q`mp_tac >>
     discharge_hyps >- (
       rw[] >> rw[all_locs_def] >>
@@ -1132,7 +1132,7 @@ val evaluate_locs = store_thm("evaluate_locs",
 
 val check_dup_ctors_ALL_DISTINCT = store_thm("check_dup_ctors_ALL_DISTINCT",
   ``check_dup_ctors menv cenv tds ⇒ ALL_DISTINCT (MAP FST (FLAT (MAP (SND o SND) tds)))``,
-  simp[SemanticPrimitivesTheory.check_dup_ctors_def] >>
+  simp[semanticPrimitivesTheory.check_dup_ctors_def] >>
   rw[] >>
   qmatch_assum_abbrev_tac`ALL_DISTINCT l1` >>
   qmatch_abbrev_tac`ALL_DISTINCT l2` >>
@@ -1144,7 +1144,7 @@ val check_dup_ctors_ALL_DISTINCT = store_thm("check_dup_ctors_ALL_DISTINCT",
 
 val check_dup_ctors_NOT_MEM = store_thm("check_dup_ctors_NOT_MEM",
   ``check_dup_ctors mn cenv tds ∧ MEM e (MAP FST (FLAT (MAP (SND o SND) tds))) ⇒ ¬MEM (mk_id mn e) (MAP FST cenv)``,
-  simp[SemanticPrimitivesTheory.check_dup_ctors_def] >>
+  simp[semanticPrimitivesTheory.check_dup_ctors_def] >>
   strip_tac >>
   qpat_assum`ALL_DISTINCT X`kall_tac >>
   Induct_on`tds` >> simp[] >>
@@ -1500,7 +1500,7 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
     EVERY (closed menv) ls``,
   rpt gen_tac >>
   Cases_on`d`>>simp[Once evaluate_dec_cases]>>
-  Cases_on`res`>>simp[]>>strip_tac>>rpt BasicProvers.VAR_EQ_TAC>>simp[LibTheory.emp_def]>>TRY(strip_tac)>>
+  Cases_on`res`>>simp[]>>strip_tac>>rpt BasicProvers.VAR_EQ_TAC>>simp[libTheory.emp_def]>>TRY(strip_tac)>>
   TRY (
     TRY(BasicProvers.CASE_TAC >> fs[])>>(
     fs[closed_context_def] >>
@@ -1525,12 +1525,12 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
     discharge_hyps >- metis_tac[] >> strip_tac >>
     qspecl_then[`cenv`,`s'`,`p`,`v`,`emp`]mp_tac(INST_TYPE[alpha|->``:tid_or_exn``](CONJUNCT1 pmatch_closed)) >>
     simp[] >> disch_then(qspec_then`menv`mp_tac) >>
-    simp[LibTheory.emp_def] >> strip_tac >>
+    simp[libTheory.emp_def] >> strip_tac >>
     conj_tac >- (
       fs[closed_under_cenv_def] >>
       qx_gen_tac`z` >> strip_tac >> TRY(metis_tac[]) >>
       imp_res_tac (CONJUNCT1 pmatch_all_cns) >>
-      fsrw_tac[DNF_ss][SUBSET_DEF,LibTheory.emp_def] >>
+      fsrw_tac[DNF_ss][SUBSET_DEF,libTheory.emp_def] >>
       metis_tac[] ) >>
     conj_tac >- fs[closed_under_menv_def] >>
     fsrw_tac[DNF_ss][SUBSET_DEF] >>
@@ -1539,7 +1539,7 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
       qspecl_then[`cenv`,`s'`,`p`,`v`,`emp`,`env'`]mp_tac(INST_TYPE[alpha|->``:tid_or_exn``](CONJUNCT1 pmatch_locs)) >>
       discharge_hyps >- (
         simp[] >>
-        fsrw_tac[DNF_ss][LibTheory.emp_def,SUBSET_DEF] >>
+        fsrw_tac[DNF_ss][libTheory.emp_def,SUBSET_DEF] >>
         metis_tac[] ) >>
       simp[SUBSET_DEF] >>
       metis_tac[arithmeticTheory.LESS_LESS_EQ_TRANS]) >>
@@ -1577,8 +1577,8 @@ val evaluate_dec_closed_context = store_thm("evaluate_dec_closed_context",
     fsrw_tac[DNF_ss][SUBSET_DEF,FORALL_PROD,MEM_MAP] >>
     metis_tac[] )
   >> (
-    simp[SemanticPrimitivesTheory.build_tdefs_def] >>
-    Cases_on`mn`>>fs[AstTheory.mk_id_def] >- (
+    simp[semanticPrimitivesTheory.build_tdefs_def] >>
+    Cases_on`mn`>>fs[astTheory.mk_id_def] >- (
       fs[closed_context_def] >>
       fs[closed_under_cenv_def] >>
       reverse conj_tac >- metis_tac[] >>
@@ -1605,14 +1605,14 @@ val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
       let (env',ls) = case SND(SND res) of Rval(e)=>(e++env,[]) | Rerr(Rraise v) => (env,[v]) | _ => (env,[]) in
       closed_context menv ((FST(SND res))++cenv) (FST res) env' ∧ EVERY (closed menv) ls``,
   ho_match_mp_tac evaluate_decs_ind >>
-  simp[LibTheory.emp_def] >>
+  simp[libTheory.emp_def] >>
   conj_tac >- (
     rpt gen_tac >> rpt strip_tac >>
     BasicProvers.CASE_TAC >>
     fs[FV_decs_def,decs_cns_def] >>
     imp_res_tac evaluate_dec_closed_context >>
     fs[] >> fs[LET_THM] ) >>
-  simp[SemanticPrimitivesTheory.combine_dec_result_def,LibTheory.merge_def] >>
+  simp[semanticPrimitivesTheory.combine_dec_result_def,libTheory.merge_def] >>
   rpt gen_tac >> rpt strip_tac >>
   qspecl_then[`mn`,`menv`,`cenv`,`s`,`env`,`d`,`s'`,`Rval (new_tds,new_env)`]mp_tac evaluate_dec_closed_context >>
   simp[] >> strip_tac >>
@@ -1621,7 +1621,7 @@ val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
     simp[CONJ_ASSOC] >>
     reverse conj_tac >- (
       match_mp_tac cenv_bind_div_eq_append >>
-      Cases_on`d`>>fs[evaluate_dec_cases,LibTheory.emp_def,LibTheory.bind_def] >>
+      Cases_on`d`>>fs[evaluate_dec_cases,libTheory.emp_def,libTheory.bind_def] >>
       imp_res_tac check_dup_ctors_NOT_MEM >>
       imp_res_tac ALOOKUP_NONE >>
       simp[IN_DISJOINT,build_tdefs_def] >>
@@ -1653,7 +1653,7 @@ val evaluate_decs_closed_context = store_thm("evaluate_decs_closed_context",
   simp[CONJ_ASSOC] >>
   reverse conj_tac >- (
     match_mp_tac cenv_bind_div_eq_append >>
-    Cases_on`d`>>fs[evaluate_dec_cases,LibTheory.emp_def,LibTheory.bind_def] >>
+    Cases_on`d`>>fs[evaluate_dec_cases,libTheory.emp_def,libTheory.bind_def] >>
     imp_res_tac check_dup_ctors_NOT_MEM >>
     imp_res_tac ALOOKUP_NONE >>
     simp[IN_DISJOINT,build_tdefs_def] >>
@@ -1767,7 +1767,7 @@ val evaluate_decs_determ = store_thm("evaluate_decs_determ",
   rpt gen_tac >> strip_tac >>
   rw[Once evaluate_decs_cases] >>
   imp_res_tac evaluate_dec_determ >> fs[] >>
-  fs[LibTheory.merge_def,SemanticPrimitivesTheory.combine_dec_result_def] >>
+  fs[libTheory.merge_def,semanticPrimitivesTheory.combine_dec_result_def] >>
   res_tac >> fs[])
 
 (* evaluate functional equations *)
