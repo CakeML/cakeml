@@ -1,4 +1,4 @@
-open preamble CompilerTheory compilerTerminationTheory
+open preamble compilerTheory compilerTerminationTheory
 
 val _ = new_theory "repl_compute";
 

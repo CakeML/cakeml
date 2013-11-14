@@ -4,7 +4,7 @@ open HolKernel Parse boolLib bossLib;
 val _ = new_theory "repl_fun_alt_proof";
 
 open arithmeticTheory relationTheory listTheory lexer_implTheory;
-open repl_funTheory repl_fun_altTheory bytecodeLabelsTheory BytecodeTheory;
+open repl_funTheory repl_fun_altTheory bytecodeLabelsTheory bytecodeTheory;
 open lcsymtacs bytecodeEvalTheory bytecodeExtraTheory;
 
 infix \\ val op \\ = op THEN;

@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib lcsymtacs
-open lexer_implTheory cmlParseTheory AstTheory inferTheory CompilerTheory
-     PrinterTheory compilerTerminationTheory bytecodeEvalTheory replTheory
-     ElabTheory
+open lexer_implTheory cmlParseTheory astTheory inferTheory compilerTheory
+     printerTheory compilerTerminationTheory bytecodeEvalTheory replTheory
+     elabTheory
 
 val _ = new_theory "repl_fun";
 

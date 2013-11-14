@@ -4,7 +4,7 @@ open HolKernel Parse boolLib bossLib;
 val _ = new_theory "repl_fun_alt";
 
 open listTheory arithmeticTheory relationTheory;
-open repl_funTheory bytecodeLabelsTheory BytecodeTheory;
+open repl_funTheory bytecodeLabelsTheory bytecodeTheory;
 
 (*
 
