@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps lcsymtacs miscLib arithmeticTheory listTheory rich_listTheory
-open BytecodeTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeTerminationTheory compilerTerminationTheory semanticsExtraTheory toIntLangProofsTheory toBytecodeProofsTheory compilerProofsTheory
+open bytecodeTheory bytecodeClockTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeTerminationTheory compilerTerminationTheory semanticsExtraTheory toIntLangProofsTheory toBytecodeProofsTheory compilerProofsTheory
 val _ = new_theory"replDecsProofs"
 
 val ct = ``init_compiler_state.contab``

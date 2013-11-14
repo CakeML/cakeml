@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps listTheory rich_listTheory pred_setTheory relationTheory arithmeticTheory whileTheory pairTheory quantHeuristicsLib lcsymtacs sortingTheory finite_mapTheory alistTheory optionTheory stringTheory
-open SatisfySimps miscLib BigStepTheory terminationTheory SemanticPrimitivesTheory semanticsExtraTheory miscTheory ToBytecodeTheory CompilerTheory compilerTerminationTheory IntLangTheory intLangExtraTheory pmatchTheory toIntLangProofsTheory toBytecodeProofsTheory BytecodeTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory bigClockTheory replTheory bytecodeClockTheory bytecodeLabelsTheory compilerTerminationTheory
+open SatisfySimps miscLib bigStepTheory terminationTheory semanticPrimitivesTheory semanticsExtraTheory miscTheory toBytecodeTheory compilerTheory compilerTerminationTheory intLangTheory intLangExtraTheory pmatchTheory toIntLangProofsTheory toBytecodeProofsTheory bytecodeTheory bytecodeTerminationTheory bytecodeExtraTheory bytecodeEvalTheory bigClockTheory replTheory bytecodeClockTheory bytecodeLabelsTheory compilerTerminationTheory
 val _ = new_theory"compilerProofs"
 
 (* decs_to_cenv *)
@@ -9,7 +9,7 @@ val evaluate_dec_dec_to_cenv = store_thm("evaluate_dec_dec_to_cenv",
     ∀tds env. SND res = Rval (tds,env) ⇒
     tds = dec_to_cenv mn d``,
   ho_match_mp_tac evaluate_dec_ind >>
-  simp[LibTheory.emp_def,dec_to_cenv_def])
+  simp[libTheory.emp_def,dec_to_cenv_def])
 
 val decs_to_cenv_append = store_thm("decs_to_cenv_append",
   ``∀d1 d2. decs_to_cenv mn (d1 ++ d2) = decs_to_cenv mn d2 ++ decs_to_cenv mn d1``,
@@ -20,9 +20,9 @@ val evaluate_decs_to_cenv = store_thm("evaluate_decs_to_cenv",
      evaluate_decs mn menv cenv s env decs res ⇒
      ∃cenv'. decs_to_cenv mn decs = cenv' ++ (FST(SND res))``,
    HO_MATCH_MP_TAC evaluate_decs_ind >>
-   simp[LibTheory.emp_def] >> rw[] >>
+   simp[libTheory.emp_def] >> rw[] >>
    imp_res_tac evaluate_dec_dec_to_cenv >>
-   fs[] >> simp[decs_to_cenv_def,LibTheory.merge_def])
+   fs[] >> simp[decs_to_cenv_def,libTheory.merge_def])
 
 (* mvars properties *)
 
@@ -64,13 +64,13 @@ val mvars_remove_mat_vp = store_thm("mvars_remove_mat_vp",
   ``(∀p fk sk v. mvars (remove_mat_vp fk sk v p) = mvars sk) ∧
     (∀ps fk sk v n. mvars (remove_mat_con fk sk v n ps) = mvars sk)``,
   ho_match_mp_tac(TypeBase.induction_of``:Cpat``) >>
-  simp[ToIntLangTheory.remove_mat_vp_def,ToIntLangTheory.shift_def])
+  simp[toIntLangTheory.remove_mat_vp_def,toIntLangTheory.shift_def])
 val _ = export_rewrites["mvars_remove_mat_vp"]
 
 val mvars_remove_mat_var = store_thm("mvars_remove_mat_var",
   ``∀v b pes. mvars (remove_mat_var v b pes) = mvars_list (MAP SND pes)``,
   ho_match_mp_tac remove_mat_var_ind >>
-  simp[remove_mat_var_def,ToIntLangTheory.shift_def] >> rw[] >>
+  simp[remove_mat_var_def,toIntLangTheory.shift_def] >> rw[] >>
   metis_tac[UNION_COMM])
 val _ = export_rewrites["mvars_remove_mat_var"]
 
@@ -79,7 +79,7 @@ val mvars_exp_to_Cexp = store_thm("mvars_exp_to_Cexp",
   ho_match_mp_tac exp_to_Cexp_nice_ind >>
   strip_tac >- (
     rw[exp_to_Cexp_def] >> rw[] >>
-    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    fs[Once EXTENSION,toIntLangTheory.shift_def] >>
     simp[mvars_list_MAP,FV_pes_MAP,EXISTS_PROD] >>
     simp_tac(srw_ss()++DNF_ss)[Abbr`Cpes'`,Abbr`Cpes`,pes_to_Cpes_MAP] >>
     simp_tac(srw_ss()++DNF_ss)[MEM_MAP,LET_THM,UNCURRY] >>
@@ -102,43 +102,43 @@ val mvars_exp_to_Cexp = store_thm("mvars_exp_to_Cexp",
     rw[Once EXTENSION] ) >>
   strip_tac >- (
     rw[exp_to_Cexp_def] >>
-    rw[ToIntLangTheory.shift_def] ) >>
+    rw[toIntLangTheory.shift_def] ) >>
   strip_tac >- (
     gen_tac >> Cases >>
     rw[exp_to_Cexp_def] >> rw[] >>
-    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    fs[Once EXTENSION,toIntLangTheory.shift_def] >>
     metis_tac[] ) >>
   strip_tac >- (
     gen_tac >> Cases >>
     rw[exp_to_Cexp_def] >> rw[] >>
-    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    fs[Once EXTENSION,toIntLangTheory.shift_def] >>
     metis_tac[] ) >>
   strip_tac >- (
     rw[exp_to_Cexp_def] >> rw[] >>
-    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    fs[Once EXTENSION,toIntLangTheory.shift_def] >>
     metis_tac[] ) >>
   strip_tac >- (
     rw[exp_to_Cexp_def] >> rw[] >>
-    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    fs[Once EXTENSION,toIntLangTheory.shift_def] >>
     metis_tac[] ) >>
   strip_tac >- (
     rw[exp_to_Cexp_def] >> rw[] >>
-    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    fs[Once EXTENSION,toIntLangTheory.shift_def] >>
     metis_tac[] ) >>
   strip_tac >- (
     rw[exp_to_Cexp_def] >> rw[]) >>
   strip_tac >- (
     gen_tac >> Cases >>
     rw[exp_to_Cexp_def] >> rw[] >>
-    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    fs[Once EXTENSION,toIntLangTheory.shift_def] >>
     metis_tac[] ) >>
   strip_tac >- (
     rw[exp_to_Cexp_def] >> rw[] >>
-    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    fs[Once EXTENSION,toIntLangTheory.shift_def] >>
     metis_tac[] ) >>
   strip_tac >- (
     rw[exp_to_Cexp_def] >> rw[] >>
-    fs[Once EXTENSION,ToIntLangTheory.shift_def] >>
+    fs[Once EXTENSION,toIntLangTheory.shift_def] >>
     simp[mvars_list_MAP,FV_pes_MAP,EXISTS_PROD] >>
     simp_tac(srw_ss()++DNF_ss)[Abbr`Cpes'`,Abbr`Cpes`,pes_to_Cpes_MAP] >>
     simp_tac(srw_ss()++DNF_ss)[MEM_MAP,LET_THM,UNCURRY] >>
@@ -905,9 +905,9 @@ val print_v_ov = store_thm("print_v_ov",
     ∧ (∀y:string#v. T)
     ∧ (∀vs:v list. T)``,
   ho_match_mp_tac(TypeBase.induction_of``:v``) >>
-  simp[print_v_def,v_to_Cv_def,PrinterTheory.ov_to_string_def] >>
-  Cases >> simp[PrinterTheory.ov_to_string_def,print_lit_def] >>
-  Cases_on`b`>>simp[PrinterTheory.ov_to_string_def,print_lit_def])
+  simp[print_v_def,v_to_Cv_def,printerTheory.ov_to_string_def] >>
+  Cases >> simp[printerTheory.ov_to_string_def,print_lit_def] >>
+  Cases_on`b`>>simp[printerTheory.ov_to_string_def,print_lit_def])
 
 val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
   ``∀mv pp vars vs cm m Cvs bvs env.
@@ -1121,7 +1121,7 @@ val compile_print_ctors_thm = store_thm("compile_print_ctors_thm",
     simp[Abbr`bs1'`,Abbr`bs1`,bc_state_component_equality] ) >>
   qmatch_abbrev_tac`bc_next^* bs bs3` >>
   `bs2 = bs3` by (
-    simp[Abbr`bs2`,Abbr`bs3`,bc_state_component_equality,SemanticPrimitivesTheory.id_to_string_def] ) >>
+    simp[Abbr`bs2`,Abbr`bs3`,bc_state_component_equality,semanticPrimitivesTheory.id_to_string_def] ) >>
   metis_tac[RTC_TRANSITIVE,transitive_def])
 
 val compile_print_dec_thm = store_thm("compile_print_dec_thm",
@@ -1168,7 +1168,7 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     simp[compile_print_dec_def] >>
     Induct_on`l` >- (
       simp[compile_print_types_def,Once SWAP_REVERSE] >>
-      simp[print_envC_def,SemanticPrimitivesTheory.build_tdefs_def,LENGTH_NIL] >>
+      simp[print_envC_def,semanticPrimitivesTheory.build_tdefs_def,LENGTH_NIL] >>
       rw[] >> simp[Once RTC_CASES1] >> simp[bc_state_component_equality] ) >>
     qx_gen_tac`x` >> PairCases_on`x` >>
     simp[compile_print_types_def] >>
@@ -1203,9 +1203,9 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     `bs2' = bs2` by (
       simp[Abbr`bs2`,Abbr`bs2'`] >>
       simp[bc_state_component_equality] >>
-      simp[SemanticPrimitivesTheory.build_tdefs_def,print_envC_def] >>
+      simp[semanticPrimitivesTheory.build_tdefs_def,print_envC_def] >>
       simp[MAP_MAP_o,combinTheory.o_DEF] >>
-      simp[UNCURRY,AstTheory.mk_id_def] >>
+      simp[UNCURRY,astTheory.mk_id_def] >>
       simp[LAMBDA_PROD] ) >>
     metis_tac[RTC_TRANSITIVE,transitive_def])
   >- (
@@ -1317,7 +1317,7 @@ val env_rs_change_clock = store_thm("env_rs_change_clock",
   rpt HINT_EXISTS_TAC >> simp[] >>
   match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
   map_every qexists_tac[`rd`,`(FST cs,Cs)`,`bs`,`bs.refs`,`SOME ck'`] >>
-  simp[BytecodeTheory.bc_state_component_equality] >>
+  simp[bytecodeTheory.bc_state_component_equality] >>
   fs[Cenv_bs_def,s_refs_def,good_rd_def])
 
 val env_rs_change_csz = store_thm("env_rs_change_csz",
@@ -1360,7 +1360,7 @@ val env_rs_change_store = store_thm("env_rs_change_store",
   reverse conj_tac >- (
     match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
     map_every qexists_tac[`rd`,`(FST cs,Cs)`,`bs`,`rf'`,`ck'`] >>
-    simp[BytecodeTheory.bc_state_component_equality] ) >>
+    simp[bytecodeTheory.bc_state_component_equality] ) >>
   fs[closed_Clocs_def,closed_vlabs_def] >>
   fs[EVERY2_EVERY] >>
   full_simp_tac pure_ss [SUBSET_DEF,IN_COUNT] >>
@@ -1617,7 +1617,7 @@ val env_rs_can_Print = store_thm("env_rs_can_Print",
   simp[env_rs_def] >>
   rw[Cenv_bs_def,env_renv_def,option_case_NONE_F] >>
   fs[EVERY2_EVERY,EVERY_MEM] >>
-  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,CompilerLibTheory.el_check_def,EL_MAP] >>
+  rfs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM,compilerLibTheory.el_check_def,EL_MAP] >>
   match_mp_tac (GEN_ALL Cv_bv_can_Print) >>
   qexists_tac`mk_pp rd bs` >>
   fsrw_tac[DNF_ss][MEM_MAP,MEM_EL] >>
@@ -2057,7 +2057,7 @@ val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
     qpat_assum`X ∉ Y`(assume_tac o SIMP_RULE(srw_ss())[MEM_MAP,FORALL_PROD]) >>
     metis_tac[PAIR_EQ] ) >>
   Q.PAT_ABBREV_TAC`m' = exp_to_Cexp_state_bvars_fupd X Y` >>
-  `m' = m` by simp[ToIntLangTheory.exp_to_Cexp_state_component_equality,Abbr`m'`] >>
+  `m' = m` by simp[toIntLangTheory.exp_to_Cexp_state_component_equality,Abbr`m'`] >>
   qunabbrev_tac`m'`>>pop_assum SUBST1_TAC >>
   qmatch_abbrev_tac`G` >>
   rator_x_assum`env_rs`(mp_tac o SIMP_RULE std_ss [env_rs_def]) >>
@@ -2134,7 +2134,7 @@ val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
     simp[] >>
     simp[env_to_Cenv_MAP,EVERY2_MAP] >> strip_tac >>
     first_x_assum(qspec_then`me0`mp_tac) >>
-    simp[env_renv_def,option_case_NONE_F,EVERY2_MAP,CompilerLibTheory.el_check_def] >>
+    simp[env_renv_def,option_case_NONE_F,EVERY2_MAP,compilerLibTheory.el_check_def] >>
     strip_tac >>
     Q.PAT_ABBREV_TAC`pp = the (0:num) X` >>
     qho_match_abbrev_tac`P pp` >>
@@ -2158,7 +2158,7 @@ val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
     `NONE ∈ FDOM (cmap rs.contab)` by (
       fs[cenv_dom_def, EXTENSION] >> metis_tac[] ) >>
     simp[] >>
-    simp[Once IntLangTheory.syneq_cases] >>
+    simp[Once intLangTheory.syneq_cases] >>
     disch_then(Q.X_CHOOSE_THEN`Cvs0`strip_assume_tac) >>
     qmatch_assum_abbrev_tac`v' = CConv tt Cvs0` >>
     `syneq (CConv tt Cvs0) w` by metis_tac[syneq_trans] >>
@@ -2166,7 +2166,7 @@ val compile_fake_exp_thm = store_thm("compile_fake_exp_thm",
     rator_x_assum`syneq`kall_tac >>
     rator_x_assum`syneq`kall_tac >>
     BasicProvers.VAR_EQ_TAC >>
-    simp[Once IntLangTheory.syneq_cases] >>
+    simp[Once intLangTheory.syneq_cases] >>
     disch_then(Q.X_CHOOSE_THEN`Cws`strip_assume_tac) >>
     qmatch_assum_abbrev_tac`LIST_REL syneq Cvs Cvs0` >>
     `LIST_REL syneq Cvs Cws` by metis_tac[EVERY2_syneq_trans] >>
@@ -2336,7 +2336,7 @@ val decs_contab_thm = store_thm("decs_contab_thm",
     NO_TAC) >>
   TRY (
     rpt strip_tac >>
-    simp[number_constructors_thm,FUPDATE_LIST_THM,LibTheory.emp_def,LibTheory.bind_def] >>
+    simp[number_constructors_thm,FUPDATE_LIST_THM,libTheory.emp_def,libTheory.bind_def] >>
     first_x_assum match_mp_tac >>
     simp[compiler_state_component_equality] >>
     Q.PAT_ABBREV_TAC`X:contab = (a,b,c)` >>
@@ -2346,7 +2346,7 @@ val decs_contab_thm = store_thm("decs_contab_thm",
       conj_tac >- (
         gen_tac >> strip_tac >>
         first_x_assum(qspec_then`SUC i`mp_tac) >>
-        simp[decs_to_cenv_def,dec_to_cenv_def,LibTheory.bind_def,LibTheory.emp_def] >>
+        simp[decs_to_cenv_def,dec_to_cenv_def,libTheory.bind_def,libTheory.emp_def] >>
         metis_tac[CONS_APPEND,APPEND_ASSOC])
       >> (
         fs[closed_context_def] >>
@@ -2554,7 +2554,7 @@ val decs_contab_thm = store_thm("decs_contab_thm",
   last_x_assum(qspec_then`0`mp_tac) >>
   simp[decs_to_cenv_def] >> strip_tac >>
   qmatch_assum_rename_tac`check_dup_ctors mn cenv tds`[] >>
-  fs[FOLDL_number_constructors_thm,SemanticPrimitivesTheory.build_tdefs_def,LibTheory.emp_def] >>
+  fs[FOLDL_number_constructors_thm,semanticPrimitivesTheory.build_tdefs_def,libTheory.emp_def] >>
   fs[env_rs_def] >>
   conj_tac >- (
     fs[number_constructors_thm,LET_THM] >>
@@ -2591,8 +2591,8 @@ val decs_contab_thm = store_thm("decs_contab_thm",
       rw [] >>
       qsuff_tac`¬(MEM (mk_id mn z) (MAP FST cenv))`>-metis_tac[NOT_SOME_NONE, SOME_11]>>
       simp[] >>
-      Cases_on`mn`>>fs[AstTheory.mk_id_def] >>
-      fs[SemanticPrimitivesTheory.id_to_string_def] >>
+      Cases_on`mn`>>fs[astTheory.mk_id_def] >>
+      fs[semanticPrimitivesTheory.id_to_string_def] >>
       res_tac >> fs[] >> rw[] >> fs[] >> metis_tac[]) >>
     conj_asm1_tac >- (
       simp[EVERY_MAP,EVERY_REVERSE,EVERY_GENLIST] >>
@@ -2600,7 +2600,7 @@ val decs_contab_thm = store_thm("decs_contab_thm",
       rw[] >> res_tac >> simp[] ) >>
     conj_asm1_tac >- (
       simp[FDOM_FUPDATE_LIST] >>
-      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_GENLIST,SemanticPrimitivesTheory.id_to_string_def] ) >>
+      fsrw_tac[DNF_ss][SUBSET_DEF,MEM_MAP,MEM_GENLIST,semanticPrimitivesTheory.id_to_string_def] ) >>
     simp[FDOM_FUPDATE_LIST] >>
     gen_tac >> strip_tac >- (
       match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
@@ -2635,7 +2635,7 @@ val decs_contab_thm = store_thm("decs_contab_thm",
     simp[MEM_MAP,MEM_GENLIST] >>
     strip_tac >>
     qexists_tac`i` >>
-    simp[SemanticPrimitivesTheory.id_to_string_def] >>
+    simp[semanticPrimitivesTheory.id_to_string_def] >>
     qmatch_abbrev_tac`((p0 |++ ls) ' k) = z` >>
     qho_match_abbrev_tac`P ((p0 |++ ls) ' k)` >>
     match_mp_tac FUPDATE_LIST_ALL_DISTINCT_APPLY_MEM >>
@@ -2808,7 +2808,7 @@ val decs_contab_thm = store_thm("decs_contab_thm",
     ho_match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM_matchable >>
     qabbrev_tac`p = rs.contab` >> PairCases_on`p`>>fs[] >>
     simp[MAP_GENLIST,MEM_GENLIST] >>
-    Cases_on`mn`>>simp[AstTheory.mk_id_def] >>
+    Cases_on`mn`>>simp[astTheory.mk_id_def] >>
     fs[MEM_EL] >>
     metis_tac[EL_MAP] ) >>
   conj_tac >- (
@@ -2830,7 +2830,7 @@ val decs_contab_thm = store_thm("decs_contab_thm",
     `(p0 |++ ls) ' NONE = p0 ' NONE` by (
       match_mp_tac FUPDATE_LIST_APPLY_NOT_MEM >>
       simp[Abbr`ls`,MEM_MAP,MEM_GENLIST,FORALL_PROD] >>
-      Cases_on`mn`>>fs[AstTheory.mk_id_def] >>
+      Cases_on`mn`>>fs[astTheory.mk_id_def] >>
       metis_tac[MEM_EL,LENGTH_MAP,MEM_MAP] ) >>
     `ALL_DISTINCT (MAP FST ls)` by (
       imp_res_tac check_dup_ctors_ALL_DISTINCT >>
@@ -2993,8 +2993,8 @@ val decs_to_contab_cmap_SUBMAP = store_thm("decs_to_contab_cmap_SUBMAP",
       reverse conj_tac >- (
         simp[Abbr`ct1`,number_constructors_thm,FDOM_FUPDATE_LIST,dec_to_cenv_def] >>
         PairCases_on`ct`>>fs[] >>
-        simp[cenv_dom_def,LibTheory.bind_def] >>
-        fs[SUBSET_DEF,cenv_dom_def,LibTheory.emp_def] >>
+        simp[cenv_dom_def,libTheory.bind_def] >>
+        fs[SUBSET_DEF,cenv_dom_def,libTheory.emp_def] >>
         metis_tac[] ) >>
       gen_tac >> strip_tac >>
       first_x_assum(qspec_then`SUC i`mp_tac) >>
@@ -3013,7 +3013,7 @@ val decs_to_contab_cmap_SUBMAP = store_thm("decs_to_contab_cmap_SUBMAP",
     first_x_assum match_mp_tac >>
     qexists_tac`dec_to_cenv mn (Dtype l) ++ cenv` >>
     reverse conj_tac >- (
-      simp[Abbr`ct1`,number_constructors_thm,FDOM_FUPDATE_LIST,dec_to_cenv_def,SemanticPrimitivesTheory.build_tdefs_def] >>
+      simp[Abbr`ct1`,number_constructors_thm,FDOM_FUPDATE_LIST,dec_to_cenv_def,semanticPrimitivesTheory.build_tdefs_def] >>
       PairCases_on`ct`>>fs[] >>
       conj_tac >- (fsrw_tac[DNF_ss][SUBSET_DEF, cenv_dom_def] >> metis_tac[] ) >>
       Q.PAT_ABBREV_TAC`l1:(string#t list) list = FLAT (MAP X l)` >>
@@ -3097,7 +3097,7 @@ val tac2 =
   qexists_tac`0` >>
   rpt gen_tac >>
   strip_tac >>
-  simp[LibTheory.emp_def,vs_to_Cvs_MAP] >>
+  simp[libTheory.emp_def,vs_to_Cvs_MAP] >>
   fs[env_rs_def,LET_THM] >>
   map_every qexists_tac[`bs.refs`,`rd`,`Cs`] >>
   rfs[] >>
@@ -3201,10 +3201,10 @@ val compile_dec_thm = store_thm("compile_dec_thm",
       simp[] >>
       simp[Once evaluate_cases] >>
       disj1_tac >>
-      fs[LibTheory.emp_def] >>
+      fs[libTheory.emp_def] >>
       simp[Once pmatch_nil] >>
       simp[Once evaluate_cases,Abbr`exp`] >>
-      simp[SemanticPrimitivesTheory.do_con_check_def] >>
+      simp[semanticPrimitivesTheory.do_con_check_def] >>
       match_mp_tac evaluate_list_MAP_Var >>
       qspecl_then[`cenv`,`s2`,`p`,`v`,`[]`,`env'`,`menv`]mp_tac(INST_TYPE[alpha|->``:tid_or_exn``](CONJUNCT1 pmatch_closed)) >>
       qspecl_then[`T`,`menv`,`cenv`,`count',s`,`env`,`e`,`((0,s2),Rval v)`]mp_tac(INST_TYPE[alpha|->``:tid_or_exn``](CONJUNCT1 evaluate_closed)) >>
@@ -3232,10 +3232,10 @@ val compile_dec_thm = store_thm("compile_dec_thm",
     qspecl_then[`cenv`,`s2`,`p`,`v`,`emp`,`env'`,`menv`]mp_tac(INST_TYPE[alpha|->``:tid_or_exn``](CONJUNCT1 pmatch_closed)) >>
     discharge_hyps >- (
       simp[] >>
-      simp[LibTheory.emp_def] >>
+      simp[libTheory.emp_def] >>
       qspecl_then[`T`,`menv`,`cenv`,`count',s`,`env`,`e`,`((0,s2),Rval v)`]mp_tac(INST_TYPE[alpha|->``:tid_or_exn``](CONJUNCT1 evaluate_closed)) >>
       simp[] >> fs[closed_context_def]) >>
-    simp[LibTheory.emp_def,Abbr`vars`] >>
+    simp[libTheory.emp_def,Abbr`vars`] >>
     strip_tac >>
     `REVERSE (MAP SND env') = vs` by (
       pop_assum (assume_tac o SYM) >>
@@ -3257,7 +3257,7 @@ val compile_dec_thm = store_thm("compile_dec_thm",
       simp[Once evaluate_cases] >>
       disj2_tac >>
       simp[Once evaluate_cases] >>
-      fs[LibTheory.emp_def] >>
+      fs[libTheory.emp_def] >>
       simp[Once pmatch_nil]) >>
     qmatch_assum_abbrev_tac`evaluate T menv cenv (count',s) env Mexp ((0,s2),Rerr err)` >>
     qmatch_assum_abbrev_tac`(compile_fake_exp rmenv m renv rsz cs vars expf).out = X` >> qunabbrev_tac`X` >>
@@ -3322,7 +3322,7 @@ val compile_dec_thm = store_thm("compile_dec_thm",
         ((0,s),Rval (Conv NONE (MAP (THE o (ALOOKUP (build_rec_env funs env env))) (REVERSE (MAP FST funs)))))` by (
       simp[Once evaluate_cases,FST_triple] >>
       simp[Once evaluate_cases,Abbr`exp`] >>
-      simp[SemanticPrimitivesTheory.do_con_check_def] >>
+      simp[semanticPrimitivesTheory.do_con_check_def] >>
       REWRITE_TAC[GSYM MAP_APPEND] >>
       match_mp_tac evaluate_list_MAP_Var >>
       simp[build_rec_env_dom]) >>
@@ -3363,7 +3363,7 @@ val compile_dec_thm = store_thm("compile_dec_thm",
       imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
       simp[]) >>
     `LENGTH vars = LENGTH vs` by simp[Abbr`vars`,Abbr`vs`] >>
-    simp[LibTheory.emp_def,MAP_ZIP] >>
+    simp[libTheory.emp_def,MAP_ZIP] >>
     metis_tac[] ) >>
   strip_tac >- rw[] >>
   strip_tac >- tac2 >>
@@ -3554,7 +3554,7 @@ val compile_decs_thm = store_thm("compile_decs_thm",
   ho_match_mp_tac evaluate_decs_ind >>
   strip_tac >- (
     simp[compile_decs_def] >>
-    simp[decs_cns_def,FV_decs_def,Once SWAP_REVERSE,LibTheory.emp_def] >>
+    simp[decs_cns_def,FV_decs_def,Once SWAP_REVERSE,libTheory.emp_def] >>
     rpt gen_tac >>
     qexists_tac`0` >>
     rpt gen_tac >>
@@ -3793,7 +3793,7 @@ val compile_decs_thm = store_thm("compile_decs_thm",
     simp[Abbr`n`,Abbr`vs`,Abbr`G`,Abbr`H`] >>
     Cases_on`d`>>fs[]>>
     fs[Once evaluate_dec_cases] >>
-    rfs[LibTheory.emp_def] ) >>
+    rfs[libTheory.emp_def] ) >>
   `LENGTH bvs = n` by (
     simp[Abbr`n`,Abbr`vs`,Abbr`G`,Abbr`H`] >>
     rpt (rator_x_assum`EVERY2`mp_tac) >>
@@ -3809,16 +3809,16 @@ val compile_decs_thm = store_thm("compile_decs_thm",
   simp[] >>
   simp[Abbr`bs2`] >>
   discharge_hyps >- (
-    simp[LibTheory.merge_def,Abbr`m1`] >>
+    simp[libTheory.merge_def,Abbr`m1`] >>
     conj_tac >- (
-      simp[LibTheory.merge_def] >>
+      simp[libTheory.merge_def] >>
       gen_tac >> strip_tac >>
       last_x_assum(qspec_then`SUC i`mp_tac) >>
       simp[decs_to_cenv_def,Abbr`G`] >>
       imp_res_tac evaluate_dec_dec_to_cenv >>
       fs[] ) >>
     conj_tac >- (
-      simp[LibTheory.merge_def] >>
+      simp[libTheory.merge_def] >>
       qspecl_then[`mn`,`menv`,`cenv`,`s`,`env`,`d`,`s'`,`Rval(new_tds,new_env)`]mp_tac evaluate_dec_closed_context >>
       simp[] >>
       disch_then match_mp_tac >>
@@ -3856,9 +3856,9 @@ val compile_decs_thm = store_thm("compile_decs_thm",
       `ct1 = rs.contab` by (
         simp[Abbr`ct1`] >>
         Cases_on`d`>>fs[dec_to_contab_def] >>
-        fs[Once evaluate_dec_cases,LibTheory.bind_def] >>
+        fs[Once evaluate_dec_cases,libTheory.bind_def] >>
         qpat_assum`[] = X`mp_tac >>
-        simp[SemanticPrimitivesTheory.build_tdefs_def,FLAT_EQ_NIL,EVERY_MEM,MEM_MAP,FORALL_PROD,UNCURRY,EXISTS_PROD] >>
+        simp[semanticPrimitivesTheory.build_tdefs_def,FLAT_EQ_NIL,EVERY_MEM,MEM_MAP,FORALL_PROD,UNCURRY,EXISTS_PROD] >>
         simp_tac(srw_ss()++DNF_ss)[] >>
         simp[FOLDL_number_constructors_thm] >>
         Q.PAT_ABBREV_TAC`ll = FLAT (MAP (SND o SND) l)` >>
@@ -3945,7 +3945,7 @@ val compile_decs_thm = store_thm("compile_decs_thm",
         fsrw_tac[ARITH_ss][] ) >>
       fs[s_refs_def,Abbr`bs1`,good_rd_def] ) >>
     `new_env = []` by (
-      Cases_on`d`>>fs[Once evaluate_dec_cases,LibTheory.emp_def] ) >>
+      Cases_on`d`>>fs[Once evaluate_dec_cases,libTheory.emp_def] ) >>
     simp[] >>
     match_mp_tac env_rs_change_store >>
     Q.PAT_ABBREV_TAC`bs0 = bc_state_stack_fupd X Y` >>
@@ -3982,7 +3982,7 @@ val compile_decs_thm = store_thm("compile_decs_thm",
       fs[env_rs_def,SET_EQ_SUBSET,SUBSET_DEF,decs_to_cenv_def] >>
       last_x_assum(qspec_then`0`mp_tac) >>
       simp[decs_to_cenv_def] >> strip_tac >>
-      Cases_on`mn`>>fs[AstTheory.mk_id_def] >> metis_tac[] ) >>
+      Cases_on`mn`>>fs[astTheory.mk_id_def] >> metis_tac[] ) >>
     match_mp_tac env_rs_change_clock >>
     qexists_tac`ck+ck',s` >> simp[] >>
     Q.PAT_ABBREV_TAC`bs0 = bc_state_stack_fupd x y` >>
@@ -4006,9 +4006,9 @@ val compile_decs_thm = store_thm("compile_decs_thm",
     imp_res_tac evaluate_dec_dec_to_cenv >> fs[] >>
     last_x_assum(qspec_then`0`mp_tac) >>
     simp[decs_to_cenv_def] >> strip_tac >>
-    Cases_on`mn`>>fs[AstTheory.mk_id_def] >> metis_tac[] ) >>
+    Cases_on`mn`>>fs[astTheory.mk_id_def] >> metis_tac[] ) >>
   Cases_on`r`>>fs[] >- (
-    simp[LibTheory.merge_def,Abbr`G`,SemanticPrimitivesTheory.combine_dec_result_def] >>
+    simp[libTheory.merge_def,Abbr`G`,semanticPrimitivesTheory.combine_dec_result_def] >>
     disch_then(qx_choosel_then[`bvs2`,`rf2`,`rd2`]strip_assume_tac) >>
     map_every qexists_tac[`bvs2++REVERSE bvs`,`rf2`,`rd2`] >>
     conj_tac >- (
@@ -4042,7 +4042,7 @@ val compile_decs_thm = store_thm("compile_decs_thm",
       simp[EVERY_MEM] >> rpt strip_tac >>
       match_mp_tac env_rs_can_Print >>
       rator_assum`env_rs`(MAP_EVERY EXISTS_TAC o snd o strip_comb o concl) >>
-      simp[CompilerLibTheory.el_check_def] >>
+      simp[compilerLibTheory.el_check_def] >>
       pop_assum mp_tac >>
       simp[MEM_EL] >>
       disch_then(qx_choose_then`k`strip_assume_tac) >>
@@ -4068,7 +4068,7 @@ val compile_decs_thm = store_thm("compile_decs_thm",
       simp[Abbr`m1`,TAKE_APPEND1] >>
       simp[Abbr`n`,TAKE_LENGTH_ID_rwt]) >>
     simp[] ) >>
-  Cases_on`e`>>simp[Abbr`G`,SemanticPrimitivesTheory.combine_dec_result_def] >>
+  Cases_on`e`>>simp[Abbr`G`,semanticPrimitivesTheory.combine_dec_result_def] >>
   strip_tac >> rpt strip_tac >>
   first_x_assum(qspec_then`REVERSE bvs ++ ig`mp_tac) >> simp[] >>
   disch_then(qx_choosel_then[`Cv`,`bv`,`rf2`,`rd2`,`Cs2`]strip_assume_tac) >>
@@ -4286,9 +4286,9 @@ val compile_decs_divergence = store_thm("compile_decs_divergence",
       `ct1 = rs.contab` by (
         simp[Abbr`ct1`] >>
         Cases_on`d`>>fs[dec_to_contab_def] >>
-        fs[Once evaluate_dec_cases,LibTheory.emp_def,LibTheory.bind_def] >>
+        fs[Once evaluate_dec_cases,libTheory.emp_def,libTheory.bind_def] >>
         qpat_assum`[] = X`mp_tac >>
-        simp[SemanticPrimitivesTheory.build_tdefs_def,FLAT_EQ_NIL,EVERY_MEM,MEM_MAP,FORALL_PROD,UNCURRY,EXISTS_PROD] >>
+        simp[semanticPrimitivesTheory.build_tdefs_def,FLAT_EQ_NIL,EVERY_MEM,MEM_MAP,FORALL_PROD,UNCURRY,EXISTS_PROD] >>
         simp_tac(srw_ss()++DNF_ss)[] >>
         simp[FOLDL_number_constructors_thm] >>
         Q.PAT_ABBREV_TAC`ll = FLAT (MAP (SND o SND) l)` >>
@@ -4357,7 +4357,7 @@ val compile_decs_divergence = store_thm("compile_decs_divergence",
         fsrw_tac[ARITH_ss][] ) >>
       fs[s_refs_def,good_rd_def] ) >>
     `env' = []` by (
-      Cases_on`d`>>fs[Once evaluate_dec_cases,LibTheory.emp_def] ) >>
+      Cases_on`d`>>fs[Once evaluate_dec_cases,libTheory.emp_def] ) >>
     simp[] >>
     match_mp_tac env_rs_change_store >>
     Q.PAT_ABBREV_TAC`bs0 = bc_state_stack_fupd X Y` >>
@@ -5106,7 +5106,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     disch_then(qx_choosel_then[`c2`]strip_assume_tac) >>
     rw[] >> fs[] >>
     first_x_assum(qspecl_then[`rd`,`bs with code := bc0 ++ REVERSE cs.out`,`bc0`]mp_tac) >>
-    simp[LibTheory.emp_def] >>
+    simp[libTheory.emp_def] >>
     disch_then(qx_choosel_then[`bvs`,`rf`,`rd'`]strip_assume_tac) >>
     qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
     first_x_assum(qspecl_then[`bs2 with code := bs.code`,`bc0++REVERSE cs.out`,`bvs`]mp_tac) >>
@@ -5173,7 +5173,7 @@ val compile_top_thm = store_thm("compile_top_thm",
         simp[] >> simp[EL_MAP] >>
         simp[Abbr`bsx`,DROP_APPEND1,DROP_LENGTH_NIL_rwt] >>
         strip_tac >>
-        fs[CompilerLibTheory.el_check_def] >>
+        fs[compilerLibTheory.el_check_def] >>
         simp[REVERSE_APPEND,EL_APPEND1] ) >>
       match_mp_tac env_rs_with_bs_irr >>
       HINT_EXISTS_TAC >>
@@ -5182,12 +5182,12 @@ val compile_top_thm = store_thm("compile_top_thm",
     last_x_assum mp_tac >>
     simp[Once evaluate_decs_cases] >>
     simp[Once evaluate_decs_cases] >>
-    simp[LibTheory.emp_def,LibTheory.merge_def,SemanticPrimitivesTheory.combine_dec_result_def] >>
+    simp[libTheory.emp_def,libTheory.merge_def,semanticPrimitivesTheory.combine_dec_result_def] >>
     strip_tac >>
     imp_res_tac evaluate_dec_new_dec_vs >> fs[] >>
     rator_x_assum`evaluate_dec`mp_tac >>
-    reverse(Cases_on`d`)>>simp[Once evaluate_dec_cases,LibTheory.emp_def] >> rw[] >>
-    TRY (simp[print_envE_def,LibTheory.bind_def,AstTheory.mk_id_def] >> NO_TAC) >> (
+    reverse(Cases_on`d`)>>simp[Once evaluate_dec_cases,libTheory.emp_def] >> rw[] >>
+    TRY (simp[print_envE_def,libTheory.bind_def,astTheory.mk_id_def] >> NO_TAC) >> (
     qmatch_assum_abbrev_tac`MAP FST new_env = new_dec_vs d` >>
     simp[print_envC_def] >>
     match_mp_tac print_bv_list_print_envE >>
@@ -5259,7 +5259,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     strip_tac >>
     `SND (EL n renv) = EL n (MAP SND renv)` by ( simp[EL_MAP] ) >>
     pop_assum SUBST1_TAC >>
-    simp[EL_REVERSE,CompilerLibTheory.el_check_def,PRE_SUB1,EL_APPEND1] >>
+    simp[EL_REVERSE,compilerLibTheory.el_check_def,PRE_SUB1,EL_APPEND1] >>
     `rs.rsz = LENGTH bs.stack` by fs[env_rs_def,LET_THM] >>
     simp[] >>
     simp[Abbr`bs2`] )) >>
@@ -5275,7 +5275,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     discharge_hyps >- (
       simp[FV_decs_def,decs_cns_def,decs_to_cenv_def] >>
       rw[] >> fs[Once evaluate_decs_cases] >>
-      fs[Once evaluate_dec_cases,dec_to_cenv_def,LibTheory.bind_def] ) >>
+      fs[Once evaluate_dec_cases,dec_to_cenv_def,libTheory.bind_def] ) >>
     disch_then(qspec_then`rs`strip_assume_tac) >>
     qexists_tac`ck` >> rpt gen_tac >> strip_tac >>
     rfs[compile_top_def,LET_THM] >>
@@ -5284,7 +5284,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     disch_then(qx_choosel_then[`c2`]strip_assume_tac) >>
     rw[] >> fs[] >>
     first_x_assum(qspecl_then[`rd`,`bs with code := bc0 ++ REVERSE cs.out`,`bc0`]mp_tac) >>
-    simp[LibTheory.emp_def] >>
+    simp[libTheory.emp_def] >>
     Cases_on`err`>>simp[]>>
     disch_then(qx_choosel_then[`Cv`,`bv`,`rf`,`rd'`]strip_assume_tac) >>
     qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
@@ -5326,7 +5326,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     rw[] >> fs[FOLDL_emit_thm] >>
     qmatch_assum_abbrev_tac`bs.code = bc0 ++ REVERSE cs.out ++ ppc1 ++ ppc2` >>
     first_x_assum(qspecl_then[`rd`,`bs with code := bc0 ++ REVERSE cs.out`,`bc0`]mp_tac) >>
-    simp[LibTheory.emp_def] >>
+    simp[libTheory.emp_def] >>
     disch_then(qx_choosel_then[`bvs`,`rf`,`rd'`]strip_assume_tac) >>
     qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
     `bc_next^* bs (bs2 with code := bs.code)` by (
@@ -5406,7 +5406,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     rfs[compile_top_def,LET_THM] >>
     rw[] >> fs[FOLDL_emit_thm] >>
     first_x_assum(qspecl_then[`rd`,`bs with code := bc0 ++ REVERSE cs.out`,`bc0`]mp_tac) >>
-    simp[LibTheory.emp_def] >>
+    simp[libTheory.emp_def] >>
     disch_then(qx_choosel_then[`Cv`,`bv`,`rf`,`rd'`]strip_assume_tac) >>
     qmatch_assum_abbrev_tac`bc_next^* bs1 bs2` >>
     `bc_next^* bs (bs2 with code := bs.code)` by (
@@ -5536,10 +5536,10 @@ val compile_top_divergence = store_thm("compile_top_divergence",
       Cases_on`r2` >- (
         qexists_tac`Rval (r1,a)` >> simp[] ) >>
       qexists_tac`Rerr e` >> simp[] >>
-      Cases_on`d`>>fs[Once evaluate_decs_cases,LibTheory.emp_def,LibTheory.merge_def] >>
-      fs[Once evaluate_decs_cases,LibTheory.merge_def,LibTheory.emp_def] >>
-      fs[Once evaluate_dec_cases,LibTheory.merge_def,LibTheory.emp_def] >>
-      fs[SemanticPrimitivesTheory.combine_dec_result_def] ) >>
+      Cases_on`d`>>fs[Once evaluate_decs_cases,libTheory.emp_def,libTheory.merge_def] >>
+      fs[Once evaluate_decs_cases,libTheory.merge_def,libTheory.emp_def] >>
+      fs[Once evaluate_dec_cases,libTheory.merge_def,libTheory.emp_def] >>
+      fs[semanticPrimitivesTheory.combine_dec_result_def] ) >>
     `evaluate_dec NONE menv cenv s env d (FST r,res)` by metis_tac[evaluate_dec_decs] >>
     Cases_on`res`>>fs[] >>
     TRY(PairCases_on`a`)>>fs[FORALL_PROD]>>
