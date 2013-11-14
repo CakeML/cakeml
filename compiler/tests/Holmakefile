@@ -1,4 +1,4 @@
-INCLUDES = $(HOLDIR)/src/emit/ML ../../translator ../../bytecode ..
+INCLUDES = $(HOLDIR)/src/emit/ML .. ../../translator ../../bytecode .. ../../lem_lib_stub
 OPTIONS = QUIT_ON_FAILURE
 
 EXTRA_CLEANS = selftest.exe

@@ -14,7 +14,7 @@ $(GEN_SCRIPTS): $(LEMI) $(LEMH)
 	lem -auxiliary_level auto $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH))
 
 ifdef POLY
-#HOLHEAP = heap
+HOLHEAP = heap
 PARENT_HOLHEAP = ../semantics/sem_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
@@ -22,5 +22,6 @@ BARE_THYS = ../semantics/terminationTheory ../bytecode/bytecodeExtraTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+#	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
 endif
