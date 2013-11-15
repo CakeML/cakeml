@@ -91,6 +91,7 @@ val _ = Hol_datatype ` (* called vs *)
                   other_heap : word64 ;
                   base_ptr : word64 ;
                   code_ptr : word64 ;
+                  code_start_ptr : word64 ;
                   local : zheap_local |>`;
 
 val _ = Hol_datatype ` (* called s *)
@@ -100,6 +101,7 @@ val _ = Hol_datatype ` (* called s *)
                    base_offset : num ;
                    code_mode : bool option ;
                    code : word8 list ;
+                   code_start : word8 list ;
                    local : zheap_local |>`;
 
 val _ = Hol_datatype ` (* called vals *)
@@ -149,7 +151,7 @@ val x64_store_def = Define `
       ; vs.code_ptr              (*  80 pointer to next free instruction slot *)
       ; n2w cs.code_heap_length  (*  88 size of code heap *)
       ; cs.code_heap_ptr         (*  96 base of code heap *)
-      ; cs.repl_setup_ptr        (* 104 pointer to repl_step_setup code *)
+      ; vs.code_start_ptr        (* 104 bytecode execution will start here *)
       ; cs.repl_step_ptr         (* 112 pointer to repl_step routine *)
       ; cs.lex_ptr               (* 120 lexer *)
       ; cs.install_and_run_ptr   (* 128 install and run bytecode *)
@@ -169,12 +171,13 @@ val stack_inv_def = Define `
 val code_heap_inv_def = Define `
   code_heap_inv cs_code_heap_length (cs_code_heap_ptr:word64)
                 (vals_code_option:bool option) (vals_code_list:word8 list)
-                s_code_mode s_code
-                vs_code_ptr =
+                s_code_mode s_code s_code_start
+                vs_code_ptr vs_code_start_ptr =
     cs_code_heap_length < (2**62):num /\
     (vals_code_option = s_code_mode) /\
     (vals_code_list = s_code) /\
-    (cs_code_heap_ptr + n2w (LENGTH s_code) = vs_code_ptr)`;
+    (cs_code_heap_ptr + n2w (LENGTH s_code) = vs_code_ptr) /\
+    (cs_code_heap_ptr + n2w (LENGTH s_code_start) = vs_code_start_ptr)`;
 
 val heap_inv_def = Define `
   heap_inv (cs,x1,x2,x3,x4,refs,stack,s:zheap_state,space) (vals:x64_vals) =
@@ -195,8 +198,8 @@ val heap_inv_def = Define `
             cs.rest_of_stack /\
       code_heap_inv cs.code_heap_length cs.code_heap_ptr
                 vals.code_option vals.code_list
-                s.code_mode s.code
-                vs.code_ptr /\
+                s.code_mode s.code s.code_start
+                vs.code_ptr vs.code_start_ptr /\
       cs.heap_limit < 281474976710656 /\ (* 2**(64-16) *)
       (x64_heap vs.current_heap heap vs.current_heap vs.current_heap *
        one_list_exists vs.other_heap cs.heap_limit *
@@ -520,6 +523,7 @@ val first_s_def = Define `
        base_offset := 0 ;
        code_mode := SOME F ;
        code := [] ;
+       code_start := [] ;
        local := local_zero |>`
 
 val first_cs_def = Define `
@@ -598,7 +602,7 @@ val (x64_setup_res, x64_setup_def, x64_setup_pre_def) = x64_compile `
     let m = (r0 + 0x58w =+ r13) m in
     let m = (r0 + 0x50w =+ r12) m in
     let m = (r0 + 0x60w =+ r12) m in
-    let m = (r0 + 0x68w =+ r14) m in
+    let m = (r0 + 104w =+ r12) m in
     let r0 = r0 + 112w in
     let m = (r0 =+ r14) m in
     let r0 = r0 + 8w in
@@ -620,7 +624,7 @@ val (x64_setup_res, x64_setup_def, x64_setup_pre_def) = x64_compile `
 val stack_assum =
   ``(vals.reg5 = vals.stack_bottom - n2w (8 * LENGTH vals.stack + 8)) /\
     (vals.reg11 = vals.reg5) /\
-    (vals.stack_bottom && 7w = 0w)``
+    (vals.stack_bottom && 7w = 0w)``;
 
 val init_inv_IMP_heap_inv = prove(
   ``init_inv cs vals init ==>
@@ -673,6 +677,7 @@ val init_inv_IMP_heap_inv = prove(
                             other_heap := curr + n2w (8 * heap_len);
                             base_ptr := init.init_heap_ptr ;
                             code_ptr := init.init_code_heap_ptr ;
+                            code_start_ptr := init.init_code_heap_ptr ;
                             local := local_zero |>`,
        `Data 0w`,`Data 0w`,`Data 0w`,`Data 0w`,`[]`,
        `heap_expand heap_len`,`0`,`heap_len`]
@@ -12891,7 +12896,8 @@ val zBC_HEAP_THM = prove(
          isRefPtr_def,getRefPtr_def]
     \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w]
     \\ Q.MATCH_ASSUM_RENAME_TAC `s1.stack = y::xs` []
-    \\ `canCompare y` by cheat
+    \\ `canCompare y` by ALL_TAC THEN1
+      (Cases_on `y` \\ FULL_SIMP_TAC std_ss [can_Print_def,canCompare_def])
     \\ STRIP_TAC THEN1
      (STRIP_TAC THEN1 (POP_ASSUM MP_TAC \\ Cases_on `y` \\ EVAL_TAC)
       \\ FULL_SIMP_TAC std_ss [EVEN_w2n] \\ Q.PAT_ASSUM `~cb ' 0` MP_TAC
