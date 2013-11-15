@@ -1313,6 +1313,69 @@ gg goal
   in th end;
 
 
+(* set code_start *)
+
+val zHEAP_SET_CODE_START = let
+  val th = compose_specs ["mov r15,[r9+80]","mov [r9+104],r15"]
+  val pc = get_pc th
+  val pre = T
+  val target = ``~zS * zPC p * zVALS cs vals *
+      cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\ ^pre)``
+  val (th,goal) = expand_pre th target
+  val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
+  val th = MP th lemma |> DISCH_ALL |> DISCH T
+                       |> PURE_REWRITE_RULE [AND_IMP_INTRO]
+  val th = MATCH_MP SPEC_WEAKEN_LEMMA th
+  val th = th |> Q.SPEC `zHEAP (cs,x1,x2,x3,x4,refs,stack,s
+    with <| code_start := s.code |>,NONE) * ~zS * ^pc`
+  val blast_lemma5 = prove(
+    ``(-1w * w) << 2 + v << 2 = (v - w:word64) << 2``,
+    blastLib.BBLAST_TAC);
+  val goal = th |> concl |> dest_imp |> fst
+(*
+gg goal
+*)
+  val lemma = prove(goal,
+    SIMP_TAC std_ss [LET_DEF,SEP_CLAUSES]
+    \\ SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
+    \\ SIMP_TAC std_ss [PULL_FORALL] \\ REPEAT GEN_TAC \\ STRIP_TAC
+    \\ SIMP_TAC std_ss [PULL_EXISTS,PULL_IMP_EXISTS]
+    \\ SIMP_TAC std_ss [LENGTH_SNOC]
+    \\ Q.EXISTS_TAC `vals with <| reg15 := (vals.memory (vals.reg9 + 0x50w)) ;
+         memory := ((vals.reg9 + 0x68w =+
+                        vals.memory (vals.reg9 + 0x50w))
+                         vals.memory) |>`
+    \\ FULL_SIMP_TAC (srw_ss()) [zVALS_def,cond_STAR]
+    \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [zVALS_def,cond_STAR]
+    \\ MATCH_MP_TAC (METIS_PROVE []
+         ``(b ==> b2) /\ (c /\ b1) ==> c /\ (b ==> b1 /\ b2)``)
+    \\ STRIP_TAC THEN1 (SIMP_TAC (std_ss++star_ss) [])
+    \\ FULL_SIMP_TAC std_ss [heap_inv_def]
+    \\ ASM_SIMP_TAC (srw_ss()) [PULL_EXISTS,PULL_IMP_EXISTS]
+    \\ Q.LIST_EXISTS_TAC [`vs with code_start_ptr := vs.code_ptr`,`r1`,`r2`,`r3`,
+         `r4`,`roots`,`heap`,`a`,`sp`]
+    \\ FULL_SIMP_TAC (srw_ss()) [code_heap_inv_def,heap_vars_ok_def]
+    \\ FULL_SIMP_TAC std_ss [x64_store_def,one_list_def,word_arith_lemma1]
+    \\ FULL_SIMP_TAC (srw_ss()) [STAR_ASSOC,SEP_CLAUSES] \\ SEP_R_TAC
+    \\ STRIP_TAC
+    THEN1 (Q.PAT_ASSUM `0x7w && vs.base_ptr = 0x0w` MP_TAC \\ blastLib.BBLAST_TAC)
+    \\ Q.ABBREV_TAC `m = vals.memory`
+    \\ Q.ABBREV_TAC `dm = vals.memory_domain`
+    \\ SEP_W_TAC)
+  val th = MP th lemma
+  val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val (th,goal) = SPEC_STRENGTHEN_RULE th
+    ``zHEAP (cs, x1, x2, x3, x4, refs, stack, s, NONE) * ~zS * zPC p *
+      cond (^pre)``
+  val lemma = prove(goal,
+    SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
+       AC CONJ_ASSOC CONJ_COMM])
+  val th = MP th lemma
+  val th = th |> DISCH_ALL |> RW [AND_IMP_INTRO] |> RW [GSYM SPEC_MOVE_COND,SEP_CLAUSES]
+  val _ = add_compiled [th]
+  in th end;
+
+
 (* switch code_mode from SOME T to SOME F *)
 
 val zHEAP_CODE_UNSAFE = let
