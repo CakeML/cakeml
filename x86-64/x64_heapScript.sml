@@ -10155,8 +10155,12 @@ val (res,ic_List_def,ic_List_pre_def) = x64_compile `
       let x3 = x1 in
       let (x2,stack) = (HD stack,TL stack) in
       let (x1,stack) = (HD stack,TL stack) in
-      let (x1,x2,x3,s,cs) = ic_Any (x1,x2,x3,s,cs) in
-        ic_List (x1,x2,x3,x4,s,cs,stack)`
+        if getNumber x1 = 18 then
+          let s = s with code_start := s.code in
+            ic_List (x1,x2,x3,x4,s,cs,stack)
+        else
+          let (x1,x2,x3,s,cs) = ic_Any (x1,x2,x3,s,cs) in
+            ic_List (x1,x2,x3,x4,s,cs,stack)`
 
 val triple_def = Define `
   triple p (x,y,z) =
@@ -10170,22 +10174,36 @@ val triple_EXPLODE = prove(
   ``!x. triple p x = triple p (FST x, FST (SND x), SND (SND x))``,
   SIMP_TAC std_ss [FORALL_PROD]) |> RW [triple_def];
 
-val ic_List_thm = prove(
+val ic_List_lemma = prove(
   ``!(l:bc_inst list) x1 x2 x3 s cs stack.
       (s.code_mode = SOME F) ==>
       ?y1 y2 y3 y4.
-        ic_List_pre (x1,x2,x3,tuple_list c p n (MAP bc_num l),s,cs,stack) /\
-        (ic_List (x1,x2,x3,tuple_list c p n (MAP bc_num l),s,cs,stack) =
-           (y1,y2,y3,y4,s with code :=
+        (ic_List_pre (x1,x2,x3,tuple_list c p n (MAP bc_num l ++ xs),s,cs,stack) =
+         ic_List_pre (y1,y2,y3,tuple_list c p n xs,s with code :=
+              s.code ++ x64_code (LENGTH s.code) l,cs,stack)) /\
+        (ic_List (x1,x2,x3,tuple_list c p n (MAP bc_num l ++ xs),s,cs,stack) =
+         ic_List (y1,y2,y3,tuple_list c p n xs,s with code :=
               s.code ++ x64_code (LENGTH s.code) l,cs,stack))``,
-  Induct \\ SIMP_TAC std_ss [tuple_list_def,MAP]
+  Induct \\ SIMP_TAC std_ss [tuple_list_def,MAP,APPEND] THEN1
+   (FULL_SIMP_TAC std_ss [APPEND] \\ REPEAT STRIP_TAC
+    \\ FULL_SIMP_TAC std_ss [x64_code_def,APPEND_NIL]
+    \\ Q.LIST_EXISTS_TAC [`x1`,`x2`,`x3`]
+    \\ REPEAT STRIP_TAC
+    \\ AP_TERM_TAC \\ FULL_SIMP_TAC std_ss []
+    \\ Cases_on `s`
+    \\ FULL_SIMP_TAC (srw_ss()) (TypeBase.updates_of ``:zheap_state``))
   \\ SIMP_TAC std_ss [Once ic_List_def,Once ic_List_pre_def]
   \\ SIMP_TAC std_ss [isSmall_def,x64_code_def,LET_DEF,
          APPEND_NIL,s_with_code,canCompare_def,NOT_CONS_NIL]
   \\ SIMP_TAC std_ss [getNumber_def,getContent_def,triple_def]
-  \\ REWRITE_TAC [triple_EXPLODE]
+  \\ REWRITE_TAC [triple_EXPLODE,tuple_list_def]
   \\ SIMP_TAC (srw_ss()) [EVAL ``Num 0``,EVAL ``Num 1``,EL,HD,TL,getContent_def,
-       isBlock_def,isNumber_def] \\ REPEAT STRIP_TAC
+       isBlock_def,isNumber_def,getNumber_def] \\ REPEAT STRIP_TAC
+  \\ `((FST (bc_num h))) <> 18` by ALL_TAC THEN1
+   (Cases_on `h` \\ EVAL_TAC
+    \\ TRY (Cases_on `b` \\ EVAL_TAC)
+    \\ TRY (Cases_on `l'` \\ EVAL_TAC))
+  \\ FULL_SIMP_TAC std_ss []
   \\ MP_TAC (Q.SPEC `h` ic_Any_thm)
   \\ FULL_SIMP_TAC std_ss []
   \\ MATCH_MP_TAC IMP_IMP
@@ -10193,11 +10211,51 @@ val ic_List_thm = prove(
   \\ Cases_on `bc_num h` \\ Cases_on `r`
   \\ Q.MATCH_ASSUM_RENAME_TAC `bc_num h = (n1,n2,n3)` []
   \\ FULL_SIMP_TAC std_ss [LET_DEF] \\ STRIP_TAC
+  \\ FULL_SIMP_TAC std_ss [tuple_list_def,isSmall_def]
+  \\ SIMP_TAC std_ss [getNumber_def,getContent_def,triple_def,HD,TL]
   \\ FULL_SIMP_TAC std_ss []
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`x1`,`x2`,`x3`,
          `s with code := s.code ++ x64 (LENGTH s.code) h`,`cs`,`stack`])
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [LENGTH_x64_IGNORE,x64_length_def]);
+  \\ FULL_SIMP_TAC std_ss [LENGTH_x64_IGNORE,x64_length_def]
+  \\ Q.LIST_EXISTS_TAC [`y1`,`y2`,`y3`] \\ FULL_SIMP_TAC std_ss []);
+
+val bc_num_lists_def = Define `
+  bc_num_lists xs ys = MAP bc_num xs ++ [(18,0,0)] ++ MAP bc_num ys`;
+
+val ic_List_thm = prove(
+  ``(s.code_mode = SOME F) ==>
+    ?y1 y2 y3 y4.
+      ic_List_pre (x1,x2,x3,tuple_list c p n (bc_num_lists xs ys),s,cs,stack) /\
+      (ic_List (x1,x2,x3,tuple_list c p n (bc_num_lists xs ys),s,cs,stack) =
+         (y1,y2,y3,y4,s with <|
+            code := s.code ++ x64_code (LENGTH s.code) (xs ++ ys) ;
+            code_start := s.code ++ x64_code (LENGTH s.code) xs |>,cs,stack))``,
+  SIMP_TAC std_ss [bc_num_lists_def,GSYM APPEND_ASSOC]
+  \\ ASSUME_TAC (GEN_ALL ic_List_lemma)
+  \\ SEP_I_TAC "ic_List"
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [APPEND]
+  \\ POP_ASSUM MP_TAC \\ (REPEAT (POP_ASSUM (K ALL_TAC)))
+  \\ REPEAT STRIP_TAC
+  \\ SIMP_TAC std_ss [Once ic_List_def,Once ic_List_pre_def]
+  \\ SIMP_TAC std_ss [isSmall_def,x64_code_def,LET_DEF,
+         APPEND_NIL,s_with_code,canCompare_def,NOT_CONS_NIL]
+  \\ SIMP_TAC std_ss [getNumber_def,getContent_def,triple_def]
+  \\ REWRITE_TAC [triple_EXPLODE,tuple_list_def]
+  \\ SIMP_TAC (srw_ss()) [isSmall_def,EVAL ``Num 0``,EVAL ``Num 1``,EL,HD,TL,getContent_def,
+       isBlock_def,isNumber_def,getNumber_def] \\ REPEAT STRIP_TAC
+  \\ MP_TAC (Q.INST [`xs`|->`[]`] ic_List_lemma)
+  \\ FULL_SIMP_TAC std_ss [APPEND_NIL]
+  \\ STRIP_TAC
+  \\ SEP_I_TAC "ic_List"
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) [APPEND]
+  \\ REV_FULL_SIMP_TAC std_ss [canCompare_def]
+  \\ SIMP_TAC std_ss [Once ic_List_def,Once ic_List_pre_def]
+  \\ SIMP_TAC std_ss [isSmall_def,x64_code_def,LET_DEF,
+         EVAL ``isSmall (tuple_list c p n [])``,
+         EVAL ``canCompare (tuple_list c p n [])``,
+         APPEND_NIL,s_with_code,canCompare_def,NOT_CONS_NIL]
+  \\ SIMP_TAC std_ss [x64_code_APPEND,APPEND_ASSOC,LENGTH_x64_code]);
 
 val (ic_full_res,ic_full_def,ic_full_pre_def) = x64_compile `
   ic_full (x1,x2,x3,x4,s,cs:zheap_consts,stack) =
@@ -10213,9 +10271,11 @@ val (ic_full_res,ic_full_def,ic_full_pre_def) = x64_compile `
 
 val ic_full_thm = prove(
   ``(s.code_mode = SOME F) ==>
-    ic_full_pre (x1,x2,x3,tuple_list c p n (MAP bc_num l),s,cs,stack) /\
-    (ic_full (x1,x2,x3,tuple_list c p n (MAP bc_num l),s,cs,stack) =
-      (x1,x2,x3,x1,s with code := s.code ++ x64_code (LENGTH s.code) l,cs,stack))``,
+    ic_full_pre (x1,x2,x3,tuple_list c p n (bc_num_lists xs ys),s,cs,stack) /\
+    (ic_full (x1,x2,x3,tuple_list c p n (bc_num_lists xs ys),s,cs,stack) =
+      (x1,x2,x3,x1,s with <|
+            code := s.code ++ x64_code (LENGTH s.code) (xs ++ ys) ;
+            code_start := s.code ++ x64_code (LENGTH s.code) xs |>,cs,stack))``,
   REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [ic_full_def,ic_full_pre_def,LET_DEF]
   \\ MP_TAC (ic_List_thm |> SPEC_ALL |> Q.INST [`stack`|->`x3::x2::x1::stack`])
@@ -10223,7 +10283,7 @@ val ic_full_thm = prove(
 
 val zHEAP_INSTALL_CODE = let
   val th = ic_full_res
-    |> DISCH ``x4 = tuple_list c p n (MAP bc_num l)``
+    |> DISCH ``x4 = tuple_list c p n (bc_num_lists xs ys)``
     |> DISCH ``s.code_mode = SOME F``
     |> SIMP_RULE std_ss [ic_full_thm,LET_DEF,SEP_CLAUSES]
     |> GSYM |> SIMP_RULE std_ss []
