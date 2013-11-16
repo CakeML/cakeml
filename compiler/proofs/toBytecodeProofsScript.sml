@@ -5478,7 +5478,7 @@ fun tac18 t =
     reverse(Cases_on`∃bc10. code = REVERSE cx ++ REVERSE cxs ++ bc10`) >- (
       fsrw_tac[DNF_ss][] >>
       rpt conj_tac >> rpt gen_tac >>
-      rw[Once SWAP_REVERSE] >>
+      rw[FOLDL_emit_append_out,Once SWAP_REVERSE] >>
       TRY(Cases_on`t`)>>fs[Once SWAP_REVERSE]) >> fs[] >>
     reverse(Cases_on`bs.code = bc0 ++ REVERSE cx ++ REVERSE cxs ++ bc10 ++ bc1`) >- fs[] >>
     last_x_assum(qspecl_then[`rd`,`cmnv`,`cs`,`cenv`,`sz`,`csz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE cx`]mp_tac) >>
@@ -5522,6 +5522,7 @@ fun tac18 t =
     pop_assum mp_tac >>
     simp[Abbr`cl`,Once Cv_bv_cases,el_check_def] >>
     disch_then(qx_choosel_then[`a`,`azb`,`bve`,`cd`,`envs`,`l`,`recs`]strip_assume_tac) >>
+    fs[FOLDL_emit_append_out,Once SWAP_REVERSE] >>
     Cases >> simp[Once SWAP_REVERSE] >> rpt strip_tac >>
     qho_match_abbrev_tac`∃bs'. bc_next^* bs bs' ∧ P bs'` >>
     qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
@@ -5536,7 +5537,9 @@ fun tac18 t =
       match_mp_tac bc_fetch_next_addr >>
       simp[Abbr`bs2`] >>
       qexists_tac`bc0 ++ REVERSE cx ++ REVERSE cxs ++ TAKE 0 bc10` >>
-      simp[SUM_APPEND,FILTER_APPEND] ) >>
+      simp[SUM_APPEND,FILTER_APPEND] >>
+      fs[FOLDL_emit_append_out,Once SWAP_REVERSE] >>
+      NO_TAC) >>
     simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj2_tac >>
     simp[bc_eval1_thm,bc_eval1_def,bc_eval_stack_def,bump_pc_def] >>
     `LENGTH exps = LENGTH bvs` by (
@@ -5588,20 +5591,27 @@ fun tac18 t =
     simp[Abbr`bs2`,EL_CONS,bc_eval_stack_def] >>
     qho_match_abbrev_tac`∃bs'. bc_next^* bs2 bs' ∧ P bs'` >>
     qpat_assum`bc_fetch X = Y`kall_tac >>
-    `bc_fetch bs2 = SOME (EL 5 bc10)` by (
+    qspecl_then[`LENGTH exps + 4`,`LENGTH args + LENGTH blvs + 3`,`bs2`]mp_tac stackshift_thm >>
+    simp[Abbr`bs2`] >>
+    disch_then(mp_tac o CONV_RULE SWAP_FORALL_CONV) >>
+    disch_then(qspec_then`[Tick;Return]++bc1`mp_tac) >> simp[] >>
+    Q.PAT_ABBREV_TAC`xst = Block 0 bve::lll` >>
+    disch_then(qspecl_then[`TAKE (LENGTH bvs + 4) xst`,`TAKE (LENGTH args + LENGTH blvs + 3) (DROP (LENGTH bvs + 4) xst)`]mp_tac) >>
+    simp[Abbr`xst`,TAKE_APPEND1,TAKE_APPEND2,DROP_APPEND2,DROP_APPEND1] >>
+    discharge_hyps >- simp[SUM_APPEND,FILTER_APPEND] >>
+    qho_match_abbrev_tac`bc_next^* bs1 bs2 ⇒ ∃bs'. bc_next^* bs2' bs' ∧ P bs'` >>
+    `bs1 = bs2'` by (
+      simp[Abbr`bs1`,Abbr`bs2'`,bc_state_component_equality] >>
+      simp[SUM_APPEND,FILTER_APPEND] ) >>
+    pop_assum SUBST1_TAC >>
+    qunabbrev_tac`bs1` >>
+    qsuff_tac`∃bs'. bc_next^* bs2 bs' ∧ P bs'` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
+    qunabbrev_tac`bs2'` >>
+    `bc_fetch bs2 = SOME Tick` by (
       match_mp_tac bc_fetch_next_addr >>
       simp[Abbr`bs2`] >>
-      qexists_tac`bc0 ++ REVERSE cx ++ REVERSE cxs ++ TAKE 5 bc10` >>
-      simp[SUM_APPEND,FILTER_APPEND]) >>
-    simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj2_tac >>
-    simp[bc_eval1_thm,bc_eval1_def,bump_pc_def] >>
-    simp[Abbr`bs2`,bc_eval_stack_def,TAKE_APPEND2,TAKE_APPEND2,DROP_APPEND2,DROP_APPEND1,TAKE_LENGTH_ID_rwt,DROP_LENGTH_NIL_rwt] >>
-    qho_match_abbrev_tac`∃bs'. bc_next^* bs2 bs' ∧ P bs'` >>
-    qpat_assum`bc_fetch X = Y`kall_tac >>
-    `bc_fetch bs2 = SOME (EL 6 bc10)` by (
-      match_mp_tac bc_fetch_next_addr >>
-      simp[Abbr`bs2`] >>
-      qexists_tac`bc0 ++ REVERSE cx ++ REVERSE cxs ++ TAKE 6 bc10` >>
+      CONV_TAC SWAP_EXISTS_CONV >>
+      qexists_tac`[Return]++bc1` >>
       simp[SUM_APPEND,FILTER_APPEND]) >>
     simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj1_tac >>
     simp[Abbr`P`,Abbr`bs2`]) >>
@@ -5618,7 +5628,7 @@ fun tac18 t =
     reverse(Cases_on`∃bc10. code = REVERSE cx ++ REVERSE cxs ++ bc10`) >- (
       fsrw_tac[DNF_ss][] >>
       rpt gen_tac >>
-      rw[Once SWAP_REVERSE] >>
+      rw[Once SWAP_REVERSE,FOLDL_emit_append_out] >>
       Cases_on`t`>>fs[Once SWAP_REVERSE]) >> fs[] >>
     reverse(Cases_on`bs.code = bc0 ++ REVERSE cx ++ REVERSE cxs ++ bc10 ++ bc1`) >- fs[] >>
     fs[Once SWAP_REVERSE] >>
@@ -5676,7 +5686,7 @@ fun tac18 t =
     Q.PAT_ABBREV_TAC`cs0 = compile cmnv cenv X sz cs exp` >>
     qspecl_then[`cmnv`,`cenv`,`sz+1`,`cs0`,`es`](Q.X_CHOOSE_THEN`cxs`strip_assume_tac)(CONJUNCT2 (CONJUNCT2 compile_append_out)) >> fs[] >>
     reverse(Cases_on`∃bc10. code = REVERSE cx ++ REVERSE cxs ++ bc10`) >- (
-      fsrw_tac[DNF_ss][] >>
+      fsrw_tac[DNF_ss][FOLDL_emit_append_out] >>
       conj_tac >> rpt gen_tac >>
       Cases_on`t`>>rw[]>>fs[Once SWAP_REVERSE]) >> fs[] >>
     reverse(Cases_on`bs.code = bc0 ++ REVERSE cx ++ REVERSE cxs ++ bc10 ++ bc1`) >- fs[] >>
