@@ -12547,16 +12547,28 @@ val zBC_HEAP_THM = prove(
    (Q.MATCH_ASSUM_RENAME_TAC `bc_fetch s1 = SOME (Stack (Cons tag len))` []
     \\ SIMP_TAC std_ss [LET_DEF]
     \\ Q.MATCH_ASSUM_RENAME_TAC `s1.stack = ts ++ xs` []
+    \\ REVERSE (Cases_on `tag < 4096`)
+    THEN1 (FULL_SIMP_TAC std_ss [] \\ ERROR_TAC)
+    \\ REVERSE (Cases_on `len < 32768`)
+    THEN1 (FULL_SIMP_TAC std_ss [] \\ ERROR_TAC)
+    \\ FULL_SIMP_TAC std_ss []
     \\ REVERSE (Cases_on `len = 0`) \\ FULL_SIMP_TAC std_ss [] THEN1
-     (REVERSE (Cases_on `LENGTH ts < 32768`)
-      \\ FULL_SIMP_TAC std_ss [] THEN1 ERROR_TAC
+     (`LENGTH ts < 32768 /\ LENGTH ts <> 0` by DECIDE_TAC
       \\ SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]
       \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
+      \\ ASM_SIMP_TAC std_ss []
       \\ REPEAT STRIP_TAC
+      \\ Q.PAT_ASSUM `len = LENGTH ts` (ASSUME_TAC o GSYM)
+      \\ Q.PAT_ASSUM `s1.stack = ts ++ xs` (ASSUME_TAC o GSYM)
+      \\ FULL_SIMP_TAC std_ss []
       \\ (prepare zBC_ConsBig
+           |> DISCH ``n < 4096:num`` |> SIMP_RULE std_ss [] |> UNDISCH
            |> MATCH_MP SPEC_WEAKEN |> SPEC_ALL
            |> DISCH_ALL |> RW [AND_IMP_INTRO]
            |> MATCH_MP_TAC)
+      \\ POP_ASSUM (MP_TAC o GSYM)
+      \\ POP_ASSUM (MP_TAC o GSYM)
+      \\ NTAC 2 STRIP_TAC
       \\ FULL_SIMP_TAC std_ss [HD,TL,bc_adjust_def,MAP,APPEND,
            isRefPtr_def,getRefPtr_def]
       \\ FULL_SIMP_TAC (srw_ss()) [word_mul_n2w,HD_CONS_TL]
