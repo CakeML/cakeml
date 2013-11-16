@@ -2054,6 +2054,59 @@ val compile_closures_next_label_inc = store_thm("compile_closures_next_label_inc
   fs[LET_THM])
 val _ = export_rewrites["compile_closures_next_label_inc"]
 
+(* stackshift *)
+
+val stackshiftaux_thm = store_thm("stackshiftaux_thm",
+  ``∀n i j bs bc0 bc1 xs ys z0 zs st.
+      let code = MAP Stack (stackshiftaux n i j) in
+      bs.code = bc0 ++ code ++ bc1 ∧
+      bs.pc = next_addr bs.inst_length bc0 ∧
+      bs.stack = xs++ys++z0++zs++st ∧
+      LENGTH xs = i ∧
+      LENGTH ys = n ∧
+      LENGTH zs = n ∧
+      j = i + n + LENGTH z0
+      ⇒
+      bc_next^* bs (bs with <|stack := xs++ys++z0++ys++st; pc := next_addr bs.inst_length (bc0++code)|>)``,
+  ho_match_mp_tac stackshiftaux_ind >>
+  simp[] >> rw[LENGTH_NIL,stackshiftaux_def] >- (
+    simp[Once RTC_CASES1] >> disj1_tac >> simp[bc_state_component_equality] ) >>
+  `bc_fetch bs = SOME (Stack(Load (LENGTH xs)))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qexists_tac`bc0` >>
+    simp[] ) >>
+  simp[Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm] >>
+  simp[bc_eval1_def,bc_eval_stack_def,bump_pc_def,EL_APPEND1,EL_APPEND2] >>
+  Cases_on`ys`>>fs[]>>
+  Cases_on`zs`>>fs[]>>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  `bc_fetch bs1 = SOME (Stack (Store (LENGTH xs + LENGTH z0 + SUC j)))` by (
+    match_mp_tac bc_fetch_next_addr >>
+    qmatch_assum_abbrev_tac`bc_fetch bs = SOME i` >>
+    qexists_tac`bc0++[i]` >>
+    simp[Abbr`bs1`,SUM_APPEND,FILTER_APPEND,Abbr`i`] ) >>
+  simp[Once RTC_CASES1] >> disj2_tac >>
+  simp[bc_eval1_thm] >>
+  simp[bc_eval1_def,bc_eval_stack_def,bump_pc_def,Abbr`bs1`] >>
+  simp[TAKE_APPEND1,TAKE_APPEND2,DROP_APPEND1,DROP_APPEND2] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
+  qmatch_assum_abbrev_tac`bc_fetch bs = SOME i1` >>
+  qmatch_assum_abbrev_tac`bc_fetch bs0 = SOME i2` >>
+  first_x_assum(qspecl_then[`bs1`,`bc0++[i1;i2]`]mp_tac) >>
+  simp[Abbr`bs1`,Abbr`i2`] >>
+  disch_then(qspecl_then[`xs++[h]`,`t`,`z0++[h]`]mp_tac) >>
+  simp[SUM_APPEND,FILTER_APPEND,Abbr`i1`] >>
+  disch_then(qspec_then`t'`mp_tac) >>
+  simp[] >>
+  qmatch_abbrev_tac`bc_next^* bs3' bs2' ⇒ bc_next^* bs3 bs2` >>
+  `bs3 = bs3'` by (
+    simp[Abbr`bs3`,Abbr`bs3'`,bc_state_component_equality] ) >>
+  `bs2 = bs2'` by (
+    simp[Abbr`bs2`,Abbr`bs2'`,bc_state_component_equality] >>
+    simp[SUM_APPEND,FILTER_APPEND,ADD1] ) >>
+  rw[] )
+
 (* compile_append_out *)
 
 val pushret_append_out = store_thm("pushret_append_out",
