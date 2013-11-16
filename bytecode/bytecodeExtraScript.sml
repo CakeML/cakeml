@@ -8,14 +8,6 @@ val real_inst_length_def = zDefine `
    case bc of
      Stack Pop => 0
    | Stack (Pops v25) => if v25 < 268435456 then 4 else 1
-   | Stack (Shift v26 v27) =>
-       if v26 + v27 < 268435456 then
-         if v27 = 0 then 1
-         else if v26 = 0 then 5
-         else if v26 = 1 then 4
-         else if v26 ≤ 1 + v27 then ((v26 − 1) * 10 + 16) DIV 2 − 1
-         else (v26 * 10 + ((v26 − 1) * 10 + 20)) DIV 2 − 1
-       else 1
    | Stack (PushInt v28) =>
        if v28 < 268435456 then if v28 < 0 then 1 else 4 else 1
    | Stack (Cons v29 v30) =>

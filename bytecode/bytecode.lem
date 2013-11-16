@@ -10,7 +10,6 @@ type
   bc_stack_op =
     Pop                     (* pop top of stack *)
   | Pops of num             (* pop n elements under stack top *)
-  | Shift of num * num      (* shift top n elements down k places *)
   | PushInt of int          (* push int onto stack *)
   | Cons of num * num       (* push new cons with tag m and n elements *)
   | Load of num             (* push stack[n] *)
@@ -214,9 +213,6 @@ bc_stack_op Pop (x::xs) (xs)
 and
 forall x ys xs. true ==>
 bc_stack_op (Pops (List.length ys)) (x::ys@xs) (x::xs)
-and
-forall ys zs xs. true ==>
-bc_stack_op (Shift (List.length ys) (List.length zs)) (ys@zs@xs) (ys@xs)
 and
 forall n xs. true ==>
 bc_stack_op (PushInt n) (xs) (Number n::xs)

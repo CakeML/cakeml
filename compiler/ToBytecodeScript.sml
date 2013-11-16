@@ -357,7 +357,6 @@ a b c v w x y z
   b c v w a y z
     c v w a b z
       v w a b c
-        v a b c
           a b c
 
 a b c x y z
