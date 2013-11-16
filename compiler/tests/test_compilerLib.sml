@@ -221,7 +221,6 @@ val print_bc_stack_op = let fun
 | f (TagEq n) = "TagEq "^(numML.toString n)
 | f Equal = "Equal"
 | f (Cons (n,m)) = "Cons "^(numML.toString n)^" "^(numML.toString m)
-| f (Shift (n,m)) = "Shift "^(numML.toString n)^" "^(numML.toString m)
 | f (Store n) = "Store "^(numML.toString n)
 | f (LoadRev n) = "LoadRev "^(numML.toString n)
 | f Pop = "Pop"
