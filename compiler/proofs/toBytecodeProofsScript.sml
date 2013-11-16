@@ -2457,8 +2457,10 @@ val retbc_thm = store_thm("retbc_thm",
   rw[bc_eval1_thm] >>
   rw[bc_eval1_def])
 
-val _ = Parse.overload_on("jmpbc",``λck n j k. [Stack (Load (n + k + 2)); Stack (Load (n + 1)); Stack (El 0); Stack (Load (n + 2)); Stack (El 1);
-                                                Stack (Shift (n + 4) (k + j + 3))] ++ (if ck then [Tick] else []) ++ [Return]``)
+val _ = Parse.overload_on("jmpbc",``λck n j k.
+  [Stack (Load (n + k + 2)); Stack (Load (n + 1)); Stack (El 0); Stack (Load (n + 2)); Stack (El 1)]
+  ++ (MAP Stack (stackshift (n + 4) (k + j + 3)))
+  ++ (if ck then [Tick] else []) ++ [Return]``)
 
 val code = ``jmpbc ck (LENGTH (args1 :bc_value list)) (LENGTH (args : bc_value list)) (LENGTH (vs : bc_value list))``
 val jmpbc_thm = store_thm("jmpbc_thm",
@@ -2523,26 +2525,34 @@ val jmpbc_thm = store_thm("jmpbc_thm",
   rw[bc_eval_stack_def] >>
   rw[bump_pc_def] >>
   qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
-  qspecl_then[`bc0++(TAKE 5 ^code)`,`bs1`]mp_tac bc_fetch_next_addr >>
-  simp[Abbr`bs1`,FILTER_APPEND,SUM_APPEND,ADD1] >>
-  rw[Once RTC_CASES1] >> disj2_tac >>
-  rw[bc_eval1_thm] >>
-  rw[bc_eval1_def] >>
-  simp[bc_eval_stack_def] >>
-  lrw[TAKE_APPEND2,DROP_APPEND2,TAKE_APPEND1] >>
-  rw[bump_pc_def] >>
+  qspecl_then[`LENGTH args1 + 4`,`LENGTH args + LENGTH vs + 3`,`bs1`]mp_tac stackshift_thm >>
+  simp[Abbr`bs1`] >>
+  disch_then(mp_tac o CONV_RULE SWAP_FORALL_CONV) >>
+  disch_then(qspec_then`(if ck then [Tick] else []) ++ [Return] ++ bc1`mp_tac) >>
+  simp[SUM_APPEND,FILTER_APPEND] >>
+  disch_then(qspec_then`y::CodePtr x::ret::(args1++[Block ct [CodePtr x;y]])`mp_tac) >>
+  simp[] >>
+  disch_then(mp_tac o CONV_RULE SWAP_FORALL_CONV) >>
+  disch_then(qspec_then`st`mp_tac) >>
+  simp[] >>
+  qmatch_abbrev_tac`bc_next^* bs1 bs3 ⇒ bc_next^* bs1' bs2` >>
+  `bs1' = bs1` by (
+    simp[Abbr`bs1`,Abbr`bs1'`,bc_state_component_equality] ) >>
+  pop_assum SUBST1_TAC >> qunabbrev_tac`bs1'` >>
+  qsuff_tac`bc_next^* bs3 bs2` >- metis_tac[RTC_TRANSITIVE,transitive_def] >>
+  qunabbrev_tac`bs1` >> qunabbrev_tac`bs3` >> qunabbrev_tac`bs2` >>
   ntac 5 (pop_assum kall_tac) >>
   qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
   Cases_on`ck`>-(
-    qspecl_then[`bc0++(TAKE 6 ^(subst[``ck:bool``|->``T``]code))`,`bs1`]mp_tac bc_fetch_next_addr >>
-    simp[Abbr`bs1`,FILTER_APPEND,SUM_APPEND,ADD1] >>
+    qspecl_then[`bc0++(BUTLASTN 2 ^(subst[``ck:bool``|->``T``]code))`,`bs1`]mp_tac bc_fetch_next_addr >>
+    simp[Abbr`bs1`,FILTER_APPEND,SUM_APPEND,ADD1,BUTLASTN_APPEND1,BUTLASTN_APPEND2,BUTLASTN_CONS,BUTLASTN] >>
     rw[Once RTC_CASES1] >> disj2_tac >>
     rw[bc_eval1_thm] >>
     rw[bc_eval1_def,Abbr`bs2`,Abbr`cka`] >>
     BasicProvers.CASE_TAC >> simp[bump_pc_def] >>
     qmatch_abbrev_tac`bc_next^* bs1 bs2` >>
-    qspecl_then[`bc0++(TAKE 7 ^(subst[``ck:bool``|->``T``]code))`,`bs1`]mp_tac bc_fetch_next_addr >>
-    simp[Abbr`bs1`,FILTER_APPEND,SUM_APPEND,ADD1] >>
+    qspecl_then[`bc0++(FRONT ^(subst[``ck:bool``|->``T``]code))`,`bs1`]mp_tac bc_fetch_next_addr >>
+    simp[Abbr`bs1`,FILTER_APPEND,SUM_APPEND,ADD1,FRONT_CONS,FRONT_APPEND,FRONT_DEF] >>
     rw[Once RTC_CASES1] >> disj2_tac >>
     rw[bc_eval1_thm] >>
     rw[bc_eval1_def,Abbr`bs2`] >>
@@ -2550,8 +2560,8 @@ val jmpbc_thm = store_thm("jmpbc_thm",
     rw[] >>
     rw[Once RTC_CASES1] >> disj1_tac >>
     simp[bc_state_component_equality]) >>
-  qspecl_then[`bc0++(TAKE 6 ^(subst[``ck:bool``|->``F``]code))`,`bs1`]mp_tac bc_fetch_next_addr >>
-  simp[Abbr`bs1`,FILTER_APPEND,SUM_APPEND,ADD1] >>
+  qspecl_then[`bc0++(FRONT ^(subst[``ck:bool``|->``F``]code))`,`bs1`]mp_tac bc_fetch_next_addr >>
+  simp[Abbr`bs1`,FILTER_APPEND,SUM_APPEND,ADD1,FRONT_CONS,FRONT_APPEND,FRONT_DEF] >>
   rw[Once RTC_CASES1] >> disj2_tac >>
   rw[bc_eval1_thm] >>
   rw[bc_eval1_def,Abbr`bs2`] >>
