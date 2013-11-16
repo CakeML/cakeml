@@ -4784,9 +4784,11 @@ fun tac18 t =
     reverse(Cases_on`∃bc10. code = REVERSE cx ++ REVERSE cxs ++ bc10`) >- (
       fsrw_tac[DNF_ss][] >>
       rpt conj_tac >> rpt gen_tac >>
-      rw[Once SWAP_REVERSE,Abbr`mtk`] >>
+      rw[FOLDL_emit_append_out,Once SWAP_REVERSE,Abbr`mtk`] >>
       TRY(Cases_on`t`)>>fs[Once SWAP_REVERSE]) >> fs[] >>
     reverse(Cases_on`bs.code = bc0 ++ REVERSE cx ++ REVERSE cxs ++ bc10 ++ bc1`) >- fs[] >>
+    fs[Once SWAP_REVERSE] >>
+    simp[FOLDL_emit_append_out] >>
     fs[Once SWAP_REVERSE] >>
     fs[Once SWAP_REVERSE] >>
     last_x_assum(qspecl_then[`rd`,`cmnv`,`cs`,`cenv`,`sz`,`csz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE cx`]mp_tac) >>
@@ -5074,7 +5076,7 @@ fun tac18 t =
           rw[Abbr`bs3`,Abbr`bs1`] >>
           Q.PAT_ABBREV_TAC`ls = bc0 ++ X ++ Y` >>
           Q.PAT_ABBREV_TAC`l2:bc_inst list = X::Y` >>
-          qexists_tac`ls ++ l2 ++ REVERSE mtk` >>
+          qexists_tac`ls ++ l2 ++ mtk` >>
           srw_tac[ARITH_ss][Abbr`ls`,Abbr`l2`,REVERSE_APPEND,FILTER_APPEND,SUM_APPEND,ADD1] >>
           simp[BUTLASTN_APPEND1,BUTLASTN,SUM_APPEND,FILTER_APPEND]) >>
         simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj2_tac >>
@@ -5374,7 +5376,7 @@ fun tac18 t =
           rw[Abbr`bs3`,Abbr`bs1`] >>
           Q.PAT_ABBREV_TAC`ls = bc0 ++ X ++ Y` >>
           Q.PAT_ABBREV_TAC`l2:bc_inst list = X::Y` >>
-          qexists_tac`ls ++ l2 ++ REVERSE mtk` >>
+          qexists_tac`ls ++ l2 ++ mtk` >>
           srw_tac[ARITH_ss][Abbr`ls`,Abbr`l2`,REVERSE_APPEND,FILTER_APPEND,SUM_APPEND,ADD1] >>
           simp[BUTLASTN_APPEND1,BUTLASTN,SUM_APPEND,FILTER_APPEND]) >>
         simp_tac(srw_ss()++DNF_ss)[Once RTC_CASES1] >> disj2_tac >>
