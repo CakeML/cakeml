@@ -305,6 +305,68 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
           Return]))`;
 
 
+(* stackshiftaux n i j
+   xs@ys@zs@st, where n = |ys| = |zs|, i = |xs|, j = |xs|+|ys|
+   to
+   xs@ys@ys@st *)
+ val stackshiftaux_defn = Hol_defn "stackshiftaux" `
+
+(stackshiftaux 0 i j = ([]))
+/\
+(stackshiftaux n i j =  
+((Load i) ::(Store j) ::(stackshiftaux (n - 1) (i +1) (j +1))))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn stackshiftaux_defn;
+(*
+  xs@(y::ys)@(z::zs)@st
+  y::xs@(y::ys)@(z::zs)@st
+  xs@(y::ys)@(y::zs)@st
+*)
+
+(* stackshift j k
+   xs@ys@st, where j=|xs|, k=|ys|
+   to
+   xs@st *)
+ val stackshift_defn = Hol_defn "stackshift" `
+
+(stackshift j 0 = ([]))
+/\
+(stackshift 0 k = ([Pops (k - 1); Pop]))
+/\
+(stackshift (SUC 0) k = ([Pops k]))
+/\
+(stackshift j k =  
+(if j <= k
+  then
+    ( GENLIST (\ i . Store (k - 1)) j) ++(stackshift 0 (k - j))
+  else
+    (stackshiftaux k (j - k) j) ++(stackshift (j - k) k)))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn stackshift_defn;
+(*
+  a b c d e x y z
+c a b c d e x y z
+  a b c d e c y z
+d a b c d e c y z
+  a b c d e c d z
+e a b c d e c d z
+  a b c d e c d e
+        a b c d e
+
+a b c v w x y z
+  b c v w a y z
+    c v w a b z
+      v w a b c
+        v a b c
+          a b c
+
+a b c x y z
+  b c a y z
+    c a b z
+      a b c
+*)
+
+
  val compile_defn = Hol_defn "compile" `
 
 (compile menv env _ sz s (CRaise e) =  
@@ -386,7 +448,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     let s = ( emit s [Stack (Load (n +2)); Stack (El 1)]) in
     (* env, CodePtr c, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
      * vk, ..., v1, env1, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c1; env1], *)
-    let s = ( emit s [Stack (Shift (1 +1 +1 +n +1) (k +1 +1 +j +1))]) in
+    let s = ( emit s ( MAP Stack (stackshift (1 +1 +1 +n +1) (k +1 +1 +j +1)))) in
     emit s ((if ck then [Tick] else []) ++[Return])
   )))
 /\

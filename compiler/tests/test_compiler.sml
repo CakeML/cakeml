@@ -1,4 +1,13 @@
 open test_compilerLib
+(*
+open numML
+val code = stackshift (fromInt 1) (fromInt 2)
+val [a,b,c,d,e] = map (Number o intML.fromInt) [0,1,2,3,4]
+val [v,w,x,y,z] = map (Number o intML.fromInt) [10,11,12,13,14]
+val [s,t,u] = map (Number o intML.fromInt) [20,21,22]
+val bs = bc_state ([a,v,w,s,t,u],map Stack code,ZERO,fmapML.FEMPTY,ZERO,"",[],(fn _ => ZERO),NONE)
+print_bs (valOf (bc_eval bs))
+*)
 val e1 = ``Lit (IntLit 42)``
 val (m,[r as Number i]) = mst_run_exp e1
 val SOME 42 = intML.toInt i;
@@ -262,7 +271,7 @@ val e43 = ``Letrec [("o","n",
        (App (Opn Minus) (Var (Short "n")) (Lit (IntLit 1)))))]
   (App Opapp (Var (Short "o")) (Lit (IntLit 1000)))``
 val (bs43,_,_) = prep_exp inits e43
-val SOME s43 = bc_eval_limit 12 bs43
+val SOME s43 = bc_eval_limit 13 bs43
 val [Number z] = bc_state_stack s43
 val SOME 0 = intML.toInt z;
 val d = ``Dletrec

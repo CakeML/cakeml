@@ -40,6 +40,28 @@ fun fix_compile_bindings_suc th = let
   val th = GEN_ALL (mk_thm([],mk_eq(mk_comb(rator l,n),mk_cond(mk_eq(n,numSyntax.zero_tm),rz,mk_comb(rs,numSyntax.mk_pre n)))))
   in LIST_CONJ(th::cs) end
 
+val [s1,s2,s3,s4] = CONJUNCTS stackshift_def
+val stackshift_alt = prove(
+``stackshift j k =
+  if k = 0 then ^(rhs(concl(Q.SPEC`j`s1)))
+  else if j = 0 then ^(rhs(concl(Q.SPEC`k-1`s2)))
+  else if j = 1 then ^(rhs(concl(Q.SPEC`k-1`s3)))
+  else ^(rhs(concl(Q.SPECL[`j-2`,`k-1`]s4)))``,
+SIMP_TAC(srw_ss()++ARITH_ss)[arithmeticTheory.ADD1] THEN
+Cases_on`k`THEN ASM_SIMP_TAC(srw_ss())[stackshift_def] THEN
+Cases_on`j`THEN ASM_SIMP_TAC(srw_ss())[stackshift_def] THEN
+Cases_on`n'`THEN ASM_SIMP_TAC(srw_ss())[stackshift_def])
+|> SIMP_RULE (srw_ss()++ARITH_ss)[arithmeticTheory.ADD1]
+
+val [s1,s2] = CONJUNCTS stackshiftaux_def
+val stackshiftaux_alt = prove(
+``stackshiftaux i j k =
+  if i = 0 then ^(rhs(concl(Q.SPECL[`k`,`j`]s1)))
+  else ^(rhs(concl(Q.SPECL[`i-1`,`k`,`j`]s2)))``,
+SIMP_TAC(srw_ss()++ARITH_ss)[arithmeticTheory.ADD1] THEN
+Cases_on`i`THEN ASM_SIMP_TAC(srw_ss())[stackshiftaux_def])
+|> SIMP_RULE (srw_ss()++ARITH_ss)[arithmeticTheory.ADD1]
+
 val _ = new_constant("CONCAT",``:string list -> string``)
 val _ = ConstMapML.prim_insert(``CONCAT``,(false,"","CONCAT",type_of``CONCAT``))
 val CONCAT_RULE = PURE_REWRITE_RULE[mk_thm([],mk_eq(``FLAT:string list -> string``,``CONCAT``))]
@@ -100,6 +122,8 @@ val defs = map EmitML.DEFN
 , underscore_rule cons_closure_def
 , update_refptr_def
 , underscore_rule compile_closures_def
+, stackshiftaux_alt
+, stackshift_alt
 , fix_compile_bindings_suc (underscore_rule compile_def)
 , free_labs_def
 , cce_aux_def

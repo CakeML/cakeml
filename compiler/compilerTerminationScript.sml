@@ -118,6 +118,14 @@ val (compile_envref_def, compile_envref_ind) = register "compile_envref" (
   tprove_no_defn ((compile_envref_def, compile_envref_ind),
   WF_REL_TAC `measure (λp. case p of (_,_,CCEnv _) => 0 | (_,_,CCRef _) => 1)`))
 
+val (stackshift_def, stackshift_ind) = register "stackshift" (
+  tprove_no_defn ((stackshift_def, stackshift_ind),
+  WF_REL_TAC `measure FST`))
+
+val (stackshiftaux_def,stackshiftaux_ind) = register"stackshiftaux" (
+  tprove_no_defn ((stackshiftaux_def, stackshiftaux_ind),
+  WF_REL_TAC `measure FST`))
+
 val (compile_def, compile_ind) = register "compile" (
   tprove_no_defn ((compile_def, compile_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of
