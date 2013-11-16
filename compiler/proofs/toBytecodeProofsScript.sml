@@ -2228,6 +2228,15 @@ val stackshift_thm = store_thm("stackshift_thm",
     simp[Abbr`bs1`,Abbr`bs1'`,bc_state_component_equality,SUM_APPEND,FILTER_APPEND,ADD1] ) >>
   rw[])
 
+val FOLDL_emit_append_out = prove(
+  ``∀ls s. emit s ls = s with out := REVERSE ls ++ s.out``,
+  Induct >> simp[compiler_result_component_equality] >> fs[])
+  |> SIMP_RULE (srw_ss())[]
+
+val FILTER_is_Label_Stack = prove(
+  ``FILTER (is_Label o Stack) ls = []``,
+  Induct_on `ls` >> simp[])
+
 (* compile_append_out *)
 
 val pushret_append_out = store_thm("pushret_append_out",
@@ -2336,7 +2345,11 @@ val compile_append_out = store_thm("compile_append_out",
     rw[compile_def,LET_THM,UNCURRY] >>
     BasicProvers.EVERY_CASE_TAC >> rw[] >>
     srw_tac[ARITH_ss][] >>
-    fs[uses_label_thm]) >>
+    fs[uses_label_thm] >>
+    fs[FOLDL_emit_append_out] >>
+    simp[FILTER_REVERSE,FILTER_APPEND,MAP_REVERSE,EVERY_REVERSE,ALL_DISTINCT_REVERSE,ALL_DISTINCT_APPEND,FILTER_MAP,EVERY_MAP] >>
+    fs[FILTER_is_Label_Stack,MEM_MAP,EXISTS_REVERSE,EXISTS_MAP] >>
+    fs[EVERY_MAP]) >>
   strip_tac >- (
     rw[compile_def,LET_THM] >> fs[] >>
     SIMPLE_QUANT_ABBREV_TAC[select_fun_constant``pushret``2"s"] >>
