@@ -272,7 +272,7 @@ fun print_bs bs =
 (rev(snd(foldl (fn (i,(n,ls)) => (n+1,(print_bc_inst i)::ls)) (0,[]) (bc_state_code bs))))
 in
 fun bs_to_term bs =
-  print_bs bs |> map (fn s => Term [QUOTE s])
+  print_bs bs |> map (fn s => Parse.Term [QUOTE s])
     |> (fn ts => listSyntax.mk_list(ts,type_of (hd ts)))
 end
 
