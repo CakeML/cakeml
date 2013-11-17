@@ -5459,7 +5459,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[Abbr`bs4`,Abbr`ppc1`,Abbr`ppc2`,Abbr`bs3`,Abbr`bs2`] >>
       REWRITE_TAC[FILTER_APPEND,SUM_APPEND,IMPLODE_EXPLODE_I,REVERSE_APPEND,FILTER_REVERSE,MAP_APPEND,MAP_REVERSE,SUM_REVERSE] >>
       EVAL_TAC >>
-      simp[] ) >>
+      simp[SUM_ACC_SUM_LEM,SUM_APPEND,ADD1] ) >>
     reverse conj_asm2_tac >- (
       match_mp_tac env_rs_append_code >>
       qexists_tac`bs4 with code := bs2.code` >>
