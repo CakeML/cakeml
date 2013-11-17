@@ -11,10 +11,11 @@ open arithmeticTheory listTheory finite_mapTheory pred_setTheory;
 
 open ml_translatorLib ml_translatorTheory std_preludeTheory;
 
-
 (* translator setup *)
 
 val _ = translation_extends "std_prelude";
+
+val _ = register_type ``:lexer_fun$symbol``;
 
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
@@ -51,6 +52,8 @@ fun def_of_const tm = let
 val _ = (find_def_for_const := def_of_const);
 
 (* compiler *)
+
+val _ = translate (def_of_const ``stackshift``);
 
 val _ = rich_listTheory.BUTLASTN_REVERSE |> Q.SPECL [`n`,`REVERSE l`]
   |> REWRITE_RULE [REVERSE_REVERSE,LENGTH_REVERSE] |> UNDISCH
