@@ -97,38 +97,35 @@ val tac = (WF_REL_TAC `measure (LENGTH o FST o SND)` \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC lex_until_top_semicolon_alt_LESS);
 
 val main_loop_alt'_def = tDefine "main_loop_alt'" `
-  main_loop_alt' bs input state =
+  main_loop_alt' bs input state init =
     case repl_step state of
-      | INR (error_msg,len,labs,s) =>
+      | INR (error_msg,x) =>
        (case lex_until_top_semicolon_alt input of
         | NONE => (Result error_msg Terminate,T)
         | SOME (ts,rest) =>
-            let (res,assert) = main_loop_alt' bs rest
-                (SOME (ts,F,len,labs,s,s)) in
+            let (res,assert) = main_loop_alt' bs rest (SOME (ts,x)) F in
               (Result error_msg res, assert))
-      | INL (m,code1,code2,new_state) =>
-        let s1 = (install_code m code1 bs) in
-        let s1 = (install_code m code2 s1) in
-        let code_assert = code_executes_ok s1 in
-          case bc_eval s1 of
+      | INL (m,code,new_state) =>
+        let bs = set_cons_names m (install_bc_lists code bs) in
+        let code_assert = code_executes_ok bs in
+          case bc_eval bs of
           | NONE => (Diverge,code_assert)
           | SOME new_bs =>
-            let new_bs = (if state = NONE then new_bs
-                                          else new_bs) in
+            let new_bs = (if init then new_bs else new_bs) in
             let new_s = (bc_fetch new_bs = SOME Stop) in
-            let out = if state = NONE then I else Result (new_bs.output) in
+            let out = if init then I else Result (new_bs.output) in
               (case lex_until_top_semicolon_alt input of
                | NONE => (out Terminate,code_assert)
                | SOME (ts,rest) =>
                   let (res,assert) =
-                    main_loop_alt' new_bs rest (SOME (ts,new_s,new_state)) in
+                    main_loop_alt' new_bs rest (SOME (ts,new_s,new_state)) F in
                       (out res, assert /\ code_assert)) `
   tac
 
 val repl_fun_alt'_def = Define `
   repl_fun_alt' input =
     let a1 = initial_bc_state_side in
-    let (res,a2) = main_loop_alt' empty_bc_state input NONE in
+    let (res,a2) = main_loop_alt' empty_bc_state input NONE T in
       (res,a1 /\ a2)`;
 
 val bc_eval_SOME_code = prove(
@@ -293,7 +290,7 @@ val bc_eval_SOME_strip_labels = prove(
   METIS_TAC[unstrip_labels]);
 
 val length_ok_inst_length = prove(
-  ``length_ok inst_length``,
+  ``length_ok real_inst_length``,
   EVAL_TAC \\ SIMP_TAC std_ss []);
 
 val install_code_NIL = prove(
@@ -310,13 +307,43 @@ val lex_lemma = prove(
   \\ Cases_on `lex_until_top_semicolon_alt input` \\ TRY (Cases_on `x`)
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
+val install_bc_lists_MAP_bc_num = prove(
+  ``!code bs. install_bc_lists (MAP bc_num code ++ xs) bs =
+              install_bc_lists xs (bs with <| code := bs.code ++ code |>)``,
+  Induct \\ SIMP_TAC std_ss [install_bc_lists_def,APPEND,MAP,APPEND_NIL]
+  THEN1 (REPEAT STRIP_TAC \\ AP_TERM_TAC
+    \\ SIMP_TAC (srw_ss()) (TypeBase.updates_of ``:bc_state``))
+  \\ REPEAT STRIP_TAC
+  \\ `FST (bc_num h) <> 18` by ALL_TAC
+  THEN1 (Cases_on `h` THEN TRY (Cases_on `b`)
+         THEN TRY (Cases_on `l`) THEN EVAL_TAC)
+  \\ ASM_SIMP_TAC (srw_ss()) [num_bc_bc_num]
+  \\ ASM_SIMP_TAC std_ss [APPEND,GSYM APPEND_ASSOC]);
+
+val install_bc_lists_lemma = prove(
+  ``set_cons_names m (install_bc_lists (bc_num_lists xs ys) bs) =
+    install_code m (REVERSE ys) (install_code m (REVERSE xs) bs)``,
+  SIMP_TAC std_ss [bc_num_lists_def, GSYM APPEND_ASSOC,
+    install_bc_lists_def,install_bc_lists_MAP_bc_num,APPEND,
+    install_bc_lists_MAP_bc_num |> Q.INST [`xs`|->`[]`]
+      |> SIMP_RULE std_ss [APPEND_NIL]]
+  \\ SIMP_TAC (srw_ss()) [set_cons_names_def]
+  \\ SIMP_TAC (srw_ss()) [install_code_def]);
+
+val install_bc_lists_thm = LIST_CONJ [
+  install_bc_lists_lemma |> Q.INST [`xs`|->`[]`]
+    |> SIMP_RULE std_ss [EVAL ``REVERSE []``],
+  install_bc_lists_lemma |> Q.INST [`ys`|->`[]`]
+    |> SIMP_RULE std_ss [EVAL ``REVERSE []``],
+  install_bc_lists_lemma]
+
 val main_loop_alt_eq = prove(
   ``!input ts b s1 s2 bs res.
-      (bs.inst_length = inst_length) ==>
+      (bs.inst_length = real_inst_length) ==>
       temp
       (main_loop_alt' (strip_labels bs) input (SOME (ts,b,
-         code_length inst_length bs.code,
-         all_labels inst_length bs.code,s1,s2)))
+         code_length real_inst_length bs.code,
+         all_labels real_inst_length bs.code,s1,s2)) F)
       (case parse_elaborate_infertype_compile
             (MAP token_of_sym ts) (if b then s1 else s2) of
              Success (code,s',s_exc) =>
@@ -356,12 +383,12 @@ val main_loop_alt_eq = prove(
   \\ `?code s' s_exc. a = (code,s',s_exc)` by METIS_TAC [pairTheory.PAIR]
   \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
   \\ SIMP_TAC std_ss [temp_def] \\ STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [install_code_NIL]
+  \\ FULL_SIMP_TAC std_ss [install_code_NIL,install_bc_lists_thm]
   \\ `(install_code (cpam s'.rcompiler_state)
         (REVERSE (inst_labels
-           (FUNION (all_labels inst_length bs.code)
-              (collect_labels (REVERSE code) (code_length inst_length bs.code)
-                 inst_length)) (REVERSE code))) (strip_labels bs)) =
+           (FUNION (all_labels real_inst_length bs.code)
+              (collect_labels (REVERSE code) (code_length real_inst_length bs.code)
+                 real_inst_length)) (REVERSE code))) (strip_labels bs)) =
       strip_labels (install_code (cpam s'.rcompiler_state) code bs)` by ALL_TAC
   THEN1
    (POP_ASSUM MP_TAC
@@ -382,7 +409,7 @@ val main_loop_alt_eq = prove(
   \\ Q.PAT_ASSUM `SND xx` MP_TAC \\ ASM_SIMP_TAC std_ss [GSYM temp_def]
   \\ Q.ABBREV_TAC `bs1 = install_code (cpam s'.rcompiler_state) code bs`
   \\ ASSUME_TAC length_ok_inst_length
-  \\ `bs1.inst_length = inst_length` by ALL_TAC THEN1
+  \\ `bs1.inst_length = real_inst_length` by ALL_TAC THEN1
     (UNABBREV_ALL_TAC \\ ASM_SIMP_TAC (srw_ss()) [install_code_def])
   \\ Cases_on `bc_eval bs1`
   \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF,temp_REFL] THEN1
@@ -417,8 +444,8 @@ val main_loop_alt_eq = prove(
     (Q.UNABBREV_TAC `bs1`
      \\ IMP_RES_TAC bc_eval_SOME_code
      \\ FULL_SIMP_TAC (srw_ss()) [install_code_def])
-  \\ `code_length inst_length bs.code + code_length inst_length (REVERSE code) =
-      code_length inst_length x.code` by ALL_TAC THEN1
+  \\ `code_length real_inst_length bs.code + code_length real_inst_length (REVERSE code) =
+      code_length real_inst_length x.code` by ALL_TAC THEN1
    (POP_ASSUM (MP_TAC o GSYM)
     \\ FULL_SIMP_TAC std_ss [code_length_def,MAP_APPEND,SUM_APPEND])
   \\ FULL_SIMP_TAC std_ss []
@@ -429,13 +456,13 @@ val main_loop_alt_eq = prove(
         FULL_SIMP_TAC (srw_ss()) [strip_labels_def]
   \\ FULL_SIMP_TAC std_ss []
   \\ SIMP_TAC std_ss [temp_simp]
-  \\ `FUNION (all_labels inst_length bs.code)
-           (collect_labels (REVERSE code) (code_length inst_length bs.code)
-              inst_length) = all_labels inst_length x.code` by ALL_TAC THEN1
+  \\ `FUNION (all_labels real_inst_length bs.code)
+           (collect_labels (REVERSE code) (code_length real_inst_length bs.code)
+              real_inst_length) = all_labels real_inst_length x.code` by ALL_TAC THEN1
    (FULL_SIMP_TAC std_ss [all_labels_def]
     \\ Q.PAT_ASSUM `bs.code ++ code = x.code` (MP_TAC o GSYM)
     \\ FULL_SIMP_TAC std_ss [collect_labels_APPEND])
-  \\ `x.inst_length = inst_length` by ALL_TAC THEN1
+  \\ `x.inst_length = real_inst_length` by ALL_TAC THEN1
    (IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
     \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
     \\ FULL_SIMP_TAC std_ss [])
@@ -452,10 +479,11 @@ val temp_INTRO = prove(
   Cases \\ Cases \\ FULL_SIMP_TAC std_ss [temp_def]);
 
 val code_length_intro = prove(
-  ``!c1. SUM (MAP (K 1) (FILTER ($~ o is_Label) c1)) =
-         code_length inst_length c1``,
+  ``!c1. SUM (MAP (SUC o real_inst_length) (FILTER ($~ o is_Label) c1)) =
+         code_length real_inst_length c1``,
   Induct \\ FULL_SIMP_TAC (srw_ss()) [code_length_def,ilength_def,MAP,SUM]
-  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC);
+  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC
+  \\ SIMP_TAC std_ss [ADD1]);
 
 val IS_SOME_IFF_EXISTS = prove(
   ``!x. IS_SOME x <=> ?y. x = SOME y``,
@@ -476,33 +504,32 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
        (install_code []
           (REVERSE
              (inst_labels
-                (collect_labels (PrintE ++ [Stop]) 0 inst_length)
+                (collect_labels (PrintE ++ [Stop]) 0 real_inst_length)
                 (PrintE ++ [Stop]))) empty_bc_state)`
   \\ Q.ABBREV_TAC `bs1 = (install_code [] (SND (SND compile_primitives))
            <|stack := []; code := PrintE ++ [Stop]; pc := 0;
                    refs := FEMPTY; handler := 0; clock := NONE;
                    output := ""; cons_names := [];
-                   inst_length := K 0|>)`
+                   inst_length := real_inst_length |>)`
   \\ FULL_SIMP_TAC std_ss [collect_labels_APPEND |> Q.SPECL [`c1`,`c2`,`0`]
         |> REWRITE_RULE [ADD_CLAUSES] |> GSYM,GSYM all_labels_def]
   \\ `(install_code []
         (REVERSE
            (inst_labels
-              (all_labels inst_length
+              (all_labels real_inst_length
                  (PrintE ++ [Stop] ++
                   REVERSE (SND (SND compile_primitives))))
               (REVERSE (SND (SND compile_primitives)))))
         emp_bc_state) = strip_labels bs1` by ALL_TAC THEN1
    (SIMP_TAC std_ss [GSYM all_labels_def]
     \\ UNABBREV_ALL_TAC
-    \\ Q.ABBREV_TAC `l = inst_length`
+    \\ Q.ABBREV_TAC `l = real_inst_length`
     \\ Q.ABBREV_TAC `c1 = PrintE ++ [Stop]`
     \\ Q.ABBREV_TAC `c2 = REVERSE (SND (SND compile_primitives))`
     \\ SIMP_TAC (srw_ss()) [install_code_def,strip_labels_def,empty_bc_state_def]
     \\ SIMP_TAC std_ss [code_labels_def,inst_labels_def,GSYM all_labels_def]
     \\ Q.UNABBREV_TAC `c2` \\ REPEAT STRIP_TAC THEN1
      (FULL_SIMP_TAC std_ss [GSYM code_labels_def] \\ Q.UNABBREV_TAC `l`
-      \\ `K 0 = inst_length` by FULL_SIMP_TAC std_ss [inst_length_def,FUN_EQ_THM]
       \\ FULL_SIMP_TAC std_ss [all_labels_def,collect_labels_APPEND]
       \\ FULL_SIMP_TAC std_ss [GSYM all_labels_def]
       \\ Q.ABBREV_TAC `c2 = REVERSE (SND (SND compile_primitives))`
@@ -511,9 +538,10 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
       \\ UNABBREV_ALL_TAC
       \\ SIMP_TAC (srw_ss()) [uses_label_def,PrintE_def,MAP]
       \\ FULL_SIMP_TAC std_ss [AC DISJ_COMM DISJ_ASSOC])
+    \\ UNABBREV_ALL_TAC
     \\ FULL_SIMP_TAC std_ss [code_length_intro]
     \\ MATCH_MP_TAC code_length_inst_labels
-    \\ UNABBREV_ALL_TAC \\ FULL_SIMP_TAC std_ss [length_ok_inst_length])
+    \\ FULL_SIMP_TAC std_ss [length_ok_inst_length])
   \\ FULL_SIMP_TAC std_ss []
   \\ `emp_bc_state.inst_length = (THE (bc_eval bs1)).inst_length` by ALL_TAC
   THEN1
@@ -523,9 +551,9 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
     \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
     \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
     \\ FULL_SIMP_TAC (srw_ss()) [empty_bc_state_def,install_code_def])
-  \\ `bs1.inst_length = inst_length` by ALL_TAC THEN1
+  \\ `bs1.inst_length = real_inst_length` by ALL_TAC THEN1
    (UNABBREV_ALL_TAC \\ SIMP_TAC (srw_ss()) [install_code_def,
-      empty_bc_state_def,inst_length_def,FUN_EQ_THM])
+      empty_bc_state_def,FUN_EQ_THM])
   \\ `code_executes_ok bs1` by ALL_TAC THEN1
    (Q.PAT_ASSUM `IS_SOME pat` MP_TAC
     \\ SIMP_TAC std_ss [IS_SOME_IFF_EXISTS] \\ STRIP_TAC
@@ -533,11 +561,11 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
     \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
     \\ FULL_SIMP_TAC (srw_ss()) [code_executes_ok_def,LET_DEF]
     \\ DISJ1_TAC \\ Q.EXISTS_TAC `(THE (bc_eval bs1))`
-    \\ FULL_SIMP_TAC std_ss [inst_length_def] \\ DISJ2_TAC
+    \\ FULL_SIMP_TAC std_ss [] \\ DISJ2_TAC
     \\ REPEAT (POP_ASSUM (K ALL_TAC))
     \\ Q.SPEC_TAC (`bs1.code`,`xs`) \\ Induct
     \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] []
-    \\ FULL_SIMP_TAC std_ss [])
+    \\ FULL_SIMP_TAC std_ss [ADD1])
   \\ ASSUME_TAC length_ok_inst_length
   \\ `code_executes_ok (strip_labels bs1)` by ALL_TAC THEN1
    (MATCH_MP_TAC code_executes_ok_strip_labels
@@ -554,23 +582,23 @@ val repl_fun_alt_correct = store_thm("repl_fun_alt_correct",
   \\ Q.PAT_ASSUM `main_loop' (bs,initial_repl_fun_state) input = (res,T)` MP_TAC
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [Once main_loop'_def]
-  \\ `x.inst_length = inst_length` by ALL_TAC THEN1
+  \\ `x.inst_length = real_inst_length` by ALL_TAC THEN1
    (UNABBREV_ALL_TAC \\ ASM_SIMP_TAC (srw_ss()) []
     \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
     \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
     \\ FULL_SIMP_TAC std_ss [])
-  \\ Q.ABBREV_TAC `ii = (code_length inst_length ((PrintE ++ [Stop])))`
+  \\ Q.ABBREV_TAC `ii = (code_length real_inst_length ((PrintE ++ [Stop])))`
   \\ `PrintE ++ [Stop] ++ (REVERSE (SND (SND compile_primitives))) =
       x.code` by ALL_TAC THEN1
      (UNABBREV_ALL_TAC
       \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
       \\ IMP_RES_TAC bytecodeExtraTheory.RTC_bc_next_preserves
       \\ FULL_SIMP_TAC (srw_ss()) [install_code_def,empty_bc_state_def])
-  \\ `(ii + code_length inst_length (REVERSE (SND (SND compile_primitives))) =
-       code_length inst_length x.code)` by ALL_TAC THEN1
+  \\ `(ii + code_length real_inst_length (REVERSE (SND (SND compile_primitives))) =
+       code_length real_inst_length x.code)` by ALL_TAC THEN1
    (POP_ASSUM (ASSUME_TAC o GSYM) \\ UNABBREV_ALL_TAC
     \\ FULL_SIMP_TAC std_ss [code_length_def,MAP_APPEND,SUM_APPEND])
-  \\ FULL_SIMP_TAC std_ss [lex_lemma]
+  \\ FULL_SIMP_TAC std_ss [lex_lemma,install_bc_lists_thm]
   \\ Cases_on `lex_until_top_semicolon_alt input` \\ FULL_SIMP_TAC std_ss []
   \\ Q.MATCH_ASSUM_RENAME_TAC
        `lex_until_top_semicolon_alt input = SOME ts_rest` []

@@ -9792,46 +9792,6 @@ val LENGTH_x64_code = prove(
 
 (* install code *)
 
-val bc_num_def = Define `
-  bc_num s =
-     case s of
-       Stack Pop => (0:num,0:num,0:num)
-     | Stack (Pops n) => (1,n,0)
-     | Stack (Shift n m) => (2,n,m)
-     | Stack (PushInt i) => (3,Num (ABS i),if i < 0 then 1 else 0)
-     | Stack (Cons n m) => (4,n,m)
-     | Stack (Load n) => (5,n,0)
-     | Stack (Store n) => (6,n,0)
-     | Stack (LoadRev n) => (7,n,0)
-     | Stack (El n) => (8,n,0)
-     | Stack (TagEq n) => (9,n,0)
-     | Stack IsBlock => (10,0,0)
-     | Stack Equal => (11,0,0)
-     | Stack Add => (12,0,0)
-     | Stack Sub => (13,0,0)
-     | Stack Mult => (14,0,0)
-     | Stack Div => (15,0,0)
-     | Stack Mod => (16,0,0)
-     | Stack Less => (17,0,0)
-     | Label _ => (20,0,0)
-     | Jump (Addr n) => (21,n,0)
-     | JumpIf (Addr n) => (22,n,0)
-     | Call (Addr n) => (23,n,0)
-     | PushPtr (Addr n) => (24,n,0)
-     | CallPtr => (26,0,0)
-     | Return => (27,0,0)
-     | PushExc => (28,0,0)
-     | PopExc => (29,0,0)
-     | Ref => (30,0,0)
-     | Deref => (31,0,0)
-     | Update => (32,0,0)
-     | Stop => (33,0,0)
-     | Tick => (34,0,0)
-     | Print => (35,0,0)
-     | PrintC c => (36,ORD c,0)
-     | Stop => (37,0,0)
-     | _ => (40,0,0)`;
-
 val append_imm_code_def = Define `
   (append_imm_code p [] = {}) /\
   (append_imm_code p (imm8::imms) =
@@ -10505,9 +10465,6 @@ val ic_List_lemma = prove(
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [LENGTH_x64_IGNORE,x64_length_def]
   \\ Q.LIST_EXISTS_TAC [`y1`,`y2`,`y3`] \\ FULL_SIMP_TAC std_ss []);
-
-val bc_num_lists_def = Define `
-  bc_num_lists xs ys = MAP bc_num xs ++ [(18,0,0)] ++ MAP bc_num ys`;
 
 val ic_List_thm = prove(
   ``(s.code_mode = SOME F) ==>
