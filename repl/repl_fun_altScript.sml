@@ -23,7 +23,6 @@ val bc_num_def = Define `
      case s of
        Stack Pop => (0:num,0:num,0:num)
      | Stack (Pops n) => (1,n,0)
-     | Stack (Shift n m) => (2,n,m)
      | Stack (PushInt i) => (3,Num (ABS i),if i < 0 then 1 else 0)
      | Stack (Cons n m) => (4,n,m)
      | Stack (Load n) => (5,n,0)
@@ -65,7 +64,6 @@ val num_bc_def = Define `
   num_bc (n,x1,x2) =
     if n = 0 then Stack Pop else
     if n = 1 then Stack (Pops x1) else
-    if n = 2 then Stack (Shift x1 x2) else
     if n = 3 then Stack (PushInt (if x2 = 1 then 0 - & x1 else & x1)) else
     if n = 4 then Stack (Cons x1 x2) else
     if n = 5 then Stack (Load x1) else
