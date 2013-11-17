@@ -1289,7 +1289,8 @@ val env_rs_empty = store_thm("env_rs_empty",
       ,intLangExtraTheory.vlabs_menv_def,pred_setTheory.SUM_IMAGE_THM
       ,closed_Clocs_def,closed_vlabs_def] >>
   EVAL_TAC >>
-  simp[FEVERY_DEF,SUM_IMAGE_THM])
+  simp[FEVERY_DEF,SUM_IMAGE_THM] >>
+  EVAL_TAC)
 
 val env_rs_remove_clock = store_thm("env_rs_remove_clock",
    ``∀menv cenv env rs cz rd cs bs cs' ck' bs'.
