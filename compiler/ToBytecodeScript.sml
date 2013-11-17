@@ -309,12 +309,17 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
    xs@ys@zs@st, where n = |ys| = |zs|, i = |xs|, j = |xs|+|ys|
    to
    xs@ys@ys@st *)
+(*
+let rec
+stackshiftaux 0 i j = []
+and
+stackshiftaux n i j =
+  (Load i)::(Store j)::(stackshiftaux (n-1) (i+1) (j+1))
+*)
  val stackshiftaux_defn = Hol_defn "stackshiftaux" `
-
-(stackshiftaux 0 i j = ([]))
-/\
-(stackshiftaux n i j =  
-((Load i) ::(Store j) ::(stackshiftaux (n - 1) (i +1) (j +1))))`;
+ (stackshiftaux n i j =  
+(if n = 0 then []
+  else (Load i) ::(Store j) ::(stackshiftaux (n - 1) (i +1) (j +1))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn stackshiftaux_defn;
 (*
@@ -327,20 +332,28 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
    xs@ys@st, where j=|xs|, k=|ys|
    to
    xs@st *)
- val stackshift_defn = Hol_defn "stackshift" `
-
-(stackshift j 0 = ([]))
-/\
-(stackshift 0 k = ([Pops (k - 1); Pop]))
-/\
-(stackshift (SUC 0) k = ([Pops k]))
-/\
-(stackshift j k =  
-(if j <= k
+(*
+let rec
+stackshift j 0 = []
+and
+stackshift 0 k = [Pops (k-1); Pop]
+and
+stackshift 1 k = [Pops k]
+and
+stackshift j k =
+  if j <= k
   then
-    ( GENLIST (\ i . Store (k - 1)) j) ++(stackshift 0 (k - j))
+    (genlist (fun i -> Store (k-1)) j)@(stackshift 0 (k-j))
   else
-    (stackshiftaux k (j - k) j) ++(stackshift (j - k) k)))`;
+    (stackshiftaux k (j-k) j)@(stackshift (j-k) k)
+*)
+ val stackshift_defn = Hol_defn "stackshift" `
+ (stackshift j k =  
+(if k = 0 then []
+  else if j = 0 then [Pops (k - 1); Pop]
+  else if j = 1 then [Pops k]
+  else if j <= k then ( GENLIST (\ i . Store (k - 1)) j) ++(stackshift 0 (k - j))
+  else (stackshiftaux k (j - k) j) ++(stackshift (j - k) k)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn stackshift_defn;
 (*
