@@ -221,7 +221,6 @@ val print_bc_stack_op = let fun
 | f (TagEq n) = "TagEq "^(numML.toString n)
 | f Equal = "Equal"
 | f (Cons (n,m)) = "Cons "^(numML.toString n)^" "^(numML.toString m)
-| f (Shift (n,m)) = "Shift "^(numML.toString n)^" "^(numML.toString m)
 | f (Store n) = "Store "^(numML.toString n)
 | f (LoadRev n) = "LoadRev "^(numML.toString n)
 | f Pop = "Pop"
@@ -272,7 +271,7 @@ fun print_bs bs =
 (rev(snd(foldl (fn (i,(n,ls)) => (n+1,(print_bc_inst i)::ls)) (0,[]) (bc_state_code bs))))
 in
 fun bs_to_term bs =
-  print_bs bs |> map (fn s => Term [QUOTE s])
+  print_bs bs |> map (fn s => Parse.Term [QUOTE s])
     |> (fn ts => listSyntax.mk_list(ts,type_of (hd ts)))
 end
 

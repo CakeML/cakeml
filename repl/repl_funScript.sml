@@ -127,7 +127,7 @@ val initial_bc_state_def =  Define`
       clock := NONE;
       output := "";
       cons_names := [];
-      inst_length := K 0 |> in
+      inst_length := real_inst_length |> in
   THE (bc_eval (install_code [] (SND (SND compile_primitives)) bs))`
 
 val tac = (WF_REL_TAC `measure (LENGTH o SND)` THEN REPEAT STRIP_TAC

@@ -1737,7 +1737,7 @@ val compile_primitives_terminates = store_thm("compile_primitives_terminates",
   disch_then(qspecl_then
     [`<|sm:=[];cls:=FEMPTY|>`
     ,`^(rand(rhs(concl(initial_bc_state_def)))) with
-      <| pc := next_addr (K 0) (PrintE++[Stop])
+      <| pc := next_addr real_inst_length (PrintE++[Stop])
        ; clock := SOME ck
        ; code := PrintE++[Stop]++(REVERSE p2)|>`
     ,`PrintE++[Stop]`]mp_tac) >>
@@ -1801,7 +1801,7 @@ val compile_primitives_terminates = store_thm("compile_primitives_terminates",
   simp[Abbr`bs2`] )
 
 val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
-  ``(initial_bc_state.inst_length = K 0) ∧
+  ``(initial_bc_state.inst_length = real_inst_length) ∧
     good_labels (FST compile_primitives).rnext_label initial_bc_state.code ∧
     (initial_bc_state.clock = NONE) ∧
     (∃ls. initial_bc_state.code = PrintE++Stop::ls) ∧

@@ -118,6 +118,43 @@ val (compile_envref_def, compile_envref_ind) = register "compile_envref" (
   tprove_no_defn ((compile_envref_def, compile_envref_ind),
   WF_REL_TAC `measure (λp. case p of (_,_,CCEnv _) => 0 | (_,_,CCRef _) => 1)`))
 
+val (stackshift_def, stackshift_ind) = register "stackshift" (
+  tprove_no_defn ((stackshift_def, stackshift_ind),
+  WF_REL_TAC `measure FST`))
+
+val (stackshiftaux_def,stackshiftaux_ind) = register"stackshiftaux" (
+  tprove_no_defn ((stackshiftaux_def, stackshiftaux_ind),
+  WF_REL_TAC `measure FST`))
+
+(*
+val [s1,s2,s3,s4] = CONJUNCTS stackshift_def
+val stackshift_alt = prove(
+``stackshift j k =
+  if k = 0 then ^(rhs(concl(Q.SPEC`j`s1)))
+  else if j = 0 then ^(rhs(concl(Q.SPEC`k-1`s2)))
+  else if j = 1 then ^(rhs(concl(Q.SPEC`k-1`s3)))
+  else ^(rhs(concl(Q.SPECL[`j-2`,`k-1`]s4)))``,
+SIMP_TAC(srw_ss()++ARITH_ss)[arithmeticTheory.ADD1] THEN
+Cases_on`k`THEN ASM_SIMP_TAC(srw_ss())[stackshift_def] THEN
+Cases_on`j`THEN ASM_SIMP_TAC(srw_ss())[stackshift_def] THEN
+Cases_on`n'`THEN ASM_SIMP_TAC(srw_ss())[stackshift_def])
+|> SIMP_RULE (srw_ss()++ARITH_ss)[arithmeticTheory.ADD1]
+val _ = register "stackshift"(stackshift_alt,stackshift_ind)
+
+val [s1,s2] = CONJUNCTS stackshiftaux_def
+val stackshiftaux_alt = prove(
+``stackshiftaux i j k =
+  if i = 0 then ^(rhs(concl(Q.SPECL[`k`,`j`]s1)))
+  else ^(rhs(concl(Q.SPECL[`i-1`,`k`,`j`]s2)))``,
+SIMP_TAC(srw_ss()++ARITH_ss)[arithmeticTheory.ADD1] THEN
+Cases_on`i`THEN ASM_SIMP_TAC(srw_ss())[stackshiftaux_def])
+|> SIMP_RULE (srw_ss()++ARITH_ss)[arithmeticTheory.ADD1]
+val _ = save_thm("stackshiftaux_alt",stackshiftaux_alt)
+
+val _ = computeLib.del_persistent_consts[``stackshift``,``stackshiftaux``]
+val _ = computeLib.add_persistent_funs["stackshiftaux_alt","stackshift_alt"]
+*)
+
 val (compile_def, compile_ind) = register "compile" (
   tprove_no_defn ((compile_def, compile_ind),
   WF_REL_TAC `inv_image ($< LEX $<) (λx. case x of

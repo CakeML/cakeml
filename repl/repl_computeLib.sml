@@ -3,59 +3,6 @@ open preamble repl_funTheory ASCIInumbersLib intLib stringLib
 open AstTheory inferTheory CompilerTheory compilerTerminationTheory bytecodeEvalTheory
 open repl_computeTheory;
 
-val t_unify_wfs = prove(
- ``t_wfs s ∧ (t_unify s t1 t2 = SOME sx) ==> t_wfs sx``,
- metis_tac[unifyTheory.t_unify_unifier])
-
-val t_wfs_FEMPTY = prove(
-  ``t_wfs FEMPTY``,
-  rw[unifyTheory.t_wfs_def])
-
-val _ = computeLib.add_funs
-  [unifyTheory.t_walk_eqn
-  ,unifyTheory.t_ext_s_check_eqn
-  ,computeLib.lazyfy_thm(bytecodeEvalTheory.bc_eval_def)
-  ]
-val _ = computeLib.add_funs[listTheory.SUM] (* why isn't this in there already !? *)
-
-val db = ref (Net.insert (rand(concl(t_wfs_FEMPTY)),t_wfs_FEMPTY) Net.empty)
-fun t_unify_conv tm = let
-  val (_,[s,t1,t2]) = strip_comb tm
-  val wfs_s = hd(Net.index s (!db))
-  val th1 = SPECL [t1,t2] (MATCH_MP unifyTheory.t_unify_eqn wfs_s)
-  val th2 = EVAL (rhs(concl th1))
-  val th3 = TRANS th1 th2
-  val res = rhs(concl th2)
-  val _ = if optionSyntax.is_some res then
-          db := Net.insert (rand res,PROVE[wfs_s,t_unify_wfs,th3]``^(rator(concl wfs_s)) ^(rand res)``) (!db)
-          else ()
-  in th3 end
-fun t_vwalk_conv tm = let
-  val (_,[s,t]) = strip_comb tm
-  val wfs_s = hd(Net.index s (!db))
-  val th1 = SPEC t (MATCH_MP unifyTheory.t_vwalk_eqn wfs_s)
-  val th2 = EVAL (rhs(concl th1))
-  in TRANS th1 th2 end
-fun t_oc_conv tm = let
-  val (_,[s,t1,t2]) = strip_comb tm
-  val wfs_s = hd(Net.index s (!db))
-  val th1 = SPECL [t1,t2] (MATCH_MP unifyTheory.t_oc_eqn wfs_s)
-  val th2 = EVAL (rhs(concl th1))
-  in TRANS th1 th2 end
-fun t_walkstar_conv tm = let
-  val (_,[s,t]) = strip_comb tm
-  val wfs_s = hd(Net.index s (!db))
-  val th1 = SPEC t (MATCH_MP unifyTheory.t_walkstar_eqn wfs_s)
-  val th2 = EVAL (rhs(concl th1))
-  in TRANS th1 th2 end
-
-val _ = computeLib.add_convs
-[(``t_unify``,3,t_unify_conv)
-,(``t_vwalk``,2,t_vwalk_conv)
-,(``t_walkstar``,2,t_walkstar_conv)
-,(``t_oc``,3,t_oc_conv)
-]
-
 (* add repl definitions to the compset *)
 
 val RES_FORALL_set = prove(``RES_FORALL (set ls) P = EVERY P ls``,rw[RES_FORALL_THM,listTheory.EVERY_MEM])
@@ -415,22 +362,16 @@ val coneq_conv = PURE_ONCE_REWRITE_CONV (#rewrs(TypeBase.simpls_of``:string id o
                  THENC ONCE_DEPTH_CONV string_EQ_CONV
                  THENC PURE_REWRITE_CONV [REFL_CLAUSE, CONJUNCT2 NOT_CLAUSES, AND_CLAUSES]
 
-fun doit i (lastfm_def, defs, th) = let
+fun doit i (defs, th) = let
   val list_t = rand (rhs (concl th))
   val nstr = listSyntax.mk_length list_t |> (PURE_REWRITE_CONV defs THENC EVAL)
                |> concl |> rhs |> term_to_string
   val _ = print (nstr^" declarations still to go\n")
   val (defs', th20_0) = iterate i defs (rhs (concl th))
   val th20 = CONV_RULE (RAND_CONV (K th20_0)) th
-  val th20_fm = CONV_RULE (PURE_REWRITE_CONV [lastfm_def]) th20
-  val _ = print "  extracting finite-map "
-  val _ = PolyML.fullGC()
-  val (new_th0, fm_conv, new_fmdef) = time (extract_fmap 20 coneq_conv (ALL_HYP_CONV_RULE coneq_conv)) (rhs (concl th20_fm))
-  val new_th = TRANS th20_fm new_th0
-  val _ = computeLib.add_convs [fm_conv]
   val _ = PolyML.fullGC()
 in
-  (new_fmdef, defs', new_th)
+  (defs', th20)
 end
 
 end

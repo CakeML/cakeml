@@ -2010,6 +2010,8 @@ val is_precond = can (match_term ``PRECONDITION b``)
 val IF_TAKEN = prove(
   ``!b x y. b ==> ((if b then x else y) = x:'unlikely)``, SIMP_TAC std_ss []);
 
+val Num_ABS_pat = Eval_Num_ABS |> concl |> rand |> rand |> rand
+
 (*
 val tm = rhs
 *)
@@ -2118,6 +2120,12 @@ fun hol2deep tm =
       val th = MATCH_MP Eval_If (LIST_CONJ [D th1, D th2, D th3])
       val result = UNDISCH th
       in check_inv "if" tm result end else
+  (* Num (ABS i) *)
+  if can (match_term Num_ABS_pat) tm then let
+    val x1 = tm |> rand |> rand
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_Num_ABS th1
+    in check_inv "num_abs" tm result end else
   (* let expressions *)
   if can dest_let tm andalso is_abs (fst (dest_let tm)) then let
     val (x,y) = dest_let tm

@@ -100,6 +100,8 @@ val defs = map EmitML.DEFN
 , underscore_rule cons_closure_def
 , update_refptr_def
 , underscore_rule compile_closures_def
+, stackshiftaux_def
+, stackshift_def
 , fix_compile_bindings_suc (underscore_rule compile_def)
 , free_labs_def
 , cce_aux_def

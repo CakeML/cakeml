@@ -6,8 +6,6 @@ val bc_eval_stack_def = Define`
   (bc_eval_stack Pop (x::xs) = SOME xs)
 ∧ (bc_eval_stack (Pops k) (x::xs) =
    if k ≤ LENGTH xs then SOME (x::(DROP k xs)) else NONE)
-∧ (bc_eval_stack (Shift j k) xs =
-   if j+k ≤ LENGTH xs then SOME (TAKE j xs++DROP (j+k) xs) else NONE)
 ∧ (bc_eval_stack (PushInt n) xs =
    SOME (Number n::xs))
 ∧ (bc_eval_stack (Cons tag k) xs =
@@ -52,11 +50,7 @@ ho_match_mp_tac bc_stack_op_ind >>
 rw[bc_eval_stack_def,
    rich_listTheory.FIRSTN_LENGTH_APPEND,
    rich_listTheory.BUTFIRSTN_LENGTH_APPEND] >>
-srw_tac[ARITH_ss][GSYM arithmeticTheory.ADD1] >- (
-  PROVE_TAC [ADD_COMM, APPEND_ASSOC,
-    arithmeticTheory.LESS_EQ_ADD, LENGTH_APPEND,
-    rich_listTheory.BUTFIRSTN_BUTFIRSTN,
-    rich_listTheory.BUTFIRSTN_LENGTH_APPEND])
+srw_tac[ARITH_ss][GSYM arithmeticTheory.ADD1]
 >- (
   Induct_on `ys` >>
   rw[rich_listTheory.BUTFIRSTN])
@@ -67,22 +61,6 @@ BasicProvers.CASE_TAC>>fs[])
 val bc_eval_stack_thm2 = prove(
 ``∀op xs ys. (bc_eval_stack op xs = SOME ys) ⇒ bc_stack_op op xs ys``,
 Cases >> Cases >>
-TRY (
-  qmatch_rename_tac `∀ys. (bc_eval_stack (Shift j k) [] = SOME ys) ⇒
-    bc_stack_op (Shift j k) [] ys` [] >>
-  simp_tac bool_ss [bc_eval_stack_def] >>
-  rw[] >> rw[bc_stack_op_cases] ) >>
-TRY (
-  qmatch_rename_tac `∀ys. (bc_eval_stack (Shift j k) (h::t) = SOME ys) ⇒
-    bc_stack_op (Shift j k) (h::t) ys` [] >>
-  rw[bc_eval_stack_def,bc_stack_op_cases,LENGTH_NIL_SYM] >> fs[] >- (
-    qexists_tac `h::(TAKE (k - 1) t)` >>
-    srw_tac[ARITH_ss][ADD1] ) >>
-  map_every qexists_tac [`h::(TAKE (j-1) t)`,`TAKE k (DROP (j-1) t)`,`DROP (j+k-1) t`] >>
-  Cases_on `k=0` >> srw_tac[ARITH_ss][] >>
-  Q.ISPECL_THEN [`TAKE (j-1) t`,`DROP (j-1) t`,`j + k - 1`] (mp_tac o GSYM)
-    (Q.GEN `l1` (Q.GEN `l2` TAKE_APPEND2)) >>
-  srw_tac[ARITH_ss][]) >>
 fs[bc_eval_stack_def,bc_stack_op_cases] >> rw[]
 >- (
   qmatch_assum_rename_tac `n ≤ LENGTH t` [] >>

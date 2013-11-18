@@ -536,4 +536,10 @@ val code_labels_ok_REVERSE = store_thm("code_labels_ok_REVERSE",
   rw[code_labels_ok_def,uses_label_thm,EXISTS_REVERSE])
 val _ = export_rewrites["code_labels_ok_REVERSE"]
 
+open bytecodeExtraTheory
+
+val real_inst_length_ok = store_thm("real_inst_length_ok",
+  ``length_ok real_inst_length``,
+  EVAL_TAC >> SIMP_TAC std_ss []);
+
 val _ = export_theory();

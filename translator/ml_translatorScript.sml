@@ -418,6 +418,37 @@ in
   val Eval_INT_GREATER_EQ = f "INT_GREATER_EQ" `Geq`
 end
 
+local
+
+val th0 = Q.SPEC `0` Eval_Val_INT
+val th_sub = MATCH_MP (MATCH_MP Eval_INT_SUB (Q.SPEC `0` Eval_Val_INT))
+            (ASSUME ``Eval env (Var (Short "k")) (INT k)``)
+val th1 = ASSUME ``Eval env (Var (Short "k")) (INT k)``
+val th2 = Eval_INT_LESS  |> Q.SPECL [`k`,`0`]
+          |> (fn th => MATCH_MP th th1) |> (fn th => MATCH_MP th th0)
+val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th_sub,th1]))
+         |> REWRITE_RULE [CONTAINER_def]
+val code =
+  ``Let "k" x1
+       (If (App (Opb Lt) (Var (Short "k")) (Lit (IntLit 0)))
+          (App (Opn Minus) (Lit (IntLit 0)) (Var (Short "k")))
+          (Var (Short "k")))``
+
+in
+
+val Eval_Num_ABS = store_thm("Eval_Num_ABS",
+  ``Eval env x1 (INT i) ==>
+    Eval env ^code (NUM (Num (ABS i)))``,
+  SIMP_TAC std_ss [NUM_def]
+  \\ `&(Num (ABS i)) = let k = i in if k < 0 then 0 - k else k` by
+    (FULL_SIMP_TAC std_ss [LET_DEF] THEN intLib.COOPER_TAC)
+  \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC \\ MATCH_MP_TAC (GEN_ALL Eval_Let)
+  \\ Q.EXISTS_TAC `INT` \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+  \\ MATCH_MP_TAC (GEN_ALL (DISCH_ALL th))
+  \\ FULL_SIMP_TAC std_ss [Eval_Var_SIMP]);
+
+end;
+
 
 (* arithmetic for num *)
 
@@ -1049,6 +1080,17 @@ val DeclAssumC_thm = store_thm ("DeclAssumC_thm",
   `cenv_bind_div_eq init_envC` by EVAL_TAC >>
   metis_tac [result_distinct, eval_decs'_to_eval_decs_simple_pat, EVERY_DEF,
              eval_ctor_inv_def]);
+
+val DeclC_thm = store_thm ("DeclC_thm",
+  ``!ds env cenv2 s2.
+      check_ctors_decs NONE init_envC ds /\
+      Decls NONE [] init_envC empty_store [] ds cenv2 s2 env ==>
+      DeclsC NONE [] init_envC empty_store [] ds cenv2 s2 env``,
+  SRW_TAC [] [DeclAssum_def, DeclAssumC_def, Decls_def, DeclsC_def, empty_store_def]
+  \\ `cenv_bind_div_eq init_envC` by EVAL_TAC
+  \\ METIS_TAC [result_distinct,
+       bigBigEquivTheory.eval_decs'_to_eval_decs_simple_pat, listTheory.EVERY_DEF,
+       bigBigEquivTheory.eval_ctor_inv_def]);
 
 val EvalC_def = Define `
   EvalC cenv env exp P =

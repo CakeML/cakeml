@@ -1,4 +1,4 @@
-open preamble repl_computeLib repl_computeTheory ml_repl_stepTheory replDecsTheory
+open preamble repl_computeLib repl_computeTheory ml_repl_stepTheory replDecsTheory flookupLib
 val _ = new_theory"compileReplDecs"
 
 val ct = ``init_compiler_state.contab``
@@ -8,7 +8,7 @@ val cs = ``<|out:=[];next_label:=init_compiler_state.rnext_label|>``
 val compile_repl_decs_def = zDefine`
   compile_repl_decs = FOLDL (compile_dec1 NONE FEMPTY) (^ct,^m,[],0,^cs) repl_decs`
 
-val _ = computeLib.add_funs[ml_repl_step_decls,repl_decs_def,call_repl_step_dec_def]
+val _ = computeLib.add_funs[ml_repl_step_decls,repl_decs_def]
 val _ = computeLib.stoppers := let
   val stoppers = [``Dlet``,``Dletrec``,``Dtype``]
   in SOME (fn tm => mem tm stoppers) end
@@ -34,7 +34,30 @@ in
   (CONV_RULE (RAND_CONV (RAND_CONV (replace defs))) initial_split20, defs)
 end
 
-val x100 = doit 5 (TRUTH, decllist_defs, initial')
+val fapply_tms = [
+ ``fapply``
+,``exp_to_Cexp``
+,``compile_dec``
+,``compile_fake_exp``
+,``compile_dec1``]
+
+val fapply_thms = [
+  CompilerLibTheory.fapply_def
+, exp_to_Cexp_def
+, compile_dec_def
+, compile_fake_exp_def
+, compile_dec1_def
+]
+
+val () =
+  ( computeLib.del_consts (finite_mapSyntax.flookup_t::fapply_tms)
+  ; computeLib.add_convs
+    [(finite_mapSyntax.flookup_t, 2, (* PRINT_CONV THENC *) FLOOKUP_DEFN_CONV (* THENC PRINT_CONV *)) ]
+  ; computeLib.add_funs fapply_thms)
+
+(* val _ = computeLib.monitoring := SOME (fn tm => fst (dest_strip_comb tm) = "CompilerLib$fapply") *)
+
+val x100 = doit 5 (decllist_defs, initial')
 val x140 = doit 2 x100;
 val x180 = doit 2 x140
 val x220 = doit 2 x180;
@@ -49,7 +72,7 @@ val x380 = doit 1 x360;
 val x400 = doit 1 x380;
 val x420 = doit 1 x400;
 val x440 = doit 1 x420;
-val (_,_,th) = x440;
+val (_,th) = x440;
 
 val repl_decs_compiled = save_thm("repl_decs_compiled", th);
 
