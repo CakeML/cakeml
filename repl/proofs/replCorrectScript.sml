@@ -1718,8 +1718,6 @@ val compile_primitives_terminates = store_thm("compile_primitives_terminates",
       initial_bc_state.pc = next_addr initial_bc_state.inst_length initial_bc_state.code ∧
       initial_bc_state.stack ≠ [] ∧
       ∃rd. env_rs [] init_envC (0,[]) init_env (FST compile_primitives) (LENGTH initial_bc_state.stack) rd initial_bc_state``,
-  cheat);
-(*
   qho_match_abbrev_tac`bc_eval bs = SOME bs1i ∧ P` >>
   `evaluate_top [] init_envC [] [] (Tdec initial_program) ([],[],Rval ([],init_env))`
         by (rw [evaluate_top_cases, LibTheory.emp_def] >>
@@ -1739,7 +1737,7 @@ val compile_primitives_terminates = store_thm("compile_primitives_terminates",
   disch_then(qspecl_then
     [`<|sm:=[];cls:=FEMPTY|>`
     ,`^(rand(rhs(concl(initial_bc_state_def)))) with
-      <| pc := next_addr (K 0) (PrintE++[Stop])
+      <| pc := next_addr real_inst_length (PrintE++[Stop])
        ; clock := SOME ck
        ; code := PrintE++[Stop]++(REVERSE p2)|>`
     ,`PrintE++[Stop]`]mp_tac) >>
@@ -1801,7 +1799,6 @@ val compile_primitives_terminates = store_thm("compile_primitives_terminates",
   qexists_tac`bs1` >>
   simp[] >>
   simp[Abbr`bs2`] )
-*)
 
 val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   ``(initial_bc_state.inst_length = real_inst_length) ∧
