@@ -6,10 +6,10 @@ inference/proofs
 bytecode
 compiler
 compiler/proofs
-translator
-translator/repl
 repl
 repl/proofs
+translator
+translator/repl
 parsing/testing
 inference/tests
 compiler/tests
