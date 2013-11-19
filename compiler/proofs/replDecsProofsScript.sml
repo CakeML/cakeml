@@ -123,7 +123,7 @@ val compile_call_repl_step_thm = store_thm("compile_call_repl_step_thm",
       ∧ bs'.pc = next_addr bs.inst_length bs.code
       ∧ bs'.output = bs.output
       ∧ env_rs [] cenv (ck,s') env rs csz rd' bs'``,
-   rw[BigStepTheory.evaluate_dec_cases] >>
+   rw[bigStepTheory.evaluate_dec_cases] >>
    imp_res_tac big_unclocked >> rw[] >>
    fs[big_clocked_unclocked_equiv] >>
    `env_rs [] cenv (count',s) env rs csz rd bs` by (
@@ -148,7 +148,7 @@ val compile_call_repl_step_thm = store_thm("compile_call_repl_step_thm",
    simp[pairTheory.EXISTS_PROD,Abbr`res`] >>
    Cases_on`v`>>fs[terminationTheory.pmatch_def] >>
    qpat_assum`X = Match []`mp_tac >>
-   rw[] >> fs[v_to_Cv_def,LibTheory.emp_def] >> rw[] >>
+   rw[] >> fs[v_to_Cv_def,libTheory.emp_def] >> rw[] >>
    rfs[Abbr`e`,exp_to_Cexp_def,LET_THM] >>
    qmatch_assum_abbrev_tac`Cevaluate FEMPTY Cs0 Cenv0 exp Cres0` >>
    qpat_assum`bs.code = X`(assume_tac o SYM) >>
@@ -194,7 +194,7 @@ val compile_call_repl_step_thm = store_thm("compile_call_repl_step_thm",
    simp[Abbr`Css`,Abbr`cs`,Abbr`cst`,Abbr`code`] >>
    discharge_hyps >- (
      `free_labs (LENGTH Cenv) exp = [] ∧ all_labs exp ∧ free_vars exp = [n]` by (
-       simp[Abbr`exp`,CompilerLibTheory.lunion_def] ) >>
+       simp[Abbr`exp`,compilerLibTheory.lunion_def] ) >>
      simp[intLangExtraTheory.all_vlabs_menv_def,intLangExtraTheory.vlabs_menv_def] >>
      fs[good_labels_def] >>
      imp_res_tac miscTheory.find_index_LESS_LENGTH >>
@@ -286,7 +286,7 @@ val compile_call_repl_step_thm = store_thm("compile_call_repl_step_thm",
      simp[MEM_EL, GSYM LEFT_FORALL_IMP_THM] >>
      rw[] >> res_tac >>
      fs[] >> rfs[EL_MAP] >>
-     res_tac >> fs[CompilerLibTheory.el_check_def] >>
+     res_tac >> fs[compilerLibTheory.el_check_def] >>
      spose_not_then strip_assume_tac >>
      fsrw_tac[ARITH_ss][] ) >>
    fs[Cenv_bs_def,s_refs_def,Abbr`bs2`,good_rd_def])
