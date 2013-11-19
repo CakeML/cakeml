@@ -8,6 +8,7 @@ open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open wordsTheory wordsLib integer_wordTheory;
 open prog_x64_extraTheory prog_x64Theory temporalTheory;
 open lexer_funTheory lexer_implTheory ml_translatorTheory;
+open repl_fun_altTheory
 
 open BytecodeTheory (* repl_funTheory *);
 
@@ -80,11 +81,12 @@ val consts_zero = Define `
                    install_and_run_ptr := 0w |>`;
 
 val _ = Hol_datatype ` (* called local *)
-  zheap_local = <| stop_addr : word64
-                 |> `;
+  zheap_local = <| stop_addr : word64 ;
+                   printing_on : word64 |> `;
 
 val local_zero_def = Define `
-  local_zero = <| stop_addr := 0w |>`;
+  local_zero = <| stop_addr := 0w;
+                  printing_on := 0w |>`;
 
 val _ = Hol_datatype ` (* called vs *)
   zheap_vars = <| current_heap : word64 ;
@@ -156,6 +158,8 @@ val x64_store_def = Define `
       ; cs.lex_ptr               (* 120 lexer *)
       ; cs.install_and_run_ptr   (* 128 install and run bytecode *)
       ; vs.local.stop_addr       (* 136 address where bc execution returns *)
+      ; vs.local.printing_on     (* 144 address where bc execution returns *)
+      ; 0w                       (* 152 padding *)
       ]`;
 
 val not_0w_def = Define `not_0w = ~0w`;
@@ -611,6 +615,10 @@ val (x64_setup_res, x64_setup_def, x64_setup_pre_def) = x64_compile `
     let m = (r0 =+ r14) m in
     let r0 = r0 + 8w in
     let m = (r0 =+ r14) m in
+    let r0 = r0 + 8w in
+    let m = (r0 =+ r14) m in
+    let r0 = r0 + 8w in
+    let m = (r0 =+ r14) m in
     let r0 = r14 in
     let r1 = r14 in
     let r2 = r14 in
@@ -657,7 +665,7 @@ val init_inv_IMP_heap_inv = prove(
   \\ SIMP_TAC std_ss [LET_DEF,init_inv_def] \\ STRIP_TAC
   \\ Q.ABBREV_TAC `heap_len = ^heap_len`
   \\ Q.ABBREV_TAC `curr = init.init_heap_ptr + n2w (8 * ^store_length)`
-  \\ `(vals.memory init.init_heap_ptr - n2w (ID 144)) >>> 4 = n2w heap_len` by
+  \\ `(vals.memory init.init_heap_ptr - n2w (ID 160)) >>> 4 = n2w heap_len` by
    (FULL_SIMP_TAC std_ss [one_list_def,APPEND] \\ SEP_R_TAC
     \\ UNABBREV_ALL_TAC \\ Cases_on `init.init_heap_size`
     \\ FULL_SIMP_TAC std_ss [w2n_n2w,WORD_SUB_INTRO,ID_def]
@@ -9570,9 +9578,6 @@ val zBC_END_OF_CODE = SPEC_COMPOSE_RULE
     zHEAP_LOAD_IMM1 |> Q.INST [`k`|->`0`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES],
     zHEAP_JMP_STOP_ADDR] |> fix_code
 
-val zBC_LoadRev = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_LoadRev,zHEAP_NOP]
-  |> RW [IMM32_def] |> fix_code
-
 
 (* translation function *)
 
@@ -9597,23 +9602,6 @@ val x64_def = Define `
   (x64 i (Stack (El k)) = small_offset k (^(get_code zBC_El))) /\
   (x64 i (Stack (LoadRev k)) =
     small_offset k (let k = k + 2 in ^(get_code zBC_LoadRev))) /\
-  (x64 i (Stack (Shift len skip)) =
-    small_offset (len + skip)
-     (small_offset len
-      (small_offset skip
-       (if skip = 0 then ^(get_code zBC_Tick) else
-       if len = 0 then let k = skip - 1 in ^(get_code zBC_Shift0) else
-       if len = 1 then let k = skip in ^(get_code zBC_Shift1) else
-       if len - 1 <= skip then
-         let i = len - 1 in
-         let n = skip - 1 in
-         let k = skip - (len - 1) in ^(get_code zBC_Shift2)
-       else
-         let i1 = len in
-         let n1 = len - 1 in
-         let i = len - 1 in
-         let n = (len - 1) + skip in
-         let k = skip + 1 in ^(get_code zBC_Shift3))))) /\
   (x64 i (Stack (Cons tag len)) =
      if tag < 4096 /\ len < 32768 then
        (if len = 0 then
@@ -9688,18 +9676,6 @@ val real_inst_length_def = zDefine `
    case bc of
      Stack Pop => 0
    | Stack (Pops v25) => if v25 < 268435456 then 4 else 1
-   | Stack (Shift v26 v27) =>
-       if v26 + v27 < 268435456 then
-         if v26 < 268435456 then
-           if v27 < 268435456 then
-             if v27 = 0 then 1
-             else if v26 = 0 then 5
-             else if v26 = 1 then 4
-             else if v26 ≤ 1 + v27 then ((v26 − 1) * 10 + 16) DIV 2 − 1
-             else (v26 * 10 + ((v26 − 1) * 10 + 20)) DIV 2 − 1
-           else 1
-         else 1
-       else 1
    | Stack (PushInt v28) =>
        if v28 < 268435456 then if v28 < 0 then 1 else 4 else 1
    | Stack (Cons v29 v30) =>
@@ -10334,7 +10310,6 @@ val ic_Any_thm = prove(
     \\ FULL_SIMP_TAC std_ss [AC MULT_ASSOC MULT_COMM]
     \\ FULL_SIMP_TAC std_ss [small_int_def]
     \\ REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
-  THEN1 cheat (* Shift not properly handled *)
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
   \\ SIMP_TAC std_ss [x64_def]
   \\ Cases_on `n0 = 0` \\ FULL_SIMP_TAC std_ss [LET_DEF] THEN1
@@ -12198,29 +12173,6 @@ val LESS_EQ_LENGTH_ALT = prove(
   \\ Q.EXISTS_TAC `h::l` \\ FULL_SIMP_TAC std_ss []
   \\ Q.EXISTS_TAC `x::ys2` \\ FULL_SIMP_TAC (srw_ss()) []);
 
-val x64_length_Stack_Shift = prove(
-  ``2 <= x64_length (Stack (Shift len skip))``,
-  SIMP_TAC std_ss [x64_length_def,x64_def,small_offset_def]
-  \\ SRW_TAC [] [LENGTH] \\ SRW_TAC [] [LENGTH] \\ DECIDE_TAC);
-
-val TWICE_x64_inst_length = prove(
-  ``2 * (w + x64_inst_length (Stack (Shift len skip)) + 1) =
-    2 * w + x64_length (Stack (Shift len skip))``,
-  SIMP_TAC std_ss [LEFT_ADD_DISTRIB,GSYM ADD_ASSOC]
-  \\ SIMP_TAC std_ss [x64_inst_length_def]
-  \\ ASSUME_TAC x64_length_Stack_Shift
-  \\ `EVEN (x64_length (Stack (Shift len skip)))` by
-       ASM_SIMP_TAC std_ss [x64_length_EVEN]
-  \\ Cases_on `x64_length (Stack (Shift len skip))`
-  \\ FULL_SIMP_TAC std_ss []
-  \\ Cases_on `n` \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC std_ss [LEFT_SUB_DISTRIB,ADD1,GSYM ADD_ASSOC]
-  \\ FULL_SIMP_TAC std_ss [EVEN_ADD]
-  \\ FULL_SIMP_TAC std_ss [EVEN_EXISTS]
-  \\ SRW_TAC[ARITH_ss][bitTheory.DIV_MULT_THM2]
-  \\ SRW_TAC[][ADD_MODULUS]
-  \\ METIS_TAC [MULT_SYM,SUB_0,MOD_EQ_0,DECIDE``0:num < 2``]);
-
 val zBC_HEAP_THM = prove(
   ``EVEN (w2n cb) /\ (cs.stack_trunk - n2w (8 * SUC (LENGTH stack)) = sb) ==>
     !s1 s2.
@@ -12286,198 +12238,6 @@ val zBC_HEAP_THM = prove(
         MAP (bc_adjust (cb,sb,ev)) xs ++ Number 0::stack` by ALL_TAC
     THEN1 (METIS_TAC [rich_listTheory.DROP_LENGTH_APPEND,LENGTH_MAP,APPEND_ASSOC])
     \\ FULL_SIMP_TAC (std_ss++star_ss) [])
-  THEN1 (* Shift *)
-   (Q.MATCH_ASSUM_RENAME_TAC `bc_fetch s1 = SOME (Stack (Shift len skip))` []
-    \\ Q.MATCH_ASSUM_RENAME_TAC `s1.stack = xs1 ++ (xs2 ++ xs)` []
-    \\ Q.PAT_ASSUM `len = LENGTH xs1` (ASSUME_TAC o GSYM)
-    \\ Q.PAT_ASSUM `skip = LENGTH xs2` (ASSUME_TAC o GSYM)
-    \\ ASM_SIMP_TAC (srw_ss()) [bump_pc_def,LEFT_ADD_DISTRIB,TWICE_x64_inst_length]
-    \\ ASM_SIMP_TAC std_ss [x64_length_def,x64_def,LET_DEF,small_offset_def,
-         LENGTH,LENGTH_NTIMES,LENGTH_APPEND,LENGTH_IMM32]
-    \\ ASM_SIMP_TAC std_ss [ADD1,GSYM ADD_ASSOC]
-    \\ Cases_on `skip = 0` \\ FULL_SIMP_TAC std_ss [] THEN1
-     (Cases_on `xs2` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1,APPEND]
-      \\ SIMP_TAC (srw_ss()) [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,
-           MAP_APPEND,MAP,small_offset_def]
-      \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
-      \\ REPEAT STRIP_TAC
-      \\ MATCH_MP_TAC (MATCH_MP SPEC_WEAKEN (prepare zBC_Tick) |> SPEC_ALL
-                    |> DISCH_ALL |> RW [AND_IMP_INTRO])
-      \\ ASM_SIMP_TAC (srw_ss()) []
-      \\ REPEAT STRIP_TAC
-      \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,small_offset_def,
-           LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1]
-      \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
-      \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
-      \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
-      \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC])
-    \\ Cases_on `LENGTH xs1 = 0` \\ FULL_SIMP_TAC std_ss [] THEN1
-     (Cases_on `xs2` \\ FULL_SIMP_TAC (srw_ss()) [LENGTH_NIL]
-      \\ SIMP_TAC (srw_ss()) [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,
-           MAP_APPEND,MAP]
-      \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
-      \\ REPEAT STRIP_TAC
-      \\ MATCH_MP_TAC (MATCH_MP SPEC_WEAKEN (prepare zBC_Shift0) |> SPEC_ALL
-                    |> DISCH_ALL |> RW [AND_IMP_INTRO])
-      \\ ASM_SIMP_TAC (srw_ss()) []
-      \\ REPEAT STRIP_TAC
-      \\ Q.PAT_ASSUM `0 = len` (ASSUME_TAC o GSYM)
-      \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,small_offset_def,
-           LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1,LET_DEF]
-      \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM]
-      \\ REPEAT STRIP_TAC
-      \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def,GSYM LENGTH_NIL]
-      \\ TRY DECIDE_TAC
-      \\ POP_ASSUM MP_TAC
-      \\ Q.PAT_ASSUM `SUC (LENGTH t) = skip` (ASSUME_TAC o GSYM)
-      \\ FULL_SIMP_TAC std_ss [ADD1,DROP_MAP_APPEND,GSYM APPEND_ASSOC]
-      \\ REPEAT STRIP_TAC \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
-      \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC])
-    \\ `len <> 0` by DECIDE_TAC \\ FULL_SIMP_TAC std_ss []
-    \\ Cases_on `len = 1` \\ FULL_SIMP_TAC std_ss [] THEN1
-     (`?x. xs1 = [x]` by ALL_TAC THEN1
-        (Cases_on `xs1` \\ FULL_SIMP_TAC (srw_ss()) []
-         \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) [])
-      \\ FULL_SIMP_TAC std_ss [APPEND]
-      \\ SIMP_TAC (srw_ss()) [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,
-           MAP_APPEND,MAP]
-      \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
-      \\ REPEAT STRIP_TAC
-      \\ MATCH_MP_TAC (MATCH_MP SPEC_WEAKEN (prepare zBC_Pops)
-         |> Q.INST [`k`|->`n`] |> SPEC_ALL
-         |> DISCH_ALL |> RW [AND_IMP_INTRO])
-      \\ ASM_SIMP_TAC (srw_ss()) []
-      \\ REPEAT STRIP_TAC
-      \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,
-         LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1]
-      \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM]   \\ REPEAT STRIP_TAC
-      THEN1 DECIDE_TAC
-      \\ Q.PAT_ASSUM `n = xxx` ASSUME_TAC
-      \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,
-         LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1,
-         small_offset_def,LET_DEF,GSYM ADD_ASSOC,IMM32_def]
-      \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def]
-      \\ Q.LIST_EXISTS_TAC [`x2`,`x3`]
-      \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
-      \\ Q.PAT_ASSUM `xx = skip` (ASSUME_TAC o GSYM)
-      \\ FULL_SIMP_TAC std_ss [DROP_MAP_APPEND,GSYM APPEND_ASSOC]
-      \\ FULL_SIMP_TAC (std_ss++star_ss) [])
-    \\ Cases_on `len <= 1 + skip` \\ FULL_SIMP_TAC std_ss [] THEN1
-     (Cases_on `xs1` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD1]
-      \\ Q.PAT_ASSUM `LENGTH t + 1 = len` (ASSUME_TAC o GSYM)
-      \\ Q.PAT_ASSUM `LENGTH xs2 = skip` (ASSUME_TAC o GSYM)
-      \\ FULL_SIMP_TAC std_ss [DECIDE ``(n + 1 <= 1 + k) <=> n <= k:num``]
-      \\ IMP_RES_TAC LESS_EQ_LENGTH_ALT
-      \\ FULL_SIMP_TAC std_ss [APPEND_ASSOC]
-      \\ SIMP_TAC (srw_ss()) [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,
-           MAP_APPEND,MAP]
-      \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
-      \\ REPEAT STRIP_TAC
-      \\ MATCH_MP_TAC (MATCH_MP SPEC_WEAKEN (prepare zBC_Shift2) |> SPEC_ALL
-                    |> DISCH_ALL |> RW [AND_IMP_INTRO])
-      \\ ASM_SIMP_TAC (srw_ss()) []
-      \\ (SND_n_stores |> SIMP_RULE std_ss [LENGTH_APPEND]
-           |> Q.SPECL [`MAP (bc_adjust (cb,sb,ev)) t`,
-                       `MAP (bc_adjust (cb,sb,ev)) ys1`,
-                       `MAP (bc_adjust (cb,sb,ev)) ys2`,
-                `MAP (bc_adjust (cb,sb,ev)) xs ++ Number 0::stack`,
-                `bc_adjust (cb,sb,ev) h`]
-           |> SIMP_RULE std_ss [LENGTH_MAP] |> MP_TAC)
-      \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
-      THEN1 (FULL_SIMP_TAC std_ss [LENGTH_APPEND] \\ DECIDE_TAC)
-      \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-      \\ FULL_SIMP_TAC std_ss [AC ADD_COMM ADD_ASSOC,APPEND_ASSOC]
-      \\ FULL_SIMP_TAC std_ss [LENGTH_APPEND,LENGTH_MAP]
-      \\ STRIP_TAC THEN1 DECIDE_TAC
-      \\ FULL_SIMP_TAC std_ss [DROP_MAP_APPEND,GSYM APPEND_ASSOC]
-      \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,small_offset_def,
-           LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1,LET_DEF,
-           LENGTH_NTIMES,LENGTH_APPEND,LENGTH_IMM32,ADD1,GSYM ADD_ASSOC]
-      \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,small_offset_def,
-           LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1,LET_DEF,
-           LENGTH_NTIMES,LENGTH_APPEND,LENGTH_IMM32,ADD1,ADD_ASSOC]
-      \\ FULL_SIMP_TAC (srw_ss()) []
-      \\ `2 * s1.pc + 3 + 3 + 10 + LENGTH t * 10 =
-          6 + 2 * s1.pc + 10 + LENGTH t * 10` by DECIDE_TAC
-      \\ FULL_SIMP_TAC std_ss []
-      \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM]
-      \\ REPEAT STRIP_TAC
-      \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def,GSYM LENGTH_NIL]
-      \\ REPEAT STRIP_TAC \\ Q.LIST_EXISTS_TAC [`bc_adjust (cb,sb,ev) h`,`x3`]
-      \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC,GSYM MULT_ASSOC])
-    \\
-     (Q.PAT_ASSUM `LENGTH xs1 = len` (ASSUME_TAC o GSYM)
-      \\ Q.PAT_ASSUM `LENGTH xs2 = skip` (ASSUME_TAC o GSYM)
-      \\ SIMP_TAC (srw_ss()) [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,
-           MAP_APPEND,MAP]
-      \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
-      \\ REPEAT STRIP_TAC \\ SIMP_TAC std_ss [GSYM LEFT_ADD_DISTRIB,
-           DECIDE ``8 * skip + 8 = 8 * (skip + 1:num)``]
-      \\ MATCH_MP_TAC (MATCH_MP SPEC_WEAKEN (prepare zBC_Shift3) |> SPEC_ALL
-                    |> DISCH_ALL |> RW [AND_IMP_INTRO,APPEND,GSYM APPEND_ASSOC])
-      \\ ASM_SIMP_TAC (srw_ss()) [HD_CONS_TL]
-      \\ `(LENGTH xs1 = LENGTH (MAP (bc_adjust (cb,sb,ev)) xs1)) /\
-          LENGTH (MAP (bc_adjust (cb,sb,ev)) xs1) < 268435457` by ALL_TAC
-      THEN1 (FULL_SIMP_TAC std_ss [LENGTH_MAP] \\ DECIDE_TAC)
-      \\ ASM_SIMP_TAC std_ss [SND_n_loads,GSYM APPEND_ASSOC]
-      \\ SIMP_TAC std_ss [APPEND_eq_NIL,NOT_CONS_NIL,LENGTH_MAP]
-      \\ Cases_on `xs1` \\ FULL_SIMP_TAC std_ss [LENGTH,MAP,HD,TL,APPEND]
-      \\ Q.ABBREV_TAC `xs3 = h::t++xs2`
-      \\ `(MAP (bc_adjust (cb,sb,ev)) t ++
-            bc_adjust (cb,sb,ev) h::
-              (MAP (bc_adjust (cb,sb,ev)) t ++
-               (MAP (bc_adjust (cb,sb,ev)) xs2 ++
-                (MAP (bc_adjust (cb,sb,ev)) xs ++
-                 Number 0::stack)))) =
-          (MAP (bc_adjust (cb,sb,ev)) t ++
-              (MAP (bc_adjust (cb,sb,ev)) xs3 ++
-                (MAP (bc_adjust (cb,sb,ev)) xs ++
-                 Number 0::stack)))` by ALL_TAC
-      THEN1 (UNABBREV_ALL_TAC \\ FULL_SIMP_TAC (srw_ss()) [])
-      \\ FULL_SIMP_TAC std_ss []
-      \\ `LENGTH t <= LENGTH xs3` by (UNABBREV_ALL_TAC
-            \\ FULL_SIMP_TAC (srw_ss()) [] \\ DECIDE_TAC)
-      \\ IMP_RES_TAC LESS_EQ_LENGTH_ALT \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
-      \\ FULL_SIMP_TAC std_ss [APPEND_ASSOC,MAP_APPEND]
-      \\ `(LENGTH (MAP (bc_adjust (cb,sb,ev)) t) + LENGTH xs2 =
-           LENGTH (MAP (bc_adjust (cb,sb,ev)) t ++
-            MAP (bc_adjust (cb,sb,ev)) ys1) - 1) /\
-          (LENGTH xs2 + 1 = LENGTH ys1)` by ALL_TAC THEN1
-       (FULL_SIMP_TAC (srw_ss()) [markerTheory.Abbrev_def]
-        \\ `LENGTH (ys1 ++ ys2) = LENGTH (h::(t ++ xs2))` by METIS_TAC []
-        \\ `LENGTH xs3 = LENGTH (ys1 ++ ys2)` by METIS_TAC []
-        \\ `LENGTH ys = LENGTH (h::(t ++ xs))` by METIS_TAC []
-        \\ FULL_SIMP_TAC (srw_ss()) []
-        \\ `LENGTH ys1 = SUC (LENGTH t + LENGTH xs2) - LENGTH ys2` by DECIDE_TAC
-        \\ FULL_SIMP_TAC std_ss []
-        \\ REPEAT (POP_ASSUM (K ALL_TAC)) \\ DECIDE_TAC)
-      \\ FULL_SIMP_TAC std_ss []
-      \\ (SND_n_stores |> SIMP_RULE std_ss []
-           |> Q.SPECL [`MAP (bc_adjust (cb,sb,ev)) t`,
-                       `MAP (bc_adjust (cb,sb,ev)) ys1`,
-                       `MAP (bc_adjust (cb,sb,ev)) ys2`,
-                       `MAP (bc_adjust (cb,sb,ev)) xs ++ Number 0::stack`,
-                       `(bc_adjust (cb,sb,ev) h)`] |> MP_TAC)
-      \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
-      THEN1 (FULL_SIMP_TAC std_ss [LENGTH_MAP,LENGTH_APPEND] \\ DECIDE_TAC)
-      \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss [APPEND_ASSOC]
-      \\ STRIP_TAC
-      THEN1 (FULL_SIMP_TAC std_ss [LENGTH_MAP,LENGTH_APPEND] \\ DECIDE_TAC)
-      \\ FULL_SIMP_TAC std_ss [LENGTH_APPEND |> RW1 [ADD_COMM]]
-      \\ FULL_SIMP_TAC std_ss [LENGTH_MAP,DROP_MAP_APPEND,GSYM APPEND_ASSOC]
-      \\ FULL_SIMP_TAC (srw_ss())
-           [LENGTH_NTIMES,LENGTH_APPEND,LENGTH_IMM32,ADD1,ADD_ASSOC]
-      \\ FULL_SIMP_TAC (srw_ss())
-           [LENGTH_NTIMES,LENGTH_APPEND,LENGTH_IMM32,ADD1,GSYM ADD_ASSOC]
-      \\ `(5 + ((LENGTH t + 1) * 10 + (2 + (3 + (LENGTH t * 10 + 10))))) =
-          (((LENGTH t + 1) * 10 + (LENGTH t * 10 + 20)))` by DECIDE_TAC
-      \\ FULL_SIMP_TAC std_ss [word_arith_lemma1]
-      \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM]
-      \\ REPEAT STRIP_TAC
-      \\ FULL_SIMP_TAC (srw_ss()) [SEP_DISJ_def,GSYM LENGTH_NIL]
-      \\ REPEAT STRIP_TAC \\ Q.LIST_EXISTS_TAC [`bc_adjust (cb,sb,ev) h`,`x3`]
-      \\ FULL_SIMP_TAC (std_ss++star_ss) [GSYM ADD_ASSOC,GSYM MULT_ASSOC,
-           word_arith_lemma1]))
   THEN1 (* PushInt *)
    (Cases_on `i < 0` \\ FULL_SIMP_TAC std_ss [] THEN1 ERROR_TAC
     \\ SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF]

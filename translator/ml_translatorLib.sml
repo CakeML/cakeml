@@ -72,6 +72,8 @@ fun MY_MP name th1 th2 =
       val _ = print "\n\n"
     in raise e end
 
+val all_cheats = ref (tl [(T, TRUTH)]);
+
 local
   (* inv: get_DeclAssum () is a hyp in each thm in each !cert_memory *)
   val module_name = ref "";
@@ -201,7 +203,12 @@ in
     val d = (!decl_term) |> rator |> rand
     val th = MATCH_MP IMP_check_ctors_decs_SNOC (!check_ctors) |> SPEC d
     val tm = th |> concl |> dest_imp |> fst
-    val lemma = prove(tm,cheat (* PURE_REWRITE_TAC [cenv] THEN EVAL_TAC *))
+(*
+    val _ = (all_cheats := (tm,cenv)::(!all_cheats))
+    val _ = print "\nSlow proof: "
+    val lemma = time prove(tm,PURE_REWRITE_TAC [cenv] THEN EVAL_TAC)
+*)
+    val lemma = prove(tm,cheat)
     val th = MY_MP "snoc_decl" th lemma
     val _ = (check_ctors := th)
     val _ = map_cert_memory f
