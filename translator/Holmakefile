@@ -6,7 +6,7 @@ print_astScript.sml : $(print_ast_deps) print_ast.lem
 	lem -auxiliary_level none $(patsubst %,-i %,$(print_ast_deps)) -hol print_ast.lem
 
 ifdef POLY
-#HOLHEAP = local-hol-heap
+HOLHEAP = local-hol-heap
 PARENT_HOLHEAP = ../semantics/sem_heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
