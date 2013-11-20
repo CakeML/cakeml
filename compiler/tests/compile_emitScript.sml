@@ -1,6 +1,6 @@
 open HolKernel bossLib boolLib EmitTeX
 open miscTheory bytecode_emitTheory extended_emitTheory basis_emitTheory
-open CompilerLibTheory IntLangTheory ToIntLangTheory ToBytecodeTheory CompilerTheory PrinterTheory compilerTerminationTheory
+open compilerLibTheory intLangTheory toIntLangTheory toBytecodeTheory compilerTheory printerTheory compilerTerminationTheory
 val _ = new_theory "compile_emit"
 
 val _ = Parse.temp_type_abbrev("set",``:'a -> bool``)
@@ -46,19 +46,19 @@ val CONCAT_RULE = PURE_REWRITE_RULE[mk_thm([],mk_eq(``FLAT:string list -> string
 
 val data = map
   (fn th => EmitML.DATATYPE [QUOTE (datatype_thm_to_string th)])
-  [ AstTheory.datatype_opb
-  , AstTheory.datatype_opn
-  , AstTheory.datatype_op
-  , AstTheory.datatype_uop
-  , AstTheory.datatype_lop
-  , AstTheory.datatype_pat
-  , AstTheory.datatype_exp
-  , SemanticPrimitivesTheory.datatype_v
-  , AstTheory.datatype_tc0
-  , AstTheory.datatype_t
-  , AstTheory.datatype_dec
-  , AstTheory.datatype_spec
-  , AstTheory.datatype_top
+  [ astTheory.datatype_opb
+  , astTheory.datatype_opn
+  , astTheory.datatype_op
+  , astTheory.datatype_uop
+  , astTheory.datatype_lop
+  , astTheory.datatype_pat
+  , astTheory.datatype_exp
+  , semanticPrimitivesTheory.datatype_v
+  , astTheory.datatype_tc0
+  , astTheory.datatype_t
+  , astTheory.datatype_dec
+  , astTheory.datatype_spec
+  , astTheory.datatype_top
   , datatype_Cprim1
   , datatype_Cprim2
   , datatype_Cpat
@@ -106,15 +106,15 @@ val defs = map EmitML.DEFN
 , free_labs_def
 , cce_aux_def
 , compile_code_env_def
-, IntLangTheory.tuple_cn_def
-, IntLangTheory.bind_exc_cn_def
-, IntLangTheory.div_exc_cn_def
-, IntLangTheory.eq_exc_cn_def
-, IntLangTheory.nil_exc_cn_def
-, IntLangTheory.cons_exc_cn_def
-, IntLangTheory.CBind_exc_def
-, IntLangTheory.CDiv_exc_def
-, IntLangTheory.CEq_exc_def
+, intLangTheory.tuple_cn_def
+, intLangTheory.bind_exc_cn_def
+, intLangTheory.div_exc_cn_def
+, intLangTheory.eq_exc_cn_def
+, intLangTheory.nil_exc_cn_def
+, intLangTheory.cons_exc_cn_def
+, intLangTheory.CBind_exc_def
+, intLangTheory.CDiv_exc_def
+, intLangTheory.CEq_exc_def
 , opn_to_prim2_def
 , init_compiler_state_def
 , pat_to_Cpat_def
@@ -122,11 +122,11 @@ val defs = map EmitML.DEFN
 , underscore_rule remove_mat_var_def
 , underscore_rule exp_to_Cexp_def
 , compile_Cexp_def
-, AstTheory.mk_id_def
+, astTheory.mk_id_def
 , CONCAT_RULE number_constructors_def
 , dec_to_contab_def
 , decs_to_contab_def
-, AstTheory.pat_bindings_def
+, astTheory.pat_bindings_def
 , CONCAT_RULE compile_news_def
 , compile_fake_exp_def
 , CONCAT_RULE compile_dec_def

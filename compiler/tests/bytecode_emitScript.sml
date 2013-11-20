@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib EmitTeX basis_emitTheory
-open CompilerLibTheory PrinterTheory BytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory
+open compilerLibTheory printerTheory bytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory
 open bytecodeLabelsTheory
 val _ = new_theory "bytecode_emit"
 
@@ -11,9 +11,9 @@ val _ = Feedback.set_trace "Greek tyvars" 0 (* EmitML should do this *)
 
 val data = map
   (fn th => EmitML.DATATYPE [QUOTE (datatype_thm_to_string th)])
-  [AstTheory.datatype_lit,
-   AstTheory.datatype_id,
-   SemanticPrimitivesTheory.datatype_eq_result,
+  [astTheory.datatype_lit,
+   astTheory.datatype_id,
+   semanticPrimitivesTheory.datatype_eq_result,
    datatype_bc_stack_op,
    datatype_loc,
    datatype_ov,
@@ -54,10 +54,10 @@ val CONCAT_RULE = PURE_REWRITE_RULE[mk_thm([],mk_eq(``FLAT:string list -> string
 val defs = map EmitML.DEFN [
 optionTheory.OPTION_BIND_def,
 fapply_def,
-SemanticPrimitivesTheory.int_to_string_def,
-SemanticPrimitivesTheory.id_to_string_def,
+semanticPrimitivesTheory.int_to_string_def,
+semanticPrimitivesTheory.id_to_string_def,
 the_def,
-LibTheory.lookup_def,
+libTheory.lookup_def,
 intersperse_def,
 ov_to_string_def,
 is_Block_def,is_Label_def,bc_fetch_aux_def,bc_fetch_def,
