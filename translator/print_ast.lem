@@ -4,13 +4,13 @@ open import Ast
 open import Tokens
 
 val CHR : nat -> string
-let inline {hol} CHR n = `STRING` (`CHR` n) ""
+declare hol target_rep function CHR n = `STRING` (`CHR` n) ""
 
 val string_first : string -> string
-let inline {hol} string_first s = `STRING` (`SUB` (s,(0:nat))) ""
+declare hol target_rep function string_first s = `STRING` (`SUB` (s,(0:nat))) ""
 
 val first_ord : string -> nat
-let inline {hol} first_ord s = `ORD` (`SUB` (s,(0:nat)))
+declare hol target_rep function first_ord s = `ORD` (`SUB` (s,(0:nat)))
 
 let rec num_to_string n acc =
   if n = 0 then

@@ -24,7 +24,7 @@ val _ = new_theory "print_ast"
 (if n = 0 then
     acc
   else
-    num_to_string (n DIV  10) (STRING (CHR ((n MOD  10) + 48)) "" ++ acc)))`;
+    num_to_string (n DIV  10) ((STRING (CHR ((n MOD  10) + 48)) "") ++ acc)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn num_to_string_defn;
 
@@ -55,7 +55,7 @@ val _ = Define `
 (if s2 = "" then
     s1
   else 
-    let f = (STRING (SUB (s2,( 0:num))) "") in
+    let f = ((STRING (SUB (s2,(0:num))) "")) in
       if (f = ")")  \/ ((f = " ") \/ (f = ",")) then
     s1 ++ s2
   else
@@ -111,7 +111,7 @@ val _ = Define `
 (tok_to_string LparT s =  
  (if s = "" then
     "("
-  else if STRING (SUB (s,( 0:num))) "" = "*" then
+  else if (STRING (SUB (s,(0:num))) "") = "*" then
     "( " ++ s
   else
     "(" ++ s))
@@ -169,7 +169,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  * print_astProofsScript. *)
 val _ = Define `
  (is_sml_infix s =  
-(let c = (ORD (SUB (s,( 0:num)))) in
+(let c = ((ORD (SUB (s,(0:num))))) in
     if c < 65 (* "A" *) then
       if c < 60 (* "<" *) then        
 (s = "*") \/
