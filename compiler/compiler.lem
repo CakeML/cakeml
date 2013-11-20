@@ -152,7 +152,7 @@ compile_print_dec (Dtype ts) s = compile_print_types ts s
 and
 compile_print_dec (Dexn c xs) s = compile_print_types [(([]:list tvarN),"exn",[(c,xs)])] s
 and
-compile_print_dec (Dlet p e) s =
+compile_print_dec (Dlet p _) s =
   compile_print_vals 0 (pat_bindings p []) s
 and
 compile_print_dec (Dletrec defs) s =

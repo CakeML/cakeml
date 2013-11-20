@@ -93,8 +93,8 @@ and
 doPrim2 _ _ _ _ = Cexc Ctype_error
 
 val do_Ceq : Cv -> Cv -> eq_result
-let rec 
-do_Ceq (CLitv l1) (CLitv l2) = 
+let rec
+do_Ceq (CLitv l1) (CLitv l2) =
   Eq_val (l1 = l2)
 and
 do_Ceq (CLoc l1) (CLoc l2) = Eq_val (l1 = l2)
@@ -105,9 +105,9 @@ do_Ceq (CConv cn1 vs1) (CConv cn2 vs2) =
   else
     Eq_val false
 and
-do_Ceq (CLitv l1) (CConv cn2 vs2) = Eq_val false
+do_Ceq (CLitv _) (CConv _ _) = Eq_val false
 and
-do_Ceq (CConv cn1 vs1) (CLitv l2) = Eq_val false
+do_Ceq (CConv _ _) (CLitv _) = Eq_val false
 and
 do_Ceq (CRecClos _ _ _) (CRecClos _ _ _) = Eq_closure
 and
@@ -115,11 +115,11 @@ do_Ceq _ _ = Eq_type_error
 and
 do_Ceq_list [] [] = Eq_val true
 and
-do_Ceq_list (v1::vs1) (v2::vs2) = 
+do_Ceq_list (v1::vs1) (v2::vs2) =
   match do_Ceq v1 v2 with
     | Eq_closure -> Eq_closure
     | Eq_type_error -> Eq_type_error
-    | Eq_val r -> 
+    | Eq_val r ->
         if not r then
           Eq_val false
         else
@@ -135,9 +135,9 @@ CevalPrim2 CSub = doPrim2 IntLit (-)
 and
 CevalPrim2 CMul = doPrim2 IntLit ( * )
 and
-CevalPrim2 CDiv = doPrim2 IntLit (div) 
+CevalPrim2 CDiv = doPrim2 IntLit (div)
 and
-CevalPrim2 CMod = doPrim2 IntLit (mod) 
+CevalPrim2 CMod = doPrim2 IntLit (mod)
 and
 CevalPrim2 CLt = doPrim2 Bool (<)
 and

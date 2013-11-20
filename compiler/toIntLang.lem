@@ -63,7 +63,7 @@ mkshift f k (CHandle e1 e2) = CHandle (mkshift f k e1) (mkshift f (k+1) e2)
 and
 mkshift f k (CVar (Short v)) = CVar (Short (if v < k then v else (f (v-k))+k))
 and
-mkshift f k (CVar lid) = CVar lid
+mkshift _ _ (CVar lid) = CVar lid
 and
 mkshift _ _ (CLit l) = CLit l
 and

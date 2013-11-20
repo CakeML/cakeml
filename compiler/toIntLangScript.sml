@@ -76,7 +76,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (mkshift f k (CVar (Short v)) = (CVar (Short (if v < k then v else (f (v - k))+k))))
 /\
-(mkshift f k (CVar lid) = (CVar lid))
+(mkshift _ _ (CVar lid) = (CVar lid))
 /\
 (mkshift _ _ (CLit l) = (CLit l))
 /\

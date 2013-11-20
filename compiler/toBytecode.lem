@@ -155,7 +155,7 @@ compile_envref sz s (CCRef n) = emit (compile_envref sz s (CCEnv n)) [Deref]
 let rec
 compile_varref sz s (CTLet n) = emit s [Stack (Load (sz - n))]
 and
-compile_varref sz s (CTDec n) = emit s [Stack (LoadRev n)]
+compile_varref _  s (CTDec n) = emit s [Stack (LoadRev n)]
 and
 compile_varref sz s (CTEnv x) = compile_envref sz s x
 
@@ -300,7 +300,7 @@ let rec stackshift j k =
   if k = 0 then []
   else if j = 0 then [Pops (k-1); Pop]
   else if j = 1 then [Pops k]
-  else if j <= k then (genlist (fun i -> Store (k-1)) j)++(stackshift 0 (k-j))
+  else if j <= k then (genlist (fun _ -> Store (k-1)) j)++(stackshift 0 (k-j))
   else (stackshiftaux k (j-k) j)++(stackshift (j-k) k)
 (*
   a b c d e x y z

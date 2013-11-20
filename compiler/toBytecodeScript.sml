@@ -143,7 +143,7 @@ val _ = Hol_datatype `
 /\
 (prim1_to_bc CDer = Deref)
 /\
-(prim1_to_bc CIsBool = (Stack IsBlock))`;
+(prim1_to_bc CIsBlock = (Stack IsBlock))`;
 
 
  val _ = Define `
@@ -186,7 +186,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (compile_varref sz s (CTLet n) = (emit s [Stack (Load (sz - n))]))
 /\
-(compile_varref sz s (CTDec n) = (emit s [Stack (LoadRev n)]))
+(compile_varref _  s (CTDec n) = (emit s [Stack (LoadRev n)]))
 /\
 (compile_varref sz s (CTEnv x) = (compile_envref sz s x))`;
 
@@ -352,7 +352,8 @@ stackshift j k =
 (if k = 0 then []
   else if j = 0 then [Pops (k -  1); Pop]
   else if j = 1 then [Pops k]
-  else if j <= k then ((GENLIST (\ i . Store (k -  1)) j))++(stackshift( 0) (k - j))
+  else if j <= k then ((GENLIST (\n . 
+  (case (n ) of ( _ ) => Store (k -  1) )) j))++(stackshift( 0) (k - j))
   else (stackshiftaux k (j - k) j)++(stackshift (j - k) k)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn stackshift_defn;

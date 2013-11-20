@@ -198,7 +198,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (compile_print_dec (Dexn c xs) s = (compile_print_types [(([]: tvarN list),"exn",[(c,xs)])] s))
 /\
-(compile_print_dec (Dlet p e) s =  
+(compile_print_dec (Dlet p _) s =  
 (compile_print_vals( 0) (pat_bindings p []) s))
 /\
 (compile_print_dec (Dletrec defs) s =  
