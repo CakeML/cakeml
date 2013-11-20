@@ -175,7 +175,7 @@ val compile_decs_length_lemma1 = prove(
   ``!decs mn menv ct m env rsz cs.
      FST(SND(SND(compile_decs mn menv ct m env rsz cs decs))) =
      rsz + LENGTH (FST(SND(compile_decs mn menv ct m env rsz cs decs))).bvars - LENGTH m.bvars``,
-Induct >> simp[CompilerTheory.compile_decs_def,UNCURRY]);
+Induct >> simp[compilerTheory.compile_decs_def,UNCURRY]);
 
 val compile_decs_length_lemma2 = prove(
   ``!decs mn menv ct m env rsz cs v1 v2 v3 v4.
