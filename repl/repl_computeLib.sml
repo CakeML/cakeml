@@ -1,6 +1,6 @@
 structure repl_computeLib = struct
 open preamble repl_funTheory ASCIInumbersLib intLib stringLib
-open AstTheory inferTheory CompilerTheory compilerTerminationTheory bytecodeEvalTheory
+open astTheory inferTheory compilerTheory compilerTerminationTheory bytecodeEvalTheory
 open repl_computeTheory;
 
 (* add repl definitions to the compset *)
@@ -9,28 +9,28 @@ val RES_FORALL_set = prove(``RES_FORALL (set ls) P = EVERY P ls``,rw[RES_FORALL_
 
 val bc_fetch_aux_zero = prove(
 ``∀ls n. bc_fetch_aux ls (K 0) n = el_check n (FILTER ($~ o is_Label) ls)``,
-Induct >> rw[CompilerLibTheory.el_check_def] >> fs[] >> fsrw_tac[ARITH_ss][] >>
+Induct >> rw[compilerLibTheory.el_check_def] >> fs[] >> fsrw_tac[ARITH_ss][] >>
 simp[rich_listTheory.EL_CONS,arithmeticTheory.PRE_SUB1])
 
 val _ = computeLib.add_funs
   [terminationTheory.elab_p_def
-  ,ElabTheory.elab_decs_def
+  ,elabTheory.elab_decs_def
   ,miscTheory.find_index_def
-  ,CompilerLibTheory.the_def
-  ,CompilerLibTheory.lunion_def
-  ,CompilerLibTheory.lshift_def
+  ,compilerLibTheory.the_def
+  ,compilerLibTheory.lunion_def
+  ,compilerLibTheory.lshift_def
   ,pat_bindings_def
   ,compile_news_def
-  ,ToBytecodeTheory.compile_varref_def
+  ,toBytecodeTheory.compile_varref_def
   ,CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)compile_def
   ,label_closures_def
   ,remove_mat_var_def
-  ,ToIntLangTheory.remove_mat_vp_def
+  ,toIntLangTheory.remove_mat_vp_def
   ,mkshift_def
-  ,ToBytecodeTheory.cce_aux_def
+  ,toBytecodeTheory.cce_aux_def
   ,exp_to_Cexp_def
-  ,ToIntLangTheory.pat_to_Cpat_def
-  ,ToIntLangTheory.Cpat_vars_def
+  ,toIntLangTheory.pat_to_Cpat_def
+  ,toIntLangTheory.Cpat_vars_def
   ,generalise_def
   ,RES_FORALL_set
   ,bc_fetch_aux_zero
@@ -128,9 +128,9 @@ end
 fun chunkify_CONV n t =
     TRY_CONV (onechunk n THENC RAND_CONV (chunkify_CONV n)) t
 
-val Dlet_t = prim_mk_const{Thy = "Ast", Name = "Dlet"}
-val Dletrec_t = prim_mk_const{Thy = "Ast", Name = "Dletrec"}
-val Dtype_t = prim_mk_const{Thy = "Ast", Name = "Dtype"}
+val Dlet_t = prim_mk_const{Thy = "ast", Name = "Dlet"}
+val Dletrec_t = prim_mk_const{Thy = "ast", Name = "Dletrec"}
+val Dtype_t = prim_mk_const{Thy = "ast", Name = "Dtype"}
 fun declstring t = let
   val (f, args) = strip_comb t
 in
