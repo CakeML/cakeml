@@ -4,7 +4,7 @@ import List_extra
 
 (* TODO: these should be in the lem library *)
 val least : (nat -> bool) -> nat
-let inline {hol} least = `LEAST`
+let inline {hol} least = `$LEAST`
 
 val string_concat : list string -> string
 let inline {hol} string_concat = `CONCAT`

@@ -3,7 +3,4 @@ INCLUDES = ../semantics ../lem_lib_stub
 OPTIONS = QUIT_ON_FAILURE
 
 compilerLibScript.sml printerScript.sml bytecodeScript.sml: compilerLib.lem printer.lem bytecode.lem
-	lem -auxiliary_level auto $(patsubst %,-i ../semantics/%.lem,lib ast semanticPrimitives) -hol compilerLib.lem -hol printer.lem -hol bytecode.lem -hol &&\
-	sed 's/LEAST/$$LEAST/g' < bytecodeScript.sml > .temp &&\
-	sed 's/Hol.char/char/g' < .temp > bytecodeScript.sml &&\
-	rm -f .temp
+	lem -auxiliary_level auto $(patsubst %,-i ../semantics/%.lem,lib ast semanticPrimitives) -hol compilerLib.lem -hol printer.lem -hol bytecode.lem -hol
