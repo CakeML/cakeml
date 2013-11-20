@@ -123,7 +123,7 @@ prim1_to_bc CRef = Ref
 and
 prim1_to_bc CDer = Deref
 and
-prim1_to_bc CIsBool = Stack IsBlock
+prim1_to_bc CIsBlock = Stack IsBlock
 
 let rec
 prim2_to_bc CAdd = Add
