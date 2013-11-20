@@ -40,6 +40,7 @@ lookup n ((n',v)::e) =
     Just v
   else
     lookup n e
+declare termination_argument lookup = automatic
 
 val bind : forall 'a 'b. 'a -> 'b -> env 'a 'b -> env 'a 'b
 let bind n v e = (n,v)::e

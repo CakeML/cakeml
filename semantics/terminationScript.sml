@@ -109,12 +109,7 @@ val _ = uncurry (register "elab_t") (
   srw_tac[ARITH_ss][ast_t_size_def,ast_t1_size_thm]>>
   Q.ISPEC_THEN`ast_t_size`imp_res_tac SUM_MAP_MEM_bound >> fsrw_tac[ARITH_ss][]))
 
-val (lookup_def, lookup_ind) =
-  tprove_no_defn ((lookup_def, lookup_ind),
-  WF_REL_TAC `measure (λ(x,y). LENGTH y)` >>
-  rw []);
-val _ = register "lookup" lookup_def lookup_ind;
-val _ = export_rewrites["lookup_def"];
+val _ = export_rewrites["lib.lookup_def"];
 
 val (pmatch_def, pmatch_ind) =
   tprove_no_defn ((pmatch_def, pmatch_ind),
