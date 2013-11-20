@@ -3,10 +3,10 @@ open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "ml_repl_step";
 
-open repl_funTheory CompilerTheory CompilerLibTheory;
-open ToIntLangTheory ToBytecodeTheory terminationTheory ElabTheory;
+open repl_funTheory compilerTheory compilerLibTheory;
+open toIntLangTheory toBytecodeTheory terminationTheory elabTheory;
 open compilerTerminationTheory inferTheory;
-open BytecodeTheory cmlParseTheory cmlPEGTheory;
+open bytecodeTheory cmlParseTheory cmlPEGTheory;
 open arithmeticTheory listTheory finite_mapTheory pred_setTheory;
 
 open ml_translatorLib ml_translatorTheory std_preludeTheory;
