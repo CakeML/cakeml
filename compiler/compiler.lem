@@ -115,7 +115,7 @@ let compile_decs_wrap mn rs decs =
            ; mvars = Map.map (List.map fst) rs.rmenv
            ; cnmap = cmap rs.contab
            |> in
-  let env = List.map (o CTDec snd) rs.renv in
+  let env = List.map (comb CTDec snd) rs.renv in
   let (ct,m,rsz,cs) = compile_decs mn menv rs.contab m env (rs.rsz+2) cs decs in
   let n = rsz-2-rs.rsz in
   let news = List.take n m.bvars in

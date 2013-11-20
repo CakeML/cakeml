@@ -23,9 +23,6 @@ val _ = new_theory "compilerLib"
 
 (*val EXPLODE : string -> list char*)
 
-(*val o : forall 'a 'b 'c. ('b -> 'c) -> ('a -> 'b) -> ('a -> 'c)*)
-
-
  val _ = Define `
  (el_check n ls = (if n < (LENGTH ls) then (SOME ((EL n ls))) else NONE))`;
 

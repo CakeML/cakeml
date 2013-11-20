@@ -8,8 +8,8 @@ open import Ast
 import {hol} `miscTheory`
 
 (* TODO: Lem's builtin find index has a different type *)
-val find_index : forall 'a 'b. 'a -> list 'a -> nat -> 'b
-let inline {hol} find_index = `misc$find_index` (* to pick up the definition in miscTheory *)
+val find_index : forall 'a. 'a -> list 'a -> nat -> maybe nat
+declare hol target_rep function find_index = `misc$find_index` (* to pick up the definition in miscTheory *)
 
 let rec
 free_vars (CRaise e) = free_vars e

@@ -487,7 +487,7 @@ T
 ==>
 syneq_exp ez1 ez2 V (CLit lit) (CLit lit))
 /\ (! ez1 ez2 V cn es1 es2.
-(EVERY2 (syneq_exp ez1 ez2 V) es1 es2)
+((EVERY2 (syneq_exp ez1 ez2 V) es1 es2))
 ==>
 syneq_exp ez1 ez2 V (CCon cn es1) (CCon cn es2))
 /\ (! ez1 ez2 V n e1 e2.
@@ -515,7 +515,7 @@ syneq_exp (ez1+((LENGTH defs1))) (ez2+((LENGTH defs2)))
 syneq_exp ez1 ez2 V (CLetrec defs1 b1) (CLetrec defs2 b2))
 /\ (! ez1 ez2 V ck e1 e2 es1 es2.
 (syneq_exp ez1 ez2 V e1 e2 /\
-EVERY2 (syneq_exp ez1 ez2 V) es1 es2)
+(EVERY2 (syneq_exp ez1 ez2 V) es1 es2))
 ==>
 syneq_exp ez1 ez2 V (CCall ck e1 es1) (CCall ck e2 es2))
 /\ (! ez1 ez2 V p1 e1 e2.
@@ -560,7 +560,7 @@ T
 ==>
 syneq (CLitv l) (CLitv l))
 /\ (! cn vs1 vs2.
-(EVERY2 (syneq) vs1 vs2)
+((EVERY2 (syneq) vs1 vs2))
 ==>
 syneq (CConv cn vs1) (CConv cn vs2))
 /\ (! V env1 env2 defs1 defs2 d1 d2 V'.

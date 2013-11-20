@@ -358,7 +358,7 @@ bc_next s ((bump_pc s with<| handler := sp; stack := x::l2|>)))
 /\ (! s x xs ptr.
 ((bc_fetch s = (SOME Ref))
 /\ ((s.stack = (x::xs))
-/\ (ptr = $LEAST (\ ptr . (~ (ptr IN (FDOM s.refs)))))))
+/\ (ptr = ($LEAST (\ ptr . (~ (ptr IN (FDOM s.refs))))))))
 ==>
 bc_next s ((bump_pc s with<| stack := (RefPtr ptr)::xs; refs := (FUPDATE s.refs (ptr,x))|>)))
 /\ (! s ptr xs.
@@ -384,10 +384,10 @@ bc_next s ((bump_pc s with<| clock := (OPTION_MAP PRE s.clock)|>)))
 /\ can_Print x))
 ==>
 bc_next s ((bump_pc s with<| stack := xs;
-  output := CONCAT [s.output;ov_to_string (bv_to_ov s.cons_names x)]|>)))
+  output := (CONCAT [s.output;ov_to_string (bv_to_ov s.cons_names x)])|>)))
 /\ (! s c.
 (bc_fetch s = (SOME (PrintC c)))
 ==>
-bc_next s ((bump_pc s with<| output := SNOC c s.output|>)))`;
+bc_next s ((bump_pc s with<| output := (SNOC c s.output)|>)))`;
 val _ = export_theory()
 

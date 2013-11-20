@@ -4,23 +4,19 @@ import List_extra
 
 (* TODO: these should be in the lem library *)
 val least : (nat -> bool) -> nat
-let inline {hol} least = `$LEAST`
+declare hol target_rep function least = `$LEAST`
 
 val string_concat : list string -> string
-let inline {hol} string_concat = `CONCAT`
+declare hol target_rep function string_concat = `CONCAT`
 
 val snoc_char : char -> string -> string
-let inline {hol} snoc_char c s = `SNOC` c s
+declare hol target_rep function snoc_char = `SNOC`
 
 val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool
-let inline {hol} all2 f a b = `EVERY2` f a b
+declare hol target_rep function all2 = `EVERY2`
 
 val EXPLODE : string -> list char
-let inline {hol} EXPLODE = `EXPLODE`
-
-val o : forall 'a 'b 'c. ('b -> 'c) -> ('a -> 'b) -> ('a -> 'c)
-declare hol target_rep function o = infix `o`
-
+declare hol target_rep function EXPLODE = `EXPLODE`
 
 let rec el_check n ls = if n < List.length ls then Just (List_extra.nth ls n) else Nothing
 

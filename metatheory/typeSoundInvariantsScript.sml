@@ -76,7 +76,7 @@ type_v tvs menv cenv senv (Litv Unit) Tunit)
 /\ (! tvs menv cenv senv cn vs tvs' tn ts' ts.
 ((EVERY (check_freevars tvs []) ts') /\
 (((LENGTH tvs') = (LENGTH ts')) /\
-(type_vs tvs menv cenv senv vs ((MAP (type_subst (ZIP (tvs',ts'))) ts)) /\
+(type_vs tvs menv cenv senv vs ((MAP (type_subst ((ZIP (tvs', ts')))) ts)) /\
 (lookup cn cenv = (SOME (tvs', ts, tn))))))
 ==>
 type_v tvs menv cenv senv (Conv ((SOME cn)) vs) (Tapp ts' (tid_exn_to_tc tn)))
@@ -272,11 +272,11 @@ type_ctxt tvs menv cenv senv tenv (Clet n ()  e) t1 t2)
 ((EVERY (check_freevars tvs []) ts') /\
 (((LENGTH tvs') = (LENGTH ts')) /\
 (type_vs tvs menv cenv senv ((REVERSE vs))
-        ((MAP (type_subst (ZIP (tvs',ts'))) ts1)) /\
-(type_es menv cenv (bind_tvar tvs tenv) es ((MAP (type_subst (ZIP (tvs',ts'))) ts2)) /\
+        ((MAP (type_subst ((ZIP (tvs', ts')))) ts1)) /\
+(type_es menv cenv (bind_tvar tvs tenv) es ((MAP (type_subst ((ZIP (tvs', ts')))) ts2)) /\
 (lookup cn cenv = (SOME (tvs', ((ts1++[t])++ts2), tn)))))))
 ==>
-type_ctxt tvs menv cenv senv tenv (Ccon ((SOME cn)) vs ()  es) (type_subst (ZIP (tvs',ts')) t)
+type_ctxt tvs menv cenv senv tenv (Ccon ((SOME cn)) vs ()  es) (type_subst ((ZIP (tvs', ts'))) t)
           (Tapp ts' (tid_exn_to_tc tn)))
 
 /\ (! tvs menv cenv senv tenv vs es t ts1 ts2.

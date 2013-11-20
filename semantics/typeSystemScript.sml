@@ -304,7 +304,7 @@ type_p tvs cenv (Plit Unit) Tunit [])
 /\ (! tvs cenv cn ps ts tvs' tn ts' tenv.
 ((EVERY (check_freevars tvs []) ts') /\
 (((LENGTH ts') = (LENGTH tvs')) /\
-(type_ps tvs cenv ps ((MAP (type_subst (ZIP (tvs',ts'))) ts)) tenv /\
+(type_ps tvs cenv ps ((MAP (type_subst ((ZIP (tvs', ts')))) ts)) tenv /\
 (lookup cn cenv = (SOME (tvs', ts, tn))))))
 ==>
 type_p tvs cenv (Pcon ((SOME cn)) ps) (Tapp ts' (tid_exn_to_tc tn)) tenv)
@@ -364,7 +364,7 @@ type_e menv cenv tenv (Handle e pes) t)
 /\ (! menv cenv tenv cn es tvs tn ts' ts.
 ((EVERY (check_freevars (num_tvs tenv) []) ts') /\
 (((LENGTH tvs) = (LENGTH ts')) /\
-(type_es menv cenv tenv es ((MAP (type_subst (ZIP (tvs,ts'))) ts)) /\
+(type_es menv cenv tenv es ((MAP (type_subst ((ZIP (tvs, ts')))) ts)) /\
 (lookup cn cenv = (SOME (tvs, ts, tn))))))
 ==>
 type_e menv cenv tenv (Con ((SOME cn)) es) (Tapp ts' (tid_exn_to_tc tn)))
@@ -521,7 +521,7 @@ type_specs mn cenv tenv [] cenv tenv)
 
 /\ (! mn cenv tenv x t specs cenv' tenv' fvs.
 (check_freevars( 0) fvs t /\
-type_specs mn cenv (bind x ((LENGTH fvs), type_subst (ZIP (fvs,((MAP Tvar_db ((COUNT_LIST ((LENGTH fvs)))))))) t) tenv) specs cenv' tenv')
+type_specs mn cenv (bind x ((LENGTH fvs), type_subst ((ZIP (fvs, ((MAP Tvar_db ((COUNT_LIST ((LENGTH fvs))))))))) t) tenv) specs cenv' tenv')
 ==>
 type_specs mn cenv tenv (Sval x t :: specs) cenv' tenv') 
 

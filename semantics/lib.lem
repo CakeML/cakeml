@@ -1,4 +1,5 @@
 open import Pervasives
+import List_extra
 
 (* TODO: look for these in the built-in library *)
 
@@ -22,10 +23,7 @@ declare hol target_rep function (^) = infix `++`
 
 (* The builtin List.zip maps to list_combine in HOL, but I want to map to ZIP *)
 val ZIP : forall 'a 'b. list 'a -> list 'b -> list ('a * 'b)
-let inline {hol} ZIP x y = `ZIP` (x,y)
-
-
-
+let inline ZIP = List_extra.zip_same_length
 
 (* Environments *)
 type env 'a 'b = list ('a*'b)

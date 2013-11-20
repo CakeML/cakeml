@@ -60,7 +60,7 @@ label_closures ez j (CLet e1 e2) =
   (CLet e1 e2, j)
 and
 label_closures ez j (CLetrec defs e) =
-  let defs = List.map snd (List.filter (o isNothing fst) defs) in
+  let defs = List.map snd (List.filter (comb isNothing fst) defs) in
   let nz = List.length defs in
   let (defs,j) = label_closures_defs ez j nz 0 defs in
   let (e,j) = label_closures (ez+nz) j e in

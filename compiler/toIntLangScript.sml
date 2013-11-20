@@ -18,7 +18,7 @@ val _ = new_theory "toIntLang"
 (*import {hol} miscTheory*)
 
 (* TODO: Lem's builtin find index has a different type *)
-(*val find_index : forall 'a 'b. 'a -> list 'a -> nat -> 'b*) (* to pick up the definition in miscTheory *)
+(*val find_index : forall 'a. 'a -> list 'a -> nat -> maybe nat*) (* to pick up the definition in miscTheory *)
 
  val free_vars_defn = Hol_defn "free_vars" `
 
@@ -230,9 +230,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (exp_to_Cexp m (Con cn es) =  
 (CCon (fapply( 0) cn m.cnmap) (exps_to_Cexps m es)))
 /\
-(exp_to_Cexp m (Var (Short vn)) = (CVar (Short (the( 0) (misc$find_index vn m.bvars( 0))))))
+(exp_to_Cexp m (Var (Short vn)) = (CVar (Short (the( 0) ((misc$find_index vn m.bvars( 0)))))))
 /\
-(exp_to_Cexp m (Var (Long mn vn)) = (CVar (Long mn (the( 0) (misc$find_index vn (fapply [] mn m.mvars)( 0))))))
+(exp_to_Cexp m (Var (Long mn vn)) = (CVar (Long mn (the( 0) ((misc$find_index vn (fapply [] mn m.mvars)( 0)))))))
 /\
 (exp_to_Cexp m (Fun vn e) =  
 (CLetrec [(NONE,( 1,shift( 1)( 1) (exp_to_Cexp (cbv m vn) e)))] (CVar (Short( 0)))))
@@ -365,7 +365,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   (case (p ) of ( (n,_,_) ) => n )) defs)) in
   let m = (( m with<| bvars := fns ++ m.bvars |>)) in
   let Cdefs = (defs_to_Cdefs m defs) in
-  CRecClos Cenv Cdefs (the( 0) (misc$find_index vn fns( 0)))))
+  CRecClos Cenv Cdefs (the( 0) ((misc$find_index vn fns( 0))))))
 /\
 (v_to_Cv _ _ (Loc n) = (CLoc n))
 /\
