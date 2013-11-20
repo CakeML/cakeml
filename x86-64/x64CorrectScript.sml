@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib helperLib pairTheory lcsymtacs
 open ml_translatorTheory sideTheory replDecsTheory replDecsProofsTheory compileCallReplStepDecTheory
-open SemanticPrimitivesTheory listTheory
+open semanticPrimitivesTheory listTheory
 
 val _ = new_theory "x64Correct"
 
@@ -59,12 +59,12 @@ val Decls_repl_decs_lemma = let
   val th = Decls_APPEND |> SPEC_ALL |> INST i |> Q.INST [`ds2`|->`^ds2`]
   val th = th |> SIMP_RULE std_ss [MATCH_MP Decls_11 Decls_ml_repl_step_decls]
   val sem_rw =
-    SIMP_RULE (srw_ss()) [Once AltBigStepTheory.evaluate_decs'_cases,PULL_EXISTS,
-                          Once AltBigStepTheory.evaluate_dec'_cases,PULL_EXISTS,
-                          Once AltBigStepTheory.evaluate'_cases,PULL_EXISTS,
+    SIMP_RULE (srw_ss()) [Once altBigStepTheory.evaluate_decs'_cases,PULL_EXISTS,
+                          Once altBigStepTheory.evaluate_dec'_cases,PULL_EXISTS,
+                          Once altBigStepTheory.evaluate'_cases,PULL_EXISTS,
                           do_uapp_def,store_alloc_def,LET_DEF,terminationTheory.pmatch'_def,
-                          AstTheory.pat_bindings_def,combine_dec_result_def,
-                          LibTheory.merge_def,LibTheory.emp_def,LibTheory.bind_def]
+                          astTheory.pat_bindings_def,combine_dec_result_def,
+                          libTheory.merge_def,libTheory.emp_def,libTheory.bind_def]
   fun n_times 0 f x = x
     | n_times n f x = n_times (n-1) f (f x)
   val th = th |> GSYM |> SIMP_RULE std_ss [Once Decls_def,GSYM repl_decs_def]
@@ -177,7 +177,7 @@ val repl_step_do_app =
   Eval_repl_step
   |> SIMP_RULE std_ss [Eval_def,Arrow_def,AppReturns_def,
        evaluate_closure_def,PULL_EXISTS,GSYM CONJ_ASSOC]
-  |> SIMP_RULE (srw_ss()) [Once AltBigStepTheory.evaluate'_cases,PULL_EXISTS]
+  |> SIMP_RULE (srw_ss()) [Once altBigStepTheory.evaluate'_cases,PULL_EXISTS]
 
 
 (* --- instantiation of compiler correctness --- *)
@@ -298,7 +298,7 @@ val new_compiler_state_rsz =
 val repl_decs_env_vs =
   MATCH_MP semanticsExtraTheory.evaluate_decs_new_decs_vs repl_decs_cenv_env_s_def
   |> SIMP_RULE (srw_ss())[]
-  |> SIMP_RULE (srw_ss())[repl_decs_def,AstTheory.pat_bindings_def]
+  |> SIMP_RULE (srw_ss())[repl_decs_def,astTheory.pat_bindings_def]
 
 val MEM_call_repl_step = prove(
   ``MEM "call_repl_step" (MAP FST repl_decs_env)``,
@@ -311,48 +311,48 @@ val evaluate_decs_append = store_thm("evaluate_decs_append",
                        ∃s1 e1 r1. evaluate_decs mn menv (merge e0 cenv) s0 (merge r0 env) d2 (s1,e1,r1) ∧
                             (res = (s1, merge e1 e0, combine_dec_result r0 r1))``,
   Induct >- (
-    simp[Once BigStepTheory.evaluate_decs_cases] >>
-    simp[Once BigStepTheory.evaluate_decs_cases] >>
-    simp[Once BigStepTheory.evaluate_decs_cases] >>
-    simp[LibTheory.emp_def,LibTheory.merge_def,SemanticPrimitivesTheory.combine_dec_result_def]) >>
-  simp[Once BigStepTheory.evaluate_decs_cases] >>
+    simp[Once bigStepTheory.evaluate_decs_cases] >>
+    simp[Once bigStepTheory.evaluate_decs_cases] >>
+    simp[Once bigStepTheory.evaluate_decs_cases] >>
+    simp[libTheory.emp_def,libTheory.merge_def,semanticPrimitivesTheory.combine_dec_result_def]) >>
+  simp[Once bigStepTheory.evaluate_decs_cases] >>
   rw[] >- (
     Cases_on`d1`>>fs[] >- (
       pop_assum mp_tac >>
-      simp[Once BigStepTheory.evaluate_decs_cases] >>
+      simp[Once bigStepTheory.evaluate_decs_cases] >>
       rw[] >>
-      simp_tac(srw_ss())[Once BigStepTheory.evaluate_decs_cases] >>
-      simp[LibTheory.emp_def,LibTheory.merge_def] >>
-      simp[SemanticPrimitivesTheory.combine_dec_result_def] >>
+      simp_tac(srw_ss())[Once bigStepTheory.evaluate_decs_cases] >>
+      simp[libTheory.emp_def,libTheory.merge_def] >>
+      simp[semanticPrimitivesTheory.combine_dec_result_def] >>
       qexists_tac`Rerr e`>>simp[] ) >>
     pop_assum mp_tac >>
-    simp_tac(srw_ss())[Once BigStepTheory.evaluate_decs_cases] >>
+    simp_tac(srw_ss())[Once bigStepTheory.evaluate_decs_cases] >>
     rw[] >>
     imp_res_tac determTheory.dec_determ >>
     fs[] ) >>
   Cases_on`d1`>>fs[] >- (
     pop_assum mp_tac >>
-    simp[Once BigStepTheory.evaluate_decs_cases] >>
+    simp[Once bigStepTheory.evaluate_decs_cases] >>
     rw[] >>
-    simp_tac(srw_ss())[Once BigStepTheory.evaluate_decs_cases] >>
-    simp[LibTheory.emp_def,LibTheory.merge_def] >>
-    fs[LibTheory.merge_def] >>
+    simp_tac(srw_ss())[Once bigStepTheory.evaluate_decs_cases] >>
+    simp[libTheory.emp_def,libTheory.merge_def] >>
+    fs[libTheory.merge_def] >>
     qexists_tac`combine_dec_result new_env r` >>
     conj_tac >- METIS_TAC[] >>
-    simp[SemanticPrimitivesTheory.combine_dec_result_def] >>
-    Cases_on`r`>>simp[LibTheory.merge_def]) >>
+    simp[semanticPrimitivesTheory.combine_dec_result_def] >>
+    Cases_on`r`>>simp[libTheory.merge_def]) >>
   pop_assum mp_tac >>
-  simp_tac(srw_ss())[Once BigStepTheory.evaluate_decs_cases] >>
+  simp_tac(srw_ss())[Once bigStepTheory.evaluate_decs_cases] >>
   rw[] >>
-  fs[LibTheory.merge_def] >>
+  fs[libTheory.merge_def] >>
   imp_res_tac determTheory.dec_determ >>
   fs[] >> rw[] >>
   first_x_assum(qspecl_then[`mn`,`menv`,`new_tds ++ cenv`,`s2`,`new_env ++ env`,`s3,new_tds',r`]mp_tac) >>
   rw[] >>
-  Cases_on`r'`>>fs[SemanticPrimitivesTheory.combine_dec_result_def] >>
+  Cases_on`r'`>>fs[semanticPrimitivesTheory.combine_dec_result_def] >>
   first_x_assum(qspecl_then[`t`,`d2`,`s0`,`new_tds''`,`a`]mp_tac) >>
   rw[] >>
-  fs[LibTheory.merge_def] >>
+  fs[libTheory.merge_def] >>
   qexists_tac`r1` >> simp[] >>
   Cases_on`r1`>>fs[])
 
@@ -361,11 +361,11 @@ val evaluate_decs_decs_to_cenv = store_thm("evaluate_decs_decs_to_cenv",
      evaluate_decs mn menv cenv s env decs res ⇒
      ∀v. (SND(SND res ) = Rval v) ⇒
      (decs_to_cenv mn decs = (FST(SND res)))``,
-   HO_MATCH_MP_TAC BigStepTheory.evaluate_decs_ind >>
-   simp[LibTheory.emp_def] >> rw[] >- simp[SemanticPrimitivesTheory.decs_to_cenv_def] >>
+   HO_MATCH_MP_TAC bigStepTheory.evaluate_decs_ind >>
+   simp[libTheory.emp_def] >> rw[] >- simp[semanticPrimitivesTheory.decs_to_cenv_def] >>
    imp_res_tac compilerProofsTheory.evaluate_dec_dec_to_cenv >>
-   fs[] >> simp[SemanticPrimitivesTheory.decs_to_cenv_def,LibTheory.merge_def] >>
-   Cases_on`r`>>fs[SemanticPrimitivesTheory.combine_dec_result_def])
+   fs[] >> simp[semanticPrimitivesTheory.decs_to_cenv_def,libTheory.merge_def] >>
+   Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def])
 
 val cenv_bind_div_eq_init_envC = store_thm("cenv_bind_div_eq_init_envC",
   ``cenv_bind_div_eq init_envC``, EVAL_TAC)
@@ -378,7 +378,7 @@ val evaluate_decs_ml_repl_step_decls = DeclsC_ml_repl_step_decls |> RW [DeclsC_d
 
 val merge_emp = prove(
   ``merge x emp = x``,
-    simp[LibTheory.emp_def,LibTheory.merge_def])
+    simp[libTheory.emp_def,libTheory.merge_def])
 
 val ml_repl_step_decls_cenv =
   MATCH_MP evaluate_decs_decs_to_cenv evaluate_decs_ml_repl_step_decls
@@ -404,49 +404,49 @@ val repl_decs_env_front = let
     |> SIMP_RULE (srw_ss())[]
     |> C MATCH_MP evaluate_decs_ml_repl_step_decls
   val th =
-    th |> ss [Once BigStepTheory.evaluate_decs_cases]
-    |> ss [Once BigStepTheory.evaluate_dec_cases]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [Once SemanticPrimitivesTheory.do_uapp_def,LET_THM,SemanticPrimitivesTheory.store_alloc_def]
+    th |> ss [Once bigStepTheory.evaluate_decs_cases]
+    |> ss [Once bigStepTheory.evaluate_dec_cases]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [terminationTheory.pmatch_def,astTheory.pat_bindings_def]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [Once semanticPrimitivesTheory.do_uapp_def,LET_THM,semanticPrimitivesTheory.store_alloc_def]
   val th =
     th |> ss [do_con_check_ml_repl_step_decls_None]
-    |> ss [Once BigStepTheory.evaluate_decs_cases]
-    |> ss [Once BigStepTheory.evaluate_dec_cases]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [Once SemanticPrimitivesTheory.do_uapp_def,LET_THM,SemanticPrimitivesTheory.store_alloc_def]
+    |> ss [Once bigStepTheory.evaluate_decs_cases]
+    |> ss [Once bigStepTheory.evaluate_dec_cases]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [terminationTheory.pmatch_def,astTheory.pat_bindings_def]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [Once semanticPrimitivesTheory.do_uapp_def,LET_THM,semanticPrimitivesTheory.store_alloc_def]
   val th =
     th |> ss [merge_emp,do_con_check_ml_repl_step_decls_None,bind_emp]
-    |> ss [Once BigStepTheory.evaluate_dec_cases]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [Once SemanticPrimitivesTheory.do_uapp_def,LET_THM,SemanticPrimitivesTheory.store_alloc_def]
+    |> ss [Once bigStepTheory.evaluate_dec_cases]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [terminationTheory.pmatch_def,astTheory.pat_bindings_def]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [Once semanticPrimitivesTheory.do_uapp_def,LET_THM,semanticPrimitivesTheory.store_alloc_def]
   val th =
-    th |> ss [Once BigStepTheory.evaluate_dec_cases]
-    |> ss [Once BigStepTheory.evaluate_cases]
-    |> ss [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
-    |> ss [Once SemanticPrimitivesTheory.do_uapp_def,LET_THM,SemanticPrimitivesTheory.store_alloc_def]
-    |> ss [Once BigStepTheory.evaluate_decs_cases]
-    |> ss [Once BigStepTheory.evaluate_dec_cases]
-    |> ss [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
+    th |> ss [Once bigStepTheory.evaluate_dec_cases]
+    |> ss [Once bigStepTheory.evaluate_cases]
+    |> ss [terminationTheory.pmatch_def,astTheory.pat_bindings_def]
+    |> ss [Once semanticPrimitivesTheory.do_uapp_def,LET_THM,semanticPrimitivesTheory.store_alloc_def]
+    |> ss [Once bigStepTheory.evaluate_decs_cases]
+    |> ss [Once bigStepTheory.evaluate_dec_cases]
+    |> ss [terminationTheory.pmatch_def,astTheory.pat_bindings_def]
   val th =
-    th |> ss [Once BigStepTheory.evaluate_dec_cases]
-    |> ss [terminationTheory.pmatch_def,AstTheory.pat_bindings_def]
-    |> ss [Once BigStepTheory.evaluate_decs_cases]
-    |> ss [SemanticPrimitivesTheory.combine_dec_result_def,LibTheory.merge_def,LibTheory.emp_def,LibTheory.bind_def]
+    th |> ss [Once bigStepTheory.evaluate_dec_cases]
+    |> ss [terminationTheory.pmatch_def,astTheory.pat_bindings_def]
+    |> ss [Once bigStepTheory.evaluate_decs_cases]
+    |> ss [semanticPrimitivesTheory.combine_dec_result_def,libTheory.merge_def,libTheory.emp_def,libTheory.bind_def]
   in th end
 
 (*
@@ -609,7 +609,7 @@ val new_decs_vs_ml_repl_step_decls =
   ``new_decs_vs ml_repl_step_decls``
   |> REWRITE_CONV [ml_repl_stepTheory.ml_repl_step_decls]
   |> RIGHT_CONV_RULE EVAL
-  |> RIGHT_CONV_RULE (SIMP_CONV std_ss [AstTheory.pat_bindings_def])
+  |> RIGHT_CONV_RULE (SIMP_CONV std_ss [astTheory.pat_bindings_def])
   |> RIGHT_CONV_RULE EVAL
 
 val FST_SND_SND_compile_repl_decs =
@@ -684,7 +684,7 @@ val cenv_bind_div_eq_ml_repl_step_decls_cenv_init_envC = prove(
   match_mp_tac (semanticsExtraTheory.cenv_bind_div_eq_append) >>
   simp[cenv_bind_div_eq_init_envC] >>
   simp[ml_repl_step_decls_cenv,repl_decs_cenv_def] >>
-  simp[InitialEnvTheory.init_envC_def] >>
+  simp[initialEnvTheory.init_envC_def] >>
   REWRITE_TAC[decs_to_cenv_ml_repl_step_decls] >>
   EVAL_TAC)
 
@@ -809,20 +809,20 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
        (ml_repl_step_decls_s ++ [inp1; out2],Rval ([],[])) /\
      OUTPUT_TYPE (repl_step x) out2` by ALL_TAC)
   THEN1 METIS_TAC [COMPILER_RUN_INV_STEP]
-  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_dec_cases,
-       call_repl_step_dec_def,LibTheory.emp_def,terminationTheory.pmatch_def,
-                          AstTheory.pat_bindings_def]
-  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases]
-  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases]
+  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_dec_cases,
+       call_repl_step_dec_def,libTheory.emp_def,terminationTheory.pmatch_def,
+                          astTheory.pat_bindings_def]
+  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases]
+  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases]
   \\ SIMP_TAC (srw_ss()) [Once repl_decs_env_def,lookup_var_id_def,do_app_def]
-  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases]
-  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases,LibTheory.bind_def]
+  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases]
+  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases,libTheory.bind_def]
   \\ SIMP_TAC (srw_ss()) [Once repl_decs_env_def,lookup_var_id_def,do_app_def]
-  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases,PULL_EXISTS]
-  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases,PULL_EXISTS]
+  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases,PULL_EXISTS]
+  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases,PULL_EXISTS]
   \\ SIMP_TAC (srw_ss()) [Once repl_decs_env_def,lookup_var_id_def]
-  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases,PULL_EXISTS]
-  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_cases,PULL_EXISTS]
+  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases,PULL_EXISTS]
+  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_cases,PULL_EXISTS]
   \\ SIMP_TAC (srw_ss()) [Once repl_decs_env_def,lookup_var_id_def,do_uapp_def,
        store_lookup_def,rich_listTheory.EL_LENGTH_APPEND]
   \\ STRIP_ASSUME_TAC repl_step_do_app
@@ -850,9 +850,9 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
     \\ FULL_SIMP_TAC std_ss [LUPDATE_LENGTH]
     \\ FULL_SIMP_TAC std_ss [APPEND,GSYM APPEND_ASSOC])
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ SIMP_TAC (srw_ss()) [Once BigStepTheory.evaluate_dec_cases,
-       call_repl_step_dec_def,LibTheory.emp_def,terminationTheory.pmatch_def,
-                          AstTheory.pat_bindings_def]);
+  \\ SIMP_TAC (srw_ss()) [Once bigStepTheory.evaluate_dec_cases,
+       call_repl_step_dec_def,libTheory.emp_def,terminationTheory.pmatch_def,
+                          astTheory.pat_bindings_def]);
 
 
 

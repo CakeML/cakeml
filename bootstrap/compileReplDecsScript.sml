@@ -42,7 +42,7 @@ val fapply_tms = [
 ,``compile_dec1``]
 
 val fapply_thms = [
-  CompilerLibTheory.fapply_def
+  compilerLibTheory.fapply_def
 , exp_to_Cexp_def
 , compile_dec_def
 , compile_fake_exp_def
