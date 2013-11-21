@@ -11,7 +11,7 @@ LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,../bytecode/%
 LEMH = $(patsubst %,%.lem,$(COMPILER))
 
 $(GEN_SCRIPTS): $(LEMI) $(LEMH)
-	lem -auxiliary_level auto $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH))
+	lem -auxiliary_level none $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH))
 
 ifdef POLY
 HOLHEAP = heap
