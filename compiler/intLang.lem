@@ -653,7 +653,7 @@ all_labs_def (Just _,(_,b)) = all_labs b
 and
 all_labs_def (Nothing,_) = false
 
-open Printer
+open import Printer
 
 let rec
 Cv_to_ov _ _ (CLitv l) = OLit l
