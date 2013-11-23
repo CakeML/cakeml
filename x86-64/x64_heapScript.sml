@@ -8410,8 +8410,8 @@ val bc_print_thm = prove(
        s with output := s.output ++ ov_to_string (bv_to_ov ARB x1)))``,
   Cases_on `x1` \\ FULL_SIMP_TAC (srw_ss()) [canCompare_def,
     bc_print_def,bc_print_pre_def,isBlock_def,isNumber_def,LET_DEF,
-    getNumber_def,better_bv_to_ov_def,PrinterTheory.ov_to_string_def,
-    SemanticPrimitivesTheory.int_to_string_def,
+    getNumber_def,better_bv_to_ov_def,printerTheory.ov_to_string_def,
+    semanticPrimitivesTheory.int_to_string_def,
     multiwordTheory.int_to_str_def,getTag_def,append_number_def]
 (*
   THEN1
@@ -8419,7 +8419,7 @@ val bc_print_thm = prove(
     THEN1 (`ABS i = -i` by intLib.COOPER_TAC \\ FULL_SIMP_TAC std_ss [])
     \\ `ABS i = i` by intLib.COOPER_TAC \\ FULL_SIMP_TAC std_ss [])
 *)
-  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC (srw_ss()) [PrinterTheory.ov_to_string_def]
+  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC (srw_ss()) [printerTheory.ov_to_string_def]
   \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND]);
 
 val zHEAP_RAW_PRINT =
@@ -8431,7 +8431,7 @@ val zHEAP_RAW_PRINT =
 val bv_to_ov_IGNORE = prove(
   ``!x y. ov_to_string (bv_to_ov x y) = ov_to_string (bv_to_ov ARB y)``,
   HO_MATCH_MP_TAC better_bv_to_ov_ind \\ SIMP_TAC std_ss [better_bv_to_ov_def]
-  \\ SRW_TAC [] [PrinterTheory.ov_to_string_def]);
+  \\ SRW_TAC [] [printerTheory.ov_to_string_def]);
 
 
 (* IsBlock instruction *)
