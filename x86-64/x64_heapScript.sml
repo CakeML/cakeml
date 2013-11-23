@@ -6878,7 +6878,7 @@ val x64_heap_heap_expand = prove(
 val heap_length_heap_expand = prove(
   ``heap_length (heap_expand n) = n``,
   Cases_on `n` \\ SIMP_TAC std_ss [heap_length_def,ADD1,MAP] \\ EVAL_TAC
-  \\ SIMP_TAC std_ss [SUM,MAP,el_length_def]);
+  \\ SIMP_TAC std_ss [SUM,MAP,el_length_def,SUM_ACC_DEF]);
 
 val one_list_exists_ADD = prove(
   ``!m a n. one_list_exists a (m + n) =
