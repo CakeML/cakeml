@@ -712,7 +712,7 @@ val MEM_ADDR_MAP = prove(
 
 val heap_length_heap_expand = store_thm("heap_length_heap_expand",
   ``!n. heap_length (heap_expand n) = n``,
-  Cases \\ EVAL_TAC \\ FULL_SIMP_TAC (srw_ss()) [el_length_def,ADD1]);
+  Cases \\ EVAL_TAC \\ FULL_SIMP_TAC (srw_ss()) [el_length_def,ADD1,SUM_ACC_DEF]);
 
 val EVERY_isDataElement_IMP_LEMMA = prove(
   ``!heap2. EVERY isDataElement heap2 ==> (FILTER isForwardPointer heap2 = [])``,
