@@ -15,7 +15,7 @@ val _ = new_theory "toIntLang"
 (*open import CompilerLib*)
 (*open import IntLang*)
 (*open import Ast*)
-(*import {hol} miscTheory*)
+(*import {hol} `miscTheory`*)
 
 (* TODO: Lem's builtin find index has a different type *)
 (*val find_index : forall 'a. 'a -> list 'a -> nat -> maybe nat*) (* to pick up the definition in miscTheory *)
