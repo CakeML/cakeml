@@ -10,10 +10,11 @@ repl
 repl/proofs
 translator
 translator/repl
-parsing/testing
-inference/tests
-compiler/tests
 bootstrap
 x86-64
 hol-light
+parsing/testing
+compiler/tests
+whole-prog
+whole-prog/tests
 translator/repl/proofs
