@@ -10,7 +10,7 @@ open prog_x64_extraTheory prog_x64Theory temporalTheory;
 open lexer_funTheory lexer_implTheory ml_translatorTheory;
 open repl_fun_altTheory
 
-open BytecodeTheory (* repl_funTheory *);
+open bytecodeTheory (* repl_funTheory *);
 
 open ml_copying_gcTheory ml_heapTheory
 open decompilerLib;
@@ -8390,8 +8390,8 @@ val (bc_print_res,bc_print_def,bc_print_pre_def) = x64_compile `
 
 val bc_value1_size_thm = store_thm("bc_value1_size_thm",
   ``!ls. bc_value1_size ls = SUM (MAP bc_value_size ls) + LENGTH ls``,
-  Induct THEN1 FULL_SIMP_TAC (srw_ss()) [BytecodeTheory.bc_value_size_def]
-  THEN SRW_TAC [ARITH_ss][BytecodeTheory.bc_value_size_def])
+  Induct THEN1 FULL_SIMP_TAC (srw_ss()) [bytecodeTheory.bc_value_size_def]
+  THEN SRW_TAC [ARITH_ss][bytecodeTheory.bc_value_size_def])
 
 val (better_bv_to_ov_def,better_bv_to_ov_ind) =
   Defn.tprove_no_defn ((bv_to_ov_def,bv_to_ov_ind),
