@@ -4,7 +4,7 @@ open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open wordsTheory wordsLib integer_wordTheory;
 
-open BytecodeTheory;
+open bytecodeTheory;
 
 val _ = set_fixity "=" (Infix(NONASSOC, 100));
 
