@@ -79,7 +79,7 @@ val print_v_def = Define `
 (print_v (Loc _) = "<ref>")`;
 
 val print_envE_def = Define `
-print_envE envE = CONCAT (MAP (\(x,v). "val " ++ x ++ " = " ++ print_v v ++ "\n") envE)`;
+print_envE types envE = CONCAT (MAP (\(x,v). "val " ++ x ++ ":" ++ FAPPLY types v ++ " = " ++ print_v v ++ "\n") envE)`;
 
 val print_result_def = Define `
 (print_result (Tdec _) envC (Rval (envM,envE)) = print_envC envC ++ print_envE envE) ∧

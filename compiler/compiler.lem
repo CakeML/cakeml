@@ -126,13 +126,16 @@ let compile_decs_wrap mn rs decs =
   (ct,env,cs)
 
 let rec
-compile_print_vals _ [] s = s
+compile_print_vals _ _ [] s = s
 and
-compile_print_vals n (v::vs) s =
-  let s = emit s (List.map PrintC (EXPLODE (string_concat ["val ";v;" = "]))) in
-  let s = emit s [Stack(Load n); Print] in
-  let s = emit s (List.map PrintC (EXPLODE "\n")) in
-  compile_print_vals (n+1) vs s
+compile_print_vals types n (v::vs) s =
+  match Map.lookup v types with
+    | Just t ->
+        let s = emit s (List.map PrintC (EXPLODE (string_concat ["val ";v;":"; t;" = "]))) in
+	let s = emit s [Stack(Load n); Print] in
+	let s = emit s (List.map PrintC (EXPLODE "\n")) in
+	compile_print_vals types (n+1) vs s
+  end
 
 let rec
 compile_print_ctors [] s = s
@@ -148,18 +151,18 @@ compile_print_types ((_,_,cs)::ts) s =
   compile_print_types ts (compile_print_ctors cs s)
 
 let rec
-compile_print_dec (Dtype ts) s = compile_print_types ts s
+compile_print_dec _ (Dtype ts) s = compile_print_types ts s
 and
-compile_print_dec (Dexn c xs) s = compile_print_types [(([]:list tvarN),"exn",[(c,xs)])] s
+compile_print_dec _ (Dexn c xs) s = compile_print_types [(([]:list tvarN),"exn",[(c,xs)])] s
 and
-compile_print_dec (Dlet p _) s =
-  compile_print_vals 0 (pat_bindings p []) s
+compile_print_dec types (Dlet p _) s =
+  compile_print_vals types 0 (pat_bindings p []) s
 and
-compile_print_dec (Dletrec defs) s =
-  compile_print_vals 0 (List.map (fun (n,_,_) -> n) defs) s
+compile_print_dec types (Dletrec defs) s =
+  compile_print_vals types 0 (List.map (fun (n,_,_) -> n) defs) s
 
 let rec
-compile_top rs (Tmod mn _ decs) =
+compile_top _ rs (Tmod mn _ decs) =
   let (ct,env,cs) = compile_decs_wrap (Just mn) rs decs in
   let str = string_concat["structure ";mn;" = <structure>\n"] in
   (<| rs with
@@ -174,7 +177,7 @@ compile_top rs (Tmod mn _ decs) =
     |>
   ,(emit cs (List.map PrintC (EXPLODE str))).out)
 and
-compile_top rs (Tdec dec) =
+compile_top types rs (Tdec dec) =
   let (ct,env,cs) = compile_decs_wrap Nothing rs [dec] in
   (<| rs with
       contab = ct
@@ -184,4 +187,4 @@ compile_top rs (Tdec dec) =
   ,<| rs with
       contab = ct
     ; rnext_label = cs.next_label |>
-  ,(compile_print_dec dec cs).out)
+  ,(compile_print_dec types dec cs).out)

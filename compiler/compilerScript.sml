@@ -163,13 +163,16 @@ val _ = Define `
 
  val compile_print_vals_defn = Hol_defn "compile_print_vals" `
 
-(compile_print_vals _ [] s = s)
+(compile_print_vals _ _ [] s = s)
 /\
-(compile_print_vals n (v::vs) s =  
-(let s = (emit s ((MAP PrintC ((EXPLODE ((CONCAT ["val ";v;" = "]))))))) in
-  let s = (emit s [Stack(Load n); Print]) in
-  let s = (emit s ((MAP PrintC ((EXPLODE "\n"))))) in
-  compile_print_vals (n+ 1) vs s))`;
+(compile_print_vals types n (v::vs) s =  
+((case (FLOOKUP types v) of
+      (SOME t) =>
+        let s = (emit s ((MAP PrintC ((EXPLODE ((CONCAT ["val ";v;":"; t;" = "]))))))) in
+	let s = (emit s [Stack(Load n); Print]) in
+	let s = (emit s ((MAP PrintC ((EXPLODE "\n"))))) in
+	compile_print_vals types (n+ 1) vs s
+  )))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_print_vals_defn;
 
@@ -194,21 +197,21 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val _ = Define `
 
-(compile_print_dec (Dtype ts) s = (compile_print_types ts s))
+(compile_print_dec _ (Dtype ts) s = (compile_print_types ts s))
 /\
-(compile_print_dec (Dexn c xs) s = (compile_print_types [(([]: tvarN list),"exn",[(c,xs)])] s))
+(compile_print_dec _ (Dexn c xs) s = (compile_print_types [(([]: tvarN list),"exn",[(c,xs)])] s))
 /\
-(compile_print_dec (Dlet p _) s =  
-(compile_print_vals( 0) (pat_bindings p []) s))
+(compile_print_dec types (Dlet p _) s =  
+(compile_print_vals types( 0) (pat_bindings p []) s))
 /\
-(compile_print_dec (Dletrec defs) s =  
-(compile_print_vals( 0) ((MAP (\p . 
+(compile_print_dec types (Dletrec defs) s =  
+(compile_print_vals types( 0) ((MAP (\p . 
   (case (p ) of ( (n,_,_) ) => n )) defs)) s))`;
 
 
  val _ = Define `
 
-(compile_top rs (Tmod mn _ decs) =  
+(compile_top _ rs (Tmod mn _ decs) =  
 (let (ct,env,cs) = (compile_decs_wrap ((SOME mn)) rs decs) in
   let str = ((CONCAT["structure ";mn;" = <structure>\n"])) in
   (( rs with<|
@@ -223,7 +226,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     |>)
   ,(emit cs ((MAP PrintC ((EXPLODE str))))).out)))
 /\
-(compile_top rs (Tdec dec) =  
+(compile_top types rs (Tdec dec) =  
 (let (ct,env,cs) = (compile_decs_wrap NONE rs [dec]) in
   (( rs with<|
       contab := ct
@@ -233,7 +236,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   ,( rs with<|
       contab := ct
     ; rnext_label := cs.next_label |>)
-  ,(compile_print_dec dec cs).out)))`;
+  ,(compile_print_dec types dec cs).out)))`;
 
 val _ = export_theory()
 

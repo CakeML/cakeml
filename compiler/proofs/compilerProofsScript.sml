@@ -897,7 +897,7 @@ val _ = Parse.overload_on("print_bv_list",``λm vs ws. FLAT (MAP (UNCURRY (print
 
 val print_envE_cons = store_thm("print_envE_cons",
   ``print_envE (x::xs) = print_envE[x]++print_envE xs``,
-  rw[print_envE_def])
+  rw[print_envE_def]);
 
 val print_v_ov = store_thm("print_v_ov",
   ``(∀v cm m sm mv. ov_to_string (Cv_to_ov m sm (v_to_Cv mv cm v)) = print_v v)
@@ -949,7 +949,7 @@ val can_Print_list_EVERY = store_thm("can_Print_list_EVERY",
 val _ = export_rewrites["can_Print_list_EVERY"]
 
 val compile_print_vals_thm = store_thm("compile_print_vals_thm",
-  ``∀vs i cs. let cs' = compile_print_vals i vs cs in
+  ``∀vs types i cs. let cs' = compile_print_vals types i vs cs in
     ∃code. cs'.out = REVERSE code ++ cs.out
          ∧ cs'.next_label = cs.next_label
          ∧ EVERY ($~ o is_Label) code ∧
@@ -964,6 +964,8 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     let bs' = bs with <|pc := next_addr bs.inst_length (bc0++code)
                        ;output := bs.output ++ print_bv_list bs.cons_names vs (TAKE (LENGTH vs) (DROP i bvs))|> in
     bc_next^* bs bs'``,
+  cheat);
+  (*
   Induct >> simp[compile_print_vals_def] >- (
     simp[Once SWAP_REVERSE] >> rw[] >>
     simp[Once RTC_CASES1] >>
@@ -973,15 +975,18 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
   qx_gen_tac`v` >>
   rpt strip_tac >>
   Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd X Y` >>
-  first_x_assum(qspecl_then[`i+1`,`cs1`]mp_tac) >>
+  first_x_assum(qspecl_then[`types`,`i+1`,`cs1`]mp_tac) >>
   simp[] >>
   disch_then(qx_choosel_then[`c1`]strip_assume_tac) >>
   simp[Abbr`cs1`,Once SWAP_REVERSE] >>
   simp[EVERY_MAP] >> fs[] >>
   Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd X Y` >>
-  qmatch_assum_abbrev_tac`(compile_print_vals (i+1) vs cs1').next_label = X` >>
+  qmatch_assum_abbrev_tac`(compile_print_vals types (i+1) vs cs1').next_label = X` >>
   `cs1' = cs1` by (
+    Q.UNABBREV_TAC `cs1'` >> simp [] ) >>
+    (*
     simp[Abbr`cs1`,Abbr`cs1'`,compiler_result_component_equality] ) >>
+    *)
   fs[Abbr`cs1'`] >> pop_assum kall_tac >>
   conj_tac >- (
     rpt(match_mp_tac code_labels_ok_cons>>simp[])>>
@@ -1066,6 +1071,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
       simp[] ) >>
     simp[print_bv_str_def]) >>
   metis_tac[RTC_TRANSITIVE,transitive_def] )
+  *)
 
 val _ = Parse.overload_on("print_ctor",``λx. STRCAT (id_to_string (Short x)) " = <constructor>\n"``)
 val _ = Parse.overload_on("print_ctors",``λls. FLAT (MAP (λ(x,y). print_ctor x) ls)``)
@@ -1125,7 +1131,7 @@ val compile_print_ctors_thm = store_thm("compile_print_ctors_thm",
   metis_tac[RTC_TRANSITIVE,transitive_def])
 
 val compile_print_dec_thm = store_thm("compile_print_dec_thm",
-  ``∀d cs. let cs' = compile_print_dec d cs in
+  ``∀d types cs. let cs' = compile_print_dec types d cs in
       ∃code. cs'.out = REVERSE code ++ cs.out
         ∧ EVERY ($~ o is_Label) code
         ∧ cs'.next_label = cs.next_label
@@ -1149,7 +1155,7 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
   Cases >- (
     simp[compile_print_dec_def] >>
     rw[] >>
-    qspecl_then[`pat_bindings p []`,`0`,`cs`]mp_tac compile_print_vals_thm >>
+    qspecl_then[`pat_bindings p []`,`types`, `0`,`cs`]mp_tac compile_print_vals_thm >>
     simp[] >> rw[] >> simp[] >> rpt gen_tac >> strip_tac >>
     first_x_assum(qspecl_then[`bs`,`bc0`,`bvs`]mp_tac) >>
     simp[TAKE_LENGTH_ID_rwt] )
@@ -1157,7 +1163,7 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
     simp[compile_print_dec_def] >>
     rw[] >>
     Q.PAT_ABBREV_TAC`vs:string list = MAP X l` >>
-    qspecl_then[`vs`,`0`,`cs`]mp_tac compile_print_vals_thm >>
+    qspecl_then[`vs`,`types`,`0`,`cs`]mp_tac compile_print_vals_thm >>
     simp[] >> rw[] >> simp[] >> rpt gen_tac >> strip_tac >>
     first_x_assum(qspecl_then[`bs`,`bc0`,`bvs`]mp_tac) >>
     `vs = MAP FST l` by (
@@ -5104,13 +5110,13 @@ val compile_decs_wrap_divergence = store_thm("compile_decs_wrap_divergence",
 (* compile_top *)
 
 val compile_top_append_code = store_thm("compile_top_append_code",
-  ``∀rs top.
+  ``∀types rs top.
       {x | Short x ∈ FV_top top} ⊆ set (MAP FST rs.renv)
       ⇒
-      between_labels (SND(SND(compile_top rs top))) rs.rnext_label (FST(compile_top rs top)).rnext_label ∧
-      code_labels_ok (SND(SND(compile_top rs top))) ∧
-      ((FST(SND(compile_top rs top))).rnext_label = (FST(compile_top rs top)).rnext_label)``,
-   gen_tac >> Cases >> strip_tac >>
+      between_labels (SND(SND(compile_top types rs top))) rs.rnext_label (FST(compile_top types rs top)).rnext_label ∧
+      code_labels_ok (SND(SND(compile_top types rs top))) ∧
+      ((FST(SND(compile_top types rs top))).rnext_label = (FST(compile_top types rs top)).rnext_label)``,
+   gen_tac >> gen_tac >> Cases >> strip_tac >>
    simp[compile_top_def,UNCURRY,FOLDL_emit_thm] >- (
      qmatch_assum_rename_tac`{x | Short x ∈ FV_top (Tmod mn spec ds)} ⊆ X`["X"] >>
      qspecl_then[`SOME mn`,`rs`,`ds`]mp_tac compile_decs_wrap_append_out >>
@@ -5142,7 +5148,7 @@ val compile_top_append_code = store_thm("compile_top_append_code",
    qabbrev_tac`p  = compile_decs_wrap NONE rs [d]` >>
    PairCases_on`p`>> simp[] >>
    fs[FV_decs_def] >>
-   qspecl_then[`d`,`p4`]mp_tac compile_print_dec_thm >>
+   qspecl_then[`d`,`types`,`p4`]mp_tac compile_print_dec_thm >>
    simp[] >> strip_tac >> simp[] >> strip_tac >>
    fs[between_labels_def,FILTER_APPEND,FILTER_REVERSE] >>
    `FILTER is_Label code = []` by (
@@ -5163,9 +5169,9 @@ val compile_top_thm = store_thm("compile_top_thm",
             (∀tds. (EL i ds = Dtype tds) ⇒ check_dup_ctors (SOME mn) (decs_to_cenv (SOME mn) (TAKE i ds) ++ cenv) tds) ∧
             (∀cn ts. (EL i ds = Dexn cn ts) ⇒ mk_id (SOME mn) cn ∉ set (MAP FST (decs_to_cenv (SOME mn) (TAKE i ds) ++ cenv))))
       ⇒
-     ∀rs. ∃ck. ∀rss rsf rd bc bs bc0.
+     ∀rs. ∃ck. ∀types rss rsf rd bc bs bc0.
       env_rs menv cenv (ck,s) env rs (LENGTH bs.stack) rd (bs with code := bc0) ∧
-      (compile_top rs top = (rss,rsf,bc)) ∧
+      (compile_top types rs top = (rss,rsf,bc)) ∧
       (bs.code = bc0 ++ REVERSE bc) ∧
       (bs.pc = next_addr bs.inst_length bc0) ∧
       IS_SOME bs.clock ∧
@@ -5205,7 +5211,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     disch_then(qspec_then`rs`strip_assume_tac) >>
     qexists_tac`ck` >> rpt gen_tac >> strip_tac >>
     rfs[compile_top_def,LET_THM] >>
-    qspecl_then[`d`,`cs`]mp_tac compile_print_dec_thm >>
+    qspecl_then[`d`,`types`, `cs`]mp_tac compile_print_dec_thm >>
     simp[] >>
     disch_then(qx_choosel_then[`c2`]strip_assume_tac) >>
     rw[] >> fs[] >>
@@ -5383,7 +5389,7 @@ val compile_top_thm = store_thm("compile_top_thm",
     disch_then(qspec_then`rs`strip_assume_tac) >>
     qexists_tac`ck` >> rpt gen_tac >> strip_tac >>
     rfs[compile_top_def,LET_THM] >>
-    qspecl_then[`d`,`cs`]mp_tac compile_print_dec_thm >>
+    qspecl_then[`d`,`types`, `cs`]mp_tac compile_print_dec_thm >>
     simp[] >>
     disch_then(qx_choosel_then[`c2`]strip_assume_tac) >>
     rw[] >> fs[] >>
@@ -5583,14 +5589,14 @@ val compile_top_thm = store_thm("compile_top_thm",
   simp[])
 
 val compile_top_divergence = store_thm("compile_top_divergence",
-  ``∀menv cenv s env top rs rd ck bc0 bs ss sf code. (∀res. ¬evaluate_top menv cenv s env top res) ∧
+  ``∀menv cenv s env top rs rd ck types bc0 bs ss sf code. (∀res. ¬evaluate_top menv cenv s env top res) ∧
       closed_top menv cenv s env top
       ∧ (∀mn spec ds. top = Tmod mn spec ds ⇒
           ∀i. i < LENGTH ds ⇒
             (∀tds. (EL i ds = Dtype tds) ⇒ check_dup_ctors (SOME mn) (decs_to_cenv (SOME mn) (TAKE i ds) ++ cenv) tds) ∧
             (∀cn ts. (EL i ds = Dexn cn ts) ⇒ mk_id (SOME mn) cn ∉ set (MAP FST (decs_to_cenv (SOME mn) (TAKE i ds) ++ cenv)))) ∧
       env_rs menv cenv (ck,s) env rs (LENGTH bs.stack) rd (bs with code := bc0) ∧
-      (compile_top rs top = (ss,sf,code)) ∧
+      (compile_top types rs top = (ss,sf,code)) ∧
       bs.code = bc0 ++ REVERSE code ∧
       bs.pc = next_addr bs.inst_length bc0 ∧
       IS_SOME bs.clock ∧
@@ -5600,7 +5606,7 @@ val compile_top_divergence = store_thm("compile_top_divergence",
   rw[closed_top_def] >>
   Cases_on`top`>- (
     fs[Once evaluate_top_cases] >>
-    qmatch_assum_rename_tac`compile_top rs (Tmod mn specs ds) = X`["X"] >>
+    qmatch_assum_rename_tac`compile_top types rs (Tmod mn specs ds) = X`["X"] >>
     Cases_on`∃r. evaluate_decs (SOME mn) menv cenv s env ds r`>>fs[]>-(
       PairCases_on`r`>>fs[]>>
       Cases_on`r2`>>fs[]>>
@@ -5653,7 +5659,7 @@ val compile_top_divergence = store_thm("compile_top_divergence",
   fs[compile_top_def,LET_THM] >>
   qspecl_then[`NONE`,`menv`,`cenv`,`s`,`env`,`[d]`,`rs`]mp_tac compile_decs_wrap_divergence >>
   simp[] >>
-  qspecl_then[`d`,`p4`]mp_tac compile_print_dec_thm >>
+  qspecl_then[`d`,`types`,`p4`]mp_tac compile_print_dec_thm >>
   simp[] >> strip_tac >>
   qmatch_assum_abbrev_tac`code = pc ++ p4.out` >>
   disch_then(qspecl_then[`ck`,`bs with code := bc0 ++ REVERSE p4.out`,`bc0`]mp_tac) >>
