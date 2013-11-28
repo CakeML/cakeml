@@ -166,13 +166,16 @@ val _ = Define `
 (compile_print_vals _ _ [] s = s)
 /\
 (compile_print_vals types n (v::vs) s =  
-((case (FLOOKUP types v) of
-      (SOME t) =>
-        let s = (emit s ((MAP PrintC ((EXPLODE ((CONCAT ["val ";v;":"; t;" = "]))))))) in
-	let s = (emit s [Stack(Load n); Print]) in
-	let s = (emit s ((MAP PrintC ((EXPLODE "\n"))))) in
-	compile_print_vals types (n+ 1) vs s
-  )))`;
+(let t =    
+ ((case (FLOOKUP types v) of
+        (SOME t) => t
+      | NONE => "<unknown>"
+    ))
+  in
+  let s = (emit s ((MAP PrintC ((EXPLODE ((CONCAT ["val ";v;":"; t;" = "]))))))) in
+  let s = (emit s [Stack(Load n); Print]) in
+  let s = (emit s ((MAP PrintC ((EXPLODE "\n"))))) in
+    compile_print_vals types (n+ 1) vs s))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_print_vals_defn;
 

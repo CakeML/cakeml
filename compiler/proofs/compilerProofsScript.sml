@@ -896,7 +896,7 @@ val MAP_PrintC_thm = store_thm("MAP_PrintC_thm",
 val _ = Parse.overload_on("print_bv_list",``λm vs ws. FLAT (MAP (UNCURRY (print_bv_str m)) (ZIP (vs,ws)))``)
 
 val print_envE_cons = store_thm("print_envE_cons",
-  ``print_envE (x::xs) = print_envE[x]++print_envE xs``,
+  ``print_envE types (x::xs) = print_envE types [x]++print_envE types xs``,
   rw[print_envE_def]);
 
 val print_v_ov = store_thm("print_v_ov",
@@ -910,11 +910,14 @@ val print_v_ov = store_thm("print_v_ov",
   Cases_on`b`>>simp[printerTheory.ov_to_string_def,print_lit_def])
 
 val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
-  ``∀mv pp vars vs cm m Cvs bvs env.
+  ``∀mv pp vars vs cm m Cvs bvs types env.
     EVERY2 syneq (MAP (v_to_Cv mv cm) vs) Cvs ∧ EVERY2 (Cv_bv pp) Cvs bvs ∧ LENGTH vars = LENGTH vs ∧
     env = ZIP(vars,vs)
     ⇒
-    print_bv_list m vars bvs = print_envE env``,
+    print_bv_list m vars bvs = print_envE types env``,
+ (* TODO: This isn't true because print_bv_list doesn't print types *)
+ cheat);
+ (*
   ntac 2 gen_tac >>
   Induct >- ( Cases >> simp[print_envE_def] ) >>
   qx_gen_tac`x`>>
@@ -937,6 +940,7 @@ val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
     metis_tac[syneq_ov] >>
   pop_assum SUBST1_TAC >>
   simp[print_v_ov])
+  *)
 
 val code_labels_ok_MAP_PrintC = store_thm("code_labels_ok_MAP_PrintC",
   ``∀ls. code_labels_ok (MAP PrintC ls)``,
@@ -965,7 +969,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
                        ;output := bs.output ++ print_bv_list bs.cons_names vs (TAKE (LENGTH vs) (DROP i bvs))|> in
     bc_next^* bs bs'``,
   cheat);
-  (*
+(* 
   Induct >> simp[compile_print_vals_def] >- (
     simp[Once SWAP_REVERSE] >> rw[] >>
     simp[Once RTC_CASES1] >>
@@ -988,6 +992,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     simp[Abbr`cs1`,Abbr`cs1'`,compiler_result_component_equality] ) >>
     *)
   fs[Abbr`cs1'`] >> pop_assum kall_tac >>
+  simp [FLOOKUP_DEF] >>
   conj_tac >- (
     rpt(match_mp_tac code_labels_ok_cons>>simp[])>>
     match_mp_tac code_labels_ok_append>>simp[IMPLODE_EXPLODE_I]>>
@@ -5181,7 +5186,7 @@ val compile_top_thm = store_thm("compile_top_thm",
         ∃bs' rd'.
         bc_next^* bs bs' ∧
         bs'.pc = next_addr bs'.inst_length (bc0 ++ bc) ∧
-        bs'.output = bs.output ++ (print_result top cenv' (Rval(menv',env'))) ∧
+        bs'.output = bs.output ++ (print_result types top cenv' (Rval(menv',env'))) ∧
         env_rs (menv'++menv) (cenv'++cenv) (0,s') (env'++env) rss (LENGTH bs'.stack) rd' bs'
       | (s',cenv',Rerr(Rraise err)) =>
         ∃Cv bv bs' rd'.

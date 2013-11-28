@@ -79,14 +79,42 @@ val print_v_def = Define `
 (print_v (Loc _) = "<ref>")`;
 
 val print_envE_def = Define `
-print_envE types envE = CONCAT (MAP (\(x,v). "val " ++ x ++ ":" ++ FAPPLY types v ++ " = " ++ print_v v ++ "\n") envE)`;
+print_envE types envE = CONCAT (MAP (\(x,v). "val " ++ x ++ ":" ++ FAPPLY types x ++ " = " ++ print_v v ++ "\n") envE)`;
 
 val print_result_def = Define `
-(print_result (Tdec _) envC (Rval (envM,envE)) = print_envC envC ++ print_envE envE) ∧
-(print_result (Tmod mn _ _) _ (Rval _) = "structure "++mn++" = <structure>\n") ∧
-(print_result _ _ (Rerr Rtimeout_error) = "<timeout error>\n") ∧
-(print_result _ _ (Rerr Rtype_error) = "<type error>\n") ∧
-(print_result _ _ (Rerr (Rraise e)) = "raise " ++ print_v e ++ "\n")`;
+(print_result types (Tdec _) envC (Rval (envM,envE)) = print_envC envC ++ print_envE types envE) ∧
+(print_result _ (Tmod mn _ _) _ (Rval _) = "structure "++mn++" = <structure>\n") ∧
+(print_result _ _ _ (Rerr Rtimeout_error) = "<timeout error>\n") ∧
+(print_result _ _ _ (Rerr Rtype_error) = "<type error>\n") ∧
+(print_result _ _ _ (Rerr (Rraise e)) = "raise " ++ print_v e ++ "\n")`;
+
+val tc_to_string_def = Define `
+(tc_to_string (TC_name id) ⇔ id_to_string id) ∧
+(tc_to_string TC_int ⇔ "<int>") ∧
+(tc_to_string TC_bool ⇔ "<bool>") ∧
+(tc_to_string TC_unit ⇔ "<unit>") ∧
+(tc_to_string TC_ref ⇔ "<ref>") ∧
+(tc_to_string TC_exn ⇔ "<exn>")`;
+
+val type_to_string_def = tDefine "type_to_string" `
+(type_to_string (Tvar tvn) ⇔ tvn) ∧
+(type_to_string (Tvar_db n) ⇔ num_to_dec_string n) ∧
+(type_to_string (Tapp [] tc) ⇔ tc_to_string tc) ∧
+(type_to_string (Tapp [t1;t2] TC_fn) ⇔ 
+  "(" ++ type_to_string t1 ++ "->" ++ type_to_string t2 ++ ")") ∧
+(type_to_string (Tapp ts TC_tup) ⇔
+  "(" ++ types_to_string ts ++ ")") ∧
+(type_to_string (Tapp ts tc) ⇔ 
+  "(" ++ types_to_string ts ++ ") " ++ tc_to_string tc) ∧
+(types_to_string [] ⇔ "") ∧
+(types_to_string [t] ⇔ type_to_string t) ∧
+(types_to_string (t::ts) ⇔ type_to_string t ++ ", " ++ types_to_string ts)`
+(wf_rel_tac `measure (\x. case x of INL x => t_size x | INR x => t1_size x)`);
+
+val tenv_to_string_map_def = Define `
+(tenv_to_string_map [] ⇔ FEMPTY) ∧
+(tenv_to_string_map ((x, (_, t)) :: tenv) ⇔
+  tenv_to_string_map tenv |+ (x, type_to_string t))`;
 
 val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
 
@@ -100,7 +128,7 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
   evaluate_top state.envM state.envC state.store state.envE top (store',envC',r) ∧
   ast_repl (update_repl_state top state type_bindings' ctors' tenvM' tenvC' tenv' store' envC' r) type_errors asts rest
   ⇒
-  ast_repl state (F::type_errors) (SOME ast::asts) (Result (print_result top envC' r) rest)) ∧
+  ast_repl state (F::type_errors) (SOME ast::asts) (Result (print_result (tenv_to_string_map tenv') top envC' r) rest)) ∧
 
 (!state type_errors ast asts top type_bindings' ctors' tenvM' tenvC' tenv'.
   (elab_top state.type_bindings state.ctors ast =

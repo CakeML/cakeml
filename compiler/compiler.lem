@@ -129,13 +129,16 @@ let rec
 compile_print_vals _ _ [] s = s
 and
 compile_print_vals types n (v::vs) s =
-  match Map.lookup v types with
-    | Just t ->
-        let s = emit s (List.map PrintC (EXPLODE (string_concat ["val ";v;":"; t;" = "]))) in
-	let s = emit s [Stack(Load n); Print] in
-	let s = emit s (List.map PrintC (EXPLODE "\n")) in
-	compile_print_vals types (n+1) vs s
-  end
+  let t = 
+    match Map.lookup v types with
+      | Just t -> t
+      | Nothing -> "<unknown>"
+    end
+  in
+  let s = emit s (List.map PrintC (EXPLODE (string_concat ["val ";v;":"; t;" = "]))) in
+  let s = emit s [Stack(Load n); Print] in
+  let s = emit s (List.map PrintC (EXPLODE "\n")) in
+    compile_print_vals types (n+1) vs s
 
 let rec
 compile_print_ctors [] s = s

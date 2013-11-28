@@ -15,6 +15,26 @@ elaborate_top ((types, constructors) : elaborator_state) ast_top =
 val initial_elaborator_state_def = Define `
 initial_elaborator_state : elaborator_state = (init_repl_state.type_bindings, [])`;
 
+val inf_type_to_string_def = tDefine "inf_type_to_string" `
+(inf_type_to_string (Infer_Tuvar _) ⇔ "<unification variable>") ∧
+(inf_type_to_string (Infer_Tvar_db n) ⇔ num_to_dec_string n) ∧
+(inf_type_to_string (Infer_Tapp [] tc) ⇔ tc_to_string tc) ∧
+(inf_type_to_string (Infer_Tapp [t1;t2] TC_fn) ⇔ 
+  "(" ++ inf_type_to_string t1 ++ "->" ++ inf_type_to_string t2 ++ ")") ∧
+(inf_type_to_string (Infer_Tapp ts TC_tup) ⇔
+  "(" ++ inf_types_to_string ts ++ ")") ∧
+(inf_type_to_string (Infer_Tapp ts tc) ⇔ 
+  "(" ++ inf_types_to_string ts ++ ") " ++ tc_to_string tc) ∧
+(inf_types_to_string [] ⇔ "") ∧
+(inf_types_to_string [t] ⇔ inf_type_to_string t) ∧
+(inf_types_to_string (t::ts) ⇔ inf_type_to_string t ++ ", " ++ inf_types_to_string ts)`
+(WF_REL_TAC `measure (\x. case x of INL x => infer_t_size x | INR x => infer_t1_size x)`);
+
+val inf_tenv_to_string_map_def = Define `
+(inf_tenv_to_string_map [] ⇔ FEMPTY) ∧
+(inf_tenv_to_string_map ((x, (_, t)) :: tenv) ⇔
+inf_tenv_to_string_map tenv |+ (x, inf_type_to_string t))`;
+
 val _ = type_abbrev ("inferencer_state", ``:(modN, (varN, num # infer_t) env) env # tenvC # (varN, num # infer_t) env``);
 
 val infertype_top_def = Define `
@@ -22,9 +42,10 @@ infertype_top ((module_type_env, constructor_type_env, type_env) :inferencer_sta
   case FST (infer_top module_type_env constructor_type_env type_env ast_top infer$init_infer_state) of
      | Failure _ => Failure "<type error>"
      | Success (new_module_type_env, new_constructor_type_env, new_type_env) =>
-        Success (new_module_type_env ++ module_type_env,
+        Success ((new_module_type_env ++ module_type_env,
                   new_constructor_type_env ++ constructor_type_env,
-                  new_type_env ++ type_env)`;
+                  new_type_env ++ type_env),
+                 inf_tenv_to_string_map new_type_env)`;
 
 val initial_inferencer_state_def = Define `
 initial_inferencer_state : inferencer_state = ([], init_tenvC, infer$init_type_env)`;
@@ -67,7 +88,7 @@ initial_program =
 
 val compile_primitives_def = Define`
   compile_primitives =
-    compile_top init_compiler_state
+    compile_top FEMPTY init_compiler_state
     (Tdec initial_program)`;
 
 val initial_repl_fun_state = Define`
@@ -102,8 +123,8 @@ val parse_elaborate_infertype_compile_def = Define `
             (* type inference failed to find type *)
           | Failure _ => Failure "<type error>\n"
             (* type found, type safe! *)
-          | Success is =>
-             let (css,csf,code) = compile_top s.rcompiler_state top in
+          | Success (is,types) =>
+             let (css,csf,code) = compile_top types s.rcompiler_state top in
                Success (code,update_state s es is css,update_state_err s is csf)`
 
 val install_code_def = Define `

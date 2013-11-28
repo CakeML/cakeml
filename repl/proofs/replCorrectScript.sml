@@ -185,11 +185,11 @@ Cases>>simp[]>>
 Induct_on`q`>>simp[id_to_string_def]>>
 lrw[LIST_EQ_REWRITE])
 
-val print_envE_not_type_error = prove(``print_envE en ≠ "<type error>\n"``,
+val print_envE_not_type_error = prove(``print_envE types en ≠ "<type error>\n"``,
 Induct_on`en`>>simp[print_envE_def]>>
 Cases>>simp[])
 
-val print_result_not_type_error = prove(``r ≠ Rerr Rtype_error ⇒ print_result top envc r ≠ "<type error>\n"``,
+val print_result_not_type_error = prove(``r ≠ Rerr Rtype_error ⇒ print_result types top envc r ≠ "<type error>\n"``,
   Cases_on`r`>>
   TRY(Cases_on`e`)>>
   TRY(PairCases_on`a`)>>
@@ -1328,7 +1328,7 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
   imp_res_tac RTC_bc_next_can_be_clocked >>
   qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`]mp_tac compile_top_divergence >>
   fs[invariant_def] >>
-  map_every qexists_tac[`st.rcompiler_state`,`rd`,`ck+1`,`bs.code`,`bs0 with clock := SOME (ck+1)`]>>
+  map_every qexists_tac[`st.rcompiler_state`,`rd`,`ck+1`,`types`,`bs.code`,`bs0 with clock := SOME (ck+1)`]>>
   simp[] >>
   conj_tac >- (
     fs[closed_top_def] >>
