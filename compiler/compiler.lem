@@ -125,17 +125,17 @@ let compile_decs_wrap mn rs decs =
   let env = Lib.ZIP news (genlist (fun i -> rs.rsz+n-1-i) n) in
   (ct,env,cs)
 
+let tystr types v =
+  match Map.lookup v types with
+    | Just t -> t
+    | Nothing -> "<unknown>"
+  end
+
 let rec
 compile_print_vals _ _ [] s = s
 and
 compile_print_vals types n (v::vs) s =
-  let t = 
-    match Map.lookup v types with
-      | Just t -> t
-      | Nothing -> "<unknown>"
-    end
-  in
-  let s = emit s (List.map PrintC (EXPLODE (string_concat ["val ";v;":"; t;" = "]))) in
+  let s = emit s (List.map PrintC (EXPLODE (string_concat ["val ";v;":"; tystr types v;" = "]))) in
   let s = emit s [Stack(Load n); Print] in
   let s = emit s (List.map PrintC (EXPLODE "\n")) in
     compile_print_vals types (n+1) vs s
