@@ -1033,7 +1033,7 @@ val evaluate_top_to_cenv = store_thm("evaluate_top_to_cenv",
 
 
 val ctac =
-  qspecl_then[`st.rcompiler_state`,`top`]mp_tac compile_top_append_code >>
+  qspecl_then[`inf_tenv_to_string_map new_infer_env`,`st.rcompiler_state`,`top`]mp_tac compile_top_append_code >>
   discharge_hyps >- (
     `MAP FST st.rcompiler_state.renv = MAP FST rs.envE` by (
       fs[env_rs_def,LET_THM,GSYM MAP_MAP_o] ) >>
@@ -1144,10 +1144,11 @@ rw[parse_elaborate_infertype_compile_def,parser_correct] >>
 qmatch_assum_rename_tac`elaborate_top st.relaborator_state top0 = (new_elab_state, top)`[] >>
 qmatch_assum_rename_tac`invariant rs st bs`[] >>
 rw [] >>
-`?error_msg next_repl_run_infer_state.
+`?error_msg next_repl_run_infer_state types.
   infertype_top st.rinferencer_state top = Failure error_msg ∨
-  infertype_top st.rinferencer_state top = Success next_repl_run_infer_state`
+  infertype_top st.rinferencer_state top = Success (next_repl_run_infer_state,types)`
          by (cases_on `infertype_top st.rinferencer_state top` >>
+             TRY(Cases_on`a`)>>
              metis_tac []) >>
 rw [get_type_error_mask_def] >-
 ((* A type error *)
@@ -1218,6 +1219,7 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
     simp[] >>
     qmatch_assum_abbrev_tac`bc_eval bs0 = NONE` >>
     fs[invariant_def] >>
+    qexists_tac`inf_tenv_to_string_map new_infer_env`>>simp[]>>
     map_every qexists_tac[`rd`,`bs0 with clock := SOME ck`,`bs.code`] >>
     simp[] >>
     conj_tac >- (
@@ -1232,6 +1234,7 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
         match_mp_tac toBytecodeProofsTheory.Cenv_bs_with_irr >>
         HINT_EXISTS_TAC >> simp[] ) >>
       fs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
+    conj_tac >- cheat >>
     conj_tac >- simp[Abbr`bs0`,install_code_def] >>
     conj_tac >- simp[Abbr`bs0`,install_code_def] >>
     simp[] >>
@@ -1291,7 +1294,7 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
   disj2_tac >>
   qx_gen_tac`n` >>
   qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`]mp_tac compile_top_divergence >>
-  disch_then(qspecl_then[`st.rcompiler_state`,`rd`,`n`,`bs.code`]mp_tac) >> simp[] >>
+  disch_then(qspecl_then[`st.rcompiler_state`,`rd`,`n`,`inf_tenv_to_string_map new_infer_env`,`bs.code`]mp_tac) >> simp[] >>
   disch_then(qspec_then`install_code (cpam css) code bs with clock := SOME n`mp_tac) >>
   discharge_hyps >- (
     conj_tac >- metis_tac[untyped_safety_top] >>
@@ -1328,7 +1331,7 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
   imp_res_tac RTC_bc_next_can_be_clocked >>
   qspecl_then[`rs.envM`,`rs.envC`,`rs.store`,`rs.envE`,`top`]mp_tac compile_top_divergence >>
   fs[invariant_def] >>
-  map_every qexists_tac[`st.rcompiler_state`,`rd`,`ck+1`,`types`,`bs.code`,`bs0 with clock := SOME (ck+1)`]>>
+  map_every qexists_tac[`st.rcompiler_state`,`rd`,`ck+1`,`inf_tenv_to_string_map new_infer_env`,`bs.code`,`bs0 with clock := SOME (ck+1)`]>>
   simp[] >>
   conj_tac >- (
     fs[closed_top_def] >>
@@ -1397,6 +1400,7 @@ map_every qunabbrev_tac[`A`,`B`,`C`] >>
     metis_tac [type_sound_inv_dup_ctors, type_sound_inv_dup_exns]) >>
   disch_then(qspec_then`st.rcompiler_state`mp_tac) >>
   disch_then(Q.X_CHOOSE_THEN`ck`mp_tac) >>
+  disch_then(qspec_then`inf_tenv_to_string_map new_infer_env`mp_tac) >>
   simp[] >>
   `∃rd c.
     env_rs rs.envM rs.envC (c,rs.store) rs.envE st.rcompiler_state (LENGTH bs.stack) rd bs` by (
@@ -1408,6 +1412,7 @@ map_every qunabbrev_tac[`A`,`B`,`C`] >>
   discharge_hyps >- (
     fs[invariant_def,LET_THM,Abbr`bs0`,install_code_def] >>
     fs[env_rs_def,LET_THM] >> rfs[] >> fs[] >>
+    reverse conj_tac >- cheat >>
     rpt HINT_EXISTS_TAC >> simp[] >>
     match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
     map_every qexists_tac[`rd`,`(c,Cs')`,`bs with <|pc := next_addr bs.inst_length bs.code; output := ""; cons_names := cpam css|>`,`bs.refs`,`SOME ck`] >>
@@ -1500,6 +1505,7 @@ map_every qunabbrev_tac[`A`,`B`,`C`] >>
   fs[invariant_def] >>
   strip_tac >>
   simp[code_executes_ok_def] >>
+  conj_tac >- cheat (* or maybe use a different existential witness above *) >>
   disj1_tac >>
   qexists_tac`new_bc_state` >>
   simp[] >>
