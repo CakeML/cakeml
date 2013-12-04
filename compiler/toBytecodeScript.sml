@@ -24,17 +24,17 @@ val _ = new_theory "toBytecode"
  val _ = Define `
  (bind_fv (az,e) nz ix =  
 (let fvs = (free_vars e) in
-  let recs = ((FILTER (\ v . (MEM (az+v) fvs) /\ (~ (v=ix))) ((GENLIST (\ n . n) nz)))) in
-  let envs = ((FILTER (\ v . (az+nz) <= v) fvs)) in
-  let envs = ((MAP (\ v . v -(az+nz)) envs)) in
-  let rz = ((LENGTH recs)+ 1) in
-  let e = (mkshift (\ v . if v < nz then the( 0) ((misc$find_index v (ix::recs)( 0)))
-                            else the( 0) ((misc$find_index (v - nz) envs rz)))
+  let recs = (FILTER (\ v .  MEM (az+v) fvs /\ ~ (v=ix)) (GENLIST (\ n .  n) nz)) in
+  let envs = (FILTER (\ v .  (az+nz) <= v) fvs) in
+  let envs = (MAP (\ v .  v -(az+nz)) envs) in
+  let rz = (LENGTH recs+ 1) in
+  let e = (mkshift (\ v .  if v < nz then the( 0) (misc$find_index v (ix::recs)( 0))
+                            else the( 0) (misc$find_index (v - nz) envs rz))
                   az e) in
   let rz = (rz -  1) in
-  ((((GENLIST (\ i . CCArg ( 2+i)) (az+ 1)))
-   ++(((GENLIST CCRef rz))
-   ++((GENLIST (\ i . CCEnv (rz+i)) ((LENGTH envs))))))
+  (((GENLIST (\ i .  CCArg ( 2+i)) (az+ 1))
+   ++((GENLIST CCRef rz)
+   ++(GENLIST (\ i .  CCEnv (rz+i)) (LENGTH envs))))
   ,(recs,envs)
   ,e
   )))`;
@@ -73,8 +73,8 @@ val _ = new_theory "toBytecode"
   (CLet e1 e2, j)))
 /\
 (label_closures ez j (CLetrec defs e) =  
-(let defs = ((MAP SND ((FILTER (IS_NONE o FST) defs)))) in
-  let nz = ((LENGTH defs)) in
+(let defs = (MAP SND (FILTER (IS_NONE o FST) defs)) in
+  let nz = (LENGTH defs) in
   let (defs,j) = (label_closures_defs ez j nz( 0) defs) in
   let (e,j) = (label_closures (ez+nz) j e) in
   (CLetrec defs e, j)))
@@ -115,10 +115,10 @@ val _ = new_theory "toBytecode"
 /\
 (label_closures_defs ez ld nz k ((az,b)::defs) =  
 (let (ccenv,ceenv,b) = (bind_fv (az,b) nz k) in
-  let cz = (((az + (LENGTH ((FST ceenv)))) + (LENGTH ((SND ceenv)))) + 1) in
+  let cz = (((az + LENGTH (FST ceenv)) + LENGTH (SND ceenv)) + 1) in
   let (b,j) = (label_closures cz (ld+ 1) b) in
   let (defs,j) = (label_closures_defs ez j nz (k+ 1) defs) in
-  ((((SOME (ld,(ccenv,ceenv))),(az,b))::defs), j)))`;
+  (((SOME (ld,(ccenv,ceenv)),(az,b))::defs), j)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn label_closures_defn;
 
@@ -164,7 +164,7 @@ val _ = Hol_datatype `
 
 
 val _ = Define `
- (emit = ((FOLDL (\ s i . ( s with<| out := i :: s.out |>)))))`;
+ (emit = (FOLDL (\ s i .  ( s with<| out := i :: s.out |>))))`;
 
 
  val _ = Define `
@@ -218,7 +218,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (emit_ceenv env (sz,s) fv = ((sz+ 1),
   compile_varref sz s
-  ((case el_check fv env of (SOME x) => x
+  ((case el_check fv env of SOME x => x
    | NONE => CTLet( 0) (* should not happen *) ))))`;
 
 
@@ -233,7 +233,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (push_lab (s,ecs) (NONE,_) = (s,(([],[])::ecs))) (* should not happen *)
 /\
-(push_lab (s,ecs) ((SOME (l,(_,ceenv))),_) =
+(push_lab (s,ecs) (SOME (l,(_,ceenv)),_) =
   (emit s [PushPtr (Lab l)],(ceenv::ecs)))`;
 
 
@@ -244,11 +244,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   (*                                                                      sz *)
   (* cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0,    *)let s = (emit s [Stack (Load k)]) in
   (* CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let (z,s) = ((FOLDL (emit_ceref (sz+nk)) ((((sz+nk)+nk)+ 1),s) refs)) in  
-  (case (FOLDL (emit_ceenv env0) (z,s) envs) of
+  let (z,s) = (FOLDL (emit_ceref (sz+nk)) ((((sz+nk)+nk)+ 1),s) refs) in  
+  (case FOLDL (emit_ceenv env0) (z,s) envs of
       (_,s) =>
   (* e_kj, ..., e_k1, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let s = (emit s [Stack (Cons ( 0) ((LENGTH refs) + (LENGTH envs)))]) in
+  let s = (emit s [Stack (Cons ( 0) (LENGTH refs + LENGTH envs))]) in
   (* env_k, CodePtr_k, cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   let s = (emit s [Stack (Cons closure_tag ( 2))]) in
   (* cl_k,  cl_1, ..., CodePtr_k, ..., CodePtr_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
@@ -274,17 +274,17 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  val _ = Define `
 
 (compile_closures env sz s defs =  
-(let nk = ((LENGTH defs)) in
-  let s = (num_fold (\ s . emit s [Stack (PushInt((( 0 : int)))); Ref]) s nk) in
+(let nk = (LENGTH defs) in
+  let s = (num_fold (\ s .  emit s [Stack (PushInt(( 0 : int))); Ref]) s nk) in
   (* RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let (s,ecs) = ((FOLDL push_lab (s,[]) ((REVERSE defs)))) in
+  let (s,ecs) = (FOLDL push_lab (s,[]) (REVERSE defs)) in
   (* CodePtr 1, ..., CodePtr nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
-  let (s,k) = ((FOLDL (cons_closure env sz nk) (s, 0) ecs)) in
+  let (s,k) = (FOLDL (cons_closure env sz nk) (s, 0) ecs) in
   (* cl_1, ..., cl_nk, RefPtr_1 0, ..., RefPtr_nk 0, *)
   let (s,k) = (num_fold (update_refptr nk) (s, 0) nk) in
   (* cl_1, ..., cl_nk, RefPtr_1 cl_1, ..., RefPtr_nk cl_nk, *)
   let k = (nk -  1) in
-  num_fold (\ s . emit s [Stack (Store k)]) s nk))`;
+  num_fold (\ s .  emit s [Stack (Store k)]) s nk))`;
 
   (* cl_1, ..., cl_nk, *)
 
@@ -352,8 +352,8 @@ stackshift j k =
 (if k = 0 then []
   else if j = 0 then [Pops (k -  1); Pop]
   else if j = 1 then [Pops k]
-  else if j <= k then ((GENLIST (\n . 
-  (case (n ) of ( _ ) => Store (k -  1) )) j))++(stackshift( 0) (k - j))
+  else if j <= k then (GENLIST (\n .  
+  (case (n ) of ( _ ) => Store (k -  1) )) j)++(stackshift( 0) (k - j))
   else (stackshiftaux k (j - k) j)++(stackshift (j - k) k)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn stackshift_defn;
@@ -409,13 +409,13 @@ a b c x y z
   (compile_varref sz s
     ((case (case id of
              Short vn => el_check vn env
-           | Long mn vn => (OPTION_MAP CTDec (el_check vn (fapply [] mn menv)))
+           | Long mn vn => OPTION_MAP CTDec (el_check vn (fapply [] mn menv))
            )
-     of (SOME x) => x
+     of SOME x => x
      | NONE => CTLet( 0) (* should not happen *) )))))
 /\
 (compile menv env t sz s (CCon n es) =  
-(pushret t (emit (compile_nts menv env sz s es) [Stack (Cons (n+block_tag) ((LENGTH es)))])))
+(pushret t (emit (compile_nts menv env sz s es) [Stack (Cons (n+block_tag) (LENGTH es))])))
 /\
 (compile menv env t sz s (CTagEq e n) =  
 (pushret t (emit (compile menv env TCNonTail sz s e) [Stack (TagEq (n+block_tag))])))
@@ -428,10 +428,10 @@ a b c x y z
 /\
 (compile menv env t sz s (CLetrec defs eb) =  
 (let s = (compile_closures env sz s defs) in
-  compile_bindings menv env t sz eb( 0) s ((LENGTH defs))))
+  compile_bindings menv env t sz eb( 0) s (LENGTH defs)))
 /\
 (compile menv env t sz s (CCall ck e es) =  
-(let n = ((LENGTH es)) in
+(let n = (LENGTH es) in
   let s = (compile_nts menv env sz s (e::es)) in
   (case t of
     TCNonTail =>
@@ -455,7 +455,7 @@ a b c x y z
     let s = (emit s [Stack (Load (n+ 2)); Stack (El( 1))]) in
     (* env, CodePtr c, CodePtr ret, argn, ..., arg1, Block 0 [CodePtr c; env],
      * vk, ..., v1, env1, CodePtr ret, argj, ..., arg1, Block 0 [CodePtr c1; env1], *)
-    let s = (emit s ((MAP Stack (stackshift (((( 1+ 1)+ 1)+n)+ 1) ((((k+ 1)+ 1)+j)+ 1))))) in
+    let s = (emit s (MAP Stack (stackshift (((( 1+ 1)+ 1)+n)+ 1) ((((k+ 1)+ 1)+j)+ 1)))) in
     emit s ((if ck then [Tick] else [])++[Return])
   )))
 /\
@@ -517,8 +517,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (free_labs ez (CLet e b) = (free_labs ez e ++ free_labs (ez+ 1) b))
 /\
 (free_labs ez (CLetrec defs e) =  
-(free_labs_defs ez ((LENGTH defs)) ( 0:num) defs ++
-  free_labs (ez+(LENGTH defs)) e))
+(free_labs_defs ez (LENGTH defs) ( 0:num) defs ++
+  free_labs (ez+LENGTH defs) e))
 /\
 (free_labs ez (CCall _ e es) = (free_labs ez e ++ free_labs_list ez es))
 /\
@@ -538,8 +538,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (free_labs_defs ez nz ix (d::ds) = (free_labs_def ez nz ix d ++ free_labs_defs ez nz (ix+ 1) ds))
 /\
-(free_labs_def ez nz ix ((SOME (l,(cc,(re,ev)))),(az,b)) =
-  (((ez,nz,ix),((l,(cc,(re,ev))),(az,b)))::(free_labs ((( 1 + (LENGTH re)) + (LENGTH ev)) + az) b)))
+(free_labs_def ez nz ix (SOME (l,(cc,(re,ev))),(az,b)) =
+  (((ez,nz,ix),((l,(cc,(re,ev))),(az,b)))::(free_labs ((( 1 + LENGTH re) + LENGTH ev) + az) b)))
 /\
 (free_labs_def ez nz _ (NONE,(az,b)) = (free_labs ((ez+nz)+az) b))`;
 
@@ -547,7 +547,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val _ = Define `
  (cce_aux menv s ((l,(ccenv,_)),(az,b)) =  
-(compile menv ((MAP CTEnv ccenv)) (TCTail az( 0))( 0) (emit s [Label l]) b))`;
+(compile menv (MAP CTEnv ccenv) (TCTail az( 0))( 0) (emit s [Label l]) b))`;
 
 
  val _ = Define `
@@ -555,7 +555,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (compile_code_env menv s e =  
 (let (s,l) = (get_label s) in
   let s = (emit s [Jump (Lab l)]) in
-  let s = ((FOLDL (cce_aux menv) s ((MAP SND (free_labs( 0) e))))) in
+  let s = (FOLDL (cce_aux menv) s (MAP SND (free_labs( 0) e))) in
   emit s [Label l]))`;
 
 val _ = export_theory()
