@@ -184,7 +184,7 @@ val compile_decs_length_lemma2 = prove(
 metis_tac [compile_decs_length_lemma1, pair_CASES, FST, SND]);
 
 val compile_top_side_thm = Q.store_thm ("compile_top_side_thm",
-`!st top res. compile_top_side st top`,
+`!types st top. compile_top_side types st top`,
  rw [compile_top_side_def, compile_decs_wrap_side_def] >|
  [qsuff_tac `v9' - 2 - st.rsz  ≤ LENGTH v11.bvars` >- rw [LENGTH_TAKE],
   qsuff_tac `v9 - 2 - st.rsz  ≤ LENGTH v11.bvars` >- rw [LENGTH_TAKE]] >>
@@ -198,10 +198,31 @@ val update_state_err_side_thm = Q.store_thm ("update_state_err_side_thm",
  rw [update_state_err_side_def, replTheory.strip_mod_env_def] >>
  metis_tac [FST]);
 
+ (*
+val inf_type_to_string_side_thm = Q.store_thm ("inf_type_to_string_side_thm",
+`(!t. inf_type_to_string_side t) ∧
+ (!ts. inf_types_to_string_side ts)`,
+
+ Induct >>
+ rw [] >>
+ simp [Once inf_type_to_string_side_def] >>
+ rw [tc_to_string_side_def] >>
+ fs [Once inf_type_to_string_side_def]
+
+
+val inf_tenv_to_string_map_side_thm = Q.store_thm ("inf_tenv_to_string_map_side_thm", 
+`!tenv. inf_tenv_to_string_map_side tenv`,
+
+ induct_on `tenv` >-
+ rw [inf_tenv_to_string_map_side_def] >>
+ rw [Once inf_tenv_to_string_map_side_def] >>
+ *)
+
 val parse_elaborate_infertype_compile_side_thm = Q.store_thm ("parse_elaborate_infertype_compile_side_thm", 
 `!toks st. parse_elaborate_infertype_compile_side toks st`,
  rw [parse_elaborate_infertype_compile_side_def, infertype_top_side_def] >-
  metis_tac [infer_top_side_thm] >-
+ cheat >-
  metis_tac [compile_top_side_thm] >>
  match_mp_tac update_state_err_side_thm >>
  cases_on `st.rinferencer_state` >>

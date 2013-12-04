@@ -671,8 +671,7 @@ val type_to_string_lem = Q.prove (
     metis_tac [] >-
     metis_tac [] >-
     (cases_on `t` >>
-       fs [inf_type_to_string_def, type_to_string_def, convert_t_def] >-
-       metis_tac [] >>
+       fs [inf_type_to_string_def, type_to_string_def, convert_t_def] >>
        cases_on `t'` >>
        fs [inf_type_to_string_def, type_to_string_def, convert_t_def] >>
        metis_tac []) >-
@@ -1799,8 +1798,8 @@ val compile_primitives_terminates = store_thm("compile_primitives_terminates",
   fs [] >>
   disch_then(qspec_then`init_compiler_state`mp_tac) >>
   disch_then(qx_choosel_then[`ck`]mp_tac) >>
-  disch_then(qspec_then`FEMPTY`mp_tac) >>
-  qabbrev_tac`p = compile_top FEMPTY init_compiler_state (Tdec initial_program)` >>
+  disch_then(qspec_then`initial_program_types`mp_tac) >>
+  qabbrev_tac`p = compile_top initial_program_types init_compiler_state (Tdec initial_program)` >>
   PairCases_on`p`>>simp[] >>
   disch_then(qspecl_then
     [`<|sm:=[];cls:=FEMPTY|>`
@@ -1817,7 +1816,10 @@ val compile_primitives_terminates = store_thm("compile_primitives_terminates",
       match_mp_tac env_rs_empty >>
       simp[] ) >>
     fsrw_tac[][FILTER_APPEND,ALL_DISTINCT_APPEND] >>
-    conj_tac >- cheat >- (* This is false *)
+    conj_tac >- 
+    (fs [initial_program_def, initial_program_types_def, new_top_vs_def, 
+          SUBSET_DEF, astTheory.pat_bindings_def] >>
+       metis_tac []) >>
     simp[compilerTheory.init_compiler_state_def] ) >>
   disch_then(qx_choosel_then[`bs1`,`rd`]strip_assume_tac) >>
   imp_res_tac RTC_bc_next_can_be_unclocked >>
@@ -1888,7 +1890,7 @@ val initial_bc_state_invariant = store_thm("initial_bc_state_invariant",
   imp_res_tac bytecodeExtraTheory.RTC_bc_next_clock_less >>
   `bs1.clock = NONE` by rfs[optionTheory.OPTREL_def,Abbr`bs`,install_code_def] >>
   simp[Abbr`bs`,install_code_def] >>
-  qspecl_then[`FEMPTY`, `init_compiler_state`]mp_tac compile_top_append_code >>
+  qspecl_then[`initial_program_types`, `init_compiler_state`]mp_tac compile_top_append_code >>
   disch_then(mp_tac o SPEC(rand(rhs(concl(compile_primitives_def))))) >>
   discharge_hyps >- (
     simp[] >>

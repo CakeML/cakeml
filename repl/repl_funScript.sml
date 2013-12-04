@@ -18,11 +18,12 @@ initial_elaborator_state : elaborator_state = (init_repl_state.type_bindings, []
 val inf_type_to_string_def = tDefine "inf_type_to_string" `
 (inf_type_to_string (Infer_Tuvar _) ⇔ "<unification variable>") ∧
 (inf_type_to_string (Infer_Tvar_db n) ⇔ num_to_dec_string n) ∧
-(inf_type_to_string (Infer_Tapp [] tc) ⇔ tc_to_string tc) ∧
 (inf_type_to_string (Infer_Tapp [t1;t2] TC_fn) ⇔ 
   "(" ++ inf_type_to_string t1 ++ "->" ++ inf_type_to_string t2 ++ ")") ∧
+(inf_type_to_string (Infer_Tapp ts TC_fn) ⇔ "<bad function type>") ∧
 (inf_type_to_string (Infer_Tapp ts TC_tup) ⇔
   "(" ++ inf_types_to_string ts ++ ")") ∧
+(inf_type_to_string (Infer_Tapp [] tc) ⇔ tc_to_string tc) ∧
 (inf_type_to_string (Infer_Tapp ts tc) ⇔ 
   "(" ++ inf_types_to_string ts ++ ") " ++ tc_to_string tc) ∧
 (inf_types_to_string [] ⇔ "") ∧
@@ -86,9 +87,26 @@ initial_program =
                    (Fun "x" (Fun"y"(App(Opn Minus)(Var(Short"x"))(Var(Short"y")))));
                    (Fun "x" (Fun"y"(App(Opn Plus)(Var(Short"x"))(Var(Short"y")))))])`;
 
+val initial_program_types_def = Define `
+initial_program_types =
+  FEMPTY |+ ("ref", "UNUSED") 
+         |+ ("!", "UNUSED")
+         |+ ("~", "UNUSED")
+         |+ (":=", "UNUSED")
+         |+ ("=", "UNUSED")
+         |+ (">=", "UNUSED")
+         |+ ("<=", "UNUSED")
+         |+ ("<", "UNUSED")
+         |+ (">", "UNUSED")
+         |+ ("mod", "UNUSED")
+         |+ ("div", "UNUSED")
+         |+ ("*", "UNUSED")
+         |+ ("-", "UNUSED")
+         |+ ("+", "UNUSED")`;
+
 val compile_primitives_def = Define`
   compile_primitives =
-    compile_top FEMPTY init_compiler_state
+    compile_top initial_program_types init_compiler_state
     (Tdec initial_program)`;
 
 val initial_repl_fun_state = Define`
