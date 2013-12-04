@@ -94,23 +94,23 @@ val _ = Define `
         push envM envC s env e (Capp2 op v () ) c
     | (Capp2 op v' () , env) :: c =>
         (case do_app s env op v' v of
-            (SOME (s',env,e)) => Estep (envM, envC, s', env, Exp e, c)
+            SOME (s',env,e) => Estep (envM, envC, s', env, Exp e, c)
           | NONE => Etype_error
         )
     | (Clog l ()  e, env) :: c =>
         (case do_log l v e of
-            (SOME e) => Estep (envM, envC, s, env, Exp e, c)
+            SOME e => Estep (envM, envC, s, env, Exp e, c)
           | NONE => Etype_error
         )
     | (Cif ()  e1 e2, env) :: c =>
         (case do_if v e1 e2 of
-            (SOME e) => Estep (envM, envC, s, env, Exp e, c)
+            SOME e => Estep (envM, envC, s, env, Exp e, c)
           | NONE => Etype_error
         )
     | (Cmat ()  [] err_v, env) :: c =>
         Estep (envM, envC, s, env, Val err_v, ((Craise () , env) ::c))
     | (Cmat ()  ((p,e)::pes) err_v, env) :: c =>
-        if (ALL_DISTINCT (pat_bindings p [])) then
+        if ALL_DISTINCT (pat_bindings p []) then
           (case pmatch envC s p v env of
               Match_type_error => Etype_error
             | No_match => Estep (envM, envC, s, env, Val v, ((Cmat ()  pes err_v,env)::c))
@@ -121,18 +121,18 @@ val _ = Define `
     | (Clet n ()  e, env) :: c =>
         Estep (envM, envC, s, bind n v env, Exp e, c)
     | (Ccon n vs ()  [], env) :: c =>
-        if do_con_check envC n ((LENGTH vs) + 1) then
-          return envM envC s env (Conv n ((REVERSE (v::vs)))) c
+        if do_con_check envC n (LENGTH vs + 1) then
+          return envM envC s env (Conv n (REVERSE (v::vs))) c
         else
           Etype_error
     | (Ccon n vs ()  (e::es), env) :: c =>
-        if do_con_check envC n ((((LENGTH vs) + 1) + 1) + (LENGTH es)) then
+        if do_con_check envC n (((LENGTH vs + 1) + 1) + LENGTH es) then
           push envM envC s env e (Ccon n (v::vs) ()  es) c
         else
           Etype_error
     | (Cuapp uop () , env) :: c =>
        (case do_uapp s uop v of
-           (SOME (s',v')) => return envM envC s' env v' c
+           SOME (s',v') => return envM envC s' env v' c
          | NONE => Etype_error
        )
   )))`;
@@ -158,7 +158,7 @@ val _ = Define `
           | Handle e pes =>
               push envM envC s env e (Chandle ()  pes) c
           | Con n es =>
-              if do_con_check envC n ((LENGTH es)) then
+              if do_con_check envC n (LENGTH es) then
                 (case es of
                     [] => return envM envC s env (Conv n []) c
                   | e::es =>
@@ -169,17 +169,17 @@ val _ = Define `
           | Var n =>
               (case lookup_var_id n envM env of
                   NONE => Etype_error
-                | (SOME v) => 
+                | SOME v => 
                     return envM envC s env v c
               )
           | Fun n e => return envM envC s env (Closure env n e) c
           | App op e1 e2 => push envM envC s env e1 (Capp1 op ()  e2) c
           | Log l e1 e2 => push envM envC s env e1 (Clog l ()  e2) c
           | If e1 e2 e3 => push envM envC s env e1 (Cif ()  e2 e3) c
-          | Mat e pes => push envM envC s env e (Cmat ()  pes (Conv ((SOME (Short "Bind"))) [])) c
+          | Mat e pes => push envM envC s env e (Cmat ()  pes (Conv (SOME (Short "Bind")) [])) c
           | Let n e1 e2 => push envM envC s env e1 (Clet n ()  e2) c
           | Letrec funs e =>
-              if (~ ((ALL_DISTINCT ((MAP (\ (x,y,z) . x) funs))))) then
+              if ~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)) then
                 Etype_error
               else
                 Estep (envM,envC, s, build_rec_env funs env env, Exp e, c)
@@ -202,14 +202,14 @@ val _ = Define `
  val _ = Define `
 
 (small_eval menv cenv s env e c (s', Rval v) =  
-(? env'. ((RTC e_step_reln)) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',Val v,[])))
+(? env'. (RTC e_step_reln) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',Val v,[])))
 /\
 (small_eval menv cenv s env e c (s', Rerr (Rraise v)) =  
-(? env' env''. ((RTC e_step_reln)) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',Val v,[(Craise () , env'')])))
+(? env' env''. (RTC e_step_reln) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',Val v,[(Craise () , env'')])))
 /\
 (small_eval menv cenv s env e c (s', Rerr Rtype_error) =  
 (? env' e' c'.
-    ((RTC e_step_reln)) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',e',c') /\
+    (RTC e_step_reln) (menv,cenv,s,env,Exp e,c) (menv,cenv,s',env',e',c') /\
     (e_step (menv,cenv,s',env',e',c') = Etype_error)))
 /\
 (small_eval menv cenv s env e c (s', Rerr Rtimeout_error) = F)`;
@@ -219,7 +219,7 @@ val _ = Define `
 val _ = Define `
  (e_diverges menv cenv s env e =  
 (! menv' cenv' s' env' e' c'.
-    ((RTC e_step_reln)) (menv,cenv,s,env,Exp e,[]) (menv',cenv',s',env', e',c')
+    (RTC e_step_reln) (menv,cenv,s,env,Exp e,[]) (menv',cenv',s',env', e',c')
     ==>    
 (? menv'' cenv'' s'' env'' e'' c''.
       e_step_reln (menv',cenv',s',env', e',c') (menv'',cenv'',s'',env'',e'',c''))))`;

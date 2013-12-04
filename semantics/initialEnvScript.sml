@@ -29,7 +29,7 @@ val _ = Define `
    (">=", Closure [] "x" (Fun "y" (App (Opb Geq) (Var (Short "x")) (Var (Short "y")))));
    ("=", Closure [] "x" (Fun "y" (App Equality (Var (Short "x")) (Var (Short "y")))));
    (":=", Closure [] "x" (Fun "y" (App Opassign (Var (Short "x")) (Var (Short "y")))));
-   ("~", Closure [] "x" (App (Opn Minus) (Lit (IntLit((( 0 : int))))) (Var (Short "x"))));
+   ("~", Closure [] "x" (App (Opn Minus) (Lit (IntLit(( 0 : int)))) (Var (Short "x"))));
    ("!", Closure [] "x" (Uapp Opderef (Var (Short "x"))));
    ("ref", Closure [] "x" (Uapp Opref (Var (Short "x"))))]))`;
 
@@ -38,15 +38,15 @@ val _ = Define `
 val _ = Define `
  (init_envC =  
 ((Short "nil", ( 0, TypeId (Short "list"))) ::  
-((Short "::", ( 2, TypeId (Short "list"))) ::  
-(MAP (\ cn . (Short cn, ( 0, TypeExn))) ["Bind"; "Div"; "Eq"]))))`;
+((Short "::", ( 2, TypeId (Short "list"))) ::
+  MAP (\ cn .  (Short cn, ( 0, TypeExn))) ["Bind"; "Div"; "Eq"])))`;
 
 
 (*val init_tenv : tenvE*)
 val _ = Define `
  (init_tenv =  
-((FOLDR 
-    (\ (tn,tvs,t) tenv . Bind_name tn tvs t tenv) 
+(FOLDR 
+    (\ (tn,tvs,t) tenv .  Bind_name tn tvs t tenv) 
     Empty 
     [("+", 0, Tfn Tint (Tfn Tint Tint));
      ("-", 0, Tfn Tint (Tfn Tint Tint));
@@ -61,15 +61,15 @@ val _ = Define `
      (":=", 1, Tfn (Tref (Tvar_db( 0))) (Tfn (Tvar_db( 0)) Tunit));
      ("~", 0, Tfn Tint Tint);
      ("!", 1, Tfn (Tref (Tvar_db( 0))) (Tvar_db( 0)));
-     ("ref", 1, Tfn (Tvar_db( 0)) (Tref (Tvar_db( 0))))])))`;
+     ("ref", 1, Tfn (Tvar_db( 0)) (Tref (Tvar_db( 0))))]))`;
 
 
 (*val init_tenvC : tenvC*)
 val _ = Define `
  (init_tenvC =  
 ((Short "nil", (["'a"], [], TypeId (Short "list"))) ::  
-((Short "::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) ::  
-(MAP (\ cn . (Short cn, ([], [], TypeExn))) ["Bind"; "Div"; "Eq"]))))`;
+((Short "::", (["'a"], [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))], TypeId (Short "list"))) ::
+  MAP (\ cn .  (Short cn, ([], [], TypeExn))) ["Bind"; "Div"; "Eq"])))`;
 
 
 (*val init_type_bindings : tdef_env*)

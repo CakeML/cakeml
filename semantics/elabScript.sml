@@ -136,12 +136,12 @@ val _ = type_abbrev( "ctor_env" , ``: (conN, ( conN id)) env``);
 /\
 (elab_p ctors (Ast_Plit l) = (Plit l))
 /\
-(elab_p ctors (Ast_Pcon ((SOME (Short cn))) ps) =  
+(elab_p ctors (Ast_Pcon (SOME (Short cn)) ps) =  
 ((case lookup cn ctors of
-      (SOME cid) =>
-        Pcon ((SOME cid)) (elab_ps ctors ps)
+      SOME cid =>
+        Pcon (SOME cid) (elab_ps ctors ps)
     | NONE =>
-        Pcon ((SOME (Short cn))) (elab_ps ctors ps)
+        Pcon (SOME (Short cn)) (elab_ps ctors ps)
   )))
 /\
 (elab_p ctors (Ast_Pcon cn ps) =  
@@ -174,7 +174,7 @@ val _ = type_abbrev( "tdef_env" , ``: (typeN, ast$tc0) env``);
 /\
 (elab_e ctors (Ast_Handle e pes) =  
 (Handle (elab_e ctors e) 
-         ((MAP (\ (p,e) . (elab_p ctors p, elab_e ctors e)) pes))))
+         (MAP (\ (p,e) .  (elab_p ctors p, elab_e ctors e)) pes)))
 /\
 (elab_e ctors (Ast_Lit l) =  
 (Lit l))
@@ -182,16 +182,16 @@ val _ = type_abbrev( "tdef_env" , ``: (typeN, ast$tc0) env``);
 (elab_e ctors (Ast_Var id) =  
 (Var id))
 /\
-(elab_e ctors (Ast_Con ((SOME (Short cn))) es) =  
+(elab_e ctors (Ast_Con (SOME (Short cn)) es) =  
 ((case lookup cn ctors of
-      (SOME cid) =>
-        Con ((SOME cid)) ((MAP (elab_e ctors) es))
+      SOME cid =>
+        Con (SOME cid) (MAP (elab_e ctors) es)
     | NONE =>
-        Con ((SOME (Short cn))) ((MAP (elab_e ctors) es))
+        Con (SOME (Short cn)) (MAP (elab_e ctors) es)
   )))
 /\
 (elab_e ctors (Ast_Con cn es) =  
-(Con cn ((MAP (elab_e ctors) es))))
+(Con cn (MAP (elab_e ctors) es)))
 /\
 (elab_e ctors (Ast_Fun n e) =  
 (Fun n (elab_e ctors e)))
@@ -207,7 +207,7 @@ val _ = type_abbrev( "tdef_env" , ``: (typeN, ast$tc0) env``);
 /\
 (elab_e ctors (Ast_Mat e pes) =  
 (Mat (elab_e ctors e) 
-      ((MAP (\ (p,e) . (elab_p ctors p, elab_e ctors e)) pes))))
+      (MAP (\ (p,e) .  (elab_p ctors p, elab_e ctors e)) pes)))
 /\
 (elab_e ctors (Ast_Let x e1 e2) =  
 (Let x (elab_e ctors e1) (elab_e ctors e2)))
@@ -232,31 +232,31 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (Tfn (elab_t type_bound t1) (elab_t type_bound t2)))
     /\
 (elab_t type_bound (Ast_Tapp ts NONE) =  
-(let ts' = ((MAP (elab_t type_bound) ts)) in
+(let ts' = (MAP (elab_t type_bound) ts) in
     Tapp ts' TC_tup))
 /\
-(elab_t type_bound (Ast_Tapp ts ((SOME (Long m tn)))) =  
-(let ts' = ((MAP (elab_t type_bound) ts)) in
+(elab_t type_bound (Ast_Tapp ts (SOME (Long m tn))) =  
+(let ts' = (MAP (elab_t type_bound) ts) in
     Tapp ts' (TC_name (Long m tn))))
 /\
-(elab_t type_bound (Ast_Tapp ts ((SOME (Short tn)))) =  
-(let ts' = ((MAP (elab_t type_bound) ts)) in
+(elab_t type_bound (Ast_Tapp ts (SOME (Short tn))) =  
+(let ts' = (MAP (elab_t type_bound) ts) in
     (case lookup tn type_bound of
         NONE => Tapp ts' (TC_name (Short tn))
-      | (SOME tc0) => Tapp ts' tc0
+      | SOME tc0 => Tapp ts' tc0
     )))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_t_defn;
 
 val _ = Define `
  (get_ctors_bindings mn t =  
-((FLAT
-    ((MAP (\ (tvs,tn,ctors) . (MAP (\ (cn,t) . (cn, mk_id mn cn)) ctors)) t)))))`;
+(FLAT
+    (MAP (\ (tvs,tn,ctors) .  MAP (\ (cn,t) .  (cn, mk_id mn cn)) ctors) t)))`;
 
    
 val _ = Define `
  (elab_td type_bound (tvs,tn,ctors) =
-  (tvs, tn, (MAP (\ (cn,t) . (cn, (MAP (elab_t type_bound) t))) ctors)))`;
+  (tvs, tn, MAP (\ (cn,t) .  (cn, MAP (elab_t type_bound) t)) ctors))`;
 
 
  val _ = Define `
@@ -269,15 +269,15 @@ val _ = Define `
   ([], emp, Dletrec (elab_funs ctors funs)))
 /\
 (elab_dec mn type_bound ctors (Ast_Dtype t) =  
- (let type_bound' = ((MAP (\ (tvs,tn,ctors) . (tn, TC_name (mk_id mn tn))) t)) in
+ (let type_bound' = (MAP (\ (tvs,tn,ctors) .  (tn, TC_name (mk_id mn tn))) t) in
   (type_bound',
    get_ctors_bindings mn t,
-   Dtype ((MAP (elab_td (merge type_bound' type_bound)) t)))))
+   Dtype (MAP (elab_td (merge type_bound' type_bound)) t))))
 /\
 (elab_dec mn type_bound ctors (Ast_Dexn cn ts) =
   (emp,
    bind cn (mk_id mn cn) emp,
-   Dexn cn ((MAP (elab_t type_bound) ts))))`;
+   Dexn cn (MAP (elab_t type_bound) ts)))`;
 
 
  val elab_decs_defn = Hol_defn "elab_decs" `
@@ -301,14 +301,14 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (Sval x (elab_t type_bound t) :: elab_spec mn type_bound spec))
 /\
 (elab_spec mn type_bound (Ast_Stype td :: spec) =  
-(let type_bound' = ((MAP (\ (tvs,tn,ctors) . (tn, TC_name (mk_id mn tn))) td)) in
-    Stype ((MAP (elab_td (merge type_bound' type_bound)) td)) :: elab_spec mn (merge type_bound' type_bound) spec))
+(let type_bound' = (MAP (\ (tvs,tn,ctors) .  (tn, TC_name (mk_id mn tn))) td) in
+    Stype (MAP (elab_td (merge type_bound' type_bound)) td) :: elab_spec mn (merge type_bound' type_bound) spec))
 /\
 (elab_spec mn type_bound (Ast_Stype_opq tvs tn::spec) =  
 (Stype_opq tvs tn :: elab_spec mn ((tn, TC_name (mk_id mn tn))::type_bound) spec))
 /\
 (elab_spec mn type_bound (Ast_Sexn cn ts::spec) =  
-(Sexn cn ((MAP (elab_t type_bound) ts)) :: elab_spec mn type_bound spec))`;
+(Sexn cn (MAP (elab_t type_bound) ts) :: elab_spec mn type_bound spec))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn elab_spec_defn;
 
@@ -319,8 +319,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       (type_bound', ctors', Tdec d')))
 /\
 (elab_top type_bound ctors (Ast_Tmod mn spec ds) =  
-(let (type_bound',ctors',ds') = (elab_decs ((SOME mn)) type_bound ctors ds) in
-      (type_bound,ctors,Tmod mn ((OPTION_MAP (elab_spec ((SOME mn)) type_bound) spec)) ds')))`;
+(let (type_bound',ctors',ds') = (elab_decs (SOME mn) type_bound ctors ds) in
+      (type_bound,ctors,Tmod mn (OPTION_MAP (elab_spec (SOME mn) type_bound) spec) ds')))`;
 
 
  val elab_prog_defn = Hol_defn "elab_prog" `

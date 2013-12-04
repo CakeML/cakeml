@@ -30,7 +30,7 @@ val _ = new_theory "typeSystem"
   else
     Tvar_db (m + n)))
 /\
-(deBruijn_inc skip n (Tapp ts tn) = (Tapp ((MAP (deBruijn_inc skip n) ts)) tn))`;
+(deBruijn_inc skip n (Tapp ts tn) = (Tapp (MAP (deBruijn_inc skip n) ts) tn))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn deBruijn_inc_defn;
 
@@ -41,15 +41,15 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (deBruijn_subst skip ts (Tvar tv) = (Tvar tv))
 /\
 (deBruijn_subst skip ts (Tvar_db n) =  
-(if (~ (n < skip)) /\ (n < ((LENGTH ts) + skip)) then    
-(EL (n - skip) ts)
-  else if (~ (n < skip)) then
-    Tvar_db (n - (LENGTH ts))
+(if ~ (n < skip) /\ (n < (LENGTH ts + skip)) then
+    EL (n - skip) ts
+  else if ~ (n < skip) then
+    Tvar_db (n - LENGTH ts)
   else
     Tvar_db n))
 /\
 (deBruijn_subst skip ts (Tapp ts' tn) =  
-(Tapp ((MAP (deBruijn_subst skip ts) ts')) tn))`;
+(Tapp (MAP (deBruijn_subst skip ts) ts') tn))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn deBruijn_subst_defn;
 
@@ -81,8 +81,8 @@ val _ = Define `
 (lookup_tenv n inc (Bind_tvar tvs e) = (lookup_tenv n (inc + tvs) e))
 /\
 (lookup_tenv n inc (Bind_name n' tvs t e) =  
-(if n' = n then    
-(SOME (tvs, deBruijn_inc tvs inc t))
+(if n' = n then
+    SOME (tvs, deBruijn_inc tvs inc t)
   else
     lookup_tenv n inc e))`;
 
@@ -101,7 +101,7 @@ val _ = Define `
     | Long x y =>
         (case lookup x tenvM of
             NONE => NONE
-          | (SOME tenvE') => lookup y tenvE'
+          | SOME tenvE' => lookup y tenvE'
         )
   )))`;
 
@@ -176,10 +176,10 @@ val _ = Define `
  val check_freevars_defn = Hol_defn "check_freevars" `
 
 (check_freevars dbmax tvs (Tvar tv) =  
-((MEM tv tvs)))
+(MEM tv tvs))
 /\
 (check_freevars dbmax tvs (Tapp ts tn) =  
-((EVERY (check_freevars dbmax tvs) ts)))
+(EVERY (check_freevars dbmax tvs) ts))
 /\
 (check_freevars dbmax tvs (Tvar_db n) = (n < dbmax))`;
 
@@ -193,29 +193,29 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = Define `
  (check_ctor_tenv mn tenvC tds =  
 (check_dup_ctors mn tenvC tds /\  
-((EVERY
-    (\ (tvs,tn,ctors) .       
-(ALL_DISTINCT tvs) /\       
 (EVERY
-         (\ (cn,ts) . ((EVERY (check_freevars( 0) tvs) ts)))
-         ctors))
-    tds) /\  
-((ALL_DISTINCT ((MAP (\p . 
-  (case (p ) of ( (_,tn,_) ) => tn )) tds))) /\  
-(EVERY
-    (\ (tvs,tn,ctors) .       
-(EVERY (\p . (case (p ) of ( (_,(_,_,tn')) ) => TypeId (mk_id mn tn) <> tn' )) tenvC))
-    tds)))))`;
+    (\ (tvs,tn,ctors) . 
+       ALL_DISTINCT tvs /\
+       EVERY
+         (\ (cn,ts) .  (EVERY (check_freevars( 0) tvs) ts))
+         ctors)
+    tds /\  
+(ALL_DISTINCT (MAP (\p .  
+  (case (p ) of ( (_,tn,_) ) => tn )) tds) /\
+  EVERY
+    (\ (tvs,tn,ctors) . 
+       EVERY (\p .  (case (p ) of ( (_,(_,_,tn')) ) => TypeId (mk_id mn tn) <> tn' )) tenvC)
+    tds))))`;
 
 
 (*val build_ctor_tenv : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> tenvC*)
 val _ = Define `
  (build_ctor_tenv mn tds =  
-((FLAT
-    ((MAP
-       (\ (tvs,tn,ctors) .          
-(MAP (\ (cn,ts) . (mk_id mn cn,(tvs,ts, TypeId (mk_id mn tn)))) ctors))
-       tds)))))`;
+(FLAT
+    (MAP
+       (\ (tvs,tn,ctors) . 
+          MAP (\ (cn,ts) .  (mk_id mn cn,(tvs,ts, TypeId (mk_id mn tn)))) ctors)
+       tds)))`;
 
 
 (* Simultaneous substitution of types for type variables in a type *)
@@ -225,11 +225,11 @@ val _ = Define `
 (type_subst s (Tvar tv) =  
 ((case lookup tv s of
       NONE => Tvar tv
-    | (SOME(t)) => t
+    | SOME(t) => t
   )))
 /\
 (type_subst s (Tapp ts tn) =  
-(Tapp ((MAP (type_subst s) ts)) tn))
+(Tapp (MAP (type_subst s) ts) tn))
 /\
 (type_subst s (Tvar_db n) = (Tvar_db n))`;
 
@@ -262,7 +262,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  
 (is_value (Lit _) = T)
 /\
-(is_value (Con _ es) = ((EVERY is_value es)))
+(is_value (Con _ es) = (EVERY is_value es))
 /\
 (is_value (Var _) = T)
 /\
@@ -302,12 +302,12 @@ T
 type_p tvs cenv (Plit Unit) Tunit [])
 
 /\ (! tvs cenv cn ps ts tvs' tn ts' tenv.
-((EVERY (check_freevars tvs []) ts') /\
-(((LENGTH ts') = (LENGTH tvs')) /\
-(type_ps tvs cenv ps ((MAP (type_subst ((ZIP (tvs', ts')))) ts)) tenv /\
-(lookup cn cenv = (SOME (tvs', ts, tn))))))
+(EVERY (check_freevars tvs []) ts' /\
+((LENGTH ts' = LENGTH tvs') /\
+(type_ps tvs cenv ps (MAP (type_subst (ZIP (tvs', ts'))) ts) tenv /\
+(lookup cn cenv = SOME (tvs', ts, tn)))))
 ==>
-type_p tvs cenv (Pcon ((SOME cn)) ps) (Tapp ts' (tid_exn_to_tc tn)) tenv)
+type_p tvs cenv (Pcon (SOME cn) ps) (Tapp ts' (tid_exn_to_tc tn)) tenv)
 
 /\ (! tvs cenv ps ts tenv.
 (type_ps tvs cenv ps ts tenv)
@@ -353,21 +353,21 @@ type_e menv cenv tenv (Raise e) t)
 
 /\ (! menv cenv tenv e pes t.
 (type_e menv cenv tenv e t /\
-(( (~ (pes = []))) /\
-(! ((p,e) :: (LIST_TO_SET pes)). ? tenv'.   
-(ALL_DISTINCT (pat_bindings p [])) /\   
+(( ~ (pes = [])) /\
+(! ((p,e) :: LIST_TO_SET pes). ? tenv'.
+   ALL_DISTINCT (pat_bindings p []) /\   
 (type_p (num_tvs tenv) cenv p Texn tenv' /\
    type_e menv cenv (bind_var_list( 0) tenv' tenv) e t))))
 ==>
 type_e menv cenv tenv (Handle e pes) t)
 
 /\ (! menv cenv tenv cn es tvs tn ts' ts.
-((EVERY (check_freevars (num_tvs tenv) []) ts') /\
-(((LENGTH tvs) = (LENGTH ts')) /\
-(type_es menv cenv tenv es ((MAP (type_subst ((ZIP (tvs, ts')))) ts)) /\
-(lookup cn cenv = (SOME (tvs, ts, tn))))))
+(EVERY (check_freevars (num_tvs tenv) []) ts' /\
+((LENGTH tvs = LENGTH ts') /\
+(type_es menv cenv tenv es (MAP (type_subst (ZIP (tvs, ts'))) ts) /\
+(lookup cn cenv = SOME (tvs, ts, tn)))))
 ==>
-type_e menv cenv tenv (Con ((SOME cn)) es) (Tapp ts' (tid_exn_to_tc tn)))
+type_e menv cenv tenv (Con (SOME cn) es) (Tapp ts' (tid_exn_to_tc tn)))
 
 /\ (! menv cenv tenv es ts.
 (type_es menv cenv tenv es ts)
@@ -375,9 +375,9 @@ type_e menv cenv tenv (Con ((SOME cn)) es) (Tapp ts' (tid_exn_to_tc tn)))
 type_e menv cenv tenv (Con NONE es) (Tapp ts TC_tup))
 
 /\ (! menv cenv tenv n t targs tvs.
-((tvs = (LENGTH targs)) /\
-((EVERY (check_freevars (num_tvs tenv) []) targs) /\
-(t_lookup_var_id n menv tenv = (SOME (tvs,t)))))
+((tvs = LENGTH targs) /\
+(EVERY (check_freevars (num_tvs tenv) []) targs /\
+(t_lookup_var_id n menv tenv = SOME (tvs,t))))
 ==>
 type_e menv cenv tenv (Var n) (deBruijn_subst( 0) targs t))
 
@@ -415,9 +415,9 @@ type_e menv cenv tenv (If e1 e2 e3) t)
 
 /\ (! menv cenv tenv e pes t1 t2.
 (type_e menv cenv tenv e t1 /\
-(( (~ (pes = []))) /\
-(! ((p,e) :: (LIST_TO_SET pes)) . ? tenv'.   
-(ALL_DISTINCT (pat_bindings p [])) /\   
+(( ~ (pes = [])) /\
+(! ((p,e) :: LIST_TO_SET pes) . ? tenv'.
+   ALL_DISTINCT (pat_bindings p []) /\   
 (type_p (num_tvs tenv) cenv p t1 tenv' /\
    type_e menv cenv (bind_var_list( 0) tenv' tenv) e t2))))
 ==>
@@ -469,19 +469,19 @@ type_funs menv cenv env ((fn, n, e)::funs) ((fn, Tfn t1 t2)::env'))`;
 (*val tenv_add_tvs : nat -> env varN t -> env varN (nat * t)*)
 val _ = Define `
  (tenv_add_tvs tvs tenv =  
-((MAP (\ (n,t) . (n,(tvs,t))) tenv)))`;
+(MAP (\ (n,t) .  (n,(tvs,t))) tenv))`;
 
 
 val _ = Hol_reln ` (! tvs mn menv cenv tenv p e t tenv'.
 (is_value e /\
-((ALL_DISTINCT (pat_bindings p [])) /\
+(ALL_DISTINCT (pat_bindings p []) /\
 (type_p tvs cenv p t tenv' /\
 type_e menv cenv (bind_tvar tvs tenv) e t)))
 ==>
 type_d mn menv cenv tenv (Dlet p e) emp (tenv_add_tvs tvs tenv'))
 
 /\ (! mn menv cenv tenv p e t tenv'.
-((ALL_DISTINCT (pat_bindings p [])) /\
+(ALL_DISTINCT (pat_bindings p []) /\
 (type_p( 0) cenv p t tenv' /\
 type_e menv cenv tenv e t))
 ==>
@@ -499,7 +499,7 @@ type_d mn menv cenv tenv (Dtype tdecs) (build_ctor_tenv mn tdecs) emp)
 
 /\ (! mn menv cenv tenv cn ts.
 ((lookup (mk_id mn cn) cenv = NONE) /\
-(EVERY (check_freevars( 0) []) ts))
+EVERY (check_freevars( 0) []) ts)
 ==>
 type_d mn menv cenv tenv (Dexn cn ts) (bind (mk_id mn cn) ([], ts, TypeExn) emp) emp)`;
 
@@ -521,7 +521,7 @@ type_specs mn cenv tenv [] cenv tenv)
 
 /\ (! mn cenv tenv x t specs cenv' tenv' fvs.
 (check_freevars( 0) fvs t /\
-type_specs mn cenv (bind x ((LENGTH fvs), type_subst ((ZIP (fvs, ((MAP Tvar_db ((COUNT_LIST ((LENGTH fvs))))))))) t) tenv) specs cenv' tenv')
+type_specs mn cenv (bind x (LENGTH fvs, type_subst (ZIP (fvs, (MAP Tvar_db (COUNT_LIST (LENGTH fvs))))) t) tenv) specs cenv' tenv')
 ==>
 type_specs mn cenv tenv (Sval x t :: specs) cenv' tenv') 
 
@@ -533,14 +533,14 @@ type_specs mn cenv tenv (Stype td :: specs) cenv' tenv')
 
 /\ (! mn cenv tenv cn ts specs cenv' tenv'.
 ((lookup (mk_id mn cn) cenv = NONE) /\
-((EVERY (check_freevars( 0) []) ts) /\
+(EVERY (check_freevars( 0) []) ts /\
 type_specs mn (bind (mk_id mn cn) ([], ts, TypeExn) cenv) tenv specs cenv' tenv'))
 ==>
 type_specs mn cenv tenv (Sexn cn ts :: specs) cenv' tenv')
 
 /\ (! mn cenv tenv tn specs cenv' tenv' tvs.
-((ALL_DISTINCT tvs) /\
-((EVERY (\p . (case (p ) of ( (_,(_,_,tn')) ) => TypeId (mk_id mn tn) <> tn' )) cenv) /\
+(ALL_DISTINCT tvs /\
+(EVERY (\p .  (case (p ) of ( (_,(_,_,tn')) ) => TypeId (mk_id mn tn) <> tn' )) cenv /\
 type_specs mn cenv tenv specs cenv' tenv'))
 ==>
 type_specs mn cenv tenv (Stype_opq tvs tn :: specs) cenv' tenv')`;
@@ -549,14 +549,14 @@ val _ = Define `
  (weakE tenv_impl tenv_spec =  
 (! x.
     (case lookup x tenv_spec of
-        (SOME (tvs_spec, t_spec)) =>
+        SOME (tvs_spec, t_spec) =>
           (case lookup x tenv_impl of
               NONE => F
-            | (SOME (tvs_impl, t_impl)) =>
+            | SOME (tvs_impl, t_impl) =>
                 ? subst.                  
- ((LENGTH subst) = tvs_impl) /\                  
+ (LENGTH subst = tvs_impl) /\                  
 (check_freevars tvs_impl [] t_impl /\                  
-((EVERY (check_freevars tvs_spec []) subst) /\                  
+(EVERY (check_freevars tvs_spec []) subst /\                  
 (deBruijn_subst( 0) subst t_impl = t_spec)))
           )
         | NONE => T
@@ -567,10 +567,10 @@ val _ = Define `
  (weakC cenv_impl cenv_spec =  
 (! cn.
     (case lookup cn cenv_spec of
-        (SOME (tvs_spec,ts_spec,tn_spec)) =>
+        SOME (tvs_spec,ts_spec,tn_spec) =>
           (case lookup cn cenv_impl of
               NONE => F
-            | (SOME (tvs_impl, ts_impl, tn_impl)) =>                
+            | SOME (tvs_impl, ts_impl, tn_impl) =>                
 (tn_spec = tn_impl) /\                
 ((
                 (* For simplicity, we reject matches that differ only by renaming of bound type variables *)tvs_spec = tvs_impl) /\                
@@ -590,7 +590,7 @@ check_signature mn cenv tenv NONE cenv tenv)
 (weakC cenv cenv' /\
 type_specs mn emp emp specs cenv' tenv'))
 ==>
-check_signature mn cenv tenv ((SOME specs)) cenv' tenv')`;
+check_signature mn cenv tenv (SOME specs) cenv' tenv')`;
 
 val _ = Hol_reln ` (! menv cenv tenv d cenv' tenv'.
 (type_d NONE menv cenv tenv d cenv' tenv')
@@ -598,9 +598,9 @@ val _ = Hol_reln ` (! menv cenv tenv d cenv' tenv'.
 type_top menv cenv tenv (Tdec d) emp cenv' tenv')
 
 /\ (! menv cenv tenv mn spec ds cenv' tenv' cenv'' tenv''.
-((~ ((MEM mn ((MAP FST menv))))) /\
-(type_ds ((SOME mn)) menv cenv tenv ds cenv' tenv' /\
-check_signature ((SOME mn)) cenv' tenv' spec cenv'' tenv''))
+(~ (MEM mn (MAP FST menv)) /\
+(type_ds (SOME mn) menv cenv tenv ds cenv' tenv' /\
+check_signature (SOME mn) cenv' tenv' spec cenv'' tenv''))
 ==>
 type_top menv cenv tenv (Tmod mn spec ds) [(mn,tenv'')] cenv'' emp)`;
 

@@ -42,8 +42,8 @@ val _ = Define `
 (lookup n [] = NONE)
 /\
 (lookup n ((n',v)::e) =  
-(if n' = n then    
-(SOME v)
+(if n' = n then
+    SOME v
   else
     lookup n e))`;
 

@@ -29,13 +29,13 @@ val _ = Hol_datatype `
 
 (v_to_ov _ (Litv l) = (OLit l))
 /\
-(v_to_ov s (Conv cn vs) = (OConv cn ((MAP (v_to_ov s) vs))))
+(v_to_ov s (Conv cn vs) = (OConv cn (MAP (v_to_ov s) vs)))
 /\
 (v_to_ov _ (Closure _ _ _) = OFn)
 /\
 (v_to_ov _ (Recclosure _ _ _) = OFn)
 /\
-(v_to_ov s (Loc n) = (OLoc ((EL n s))))`;
+(v_to_ov s (Loc n) = (OLoc (EL n s)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn v_to_ov_defn;
 

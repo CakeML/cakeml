@@ -132,7 +132,7 @@ val _ = Define `
 
 (can_Print (Number _) = T)
 /\
-(can_Print (Block n vs) = ((~ (n = block_tag)) \/ can_Print_list vs))
+(can_Print (Block n vs) = (~ (n = block_tag) \/ can_Print_list vs))
 /\
 (can_Print (CodePtr _) = F)
 /\
@@ -173,7 +173,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (bc_equal (Block t1 l1) (Block t2 l2) =  
 (if (t1 = closure_tag) \/ (t2 = closure_tag)
   then Eq_closure else
-    if (t1 = t2) /\ ((LENGTH l1) = (LENGTH l2))
+    if (t1 = t2) /\ (LENGTH l1 = LENGTH l2)
     then bc_equal_list l1 l2 else Eq_val F))
 /\
 (bc_equal_list [] [] = (Eq_val T))
@@ -193,9 +193,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (bc_equality_result_to_val (Eq_val b) = (bool_to_val b))
 /\
-(bc_equality_result_to_val Eq_closure = (Number((( 0 : int)))))
+(bc_equality_result_to_val Eq_closure = (Number(( 0 : int))))
 /\
-(bc_equality_result_to_val Eq_type_error = (Number((( 1 : int)))))`;
+(bc_equality_result_to_val Eq_type_error = (Number(( 1 : int))))`;
 
 
 (* fetching the next instruction from the code *)
@@ -213,7 +213,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (bc_fetch_aux (x::xs) len (n:num) =  
 (if is_Label x then bc_fetch_aux xs len n else
-    if n = 0 then (SOME x) else
+    if n = 0 then SOME x else
       if n < (len x + 1) then NONE else
         bc_fetch_aux xs len (n - (len x + 1))))`;
 
@@ -228,7 +228,7 @@ val _ = Define `
 val _ = Define `
  (bump_pc s = ((case bc_fetch s of
   NONE => s
-| (SOME x) => ( s with<| pc := (s.pc + s.inst_length x) + 1 |>)
+| SOME x => ( s with<| pc := (s.pc + s.inst_length x) + 1 |>)
 )))`;
 
 
@@ -238,14 +238,14 @@ val _ = Define `
 (bc_find_loc_aux [] _ _ _ = NONE)
 /\
 (bc_find_loc_aux (x::xs) len l (n:num) =  
-(if x = Label l then (SOME n) else
+(if x = Label l then SOME n else
     bc_find_loc_aux xs len l (n + (if is_Label x then  0 else len x + 1))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn bc_find_loc_aux_defn;
 
  val _ = Define `
 
-(bc_find_loc _ (Addr n) = ((SOME n)))
+(bc_find_loc _ (Addr n) = (SOME n))
 /\
 (bc_find_loc s (Lab l) = (bc_find_loc_aux s.code s.inst_length l( 0)))`;
 
@@ -260,7 +260,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   if n = (bool_to_tag T) then OLit (Bool T) else
   if n = unit_tag then OLit Unit else
   if n = closure_tag then OFn else
-  OConv (the NONE (lib$lookup (n - block_tag) m)) ((MAP (bv_to_ov m) vs))))
+  OConv (the NONE (lib$lookup (n - block_tag) m)) (MAP (bv_to_ov m) vs)))
 /\
 (bv_to_ov _ (RefPtr n) = (OLoc n))
 /\
@@ -273,24 +273,24 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = Hol_reln ` (! x xs. T ==>
 bc_stack_op Pop (x::xs) (xs))
 /\ (! x ys xs. T ==>
-bc_stack_op (Pops ((LENGTH ys))) ((x::ys)++xs) (x::xs))
+bc_stack_op (Pops (LENGTH ys)) ((x::ys)++xs) (x::xs))
 /\ (! n xs. T ==>
 bc_stack_op (PushInt n) (xs) (Number n::xs))
 /\ (! tag ys xs. T ==>
-bc_stack_op (Cons tag ((LENGTH ys))) (ys++xs) (Block tag ((REVERSE ys))::xs))
-/\ (! k xs. (k < (LENGTH xs)) ==>
-bc_stack_op (Load k) xs ((EL k xs)::xs))
+bc_stack_op (Cons tag (LENGTH ys)) (ys++xs) (Block tag (REVERSE ys)::xs))
+/\ (! k xs. (k < LENGTH xs) ==>
+bc_stack_op (Load k) xs (EL k xs::xs))
 /\ (! y ys x xs. T ==>
-bc_stack_op (Store ((LENGTH ys))) ((y::ys)++(x::xs)) (ys++(y::xs)))
-/\ (! k xs. (k < (LENGTH xs)) ==>
-bc_stack_op (LoadRev k) xs ((EL k ((REVERSE xs)))::xs))
-/\ (! k tag ys xs. (k < (LENGTH ys)) ==>
-bc_stack_op (El k) ((Block tag ys)::xs) ((EL k ys)::xs))
+bc_stack_op (Store (LENGTH ys)) ((y::ys)++(x::xs)) (ys++(y::xs)))
+/\ (! k xs. (k < LENGTH xs) ==>
+bc_stack_op (LoadRev k) xs (EL k (REVERSE xs)::xs))
+/\ (! k tag ys xs. (k < LENGTH ys) ==>
+bc_stack_op (El k) ((Block tag ys)::xs) (EL k ys::xs))
 /\ (! t tag ys xs. T ==>
 bc_stack_op (TagEq t) ((Block tag ys)::xs) (bool_to_val (tag = t)::xs))
-/\ (! x xs. (! n. (~ (x = CodePtr n)) /\ (~ (x = StackPtr n))) ==>
+/\ (! x xs. (! n. ~ (x = CodePtr n) /\ ~ (x = StackPtr n)) ==>
 bc_stack_op IsBlock (x::xs) ((bool_to_val (is_Block x))::xs))
-/\ (! x2 x1 xs. ((~ (bc_equal x1 x2 = Eq_type_error))) ==>
+/\ (! x2 x1 xs. (~ (bc_equal x1 x2 = Eq_type_error)) ==>
 bc_stack_op Equal (x2::(x1::xs)) (bc_equality_result_to_val (bc_equal x1 x2)::xs))
 /\ (! n m xs. T ==>
 bc_stack_op Less (Number n::(Number m::xs)) (bool_to_val (m < n)::xs))
@@ -300,94 +300,94 @@ bc_stack_op Add  (Number n::(Number m::xs)) (Number (m + n)::xs))
 bc_stack_op Sub  (Number n::(Number m::xs)) (Number (m - n)::xs))
 /\ (! n m xs. T ==>
 bc_stack_op Mult (Number n::(Number m::xs)) (Number (m * n)::xs))
-/\ (! n m xs. ((~ (n =(( 0 : int))))) ==>
+/\ (! n m xs. (~ (n =( 0 : int))) ==>
 bc_stack_op Div  (Number n::(Number m::xs)) (Number (m / n)::xs))
-/\ (! n m xs. ((~ (n =(( 0 : int))))) ==>
+/\ (! n m xs. (~ (n =( 0 : int))) ==>
 bc_stack_op Mod  (Number n::(Number m::xs)) (Number (m % n)::xs))`;
 
 val _ = Hol_reln ` (! s b ys.
-((bc_fetch s = (SOME (Stack b)))
+((bc_fetch s = SOME (Stack b))
 /\ bc_stack_op b (s.stack) ys)
 ==>
 bc_next s ((bump_pc s with<| stack := ys|>))) (* parens throughout: lem sucks *)
 /\ (! s l n.
-((bc_fetch s = (SOME (Jump l))) (* parens: ugh...*)
-/\ (bc_find_loc s l = (SOME n)))
+((bc_fetch s = SOME (Jump l)) (* parens: ugh...*)
+/\ (bc_find_loc s l = SOME n))
 ==>
 bc_next s ((s with<| pc := n|>)))
 /\ (! s l n b xs s'.
-((bc_fetch s = (SOME (JumpIf l)))
-/\ ((bc_find_loc s l = (SOME n))
+((bc_fetch s = SOME (JumpIf l))
+/\ ((bc_find_loc s l = SOME n)
 /\ ((s.stack = ((bool_to_val b)::xs))
 /\ (s' = ((s with<| stack := xs|>))))))
 ==>
 bc_next s (if b then (s' with<| pc := n|>) else bump_pc s'))
 /\ (! s l n x xs.
-((bc_fetch s = (SOME (Call l)))
-/\ ((bc_find_loc s l = (SOME n))
+((bc_fetch s = SOME (Call l))
+/\ ((bc_find_loc s l = SOME n)
 /\ (s.stack = (x::xs))))
 ==>
 bc_next s ((s with<| pc := n; stack := x::(CodePtr ((bump_pc s).pc)::xs)|>)))
 /\ (! s ptr x xs.
-((bc_fetch s = (SOME CallPtr))
+((bc_fetch s = SOME CallPtr)
 /\ (s.stack = (CodePtr ptr::(x::xs))))
 ==>
 bc_next s ((s with<| pc := ptr; stack := x::(CodePtr ((bump_pc s).pc)::xs)|>)))
 /\ (! s l n.
-((bc_fetch s = (SOME (PushPtr l)))
-/\ (bc_find_loc s l = (SOME n)))
+((bc_fetch s = SOME (PushPtr l))
+/\ (bc_find_loc s l = SOME n))
 ==>
 bc_next s ((bump_pc s with<| stack := (CodePtr n)::s.stack |>)))
 /\ (! s x n xs.
-((bc_fetch s = (SOME Return))
+((bc_fetch s = SOME Return)
 /\ (s.stack = (x::(CodePtr n::xs))))
 ==>
 bc_next s ((s with<| pc := n; stack := x::xs|>)))
 /\ (! s.
-(bc_fetch s = (SOME PushExc)) (* parens: Lem sucks *)
+(bc_fetch s = SOME PushExc) (* parens: Lem sucks *)
 ==>
 bc_next s ((bump_pc s with<|
-               handler := (LENGTH s.stack) ;
+               handler := LENGTH s.stack ;
                stack := (StackPtr s.handler)::s.stack|>)))
 /\ (! s sp x l1 l2.
-((bc_fetch s = (SOME PopExc)) /\
+((bc_fetch s = SOME PopExc) /\
 ((s.stack = ((x::l1) ++ (StackPtr sp::l2))) /\
-((LENGTH l2) = s.handler)))
+(LENGTH l2 = s.handler)))
 ==>
 bc_next s ((bump_pc s with<| handler := sp; stack := x::l2|>)))
 /\ (! s x xs ptr.
-((bc_fetch s = (SOME Ref))
+((bc_fetch s = SOME Ref)
 /\ ((s.stack = (x::xs))
-/\ (ptr = ($LEAST (\ ptr . (~ (ptr IN (FDOM s.refs))))))))
+/\ (ptr = $LEAST (\ ptr .  ~ (ptr IN FDOM s.refs)))))
 ==>
-bc_next s ((bump_pc s with<| stack := (RefPtr ptr)::xs; refs := (FUPDATE s.refs (ptr,x))|>)))
+bc_next s ((bump_pc s with<| stack := (RefPtr ptr)::xs; refs :=s.refs |+ (ptr, x)|>)))
 /\ (! s ptr xs.
-((bc_fetch s = (SOME Deref))
+((bc_fetch s = SOME Deref)
 /\ ((s.stack = ((RefPtr ptr)::xs))
-/\ (ptr IN (FDOM s.refs))))
+/\ (ptr IN FDOM s.refs)))
 ==>
-bc_next s ((bump_pc s with<| stack := (FAPPLY s.refs ptr)::xs|>)))
+bc_next s ((bump_pc s with<| stack := FAPPLY s.refs ptr::xs|>)))
 /\ (! s x ptr xs.
-((bc_fetch s = (SOME Update))
+((bc_fetch s = SOME Update)
 /\ ((s.stack = (x::((RefPtr ptr)::xs)))
-/\ (ptr IN (FDOM s.refs))))
+/\ (ptr IN FDOM s.refs)))
 ==>
-bc_next s ((bump_pc s with<| stack := xs; refs := (FUPDATE s.refs (ptr,x))|>)))
+bc_next s ((bump_pc s with<| stack := xs; refs :=s.refs |+ (ptr, x)|>)))
 /\ (! s.
-((bc_fetch s = (SOME Tick))
-/\ (! n. (s.clock = (SOME n)) ==> (n > 0)))
+((bc_fetch s = SOME Tick)
+/\ (! n. (s.clock = SOME n) ==> (n > 0)))
 ==>
-bc_next s ((bump_pc s with<| clock := (OPTION_MAP PRE s.clock)|>)))
+bc_next s ((bump_pc s with<| clock := OPTION_MAP PRE s.clock|>)))
 /\ (! s x xs.
-((bc_fetch s = (SOME Print))
+((bc_fetch s = SOME Print)
 /\ ((s.stack = (x::xs))
 /\ can_Print x))
 ==>
 bc_next s ((bump_pc s with<| stack := xs;
-  output := (CONCAT [s.output;ov_to_string (bv_to_ov s.cons_names x)])|>)))
+  output := CONCAT [s.output;ov_to_string (bv_to_ov s.cons_names x)]|>)))
 /\ (! s c.
-(bc_fetch s = (SOME (PrintC c)))
+(bc_fetch s = SOME (PrintC c))
 ==>
-bc_next s ((bump_pc s with<| output := (SNOC c s.output)|>)))`;
+bc_next s ((bump_pc s with<| output := SNOC c s.output|>)))`;
 val _ = export_theory()
 

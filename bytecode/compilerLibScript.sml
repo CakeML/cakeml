@@ -24,7 +24,7 @@ val _ = new_theory "compilerLib"
 (*val EXPLODE : string -> list char*)
 
  val _ = Define `
- (el_check n ls = (if n < (LENGTH ls) then (SOME ((EL n ls))) else NONE))`;
+ (el_check n ls = (if n < LENGTH ls then SOME (EL n ls) else NONE))`;
 
 
 (*val num_fold : forall 'a. ('a -> 'a) -> 'a -> nat -> 'a*)
@@ -48,7 +48,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (lunion [] s = s)
 /\
 (lunion (x::xs) s =  
-(if (MEM x s)
+(if MEM x s
   then lunion xs s
   else x::(lunion xs s)))`;
 
@@ -57,16 +57,16 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  val _ = Define `
 
 (lshift (n : num) ls =  
-((MAP (\ v . v - n) ((FILTER (\ v . n <= v) ls)))))`;
+(MAP (\ v .  v - n) (FILTER (\ v .  n <= v) ls)))`;
 
 
  val _ = Define `
- (the _ ((SOME x)) = x) /\ (the x NONE = x)`;
+ (the _ (SOME x) = x) /\ (the x NONE = x)`;
 
 
 (*val fapply : forall 'a 'b. MapKeyType 'b => 'a -> 'b -> Map.map 'b 'a -> 'a*)
 val _ = Define `
- (fapply d x f = ((case (FLOOKUP f x) of (SOME d) => d | NONE => d )))`;
+ (fapply d x f = ((case FLOOKUP f x of SOME d => d | NONE => d )))`;
 
 val _ = export_theory()
 

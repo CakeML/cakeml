@@ -56,8 +56,8 @@ val _ = Define `
 (*val store_lookup : nat -> store -> maybe v*)
 val _ = Define `
  (store_lookup l st =  
-(if l < (LENGTH st) then    
-(SOME ((EL l st)))
+(if l < LENGTH st then
+    SOME (EL l st)
   else
     NONE))`;
 
@@ -65,14 +65,14 @@ val _ = Define `
 (*val store_alloc : v -> store -> store * nat*)
 val _ = Define `
  (store_alloc v st =
-  ((st ++ [v]), (LENGTH st)))`;
+  ((st ++ [v]), LENGTH st))`;
 
 
 (*val store_assign : nat -> v -> store -> maybe store*)
 val _ = Define `
  (store_assign n v st =  
-(if n < (LENGTH st) then    
-(SOME ((LUPDATE v n st)))
+(if n < LENGTH st then
+    SOME (LUPDATE v n st)
   else
     NONE))`;
 
@@ -99,7 +99,7 @@ val _ = Define `
     | Long x y =>
         (case lookup x menv of
             NONE => NONE
-          | (SOME env) => lookup y env
+          | SOME env => lookup y env
         )
   )))`;
 
@@ -111,10 +111,10 @@ val _ = Define `
  (do_con_check cenv n_opt l =  
 ((case n_opt of
       NONE => T
-    | (SOME n) =>
+    | SOME n =>
         (case lookup n cenv of
             NONE => F
-          | (SOME (l',ns)) => l = l'
+          | SOME (l',ns) => l = l'
         )
   )))`;
 
@@ -158,10 +158,10 @@ val _ = Hol_datatype `
   else
     Match_type_error))
 /\
-(pmatch envC s (Pcon ((SOME n)) ps) (Conv ((SOME n')) vs) env =  
+(pmatch envC s (Pcon (SOME n) ps) (Conv (SOME n') vs) env =  
 ((case (lookup n envC, lookup n' envC) of
-      ((SOME (l, t)), (SOME (l', t'))) =>
-        if (t = t') /\ (((LENGTH ps) = l) /\ ((LENGTH vs) = l')) then
+      (SOME (l, t), SOME (l', t')) =>
+        if (t = t') /\ ((LENGTH ps = l) /\ (LENGTH vs = l')) then
           if n = n' then
             pmatch_list envC s ps vs env
           else
@@ -172,14 +172,14 @@ val _ = Hol_datatype `
   )))
 /\
 (pmatch envC s (Pcon NONE ps) (Conv NONE vs) env =  
-(if (LENGTH ps) = (LENGTH vs) then
+(if LENGTH ps = LENGTH vs then
     pmatch_list envC s ps vs env
   else
     Match_type_error))
 /\
 (pmatch envC s (Pref p) (Loc lnum) env =  
 ((case store_lookup lnum s of
-      (SOME v) => pmatch envC s p v env
+      SOME v => pmatch envC s p v env
     | NONE => Match_type_error
   )))
 /\
@@ -202,10 +202,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (*val build_rec_env : list (varN * varN * exp) -> envE -> envE -> envE*)
 val _ = Define `
  (build_rec_env funs cl_env add_to_env =  
-((FOLDR 
-    (\ (f,x,e) env' . bind f (Recclosure cl_env funs f) env') 
+(FOLDR 
+    (\ (f,x,e) env' .  bind f (Recclosure cl_env funs f) env') 
     add_to_env 
-    funs)))`;
+    funs))`;
 
 
 (* Lookup in the list of mutually recursive functions *)
@@ -215,8 +215,8 @@ val _ = Define `
 ((case funs of
       [] => NONE
     | (f,x,e) :: funs =>
-        if f = n then          
-(SOME (x,e))
+        if f = n then
+          SOME (x,e)
         else
           find_recfun n funs
   )))`;
@@ -229,7 +229,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (contains_closure (Litv l) = F)
 /\
-(contains_closure (Conv cn vs) = ((EXISTS contains_closure vs)))
+(contains_closure (Conv cn vs) = (EXISTS contains_closure vs))
 /\
 (contains_closure (Closure env n e) = T)
 /\
@@ -247,14 +247,14 @@ val _ = Define `
         (case v of
             Loc n =>
               (case store_lookup n s of
-                  (SOME v) => (SOME (s,v))
+                  SOME v => SOME (s,v)
                 | NONE => NONE
               )
           | _ => NONE
         )
     | Opref =>
-        let (s',n) = (store_alloc v s) in          
-(SOME (s', Loc n))
+        let (s',n) = (store_alloc v s) in
+          SOME (s', Loc n)
   )))`;
 
 
@@ -274,7 +274,7 @@ val _ = Hol_datatype `
 (do_eq (Loc l1) (Loc l2) = (Eq_val (l1 = l2)))
 /\
 (do_eq (Conv cn1 vs1) (Conv cn2 vs2) =  
-(if (cn1 = cn2) /\ ((LENGTH vs1) = (LENGTH vs2)) then
+(if (cn1 = cn2) /\ (LENGTH vs1 = LENGTH vs2) then
     do_eq_list vs1 vs2
   else
     Eq_val F))
@@ -296,7 +296,7 @@ val _ = Hol_datatype `
       Eq_closure => Eq_closure
     | Eq_type_error => Eq_type_error
     | Eq_val r => 
-        if (~ r) then
+        if ~ r then
           Eq_val F
         else
           do_eq_list vs1 vs2
@@ -311,29 +311,29 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = Define `
  (do_app s env' op v1 v2 =  
 ((case (op, v1, v2) of
-      (Opapp, Closure env n e, v) =>        
-(SOME (s, bind n v env, e))
+      (Opapp, Closure env n e, v) =>
+        SOME (s, bind n v env, e)
     | (Opapp, Recclosure env funs n, v) =>
         (case find_recfun n funs of
-            (SOME (n,e)) => (SOME (s, bind n v (build_rec_env funs env env), e))
+            SOME (n,e) => SOME (s, bind n v (build_rec_env funs env env), e)
           | NONE => NONE
         )
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) =>
-        if ((op = Divide) \/ (op = Modulo)) /\ (n2 =(( 0 : int))) then          
-(SOME (s, env', Raise (Con ((SOME (Short "Div"))) [])))
-        else          
-(SOME (s, env',Lit (IntLit (opn_lookup op n1 n2))))
-    | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) =>        
-(SOME (s, env', Lit (Bool (opb_lookup op n1 n2))))
+        if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
+          SOME (s, env', Raise (Con (SOME (Short "Div")) []))
+        else
+          SOME (s, env',Lit (IntLit (opn_lookup op n1 n2)))
+    | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) =>
+        SOME (s, env', Lit (Bool (opb_lookup op n1 n2)))
     | (Equality, v1, v2) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
-          | Eq_closure => (SOME (s, env', Raise (Con ((SOME (Short "Eq"))) [])))
-          | Eq_val b => (SOME (s, env', Lit (Bool b)))
+          | Eq_closure => SOME (s, env', Raise (Con (SOME (Short "Eq")) []))
+          | Eq_val b => SOME (s, env', Lit (Bool b))
         )
     | (Opassign, (Loc lnum), v) =>
         (case store_assign lnum v s of
-          (SOME st) => (SOME (st, env', Lit Unit))
+          SOME st => SOME (st, env', Lit Unit)
         | NONE => NONE
         )
     | _ => NONE
@@ -345,9 +345,9 @@ val _ = Define `
 val _ = Define `
  (do_log l v e =  
 ((case (l, v) of
-      (And, Litv (Bool T)) => (SOME e)
-    | (Or, Litv (Bool F)) => (SOME e)
-    | (_, Litv (Bool b)) => (SOME (Lit (Bool b)))
+      (And, Litv (Bool T)) => SOME e
+    | (Or, Litv (Bool F)) => SOME e
+    | (_, Litv (Bool b)) => SOME (Lit (Bool b))
     | _ => NONE
   )))`;
 
@@ -356,10 +356,10 @@ val _ = Define `
 (*val do_if : v -> exp -> exp -> maybe exp*)
 val _ = Define `
  (do_if v e1 e2 =  
-(if v = Litv (Bool T) then    
-(SOME e1)
-  else if v = Litv (Bool F) then    
-(SOME e2)
+(if v = Litv (Bool T) then
+    SOME e1
+  else if v = Litv (Bool F) then
+    SOME e2
   else
     NONE))`;
 
@@ -370,14 +370,14 @@ val _ = Define `
 (*val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> envC*)
 val _ = Define `
  (build_tdefs mn tds =  
-((FLAT
-    ((MAP
-      (\ (tvs, tn, condefs) .         
-(MAP
-           (\ (conN, ts) .
-              (mk_id mn conN, ((LENGTH ts), TypeId (mk_id mn tn))))
-           condefs))
-      tds)))))`;
+(FLAT
+    (MAP
+      (\ (tvs, tn, condefs) . 
+         MAP
+           (\ (conN, ts) . 
+              (mk_id mn conN, (LENGTH ts, TypeId (mk_id mn tn))))
+           condefs)
+      tds)))`;
 
 
 (* Checks that no constructor is defined twice *)
@@ -389,14 +389,14 @@ val check_dup_ctors :
 val _ = Define `
  (check_dup_ctors mn_opt cenv tds =  
 ((! ((tvs, tn, condefs) :: 
-  (LIST_TO_SET tds)) ((n, ts) :: (LIST_TO_SET condefs)).
+  LIST_TO_SET tds) ((n, ts) :: LIST_TO_SET condefs).
      lookup (mk_id mn_opt n) cenv = NONE)
-  /\  
-(ALL_DISTINCT (let x2 = 
-  ([]) in  (FOLDR
-    (\(tvs, tn, condefs) x2 . (FOLDR
-                                 (\(n, ts) x2 . if T then n :: x2 else x2) 
-                               x2 condefs)) x2 tds)))))`;
+  /\
+  ALL_DISTINCT (let x2 = 
+  ([]) in  FOLDR
+   (\(tvs, tn, condefs) x2 .  FOLDR
+                                (\(n, ts) x2 .  if T then n :: x2 else x2) 
+                              x2 condefs) x2 tds)))`;
 
 
 (*val combine_dec_result : forall 'a 'b. env 'a 'b -> result (env 'a 'b) -> result (env 'a 'b)*)
@@ -423,7 +423,7 @@ val _ = Define `
 
 (dec_to_cenv mn (Dtype tds) = (build_tdefs mn tds))
 /\
-(dec_to_cenv mn (Dexn cn ts) = (bind (mk_id mn cn) ((LENGTH ts),TypeExn) emp))
+(dec_to_cenv mn (Dexn cn ts) = (bind (mk_id mn cn) (LENGTH ts,TypeExn) emp))
 /\
 (dec_to_cenv mn _ = ([]))`;
 
@@ -440,7 +440,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (top_to_cenv (Tdec d) = (dec_to_cenv NONE d))
 /\
-(top_to_cenv (Tmod mn _ ds) = (decs_to_cenv ((SOME mn)) ds))`;
+(top_to_cenv (Tmod mn _ ds) = (decs_to_cenv (SOME mn) ds))`;
 
 
 (* conversions to strings *)
@@ -454,8 +454,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Define `
  (int_to_string z =  
-(if z <(( 0 : int)) then "~"++((num_to_dec_string ((Num ((~ z))))))
-  else (num_to_dec_string ((Num z)))))`;
+(if z <( 0 : int) then "~"++(num_to_dec_string (Num (~ z)))
+  else num_to_dec_string (Num z)))`;
 
 val _ = export_theory()
 
