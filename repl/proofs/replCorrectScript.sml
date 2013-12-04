@@ -637,6 +637,63 @@ rw [tenv_add_tvs_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
 fs [LET_THM, LIST_TO_SET_MAP, GSYM fst_lem, IMAGE_COMPOSE] >>
 metis_tac [IMAGE_11, astTheory.id_11]);
 
+val new_top_vs_inf_tenv_to_string_map_lem = Q.prove (
+`!tenvM tenvC tenv top tenvM' tenvC' tenv'. 
+  type_top tenvM tenvC tenv top tenvM' tenvC' (convert_env2 tenv')
+  ⇒ 
+  set (new_top_vs top) ⊆ FDOM (inf_tenv_to_string_map tenv')`,
+ rw [] >>
+ cases_on `top` >>
+ fs [new_top_vs_def, type_top_cases] >>
+ imp_res_tac type_d_new_dec_vs >>
+ rw [convert_env2_def, MAP_MAP_o, combinTheory.o_DEF] >>
+ rpt (pop_assum (fn _ => all_tac)) >>
+ induct_on `tenv'` >>
+ rw [inf_tenv_to_string_map_def] >>
+ PairCases_on `h` >>
+ rw [inf_tenv_to_string_map_def, SUBSET_INSERT_RIGHT]);
+
+val type_to_string_lem = Q.prove (
+`(!t n. check_t n {} t ⇒ (inf_type_to_string t = type_to_string (convert_t t))) ∧
+ (!ts n. EVERY (check_t n {}) ts ⇒ 
+   (MAP inf_type_to_string ts = MAP (type_to_string o convert_t) ts) ∧
+   (inf_types_to_string ts = types_to_string (MAP convert_t ts)))`,
+ Induct >>
+ rw [check_t_def, inf_type_to_string_def, type_to_string_def, convert_t_def] >-
+ (cases_on `t` >>
+    rw [inf_type_to_string_def, type_to_string_def, convert_t_def] >>
+    cases_on `ts` >>
+    rw [inf_type_to_string_def, type_to_string_def, convert_t_def] >>
+    fs [] >-
+    metis_tac [] >-
+    metis_tac [] >-
+    metis_tac [] >-
+    metis_tac [] >-
+    metis_tac [] >-
+    (cases_on `t` >>
+       fs [inf_type_to_string_def, type_to_string_def, convert_t_def] >-
+       metis_tac [] >>
+       cases_on `t'` >>
+       fs [inf_type_to_string_def, type_to_string_def, convert_t_def] >>
+       metis_tac []) >-
+    metis_tac [] >-
+    metis_tac []) >-
+ metis_tac [] >-
+ metis_tac [] >>
+ cases_on `ts` >>
+ rw [inf_type_to_string_def, type_to_string_def, convert_t_def] >>
+ fs [EVERY_DEF] >>
+ metis_tac []);
+
+val to_string_map_lem = Q.prove (
+`!env. check_env {} env ⇒ (inf_tenv_to_string_map env = tenv_to_string_map (convert_env2 env))`,
+ induct_on `env` >>
+ rw [check_env_def, inf_tenv_to_string_map_def, tenv_to_string_map_def, convert_env2_def] >>
+ PairCases_on `h` >>
+ rw [inf_tenv_to_string_map_def, tenv_to_string_map_def] >>
+ fs [check_env_def, convert_env2_def] >>
+ metis_tac [type_to_string_lem]);
+
 val type_d_dec_cns = Q.prove (
 `!mn tenvM tenvC tenv d tenvC' tenv'.
   type_d (SOME mn) tenvM tenvC tenv d tenvC' tenv'
@@ -1234,7 +1291,7 @@ cases_on `bc_eval (install_code (cpam css) code bs)` >> fs[] >- (
         match_mp_tac toBytecodeProofsTheory.Cenv_bs_with_irr >>
         HINT_EXISTS_TAC >> simp[] ) >>
       fs[toBytecodeProofsTheory.Cenv_bs_def,toBytecodeProofsTheory.s_refs_def,toBytecodeProofsTheory.good_rd_def] ) >>
-    conj_tac >- cheat >>
+    conj_tac >- metis_tac [new_top_vs_inf_tenv_to_string_map_lem] >>
     conj_tac >- simp[Abbr`bs0`,install_code_def] >>
     conj_tac >- simp[Abbr`bs0`,install_code_def] >>
     simp[] >>
@@ -1412,7 +1469,7 @@ map_every qunabbrev_tac[`A`,`B`,`C`] >>
   discharge_hyps >- (
     fs[invariant_def,LET_THM,Abbr`bs0`,install_code_def] >>
     fs[env_rs_def,LET_THM] >> rfs[] >> fs[] >>
-    reverse conj_tac >- cheat >>
+    reverse conj_tac >- metis_tac [new_top_vs_inf_tenv_to_string_map_lem] >>
     rpt HINT_EXISTS_TAC >> simp[] >>
     match_mp_tac toBytecodeProofsTheory.Cenv_bs_change_store >>
     map_every qexists_tac[`rd`,`(c,Cs')`,`bs with <|pc := next_addr bs.inst_length bs.code; output := ""; cons_names := cpam css|>`,`bs.refs`,`SOME ck`] >>
@@ -1505,7 +1562,11 @@ map_every qunabbrev_tac[`A`,`B`,`C`] >>
   fs[invariant_def] >>
   strip_tac >>
   simp[code_executes_ok_def] >>
-  conj_tac >- cheat (* or maybe use a different existential witness above *) >>
+  conj_tac >- 
+  (`check_env {} new_infer_env` 
+                by (fs [type_infer_invariants_def] >>
+                    metis_tac [infer_top_invariant]) >>
+     metis_tac [to_string_map_lem]) >>
   disj1_tac >>
   qexists_tac`new_bc_state` >>
   simp[] >>
