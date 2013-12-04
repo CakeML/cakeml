@@ -6,8 +6,8 @@ HOLHEAP = local-hol-heap
 PARENT_HOLHEAP = ../translator/local-hol-heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-SEM_BARE_THYS = AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory
-TRANS_BARE_THYS = Print_astTheory Print_astTerminationTheory
+SEM_BARE_THYS = astTheory libTheory altBigStepTheory semanticPrimitivesTheory
+TRANS_BARE_THYS = print_astTheory print_astTerminationTheory
 
 BARE_THYS = $(patsubst %,../semantics/%,$(SEM_BARE_THYS)) $(patsubst %,../translator/%,$(TRANS_BARE_THYS)) $(HOLDIR)/examples/set-theory/hol_sets/cardinalTheory ../bytecode/miscTheory
 
