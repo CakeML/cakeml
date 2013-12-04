@@ -1,17 +1,25 @@
-model_syntax.ml
-    John Harrison's Model/syntax.ml extended with defns and tweaked to export nicely to OpenTheory.
+sholSyntaxScript.sml
+    Defines the inference system for stateless HOL.
+sholSyntaxExtraScript.sml
+    Miscellaneous theorems about pieces of the stateless inference system.
 
-model_syntax.art
-    The result of exporting the above file to OpenTheory, i.e. an OpenTheory article file.
+modelSetScript.sml
+    Defines the context (a kind of set theory) in which we will construct our model of stateless HOL.
 
-model_syntaxScript.sml
-    A HOL4 script file which imports the article file from above into HOL4.
+sholSemanticsScript.sml
+    Defines the semantics of (stateless) HOL, and proves soundness and consistency of the inference system.
+
+holSyntaxScript.sml
+    Defines the inference system for stateful HOL.
+
+holSemanticsScript.sml
+    Define semantics for stateful HOL by translation to the stateless system.
 
 hol_kernelScript.sml
     Defines the HOL light kernel as monadic functions in HOL4.
 
 hol_verificationScript.sml
-    Proves that the two files from above agree, i.e. the monadic functions respect the inference rules.
+    Proves that the monadic functions respect the stateful inference rules.
 
 ml_monadScript.sml
     A few lemmas that are used in translating the monadic functions from hol_kernelScript.sml
