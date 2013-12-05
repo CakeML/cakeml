@@ -450,6 +450,12 @@ val type_ok_Ind = store_thm("type_ok_Ind",
   simp[Once proves_cases])
 val _ = export_rewrites["type_ok_Ind"]
 
+val type_ok_Tyvar = store_thm("type_ok_Tyvar",
+  ``!defs v. type_ok defs (Tyvar v) ⇔ context_ok defs``,
+  rw[EQ_IMP_THM] >> imp_res_tac proves_IMP >>
+  simp[Once proves_cases])
+val _ = export_rewrites["type_ok_Tyvar"]
+
 (* ------------------------------------------------------------------------- *)
 (* TYPE and TERM lemmas                                                      *)
 (* ------------------------------------------------------------------------- *)
