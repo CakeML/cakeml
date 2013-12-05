@@ -1,4 +1,3 @@
-
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "ml_monad";
@@ -8,7 +7,7 @@ open ml_translatorLib;
 
 open hol_kernelTheory;
 open stringTheory listTheory pairTheory;
-open AstTheory LibTheory AltBigStepTheory SemanticPrimitivesTheory;
+open astTheory libTheory altBigStepTheory semanticPrimitivesTheory;
 open terminationTheory;
 
 
