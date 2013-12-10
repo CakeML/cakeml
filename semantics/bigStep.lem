@@ -139,10 +139,10 @@ and
 
 app1 : forall ck menv cenv env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
 evaluate ck menv cenv s1 env e1 (s2, Rval v1) &&
-(evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) &&
-(do_app s3 env op v1 v2 = Just (s4, env', e3) &&
-(((ck && (op = Opapp)) --> count <> 0) &&
-evaluate ck menv cenv ((if ck then dec_count op count else count),s4) env' e3 bv)))
+evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) &&
+do_app s3 env op v1 v2 = Just (s4, env', e3) &&
+((ck && (op = Opapp)) --> count <> 0) &&
+evaluate ck menv cenv ((if ck then dec_count op count else count),s4) env' e3 bv
 ==>
 evaluate ck menv cenv s1 env (App op e1 e2) bv
 
@@ -150,11 +150,11 @@ and
 
 app2 : forall ck menv cenv env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4.
 evaluate ck menv cenv s1 env e1 (s2, Rval v1) &&
-(evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) &&
-(do_app s3 env op v1 v2 = Just (s4, env', e3) &&
-(count = 0 &&
-(op = Opapp &&
-ck))))
+evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) &&
+do_app s3 env op v1 v2 = Just (s4, env', e3) &&
+count = 0 &&
+op = Opapp &&
+ck
 ==>
 evaluate ck menv cenv s1 env (App op e1 e2) ((0,s4), Rerr Rtimeout_error)
 
@@ -162,8 +162,8 @@ and
 
 app3 : forall ck menv cenv env op e1 e2 v1 v2 s1 s2 s3 count.
 evaluate ck menv cenv s1 env e1 (s2, Rval v1) &&
-(evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) &&
-(do_app s3 env op v1 v2 = Nothing))
+evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) &&
+do_app s3 env op v1 v2 = Nothing
 ==>
 evaluate ck menv cenv s1 env (App op e1 e2) ((count,s3), Rerr Rtype_error)
 
@@ -186,8 +186,8 @@ and
 
 log1 : forall ck menv cenv env op e1 e2 v e' bv s1 s2.
 evaluate ck menv cenv s1 env e1 (s2, Rval v) &&
-(do_log op v e2 = Just e' &&
-evaluate ck menv cenv s2 env e' bv)
+do_log op v e2 = Just e' &&
+evaluate ck menv cenv s2 env e' bv
 ==>
 evaluate ck menv cenv s1 env (Log op e1 e2) bv
 
@@ -210,8 +210,8 @@ and
 
 if1 : forall ck menv cenv env e1 e2 e3 v e' bv s1 s2.
 evaluate ck menv cenv s1 env e1 (s2, Rval v) &&
-(do_if v e2 e3 = Just e' &&
-evaluate ck menv cenv s2 env e' bv)
+do_if v e2 e3 = Just e' &&
+evaluate ck menv cenv s2 env e' bv
 ==>
 evaluate ck menv cenv s1 env (If e1 e2 e3) bv
 
@@ -219,7 +219,7 @@ and
 
 if2 : forall ck menv cenv env e1 e2 e3 v s1 s2.
 evaluate ck menv cenv s1 env e1 (s2, Rval v) &&
-(do_if v e2 e3 = Nothing)
+do_if v e2 e3 = Nothing
 ==>
 evaluate ck menv cenv s1 env (If e1 e2 e3) (s2, Rerr Rtype_error)
 
@@ -316,8 +316,8 @@ and
 
 mat_cons1 : forall ck menv cenv env v p e pes env' bv err_v s count.
 all_distinct (pat_bindings p []) &&
-((pmatch cenv s p v env = Match env') &&
-evaluate ck menv cenv (count,s) env' e bv)
+(pmatch cenv s p v env = Match env') &&
+evaluate ck menv cenv (count,s) env' e bv
 ==>
 evaluate_match ck menv cenv (count,s) env v ((p,e)::pes) err_v bv
 
@@ -325,8 +325,8 @@ and
 
 mat_cons2 : forall ck menv cenv env v p e pes bv s count err_v.
 all_distinct (pat_bindings p []) &&
-((pmatch cenv s p v env = No_match) &&
-evaluate_match ck menv cenv (count,s) env v pes err_v bv)
+(pmatch cenv s p v env = No_match) &&
+evaluate_match ck menv cenv (count,s) env v pes err_v bv
 ==>
 evaluate_match ck menv cenv (count,s) env v ((p,e)::pes) err_v bv
 
@@ -349,8 +349,8 @@ indreln [evaluate_dec : maybe modN -> envM -> envC -> store -> envE -> dec -> st
 
 dlet1 : forall mn menv cenv env p e v env' s1 s2 count.
 evaluate false menv cenv (0,s1) env e ((count,s2), Rval v) &&
-(all_distinct (pat_bindings p []) &&
-(pmatch cenv s2 p v emp = Match env'))
+all_distinct (pat_bindings p []) &&
+(pmatch cenv s2 p v emp = Match env')
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rval (emp, env'))
 
@@ -358,8 +358,8 @@ and
 
 dlet2 : forall mn menv cenv env p e v s1 s2 count.
 evaluate false menv cenv (0,s1) env e ((count,s2), Rval v) &&
-(all_distinct (pat_bindings p []) &&
-(pmatch cenv s2 p v emp = No_match))
+all_distinct (pat_bindings p []) &&
+(pmatch cenv s2 p v emp = No_match)
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr (Rraise (Conv (Just (Short "Bind")) [])))
 
@@ -367,8 +367,8 @@ and
 
 dlet3 : forall mn menv cenv env p e v s1 s2 count.
 evaluate false menv cenv (0,s1) env e ((count,s2), Rval v) &&
-(all_distinct (pat_bindings p []) &&
-(pmatch cenv s2 p v emp = Match_type_error))
+all_distinct (pat_bindings p []) &&
+(pmatch cenv s2 p v emp = Match_type_error)
 ==>
 evaluate_dec mn menv cenv s1 env (Dlet p e) (s2, Rerr Rtype_error)
 

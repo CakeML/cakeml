@@ -118,12 +118,14 @@ val (pmatch_def, pmatch_ind) =
                              | INR (s,a,ps,b,c) => pat1_size ps)`);
 val _ = register "pmatch" pmatch_def pmatch_ind;
 
+(*
 val (pmatch'_def, pmatch'_ind) =
   tprove_no_defn ((pmatch'_def, pmatch'_ind),
   wf_rel_tac
   `inv_image $< (λx. case x of INL (s,p,b,c) => pat_size p
                              | INR (s,ps,b,c) => pat1_size ps)`);
 val _ = register "pmatch'" pmatch'_def pmatch'_ind;
+*)
 
 val (contains_closure_def, contains_closure_ind) =
   tprove_no_defn ((contains_closure_def, contains_closure_ind),
