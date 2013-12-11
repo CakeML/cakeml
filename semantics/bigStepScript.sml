@@ -96,7 +96,7 @@ evaluate ck menv cenv s env (Var n) (s, Rerr Rtype_error))
 /\ (! ck menv cenv env n e s.
 T
 ==>
-evaluate ck menv cenv s env (Fun n e) (s, Rval (Closure env n e)))
+evaluate ck menv cenv s env (Fun n e) (s, Rval (Closure menv cenv env n e)))
 
 /\ (! ck menv cenv env uop e v v' s1 s2 count s3.
 (evaluate ck menv cenv s1 env e ((count,s2), Rval v) /\
@@ -115,19 +115,19 @@ evaluate ck menv cenv s1 env (Uapp uop e) ((count,s2), Rerr Rtype_error))
 ==>
 evaluate ck menv cenv s env (Uapp uop e) (s', Rerr err))
 
-/\ (! ck menv cenv env op e1 e2 v1 v2 env' e3 bv s1 s2 s3 count s4.
+/\ (! ck menv cenv env op e1 e2 v1 v2 menv' cenv' env' e3 bv s1 s2 s3 count s4.
 (evaluate ck menv cenv s1 env e1 (s2, Rval v1) /\
 (evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) /\
-((do_app s3 env op v1 v2 = SOME (s4, env', e3)) /\
+((do_app s3 menv cenv env op v1 v2 = SOME (s4, menv', cenv', env', e3)) /\
 (((ck /\ (op = Opapp)) ==> ~ (count =( 0))) /\
-evaluate ck menv cenv ((if ck then dec_count op count else count),s4) env' e3 bv))))
+evaluate ck menv' cenv' ((if ck then dec_count op count else count),s4) env' e3 bv))))
 ==>
 evaluate ck menv cenv s1 env (App op e1 e2) bv)
 
-/\ (! ck menv cenv env op e1 e2 v1 v2 env' e3 s1 s2 s3 count s4.
+/\ (! ck menv cenv env op e1 e2 v1 v2 menv' cenv' env' e3 s1 s2 s3 count s4.
 (evaluate ck menv cenv s1 env e1 (s2, Rval v1) /\
 (evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) /\
-((do_app s3 env op v1 v2 = SOME (s4, env', e3)) /\
+((do_app s3 menv cenv env op v1 v2 = SOME (s4, menv', cenv', env', e3)) /\
 ((count = 0) /\
 ((op = Opapp) /\
 ck)))))
@@ -137,7 +137,7 @@ evaluate ck menv cenv s1 env (App op e1 e2) (( 0,s4), Rerr Rtimeout_error))
 /\ (! ck menv cenv env op e1 e2 v1 v2 s1 s2 s3 count.
 (evaluate ck menv cenv s1 env e1 (s2, Rval v1) /\
 (evaluate ck menv cenv s2 env e2 ((count,s3), Rval v2) /\
-(do_app s3 env op v1 v2 = NONE)))
+(do_app s3 menv cenv env op v1 v2 = NONE)))
 ==>
 evaluate ck menv cenv s1 env (App op e1 e2) ((count,s3), Rerr Rtype_error))
 
@@ -212,7 +212,7 @@ evaluate ck menv cenv s env (Let n e1 e2) (s', Rerr err))
 
 /\ (! ck menv cenv env funs e bv s.
 (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) /\
-evaluate ck menv cenv s (build_rec_env funs env env) e bv)
+evaluate ck menv cenv s (build_rec_env funs menv cenv env env) e bv)
 ==>
 evaluate ck menv cenv s env (Letrec funs e) bv)
 
@@ -308,7 +308,7 @@ evaluate_dec mn menv cenv s env (Dlet p e) (s', Rerr err))
 /\ (! mn menv cenv env funs s.
 (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs))
 ==>
-evaluate_dec mn menv cenv s env (Dletrec funs) (s, Rval (emp, build_rec_env funs env emp)))
+evaluate_dec mn menv cenv s env (Dletrec funs) (s, Rval (emp, build_rec_env funs menv cenv env emp)))
 
 /\ (! mn menv cenv env funs s.
 (~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)))

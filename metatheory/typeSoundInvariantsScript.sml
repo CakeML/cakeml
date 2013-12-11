@@ -52,8 +52,8 @@ val _ = Hol_reln ` (! menv cenv tenv d cenv' tenv'.
 type_top_ignore_sig menv cenv tenv (Tdec d) emp cenv' tenv')
 
 /\ (! menv cenv tenv mn spec ds cenv' tenv'.
- ((~ ((MEM mn ((MAP FST menv))))) /\
-type_ds ((SOME mn)) menv cenv tenv ds cenv' tenv')
+ (~ (MEM mn (MAP FST menv)) /\
+type_ds (SOME mn) menv cenv tenv ds cenv' tenv')
 ==>
 type_top_ignore_sig menv cenv tenv (Tmod mn spec ds) [(mn,tenv')] cenv' emp)`;
 
@@ -74,35 +74,35 @@ T
 type_v tvs menv cenv senv (Litv Unit) Tunit)
 
 /\ (! tvs menv cenv senv cn vs tvs' tn ts' ts.
-((EVERY (check_freevars tvs []) ts') /\
-(((LENGTH tvs') = (LENGTH ts')) /\
-(type_vs tvs menv cenv senv vs ((MAP (type_subst ((ZIP (tvs', ts')))) ts)) /\
-(lookup cn cenv = (SOME (tvs', ts, tn))))))
+(EVERY (check_freevars tvs []) ts' /\
+((LENGTH tvs' = LENGTH ts') /\
+(type_vs tvs menv cenv senv vs (MAP (type_subst (ZIP (tvs', ts'))) ts) /\
+(lookup cn cenv = SOME (tvs', ts, tn)))))
 ==>
-type_v tvs menv cenv senv (Conv ((SOME cn)) vs) (Tapp ts' (tid_exn_to_tc tn)))
+type_v tvs menv cenv senv (Conv (SOME cn) vs) (Tapp ts' (tid_exn_to_tc tn)))
 
 /\ (! tvs menv cenv senv vs ts.
 (type_vs tvs menv cenv senv vs ts)
 ==>
 type_v tvs menv cenv senv (Conv NONE vs) (Tapp ts TC_tup))
 
-/\ (! tvs menv cenv senv env tenv n e t1 t2.
+/\ (! tvs menv cenv senv envC envM env tenv n e t1 t2.
 (type_env menv cenv senv env tenv /\
 (check_freevars tvs [] t1 /\
 type_e menv cenv (bind_tenv n( 0) t1 (bind_tvar tvs tenv)) e t2))
 ==>
-type_v tvs menv cenv senv (Closure env n e) (Tfn t1 t2))
+type_v tvs menv cenv senv (Closure envM envC env n e) (Tfn t1 t2))
 
-/\ (! tvs menv cenv senv env funs n t tenv tenv'.
+/\ (! tvs menv cenv senv envM envC env funs n t tenv tenv'.
 (type_env menv cenv senv env tenv /\
 (type_funs menv cenv (bind_var_list( 0) tenv' (bind_tvar tvs tenv)) funs tenv' /\
-(lookup n tenv' = (SOME t))))
+(lookup n tenv' = SOME t)))
 ==>
-type_v tvs menv cenv senv (Recclosure env funs n) t)
+type_v tvs menv cenv senv (Recclosure envM envC env funs n) t)
 
 /\ (! tvs menv cenv senv n t.
 (check_freevars( 0) [] t /\
-(lookup n senv = (SOME t)))
+(lookup n senv = SOME t))
 ==>
 type_v tvs menv cenv senv (Loc n) (Tref t))
 
@@ -134,7 +134,7 @@ type_env menv cenv senv (bind n v env) (bind_tenv n tvs t tenv))`;
 /\
 (consistent_mod_env tenvS tenvC ((mn,env)::menv) ((mn',tenv)::tenvM) =  
 ((mn = mn') /\  
-((~ ((MEM mn ((MAP FST tenvM))))) /\  
+(~ (MEM mn (MAP FST tenvM)) /\  
 (type_env tenvM tenvC tenvS env (bind_var_list2 tenv Empty) /\
   consistent_mod_env tenvS tenvC menv tenvM))))
 /\
@@ -145,8 +145,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = Define `
  (type_s menv cenv senv s =  
 (! l. 
-    ((? t. lookup l senv = (SOME t)) <=> (? v. store_lookup l s = (SOME v))) /\    
-(! t v. ((lookup l senv = (SOME t)) /\ (store_lookup l s = (SOME v))) ==> type_v( 0) menv cenv senv v t)))`;
+    ((? t. lookup l senv = SOME t) <=> (? v. store_lookup l s = SOME v)) /\    
+(! t v. ((lookup l senv = SOME t) /\ (store_lookup l s = SOME v)) ==> type_v( 0) menv cenv senv v t)))`;
 
 
 val _ = Hol_reln ` (! n.
@@ -196,7 +196,7 @@ context_invariant dec_tvs ((Clet x ()  e,env) :: c) tvs)
 
 /\ (! dec_tvs c cn vs es tvs env.
 (context_invariant dec_tvs c tvs /\
-( (~ (tvs =( 0))) ==> (EVERY is_value es)))
+( ~ (tvs =( 0)) ==> EVERY is_value es))
 ==>
 context_invariant dec_tvs ((Ccon cn vs ()  es,env) :: c) tvs)
 
@@ -211,8 +211,8 @@ val _ = Hol_reln ` (! tvs menv cenv senv tenv t.
 type_ctxt tvs menv cenv senv tenv (Craise () ) Texn t)
 
 /\ (! tvs menv cenv senv tenv pes t.
-(! ((p,e) :: (LIST_TO_SET pes)). ? tenv'.   
-(ALL_DISTINCT (pat_bindings p [])) /\   
+(! ((p,e) :: LIST_TO_SET pes). ? tenv'.
+   ALL_DISTINCT (pat_bindings p []) /\   
 (type_p (num_tvs tenv) cenv p Texn tenv' /\
    type_e menv cenv (bind_var_list( 0) tenv' tenv) e t))
 ==>
@@ -254,8 +254,8 @@ type_ctxt tvs menv cenv senv tenv (Cif ()  e1 e2) Tbool t)
 
 /\ (! tvs menv cenv senv tenv t1 t2 pes err_v.
 (((pes = []) ==> (check_freevars tvs [] t1 /\ check_freevars( 0) [] t2)) /\
-((! ((p,e) :: (LIST_TO_SET pes)) . ? tenv'.   
-(ALL_DISTINCT (pat_bindings p [])) /\   
+((! ((p,e) :: LIST_TO_SET pes) . ? tenv'.
+   ALL_DISTINCT (pat_bindings p []) /\   
 (type_p tvs cenv p t1 tenv' /\
    type_e menv cenv (bind_var_list( 0) tenv' tenv) e t2)) /\
 type_v( 0) menv cenv senv err_v Texn))
@@ -269,19 +269,19 @@ type_e menv cenv (bind_tenv n tvs t1 tenv) e t2)
 type_ctxt tvs menv cenv senv tenv (Clet n ()  e) t1 t2)
 
 /\ (! tvs menv cenv senv tenv cn vs es ts1 ts2 t tn ts' tvs'.
-((EVERY (check_freevars tvs []) ts') /\
-(((LENGTH tvs') = (LENGTH ts')) /\
-(type_vs tvs menv cenv senv ((REVERSE vs))
-        ((MAP (type_subst ((ZIP (tvs', ts')))) ts1)) /\
-(type_es menv cenv (bind_tvar tvs tenv) es ((MAP (type_subst ((ZIP (tvs', ts')))) ts2)) /\
-(lookup cn cenv = (SOME (tvs', ((ts1++[t])++ts2), tn)))))))
+(EVERY (check_freevars tvs []) ts' /\
+((LENGTH tvs' = LENGTH ts') /\
+(type_vs tvs menv cenv senv (REVERSE vs)
+        (MAP (type_subst (ZIP (tvs', ts'))) ts1) /\
+(type_es menv cenv (bind_tvar tvs tenv) es (MAP (type_subst (ZIP (tvs', ts'))) ts2) /\
+(lookup cn cenv = SOME (tvs', ((ts1++[t])++ts2), tn))))))
 ==>
-type_ctxt tvs menv cenv senv tenv (Ccon ((SOME cn)) vs ()  es) (type_subst ((ZIP (tvs', ts'))) t)
+type_ctxt tvs menv cenv senv tenv (Ccon (SOME cn) vs ()  es) (type_subst (ZIP (tvs', ts')) t)
           (Tapp ts' (tid_exn_to_tc tn)))
 
 /\ (! tvs menv cenv senv tenv vs es t ts1 ts2.
 (check_freevars tvs [] t /\
-(type_vs tvs menv cenv senv ((REVERSE vs)) ts1 /\
+(type_vs tvs menv cenv senv (REVERSE vs) ts1 /\
 type_es menv cenv (bind_tvar tvs tenv) es ts2))
 ==>
 type_ctxt tvs menv cenv senv tenv (Ccon NONE vs ()  es) t (Tapp ((ts1++[t])++ts2) TC_tup))`;
@@ -289,7 +289,7 @@ type_ctxt tvs menv cenv senv tenv (Ccon NONE vs ()  es) t (Tapp ((ts1++[t])++ts2
 val _ = Define `
  (poly_context cs =  
  ((case cs of
-      (Ccon cn vs ()  es,env) :: cs => (EVERY is_value es)
+      (Ccon cn vs ()  es,env) :: cs => EVERY is_value es
     | (Clet x ()  e,env) :: cs => T
     | [] => T
     | _ => F
@@ -322,7 +322,7 @@ val _ = Hol_reln ` (! dec_tvs tenvM tenvC senv envM envC s env e c t1 t2 tenv tv
 (type_env tenvM tenvC senv env tenv /\
 (type_s tenvM tenvC senv s /\
 (type_e tenvM tenvC (bind_tvar tvs tenv) e t1 /\
-(( (~ (tvs =( 0)))) ==> is_value e))))))
+(( ~ (tvs =( 0))) ==> is_value e))))))
 ==>
 type_state dec_tvs tenvM tenvC senv (envM,envC, s, env, Exp e, c) t2)
 

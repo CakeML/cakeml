@@ -98,21 +98,21 @@ type_v tvs menv cenv senv (Conv Nothing vs) (Tapp ts TC_tup)
 
 and
 
-closure : forall tvs menv cenv senv env tenv n e t1 t2.
+closure : forall tvs menv cenv senv envC envM env tenv n e t1 t2.
 type_env menv cenv senv env tenv &&
 check_freevars tvs [] t1 &&
 type_e menv cenv (bind_tenv n 0 t1 (bind_tvar tvs tenv)) e t2
 ==>
-type_v tvs menv cenv senv (Closure env n e) (Tfn t1 t2)
+type_v tvs menv cenv senv (Closure envM envC env n e) (Tfn t1 t2)
 
 and
 
-recclosure : forall tvs menv cenv senv env funs n t tenv tenv'.
+recclosure : forall tvs menv cenv senv envM envC env funs n t tenv tenv'.
 type_env menv cenv senv env tenv &&
 type_funs menv cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
 lookup n tenv' = Just t
 ==>
-type_v tvs menv cenv senv (Recclosure env funs n) t
+type_v tvs menv cenv senv (Recclosure envM envC env funs n) t
 
 and
 

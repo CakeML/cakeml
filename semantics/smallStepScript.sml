@@ -93,8 +93,8 @@ val _ = Define `
     | (Capp1 op ()  e, env) :: c =>
         push envM envC s env e (Capp2 op v () ) c
     | (Capp2 op v' () , env) :: c =>
-        (case do_app s env op v' v of
-            SOME (s',env,e) => Estep (envM, envC, s', env, Exp e, c)
+        (case do_app s envM envC env op v' v of
+            SOME (s',envM,envC,env,e) => Estep (envM, envC, s', env, Exp e, c)
           | NONE => Etype_error
         )
     | (Clog l ()  e, env) :: c =>
@@ -172,7 +172,7 @@ val _ = Define `
                 | SOME v => 
                     return envM envC s env v c
               )
-          | Fun n e => return envM envC s env (Closure env n e) c
+          | Fun n e => return envM envC s env (Closure envM envC env n e) c
           | App op e1 e2 => push envM envC s env e1 (Capp1 op ()  e2) c
           | Log l e1 e2 => push envM envC s env e1 (Clog l ()  e2) c
           | If e1 e2 e3 => push envM envC s env e1 (Cif ()  e2 e3) c
@@ -182,7 +182,7 @@ val _ = Define `
               if ~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)) then
                 Etype_error
               else
-                Estep (envM,envC, s, build_rec_env funs env env, Exp e, c)
+                Estep (envM,envC, s, build_rec_env funs envM envC env env, Exp e, c)
           | Uapp uop e =>
               push envM envC s env e (Cuapp uop () ) c
         )

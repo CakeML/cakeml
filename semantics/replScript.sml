@@ -74,8 +74,8 @@ val print_lit_def = Define `
 val print_v_def = Define `
 (print_v (Litv l) = print_lit l) ∧
 (print_v (Conv _ _) = "<constructor>") ∧
-(print_v (Closure _ _ _) = "<fn>") ∧
-(print_v (Recclosure _ _ _) = "<fn>") ∧
+(print_v (Closure _ _ _ _ _) = "<fn>") ∧
+(print_v (Recclosure _ _ _ _ _) = "<fn>") ∧
 (print_v (Loc _) = "<ref>")`;
 
 val print_envE_def = Define `

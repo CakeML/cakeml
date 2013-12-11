@@ -4,9 +4,29 @@ open import Ast
 open import SemanticPrimitives
 import BigStep
 
-(* A version of the big-step expression semantics that stores the constructor
-and module environments in constructors.  It is equivalent to the normal one
-for well-typed programs.  *)
+(* A version of the big-step expression semantics that does not store module
+and constructor environments in closures.  It is equivalent to the normal one
+for well-typed programs. *)
+
+(*
+type v' =
+  | Litv' of lit
+  (* Constructor application. *)
+  | Conv' of maybe (id conN) * list v' 
+  (* Function closures
+     The environment is used for the free variables in the function *)
+  | Closure' of env varN v' * varN * exp
+  (* Function closure for recursive functions
+   * See Closure and Letrec above
+   * The last variable name indicates which function from the mutually
+   * recursive bundle this closure value represents *)
+  | Recclosure' of list (varN * varN * exp) * varN
+  | Loc' of nat
+
+type envE' = env varN v'
+
+(* The bindings of a module *)
+type envM' = env modN envE'
 
 indreln [evaluate' : bool -> envM -> envC -> BigStep.count_store -> envE -> exp -> BigStep.count_store * result v' -> bool]
 and [evaluate_list' : bool -> envM -> envC -> BigStep.count_store -> envE -> list exp -> BigStep.count_store * result (list v') -> bool]
@@ -496,3 +516,4 @@ cons2 : forall menv cenv s1 s2 env top tops err new_tds.
 evaluate_top' menv cenv s1 env top (s2, new_tds, Rerr err)
 ==>
 evaluate_prog' menv cenv s1 env (top::tops) (s2, new_tds, Rerr err)
+*)

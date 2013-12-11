@@ -13,6 +13,15 @@ val _ = new_theory "semanticPrimitives"
 (*open import Lib*)
 (*open import Ast*)
 
+val _ = Hol_datatype `
+ tid_or_exn = 
+    TypeId of typeN id
+  | TypeExn`;
+
+
+(* Maps each constructor to its arity and which type it is from *)
+val _ = type_abbrev( "envC" , ``: (( conN id), (num # tid_or_exn)) env``);
+
 (* Value forms *)
 val _ = Hol_datatype `
  v =
@@ -21,14 +30,19 @@ val _ = Hol_datatype `
   | Conv of  ( conN id)option => v list 
   (* Function closures
      The environment is used for the free variables in the function *)
-  | Closure of (varN, v) env => varN => exp
+  | Closure of (modN, ( (varN, v)env)) env => envC => (varN, v) env => varN => exp
   (* Function closure for recursive functions
    * See Closure and Letrec above
    * The last variable name indicates which function from the mutually
    * recursive bundle this closure value represents *)
-  | Recclosure of (varN, v) env => (varN # varN # exp) list => varN
+  | Recclosure of (modN, ( (varN, v)env)) env => envC => (varN, v) env => (varN # varN # exp) list => varN
   | Loc of num`;
 
+
+val _ = type_abbrev( "envE" , ``: (varN, v) env``);
+
+(* The bindings of a module *)
+val _ = type_abbrev( "envM" , ``: (modN, envE) env``);
 
 (* The result of evaluation *)
 val _ = Hol_datatype `
@@ -76,20 +90,6 @@ val _ = Define `
   else
     NONE))`;
 
-
-val _ = Hol_datatype `
- tid_or_exn = 
-    TypeId of typeN id
-  | TypeExn`;
-
-
-(* Maps each constructor to its arity and which type it is from *)
-val _ = type_abbrev( "envC" , ``: (( conN id), (num # tid_or_exn)) env``);
-
-val _ = type_abbrev( "envE" , ``: (varN, v) env``);
-
-(* The bindings of a module *)
-val _ = type_abbrev( "envM" , ``: (modN, envE) env``);
 
 (*val lookup_var_id : id varN -> envM -> envE -> maybe v*)
 val _ = Define `
@@ -199,11 +199,11 @@ val _ = Hol_datatype `
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pmatch_defn;
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
-(*val build_rec_env : list (varN * varN * exp) -> envE -> envE -> envE*)
+(*val build_rec_env : list (varN * varN * exp) -> envM -> envC -> envE -> envE -> envE*)
 val _ = Define `
- (build_rec_env funs cl_env add_to_env =  
+ (build_rec_env funs menv cenv cl_env add_to_env =  
 (FOLDR 
-    (\ (f,x,e) env' .  bind f (Recclosure cl_env funs f) env') 
+    (\ (f,x,e) env' .  bind f (Recclosure menv cenv cl_env funs f) env') 
     add_to_env 
     funs))`;
 
@@ -231,9 +231,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (contains_closure (Conv cn vs) = (EXISTS contains_closure vs))
 /\
-(contains_closure (Closure env n e) = T)
+(contains_closure (Closure menv cenv env n e) = T)
 /\
-(contains_closure (Recclosure env funs n) = T)
+(contains_closure (Recclosure menv cenv env funs n) = T)
 /\
 (contains_closure (Loc n) = F)`;
 
@@ -279,13 +279,13 @@ val _ = Hol_datatype `
   else
     Eq_val F))
 /\
-(do_eq (Closure _ _ _) (Closure _ _ _) = Eq_closure)
+(do_eq (Closure _ _ _ _ _) (Closure _ _ _ _ _) = Eq_closure)
 /\
-(do_eq (Closure _ _ _) (Recclosure _ _ _) = Eq_closure)
+(do_eq (Closure _ _ _ _ _) (Recclosure _ _ _ _ _) = Eq_closure)
 /\
-(do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_closure)
+(do_eq (Recclosure _ _ _ _ _) (Closure _ _ _ _ _) = Eq_closure)
 /\
-(do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_closure)
+(do_eq (Recclosure _ _ _ _ _) (Recclosure _ _ _ _ _) = Eq_closure)
 /\
 (do_eq _ _ = Eq_type_error)
 /\
@@ -307,33 +307,33 @@ val _ = Hol_datatype `
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_eq_defn;
 
 (* Do an application *)
-(*val do_app : store -> envE -> op -> v -> v -> maybe (store * envE * exp)*)
+(*val do_app : store -> envM -> envC -> envE -> op -> v -> v -> maybe (store * envM * envC * envE * exp)*)
 val _ = Define `
- (do_app s env' op v1 v2 =  
+ (do_app s menv' cenv' env' op v1 v2 =  
 ((case (op, v1, v2) of
-      (Opapp, Closure env n e, v) =>
-        SOME (s, bind n v env, e)
-    | (Opapp, Recclosure env funs n, v) =>
+      (Opapp, Closure menv cenv env n e, v) =>
+        SOME (s, menv, cenv, bind n v env, e)
+    | (Opapp, Recclosure menv cenv env funs n, v) =>
         (case find_recfun n funs of
-            SOME (n,e) => SOME (s, bind n v (build_rec_env funs env env), e)
+            SOME (n,e) => SOME (s, menv, cenv, bind n v (build_rec_env funs menv cenv env env), e)
           | NONE => NONE
         )
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
-          SOME (s, env', Raise (Con (SOME (Short "Div")) []))
+          SOME (s, menv', cenv', env', Raise (Con (SOME (Short "Div")) []))
         else
-          SOME (s, env',Lit (IntLit (opn_lookup op n1 n2)))
+          SOME (s, menv', cenv', env',Lit (IntLit (opn_lookup op n1 n2)))
     | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) =>
-        SOME (s, env', Lit (Bool (opb_lookup op n1 n2)))
+        SOME (s, menv', cenv', env', Lit (Bool (opb_lookup op n1 n2)))
     | (Equality, v1, v2) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
-          | Eq_closure => SOME (s, env', Raise (Con (SOME (Short "Eq")) []))
-          | Eq_val b => SOME (s, env', Lit (Bool b))
+          | Eq_closure => SOME (s, menv', cenv', env', Raise (Con (SOME (Short "Eq")) []))
+          | Eq_val b => SOME (s, menv', cenv', env', Lit (Bool b))
         )
     | (Opassign, (Loc lnum), v) =>
         (case store_assign lnum v s of
-          SOME st => SOME (st, env', Lit Unit)
+          SOME st => SOME (st, menv', cenv', env', Lit Unit)
         | NONE => NONE
         )
     | _ => NONE

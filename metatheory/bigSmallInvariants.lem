@@ -28,10 +28,10 @@ evaluate_ctxt menv cenv s env (Chandle () pes) v (s, Rval v)
 
 and
 
-app1 : forall menv cenv env op e2 v1 v2 env' e3 bv s1 s2 count s3.
+app1 : forall menv cenv env op e2 v1 v2 menv' cenv' env' e3 bv s1 s2 count s3.
 evaluate false menv cenv s1 env e2 ((count,s2), Rval v2) &&
-do_app s2 env op v1 v2 = Just (s3,env', e3) &&
-evaluate false menv cenv (count, s3) env' e3 bv
+do_app s2 menv cenv env op v1 v2 = Just (s3,menv', cenv',env', e3) &&
+evaluate false menv' cenv' (count, s3) env' e3 bv
 ==>
 evaluate_ctxt menv cenv s1 env (Capp1 op () e2) v1 bv
 
@@ -39,7 +39,7 @@ and
 
 app2 : forall menv cenv env op e2 v1 v2 s1 s2 count.
 evaluate false menv cenv s1 env e2 ((count,s2), Rval v2) &&
-do_app s2 env op v1 v2 = Nothing
+do_app s2 menv cenv env op v1 v2 = Nothing
 ==>
 evaluate_ctxt menv cenv s1 env (Capp1 op () e2) v1 ((count, s2), Rerr Rtype_error)
 
@@ -52,8 +52,8 @@ evaluate_ctxt menv cenv s env (Capp1 op () e2) v1 (s', Rerr err)
 
 and
 
-app4 : forall menv cenv env op v1 v2 env' e3 bv s1 s2 count.
-do_app s1 env op v1 v2 = Just (s2, env', e3) &&
+app4 : forall menv cenv env op v1 v2 menv' cenv' env' e3 bv s1 s2 count.
+do_app s1 menv cenv env op v1 v2 = Just (s2, menv', cenv', env', e3) &&
 evaluate false menv cenv (count, s2) env' e3 bv
 ==>
 evaluate_ctxt menv cenv (count,s1) env (Capp2 op v1 ()) v2 bv
@@ -61,7 +61,7 @@ evaluate_ctxt menv cenv (count,s1) env (Capp2 op v1 ()) v2 bv
 and
 
 app5 : forall menv cenv env op v1 v2 s count.
-(do_app s env op v1 v2 = Nothing)
+(do_app s menv cenv env op v1 v2 = Nothing)
 ==>
 evaluate_ctxt menv cenv (count,s) env (Capp2 op v1 ()) v2 ((count, s), Rerr Rtype_error)
 
