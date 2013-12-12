@@ -140,14 +140,14 @@ fun mk_Tdec d = Tdec (term_to_dec d)
 
 fun run_decs (bs,rs) [] = (bs,rs)
   | run_decs (bs,rs) (d::ds) = let
-      val (rss,(rsf,c)) = compile_top rs (mk_Tdec d)
+      val (rss,(rsf,c)) = compile_top fmapML.FEMPTY rs (mk_Tdec d)
       val bs = add_code c bs
       val SOME bs = bc_eval bs
       val rs = if numML.toInt (bc_state_pc bs) = SOME 0 then rsf else rss
     in run_decs (bs,rs) ds end
 
 fun prep_exp (bs,rs) e = let
-  val (rss,(rsf,c)) = compile_top rs (mk_Texp e)
+  val (rss,(rsf,c)) = compile_top fmapML.FEMPTY rs (mk_Texp e)
 in (add_code c bs,rss,rsf) end
 
 val inits = (init_bc_state, init_compiler_state)
@@ -164,13 +164,13 @@ in (cpam rs, bc_state_stack bs) end
 fun excp bs = numML.toInt (bc_state_pc bs) = SOME 0
 
 fun run_top (bs,rs) t = let
-  val (rss,(rsf,c)) = compile_top rs t
+  val (rss,(rsf,c)) = compile_top fmapML.FEMPTY rs t
   val bs = add_code c bs
   val (SOME bs) = bc_eval bs
 in (bs,if excp bs then rsf else rss) end
 
 fun lrun_top (bs,rs) t = let
-  val (rss,(rsf,c)) = compile_top rs t
+  val (rss,(rsf,c)) = compile_top fmapML.FEMPTY rs t
   val bs = ladd_code c bs
   val (SOME bs) = bc_eval bs
 in (bs,if excp bs then rsf else rss) end
