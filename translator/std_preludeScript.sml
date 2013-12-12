@@ -172,8 +172,16 @@ val EqualityType_CHAR = prove(
   |> store_eq_thm;
 
 val Eval_Val_CHAR = prove(
-  ``n < 256 ==> Eval env (Lit (IntLit (&n))) (CHAR (CHR n))``,
+  ``NUMERAL n < 256 ==>
+    Eval env (Lit (IntLit (&(NUMERAL n)))) (CHAR (CHR (NUMERAL n)))``,
   SIMP_TAC (srw_ss()) [Eval_Val_NUM,CHAR_def])
+  |> store_eval_thm;
+
+val Eval_CHR = prove(
+  ``n < 256 ==> !v. ((NUM --> NUM) (\x.x)) v ==> ((Eq NUM n --> CHAR) CHR) v``,
+  SIMP_TAC std_ss [Arrow_def,AppReturns_def,CHAR_def,Eq_def,
+    stringTheory.ORD_CHR_RWT]) |> UNDISCH
+  |> MATCH_MP (MATCH_MP Eval_WEAKEN (hol2deep ``\x.x:num``))
   |> store_eval_thm;
 
 val Eval_ORD = prove(
@@ -201,6 +209,45 @@ val res = translate string_lt_def;
 val res = translate string_le_def;
 val res = translate string_gt_def;
 val res = translate string_ge_def;
+
+
+(* number to string conversion *)
+
+val num_to_dec_def = Define `
+  num_to_dec n =
+    if n < 10 then [CHR (48 + n)] else
+      CHR (48 + (n MOD 10))::num_to_dec (n DIV 10)`;
+
+val _ = translate num_to_dec_def;
+
+val num_to_dec_side_def = prove(
+  ``!n. num_to_dec_side n = T``,
+  HO_MATCH_MP_TAC (fetch "-" "num_to_dec_ind") THEN REPEAT STRIP_TAC
+  THEN SIMP_TAC std_ss []
+  THEN ONCE_REWRITE_TAC [fetch "-" "num_to_dec_side_def"]
+  THEN FULL_SIMP_TAC std_ss [] THEN REPEAT STRIP_TAC
+  THEN `n MOD 10 < 10` by FULL_SIMP_TAC std_ss []
+  THEN DECIDE_TAC) |> SPEC_ALL
+  |> update_precondition;
+
+val toString_thm = prove(
+  ``toString n = REVERSE (num_to_dec n)``,
+  SIMP_TAC std_ss [ASCIInumbersTheory.num_to_dec_string_def,
+    ASCIInumbersTheory.n2s_def]
+  THEN AP_TERM_TAC THEN Q.SPEC_TAC (`n`,`n`)
+  THEN HO_MATCH_MP_TAC (fetch "-" "num_to_dec_ind") THEN REPEAT STRIP_TAC
+  THEN SIMP_TAC std_ss [Once numposrepTheory.n2l_def,Once num_to_dec_def]
+  THEN Cases_on `n < 10` THEN FULL_SIMP_TAC std_ss [] THEN1
+   (NTAC 5 (TRY (Cases_on `n`) THEN EVAL_TAC THEN TRY (Cases_on `n'`) THEN EVAL_TAC)
+    THEN `F` by DECIDE_TAC)
+  THEN ASM_SIMP_TAC std_ss [MAP,CONS_11]
+  THEN `n MOD 10 < 10` by FULL_SIMP_TAC std_ss [MOD_LESS]
+  THEN Cases_on `n MOD 10`
+  THEN NTAC 5 (TRY (Cases_on `n`) THEN EVAL_TAC THEN
+               TRY (Cases_on `n'`) THEN EVAL_TAC)
+  THEN `F` by DECIDE_TAC);
+
+val _ = translate toString_thm;
 
 (* finite maps *)
 

@@ -198,13 +198,6 @@ val update_state_err_side_thm = Q.store_thm ("update_state_err_side_thm",
  rw [update_state_err_side_def, replTheory.strip_mod_env_def] >>
  metis_tac [FST]);
 
- (* This is the side condition generated from translating
-  * ASCIInumbersTheory.num_to_dec_string.  It doesn't appear to be provable at
-  * the moment *)
-val num_to_dec_string_side_thm = Q.store_thm ("num_to_dec_string_side_thm",
-`!n. num_to_dec_string_side n`,
-cheat);
-
 val inf_type_to_string_side_thm = Q.store_thm ("inf_type_to_string_side_thm",
 `(!t. inf_type_to_string_side t) ∧
  (!ts. inf_types_to_string_side ts)`,
@@ -212,12 +205,10 @@ val inf_type_to_string_side_thm = Q.store_thm ("inf_type_to_string_side_thm",
  rw [] >>
  rw [Once inf_type_to_string_side_def, tc_to_string_side_def] >>
  fs [] >-
- metis_tac [num_to_dec_string_side_thm] >-
  fs [Once inf_type_to_string_side_def] >>
  pop_assum (mp_tac o SIMP_RULE (srw_ss()) [Once inf_type_to_string_side_def]) >>
  rw [] >>
  fs [Once inf_type_to_string_side_def]);
-
 
 val inf_tenv_to_string_map_side_thm = Q.store_thm ("inf_tenv_to_string_map_side_thm",
 `!tenv. inf_tenv_to_string_map_side tenv`,
@@ -226,7 +217,7 @@ val inf_tenv_to_string_map_side_thm = Q.store_thm ("inf_tenv_to_string_map_side_
  rw [Once inf_tenv_to_string_map_side_def] >>
  metis_tac [inf_type_to_string_side_thm]);
 
-val parse_elaborate_infertype_compile_side_thm = Q.store_thm ("parse_elaborate_infertype_compile_side_thm", 
+val parse_elaborate_infertype_compile_side_thm = Q.store_thm ("parse_elaborate_infertype_compile_side_thm",
 `!toks st. parse_elaborate_infertype_compile_side toks st`,
  rw [parse_elaborate_infertype_compile_side_def, infertype_top_side_def] >-
  metis_tac [infer_top_side_thm] >-
