@@ -4,10 +4,6 @@ val _ = new_theory "misc"
 
 (* TODO: move/categorize *)
 
-val GENLIST_NIL = store_thm("GENLIST_NIL",
-  ``∀f n. (GENLIST f n = []) ⇔ (n = 0)``,
-  GEN_TAC THEN Induct THEN SRW_TAC[][GENLIST_CONS])
-
 val MAP_SND_FILTER_NEQ = store_thm("MAP_SND_FILTER_NEQ",
   ``MAP SND (FILTER (λ(x,y). y ≠ z) ls) =
     FILTER ($<> z) (MAP SND ls)``,
