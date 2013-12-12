@@ -136,7 +136,7 @@ val _ = Define `
 /\
 (can_Print (CodePtr _) = F)
 /\
-(can_Print (RefPtr v) = T)
+(can_Print (RefPtr _) = T)
 /\
 (can_Print (StackPtr _) = F)
 /\
