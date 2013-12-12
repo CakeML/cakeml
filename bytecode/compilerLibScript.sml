@@ -28,10 +28,9 @@ val _ = new_theory "compilerLib"
 
 
 (*val num_fold : forall 'a. ('a -> 'a) -> 'a -> nat -> 'a*)
- val num_fold_defn = Hol_defn "num_fold" `
+ val _ = Define `
  (num_fold f a n = (if n = 0 then a else num_fold f (f a) (n -  1)))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn num_fold_defn;
 
  val intersperse_defn = Hol_defn "intersperse" `
 

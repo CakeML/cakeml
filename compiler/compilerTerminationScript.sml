@@ -95,10 +95,6 @@ val (mkshift_def,mkshift_ind) = register "mkshift" (
   Q.ISPEC_THEN`Cexp2_size`imp_res_tac SUM_MAP_MEM_bound >>
   fsrw_tac[ARITH_ss][Cexp_size_def]))
 
-val _ = register "remove_mat_var" (
-  tprove_no_defn ((remove_mat_var_def,remove_mat_var_ind),
-  WF_REL_TAC `measure (LENGTH o SND o SND)` >> rw[]))
-
 val (exp_to_Cexp_def,exp_to_Cexp_ind) = register "exp_to_Cexp" (
   tprove_no_defn ((exp_to_Cexp_def,exp_to_Cexp_ind),
   WF_REL_TAC `inv_image $< (λx. case x of
@@ -117,14 +113,6 @@ val (v_to_Cv_def,v_to_Cv_ind) = register "v_to_Cv" (
 val (compile_envref_def, compile_envref_ind) = register "compile_envref" (
   tprove_no_defn ((compile_envref_def, compile_envref_ind),
   WF_REL_TAC `measure (λp. case p of (_,_,CCEnv _) => 0 | (_,_,CCRef _) => 1)`))
-
-val (stackshift_def, stackshift_ind) = register "stackshift" (
-  tprove_no_defn ((stackshift_def, stackshift_ind),
-  WF_REL_TAC `measure FST`))
-
-val (stackshiftaux_def,stackshiftaux_ind) = register"stackshiftaux" (
-  tprove_no_defn ((stackshiftaux_def, stackshiftaux_ind),
-  WF_REL_TAC `measure FST`))
 
 (*
 val [s1,s2,s3,s4] = CONJUNCTS stackshift_def
@@ -166,10 +154,6 @@ val (compile_def, compile_ind) = register "compile" (
   srw_tac[ARITH_ss][Cexp1_size_thm,Cexp4_size_thm,Cexp_size_def,list_size_thm,SUM_MAP_Cexp3_size_thm] >>
   BasicProvers.CASE_TAC >> fsrw_tac[ARITH_ss][] >>
   BasicProvers.CASE_TAC >> fsrw_tac[ARITH_ss][]))
-
-val _ = register "num_fold" (
-  tprove_no_defn ((num_fold_def,num_fold_ind),
-  WF_REL_TAC `measure (SND o SND)`))
 
 (* TODO: make zero_ temporary (don't store/export) *)
 
@@ -268,24 +252,12 @@ val _ = register "all_labs" (
     | INR (INR (INL (ds))) => Cexp1_size ds
     | INR (INR (INR (def))) => Cexp2_size def)`))
 
-val (number_constructors_def,number_constructors_ind) = register "number_constructors" (
-  tprove_no_defn ((number_constructors_def,number_constructors_ind),
-  WF_REL_TAC `measure (LENGTH o FST o SND)` >> rw[]))
-
 val (bv_to_ov_def,bv_to_ov_ind) = register "bv_to_ov" (
   tprove_no_defn ((bv_to_ov_def,bv_to_ov_ind),
   WF_REL_TAC `measure (bc_value_size o SND)` >>
   rw[bc_value1_size_thm] >>
   Q.ISPEC_THEN `bc_value_size` imp_res_tac SUM_MAP_MEM_bound >>
   srw_tac[ARITH_ss][]))
-
-val _ = register "compile_print_types" (
-tprove_no_defn((compile_print_types_def,compile_print_types_ind),
-(WF_REL_TAC`measure (LENGTH o FST)`>>simp[])))
-
-val _ = register "compile_print_ctors" (
-tprove_no_defn((compile_print_ctors_def,compile_print_ctors_ind),
-(WF_REL_TAC`measure (LENGTH o FST)`>>simp[])))
 
 val (do_Ceq_def,do_Ceq_ind) = register "do_Ceq" (
   tprove_no_defn((do_Ceq_def,do_Ceq_ind),

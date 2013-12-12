@@ -192,7 +192,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn remove_mat_vp_defn;
 
- val remove_mat_var_defn = Hol_defn "remove_mat_var" `
+ val _ = Define `
 
 (remove_mat_var b v [] = (CRaise (if b then CVar (Short v) else CBind_exc)))
 /\
@@ -200,7 +200,6 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (CLetrec [(NONE, ( 0,shift( 1)( 0) (remove_mat_var b v pes)))]
     (remove_mat_vp( 0) (shift( 1) (Cpat_vars p) sk) (v+ 1) p)))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn remove_mat_var_defn;
 
  val _ = Define `
 

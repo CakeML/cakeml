@@ -169,6 +169,7 @@ and
 remove_mat_var b v ((p,sk)::pes) =
   CLetrec [(Nothing, (0,shift 1 0 (remove_mat_var b v pes)))]
     (remove_mat_vp 0 (shift 1 (Cpat_vars p) sk) (v+1) p)
+declare termination_argument remove_mat_var = automatic
 
 let rec
 opn_to_prim2 Plus = Left CAdd

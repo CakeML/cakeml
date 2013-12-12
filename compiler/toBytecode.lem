@@ -271,6 +271,7 @@ stackshiftaux n i j =
 let rec stackshiftaux n i j =
   if n = (0:nat) then []
   else (Load i)::(Store j)::(stackshiftaux (n-1) (i+1) (j+1))
+declare termination_argument stackshiftaux = automatic
 (*
   xs@(y::ys)@(z::zs)@st
   y::xs@(y::ys)@(z::zs)@st
@@ -302,6 +303,7 @@ let rec stackshift j k =
   else if j = 1 then [Pops k]
   else if j <= k then (genlist (fun _ -> Store (k-1)) j)++(stackshift 0 (k-j))
   else (stackshiftaux k (j-k) j)++(stackshift (j-k) k)
+declare termination_argument stackshift = automatic
 (*
   a b c d e x y z
 c a b c d e x y z

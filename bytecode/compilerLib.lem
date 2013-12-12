@@ -22,6 +22,7 @@ let rec el_check n ls = if n < List.length ls then Just (List_extra.nth ls n) el
 
 val num_fold : forall 'a. ('a -> 'a) -> 'a -> nat -> 'a
 let rec num_fold f a n = if n = 0 then a else num_fold f (f a) (n-1)
+declare termination_argument num_fold = automatic
 
 let rec
 intersperse _ [] = []
