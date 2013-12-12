@@ -155,9 +155,7 @@ val (compile_def, compile_ind) = register "compile" (
   BasicProvers.CASE_TAC >> fsrw_tac[ARITH_ss][] >>
   BasicProvers.CASE_TAC >> fsrw_tac[ARITH_ss][]))
 
-(* TODO: make zero_ temporary (don't store/export) *)
-
-val zero_vars_def = tDefine "zero_vars"`
+val zero_vars_def = Lib.with_flag (computeLib.auto_import_definitions, false) (tDefine "zero_vars"`
   (zero_vars (CRaise e) = CRaise (zero_vars e)) ∧
   (zero_vars (CHandle e1 e2) = CHandle (zero_vars e1) (zero_vars e2)) ∧
   (zero_vars (CVar _) = CVar (Short 0)) ∧
@@ -177,19 +175,19 @@ val zero_vars_def = tDefine "zero_vars"`
   (zero_vars_defs [] = []) ∧
   (zero_vars_defs (def::defs) = (zero_vars_def def)::(zero_vars_defs defs)) ∧
   (zero_vars_def (NONE,(xs,b)) = (NONE,(xs,zero_vars b))) ∧
-  (zero_vars_def (SOME x,y) = (SOME x,y))`
+  (zero_vars_def (SOME x,y) = (SOME x,y))`)
   (WF_REL_TAC`inv_image $< (λx. case x of INL e => Cexp_size e |
     INR (INL es) => Cexp4_size es |
     INR (INR (INL defs)) => Cexp1_size defs |
     INR(INR(INR def)) => Cexp2_size def)`)
 
-val zero_vars_list_MAP = store_thm("zero_vars_list_MAP",
+val zero_vars_list_MAP = prove(
   ``(∀ls. (zero_vars_list ls = MAP (zero_vars) ls)) ∧
     (∀ls. (zero_vars_defs ls = MAP (zero_vars_def) ls))``,
   conj_tac >> Induct >> rw[zero_vars_def])
-val _ = export_rewrites["zero_vars_def","zero_vars_list_MAP"]
+val _ = augment_srw_ss[rewrites [zero_vars_def,zero_vars_list_MAP]]
 
-val zero_vars_mkshift = store_thm("zero_vars_mkshift",
+val zero_vars_mkshift = prove(
   ``∀f k e. zero_vars (mkshift f k e) = zero_vars e``,
   ho_match_mp_tac mkshift_ind >>
   rw[mkshift_def,MAP_MAP_o,combinTheory.o_DEF,LET_THM] >>
@@ -198,7 +196,7 @@ val zero_vars_mkshift = store_thm("zero_vars_mkshift",
   BasicProvers.CASE_TAC >> rw[] >>
   BasicProvers.CASE_TAC >> rw[] >>
   fsrw_tac[ARITH_ss][])
-val _ = export_rewrites["zero_vars_mkshift"]
+val _ = augment_srw_ss[rewrites [zero_vars_mkshift]]
 
 val (label_closures_def,label_closures_ind) = register "label_closures" (
   tprove_no_defn ((label_closures_def, label_closures_ind),
@@ -227,6 +225,9 @@ val (label_closures_def,label_closures_ind) = register "label_closures" (
     qx_gen_tac`x` >> PairCases_on`x` >>
     Cases_on`x0`>>simp[Abbr`P`,Abbr`g`]) >>
   fsrw_tac[ARITH_ss][bind_fv_def,LET_THM]))
+
+val _ = map delete_const ["zero_vars","zero_vars_list","zero_vars_defs","zero_vars_def","zero_vars_UNION"]
+val _ = delete_binding "zero_vars_ind"
 
 val _ = register "free_labs" (
   tprove_no_defn ((free_labs_def, free_labs_ind),
