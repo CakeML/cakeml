@@ -1952,7 +1952,19 @@ val TERM_Const_type_subst = prove(
 val TERM_Const = prove(
   ``STATE r defs /\ MEM (name,a) r.the_term_constants ==>
     TERM defs (Const name a)``,
-  cheat);
+  rw[STATE_def,TERM_def,hol_tm_def] >>
+  imp_res_tac proves_IMP >>
+  `MEM (name,hol_ty a) (consts (hol_defs r.the_definitions))` by (
+    simp[MEM_MAP,EXISTS_PROD] >> METIS_TAC[] ) >>
+  pop_assum mp_tac >>
+  simp_tac std_ss [consts_def,MEM_FLAT,MEM_APPEND] >>
+  reverse strip_tac >- fs[] >>
+  fs[MEM_MAP] >>
+  first_x_assum MATCH_MP_TAC >>
+  simp[MEM_FLAT,MEM_MAP] >>
+  srw_tac[boolSimps.DNF_ss][] >>
+  HINT_EXISTS_TAC >>
+  Cases_on`y`>>fs[consts_aux_def,deftm_def,LET_THM])
 
 val mk_const_thm = store_thm("mk_const_thm",
   ``!name theta s z s'.
