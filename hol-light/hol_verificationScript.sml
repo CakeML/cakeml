@@ -1,11 +1,10 @@
-open HolKernel Parse boolLib bossLib lcsymtacs miscLib miscTheory alistTheory;
+open HolKernel Parse boolLib bossLib lcsymtacs miscLib miscTheory alistTheory
+hol_kernelTheory holSemanticsTheory holSyntaxTheory
+listTheory arithmeticTheory combinTheory pairTheory
+monadsyntax
 
 val _ = new_theory "hol_verification";
 
-open hol_kernelTheory holSemanticsTheory holSyntaxTheory;
-open listTheory arithmeticTheory combinTheory pairTheory;
-
-open monadsyntax;
 val _ = temp_overload_on ("monad_bind", ``ex_bind``);
 val _ = temp_overload_on ("return", ``ex_return``);
 
