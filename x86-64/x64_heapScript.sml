@@ -9748,7 +9748,7 @@ val x64_length_NOT_ZERO = prove(
   \\ SIMP_TAC std_ss [x64_length_def,x64_def,LENGTH,EVEN,LET_DEF]
   \\ SRW_TAC [] [small_offset_def,is_Label_def]);
 
-val x64_code_def = Define `
+val x64_code_def = zDefine `
   (x64_code i [] = []) /\
   (x64_code i (b::bs) = x64 i b ++ x64_code (i + x64_length b) bs)`;
 
@@ -9768,6 +9768,41 @@ val LENGTH_x64_code = prove(
   ``!xs p. LENGTH (x64_code p xs) = SUM (MAP x64_length xs)``,
   Induct \\ ASM_SIMP_TAC std_ss [x64_code_def,SUM,MAP,LENGTH,
        LENGTH_APPEND,x64_length_def,LENGTH_x64_IGNORE]);
+
+val x64_code_ALT = prove(
+  ``!b. x64_code i (b::bs) =
+          let c = x64 i b in c ++ x64_code (i + LENGTH c) bs``,
+  SIMP_TAC std_ss [x64_code_def,LET_DEF,x64_length_def,LENGTH_x64_IGNORE]);
+
+val LENGTH_small_offset = prove(
+  ``LENGTH (small_offset n xs) =
+      if n < 268435456 then LENGTH xs else 4``,
+  SRW_TAC [] [small_offset_def]);
+
+val LENGTH_IF = prove(
+  ``LENGTH (if b then xs else ys) = if b then LENGTH xs else LENGTH ys``,
+  SRW_TAC [] []);
+
+val APPEND_IF = prove(
+  ``(if b then xs else ys) ++ zs = if b then xs ++ zs else ys ++ zs:'a list``,
+  SRW_TAC [] []);
+
+val IF_AND = prove(
+  ``(if (b1 /\ b2) then c else d) =
+    if b1 then (if b2 then c else d) else d``,
+  SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss []);
+
+val x64_code_eval = save_thm("x64_code_eval",
+  ([],``!b. x64_code i (b::bs) =
+          let c = x64 i b in c ++ x64_code (i + LENGTH c) bs``)
+  |> (Cases \\ TRY (Cases_on `b'`) \\ TRY (Cases_on `l`)) |> fst
+  |> map (SIMP_RULE std_ss [LET_DEF] o REWRITE_CONV [x64_code_ALT] o snd)
+  |> LIST_CONJ
+  |> SIMP_RULE std_ss [x64_def,LET_DEF,APPEND,LENGTH,small_offset_def,
+       IMM32_def,LENGTH_IF]
+  |> REWRITE_RULE [APPEND_IF,APPEND,IF_AND]
+  |> SIMP_RULE std_ss []
+  |> REWRITE_RULE [GSYM IF_AND])
 
 (* install code *)
 
