@@ -1167,7 +1167,7 @@ val def_ok_def = Define`
   (def_ok (Typedef n t a r) ⇔ ∃rty. t has_type Fun rty Bool)`
 
 val deftm_def = Define`
-  deftm (Constdef n t) = [t] ∧
+  deftm (Constdef n t) = [t;Const n (typeof t)] ∧
   deftm (Typedef n t a r) =
   let rty = domain(typeof t) in
   let aty = Tyapp n (MAP Tyvar (holSyntax$STRING_SORT (tvars t))) in
@@ -1624,6 +1624,54 @@ val proves_IMP = store_thm("proves_IMP",
       simp[] >>
       match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
       simp[] >> NO_TAC) >>
+    TRY (
+      qexists_tac`Const s (typeof tm1) (Defined tm1)` >>
+      `tm has_type (typeof tm)` by METIS_TAC[holSyntaxTheory.WELLTYPED] >>
+      `type defs (typeof tm) (typeof tm1) ∧ tm1 has_type (typeof tm1)` by (
+        imp_res_tac has_type_IMP >>
+        METIS_TAC[WELLTYPED_LEMMA] ) >>
+      conj_tac >- (
+        simp[Once term_cases,Once const_def_def] >>
+        METIS_TAC[safe_def_names_def,term_type_cons] ) >>
+      simp[Once proves_cases] >>
+      disj2_tac >> disj1_tac >>
+      qexists_tac`Equal (typeof (Const s (typeof tm1) (Defined tm1)))` >>
+      Q.PAT_ABBREV_TAC`tyy = typeof (Const X Y Z)` >>
+      simp[Once proves_cases] >>
+      disj2_tac >> disj1_tac >>
+      qexists_tac`tm1` >>
+      simp[Once proves_cases] >>
+      rpt disj2_tac >>
+      CONV_TAC SWAP_EXISTS_CONV >>
+      qexists_tac`[]` >> simp[] >>
+      qunabbrev_tac`tyy` >>
+      simp_tac std_ss [GSYM equation_def] >>
+      match_mp_tac(List.nth(CONJUNCTS proves_rules,25)) >>
+      simp[] >>
+      imp_res_tac CLOSED_IMP >>
+      rfs[pred_setTheory.SUBSET_DEF] >>
+      imp_res_tac tvars_IMP >>
+      imp_res_tac tyvars_IMP >>
+      fs[] >> NO_TAC ) >>
+    TRY (
+      simp[Once holSyntaxTheory.proves_cases] >>
+      disj2_tac >> disj1_tac >>
+      qexists_tac`Equal (typeof (Const s (typeof tm)))` >>
+      Q.PAT_ABBREV_TAC`tyy = typeof (Const X Y)` >>
+      simp[Once holSyntaxTheory.proves_cases] >>
+      disj2_tac >> disj1_tac >>
+      qexists_tac`tm` >>
+      qunabbrev_tac`tyy` >>
+      simp_tac std_ss [GSYM holSyntaxTheory.equation_def] >>
+      simp[Once holSyntaxTheory.proves_cases] >>
+      rpt disj2_tac >>
+      qexists_tac`[]` >> simp[] >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,24)) >>
+      simp[] >>
+      simp[Once holSyntaxTheory.proves_cases] >>
+      map_every qexists_tac[`asl`,`c`] >>
+      match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,23)) >>
+      simp[]) >>
     map_every qexists_tac[`h1`,`c1`] >>
     simp[] >>
     fs[EVERY_MEM,EVERY2_EVERY] >>
