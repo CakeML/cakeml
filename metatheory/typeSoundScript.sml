@@ -108,12 +108,12 @@ fs [lookup_tenv_def] >>
 metis_tac []);
 
 val type_lookup_id = Q.prove (
-`∀tenvS tenvC menv tenvM tenvM' cenv tenv.
+`∀tenvS tenvC menv tenvM tenvM' (cenv : envC) tenv.
   type_env tenvM' tenvC tenvS env tenv ∧
   consistent_mod_env tenvS tenvC menv tenvM 
   ⇒
   ((t_lookup_var_id n tenvM (bind_tvar tvs tenv) = SOME (tvs', t)) ⇒ 
-     (∃v annot. (lookup_var_id n menv env = SOME v)))`,
+     (∃v. (lookup_var_id n (menv,cenv,env) = SOME v)))`,
 recInduct consistent_mod_env_ind >>
 cases_on `n` >>
 rw [lookup_var_id_def, t_lookup_var_id_def, consistent_mod_env_def] >>
@@ -393,19 +393,17 @@ val eq_same_type = Q.prove (
  * can step to another state, or it steps to a BindError. *)
 val exp_type_progress = Q.prove (
 `∀dec_tvs tenvM tenvC st e t menv cenv env c tenvS.
-  consistent_mod_env tenvS tenvC menv tenvM ∧
-  consistent_con_env cenv tenvC ∧
-  type_state dec_tvs tenvM tenvC tenvS (menv,cenv, st, env, e, c) t ∧
+  type_state dec_tvs tenvM tenvC tenvS ((menv,cenv,env), st, e, c) t ∧
   ¬(final_state (menv,cenv, st, env, e, c))
   ⇒
-  (∃env' st' e' c'. e_step (menv,cenv, st, env, e, c) = Estep (menv,cenv, st', env', e', c'))`,
+  (∃menv' cenv' env' st' e' c'. e_step ((menv,cenv,env), st, e, c) = Estep ((menv',cenv',env'), st', e', c'))`,
  rw [] >>
  rw [e_step_def] >>
  fs [type_state_cases, push_def, return_def] >>
  rw []
  >- (fs [Once type_e_cases] >>
      rw [] >>
-     fs [not_final_state] >|
+     fs [not_final_state, all_env_to_cenv_def, all_env_to_menv_def] >|
      [imp_res_tac consistent_con_env_thm >>
           rw [] >>
           every_case_tac >>
@@ -438,6 +436,7 @@ val exp_type_progress = Q.prove (
           fs [] >>
           metis_tac [type_es_length, LENGTH_MAP],
       imp_res_tac type_lookup_id >>
+          pop_assum (assume_tac o Q.SPEC `cenv`) >>
           fs [] >>
           rw [],
       metis_tac [type_funs_distinct]])
@@ -476,6 +475,13 @@ val exp_type_progress = Q.prove (
           fs [] >>
           imp_res_tac type_funs_find_recfun >>
           fs [],
+      every_case_tac >>
+          fs [] >>
+          qpat_assum `type_v a tenvM tenvC senv (Recclosure x2 x3 x4) tpat`
+                (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+          fs [] >>
+          imp_res_tac type_funs_find_recfun >>
+          fs [],
       cases_on `do_eq v' v` >>
            fs [Once context_invariant_cases] >>
            srw_tac [ARITH_ss] [] >> 
@@ -489,6 +495,10 @@ val exp_type_progress = Q.prove (
           fs [],
       every_case_tac >>
           fs [],
+      cheat,
+      cheat,
+      cheat,
+      (*
       every_case_tac >>
           fs [RES_FORALL] >>
           rw [] >>
@@ -504,13 +514,15 @@ val exp_type_progress = Q.prove (
           imp_res_tac type_es_length >>
           imp_res_tac type_vs_length_lem >>
           full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def],
-      every_case_tac >>
+      fs [all_env_to_cenv_def] >>
+          every_case_tac >>
           fs [] >>
           imp_res_tac consistent_con_env_thm >>
           imp_res_tac type_es_length >>
           imp_res_tac type_vs_length_lem >>
           full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def],
-       every_case_tac >>
+      *)
+      every_case_tac >>
           fs [] >>
           imp_res_tac consistent_con_env_thm >>
           imp_res_tac type_es_length >>

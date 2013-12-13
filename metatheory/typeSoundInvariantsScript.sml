@@ -45,7 +45,6 @@ val _ = type_abbrev( "tenvS" , ``: (num, t) env``);
  * soundness proof *)
 (*val type_top_ignore_sig : tenvM -> tenvC -> tenvE -> top -> tenvM -> tenvC -> env varN (nat * t) -> bool*)
 
-
 val _ = Hol_reln ` (! menv cenv tenv d cenv' tenv'.
 (type_d NONE menv cenv tenv d cenv' tenv')
 ==>

@@ -35,7 +35,6 @@ val context_invariant : nat -> list ctxt -> nat -> bool
  * soundness proof *)
 val type_top_ignore_sig : tenvM -> tenvC -> tenvE -> top -> tenvM -> tenvC -> env varN (nat * t) -> bool
 
-
 indreln
 [type_top_ignore_sig : tenvM -> tenvC -> tenvE -> top -> tenvM -> tenvC -> env varN (nat * t) -> bool]
 
