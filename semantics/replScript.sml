@@ -74,8 +74,8 @@ val print_lit_def = Define `
 val print_v_def = Define `
 (print_v (Litv l) = print_lit l) ∧
 (print_v (Conv _ _) = "<constructor>") ∧
-(print_v (Closure _ _ _ _ _) = "<fn>") ∧
-(print_v (Recclosure _ _ _ _ _) = "<fn>") ∧
+(print_v (Closure _ _ _) = "<fn>") ∧
+(print_v (Recclosure _ _ _) = "<fn>") ∧
 (print_v (Loc _) = "<ref>")`;
 
 val print_envE_def = Define `
@@ -126,7 +126,7 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
   (elab_top state.type_bindings state.ctors ast =
    (type_bindings', ctors', top)) ∧
   (type_top state.tenvM state.tenvC state.tenv top tenvM' tenvC' tenv') ∧
-  evaluate_top state.envM state.envC state.store state.envE top (store',envC',r) ∧
+  evaluate_top (state.envM, state.envC, state.envE) state.store top (store',envC',r) ∧
   ast_repl (update_repl_state top state type_bindings' ctors' tenvM' tenvC' tenv' store' envC' r) type_errors asts rest
   ⇒
   ast_repl state (F::type_errors) (SOME ast::asts) (Result (print_result (tenv_to_string_map tenv') top envC' r) rest)) ∧
@@ -135,7 +135,7 @@ val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
   (elab_top state.type_bindings state.ctors ast =
    (type_bindings', ctors', top)) ∧
   (type_top state.tenvM state.tenvC state.tenv top tenvM' tenvC' tenv') ∧
-  top_diverges state.envM state.envC state.store state.envE top
+  top_diverges (state.envM, state.envC, state.envE) state.store top
   ⇒
   ast_repl state (F::type_errors) (SOME ast::asts) Diverge) ∧
 

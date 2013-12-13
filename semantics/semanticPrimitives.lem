@@ -17,18 +17,24 @@ type v =
   | Conv of maybe (id conN) * list v 
   (* Function closures
      The environment is used for the free variables in the function *)
-  | Closure of env modN (env varN v) * envC * env varN v * varN * exp
+  | Closure of (env modN (env varN v) * envC * env varN v) * varN * exp
   (* Function closure for recursive functions
    * See Closure and Letrec above
    * The last variable name indicates which function from the mutually
    * recursive bundle this closure value represents *)
-  | Recclosure of env modN (env varN v) * envC * env varN v * list (varN * varN * exp) * varN
+  | Recclosure of (env modN (env varN v) * envC * env varN v) * list (varN * varN * exp) * varN
   | Loc of nat
 
 type envE = env varN v
 
 (* The bindings of a module *)
 type envM = env modN envE
+
+type all_env = envM * envC * envE
+
+let all_env_to_menv (menv,cenv,env) = menv
+let all_env_to_cenv (menv,cenv,env) = cenv
+let all_env_to_env (menv,cenv,env) = env
 
 (* The result of evaluation *)
 type error_result =
@@ -65,10 +71,10 @@ let store_assign n v st =
   else
     Nothing
 
-val lookup_var_id : id varN -> envM -> envE -> maybe v
-let lookup_var_id id menv envE =
+val lookup_var_id : id varN -> all_env -> maybe v
+let lookup_var_id id (menv,cenv,env) =
   match id with
-    | Short x -> lookup x envE
+    | Short x -> lookup x env
     | Long x y ->
         match lookup x menv with
           | Nothing -> Nothing
@@ -162,10 +168,10 @@ and
 pmatch_list envC s _ _ env = Match_type_error
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
-val build_rec_env : list (varN * varN * exp) -> envM -> envC -> envE -> envE -> envE
-let build_rec_env funs menv cenv cl_env add_to_env =
+val build_rec_env : list (varN * varN * exp) -> all_env -> envE -> envE
+let build_rec_env funs cl_env add_to_env =
   foldr 
-    (fun (f,x,e) env' -> bind f (Recclosure menv cenv cl_env funs f) env') 
+    (fun (f,x,e) env' -> bind f (Recclosure cl_env funs f) env') 
     add_to_env 
     funs
 
@@ -188,9 +194,9 @@ contains_closure (Litv l) = false
 and
 contains_closure (Conv cn vs) = List.any contains_closure vs
 and
-contains_closure (Closure menv cenv env n e) = true
+contains_closure (Closure env n e) = true
 and
-contains_closure (Recclosure menv cenv env funs n) = true
+contains_closure (Recclosure env funs n) = true
 and
 contains_closure (Loc n) = false
 
@@ -229,13 +235,13 @@ do_eq (Conv cn1 vs1) (Conv cn2 vs2) =
   else
     Eq_val false
 and
-do_eq (Closure _ _ _ _ _) (Closure _ _ _ _ _) = Eq_closure
+do_eq (Closure _ _ _) (Closure _ _ _) = Eq_closure
 and
-do_eq (Closure _ _ _ _ _) (Recclosure _ _ _ _ _) = Eq_closure
+do_eq (Closure _ _ _) (Recclosure _ _ _) = Eq_closure
 and
-do_eq (Recclosure _ _ _ _ _) (Closure _ _ _ _ _) = Eq_closure
+do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_closure
 and
-do_eq (Recclosure _ _ _ _ _) (Recclosure _ _ _ _ _) = Eq_closure
+do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_closure
 and
 do_eq _ _ = Eq_type_error
 and
@@ -255,32 +261,32 @@ and
 do_eq_list _ _ = Eq_val false
 
 (* Do an application *)
-val do_app : store -> envM -> envC -> envE -> op -> v -> v -> maybe (store * envM * envC * envE * exp)
-let do_app s menv' cenv' env' op v1 v2 =
+val do_app : all_env -> store -> op -> v -> v -> maybe (all_env * store * exp)
+let do_app env' s op v1 v2 =
   match (op, v1, v2) with
-    | (Opapp, Closure menv cenv env n e, v) ->
-        Just (s, menv, cenv, bind n v env, e)
-    | (Opapp, Recclosure menv cenv env funs n, v) ->
+    | (Opapp, Closure (menv, cenv, env) n e, v) ->
+        Just ((menv, cenv, bind n v env), s, e)
+    | (Opapp, Recclosure (menv, cenv, env) funs n, v) ->
         match find_recfun n funs with
-          | Just (n,e) -> Just (s, menv, cenv, bind n v (build_rec_env funs menv cenv env env), e)
+          | Just (n,e) -> Just ((menv, cenv, bind n v (build_rec_env funs (menv, cenv, env) env)), s, e)
           | Nothing -> Nothing
         end
     | (Opn op, Litv (IntLit n1), Litv (IntLit n2)) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
-          Just (s, menv', cenv', env', Raise (Con (Just (Short "Div")) []))
+          Just (env', s, Raise (Con (Just (Short "Div")) []))
         else
-          Just (s, menv', cenv', env',Lit (IntLit (opn_lookup op n1 n2)))
+          Just (env', s, Lit (IntLit (opn_lookup op n1 n2)))
     | (Opb op, Litv (IntLit n1), Litv (IntLit n2)) ->
-        Just (s, menv', cenv', env', Lit (Bool (opb_lookup op n1 n2)))
+        Just (env', s, Lit (Bool (opb_lookup op n1 n2)))
     | (Equality, v1, v2) ->
         match do_eq v1 v2 with
           | Eq_type_error -> Nothing
-          | Eq_closure -> Just (s, menv', cenv', env', Raise (Con (Just (Short "Eq")) []))
-          | Eq_val b -> Just (s, menv', cenv', env', Lit (Bool b))
+          | Eq_closure -> Just (env', s, Raise (Con (Just (Short "Eq")) []))
+          | Eq_val b -> Just (env', s, Lit (Bool b))
         end
     | (Opassign, (Loc lnum), v) ->
         match store_assign lnum v s with
-        | Just st -> Just (st, menv', cenv', env', Lit Unit)
+        | Just st -> Just (env', st, Lit Unit)
         | Nothing -> Nothing
         end
     | _ -> Nothing

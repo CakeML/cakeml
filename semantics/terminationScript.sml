@@ -13,7 +13,7 @@ val exp1_size_thm = size_thm "exp1_size_thm" ``exp1_size`` ``exp2_size``
 val exp3_size_thm = size_thm "exp3_size_thm" ``exp3_size`` ``exp5_size``
 val exp6_size_thm = size_thm "exp6_size_thm" ``exp6_size`` ``exp_size``
 val pat1_size_thm = size_thm "pat1_size_thm" ``pat1_size`` ``pat_size``
-val v1_size_thm = size_thm "v1_size_thm" ``v1_size`` ``v2_size``
+(*val v1_size_thm = size_thm "v1_size_thm" ``v1_size`` ``v2_size``*)
 (*val v3_size_thm = size_thm "v3_size_thm" ``v3_size`` ``v_size``*)
 val ast_exp6_size_thm = size_thm "ast_exp6_size_thm" ``ast_exp6_size`` ``ast_exp_size``
 val ast_exp3_size_thm = size_thm "ast_exp3_size_thm" ``ast_exp3_size`` ``ast_exp5_size``
@@ -208,7 +208,7 @@ val _ = register "is_value" is_value_def is_value_ind;
 val (do_eq_def,do_eq_ind) =
   tprove_no_defn ((do_eq_def,do_eq_ind),
 wf_rel_tac `inv_image $< (λx. case x of INL (v1,v2) => v_size v1
-                                      | INR (vs1,vs2) => v5_size vs1)`);
+                                      | INR (vs1,vs2) => v7_size vs1)`);
 val _ = register "do_eq" do_eq_def do_eq_ind;
 
 (*
