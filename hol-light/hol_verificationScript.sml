@@ -2047,7 +2047,7 @@ val type_ok_typeof = prove( (* move up *)
   REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [type_ok] \\ DISJ2_TAC \\ DISJ2_TAC \\ DISJ1_TAC
   \\ Q.EXISTS_TAC `tm` \\ FULL_SIMP_TAC std_ss []
-  \\ cheat);
+  \\ METIS_TAC[term_ok_welltyped,WELLTYPED]);
 
 val mk_eq_thm = store_thm("mk_eq_thm",
   ``TERM defs x /\ TERM defs y /\ STATE s defs ==>
