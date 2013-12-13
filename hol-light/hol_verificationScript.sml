@@ -1993,9 +1993,36 @@ val get_const_type_Equal = prove(
       \\ SRW_TAC [] [] \\ METIS_TAC [])
     \\ FULL_SIMP_TAC std_ss [MEM_MAP] \\ Cases_on `y`
     \\ FULL_SIMP_TAC std_ss [] \\ METIS_TAC [])
-  \\ FULL_SIMP_TAC std_ss [consts_def]
-  \\ `!a. ~MEM ("=",a) (FLAT (MAP consts_aux (hol_defs defs)))` by ALL_TAC
-  \\ cheat);
+  \\ FULL_SIMP_TAC std_ss [consts_def] >>
+  `!a. ~MEM ("=",a) (FLAT (MAP consts_aux (hol_defs defs)))` by (
+    qx_gen_tac`z` >>
+    spose_not_then STRIP_ASSUME_TAC >>
+    qmatch_assum_abbrev_tac`l1 ++ l2 = MAP f l3` >>
+    `MAP FST l3 = MAP FST (MAP f l3)` by (
+      simp[Abbr`f`,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_pair] ) >>
+    `ALL_DISTINCT (MAP FST (l1 ++ l2))` by METIS_TAC[] >>
+    fs[ALL_DISTINCT_APPEND] >>
+    pop_assum(qspec_then`"="`mp_tac) >>
+    simp[MEM_MAP,EXISTS_PROD,Abbr`l2`] >>
+    METIS_TAC[] ) >>
+  qsuff_tac`hol_ty a = typeof (Equal α)` >- (
+    simp[] >>
+    Cases_on`a`>>simp[hol_ty_def] >>
+    Cases_on`l`>>simp[]>>
+    Cases_on`h`>>simp[hol_ty_def]>>
+    Cases_on`t`>>simp[]>>
+    Cases_on`h`>>simp[hol_ty_def]>>
+    Cases_on`l`>>simp[]>>
+    Cases_on`h`>>simp[hol_ty_def]>>
+    Cases_on`t`>>simp[]>>
+    Cases_on`h`>>simp[hol_ty_def]) >>
+  qmatch_assum_abbrev_tac`l1 ++ l2 = MAP f l3` >>
+  `MEM ("=",hol_ty a) (l1 ++ l2)` by (
+    asm_simp_tac std_ss [] >>
+    simp[MEM_MAP,Abbr`f`,EXISTS_PROD] >>
+    METIS_TAC[] ) >>
+  fs[Abbr`l2`] >>
+  METIS_TAC[]);
 
 val mk_const_eq = prove(
   ``STATE s defs ==>
