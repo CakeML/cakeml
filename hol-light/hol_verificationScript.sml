@@ -776,9 +776,32 @@ val _ = temp_overload_on("aty",``(Tyvar "A"):hol_type``);
 val _ = temp_overload_on("fun",``\x y. hol_kernel$Tyapp "fun" [x;y]``);
 val _ = temp_overload_on("bool_ty",``hol_kernel$Tyapp "bool" []``);
 
-
-
-
+val term_ok_inst_type_Const = store_thm("term_ok_inst_type_Const",
+  ``∀defs name theta ty. term_ok defs (Const name ty) ∧
+    (∀s s'. MEM (s',s) theta ⇒ type_ok defs s')
+    ⇒ term_ok defs (Const name (TYPE_SUBST theta ty))``,
+  rw[] >>
+  qmatch_abbrev_tac`term_ok defs c` >>
+  qsuff_tac`term_ok defs (c === c)` >- (
+    rw[term_ok_equation] ) >>
+  qsuff_tac`(defs,[]) |- (c === c)` >- (
+    strip_tac >>
+    MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,10)) >>
+    qexists_tac`[]`>>simp[] ) >>
+  qmatch_assum_abbrev_tac`term_ok defs c0` >>
+  `c0 === c0 has_type Bool` by (
+    simp[EQUATION_HAS_TYPE_BOOL] >>
+    METIS_TAC[term_ok_welltyped] ) >>
+  `welltyped (c0 === c0)` by METIS_TAC[welltyped_def] >>
+  `c === c = INST theta (c0 === c0)` by (
+    simp[INST_equation,Abbr`c`,Abbr`c0`,INST_def,INST_CORE_def] ) >>
+  pop_assum SUBST1_TAC >>
+  `[] = MAP (INST theta) []` by simp[] >>
+  pop_assum SUBST1_TAC >>
+  MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,21)) >>
+  conj_tac >- METIS_TAC[] >>
+  MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,13)) >>
+  metis_tac[proves_IMP])
 
 (*
 
@@ -1922,7 +1945,9 @@ val TERM_Const_type_subst = prove(
   REPEAT STRIP_TAC \\ IMP_RES_TAC TERM
   \\ IMP_RES_TAC type_subst_thm
   \\ FULL_SIMP_TAC std_ss [type_subst_thm,TERM_def,hol_tm_def,TYPE_def]
-  \\ cheat);
+  \\ match_mp_tac term_ok_inst_type_Const >>
+  fs[EVERY_MEM,MEM_MAP,GSYM LEFT_FORALL_IMP_THM,FORALL_PROD] >>
+  METIS_TAC[]);
 
 val TERM_Const = prove(
   ``STATE r defs /\ MEM (name,a) r.the_term_constants ==>
