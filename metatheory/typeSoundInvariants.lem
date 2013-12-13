@@ -103,7 +103,7 @@ type_env menv cenv senv env tenv &&
 check_freevars tvs [] t1 &&
 type_e menv cenv (bind_tenv n 0 t1 (bind_tvar tvs tenv)) e t2
 ==>
-type_v tvs menv cenv senv (Closure envM envC env n e) (Tfn t1 t2)
+type_v tvs menv cenv senv (Closure (envM, envC, env) n e) (Tfn t1 t2)
 
 and
 
@@ -112,7 +112,7 @@ type_env menv cenv senv env tenv &&
 type_funs menv cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
 lookup n tenv' = Just t
 ==>
-type_v tvs menv cenv senv (Recclosure envM envC env funs n) t
+type_v tvs menv cenv senv (Recclosure (envM, envC, env) funs n) t
 
 and
 
@@ -375,12 +375,12 @@ type_ctxts tvs tenvM tenvC senv [] t t
 
 and
 
-cons : forall tvs tenvM tenvC senv c env cs tenv t1 t2 t3.
+cons : forall tvs tenvM tenvC senv c envM envC env cs tenv t1 t2 t3.
 type_env tenvM tenvC senv env tenv &&
 type_ctxt tvs tenvM tenvC senv tenv c t1 t2 &&
 type_ctxts (if is_ccon c && poly_context cs then tvs else 0) tenvM tenvC senv cs t2 t3
 ==>
-type_ctxts tvs tenvM tenvC senv ((c,env)::cs) t1 t3
+type_ctxts tvs tenvM tenvC senv ((c,(envM,envC,env))::cs) t1 t3
 
 indreln
 [type_state : nat -> tenvM -> tenvC -> tenvS -> state -> t -> bool]
@@ -393,7 +393,7 @@ type_s tenvM tenvC senv s &&
 type_e tenvM tenvC (bind_tvar tvs tenv) e t1 &&
 ((tvs <> 0) --> is_value e)
 ==>
-type_state dec_tvs tenvM tenvC senv (envM,envC, s, env, Exp e, c) t2
+type_state dec_tvs tenvM tenvC senv ((envM, envC, env), s, Exp e, c) t2
 
 and
 
@@ -404,4 +404,4 @@ type_env tenvM tenvC senv env tenv &&
 type_s tenvM tenvC senv s &&
 type_v tvs tenvM tenvC senv v t1
 ==>
-type_state dec_tvs tenvM tenvC senv (envM, envC, s, env, Val v, c) t2
+type_state dec_tvs tenvM tenvC senv ((envM, envC, env), s, Val v, c) t2

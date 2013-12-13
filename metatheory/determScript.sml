@@ -7,10 +7,10 @@ val _ = new_theory "determ";
 (* big_exp_determ moved to bigClockScript.sml *)
 
 val dec_determ = Q.store_thm ("dec_determ",
-`!mn menv (cenv : envC) s env d r1.
-  evaluate_dec mn menv cenv s env d r1 ⇒
+`!mn s env d r1.
+  evaluate_dec mn env s d r1 ⇒
   !r2.
-    evaluate_dec mn menv (cenv : envC) s env d r2
+    evaluate_dec mn env s d r2
     ⇒
     (r1 = r2)`,
 rw [evaluate_dec_cases] >>
@@ -18,10 +18,10 @@ metis_tac [big_exp_determ, result_11, result_distinct,PAIR_EQ,
            match_result_11, match_result_distinct, optionTheory.SOME_11]);
 
 val decs_determ = Q.store_thm ("decs_determ",
-`!mn menv (cenv : envC) s env ds r1.
-  evaluate_decs mn menv cenv s env ds r1 ⇒
+`!mn env s ds r1.
+  evaluate_decs mn env s ds r1 ⇒
   !r2.
-    evaluate_decs mn menv cenv s env ds r2
+    evaluate_decs mn env s ds r2
     ⇒
     (r1 = r2)`,
 HO_MATCH_MP_TAC evaluate_decs_ind >>
@@ -33,10 +33,10 @@ metis_tac [dec_determ, result_11, result_distinct,PAIR_EQ,
            match_result_11, match_result_distinct, optionTheory.SOME_11]);
 
 val top_determ = Q.store_thm ("top_determ",
-`!menv (cenv : envC) s env top r1.
-  evaluate_top menv cenv s env top r1 ⇒
+`!env s top r1.
+  evaluate_top env s top r1 ⇒
   !r2.
-    evaluate_top menv cenv s env top r2
+    evaluate_top env s top r2
     ⇒
     (r1 = r2)`,
 rw [evaluate_top_cases] >>
@@ -45,10 +45,10 @@ metis_tac [dec_determ, result_11, result_distinct,PAIR_EQ,
            decs_determ]);
 
 val prog_determ = Q.store_thm ("prog_determ",
-`!menv (cenv : envC) s env ds r1.
-  evaluate_prog menv cenv s env ds r1 ⇒
+`!env s ds r1.
+  evaluate_prog env s ds r1 ⇒
   !r2.
-    evaluate_prog menv cenv s env ds r2
+    evaluate_prog env s ds r2
     ⇒
     (r1 = r2)`,
 HO_MATCH_MP_TAC evaluate_prog_ind >>
@@ -62,8 +62,8 @@ metis_tac [top_determ, result_11, result_distinct,PAIR_EQ,
 (* ---------------------- Small step determinacy ------------------------- *)
 
 val small_exp_determ = Q.store_thm ("small_exp_determ",
-`!menv cenv s env e r1 r2.
-  small_eval menv cenv s env e [] r1 ∧ small_eval menv cenv s env e [] r2
+`!env s e r1 r2.
+  small_eval env s e [] r1 ∧ small_eval env s e [] r2
   ⇒
   (r1 = r2)`,
 rw [] >>

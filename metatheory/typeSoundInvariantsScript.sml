@@ -91,14 +91,14 @@ type_v tvs menv cenv senv (Conv NONE vs) (Tapp ts TC_tup))
 (check_freevars tvs [] t1 /\
 type_e menv cenv (bind_tenv n( 0) t1 (bind_tvar tvs tenv)) e t2))
 ==>
-type_v tvs menv cenv senv (Closure envM envC env n e) (Tfn t1 t2))
+type_v tvs menv cenv senv (Closure (envM, envC, env) n e) (Tfn t1 t2))
 
 /\ (! tvs menv cenv senv envM envC env funs n t tenv tenv'.
 (type_env menv cenv senv env tenv /\
 (type_funs menv cenv (bind_var_list( 0) tenv' (bind_tvar tvs tenv)) funs tenv' /\
 (lookup n tenv' = SOME t)))
 ==>
-type_v tvs menv cenv senv (Recclosure envM envC env funs n) t)
+type_v tvs menv cenv senv (Recclosure (envM, envC, env) funs n) t)
 
 /\ (! tvs menv cenv senv n t.
 (check_freevars( 0) [] t /\
@@ -309,12 +309,12 @@ val _ = Hol_reln ` (! tvs tenvM tenvC senv t.
 ==>
 type_ctxts tvs tenvM tenvC senv [] t t)
 
-/\ (! tvs tenvM tenvC senv c env cs tenv t1 t2 t3.
+/\ (! tvs tenvM tenvC senv c envM envC env cs tenv t1 t2 t3.
 (type_env tenvM tenvC senv env tenv /\
 (type_ctxt tvs tenvM tenvC senv tenv c t1 t2 /\
 type_ctxts (if is_ccon c /\ poly_context cs then tvs else  0) tenvM tenvC senv cs t2 t3))
 ==>
-type_ctxts tvs tenvM tenvC senv ((c,env)::cs) t1 t3)`;
+type_ctxts tvs tenvM tenvC senv ((c,(envM,envC,env))::cs) t1 t3)`;
 
 val _ = Hol_reln ` (! dec_tvs tenvM tenvC senv envM envC s env e c t1 t2 tenv tvs.
 (context_invariant dec_tvs c tvs /\
@@ -324,7 +324,7 @@ val _ = Hol_reln ` (! dec_tvs tenvM tenvC senv envM envC s env e c t1 t2 tenv tv
 (type_e tenvM tenvC (bind_tvar tvs tenv) e t1 /\
 (( ~ (tvs =( 0))) ==> is_value e))))))
 ==>
-type_state dec_tvs tenvM tenvC senv (envM,envC, s, env, Exp e, c) t2)
+type_state dec_tvs tenvM tenvC senv ((envM, envC, env), s, Exp e, c) t2)
 
 /\ (! dec_tvs tenvM tenvC senv envM envC s env v c t1 t2 tenv tvs.
 (context_invariant dec_tvs c tvs /\
@@ -333,6 +333,6 @@ type_state dec_tvs tenvM tenvC senv (envM,envC, s, env, Exp e, c) t2)
 (type_s tenvM tenvC senv s /\
 type_v tvs tenvM tenvC senv v t1))))
 ==>
-type_state dec_tvs tenvM tenvC senv (envM, envC, s, env, Val v, c) t2)`;
+type_state dec_tvs tenvM tenvC senv ((envM, envC, env), s, Val v, c) t2)`;
 val _ = export_theory()
 

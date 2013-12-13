@@ -194,5 +194,5 @@ let e_diverges env s e =
     (rtc e_step_reln) (env,s,Exp e,[]) (env',s',e',c')
     -->    
 (exists env'' s'' e'' c''.
-      e_step_reln (env',s'',e',c') (env'',s'',e'',c''))
+      e_step_reln (env',s',e',c') (env'',s'',e'',c''))
 

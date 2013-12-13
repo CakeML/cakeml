@@ -223,7 +223,7 @@ val _ = Define `
     (RTC e_step_reln) (env,s,Exp e,[]) (env',s',e',c')
     ==>    
 (? env'' s'' e'' c''.
-      e_step_reln (env',s'',e',c') (env'',s'',e'',c''))))`;
+      e_step_reln (env',s',e',c') (env'',s'',e'',c''))))`;
 
 
 val _ = export_theory()

@@ -10,65 +10,36 @@ val _ = new_theory "untypedSafety";
  * gives a result, and it can't do both. *)
 
 val untyped_safety_exp_step = Q.prove (
-`∀menv cenv s env e c.
-  (e_step (menv,cenv, s, env, e, c) = Estuck) =
+`∀env s e c.
+  (e_step (env,s,e,c) = Estuck) =
   ((?v. e = Val v) ∧ ((c = []) ∨ (?env. c = [(Craise (), env)])))`,
 rw [e_step_def, continue_def, push_def, return_def] >>
 every_case_tac >>
 metis_tac [oneTheory.one]);
 
-val e_step_cenv_same = Q.store_thm("e_step_cenv_same",
-`!menv cenv s env e c menv' cenv' s' env' e' c'.
-  (e_step (menv,cenv, s, env, e, c) = Estep (menv',cenv', s', env', e', c')) ⇒
-  (cenv = cenv') ∧ (menv = menv')`,
-rw [e_step_def, continue_def, push_def, return_def] >>
-every_case_tac >>
-fs []);
-
-val e_step_rtc_cenv_same_lem = Q.prove (
-`!s s'. e_step_reln^* s s' ⇒
-  !menv cenv store env e c menv' cenv' store' env' e' c'.
-  (s = (menv,cenv, store, env, e, c)) ∧
-  (s' = (menv',cenv', store', env', e', c')) ⇒
-  (cenv = cenv') ∧ (menv = menv')`,
-HO_MATCH_MP_TAC RTC_INDUCT >>
-rw [] >>
-PairCases_on `s'` >>
-fs [e_step_reln_def] >>
-metis_tac [e_step_cenv_same]);
-
-val e_step_rtc_cenv_same = Q.store_thm("e_step_rtc_cenv_same",
-`!menv cenv s env e c menv' cenv' s' env' e' c'.
-  e_step_reln^* (menv,cenv, s, env, e, c) (menv',cenv', s', env', e', c')
-  ⇒
-  (cenv = cenv') ∧ (menv = menv')`,
-metis_tac [e_step_rtc_cenv_same_lem]);
-
 val small_exp_safety1 = Q.prove (
-`!menv cenv s env e r.
-  ¬(e_diverges menv cenv s env e ∧ ?r. small_eval menv cenv s env e [] r)`,
+`!s env e r.
+  ¬(e_diverges env s e ∧ ?r. small_eval env s e [] r)`,
 rw [e_diverges_def, METIS_PROVE [] ``(~x ∨ ~y) = (y ⇒ ~x)``] >>
 cases_on `r` >>
 cases_on `r'` >>
 (TRY (Cases_on `e'`)) >>
 fs [small_eval_def, e_step_reln_def] >|
-[`∀menv'' cenv'' s'' env'' e'' c''.
-       e_step (menv,cenv,q,env',Val a,[]) ≠ Estep (menv'',cenv'',s'',env'',e'',c'')`
+[`∀s'' env'' e'' c''.
+       e_step (env',q,Val a,[]) ≠ Estep (env'',s'',e'',c'')`
             by rw [e_step_def, continue_def] >>
      metis_tac [],
  metis_tac [e_step_result_distinct],
- `∀menv'' cenv'' s'' env''' e''' c''.
-    e_step (menv,cenv,q,env',Val v,[(Craise (),env'')]) ≠ Estep (menv'',cenv'',s'',env''',e''',c'')`
+ `∀s'' env''' e''' c''.
+    e_step (env',q,Val v,[(Craise (),env'')]) ≠ Estep (env''',s'',e''',c'')`
          by rw [push_def, e_step_def, continue_def] >>
      metis_tac []]);
 
 val small_exp_safety2 = Q.prove (
-`!menv cenv s env e.
-  e_diverges menv cenv s env e ∨ ?r. small_eval menv cenv s env e [] r`,
+`!menv cenv s env e. e_diverges env s e ∨ ?r. small_eval env s e [] r`,
 rw [e_diverges_def, METIS_PROVE [] ``(x ∨ y) = (~x ⇒ y)``, e_step_reln_def] >>
-cases_on `e_step (menv',cenv',s',env',e',c')` >>
-fs [untyped_safety_exp_step] >>
-`(cenv = cenv') ∧ (menv = menv')` by metis_tac [e_step_rtc_cenv_same] >|
+cases_on `e_step (env',s',e',c')` >>
+fs [untyped_safety_exp_step] >|
 [PairCases_on `p` >>
      fs [],
  qexists_tac `(s', Rerr Rtype_error)` >>
@@ -82,11 +53,11 @@ fs [untyped_safety_exp_step] >>
      metis_tac []]);
 
 val untyped_safety_exp = Q.store_thm ("untyped_safety_exp",
-`!menv cenv s env e. (?r. small_eval menv cenv s env e [] r) = ¬e_diverges menv cenv s env e`,
+`!s env e. (?r. small_eval env s e [] r) = ¬e_diverges env s e`,
 metis_tac [small_exp_safety2, small_exp_safety1]);
 
 val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
-`!mn menv cenv s env d. (∃r. evaluate_dec mn menv cenv s env d r) = ~dec_diverges menv cenv s env d`,
+`!mn s env d. (∃r. evaluate_dec mn env s d r) = ~dec_diverges env s d`,
 rw [Once evaluate_dec_cases, dec_diverges_def] >>
 cases_on `d` >>
 rw [] >|
@@ -105,7 +76,7 @@ rw [] >|
      fs [] >>
      cases_on `ALL_DISTINCT (pat_bindings p [])` >>
      fs [] >|
-     [cases_on `pmatch cenv r0 p a emp` >>
+     [cases_on `pmatch (all_env_to_cenv env) r0 p a emp` >>
           fs [] >|
           [qexists_tac `(r0, Rerr (Rraise (Conv (SOME (Short "Bind")) [])))` >>
                rw [] >>
@@ -126,7 +97,7 @@ rw [] >|
  metis_tac []]);
 
 val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
-`!mn menv cenv s env ds. (?r. evaluate_decs mn menv cenv s env ds r) = ~decs_diverges mn menv cenv s env ds`,
+`!mn s env ds. (?r. evaluate_decs mn env s ds r) = ~decs_diverges mn env s ds`,
 induct_on `ds` >>
 rw [] >-
 rw [Once evaluate_decs_cases, Once decs_diverges_cases] >>
@@ -144,7 +115,7 @@ rw [] >>
 metis_tac [untyped_safety_dec, pair_CASES, result_nchotomy]);
 
 val untyped_safety_top = Q.store_thm ("untyped_safety_top",
-`!menv cenv s env top. (?r. evaluate_top menv cenv s env top r) = ~top_diverges menv cenv s env top`,
+`!s env top. (?r. evaluate_top env s top r) = ~top_diverges env s top`,
 rw [evaluate_top_cases, top_diverges_cases] >>
 eq_tac >>
 rw [] >>
@@ -155,7 +126,7 @@ rw [] >>
 metis_tac [top_nchotomy, untyped_safety_decs, untyped_safety_dec, pair_CASES, result_nchotomy]);
 
 val untyped_safety_prog = Q.store_thm ("untyped_safety_prog",
-`!menv cenv s env tops. (?r. evaluate_prog menv cenv s env tops r) = ~prog_diverges menv cenv s env tops`,
+`!s env tops. (?r. evaluate_prog env s tops r) = ~prog_diverges env s tops`,
 induct_on `tops` >>
 rw [] >-
 rw [Once evaluate_prog_cases, Once prog_diverges_cases] >>
