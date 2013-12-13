@@ -236,7 +236,7 @@ val type_ok_Fun = store_thm("type_ok_Fun",
   disj1_tac >>
   simp[Once proves_cases])
 
-val _ = Parse.overload_on("α",``(Tyvar "a"):holSyntax$type``)
+val _ = Parse.overload_on("α",``(Tyvar "A"):holSyntax$type``)
 val id_tm = ``holSyntax$Abs "x" α (Var "x" α)``
 val id_ok = prove(
   ``term_ok defs ^id_tm ⇔ context_ok defs``,

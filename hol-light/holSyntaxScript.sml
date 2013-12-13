@@ -622,7 +622,7 @@ val consts_aux_def = Define
         (r,Fun abs_type rep_type)])`
 
 val consts_def = Define
- `consts defs = FLAT (MAP consts_aux defs)++[("@",typeof(Select(Tyvar"a")));("=",typeof(Equal(Tyvar"a")))]`
+ `consts defs = FLAT (MAP consts_aux defs)++[("@",typeof(Select(Tyvar"A")));("=",typeof(Equal(Tyvar"A")))]`
 
 val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 
