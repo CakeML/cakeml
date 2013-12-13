@@ -9573,6 +9573,9 @@ val zBC_Stop = SPEC_COMPOSE_RULE
     zHEAP_LOAD_IMM1 |> Q.INST [`k`|->`1`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES],
     zHEAP_JMP_STOP_ADDR] |> fix_code
 
+val zBC_LoadRev = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_LoadRev,zHEAP_NOP]
+   |> RW [IMM32_def] |> fix_code
+
 val zBC_END_OF_CODE = SPEC_COMPOSE_RULE
    [zHEAP_PUSH1,
     zHEAP_LOAD_IMM1 |> Q.INST [`k`|->`0`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES],
