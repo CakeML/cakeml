@@ -2097,9 +2097,13 @@ val mk_eq_thm = store_thm("mk_eq_thm",
          ex_bind_def,dest_type_def]);
 
 val TERM_Eq_x = prove(
-  ``TERM defs (Comb (Const "=" ty) x) ==>
+  ``STATE s defs /\ TERM defs (Comb (Const "=" ty) x) ==>
     (Fun (typeof (hol_tm x)) (Fun (typeof (hol_tm x)) Bool) = hol_ty ty)``,
-  cheat);
+  rw[TERM_def,STATE_def,hol_tm_def] >>
+  fs[term_ok_Comb] >>
+  imp_res_tac proves_IMP >>
+  qpat_assum`term defs (Const e f) g`mp_tac >>
+  simp[Once term_cases] >> rw[])
 
 val dest_eq_thm = store_thm("dest_eq_thm",
   ``TERM defs tm /\ STATE s defs /\ (dest_eq tm s = (res, s')) ==>
