@@ -13083,7 +13083,7 @@ val zBC_HEAP_THM = prove(
          ov_to_string (bv_to_ov ARB y))` by ALL_TAC THEN1
      (POP_ASSUM MP_TAC \\ Cases_on `y`
       \\ SIMP_TAC std_ss [bc_adjust_def,canCompare_def,better_bv_to_ov_def]
-      \\ SRW_TAC [] [PrinterTheory.ov_to_string_def])
+      \\ SRW_TAC [] [printerTheory.ov_to_string_def])
     \\ FULL_SIMP_TAC std_ss []
     \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,
          LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1]
