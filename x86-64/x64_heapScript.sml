@@ -9749,12 +9749,59 @@ val zBC_END_OF_CODE = SPEC_COMPOSE_RULE
     zHEAP_LOAD_IMM1 |> Q.INST [`k`|->`0`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES],
     zHEAP_JMP_STOP_ADDR] |> fix_code
 
+val zBC_Error6 = let
+  val th = MATCH_MP SPEC_SUBSET_CODE zHEAP_TERMINATE_WITH_ERROR
+           |> Q.SPEC `(p,[0x49w; 0xFFw; 0x61w; 0x28w]) INSERT
+                      (p+4w,[0xFFw; 0xC0w]) INSERT error_code cs.error_ptr`
+  val goal = th |> concl |> dest_imp |> fst
+  val lemma = prove(goal,SIMP_TAC (srw_ss()) [SUBSET_DEF] \\ METIS_TAC [])
+  val th6 = MP th lemma
+  in th6 |> fix_code end
+
+val zBC_Error12 = let
+  val th = MATCH_MP SPEC_SUBSET_CODE zHEAP_TERMINATE_WITH_ERROR
+           |> Q.SPEC `(p,[0x49w; 0xFFw; 0x61w; 0x28w]) INSERT
+                      (p+4w,[0xFFw; 0xC0w]) INSERT
+                      (p+6w,[0xFFw; 0xC0w]) INSERT
+                      (p+8w,[0xFFw; 0xC0w]) INSERT
+                      (p+10w,[0xFFw; 0xC0w]) INSERT error_code cs.error_ptr`
+  val goal = th |> concl |> dest_imp |> fst
+  val lemma = prove(goal,SIMP_TAC (srw_ss()) [SUBSET_DEF] \\ METIS_TAC [])
+  val th6 = MP th lemma
+  in th6 |> fix_code end
+
+val zBC_Error16 = let
+  val th = MATCH_MP SPEC_SUBSET_CODE zHEAP_TERMINATE_WITH_ERROR
+           |> Q.SPEC `(p,[0x49w; 0xFFw; 0x61w; 0x28w]) INSERT
+                      (p+4w,[0xFFw; 0xC0w]) INSERT
+                      (p+6w,[0xFFw; 0xC0w]) INSERT
+                      (p+8w,[0xFFw; 0xC0w]) INSERT
+                      (p+10w,[0xFFw; 0xC0w]) INSERT
+                      (p+12w,[0xFFw; 0xC0w]) INSERT
+                      (p+14w,[0xFFw; 0xC0w]) INSERT error_code cs.error_ptr`
+  val goal = th |> concl |> dest_imp |> fst
+  val lemma = prove(goal,SIMP_TAC (srw_ss()) [SUBSET_DEF] \\ METIS_TAC [])
+  val th6 = MP th lemma
+  in th6 |> fix_code end
+
 
 (* translation function *)
 
 val small_offset_def = Define `
   small_offset n x =
     if n < 268435456:num then x else ^(get_code zBC_Error)`;
+
+val small_offset6_def = Define `
+  small_offset6 n x =
+    if n < 268435456:num then x else ^(get_code zBC_Error6)`;
+
+val small_offset12_def = Define `
+  small_offset12 n x =
+    if n < 268435456:num then x else ^(get_code zBC_Error12)`;
+
+val small_offset16_def = Define `
+  small_offset16 n x =
+    if n < 268435456:num then x else ^(get_code zBC_Error16)`;
 
 val x64_def = Define `
   (x64 i (Stack Pop) = ^(get_code zBC_Pop)) /\
@@ -9785,16 +9832,16 @@ val x64_def = Define `
        (if j < 0 then ^(get_code zBC_Error) else
           let k = Num j in ^(get_code zBC_PushInt))) /\
   (x64 i (Jump (Addr l)) =
-     small_offset l (small_offset i
+     small_offset6 l (small_offset6 i
        (let imm32 = n2w (2 * l) - n2w i - 6w in ^(get_code zBC_Jump)))) /\
   (x64 i (JumpIf (Addr l)) =
-     small_offset l (small_offset i
+     small_offset12 l (small_offset12 i
        (let imm32 = n2w (2 * l) - n2w i - 12w in ^(get_code zBC_JumpIf)))) /\
   (x64 i (Call (Addr l)) =
-     small_offset l (small_offset i
+     small_offset6 l (small_offset6 i
        (let imm32 = n2w (2 * l) - n2w i - 6w in ^(get_code zBC_Call)))) /\
   (x64 i (PushPtr (Addr l)) =
-     small_offset l (small_offset i
+     small_offset16 l (small_offset16 i
        (let imm32 = n2w (2 * l) - n2w i - 8w in ^(get_code zBC_PushPtr)))) /\
   (x64 i (CallPtr) = ^(get_code zBC_CallPtr)) /\
   (x64 i (Return) = ^(get_code zBC_Return)) /\
@@ -9867,15 +9914,11 @@ val real_inst_length_def = zDefine `
    | Stack Mod => 11
    | Stack Less => 11
    | Label l => 0
-   | Jump (Lab l') => 2
-   | Jump (Addr v39) => if v39 < 268435456 then 2 else 1
-   | JumpIf (Lab l'') => 5
-   | JumpIf (Addr v43) => if v43 < 268435456 then 5 else 1
-   | Call (Lab l''') => 2
-   | Call (Addr v47) => if v47 < 268435456 then 2 else 1
+   | Jump _ => 2
+   | JumpIf _ => 5
+   | Call _ => 2
    | CallPtr => 3
-   | PushPtr (Lab l'''') => 7
-   | PushPtr (Addr v51) => if v51 < 268435456 then 7 else 1
+   | PushPtr _ => 7
    | Return => 0
    | PushExc => 3
    | PopExc => 5
@@ -9896,12 +9939,30 @@ val EVEN_LENGTH_small_offset = prove(
   ``EVEN (LENGTH x) ==> EVEN (LENGTH (small_offset n x))``,
   SRW_TAC [] [small_offset_def]);
 
+val EVEN_LENGTH_small_offset6 = prove(
+  ``EVEN (LENGTH x) ==> EVEN (LENGTH (small_offset6 n x))``,
+  SRW_TAC [] [small_offset6_def]);
+
+val EVEN_LENGTH_small_offset12 = prove(
+  ``EVEN (LENGTH x) ==> EVEN (LENGTH (small_offset12 n x))``,
+  SRW_TAC [] [small_offset12_def]);
+
+val EVEN_LENGTH_small_offset16 = prove(
+  ``EVEN (LENGTH x) ==> EVEN (LENGTH (small_offset16 n x))``,
+  SRW_TAC [] [small_offset16_def]);
+
 val x64_length_EVEN = prove(
   ``!bc. EVEN (x64_length bc)``,
   Cases \\ TRY (Cases_on `b:bc_stack_op`) \\ TRY (Cases_on `l:loc`)
   \\ SIMP_TAC std_ss [x64_length_def,x64_def,LENGTH,EVEN,LET_DEF]
   \\ TRY (MATCH_MP_TAC EVEN_LENGTH_small_offset)
   \\ TRY (MATCH_MP_TAC EVEN_LENGTH_small_offset)
+  \\ TRY (MATCH_MP_TAC EVEN_LENGTH_small_offset6)
+  \\ TRY (MATCH_MP_TAC EVEN_LENGTH_small_offset6)
+  \\ TRY (MATCH_MP_TAC EVEN_LENGTH_small_offset12)
+  \\ TRY (MATCH_MP_TAC EVEN_LENGTH_small_offset12)
+  \\ TRY (MATCH_MP_TAC EVEN_LENGTH_small_offset16)
+  \\ TRY (MATCH_MP_TAC EVEN_LENGTH_small_offset16)
   \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss [LENGTH,EVEN,IMM32_def]
   \\ TRY (MATCH_MP_TAC EVEN_LENGTH_small_offset)
   \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss [LENGTH,EVEN,IMM32_def]
@@ -9914,7 +9975,7 @@ val x64_length_NOT_ZERO = prove(
   ``!bc. ~is_Label bc ==> x64_length bc <> 0``,
   Cases \\ TRY (Cases_on `b:bc_stack_op`) \\ TRY (Cases_on `l:loc`)
   \\ SIMP_TAC std_ss [x64_length_def,x64_def,LENGTH,EVEN,LET_DEF]
-  \\ SRW_TAC [] [small_offset_def,is_Label_def]);
+  \\ EVAL_TAC \\ SRW_TAC [] [is_Label_def]);
 
 val x64_code_def = zDefine `
   (x64_code i [] = []) /\
@@ -9930,7 +9991,9 @@ val x64_code_APPEND = prove(
 
 val LENGTH_x64_IGNORE = prove(
   ``!i n. LENGTH (x64 n i) = LENGTH (x64 0 i)``,
-  cheat);
+  Cases \\ TRY (Cases_on `b`)  \\ TRY (Cases_on `l`)
+  \\ EVAL_TAC \\ SIMP_TAC std_ss [] \\ SRW_TAC [] []
+  \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC);
 
 val LENGTH_x64_code = prove(
   ``!xs p. LENGTH (x64_code p xs) = SUM (MAP x64_length xs)``,
@@ -9967,7 +10030,7 @@ val x64_code_eval = save_thm("x64_code_eval",
   |> map (SIMP_RULE std_ss [LET_DEF] o REWRITE_CONV [x64_code_ALT] o snd)
   |> LIST_CONJ
   |> SIMP_RULE std_ss [x64_def,LET_DEF,APPEND,LENGTH,small_offset_def,
-       IMM32_def,LENGTH_IF]
+       small_offset6_def,small_offset12_def,small_offset16_def,IMM32_def,LENGTH_IF]
   |> REWRITE_RULE [APPEND_IF,APPEND,IF_AND]
   |> SIMP_RULE std_ss []
   |> REWRITE_RULE [GSYM IF_AND])
@@ -10189,13 +10252,14 @@ val (res,ic_LoadRev_def,ic_LoadRev_pre_def) = x64_compile `
   EVAL ``x64 i (PrintC c)``
 *)
 
-val printc1 = ``[0x48w; 0x50w; 0x48w; 0x51w; 0x48w; 0x52w; 0x48w; 0x53w; 0x48w;
-                 0x56w; 0x48w; 0x57w; 0x49w; 0x50w; 0x49w; 0x51w; 0x49w; 0x52w;
-                 0x49w; 0x53w; 0xBFw]:word8 list`` |> gen
-val printc2 = ``[0x0w; 0x0w; 0x0w; 0x49w; 0x8Bw;
-                 0x41w; 0x18w; 0x48w; 0xFFw; 0xD0w; 0x49w; 0x5Bw; 0x49w; 0x5Aw;
-                 0x49w; 0x59w; 0x49w; 0x58w; 0x48w; 0x5Fw; 0x48w; 0x5Ew; 0x48w;
-                 0x5Bw; 0x48w; 0x5Aw; 0x48w; 0x59w; 0x48w; 0x58w]:word8 list`` |> gen
+val printc1 = ``[0x4Dw; 0x8Bw; 0xB9w; 0x90w; 0x0w; 0x0w; 0x0w; 0x4Dw; 0x85w; 0xFFw;
+                 0x48w; 0x74w; 0x34w; 0x48w; 0x50w; 0x48w; 0x51w; 0x48w; 0x52w;
+                 0x48w; 0x53w; 0x48w; 0x56w; 0x48w; 0x57w; 0x49w; 0x50w; 0x49w;
+                 0x51w; 0x49w; 0x52w; 0x49w; 0x53w; 0xBFw]:word8 list`` |> gen
+val printc2 = ``[0x0w; 0x0w; 0x0w; 0x49w; 0x8Bw; 0x41w; 0x18w; 0x48w; 0xFFw; 0xD0w;
+                 0x49w; 0x5Bw; 0x49w; 0x5Aw; 0x49w; 0x59w; 0x49w; 0x58w; 0x48w;
+                 0x5Fw; 0x48w; 0x5Ew; 0x48w; 0x5Bw; 0x48w; 0x5Aw; 0x48w; 0x59w;
+                 0x48w; 0x58w; 0x4Dw; 0x31w; 0xFFw]:word8 list`` |> gen
 
 val (res,ic_PrintC_def,ic_PrintC_pre_def) = x64_compile `
   ic_PrintC (x2,s,cs:zheap_consts) =
@@ -10247,6 +10311,7 @@ val (res,ic_Load_def,ic_Load_pre_def) = x64_compile `
 *)
 
 val jmp = ``[0x48w;0xE9w]:word8 list`` |> gen
+val err6 = ``[0x49w; 0xFFw; 0x61w; 0x28w; 0xFFw; 0xC0w]:word8 list`` |> gen
 
 val _ = hide "ic_Jump"
 
@@ -10254,13 +10319,13 @@ val (res,ic_Jump_def,ic_Jump_pre_def) = x64_compile `
   ic_Jump (x1,x2,x3:bc_value,s,cs:zheap_consts) =
     let x3 = Number (&LENGTH s.code) in
     if ~isSmall x2 then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs) else
     if ~isSmall x3 then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs) else
     if ~(getNumber x2 < 268435456) then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs) else
     if ~(getNumber x3 < 268435456) then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs)
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs)
     else
       let x2 = Number (getNumber x2 * 2) in
       let x1 = Number 6 in
@@ -10280,13 +10345,13 @@ val (res,ic_Call_def,ic_Call_pre_def) = x64_compile `
   ic_Call (x1,x2,x3:bc_value,s,cs:zheap_consts) =
     let x3 = Number (&LENGTH s.code) in
     if ~isSmall x2 then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs) else
     if ~isSmall x3 then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs) else
     if ~(getNumber x2 < 268435456) then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs) else
     if ~(getNumber x3 < 268435456) then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs)
+      let s = s with code := s.code ++ ^err6 in (x1,x2,x3,s,cs)
     else
       let x2 = Number (getNumber x2 * 2) in
       let x1 = Number 6 in
@@ -10300,6 +10365,8 @@ val (res,ic_Call_def,ic_Call_pre_def) = x64_compile `
 
 val jumpif = ``[0x48w; 0x83w; 0xF8w; 0x2w; 0x48w; 0x58w; 0xFw;
                 0x85w]:word8 list`` |> gen
+val err12 = ``[0x49w; 0xFFw; 0x61w; 0x28w; 0xFFw; 0xC0w; 0xFFw;
+               0xC0w; 0xFFw; 0xC0w; 0xFFw; 0xC0w]:word8 list`` |> gen
 
 val _ = hide "ic_JumpIf"
 
@@ -10307,13 +10374,13 @@ val (res,ic_JumpIf_def,ic_JumpIf_pre_def) = x64_compile `
   ic_JumpIf (x1,x2,x3:bc_value,s,cs:zheap_consts) =
     let x3 = Number (&LENGTH s.code) in
     if ~isSmall x2 then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err12 in (x1,x2,x3,s,cs) else
     if ~isSmall x3 then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err12 in (x1,x2,x3,s,cs) else
     if ~(getNumber x2 < 268435456) then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err12 in (x1,x2,x3,s,cs) else
     if ~(getNumber x3 < 268435456) then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs)
+      let s = s with code := s.code ++ ^err12 in (x1,x2,x3,s,cs)
     else
       let x2 = Number (getNumber x2 * 2) in
       let x1 = Number 12 in
@@ -10327,6 +10394,9 @@ val (res,ic_JumpIf_def,ic_JumpIf_pre_def) = x64_compile `
 
 val pushptr = ``[0x48w; 0x50w; 0x48w; 0xE8w; 0x0w; 0x0w; 0x0w; 0x0w; 0x48w;
                  0x58w; 0x48w; 0x5w]:word8 list`` |> gen
+val err16 = ``[0x49w; 0xFFw; 0x61w; 0x28w; 0xFFw; 0xC0w; 0xFFw;
+               0xC0w; 0xFFw; 0xC0w; 0xFFw; 0xC0w; 0xFFw; 0xC0w;
+               0xFFw; 0xC0w]:word8 list`` |> gen
 
 val _ = hide "ic_PushPtr";
 
@@ -10334,13 +10404,13 @@ val (res,ic_PushPtr_def,ic_PushPtr_pre_def) = x64_compile `
   ic_PushPtr (x1,x2,x3:bc_value,s,cs:zheap_consts) =
     let x3 = Number (&LENGTH s.code) in
     if ~isSmall x2 then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err16 in (x1,x2,x3,s,cs) else
     if ~isSmall x3 then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err16 in (x1,x2,x3,s,cs) else
     if ~(getNumber x2 < 268435456) then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs) else
+      let s = s with code := s.code ++ ^err16 in (x1,x2,x3,s,cs) else
     if ~(getNumber x3 < 268435456) then
-      let s = s with code := s.code ++ ^err in (x1,x2,x3,s,cs)
+      let s = s with code := s.code ++ ^err16 in (x1,x2,x3,s,cs)
     else
       let x2 = Number (getNumber x2 * 2) in
       let x1 = Number 8 in
@@ -10487,7 +10557,8 @@ val ic_Any_thm = prove(
   \\ TRY (SIMP_TAC std_ss [x64_def,LENGTH] \\ NO_TAC)
   \\ TRY (Cases_on `n < 268435456`
     \\ FULL_SIMP_TAC (srw_ss()) [small_int_def,x64_def,LET_DEF,addr_calc_def,
-      small_offset_def,LENGTH,IMM32_def,APPEND_ASSOC,APPEND,SNOC_APPEND,getNumber_def]
+      small_offset_def,LENGTH,IMM32_def,APPEND_ASSOC,APPEND,
+      SNOC_APPEND,getNumber_def]
     \\ SRW_TAC [] []
     \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,GSYM ADD_ASSOC]
     \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC,ORD_BOUND_LARGE,lemma]
@@ -10496,7 +10567,8 @@ val ic_Any_thm = prove(
   \\ TRY (Cases_on `n < 268435456` \\ Cases_on `LENGTH s.code < 268435456`
     \\ IMP_RES_TAC (DECIDE ``n < (268435456:num) ==> n < 4611686018427387904``)
     \\ FULL_SIMP_TAC (srw_ss()) [small_int_def,x64_def,
-        small_offset_def,LENGTH,IMM32_def,APPEND_ASSOC,APPEND,
+        small_offset_def, small_offset6_def, small_offset12_def, small_offset16_def,
+        LENGTH,IMM32_def,APPEND_ASSOC,APPEND,
         ic_Jump_def,ic_Jump_pre_def,
         ic_JumpIf_def,ic_JumpIf_pre_def,
         ic_Call_def,ic_Call_pre_def,
@@ -12246,6 +12318,81 @@ val IMP_small_offset = prove(
                 |> Q.INST [`base`|->`cb`])
   \\ FULL_SIMP_TAC (srw_ss()) [SEP_IMP_def,SEP_DISJ_def,SEP_EXISTS_THM]);
 
+val IMP_small_offset6 = prove(
+  ``(n < 268435456 ==>
+     SPEC X64_MODEL
+     (zBC_HEAP s1 (x,cs,stack,s,out) (cb,sb,ev,f2) *
+      zPC (cb + n2w (2 * s1.pc)) * ~zS)
+     ((cb + n2w (2 * s1.pc), xs) INSERT code_abbrevs cs)
+     (post \/
+      zHEAP_ERROR cs)) ==>
+    SPEC X64_MODEL
+     (zBC_HEAP s1 (x,cs,stack,s,out) (cb,sb,ev,f2) *
+      zPC (cb + n2w (2 * s1.pc)) * ~zS)
+     ((cb + n2w (2 * s1.pc), small_offset6 n xs) INSERT code_abbrevs cs)
+     (post \/
+      zHEAP_ERROR cs)``,
+  REPEAT STRIP_TAC \\ SIMP_TAC std_ss [small_offset6_def]
+  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss []
+  \\ SIMP_TAC std_ss [x64_def,LET_DEF] \\ REPEAT STRIP_TAC
+  \\ SIMP_TAC (srw_ss()) [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,MAP_APPEND,MAP]
+  \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
+  \\ REPEAT STRIP_TAC \\ SIMP_TAC (srw_ss()) []
+  \\ MATCH_MP_TAC (MATCH_MP SPEC_WEAKEN (prepare zBC_Error6) |> SPEC_ALL
+                |> DISCH_ALL |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO]
+                |> Q.INST [`base`|->`cb`])
+  \\ FULL_SIMP_TAC (srw_ss()) [SEP_IMP_def,SEP_DISJ_def,SEP_EXISTS_THM]);
+
+val IMP_small_offset12 = prove(
+  ``(n < 268435456 ==>
+     SPEC X64_MODEL
+     (zBC_HEAP s1 (x,cs,stack,s,out) (cb,sb,ev,f2) *
+      zPC (cb + n2w (2 * s1.pc)) * ~zS)
+     ((cb + n2w (2 * s1.pc), xs) INSERT code_abbrevs cs)
+     (post \/
+      zHEAP_ERROR cs)) ==>
+    SPEC X64_MODEL
+     (zBC_HEAP s1 (x,cs,stack,s,out) (cb,sb,ev,f2) *
+      zPC (cb + n2w (2 * s1.pc)) * ~zS)
+     ((cb + n2w (2 * s1.pc), small_offset12 n xs) INSERT code_abbrevs cs)
+     (post \/
+      zHEAP_ERROR cs)``,
+  REPEAT STRIP_TAC \\ SIMP_TAC std_ss [small_offset12_def]
+  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss []
+  \\ SIMP_TAC std_ss [x64_def,LET_DEF] \\ REPEAT STRIP_TAC
+  \\ SIMP_TAC (srw_ss()) [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,MAP_APPEND,MAP]
+  \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
+  \\ REPEAT STRIP_TAC \\ SIMP_TAC (srw_ss()) []
+  \\ MATCH_MP_TAC (MATCH_MP SPEC_WEAKEN (prepare zBC_Error12) |> SPEC_ALL
+                |> DISCH_ALL |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO]
+                |> Q.INST [`base`|->`cb`])
+  \\ FULL_SIMP_TAC (srw_ss()) [SEP_IMP_def,SEP_DISJ_def,SEP_EXISTS_THM]);
+
+val IMP_small_offset16 = prove(
+  ``(n < 268435456 ==>
+     SPEC X64_MODEL
+     (zBC_HEAP s1 (x,cs,stack,s,out) (cb,sb,ev,f2) *
+      zPC (cb + n2w (2 * s1.pc)) * ~zS)
+     ((cb + n2w (2 * s1.pc), xs) INSERT code_abbrevs cs)
+     (post \/
+      zHEAP_ERROR cs)) ==>
+    SPEC X64_MODEL
+     (zBC_HEAP s1 (x,cs,stack,s,out) (cb,sb,ev,f2) *
+      zPC (cb + n2w (2 * s1.pc)) * ~zS)
+     ((cb + n2w (2 * s1.pc), small_offset16 n xs) INSERT code_abbrevs cs)
+     (post \/
+      zHEAP_ERROR cs)``,
+  REPEAT STRIP_TAC \\ SIMP_TAC std_ss [small_offset16_def]
+  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss []
+  \\ SIMP_TAC std_ss [x64_def,LET_DEF] \\ REPEAT STRIP_TAC
+  \\ SIMP_TAC (srw_ss()) [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,MAP_APPEND,MAP]
+  \\ SIMP_TAC std_ss [APPEND,HD,TL,SEP_CLAUSES,GSYM SPEC_PRE_EXISTS]
+  \\ REPEAT STRIP_TAC \\ SIMP_TAC (srw_ss()) []
+  \\ MATCH_MP_TAC (MATCH_MP SPEC_WEAKEN (prepare zBC_Error16) |> SPEC_ALL
+                |> DISCH_ALL |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO]
+                |> Q.INST [`base`|->`cb`])
+  \\ FULL_SIMP_TAC (srw_ss()) [SEP_IMP_def,SEP_DISJ_def,SEP_EXISTS_THM]);
+
 val EXISTS_NOT_FDOM_NUM = prove(
   ``!f. ?m:num. ~(m IN FDOM f)``,
   METIS_TAC [IN_INFINITE_NOT_FINITE,FDOM_FINITE,INFINITE_NUM_UNIV]);
@@ -12394,7 +12541,7 @@ val zBC_HEAP_THM = prove(
          INSERT code_abbrevs cs)
         (zBC_HEAP s2 (x,cs,stack,s,out) (cb,sb,ev,f2) *
          zPC (cb + n2w (2 * s2.pc)) * ~zS \/
-         zHEAP_ERROR cs)``,
+          zHEAP_ERROR cs)``,
 
   STRIP_TAC \\ HO_MATCH_MP_TAC bc_next_ind \\ REPEAT STRIP_TAC
   \\ TRY (Cases_on `b:bc_stack_op`)
@@ -12407,6 +12554,12 @@ val zBC_HEAP_THM = prove(
   \\ Q.PAT_ASSUM `bc_fetch s1 = SOME xx` MP_TAC
   \\ SIMP_TAC std_ss [x64_def,LET_DEF] \\ REPEAT STRIP_TAC
   \\ NTAC 3 (TRY (MATCH_MP_TAC IMP_small_offset \\ REPEAT STRIP_TAC
+                  \\ TRY (SRW_TAC [] [output_simp] \\ NO_TAC)))
+  \\ NTAC 3 (TRY (MATCH_MP_TAC IMP_small_offset6 \\ REPEAT STRIP_TAC
+                  \\ TRY (SRW_TAC [] [output_simp] \\ NO_TAC)))
+  \\ NTAC 3 (TRY (MATCH_MP_TAC IMP_small_offset12 \\ REPEAT STRIP_TAC
+                  \\ TRY (SRW_TAC [] [output_simp] \\ NO_TAC)))
+  \\ NTAC 3 (TRY (MATCH_MP_TAC IMP_small_offset16 \\ REPEAT STRIP_TAC
                   \\ TRY (SRW_TAC [] [output_simp] \\ NO_TAC)))
   THEN1 (* Pop *)
    (SIMP_TAC (srw_ss()) [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,MAP_APPEND,MAP]
@@ -12867,7 +13020,7 @@ val zBC_HEAP_THM = prove(
     \\ Q.PAT_ASSUM `n' = n` ASSUME_TAC
     \\ FULL_SIMP_TAC std_ss [APPEND,TL,HD,x64_length_def,x64_def,
          LENGTH,x64_inst_length_def,LEFT_ADD_DISTRIB,word_arith_lemma1,
-         small_offset_def,LET_DEF,GSYM ADD_ASSOC])
+         small_offset12_def,LET_DEF,GSYM ADD_ASSOC])
   THEN1 (* Call -- Lab *) ERROR_TAC
   THEN1 (* Call -- Addr *)
    (SIMP_TAC std_ss [x64_def,bump_pc_def,zBC_HEAP_def,LET_DEF,MAP_APPEND,MAP]
@@ -12984,7 +13137,7 @@ val zBC_HEAP_THM = prove(
     \\ FULL_SIMP_TAC std_ss [LEFT_ADD_DISTRIB,GSYM word_add_n2w]
     \\ Q.PAT_ASSUM `n' = n` ASSUME_TAC \\ FULL_SIMP_TAC std_ss []
     \\ FULL_SIMP_TAC std_ss [x64_inst_length_def,x64_length_def,x64_def,
-         small_offset_def,LET_DEF,LENGTH,IMM32_def,word_arith_lemma1]
+         small_offset16_def,LET_DEF,LENGTH,IMM32_def,word_arith_lemma1]
     \\ DISJ1_TAC
     \\ Q.PAT_ABBREV_TAC `pat = tt ++ Number 0::stack`
     \\ `HD pat :: TL pat = pat` by ALL_TAC THEN1
