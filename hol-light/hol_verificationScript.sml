@@ -1516,6 +1516,51 @@ val get_const_type_Equal = prove(
   fs[Abbr`l2`] >>
   METIS_TAC[]);
 
+val get_const_type_Select = prove(
+  ``STATE s defs ==>
+    (get_const_type "@" s = (HolRes (fun (fun aty bool_ty) aty),s))``,
+  SIMP_TAC std_ss [STATE_def]
+  \\ Cases_on `get_const_type "@" s`
+  \\ IMP_RES_TAC get_const_type_thm \\ REPEAT STRIP_TAC
+  \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
+   (FULL_SIMP_TAC std_ss [consts_def]
+    \\ `?x. MEM ("@",x) (MAP (\(name,ty). (name,hol_ty ty))
+        s.the_term_constants)` by ALL_TAC THEN1
+     (POP_ASSUM (ASSUME_TAC o GSYM) \\ ASM_SIMP_TAC std_ss []
+      \\ SRW_TAC [] [] \\ METIS_TAC [])
+    \\ FULL_SIMP_TAC std_ss [MEM_MAP] \\ Cases_on `y`
+    \\ FULL_SIMP_TAC std_ss [] \\ METIS_TAC [])
+  \\ FULL_SIMP_TAC std_ss [consts_def] >>
+  `!a. ~MEM ("@",a) (FLAT (MAP consts_aux (hol_defs defs)))` by (
+    qx_gen_tac`z` >>
+    spose_not_then STRIP_ASSUME_TAC >>
+    qmatch_assum_abbrev_tac`l1 ++ l2 = MAP f l3` >>
+    `MAP FST l3 = MAP FST (MAP f l3)` by (
+      simp[Abbr`f`,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_pair] ) >>
+    `ALL_DISTINCT (MAP FST (l1 ++ l2))` by METIS_TAC[] >>
+    fs[ALL_DISTINCT_APPEND] >>
+    pop_assum(qspec_then`"@"`mp_tac) >>
+    simp[MEM_MAP,EXISTS_PROD,Abbr`l2`] >>
+    METIS_TAC[] ) >>
+  qsuff_tac`hol_ty a = typeof (Select α)` >- (
+    simp[] >>
+    Cases_on`a`>>simp[hol_ty_def] >>
+    Cases_on`l`>>simp[]>>
+    Cases_on`h`>>simp[hol_ty_def]>>
+    Cases_on`t`>>simp[]>>
+    Cases_on`h`>>simp[hol_ty_def]>>
+    Cases_on`l`>>simp[]>>
+    Cases_on`h`>>simp[hol_ty_def]>>
+    Cases_on`t`>>simp[]>>
+    Cases_on`h`>>simp[hol_ty_def]) >>
+  qmatch_assum_abbrev_tac`l1 ++ l2 = MAP f l3` >>
+  `MEM ("@",hol_ty a) (l1 ++ l2)` by (
+    asm_simp_tac std_ss [] >>
+    simp[MEM_MAP,Abbr`f`,EXISTS_PROD] >>
+    METIS_TAC[] ) >>
+  fs[Abbr`l2`] >>
+  METIS_TAC[]);
+
 val mk_const_eq = prove(
   ``STATE s defs ==>
     (mk_const ("=",[]) s =
@@ -2849,6 +2894,7 @@ val INST_thm = store_thm("INST_thm",
 (* Verification of definition functions                                      *)
 (* ------------------------------------------------------------------------- *)
 
+(*
 val TYPE_CONS = prove(
   ``!ty. TYPE defs ty ==> TYPE (d::defs) ty``,
   cheat);
@@ -2966,27 +3012,24 @@ val new_axiom_thm = store_thm("new_axiom_thm",
   \\ MATCH_MP_TAC TERM_CONS \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC std_ss [hol_defs_def,context_ok]);
 *)
+*)
 
 val freesin_IMP = prove(
   ``!rhs vars.
        freesin vars rhs /\ TERM defs rhs /\ VFREE_IN (Var x ty) (hol_tm rhs) ==>
        ?oty. (hol_ty oty = ty) /\ MEM (Var x oty) vars``,
-  cheat);
-(*
   Induct \\ SIMP_TAC (srw_ss()) [Once freesin_def,hol_tm_def]
-  THEN1 (SIMP_TAC std_ss [VFREE_IN,term_11] \\ METIS_TAC [])
-  THEN1 (SRW_TAC [] [VFREE_IN,term_distinct])
+  THEN1 (SIMP_TAC std_ss [VFREE_IN_def,term_11] \\ METIS_TAC [])
   THEN1 (REPEAT STRIP_TAC \\ IMP_RES_TAC TERM
-         \\ FULL_SIMP_TAC std_ss [hol_tm_def,CLOSED_def,VFREE_IN])
+         \\ FULL_SIMP_TAC std_ss [hol_tm_def,CLOSED_def,VFREE_IN_def])
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC Abs_Var
   \\ FULL_SIMP_TAC std_ss [] \\ POP_ASSUM (K ALL_TAC)
-  \\ FULL_SIMP_TAC std_ss [CLOSED_def,hol_tm_def,VFREE_IN]
+  \\ FULL_SIMP_TAC std_ss [CLOSED_def,hol_tm_def,VFREE_IN_def]
   \\ IMP_RES_TAC TERM
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `(Var s ty'::vars)`)
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
   \\ Q.EXISTS_TAC `oty` \\ FULL_SIMP_TAC std_ss [MEM]
   \\ FULL_SIMP_TAC (srw_ss()) [term_11]);
-*)
 
 val IMP_CLOSED = prove(
   ``!rhs. freesin [] rhs /\ TERM defs rhs ==> CLOSED (hol_tm rhs)``,
@@ -3043,12 +3086,12 @@ val new_basic_definition_thm = store_thm("new_basic_definition_thm",
   \\ Cases_on `mk_eq (Const name ty,rhs) s2`
   \\ `term_type (Const name ty) = term_type rhs` by ALL_TAC THEN1
    (SIMP_TAC (srw_ss()) [Once term_type_def] \\ IMP_RES_TAC TERM
-    \\ FULL_SIMP_TAC std_ss [typeof,hol_tm_def]
+    \\ FULL_SIMP_TAC std_ss [typeof_def,hol_tm_def]
     \\ IMP_RES_TAC term_type
-    \\ FULL_SIMP_TAC std_ss [TERM_def,welltyped_in,
-         WELLTYPED_CLAUSES,typeof,codomain,type_11]
-    \\ Q.PAT_ASSUM `hol_ty (term_type rhs) = typeof (hol_tm rhs)` (ASSUME_TAC o GSYM)
-    \\ FULL_SIMP_TAC std_ss [] \\ METIS_TAC [TYPE_11])
+    >> fs[TERM_def,hol_tm_def,term_type_Var,term_ok_Var,term_ok_Comb]
+    \\ FULL_SIMP_TAC std_ss [TERM_def,
+         WELLTYPED_CLAUSES,typeof_def,codomain_def,type_11]
+    \\ METIS_TAC [TYPE_11])
   \\ `(typeof (hol_tm rhs) = hol_ty ty)` by ALL_TAC THEN1
    (POP_ASSUM (MP_TAC o GSYM) \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
     \\ IMP_RES_TAC (GSYM term_type) \\ FULL_SIMP_TAC std_ss []
@@ -3056,16 +3099,21 @@ val new_basic_definition_thm = store_thm("new_basic_definition_thm",
   \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `name = "="` THEN1
    (`F` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
-    \\ Q.PAT_ASSUM `STATE s defs` MP_TAC
-    \\ SIMP_TAC std_ss [STATE_def,LET_DEF] \\ CCONTR_TAC
-    \\ FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC std_ss []
-    \\ FULL_SIMP_TAC (srw_ss()) [MEM_APPEND,MEM] \\ METIS_TAC [])
+    imp_res_tac get_const_type_Equal >>
+    fs[] ) >>
   \\ Cases_on `name = "@"` THEN1
    (`F` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
-    \\ Q.PAT_ASSUM `STATE s defs` MP_TAC
-    \\ SIMP_TAC std_ss [STATE_def,LET_DEF] \\ CCONTR_TAC
-    \\ FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC std_ss []
-    \\ FULL_SIMP_TAC (srw_ss()) [MEM_APPEND,MEM] \\ METIS_TAC [])
+    imp_res_tac get_const_type_Select >>
+    fs[] ) >>
+  discharge_hyps >- (
+    simp[CONJ_COMM,Once CONJ_ASSOC] >>
+    conj_asm1_tac >- (
+      fs[STATE_def,Abbr`s2`]
+      simp[TERM_def,hol_tm_def] >>
+      simp[Once proves_cases]
+    STATE_def
+  Cases_on`q`>>simp[]
+
   \\ `def_ok (hol_def (Constdef name rhs)) (hol_defs defs)` by ALL_TAC THEN1
    (IMP_RES_TAC IMP_CLOSED
     \\ FULL_SIMP_TAC std_ss [hol_def_def,hol_defs_def,HD,def_ok]

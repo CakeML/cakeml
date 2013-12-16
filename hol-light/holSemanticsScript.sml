@@ -2246,4 +2246,68 @@ val consistency = store_thm("consistency",
   simp[Once term_cases] >>
   METIS_TAC[consistency])
 
+(*
+val proves_cons_def = store_thm("proves_cons_def",
+  ``∀defs h c d. (defs,h) |- c ⇒ context_ok (d::defs) ⇒ (d::defs,h) |- c``,
+  rw[] >>
+  Cases_on`d` >- (
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,23)) >>
+    imp_res_tac proves_IMP >>
+    fs[def_ok_def,deftm_def,pred_setTheory.SUBSET_DEF,good_defs_def]
+
+val proves_append_defs = store_thm("proves_append_defs",
+  ``(∀defs ty. type_ok defs ty ⇒ ∀d. context_ok (d++defs) ⇒ type_ok (d++defs) ty) ∧
+    (∀defs tm. term_ok defs tm ⇒ ∀d. context_ok (d++defs) ⇒ term_ok (d++defs) tm) ∧
+    (∀defs. context_ok defs ⇒ ∀n. context_ok (DROP n defs)) ∧
+    (∀dh c. dh |- c ⇒ (∀n. context_ok (DROP n (FST dh))) ∧ ∀d. context_ok (d++(FST dh)) ⇒ (d++(FST dh),SND dh) |- c)``,
+  HO_MATCH_MP_TAC holSyntaxTheory.proves_strongind >>
+  conj_tac >- ( rw[] >> simp[Once term_cases,Once proves_cases] ) >>
+  conj_tac >- ( rw[] >> simp[Once term_cases,Once proves_cases] ) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,2)) >> METIS_TAC[]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,3)) >> METIS_TAC[]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,4)) >> METIS_TAC[]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,5)) >> METIS_TAC[WELLTYPED_CLAUSES]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,6)) >> METIS_TAC[]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,7)) >> METIS_TAC[]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,8)) >> METIS_TAC[]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,9)) >> METIS_TAC[]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,10)) >> METIS_TAC[MEM]) >>
+  conj_tac >- ( rw[] >> MATCH_ACCEPT_TAC(List.nth(CONJUNCTS proves_rules,11))) >>
+  conj_tac >- rw[] >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,13)) >> METIS_TAC[]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,14)) >> METIS_TAC[]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,15)) >> METIS_TAC[WELLTYPED_CLAUSES]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,16)) >> METIS_TAC[NOT_EXISTS]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,17)) >> METIS_TAC[]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,18)) >> METIS_TAC[]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,19)) >> METIS_TAC[]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,20)) >> METIS_TAC[]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,21)) >> METIS_TAC[]) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,22)) >> METIS_TAC[]) >>
+  conj_tac >- (
+    rw[] >- (
+      rw[] >>
+      match_mp_tac(List.nth(CONJUNCTS proves_rules,12)) >>
+      map_every qexists_tac[`asl`,`c`] >>
+      match_mp_tac(List.nth(CONJUNCTS proves_rules,23)) >>
+      simp[] ) >>
+    METIS_TAC[rich_listTheory.CONS_APPEND,APPEND_ASSOC] ) >>
+  conj_tac >- ( rw[] >> match_mp_tac(List.nth(CONJUNCTS proves_rules,24)) >> simp[] ) >>
+  conj_tac >- (
+    rw[] >> rw[] >>
+    TRY (
+      match_mp_tac(List.nth(CONJUNCTS proves_rules,12)) >>
+      map_every qexists_tac[`[]`,`Comb t y`] >>
+      match_mp_tac(List.nth(CONJUNCTS proves_rules,25)) >>
+      simp[] >>
+      METIS_TAC[] )
+    >- METIS_TAC[rich_listTheory.CONS_APPEND,APPEND_ASSOC] >>
+    Induct_on`d'`>>rw[]
+
+    qmatch_abbrev_tac`p1 ∨ p2 ∨ p3 ⇒ q` >>
+    strip_tac >> qunabbrev_tac`q` >>
+    rpt strip_tac >>
+    match_mp_tac(List.nth(CONJUNCTS proves_rules,25)) 
+*)
+
 val _ = export_theory()
