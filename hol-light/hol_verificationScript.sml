@@ -2531,8 +2531,6 @@ val MK_COMB_thm = store_thm("MK_COMB_thm",
   ``THM defs th1 /\ THM defs th2 /\ STATE s defs /\
     (MK_COMB (th1,th2) s = (res, s')) ==>
     (s' = s) /\ !th. (res = HolRes th) ==> THM defs th``,
-  cheat);
-(*
   Cases_on `th1` \\ Cases_on `th2` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [MK_COMB_def]
   \\ BasicProvers.EVERY_CASE_TAC
@@ -2559,26 +2557,24 @@ val MK_COMB_thm = store_thm("MK_COMB_thm",
   \\ FULL_SIMP_TAC std_ss [THM_def]
   \\ SIMP_TAC (srw_ss()) [Once proves_cases,term_11,type_11,term_distinct]
   \\ NTAC 2 DISJ2_TAC \\ DISJ1_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [hol_tm_def,hol_ty_def,domain,equation,term_11]
+  \\ FULL_SIMP_TAC (srw_ss()) [hol_tm_def,hol_ty_def,equation_def,term_11]
   \\ Q.LIST_EXISTS_TAC [`MAP hol_tm l`,`MAP hol_tm l'`]
   \\ STRIP_TAC THEN1 (MATCH_MP_TAC term_union_thm \\ FULL_SIMP_TAC std_ss [])
   \\ FULL_SIMP_TAC std_ss []
-  \\ STRIP_TAC THEN1 (IMP_RES_TAC term_type \\ FULL_SIMP_TAC std_ss [hol_tm_def] \\ SRW_TAC[][typeof])
-  \\ REVERSE (REPEAT STRIP_TAC)
-  THEN1 (FULL_SIMP_TAC std_ss [TERM_def,welltyped_in,hol_tm_def,WELLTYPED_CLAUSES] \\ METIS_TAC[])
-  \\ IMP_RES_TAC Equal_type \\ FULL_SIMP_TAC (srw_ss()) [hol_ty_def,domain]
+  \\ STRIP_TAC THEN1 (IMP_RES_TAC term_type \\ FULL_SIMP_TAC std_ss [hol_tm_def] \\ SRW_TAC[][typeof_def])
+  >> rpt BasicProvers.VAR_EQ_TAC
+  >> qpat_assum`TERM x (Comb f1 x1)`mp_tac >> simp[TERM_Comb] >> strip_tac >>
+  qspecl_then[`defs`,`f1`]mp_tac term_type >> simp[] >> strip_tac
+  \\ IMP_RES_TAC Equal_type \\ FULL_SIMP_TAC (srw_ss()) [hol_ty_def]
   \\ IMP_RES_TAC Equal_type_IMP \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC std_ss [WELLTYPED_CLAUSES]
-  \\ SRW_TAC[][]
-  \\ FULL_SIMP_TAC std_ss [TERM_def,welltyped_in]);
-*)
+  \\ imp_res_tac term_type
+  \\ FULL_SIMP_TAC std_ss [TERM_def,hol_tm_def] >>
+  METIS_TAC[term_ok_welltyped]);
 
 val ABS_thm = store_thm("ABS_thm",
   ``TERM defs tm /\ THM defs th1 /\ STATE s defs /\
     (ABS tm th1 s = (res, s')) ==>
     (s' = s) /\ !th. (res = HolRes th) ==> THM defs th``,
-  cheat);
-(*
   Cases_on `th1` \\ SIMP_TAC std_ss [ABS_def] \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ Cases_on `h` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
   \\ Cases_on `h'` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
@@ -2613,19 +2609,18 @@ val ABS_thm = store_thm("ABS_thm",
   \\ FULL_SIMP_TAC std_ss [THM_def]
   \\ SIMP_TAC (srw_ss()) [Once proves_cases,term_11,type_11,term_distinct]
   \\ NTAC 3 DISJ2_TAC \\ DISJ1_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [hol_tm_def,hol_ty_def,domain,equation,term_11]
-  \\ SIMP_TAC (srw_ss()) [typeof]
+  \\ FULL_SIMP_TAC (srw_ss()) [hol_tm_def,hol_ty_def,equation_def,term_11]
+  \\ SIMP_TAC (srw_ss()) [typeof_def]
   \\ IMP_RES_TAC Abs_Var \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC std_ss [hol_tm_def,term_11]
   \\ SIMP_TAC (srw_ss()) [Once term_type_def,hol_ty_def,type_11]
   \\ IMP_RES_TAC Equal_type \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ IMP_RES_TAC Equal_type_IMP \\ FULL_SIMP_TAC (srw_ss()) [hol_ty_def,domain]
+  \\ IMP_RES_TAC Equal_type_IMP \\ FULL_SIMP_TAC (srw_ss()) [hol_ty_def]
   \\ STRIP_TAC THEN1 (IMP_RES_TAC term_type \\ FULL_SIMP_TAC std_ss [])
   \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss [TYPE_def]
   \\ FULL_SIMP_TAC std_ss [EVERY_MEM,MEM_MAP,PULL_EXISTS]
   \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ IMP_RES_TAC TERM \\ IMP_RES_TAC VFREE_IN_IMP);
-*)
 
 val BETA_thm = store_thm("BETA_thm",
   ``TERM defs tm /\ STATE s defs /\
