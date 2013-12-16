@@ -1,7 +1,6 @@
 open HolKernel Parse boolLib bossLib lcsymtacs miscLib miscTheory;
-open alistTheory hol_kernelTheory holSemanticsTheory holSyntaxTheory
-     listTheory arithmeticTheory combinTheory pairTheory monadsyntax
-
+open alistTheory hol_kernelTheory holSemanticsTheory holSyntaxLibTheory
+holSyntaxTheory listTheory arithmeticTheory combinTheory pairTheory monadsyntax
 
 val _ = new_theory "hol_verification";
 
@@ -407,7 +406,7 @@ val MEM_types_Typedef = store_thm("MEM_types_Typedef",
 val MEM_Typedef_MEM_consts_type = store_thm("MEM_Typedef_MEM_consts_type",
   ``∀defs n tm a r. MEM (Typedef n tm a r) defs ⇒
     let rty = domain (typeof tm) in
-    let aty = holSyntax$Tyapp n (MAP holSyntax$Tyvar (holSyntax$STRING_SORT (tvars tm))) in
+    let aty = holSyntax$Tyapp n (MAP holSyntax$Tyvar (STRING_SORT (tvars tm))) in
     MEM (a,Fun rty aty) (FLAT (MAP consts_aux defs)) ∧
     MEM (r,Fun aty rty) (FLAT (MAP consts_aux defs))``,
   Induct >> simp[] >>
@@ -426,15 +425,6 @@ val INST_HAS_TYPE = store_thm("INST_HAS_TYPE",
   imp_res_tac holSyntaxTheory.WELLTYPED_LEMMA >>
   simp[] >>
   simp[REV_ASSOCD] >> rw[] >> rw[])
-
-val REV_ASSOCD_sREV_ASSOCD = prove(
-  ``holSyntax$REV_ASSOCD = sholSyntax$REV_ASSOCD``,
-  simp[FUN_EQ_THM] >>
-  CONV_TAC SWAP_FORALL_CONV >>
-  Induct >>
-  simp[sholSyntaxTheory.REV_ASSOCD,holSyntaxTheory.REV_ASSOCD] >>
-  Cases >>
-  simp[sholSyntaxTheory.REV_ASSOCD,holSyntaxTheory.REV_ASSOCD])
 
 val INST_CORE_NIL_is_Result = store_thm("INST_CORE_NIL_is_Result",
   ``∀tyin tm. welltyped tm ⇒ ∃r. holSyntax$INST_CORE [] tyin tm = Result r``,
@@ -479,7 +469,7 @@ val TYPE_Tyapp = prove(
     srw_tac[boolSimps.DNF_ss][] >>
     HINT_EXISTS_TAC >>
     simp[deftm_def] ) >>
-  qabbrev_tac`tyin = ZIP(hargs,MAP holSyntax$Tyvar (holSyntax$STRING_SORT(tvars t)))` >>
+  qabbrev_tac`tyin = ZIP(hargs,MAP holSyntax$Tyvar (STRING_SORT(tvars t)))` >>
   qexists_tac`TYPE_SUBST tyin rty` >>
   simp[Once proves_cases] >>
   disj1_tac >>
@@ -491,7 +481,7 @@ val TYPE_Tyapp = prove(
     simp[Abbr`hargs`,Abbr`vargs`] >>
     simp[LIST_EQ_REWRITE,EL_MAP] >>
     simp[Abbr`tyin`] >>
-    simp[REV_ASSOCD_sREV_ASSOCD,sholSyntaxExtraTheory.REV_ASSOCD_ALOOKUP] >>
+    simp[REV_ASSOCD_ALOOKUP] >>
     simp[ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF] >>
     rw[] >>
     BasicProvers.CASE_TAC >- (
@@ -747,90 +737,6 @@ val THM = prove(
   \\ Q.LIST_EXISTS_TAC [`MAP hol_tm asl`,`hol_tm c`]
   \\ FULL_SIMP_TAC std_ss [MEM,MEM_MAP] \\ METIS_TAC []);
 
-val LENGTH_EQ_FILTER_FILTER = prove(
-  ``!xs. EVERY (\x. (P x \/ Q x) /\ ~(P x /\ Q x)) xs ==>
-         (LENGTH xs = LENGTH (FILTER P xs) + LENGTH (FILTER Q xs))``,
-  Induct \\ SIMP_TAC std_ss [LENGTH,FILTER,EVERY_DEF] \\ STRIP_TAC
-  \\ Cases_on `P h` \\ FULL_SIMP_TAC std_ss [LENGTH,ADD_CLAUSES]);
-
-val LENGTH_INORDER_INSERT = prove(
-  ``!xs. ALL_DISTINCT (x::xs) ==> (LENGTH (INORDER_INSERT x xs) = SUC (LENGTH xs))``,
-  FULL_SIMP_TAC std_ss [INORDER_INSERT_def,LENGTH_APPEND,LENGTH]
-  \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT] \\ REPEAT STRIP_TAC
-  \\ ONCE_REWRITE_TAC [DECIDE ``1 + n = SUC n``]
-  \\ FULL_SIMP_TAC std_ss [GSYM ADD1,ADD_CLAUSES]
-  \\ MATCH_MP_TAC (GSYM LENGTH_EQ_FILTER_FILTER)
-  \\ FULL_SIMP_TAC std_ss [EVERY_MEM] \\ REPEAT STRIP_TAC
-  \\ Q.MATCH_ASSUM_RENAME_TAC `MEM y xs` []
-  \\ FULL_SIMP_TAC std_ss []
-  \\ Cases_on `x = y` \\ FULL_SIMP_TAC std_ss []
-  \\ METIS_TAC [stringTheory.string_lt_cases,stringTheory.string_lt_antisym]);
-
-val ALL_DISTINCT_FILTER = prove(
-  ``!xs P. ALL_DISTINCT xs ==> ALL_DISTINCT (FILTER P xs)``,
-  Induct \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT,FILTER] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [] \\ SRW_TAC [] [MEM_FILTER]);
-
-val ALL_DISTINCT_INORDER_INSERT = prove(
-  ``!xs h. ALL_DISTINCT xs ==> ALL_DISTINCT (INORDER_INSERT h xs)``,
-  FULL_SIMP_TAC (srw_ss()) [ALL_DISTINCT,INORDER_INSERT_def,
-    ALL_DISTINCT_APPEND,MEM_FILTER] \\ REPEAT STRIP_TAC
-  \\ TRY (MATCH_MP_TAC ALL_DISTINCT_FILTER)
-  \\ FULL_SIMP_TAC (srw_ss()) [stringTheory.string_lt_nonrefl]
-  \\ METIS_TAC [stringTheory.string_lt_antisym]);
-
-val ALL_DISTINCT_FOLDR_INORDER_INSERT = prove(
-  ``!xs. ALL_DISTINCT (FOLDR INORDER_INSERT [] xs)``,
-  Induct \\ SIMP_TAC std_ss [ALL_DISTINCT,FOLDR] \\ REPEAT STRIP_TAC
-  \\ MATCH_MP_TAC ALL_DISTINCT_INORDER_INSERT \\ FULL_SIMP_TAC std_ss []);
-
-val MEM_FOLDR_INORDER_INSERT = prove(
-  ``!xs x. MEM x (FOLDR INORDER_INSERT [] xs) = MEM x xs``,
-  Induct \\ FULL_SIMP_TAC std_ss [FOLDR,INORDER_INSERT_def,MEM,MEM_APPEND,
-    MEM_FILTER] \\ METIS_TAC [stringTheory.string_lt_cases]);
-
-val LENGTH_STRING_SORT = prove(
-  ``!xs. ALL_DISTINCT xs ==> (LENGTH (STRING_SORT xs) = LENGTH xs)``,
-  Induct \\ FULL_SIMP_TAC std_ss [STRING_SORT_def,FOLDR,LENGTH_INORDER_INSERT,LENGTH]
-  \\ REPEAT STRIP_TAC  \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT]
-  \\ IMP_RES_TAC LENGTH_INORDER_INSERT
-  \\ `ALL_DISTINCT (h::FOLDR INORDER_INSERT [] xs)` by ALL_TAC
-  THEN1 (FULL_SIMP_TAC std_ss [ALL_DISTINCT,ALL_DISTINCT_FOLDR_INORDER_INSERT,
-           MEM_FOLDR_INORDER_INSERT])
-  \\ IMP_RES_TAC LENGTH_INORDER_INSERT
-  \\ FULL_SIMP_TAC std_ss []);
-
-val ALL_DISTINCT_STRING_UNION = prove(
-  ``!xs ys. ALL_DISTINCT xs /\ ALL_DISTINCT ys ==>
-            ALL_DISTINCT (LIST_UNION xs ys)``,
-  Induct \\ FULL_SIMP_TAC std_ss [LIST_UNION_def,FOLDR]
-  \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [LIST_INSERT_def] \\ SRW_TAC [] []);
-
-val IS_CLASH_IMP = prove(
-  ``!x. IS_CLASH x ==> !tm. ~(x = Result tm)``,
-  Cases \\ FULL_SIMP_TAC std_ss [result_distinct,IS_RESULT_def,IS_CLASH_def]);
-
-val NOT_IS_CLASH_IMP = prove(
-  ``!x. ~IS_CLASH x ==> !tm. ~(x = Clash tm)``,
-  Cases \\ FULL_SIMP_TAC std_ss [result_distinct,IS_RESULT_def,IS_CLASH_def]);
-
-val IS_RESULT_IMP = prove(
-  ``!x. IS_RESULT x ==> (!tm. ~(x = Clash tm))``,
-  Cases \\ FULL_SIMP_TAC std_ss [result_distinct,IS_RESULT_def,IS_CLASH_def]);
-
-val NOT_IS_RESULT_IMP_Clash = prove(
-  ``!x. ~IS_RESULT x ==> ?var. x = Clash var``,
-  Cases \\ FULL_SIMP_TAC (srw_ss()) [result_distinct,IS_RESULT_def,IS_CLASH_def]);
-
-val IS_RESULT_IMP_Result = prove(
-  ``!x. IS_RESULT x ==> ?res. x = Result res``,
-  Cases \\ FULL_SIMP_TAC (srw_ss()) [result_distinct,IS_RESULT_def,IS_CLASH_def]);
-
-val NOT_IS_CLASH_IMP_Result = prove(
-  ``!x. ~IS_CLASH x ==> ?res. x = Result res``,
-  Cases \\ FULL_SIMP_TAC (srw_ss()) [result_distinct,IS_RESULT_def,IS_CLASH_def]);
-
 val type_IND = prove(
   ``!P. (!v. P (Tyvar v)) /\ (!op tys. EVERY P tys ==> P (Tyapp op tys)) ==>
         (!ty. P (ty:hol_type))``,
@@ -844,12 +750,6 @@ val type_IND = prove(
   \\ Induct \\ SIMP_TAC std_ss [MEM,hol_type_size_def]
   \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ FULL_SIMP_TAC std_ss [hol_type_size_def] \\ DECIDE_TAC);
-
-val MAP_EQ_MAP_IMP = prove(
-  ``!xs ys f.
-      (!x y. MEM x xs /\ MEM y ys /\ (f x = f y) ==> (x = y)) ==>
-      (MAP f xs = MAP f ys) ==> (xs = ys)``,
-  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) [MAP] \\ METIS_TAC []);
 
 val INST_CORE_LEMMA =
   INST_CORE_HAS_TYPE |> Q.SPECL [`sizeof tm`,`tm`,`[]`,`tyin`]
@@ -1094,15 +994,15 @@ val term_ok_IMP_type_ok = prove(
 val ALL_DISTINCT_tyvars = prove(
   ``!ty. ALL_DISTINCT (holSyntax$tyvars ty)``,
   HO_MATCH_MP_TAC type_INDUCT_ALT
-  \\ FULL_SIMP_TAC (srw_ss()) [tyvars,ALL_DISTINCT,ALL_DISTINCT_STRING_UNION]
+  \\ FULL_SIMP_TAC (srw_ss()) [tyvars,ALL_DISTINCT,ALL_DISTINCT_LIST_UNION]
   \\ Induct \\ FULL_SIMP_TAC std_ss [FOLDR,ALL_DISTINCT]
-  \\ REPEAT STRIP_TAC \\ MATCH_MP_TAC ALL_DISTINCT_STRING_UNION
+  \\ REPEAT STRIP_TAC \\ MATCH_MP_TAC ALL_DISTINCT_LIST_UNION
   \\ FULL_SIMP_TAC std_ss [EVERY_DEF]);
 
 val ALL_DISTINCT_tvars = prove(
   ``!tm. ALL_DISTINCT (tvars tm)``,
   HO_MATCH_MP_TAC term_INDUCT
-  \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_tyvars,tvars,ALL_DISTINCT_STRING_UNION]);
+  \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_tyvars,tvars,ALL_DISTINCT_LIST_UNION]);
 
 val EVERY_TERM_UNION = prove(
   ``!x y P. EVERY P x /\ EVERY P y ==> EVERY P (TERM_UNION x y)``,
@@ -1217,30 +1117,16 @@ val MEM_union = prove(
   \\ ONCE_REWRITE_TAC [itlist_def] \\ SRW_TAC [] [insert_def]
   \\ METIS_TAC []);
 
-val MEM_LIST_UNION = prove(
-  ``!xs ys x. MEM x (holSyntax$LIST_UNION xs ys) <=> MEM x xs \/ MEM x ys``,
-  Induct \\ FULL_SIMP_TAC std_ss [LIST_UNION_def]
-  \\ ONCE_REWRITE_TAC [FOLDR] \\ SRW_TAC [] [LIST_INSERT_def]
-  \\ METIS_TAC []);
-
-val FOLDR_MAP = prove(
-  ``!xs b. FOLDR f b (MAP g xs) = FOLDR (f o g) b xs ``,
-  Induct \\ FULL_SIMP_TAC std_ss [MAP,FOLDR]);
-
 val tyvars_thm = prove(
   ``!ty s. MEM s (tyvars ty) = MEM s (tyvars (hol_ty ty))``,
   HO_MATCH_MP_TAC hol_kernelTheory.tyvars_ind \\ REPEAT STRIP_TAC
   \\ Cases_on `ty` \\ FULL_SIMP_TAC (srw_ss()) [type_11,type_distinct]
   \\ SIMP_TAC (srw_ss()) [Once hol_kernelTheory.tyvars_def,
        Once holSyntaxTheory.tyvars_def,hol_ty_def]
-  \\ FULL_SIMP_TAC std_ss [FOLDR_MAP]
+  \\ FULL_SIMP_TAC std_ss [rich_listTheory.FOLDR_MAP]
   \\ Induct_on `l`
   \\ SIMP_TAC (srw_ss()) [Once itlist_def,FOLDR,MEM_union,MEM_LIST_UNION]
   \\ METIS_TAC []);
-
-val IMP_MAP_EQ = prove(
-  ``!xs f g. (!x. MEM x xs ==> (f x = g x)) ==> (MAP f xs = MAP g xs)``,
-  Induct \\ SRW_TAC [] []);
 
 val type_subst_thm = store_thm("type_subst",
   ``!i ty.
@@ -1269,7 +1155,7 @@ val type_subst_thm = store_thm("type_subst",
   \\ FULL_SIMP_TAC std_ss [TYPE_SUBST_def,type_11]
   \\ MATCH_MP_TAC (METIS_PROVE [] ``c /\ (c ==> b) ==> c /\ b``)
   \\ STRIP_TAC THEN1
-   (SIMP_TAC std_ss [MAP_MAP_o,o_DEF] \\ MATCH_MP_TAC IMP_MAP_EQ
+   (SIMP_TAC std_ss [MAP_MAP_o,o_DEF] \\ MATCH_MP_TAC (GEN_ALL (snd (EQ_IMP_RULE (SPEC_ALL MAP_EQ_f))))
     \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [])
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ SIMP_TAC std_ss [GSYM TYPE_SUBST_def]
@@ -1389,7 +1275,7 @@ val alphavars_thm = prove(
   ``!env.
       STATE s defs /\ TERM defs tm1 /\ TERM defs tm2 /\
       EVERY (\(v1,v2). TERM defs v1 /\ TERM defs v2) env ==>
-      (alphavars env tm1 tm2 = holSyntax$ALPHAVARS
+      (alphavars env tm1 tm2 = ALPHAVARS
          (MAP (\(v1,v2). (hol_tm v1, hol_tm v2)) env) (hol_tm tm1, hol_tm tm2))``,
   Induct \\ SIMP_TAC (srw_ss()) [Once alphavars_def,ALPHAVARS_def]
   THEN1 METIS_TAC [TERM_11] \\ Cases \\ FULL_SIMP_TAC (srw_ss()) []
@@ -2219,12 +2105,6 @@ val inst_aux_Var = prove(
       (HolRes (Var v (type_subst theta ty)),state)``,
   SIMP_TAC (srw_ss()) [Once inst_aux_def,rev_assocd_thm,REV_ASSOCD,
        LET_DEF,ex_return_def] \\ METIS_TAC []);
-
-val MEM_union = prove(
-  ``!xs ys x. MEM x (union xs ys) <=> MEM x xs \/ MEM x ys``,
-  Induct \\ FULL_SIMP_TAC std_ss [union_def]
-  \\ SIMP_TAC (srw_ss()) [Once itlist_def,insert_def]
-  \\ SRW_TAC [] [] \\ METIS_TAC []);
 
 val MEM_subtract = prove(
   ``!xs ys x. MEM x (subtract xs ys) <=> MEM x xs /\ ~MEM x ys``,
@@ -3280,7 +3160,7 @@ val ALL_DISTINCT_STRING_SORT = prove(
   \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_APPEND,MEM_FILTER,MEM,MEM_APPEND,
        ALL_DISTINCT,stringTheory.string_lt_nonrefl]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ TRY (MATCH_MP_TAC ALL_DISTINCT_FILTER)
+  \\ TRY (MATCH_MP_TAC FILTER_ALL_DISTINCT)
   \\ FULL_SIMP_TAC std_ss []
   \\ METIS_TAC [stringTheory.string_lt_antisym,stringTheory.string_lt_trans,
         stringTheory.string_lt_cases]);
@@ -3349,7 +3229,7 @@ val ALL_DISTINCT_QSORT = prove(
        sortingTheory.QSORT_MEM,sortingTheory.PARTITION_DEF]
   \\ (PART_LEMMA |> Q.SPECL [`t`,`[]`,`[]`,`(\y:'a. R y (h:'a))`] |> MP_TAC)
   \\ FULL_SIMP_TAC std_ss [APPEND_NIL] \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_REVERSE,ALL_DISTINCT_FILTER,
+  \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_REVERSE,FILTER_ALL_DISTINCT,
        MEM_REVERSE,MEM_FILTER] \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []);
 
 val ALL_DISTINCT_union = prove(

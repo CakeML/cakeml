@@ -1,65 +1,6 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs sholSyntaxTheory miscLib
-open SatisfySimps miscTheory pairTheory listTheory pred_setTheory finite_mapTheory alistTheory sortingTheory stringTheory relationTheory
+open SatisfySimps miscTheory pairTheory listTheory pred_setTheory finite_mapTheory alistTheory sortingTheory stringTheory relationTheory holSyntaxLibTheory
 val _ = new_theory"sholSyntaxExtra"
-
-val MEM_LIST_INSERT = store_thm("MEM_LIST_INSERT",
-  ``∀l x. set (LIST_INSERT x l) = x INSERT set l``,
-  Induct >> simp[LIST_INSERT_def] >> rw[] >>
-  rw[EXTENSION] >> metis_tac[])
-
-val MEM_LIST_UNION = store_thm("MEM_LIST_UNION",
-  ``∀l1 l2. set (LIST_UNION l1 l2) = set l1 ∪ set l2``,
-  Induct >> fs[LIST_UNION_def,MEM_LIST_INSERT] >>
-  rw[EXTENSION] >> metis_tac[])
-
-val MEM_FOLDR_LIST_UNION = store_thm("MEM_FOLDR_LIST_UNION",
-  ``∀ls x f b. MEM x (FOLDR (λx y. LIST_UNION (f x) y) b ls) ⇔ MEM x b ∨ ∃y. MEM y ls ∧ MEM x (f y)``,
-  Induct >> simp[MEM_LIST_UNION] >> metis_tac[])
-
-val ALL_DISTINCT_LIST_UNION = store_thm("ALL_DISTINCT_LIST_UNION",
-  ``∀l1 l2. ALL_DISTINCT l2 ⇒ ALL_DISTINCT (LIST_UNION l1 l2)``,
-  Induct >> fs[LIST_UNION_def,LIST_INSERT_def] >> rw[])
-
-val PERM_STRING_SORT = store_thm("PERM_STRING_SORT",
-  ``∀ls. ALL_DISTINCT ls ⇒ PERM ls (STRING_SORT ls)``,
-  Induct >>
-  simp[STRING_SORT_def] >>
-  simp[INORDER_INSERT_def] >>
-  fs[STRING_SORT_def] >>
-  simp[PERM_CONS_EQ_APPEND] >>
-  gen_tac >> strip_tac >> fs[] >>
-  qho_match_abbrev_tac`∃M N. A ++ [h] ++ B = M ++ [h] ++ N ∧ (Z M N)` >>
-  map_every qexists_tac[`A`,`B`] >>
-  simp[Abbr`Z`] >>
-  match_mp_tac PERM_ALL_DISTINCT >>
-  simp[ALL_DISTINCT_APPEND] >>
-  simp[Abbr`A`,Abbr`B`,MEM_FILTER] >>
-  metis_tac[FILTER_ALL_DISTINCT,ALL_DISTINCT_PERM,string_lt_antisym,string_lt_cases,MEM_PERM] )
-
-val LENGTH_STRING_SORT = store_thm("LENGTH_STRING_SORT",
-  ``∀ls. ALL_DISTINCT ls ⇒ (LENGTH (STRING_SORT ls) = LENGTH ls)``,
-  metis_tac[PERM_STRING_SORT,PERM_LENGTH])
-val _ = export_rewrites["LENGTH_STRING_SORT"]
-
-val MEM_STRING_SORT = store_thm("MEM_STRING_SORT",
-  ``∀x ls. ALL_DISTINCT ls ⇒ (MEM x (STRING_SORT ls) ⇔ MEM x ls)``,
-  metis_tac[PERM_STRING_SORT,MEM_PERM])
-val _ = export_rewrites["MEM_STRING_SORT"]
-
-val ALL_DISTINCT_STRING_SORT = store_thm("ALL_DISTINCT_STRING_SORT",
-  ``∀ls. ALL_DISTINCT ls ⇒ ALL_DISTINCT (STRING_SORT ls)``,
-  metis_tac[PERM_STRING_SORT,ALL_DISTINCT_PERM])
-val _ = export_rewrites["ALL_DISTINCT_STRING_SORT"]
-
-val LIST_UNION_NIL = store_thm("LIST_UNION_NIL",
-  ``∀l2. (LIST_UNION [] l2 = l2)``,
-  simp[LIST_UNION_def] )
-val _ = export_rewrites["LIST_UNION_NIL"]
-
-val set_LIST_UNION = store_thm("set_LIST_UNION",
-  ``∀l1 l2. set (LIST_UNION l1 l2) = set l1 ∪ set l2``,
-  rw[EXTENSION,MEM_LIST_UNION])
-val _ = export_rewrites["set_LIST_UNION"]
 
 val vfree_in_equation = store_thm("vfree_in_equation",
   ``VFREE_IN v (s === t) ⇔ (v = Equal (typeof s)) ∨ VFREE_IN v s ∨ VFREE_IN v t``,
@@ -241,23 +182,11 @@ val dest_var_def = Define`
   dest_var _ = ("",Tyvar "")`
 val _ = export_rewrites["dest_var_def"]
 
-val ALPHAVARS_MEM = store_thm("ALPHAVARS_MEM",
-  ``∀env tp. ALPHAVARS env tp ⇒ MEM tp env ∨ (FST tp = SND tp)``,
-   Induct >> simp[ALPHAVARS_def] >> rw[] >> res_tac >> simp[])
-
 val INST_CORE_NIL_IS_RESULT = store_thm("INST_CORE_NIL_IS_RESULT",
   ``∀tyin tm. welltyped tm ⇒ IS_RESULT (INST_CORE [] tyin tm)``,
   rw[] >>
   qspecl_then[`sizeof tm`,`tm`,`[]`,`tyin`]mp_tac INST_CORE_HAS_TYPE >>
   simp[] >> rw[] >> rw[] >> fs[REV_ASSOCD])
-
-val NOT_IS_CLASH_IS_RESULT = store_thm("NOT_IS_CLASH_IS_RESULT",
-  ``∀x. IS_CLASH x ⇔ ¬IS_RESULT x``,
-  Cases >> simp[])
-
-val RESULT_eq_suff = prove(
-  ``x = Result y ⇒ RESULT x = y``,
-  Cases_on`x`>>simp[])
 
 val TYPE_SUBST_NIL = store_thm("TYPE_SUBST_NIL",
   ``∀ty. TYPE_SUBST [] ty = ty``,
@@ -269,11 +198,6 @@ val VSUBST_NIL = store_thm("VSUBST_NIL",
   ``∀tm. VSUBST [] tm = tm``,
   Induct >> simp[VSUBST_def,REV_ASSOCD])
 val _ = export_rewrites["VSUBST_NIL"]
-
-val REV_ASSOCD_ALOOKUP = store_thm("REV_ASSOCD_ALOOKUP",
-  ``∀ls x d. REV_ASSOCD x ls d = case ALOOKUP (MAP (λ(x,y). (y,x)) ls) x of NONE => d | SOME y => y``,
-  Induct >> simp[REV_ASSOCD] >>
-  Cases >> simp[REV_ASSOCD] >> rw[])
 
 val FLOOKUPD_def = Define`
   FLOOKUPD i v d = case FLOOKUP i v of NONE => d | SOME ty => ty`
