@@ -2066,12 +2066,10 @@ val vsubst_thm = store_thm("vsubst_thm",
     (hol_tm t = VSUBST (MAP (\(t1,t2). (hol_tm t1, hol_tm t2)) theta) (hol_tm tm)) /\
     (EVERY (\(p_1,p_2). ?x ty. (hol_tm p_2 = Var x ty) /\
                                (hol_tm p_1) has_type ty) theta)``,
-  cheat);
-(*
   ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ SIMP_TAC std_ss [vsubst_def]
   \\ Cases_on `theta = []`
   \\ FULL_SIMP_TAC (srw_ss()) [MAP,VSUBST_EMPTY,ex_return_def,ex_bind_def]
-  \\ Q.ABBREV_TAC `test = (\(t,x) state.
+  \\ Q.PAT_ABBREV_TAC `test = (\(t,x) state.
         case type_of t state of
           (HolRes ty,state) =>
             (case dest_var x state of
@@ -2110,9 +2108,9 @@ val vsubst_thm = store_thm("vsubst_thm",
   \\ FULL_SIMP_TAC std_ss [EVERY_MEM,FORALL_PROD] \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ Cases_on `p_2` \\ FULL_SIMP_TAC (srw_ss()) [is_var_def,hol_tm_def,term_11]
   \\ IMP_RES_TAC term_type
-  \\ FULL_SIMP_TAC std_ss [TERM_def,welltyped_in,hol_tm_def,typeof]
-  \\ FULL_SIMP_TAC std_ss [WELLTYPED,term_type_Var] \\ METIS_TAC []);
-*)
+  \\ FULL_SIMP_TAC std_ss [TERM_def,hol_tm_def,typeof_def]
+  \\ FULL_SIMP_TAC std_ss [WELLTYPED,term_type_Var] >>
+  rw[] >> METIS_TAC [WELLTYPED,term_ok_welltyped]);
 
 val rev_assocd_thm = prove(
   ``rev_assocd = REV_ASSOCD``,
