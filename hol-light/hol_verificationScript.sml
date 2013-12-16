@@ -1591,6 +1591,42 @@ val TERM_Eq_x = prove(
   qpat_assum`term defs (Const e f) g`mp_tac >>
   simp[Once term_cases] >> rw[])
 
+val TERM_Comb = prove(
+  ``TERM defs (Comb f a) <=>
+    TERM defs f /\ TERM defs a /\
+    ?ty. hol_ty (term_type f) = Fun (hol_ty (term_type a)) ty``,
+  REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
+  \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
+  \\ IMP_RES_TAC term_type
+  \\ FULL_SIMP_TAC std_ss [TERM_def,WELLTYPED_CLAUSES,hol_tm_def,type_11,term_ok_Comb]
+  \\ METIS_TAC[term_ok_welltyped])
+
+val Equal_type = prove(
+  ``STATE s defs ∧ TERM defs (Const "=" ty) ==> ?a. ty = fun a (fun a bool_ty)``,
+  rw[STATE_def,TERM_def,hol_tm_def] >>
+  imp_res_tac proves_IMP >>
+  qpat_assum`term X Y tm1`mp_tac >>
+  simp[Once term_cases] >>
+  simp[Once term_cases] >>
+  rw[] >>
+  Cases_on`ty`>>fs[hol_ty_def] >>
+  Cases_on`l`>>fs[]>>
+  Cases_on`t`>>fs[]>>
+  Cases_on`h'`>>fs[hol_ty_def]>>
+  Cases_on`l`>>fs[]>>
+  Cases_on`t`>>fs[]>>
+  rw[]>>fs[TYPE_11]>>
+  Cases_on`h''`>>fs[hol_ty_def])
+
+val Equal_type_IMP = prove(
+  ``STATE s defs ∧ TERM defs (Comb (Const "=" (fun a' (fun a' bool_ty))) ll) ==>
+    (typeof (hol_tm ll) = (hol_ty a'))``,
+  simp[TERM_Comb] >> strip_tac >>
+  imp_res_tac TERM_Eq_x >>
+  fs[Once term_type_def] >>
+  fs[hol_ty_def] >>
+  rw[] >> imp_res_tac term_type >> simp[])
+
 val dest_eq_thm = store_thm("dest_eq_thm",
   ``TERM defs tm /\ STATE s defs /\ (dest_eq tm s = (res, s')) ==>
     (s' = s) /\ !t1 t2. (res = HolRes (t1,t2)) ==> TERM defs t1 /\ TERM defs t2 /\
@@ -2446,8 +2482,6 @@ val concl_thm = store_thm("concl_thm",
 val REFL_thm = store_thm("REFL_thm",
   ``TERM defs tm /\ STATE s defs /\ (REFL tm s = (res, s')) ==>
     (s' = s) /\ !th. (res = HolRes th) ==> THM defs th``,
-  cheat);
-(*
   SIMP_TAC std_ss [REFL_def,ex_bind_def] \\ Cases_on `mk_eq(tm,tm) s`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC mk_eq_thm
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [ex_return_def]
@@ -2457,15 +2491,13 @@ val REFL_thm = store_thm("REFL_thm",
   \\ DISJ1_TAC \\ Q.EXISTS_TAC `hol_tm tm`
   \\ STRIP_TAC \\ SIMP_TAC std_ss [equation_def]
   \\ IMP_RES_TAC term_type \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC std_ss [TERM_def]);
-*)
+  \\ FULL_SIMP_TAC std_ss [TERM_def]
+  \\ METIS_TAC[proves_IMP]);
 
 val TRANS_thm = store_thm("TRANS_thm",
   ``THM defs th1 /\ THM defs th2 /\ STATE s defs /\
     (TRANS th1 th2 s = (res, s')) ==>
     (s' = s) /\ !th. (res = HolRes th) ==> THM defs th``,
-  cheat);
-(*
   Cases_on `th1` \\ Cases_on `th2` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [TRANS_def]
   \\ BasicProvers.EVERY_CASE_TAC
@@ -2482,9 +2514,7 @@ val TRANS_thm = store_thm("TRANS_thm",
   \\ FULL_SIMP_TAC std_ss [THM_def]
   \\ SIMP_TAC (srw_ss()) [Once proves_cases,term_11,type_11,term_distinct]
   \\ DISJ2_TAC \\ DISJ1_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [hol_tm_def,hol_ty_def,domain,equation]
-  \\ IMP_RES_TAC Equal_type
-  \\ FULL_SIMP_TAC (srw_ss()) [hol_tm_def,hol_ty_def,domain]
+  \\ FULL_SIMP_TAC (srw_ss()) [hol_tm_def,hol_ty_def,domain_def,equation_def]
   \\ `hol_ty (term_type ll) = typeof (hol_tm ll)` by
        (IMP_RES_TAC term_type \\ FULL_SIMP_TAC std_ss [])
   \\ FULL_SIMP_TAC std_ss [term_11]
@@ -2492,11 +2522,10 @@ val TRANS_thm = store_thm("TRANS_thm",
   \\ FULL_SIMP_TAC std_ss []
   \\ MP_TAC (aconv_thm |> Q.SPECL [`m1`,`m2`] |> SIMP_RULE std_ss [])
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
-  \\ IMP_RES_TAC Equal_type_IMP
-  \\ FULL_SIMP_TAC std_ss []
-  \\ MATCH_MP_TAC term_union_thm
-  \\ FULL_SIMP_TAC std_ss []);
-*)
+  \\ IMP_RES_TAC Equal_type >> fs[hol_ty_def] >> rpt BasicProvers.VAR_EQ_TAC
+  \\ imp_res_tac Equal_type_IMP >> simp[]
+  \\ MATCH_MP_TAC (GEN_ALL term_union_thm)
+  \\ METIS_TAC[]);
 
 val MK_COMB_thm = store_thm("MK_COMB_thm",
   ``THM defs th1 /\ THM defs th2 /\ STATE s defs /\
@@ -3275,19 +3304,6 @@ val term_type_SIMP = prove(
   \\ ONCE_REWRITE_TAC [term_type_def]
   \\ SIMP_TAC (srw_ss()) [] \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC (srw_ss()) [Once term_type_def]);
-
-val TERM_Comb = prove(
-  ``TERM defs (Comb f a) <=>
-    TERM defs f /\ TERM defs a /\
-    ?ty. hol_ty (term_type f) = Fun (hol_ty (term_type a)) ty``,
-  cheat);
-(*
-  REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
-  \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
-  \\ IMP_RES_TAC term_type
-  \\ FULL_SIMP_TAC std_ss [TERM_def,welltyped_in,WELLTYPED_CLAUSES,
-       hol_tm_def,type_11,term_ok]);
-*)
 
 val new_basic_type_definition_thm = store_thm("new_basic_type_definition_thm",
   ``THM defs th /\ STATE s defs ==>
