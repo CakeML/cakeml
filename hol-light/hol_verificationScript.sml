@@ -893,6 +893,46 @@ val INST_CORE_term_ok = prove(
   simp[EVERY_MEM,term_ok_Var] >>
   simp[Once has_type_cases])
 
+val type_subst_EMPTY = prove(
+  ``!ty. type_subst [] ty = ty``,
+  HO_MATCH_MP_TAC type_IND
+  \\ REPEAT STRIP_TAC \\ SIMP_TAC (srw_ss()) [Once type_subst_def]
+  \\ SIMP_TAC std_ss [rev_assocd_thm,REV_ASSOCD,LET_DEF]
+  \\ `MAP (\a. type_subst [] a) tys = tys` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ Induct_on `tys` \\ FULL_SIMP_TAC std_ss [MAP,EVERY_DEF]);
+
+val TYPE_SUBST_EMPTY = prove(
+  ``(!ty. holSyntax$TYPE_SUBST [] ty = ty)``,
+  HO_MATCH_MP_TAC holSyntaxTheory.type_ind
+  \\ FULL_SIMP_TAC std_ss [TYPE_SUBST_def,REV_ASSOCD,EVERY_DEF]
+  \\ REPEAT STRIP_TAC \\ AP_TERM_TAC
+  \\ Induct_on `l` \\ FULL_SIMP_TAC std_ss [MAP,EVERY_DEF]);
+
+val INST_CORE_EMPTY = prove(
+  ``!tm env.
+      EVERY (\(x,y). x = y) env ==>
+      (holSyntax$INST_CORE env [] tm = Result tm)``,
+  completeInduct_on `holSyntax$sizeof tm` \\ Cases \\ REPEAT STRIP_TAC
+  THEN1 (ONCE_REWRITE_TAC [INST_CORE_def] \\ SIMP_TAC std_ss [TYPE_SUBST_EMPTY]
+    \\ `REV_ASSOCD (Var s t) env (Var s t) = Var s t` by ALL_TAC THEN1
+     (POP_ASSUM MP_TAC \\ REPEAT (POP_ASSUM (K ALL_TAC))
+      \\ Induct_on `env` \\ FULL_SIMP_TAC std_ss [REV_ASSOCD]
+      \\ Cases \\ FULL_SIMP_TAC std_ss [REV_ASSOCD,EVERY_DEF])
+    \\ FULL_SIMP_TAC std_ss [LET_THM])
+  THEN1 (ONCE_REWRITE_TAC [INST_CORE_def] \\ SIMP_TAC std_ss [TYPE_SUBST_EMPTY])
+  THEN1
+   (FULL_SIMP_TAC std_ss [sizeof_def,term_ok_Comb]
+    \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
+    \\ ONCE_REWRITE_TAC [INST_CORE_def]
+    \\ qmatch_assum_rename_tac`v = 1 + holSyntax$sizeof a0 + holSyntax$sizeof a1`[]
+    \\ FIRST_X_ASSUM (fn th => MP_TAC (Q.SPECL [`a0`,`env`] th) THEN
+                               MP_TAC (Q.SPECL [`a1`,`env`] th))
+    \\ simp[] ) >>
+  ONCE_REWRITE_TAC [INST_CORE_def]
+  \\ FULL_SIMP_TAC std_ss [TYPE_SUBST_EMPTY,PULL_FORALL,sizeof_def]
+  >> simp[])
+  |> Q.SPECL [`tm`,`[]`] |> SIMP_RULE std_ss [EVERY_DEF] |> GEN_ALL;
+
 (* potentially useless old lemmas, delete if these are not used
 
 val BASIC_TYPE = prove(
@@ -926,54 +966,6 @@ val term_cases = prove(
     !x. P x``,
   STRIP_TAC \\ HO_MATCH_MP_TAC term_INDUCT
   \\ FULL_SIMP_TAC std_ss []);
-
-val type_subst_EMPTY = prove(
-  ``!ty. type_subst [] ty = ty``,
-  HO_MATCH_MP_TAC type_IND
-  \\ REPEAT STRIP_TAC \\ SIMP_TAC (srw_ss()) [Once type_subst_def]
-  \\ SIMP_TAC std_ss [rev_assocd_thm,REV_ASSOCD,LET_DEF]
-  \\ `MAP (\a. type_subst [] a) tys = tys` by ALL_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ Induct_on `tys` \\ FULL_SIMP_TAC std_ss [MAP,EVERY_DEF]);
-
-val TYPE_SUBST_EMPTY = prove(
-  ``(!ty. TYPE_SUBST [] ty = ty)``,
-  HO_MATCH_MP_TAC type_INDUCT_ALT
-  \\ FULL_SIMP_TAC std_ss [TYPE_SUBST,REV_ASSOCD,EVERY_DEF]
-  \\ REPEAT STRIP_TAC \\ AP_TERM_TAC
-  \\ Induct_on `xs` \\ FULL_SIMP_TAC std_ss [MAP,EVERY_DEF]);
-
-val INST_CORE_EMPTY = prove(
-  ``!tm env.
-      EVERY (\(x,y). x = y) env ==>
-      (INST_CORE env [] tm = Result tm)``,
-  completeInduct_on `sizeof tm` \\ HO_MATCH_MP_TAC term_cases
-  \\ REPEAT CONJ_TAC \\ REPEAT STRIP_TAC
-  THEN1 (ONCE_REWRITE_TAC [INST_CORE_def] \\ SIMP_TAC std_ss [TYPE_SUBST_EMPTY]
-    \\ `REV_ASSOCD (Var a0 a1) env (Var a0 a1) = Var a0 a1` by ALL_TAC THEN1
-     (POP_ASSUM MP_TAC \\ REPEAT (POP_ASSUM (K ALL_TAC))
-      \\ Induct_on `env` \\ FULL_SIMP_TAC std_ss [REV_ASSOCD]
-      \\ Cases \\ FULL_SIMP_TAC std_ss [REV_ASSOCD,EVERY_DEF])
-    \\ FULL_SIMP_TAC std_ss [LET_THM])
-  THEN1 (ONCE_REWRITE_TAC [INST_CORE_def] \\ SIMP_TAC std_ss [TYPE_SUBST_EMPTY])
-  THEN1 (ONCE_REWRITE_TAC [INST_CORE_def] \\ SIMP_TAC std_ss [TYPE_SUBST_EMPTY])
-  THEN1 (ONCE_REWRITE_TAC [INST_CORE_def] \\ SIMP_TAC std_ss [TYPE_SUBST_EMPTY])
-  THEN1
-   (FULL_SIMP_TAC std_ss [sizeof,term_ok]
-    \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
-    \\ ONCE_REWRITE_TAC [INST_CORE_def]
-    \\ FIRST_X_ASSUM (fn th => MP_TAC (Q.SPECL [`a0:term`,`env`] th) THEN
-                               MP_TAC (Q.SPECL [`a1:term`,`env`] th))
-    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 DECIDE_TAC
-    \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
-    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 DECIDE_TAC
-    \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
-    \\ FULL_SIMP_TAC std_ss [IS_CLASH,RESULT,LET_THM])
-  \\ ONCE_REWRITE_TAC [INST_CORE_def]
-  \\ FULL_SIMP_TAC std_ss [TYPE_SUBST_EMPTY,PULL_FORALL,sizeof]
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`a2`,`((Var a0 a1,Var a0 a1)::env)`])
-  \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 DECIDE_TAC
-  \\ FULL_SIMP_TAC std_ss [EVERY_DEF,IS_RESULT,RESULT,LET_THM])
-  |> Q.SPECL [`tm`,`[]`] |> SIMP_RULE std_ss [EVERY_DEF] |> GEN_ALL;
 
 val TYPE_SUBST_TWICE = prove(
   ``!ty2. TYPE_SUBST (MAP (\(x,y). (TYPE_SUBST Y x,y)) X ++ Y) ty2 =
@@ -2386,35 +2378,28 @@ val inst_lemma = prove(
     (inst theta tm s = (res, s')) ==>
     STATE s' defs /\ !t. (res = HolRes t) ==>
     (hol_tm t = INST (MAP (\(t1,t2). (hol_ty t1, hol_ty t2)) theta) (hol_tm tm))``,
-  cheat);
-(*
   SIMP_TAC std_ss [INST_def,inst_def] \\ Cases_on `theta = []`
   \\ ASM_SIMP_TAC std_ss [MAP,EVERY_DEF,ex_return_def] THEN1
    (Q.SPEC_TAC (`res`,`res`) \\ SIMP_TAC (srw_ss()) []
-    \\ FULL_SIMP_TAC std_ss [TERM_def,welltyped_in]
+    \\ FULL_SIMP_TAC std_ss [TERM_def]
     \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+    \\ imp_res_tac term_ok_welltyped
     \\ IMP_RES_TAC INST_CORE_HAS_TYPE
     \\ POP_ASSUM (MP_TAC o Q.SPECL [`[]`,`[]`])
     \\ FULL_SIMP_TAC std_ss [MEM,REV_ASSOCD]
-    \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [RESULT]
-    \\ FULL_SIMP_TAC std_ss [INST_CORE_EMPTY,result_11,RESULT])
+    \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [RESULT_def]
+    \\ FULL_SIMP_TAC std_ss [INST_CORE_EMPTY,result_11,RESULT_def])
   \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC (inst_aux_thm |> Q.SPECL [`[]`,`theta`]
                   |> SIMP_RULE std_ss [EVERY_DEF,MAP])
   \\ REPEAT (Q.PAT_ASSUM `!x.bbb` (K ALL_TAC))
-  \\ FULL_SIMP_TAC std_ss [TERM_def,welltyped_in]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ FULL_SIMP_TAC std_ss [TERM_def] >> imp_res_tac term_ok_welltyped
   \\ IMP_RES_TAC INST_CORE_HAS_TYPE
   \\ POP_ASSUM (MP_TAC o Q.SPECL
        [`(MAP (\(t1,t2). (hol_ty t1,hol_ty t2)) theta)`,`[]`])
   \\ FULL_SIMP_TAC std_ss [MEM,REV_ASSOCD] \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [MAP,RESULT,result_distinct,result_11]
+  \\ FULL_SIMP_TAC std_ss [MAP,RESULT_def,result_distinct,result_11]
   \\ Cases_on `res` \\ FULL_SIMP_TAC (srw_ss()) []);
-*)
-
-val INST_CORE_LEMMA =
-  INST_CORE_HAS_TYPE |> Q.SPECL [`sizeof tm`,`tm`,`[]`,`tyin`]
-  |> SIMP_RULE std_ss [MEM,REV_ASSOCD] |> Q.GENL [`tm`,`tyin`]
 
 val inst_thm = store_thm("inst_thm",
   ``EVERY (\(t1,t2). TYPE defs t1 /\ TYPE defs t2) theta /\
@@ -2422,23 +2407,19 @@ val inst_thm = store_thm("inst_thm",
     (inst theta tm s = (res, s')) ==>
     STATE s' defs /\ !t. (res = HolRes t) ==> TERM defs t /\
     (hol_tm t = INST (MAP (\(t1,t2). (hol_ty t1, hol_ty t2)) theta) (hol_tm tm))``,
-  cheat);
-(*
   REPEAT STRIP_TAC \\ IMP_RES_TAC inst_lemma
-  \\ FULL_SIMP_TAC std_ss [TERM_def]
+  \\ FULL_SIMP_TAC std_ss [TERM_def] >> imp_res_tac term_ok_welltyped
   \\ IMP_RES_TAC INST_CORE_LEMMA
   \\ SIMP_TAC std_ss [INST_def]
   \\ POP_ASSUM (MP_TAC o Q.SPEC `(MAP (\(t1,t2). (hol_ty t1,hol_ty t2)) theta)`)
   \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss [RESULT_def]
-  \\ STRIP_TAC THEN1 METIS_TAC [welltyped]
   \\ MATCH_MP_TAC (INST_CORE_term_ok |> SPEC_ALL |> UNDISCH_ALL |> CONJUNCT1
        |> SPEC_ALL |> UNDISCH_ALL |> DISCH_ALL |> GEN_ALL
        |> REWRITE_RULE [AND_IMP_INTRO])
   \\ Q.LIST_EXISTS_TAC [`(MAP (\(t1,t2). (hol_ty t1,hol_ty t2)) theta)`,
        `hol_tm tm`,`[]`] \\ FULL_SIMP_TAC std_ss [MEM_MAP,PULL_EXISTS,FORALL_PROD]
-  \\ FULL_SIMP_TAC std_ss [EVERY_MEM,TYPE_def,FORALL_PROD]
+  \\ FULL_SIMP_TAC std_ss [EVERY_MEM,TYPE_def,FORALL_PROD,MEM]
   \\ METIS_TAC []);
-*)
 
 (* ------------------------------------------------------------------------- *)
 (* Verification of thm functions                                             *)
