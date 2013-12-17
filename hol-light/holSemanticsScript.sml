@@ -224,7 +224,7 @@ val term_type_11_inv = prove(
   >- (strip_tac >> simp[Once term_cases] >> METIS_TAC[])
   >- (strip_tac >> simp[Once term_cases] >> METIS_TAC[]))
 
-val has_type_IMP = prove(
+val has_type_IMP = store_thm("has_type_IMP",
   ``∀tm ty. tm has_type ty ⇒ ∀defs tm1. good_defs defs ∧ term defs tm tm1 ⇒ ∃ty1. type defs ty ty1 ∧ tm1 has_type ty1``,
   HO_MATCH_MP_TAC holSyntaxTheory.has_type_strongind >> rw[] >>
   TRY (
