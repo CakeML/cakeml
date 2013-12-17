@@ -2888,6 +2888,23 @@ val INST_thm = store_thm("INST_thm",
 (* Verification of definition functions                                      *)
 (* ------------------------------------------------------------------------- *)
 
+val term_ok_cons = store_thm("term_ok_cons",
+  ``∀defs t d. term_ok defs t ∧ context_ok (d::defs) ⇒ term_ok (d::defs) t``,
+  rw[] >>
+  qsuff_tac`term_ok (d::defs) (t === t)` >- simp[term_ok_equation] >>
+  match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,10)) >>
+  map_every qexists_tac[`[]`,`t === t`] >> simp[] >>
+  match_mp_tac (MP_CANON proves_cons_def) >>
+  imp_res_tac proves_IMP >> simp[] >>
+  match_mp_tac(List.nth(CONJUNCTS holSyntaxTheory.proves_rules,13)) >>
+  simp[])
+
+val type_ok_cons = store_thm("type_ok_cons",
+  ``∀defs t d. type_ok defs t ∧ context_ok (d::defs) ⇒ type_ok (d::defs) t``,
+  rw[] >>
+  qsuff_tac`term_ok (d::defs) (Var x t)` >- simp[term_ok_Var] >>
+  match_mp_tac term_ok_cons >> simp[term_ok_Var])
+
 (*
 val TYPE_CONS = prove(
   ``!ty. TYPE defs ty ==> TYPE (d::defs) ty``,
