@@ -101,7 +101,7 @@ can_Print (Block n vs) = not (n = block_tag) || can_Print_list vs
 and
 can_Print (CodePtr _) = false
 and
-can_Print (RefPtr v) = true
+can_Print (RefPtr _) = true
 and
 can_Print (StackPtr _) = false
 and

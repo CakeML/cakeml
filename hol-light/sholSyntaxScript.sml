@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory pred_setTheory
+open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory pred_setTheory holSyntaxLibTheory
 val _ = numLib.prefer_num()
 val _ = new_theory "sholSyntax"
 
@@ -88,12 +88,6 @@ val EQUATION_HAS_TYPE_BOOL = store_thm("EQUATION_HAS_TYPE_BOOL",
   rw[equation_def] >> rw[Ntimes has_type_cases 3] >>
   metis_tac[WELLTYPED_LEMMA,WELLTYPED])
 
-val ALPHAVARS_def = Define`
-  (ALPHAVARS [] tmp ⇔ (FST tmp = SND tmp)) ∧
-  (ALPHAVARS (tp::oenv) tmp ⇔
-    (tmp = tp) ∨
-    (FST tp ≠ FST tmp) ∧ (SND tp ≠ SND tmp) ∧ ALPHAVARS oenv tmp)`
-
 val (RACONV_rules,RACONV_ind,RACONV_cases) = Hol_reln`
   (ALPHAVARS env (Var x1 ty1,Var x2 ty2)
     ⇒ RACONV env (Var x1 ty1,Var x2 ty2)) ∧
@@ -128,10 +122,6 @@ val RACONV = store_thm("RACONV",
 
 val ACONV_def = Define`
   ACONV t1 t2 ⇔ RACONV [] (t1,t2)`
-
-val ALPHAVARS_REFL = store_thm("ALPHAVARS_REFL",
-  ``∀env t. EVERY (UNCURRY $=) env ==> ALPHAVARS env (t,t)``,
-  Induct >> simp[ALPHAVARS_def,FORALL_PROD])
 
 val RACONV_REFL = store_thm("RACONV_REFL",
   ``∀t env. EVERY (UNCURRY $=) env ⇒ RACONV env (t,t)``,
@@ -209,16 +199,6 @@ val VFREE_IN_ACONV = store_thm("VFREE_IN_ACONV",
 val CLOSED_def = Define`
   CLOSED tm = ∀x ty. ¬(VFREE_IN (Var x ty) tm)`
 
-val REV_ASSOCD_def = Define`
-  (REV_ASSOCD a [] d = d) ∧
-  (REV_ASSOCD a (p::t) d = if SND p = a then FST p else REV_ASSOCD a t d)`
-
-val REV_ASSOCD = store_thm("REV_ASSOCD",
-  ``(∀a d. REV_ASSOCD a [] d = d) ∧
-    (∀a x y t d. REV_ASSOCD a ((x,y)::t) d =
-                 if y = a then x else REV_ASSOCD a t d)``,
-  rw[REV_ASSOCD_def])
-
 val TYPE_SUBST_def = tDefine"TYPE_SUBST"`
   (TYPE_SUBST i (Tyvar v) = REV_ASSOCD (Tyvar v) i (Tyvar v)) ∧
   (TYPE_SUBST i (Tyapp v tys) = Tyapp v (MAP (TYPE_SUBST i) tys))`
@@ -250,14 +230,6 @@ val VFREE_IN_FINITE_ALT = store_thm("VFREE_IN_FINITE_ALT",
   simp[VFREE_IN_FINITE,IMAGE_FINITE] >>
   simp[SUBSET_DEF] >> rw[] >>
   HINT_EXISTS_TAC >> simp[])
-
-val PRIMED_INFINITE = store_thm("PRIMED_INFINITE",
-  ``INFINITE (IMAGE (λn. APPEND x (GENLIST (K #"'") n)) UNIV)``,
-  match_mp_tac (MP_CANON IMAGE_11_INFINITE) >>
-  simp[] >> Induct >- metis_tac[NULL_EQ,NULL_GENLIST] >>
-  simp[GENLIST_CONS] >> qx_gen_tac`y` >>
-  Cases_on`GENLIST (K #"'") y`>>simp[]>>rw[]>>
-  Cases_on`y`>>fs[GENLIST_CONS])
 
 val PRIMED_NAME_EXISTS = store_thm("PRIMED_NAME_EXISTS",
   ``∃n. ¬(VFREE_IN (Var (APPEND x (GENLIST (K #"'") n)) ty) t)``,
@@ -328,17 +300,6 @@ val VSUBST_WELLTYPED = store_thm("VSUBST_WELLTYPED",
       ⇒ welltyped (VSUBST ilist tm)``,
   metis_tac[VSUBST_HAS_TYPE,welltyped_def])
 
-val REV_ASSOCD_FILTER = store_thm("REV_ASSOCD_FILTER",
-  ``∀l a b d.
-      REV_ASSOCD a (FILTER (λ(y,x). P x) l) b =
-        if P a then REV_ASSOCD a l b else b``,
-  Induct >> simp[REV_ASSOCD,FORALL_PROD] >>
-  rw[] >> fs[FORALL_PROD,REV_ASSOCD] >> rw[] >> fs[])
-
-val REV_ASSOCD_MEM = store_thm("REV_ASSOCD_MEM",
-  ``∀l x d. MEM (REV_ASSOCD x l d,x) l ∨ (REV_ASSOCD x l d = d)``,
-  Induct >> simp[REV_ASSOCD,FORALL_PROD] >>rw[]>>fs[])
-
 val VFREE_IN_VSUBST = store_thm("VFREE_IN_VSUBST",
   ``∀tm u uty ilist.
       VFREE_IN (Var u uty) (VSUBST ilist tm) ⇔
@@ -385,24 +346,6 @@ val VFREE_IN_VSUBST = store_thm("VFREE_IN_VSUBST",
   strip_tac >> fs[] >>
   fs[VFREE_IN_def] >>
   metis_tac[])
-
-val _ = Hol_datatype`result = Clash of term | Result of term`
-
-val IS_RESULT_def = Define`
-  IS_RESULT(Clash _) = F ∧
-  IS_RESULT(Result _) = T`
-
-val IS_CLASH_def = Define`
-  IS_CLASH(Clash _) = T ∧
-  IS_CLASH(Result _) = F`
-
-val RESULT_def = Define`
-  RESULT(Result t) = t`
-
-val CLASH_def = Define`
-  CLASH(Clash t) = t`
-
-val _ = export_rewrites["IS_RESULT_def","IS_CLASH_def","RESULT_def","CLASH_def"]
 
 val sizeof_def = Define`
   sizeof (Var _ _) = 1 ∧
@@ -584,12 +527,6 @@ val INST_CORE_HAS_TYPE = store_thm("INST_CORE_HAS_TYPE",
 
 val INST_def = Define`INST tyin tm = RESULT(INST_CORE [] tyin tm)`
 
-val LIST_INSERT_def = Define`
-  LIST_INSERT x xs = if MEM x xs then xs else x::xs`
-
-val LIST_UNION_def = Define`
-  LIST_UNION xs ys = FOLDR LIST_INSERT ys xs`
-
 val tyvars_def = tDefine"tyvars"`
   tyvars (Tyvar v) = [v] ∧
   tyvars (Tyapp v tys) = FOLDR (λx y. LIST_UNION (tyvars x) y) [] tys`
@@ -603,14 +540,6 @@ val tvars_def = Define`
   (tvars (Const _ ty _) = tyvars ty) /\
   (tvars (Comb s t) = LIST_UNION (tvars s) (tvars t)) /\
   (tvars (Abs _ ty t) = LIST_UNION (tyvars ty) (tvars t))`
-
-val INORDER_INSERT_def = Define`
-  INORDER_INSERT x xs =
-    APPEND (FILTER (λy. string_lt y x) xs)
-   (APPEND [x] (FILTER (λy. string_lt x y) xs))`
-
-val STRING_SORT_def = Define`
-  STRING_SORT xs = FOLDR INORDER_INSERT [] xs`
 
 val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 

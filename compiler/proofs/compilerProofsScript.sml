@@ -69,8 +69,8 @@ val _ = export_rewrites["mvars_remove_mat_vp"]
 
 val mvars_remove_mat_var = store_thm("mvars_remove_mat_var",
   ``∀v b pes. mvars (remove_mat_var v b pes) = mvars_list (MAP SND pes)``,
-  ho_match_mp_tac remove_mat_var_ind >>
-  simp[remove_mat_var_def,toIntLangTheory.shift_def] >> rw[] >>
+  ho_match_mp_tac toIntLangTheory.remove_mat_var_ind >>
+  simp[toIntLangTheory.remove_mat_var_def,toIntLangTheory.shift_def] >> rw[] >>
   metis_tac[UNION_COMM])
 val _ = export_rewrites["mvars_remove_mat_var"]
 

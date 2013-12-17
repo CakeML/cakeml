@@ -42,8 +42,8 @@ val _ = Hol_datatype `
 *)
 
 val _ = Hol_datatype `
-  def = Axiomdef of hol_term
-      | Constdef of string => hol_term
+  def = (* Axiomdef of hol_term
+      | *) Constdef of string => hol_term
       | Typedef of string => hol_term => string => string`;
 
 (*
@@ -62,7 +62,7 @@ val _ = Hol_datatype `
 val _ = Hol_datatype `
   hol_refs = <| the_type_constants : (string # num) list ;
                 the_term_constants : (string # hol_type) list ;
-                the_axioms : thm list ;
+                (* the_axioms : thm list ; *)
                 the_definitions : def list ;
                 the_clash_var : hol_term |>`;
 
@@ -81,8 +81,10 @@ val get_the_type_constants_def = Define `
 val get_the_term_constants_def = Define `
   get_the_term_constants = (\state. (HolRes (state.the_term_constants),state))`;
 
+(*
 val get_the_axioms_def = Define `
   get_the_axioms = (\state. (HolRes (state.the_axioms),state))`;
+*)
 
 val get_the_definitions_def = Define `
   get_the_definitions = (\state. (HolRes (state.the_definitions),state))`;
@@ -98,9 +100,11 @@ val set_the_term_constants_def = Define `
   set_the_term_constants x =
     (\state. (HolRes (), (state with the_term_constants := x))):unit M`;
 
+(*
 val set_the_axioms_def = Define `
   set_the_axioms x =
     (\state. (HolRes (), (state with the_axioms := x))):unit M`;
+*)
 
 val set_the_definitions_def = Define `
   set_the_definitions x =
@@ -1076,7 +1080,9 @@ val _ = Define `
   let axioms() = !the_axioms
 *)
 
+(*
 val _ = Define `axioms = get_the_axioms`;
+*)
 
 (*
   let new_axiom tm =
@@ -1090,6 +1096,7 @@ val add_def = Define `
   add_def d = do defs <- get_the_definitions ;
                  set_the_definitions (d::defs) od`;
 
+(*
 val new_axiom_def = Define `
   new_axiom tm =
     do ty <- type_of tm ;
@@ -1103,6 +1110,7 @@ val new_axiom_def = Define `
        else
          failwith "new_axiom: Not a proposition"
     od`;
+*)
 
 (*
   let new_basic_definition tm =

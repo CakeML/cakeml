@@ -2456,6 +2456,10 @@ val IMP_PreImp_THM = prove(
   ``(b ==> PreImp x y) ==> ((x ==> b) ==> PreImp x y)``,
   Cases_on `b` \\ FULL_SIMP_TAC std_ss [PreImp_def,PRECONDITION_def]);
 
+val PreImp_IMP = prove(
+  ``(PRECONDITION x ==> PreImp x y) ==> PreImp x y``,
+  SIMP_TAC std_ss [PreImp_def]);
+
 fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
 
 fun translate def = (let
@@ -2599,6 +2603,7 @@ max_print_depth := 1
     fun POP_MP_TACs ([],gg) = ALL_TAC ([],gg)
       | POP_MP_TACs (ws,gg) =
           POP_ASSUM (fn th => (POP_MP_TACs THEN MP_TAC th)) (ws,gg)
+    val pres = map (fn (_,_,_,pre) => case pre of SOME x => x | _ => TRUTH) thms
 
     (*
       set_goal([],goal)
@@ -2635,11 +2640,14 @@ max_print_depth := 1
         \\ (MATCH_MP_TAC ind_thm ORELSE
             MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
         \\ REPEAT STRIP_TAC
+        \\ MATCH_MP_TAC PreImp_IMP
+        \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV pres))
+        \\ STRIP_TAC
         THENL (map MATCH_MP_TAC (map (fst o snd) goals))
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
         \\ REPEAT STRIP_TAC
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
-        \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP]
+        \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP,PRECONDITION_def]
         \\ METIS_TAC [])
       handle HOL_ERR _ =>
       auto_prove "ind" (mk_imp(hs,ind_thm |> concl |> rand),

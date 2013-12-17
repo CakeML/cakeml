@@ -24,7 +24,7 @@ val _ = computeLib.add_funs
   ,toBytecodeTheory.compile_varref_def
   ,CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)compile_def
   ,label_closures_def
-  ,remove_mat_var_def
+ (* ,remove_mat_var_def *)
   ,toIntLangTheory.remove_mat_vp_def
   ,mkshift_def
   ,toBytecodeTheory.cce_aux_def

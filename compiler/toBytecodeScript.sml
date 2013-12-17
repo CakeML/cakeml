@@ -316,12 +316,11 @@ and
 stackshiftaux n i j =
   (Load i)::(Store j)::(stackshiftaux (n-1) (i+1) (j+1))
 *)
- val stackshiftaux_defn = Hol_defn "stackshiftaux" `
+ val _ = Define `
  (stackshiftaux n i j =  
 (if n = ( 0:num) then []
   else (Load i)::((Store j)::(stackshiftaux (n -  1) (i+ 1) (j+ 1)))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn stackshiftaux_defn;
 (*
   xs@(y::ys)@(z::zs)@st
   y::xs@(y::ys)@(z::zs)@st
@@ -347,7 +346,7 @@ stackshift j k =
   else
     (stackshiftaux k (j-k) j)@(stackshift (j-k) k)
 *)
- val stackshift_defn = Hol_defn "stackshift" `
+ val _ = Define `
  (stackshift j k =  
 (if k = 0 then []
   else if j = 0 then [Pops (k -  1); Pop]
@@ -356,7 +355,6 @@ stackshift j k =
   (case (n ) of ( _ ) => Store (k -  1) )) j)++(stackshift( 0) (k - j))
   else (stackshiftaux k (j - k) j)++(stackshift (j - k) k)))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn stackshift_defn;
 (*
   a b c d e x y z
 c a b c d e x y z

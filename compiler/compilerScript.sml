@@ -56,14 +56,13 @@ val _ = Define `
    |>))`;
 
 
- val number_constructors_defn = Hol_defn "number_constructors" `
+ val _ = Define `
 
 (number_constructors _ [] ct = ct)
 /\
 (number_constructors mn ((c,_)::cs) (m,w,n) =  
 (number_constructors mn cs (m |+ ((SOME (mk_id mn c)), n), ((n,SOME (mk_id mn c))::w), (n+( 1:num)))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn number_constructors_defn;
 
  val _ = Define `
 
@@ -181,7 +180,7 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_print_vals_defn;
 
- val compile_print_ctors_defn = Hol_defn "compile_print_ctors" `
+ val _ = Define `
 
 (compile_print_ctors [] s = s)
 /\
@@ -189,16 +188,14 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (compile_print_ctors cs
     (emit s (MAP PrintC (EXPLODE (CONCAT [c;" = <constructor>\n"]))))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_print_ctors_defn;
 
- val compile_print_types_defn = Hol_defn "compile_print_types" `
+ val _ = Define `
 
 (compile_print_types [] s = s)
 /\
 (compile_print_types ((_,_,cs)::ts) s =  
 (compile_print_types ts (compile_print_ctors cs s)))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn compile_print_types_defn;
 
  val _ = Define `
 

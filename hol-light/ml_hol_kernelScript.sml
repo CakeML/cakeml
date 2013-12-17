@@ -371,14 +371,14 @@ fun var_hol2deep tm =
 val read_refs =
   [(``get_the_type_constants``,``the_type_constants``,get_the_type_constants_thm),
    (``get_the_term_constants``,``the_term_constants``,get_the_term_constants_thm),
-   (``get_the_axioms``,``the_axioms``,get_the_axioms_thm),
+   (*(``get_the_axioms``,``the_axioms``,get_the_axioms_thm),*)
    (``get_the_definitions``,``the_definitions``,get_the_definitions_thm),
    (``get_the_clash_var``,``the_clash_var``,get_the_clash_var_thm)];
 
 val write_refs =
   [(``set_the_type_constants x``,``the_type_constants``,set_the_type_constants_thm),
    (``set_the_term_constants x``,``the_term_constants``,set_the_term_constants_thm),
-   (``set_the_axioms x``,``the_axioms``,set_the_axioms_thm),
+   (*(``set_the_axioms x``,``the_axioms``,set_the_axioms_thm),*)
    (``set_the_definitions x``,``the_definitions``,set_the_definitions_thm),
    (``set_the_clash_var x``,``the_clash_var``,set_the_clash_var_thm)];
 
@@ -731,7 +731,7 @@ val def = new_type_def |> m_translate
 val def = EQ_MP_def |> m_translate
 val def = ASSUME_def |> m_translate
 val def = add_def_def |> m_translate
-val def = new_axiom_def |> m_translate
+(*val def = new_axiom_def |> m_translate*)
 val def = vsubst_def |> m_translate
 val def = inst_aux_def (* rec *) |> m_translate
 val def = inst_def |> m_translate

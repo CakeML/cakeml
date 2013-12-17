@@ -48,6 +48,7 @@ number_constructors _ [] ct = ct
 and
 number_constructors mn ((c,_)::cs) (m,w,n) =
   number_constructors mn cs (Map.insert (Just (mk_id mn c)) n m, (n,Just (mk_id mn c))::w, n+(1:nat))
+declare termination_argument number_constructors = automatic
 
 let rec
 dec_to_contab mn ct (Dtype ts) =
@@ -146,12 +147,14 @@ and
 compile_print_ctors ((c,_)::cs) s =
   compile_print_ctors cs
     (emit s (List.map PrintC (EXPLODE (string_concat [c;" = <constructor>\n"]))))
+declare termination_argument compile_print_ctors = automatic
 
 let rec
 compile_print_types [] s = s
 and
 compile_print_types ((_,_,cs)::ts) s =
   compile_print_types ts (compile_print_ctors cs s)
+declare termination_argument compile_print_types = automatic
 
 let rec
 compile_print_dec _ (Dtype ts) s = compile_print_types ts s

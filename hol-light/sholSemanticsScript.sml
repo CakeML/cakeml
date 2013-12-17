@@ -1,4 +1,4 @@
-open HolKernel boolLib boolSimps SatisfySimps bossLib lcsymtacs miscTheory miscLib pred_setTheory pairTheory listTheory finite_mapTheory alistTheory sholSyntaxTheory sholSyntaxExtraTheory modelSetTheory sortingTheory stringTheory
+open HolKernel boolLib boolSimps SatisfySimps bossLib lcsymtacs miscTheory miscLib pred_setTheory pairTheory listTheory finite_mapTheory alistTheory holSyntaxLibTheory sholSyntaxTheory sholSyntaxExtraTheory modelSetTheory sortingTheory stringTheory
 val _ = numLib.prefer_num()
 val _ = new_theory"sholSemantics"
 
@@ -3293,7 +3293,7 @@ val INST_dbINST = store_thm("INST_dbINST",
   imp_res_tac INST_CORE_NIL_IS_RESULT >>
   pop_assum(qspec_then`tyin`strip_assume_tac) >>
   Cases_on`INST_CORE [] tyin tm`>>fs[] >>
-  qspecl_then[`tm`,`tyin`,`[]`,`t`]mp_tac INST_CORE_dbINST >>
+  qspecl_then[`tm`,`tyin`,`[]`,`a`]mp_tac INST_CORE_dbINST >>
   simp[])
 
 val ACONV_INST = store_thm("ACONV_INST",

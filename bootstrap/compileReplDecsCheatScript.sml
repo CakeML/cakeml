@@ -1,5 +1,15 @@
-open HolKernel boolLib bossLib lcsymtacs
+open HolKernel boolLib bossLib lcsymtacs ml_repl_stepTheory replDecsTheory
 val _ = new_theory"compileReplDecsCheat"
+
+val ct = ``init_compiler_state.contab``
+val m = ``<|bvars:=[];mvars:=FEMPTY;cnmap:=cmap(^ct)|>``
+val cs = ``<|out:=[];next_label:=init_compiler_state.rnext_label|>``
+
+val compile_repl_decs_def = zDefine`
+  compile_repl_decs = FOLDL (compile_dec1 NONE FEMPTY) (^ct,^m,[],0,^cs) repl_decs`
+
+val _ = computeLib.add_funs[ml_repl_step_decls,repl_decs_def]
+
 val _ = store_thm("repl_decs_compiled",``
 FOLDL (compile_dec1 NONE FEMPTY)
   (init_compiler_state.contab,
