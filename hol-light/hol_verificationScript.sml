@@ -2905,6 +2905,30 @@ val type_ok_cons = store_thm("type_ok_cons",
   qsuff_tac`term_ok (d::defs) (Var x t)` >- simp[term_ok_Var] >>
   match_mp_tac term_ok_cons >> simp[term_ok_Var])
 
+val TYPE_CONS_EXTEND = store_thm("TYPE_CONS_EXTEND",
+  ``STATE s (d::defs) /\ TYPE defs ty ==> TYPE (d::defs) ty``,
+  simp[STATE_def,TYPE_def] >> strip_tac >>
+  last_x_assum(assume_tac o SYM) >>
+  Cases_on`d` >> rw[hol_defs_def] >>
+  match_mp_tac type_ok_cons >>
+  fs[hol_defs_def])
+
+val TERM_CONS_EXTEND = store_thm("TERM_CONS_EXTEND",
+  ``STATE s (d::defs) /\ TERM defs tm ==> TERM (d::defs) tm``,
+  simp[STATE_def,TERM_def] >> strip_tac >>
+  last_x_assum(assume_tac o SYM) >>
+  Cases_on`d` >> rw[hol_defs_def] >>
+  match_mp_tac term_ok_cons >>
+  fs[hol_defs_def])
+
+val THM_CONS_EXTEND = store_thm("THM_CONS_EXTEND",
+  ``STATE s (d::defs) /\ THM defs th ==> THM (d::defs) th``,
+  Cases_on`th` >> simp[STATE_def,THM_def] >> strip_tac >>
+  last_x_assum(assume_tac o SYM) >>
+  Cases_on`d` >> rw[hol_defs_def] >>
+  match_mp_tac (MP_CANON proves_cons_def) >>
+  fs[hol_defs_def])
+
 (*
 val TYPE_CONS = prove(
   ``!ty. TYPE defs ty ==> TYPE (d::defs) ty``,
@@ -2971,18 +2995,6 @@ val THM_CONS = prove(
   \\ NTAC 10 DISJ2_TAC \\ DISJ1_TAC \\ Cases_on `d`
   \\ FULL_SIMP_TAC (srw_ss()) [hol_defs_def,hol_def_def,HD,context_ok]);
 *)
-
-val TYPE_CONS_EXTEND = store_thm("TYPE_CONS_EXTEND",
-  ``STATE s (d::defs) /\ TYPE defs ty ==> TYPE (d::defs) ty``,
-  SIMP_TAC std_ss [STATE_def,LET_DEF] \\ METIS_TAC [TYPE_CONS]);
-
-val TERM_CONS_EXTEND = store_thm("TERM_CONS_EXTEND",
-  ``STATE s (d::defs) /\ TERM defs tm ==> TERM (d::defs) tm``,
-  SIMP_TAC std_ss [STATE_def,LET_DEF] \\ METIS_TAC [TERM_CONS]);
-
-val THM_CONS_EXTEND = store_thm("THM_CONS_EXTEND",
-  ``STATE s (d::defs) /\ THM defs th ==> THM (d::defs) th``,
-  SIMP_TAC std_ss [STATE_def,LET_DEF] \\ METIS_TAC [THM_CONS]);
 
 val new_axiom_thm = store_thm("new_axiom_thm",
   ``TERM defs tm /\ STATE s defs ==>
