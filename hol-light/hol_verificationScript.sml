@@ -184,12 +184,6 @@ val term_ok_Equal = store_thm("term_ok_Equal",
   imp_res_tac type_ok_Tyapp >> fs[])
 val _ = export_rewrites["term_ok_Equal"]
 
-val term_ok_welltyped = store_thm("term_ok_welltyped",
-  ``∀defs tm. term_ok defs tm ⇒ welltyped tm``,
-  rw[] >>
-  imp_res_tac proves_IMP >>
-  METIS_TAC[term_welltyped,sholSemanticsTheory.soundness,sholSemanticsTheory.has_meaning_welltyped])
-
 val term_ok_equation = store_thm("term_ok_equation",
   ``∀defs l r. term_ok defs (l === r) ⇔ context_ok defs ∧ term_ok defs l ∧ term_ok defs r ∧ (typeof l = typeof r)``,
   rw[] >> reverse EQ_TAC >- (
