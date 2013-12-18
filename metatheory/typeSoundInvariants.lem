@@ -72,6 +72,18 @@ type_ds (Just mn) menv cenv tenv ds cenv' tenv'
 ==>
 type_top_ignore_sig menv cenv tenv (Tmod mn spec ds) [(mn,tenv')] cenv' emp
 
+let rec
+consistent_con_env [] [] = true
+and
+consistent_con_env ((cn, (n, tn'))::envC) ((cn', (tvs, ts, tn))::tenvC) =
+   ((cn = cn') &&
+    (tn = tn') &&
+    (List.length ts = n) &&
+    consistent_con_env envC tenvC)
+and
+consistent_con_env _ _ = false
+
+declare termination_argument consistent_con_env = automatic
 
 indreln
 [type_v : nat -> tenvM -> tenvC -> tenvS -> v -> t -> bool]
@@ -79,6 +91,8 @@ and
 [type_vs : nat -> tenvM -> tenvC -> tenvS -> list v -> list t -> bool]
 and
 [type_env : tenvM -> tenvC -> tenvS -> envE -> tenvE -> bool]
+and
+[consistent_mod_env : tenvS -> tenvC -> envM -> tenvM -> bool]
 
 lit_bool : forall tvs menv cenv senv b.
 true
@@ -119,6 +133,8 @@ type_v tvs menv cenv senv (Conv Nothing vs) (Tapp ts TC_tup)
 and
 
 closure : forall tvs menv cenv senv envC envM env tenv n e t1 t2.
+consistent_con_env envC (restrict_tenvC cenv (List.map fst envC)) &&
+consistent_mod_env senv (restrict_tenvC cenv (List.map fst envC)) envM (restrict_tenvM menv (List.map fst envM)) &&
 type_env menv cenv senv env tenv &&
 check_freevars tvs [] t1 &&
 type_e (restrict_tenvM menv (List.map fst envM)) (restrict_tenvC cenv (List.map fst envC)) (bind_tenv n 0 t1 (bind_tvar tvs tenv)) e t2
@@ -128,6 +144,8 @@ type_v tvs menv cenv senv (Closure (envM, envC, env) n e) (Tfn t1 t2)
 and
 
 recclosure : forall tvs menv cenv senv envM envC env funs n t tenv tenv'.
+consistent_con_env envC (restrict_tenvC cenv (List.map fst envC)) &&
+consistent_mod_env senv (restrict_tenvC cenv (List.map fst envC)) envM (restrict_tenvM menv (List.map fst envM)) &&
 type_env menv cenv senv env tenv &&
 type_funs (restrict_tenvM menv (List.map fst envM)) (restrict_tenvC cenv (List.map fst envC)) (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
 lookup n tenv' = Just t
@@ -172,18 +190,22 @@ type_env menv cenv senv env tenv
 ==>
 type_env menv cenv senv (bind n v env) (bind_tenv n tvs t tenv)
 
-let rec 
-consistent_mod_env tenvS tenvC [] [] = true
-and
-consistent_mod_env tenvS tenvC ((mn,env)::menv) ((mn',tenv)::tenvM) =
-  (mn = mn') &&
-  not (List.elem mn (List.map fst tenvM)) &&
-  type_env tenvM tenvC tenvS env (bind_var_list2 tenv Empty) &&
-  consistent_mod_env tenvS tenvC menv tenvM
-and
-consistent_mod_env tenvS tenvC _ _ = false
+and 
 
-declare termination_argument consistent_mod_env = automatic
+empty : forall tenvS tenvC.
+true
+==>
+consistent_mod_env tenvS tenvC [] []
+
+and
+
+cons : forall tenvS tenvC mn env menv mn' tenv tenvM.
+(mn = mn') &&
+not (List.elem mn (List.map fst tenvM)) &&
+type_env tenvM tenvC tenvS env (bind_var_list2 tenv Empty) &&
+consistent_mod_env tenvS tenvC menv tenvM
+==>
+consistent_mod_env tenvS tenvC ((mn,env)::menv) ((mn',tenv)::tenvM)
 
 let type_s menv cenv senv s =
   forall l. 
@@ -399,6 +421,8 @@ and
 
 cons : forall tvs tenvM tenvC senv c envM envC env cs tenv t1 t2 t3.
 type_env tenvM tenvC senv env tenv &&
+consistent_con_env envC (restrict_tenvC tenvC (List.map fst envC)) &&
+consistent_mod_env senv (restrict_tenvC tenvC (List.map fst envC)) envM (restrict_tenvM tenvM (List.map fst envM)) &&
 type_ctxt tvs (restrict_tenvM tenvM (List.map fst envM)) (restrict_tenvC tenvC (List.map fst envC)) senv tenv c t1 t2 &&
 type_ctxts (if is_ccon c && poly_context cs then tvs else 0) tenvM tenvC senv cs t2 t3
 ==>
@@ -409,6 +433,8 @@ indreln
 
 exp : forall dec_tvs tenvM tenvC senv envM envC s env e c t1 t2 tenv tvs.
 context_invariant dec_tvs c tvs &&
+consistent_con_env envC (restrict_tenvC tenvC (List.map fst envC)) &&
+consistent_mod_env senv (restrict_tenvC tenvC (List.map fst envC)) envM (restrict_tenvM tenvM (List.map fst envM)) &&
 type_ctxts tvs tenvM tenvC senv c t1 t2 &&
 type_env tenvM tenvC senv env tenv &&
 type_s tenvM tenvC senv s &&
@@ -421,6 +447,8 @@ and
 
 vl : forall dec_tvs tenvM tenvC senv envM envC s env v c t1 t2 tenv tvs.
 context_invariant dec_tvs c tvs &&
+consistent_con_env envC (restrict_tenvC tenvC (List.map fst envC)) &&
+consistent_mod_env senv (restrict_tenvC tenvC (List.map fst envC)) envM (restrict_tenvM tenvM (List.map fst envM)) &&
 type_ctxts tvs tenvM tenvC senv c t1 t2 &&
 type_env tenvM tenvC senv env tenv &&
 type_s tenvM tenvC senv s &&

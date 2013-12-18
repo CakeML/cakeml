@@ -31,19 +31,6 @@ cases_on `keys` >>
 cases_on `vals` >>
 fs []);
 
-(* TODO: Move these definitions to miniML.lem? *)
-(* Check that the dynamic and static constructor environments are consistent *)
-val consistent_con_env_def = Define `
-  (consistent_con_env [] [] = T) ∧
-  (consistent_con_env ((cn, (n, tn'))::envC) ((cn', (tvs, ts, tn))::tenvC) =
-    ((cn = cn') ∧
-     (tn = tn') ∧
-     (LENGTH ts = n) ∧
-     consistent_con_env envC tenvC)) ∧
-  (consistent_con_env _ _ = F)`;
-
-val consistent_con_env_ind = fetch "-" "consistent_con_env_ind";
-
 val tenv_ok_def = Define `
 (tenv_ok Empty = T) ∧
 (tenv_ok (Bind_tvar n tenv) = tenv_ok tenv) ∧
