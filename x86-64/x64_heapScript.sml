@@ -21,6 +21,7 @@ open helperLib;
 open addressTheory
 open x64_copying_gcTheory;
 open progTheory;
+open x64CorrectTheory;
 
 val _ = (max_print_depth := 50);
 
@@ -10028,12 +10029,17 @@ val x64_code_eval = save_thm("x64_code_eval",
           let c = x64 i b in c ++ x64_code (i + LENGTH c) bs``)
   |> (Cases \\ TRY (Cases_on `b'`) \\ TRY (Cases_on `l`)) |> fst
   |> map (SIMP_RULE std_ss [LET_DEF] o REWRITE_CONV [x64_code_ALT] o snd)
-  |> LIST_CONJ
+  |> (fn thms => LIST_CONJ (CONJUNCT1 x64_code_def::thms))
   |> SIMP_RULE std_ss [x64_def,LET_DEF,APPEND,LENGTH,small_offset_def,
        small_offset6_def,small_offset12_def,small_offset16_def,IMM32_def,LENGTH_IF]
   |> REWRITE_RULE [APPEND_IF,APPEND,IF_AND]
   |> SIMP_RULE std_ss []
   |> REWRITE_RULE [GSYM IF_AND])
+
+
+val length_ok_x64_inst_length = prove(
+  ``length_ok x64_inst_length``,
+  cheat);
 
 
 (* install code *)
@@ -10253,13 +10259,14 @@ val (res,ic_LoadRev_def,ic_LoadRev_pre_def) = x64_compile `
 *)
 
 val printc1 = ``[0x4Dw; 0x8Bw; 0xB9w; 0x90w; 0x0w; 0x0w; 0x0w; 0x4Dw; 0x85w; 0xFFw;
-                 0x48w; 0x74w; 0x34w; 0x48w; 0x50w; 0x48w; 0x51w; 0x48w; 0x52w;
-                 0x48w; 0x53w; 0x48w; 0x56w; 0x48w; 0x57w; 0x49w; 0x50w; 0x49w;
-                 0x51w; 0x49w; 0x52w; 0x49w; 0x53w; 0xBFw]:word8 list`` |> gen
-val printc2 = ``[0x0w; 0x0w; 0x0w; 0x49w; 0x8Bw; 0x41w; 0x18w; 0x48w; 0xFFw; 0xD0w;
-                 0x49w; 0x5Bw; 0x49w; 0x5Aw; 0x49w; 0x59w; 0x49w; 0x58w; 0x48w;
-                 0x5Fw; 0x48w; 0x5Ew; 0x48w; 0x5Bw; 0x48w; 0x5Aw; 0x48w; 0x59w;
-                 0x48w; 0x58w; 0x4Dw; 0x31w; 0xFFw]:word8 list`` |> gen
+    0x48w; 0x74w; 0x34w; 0x48w; 0x50w; 0x48w; 0x51w; 0x48w; 0x52w;
+    0x48w; 0x53w; 0x48w; 0x56w; 0x48w; 0x57w; 0x49w; 0x50w; 0x49w;
+    0x51w; 0x49w; 0x52w; 0x49w; 0x53w; 0xBFw]:word8 list`` |> gen
+val printc2 = ``[0x0w; 0x0w;
+    0x0w; 0x49w; 0x8Bw; 0x41w; 0x18w; 0x48w; 0xFFw; 0xD0w; 0x49w; 0x5Bw;
+    0x49w; 0x5Aw; 0x49w; 0x59w; 0x49w; 0x58w; 0x48w; 0x5Fw; 0x48w;
+    0x5Ew; 0x48w; 0x5Bw; 0x48w; 0x5Aw; 0x48w; 0x59w; 0x48w; 0x58w;
+    0x4Dw; 0x31w; 0xFFw]:word8 list`` |> gen
 
 val (res,ic_PrintC_def,ic_PrintC_pre_def) = x64_compile `
   ic_PrintC (x2,s,cs:zheap_consts) =
@@ -12220,6 +12227,11 @@ val zHEAP_INIT = let
   val l = th |> concl |> rand |> find_term (can (match_term ``zPC p``))
              |> rand |> rand |> rand |> numSyntax.int_of_term
   val th = if l mod 2 = 0 then th else SPEC_COMPOSE_RULE [th,zHEAP_NOP]
+  val full_cs =
+    th |> concl |> rand |> find_term (can (match_term ``zHEAP (x,yyy)``))
+       |> rand |> rator |> rand
+  val full_cs_def = Define `full_cs init p = ^full_cs` ;
+  val th = th |> RW [GSYM full_cs_def]
   in th end
 
 val zHEAP_ABBREVS = prove(
@@ -13540,12 +13552,211 @@ val zBC_HEAP_RTC = prove(
   \\ SIMP_TAC std_ss [SUBSET_DEF,IN_INSERT]);
 
 
+(* eval bootstrap i.e. repl_decs *)
+
+val ref_adjust_FEMPTY = prove(
+  ``ref_adjust (p,x,ev) FEMPTY = FEMPTY``,
+  SIMP_TAC (srw_ss()) [ref_adjust_def,LET_DEF]);
+
+val repl_decs_inst_lemma = prove(
+  ``(!s2.
+       EVEN (w2n p) ∧ bc_next^* (strip_labels bs) s2 ∧
+       (bs.inst_length = x64_inst_length) ∧
+       (bs.code = REVERSE bootstrap_lcode) ∧ (bs.pc = 0) ∧ (bs.stack = []) ∧
+       (bs.clock = NONE) ∧ (bs.refs = FEMPTY) ⇒
+       SPEC m pre c (q s2.pc s2)) ==>
+    EVEN (w2n p) ∧
+    (bs.inst_length = x64_inst_length) ∧
+    (bs.code = REVERSE bootstrap_lcode) ∧ (bs.pc = 0) ∧ (bs.stack = []) ∧
+    (bs.clock = NONE) ∧ (bs.refs = FEMPTY) ⇒
+    SPEC m pre c (SEP_EXISTS rd s2.
+       q (next_addr bs.inst_length (strip_labels bs).code) (strip_labels s2) *
+       cond (env_rs [] (repl_decs_cenv ++ init_envC) (0,repl_decs_s)
+               repl_decs_env new_compiler_state 0 rd s2))``,
+  REPEAT STRIP_TAC
+  \\ MP_TAC (x64CorrectTheory.bc_eval_bootstrap_lcode |> Q.SPEC `bs`)
+  \\ FULL_SIMP_TAC std_ss [length_ok_x64_inst_length]
+  \\ REPEAT STRIP_TAC
+  \\ `bc_next^* (strip_labels bs) (strip_labels bs')` by ALL_TAC
+  THEN1 (IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next)
+  \\ RES_TAC
+  \\ (SPEC_WEAKEN |> SIMP_RULE std_ss [PULL_FORALL,AND_IMP_INTRO]
+      |> GEN_ALL |> MATCH_MP_TAC)
+  \\ Q.EXISTS_TAC `(q bs'.pc (strip_labels bs'))`
+  \\ FULL_SIMP_TAC std_ss []
+  \\ `(strip_labels bs').pc = bs'.pc` by
+       FULL_SIMP_TAC (srw_ss()) [bytecodeLabelsTheory.strip_labels_def]
+  \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM,cond_STAR]
+  \\ REPEAT STRIP_TAC THEN1 METIS_TAC []
+  \\ Q.LIST_EXISTS_TAC [`rd`,`bs'`]
+  \\ FULL_SIMP_TAC std_ss []);
+
+val first_s_lemma = prove(
+  ``first_s init with <|output := ""; handler := 1|> = first_s init``,
+  cheat); (* first_s needs adjusting to have handler = 1 *)
+
+val x64_bootstrap_code_def = Define `
+  x64_bootstrap_code =
+    x64_code 0 (code_labels x64_inst_length (REVERSE bootstrap_lcode))`
+
+val next_addr_x64_inst_length_bootstrap = prove(
+  ``(2 * next_addr x64_inst_length (REVERSE bootstrap_lcode) =
+    LENGTH x64_bootstrap_code) /\
+    (2 * next_addr x64_inst_length
+      (code_labels x64_inst_length (REVERSE bootstrap_lcode)) =
+    LENGTH x64_bootstrap_code)``,
+  cheat);
+
+val zBC_HEAP_with_code = prove(
+  ``zBC_HEAP (s2 with code := xx) = zBC_HEAP s2``,
+  SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD] \\ REPEAT STRIP_TAC
+  \\ SIMP_TAC (srw_ss()) [zBC_HEAP_def]);
+
+val SPEC_repl_decs =
+  zBC_HEAP_RTC
+    |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL |> Q.GEN `sb`
+    |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+    |> Q.INST [`cb`|->`p`,`s1`|->`(strip_labels bs)`,`stack`|->`[]`,`f2`|->`FEMPTY`,
+               `s`|->`first_s init`,`ev`|->`T`,`out`|->`""`]
+    |> SIMP_RULE std_ss [LENGTH,Once zBC_HEAP_def]
+    |> UNDISCH
+    |> DISCH ``(bs.code = REVERSE bootstrap_lcode) /\
+               (bs.pc = 0) /\ (bs.stack = []) /\ (bs.clock = NONE) /\
+               (bs.refs = FEMPTY)``
+    |> SIMP_RULE (srw_ss()) [bytecodeLabelsTheory.strip_labels_def,LET_DEF]
+    |> DISCH_ALL
+    |> SIMP_RULE (srw_ss()) [SEP_CLAUSES,GSYM SPEC_PRE_EXISTS,ref_adjust_FEMPTY,
+          EVAL ``(first_s init).local.printing_on``,PULL_FORALL] |> SPEC_ALL
+    |> RW [AND_IMP_INTRO,GSYM CONJ_ASSOC,
+           SIMP_CONV (srw_ss()) [bytecodeLabelsTheory.strip_labels_def]
+             ``(strip_labels bs).inst_length``] |> Q.GEN `s2`
+    |> HO_MATCH_MP repl_decs_inst_lemma
+    |> Q.INST [`bs`|->`<| inst_length := x64_inst_length ;
+                          code := REVERSE bootstrap_lcode ; handler := 0 ;
+                          pc := 0; stack := [] ; clock := NONE ; refs := FEMPTY |>`]
+    |> SIMP_RULE (srw_ss()) [bytecodeLabelsTheory.strip_labels_def,first_s_lemma]
+    |> RW [GSYM SPEC_MOVE_COND,GSYM x64_bootstrap_code_def,
+         next_addr_x64_inst_length_bootstrap]
+    |> SIMP_RULE std_ss [SEP_CLAUSES,zBC_HEAP_with_code]
+
+val SPEC_INIT_THEN_repl_decs = let
+  val th = SPEC_COMPOSE_RULE [zHEAP_INIT,SPEC_repl_decs]
+  val (th,goal) = SPEC_STRENGTHEN_RULE th
+    ``INIT_STATE init * ¬zS * zPC p * cond (EVEN (w2n p))``
+  val lemma = prove(goal,
+    ONCE_REWRITE_TAC [STAR_COMM]
+    \\ Q.SPEC_TAC (`INIT_STATE init * ¬zS * zPC p`,`r`)
+    \\ MATCH_MP_TAC SEP_IMP_FRAME
+    \\ FULL_SIMP_TAC std_ss [SEP_IMP_def,cond_def]
+    \\ SIMP_TAC std_ss [EVEN_w2n] \\ blastLib.BBLAST_TAC)
+  val th = MP th lemma
+  in th end
+
+(* instantiation of lcode *)
+
+val COMPILER_RUN_INV_IMP = prove(
+  ``((bs.code = REVERSE bootstrap_lcode ++ REVERSE call_lcode ++ [Stack Pop]) ==>
+     b) ==>
+    (COMPILER_RUN_INV bs inp outp ==> b)``,
+  SIMP_TAC std_ss [x64CorrectTheory.COMPILER_RUN_INV_def] \\ REPEAT STRIP_TAC
+  \\ RES_TAC);
+
+val x64_code_eval_lemmas = LIST_CONJ [
+    ``x64_code n [Stack Pop]``
+    |> SIMP_CONV std_ss [x64_code_eval],
+    ``x64_code n (REVERSE call_lcode)``
+    |> (SIMP_CONV std_ss [compileCallReplStepDecTheory.call_lcode_def,
+          x64_code_eval,REVERSE_DEF,APPEND,GSYM APPEND_ASSOC] THENC EVAL)]
+
+val strip_labels_code =
+  ``(strip_labels bs).code``
+  |> SIMP_CONV (srw_ss()) [bytecodeLabelsTheory.strip_labels_def,LET_DEF]
+
+val code_labels_APPEND_CALL = prove(
+  ``code_labels l (xs ++ (REVERSE call_lcode ++ [Stack Pop])) =
+    code_labels l xs ++ (REVERSE call_lcode ++ [Stack Pop])``,
+  cheat);
+
+val strip_labels_ignore = prove(
+  ``((strip_labels bs).inst_length = bs.inst_length) /\
+    ((strip_labels bs).pc = bs.pc)``,
+  SRW_TAC [] [bytecodeLabelsTheory.strip_labels_def]);
+
+val zBC_HEAP_strip = prove(
+  ``(zBC_HEAP (strip_labels (bs with pc := code_start bs)) = zBC_HEAP bs) /\
+    ((strip_labels (bs with pc := code_start bs)).code = (strip_labels bs).code) /\
+    ((strip_labels (bs with pc := code_start bs)).inst_length = bs.inst_length) /\
+    ((strip_labels (bs with pc := code_start bs)).pc = code_start bs)``,
+  SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD] \\ REPEAT STRIP_TAC
+  \\ SIMP_TAC (srw_ss()) [zBC_HEAP_def,
+       bytecodeLabelsTheory.strip_labels_def]);
+
+val SPEC_X64_SEPARATE_CODE = prove(
+  ``SPEC X64_MODEL p ((a1,xs ++ ys) INSERT s) q ==>
+    SPEC X64_MODEL p ((a1,xs) INSERT (a1 + n2w (LENGTH xs),ys) INSERT s) q``,
+  cheat);
+
+val repl_decs_step_inst_lemma = prove(
+  ``(!s2.
+       INPUT_TYPE x1 inp ∧ COMPILER_RUN_INV bs inp outp ∧ EVEN (w2n p) ∧
+       bc_next^* (strip_labels (bs with pc := code_start bs)) s2 ∧
+       (bs.inst_length = x64_inst_length) ∧ (∀r. r ∈ FDOM f2 ⇒ ODD r) ⇒
+       SPEC m pre c (q s2.pc s2)) ==>
+    INPUT_TYPE x1 inp ∧ COMPILER_RUN_INV bs inp outp ∧ EVEN (w2n p) ∧
+    (bs.inst_length = x64_inst_length) ∧ (∀r. r ∈ FDOM f2 ⇒ ODD r) ⇒
+    SPEC m pre c (SEP_EXISTS bs2 inp2 out2.
+       q (code_end bs) (strip_labels bs2) *
+       cond (COMPILER_RUN_INV bs2 inp2 out2 ∧
+             OUTPUT_TYPE (repl_step x1) out2))``,
+  REPEAT STRIP_TAC
+  \\ MP_TAC (x64CorrectTheory.COMPILER_RUN_INV_repl_step
+             |> Q.INST [`x`|->`x1`,`bs1`|->`bs`,`inp1`|->`inp`,`out1`|->`outp`])
+  \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
+  \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+  \\ POP_ASSUM (K ALL_TAC)
+  \\ IMP_RES_TAC bytecodeLabelsTheory.bc_next_strip_labels_RTC
+  \\ POP_ASSUM MP_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [length_ok_x64_inst_length]
+  \\ REPEAT STRIP_TAC \\ RES_TAC
+  \\ POP_ASSUM MP_TAC
+  \\ `(strip_labels bs2).pc = bs2.pc` by
+       FULL_SIMP_TAC (srw_ss()) [bytecodeLabelsTheory.strip_labels_def]
+  \\ POP_ASSUM MP_TAC \\ SIMP_TAC std_ss []
+  \\ REPEAT STRIP_TAC
+  \\ (SPEC_WEAKEN |> SIMP_RULE std_ss [PULL_FORALL,AND_IMP_INTRO] |> GEN_ALL
+       |> MATCH_MP_TAC)
+  \\ Q.EXISTS_TAC `(q bs2.pc (strip_labels bs2))` \\ FULL_SIMP_TAC std_ss []
+  \\ SIMP_TAC std_ss [SEP_IMP_def,SEP_EXISTS_THM,cond_STAR]
+  \\ REPEAT STRIP_TAC
+  \\ Q.LIST_EXISTS_TAC [`bs2`,`inp2`,`out2`]
+  \\ FULL_SIMP_TAC std_ss []);
+
+val SPEC_repl_step =
+  zBC_HEAP_RTC
+    |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL |> Q.GEN `sb`
+    |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+    |> Q.INST [`ev`|->`T`,`s1`|->
+         `(strip_labels (bs with pc := code_start bs))`,
+          `cb`|->`p`]
+    |> SIMP_RULE std_ss [zBC_HEAP_strip]
+    |> SIMP_RULE std_ss [code_start_def,next_addr_x64_inst_length_bootstrap]
+    |> DISCH ``(bs.code = REVERSE bootstrap_lcode ++
+                 REVERSE call_lcode ++ [Stack Pop])``
+    |> SIMP_RULE std_ss [strip_labels_code,GSYM APPEND_ASSOC,code_labels_APPEND_CALL]
+    |> SIMP_RULE std_ss [code_labels_APPEND_CALL]
+    |> SIMP_RULE std_ss [x64_code_APPEND,x64_code_eval_lemmas,APPEND]
+    |> SIMP_RULE std_ss [APPEND_ASSOC]
+    |> MATCH_MP COMPILER_RUN_INV_IMP
+    |> SIMP_RULE std_ss [strip_labels_ignore,GSYM x64_bootstrap_code_def]
+    |> SIMP_RULE std_ss [GSYM code_start_def]
+    |> DISCH ``INPUT_TYPE x1 inp``
+    |> RW [AND_IMP_INTRO,GSYM CONJ_ASSOC] |> UNDISCH_ALL
+    |> MATCH_MP SPEC_X64_SEPARATE_CODE |> DISCH_ALL |> Q.GEN `s2`
+    |> HO_MATCH_MP repl_decs_step_inst_lemma
+    |> RW [GSYM SPEC_MOVE_COND]
 (*
-
-print_compiler_grammar();
-
+    |> SIMP_RULE std_ss [code_end_def]
 *)
-
 
 
 (*
