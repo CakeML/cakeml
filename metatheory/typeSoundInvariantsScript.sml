@@ -41,6 +41,27 @@ val _ = type_abbrev( "tenvS" , ``: (num, t) env``);
 (*val type_state : nat -> tenvM -> tenvC -> tenvS -> state -> t -> bool*)
 (*val context_invariant : nat -> list ctxt -> nat -> bool*)
 
+(*val restrict_tenvM : tenvM -> list modN -> tenvM*)
+ val _ = Define `
+ (restrict_tenvM [] mns = ([]))
+/\ (restrict_tenvM ((mn, tenv)::tenvM) mns =  
+(if MEM mn mns then
+    (mn, tenv)::restrict_tenvM tenvM mns
+  else
+    restrict_tenvM tenvM mns))`;
+
+
+(*val restrict_tenvC : tenvC -> list (id conN) -> tenvC*)
+ val _ = Define `
+ (restrict_tenvC [] cns = ([]))
+/\ (restrict_tenvC ((cn, x)::tenvC) cns =  
+(if MEM cn cns then
+    (cn, x)::restrict_tenvC tenvC cns
+  else
+    restrict_tenvC tenvC cns))`;
+
+
+
 (* Type programs without imposing signatures.  This is needed for the type
  * soundness proof *)
 (*val type_top_ignore_sig : tenvM -> tenvC -> tenvE -> top -> tenvM -> tenvC -> env varN (nat * t) -> bool*)
@@ -88,13 +109,13 @@ type_v tvs menv cenv senv (Conv NONE vs) (Tapp ts TC_tup))
 /\ (! tvs menv cenv senv envC envM env tenv n e t1 t2.
 (type_env menv cenv senv env tenv /\
 (check_freevars tvs [] t1 /\
-type_e menv cenv (bind_tenv n( 0) t1 (bind_tvar tvs tenv)) e t2))
+type_e (restrict_tenvM menv (MAP FST envM)) (restrict_tenvC cenv (MAP FST envC)) (bind_tenv n( 0) t1 (bind_tvar tvs tenv)) e t2))
 ==>
 type_v tvs menv cenv senv (Closure (envM, envC, env) n e) (Tfn t1 t2))
 
 /\ (! tvs menv cenv senv envM envC env funs n t tenv tenv'.
 (type_env menv cenv senv env tenv /\
-(type_funs menv cenv (bind_var_list( 0) tenv' (bind_tvar tvs tenv)) funs tenv' /\
+(type_funs (restrict_tenvM menv (MAP FST envM)) (restrict_tenvC cenv (MAP FST envC)) (bind_var_list( 0) tenv' (bind_tvar tvs tenv)) funs tenv' /\
 (lookup n tenv' = SOME t)))
 ==>
 type_v tvs menv cenv senv (Recclosure (envM, envC, env) funs n) t)
@@ -127,7 +148,7 @@ type_env menv cenv senv env tenv)
 ==>
 type_env menv cenv senv (bind n v env) (bind_tenv n tvs t tenv))`;
 
- val consistent_mod_env_defn = Hol_defn "consistent_mod_env" `
+ val _ = Define `
  
 (consistent_mod_env tenvS tenvC [] [] = T)
 /\
@@ -139,7 +160,6 @@ type_env menv cenv senv (bind n v env) (bind_tenv n tvs t tenv))`;
 /\
 (consistent_mod_env tenvS tenvC _ _ = F)`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn consistent_mod_env_defn;
 
 val _ = Define `
  (type_s menv cenv senv s =  
@@ -310,7 +330,7 @@ type_ctxts tvs tenvM tenvC senv [] t t)
 
 /\ (! tvs tenvM tenvC senv c envM envC env cs tenv t1 t2 t3.
 (type_env tenvM tenvC senv env tenv /\
-(type_ctxt tvs tenvM tenvC senv tenv c t1 t2 /\
+(type_ctxt tvs (restrict_tenvM tenvM (MAP FST envM)) (restrict_tenvC tenvC (MAP FST envC)) senv tenv c t1 t2 /\
 type_ctxts (if is_ccon c /\ poly_context cs then tvs else  0) tenvM tenvC senv cs t2 t3))
 ==>
 type_ctxts tvs tenvM tenvC senv ((c,(envM,envC,env))::cs) t1 t3)`;
@@ -320,7 +340,7 @@ val _ = Hol_reln ` (! dec_tvs tenvM tenvC senv envM envC s env e c t1 t2 tenv tv
 (type_ctxts tvs tenvM tenvC senv c t1 t2 /\
 (type_env tenvM tenvC senv env tenv /\
 (type_s tenvM tenvC senv s /\
-(type_e tenvM tenvC (bind_tvar tvs tenv) e t1 /\
+(type_e (restrict_tenvM tenvM (MAP FST envM)) (restrict_tenvC tenvC (MAP FST envC)) (bind_tvar tvs tenv) e t1 /\
 (( ~ (tvs =( 0))) ==> is_value e))))))
 ==>
 type_state dec_tvs tenvM tenvC senv ((envM, envC, env), s, Exp e, c) t2)

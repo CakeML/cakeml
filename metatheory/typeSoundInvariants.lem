@@ -31,6 +31,27 @@ val type_ctxts : nat -> tenvM -> tenvC -> tenvS -> list ctxt -> t -> t -> bool
 val type_state : nat -> tenvM -> tenvC -> tenvS -> state -> t -> bool
 val context_invariant : nat -> list ctxt -> nat -> bool
 
+val restrict_tenvM : tenvM -> list modN -> tenvM
+let rec restrict_tenvM [] mns = []
+and restrict_tenvM ((mn, tenv)::tenvM) mns =
+  if List.elem mn mns then
+    (mn, tenv)::restrict_tenvM tenvM mns
+  else
+    restrict_tenvM tenvM mns
+
+declare termination_argument restrict_tenvM = automatic
+
+val restrict_tenvC : tenvC -> list (id conN) -> tenvC
+let rec restrict_tenvC [] cns = []
+and restrict_tenvC ((cn, x)::tenvC) cns =
+  if List.elem cn cns then
+    (cn, x)::restrict_tenvC tenvC cns
+  else
+    restrict_tenvC tenvC cns
+
+declare termination_argument restrict_tenvC = automatic
+
+
 (* Type programs without imposing signatures.  This is needed for the type
  * soundness proof *)
 val type_top_ignore_sig : tenvM -> tenvC -> tenvE -> top -> tenvM -> tenvC -> env varN (nat * t) -> bool
@@ -100,7 +121,7 @@ and
 closure : forall tvs menv cenv senv envC envM env tenv n e t1 t2.
 type_env menv cenv senv env tenv &&
 check_freevars tvs [] t1 &&
-type_e menv cenv (bind_tenv n 0 t1 (bind_tvar tvs tenv)) e t2
+type_e (restrict_tenvM menv (List.map fst envM)) (restrict_tenvC cenv (List.map fst envC)) (bind_tenv n 0 t1 (bind_tvar tvs tenv)) e t2
 ==>
 type_v tvs menv cenv senv (Closure (envM, envC, env) n e) (Tfn t1 t2)
 
@@ -108,7 +129,7 @@ and
 
 recclosure : forall tvs menv cenv senv envM envC env funs n t tenv tenv'.
 type_env menv cenv senv env tenv &&
-type_funs menv cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
+type_funs (restrict_tenvM menv (List.map fst envM)) (restrict_tenvC cenv (List.map fst envC)) (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
 lookup n tenv' = Just t
 ==>
 type_v tvs menv cenv senv (Recclosure (envM, envC, env) funs n) t
@@ -161,6 +182,8 @@ consistent_mod_env tenvS tenvC ((mn,env)::menv) ((mn',tenv)::tenvM) =
   consistent_mod_env tenvS tenvC menv tenvM
 and
 consistent_mod_env tenvS tenvC _ _ = false
+
+declare termination_argument consistent_mod_env = automatic
 
 let type_s menv cenv senv s =
   forall l. 
@@ -376,7 +399,7 @@ and
 
 cons : forall tvs tenvM tenvC senv c envM envC env cs tenv t1 t2 t3.
 type_env tenvM tenvC senv env tenv &&
-type_ctxt tvs tenvM tenvC senv tenv c t1 t2 &&
+type_ctxt tvs (restrict_tenvM tenvM (List.map fst envM)) (restrict_tenvC tenvC (List.map fst envC)) senv tenv c t1 t2 &&
 type_ctxts (if is_ccon c && poly_context cs then tvs else 0) tenvM tenvC senv cs t2 t3
 ==>
 type_ctxts tvs tenvM tenvC senv ((c,(envM,envC,env))::cs) t1 t3
@@ -389,7 +412,7 @@ context_invariant dec_tvs c tvs &&
 type_ctxts tvs tenvM tenvC senv c t1 t2 &&
 type_env tenvM tenvC senv env tenv &&
 type_s tenvM tenvC senv s &&
-type_e tenvM tenvC (bind_tvar tvs tenv) e t1 &&
+type_e (restrict_tenvM tenvM (List.map fst envM)) (restrict_tenvC tenvC (List.map fst envC)) (bind_tvar tvs tenv) e t1 &&
 ((tvs <> 0) --> is_value e)
 ==>
 type_state dec_tvs tenvM tenvC senv ((envM, envC, env), s, Exp e, c) t2

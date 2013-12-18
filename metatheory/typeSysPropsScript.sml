@@ -1,6 +1,6 @@
 (* Theorems about type_e, type_es, and type_funs *)
 open preamble rich_listTheory optionTheory;
-open libTheory astTheory typeSystemTheory terminationTheory;
+open libTheory astTheory typeSystemTheory typeSoundInvariantsTheory terminationTheory;
 
 val _ = new_theory "typeSysProps";
 
@@ -1790,13 +1790,38 @@ rw [] >|
  metis_tac [tenvC_ok_def, check_ctor_tenvC_ok],
  rw [bind_def] >>
      metis_tac [lookup_notin],
- rw [bind_def, same_module_def]])
+ rw [bind_def, same_module_def]]);
 
 val tid_exn_to_tc_11 = Q.store_thm ("tid_exn_to_tc_11",
 `!x y. (tid_exn_to_tc x = tid_exn_to_tc y) = (x = y)`,
 cases_on `x` >>
 cases_on `y` >>
 rw [tid_exn_to_tc_def]);
+
+val restrict_tenvM_ok = Q.store_thm ("restrict_tenvM_ok",
+`!tenvM mns. tenvM_ok tenvM ⇒ tenvM_ok (restrict_tenvM tenvM mns)`,
+ induct_on `tenvM` >>
+ rw [tenvM_ok_def, restrict_tenvM_def] >>
+ PairCases_on `h` >>
+ fs [tenvM_ok_def, restrict_tenvM_def] >>
+ rw []);
+
+val restrict_tenvC_ok_lem = Q.prove (
+`!tenvC cns. h0 ∉ set (MAP FST tenvC) ⇒ h0 ∉ set (MAP FST (restrict_tenvC tenvC cns))`,
+ induct_on `tenvC` >>
+ rw [tenvC_ok_def, restrict_tenvC_def] >>
+ PairCases_on `h` >>
+ fs [tenvC_ok_def, restrict_tenvC_def] >>
+ rw []);
+ 
+val restrict_tenvC_ok = Q.store_thm ("restrict_tenvC_ok",
+`!tenvC cns. tenvC_ok tenvC ⇒ tenvC_ok (restrict_tenvC tenvC cns)`,
+ induct_on `tenvC` >>
+ rw [tenvC_ok_def, restrict_tenvC_def] >>
+ PairCases_on `h` >>
+ fs [tenvC_ok_def, restrict_tenvC_def] >>
+ rw [] >>
+ metis_tac [restrict_tenvC_ok_lem]);
 
 val _ = export_theory ();
 
