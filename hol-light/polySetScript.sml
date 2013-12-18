@@ -6,6 +6,9 @@ val _ = new_theory"polySet"
 
 val mem = ``mem:'U->'U->bool``
 
+val _ = Parse.add_infix("<:",425,Parse.NONASSOC)
+val _ = Parse.overload_on("<:",mem)
+
 val extensional_def = Define`
   extensional ^mem ⇔ ∀x y. x = y ⇔ ∀a. mem a x ⇔ mem a y`
 
@@ -81,26 +84,27 @@ val is_upair_upair = store_thm("is_upair_upair",
   ``is_set_theory ^mem ⇒ is_upair mem (upair mem)``,
   rw[upair_def] >> SELECT_ELIM_TAC >> fsrw_tac[SATISFY_ss][is_set_theory_def])
 
-val _ = Parse.overload_on("Sub",``sub ^mem``)
+val _ = Parse.add_infix("suchthat",9,Parse.LEFT)
+val _ = Parse.overload_on("suchthat",``sub ^mem``)
 val _ = Parse.overload_on("Pow",``power ^mem``)
 val _ = Parse.overload_on("+",``upair ^mem``)
 
 val mem_sub = store_thm("mem_sub",
-  ``is_set_theory ^mem ⇒ ∀x s P. mem x (Sub s P) ⇔ mem x s ∧ P x``,
+  ``is_set_theory ^mem ⇒ ∀x s P. x <: (s suchthat P) ⇔ x <: s ∧ P x``,
   strip_tac >> imp_res_tac is_separation_sub >> fs[is_separation_def])
 
 val mem_power = store_thm("mem_power",
   ``is_set_theory ^mem ⇒
-    ∀x y. mem x (Pow y) ⇔ (∀b. mem b x ⇒ mem b y)``,
+    ∀x y. x <: (Pow y) ⇔ (∀b. b <: x ⇒ b <: y)``,
   strip_tac >> imp_res_tac is_power_power >> fs[is_power_def])
 
 val mem_union = store_thm("mem_union",
   ``is_set_theory ^mem ⇒
-    ∀x s. mem x (union mem s) ⇔ ∃a. mem x a ∧ mem a s``,
+    ∀x s. x <: (union mem s) ⇔ ∃a. x <: a ∧ a <: s``,
   strip_tac >> imp_res_tac is_union_union >> fs[is_union_def])
 
 val mem_upair = store_thm("mem_upair",
-  ``is_set_theory ^mem ⇒ ∀a x y. mem a (x + y) ⇔ a = x ∨ a = y``,
+  ``is_set_theory ^mem ⇒ ∀a x y. a <: (x + y) ⇔ a = x ∨ a = y``,
   strip_tac >> imp_res_tac is_upair_upair >> fs[is_upair_def])
 
 val empty_def = Define`
@@ -109,7 +113,7 @@ val empty_def = Define`
 val _ = Parse.overload_on("∅",``empty ^mem``)
 
 val mem_empty = store_thm("mem_empty",
-  ``is_set_theory ^mem ⇒ ∀x. ¬mem x ∅``,
+  ``is_set_theory ^mem ⇒ ∀x. ¬(x <: ∅)``,
   strip_tac >> imp_res_tac is_separation_sub >>
   fs[empty_def,is_separation_def])
 
@@ -120,7 +124,7 @@ val _ = Parse.overload_on("Unit",``unit ^mem``)
 
 val mem_unit = store_thm("mem_unit",
   ``is_set_theory ^mem ⇒
-    ∀x y. mem x (Unit y) ⇔ x = y``,
+    ∀x y. x <: (Unit y) ⇔ x = y``,
   strip_tac >> imp_res_tac is_upair_upair >>
   fs[is_upair_def,unit_def])
 
@@ -139,7 +143,7 @@ val _ = Parse.overload_on("One",``one ^mem``)
 
 val mem_one = store_thm("mem_one",
   ``is_set_theory ^mem ⇒
-    ∀x. mem x One ⇔ x = ∅``,
+    ∀x. x <: One ⇔ x = ∅``,
   strip_tac >> simp[mem_unit,one_def])
 
 val two_def = Define`
@@ -149,7 +153,7 @@ val _ = Parse.overload_on("Two",``two ^mem``)
 
 val mem_two = store_thm("mem_two",
   ``is_set_theory ^mem ⇒
-    ∀x. mem x Two ⇔ x = ∅ ∨ x = One``,
+    ∀x. x <: Two ⇔ x = ∅ ∨ x = One``,
   strip_tac >> simp[mem_upair,mem_one,two_def])
 
 val pair_def = Define`
@@ -187,20 +191,20 @@ val _ = Parse.overload_on("UNION",``binary_union ^mem``)
 
 val mem_binary_union = store_thm("mem_binary_union",
   ``is_set_theory ^mem ⇒
-    ∀a x y. mem a (x ∪ y) ⇔ mem a x ∨ mem a y``,
+    ∀a x y. a <: (x ∪ y) ⇔ a <: x ∨ a <: y``,
   strip_tac >> fs[binary_union_def,mem_union,mem_upair] >>
   metis_tac[])
 
 val product_def = Define`
   product ^mem x y =
-    Sub (Pow (Pow (x ∪ y)))
-        (λa. ∃b c. mem b x ∧ mem c y ∧ a = (b,c))`
+    (Pow (Pow (x ∪ y)) suchthat
+     λa. ∃b c. b <: x ∧ c <: y ∧ a = (b,c))`
 
 val _ = Parse.overload_on("CROSS",``product ^mem``)
 
 val mem_product = store_thm("mem_product",
   ``is_set_theory ^mem ⇒
-    ∀a x y. mem a (x × y) ⇔ ∃b c. a = (b,c) ∧ mem b x ∧ mem c y``,
+    ∀a x y. a <: (x × y) ⇔ ∃b c. a = (b,c) ∧ b <: x ∧ c <: y``,
   strip_tac >> fs[product_def] >>
   simp[mem_sub,mem_power,mem_binary_union] >>
   rw[EQ_IMP_THM] >> TRY(metis_tac[]) >>
@@ -210,17 +214,17 @@ val mem_product = store_thm("mem_product",
 val relspace_def = Define`
   relspace ^mem x y = Pow (x × y)`
 
-val _ = Parse.overload_on("Rel",``relspace ^mem``)
+val _ = Parse.overload_on("Relspace",``relspace ^mem``)
 
 val funspace_def = Define`
   funspace ^mem x y =
-    Sub (Rel x y)
-        (λf. ∀a. mem a x ⇒ ∃!b. mem (a,b) f)`
+    (Relspace x y suchthat
+     λf. ∀a. a <: x ⇒ ∃!b. (a,b) <: f)`
 
-val _ = Parse.overload_on("Fun",``funspace ^mem``)
+val _ = Parse.overload_on("Funspace",``funspace ^mem``)
 
 val apply_def = Define`
-  apply ^mem x y = @a. mem (y,a) x`
+  apply ^mem x y = @a. (y,a) <: x`
 
 val _ = Parse.overload_on("'",``apply ^mem``)
 
@@ -245,7 +249,7 @@ val true_neq_false = store_thm("true_neq_false",
 
 val mem_boolset = store_thm("mem_boolset",
   ``is_set_theory ^mem ⇒
-    ∀x. mem x boolset ⇔ ((x = True) ∨ (x = False))``,
+    ∀x. x <: boolset ⇔ ((x = True) ∨ (x = False))``,
   strip_tac >> fs[mem_two,true_def,false_def])
 
 val boolean_def = Define`
@@ -255,7 +259,7 @@ val _ = Parse.overload_on("Boolean",``boolean ^mem``)
 
 val boolean_in_boolset = store_thm("boolean_in_boolset",
   ``is_set_theory ^mem ⇒
-    ∀b. mem (Boolean b) boolset``,
+    ∀b. Boolean b <: boolset``,
   strip_tac >> imp_res_tac mem_boolset >>
   Cases >> simp[boolean_def])
 
@@ -269,13 +273,13 @@ val holds_def = Define`
 val _ = Parse.overload_on("Holds",``holds ^mem``)
 
 val abstract_def = Define`
-  abstract ^mem dom rng f = Sub (dom × rng) (λx. ∃a. x = (a,f a))`
+  abstract ^mem dom rng f = (dom × rng suchthat λx. ∃a. x = (a,f a))`
 
 val _ = Parse.overload_on("Abstract",``abstract ^mem``)
 
 val apply_abstract = store_thm("apply_abstract",
   ``is_set_theory ^mem ⇒
-    ∀f x s t. mem x s ∧ mem (f x) t ⇒ (Abstract s t f) ' x = f x``,
+    ∀f x s t. x <: s ∧ f x <: t ⇒ (Abstract s t f) ' x = f x``,
   strip_tac >>
   rw[apply_def,abstract_def] >>
   SELECT_ELIM_TAC >>
@@ -283,8 +287,8 @@ val apply_abstract = store_thm("apply_abstract",
 
 val apply_in_rng = store_thm("apply_in_rng",
   ``is_set_theory ^mem ⇒
-    ∀f x s t. mem x s ∧ mem f (Fun s t) ⇒
-    mem (f ' x) t``,
+    ∀f x s t. x <: s ∧ f <: Funspace s t ⇒
+    f ' x <: t``,
   strip_tac >>
   simp[funspace_def,mem_sub,relspace_def,
        mem_power,apply_def,mem_product,EXISTS_UNIQUE_THM] >>
@@ -292,7 +296,7 @@ val apply_in_rng = store_thm("apply_in_rng",
 
 val abstract_in_funspace = store_thm("abstract_in_funspace",
   ``is_set_theory ^mem ⇒
-    ∀f s t. (∀x. mem x s ⇒ mem (f x) t) ⇒ mem (Abstract s t f) (Fun s t)``,
+    ∀f s t. (∀x. x <: s ⇒ f x <: t) ⇒ Abstract s t f <: Funspace s t``,
   strip_tac >>
   simp[funspace_def,relspace_def,abstract_def,mem_power,mem_product,mem_sub] >>
   simp[EXISTS_UNIQUE_THM,pair_inj])
@@ -300,7 +304,7 @@ val abstract_in_funspace = store_thm("abstract_in_funspace",
 val abstract_eq = store_thm("abstract_eq",
   ``is_set_theory ^mem ⇒
     ∀s t1 t2 f g.
-    (∀x. mem x s ⇒ mem (f x) t1 ∧ mem (g x) t2 ∧ f x = g x)
+    (∀x. x <: s ⇒ f x <: t1 ∧ g x <: t2 ∧ f x = g x)
     ⇒ Abstract s t1 f = Abstract s t2 g``,
   rw[] >>
   imp_res_tac is_extensional >>
