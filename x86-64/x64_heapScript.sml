@@ -21,7 +21,7 @@ open helperLib;
 open addressTheory
 open x64_copying_gcTheory;
 open progTheory;
-open x64CorrectTheory;
+open bootstrap_lemmasTheory;
 
 val _ = (max_print_depth := 50);
 
@@ -7691,26 +7691,6 @@ val zHEAP_SWAP = let
 
 (* specific instances of CONS *)
 
-val nil_tag_def  = Define `nil_tag  = 5:num`;
-val cons_tag_def = Define `cons_tag = 6:num`;
-val pair_tag_def = Define `pair_tag = 4:num`;
-
-val BlockNil_def  = Define `BlockNil = Block nil_tag []`;
-val BlockCons_def = Define `BlockCons (x,y) = Block cons_tag [x;y]`;
-val BlockPair_def = Define `BlockPair (x,y) = Block pair_tag [x;y]`;
-
-val errors_tag_def  = Define `errors_tag = 50:num`;
-val others_tag_def  = Define `others_tag = 51:num`;
-val longs_tag_def   = Define `longs_tag = 52:num`;
-val numbers_tag_def = Define `numbers_tag = 53:num`;
-val strings_tag_def = Define `strings_tag = 54:num`;
-
-val BlockOtherS_def  = Define `BlockOtherS x  = Block others_tag [x]`;
-val BlockLongS_def   = Define `BlockLongS x   = Block longs_tag [x]`;
-val BlockNumberS_def = Define `BlockNumberS x = Block numbers_tag [x]`;
-val BlockStringS_def = Define `BlockStringS x = Block strings_tag [x]`;
-val BlockErrorS_def  = Define `BlockErrorS    = Block errors_tag []`;
-
 fun BlockConsPair tag (n,m) = let
   fun index_to_push 1 = zHEAP_PUSH1
     | index_to_push 2 = zHEAP_PUSH2
@@ -10813,8 +10793,6 @@ val bool2int_thm = prove(
   ``!b. (bool2int b = 0) <=> ~b``,
   Cases \\ EVAL_TAC);
 
-val Chr_def = Define `Chr c = Number (& (ORD c))`;
-
 val DROP_1_CONS = EVAL ``DROP 1 (x::xs)``
 
 (* isSpace *)
@@ -11669,10 +11647,6 @@ val (res,cons_list_def,cons_list_pre_def) = x64_compile `
     let (x1,x2,stack) = cons_list_aux (x1,x2,stack) in
       (x1,x2,stack)`
 
-val BlockList_def = Define `
-  (BlockList [] = BlockNil) /\
-  (BlockList (x::xs) = BlockCons(x,BlockList xs))`;
-
 val cons_list_aux_thm = prove(
   ``!xs ys x2.
       cons_list_aux_pre (BlockList ys,x2,MAP Chr xs ++ BlockNil::stack) /\
@@ -11869,13 +11843,6 @@ val (res,next_sym_full_def,next_sym_full_pre_def) = x64_compile `
         let x1 = BlockErrorS in
         let x2 = Number 1 in
           (x1,x2,x3,s,stack)`
-
-val BlockSym_def = Define `
-  (BlockSym (StringS s) = BlockStringS (BlockList (MAP Chr s))) /\
-  (BlockSym (OtherS s) = BlockOtherS (BlockList (MAP Chr s))) /\
-  (BlockSym (LongS s) = BlockLongS (BlockList (MAP Chr s))) /\
-  (BlockSym (ErrorS) = BlockErrorS) /\
-  (BlockSym (NumberS n) = BlockNumberS (Number n))`;
 
 val next_sym_full_thm = prove(
   ``next_sym_full_pre (s,stack) /\
@@ -13574,7 +13541,7 @@ val repl_decs_inst_lemma = prove(
        cond (env_rs [] (repl_decs_cenv ++ init_envC) (0,repl_decs_s)
                repl_decs_env new_compiler_state 0 rd s2))``,
   REPEAT STRIP_TAC
-  \\ MP_TAC (x64CorrectTheory.bc_eval_bootstrap_lcode |> Q.SPEC `bs`)
+  \\ MP_TAC (bootstrap_lemmasTheory.bc_eval_bootstrap_lcode |> Q.SPEC `bs`)
   \\ FULL_SIMP_TAC std_ss [length_ok_x64_inst_length]
   \\ REPEAT STRIP_TAC
   \\ `bc_next^* (strip_labels bs) (strip_labels bs')` by ALL_TAC
@@ -13658,13 +13625,19 @@ val COMPILER_RUN_INV_IMP = prove(
   ``((bs.code = REVERSE bootstrap_lcode ++ REVERSE call_lcode ++ [Stack Pop]) ==>
      b) ==>
     (COMPILER_RUN_INV bs inp outp ==> b)``,
-  SIMP_TAC std_ss [x64CorrectTheory.COMPILER_RUN_INV_def] \\ REPEAT STRIP_TAC
+  SIMP_TAC std_ss [bootstrap_lemmasTheory.COMPILER_RUN_INV_def] \\ REPEAT STRIP_TAC
   \\ RES_TAC);
 
 val x64_code_eval_lemmas = LIST_CONJ [
     ``x64_code n [Stack Pop]``
     |> SIMP_CONV std_ss [x64_code_eval],
     ``x64_code n (REVERSE call_lcode)``
+    |> (SIMP_CONV std_ss [compileCallReplStepDecTheory.call_lcode_def,
+          x64_code_eval,REVERSE_DEF,APPEND,GSYM APPEND_ASSOC] THENC EVAL),
+    ``2 * next_addr x64_inst_length (REVERSE call_lcode)``
+    |> (SIMP_CONV std_ss [compileCallReplStepDecTheory.call_lcode_def,
+          x64_code_eval,REVERSE_DEF,APPEND,GSYM APPEND_ASSOC] THENC EVAL),
+    ``2 * next_addr x64_inst_length [Stack Pop]``
     |> (SIMP_CONV std_ss [compileCallReplStepDecTheory.call_lcode_def,
           x64_code_eval,REVERSE_DEF,APPEND,GSYM APPEND_ASSOC] THENC EVAL)]
 
@@ -13683,7 +13656,8 @@ val strip_labels_ignore = prove(
   SRW_TAC [] [bytecodeLabelsTheory.strip_labels_def]);
 
 val zBC_HEAP_strip = prove(
-  ``(zBC_HEAP (strip_labels (bs with pc := code_start bs)) = zBC_HEAP bs) /\
+  ``(zBC_HEAP (strip_labels bs) = zBC_HEAP bs) /\
+    (zBC_HEAP (bs with pc := code_start bs) = zBC_HEAP bs) /\
     ((strip_labels (bs with pc := code_start bs)).code = (strip_labels bs).code) /\
     ((strip_labels (bs with pc := code_start bs)).inst_length = bs.inst_length) /\
     ((strip_labels (bs with pc := code_start bs)).pc = code_start bs)``,
@@ -13709,7 +13683,7 @@ val repl_decs_step_inst_lemma = prove(
        cond (COMPILER_RUN_INV bs2 inp2 out2 ∧
              OUTPUT_TYPE (repl_step x1) out2))``,
   REPEAT STRIP_TAC
-  \\ MP_TAC (x64CorrectTheory.COMPILER_RUN_INV_repl_step
+  \\ MP_TAC (bootstrap_lemmasTheory.COMPILER_RUN_INV_repl_step
              |> Q.INST [`x`|->`x1`,`bs1`|->`bs`,`inp1`|->`inp`,`out1`|->`outp`])
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
   \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
@@ -13730,6 +13704,10 @@ val repl_decs_step_inst_lemma = prove(
   \\ REPEAT STRIP_TAC
   \\ Q.LIST_EXISTS_TAC [`bs2`,`inp2`,`out2`]
   \\ FULL_SIMP_TAC std_ss []);
+
+val next_addr_APPEND = prove(
+  ``!xs ys. next_addr l (xs ++ ys) = next_addr l xs + next_addr l ys``,
+  Induct \\ SRW_TAC [] [ADD_ASSOC]);
 
 val SPEC_repl_step =
   zBC_HEAP_RTC
@@ -13753,9 +13731,18 @@ val SPEC_repl_step =
     |> RW [AND_IMP_INTRO,GSYM CONJ_ASSOC] |> UNDISCH_ALL
     |> MATCH_MP SPEC_X64_SEPARATE_CODE |> DISCH_ALL |> Q.GEN `s2`
     |> HO_MATCH_MP repl_decs_step_inst_lemma
+    |> SIMP_RULE std_ss [code_end_def,next_addr_APPEND,LEFT_ADD_DISTRIB]
+    |> RW [next_addr_x64_inst_length_bootstrap,x64_code_eval_lemmas]
+    |> SIMP_RULE std_ss [GSYM ADD_ASSOC]
+    |> RW [GSYM word_arith_lemma1]
     |> RW [GSYM SPEC_MOVE_COND]
+    |> Q.INST [`p`|->`p - n2w (LENGTH x64_bootstrap_code)`]
+    |> RW [WORD_SUB_ADD,zBC_HEAP_strip]
+
 (*
-    |> SIMP_RULE std_ss [code_end_def]
+SPEC_repl_step
+    |> RW [zBC_HEAP_def]
+    |> SIMP_RULE std_ss [SEP_CLAUSES]
 *)
 
 
@@ -14931,6 +14918,33 @@ fun get_bs dlets = let
   in foo ((bs,rs),dlets) end
 
 val tm = bs_to_term (get_bs dlets)
+
+*)
+
+
+(*
+
+val entire_x64_implementation_def = Define `
+  entire_x64_implementation p =
+    {(p:word64,[0x88w:word8])} UNION bignum_code (p + 999w)`;
+
+val out_def = Define `
+  (out (Diverge) = ("",F)) /\
+  (out (Terminate) = ("",T)) /\
+  (out (Result r rest) =
+     let (str,res) = out rest in
+       (r ++ str,res))`;
+
+val x64_correct = store_thm("x64_correct",
+  ``TEMPORAL X64_MODEL (entire_x64_implementation p)
+      (T_IMPLIES (INIT_STATE init)
+                 (T_DISJ (EVENTUALLY (SEP_EXISTS output result bools. zHEAP_OUTPUT (first_cs init,output) *
+                                         cond (repl bools init.init_input result /\ (out result = (output,T)))))
+                 (T_DISJ (ALWAYS (EVENTUALLY (SEP_EXISTS output result bools. zHEAP_OK output *
+                                         cond (repl bools init.init_input result /\ (out result = (output,F))))))
+                         (EVENTUALLY (SEP_EXISTS output rest result bools success. zHEAP_ERROR output *
+                                         cond (repl bools init.init_input result /\ (out result = (output ++ rest,success))))))))``,
+  cheat);
 
 *)
 
