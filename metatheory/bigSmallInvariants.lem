@@ -124,11 +124,12 @@ evaluate_ctxt (menv,cenv,env) s (Clet n () e2) v bv
 
 and
 
-con1 : forall env cn es vs v vs' s1 s2.
+con1 : forall env cn es vs v vs' s1 s2 v'.
 do_con_check (all_env_to_cenv env) cn (List.length vs + List.length es + 1) &&
+build_conv (all_env_to_cenv env) cn (List.reverse vs ++ [v] ++ vs') = Just v' &&
 evaluate_list false env s1 es (s2, Rval vs')
 ==>
-evaluate_ctxt env s1 (Ccon cn vs () es) v (s2, Rval (Conv cn (List.reverse vs ++ [v] ++ vs')))
+evaluate_ctxt env s1 (Ccon cn vs () es) v (s2, Rval v')
 
 and
 

@@ -14,7 +14,7 @@ type envC = env (id conN) (nat * tid_or_exn)
 type v =
   | Litv of lit
   (* Constructor application. *)
-  | Conv of maybe (id conN) * list v 
+  | Conv of maybe (id conN * tid_or_exn) * list v 
   (* Function closures
      The environment is used for the free variables in the function *)
   | Closure of (env modN (env varN v) * envC * env varN v) * varN * exp
@@ -95,6 +95,18 @@ let do_con_check cenv n_opt l =
         end
   end
 
+val build_conv : envC -> maybe (id conN) -> list v -> maybe v
+let build_conv envC cn vs =
+  match cn with
+    | Nothing -> 
+        Just (Conv Nothing vs)
+    | Just id -> 
+        match lookup id envC with
+          | Nothing -> Nothing
+          | Just (len,t) -> Just (Conv (Just (id, t)) vs)
+        end
+  end
+
 val lit_same_type : lit -> lit -> bool
 let lit_same_type l1 l2 =
   match (l1,l2) with
@@ -129,17 +141,17 @@ pmatch envC s (Plit l) (Litv l') env =
   else
     Match_type_error
 and
-pmatch envC s (Pcon (Just n) ps) (Conv (Just n') vs) env =
-  match (lookup n envC, lookup n' envC) with
-    | (Just (l, t), Just (l', t')) ->
-        if t = t' && ((List.length ps = l) && (List.length vs = l')) then
+pmatch envC s (Pcon (Just n) ps) (Conv (Just (n', t')) vs) env =
+  match lookup n envC with
+    | Just (l, t)->
+        if t = t' && List.length ps = l then
           if n = n' then
             pmatch_list envC s ps vs env
           else
             No_match
         else
           Match_type_error
-    | (_, _) -> Match_type_error
+    | _ -> Match_type_error
   end
 and
 pmatch envC s (Pcon Nothing ps) (Conv Nothing vs) env =

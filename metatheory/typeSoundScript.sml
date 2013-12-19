@@ -124,30 +124,15 @@ val type_lookup_id = Q.prove (
      fs [])
  >- (Cases_on `v'` >>
      fs [])
- >- (PairCases_on `h` >>
+ >- (qpat_assum `consistent_mod_env tenvS x0 x1 x2` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
      fs [] >>
-     cases_on `h0 = s` >>
-     fs [] >>
-     cases_on `menv` >>
-     fs [Once type_v_cases] >>
-     cheat));
-
-     (*
-  cases_on `lookup mn tenvM` >>
-      fs [bvl2_lookup] >|
-      [imp_res_tac type_lookup_lem >>
-           cases_on `v'` >>
-           fs [],
-       imp_res_tac type_lookup_lem >>
-           cases_on `v'` >>
-           fs []],
-  cases_on `lookup s tenvM` >>
-      fs [] >>
-      cases_on `lookup s menv` >>
-      fs [] >>
-      fs [] >>
-      metis_tac []]);
-      *)
+     rw [] >>
+     fs [t_lookup_var_id_def, lookup_var_id_def]
+     >- (match_mp_tac type_lookup >>
+         cases_on `lookup mn' tenvM` >>
+         fs [lookup_tenv_def, bind_tvar_def, bvl2_lookup] >>
+         metis_tac [])
+     >- metis_tac []));
 
 val type_vs_length_lem = Q.prove (
 `∀tvs tenvC tenvS vs ts.
@@ -226,6 +211,26 @@ TRY (Cases_on `tn`) >>
 fs [tid_exn_to_tc_def] >>
 metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct]);
 
+val lookup_restrict_tenvC = Q.prove (
+`!cn cns tenvC.
+ (lookup cn (restrict_tenvC tenvC cns) = SOME x) ⇒
+ MEM cn cns ∧
+ (lookup cn tenvC = SOME x)`,
+ induct_on `tenvC` >>
+ rw [lookup_def, restrict_tenvC_def] >>
+ PairCases_on `h` >>
+ fs [restrict_tenvC_def] >>
+ rw []
+ >- (cases_on `MEM h0 cns` >>
+     fs [] >>
+     metis_tac [])
+ >- (cases_on `MEM cn cns` >>
+     fs [] >>
+     metis_tac [])
+ >- (cases_on `MEM h0 cns` >>
+     fs [] >>
+     metis_tac []));
+
 val tac =
 fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
 rw [] >>
@@ -235,17 +240,17 @@ metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct, tid_exn_not];
 (* Well-typed pattern matches either match or not, but they don't raise type
  * errors *)
 val pmatch_type_progress = Q.prove (
-`(∀ cenv st p v env t tenv tenvS tvs tvs''.
-  consistent_con_env cenv tenvC ∧
-  type_p tvs'' tenvC p t tenv ∧
+`(∀ cenv st p v env t tenv tenvS tvs tvs'' tenvC cns.
+  consistent_con_env cenv (restrict_tenvC tenvC cns) ∧
+  type_p tvs'' (restrict_tenvC tenvC cns) p t tenv ∧
   type_v tvs tenvC tenvS v t ∧
   type_s tenvC tenvS st
   ⇒
   (pmatch cenv st p v env = No_match) ∨
   (∃env'. pmatch cenv st p v env = Match env')) ∧
- (∀ cenv st ps vs env ts tenv tenvS tvs tvs''.
-  consistent_con_env cenv tenvC ∧
-  type_ps tvs'' tenvC ps ts tenv ∧
+ (∀ cenv st ps vs env ts tenv tenvS tvs tvs'' tenvC cns.
+  consistent_con_env cenv (restrict_tenvC tenvC cns) ∧
+  type_ps tvs'' (restrict_tenvC tenvC cns) ps ts tenv ∧
   type_vs tvs tenvC tenvS vs ts ∧
   type_s tenvC tenvS st
   ⇒
@@ -267,18 +272,26 @@ val pmatch_type_progress = Q.prove (
      fs [] >>
      PairCases_on `x` >>
      fs [] >>
-     rw [] >-
-     metis_tac [] >>
-     pop_assum match_mp_tac >>
-     cases_on `n` >>
+     rw [] >>
      fs [] >>
+     imp_res_tac lookup_restrict_tenvC >>
+     fs [] >>
+     rw [] >>
      metis_tac [type_ps_length, type_vs_length_lem, LENGTH_MAP])
+     (*
  >- (fs [Once type_p_cases, Once type_v_cases] >>
      imp_res_tac consistent_con_env_thm >>
      rw [] >>
      fs [tid_exn_to_tc_11] >>
      fs [] >>
-     metis_tac [type_ps_length, type_vs_length_lem, LENGTH_MAP])
+     imp_res_tac lookup_restrict_tenvC >>
+     fs [] >>
+     rw [] >>
+     every_case_tac >>
+     fs []
+     metis_tac [type_ps_length, type_vs_length_lem, LENGTH_MAP]
+     *)
+ >- cheat
  >- (qpat_assum `type_v b c d e f` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
      qpat_assum `type_p b0 a b c d` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_p_cases]) >>
      every_case_tac >>
@@ -361,13 +374,13 @@ cases_on `c` >>
 rw [final_state_def]);
 
 val eq_same_type = Q.prove (
-`(!v1 v2 tvs tenvC tenvS t.
-  type_v tvs tenvC tenvS v1 t ∧
+`(!v1 v2 tvs tenvC cns tenvS t.
+  type_v tvs (restrict_tenvC tenvC cns) tenvS v1 t ∧
   type_v tvs tenvC tenvS v2 t 
   ⇒
   do_eq v1 v2 ≠ Eq_type_error) ∧
-(!vs1 vs2 tvs tenvC tenvS ts.
-  type_vs tvs tenvC tenvS vs1 ts ∧
+(!vs1 vs2 tvs tenvC cns tenvS ts.
+  type_vs tvs (restrict_tenvC tenvC cns) tenvS vs1 ts ∧
   type_vs tvs tenvC tenvS vs2 ts 
   ⇒
   do_eq_list vs1 vs2 ≠ Eq_type_error)`,
@@ -379,46 +392,28 @@ val eq_same_type = Q.prove (
  fs [] >>
  rw [] >>
  imp_res_tac type_funs_Tfn >>
- fs [Tfn_def] >-
- (fs [hd (CONJUNCTS type_v_cases)] >>
-  rw [] >>
-  fs [] >>
-  metis_tac []) >>
+ fs [Tfn_def] 
+ >- (fs [hd (CONJUNCTS type_v_cases)] >>
+     rw [] >>
+     fs [] >>
+     imp_res_tac lookup_restrict_tenvC >>
+     fs [] >>
+     metis_tac []) >>
  fs [Once (hd (tl (CONJUNCTS type_v_cases)))] >>
  rw [] >>
  cases_on `do_eq v1 v2` >>
- fs [tid_exn_not] >-
- (cases_on `b` >>
-      fs [] >>
-      qpat_assum `!x. P x` (mp_tac o Q.SPECL [`tvs`, `tenvC`, `tenvS`, `ts'`]) >>
-      rw [METIS_PROVE [] ``(a ∨ b) = (~a ⇒ b)``] >>
-      cases_on `vs1` >>
-      fs [] >-
-      fs [Once (hd (tl (CONJUNCTS type_v_cases)))] >>
-      cases_on `ts'` >>
-      fs [] >>
-      fs [Once (hd (tl (CONJUNCTS type_v_cases)))]) >>
- metis_tac []);
-
-val lookup_restrict_tenvC = Q.prove (
-`!cn cns tenvC.
- (lookup cn (restrict_tenvC tenvC cns) = SOME x) ⇒
- MEM cn cns ∧
- (lookup cn tenvC = SOME x)`,
- induct_on `tenvC` >>
- rw [lookup_def, restrict_tenvC_def] >>
- PairCases_on `h` >>
- fs [restrict_tenvC_def] >>
- rw []
- >- (cases_on `MEM h0 cns` >>
+ fs [tid_exn_not]
+ >- (cases_on `b` >>
      fs [] >>
-     metis_tac [])
- >- (cases_on `MEM cn cns` >>
+     qpat_assum `!x. P x` (mp_tac o Q.SPECL [`tvs`, `tenvC`, `cns`, `tenvS`, `ts'`]) >>
+     rw [METIS_PROVE [] ``(a ∨ b) = (~a ⇒ b)``] >>
+     cases_on `vs1` >>
+     fs [] >-
+     fs [Once (hd (tl (CONJUNCTS type_v_cases)))] >>
+     cases_on `ts'` >>
      fs [] >>
-     metis_tac [])
- >- (cases_on `MEM h0 cns` >>
-     fs [] >>
-     metis_tac []));
+     fs [Once (hd (tl (CONJUNCTS type_v_cases)))])
+ >- metis_tac []);
 
 (* A well-typed expression state is either a value with no continuation, or it
  * can step to another state, or it steps to a BindError. *)
@@ -439,7 +434,8 @@ val exp_type_progress = Q.prove (
           every_case_tac >>
           fs [return_def] >>
           imp_res_tac type_es_length >>
-          fs [],
+          fs [] >>
+          metis_tac [do_con_check_build_conv, NOT_SOME_NONE],
       fs [do_con_check_def] >>
           rw [] >>
           fs [] >>
@@ -455,7 +451,7 @@ val exp_type_progress = Q.prove (
           every_case_tac >>
           fs [return_def] >>
           imp_res_tac type_es_length >>
-          fs [],
+          fs [build_conv_def],
       fs [do_con_check_def] >>
           rw [] >>
           fs [] >>
@@ -508,13 +504,10 @@ val exp_type_progress = Q.prove (
           fs [] >>
           imp_res_tac type_funs_find_recfun >>
           fs [],
-      cheat,
-      (*
       cases_on `do_eq v' v` >>
           fs [Once context_invariant_cases] >>
           srw_tac [ARITH_ss] [] >> 
           metis_tac [eq_same_type],
-          *)
       qpat_assum `type_v a tenvC senv (Loc n) z` 
               (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
           fs [type_s_def] >>
@@ -538,10 +531,11 @@ val exp_type_progress = Q.prove (
           metis_tac [pmatch_type_progress, match_result_distinct],
       every_case_tac >>
           fs [] >>
+          metis_tac [do_con_check_build_conv, NOT_SOME_NONE]
           imp_res_tac consistent_con_env_thm >>
           imp_res_tac type_es_length >>
           imp_res_tac type_vs_length_lem >>
-          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def],
+          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def, build_conv_def],
       *)
       fs [all_env_to_cenv_def] >>
           every_case_tac >>
@@ -555,13 +549,13 @@ val exp_type_progress = Q.prove (
           imp_res_tac consistent_con_env_thm >>
           imp_res_tac type_es_length >>
           imp_res_tac type_vs_length_lem >>
-          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def],
+          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def, build_conv_def],
       every_case_tac >>
           fs [] >>
           imp_res_tac consistent_con_env_thm >>
           imp_res_tac type_es_length >>
           imp_res_tac type_vs_length_lem >>
-          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def]]));
+          full_simp_tac (srw_ss()++ARITH_ss) [do_con_check_def,lookup_def, build_conv_def]]));
 
 (* A successful pattern match gives a binding environment with the type given by
 * the pattern type checker *)

@@ -93,6 +93,13 @@ fs [] >>
 rw [] >> 
 metis_tac []);
 
+val do_con_check_build_conv = Q.store_thm ("do_con_check_build_conv",
+`!tenvC cn vs l.
+  do_con_check tenvC cn l ⇒ ?v. build_conv tenvC cn vs = SOME v`,
+rw [do_con_check_def, build_conv_def] >>
+every_case_tac >>
+fs []);
+
 val big_unclocked_unchanged = Q.prove (
 `(∀ck env s e r1.
    evaluate ck env s e r1 ⇒
@@ -207,6 +214,8 @@ rw [Once evaluate_cases] >|
      metis_tac [],
  metis_tac [],
  metis_tac [],
+ fs [] >>
+     metis_tac [],
  PairCases_on `s'` >>
      fs [] >>
      disj1_tac >>
@@ -457,8 +466,10 @@ metis_tac [arithmeticTheory.LESS_TRANS]);
 val evaluate_raise_empty_ctor = Q.prove (
 `!ck s env x cn.
   ?err. evaluate ck env s (Raise (Con cn [])) (s, Rerr err)`,
- ntac 4 (rw [Once evaluate_cases]) >>
- metis_tac []);
+ ntac 5 (rw [Once evaluate_cases]) >>
+ every_case_tac >>
+ rw [] >>
+ metis_tac [do_con_check_build_conv]);
 
 val big_clocked_total_lem = Q.prove (
 `!count_e env s.
@@ -491,7 +502,7 @@ val big_clocked_total_lem = Q.prove (
  >- ((* Con *)
      `?count2 s2 r2. evaluate_list T env (count',s) l ((count2,s2),r2)`
                by metis_tac [pair_CASES, eval_list_total] >>
-     metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES])
+     metis_tac [do_con_check_build_conv, result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES])
  >- ((* Var *)
      cases_on `lookup_var_id i env` >>
          rw []) 
@@ -574,7 +585,7 @@ val big_clocked_total_lem = Q.prove (
      `(?err. r1 = Rerr err) ∨ (?v. r1 = Rval v)` by (cases_on `r1` >> metis_tac []) >>
      rw [] >-
      metis_tac [] >>
-     `?count2 s2 r2. evaluate_match T env (count1,s1) v l (Conv (SOME (Short "Bind")) []) ((count2,s2),r2)`
+     `?count2 s2 r2. evaluate_match T env (count1,s1) v l (Conv (SOME (Short "Bind", TypeExn)) []) ((count2,s2),r2)`
                by metis_tac [eval_match_total, arithmeticTheory.LESS_TRANS, 
                              pair_CASES, clock_monotone, arithmeticTheory.LESS_OR_EQ] >>
      metis_tac [])
@@ -685,6 +696,7 @@ val sub_from_counter = Q.store_thm ("sub_from_counter",
  rw [] >>
  rw [Once evaluate_cases] >>
  full_simp_tac (srw_ss()++ARITH_ss) []
+ >- metis_tac [dec_count_add, pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
  >- metis_tac [dec_count_add, pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
  >- metis_tac [dec_count_add, pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
  >- metis_tac [dec_count_add, pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]

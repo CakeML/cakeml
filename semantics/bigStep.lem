@@ -70,11 +70,12 @@ evaluate ck env s1 (Handle e pes) (s2, Rerr err)
 
 and
 
-con1 : forall ck env cn es vs s s'.
+con1 : forall ck env cn es vs s s' v.
 do_con_check (all_env_to_cenv env) cn (List.length es) &&
+build_conv (all_env_to_cenv env) cn vs = Just v &&
 evaluate_list ck env s es (s', Rval vs)
 ==>
-evaluate ck env s (Con cn es) (s', Rval (Conv cn vs))
+evaluate ck env s (Con cn es) (s', Rval v)
 
 and
 
@@ -234,7 +235,7 @@ and
 
 mat1 : forall ck env e pes v bv s1 s2.
 evaluate ck env s1 e (s2, Rval v) &&
-evaluate_match ck env s2 v pes (Conv (Just (Short "Bind")) []) bv
+evaluate_match ck env s2 v pes (Conv (Just (Short "Bind", TypeExn)) []) bv
 ==>
 evaluate ck env s1 (Mat e pes) bv
 
@@ -360,7 +361,7 @@ evaluate false env (0,s1) e ((count,s2), Rval v) &&
 all_distinct (pat_bindings p []) &&
 (pmatch (all_env_to_cenv env) s2 p v emp = No_match)
 ==>
-evaluate_dec mn env s1 (Dlet p e) (s2, Rerr (Rraise (Conv (Just (Short "Bind")) [])))
+evaluate_dec mn env s1 (Dlet p e) (s2, Rerr (Rraise (Conv (Just (Short "Bind", TypeExn)) [])))
 
 and
 

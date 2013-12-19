@@ -122,7 +122,7 @@ List.length tvs' = List.length ts' &&
 type_vs tvs cenv senv vs (List.map (type_subst (ZIP tvs' ts')) ts) &&
 lookup cn cenv = Just (tvs', ts, tn)
 ==>
-type_v tvs cenv senv (Conv (Just cn) vs) (Tapp ts' (tid_exn_to_tc tn))
+type_v tvs cenv senv (Conv (Just (cn,tn)) vs) (Tapp ts' (tid_exn_to_tc tn))
 
 and
 
@@ -139,7 +139,7 @@ tenvM_ok menv &&
 consistent_mod_env senv (restrict_tenvC cenv (List.map fst envC)) envM menv &&
 type_env cenv senv env tenv &&
 check_freevars tvs [] t1 &&
-type_e menv (restrict_tenvC cenv (List.map fst envC)) (bind_tenv n 0 t1 (bind_tvar tvs tenv)) e t2
+type_e menv cenv (bind_tenv n 0 t1 (bind_tvar tvs tenv)) e t2
 ==>
 type_v tvs cenv senv (Closure (envM, envC, env) n e) (Tfn t1 t2)
 

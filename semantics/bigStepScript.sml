@@ -66,11 +66,12 @@ evaluate ck env s1 (Handle e pes) bv)
 ==>
 evaluate ck env s1 (Handle e pes) (s2, Rerr err))
 
-/\ (! ck env cn es vs s s'.
+/\ (! ck env cn es vs s s' v.
 (do_con_check (all_env_to_cenv env) cn (LENGTH es) /\
-evaluate_list ck env s es (s', Rval vs))
+((build_conv (all_env_to_cenv env) cn vs = SOME v) /\
+evaluate_list ck env s es (s', Rval vs)))
 ==>
-evaluate ck env s (Con cn es) (s', Rval (Conv cn vs)))
+evaluate ck env s (Con cn es) (s', Rval v))
 
 /\ (! ck env cn es s.
 (~ (do_con_check (all_env_to_cenv env) cn (LENGTH es)))
@@ -190,7 +191,7 @@ evaluate ck env s (If e1 e2 e3) (s', Rerr err))
 
 /\ (! ck env e pes v bv s1 s2.
 (evaluate ck env s1 e (s2, Rval v) /\
-evaluate_match ck env s2 v pes (Conv (SOME (Short "Bind")) []) bv)
+evaluate_match ck env s2 v pes (Conv (SOME (Short "Bind", TypeExn)) []) bv)
 ==>
 evaluate ck env s1 (Mat e pes) bv)
 
@@ -284,7 +285,7 @@ evaluate_dec mn env s1 (Dlet p e) (s2, Rval (emp, env')))
 (ALL_DISTINCT (pat_bindings p []) /\
 (pmatch (all_env_to_cenv env) s2 p v emp = No_match)))
 ==>
-evaluate_dec mn env s1 (Dlet p e) (s2, Rerr (Rraise (Conv (SOME (Short "Bind")) []))))
+evaluate_dec mn env s1 (Dlet p e) (s2, Rerr (Rraise (Conv (SOME (Short "Bind", TypeExn)) []))))
 
 /\ (! mn env p e v s1 s2 count.
 (evaluate F env ( 0,s1) e ((count,s2), Rval v) /\

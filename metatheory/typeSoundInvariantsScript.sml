@@ -114,7 +114,7 @@ type_v tvs cenv senv (Litv Unit) Tunit)
 (type_vs tvs cenv senv vs (MAP (type_subst (ZIP (tvs', ts'))) ts) /\
 (lookup cn cenv = SOME (tvs', ts, tn)))))
 ==>
-type_v tvs cenv senv (Conv (SOME cn) vs) (Tapp ts' (tid_exn_to_tc tn)))
+type_v tvs cenv senv (Conv (SOME (cn,tn)) vs) (Tapp ts' (tid_exn_to_tc tn)))
 
 /\ (! tvs cenv senv vs ts.
 (type_vs tvs cenv senv vs ts)
@@ -127,7 +127,7 @@ type_v tvs cenv senv (Conv NONE vs) (Tapp ts TC_tup))
 (consistent_mod_env senv (restrict_tenvC cenv (MAP FST envC)) envM menv /\
 (type_env cenv senv env tenv /\
 (check_freevars tvs [] t1 /\
-type_e menv (restrict_tenvC cenv (MAP FST envC)) (bind_tenv n( 0) t1 (bind_tvar tvs tenv)) e t2)))))
+type_e menv cenv (bind_tenv n( 0) t1 (bind_tvar tvs tenv)) e t2)))))
 ==>
 type_v tvs cenv senv (Closure (envM, envC, env) n e) (Tfn t1 t2))
 

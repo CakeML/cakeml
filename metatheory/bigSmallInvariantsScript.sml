@@ -102,11 +102,12 @@ evaluate_ctxt env s (Cmat ()  pes err_v) v bv)
 ==>
 evaluate_ctxt (menv,cenv,env) s (Clet n ()  e2) v bv)
 
-/\ (! env cn es vs v vs' s1 s2.
+/\ (! env cn es vs v vs' s1 s2 v'.
 (do_con_check (all_env_to_cenv env) cn ((LENGTH vs + LENGTH es) + 1) /\
-evaluate_list F env s1 es (s2, Rval vs'))
+((build_conv (all_env_to_cenv env) cn ((REVERSE vs ++ [v]) ++ vs') = SOME v') /\
+evaluate_list F env s1 es (s2, Rval vs')))
 ==>
-evaluate_ctxt env s1 (Ccon cn vs ()  es) v (s2, Rval (Conv cn ((REVERSE vs ++ [v]) ++ vs'))))
+evaluate_ctxt env s1 (Ccon cn vs ()  es) v (s2, Rval v'))
 
 /\ (! env cn es vs v s.
 (~ (do_con_check (all_env_to_cenv env) cn ((LENGTH vs + LENGTH es) + 1)))

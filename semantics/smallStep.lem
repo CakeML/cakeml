@@ -101,7 +101,10 @@ let continue s v cs =
         Estep ((menv, cenv, bind n v env), s, Exp e, c)
     | (Ccon n vs () [], env) :: c ->
         if do_con_check (all_env_to_cenv env) n (List.length vs + 1) then
-          return env s (Conv n (reverse (v::vs))) c
+           match build_conv (all_env_to_cenv env) n (reverse (v::vs)) with
+             | Nothing -> Etype_error
+             | Just v -> return env s v c
+           end
         else
           Etype_error
     | (Ccon n vs () (e::es), env) :: c ->
@@ -137,7 +140,11 @@ let e_step (env, s, ev, c) =
           | Con n es ->
               if do_con_check (all_env_to_cenv env) n (List.length es) then
                 match es with
-                  | [] -> return env s (Conv n []) c
+                  | [] -> 
+                      match build_conv (all_env_to_cenv env) n [] with
+                        | Nothing -> Etype_error
+                        | Just v -> return env s v c
+                      end
                   | e::es ->
                       push env s e (Ccon n [] () es) c
                 end
@@ -153,7 +160,7 @@ let e_step (env, s, ev, c) =
           | App op e1 e2 -> push env s e1 (Capp1 op () e2) c
           | Log l e1 e2 -> push env s e1 (Clog l () e2) c
           | If e1 e2 e3 -> push env s e1 (Cif () e2 e3) c
-          | Mat e pes -> push env s e (Cmat () pes (Conv (Just (Short "Bind")) [])) c
+          | Mat e pes -> push env s e (Cmat () pes (Conv (Just (Short "Bind", TypeExn)) [])) c
           | Let n e1 e2 -> push env s e1 (Clet n () e2) c
           | Letrec funs e ->
               if not (all_distinct (List.map (fun (x,y,z) -> x) funs)) then

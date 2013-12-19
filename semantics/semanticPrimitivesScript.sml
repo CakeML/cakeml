@@ -27,7 +27,7 @@ val _ = Hol_datatype `
  v =
     Litv of lit
   (* Constructor application. *)
-  | Conv of  ( conN id)option => v list 
+  | Conv of  ( conN id # tid_or_exn)option => v list 
   (* Function closures
      The environment is used for the free variables in the function *)
   | Closure of ( (modN, ( (varN, v)env))env # envC # (varN, v) env) => varN => exp
@@ -131,6 +131,20 @@ val _ = Define `
   )))`;
 
 
+(*val build_conv : envC -> maybe (id conN) -> list v -> maybe v*)
+val _ = Define `
+ (build_conv envC cn vs =  
+((case cn of
+      NONE => 
+        SOME (Conv NONE vs)
+    | SOME id => 
+        (case lookup id envC of
+            NONE => NONE
+          | SOME (len,t) => SOME (Conv (SOME (id, t)) vs)
+        )
+  )))`;
+
+
 (*val lit_same_type : lit -> lit -> bool*)
 val _ = Define `
  (lit_same_type l1 l2 =  
@@ -170,17 +184,20 @@ val _ = Hol_datatype `
   else
     Match_type_error))
 /\
-(pmatch envC s (Pcon (SOME n) ps) (Conv (SOME n') vs) env =  
-((case (lookup n envC, lookup n' envC) of
-      (SOME (l, t), SOME (l', t')) =>
-        if (t = t') /\ ((LENGTH ps = l) /\ (LENGTH vs = l')) then
+(pmatch envC s (Pcon (SOME n) ps) (Conv (SOME (n', t')) vs) env =  
+((case lookup n envC of
+      SOME (l, t)=>
+        if (t = t') /\ (LENGTH ps = l) then
           if n = n' then
-            pmatch_list envC s ps vs env
+            if LENGTH vs = l then
+              pmatch_list envC s ps vs env
+            else
+              Match_type_error
           else
             No_match
         else
           Match_type_error
-    | (_, _) => Match_type_error
+    | _ => Match_type_error
   )))
 /\
 (pmatch envC s (Pcon NONE ps) (Conv NONE vs) env =  

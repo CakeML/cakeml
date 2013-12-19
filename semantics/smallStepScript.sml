@@ -122,7 +122,10 @@ val _ = Define `
         Estep ((menv, cenv, bind n v env), s, Exp e, c)
     | (Ccon n vs ()  [], env) :: c =>
         if do_con_check (all_env_to_cenv env) n (LENGTH vs + 1) then
-          return env s (Conv n (REVERSE (v::vs))) c
+           (case build_conv (all_env_to_cenv env) n (REVERSE (v::vs)) of
+               NONE => Etype_error
+             | SOME v => return env s v c
+           )
         else
           Etype_error
     | (Ccon n vs ()  (e::es), env) :: c =>
@@ -160,7 +163,11 @@ val _ = Define `
           | Con n es =>
               if do_con_check (all_env_to_cenv env) n (LENGTH es) then
                 (case es of
-                    [] => return env s (Conv n []) c
+                    [] => 
+                      (case build_conv (all_env_to_cenv env) n [] of
+                          NONE => Etype_error
+                        | SOME v => return env s v c
+                      )
                   | e::es =>
                       push env s e (Ccon n [] ()  es) c
                 )
@@ -176,7 +183,7 @@ val _ = Define `
           | App op e1 e2 => push env s e1 (Capp1 op ()  e2) c
           | Log l e1 e2 => push env s e1 (Clog l ()  e2) c
           | If e1 e2 e3 => push env s e1 (Cif ()  e2 e3) c
-          | Mat e pes => push env s e (Cmat ()  pes (Conv (SOME (Short "Bind")) [])) c
+          | Mat e pes => push env s e (Cmat ()  pes (Conv (SOME (Short "Bind", TypeExn)) [])) c
           | Let n e1 e2 => push env s e1 (Clet n ()  e2) c
           | Letrec funs e =>
               if ~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)) then

@@ -1,7 +1,7 @@
 open preamble;
 open libTheory astTheory bigStepTheory smallStepTheory semanticPrimitivesTheory
 open determTheory bigSmallEquivTheory
-open terminationTheory metaTerminationTheory bigClockTheory;
+open terminationTheory bigClockTheory;
 
 val _ = new_theory "untypedSafety";
 
@@ -78,7 +78,7 @@ rw [] >|
      fs [] >|
      [cases_on `pmatch (all_env_to_cenv env) r0 p a emp` >>
           fs [] >|
-          [qexists_tac `(r0, Rerr (Rraise (Conv (SOME (Short "Bind")) [])))` >>
+          [qexists_tac `(r0, Rerr (Rraise (Conv (SOME (Short "Bind", TypeExn)) [])))` >>
                rw [] >>
                metis_tac [small_big_exp_equiv, big_unclocked],
            qexists_tac `(r0, Rerr Rtype_error)` >>
