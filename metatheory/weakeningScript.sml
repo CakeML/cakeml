@@ -489,7 +489,6 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      qexists_tac `tenv` >>
      rw [] >-
      metis_tac [consistent_con_env_weakening] >-
-     metis_tac [restrict_tenvC_weakening] >-
      metis_tac [check_freevars_add, gt_0] >>
      match_mp_tac (hd (CONJUNCTS type_e_weakening)) >>
      metis_tac [weak_tenvE_refl, restrict_tenvC_weakening, weakM_refl,
@@ -498,8 +497,7 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      qexists_tac `tenvM` >>
      qexists_tac `tenv` >>
      rw [] >-
-     metis_tac [consistent_con_env_weakening] >-
-     metis_tac [restrict_tenvC_weakening] >>
+     metis_tac [consistent_con_env_weakening] >>
      match_mp_tac (hd (CONJUNCTS type_e_weakening)) >>
      metis_tac [weak_tenvE_refl, restrict_tenvC_weakening,weakM_refl,
                 weak_tenvE_bind, weak_tenvE_bind_tvar2, type_v_freevars])
@@ -508,8 +506,7 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      qexists_tac `tenv` >>
      qexists_tac `tenv'` >>
      rw [] >-
-     metis_tac [consistent_con_env_weakening] >-
-     metis_tac [restrict_tenvC_weakening] >>
+     metis_tac [consistent_con_env_weakening] >>
      match_mp_tac (hd (tl (tl (CONJUNCTS type_e_weakening)))) >>
      metis_tac [weak_tenvE_refl,weakM_refl, restrict_tenvC_weakening,
                 weak_tenvE_bind_var_list, weak_tenvE_bind_tvar2, type_v_freevars])
@@ -518,8 +515,7 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      qexists_tac `tenv` >>
      qexists_tac `tenv'` >>
      rw [] >-
-     metis_tac [consistent_con_env_weakening] >-
-     metis_tac [restrict_tenvC_weakening] >>
+     metis_tac [consistent_con_env_weakening] >>
      match_mp_tac (hd (tl (tl (CONJUNCTS type_e_weakening)))) >>
      metis_tac [weak_tenvE_refl,weakM_refl, restrict_tenvC_weakening,
                 weak_tenvE_bind_var_list, weak_tenvE_bind_tvar2, type_v_freevars]) 

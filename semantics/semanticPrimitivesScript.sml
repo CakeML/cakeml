@@ -189,10 +189,7 @@ val _ = Hol_datatype `
       SOME (l, t)=>
         if (t = t') /\ (LENGTH ps = l) then
           if n = n' then
-            if LENGTH vs = l then
-              pmatch_list envC s ps vs env
-            else
-              Match_type_error
+            pmatch_list envC s ps vs env
           else
             No_match
         else

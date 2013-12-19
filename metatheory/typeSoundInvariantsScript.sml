@@ -124,17 +124,17 @@ type_v tvs cenv senv (Conv NONE vs) (Tapp ts TC_tup))
 /\ (! tvs menv cenv senv envC envM env tenv n e t1 t2.
 (consistent_con_env envC (restrict_tenvC cenv (MAP FST envC)) /\
 (tenvM_ok menv /\
-(consistent_mod_env senv (restrict_tenvC cenv (MAP FST envC)) envM menv /\
+(consistent_mod_env senv cenv envM menv /\
 (type_env cenv senv env tenv /\
 (check_freevars tvs [] t1 /\
-type_e menv cenv (bind_tenv n( 0) t1 (bind_tvar tvs tenv)) e t2)))))
+type_e menv (restrict_tenvC cenv (MAP FST envC)) (bind_tenv n( 0) t1 (bind_tvar tvs tenv)) e t2)))))
 ==>
 type_v tvs cenv senv (Closure (envM, envC, env) n e) (Tfn t1 t2))
 
 /\ (! tvs menv cenv senv envM envC env funs n t tenv tenv'.
 (consistent_con_env envC (restrict_tenvC cenv (MAP FST envC)) /\
 (tenvM_ok menv /\
-(consistent_mod_env senv (restrict_tenvC cenv (MAP FST envC)) envM menv /\
+(consistent_mod_env senv cenv envM menv /\
 (type_env cenv senv env tenv /\
 (type_funs menv (restrict_tenvC cenv (MAP FST envC)) (bind_var_list( 0) tenv' (bind_tvar tvs tenv)) funs tenv' /\
 (lookup n tenv' = SOME t))))))
@@ -353,7 +353,7 @@ type_ctxts tvs tenvC senv [] t t)
 (type_env tenvC senv env tenv /\
 (consistent_con_env envC (restrict_tenvC tenvC (MAP FST envC)) /\
 (tenvM_ok tenvM /\
-(consistent_mod_env senv (restrict_tenvC tenvC (MAP FST envC)) envM tenvM /\
+(consistent_mod_env senv tenvC envM tenvM /\
 (type_ctxt tvs tenvM (restrict_tenvC tenvC (MAP FST envC)) senv tenv c t1 t2 /\
 type_ctxts (if is_ccon c /\ poly_context cs then tvs else  0) tenvC senv cs t2 t3)))))
 ==>
@@ -363,7 +363,7 @@ val _ = Hol_reln ` (! dec_tvs tenvM tenvC senv envM envC s env e c t1 t2 tenv tv
 (context_invariant dec_tvs c tvs /\
 (consistent_con_env envC (restrict_tenvC tenvC (MAP FST envC)) /\
 (tenvM_ok tenvM /\
-(consistent_mod_env senv (restrict_tenvC tenvC (MAP FST envC)) envM tenvM /\
+(consistent_mod_env senv tenvC envM tenvM /\
 (type_ctxts tvs tenvC senv c t1 t2 /\
 (type_env tenvC senv env tenv /\
 (type_s tenvC senv s /\
@@ -374,11 +374,10 @@ type_state dec_tvs tenvC senv ((envM, envC, env), s, Exp e, c) t2)
 
 /\ (! dec_tvs tenvC senv envM envC s env v c t1 t2 tenv tvs.
 (context_invariant dec_tvs c tvs /\
-(consistent_con_env envC (restrict_tenvC tenvC (MAP FST envC)) /\
 (type_ctxts tvs tenvC senv c t1 t2 /\
 (type_env tenvC senv env tenv /\
 (type_s tenvC senv s /\
-type_v tvs tenvC senv v t1)))))
+type_v tvs tenvC senv v t1))))
 ==>
 type_state dec_tvs tenvC senv ((envM, envC, env), s, Val v, c) t2)`;
 val _ = export_theory()
