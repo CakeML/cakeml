@@ -196,30 +196,27 @@ val typeset_inhabited = store_thm("typeset_inhabited",
   simp[mem_sub] >>
   metis_tac[] )
 
-val typeset_Fun =
-  ``typeset τ (Fun x y) mty``
-  |> SIMP_CONV (srw_ss())
-     [Q.SPECL[`τ`,`Fun x y`](CONJUNCT1(SPEC_ALL semantics_cases))]
+val tac1 =
+    `ams' = ams` by (
+      simp_tac(srw_ss())[LIST_EQ_REWRITE] >>
+      rpt(qpat_assum`LIST_REL P X Y`mp_tac) >>
+      rpt(qpat_assum`LENGTH X = Y`mp_tac) >>
+      simp_tac(srw_ss())[EVERY2_EVERY] >>
+      simp_tac(srw_ss())[EVERY_MEM,GSYM AND_IMP_INTRO] >>
+      simp_tac(srw_ss())[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] >>
+      metis_tac[]) >> rpt BasicProvers.VAR_EQ_TAC
 
-val typeset_Tyapp_Tydefined =
-  ``typeset τ (Tyapp (Tydefined x y) z) mty``
-  |> SIMP_CONV (srw_ss())
-     [Q.SPECL[`τ`,`Tyapp (Tydefined x y) z`](CONJUNCT1(SPEC_ALL semantics_cases))]
-
-val semantics_Equal =
-  ``semantics σ τ (Equal ty) mt``
-  |> SIMP_CONV (srw_ss())
-     [Q.SPECL[`σ`,`τ`,`Equal ty`](CONJUNCT2(SPEC_ALL semantics_cases))]
-
-val semantics_Select =
-  ``semantics σ τ (Select ty) mt``
-  |> SIMP_CONV (srw_ss())
-     [Q.SPECL[`σ`,`τ`,`Select ty`](CONJUNCT2(SPEC_ALL semantics_cases))]
-
-val semantics_Const_Defined =
-  ``semantics σ τ (Const s ty (Defined t)) mt``
-  |> SIMP_CONV (srw_ss())
-     [Q.SPECL[`σ`,`τ`,`Const s ty (Defined t)`](CONJUNCT2(SPEC_ALL semantics_cases))]
+val tac2 =
+    `type_valuation ti` by (
+      simp_tac(srw_ss())[Abbr`ti`,type_valuation_def] >>
+      ho_match_mp_tac IN_FRANGE_alist_to_fmap_suff >>
+      rpt(qpat_assum`EVERY2 P X Y`mp_tac) >>
+      rpt(qpat_assum`LENGTH X = LENGTH Y`mp_tac) >>
+      simp_tac(srw_ss())[EVERY2_EVERY,GSYM AND_IMP_INTRO] >>
+      simp_tac(srw_ss())[MAP_ZIP] >>
+      simp_tac(srw_ss())[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
+      simp_tac(srw_ss())[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
+      metis_tac[typeset_inhabited] )
 
 val semantics_11 = store_thm("semantics_11",
   ``is_model M ⇒
@@ -234,41 +231,31 @@ val semantics_11 = store_thm("semantics_11",
   conj_tac >- simp[Once semantics_cases] >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
-    simp[typeset_Fun] >>
+    simp_tac(srw_ss())[Once semantics_cases] >>
     PROVE_TAC[] ) >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
-    simp[typeset_Tyapp_Tydefined] >>
+    simp_tac(srw_ss())[Once semantics_cases] >>
     qmatch_assum_abbrev_tac`X = ti` >>
-    rw[Abbr`X`] >>
+    simp_tac(srw_ss())[Abbr`X`] >> rpt strip_tac >>
+    rpt BasicProvers.VAR_EQ_TAC >>
     imp_res_tac WELLTYPED_LEMMA >>
-    fs[] >>
-    `ams' = ams` by (
-      simp[LIST_EQ_REWRITE] >>
-      fs[EVERY2_EVERY] >>
-      fs[EVERY_MEM] >>
-      qpat_assum`LENGTH X = LENGTH ams`(assume_tac) >>
-      qpat_assum`LENGTH args = LENGTH X`(assume_tac) >>
-      fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] ) >> rw[] >>
-    `type_valuation ti` by (
-      simp_tac(srw_ss())[Abbr`ti`,type_valuation_def] >>
-      ho_match_mp_tac IN_FRANGE_alist_to_fmap_suff >>
-      fs[EVERY2_EVERY] >>
-      simp[MAP_ZIP] >>
-      rfs[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
-      simp[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
-      metis_tac[typeset_inhabited] ) >>
-    rfs[] ) >>
+    tac1 >> tac2 >>
+    rpt(qpat_assum`typeof t = X`mp_tac) >> simp_tac(srw_ss())[] >>
+    metis_tac[]) >>
   conj_tac >- simp[Once semantics_cases] >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
-    simp[semantics_Equal] >> rw[] >> rw[]) >>
+    simp_tac(srw_ss())[Once semantics_cases] >>
+    metis_tac[]) >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
-    simp[semantics_Select] >> rw[] >> rw[]) >>
+    simp_tac(srw_ss())[Once semantics_cases] >>
+    metis_tac[] ) >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
-    simp[semantics_Const_Defined] >> rw[] >> rw[] >>
+    simp_tac(srw_ss())[Once semantics_cases] >>
+    rpt strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
     qmatch_assum_abbrev_tac`welltyped t` >>
     `simple_inst tyin t = simple_inst tyin' t` by (
       simp[simple_inst_tvars] >>
@@ -281,31 +268,15 @@ val semantics_11 = store_thm("semantics_11",
     qmatch_assum_abbrev_tac`X = tyi` >>
     qunabbrev_tac`X` >> rpt BasicProvers.VAR_EQ_TAC >>
     simp_tac std_ss [Once semantics_cases] >>
-    rw[] >> fs[] >>
-    `ams' = ams` by (
-      simp[LIST_EQ_REWRITE] >>
-      fs[EVERY2_EVERY] >>
-      fs[EVERY_MEM] >>
-      qpat_assum`LENGTH X = LENGTH ams`(assume_tac) >>
-      qpat_assum`LENGTH args = LENGTH X`(assume_tac) >>
-      fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] ) >> rw[] >>
+    simp_tac(srw_ss())[]>>rpt strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
+    tac1 >>
     qpat_assum`typeset X Y maty`mp_tac >>
-    simp[Once semantics_cases] >> rw[] >>
-    `ams' = ams` by (
-      simp[LIST_EQ_REWRITE] >>
-      fs[EVERY2_EVERY] >>
-      fs[EVERY_MEM] >>
-      qpat_assum`LENGTH X = LENGTH ams`(assume_tac) >>
-      qpat_assum`LENGTH args = LENGTH X`(assume_tac) >>
-      fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] ) >> rw[] >>
-    `type_valuation ti` by (
-      simp_tac(srw_ss())[Abbr`ti`,type_valuation_def] >>
-      ho_match_mp_tac IN_FRANGE_alist_to_fmap_suff >>
-      fs[EVERY2_EVERY] >>
-      simp[MAP_ZIP] >>
-      rfs[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
-      simp[MEM_EL,GSYM LEFT_FORALL_IMP_THM] >>
-      metis_tac[typeset_inhabited] ) >>
+    simp_tac(srw_ss())[Once semantics_cases] >>
+    rpt strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
+    last_x_assum(qspec_then`mrty' suchthat Holds mp`mp_tac) >>
+    asm_simp_tac(srw_ss())[Once semantics_cases] >>
+    discharge_hyps >- metis_tac[] >>
+    tac1 >> tac2 >>
     fs[] >> rfs[] >> imp_res_tac WELLTYPED_LEMMA >> fs[]) >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
@@ -314,33 +285,12 @@ val semantics_11 = store_thm("semantics_11",
     qunabbrev_tac`X` >> rpt BasicProvers.VAR_EQ_TAC >>
     simp_tac (srw_ss()) [Once semantics_cases] >>
     rpt strip_tac >>
-    `ams' = ams` by (
-      simp_tac(srw_ss())[LIST_EQ_REWRITE] >>
-      fs[EVERY2_EVERY] >>
-      fs[EVERY_MEM] >>
-      qpat_assum`LENGTH X = LENGTH ams`(assume_tac) >>
-      qpat_assum`LENGTH args = LENGTH X`(assume_tac) >>
-      fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] ) >> BasicProvers.VAR_EQ_TAC >>
+    tac1 >>
     `maty = mty` by metis_tac[] >>
     qpat_assum`typeset X Y maty`mp_tac >>
     simp_tac (srw_ss()) [Once semantics_cases] >>
     rpt strip_tac >>
-    `ams' = ams` by (
-      simp_tac(srw_ss())[LIST_EQ_REWRITE] >>
-      fs[EVERY2_EVERY] >>
-      fs[EVERY_MEM] >>
-      qpat_assum`LENGTH X = LENGTH ams`(assume_tac) >>
-      qpat_assum`LENGTH args = LENGTH X`(assume_tac) >>
-      fs[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM] ) >> BasicProvers.VAR_EQ_TAC >>
-    `type_valuation ti` by (
-      simp_tac(srw_ss())[Abbr`ti`,type_valuation_def] >>
-      ho_match_mp_tac IN_FRANGE_alist_to_fmap_suff >>
-      fs[EVERY2_EVERY] >>
-      simp[MAP_ZIP] >>
-      qpat_assum`EVERY X Y`mp_tac >>
-      qpat_assum`LENGTH args = X`mp_tac >>
-      simp_tac(srw_ss())[EVERY_MEM,MEM_ZIP,FORALL_PROD,GSYM LEFT_FORALL_IMP_THM] >>
-      metis_tac[MEM_EL,typeset_inhabited] ) >>
+    tac1 >> tac2 >>
     imp_res_tac WELLTYPED_LEMMA >>
     ntac 3 (pop_assum mp_tac) >>
     simp_tac(srw_ss())[] >>
@@ -349,13 +299,15 @@ val semantics_11 = store_thm("semantics_11",
     rpt gen_tac >> strip_tac >>
     simp_tac std_ss [Once semantics_cases] >>
     simp_tac (srw_ss()) [] >>
-    rw[] >> metis_tac[] ) >>
+    metis_tac[] ) >>
   rpt gen_tac >>
   strip_tac >>
   simp_tac std_ss [Once semantics_cases] >>
-  rw[] >>
+  simp_tac (srw_ss()) [] >>
+  rpt strip_tac >>
   imp_res_tac WELLTYPED_LEMMA >>
-  rw[] >>
+  res_tac >>
+  rpt BasicProvers.VAR_EQ_TAC >>
   match_mp_tac (MP_CANON abstract_eq) >>
   conj_tac >- fs[is_model_def] >>
   fs[] >> res_tac >> fs[])
