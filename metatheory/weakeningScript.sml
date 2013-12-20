@@ -441,16 +441,49 @@ val type_v_freevars = Q.store_thm ("type_v_freevars",
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
                arithmeticTheory.GREATER_EQ]);
 
+val lookup_restrict_tenvC = Q.store_thm ("lookup_restrict_tenvC",
+`!cn cns tenvC.
+ (lookup cn (restrict_tenvC tenvC cns) = SOME x) ⇒
+ MEM cn cns ∧
+ (lookup cn tenvC = SOME x)`,
+ induct_on `tenvC` >>
+ rw [lookup_def, restrict_tenvC_def] >>
+ PairCases_on `h` >>
+ fs [restrict_tenvC_def] >>
+ rw []
+ >- (cases_on `MEM h0 cns` >>
+     fs [] >>
+     metis_tac [])
+ >- (cases_on `MEM cn cns` >>
+     fs [] >>
+     metis_tac [])
+ >- (cases_on `MEM h0 cns` >>
+     fs [] >>
+     metis_tac []));
+
+val lookup_restrict_tenvC_notin = Q.prove (
+`!cn cns tenvC.
+  (lookup cn (restrict_tenvC tenvC cns) = NONE)
+  ⇒
+  cn ∉ set cns ∨ lookup cn tenvC = NONE`,
+ induct_on `tenvC` >>
+ rw [restrict_tenvC_def] >>
+ PairCases_on `h` >>
+ fs [restrict_tenvC_def] >>
+ every_case_tac >>
+ fs []);
+
 val restrict_tenvC_weakening = Q.prove (
 `!tenvC cns tenvC'.
   weakC tenvC tenvC' ⇒ weakC (restrict_tenvC tenvC cns) (restrict_tenvC tenvC' cns)`,
- induct_on `tenvC'` >>
- rw [restrict_tenvC_def] >-
  rw [weakC_def] >>
- PairCases_on `h` >>
- fs [restrict_tenvC_def] >>
+ FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `cn`) >>
+ every_case_tac >>
+ imp_res_tac lookup_restrict_tenvC >>
+ fs [] >>
  rw [] >>
- cheat);
+ imp_res_tac lookup_restrict_tenvC_notin >>
+ fs []);
 
 val restrict_tenvC_empty = Q.prove (
 `!tenvC. restrict_tenvC tenvC [] = []`,
@@ -460,16 +493,24 @@ PairCases_on `h` >>
 rw [restrict_tenvC_def]);
 
 val consistent_con_env_weakening = Q.prove (
-`!tenvC envC tenvC'.
+`!(tenvC:tenvC) (envC:envC) tenvC'.
   consistent_con_env envC (restrict_tenvC tenvC (MAP FST envC)) ∧
   weakC tenvC' tenvC
   ⇒
   consistent_con_env envC (restrict_tenvC tenvC' (MAP FST envC))`,
  rw [consistent_con_env_def] >>
  imp_res_tac restrict_tenvC_weakening >>
+ pop_assum (assume_tac o Q.SPEC `MAP FST (envC:envC)`) >>
  fs [weakC_def] >>
- cheat);
-
+ pop_assum (assume_tac o Q.SPEC `cn`) >>
+ every_case_tac >>
+ fs [] >>
+ imp_res_tac lookup_restrict_tenvC >>
+ imp_res_tac lookup_restrict_tenvC_notin >>
+ fs [] >>
+ rw [] >>
+ res_tac >>
+ imp_res_tac lookup_notin);
 
 val type_v_weakening = Q.store_thm ("type_v_weakening",
 `(!tvs tenvC tenvS v t. type_v tvs tenvC tenvS v t ⇒

@@ -1387,24 +1387,29 @@ val extend_consistent_con = Q.store_thm ("extend_consistent_con",
   ⇒
   consistent_con_env (build_tdefs mn tds ++ envC)
                      (build_ctor_tenv mn tds ++ tenvC)`,
-cheat);
-(*
-rw [consistent_con_env_def, lookup_append] >>
-every_case_tac >>
-rw [] >>
-fs [lookup_none] >>
-fs [GSYM lookup_none] >>
-pop_assum mp_tac >>
-pop_assum mp_tac >>
-pop_assum (fn _ => all_tac) >>
-induct_on `tds` >>
-rw [build_ctor_tenv_empty] >>
-PairCases_on `h` >>
-fs [build_tdefs_cons, build_ctor_tenv_cons] >>
-fs [lookup_append] >>
-every_case_tac >>
-fs []
-*)
+ rw [consistent_con_env_def, lookup_append] >>
+ every_case_tac >>
+ rw [] >>
+ fs [lookup_none] >>
+ fs [GSYM lookup_none] >>
+ pop_assum mp_tac >>
+ pop_assum mp_tac >>
+ pop_assum (fn _ => all_tac) >>
+ induct_on `tds` >>
+ rw [build_ctor_tenv_empty] >>
+ PairCases_on `h` >>
+ fs [build_tdefs_cons, build_ctor_tenv_cons] >>
+ fs [lookup_append] >>
+ every_case_tac >>
+ fs [] >>
+ rw [] >>
+ induct_on `h2` >>
+ rw [] >>
+ PairCases_on `h` >>
+ fs [] >>
+ every_case_tac >>
+ fs [] >>
+ rw []);
 
 val check_dup_ctors_disj = Q.store_thm ("check_dup_ctors_disj",
 `!tenvC tds.

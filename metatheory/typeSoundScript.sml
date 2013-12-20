@@ -216,26 +216,6 @@ TRY (Cases_on `tn`) >>
 fs [tid_exn_to_tc_def] >>
 metis_tac [Tfn_def, type_funs_Tfn, t_distinct, t_11, tc0_distinct]);
 
-val lookup_restrict_tenvC = Q.prove (
-`!cn cns tenvC.
- (lookup cn (restrict_tenvC tenvC cns) = SOME x) ⇒
- MEM cn cns ∧
- (lookup cn tenvC = SOME x)`,
- induct_on `tenvC` >>
- rw [lookup_def, restrict_tenvC_def] >>
- PairCases_on `h` >>
- fs [restrict_tenvC_def] >>
- rw []
- >- (cases_on `MEM h0 cns` >>
-     fs [] >>
-     metis_tac [])
- >- (cases_on `MEM cn cns` >>
-     fs [] >>
-     metis_tac [])
- >- (cases_on `MEM h0 cns` >>
-     fs [] >>
-     metis_tac []));
-
 val tac =
 fs [Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
 rw [] >>
@@ -1858,32 +1838,33 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
   tenvM_ok tenvM ∧
   tenvC_ok tenvC ∧
   tenvC_has_exns tenvC ∧
+  envC_has_exns cenv ∧
   consistent_mod_env tenvS tenvC menv tenvM ∧
   consistent_con_env cenv tenvC ∧
-  type_env tenvM tenvC tenvS env tenv ∧
-  type_s tenvM tenvC tenvS st
+  type_env tenvC tenvS env tenv ∧
+  type_s tenvC tenvS st
   ⇒
-  dec_diverges menv cenv st env d ∨
+  dec_diverges (menv,cenv,env) st d ∨
   ?st' r tenvS'. 
      (r ≠ Rerr Rtype_error) ∧ 
-     evaluate_dec mn menv cenv st env d (st', r) ∧
+     evaluate_dec mn (menv,cenv,env) st d (st', r) ∧
      store_type_extension tenvS tenvS' ∧
-     type_s tenvM tenvC tenvS' st' ∧
+     type_s tenvC tenvS' st' ∧
      disjoint_env tenvC tenvC' ∧
      (!cenv' env'. 
          (r = Rval (cenv',env')) ⇒
          consistent_con_env (cenv' ++ cenv) (tenvC' ++ tenvC) ∧
-         type_env tenvM (tenvC' ++ tenvC) tenvS' (env' ++ env) (bind_var_list2 tenv' tenv) ∧
-         type_env tenvM (tenvC' ++ tenvC) tenvS' env' (bind_var_list2 tenv' Empty))`,
+         type_env (tenvC' ++ tenvC) tenvS' (env' ++ env) (bind_var_list2 tenv' tenv) ∧
+         type_env (tenvC' ++ tenvC) tenvS' env' (bind_var_list2 tenv' Empty))`,
 rw [METIS_PROVE [] ``(x ∨ y) = (~x ⇒ y)``] >>
 fs [type_d_cases] >>
 rw [] >>
 fs [dec_diverges_def, merge_def, emp_def, evaluate_dec_cases] >>
 fs [] >|
-[`∃st2 r tenvS'. r ≠ Rerr Rtype_error ∧ small_eval menv cenv st env e [] (st2,r) ∧
-                type_s tenvM tenvC tenvS' st2 ∧ 
+[`∃st2 r tenvS'. r ≠ Rerr Rtype_error ∧ small_eval (menv,cenv,env) st e [] (st2,r) ∧
+                type_s tenvC tenvS' st2 ∧ 
                 store_type_extension tenvS tenvS' ∧
-                (!v. (r = Rval v) ==> type_v tvs tenvM tenvC tenvS' v t)`
+                (!v. (r = Rval v) ==> type_v tvs tenvC tenvS' v t)`
                          by metis_tac [exp_type_soundness] >>
      cases_on `r` >>
      fs [] >>
