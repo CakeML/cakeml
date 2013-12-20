@@ -94,20 +94,6 @@ every_case_tac >>
 fs [] >>
 metis_tac [tenvM_ok_lookup, tenvC_ok_lookup]);
 
-(* Constructors in their type environment are also in their execution
- * environment *)
-val consistent_con_env_thm = Q.store_thm ("consistent_con_env_thm",
-`∀cenv tenvC.
-  consistent_con_env cenv tenvC 
-  ⇒
-  ((lookup cn tenvC = SOME (tvs, ts, tn)) ⇒ 
-     (∃ns. (lookup cn cenv = SOME (LENGTH ts, tn))))
-  ∧
-  ((lookup cn tenvC = NONE) ⇒ (lookup cn cenv = NONE))`,
-recInduct consistent_con_env_ind >>
-rw [lookup_def, consistent_con_env_def] >>
-rw []);
-
 val type_es_length = Q.store_thm ("type_es_length",
 `∀tenvM tenvC tenv es ts.
   type_es tenvM tenvC tenv es ts ⇒ (LENGTH es = LENGTH ts)`,
@@ -1306,60 +1292,6 @@ val check_ctor_tenv_dups = Q.store_thm ("check_ctor_tenv_dups",
 rw [check_ctor_tenv_def, check_dup_ctors_def] >>
 metis_tac [check_ctor_tenv_dups_helper2, RES_FORALL]);
 
-val consistent_con_append = Q.store_thm ("consistent_con_append",
-`!envC tenvC.
-  consistent_con_env envC tenvC ⇒
-    ∀envC' tenvC'.
-      consistent_con_env envC' tenvC'
-      ⇒
-      consistent_con_env (envC++envC') (tenvC++tenvC')`,
-ho_match_mp_tac consistent_con_env_ind >>
-rw [consistent_con_env_def] >>
-rw []);
-
-val extend_consistent_con = Q.store_thm ("extend_consistent_con",
-`!envC tenvC tds.
-  consistent_con_env envC tenvC
-  ⇒
-  consistent_con_env (build_tdefs mn tds ++ envC)
-                     (build_ctor_tenv mn tds ++ tenvC)`,
-induct_on `tds` >>
-rw [build_tdefs_def, build_ctor_tenv_def] >>
-cases_on `h` >>
-cases_on `r` >>
-fs [] >>
-`!x. (!cn ts. MEM (cn,ts) r' ⇒ MEM (cn,ts) x) ⇒
-  consistent_con_env
-  (MAP (λ(conN,ts). (mk_id mn conN,LENGTH ts,TypeId (mk_id mn q'))) r')
-  (MAP (λ(cn,ts). (mk_id mn cn,q,ts,TypeId (mk_id mn q'))) r')`
-            by (Induct_on `r'` >>
-                rw [consistent_con_env_def] >>
-                PairCases_on `h` >>
-                fs [] >>
-                rw [consistent_con_env_def] >>
-                metis_tac []) >>
-fs [build_ctor_tenv_def, build_tdefs_def] >>
-metis_tac [consistent_con_append, APPEND_ASSOC]);
-
-val check_dup_ctors_disj = Q.store_thm ("check_dup_ctors_disj",
-`!tenvC tds.
-  check_dup_ctors mn tenvC tds ⇒ disjoint_env tenvC (build_ctor_tenv mn tds)`,
-rw [check_dup_ctors_def] >>
-metis_tac [check_ctor_tenv_dups_helper2]);
-
-val consistent_con_env_destruct_help = Q.prove (
-`!l x y q q' l'.
-  consistent_con_env
-    (MAP (λ(conN,ts). (conN,LENGTH ts,{cn | (cn,ts) | MEM (cn,ts) l'})) l ++ x)
-    (MAP (\(cn,ts). (cn,q,ts,q')) l ++ y)
-  ⇒
-  consistent_con_env x y`,
-induct_on `l` >>
-rw [] >>
-cases_on `h` >>
-fs [consistent_con_env_def] >>
-metis_tac []);
-
 val lookup_append = Q.store_thm ("lookup_append",
 `!x e1 e2.
   lookup x (e1++e2) =
@@ -1419,15 +1351,66 @@ rw [] >|
  metis_tac [lookup_none_lem],
  metis_tac [build_ctor_tenv_def, build_tdefs_def, lookup_reverse_none]]);
 
-val build_ctor_tenv_empty = Q.store_thm ("build_ctor_tenv_empty",
-`build_ctor_tenv mn [] = []`,
-rw [build_ctor_tenv_def]);
+val consistent_con_append = Q.store_thm ("consistent_con_append",
+`!envC tenvC.
+  consistent_con_env envC tenvC ⇒
+    ∀envC' tenvC'.
+      consistent_con_env envC' tenvC'
+      ⇒
+      consistent_con_env (envC++envC') (tenvC++tenvC')`,
+rw [consistent_con_env_def, lookup_append] >>
+every_case_tac >>
+rw [] >>
+res_tac >>
+fs []);
+
+val build_tdefs_cons = Q.prove (
+`!tvs tn ctors tds.
+  build_tdefs mn ((tvs,tn,ctors)::tds) =
+    (MAP (\(conN,ts). (mk_id mn conN, LENGTH ts, TypeId (mk_id mn tn)))
+        ctors) ++ build_tdefs mn tds`,
+rw [build_tdefs_def]);
 
 val build_ctor_tenv_cons = Q.prove (
 `∀tvs tn ctors tds.
   build_ctor_tenv mn ((tvs,tn,ctors)::tds) =
     (MAP (λ(cn,ts). (mk_id mn cn,tvs,ts,TypeId (mk_id mn tn))) ctors ++ build_ctor_tenv mn tds)`,
 rw [build_ctor_tenv_def]);
+
+val build_ctor_tenv_empty = Q.store_thm ("build_ctor_tenv_empty",
+`build_ctor_tenv mn [] = []`,
+rw [build_ctor_tenv_def]);
+
+val extend_consistent_con = Q.store_thm ("extend_consistent_con",
+`!envC tenvC tds.
+  consistent_con_env envC tenvC
+  ⇒
+  consistent_con_env (build_tdefs mn tds ++ envC)
+                     (build_ctor_tenv mn tds ++ tenvC)`,
+cheat);
+(*
+rw [consistent_con_env_def, lookup_append] >>
+every_case_tac >>
+rw [] >>
+fs [lookup_none] >>
+fs [GSYM lookup_none] >>
+pop_assum mp_tac >>
+pop_assum mp_tac >>
+pop_assum (fn _ => all_tac) >>
+induct_on `tds` >>
+rw [build_ctor_tenv_empty] >>
+PairCases_on `h` >>
+fs [build_tdefs_cons, build_ctor_tenv_cons] >>
+fs [lookup_append] >>
+every_case_tac >>
+fs []
+*)
+
+val check_dup_ctors_disj = Q.store_thm ("check_dup_ctors_disj",
+`!tenvC tds.
+  check_dup_ctors mn tenvC tds ⇒ disjoint_env tenvC (build_ctor_tenv mn tds)`,
+rw [check_dup_ctors_def] >>
+metis_tac [check_ctor_tenv_dups_helper2]);
 
 val lemma = Q.prove (
 `!f a b c. (\(x,y,z). f x y z) (a,b,c) = f a b c`,
@@ -1444,13 +1427,6 @@ cases_on `h` >>
 cases_on `r` >>
 rw [] >>
 metis_tac []);
-
-val build_tdefs_cons = Q.prove (
-`!tvs tn ctors tds.
-  build_tdefs mn ((tvs,tn,ctors)::tds) =
-    (MAP (\(conN,ts). (mk_id mn conN, LENGTH ts, TypeId (mk_id mn tn)))
-        ctors) ++ build_tdefs mn tds`,
-rw [build_tdefs_def]);
 
 val check_dup_ctors_cons = Q.store_thm ("check_dup_ctors_cons",
 `!tvs ts ctors tds tenvC.
