@@ -14,7 +14,9 @@ val alist_to_fmap_id_map = store_thm("alist_to_fmap_id_map",
 val _ = export_rewrites["alist_to_fmap_id_map"]
 
 val mem = ``mem:'U->'U->bool``
-val s = ``(^mem,indset:'U,ch:'U->'U)``
+val indset = ``indset:'U``
+val ch = ``ch:'U->'U``
+val s = ``(^mem,^indset,^ch)``
 
 val _ = Parse.overload_on("M",s)
 
@@ -44,90 +46,90 @@ val type_valuation_FEMPTY = store_thm("type_valuation_FEMPTY",
 val _ = export_rewrites["type_valuation_FEMPTY"]
 
 val (semantics_rules,semantics_ind,semantics_cases) = xHol_reln"semantics"`
-  (FLOOKUP τ s = SOME m ⇒ typeset0 ^s τ (Tyvar s) m) ∧
+  (FLOOKUP τ s = SOME m ⇒ typeset0 ^mem ^indset ^ch τ (Tyvar s) m) ∧
 
-  (typeset0 ^s τ Bool boolset) ∧
+  (typeset0 ^mem ^indset ^ch τ Bool boolset) ∧
 
-  (typeset0 ^s τ Ind indset) ∧
+  (typeset0 ^mem ^indset ^ch τ Ind indset) ∧
 
-  (typeset0 ^s τ x mx ∧ typeset0 ^s τ y my
+  (typeset0 ^mem ^indset ^ch τ x mx ∧ typeset0 ^mem ^indset ^ch τ y my
    ⇒
-   typeset0 ^s τ (Fun x y) (Funspace mx my)) ∧
+   typeset0 ^mem ^indset ^ch τ (Fun x y) (Funspace mx my)) ∧
 
   (closed p ∧ p has_type Fun rty Bool ∧
    LENGTH (tvars p) = LENGTH args ∧
-   LIST_REL (typeset0 ^s τ) args ams ∧
+   LIST_REL (typeset0 ^mem ^indset ^ch τ) args ams ∧
    τi = alist_to_fmap(ZIP(STRING_SORT(tvars p),ams)) ∧
    (∀τ. type_valuation τ ∧ set (tvars p) ⊆ FDOM τ ⇒
       ∃mrty mp w.
-        typeset0 ^s τ rty mrty ∧
-        semantics0 ^s FEMPTY τ p mp ∧
+        typeset0 ^mem ^indset ^ch τ rty mrty ∧
+        semantics0 ^mem ^indset ^ch FEMPTY τ p mp ∧
         w <: mrty ∧ Holds mp w) ∧
-   typeset0 ^s τi rty mrty ∧
-   semantics0 ^s FEMPTY τi p mp ∧
+   typeset0 ^mem ^indset ^ch τi rty mrty ∧
+   semantics0 ^mem ^indset ^ch FEMPTY τi p mp ∧
    w <: mrty ∧ Holds mp w
    ⇒
-   typeset0 ^s τ (Tyapp (Tydefined op p) args) (mrty suchthat Holds mp)) ∧
+   typeset0 ^mem ^indset ^ch τ (Tyapp (Tydefined op p) args) (mrty suchthat Holds mp)) ∧
 
   (FLOOKUP σ (s,ty) = SOME m
    ⇒
-   semantics0 ^s σ τ (Var s ty) m) ∧
+   semantics0 ^mem ^indset ^ch σ τ (Var s ty) m) ∧
 
-  (typeset0 ^s τ ty mty
+  (typeset0 ^mem ^indset ^ch τ ty mty
    ⇒
-   semantics0 ^s σ τ (Const "=" (Fun ty (Fun ty Bool)) Prim)
-    (Abstract mty (Funspace mty Boolset)
-       (λx. Abstract mty Boolset (λy. Boolean (x = y))))) ∧
+   semantics0 ^mem ^indset ^ch σ τ (Const "=" (Fun ty (Fun ty Bool)) Prim)
+    (Abstract mty (Funspace mty boolset)
+       (λx. Abstract mty boolset (λy. Boolean (x = y))))) ∧
 
-  (typeset0 ^s τ ty mty
+  (typeset0 ^mem ^indset ^ch τ ty mty
    ⇒
-   semantics0 ^s σ τ (Const "@" (Fun (Fun ty Bool) ty) Prim)
-     (Abstract (Funspace mty Boolset) mty
+   semantics0 ^mem ^indset ^ch σ τ (Const "@" (Fun (Fun ty Bool) ty) Prim)
+     (Abstract (Funspace mty boolset) mty
        (λp. let mp = (mty suchthat Holds p) in
             ch (if ∃x. x <: mp then mp else mty)))) ∧
 
   (t = fresh_term {} t0 ∧ welltyped t ∧ closed t ∧
    set(tvars t) ⊆ set (tyvars (typeof t)) ∧
    tyinst tyin (typeof t) = ty ∧
-   semantics0 ^s FEMPTY τ (simple_inst tyin t) mt
+   semantics0 ^mem ^indset ^ch FEMPTY τ (simple_inst tyin t) mt
    ⇒
-   semantics0 ^s σ τ (Const s ty (Defined t0)) mt) ∧
+   semantics0 ^mem ^indset ^ch σ τ (Const s ty (Defined t0)) mt) ∧
 
-  (typeset0 ^s τ (Tyapp (Tydefined op p) args) maty ∧
+  (typeset0 ^mem ^indset ^ch τ (Tyapp (Tydefined op p) args) maty ∧
    p has_type Fun rty Bool ∧
-   LIST_REL (typeset0 ^s τ) args ams ∧
+   LIST_REL (typeset0 ^mem ^indset ^ch τ) args ams ∧
    τi = alist_to_fmap(ZIP(STRING_SORT(tvars p),ams)) ∧
-   typeset0 ^s τi rty mrty ∧
+   typeset0 ^mem ^indset ^ch τi rty mrty ∧
    tyin = alist_to_fmap(ZIP(STRING_SORT(tvars p),args))
    ⇒
-   semantics0 ^s σ τ (Const s (Fun (Tyapp (Tydefined op p) args) (tyinst tyin rty)) (Tyrep op p))
+   semantics0 ^mem ^indset ^ch σ τ (Const s (Fun (Tyapp (Tydefined op p) args) (tyinst tyin rty)) (Tyrep op p))
     (Abstract maty mrty (λx. x))) ∧
 
-  (typeset0 ^s τ (Tyapp (Tydefined op p) args) maty ∧
+  (typeset0 ^mem ^indset ^ch τ (Tyapp (Tydefined op p) args) maty ∧
    p has_type Fun rty Bool ∧
-   LIST_REL (typeset0 ^s τ) args ams ∧
+   LIST_REL (typeset0 ^mem ^indset ^ch τ) args ams ∧
    τi = alist_to_fmap(ZIP(STRING_SORT(tvars p),ams)) ∧
-   typeset0 ^s τi rty mrty ∧
-   semantics0 ^s FEMPTY τi p mp ∧
+   typeset0 ^mem ^indset ^ch τi rty mrty ∧
+   semantics0 ^mem ^indset ^ch FEMPTY τi p mp ∧
    tyin = alist_to_fmap(ZIP(STRING_SORT(tvars p),args))
    ⇒
-   semantics0 ^s σ τ (Const s (Fun (tyinst tyin rty) (Tyapp (Tydefined op p) args)) (Tyabs op p))
+   semantics0 ^mem ^indset ^ch σ τ (Const s (Fun (tyinst tyin rty) (Tyapp (Tydefined op p) args)) (Tyabs op p))
     (Abstract mrty maty (λx. if Holds mp x then x else ch maty))) ∧
 
-  (semantics0 ^s σ τ t1 m1 ∧
-   semantics0 ^s σ τ t2 m2 ∧
+  (semantics0 ^mem ^indset ^ch σ τ t1 m1 ∧
+   semantics0 ^mem ^indset ^ch σ τ t2 m2 ∧
    welltyped (Comb t1 t2)
    ⇒
-   semantics0 ^s σ τ (Comb t1 t2) (m1 ' m2)) ∧
+   semantics0 ^mem ^indset ^ch σ τ (Comb t1 t2) (m1 ' m2)) ∧
 
-  (typeset0 ^s τ ty mty ∧
+  (typeset0 ^mem ^indset ^ch τ ty mty ∧
    b has_type tyb ∧
-   typeset0 ^s τ tyb mtyb ∧
-   (∀m. m <: mty ⇒ (mb m) <: mtyb ∧ semantics0 ^s (σ|+((s,ty),m)) τ b (mb m))
+   typeset0 ^mem ^indset ^ch τ tyb mtyb ∧
+   (∀m. m <: mty ⇒ (mb m) <: mtyb ∧ semantics0 ^mem ^indset ^ch (σ|+((s,ty),m)) τ b (mb m))
    ⇒
-   semantics0 ^s σ τ (Abs s ty b) (Abstract mty mtyb mb))`
-val _ = Parse.overload_on("semantics",``semantics0 ^s``)
-val _ = Parse.overload_on("typeset",``typeset0 ^s``)
+   semantics0 ^mem ^indset ^ch σ τ (Abs s ty b) (Abstract mty mtyb mb))`
+val _ = Parse.overload_on("semantics",``semantics0 ^mem ^indset ^ch``)
+val _ = Parse.overload_on("typeset",``typeset0 ^mem ^indset ^ch``)
 
 val typeset_Bool = store_thm("typeset_Bool",
   ``typeset τ Bool ty ⇔ ty = boolset``,
@@ -194,24 +196,49 @@ val typeset_inhabited = store_thm("typeset_inhabited",
   simp[mem_sub] >>
   metis_tac[] )
 
-(*
+val typeset_Fun =
+  ``typeset τ (Fun x y) mty``
+  |> SIMP_CONV (srw_ss())
+     [Q.SPECL[`τ`,`Fun x y`](CONJUNCT1(SPEC_ALL semantics_cases))]
+
+val typeset_Tyapp_Tydefined =
+  ``typeset τ (Tyapp (Tydefined x y) z) mty``
+  |> SIMP_CONV (srw_ss())
+     [Q.SPECL[`τ`,`Tyapp (Tydefined x y) z`](CONJUNCT1(SPEC_ALL semantics_cases))]
+
+val semantics_Equal =
+  ``semantics σ τ (Equal ty) mt``
+  |> SIMP_CONV (srw_ss())
+     [Q.SPECL[`σ`,`τ`,`Equal ty`](CONJUNCT2(SPEC_ALL semantics_cases))]
+
+val semantics_Select =
+  ``semantics σ τ (Select ty) mt``
+  |> SIMP_CONV (srw_ss())
+     [Q.SPECL[`σ`,`τ`,`Select ty`](CONJUNCT2(SPEC_ALL semantics_cases))]
+
+val semantics_Const_Defined =
+  ``semantics σ τ (Const s ty (Defined t)) mt``
+  |> SIMP_CONV (srw_ss())
+     [Q.SPECL[`σ`,`τ`,`Const s ty (Defined t)`](CONJUNCT2(SPEC_ALL semantics_cases))]
 
 val semantics_11 = store_thm("semantics_11",
-  ``(∀τ ty mty. typeset τ ty mty ⇒
+  ``is_model M ⇒
+    (∀τ ty mty. typeset τ ty mty ⇒
         ∀mty'. type_valuation τ ∧ typeset τ ty mty' ⇒ mty' = mty) ∧
     (∀σ τ t mt. semantics σ τ t mt ⇒
         ∀mt'. type_valuation τ ∧ semantics σ τ t mt' ⇒ mt' = mt)``,
+  strip_tac >>
   ho_match_mp_tac semantics_ind >>
   conj_tac >- simp[Once semantics_cases] >>
   conj_tac >- simp[Once semantics_cases] >>
   conj_tac >- simp[Once semantics_cases] >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
-    simp[Once semantics_cases] >>
+    simp[typeset_Fun] >>
     PROVE_TAC[] ) >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
-    simp[Once semantics_cases] >>
+    simp[typeset_Tyapp_Tydefined] >>
     qmatch_assum_abbrev_tac`X = ti` >>
     rw[Abbr`X`] >>
     imp_res_tac WELLTYPED_LEMMA >>
@@ -235,13 +262,13 @@ val semantics_11 = store_thm("semantics_11",
   conj_tac >- simp[Once semantics_cases] >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
-    simp[Once semantics_cases] >> rw[] >> rw[]) >>
+    simp[semantics_Equal] >> rw[] >> rw[]) >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
-    simp[Once semantics_cases] >> rw[] >> rw[]) >>
+    simp[semantics_Select] >> rw[] >> rw[]) >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >>
-    simp[Once semantics_cases] >> rw[] >> rw[] >>
+    simp[semantics_Const_Defined] >> rw[] >> rw[] >>
     qmatch_assum_abbrev_tac`welltyped t` >>
     `simple_inst tyin t = simple_inst tyin' t` by (
       simp[simple_inst_tvars] >>
@@ -329,10 +356,11 @@ val semantics_11 = store_thm("semantics_11",
   rw[] >>
   imp_res_tac WELLTYPED_LEMMA >>
   rw[] >>
-  match_mp_tac ABSTRACT_EQ >>
-  conj_tac >- metis_tac[typeset_inhabited] >>
+  match_mp_tac (MP_CANON abstract_eq) >>
+  conj_tac >- fs[is_model_def] >>
   fs[] >> res_tac >> fs[])
 
+(*
 val typeset_tyvars = store_thm("typeset_tyvars",
   ``(∀τ1 ty m. typeset τ1 ty m ⇒ ∀τ2. (∀x. x ∈ set(tyvars ty) ∧ x ∈ FDOM τ1 ⇒ FLOOKUP τ1 x = FLOOKUP τ2 x) ⇒ typeset τ2 ty m) ∧
     (∀σ τ1 tm m. semantics σ τ1 tm m ⇒ ∀τ2. (∀x. x ∈ set(tvars tm) ∧ x ∈ FDOM τ1 ⇒ FLOOKUP τ1 x = FLOOKUP τ2 x) ⇒ semantics σ τ2 tm m)``,
