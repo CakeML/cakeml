@@ -314,4 +314,23 @@ val abstract_eq = store_thm("abstract_eq",
   simp[abstract_def,mem_sub,mem_product] >>
   metis_tac[pair_inj])
 
+val in_funspace_abstract = store_thm("in_funspace_abstract",
+  ``is_set_theory ^mem ⇒
+    ∀z s t. z <: Funspace s t ∧ (∃z. z <: s) ∧ (∃z. z <: t) ⇒
+    ∃f. z = Abstract s t f ∧ (∀x. x <: s ⇒ f x <: t)``,
+  rw[funspace_def,mem_sub,relspace_def,mem_power] >>
+  qexists_tac`λx. @y. (x,y) <: z` >>
+  conj_tac >- (
+    imp_res_tac is_extensional >>
+    pop_assum(fn th => SIMP_TAC std_ss [SIMP_RULE std_ss [extensional_def] th]) >>
+    simp[abstract_def,EQ_IMP_THM] >> gen_tac >>
+    rfs[mem_sub,mem_product] >>
+    conj_tac >>
+    TRY strip_tac >>
+    rfs[pair_inj] >>
+    fs[EXISTS_UNIQUE_THM] >>
+    metis_tac[] ) >>
+  rfs[EXISTS_UNIQUE_THM,mem_product] >>
+  metis_tac[pair_inj])
+
 val _ = export_theory()
